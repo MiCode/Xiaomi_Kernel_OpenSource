@@ -83,17 +83,30 @@ int msm_jpeg_core_fe_start(struct msm_jpeg_device *pgmn_dev)
 int msm_jpeg_core_fe_buf_update(struct msm_jpeg_device *pgmn_dev,
 	struct msm_jpeg_core_buf *buf)
 {
+	int rc = 0;
 	if (0 == buf->cbcr_len)
 		buf->cbcr_buffer_addr = 0x0;
+
 	JPEG_DBG("%s:%d] 0x%08x %d 0x%08x %d\n", __func__, __LINE__,
 		(int) buf->y_buffer_addr, buf->y_len,
 		(int) buf->cbcr_buffer_addr, buf->cbcr_len);
-	if (pgmn_dev->core_type == MSM_JPEG_CORE_CODEC)
-		return msm_jpeg_hw_pingpong_update(&pgmn_dev->fe_pingpong_buf,
+
+	if (pgmn_dev->core_type == MSM_JPEG_CORE_CODEC) {
+		rc = msm_jpeg_hw_pingpong_update(&pgmn_dev->fe_pingpong_buf,
 			buf, pgmn_dev->base);
-	else
-		return msm_jpegdma_hw_pingpong_update(
+		if (rc < 0)
+			return rc;
+		msm_jpeg_hw_fe_mmu_prefetch(buf, pgmn_dev->base,
+			pgmn_dev->decode_flag);
+	} else {
+		rc = msm_jpegdma_hw_pingpong_update(
 			&pgmn_dev->fe_pingpong_buf, buf, pgmn_dev->base);
+		if (rc < 0)
+			return rc;
+		msm_jpegdma_hw_fe_mmu_prefetch(buf, pgmn_dev->base);
+	}
+
+	return rc;
 }
 
 void *msm_jpeg_core_fe_pingpong_irq(int jpeg_irq_status,
@@ -105,17 +118,24 @@ void *msm_jpeg_core_fe_pingpong_irq(int jpeg_irq_status,
 /* write engine */
 int msm_jpeg_core_we_buf_update(struct msm_jpeg_device *pgmn_dev,
 	struct msm_jpeg_core_buf *buf) {
+
 	JPEG_DBG("%s:%d] 0x%08x 0x%08x %d\n", __func__, __LINE__,
 		(int) buf->y_buffer_addr, (int) buf->cbcr_buffer_addr,
 		buf->y_len);
+
 	pgmn_dev->we_pingpong_buf.buf[0] = *buf;
 	pgmn_dev->we_pingpong_buf.buf_status[0] = 1;
-	if (pgmn_dev->core_type == MSM_JPEG_CORE_CODEC)
+
+	if (pgmn_dev->core_type == MSM_JPEG_CORE_CODEC) {
 		msm_jpeg_hw_we_buffer_update(
 			&pgmn_dev->we_pingpong_buf.buf[0], 0, pgmn_dev->base);
-	else
+		msm_jpeg_hw_we_mmu_prefetch(buf, pgmn_dev->base,
+			pgmn_dev->decode_flag);
+	} else {
 		msm_jpegdma_hw_we_buffer_update(
 			&pgmn_dev->we_pingpong_buf.buf[0], 0, pgmn_dev->base);
+		msm_jpegdma_hw_we_mmu_prefetch(buf, pgmn_dev->base);
+	}
 
 	return 0;
 }

@@ -30,7 +30,7 @@
 #include "msm_jpeg_common.h"
 #include "msm_jpeg_hw.h"
 
-#define JPEG_DT_PROP_CNT 1
+#define JPEG_DT_PROP_CNT 2
 
 static int msm_jpeg_get_regulator_info(struct msm_jpeg_device *jpeg_dev,
 	struct platform_device *pdev)
@@ -621,7 +621,8 @@ int msm_jpeg_platform_set_dt_config(struct msm_jpeg_device *pgmn_dev)
 {
 	int rc = 0;
 	uint8_t dt_prop_cnt = JPEG_DT_PROP_CNT;
-	char *dt_prop_name[JPEG_DT_PROP_CNT] = {"qcom,qos-reg-settings"};
+	char *dt_prop_name[JPEG_DT_PROP_CNT] = {"qcom,qos-reg-settings",
+		"qcom,prefetch-reg-settings"};
 
 	while (dt_prop_cnt) {
 		dt_prop_cnt--;

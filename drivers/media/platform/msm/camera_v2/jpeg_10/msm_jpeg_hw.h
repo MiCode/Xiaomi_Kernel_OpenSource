@@ -115,6 +115,13 @@ void msm_jpegdma_hw_we_buffer_update(struct msm_jpeg_hw_buf *p_input,
 
 void msm_jpeg_hw_we_buffer_cfg(uint8_t is_realtime);
 
+void msm_jpeg_hw_fe_mmu_prefetch(struct msm_jpeg_hw_buf *buf, void *,
+	uint8_t decode_flag);
+void msm_jpeg_hw_we_mmu_prefetch(struct msm_jpeg_hw_buf *buf, void *,
+	uint8_t decode_flag);
+void msm_jpegdma_hw_fe_mmu_prefetch(struct msm_jpeg_hw_buf *buf, void *);
+void msm_jpegdma_hw_we_mmu_prefetch(struct msm_jpeg_hw_buf *buf, void *);
+
 void msm_jpeg_hw_fe_start(void *);
 void msm_jpeg_hw_clk_cfg(void);
 
