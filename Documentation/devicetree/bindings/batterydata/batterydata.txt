@@ -59,6 +59,10 @@ Profile data node optional properties:
 			This property should only be specified if
 			"qcom,autoadjust-vfloat" property is specified in the
 			charger driver to ensure a proper operation.
+- qcom,thermal-coefficients: Byte array of thermal coefficients for reading
+			battery thermistor. This should be exactly 6 bytes
+			in length.
+			Example: [01 02 03 04 05 06]
 
 Profile data node required subnodes:
 - qcom,fcc-temp-lut : An 1-dimensional lookup table node that encodes
