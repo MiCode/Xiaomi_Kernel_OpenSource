@@ -525,19 +525,10 @@ static int gic_peek_irq(struct irq_data *d, u32 offset)
 }
 
 static int gic_secondary_init(struct notifier_block *nfb,
-			unsigned long action, void *hcpu)
+			      unsigned long action, void *hcpu)
 {
-	switch (action) {
-	case CPU_STARTING:
-	case CPU_STARTING_FROZEN:
+	if (action == CPU_STARTING || action == CPU_STARTING_FROZEN)
 		gic_cpu_init();
-		break;
-	case CPU_DYING:
-	case CPU_DYING_FROZEN:
-		gic_write_grpen1(0);
-		break;
-	}
-
 	return NOTIFY_OK;
 }
 
