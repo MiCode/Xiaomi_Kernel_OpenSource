@@ -21,7 +21,7 @@
 #include <linux/of_address.h>
 #include <linux/of_device.h>
 #include <linux/idr.h>
-#include <asm/sizes.h>
+#include <linux/sizes.h>
 #include <asm/page.h>
 #include <linux/qcom_iommu.h>
 #include <linux/msm_iommu_domains.h>
@@ -48,10 +48,11 @@ static DEFINE_IDA(domain_nums);
 void msm_iommu_set_client_name(struct iommu_domain *domain, char const *name)
 {
 	struct msm_iommu_priv *priv = domain->priv;
+
 	priv->client_name = name;
 }
 
-int msm_use_iommu()
+int msm_use_iommu(void)
 {
 	return iommu_present(&platform_bus_type);
 }
@@ -157,6 +158,7 @@ static int msm_iommu_map_iova_phys(struct iommu_domain *domain,
 {
 	int ret;
 	int prot = IOMMU_WRITE | IOMMU_READ;
+
 	prot |= cached ? IOMMU_CACHE : 0;
 
 	ret = iommu_map(domain, iova, phys, size, prot);
@@ -267,6 +269,7 @@ static int add_domain(struct msm_iova_data *node)
 	mutex_lock(&domain_mutex);
 	while (*p) {
 		struct msm_iova_data *tmp;
+
 		parent = *p;
 
 		tmp = rb_entry(parent, struct msm_iova_data, node);
@@ -342,6 +345,7 @@ EXPORT_SYMBOL(msm_find_domain_no);
 struct iommu_domain *msm_iommu_domain_find(const char *name)
 {
 	struct iommu_group *group = iommu_group_find(name);
+
 	if (!group)
 		return NULL;
 	return iommu_group_get_iommudata(group);
@@ -351,6 +355,7 @@ EXPORT_SYMBOL(msm_iommu_domain_find);
 int msm_iommu_domain_no_find(const char *name)
 {
 	struct iommu_domain *domain = msm_iommu_domain_find(name);
+
 	if (!domain)
 		return -EINVAL;
 	return msm_find_domain_no(domain);
@@ -473,7 +478,7 @@ int msm_register_domain(struct msm_iova_layout *layout)
 	if (!data)
 		return -ENOMEM;
 
-	pools = kzalloc(sizeof(struct mem_pool) * layout->npartitions,
+	pools = kcalloc(layout->npartitions, sizeof(struct mem_pool),
 			GFP_KERNEL);
 
 	if (!pools)
@@ -523,9 +528,8 @@ free_domain_num:
 	ida_simple_remove(&domain_nums, data->domain_num);
 
 free_pools:
-	for (i = 0; i < layout->npartitions; i++) {
+	for (i = 0; i < layout->npartitions; i++)
 		kfree(pools[i].bitmap);
-	}
 	kfree(pools);
 free_data:
 	kfree(data);
@@ -627,8 +631,6 @@ static int create_and_add_domain(struct iommu_group *group,
 		}
 		addr_array = kmalloc(array_size, GFP_KERNEL);
 		if (!addr_array) {
-			pr_err("%s: could not allocate space for partition",
-				__func__);
 			ret_val = -ENOMEM;
 			goto free_mem;
 		}
@@ -730,6 +732,7 @@ static int iommu_domain_parse_dt(const struct device_node *dt_node)
 	struct msm_iommu_data_entry *grp_list_entry;
 	struct msm_iommu_data_entry *tmp;
 	struct list_head iommu_group_list;
+
 	INIT_LIST_HEAD(&iommu_group_list);
 
 	for_each_child_of_node(dt_node, node) {
@@ -765,9 +768,9 @@ static int iommu_domain_parse_dt(const struct device_node *dt_node)
 		num_contexts = sz / sizeof(unsigned int);
 
 		ret_val = find_and_add_contexts(group, node, num_contexts);
-		if (ret_val) {
+		if (ret_val)
 			goto free_group;
-		}
+
 		ret_val = create_and_add_domain(group, node, name);
 		if (ret_val) {
 			ret_val = -EINVAL;
@@ -891,6 +894,7 @@ static struct platform_driver iommu_domain_driver = {
 static int __init msm_subsystem_iommu_init(void)
 {
 	int ret;
+
 	ret = platform_driver_register(&iommu_domain_driver);
 	if (ret != 0)
 		pr_err("Failed to register IOMMU domain driver\n");
@@ -904,4 +908,3 @@ static void __exit msm_subsystem_iommu_exit(void)
 
 device_initcall(msm_subsystem_iommu_init);
 module_exit(msm_subsystem_iommu_exit);
-

@@ -184,7 +184,7 @@ extern int iommu_map_range(struct iommu_domain *domain, unsigned long iova,
 extern int iommu_unmap_range(struct iommu_domain *domain, unsigned long iova,
 		      size_t len);
 extern size_t default_iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
-				struct scatterlist *sg,unsigned int nents,
+				struct scatterlist *sg, unsigned int nents,
 				int prot);
 extern phys_addr_t iommu_iova_to_phys(struct iommu_domain *domain, dma_addr_t iova);
 extern void iommu_set_fault_handler(struct iommu_domain *domain,

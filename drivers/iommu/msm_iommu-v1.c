@@ -32,7 +32,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/notifier.h>
 #include <linux/qcom_iommu.h>
-#include <asm/sizes.h>
+#include <linux/sizes.h>
 
 #include "msm_iommu_hw-v1.h"
 #include "msm_iommu_priv.h"
@@ -63,6 +63,7 @@ struct dump_regs_tbl_entry dump_regs_tbl[MAX_DUMP_REGS];
 static int __enable_regulators(struct msm_iommu_drvdata *drvdata)
 {
 	int ret = 0;
+
 	if (drvdata->gdsc) {
 		ret = regulator_enable(drvdata->gdsc);
 		if (ret)
@@ -312,9 +313,9 @@ void iommu_halt(struct msm_iommu_drvdata const *iommu_drvdata)
 		int res;
 
 		SET_MICRO_MMU_CTRL_HALT_REQ(base, 1);
-		res = readl_poll_timeout(
-			GLB_REG(MICRO_MMU_CTRL, base), val,
-			     (val & MMU_CTRL_IDLE) == MMU_CTRL_IDLE, 0, 5000000);
+		res = readl_poll_timeout(GLB_REG(MICRO_MMU_CTRL, base), val,
+			(val & MMU_CTRL_IDLE) == MMU_CTRL_IDLE,
+			0, 5000000);
 
 		if (res)
 			check_halt_state(iommu_drvdata);
@@ -415,6 +416,7 @@ static void __reset_iommu(struct msm_iommu_drvdata *iommu_drvdata)
 	for (i = 0; i < smt_size; i++)
 		SET_SMR_VALID(base, i, 0);
 
+	/* make sure SMR programming is done*/
 	mb();
 }
 
@@ -427,6 +429,8 @@ static void __reset_iommu_secure(struct msm_iommu_drvdata *iommu_drvdata)
 	SET_NSCR2(base, 0);
 	SET_NSGFAR(base, 0);
 	SET_NSGFSRRESTORE(base, 0);
+
+	/* make sure reset is done */
 	mb();
 }
 
@@ -487,6 +491,7 @@ void program_iommu_bfb_settings(void __iomem *base,
 			const struct msm_iommu_bfb_settings *bfb_settings)
 {
 	unsigned int i;
+
 	if (bfb_settings)
 		for (i = 0; i < bfb_settings->length; i++)
 			SET_GLOBAL_REG(base, bfb_settings->regs[i],
@@ -514,12 +519,15 @@ static void __reset_context(struct msm_iommu_drvdata *iommu_drvdata, int ctx)
 	SET_TTBCR(base, ctx, 0);
 	SET_TTBR0(base, ctx, 0);
 	SET_TTBR1(base, ctx, 0);
+
+	/* make sure reset is done */
 	mb();
 }
 
 static void __release_smg(void __iomem *base)
 {
 	int i, smt_size;
+
 	smt_size = GET_IDR0_NUMSMRG(base);
 
 	/* Invalidate all SMGs */
@@ -717,7 +725,7 @@ static void __program_context(struct msm_iommu_drvdata *iommu_drvdata,
 
 	/* Enable the MMU */
 	SET_CB_SCTLR_M(cb_base, ctx, 1);
-	mb();
+	mb(); /* make sure MMU is enabled */
 }
 
 #ifdef CONFIG_IOMMU_PGTABLES_L2
@@ -1131,12 +1139,13 @@ static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 
 	spin_lock_irqsave(&msm_iommu_spin_lock, flags);
 	SET_ATS1PR(base, ctx, va & CB_ATS1PR_ADDR);
+	/* make sure ATS1PR is visible */
 	mb();
-	for (i = 0; i < IOMMU_USEC_TIMEOUT; i += IOMMU_USEC_STEP)
+	for (i = 0; i < IOMMU_USEC_TIMEOUT; i += IOMMU_USEC_STEP) {
 		if (GET_CB_ATSR_ACTIVE(base, ctx) == 0)
 			break;
-		else
-			udelay(IOMMU_USEC_STEP);
+		udelay(IOMMU_USEC_STEP);
+	}
 
 	if (i >= IOMMU_USEC_TIMEOUT) {
 		pr_err("%s: iova to phys timed out on %pa for %s (%s)\n",
@@ -1152,6 +1161,7 @@ static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 
 	if (par & CB_PAR_F) {
 		unsigned int level = (par & CB_PAR_PLVL) >> CB_PAR_PLVL_SHIFT;
+
 		pr_err("IOMMU translation fault!\n");
 		pr_err("name = %s\n", iommu_drvdata->name);
 		pr_err("context = %s (%d)\n", ctx_drvdata->name,
@@ -1253,14 +1263,15 @@ static void __print_ctx_regs(struct msm_iommu_drvdata *drvdata, int ctx,
 	void __iomem *base = drvdata->base;
 	void __iomem *cb_base = drvdata->cb_base;
 	bool is_secure = drvdata->sec_id != -1;
-
 	struct msm_iommu_context_reg regs[MAX_DUMP_REGS];
 	unsigned int i;
+
 	memset(regs, 0, sizeof(regs));
 
 	for (i = DUMP_REG_FIRST; i < MAX_DUMP_REGS; ++i) {
 		struct msm_iommu_context_reg *r = &regs[i];
 		unsigned long regaddr = dump_regs_tbl[i].reg_offset;
+
 		if (is_secure &&
 			dump_regs_tbl[i].dump_reg_type != DRT_CTX_REG) {
 			r->valid = 0;
@@ -1518,6 +1529,7 @@ static int msm_iommu_domain_get_attr(struct iommu_domain *domain,
 				enum iommu_attr attr, void *data)
 {
 	struct msm_iommu_priv *priv = domain->priv;
+
 	switch (attr) {
 	case DOMAIN_ATTR_COHERENT_HTW_DISABLE:
 		__do_get_redirect(domain, data);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -210,7 +210,6 @@ static inline struct iommu_pmon *msm_iommu_pm_alloc(struct device *iommu_dev)
 
 static inline void msm_iommu_pm_free(struct device *iommu_dev)
 {
-	return;
 }
 
 static inline int msm_iommu_pm_iommu_register(struct iommu_pmon *info)
