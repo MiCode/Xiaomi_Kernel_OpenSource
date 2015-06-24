@@ -2831,7 +2831,7 @@
 		qcom,freq-step = <4>;
 		qcom,core-limit-temp = <70>;
 		qcom,core-temp-hysteresis = <10>;
-		qcom,hotplug-temp = <100>;
+		qcom,hotplug-temp = <110>;
 		qcom,hotplug-temp-hysteresis = <40>;
 		qcom,freq-mitigation-temp = <90>;
 		qcom,freq-mitigation-temp-hysteresis = <40>;
