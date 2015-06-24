@@ -16,18 +16,18 @@
 #include "msm_camera_io_util.h"
 #include "msm.h"
 
-#define OV2685_SENSOR_NAME "ov2685"
-#define PLATFORM_DRIVER_NAME "msm_camera_ov2685"
-#define ov2685_obj ov2685_##obj
+#define OV2685_SCV3B4035_SENSOR_NAME "ov2685_scv3b4035"
+#define PLATFORM_DRIVER_NAME "msm_camera_ov2685_scv3b4035"
+#define ov2685_scv3b4035_obj ov2685_scv3b4035_##obj
 #define CCI_I2C_MAX_WRITE 8192
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
-DEFINE_MSM_MUTEX(ov2685_mut);
-static struct msm_sensor_ctrl_t ov2685_s_ctrl;
+DEFINE_MSM_MUTEX(ov2685_scv3b4035_mut);
+static struct msm_sensor_ctrl_t ov2685_scv3b4035_s_ctrl;
 
-static struct msm_sensor_power_setting ov2685_power_setting[] = {
+static struct msm_sensor_power_setting ov2685_scv3b4035_power_setting[] = {
 	{
 		.seq_type = SENSOR_VREG,
 		.seq_val = CAM_VIO,
@@ -85,15 +85,16 @@ static struct msm_sensor_power_setting ov2685_power_setting[] = {
 
 };
 
-static struct msm_camera_i2c_reg_conf ov2685_start_settings[] = {
+static struct msm_camera_i2c_reg_conf ov2685_scv3b4035_start_settings[] = {
 	{0x0100, 0x01},
 };
 
-static struct msm_camera_i2c_reg_conf ov2685_stop_settings[] = {
+static struct msm_camera_i2c_reg_conf ov2685_scv3b4035_stop_settings[] = {
 	{0x0100, 0x00},
 };
 
-static struct msm_camera_i2c_reg_conf ov2685_1600x1200p30_settings[] = {
+static struct msm_camera_i2c_reg_conf
+	ov2685_scv3b4035_1600x1200p30_settings[] = {
 	{0x0103, 0x01},
 	{0x3002, 0x00},
 	{0x3016, 0x1C},
@@ -374,7 +375,7 @@ static struct msm_camera_i2c_reg_conf ov2685_1600x1200p30_settings[] = {
 	{0x3827, 0x04},
 };
 
-static struct msm_camera_i2c_reg_conf ov2685_720p60_settings[] = {
+static struct msm_camera_i2c_reg_conf ov2685_scv3b4035_720p60_settings[] = {
 	{0x0103, 0x01},
 	{0x3002, 0x00},
 	{0x3016, 0x1C},
@@ -649,22 +650,23 @@ static struct msm_camera_i2c_reg_conf ov2685_720p60_settings[] = {
 	{0x3827, 0x04},
 };
 
-struct ov2685_resolution_table_t {
+struct ov2685_scv3b4035_resolution_table_t {
 	char *name;
 	struct msm_camera_i2c_reg_conf *settings;
 	unsigned int size; /* ARRAY_SIZE(settings) */
 };
 
 /* This table has to be in the same order as they are in the sensor lib */
-static struct ov2685_resolution_table_t ov2685_resolutions[] = {
-	{"2MP 30fps",  ov2685_1600x1200p30_settings,
-		ARRAY_SIZE(ov2685_1600x1200p30_settings)},
-	{"720p 60fps", ov2685_720p60_settings,
-		ARRAY_SIZE(ov2685_720p60_settings)},
+static struct ov2685_scv3b4035_resolution_table_t
+	ov2685_scv3b4035_resolutions[] = {
+	{"2MP 30fps",  ov2685_scv3b4035_1600x1200p30_settings,
+		ARRAY_SIZE(ov2685_scv3b4035_1600x1200p30_settings)},
+	{"720p 60fps", ov2685_scv3b4035_720p60_settings,
+		ARRAY_SIZE(ov2685_scv3b4035_720p60_settings)},
 };
 
 /* FUNCTION IS NOT USED IN THE CODE */
-int32_t ov2685_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
+int32_t ov2685_scv3b4035_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int32_t rc = -EINVAL;
 	CDBG("Power Up");
@@ -684,7 +686,7 @@ int32_t ov2685_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 /* static void ov2685_stop_stream(struct msm_sensor_ctrl_t *s_ctrl) {} */
 
 /* FUNCTION IS NOT USED IN THE CODE */
-int32_t ov2685_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
+int32_t ov2685_scv3b4035_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	CDBG("Power Down");
 
@@ -694,7 +696,7 @@ int32_t ov2685_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	return 0;
 }
 
-static struct v4l2_subdev_info ov2685_subdev_info[] = {
+static struct v4l2_subdev_info ov2685_scv3b4035_subdev_info[] = {
 	{
 		.code       = V4L2_MBUS_FMT_YUYV8_2X8,
 		.colorspace = V4L2_COLORSPACE_JPEG,
@@ -704,82 +706,86 @@ static struct v4l2_subdev_info ov2685_subdev_info[] = {
 	/* more can be supported, to be added later */
 };
 
-static const struct i2c_device_id ov2685_i2c_id[] = {
-	{OV2685_SENSOR_NAME, (kernel_ulong_t)&ov2685_s_ctrl},
+static const struct i2c_device_id ov2685_scv3b4035_i2c_id[] = {
+	{OV2685_SCV3B4035_SENSOR_NAME,
+	 (kernel_ulong_t)&ov2685_scv3b4035_s_ctrl},
 	{ }
 };
 
-static int32_t msm_ov2685_i2c_probe(struct i2c_client *client,
+static int32_t msm_ov2685_scv3b4035_i2c_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
-	return msm_sensor_i2c_probe(client, id, &ov2685_s_ctrl);
+	return msm_sensor_i2c_probe(client, id, &ov2685_scv3b4035_s_ctrl);
 }
 
-static struct i2c_driver ov2685_i2c_driver = {
-	.id_table = ov2685_i2c_id,
-	.probe  = msm_ov2685_i2c_probe,
+static struct i2c_driver ov2685_scv3b4035_i2c_driver = {
+	.id_table = ov2685_scv3b4035_i2c_id,
+	.probe  = msm_ov2685_scv3b4035_i2c_probe,
 	.driver = {
-		.name = OV2685_SENSOR_NAME,
+		.name = OV2685_SCV3B4035_SENSOR_NAME,
 	},
 };
 
-static struct msm_camera_i2c_client ov2685_sensor_i2c_client = {
+static struct msm_camera_i2c_client ov2685_scv3b4035_sensor_i2c_client = {
 	.addr_type = MSM_CAMERA_I2C_WORD_ADDR,
 };
 
-static const struct of_device_id ov2685_dt_match[] = {
-	{.compatible = "ovti,ov2685", .data = &ov2685_s_ctrl},
+static const struct of_device_id ov2685_scv3b4035_dt_match[] = {
+	{.compatible = "ovti,ov2685_scv3b4035",
+	 .data = &ov2685_scv3b4035_s_ctrl},
 	{ }
 };
 
-MODULE_DEVICE_TABLE(of, ov2685_dt_match);
+MODULE_DEVICE_TABLE(of, ov2685_scv3b4035_dt_match);
 
-static int32_t ov2685_platform_probe(struct platform_device *pdev)
+static int32_t ov2685_scv3b4035_platform_probe(struct platform_device *pdev)
 {
 	int32_t rc;
 	const struct of_device_id *match;
-	match = of_match_device(ov2685_dt_match, &pdev->dev);
-	if (match)
+
+	match = of_match_device(ov2685_scv3b4035_dt_match, &pdev->dev);
+	if (match) {
 		rc = msm_sensor_platform_probe(pdev, match->data);
-	else {
+	} else {
 		pr_err("%s:%d match is null\n", __func__, __LINE__);
 		rc = -EINVAL;
 	}
 	return rc;
 }
 
-static struct platform_driver ov2685_platform_driver = {
+static struct platform_driver ov2685_scv3b4035_platform_driver = {
 	.driver = {
-		.name = "ovti,ov2685",
+		.name = "ovti,ov2685_scv3b4035",
 		.owner = THIS_MODULE,
-		.of_match_table = ov2685_dt_match,
+		.of_match_table = ov2685_scv3b4035_dt_match,
 	},
-	.probe = ov2685_platform_probe,
+	.probe = ov2685_scv3b4035_platform_probe,
 };
 
-static int __init ov2685_init_module(void)
+static int __init ov2685_scv3b4035_init_module(void)
 {
 	int32_t rc;
-	pr_info("%s:%d\n", __func__, __LINE__);
-	rc = platform_driver_register(&ov2685_platform_driver);
+
+	rc = platform_driver_register(&ov2685_scv3b4035_platform_driver);
 	if (!rc)
 		return rc;
 	pr_err("%s:%d rc %d\n", __func__, __LINE__, rc);
-	return i2c_add_driver(&ov2685_i2c_driver);
+	return i2c_add_driver(&ov2685_scv3b4035_i2c_driver);
 }
 
-static void __exit ov2685_exit_module(void)
+static void __exit ov2685_scv3b4035_exit_module(void)
 {
 	pr_info("%s:%d\n", __func__, __LINE__);
-	if (ov2685_s_ctrl.pdev) {
-		msm_sensor_free_sensor_data(&ov2685_s_ctrl);
-		platform_driver_unregister(&ov2685_platform_driver);
-	} else
-		i2c_del_driver(&ov2685_i2c_driver);
+	if (ov2685_scv3b4035_s_ctrl.pdev) {
+		msm_sensor_free_sensor_data(&ov2685_scv3b4035_s_ctrl);
+		platform_driver_unregister(&ov2685_scv3b4035_platform_driver);
+	} else {
+		i2c_del_driver(&ov2685_scv3b4035_i2c_driver);
+	}
 	return;
 }
 
-int32_t ov2685_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
+int32_t ov2685_scv3b4035_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 	void __user *argp)
 {
 	struct sensorb_cfg_data *cdata = (struct sensorb_cfg_data *)argp;
@@ -942,8 +948,8 @@ int32_t ov2685_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
 			i2c_write_conf_tbl(
 			s_ctrl->sensor_i2c_client,
-			ov2685_1600x1200p30_settings,
-			ARRAY_SIZE(ov2685_1600x1200p30_settings),
+			ov2685_scv3b4035_1600x1200p30_settings,
+			ARRAY_SIZE(ov2685_scv3b4035_1600x1200p30_settings),
 			MSM_CAMERA_I2C_BYTE_DATA);
 		break;
 
@@ -966,12 +972,12 @@ int32_t ov2685_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 		}
 
 		CDBG("CFG_SET_RESOLUTION picking %s\n",
-			ov2685_resolutions[res].name);
+			ov2685_scv3b4035_resolutions[res].name);
 		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
 			i2c_write_conf_tbl(
 			s_ctrl->sensor_i2c_client,
-			ov2685_resolutions[res].settings,
-			ov2685_resolutions[res].size,
+			ov2685_scv3b4035_resolutions[res].settings,
+			ov2685_scv3b4035_resolutions[res].size,
 			MSM_CAMERA_I2C_BYTE_DATA);
 		CDBG("%s:%d:CFG_SET_RESOLUTION res=%d, rc=%d",
 			__func__, __LINE__, res, rc);
@@ -982,8 +988,8 @@ int32_t ov2685_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
 			i2c_write_conf_tbl(
 			s_ctrl->sensor_i2c_client,
-			ov2685_stop_settings,
-			ARRAY_SIZE(ov2685_stop_settings),
+			ov2685_scv3b4035_stop_settings,
+			ARRAY_SIZE(ov2685_scv3b4035_stop_settings),
 			MSM_CAMERA_I2C_BYTE_DATA);
 		break;
 
@@ -991,8 +997,8 @@ int32_t ov2685_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
 			i2c_write_conf_tbl(
 			s_ctrl->sensor_i2c_client,
-			ov2685_start_settings,
-			ARRAY_SIZE(ov2685_start_settings),
+			ov2685_scv3b4035_start_settings,
+			ARRAY_SIZE(ov2685_scv3b4035_start_settings),
 			MSM_CAMERA_I2C_BYTE_DATA);
 		break;
 
@@ -1054,7 +1060,7 @@ int32_t ov2685_sensor_config(struct msm_sensor_ctrl_t *s_ctrl,
 }
 #ifdef CONFIG_COMPAT
 
-int32_t ov2685_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
+int32_t ov2685_scv3b4035_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 	void __user *argp)
 {
 	struct sensorb_cfg_data32 *cdata = (struct sensorb_cfg_data32 *)argp;
@@ -1226,8 +1232,8 @@ int32_t ov2685_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
 			i2c_write_conf_tbl(
 			s_ctrl->sensor_i2c_client,
-			ov2685_1600x1200p30_settings,
-			ARRAY_SIZE(ov2685_1600x1200p30_settings),
+			ov2685_scv3b4035_1600x1200p30_settings,
+			ARRAY_SIZE(ov2685_scv3b4035_1600x1200p30_settings),
 			MSM_CAMERA_I2C_BYTE_DATA);
 		break;
 
@@ -1250,12 +1256,12 @@ int32_t ov2685_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 		}
 
 		CDBG("CFG_SET_RESOLUTION picking %s\n",
-			ov2685_resolutions[res].name);
+			ov2685_scv3b4035_resolutions[res].name);
 		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
 			i2c_write_conf_tbl(
 			s_ctrl->sensor_i2c_client,
-			ov2685_resolutions[res].settings,
-			ov2685_resolutions[res].size,
+			ov2685_scv3b4035_resolutions[res].settings,
+			ov2685_scv3b4035_resolutions[res].size,
 			MSM_CAMERA_I2C_BYTE_DATA);
 		CDBG("%s:%d:CFG_SET_RESOLUTION res=%d, rc=%d",
 			__func__, __LINE__, res, rc);
@@ -1266,8 +1272,8 @@ int32_t ov2685_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
 			i2c_write_conf_tbl(
 			s_ctrl->sensor_i2c_client,
-			ov2685_stop_settings,
-			ARRAY_SIZE(ov2685_stop_settings),
+			ov2685_scv3b4035_stop_settings,
+			ARRAY_SIZE(ov2685_scv3b4035_stop_settings),
 			MSM_CAMERA_I2C_BYTE_DATA);
 		break;
 
@@ -1275,8 +1281,8 @@ int32_t ov2685_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
 			i2c_write_conf_tbl(
 			s_ctrl->sensor_i2c_client,
-			ov2685_start_settings,
-			ARRAY_SIZE(ov2685_start_settings),
+			ov2685_scv3b4035_start_settings,
+			ARRAY_SIZE(ov2685_scv3b4035_start_settings),
 			MSM_CAMERA_I2C_BYTE_DATA);
 		break;
 
@@ -1339,27 +1345,28 @@ int32_t ov2685_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 }
 #endif
 
-static struct msm_sensor_fn_t ov2685_sensor_func_tbl = {
-	.sensor_config = ov2685_sensor_config,
+static struct msm_sensor_fn_t ov2685_scv3b4035_sensor_func_tbl = {
+	.sensor_config = ov2685_scv3b4035_sensor_config,
     #ifdef CONFIG_COMPAT
-	.sensor_config32 = ov2685_sensor_config32,
+	.sensor_config32 = ov2685_scv3b4035_sensor_config32,
     #endif
 	.sensor_power_up = msm_sensor_power_up,
 	.sensor_power_down = msm_sensor_power_down,
 	.sensor_match_id = msm_sensor_match_id,
 };
 
-static struct msm_sensor_ctrl_t ov2685_s_ctrl = {
-	.sensor_i2c_client = &ov2685_sensor_i2c_client,
-	.power_setting_array.power_setting = ov2685_power_setting,
-	.power_setting_array.size = ARRAY_SIZE(ov2685_power_setting),
-	.msm_sensor_mutex = &ov2685_mut,
-	.sensor_v4l2_subdev_info = ov2685_subdev_info,
-	.sensor_v4l2_subdev_info_size = ARRAY_SIZE(ov2685_subdev_info),
-	.func_tbl = &ov2685_sensor_func_tbl,
+static struct msm_sensor_ctrl_t ov2685_scv3b4035_s_ctrl = {
+	.sensor_i2c_client = &ov2685_scv3b4035_sensor_i2c_client,
+	.power_setting_array.power_setting = ov2685_scv3b4035_power_setting,
+	.power_setting_array.size = ARRAY_SIZE(ov2685_scv3b4035_power_setting),
+	.msm_sensor_mutex = &ov2685_scv3b4035_mut,
+	.sensor_v4l2_subdev_info = ov2685_scv3b4035_subdev_info,
+	.sensor_v4l2_subdev_info_size =
+		 ARRAY_SIZE(ov2685_scv3b4035_subdev_info),
+	.func_tbl = &ov2685_scv3b4035_sensor_func_tbl,
 };
 
-module_init(ov2685_init_module);
-module_exit(ov2685_exit_module);
+module_init(ov2685_scv3b4035_init_module);
+module_exit(ov2685_scv3b4035_exit_module);
 MODULE_DESCRIPTION("Omnivision OV2685 2MP YUV driver");
 MODULE_LICENSE("GPL v2");
