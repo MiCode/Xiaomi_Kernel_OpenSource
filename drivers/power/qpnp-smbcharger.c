@@ -3326,8 +3326,8 @@ static void check_battery_type(struct smbchg_chip *chip)
 		chip->bms_psy->get_property(chip->bms_psy,
 				POWER_SUPPLY_PROP_BATTERY_TYPE, &prop);
 		en = (strcmp(prop.strval, UNKNOWN_BATT_TYPE) != 0
-				&& !chip->charge_unknown_battery)
-			|| strcmp(prop.strval, LOADING_BATT_TYPE) != 0;
+				|| chip->charge_unknown_battery)
+			&& (strcmp(prop.strval, LOADING_BATT_TYPE) != 0);
 		smbchg_battchg_en(chip, en, REASON_BATTCHG_UNKNOWN_BATTERY,
 				&unused);
 	}
