@@ -62,4 +62,6 @@ obj-$(CONFIG_CW1200)	+= cw1200/
 obj-$(CONFIG_RSI_91X)	+= rsi/
 
 obj-$(CONFIG_WCNSS_CORE)	+= wcnss/
-obj-$(CONFIG_CNSS)	+= cnss/
+
+obj-$(CONFIG_CNSS)		+= cnss/
+obj-$(CONFIG_WCNSS_MEM_PRE_ALLOC) += cnss_prealloc/
