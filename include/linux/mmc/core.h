@@ -123,6 +123,23 @@ struct mmc_request {
 #endif
 };
 
+struct mmc_bus_ops {
+	void (*remove)(struct mmc_host *);
+	void (*detect)(struct mmc_host *);
+	int (*pre_suspend)(struct mmc_host *);
+	int (*suspend)(struct mmc_host *);
+	int (*resume)(struct mmc_host *);
+	int (*runtime_suspend)(struct mmc_host *);
+	int (*runtime_resume)(struct mmc_host *);
+	int (*runtime_idle)(struct mmc_host *);
+	int (*power_save)(struct mmc_host *);
+	int (*power_restore)(struct mmc_host *);
+	int (*alive)(struct mmc_host *);
+	int (*shutdown)(struct mmc_host *);
+	int (*reset)(struct mmc_host *);
+	int (*change_bus_speed)(struct mmc_host *, unsigned long *);
+};
+
 struct mmc_card;
 struct mmc_async_req;
 struct mmc_cmdq_req;
@@ -153,13 +170,15 @@ extern int mmc_wait_for_cmd(struct mmc_host *, struct mmc_command *, int);
 extern int mmc_app_cmd(struct mmc_host *, struct mmc_card *);
 extern int mmc_wait_for_app_cmd(struct mmc_host *, struct mmc_card *,
 	struct mmc_command *, int);
-extern void mmc_start_bkops(struct mmc_card *card, bool from_exception);
+extern void mmc_check_bkops(struct mmc_card *card);
+extern void mmc_start_manual_bkops(struct mmc_card *card);
 extern int mmc_switch(struct mmc_card *, u8, u8, u8, unsigned int);
 extern int __mmc_switch_cmdq_mode(struct mmc_command *cmd, u8 set, u8 index,
 				  u8 value, unsigned int timeout_ms,
 				  bool use_busy_signal, bool ignore_timeout);
 extern int mmc_send_tuning(struct mmc_host *host, u32 opcode, int *cmd_error);
 extern int mmc_get_ext_csd(struct mmc_card *card, u8 **new_ext_csd);
+extern int mmc_set_auto_bkops(struct mmc_card *card, bool enable);
 
 #define MMC_ERASE_ARG		0x00000000
 #define MMC_SECURE_ERASE_ARG	0x80000000

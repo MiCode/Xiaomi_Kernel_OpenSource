@@ -368,6 +368,9 @@ struct _mmc_csd {
 
 #define EXT_CSD_PACKED_EVENT_EN	BIT(3)
 
+#define EXT_CSD_BKOPS_MANUAL_EN		BIT(0)
+#define EXT_CSD_BKOPS_AUTO_EN		BIT(1)
+
 /*
  * EXCEPTION_EVENT_STATUS field
  */
