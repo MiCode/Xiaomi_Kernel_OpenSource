@@ -2,7 +2,7 @@
  * drivers/staging/android/ion/msm_ion_priv.h
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -51,6 +51,9 @@ void ion_cp_heap_destroy(struct ion_heap *);
 
 struct ion_heap *ion_system_secure_heap_create(struct ion_platform_heap *);
 void ion_system_secure_heap_destroy(struct ion_heap *);
+
+struct ion_heap *ion_cma_secure_heap_create(struct ion_platform_heap *);
+void ion_cma_secure_heap_destroy(struct ion_heap *);
 
 long msm_ion_custom_ioctl(struct ion_client *client,
 				unsigned int cmd,
@@ -116,6 +119,8 @@ int ion_heap_allow_secure_allocation(enum ion_heap_type type);
 int ion_heap_allow_heap_secure(enum ion_heap_type type);
 
 int ion_heap_allow_handle_secure(enum ion_heap_type type);
+
+int get_secure_vmid(unsigned long);
 
 /**
  * ion_create_chunked_sg_table - helper function to create sg table

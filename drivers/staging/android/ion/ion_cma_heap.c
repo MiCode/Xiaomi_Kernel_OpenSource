@@ -23,6 +23,7 @@
 #include <linux/msm_ion.h>
 
 #include <asm/cacheflush.h>
+#include <soc/qcom/secure_buffer.h>
 
 #include "ion.h"
 #include "ion_priv.h"
@@ -230,6 +231,108 @@ struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *data)
 }
 
 void ion_cma_heap_destroy(struct ion_heap *heap)
+{
+	kfree(heap);
+}
+
+static void ion_secure_cma_free(struct ion_buffer *buffer)
+{
+	int ret = 0;
+	u32 source_vm;
+	int dest_vmid;
+	int dest_perms;
+	struct ion_cma_buffer_info *info = buffer->priv_virt;
+
+	source_vm = get_secure_vmid(buffer->flags);
+	if (source_vm < 0) {
+		pr_err("%s: Failed to get secure vmid\n", __func__);
+		return;
+	}
+	dest_vmid = VMID_HLOS;
+	dest_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
+
+	ret = hyp_assign_table(info->table, &source_vm, 1,
+				&dest_vmid, &dest_perms, 1);
+	if (ret) {
+		pr_err("%s: Not freeing memory since assign failed\n",
+							__func__);
+		return;
+	}
+
+	ion_cma_free(buffer);
+}
+
+static int ion_secure_cma_allocate(struct ion_heap *heap,
+			struct ion_buffer *buffer, unsigned long len,
+			unsigned long align, unsigned long flags)
+{
+	int ret = 0;
+	int source_vm;
+	int dest_vm;
+	int dest_perms;
+	struct ion_cma_buffer_info *info;
+
+	source_vm = VMID_HLOS;
+	dest_vm = get_secure_vmid(flags);
+	if (dest_vm < 0) {
+		pr_err("%s: Failed to get secure vmid\n", __func__);
+		return -EINVAL;
+	}
+	dest_perms = PERM_READ | PERM_WRITE;
+
+	ret = ion_cma_allocate(heap, buffer, len, align, flags);
+	if (ret) {
+		dev_err(heap->priv, "Unable to allocate cma buffer");
+		return ret;
+	}
+
+	info = buffer->priv_virt;
+	ret = hyp_assign_table(info->table, &source_vm, 1,
+				&dest_vm, &dest_perms, 1);
+	if (ret) {
+		pr_err("%s: Assign call failed\n", __func__);
+		goto err;
+	}
+	return ret;
+
+err:
+	ion_secure_cma_free(buffer);
+	return ret;
+}
+
+static struct ion_heap_ops ion_secure_cma_ops = {
+	.allocate = ion_secure_cma_allocate,
+	.free = ion_secure_cma_free,
+	.map_dma = ion_cma_heap_map_dma,
+	.unmap_dma = ion_cma_heap_unmap_dma,
+	.phys = ion_cma_phys,
+	.map_user = ion_cma_mmap,
+	.map_kernel = ion_cma_map_kernel,
+	.unmap_kernel = ion_cma_unmap_kernel,
+	.print_debug = ion_cma_print_debug,
+};
+
+struct ion_heap *ion_cma_secure_heap_create(struct ion_platform_heap *data)
+{
+	struct ion_heap *heap;
+
+	heap = kzalloc(sizeof(struct ion_heap), GFP_KERNEL);
+
+	if (!heap)
+		return ERR_PTR(-ENOMEM);
+
+	heap->ops = &ion_secure_cma_ops;
+	/*
+	 *  set device as private heaps data, later it will be
+	 * used to make the link with reserved CMA memory
+	 */
+	heap->priv = data->priv;
+	heap->type = ION_HEAP_TYPE_HYP_CMA;
+	cma_heap_has_outer_cache = data->has_outer_cache;
+	return heap;
+}
+
+void ion_cma_secure_heap_destroy(struct ion_heap *heap)
 {
 	kfree(heap);
 }
