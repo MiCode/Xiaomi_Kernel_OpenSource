@@ -209,6 +209,7 @@
 			qcom,parallel-usb-9v-min-current-ma = <900>;
 			qcom,parallel-allowed-lowering-ma = <500>;
 			qcom,autoadjust-vfloat;
+			qcom,pmic-revid = <&pmi8994_revid>;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
