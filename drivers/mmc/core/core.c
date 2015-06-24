@@ -865,24 +865,71 @@ static void mmc_start_cmdq_request(struct mmc_host *host,
 }
 
 /**
- *	mmc_start_bkops - start BKOPS for supported cards
+ *	mmc_set_auto_bkops - set auto BKOPS for supported cards
  *	@card: MMC card to start BKOPS
- *	@form_exception: A flag to indicate if this function was
- *			 called due to an exception raised by the card
+ *	@enable: enable/disable flag
  *
- *	Start background operations whenever requested.
- *	When the urgent BKOPS bit is set in a R1 command response
- *	then background operations should be started immediately.
+ *	Configure the card to run automatic BKOPS.
+ *
+ *	Should be called when host is claimed.
 */
-void mmc_start_bkops(struct mmc_card *card, bool from_exception)
+int mmc_set_auto_bkops(struct mmc_card *card, bool enable)
+{
+	int ret = 0;
+	u8 bkops_en;
+
+	BUG_ON(!card);
+	enable = !!enable;
+
+	if (unlikely(!mmc_card_support_auto_bkops(card))) {
+		pr_err("%s: %s: card doesn't support auto bkops\n",
+				mmc_hostname(card->host), __func__);
+		return -EPERM;
+	}
+
+	if (enable) {
+		if (mmc_card_doing_auto_bkops(card))
+			goto out;
+		bkops_en = card->ext_csd.bkops_en | EXT_CSD_BKOPS_AUTO_EN;
+	} else {
+		if (!mmc_card_doing_auto_bkops(card))
+			goto out;
+		bkops_en = card->ext_csd.bkops_en & ~EXT_CSD_BKOPS_AUTO_EN;
+	}
+
+	ret = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL, EXT_CSD_BKOPS_EN,
+			bkops_en, 0);
+	if (ret) {
+		pr_err("%s: %s: error in setting auto bkops to %d (%d)\n",
+			mmc_hostname(card->host), __func__, enable, ret);
+	} else {
+		if (enable)
+			mmc_card_set_auto_bkops(card);
+		else
+			mmc_card_clr_auto_bkops(card);
+		card->ext_csd.bkops_en = bkops_en;
+	}
+out:
+	return ret;
+}
+EXPORT_SYMBOL(mmc_set_auto_bkops);
+
+/**
+ *	mmc_check_bkops - check BKOPS for supported cards
+ *	@card: MMC card to check BKOPS
+ *
+ *	Read the BKOPS status in order to determine whether the
+ *	card requires bkops to be started.
+*/
+void mmc_check_bkops(struct mmc_card *card)
 {
 	int err;
-	int timeout;
-	bool use_busy_signal;
 
 	BUG_ON(!card);
 
-	if (!card->ext_csd.bkops_en || mmc_card_doing_bkops(card))
+	if (unlikely(!mmc_card_configured_manual_bkops(card)))
+		return;
+	if (mmc_card_doing_bkops(card) || mmc_card_doing_auto_bkops(card))
 		return;
 
 	err = mmc_read_bkops_status(card);
@@ -892,42 +939,44 @@ void mmc_start_bkops(struct mmc_card *card, bool from_exception)
 		return;
 	}
 
-	if (!card->ext_csd.raw_bkops_status)
+	if (card->ext_csd.raw_bkops_status < EXT_CSD_BKOPS_LEVEL_2)
 		return;
 
-	if (card->ext_csd.raw_bkops_status < EXT_CSD_BKOPS_LEVEL_2 &&
-	    from_exception)
+	card->bkops.needs_manual = true;
+}
+EXPORT_SYMBOL(mmc_check_bkops);
+
+/**
+ *	mmc_start_manual_bkops - start BKOPS for supported cards
+ *	@card: MMC card to start BKOPS
+ *
+ *	Send START_BKOPS to the card.
+*/
+void mmc_start_manual_bkops(struct mmc_card *card)
+{
+	int err;
+
+	BUG_ON(!card);
+
+	if (unlikely(!mmc_card_configured_manual_bkops(card)))
+		return;
+
+	if (mmc_card_doing_bkops(card))
 		return;
 
 	mmc_claim_host(card->host);
-	if (card->ext_csd.raw_bkops_status >= EXT_CSD_BKOPS_LEVEL_2) {
-		timeout = MMC_BKOPS_MAX_TIMEOUT;
-		use_busy_signal = true;
-	} else {
-		timeout = 0;
-		use_busy_signal = false;
-	}
-
-	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
-			EXT_CSD_BKOPS_START, 1, timeout,
-			use_busy_signal, true, false);
+	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL, EXT_CSD_BKOPS_START,
+				1, 0, false, true, false);
 	if (err) {
-		pr_warn("%s: Error %d starting bkops\n",
-			mmc_hostname(card->host), err);
-		goto out;
-	}
-
-	/*
-	 * For urgent bkops status (LEVEL_2 and more)
-	 * bkops executed synchronously, otherwise
-	 * the operation is in progress
-	 */
-	if (!use_busy_signal)
+		pr_err("%s: Error %d starting manual bkops\n",
+				mmc_hostname(card->host), err);
+	} else {
 		mmc_card_set_doing_bkops(card);
-out:
+		card->bkops.needs_manual = false;
+	}
 	mmc_release_host(card->host);
 }
-EXPORT_SYMBOL(mmc_start_bkops);
+EXPORT_SYMBOL(mmc_start_manual_bkops);
 
 /*
  * mmc_wait_data_done() - done callback for data request
@@ -1280,7 +1329,7 @@ struct mmc_async_req *mmc_start_req(struct mmc_host *host,
 		    ((mmc_resp_type(host->areq->mrq->cmd) == MMC_RSP_R1) ||
 		     (mmc_resp_type(host->areq->mrq->cmd) == MMC_RSP_R1B)) &&
 		    (host->areq->mrq->cmd->resp[0] & R1_EXCEPTION_EVENT))
-			mmc_start_bkops(host->card, true);
+			mmc_check_bkops(host->card);
 	}
 
 	if (!err && areq) {
@@ -1437,6 +1486,11 @@ int mmc_stop_bkops(struct mmc_card *card)
 	int err = 0;
 
 	BUG_ON(!card);
+	if (unlikely(!mmc_card_configured_manual_bkops(card)))
+		goto out;
+	if (!mmc_card_doing_bkops(card))
+		goto out;
+
 	err = mmc_interrupt_hpi(card);
 
 	/*
@@ -1447,7 +1501,7 @@ int mmc_stop_bkops(struct mmc_card *card)
 		mmc_card_clr_doing_bkops(card);
 		err = 0;
 	}
-
+out:
 	return err;
 }
 EXPORT_SYMBOL(mmc_stop_bkops);
@@ -1706,6 +1760,19 @@ void mmc_get_card(struct mmc_card *card)
 EXPORT_SYMBOL(mmc_get_card);
 
 /*
+ * This is a helper function, which drops the runtime
+ * pm reference for the card device.
+ */
+static void __mmc_put_card(struct mmc_card *card)
+{
+	/* In case of runtime_idle, it will handle the suspend */
+	if (card->host->bus_ops->runtime_idle)
+		pm_runtime_put(&card->dev);
+	else
+		pm_runtime_put_autosuspend(&card->dev);
+}
+
+/*
  * This is a helper function, which releases the host and drops the runtime
  * pm reference for the card device.
  */
@@ -1713,7 +1780,7 @@ void mmc_put_card(struct mmc_card *card)
 {
 	mmc_release_host(card->host);
 	pm_runtime_mark_last_busy(&card->dev);
-	pm_runtime_put_autosuspend(&card->dev);
+	__mmc_put_card(card);
 }
 EXPORT_SYMBOL(mmc_put_card);
 
@@ -1724,6 +1791,13 @@ EXPORT_SYMBOL(mmc_put_card);
 void mmc_set_ios(struct mmc_host *host)
 {
 	struct mmc_ios *ios = &host->ios;
+
+	if (unlikely(ios->power_mode == MMC_POWER_OFF &&
+		     host->card && mmc_card_doing_auto_bkops(host->card))) {
+		pr_err("%s: %s: illegal to disable power to card when running auto bkops\n",
+				mmc_hostname(host), __func__);
+		return;
+	}
 
 	pr_debug("%s: clock %uHz busmode %u powermode %u cs %u Vdd %u "
 		"width %u timing %u\n",
