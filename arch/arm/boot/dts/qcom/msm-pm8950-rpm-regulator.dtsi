@@ -363,4 +363,20 @@
 			status = "disabled";
 		};
 	};
+
+	/* Regulator to notify APC corner to RPM */
+	rpm-regulator-clk0 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "clk0";
+		qcom,resource-id = <3>;
+		qcom,regulator-type = <1>;
+		status = "disabled";
+
+		regulator-clk0 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "rpm_apc";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
 };
