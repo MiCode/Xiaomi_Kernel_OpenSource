@@ -1607,6 +1607,8 @@
 		qcom,clock-configs = <0x1 0x0 0x0 0x0>;
 		qcom,sw-power-collapse;
 		qcom,max-hw-load = <979200>; /* 3840 x 2176 @ 30 fps */
+		qcom,dcvs-min-load = <734400>; /* 1920 x 1088 @ 90fps */
+		qcom,dcvs-min-mbperframe = <32400>; /* 3840 x 2160 */
 
 		qcom,load-freq-tbl =
 			<979200 400000000 0xffffffff>, /* NOM+ , UHD30D   */
