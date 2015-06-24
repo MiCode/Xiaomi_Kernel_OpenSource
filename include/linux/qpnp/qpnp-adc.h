@@ -255,6 +255,7 @@ enum qpnp_adc_channel_scaling_param {
  *          btm parameters for SKUH
  * %SCALE_QRD_SKUT1_BATT_THERM: Conversion to temperature(decidegC) based on
  *          btm parameters for SKUT1
+ * %SCALE_PMI_CHG_TEMP: Conversion for PMI CHG temp
  * %SCALE_NONE: Do not use this scaling type.
  */
 enum qpnp_adc_scale_fn_type {
@@ -271,6 +272,7 @@ enum qpnp_adc_scale_fn_type {
 	SCALE_QRD_SKUH_BATT_THERM,
 	SCALE_NCP_03WF683_THERM,
 	SCALE_QRD_SKUT1_BATT_THERM,
+	SCALE_PMI_CHG_TEMP,
 	SCALE_NONE,
 };
 
@@ -1140,7 +1142,7 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
  *		of an ADC to the ADC reference and compensates for the
  *		gain and offset.
  * @dev:	Structure device for qpnp vadc
- * @adc_code:	pre-calibrated digital ouput of the ADC.
+ * @adc_code:	pre-calibrated digital output of the ADC.
  * @adc_prop:	adc properties of the qpnp adc such as bit resolution,
  *		reference voltage.
  * @chan_prop:	Individual channel properties to compensate the i/p scaling,
@@ -1158,7 +1160,7 @@ int32_t qpnp_adc_scale_default(struct qpnp_vadc_chip *dev,
  *		gain and offset. Performs the AMUX out as 2mV/K and returns
  *		the temperature in milli degC.
  * @dev:	Structure device for qpnp vadc
- * @adc_code:	pre-calibrated digital ouput of the ADC.
+ * @adc_code:	pre-calibrated digital output of the ADC.
  * @adc_prop:	adc properties of the qpnp adc such as bit resolution,
  *		reference voltage.
  * @chan_prop:	Individual channel properties to compensate the i/p scaling,
@@ -1171,11 +1173,30 @@ int32_t qpnp_adc_scale_pmic_therm(struct qpnp_vadc_chip *dev,
 			const struct qpnp_vadc_chan_properties *chan_prop,
 			struct qpnp_vadc_result *chan_rslt);
 /**
+ * qpnp_adc_scale_pmi_chg_temp() - Scales the pre-calibrated digital output
+ *		of an ADC to the ADC reference and compensates for the
+ *		gain and offset. The voltage measured by HKADC is related to
+ *		the junction temperature according to
+ *		Tj = -137.67 degC * (V_adc * 2) + 382.04 degC
+ * @dev:	Structure device for qpnp vadc
+ * @adc_code:	pre-calibrated digital output of the ADC.
+ * @adc_prop:	adc properties of the qpnp adc such as bit resolution,
+ *		reference voltage.
+ * @chan_prop:	Individual channel properties to compensate the i/p scaling,
+ *		slope and offset.
+ * @chan_rslt:	Physical result to be stored.
+ */
+int32_t qpnp_adc_scale_pmi_chg_temp(struct qpnp_vadc_chip *dev,
+			int32_t adc_code,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_vadc_chan_properties *chan_prop,
+			struct qpnp_vadc_result *chan_rslt);
+/**
  * qpnp_adc_scale_batt_therm() - Scales the pre-calibrated digital output
  *		of an ADC to the ADC reference and compensates for the
  *		gain and offset. Returns the temperature in decidegC.
  * @dev:	Structure device for qpnp vadc
- * @adc_code:	pre-calibrated digital ouput of the ADC.
+ * @adc_code:	pre-calibrated digital output of the ADC.
  * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
  *		reference voltage.
  * @chan_prop:	individual channel properties to compensate the i/p scaling,
@@ -1192,7 +1213,7 @@ int32_t qpnp_adc_scale_batt_therm(struct qpnp_vadc_chip *dev,
  *		of an ADC to the ADC reference and compensates for the
  *		gain and offset. Returns the temperature in decidegC.
  * @dev:	Structure device for qpnp vadc
- * @adc_code:	pre-calibrated digital ouput of the ADC.
+ * @adc_code:	pre-calibrated digital output of the ADC.
  * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
  *		reference voltage.
  * @chan_prop:	individual channel properties to compensate the i/p scaling,
@@ -1209,7 +1230,7 @@ int32_t qpnp_adc_scale_qrd_batt_therm(struct qpnp_vadc_chip *dev,
  *		of an ADC to the ADC reference and compensates for the
  *		gain and offset. Returns the temperature in decidegC.
  * @dev:	Structure device for qpnp vadc
- * @adc_code:	pre-calibrated digital ouput of the ADC.
+ * @adc_code:	pre-calibrated digital output of the ADC.
  * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
  *		reference voltage.
  * @chan_prop:	individual channel properties to compensate the i/p scaling,
@@ -1226,7 +1247,7 @@ int32_t qpnp_adc_scale_qrd_skuaa_batt_therm(struct qpnp_vadc_chip *dev,
  *		of an ADC to the ADC reference and compensates for the
  *		gain and offset. Returns the temperature in decidegC.
  * @dev:	Structure device for qpnp vadc
- * @adc_code:	pre-calibrated digital ouput of the ADC.
+ * @adc_code:	pre-calibrated digital output of the ADC.
  * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
  *		reference voltage.
  * @chan_prop:	individual channel properties to compensate the i/p scaling,
@@ -1243,7 +1264,7 @@ int32_t qpnp_adc_scale_qrd_skug_batt_therm(struct qpnp_vadc_chip *dev,
  *		of an ADC to the ADC reference and compensates for the
  *		gain and offset. Returns the temperature in decidegC.
  * @dev:	Structure device for qpnp vadc
- * @adc_code:	pre-calibrated digital ouput of the ADC.
+ * @adc_code:	pre-calibrated digital output of the ADC.
  * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
  *		reference voltage.
  * @chan_prop:	individual channel properties to compensate the i/p scaling,
@@ -1260,7 +1281,7 @@ int32_t qpnp_adc_scale_qrd_skuh_batt_therm(struct qpnp_vadc_chip *dev,
  *		of an ADC to the ADC reference and compensates for the
  *		gain and offset. Returns the temperature in decidegC.
  * @dev:	Structure device for qpnp vadc
- * @adc_code:	pre-calibrated digital ouput of the ADC.
+ * @adc_code:	pre-calibrated digital output of the ADC.
  * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
  *		reference voltage.
  * @chan_prop:	individual channel properties to compensate the i/p scaling,
@@ -1277,7 +1298,7 @@ int32_t qpnp_adc_scale_qrd_skut1_batt_therm(struct qpnp_vadc_chip *dev,
  *		of an ADC to the ADC reference and compensates for the
  *		gain and offset. Returns the temperature in decidegC.
  * @dev:	Structure device for qpnp vadc
- * @adc_code:	pre-calibrated digital ouput of the ADC.
+ * @adc_code:	pre-calibrated digital output of the ADC.
  * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
  *		reference voltage.
  * @chan_prop:	individual channel properties to compensate the i/p scaling,
@@ -1294,7 +1315,7 @@ int32_t qpnp_adc_scale_smb_batt_therm(struct qpnp_vadc_chip *dev,
  *		of an ADC to the ADC reference and compensates for the
  *		gain and offset.
  * @dev:	Structure device for qpnp vadc
- * @adc_code:	pre-calibrated digital ouput of the ADC.
+ * @adc_code:	pre-calibrated digital output of the ADC.
  * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
  *		reference voltage.
  * @chan_prop:	individual channel properties to compensate the i/p scaling,
@@ -1311,7 +1332,7 @@ int32_t qpnp_adc_scale_batt_id(struct qpnp_vadc_chip *dev, int32_t adc_code,
  *		gain and offset. Returns the temperature of the xo therm in mili
 		degC.
  * @dev:	Structure device for qpnp vadc
- * @adc_code:	pre-calibrated digital ouput of the ADC.
+ * @adc_code:	pre-calibrated digital output of the ADC.
  * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
  *		reference voltage.
  * @chan_prop:	individual channel properties to compensate the i/p scaling,
@@ -1329,7 +1350,7 @@ int32_t qpnp_adc_tdkntcg_therm(struct qpnp_vadc_chip *dev, int32_t adc_code,
  *		It uses a mapping table computed for a 150K pull-up.
  *		Pull-up1 is an internal pull-up on the AMUX of 150K.
  * @dev:	Structure device for qpnp vadc
- * @adc_code:	pre-calibrated digital ouput of the ADC.
+ * @adc_code:	pre-calibrated digital output of the ADC.
  * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
  *		reference voltage.
  * @chan_prop:	individual channel properties to compensate the i/p scaling,
@@ -1347,7 +1368,7 @@ int32_t qpnp_adc_scale_therm_pu1(struct qpnp_vadc_chip *dev, int32_t adc_code,
  *		It uses a mapping table computed for a 100K pull-up.
  *		Pull-up2 is an internal pull-up on the AMUX of 100K.
  * @dev:	Structure device for qpnp vadc
- * @adc_code:	pre-calibrated digital ouput of the ADC.
+ * @adc_code:	pre-calibrated digital output of the ADC.
  * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
  *		reference voltage.
  * @chan_prop:	individual channel properties to compensate the i/p scaling,
@@ -1364,7 +1385,7 @@ int32_t qpnp_adc_scale_therm_pu2(struct qpnp_vadc_chip *dev, int32_t adc_code,
  *		gain and offset. Returns the temperature of the therm in degC.
  *		It uses a mapping table computed for a NCP03WF683.
  * @dev:	Structure device for qpnp vadc
- * @adc_code:	pre-calibrated digital ouput of the ADC.
+ * @adc_code:	pre-calibrated digital output of the ADC.
  * @adc_prop:	adc properties of the pm8xxx adc such as bit resolution,
  *		reference voltage.
  * @chan_prop:	individual channel properties to compensate the i/p scaling,
@@ -1684,6 +1705,12 @@ static inline int32_t qpnp_adc_scale_default(struct qpnp_vadc_chip *vadc,
 			struct qpnp_vadc_result *chan_rslt)
 { return -ENXIO; }
 static inline int32_t qpnp_adc_scale_pmic_therm(struct qpnp_vadc_chip *vadc,
+			int32_t adc_code,
+			const struct qpnp_adc_properties *adc_prop,
+			const struct qpnp_vadc_chan_properties *chan_prop,
+			struct qpnp_vadc_result *chan_rslt)
+{ return -ENXIO; }
+static inline int32_t qpnp_adc_scale_pmi_chg_temp(struct qpnp_vadc_chip *vadc,
 			int32_t adc_code,
 			const struct qpnp_adc_properties *adc_prop,
 			const struct qpnp_vadc_chan_properties *chan_prop,
