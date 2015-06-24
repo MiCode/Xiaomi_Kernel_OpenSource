@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014 TRUSTONIC LIMITED
+ * Copyright (c) 2013-2015 TRUSTONIC LIMITED
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -14,6 +14,8 @@
 #ifndef _MC_DEBUG_H_
 #define _MC_DEBUG_H_
 
+#include "main.h"	/* g_ctx */
+
 #define MCDRV_ERROR(txt, ...) \
 	dev_err(g_ctx.mcd, "%s() ### ERROR: " txt "\n", \
 		__func__, \
@@ -22,10 +24,9 @@
 /* dummy function helper macro. */
 #define DUMMY_FUNCTION()	do {} while (0)
 
-#if defined(DEBUG)
+#ifdef DEBUG
 
-/* #define DEBUG_VERBOSE */
-#if defined(DEBUG_VERBOSE)
+#ifdef DEBUG_VERBOSE
 #define MCDRV_DBG_VERBOSE	MCDRV_DBG
 #else
 #define MCDRV_DBG_VERBOSE(...)	DUMMY_FUNCTION()
@@ -49,7 +50,7 @@
 		} \
 	} while (0)
 
-#else
+#else /* DEBUG */
 
 #define MCDRV_DBG_VERBOSE(...)	DUMMY_FUNCTION()
 #define MCDRV_DBG(...)		DUMMY_FUNCTION()
@@ -57,6 +58,6 @@
 
 #define MCDRV_ASSERT(...)	DUMMY_FUNCTION()
 
-#endif /* [not] defined(DEBUG) */
+#endif /* !DEBUG */
 
 #endif /* _MC_DEBUG_H_ */

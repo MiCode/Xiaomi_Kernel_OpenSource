@@ -12,16 +12,14 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MC_DEVICE_H__
-#define __MC_DEVICE_H__
+#ifndef __MC_SCHEDULER_H__
+#define __MC_SCHEDULER_H__
 
-void mc_dev_schedule(void);
-int mc_dev_yield(void);
-int mc_dev_nsiq(void);
-uint32_t mc_dev_get_version(void);
-void mc_dev_dump_mobicore_status(void);
-int mc_dev_sched_init(void);
-void mc_dev_sched_cleanup(void);
-int mc_dev_notify(uint32_t session_id);
+int mc_scheduler_init(void);
+static inline void mc_scheduler_exit(void) {}
+int mc_scheduler_start(void);
+void mc_scheduler_stop(void);
+int mc_scheduler_suspend(void);
+int mc_scheduler_resume(void);
 
-#endif /* __MC_DEVICE_H__ */
+#endif /* __MC_SCHEDULER_H__ */

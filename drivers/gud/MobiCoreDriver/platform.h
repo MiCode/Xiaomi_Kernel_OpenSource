@@ -20,6 +20,8 @@
 /* Use SMC for fastcalls */
 #define MC_SMC_FASTCALL
 
+#include <linux/types.h>
+
 /*--------------- Implementation -------------- */
 #if defined(CONFIG_ARCH_APQ8084) || defined(CONFIG_ARCH_MSM8916) || \
 	defined(CONFIG_ARCH_MSM8994) || defined(CONFIG_ARCH_MSM8909) || \
@@ -56,7 +58,6 @@
 #define SCM_SVC_MOBICORE		250
 #define SCM_CMD_MOBICORE		1
 
-
 static inline int smc_fastcall(void *fc_generic, size_t size)
 {
 #if defined(CONFIG_ARCH_APQ8084) || defined(CONFIG_ARCH_MSM8916) || \
@@ -87,54 +88,63 @@ static inline int smc_fastcall(void *fc_generic, size_t size)
 		memcpy(fc_generic, scm_buf, size);
 		kfree(scm_buf);
 		return ret;
-	} else {
+	}
 #endif
 
 	return scm_call(SCM_SVC_MOBICORE, SCM_CMD_MOBICORE,
 			fc_generic, size,
 			fc_generic, size);
-#if defined(CONFIG_ARCH_APQ8084) || defined(CONFIG_ARCH_MSM8916) || \
-	defined(CONFIG_ARCH_MSM8994) || defined(CONFIG_ARCH_MSM8996)
-	}
-#endif
 }
 
-
-/* Fastcall value should be the one for armv7, even if we are on armv8,
- * as long as __aarch32__ is not activated in SW.
- * But for 8996, we are armv8 with __aarch32__ in Sw
+/* Fastcall value should be the one for armv7, even if on armv8,
+ * as long as the __aarch32__ flag is not activated in SW.
+ * But for 8996, architecture is armv8 with __aarch32__ in Sw.
  */
 #if !defined(CONFIG_ARCH_MSM8996)
 #define MC_ARMV7_FC
 #endif
 
-
-/* Enable mobicore mem traces */
-#define MC_MEM_TRACES
-
-/* Enable the use of vm_unamp instead of the deprecated do_munmap
- * and other 3.7 features
- */
-#ifndef CONFIG_ARCH_MSM8960
-#define MC_VM_UNMAP
-#endif
-
-/* If LPAE activated in SW */
 #if defined(CONFIG_ARCH_MSM8996)
-#define LPAE_SUPPORT
+#define CONFIG_TRUSTONIC_TEE_LPAE
 #endif
 
 /*
- *  Perform crypto clock enable/disable
+ * Perform crypto clock enable/disable
+ * of clocks
+ *     "bus_clk"
+ *     "core_clk"
+ *     "iface_clk"
  */
 #if (!defined(CONFIG_ARCH_MSM8960) && !defined(CONFIG_ARCH_MSM8994)) || \
 		defined(CONFIG_ARCH_MSM8996)
 #define MC_CRYPTO_CLOCK_MANAGEMENT
 #endif
 
+/*
+ * Perform clock enable/disable for clock  "core_clk_src"
+ */
 #if defined(CONFIG_ARCH_MSM8916) || defined(CONFIG_ARCH_MSM8909) || \
 	defined(CONFIG_ARCH_MSM8996)
-#define MC_USE_DEVICE_TREE
+#define MC_DEVICE_PROPNAME "qcom,mcd"
+#if defined(MC_CRYPTO_CLOCK_MANAGEMENT)
+#define MC_CLOCK_CORESRC_PROPNAME "qcom,ce-opp-freq"
+#define MC_CLOCK_CORESRC_DEFAULTRATE 100000000
+#endif /* MC_CRYPTO_CLOCK_MANAGEMENT */
 #endif
 
+
+#if !defined(CONFIG_ARCH_MSM8996)
+/* uid/gid behave like old kernels but with new types */
+/* This flag does not exist on 8996 3.10 kernel version */
+#if !defined(CONFIG_UIDGID_STRICT_TYPE_CHECKS)
+#define MC_UIDGID_OLDSTYLE
+#endif
+/* Fastcall value should be the one for armv7, even if on armv8,
+ * as long as the __aarch32__ flag is not activated in SW.
+ * But for 8996, architecture is armv8 with __aarch32__ in Sw.
+ */
+#define MC_ARMV7_FC
+#endif /* not CONFIG_ARCH_MSM8996 */
+
 #endif /* _MC_PLATFORM_H_ */
+

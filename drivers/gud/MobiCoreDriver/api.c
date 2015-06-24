@@ -15,11 +15,22 @@
 #include <linux/device.h>
 #include <linux/slab.h>
 #include <linux/err.h>
+#include <linux/cred.h>
+#include <linux/sched.h>
 
+#include <public/mc_linux.h>	/* MC_MAP_MAX */
 #include "main.h"
 #include "debug.h"
 #include "mcp.h"
+#include "admin.h"
+#include "session.h"
+#include "client.h"
 #include "api.h"
+
+static struct api_ctx {
+	struct mutex		clients_lock;	/* Clients list + temp notifs */
+	struct list_head	clients;	/* List of user-space clients */
+} api_ctx;
 
 /*
  * Initialize a new tbase client object
@@ -37,9 +48,11 @@ struct tbase_client *api_open_device(bool is_from_kernel)
 	}
 
 	/* Add client to list of clients */
-	mc_add_client(client);
+	mutex_lock(&api_ctx.clients_lock);
+	list_add_tail(&client->list, &api_ctx.clients);
+	mutex_unlock(&api_ctx.clients_lock);
 
-	MCDRV_DBG("Created client 0x%p", client);
+	MCDRV_DBG("created client %p", client);
 	return client;
 }
 
@@ -51,17 +64,10 @@ int api_freeze_device(struct tbase_client *client)
 {
 	int err = 0;
 
-	if (!mc_ref_client(client)) {
-		err = -ENODEV;
-		goto end;
-	}
-
 	if (!client_set_closing(client))
 		err = -ENOTEMPTY;
 
-	mc_unref_client(client);
-end:
-	MCDRV_DBG("client 0x%p, exit with %d\n", client, err);
+	MCDRV_DBG("client %p, exit with %d\n", client, err);
 	return err;
 }
 
@@ -70,18 +76,16 @@ end:
  * @param client_t client
  * @return tbase driver error code
  */
-int api_close_device(struct tbase_client *client)
+void api_close_device(struct tbase_client *client)
 {
 	/* Remove client from list of active clients */
-	int err = mc_remove_client(client);
-
-	if (!err) {
-		client_close_sessions(client);
-		mc_unref_client(client);
-	}
-
-	MCDRV_DBG("client 0x%p, exit with %d\n\n", client, err);
-	return err;
+	mutex_lock(&api_ctx.clients_lock);
+	list_del(&client->list);
+	mutex_unlock(&api_ctx.clients_lock);
+	/* Close all remaining sessions */
+	client_close_sessions(client);
+	client_put(client);
+	MCDRV_DBG("client %p closed\n", client);
 }
 
 /*
@@ -94,7 +98,8 @@ int api_open_session(struct tbase_client	*client,
 		     const struct mc_uuid_t *uuid,
 		     uintptr_t		tci,
 		     size_t		tci_len,
-		     bool		is_gp_uuid)
+		     bool		is_gp_uuid,
+		     struct mc_identity	*identity)
 {
 	int err = 0;
 	uint32_t sid = 0;
@@ -106,10 +111,6 @@ int api_open_session(struct tbase_client	*client,
 
 	if (!uuid)
 		return -EINVAL;
-
-	/* Acquire client */
-	if (!mc_ref_client(client))
-		return -ENODEV;
 
 	/* Get secure object */
 	obj = tbase_object_get(uuid, is_gp_uuid);
@@ -125,8 +126,8 @@ int api_open_session(struct tbase_client	*client,
 	}
 
 	/* Open session */
-	err = client_add_session(client, obj, (void *)tci, tci_len, &sid,
-				 is_gp_uuid);
+	err = client_add_session(client, obj, tci, tci_len, &sid, is_gp_uuid,
+				 identity);
 	/* Fill in return parameter */
 	if (!err)
 		*p_session_id = sid;
@@ -135,8 +136,6 @@ int api_open_session(struct tbase_client	*client,
 	tbase_object_free(obj);
 
 end:
-	/* Release client */
-	mc_unref_client(client);
 
 	MCDRV_DBG("session %x, exit with %d\n", sid, err);
 	return err;
@@ -155,17 +154,16 @@ int api_open_trustlet(struct tbase_client	*client,
 		      uintptr_t		tci,
 		      size_t		tci_len)
 {
-	int err = 0;
-	uint32_t sid = 0;
 	struct tbase_object *obj;
+	struct mc_identity identity = {
+		.login_type = TEEC_LOGIN_PUBLIC,
+	};
+	uint32_t sid = 0;
+	int err = 0;
 
 	/* Check parameters */
 	if (!p_session_id)
 		return -EINVAL;
-
-	/* Acquire client */
-	if (!mc_ref_client(client))
-		return -ENODEV;
 
 	/* Create secure object from user-space trustlet binary */
 	obj = tbase_object_read(spid, trustlet, trustlet_len);
@@ -175,8 +173,8 @@ int api_open_trustlet(struct tbase_client	*client,
 	}
 
 	/* Open session */
-	err = client_add_session(client, obj, (void *)tci, tci_len, &sid,
-				 false);
+	err = client_add_session(client, obj, tci, tci_len, &sid, false,
+				 &identity);
 	/* Fill in return parameter */
 	if (!err)
 		*p_session_id = sid;
@@ -185,9 +183,6 @@ int api_open_trustlet(struct tbase_client	*client,
 	tbase_object_free(obj);
 
 end:
-	/* Release client */
-	mc_unref_client(client);
-
 	MCDRV_DBG("session %x, exit with %d\n", sid, err);
 	return err;
 }
@@ -199,23 +194,10 @@ end:
  */
 int api_close_session(struct tbase_client *client, uint32_t session_id)
 {
-	int err = 0;
+	int ret = client_remove_session(client, session_id);
 
-	/* Acquire client */
-	if (!mc_ref_client(client)) {
-		err = -ENODEV;
-		goto end;
-	}
-
-	/* Close session */
-	err = client_remove_session(client, session_id);
-
-	/* Release client */
-	mc_unref_client(client);
-
-end:
-	MCDRV_DBG("session %x, exit with %d\n", session_id, err);
-	return err;
+	MCDRV_DBG("session %x, exit with %d\n", session_id, ret);
+	return ret;
 }
 
 /*
@@ -226,10 +208,6 @@ int api_notify(struct tbase_client *client, uint32_t session_id)
 {
 	int err = 0;
 	struct tbase_session *session = NULL;
-
-	/* Acquire client */
-	if (!mc_ref_client(client))
-		return -ENODEV;
 
 	/* Acquire session */
 	session = client_ref_session(client, session_id);
@@ -243,9 +221,6 @@ int api_notify(struct tbase_client *client, uint32_t session_id)
 		/* Release session */
 		client_unref_session(session);
 	}
-
-	/* Release client */
-	mc_unref_client(client);
 
 	MCDRV_DBG("session %x, exit with %d\n", session_id, err);
 	return err;
@@ -262,10 +237,6 @@ int api_wait_notification(struct tbase_client *client,
 	int err = 0;
 	struct tbase_session *session = NULL;
 
-	/* Acquire client */
-	if (!mc_ref_client(client))
-		return -ENODEV;
-
 	/* Acquire session */
 	session = client_ref_session(client, session_id);
 
@@ -273,14 +244,11 @@ int api_wait_notification(struct tbase_client *client,
 	if (!session) {
 		err = -ENXIO;
 	} else {
-		err = session_wait(session, timeout);
+		err = session_waitnotif(session, timeout);
 
 		/* Release session */
 		client_unref_session(session);
 	}
-
-	/* Release client */
-	mc_unref_client(client);
 
 	MCDRV_DBG("session %x, exit with %d\n", session_id, err);
 	return err;
@@ -295,19 +263,9 @@ int api_wait_notification(struct tbase_client *client,
  * @return tbase driver error code
  */
 int api_malloc_cbuf(struct tbase_client *client, uint32_t len,
-		    void **p_addr, struct vm_area_struct *vmarea)
+		    uintptr_t *addr, struct vm_area_struct *vmarea)
 {
-	int err = 0;
-
-	/* Acquire client */
-	if (!mc_ref_client(client))
-		return -ENODEV;
-
-	/* Allocate buffer */
-	err = tbase_cbuf_alloc(client, len, p_addr, vmarea);
-
-	/* Release client */
-	mc_unref_client(client);
+	int err = tbase_cbuf_alloc(client, len, addr, vmarea);
 
 	MCDRV_DBG("exit with %d\n", err);
 	return err;
@@ -320,49 +278,33 @@ int api_malloc_cbuf(struct tbase_client *client, uint32_t len,
  *
  * @return tbase driver error code
  */
-int api_free_cbuf(struct tbase_client *client, void *addr)
+int api_free_cbuf(struct tbase_client *client, uintptr_t addr)
 {
-	int err = 0;
+	int err = tbase_cbuf_free(client, addr);
 
-	/* Acquire client */
-	if (!mc_ref_client(client))
-		return -ENODEV;
-
-	/* Free buffer */
-	err = tbase_cbuf_free(client, addr);
-
-	/* Release client */
-	mc_unref_client(client);
-
-	MCDRV_DBG("@ 0x%p, exit with %d\n", addr, err);
+	MCDRV_DBG("@ 0x%lx, exit with %d\n", addr, err);
 	return err;
 }
 
-/*
- * Share a buffer with given TA in SWd
- * @return tbase driver error code
- */
-int api_map_wsm(struct tbase_client *client, uint32_t session_id, void *buf,
-		uint32_t len, uint32_t *p_sva, uint32_t *p_slen)
+/* Share a buffer with given TA in SWd */
+int api_map_wsms(struct tbase_client *client, uint32_t session_id,
+		 struct mc_ioctl_buffer *bufs)
 {
-	int err = 0;
 	struct tbase_session *session = NULL;
-	uint32_t sva;
+	int err = 0;
 
-	/* Check parameters */
-	if (!buf || !len || !p_sva || !p_slen)
+	if (!client)
 		return -EINVAL;
 
-	/* Acquire client */
-	if (!mc_ref_client(client))
-		return -ENODEV;
+	if (!bufs)
+		return -EINVAL;
 
 	/* Acquire session */
 	session = client_ref_session(client, session_id);
 
 	if (session) {
 		/* Add buffer to the session */
-		err = session_add_wsm(session, buf, len, &sva);
+		err = session_wsms_add(session, bufs);
 
 		/* Release session */
 		client_unref_session(session);
@@ -370,43 +312,22 @@ int api_map_wsm(struct tbase_client *client, uint32_t session_id, void *buf,
 		err = -ENXIO;
 	}
 
-	if (err) {
-		*p_sva = 0;
-		*p_slen = 0;
-		MCDRV_ERROR("code %d", err);
-	} else {
-		*p_sva = sva;
-		*p_slen = len;
-	}
-
-	/* Release client */
-	mc_unref_client(client);
-
-	MCDRV_DBG("0x%p, exit with %d\n", buf, err);
+	MCDRV_DBG("exit with %d\n", err);
 	return err;
 }
 
-/*
- * Stop sharing a buffer with SWd
- * @param client
- * @param session_id
- * @param buf
- * @param map_info
- * @return tbase driver error code
- */
-int api_unmap_wsm(struct tbase_client *client, uint32_t session_id,
-		  void *buf, uint32_t sva, uint32_t slen)
+/* Stop sharing a buffer with SWd */
+int api_unmap_wsms(struct tbase_client *client, uint32_t session_id,
+		   const struct mc_ioctl_buffer *bufs)
 {
-	int err = 0;
 	struct tbase_session *session = NULL;
+	int err = 0;
 
-	/* Check parameters */
 	if (!client)
 		return -EINVAL;
 
-	/* Acquire client */
-	if (!mc_ref_client(client))
-		return -ENODEV;
+	if (!bufs)
+		return -EINVAL;
 
 	/* Acquire session */
 	session = client_ref_session(client, session_id);
@@ -415,32 +336,23 @@ int api_unmap_wsm(struct tbase_client *client, uint32_t session_id,
 		err = -ENXIO;
 	} else {
 		/* Remove buffer from session */
-		err = session_remove_wsm(session, buf, sva, slen);
-
+		err = session_wsms_remove(session, bufs);
 		/* Release session */
 		client_unref_session(session);
 	}
 
-	/* Release client */
-	mc_unref_client(client);
-
-	MCDRV_DBG("0x%p, exit with %d\n", buf, err);
+	MCDRV_DBG("exit with %d\n", err);
 	return err;
 }
 
 /*
- * Read last error from received notifications
- * @return tbase driver error code
+ * Read session exit/termination code
  */
-int api_get_session_error(struct tbase_client *client, uint32_t session_id,
-			  int32_t *last_error)
+int api_get_session_exitcode(struct tbase_client *client, uint32_t session_id,
+			     int32_t *exit_code)
 {
 	int err = 0;
 	struct tbase_session *session;
-
-	/* Acquire client */
-	if (!mc_ref_client(client))
-		return -ENODEV;
 
 	/* Acquire session */
 	session = client_ref_session(client, session_id);
@@ -449,7 +361,7 @@ int api_get_session_error(struct tbase_client *client, uint32_t session_id,
 		err = -ENXIO;
 	} else {
 		/* Retrieve error */
-		*last_error = session_get_err(session);
+		*exit_code = session_exitcode(session);
 
 		/* Release session */
 		client_unref_session(session);
@@ -457,9 +369,51 @@ int api_get_session_error(struct tbase_client *client, uint32_t session_id,
 		err = 0;
 	}
 
-	/* Release client */
-	mc_unref_client(client);
-
 	MCDRV_DBG("session %x, exit with %d\n", session_id, err);
 	return err;
+}
+
+void api_init(void)
+{
+	INIT_LIST_HEAD(&api_ctx.clients);
+	mutex_init(&api_ctx.clients_lock);
+
+	INIT_LIST_HEAD(&g_ctx.closing_sess);
+	mutex_init(&g_ctx.closing_lock);
+}
+
+int api_info(struct kasnprintf_buf *buf)
+{
+	struct tbase_client *client;
+	struct tbase_session *session;
+	ssize_t ret = 0;
+
+	mutex_lock(&api_ctx.clients_lock);
+	if (list_empty(&api_ctx.clients))
+		goto done;
+
+	list_for_each_entry(client, &api_ctx.clients, list) {
+		ret = client_info(client, buf);
+		if (ret < 0)
+			break;
+	}
+
+done:
+	mutex_unlock(&api_ctx.clients_lock);
+
+	if (ret >= 0) {
+		mutex_lock(&g_ctx.closing_lock);
+		if (!list_empty(&g_ctx.closing_sess))
+			ret = kasnprintf(buf, "closing sessions:\n");
+
+		list_for_each_entry(session, &g_ctx.closing_sess, list) {
+			ret = session_info(session, buf);
+			if (ret < 0)
+				break;
+		}
+
+		mutex_unlock(&g_ctx.closing_lock);
+	}
+
+	return ret;
 }

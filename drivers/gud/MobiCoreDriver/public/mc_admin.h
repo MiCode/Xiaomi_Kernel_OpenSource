@@ -28,6 +28,7 @@ enum {
 	MC_DRV_GET_SP_CONTAINER = 2,
 	MC_DRV_GET_TRUSTLET_CONTAINER = 3,
 	MC_DRV_GET_TRUSTLET = 4,
+	MC_DRV_SIGNAL_CRASH = 5,
 };
 
 /* MobiCore IOCTL magic number */

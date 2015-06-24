@@ -26,11 +26,13 @@
 
 #include "mci/mcimcp.h"
 
+#include "platform.h"	/* CONFIG_TRUSTONIC_TEE_LPAE */
 #include "main.h"
 #include "debug.h"
+#include "mcp.h"	/* mcp_buffer_map */
 #include "mmu.h"
 
-#ifdef LPAE_SUPPORT
+#ifdef CONFIG_TRUSTONIC_TEE_LPAE
 #define MMU_TYPE_PAGE	(3 << 0)
 #define MMU_BUFFERABLE	BIT(2) /* AttrIndx[0] */
 #define MMU_CACHEABLE	BIT(3) /* AttrIndx[1] */
@@ -69,7 +71,7 @@
  */
 #define L1_ENTRIES_MAX	512
 
-#ifdef LPAE_SUPPORT
+#ifdef CONFIG_TRUSTONIC_TEE_LPAE
 
 /*
  * Secure world uses 64-bit physical addresses
@@ -88,7 +90,7 @@ static tbase_pte_t pte_flags = MMU_BUFFERABLE | MMU_CACHEABLE | MMU_EXT_NG |
 			       MMU_EXT_XN | MMU_EXT_AF | MMU_AP_RW_ALL |
 			       MMU_NS | MMU_TYPE_PAGE;
 
-#else /* LPAE_SUPPORT */
+#else /* CONFIG_TRUSTONIC_TEE_LPAE */
 
 /*
  * Secure world uses 32-bit physical addresses
@@ -107,7 +109,7 @@ static tbase_pte_t pte_flags = MMU_BUFFERABLE | MMU_CACHEABLE | MMU_EXT_NG |
 			       MMU_EXT_AP1 | MMU_EXT_AP0 |
 			       MMU_TYPE_SMALL | MMU_TYPE_EXT;
 
-#endif /* !LPAE_SUPPORT */
+#endif /* !CONFIG_TRUSTONIC_TEE_LPAE */
 
 /*
  * Fake L1 MMU table.
@@ -137,6 +139,8 @@ struct tbase_mmu {
 	size_t		l2_tables_nr;	/* Actual number of L2 tables */
 	union l1_table	l1_table;	/* Fake L1 table */
 	union l2_table	l1_l2_table;	/* L2 table for the L1 table */
+	uint32_t	offset;
+	uint32_t	length;
 	bool		user;		/* Pages are from user space */
 };
 
@@ -169,13 +173,14 @@ static inline int map_buffer(struct task_struct *task, const void *data,
 	struct page	**pages;	/* Same as above, conveniently typed */
 	unsigned long	pages_page;	/* Page to contain the page pointers */
 	size_t		chunk;
-	size_t		offset = (uintptr_t)data & ~PAGE_MASK;
 	unsigned long	total_pages_nr;
 	int		l1_entries_max;
 	int		ret = 0;
 
 	/* Check that we have enough space to map data */
-	total_pages_nr = PAGE_ALIGN(offset + length) / PAGE_SIZE;
+	mmu_table->length = length;
+	mmu_table->offset = (uintptr_t)data & ~PAGE_MASK;
+	total_pages_nr = PAGE_ALIGN(mmu_table->offset + length) / PAGE_SIZE;
 	if (g_ctx.f_mem_ext)
 		l1_entries_max = L1_ENTRIES_MAX;
 	 else
@@ -307,7 +312,7 @@ static inline int map_buffer(struct task_struct *task, const void *data,
 			* http://lwn.net/Articles/409032/ is also worth reading.
 			*/
 			unsigned long phys = page_to_phys(*page_ptr);
-#if defined CONFIG_ARM64 && !defined LPAE_SUPPORT
+#if defined CONFIG_ARM64 && !defined CONFIG_TRUSTONIC_TEE_LPAE
 			if (phys & 0xffffffff00000000) {
 				dev_err(g_ctx.mcd,
 					"Pointer too big for non-LPAE: 0x%16lx",
@@ -352,7 +357,7 @@ static inline void unmap_buffer(struct tbase_mmu *mmu_table)
 			/* pte_page() cannot return NULL */
 			page = pte_page(*pte);
 			dev_dbg(g_ctx.mcd, "MMU entry %d: 0x%llx, virt %p",
-				i, (u64) *pte, page);
+				i, (u64)*pte, page);
 
 			page_cache_release(page);
 		}
@@ -365,16 +370,18 @@ end:
 /*
  * Delete a MMU table.
  */
-void tbase_mmu_delete(struct tbase_mmu *mmu_table)
+void tbase_mmu_delete(struct tbase_mmu *mmu)
 {
-	if (WARN(!mmu_table, "No table data available"))
+	if (WARN(!mmu, "NULL mmu pointer given"))
 		return;
 
-	/* FIXME bogus */
-	dev_dbg(g_ctx.mcd, "delete mmu_table %p l2_table %08lx",
-		mmu_table, mmu_table->l2_tables[0].page);
-	unmap_buffer(mmu_table);
-	kfree(mmu_table);
+	unmap_buffer(mmu);
+	MCDRV_DBG("freed mmu %p: %s len %u off %u table %lx type L%d",
+		  mmu, mmu->user ? "user" : "kernel", mmu->length, mmu->offset,
+		  (uintptr_t)(mmu->l1_table.page ? mmu->l1_l2_table.ptes :
+						   mmu->l2_tables[0].ptes),
+		  mmu->l1_table.page ? 1 : 2);
+	kfree(mmu);
 }
 
 /*
@@ -382,50 +389,62 @@ void tbase_mmu_delete(struct tbase_mmu *mmu_table)
  * That is, create respective table entries.
  */
 struct tbase_mmu *tbase_mmu_create(struct task_struct *task,
-				   const void *data,
+				   const void *addr,
 				   unsigned int length)
 {
-	struct tbase_mmu *mmu_table;
+	struct tbase_mmu *mmu;
 	int ret;
 
-	dev_dbg(g_ctx.mcd, "data %p length %u", data, length);
 	/* Check input arguments */
-	if (WARN(!data, "data address is NULL"))
+	if (WARN(!addr, "data address is NULL"))
 		return ERR_PTR(-EINVAL);
 
 	if (WARN(!length, "data length is 0"))
 		return ERR_PTR(-EINVAL);
 
 	/* Allocate the struct */
-	mmu_table = kmalloc(sizeof(*mmu_table), GFP_KERNEL | __GFP_ZERO);
-	if (!mmu_table)
+	mmu = kmalloc(sizeof(*mmu), GFP_KERNEL | __GFP_ZERO);
+	if (!mmu)
 		return ERR_PTR(-ENOMEM);
 
 	/* Create the MMU mapping for the data */
-	ret = map_buffer(task, data, length, mmu_table);
+	ret = map_buffer(task, addr, length, mmu);
 	if (ret) {
-		kfree(mmu_table);
+		kfree(mmu);
 		return ERR_PTR(ret);
 	}
 
-	/* FIXME bogus */
-	dev_dbg(g_ctx.mcd, "mapped buffer %p in l2_table %08lx of mmu_table %p",
-		data, mmu_table->l2_tables[0].page, mmu_table);
-	return mmu_table;
+	MCDRV_DBG("created mmu %p: %s addr %p len %u off %u table %lx type L%d",
+		  mmu, mmu->user ? "user" : "kernel", addr, mmu->length,
+		  mmu->offset,
+		  (uintptr_t)(mmu->l1_table.page ? mmu->l1_l2_table.ptes :
+						   mmu->l2_tables[0].ptes),
+		  mmu->l1_table.page ? 1 : 2);
+	return mmu;
 }
 
-uint32_t tbase_mmu_type(const struct tbase_mmu *mmu_table)
+void tbase_mmu_buffer(const struct tbase_mmu *mmu, struct mcp_buffer_map *map)
 {
-	if (mmu_table->l1_table.page)
-		return WSM_L1;
-	else
-		return WSM_L2;
+	if (mmu->l1_table.page) {
+		map->phys_addr = virt_to_phys(mmu->l1_l2_table.ptes);
+		map->type = WSM_L1;
+	} else {
+		map->phys_addr = virt_to_phys(mmu->l2_tables[0].ptes);
+		map->type = WSM_L2;
+	}
+
+	map->secure_va = 0;
+	map->offset = mmu->offset;
+	map->length = mmu->length;
 }
 
-unsigned long tbase_mmu_phys(const struct tbase_mmu *mmu_table)
+int tbase_mmu_info(const struct tbase_mmu *mmu, struct kasnprintf_buf *buf)
 {
-	if (mmu_table->l1_table.page)
-		return virt_to_phys(mmu_table->l1_l2_table.ptes);
-	else
-		return virt_to_phys(mmu_table->l2_tables[0].ptes);
+	return kasnprintf(buf,
+			  "\t\t\tmmu %p: %s len %u off %u table %lx type L%d\n",
+			  mmu, mmu->user ? "user" : "kernel", mmu->length,
+			  mmu->offset,
+			  (uintptr_t)(mmu->l1_table.page ?
+				mmu->l1_l2_table.ptes : mmu->l2_tables[0].ptes),
+			  mmu->l1_table.page ? 1 : 2);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014 TRUSTONIC LIMITED
+ * Copyright (c) 2013-2015 TRUSTONIC LIMITED
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -15,16 +15,12 @@
 #ifndef ADMIN_FD_H_
 #define ADMIN_FD_H_
 
-#include <public/mc_linux.h>
+struct mc_uuid_t;
+struct tbase_object;
 
-struct tbase_object {
-	uint32_t	length;		/* Total length */
-	uint32_t	header_length;	/* Length of header before payload */
-	uint8_t		data[];		/* Header followed by payload */
-};
-
-int admin_dev_init(struct class *mc_device_class, dev_t *out_dev);
-void admin_dev_cleanup(struct class *mc_device_class);
+int mc_admin_init(struct class *mc_device_class, dev_t *out_dev,
+		  int (*tee_start_cb)(void));
+void mc_admin_exit(struct class *mc_device_class);
 
 struct tbase_object *tbase_object_select(const struct mc_uuid_t *uuid);
 struct tbase_object *tbase_object_get(const struct mc_uuid_t *uuid,

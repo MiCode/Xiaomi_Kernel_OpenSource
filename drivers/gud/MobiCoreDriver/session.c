@@ -18,26 +18,34 @@
 #include <linux/sched.h>
 #include <linux/workqueue.h>
 #include <linux/err.h>
+#include <linux/mm.h>
+#include <crypto/hash.h>
+#include <linux/scatterlist.h>
+#include <linux/fs.h>
 
 #include "public/mc_linux.h"
 #include "public/mc_admin.h"
 
+#include "platform.h"		/* MC_UIDGID_OLDSTYLE */
 #include "main.h"
-#include "fastcall.h"
 #include "debug.h"
+#include "mmu.h"
 #include "mcp.h"
-#include "api.h"
-#include "scheduler.h"		/* nq_notify */
+#include "client.h"		/* *cbuf* */
+#include "session.h"
+#include "mci/mcimcp.h"
+
+#define SHA1_HASH_SIZE       20
 
 struct tbase_wsm {
 	/* Buffer NWd addr (uva or kva, used only for lookup) */
-	void			*buff;
+	uintptr_t		va;
 	/* buffer length */
 	uint32_t		len;
 	/* Buffer SWd addr */
-	uint32_t		s_buff;
+	uint32_t		sva;
 	/* mmu L2 table */
-	struct tbase_mmu	*table;
+	struct tbase_mmu	*mmu;
 	/* possibly a pointer to a cbuf */
 	struct tbase_cbuf	*cbuf;
 	/* list node */
@@ -50,92 +58,276 @@ struct tbase_wsm {
  */
 static void session_close_worker(struct work_struct *work)
 {
-	struct tbase_session *session = (struct tbase_session *)work;
+	struct mcp_session *mcp_session;
+	struct tbase_session *session;
 
+	mcp_session = container_of(work, struct mcp_session, close_work);
+	session = container_of(mcp_session, struct tbase_session, mcp_session);
 	session_close(session);
-	/* Release ref taken before scheduling worker */
-	session_put(session);
+}
+
+/* Forward declarations */
+static struct tbase_wsm *wsm_create(struct tbase_session *session,
+				    uintptr_t buf, uint32_t len);
+static void wsm_free(struct tbase_wsm *wsm);
+
+static int hash_path_and_data(char *hash, const void *data,
+			      unsigned int data_len)
+{
+	struct mm_struct *mm = current->mm;
+	struct hash_desc desc;
+	struct scatterlist sg;
+	char *buf;
+	char *path;
+	unsigned int path_len;
+	int ret = 0;
+
+	buf = (char *)__get_free_page(GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	down_read(&mm->mmap_sem);
+	if (!mm->exe_file) {
+		ret = -ENOENT;
+		goto end;
+	}
+
+	path = d_path(&mm->exe_file->f_path, buf, PAGE_SIZE);
+	if (IS_ERR(path)) {
+		ret = PTR_ERR(path);
+		goto end;
+	}
+
+	MCDRV_DBG("current process path = ");
+	{
+		char *c;
+
+		for (c = path; *c; c++)
+			MCDRV_DBG("%c %d", *c, *c);
+	}
+
+	path_len = strnlen(path, PAGE_SIZE);
+	MCDRV_DBG("path_len = %u", path_len);
+	desc.tfm = crypto_alloc_hash("sha1", 0, CRYPTO_ALG_ASYNC);
+	if (IS_ERR(desc.tfm)) {
+		ret = PTR_ERR(desc.tfm);
+		MCDRV_DBG("could not alloc hash = %d", ret);
+		goto end;
+	}
+
+	desc.flags = 0;
+	sg_init_one(&sg, path, path_len);
+	crypto_hash_init(&desc);
+	crypto_hash_update(&desc, &sg, path_len);
+	if (data) {
+		MCDRV_DBG("current process path: hashing additional data\n");
+		sg_init_one(&sg, data, data_len);
+		crypto_hash_update(&desc, &sg, data_len);
+	}
+
+	crypto_hash_final(&desc, hash);
+	crypto_free_hash(desc.tfm);
+
+end:
+	up_read(&mm->mmap_sem);
+	free_page((unsigned long)buf);
+
+	return ret;
+}
+
+static int check_prepare_identity(const struct mc_identity *identity,
+				  struct identity *mcp_identity)
+{
+	struct mc_identity *mcp_id = (struct mc_identity *)mcp_identity;
+	uint8_t hash[SHA1_HASH_SIZE];
+	bool application = false;
+	const void *data;
+	unsigned int data_len;
+
+	/* Mobicore doesn't support GP client authentication. */
+	if (!g_ctx.f_client_login &&
+	    (identity->login_type != TEEC_LOGIN_PUBLIC)) {
+		MCDRV_DBG_WARN("Unsupported login type %d",
+			       identity->login_type);
+		return -EINVAL;
+	}
+
+	/* Copy login type */
+	mcp_identity->login_type = identity->login_type;
+
+	/* Fill in uid field */
+	if ((identity->login_type == TEEC_LOGIN_USER) ||
+	    (identity->login_type == TEEC_LOGIN_USER_APPLICATION)) {
+		/* Set euid and ruid of the process. */
+#if !defined(KUIDT_INIT) || defined(MC_UIDGID_OLDSTYLE)
+		mcp_id->uid.euid = current_euid();
+		mcp_id->uid.ruid = current_uid();
+#else
+		mcp_id->uid.euid = current_euid().val;
+		mcp_id->uid.ruid = current_uid().val;
+#endif
+	}
+
+	/* Check gid field */
+	if ((identity->login_type == TEEC_LOGIN_GROUP) ||
+	    (identity->login_type == TEEC_LOGIN_GROUP_APPLICATION)) {
+#if !defined(KUIDT_INIT) || defined(MC_UIDGID_OLDSTYLE)
+		gid_t gid = identity->gid;
+#else
+		kgid_t gid = {
+			.val = identity->gid,
+		};
+#endif
+		/* Check if gid is one of: egid of the process, its rgid or one
+		 * of its supplementary groups */
+		if (!in_egroup_p(gid) && !in_group_p(gid)) {
+			MCDRV_DBG("group %d not allowed", identity->gid);
+			return -EACCES;
+		}
+
+		MCDRV_DBG("group %d found", identity->gid);
+		mcp_id->gid = identity->gid;
+	}
+
+	switch (identity->login_type) {
+	case TEEC_LOGIN_PUBLIC:
+	case TEEC_LOGIN_USER:
+	case TEEC_LOGIN_GROUP:
+		break;
+	case TEEC_LOGIN_APPLICATION:
+		application = true;
+		data = NULL;
+		data_len = 0;
+		break;
+	case TEEC_LOGIN_USER_APPLICATION:
+		application = true;
+		data = &mcp_id->uid;
+		data_len = sizeof(mcp_id->uid);
+		break;
+	case TEEC_LOGIN_GROUP_APPLICATION:
+		application = true;
+		data = &identity->gid;
+		data_len = sizeof(identity->gid);
+		break;
+	default:
+		/* Any other login_type value is invalid. */
+		MCDRV_DBG_WARN("Invalid login type");
+		return -EINVAL;
+	}
+
+	if (application) {
+		if (hash_path_and_data(hash, data, data_len)) {
+			MCDRV_DBG("error in hash calculation");
+			return -EAGAIN;
+		}
+
+		memcpy(&mcp_id->login_data, hash, sizeof(mcp_id->login_data));
+	}
+
+	return 0;
 }
 
 /*
  * Create a session object.
  * Note: object is not attached to client yet.
  */
-struct tbase_session *session_create(struct tbase_client *client, uint32_t sid)
+struct tbase_session *session_create(struct tbase_client *client, bool is_gp,
+				     struct mc_identity *identity)
 {
 	struct tbase_session *session;
+	struct identity mcp_identity;
+
+	if (is_gp) {
+		/* Check identity method and data. */
+		int ret = check_prepare_identity(identity, &mcp_identity);
+
+		if (ret)
+			return ERR_PTR(ret);
+	}
 
 	/* Allocate session object */
 	session = kzalloc(sizeof(*session), GFP_KERNEL);
 	if (!session)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
+	mutex_init(&session->close_lock);
 	/* Initialise object members */
-	mutex_init(&session->lock);
+	mcp_session_init(&session->mcp_session, is_gp, &mcp_identity);
+	INIT_WORK(&session->mcp_session.close_work, session_close_worker);
 	session->client = client;
-	session->id = sid;
 	kref_init(&session->kref);
-	/* Get session to check early notifs */
-	session_get(session);
 	INIT_LIST_HEAD(&session->list);
-	session->last_error = NOTIF_OK;
-	INIT_LIST_HEAD(&session->wsm_list);
-	init_waitqueue_head(&session->nq);
-	session->nq_flag = false;
-	INIT_WORK(&session->close_work, session_close_worker);
-
+	mutex_init(&session->wsms_lock);
+	INIT_LIST_HEAD(&session->wsms);
+	MCDRV_DBG("created session %p: client %p", session, session->client);
 	return session;
 }
 
-/*
- * Move a session object to the closing list.
- * Needed for GP sessions that may linger there waiting for SWd ack.
- */
-void session_remove(struct tbase_session *session)
+int session_open(struct tbase_session *session, const struct tbase_object *obj,
+		 const struct tbase_mmu *obj_mmu, uintptr_t tci, size_t len)
 {
-	mutex_lock(&g_ctx.closing_lock);
-	if (likely(session))
-		list_move(&session->list, &g_ctx.closing_sess);
-	mutex_unlock(&g_ctx.closing_lock);
+	struct mcp_buffer_map map;
+
+	tbase_mmu_buffer(obj_mmu, &map);
+	/* Create wsm object for tci */
+	if (tci && len) {
+		struct tbase_wsm *wsm;
+		struct mcp_buffer_map tci_map;
+		int ret = 0;
+
+		mutex_lock(&session->wsms_lock);
+		wsm = wsm_create(session, tci, len);
+		if (IS_ERR(wsm))
+			ret = PTR_ERR(wsm);
+
+		mutex_unlock(&session->wsms_lock);
+		if (ret)
+			return ret;
+
+		tbase_mmu_buffer(wsm->mmu, &tci_map);
+		ret = mcp_open_session(&session->mcp_session, obj, &map,
+				       &tci_map);
+		if (ret) {
+			mutex_lock(&session->wsms_lock);
+			wsm_free(wsm);
+			mutex_unlock(&session->wsms_lock);
+		}
+
+		return ret;
+	}
+
+	if (tci || len) {
+		MCDRV_ERROR("Tci pointer and length are incoherent");
+		return -EINVAL;
+	}
+
+	return mcp_open_session(&session->mcp_session, obj, &map, NULL);
 }
 
 /*
  * Close TA and unreference session object.
  * Object will be freed if reference reaches 0.
- * Session object is assumed to have been removed from main list.
+ * Session object is assumed to have been removed from main list, which means
+ * that session_close cannot be called anymore.
  */
 int session_close(struct tbase_session *session)
 {
-	int err = 0;
+	int ret = 0;
 
 	if (!session)
 		return -ENXIO;
 
-	/* "if(list_empty)" must be atomic with "list_del_init" */
-	mutex_lock(&session->lock);
-
-	/* Check if already terminated. May happen if TA dies while we close */
-	if (list_empty(&session->list)) {
-		mutex_unlock(&session->lock);
-		return 0;
-	}
-
-	/* Close TA BEFORE session object cleanup, to prevent orphan wsm */
-	err = mcp_close_session(session->id);
-	if (!err) {
-		/* TA is closed, remove object from closing list */
-		mutex_lock(&g_ctx.closing_lock);
-		list_del_init(&session->list); /* init to allow list_empty */
-		mutex_unlock(&g_ctx.closing_lock);
-	}
-
-	mutex_unlock(&session->lock);
-
-	/* Handle NWd session object */
-	switch (err) {
+	mutex_lock(&session->close_lock);
+	switch (mcp_close_session(&session->mcp_session)) {
 	case 0:
-		/* Remove the ref we took on creation */
-		session_put(session);
+		/* TA is closed, remove from closing list */
+		mutex_lock(&g_ctx.closing_lock);
+		list_del(&session->list);
+		mutex_unlock(&g_ctx.closing_lock);
+		/* Remove the ref we took on creation, exit if session freed */
+		if (session_put(session))
+			return 0;
+
 		break;
 	case -EBUSY:
 		/*
@@ -143,68 +335,44 @@ int session_close(struct tbase_session *session)
 		 * will trigger a new call to session_close().
 		 * Return OK but do not unref.
 		 */
-		err = 0;
 		break;
 	default:
-		MCDRV_ERROR("Failed to close session %x in SWd: %d",
-			    session->id, err);
-		break;
+		MCDRV_ERROR("Failed to close session %x in SWd",
+			    session->mcp_session.id);
+		ret = -EPERM;
 	}
 
-	return err;
+	mutex_unlock(&session->close_lock);
+	return ret;
 }
 
 /*
  * Free session object and all objects it contains (wsm).
  */
-static void session_release(struct kref *kref)
+static void session_free(struct kref *kref)
 {
 	struct tbase_session *session;
 	struct tbase_wsm *wsm, *next;
 
 	/* Remove remaining shared buffers (unmapped in SWd by mcp_close) */
 	session = container_of(kref, struct tbase_session, kref);
-	list_for_each_entry_safe(wsm, next, &session->wsm_list, list) {
-		list_del(&wsm->list);
-		MCDRV_DBG("Removed WSM @ 0x%p", wsm->buff);
-		session_free_wsm(wsm);
+	list_for_each_entry_safe(wsm, next, &session->wsms, list) {
+		MCDRV_DBG("session %p: free wsm %p", session, wsm);
+		wsm_free(wsm);
 	}
 
+	MCDRV_DBG("freed session %p: client %p id %x",
+		  session, session->client, session->mcp_session.id);
 	kfree(session);
 }
 
 /*
  * Unreference session.
  * Free session object if reference reaches 0.
- * MUST be called OUTSIDE of session->lock
  */
-void session_put(struct tbase_session *session)
+int session_put(struct tbase_session *session)
 {
-	if (likely(session))
-		kref_put(&session->kref, session_release);
-}
-
-/*
- * Propagate a SWd notif to session object
- */
-void session_notify_nwd(struct tbase_session *session, int32_t error)
-{
-	/* Check parameters */
-	if (!session) {
-		MCDRV_ERROR("Session pointer is null");
-		return;
-	}
-
-	/* Set payload, without overwriting an existing one */
-	mutex_lock(&session->lock);
-	if (!session->last_error)
-		session->last_error = error;
-
-	mutex_unlock(&session->lock);
-
-	session->nq_flag = true;
-
-	wake_up_interruptible(&session->nq);
+	return kref_put(&session->kref, session_free);
 }
 
 /*
@@ -217,297 +385,395 @@ int session_notify_swd(struct tbase_session *session)
 		return -EINVAL;
 	}
 
-	return mc_dev_notify(session->id);
+	return mcp_notify(&session->mcp_session);
 }
 
 /*
- * Read and clear last code in notification received from TA.
+ * Read and clear last notification received from TA
  */
-int32_t session_get_err(struct tbase_session *session)
+int32_t session_exitcode(struct tbase_session *session)
 {
-	int32_t code;
-
-	mutex_lock(&session->lock);
-	code = session->last_error;
-	session->last_error = 0;
-	mutex_unlock(&session->lock);
-
-	return code;
-}
-
-/*
- * Allocate a WSM object
- */
-struct tbase_wsm *session_alloc_wsm(void *buf, uint32_t len, uint32_t sva,
-				    struct tbase_mmu *table,
-				    struct tbase_cbuf *cbuf)
-{
-	struct tbase_wsm *wsm = kzalloc(sizeof(*wsm), GFP_KERNEL);
-
-	if (wsm) {
-		wsm->buff = buf;
-		wsm->len = len;
-		wsm->s_buff = sva;
-		wsm->table = table;
-		wsm->cbuf = cbuf;
-		INIT_LIST_HEAD(&wsm->list);
-	}
-	return wsm;
+	return mcp_session_exitcode(&session->mcp_session);
 }
 
 /*
  * Free a WSM object
  */
-void session_free_wsm(struct tbase_wsm *wsm)
+static void wsm_free(struct tbase_wsm *wsm)
 {
+	/* Remove wsm from its parent session's list */
+	list_del(&wsm->list);
 	/* Free MMU table */
-	if (wsm->table)
-		tbase_mmu_delete(wsm->table);
+	if (!IS_ERR_OR_NULL(wsm->mmu))
+		tbase_mmu_delete(wsm->mmu);
 
 	/* Unref cbuf if applicable */
 	if (wsm->cbuf)
 		tbase_cbuf_put(wsm->cbuf);
 
 	/* Delete wsm object */
+	MCDRV_DBG("freed wsm %p: mmu %p cbuf %p va %lx len %u",
+		  wsm, wsm->mmu, wsm->cbuf, wsm->va, wsm->len);
 	kfree(wsm);
 }
 
-/*
- * Add a WSM object to session object.
- * Assume session lock is already taken, or no need to.
- */
-void session_link_wsm(struct tbase_session *session, struct tbase_wsm *wsm)
+static struct tbase_wsm *wsm_create(struct tbase_session *session,
+				    uintptr_t buf, uint32_t len)
 {
-	list_add(&wsm->list, &session->wsm_list);
+	struct tbase_wsm *wsm;
+	struct task_struct *task = NULL;
+	uintptr_t va;
+	int ret;
+
+	/* Allocate structure */
+	wsm = kzalloc(sizeof(*wsm), GFP_KERNEL);
+	if (!wsm) {
+		ret = -ENOMEM;
+		goto err_no_wsm;
+	}
+
+	/* Add wsm to list so destroy can find it */
+	list_add(&wsm->list, &session->wsms);
+
+	/* Check if buffer is contained in a cbuf */
+	wsm->cbuf = tbase_cbuf_get_by_addr(session->client, buf);
+	if (wsm->cbuf) {
+		uintptr_t offset;
+
+		if (client_is_kernel(session->client))
+			offset = buf - tbase_cbuf_addr(wsm->cbuf);
+		else
+			offset = buf - tbase_cbuf_uaddr(wsm->cbuf);
+
+		if ((offset + len) > tbase_cbuf_len(wsm->cbuf)) {
+			ret = -EINVAL;
+			MCDRV_ERROR("crosses cbuf boundary");
+			goto err;
+		}
+		/* Provide kernel virtual address */
+		va = tbase_cbuf_addr(wsm->cbuf) + offset;
+	} else {
+		/* Not a cbuf. va is uva or kva depending on client. */
+		/* Provide "task" if client is user */
+		va = buf;
+		if (!client_is_kernel(session->client))
+			task = current;
+	}
+
+	/* Build MMU table for buffer */
+	wsm->mmu = tbase_mmu_create(task, (void *)va, len);
+	if (IS_ERR(wsm->mmu)) {
+		ret = PTR_ERR(wsm->mmu);
+		goto err;
+	}
+
+	wsm->va = buf;
+	wsm->len = len;
+	MCDRV_DBG("created wsm %p: mmu %p cbuf %p va %lx len %u",
+		  wsm, wsm->mmu, wsm->cbuf, wsm->va, wsm->len);
+	goto end;
+
+err:
+	wsm_free(wsm);
+err_no_wsm:
+	wsm = ERR_PTR(ret);
+end:
+	return wsm;
+}
+
+static inline int wsm_check(struct tbase_session *session,
+			    struct mc_ioctl_buffer *buf)
+{
+	struct tbase_wsm *wsm;
+
+	list_for_each_entry(wsm, &session->wsms, list) {
+		if ((buf->va < (wsm->va + wsm->len)) &&
+		    ((buf->va + buf->len) > wsm->va)) {
+			MCDRV_ERROR("buffer %lx overlaps with existing wsm",
+				    wsm->va);
+			return -EADDRINUSE;
+		}
+	}
+
+	return 0;
+}
+
+static inline struct tbase_wsm *wsm_find(struct tbase_session *session,
+					 uintptr_t va)
+{
+	struct tbase_wsm *wsm;
+
+	list_for_each_entry(wsm, &session->wsms, list)
+		if (wsm->va == va)
+			return wsm;
+
+	return NULL;
+}
+
+static inline int wsm_info(struct tbase_wsm *wsm, struct kasnprintf_buf *buf)
+{
+	ssize_t ret;
+
+	ret = kasnprintf(buf, "\t\twsm %p: mmu %p cbuf %p va %lx len %u\n",
+			 wsm, wsm->mmu, wsm->cbuf, wsm->va, wsm->len);
+	if (ret < 0)
+		return ret;
+
+	if (wsm->mmu) {
+		ret = tbase_mmu_info(wsm->mmu, buf);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
 }
 
 /*
- * Share a buffer with SWd and add corresponding WSM object to session.
+ * Share buffers with SWd and add corresponding WSM objects to session.
  */
-int session_add_wsm(struct tbase_session *session, void *buf, uint32_t len,
-		    uint32_t *p_sva)
+int session_wsms_add(struct tbase_session *session,
+		     struct mc_ioctl_buffer *bufs)
 {
-	int err = 0;
-	struct tbase_cbuf *cbuf = NULL;
-	struct tbase_mmu *mmu = NULL;
-	struct tbase_wsm *wsm = NULL;
-	void *va;
-	size_t offset;
-	struct task_struct *task = NULL;
-	uint32_t sva = 0;
+	struct mc_ioctl_buffer *buf;
+	struct mcp_buffer_map maps[MC_MAP_MAX];
+	struct mcp_buffer_map *map;
+	int i, ret = 0;
+	uint32_t n_null_buf = 0;
 
 	/* Check parameters */
 	if (!session)
 		return -ENXIO;
 
 	/* Lock the session */
-	mutex_lock(&session->lock);
+	mutex_lock(&session->wsms_lock);
 
-	/*
-	 * Search wsm list for overlaps.
-	 * At the moment a buffer can only be shared once per session.
-	 */
-	list_for_each_entry(wsm, &session->wsm_list, list) {
-		if (buf < (wsm->buff + wsm->len) && (buf + len) > wsm->buff) {
-			MCDRV_ERROR("Buffer @ 0x%p overlaps with existing wsm",
-				    wsm->buff);
-			err = -EADDRINUSE;
+	for (i = 0, buf = bufs, map = maps; i < MC_MAP_MAX; i++, buf++, map++) {
+		if (!buf->va) {
+			n_null_buf++;
+			continue;
+		}
+
+		/* Avoid mapping overlaps */
+		if (wsm_check(session, buf)) {
+			ret = -EADDRINUSE;
+			MCDRV_ERROR("maps[%d] va=%llx already map'd", i,
+				    buf->va);
 			goto unlock;
 		}
 	}
 
-	do {
-		/* Check if buffer is contained in a cbuf */
-		cbuf = tbase_cbuf_get_by_addr(session->client, buf);
-		if (cbuf) {
-			if (client_is_kernel(session->client))
-				offset = buf - tbase_cbuf_addr(cbuf);
-			else
-				offset = buf - tbase_cbuf_uaddr(cbuf);
-
-			if ((offset + len) > tbase_cbuf_len(cbuf)) {
-				err = -EINVAL;
-				MCDRV_ERROR("crosses cbuf boundary");
-				break;
-			}
-			/* Provide kernel virtual address */
-			va = tbase_cbuf_addr(cbuf) + offset;
-			task = NULL;
-		}
-		/* Not a cbuf. va is uva or kva depending on client. */
-		/* Provide "task" if client is user */
-		else {
-			va = buf;
-			if (!client_is_kernel(session->client))
-				task = current;
-		}
-
-		/* Build MMU table for buffer */
-		mmu = tbase_mmu_create(task, va, len);
-		if (IS_ERR(mmu)) {
-			err = PTR_ERR(mmu);
-			mmu = NULL;
-			break;
-		}
-
-		/* Send MCP message to map buffer in SWd */
-		err = mcp_map(session->id, buf, len, mmu, &sva);
-		if (err)
-			break;
-
-		/* Alloc wsm object */
-		wsm = session_alloc_wsm(buf, len, sva, mmu, cbuf);
-		if (!wsm) {
-			err = -ENOMEM;
-			break;
-		}
-
-		/* Add wsm to list */
-		session_link_wsm(session, wsm);
-
-	} while (0);
-
-	/* Fill in return parameter */
-	if (!err) {
-		*p_sva = sva;
-	} else {
-		/* Cleanup if error */
-		*p_sva = 0;
-		if (cbuf)
-			tbase_cbuf_put(cbuf);
-
-		if (sva)
-			mcp_unmap(session->id, sva, len, mmu);
-
-		if (mmu)
-			tbase_mmu_delete(mmu);
+	if (n_null_buf >= MC_MAP_MAX) {
+		ret = -EINVAL;
+		MCDRV_ERROR("va=NULL");
+		goto unlock;
 	}
 
-	/* Unlock the session */
-unlock:
-	mutex_unlock(&session->lock);
+	for (i = 0, buf = bufs, map = maps; i < MC_MAP_MAX; i++, buf++, map++) {
+		struct tbase_wsm *wsm;
 
-	return err;
+		if (!buf->va) {
+			map->type = WSM_INVALID;
+			continue;
+		}
+
+		wsm = wsm_create(session, buf->va, buf->len);
+		if (IS_ERR(wsm)) {
+			ret = PTR_ERR(wsm);
+			MCDRV_ERROR("maps[%d] va=%llx create failed: %d", i,
+				    buf->va, ret);
+			goto end;
+		}
+
+		tbase_mmu_buffer(wsm->mmu, map);
+		MCDRV_DBG("maps[%d] va=%llx: t:%u a:%llx o:%u l:%u", i, buf->va,
+			  map->type, map->phys_addr, map->offset, map->length);
+	}
+
+	/* Map buffers */
+	if (g_ctx.f_multimap) {
+		/* Send MCP message to map buffers in SWd */
+		ret = mcp_multimap(session->mcp_session.id, maps);
+		if (ret)
+			MCDRV_ERROR("multimap failed: %d", ret);
+	} else {
+		/* Map each buffer */
+		for (i = 0, buf = bufs, map = maps; i < MC_MAP_MAX; i++, buf++,
+		     map++) {
+			if (!buf->va)
+				continue;
+
+			/* Send MCP message to map buffer in SWd */
+			ret = mcp_map(session->mcp_session.id, map);
+			if (ret) {
+				MCDRV_ERROR("maps[%d] va=%llx map failed: %d",
+					    i, buf->va, ret);
+				break;
+			}
+		}
+	}
+
+end:
+	for (i = 0, buf = bufs, map = maps; i < MC_MAP_MAX; i++, buf++, map++) {
+		struct tbase_wsm *wsm = wsm_find(session, buf->va);
+
+		if (!buf->va)
+			continue;
+
+		if (ret) {
+			if (!wsm)
+				break;
+
+			/* Destroy mapping */
+			wsm_free(wsm);
+		} else {
+			/* Store mapping */
+			buf->sva = map->secure_va;
+			wsm->sva = buf->sva;
+			MCDRV_DBG("maps[%d] va=%llx map'd len=%u sva=%llx",
+				  i, buf->va, buf->len, buf->sva);
+		}
+	}
+
+unlock:
+	/* Unlock the session */
+	mutex_unlock(&session->wsms_lock);
+	return ret;
 }
 
 /*
- * Stop sharing buffer and delete corrsponding WSM object.
+ * Stop sharing buffers and delete corrsponding WSM objects.
  */
-int session_remove_wsm(struct tbase_session *session, void *buf, uint32_t sva,
-		       uint32_t len)
+int session_wsms_remove(struct tbase_session *session,
+			const struct mc_ioctl_buffer *bufs)
 {
-	struct tbase_wsm *wsm = NULL, *candidate;
-	int err = 0;
+	const struct mc_ioctl_buffer *buf;
+	struct mcp_buffer_map maps[MC_MAP_MAX];
+	struct mcp_buffer_map *map;
+	int i, ret = 0;
+	uint32_t n_null_buf = 0;
 
-	if (!buf) {
-		MCDRV_ERROR("buf is null");
-		return -EINVAL;
-	}
 	if (!session) {
 		MCDRV_ERROR("session pointer is null");
 		return -EINVAL;
 	}
 
 	/* Lock the session */
-	mutex_lock(&session->lock);
+	mutex_lock(&session->wsms_lock);
 
-	do {
-		/* Find buffer */
-		list_for_each_entry(candidate, &session->wsm_list, list) {
-			if (candidate->buff == buf)
-				wsm = candidate;
+	/* Find, check and map buffer */
+	for (i = 0, buf = bufs, map = maps; i < MC_MAP_MAX; i++, buf++, map++) {
+		struct tbase_wsm *wsm;
+
+		if (!buf->va) {
+			n_null_buf++;
+			map->secure_va = 0;
+			continue;
 		}
 
+		wsm = wsm_find(session, buf->va);
 		if (!wsm) {
-			err = -EADDRNOTAVAIL;
-			break;
+			ret = -EADDRNOTAVAIL;
+			MCDRV_ERROR("maps[%d] va=%llx not found", i,
+				    buf->va);
+			goto out;
 		}
 
-		/* Check input params coherency */
-		/* CPI TODO: Fix the spec, "len" is NOT ignored anymore */
-		if ((wsm->s_buff != sva) || (wsm->len != len)) {
-			err = -EINVAL;
-			break;
+		/* Check input params consistency */
+		/* TODO: fix the spec, "len" is NOT ignored anymore */
+		if ((wsm->sva != buf->sva) || (wsm->len != buf->len)) {
+			MCDRV_ERROR("maps[%d] va=%llx no match: %x != %llx",
+				    i, buf->va, wsm->sva, buf->sva);
+			MCDRV_ERROR("maps[%d] va=%llx no match: %u != %u",
+				    i, buf->va, wsm->len, buf->len);
+			ret = -EINVAL;
+			goto out;
 		}
 
-		/* Send MCP command to unmap buffer in SWd */
-		err = mcp_unmap(session->id, (uint32_t)wsm->s_buff, wsm->len,
-				wsm->table);
-		if (err)
-			break;
+		tbase_mmu_buffer(wsm->mmu, map);
+		map->secure_va = buf->sva;
+		MCDRV_DBG("maps[%d] va=%llx: t:%u a:%llx o:%u l:%u s:%llx", i,
+			  buf->va, map->type, map->phys_addr, map->offset,
+			  map->length, map->secure_va);
+	}
 
-		/* Remove wsm from the list of its owner session */
-		list_del(&wsm->list);
+	if (n_null_buf >= MC_MAP_MAX) {
+		ret = -EINVAL;
+		MCDRV_ERROR("va=NULL");
+		goto out;
+	}
+
+	if (g_ctx.f_multimap) {
+		/* Send MCP command to unmap buffers in SWd */
+		ret = mcp_multiunmap(session->mcp_session.id, maps);
+		if (ret)
+			MCDRV_ERROR("mcp_multiunmap failed: %d", ret);
+	} else {
+		for (i = 0, buf = bufs, map = maps; i < MC_MAP_MAX;
+		     i++, buf++, map++) {
+			if (!buf->va)
+				continue;
+
+			/* Send MCP command to unmap buffer in SWd */
+			ret = mcp_unmap(session->mcp_session.id, map);
+			if (ret) {
+				MCDRV_ERROR("maps[%d] va=%llx unmap failed: %d",
+					    i, buf->va, ret);
+				break;
+			}
+		}
+	}
+
+	for (i = 0, buf = bufs; i < MC_MAP_MAX; i++, buf++) {
+		struct tbase_wsm *wsm = wsm_find(session, buf->va);
+
+		if (!wsm)
+			break;
 
 		/* Free wsm */
-		session_free_wsm(wsm);
+		wsm_free(wsm);
+		MCDRV_DBG("maps[%d] va=%llx unmap'd len=%u sva=%llx", i,
+			  buf->va, buf->len, buf->sva);
+	}
 
-	} while (0);
-
-	mutex_unlock(&session->lock);
-
-	return err;
+out:
+	mutex_unlock(&session->wsms_lock);
+	return ret;
 }
 
 /*
  * Sleep until next notification from SWd.
  */
-int session_wait(struct tbase_session *session, int32_t timeout)
+int session_waitnotif(struct tbase_session *session, int32_t timeout)
 {
-	int err = 1; /* impossible value */
+	return mcp_session_waitnotif(&session->mcp_session, timeout);
+}
+
+int session_info(struct tbase_session *session, struct kasnprintf_buf *buf)
+{
+	struct tbase_wsm *wsm;
+	int32_t exit_code = mcp_session_exitcode(&session->mcp_session);
 	int ret;
-	bool infinite = false;
-	unsigned long jiffies = 0;
 
-	if (!session) {
-		MCDRV_ERROR("session pointer is null");
-		return -EINVAL;
+	ret = kasnprintf(buf, "\tsession %p: %x rc %d\n", session,
+			 session->mcp_session.id, exit_code);
+	if (ret < 0)
+		return ret;
+
+	/* WMSs */
+	mutex_lock(&session->wsms_lock);
+	if (list_empty(&session->wsms))
+		goto done;
+
+	list_for_each_entry(wsm, &session->wsms, list) {
+		ret = wsm_info(wsm, buf);
+		if (ret < 0)
+			goto done;
 	}
 
-	/* Translate timeout into jiffies */
-	if (timeout < 0) {
-		/* Wake up every 1sec to check that session is still alive */
-		timeout = 1000;
-		infinite = true;
-	}
-	jiffies = (unsigned long)timeout * HZ / 1000;
+done:
+	mutex_unlock(&session->wsms_lock);
+	if (ret < 0)
+		return ret;
 
-	/*
-	 * Only case we loop is on "1sec check" with session still alive.
-	 * Session lock not needed since each session action is atomic
-	 * and depends only on "ret".
-	 */
-	do {
-		ret = wait_event_interruptible_timeout(session->nq,
-						       session->nq_flag,
-						       jiffies);
-		session->nq_flag = false;
-
-		/* Timeout */
-		if (!ret) {
-			if (infinite) {
-				if (list_empty(&session->list)) {
-					/* Detached <=> TA closed */
-					err = -ENXIO;
-				}
-			} else {
-				err = -ETIME;
-			}
-		}
-
-		/* We did receive a notification */
-		else if (ret > 0) {
-			/* Handle notif payload */
-			if (NOTIF_OK != session->last_error)
-				err = -ECOMM;
-			else
-				err = 0;
-		}
-
-		/* We have been interrupted (-ERESTARTSYS) */
-		else
-			err = ret;
-	} while (err == 1);
-
-	return err;
+	return 0;
 }

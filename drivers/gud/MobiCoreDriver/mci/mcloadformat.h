@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014 TRUSTONIC LIMITED
+ * Copyright (c) 2013-2015 TRUSTONIC LIMITED
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -17,6 +17,16 @@
 /** Trustlet Blob length info */
 #define MC_TLBLOBLEN_MAGIC	0x7672746C	/* Magic for SWd: vrtl */
 #define MAX_SO_CONT_SIZE	512		/* Max size for a container */
+
+/** MCLF flags */
+/**< Loaded service cannot be unloaded from MobiCore. */
+#define MC_SERVICE_HEADER_FLAGS_PERMANENT		BIT(0)
+/**< Service has no WSM control interface. */
+#define MC_SERVICE_HEADER_FLAGS_NO_CONTROL_INTERFACE	BIT(1)
+/**< Service can be debugged. */
+#define MC_SERVICE_HEADER_FLAGS_DEBUGGABLE		BIT(2)
+/**< New-layout trusted application or trusted driver. */
+#define MC_SERVICE_HEADER_FLAGS_EXTENDED_LAYOUT		BIT(3)
 
 /** Service type.
  * The service type defines the type of executable.
@@ -53,6 +63,16 @@ struct mclf_intro {
  *
  * @addtogroup MCLF_VER_V2
  */
+
+/*
+ * GP TA identity.
+ */
+struct identity {
+	/**< GP TA login type */
+	uint32_t		login_type;
+	/**< GP TA login data */
+	uint8_t			login_data[16];
+};
 
 /**
  * Version 2.1/2.2 MCLF header.

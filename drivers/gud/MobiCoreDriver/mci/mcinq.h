@@ -49,7 +49,7 @@ struct notification {
  * a negative value is a termination reason from MobiCore.
  * Possible negative values are given below.
  */
-enum  notification_payload {
+enum notification_payload {
 	/** task terminated, but exit code is invalid */
 	ERR_INVALID_EXIT_CODE = -1,
 	/** task terminated due to session end, no exit code available */
