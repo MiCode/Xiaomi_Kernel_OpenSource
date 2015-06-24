@@ -12,6 +12,9 @@ Required properties:
 - qcom,target-dev:	The DT device that is monitored by this MSM CCI
 			counter configuration.
 
+Optional properties:
+- qcom,secure-io	Indicates register access are secured.
+
 Example:
 	qcom,msmcci-hwmon {
 		compatible = "qcom,msmcci-hwmon";

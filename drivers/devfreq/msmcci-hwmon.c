@@ -29,14 +29,14 @@
 #include <soc/qcom/scm.h>
 #include "governor_cache_hwmon.h"
 
-#define EVNT_SEL(m, i)			((m)->base[i] + 0x0)
-#define EVNT_CNT_MATCH_VAL(m, i)	((m)->base[i] + 0x18)
-#define MATCH_FLG(m, i)			((m)->base[i] + 0x30)
-#define MATCH_FLG_CLR(m, i)		((m)->base[i] + 0x48)
-#define OVR_FLG(m, i)			((m)->base[i] + 0x60)
-#define OVR_FLG_CLR(m, i)		((m)->base[i] + 0x78)
-#define CNT_CTRL(m, i)			((m)->base[i] + 0x94)
-#define CNT_VALUE(m, i)			((m)->base[i] + 0xAC)
+#define	EVNT_SEL		 0x0
+#define	EVNT_CNT_MATCH_VAL	 0x18
+#define	MATCH_FLG		 0x30
+#define	MATCH_FLG_CLR		 0x48
+#define	OVR_FLG			 0x60
+#define	OVR_FLG_CLR		 0x78
+#define	CNT_CTRL		 0x94
+#define	CNT_VALUE		 0xAC
 
 #define ENABLE_OVR_FLG		BIT(4)
 #define ENABLE_MATCH_FLG	BIT(5)
@@ -50,7 +50,11 @@
 
 struct msmcci_hwmon {
 	struct list_head list;
-	phys_addr_t base[MAX_NUM_GROUPS];
+
+	union {
+		phys_addr_t phys_base[MAX_NUM_GROUPS];
+		void __iomem *virt_base[MAX_NUM_GROUPS];
+	};
 	int irq[MAX_NUM_GROUPS];
 	u32 event_sel[MAX_NUM_GROUPS];
 	int num_counters;
@@ -68,6 +72,7 @@ struct msmcci_hwmon {
 
 	struct cache_hwmon hw;
 	struct device *dev;
+	bool secure_io;
 };
 
 #define to_mon(ptr) container_of(ptr, struct msmcci_hwmon, hw)
@@ -78,12 +83,34 @@ static DEFINE_MUTEX(list_lock);
 static int use_cnt;
 static DEFINE_MUTEX(notifier_reg_lock);
 
+static inline int write_mon_reg(struct msmcci_hwmon *m, int idx,
+				unsigned long offset, u32 value)
+{
+	int ret = 0;
+
+	if (m->secure_io)
+		ret = scm_io_write(m->phys_base[idx] + offset, value);
+	else
+		writel_relaxed(value, m->virt_base[idx] + offset);
+
+	return ret;
+}
+
+static inline u32 read_mon_reg(struct msmcci_hwmon *m, int idx,
+			       unsigned long offset)
+{
+	if (m->secure_io)
+		return scm_io_read(m->phys_base[idx] + offset);
+	else
+		return readl_relaxed(m->virt_base[idx] + offset);
+}
+
 static int mon_init(struct msmcci_hwmon *m)
 {
 	int ret, i;
 
 	for (i = 0; i < m->num_counters; i++) {
-		ret = scm_io_write(EVNT_SEL(m, i), m->event_sel[i]);
+		ret = write_mon_reg(m, i, EVNT_SEL, m->event_sel[i]);
 		if (ret)
 			return ret;
 	}
@@ -95,7 +122,7 @@ static void mon_enable(struct msmcci_hwmon *m)
 	int i;
 
 	for (i = 0; i < m->num_counters; i++)
-		scm_io_write(CNT_CTRL(m, i), CNT_ENABLE);
+		write_mon_reg(m, i, CNT_CTRL, CNT_ENABLE);
 }
 
 static void mon_disable(struct msmcci_hwmon *m)
@@ -103,30 +130,30 @@ static void mon_disable(struct msmcci_hwmon *m)
 	int i;
 
 	for (i = 0; i < m->num_counters; i++)
-		scm_io_write(CNT_CTRL(m, i), CNT_DISABLE);
+		write_mon_reg(m, i, CNT_CTRL, CNT_DISABLE);
 }
 
 static bool mon_is_match_flag_set(struct msmcci_hwmon *m, int idx)
 {
-	return (bool)scm_io_read(MATCH_FLG(m, idx));
+	return (bool)read_mon_reg(m, idx, MATCH_FLG);
 }
 
 /* mon_clear_single() can only be called when monitor is disabled */
 static void mon_clear_single(struct msmcci_hwmon *m, int idx)
 {
-	scm_io_write(CNT_CTRL(m, idx), CNT_RESET);
-	scm_io_write(CNT_CTRL(m, idx), CNT_RESET_CLR);
+	write_mon_reg(m, idx, CNT_CTRL, CNT_RESET);
+	write_mon_reg(m, idx, CNT_CTRL, CNT_RESET_CLR);
 	/* reset counter before match/overflow flags are cleared */
 	mb();
-	scm_io_write(MATCH_FLG_CLR(m, idx), 1);
-	scm_io_write(MATCH_FLG_CLR(m, idx), 0);
-	scm_io_write(OVR_FLG_CLR(m, idx), 1);
-	scm_io_write(OVR_FLG_CLR(m, idx), 0);
+	write_mon_reg(m, idx, MATCH_FLG_CLR, 1);
+	write_mon_reg(m, idx, MATCH_FLG_CLR, 0);
+	write_mon_reg(m, idx, OVR_FLG_CLR, 1);
+	write_mon_reg(m, idx, OVR_FLG_CLR, 0);
 }
 
 static void mon_set_limit_single(struct msmcci_hwmon *m, int idx, u32 limit)
 {
-	scm_io_write(EVNT_CNT_MATCH_VAL(m, idx), limit);
+	write_mon_reg(m, idx, EVNT_CNT_MATCH_VAL, limit);
 }
 
 static irqreturn_t msmcci_hwmon_intr_handler(int irq, void *dev)
@@ -168,8 +195,8 @@ static unsigned long mon_read_count_single(struct msmcci_hwmon *m, int idx)
 {
 	unsigned long count, ovr;
 
-	count = scm_io_read(CNT_VALUE(m, idx));
-	ovr = scm_io_read(OVR_FLG(m, idx));
+	count = read_mon_reg(m, idx, CNT_VALUE);
+	ovr = read_mon_reg(m, idx, OVR_FLG);
 	if (ovr == 1) {
 		count += 0xFFFFFFFFUL;
 		dev_warn(m->dev, "Counter[%d]: overflowed\n", idx);
@@ -428,7 +455,17 @@ static int msmcci_hwmon_parse_dt(struct platform_device *pdev,
 	res = platform_get_resource(pdev, IORESOURCE_MEM, idx);
 	if (!res)
 		return (idx == HIGH) ? -EINVAL : 0;
-	m->base[idx] = res->start;
+
+	if (m->secure_io)
+		m->phys_base[idx] = res->start;
+	else {
+		m->virt_base[idx] = devm_ioremap(&pdev->dev, res->start,
+						resource_size(res));
+		if (!m->virt_base[idx]) {
+			dev_err(dev, "failed to ioremap\n");
+			return -ENOMEM;
+		}
+	}
 
 	ret = of_property_read_u32_index(pdev->dev.of_node,
 				"qcom,counter-event-sel", idx, &sel);
@@ -458,6 +495,9 @@ static int msmcci_hwmon_driver_probe(struct platform_device *pdev)
 	if (!m)
 		return -ENOMEM;
 	m->dev = &pdev->dev;
+
+	m->secure_io = of_property_read_bool(pdev->dev.of_node,
+					"qcom,secure-io");
 
 	ret = msmcci_hwmon_parse_dt(pdev, m, HIGH);
 	if (ret)
