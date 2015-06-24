@@ -326,11 +326,10 @@ static struct alpha_pll_clk mmpll5 = {
 	.enable_config = 0x1,
 	.c = {
 		.parent = &mmsscc_xo.c,
-		.rate = 960000000,
+		.rate = 800000000,
 		.dbg_name = "mmpll5",
 		.ops = &clk_ops_fixed_alpha_pll,
-		VDD_DIG_FMAX_MAP3(LOWER, 480000000, LOW, 480000000,
-				  NOMINAL, 960000000),
+		VDD_DIG_FMAX_MAP2(LOWER, 400000000, LOW, 800000000),
 		CLK_INIT(mmpll5.c),
 	},
 };
@@ -522,14 +521,10 @@ static struct rcg_clk jpeg0_clk_src = {
 
 static struct clk_freq_tbl ftbl_mdp_clk_src[] = {
 	F_MM(  85710000,     mmsscc_gpll0,    7,    0,     0),
-	F_MM( 100000000,     mmsscc_gpll0,    6,    0,     0),
-	F_MM( 120000000,     mmsscc_gpll0,    5,    0,     0),
-	F_MM( 150000000,     mmsscc_gpll0,    4,    0,     0),
 	F_MM( 171430000,     mmsscc_gpll0,  3.5,    0,     0),
 	F_MM( 200000000,     mmsscc_gpll0,    3,    0,     0),
 	F_MM( 240000000,     mmsscc_gpll0,  2.5,    0,     0),
-	F_MM( 266670000,  mmpll0_out_main,    3,    0,     0),
-	F_MM( 300000000,     mmsscc_gpll0,    2,    0,     0),
+	F_MM( 266670000,  mmpll5_out_main,    3,    0,     0),
 	F_MM( 320000000,  mmpll0_out_main,  2.5,    0,     0),
 	F_MM( 400000000,  mmpll0_out_main,    2,    0,     0),
 	F_END
@@ -544,7 +539,7 @@ static struct rcg_clk mdp_clk_src = {
 	.c = {
 		.dbg_name = "mdp_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP4(LOWER, 85710000, LOW, 171430000,
+		VDD_DIG_FMAX_MAP4(LOWER, 85710000, LOW, 266670000,
 				  NOMINAL, 320000000, HIGH, 400000000),
 		CLK_INIT(mdp_clk_src.c),
 	},
