@@ -101,12 +101,16 @@ static int mdss_smmu_clk_register(struct platform_device *pdev,
 	return 0;
 }
 
-static int mdss_smmu_enable_power(struct dss_module_power *mp, bool enable)
+static int mdss_smmu_enable_power(struct mdss_smmu_client *mdss_smmu,
+	bool enable)
 {
 	int rc = 0;
+	struct dss_module_power *mp;
 
-	if (!mp)
+	if (!mdss_smmu)
 		return -EINVAL;
+
+	mp = &mdss_smmu->mp;
 
 	if (enable) {
 		rc = msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, true);
@@ -114,18 +118,21 @@ static int mdss_smmu_enable_power(struct dss_module_power *mp, bool enable)
 			pr_err("vreg enable failed - rc:%d\n", rc);
 			goto end;
 		}
-		mdss_update_reg_bus_vote(VOTE_INDEX_19_MHZ);
+		mdss_update_reg_bus_vote(mdss_smmu->reg_bus_clt,
+			VOTE_INDEX_19_MHZ);
 		rc = msm_dss_enable_clk(mp->clk_config, mp->num_clk, true);
 		if (rc) {
 			pr_err("clock enable failed - rc:%d\n", rc);
-			mdss_update_reg_bus_vote(VOTE_INDEX_DISABLE);
+			mdss_update_reg_bus_vote(mdss_smmu->reg_bus_clt,
+				VOTE_INDEX_DISABLE);
 			msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg,
 				false);
 			goto end;
 		}
 	} else {
 		msm_dss_enable_clk(mp->clk_config, mp->num_clk, false);
-		mdss_update_reg_bus_vote(VOTE_INDEX_DISABLE);
+		mdss_update_reg_bus_vote(mdss_smmu->reg_bus_clt,
+			VOTE_INDEX_DISABLE);
 		msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, false);
 	}
 end:
@@ -144,7 +151,6 @@ static int mdss_smmu_attach_v2(struct mdss_data_type *mdata)
 {
 	struct mdss_smmu_client *mdss_smmu;
 	int i, rc = 0;
-	struct dss_module_power *mp;
 
 	for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
 		if (!mdss_smmu_is_valid_domain_type(mdata, i))
@@ -152,9 +158,8 @@ static int mdss_smmu_attach_v2(struct mdss_data_type *mdata)
 
 		mdss_smmu = mdss_smmu_get_cb(i);
 		if (mdss_smmu->dev) {
-			mp = &mdss_smmu->mp;
 			if (!mdss_smmu->handoff_pending) {
-				rc = mdss_smmu_enable_power(mp, true);
+				rc = mdss_smmu_enable_power(mdss_smmu, true);
 				if (rc) {
 					pr_err("power enable failed - domain:[%d] rc:%d\n",
 						i, rc);
@@ -169,7 +174,8 @@ static int mdss_smmu_attach_v2(struct mdss_data_type *mdata)
 				if (rc) {
 					pr_err("iommu attach device failed for domain[%d] with err:%d\n",
 						i, rc);
-					mdss_smmu_enable_power(mp, false);
+					mdss_smmu_enable_power(mdss_smmu,
+						false);
 					goto err;
 				}
 				mdss_smmu->domain_attached = true;
@@ -186,9 +192,8 @@ err:
 	for (i--; i >= 0; i--) {
 		mdss_smmu = mdss_smmu_get_cb(i);
 		if (mdss_smmu->dev) {
-			mp = &mdss_smmu->mp;
 			arm_iommu_detach_device(mdss_smmu->dev);
-			mdss_smmu_enable_power(mp, false);
+			mdss_smmu_enable_power(mdss_smmu, false);
 			mdss_smmu->domain_attached = false;
 		}
 	}
@@ -214,7 +219,7 @@ static int mdss_smmu_detach_v2(struct mdss_data_type *mdata)
 		mdss_smmu = mdss_smmu_get_cb(i);
 		if (mdss_smmu->dev) {
 			mp = &mdss_smmu->mp;
-			mdss_smmu_enable_power(mp, false);
+			mdss_smmu_enable_power(mdss_smmu, false);
 		}
 	}
 	return 0;
@@ -566,12 +571,18 @@ int mdss_smmu_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	rc = mdss_smmu_enable_power(mp, true);
-	if (rc) {
-		pr_err("power enable failed - domain:[%d] rc:%d\n", domain, rc);
+	mdss_smmu->reg_bus_clt = mdss_reg_bus_vote_client_create();
+	if (IS_ERR_OR_NULL(mdss_smmu->reg_bus_clt)) {
+		pr_err("mdss bus client register failed\n");
 		msm_dss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg,
 			false);
-		return rc;
+		return PTR_ERR(mdss_smmu->reg_bus_clt);
+	}
+
+	rc = mdss_smmu_enable_power(mdss_smmu, true);
+	if (rc) {
+		pr_err("power enable failed - domain:[%d] rc:%d\n", domain, rc);
+		goto bus_client_destroy;
 	}
 
 	mdss_smmu->mmu_mapping = arm_iommu_create_mapping(
@@ -601,7 +612,7 @@ int mdss_smmu_probe(struct platform_device *pdev)
 	}
 
 	if (!mdata->handoff_pending)
-		mdss_smmu_enable_power(mp, false);
+		mdss_smmu_enable_power(mdss_smmu, false);
 	else
 		mdss_smmu->handoff_pending = true;
 
@@ -613,7 +624,10 @@ int mdss_smmu_probe(struct platform_device *pdev)
 release_mapping:
 	arm_iommu_release_mapping(mdss_smmu->mmu_mapping);
 disable_power:
-	mdss_smmu_enable_power(mp, false);
+	mdss_smmu_enable_power(mdss_smmu, false);
+bus_client_destroy:
+	mdss_reg_bus_vote_client_destroy(mdss_smmu->reg_bus_clt);
+	mdss_smmu->reg_bus_clt = NULL;
 	msm_dss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg,
 			false);
 	return rc;
