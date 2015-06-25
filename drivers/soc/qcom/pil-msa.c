@@ -627,6 +627,12 @@ fail:
 				drv->q6->mba_virt, drv->q6->mba_phys,
 				&drv->attrs_dma);
 		drv->q6->mba_virt = NULL;
+		if (drv->q6->dp_virt) {
+			dma_free_attrs(&drv->mba_mem_dev, drv->q6->dp_size,
+				drv->q6->dp_virt, drv->q6->dp_phys,
+				&drv->attrs_dma);
+			drv->q6->dp_virt = NULL;
+		}
 	}
 	return ret;
 }
