@@ -413,8 +413,7 @@ static void __arm_lpae_free_pgtable(struct arm_lpae_io_pgtable *data, int lvl,
 		__arm_lpae_free_pgtable(data, lvl + 1, iopte_deref(pte, data));
 	}
 
-	data->iop.cfg.tlb->unprepare_pgtable(data->iop.cookie, start,
-								table_size);
+	data->iop.cfg.tlb->unprepare_pgtable(data->iop.cookie, start);
 	free_pages_exact(start, table_size);
 }
 
