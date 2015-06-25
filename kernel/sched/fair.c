@@ -4166,22 +4166,12 @@ void init_new_task_load(struct task_struct *p)
 
 #else /* CONFIG_SCHED_HMP */
 
-#if defined(CONFIG_SMP) && defined(CONFIG_FAIR_GROUP_SCHED)
-
 void init_new_task_load(struct task_struct *p)
 {
 	p->se.avg.decay_count = 0;
 	p->se.avg.runnable_avg_period = 0;
 	p->se.avg.runnable_avg_sum = 0;
 }
-
-#else	/* CONFIG_SMP && CONFIG_FAIR_GROUP_SCHED */
-
-void init_new_task_load(struct task_struct *p)
-{
-}
-
-#endif	/* CONFIG_SMP && CONFIG_FAIR_GROUP_SCHED */
 
 #endif /* CONFIG_SCHED_HMP */
 
@@ -4620,6 +4610,10 @@ static inline void
 inc_rq_hmp_stats(struct rq *rq, struct task_struct *p, int change_cra) { }
 static inline void
 dec_rq_hmp_stats(struct rq *rq, struct task_struct *p, int change_cra) { }
+
+void init_new_task_load(struct task_struct *p)
+{
+}
 
 #endif /* CONFIG_SMP */
 
