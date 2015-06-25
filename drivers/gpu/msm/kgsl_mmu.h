@@ -18,7 +18,7 @@
  * These defines control the address range for allocations that
  * are mapped into all pagetables.
  */
-#define KGSL_GLOBAL_PT_SIZE	SZ_8M
+#define KGSL_MMU_GLOBAL_MEM_SIZE	SZ_8M
 #define KGSL_MMU_GLOBAL_MEM_BASE	0xf8000000
 
 /* Identifier for the global page table */
@@ -101,7 +101,9 @@ struct kgsl_mmu_pt_ops {
 	uint64_t (*find_svm_region)(struct kgsl_pagetable *, uint64_t, uint64_t,
 		uint64_t, unsigned int);
 	int (*set_svm_region)(struct kgsl_pagetable *, uint64_t, uint64_t);
-	int (*svm_range)(struct kgsl_pagetable *, uint64_t *, uint64_t *);
+	int (*svm_range)(struct kgsl_pagetable *, uint64_t *, uint64_t *,
+			uint64_t);
+	bool (*addr_in_range)(struct kgsl_pagetable *pagetable, uint64_t);
 };
 
 /*
@@ -121,6 +123,10 @@ struct kgsl_mmu_pt_ops {
 #define KGSL_MMU_GLOBAL_PAGETABLE BIT(3)
 /* MMU uses hypervisor for content protection */
 #define KGSL_MMU_HYP_SECURE_ALLOC BIT(4)
+/* Force 32 bit, even if the MMU can do 64 bit */
+#define KGSL_MMU_FORCE_32BIT BIT(5)
+/* 64 bit address is live */
+#define KGSL_MMU_64BIT BIT(6)
 
 struct kgsl_mmu {
 	uint32_t      flags;
@@ -167,7 +173,7 @@ unsigned int kgsl_mmu_log_fault_addr(struct kgsl_mmu *mmu,
 int kgsl_mmu_enabled(void);
 void kgsl_mmu_set_mmutype(char *mmutype);
 enum kgsl_mmutype kgsl_mmu_get_mmutype(void);
-int kgsl_mmu_gpuaddr_in_range(struct kgsl_pagetable *pt, uint64_t gpuaddr);
+bool kgsl_mmu_gpuaddr_in_range(struct kgsl_pagetable *pt, uint64_t gpuaddr);
 
 int kgsl_mmu_get_region(struct kgsl_pagetable *pagetable,
 		uint64_t gpuaddr, uint64_t size);
@@ -196,7 +202,7 @@ int kgsl_mmu_set_svm_region(struct kgsl_pagetable *pagetable, uint64_t gpuaddr,
 void kgsl_mmu_detach_pagetable(struct kgsl_pagetable *pagetable);
 
 int kgsl_mmu_svm_range(struct kgsl_pagetable *pagetable,
-		uint64_t *lo, uint64_t *hi);
+		uint64_t *lo, uint64_t *hi, uint64_t memflags);
 
 /*
  * Static inline functions of MMU that simply call the SMMU specific

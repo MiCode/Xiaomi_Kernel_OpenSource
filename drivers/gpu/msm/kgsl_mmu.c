@@ -196,6 +196,9 @@ void kgsl_remove_global_pt_entry(struct kgsl_memdesc *memdesc)
 {
 	int i, j;
 
+	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE)
+		return;
+
 	if (memdesc->gpuaddr == 0)
 		return;
 
@@ -230,6 +233,11 @@ int kgsl_add_global_pt_entry(struct kgsl_device *device,
 	uint64_t gaddr = KGSL_MMU_GLOBAL_MEM_BASE;
 	uint64_t size = ALIGN(memdesc->size, PAGE_SIZE);
 
+	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE) {
+		memdesc->gpuaddr = (uint64_t) memdesc->physaddr;
+		return 0;
+	}
+
 	/* do we already have a mapping? */
 	if (memdesc->gpuaddr != 0)
 		return 0;
@@ -253,14 +261,11 @@ int kgsl_add_global_pt_entry(struct kgsl_device *device,
 			break;
 	}
 	index = i;
-	if ((gaddr + size) >= (KGSL_MMU_GLOBAL_MEM_BASE +
-				KGSL_GLOBAL_PT_SIZE))
+	if ((gaddr + size) >=
+		(KGSL_MMU_GLOBAL_MEM_BASE + KGSL_MMU_GLOBAL_MEM_SIZE))
 		return -ENOMEM;
 
-	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE)
-		memdesc->gpuaddr = (uint64_t) memdesc->physaddr;
-	else
-		memdesc->gpuaddr = gaddr;
+	memdesc->gpuaddr = gaddr;
 
 	memdesc->priv |= KGSL_MEMDESC_GLOBAL;
 	/*
@@ -795,14 +800,15 @@ EXPORT_SYMBOL(kgsl_mmu_put_gpuaddr);
  * @pagetable: Pagetable to query the range from
  * @lo: Pointer to store the start of the SVM range
  * @hi: Pointer to store the end of the SVM range
+ * @memflags: Flags from the buffer we are mapping
  */
 int kgsl_mmu_svm_range(struct kgsl_pagetable *pagetable,
-		uint64_t *lo, uint64_t *hi)
+		uint64_t *lo, uint64_t *hi, uint64_t memflags)
 {
 	if (pagetable == NULL || pagetable->pt_ops->svm_range == NULL)
 		return -ENODEV;
 
-	return pagetable->pt_ops->svm_range(pagetable, lo, hi);
+	return pagetable->pt_ops->svm_range(pagetable, lo, hi, memflags);
 }
 EXPORT_SYMBOL(kgsl_mmu_svm_range);
 
@@ -890,14 +896,15 @@ void kgsl_mmu_set_mmutype(char *mmutype)
 }
 EXPORT_SYMBOL(kgsl_mmu_set_mmutype);
 
-int kgsl_mmu_gpuaddr_in_range(struct kgsl_pagetable *pt, uint64_t gpuaddr)
+bool kgsl_mmu_gpuaddr_in_range(struct kgsl_pagetable *pagetable,
+		uint64_t gpuaddr)
 {
 	if (KGSL_MMU_TYPE_NONE == kgsl_mmu_type)
 		return (gpuaddr != 0);
 
-	if (gpuaddr > 0 && gpuaddr < KGSL_MMU_GLOBAL_MEM_BASE)
-		return 1;
+	if (pagetable == NULL || pagetable->pt_ops->addr_in_range == NULL)
+		return false;
 
-	return 0;
+	return pagetable->pt_ops->addr_in_range(pagetable, gpuaddr);
 }
 EXPORT_SYMBOL(kgsl_mmu_gpuaddr_in_range);

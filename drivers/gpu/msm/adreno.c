@@ -290,6 +290,9 @@ static int kgsl_iommu_pdev_probe(struct platform_device *pdev)
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,hyp_secure_alloc"))
 		data->features |= KGSL_MMU_HYP_SECURE_ALLOC;
 
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,force-32bit"))
+		data->features |= KGSL_MMU_FORCE_32BIT;
+
 	result = of_platform_populate(pdev->dev.of_node, iommu_match_table,
 				NULL, &pdev->dev);
 	if (!result)
@@ -1090,6 +1093,10 @@ int adreno_probe(struct platform_device *pdev)
 	/* Identify the specific GPU */
 	adreno_identify_gpu(adreno_dev);
 
+	/* Bro, do you even 64 bit? */
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_64BIT))
+		device->mmu.features |= KGSL_MMU_64BIT;
+
 	status = kgsl_device_platform_probe(device);
 	if (status) {
 		device->pdev = NULL;
@@ -1385,12 +1392,25 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 				ADRENO_REG_RBBM_SECVID_TRUST_CONFIG, 0x2);
 		adreno_writereg(adreno_dev,
 				ADRENO_REG_RBBM_SECVID_TSB_CONTROL, 0x0);
-		adreno_writereg(adreno_dev,
+
+		if (ADRENO_FEATURE(adreno_dev, ADRENO_64BIT) &&
+			MMU_FEATURE(&device->mmu, KGSL_MMU_64BIT)) {
+			adreno_writereg64(adreno_dev,
 				ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,
-				KGSL_IOMMU_SECURE_MEM_BASE);
-		adreno_writereg(adreno_dev,
+				ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
+				KGSL_IOMMU_SECURE_BASE64);
+			adreno_writereg(adreno_dev,
 				ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_SIZE,
-				KGSL_IOMMU_SECURE_MEM_SIZE);
+				KGSL_IOMMU_SECURE_SIZE64);
+		} else {
+			adreno_writereg64(adreno_dev,
+				ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,
+				ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
+				KGSL_IOMMU_SECURE_BASE32);
+			adreno_writereg(adreno_dev,
+				ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_SIZE,
+				KGSL_IOMMU_SECURE_SIZE32);
+		}
 	}
 
 	status = adreno_ocmem_malloc(adreno_dev);

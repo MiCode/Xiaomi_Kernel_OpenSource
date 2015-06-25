@@ -19,11 +19,30 @@
 #include <linux/of.h>
 #include "kgsl.h"
 
-#define KGSL_IOMMU_SECURE_MEM_BASE     0xe8000000
-#define KGSL_IOMMU_SECURE_MEM_SIZE     SZ_256M
+#define KGSL_IOMMU_SECURE_SIZE32 SZ_256M
+#define KGSL_IOMMU_SECURE_END32 KGSL_MMU_GLOBAL_MEM_BASE
+#define KGSL_IOMMU_SECURE_BASE32	\
+	(KGSL_MMU_GLOBAL_MEM_BASE - KGSL_IOMMU_SECURE_SIZE32)
 
-#define KGSL_IOMMU_SVM_START 0x300000
-#define KGSL_IOMMU_SVM_END   (0xC0000000 - SZ_16M)
+#define KGSL_IOMMU_SVM_BASE32		0x300000
+#define KGSL_IOMMU_SVM_END32		(0xC0000000 - SZ_16M)
+
+#define KGSL_IOMMU_SECURE_BASE64	0x300000000ULL
+/* this size is a hardware enforced maximum */
+#define KGSL_IOMMU_SECURE_SIZE64	0x0FFFFF000ULL
+#define KGSL_IOMMU_SECURE_END64 \
+	(KGSL_IOMMU_SECURE_BASE64 + KGSL_IOMMU_SECURE_SIZE64)
+
+#define KGSL_IOMMU_VA_BASE64		0x500000000ULL
+#define KGSL_IOMMU_VA_END64		0x600000000ULL
+/*
+ * Note: currently we only support 36 bit addresses,
+ * but the CPU supports 39. Eventually this range
+ * should change to high part of the 39 bit address
+ * space just like the CPU.
+ */
+#define KGSL_IOMMU_SVM_BASE64		0x700000000ULL
+#define KGSL_IOMMU_SVM_END64		0x800000000ULL
 
 /* Pagetable virtual base */
 #define KGSL_IOMMU_CTX_OFFSET_V1	0x8000
@@ -228,6 +247,8 @@ struct kgsl_iommu {
  * @svm_start: Start of shared virtual memory range. Addresses in this
  *		range are also valid in the process's CPU address space.
  * @svm_end: End of the shared virtual memory range.
+ * @svm_start: 32 bit compatible range, for old clients who lack bits
+ * @svm_end: end of 32 bit compatible range
  */
 struct kgsl_iommu_pt {
 	struct iommu_domain *domain;
@@ -240,6 +261,8 @@ struct kgsl_iommu_pt {
 	uint64_t va_end;
 	uint64_t svm_start;
 	uint64_t svm_end;
+	uint64_t compat_va_start;
+	uint64_t compat_va_end;
 };
 
 /*
