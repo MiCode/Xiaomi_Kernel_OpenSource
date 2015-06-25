@@ -1541,6 +1541,7 @@ static const struct snd_soc_dapm_widget msm8952_tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_SPK("Lineout_4 amp", NULL),
 	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
+	SND_SOC_DAPM_MIC("Secondary Mic", NULL),
 	SND_SOC_DAPM_MIC("ANCRight Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("ANCLeft Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("Analog Mic4", NULL),
@@ -2084,6 +2085,8 @@ static int msm8952_asoc_machine_remove(struct platform_device *pdev)
 		iounmap(pdata->vaddr_gpio_mux_spkr_ctl);
 	if (pdata->vaddr_gpio_mux_mic_ctl)
 		iounmap(pdata->vaddr_gpio_mux_mic_ctl);
+
+	msm895x_free_auxdev_mem(pdev);
 
 	snd_soc_unregister_card(card);
 	return 0;
