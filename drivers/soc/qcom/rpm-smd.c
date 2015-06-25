@@ -1153,7 +1153,7 @@ static int msm_rpm_glink_send_buffer(char *buf, uint32_t size, bool noirq)
 }
 
 static int msm_rpm_send_data(struct msm_rpm_request *cdata,
-		int msg_type, bool noirq)
+		int msg_type, bool noirq, bool noack)
 {
 	uint8_t *tmpbuff;
 	int ret;
@@ -1237,7 +1237,8 @@ static int msm_rpm_send_data(struct msm_rpm_request *cdata,
 		return ret;
 	}
 
-	msm_rpm_add_wait_list(cdata->msg_hdr.msg_id);
+	if (!noack)
+		msm_rpm_add_wait_list(cdata->msg_hdr.msg_id);
 
 	ret = msm_rpm_send_buffer(&cdata->buf[0], msg_size, noirq);
 
@@ -1262,24 +1263,39 @@ static int msm_rpm_send_data(struct msm_rpm_request *cdata,
 	return ret;
 }
 
-int msm_rpm_send_request(struct msm_rpm_request *handle)
+static int _msm_rpm_send_request(struct msm_rpm_request *handle, bool noack)
 {
 	int ret;
 	static DEFINE_MUTEX(send_mtx);
 
 	mutex_lock(&send_mtx);
-	ret = msm_rpm_send_data(handle, MSM_RPM_MSG_REQUEST_TYPE, false);
+	ret = msm_rpm_send_data(handle, MSM_RPM_MSG_REQUEST_TYPE, false, noack);
 	mutex_unlock(&send_mtx);
 
 	return ret;
+}
+
+int msm_rpm_send_request(struct msm_rpm_request *handle)
+{
+	return _msm_rpm_send_request(handle, false);
 }
 EXPORT_SYMBOL(msm_rpm_send_request);
 
 int msm_rpm_send_request_noirq(struct msm_rpm_request *handle)
 {
-	return msm_rpm_send_data(handle, MSM_RPM_MSG_REQUEST_TYPE, true);
+	return msm_rpm_send_data(handle, MSM_RPM_MSG_REQUEST_TYPE, true, false);
 }
 EXPORT_SYMBOL(msm_rpm_send_request_noirq);
+
+void *msm_rpm_send_request_noack(struct msm_rpm_request *handle)
+{
+	int ret;
+
+	ret = _msm_rpm_send_request(handle, true);
+
+	return ret < 0 ? ERR_PTR(ret) : NULL;
+}
+EXPORT_SYMBOL(msm_rpm_send_request_noack);
 
 int msm_rpm_wait_for_ack(uint32_t msg_id)
 {
@@ -1401,6 +1417,34 @@ wait_ack_cleanup:
 	return rc;
 }
 EXPORT_SYMBOL(msm_rpm_wait_for_ack_noirq);
+
+void *msm_rpm_send_message_noack(enum msm_rpm_set set, uint32_t rsc_type,
+		uint32_t rsc_id, struct msm_rpm_kvp *kvp, int nelems)
+{
+	int i, rc;
+	struct msm_rpm_request *req =
+		msm_rpm_create_request_common(set, rsc_type, rsc_id, nelems,
+			       false);
+
+	if (IS_ERR(req))
+		return req;
+
+	if (!req)
+		return ERR_PTR(ENOMEM);
+
+	for (i = 0; i < nelems; i++) {
+		rc = msm_rpm_add_kvp_data(req, kvp[i].key,
+				kvp[i].data, kvp[i].length);
+		if (rc)
+			goto bail;
+	}
+
+	rc = PTR_ERR(msm_rpm_send_request_noack(req));
+bail:
+	msm_rpm_free_request(req);
+	return rc < 0 ? ERR_PTR(rc) : NULL;
+}
+EXPORT_SYMBOL(msm_rpm_send_message_noack);
 
 int msm_rpm_send_message(enum msm_rpm_set set, uint32_t rsc_type,
 		uint32_t rsc_id, struct msm_rpm_kvp *kvp, int nelems)
