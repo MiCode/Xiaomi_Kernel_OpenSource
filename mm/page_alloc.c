@@ -972,7 +972,6 @@ static bool free_pages_prepare(struct page *page, unsigned int order)
 
 	trace_mm_page_free(page, order);
 	kmemcheck_free_shadow(page, order);
-	kasan_free_pages(page, order);
 
 	if (PageAnon(page))
 		page->mapping = NULL;
@@ -995,6 +994,7 @@ static bool free_pages_prepare(struct page *page, unsigned int order)
 	}
 	arch_free_page(page, order);
 	kernel_map_pages(page, 1 << order, 0);
+	kasan_free_pages(page, order);
 
 	return true;
 }
@@ -1391,9 +1391,9 @@ static int prep_new_page(struct page *page, unsigned int order, gfp_t gfp_flags,
 	set_page_private(page, 0);
 	set_page_refcounted(page);
 
+	kasan_alloc_pages(page, order);
 	arch_alloc_page(page, order);
 	kernel_map_pages(page, 1 << order, 1);
-	kasan_alloc_pages(page, order);
 
 	if (gfp_flags & __GFP_ZERO)
 		for (i = 0; i < (1 << order); i++)
