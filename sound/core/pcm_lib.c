@@ -563,6 +563,11 @@ int snd_pcm_update_hw_ptr(struct snd_pcm_substream *substream)
 	return snd_pcm_update_hw_ptr0(substream, 0);
 }
 
+int snd_pcm_update_delay_blk(struct snd_pcm_substream *substream)
+{
+	return substream->ops->delay_blk(substream);
+}
+
 /**
  * snd_pcm_set_ops - set the PCM operators
  * @pcm: the pcm instance

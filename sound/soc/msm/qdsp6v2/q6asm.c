@@ -983,6 +983,7 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 	}
 	ac->session = n;
 	ac->cb = cb;
+	ac->path_delay = UINT_MAX;
 	ac->priv = priv;
 	ac->io_mode = SYNC_IO_MODE;
 	ac->perf_mode = LEGACY_PCM_MODE;
@@ -1762,6 +1763,20 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 				 __func__,
 				payload[0], payload[1], payload[2],
 				payload[3]);
+		break;
+	case ASM_SESSION_CMDRSP_GET_PATH_DELAY_V2:
+		pr_debug("%s: ASM_SESSION_CMDRSP_GET_PATH_DELAY_V2 session %d status 0x%x msw %u lsw %u\n",
+				__func__, ac->session, payload[0], payload[2],
+				payload[1]);
+		if (payload[0] == 0) {
+			atomic_set(&ac->cmd_state, 0);
+			/* ignore msw, as a delay that large shouldn't happen */
+			ac->path_delay = payload[1];
+		} else {
+			atomic_set(&ac->cmd_state, -payload[0]);
+			ac->path_delay = UINT_MAX;
+		}
+		wake_up(&ac->cmd_wait);
 		break;
 	}
 	if (ac->cb)
@@ -5993,6 +6008,52 @@ int q6asm_reg_rx_underflow(struct audio_client *ac, uint16_t enable)
 	return 0;
 fail_cmd:
 	return -EINVAL;
+}
+
+/*
+ * q6asm_get_path_delay() - get the path delay for an audio session
+ * @ac: audio client handle
+ *
+ * Retrieves the current audio DSP path delay for the given audio session.
+ *
+ * Return: 0 on success, error code otherwise
+ */
+int q6asm_get_path_delay(struct audio_client *ac)
+{
+	int rc = 0;
+	struct apr_hdr hdr;
+
+	if (!ac || ac->apr == NULL) {
+		pr_err("%s: invalid audio client\n", __func__);
+		return -EINVAL;
+	}
+
+	hdr.opcode = ASM_SESSION_CMD_GET_PATH_DELAY_V2;
+	q6asm_add_hdr(ac, &hdr, sizeof(hdr), TRUE);
+	atomic_set(&ac->cmd_state, 1);
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &hdr);
+	if (rc < 0) {
+		pr_err("%s: Commmand 0x%x failed %d\n", __func__,
+				hdr.opcode, rc);
+		return rc;
+	}
+
+	rc = wait_event_timeout(ac->cmd_wait,
+			(atomic_read(&ac->cmd_state) <= 0), 5 * HZ);
+	if (!rc) {
+		pr_err("%s: timeout. waited for response opcode[0x%x]\n",
+				__func__, hdr.opcode);
+		return -ETIMEDOUT;
+	}
+
+	rc = atomic_read(&ac->cmd_state);
+	if (rc < 0) {
+		pr_err("%s: DSP returned error[0x%x]\n", __func__, rc);
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 int q6asm_get_apr_service_id(int session_id)
