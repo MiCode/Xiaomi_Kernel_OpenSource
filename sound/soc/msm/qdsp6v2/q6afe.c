@@ -1217,6 +1217,39 @@ static int afe_send_slimbus_slave_cfg(
 	return ret;
 }
 
+static int afe_send_codec_reg_page_config(
+	struct afe_param_cdc_reg_page_cfg *cdc_reg_page_cfg)
+{
+	struct afe_svc_cmd_cdc_reg_page_cfg config;
+	int ret;
+
+	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+					     APR_HDR_LEN(APR_HDR_SIZE),
+					     APR_PKT_VER);
+	config.hdr.pkt_size = sizeof(config);
+	config.hdr.src_port = 0;
+	config.hdr.dest_port = 0;
+	config.hdr.token = IDX_GLOBAL_CFG;
+	config.hdr.opcode = AFE_SVC_CMD_SET_PARAM;
+	config.param.payload_size = sizeof(config) - sizeof(struct apr_hdr) -
+				    sizeof(config.param);
+	config.param.payload_address_lsw = 0x00;
+	config.param.payload_address_msw = 0x00;
+	config.param.mem_map_handle = 0x00;
+	config.pdata.module_id = AFE_MODULE_CDC_DEV_CFG;
+	config.pdata.param_id = AFE_PARAM_ID_CDC_REG_PAGE_CFG;
+	config.pdata.param_size =
+	    sizeof(struct afe_param_cdc_reg_page_cfg);
+	config.cdc_reg_page_cfg = *cdc_reg_page_cfg;
+
+	ret = afe_apr_send_pkt(&config, &this_afe.wait[IDX_GLOBAL_CFG]);
+	if (ret)
+		pr_err("%s: AFE_PARAM_ID_CDC_REG_PAGE_CFG failed %d\n",
+		       __func__, ret);
+
+	return ret;
+}
+
 static int afe_send_codec_reg_config(
 	struct afe_param_cdc_reg_cfg_data *cdc_reg_cfg)
 {
@@ -1601,6 +1634,9 @@ int afe_set_config(enum afe_config_type config_type, void *config_data, int arg)
 		break;
 	case AFE_CDC_CLIP_REGISTERS_CONFIG:
 		ret = afe_send_codec_reg_config(config_data);
+		break;
+	case AFE_CDC_REGISTER_PAGE_CONFIG:
+		ret = afe_send_codec_reg_page_config(config_data);
 		break;
 	default:
 		pr_err("%s: unknown configuration type %d",
