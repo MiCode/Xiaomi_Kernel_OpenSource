@@ -134,6 +134,8 @@ static int msm_watchdog_suspend(struct device *dev)
 		return 0;
 	__raw_writel(1, wdog_dd->base + WDT0_RST);
 	if (wdog_dd->wakeup_irq_enable) {
+		/* Make sure register write is complete before proceeding */
+		mb();
 		wdog_dd->last_pet = sched_clock();
 		return 0;
 	}
@@ -148,8 +150,15 @@ static int msm_watchdog_resume(struct device *dev)
 {
 	struct msm_watchdog_data *wdog_dd =
 			(struct msm_watchdog_data *)dev_get_drvdata(dev);
-	if (!enable || wdog_dd->wakeup_irq_enable)
+	if (!enable)
 		return 0;
+	if (wdog_dd->wakeup_irq_enable) {
+		__raw_writel(1, wdog_dd->base + WDT0_RST);
+		/* Make sure register write is complete before proceeding */
+		mb();
+		wdog_dd->last_pet = sched_clock();
+		return 0;
+	}
 	__raw_writel(1, wdog_dd->base + WDT0_EN);
 	__raw_writel(1, wdog_dd->base + WDT0_RST);
 	mb();
