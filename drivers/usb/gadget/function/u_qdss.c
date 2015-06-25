@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,13 +66,16 @@ int send_sps_req(struct usb_ep *data_ep)
 static int set_qdss_data_connection(struct usb_gadget *gadget,
 	struct usb_ep *data_ep, u8 data_addr, int enable)
 {
-	int res = 0;
-	int idx;
+	enum usb_ctrl		usb_bam_type;
+	int			res = 0;
+	int			idx;
 
 	pr_debug("set_qdss_data_connection\n");
 
+	usb_bam_type = usb_bam_get_bam_type(gadget->name);
+
 	/* There is only one qdss pipe, so the pipe number can be set to 0 */
-	idx = usb_bam_get_connection_idx(gadget->name, QDSS_P_BAM,
+	idx = usb_bam_get_connection_idx(usb_bam_type, QDSS_P_BAM,
 		PEER_PERIPHERAL_TO_USB, USB_BAM_DEVICE, 0);
 	if (idx < 0) {
 		pr_err("%s: usb_bam_get_connection_idx failed\n", __func__);
@@ -87,7 +90,6 @@ static int set_qdss_data_connection(struct usb_gadget *gadget,
 			pr_err("qdss_data_connection: memory alloc failed\n");
 			return -ENOMEM;
 		}
-		usb_bam_set_qdss_core(gadget->name);
 		get_bam2bam_connection_info(idx,
 			&bam_info.usb_bam_handle,
 			&bam_info.usb_bam_pipe_idx, &bam_info.peer_pipe_idx,

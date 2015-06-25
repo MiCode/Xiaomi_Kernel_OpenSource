@@ -2049,6 +2049,14 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 		gr->out->driver_data = NULL;
 
 	port->last_event = U_BAM_DISCONNECT_E;
+	/* Disable usb irq for CI gadget. It will be enabled in
+	 * usb_bam_disconnect_pipe() after disconnecting all pipes
+	 * and USB BAM reset is done.
+	 */
+	if (!gadget_is_dwc3(port->gadget) &&
+			(trans == USB_GADGET_XPORT_BAM2BAM_IPA))
+		msm_usb_irq_disable(true);
+
 	queue_work(gbam_wq, &port->disconnect_w);
 
 	spin_unlock_irqrestore(&port->port_lock, flags);

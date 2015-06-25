@@ -100,8 +100,7 @@ struct usb_bam_sps_type {
 *	case the usb bam uses its private memory for the pipes.
 * @mem_iface_clk: Clock that controls the usb bam private memory in
 *	case the usb bam uses its private memory for the pipes.
-* @qdss_core_name: Stores the name of the core ("ssusb", "hsusb" or "hsic")
-*	that it used as a peer of the qdss in bam2bam mode.
+* @qdss_usb_bam_type: USB bam type used as a peer of the qdss in bam2bam mode.
 * @h_bam: This array stores for each BAM ("ssusb", "hsusb" or "hsic") the
 *	handle/device of the sps driver.
 * @pipes_enabled_per_bam: This array stores for each BAM
@@ -120,7 +119,7 @@ struct usb_bam_ctx_type {
 	u8 max_connections;
 	struct clk *mem_clk;
 	struct clk *mem_iface_clk;
-	char qdss_core_name[USB_BAM_MAX_STR_LEN];
+	enum usb_ctrl qdss_usb_bam_type;
 	unsigned long h_bam[MAX_BAMS];
 	u8 pipes_enabled_per_bam[MAX_BAMS];
 	u32 inactivity_timer_ms[MAX_BAMS];
@@ -2657,6 +2656,8 @@ int usb_bam_disconnect_pipe(u8 idx)
 {
 	struct usb_bam_pipe_connect *pipe_connect;
 	int ret;
+	struct msm_usb_bam_platform_data *pdata =
+					ctx.usb_bam_pdev->dev.platform_data;
 
 	pipe_connect = &usb_bam_connections[idx];
 
@@ -2682,6 +2683,22 @@ int usb_bam_disconnect_pipe(u8 idx)
 	spin_unlock(&usb_bam_lock);
 	log_event(1, "%s: success disconnecting pipe %d\n",
 			 __func__, idx);
+
+	if ((pdata->reset_on_disconnect[pipe_connect->bam_type] == true) &&
+		(ctx.pipes_enabled_per_bam[pipe_connect->bam_type] == 0)) {
+		if (pipe_connect->bam_type == CI_CTRL)
+			msm_hw_bam_disable(1);
+
+		sps_device_reset(ctx.h_bam[pipe_connect->bam_type]);
+
+		if (pipe_connect->bam_type == CI_CTRL)
+			msm_hw_bam_disable(0);
+		/* Enable usb irq here which is disabled in function drivers
+		 * during disconnect after BAM reset.
+		 */
+		if (pipe_connect->bam_type == CI_CTRL)
+			msm_usb_irq_disable(false);
+	}
 	return 0;
 }
 
@@ -2752,7 +2769,6 @@ int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 				IPA_RM_RESOURCE_RELEASED,
 				ipa_rm_resource_cons[cur_bam]);
 		}
-
 	}
 
 out:
@@ -2830,7 +2846,7 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 	struct device_node *node = pdev->dev.of_node;
 	int rc = 0;
 	u8 i = 0;
-	bool reset_bam;
+	bool reset_bam, reset_bam_on_disconnect;
 	u32 bam;
 	u32 addr;
 	u32 threshold;
@@ -2951,6 +2967,10 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 				__func__);
 			goto err;
 		}
+		/* Store USB bam_type to be used with QDSS */
+		if (usb_bam_connections[i].peer_bam == QDSS_P_BAM)
+			ctx.qdss_usb_bam_type = usb_bam_connections[i].bam_type;
+
 		rc = of_property_read_u32(node, "qcom,dir",
 			&usb_bam_connections[i].dir);
 		if (rc) {
@@ -2977,6 +2997,11 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 			"qcom,reset-bam-on-connect");
 		if (reset_bam)
 			pdata->reset_on_connect[bam] = true;
+
+		reset_bam_on_disconnect = of_property_read_bool(node,
+			"qcom,reset-bam-on-disconnect");
+		if (reset_bam_on_disconnect)
+			pdata->reset_on_disconnect[bam] = true;
 
 		of_property_read_u32(node, "qcom,src-bam-physical-address",
 			&usb_bam_connections[i].src_phy_addr);
@@ -3333,13 +3358,6 @@ static int usb_bam_probe(struct platform_device *pdev)
 	return ret;
 }
 
-int usb_bam_get_qdss_idx(u8 num)
-{
-	return usb_bam_get_connection_idx(ctx.qdss_core_name, QDSS_P_BAM,
-		PEER_PERIPHERAL_TO_USB, USB_BAM_DEVICE, num);
-}
-EXPORT_SYMBOL(usb_bam_get_qdss_idx);
-
 bool usb_bam_get_prod_granted(u8 idx)
 {
 	struct usb_bam_pipe_connect *pipe_connect = &usb_bam_connections[idx];
@@ -3348,12 +3366,6 @@ bool usb_bam_get_prod_granted(u8 idx)
 	return (info[cur_bam].cur_prod_state == IPA_RM_RESOURCE_GRANTED);
 }
 EXPORT_SYMBOL(usb_bam_get_prod_granted);
-
-
-void usb_bam_set_qdss_core(const char *qdss_core)
-{
-	strlcpy(ctx.qdss_core_name, qdss_core, USB_BAM_MAX_STR_LEN);
-}
 
 int get_bam2bam_connection_info(u8 idx, unsigned long *usb_bam_handle,
 	u32 *usb_bam_pipe_idx, u32 *peer_pipe_idx,
@@ -3387,19 +3399,28 @@ int get_bam2bam_connection_info(u8 idx, unsigned long *usb_bam_handle,
 }
 EXPORT_SYMBOL(get_bam2bam_connection_info);
 
+int get_qdss_bam_connection_info(unsigned long *usb_bam_handle,
+	u32 *usb_bam_pipe_idx, u32 *peer_pipe_idx,
+	struct sps_mem_buffer *desc_fifo, struct sps_mem_buffer *data_fifo,
+	enum usb_pipe_mem_type *mem_type)
+{
+	u8 idx;
 
-int usb_bam_get_connection_idx(const char *core_name, enum peer_bam client,
+	/* QDSS uses only one pipe */
+	idx = usb_bam_get_connection_idx(ctx.qdss_usb_bam_type, QDSS_P_BAM,
+		PEER_PERIPHERAL_TO_USB, USB_BAM_DEVICE, 0);
+
+	get_bam2bam_connection_info(idx, usb_bam_handle, usb_bam_pipe_idx,
+			peer_pipe_idx, desc_fifo, data_fifo, mem_type);
+
+	return 0;
+}
+EXPORT_SYMBOL(get_qdss_bam_connection_info);
+
+int usb_bam_get_connection_idx(enum usb_ctrl bam_type, enum peer_bam client,
 	enum usb_bam_pipe_dir dir, enum usb_bam_mode bam_mode, u32 num)
 {
 	u8 i;
-	int bam_type;
-
-	bam_type = get_bam_type_from_core_name(core_name);
-	if (bam_type < 0 || bam_type >= MAX_BAMS) {
-		pr_err("%s: Invalid bam, type=%d, name=%s\n",
-			__func__, bam_type, core_name);
-		return -EINVAL;
-	}
 
 	for (i = 0; i < ctx.max_connections; i++)
 		if (usb_bam_connections[i].bam_type == bam_type &&
@@ -3411,14 +3432,22 @@ int usb_bam_get_connection_idx(const char *core_name, enum peer_bam client,
 			return i;
 		}
 
-	pr_err("%s: failed for %s\n", __func__, core_name);
+	pr_err("%s: failed for %d\n", __func__, bam_type);
 	return -ENODEV;
 }
 EXPORT_SYMBOL(usb_bam_get_connection_idx);
 
-int usb_bam_get_bam_type(int connection_idx)
+int usb_bam_get_bam_type(const char *core_name)
 {
-	return usb_bam_connections[connection_idx].bam_type;
+	int bam_type = get_bam_type_from_core_name(core_name);
+
+	if (bam_type < 0 || bam_type >= MAX_BAMS) {
+		pr_err("%s: Invalid bam, type=%d, name=%s\n",
+			__func__, bam_type, core_name);
+		return -EINVAL;
+	}
+
+	return bam_type;
 }
 EXPORT_SYMBOL(usb_bam_get_bam_type);
 
