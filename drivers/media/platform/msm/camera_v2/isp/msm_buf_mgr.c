@@ -407,11 +407,11 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 	struct msm_isp_buffer_mapped_info *mped_info_tmp2;
 	bufq = msm_isp_get_bufq(buf_mgr, bufq_handle);
 	if (!bufq) {
-		pr_err("%s: Invalid bufq\n", __func__);
+		pr_err_ratelimited("%s: Invalid bufq\n", __func__);
 		return rc;
 	}
 	if (!bufq->bufq_handle) {
-		pr_err("%s: Invalid bufq handle\n", __func__);
+		pr_err_ratelimited("%s: Invalid bufq handle\n", __func__);
 		return rc;
 	}
 
