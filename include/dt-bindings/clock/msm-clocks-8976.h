@@ -287,10 +287,31 @@
 #define clk_gcc_debug_mux			0x8121ac15
 #define clk_rpm_debug_mux			0x25cd1f3a
 #define clk_wcnss_m_clk				0x709f430b
-
 #define clk_a53ssmux_lc				0x71a9377b
 #define clk_a53ssmux_bc				0xb5983c42
 #define clk_a53ssmux_cci			0x15560bd5
+#define clk_cpu_debug_ter_mux                   0xdeda8613
+#define clk_cpu_debug_sec_mux                   0xa90e040c
+#define clk_cpu_debug_pri_mux                   0x61a2945f
+#define clk_debug_cpu_clk                       0x0e696b2b
+
+#define clk_a72ssmux                            0xf093732c
+#define clk_a72_clk                             0x57f8e534
+#define clk_a72ss_hf_pll                        0x05974a72
+#define clk_a72ss_hf_pll_main                   0xed4a4165
+#define clk_a53ssmux                            0xb5983c42
+#define clk_a53_clk                             0x5c9f8836
+#define clk_a53ss_sr_pll                        0x28b4ed76
+#define clk_a53ss_sr_pll_main                   0x88554087
+#define clk_sys_apcsaux_clk_2                   0x29a55d67
+#define clk_sys_apcsaux_clk_3                   0x8984476e
+#define clk_cci_sr_pll                          0x48753198
+#define clk_cci_sr_pll_main                     0xe68e63da
+#define clk_ccissmux                            0x839fb2ef
+#define clk_cci_clk                             0x96854074
+#define clk_apc0_m_clk                          0xce1e9473
+#define clk_apc1_m_clk                          0x990fbaf7
+#define clk_cci_m_clk                           0x252cd4ae
 
 #define clk_audio_ap_clk			0x312ac429
 #define clk_audio_pmi_clk			0xb7ba2274

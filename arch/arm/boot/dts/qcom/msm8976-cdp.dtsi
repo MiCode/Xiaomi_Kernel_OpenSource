@@ -39,6 +39,12 @@
 			synaptics,panel-coords = <0 0 1599 2703>;
 			synaptics,key-codes = <158 139 172 217>;
 		};
+		synaptics,device2 {
+			synaptics,package-id = <3408>;
+			synaptics,display-coords = <0 0 1079 1919>;
+			synaptics,panel-coords = <0 0 1079 2063>;
+			synaptics,key-codes = <158 139 172 217>;
+                };
 	};
 };
 
@@ -55,7 +61,6 @@
 			gpios = <&msm_gpio 115 0x1>;
 			linux,input-type = <1>;
 			linux,code = <0x210>;
-			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
 
@@ -64,7 +69,6 @@
 			gpios = <&msm_gpio 114 0x1>;
 			linux,input-type = <1>;
 			linux,code = <0x2fe>;
-			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
 
@@ -73,7 +77,6 @@
 			gpios = <&msm_gpio 113 0x1>;
 			linux,input-type = <1>;
 			linux,code = <115>;
-			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
 
@@ -82,7 +85,6 @@
 			gpios = <&msm_gpio 112 0x1>;
 			linux,input-type = <1>;
 			linux,code = <102>;
-			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
 	};
@@ -143,7 +145,7 @@
 	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on &sdc1_rclk_on>;
 	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_rclk_off>;
 
-	qcom,clk-rates = <400000 25000000 50000000 100000000 177770000 400000000>;
+	qcom,clk-rates = <400000 25000000 50000000 100000000 177777778 400000000>;
 	qcom,bus-speed-mode = "HS400_1p8v", "HS200_1p8v", "DDR_1p8v";
 
 	qcom,nonremovable;
@@ -183,6 +185,7 @@
 };
 
 &dsi_dual_nt35597_video {
+	qcom,cont-splash-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 	qcom,mdss-dsi-bl-min-level = <1>;

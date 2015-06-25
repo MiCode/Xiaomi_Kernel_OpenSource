@@ -1150,8 +1150,11 @@ int diag_send_buffering_tx_mode_pkt(uint8_t peripheral,
 	int err = 0;
 	struct diag_ctrl_peripheral_tx_mode ctrl_pkt;
 
-	if (!peripheral || !params)
+	if (!params)
 		return -EIO;
+
+	if (peripheral >= NUM_PERIPHERALS)
+		return -EINVAL;
 
 	if (!driver->feature[peripheral].peripheral_buffering) {
 		pr_debug("diag: In %s, peripheral  %d doesn't support buffering\n",
@@ -1202,7 +1205,7 @@ int diag_send_buffering_wm_values(uint8_t peripheral,
 		return -EIO;
 
 	if (peripheral >= NUM_PERIPHERALS)
-		return -EIO;
+		return -EINVAL;
 
 	if (!driver->feature[peripheral].peripheral_buffering) {
 		pr_debug("diag: In %s, peripheral  %d doesn't support buffering\n",

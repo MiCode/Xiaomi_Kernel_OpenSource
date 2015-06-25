@@ -567,15 +567,8 @@ struct msm_dba_ops {
  * chip. If Successful, this will return a pointer that should be used as a
  * handle for all subsequent function calls.
  */
-#ifdef CONFIG_MSM_DBA
 void *msm_dba_register_client(struct msm_dba_reg_info *info,
 			      struct msm_dba_ops *ops);
-#else
-static inline void *msm_dba_register_client(struct msm_dba_reg_info *info,
-			      struct msm_dba_ops *ops) {
-	return NULL;
-}
-#endif
 
 /**
  * msm_dba_deregister_client() - Allows client to de-register with the driver.

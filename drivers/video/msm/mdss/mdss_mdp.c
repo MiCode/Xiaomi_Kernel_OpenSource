@@ -598,19 +598,96 @@ void mdss_mdp_irq_disable_nosync(u32 intr_type, u32 intf_num)
 	}
 }
 
+#define RPM_MISC_REQ_TYPE 0x6373696d
+#define RPM_MISC_REQ_SVS_PLUS_KEY 0x2B737673
+
+static void mdss_mdp_config_cx_voltage(struct mdss_data_type *mdata, int enable)
+{
+	int ret = 0;
+	static struct msm_rpm_kvp rpm_kvp;
+	static uint8_t svs_en;
+
+	if (!mdata->en_svs_high && !mdss_has_quirk(mdata,
+				MDSS_QUIRK_SVS_PLUS_VOTING))
+		return;
+
+	if (!rpm_kvp.key) {
+		rpm_kvp.key = RPM_MISC_REQ_SVS_PLUS_KEY;
+		rpm_kvp.length = sizeof(unsigned);
+		pr_err("%s: Initialized rpm_kvp structure\n", __func__);
+	}
+
+	if (enable) {
+		svs_en = 1;
+		rpm_kvp.data = &svs_en;
+		pr_debug("voting for svs high\n");
+		ret = msm_rpm_send_message(MSM_RPM_CTX_ACTIVE_SET,
+					RPM_MISC_REQ_TYPE, 0,
+					&rpm_kvp, 1);
+		if (ret)
+			pr_err("vote for active_set svs high failed: %d\n",
+					ret);
+		ret = msm_rpm_send_message(MSM_RPM_CTX_SLEEP_SET,
+					RPM_MISC_REQ_TYPE, 0,
+					&rpm_kvp, 1);
+		if (ret)
+			pr_err("vote for sleep_set svs high failed: %d\n",
+					ret);
+	} else {
+		svs_en = 0;
+		rpm_kvp.data = &svs_en;
+		pr_debug("removing vote for svs high\n");
+		ret = msm_rpm_send_message(MSM_RPM_CTX_ACTIVE_SET,
+					RPM_MISC_REQ_TYPE, 0,
+					&rpm_kvp, 1);
+		if (ret)
+			pr_err("Remove vote:active_set svs high failed: %d\n",
+					ret);
+		ret = msm_rpm_send_message(MSM_RPM_CTX_SLEEP_SET,
+					RPM_MISC_REQ_TYPE, 0,
+					&rpm_kvp, 1);
+		if (ret)
+			pr_err("Remove vote:sleep_set svs high failed: %d\n",
+					ret);
+	}
+}
+
 static int mdss_mdp_clk_update(u32 clk_idx, u32 enable)
 {
 	int ret = -ENODEV;
 	struct clk *clk = mdss_mdp_get_clk(clk_idx);
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 rate;
 
 	if (clk) {
 		pr_debug("clk=%d en=%d\n", clk_idx, enable);
 		if (enable) {
-			if (clk_idx == MDSS_CLK_MDP_VSYNC)
+			if (clk_idx == MDSS_CLK_MDP_VSYNC) {
 				clk_set_rate(clk, 19200000);
+			} else if (clk_idx == MDSS_CLK_MDP_CORE &&
+					mdss_has_quirk(mdata,
+						MDSS_QUIRK_SVS_PLUS_VOTING)) {
+				rate = clk_get_rate(clk);
+				if (__is_mdp_clk_svs_plus_range(mdata, rate)
+						&& (!mdata->svs_plus_vote)) {
+					mdata->svs_plus_vote = 1;
+					pr_debug("Send svs plus enable request\n");
+					mdss_mdp_config_cx_voltage(mdata, 1);
+				}
+
+			}
 			ret = clk_prepare_enable(clk);
 		} else {
 			clk_disable_unprepare(clk);
+			if (clk_idx == MDSS_CLK_MDP_CORE &&
+					mdss_has_quirk(mdata,
+						MDSS_QUIRK_SVS_PLUS_VOTING)) {
+				if (mdata->svs_plus_vote) {
+					mdata->svs_plus_vote = 0;
+					pr_debug("Send svs plus disable request\n");
+					mdss_mdp_config_cx_voltage(mdata, 0);
+				}
+			}
 			ret = 0;
 		}
 	}
@@ -648,6 +725,24 @@ void mdss_mdp_set_clk_rate(unsigned long rate)
 		if (IS_ERR_VALUE(clk_rate)) {
 			pr_err("unable to round rate err=%ld\n", clk_rate);
 		} else if (clk_rate != clk_get_rate(clk)) {
+			if (mdss_has_quirk(mdata, MDSS_QUIRK_SVS_PLUS_VOTING)) {
+				if (__is_mdp_clk_svs_plus_range(mdata,
+							clk_rate)) {
+					if (!(mdata->svs_plus_vote) &&
+							mdata->clk_ena) {
+						mdata->svs_plus_vote = 1;
+						pr_debug("Send svs plus enable request\n");
+						mdss_mdp_config_cx_voltage(
+								mdata, 1);
+					} else {
+						pr_debug("Already sent svs plus request\n");
+					}
+				} else if (mdata->svs_plus_vote) {
+					mdata->svs_plus_vote = 0;
+					pr_debug("Send svs plus disable request\n");
+					mdss_mdp_config_cx_voltage(mdata, 0);
+				}
+			}
 			if (IS_ERR_VALUE(clk_set_rate(clk, clk_rate)))
 				pr_err("clk_set_rate failed\n");
 			else
@@ -1169,6 +1264,14 @@ static u32 mdss_get_props(void)
 	return props;
 }
 
+static void __mdss_mdp_enable_svs_plus_vote(struct mdss_data_type *mdata, u32
+		min_lvl, u32 max_lvl)
+{
+	mdss_set_quirk(mdata, MDSS_QUIRK_SVS_PLUS_VOTING);
+	mdata->svs_plus_min = min_lvl;
+	mdata->svs_plus_max = max_lvl;
+}
+
 static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 {
 	/* prevent disable of prefill calculations */
@@ -1184,6 +1287,8 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdata->max_cursor_size = 128;
 		break;
 	case MDSS_MDP_HW_REV_110:
+		__mdss_mdp_enable_svs_plus_vote(mdata,
+				SVS_PLUS_MIN_HW_110, SVS_PLUS_MAX_HW_110);
 		mdss_set_quirk(mdata, MDSS_QUIRK_BWCPANIC);
 		mdata->max_target_zorder = 4; /* excluding base layer */
 		mdata->max_cursor_size = 128;
@@ -2347,6 +2452,7 @@ static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 	int rc = 0;
 	u32 *mixer_offsets = NULL, *dspp_offsets = NULL,
 	    *pingpong_offsets = NULL;
+	u32 is_virtual_mixer_req = false;
 
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
 
@@ -2401,10 +2507,22 @@ static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 	if (rc)
 		goto parse_done;
 
-	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-mixer-wb-off",
-		mixer_offsets + mdata->nmixers_intf, mdata->nmixers_wb);
-	if (rc)
-		goto parse_done;
+	if (mdata->nmixers_wb) {
+		rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-mixer-wb-off",
+				mixer_offsets + mdata->nmixers_intf,
+				mdata->nmixers_wb);
+		if (rc)
+			goto parse_done;
+	} else {
+		/*
+		 * If writeback mixers are not available, put the number of
+		 * writeback mixers equal to number of DMA pipes so that
+		 * later same number of virtual writeback mixers can be
+		 * allocated.
+		 */
+		mdata->nmixers_wb = mdata->ndma_pipes;
+		is_virtual_mixer_req = true;
+	}
 
 	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-dspp-off",
 		dspp_offsets, mdata->ndspp);
@@ -2422,11 +2540,27 @@ static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 	if (rc)
 		goto parse_done;
 
-	rc = mdss_mdp_mixer_addr_setup(mdata, mixer_offsets +
-			mdata->nmixers_intf, NULL, NULL,
-			MDSS_MDP_MIXER_TYPE_WRITEBACK, mdata->nmixers_wb);
-	if (rc)
-		goto parse_done;
+	if (mdata->nmixers_wb) {
+		if (is_virtual_mixer_req) {
+			/*
+			 * Replicate last interface mixers based on number of
+			 * dma pipes available as virtual writeback mixers.
+			 */
+			rc = mdss_mdp_mixer_addr_setup(mdata, mixer_offsets +
+				mdata->nmixers_intf - mdata->ndma_pipes,
+				NULL, NULL, MDSS_MDP_MIXER_TYPE_WRITEBACK,
+				mdata->nmixers_wb);
+			if (rc)
+				goto parse_done;
+		} else {
+			rc = mdss_mdp_mixer_addr_setup(mdata, mixer_offsets +
+				mdata->nmixers_intf, NULL, NULL,
+				MDSS_MDP_MIXER_TYPE_WRITEBACK,
+				mdata->nmixers_wb);
+			if (rc)
+				goto parse_done;
+		}
+	}
 
 parse_done:
 	kfree(pingpong_offsets);
@@ -3387,59 +3521,6 @@ void mdss_mdp_set_ot_limit(struct mdss_mdp_set_ot_params *params)
 
 exit:
 	return;
-}
-
-#define RPM_MISC_REQ_TYPE 0x6373696d
-#define RPM_MISC_REQ_SVS_PLUS_KEY 0x2B737673
-
-static void mdss_mdp_config_cx_voltage(struct mdss_data_type *mdata, int enable)
-{
-	int ret = 0;
-	static struct msm_rpm_kvp rpm_kvp;
-	static uint8_t svs_en;
-
-	if (!mdata->en_svs_high)
-		return;
-
-	if (!rpm_kvp.key) {
-		rpm_kvp.key = RPM_MISC_REQ_SVS_PLUS_KEY;
-		rpm_kvp.length = sizeof(unsigned);
-		pr_debug("%s: Initialized rpm_kvp structure\n", __func__);
-	}
-
-	if (enable) {
-		svs_en = 1;
-		rpm_kvp.data = &svs_en;
-		pr_debug("%s: voting for svs high\n", __func__);
-		ret = msm_rpm_send_message(MSM_RPM_CTX_ACTIVE_SET,
-					RPM_MISC_REQ_TYPE, 0,
-					&rpm_kvp, 1);
-		if (ret)
-			pr_err("vote for active_set svs high failed: %d\n",
-					ret);
-		ret = msm_rpm_send_message(MSM_RPM_CTX_SLEEP_SET,
-					RPM_MISC_REQ_TYPE, 0,
-					&rpm_kvp, 1);
-		if (ret)
-			pr_err("vote for sleep_set svs high failed: %d\n",
-					ret);
-	} else {
-		svs_en = 0;
-		rpm_kvp.data = &svs_en;
-		pr_debug("%s: Removing vote for svs high\n", __func__);
-		ret = msm_rpm_send_message(MSM_RPM_CTX_ACTIVE_SET,
-					RPM_MISC_REQ_TYPE, 0,
-					&rpm_kvp, 1);
-		if (ret)
-			pr_err("Remove vote:active_set svs high failed: %d\n",
-					ret);
-		ret = msm_rpm_send_message(MSM_RPM_CTX_SLEEP_SET,
-					RPM_MISC_REQ_TYPE, 0,
-					&rpm_kvp, 1);
-		if (ret)
-			pr_err("Remove vote:sleep_set svs high failed: %d\n",
-					ret);
-	}
 }
 
 static int mdss_mdp_cx_ctrl(struct mdss_data_type *mdata, int enable)

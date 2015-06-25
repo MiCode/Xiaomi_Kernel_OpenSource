@@ -766,7 +766,7 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<87 512 0 0>,
-				<87 512 80000 0>,
+				<87 512 60000 0>,
 				<87 512 6000  6000>;
 
 		clocks = <&clock_gcc clk_gcc_usb_hs_ahb_clk>,
@@ -809,7 +809,7 @@
 
 	qcom,usbbam@78c4000 {
 		compatible = "qcom,usb-bam-msm";
-		reg = <0x78c4000 0x15000>;
+		reg = <0x78c4000 0x17000>;
 		reg-names = "hsusb";
 		interrupts = <0 135 0>;
 		interrupt-names = "hsusb";
@@ -880,6 +880,34 @@
 			qcom,reset-bam-on-disconnect;
 		};
 	};
+
+        ipa_hw: qcom,ipa@07900000 {
+                compatible = "qcom,ipa";
+                reg = <0x07900000 0x4effc>, <0x07904000 0x26934>;
+                reg-names = "ipa-base", "bam-base";
+                interrupts = <0 228 0>,
+                             <0 231 0>;
+                interrupt-names = "ipa-irq", "bam-irq";
+                qcom,ipa-hw-ver = <6>; /* IPA core version = IPAv2.6L */
+                qcom,ipa-hw-mode = <0>; /* IPA hw type = Normal */
+                clock-names = "core_clk";
+                clocks = <&clock_gcc clk_ipa_clk>;
+                qcom,ee = <2>;
+                qcom,msm-bus,name = "ipa";
+                qcom,msm-bus,num-cases = <3>;
+                qcom,msm-bus,num-paths = <1>;
+                qcom,msm-bus,vectors-KBps =
+                <90 512 0 0>,              /* No vote (ab=0 Mbps, ib=0 Mbps ~V NO BIMC vote) */
+                <90 512 100000 800000>,    /* SVS  - (ab=100Mbps, ib=800Mbps ~V 50MHz BIMC freq) */
+                <90 512 100000 1200000>;   /* PERF - (ab=100Mbps, ib=1200Mbps ~V 75MHz BIMC freq) */
+                qcom,bus-vector-names = "MIN", "SVS", "PERF";
+        };
+
+        qcom,rmnet-ipa {
+                compatible = "qcom,rmnet-ipa";
+                qcom,rmnet-ipa-ssr;
+                qcom,ipa-loaduC;
+        };
 
 	qcom,ipc-spinlock@1905000 {
 		compatible = "qcom,ipc-spinlock-sfpb";
@@ -1300,6 +1328,7 @@
 		venus-supply = <&gdsc_venus>;
 		venus-core0-supply = <&gdsc_venus_core0>;
 		qcom,hfi = "venus";
+		qcom,firmware-name = "venus-v1";
 
 		clocks =
 			<&clock_gcc clk_gcc_venus0_vcodec0_clk>,
@@ -1309,6 +1338,7 @@
 
 		clock-names = "core_clk", "core0_clk", "iface_clk", "bus_clk";
 		qcom,clock-configs = <0x1 0x0 0x0 0x0>;
+		qcom,sw-power-collapse;
 		qcom,max-hw-load = <972000>; /* 3840 x 2160 @ 30 fps */
 
 		qcom,load-freq-tbl =
@@ -1509,7 +1539,6 @@
                 #address-cells = <1>;
                 #size-cells = <0>;
                 cell-index = <0>;
-                qcom,not-wakeup; /* Needed until MPM is fully configured. */
 	};
 
 	spi_0: spi@0x78B5000 { /* BLSP1 QUP0 */
@@ -1628,6 +1657,90 @@
 		/* GPIO output to mss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
 		linux,contiguous-region = <&modem_mem>;
+	};
+
+	jtag_fuse: jtagfuse@a601c {
+		compatible = "qcom,jtag-fuse-v2";
+		reg = <0xa601c 0x8>;
+		reg-names = "fuse-base";
+	};
+
+	jtag_mm0: jtagmm@6840000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x6840000 0x1000>,
+		      <0x6810000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+		         <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU0>;
+	};
+
+	jtag_mm1: jtagmm@6940000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x6940000 0x1000>,
+		      <0x6910000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+		         <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU1>;
+	};
+
+	jtag_mm2: jtagmm@6a40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x6a40000 0x1000>,
+		      <0x6a10000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+		         <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU2>;
+	};
+
+	jtag_mm3: jtagmm@6b40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x6b40000 0x1000>,
+		      <0x6b10000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+		         <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU3>;
+	};
+
+	jtag_mm4: jtagmm@6c40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x6c40000 0x1000>,
+		      <0x6c10000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+		         <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU4>;
+	};
+
+	jtag_mm5: jtagmm@6d40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x6d40000 0x1000>,
+		      <0x6d10000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+		         <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU5>;
 	};
 };
 

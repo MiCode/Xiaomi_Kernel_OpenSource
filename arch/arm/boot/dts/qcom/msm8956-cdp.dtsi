@@ -34,8 +34,15 @@
 		synaptics,detect-device;
 		synaptics,device1 {
 			synaptics,package-id = <3528>;
+			synaptics,bypass-sensor-coords-check;
 			synaptics,display-coords = <0 0 1439 2559>;
-			synaptics,panel-coords = <0 0 1439 2703>;
+			synaptics,panel-coords = <0 0 1599 2703>;
+			synaptics,key-codes = <158 139 172 217>;
+		};
+		synaptics,device2 {
+			synaptics,package-id = <3408>;
+			synaptics,display-coords = <0 0 1079 1919>;
+			synaptics,panel-coords = <0 0 1079 2063>;
 			synaptics,key-codes = <158 139 172 217>;
 		};
 	};
@@ -54,7 +61,6 @@
 			gpios = <&msm_gpio 115 0x1>;
 			linux,input-type = <1>;
 			linux,code = <0x210>;
-			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
 
@@ -63,7 +69,6 @@
 			gpios = <&msm_gpio 114 0x1>;
 			linux,input-type = <1>;
 			linux,code = <0x2fe>;
-			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
 
@@ -72,7 +77,6 @@
 			gpios = <&msm_gpio 113 0x1>;
 			linux,input-type = <1>;
 			linux,code = <115>;
-			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
 
@@ -81,7 +85,6 @@
 			gpios = <&msm_gpio 112 0x1>;
 			linux,input-type = <1>;
 			linux,code = <102>;
-			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
 	};

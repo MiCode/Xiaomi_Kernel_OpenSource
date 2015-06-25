@@ -25,6 +25,8 @@
 #include <linux/workqueue.h>
 #include <linux/power_supply.h>
 #include "leds.h"
+#include <linux/debugfs.h>
+#include <linux/uaccess.h>
 
 #define FLASH_LED_PERIPHERAL_SUBTYPE(base)			(base + 0x05)
 #define FLASH_SAFETY_TIMER(base)				(base + 0x40)
@@ -47,6 +49,14 @@
 #define	FLASH_HDRM_SNS_ENABLE_CTRL1(base)			(base + 0x5D)
 #define	FLASH_LED_UNLOCK_SECURE(base)				(base + 0xD0)
 #define	FLASH_TORCH(base)					(base + 0xE4)
+
+#define FLASH_STATUS_REG_MASK					0xFF
+#define FLASH_LED_FAULT_STATUS(base)				(base + 0x08)
+#define INT_LATCHED_STS(base)					(base + 0x18)
+#define IN_POLARITY_HIGH(base)					(base + 0x12)
+#define INT_SET_TYPE(base)					(base + 0x11)
+#define INT_EN_SET(base)					(base + 0x15)
+#define INT_LATCHED_CLR(base)					(base + 0x14)
 
 #define	FLASH_HEADROOM_MASK					0x03
 #define FLASH_STARTUP_DLY_MASK					0x03
@@ -92,7 +102,8 @@
 #define	FLASH_LED_THERMAL_DEVIDER				10
 #define	FLASH_LED_VPH_DROOP_THRESHOLD_MIN_MV			2500
 #define	FLASH_LED_VPH_DROOP_THRESHOLD_DIVIDER			100
-#define FLASH_LED_HDRM_SNS_ENABLE				0x81
+#define	FLASH_LED_HDRM_SNS_ENABLE				0x81
+#define	FLASH_LED_HDRM_SNS_DISABLE				0x01
 #define	FLASH_LED_UA_PER_MA					1000
 #define	FLASH_LED_MASK_MODULE_MASK2_ENABLE			0x20
 #define	FLASH_LED_MASK3_ENABLE_SHIFT				7
@@ -191,6 +202,13 @@ struct flash_led_platform_data {
 	bool				mask3_en;
 };
 
+struct qpnp_flash_led_buffer {
+	size_t rpos;
+	size_t wpos;
+	size_t len;
+	char data[0];
+};
+
 /*
  * Flash LED data structure containing flash LED attributes
  */
@@ -203,18 +221,272 @@ struct qpnp_flash_led {
 	struct flash_node_data		*flash_node;
 	struct power_supply		*battery_psy;
 	struct mutex			flash_led_lock;
+	struct qpnp_flash_led_buffer	*log;
+	struct dentry			*dbgfs_root;
 	int				num_leds;
+	u32				buffer_cnt;
 	u16				base;
 	u16				current_addr;
 	u16				current2_addr;
 	u8				peripheral_type;
+	u8				fault_reg;
 	bool				gpio_enabled;
 	bool				charging_enabled;
+	bool				strobe_debug;
+	bool				dbg_feature_en;
 };
 
 static u8 qpnp_flash_led_ctrl_dbg_regs[] = {
 	0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
 	0x4A, 0x4B, 0x4C, 0x4F, 0x51, 0x52, 0x54, 0x55, 0x5A
+};
+
+static int flash_led_dbgfs_file_open(struct qpnp_flash_led *led,
+					struct file *file)
+{
+	struct qpnp_flash_led_buffer *log;
+	size_t logbufsize = SZ_4K;
+
+	log = kzalloc(logbufsize, GFP_KERNEL);
+	if (!log)
+		return -ENOMEM;
+
+	log->rpos = 0;
+	log->wpos = 0;
+	log->len = logbufsize - sizeof(*log);
+	led->log = log;
+
+	led->buffer_cnt = 1;
+	file->private_data = led;
+
+	return 0;
+}
+
+static int flash_led_dfs_open(struct inode *inode, struct file *file)
+{
+	struct qpnp_flash_led *led = inode->i_private;
+	return flash_led_dbgfs_file_open(led, file);
+}
+
+static int flash_led_dfs_close(struct inode *inode, struct file *file)
+{
+	struct qpnp_flash_led *led = file->private_data;
+
+	if (led && led->log) {
+		file->private_data = NULL;
+		kfree(led->log);
+	}
+
+	return 0;
+}
+
+static int print_to_log(struct qpnp_flash_led_buffer *log,
+					const char *fmt, ...)
+{
+	va_list args;
+	int cnt;
+	char *log_buf = &log->data[log->wpos];
+	size_t size = log->len - log->wpos;
+
+	va_start(args, fmt);
+	cnt = vscnprintf(log_buf, size, fmt, args);
+	va_end(args);
+
+	log->wpos += cnt;
+	return cnt;
+}
+
+static ssize_t flash_led_dfs_latched_reg_read(struct file *fp, char __user *buf,
+					size_t count, loff_t *ppos) {
+	struct qpnp_flash_led *led = fp->private_data;
+	struct qpnp_flash_led_buffer *log = led->log;
+	u8 val;
+	int rc;
+	size_t len;
+	size_t ret;
+
+	if (log->rpos >= log->wpos && led->buffer_cnt == 0)
+		return 0;
+
+	rc = spmi_ext_register_readl(led->spmi_dev->ctrl,
+		led->spmi_dev->sid, INT_LATCHED_STS(led->base), &val, 1);
+	if (rc) {
+		dev_err(&led->spmi_dev->dev,
+				"Unable to read from address %x, rc(%d)\n",
+				INT_LATCHED_STS(led->base), rc);
+		return -EINVAL;
+	}
+	led->buffer_cnt--;
+
+	rc = print_to_log(log, "0x%05X ", INT_LATCHED_STS(led->base));
+	if (rc == 0)
+		return rc;
+
+	rc = print_to_log(log, "0x%02X ", val);
+	if (rc == 0)
+		return rc;
+
+	if (log->wpos > 0 && log->data[log->wpos - 1] == ' ')
+		log->data[log->wpos - 1] = '\n';
+
+	len = min(count, log->wpos - log->rpos);
+
+	ret = copy_to_user(buf, &log->data[log->rpos], len);
+	if (ret) {
+		pr_err("error copy register value to user\n");
+		return -EFAULT;
+	}
+
+	len -= ret;
+	*ppos += len;
+	log->rpos += len;
+
+	return len;
+}
+
+static ssize_t flash_led_dfs_fault_reg_read(struct file *fp, char __user *buf,
+					size_t count, loff_t *ppos) {
+	struct qpnp_flash_led *led = fp->private_data;
+	struct qpnp_flash_led_buffer *log = led->log;
+	int rc;
+	size_t len;
+	size_t ret;
+
+	if (log->rpos >= log->wpos && led->buffer_cnt == 0)
+		return 0;
+
+	led->buffer_cnt--;
+
+	rc = print_to_log(log, "0x%05X ", FLASH_LED_FAULT_STATUS(led->base));
+	if (rc == 0)
+		return rc;
+
+	rc = print_to_log(log, "0x%02X ", led->fault_reg);
+	if (rc == 0)
+		return rc;
+
+	if (log->wpos > 0 && log->data[log->wpos - 1] == ' ')
+		log->data[log->wpos - 1] = '\n';
+
+	len = min(count, log->wpos - log->rpos);
+
+	ret = copy_to_user(buf, &log->data[log->rpos], len);
+	if (ret) {
+		pr_err("error copy register value to user\n");
+		return -EFAULT;
+	}
+
+	len -= ret;
+	*ppos += len;
+	log->rpos += len;
+
+	return len;
+}
+
+static ssize_t flash_led_dfs_fault_reg_enable(struct file *file,
+			const char __user *buf, size_t count, loff_t *ppos) {
+
+	u8 *val;
+	int pos = 0;
+	int cnt = 0;
+	int data;
+	size_t ret = 0;
+
+	struct qpnp_flash_led *led = file->private_data;
+	char *kbuf = kmalloc(count + 1, GFP_KERNEL);
+	if (!kbuf)
+		return -ENOMEM;
+
+	ret = copy_from_user(kbuf, buf, count);
+	if (!ret) {
+		pr_err("failed to copy data from user\n");
+		ret = -EFAULT;
+		goto free_buf;
+	}
+
+	count -= ret;
+	*ppos += count;
+	kbuf[count] = '\0';
+	val = kbuf;
+	while (sscanf(kbuf + pos, "%i", &data) == 1) {
+		pos++;
+		val[cnt++] = data & 0xff;
+	}
+
+	if (!cnt)
+		goto free_buf;
+
+	ret = count;
+	if (*val == 1)
+		led->strobe_debug = true;
+	else
+		led->strobe_debug = false;
+
+free_buf:
+	kfree(kbuf);
+	return ret;
+}
+
+static ssize_t flash_led_dfs_dbg_enable(struct file *file,
+			const char __user *buf, size_t count, loff_t *ppos) {
+
+	u8 *val;
+	int pos = 0;
+	int cnt = 0;
+	int data;
+	size_t ret = 0;
+
+	struct qpnp_flash_led *led = file->private_data;
+	char *kbuf = kmalloc(count + 1, GFP_KERNEL);
+	if (!kbuf)
+		return -ENOMEM;
+
+	ret = copy_from_user(kbuf, buf, count);
+	if (ret == count) {
+		pr_err("failed to copy data from user\n");
+		ret = -EFAULT;
+		goto free_buf;
+	}
+	count -= ret;
+	*ppos += count;
+	kbuf[count] = '\0';
+	val = kbuf;
+	while (sscanf(kbuf + pos, "%i", &data) == 1) {
+		pos++;
+		val[cnt++] = data & 0xff;
+	}
+
+	if (!cnt)
+		goto free_buf;
+
+	ret = count;
+	if (*val == 1)
+		led->dbg_feature_en = true;
+	else
+		led->dbg_feature_en = false;
+
+free_buf:
+	kfree(kbuf);
+	return ret;
+}
+
+static const struct file_operations flash_led_dfs_latched_reg_fops = {
+	.open		= flash_led_dfs_open,
+	.release	= flash_led_dfs_close,
+	.read		= flash_led_dfs_latched_reg_read,
+};
+
+static const struct file_operations flash_led_dfs_strobe_reg_fops = {
+	.open		= flash_led_dfs_open,
+	.release	= flash_led_dfs_close,
+	.read		= flash_led_dfs_fault_reg_read,
+	.write		= flash_led_dfs_fault_reg_enable,
+};
+
+static const struct file_operations flash_led_dfs_dbg_feature_fops = {
+	.open		= flash_led_dfs_open,
+	.release	= flash_led_dfs_close,
+	.write		= flash_led_dfs_dbg_enable,
 };
 
 static int
@@ -615,6 +887,31 @@ static int qpnp_flash_led_module_disable(struct qpnp_flash_led *led,
 			return -EINVAL;
 		}
 	}
+
+	if (led->pdata->hdrm_sns_ch0_en) {
+		rc = qpnp_led_masked_write(led->spmi_dev,
+			FLASH_HDRM_SNS_ENABLE_CTRL0(led->base),
+			FLASH_LED_HDRM_SNS_ENABLE_MASK,
+			FLASH_LED_HDRM_SNS_DISABLE);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+					"Headroom sense disable failed\n");
+			return rc;
+		}
+	}
+
+	if (led->pdata->hdrm_sns_ch1_en) {
+		rc = qpnp_led_masked_write(led->spmi_dev,
+			FLASH_HDRM_SNS_ENABLE_CTRL1(led->base),
+			FLASH_LED_HDRM_SNS_ENABLE_MASK,
+			FLASH_LED_HDRM_SNS_DISABLE);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+					"Headroom sense disable failed\n");
+			return rc;
+		}
+	}
+
 	return 0;
 }
 
@@ -671,6 +968,44 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			goto error_enable_gpio;
 		}
 		led->gpio_enabled = true;
+	}
+
+	if (led->dbg_feature_en) {
+		rc = qpnp_led_masked_write(led->spmi_dev,
+						INT_SET_TYPE(led->base),
+						FLASH_STATUS_REG_MASK, 0x1F);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+					"INT_SET_TYPE write failed\n");
+			goto exit_flash_led_work;
+		}
+
+		rc = qpnp_led_masked_write(led->spmi_dev,
+					IN_POLARITY_HIGH(led->base),
+					FLASH_STATUS_REG_MASK, 0x1F);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+					"IN_POLARITY_HIGH write failed\n");
+			goto exit_flash_led_work;
+		}
+
+		rc = qpnp_led_masked_write(led->spmi_dev,
+					INT_EN_SET(led->base),
+					FLASH_STATUS_REG_MASK, 0x1F);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+					"INT_EN_SET write failed\n");
+			goto exit_flash_led_work;
+		}
+
+		rc = qpnp_led_masked_write(led->spmi_dev,
+					INT_LATCHED_CLR(led->base),
+					FLASH_STATUS_REG_MASK, 0x1F);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+					"INT_LATCHED_CLR write failed\n");
+			goto exit_flash_led_work;
+		}
 	}
 
 	if (((led->flash_node[2].flash_on ||
@@ -766,6 +1101,34 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			dev_err(&led->spmi_dev->dev,
 				"Module enable reg write failed\n");
 			goto exit_flash_led_work;
+		}
+
+		if (led->flash_node[2].flash_on) {
+			if (led->pdata->hdrm_sns_ch0_en) {
+				rc = qpnp_led_masked_write(led->spmi_dev,
+					FLASH_HDRM_SNS_ENABLE_CTRL0(led->base),
+					FLASH_LED_HDRM_SNS_ENABLE_MASK,
+					FLASH_LED_HDRM_SNS_ENABLE);
+				if (rc) {
+					dev_err(&led->spmi_dev->dev,
+					"Headroom sense enable failed\n");
+					goto exit_flash_led_work;
+				}
+			}
+		}
+
+		if (led->flash_node[3].flash_on) {
+			if (led->pdata->hdrm_sns_ch1_en) {
+				rc = qpnp_led_masked_write(led->spmi_dev,
+					FLASH_HDRM_SNS_ENABLE_CTRL1(led->base),
+					FLASH_LED_HDRM_SNS_ENABLE_MASK,
+					FLASH_LED_HDRM_SNS_ENABLE);
+				if (rc) {
+					dev_err(&led->spmi_dev->dev,
+					"Headroom sense enable failed\n");
+					goto exit_flash_led_work;
+				}
+			}
 		}
 
 		rc = qpnp_led_masked_write(led->spmi_dev,
@@ -952,6 +1315,34 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			usleep(FLASH_RAMP_UP_DELAY_US);
 		}
 
+		if (led->flash_node[0].flash_on) {
+			if (led->pdata->hdrm_sns_ch0_en) {
+				rc = qpnp_led_masked_write(led->spmi_dev,
+					FLASH_HDRM_SNS_ENABLE_CTRL0(led->base),
+					FLASH_LED_HDRM_SNS_ENABLE_MASK,
+					FLASH_LED_HDRM_SNS_ENABLE);
+				if (rc) {
+					dev_err(&led->spmi_dev->dev,
+					"Headroom sense enable failed\n");
+					goto exit_flash_led_work;
+				}
+			}
+		}
+
+		if (led->flash_node[1].flash_on) {
+			if (led->pdata->hdrm_sns_ch1_en) {
+				rc = qpnp_led_masked_write(led->spmi_dev,
+					FLASH_HDRM_SNS_ENABLE_CTRL1(led->base),
+					FLASH_LED_HDRM_SNS_ENABLE_MASK,
+					FLASH_LED_HDRM_SNS_ENABLE);
+				if (rc) {
+					dev_err(&led->spmi_dev->dev,
+					"Headroom sense enable failed\n");
+					goto exit_flash_led_work;
+				}
+			}
+		}
+
 		rc = qpnp_led_masked_write(led->spmi_dev,
 			FLASH_LED_STROBE_CTRL(led->base),
 			flash_node->trigger,
@@ -960,6 +1351,21 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			dev_err(&led->spmi_dev->dev,
 				"Strobe reg write failed\n");
 			goto exit_flash_led_work;
+		}
+
+		if (led->strobe_debug && led->dbg_feature_en) {
+			udelay(2000);
+			rc = spmi_ext_register_readl(led->spmi_dev->ctrl,
+					led->spmi_dev->sid,
+					FLASH_LED_FAULT_STATUS(led->base),
+					&val, 1);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+				"Unable to read from addr= %x, rc(%d)\n",
+				FLASH_LED_FAULT_STATUS(led->base), rc);
+				goto exit_flash_led_work;
+			}
+			led->fault_reg = val;
 		}
 	} else {
 		pr_err("Both Torch and Flash cannot be select at same time\n");
@@ -1205,30 +1611,6 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 	if (rc) {
 		dev_err(&led->spmi_dev->dev, "VPH PWR droop reg write failed\n");
 		return rc;
-	}
-
-	if (led->pdata->hdrm_sns_ch0_en) {
-		rc = qpnp_led_masked_write(led->spmi_dev,
-				FLASH_HDRM_SNS_ENABLE_CTRL0(led->base),
-				FLASH_LED_HDRM_SNS_ENABLE_MASK,
-				FLASH_LED_HDRM_SNS_ENABLE);
-		if (rc) {
-			dev_err(&led->spmi_dev->dev,
-					"Headroom sense enable failed\n");
-			return rc;
-		}
-	}
-
-	if (led->pdata->hdrm_sns_ch1_en) {
-		rc = qpnp_led_masked_write(led->spmi_dev,
-				FLASH_HDRM_SNS_ENABLE_CTRL1(led->base),
-				FLASH_LED_HDRM_SNS_ENABLE_MASK,
-				FLASH_LED_HDRM_SNS_ENABLE);
-		if (rc) {
-			dev_err(&led->spmi_dev->dev,
-					"Headroom sense enable failed\n");
-			return rc;
-		}
 	}
 
 	led->battery_psy = power_supply_get_by_name("battery");
@@ -1557,6 +1939,7 @@ static int qpnp_flash_led_probe(struct spmi_device *spmi)
 	struct qpnp_flash_led *led;
 	struct resource *flash_resource;
 	struct device_node *node, *temp;
+	struct dentry *root, *file;
 	int rc, i = 0, j, num_leds = 0;
 	u32 val;
 
@@ -1693,6 +2076,38 @@ static int qpnp_flash_led_probe(struct spmi_device *spmi)
 	}
 
 	led->num_leds = i;
+
+	root = debugfs_create_dir("flashLED", NULL);
+	if (IS_ERR_OR_NULL(root)) {
+		pr_err("Error creating top level directory err%ld",
+			(long)root);
+		if (PTR_ERR(root) == -ENODEV)
+			pr_err("debugfs is not enabled in kernel");
+		goto error_led_register;
+	}
+
+	led->dbgfs_root = root;
+	file = debugfs_create_file("enable_debug", S_IRUSR | S_IWUSR, root,
+					led, &flash_led_dfs_dbg_feature_fops);
+	if (!file) {
+		pr_err("error creating 'enable_debug' entry\n");
+		goto error_led_register;
+	}
+
+	file = debugfs_create_file("latched", S_IRUSR | S_IWUSR, root, led,
+					&flash_led_dfs_latched_reg_fops);
+	if (!file) {
+		pr_err("error creating 'latched' entry\n");
+		goto error_led_register;
+	}
+
+	file = debugfs_create_file("strobe", S_IRUSR | S_IWUSR, root, led,
+					&flash_led_dfs_strobe_reg_fops);
+	if (!file) {
+		pr_err("error creating 'strobe' entry\n");
+		goto error_led_register;
+	}
+
 	dev_set_drvdata(&spmi->dev, led);
 
 	return 0;
@@ -1705,6 +2120,7 @@ error_led_register:
 		j = ARRAY_SIZE(qpnp_flash_led_attrs) - 1;
 		led_classdev_unregister(&led->flash_node[i].cdev);
 	}
+	debugfs_remove_recursive(root);
 	mutex_destroy(&led->flash_led_lock);
 	return rc;
 }
@@ -1722,7 +2138,7 @@ static int qpnp_flash_led_remove(struct spmi_device *spmi)
 						&qpnp_flash_led_attrs[j].attr);
 		led_classdev_unregister(&led->flash_node[i].cdev);
 	}
-
+	debugfs_remove_recursive(led->dbgfs_root);
 	mutex_destroy(&led->flash_led_lock);
 
 	return 0;

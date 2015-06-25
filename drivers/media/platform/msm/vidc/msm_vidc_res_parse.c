@@ -754,6 +754,14 @@ int read_platform_resources_from_dt(
 			of_property_read_bool(pdev->dev.of_node,
 			"qcom,enable-thermal-mitigation");
 
+	rc = of_property_read_string(pdev->dev.of_node, "qcom,firmware-name",
+			&res->fw_name);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to read firmware name: %d\n", rc);
+		goto err_load_freq_table;
+	}
+	dprintk(VIDC_DBG, "Firmware filename: %s\n", res->fw_name);
+
 	rc = msm_vidc_load_freq_table(res);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to load freq table: %d\n", rc);

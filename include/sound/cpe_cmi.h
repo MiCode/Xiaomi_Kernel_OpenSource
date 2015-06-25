@@ -34,6 +34,9 @@
 #define CPE_CORE_SVC_CMD_SHARED_MEM_DEALLOC	(0x3003)
 #define CPE_CORE_SVC_CMD_DRAM_ACCESS_REQ	(0x3004)
 #define CPE_CORE_SVC_EVENT_SYSTEM_BOOT		(0x3005)
+/* core service command opcodes for WCD9335 */
+#define CPE_CORE_SVC_CMD_CFG_CLK_PLAN		(0x3006)
+#define CPE_CORE_SVC_CMD_CLK_FREQ_REQUEST	(0x3007)
 
 #define CPE_BOOT_SUCCESS 0x00
 #define CPE_BOOT_FAILED 0x01
@@ -236,9 +239,17 @@ struct cmi_core_svc_cmdrsp_shared_mem_alloc {
 	u32 addr;
 } __packed;
 
+struct cmi_core_svc_cmd_clk_freq_request {
+	u32 clk_freq;
+} __packed;
+
 struct cmi_msg_transport {
 	u32 size;
 	u32 addr;
+} __packed;
+
+struct cmi_basic_rsp_result {
+	u8 status;
 } __packed;
 
 struct cpe_lsm_cmd_open_tx {

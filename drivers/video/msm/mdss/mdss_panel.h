@@ -452,6 +452,7 @@ struct mdss_panel_info {
 	bool is_pluggable;
 
 	void *edid_data;
+	void *dba_data;
 
 	char panel_name[MDSS_MAX_PANEL_LEN];
 	struct mdss_mdp_pp_tear_check te;

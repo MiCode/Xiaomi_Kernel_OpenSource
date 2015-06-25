@@ -1296,10 +1296,7 @@ static int mmc_reboot_notify(struct notifier_block *notify_block,
 	struct mmc_card *card = container_of(
 			notify_block, struct mmc_card, reboot_notify);
 
-	if (event != SYS_RESTART)
-		card->issue_long_pon = true;
-	else
-		card->issue_long_pon = false;
+	card->pon_type = (event != SYS_RESTART) ? MMC_LONG_PON : MMC_SHRT_PON;
 
 	return NOTIFY_OK;
 }
@@ -1354,6 +1351,7 @@ static int mmc_select_cmdq(struct mmc_card *card)
 		goto out;
 
 	mmc_card_set_cmdq(card);
+	mmc_host_clk_hold(card->host);
 	ret = host->cmdq_ops->enable(card->host);
 	if (ret) {
 		pr_err("%s: failed (%d) enabling CMDQ on host\n",
@@ -1361,10 +1359,12 @@ static int mmc_select_cmdq(struct mmc_card *card)
 		mmc_card_clr_cmdq(card);
 		ret = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL, EXT_CSD_CMDQ, 0,
 				 card->ext_csd.generic_cmd6_time);
-		if (ret)
+		if (ret) {
+			mmc_host_clk_release(card->host);
 			goto out;
+		}
 	}
-
+	mmc_host_clk_release(card->host);
 	pr_info("%s: CMDQ enabled on card\n", mmc_hostname(host));
 out:
 	return ret;
@@ -1802,19 +1802,24 @@ static int mmc_poweroff_notify(struct mmc_card *card, unsigned int notify_type)
 	return err;
 }
 
-int mmc_send_long_pon(struct mmc_card *card)
+int mmc_send_pon(struct mmc_card *card)
 {
 	int err = 0;
 	struct mmc_host *host = card->host;
 
+	if (!mmc_can_poweroff_notify(card))
+		goto out;
+
 	mmc_claim_host(host);
-	if (card->issue_long_pon && mmc_can_poweroff_notify(card)) {
+	if (card->pon_type & MMC_LONG_PON)
 		err = mmc_poweroff_notify(host->card, EXT_CSD_POWER_OFF_LONG);
-		if (err)
-			pr_warning("%s: error %d sending Long PON",
-					mmc_hostname(host), err);
-	}
+	else if (card->pon_type & MMC_SHRT_PON)
+		err = mmc_poweroff_notify(host->card, EXT_CSD_POWER_OFF_SHORT);
+	if (err)
+		pr_warn("%s: error %d sending PON type %u",
+			mmc_hostname(host), err, card->pon_type);
 	mmc_release_host(host);
+out:
 	return err;
 }
 

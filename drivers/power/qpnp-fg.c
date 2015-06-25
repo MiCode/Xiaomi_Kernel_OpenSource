@@ -124,6 +124,7 @@ struct fg_learning_data {
 	int			max_decrement;
 	int			min_temp;
 	int			max_temp;
+	int			vbat_est_thr_uv;
 };
 
 struct fg_rslow_data {
@@ -171,8 +172,8 @@ enum fg_mem_data_index {
 	FG_DATA_BATT_SOC,
 	FG_DATA_CC_CHARGE,
 	FG_DATA_VINT_ERR,
-	/* values below this only gets read once per profile reload */
 	FG_DATA_CPRED_VOLTAGE,
+	/* values below this only gets read once per profile reload */
 	FG_DATA_BATT_ID,
 	FG_DATA_BATT_ID_INFO,
 	FG_DATA_MAX,
@@ -1869,7 +1870,7 @@ static void update_sram_data(struct fg_chip *chip, int *resched_ms)
 	fg_stay_awake(&chip->update_sram_wakeup_source);
 	fg_mem_lock(chip);
 	for (i = 1; i < FG_DATA_MAX; i++) {
-		if (chip->profile_loaded && i >= FG_DATA_CPRED_VOLTAGE)
+		if (chip->profile_loaded && i >= FG_DATA_BATT_ID)
 			continue;
 		rc = fg_mem_read(chip, reg, fg_data[i].address,
 			fg_data[i].len, fg_data[i].offset, 0);
@@ -2779,6 +2780,12 @@ static void fg_cap_learning_post_process(struct fg_chip *chip)
 				old_cap, chip->learning_data.learned_cc_uah);
 }
 
+static int get_vbat_est_diff(struct fg_chip *chip)
+{
+	return abs(fg_data[FG_DATA_VOLTAGE].value
+				- fg_data[FG_DATA_CPRED_VOLTAGE].value);
+}
+
 #define CBITS_INPUT_FILTER_REG		0x4B4
 #define IBATTF_TAU_MASK			0x38
 #define IBATTF_TAU_99_S			0x30
@@ -2786,6 +2793,7 @@ static int fg_cap_learning_check(struct fg_chip *chip)
 {
 	u8 data[3];
 	int rc = 0, battery_soc;
+	int vbat_est_diff;
 
 	mutex_lock(&chip->learning_data.learning_lock);
 	if (chip->status == POWER_SUPPLY_STATUS_CHARGING
@@ -2801,6 +2809,17 @@ static int fg_cap_learning_check(struct fg_chip *chip)
 			goto fail;
 
 		fg_mem_lock(chip);
+		vbat_est_diff = get_vbat_est_diff(chip);
+		if (vbat_est_diff >= chip->learning_data.vbat_est_thr_uv &&
+				chip->learning_data.vbat_est_thr_uv > 0) {
+			if (fg_debug_mask & FG_AGING)
+				pr_info("vbat_est_diff (%d) < threshold (%d)\n",
+					vbat_est_diff,
+					chip->learning_data.vbat_est_thr_uv);
+			fg_mem_release(chip);
+			fg_cap_learning_stop(chip);
+			goto fail;
+		}
 		battery_soc = get_battery_soc_raw(chip);
 		if (fg_debug_mask & FG_AGING)
 			pr_info("checking battery soc (%d vs %d)\n",
@@ -3755,8 +3774,6 @@ fail:
 	return -EINVAL;
 }
 
-#define V_PREDICTED_ADDR		0x540
-#define V_CURRENT_PREDICTED_OFFSET	0
 #define PROFILE_LOAD_TIMEOUT_MS		5000
 #define FG_PROFILE_LEN			128
 #define PROFILE_COMPARE_LEN		32
@@ -3892,9 +3909,8 @@ wait:
 		goto no_profile;
 	}
 
-	vbat_in_range = abs(fg_data[FG_DATA_VOLTAGE].value
-				- fg_data[FG_DATA_CPRED_VOLTAGE].value)
-				< settings[FG_MEM_VBAT_EST_DIFF].value * 1000;
+	vbat_in_range = get_vbat_est_diff(chip)
+			< settings[FG_MEM_VBAT_EST_DIFF].value * 1000;
 	profiles_same = memcmp(chip->batt_profile, data,
 					PROFILE_COMPARE_LEN) == 0;
 	if (reg & PROFILE_INTEGRITY_BIT)
@@ -4168,6 +4184,8 @@ static int fg_of_init(struct fg_chip *chip)
 			"cl-min-temp-decidegc", rc, 150);
 	OF_READ_PROPERTY(chip->learning_data.max_start_soc,
 			"cl-max-start-capacity", rc, 15);
+	OF_READ_PROPERTY(chip->learning_data.vbat_est_thr_uv,
+			"cl-vbat-est-thr-uv", rc, 40000);
 	OF_READ_PROPERTY(chip->evaluation_current,
 			"aging-eval-current-ma", rc,
 			DEFAULT_EVALUATION_CURRENT_MA);

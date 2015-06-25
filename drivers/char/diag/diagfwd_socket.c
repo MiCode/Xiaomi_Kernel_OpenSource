@@ -936,7 +936,7 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 		bytes_remaining -= read_len;
 	} while (info->data_ready > 0);
 
-	if (buf_full || info->type == TYPE_DATA)
+	if (buf_full || (info->type == TYPE_DATA && pkt_len))
 		err = queue_work(info->wq, &(info->read_work));
 
 	if (total_recd > 0) {

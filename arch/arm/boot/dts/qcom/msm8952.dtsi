@@ -1007,6 +1007,8 @@
 		qcom,has-autodetect-xo;
 		qcom,is-pronto-v3;
 		qcom,has-pronto-hw;
+		qcom,has-vsys-adc-channel;
+		qcom,wcnss-adc_tm = <&pm8950_adc_tm>;
 	};
 
 	qcom,usbbam@78c4000 {
@@ -1588,6 +1590,7 @@
 			<36000 133330000 0xf0fcfff>, /* decoder VGA 30 fps  */
 			<36000 133330000 0x01000414>; /* encoder VGA 30 fps   */
 		qcom,hfi = "venus";
+		qcom,firmware-name = "venus";
 		qcom,reg-presets = <0xe0020 0x05555556>,
 			<0xe0024 0x05555556>,
 			<0x80124 0x00000003>;

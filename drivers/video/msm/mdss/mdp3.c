@@ -925,6 +925,7 @@ static int mdp3_hw_init(void)
 int mdp3_dynamic_clock_gating_ctrl(int enable)
 {
 	int rc = 0;
+	int cgc_cfg = 0;
 	/*Disable dynamic auto clock gating*/
 	rc = mdp3_clk_update(MDP3_CLK_AHB, 1);
 	rc |= mdp3_clk_update(MDP3_CLK_AXI, 1);
@@ -933,12 +934,16 @@ int mdp3_dynamic_clock_gating_ctrl(int enable)
 		pr_err("fail to turn on MDP core clks\n");
 		return rc;
 	}
-
+	cgc_cfg = MDP3_REG_READ(MDP3_REG_CGC_EN);
 	if (enable) {
-		MDP3_REG_WRITE(MDP3_REG_CGC_EN, 0x7FFFF);
+		cgc_cfg |= (BIT(10));
+		cgc_cfg |= (BIT(18));
+		MDP3_REG_WRITE(MDP3_REG_CGC_EN, cgc_cfg);
 		VBIF_REG_WRITE(MDP3_VBIF_REG_FORCE_EN, 0x0);
 	} else {
-		MDP3_REG_WRITE(MDP3_REG_CGC_EN, 0x3FFFF);
+		cgc_cfg &= ~(BIT(10));
+		cgc_cfg &= ~(BIT(18));
+		MDP3_REG_WRITE(MDP3_REG_CGC_EN, cgc_cfg);
 		VBIF_REG_WRITE(MDP3_VBIF_REG_FORCE_EN, 0x3);
 	}
 

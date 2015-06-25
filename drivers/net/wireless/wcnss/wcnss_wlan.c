@@ -358,6 +358,7 @@ static struct {
 	int		triggered;
 	int		smd_channel_ready;
 	u32		wlan_rx_buff_count;
+	int		is_vsys_adc_channel;
 	smd_channel_t	*smd_ch;
 	unsigned char	wcnss_version[WCNSS_VERSION_LEN];
 	unsigned char   fw_major;
@@ -1848,6 +1849,8 @@ static int wcnss_get_battery_volt(int *result_uv)
 
 static void wcnss_notify_vbat(enum qpnp_tm_state state, void *ctx)
 {
+	int rc = 0;
+
 	mutex_lock(&penv->vbat_monitor_mutex);
 	cancel_delayed_work_sync(&penv->vbatt_work);
 
@@ -1875,9 +1878,15 @@ static void wcnss_notify_vbat(enum qpnp_tm_state state, void *ctx)
 			penv->vbat_monitor_params.low_thr,
 			penv->vbat_monitor_params.high_thr);
 
-	qpnp_adc_tm_channel_measure(penv->adc_tm_dev,
+	rc = qpnp_adc_tm_channel_measure(penv->adc_tm_dev,
 			&penv->vbat_monitor_params);
-	schedule_delayed_work(&penv->vbatt_work, msecs_to_jiffies(2000));
+
+	if (rc)
+		pr_err("%s: tm setup failed: %d\n", __func__, rc);
+	else
+		schedule_delayed_work(&penv->vbatt_work,
+						msecs_to_jiffies(2000));
+
 	mutex_unlock(&penv->vbat_monitor_mutex);
 }
 
@@ -1892,7 +1901,12 @@ static int wcnss_setup_vbat_monitoring(void)
 	penv->vbat_monitor_params.low_thr = WCNSS_VBATT_THRESHOLD;
 	penv->vbat_monitor_params.high_thr = WCNSS_VBATT_THRESHOLD;
 	penv->vbat_monitor_params.state_request = ADC_TM_HIGH_LOW_THR_ENABLE;
-	penv->vbat_monitor_params.channel = VBAT_SNS;
+
+	if (penv->is_vsys_adc_channel)
+		penv->vbat_monitor_params.channel = VSYS;
+	else
+		penv->vbat_monitor_params.channel = VBAT_SNS;
+
 	penv->vbat_monitor_params.btm_ctx = (void *)penv;
 	penv->vbat_monitor_params.timer_interval = ADC_MEAS1_INTERVAL_1S;
 	penv->vbat_monitor_params.threshold_notification = &wcnss_notify_vbat;
@@ -1903,7 +1917,7 @@ static int wcnss_setup_vbat_monitoring(void)
 	rc = qpnp_adc_tm_channel_measure(penv->adc_tm_dev,
 					&penv->vbat_monitor_params);
 	if (rc)
-		pr_err("wcnss: tm setup failed: %d\n", rc);
+		pr_err("%s: tm setup failed: %d\n", __func__, rc);
 
 	return rc;
 }
@@ -2703,6 +2717,8 @@ wcnss_trigger_config(struct platform_device *pdev)
 	is_pronto_v3 = of_property_read_bool(pdev->dev.of_node,
 							"qcom,is-pronto-v3");
 
+	penv->is_vsys_adc_channel = of_property_read_bool(pdev->dev.of_node,
+						"qcom,has-vsys-adc-channel");
 	if (of_property_read_u32(pdev->dev.of_node,
 			"qcom,wlan-rx-buff-count", &penv->wlan_rx_buff_count)) {
 		penv->wlan_rx_buff_count = WCNSS_DEF_WLAN_RX_BUFF_COUNT;

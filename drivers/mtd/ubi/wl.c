@@ -606,28 +606,10 @@ static void refill_wl_pool(struct ubi_device *ubi)
 static void refill_wl_user_pool(struct ubi_device *ubi)
 {
 	struct ubi_fm_pool *pool = &ubi->fm_pool;
-	int err;
 
 	return_unused_pool_pebs(ubi, pool);
 
 	for (pool->size = 0; pool->size < pool->max_size; pool->size++) {
-retry:
-		if (!ubi->free.rb_node ||
-		   (ubi->free_count - ubi->beb_rsvd_pebs < 1)) {
-			/* There are no avaliable pebs. Try to free
-			 * PEB by means of synchronous execution of
-			 * pending works.
-			 */
-			if (ubi->works_count == 0)
-				break;
-			spin_unlock(&ubi->wl_lock);
-			err = do_work(ubi);
-			spin_lock(&ubi->wl_lock);
-			if (err < 0)
-				break;
-			goto retry;
-		}
-
 		pool->pebs[pool->size] = __wl_get_peb(ubi);
 		if (pool->pebs[pool->size] < 0)
 			break;
@@ -649,27 +631,50 @@ void ubi_refill_pools(struct ubi_device *ubi)
 
 /* ubi_wl_get_peb - works exaclty like __wl_get_peb but keeps track of
  * the fastmap pool.
+ * Returns with ubi->fm_sem held in read mode!
  */
 int ubi_wl_get_peb(struct ubi_device *ubi)
 {
-	int ret;
+	int ret, retried = 0;
 	struct ubi_fm_pool *pool = &ubi->fm_pool;
 	struct ubi_fm_pool *wl_pool = &ubi->fm_wl_pool;
 
-	if (!pool->size || !wl_pool->size || pool->used == pool->size ||
-	    wl_pool->used == wl_pool->size)
-		ubi_update_fastmap(ubi);
-
-	/* we got not a single free PEB */
-	if (!pool->size)
-		ret = -ENOSPC;
-	else {
-		spin_lock(&ubi->wl_lock);
-		ret = pool->pebs[pool->used++];
-		prot_queue_add(ubi, ubi->lookuptbl[ret]);
+again:
+	down_read(&ubi->fm_sem);
+	spin_lock(&ubi->wl_lock);
+	/* We check here also for the WL pool because at this point we can
+	 * refill the WL pool synchronous. */
+	if (pool->used == pool->size || wl_pool->used == wl_pool->size) {
 		spin_unlock(&ubi->wl_lock);
+		up_read(&ubi->fm_sem);
+		ret = ubi_update_fastmap(ubi);
+		if (ret) {
+			ubi_msg(ubi->ubi_num, "Unable to write a new fastmap: %i\n",
+					ret);
+			down_read(&ubi->fm_sem);
+			return -ENOSPC;
+		}
+		down_read(&ubi->fm_sem);
+		spin_lock(&ubi->wl_lock);
 	}
 
+	if (pool->used == pool->size) {
+		spin_unlock(&ubi->wl_lock);
+		if (retried) {
+			ubi_err(ubi->ubi_num, "Unable to get a free PEB from user WL pool");
+			ret = -ENOSPC;
+			goto out;
+		}
+		retried = 1;
+		up_read(&ubi->fm_sem);
+		goto again;
+	}
+
+	ubi_assert(pool->used < pool->size);
+	ret = pool->pebs[pool->used++];
+	prot_queue_add(ubi, ubi->lookuptbl[ret]);
+	spin_unlock(&ubi->wl_lock);
+out:
 	return ret;
 }
 
@@ -682,7 +687,7 @@ static struct ubi_wl_entry *get_peb_for_wl(struct ubi_device *ubi)
 	struct ubi_fm_pool *pool = &ubi->fm_wl_pool;
 	int pnum;
 
-	if (pool->used == pool->size || !pool->size) {
+	if (pool->used == pool->size) {
 		/* We cannot update the fastmap here because this
 		 * function is called in atomic context.
 		 * Let's fail here and refill/update it as soon as possible. */
@@ -714,6 +719,7 @@ int ubi_wl_get_peb(struct ubi_device *ubi)
 	spin_lock(&ubi->wl_lock);
 	peb = __wl_get_peb(ubi);
 	spin_unlock(&ubi->wl_lock);
+	down_read(&ubi->fm_sem);
 
 	if (peb < 0)
 		return peb;

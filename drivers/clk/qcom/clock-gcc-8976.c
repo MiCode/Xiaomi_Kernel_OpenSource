@@ -90,19 +90,42 @@ static DEFINE_CLK_BRANCH_VOTER(xo_pil_pronto_clk, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_wlan_clk, &xo_clk_src.c);
 
 DEFINE_CLK_DUMMY(wcnss_m_clk, 0);
+DEFINE_EXT_CLK(debug_cpu_clk, NULL);
+
+static unsigned int soft_vote_gpll0;
 
 static struct pll_vote_clk gpll0_clk_src = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
 	.en_mask = BIT(0),
 	.status_reg = (void __iomem *)GPLL0_STATUS,
 	.status_mask = BIT(17),
+	.soft_vote = &soft_vote_gpll0,
+	.soft_vote_mask = PLL_SOFT_VOTE_PRIMARY,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
-		.rate = 800000000,
 		.parent = &xo_clk_src.c,
+		.rate = 800000000,
 		.dbg_name = "gpll0_clk_src",
-		.ops = &clk_ops_pll_vote,
+		.ops = &clk_ops_pll_acpu_vote,
 		CLK_INIT(gpll0_clk_src.c),
+	},
+};
+
+/* Don't vote for xo if using this clock to allow xo shutdown */
+static struct pll_vote_clk gpll0_ao_clk_src = {
+	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
+	.en_mask = BIT(0),
+	.status_reg = (void __iomem *)GPLL0_STATUS,
+	.status_mask = BIT(17),
+	.soft_vote = &soft_vote_gpll0,
+	.soft_vote_mask = PLL_SOFT_VOTE_ACPU,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.parent = &xo_a_clk_src.c,
+		.rate = 800000000,
+		.dbg_name = "gpll0_ao_clk_src",
+		.ops = &clk_ops_pll_acpu_vote,
+		CLK_INIT(gpll0_ao_clk_src.c),
 	},
 };
 
@@ -3098,14 +3121,18 @@ static struct measure_clk_data debug_mux_priv = {
 };
 
 static struct mux_clk gcc_debug_mux = {
-		.priv = &debug_mux_priv,
-		.ops = &mux_reg_ops,
-		.offset = GCC_DEBUG_CLK_CTL,
-		.mask = 0x3FF,
-		.en_offset = GCC_DEBUG_CLK_CTL,
-		.en_mask = BIT(16),
-		.base = &virt_bases[GCC_BASE],
+	.priv = &debug_mux_priv,
+	.ops = &mux_reg_ops,
+	.offset = GCC_DEBUG_CLK_CTL,
+	.mask = 0x3FF,
+	.en_offset = GCC_DEBUG_CLK_CTL,
+	.en_mask = BIT(16),
+	.base = &virt_bases[GCC_BASE],
+	MUX_REC_SRC_LIST(
+		&debug_cpu_clk.c,
+	),
 	MUX_SRC_LIST(
+		{ &debug_cpu_clk.c, 0x016A },
 		{ &snoc_clk.c,  0x0000 },
 		{ &pcnoc_clk.c, 0x0008 },
 		{ &bimc_clk.c,  0x0154 },
@@ -3257,6 +3284,7 @@ static struct mux_clk gcc_debug_mux = {
 /* Clock lookup */
 static struct clk_lookup msm_clocks_lookup[] = {
 	 CLK_LIST(gpll0_clk_src),
+	 CLK_LIST(gpll0_ao_clk_src),
 	 CLK_LIST(gpll2_clk_src),
 	 CLK_LIST(gpll3_clk_src),
 	 CLK_LIST(gpll4_clk_src),
@@ -3554,6 +3582,11 @@ static int msm_gcc_probe(struct platform_device *pdev)
 
 	configure_sr_hpm_lp_pll(&gpll3_config, &gpll3_regs, 1);
 
+	/* Enable AUX2 clock for APSS */
+	regval = readl_relaxed(GCC_REG_BASE(APSS_MISC));
+	regval |= BIT(2);
+	writel_relaxed(regval, GCC_REG_BASE(APSS_MISC));
+
 	dev_info(&pdev->dev, "Registered GCC clocks\n");
 
 	return 0;
@@ -3581,6 +3614,7 @@ arch_initcall(msm_gcc_init);
 
 static struct clk_lookup msm_clocks_measure[] = {
 	CLK_LOOKUP_OF("measure", gcc_debug_mux, "debug"),
+	CLK_LIST(debug_cpu_clk),
 };
 
 static int msm_clock_debug_probe(struct platform_device *pdev)
@@ -3589,6 +3623,12 @@ static int msm_clock_debug_probe(struct platform_device *pdev)
 
 	clk_ops_debug_mux = clk_ops_gen_mux;
 	clk_ops_debug_mux.get_rate = measure_get_rate;
+
+	debug_cpu_clk.c.parent = devm_clk_get(&pdev->dev, "debug_cpu_clk");
+	if (IS_ERR(debug_cpu_clk.c.parent)) {
+		dev_err(&pdev->dev, "Failed to get CPU debug Mux\n");
+		return PTR_ERR(debug_cpu_clk.c.parent);
+	}
 
 	ret =  of_msm_clock_register(pdev->dev.of_node, msm_clocks_measure,
 					ARRAY_SIZE(msm_clocks_measure));

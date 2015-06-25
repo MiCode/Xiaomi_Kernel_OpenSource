@@ -29,11 +29,17 @@
 			qcom,fab-dev;
 			qcom,base-name = "bimc-base";
 			qcom,bus-type = <2>;
-			qcom,bypass-qos-prg;
 			qcom,util-fact = <154>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc  clk_bimc_msmbus_clk>,
 				<&clock_gcc  clk_bimc_msmbus_a_clk>;
+
+			coresight-id = <203>;
+			coresight-name = "coresight-bimc";
+			coresight-nr-inports = <0>;
+			coresight-outports = <0>;
+			coresight-child-list = <&funnel_in2>;
+			coresight-child-ports = <3>;
 		};
 
 		fab_pcnoc: fab-pcnoc {
@@ -41,13 +47,19 @@
 			label = "fab-pcnoc";
 			qcom,fab-dev;
 			qcom,base-name = "pcnoc-base";
-			qcom,bypass-qos-prg;
 			qcom,base-offset = <0x7000>;
 			qcom,qos-delta = <0x1000>;
 			qcom,bus-type = <1>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc  clk_pcnoc_msmbus_clk>,
 				<&clock_gcc  clk_pcnoc_msmbus_a_clk>;
+
+			coresight-id = <201>;
+			coresight-name = "coresight-pcnoc";
+			coresight-nr-inports = <0>;
+			coresight-outports = <0>;
+			coresight-child-list = <&funnel_in2>;
+			coresight-child-ports = <6>;
 		};
 
 		fab_snoc: fab-snoc {
@@ -55,13 +67,19 @@
 			label = "fab-snoc";
 			qcom,fab-dev;
 			qcom,base-name = "snoc-base";
-			qcom,bypass-qos-prg;
 			qcom,base-offset = <0x7000>;
 			qcom,qos-off = <0x1000>;
 			qcom,bus-type = <1>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc  clk_snoc_msmbus_clk>,
 				<&clock_gcc  clk_snoc_msmbus_a_clk>;
+
+			coresight-id = <200>;
+			coresight-name = "coresight-snoc";
+			coresight-nr-inports = <0>;
+			coresight-outports = <0>;
+			coresight-child-list = <&funnel_in2>;
+			coresight-child-ports = <5>;
 		};
 
 		fab_snoc_mm: fab-snoc-mm {
@@ -69,7 +87,6 @@
 			label = "fab-snoc-mm";
 			qcom,fab-dev;
 			qcom,base-name = "snoc-mm-base";
-			qcom,bypass-qos-prg;
 			qcom,base-offset = <0x7000>;
 			qcom,qos-off = <0x1000>;
 			qcom,bus-type = <1>;
@@ -582,7 +599,10 @@
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
 			qcom,qport = <18>;
+			qcom,qos-mode = "fixed";
 			qcom,connections = <&snoc_int_2>;
+			qcom,prio1 = <1>;
+			qcom,prio0 = <1>;
 			qcom,bus-dev = <&fab_snoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_IPA>;
 			qcom,blacklist = <&slv_cats_0 &slv_lpass &slv_kpss_ahb

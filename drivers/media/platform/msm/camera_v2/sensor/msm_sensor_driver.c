@@ -775,6 +775,16 @@ int32_t msm_sensor_driver_probe(void *setting,
 
 	CDBG("s_ctrl[%d] %p", slave_info->camera_id, s_ctrl);
 
+	if (s_ctrl->sensordata->special_support_size > 0) {
+		if (!msm_sensor_driver_is_special_support(s_ctrl,
+			slave_info->sensor_name)) {
+			pr_err("%s:%s is not support on this board\n",
+				__func__, slave_info->sensor_name);
+			rc = 0;
+			goto free_slave_info;
+		}
+	}
+
 	if (s_ctrl->is_probe_succeed == 1) {
 		/*
 		 * Different sensor on this camera slot has been connected
@@ -796,16 +806,6 @@ int32_t msm_sensor_driver_probe(void *setting,
 
 		rc = 0;
 		goto free_slave_info;
-	}
-
-	if (s_ctrl->sensordata->special_support_size > 0) {
-		if (!msm_sensor_driver_is_special_support(s_ctrl,
-			slave_info->sensor_name)) {
-			pr_err("%s:%s is not support on this board\n",
-				__func__, slave_info->sensor_name);
-			rc = 0;
-			goto free_slave_info;
-		}
 	}
 
 	if (slave_info->power_setting_array.size == 0 &&

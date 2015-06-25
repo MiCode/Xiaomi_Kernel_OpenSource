@@ -1300,6 +1300,8 @@ static bool wcd9335_is_readable_register(struct device *dev, unsigned int reg)
 	pg_num = reg >> 0x8;
 	if (pg_num == 0x80)
 		pg_num = PAGE_0X80;
+	else if (pg_num >= 0xE)
+		return false;
 
 	reg_tbl = wcd9335_reg[pg_num];
 	reg_offset = reg & 0xFF;

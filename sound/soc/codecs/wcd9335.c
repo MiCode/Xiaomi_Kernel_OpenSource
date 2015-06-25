@@ -57,7 +57,11 @@
 		       SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_192000)
 
 #define TASHA_FORMATS_S16_S24_LE (SNDRV_PCM_FMTBIT_S16_LE | \
-				  SNDRV_PCM_FORMAT_S24_LE)
+				  SNDRV_PCM_FMTBIT_S24_LE)
+
+#define TASHA_FORMATS_S16_S24_S32_LE (SNDRV_PCM_FMTBIT_S16_LE | \
+				  SNDRV_PCM_FMTBIT_S24_LE | \
+				  SNDRV_PCM_FMTBIT_S32_LE)
 
 #define TASHA_FORMATS (SNDRV_PCM_FMTBIT_S16_LE)
 
@@ -1505,33 +1509,30 @@ static int tasha_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 			dev_dbg(codec->dev, "%s: spkr1 enabled\n", __func__);
 			/* Enable V&I sensing */
 			snd_soc_update_bits(codec,
-					WCD9335_CDC_TX9_SPKR_PROT_PATH_CTL,
-					0x20, 0x20);
+				WCD9335_CDC_TX9_SPKR_PROT_PATH_CTL, 0x0F, 0x00);
 			snd_soc_update_bits(codec,
-					WCD9335_CDC_TX9_SPKR_PROT_PATH_CTL,
-					0x20, 0x00);
-			snd_soc_update_bits(codec,
-					WCD9335_CDC_TX9_SPKR_PROT_PATH_CFG0,
-					0x02, 0x02);
-			/* Enable spkr VI clocks */
+				WCD9335_CDC_TX10_SPKR_PROT_PATH_CTL, 0x0F,
+				0x00);
 			snd_soc_update_bits(codec,
 				WCD9335_CDC_TX9_SPKR_PROT_PATH_CTL, 0x10, 0x10);
+			snd_soc_update_bits(codec,
+				WCD9335_CDC_TX10_SPKR_PROT_PATH_CTL, 0x10,
+				0x10);
 		}
 		if (test_bit(VI_SENSE_2, &tasha_p->status_mask)) {
 			pr_debug("%s: spkr2 enabled\n", __func__);
 			/* Enable V&I sensing */
 			snd_soc_update_bits(codec,
-					WCD9335_CDC_TX10_SPKR_PROT_PATH_CTL,
-					0x20, 0x20);
+				WCD9335_CDC_TX11_SPKR_PROT_PATH_CTL, 0x0F,
+				0x00);
 			snd_soc_update_bits(codec,
-					WCD9335_CDC_TX10_SPKR_PROT_PATH_CTL,
-					0x20, 0x00);
+				WCD9335_CDC_TX12_SPKR_PROT_PATH_CTL, 0x0F,
+				0x00);
 			snd_soc_update_bits(codec,
-					WCD9335_CDC_TX10_SPKR_PROT_PATH_CFG0,
-					0x02, 0x02);
-			/* Enable spkr VI clocks */
+				WCD9335_CDC_TX11_SPKR_PROT_PATH_CTL, 0x10,
+				0x10);
 			snd_soc_update_bits(codec,
-				WCD9335_CDC_TX10_SPKR_PROT_PATH_CTL, 0x10,
+				WCD9335_CDC_TX12_SPKR_PROT_PATH_CTL, 0x10,
 				0x10);
 		}
 		tasha_codec_enable_int_port(dai, codec);
@@ -1560,18 +1561,18 @@ static int tasha_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 				WCD9335_CDC_TX9_SPKR_PROT_PATH_CTL, 0x10, 0x00);
 			snd_soc_update_bits(codec,
-					WCD9335_CDC_TX9_SPKR_PROT_PATH_CFG0,
-					0x02, 0x00);
+				WCD9335_CDC_TX10_SPKR_PROT_PATH_CTL, 0x10,
+				0x00);
 		}
 		if (test_bit(VI_SENSE_2, &tasha_p->status_mask)) {
 			/* Disable V&I sensing */
 			dev_dbg(codec->dev, "%s: spkr2 disabled\n", __func__);
 			snd_soc_update_bits(codec,
-				WCD9335_CDC_TX10_SPKR_PROT_PATH_CTL, 0x10,
+				WCD9335_CDC_TX11_SPKR_PROT_PATH_CTL, 0x10,
 				0x00);
 			snd_soc_update_bits(codec,
-					WCD9335_CDC_TX10_SPKR_PROT_PATH_CFG0,
-					0x02, 0x00);
+				WCD9335_CDC_TX12_SPKR_PROT_PATH_CTL, 0x10,
+				0x00);
 		}
 		break;
 	}
@@ -6679,6 +6680,8 @@ static int tasha_hw_params(struct snd_pcm_substream *substream,
 			substream->stream);
 		return -EINVAL;
 	};
+	if (dai->id == AIF4_VIFEED)
+		tasha->dai[dai->id].bit_width = 32;
 
 	return 0;
 }
@@ -6823,10 +6826,10 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 		.id = AIF4_VIFEED,
 		.capture = {
 			.stream_name = "VIfeed",
-			.rates = SNDRV_PCM_RATE_48000,
-			.formats = TASHA_FORMATS,
+			.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_48000,
+			.formats = TASHA_FORMATS_S16_S24_S32_LE,
 			.rate_max = 48000,
-			.rate_min = 48000,
+			.rate_min = 8000,
 			.channels_min = 1,
 			.channels_max = 2,
 		 },

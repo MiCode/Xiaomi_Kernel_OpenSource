@@ -391,6 +391,15 @@ static int qpnp_pon_reset_config(struct qpnp_pon *pon,
 	 */
 	udelay(500);
 
+	/*
+	 * In case of HARD RESET configure PMIC's
+	 * PS_HOLD_RESET_CTL based on the dt property.
+	 */
+	if ((type == PON_POWER_OFF_HARD_RESET) &&
+			of_find_property(pon->spmi->dev.of_node,
+				"qcom,cfg-shutdown-for-hard-reset", NULL))
+		type = PON_POWER_OFF_SHUTDOWN;
+
 	rc = qpnp_pon_masked_write(pon, QPNP_PON_PS_HOLD_RST_CTL(pon->base),
 				   QPNP_PON_POWER_OFF_MASK, type);
 	if (rc)

@@ -500,7 +500,17 @@ struct rr_packet *clone_pkt(struct rr_packet *pkt)
 		return NULL;
 	}
 	memcpy(&(cloned_pkt->hdr), &(pkt->hdr), sizeof(struct rr_header_v1));
-	/* TODO: Copy optional headers, if available */
+	if (pkt->opt_hdr.len > 0) {
+		cloned_pkt->opt_hdr.data = kmalloc(pkt->opt_hdr.len,
+							GFP_KERNEL);
+		if (!cloned_pkt->opt_hdr.data) {
+			IPC_RTR_ERR("%s: Memory allocation Failed\n", __func__);
+		} else {
+			cloned_pkt->opt_hdr.len = pkt->opt_hdr.len;
+			memcpy(cloned_pkt->opt_hdr.data, pkt->opt_hdr.data,
+			       pkt->opt_hdr.len);
+		}
+	}
 
 	pkt_fragment_q = kmalloc(sizeof(struct sk_buff_head), GFP_KERNEL);
 	if (!pkt_fragment_q) {
@@ -526,7 +536,8 @@ fail_clone:
 		kfree_skb(temp_skb);
 	}
 	kfree(pkt_fragment_q);
-	/* TODO: Free optional headers, if present */
+	if (cloned_pkt->opt_hdr.len > 0)
+		kfree(cloned_pkt->opt_hdr.data);
 	kfree(cloned_pkt);
 	return NULL;
 }
@@ -583,7 +594,8 @@ void release_pkt(struct rr_packet *pkt)
 		kfree_skb(temp_skb);
 	}
 	kfree(pkt->pkt_fragment_q);
-	/* TODO: Free Optional headers, if present */
+	if (pkt->opt_hdr.len > 0)
+		kfree(pkt->opt_hdr.data);
 	kfree(pkt);
 	return;
 }
@@ -693,6 +705,42 @@ void msm_ipc_router_free_skb(struct sk_buff_head *skb_head)
 }
 
 /**
+ * extract_optional_header() - Extract the optional header from skb
+ * @pkt:	Packet structure into which the header has to be extracted.
+ * @opt_len:	The optional header length in word size.
+ *
+ * @return:	Length of optional header in bytes if success, zero otherwise.
+ */
+static int extract_optional_header(struct rr_packet *pkt, uint8_t opt_len)
+{
+	size_t offset = 0, buf_len = 0, copy_len, opt_hdr_len;
+	struct sk_buff *temp;
+	struct sk_buff_head *skb_head;
+
+	opt_hdr_len = opt_len * IPCR_WORD_SIZE;
+	pkt->opt_hdr.data = kmalloc(opt_hdr_len, GFP_KERNEL);
+	if (!pkt->opt_hdr.data) {
+		IPC_RTR_ERR("%s: Memory allocation Failed\n", __func__);
+		return 0;
+	}
+	skb_head = pkt->pkt_fragment_q;
+	buf_len = opt_hdr_len;
+	skb_queue_walk(skb_head, temp) {
+		copy_len = buf_len < temp->len ? buf_len : temp->len;
+		memcpy(pkt->opt_hdr.data + offset, temp->data, copy_len);
+		offset += copy_len;
+		buf_len -= copy_len;
+		skb_pull(temp, copy_len);
+		if (temp->len == 0) {
+			skb_dequeue(skb_head);
+			kfree_skb(temp);
+		}
+	}
+	pkt->opt_hdr.len = opt_hdr_len;
+	return opt_hdr_len;
+}
+
+/**
  * extract_header_v1() - Extract IPC Router header of version 1
  * @pkt: Packet structure into which the header has to be extraced.
  * @skb: SKB from which the header has to be extracted.
@@ -722,6 +770,9 @@ static int extract_header_v1(struct rr_packet *pkt, struct sk_buff *skb)
 static int extract_header_v2(struct rr_packet *pkt, struct sk_buff *skb)
 {
 	struct rr_header_v2 *hdr;
+	uint8_t opt_len;
+	size_t opt_hdr_len;
+	size_t total_hdr_size = sizeof(*hdr);
 
 	if (!pkt || !skb) {
 		IPC_RTR_ERR("%s: Invalid pkt or skb\n", __func__);
@@ -737,8 +788,13 @@ static int extract_header_v2(struct rr_packet *pkt, struct sk_buff *skb)
 	pkt->hdr.control_flag = (uint32_t)hdr->control_flag;
 	pkt->hdr.dst_node_id = (uint32_t)hdr->dst_node_id;
 	pkt->hdr.dst_port_id = (uint32_t)hdr->dst_port_id;
-	skb_pull(skb, sizeof(struct rr_header_v2));
-	pkt->length -= sizeof(struct rr_header_v2);
+	opt_len = hdr->opt_len;
+	skb_pull(skb, total_hdr_size);
+	if (opt_len > 0) {
+		opt_hdr_len = extract_optional_header(pkt, opt_len);
+		total_hdr_size += opt_hdr_len;
+	}
+	pkt->length -= total_hdr_size;
 	return 0;
 }
 
@@ -771,7 +827,6 @@ static int extract_header(struct rr_packet *pkt)
 		ret = extract_header_v1(pkt, temp_skb);
 	} else if (temp_skb->data[0] == IPC_ROUTER_V2) {
 		ret = extract_header_v2(pkt, temp_skb);
-		/* TODO: Extract optional headers if present */
 	} else {
 		IPC_RTR_ERR("%s: Invalid Header version %02x\n",
 			__func__, temp_skb->data[0]);
@@ -814,8 +869,7 @@ static int calc_tx_header_size(struct rr_packet *pkt,
 		hdr_size = sizeof(struct rr_header_v1);
 	} else if (xprt_version == IPC_ROUTER_V2) {
 		pkt->hdr.version = IPC_ROUTER_V2;
-		hdr_size = sizeof(struct rr_header_v2);
-		/* TODO: Calculate optional header length, if present */
+		hdr_size = sizeof(struct rr_header_v2) + pkt->opt_hdr.len;
 	} else {
 		IPC_RTR_ERR("%s: Invalid xprt_version %d\n",
 			__func__, xprt_version);
@@ -923,13 +977,18 @@ static int prepend_header_v2(struct rr_packet *pkt, int hdr_size)
 	hdr = (struct rr_header_v2 *)skb_push(temp_skb, hdr_size);
 	hdr->version = (uint8_t)pkt->hdr.version;
 	hdr->type = (uint8_t)pkt->hdr.type;
-	hdr->control_flag = (uint16_t)pkt->hdr.control_flag;
+	hdr->control_flag = (uint8_t)pkt->hdr.control_flag;
 	hdr->size = (uint32_t)pkt->hdr.size;
 	hdr->src_node_id = (uint16_t)pkt->hdr.src_node_id;
 	hdr->src_port_id = (uint16_t)pkt->hdr.src_port_id;
 	hdr->dst_node_id = (uint16_t)pkt->hdr.dst_node_id;
 	hdr->dst_port_id = (uint16_t)pkt->hdr.dst_port_id;
-	/* TODO: Add optional headers, if present */
+	if (pkt->opt_hdr.len > 0) {
+		hdr->opt_len = pkt->opt_hdr.len/IPCR_WORD_SIZE;
+		memcpy(hdr + sizeof(*hdr), pkt->opt_hdr.data, pkt->opt_hdr.len);
+	} else {
+		hdr->opt_len = 0;
+	}
 	if (temp_skb != skb_peek(pkt->pkt_fragment_q))
 		skb_queue_head(pkt->pkt_fragment_q, temp_skb);
 	pkt->length += hdr_size;
@@ -1088,13 +1147,13 @@ int ipc_router_peek_pkt_size(char *data)
 		return -EINVAL;
 	}
 
-	/* FUTURE: Calculate optional header len in V2 header*/
 	if (data[0] == IPC_ROUTER_V1)
 		size = ((struct rr_header_v1 *)data)->size +
 			sizeof(struct rr_header_v1);
 	else if (data[0] == IPC_ROUTER_V2)
 		size = ((struct rr_header_v2 *)data)->size +
-			sizeof(struct rr_header_v2);
+			((struct rr_header_v2 *)data)->opt_len * IPCR_WORD_SIZE
+			+ sizeof(struct rr_header_v2);
 	else
 		return -EINVAL;
 

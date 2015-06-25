@@ -70,20 +70,41 @@
 					CEC_TX_RX_BUF2_READY | \
 					CEC_TX_RX_BUF1_READY)
 
+#define ADV7533_WRITE(addr, r, v) \
+	do { \
+		ret = msm_dba_helper_i2c_write_byte(pdata->i2c_client, \
+					addr, r, v); \
+		if (ret) { \
+			pr_err("%s: wr err: addr 0x%x, reg 0x%x, val 0x%x\n", \
+			__func__, addr, r, v); \
+			goto end; \
+		} \
+	} while (0)
+
+#define ADV7533_READ(addr, r, v, b) \
+	do { \
+		ret = msm_dba_helper_i2c_read(pdata->i2c_client, \
+					addr, r, v, b); \
+		if (ret) { \
+			pr_err("%s: rd err: addr 0x%x, reg 0x%x\n", \
+			__func__, addr, r); \
+			goto end; \
+		} \
+	} while (0)
+
+
 #define CFG_HPD_INTERRUPTS       BIT(0)
 #define CFG_EDID_INTERRUPTS      BIT(1)
 #define CFG_HDCP_INTERRUPTS      BIT(2)
 #define CFG_CEC_INTERRUPTS       BIT(3)
 
-#define MAX_WAIT_TIME (100)
-#define MAX_RW_TRIES (3)
-
 #define MAX_OPERAND_SIZE	14
 #define CEC_MSG_SIZE            (MAX_OPERAND_SIZE + 2)
 
 enum adv7533_i2c_addr {
-	ADV7533_MAIN = 0x39,
-	ADV7533_CEC_DSI = 0x3C,
+	I2C_ADDR_MAIN = 0x39,
+	I2C_ADDR_CEC_DSI = 0x3C,
+	I2C_ADDR_MAX = 0xFF,
 };
 
 enum adv7533_cec_buf {
@@ -105,7 +126,7 @@ struct adv7533_cec_msg {
 	bool pending;
 };
 
-struct adv7533_platform_data {
+struct adv7533 {
 	u8 main_i2c_addr;
 	u8 cec_dsi_i2c_addr;
 	u8 video_mode;
@@ -129,317 +150,157 @@ struct adv7533_platform_data {
 	struct workqueue_struct *workq;
 	struct delayed_work adv7533_intr_work_id;
 	struct msm_dba_device_info dev_info;
-	msm_dba_cb client_cb;
-	void *client_cb_data;
 	struct adv7533_cec_msg cec_msg[ADV7533_CEC_BUF_MAX];
+	struct i2c_client *i2c_client;
+	struct mutex ops_mutex;
 };
 
 static struct adv7533_reg_cfg adv7533_init_setup[] = {
 	/* power down */
-	{ADV7533_MAIN, 0x41, 0x50},
+	{I2C_ADDR_MAIN, 0x41, 0x50},
 	/* HPD override */
-	{ADV7533_MAIN, 0xD6, 0x48},
+	{I2C_ADDR_MAIN, 0xD6, 0x48},
 	/* color space */
-	{ADV7533_MAIN, 0x16, 0x20},
+	{I2C_ADDR_MAIN, 0x16, 0x20},
 	/* Fixed */
-	{ADV7533_MAIN, 0x9A, 0xE0},
+	{I2C_ADDR_MAIN, 0x9A, 0xE0},
 	/* HDCP */
-	{ADV7533_MAIN, 0xBA, 0x70},
+	{I2C_ADDR_MAIN, 0xBA, 0x70},
 	/* Fixed */
-	{ADV7533_MAIN, 0xDE, 0x82},
+	{I2C_ADDR_MAIN, 0xDE, 0x82},
 	/* V1P2 */
-	{ADV7533_MAIN, 0xE4, 0x40},
+	{I2C_ADDR_MAIN, 0xE4, 0x40},
 	/* Fixed */
-	{ADV7533_MAIN, 0xE5, 0x80},
+	{I2C_ADDR_MAIN, 0xE5, 0x80},
 	/* Fixed */
-	{ADV7533_CEC_DSI, 0x15, 0xD0},
+	{I2C_ADDR_CEC_DSI, 0x15, 0xD0},
 	/* Fixed */
-	{ADV7533_CEC_DSI, 0x17, 0xD0},
+	{I2C_ADDR_CEC_DSI, 0x17, 0xD0},
 	/* Fixed */
-	{ADV7533_CEC_DSI, 0x24, 0x20},
+	{I2C_ADDR_CEC_DSI, 0x24, 0x20},
 	/* Fixed */
-	{ADV7533_CEC_DSI, 0x57, 0x11},
+	{I2C_ADDR_CEC_DSI, 0x57, 0x11},
+	{I2C_ADDR_MAX}
 };
 
 static struct adv7533_reg_cfg adv7533_video_en[] = {
+	 /* Timing Generator Enable */
+	{I2C_ADDR_CEC_DSI, 0x27, 0xCB},
+	{I2C_ADDR_CEC_DSI, 0x27, 0x8B},
+	{I2C_ADDR_CEC_DSI, 0x27, 0xCB},
 	/* power up */
-	{ADV7533_MAIN, 0x41, 0x10},
+	{I2C_ADDR_MAIN, 0x41, 0x10},
 	/* hdmi enable */
-	{ADV7533_CEC_DSI, 0x03, 0x89},
+	{I2C_ADDR_CEC_DSI, 0x03, 0x89},
 	/* hdmi mode, hdcp */
-	{ADV7533_MAIN, 0xAF, 0x06},
+	{I2C_ADDR_MAIN, 0xAF, 0x06},
 	/* color depth */
-	{ADV7533_MAIN, 0x4C, 0x04},
+	{I2C_ADDR_MAIN, 0x4C, 0x04},
 	/* down dither */
-	{ADV7533_MAIN, 0x49, 0x02},
+	{I2C_ADDR_MAIN, 0x49, 0x02},
 	/* Audio and CEC clock gate */
-	{ADV7533_CEC_DSI, 0x05, 0xC8},
+	{I2C_ADDR_CEC_DSI, 0x05, 0xC8},
 	/* GC packet enable */
-	{ADV7533_MAIN, 0x40, 0x80},
-};
-
-static struct adv7533_reg_cfg tg_cfg_1080p[] = {
-	/* 4 lanes */
-	{ADV7533_CEC_DSI, 0x1C, 0x40},
-	/* hsync and vsync active low */
-	{ADV7533_MAIN, 0x17, 0x02},
-	/* Control for Pixel Clock Divider */
-	{ADV7533_CEC_DSI, 0x16, 0x00},
-	/* Timing Generator Enable */
-	{ADV7533_CEC_DSI, 0x27, 0xCB},
-	/* h_width 0x898 2200*/
-	{ADV7533_CEC_DSI, 0x28, 0x89},
-	{ADV7533_CEC_DSI, 0x29, 0x80},
-	/* hsync_width 0x2C 44*/
-	{ADV7533_CEC_DSI, 0x2A, 0x02},
-	{ADV7533_CEC_DSI, 0x2B, 0xC0},
-	/* hfp 0x58 88 */
-	{ADV7533_CEC_DSI, 0x2C, 0x05},
-	{ADV7533_CEC_DSI, 0x2D, 0x80},
-	/* hbp 0x94 148 */
-	{ADV7533_CEC_DSI, 0x2E, 0x09},
-	{ADV7533_CEC_DSI, 0x2F, 0x40},
-	/* v_total 0x465 1125 */
-	{ADV7533_CEC_DSI, 0x30, 0x46},
-	{ADV7533_CEC_DSI, 0x31, 0x50},
-	/* vsync_width 0x05 5*/
-	{ADV7533_CEC_DSI, 0x32, 0x00},
-	{ADV7533_CEC_DSI, 0x33, 0x50},
-	/* vfp 0x04 4  */
-	{ADV7533_CEC_DSI, 0x34, 0x00},
-	{ADV7533_CEC_DSI, 0x35, 0x40},
-	/* vbp 0x24 36 */
-	{ADV7533_CEC_DSI, 0x36, 0x02},
-	{ADV7533_CEC_DSI, 0x37, 0x40},
-	/* Timing Generator Enable */
-	{ADV7533_CEC_DSI, 0x27, 0xCB},
-	{ADV7533_CEC_DSI, 0x27, 0x8B},
-	{ADV7533_CEC_DSI, 0x27, 0xCB},
+	{I2C_ADDR_MAIN, 0x40, 0x80},
+	{I2C_ADDR_MAX}
 };
 
 static struct adv7533_reg_cfg adv7533_cec_en[] = {
 	/* Fixed, clock gate disable */
-	{ADV7533_CEC_DSI, 0x05, 0xC8},
+	{I2C_ADDR_CEC_DSI, 0x05, 0xC8},
 	/* read divider(7:2) from calc */
-	{ADV7533_CEC_DSI, 0xBE, 0x01},
+	{I2C_ADDR_CEC_DSI, 0xBE, 0x01},
+	{I2C_ADDR_MAX}
 };
 
 static struct adv7533_reg_cfg adv7533_cec_tg_init[] = {
 	/* TG programming for 19.2MHz, divider 25 */
-	{ADV7533_CEC_DSI, 0xBE, 0x65},
-	{ADV7533_CEC_DSI, 0xC1, 0x08},
-	{ADV7533_CEC_DSI, 0xC2, 0x70},
-	{ADV7533_CEC_DSI, 0xC3, 0x07},
-	{ADV7533_CEC_DSI, 0xC4, 0xE0},
-	{ADV7533_CEC_DSI, 0xC5, 0x09},
-	{ADV7533_CEC_DSI, 0xC6, 0x00},
-	{ADV7533_CEC_DSI, 0xC7, 0x06},
-	{ADV7533_CEC_DSI, 0xC8, 0xF0},
-	{ADV7533_CEC_DSI, 0xC9, 0x06},
-	{ADV7533_CEC_DSI, 0xCA, 0x60},
-	{ADV7533_CEC_DSI, 0xCB, 0x07},
-	{ADV7533_CEC_DSI, 0xCC, 0x80},
-	{ADV7533_CEC_DSI, 0xCD, 0x04},
-	{ADV7533_CEC_DSI, 0xCE, 0x80},
-	{ADV7533_CEC_DSI, 0xCF, 0x03},
-	{ADV7533_CEC_DSI, 0xD0, 0xA8},
-	{ADV7533_CEC_DSI, 0xD1, 0x05},
-	{ADV7533_CEC_DSI, 0xD2, 0x58},
-	{ADV7533_CEC_DSI, 0xD3, 0x01},
-	{ADV7533_CEC_DSI, 0xD4, 0x20},
-	{ADV7533_CEC_DSI, 0xD5, 0x02},
-	{ADV7533_CEC_DSI, 0xD6, 0xD0},
-	{ADV7533_CEC_DSI, 0xD7, 0x03},
-	{ADV7533_CEC_DSI, 0xD8, 0x60},
-	{ADV7533_CEC_DSI, 0xD9, 0x01},
-	{ADV7533_CEC_DSI, 0xDA, 0xF8},
-	{ADV7533_CEC_DSI, 0xDB, 0x06},
-	{ADV7533_CEC_DSI, 0xDC, 0xC0},
-	{ADV7533_CEC_DSI, 0xDE, 0x00},
-	{ADV7533_CEC_DSI, 0xDF, 0x78},
-	{ADV7533_CEC_DSI, 0xE1, 0x00},
-	{ADV7533_CEC_DSI, 0xE2, 0x90},
-	{ADV7533_CEC_DSI, 0xE3, 0x01},
-	{ADV7533_CEC_DSI, 0xE4, 0xB0},
-	{ADV7533_CEC_DSI, 0xE5, 0x02},
-	{ADV7533_CEC_DSI, 0xE6, 0x40},
+	{I2C_ADDR_CEC_DSI, 0xBE, 0x61},
+	{I2C_ADDR_CEC_DSI, 0xC1, 0x0D},
+	{I2C_ADDR_CEC_DSI, 0xC2, 0x80},
+	{I2C_ADDR_CEC_DSI, 0xC3, 0x0C},
+	{I2C_ADDR_CEC_DSI, 0xC4, 0x9A},
+	{I2C_ADDR_CEC_DSI, 0xC5, 0x0E},
+	{I2C_ADDR_CEC_DSI, 0xC6, 0x66},
+	{I2C_ADDR_CEC_DSI, 0xC7, 0x0B},
+	{I2C_ADDR_CEC_DSI, 0xC8, 0x1A},
+	{I2C_ADDR_CEC_DSI, 0xC9, 0x0A},
+	{I2C_ADDR_CEC_DSI, 0xCA, 0x33},
+	{I2C_ADDR_CEC_DSI, 0xCB, 0x0C},
+	{I2C_ADDR_CEC_DSI, 0xCC, 0x00},
+	{I2C_ADDR_CEC_DSI, 0xCD, 0x07},
+	{I2C_ADDR_CEC_DSI, 0xCE, 0x33},
+	{I2C_ADDR_CEC_DSI, 0xCF, 0x05},
+	{I2C_ADDR_CEC_DSI, 0xD0, 0xDA},
+	{I2C_ADDR_CEC_DSI, 0xD1, 0x08},
+	{I2C_ADDR_CEC_DSI, 0xD2, 0x8D},
+	{I2C_ADDR_CEC_DSI, 0xD3, 0x01},
+	{I2C_ADDR_CEC_DSI, 0xD4, 0xCD},
+	{I2C_ADDR_CEC_DSI, 0xD5, 0x04},
+	{I2C_ADDR_CEC_DSI, 0xD6, 0x80},
+	{I2C_ADDR_CEC_DSI, 0xD7, 0x05},
+	{I2C_ADDR_CEC_DSI, 0xD8, 0x66},
+	{I2C_ADDR_CEC_DSI, 0xD9, 0x03},
+	{I2C_ADDR_CEC_DSI, 0xDA, 0x26},
+	{I2C_ADDR_CEC_DSI, 0xDB, 0x0A},
+	{I2C_ADDR_CEC_DSI, 0xDC, 0xCD},
+	{I2C_ADDR_CEC_DSI, 0xDE, 0x00},
+	{I2C_ADDR_CEC_DSI, 0xDF, 0xC0},
+	{I2C_ADDR_CEC_DSI, 0xE1, 0x00},
+	{I2C_ADDR_CEC_DSI, 0xE2, 0xE6},
+	{I2C_ADDR_CEC_DSI, 0xE3, 0x02},
+	{I2C_ADDR_CEC_DSI, 0xE4, 0xB3},
+	{I2C_ADDR_CEC_DSI, 0xE5, 0x03},
+	{I2C_ADDR_CEC_DSI, 0xE6, 0x9A},
+	{I2C_ADDR_MAX}
 };
 
 static struct adv7533_reg_cfg adv7533_cec_power[] = {
 	/* cec power up */
-	{ADV7533_MAIN, 0xE2, 0x00},
+	{I2C_ADDR_MAIN, 0xE2, 0x00},
 	/* hpd override */
-	{ADV7533_MAIN, 0xD6, 0x48},
+	{I2C_ADDR_MAIN, 0xD6, 0x48},
 	/* edid reread */
-	{ADV7533_MAIN, 0xC9, 0x13},
+	{I2C_ADDR_MAIN, 0xC9, 0x13},
 	/* read all CEC Rx Buffers */
-	{ADV7533_CEC_DSI, 0xBA, 0x08},
+	{I2C_ADDR_CEC_DSI, 0xBA, 0x08},
 	/* logical address0 0x04 */
-	{ADV7533_CEC_DSI, 0xBC, 0x04},
+	{I2C_ADDR_CEC_DSI, 0xBC, 0x04},
 	/* select logical address0 */
-	{ADV7533_CEC_DSI, 0xBB, 0x10},
+	{I2C_ADDR_CEC_DSI, 0xBB, 0x10},
+	{I2C_ADDR_MAX}
 };
 
 static struct adv7533_reg_cfg I2S_cfg[] = {
-	{ADV7533_MAIN, 0x0D, 0x18},	/* Bit width = 16Bits*/
-	{ADV7533_MAIN, 0x15, 0x20},	/* Sampling Frequency = 48kHz*/
-	{ADV7533_MAIN, 0x02, 0x18},	/* N value 6144 --> 0x1800*/
-	{ADV7533_MAIN, 0x14, 0x02},	/* Word Length = 16Bits*/
-	{ADV7533_MAIN, 0x73, 0x01},	/* Channel Count = 2 channels */
+	{I2C_ADDR_MAIN, 0x0D, 0x18},	/* Bit width = 16Bits*/
+	{I2C_ADDR_MAIN, 0x15, 0x20},	/* Sampling Frequency = 48kHz*/
+	{I2C_ADDR_MAIN, 0x02, 0x18},	/* N value 6144 --> 0x1800*/
+	{I2C_ADDR_MAIN, 0x14, 0x02},	/* Word Length = 16Bits*/
+	{I2C_ADDR_MAIN, 0x73, 0x01},	/* Channel Count = 2 channels */
+	{I2C_ADDR_MAX}
 };
 
-static struct i2c_client *client;
-static struct adv7533_platform_data *pdata;
-static char mdss_mdp_panel[MDSS_MAX_PANEL_LEN];
-
-static int adv7533_read(u8 addr, u8 reg, u8 *buf, u8 len)
+static int adv7533_write_regs(struct adv7533 *pdata,
+	struct adv7533_reg_cfg *cfg)
 {
 	int ret = 0, i = 0;
-	struct i2c_msg msg[2];
 
-	if (!client) {
-		pr_err("%s: no adv7533 i2c client\n", __func__);
-		ret = -ENODEV;
-		goto r_err;
-	}
-
-	if (NULL == buf) {
-		pr_err("%s: no adv7533 i2c client\n", __func__);
+	if (!cfg) {
+		pr_err("%s: invalid cfg\n", __func__);
 		ret = -EINVAL;
-		goto r_err;
+		goto end;
 	}
 
-	client->addr = addr;
-
-	msg[0].addr = addr;
-	msg[0].flags = 0;
-	msg[0].len = 1;
-	msg[0].buf = &reg;
-
-	msg[1].addr = addr;
-	msg[1].flags = I2C_M_RD;
-	msg[1].len = len;
-	msg[1].buf = buf;
-
-	do {
-		if (i2c_transfer(client->adapter, msg, 2) == 2) {
-			ret = 0;
-			goto r_err;
-		}
-		msleep(MAX_WAIT_TIME);
-	} while (++i < MAX_RW_TRIES);
-
-	ret = -EIO;
-	pr_err("%s adv7533 i2c read failed after %d tries\n", __func__,
-		MAX_RW_TRIES);
-
-r_err:
-	return ret;
-}
-
-int adv7533_read_byte(u8 addr, u8 reg, u8 *buf)
-{
-	return adv7533_read(addr, reg, buf, 1);
-}
-
-static int adv7533_write_byte(u8 addr, u8 reg, u8 val)
-{
-	int ret = 0, i = 0;
-	u8 buf[2] = {reg, val};
-	struct i2c_msg msg[1];
-
-	if (!client) {
-		pr_err("%s: no adv7533 i2c client\n", __func__);
-		ret = -ENODEV;
-		goto w_err;
+	while (cfg[i].i2c_addr != I2C_ADDR_MAX) {
+		ADV7533_WRITE(cfg[i].i2c_addr, cfg[i].reg, cfg[i].val);
+		i++;
 	}
-
-	client->addr = addr;
-
-	msg[0].addr = addr;
-	msg[0].flags = 0;
-	msg[0].len = 2;
-	msg[0].buf = buf;
-
-	do {
-		if (i2c_transfer(client->adapter, msg, 1) >= 1) {
-			ret = 0;
-			goto w_err;
-		}
-		msleep(MAX_WAIT_TIME);
-	} while (++i < MAX_RW_TRIES);
-
-	ret = -EIO;
-	pr_err("%s: adv7533 i2c write failed after %d tries\n", __func__,
-		MAX_RW_TRIES);
-
-w_err:
-	if (ret != 0)
-		pr_err("%s: Exiting with ret = %d after %d retries\n",
-			__func__, ret, i);
-	return ret;
-}
-
-static int adv7533_write_regs(struct adv7533_platform_data *pdata,
-	struct adv7533_reg_cfg *cfg, int size)
-{
-	int ret = 0;
-	int i;
-
-	for (i = 0; i < size; i++) {
-		switch (cfg[i].i2c_addr) {
-		case ADV7533_MAIN:
-			ret = adv7533_write_byte(pdata->main_i2c_addr,
-				cfg[i].reg, cfg[i].val);
-			if (ret != 0)
-				pr_err("%s: adv7533_write_byte returned %d\n",
-					__func__, ret);
-			break;
-		case ADV7533_CEC_DSI:
-			ret = adv7533_write_byte(pdata->cec_dsi_i2c_addr,
-				cfg[i].reg, cfg[i].val);
-			if (ret != 0)
-				pr_err("%s: adv7533_write_byte returned %d\n",
-					__func__, ret);
-			break;
-		default:
-			ret = -EINVAL;
-			pr_err("%s: Default case? BUG!\n", __func__);
-			break;
-		}
-		if (ret != 0) {
-			pr_err("%s: adv7533 reg writes failed. ", __func__);
-			pr_err("Last write %02X to %02X\n",
-				cfg[i].val, cfg[i].reg);
-			goto w_regs_fail;
-		}
-	}
-
-w_regs_fail:
-	if (ret != 0)
-		pr_err("%s: Exiting with ret = %d after %d writes\n",
-			__func__, ret, i);
-	return ret;
-}
-
-static int adv7533_read_device_rev(void)
-{
-	u8 rev = 0;
-	int ret;
-
-	ret = adv7533_read_byte(ADV7533_MAIN, ADV7533_REG_CHIP_REVISION,
-							&rev);
-
-	if (!ret)
-		pr_debug("%s: adv7533 revision 0x%X\n", __func__, rev);
-	else
-		pr_err("%s: adv7533 rev error\n", __func__);
-
+end:
 	return ret;
 }
 
 static int adv7533_parse_dt(struct device *dev,
-	struct adv7533_platform_data *pdata)
+	struct adv7533 *pdata)
 {
 	struct device_node *np = dev->of_node;
 	u32 temp_val;
@@ -511,8 +372,7 @@ end:
 	return ret;
 }
 
-static int adv7533_gpio_configure(struct adv7533_platform_data *pdata,
-	bool on)
+static int adv7533_gpio_configure(struct adv7533 *pdata, bool on)
 {
 	int ret = 0;
 
@@ -602,55 +462,57 @@ err_none:
 	return ret;
 }
 
-
-u32 adv7533_read_edid(u32 size, char *edid_buf)
+static void adv7533_notify_clients(struct msm_dba_device_info *dev,
+		enum msm_dba_callback_event event)
 {
-	u32 ret = 0, ndx;
-	u8 edid_addr;
-	u32 read_size = size / 2;
+	struct msm_dba_client_info *c;
+	struct list_head *pos = NULL;
 
-	if (!edid_buf)
+	if (!dev) {
+		pr_err("%s: invalid input\n", __func__);
+		return;
+	}
+
+	list_for_each(pos, &dev->client_list) {
+		c = list_entry(pos, struct msm_dba_client_info, list);
+
+		pr_debug("%s: notifying event %d to client %s\n", __func__,
+			event, c->client_name);
+
+		if (c && c->cb)
+			c->cb(c->cb_data, event);
+	}
+}
+
+u32 adv7533_read_edid(struct adv7533 *pdata, u32 size, char *edid_buf)
+{
+	u32 ret = 0, read_size = size / 2;
+	u8 edid_addr;
+
+	if (!pdata || !edid_buf)
 		return 0;
 
 	pr_debug("%s: size %d\n", __func__, size);
 
-	ret = adv7533_read(ADV7533_MAIN, 0x43, &edid_addr, 1);
-	if (ret) {
-		pr_err("%s: Error reading edid addr\n", __func__);
-		goto end;
-	}
+	ADV7533_READ(I2C_ADDR_MAIN, 0x43, &edid_addr, 1);
 
 	pr_debug("%s: edid address 0x%x\n", __func__, edid_addr);
 
-	ret = adv7533_read(edid_addr >> 1, 0x00, edid_buf, read_size);
-	if (ret) {
-		pr_err("%s: Error reading edid 0\n", __func__);
-		goto end;
-	}
+	ADV7533_READ(edid_addr >> 1, 0x00, edid_buf, read_size);
 
-	ret = adv7533_read(edid_addr >> 1, read_size,
+	ADV7533_READ(edid_addr >> 1, read_size,
 		edid_buf + read_size, read_size);
-	if (ret) {
-		pr_err("%s: Error reading edid 1\n", __func__);
-		goto end;
-	}
-
-	for (ndx = 0; ndx < size; ndx += 4)
-		pr_debug("%s: EDID[%02x-%02x] %02x %02x %02x %02x\n",
-			__func__, ndx, ndx + 3,
-			edid_buf[ndx + 0], edid_buf[ndx + 1],
-			edid_buf[ndx + 2], edid_buf[ndx + 3]);
 end:
 	return ret;
 }
 
-static int adv7533_cec_prepare_msg(u8 *msg, u32 size)
+static int adv7533_cec_prepare_msg(struct adv7533 *pdata, u8 *msg, u32 size)
 {
 	int i, ret = -EINVAL;
 	int op_sz;
 
-	if (!msg) {
-		pr_err("%s: ERROR: invalid msg\n", __func__);
+	if (!pdata || !msg) {
+		pr_err("%s: invalid input\n", __func__);
 		goto end;
 	}
 
@@ -663,76 +525,59 @@ static int adv7533_cec_prepare_msg(u8 *msg, u32 size)
 	op_sz = size - 2;
 
 	/* write header */
-	ret = adv7533_write_byte(pdata->cec_dsi_i2c_addr,
-		0x70, msg[0]);
-	if (ret)
-		goto end;
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x70, msg[0]);
 
 	/* write opcode */
-	ret = adv7533_write_byte(pdata->cec_dsi_i2c_addr,
-		0x71, msg[1]);
-	if (ret)
-		goto end;
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x71, msg[1]);
 
 	/* write operands */
 	for (i = 0; i < op_sz && i < MAX_OPERAND_SIZE; i++) {
-		ret = adv7533_write_byte(pdata->cec_dsi_i2c_addr,
-			0x72 + i, msg[i + 2]);
-		if (ret)
-			goto end;
+		pr_debug("%s: writing operands\n", __func__);
+		ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x72 + i, msg[i + 2]);
 	}
 
-	ret = adv7533_write_byte(pdata->cec_dsi_i2c_addr,
-		0x80, size);
-	if (ret)
-		goto end;
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x80, size);
 
 end:
 	return ret;
 }
 
-static int adv7533_rd_cec_msg(u8 *cec_buf, int msg_num)
+static int adv7533_rd_cec_msg(struct adv7533 *pdata, u8 *cec_buf, int msg_num)
 {
 	int ret = -EINVAL;
+	u8 reg = 0;
 
-	if (!cec_buf) {
-		pr_err("%s: Invalid msg buffer\n", __func__);
+	if (!pdata || !cec_buf) {
+		pr_err("%s: Invalid input\n", __func__);
 		goto end;
 	}
 
-	if (msg_num == ADV7533_CEC_BUF1) {
-		ret = adv7533_read(ADV7533_CEC_DSI, 0x85, cec_buf,
-			CEC_MSG_SIZE);
-		if (ret) {
-			pr_err("%s: Error reading cec buf %d\n",
-				__func__, msg_num);
-			goto end;
-		}
-	} else if (msg_num == ADV7533_CEC_BUF2) {
-		ret = adv7533_read(ADV7533_CEC_DSI, 0x97, cec_buf,
-			CEC_MSG_SIZE);
-		if (ret) {
-			pr_err("%s: Error reading cec buf %d\n",
-				__func__, msg_num);
-			goto end;
-		}
-	} else if (msg_num == ADV7533_CEC_BUF3) {
-		ret = adv7533_read(ADV7533_CEC_DSI, 0xA8, cec_buf,
-			CEC_MSG_SIZE);
-		if (ret) {
-			pr_err("%s: Error reading cec buf %d\n",
-				__func__, msg_num);
-			goto end;
-		}
-	} else {
+	if (msg_num == ADV7533_CEC_BUF1)
+		reg = 0x85;
+	else if (msg_num == ADV7533_CEC_BUF2)
+		reg = 0x97;
+	else if (msg_num == ADV7533_CEC_BUF3)
+		reg = 0xA8;
+	else
 		pr_err("%s: Invalid msg_num %d\n", __func__, msg_num);
-	}
+
+	if (!reg)
+		goto end;
+
+	ADV7533_READ(I2C_ADDR_CEC_DSI, 0x85, cec_buf, CEC_MSG_SIZE);
 end:
 	return ret;
 }
 
-static void adv7533_handle_hdcp_intr(u8 hdcp_status)
+static void adv7533_handle_hdcp_intr(struct adv7533 *pdata, u8 hdcp_status)
 {
+	int ret = 0;
+
+	if (!pdata) {
+		pr_err("%s: Invalid input\n", __func__);
+		goto end;
+	}
+
 	/* HDCP ready for read */
 	if (hdcp_status & BIT(6))
 		pr_debug("%s: BKSV FLAG\n", __func__);
@@ -743,7 +588,7 @@ static void adv7533_handle_hdcp_intr(u8 hdcp_status)
 		pr_err("%s: HDCP ERROR\n", __func__);
 
 		/* get error details */
-		adv7533_read_byte(ADV7533_MAIN, 0xC8, &ddc_status);
+		ADV7533_READ(I2C_ADDR_MAIN, 0xC8, &ddc_status, 1);
 
 		switch (ddc_status & 0xF0 >> 4) {
 		case 0:
@@ -771,21 +616,26 @@ static void adv7533_handle_hdcp_intr(u8 hdcp_status)
 			pr_debug("%s: DDC: UNKNOWN ERROR\n", __func__);
 		}
 	}
+end:
+	return;
 }
 
-static void adv7533_handle_cec_intr(u8 cec_status)
+static void adv7533_handle_cec_intr(struct adv7533 *pdata, u8 cec_status)
 {
 	u8 cec_int_clear = 0x08;
 	bool cec_rx_intr = false;
 	u8 cec_rx_ready;
 	u8 cec_rx_timestamp;
+	int ret = 0;
+
+	if (!pdata) {
+		pr_err("%s: Invalid input\n", __func__);
+		goto end;
+	}
 
 	if (cec_status & 0x07) {
 		cec_rx_intr = true;
-		if (adv7533_read_byte(ADV7533_CEC_DSI, 0xBA, &cec_int_clear)) {
-			pr_err("%s: error reading cec clr int\n", __func__);
-			cec_int_clear = 0x08;
-		}
+		ADV7533_READ(I2C_ADDR_CEC_DSI, 0xBA, &cec_int_clear, 1);
 	}
 
 	if (cec_status & BIT(5))
@@ -801,15 +651,13 @@ static void adv7533_handle_cec_intr(u8 cec_status)
 		return;
 
 
-	if (adv7533_read_byte(ADV7533_CEC_DSI, 0xB9, &cec_rx_ready))
-		return;
+	ADV7533_READ(I2C_ADDR_CEC_DSI, 0xB9, &cec_rx_ready, 1);
 
-	if (adv7533_read_byte(ADV7533_CEC_DSI, 0x96, &cec_rx_timestamp))
-		return;
+	ADV7533_READ(I2C_ADDR_CEC_DSI, 0x96, &cec_rx_timestamp, 1);
 
 	if (cec_rx_ready & BIT(0)) {
 		pr_debug("%s: CEC Rx buffer 1 ready\n", __func__);
-		adv7533_rd_cec_msg(
+		adv7533_rd_cec_msg(pdata,
 			pdata->cec_msg[ADV7533_CEC_BUF1].buf,
 			ADV7533_CEC_BUF1);
 
@@ -818,13 +666,13 @@ static void adv7533_handle_cec_intr(u8 cec_status)
 		pdata->cec_msg[ADV7533_CEC_BUF1].timestamp =
 			cec_rx_timestamp & (BIT(0) | BIT(1));
 
-		pdata->client_cb(pdata->client_cb_data,
+		adv7533_notify_clients(&pdata->dev_info,
 			MSM_DBA_CB_CEC_READ_PENDING);
 	}
 
 	if (cec_rx_ready & BIT(1)) {
 		pr_debug("%s: CEC Rx buffer 2 ready\n", __func__);
-		adv7533_rd_cec_msg(
+		adv7533_rd_cec_msg(pdata,
 			pdata->cec_msg[ADV7533_CEC_BUF2].buf,
 			ADV7533_CEC_BUF2);
 
@@ -833,13 +681,13 @@ static void adv7533_handle_cec_intr(u8 cec_status)
 		pdata->cec_msg[ADV7533_CEC_BUF2].timestamp =
 			cec_rx_timestamp & (BIT(2) | BIT(3));
 
-		pdata->client_cb(pdata->client_cb_data,
+		adv7533_notify_clients(&pdata->dev_info,
 			MSM_DBA_CB_CEC_READ_PENDING);
 	}
 
 	if (cec_rx_ready & BIT(2)) {
 		pr_debug("%s: CEC Rx buffer 3 ready\n", __func__);
-		adv7533_rd_cec_msg(
+		adv7533_rd_cec_msg(pdata,
 			pdata->cec_msg[ADV7533_CEC_BUF3].buf,
 			ADV7533_CEC_BUF3);
 
@@ -848,74 +696,58 @@ static void adv7533_handle_cec_intr(u8 cec_status)
 		pdata->cec_msg[ADV7533_CEC_BUF3].timestamp =
 			cec_rx_timestamp & (BIT(4) | BIT(5));
 
-		pdata->client_cb(pdata->client_cb_data,
+		adv7533_notify_clients(&pdata->dev_info,
 			MSM_DBA_CB_CEC_READ_PENDING);
 	}
 
-	if (adv7533_write_byte(pdata->cec_dsi_i2c_addr,
-		0xBA, cec_int_clear | (cec_status & 0x07)))
-		pr_err("%s: Failed: clear Rx intr\n", __func__);
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0xBA,
+		cec_int_clear | (cec_status & 0x07));
 
-	if (adv7533_write_byte(pdata->cec_dsi_i2c_addr,
-		0xBA, cec_int_clear & ~0x07))
-		pr_err("%s: Failed: clear Rx intr\n", __func__);
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0xBA, cec_int_clear & ~0x07);
+
+end:
+	return;
 }
 
-static int adv7533_edid_read_init(struct adv7533_platform_data *pdata)
+static int adv7533_edid_read_init(struct adv7533 *pdata)
 {
+	int ret = -EINVAL;
+
 	if (!pdata) {
 		pr_err("%s: invalid pdata\n", __func__);
-		return -EINVAL;
+		goto end;
 	}
 
 	/* initiate edid read in adv7533 */
-	return adv7533_write_byte(pdata->main_i2c_addr,
-		0xC9, 0x13);
+	ADV7533_WRITE(I2C_ADDR_MAIN, 0x41, 0x10);
+	ADV7533_WRITE(I2C_ADDR_MAIN, 0xC9, 0x13);
+
+end:
+	return ret;
 }
 
-static void *adv7533_handle_hpd_intr(void)
+static void *adv7533_handle_hpd_intr(struct adv7533 *pdata)
 {
 	int ret;
 	u8 hpd_state;
 	u8 connected = 0, disconnected = 0;
 
-	ret = adv7533_read_byte(ADV7533_MAIN, 0x42, &hpd_state);
-	if (ret) {
-		pr_err("%s: failed to get hpd state\n", __func__);
+	if (!pdata) {
+		pr_err("%s: invalid pdata\n", __func__);
 		goto end;
 	}
+
+	ADV7533_READ(I2C_ADDR_MAIN, 0x42, &hpd_state, 1);
 
 	connected = (hpd_state & BIT(5)) && (hpd_state & BIT(6));
 	disconnected = !(hpd_state & (BIT(5) | BIT(6)));
 
 	if (connected) {
 		pr_debug("%s: Rx CONNECTED\n", __func__);
-
-		ret = adv7533_write_regs(pdata, adv7533_init_setup,
-			ARRAY_SIZE(adv7533_init_setup));
-		if (ret) {
-			pr_err("%s: Failed to write common config\n",
-				__func__);
-			goto end;
-		}
-
-		ret = adv7533_write_regs(pdata, tg_cfg_1080p,
-			ARRAY_SIZE(tg_cfg_1080p));
-		if (ret) {
-			pr_err("%s: err config 1080p %d\n", __func__, ret);
-			goto end;
-		}
-
-		ret = adv7533_write_regs(pdata, adv7533_video_en,
-			ARRAY_SIZE(adv7533_video_en));
-		if (ret) {
-			pr_err("%s: Failed: video setup\n", __func__);
-			goto end;
-		}
 	} else if (disconnected) {
 		pr_debug("%s: Rx DISCONNECTED\n", __func__);
 
-		pdata->client_cb(pdata->client_cb_data,
+		adv7533_notify_clients(&pdata->dev_info,
 			MSM_DBA_CB_HPD_DISCONNECT);
 	} else {
 		pr_debug("%s: HPD Intermediate state\n", __func__);
@@ -926,8 +758,7 @@ end:
 	return ERR_PTR(ret);
 }
 
-static int adv7533_enable_interrupts(struct adv7533_platform_data *pdata,
-		int interrupts)
+static int adv7533_enable_interrupts(struct adv7533 *pdata, int interrupts)
 {
 	int ret = 0;
 	u8 reg_val, init_reg_val;
@@ -937,11 +768,7 @@ static int adv7533_enable_interrupts(struct adv7533_platform_data *pdata,
 		goto end;
 	}
 
-	ret = adv7533_read_byte(pdata->main_i2c_addr, 0x94, &reg_val);
-	if (ret) {
-		pr_err("%s: err reading 0x94 interrupts\n", __func__);
-		reg_val = 0;
-	}
+	ADV7533_READ(I2C_ADDR_MAIN, 0x94, &reg_val, 1);
 
 	init_reg_val = reg_val;
 
@@ -955,16 +782,11 @@ static int adv7533_enable_interrupts(struct adv7533_platform_data *pdata,
 		reg_val |= HDCP_INTERRUPTS1;
 
 	if (reg_val != init_reg_val) {
-		ret = adv7533_write_byte(pdata->main_i2c_addr, 0x94, reg_val);
-		if (ret)
-			pr_err("%s: err enabling 0x94 interrupts\n", __func__);
+		pr_debug("%s: enabling 0x94 interrupts\n", __func__);
+		ADV7533_WRITE(I2C_ADDR_MAIN, 0x94, reg_val);
 	}
 
-	ret = adv7533_read_byte(pdata->main_i2c_addr, 0x95, &reg_val);
-	if (ret) {
-		pr_err("%s: err reading 0x95 interrupts\n", __func__);
-		reg_val = 0;
-	}
+	ADV7533_READ(I2C_ADDR_MAIN, 0x95, &reg_val, 1);
 
 	init_reg_val = reg_val;
 
@@ -975,16 +797,14 @@ static int adv7533_enable_interrupts(struct adv7533_platform_data *pdata,
 		reg_val |= CEC_INTERRUPTS;
 
 	if (reg_val != init_reg_val) {
-		ret = adv7533_write_byte(pdata->main_i2c_addr, 0x95, reg_val);
-		if (ret)
-			pr_err("%s: err enabling 0x95 interrupts\n", __func__);
+		pr_debug("%s: enabling 0x95 interrupts\n", __func__);
+		ADV7533_WRITE(I2C_ADDR_MAIN, 0x95, reg_val);
 	}
 end:
 	return ret;
 }
 
-static int adv7533_disable_interrupts(struct adv7533_platform_data *pdata,
-		int interrupts)
+static int adv7533_disable_interrupts(struct adv7533 *pdata, int interrupts)
 {
 	int ret = 0;
 	u8 reg_val, init_reg_val;
@@ -994,11 +814,7 @@ static int adv7533_disable_interrupts(struct adv7533_platform_data *pdata,
 		goto end;
 	}
 
-	ret = adv7533_read_byte(pdata->main_i2c_addr, 0x94, &reg_val);
-	if (ret) {
-		pr_err("%s: err reading 0x94 interrupts\n", __func__);
-		reg_val = 0;
-	}
+	ADV7533_READ(I2C_ADDR_MAIN, 0x94, &reg_val, 1);
 
 	init_reg_val = reg_val;
 
@@ -1012,17 +828,11 @@ static int adv7533_disable_interrupts(struct adv7533_platform_data *pdata,
 		reg_val &= ~HDCP_INTERRUPTS1;
 
 	if (reg_val != init_reg_val) {
-		ret = adv7533_write_byte(pdata->main_i2c_addr, 0x94, reg_val);
-		if (ret)
-			pr_err("%s: Failed: disable 0x94 interrupts %d\n",
-				__func__, ret);
+		pr_debug("%s: disabling 0x94 interrupts\n", __func__);
+		ADV7533_WRITE(I2C_ADDR_MAIN, 0x94, reg_val);
 	}
 
-	ret = adv7533_read_byte(pdata->main_i2c_addr, 0x95, &reg_val);
-	if (ret) {
-		pr_err("%s: err reading 0x95 interrupts\n", __func__);
-		reg_val = 0;
-	}
+	ADV7533_READ(I2C_ADDR_MAIN, 0x95, &reg_val, 1);
 
 	init_reg_val = reg_val;
 
@@ -1033,10 +843,8 @@ static int adv7533_disable_interrupts(struct adv7533_platform_data *pdata,
 		reg_val &= ~CEC_INTERRUPTS;
 
 	if (reg_val != init_reg_val) {
-		ret = adv7533_write_byte(pdata->main_i2c_addr, 0x95, reg_val);
-		if (ret)
-			pr_err("%s: Failed: disable 0x95 interrupts %d\n",
-				__func__, ret);
+		pr_debug("%s: disabling 0x95 interrupts\n", __func__);
+		ADV7533_WRITE(I2C_ADDR_MAIN, 0x95, reg_val);
 	}
 end:
 	return ret;
@@ -1048,10 +856,10 @@ static void adv7533_intr_work(struct work_struct *work)
 	u8 int_status  = 0xFF;
 	u8 hdcp_cec_status = 0xFF;
 	int connected = false;
-	struct adv7533_platform_data *pdata;
+	struct adv7533 *pdata;
 	struct delayed_work *dw = to_delayed_work(work);
 
-	pdata = container_of(dw, struct adv7533_platform_data,
+	pdata = container_of(dw, struct adv7533,
 			adv7533_intr_work_id);
 	if (!pdata) {
 		pr_err("%s: invalid input\n", __func__);
@@ -1059,14 +867,11 @@ static void adv7533_intr_work(struct work_struct *work)
 	}
 
 	/* READ Interrupt registers */
-	if (adv7533_read_byte(ADV7533_MAIN, 0x96, &int_status))
-		goto reset;
-
-	if (adv7533_read_byte(ADV7533_MAIN, 0x97, &hdcp_cec_status))
-		goto reset;
+	ADV7533_READ(I2C_ADDR_MAIN, 0x96, &int_status, 1);
+	ADV7533_READ(I2C_ADDR_MAIN, 0x97, &hdcp_cec_status, 1);
 
 	if (int_status & (BIT(6) | BIT(7))) {
-		void *ptr_val = adv7533_handle_hpd_intr();
+		void *ptr_val = adv7533_handle_hpd_intr(pdata);
 
 		ret = PTR_ERR(ptr_val);
 		if (IS_ERR(ptr_val)) {
@@ -1081,28 +886,26 @@ static void adv7533_intr_work(struct work_struct *work)
 	if (int_status & BIT(2)) {
 		pr_debug("%s: EDID READY\n", __func__);
 
-		ret = adv7533_read_edid(sizeof(pdata->edid_buf),
+		ret = adv7533_read_edid(pdata, sizeof(pdata->edid_buf),
 			pdata->edid_buf);
 		if (ret)
 			pr_err("%s: edid read failed\n", __func__);
 
-		pdata->client_cb(pdata->client_cb_data,
+		adv7533_notify_clients(&pdata->dev_info,
 			MSM_DBA_CB_HPD_CONNECT);
 	}
 
 	if (pdata->hdcp_enabled)
-		adv7533_handle_hdcp_intr(hdcp_cec_status);
+		adv7533_handle_hdcp_intr(pdata, hdcp_cec_status);
 
 	if (pdata->cec_enabled)
-		adv7533_handle_cec_intr(hdcp_cec_status);
+		adv7533_handle_cec_intr(pdata, hdcp_cec_status);
 reset:
 	/* Clear HPD/EDID interrupts */
-	if (adv7533_write_byte(pdata->main_i2c_addr, 0x96, int_status))
-		pr_err("%s: Failed: clear hpd intr\n", __func__);
+	ADV7533_WRITE(I2C_ADDR_MAIN, 0x96, int_status);
 
 	/* Clear HDCP/CEC interrupts */
-	if (adv7533_write_byte(pdata->main_i2c_addr, 0x97, hdcp_cec_status))
-		pr_err("%s: Failed: clear hdcp intr\n", __func__);
+	ADV7533_WRITE(I2C_ADDR_MAIN, 0x97, hdcp_cec_status);
 
 	/* Re-enable HPD/EDID interrupts */
 	if (adv7533_enable_interrupts(pdata, CFG_HPD_INTERRUPTS |
@@ -1121,6 +924,7 @@ reset:
 			pr_err("%s: err enabling CEC interrupts\n", __func__);
 	}
 
+end:
 	/* initialize EDID read after cable connected */
 	if (connected)
 		adv7533_edid_read_init(pdata);
@@ -1128,6 +932,13 @@ reset:
 
 static irqreturn_t adv7533_irq(int irq, void *data)
 {
+	struct adv7533 *pdata = data;
+
+	if (!pdata) {
+		pr_err("%s: invalid input\n", __func__);
+		return IRQ_HANDLED;
+	}
+
 	/* disable HPD/EDID interrupts */
 	if (adv7533_disable_interrupts(pdata, CFG_HPD_INTERRUPTS |
 		CFG_EDID_INTERRUPTS))
@@ -1155,9 +966,9 @@ static struct i2c_device_id adv7533_id[] = {
 	{}
 };
 
-static struct adv7533_platform_data *adv7533_get_platform_data(void *client)
+static struct adv7533 *adv7533_get_platform_data(void *client)
 {
-	struct adv7533_platform_data *pdata = NULL;
+	struct adv7533 *pdata = NULL;
 	struct msm_dba_device_info *dev;
 	struct msm_dba_client_info *cinfo =
 		(struct msm_dba_client_info *)client;
@@ -1173,7 +984,7 @@ static struct adv7533_platform_data *adv7533_get_platform_data(void *client)
 		goto end;
 	}
 
-	pdata = container_of(dev, struct adv7533_platform_data, dev_info);
+	pdata = container_of(dev, struct adv7533, dev_info);
 	if (!pdata)
 		pr_err("%s: invalid platform data\n", __func__);
 
@@ -1181,8 +992,7 @@ end:
 	return pdata;
 }
 
-static int adv7533_cec_enable(struct adv7533_platform_data *pdata,
-		bool cec_on)
+static int adv7533_cec_enable(struct adv7533 *pdata, bool cec_on)
 {
 	int ret = -EINVAL;
 
@@ -1194,20 +1004,17 @@ static int adv7533_cec_enable(struct adv7533_platform_data *pdata,
 	if (cec_on) {
 		pdata->cec_enabled = true;
 
-		ret = adv7533_write_regs(pdata, adv7533_cec_en,
-			ARRAY_SIZE(adv7533_cec_en));
+		ret = adv7533_write_regs(pdata, adv7533_cec_en);
 		if (ret)
 			pr_err("%s: Failed to write cec en config\n",
 				__func__);
 
-		ret = adv7533_write_regs(pdata, adv7533_cec_tg_init,
-			ARRAY_SIZE(adv7533_cec_tg_init));
+		ret = adv7533_write_regs(pdata, adv7533_cec_tg_init);
 		if (ret)
 			pr_err("%s: Failed to write cec tg init\n",
 				__func__);
 
-		ret = adv7533_write_regs(pdata, adv7533_cec_power,
-			ARRAY_SIZE(adv7533_cec_power));
+		ret = adv7533_write_regs(pdata, adv7533_cec_power);
 		if (ret)
 			pr_err("%s: Failed to write cec power\n",
 				__func__);
@@ -1221,18 +1028,19 @@ end:
 /* Device Operations */
 static int adv7533_power_on(void *client, bool on, u32 flags)
 {
-	int ret = 0;
-	struct adv7533_platform_data *pdata =
+	int ret = -EINVAL;
+	struct adv7533 *pdata =
 		adv7533_get_platform_data(client);
 
 	if (!pdata) {
 		pr_err("%s: invalid platform data\n", __func__);
-		goto end;
+		return ret;
 	}
 
+	mutex_lock(&pdata->ops_mutex);
+
 	if (on) {
-		ret = adv7533_write_regs(pdata, adv7533_init_setup,
-			ARRAY_SIZE(adv7533_init_setup));
+		ret = adv7533_write_regs(pdata, adv7533_init_setup);
 		if (ret) {
 			pr_err("%s: Failed to write common config\n",
 				__func__);
@@ -1261,37 +1069,108 @@ static int adv7533_power_on(void *client, bool on, u32 flags)
 			pr_err("%s:err disable CEC %d\n", __func__, ret);
 
 		/* power down hdmi */
-		ret = adv7533_write_byte(pdata->main_i2c_addr, 0x41, 0x50);
-		if (ret)
-			pr_err("%s: err power down hdmi %d\n", __func__, ret);
+		ADV7533_WRITE(I2C_ADDR_MAIN, 0x41, 0x50);
 	}
 end:
+	mutex_unlock(&pdata->ops_mutex);
 	return ret;
+}
+
+static void adv7533_video_setup(struct adv7533 *pdata,
+	struct msm_dba_video_cfg *cfg)
+{
+	int ret = 0;
+	u32 h_total, hpw, hfp, hbp;
+	u32 v_total, vpw, vfp, vbp;
+
+	if (!pdata || !cfg) {
+		pr_err("%s: invalid input\n", __func__);
+		return;
+	}
+
+	h_total = cfg->h_active + cfg->h_front_porch +
+	      cfg->h_pulse_width + cfg->h_back_porch;
+	v_total = cfg->v_active + cfg->v_front_porch +
+	      cfg->v_pulse_width + cfg->v_back_porch;
+
+	hpw = cfg->h_pulse_width;
+	hfp = cfg->h_front_porch;
+	hbp = cfg->h_back_porch;
+
+	vpw = cfg->v_pulse_width;
+	vfp = cfg->v_front_porch;
+	vbp = cfg->v_back_porch;
+
+	pr_debug("h_total 0x%x, h_active 0x%x, hfp 0x%d, hpw 0x%x, hbp 0x%x\n",
+		h_total, cfg->h_active, cfg->h_front_porch,
+		cfg->h_pulse_width, cfg->h_back_porch);
+
+	pr_debug("v_total 0x%x, v_active 0x%x, vfp 0x%x, vpw 0x%x, vbp 0x%x\n",
+		v_total, cfg->v_active, cfg->v_front_porch,
+		cfg->v_pulse_width, cfg->v_back_porch);
+
+	/* aspect ratio and sync polarity */
+	ADV7533_WRITE(I2C_ADDR_MAIN, 0x17, 0x02);
+
+	/* h_width */
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x28, ((h_total & 0xFF0) >> 4));
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x29, ((h_total & 0xF) << 4));
+
+	/* hsync_width */
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x2A, ((hpw & 0xFF0) >> 4));
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x2B, ((hpw & 0xF) << 4));
+
+	/* hfp */
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x2C, ((hfp & 0xFF0) >> 4));
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x2D, ((hfp & 0xF) << 4));
+
+	/* hbp */
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x2E, ((hbp & 0xFF0) >> 4));
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x2F, ((hbp & 0xF) << 4));
+
+	/* v_total */
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x30, ((v_total & 0xFF0) >> 4));
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x31, ((v_total & 0xF) << 4));
+
+	/* vsync_width */
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x32, ((vpw & 0xFF0) >> 4));
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x33, ((vpw & 0xF) << 4));
+
+	/* vfp */
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x34, ((vfp & 0xFF0) >> 4));
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x35, ((vfp & 0xF) << 4));
+
+	/* vbp */
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x36, ((vbp & 0xFF0) >> 4));
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x37, ((vbp & 0xF) << 4));
+end:
+	return;
 }
 
 static int adv7533_video_on(void *client, bool on,
 	struct msm_dba_video_cfg *cfg, u32 flags)
 {
-	int ret = 0;
-	struct adv7533_platform_data *pdata =
+	int ret = -EINVAL;
+	struct adv7533 *pdata =
 		adv7533_get_platform_data(client);
 
 	if (!pdata) {
 		pr_err("%s: invalid platform data\n", __func__);
-		goto end;
+		return ret;
 	}
 
-	ret = adv7533_write_regs(pdata, tg_cfg_1080p,
-		ARRAY_SIZE(tg_cfg_1080p));
-	if (ret) {
-		pr_err("%s: err config 1080p %d\n", __func__, ret);
-		goto end;
-	}
+	mutex_lock(&pdata->ops_mutex);
 
-	ret = adv7533_write_regs(pdata, adv7533_video_en,
-		ARRAY_SIZE(adv7533_video_en));
+	/* lane configuration, 4 lanes */
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x1C, 0x40);
+
+	adv7533_video_setup(pdata, cfg);
+
+	ret = adv7533_write_regs(pdata, adv7533_video_en);
 	if (ret)
 		pr_err("%s: Failed: video setup\n", __func__);
+
+	mutex_unlock(&pdata->ops_mutex);
 end:
 	return ret;
 }
@@ -1301,30 +1180,35 @@ static int adv7533_hdcp_enable(void *client, bool hdcp_on,
 {
 	int ret = -EINVAL;
 	u8 reg_val;
+	struct adv7533 *pdata =
+		adv7533_get_platform_data(client);
 
-	if (adv7533_read_byte(pdata->main_i2c_addr, 0xAF, &reg_val))
-		goto end;
+	if (!pdata) {
+		pr_err("%s: invalid platform data\n", __func__);
+		return ret;
+	}
+
+	mutex_lock(&pdata->ops_mutex);
+
+	ADV7533_READ(I2C_ADDR_MAIN, 0xAF, &reg_val, 1);
 
 	if (hdcp_on) {
 		reg_val |= BIT(7);
 		reg_val |= BIT(4);
 
-		if (adv7533_write_byte(pdata->main_i2c_addr, 0xAF, reg_val))
-			goto end;
+		ADV7533_WRITE(I2C_ADDR_MAIN, 0xAF, reg_val);
 
 		pdata->hdcp_enabled = true;
 	} else {
 		reg_val &= ~BIT(7);
 		reg_val &= ~BIT(4);
 
-		if (adv7533_write_byte(pdata->main_i2c_addr, 0xAF, reg_val))
-			goto end;
+		ADV7533_WRITE(I2C_ADDR_MAIN, 0xAF, reg_val);
 
 		pdata->hdcp_enabled = false;
 	}
-
-	ret = 0;
 end:
+	mutex_unlock(&pdata->ops_mutex);
 	return ret;
 }
 
@@ -1333,30 +1217,33 @@ static int adv7533_configure_audio(void *client,
 {
 	int ret = -EINVAL;
 	int sampling_rate = 0;
-	struct adv7533_platform_data *pdata =
+	struct adv7533 *pdata =
 		adv7533_get_platform_data(client);
 	struct adv7533_reg_cfg reg_cfg[] = {
-		{ADV7533_MAIN, 0x12, 0x00},
-		{ADV7533_MAIN, 0x13, 0x00},
-		{ADV7533_MAIN, 0x14, 0x00},
-		{ADV7533_MAIN, 0x15, 0x00},
-		{ADV7533_MAIN, 0x0A, 0x00},
-		{ADV7533_MAIN, 0x0C, 0x00},
-		{ADV7533_MAIN, 0x0D, 0x00},
-		{ADV7533_MAIN, 0x03, 0x00},
-		{ADV7533_MAIN, 0x02, 0x00},
-		{ADV7533_MAIN, 0x01, 0x00},
-		{ADV7533_MAIN, 0x09, 0x00},
-		{ADV7533_MAIN, 0x08, 0x00},
-		{ADV7533_MAIN, 0x07, 0x00},
-		{ADV7533_MAIN, 0x73, 0x00},
-		{ADV7533_MAIN, 0x76, 0x00},
+		{I2C_ADDR_MAIN, 0x12, 0x00},
+		{I2C_ADDR_MAIN, 0x13, 0x00},
+		{I2C_ADDR_MAIN, 0x14, 0x00},
+		{I2C_ADDR_MAIN, 0x15, 0x00},
+		{I2C_ADDR_MAIN, 0x0A, 0x00},
+		{I2C_ADDR_MAIN, 0x0C, 0x00},
+		{I2C_ADDR_MAIN, 0x0D, 0x00},
+		{I2C_ADDR_MAIN, 0x03, 0x00},
+		{I2C_ADDR_MAIN, 0x02, 0x00},
+		{I2C_ADDR_MAIN, 0x01, 0x00},
+		{I2C_ADDR_MAIN, 0x09, 0x00},
+		{I2C_ADDR_MAIN, 0x08, 0x00},
+		{I2C_ADDR_MAIN, 0x07, 0x00},
+		{I2C_ADDR_MAIN, 0x73, 0x00},
+		{I2C_ADDR_MAIN, 0x76, 0x00},
+		{I2C_ADDR_MAX}
 	};
 
 	if (!pdata || !cfg) {
 		pr_err("%s: invalid data\n", __func__);
-		goto end;
+		return ret;
 	}
+
+	mutex_lock(&pdata->ops_mutex);
 
 	if (cfg->copyright == MSM_DBA_AUDIO_COPYRIGHT_NOT_PROTECTED)
 		reg_cfg[0].val |= BIT(5);
@@ -1437,9 +1324,9 @@ static int adv7533_configure_audio(void *client,
 	/* CA */
 	reg_cfg[14].val = cfg->channel_allocation;
 
-	ret = adv7533_write_regs(pdata, reg_cfg, ARRAY_SIZE(reg_cfg));
+	ret = adv7533_write_regs(pdata, reg_cfg);
 
-end:
+	mutex_unlock(&pdata->ops_mutex);
 	return ret;
 }
 
@@ -1447,68 +1334,40 @@ static int adv7533_hdmi_cec_write(void *client, u32 size,
 	char *buf, u32 flags)
 {
 	int ret = -EINVAL;
-	struct adv7533_platform_data *pdata;
-	struct msm_dba_client_info *cinfo =
-		(struct msm_dba_client_info *) client;
-	struct msm_dba_device_info *dev;
+	struct adv7533 *pdata =
+		adv7533_get_platform_data(client);
 
-	if (!cinfo || !buf) {
-		pr_err("%s: invalid cinfo\n", __func__);
-		goto end;
-	}
-
-	dev = cinfo->dev;
-
-	if (!dev) {
-		pr_err("%s: invalid device data\n", __func__);
-		goto end;
-	}
-
-	pdata = container_of(dev, struct adv7533_platform_data,
-			dev_info);
 	if (!pdata) {
 		pr_err("%s: invalid platform data\n", __func__);
-		goto end;
+		return ret;
 	}
 
-	ret = adv7533_cec_prepare_msg(buf, size);
+	mutex_lock(&pdata->ops_mutex);
+
+	ret = adv7533_cec_prepare_msg(pdata, buf, size);
 	if (ret)
 		goto end;
 
 	/* Enable CEC msg tx with NACK 3 retries */
-	ret = adv7533_write_byte(pdata->cec_dsi_i2c_addr, 0x81, 0x07);
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x81, 0x07);
 end:
+	mutex_unlock(&pdata->ops_mutex);
 	return ret;
 }
 
-static int adv7533_hdmi_cec_read(void *client,
-	u32 *size, char *buf, u32 flags)
+static int adv7533_hdmi_cec_read(void *client, u32 *size, char *buf, u32 flags)
 {
 	int ret = -EINVAL;
 	int i;
-	struct adv7533_platform_data *pdata;
-	struct msm_dba_client_info *cinfo =
-		(struct msm_dba_client_info *)client;
-	struct msm_dba_device_info *dev;
+	struct adv7533 *pdata =
+		adv7533_get_platform_data(client);
 
-	if (!cinfo) {
-		pr_err("%s: invalid cinfo\n", __func__);
-		goto end;
-	}
-
-	dev = cinfo->dev;
-
-	if (!dev) {
-		pr_err("%s: invalid device data\n", __func__);
-		goto end;
-	}
-
-	pdata = container_of(dev, struct adv7533_platform_data,
-			dev_info);
 	if (!pdata) {
 		pr_err("%s: invalid platform data\n", __func__);
-		goto end;
+		return ret;
 	}
+
+	mutex_lock(&pdata->ops_mutex);
 
 	for (i = 0; i < ADV7533_CEC_BUF_MAX; i++) {
 		struct adv7533_cec_msg *msg = &pdata->cec_msg[i];
@@ -1527,14 +1386,23 @@ static int adv7533_hdmi_cec_read(void *client,
 		pr_err("%s: no pending cec msg\n", __func__);
 		*size = 0;
 	}
-end:
+
+	mutex_unlock(&pdata->ops_mutex);
 	return ret;
 }
 
-static int adv7533_get_edid_size(void *client,
-	u32 *size, u32 flags)
+static int adv7533_get_edid_size(void *client, u32 *size, u32 flags)
 {
 	int ret = 0;
+	struct adv7533 *pdata =
+		adv7533_get_platform_data(client);
+
+	if (!pdata) {
+		pr_err("%s: invalid platform data\n", __func__);
+		return ret;
+	}
+
+	mutex_lock(&pdata->ops_mutex);
 
 	if (!size) {
 		ret = -EINVAL;
@@ -1542,15 +1410,15 @@ static int adv7533_get_edid_size(void *client,
 	}
 
 	*size = EDID_SEG_SIZE;
-
 end:
+	mutex_unlock(&pdata->ops_mutex);
 	return ret;
 }
 
 static int adv7533_get_raw_edid(void *client,
 	u32 size, char *buf, u32 flags)
 {
-	struct adv7533_platform_data *pdata =
+	struct adv7533 *pdata =
 		adv7533_get_platform_data(client);
 
 	if (!pdata || !buf) {
@@ -1558,39 +1426,72 @@ static int adv7533_get_raw_edid(void *client,
 		goto end;
 	}
 
-	size = size > sizeof(pdata->edid_buf) ? sizeof(pdata->edid_buf) : size;
+	mutex_lock(&pdata->ops_mutex);
+
+	size = min_t(u32, size, sizeof(pdata->edid_buf));
 
 	memcpy(buf, pdata->edid_buf, size);
 end:
+	mutex_unlock(&pdata->ops_mutex);
 	return 0;
 }
 
-static int adv7533_reg_fxn(struct msm_dba_client_info *cinfo)
+static int adv7533_write_reg(struct msm_dba_device_info *dev,
+		u32 reg, u32 val)
+{
+	struct adv7533 *pdata;
+	int ret = -EINVAL;
+	u8 i2c_addr = 0;
+
+	if (!dev)
+		goto end;
+
+	pdata = container_of(dev, struct adv7533, dev_info);
+	if (!pdata)
+		goto end;
+
+	i2c_addr = ((reg & 0x100) ? I2C_ADDR_CEC_DSI : I2C_ADDR_MAIN);
+
+	ADV7533_WRITE(i2c_addr, (u8)(reg & 0xFF), (u8)(val & 0xFF));
+end:
+	return ret;
+}
+
+static int adv7533_read_reg(struct msm_dba_device_info *dev,
+		u32 reg, u32 *val)
 {
 	int ret = 0;
-	struct adv7533_platform_data *pdata =
-		adv7533_get_platform_data((void *)cinfo);
+	u8 byte_val = 0;
+	u8 i2c_addr = 0;
+	struct adv7533 *pdata;
 
-	if (!pdata) {
-		pr_err("%s: invalid platform data\n", __func__);
+	if (!dev)
 		goto end;
-	}
 
-	pdata->client_cb = cinfo->cb;
-	pdata->client_cb_data = cinfo->cb_data;
+	pdata = container_of(dev, struct adv7533, dev_info);
+	if (!pdata)
+		goto end;
+
+	i2c_addr = ((reg & 0x100) ? I2C_ADDR_CEC_DSI : I2C_ADDR_MAIN);
+
+	ADV7533_READ(i2c_addr, (u8)(reg & 0xFF), &byte_val, 1);
+
+	*val = (u32)byte_val;
 
 end:
 	return ret;
 }
 
-static int adv7533_register_dba(struct adv7533_platform_data *pdata)
+static int adv7533_register_dba(struct adv7533 *pdata)
 {
 	struct msm_dba_ops *client_ops;
+	struct msm_dba_device_ops *dev_ops;
 
 	if (!pdata)
 		return -EINVAL;
 
 	client_ops = &pdata->dev_info.client_ops;
+	dev_ops = &pdata->dev_info.dev_ops;
 
 	client_ops->power_on        = adv7533_power_on;
 	client_ops->video_on        = adv7533_video_on;
@@ -1601,11 +1502,13 @@ static int adv7533_register_dba(struct adv7533_platform_data *pdata)
 	client_ops->get_edid_size   = adv7533_get_edid_size;
 	client_ops->get_raw_edid    = adv7533_get_raw_edid;
 
+	dev_ops->write_reg = adv7533_write_reg;
+	dev_ops->read_reg = adv7533_read_reg;
+
 	strlcpy(pdata->dev_info.chip_name, "adv7533",
 		sizeof(pdata->dev_info.chip_name));
 
 	pdata->dev_info.instance_id = 0;
-	pdata->dev_info.reg_fxn = adv7533_reg_fxn;
 
 	mutex_init(&pdata->dev_info.dev_mutex);
 
@@ -1614,32 +1517,33 @@ static int adv7533_register_dba(struct adv7533_platform_data *pdata)
 	return msm_dba_add_probed_device(&pdata->dev_info);
 }
 
-static int adv7533_probe(struct i2c_client *client_,
+static int adv7533_probe(struct i2c_client *client,
 	 const struct i2c_device_id *id)
 {
+	static struct adv7533 *pdata;
 	int ret = 0;
-	client = client_;
 
-	if (client->dev.of_node) {
-		pdata = devm_kzalloc(&client->dev,
-			sizeof(struct adv7533_platform_data), GFP_KERNEL);
-		if (!pdata) {
-			pr_err("%s: Failed to allocate memory\n", __func__);
-			return -ENOMEM;
-		}
-
-		ret = adv7533_parse_dt(&client->dev, pdata);
-		if (ret) {
-			pr_err("%s: Failed to parse DT\n", __func__);
-			goto p_err;
-		}
+	if (!client || !client->dev.of_node) {
+		pr_err("%s: invalid input\n", __func__);
+		return -EINVAL;
 	}
 
-	ret = adv7533_read_device_rev();
-	if (ret != 0) {
-		pr_err("%s: Failed to read revision\n", __func__);
+	pdata = devm_kzalloc(&client->dev,
+		sizeof(struct adv7533), GFP_KERNEL);
+	if (!pdata) {
+		pr_err("%s: Failed to allocate memory\n", __func__);
+		return -ENOMEM;
+	}
+
+	ret = adv7533_parse_dt(&client->dev, pdata);
+	if (ret) {
+		pr_err("%s: Failed to parse DT\n", __func__);
 		goto p_err;
 	}
+
+	pdata->i2c_client = client;
+
+	mutex_init(&pdata->ops_mutex);
 
 	ret = adv7533_register_dba(pdata);
 	if (ret)
@@ -1671,12 +1575,19 @@ static int adv7533_probe(struct i2c_client *client_,
 	}
 
 	if (pdata->audio) {
-		ret = adv7533_write_regs(pdata, I2S_cfg, ARRAY_SIZE(I2S_cfg));
+		ret = adv7533_write_regs(pdata, I2S_cfg);
 		if (ret != 0) {
 			pr_err("%s: I2S configuration fail = %d!\n",
 				__func__, ret);
 			goto p_err;
 		}
+	}
+
+	dev_set_drvdata(&client->dev, &pdata->dev_info);
+	ret = msm_dba_helper_sysfs_init(&client->dev);
+	if (ret) {
+		pr_err("%s: sysfs init failed\n", __func__);
+		goto p_err;
 	}
 
 	pdata->workq = create_workqueue("adv7533_workq");
@@ -1703,7 +1614,20 @@ p_err:
 
 static int adv7533_remove(struct i2c_client *client)
 {
-	int ret = 0;
+	int ret = -EINVAL;
+	struct msm_dba_device_info *dev;
+	struct adv7533 *pdata;
+
+	if (!client)
+		goto end;
+
+	dev = dev_get_drvdata(&client->dev);
+	if (!dev)
+		goto end;
+
+	pdata = container_of(dev, struct adv7533, dev_info);
+	if (!pdata)
+		goto end;
 
 	pm_runtime_disable(&client->dev);
 	disable_irq(pdata->irq);
@@ -1711,8 +1635,11 @@ static int adv7533_remove(struct i2c_client *client)
 
 	ret = adv7533_gpio_configure(pdata, false);
 
+	mutex_destroy(&pdata->ops_mutex);
+
 	devm_kfree(&client->dev, pdata);
 
+end:
 	return ret;
 }
 
@@ -1735,8 +1662,6 @@ static void __exit adv7533_exit(void)
 {
 	i2c_del_driver(&adv7533_driver);
 }
-
-module_param_string(panel, mdss_mdp_panel, MDSS_MAX_PANEL_LEN, 0);
 
 module_init(adv7533_init);
 module_exit(adv7533_exit);

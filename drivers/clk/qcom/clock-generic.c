@@ -725,7 +725,11 @@ static int safe_parent_init_once(struct clk *c)
 
 	if (IS_ERR(md->safe_parent))
 		return -EINVAL;
-	if (!md->safe_freq || md->safe_parent)
+
+	 /*
+	  * Update safe_div and safe_parent if there is a valid new safe_freq
+	  */
+	if (!md->safe_freq)
 		return 0;
 
 	rrate = __mux_div_round_rate(c, md->safe_freq, &best_parent,
@@ -745,10 +749,27 @@ static int mux_div_clk_set_rate(struct clk *c, unsigned long rate)
 {
 	struct mux_div_clk *md = to_mux_div_clk(c);
 	unsigned long flags, rrate;
-	unsigned long new_prate, old_prate;
+	unsigned long new_prate, new_parent_orig_rate,
+					old_safe_freq = 0;
+	unsigned long max_safe_freq = 0;
 	struct clk *old_parent, *new_parent;
 	u32 new_div, old_div;
-	int rc;
+	int rc, i;
+
+	if (md->safe_num) {
+		max_safe_freq = max(c->rate, rate);
+
+		for (i = (md->safe_num - 1); i >= 0; i--) {
+			if ((md->safe_freqs[i]) &&
+				(md->safe_freqs[i] < max_safe_freq))
+				break;
+		}
+		/* Move to the new safe frequency */
+		if (i >= 0) {
+			old_safe_freq = md->safe_freq;
+			md->safe_freq = md->safe_freqs[i];
+		}
+	}
 
 	rc = safe_parent_init_once(c);
 	if (rc)
@@ -761,13 +782,19 @@ static int mux_div_clk_set_rate(struct clk *c, unsigned long rate)
 
 	old_parent = c->parent;
 	old_div = md->data.div;
-	old_prate = clk_get_rate(c->parent);
 
 	/* Refer to the description of safe_freq in clock-generic.h */
-	if (md->safe_freq)
+	if (md->safe_freq) {
+		/* enable the aux clock safe parent before setting div */
+		rc = clk_prepare_enable(md->safe_parent);
+		if (rc) {
+			pr_err("failed to prepare enable %s\n",
+					clk_name(md->safe_parent));
+			return rc;
+		}
 		rc = set_src_div(md, md->safe_parent, md->safe_div);
 
-	else if (new_parent == old_parent && new_div >= old_div) {
+	} else if (new_parent == old_parent && new_div >= old_div) {
 		/*
 		 * If both the parent_rate and divider changes, there may be an
 		 * intermediate frequency generated. Ensure this intermediate
@@ -778,6 +805,7 @@ static int mux_div_clk_set_rate(struct clk *c, unsigned long rate)
 	if (rc)
 		return rc;
 
+	new_parent_orig_rate = clk_get_rate(new_parent);
 	rc = clk_set_rate(new_parent, new_prate);
 	if (rc) {
 		pr_err("failed to set %s to %ld\n",
@@ -797,19 +825,32 @@ static int mux_div_clk_set_rate(struct clk *c, unsigned long rate)
 	c->parent = new_parent;
 
 	__clk_post_reparent(c, old_parent, &flags);
+
+	if (md->safe_freq)
+		/* disable aux clock safe parent */
+		clk_disable_unprepare(md->safe_parent);
+
+	/* Valid old_safe_freq, move back to the safe_freq value */
+	if (old_safe_freq)
+		md->safe_freq = old_safe_freq;
+
 	return 0;
 
 err_set_src_div:
 	/* Not switching to new_parent, so disable it */
 	__clk_post_reparent(c, new_parent, &flags);
 err_pre_reparent:
-	rc = clk_set_rate(old_parent, old_prate);
-	WARN(rc, "%s: error changing parent (%s) rate to %ld\n",
-		clk_name(c), clk_name(old_parent), old_prate);
+	rc = clk_set_rate(new_parent, new_parent_orig_rate);
+	WARN(rc, "%s: error changing new_parent (%s) rate back to %ld\n",
+		clk_name(c), clk_name(new_parent), new_parent_orig_rate);
 err_set_rate:
 	rc = set_src_div(md, old_parent, old_div);
 	WARN(rc, "%s: error changing back to original div (%d) and parent (%s)\n",
 		clk_name(c), old_div, clk_name(old_parent));
+	if (!rc && md->safe_freq)
+		clk_disable_unprepare(md->safe_parent);
+	if (old_safe_freq)
+		md->safe_freq = old_safe_freq;
 
 	return rc;
 }

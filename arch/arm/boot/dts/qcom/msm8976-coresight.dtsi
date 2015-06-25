@@ -1002,7 +1002,7 @@
 
 	hwevent: hwevent@606c000 {
 		compatible = "qcom,coresight-hwevent";
-		reg = <0x606c000 0x108>,
+		reg = <0x606c000 0x148>,
 		      <0x606cfb0 0x4>,
 		      <0x78c5010 0x4>,
 		      <0x7885010 0x4>;

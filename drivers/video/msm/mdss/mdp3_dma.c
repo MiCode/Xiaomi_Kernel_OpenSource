@@ -253,26 +253,6 @@ static void mdp3_dma_done_notifier(struct mdp3_dma *dma,
 	spin_unlock_irqrestore(&dma->dma_lock, flag);
 }
 
-static void mdp3_dma_clk_auto_gating(struct mdp3_dma *dma, int enable)
-{
-	u32 cgc;
-	int clock_bit = 10;
-
-	clock_bit += dma->dma_sel;
-
-	if (enable) {
-		cgc = MDP3_REG_READ(MDP3_REG_CGC_EN);
-		cgc |= BIT(clock_bit);
-		MDP3_REG_WRITE(MDP3_REG_CGC_EN, cgc);
-
-	} else {
-		cgc = MDP3_REG_READ(MDP3_REG_CGC_EN);
-		cgc &= ~BIT(clock_bit);
-		MDP3_REG_WRITE(MDP3_REG_CGC_EN, cgc);
-	}
-}
-
-
 int mdp3_dma_sync_config(struct mdp3_dma *dma,
 	struct mdp3_dma_source *source_config, struct mdp3_tear_check *te)
 {
@@ -876,7 +856,6 @@ static int mdp3_dmap_histo_reset(struct mdp3_dma *dma)
 
 	init_completion(&dma->histo_comp);
 
-	mdp3_dma_clk_auto_gating(dma, 0);
 
 	MDP3_REG_WRITE(MDP3_REG_DMA_P_HIST_INTR_ENABLE, BIT(0)|BIT(1));
 	MDP3_REG_WRITE(MDP3_REG_DMA_P_HIST_RESET_SEQ_START, 1);
@@ -898,7 +877,6 @@ static int mdp3_dmap_histo_reset(struct mdp3_dma *dma)
 		ret = 0;
 	}
 	mdp3_dma_callback_disable(dma, MDP3_DMA_CALLBACK_TYPE_HIST_RESET_DONE);
-	mdp3_dma_clk_auto_gating(dma, 1);
 
 	return ret;
 }

@@ -287,6 +287,7 @@ struct sdhci_host {
 	unsigned int pm_qos_timeout_us;         /* timeout for PM QoS request */
 	struct device_attribute pm_qos_tout;
 	struct delayed_work pm_qos_work;
+	struct mutex qos_lock;
 
 	struct sdhci_next next_data;
 	ktime_t data_start_time;

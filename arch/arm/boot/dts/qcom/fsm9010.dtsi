@@ -182,6 +182,22 @@
 		qcom,sensor-id = <0 1 5>;
 	};
 
+	qcom,msm-thermal {
+		compatible = "qcom,msm-thermal";
+		qcom,sensor-id = <0>;
+		qcom,poll-ms = <250>;
+		qcom,therm-reset-temp = <110>;
+		qcom,disable-vdd-mx;
+		qcom,disable-vdd-rstr;
+		qcom,disable-sensor-info;
+		qcom,disable-ocr;
+		qcom,disable-psm;
+		qcom,disable-gfx-phase-ctrl;
+		qcom,disable-cx-phase-ctrl;
+		qcom,disable-core-control;
+		qcom,disable-freq-mitigation;
+	};
+
 	clock_gcc: qcom,gcc@fc400000 {
 		compatible = "qcom,gcc-fsm9010";
 		reg = <0xfc400000 0x4000>;
@@ -606,7 +622,7 @@
 		cell-index = <0>;
 		qcom,ctrl-amt = <1>;
 
-		reg = <0xfc520000 0x4000>,
+		reg = <0xfc520000 0x2000>,
 		      <0xfc526000 0x1000>,
 		      <0xff800000 0x0f20>,
 		      <0xff800f20 0x100>,

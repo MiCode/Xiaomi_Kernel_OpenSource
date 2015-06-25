@@ -2764,7 +2764,9 @@ static int synaptics_rmi4_parse_dt_children(struct device *dev,
 				 */
 				continue;
 			} else if (of_property_read_bool(child,
-				"synaptics,bypass-sensor-coords-check")) {
+				"synaptics,bypass-sensor-coords-check") &&
+				of_find_property(child,
+					"synaptics,panel-coords", NULL)) {
 				/*
 				 * Some unprogrammed panels from touch vendor
 				 * and wrongly programmed panels from factory
@@ -2775,6 +2777,9 @@ static int synaptics_rmi4_parse_dt_children(struct device *dev,
 				 * of coordinate range read from sensor and read
 				 * from DT and continue normal operation.
 				 */
+				synaptics_dsx_get_dt_coords(dev,
+						"synaptics,panel-coords",
+						rmi4_pdata, child);
 				dev_info(dev,
 					"%s Synaptics package id matches %d %d,"
 					"but bypassing the comparison of sensor"
@@ -2812,6 +2817,10 @@ static int synaptics_rmi4_parse_dt_children(struct device *dev,
 						(rmi4_pdata->panel_maxy !=
 						rmi4_data->sensor_max_y))
 						continue;
+				} else {
+					dev_info(dev, "Smax_x Smax_y = %d:%d\n",
+						rmi4_data->sensor_max_x,
+						rmi4_data->sensor_max_y);
 				}
 			}
 		}

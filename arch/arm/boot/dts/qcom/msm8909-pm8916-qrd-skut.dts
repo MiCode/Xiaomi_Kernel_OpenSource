@@ -18,3 +18,67 @@
 / {
 	qcom,board-id= <0x1000b 0xa>;
 };
+
+&soc {
+	/*
+	 * DT node to add support for SMB358 charger and integrate
+	 * with VM-BMS
+	 */
+	i2c@78b8000 {
+		smb358_otg_vreg: smb358-charger@57 {
+			compatible = "qcom,smb358-charger";
+			reg = <0x57>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <110 8>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&smb_int_default>;
+
+			qcom,float-voltage-mv = <4400>;
+			qcom,recharge-mv = <100>;
+			regulator-name = "smb358_otg_vreg";
+			qcom,thermal-mitigation = <1500 700 600 0>;
+			qcom,fastchg-current-max-ma = <1500>;
+
+			qcom,disable-apsd;
+			qcom,bms-psy-name = "bms";
+			qcom,bms-controlled-charging;
+			qcom,iterm-disabled;
+			qcom,chg-inhibit-disabled;
+
+			qcom,using-pmic-therm;
+			qcom,hot-bat-decidegc = <600>;
+			qcom,cold-bat-decidegc = <0>;
+			qcom,bat-present-decidegc = <200>;
+			/*
+			 * Below preperties are used for enable JEITA
+			 */
+			qcom,warm-bat-decidegc = <450>;
+			qcom,cool-bat-decidegc = <0>;
+			qcom,warm-bat-ma = <1000>;
+			qcom,cool-bat-ma = <1000>;
+			qcom,warm-bat-mv = <4000>;
+			qcom,cool-bat-mv = <4000>;
+			status = "ok";
+		};
+	};
+};
+
+&pm8916_chg {
+	status = "ok";
+	qcom,use-external-charger;
+};
+
+/ {
+	qrd_batterydata: qcom,battery-data {
+		qcom,rpull-up-kohm = <100>;
+		qcom,vref-batt-therm = <1800000>;
+
+		#include "batterydata-qrd-skul-4v4-2920mah.dtsi"
+	};
+};
+
+&pm8916_bms {
+	status = "ok";
+	qcom,resume-soc = <99>;
+	qcom,battery-data = <&qrd_batterydata>;
+};

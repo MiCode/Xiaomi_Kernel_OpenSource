@@ -10,6 +10,7 @@ Required properties:
   of macroblocks per second. The load is a reflection of hardware capability
   rather than a performance guarantee. Performance is guaranteed only up to
   advertised capability of the chipset.
+- qcom,firmware-name : firmware file name to be downloaded.
 
 Optional properties:
 - reg : offset and length of the register set for the device.
@@ -142,6 +143,7 @@ Example:
 			<36000 133330000 0x01000414>; /* Legacy encoder VGA 30 fps   */
 		qcom,ocmem-size = <4096>;
 		qcom,hfi = "venus";
+		qcom,firmware-name = "venus";
 		qcom,reg-presets = <0x80004 0x1>,
 			<0x80178 0x00001FFF>;
 		qcom,qdss-presets = <0xFC307000 0x1000>,

@@ -746,6 +746,10 @@ static int get_prop_batt_status(struct smbchg_chip *chip)
 	u8 reg = 0, chg_type;
 	bool charger_present, chg_inhibit;
 
+	charger_present = is_usb_present(chip) | is_dc_present(chip);
+	if (!charger_present)
+		return POWER_SUPPLY_STATUS_DISCHARGING;
+
 	rc = smbchg_read(chip, &reg, chip->chgr_base + RT_STS, 1);
 	if (rc < 0) {
 		dev_err(chip->dev, "Unable to read RT_STS rc = %d\n", rc);
@@ -754,10 +758,6 @@ static int get_prop_batt_status(struct smbchg_chip *chip)
 
 	if (reg & BAT_TCC_REACHED_BIT)
 		return POWER_SUPPLY_STATUS_FULL;
-
-	charger_present = is_usb_present(chip) | is_dc_present(chip);
-	if (!charger_present)
-		return POWER_SUPPLY_STATUS_DISCHARGING;
 
 	chg_inhibit = reg & CHG_INHIBIT_BIT;
 	if (chg_inhibit)
@@ -1866,11 +1866,11 @@ static int smbchg_get_aicl_level_ma(struct smbchg_chip *chip)
 		dev_err(chip->dev, "Could not read usb icl sts 1: %d\n", rc);
 		return 0;
 	}
-	reg &= ICL_STS_MASK;
 	if (reg & AICL_SUSP_BIT) {
 		pr_warn("AICL suspended: %02x\n", reg);
 		return 0;
 	}
+	reg &= ICL_STS_MASK;
 	if (reg >= ARRAY_SIZE(usb_current_table)) {
 		pr_warn("invalid AICL value: %02x\n", reg);
 		return 0;

@@ -1135,6 +1135,7 @@ fail_register_event:
 fail_sps_connect:
 	dma_free_coherent(ipa_ctx->pdev, ep->connect.desc.size,
 			  ep->connect.desc.base,
+			  ipa_ctx->smmu_present ? ep->connect.desc.iova :
 			  ep->connect.desc.phys_base);
 fail_sps_cfg:
 	sps_free_endpoint(ep->ep_hdl);
@@ -1193,6 +1194,7 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl)
 	sps_disconnect(ep->ep_hdl);
 	dma_free_coherent(ipa_ctx->pdev, ep->connect.desc.size,
 			  ep->connect.desc.base,
+			  ipa_ctx->smmu_present ? ep->connect.desc.iova :
 			  ep->connect.desc.phys_base);
 	sps_free_endpoint(ep->ep_hdl);
 	if (ep->sys->repl_wq)

@@ -345,17 +345,13 @@ static void diag_usb_notifier(void *priv, unsigned event,
 
 	switch (event) {
 	case USB_DIAG_CONNECT:
-		spin_lock_irqsave(&usb_info->lock, flags);
 		atomic_set(&usb_info->connected, 1);
-		spin_unlock_irqrestore(&usb_info->lock, flags);
 		pr_info("diag: USB channel %s connected\n", usb_info->name);
 		queue_work(usb_info->usb_wq,
 			   &usb_info->connect_work);
 		break;
 	case USB_DIAG_DISCONNECT:
-		spin_lock_irqsave(&usb_info->lock, flags);
 		atomic_set(&usb_info->connected, 0);
-		spin_unlock_irqrestore(&usb_info->lock, flags);
 		pr_info("diag: USB channel %s disconnected\n", usb_info->name);
 		queue_work(usb_info->usb_wq,
 			   &usb_info->disconnect_work);
@@ -363,8 +359,8 @@ static void diag_usb_notifier(void *priv, unsigned event,
 	case USB_DIAG_READ_DONE:
 		spin_lock_irqsave(&usb_info->lock, flags);
 		usb_info->read_ptr = d_req;
-		atomic_set(&usb_info->read_pending, 0);
 		spin_unlock_irqrestore(&usb_info->lock, flags);
+		atomic_set(&usb_info->read_pending, 0);
 		queue_work(usb_info->usb_wq,
 			   &usb_info->read_done_work);
 		break;

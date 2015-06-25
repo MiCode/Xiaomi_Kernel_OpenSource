@@ -1,0 +1,30 @@
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "mdm9640.dtsi"
+
+/ {
+	qcom,msm-id = <234 0x20000>, <235 0x20000>, <236 0x20000>,
+		      <237 0x20000>, <238 0x20000>;
+};
+
+&sdcc1_apps_clk_src {
+	qcom,freq-tbl =
+		<    144000   16    0    3    25 &xo>,
+		<    400000   12    0    1     4 &xo>,
+		<  20000000   15    0    1     2 &gpll0_out_main>,
+		<  25000000   12    0    1     2 &gpll0_out_main>,
+		<  50000000   12    0    0     0 &gpll0_out_main>,
+		< 100000000    6    0    0     0 &gpll0_out_main>,
+		< 200000000    3    0    0     0 &gpll0_out_main>,
+		<>;
+};

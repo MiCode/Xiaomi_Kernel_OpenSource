@@ -39,6 +39,7 @@ struct dolby_param_license {
 #define SNDRV_DEVDEP_DAP_IOCTL_GET_VISUALIZER\
 		_IOR('U', 0x15, struct dolby_param_data)
 
+#define GENERIC_AUDIO_DEVICE_NODE		"/dev/snd/hwC0D20"
 #define DTS_EAGLE_MODULE			0x00005000
 #define DTS_EAGLE_MODULE_ENABLE			0x00005001
 #define EAGLE_DRIVER_ID				0xF2
