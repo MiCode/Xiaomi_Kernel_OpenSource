@@ -212,7 +212,7 @@ struct dwc3_msm {
 	struct power_supply	usb_psy;
 	struct power_supply	*ext_vbus_psy;
 	unsigned int		online;
-	unsigned int		scope;
+	bool			in_host_mode;
 	unsigned int		voltage_max;
 	unsigned int		current_max;
 	unsigned int		health_status;
@@ -388,7 +388,7 @@ static inline bool dwc3_msm_is_dev_superspeed(struct dwc3_msm *mdwc)
 
 static inline bool dwc3_msm_is_superspeed(struct dwc3_msm *mdwc)
 {
-	if (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM)
+	if (mdwc->in_host_mode)
 		return dwc3_msm_is_host_superspeed(mdwc);
 
 	return dwc3_msm_is_dev_superspeed(mdwc);
@@ -1262,13 +1262,13 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	unsigned long timeout;
 	u32 reg = 0;
-	bool host_mode, device_mode;
+	bool device_mode;
 
-	host_mode = mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM;
 	device_mode = dwc->is_drd &&
 			mdwc->otg_state == OTG_STATE_B_PERIPHERAL;
 
-	if ((host_mode || device_mode) && dwc3_msm_is_superspeed(mdwc)) {
+	if ((mdwc->in_host_mode || device_mode) &&
+			dwc3_msm_is_superspeed(mdwc)) {
 		if (!atomic_read(&mdwc->in_p3)) {
 			dev_err(mdwc->dev, "Not in P3, aborting LPM sequence\n");
 			return -EBUSY;
@@ -1339,7 +1339,6 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 {
 	int ret, i;
 	bool dcp;
-	bool host_bus_suspend;
 	bool host_ss_active;
 	bool can_suspend_ssphy;
 	bool device_bus_suspend = false;
@@ -1362,9 +1361,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	if (dwc->is_drd && mdwc->otg_state == OTG_STATE_B_SUSPEND)
 		device_bus_suspend = true;
 
-	host_bus_suspend = (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM);
-
-	if (!host_bus_suspend) {
+	if (!mdwc->in_host_mode) {
 		/* pending device events unprocessed */
 		for (i = 0; i < dwc->num_event_buffers; i++) {
 			struct dwc3_event_buffer *evt = dwc->ev_buffs[i];
@@ -1421,7 +1418,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		mdwc->ss_phy->flags &= ~PHY_CHARGER_CONNECTED;
 	}
 
-	can_suspend_ssphy = !(host_bus_suspend && host_ss_active);
+	can_suspend_ssphy = !(mdwc->in_host_mode && host_ss_active);
 
 	/*
 	 * Check if device is not in CONFIGURED state
@@ -1444,7 +1441,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	if (dwc->irq)
 		disable_irq(dwc->irq);
 
-	if (!dcp && !host_bus_suspend)
+	if (!dcp && !mdwc->in_host_mode)
 		dwc3_msm_write_reg(mdwc->base, QSCRATCH_CTRL_REG,
 			mdwc->qscratch_ctl_val);
 
@@ -1467,7 +1464,8 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	wmb();
 
 	/* Perform controller power collapse */
-	if (!host_bus_suspend && !device_bus_suspend && mdwc->power_collapse) {
+	if (!mdwc->in_host_mode && !device_bus_suspend &&
+				mdwc->power_collapse) {
 		mdwc->lpm_flags |= MDWC3_POWER_COLLAPSE;
 		dev_dbg(mdwc->dev, "%s: power collapse\n", __func__);
 		dwc3_msm_config_gdsc(mdwc, 0);
@@ -1512,7 +1510,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		 * using HS_PHY_IRQ. Hence enable wakeup only in case of host
 		 * bus suspend and device bus suspend.
 		 */
-		if (host_bus_suspend || device_bus_suspend) {
+		if (mdwc->in_host_mode || device_bus_suspend) {
 			enable_irq_wake(mdwc->hs_phy_irq);
 			mdwc->lpm_flags |= MDWC3_ASYNC_IRQ_WAKE_CAPABILITY;
 		}
@@ -1530,7 +1528,6 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 {
 	int ret;
 	bool dcp;
-	bool host_bus_suspend;
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	dev_dbg(mdwc->dev, "%s: exiting lpm\n", __func__);
@@ -1557,8 +1554,6 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		mdwc->hs_phy->flags &= ~PHY_CHARGER_CONNECTED;
 		mdwc->ss_phy->flags &= ~PHY_CHARGER_CONNECTED;
 	}
-
-	host_bus_suspend = (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM);
 
 	if (mdwc->lpm_flags & MDWC3_TCXO_SHUTDOWN) {
 		/* Vote for TCXO while waking up USB HSPHY */
@@ -1759,7 +1754,7 @@ static void dwc3_resume_work(struct work_struct *w)
 	dbg_event(0xFF, "RWrk", dwc->is_drd);
 	if (dwc->is_drd)
 		dwc3_ext_event_notify(mdwc);
-	else if (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM)
+	else if (mdwc->in_host_mode)
 		/* host-only mode: resume xhci directly */
 		pm_runtime_resume(&dwc->xhci->dev);
 }
@@ -1998,9 +1993,6 @@ static int dwc3_msm_power_get_property_usb(struct power_supply *psy,
 	struct dwc3_msm *mdwc = container_of(psy, struct dwc3_msm,
 								usb_psy);
 	switch (psp) {
-	case POWER_SUPPLY_PROP_SCOPE:
-		val->intval = mdwc->scope;
-		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		val->intval = mdwc->voltage_max;
 		break;
@@ -2043,16 +2035,6 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 		if (dwc->is_drd && !mdwc->ext_inuse)
 			schedule_delayed_work(&mdwc->resume_work, 12);
 
-		break;
-	case POWER_SUPPLY_PROP_SCOPE:
-		mdwc->scope = val->intval;
-		if (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM) {
-			mdwc->hs_phy->flags |= PHY_HOST_MODE;
-			mdwc->ss_phy->flags |= PHY_HOST_MODE;
-		} else {
-			mdwc->hs_phy->flags &= ~PHY_HOST_MODE;
-			mdwc->ss_phy->flags &= ~PHY_HOST_MODE;
-		}
 		break;
 	/* PMIC notification for DP_DM state */
 	case POWER_SUPPLY_PROP_DP_DM:
@@ -2177,7 +2159,6 @@ static enum power_supply_property dwc3_msm_pm_power_props_usb[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_TYPE,
-	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_USB_OTG,
 };
@@ -2710,7 +2691,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (!dwc->is_drd) {
 		if (host_mode) {
 			dev_dbg(&pdev->dev, "DWC3 in host only mode\n");
-			mdwc->scope = POWER_SUPPLY_SCOPE_SYSTEM;
+			mdwc->in_host_mode = true;
 			mdwc->hs_phy->flags |= PHY_HOST_MODE;
 			mdwc->ss_phy->flags |= PHY_HOST_MODE;
 		} else {
@@ -2860,8 +2841,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 
 #define VBUS_REG_CHECK_DELAY	(msecs_to_jiffies(1000))
 
-static void dwc3_otg_notify_host_mode(struct dwc3_msm *mdwc, int host_mode);
-
 /**
  * dwc3_otg_start_host -  helper function for starting/stoping the host controller driver.
  *
@@ -2895,12 +2874,10 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		pm_runtime_get_sync(dwc->dev);
 		dbg_event(0xFF, "StrtHost gync",
 			atomic_read(&dwc->dev->power.usage_count));
-		dwc3_otg_notify_host_mode(mdwc, on);
 		usb_phy_notify_connect(mdwc->hs_phy, USB_SPEED_HIGH);
 		ret = regulator_enable(mdwc->vbus_reg);
 		if (ret) {
 			dev_err(dwc->dev, "unable to enable vbus_reg\n");
-			dwc3_otg_notify_host_mode(mdwc, 0);
 			pm_runtime_put_sync(dwc->dev);
 			dbg_event(0xFF, "vregerr psync",
 				atomic_read(&dwc->dev->power.usage_count));
@@ -2923,7 +2900,6 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 				"%s: failed to add XHCI pdev ret=%d\n",
 				__func__, ret);
 			regulator_disable(mdwc->vbus_reg);
-			dwc3_otg_notify_host_mode(mdwc, 0);
 			pm_runtime_put_sync(dwc->dev);
 			dbg_event(0xFF, "pdeverr psync",
 				atomic_read(&dwc->dev->power.usage_count));
@@ -2931,6 +2907,8 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		}
 
 		hcd = platform_get_drvdata(dwc->xhci);
+
+		mdwc->in_host_mode = true;
 
 		/* xHCI should have incremented child count as necessary */
 		pm_runtime_put_sync(dwc->dev);
@@ -2949,7 +2927,6 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		dbg_event(0xFF, "StopHost gsync",
 			atomic_read(&dwc->dev->power.usage_count));
 		usb_phy_notify_disconnect(mdwc->hs_phy, USB_SPEED_HIGH);
-		dwc3_otg_notify_host_mode(mdwc, on);
 		platform_device_del(dwc->xhci);
 
 		/*
@@ -2961,6 +2938,8 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 
 		dwc3_gadget_usb3_phy_suspend(dwc, false);
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
+
+		mdwc->in_host_mode = false;
 
 		/* re-init core and OTG registers as block reset clears these */
 		dwc3_post_host_reset_core_init(dwc);
@@ -3015,16 +2994,6 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		atomic_read(&dwc->dev->power.usage_count));
 
 	return 0;
-}
-
-static void dwc3_otg_notify_host_mode(struct dwc3_msm *mdwc, int host_mode)
-{
-	if (host_mode)
-		power_supply_set_scope(&mdwc->usb_psy,
-			POWER_SUPPLY_SCOPE_SYSTEM);
-	else
-		power_supply_set_scope(&mdwc->usb_psy,
-			POWER_SUPPLY_SCOPE_DEVICE);
 }
 
 static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA)
