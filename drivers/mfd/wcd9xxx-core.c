@@ -546,18 +546,9 @@ static int wcd9xxx_slim_get_allowed_slice(struct wcd9xxx *wcd9xxx,
 	return allowed_sz;
 }
 
-/*
- * wcd9xxx_slim_write_repeat: Write the same register with multiple values
- * @wcd9xxx: handle to wcd core
- * @reg: register to be written
- * @bytes: number of bytes to be written to reg
- * @src: buffer with data content to be written to reg
- * This API will write reg with bytes from src in a single slimbus
- * transaction. All values from 1 to 16 are supported by this API.
- */
-
-int wcd9xxx_slim_write_repeat(struct wcd9xxx *wcd9xxx, unsigned short reg,
-			      int bytes, void *src)
+static int __wcd9xxx_slim_write_repeat(struct wcd9xxx *wcd9xxx,
+		unsigned short reg,
+		int bytes, void *src)
 {
 	int ret = 0, bytes_to_write = bytes, bytes_allowed;
 	struct slim_ele_access slim_msg;
@@ -593,6 +584,39 @@ int wcd9xxx_slim_write_repeat(struct wcd9xxx *wcd9xxx, unsigned short reg,
 		src = ((u8 *)src) + bytes_allowed;
 	};
 
+	return ret;
+}
+
+/*
+ * wcd9xxx_slim_write_repeat: Write the same register with multiple values
+ * @wcd9xxx: handle to wcd core
+ * @reg: register to be written
+ * @bytes: number of bytes to be written to reg
+ * @src: buffer with data content to be written to reg
+ * This API will write reg with bytes from src in a single slimbus
+ * transaction. All values from 1 to 16 are supported by this API.
+ */
+int wcd9xxx_slim_write_repeat(struct wcd9xxx *wcd9xxx, unsigned short reg,
+			      int bytes, void *src)
+{
+	int ret = 0;
+
+	mutex_lock(&wcd9xxx->io_lock);
+	if (wcd9xxx->type == WCD9335) {
+		ret = wcd9xxx_page_write(wcd9xxx, &reg);
+		if (ret)
+			goto err;
+
+		ret = __wcd9xxx_slim_write_repeat(wcd9xxx, reg, bytes, src);
+		if (ret < 0)
+			dev_err(wcd9xxx->dev,
+				"%s: Codec repeat write failed (%d)\n",
+				__func__, ret);
+	} else {
+		ret = __wcd9xxx_slim_write_repeat(wcd9xxx, reg, bytes, src);
+	}
+err:
+	mutex_unlock(&wcd9xxx->io_lock);
 	return ret;
 }
 EXPORT_SYMBOL(wcd9xxx_slim_write_repeat);
@@ -1130,8 +1154,8 @@ static const struct intr_data intr_tbl_v4[] = {
 	{WCD9335_IRQ_SVA_ERROR, false},
 	{WCD9335_IRQ_MAD_AUDIO, false},
 	{WCD9335_IRQ_MAD_BEACON, false},
-	{WCD9335_IRQ_SVA_OUTBOX1, false},
-	{WCD9335_IRQ_SVA_OUTBOX2, false},
+	{WCD9335_IRQ_SVA_OUTBOX1, true},
+	{WCD9335_IRQ_SVA_OUTBOX2, true},
 	{WCD9335_IRQ_MAD_ULTRASOUND, false},
 	{WCD9335_IRQ_VBAT_ATTACK, false},
 	{WCD9335_IRQ_VBAT_RESTORE, false},

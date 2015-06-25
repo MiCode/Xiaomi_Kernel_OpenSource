@@ -1327,6 +1327,15 @@ static bool wcd9335_is_volatile_register(struct device *dev, unsigned int reg)
 	    (reg <= WCD9335_CDC_SIDETONE_IIR1_IIR_COEF_B2_CTL))
 		return true;
 
+	/*
+	 * CPE inbox and outbox registers are volatile
+	 * since they can be updated in the codec hardware
+	 * to indicate CPE status
+	 */
+	if (reg >= WCD9335_CPE_SS_MEM_PTR_0 &&
+	    reg <= WCD9335_CPE_SS_OUTBOX2_ACK)
+		return true;
+
 	switch (reg) {
 	case WCD9335_CPE_SS_INBOX1_TRG:
 	case WCD9335_CPE_SS_INBOX2_TRG:
@@ -1357,6 +1366,9 @@ static bool wcd9335_is_volatile_register(struct device *dev, unsigned int reg)
 	case WCD9335_ANA_MBHC_ELECT:
 	case WCD9335_ANA_MBHC_ZDET:
 	case WCD9335_ANA_MICB2:
+	case WCD9335_CPE_SS_SS_ERROR_INT_STATUS:
+	case WCD9335_CPE_SS_STATUS:
+	case WCD9335_CPE_SS_BACKUP_INT:
 		return true;
 	default:
 		return false;
