@@ -2887,6 +2887,20 @@ static struct snd_soc_dai_link msm8994_common_dai_links[] = {
 		.codec_dai_name = "tomtom_mad1",
 		.codec_name = "tomtom_codec",
 	},
+	{
+		.name = "MultiMedia3 Record",
+		.stream_name = "MultiMedia3 Capture",
+		.cpu_dai_name = "MultiMedia3",
+		.platform_name = "msm-pcm-dsp.0",
+		.dynamic = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA3,
+	},
 	/* End of FE DAI LINK */
 	/* Backend FM DAI Links */
 	{
