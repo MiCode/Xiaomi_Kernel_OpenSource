@@ -2247,10 +2247,17 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 			goto parse_fail;
 
 		rc = mdss_mdp_parse_dt_handler(pdev,
-			"qcom,mdss-pipe-dma-xin-id", xin_id,
+			"qcom,mdss-pipe-cursor-xin-id", xin_id,
 			mdata->ncursor_pipes);
 		if (rc)
 			goto parse_fail;
+
+		rc = mdss_mdp_parse_dt_pipe_clk_ctrl(pdev,
+			"qcom,mdss-pipe-cursor-clk-ctrl-offsets",
+			mdata->cursor_pipes, mdata->ncursor_pipes);
+		if (rc)
+			goto parse_fail;
+
 		/* set the fetch id to an invalid value */
 		for (i = 0; i < mdata->ncursor_pipes; i++)
 			ftch_id[i] = -1;

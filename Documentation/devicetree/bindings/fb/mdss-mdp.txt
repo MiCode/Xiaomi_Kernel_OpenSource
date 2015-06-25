@@ -93,6 +93,14 @@ Required properties
 				to the respective cursor pipes. Number of xin ids
 				defined should match the number of offsets
 				defined in property: qcom,mdss-pipe-cursor-off
+- qcom,mdss-pipe-cursor-clk-ctrl-off: Array of offsets describing clk control
+				offsets for dynamic clock gating. 1st value
+				in the array represents offset of the control
+				register. 2nd value represents bit offset within
+				control register and 3rd value represents bit
+				offset within status register. Number of tuples
+				defined should match the number of offsets
+				defined in property: qcom,mdss-pipe-cursor-off
 - qcom,mdss-ctl-off:		Array of offset addresses for the available ctl
 				hw blocks within MDP, these offsets are
 				calculated from register "mdp_phys" defined in

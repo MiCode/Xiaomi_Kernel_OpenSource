@@ -1297,8 +1297,8 @@ static int mdss_mdp_is_pipe_idle(struct mdss_mdp_pipe *pipe,
 		reg_val = readl_relaxed(mdata->mdp_base +
 			pipe->clk_status.reg_off);
 
-		if (reg_val & clk_status_idle_mask)
-			is_idle = false;
+		if ((reg_val & clk_status_idle_mask) == 0)
+			is_idle = true;
 
 		pr_debug("pipe#:%d clk_status:0x%x clk_status_idle_mask:0x%x\n",
 			pipe->num, reg_val, clk_status_idle_mask);
@@ -1307,13 +1307,24 @@ static int mdss_mdp_is_pipe_idle(struct mdss_mdp_pipe *pipe,
 	if (!ignore_force_on && (is_forced_on || !is_idle))
 		goto exit;
 
+	/*
+	 * skip vbif check for cursor pipes as the same xin-id is shared
+	 * between cursor0, cursor1 and dsi
+	 */
+	if (pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR) {
+		if (ignore_force_on && is_forced_on)
+			is_idle = true;
+		goto exit;
+	}
+
 	vbif_idle_mask = BIT(pipe->xin_id + 16);
 	reg_val = MDSS_VBIF_READ(mdata, MMSS_VBIF_XIN_HALT_CTRL1, is_nrt_vbif);
 
 	if (reg_val & vbif_idle_mask)
 		is_idle = true;
 
-	pr_debug("pipe#:%d XIN_HALT_CTRL1: 0x%x\n", pipe->num, reg_val);
+	pr_debug("pipe#:%d XIN_HALT_CTRL1: 0x%x, vbif_idle_mask: 0x%x\n",
+			pipe->num, reg_val, vbif_idle_mask);
 
 exit:
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
