@@ -3316,6 +3316,39 @@ otg_get_prop_usbin_voltage_now(struct msm_otg *motg)
 	}
 }
 
+static int msm_otg_pmic_dp_dm(struct msm_otg *motg, int value)
+{
+	int ret = 0;
+
+	switch (value) {
+	case POWER_SUPPLY_DP_DM_DPF_DMF:
+		if (!motg->rm_pulldown) {
+			ret = msm_hsusb_ldo_enable(motg, USB_PHY_REG_3P3_ON);
+			if (!ret) {
+				motg->rm_pulldown = true;
+				msm_otg_dbg_log_event(&motg->phy, "RM Pulldown",
+						motg->rm_pulldown, 0);
+			}
+		}
+		break;
+	case POWER_SUPPLY_DP_DM_DPR_DMR:
+		if (motg->rm_pulldown) {
+			ret = msm_hsusb_ldo_enable(motg, USB_PHY_REG_3P3_OFF);
+			if (!ret) {
+				motg->rm_pulldown = false;
+				msm_otg_dbg_log_event(&motg->phy, "RM Pulldown",
+						motg->rm_pulldown, 0);
+			}
+		}
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
+}
+
 static int otg_power_get_property_usb(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  union power_supply_propval *val)
@@ -3337,7 +3370,7 @@ static int otg_power_get_property_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PRESENT:
 		val->intval = !!test_bit(B_SESS_VLD, &motg->inputs);
 		break;
-	case POWER_SUPPLY_PROP_ALLOW_DETECTION:
+	case POWER_SUPPLY_PROP_DP_DM:
 		val->intval = motg->rm_pulldown;
 		break;
 	/* Reflect USB enumeration */
@@ -3374,16 +3407,9 @@ static int otg_power_set_property_usb(struct power_supply *psy,
 		motg->id_state = val->intval ? USB_ID_GROUND : USB_ID_FLOAT;
 		queue_delayed_work(motg->otg_wq, &motg->id_status_work, 0);
 		break;
-	/* PMIC notification to remove pull down on Dp and Dm */
-	case POWER_SUPPLY_PROP_ALLOW_DETECTION:
-		if (motg->rm_pulldown == val->intval)
-			break;
-
-		motg->rm_pulldown = val->intval;
-		msm_otg_dbg_log_event(&motg->phy, "RM Pulldown",
-							motg->rm_pulldown, 0);
-		msm_hsusb_ldo_enable(motg, motg->rm_pulldown ?
-				USB_PHY_REG_3P3_ON : USB_PHY_REG_3P3_OFF);
+	/* PMIC notification for DP DM state */
+	case POWER_SUPPLY_PROP_DP_DM:
+		msm_otg_pmic_dp_dm(motg, val->intval);
 		break;
 	/* Process PMIC notification in PRESENT prop */
 	case POWER_SUPPLY_PROP_PRESENT:
@@ -3469,7 +3495,7 @@ static int otg_power_property_is_writeable_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ONLINE:
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-	case POWER_SUPPLY_PROP_ALLOW_DETECTION:
+	case POWER_SUPPLY_PROP_DP_DM:
 	case POWER_SUPPLY_PROP_USB_OTG:
 		return 1;
 	default:
@@ -3492,7 +3518,7 @@ static enum power_supply_property otg_pm_power_props_usb[] = {
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
-	POWER_SUPPLY_PROP_ALLOW_DETECTION,
+	POWER_SUPPLY_PROP_DP_DM,
 	POWER_SUPPLY_PROP_USB_OTG,
 };
 
