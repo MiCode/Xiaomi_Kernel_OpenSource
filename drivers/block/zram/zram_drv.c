@@ -83,17 +83,21 @@ static int zram_show_mem_notifier(struct notifier_block *nb,
 		if (!down_read_trylock(&zram->init_lock))
 			continue;
 
-		if (zram->init_done) {
+		if (init_done(zram)) {
 			u64 val;
 			u64 data_size;
+			u64 orig_data_size;
 
-			val = zs_get_total_size_bytes(meta->mem_pool);
-			data_size = atomic64_read(&zram->stats.compr_size);
-			pr_info("Zram[%d] mem_used_total = %llu\n", i, val);
+			val = zs_get_total_pages(meta->mem_pool);
+			data_size = atomic64_read(&zram->stats.compr_data_size);
+			orig_data_size = atomic64_read(
+						&zram->stats.pages_stored);
+			pr_info("Zram[%d] mem_used_total = %llu\n", i,
+							val << PAGE_SHIFT);
 			pr_info("Zram[%d] compr_data_size = %llu\n", i,
 				(unsigned long long)data_size);
-			pr_info("Zram[%d] orig_data_size = %u\n", i,
-				zram->stats.pages_stored);
+			pr_info("Zram[%d] orig_data_size = %llu\n", i,
+				(unsigned long long)orig_data_size);
 		}
 
 		up_read(&zram->init_lock);
@@ -271,7 +275,6 @@ static ssize_t comp_algorithm_show(struct device *dev,
 {
 	size_t sz;
 	struct zram *zram = dev_to_zram(dev);
-	static unsigned long zram_rs_time;
 
 	down_read(&zram->init_lock);
 	sz = zcomp_available_show(zram->compressor, buf);
@@ -641,8 +644,6 @@ static int zram_bvec_write(struct zram *zram, struct bio_vec *bvec, u32 index,
 
 	handle = zs_malloc(meta->mem_pool, clen);
 	if (!handle) {
-		if (printk_timed_ratelimit(&zram_rs_time,
-					   ALLOC_ERROR_LOG_RATE_MS))
 			pr_info("Error allocating memory for compressed page: %u, size=%zu\n",
 				index, clen);
 		ret = -ENOMEM;
