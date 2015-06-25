@@ -1585,6 +1585,8 @@ int mmc_cmdq_halt(struct mmc_host *host, bool halt)
 	mmc_host_clk_hold(host);
 	if (host->cmdq_ops->halt) {
 		err = host->cmdq_ops->halt(host, halt);
+		if (!err && host->ops->notify_halt)
+			host->ops->notify_halt(host, halt);
 		if (!err && halt)
 			mmc_host_set_halt(host);
 		else if (!err && !halt)
