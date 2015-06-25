@@ -3392,6 +3392,7 @@ static const struct dev_pm_ops sdhci_msm_pmops = {
 #endif
 static const struct of_device_id sdhci_msm_dt_match[] = {
 	{.compatible = "qcom,sdhci-msm"},
+	{},
 };
 MODULE_DEVICE_TABLE(of, sdhci_msm_dt_match);
 
