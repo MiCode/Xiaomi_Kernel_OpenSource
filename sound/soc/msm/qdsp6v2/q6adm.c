@@ -678,6 +678,175 @@ fail_cmd:
 	return ret;
 }
 
+int popoulate_channel_weight(u16 *ptr, struct msm_pcm_channel_mux *ch_mux,
+							u8 num_ch)
+{
+	u16 i = 0, j = 0;
+
+	for (i = 0; i < ch_mux->out_channel; i++) {
+		for (j = 0; j < ch_mux->input_channel; j++)
+			pr_debug("%s: channel_config[%d][%d] = %d\n",
+				 __func__, i, j,
+				 ch_mux->channel_config[i][j]);
+	}
+
+	for (i = 0; i < ch_mux->out_channel; i++) {
+		for (j = 0; j < ch_mux->input_channel; j++) {
+			*ptr = ch_mux->channel_config[i][j];
+			pr_debug("%s: ptr[%d][%d] = %d\n",
+				 __func__, i, j, *ptr);
+			ptr++;
+		}
+	}
+
+	return 0;
+}
+
+
+int programable_channel_mixer(int port_id, int copp_idx, int session_id,
+			int session_type, struct msm_pcm_channel_mux *ch_mux,
+			int num_ch)
+{
+	struct adm_cmd_set_pspd_mtmx_strtr_params_v5 *adm_params = NULL;
+	struct adm_param_data_v5 data_v5;
+	int ret = 0, port_idx, sz = 0;
+	u16 *glb_ptr;
+	u16 *ptr;
+	int i = 0;
+
+	pr_debug("%s port_id = %d\n", __func__, port_id);
+
+	port_id = afe_convert_virtual_to_portid(port_id);
+	port_idx = adm_validate_and_get_port_index(port_id);
+	if (port_idx < 0) {
+		pr_err("%s: Invalid port_id %#x\n", __func__, port_id);
+		return -EINVAL;
+	}
+	sz = sizeof(struct adm_cmd_set_pspd_mtmx_strtr_params_v5) +
+			sizeof(struct default_chmixer_param_id_coeff) +
+			sizeof(struct adm_param_data_v5) + 4 /*index*/ +
+			(2 * ch_mux->out_channel) +
+			(2 * ch_mux->input_channel) +
+			(2 * ch_mux->input_channel * ch_mux->out_channel);
+	pr_debug("sz = %d\n", sz);
+	adm_params = kzalloc(sz, GFP_KERNEL);
+	if (!adm_params) {
+		pr_err("%s, adm params memory alloc failed\n",
+			__func__);
+		return -ENOMEM;
+	}
+	adm_params->payload_addr_lsw = 0;
+	adm_params->payload_addr_msw = 0;
+	adm_params->mem_map_handle = 0;
+	adm_params->direction = session_type;
+	adm_params->sessionid = session_id;
+	pr_debug("%s: copp_id = %d\n", __func__,
+		atomic_read(&this_adm.copp.id[port_idx][copp_idx]));
+	adm_params->deviceid = atomic_read(
+				&this_adm.copp.id[port_idx][copp_idx]);
+	adm_params->reserved = 0;
+	data_v5.module_id = MTMX_MODULE_ID_DEFAULT_CHMIXER;
+	data_v5.param_id =  DEFAULT_CHMIXER_PARAM_ID_COEFF;
+	data_v5.reserved = 0;
+	data_v5.param_size = 4 /*index*/ +
+			(2 * ch_mux->out_channel) +
+			(2 * ch_mux->input_channel) +
+			(2 * ch_mux->input_channel * ch_mux->out_channel);
+	adm_params->payload_size =
+			sizeof(struct default_chmixer_param_id_coeff) +
+			sizeof(struct adm_param_data_v5) + data_v5.param_size;
+	glb_ptr = (u16 *)((u8 *)adm_params +
+			sizeof(struct adm_cmd_set_pspd_mtmx_strtr_params_v5));
+	memcpy(glb_ptr, &data_v5, sizeof(data_v5));
+
+	glb_ptr = (u16 *)((u8 *)adm_params +
+			sizeof(struct adm_cmd_set_pspd_mtmx_strtr_params_v5)
+			+ sizeof(data_v5));
+
+	glb_ptr[0] = 0x02; /* index */
+	glb_ptr[2] = ch_mux->out_channel;
+	glb_ptr[3] = ch_mux->input_channel;
+	i = 4;
+	if (ch_mux->out_channel  == 1)	{
+			glb_ptr[i] = PCM_CHANNEL_FC;
+	} else if (ch_mux->out_channel == 2) {
+		glb_ptr[i] = PCM_CHANNEL_FL;
+		glb_ptr[i + 1] = PCM_CHANNEL_FR;
+	} else if (ch_mux->out_channel == 3)	{
+		glb_ptr[i] = PCM_CHANNEL_FL;
+		glb_ptr[i + 1] = PCM_CHANNEL_FR;
+		glb_ptr[i + 2] = PCM_CHANNEL_FC;
+	} else if (ch_mux->out_channel == 4) {
+		glb_ptr[i] = PCM_CHANNEL_FL;
+		glb_ptr[i + 1] = PCM_CHANNEL_FR;
+		glb_ptr[i + 2] = PCM_CHANNEL_LS;
+		glb_ptr[i + 3] = PCM_CHANNEL_RS;
+	}
+	i = i + ch_mux->out_channel;
+	if (ch_mux->input_channel  == 1)	{
+			glb_ptr[i] = PCM_CHANNEL_FC;
+	} else if (ch_mux->input_channel == 2) {
+		glb_ptr[i] = PCM_CHANNEL_FL;
+		glb_ptr[i + 1] = PCM_CHANNEL_FR;
+	} else if (ch_mux->input_channel == 3)	{
+		glb_ptr[i] = PCM_CHANNEL_FL;
+		glb_ptr[i + 1] = PCM_CHANNEL_FR;
+		glb_ptr[i + 2] = PCM_CHANNEL_FC;
+	} else if (ch_mux->input_channel == 4) {
+		glb_ptr[i] = PCM_CHANNEL_FL;
+		glb_ptr[i + 1] = PCM_CHANNEL_FR;
+		glb_ptr[i + 2] = PCM_CHANNEL_RB;
+		glb_ptr[i + 3] = PCM_CHANNEL_LB;
+	}
+	i = i + ch_mux->input_channel;
+	popoulate_channel_weight(&glb_ptr[i], ch_mux,
+						ch_mux->input_channel);
+
+	adm_params->hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	adm_params->hdr.src_svc = APR_SVC_ADM;
+	adm_params->hdr.src_domain = APR_DOMAIN_APPS;
+	adm_params->hdr.src_port = port_id;
+	adm_params->hdr.dest_svc = APR_SVC_ADM;
+	adm_params->hdr.dest_domain = APR_DOMAIN_ADSP;
+	adm_params->hdr.dest_port =
+			atomic_read(&this_adm.copp.id[port_idx][copp_idx]);
+	adm_params->hdr.token = port_idx << 16 | copp_idx;
+	adm_params->hdr.opcode = ADM_CMD_SET_PSPD_MTMX_STRTR_PARAMS_V5;
+	adm_params->hdr.pkt_size = sz;
+	adm_params->payload_addr_lsw = 0;
+	adm_params->payload_addr_msw = 0;
+	adm_params->mem_map_handle = 0;
+	adm_params->reserved = 0;
+
+	ptr = (u16 *)adm_params;
+	for (i = 0; i < (sz / 2); i++)
+		pr_debug("adm_params[%d] = %x\n", i, (unsigned int)ptr[i]);
+
+	atomic_set(&this_adm.copp.stat[port_idx][copp_idx], 0);
+	ret = apr_send_pkt(this_adm.apr, (uint32_t *)adm_params);
+	if (ret < 0) {
+		pr_err("SRS - %s: ADM enable for port %d failed\n", __func__,
+			port_id);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	/* Wait for the callback with copp id */
+	ret = wait_event_timeout(this_adm.copp.wait[port_idx][copp_idx],
+			atomic_read(&this_adm.copp.stat[port_idx][copp_idx]),
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: SRS set params timed out port = %d\n",
+			__func__, port_id);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+fail_cmd:
+	kfree(adm_params);
+	return ret;
+}
+
+
 int adm_set_stereo_to_custom_stereo(int port_id, int copp_idx,
 				    unsigned int session_id, char *params,
 				    uint32_t params_length)
