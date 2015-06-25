@@ -238,18 +238,19 @@
 	qpnp,qpnp-labibb-mode = "lcd";
 };
 
-&pmi8950_charger {
-	qcom,float-voltage-mv = <4400>;
-	qcom,chg-led-sw-controls;
-	qcom,chg-led-support;
-	status = "okay";
-};
-
 / {
 	qrd_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
 		#include "batterydata-qrd-skum-4v4-2920mah.dtsi"
 	};
+};
+
+&pmi8950_charger {
+	qcom,battery-data = <&qrd_batterydata>;
+	qcom,float-voltage-mv = <4400>;
+	qcom,chg-led-sw-controls;
+	qcom,chg-led-support;
+	status = "okay";
 };
 
 &pmi8950_fg {
