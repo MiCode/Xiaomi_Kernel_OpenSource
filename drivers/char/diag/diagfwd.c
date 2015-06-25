@@ -48,7 +48,7 @@
 #define STM_RSP_STATUS_INDEX		8
 #define STM_RSP_NUM_BYTES		9
 
-int timestamp_switch;
+static int timestamp_switch;
 module_param(timestamp_switch, int, 0644);
 
 int wrap_enabled;
@@ -592,7 +592,7 @@ int diag_process_time_sync_query_cmd(unsigned char *src_buf, int src_len,
 int diag_process_time_sync_switch_cmd(unsigned char *src_buf, int src_len,
 				      unsigned char *dest_buf, int dest_len)
 {
-	uint8_t peripheral, status;
+	uint8_t peripheral, status = 0;
 	struct diag_cmd_time_sync_switch_req_t *req = NULL;
 	struct diag_cmd_time_sync_switch_rsp_t rsp;
 	struct diag_ctrl_msg_time_sync time_sync_msg;
