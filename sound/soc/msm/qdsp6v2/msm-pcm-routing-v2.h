@@ -250,4 +250,8 @@ void msm_pcm_routing_release_lock(void);
 
 void msm_pcm_routing_reg_stream_app_type_cfg(int fedai_id, int app_type,
 					int acdb_dev_id, int sample_rate);
+
+int msm_pcm_routing_channel_mixer(int fedai_id, bool perf_mode,
+			int dspst_id, int stream_type, int be_id);
+
 #endif /*_MSM_PCM_H*/
