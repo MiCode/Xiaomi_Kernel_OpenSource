@@ -14,6 +14,7 @@
 #include "msm8956.dtsi"
 #include "msm8976-pinctrl.dtsi"
 #include "msm8976-camera-sensor-mtp.dtsi"
+#include "msm8976-mdss-mtp.dtsi"
 
 &i2c_4 { /* BLSP1 QUP4 */
 	synaptics@20 {
