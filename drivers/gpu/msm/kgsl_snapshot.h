@@ -46,13 +46,17 @@ struct kgsl_snapshot_section_header {
 #define KGSL_SNAPSHOT_SECTION_OS           0x0101
 #define KGSL_SNAPSHOT_SECTION_REGS         0x0201
 #define KGSL_SNAPSHOT_SECTION_RB           0x0301
+#define KGSL_SNAPSHOT_SECTION_RB_V2        0x0302
 #define KGSL_SNAPSHOT_SECTION_IB           0x0401
+#define KGSL_SNAPSHOT_SECTION_IB_V2        0x0402
 #define KGSL_SNAPSHOT_SECTION_INDEXED_REGS 0x0501
 #define KGSL_SNAPSHOT_SECTION_ISTORE       0x0801
 #define KGSL_SNAPSHOT_SECTION_DEBUG        0x0901
 #define KGSL_SNAPSHOT_SECTION_DEBUGBUS     0x0A01
 #define KGSL_SNAPSHOT_SECTION_GPU_OBJECT   0x0B01
+#define KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2 0x0B02
 #define KGSL_SNAPSHOT_SECTION_MEMLIST      0x0E01
+#define KGSL_SNAPSHOT_SECTION_MEMLIST_V2   0x0E02
 #define KGSL_SNAPSHOT_SECTION_SHADER       0x1201
 
 #define KGSL_SNAPSHOT_SECTION_END          0xFFFF
@@ -107,6 +111,20 @@ struct kgsl_snapshot_rb {
 	__u32 timestamp_retired; /* The last timestamp retired by HW */
 } __packed;
 
+struct kgsl_snapshot_rb_v2 {
+	int start;  /* dword at the start of the dump */
+	int end;    /* dword at the end of the dump */
+	int rbsize; /* Size (in dwords) of the ringbuffer */
+	int wptr;   /* Current index of the CPU write pointer */
+	int rptr;   /* Current index of the GPU read pointer */
+	int count;  /* Number of dwords in the dump */
+	__u32 timestamp_queued; /* The last queued timestamp */
+	__u32 timestamp_retired; /* The last timestamp retired by HW */
+	__u64 gpuaddr; /* The GPU address of the ringbuffer */
+	__u32 id; /* Ringbuffer identifier */
+} __packed;
+
+
 /* Replay or Memory list section, both sections have same header */
 struct kgsl_snapshot_replay_mem_list {
 	/*
@@ -118,12 +136,32 @@ struct kgsl_snapshot_replay_mem_list {
 	__u32 ptbase;
 } __packed;
 
+/* Replay or Memory list section, both sections have same header */
+struct kgsl_snapshot_mem_list_v2 {
+	/*
+	 * Number of IBs to replay for replay section or
+	 * number of memory list entries for mem list section
+	 */
+	int num_entries;
+	/* Pagetable base to which the replay IBs or memory entries belong */
+	__u64 ptbase;
+} __packed;
+
+
 /* Indirect buffer sub-section header */
 struct kgsl_snapshot_ib {
 	__u32 gpuaddr; /* GPU address of the the IB */
 	__u32 ptbase;  /* Base for the pagetable the GPU address is valid in */
 	int size;    /* Size of the IB */
 } __packed;
+
+/* Indirect buffer sub-section header (v2) */
+struct kgsl_snapshot_ib_v2 {
+	__u64 gpuaddr; /* GPU address of the the IB */
+	__u64 ptbase;  /* Base for the pagetable the GPU address is valid in */
+	__u64 size;    /* Size of the IB */
+} __packed;
+
 
 /* Register sub-section header */
 struct kgsl_snapshot_regs {
@@ -189,5 +227,12 @@ struct kgsl_snapshot_gpu_object {
 	__u32 ptbase;  /* Base for the pagetable the GPU address is valid in */
 	int size;    /* Size of the object (in dwords) */
 };
+
+struct kgsl_snapshot_gpu_object_v2 {
+	int type;      /* Type of GPU object */
+	__u64 gpuaddr; /* GPU address of the the object */
+	__u64 ptbase;  /* Base for the pagetable the GPU address is valid in */
+	__u64 size;    /* Size of the object (in dwords) */
+} __packed;
 
 #endif
