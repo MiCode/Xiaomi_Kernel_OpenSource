@@ -1043,9 +1043,9 @@ int adreno_iommu_init(struct adreno_device *adreno_dev)
 	if (adreno_is_a5xx(adreno_dev) &&
 		!MMU_FEATURE(&device->mmu, KGSL_MMU_GLOBAL_PAGETABLE)) {
 		if ((adreno_compare_pfp_version(adreno_dev,
-				A5XX_PFP_PER_PROCESS_UCODE_VER) < 0) &&
+				A5XX_PFP_PER_PROCESS_UCODE_VER) < 0) ||
 		    (adreno_compare_pm4_version(adreno_dev,
-				A5XX_PFP_PER_PROCESS_UCODE_VER) < 0)) {
+				A5XX_PM4_PER_PROCESS_UCODE_VER) < 0)) {
 			KGSL_DRV_ERR(device,
 				"Invalid ucode for per process pagetables\n");
 			return -ENODEV;
