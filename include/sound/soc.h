@@ -832,6 +832,16 @@ struct snd_soc_platform_driver {
 	snd_pcm_sframes_t (*delay)(struct snd_pcm_substream *,
 		struct snd_soc_dai *);
 
+	/*
+	 * For platform-caused delay reporting, where the thread blocks waiting
+	 * for the delay amount to be determined.  Defining this will cause the
+	 * ASoC core to skip calling the delay callbacks for all components in
+	 * the runtime.
+	 * Optional.
+	 */
+	snd_pcm_sframes_t (*delay_blk)(struct snd_pcm_substream *,
+		struct snd_soc_dai *);
+
 	/* platform stream pcm ops */
 	const struct snd_pcm_ops *ops;
 
