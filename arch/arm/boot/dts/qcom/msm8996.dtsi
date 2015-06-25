@@ -839,12 +839,12 @@
 		vdd_mx-supply = <&pm8994_s2_corner>;
 		qcom,gfxfreq-corner-v0 =
 			<	   0  0  0 >,
-			<   19200000  1  4 >,
-			<   60000000  1  4 >,
-			<  120000000  1  4 >,
-			<  205000000  2  4 >,
-			<  360000000  3  5 >,
-			<  480000000  4  6 >;
+			<   19200000  2  4 >,
+			<   60000000  2  4 >,
+			<  120000000  2  4 >,
+			<  205000000  3  4 >,
+			<  360000000  4  5 >,
+			<  480000000  5  7 >;
 		#clock-cells = <1>;
 	};
 
@@ -2859,7 +2859,7 @@
 
 		qcom,vdd-gfx-rstr{
 			qcom,vdd-rstr-reg = "vdd-gfx";
-			qcom,levels = <3 4 4>; /* Nominal, Super Turbo, Super Turbo */
+			qcom,levels = <4 5 5>; /* Nominal, Turbo, Turbo */
 			qcom,min-level = <1>; /* No Request */
 		};
 
