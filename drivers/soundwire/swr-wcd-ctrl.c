@@ -888,7 +888,8 @@ static int swrm_get_logical_dev_num(struct swr_master *mstr, u64 dev_id,
 			goto found;
 		}
 	}
-	dev_err(swrm->dev, "%s: device id does not match\n", __func__);
+	dev_err(swrm->dev, "%s: device id 0x%llx does not match with 0x%llx\n",
+		__func__, id, dev_id);
 found:
 	return ret;
 }
