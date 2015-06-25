@@ -15,6 +15,7 @@
 #include "vidc_hfi_api.h"
 #include "msm_vidc_debug.h"
 #include "msm_vidc_dcvs.h"
+#include <soc/qcom/socinfo.h>
 
 #define IS_VALID_DCVS_SESSION(__cur_mbpf, __min_mbpf) \
 		((__cur_mbpf) >= (__min_mbpf))
@@ -175,9 +176,23 @@ void msm_dcvs_init_load(struct msm_vidc_inst *inst)
 
 	dcvs->load = msm_comm_get_inst_load(inst, LOAD_CALC_NO_QUIRKS);
 
-	if (dcvs->load >= DCVS_NOMINAL_LOAD) {
-		dcvs->load_low = DCVS_NOMINAL_LOAD;
-		dcvs->load_high = core->resources.max_load;
+	if (inst->session_type == MSM_VIDC_DECODER) {
+		if (dcvs->load > DCVS_NOMINAL_LOAD) {
+			dcvs->load_low = DCVS_NOMINAL_LOAD;
+			dcvs->load_high = dcvs->load =
+				core->resources.max_load;
+		} else if (dcvs->load > DCVS_SVS_LOAD &&
+				dcvs->load <= DIM_2K30) {
+			dcvs->load_low = DCVS_SVS_LOAD;
+			dcvs->load_high = DCVS_NOMINAL_LOAD;
+			dcvs->load = DCVS_NOMINAL_LOAD;
+		}
+	} else {
+		if (dcvs->load >= DCVS_NOMINAL_LOAD) {
+			dcvs->load_low = DCVS_NOMINAL_LOAD;
+			dcvs->load_high = dcvs->load =
+				core->resources.max_load;
+		}
 	}
 
 	if (inst->session_type == MSM_VIDC_ENCODER)
@@ -476,6 +491,7 @@ bool msm_dcvs_enc_check(struct msm_vidc_inst *inst)
 static int msm_dcvs_check_supported(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
+	int dcvs_2k = 0, dcvs_4k = 0;
 	int num_mbs_per_frame = 0;
 	int instance_count = 0;
 	struct msm_vidc_inst *temp = NULL;
@@ -508,9 +524,33 @@ static int msm_dcvs_check_supported(struct msm_vidc_inst *inst)
 				V4L2_PIX_FMT_VP8) ||
 			(inst->fmts[OUTPUT_PORT]->fourcc ==
 				V4L2_PIX_FMT_H264_NO_SC);
-		if (!is_codec_supported ||
-			!IS_VALID_DCVS_SESSION(num_mbs_per_frame,
-					DCVS_MIN_SUPPORTED_MBPERFRAME))
+		/* 2K DCVS is supported for H264 only on 8992
+		 * 4K DCVS is same as earlier.
+		 */
+		if (socinfo_get_msm_cpu() == MSM_CPU_8992) {
+			if ((inst->fmts[OUTPUT_PORT]->fourcc ==
+				V4L2_PIX_FMT_H264) &&
+				(num_mbs_per_frame ==
+				DCVS_2K_MBPERFRAME))
+				dcvs_2k = 0;
+			if (!is_codec_supported &&
+				!IS_VALID_DCVS_SESSION(num_mbs_per_frame,
+				DCVS_MIN_SUPPORTED_MBPERFRAME))
+				dcvs_4k = -ENOTSUPP;
+			if (num_mbs_per_frame < DCVS_2K_MBPERFRAME)
+				dcvs_2k = dcvs_4k = -ENOTSUPP;
+		}
+
+		if (socinfo_get_msm_cpu() == MSM_CPU_8994) {
+			if (!is_codec_supported &&
+				!IS_VALID_DCVS_SESSION(num_mbs_per_frame,
+				DCVS_MIN_SUPPORTED_MBPERFRAME))
+				dcvs_4k = -ENOTSUPP;
+			if (num_mbs_per_frame <= DCVS_2K_MBPERFRAME)
+				dcvs_2k = dcvs_4k = -ENOTSUPP;
+		}
+
+		if (dcvs_2k || dcvs_4k)
 			return -ENOTSUPP;
 
 		if (!output_buf_req) {
