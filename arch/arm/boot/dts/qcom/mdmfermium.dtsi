@@ -124,6 +124,11 @@
 		#clock-cells = <1>;
 	};
 
+	qcom,sps {
+		compatible = "qcom,msm_sps_4k";
+		qcom,pipe-attr-ee;
+	};
+
 	blsp1_uart2: serial@78b0000 { /* BLSP1 UART2 */
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0x78b0000 0x200>;
