@@ -1,4 +1,5 @@
 /* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+* Copyright (C) 2015 XiaoMi, Inc.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +15,7 @@
 
 #include "msm8939.dtsi"
 #include "msm8939-mtp.dtsi"
-#include "msm8939-audio-internal_codec.dtsi"
+#include "msm8939-audio-external_codec.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8939 SMB1360 MTP";
@@ -30,15 +31,43 @@
 		interrupts = <62 8>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&smb_int_default>;
-		qcom,charging-disabled;
+
+		/* battery-profile selection properties */
+		qcom,batt-profile-select;
+		qcom,smb1360-vadc = <&pm8916_vadc>;
+		qcom,batt-id-vref-uv = <1800000>;
+		qcom,batt-id-rpullup-kohm = <100>;
+		qcom,profile-a-rid-kohm = <30>;
+		qcom,profile-b-rid-kohm = <10>;
+		qcom,profile-c-rid-kohm = <50>;
+		qcom,fg-delta-soc = <1>;
+		qcom,fg-auto-recharge-soc = <99>;
+		qcom,fg-iterm-ma = <150>;
+		qcom,fg-cutoff-voltage-mv = <3450>;
+
+		qcom,rsense-10mhom;
 		qcom,empty-soc-disabled;
 		qcom,chg-inhibit-disabled;
-		qcom,float-voltage-mv = <4200>;
-		qcom,iterm-ma = <200>;
-		qcom,recharge-thresh-mv = <100>;
-		qcom,fg-auto-recharge-soc = <99>;
-		qcom,thermal-mitigation = <1500 700 600 0>;
+		qcom,stat-pulsed-irq;
+		qcom,thermistor-c1-coeff = <0x85dd>;
+		qcom,float-voltage-mv = <4400>;
+		qcom,iterm-ma = <150>;
+		qcom,shdn-after-pwroff;
+		qcom,thermal-mitigation = <1500 1200 900 700>;
+		qcom,config-hard-thresholds;
+		qcom,hot-bat-decidegc = <600>;
+		qcom,cold-bat-decidegc = <0>;
+		qcom,soft-jeita-supported;
+		qcom,warm-bat-decidegc = <450>;
+		qcom,cool-bat-decidegc = <0>;
+		qcom,warm-bat-mv = <4100>;
+		qcom,cool-bat-mv = <4100>;
+		qcom,warm-bat-ma = <200>;
+		qcom,cool-bat-ma = <200>;
 		regulator-name = "smb1360_otg_vreg";
+		qcom,otg-batt-curr-limit = <1500>;
+		qcom,fg-reset-at-pon;
+		qcom,otp-rslow-cfg;
 	};
 };
 
@@ -49,7 +78,6 @@
 
 &pm8916_bms {
 	status = "ok";
-	qcom,disable-bms;
 };
 
 &usb_otg {
@@ -58,6 +86,15 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&usbid_default>;
 	vbus_otg-supply = <&smb1360_otg_supply>;
+};
+
+/ {
+       mtp_batterydata: qcom,battery-data {
+               qcom,rpull-up-kohm = <100>;
+               qcom,vref-batt-therm = <1800000>;
+
+               #include "batterydata-palladium.dtsi"
+       };
 };
 
 &cci {

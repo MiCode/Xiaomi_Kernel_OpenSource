@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,11 +44,18 @@ static uint8_t stats_pingpong_offset_map[] = {
 	(VFE32_STATS_BASE(idx) + 0x4 * \
 	(~(ping_pong >> (stats_pingpong_offset_map[idx])) & 0x1))
 
-#define VFE32_CLK_IDX 1
+#define VFE32_CLK_IDX 0
 #define MSM_ISP32_TOTAL_WM_UB 792
 /*792 double word*/
 
-static struct msm_cam_clk_info msm_vfe32_1_clk_info[VFE_CLK_INFO_MAX];
+static struct msm_cam_clk_info msm_vfe32_1_clk_info[] = {
+	/*vfe32 clock info for B-family: 8610 */
+	{"vfe_clk_src", 266670000},
+	{"vfe_clk", -1},
+	{"vfe_ahb_clk", -1},
+	{"csi_vfe_clk", -1},
+	{"bus_clk", -1},
+};
 
 static struct msm_cam_clk_info msm_vfe32_2_clk_info[] = {
 	/*vfe32 clock info for A-family: 8960 */
@@ -236,14 +244,6 @@ static int msm_vfe32_init_hardware(struct vfe_device *vfe_dev)
 			goto fs_failed;
 		}
 	}
-
-	rc = msm_isp_get_clk_info(vfe_dev, vfe_dev->pdev,
-		 &msm_vfe32_1_clk_info[0]);
-	if (rc < 0) {
-		pr_err("msm_isp_get_clk_info() failed\n");
-		goto fs_failed;
-	}
-
 	if (vfe_dev->num_clk <= 0) {
 		pr_err("%s: Invalid num of clock\n", __func__);
 		goto fs_failed;
@@ -277,14 +277,6 @@ static int msm_vfe32_init_hardware(struct vfe_device *vfe_dev)
 		goto vfe_remap_failed;
 	}
 
-	vfe_dev->vfe_vbif_base = ioremap(vfe_dev->vfe_vbif_mem->start,
-		resource_size(vfe_dev->vfe_vbif_mem));
-	if (!vfe_dev->vfe_vbif_base) {
-		rc = -ENOMEM;
-		pr_err("%s: vfe ioremap failed\n", __func__);
-		goto vbif_remap_failed;
-	}
-
 	rc = request_irq(vfe_dev->vfe_irq->start, msm_isp_process_irq,
 					 IRQF_TRIGGER_RISING, "vfe", vfe_dev);
 	if (rc < 0) {
@@ -294,9 +286,6 @@ static int msm_vfe32_init_hardware(struct vfe_device *vfe_dev)
 
 	return rc;
 irq_req_failed:
-	iounmap(vfe_dev->vfe_vbif_base);
-	vfe_dev->vfe_vbif_base = NULL;
-vbif_remap_failed:
 	iounmap(vfe_dev->vfe_base);
 	vfe_dev->vfe_base = NULL;
 vfe_remap_failed:
@@ -322,8 +311,6 @@ static void msm_vfe32_release_hardware(struct vfe_device *vfe_dev)
 {
 	free_irq(vfe_dev->vfe_irq->start, vfe_dev);
 	tasklet_kill(&vfe_dev->vfe_tasklet);
-	iounmap(vfe_dev->vfe_vbif_base);
-	vfe_dev->vfe_vbif_base = NULL;
 	iounmap(vfe_dev->vfe_base);
 	vfe_dev->vfe_base = NULL;
 	if (vfe_dev->vfe_clk_idx == 1)
@@ -1395,15 +1382,6 @@ static int msm_vfe32_get_platform_data(struct vfe_device *vfe_dev)
 		goto vfe_no_resource;
 	}
 
-	vfe_dev->vfe_vbif_mem = platform_get_resource_byname(
-		vfe_dev->pdev,
-		IORESOURCE_MEM, "vfe_vbif");
-	if (!vfe_dev->vfe_vbif_mem) {
-		pr_err("%s: no mem resource?\n", __func__);
-		rc = -ENODEV;
-		goto vfe_no_resource;
-	}
-
 	vfe_dev->vfe_irq = platform_get_resource_byname(vfe_dev->pdev,
 					IORESOURCE_IRQ, "vfe");
 	if (!vfe_dev->vfe_irq) {
@@ -1424,7 +1402,7 @@ static int msm_vfe32_get_platform_data(struct vfe_device *vfe_dev)
 	if (!vfe_dev->pdev->dev.of_node)
 		vfe_dev->iommu_ctx[0] = msm_iommu_get_ctx("vfe_imgwr");
 	else
-		vfe_dev->iommu_ctx[0] = msm_iommu_get_ctx("vfe");
+		vfe_dev->iommu_ctx[0] = msm_iommu_get_ctx("vfe0");
 
 	if (!vfe_dev->iommu_ctx[0]) {
 		pr_err("%s: no iommux ctx resource?\n", __func__);
@@ -1435,7 +1413,7 @@ static int msm_vfe32_get_platform_data(struct vfe_device *vfe_dev)
 	if (!vfe_dev->pdev->dev.of_node)
 		vfe_dev->iommu_ctx[1] = msm_iommu_get_ctx("vfe_misc");
 	else
-		vfe_dev->iommu_ctx[1] = msm_iommu_get_ctx("vfe");
+		vfe_dev->iommu_ctx[1] = msm_iommu_get_ctx("vfe0");
 
 	if (!vfe_dev->iommu_ctx[1]) {
 		pr_err("%s: no iommux ctx resource?\n", __func__);

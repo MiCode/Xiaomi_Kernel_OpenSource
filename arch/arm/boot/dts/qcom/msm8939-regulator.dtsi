@@ -1,4 +1,5 @@
 /* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,6 +22,7 @@
 		onnn,step-size = <6250>;
 		onnn,min-slew-ns = <416>;
 		onnn,max-slew-ns = <3333>;
+		onnn,mode = "pwm";
 		regulator-min-microvolt = <1050000>;
 		regulator-max-microvolt = <1350000>;
 		onnn,min-setpoint = <600000>;
@@ -49,14 +51,6 @@
 /* Memory accelerator and CPR controlled regulators */
 
 &soc {
-	spk_vreg: regulator_spk {
-		compatible = "regulator-fixed";
-		regulator-name = "spk_vreg";
-		startup-delay-us = <0>;
-		enable-active-high;
-		gpio = <&msm_gpio 121 0>;
-	};
-
 	mem_acc_vreg_corner: regulator@1942130 {
 		compatible = "qcom,mem-acc-regulator";
 		reg = <0x1942130 0x4>, <0x58000 0x1000>, <0x1942124 0x4>;
@@ -66,10 +60,12 @@
 		regulator-max-microvolt = <3>;
 
 		qcom,acc-sel-l1-bit-pos = <0>;
-		qcom,corner-acc-map = <0 1 1>;
-		qcom,l1-config-skip-fuse-sel = <0 52 1 1 0>;
-		qcom,skip-l2-custom-on-l1;
-		qcom,l2-acc-custom-data = <0x0 0x3000 0x3000>;
+		qcom,corner-acc-map = <0 0 1>;
+		qcom,l2-acc-custom-data = <0x0 0x0 0x3000>;
+
+		qcom,override-acc-fuse-sel = <0 30 1 1 0>;
+		qcom,override-corner-acc-map = <0 1 1>;
+		qcom,override-l2-acc-custom-data = <0x0 0x3000 0x3000>;
 	};
 
 	apc_vreg_corner: regulator@b018000 {
@@ -200,6 +196,18 @@
 			1137500 1137500 1137500 1137500 1137500>;
 		qcom,cpr-enable;
 	};
+	vsp_vreg: disp_vsp_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "vsp";
+		gpio = <&msm_gpio 116 0>;
+		enable-active-high;
+		regulator-boot-on; };
+	vsn_vreg: disp_vsn_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "vsn";
+		gpio = <&msm_gpio 114 0>;
+		enable-active-high;
+		regulator-boot-on; };
 };
 
 /* RPM controlled regulators */

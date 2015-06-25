@@ -1,4 +1,5 @@
 /* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -286,6 +287,15 @@ static void disable_bms_irq(struct bms_irq *irq)
 	if (!__test_and_set_bit(0, &irq->disabled)) {
 		disable_irq(irq->irq);
 		pr_debug("disabled irq %d\n", irq->irq);
+	}
+}
+
+
+static void enable_bms_irq(struct bms_irq *irq)
+{
+	if (__test_and_clear_bit(0, &irq->disabled)) {
+		enable_irq(irq->irq);
+		pr_debug("enable irq %d\n", irq->irq);
 	}
 }
 
@@ -3903,6 +3913,7 @@ static int bms_suspend(struct device *dev)
 
 	if (chip->apply_suspend_config) {
 		if (chip->dt.cfg_force_s3_on_suspend) {
+			disable_bms_irq(&chip->fifo_update_done_irq);
 			pr_debug("Forcing S3 state\n");
 			mutex_lock(&chip->state_change_mutex);
 			force_fsm_state(chip, S3_STATE);
@@ -3940,6 +3951,7 @@ static int bms_resume(struct device *dev)
 				force_fsm_state(chip, S2_STATE);
 			}
 			mutex_unlock(&chip->state_change_mutex);
+			enable_bms_irq(&chip->fifo_update_done_irq);
 			/*
 			 * if we were charging while suspended, we will
 			 * be woken up by the fifo done interrupt and no

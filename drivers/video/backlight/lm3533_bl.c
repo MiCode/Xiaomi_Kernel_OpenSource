@@ -2,8 +2,8 @@
  * lm3533-bl.c -- LM3533 Backlight driver
  *
  * Copyright (C) 2011-2012 Texas Instruments
- *
  * Author: Johan Hovold <jhovold@gmail.com>
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under  the terms of the GNU General  Public License as published by the
@@ -17,38 +17,115 @@
 #include <linux/backlight.h>
 #include <linux/fb.h>
 #include <linux/slab.h>
-
+#include <linux/delay.h>
 #include <linux/mfd/lm3533.h>
-
 
 #define LM3533_HVCTRLBANK_COUNT		2
 #define LM3533_BL_MAX_BRIGHTNESS	255
 
 #define LM3533_REG_CTRLBANK_AB_BCONF	0x1a
-
+//bool lcd_bl_open_flag = true;
 
 struct lm3533_bl {
 	struct lm3533 *lm3533;
 	struct lm3533_ctrlbank cb;
 	struct backlight_device *bd;
 	int id;
+	int *edp_brightness_states;
 };
+
+struct backlight_device *lm3533_bl_bd = NULL;
 
 
 static inline int lm3533_bl_get_ctrlbank_id(struct lm3533_bl *bl)
 {
 	return bl->id;
 }
+#if 0
+static int lm3533_backlight_set_with_edp(struct backlight_device *bd,
+	int brightness)
+{
+	static bool first_flag = 0;//when cellphone startup first time, don't init the lm3533 again,so init as 0
+	static int old_brightness = -1;
+	struct lm3533_bl *bl = bl_get_data(bd);
+	if(0 == brightness)
+	{
+		if(old_brightness == brightness)
+		{
+			return 0;
+		}
+		lm3533_ctrlbank_set_brightness(&bl->cb, (u8)brightness);
+		pr_err("In %s, brightness=%d \n",__func__,brightness);
+		mutex_lock(&(bl->lm3533->lock));
+		if(NULL != bl->lm3533)
+		{
+			if((!button_bl_open_flag)&&lcd_bl_open_flag)
+			{
+				lm3533_disable(bl->lm3533);
+			}
+		}
+		else
+		{
+			pr_err("In %s, NULL Pointer! \n",__func__);
+		}
+		lcd_bl_open_flag = false;
+		first_flag = 1;
+		mutex_unlock(&(bl->lm3533->lock));
+	}
+	else
+	{
+		mutex_lock(&(bl->lm3533->lock));
+		if(first_flag)
+		{
+			pr_err("In %s, brightness=%d \n",__func__,brightness);
+			first_flag = 0;
+			if(NULL != bl->lm3533)
+			{
+				if((!lcd_bl_open_flag)&&(!button_bl_open_flag))
+				{
+					lm3533_enable(bl->lm3533);
+					mdelay(2);
+					lm3533_init(bl->lm3533);
+				}
+			}
+			else
+			{
+				pr_err("In %s, NULL Pointer! \n",__func__);
+			}
+		}
+		lcd_bl_open_flag = true;
+		mutex_unlock(&(bl->lm3533->lock));
+		lm3533_ctrlbank_set_brightness(&bl->cb, (u8)brightness);
+	}
+	old_brightness = brightness;
+	return 0;
+}
+#endif
 
 static int lm3533_bl_update_status(struct backlight_device *bd)
 {
 	struct lm3533_bl *bl = bl_get_data(bd);
 	int brightness = bd->props.brightness;
+	static int backlight_enable_flag = 0;
 
 	if (bd->props.power != FB_BLANK_UNBLANK)
 		brightness = 0;
 	if (bd->props.fb_blank != FB_BLANK_UNBLANK)
 		brightness = 0;
+
+	if( brightness == 0 )
+	{
+		backlight_enable_flag = 0;
+		dev_info(&bd->dev, "in %s,turn backlight off level = %d\n", __func__,brightness);
+	}
+	else
+	{
+		backlight_enable_flag++;
+		if(backlight_enable_flag == 1)
+		{
+			dev_info(&bd->dev, "in %s,set backlight level = %d\n", __func__,brightness);
+		}
+	}
 
 	return lm3533_ctrlbank_set_brightness(&bl->cb, (u8)brightness);
 }
@@ -145,6 +222,20 @@ static ssize_t show_linear(struct device *dev,
 	u8 mask;
 	int linear;
 	int ret;
+	int i = 0;
+	for(i=0x10; i<0xB3; i++)
+	{
+		ret = lm3533_read(bl->lm3533, i, &val);
+		if(ret)
+		{
+			printk("in %s,can not read [0x%02x]\n",__func__,i);
+		}
+		else
+		{
+			printk("in %s,read [0x%02x]: 0x%02x\n",__func__,i,val);
+		}
+
+	}
 
 	ret = lm3533_read(bl->lm3533, LM3533_REG_CTRLBANK_AB_BCONF, &val);
 	if (ret)
@@ -261,8 +352,22 @@ static int lm3533_bl_setup(struct lm3533_bl *bl,
 					struct lm3533_bl_platform_data *pdata)
 {
 	int ret;
+	u8 mask;
+	u8 val;
 
 	ret = lm3533_ctrlbank_set_max_current(&bl->cb, pdata->max_current);
+	if (ret)
+		return ret;
+
+	mask = 1 << (2 * lm3533_bl_get_ctrlbank_id(bl) + 1);
+
+	if (pdata->linear)
+		val = mask;
+	else
+		val = 0;
+
+	ret = lm3533_update(bl->lm3533, LM3533_REG_CTRLBANK_AB_BCONF, val,
+									mask);
 	if (ret)
 		return ret;
 
@@ -278,7 +383,7 @@ static int lm3533_bl_probe(struct platform_device *pdev)
 	struct backlight_properties props;
 	int ret;
 
-	dev_dbg(&pdev->dev, "%s\n", __func__);
+	dev_info(&pdev->dev, "%s\n", __func__);
 
 	lm3533 = dev_get_drvdata(pdev->dev.parent);
 	if (!lm3533)
@@ -332,7 +437,6 @@ static int lm3533_bl_probe(struct platform_device *pdev)
 	}
 
 	backlight_update_status(bd);
-
 	ret = lm3533_bl_setup(bl, pdata);
 	if (ret)
 		goto err_sysfs_remove;
@@ -341,6 +445,7 @@ static int lm3533_bl_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_sysfs_remove;
 
+	lm3533_bl_bd = bd;
 	return 0;
 
 err_sysfs_remove:
@@ -365,30 +470,29 @@ static int lm3533_bl_remove(struct platform_device *pdev)
 	sysfs_remove_group(&bd->dev.kobj, &lm3533_bl_attribute_group);
 	backlight_device_unregister(bd);
 
+	lm3533_bl_bd = NULL;
+
 	return 0;
 }
 
-#ifdef CONFIG_PM_SLEEP
-static int lm3533_bl_suspend(struct device *dev)
+#ifdef CONFIG_PM
+static int lm3533_bl_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	struct lm3533_bl *bl = dev_get_drvdata(dev);
+	dev_dbg(&pdev->dev, "%s\n", __func__);
 
-	dev_dbg(dev, "%s\n", __func__);
-
-	return lm3533_ctrlbank_disable(&bl->cb);
+	return 0;
 }
 
-static int lm3533_bl_resume(struct device *dev)
+static int lm3533_bl_resume(struct platform_device *pdev)
 {
-	struct lm3533_bl *bl = dev_get_drvdata(dev);
+	dev_dbg(&pdev->dev, "%s\n", __func__);
 
-	dev_dbg(dev, "%s\n", __func__);
-
-	return lm3533_ctrlbank_enable(&bl->cb);
+	return 0;
 }
+#else
+#define lm3533_bl_suspend	NULL
+#define lm3533_bl_resume	NULL
 #endif
-
-static SIMPLE_DEV_PM_OPS(lm3533_bl_pm_ops, lm3533_bl_suspend, lm3533_bl_resume);
 
 static void lm3533_bl_shutdown(struct platform_device *pdev)
 {
@@ -403,11 +507,12 @@ static struct platform_driver lm3533_bl_driver = {
 	.driver = {
 		.name	= "lm3533-backlight",
 		.owner	= THIS_MODULE,
-		.pm	= &lm3533_bl_pm_ops,
 	},
 	.probe		= lm3533_bl_probe,
 	.remove		= lm3533_bl_remove,
 	.shutdown	= lm3533_bl_shutdown,
+	.suspend	= lm3533_bl_suspend,
+	.resume		= lm3533_bl_resume,
 };
 module_platform_driver(lm3533_bl_driver);
 

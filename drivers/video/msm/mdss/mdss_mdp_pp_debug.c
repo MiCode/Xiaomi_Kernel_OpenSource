@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,6 +12,8 @@
  * GNU General Public License for more details.
  *
  */
+#include <linux/input.h>
+#include <linux/delay.h>
 
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
@@ -18,6 +21,13 @@
 
 #define MAX_TAB_BUFFER_SIZE	12
 #define MAX_LINE_BUFFER_SIZE 256
+
+static struct input_dev *input_dev;
+static u32 input_key_code[] = {
+	KEY_SLEEP, /* 142 */
+	KEY_WAKEUP, /* 143 */
+	KEY_MENU, /* 139 */
+};
 
 static inline void tab_prefix(char *tab_str, int n)
 {
@@ -854,4 +864,38 @@ void pp_print_mdss_calib_cfg(struct mdss_calib_cfg *data, int tab_depth)
 		"%scalib_mask: %x\n",
 		tab, data->ops,
 		tab, data->calib_mask);
+}
+
+void mdss_pp_input_key_event(struct msm_fb_data_type *mfd, u32 key_code)
+{
+	int i, rc;
+
+	if (!input_dev) {
+		input_dev = input_allocate_device();
+		if (!input_dev) {
+			pr_err("cannot allocate input device\n");
+			return;
+		}
+		input_dev->name = "MDSS Key control";
+		input_dev->id.bustype = BUS_VIRTUAL;
+		input_dev->id.version = 0x01;
+		input_dev->evbit[0] = BIT_MASK(EV_KEY);
+		for (i = 0; i < ARRAY_SIZE(input_key_code); i++)
+			input_set_capability(input_dev, EV_KEY,
+				input_key_code[i]);
+
+		rc = input_register_device(input_dev);
+		if (rc) {
+			pr_err("key input device registeration failed\n");
+			input_free_device(input_dev);
+			input_dev = NULL;
+			return;
+		}
+		msleep(500);
+	}
+	input_report_key(input_dev, key_code, 1);
+	input_sync(input_dev);
+	input_report_key(input_dev, key_code, 0);
+	input_sync(input_dev);
+	return;
 }

@@ -2,8 +2,8 @@
  * lm3533.h -- LM3533 interface
  *
  * Copyright (C) 2011-2012 Texas Instruments
- *
  * Author: Johan Hovold <jhovold@gmail.com>
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under  the terms of the GNU General  Public License as published by the
@@ -33,6 +33,7 @@ struct lm3533 {
 	unsigned have_als:1;
 	unsigned have_backlights:1;
 	unsigned have_leds:1;
+	struct mutex lock;
 };
 
 struct lm3533_ctrlbank {
@@ -46,18 +47,40 @@ struct lm3533_als_platform_data {
 	u8 r_select;			/* 1 - 127 (ignored in PWM-mode) */
 };
 
+enum lm3533_edp_states {
+	LM3533_EDP_NEG_8,
+	LM3533_EDP_NEG_7,
+	LM3533_EDP_NEG_6,
+	LM3533_EDP_NEG_5,
+	LM3533_EDP_NEG_4,
+	LM3533_EDP_NEG_3,
+	LM3533_EDP_NEG_2,
+	LM3533_EDP_NEG_1,
+	LM3533_EDP_ZERO,
+	LM3533_EDP_1,
+	LM3533_EDP_2,
+	LM3533_EDP_NUM_STATES,
+};
+
+#define LM3533_EDP_BRIGHTNESS_UNIT	25
+
 struct lm3533_bl_platform_data {
-	char *name;
-	u16 max_current;		/* 5000 - 29800 uA (800 uA step) */
-	u8 default_brightness;		/* 0 - 255 */
-	u8 pwm;				/* 0 - 0x3f */
+	char name[20];
+	u32 max_current;		/* 5000 - 29800 uA (800 uA step) */
+	u32 default_brightness;		/* 0 - 255 */
+	u32 pwm;				/* 0 - 0x3f */
+	u32 linear;			/* 0 or 1 */
+	unsigned int edp_states[LM3533_EDP_NUM_STATES];
+	unsigned int edp_brightness[LM3533_EDP_NUM_STATES];
 };
 
 struct lm3533_led_platform_data {
-	char *name;
+	char name[20];
 	const char *default_trigger;
-	u16 max_current;		/* 5000 - 29800 uA (800 uA step) */
-	u8 pwm;				/* 0 - 0x3f */
+	u32 max_current;		/* 5000 - 29800 uA (800 uA step) */
+	u32 pwm;				/* 0 - 0x3f */
+	unsigned long delay_on;		/* 16ms - 9781ms */
+	unsigned long  delay_off;	/* 16ms - 76s */
 };
 
 enum lm3533_boost_freq {
@@ -100,5 +123,13 @@ extern int lm3533_ctrlbank_get_pwm(struct lm3533_ctrlbank *cb, u8 *val);
 extern int lm3533_read(struct lm3533 *lm3533, u8 reg, u8 *val);
 extern int lm3533_write(struct lm3533 *lm3533, u8 reg, u8 val);
 extern int lm3533_update(struct lm3533 *lm3533, u8 reg, u8 val, u8 mask);
+
+extern void lm3533_enable(struct lm3533 *lm3533);
+extern void lm3533_disable(struct lm3533 *lm3533);
+extern int lm3533_init(struct lm3533 *lm3533);
+
+extern struct backlight_device *lm3533_bl_bd;
+extern bool lcd_bl_open_flag;
+#define BACKLIGHT_DRIVERIC_CABC_REG	0x14
 
 #endif	/* __LINUX_MFD_LM3533_H */

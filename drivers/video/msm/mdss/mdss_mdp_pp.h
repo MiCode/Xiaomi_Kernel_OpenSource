@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,5 +50,5 @@ void pp_print_calib_config_buffer(struct mdp_calib_config_buffer *data,
 				int tab_depth);
 void pp_print_calib_dcm_state(struct mdp_calib_dcm_state *data, int tab_depth);
 void pp_print_mdss_calib_cfg(struct mdss_calib_cfg *data, int tab_depth);
-
+void mdss_pp_input_key_event(struct msm_fb_data_type *mfd, u32 key_code);
 #endif

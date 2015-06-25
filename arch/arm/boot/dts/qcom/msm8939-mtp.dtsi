@@ -1,4 +1,5 @@
 /* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +15,50 @@
 #include "msm8939-camera-sensor-mtp.dtsi"
 
 &soc {
+	i2c@78b5000 { /* BLSP1 QUP1 */
+		lm3533@38 {
+						compatible = "ti,lm3533";
+                        reg = <0x38>;
+                        lm3533,hwen-gpio = <&msm_gpio 98 0x00>;
+                        lm3533,boost_ovp = <2>;  /* 32v */
+                        lm3533,boost_freq = <0>;  /* 500k */
+                        lm3533,num_backlights = <1>;
+                        lm3533,num_leds = <4>;
+                        lm3533,backlight_0 {
+						 		lm3533,name = "lm3533-backlight0";
+                                lm3533,bl-max-current = <20200>;
+                                lm3533,bl-def-brightness = <130>;
+                                lm3533,bl-pwm = <0x01>;
+                                lm3533,bl-linear = <1>;
+                                };
+                        lm3533,led_0 {
+								lm3533,name = "red";
+                                lm3533,led-max-current = <5000>;
+                                lm3533,led-pwm = <0x00>;
+                                lm3533,led-delay-on = <650>;
+                                lm3533,led-delay-off = <200>;
+                                };
+                        lm3533,led_1 {
+								lm3533,name = "blue";
+                                lm3533,led-max-current = <5000>;
+                                lm3533,led-pwm = <0x00>;
+                                lm3533,led-delay-on = <650>;
+                                lm3533,led-delay-off = <200>;
+                                };
+                        lm3533,led_2 {
+								lm3533,name = "green";
+                                lm3533,led-max-current = <5000>;
+                                lm3533,led-pwm = <0x00>;
+                                lm3533,led-delay-on = <650>;
+                                lm3533,led-delay-off = <200>;
+                                };
+                        lm3533,led_3 {
+                                lm3533,name = "button-backlight";
+                                lm3533,led-max-current = <5000>;
+                                lm3533,led-pwm = <0x00>;
+                                };
+                };
+      };
 	i2c@78b9000 { /* BLSP1 QUP5 */
 		synaptics@20 {
 			compatible = "synaptics,dsx";
@@ -39,31 +84,180 @@
 			 <&clock_gcc clk_gcc_blsp1_qup5_i2c_apps_clk>;
 			clock-names = "iface_clk", "core_clk";
 		};
+
+		ft5x46_i2c@38 {
+			compatible = "ft,ft5x46_i2c";
+			reg = <0x38>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <13 0x2>;
+			vdd-supply = <&pm8916_l6>;
+			/* pins used by touchscreen */
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
+			pinctrl-0 = <&ts_int_active &ts_reset_active &ts_pwr_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend &ts_pwr_suspend>;
+			ft5x46_i2c,i2c-pull-up;
+			ft5x46_i2c,irqflags = <0x2008>;
+			ft5x46_i2c,x-max = <1080>;
+			ft5x46_i2c,y-max = <1920>;
+			ft5x46_i2c,z-max = <255>;
+			ft5x46_i2c,w-max = <200>;
+			ft5x46_i2c,reset-gpio = <&msm_gpio 12 0x00>;
+			ft5x46_i2c,irq-gpio = <&msm_gpio 13 0x2>;
+			ft5x46_i2c,power-ldo-gpio = <&msm_gpio 9 0x00>;
+			ft5x46_i2c,power-ts-gpio = <&msm_gpio 78 0x00>;
+			ft5x46_i2c,landing-jiffies = <1000>;
+			ft5x46_i2c,landing-threshold = <16>;
+			ft5x46_i2c,staying-threshold = <8>;
+			ft5x46_i2c,raw-min = <7000>;
+			ft5x46_i2c,raw-max = <10000>;
+			ft5x46_i2c,fw-delay-55-ms = <2>;
+			ft5x46_i2c,fw-delay-aa-ms = <2>;
+			ft5x46_i2c,fw-upgrade-id1 = <0x54>;
+			ft5x46_i2c,fw-upgrade-id2 = <0x2C>;
+			ft5x46_i2c,fw-delay-readid-ms = <20>;
+			ft5x46_i2c,firmware-array-size = <1>;
+			ft5x46_i2c,cfg_0 {
+				ft5x46_i2c,chip = <0x54>;
+				ft5x46_i2c,vendor = <0x6D>;
+				ft5x46_i2c,fw-name = "ft5x46_lens.fw";
+				ft5x46_i2c,tx-num = <24>;
+				ft5x46_i2c,rx-num = <13>;
+			};
+		};
+
+		atmel_mxt_ts_336t@4a {
+			compatible = "atmel,mxt-ts-336t";
+			reg = <0x4a>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <13 0x2008>;
+			vdd-supply = <&pm8916_l6>;
+			/* pins used by touchscreen */
+			pinctrl-names = "pmx_ts_active","pmx_ts_suspend";
+			pinctrl-0 = <&ts_int_active &ts_reset_active &ts_pwr_active>;
+			pinctrl-1 = <&ts_int_suspend &ts_reset_suspend &ts_pwr_suspend>;
+			atmel,reset-gpio = <&msm_gpio 12 0x00>;
+			atmel,irq-gpio = <&msm_gpio 13 0x2008>;
+			atmel,power-ldo-gpio = <&msm_gpio 9 0x00>;
+			atmel,power-ts-gpio = <&msm_gpio 78 0x00>;
+			atmel,mxt-fw-name = "mXT336T21AA.fw";
+			atmel,config-array-size = <4>;
+			atmel,default-config = <1>;
+			atmel,irqflags = <0x2008>;
+			atmel,gpio-mask = <0xC>;
+			atmel,cfg_1 {
+				atmel,family-id = <0xA4>;
+				atmel,variant-id = <0x15>;
+				atmel,version = <0x20>;
+				atmel,build = <0xAA>;
+				atmel,rev-id = <0x2>;
+				atmel,mxt-cfg-name = "mxt_336t_wintek_config.fw";
+				atmel,vendor-id = <0x0C>;
+				atmel,panel-id = <0x33>; /* Wintek id = 0x33 */
+				atmel,key-codes = <102 139 158>;
+				atmel,key-num = <3>;
+				atmel,selfintthr-stylus = <0>;
+				atmel,t71-tchthr-pos = <22>;
+				atmel,self-chgtime-min = <0>;
+				atmel,self-chgtime-max = <0>;
+				atmel,mult-intthr-sensitive = <12>;
+				atmel,mult-intthr-not-sensitive = <17>;
+				atmel,atchthr-sensitive = <6>;
+				atmel,mult-tchthr-sensitive = <0>;
+				atmel,mult-tchthr-not-sensitive = <0>;
+				atmel,wake-up-self-adcx = <0>;
+			};
+			atmel,cfg_2 {
+				atmel,family-id = <0xA4>;
+				atmel,variant-id = <0x15>;
+				atmel,version = <0x21>;
+				atmel,build = <0xAA>;
+				atmel,rev-id = <0x2>;
+				atmel,mxt-cfg-name = "mxt_336t_biel_config.fw";
+				atmel,vendor-id = <0x0C>;
+				atmel,panel-id = <0x31>; /* Biel D1 id = 0x31 */
+				atmel,key-codes = <102 139 158 116>;
+				atmel,key-num = <4>;
+				atmel,selfintthr-stylus = <0>;
+				atmel,t71-tchthr-pos = <22>;
+				atmel,self-chgtime-min = <0>;
+				atmel,self-chgtime-max = <0>;
+				atmel,mult-intthr-sensitive = <12>;
+				atmel,mult-intthr-not-sensitive = <17>;
+				atmel,atchthr-sensitive = <6>;
+				atmel,mult-tchthr-sensitive = <0>;
+				atmel,mult-tchthr-not-sensitive = <0>;
+				atmel,wake-up-self-adcx = <16>;
+			};
+			atmel,cfg_3 {
+				atmel,family-id = <0xA4>;
+				atmel,variant-id = <0x15>;
+				atmel,version = <0x21>;
+				atmel,build = <0xAA>;
+				atmel,rev-id = <0x2>;
+				atmel,mxt-cfg-name = "mxt_336t_biel_config.fw";
+				atmel,vendor-id = <0x0C>;
+				atmel,panel-id = <0x35>; /* Biel TPB id = 0x35 */
+				atmel,key-codes = <102 139 158 116>;
+				atmel,key-num = <4>;
+				atmel,selfintthr-stylus = <0>;
+				atmel,t71-tchthr-pos = <22>;
+				atmel,self-chgtime-min = <0>;
+				atmel,self-chgtime-max = <0>;
+				atmel,mult-intthr-sensitive = <12>;
+				atmel,mult-intthr-not-sensitive = <17>;
+				atmel,atchthr-sensitive = <6>;
+				atmel,mult-tchthr-sensitive = <0>;
+				atmel,mult-tchthr-not-sensitive = <0>;
+				atmel,wake-up-self-adcx = <16>;
+			};
+			atmel,cfg_4 {
+				atmel,family-id = <0xA4>;
+				atmel,variant-id = <0x15>;
+				atmel,version = <0x21>;
+				atmel,build = <0xAA>;
+				atmel,rev-id = <0x2>;
+				atmel,mxt-cfg-name = "mxt_336t_tpk_config.fw";
+				atmel,vendor-id = <0x0C>;
+				atmel,panel-id = <0x36>; /* TPK id = 0x36 */
+				atmel,key-codes = <102 139 158 116>;
+				atmel,key-num = <4>;
+				atmel,selfintthr-stylus = <0>;
+				atmel,t71-tchthr-pos = <22>;
+				atmel,self-chgtime-min = <0>;
+				atmel,self-chgtime-max = <0>;
+				atmel,mult-intthr-sensitive = <12>;
+				atmel,mult-intthr-not-sensitive = <17>;
+				atmel,atchthr-sensitive = <6>;
+				atmel,mult-tchthr-sensitive = <0>;
+				atmel,mult-tchthr-not-sensitive = <0>;
+				atmel,wake-up-self-adcx = <16>;
+			};
+		};
 	};
 
 	gen-vkeys {
 		compatible = "qcom,gen-vkeys";
-		label = "synaptics_dsx";
-		qcom,disp-maxx = <1079>;
-		qcom,disp-maxy = <1919>;
-		qcom,panel-maxx = <1079>;
-		qcom,panel-maxy = <2084>;
-		qcom,key-codes = <158 139 172 217>;
+		label = "ft5x46";
+		qcom,disp-maxx = <1080>;
+		qcom,disp-maxy = <1920>;
+		qcom,panel-maxx = <1080>;
+		qcom,panel-maxy = <2080>;
+		qcom,key-codes = <139 102 158>;
 	};
 
 	i2c@78ba000 { /* BLSP1 QUP6 */
 		nfc-nci@e {
 			compatible = "qcom,nfc-nci";
 			reg = <0x0e>;
-			qcom,irq-gpio = <&msm_gpio 21 0x00>;
-			qcom,dis-gpio = <&msm_gpio 20 0x00>;
+			//qcom,irq-gpio = <&msm_gpio 21 0x00>;
+			//qcom,dis-gpio = <&msm_gpio 20 0x00>;
 			qcom,clk-src = "BBCLK2";
 			interrupt-parent = <&msm_gpio>;
 			interrupts = <21 0>;
 			interrupt-names = "nfc_irq";
-			pinctrl-names = "nfc_active","nfc_suspend";
-			pinctrl-0 = <&nfc_int_active &nfc_disable_active>;
-			pinctrl-1 = <&nfc_int_suspend &nfc_disable_suspend>;
+			//pinctrl-names = "nfc_active","nfc_suspend";
+			//pinctrl-0 = <&nfc_int_active &nfc_disable_active>;
+			//pinctrl-1 = <&nfc_int_suspend &nfc_disable_suspend>;
 			qcom,clk-gpio = <&pm8916_gpios 2 0>;
 			clocks = <&clock_rpm clk_bb_clk2_pin>;
 			clock-names = "ref_clk";
@@ -102,60 +296,62 @@
 			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
+
+		hall_key0 {
+			label = "lid_back";
+			gpios = <&msm_gpio 11 0x01>;
+			linux,input-type = <5>;
+			linux,code = <0>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+
+		hall_key1 {
+			label = "lid_front";
+			gpios = <&msm_gpio 36 0x01>;
+			linux,input-type = <5>;
+			linux,code = <19>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
 	};
 
-	i2c@78b6000 { /* BLSP1 QUP2 */
-		mpu6050@68 { /* Gyroscope and accelerometer sensor combo */
-			compatible = "invn,mpu6050";
-			reg = <0x68>;
-			pinctrl-names = "mpu_default","mpu_sleep";
-			pinctrl-0 = <&mpu6050_default>;
-			pinctrl-1 = <&mpu6050_sleep>;
-			interrupt-parent = <&msm_gpio>;
-			interrupts = <115 0x1>;
-			vdd-supply = <&pm8916_l17>;
-			vlogic-supply = <&pm8916_l16>;
-			vi2c-supply = <&pm8916_l6>;
-			invn,gpio-int = <&msm_gpio 115 0x1>;
-			invn,place = "Portrait Down Back Side";
-			invn,use-interrupt;
-		};
+        i2c@78b6000 { /* BLSP1 QUP2 */
+                x6db0@08 { /* Gyroscope and accelerometer sensor combo */
+                        compatible = "st,lsm6db0";
+                        reg = <0x08>;
 
-		avago@39 { /* Ambient light and proximity sensor */
-			compatible = "avago,apds9900";
-			reg = <0x39>;
-			pinctrl-names = "default","sleep";
-			pinctrl-0 = <&apds99xx_default>;
-			pinctrl-1 = <&apds99xx_sleep>;
 			interrupt-parent = <&msm_gpio>;
-			interrupts = <113 0x2002>;
-			vdd-supply = <&pm8916_l17>;
-			vio-supply = <&pm8916_l6>;
-			avago,irq-gpio = <&msm_gpio 113 0x2002>;
-			avago,ps-threshold = <600>;
-			avago,ps-hysteresis-threshold = <500>;
-			avago,ps-pulse = <8>;
-			avago,ps-pgain = <0>;
-			avago,als-B = <186>;
-			avago,als-C = <75>;
-			avago,als-D = <129>;
-			avago,ga-value = <560>;
-		};
+			interrupts = <115 0x2004>;
+                        st,reset-gpio = <&msm_gpio 20 0x00>;
+                        st,wakeup-gpio = <&msm_gpio 102 0x00>;
+                        vdd-supply = <&pm8916_l6>;
+                        vmag-supply = <&pm8916_l17>;
+                };
+                cm36686@60 {
+                        compatible = "cm,cm36686";
+                        reg = <0x60>;
 
-		akm@c {
-			compatible = "ak,ak8963";
-			reg = <0x0c>;
-			pinctrl-names = "ak8963_default", "ak8963_sleep";
-			pinctrl-0 = <&ak8963_default>;
-			pinctrl-1 = <&ak8963_sleep>;
 			interrupt-parent = <&msm_gpio>;
-			interrupts = <69 0x2>;
-			vdd-supply = <&pm8916_l17>;
-			vio-supply = <&pm8916_l6>;
-			ak,layout = <0x6>;
-			ak,auto-report;
-		};
+                        interrupts = <113 0x2008>;
 
+			pinctrl-names = "default";
+			pinctrl-0 = <&cm36686_int_default>;
+                        als_trans_ratio = <16>;
+                        prox_default_offset = <1000>;
+                        prox_thres_near = <300>;
+                        prox_thres_far = <200>;
+                };
+        };
+
+	vibrator-isa1000 {
+		compatible = "vibrator,isa1000";
+		clocks = <&clock_gcc clk_gcc_gp1_clk>;
+		clock-names = "vibrator_pwm";
+
+		pinctrl-names = "pwm_default", "pwm_sleep";
+		pinctrl-0 = <&vibrator_pwm_default &vibrator_pin_enable>;
+		pinctrl-1 = <&vibrator_pwm_sleep &vibrator_pin_disable>;
 	};
 };
 
@@ -242,12 +438,10 @@
 	#interrupt-cells = <1>;
 	interrupt-map-mask = <0xffffffff>;
 	interrupt-map = <0 &intc 0 125 0
-			1 &intc 0 221 0
-			2 &msm_gpio 38 0>;
-	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
-	cd-gpios = <&msm_gpio 38 0x1>;
+			1 &intc 0 221 0>;
+	interrupt-names = "hc_irq", "pwr_irq";
 
-	status = "ok";
+	status = "disable";
 };
 
 &pm8916_chg {
@@ -306,8 +500,8 @@
 };
 
 &pmx_mdss {
-	qcom,num-grp-pins = <3>;
-	qcom,pins = <&gp 97>, <&gp 25>, <&gp 98>;
+	qcom,num-grp-pins = <1>;
+	qcom,pins = <&gp 25>;
 };
 
 &pmx_mdss_te {
@@ -321,9 +515,11 @@
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 	qcom,dsi-pref-prim-pan = <&dsi_jdi_1080_vid>;
 
-	qcom,platform-enable-gpio = <&msm_gpio 97 0>;
+	//qcom,platform-enable-gpio = <&msm_gpio 97 0>;
 	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
-	qcom,platform-bklight-en-gpio = <&msm_gpio 98 0>;
+	//qcom,platform-bklight-en-gpio = <&msm_gpio 98 0>;
+	qcom,platform-vsp-gpio = <&msm_gpio 116 0>;
+	qcom,platform-vsn-gpio = <&msm_gpio 114 0>;
 };
 
 &pm8916_mpps {

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -146,6 +147,7 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata)
 			goto error;
 		}
 	}
+
 	if (ctrl_pdata->panel_bias_vreg) {
 		pr_debug("%s: Enable panel bias vreg. ndx = %d\n",
 		       __func__, ctrl_pdata->ndx);
@@ -363,7 +365,6 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 		} else {
 			mp->vreg_config[i].pre_on_sleep = tmp;
 		}
-
 		rc = of_property_read_u32(supply_node,
 			"qcom,supply-pre-off-sleep", &tmp);
 		if (rc) {
@@ -373,7 +374,6 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 		} else {
 			mp->vreg_config[i].pre_off_sleep = tmp;
 		}
-
 		/* post-sleep */
 		rc = of_property_read_u32(supply_node,
 			"qcom,supply-post-on-sleep", &tmp);
@@ -394,9 +394,8 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 		} else {
 			mp->vreg_config[i].post_off_sleep = tmp;
 		}
-
 		pr_debug("%s: %s min=%d, max=%d, enable=%d, disable=%d, preonsleep=%d, postonsleep=%d, preoffsleep=%d, postoffsleep=%d\n",
-			__func__,
+		__func__,
 			mp->vreg_config[i].vreg_name,
 			mp->vreg_config[i].min_voltage,
 			mp->vreg_config[i].max_voltage,
@@ -464,8 +463,10 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata, int power_state)
 
 	panel_info = &ctrl_pdata->panel_data.panel_info;
 
-	pr_debug("%s+: ctrl=%p ndx=%d power_state=%d\n",
+	pr_err("%s+: ctrl=%p ndx=%d power_state=%d\n",
 		__func__, ctrl_pdata, ctrl_pdata->ndx, power_state);
+
+	ctrl_pdata->dsi_pipe_ready = false;
 
 	if (power_state == panel_info->panel_power_state) {
 		pr_debug("%s: No change in power state %d -> %d\n", __func__,
@@ -484,7 +485,6 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata, int power_state)
 	if (!pdata->panel_info.ulps_suspend_enabled) {
 		/* disable DSI controller */
 		mdss_dsi_controller_cfg(0, pdata);
-
 		/* disable DSI phy */
 		mdss_dsi_phy_disable(ctrl_pdata);
 	}
@@ -504,7 +504,7 @@ panel_power_ctrl:
 		panel_info->mipi.frame_rate = panel_info->new_fps;
 
 end:
-	pr_debug("%s-:\n", __func__);
+	pr_err("%s-:\n", __func__);
 
 	return ret;
 }
@@ -552,12 +552,11 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 				panel_data);
 
 	cur_power_state = pdata->panel_info.panel_power_state;
-	pr_debug("%s+: ctrl=%p ndx=%d cur_power_state=%d\n", __func__,
+	pr_err("%s+: ctrl=%p ndx=%d cur_power_state=%d\n", __func__,
 		ctrl_pdata, ctrl_pdata->ndx, cur_power_state);
 
 	pinfo = &pdata->panel_info;
 	mipi = &pdata->panel_info.mipi;
-
 	if (mdss_dsi_is_panel_on_interactive(pdata)) {
 		pr_debug("%s: panel already on\n", __func__);
 		goto end;
@@ -581,7 +580,6 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	 */
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
 	mdss_dsi_sw_reset(ctrl_pdata, true);
-
 	/*
 	 * Issue hardware reset line after enabling the DSI clocks and data
 	 * data lanes for LP11 init
@@ -608,7 +606,8 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
 
 end:
-	pr_debug("%s-:\n", __func__);
+	pr_err("%s-:\n", __func__);
+	ctrl_pdata->dsi_pipe_ready = true;
 	return 0;
 }
 
@@ -1343,6 +1342,8 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 		pr_debug("%s:%d:%s:%s\n", __func__, __LINE__,
 			 panel_cfg, panel_name);
 
+		pr_info("%s:%d:%s:%s\n", __func__, __LINE__,
+			 panel_cfg, panel_name);
 		mdss_node = of_parse_phandle(pdev->dev.of_node,
 					     "qcom,mdss-mdp", 0);
 
@@ -1418,7 +1419,7 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	}
 	ctrl_pdata->mdss_util = util;
 	atomic_set(&ctrl_pdata->te_irq_ready, 0);
-
+	ctrl_pdata->dsi_pipe_ready = false;
 	ctrl_name = of_get_property(pdev->dev.of_node, "label", NULL);
 	if (!ctrl_name)
 		pr_info("%s:%d, DSI Ctrl name not specified\n",
@@ -1788,6 +1789,7 @@ int dsi_panel_device_register(struct device_node *pan_node,
 
 	ctrl_pdata->rst_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
 			 "qcom,platform-reset-gpio", 0);
+
 	if (!gpio_is_valid(ctrl_pdata->rst_gpio))
 		pr_err("%s:%d, reset gpio not specified\n",
 						__func__, __LINE__);

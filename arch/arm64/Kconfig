@@ -475,6 +475,13 @@ config ARMV7_COMPAT_CPUINFO
 
 	 If you want to execute ARMv7 applications, say Y
 
+config BOOT_INFO
+        bool "Boot information from bootloader"
+        default y
+        help
+         On embedded linux device, we try to collect more information from
+         bootloader to kernel. eg. powerup reason.
+
 source "mm/Kconfig"
 
 config XEN_DOM0

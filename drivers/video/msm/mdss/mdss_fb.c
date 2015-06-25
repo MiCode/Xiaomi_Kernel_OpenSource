@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2007 Google Incorporated
  * Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -47,6 +48,7 @@
 #include <linux/sw_sync.h>
 #include <linux/file.h>
 #include <linux/kthread.h>
+#include <linux/input.h>
 
 #include <linux/qcom_iommu.h>
 #include <linux/msm_iommu_domains.h>
@@ -104,6 +106,7 @@ static int mdss_fb_pan_idle(struct msm_fb_data_type *mfd);
 static int mdss_fb_send_panel_event(struct msm_fb_data_type *mfd,
 					int event, void *arg);
 static void mdss_fb_set_mdp_sync_pt_threshold(struct msm_fb_data_type *mfd);
+
 void mdss_fb_no_update_notify_timer_cb(unsigned long data)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)data;
@@ -155,13 +158,31 @@ static int mdss_fb_notify_update(struct msm_fb_data_type *mfd,
 	if (notify > NOTIFY_UPDATE_POWER_OFF)
 		return -EINVAL;
 
-	if (mfd->update.is_suspend) {
+	if (notify == NOTIFY_UPDATE_INIT) {
+				mutex_lock(&mfd->update.lock);
+				mfd->update.init_done = true;
+				mutex_unlock(&mfd->update.lock);
+				ret = 1;
+		} else if (notify == NOTIFY_UPDATE_DEINIT) {
+				mutex_lock(&mfd->update.lock);
+				mfd->update.init_done = false;
+				mutex_unlock(&mfd->update.lock);
+				complete(&mfd->update.comp);
+				complete(&mfd->no_update.comp);
+				ret = 1;
+		} else if (mfd->update.is_suspend) {
 		to_user = NOTIFY_TYPE_SUSPEND;
 		mfd->update.is_suspend = 0;
 		ret = 1;
 	} else if (notify == NOTIFY_UPDATE_START) {
-		INIT_COMPLETION(mfd->update.comp);
 		mutex_lock(&mfd->update.lock);
+		if (mfd->update.init_done)
+		        INIT_COMPLETION(mfd->update.comp);
+		else {
+		        mutex_unlock(&mfd->update.lock);
+				pr_err("notify update start called without init\n");
+				return -EINVAL;
+		}
 		mfd->update.ref_count++;
 		mutex_unlock(&mfd->update.lock);
 		ret = wait_for_completion_interruptible_timeout(
@@ -175,7 +196,16 @@ static int mdss_fb_notify_update(struct msm_fb_data_type *mfd,
 			ret = 1;
 		}
 	} else if (notify == NOTIFY_UPDATE_STOP) {
-		INIT_COMPLETION(mfd->no_update.comp);
+		mutex_lock(&mfd->update.lock);
+		if (mfd->update.init_done)
+				INIT_COMPLETION(mfd->no_update.comp);
+		else {
+				mutex_unlock(&mfd->update.lock);
+				pr_err("notify update stop called without init\n");
+				return -EINVAL;
+		}
+		mutex_unlock(&mfd->update.lock);
+
 		mutex_lock(&mfd->no_update.lock);
 		mfd->no_update.ref_count++;
 		mutex_unlock(&mfd->no_update.lock);
@@ -1936,6 +1966,7 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	mfd->no_update.timer.data = (unsigned long)mfd;
 	mfd->update.ref_count = 0;
 	mfd->no_update.ref_count = 0;
+	mfd->update.init_done = false;
 	init_completion(&mfd->update.comp);
 	init_completion(&mfd->no_update.comp);
 	init_completion(&mfd->power_off_comp);
@@ -2885,6 +2916,16 @@ int mdss_fb_dcm(struct msm_fb_data_type *mfd, int req_state)
 	}
 
 	switch (req_state) {
+	case DCM_SLEEP:
+		if (mfd->mdp.pp_key_event_fnc)
+			mfd->mdp.pp_key_event_fnc(mfd, KEY_SLEEP);
+		break;
+	case DCM_WAKEUP:
+		if (mfd->mdp.pp_key_event_fnc) {
+			mfd->mdp.pp_key_event_fnc(mfd, KEY_WAKEUP);
+			mfd->mdp.pp_key_event_fnc(mfd, KEY_MENU);
+		}
+		break;
 	case DCM_UNBLANK:
 		if (mfd->dcm_state == DCM_UNINIT &&
 			mdss_fb_is_power_off(mfd) && mfd->mdp.on_fnc) {

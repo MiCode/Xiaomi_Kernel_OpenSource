@@ -2,6 +2,8 @@
  * The input core
  *
  * Copyright (c) 1999-2002 Vojtech Pavlik
+ * Copyright (C) 2015 XiaoMi, Inc.
+ *
  */
 
 /*
@@ -1135,6 +1137,7 @@ static int input_devices_seq_show(struct seq_file *seq, void *v)
 	seq_printf(seq, "P: Phys=%s\n", dev->phys ? dev->phys : "");
 	seq_printf(seq, "S: Sysfs=%s\n", path ? path : "");
 	seq_printf(seq, "U: Uniq=%s\n", dev->uniq ? dev->uniq : "");
+	seq_printf(seq, "E: Enabled=%d\n", dev->enabled);
 	seq_printf(seq, "H: Handlers=");
 
 	list_for_each_entry(handle, &dev->h_list, d_node)
@@ -1380,12 +1383,51 @@ static ssize_t input_dev_show_properties(struct device *dev,
 }
 static DEVICE_ATTR(properties, S_IRUGO, input_dev_show_properties, NULL);
 
+static ssize_t input_dev_set_enabled(struct device *dev,
+					 struct device_attribute *attr,
+					 const char *buf, size_t count)
+{
+	struct input_dev *input_dev = to_input_dev(dev);
+	long en;
+	int ret;
+
+	ret = kstrtoul(buf, 0, &en);
+	if (ret)
+		return -EINVAL;
+
+	if (input_dev->enabled == en)
+		return count;
+	input_dev->enabled = !!en;
+
+	if (en) {
+		if (input_dev->enable)
+			count = input_dev->enable(input_dev);
+	} else {
+		if (input_dev->disable)
+			count = input_dev->disable(input_dev);
+	}
+
+	return count;
+}
+static ssize_t input_dev_show_enabled(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	struct input_dev *input_dev = to_input_dev(dev);
+	return scnprintf(buf, PAGE_SIZE, "%d\n",
+			 input_dev->enabled);
+}
+
+static DEVICE_ATTR(enabled, S_IWUSR | S_IRUGO, input_dev_show_enabled,
+						input_dev_set_enabled);
+
 static struct attribute *input_dev_attrs[] = {
 	&dev_attr_name.attr,
 	&dev_attr_phys.attr,
 	&dev_attr_uniq.attr,
 	&dev_attr_modalias.attr,
 	&dev_attr_properties.attr,
+	&dev_attr_enabled.attr,
 	NULL
 };
 

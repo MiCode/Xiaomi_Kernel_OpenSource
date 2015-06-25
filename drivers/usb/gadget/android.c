@@ -5,6 +5,7 @@
  *.Copyright (c) 2014, The Linux Foundation. All rights reserved.
  * Author: Mike Lockwood <lockwood@android.com>
  *         Benoit Goby <benoit@android.com>
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -36,6 +37,7 @@
 
 #include "gadget_chips.h"
 
+static int android_is_set_cdrom(void);
 #include "f_fs.c"
 #ifdef CONFIG_SND_PCM
 #include "f_audio_source.c"
@@ -2439,6 +2441,12 @@ static int mass_storage_function_init(struct android_usb_function *f,
 		config->fsg.luns[n].removable = 1;
 		config->fsg.nluns++;
 	}
+	//cdrom default value set 1, it may be changed in inquiry process using android_is_set_cdrom
+	//whether cdrom or mass_storage depends on host OS
+	config->fsg.luns[0].cdrom = 1;
+	config->fsg.luns[0].ro = 1;
+	config->fsg.luns[0].removable = 1;
+	config->fsg.luns[0].nofua = 1;
 
 	common = fsg_common_init(NULL, cdev, &config->fsg);
 	if (IS_ERR(common)) {
@@ -3525,6 +3533,17 @@ static int android_usb_unbind(struct usb_composite_dev *cdev)
 static int (*composite_setup_func)(struct usb_gadget *gadget, const struct usb_ctrlrequest *c);
 static void (*composite_suspend_func)(struct usb_gadget *gadget);
 static void (*composite_resume_func)(struct usb_gadget *gadget);
+
+static int android_is_set_cdrom(void)
+{
+	struct android_dev *dev = NULL;
+	/* Find the android dev from the list */
+	list_for_each_entry(dev, &android_dev_list, list_item) {
+		if ( dev && dev->cdev && dev->cdev->gadget &&  dev->cdev->gadget->usb_sys_state == GADGET_STATE_DONE_SET)
+			return 0;
+	}
+	return 1;
+}
 
 static int
 android_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *c)

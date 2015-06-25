@@ -2,8 +2,8 @@
  * ci13xxx_udc.c - MIPS USB IP core family device controller
  *
  * Copyright (C) 2008 Chipidea - MIPS Technologies, Inc. All rights reserved.
- *
  * Author: David Lopo
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -70,7 +70,10 @@
 #include <linux/qcom/usb_trace.h>
 
 #include "ci13xxx_udc.h"
-
+#undef pr_debug
+#define pr_debug pr_info
+#undef dev_dbg
+#define dev_dbg dev_info
 /******************************************************************************
  * DEFINE
  *****************************************************************************/
@@ -2772,6 +2775,7 @@ __acquires(udc->lock)
 {
 	unsigned i;
 	u8 tmode = 0;
+	u8 *sys_state = &(udc->gadget.usb_sys_state);
 
 	trace("%p", udc);
 
@@ -2833,6 +2837,32 @@ __acquires(udc->lock)
 		udc->ep0_dir = (type & USB_DIR_IN) ? TX : RX;
 
 		dbg_setup(_usb_addr(mEp), &req);
+
+		if (!GADGET_STATE_DONE(*sys_state)) {
+			switch (GADGET_STATE_PROCESS(*sys_state)) {
+			case GADGET_STATE_PROCESS_GET:
+				if (req.bRequest == USB_REQ_SET_CONFIGURATION)
+					*sys_state = GADGET_STATE_PROCESS_SET;
+				else if (req.bRequest == USB_REQ_CLEAR_FEATURE) {
+					pr_info("[%s]host system may be windows", __func__);
+					*sys_state = GADGET_STATE_DONE_RESET;
+				}
+				break;
+			case GADGET_STATE_PROCESS_SET:
+				if (req.bRequest == USB_REQ_CLEAR_FEATURE) {
+					pr_info("[%s]host system may be windows", __func__);
+					*sys_state = GADGET_STATE_DONE_RESET;
+				} else {
+					pr_info("[%s]host system may be mac os or linux", __func__);
+					*sys_state = GADGET_STATE_DONE_SET;
+				}
+				break;
+			default:
+				if (req.bRequest == USB_REQ_GET_DESCRIPTOR)
+					*sys_state = GADGET_STATE_PROCESS_GET;
+				break;
+			}
+		}
 
 		switch (req.bRequest) {
 		case USB_REQ_CLEAR_FEATURE:
@@ -3554,6 +3584,11 @@ static int ci13xxx_vbus_session(struct usb_gadget *_gadget, int is_active)
 
 	spin_lock_irqsave(udc->lock, flags);
 	udc->vbus_active = is_active;
+
+	if (is_active == 1) {
+		_gadget->usb_sys_state = GADGET_STATE_IDLE;
+	}
+
 	if (udc->driver)
 		gadget_ready = 1;
 	spin_unlock_irqrestore(udc->lock, flags);
@@ -3699,6 +3734,7 @@ static int ci13xxx_start(struct usb_gadget *gadget,
 	/* bind gadget */
 	driver->driver.bus     = NULL;
 	udc->gadget.dev.driver = &driver->driver;
+	udc->gadget.usb_sys_state = GADGET_STATE_IDLE;
 
 	spin_unlock_irqrestore(udc->lock, flags);
 	pm_runtime_get_sync(&udc->gadget.dev);

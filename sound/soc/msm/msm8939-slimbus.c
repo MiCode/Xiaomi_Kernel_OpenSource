@@ -1,4 +1,5 @@
- /* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -92,12 +93,9 @@ static int mi2s_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int msm_proxy_rx_ch = 2;
 static void *adsp_state_notifier;
 
-static bool quat_enable_mclk;
 atomic_t quat_mi2s_rsc_ref;
 
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
-					bool dapm);
-static int msm_snd_enable_quat_mclk(struct snd_soc_codec *codec, int enable,
 					bool dapm);
 
 static struct wcd9xxx_mbhc_config wcd9xxx_mbhc_cfg = {
@@ -155,7 +153,7 @@ static void *def_codec_mbhc_cal(void)
 #undef S
 #define S(X, Y) ((WCD9XXX_MBHC_CAL_PLUG_TYPE_PTR(tapan_cal)->X) = (Y))
 	S(v_no_mic, 30);
-	S(v_hs_max, 2450);
+	S(v_hs_max, 2700);
 #undef S
 #define S(X, Y) ((WCD9XXX_MBHC_CAL_BTN_DET_PTR(tapan_cal)->X) = (Y))
 	S(c[0], 62);
@@ -173,12 +171,12 @@ static void *def_codec_mbhc_cal(void)
 	btn_low = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_V_BTN_LOW);
 	btn_high = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg,
 					       MBHC_BTN_DET_V_BTN_HIGH);
-	btn_low[0] = -50;
-	btn_high[0] = 20;
-	btn_low[1] = 21;
-	btn_high[1] = 61;
-	btn_low[2] = 62;
-	btn_high[2] = 104;
+	btn_low[0] = -75;
+	btn_high[0] = 150;
+	btn_low[1] = 151;
+	btn_high[1] = 330;
+	btn_low[2] = 331;
+	btn_high[2] = 655;
 	btn_low[3] = 105;
 	btn_high[3] = 148;
 	btn_low[4] = 149;
@@ -568,6 +566,38 @@ static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(3, slim0_rx_sample_rate_text),
 };
 
+static int msm_btsco_rate_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm_btsco_rate  = %d", __func__, msm_btsco_rate);
+	ucontrol->value.integer.value[0] = msm_btsco_rate;
+	return 0;
+}
+
+static int msm_btsco_rate_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 8000:
+		msm_btsco_rate = BTSCO_RATE_8KHZ;
+		break;
+	case 16000:
+		msm_btsco_rate = BTSCO_RATE_16KHZ;
+		break;
+	default:
+		msm_btsco_rate = BTSCO_RATE_8KHZ;
+		break;
+	}
+
+	pr_debug("%s: msm_btsco_rate = %d\n", __func__, msm_btsco_rate);
+	return 0;
+}
+
+static const char *const btsco_rate_text[] = {"8000", "16000"};
+static const struct soc_enum msm_btsco_enum[] = {
+	SOC_ENUM_SINGLE_EXT(2, btsco_rate_text),
+};
+
 static const struct snd_kcontrol_new msm_snd_controls[] = {
 	SOC_ENUM_EXT("Speaker Function", msm_snd_enum[0], msm8939_get_spk,
 			msm8939_set_spk),
@@ -579,6 +609,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			slim0_rx_bit_format_get, slim0_rx_bit_format_put),
 	SOC_ENUM_EXT("SLIM_0_RX SampleRate", msm_snd_enum[4],
 			slim0_rx_sample_rate_get, slim0_rx_sample_rate_put),
+	SOC_ENUM_EXT("Internal BTSCO SampleRate", msm_btsco_enum[0],
+		     msm_btsco_rate_get, msm_btsco_rate_put),
 };
 
 static int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
@@ -1284,14 +1316,11 @@ static int msm_slim_5_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
-
-
 static void msm_quat_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 {
 	int ret = 0;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_card *card = rtd->card;
-	struct snd_soc_codec *codec = rtd->codec;
 	struct msm8939_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 
 	pr_debug("%s(): substream = %s  stream = %d, ext_pa = %d\n", __func__,
@@ -1303,9 +1332,6 @@ static void msm_quat_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 			pr_err("%s:clock disable failed\n", __func__);
 		if (atomic_read(&quat_mi2s_rsc_ref) > 0)
 			atomic_dec(&quat_mi2s_rsc_ref);
-		ret = msm_snd_enable_quat_mclk(codec, 0, true);
-		if (ret < 0)
-			pr_err("%s:failed to disable mclk\n", __func__);
 	}
 }
 
@@ -1347,63 +1373,11 @@ static int conf_int_codec_mux_quat(struct msm8939_asoc_mach_data *pdata)
 	return ret;
 }
 
-static int msm_snd_enable_quat_mclk(struct snd_soc_codec *codec, int enable,
-					bool dapm)
-{
-	int ret = 0;
-	struct snd_soc_card *card = codec->card;
-	struct msm8939_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
-
-	pr_debug("%s: enable = %d clk_users = %d\n",
-		__func__, enable, clk_users);
-
-	pr_debug("clock enable\n");
-	mutex_lock(&pdata->cdc_mclk_mutex);
-	if (enable) {
-		clk_users++;
-		if (clk_users != 1)
-			goto exit;
-		else {
-			pdata->digital_cdc_clk.clk_val = 9600000;
-			ret = afe_set_digital_codec_core_clock(
-				AFE_PORT_ID_QUATERNARY_MI2S_RX,
-				&pdata->digital_cdc_clk);
-			if (ret < 0) {
-				pr_err("%s: failed to enable the MCLK\n",
-						__func__);
-				clk_users--;
-				goto exit;
-			}
-			quat_enable_mclk = true;
-		}
-	} else {
-		if (quat_enable_mclk) {
-			clk_users--;
-			if (!clk_users) {
-				quat_enable_mclk = false;
-				pdata->digital_cdc_clk.clk_val = 0;
-				ret = afe_set_digital_codec_core_clock(
-					AFE_PORT_ID_QUATERNARY_MI2S_RX,
-					&pdata->digital_cdc_clk);
-				if (ret < 0) {
-					pr_err("%s: failed to enable the MCLK\n",
-							__func__);
-					goto exit;
-				}
-			}
-		}
-	}
-exit:
-	mutex_unlock(&pdata->cdc_mclk_mutex);
-	return ret;
-}
-
 static int msm_quat_mi2s_snd_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_card *card = rtd->card;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	struct snd_soc_codec *codec = rtd->codec;
 	struct msm8939_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 	int ret = 0;
 
@@ -1417,17 +1391,13 @@ static int msm_quat_mi2s_snd_startup(struct snd_pcm_substream *substream)
 					__func__);
 			return ret;
 		}
-		ret = msm_snd_enable_quat_mclk(codec, 1, true);
-		if (ret < 0) {
-			pr_err("failed to enable mclk\n");
-			return ret;
-		}
 		ret = ext_mi2s_clk_ctl(substream, true);
 		if (ret < 0) {
 			pr_err("%s: failed to enable bit clock\n",
 					__func__);
 			goto err;
 		}
+
 		ret = pinctrl_select_state(pdata->pinctrl_info.pinctrl,
 				pdata->pinctrl_info.cdc_lines_act);
 		if (ret < 0) {
@@ -1452,10 +1422,6 @@ err1:
 		pr_err("%s:failed to disable sclk\n", __func__);
 
 err:
-	ret = msm_snd_enable_quat_mclk(codec, 0, true);
-	if (ret < 0)
-		pr_err("%s:failed to disable mclk\n", __func__);
-
 	return ret;
 }
 static int msm_mi2s_snd_hw_params(struct snd_pcm_substream *substream,
@@ -2240,17 +2206,19 @@ static struct snd_soc_dai_link msm8x16_dai[] = {
 		.ignore_suspend = 1,
 		/* this dainlink has playback support */
 		.ignore_pmdown_time = 1,
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
+		/* tfa98xx: nxp smart pa for speaker */
+		.codec_dai_name = "tfa98xx_codec",
+		.codec_name = "tfa98xx.6-0034",
 	},
 	{
 		.name = LPASS_BE_QUAT_MI2S_RX,
 		.stream_name = "Quaternary MI2S Playback",
 		.cpu_dai_name = "msm-dai-q6-mi2s.3",
 		.platform_name = "msm-pcm-routing",
-		.codec_dai_name = "snd-soc-dummy-dai",
-		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "tfa98xx_codec",
+		.codec_name = "tfa98xx.6-0034",
 		.no_pcm = 1,
+		.dai_fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_CBS_CFS,
 		.be_id = MSM_BACKEND_DAI_QUATERNARY_MI2S_RX,
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ops = &msm8x16_quat_mi2s_be_ops,
@@ -2429,16 +2397,28 @@ static bool msm8939_swap_gnd_mic(struct snd_soc_codec *codec)
 {
 	struct snd_soc_card *card = codec->card;
 	struct msm8939_asoc_mach_data *pdata = NULL;
-	int value = 0;
+	int value = 0, ret = 0;
 
 	pdata = snd_soc_card_get_drvdata(card);
 	if (!gpio_is_valid(pdata->us_euro_gpio)) {
 		pr_err("%s: Invalid gpio: %d", __func__, pdata->us_euro_gpio);
 		return false;
 	}
+	ret = pinctrl_select_state(pdata->pinctrl_info.pinctrl,
+				pdata->pinctrl_info.cross_conn_det_act);
+	if (ret < 0) {
+		pr_err("failed to configure the gpio\n");
+		return false;
+	}
 	value = gpio_get_value_cansleep(pdata->us_euro_gpio);
 	pr_debug("%s: swap select switch %d to %d\n", __func__, value, !value);
-	gpio_set_value_cansleep(pdata->us_euro_gpio, !value);
+	gpio_direction_output(pdata->us_euro_gpio, !value);
+	ret = pinctrl_select_state(pdata->pinctrl_info.pinctrl,
+				pdata->pinctrl_info.cross_conn_det_sus);
+	if (ret < 0) {
+		pr_err("failed to configure the gpio\n");
+		return false;
+	}
 	return true;
 }
 
@@ -2453,6 +2433,7 @@ static int cdc_slim_get_pinctrl(struct platform_device *pdev,
 		pr_err("%s: Unable to get pinctrl handle\n", __func__);
 		return -EINVAL;
 	}
+
 	pdata->pinctrl_info.pinctrl = pinctrl;
 	if (!(pdata->ext_pa & QUAT_MI2S_ID)) {
 		/* get all the states handles from Device Tree*/
@@ -2605,7 +2586,6 @@ static int msm8939_asoc_machine_probe(struct platform_device *pdev)
 	int num_strings = 0;
 	int ret, i;
 
-
 	pdata = devm_kzalloc(&pdev->dev,
 			sizeof(struct msm8939_asoc_mach_data), GFP_KERNEL);
 	if (!pdata) {
@@ -2698,6 +2678,7 @@ static int msm8939_asoc_machine_probe(struct platform_device *pdev)
 			ret);
 		goto err;
 	}
+
 	num_strings = of_property_count_strings(pdev->dev.of_node,
 						ext_pa);
 	if (num_strings < 0) {

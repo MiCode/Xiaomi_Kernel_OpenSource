@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +47,7 @@
 #define QPNP_PON_WARM_RESET_REASON1(base)	(base + 0xA)
 #define QPNP_PON_WARM_RESET_REASON2(base)	(base + 0xB)
 #define QPNP_POFF_REASON1(base)			(base + 0xC)
+#define QPNP_POFF_REASON2(base)                 (base + 0xD)
 #define QPNP_PON_KPDPWR_S1_TIMER(base)		(base + 0x40)
 #define QPNP_PON_KPDPWR_S2_TIMER(base)		(base + 0x41)
 #define QPNP_PON_KPDPWR_S2_CNTL(base)		(base + 0x42)
@@ -375,6 +377,42 @@ int qpnp_pon_is_warm_reset(void)
 		|| (pon->warm_reset_reason2 & QPNP_PON_WARM_RESET_TFT);
 }
 EXPORT_SYMBOL(qpnp_pon_is_warm_reset);
+
+int qpnp_pon_is_lpk(void)
+{
+       struct qpnp_pon *pon = sys_reset_dev;
+       int rc;
+       u8 reg = 0;
+
+       if (!pon)
+               return 0;
+
+       rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+                       QPNP_POFF_REASON1(pon->base), &reg, 1);
+       if (rc) {
+               dev_err(&pon->spmi->dev,
+                       "Unable to read addr=%x, rc(%d)\n",
+                       QPNP_POFF_REASON1(pon->base), rc);
+               return 0;
+       }
+
+       //The bit 7 is 1, means the off reason is powerkey
+       if (reg & 0x80)
+               return 1;
+
+       dev_info(&pon->spmi->dev,
+                       "hw_reset reason1 is 0x%x\n",
+                       reg);
+
+       rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+                       QPNP_POFF_REASON2(pon->base), &reg, 1);
+
+       dev_info(&pon->spmi->dev,
+                       "hw_reset reason2 is 0x%x\n",
+                       reg);
+       return 0;
+}
+EXPORT_SYMBOL(qpnp_pon_is_lpk);
 
 /**
  * qpnp_pon_wd_config - Disable the wd in a warm reset.

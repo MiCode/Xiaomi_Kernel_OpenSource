@@ -1,4 +1,5 @@
 /* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -94,7 +95,7 @@
 		};
 
 		blsp1_uart1_active {
-			qcom,pins = <&gp 0>, <&gp 1>, <&gp 2>, <&gp 3>;
+			//qcom,pins = <&gp 0>, <&gp 1>, <&gp 2>, <&gp 3>;
 			qcom,num-grp-pins = <4>;
 			qcom,pin-func = <2>;
 			label = "blsp1_uart1_active";
@@ -106,7 +107,7 @@
 		};
 
 		blsp1_uart1_sleep {
-			qcom,pins = <&gp 0>, <&gp 1>, <&gp 2>, <&gp 3>;
+			//qcom,pins = <&gp 0>, <&gp 1>, <&gp 2>, <&gp 3>;
 			qcom,num-grp-pins = <4>;
 			qcom,pin-func = <0>;
 			label = "blsp1_uart1_sleep";
@@ -118,8 +119,8 @@
 		};
 
 		sdhc2_cd_pin {
-			qcom,pins = <&gp 38>;
-			qcom,num-grp-pins = <1>;
+			//qcom,pins = <&gp 38>;
+			//qcom,num-grp-pins = <1>;
 			qcom,pin-func = <0>;
 			label = "cd-gpio";
 			sdc2_cd_on: cd_on {
@@ -129,6 +130,36 @@
 			sdc2_cd_off: cd_off {
 				drive-strength = <2>;
 				bias-disable;
+			};
+		};
+
+		vibrator_pwm {
+			qcom,pins = <&gp 97>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <1>;
+			label = "vibrator-pwm";
+			vibrator_pwm_default: pwm_default {
+				drive-strength = <2>;
+				bias-disable = <0>;
+			};
+			vibrator_pwm_sleep: pwm_sleep {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		vibrator_pin {
+			qcom,pins = <&gp 120>, <&gp 121>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <0>;
+			label = "vibrator-pin";
+			vibrator_pin_enable: vibrator_pin_enable {
+				drive-strength = <16>;
+				bias-disable = <0>;
+			};
+			vibrator_pin_disable: vibrator_pin_disable {
+				drive-strength = <2>;
+				bias-pull-down;
 			};
 		};
 
@@ -277,6 +308,23 @@
 			};
 		};
 
+		pmx_i2c_1 {
+			qcom,pins = <&gp 2>, <&gp 3>; /* SDA, SCL */
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <3>;
+			label = "pmx_i2c_1";
+
+			i2c_1_active: i2c_1_active {
+				drive-strength = <2>;
+				bias-disable;
+			};
+
+			i2c_1_sleep: i2c_1_sleep {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		smb_int_pin {
 			qcom,pins = <&gp 62>;
 			qcom,num-grp-pins = <1>;
@@ -301,7 +349,7 @@
 
 		 spi0_active {
                         /* MOSI, MISO, CLK */
-                        qcom,pins = <&gp 8>, <&gp 9>, <&gp 11>;
+                        //qcom,pins = <&gp 8>, <&gp 9>, <&gp 11>;
                         qcom,num-grp-pins = <3>;
                         qcom,pin-func = <1>;
                         label = "spi0-active";
@@ -314,7 +362,7 @@
 
                 spi0_suspend {
                         /* MOSI, MISO, CLK */
-                        qcom,pins = <&gp 8>, <&gp 9>, <&gp 11>;
+                        //qcom,pins = <&gp 8>, <&gp 9>, <&gp 11>;
                         qcom,num-grp-pins = <3>;
                         qcom,pin-func = <0>;
                         label = "spi0-suspend";
@@ -434,9 +482,11 @@
 		};
 
 		tlmm_gpio_key {
-			qcom,pins = <&gp 107>, <&gp 108>, <&gp 109>;
+			//qcom,pins = <&gp 107>, <&gp 108>, <&gp 109>, <&gp 11>, <&gp 36>;
+			qcom,pins = <&gp 107>, <&gp 108>, <&gp 11>, <&gp 36>;
 			qcom,pin-func = <0>;
-			qcom,num-grp-pins = <3>;
+			//qcom,num-grp-pins = <5>;
+			qcom,num-grp-pins = <4>;
 			label = "tlmm_gpio_key";
 			gpio_key_active: gpio_key_active {
 				drive-strength = <2>;
@@ -494,6 +544,30 @@
 			ts_reset_suspend: ts_reset_suspend {
 				drive-strength = <2>;
 				bias-pull-down;
+			};
+		};
+
+		pmx_ts_pwr_active {
+			qcom,pins = <&gp 9>, <&gp 78>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <2>;
+			label = "pmx_ts_pwr_active";
+
+			ts_pwr_active: ts_pwr_active {
+				drive-strength = <16>;
+				bias-pull-up;
+			};
+		};
+
+		pmx_ts_pwr_suspend {
+			qcom,pins = <&gp 9>, <&gp 78>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <2>;
+			label = "pmx_ts_pwr_suspend";
+
+			ts_pwr_suspend: ts_pwr_suspend {
+				drive-strength = <2>;
+				bias-disable;
 			};
 		};
 
@@ -603,6 +677,69 @@
 			};
 		};
 
+                x6db0_int_pin {
+                        /* Gyroscope and accelerometer sensor combo */
+                        qcom,pins = <&gp 115>;
+                        qcom,pin-func = <0>;
+                        qcom,num-grp-pins = <1>;
+                        label = "x6db0-irq";
+                        x6db0_int_default: x6db0_int_default {
+                                drive-strength = <6>;
+                                bias-pull-up;
+                        };
+                        x6db0_int_sleep: x6db0_int_sleep {
+                                drive-strength = <2>;
+                                bias-pull-down;
+                        };
+                };
+
+                x6db0_reset_pin {
+                        /* Gyroscope and accelerometer sensor combo */
+                        qcom,pins = <&gp 20>;
+                        qcom,pin-func = <0>;
+                        qcom,num-grp-pins = <1>;
+                        label = "x6db0-reset";
+                        x6db0_reset_default: x6db0_reset_default {
+                                drive-strength = <6>;
+                                bias-pull-up;
+                        };
+                        x6db0_reset_sleep: x6db0_reset_sleep {
+                                drive-strength = <2>;
+                                bias-pull-down;
+                        };
+                };
+
+                x6db0_wakeup_pin {
+                        /* Gyroscope and accelerometer sensor combo */
+                        qcom,pins = <&gp 102>;
+                        qcom,pin-func = <0>;
+                        qcom,num-grp-pins = <1>;
+                        label = "x6db0-wakeup";
+                        x6db0_wakeup_default: x6db0_wakeup_default {
+                                drive-strength = <6>;
+                                bias-pull-up;
+                        };
+                        x6db0_wakeup_sleep: x6db0_wakeup_sleep {
+                                drive-strength = <2>;
+                                bias-pull-down;
+                        };
+                };
+
+		cm36686_int_pin {
+                        qcom,pins = <&gp 113>;
+                        qcom,pin-func = <0>;
+                        qcom,num-grp-pins = <1>;
+                        label = "cm36686-irq";
+                        cm36686_int_default: cm36686_int_default {
+                                drive-strength = <6>;
+                                bias-pull-up;
+                        };
+                        cm36686_int_sleep: cm36686_int_sleep {
+                                drive-strength = <2>;
+                                bias-pull-down;
+                        };
+                };
+
 		ext_buck_vsel {
 			qcom,pins = <&gp 111>;
 			qcom,num-grp-pins = <1>;
@@ -615,13 +752,14 @@
 		};
 
 		ext-cdc-tlmm-lines {
-			qcom,pins = <&gp 116>, <&gp 112>, <&gp 117>,
+			qcom,pins = <&gp 112>, <&gp 117>,
 					<&gp 118>, <&gp 119>;
-			qcom,num-grp-pins = <5>;
+			qcom,num-grp-pins = <4>;
 			qcom,pin-func = <1>;
 			label = "ext-cdc-tlmm-lines";
 			ext_cdc_tlmm_lines_act: tlmm_lines_on {
 				drive-strength = <8>;
+				bias-pull-none;
 			};
 			ext_cdc_tlmm_lines_sus: tlmm_lines_off {
 				drive-strength = <2>;
@@ -1002,8 +1140,8 @@
 
 		cam_sensor_flash {
 			/* FLSH_RESET,FLASH_EN,FLASH_NOW */
-			qcom,pins = <&gp 36>, <&gp 31>,<&gp 32> ;
-			qcom,num-grp-pins = <3>;
+			qcom,pins = <&gp 68>,<&gp 31> ;
+			qcom,num-grp-pins = <2>;
 			qcom,pin-func = <0>;
 			label = "cam_sensor_flash";
 			/* active state */
@@ -1020,7 +1158,7 @@
 
 		/* CoreSight */
 		tpiu_seta_1 {
-			qcom,pins = <&gp 8>;
+			//qcom,pins = <&gp 8>;
 			qcom,num-grp-pins = <1>;
 			qcom,pin-func = <3>;
 			label = "tpiu-seta-1";

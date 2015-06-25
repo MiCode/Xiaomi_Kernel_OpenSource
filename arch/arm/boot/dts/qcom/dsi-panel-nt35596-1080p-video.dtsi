@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,6 +14,7 @@
 &mdss_mdp {
 	dsi_nt35596_1080_vid: qcom,mdss_dsi_nt35596_1080p_video {
 		qcom,mdss-dsi-panel-name = "nt35596 1080p video mode dsi panel";
+		qcom,mdss-dsi-panel-id = <6>;
 		qcom,mdss-dsi-panel-controller = <&mdss_dsi0>;
 		qcom,mdss-dsi-panel-type = "dsi_video_mode";
 		qcom,mdss-dsi-panel-destination = "display_1";

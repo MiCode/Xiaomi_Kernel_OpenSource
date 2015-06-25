@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +28,9 @@
 /*#define CONFIG_MSMB_CAMERA_DEBUG*/
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
+
+extern int32_t msm_led_flashlight_create_classdev(
+                                struct platform_device *pdev, void *data);
 
 int32_t msm_led_i2c_trigger_get_subdev_id(struct msm_led_flash_ctrl_t *fctrl,
 	void *arg)
@@ -90,6 +94,7 @@ int32_t msm_led_i2c_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 					i, fctrl->torch_op_current[i], fctrl->torch_max_current[i]);
 			}
 		}
+		fctrl->torch_op_current[0] = cfg->torch_current[0];
 		if (fctrl->func_tbl->flash_led_low)
 			rc = fctrl->func_tbl->flash_led_low(fctrl);
 		break;
@@ -104,6 +109,7 @@ int32_t msm_led_i2c_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 					i, fctrl->flash_op_current[i], fctrl->flash_max_current[i]);
 			}
 		}
+		fctrl->flash_op_current[0] = cfg->flash_current[0];
 		if (fctrl->func_tbl->flash_led_high)
 			rc = fctrl->func_tbl->flash_led_high(fctrl);
 		break;
@@ -162,6 +168,9 @@ int msm_flash_led_init(struct msm_led_flash_ctrl_t *fctrl)
 		pr_err("%s:%d mux install\n", __func__, __LINE__);
 	}
 
+	if (gpio_get_value_cansleep(power_info->gpio_conf->gpio_num_info->gpio_num[SENSOR_GPIO_FL_EN]))
+		return 0; /* already released */
+
 	/* CCI Init */
 	if (fctrl->flash_device_type == MSM_CAMERA_PLATFORM_DEVICE) {
 		rc = fctrl->flash_i2c_client->i2c_func_tbl->i2c_util(
@@ -190,25 +199,10 @@ int msm_flash_led_init(struct msm_led_flash_ctrl_t *fctrl)
 					__func__, __LINE__);
 		}
 	}
-	msleep(20);
 
 	CDBG("before FL_RESET\n");
-	if (power_info->gpio_conf->gpio_num_info->
-			valid[SENSOR_GPIO_FL_RESET] == 1)
-		gpio_set_value_cansleep(
-			power_info->gpio_conf->gpio_num_info->
-			gpio_num[SENSOR_GPIO_FL_RESET],
-			GPIO_OUT_HIGH);
 
-	gpio_set_value_cansleep(
-		power_info->gpio_conf->gpio_num_info->
-		gpio_num[SENSOR_GPIO_FL_EN],
-		GPIO_OUT_HIGH);
-
-	gpio_set_value_cansleep(
-		power_info->gpio_conf->gpio_num_info->
-		gpio_num[SENSOR_GPIO_FL_NOW],
-		GPIO_OUT_HIGH);
+        gpio_direction_output(power_info->gpio_conf->gpio_num_info->gpio_num[SENSOR_GPIO_FL_EN], GPIO_OUT_HIGH);
 
 	if (fctrl->flash_i2c_client && fctrl->reg_setting) {
 		rc = fctrl->flash_i2c_client->i2c_func_tbl->i2c_write_table(
@@ -235,24 +229,14 @@ int msm_flash_led_release(struct msm_led_flash_ctrl_t *fctrl)
 	flashdata = fctrl->flashdata;
 	power_info = &flashdata->power_info;
 
+	if (!gpio_get_value_cansleep(power_info->gpio_conf->gpio_num_info->gpio_num[SENSOR_GPIO_FL_EN]))
+		return 0; /* already released */
+
 	if (fctrl->led_state != MSM_CAMERA_LED_INIT) {
 		pr_err("%s:%d invalid led state\n", __func__, __LINE__);
 		return -EINVAL;
 	}
-	gpio_set_value_cansleep(
-		power_info->gpio_conf->gpio_num_info->
-		gpio_num[SENSOR_GPIO_FL_EN],
-		GPIO_OUT_LOW);
-	gpio_set_value_cansleep(
-		power_info->gpio_conf->gpio_num_info->
-		gpio_num[SENSOR_GPIO_FL_NOW],
-		GPIO_OUT_LOW);
-	if (power_info->gpio_conf->gpio_num_info->
-			valid[SENSOR_GPIO_FL_RESET] == 1)
-		gpio_set_value_cansleep(
-			power_info->gpio_conf->gpio_num_info->
-			gpio_num[SENSOR_GPIO_FL_RESET],
-			GPIO_OUT_LOW);
+        gpio_direction_output(power_info->gpio_conf->gpio_num_info->gpio_num[SENSOR_GPIO_FL_EN], GPIO_OUT_LOW);
 
 	if (fctrl->pinctrl_info.use_pinctrl == true) {
 		ret = pinctrl_select_state(fctrl->pinctrl_info.pinctrl,
@@ -296,6 +280,10 @@ int msm_flash_led_off(struct msm_led_flash_ctrl_t *fctrl)
 	flashdata = fctrl->flashdata;
 	power_info = &flashdata->power_info;
 	CDBG("%s:%d called\n", __func__, __LINE__);
+
+	if (!gpio_get_value_cansleep(power_info->gpio_conf->gpio_num_info->gpio_num[SENSOR_GPIO_FL_EN]))
+		return 0; /* already released */
+
 	if (fctrl->flash_i2c_client && fctrl->reg_setting) {
 		rc = fctrl->flash_i2c_client->i2c_func_tbl->i2c_write_table(
 			fctrl->flash_i2c_client,
@@ -303,11 +291,6 @@ int msm_flash_led_off(struct msm_led_flash_ctrl_t *fctrl)
 		if (rc < 0)
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 	}
-	gpio_set_value_cansleep(
-		power_info->gpio_conf->gpio_num_info->
-		gpio_num[SENSOR_GPIO_FL_NOW],
-		GPIO_OUT_LOW);
-
 	return rc;
 }
 
@@ -320,17 +303,9 @@ int msm_flash_led_low(struct msm_led_flash_ctrl_t *fctrl)
 
 	flashdata = fctrl->flashdata;
 	power_info = &flashdata->power_info;
-	gpio_set_value_cansleep(
-		power_info->gpio_conf->gpio_num_info->
-		gpio_num[SENSOR_GPIO_FL_EN],
-		GPIO_OUT_HIGH);
 
-	gpio_set_value_cansleep(
-		power_info->gpio_conf->gpio_num_info->
-		gpio_num[SENSOR_GPIO_FL_NOW],
-		GPIO_OUT_HIGH);
-
-
+        CDBG("%s: %d", __func__, 0x7F - fctrl->torch_op_current[0]);
+        fctrl->reg_setting->low_setting->reg_setting[0].reg_data = 0x7F - fctrl->torch_op_current[0];
 	if (fctrl->flash_i2c_client && fctrl->reg_setting) {
 		rc = fctrl->flash_i2c_client->i2c_func_tbl->i2c_write_table(
 			fctrl->flash_i2c_client,
@@ -351,16 +326,9 @@ int msm_flash_led_high(struct msm_led_flash_ctrl_t *fctrl)
 
 	flashdata = fctrl->flashdata;
 	power_info = &flashdata->power_info;
-	gpio_set_value_cansleep(
-		power_info->gpio_conf->gpio_num_info->
-		gpio_num[SENSOR_GPIO_FL_EN],
-		GPIO_OUT_HIGH);
 
-	gpio_set_value_cansleep(
-		power_info->gpio_conf->gpio_num_info->
-		gpio_num[SENSOR_GPIO_FL_NOW],
-		GPIO_OUT_HIGH);
-
+	CDBG("%s: %d", __func__, (0x7F - fctrl->flash_op_current[0]) * 2 / 3);
+	fctrl->reg_setting->high_setting->reg_setting[0].reg_data = (0x7F - fctrl->flash_op_current[0]) * 2 / 3;
 	if (fctrl->flash_i2c_client && fctrl->reg_setting) {
 		rc = fctrl->flash_i2c_client->i2c_func_tbl->i2c_write_table(
 			fctrl->flash_i2c_client,
@@ -598,7 +566,6 @@ static int32_t msm_led_get_dt_data(struct device_node *of_node,
 		fctrl->flashdata->slave_info->sensor_slave_addr = id_info[0];
 		fctrl->flashdata->slave_info->sensor_id_reg_addr = id_info[1];
 		fctrl->flashdata->slave_info->sensor_id = id_info[2];
-
 		kfree(gpio_array);
 		return rc;
 ERROR9:
@@ -640,8 +607,7 @@ static struct msm_camera_i2c_fn_t msm_sensor_cci_func_tbl = {
 	.i2c_write_conf_tbl = msm_camera_cci_i2c_write_conf_tbl,
 };
 
-#ifdef CONFIG_DEBUG_FS
-static int set_led_status(void *data, u64 val)
+int set_led_status(void *data, u64 val)
 {
 	struct msm_led_flash_ctrl_t *fctrl =
 		 (struct msm_led_flash_ctrl_t *)data;
@@ -660,6 +626,8 @@ static int set_led_status(void *data, u64 val)
 		rc = msm_flash_led_off(fctrl);
 	} else {
 		pr_debug("set_led_status: val is enable");
+		msm_flash_led_init(fctrl);
+		fctrl->torch_op_current[0] = val - 1;
 		rc = msm_flash_led_low(fctrl);
 	}
 
@@ -668,7 +636,6 @@ static int set_led_status(void *data, u64 val)
 
 DEFINE_SIMPLE_ATTRIBUTE(ledflashdbg_fops,
 	NULL, set_led_status, "%llu\n");
-#endif
 
 int msm_flash_i2c_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
@@ -720,11 +687,14 @@ int msm_flash_i2c_probe(struct i2c_client *client,
 			&msm_sensor_qup_func_tbl;
 
 	rc = msm_led_i2c_flash_create_v4lsubdev(fctrl);
+
 #ifdef CONFIG_DEBUG_FS
 	dentry = debugfs_create_file("ledflash", S_IRUGO, NULL, (void *)fctrl,
 		&ledflashdbg_fops);
 	if (!dentry)
 		pr_err("Failed to create the debugfs ledflash file");
+	else
+		pr_info("create debugfs ledflash");
 #endif
 	CDBG("%s:%d probe success\n", __func__, __LINE__);
 	return 0;
@@ -742,6 +712,9 @@ int msm_flash_probe(struct platform_device *pdev,
 		(struct msm_led_flash_ctrl_t *)data;
 	struct device_node *of_node = pdev->dev.of_node;
 	struct msm_camera_cci_client *cci_client = NULL;
+#ifdef CONFIG_DEBUG_FS
+        struct dentry *dentry;
+#endif
 
 	if (!of_node) {
 		pr_err("of_node NULL\n");
@@ -785,6 +758,7 @@ int msm_flash_probe(struct platform_device *pdev,
 	if (fctrl->flashdata->slave_info->sensor_slave_addr)
 		cci_client->sid =
 			fctrl->flashdata->slave_info->sensor_slave_addr >> 1;
+	pr_info("flash cci->sid :0x%0x from 0x%0x", cci_client->sid, fctrl->flashdata->slave_info->sensor_slave_addr);
 	cci_client->retries = 3;
 	cci_client->id_map = 0;
 
@@ -793,7 +767,17 @@ int msm_flash_probe(struct platform_device *pdev,
 			&msm_sensor_cci_func_tbl;
 
 	rc = msm_led_flash_create_v4lsubdev(pdev, fctrl);
+        if (!rc)
+                msm_led_flashlight_create_classdev(pdev, fctrl);
 
+#ifdef CONFIG_DEBUG_FS
+	dentry = debugfs_create_file("ledflash", S_IRUGO, NULL, (void *)fctrl,
+		&ledflashdbg_fops);
+	if (!dentry)
+		pr_err("Failed to create the debugfs ledflash file");
+	else
+		pr_info("create debugfs ledflash");
+#endif
 	CDBG("%s: probe success\n", __func__);
 	return 0;
 
