@@ -44,8 +44,14 @@
    the statisic is greater then _max, set _max
 */
 
-#define KGSL_STATS_ADD(_size, _stat, _max) \
-	do { _stat += (_size); if (_stat > _max) _max = _stat; } while (0)
+static inline void KGSL_STATS_ADD(uint64_t size, atomic_long_t *stat,
+		atomic_long_t *max)
+{
+	uint64_t ret = atomic_long_add_return(size, stat);
+
+	if (ret > atomic_long_read(max))
+		atomic_long_set(max, ret);
+}
 
 #define KGSL_MAX_NUMIBS 100000
 
@@ -76,16 +82,16 @@ struct kgsl_driver {
 	struct mutex devlock;
 
 	struct {
-		uint64_t vmalloc;
-		uint64_t vmalloc_max;
-		uint64_t page_alloc;
-		uint64_t page_alloc_max;
-		uint64_t coherent;
-		uint64_t coherent_max;
-		uint64_t secure;
-		uint64_t secure_max;
-		uint64_t mapped;
-		uint64_t mapped_max;
+		atomic_long_t vmalloc;
+		atomic_long_t vmalloc_max;
+		atomic_long_t page_alloc;
+		atomic_long_t page_alloc_max;
+		atomic_long_t coherent;
+		atomic_long_t coherent_max;
+		atomic_long_t secure;
+		atomic_long_t secure_max;
+		atomic_long_t mapped;
+		atomic_long_t mapped_max;
 	} stats;
 	unsigned int full_cache_threshold;
 };

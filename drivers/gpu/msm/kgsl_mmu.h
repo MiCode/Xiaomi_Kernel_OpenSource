@@ -43,9 +43,9 @@ struct kgsl_pagetable {
 	struct kobject *kobj;
 
 	struct {
-		unsigned int entries;
-		uint64_t mapped;
-		uint64_t max_mapped;
+		atomic_t entries;
+		atomic_long_t mapped;
+		atomic_long_t max_mapped;
 	} stats;
 	const struct kgsl_mmu_pt_ops *pt_ops;
 	unsigned int fault_addr;
