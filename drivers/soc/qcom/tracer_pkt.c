@@ -9,6 +9,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include <asm/arch_timer.h>
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/types.h>
