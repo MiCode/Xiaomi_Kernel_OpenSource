@@ -1304,34 +1304,6 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	}
 	d = &port->data_ch;
 
-	d->rx_req = usb_ep_alloc_request(port->port_usb->out, GFP_ATOMIC);
-	if (!d->rx_req) {
-		pr_err("%s: out of memory\n", __func__);
-		spin_unlock(&port->port_lock_dl);
-		spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
-		spin_unlock_irqrestore(&port->port_lock, flags);
-		return;
-	}
-
-	d->rx_req->context = port;
-	d->rx_req->complete = gbam_endless_rx_complete;
-	d->rx_req->length = 0;
-	d->rx_req->no_interrupt = 1;
-
-	d->tx_req = usb_ep_alloc_request(port->port_usb->in, GFP_ATOMIC);
-	if (!d->tx_req) {
-		pr_err("%s: out of memory\n", __func__);
-		spin_unlock(&port->port_lock_dl);
-		spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
-		spin_unlock_irqrestore(&port->port_lock, flags);
-		return;
-	}
-
-	d->tx_req->context = port;
-	d->tx_req->complete = gbam_endless_tx_complete;
-	d->tx_req->length = 0;
-	d->tx_req->no_interrupt = 1;
-
 	/*
 	 * Unlock the port here and not at the end of this work,
 	 * because we do not want to activate usb_bam, ipa and
@@ -2173,6 +2145,37 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 	spin_lock(&port->port_lock_dl);
 	port->port_usb = gr;
 	port->gadget = port->port_usb->gadget;
+
+	d->rx_req = usb_ep_alloc_request(port->port_usb->out, GFP_ATOMIC);
+	if (!d->rx_req) {
+		pr_err("%s: out of memory\n", __func__);
+		d->rx_req = NULL;
+		spin_unlock(&port->port_lock_dl);
+		spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		return -ENOMEM;
+	}
+
+	d->rx_req->context = port;
+	d->rx_req->complete = gbam_endless_rx_complete;
+	d->rx_req->length = 0;
+	d->rx_req->no_interrupt = 1;
+
+	d->tx_req = usb_ep_alloc_request(port->port_usb->in, GFP_ATOMIC);
+	if (!d->tx_req) {
+		pr_err("%s: out of memory\n", __func__);
+		usb_ep_free_request(port->port_usb->out, d->rx_req);
+		d->tx_req = NULL;
+		spin_unlock(&port->port_lock_dl);
+		spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		return -ENOMEM;
+	}
+
+	d->tx_req->context = port;
+	d->tx_req->complete = gbam_endless_tx_complete;
+	d->tx_req->length = 0;
+	d->tx_req->no_interrupt = 1;
 
 	if (d->trans == USB_GADGET_XPORT_BAM) {
 		d->to_host = 0;
