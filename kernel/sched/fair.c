@@ -7403,7 +7403,7 @@ static
 int can_migrate_task(struct task_struct *p, struct lb_env *env)
 {
 	int tsk_cache_hot = 0;
-	int twf;
+	int twf, group_cpus;
 
 	lockdep_assert_held(&env->src_rq->lock);
 
@@ -7415,32 +7415,6 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 	 * 4) are cache-hot on their current CPU.
 	 */
 	if (throttled_lb_pair(task_group(p), env->src_cpu, env->dst_cpu))
-		return 0;
-
-	if (nr_big_tasks(env->src_rq) &&
-			capacity(env->dst_rq) > capacity(env->src_rq) &&
-			!is_big_task(p))
-		return 0;
-
-	if (env->flags & LBF_IGNORE_SMALL_TASKS && is_small_task(p))
-		return 0;
-
-	twf = task_will_fit(p, env->dst_cpu);
-
-	/*
-	 * Attempt to not pull tasks that don't fit. We may get lucky and find
-	 * one that actually fits.
-	 */
-	if (env->flags & LBF_IGNORE_BIG_TASKS && !twf)
-		return 0;
-
-	/*
-	 * Group imbalance can sometimes cause work to be pulled across groups
-	 * even though the group could have managed the imbalance on its own.
-	 * Prevent inter-cluster migrations for big tasks when the number of
-	 * tasks is lower than the capacity of the group.
-	 */
-	if (!twf && env->busiest_nr_running <= env->busiest_grp_capacity)
 		return 0;
 
 	if (!cpumask_test_cpu(env->dst_cpu, tsk_cpus_allowed(p))) {
@@ -7475,6 +7449,34 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 
 	/* Record that we found atleast one task that could run on dst_cpu */
 	env->flags &= ~LBF_ALL_PINNED;
+
+	if (nr_big_tasks(env->src_rq) &&
+			capacity(env->dst_rq) > capacity(env->src_rq) &&
+			!is_big_task(p))
+		return 0;
+
+	if (env->flags & LBF_IGNORE_SMALL_TASKS && is_small_task(p))
+		return 0;
+
+	twf = task_will_fit(p, env->dst_cpu);
+
+	/*
+	 * Attempt to not pull tasks that don't fit. We may get lucky and find
+	 * one that actually fits.
+	 */
+	if (env->flags & LBF_IGNORE_BIG_TASKS && !twf)
+		return 0;
+
+	/*
+	 * Group imbalance can sometimes cause work to be pulled across groups
+	 * even though the group could have managed the imbalance on its own.
+	 * Prevent inter-cluster migrations for big tasks when the number of
+	 * tasks is lower than the capacity of the group.
+	 */
+	group_cpus = DIV_ROUND_UP(env->busiest_grp_capacity,
+						 SCHED_CAPACITY_SCALE);
+	if (!twf && env->busiest_nr_running <= group_cpus)
+		return 0;
 
 	if (task_running(env->src_rq, p)) {
 		schedstat_inc(p, se.statistics.nr_failed_migrations_running);
