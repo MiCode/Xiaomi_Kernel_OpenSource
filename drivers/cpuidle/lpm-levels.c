@@ -48,6 +48,7 @@
 #include <trace/events/power.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/trace_msm_low_power.h>
+#include "../../drivers/clk/msm/clock.h"
 
 #define SCLK_HZ (32768)
 #define SCM_HANDOFF_LOCK_ID "S:7"
@@ -1043,6 +1044,15 @@ static int lpm_suspend_enter(suspend_state_t state)
 	if (idx > 0)
 		update_debug_pc_event(CPU_ENTER, idx, 0xdeaffeed,
 					0xdeaffeed, false);
+
+	/*
+	 * Print the clocks which are enabled during system suspend
+	 * This debug information is useful to know which are the
+	 * clocks that are enabled and preventing the system level
+	 * LPMs(XO and Vmin).
+	 */
+	clock_debug_print_enabled();
+
 	if (!use_psci)
 		msm_cpu_pm_enter_sleep(cluster->cpu->levels[idx].mode, false);
 	else

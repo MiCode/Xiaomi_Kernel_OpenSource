@@ -42,7 +42,6 @@
 #include <soc/qcom/jtag.h>
 #include "idle.h"
 #include "pm-boot.h"
-#include "../../../drivers/clk/msm/clock.h"
 
 #define SCM_CMD_TERMINATE_PC	(0x2)
 #define SCM_CMD_CORE_HOTPLUGGED (0x10)
@@ -63,10 +62,9 @@ enum {
 	MSM_PM_DEBUG_SUSPEND_LIMITS = BIT(2),
 	MSM_PM_DEBUG_CLOCK = BIT(3),
 	MSM_PM_DEBUG_RESET_VECTOR = BIT(4),
-	MSM_PM_DEBUG_IDLE_CLK = BIT(5),
-	MSM_PM_DEBUG_IDLE = BIT(6),
-	MSM_PM_DEBUG_IDLE_LIMITS = BIT(7),
-	MSM_PM_DEBUG_HOTPLUG = BIT(8),
+	MSM_PM_DEBUG_IDLE = BIT(5),
+	MSM_PM_DEBUG_IDLE_LIMITS = BIT(6),
+	MSM_PM_DEBUG_HOTPLUG = BIT(7),
 };
 
 enum msm_pc_count_offsets {
@@ -369,14 +367,6 @@ static bool msm_pm_power_collapse(bool from_idle)
 
 	if (MSM_PM_DEBUG_POWER_COLLAPSE & msm_pm_debug_mask)
 		pr_info("CPU%u: %s: pre power down\n", cpu, __func__);
-
-	/* This spews a lot of messages when a core is hotplugged. This
-	 * information is most useful from last core going down during
-	 * power collapse
-	 */
-	if ((!from_idle && cpu_online(cpu))
-			|| (MSM_PM_DEBUG_IDLE_CLK & msm_pm_debug_mask))
-		clock_debug_print_enabled();
 
 	if (cpu_online(cpu) && !msm_no_ramp_down_pc)
 		saved_acpuclk_rate = ramp_down_last_cpu(cpu);
