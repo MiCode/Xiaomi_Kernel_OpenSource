@@ -23,6 +23,7 @@
 
 /* standard cec buf size + 1 byte specific to driver */
 #define CEC_BUF_SIZE    (MAX_CEC_FRAME_SIZE + 1)
+#define MAX_SWITCH_NAME_SIZE        5
 
 struct mdss_dba_utils_data {
 	struct msm_dba_ops ops;
@@ -40,6 +41,7 @@ struct mdss_dba_utils_data {
 	u8 cec_buf[CEC_BUF_SIZE];
 	struct cec_ops cops;
 	struct cec_cbs ccbs;
+	char disp_switch_name[MAX_SWITCH_NAME_SIZE];
 };
 
 static struct mdss_dba_utils_data *mdss_dba_utils_get_data(
@@ -312,6 +314,49 @@ static int mdss_dba_utils_send_cec_msg(void *data, struct cec_msg *msg)
 	return ret;
 }
 
+static int mdss_dba_utils_init_switch_dev(struct mdss_dba_utils_data *udata,
+	u32 fb_node)
+{
+	int rc = -EINVAL, ret;
+
+	if (!udata) {
+		pr_err("invalid input\n");
+		goto end;
+	}
+
+	pr_debug("fb_node %d\n", fb_node);
+
+	ret = snprintf(udata->disp_switch_name,
+		sizeof(udata->disp_switch_name),
+		"fb%d", fb_node);
+	if (!ret) {
+		DEV_ERR("%s: couldn't write display switch node\n", __func__);
+		goto end;
+	}
+
+	/* create switch device to update display modules */
+	udata->sdev_display.name = udata->disp_switch_name;
+	rc = switch_dev_register(&udata->sdev_display);
+	if (rc) {
+		pr_err("display switch registration failed\n");
+		goto end;
+	}
+
+	udata->display_switch_registered = true;
+
+	/* create switch device to update audio modules */
+	udata->sdev_audio.name = "hdmi_audio";
+	ret = switch_dev_register(&udata->sdev_audio);
+	if (ret) {
+		pr_err("audio switch registration failed\n");
+		goto end;
+	}
+
+	udata->audio_switch_registered = true;
+end:
+	return rc;
+}
+
 /**
  * mdss_dba_utils_video_on() - Allow clients to switch on the video
  * @data: DBA utils instance which was allocated during registration
@@ -451,24 +496,12 @@ void *mdss_dba_utils_init(struct mdss_dba_utils_init_data *uid)
 	udata->kobj = uid->kobj;
 	udata->pinfo = uid->pinfo;
 
-	/* create switch device to update display modules */
-	udata->sdev_display.name = "bridge_display";
-	ret = switch_dev_register(&udata->sdev_display);
+	/* register display and audio switch devices */
+	ret = mdss_dba_utils_init_switch_dev(udata, uid->fb_node);
 	if (ret) {
-		pr_err("display switch registration failed\n");
+		pr_err("switch dev registration failed\n");
 		goto error;
 	}
-	udata->display_switch_registered = true;
-
-	/* create switch device to update audio modules */
-	udata->sdev_audio.name = "hdmi_audio";
-	ret = switch_dev_register(&udata->sdev_audio);
-	if (ret) {
-		pr_err("audio switch registration failed\n");
-		goto error;
-	}
-
-	udata->audio_switch_registered = true;
 
 	/* Initialize EDID feature */
 	edid_init_data.kobj = uid->kobj;
