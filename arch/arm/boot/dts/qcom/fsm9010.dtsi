@@ -1064,7 +1064,7 @@
 		interrupts = <0 242 0>;
 		phy-mode = "sgmii";
 		qcom,id = <0>;
-		qcom,chanid = <1>;
+		qcom,pcs-chanid = <1>;
 		qcom,phy-mdio-addr = <0>;
 		qcom,poll-required = <1>;
 		qcom,rgmii-delay = <0>;
@@ -1081,7 +1081,7 @@
 		interrupts = <0 244 0>;
 		phy-mode = "sgmii";
 		qcom,id = <1>;
-		qcom,chanid = <2>;
+		qcom,pcs-chanid = <2>;
 		qcom,phy-mdio-addr = <1>;
 		qcom,poll-required = <1>;
 		qcom,rgmii-delay = <0>;
