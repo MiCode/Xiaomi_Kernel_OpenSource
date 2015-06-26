@@ -34,8 +34,6 @@ static u8 mstr_port_type[] = {SWR_DAC_PORT, SWR_COMP_PORT, SWR_BOOST_PORT,
 			      SWR_DAC_PORT, SWR_COMP_PORT, SWR_BOOST_PORT,
 			      SWR_VISENSE_PORT, SWR_VISENSE_PORT};
 
-#define SWR_NUM_SLV_DEVICES		3 /* This includes dev_num_0 */
-
 struct usecase uc[] = {
 	{0, 0, 0},		/* UC0: no ports */
 	{1, 1, 2400},		/* UC1: Spkr */
@@ -580,7 +578,7 @@ static void swrm_apply_port_config(struct swr_master *master)
 		if (!port)
 			continue;
 		port_type = mstr_port_type[mport->id];
-		if (!port->dev_id || (port->dev_id >= SWR_NUM_SLV_DEVICES)) {
+		if (!port->dev_id || (port->dev_id > master->num_dev)) {
 			dev_dbg(swrm->dev, "%s: invalid device id = %d\n",
 				__func__, port->dev_id);
 			continue;
@@ -749,7 +747,7 @@ static int swrm_check_slave_change_status(struct swr_mstr_ctrl *swrm,
 	int ret = SWR_NOT_PRESENT;
 
 	if (status != swrm->slave_status) {
-		for (i = 0; i < SWR_NUM_SLV_DEVICES; i++) {
+		for (i = 0; i < (swrm->master.num_dev + 1); i++) {
 			if ((status & SWRM_MCP_SLV_STATUS_MASK) !=
 			    (swrm->slave_status & SWRM_MCP_SLV_STATUS_MASK)) {
 				ret = (status & SWRM_MCP_SLV_STATUS_MASK);
@@ -873,7 +871,7 @@ static int swrm_get_logical_dev_num(struct swr_master *mstr, u64 dev_id,
 	int ret = -EINVAL;
 	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(mstr);
 
-	for (i = 1; i < SWR_NUM_SLV_DEVICES; i++) {
+	for (i = 1; i < (mstr->num_dev + 1); i++) {
 		id = ((u64)(swrm->read(swrm->handle,
 			    SWRM_ENUMERATOR_SLAVE_DEV_ID_2(i))) << 32);
 		id |= swrm->read(swrm->handle,
