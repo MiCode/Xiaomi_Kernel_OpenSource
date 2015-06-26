@@ -2255,8 +2255,8 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 		if (rc < 0)
 			pr_err("%s:%d failed: return_empty_buffer src %d\n",
 				__func__, __LINE__, frame_src);
-		vfe_dev->hw_info->vfe_ops.axi_ops.cfg_framedrop(vfe_dev,
-			stream_info, 0, 0);
+		vfe_dev->hw_info->vfe_ops.axi_ops.cfg_framedrop(
+			vfe_dev->vfe_base, stream_info, 0, 0);
 		stream_info->framedrop_pattern = 0;
 		stream_info->framedrop_period = 0;
 		return 0;
