@@ -673,7 +673,7 @@ static void arm_smmu_tlb_sync_cb(struct arm_smmu_device *smmu,
 	writel_relaxed(0, base + ARM_SMMU_CB_TLBSYNC);
 	if (readl_poll_timeout_atomic(base + ARM_SMMU_CB_TLBSTATUS, val,
 				      !(val & TLBSTATUS_SACTIVE),
-				      10, TLB_LOOP_TIMEOUT))
+				      0, TLB_LOOP_TIMEOUT))
 		dev_err(smmu->dev, "TLBSYNC timeout!\n");
 }
 
