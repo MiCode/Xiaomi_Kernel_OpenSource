@@ -805,6 +805,22 @@ static void mdss_mdp_fixed_qos_arbiter_setup(struct mdss_data_type *mdata,
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 }
 
+static void mdss_mdp_init_pipe_params(struct mdss_mdp_pipe *pipe)
+{
+	pipe->bwc_mode = 0;
+	pipe->flags = 0;
+	pipe->is_right_blend = false;
+	pipe->src_split_req = false;
+
+	pipe->mfd = NULL;
+	pipe->mixer_left = pipe->mixer_right = NULL;
+	memset(&pipe->scale, 0, sizeof(struct mdp_scale_data));
+	memset(&pipe->req_data, 0, sizeof(pipe->req_data));
+
+	kref_init(&pipe->kref);
+	INIT_LIST_HEAD(&pipe->buf_queue);
+}
+
 static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 	u32 type, u32 off, struct mdss_mdp_pipe *left_blend_pipe)
 {
@@ -873,8 +889,7 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 	}
 
 	if (pipe && type == MDSS_MDP_PIPE_TYPE_CURSOR) {
-		kref_init(&pipe->kref);
-		INIT_LIST_HEAD(&pipe->buf_queue);
+		mdss_mdp_init_pipe_params(pipe);
 		pr_debug("cursor: type=%x pnum=%d\n",
 			pipe->type, pipe->num);
 		goto cursor_done;
@@ -895,8 +910,7 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 		pr_debug("type=%x   pnum=%d\n", pipe->type, pipe->num);
 		mutex_init(&pipe->pp_res.hist.hist_mutex);
 		spin_lock_init(&pipe->pp_res.hist.hist_lock);
-		kref_init(&pipe->kref);
-		INIT_LIST_HEAD(&pipe->buf_queue);
+		mdss_mdp_init_pipe_params(pipe);
 		is_realtime = !((mixer->ctl->intf_num == MDSS_MDP_NO_INTF)
 				|| mixer->rotator_mode);
 		mdss_mdp_qos_vbif_remapper_setup(mdata, pipe, is_realtime);
@@ -1047,22 +1061,12 @@ static void mdss_mdp_pipe_free(struct kref *kref)
 		unsigned long pnum_bitmap = BIT(pipe->num);
 		bitmap_andnot(mdata->bwc_enable_map, mdata->bwc_enable_map,
 			&pnum_bitmap, MAX_DRV_SUP_PIPES);
-		pipe->bwc_mode = 0;
 
 		if (bitmap_empty(mdata->bwc_enable_map, MAX_DRV_SUP_PIPES))
 			mdss_mdp_bwcpanic_ctrl(mdata, false);
 	}
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
-
-	pipe->flags = 0;
-	pipe->is_right_blend = false;
-	pipe->src_split_req = false;
-
-	pipe->mfd = NULL;
-	pipe->mixer_left = pipe->mixer_right = NULL;
-	memset(&pipe->scale, 0, sizeof(struct mdp_scale_data));
-	memset(&pipe->req_data, 0, sizeof(pipe->req_data));
 }
 
 static bool mdss_mdp_check_pipe_in_use(struct mdss_mdp_pipe *pipe)
@@ -1353,8 +1357,7 @@ int mdss_mdp_pipe_handoff(struct mdss_mdp_pipe *pipe)
 
 	pipe->is_handed_off = true;
 	pipe->play_cnt = 1;
-	kref_init(&pipe->kref);
-	INIT_LIST_HEAD(&pipe->buf_queue);
+	mdss_mdp_init_pipe_params(pipe);
 
 error:
 	return rc;

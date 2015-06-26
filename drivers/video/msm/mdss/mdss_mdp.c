@@ -3262,7 +3262,7 @@ int mdss_mdp_wait_for_xin_halt(u32 xin_id, bool is_vbif_nrt)
 	if (rc == -ETIMEDOUT) {
 		pr_err("VBIF client %d not halting. TIMEDOUT.\n",
 			xin_id);
-		MDSS_XLOG_TOUT_HANDLER("mdp", "vbif", "panic");
+		MDSS_XLOG_TOUT_HANDLER("mdp", "vbif", "mdp_dbg_bus", "panic");
 	} else {
 		pr_debug("VBIF client %d is halted\n", xin_id);
 	}
