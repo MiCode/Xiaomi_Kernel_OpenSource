@@ -1541,6 +1541,9 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 		pr_info("'opened /dev/%s c %d %d'\n", gcinfo[cid].name,
 						MAJOR(me->dev_no), cid);
 	}
+	spin_lock(&me->hlock);
+	hlist_add_head(&fl->hn, &me->drivers);
+	spin_unlock(&me->hlock);
 
 bail:
 	mutex_unlock(&me->smd_mutex);
