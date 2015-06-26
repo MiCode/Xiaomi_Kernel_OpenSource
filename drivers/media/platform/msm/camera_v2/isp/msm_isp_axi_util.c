@@ -1618,11 +1618,10 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 			if ((bufq != NULL) && bufq->buf_type == ISP_SHARE_BUF)
 				rc = msm_isp_send_event(vfe_dev->common_data->
 					dual_vfe_res->vfe_dev[ISP_VFE1],
-					ISP_EVENT_BUF_DIVERT + stream_idx,
-					&buf_event);
+					ISP_EVENT_BUF_DIVERT, &buf_event);
 			else
 				msm_isp_send_event(vfe_dev,
-				ISP_EVENT_BUF_DIVERT + stream_idx, &buf_event);
+				ISP_EVENT_BUF_DIVERT, &buf_event);
 		} else {
 			ISP_DBG("%s: vfe_id %d send buf done buf-id %d\n",
 				__func__, vfe_dev->pdev->id, buf->buf_idx);
