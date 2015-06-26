@@ -220,8 +220,8 @@ static ssize_t restart_level_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct subsys_device *subsys = to_subsys(dev);
-	int i;
 	const char *p;
+	int i, orig_count = count;
 
 	p = memchr(buf, '\n', count);
 	if (p)
@@ -230,7 +230,7 @@ static ssize_t restart_level_store(struct device *dev,
 	for (i = 0; i < ARRAY_SIZE(restart_levels); i++)
 		if (!strncasecmp(buf, restart_levels[i], count)) {
 			subsys->restart_level = i;
-			return count;
+			return orig_count;
 		}
 	return -EPERM;
 }
@@ -247,18 +247,17 @@ static ssize_t firmware_name_store(struct device *dev,
 	struct subsys_device *subsys = to_subsys(dev);
 	struct subsys_tracking *track = subsys_get_track(subsys);
 	const char *p;
+	int orig_count = count;
 
 	p = memchr(buf, '\n', count);
 	if (p)
 		count = p - buf;
-	if (!count)
-		return -EPERM;
 
 	pr_info("Changing subsys fw_name to %s\n", buf);
 	mutex_lock(&track->lock);
 	strlcpy(subsys->desc->fw_name, buf, count + 1);
 	mutex_unlock(&track->lock);
-	return count;
+	return orig_count;
 }
 
 static ssize_t system_debug_show(struct device *dev,
@@ -279,6 +278,7 @@ static ssize_t system_debug_store(struct device *dev,
 {
 	struct subsys_device *subsys = to_subsys(dev);
 	const char *p;
+	int orig_count = count;
 
 	p = memchr(buf, '\n', count);
 	if (p)
@@ -290,7 +290,7 @@ static ssize_t system_debug_store(struct device *dev,
 		subsys->desc->system_debug = false;
 	else
 		return -EPERM;
-	return count;
+	return orig_count;
 }
 
 int subsys_get_restart_level(struct subsys_device *dev)
