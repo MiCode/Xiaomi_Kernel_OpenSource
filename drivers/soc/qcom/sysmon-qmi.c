@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -465,13 +465,6 @@ int sysmon_send_shutdown(struct subsys_desc *dest_desc)
 		goto out;
 	}
 
-	if (!wait_for_completion_timeout(&data->ind_recv,
-					msecs_to_jiffies(SHUTDOWN_TIMEOUT))) {
-		pr_err("Timed out waiting for shutdown indication from %s\n",
-							data->name);
-		ret = -ETIMEDOUT;
-	}
-
 	/*
 	 * Subsystem SSCTL service might not be able to send the QMI
 	 * acknowledgment. Wait for the shutdown_ack SMP2P bit to be
@@ -480,9 +473,22 @@ int sysmon_send_shutdown(struct subsys_desc *dest_desc)
 	shutdown_ack_ret = wait_for_shutdown_ack(dest_desc);
 	if (shutdown_ack_ret < 0) {
 		pr_err("shutdown_ack SMP2P bit for %s not set\n", data->name);
-		ret = shutdown_ack_ret;
-	} else if (shutdown_ack_ret > 0)
+		if (!&data->ind_recv.done) {
+			pr_err("QMI shutdown indication not received\n");
+			ret = shutdown_ack_ret;
+		}
+		goto out;
+	} else if (shutdown_ack_ret > 0) {
 		ret = 0;
+		goto out;
+	}
+
+	if (!wait_for_completion_timeout(&data->ind_recv,
+					msecs_to_jiffies(SHUTDOWN_TIMEOUT))) {
+		pr_err("Timed out waiting for shutdown indication from %s\n",
+							data->name);
+		ret = -ETIMEDOUT;
+	}
 out:
 	mutex_unlock(&sysmon_lock);
 	return ret;
