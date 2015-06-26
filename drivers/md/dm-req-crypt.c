@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -881,6 +881,10 @@ static int req_crypt_endio(struct dm_target *ti, struct request *clone,
 
 	/* If it is a write request, do nothing just return. */
 	bvec = NULL;
+	if (encryption_mode == DM_REQ_CRYPT_ENCRYPTION_MODE_TRANSPARENT
+		&& rq_data_dir(clone) == READ)
+		goto submit_request;
+
 	if (rq_data_dir(clone) == WRITE) {
 		rq_for_each_segment(bvec, clone, iter1) {
 			if (req_io->should_encrypt && bvec->bv_offset == 0) {
@@ -960,7 +964,10 @@ static int req_crypt_map(struct dm_target *ti, struct request *clone,
 		 * is done and then the dm layer will complete the bios (clones)
 		 * and free them.
 		 */
-		bio_src->bi_flags |= 1 << BIO_DONTFREE;
+		if (encryption_mode == DM_REQ_CRYPT_ENCRYPTION_MODE_TRANSPARENT)
+			bio_src->bi_flags |= 1 << BIO_INLINECRYPT;
+		else
+			bio_src->bi_flags |= 1 << BIO_DONTFREE;
 
 		/*
 		 * If this device has partitions, remap block n
@@ -990,7 +997,8 @@ static int req_crypt_map(struct dm_target *ti, struct request *clone,
 
 	}
 
-	if (rq_data_dir(clone) == READ) {
+	if (rq_data_dir(clone) == READ ||
+		encryption_mode == DM_REQ_CRYPT_ENCRYPTION_MODE_TRANSPARENT) {
 		error = DM_MAPIO_REMAPPED;
 		goto submit_request;
 	} else if (rq_data_dir(clone) == WRITE) {
@@ -1148,7 +1156,7 @@ static int req_crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 				err = -ENOMEM;
 				goto ctr_exit;
 			}
-			ice_settings->key_size = ICE_CRYPTO_KEY_SIZE_256;
+			ice_settings->key_size = ICE_CRYPTO_KEY_SIZE_128;
 			ice_settings->algo_mode = ICE_CRYPTO_ALGO_MODE_AES_XTS;
 			ice_settings->key_mode = ICE_CRYPTO_USE_LUT_SW_KEY;
 			if (sscanf(argv[1], "%hu",

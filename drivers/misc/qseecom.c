@@ -45,6 +45,7 @@
 #include <asm/cacheflush.h>
 #include "qseecom_legacy.h"
 #include "qseecom_kernel.h"
+#include <crypto/ice.h>
 
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
@@ -107,8 +108,6 @@ enum qseecom_client_handle_type {
 enum qseecom_ce_hw_instance {
 	CLK_QSEE = 0,
 	CLK_CE_DRV,
-	CLK_UFS_ICE,
-	CLK_SDCC_ICE,
 	CLK_INVALID,
 };
 
@@ -190,9 +189,6 @@ struct qseecom_control {
 	uint32_t qsee_perf_client;
 	struct qseecom_clk qsee;
 	struct qseecom_clk ce_drv;
-	struct qseecom_clk ce_ice;
-	struct regulator *reg;
-	bool   is_regulator_available;
 
 	bool support_bus_scaling;
 	bool support_fde;
@@ -3690,16 +3686,13 @@ static int __qseecom_enable_clk(enum qseecom_ce_hw_instance ce)
 	int rc = 0;
 	struct qseecom_clk *qclk = NULL;
 
-	if (qseecom.no_clock_support &&
-		((ce != CLK_UFS_ICE) || (ce != CLK_SDCC_ICE)))
+	if (qseecom.no_clock_support)
 		return 0;
 
 	if (ce == CLK_QSEE)
 		qclk = &qseecom.qsee;
 	if (ce == CLK_CE_DRV)
 		qclk = &qseecom.ce_drv;
-	if ((ce == CLK_UFS_ICE) || (ce == CLK_SDCC_ICE))
-		qclk = &qseecom.ce_ice;
 
 	if (qclk == NULL) {
 		pr_err("CLK type not supported\n");
@@ -3759,14 +3752,11 @@ static void __qseecom_disable_clk(enum qseecom_ce_hw_instance ce)
 {
 	struct qseecom_clk *qclk;
 
-	if (qseecom.no_clock_support &&
-		((ce != CLK_UFS_ICE) || ce != CLK_SDCC_ICE))
+	if (qseecom.no_clock_support)
 		return;
 
 	if (ce == CLK_QSEE)
 		qclk = &qseecom.qsee;
-	else if ((ce == CLK_UFS_ICE) || (ce == CLK_SDCC_ICE))
-		qclk = &qseecom.ce_ice;
 	else
 		qclk = &qseecom.ce_drv;
 
@@ -4520,82 +4510,28 @@ static int __qseecom_update_current_key_user_info(
 	return ret;
 }
 
-static int qseecom_get_vreg(void)
-{
-	int ret = 0;
-	if (!qseecom.is_regulator_available)
-		return 0;
-	if (qseecom.reg)
-		return 0;
-	qseecom.reg = devm_regulator_get(qseecom.pdev, "vdd-hba");
-	if (IS_ERR(qseecom.reg)) {
-		ret = PTR_ERR(qseecom.reg);
-		dev_err(qseecom.pdev, "%s: %s get failed, err=%d\n",
-			__func__, "vdd-hba-supply", ret);
-	}
-	return ret;
-}
 
 static int qseecom_enable_ice_setup(int usage)
 {
 	int ret = 0;
-	if (usage == QSEOS_KM_USAGE_UFS_ICE_DISK_ENCRYPTION) {
-		if (qseecom.ce_ice.instance == CLK_INVALID) {
-			if (__qseecom_init_clk(CLK_UFS_ICE)) {
-				pr_err("Failed to get storage clocks\n");
-				ret = -1;
-				goto out;
-			}
-		}
-		if (qseecom_get_vreg()) {
-			pr_err("%s: Could not get regulator\n", __func__);
-			ret = -1;
-			goto out;
-		}
-		if (qseecom.is_regulator_available &&
-			regulator_enable(qseecom.reg)) {
-				pr_err("%s: Could not enable regulator\n",
-								__func__);
-			ret = -1;
-			goto out;
-		}
-		__qseecom_enable_clk(CLK_UFS_ICE);
-	} else if (usage == QSEOS_KM_USAGE_SDCC_ICE_DISK_ENCRYPTION) {
-		if (qseecom.ce_ice.instance == CLK_INVALID) {
-			if (__qseecom_init_clk(CLK_SDCC_ICE)) {
-				pr_err("Failed to get storage clocks\n");
-				ret = -1;
-				goto out;
-			}
-		}
-		__qseecom_enable_clk(CLK_SDCC_ICE);
-	}
-out:
+
+	if (usage == QSEOS_KM_USAGE_UFS_ICE_DISK_ENCRYPTION)
+		ret = qcom_ice_setup_ice_hw("ufs", true);
+	else if (usage == QSEOS_KM_USAGE_SDCC_ICE_DISK_ENCRYPTION)
+		ret = qcom_ice_setup_ice_hw("sdcc", true);
+
 	return ret;
 }
 
 static int qseecom_disable_ice_setup(int usage)
 {
 	int ret = 0;
-	if (qseecom.ce_ice.instance == CLK_INVALID)
-		return 0;
 
-	if (usage == QSEOS_KM_USAGE_UFS_ICE_DISK_ENCRYPTION) {
-		__qseecom_disable_clk(CLK_UFS_ICE);
-		if (!qseecom.reg)
-			goto out;
+	if (usage == QSEOS_KM_USAGE_UFS_ICE_DISK_ENCRYPTION)
+		ret = qcom_ice_setup_ice_hw("ufs", false);
+	else if (usage == QSEOS_KM_USAGE_SDCC_ICE_DISK_ENCRYPTION)
+		ret = qcom_ice_setup_ice_hw("sdcc", false);
 
-		if (qseecom.is_regulator_available &&
-					regulator_disable(qseecom.reg)) {
-			pr_err("%s: Could not enable regulator\n",
-								__func__);
-			ret = -1;
-			goto out;
-		}
-	} else if (usage == QSEOS_KM_USAGE_SDCC_ICE_DISK_ENCRYPTION) {
-		__qseecom_disable_clk(CLK_SDCC_ICE);
-	}
-out:
 	return ret;
 }
 
@@ -6266,34 +6202,12 @@ static int __qseecom_init_clk(enum qseecom_ce_hw_instance ce)
 		qclk->instance = CLK_CE_DRV;
 		break;
 	};
-	case CLK_UFS_ICE: {
-		core_clk_src = "ufs_core_clk_src";
-		core_clk = "ufs_core_clk";
-		iface_clk = "ufs_iface_clk";
-		bus_clk = "ufs_bus_clk";
-		qclk = &qseecom.ce_ice;
-		qclk->instance = CLK_UFS_ICE;
-		break;
-	};
-	case CLK_SDCC_ICE: {
-		core_clk_src = "sdcc_core_clk_src";
-		core_clk = "sdcc_core_clk";
-		iface_clk = "sdcc_iface_clk";
-		bus_clk = "sdcc_bus_clk";
-		/* ce_ice is used for both UFS and SDCC based ICE because there
-		 * will be only one ICE instance on chip : UFS or EMMC
-		 */
-		qclk = &qseecom.ce_ice;
-		qclk->instance = CLK_SDCC_ICE;
-		break;
-	}
 	default:
 		pr_err("Invalid ce hw instance: %d!\n", ce);
 		return -EIO;
 	}
 
-	if (qseecom.no_clock_support &&
-		(ce != CLK_SDCC_ICE || ce != CLK_UFS_ICE)) {
+	if (qseecom.no_clock_support) {
 		qclk->ce_core_clk = NULL;
 		qclk->ce_clk = NULL;
 		qclk->ce_bus_clk = NULL;
@@ -6306,7 +6220,6 @@ static int __qseecom_init_clk(enum qseecom_ce_hw_instance ce)
 	/* Get CE3 src core clk. */
 	qclk->ce_core_src_clk = clk_get(pdev, core_clk_src);
 	if (!IS_ERR(qclk->ce_core_src_clk)) {
-		if ((ce != CLK_UFS_ICE) || (ce != CLK_SDCC_ICE)) {
 			rc = clk_set_rate(qclk->ce_core_src_clk,
 						qseecom.ce_opp_freq_hz);
 			if (rc) {
@@ -6315,7 +6228,6 @@ static int __qseecom_init_clk(enum qseecom_ce_hw_instance ce)
 				pr_err("Unable to set the core src clk @%uMhz.\n",
 					qseecom.ce_opp_freq_hz/CE_CLK_DIV);
 				return -EIO;
-			}
 		}
 	} else {
 		pr_warn("Unable to get CE core src clk, set to NULL\n");
@@ -6364,8 +6276,6 @@ static void __qseecom_deinit_clk(enum qseecom_ce_hw_instance ce)
 
 	if (ce == CLK_QSEE)
 		qclk = &qseecom.qsee;
-	else if (ce == CLK_UFS_ICE || ce == CLK_SDCC_ICE)
-		qclk = &qseecom.ce_ice;
 	else
 		qclk = &qseecom.ce_drv;
 
@@ -6417,12 +6327,6 @@ static int qseecom_probe(struct platform_device *pdev)
 	qseecom.ce_drv.ce_core_src_clk = NULL;
 	qseecom.ce_drv.ce_bus_clk = NULL;
 
-	qseecom.ce_ice.instance = CLK_INVALID;
-	qseecom.ce_ice.ce_core_clk = NULL;
-	qseecom.ce_ice.ce_clk = NULL;
-	qseecom.ce_ice.ce_core_src_clk = NULL;
-	qseecom.ce_ice.ce_bus_clk = NULL;
-	qseecom.ce_ice.clk_access_cnt = 0;
 
 	rc = alloc_chrdev_region(&qseecom_device_no, 0, 1, QSEECOM_DEV);
 	if (rc < 0) {
@@ -6700,10 +6604,6 @@ static int qseecom_probe(struct platform_device *pdev)
 				goto exit_destroy_hw_instance_list;
 			}
 		}
-		if (!of_parse_phandle(pdev->dev.of_node, "vdd-hba-supply", 0))
-			qseecom.is_regulator_available = false;
-		else
-			qseecom.is_regulator_available = true;
 	} else {
 		qseecom_platform_support = (struct msm_bus_scale_pdata *)
 						pdev->dev.platform_data;
