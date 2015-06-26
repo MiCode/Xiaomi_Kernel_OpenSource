@@ -1345,9 +1345,8 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	int i, status = -EINVAL;
+	int status = -EINVAL;
 	unsigned int state = device->state;
-	unsigned int regulator_left_on = 0;
 	unsigned int pmqos_wakeup_vote = device->pwrctrl.pm_qos_wakeup_latency;
 	unsigned int pmqos_active_vote = device->pwrctrl.pm_qos_active_latency;
 
@@ -1359,27 +1358,20 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	kgsl_cffdump_open(device);
 
-	for (i = 0; i < KGSL_MAX_REGULATORS; i++) {
-		if (device->pwrctrl.gpu_reg[i] &&
-			regulator_is_enabled(device->pwrctrl.gpu_reg[i])) {
-			regulator_left_on = 1;
-			break;
-		}
-	}
-
-	/* Clear any GPU faults that might have been left over */
-	adreno_clear_gpu_fault(adreno_dev);
-
 	/* Put the GPU in a responsive state */
+	device->regulator_left_on = false;
 	status = kgsl_pwrctrl_change_state(device, KGSL_STATE_AWARE);
 	if (status)
 		goto error_pwr_off;
+
+	/* Clear any GPU faults that might have been left over */
+	adreno_clear_gpu_fault(adreno_dev);
 
 	/* Set the bit to indicate that we've just powered on */
 	set_bit(ADRENO_DEVICE_PWRON, &adreno_dev->priv);
 
 	/* Soft reset the GPU if a regulator is stuck on*/
-	if (regulator_left_on)
+	if (device->regulator_left_on)
 		_soft_reset(adreno_dev);
 
 	status = kgsl_mmu_start(device);

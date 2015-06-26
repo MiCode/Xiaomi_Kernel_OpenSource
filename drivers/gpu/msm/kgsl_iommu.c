@@ -1022,6 +1022,7 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	kgsl_map_global_pt_entries(mmu->defaultpagetable);
 
 	kgsl_iommu_enable_clk(mmu);
+	KGSL_IOMMU_SET_CTX_REG(iommu, 0, TLBIALL, 1);
 
 	/* Get the lsb value of pagetables set in the IOMMU ttbr0 register as
 	 * that value should not change when we change pagetables, so while
@@ -1130,13 +1131,18 @@ kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 		mutex_lock(&device->mutex);
 		ret = kgsl_active_count_get(device);
 		if (!ret) {
+			mutex_lock(&device->mutex_pc_smmu);
 			unmapped = iommu_unmap(iommu_pt->domain, gpuaddr,
 					range);
+			mutex_unlock(&device->mutex_pc_smmu);
 			kgsl_active_count_put(device);
 		}
 		mutex_unlock(&device->mutex);
-	} else
+	} else {
+		mutex_lock(&device->mutex_pc_smmu);
 		unmapped = iommu_unmap(iommu_pt->domain, gpuaddr, range);
+		mutex_unlock(&device->mutex_pc_smmu);
+	}
 	if (unmapped != range) {
 		KGSL_CORE_ERR(
 			"iommu_unmap(%p, %llx, %lld) failed with unmapped size: %zd\n",
@@ -1197,9 +1203,11 @@ int _iommu_add_guard_page(struct kgsl_pagetable *pt,
 			physaddr = kgsl_secure_guard_page_memdesc.physaddr;
 		}
 
+		mutex_lock(&pt->mmu->device->mutex_pc_smmu);
 		ret = iommu_map(iommu_pt->domain, gpuaddr, physaddr,
 				kgsl_memdesc_guard_page_size(memdesc),
 				protflags & ~IOMMU_WRITE);
+		mutex_unlock(&pt->mmu->device->mutex_pc_smmu);
 		if (ret) {
 			KGSL_CORE_ERR(
 			"iommu_map(%p, addr %016llX, flags %x) err: %d\n",
@@ -1247,15 +1255,21 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 		mutex_lock(&device->mutex);
 		ret = kgsl_active_count_get(device);
 		if (!ret) {
+			mutex_lock(&device->mutex_pc_smmu);
 			mapped = iommu_map_sg(iommu_pt->domain, addr,
 					memdesc->sgt->sgl, memdesc->sgt->nents,
 					flags);
+			mutex_unlock(&device->mutex_pc_smmu);
 			kgsl_active_count_put(device);
 		}
 		mutex_unlock(&device->mutex);
-	} else
+	} else {
+		mutex_lock(&device->mutex_pc_smmu);
 		mapped = iommu_map_sg(iommu_pt->domain, addr,
 				memdesc->sgt->sgl, memdesc->sgt->nents, flags);
+		mutex_unlock(&device->mutex_pc_smmu);
+	}
+
 
 	if (mapped != size) {
 		KGSL_CORE_ERR("iommu_map_sg(%p, %016llX, %lld, %x) err: %zd\n",
@@ -1265,9 +1279,12 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 	}
 
 	ret = _iommu_add_guard_page(pt, memdesc, addr + size, flags);
-	if (ret)
+	if (ret) {
 		/* cleanup the partial mapping */
+		mutex_lock(&device->mutex_pc_smmu);
 		iommu_unmap(iommu_pt->domain, addr, size);
+		mutex_unlock(&device->mutex_pc_smmu);
+	}
 
 	/*
 	 *  IOMMU V1 BFBs pre-fetch data beyond what is being used by the core.
