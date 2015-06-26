@@ -27,8 +27,15 @@
 #define DCVS_NOMINAL_THRESHOLD 8
 /* Default threshold to increase the core frequency */
 #define DCVS_TURBO_THRESHOLD 4
-/* Instance max load above which DCVS kicks in */
-#define DCVS_NOMINAL_LOAD NUM_MBS_PER_SEC(1088, 1920, 60)
+
+/* Instance max load above which DCVS kicks in for decoder */
+#define DCVS_DEC_SVS_LOAD NUM_MBS_PER_SEC(1088, 1920, 60)
+#define DCVS_DEC_NOMINAL_LOAD NUM_MBS_PER_SEC(2160, 3840, 30)
+#define DCVS_DEC_TURBO_LOAD NUM_MBS_PER_SEC(2160, 3840, 60)
+/* ........................................... for encoder */
+#define DCVS_ENC_NOMINAL_LOAD NUM_MBS_PER_SEC(1088, 1920, 60)
+#define DCVS_ENC_TURBO_LOAD NUM_MBS_PER_SEC(2160, 3840, 30)
+
 /* Considering one safeguard buffer */
 #define DCVS_BUFFER_SAFEGUARD 1
 /* Supported DCVS MBs per frame */
