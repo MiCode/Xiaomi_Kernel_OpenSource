@@ -305,7 +305,7 @@
 			0xAAA9AAA9
 			0xAAA9AAA9
 			0xAAA9AAA9
-			0xAAA9AAA9>;
+			0x0001AAA9>;
 		vbif-entries = <1>;
 		vbif-regs = <0x124>;
 		vbif-settings = <0x3>;
@@ -376,7 +376,7 @@
 			0xAAA9AAA9
 			0xAAA9AAA9
 			0xAAA9AAA9
-			0xAAA9AAA9>;
+			0x0001AAA9>;
 		vbif-entries = <1>;
 		vbif-regs = <0x124>;
 		vbif-settings = <0x3>;
