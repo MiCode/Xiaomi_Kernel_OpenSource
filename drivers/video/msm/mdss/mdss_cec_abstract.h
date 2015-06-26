@@ -13,7 +13,10 @@
 #ifndef __MDSS_CEC_ABSTRACT_H__
 #define __MDSS_CEC_ABSTRACT_H__
 
-#define MAX_OPERAND_SIZE	15
+#define MAX_OPERAND_SIZE	14
+
+/* total size:  HEADER block (1) + opcode block (1) + operands (14) */
+#define MAX_CEC_FRAME_SIZE      (MAX_OPERAND_SIZE + 2)
 
 struct cec_msg {
 	u8 sender_id;

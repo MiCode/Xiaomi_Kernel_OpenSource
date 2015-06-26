@@ -1372,7 +1372,7 @@ static int adv7533_hdmi_cec_read(void *client, u32 *size, char *buf, u32 flags)
 	for (i = 0; i < ADV7533_CEC_BUF_MAX; i++) {
 		struct adv7533_cec_msg *msg = &pdata->cec_msg[i];
 
-		if (msg->pending && !msg->timestamp) {
+		if (msg->pending && msg->timestamp) {
 			memcpy(buf, msg->buf, CEC_MSG_SIZE);
 			msg->pending = false;
 			break;
