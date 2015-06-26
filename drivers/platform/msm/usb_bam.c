@@ -1787,9 +1787,9 @@ static void usb_bam_finish_resume(struct work_struct *w)
 
 	mutex_lock(&info[cur_bam].suspend_resume_mutex);
 
-	/* Suspend happened in the meantime */
+	/* Suspend or disconnect happened in the meantime */
 	spin_lock(&usb_bam_ipa_handshake_info_lock);
-	if (info[cur_bam].bus_suspend) {
+	if (info[cur_bam].bus_suspend || info[cur_bam].disconnected) {
 		spin_unlock(&usb_bam_ipa_handshake_info_lock);
 		log_event(1, "%s: Bus suspended, not resuming, RT PUT: %d\n",
 				__func__, get_pm_runtime_counter(bam_dev));
