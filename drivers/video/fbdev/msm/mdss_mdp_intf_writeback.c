@@ -54,6 +54,7 @@ struct mdss_mdp_writeback_ctx {
 	u16 img_height;
 	u16 width;
 	u16 height;
+	u16 frame_rate;
 	struct mdss_rect dst_rect;
 
 	u32 dnsc_factor_w;
@@ -374,6 +375,7 @@ static int mdss_mdp_writeback_prepare_wfd(struct mdss_mdp_ctl *ctl, void *arg)
 	ctx->img_height = ctl->height;
 	ctx->width = ctl->width;
 	ctx->height = ctl->height;
+	ctx->frame_rate = ctl->frame_rate;
 	ctx->dst_rect.x = 0;
 	ctx->dst_rect.y = 0;
 	ctx->dst_rect.w = ctx->width;
@@ -734,6 +736,7 @@ static void mdss_mdp_set_ot_limit_wb(struct mdss_mdp_writeback_ctx *ctx)
 	ot_params.num = ctx->wb_num;
 	ot_params.width = ctx->width;
 	ot_params.height = ctx->height;
+	ot_params.frame_rate = ctx->frame_rate;
 	ot_params.reg_off_vbif_lim_conf = MMSS_VBIF_WR_LIM_CONF;
 	ot_params.reg_off_mdp_clk_ctrl = ctx->clk_ctrl.reg_off;
 	ot_params.bit_off_mdp_clk_ctrl = ctx->clk_ctrl.bit_off;
