@@ -318,7 +318,7 @@ qcom,camera@20 {
 		qcom,csiphy-sd-index = <1>;
 		qcom,csid-sd-index = <1>;
 		qcom,mount-angle = <90>;
-		qcom,sensor-name = "ov2685";
+		qcom,sensor-name = "ov2685_scv3b4035";
 		cam_vdig-supply = <&pm8950_l6>;
 		cam_vio-supply = <&pm8950_l6>;
 		cam_vana-supply = <&pm8950_l22>;
