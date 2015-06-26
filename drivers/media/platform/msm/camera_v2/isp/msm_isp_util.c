@@ -349,43 +349,138 @@ static inline void msm_isp_get_timestamp(struct msm_isp_timestamp *time_stamp)
 	time_stamp->event_time.tv_usec = ts.tv_nsec/1000;
 }
 
-int msm_isp_subscribe_event(struct v4l2_subdev *sd, struct v4l2_fh *fh,
-	struct v4l2_event_subscription *sub)
+static inline u32 msm_isp_evt_mask_to_isp_event(u32 evt_mask)
 {
-	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
-	int rc = 0;
-	rc = v4l2_event_subscribe(fh, sub, MAX_ISP_V4l2_EVENTS, NULL);
-	if (rc == 0) {
-		if (sub->type == V4L2_EVENT_ALL) {
-			int i;
+	u32 evt_id = ISP_EVENT_SUBS_MASK_NONE;
 
-			vfe_dev->axi_data.event_mask = 0;
-			for (i = 0; i < ISP_EVENT_MAX; i++)
-				vfe_dev->axi_data.event_mask |= (1 << i);
-		} else {
-			int event_idx = sub->type - ISP_EVENT_BASE;
+	switch (evt_mask) {
+	case ISP_EVENT_MASK_INDEX_STATS_NOTIFY:
+		evt_id = ISP_EVENT_STATS_NOTIFY;
+		break;
+	case ISP_EVENT_MASK_INDEX_ERROR:
+		evt_id = ISP_EVENT_ERROR;
+		break;
+	case ISP_EVENT_MASK_INDEX_IOMMU_P_FAULT:
+		evt_id = ISP_EVENT_IOMMU_P_FAULT;
+		break;
+	case ISP_EVENT_MASK_INDEX_STREAM_UPDATE_DONE:
+		evt_id = ISP_EVENT_STREAM_UPDATE_DONE;
+		break;
+	case ISP_EVENT_MASK_INDEX_REG_UPDATE:
+		evt_id = ISP_EVENT_REG_UPDATE;
+		break;
+	case ISP_EVENT_MASK_INDEX_SOF:
+		evt_id = ISP_EVENT_SOF;
+		break;
+	case ISP_EVENT_MASK_INDEX_BUF_DIVERT:
+		evt_id = ISP_EVENT_BUF_DIVERT;
+		break;
+	case ISP_EVENT_MASK_INDEX_COMP_STATS_NOTIFY:
+		evt_id = ISP_EVENT_COMP_STATS_NOTIFY;
+		break;
+	case ISP_EVENT_MASK_INDEX_MASK_FE_READ_DONE:
+		evt_id = ISP_EVENT_FE_READ_DONE;
+		break;
+	default:
+		evt_id = ISP_EVENT_SUBS_MASK_NONE;
+		break;
+	}
 
-			vfe_dev->axi_data.event_mask |= (1 << event_idx);
+	return evt_id;
+}
+
+static inline int msm_isp_subscribe_event_mask(struct v4l2_fh *fh,
+		struct v4l2_event_subscription *sub, int evt_mask_index,
+		u32 evt_id, bool subscribe_flag)
+{
+	int rc = 0, i, interface;
+
+	if (ISP_EVENT_MASK_INDEX_STATS_NOTIFY == evt_mask_index) {
+		for (i = 0; i < MSM_ISP_STATS_MAX; i++) {
+			sub->type = evt_id + i;
+			if (subscribe_flag)
+				rc = v4l2_event_subscribe(fh, sub,
+					MAX_ISP_V4l2_EVENTS, NULL);
+			else
+				rc = v4l2_event_unsubscribe(fh, sub);
+			if (rc != 0) {
+				pr_err("%s: Subs event_type =0x%x failed\n",
+					__func__, sub->type);
+				return rc;
+			}
+		}
+	} else if (ISP_EVENT_MASK_INDEX_SOF == evt_mask_index ||
+		   ISP_EVENT_MASK_INDEX_REG_UPDATE == evt_mask_index ||
+		   ISP_EVENT_MASK_INDEX_STREAM_UPDATE_DONE == evt_mask_index) {
+		for (interface = 0; interface < VFE_SRC_MAX; interface++) {
+			sub->type = evt_id | interface;
+			if (subscribe_flag)
+				rc = v4l2_event_subscribe(fh, sub,
+					MAX_ISP_V4l2_EVENTS, NULL);
+			else
+				rc = v4l2_event_unsubscribe(fh, sub);
+			if (rc != 0) {
+				pr_err("%s: Subs event_type =0x%x failed\n",
+					__func__, sub->type);
+				return rc;
+			}
+		}
+	} else {
+		sub->type = evt_id;
+		if (subscribe_flag)
+			rc = v4l2_event_subscribe(fh, sub,
+				MAX_ISP_V4l2_EVENTS, NULL);
+		else
+			rc = v4l2_event_unsubscribe(fh, sub);
+		if (rc != 0) {
+			pr_err("%s: Subs event_type =0x%x failed\n",
+				__func__, sub->type);
+			return rc;
 		}
 	}
 	return rc;
 }
 
+static inline int msm_isp_process_event_subscription(struct v4l2_fh *fh,
+	struct v4l2_event_subscription *sub, bool subscribe_flag)
+{
+	int rc = 0, evt_mask_index = 0;
+	u32 evt_mask = sub->type;
+	u32 evt_id = 0;
+
+	if (ISP_EVENT_SUBS_MASK_NONE == evt_mask) {
+		pr_err("%s: Subs event_type is None=0x%x\n",
+			__func__, evt_mask);
+		return 0;
+	}
+
+	for (evt_mask_index = ISP_EVENT_MASK_INDEX_STATS_NOTIFY;
+		evt_mask_index <= ISP_EVENT_MASK_INDEX_MASK_FE_READ_DONE;
+		evt_mask_index++) {
+		if (evt_mask & (1<<evt_mask_index)) {
+			evt_id = msm_isp_evt_mask_to_isp_event(evt_mask_index);
+			rc = msm_isp_subscribe_event_mask(fh, sub,
+				evt_mask_index, evt_id, subscribe_flag);
+			if (rc != 0) {
+				pr_err("%s: Subs event index:%d failed\n",
+					__func__, evt_mask_index);
+				return rc;
+			}
+		}
+	}
+	return rc;
+}
+
+int msm_isp_subscribe_event(struct v4l2_subdev *sd, struct v4l2_fh *fh,
+	struct v4l2_event_subscription *sub)
+{
+	return msm_isp_process_event_subscription(fh, sub, true);
+}
+
 int msm_isp_unsubscribe_event(struct v4l2_subdev *sd, struct v4l2_fh *fh,
 	struct v4l2_event_subscription *sub)
 {
-	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
-	int rc = 0;
-
-	rc = v4l2_event_unsubscribe(fh, sub);
-	if (sub->type == V4L2_EVENT_ALL) {
-		vfe_dev->axi_data.event_mask = 0;
-	} else {
-		int event_idx = sub->type - ISP_EVENT_BASE;
-
-		vfe_dev->axi_data.event_mask &= ~(1 << event_idx);
-	}
-	return rc;
+	return msm_isp_process_event_subscription(fh, sub, false);
 }
 
 static int msm_isp_get_max_clk_rate(struct vfe_device *vfe_dev, long *rate)
