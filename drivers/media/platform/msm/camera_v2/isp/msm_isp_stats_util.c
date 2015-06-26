@@ -76,7 +76,6 @@ static int32_t msm_isp_stats_buf_divert(struct vfe_device *vfe_dev,
 	int32_t rc = 0, frame_id = 0, drop_buffer = 0;
 	struct msm_isp_stats_event *stats_event = NULL;
 	struct msm_isp_sw_framskip *sw_skip = NULL;
-	unsigned long flags;
 
 	if (!vfe_dev || !done_buf || !ts || !buf_event || !stream_info ||
 		!comp_stats_type_mask) {
@@ -106,7 +105,6 @@ static int32_t msm_isp_stats_buf_divert(struct vfe_device *vfe_dev,
 		}
 	}
 
-	spin_lock_irqsave(&done_buf->lock, flags);
 	rc = vfe_dev->buf_mgr->ops->buf_divert(
 		vfe_dev->buf_mgr, done_buf->bufq_handle,
 		done_buf->buf_idx, &ts->buf_time,
@@ -115,15 +113,14 @@ static int32_t msm_isp_stats_buf_divert(struct vfe_device *vfe_dev,
 		ISP_DBG("%s: vfe_id %d buf_id %d bufq %x put_cnt 1\n", __func__,
 			vfe_dev->pdev->id, done_buf->buf_idx,
 			done_buf->bufq_handle);
-		spin_unlock_irqrestore(&done_buf->lock, flags);
 		*comp_stats_type_mask |=
 			1 << stream_info->stats_type;
 		stats_event->stats_buf_idxs
 			[stream_info->stats_type] =
 			done_buf->buf_idx;
+		done_buf->frame_id = frame_id;
 		return rc;
 	}
-	spin_unlock_irqrestore(&done_buf->lock, flags);
 
 	if (drop_buffer) {
 		vfe_dev->buf_mgr->ops->put_buf(
