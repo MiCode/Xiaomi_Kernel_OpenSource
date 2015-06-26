@@ -998,7 +998,7 @@ static const char *ufschd_ufs_dev_pwr_mode_to_string(
 	}
 }
 
-static u32 ufshcd_get_local_unipro_ver(struct ufs_hba *hba)
+u32 ufshcd_get_local_unipro_ver(struct ufs_hba *hba)
 {
 	/* HCI version 1.0 and 1.1 supports UniPro 1.41 */
 	if ((hba->ufs_version == UFSHCI_VERSION_10) ||
@@ -1007,6 +1007,7 @@ static u32 ufshcd_get_local_unipro_ver(struct ufs_hba *hba)
 	else
 		return UFS_UNIPRO_VER_1_6;
 }
+EXPORT_SYMBOL(ufshcd_get_local_unipro_ver);
 
 static bool ufshcd_is_unipro_pa_params_tuning_req(struct ufs_hba *hba)
 {

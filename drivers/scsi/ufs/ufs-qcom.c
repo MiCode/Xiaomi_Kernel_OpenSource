@@ -225,7 +225,8 @@ static int ufs_qcom_link_startup_post_change(struct ufs_hba *hba)
 	 * change sequence which may cause host PHY to go into bad state.
 	 * Disabling Rx LineCfg of host PHY should help avoid this.
 	 */
-	err = ufs_qcom_phy_ctrl_rx_linecfg(phy, false);
+	if (ufshcd_get_local_unipro_ver(hba) == UFS_UNIPRO_VER_1_41)
+		err = ufs_qcom_phy_ctrl_rx_linecfg(phy, false);
 
 out:
 	return err;
@@ -558,6 +559,19 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba, bool status)
 			 */
 			err = ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(hba,
 									  150);
+
+		/*
+		 * Some UFS devices (and may be host) have issues if LCC is
+		 * enabled. So we are setting PA_Local_TX_LCC_Enable to 0
+		 * before link startup which will make sure that both host
+		 * and device TX LCC are disabled once link startup is
+		 * completed.
+		 */
+		if (ufshcd_get_local_unipro_ver(hba) != UFS_UNIPRO_VER_1_41)
+			err = ufshcd_dme_set(hba,
+					UIC_ARG_MIB(PA_LOCAL_TX_LCC_ENABLE),
+					0);
+
 		break;
 	case POST_CHANGE:
 		ufs_qcom_link_startup_post_change(hba);
@@ -1026,10 +1040,11 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 
 		if (host->hw_ver.minor == 0x001 && host->hw_ver.step == 0x0001)
 			hba->quirks |= UFSHCD_QUIRK_BROKEN_INTR_AGGR;
+
+		hba->quirks |= UFSHCD_QUIRK_BROKEN_LCC;
 	}
 
 	if (host->hw_ver.major >= 0x2) {
-		hba->quirks |= UFSHCD_QUIRK_BROKEN_LCC;
 		hba->quirks |= UFSHCD_QUIRK_BROKEN_UFS_HCI_VERSION;
 
 		if (!ufs_qcom_cap_qunipro(host))
