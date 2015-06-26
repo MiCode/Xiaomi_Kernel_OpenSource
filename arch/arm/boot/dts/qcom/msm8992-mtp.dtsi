@@ -258,12 +258,14 @@
 	};
 
 	gpio@c600 { /* GPIO 7 */
-		/* NFC pwr request */
-		qcom,mode = <0>;		/* QPNP_PIN_MODE_DIG_IN */
-		qcom,pull = <5>;		/* QPNP_PIN_PULL_NO */
-		qcom,vin-sel = <2>;		/* QPNP_PIN_VIN2 */
-		qcom,src-sel = <2>;		/* QPNP_PIN_SEL_FUNC_1 */
-		qcom,master-en = <1>;
+		/* NFC DL request */
+		qcom,mode = <1>;		/* Digital out*/
+		qcom,output-type = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <2>;		/* Logical 1 voltage value 1.8V$
+		qcom,out-strength = <3>;
+		qcom,src-sel = <0>;
+		qcom,master-en = <1>;		/* Enable GPIO */
 		status = "okay";
 	};
 
@@ -453,11 +455,11 @@
 
 	i2c@f9928000 { /* BLSP1 QUP6 */
 		status = "ok";
-		nfc-nci@e {
-			compatible = "qcom,nfc-nci";
-			reg = <0x0e>;
-			qcom,irq-gpio = <&msm_gpio 29 0x00>;
-			qcom,dis-gpio = <&msm_gpio 30 0x00>;
+		nq@2b {
+			compatible = "qcom,nq-nci";
+			reg = <0x2b>;
+			qcom,nq-irq = <&msm_gpio 29 0x00>;
+			qcom,nq-ven = <&msm_gpio 30 0x00>;
 			qcom,clk-src = "BBCLK2";
 			interrupt-parent = <&msm_gpio>;
 			interrupts = <29 0>;
@@ -465,8 +467,7 @@
 			pinctrl-names = "nfc_active","nfc_suspend";
 			pinctrl-0 = <&nfc_int_active &nfc_disable_active>;
 			pinctrl-1 = <&nfc_int_suspend &nfc_disable_suspend>;
-			qcom,clk-gpio = <&pm8994_gpios 10 0>;
-			qcom,pwr-req-gpio = <&pm8994_gpios 7 0>;
+			qcom,nq-firm = <&pm8994_gpios 7 0>;
 			clocks = <&clock_rpm clk_bb_clk2_pin>;
 			clock-names = "ref_clk";
 		};
