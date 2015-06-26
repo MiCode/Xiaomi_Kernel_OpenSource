@@ -221,7 +221,8 @@ static int ufs_qcom_link_startup_post_change(struct ufs_hba *hba)
 	 * change sequence which may cause host PHY to go into bad state.
 	 * Disabling Rx LineCfg of host PHY should help avoid this.
 	 */
-	err = ufs_qcom_phy_ctrl_rx_linecfg(phy, false);
+	if (ufshcd_get_local_unipro_ver(hba) == UFS_UNIPRO_VER_1_41)
+		err = ufs_qcom_phy_ctrl_rx_linecfg(phy, false);
 
 out:
 	return err;
