@@ -453,6 +453,15 @@
 };
 
 &pm8994_mpps {
+	mpp@a100 { /* MPP 2 */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,vin-sel = <2>;		/* S4 1.8V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
+	};
+
 	mpp@a300 { /* MPP 4 */
 		/* HDMI_5v_vreg regulator enable */
 		qcom,mode = <1>;		/* Digital output */
@@ -646,6 +655,7 @@
 		asoc-codec-names = "msm-stub-codec.1", "msm-hdmi-audio-codec-rx";
 		qcom,hph-en1-gpio = <&pmi8994_gpios 10 0>;
 		qcom,hph-en0-gpio = <&pm8994_gpios 13 0>;
+		qcom,us-euro-gpios = <&pm8994_mpps 2 0>;
 	};
 };
 
