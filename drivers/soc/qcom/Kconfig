@@ -558,4 +558,11 @@ config MSM_BAM_DMUX
 	  provides a means to support more logical channels
 	  via muxing than BAM could without muxing.
 
+config MSM_PERFORMANCE
+	tristate "Core control driver to support userspace hotplug requests"
+	help
+	  This driver is used to provide CPU hotplug support to userspace.
+	  It ensures that no more than a user specified number of CPUs stay
+	  online at any given point in time.
+
 endif # ARCH_MSM
