@@ -70,6 +70,10 @@
 	qcom,ldo-max-voltage = <780000>;
 };
 
+&gfx_vreg {
+	qcom,corner-frequencies = <0 120000000 205000000 360000000 480000000>;
+};
+
 &kryo0_vreg {
 	qcom,vref-functional-step-voltage = <3919>;
 	qcom,vref-functional-min-voltage = <285420>;
