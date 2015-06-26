@@ -451,8 +451,8 @@ ssize_t gbridge_port_write(struct file *file,
 
 	if (list_empty(&port->write_pool)) {
 		spin_unlock_irqrestore(&port->port_lock, flags);
-		pr_err("%s: Request list is empty.\n", __func__);
-		return 0;
+		pr_debug("%s: Request list is empty.\n", __func__);
+		return -EAGAIN;
 	}
 	pool = &port->write_pool;
 	req = list_first_entry(pool, struct usb_request, list);
