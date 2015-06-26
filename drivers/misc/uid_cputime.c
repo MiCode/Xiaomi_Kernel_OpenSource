@@ -98,6 +98,10 @@ static int uid_stat_show(struct seq_file *m, void *v)
 						__func__, task_uid(task));
 			return -ENOMEM;
 		}
+		/* if this task is exiting, we have already accounted for the
+		 * time and power. */
+		if (task->cpu_power == ULLONG_MAX)
+			continue;
 		uid_entry->active_utime += task->utime;
 		uid_entry->active_stime += task->stime;
 		uid_entry->active_power += task->cpu_power;
@@ -207,6 +211,7 @@ static int process_notifier(struct notifier_block *self,
 	uid_entry->utime += task->utime;
 	uid_entry->stime += task->stime;
 	uid_entry->power += task->cpu_power;
+	task->cpu_power = ULLONG_MAX;
 
 exit:
 	mutex_unlock(&uid_lock);
