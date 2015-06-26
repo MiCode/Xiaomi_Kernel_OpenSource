@@ -348,6 +348,9 @@ static DEFINE_IDA(subsys_ida);
 static int enable_ramdumps;
 module_param(enable_ramdumps, int, S_IRUGO | S_IWUSR);
 
+static int enable_mini_ramdumps;
+module_param(enable_mini_ramdumps, int, S_IRUGO | S_IWUSR);
+
 struct workqueue_struct *ssr_wq;
 static struct class *char_class;
 
@@ -510,6 +513,7 @@ static void notify_each_subsys_device(struct subsys_device **list,
 
 		notif_data.crashed = subsys_get_crash_status(dev);
 		notif_data.enable_ramdump = is_ramdump_enabled(dev);
+		notif_data.enable_mini_ramdumps = enable_mini_ramdumps;
 		notif_data.no_auth = dev->desc->no_auth;
 		notif_data.pdev = pdev;
 
@@ -584,6 +588,12 @@ static void subsystem_ramdump(struct subsys_device *dev, void *data)
 		if (dev->desc->ramdump(is_ramdump_enabled(dev), dev->desc) < 0)
 			pr_warn("%s[%p]: Ramdump failed.\n", name, current);
 	dev->do_ramdump_on_put = false;
+}
+
+static void subsystem_free_memory(struct subsys_device *dev, void *data)
+{
+	if (dev->desc->free_memory)
+		dev->desc->free_memory(dev->desc);
 }
 
 static void subsystem_powerup(struct subsys_device *dev, void *data)
@@ -674,9 +684,13 @@ static void subsys_stop(struct subsys_device *subsys)
 {
 	const char *name = subsys->desc->name;
 
-	subsys->desc->sysmon_shutdown_ret = sysmon_send_shutdown(subsys->desc);
-	if (subsys->desc->sysmon_shutdown_ret)
-		pr_debug("Graceful shutdown failed for %s\n", name);
+	if (!of_property_read_bool(subsys->desc->dev->of_node,
+					"qcom,pil-force-shutdown")) {
+		subsys->desc->sysmon_shutdown_ret =
+				sysmon_send_shutdown(subsys->desc);
+		if (subsys->desc->sysmon_shutdown_ret)
+			pr_debug("Graceful shutdown failed for %s\n", name);
+	}
 
 	notify_each_subsys_device(&subsys, 1, SUBSYS_BEFORE_SHUTDOWN, NULL);
 	subsys->desc->shutdown(subsys->desc, false);
@@ -792,6 +806,7 @@ void subsystem_put(void *subsystem)
 		subsys_stop(subsys);
 		if (subsys->do_ramdump_on_put)
 			subsystem_ramdump(subsys, NULL);
+		subsystem_free_memory(subsys, NULL);
 	}
 	mutex_unlock(&track->lock);
 
@@ -860,6 +875,8 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	/* Collect ram dumps for all subsystems in order here */
 	for_each_subsys_device(list, count, NULL, subsystem_ramdump);
 
+	for_each_subsys_device(list, count, NULL, subsystem_free_memory);
+
 	notify_each_subsys_device(list, count, SUBSYS_BEFORE_POWERUP, NULL);
 	for_each_subsys_device(list, count, NULL, subsystem_powerup);
 	notify_each_subsys_device(list, count, SUBSYS_AFTER_POWERUP, NULL);
@@ -913,6 +930,11 @@ static void device_restart_work_hdlr(struct work_struct *work)
 							device_restart_work);
 
 	notify_each_subsys_device(&dev, 1, SUBSYS_SOC_RESET, NULL);
+	/*
+	 * Temporary workaround until ramdump userspace application calls
+	 * sync() and fclose() on attempting the dump.
+	 */
+	msleep(100);
 	panic("subsys-restart: Resetting the SoC - %s crashed.",
 							dev->desc->name);
 }

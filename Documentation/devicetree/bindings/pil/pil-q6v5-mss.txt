@@ -18,6 +18,7 @@ Required properties:
 		      "halt_nc" is required.
 - interrupts:         The modem watchdog interrupt
 - vdd_cx-supply:      Reference to the regulator that supplies the vdd_cx domain.
+- vdd_cx-voltage:     Voltage corner/level(max) for cx rail.
 - vdd_mx-supply:      Reference to the regulator that supplies the memory rail.
 - vdd_mx-uV:          Voltage setting for the mx rail.
 - qcom,firmware-name: Base name of the firmware image. Ex. "mdsp"
@@ -64,6 +65,9 @@ Optional properties:
 - qcom,qdsp6v56-1-3: Boolean- Present if the qdsp version is v56 1.3
 - qcom,qdsp6v56-1-5: Boolean- Present if the qdsp version is v56 1.5
 - qcom,edge:		GLINK logical name of the remote subsystem
+- qcom,pil-force-shutdown: Boolean. If set, the SSR framework will not trigger graceful shutdown
+                           on behalf of the subsystem driver.
+- qcom,qdsp6v56-1-8: Boolean- Present if the qdsp version is v56 1.8
 
 Example:
 	qcom,mss@fc880000 {
@@ -77,6 +81,7 @@ Example:
 		interrupts = <0 24 1>;
 		vdd_mss-supply = <&pm8841_s3>;
 		vdd_cx-supply = <&pm8841_s2>;
+		vdd_cx-voltage = <7>;
 		vdd_mx-supply = <&pm8841_s1>;
 		vdd_mx-uV = <105000>;
 

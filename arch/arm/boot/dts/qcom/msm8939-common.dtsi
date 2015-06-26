@@ -1220,6 +1220,7 @@
 
 		interrupts = <0 24 1>;
 		vdd_cx-supply = <&pm8916_s1_corner>;
+		vdd_cx-voltage = <7>;
 		vdd_mx-supply = <&pm8916_l3>;
 		vdd_mx-uV = <1050000>;
 		vdd_pll-supply = <&pm8916_l7>;

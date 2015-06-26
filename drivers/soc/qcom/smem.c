@@ -1004,8 +1004,12 @@ static int restart_notifier_cb(struct notifier_block *this,
 		remote_spin_release(&remote_spinlock, notifier->processor);
 		remote_spin_release_all(notifier->processor);
 		break;
+	case SUBSYS_SOC_RESET:
+		if (!(smem_ramdump_dev && notifdata->enable_mini_ramdumps))
+			break;
 	case SUBSYS_RAMDUMP_NOTIFICATION:
-		if (!(smem_ramdump_dev && notifdata->enable_ramdump))
+		if (!(smem_ramdump_dev && (notifdata->enable_mini_ramdumps
+						|| notifdata->enable_ramdump)))
 			break;
 		SMEM_DBG("%s: saving ramdump\n", __func__);
 		/*

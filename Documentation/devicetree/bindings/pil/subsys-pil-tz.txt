@@ -54,6 +54,11 @@ Optional properties:
 - qcom,keep-proxy-regs-on: Boolean. Present if during proxy unvoting, PIL needs to leave
 			the regulators enabled after removing the voltage/current votes.
 - qcom,edge:		GLINK logical name of the remote subsystem
+- qcom,ssctl-instance-id: Instance id used by the subsystem to connect with the SSCTL
+			  service.
+- qcom,sysmon-id:	platform device id that sysmon is probed with for the subsystem.
+- qcom,pil-force-shutdown: Boolean. If set, the SSR framework will not trigger graceful shutdown
+                           on behalf of the subsystem driver.
 
 Example:
 	qcom,venus@fdce0000 {
@@ -117,4 +122,6 @@ Example:
 
 		/* GPIO output to lpass */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
+		qcom,ssctl-instance-id = <14>;
+		qcom,sysmon-id = <1>;
 	};
