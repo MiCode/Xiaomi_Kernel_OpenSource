@@ -371,6 +371,7 @@ struct mdss_mdp_ctl {
 
 	u64 last_input_time;
 	int pending_mode_switch;
+	u16 frame_rate;
 };
 
 struct mdss_mdp_mixer {
@@ -699,6 +700,7 @@ struct mdss_mdp_set_ot_params {
 	u32 num;
 	u32 width;
 	u32 height;
+	u16 frame_rate;
 	bool is_rot;
 	bool is_wb;
 	bool is_yuv;
