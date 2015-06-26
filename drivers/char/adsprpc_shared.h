@@ -22,8 +22,6 @@
 #define FASTRPC_IOCTL_INVOKE_FD  _IOWR('R', 4, struct fastrpc_ioctl_invoke_fd)
 #define FASTRPC_IOCTL_SETMODE    _IOWR('R', 5, uint32_t)
 #define FASTRPC_IOCTL_INIT       _IOWR('R', 6, struct fastrpc_ioctl_init)
-#define FASTRPC_IOCTL_MUNMAP_REMOTE_HEAP  \
-			_IOWR('R', 7, struct fastrpc_ioctl_munmap_remote_heap)
 #define FASTRPC_SMD_GUID "fastrpcsmd-apps-dsp"
 #define DEVICE_NAME      "adsprpc-smd"
 
@@ -141,11 +139,6 @@ struct fastrpc_ioctl_munmap {
 	ssize_t size;		/* size */
 };
 
-struct fastrpc_ioctl_munmap_remote_heap {
-	uintptr_t vaddrout;	/* address to unmap */
-	ssize_t size;		/* size */
-	uint8_t akey;       /* authentication key */
-};
 
 struct fastrpc_ioctl_mmap {
 	int fd;				/* ion fd */
