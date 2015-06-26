@@ -4542,22 +4542,14 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 			goto hist_collect_exit;
 		}
 		if (hist_cnt > 1) {
-			hist_concat = kzalloc(HIST_V_SIZE * sizeof(u32),
-								GFP_KERNEL);
-			if (!hist_concat) {
-				ret = -ENOMEM;
-				goto hist_collect_exit;
-			}
-			for (i = 0; i < hist_cnt; i++) {
+			for (i = 1; i < hist_cnt; i++) {
 				mutex_lock(&hists[i]->hist_mutex);
 				for (j = 0; j < HIST_V_SIZE; j++)
-					hist_concat[j] += hists[i]->data[j];
+					hists[0]->data[j] += hists[i]->data[j];
 				mutex_unlock(&hists[i]->hist_mutex);
 			}
-			hist_data_addr = hist_concat;
-		} else {
-			hist_data_addr = hists[0]->data;
 		}
+		hist_data_addr = hists[0]->data;
 
 		for (i = 0; i < hist_cnt; i++)
 			hists[i]->hist_cnt_sent++;
