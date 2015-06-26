@@ -64,6 +64,9 @@ enum wcd_mbhc_register_function {
 	WCD_MBHC_SWCH_LEVEL_REMOVE,
 	WCD_MBHC_MOISTURE_VREF,
 	WCD_MBHC_PULLDOWN_CTRL,
+	WCD_MBHC_ANC_DET_EN,
+	WCD_MBHC_FSM_STATUS,
+	WCD_MBHC_MUX_CTL,
 	WCD_MBHC_REG_FUNC_MAX,
 };
 
@@ -74,6 +77,7 @@ enum wcd_mbhc_plug_type {
 	MBHC_PLUG_TYPE_HEADPHONE,
 	MBHC_PLUG_TYPE_HIGH_HPH,
 	MBHC_PLUG_TYPE_GND_MIC_SWAP,
+	MBHC_PLUG_TYPE_ANC_HEADPHONE,
 };
 
 enum pa_dac_ack_flags {
@@ -249,6 +253,9 @@ struct wcd_mbhc_config {
 	int key_code[WCD_MBHC_KEYCODE_NUM];
 	uint32_t linein_th;
 	struct wcd_mbhc_moisture_cfg moist_cfg;
+	int mbhc_micbias;
+	int anc_micbias;
+	bool enable_anc_mic_detect;
 };
 
 struct wcd_mbhc_intr {
@@ -349,7 +356,7 @@ struct wcd_mbhc_cb {
 			    int num_btn, bool);
 	void (*hph_pull_up_control)(struct snd_soc_codec *,
 				    enum mbhc_hs_pullup_iref);
-	int (*mbhc_micbias_control)(struct snd_soc_codec *, int req);
+	int (*mbhc_micbias_control)(struct snd_soc_codec *, int, int req);
 	void (*mbhc_micb_ramp_control)(struct snd_soc_codec *, bool);
 	void (*skip_imped_detect)(struct snd_soc_codec *);
 	bool (*extn_use_mb)(struct snd_soc_codec *);
