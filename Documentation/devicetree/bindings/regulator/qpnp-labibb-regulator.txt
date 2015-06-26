@@ -66,8 +66,8 @@ Sub IBB node required structure:
 - qcom,qpnp-lab-init-lcd-voltage: The default voltage when IBB regulator working in lcd mode and the output voltage register of value 0
 
 - qcom,qpnp-ibb-discharge-resistor:	The discharge resistor in Kilo Ohm who controls the soft start time. Supported values are 300, 64, 32 and 16.
-- qcom,qpnp-ibb-lab-pwrup-delay:	The delay in us of IBB regulator during power up. Supported value are 1250, 2500, 5000 and 10000.
-- qcom,qpnp-ibb-lab-pwrdn-delay:	The delay in us of IBB regulator during power down. Supported value are 1250, 2500, 5000 and 10000.
+- qcom,qpnp-ibb-lab-pwrup-delay:	Power up delay (in us) for IBB regulator when it is enabled or turned on. Supported value are 1000, 2000, 4000 and 8000.
+- qcom,qpnp-ibb-lab-pwrdn-delay:	Power down delay (in us) for IBB regulator when it is disabled or turned off. Supported value are 1000, 2000, 4000 and 8000.
 
 - qcom,qpnp-ibb-switching-clock-frequency:	The PWM switching clock frequency in kHz of IBB regulator, supported value are
 						3200, 	2740, 	2400,  	2130, 	1920, 	1750,	1600,	1480,	1370,	1280,
@@ -145,8 +145,8 @@ Example:
 				qcom,qpnp-ibb-soft-start = <400>;
 
 				qcom,qpnp-ibb-discharge-resistor = <300>;
-				qcom,qpnp-ibb-lab-pwrup-delay = <10000>;
-				qcom,qpnp-ibb-lab-pwrdn-delay = <10000>;
+				qcom,qpnp-ibb-lab-pwrup-delay = <8000>;
+				qcom,qpnp-ibb-lab-pwrdn-delay = <8000>;
 				qcom,qpnp-ibb-en-discharge;
 
 				qcom,qpnp-ibb-full-pull-down;
