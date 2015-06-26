@@ -614,6 +614,17 @@ static struct wcd_mbhc_register
 			  0, 0, 0, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_PULLDOWN_CTRL",
 			  0, 0, 0, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_ANC_DET_EN",
+			  WCD9335_ANA_MBHC_ZDET, 0x01, 0, 0),
+	/*
+	 * MBHC FSM status register is only available in Tasha 2.0.
+	 * So, init with 0 later once the version is known, then values
+	 * will be updated.
+	 */
+	WCD_MBHC_REGISTER("WCD_MBHC_FSM_STATUS",
+			  0, 0, 0, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_MUX_CTL",
+			  WCD9335_MBHC_CTL_2, 0x70, 4, 0),
 };
 
 static const struct wcd_mbhc_intr intr_ids = {
@@ -1357,7 +1368,7 @@ static int tasha_micbias_control(struct snd_soc_codec *codec,
 }
 
 static int tasha_mbhc_request_micbias(struct snd_soc_codec *codec,
-				      int req)
+				      int micb_num, int req)
 {
 	int ret;
 
@@ -1368,7 +1379,7 @@ static int tasha_mbhc_request_micbias(struct snd_soc_codec *codec,
 	if (req == MICB_ENABLE)
 		tasha_cdc_mclk_enable(codec, true, false);
 
-	ret = tasha_micbias_control(codec, MIC_BIAS_2, req, false);
+	ret = tasha_micbias_control(codec, micb_num, req, false);
 
 	/*
 	 * Release vote for mclk while requesting for
@@ -12029,6 +12040,9 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 			0x0C;
 		wcd_mbhc_registers[WCD_MBHC_MOISTURE_VREF].offset =
 			2;
+		wcd_mbhc_registers[WCD_MBHC_FSM_STATUS].reg =
+			WCD9335_MBHC_FSM_STATUS;
+		wcd_mbhc_registers[WCD_MBHC_FSM_STATUS].mask = 0x01;
 	}
 	ret = wcd_mbhc_init(&tasha->mbhc, codec, &mbhc_cb, &intr_ids,
 		      wcd_mbhc_registers, TASHA_ZDET_SUPPORTED);
