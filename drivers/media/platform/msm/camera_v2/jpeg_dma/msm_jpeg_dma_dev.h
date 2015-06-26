@@ -345,6 +345,8 @@ struct msm_jpegdma_device {
 	struct jpegdma_reg_cfg *vbif_regs;
 	unsigned int qos_regs_num;
 	struct jpegdma_reg_cfg *qos_regs;
+	unsigned int prefetch_regs_num;
+	struct jpegdma_reg_cfg *prefetch_regs;
 
 	uint32_t bus_client;
 	struct msm_bus_vectors bus_vectors;

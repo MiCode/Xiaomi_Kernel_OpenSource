@@ -1058,6 +1058,7 @@ static void msm_jpegdma_device_run(void *priv)
 	struct jpegdma_ctx *ctx = priv;
 
 	dev_dbg(ctx->jdma_device->dev, "Jpeg v4l2 dma device run E\n");
+
 	dst_buf = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
 	src_buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
 	if (src_buf == NULL || dst_buf == NULL) {
@@ -1197,6 +1198,10 @@ static int jpegdma_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto error_vbif_get;
 
+	ret = msm_jpegdma_hw_get_prefetch(jpegdma);
+	if (ret < 0)
+		goto error_prefetch_get;
+
 	ret = msm_jpegdma_hw_request_irq(pdev, jpegdma);
 	if (ret < 0)
 		goto error_hw_get_request_irq;
@@ -1250,6 +1255,8 @@ error_v4l2_register:
 error_m2m_init:
 	msm_jpegdma_hw_release_irq(jpegdma);
 error_hw_get_request_irq:
+	msm_jpegdma_hw_put_prefetch(jpegdma);
+error_prefetch_get:
 	msm_jpegdma_hw_put_vbif(jpegdma);
 error_vbif_get:
 	msm_jpegdma_hw_put_qos(jpegdma);

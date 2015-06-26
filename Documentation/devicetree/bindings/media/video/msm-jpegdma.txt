@@ -24,6 +24,8 @@ Optional properties:
 - qcom,qos-settings: QoS values to be written to QoS registers.
 - qcom,vbif-regs: relative address offsets of VBIF registers.
 - qcom,vbif-settings: VBIF values to be written to VBIF registers.
+- qcom,prefetch-regs: relative address offsets of MMU prefetch registers.
+- qcom,prefetch-settings: values to be written to MMU Prefetch registers.
 
 Example:
 	qcom,jpegdma@aa0000 {
@@ -54,5 +56,7 @@ Example:
 				<400000000 0 0 0 0 0 0 0 0>;
 		qcom,vbif-regs = <0x4 0xDC 0x124 0x160>;
 		qcom,vbif-settings = <0x1 0x7 0x1 0x22222222>;
+		qcom,prefetch-regs = <0x18C 0x1A0 0x1B0>;
+		qcom,prefetch-settings = <0x11 0x31 0x31>;
 		status = "ok";
 	};
