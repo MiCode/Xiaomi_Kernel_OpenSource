@@ -876,7 +876,8 @@
 
 	qcom,bbif@fd300000 {
 		compatible = "qcom,bbif-fsm9010";
-		reg = <0xfd300000 0x10000>;
+		reg = <0xfd300000 0x10000>,
+			<0xfc4b80d8 0x100>;
 	};
 
 	qcom,rfic@fd4a4090 {
