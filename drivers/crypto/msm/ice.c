@@ -25,6 +25,7 @@
 #include <linux/cdev.h>
 #include <linux/regulator/consumer.h>
 #include <linux/msm-bus.h>
+#include <linux/pfk.h>
 #include <crypto/ice.h>
 #include <soc/qcom/scm.h>
 #include "iceregs.h"
@@ -99,6 +100,51 @@ struct ice_device {
 	bool			is_regulator_available;
 	struct qcom_ice_bus_vote bus_vote;
 };
+
+static int qti_ice_setting_config(struct request *req,
+		struct platform_device *pdev,
+		struct ice_crypto_setting *crypto_data,
+		struct ice_data_setting *setting,
+		bool *configured)
+{
+	struct ice_device *ice_dev = NULL;
+
+	*configured = false;
+	ice_dev = platform_get_drvdata(pdev);
+
+	if (!ice_dev) {
+		pr_debug("%s no ICE device\n", __func__);
+
+		/* make the caller finish peacfully */
+		*configured = true;
+		return 0;
+	}
+
+	if (ice_dev->is_ice_disable_fuse_blown) {
+		pr_err("%s ICE disabled fuse is blown\n", __func__);
+		return -ENODEV;
+	}
+
+	if ((short)(crypto_data->key_index) >= 0) {
+
+		*configured = true;
+
+		memcpy(&setting->crypto_data, crypto_data,
+				sizeof(setting->crypto_data));
+
+		if (rq_data_dir(req) == WRITE)
+			setting->encr_bypass = false;
+		else if (rq_data_dir(req) == READ)
+			setting->decr_bypass = false;
+		else {
+			/* Should I say BUG_ON */
+			setting->encr_bypass = true;
+			setting->decr_bypass = true;
+		}
+	}
+
+	return 0;
+}
 
 static int qcom_ice_enable_clocks(struct ice_device *, bool);
 
@@ -1156,11 +1202,13 @@ static int qcom_ice_reset(struct  platform_device *pdev)
 EXPORT_SYMBOL(qcom_ice_reset);
 
 static int qcom_ice_config(struct platform_device *pdev, struct request *req,
-			struct ice_data_setting *setting)
+		struct ice_data_setting *setting)
 {
 	struct ice_crypto_setting *crypto_data;
-	struct ice_device *ice_dev;
+	struct ice_crypto_setting pfk_crypto_data = {0};
 	union map_info *info;
+	int ret = 0;
+	bool configured = 0;
 
 	if (!pdev || !req || !setting) {
 		pr_err("%s: Invalid params passed\n", __func__);
@@ -1182,6 +1230,27 @@ static int qcom_ice_config(struct platform_device *pdev, struct request *req,
 		return 0;
 	}
 
+	ret = pfk_load_key(req->bio, &pfk_crypto_data);
+	if (0 == ret) {
+		ret = qti_ice_setting_config(req, pdev, &pfk_crypto_data,
+			setting, &configured);
+
+		if (0 == ret) {
+			/**
+			 * if configuration was complete, we are done, no need
+			 * to go further with FDE
+			 */
+			if (configured)
+				return 0;
+		} else {
+			/**
+			 * there was an error with configuring the setting,
+			 * exit with error
+			 */
+			return ret;
+		}
+	}
+
 	/*
 	 * info field in req->end_io_data could be used by mulitple dm or
 	 * non-dm entities. To ensure that we are running operation on dm
@@ -1190,37 +1259,20 @@ static int qcom_ice_config(struct platform_device *pdev, struct request *req,
 	if (bio_flagged(req->bio, BIO_INLINECRYPT)) {
 		info = dm_get_rq_mapinfo(req);
 		if (!info) {
-			pr_err("%s info not available in request\n", __func__);
+			pr_debug("%s info not available in request\n",
+				 __func__);
 			return 0;
 		}
-
-		ice_dev = platform_get_drvdata(pdev);
 
 		crypto_data = (struct ice_crypto_setting *)info->ptr;
-
-		if (!ice_dev)
-			return 0;
-
-		if (ice_dev->is_ice_disable_fuse_blown) {
-			pr_err("%s ICE disabled fuse is blown\n", __func__);
-			return -ENODEV;
+		if (!crypto_data) {
+			pr_err("%s crypto_data not available in request\n",
+				 __func__);
+			return -EINVAL;
 		}
 
-		if (crypto_data->key_index >= 0) {
-
-			memcpy(&setting->crypto_data, crypto_data,
-					sizeof(struct ice_crypto_setting));
-
-			if (rq_data_dir(req) == WRITE)
-				setting->encr_bypass = false;
-			else if (rq_data_dir(req) == READ)
-				setting->decr_bypass = false;
-			else {
-				/* Should I say BUG_ON */
-				setting->encr_bypass = true;
-				setting->decr_bypass = true;
-			}
-		}
+		return qti_ice_setting_config(req, pdev, crypto_data,
+			setting, &configured);
 	}
 
 	/*
