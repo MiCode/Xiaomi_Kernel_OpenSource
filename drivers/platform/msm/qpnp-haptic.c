@@ -22,6 +22,7 @@
 #include <linux/qpnp/pwm.h>
 #include <linux/err.h>
 #include <linux/delay.h>
+#include <linux/qpnp/qpnp-haptic.h>
 #include "../../staging/android/timed_output.h"
 
 #define QPNP_IRQ_FLAGS	(IRQF_TRIGGER_RISING | \
@@ -50,8 +51,8 @@
 #define QPNP_HAP_WAV_REP_REG(b)		(b + 0x5E)
 #define QPNP_HAP_WAV_S_REG_BASE(b)	(b + 0x60)
 #define QPNP_HAP_PLAY_REG(b)		(b + 0x70)
-#define QPNP_HAP_SEC_ACCESS(b)		(b + 0xD0)
-#define QPNP_HAP_TEST2(b)               (b + 0xE3)
+#define QPNP_HAP_SEC_ACCESS_REG(b)	(b + 0xD0)
+#define QPNP_HAP_TEST2_REG(b)		(b + 0xE3)
 
 #define QPNP_HAP_STATUS_BUSY		0x02
 #define QPNP_HAP_ACT_TYPE_MASK		0xFE
@@ -107,6 +108,13 @@
 #define QPNP_HAP_EXT_PWM_FREQ_50_KHZ	50
 #define QPNP_HAP_EXT_PWM_FREQ_75_KHZ	75
 #define QPNP_HAP_EXT_PWM_FREQ_100_KHZ	100
+#define PWM_MAX_DTEST_LINES		4
+#define QPNP_HAP_EXT_PWM_DTEST_MASK	0x0F
+#define QPNP_HAP_EXT_PWM_DTEST_SHFT	4
+#define QPNP_HAP_EXT_PWM_PEAK_DATA	0x7F
+#define QPNP_HAP_EXT_PWM_HALF_DUTY	50
+#define QPNP_HAP_EXT_PWM_FULL_DUTY	100
+#define QPNP_HAP_EXT_PWM_DATA_FACTOR	39
 #define QPNP_HAP_WAV_SINE		0
 #define QPNP_HAP_WAV_SQUARE		1
 #define QPNP_HAP_WAV_SAMP_LEN		8
@@ -125,6 +133,7 @@
 #define QPNP_HAP_STR_SIZE		20
 #define QPNP_HAP_MAX_RETRIES		5
 #define QPNP_HAP_CYCLS			5
+#define QPNP_TEST_TIMER_MS		5
 
 #define AUTO_RES_ENABLE_TIMEOUT		20000
 #define AUTO_RES_ERR_CAPTURE_RES	5
@@ -144,7 +153,41 @@ int lra_play_rate_code[LRA_POS_FREQ_COUNT];
 static u8 qpnp_hap_dbg_regs[] = {
 	0x0a, 0x0b, 0x0c, 0x46, 0x48, 0x4c, 0x4d, 0x4e, 0x4f, 0x51, 0x52, 0x53,
 	0x54, 0x55, 0x56, 0x57, 0x58, 0x5c, 0x5e, 0x60, 0x61, 0x62, 0x63, 0x64,
-	0x65, 0x66, 0x67, 0x70
+	0x65, 0x66, 0x67, 0x70, 0xE3,
+};
+
+/* ramp up/down test sequence */
+static u8 qpnp_hap_ramp_test_data[] = {
+	0x0, 0x19, 0x32, 0x4C, 0x65, 0x7F, 0x65, 0x4C, 0x32, 0x19,
+	0x0, 0x99, 0xB2, 0xCC, 0xE5, 0xFF, 0xE5, 0xCC, 0xB2, 0x99,
+	0x0, 0x19, 0x32, 0x4C, 0x65, 0x7F, 0x65, 0x4C, 0x32, 0x19,
+	0x0, 0x99, 0xB2, 0xCC, 0xE5, 0xFF, 0xE5, 0xCC, 0xB2, 0x99,
+	0x0, 0x19, 0x32, 0x4C, 0x65, 0x7F, 0x65, 0x4C, 0x32, 0x19,
+	0x0, 0x99, 0xB2, 0xCC, 0xE5, 0xFF, 0xE5, 0xCC, 0xB2, 0x99,
+	0x0, 0x19, 0x32, 0x4C, 0x65, 0x7F, 0x65, 0x4C, 0x32, 0x19,
+	0x0, 0x99, 0xB2, 0xCC, 0xE5, 0xFF, 0xE5, 0xCC, 0xB2, 0x99,
+	0x0, 0x19, 0x32, 0x4C, 0x65, 0x7F, 0x65, 0x4C, 0x32, 0x19,
+	0x0, 0x99, 0xB2, 0xCC, 0xE5, 0xFF, 0xE5, 0xCC, 0xB2, 0x99,
+	0x0, 0x19, 0x32, 0x4C, 0x65, 0x7F, 0x65, 0x4C, 0x32, 0x19,
+	0x0, 0x99, 0xB2, 0xCC, 0xE5, 0xFF, 0xE5, 0xCC, 0xB2, 0x99,
+	0x0, 0x19, 0x32, 0x4C, 0x65, 0x7F, 0x65, 0x4C, 0x32, 0x19,
+	0x0, 0x99, 0xB2, 0xCC, 0xE5, 0xFF, 0xE5, 0xCC, 0xB2, 0x99,
+};
+
+/* alternate max and min sequence */
+static u8 qpnp_hap_min_max_test_data[] = {
+	0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF,
+	0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF,
+	0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF,
+	0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF,
+	0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF,
+	0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF,
+	0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF,
+	0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF,
+	0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF,
+	0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF,
+	0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF,
+	0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF, 0x0, 0x7F, 0x0, 0xFF,
 };
 
 /*
@@ -237,9 +280,12 @@ struct qpnp_hap {
 	struct timed_output_dev timed_dev;
 	struct work_struct work;
 	struct work_struct auto_res_err_work;
+	struct hrtimer hap_test_timer;
+	struct work_struct test_work;
 	struct qpnp_pwm_info pwm_info;
 	struct mutex lock;
 	struct mutex wf_lock;
+	struct completion completion;
 	enum qpnp_hap_mode play_mode;
 	enum qpnp_hap_auto_res_mode auto_res_mode;
 	enum qpnp_hap_high_z lra_high_z;
@@ -263,6 +309,7 @@ struct qpnp_hap {
 	u8 reg_en_ctl;
 	u8 reg_play;
 	u8 lra_res_cal_period;
+	u8 ext_pwm_dtest_line;
 	bool state;
 	bool use_play_irq;
 	bool use_sc_irq;
@@ -274,6 +321,8 @@ struct qpnp_hap {
 	bool correct_lra_drive_freq;
 	bool misc_trim_error_rc19p2_clk_reg_present;
 };
+
+static struct qpnp_hap *ghap;
 
 /* helper to read a pmic register */
 static int qpnp_hap_read_reg(struct qpnp_hap *hap, u8 *data, u16 addr)
@@ -304,6 +353,21 @@ static int qpnp_hap_write_reg(struct qpnp_hap *hap, u8 *data, u16 addr)
 	return rc;
 }
 
+/* helper to access secure registers */
+static int qpnp_hap_sec_access(struct qpnp_hap *hap)
+{
+	int rc;
+	u8 reg = QPNP_HAP_SEC_UNLOCK;
+
+	rc = qpnp_hap_write_reg(hap, &reg,
+		QPNP_HAP_SEC_ACCESS_REG(hap->base));
+	if (rc)
+		return rc;
+
+	return 0;
+}
+
+
 static int qpnp_hap_mod_enable(struct qpnp_hap *hap, int on)
 {
 	u8 val;
@@ -325,8 +389,9 @@ static int qpnp_hap_mod_enable(struct qpnp_hap *hap, int on)
 
 			/* wait for QPNP_HAP_CYCLS cycles of play rate */
 			if (val & QPNP_HAP_STATUS_BUSY) {
-				usleep_range(sleep_time, sleep_time);
-				if (hap->play_mode == QPNP_HAP_DIRECT)
+				usleep_range(sleep_time, sleep_time + 1);
+				if (hap->play_mode == QPNP_HAP_DIRECT ||
+					hap->play_mode == QPNP_HAP_PWM)
 					break;
 			} else
 				break;
@@ -526,15 +591,34 @@ static int qpnp_hap_pwm_config(struct qpnp_hap *hap)
 	if (rc)
 		return rc;
 
-	hap->pwm_info.pwm_dev = pwm_request(hap->pwm_info.pwm_channel,
-							 "qpnp-hap");
-	if (IS_ERR_OR_NULL(hap->pwm_info.pwm_dev)) {
-		dev_err(&hap->spmi->dev, "hap pwm request failed\n");
-		return -ENODEV;
+	rc = qpnp_hap_read_reg(hap, &reg,
+			QPNP_HAP_TEST2_REG(hap->base));
+	if (rc)
+		return rc;
+	if (!hap->ext_pwm_dtest_line ||
+			hap->ext_pwm_dtest_line > PWM_MAX_DTEST_LINES) {
+		dev_err(&hap->spmi->dev, "invalid dtest line\n");
+		return -EINVAL;
 	}
 
-	rc = pwm_config(hap->pwm_info.pwm_dev, hap->pwm_info.duty_us,
-					hap->pwm_info.period_us);
+	/* disable auto res for PWM mode */
+	reg &= QPNP_HAP_EXT_PWM_DTEST_MASK;
+	temp = hap->ext_pwm_dtest_line << QPNP_HAP_EXT_PWM_DTEST_SHFT;
+	reg |= temp;
+
+	/* TEST2 is a secure access register */
+	rc = qpnp_hap_sec_access(hap);
+	if (rc)
+		return rc;
+
+	rc = qpnp_hap_write_reg(hap, &reg,
+			QPNP_HAP_TEST2_REG(hap->base));
+	if (rc)
+		return rc;
+
+	rc = pwm_config(hap->pwm_info.pwm_dev,
+				hap->pwm_info.duty_us * NSEC_PER_USEC,
+				hap->pwm_info.period_us * NSEC_PER_USEC);
 	if (rc < 0) {
 		dev_err(&hap->spmi->dev, "hap pwm config failed\n");
 		pwm_free(hap->pwm_info.pwm_dev);
@@ -690,6 +774,15 @@ static int qpnp_hap_parse_pwm_dt(struct qpnp_hap *hap)
 	else
 		return rc;
 
+	hap->pwm_info.pwm_dev = of_pwm_get(spmi->dev.of_node, NULL);
+
+	if (IS_ERR(hap->pwm_info.pwm_dev)) {
+		rc = PTR_ERR(hap->pwm_info.pwm_dev);
+		dev_err(&spmi->dev, "Cannot get PWM device rc:(%d)\n", rc);
+		hap->pwm_info.pwm_dev = NULL;
+		return rc;
+	}
+
 	rc = of_property_read_u32(spmi->dev.of_node,
 			"qcom,period-us", &temp);
 	if (!rc)
@@ -701,6 +794,13 @@ static int qpnp_hap_parse_pwm_dt(struct qpnp_hap *hap)
 			"qcom,duty-us", &temp);
 	if (!rc)
 		hap->pwm_info.duty_us = temp;
+	else
+		return rc;
+
+	rc = of_property_read_u32(spmi->dev.of_node,
+			"qcom,ext-pwm-dtest-line", &temp);
+	if (!rc)
+		hap->ext_pwm_dtest_line = temp;
 	else
 		return rc;
 
@@ -1056,6 +1156,98 @@ static ssize_t qpnp_hap_play_mode_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%s\n", str);
 }
 
+/* sysfs store for ramp test data */
+static ssize_t qpnp_hap_min_max_test_data_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct timed_output_dev *timed_dev = dev_get_drvdata(dev);
+	struct qpnp_hap *hap = container_of(timed_dev, struct qpnp_hap,
+					 timed_dev);
+
+	int value = QPNP_TEST_TIMER_MS, i;
+
+	mutex_lock(&hap->lock);
+	qpnp_hap_mod_enable(hap, true);
+	for (i = 0; i < ARRAY_SIZE(qpnp_hap_min_max_test_data); i++) {
+		hrtimer_start(&hap->hap_test_timer,
+			      ktime_set(value / 1000, (value % 1000) * 1000000),
+			      HRTIMER_MODE_REL);
+		qpnp_hap_play_byte(qpnp_hap_min_max_test_data[i], true);
+		wait_for_completion(&hap->completion);
+	}
+
+	qpnp_hap_play_byte(0, false);
+	qpnp_hap_mod_enable(hap, false);
+	mutex_unlock(&hap->lock);
+
+	return count;
+}
+
+/* sysfs show function for min max test data */
+static ssize_t qpnp_hap_min_max_test_data_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int count = 0, i;
+
+	for (i = 0; i < ARRAY_SIZE(qpnp_hap_min_max_test_data); i++) {
+		count += snprintf(buf + count, PAGE_SIZE - count,
+				"qpnp_haptics: min_max_test_data[%d] = 0x%x\n",
+				i, qpnp_hap_min_max_test_data[i]);
+
+		if (count >= PAGE_SIZE)
+			return PAGE_SIZE - 1;
+	}
+
+	return count;
+
+}
+
+/* sysfs store for ramp test data */
+static ssize_t qpnp_hap_ramp_test_data_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct timed_output_dev *timed_dev = dev_get_drvdata(dev);
+	struct qpnp_hap *hap = container_of(timed_dev, struct qpnp_hap,
+					 timed_dev);
+
+	int value = QPNP_TEST_TIMER_MS, i;
+
+	mutex_lock(&hap->lock);
+	qpnp_hap_mod_enable(hap, true);
+	for (i = 0; i < ARRAY_SIZE(qpnp_hap_ramp_test_data); i++) {
+		hrtimer_start(&hap->hap_test_timer,
+			      ktime_set(value / 1000, (value % 1000) * 1000000),
+			      HRTIMER_MODE_REL);
+		qpnp_hap_play_byte(qpnp_hap_ramp_test_data[i], true);
+		wait_for_completion(&hap->completion);
+	}
+
+	qpnp_hap_play_byte(0, false);
+	qpnp_hap_mod_enable(hap, false);
+	mutex_unlock(&hap->lock);
+
+	return count;
+}
+
+/* sysfs show function for ramp test data */
+static ssize_t qpnp_hap_ramp_test_data_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int count = 0, i;
+
+	for (i = 0; i < ARRAY_SIZE(qpnp_hap_ramp_test_data); i++) {
+		count += snprintf(buf + count, PAGE_SIZE - count,
+				"qpnp_haptics: ramp_test_data[%d] = 0x%x\n",
+				i, qpnp_hap_ramp_test_data[i]);
+
+		if (count >= PAGE_SIZE)
+			return PAGE_SIZE - 1;
+	}
+
+	return count;
+
+}
+
 /* sysfs attributes */
 static struct device_attribute qpnp_hap_attrs[] = {
 	__ATTR(wf_s0, (S_IRUGO | S_IWUSR | S_IWGRP),
@@ -1097,6 +1289,12 @@ static struct device_attribute qpnp_hap_attrs[] = {
 	__ATTR(dump_regs, (S_IRUGO | S_IWUSR | S_IWGRP),
 			qpnp_hap_dump_regs_show,
 			NULL),
+	__ATTR(ramp_test, (S_IRUGO | S_IWUSR | S_IWGRP),
+			qpnp_hap_ramp_test_data_show,
+			qpnp_hap_ramp_test_data_store),
+	__ATTR(min_max_test, (S_IRUGO | S_IWUSR | S_IWGRP),
+			qpnp_hap_min_max_test_data_show,
+			qpnp_hap_min_max_test_data_store),
 };
 
 static void calculate_lra_code(struct qpnp_hap *hap)
@@ -1129,12 +1327,7 @@ static int qpnp_hap_auto_res_enable(struct qpnp_hap *hap, int enable)
 	int rc = 0;
 	u8 val;
 
-	val = QPNP_HAP_SEC_UNLOCK;
-	rc = qpnp_hap_write_reg(hap, &val, QPNP_HAP_SEC_ACCESS(hap->base));
-	if (rc < 0)
-		return rc;
-
-	rc = qpnp_hap_read_reg(hap, &val, QPNP_HAP_TEST2(hap->base));
+	rc = qpnp_hap_read_reg(hap, &val, QPNP_HAP_TEST2_REG(hap->base));
 	if (rc < 0)
 		return rc;
 	val &= QPNP_HAP_TEST2_AUTO_RES_MASK;
@@ -1144,7 +1337,12 @@ static int qpnp_hap_auto_res_enable(struct qpnp_hap *hap, int enable)
 	else
 		val |= AUTO_RES_DISABLE;
 
-	rc = qpnp_hap_write_reg(hap, &val, QPNP_HAP_TEST2(hap->base));
+	/* TEST2 is a secure access register */
+	rc = qpnp_hap_sec_access(hap);
+	if (rc)
+		return rc;
+
+	rc = qpnp_hap_write_reg(hap, &val, QPNP_HAP_TEST2_REG(hap->base));
 	if (rc)
 		return rc;
 
@@ -1327,11 +1525,71 @@ static void qpnp_hap_td_enable(struct timed_output_dev *dev, int value)
 	schedule_work(&hap->work);
 }
 
+/* play pwm bytes */
+int qpnp_hap_play_byte(u8 data, bool on)
+{
+	struct qpnp_hap *hap = ghap;
+	int duty_ns, period_ns, duty_percent, rc;
+
+	if (!hap) {
+		pr_err("Haptics is not initialized\n");
+		return -EINVAL;
+	}
+
+	if (hap->play_mode != QPNP_HAP_PWM) {
+		dev_err(&hap->spmi->dev, "only PWM mode is supported\n");
+		return -EINVAL;
+	}
+
+	rc = qpnp_hap_set(hap, false);
+	if (rc)
+		return rc;
+
+	if (!on) {
+		/* set the pwm back to original duty for normal operations */
+		/* this is not required if standard interface is not used */
+		rc = pwm_config(hap->pwm_info.pwm_dev,
+				hap->pwm_info.duty_us * NSEC_PER_USEC,
+				hap->pwm_info.period_us * NSEC_PER_USEC);
+		return rc;
+	}
+
+	/* pwm values range from 0x00 to 0xff. The range from 0x00 to 0x7f
+	   provides a postive amplitude in the sin wave form for 0 to 100%.
+	   The range from 0x80 to 0xff provides a negative amplitude in the
+	   sin wave form for 0 to 100%. Here the duty percentage is calculated
+	   based on the incoming data to accommodate this. */
+	if (data <= QPNP_HAP_EXT_PWM_PEAK_DATA)
+		duty_percent = QPNP_HAP_EXT_PWM_HALF_DUTY +
+			((data * QPNP_HAP_EXT_PWM_DATA_FACTOR) / 100);
+	else
+		duty_percent = QPNP_HAP_EXT_PWM_FULL_DUTY -
+			((data * QPNP_HAP_EXT_PWM_DATA_FACTOR) / 100);
+
+	period_ns = hap->pwm_info.period_us * NSEC_PER_USEC;
+	duty_ns = (period_ns * duty_percent) / 100;
+	rc = pwm_config(hap->pwm_info.pwm_dev,
+			duty_ns,
+			hap->pwm_info.period_us * NSEC_PER_USEC);
+	if (rc)
+		return rc;
+
+	dev_dbg(&hap->spmi->dev, "data=0x%x duty_per=%d\n", data, duty_percent);
+
+	rc = qpnp_hap_set(hap, true);
+
+	return rc;
+}
+EXPORT_SYMBOL(qpnp_hap_play_byte);
+
 /* worker to opeate haptics */
 static void qpnp_hap_worker(struct work_struct *work)
 {
 	struct qpnp_hap *hap = container_of(work, struct qpnp_hap,
 					 work);
+
+	if (hap->play_mode == QPNP_HAP_PWM)
+		qpnp_hap_mod_enable(hap, hap->state);
 	qpnp_hap_set(hap, hap->state);
 }
 
@@ -1357,6 +1615,17 @@ static enum hrtimer_restart qpnp_hap_timer(struct hrtimer *timer)
 
 	hap->state = 0;
 	schedule_work(&hap->work);
+
+	return HRTIMER_NORESTART;
+}
+
+/* hrtimer function handler */
+static enum hrtimer_restart qpnp_hap_test_timer(struct hrtimer *timer)
+{
+	struct qpnp_hap *hap = container_of(timer, struct qpnp_hap,
+							 hap_test_timer);
+
+	complete(&hap->completion);
 
 	return HRTIMER_NORESTART;
 }
@@ -1874,9 +2143,13 @@ static int qpnp_haptic_probe(struct spmi_device *spmi)
 	mutex_init(&hap->lock);
 	mutex_init(&hap->wf_lock);
 	INIT_WORK(&hap->work, qpnp_hap_worker);
+	init_completion(&hap->completion);
 
 	hrtimer_init(&hap->hap_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	hap->hap_timer.function = qpnp_hap_timer;
+
+	hrtimer_init(&hap->hap_test_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	hap->hap_test_timer.function = qpnp_hap_test_timer;
 
 	hap->timed_dev.name = "vibrator";
 	hap->timed_dev.get_time = qpnp_hap_get_time;
@@ -1903,6 +2176,8 @@ static int qpnp_haptic_probe(struct spmi_device *spmi)
 			goto sysfs_fail;
 		}
 	}
+
+	ghap = hap;
 
 	return 0;
 
