@@ -1616,7 +1616,7 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 	SPRINT("max_downscale_ratio=%d\n", MAX_DOWNSCALE_RATIO);
 	SPRINT("max_upscale_ratio=%d\n", MAX_UPSCALE_RATIO);
 	if (mdata->props)
-		SPRINT("props=%d", mdata->props);
+		SPRINT("props=%d\n", mdata->props);
 	if (mdata->max_bw_low)
 		SPRINT("max_bandwidth_low=%u\n", mdata->max_bw_low);
 	if (mdata->max_bw_high)
