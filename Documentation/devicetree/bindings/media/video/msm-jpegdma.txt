@@ -17,13 +17,13 @@ Required properties:
 - camss-vdd-supply: phandle to GDSC regulator controlling camss.
 - clock-names : names of clocks required for the device.
 - clocks : clocks required for the device.
-- clock-rates: should specify clock rates in Hz to each clocks
+- qcom,clock-rates: should specify clock rates in Hz to each clocks
     property defined.
 Optional properties:
-- qos-regs: relative address offsets of QoS registers.
-- qos-settings: QoS values to be written to QoS registers.
-- vbif-regs: relative address offsets of VBIF registers.
-- vbif-settings: VBIF values to be written to VBIF registers.
+- qcom,qos-regs: relative address offsets of QoS registers.
+- qcom,qos-settings: QoS values to be written to QoS registers.
+- qcom,vbif-regs: relative address offsets of VBIF registers.
+- qcom,vbif-settings: VBIF values to be written to VBIF registers.
 
 Example:
 	qcom,jpegdma@aa0000 {
@@ -50,9 +50,9 @@ Example:
 			<&clock_mmss clk_mmss_mmagic_ahb_clk>,
 			<&clock_mmss clk_mmss_mmagic_axi_clk>,
 			<&clock_mmss clk_mmagic_camss_axi_clk>;
-		clock-rates = <266670000 0 0 0 0 0 0 0 0>,
+		qcom,clock-rates = <266670000 0 0 0 0 0 0 0 0>,
 				<400000000 0 0 0 0 0 0 0 0>;
-		vbif-regs = <0x4 0xDC 0x124 0x160>;
-		vbif-settings = <0x1 0x7 0x1 0x22222222>;
+		qcom,vbif-regs = <0x4 0xDC 0x124 0x160>;
+		qcom,vbif-settings = <0x1 0x7 0x1 0x22222222>;
 		status = "ok";
 	};

@@ -24,12 +24,13 @@ int msm_jpegdma_hw_set_config(struct msm_jpegdma_device *dma,
 
 int msm_jpegdma_hw_start(struct msm_jpegdma_device *dma,
 	struct msm_jpegdma_addr *addr,
-	struct msm_jpegdma_plane *plane);
+	struct msm_jpegdma_plane *plane,
+	struct msm_jpegdma_speed *speed);
 
 int msm_jpegdma_hw_abort(struct msm_jpegdma_device *dma);
 
 int msm_jpegdma_hw_update_bus_data(struct msm_jpegdma_device *dma,
-	unsigned int clk_idx);
+	u64 ab, u64 ib);
 
 int msm_jpegdma_hw_handle_irq(struct msm_jpegdma_device *dma);
 
@@ -59,13 +60,9 @@ int msm_jpegdma_hw_get_vbif(struct msm_jpegdma_device *dma);
 
 void msm_jpegdma_hw_put_vbif(struct msm_jpegdma_device *dma);
 
-int msm_jpegdma_hw_update_clock_rate_idx(struct msm_jpegdma_device *dma,
-	int clock_rate_idx);
-
 int msm_jpegdma_hw_get_capabilities(struct msm_jpegdma_device *dma);
 
-int msm_jpegdma_hw_get(struct msm_jpegdma_device *dma,
-	unsigned int clock_rate_idx);
+int msm_jpegdma_hw_get(struct msm_jpegdma_device *dma);
 
 void msm_jpegdma_hw_put(struct msm_jpegdma_device *dma);
 

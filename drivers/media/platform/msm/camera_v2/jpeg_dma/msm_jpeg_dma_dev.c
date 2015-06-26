@@ -37,6 +37,7 @@ static struct msm_jpegdma_format formats[] = {
 	{
 		.name = "Greyscale",
 		.fourcc = V4L2_PIX_FMT_GREY,
+		.depth = 8,
 		.num_planes = 1,
 		.colplane_h = 1,
 		.colplane_v = 1,
@@ -47,6 +48,7 @@ static struct msm_jpegdma_format formats[] = {
 	{
 		.name = "Y/CbCr 4:2:0",
 		.fourcc = V4L2_PIX_FMT_NV12,
+		.depth = 12,
 		.num_planes = 2,
 		.colplane_h = 1,
 		.colplane_v = 2,
@@ -58,6 +60,7 @@ static struct msm_jpegdma_format formats[] = {
 	{
 		.name = "Y/CrCb 4:2:0",
 		.fourcc = V4L2_PIX_FMT_NV21,
+		.depth = 12,
 		.num_planes = 2,
 		.colplane_h = 1,
 		.colplane_v = 2,
@@ -69,6 +72,7 @@ static struct msm_jpegdma_format formats[] = {
 	{
 		.name = "YUV 4:2:0 planar, YCbCr",
 		.fourcc = V4L2_PIX_FMT_YUV420,
+		.depth = 12,
 		.num_planes = 3,
 		.colplane_h = 2,
 		.colplane_v = 2,
@@ -140,14 +144,14 @@ static void msm_jpegdma_fill_size_from_ctx(struct jpegdma_ctx *ctx,
 	size->in_size.left = ctx->crop.left;
 	size->in_size.width = ctx->crop.width;
 	size->in_size.height = ctx->crop.height;
-	size->in_size.real_height = ctx->format_out.fmt.pix.height;
+	size->in_size.scanline = ctx->format_out.fmt.pix.height;
 	size->in_size.stride = ctx->format_out.fmt.pix.bytesperline;
 
 	size->out_size.top = 0;
 	size->out_size.left = 0;
 	size->out_size.width = ctx->format_cap.fmt.pix.width;
 	size->out_size.height = ctx->format_cap.fmt.pix.height;
-	size->out_size.real_height = ctx->format_cap.fmt.pix.height;
+	size->out_size.scanline = ctx->format_cap.fmt.pix.height;
 	size->out_size.stride = ctx->format_cap.fmt.pix.bytesperline;
 }
 
@@ -173,10 +177,10 @@ static void msm_jpegdma_align_format(struct v4l2_format *f, int format_idx)
 	if (f->fmt.pix.height < MSM_JPEGDMA_MIN_HEIGHT)
 		f->fmt.pix.height = MSM_JPEGDMA_MIN_HEIGHT;
 
-	if (formats[format_idx].h_align)
+	if (formats[format_idx].h_align > 1)
 		f->fmt.pix.width &= ~(formats[format_idx].h_align - 1);
 
-	if (formats[format_idx].v_align)
+	if (formats[format_idx].v_align > 1)
 		f->fmt.pix.height &= ~(formats[format_idx].v_align - 1);
 
 	if (f->fmt.pix.bytesperline < f->fmt.pix.width)
@@ -243,7 +247,8 @@ static int msm_jpegdma_update_hw_config(struct jpegdma_ctx *ctx)
 	int ret = 0;
 
 	if (msm_jpegdma_config_ok(ctx)) {
-		mutex_lock(&ctx->lock);
+		size.fps = ctx->timeperframe.denominator /
+			ctx->timeperframe.numerator;
 
 		size.format = formats[ctx->format_idx];
 
@@ -257,8 +262,6 @@ static int msm_jpegdma_update_hw_config(struct jpegdma_ctx *ctx)
 			dev_err(ctx->jdma_device->dev, "Can not get hw cfg\n");
 		else
 			ctx->pending_config = 1;
-
-		mutex_unlock(&ctx->lock);
 	}
 
 	return ret;
@@ -324,12 +327,19 @@ static int msm_jpegdma_start_streaming(struct vb2_queue *q, unsigned int count)
 	struct jpegdma_ctx *ctx = vb2_get_drv_priv(q);
 	int ret;
 
-	ret = msm_jpegdma_hw_get(ctx->jdma_device, ctx->speed);
+	ret = msm_jpegdma_hw_get(ctx->jdma_device);
 	if (ret < 0) {
 		dev_err(ctx->jdma_device->dev, "Fail to get dma hw\n");
 		return ret;
 	}
-	atomic_set(&ctx->active, 1);
+	if (!atomic_read(&ctx->active)) {
+		ret =  msm_jpegdma_update_hw_config(ctx);
+		if (ret < 0) {
+			dev_err(ctx->jdma_device->dev, "Fail to configure hw\n");
+			return ret;
+		}
+		atomic_set(&ctx->active, 1);
+	}
 
 	return 0;
 }
@@ -471,9 +481,10 @@ static int msm_jpegdma_open(struct file *file)
 
 	mutex_init(&ctx->lock);
 	ctx->jdma_device = device;
-
+	dev_dbg(ctx->jdma_device->dev, "Jpeg v4l2 dma open\n");
 	/* Set ctx defaults */
-	ctx->speed = ctx->jdma_device->clk_rates_num - 1;
+	ctx->timeperframe.numerator = 1;
+	ctx->timeperframe.denominator = MSM_JPEGDMA_DEFAULT_FPS;
 	atomic_set(&ctx->active, 0);
 
 	v4l2_fh_init(&ctx->fh, video);
@@ -489,7 +500,7 @@ static int msm_jpegdma_open(struct file *file)
 	}
 	init_completion(&ctx->completion);
 	complete_all(&ctx->completion);
-
+	dev_dbg(ctx->jdma_device->dev, "Jpeg v4l2 dma open success\n");
 	return 0;
 
 error_m2m_init:
@@ -687,7 +698,7 @@ static int msm_jpegdma_s_fmt_vid_cap(struct file *file,
 
 	ctx->format_cap = *f;
 
-	return msm_jpegdma_update_hw_config(ctx);
+	return 0;
 }
 
 /*
@@ -718,7 +729,7 @@ static int msm_jpegdma_s_fmt_vid_out(struct file *file,
 
 	ctx->format_out = *f;
 
-	return msm_jpegdma_update_hw_config(ctx);
+	return 0;
 }
 
 /*
@@ -818,81 +829,6 @@ static int msm_jpegdma_streamoff(struct file *file,
 }
 
 /*
- * msm_jpegdma_guery_ctrl - V4l2 ioctl query control.
- * @file: Pointer to file struct.
- * @fh: V4l2 File handle.
- * @a: Pointer to v4l2_queryctrl struct info need to be filled based on id.
- */
-static int msm_jpegdma_guery_ctrl(struct file *file, void *fh,
-	struct v4l2_queryctrl *a)
-{
-	struct jpegdma_ctx *ctx = msm_jpegdma_ctx_from_fh(fh);
-
-	switch (a->id) {
-	case V4L2_CID_JPEG_DMA_SPEED:
-		a->type = V4L2_CTRL_TYPE_INTEGER;
-		a->default_value = ctx->jdma_device->clk_rates_num - 1;
-		a->minimum = 0;
-		a->maximum = ctx->jdma_device->clk_rates_num - 1;
-		a->step = 1;
-		strlcpy(a->name, "msm jpeg dma speed idx",
-			sizeof(a->name));
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-/*
- * msm_jpegdma_g_ctrl - V4l2 ioctl get control.
- * @file: Pointer to file struct.
- * @fh: V4l2 File handle.
- * @a: Pointer to v4l2_queryctrl struct need to be filled.
- */
-static int msm_jpegdma_g_ctrl(struct file *file, void *fh,
-	struct v4l2_control *a)
-{
-	struct jpegdma_ctx *ctx = msm_jpegdma_ctx_from_fh(fh);
-
-	switch (a->id) {
-	case V4L2_CID_JPEG_DMA_SPEED:
-		a->value = ctx->speed;
-		break;
-	default:
-		return -EINVAL;
-	}
-	return 0;
-}
-
-/*
- * msm_jpegdma_s_ctrl - V4l2 ioctl set control.
- * @file: Pointer to file struct.
- * @fh: V4l2 File handle.
- * @a: Pointer to v4l2_queryctrl struct need to be set.
- */
-static int msm_jpegdma_s_ctrl(struct file *file, void *fh,
-	struct v4l2_control *a)
-{
-	struct jpegdma_ctx *ctx = msm_jpegdma_ctx_from_fh(fh);
-
-	switch (a->id) {
-	case V4L2_CID_JPEG_DMA_SPEED:
-		if (a->value > ctx->jdma_device->clk_rates_num - 1)
-			a->value = ctx->jdma_device->clk_rates_num - 1;
-		else if (a->value < 0)
-			a->value = 0;
-
-		ctx->speed = a->value;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	return 0;
-}
-/*
  * msm_jpegdma_cropcap - V4l2 ioctl crop capabilites.
  * @file: Pointer to file struct.
  * @fh: V4l2 File handle.
@@ -951,7 +887,6 @@ static int msm_jpegdma_g_crop(struct file *file, void *fh,
 		break;
 	default:
 		return -EINVAL;
-
 	}
 	return 0;
 }
@@ -966,6 +901,7 @@ static int msm_jpegdma_s_crop(struct file *file, void *fh,
 	const struct v4l2_crop *crop)
 {
 	struct jpegdma_ctx *ctx = msm_jpegdma_ctx_from_fh(fh);
+	int ret = 0;
 
 	/* Crop is supported only for input buffers */
 	if (crop->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)
@@ -1000,9 +936,65 @@ static int msm_jpegdma_s_crop(struct file *file, void *fh,
 	if (crop->c.top % formats[ctx->format_idx].v_align)
 		return -EINVAL;
 
-	ctx->crop = crop->c;
+	mutex_lock(&ctx->lock);
 
-	return msm_jpegdma_update_hw_config(ctx);
+	ctx->crop = crop->c;
+	if (atomic_read(&ctx->active))
+		ret = msm_jpegdma_update_hw_config(ctx);
+
+	mutex_unlock(&ctx->lock);
+
+	return ret;
+}
+
+/*
+ * msm_jpegdma_g_crop - V4l2 ioctl get parm.
+ * @file: Pointer to file struct.
+ * @fh: V4l2 File handle.
+ * @a: Pointer to v4l2_streamparm struct need to be filled.
+ */
+static int msm_jpegdma_g_parm(struct file *file, void *fh,
+	struct v4l2_streamparm *a)
+{
+	struct jpegdma_ctx *ctx = msm_jpegdma_ctx_from_fh(fh);
+
+	/* Get param is supported only for input buffers */
+	if (a->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)
+		return -EINVAL;
+
+	a->parm.output.capability = 0;
+	a->parm.output.extendedmode = 0;
+	a->parm.output.outputmode = 0;
+	a->parm.output.writebuffers = 0;
+	a->parm.output.timeperframe = ctx->timeperframe;
+
+	return 0;
+}
+
+/*
+ * msm_jpegdma_s_crop - V4l2 ioctl set parm.
+ * @file: Pointer to file struct.
+ * @fh: V4l2 File handle.
+ * @a: Pointer to v4l2_streamparm struct need to be set.
+ */
+static int msm_jpegdma_s_parm(struct file *file, void *fh,
+	struct v4l2_streamparm *a)
+{
+	struct jpegdma_ctx *ctx = msm_jpegdma_ctx_from_fh(fh);
+	/* Set param is supported only for input buffers */
+	if (a->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)
+		return -EINVAL;
+
+	if (!a->parm.output.timeperframe.numerator ||
+	    !a->parm.output.timeperframe.denominator)
+		return -EINVAL;
+
+	/* Frame rate is not supported during streaming */
+	if (atomic_read(&ctx->active))
+		return -EINVAL;
+
+	ctx->timeperframe = a->parm.output.timeperframe;
+	return 0;
 }
 
 /* V4l2 ioctl handlers */
@@ -1021,12 +1013,11 @@ static const struct v4l2_ioctl_ops fd_ioctl_ops = {
 	.vidioc_dqbuf             = msm_jpegdma_dqbuf,
 	.vidioc_streamon          = msm_jpegdma_streamon,
 	.vidioc_streamoff         = msm_jpegdma_streamoff,
-	.vidioc_queryctrl         = msm_jpegdma_guery_ctrl,
-	.vidioc_s_ctrl            = msm_jpegdma_s_ctrl,
-	.vidioc_g_ctrl            = msm_jpegdma_g_ctrl,
 	.vidioc_cropcap           = msm_jpegdma_cropcap,
 	.vidioc_g_crop            = msm_jpegdma_g_crop,
 	.vidioc_s_crop            = msm_jpegdma_s_crop,
+	.vidioc_g_parm            = msm_jpegdma_g_parm,
+	.vidioc_s_parm            = msm_jpegdma_s_parm,
 };
 
 /*
@@ -1052,7 +1043,8 @@ static void msm_jpegdma_process_buffers(struct jpegdma_ctx *ctx,
 	plane_idx = ctx->plane_idx;
 	config_idx = ctx->config_idx;
 	msm_jpegdma_hw_start(ctx->jdma_device, &addr,
-		&ctx->plane_config[config_idx].plane[plane_idx]);
+		&ctx->plane_config[config_idx].plane[plane_idx],
+		&ctx->plane_config[config_idx].speed);
 }
 
 /*
@@ -1065,6 +1057,7 @@ static void msm_jpegdma_device_run(void *priv)
 	struct vb2_buffer *dst_buf;
 	struct jpegdma_ctx *ctx = priv;
 
+	dev_dbg(ctx->jdma_device->dev, "Jpeg v4l2 dma device run E\n");
 	dst_buf = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
 	src_buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
 	if (src_buf == NULL || dst_buf == NULL) {
@@ -1076,7 +1069,9 @@ static void msm_jpegdma_device_run(void *priv)
 		msm_jpegdma_schedule_next_config(ctx);
 		ctx->pending_config = 0;
 	}
+
 	msm_jpegdma_process_buffers(ctx, src_buf, dst_buf);
+	dev_dbg(ctx->jdma_device->dev, "Jpeg v4l2 dma device run X\n");
 }
 
 /*
@@ -1169,6 +1164,7 @@ static int jpegdma_probe(struct platform_device *pdev)
 	struct msm_jpegdma_device *jpegdma;
 	int ret;
 
+	dev_dbg(&pdev->dev, "jpeg v4l2 DMA probed\n");
 	/* Jpeg dma device struct */
 	jpegdma = kzalloc(sizeof(struct msm_jpegdma_device), GFP_KERNEL);
 	if (!jpegdma)
@@ -1244,6 +1240,7 @@ static int jpegdma_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, jpegdma);
 
+	dev_dbg(&pdev->dev, "jpeg v4l2 DMA probe success\n");
 	return 0;
 
 error_video_register:
