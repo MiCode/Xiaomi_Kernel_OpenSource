@@ -2453,7 +2453,7 @@
 			"cdc-vdd-px";
 
 		qcom,cdc-micbias1-mv = <1800>;
-		qcom,cdc-micbias2-mv = <2700>;
+		qcom,cdc-micbias2-mv = <1800>;
 		qcom,cdc-micbias3-mv = <1800>;
 		qcom,cdc-micbias4-mv = <1800>;
 
