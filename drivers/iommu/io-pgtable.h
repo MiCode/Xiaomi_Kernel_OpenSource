@@ -34,7 +34,7 @@ struct iommu_gather_ops {
 	void (*tlb_sync)(void *cookie);
 	void (*flush_pgtable)(void *ptr, size_t size, void *cookie);
 	void (*prepare_pgtable)(void *addr, void *cookie);
-	void (*unprepare_pgtable)(void *cookie, void *addr, size_t size);
+	void (*unprepare_pgtable)(void *cookie, void *addr);
 };
 
 /**

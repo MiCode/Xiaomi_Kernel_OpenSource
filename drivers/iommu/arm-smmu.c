@@ -924,7 +924,7 @@ static void arm_smmu_flush_pgtable(void *addr, size_t size, void *cookie)
 }
 
 static void arm_smmu_prepare_pgtable(void *addr, void *cookie);
-static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size);
+static void arm_smmu_unprepare_pgtable(void *cookie, void *addr);
 
 static struct iommu_gather_ops arm_smmu_gather_ops = {
 	.tlb_flush_all	= arm_smmu_tlb_inv_context,
@@ -1689,7 +1689,7 @@ static void arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain)
 	}
 }
 
-static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size)
+static void arm_smmu_unprepare_pgtable(void *cookie, void *addr)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
 	int ret;
@@ -1700,7 +1700,7 @@ static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size)
 	if (smmu_domain->secure_vmid == VMID_INVAL)
 		return;
 
-	ret = hyp_assign_phys((phys_addr_t)virt_to_phys(addr), size,
+	ret = hyp_assign_phys((phys_addr_t)virt_to_phys(addr), PAGE_SIZE,
 			source_vmlist, 2, &dest_vmids, &dest_perms, 1);
 	WARN_ON(ret);
 }
