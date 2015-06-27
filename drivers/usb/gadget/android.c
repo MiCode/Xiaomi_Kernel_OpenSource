@@ -3967,6 +3967,7 @@ static const struct platform_device_id android_id_table[] = {
 	{
 		.name = "android_usb_hsic",
 	},
+	{}
 };
 
 static struct of_device_id usb_android_dt_match[] = {
