@@ -570,6 +570,9 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		 */
 		card->ext_csd.out_of_int_time =
 			ext_csd[EXT_CSD_OUT_OF_INTERRUPT_TIME] * 10;
+		pr_info("%s: Out-of-interrupt timeout is %d[ms]\n",
+				mmc_hostname(card->host),
+				card->ext_csd.out_of_int_time);
 	}
 
 	if (card->ext_csd.rev >= 5) {
@@ -584,9 +587,10 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 			card->ext_csd.bkops_en = ext_csd[EXT_CSD_BKOPS_EN];
 			card->ext_csd.raw_bkops_status =
 				ext_csd[EXT_CSD_BKOPS_STATUS];
-			if (!card->ext_csd.bkops_en)
-				pr_info("%s: BKOPS_EN bit is not set\n",
-					mmc_hostname(card->host));
+			pr_info("%s: BKOPS_EN equals 0x%x\n",
+					mmc_hostname(card->host),
+					card->ext_csd.bkops_en);
+
 		}
 
 		card->ext_csd.rel_param = ext_csd[EXT_CSD_WR_REL_PARAM];
@@ -1959,6 +1963,23 @@ reinit:
 		}
 	}
 
+	/*
+	 * Start auto bkops, if supported.
+	 *
+	 * Note: This leaves the possibility of having both manual and
+	 * auto bkops running in parallel. The runtime implementation
+	 * will allow this, but ignore bkops exceptions on the premises
+	 * that auto bkops will eventually kick in and the device will
+	 * handle bkops without START_BKOPS from the host.
+	 */
+	if (mmc_card_support_auto_bkops(card)) {
+		/*
+		 * Ignore the return value of setting auto bkops.
+		 * If it failed, will run in backward compatible mode.
+		 */
+		(void)mmc_set_auto_bkops(card, true);
+	}
+
 	return 0;
 
 free_card:
@@ -2157,6 +2178,12 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 			goto out;
 	}
 
+	if (mmc_card_doing_auto_bkops(host->card)) {
+		err = mmc_set_auto_bkops(host->card, false);
+		if (err)
+			goto out;
+	}
+
 	err = mmc_flush_cache(host->card);
 	if (err)
 		goto out;
@@ -2351,6 +2378,26 @@ static int mmc_power_restore(struct mmc_host *host)
 	return ret;
 }
 
+#define NO_AUTOSUSPEND	(-1)
+static int mmc_runtime_idle(struct mmc_host *host)
+{
+	BUG_ON(!host->card);
+
+	if (host->card->bkops.needs_manual)
+		mmc_start_manual_bkops(host->card);
+
+	pm_runtime_mark_last_busy(&host->card->dev);
+	/*
+	 * TODO: consider prolonging suspend when bkops
+	 * is running in order to allow a longer time for
+	 * bkops to complete
+	 * */
+	pm_schedule_suspend(&host->card->dev, MMC_AUTOSUSPEND_DELAY_MS);
+
+	/* return negative value in order to avoid autosuspend */
+	return NO_AUTOSUSPEND;
+}
+
 static const struct mmc_bus_ops mmc_ops = {
 	.remove = mmc_remove,
 	.detect = mmc_detect,
@@ -2358,6 +2405,7 @@ static const struct mmc_bus_ops mmc_ops = {
 	.resume = mmc_resume,
 	.runtime_suspend = mmc_runtime_suspend,
 	.runtime_resume = mmc_runtime_resume,
+	.runtime_idle = mmc_runtime_idle,
 	.power_restore = mmc_power_restore,
 	.alive = mmc_alive,
 	.shutdown = mmc_shutdown,
