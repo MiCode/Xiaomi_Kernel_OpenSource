@@ -2476,6 +2476,9 @@ static irqreturn_t qpnp_lbc_usbin_valid_irq_handler(int irq, void *_chip)
 								flags);
 			if (chip->cfg_collapsible_chgr_support)
 				chip->non_collapsible_chgr_detected = false;
+
+			if (chip->supported_feature_flag & VDD_TRIM_SUPPORTED)
+				alarm_try_to_cancel(&chip->vddtrim_alarm);
 		} else {
 			/*
 			 * Override VBAT_DET comparator to start charging
