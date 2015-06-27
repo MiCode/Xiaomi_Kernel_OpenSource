@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -388,6 +388,322 @@ void msm_jpegdma_hw_we_buffer_update(struct msm_jpeg_hw_buf *p_input,
 	wmb();
 }
 
+struct msm_jpeg_hw_cmd hw_cmd_fe_mmu_prefetch[] = {
+	/* type, repeat n times, offset, mask, data or pdata */
+	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, MSM_JPEG_S0_MMU_PF_ADDR_MIN,
+		MSM_JPEG_S0_MMU_PF_ADDR_MIN_BMSK, {0} },
+	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, MSM_JPEG_S0_MMU_PF_ADDR_MAX,
+		MSM_JPEG_S0_MMU_PF_ADDR_MAX_BMSK, {0} },
+	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, MSM_JPEG_S1_MMU_PF_ADDR_MIN,
+		MSM_JPEG_S1_MMU_PF_ADDR_MIN_BMSK, {0} },
+	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, MSM_JPEG_S1_MMU_PF_ADDR_MAX,
+		MSM_JPEG_S1_MMU_PF_ADDR_MAX_BMSK, {0} },
+	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, MSM_JPEG_S2_MMU_PF_ADDR_MIN,
+		MSM_JPEG_S2_MMU_PF_ADDR_MIN_BMSK, {0} },
+	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, MSM_JPEG_S2_MMU_PF_ADDR_MAX,
+		MSM_JPEG_S2_MMU_PF_ADDR_MAX_BMSK, {0} },
+};
+
+/*
+ * msm_jpeg_hw_fe_mmu_prefetch() - writes fe min/max addrs for each plane to
+ * MMU prefetch registers.
+ * @buf: Pointer to jpeg hw buffer.
+ * @base: Pointer to base address.
+ * @decode_flag: Jpeg decode flag.
+ *
+ * This function writes fe min/max address for each plane to MMU prefetch
+ * registers, MMU prefetch hardware will only prefetch address translations
+ * within this min/max boundary.
+ *
+ * Return: None.
+ */
+void msm_jpeg_hw_fe_mmu_prefetch(struct msm_jpeg_hw_buf *buf, void *base,
+	uint8_t decode_flag)
+{
+	struct msm_jpeg_hw_cmd *hw_cmd_p;
+	struct msm_jpeg_hw_cmd tmp_hw_cmd;
+
+	hw_cmd_p = &hw_cmd_fe_mmu_prefetch[0];
+	tmp_hw_cmd = *hw_cmd_p++;
+	tmp_hw_cmd.data = buf->y_buffer_addr;
+
+	JPEG_DBG("%s:%d: MIN y_buf_addr %08x\n",
+		__func__, __LINE__, tmp_hw_cmd.data);
+
+	/* ensure write is done */
+	wmb();
+	msm_jpeg_hw_write(&tmp_hw_cmd, base);
+
+	tmp_hw_cmd = *hw_cmd_p++;
+	tmp_hw_cmd.data = buf->y_buffer_addr;
+	if (buf->y_len)
+		tmp_hw_cmd.data += buf->y_len - 1;
+
+	JPEG_DBG("%s:%d: MAX y_buf_addr %08x, y_len %d\n",
+		__func__, __LINE__, tmp_hw_cmd.data, buf->y_len);
+
+	msm_jpeg_hw_write(&tmp_hw_cmd, base);
+
+	if (!decode_flag) {
+		tmp_hw_cmd = *hw_cmd_p++;
+		tmp_hw_cmd.data = buf->cbcr_buffer_addr;
+
+		JPEG_DBG("%s:%d: MIN cbcr_buf_addr %08x\n",
+			__func__, __LINE__, tmp_hw_cmd.data);
+
+		msm_jpeg_hw_write(&tmp_hw_cmd, base);
+
+		tmp_hw_cmd = *hw_cmd_p++;
+		tmp_hw_cmd.data = buf->cbcr_buffer_addr;
+		if (buf->cbcr_len)
+			tmp_hw_cmd.data	+= buf->cbcr_len - 1;
+
+		JPEG_DBG("%s:%d: MAX cbcr_buf_addr %08x, cbcr_len %d\n"
+			, __func__, __LINE__, tmp_hw_cmd.data, buf->cbcr_len);
+
+		msm_jpeg_hw_write(&tmp_hw_cmd, base);
+
+		tmp_hw_cmd = *hw_cmd_p++;
+		tmp_hw_cmd.data = buf->pln2_addr;
+
+		JPEG_DBG("%s:%d: MIN pln2_buf_addr %08x\n",
+			__func__, __LINE__, tmp_hw_cmd.data);
+
+		msm_jpeg_hw_write(&tmp_hw_cmd, base);
+
+		tmp_hw_cmd = *hw_cmd_p++;
+		tmp_hw_cmd.data = buf->pln2_addr;
+		if (buf->pln2_len)
+			tmp_hw_cmd.data += buf->pln2_len - 1;
+
+		JPEG_DBG("%s:%d: MAX pln2_buf_addr %08x, pln2_len %d\n"
+			, __func__, __LINE__, tmp_hw_cmd.data, buf->pln2_len);
+
+		msm_jpeg_hw_write(&tmp_hw_cmd, base);
+	}
+	/* ensure write is done */
+	wmb();
+}
+
+struct msm_jpeg_hw_cmd hw_cmd_we_mmu_prefetch[] = {
+	/* type, repeat n times, offset, mask, data or pdata */
+	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, MSM_JPEG_S1_MMU_PF_ADDR_MIN,
+		MSM_JPEG_S1_MMU_PF_ADDR_MIN_BMSK, {0} },
+	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, MSM_JPEG_S1_MMU_PF_ADDR_MAX,
+		MSM_JPEG_S1_MMU_PF_ADDR_MAX_BMSK, {0} },
+	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, MSM_JPEG_S2_MMU_PF_ADDR_MIN,
+		MSM_JPEG_S2_MMU_PF_ADDR_MIN_BMSK, {0} },
+	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, MSM_JPEG_S2_MMU_PF_ADDR_MAX,
+		MSM_JPEG_S2_MMU_PF_ADDR_MAX_BMSK, {0} },
+	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, MSM_JPEG_S3_MMU_PF_ADDR_MIN,
+		MSM_JPEG_S3_MMU_PF_ADDR_MIN_BMSK, {0} },
+	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, MSM_JPEG_S3_MMU_PF_ADDR_MAX,
+		MSM_JPEG_S3_MMU_PF_ADDR_MAX_BMSK, {0} },
+};
+
+/*
+ * msm_jpeg_hw_we_mmu_prefetch() - write we min/max addrs for each plane to
+ * MMU prefetch registers.
+ * @buf: Pointer to jpeg hw buffer.
+ * @base: Pointer to base address.
+ * @decode_flag: Jpeg decode flag.
+ *
+ * This function writes we min/max address for each plane to MMU prefetch
+ * registers, MMU prefetch hardware will only prefetch address translations
+ * within this min/max boundary.
+ *
+ * Return: None.
+ */
+void msm_jpeg_hw_we_mmu_prefetch(struct msm_jpeg_hw_buf *buf, void *base,
+	uint8_t decode_flag)
+{
+	struct msm_jpeg_hw_cmd *hw_cmd_p;
+	struct msm_jpeg_hw_cmd tmp_hw_cmd;
+
+	hw_cmd_p = &hw_cmd_we_mmu_prefetch[0];
+
+	/* ensure write is done */
+	wmb();
+	if (decode_flag) {
+		tmp_hw_cmd = *hw_cmd_p++;
+		tmp_hw_cmd.data = buf->y_buffer_addr;
+
+		JPEG_DBG("%s:%d: MIN y_buf_addr %08x\n",
+			__func__, __LINE__, tmp_hw_cmd.data);
+
+		msm_jpeg_hw_write(&tmp_hw_cmd, base);
+
+		tmp_hw_cmd = *hw_cmd_p++;
+		tmp_hw_cmd.data = buf->y_buffer_addr;
+		if (buf->y_len)
+			tmp_hw_cmd.data += buf->y_len - 1;
+
+		JPEG_DBG("%s:%d: MAX y_buf_addr %08x, y_len %d\n",
+			__func__, __LINE__, tmp_hw_cmd.data, buf->y_len);
+
+		msm_jpeg_hw_write(&tmp_hw_cmd, base);
+
+		tmp_hw_cmd = *hw_cmd_p++;
+		tmp_hw_cmd.data = buf->cbcr_buffer_addr;
+
+		JPEG_DBG("%s:%d: MIN cbcr_buf_addr %08x\n",
+			__func__, __LINE__, tmp_hw_cmd.data);
+
+		msm_jpeg_hw_write(&tmp_hw_cmd, base);
+
+		tmp_hw_cmd = *hw_cmd_p++;
+		tmp_hw_cmd.data = buf->cbcr_buffer_addr;
+		if (buf->cbcr_len)
+			tmp_hw_cmd.data += buf->cbcr_len - 1;
+
+		JPEG_DBG("%s:%d: MAX cbcr_buf_addr %08x, cbcr_len %d\n"
+			, __func__, __LINE__, tmp_hw_cmd.data, buf->cbcr_len);
+
+		msm_jpeg_hw_write(&tmp_hw_cmd, base);
+
+		tmp_hw_cmd = *hw_cmd_p++;
+		tmp_hw_cmd.data = buf->pln2_addr;
+
+		JPEG_DBG("%s:%d: MIN pln2_buf_addr %08x\n",
+			__func__, __LINE__, tmp_hw_cmd.data);
+
+		msm_jpeg_hw_write(&tmp_hw_cmd, base);
+
+		tmp_hw_cmd = *hw_cmd_p++;
+		tmp_hw_cmd.data = buf->pln2_addr;
+		if (buf->pln2_len)
+			tmp_hw_cmd.data += buf->pln2_len - 1;
+
+		JPEG_DBG("%s:%d: MIN pln2_buf_addr %08x, pln2_len %d\n"
+			, __func__, __LINE__, tmp_hw_cmd.data, buf->pln2_len);
+
+		msm_jpeg_hw_write(&tmp_hw_cmd, base);
+	} else {
+		hw_cmd_p += 4;
+		tmp_hw_cmd = *hw_cmd_p++;
+		tmp_hw_cmd.data = buf->y_buffer_addr;
+
+		JPEG_DBG("%s:%d: MIN y_buf_addr %08x\n",
+			__func__, __LINE__, tmp_hw_cmd.data);
+
+		msm_jpeg_hw_write(&tmp_hw_cmd, base);
+
+		tmp_hw_cmd = *hw_cmd_p++;
+		tmp_hw_cmd.data = buf->y_buffer_addr;
+		if (buf->y_len)
+			tmp_hw_cmd.data += buf->y_len - 1;
+
+		JPEG_DBG("%s:%d: MAX y_buf_addr %08x, y_len %d\n",
+			__func__, __LINE__, tmp_hw_cmd.data, buf->y_len);
+
+		msm_jpeg_hw_write(&tmp_hw_cmd, base);
+	}
+	/* ensure write is done */
+	wmb();
+}
+
+struct msm_jpeg_hw_cmd hw_dma_cmd_fe_mmu_prefetch[] = {
+	/* type, repeat n times, offset, mask, data or pdata */
+	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, MSM_JPEGDMA_S0_MMU_PF_ADDR_MIN,
+		MSM_JPEGDMA_S0_MMU_PF_ADDR_MIN_BMSK, {0} },
+	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, MSM_JPEGDMA_S0_MMU_PF_ADDR_MAX,
+		MSM_JPEGDMA_S0_MMU_PF_ADDR_MAX_BMSK, {0} },
+};
+
+/*
+ * msm_jpegdma_hw_fe_mmu_prefetch() - write DMA fe min/max addrs to
+ * MMU prefetch registers.
+ * @buf: Pointer to jpeg hw buffer.
+ * @base: Pointer to base address.
+ *
+ * This function writes DMA fe min/max address for each plane to MMU prefetch
+ * registers, MMU prefetch hardware will only prefetch address translations
+ * with in this min/max boundary.
+ *
+ * Return: None.
+ */
+void msm_jpegdma_hw_fe_mmu_prefetch(struct msm_jpeg_hw_buf *buf, void *base)
+{
+	struct msm_jpeg_hw_cmd *hw_cmd_p;
+	struct msm_jpeg_hw_cmd tmp_hw_cmd;
+
+	hw_cmd_p = &hw_dma_cmd_fe_mmu_prefetch[0];
+
+	tmp_hw_cmd = *hw_cmd_p++;
+	tmp_hw_cmd.data = buf->y_buffer_addr;
+
+	JPEG_DBG("%s:%d: MIN DMA addr %08x , reg offset %08x\n",
+		__func__, __LINE__, tmp_hw_cmd.data, tmp_hw_cmd.offset);
+
+	/* ensure write is done */
+	wmb();
+	msm_jpeg_hw_write(&tmp_hw_cmd, base);
+
+	tmp_hw_cmd = *hw_cmd_p++;
+	tmp_hw_cmd.data = buf->y_buffer_addr;
+	if (buf->y_len)
+		tmp_hw_cmd.data += buf->y_len - 1;
+
+	JPEG_DBG("%s:%d: MAX DMA addr %08x , reg offset %08x , length %d\n",
+		__func__, __LINE__, tmp_hw_cmd.data, tmp_hw_cmd.offset,
+		buf->y_len);
+
+	msm_jpeg_hw_write(&tmp_hw_cmd, base);
+	/* ensure write is done */
+	wmb();
+}
+
+struct msm_jpeg_hw_cmd hw_dma_cmd_we_mmu_prefetch[] = {
+	/* type, repeat n times, offset, mask, data or pdata */
+	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, MSM_JPEGDMA_S1_MMU_PF_ADDR_MIN,
+		MSM_JPEGDMA_S1_MMU_PF_ADDR_MIN_BMSK, {0} },
+	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, MSM_JPEGDMA_S1_MMU_PF_ADDR_MAX,
+		MSM_JPEGDMA_S1_MMU_PF_ADDR_MAX_BMSK, {0} },
+};
+
+/*
+ * msm_jpegdma_hw_we_mmu_prefetch() - write DMA we min/max addrs to
+ * MMU prefetch registers.
+ * @buf: Pointer to jpeg hw buffer.
+ * @base: Pointer to base address.
+ *
+ * This function writes DMA we min/max address for each plane to MMU prefetch
+ * registers, MMU prefetch hardware will only prefetch address translations
+ * with in this min/max boundary.
+ *
+ * Return: None.
+ */
+void msm_jpegdma_hw_we_mmu_prefetch(struct msm_jpeg_hw_buf *buf, void *base)
+{
+	struct msm_jpeg_hw_cmd *hw_cmd_p;
+	struct msm_jpeg_hw_cmd tmp_hw_cmd;
+
+	hw_cmd_p = &hw_dma_cmd_we_mmu_prefetch[0];
+
+	tmp_hw_cmd = *hw_cmd_p++;
+	tmp_hw_cmd.data = buf->y_buffer_addr;
+
+	JPEG_DBG("%s:%d: MIN DMA addr %08x , reg offset %08x\n",
+		__func__, __LINE__, tmp_hw_cmd.data, tmp_hw_cmd.offset);
+
+	/* ensure write is done */
+	wmb();
+	msm_jpeg_hw_write(&tmp_hw_cmd, base);
+
+	tmp_hw_cmd = *hw_cmd_p++;
+	tmp_hw_cmd.data = buf->y_buffer_addr;
+	if (buf->y_len)
+		tmp_hw_cmd.data += buf->y_len - 1;
+
+	JPEG_DBG("%s:%d: MAX DMA addr %08x , reg offset %08x , length %d\n",
+		__func__, __LINE__, tmp_hw_cmd.data, tmp_hw_cmd.offset,
+		buf->y_len);
+
+	msm_jpeg_hw_write(&tmp_hw_cmd, base);
+	/* ensure write is done */
+	wmb();
+}
+
 struct msm_jpeg_hw_cmd hw_cmd_reset[] = {
 	/* type, repeat n times, offset, mask, data or pdata */
 	{MSM_JPEG_HW_CMD_TYPE_WRITE, 1, JPEG_IRQ_MASK_ADDR,
@@ -488,6 +804,8 @@ void msm_jpeg_hw_write(struct msm_jpeg_hw_cmd *hw_cmd_p,
 
 	new_data = hw_cmd_p->data & hw_cmd_p->mask;
 	new_data |= old_data;
+	JPEG_DBG("%s:%d] %p %08x\n", __func__, __LINE__,
+		paddr, new_data);
 	writel_relaxed(new_data, paddr);
 }
 

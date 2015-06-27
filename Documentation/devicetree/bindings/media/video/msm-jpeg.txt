@@ -21,6 +21,8 @@ Required properties:
 Optional properties:
 - qcom,vbif-reg-settings: relative address offsets and value pairs for VBIF registers.
 - qcom,qos-reg-settings: relative address offsets and value pairs for QoS registers.
+- qcom,prefetch-reg-settings: relative address offsets and value pairs for
+  MMU prefetch registers.
 
 Example:
 
@@ -54,6 +56,11 @@ Example:
 			<0xb0 0x00100010>,
 			<0xc0 0x10001000>;
 		qcom,qos-reg-settings = <0x28 0x00000008>;
+		qcom,prefetch-reg-settings = <0x30c 0x1111>,
+			<0x318 0x31>,
+			<0x324 0x31>,
+			<0x330 0x31>,
+			<0x33c 0x0>;
 		status = "ok";
 	};
 
@@ -87,6 +94,11 @@ Example:
 			<0xb0 0x00100010>,
 			<0xc0 0x10001000>;
 		qcom,qos-reg-settings = <0x28 0x00000008>;
+		qcom,prefetch-reg-settings = <0x30c 0x1111>,
+			<0x318 0x0>,
+			<0x324 0x31>,
+			<0x330 0x31>,
+			<0x33c 0x31>;
 		status = "ok";
 	};
 
@@ -120,6 +132,9 @@ Example:
 			<0xb0 0x00100010>,
 			<0xc0 0x10001000>;
 		qcom,qos-reg-settings = <0x28 0x00000008>;
+		qcom,prefetch-reg-settings = <0x18c 0x11>,
+			<0x1a0 0x31>,
+			<0x1b0 0x31>;
 		status = "ok";
 	};
 
