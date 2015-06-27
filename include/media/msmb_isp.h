@@ -219,6 +219,7 @@ struct msm_vfe_pix_cfg {
 	enum ISP_START_PIXEL_PATTERN pixel_pattern;
 	uint32_t input_format;
 	enum msm_vfe_hvx_streaming_cmd hvx_cmd;
+	uint32_t is_split;
 };
 
 struct msm_vfe_rdi_cfg {
