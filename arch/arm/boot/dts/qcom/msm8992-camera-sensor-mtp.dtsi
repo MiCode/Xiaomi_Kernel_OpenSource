@@ -325,7 +325,7 @@
 		qcom,page0 = <0 0 0 0 0 0>;
 		qcom,poll0 = <0 0 0 0 0 0>;
 		qcom,saddr0 = <0xa0>;
-		qcom,mem0 = <2166 0x00 2 0 1 0>;
+		qcom,mem0 = <2160 0x00 2 0 1 0>;
 
 		cam_vio-supply = <&pm8994_lvs1>;
 		qcom,cam-vreg-name = "cam_vio";
