@@ -66,7 +66,10 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"Apps Supports HDLC Encoding: %d\n"
 		"Apps Supports Sockets: %d\n"
 		"Logging Mode: %d\n"
-		"RSP Buffer is Busy: %d\n",
+		"RSP Buffer is Busy: %d\n"
+		"HDLC Disabled: %d\n"
+		"Time Sync Enabled: %d\n"
+		"Uses Time API: %d\n",
 		chk_config_get_id(),
 		chk_polling_response(),
 		driver->polling_reg_flag,
@@ -75,7 +78,10 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		driver->supports_apps_hdlc_encoding,
 		driver->supports_sockets,
 		driver->logging_mode,
-		driver->rsp_buf_busy);
+		driver->rsp_buf_busy,
+		driver->hdlc_disabled,
+		driver->time_sync_enabled,
+		driver->uses_time_api);
 
 	for (i = 0; i < NUM_PERIPHERALS; i++) {
 		ret += scnprintf(buf+ret, buf_size-ret,
