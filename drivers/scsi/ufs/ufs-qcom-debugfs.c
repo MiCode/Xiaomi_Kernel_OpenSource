@@ -172,11 +172,11 @@ static int ufs_qcom_dbg_testbus_bus_read(void *data, u64 *attr_val)
 	if (!host)
 		return -EINVAL;
 
-	ufshcd_hold(host->hba, false);
 	pm_runtime_get_sync(host->hba->dev);
+	ufshcd_hold(host->hba, false);
 	*attr_val = (u64)ufshcd_readl(host->hba, UFS_TEST_BUS);
-	pm_runtime_put_sync(host->hba->dev);
 	ufshcd_release(host->hba, false);
+	pm_runtime_put_sync(host->hba->dev);
 	return 0;
 }
 
@@ -191,8 +191,8 @@ static int ufs_qcom_dbg_dbg_regs_show(struct seq_file *file, void *data)
 	bool dbg_print_reg = !!(host->dbg_print_en &
 				UFS_QCOM_DBG_PRINT_REGS_EN);
 
-	ufshcd_hold(host->hba, false);
 	pm_runtime_get_sync(host->hba->dev);
+	ufshcd_hold(host->hba, false);
 
 	/* Temporarily override the debug print enable */
 	host->dbg_print_en |= UFS_QCOM_DBG_PRINT_REGS_EN;
@@ -201,8 +201,8 @@ static int ufs_qcom_dbg_dbg_regs_show(struct seq_file *file, void *data)
 	if (!dbg_print_reg)
 		host->dbg_print_en &= ~UFS_QCOM_DBG_PRINT_REGS_EN;
 
-	pm_runtime_put_sync(host->hba->dev);
 	ufshcd_release(host->hba, false);
+	pm_runtime_put_sync(host->hba->dev);
 
 	return 0;
 }
