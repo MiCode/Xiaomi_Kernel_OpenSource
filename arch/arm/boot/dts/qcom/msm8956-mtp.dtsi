@@ -38,8 +38,7 @@
 		synaptics,device1 {
 			synaptics,package-id = <3528>;
 			synaptics,display-coords = <0 0 1439 2559>;
-			synaptics,panel-coords = <0 0 1439 2703>;
-			synaptics,key-codes = <158 139 172 217>;
+			synaptics,panel-coords = <0 0 1439 2559>;
 		};
 	};
 };
