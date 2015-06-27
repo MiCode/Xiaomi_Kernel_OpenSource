@@ -1540,6 +1540,7 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 
 	if (dev->archdata.iommu) {
 		dev_err(dev, "already attached to IOMMU domain\n");
+		mutex_unlock(&smmu_domain->init_mutex);
 		return -EEXIST;
 	}
 
