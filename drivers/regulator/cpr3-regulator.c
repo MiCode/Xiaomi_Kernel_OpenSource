@@ -749,7 +749,8 @@ static int cpr3_regulator_set_bhs_mode(struct cpr3_regulator *vreg,
 		bhs_volt = vreg->ldo_max_volt;
 	}
 
-	rc = regulator_set_voltage(ldo_reg, bhs_volt, vdd_ceiling_volt);
+	rc = regulator_set_voltage(ldo_reg, bhs_volt, min(vdd_ceiling_volt,
+							  vreg->ldo_max_volt));
 	if (rc) {
 		cpr3_err(vreg, "regulator_set_voltage(ldo) == %d failed, rc=%d\n",
 			 bhs_volt, rc);
@@ -787,7 +788,7 @@ static int cpr3_regulator_config_vreg_ldo(struct cpr3_regulator *vreg,
 			     int vdd_volt)
 {
 	struct regulator *ldo_reg = vreg->ldo_regulator;
-	int rc, ldo_volt, bhs_volt;
+	int rc, ldo_volt, bhs_volt, max_volt;
 
 	rc = cpr3_regulator_config_ldo_retention(vreg, vdd_floor_volt);
 	if (rc)
@@ -799,6 +800,8 @@ static int cpr3_regulator_config_vreg_ldo(struct cpr3_regulator *vreg,
 
 	ldo_volt = vreg->corner[vreg->current_corner].open_loop_volt
 		- vreg->ldo_adjust_volt;
+
+	max_volt = min(vdd_ceiling_volt, vreg->ldo_max_volt);
 
 	if (vdd_floor_volt >= ldo_volt + vreg->ldo_headroom_volt) {
 		if (vreg->ldo_regulator_bypass == BHS_MODE) {
@@ -818,8 +821,8 @@ static int cpr3_regulator_config_vreg_ldo(struct cpr3_regulator *vreg,
 					   bhs_volt, vreg->ldo_max_volt);
 				bhs_volt = vreg->ldo_max_volt;
 			}
-			rc = regulator_set_voltage(ldo_reg, bhs_volt,
-						vdd_ceiling_volt);
+
+			rc = regulator_set_voltage(ldo_reg, bhs_volt, max_volt);
 			if (rc) {
 				cpr3_err(vreg, "regulator_set_voltage(ldo) == %d failed, rc=%d\n",
 					 bhs_volt, rc);
@@ -836,7 +839,7 @@ static int cpr3_regulator_config_vreg_ldo(struct cpr3_regulator *vreg,
 		}
 
 		/* Configure final LDO output voltage */
-		rc = regulator_set_voltage(ldo_reg, ldo_volt, vdd_ceiling_volt);
+		rc = regulator_set_voltage(ldo_reg, ldo_volt, max_volt);
 		if (rc) {
 			cpr3_err(vreg, "regulator_set_voltage(ldo) == %d failed, rc=%d\n",
 				 ldo_volt, rc);
