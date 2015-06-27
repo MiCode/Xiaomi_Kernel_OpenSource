@@ -643,16 +643,20 @@
 			<&clock_mmss clk_camss_cpp_vbif_ahb_clk>,
 			<&clock_mmss clk_smmu_cpp_ahb_clk>;
 		clock-names = "mmss_mmagic_ahb_clk", "mmss_mmagic_axi_clk",
-				"mmagic_camss_axi_clk", "camss_top_ahb_clk",
-				"fd_core_clk_src", "fd_core_clk",
-				"fd_core_uar_clk", "fd_ahb_clk",
-				"smmu_cpp_axi_clk", "camss_ahb_clk",
-				"camss_cpp_axi_clk", "cpp_vbif_ahb_clk",
-				"smmu_cpp_ahb_clk";
-	clock-rates = <0 0 0 0 400000000 400000000 400000000 80000000 0 0 0 0 0>;
-		bus-bandwidth-vectors = <13000000 13000000>,
-					<45000000 45000000>,
-					<90000000 90000000>;
+			"mmagic_camss_axi_clk", "camss_top_ahb_clk",
+			"fd_core_clk_src", "fd_core_clk",
+			"fd_core_uar_clk", "fd_ahb_clk",
+			"smmu_cpp_axi_clk", "camss_ahb_clk",
+			"camss_cpp_axi_clk", "cpp_vbif_ahb_clk",
+			"smmu_cpp_ahb_clk";
+		clock-rates = <0 0 0 0 400000000 400000000>,
+			<400000000 80000000 0 0 0 0 0>;
+		qcom,bus-bandwidth-vectors = <13000000 13000000>,
+			<45000000 45000000>,
+			<90000000 90000000>;
+		qcom,vbif-reg-settings = <0x10 0x40004000>,
+			<0x18 0x10000000>,
+			<0x1c 0x10000000>;
 		status = "ok";
 	};
 
