@@ -344,14 +344,15 @@ static inline int iommu_unmap(struct iommu_domain *domain, unsigned long iova,
 	return -ENODEV;
 }
 
-int iommu_map_range(struct iommu_domain *domain, unsigned long iova,
-		    struct scatterlist *sg, size_t len, int prot)
+static inline int iommu_map_range(struct iommu_domain *domain,
+				unsigned long iova,
+				struct scatterlist *sg, size_t len, int prot)
 {
 	return -ENODEV;
 }
 
-int iommu_unmap_range(struct iommu_domain *domain, unsigned long iova,
-		      size_t len)
+static inline int iommu_unmap_range(struct iommu_domain *domain,
+				unsigned long iova, size_t len)
 {
 	return -ENODEV;
 }
@@ -499,8 +500,8 @@ static inline void iommu_device_unlink(struct device *dev, struct device *link)
 {
 }
 
-static int iommu_dma_supported(struct iommu_domain *domain, struct device *dev,
-			       u64 mask)
+static inline int iommu_dma_supported(struct iommu_domain *domain,
+		struct device *dev, u64 mask)
 {
 	return -EINVAL;
 }

@@ -27,36 +27,9 @@
 
 &blsp1_uart2 {
 	status = "ok";
-};
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart2_console_active>;
 
-&spi_1 {
-	status = "ok";
-	ethernet-switch@0 {
-		compatible = "micrel,ks8851";
-		interrupt-parent = <&msm_gpio>;
-		reg = <0>;
-		spi-max-frequency = <2400000>;
-		interrupts = <21 0>;
-		vdd-io-supply = <&spi_eth_vreg>;
-		vdd-phy-supply = <&spi_eth_vreg>;
-		rst-gpio = <&msm_gpio 20 0>;
-	};
-};
-
-&i2c_3 {
-	smb1357_otg_supply: smb1357-charger@1c {
-		compatible = "qcom,smb1357-charger";
-		reg = <0x1c>;
-		interrupt-parent = <&msm_gpio>;
-		interrupts = <83 0>;	/* MDM GPIO 83 */
-		qcom,float-voltage-mv = <4200>;
-		qcom,charging-timeout = <1536>;
-		qcom,recharge-thresh-mv = <200>;
-		qcom,iterm-ma = <100>;
-		regulator-name = "smb1357_otg_supply";
-		pinctrl-names = "default";
-		pinctrl-0 = <&smb_stat_active>;
-	};
 };
 
 &pmd9635_gpios {
@@ -255,27 +228,4 @@
 
 &qnand_1 {
 	status = "ok";
-};
-
-&sdhc_1 {
-	vdd-supply = <&sd_slot_vreg>;
-	qcom,vdd-voltage-level = <2950000 2950000>;
-	qcom,vdd-current-level = <9000 800000>;
-
-	vdd-io-supply = <&pmd9635_l14>;
-	qcom,vdd-io-voltage-level = <1800000 2850000>;
-	qcom,vdd-io-current-level = <200 60000>;
-
-	pinctrl-names = "active", "sleep";
-	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on>;
-	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off>;
-
-	qcom,bus-width = <4>;
-	qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
-
-	status = "ok";
-};
-
-&usb3 {
-	vbus_dwc3-supply = <&smb1357_otg_supply>;
 };

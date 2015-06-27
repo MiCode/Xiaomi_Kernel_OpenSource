@@ -32,12 +32,6 @@
 			clocks = <&clock_gcc  clk_bimc_msmbus_clk>,
 				<&clock_gcc  clk_bimc_msmbus_a_clk>;
 
-			coresight-id = <55>;
-			coresight-name = "coresight-bimc";
-			coresight-nr-inports = <0>;
-			coresight-outports = <0>;
-			coresight-child-list = <&funnel_in0>;
-			coresight-child-ports = <3>;
 		};
 
 		fab_pcnoc: fab-pcnoc {
@@ -65,12 +59,6 @@
 			clocks = <&clock_gcc  clk_snoc_msmbus_clk>,
 				<&clock_gcc  clk_snoc_msmbus_a_clk>;
 
-			coresight-id = <50>;
-			coresight-name = "coresight-snoc";
-			coresight-nr-inports = <0>;
-			coresight-outports = <0>;
-			coresight-child-list = <&funnel_in0>;
-			coresight-child-ports = <5>;
 		};
 
 		/*Masters*/
