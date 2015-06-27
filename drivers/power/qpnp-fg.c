@@ -170,8 +170,8 @@ enum fg_mem_data_index {
 	FG_DATA_BATT_SOC,
 	FG_DATA_CC_CHARGE,
 	FG_DATA_VINT_ERR,
-	/* values below this only gets read once per profile reload */
 	FG_DATA_CPRED_VOLTAGE,
+	/* values below this only gets read once per profile reload */
 	FG_DATA_BATT_ID,
 	FG_DATA_BATT_ID_INFO,
 	FG_DATA_MAX,
@@ -1438,7 +1438,7 @@ static void update_sram_data(struct fg_chip *chip, int *resched_ms)
 	fg_stay_awake(&chip->update_sram_wakeup_source);
 	fg_mem_lock(chip);
 	for (i = 1; i < FG_DATA_MAX; i++) {
-		if (chip->profile_loaded && i >= FG_DATA_CPRED_VOLTAGE)
+		if (chip->profile_loaded && i >= FG_DATA_BATT_ID)
 			continue;
 		rc = fg_mem_read(chip, reg, fg_data[i].address,
 			fg_data[i].len, fg_data[i].offset, 0);
