@@ -1387,13 +1387,7 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 	} else if (rc == 0) {
 		if (buf->frame_id != frame_id) {
 			struct msm_isp_event_data error_event;
-			struct msm_vfe_axi_halt_cmd halt_cmd;
 
-			halt_cmd.overflow_detected = 1;
-			halt_cmd.stop_camif = 1;
-			halt_cmd.blocking_halt = 0;
-
-			msm_isp_axi_halt(vfe_dev, &halt_cmd);
 			error_event.frame_id =
 				vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
 			error_event.u.error_info.err_type =
@@ -1729,6 +1723,13 @@ int msm_isp_axi_halt(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_halt_cmd *halt_cmd)
 {
 	int rc = 0;
+
+	if (atomic_read(&vfe_dev->error_info.overflow_state) ==
+		OVERFLOW_DETECTED) {
+		ISP_DBG("%s: VFE%d already halted, direct return\n",
+			__func__, vfe_dev->pdev->id);
+		return rc;
+	}
 
 	if (halt_cmd->overflow_detected) {
 		/*Store current IRQ mask*/
