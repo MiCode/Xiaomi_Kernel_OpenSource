@@ -480,6 +480,11 @@
 			<&clock_mmss clk_mmagic_camss_axi_clk>;
 		qcom,clock-rates = <320000000 0 0 0 0 0 0 0 0>;
 		qcom,vbif-reg-settings = <0x4 0x1>;
+		qcom,prefetch-reg-settings = <0x30c 0x1111>,
+			<0x318 0x31>,
+			<0x324 0x31>,
+			<0x330 0x31>,
+			<0x33c 0x0>;
 		status = "ok";
 	};
 
@@ -510,6 +515,11 @@
 			<&clock_mmss clk_mmagic_camss_axi_clk>;
 		qcom,clock-rates = <266670000 0 0 0 0 0 0 0 0>;
 		qcom,vbif-reg-settings = <0x4 0x1>;
+		qcom,prefetch-reg-settings = <0x30c 0x1111>,
+			<0x318 0x0>,
+			<0x324 0x31>,
+			<0x330 0x31>,
+			<0x33c 0x31>;
 		status = "ok";
 	};
 
@@ -540,6 +550,9 @@
 			<&clock_mmss clk_mmagic_camss_axi_clk>;
 		qcom,clock-rates = <266670000 0 0 0 0 0 0 0 0>;
 		qcom,vbif-reg-settings = <0x4 0x1>;
+		qcom,prefetch-reg-settings = <0x18c 0x11>,
+			<0x1a0 0x31>,
+			<0x1b0 0x31>;
 		status = "ok";
 	};
 
