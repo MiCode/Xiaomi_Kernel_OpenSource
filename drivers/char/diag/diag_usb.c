@@ -325,6 +325,7 @@ int diag_usb_write(int id, unsigned char *buf, int len, int ctxt)
 	if (err) {
 		pr_err_ratelimited("diag: In %s, error writing to usb channel %s, err: %d\n",
 				   __func__, usb_info->name, err);
+		diag_ws_on_copy_fail(DIAG_WS_MUX);
 		diagmem_free(driver, req, usb_info->mempool);
 	}
 

@@ -395,8 +395,10 @@ static void smd_read_work_fn(struct work_struct *work)
 	struct diag_smd_info *smd_info = container_of(work,
 						      struct diag_smd_info,
 						      read_work);
-	if (!smd_info->inited)
+	if (!smd_info->inited) {
+		diag_ws_release();
 		return;
+	}
 
 	diagfwd_channel_read(smd_info->fwd_ctxt);
 }
@@ -721,10 +723,15 @@ static int diag_smd_read(void *ctxt, unsigned char *buf, int buf_len)
 				(smd_cur_packet_size(smd_info->hdl)) ||
 				(atomic_read(&smd_info->diag_state) == 0));
 
+	/*
+	 * In this case don't reset the buffers as there is no need to further
+	 * read over peripherals. Also release the wake source hold earlier.
+	 */
 	if (atomic_read(&smd_info->diag_state) == 0) {
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 			 "%s closing read thread. diag state is closed\n",
 			 smd_info->name);
+		diag_ws_release();
 		return 0;
 	}
 
@@ -774,7 +781,7 @@ static int diag_smd_read(void *ctxt, unsigned char *buf, int buf_len)
 		}
 	} while (pkt_len > 0);
 
-	if (smd_info->type == TYPE_DATA || buf_full)
+	if ((smd_info->type == TYPE_DATA && pkt_len) || buf_full)
 		err = queue_work(smd_info->wq, &(smd_info->read_work));
 
 	if (total_recd > 0) {
