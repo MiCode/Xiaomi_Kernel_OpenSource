@@ -4644,9 +4644,10 @@ void msm_comm_smem_free(struct msm_vidc_inst *inst, struct msm_smem *mem)
 		return;
 	}
 	mutex_lock(&inst->core->lock);
-	if (power_on_for_smem(inst))
-		goto err_power_on;
-
+	if (inst->state != MSM_VIDC_CORE_INVALID) {
+		if (power_on_for_smem(inst))
+			goto err_power_on;
+	}
 	msm_smem_free(inst->mem_client, mem);
 err_power_on:
 	mutex_unlock(&inst->core->lock);
@@ -4672,6 +4673,13 @@ struct msm_smem *msm_comm_smem_user_to_kernel(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR, "%s: invalid inst: %p\n", __func__, inst);
 		return NULL;
 	}
+
+	if (inst->state == MSM_VIDC_CORE_INVALID) {
+		dprintk(VIDC_ERR, "Core in Invalid state, returning from %s\n",
+			__func__);
+		return NULL;
+	}
+
 	mutex_lock(&inst->core->lock);
 	if (power_on_for_smem(inst))
 		goto err_power_on;
