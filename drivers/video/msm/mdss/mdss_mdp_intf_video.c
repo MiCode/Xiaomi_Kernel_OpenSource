@@ -248,8 +248,9 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 		display_v_end -= p->h_front_porch;
 	}
 
-	/* TIMING_2 flush bit on 8939 is BIT 31 */
-	if (mdata->mdp_rev == MDSS_MDP_HW_REV_108 &&
+	/* TIMING_2 flush bit on 8939/8976 is BIT 31 */
+	if ((mdata->mdp_rev == MDSS_MDP_HW_REV_108 ||
+		mdata->mdp_rev == MDSS_MDP_HW_REV_111) &&
 				ctx->intf_num == MDSS_MDP_INTF2)
 		ctl->flush_bits |= BIT(31);
 	else
@@ -853,8 +854,11 @@ static void mdss_mdp_video_timegen_flush(struct mdss_mdp_ctl *ctl,
 	mdata = ctl->mdata;
 	ctl_flush = (BIT(31) >> (ctl->intf_num - MDSS_MDP_INTF0));
 	if (sctx) {
-		/* For 8939, sctx is always INTF2 and the flush bit is BIT 31 */
-		if (mdata->mdp_rev == MDSS_MDP_HW_REV_108)
+		/* For 8939/8976, sctx is always INTF2
+		 * and the flush bit is BIT 31
+		 */
+		if (mdata->mdp_rev == MDSS_MDP_HW_REV_108 ||
+				mdata->mdp_rev == MDSS_MDP_HW_REV_111)
 			ctl_flush |= BIT(31);
 		else
 			ctl_flush |= (BIT(31) >>

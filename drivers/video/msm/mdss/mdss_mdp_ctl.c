@@ -2037,6 +2037,7 @@ static int mdss_mdp_ctl_dsc_enable(int enable,
 
 	writel_relaxed(data, offset + MDSS_MDP_REG_DSC_COMMON_MODE);
 
+	dsc->input_10_bits = 0;
 	data = dsc->ich_reset_value | dsc->ich_reset_override;
 	data <<= 28;
 	data |= (dsc->initial_lines << 20);
