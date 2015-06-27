@@ -535,8 +535,8 @@ static void handle_session_release_buf_done(enum hal_command_response cmd,
 	buffer = &response->data.buffer_info;
 	address = buffer->buffer_addr;
 
-	mutex_lock(&inst->internalbufs.lock);
-	list_for_each_safe(ptr, next, &inst->internalbufs.list) {
+	mutex_lock(&inst->scratchbufs.lock);
+	list_for_each_safe(ptr, next, &inst->scratchbufs.list) {
 		buf = list_entry(ptr, struct internal_buf, list);
 		if (address == (u32)buf->handle->device_addr) {
 			dprintk(VIDC_DBG, "releasing scratch: %pa\n",
@@ -544,7 +544,7 @@ static void handle_session_release_buf_done(enum hal_command_response cmd,
 			buf_found = true;
 		}
 	}
-	mutex_unlock(&inst->internalbufs.lock);
+	mutex_unlock(&inst->scratchbufs.lock);
 
 	mutex_lock(&inst->persistbufs.lock);
 	list_for_each_safe(ptr, next, &inst->persistbufs.list) {
@@ -2777,7 +2777,7 @@ static int set_internal_buf_on_fw(struct msm_vidc_inst *inst,
 					handle, SMEM_CACHE_CLEAN);
 	if (rc) {
 		dprintk(VIDC_WARN,
-			"Failed to clean cache. May cause undefined behavior\n");
+			"Failed to clean cache. Undefined behavior\n");
 	}
 
 	buffer_info.buffer_size = handle->size;
@@ -2799,20 +2799,20 @@ static int set_internal_buf_on_fw(struct msm_vidc_inst *inst,
 	return 0;
 }
 
-static bool reuse_scratch_buffers(struct msm_vidc_inst *inst,
-			enum hal_buffer buffer_type)
+static bool reuse_internal_buffers(struct msm_vidc_inst *inst,
+		enum hal_buffer buffer_type, struct msm_vidc_list *buf_list)
 {
 	struct internal_buf *buf;
 	int rc = 0;
 	bool reused = false;
 
-	if (!inst) {
+	if (!inst || !buf_list) {
 		dprintk(VIDC_ERR, "%s: invalid params\n", __func__);
 		return false;
 	}
 
-	mutex_lock(&inst->internalbufs.lock);
-	list_for_each_entry(buf, &inst->internalbufs.list, list) {
+	mutex_lock(&buf_list->lock);
+	list_for_each_entry(buf, &buf_list->list, list) {
 		if (!buf->handle) {
 			reused = false;
 			break;
@@ -2821,17 +2821,30 @@ static bool reuse_scratch_buffers(struct msm_vidc_inst *inst,
 		if (buf->buffer_type != buffer_type)
 			continue;
 
-		rc = set_internal_buf_on_fw(inst, buffer_type,
-				buf->handle, true);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"%s: session_set_buffers failed\n", __func__);
-			reused = false;
-			break;
+		/*
+		 * Persist buffer size won't change with resolution. If they
+		 * are in queue means that they are already allocated and
+		 * given to HW. HW can use them without reallocation. These
+		 * buffers are not released as part of port reconfig. So
+		 * driver no need to set them again.
+		*/
+
+		if (buffer_type != HAL_BUFFER_INTERNAL_PERSIST
+			&& buffer_type != HAL_BUFFER_INTERNAL_PERSIST_1) {
+
+			rc = set_internal_buf_on_fw(inst, buffer_type,
+					buf->handle, true);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"%s: session_set_buffers failed\n",
+					__func__);
+				reused = false;
+				break;
+			}
 		}
 		reused = true;
 	}
-	mutex_unlock(&inst->internalbufs.lock);
+	mutex_unlock(&buf_list->lock);
 	return reused;
 }
 
@@ -2894,61 +2907,32 @@ err_no_mem:
 
 }
 
-static int set_scratch_buffers(struct msm_vidc_inst *inst,
-	enum hal_buffer buffer_type)
+static int set_internal_buffers(struct msm_vidc_inst *inst,
+	enum hal_buffer buffer_type, struct msm_vidc_list *buf_list)
 {
-	struct hal_buffer_requirements *scratch_buf;
+	struct hal_buffer_requirements *internal_buf;
 
-	scratch_buf = get_buff_req_buffer(inst, buffer_type);
-	if (!scratch_buf) {
+	internal_buf = get_buff_req_buffer(inst, buffer_type);
+	if (!internal_buf) {
 		dprintk(VIDC_DBG,
-			"This scratch buffer not required, buffer_type: %x\n",
+			"This internal buffer not required, buffer_type: %x\n",
 			buffer_type);
 		return 0;
 	}
-	dprintk(VIDC_DBG,
-		"scratch: num = %d, size = %d\n",
-		scratch_buf->buffer_count_actual,
-		scratch_buf->buffer_size);
+
+	dprintk(VIDC_DBG, "Buffer type %s: num = %d, size = %d\n",
+		get_buffer_name(buffer_type),
+		internal_buf->buffer_count_actual, internal_buf->buffer_size);
 
 	/*
-	* Try reusing existing scratch buffers first.
+	* Try reusing existing internal buffers first.
 	* If it's not possible to reuse, allocate new buffers.
 	*/
-	if (reuse_scratch_buffers(inst, buffer_type))
+	if (reuse_internal_buffers(inst, buffer_type, buf_list))
 		return 0;
 
-	return allocate_and_set_internal_bufs(inst, scratch_buf,
-				&inst->internalbufs);
-}
-
-static int set_persist_buffers(struct msm_vidc_inst *inst,
-	enum hal_buffer buffer_type)
-{
-	struct hal_buffer_requirements *persist_buf;
-
-	persist_buf = get_buff_req_buffer(inst, buffer_type);
-	if (!persist_buf) {
-		dprintk(VIDC_DBG,
-			"This persist buffer not required, buffer_type: %x\n",
-			buffer_type);
-		return 0;
-	}
-
-	dprintk(VIDC_DBG, "persist: num = %d, size = %d\n",
-		persist_buf->buffer_count_actual,
-		persist_buf->buffer_size);
-
-	mutex_lock(&inst->persistbufs.lock);
-	if (!list_empty(&inst->persistbufs.list)) {
-		dprintk(VIDC_ERR, "Persist buffers already allocated\n");
-		mutex_unlock(&inst->persistbufs.lock);
-		return 0;
-	}
-	mutex_unlock(&inst->persistbufs.lock);
-
-	return allocate_and_set_internal_bufs(inst, persist_buf,
-				&inst->persistbufs);
+	return allocate_and_set_internal_bufs(inst, internal_buf,
+				buf_list);
 }
 
 int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
@@ -3075,8 +3059,8 @@ void msm_comm_cleanup_internal_buffers(struct msm_vidc_inst *inst)
 	dprintk(VIDC_DBG,
 		"Inst %p is in bad state. Cleaning internal buffers\n", inst);
 
-	mutex_lock(&inst->internalbufs.lock);
-	list_for_each_entry_safe(buf, dummy, &inst->internalbufs.list, list) {
+	mutex_lock(&inst->scratchbufs.lock);
+	list_for_each_entry_safe(buf, dummy, &inst->scratchbufs.list, list) {
 		if (!buf->handle) {
 			dprintk(VIDC_ERR, "%s - buf->handle NULL\n", __func__);
 			continue;
@@ -3085,7 +3069,7 @@ void msm_comm_cleanup_internal_buffers(struct msm_vidc_inst *inst)
 		msm_comm_smem_free(inst, buf->handle);
 		kfree(buf);
 	}
-	mutex_unlock(&inst->internalbufs.lock);
+	mutex_unlock(&inst->scratchbufs.lock);
 
 	mutex_lock(&inst->persistbufs.lock);
 	list_for_each_entry_safe(buf, dummy, &inst->persistbufs.list, list) {
@@ -3758,19 +3742,19 @@ static enum hal_buffer scratch_buf_sufficient(struct msm_vidc_inst *inst,
 		goto not_sufficient;
 
 	/* Check if current scratch buffers are sufficient */
-	mutex_lock(&inst->internalbufs.lock);
+	mutex_lock(&inst->scratchbufs.lock);
 
-	list_for_each_entry(buf, &inst->internalbufs.list, list) {
+	list_for_each_entry(buf, &inst->scratchbufs.list, list) {
 		if (!buf->handle) {
 			dprintk(VIDC_ERR, "%s: invalid buf handle\n", __func__);
-			mutex_unlock(&inst->internalbufs.lock);
+			mutex_unlock(&inst->scratchbufs.lock);
 			goto not_sufficient;
 		}
 		if (buf->buffer_type == buffer_type &&
 			buf->handle->size >= bufreq->buffer_size)
 			count++;
 	}
-	mutex_unlock(&inst->internalbufs.lock);
+	mutex_unlock(&inst->scratchbufs.lock);
 
 	if (count != bufreq->buffer_count_actual)
 		goto not_sufficient;
@@ -3823,8 +3807,8 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst,
 					HAL_BUFFER_INTERNAL_SCRATCH_2);
 	}
 
-	mutex_lock(&inst->internalbufs.lock);
-	list_for_each_entry_safe(buf, dummy, &inst->internalbufs.list, list) {
+	mutex_lock(&inst->scratchbufs.lock);
+	list_for_each_entry_safe(buf, dummy, &inst->scratchbufs.list, list) {
 		if (!buf->handle) {
 			dprintk(VIDC_ERR, "%s - buf->handle NULL\n", __func__);
 			rc = -EINVAL;
@@ -3849,7 +3833,7 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst,
 					&buffer_info.align_device_addr,
 					buffer_info.buffer_size);
 			}
-			mutex_unlock(&inst->internalbufs.lock);
+			mutex_unlock(&inst->scratchbufs.lock);
 			rc = wait_for_sess_signal_receipt(inst,
 				HAL_SESSION_RELEASE_BUFFER_DONE);
 			if (rc) {
@@ -3857,7 +3841,7 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst,
 					MSM_VIDC_CORE_INVALID);
 				msm_comm_kill_session(inst);
 			}
-			mutex_lock(&inst->internalbufs.lock);
+			mutex_lock(&inst->scratchbufs.lock);
 		}
 
 		/*If scratch buffers can be reused, do not free the buffers*/
@@ -3870,7 +3854,7 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst,
 	}
 
 exit:
-	mutex_unlock(&inst->internalbufs.lock);
+	mutex_unlock(&inst->scratchbufs.lock);
 	return rc;
 }
 
@@ -4001,15 +3985,18 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst)
 	if (msm_comm_release_scratch_buffers(inst, true))
 		dprintk(VIDC_WARN, "Failed to release scratch buffers\n");
 
-	rc = set_scratch_buffers(inst, HAL_BUFFER_INTERNAL_SCRATCH);
+	rc = set_internal_buffers(inst, HAL_BUFFER_INTERNAL_SCRATCH,
+		&inst->scratchbufs);
 	if (rc)
 		goto error;
 
-	rc = set_scratch_buffers(inst, HAL_BUFFER_INTERNAL_SCRATCH_1);
+	rc = set_internal_buffers(inst, HAL_BUFFER_INTERNAL_SCRATCH_1,
+		&inst->scratchbufs);
 	if (rc)
 		goto error;
 
-	rc = set_scratch_buffers(inst, HAL_BUFFER_INTERNAL_SCRATCH_2);
+	rc = set_internal_buffers(inst, HAL_BUFFER_INTERNAL_SCRATCH_2,
+		&inst->scratchbufs);
 	if (rc)
 		goto error;
 
@@ -4027,11 +4014,13 @@ int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 
-	rc = set_persist_buffers(inst, HAL_BUFFER_INTERNAL_PERSIST);
+	rc = set_internal_buffers(inst, HAL_BUFFER_INTERNAL_PERSIST,
+		&inst->persistbufs);
 	if (rc)
 		goto error;
 
-	rc = set_persist_buffers(inst, HAL_BUFFER_INTERNAL_PERSIST_1);
+	rc = set_internal_buffers(inst, HAL_BUFFER_INTERNAL_PERSIST_1,
+		&inst->persistbufs);
 	if (rc)
 		goto error;
 	return rc;
