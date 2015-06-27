@@ -190,6 +190,8 @@
 #define clk_gcc_venus_tbu_clk			0x7e0b97ce
 #define clk_gcc_vfe1_tbu_clk			0x4888e70f
 #define clk_gcc_vfe_tbu_clk			0x061f2f95
+#define clk_gcc_aps_0_clk			0xf5045b0c
+#define clk_gcc_aps_1_clk			0xfa538119
 #define clk_aps_0_clk_src			0xa6068d64
 #define clk_aps_1_clk_src			0x3eec0ade
 #define clk_apss_ahb_clk_src			0x36f8495f

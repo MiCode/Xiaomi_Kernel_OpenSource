@@ -3450,6 +3450,8 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	 CLK_LIST(gcc_venus_tbu_clk),
 	 CLK_LIST(gcc_vfe1_tbu_clk),
 	 CLK_LIST(gcc_vfe_tbu_clk),
+	 CLK_LIST(gcc_aps_0_clk),
+	 CLK_LIST(gcc_aps_1_clk),
 	 CLK_LIST(aps_0_clk_src),
 	 CLK_LIST(aps_1_clk_src),
 	 CLK_LIST(apss_ahb_clk_src),
