@@ -86,6 +86,7 @@ struct bam_data_ch_info {
 	u32			dst_pipe_idx;
 	u8			src_connection_idx;
 	u8			dst_connection_idx;
+	enum usb_ctrl		usb_bam_type;
 
 	enum function_type			func_type;
 	enum transport_type			trans;
@@ -420,7 +421,8 @@ static void bam_data_epout_complete(struct usb_ep *ep, struct usb_request *req)
 	spin_lock(&port->port_lock);
 	if (queue) {
 		__skb_queue_tail(&d->rx_skb_q, skb);
-		if (!usb_bam_get_prod_granted(d->dst_connection_idx)) {
+		if (!usb_bam_get_prod_granted(d->usb_bam_type,
+					d->dst_connection_idx)) {
 			list_add_tail(&req->list, &d->rx_idle);
 			spin_unlock(&port->port_lock);
 			pr_err_ratelimited("usb bam prod is not granted.\n");
@@ -518,7 +520,8 @@ static void bam_data_write_toipa(struct work_struct *w)
 	}
 
 	while (d->pending_with_bam < BAM_PENDING_PKTS_LIMIT &&
-	       usb_bam_get_prod_granted(d->dst_connection_idx)) {
+	       usb_bam_get_prod_granted(d->usb_bam_type,
+					d->dst_connection_idx)) {
 		skb =  __skb_dequeue(&d->rx_skb_q);
 		if (!skb)
 			break;
@@ -785,7 +788,7 @@ static void bam2bam_data_disconnect_work(struct work_struct *w)
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	bam_data_ipa_disconnect(d);
-	ret = usb_bam_disconnect_ipa(&d->ipa_params);
+	ret = usb_bam_disconnect_ipa(d->usb_bam_type, &d->ipa_params);
 	if (ret)
 		pr_err("usb_bam_disconnect_ipa failed: err:%d\n", ret);
 
@@ -805,14 +808,14 @@ static void bam2bam_data_disconnect_work(struct work_struct *w)
  * This function configured data fifo based on index passed to get bam2bam
  * configuration.
  */
-static void configure_usb_data_fifo(u8 idx, struct usb_ep *ep,
-		enum usb_bam_pipe_type pipe_type)
+static void configure_usb_data_fifo(enum usb_ctrl bam_type,
+		u8 idx, struct usb_ep *ep, enum usb_bam_pipe_type pipe_type)
 {
 	struct u_bam_data_connect_info bam_info;
 	struct sps_mem_buffer data_fifo = {0};
 
 	if (pipe_type == USB_BAM_PIPE_BAM2BAM) {
-		get_bam2bam_connection_info(idx,
+		get_bam2bam_connection_info(bam_type, idx,
 					&bam_info.usb_bam_handle,
 					&bam_info.usb_bam_pipe_idx,
 					&bam_info.peer_pipe_idx,
@@ -940,7 +943,7 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	}
 
 	spin_unlock_irqrestore(&port->port_lock, flags);
-	ret = usb_bam_connect_ipa(&d->ipa_params);
+	ret = usb_bam_connect_ipa(d->usb_bam_type, &d->ipa_params);
 	if (ret) {
 		pr_err("%s: usb_bam_connect_ipa failed: err:%d\n",
 			__func__, ret);
@@ -957,9 +960,9 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 
 	d_port->ipa_consumer_ep = d->ipa_params.ipa_cons_ep_idx;
 	if (gadget_is_dwc3(gadget))
-		configure_usb_data_fifo(d->src_connection_idx,
-				port->port_usb->out,
-				d->src_pipe_type);
+		configure_usb_data_fifo(d->usb_bam_type,
+				d->src_connection_idx,
+				port->port_usb->out, d->src_pipe_type);
 
 	/* Remove support for UL using system-to-IPA towards DL */
 	if (d->src_pipe_type == USB_BAM_PIPE_SYS2BAM) {
@@ -988,7 +991,7 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 		d->ipa_params.reset_pipe_after_lpm = false;
 	}
 	spin_unlock_irqrestore(&port->port_lock, flags);
-	ret = usb_bam_connect_ipa(&d->ipa_params);
+	ret = usb_bam_connect_ipa(d->usb_bam_type, &d->ipa_params);
 	if (ret) {
 		pr_err("%s: usb_bam_connect_ipa failed: err:%d\n",
 			__func__, ret);
@@ -1014,9 +1017,9 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 			__func__, d_port->ipa_producer_ep,
 			d_port->ipa_consumer_ep);
 	if (gadget_is_dwc3(gadget))
-		configure_usb_data_fifo(d->dst_connection_idx,
-				port->port_usb->in,
-				d->dst_pipe_type);
+		configure_usb_data_fifo(d->usb_bam_type,
+				d->dst_connection_idx,
+				port->port_usb->in, d->dst_pipe_type);
 
 	/* Upadate BAM specific attributes in usb_request */
 	if (gadget_is_dwc3(gadget)) {
@@ -1470,6 +1473,7 @@ int bam_data_connect(struct data_port *gr, enum transport_type trans,
 	d = &port->data_ch;
 	d->src_connection_idx = src_connection_idx;
 	d->dst_connection_idx = dst_connection_idx;
+	d->usb_bam_type = usb_bam_type;
 
 	d->trans = trans;
 	d->func_type = func;
@@ -1498,10 +1502,10 @@ int bam_data_connect(struct data_port *gr, enum transport_type trans,
 	 * usbbam driver. It is being set either as
 	 * BAM2BAM or SYS2BAM.
 	 */
-	if (usb_bam_get_pipe_type(d->ipa_params.src_idx,
-		&d->src_pipe_type) ||
-		usb_bam_get_pipe_type(d->ipa_params.dst_idx,
-		&d->dst_pipe_type)) {
+	if (usb_bam_get_pipe_type(usb_bam_type, d->ipa_params.src_idx,
+				  &d->src_pipe_type) ||
+	    usb_bam_get_pipe_type(usb_bam_type, d->ipa_params.dst_idx,
+				  &d->dst_pipe_type)) {
 		pr_err("usb_bam_get_pipe_type() failed\n");
 		ret = -EINVAL;
 		goto exit;
@@ -1743,9 +1747,9 @@ static void bam_data_start(void *param, enum usb_bam_pipe_dir dir)
 	} else {
 		if (gadget_is_dwc3(gadget) &&
 		    msm_dwc3_reset_ep_after_lpm(gadget)) {
-			configure_data_fifo(d->dst_connection_idx,
-				port->port_usb->in,
-				d->dst_pipe_type);
+			configure_data_fifo(d->usb_bam_type,
+				d->dst_connection_idx,
+				port->port_usb->in, d->dst_pipe_type);
 		}
 		bam_data_start_endless_tx(port);
 	}
@@ -1907,7 +1911,7 @@ static void bam2bam_data_suspend_work(struct work_struct *w)
 		goto exit;
 	}
 
-	ret = usb_bam_register_wake_cb(d->dst_connection_idx,
+	ret = usb_bam_register_wake_cb(d->usb_bam_type, d->dst_connection_idx,
 					bam_data_wake_cb, port);
 	if (ret) {
 		pr_err("%s(): Failed to register BAM wake callback.\n",
@@ -1915,7 +1919,7 @@ static void bam2bam_data_suspend_work(struct work_struct *w)
 		goto exit;
 	}
 
-	usb_bam_register_start_stop_cbs(d->dst_connection_idx,
+	usb_bam_register_start_stop_cbs(d->usb_bam_type, d->dst_connection_idx,
 					bam_data_start, bam_data_stop,
 					port);
 
@@ -1925,7 +1929,7 @@ static void bam2bam_data_suspend_work(struct work_struct *w)
 	 * re-acquires port lock.
 	 */
 	spin_unlock_irqrestore(&port->port_lock, flags);
-	usb_bam_suspend(&d->ipa_params);
+	usb_bam_suspend(d->usb_bam_type, &d->ipa_params);
 	spin_lock_irqsave(&port->port_lock, flags);
 
 exit:
@@ -1978,7 +1982,8 @@ static void bam2bam_data_resume_work(struct work_struct *w)
 		goto exit;
 	}
 
-	ret = usb_bam_register_wake_cb(d->dst_connection_idx, NULL, NULL);
+	ret = usb_bam_register_wake_cb(d->usb_bam_type, d->dst_connection_idx,
+					NULL, NULL);
 	if (ret) {
 		pr_err("%s(): Failed to un-register BAM wake callback.\n",
 			__func__);
@@ -1994,17 +1999,17 @@ static void bam2bam_data_resume_work(struct work_struct *w)
 	if (gadget_is_dwc3(gadget) &&
 		msm_dwc3_reset_ep_after_lpm(gadget)) {
 		if (d->tx_req_dequeued) {
-			configure_usb_data_fifo(d->dst_connection_idx,
-				port->port_usb->in,
-				d->dst_pipe_type);
+			configure_usb_data_fifo(d->usb_bam_type,
+				d->dst_connection_idx,
+				port->port_usb->in, d->dst_pipe_type);
 			spin_unlock_irqrestore(&port->port_lock, flags);
 			msm_dwc3_reset_dbm_ep(port->port_usb->in);
 			spin_lock_irqsave(&port->port_lock, flags);
 		}
 		if (d->rx_req_dequeued) {
-			configure_usb_data_fifo(d->src_connection_idx,
-				port->port_usb->out,
-				d->src_pipe_type);
+			configure_usb_data_fifo(d->usb_bam_type,
+				d->src_connection_idx,
+				port->port_usb->out, d->src_pipe_type);
 			spin_unlock_irqrestore(&port->port_lock, flags);
 			msm_dwc3_reset_dbm_ep(port->port_usb->out);
 			spin_lock_irqsave(&port->port_lock, flags);
@@ -2012,7 +2017,7 @@ static void bam2bam_data_resume_work(struct work_struct *w)
 	}
 	d->tx_req_dequeued = false;
 	d->rx_req_dequeued = false;
-	usb_bam_resume(&d->ipa_params);
+	usb_bam_resume(d->usb_bam_type, &d->ipa_params);
 exit:
 	spin_unlock_irqrestore(&port->port_lock, flags);
 }

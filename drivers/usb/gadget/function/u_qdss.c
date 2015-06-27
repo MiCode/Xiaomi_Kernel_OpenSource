@@ -22,7 +22,6 @@ struct  usb_qdss_bam_connect_info {
 	u32 peer_pipe_idx;
 	unsigned long usb_bam_handle;
 	struct sps_mem_buffer *data_fifo;
-	enum usb_pipe_mem_type mem_type;
 };
 
 static struct usb_qdss_bam_connect_info bam_info;
@@ -46,8 +45,6 @@ int send_sps_req(struct usb_ep *data_ep)
 		req->length = 32*1024;
 		sps_params = MSM_SPS_MODE | MSM_DISABLE_WB |
 			bam_info.usb_bam_pipe_idx;
-		if (bam_info.mem_type == USB_PRIVATE_MEM)
-			sps_params |= MSM_INTERNAL_MEM;
 	} else {
 		/* non DWC3 BAM requires req->length to be 0 */
 		req->length = 0;
@@ -83,17 +80,18 @@ static int set_qdss_data_connection(struct usb_gadget *gadget,
 	}
 
 	if (enable) {
-		res = usb_bam_connect(idx, &(bam_info.usb_bam_pipe_idx));
+		res = usb_bam_connect(usb_bam_type, idx,
+					&(bam_info.usb_bam_pipe_idx));
 		bam_info.data_fifo =
 			kzalloc(sizeof(struct sps_mem_buffer), GFP_KERNEL);
 		if (!bam_info.data_fifo) {
 			pr_err("qdss_data_connection: memory alloc failed\n");
 			return -ENOMEM;
 		}
-		get_bam2bam_connection_info(idx,
+		get_bam2bam_connection_info(usb_bam_type, idx,
 			&bam_info.usb_bam_handle,
 			&bam_info.usb_bam_pipe_idx, &bam_info.peer_pipe_idx,
-			NULL, bam_info.data_fifo, &bam_info.mem_type);
+			NULL, bam_info.data_fifo, NULL);
 
 		if (gadget_is_dwc3(gadget))
 			msm_data_fifo_config(data_ep,
@@ -102,7 +100,7 @@ static int set_qdss_data_connection(struct usb_gadget *gadget,
 					     bam_info.usb_bam_pipe_idx);
 	} else {
 		kfree(bam_info.data_fifo);
-		res = usb_bam_disconnect_pipe(idx);
+		res = usb_bam_disconnect_pipe(usb_bam_type, idx);
 		if (res) {
 			pr_err("usb_bam_disconnection error\n");
 			return res;

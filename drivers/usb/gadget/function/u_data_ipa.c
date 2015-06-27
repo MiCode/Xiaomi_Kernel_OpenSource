@@ -45,6 +45,7 @@ struct ipa_data_ch_info {
 	u32			dst_pipe_idx;
 	u8			src_connection_idx;
 	u8			dst_connection_idx;
+	enum usb_ctrl		usb_bam_type;
 	struct gadget_ipa_port	*port_usb;
 	struct usb_bam_connect_ipa_params	ipa_params;
 };
@@ -161,7 +162,7 @@ static void ipa_data_disconnect_work(struct work_struct *w)
 			port->ipa_params.cons_clnt_hdl);
 
 	spin_unlock_irqrestore(&port->port_lock, flags);
-	ret = usb_bam_disconnect_ipa(&port->ipa_params);
+	ret = usb_bam_disconnect_ipa(port->usb_bam_type, &port->ipa_params);
 	if (ret)
 		pr_err("usb_bam_disconnect_ipa failed: err:%d\n", ret);
 
@@ -247,12 +248,12 @@ void ipa_data_disconnect(struct gadget_ipa_port *gp, u8 port_num)
  * using provided index value. This function needs to used before starting
  * endless transfer.
  */
-static void configure_fifo(u8 idx, struct usb_ep *ep)
+static void configure_fifo(enum usb_ctrl bam_type, u8 idx, struct usb_ep *ep)
 {
 	struct u_bam_data_connect_info bam_info;
 	struct sps_mem_buffer data_fifo = {0};
 
-	get_bam2bam_connection_info(idx, &bam_info.usb_bam_handle,
+	get_bam2bam_connection_info(bam_type, idx, &bam_info.usb_bam_handle,
 				&bam_info.usb_bam_pipe_idx,
 				&bam_info.peer_pipe_idx,
 				NULL, &data_fifo, NULL);
@@ -352,7 +353,8 @@ static void ipa_data_connect_work(struct work_struct *w)
 	if (gport->out) {
 		pr_debug("configure bam ipa connect for USB OUT\n");
 		port->ipa_params.dir = USB_TO_PEER_PERIPHERAL;
-		ret = usb_bam_connect_ipa(&port->ipa_params);
+		ret = usb_bam_connect_ipa(port->usb_bam_type,
+						&port->ipa_params);
 		if (ret) {
 			pr_err("usb_bam_connect_ipa out failed err:%d\n", ret);
 			goto free_rx_tx_req;
@@ -371,7 +373,8 @@ static void ipa_data_connect_work(struct work_struct *w)
 		port->rx_req->udc_priv = sps_params;
 
 		if (gadget_is_dwc3(gadget)) {
-			configure_fifo(port->src_connection_idx,
+			configure_fifo(port->usb_bam_type,
+					port->src_connection_idx,
 					port->port_usb->out);
 			ret = msm_ep_config(port->port_usb->out);
 			if (ret) {
@@ -386,7 +389,8 @@ static void ipa_data_connect_work(struct work_struct *w)
 		pr_debug("configure bam ipa connect for USB IN\n");
 		port->ipa_params.dir = PEER_PERIPHERAL_TO_USB;
 		port->ipa_params.dst_client = IPA_CLIENT_USB_DPL_CONS;
-		ret = usb_bam_connect_ipa(&port->ipa_params);
+		ret = usb_bam_connect_ipa(port->usb_bam_type,
+						&port->ipa_params);
 		if (ret) {
 			pr_err("usb_bam_connect_ipa IN failed err:%d\n", ret);
 			goto unconfig_msm_ep_out;
@@ -404,7 +408,8 @@ static void ipa_data_connect_work(struct work_struct *w)
 		port->tx_req->udc_priv = sps_params;
 
 		if (gadget_is_dwc3(gadget)) {
-			configure_fifo(port->dst_connection_idx, gport->in);
+			configure_fifo(port->usb_bam_type,
+					port->dst_connection_idx, gport->in);
 			ret = msm_ep_config(gport->in);
 			if (ret) {
 				pr_err("msm_ep_config() failed for IN EP\n");
@@ -435,7 +440,7 @@ static void ipa_data_connect_work(struct work_struct *w)
 
 disconnect_usb_bam_ipa_in:
 	if (!is_ipa_disconnected) {
-		usb_bam_disconnect_ipa(&port->ipa_params);
+		usb_bam_disconnect_ipa(port->usb_bam_type, &port->ipa_params);
 		is_ipa_disconnected = true;
 	}
 unconfig_msm_ep_out:
@@ -443,7 +448,7 @@ unconfig_msm_ep_out:
 		msm_ep_unconfig(port->port_usb->out);
 disconnect_usb_bam_ipa_out:
 	if (!is_ipa_disconnected) {
-		usb_bam_disconnect_ipa(&port->ipa_params);
+		usb_bam_disconnect_ipa(port->usb_bam_type, &port->ipa_params);
 		is_ipa_disconnected = true;
 	}
 free_rx_tx_req:
@@ -496,6 +501,7 @@ int ipa_data_connect(struct gadget_ipa_port *gp, u8 port_num,
 	port->port_usb = gp;
 	port->src_connection_idx = src_connection_idx;
 	port->dst_connection_idx = dst_connection_idx;
+	port->usb_bam_type = usb_bam_get_bam_type(gp->cdev->gadget->name);
 
 	port->ipa_params.src_pipe = &(port->src_pipe_idx);
 	port->ipa_params.dst_pipe = &(port->dst_pipe_idx);
@@ -578,8 +584,8 @@ static void ipa_data_start(void *param, enum usb_bam_pipe_dir dir)
 	} else {
 		pr_debug("%s(): start endless TX\n", __func__);
 		if (msm_dwc3_reset_ep_after_lpm(gadget)) {
-			configure_fifo(port->dst_connection_idx,
-					port->port_usb->in);
+			configure_fifo(port->usb_bam_type,
+				 port->dst_connection_idx, port->port_usb->in);
 		}
 		ipa_data_start_endless_xfer(port, true);
 	}
@@ -645,17 +651,18 @@ void ipa_data_suspend(struct gadget_ipa_port *gp, u8 port_num)
 	}
 
 	pr_debug("%s: suspend started\n", __func__);
-	ret = usb_bam_register_wake_cb(port->dst_connection_idx,
-						NULL, port);
+	ret = usb_bam_register_wake_cb(port->usb_bam_type,
+			port->dst_connection_idx, NULL, port);
 	if (ret) {
 		pr_err("%s(): Failed to register BAM wake callback.\n",
 				__func__);
 		return;
 	}
 
-	usb_bam_register_start_stop_cbs(port->dst_connection_idx,
-				ipa_data_start, ipa_data_stop, port);
-	usb_bam_suspend(&port->ipa_params);
+	usb_bam_register_start_stop_cbs(port->usb_bam_type,
+			port->dst_connection_idx, ipa_data_start,
+			ipa_data_stop, port);
+	usb_bam_suspend(port->usb_bam_type, &port->ipa_params);
 }
 
 /**
@@ -700,7 +707,8 @@ void ipa_data_resume(struct gadget_ipa_port *gp, u8 port_num)
 		return;
 	}
 
-	ret = usb_bam_register_wake_cb(port->dst_connection_idx, NULL, NULL);
+	ret = usb_bam_register_wake_cb(port->usb_bam_type,
+				port->dst_connection_idx, NULL, NULL);
 	if (ret) {
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		pr_err("%s(): Failed to register BAM wake callback.\n",
@@ -709,12 +717,14 @@ void ipa_data_resume(struct gadget_ipa_port *gp, u8 port_num)
 	}
 
 	if (msm_dwc3_reset_ep_after_lpm(gadget)) {
-		configure_fifo(port->src_connection_idx, port->port_usb->out);
-		configure_fifo(port->dst_connection_idx, port->port_usb->in);
+		configure_fifo(port->usb_bam_type, port->src_connection_idx,
+				port->port_usb->out);
+		configure_fifo(port->usb_bam_type, port->dst_connection_idx,
+				port->port_usb->in);
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		msm_dwc3_reset_dbm_ep(port->port_usb->in);
 		spin_lock_irqsave(&port->port_lock, flags);
-		usb_bam_resume(&port->ipa_params);
+		usb_bam_resume(port->usb_bam_type, &port->ipa_params);
 	}
 
 	spin_unlock_irqrestore(&port->port_lock, flags);

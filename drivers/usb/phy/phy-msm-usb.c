@@ -23,6 +23,7 @@
 #include <linux/ioport.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
+#include <linux/of_platform.h>
 #include <linux/uaccess.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
@@ -1381,17 +1382,6 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	if (atomic_read(&motg->in_lpm))
 		return 0;
 
-	/*
-	 * Don't allow low power mode if bam pipes are still connected.
-	 * Otherwise it could lead to unclocked access when sps driver
-	 * accesses USB bam registers as part of disconnecting bam pipes.
-	 */
-	if (!msm_bam_usb_lpm_ok(CI_CTRL)) {
-		msm_otg_dbg_log_event(phy, "BAM NOT READY", 0, 0);
-		pm_schedule_suspend(phy->dev, 1000);
-		return -EBUSY;
-	}
-
 	motg->ui_enabled = 0;
 	disable_irq(motg->irq);
 lpm_start:
@@ -1724,8 +1714,6 @@ static int msm_otg_resume(struct msm_otg *motg)
 				atomic_read(&motg->in_lpm), phy->state);
 		return 0;
 	}
-
-	msm_bam_notify_lpm_resume(CI_CTRL);
 
 	if (motg->ui_enabled) {
 		motg->ui_enabled = 0;
@@ -3306,6 +3294,7 @@ static void msm_otg_sm_work(struct work_struct *w)
 	struct msm_otg *motg = container_of(w, struct msm_otg, sm_work);
 	struct usb_otg *otg = motg->phy.otg;
 	bool work = 0, srp_reqd, dcp;
+	int ret;
 
 	pm_runtime_resume(otg->phy->dev);
 	if (motg->pm_done) {
@@ -3320,6 +3309,12 @@ static void msm_otg_sm_work(struct work_struct *w)
 	switch (otg->phy->state) {
 	case OTG_STATE_UNDEFINED:
 		msm_otg_reset(otg->phy);
+		/* Add child device only after block reset */
+		ret = of_platform_populate(motg->pdev->dev.of_node, NULL, NULL,
+					&motg->pdev->dev);
+		if (ret)
+			dev_dbg(&motg->pdev->dev, "failed to add BAM core\n");
+
 		msm_otg_init_sm(motg);
 		if (!psy && legacy_power_supply) {
 			psy = power_supply_get_by_name("usb");
@@ -5689,6 +5684,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 	motg->pdata = pdata;
 	phy = &motg->phy;
 	phy->dev = &pdev->dev;
+	motg->pdev = pdev;
 	motg->dbg_idx = 0;
 	motg->dbg_lock = __RW_LOCK_UNLOCKED(lck);
 
@@ -6167,8 +6163,6 @@ static int msm_otg_probe(struct platform_device *pdev)
 	motg->pm_notify.notifier_call = msm_otg_pm_notify;
 	register_pm_notifier(&motg->pm_notify);
 	msm_otg_dbg_log_event(phy, "OTG PROBE", motg->caps, motg->lpm_flags);
-
-	msm_bam_set_usb_dev(&pdev->dev);
 
 	return 0;
 
