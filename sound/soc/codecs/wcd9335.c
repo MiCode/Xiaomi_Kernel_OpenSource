@@ -2504,6 +2504,7 @@ static int tasha_codec_hphr_dac_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	int hph_mode = tasha->hph_mode;
 	u8 dem_inp;
 	int ret = 0;
@@ -2537,6 +2538,18 @@ static int tasha_codec_hphr_dac_event(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMU:
 		/* 1000us required as per HW requirement */
 		usleep_range(1000, 1100);
+		if ((hph_mode == CLS_H_LP) &&
+		   (TASHA_IS_1_1(wcd9xxx->version))) {
+			snd_soc_update_bits(codec, WCD9335_HPH_L_DAC_CTL,
+					    0x03, 0x03);
+		}
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		if ((hph_mode == CLS_H_LP) &&
+		   (TASHA_IS_1_1(wcd9xxx->version))) {
+			snd_soc_update_bits(codec, WCD9335_HPH_L_DAC_CTL,
+					    0x03, 0x00);
+		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* 1000us required as per HW requirement */
@@ -2557,6 +2570,7 @@ static int tasha_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	int hph_mode = tasha->hph_mode;
 	u8 dem_inp;
 	int ret = 0;
@@ -2590,6 +2604,18 @@ static int tasha_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMU:
 		/* 1000us required as per HW requirement */
 		usleep_range(1000, 1100);
+		if ((hph_mode == CLS_H_LP) &&
+		   (TASHA_IS_1_1(wcd9xxx->version))) {
+			snd_soc_update_bits(codec, WCD9335_HPH_L_DAC_CTL,
+					    0x03, 0x03);
+		}
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		if ((hph_mode == CLS_H_LP) &&
+		   (TASHA_IS_1_1(wcd9xxx->version))) {
+			snd_soc_update_bits(codec, WCD9335_HPH_L_DAC_CTL,
+					    0x03, 0x00);
+		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* 1000us required as per HW requirement */
@@ -6994,11 +7020,11 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_DAC_E("RX INT1 DAC", NULL, WCD9335_ANA_HPH,
 		5, 0, tasha_codec_hphl_dac_event,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
-		SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_DAC_E("RX INT2 DAC", NULL, WCD9335_ANA_HPH,
 		4, 0, tasha_codec_hphr_dac_event,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
-		SND_SOC_DAPM_POST_PMD),
+		SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_DAC_E("RX INT3 DAC", NULL, SND_SOC_NOPM,
 		0, 0, tasha_codec_lineout_dac_event,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
