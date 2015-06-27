@@ -2656,6 +2656,7 @@ static void usb_bam_sps_events(enum sps_callback_case sps_cb_case, void *user)
 		if (bam < 0 || bam >= MAX_BAMS) {
 			pr_err("%s: Invalid bam, type=%d ,name=%s\n",
 				__func__, bam, (char *)user);
+			spin_unlock(&ctx->usb_bam_lock);
 			return;
 		}
 		ctx = &msm_usb_bam[bam];
