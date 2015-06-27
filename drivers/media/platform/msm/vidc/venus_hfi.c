@@ -59,12 +59,13 @@ struct tzbsp_resp {
 
 enum tzbsp_video_state {
 	TZBSP_VIDEO_STATE_SUSPEND = 0,
-	TZBSP_VIDEO_STATE_RESUME
+	TZBSP_VIDEO_STATE_RESUME = 1,
+	TZBSP_VIDEO_STATE_RESTORE_THRESHOLD = 2,
 };
 
 struct tzbsp_video_set_state_req {
-	u32 state; /*shoud be tzbsp_video_state enum value*/
-	u32 spare; /*reserved for future, should be zero*/
+	u32 state; /* should be tzbsp_video_state enum value */
+	u32 spare; /* reserved for future, should be zero */
 };
 
 const struct msm_vidc_gov_data DEFAULT_BUS_VOTE = {
@@ -93,6 +94,7 @@ static int __iface_cmdq_write(struct venus_hfi_device *device,
 					void *pkt);
 static int __load_fw(struct venus_hfi_device *device);
 static void __unload_fw(struct venus_hfi_device *device);
+static int __tzbsp_set_video_state(enum tzbsp_video_state state);
 
 
 /**
@@ -693,6 +695,25 @@ static void __set_registers(struct venus_hfi_device *device)
 	}
 }
 
+/*
+ * The existence of this function is a hack for 8996 (or certain Venus versions)
+ * to overcome a hardware bug.  Whenever the GDSCs momentarily power collapse
+ * (after calling __hand_off_regulators()), the values of the threshold
+ * registers (typically programmed by TZ) are incorrectly reset.  As a result
+ * reprogram these registers at certain agreed upon points.
+ */
+static void __set_threshold_registers(struct venus_hfi_device *device)
+{
+	u32 version = __read_register(device, VIDC_WRAPPER_HW_VERSION);
+
+	version &= ~GENMASK(15, 0);
+	if (version != (0x3 << 28 | 0x43 << 16))
+		return;
+
+	if (__tzbsp_set_video_state(TZBSP_VIDEO_STATE_RESTORE_THRESHOLD))
+		dprintk(VIDC_ERR, "Failed to restore threshold values\n");
+}
+
 static void __iommu_detach(struct venus_hfi_device *device)
 {
 	struct context_bank_info *cb;
@@ -1191,7 +1212,7 @@ free_failed:
 	return rc;
 }
 
-static inline int __tzbsp_set_video_state(enum tzbsp_video_state state)
+static int __tzbsp_set_video_state(enum tzbsp_video_state state)
 {
 	struct tzbsp_video_set_state_req cmd = {0};
 	int tzbsp_rsp = 0;
@@ -3424,6 +3445,16 @@ static int __response_handler(struct venus_hfi_device *device)
 			 */
 			--packet_count;
 			break;
+		case HAL_SESSION_LOAD_RESOURCE_DONE:
+			/*
+			 * Work around for H/W bug, need to re-program these
+			 * registers as part of a handshake agreement with the
+			 * firmware.  This strictly only needs to be done for
+			 * decoder secure sessions, but there's no harm in doing
+			 * so for all sessions as it's at worst a NO-OP.
+			 */
+			__set_threshold_registers(device);
+			break;
 		default:
 			break;
 		}
@@ -4168,7 +4199,12 @@ static int __venus_power_on(struct venus_hfi_device *device)
 	device->intr_status = 0;
 	enable_irq(device->hal_data->irq);
 
-	/* Hand off control of regulators to h/w _after_ enabling clocks */
+	/*
+	 * Hand off control of regulators to h/w _after_ enabling clocks.
+	 * Note that the GDSC will turn off when switching from normal
+	 * (s/w triggered) to fast (HW triggered) unless the h/w vote is
+	 * present. Since Venus isn't up yet, the GDSC will be off briefly.
+	 */
 	if (__enable_hw_power_collapse(device))
 		dprintk(VIDC_ERR, "Failed to enabled inter-frame PC\n");
 
@@ -4301,6 +4337,12 @@ static inline int __resume(struct venus_hfi_device *device)
 		dprintk(VIDC_ERR, "Failed to reset venus core\n");
 		goto err_reset_core;
 	}
+
+	/*
+	 * Work around for H/W bug, need to reprogram these registers once
+	 * firmware is out reset
+	 */
+	__set_threshold_registers(device);
 
 	dprintk(VIDC_INFO, "Resumed from power collapse\n");
 	return rc;
