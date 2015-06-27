@@ -651,10 +651,10 @@
 #define TSENS_DEBUG_OFFSET_WORD2	0x8
 #define TSENS_DEBUG_OFFSET_WORD3	0xc
 #define TSENS_DEBUG_OFFSET_ROW		0x10
-#define TSENS_DEBUG_10_DECIDEGC		100
+#define TSENS_DEBUG_DECIDEGC		-400
 
 static uint32_t tsens_sec_to_msec_value = 3000;
-static uint32_t tsens_completion_timeout_hz = HZ;
+static uint32_t tsens_completion_timeout_hz = 2 * HZ;
 
 enum tsens_calib_fuse_map_type {
 	TSENS_CALIB_FUSE_MAP_8974 = 0,
@@ -1612,10 +1612,14 @@ static void tsens_poll(struct work_struct *work)
 	unsigned int reg_cntl, mask, rc = 0, debug_dump, i = 0, loop = 0;
 	uint32_t r1, r2, r3, r4, offset = 0;
 	unsigned long temp;
+	unsigned int status, int_mask, int_mask_val;
 	void __iomem *srot_addr;
 	void __iomem *controller_id_addr;
 	void __iomem *debug_id_addr;
 	void __iomem *debug_data_addr;
+	void __iomem *sensor_status_addr;
+	void __iomem *sensor_int_mask_addr;
+	void __iomem *sensor_critical_addr;
 
 	/* Set the Critical temperature threshold to a value of 10 that should
 	 * guarantee a threshold to trigger. Check the interrupt count if
@@ -1628,7 +1632,7 @@ static void tsens_poll(struct work_struct *work)
 	debug_data_addr = TSENS_DEBUG_DATA(tmdev->tsens_addr);
 	srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_addr);
 
-	temp = TSENS_DEBUG_10_DECIDEGC;
+	temp = TSENS_DEBUG_DECIDEGC;
 	/* Sensor 0 on either of the controllers */
 	mask = 0;
 
@@ -1648,7 +1652,33 @@ static void tsens_poll(struct work_struct *work)
 				&tmdev->tsens_rslt_completion,
 				tsens_completion_timeout_hz);
 	if (!rc) {
-		pr_err("Did not receive the TSENS critical interrupt\n");
+		pr_err("Switch to polling, TSENS critical interrupt failed\n");
+		sensor_status_addr = TSENS_TM_SN_STATUS(tmdev->tsens_addr);
+		sensor_int_mask_addr =
+			TSENS_TM_CRITICAL_INT_MASK(tmdev->tsens_addr);
+		sensor_critical_addr =
+			TSENS_TM_SN_CRITICAL_THRESHOLD(tmdev->tsens_addr);
+		status = readl_relaxed(sensor_status_addr);
+		int_mask = readl_relaxed(sensor_int_mask_addr);
+
+		if ((status & TSENS_TM_SN_STATUS_CRITICAL_STATUS) &&
+			!(int_mask & 1)) {
+			int_mask = readl_relaxed(sensor_int_mask_addr);
+			int_mask_val = 1;
+			/* Mask the corresponding interrupt for the sensors */
+			writel_relaxed(int_mask | int_mask_val,
+				TSENS_TM_CRITICAL_INT_MASK(
+					tmdev->tsens_addr));
+			/* Clear the corresponding sensors interrupt */
+			writel_relaxed(int_mask_val,
+				TSENS_TM_CRITICAL_INT_CLEAR(tmdev->tsens_addr));
+			writel_relaxed(0,
+				TSENS_TM_CRITICAL_INT_CLEAR(
+					tmdev->tsens_addr));
+
+			goto re_schedule;
+		}
+
 		debug_dump = readl_relaxed(controller_id_addr);
 		pr_err("Controller_id: 0x%x\n", debug_dump);
 		for (i = TSENS_DEBUG_BUS_ID_2; i < TSENS_DEBUG_BUS_ID_4; i++) {
@@ -1699,6 +1729,8 @@ static void tsens_poll(struct work_struct *work)
 
 		BUG();
 	}
+
+re_schedule:
 
 	schedule_delayed_work(&tmdev->tsens_critical_poll_test,
 			msecs_to_jiffies(tsens_sec_to_msec_value));
