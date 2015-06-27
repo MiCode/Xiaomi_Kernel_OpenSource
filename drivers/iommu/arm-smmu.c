@@ -388,8 +388,8 @@ struct arm_smmu_device {
 	unsigned int			num_impl_def_attach_registers;
 
 	struct mutex			atos_lock;
-	atomic_t			clock_refs_count;
-	atomic_t			regulator_refs_count;
+	unsigned int			clock_refs_count;
+	spinlock_t			clock_refs_lock;
 };
 
 struct arm_smmu_cfg {
@@ -709,9 +709,6 @@ static int arm_smmu_disable_regulators(struct arm_smmu_device *smmu)
 	if (!smmu->gdsc)
 		return 0;
 
-	if (atomic_dec_return(&smmu->regulator_refs_count) > 0)
-		return 0;
-
 	arm_smmu_unprepare_clocks(smmu);
 	return regulator_disable(smmu->gdsc);
 }
@@ -721,9 +718,6 @@ static int arm_smmu_enable_regulators(struct arm_smmu_device *smmu)
 	int ret;
 
 	if (!smmu->gdsc)
-		return 0;
-
-	if (atomic_inc_return(&smmu->regulator_refs_count) > 1)
 		return 0;
 
 	ret = regulator_enable(smmu->gdsc);
@@ -760,9 +754,13 @@ static void arm_smmu_disable_clocks(struct arm_smmu_device *smmu)
 static int arm_smmu_enable_clocks_atomic(struct arm_smmu_device *smmu)
 {
 	int i, ret = 0;
+	unsigned long flags;
 
-	if (atomic_inc_return(&smmu->clock_refs_count) > 1)
+	spin_lock_irqsave(&smmu->clock_refs_lock, flags);
+	if (smmu->clock_refs_count++ > 0) {
+		spin_unlock_irqrestore(&smmu->clock_refs_lock, flags);
 		return 0;
+	}
 
 	for (i = 0; i < smmu->num_clocks; ++i) {
 		ret = clk_enable(smmu->clocks[i]);
@@ -773,6 +771,7 @@ static int arm_smmu_enable_clocks_atomic(struct arm_smmu_device *smmu)
 			break;
 		}
 	}
+	spin_unlock_irqrestore(&smmu->clock_refs_lock, flags);
 	return ret;
 }
 
@@ -780,11 +779,17 @@ static int arm_smmu_enable_clocks_atomic(struct arm_smmu_device *smmu)
 static void arm_smmu_disable_clocks_atomic(struct arm_smmu_device *smmu)
 {
 	int i;
-	if (atomic_dec_return(&smmu->clock_refs_count) > 0)
+	unsigned long flags;
+
+	spin_lock_irqsave(&smmu->clock_refs_lock, flags);
+	if (smmu->clock_refs_count-- > 1) {
+		spin_unlock_irqrestore(&smmu->clock_refs_lock, flags);
 		return;
+	}
 
 	for (i = 0; i < smmu->num_clocks; ++i)
 		clk_disable(smmu->clocks[i]);
+	spin_unlock_irqrestore(&smmu->clock_refs_lock, flags);
 }
 
 /* Wait for any pending TLB invalidations to complete */
@@ -2418,6 +2423,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	smmu->dev = dev;
 	mutex_init(&smmu->attach_lock);
 	mutex_init(&smmu->atos_lock);
+	spin_lock_init(&smmu->clock_refs_lock);
 
 	of_id = of_match_node(arm_smmu_of_match, dev->of_node);
 	if (!of_id)
