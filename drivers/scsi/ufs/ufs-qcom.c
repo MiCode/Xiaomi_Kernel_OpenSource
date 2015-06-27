@@ -1752,9 +1752,9 @@ int ufs_qcom_testbus_config(struct ufs_qcom_host *host)
 	 */
 	}
 	mask <<= offset;
-	ufshcd_hold(host->hba, false);
 
 	pm_runtime_get_sync(host->hba->dev);
+	ufshcd_hold(host->hba, false);
 	ufshcd_rmwl(host->hba, TEST_BUS_SEL,
 		    (u32)host->testbus.select_major << 19,
 		    REG_UFS_CFG1);
@@ -1762,9 +1762,8 @@ int ufs_qcom_testbus_config(struct ufs_qcom_host *host)
 		    (u32)host->testbus.select_minor << offset,
 		    reg);
 	ufs_qcom_enable_test_bus(host);
-
-	pm_runtime_put_sync(host->hba->dev);
 	ufshcd_release(host->hba, false);
+	pm_runtime_put_sync(host->hba->dev);
 
 	return 0;
 }
