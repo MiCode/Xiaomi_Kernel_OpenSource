@@ -203,6 +203,8 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (pdev->dev.parent)
 		pm_runtime_resume(pdev->dev.parent);
 
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_set_autosuspend_delay(&pdev->dev, 1000);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
@@ -236,7 +238,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (ret)
 		dev_err(&pdev->dev, "%s: unable to create imod sysfs entry\n",
 					__func__);
-	pm_runtime_put(&pdev->dev);
+	pm_runtime_put_autosuspend(&pdev->dev);
 
 	return 0;
 
@@ -279,6 +281,16 @@ static int xhci_plat_remove(struct platform_device *dev)
 }
 
 #ifdef CONFIG_PM_RUNTIME
+static int xhci_plat_runtime_idle(struct device *dev)
+{
+	if (pm_runtime_autosuspend_expiration(dev)) {
+		pm_runtime_autosuspend(dev);
+		return -EAGAIN;
+	}
+
+	return 0;
+}
+
 static int xhci_plat_runtime_suspend(struct device *dev)
 {
 	struct usb_hcd *hcd = dev_get_drvdata(dev);
@@ -296,19 +308,23 @@ static int xhci_plat_runtime_resume(struct device *dev)
 {
 	struct usb_hcd *hcd = dev_get_drvdata(dev);
 	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
+	int ret;
 
 	if (!xhci)
 		return 0;
 
 	dev_dbg(dev, "xhci-plat runtime resume\n");
 
-	return xhci_resume(xhci, false);
+	ret = xhci_resume(xhci, false);
+	pm_runtime_mark_last_busy(dev);
+
+	return ret;
 }
 #endif
 
 static const struct dev_pm_ops xhci_plat_pm_ops = {
 	SET_RUNTIME_PM_OPS(xhci_plat_runtime_suspend, xhci_plat_runtime_resume,
-			   NULL)
+			   xhci_plat_runtime_idle)
 };
 
 static struct platform_driver usb_xhci_driver = {
