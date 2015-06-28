@@ -274,7 +274,8 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 		msm_bus_scale_client_update_request(pwr->pcl, buslevel);
 
 	/* ask a governor to vote on behalf of us */
-	devfreq_vbif_update_bw(ib_votes[last_vote_buslevel], ab);
+	if (pwr->devbw)
+		devfreq_vbif_update_bw(ib_votes[last_vote_buslevel], ab);
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_buslevel_update);
 
@@ -1552,17 +1553,31 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 		pwr->bus_width = 0;
 
 	/* Check if gpu bandwidth vote device is defined in dts */
-	gpubw_dev_node = of_parse_phandle(pdev->dev.of_node,
+	if (pwr->bus_control) {
+		/* Check if gpu bandwidth vote device is defined in dts */
+		gpubw_dev_node = of_parse_phandle(pdev->dev.of_node,
 					"qcom,gpubw-dev", 0);
-	/*
-	 * Governor support enables the gpu bus scaling via governor
-	 * and hence no need to register for bus scaling client
-	 * if gpubw-dev is defined.
-	 */
-	if (gpubw_dev_node) {
-		p2dev = of_find_device_by_node(gpubw_dev_node);
-		if (p2dev)
-			pwr->devbw = &p2dev->dev;
+		/*
+		 * Governor support enables the gpu bus scaling via governor
+		 * and hence no need to register for bus scaling client
+		 * if gpubw-dev is defined.
+		 */
+		if (gpubw_dev_node) {
+			p2dev = of_find_device_by_node(gpubw_dev_node);
+			if (p2dev) {
+				pwr->devbw = &p2dev->dev;
+			} else {
+				KGSL_PWR_ERR(device,
+					"gpubw-dev not available");
+				result = -EINVAL;
+				goto done;
+			}
+		} else {
+			KGSL_PWR_ERR(device,
+				"Unable to find gpubw-dev device in dts");
+			result = -EINVAL;
+			goto done;
+		}
 	} else {
 		/*
 		 * Register for gpu bus scaling if governor support
