@@ -1642,18 +1642,20 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 	int32_t queue_len = 0;
 	struct msm_device_queue *queue = NULL;
 	struct msm_cpp_frame_info_t *processed_frame[MAX_CPP_PROCESSING_FRAME];
-	struct cpp_device *cpp_dev;
+	struct cpp_device *cpp_dev = cpp_timer.data.cpp_dev;
 
 	pr_info("cpp_timer_callback called. (jiffies=%lu)\n",
 		jiffies);
+	mutex_lock(&cpp_dev->mutex);
+
 	if (!work || cpp_timer.data.cpp_dev->state != CPP_STATE_ACTIVE) {
 		pr_err("Invalid work:%p or state:%d\n", work,
 			cpp_timer.data.cpp_dev->state);
-		return;
+		goto end;
 	}
 	if (!atomic_read(&cpp_timer.used)) {
 		pr_info("Delayed trigger, IRQ serviced\n");
-		return;
+		goto end;
 	}
 
 	disable_irq(cpp_timer.data.cpp_dev->irq->start);
@@ -1670,14 +1672,11 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 
 	if (!atomic_read(&cpp_timer.used)) {
 		pr_info("Delayed trigger, IRQ serviced\n");
-		return;
+		goto end;
 	}
 
 	queue = &cpp_timer.data.cpp_dev->processing_q;
 	queue_len = queue->len;
-	cpp_dev = cpp_timer.data.cpp_dev;
-
-	mutex_lock(&cpp_dev->mutex);
 
 	if (cpp_dev->timeout_trial_cnt >=
 		cpp_dev->max_timeout_trial_cnt) {
@@ -1690,9 +1689,7 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 		for (i = 0; i < MAX_CPP_PROCESSING_FRAME; i++)
 			cpp_timer.data.processed_frame[i] = NULL;
 		cpp_dev->timeout_trial_cnt = 0;
-		mutex_unlock(&cpp_dev->mutex);
-		pr_info("exit\n");
-		return;
+		goto end;
 	}
 
 	atomic_set(&cpp_timer.used, 1);
@@ -1736,7 +1733,9 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 	}
 
 	cpp_timer.data.cpp_dev->timeout_trial_cnt++;
-	mutex_unlock(&cpp_timer.data.cpp_dev->mutex);
+
+end:
+	mutex_unlock(&cpp_dev->mutex);
 
 	pr_info("exit\n");
 	return;
