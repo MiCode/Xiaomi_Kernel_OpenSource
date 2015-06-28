@@ -2423,8 +2423,7 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 			| KGSL_MEMALIGN_MASK
 			| KGSL_MEMFLAGS_USE_CPU_MAP
 			| KGSL_MEMFLAGS_SECURE;
-
-	entry->memdesc.flags = param->flags;
+	entry->memdesc.flags = param->flags | KGSL_MEMFLAGS_FORCE_32BIT;
 
 	if (!kgsl_mmu_use_cpu_map(&dev_priv->device->mmu))
 		entry->memdesc.flags &= ~KGSL_MEMFLAGS_USE_CPU_MAP;
@@ -2836,7 +2835,8 @@ static struct kgsl_mem_entry *gpumem_alloc_entry(
 		| KGSL_MEMTYPE_MASK
 		| KGSL_MEMALIGN_MASK
 		| KGSL_MEMFLAGS_USE_CPU_MAP
-		| KGSL_MEMFLAGS_SECURE;
+		| KGSL_MEMFLAGS_SECURE
+		| KGSL_MEMFLAGS_FORCE_32BIT;
 
 	/* Turn off SVM if the system doesn't support it */
 	if (!kgsl_mmu_use_cpu_map(&dev_priv->device->mmu))
@@ -2850,10 +2850,10 @@ static struct kgsl_mem_entry *gpumem_alloc_entry(
 		return ERR_PTR(-EOPNOTSUPP);
 	}
 
-	/* SVM and secure memory are not friends */
-	if ((flags & KGSL_MEMFLAGS_SECURE) &&
-		(flags & KGSL_MEMFLAGS_USE_CPU_MAP))
-		flags &= ~KGSL_MEMFLAGS_USE_CPU_MAP;
+	/* Secure memory disables advanced addressing modes */
+	if (flags & KGSL_MEMFLAGS_SECURE)
+		flags &= ~(KGSL_MEMFLAGS_USE_CPU_MAP
+			   | KGSL_MEMFLAGS_FORCE_32BIT);
 
 	/* Cap the alignment bits to the highest number we can handle */
 	align = MEMFLAGS(flags, KGSL_MEMALIGN_MASK, KGSL_MEMALIGN_SHIFT);
@@ -2917,9 +2917,6 @@ long kgsl_ioctl_gpuobj_alloc(struct kgsl_device_private *dev_priv,
 	struct kgsl_gpuobj_alloc *param = data;
 	struct kgsl_mem_entry *entry;
 
-	/* All allocations should use SVM if it is available */
-	param->flags |= KGSL_MEMFLAGS_USE_CPU_MAP;
-
 	entry = gpumem_alloc_entry(dev_priv, param->size,
 		param->va_len, param->flags);
 
@@ -2943,6 +2940,7 @@ long kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
 
 	/* Legacy functions doesn't support these advanced features */
 	flags &= ~KGSL_MEMFLAGS_USE_CPU_MAP;
+	flags |= KGSL_MEMFLAGS_FORCE_32BIT;
 
 	entry = gpumem_alloc_entry(dev_priv, (uint64_t) param->size,
 		(uint64_t) param->size, flags);
@@ -2963,6 +2961,8 @@ long kgsl_ioctl_gpumem_alloc_id(struct kgsl_device_private *dev_priv,
 	struct kgsl_gpumem_alloc_id *param = data;
 	struct kgsl_mem_entry *entry;
 	uint64_t flags = param->flags;
+
+	flags |= KGSL_MEMFLAGS_FORCE_32BIT;
 
 	entry = gpumem_alloc_entry(dev_priv, (uint64_t) param->size,
 		(uint64_t) param->mmapsize, flags);
@@ -3362,7 +3362,8 @@ static unsigned long _get_svm_area(struct kgsl_process_private *private,
 		align = SZ_4K;
 
 	/* get the GPU pagetable's SVM range */
-	if (kgsl_mmu_svm_range(private->pagetable, &start, &end))
+	if (kgsl_mmu_svm_range(private->pagetable, &start, &end,
+				entry->memdesc.flags))
 		return -ERANGE;
 
 	/* now clamp the range based on the CPU's requirements */

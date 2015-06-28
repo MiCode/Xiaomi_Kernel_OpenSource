@@ -511,6 +511,61 @@ get_secure_bus(void)
 }
 #endif
 
+static void setup_64bit_pagetable(struct kgsl_mmu *mmu,
+		struct kgsl_pagetable *pagetable,
+		struct kgsl_iommu_pt *pt)
+{
+	if (mmu->secured && pagetable->name == KGSL_MMU_SECURE_PT) {
+		pt->va_start = KGSL_IOMMU_SECURE_BASE64;
+		pt->va_end = KGSL_IOMMU_SECURE_END64;
+	} else {
+		pt->compat_va_start = KGSL_IOMMU_SVM_BASE32;
+		pt->compat_va_end = KGSL_IOMMU_SVM_END32;
+		pt->va_start = KGSL_IOMMU_VA_BASE64;
+		pt->va_end = KGSL_IOMMU_VA_END64;
+	}
+
+	if (pagetable->name != KGSL_MMU_GLOBAL_PT &&
+		pagetable->name != KGSL_MMU_SECURE_PT) {
+		if (is_compat_task()) {
+			pt->svm_start = KGSL_IOMMU_SVM_BASE32;
+			pt->svm_end = KGSL_IOMMU_SVM_END32;
+		} else {
+			pt->svm_start = KGSL_IOMMU_SVM_BASE64;
+			pt->svm_end = KGSL_IOMMU_SVM_END64;
+		}
+	}
+}
+
+static void setup_32bit_pagetable(struct kgsl_mmu *mmu,
+		struct kgsl_pagetable *pagetable,
+		struct kgsl_iommu_pt *pt)
+{
+	if (mmu->secured) {
+		if (pagetable->name == KGSL_MMU_SECURE_PT) {
+			pt->va_start = KGSL_IOMMU_SECURE_BASE32;
+			pt->va_end = KGSL_IOMMU_SECURE_END32;
+		} else {
+			pt->va_start = KGSL_IOMMU_SVM_BASE32;
+			pt->va_end = KGSL_IOMMU_SECURE_BASE32;
+			pt->compat_va_start = pt->va_start;
+			pt->compat_va_end = pt->va_end;
+		}
+	} else {
+		pt->va_start = KGSL_IOMMU_SVM_BASE32;
+		pt->va_end = KGSL_MMU_GLOBAL_MEM_BASE;
+		pt->compat_va_start = pt->va_start;
+		pt->compat_va_end = pt->va_end;
+	}
+
+	if (pagetable->name != KGSL_MMU_GLOBAL_PT &&
+		pagetable->name != KGSL_MMU_SECURE_PT) {
+		pt->svm_start = KGSL_IOMMU_SVM_BASE32;
+		pt->svm_end = KGSL_IOMMU_SVM_END32;
+	}
+}
+
+
 /* kgsl_iommu_init_pt - Set up an IOMMU pagetable */
 static int kgsl_iommu_init_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 {
@@ -562,24 +617,10 @@ static int kgsl_iommu_init_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 
 	iommu_pt->rbtree = RB_ROOT;
 
-	if (mmu->secured) {
-		if (pt->name == KGSL_MMU_SECURE_PT) {
-			iommu_pt->va_start = KGSL_IOMMU_SECURE_MEM_BASE;
-			iommu_pt->va_end =
-				iommu_pt->va_start + KGSL_IOMMU_SECURE_MEM_SIZE;
-		} else {
-			iommu_pt->va_start = KGSL_IOMMU_SVM_START;
-			iommu_pt->va_end = KGSL_IOMMU_SECURE_MEM_BASE;
-		}
-	} else {
-		iommu_pt->va_start = KGSL_IOMMU_SVM_START;
-		iommu_pt->va_end = KGSL_MMU_GLOBAL_MEM_BASE;
-	}
-
-	if (pt->name != KGSL_MMU_GLOBAL_PT && pt->name != KGSL_MMU_SECURE_PT) {
-		iommu_pt->svm_start = KGSL_IOMMU_SVM_START;
-		iommu_pt->svm_end = KGSL_IOMMU_SVM_END;
-	}
+	if (MMU_FEATURE(mmu, KGSL_MMU_64BIT))
+		setup_64bit_pagetable(mmu, pt, iommu_pt);
+	else
+		setup_32bit_pagetable(mmu, pt, iommu_pt);
 
 	if (KGSL_MMU_GLOBAL_PT == pt->name)
 		iommu_set_fault_handler(iommu_pt->domain,
@@ -821,7 +862,11 @@ static int _iommu_set_register_map(struct kgsl_mmu *mmu)
 	struct kgsl_device_iommu_data *data = pdata->iommu_data;
 
 	/* set iommu features */
-	mmu->features = data->features;
+	mmu->features |= data->features;
+
+	/* Clear 64 bit support if the DT overruled it */
+	if (mmu->features & KGSL_MMU_FORCE_32BIT)
+		mmu->features &= ~KGSL_MMU_64BIT;
 
 	mmu->secure_align_mask = data->secure_align_mask;
 
@@ -1225,7 +1270,7 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 			struct kgsl_memdesc *memdesc)
 {
 	int ret = 0;
-	uint64_t addr;
+	uint64_t addr = memdesc->gpuaddr;
 	struct kgsl_iommu_pt *iommu_pt = pt->priv;
 	uint64_t size = memdesc->size;
 	unsigned int flags = 0;
@@ -1233,10 +1278,6 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 	size_t mapped = 0;
 
 	BUG_ON(NULL == iommu_pt);
-
-	BUG_ON(memdesc->gpuaddr > UINT_MAX);
-
-	addr = (unsigned int) memdesc->gpuaddr;
 
 	flags = IOMMU_READ | IOMMU_WRITE;
 
@@ -1787,15 +1828,7 @@ static uint64_t kgsl_iommu_find_svm_region(struct kgsl_pagetable *pagetable,
 		uint64_t start, uint64_t end, uint64_t size,
 		unsigned int alignment)
 {
-	struct kgsl_iommu_pt *pt = pagetable->priv;
 	uint64_t addr;
-
-	if (pt->svm_start == pt->svm_end)
-		return (uint64_t) -ENOMEM;
-
-	if (start < pt->svm_start || start >= pt->svm_end ||
-	    end < pt->svm_start || end >= pt->svm_end)
-		return (uint64_t) -EINVAL;
 
 	spin_lock(&pagetable->lock);
 	addr = _get_unmapped_area_topdown(pagetable,
@@ -1810,9 +1843,6 @@ static int kgsl_iommu_set_svm_region(struct kgsl_pagetable *pagetable,
 	int ret;
 	struct kgsl_iommu_pt *pt = pagetable->priv;
 	struct rb_node *node;
-
-	if (gpuaddr < pt->svm_start || gpuaddr + size >= pt->svm_end)
-		return -EINVAL;
 
 	spin_lock(&pagetable->lock);
 	node = pt->rbtree.rb_node;
@@ -1845,7 +1875,7 @@ static int kgsl_iommu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 {
 	struct kgsl_iommu_pt *pt = pagetable->priv;
 	int ret = 0;
-	uint64_t addr;
+	uint64_t addr, start, end;
 	uint64_t size = memdesc->size;
 	unsigned int align;
 
@@ -1860,10 +1890,17 @@ static int kgsl_iommu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 
 	align = 1 << kgsl_memdesc_get_align(memdesc);
 
+	if (memdesc->flags & KGSL_MEMFLAGS_FORCE_32BIT) {
+		start = pt->compat_va_start;
+		end = pt->compat_va_end;
+	} else {
+		start = pt->va_start;
+		end = pt->va_end;
+	}
+
 	spin_lock(&pagetable->lock);
 
-	addr = _get_unmapped_area(pagetable, pt->va_start, pt->va_end,
-		size, align);
+	addr = _get_unmapped_area(pagetable, start, end, size, align);
 
 	if (addr == (uint64_t) -ENOMEM) {
 		ret = -ENOMEM;
@@ -1891,16 +1928,37 @@ static void kgsl_iommu_put_gpuaddr(struct kgsl_pagetable *pagetable,
 }
 
 static int kgsl_iommu_svm_range(struct kgsl_pagetable *pagetable,
-		uint64_t *lo, uint64_t *hi)
+		uint64_t *lo, uint64_t *hi, uint64_t memflags)
+{
+	struct kgsl_iommu_pt *pt = pagetable->priv;
+	bool gpu_compat = (memflags & KGSL_MEMFLAGS_FORCE_32BIT) != 0;
+
+	if (lo != NULL)
+		*lo = gpu_compat ? pt->compat_va_start : pt->svm_start;
+	if (hi != NULL)
+		*hi = gpu_compat ? pt->compat_va_end : pt->svm_end;
+
+	return 0;
+}
+
+static bool kgsl_iommu_addr_in_range(struct kgsl_pagetable *pagetable,
+		uint64_t gpuaddr)
 {
 	struct kgsl_iommu_pt *pt = pagetable->priv;
 
-	if (lo != NULL)
-		*lo = pt->svm_start;
-	if (hi != NULL)
-		*hi = pt->svm_end;
+	if (gpuaddr == 0)
+		return false;
 
-	return 0;
+	if (gpuaddr >= pt->va_start && gpuaddr < pt->va_end)
+		return true;
+
+	if (gpuaddr >= pt->compat_va_start && gpuaddr < pt->compat_va_end)
+		return true;
+
+	if (gpuaddr >= pt->svm_start && gpuaddr < pt->svm_end)
+		return true;
+
+	return false;
 }
 
 struct kgsl_mmu_ops kgsl_iommu_ops = {
@@ -1935,4 +1993,5 @@ static struct kgsl_mmu_pt_ops iommu_pt_ops = {
 	.set_svm_region = kgsl_iommu_set_svm_region,
 	.find_svm_region = kgsl_iommu_find_svm_region,
 	.svm_range = kgsl_iommu_svm_range,
+	.addr_in_range = kgsl_iommu_addr_in_range,
 };
