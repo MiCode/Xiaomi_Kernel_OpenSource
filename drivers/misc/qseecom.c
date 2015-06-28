@@ -63,9 +63,6 @@
 #define QSEE_VERSION_20			0x800000
 #define QSEE_VERSION_40			0x1000000  /* TZ.BF.4.0 */
 
-
-#define QSEOS_CHECK_VERSION_CMD		0x00001803
-
 #define QSEE_CE_CLK_100MHZ		100000000
 #define CE_CLK_DIV			1000000
 
@@ -296,11 +293,7 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 
 	switch (svc_id) {
 	case 6: {
-		if (tz_cmd_id == 1) {
-			smc_id = TZ_INFO_IS_SVC_AVAILABLE_ID;
-			desc.arginfo = TZ_INFO_IS_SVC_AVAILABLE_ID_PARAM_ID;
-			desc.args[0] = TZ_INFO_GET_FEATURE_VERSION_ID;
-		} else if (tz_cmd_id == 3) {
+		if (tz_cmd_id == 3) {
 			smc_id = TZ_INFO_GET_FEATURE_VERSION_ID;
 			desc.arginfo = TZ_INFO_GET_FEATURE_VERSION_ID_PARAM_ID;
 			desc.args[0] = *(uint32_t *)req_buf;
@@ -6302,10 +6295,10 @@ static int qseecom_probe(struct platform_device *pdev)
 {
 	int rc;
 	int ret = 0;
+	uint32_t feature = 10;
 	struct device *class_dev;
-	char qsee_not_legacy = 0;
 	struct msm_bus_scale_pdata *qseecom_platform_support = NULL;
-	uint32_t system_call_id = QSEOS_CHECK_VERSION_CMD;
+	struct qseecom_command_scm_resp resp;
 
 	qseecom.qsee_bw_count = 0;
 	qseecom.qsee_perf_client = 0;
@@ -6367,30 +6360,16 @@ static int qseecom_probe(struct platform_device *pdev)
 	init_waitqueue_head(&qseecom.send_resp_wq);
 	qseecom.send_resp_flag = 0;
 
-	rc = qseecom_scm_call(6, 1, &system_call_id, sizeof(system_call_id),
-				&qsee_not_legacy, sizeof(qsee_not_legacy));
+	qseecom.qsee_version = QSEEE_VERSION_00;
+	rc = qseecom_scm_call(6, 3, &feature, sizeof(feature),
+		&resp, sizeof(resp));
+	pr_info("qseecom.qsee_version = 0x%x\n", resp.result);
 	if (rc) {
-		pr_err("Failed to retrieve QSEOS version information %d\n", rc);
+		pr_err("Failed to get QSEE version info %d\n", rc);
 		goto exit_del_cdev;
 	}
-	if (qsee_not_legacy) {
-		uint32_t feature = 10;
-
-		qseecom.qsee_version = QSEEE_VERSION_00;
-		rc = qseecom_scm_call(6, 3, &feature, sizeof(feature),
-			&qseecom.qsee_version, sizeof(qseecom.qsee_version));
-		pr_err("qseecom.qsee_version = 0x%x\n", qseecom.qsee_version);
-		if (rc) {
-			pr_err("Failed to get QSEE version info %d\n", rc);
-			goto exit_del_cdev;
-		}
-		qseecom.qseos_version = QSEOS_VERSION_14;
-	} else {
-		pr_err("QSEE legacy version is not supported:");
-		pr_err("Support for TZ1.3 and earlier is deprecated\n");
-		rc = -EINVAL;
-		goto exit_del_cdev;
-	}
+	qseecom.qsee_version = resp.result;
+	qseecom.qseos_version = QSEOS_VERSION_14;
 	qseecom.commonlib_loaded = false;
 	qseecom.commonlib64_loaded = false;
 	qseecom.pdev = class_dev;
