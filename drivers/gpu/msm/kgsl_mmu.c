@@ -105,6 +105,16 @@ EXPORT_SYMBOL(kgsl_search_global_pt_entries);
 static void kgsl_unmap_global_pt_entries(struct kgsl_pagetable *pagetable)
 {
 	int i;
+	unsigned long flags;
+
+	BUG_ON(pagetable->name == KGSL_MMU_GLOBAL_PT);
+
+	spin_lock_irqsave(&kgsl_driver.ptlock, flags);
+	if (pagetable->globals_mapped == false) {
+		spin_unlock_irqrestore(&kgsl_driver.ptlock, flags);
+		return;
+	}
+	spin_unlock_irqrestore(&kgsl_driver.ptlock, flags);
 
 	for (i = 0; i < KGSL_MAX_GLOBAL_PT_ENTRIES; i++) {
 		struct kgsl_memdesc *entry = kgsl_global_pt_entries.entries[i];
@@ -124,6 +134,10 @@ static void kgsl_unmap_global_pt_entries(struct kgsl_pagetable *pagetable)
 		kgsl_mmu_unmap(pagetable,
 				kgsl_global_pt_entries.entries[i]);
 	}
+
+	spin_lock_irqsave(&kgsl_driver.ptlock, flags);
+	pagetable->globals_mapped = false;
+	spin_unlock_irqrestore(&kgsl_driver.ptlock, flags);
 }
 
 /**
@@ -132,11 +146,18 @@ static void kgsl_unmap_global_pt_entries(struct kgsl_pagetable *pagetable)
  * @pagetable: Pointer to a kgsl_pagetable structure
  *
  * Map all the current global PT entries into the specified pagetable.
- * Returns error if an entry fails to map or 0 on success.
  */
-static int kgsl_map_global_pt_entries(struct kgsl_pagetable *pagetable)
+void kgsl_map_global_pt_entries(struct kgsl_pagetable *pagetable)
 {
 	int i, ret = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&kgsl_driver.ptlock, flags);
+	if (pagetable->globals_mapped == true) {
+		spin_unlock_irqrestore(&kgsl_driver.ptlock, flags);
+		return;
+	}
+	spin_unlock_irqrestore(&kgsl_driver.ptlock, flags);
 
 	for (i = 0; !ret && i < KGSL_MAX_GLOBAL_PT_ENTRIES; i++) {
 		struct kgsl_memdesc *entry = kgsl_global_pt_entries.entries[i];
@@ -154,16 +175,15 @@ static int kgsl_map_global_pt_entries(struct kgsl_pagetable *pagetable)
 			continue;
 
 		ret = kgsl_mmu_map(pagetable, entry);
-		if (ret)
-			break;
-
+		/* If we cannot map the global entries, nothing will work. */
+		BUG_ON(ret);
 	}
 
-	if (ret)
-		kgsl_unmap_global_pt_entries(pagetable);
-
-	return ret;
+	spin_lock_irqsave(&kgsl_driver.ptlock, flags);
+	pagetable->globals_mapped = true;
+	spin_unlock_irqrestore(&kgsl_driver.ptlock, flags);
 }
+EXPORT_SYMBOL(kgsl_map_global_pt_entries);
 
 /**
  * kgsl_remove_global_pt_entry() - Remove a memory descriptor from the global PT
@@ -615,11 +635,8 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu,
 			goto err;
 	}
 
-	if (KGSL_MMU_SECURE_PT != name) {
-		status = kgsl_map_global_pt_entries(pagetable);
-		if (status)
-			goto err;
-	}
+	if ((KGSL_MMU_SECURE_PT != name) && (KGSL_MMU_GLOBAL_PT != name))
+		kgsl_map_global_pt_entries(pagetable);
 
 	spin_lock_irqsave(&kgsl_driver.ptlock, flags);
 	list_add(&pagetable->list, &kgsl_driver.pagetable_list);

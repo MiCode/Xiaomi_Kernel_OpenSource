@@ -976,6 +976,8 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	if (status)
 		goto done;
 
+	kgsl_map_global_pt_entries(mmu->defaultpagetable);
+
 	kgsl_iommu_enable_clk(mmu);
 
 	/* Get the lsb value of pagetables set in the IOMMU ttbr0 register as
