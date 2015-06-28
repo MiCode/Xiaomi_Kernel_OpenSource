@@ -164,7 +164,7 @@ struct pft_device {
 /* Device Driver State */
 static struct pft_device *pft_dev;
 
-static struct inode *pft_bio_get_inode(struct bio *bio);
+static struct inode *pft_bio_get_inode(const struct bio *bio);
 
 static int pft_inode_alloc_security(struct inode *inode)
 {
@@ -234,7 +234,7 @@ static int __init pft_lsm_init(struct pft_device *dev)
  */
 static bool pft_is_ready(void)
 {
-	return  (pft_dev != NULL);
+	return pft_dev != NULL;
 }
 
 /**
@@ -647,7 +647,7 @@ static bool pft_is_inplace_inode(struct inode *inode)
 	if (!pft_dev->inplace_file || !pft_dev->inplace_file->f_path.dentry)
 		return false;
 
-	return (pft_dev->inplace_file->f_path.dentry->d_inode == inode);
+	return pft_dev->inplace_file->f_path.dentry->d_inode == inode;
 }
 
 /**
@@ -745,45 +745,6 @@ int pft_get_key_index(struct bio *bio, u32 *key_index,
 EXPORT_SYMBOL(pft_get_key_index);
 
 /**
- * pft_bio_get_inode() - get the inode from a bio.
- * @bio: Pointer to BIO structure.
- *
- * Walk the bio struct links to get the inode.
- *
- * Return: pointer to the inode struct if successful, or NULL otherwise.
- */
-static struct inode *pft_bio_get_inode(struct bio *bio)
-{
-	if (!bio)
-		return NULL;
-	/* check bio vec count > 0 before using the bio->bi_io_vec[] array */
-	if (!bio->bi_vcnt)
-		return NULL;
-	if (!bio->bi_io_vec)
-		return NULL;
-	if (!bio->bi_io_vec->bv_page)
-		return NULL;
-
-	if (PageAnon(bio->bi_io_vec->bv_page)) {
-		struct inode *inode;
-
-		/* Using direct-io (O_DIRECT) without page cache */
-		inode = dio_bio_get_inode(bio);
-		pr_debug("inode on direct-io, inode = 0x%p.\n", inode);
-
-		return inode;
-	}
-
-	if (!bio->bi_io_vec->bv_page->mapping)
-		return NULL;
-
-	if (!bio->bi_io_vec->bv_page->mapping->host)
-		return NULL;
-
-	return bio->bi_io_vec->bv_page->mapping->host;
-}
-
-/**
  * pft_allow_merge_bio()- Check if 2 BIOs can be merged.
  * @bio1:	Pointer to first BIO structure.
  * @bio2:	Pointer to second BIO structure.
@@ -805,6 +766,9 @@ bool pft_allow_merge_bio(struct bio *bio1, struct bio *bio2)
 
 	if (!pft_is_ready())
 		return true;
+
+	if (!bio1 || !bio2)
+		return -EPERM;
 
 	/*
 	 * Encrypted BIOs are created only when file encryption is enabled,
@@ -829,6 +793,51 @@ bool pft_allow_merge_bio(struct bio *bio1, struct bio *bio2)
 	return allow;
 }
 EXPORT_SYMBOL(pft_allow_merge_bio);
+
+/**
+ * pft_bio_get_inode() - get the inode from a bio.
+ * @bio: Pointer to BIO structure.
+ *
+ * Walk the bio struct links to get the inode.
+ * Please note, that in general bio may consist of several pages from
+ * several files, but in our case we always assume that all pages come
+ * from the same file, since our logic ensures it. That is why we only
+ * walk through the first page to look for inode.
+ *
+ * Return: pointer to the inode struct if successful, or NULL otherwise.
+ *
+ */
+static struct inode *pft_bio_get_inode(const struct bio *bio)
+{
+	if (!bio)
+		return NULL;
+	/* check bio vec count > 0 before using the bio->bi_io_vec[] array */
+	if (!bio->bi_vcnt)
+		return NULL;
+	if (!bio->bi_io_vec)
+		return NULL;
+	if (!bio->bi_io_vec->bv_page)
+		return NULL;
+
+	if (PageAnon(bio->bi_io_vec->bv_page)) {
+		struct inode *inode;
+
+		/* Using direct-io (O_DIRECT) without page cache */
+		inode = dio_bio_get_inode((struct bio *)bio);
+		pr_debug("inode on direct-io, inode = 0x%p.\n", inode);
+
+		return inode;
+	}
+
+	if (!bio->bi_io_vec->bv_page->mapping)
+		return NULL;
+
+	if (!bio->bi_io_vec->bv_page->mapping->host)
+		return NULL;
+
+	return bio->bi_io_vec->bv_page->mapping->host;
+}
+
 
 /**
  * pft_inode_create() - file creation callback.
