@@ -7066,6 +7066,26 @@ static int wcd9335_get_micb_vout_ctl_val(u32 micb_mv)
 	return (micb_mv - 1000) / 50;
 }
 
+static const struct tasha_reg_mask_val tasha_reg_update_reset_val_1_1[] = {
+	{WCD9335_RCO_CTRL_2, 0xFF, 0x47},
+	{WCD9335_FLYBACK_VNEG_DAC_CTRL_4, 0xFF, 0x60},
+};
+
+static const struct tasha_reg_mask_val tasha_codec_reg_init_val_1_1[] = {
+	{WCD9335_FLYBACK_VNEG_DAC_CTRL_1, 0xFF, 0x65},
+	{WCD9335_FLYBACK_VNEG_DAC_CTRL_2, 0xFF, 0x52},
+	{WCD9335_FLYBACK_VNEG_DAC_CTRL_3, 0xFF, 0xAF},
+	{WCD9335_FLYBACK_VNEG_DAC_CTRL_4, 0xFF, 0x40},
+	{WCD9335_FLYBACK_VNEG_CTRL_3, 0xFF, 0xF4},
+	{WCD9335_FLYBACK_VNEG_CTRL_9, 0xFF, 0x40},
+	{WCD9335_FLYBACK_VNEG_CTRL_2, 0xFF, 0x4F},
+	{WCD9335_FLYBACK_EN, 0xFF, 0x6E},
+};
+
+static const struct tasha_reg_mask_val tasha_codec_reg_init_val_1_0[] = {
+	{WCD9335_FLYBACK_VNEG_CTRL_3, 0xFF, 0x54},
+};
+
 static const struct tasha_reg_mask_val tasha_codec_reg_defaults[] = {
 	{WCD9335_CODEC_RPM_CLK_GATE, 0x03, 0x00},
 	{WCD9335_CODEC_RPM_CLK_MCLK_CFG, 0x03, 0x01},
@@ -7128,7 +7148,6 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_val[] = {
 	{WCD9335_CDC_RX7_RX_PATH_CFG1, 0x08, 0x08},
 	{WCD9335_CDC_RX8_RX_PATH_CFG1, 0x08, 0x08},
 	{WCD9335_FLYBACK_VNEG_CTRL_1, 0xFF, 0x63},
-	{WCD9335_FLYBACK_VNEG_CTRL_3, 0xFF, 0x54},
 	{WCD9335_FLYBACK_VNEG_CTRL_4, 0xFF, 0x7F},
 	{WCD9335_CLASSH_CTRL_VCL_1, 0xFF, 0x60},
 	{WCD9335_CLASSH_CTRL_CCL_5, 0xFF, 0x40},
@@ -7146,14 +7165,43 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_val[] = {
 	{WCD9335_CPE_SS_CPAR_CFG, 0xFF, 0x00},
 };
 
+static void tasha_update_reg_reset_values(struct snd_soc_codec *codec)
+{
+	u32 i;
+	struct wcd9xxx *tasha_core = dev_get_drvdata(codec->dev->parent);
+
+	if (TASHA_IS_1_1(tasha_core->version)) {
+		for (i = 0; i < ARRAY_SIZE(tasha_reg_update_reset_val_1_1);
+		     i++)
+			snd_soc_write(codec,
+				      tasha_reg_update_reset_val_1_1[i].reg,
+				      tasha_reg_update_reset_val_1_1[i].val);
+	}
+}
+
 static void tasha_codec_init_reg(struct snd_soc_codec *codec)
 {
 	u32 i;
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
 
 	for (i = 0; i < ARRAY_SIZE(tasha_codec_reg_init_val); i++)
 		snd_soc_update_bits(codec, tasha_codec_reg_init_val[i].reg,
 				tasha_codec_reg_init_val[i].mask,
 				tasha_codec_reg_init_val[i].val);
+
+	if (TASHA_IS_1_1(wcd9xxx->version)) {
+		for (i = 0; i < ARRAY_SIZE(tasha_codec_reg_init_val_1_1); i++)
+			snd_soc_update_bits(codec,
+					tasha_codec_reg_init_val_1_1[i].reg,
+					tasha_codec_reg_init_val_1_1[i].mask,
+					tasha_codec_reg_init_val_1_1[i].val);
+	} else if (TASHA_IS_1_0(wcd9xxx->version)) {
+		for (i = 0; i < ARRAY_SIZE(tasha_codec_reg_init_val_1_0); i++)
+			snd_soc_update_bits(codec,
+					tasha_codec_reg_init_val_1_0[i].reg,
+					tasha_codec_reg_init_val_1_0[i].mask,
+					tasha_codec_reg_init_val_1_0[i].val);
+	}
 }
 
 static void tasha_update_reg_defaults(struct tasha_priv *tasha)
@@ -7748,12 +7796,11 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 	/* Default HPH Mode to Class-H HiFi */
 	tasha->hph_mode = CLS_H_HIFI;
 
-	/* MBHC Init */
-
 	tasha->codec = codec;
 	for (i = 0; i < COMPANDER_MAX; i++)
 		tasha->comp_enabled[i] = 0;
 
+	tasha_update_reg_reset_values(codec);
 	tasha->intf_type = wcd9xxx_get_intf_type();
 	pr_debug("%s: MCLK Rate = %x\n", __func__, control->mclk_rate);
 	if (control->mclk_rate == TASHA_MCLK_CLK_12P288MHZ)
