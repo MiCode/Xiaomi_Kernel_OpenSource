@@ -2602,6 +2602,14 @@ static void dwc3_endpoint_interrupt(struct dwc3 *dwc,
 					? "Transfer Active"
 					: "Transfer Not Active");
 
+			/*
+			 * If XFERNOTREADY interrupt is received with event
+			 * status as TRANSFER ACTIVE, don't kick next transfer.
+			 * otherwise data stall is seen on that endpoint.
+			 */
+			if (event->status & DEPEVT_STATUS_TRANSFER_ACTIVE)
+				return;
+
 			ret = __dwc3_gadget_kick_transfer(dep, 0, 1);
 			if (!ret || ret == -EBUSY)
 				return;
