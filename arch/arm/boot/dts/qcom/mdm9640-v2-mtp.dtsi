@@ -257,7 +257,7 @@
 	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off>;
 
 	qcom,bus-width = <4>;
-	qcom,clk-rates = <400000 25000000 50000000 100000000 171430000>;
+	qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
 
 	status = "ok";
 };

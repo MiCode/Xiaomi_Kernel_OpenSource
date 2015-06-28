@@ -1005,18 +1005,14 @@
 	qusb_phy: qusb@79000 {
 		compatible = "qcom,qusb2phy";
 		reg = <0x00079000 0x180>,
-		      <0x08af8800 0x400>,
-		      <0x000580D4 0x4>;
+		      <0x08af8800 0x400>;
 		reg-names = "qusb_phy_base",
-			    "qscratch_base",
-			    "tune2_efuse_addr";
+			    "qscratch_base";
 		vdd-supply = <&pmd9635_l4>;
 		vdda18-supply = <&pmd9635_l8>;
 		vdda33-supply = <&pmd9635_l10>;
 		qcom,vdd-voltage-level = <0 1000000 1000000>;
 		qcom,qusb-tune = <0xa06393d5>;
-		qcom,tune2-efuse-bit-pos = <20>;
-		qcom,tune2-efuse-num-bits = <4>;
 		phy_type = "utmi";
 
 		clocks = <&clock_gcc clk_ln_bb_clk>,
