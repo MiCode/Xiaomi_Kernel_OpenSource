@@ -732,7 +732,8 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 		ctl->ops.prepare_fnc = mdss_mdp_writeback_prepare_wfd;
 
 		/* WB2 Intr Enable is BIT(2) in MDSS 1.8.0 */
-		if (ctl->mdata->mdp_rev == MDSS_MDP_HW_REV_108) {
+		if ((ctl->mdata->mdp_rev == MDSS_MDP_HW_REV_108) ||
+			 (ctl->mdata->mdp_rev == MDSS_MDP_HW_REV_111)) {
 			ctx->intr_type = MDSS_MDP_IRQ_WB_ROT_COMP;
 			ctx->intf_num = 2;
 		}

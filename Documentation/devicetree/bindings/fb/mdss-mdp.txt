@@ -312,6 +312,9 @@ Optional properties:
 				   between wfd and rotator.
 				"dedicated" = Dedicated writeback
 				   block for wfd using writeback mixer.
+				"intf_no_dspp" = Writeback wfd block is
+				  connected to the interface mixer without
+				  dspp.
 - qcom,mdss-smp-mb-per-pipe:	Maximum number of shared memory pool blocks
 				restricted for a source surface pipe. If this
 				property is not specified, no such restriction

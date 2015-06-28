@@ -83,7 +83,7 @@
 		qcom,mdss-slave-pingpong-off = <0x00073000>;
 		qcom,mdss-ad-off = <0x0079000>;
 		qcom,mdss-rot-block-size = <64>;
-		qcom,mdss-wfd-mode = "intf";
+		qcom,mdss-wfd-mode = "intf_no_dspp";
 		qcom,mdss-has-non-scalar-rgb;
 		qcom,mdss-has-decimation;
 		qcom,mdss-traffic-shaper-enabled;

@@ -2181,6 +2181,8 @@ static int mdss_mdp_ctl_setup_wfd(struct mdss_mdp_ctl *ctl)
 	/* if WB2 is supported, try to allocate it first */
 	if (mdata->wfd_mode == MDSS_MDP_WFD_INTERFACE)
 		mixer_type = MDSS_MDP_MIXER_TYPE_INTF;
+	else if (mdata->wfd_mode == MDSS_MDP_WFD_INTF_NO_DSPP)
+		mixer_type = MDSS_MDP_MIXER_TYPE_INTF_NO_DSPP;
 	else
 		mixer_type = MDSS_MDP_MIXER_TYPE_WRITEBACK;
 
