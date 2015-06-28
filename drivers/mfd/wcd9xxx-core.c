@@ -773,7 +773,7 @@ static const struct wcd9xxx_codec_type wcd9xxx_codecs[] = {
 	},
 	{
 		TASHA_MAJOR, cpu_to_le16(0x0), tasha_devs,
-		ARRAY_SIZE(tasha_devs), TASHA_NUM_IRQS, 1,
+		ARRAY_SIZE(tasha_devs), TASHA_NUM_IRQS, -1,
 		WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TAIKO, 0x01
 	},
 };
@@ -992,6 +992,14 @@ static const struct wcd9xxx_codec_type
 	} else {
 		if (d->version > -1) {
 			*version = d->version;
+		} else if (d->id_major == TASHA_MAJOR) {
+			rc = __wcd9xxx_reg_read(wcd9xxx,
+					WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT0);
+			if (rc < 0) {
+				d = NULL;
+				goto exit;
+			}
+			*version = ((u8)rc & 0x80) >> 7;
 		} else {
 			rc = __wcd9xxx_reg_read(wcd9xxx,
 							WCD9XXX_A_CHIP_VERSION);
