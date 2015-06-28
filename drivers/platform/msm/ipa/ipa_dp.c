@@ -2264,11 +2264,13 @@ static int ipa_rx_pyld_hdlr(struct sk_buff *rx_skb, struct ipa_sys_context *sys)
 		src_pipe = WLAN_PROD_TX_EP;
 
 	ep = &ipa_ctx->ep[src_pipe];
+	spin_lock(&ipa_ctx->lan_rx_clnt_notify_lock);
 	if (unlikely(src_pipe >= ipa_ctx->ipa_num_pipes ||
 		!ep->valid || !ep->client_notify)) {
 		IPAERR("drop pipe=%d ep_valid=%d client_notify=%p\n",
 		  src_pipe, ep->valid, ep->client_notify);
 		dev_kfree_skb_any(rx_skb);
+		spin_unlock(&ipa_ctx->lan_rx_clnt_notify_lock);
 		return 0;
 	}
 
@@ -2287,6 +2289,7 @@ static int ipa_rx_pyld_hdlr(struct sk_buff *rx_skb, struct ipa_sys_context *sys)
 	skb_pull(rx_skb, pull_len);
 	ep->client_notify(ep->priv, IPA_RECEIVE,
 			(unsigned long)(rx_skb));
+	spin_unlock(&ipa_ctx->lan_rx_clnt_notify_lock);
 	return 0;
 }
 
