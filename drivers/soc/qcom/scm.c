@@ -35,6 +35,13 @@
 
 static DEFINE_MUTEX(scm_lock);
 
+/*
+ * MSM8996 V2 requires a lock to protect against
+ * concurrent accesses between the limits management
+ * driver and the clock controller
+ */
+DEFINE_MUTEX(scm_lmh_lock);
+
 #define SCM_EBUSY_WAIT_MS 30
 #define SCM_EBUSY_MAX_RETRY 20
 
@@ -634,6 +641,9 @@ int scm_call2(u32 fn_id, struct scm_desc *desc)
 	do {
 		mutex_lock(&scm_lock);
 
+		if (SCM_SVC_ID(fn_id) == SCM_SVC_LMH)
+			mutex_lock(&scm_lmh_lock);
+
 		desc->ret[0] = desc->ret[1] = desc->ret[2] = 0;
 
 		pr_debug("scm_call: func id %#llx, args: %#x, %#llx, %#llx, %#llx, %#llx\n",
@@ -652,6 +662,10 @@ int scm_call2(u32 fn_id, struct scm_desc *desc)
 						  desc->args[2], desc->x5,
 						  &desc->ret[0], &desc->ret[1],
 						  &desc->ret[2]);
+
+		if (SCM_SVC_ID(fn_id) == SCM_SVC_LMH)
+			mutex_unlock(&scm_lmh_lock);
+
 		mutex_unlock(&scm_lock);
 
 		if (ret == SCM_V2_EBUSY)
