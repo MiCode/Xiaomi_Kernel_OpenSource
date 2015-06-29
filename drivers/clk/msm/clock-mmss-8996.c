@@ -1567,6 +1567,20 @@ static struct rcg_clk video_subcore1_clk_src = {
 	},
 };
 
+static struct branch_clk mmss_mmagic_ahb_clk = {
+	.cbcr_reg = MMSS_MMSS_MMAGIC_AHB_CBCR,
+	.has_sibling = 0,
+	.check_enable_bit = true,
+	.base = &virt_base,
+	.no_halt_check_on_disable = true,
+	.c = {
+		.dbg_name = "mmss_mmagic_ahb_clk",
+		.parent = &ahb_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(mmss_mmagic_ahb_clk.c),
+	},
+};
+
 static struct branch_clk camss_ahb_clk = {
 	.cbcr_reg = MMSS_CAMSS_AHB_CBCR,
 	.has_sibling = 1,
@@ -1575,6 +1589,7 @@ static struct branch_clk camss_ahb_clk = {
 		.dbg_name = "camss_ahb_clk",
 		.parent = &ahb_clk_src.c,
 		.ops = &clk_ops_branch,
+		.depends = &mmss_mmagic_ahb_clk.c,
 		CLK_INIT(camss_ahb_clk.c),
 	},
 };
@@ -2289,6 +2304,7 @@ static struct branch_clk gpu_ahb_clk = {
 		.dbg_name = "gpu_ahb_clk",
 		.parent = &ahb_clk_src.c,
 		.ops = &clk_ops_branch,
+		.depends = &mmss_mmagic_ahb_clk.c,
 		CLK_INIT(gpu_ahb_clk.c),
 	},
 };
@@ -2346,6 +2362,7 @@ static struct branch_clk mdss_ahb_clk = {
 		.dbg_name = "mdss_ahb_clk",
 		.parent = &ahb_clk_src.c,
 		.ops = &clk_ops_branch,
+		.depends = &mmss_mmagic_ahb_clk.c,
 		CLK_INIT(mdss_ahb_clk.c),
 	},
 };
@@ -2505,6 +2522,7 @@ static struct branch_clk mmss_misc_ahb_clk = {
 	.c = {
 		.dbg_name = "mmss_misc_ahb_clk",
 		.ops = &clk_ops_branch,
+		.depends = &mmss_mmagic_ahb_clk.c,
 		CLK_INIT(mmss_misc_ahb_clk.c),
 	},
 };
@@ -2577,6 +2595,7 @@ static struct branch_clk mmss_mmagic_cfg_ahb_clk = {
 		.dbg_name = "mmss_mmagic_cfg_ahb_clk",
 		.parent = &ahb_clk_src.c,
 		.ops = &clk_ops_branch,
+		.depends = &mmss_mmagic_ahb_clk.c,
 		CLK_INIT(mmss_mmagic_cfg_ahb_clk.c),
 	},
 };
@@ -2627,20 +2646,6 @@ static struct branch_clk mmagic_video_noc_cfg_ahb_clk = {
 	},
 };
 
-static struct branch_clk mmss_mmagic_ahb_clk = {
-	.cbcr_reg = MMSS_MMSS_MMAGIC_AHB_CBCR,
-	.has_sibling = 0,
-	.check_enable_bit = true,
-	.base = &virt_base,
-	.no_halt_check_on_disable = true,
-	.c = {
-		.dbg_name = "mmss_mmagic_ahb_clk",
-		.parent = &ahb_clk_src.c,
-		.ops = &clk_ops_branch,
-		CLK_INIT(mmss_mmagic_ahb_clk.c),
-	},
-};
-
 static struct branch_clk mmss_mmagic_axi_clk = {
 	.cbcr_reg = MMSS_MMSS_MMAGIC_AXI_CBCR,
 	.has_sibling = 1,
@@ -2686,6 +2691,7 @@ static struct branch_clk mmss_rbcpr_ahb_clk = {
 		.dbg_name = "mmss_rbcpr_ahb_clk",
 		.parent = &ahb_clk_src.c,
 		.ops = &clk_ops_branch,
+		.depends = &mmss_mmagic_ahb_clk.c,
 		CLK_INIT(mmss_rbcpr_ahb_clk.c),
 	},
 };
@@ -2712,6 +2718,7 @@ static struct branch_clk smmu_cpp_ahb_clk = {
 		.dbg_name = "smmu_cpp_ahb_clk",
 		.parent = &ahb_clk_src.c,
 		.ops = &clk_ops_branch,
+		.depends = &mmss_mmagic_ahb_clk.c,
 		CLK_INIT(smmu_cpp_ahb_clk.c),
 	},
 };
@@ -2740,6 +2747,7 @@ static struct branch_clk smmu_jpeg_ahb_clk = {
 		.dbg_name = "smmu_jpeg_ahb_clk",
 		.parent = &ahb_clk_src.c,
 		.ops = &clk_ops_branch,
+		.depends = &mmss_mmagic_ahb_clk.c,
 		CLK_INIT(smmu_jpeg_ahb_clk.c),
 	},
 };
@@ -2768,6 +2776,7 @@ static struct branch_clk smmu_mdp_ahb_clk = {
 		.dbg_name = "smmu_mdp_ahb_clk",
 		.parent = &ahb_clk_src.c,
 		.ops = &clk_ops_branch,
+		.depends = &mmss_mmagic_ahb_clk.c,
 		CLK_INIT(smmu_mdp_ahb_clk.c),
 	},
 };
@@ -2796,6 +2805,7 @@ static struct branch_clk smmu_rot_ahb_clk = {
 		.dbg_name = "smmu_rot_ahb_clk",
 		.parent = &ahb_clk_src.c,
 		.ops = &clk_ops_branch,
+		.depends = &mmss_mmagic_ahb_clk.c,
 		CLK_INIT(smmu_rot_ahb_clk.c),
 	},
 };
@@ -2824,6 +2834,7 @@ static struct branch_clk smmu_vfe_ahb_clk = {
 		.dbg_name = "smmu_vfe_ahb_clk",
 		.parent = &ahb_clk_src.c,
 		.ops = &clk_ops_branch,
+		.depends = &mmss_mmagic_ahb_clk.c,
 		CLK_INIT(smmu_vfe_ahb_clk.c),
 	},
 };
@@ -2852,6 +2863,7 @@ static struct branch_clk smmu_video_ahb_clk = {
 		.dbg_name = "smmu_video_ahb_clk",
 		.parent = &ahb_clk_src.c,
 		.ops = &clk_ops_branch,
+		.depends = &mmss_mmagic_ahb_clk.c,
 		CLK_INIT(smmu_video_ahb_clk.c),
 	},
 };
@@ -2878,6 +2890,7 @@ static struct branch_clk video_ahb_clk = {
 		.dbg_name = "video_ahb_clk",
 		.parent = &ahb_clk_src.c,
 		.ops = &clk_ops_branch,
+		.depends = &mmss_mmagic_ahb_clk.c,
 		CLK_INIT(video_ahb_clk.c),
 	},
 };
@@ -2951,6 +2964,7 @@ static struct branch_clk vmem_ahb_clk = {
 		.dbg_name = "vmem_ahb_clk",
 		.parent = &ahb_clk_src.c,
 		.ops = &clk_ops_branch,
+		.depends = &mmss_mmagic_ahb_clk.c,
 		CLK_INIT(vmem_ahb_clk.c),
 	},
 };
