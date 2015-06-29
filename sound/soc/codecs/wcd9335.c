@@ -7397,7 +7397,7 @@ static int tasha_set_mix_interpolator_rate(struct snd_soc_dai *dai,
 			int_mux_cfg1_val = snd_soc_read(codec, int_mux_cfg1) &
 						0x0F;
 			if (int_mux_cfg1_val == int_2_inp) {
-				int_fs_reg = WCD9335_CDC_RX1_RX_PATH_MIX_CTL +
+				int_fs_reg = WCD9335_CDC_RX0_RX_PATH_MIX_CTL +
 						20 * j;
 				pr_debug("%s: AIF_MIX_PB DAI(%d) connected to INT%u_2\n",
 					  __func__, dai->id, j);
