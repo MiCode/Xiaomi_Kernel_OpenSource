@@ -259,6 +259,11 @@ struct dsi_shared_data {
 
 	/* Shared mutex for DSI PHY regulator */
 	struct mutex phy_reg_lock;
+
+	/* Data bus(AXI) scale settings */
+	struct msm_bus_scale_pdata *bus_scale_table;
+	u32 bus_handle;
+	u32 bus_refcount;
 };
 
 struct mdss_dsi_data {

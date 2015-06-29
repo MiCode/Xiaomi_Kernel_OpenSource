@@ -24,6 +24,7 @@
 #include <linux/leds-qpnp-wled.h>
 #include <linux/clk.h>
 #include <linux/uaccess.h>
+#include <linux/msm-bus.h>
 
 #include "mdss.h"
 #include "mdss_panel.h"
@@ -2614,6 +2615,44 @@ error_pan_node:
 	return rc;
 }
 
+static int mdss_dsi_bus_scale_init(struct platform_device *pdev,
+			    struct dsi_shared_data  *sdata)
+{
+	int rc = 0;
+
+	sdata->bus_scale_table = msm_bus_cl_get_pdata(pdev);
+	if (IS_ERR_OR_NULL(sdata->bus_scale_table)) {
+		rc = PTR_ERR(sdata->bus_scale_table);
+		pr_err("%s: msm_bus_cl_get_pdata() failed, rc=%d\n", __func__,
+								     rc);
+		return rc;
+		sdata->bus_scale_table = NULL;
+	}
+
+	sdata->bus_handle =
+		msm_bus_scale_register_client(sdata->bus_scale_table);
+
+	if (!sdata->bus_handle) {
+		rc = -EINVAL;
+		pr_err("%sbus_client register failed\n", __func__);
+	}
+
+	return rc;
+}
+
+static void mdss_dsi_bus_scale_deinit(struct dsi_shared_data *sdata)
+{
+	if (sdata->bus_handle) {
+		if (sdata->bus_refcount)
+			msm_bus_scale_client_update_request(sdata->bus_handle,
+									0);
+
+		sdata->bus_refcount = 0;
+		msm_bus_scale_unregister_client(sdata->bus_handle);
+		sdata->bus_handle = 0;
+	}
+}
+
 static int mdss_dsi_parse_dt_params(struct platform_device *pdev,
 		struct dsi_shared_data *sdata)
 {
@@ -2668,6 +2707,7 @@ static void mdss_dsi_res_deinit(struct platform_device *pdev)
 			&sdata->power_data[i]);
 	}
 
+	mdss_dsi_bus_scale_deinit(sdata);
 	mdss_dsi_core_clk_deinit(&pdev->dev, sdata);
 
 	if (sdata)
@@ -2742,6 +2782,13 @@ static int mdss_dsi_res_init(struct platform_device *pdev)
 		rc = mdss_dsi_regulator_init(pdev, sdata);
 		if (rc) {
 			pr_err("%s: failed to init regulator, rc=%d\n",
+							__func__, rc);
+			goto mem_fail;
+		}
+
+		rc = mdss_dsi_bus_scale_init(pdev, sdata);
+		if (rc) {
+			pr_err("%s: failed to init bus scale settings, rc=%d\n",
 							__func__, rc);
 			goto mem_fail;
 		}
