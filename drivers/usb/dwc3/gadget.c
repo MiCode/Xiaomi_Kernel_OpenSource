@@ -203,7 +203,7 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 	int		mdwidth;
 	int		num;
 	int		num_eps;
-	int		max_packet;
+	int		max_packet = 1024;
 	struct usb_composite_dev *cdev = get_gadget_data(&dwc->gadget);
 
 	if (!(cdev && cdev->config) || !dwc->needs_fifo_resize)
@@ -217,19 +217,6 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 
 	/* MDWIDTH is represented in bits, we need it in bytes */
 	mdwidth >>= 3;
-
-	if (dwc->gadget.speed == USB_SPEED_FULL) {
-		max_packet = 64;
-	} else if (dwc->gadget.speed == USB_SPEED_HIGH) {
-		max_packet = 512;
-	} else if (dwc->gadget.speed == USB_SPEED_SUPER) {
-		max_packet = 1024;
-	} else {
-		dev_warn(dwc->dev, "USB speed (%d) is not valid.\n",
-						dwc->gadget.speed);
-		return -EINVAL;
-	}
-
 	last_fifo_depth = (dwc3_readl(dwc->regs, DWC3_GTXFIFOSIZ(0)) & 0xFFFF);
 	dev_dbg(dwc->dev, "%s: num eps:%d max_packet:%d last_fifo_depth:%04x\n",
 				__func__, num_eps, max_packet, last_fifo_depth);
