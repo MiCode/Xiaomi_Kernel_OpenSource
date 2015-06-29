@@ -191,11 +191,6 @@
 		};
 
 		sdc1_clk_on: sdc1_clk_on {
-			mux {
-				pins = "sdc1_clk";
-				function = "gpio";
-			};
-
 			config {
 				pins = "sdc1_clk";
 				bias-disable;		/* NO pull */
@@ -204,11 +199,6 @@
 		};
 
 		sdc1_clk_off: sdc1_clk_off {
-			mux {
-				pins = "sdc1_clk";
-				function = "gpio";
-			};
-
 			config {
 				pins = "sdc1_clk";
 				bias-disable;		/* NO pull */
@@ -217,11 +207,6 @@
 		};
 
 		sdc1_cmd_on: sdc1_cmd_on {
-			mux {
-				pins = "sdc1_cmd";
-				function = "gpio";
-			};
-
 			config {
 				pins = "sdc1_cmd";
 				bias-pull-up;		/* pull up */
@@ -230,11 +215,6 @@
 		};
 
 		sdc1_cmd_off: sdc1_cmd_off {
-			mux {
-				pins = "sdc1_cmd";
-				function = "gpio";
-			};
-
 			config {
 				pins = "sdc1_cmd";
 				num-grp-pins = <1>;
@@ -244,11 +224,6 @@
 		};
 
 		sdc1_data_on: sdc1_data_on {
-			mux {
-				pins = "sdc1_data";
-				function = "gpio";
-			};
-
 			config {
 				pins = "sdc1_data";
 				bias-pull-up;		/* pull up */
@@ -257,11 +232,6 @@
 		};
 
 		sdc1_data_off: sdc1_data_off {
-			mux {
-				pins = "sdc1_data";
-				function = "gpio";
-			};
-
 			config {
 				pins = "sdc1_data";
 				bias-pull-up;		/* pull up */
@@ -270,11 +240,6 @@
 		};
 
 		sdc1_rclk_on: sdc1_rclk_on {
-			mux {
-				pins = "sdc1_rclk";
-				function = "gpio";
-			};
-
 			config {
 				pins = "sdc1_rclk";
 				bias-pull-down;		/* pull down */
@@ -282,11 +247,6 @@
 		};
 
 		sdc1_rclk_off: sdc1_rclk_off {
-			mux {
-				pins = "sdc1_rclk";
-				function = "gpio";
-			};
-
 			config {
 				pins = "sdc1_rclk";
 				bias-pull-down;		/* pull down */
@@ -294,11 +254,6 @@
 		};
 
 		sdc2_clk_on: sdc2_clk_on {
-			mux {
-				pins = "sdc2_clk";
-				function = "gpio";
-			};
-
 			config {
 				pins = "sdc2_clk";
 				bias-disable;		/* NO pull */
@@ -307,11 +262,6 @@
 		};
 
 		sdc2_clk_off: sdc2_clk_off {
-			mux {
-				pins = "sdc2_clk";
-				function = "gpio";
-			};
-
 			config {
 				pins = "sdc2_clk";
 				bias-disable;		/* NO pull */
@@ -320,11 +270,6 @@
 		};
 
 		sdc2_cmd_on: sdc2_cmd_on {
-			mux {
-				pins = "sdc2_cmd";
-				function = "gpio";
-			};
-
 			config {
 				pins = "sdc2_cmd";
 				bias-pull-up;		/* pull up */
@@ -333,11 +278,6 @@
 		};
 
 		sdc2_cmd_off: sdc2_cmd_off {
-			mux {
-				pins = "sdc2_cmd";
-				function = "gpio";
-			};
-
 			config {
 				pins = "sdc2_cmd";
 				bias-pull-up;		/* pull up */
@@ -346,11 +286,6 @@
 		};
 
 		sdc2_data_on: sdc2_data_on {
-			mux {
-				pins = "sdc2_data";
-				function = "gpio";
-			};
-
 			config {
 				pins = "sdc2_data";
 				bias-pull-up;		/* pull up */
@@ -359,11 +294,6 @@
 		};
 
 		sdc2_data_off: sdc2_data_off {
-			mux {
-				pins = "sdc2_data";
-				function = "gpio";
-			};
-
 			config {
 				pins = "sdc2_data";
 				bias-pull-up;		/* pull up */
