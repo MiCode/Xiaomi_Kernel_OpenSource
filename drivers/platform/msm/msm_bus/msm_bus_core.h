@@ -291,8 +291,6 @@ int msm_bus_get_num_fab(void);
 int msm_bus_hw_fab_init(struct msm_bus_fabric_registration *pdata,
 	struct msm_bus_hw_algorithm *hw_algo);
 void msm_bus_board_init(struct msm_bus_fabric_registration *pdata);
-void msm_bus_board_set_nfab(struct msm_bus_fabric_registration *pdata,
-	int nfab);
 #if defined(CONFIG_MSM_RPM_SMD)
 int msm_bus_rpm_hw_init(struct msm_bus_fabric_registration *pdata,
 	struct msm_bus_hw_algorithm *hw_algo);
@@ -394,7 +392,13 @@ void msm_bus_of_get_nfab(struct platform_device *pdev,
 		struct msm_bus_fabric_registration *pdata);
 struct msm_bus_fabric_registration
 	*msm_bus_of_get_fab_data(struct platform_device *pdev);
+static inline void msm_bus_board_set_nfab(struct msm_bus_fabric_registration
+		*pdata,	int nfab)
+{
+}
 #else
+void msm_bus_board_set_nfab(struct msm_bus_fabric_registration *pdata,
+	int nfab);
 static inline void msm_bus_of_get_nfab(struct platform_device *pdev,
 		struct msm_bus_fabric_registration *pdata)
 {
