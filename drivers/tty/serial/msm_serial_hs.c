@@ -401,13 +401,22 @@ static void msm_hs_resource_unvote(struct msm_hs_port *msm_uport)
 	atomic_dec(&msm_uport->clk_count);
 	pm_runtime_mark_last_busy(uport->dev);
 	pm_runtime_put_autosuspend(uport->dev);
+	__pm_relax(&msm_uport->ws);
 }
 
  /* Vote for resources before accessing them */
 static void msm_hs_resource_vote(struct msm_hs_port *msm_uport)
 {
+	int ret;
 	struct uart_port *uport = &(msm_uport->uport);
-	pm_runtime_get_sync(uport->dev);
+	__pm_stay_awake(&msm_uport->ws);
+	ret = pm_runtime_get_sync(uport->dev);
+	if (ret < 0 || msm_uport->pm_state != MSM_HS_PM_ACTIVE) {
+		MSM_HS_WARN("%s(): %p runtime PM callback not invoked",
+			__func__, uport->dev);
+		msm_hs_pm_resume(uport->dev);
+	}
+
 	atomic_inc(&msm_uport->clk_count);
 }
 
@@ -724,6 +733,7 @@ static int msm_hs_remove(struct platform_device *pdev)
 	msm_uport->rx.buffer = NULL;
 	msm_uport->rx.rbuffer = 0;
 
+	wakeup_source_trash(&msm_uport->ws);
 	destroy_workqueue(msm_uport->hsuart_wq);
 	mutex_destroy(&msm_uport->mtx);
 
@@ -2274,7 +2284,6 @@ void msm_hs_request_clock_off(struct uart_port *uport)
 	if (msm_uport->obs)
 		atomic_set(&msm_uport->client_req_state, 1);
 	msm_hs_resource_unvote(msm_uport);
-	__pm_relax(&msm_uport->ws);
 }
 EXPORT_SYMBOL(msm_hs_request_clock_off);
 
@@ -2282,13 +2291,6 @@ void msm_hs_request_clock_on(struct uart_port *uport)
 {
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
 	msm_hs_resource_vote(UARTDM_TO_MSM(uport));
-
-	__pm_stay_awake(&msm_uport->ws);
-	if (msm_uport->pm_state != MSM_HS_PM_ACTIVE) {
-		MSM_HS_WARN("%s(): %p runtime PM callback not invoked",
-			__func__, uport->dev);
-		msm_hs_pm_resume(uport->dev);
-	}
 
 	/* Clear the flag */
 	if (msm_uport->obs)
@@ -2503,7 +2505,6 @@ static int msm_hs_startup(struct uart_port *uport)
 	struct msm_hs_rx *rx = &msm_uport->rx;
 	struct sps_pipe *sps_pipe_handle_tx = tx->cons.pipe_handle;
 	struct sps_pipe *sps_pipe_handle_rx = rx->prod.pipe_handle;
-	struct tty_struct *tty = msm_uport->uport.state->port.tty;
 
 	rfr_level = uport->fifosize;
 	if (rfr_level > 16)
@@ -2537,7 +2538,6 @@ static int msm_hs_startup(struct uart_port *uport)
 		}
 	}
 
-	wakeup_source_init(&msm_uport->ws, tty->name);
 	ret = msm_hs_config_uart_gpios(uport);
 	if (ret) {
 		MSM_HS_ERR("Uart GPIO request failed\n");
@@ -3189,6 +3189,7 @@ static int msm_hs_probe(struct platform_device *pdev)
 	int core_irqres, bam_irqres, wakeup_irqres;
 	struct msm_serial_hs_platform_data *pdata = pdev->dev.platform_data;
 	unsigned long data;
+	struct tty_struct *tty;
 
 	if (pdev->dev.of_node) {
 		dev_dbg(&pdev->dev, "device tree enabled\n");
@@ -3410,6 +3411,8 @@ static int msm_hs_probe(struct platform_device *pdev)
 		uport->line = pdata->userid;
 	ret = uart_add_one_port(&msm_hs_driver, uport);
 	if (!ret) {
+		tty = msm_uport->uport.state->port.tty;
+		wakeup_source_init(&msm_uport->ws, tty->name);
 		msm_hs_clk_bus_unvote(msm_uport);
 		msm_serial_hs_rt_init(uport);
 		return ret;
@@ -3483,8 +3486,8 @@ static void msm_hs_shutdown(struct uart_port *uport)
 	else
 		disable_irq(uport->irq);
 
-	wakeup_source_trash(&msm_uport->ws);
 	msm_uport->wakeup.enabled = false;
+
 	/* make sure tx lh finishes */
 	flush_kthread_worker(&msm_uport->tx.kworker);
 	ret = wait_event_timeout(msm_uport->tx.wait,
