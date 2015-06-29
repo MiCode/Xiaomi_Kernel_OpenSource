@@ -1126,10 +1126,6 @@ static int req_crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 		is_fde_enabled = true; /* backward compatible */
 	}
 
-	bdev = dev->bdev;
-	q = bdev_get_queue(bdev);
-	blk_queue_max_hw_sectors(q, DM_REQ_CRYPT_QUEUE_SIZE);
-
 	_req_crypt_io_pool = KMEM_CACHE(req_dm_crypt_io, 0);
 	if (!_req_crypt_io_pool) {
 		err =  DM_REQ_CRYPT_ERROR;
@@ -1170,6 +1166,12 @@ static int req_crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 				goto ctr_exit;
 			}
 		}
+	}
+
+	if (encryption_mode != DM_REQ_CRYPT_ENCRYPTION_MODE_TRANSPARENT) {
+		bdev = dev->bdev;
+		q = bdev_get_queue(bdev);
+		blk_queue_max_hw_sectors(q, DM_REQ_CRYPT_QUEUE_SIZE);
 	}
 
 	req_crypt_queue = alloc_workqueue("req_cryptd",
