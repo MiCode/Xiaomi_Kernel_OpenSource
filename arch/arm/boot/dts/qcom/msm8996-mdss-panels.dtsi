@@ -60,7 +60,7 @@
 };
 
 &soc {
-	dsi_panel_pwr_supply_no_labibb: dsi_panel_pwr_supply {
+	dsi_panel_pwr_supply_no_labibb: dsi_panel_pwr_supply_no_labibb {
 		#address-cells = <1>;
 		#size-cells = <0>;
 
