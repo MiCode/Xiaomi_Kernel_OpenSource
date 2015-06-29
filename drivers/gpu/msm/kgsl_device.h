@@ -872,16 +872,6 @@ void kgsl_snapshot_add_section(struct kgsl_device *device, u16 id,
 	void *priv);
 
 /**
- * kgsl_device_max_memsize() - Return the maximum GPU address allowable on this
- * device
- * @device: Pointer to a kgsl_device struct
- */
-static inline uint64_t kgsl_device_max_gpuaddr(struct kgsl_device *device)
-{
-	return (uint64_t) UINT_MAX;
-}
-
-/**
  * struct kgsl_pwr_limit - limit structure for each client
  * @node: Local list node for the limits list
  * @level: requested power level

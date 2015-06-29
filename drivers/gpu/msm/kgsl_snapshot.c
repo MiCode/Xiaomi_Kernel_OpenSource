@@ -283,7 +283,7 @@ int kgsl_snapshot_get_object(struct kgsl_snapshot *snapshot,
 {
 	struct kgsl_mem_entry *entry;
 	struct kgsl_snapshot_object *obj;
-	int offset;
+	uint64_t offset;
 	int ret = -EINVAL;
 	unsigned int mem_type;
 
@@ -327,17 +327,12 @@ int kgsl_snapshot_get_object(struct kgsl_snapshot *snapshot,
 		/* Adjust the gpuaddr to the start of the object */
 		gpuaddr = entry->memdesc.gpuaddr;
 	} else {
-		offset = (size_t) (gpuaddr - entry->memdesc.gpuaddr);
+		offset = gpuaddr - entry->memdesc.gpuaddr;
 	}
 
 	if (size + offset > entry->memdesc.size) {
 		KGSL_CORE_ERR("Invalid size for GPU buffer 0x%016llX\n",
 			gpuaddr);
-		goto err_put;
-	}
-
-	if (size > SIZE_MAX) {
-		KGSL_CORE_ERR("GPU memory object is bigger than SIZE_MAX\n");
 		goto err_put;
 	}
 
@@ -1050,22 +1045,12 @@ static size_t _mempool_add_object(u8 *data, struct kgsl_snapshot_object *obj)
 {
 	struct kgsl_snapshot_section_header *section =
 		(struct kgsl_snapshot_section_header *)data;
-	struct kgsl_snapshot_gpu_object *header =
-		(struct kgsl_snapshot_gpu_object *)(data + sizeof(*section));
+	struct kgsl_snapshot_gpu_object_v2 *header =
+		(struct kgsl_snapshot_gpu_object_v2 *)(data + sizeof(*section));
 	u8 *dest = data + sizeof(*section) + sizeof(*header);
-	unsigned int size;
+	uint64_t size;
 
-	if (obj->size > UINT_MAX) {
-		KGSL_CORE_ERR("snapshot: GPU memory object is bigger than UINT_MAX\n");
-		return 0;
-	}
-
-	if (obj->gpuaddr > UINT_MAX) {
-		KGSL_CORE_ERR("snapshot: GPU memory object address is bigger than UINT_MAX\n");
-		return 0;
-	}
-
-	size = (unsigned int) obj->size;
+	size = obj->size;
 
 	if (!kgsl_memdesc_map(&obj->entry->memdesc)) {
 		KGSL_CORE_ERR("snapshot: failed to map GPU object\n");
@@ -1073,13 +1058,13 @@ static size_t _mempool_add_object(u8 *data, struct kgsl_snapshot_object *obj)
 	}
 
 	section->magic = SNAPSHOT_SECTION_MAGIC;
-	section->id = KGSL_SNAPSHOT_SECTION_GPU_OBJECT;
+	section->id = KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2;
 	section->size = size + sizeof(*header) + sizeof(*section);
 
-	header->size = (int) size >> 2;
-	header->gpuaddr = (__u32) obj->gpuaddr;
+	header->size = size >> 2;
+	header->gpuaddr = obj->gpuaddr;
 	header->ptbase =
-	 (__u32)kgsl_mmu_pagetable_get_ptbase(obj->entry->priv->pagetable);
+		kgsl_mmu_pagetable_get_ptbase(obj->entry->priv->pagetable);
 	header->type = obj->type;
 
 	memcpy(dest, obj->entry->memdesc.hostptr + obj->offset, size);
@@ -1106,10 +1091,6 @@ void kgsl_snapshot_save_frozen_objs(struct work_struct *work)
 
 	list_for_each_entry(obj, &snapshot->obj_list, node) {
 		obj->size = ALIGN(obj->size, 4);
-
-		/* Skip over objects that are too big */
-		if (obj->size > UINT_MAX)
-			continue;
 
 		size += ((size_t) obj->size +
 			sizeof(struct kgsl_snapshot_gpu_object) +

@@ -1709,7 +1709,7 @@ static int _load_firmware(struct adreno_device *adreno_dev, const char *fwfile,
 
 	memcpy(ucode->hostptr, &fw->data[4], fw->size - 4);
 	*ucode_size = (fw->size - 4) / sizeof(uint32_t);
-	*ucode_version = fw->data[4];
+	*ucode_version = *(unsigned int *)&fw->data[4];
 
 	release_firmware(fw);
 

@@ -44,8 +44,14 @@
    the statisic is greater then _max, set _max
 */
 
-#define KGSL_STATS_ADD(_size, _stat, _max) \
-	do { _stat += (_size); if (_stat > _max) _max = _stat; } while (0)
+static inline void KGSL_STATS_ADD(uint64_t size, atomic_long_t *stat,
+		atomic_long_t *max)
+{
+	uint64_t ret = atomic_long_add_return(size, stat);
+
+	if (ret > atomic_long_read(max))
+		atomic_long_set(max, ret);
+}
 
 #define KGSL_MAX_NUMIBS 100000
 
@@ -76,16 +82,16 @@ struct kgsl_driver {
 	struct mutex devlock;
 
 	struct {
-		uint64_t vmalloc;
-		uint64_t vmalloc_max;
-		uint64_t page_alloc;
-		uint64_t page_alloc_max;
-		uint64_t coherent;
-		uint64_t coherent_max;
-		uint64_t secure;
-		uint64_t secure_max;
-		uint64_t mapped;
-		uint64_t mapped_max;
+		atomic_long_t vmalloc;
+		atomic_long_t vmalloc_max;
+		atomic_long_t page_alloc;
+		atomic_long_t page_alloc_max;
+		atomic_long_t coherent;
+		atomic_long_t coherent_max;
+		atomic_long_t secure;
+		atomic_long_t secure_max;
+		atomic_long_t mapped;
+		atomic_long_t mapped_max;
 	} stats;
 	unsigned int full_cache_threshold;
 };
@@ -336,7 +342,7 @@ static inline int kgsl_gpuaddr_in_memdesc(const struct kgsl_memdesc *memdesc,
 		size = 1;
 
 	/* don't overflow */
-	if (size > UINT_MAX - gpuaddr)
+	if (size > U64_MAX - gpuaddr)
 		return 0;
 
 	if (gpuaddr >= memdesc->gpuaddr &&
@@ -417,7 +423,7 @@ kgsl_mem_entry_put(struct kgsl_mem_entry *entry)
 static inline bool kgsl_addr_range_overlap(uint64_t gpuaddr1,
 		uint64_t size1, uint64_t gpuaddr2, uint64_t size2)
 {
-	if ((size1 > (UINT_MAX - gpuaddr1)) || (size2 > (UINT_MAX - gpuaddr2)))
+	if ((size1 > (U64_MAX - gpuaddr1)) || (size2 > (U64_MAX - gpuaddr2)))
 		return false;
 	return !(((gpuaddr1 + size1) <= gpuaddr2) ||
 		(gpuaddr1 >= (gpuaddr2 + size2)));

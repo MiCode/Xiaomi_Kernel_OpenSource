@@ -474,6 +474,11 @@ static const struct a5xx_hlsq_sp_tp_regs a5xx_hlsq_sp_tp_registers[] = {
 	{ 0x37, 0xEF00, 0x128 },
 };
 
+/* HLSQ non context registers - can't be read on A530v1 */
+static const struct a5xx_hlsq_sp_tp_regs a5xx_hlsq_non_ctx_registers = {
+	0x35, 0xE00, 0x1C
+};
+
 #define A5XX_NUM_SHADER_BANKS 4
 #define A5XX_SHADER_STATETYPE_SHIFT 8
 
@@ -649,33 +654,52 @@ static void a5xx_snapshot_shader(struct kgsl_device *device,
 	}
 }
 
+static int get_hlsq_registers(struct kgsl_device *device,
+		const struct a5xx_hlsq_sp_tp_regs *regs, unsigned int *data)
+{
+	int j;
+	unsigned int val;
+
+	kgsl_regwrite(device, A5XX_HLSQ_DBG_READ_SEL,
+			(regs->statetype << A5XX_SHADER_STATETYPE_SHIFT));
+
+	for (j = 0; j < regs->size; j++) {
+		kgsl_regread(device, A5XX_HLSQ_DBG_AHB_READ_APERTURE + j, &val);
+		*data++ = regs->ahbaddr + j;
+		*data++ = val;
+	}
+
+	return regs->size;
+}
+
 size_t a5xx_snapshot_dump_hlsq_sp_tp_regs(struct kgsl_device *device, u8 *buf,
 	size_t remain, void *priv)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_snapshot_regs *header = (struct kgsl_snapshot_regs *)buf;
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
-	int count = 0, i, j, val = 0;
+	int count = 0, i;
 
 	/* Figure out how many registers we are going to dump */
 	for (i = 0; i < ARRAY_SIZE(a5xx_hlsq_sp_tp_registers); i++)
 			count += a5xx_hlsq_sp_tp_registers[i].size;
+
+	/* the HLSQ non context registers cannot be dumped on A530v1 */
+	if (!adreno_is_a530v1(adreno_dev))
+		count += a5xx_hlsq_non_ctx_registers.size;
 
 	if (remain < (count * 8) + sizeof(*header)) {
 		SNAPSHOT_ERR_NOMEM(device, "REGISTERS");
 		return 0;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(a5xx_hlsq_sp_tp_registers); i++) {
-		kgsl_regwrite(device, A5XX_HLSQ_DBG_READ_SEL,
-				  (a5xx_hlsq_sp_tp_registers[i].statetype <<
-				   A5XX_SHADER_STATETYPE_SHIFT));
-		for (j = 0; j < a5xx_hlsq_sp_tp_registers[i].size; j++) {
-			kgsl_regread(device,
-				A5XX_HLSQ_DBG_AHB_READ_APERTURE + j, &val);
-			*data++ = a5xx_hlsq_sp_tp_registers[i].ahbaddr + j;
-			*data++ = val;
-		}
-	}
+	for (i = 0; i < ARRAY_SIZE(a5xx_hlsq_sp_tp_registers); i++)
+		data += get_hlsq_registers(device,
+			&a5xx_hlsq_sp_tp_registers[i], data);
+
+	if (!adreno_is_a530v1(adreno_dev))
+		data += get_hlsq_registers(device,
+			&a5xx_hlsq_non_ctx_registers, data);
 
 	header->count = count;
 
