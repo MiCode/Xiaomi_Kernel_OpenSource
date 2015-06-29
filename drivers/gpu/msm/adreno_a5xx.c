@@ -2307,9 +2307,22 @@ void a5xx_cp_hw_err_callback(struct adreno_device *adreno_dev, int bit)
 
 	kgsl_regread(device, A5XX_CP_INTERRUPT_STATUS, &status1);
 
-	if (status1 & BIT(A5XX_CP_OPCODE_ERROR))
+	if (status1 & BIT(A5XX_CP_OPCODE_ERROR)) {
+		unsigned int val;
+
+		kgsl_regwrite(device, A5XX_CP_PFP_STAT_ADDR, 0);
+
+		/*
+		 * A5XX_CP_PFP_STAT_DATA is indexed, so read it twice to get the
+		 * value we want
+		 */
+		kgsl_regread(device, A5XX_CP_PFP_STAT_DATA, &val);
+		kgsl_regread(device, A5XX_CP_PFP_STAT_DATA, &val);
+
 		KGSL_DRV_CRIT_RATELIMIT(device,
-					"ringbuffer opcode error interrupt\n");
+			"ringbuffer opcode error | possible opcode=0x%8.8X\n",
+			val);
+	}
 	if (status1 & BIT(A5XX_CP_RESERVED_BIT_ERROR))
 		KGSL_DRV_CRIT_RATELIMIT(device,
 					"ringbuffer reserved bit error interrupt\n");
