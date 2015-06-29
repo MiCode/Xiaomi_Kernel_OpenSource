@@ -29,6 +29,7 @@
 #include <sound/q6afe-v2.h>
 #include <sound/q6core.h>
 #include <sound/pcm_params.h>
+#include <sound/info.h>
 #include <device_event.h>
 #include "qdsp6v2/msm-pcm-routing-v2.h"
 #include "../codecs/wcd9xxx-common.h"
@@ -126,6 +127,7 @@ struct msm8996_asoc_mach_data {
 	int us_euro_gpio;
 	int hph_en1_gpio;
 	int hph_en0_gpio;
+	struct snd_info_entry *codec_root;
 };
 
 struct msm8996_asoc_wcd93xx_codec {
@@ -1509,6 +1511,10 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	bool cdc_type = 0;
 	void *mbhc_calibration;
+	struct snd_card *card;
+	struct snd_info_entry *entry;
+	struct msm8996_asoc_mach_data *pdata =
+				snd_soc_card_get_drvdata(rtd->card);
 
 	/* Codec SLIMBUS configuration
 	 * RX1, RX2, RX3, RX4, RX5, RX6, RX7, RX8, RX9, RX10, RX11, RX12, RX13
@@ -1706,6 +1712,22 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		tasha_enable_efuse_sensing(rtd->codec);
 
 	codec_reg_done = true;
+
+	if (cdc_type) {
+		card = rtd->card->snd_card;
+		entry = snd_register_module_info(card->module,
+						 "codecs",
+						 card->proc_root);
+		if (!entry) {
+			pr_debug("%s: Cannot create codecs module entry\n",
+				 __func__);
+			err = 0;
+			goto out;
+		}
+		pdata->codec_root = entry;
+		tasha_codec_info_create_codec_entry(pdata->codec_root,
+						    codec);
+	}
 	return 0;
 out:
 	return err;
@@ -3288,6 +3310,7 @@ static int msm8996_wsa881x_init(struct snd_soc_component *component)
 	unsigned int ch_rate[WSA881X_MAX_SWR_PORTS] = {2400, 600, 300, 1200};
 	unsigned int ch_mask[WSA881X_MAX_SWR_PORTS] = {0x1, 0xF, 0x3, 0x3};
 	struct snd_soc_codec *codec = snd_soc_component_to_codec(component);
+	struct msm8996_asoc_mach_data *pdata;
 
 	if (!codec) {
 		pr_err("%s codec is NULL\n", __func__);
@@ -3312,6 +3335,10 @@ static int msm8996_wsa881x_init(struct snd_soc_component *component)
 			codec->component.name);
 		return -EINVAL;
 	}
+	pdata = snd_soc_card_get_drvdata(component->card);
+	if (pdata && pdata->codec_root)
+		wsa881x_codec_info_create_codec_entry(pdata->codec_root,
+						      codec);
 	return 0;
 }
 
