@@ -3146,6 +3146,12 @@ static int mmc_blk_cmdq_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 	struct mmc_cmdq_req *mc_rq;
 	int ret = 0;
 
+	if (host->clk_scaling.enable) {
+		mmc_deferred_scaling(host);
+		mmc_cmdq_clk_scaling_start_busy(host, true);
+		BUG_ON(test_and_set_bit(req->tag,
+			&host->cmdq_ctx.data_active_reqs));
+	}
 	BUG_ON((req->tag < 0) || (req->tag > card->ext_csd.cmdq_depth));
 	BUG_ON(test_and_set_bit(req->tag, &host->cmdq_ctx.active_reqs));
 
@@ -3360,6 +3366,7 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 	struct mmc_cmdq_req *cmdq_req = &mq_rq->cmdq_req;
 	struct mmc_queue *mq = (struct mmc_queue *)rq->q->queuedata;
 	int err = 0;
+	bool is_dcmd = false;
 
 	if (mrq->cmd && mrq->cmd->error)
 		err = mrq->cmd->error;
@@ -3369,6 +3376,14 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 	/* clear pending request */
 	BUG_ON(!test_and_clear_bit(cmdq_req->tag,
 				   &ctx_info->active_reqs));
+
+	if (host->clk_scaling.enable) {
+		if (cmdq_req->cmdq_req_flags & DCMD)
+			is_dcmd = true;
+		else
+			BUG_ON(!test_and_clear_bit(cmdq_req->tag,
+				 &ctx_info->data_active_reqs));
+	}
 
 	mmc_cmdq_post_req(host, mrq, err);
 	if (err) {
@@ -3394,11 +3409,16 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 	blk_end_request(rq, err, cmdq_req->data.bytes_xfered);
 
 out:
+
+	mmc_cmdq_clk_scaling_stop_busy(host, true, is_dcmd);
 	if (!test_bit(CMDQ_STATE_ERR, &ctx_info->curr_state) &&
 			test_and_clear_bit(0, &ctx_info->req_starved))
 		blk_run_queue(mq->queue);
 
 	mmc_put_card(host->card);
+	if (!ctx_info->active_reqs)
+		wake_up_interruptible(&host->cmdq_ctx.queue_empty_wq);
+
 	if (blk_queue_stopped(mq->queue) && !ctx_info->active_reqs)
 		complete(&mq->cmdq_shutdown_complete);
 	return;
