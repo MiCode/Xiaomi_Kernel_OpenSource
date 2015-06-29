@@ -15,6 +15,7 @@
 #include "fuse_shortcircuit.h"
 
 #include <linux/aio.h>
+#include <linux/fs_stack.h>
 
 void fuse_setup_shortcircuit(struct fuse_conn *fc, struct fuse_req *req)
 {
@@ -55,24 +56,37 @@ static ssize_t fuse_shortcircuit_aio_read_write(struct kiocb *iocb,
 						loff_t pos, int do_write)
 {
 	ssize_t ret_val;
-	struct fuse_file *ff = iocb->ki_filp->private_data;
+	struct fuse_file *ff;
 	struct file *fuse_file, *lower_file;
+	struct inode *fuse_inode, *lower_inode;
 
+	ff = iocb->ki_filp->private_data;
 	fuse_file = iocb->ki_filp;
 	lower_file = ff->rw_lower_file;
 
 	/* lock lower file to prevent it from being released */
 	get_file(lower_file);
 	iocb->ki_filp = lower_file;
+	fuse_inode = fuse_file->f_path.dentry->d_inode;
+	lower_inode = file_inode(lower_file);
 
 	if (do_write) {
 		if (!lower_file->f_op->aio_write)
 			return -EIO;
+
 		ret_val = lower_file->f_op->aio_write(iocb, iov, nr_segs, pos);
+
+		if (ret_val >= 0 || ret_val == -EIOCBQUEUED) {
+			fsstack_copy_inode_size(fuse_inode, lower_inode);
+			fsstack_copy_attr_times(fuse_inode, lower_inode);
+		}
 	} else {
 		if (!lower_file->f_op->aio_read)
 			return -EIO;
+
 		ret_val = lower_file->f_op->aio_read(iocb, iov, nr_segs, pos);
+		if (ret_val >= 0 || ret_val == -EIOCBQUEUED)
+			fsstack_copy_attr_atime(fuse_inode, lower_inode);
 	}
 
 	iocb->ki_filp = fuse_file;
