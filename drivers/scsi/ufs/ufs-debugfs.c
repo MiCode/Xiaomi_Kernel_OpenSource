@@ -913,12 +913,12 @@ static int ufsdbg_host_regs_show(struct seq_file *file, void *data)
 {
 	struct ufs_hba *hba = (struct ufs_hba *)file->private;
 
-	ufshcd_hold(hba, false);
 	pm_runtime_get_sync(hba->dev);
+	ufshcd_hold(hba, false);
 	ufsdbg_pr_buf_to_std(hba, 0, UFSHCI_REG_SPACE_SIZE / sizeof(u32),
 				"host regs", file);
-	pm_runtime_put_sync(hba->dev);
 	ufshcd_release(hba, false);
+	pm_runtime_put_sync(hba->dev);
 	return 0;
 }
 
