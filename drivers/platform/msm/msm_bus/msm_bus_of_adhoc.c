@@ -229,6 +229,7 @@ static void get_qos_params(
 }
 
 static int msm_bus_of_parse_clk_array(struct device_node *dev_node,
+			struct device_node *gdsc_node,
 			struct platform_device *pdev, struct nodeclk **clk_arr,
 			int *num_clks, int id)
 {
@@ -272,7 +273,7 @@ static int msm_bus_of_parse_clk_array(struct device_node *dev_node,
 
 		scnprintf(gdsc_string, MAX_REG_NAME, "%s-supply", clk_name);
 
-		if (of_find_property(dev_node, gdsc_string, NULL))
+		if (of_find_property(gdsc_node, gdsc_string, NULL))
 			scnprintf((*clk_arr)[idx].reg_name,
 				MAX_REG_NAME, "%s", clk_name);
 		else
@@ -516,7 +517,7 @@ static int get_bus_node_device_data(
 						"qcom,node-qos-clks");
 
 		if (qos_clk_node)
-			msm_bus_of_parse_clk_array(qos_clk_node, pdev,
+			msm_bus_of_parse_clk_array(qos_clk_node, dev_node, pdev,
 			&node_device->node_qos_clks,
 			&node_device->num_node_qos_clks,
 			node_device->node_info->id);
