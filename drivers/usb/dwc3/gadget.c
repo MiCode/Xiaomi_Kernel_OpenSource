@@ -2423,6 +2423,11 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 				dep->name, event->status);
 			return 1;
 		}
+
+		/* Make sure that not to queue any TRB if HWO bit is set. */
+		if (req->trb->ctrl & DWC3_TRB_CTRL_HWO)
+			return 0;
+
 		i = 0;
 		do {
 			slot = req->start_slot + i;
