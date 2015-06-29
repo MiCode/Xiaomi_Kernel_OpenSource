@@ -279,6 +279,13 @@ struct cpr_regulator {
 	int		*save_ctl;
 	int		*save_irq;
 
+	int		*vsens_corner_map;
+	/* vsens status */
+	bool		vsens_enabled;
+	/* vsens regulators */
+	struct regulator	*vdd_vsens_corner;
+	struct regulator	*vdd_vsens_voltage;
+
 	/* Config parameters */
 	bool		enable;
 	u32		ref_clk_khz;
@@ -703,11 +710,19 @@ static int cpr_scale_voltage(struct cpr_regulator *cpr_vreg, int corner,
 {
 	int rc = 0, vdd_mx_vmin = 0;
 	int mem_acc_corner = cpr_vreg->mem_acc_corner_map[corner];
-	int apc_corner;
+	int fuse_corner = cpr_vreg->corner_map[corner];
+	int apc_corner, vsens_corner;
 
 	/* Determine the vdd_mx voltage */
 	if (dir != NO_CHANGE && cpr_vreg->vdd_mx != NULL)
 		vdd_mx_vmin = cpr_mx_get(cpr_vreg, corner, new_apc_volt);
+
+
+	if (cpr_vreg->vdd_vsens_voltage && cpr_vreg->vsens_enabled) {
+		rc = regulator_disable(cpr_vreg->vdd_vsens_voltage);
+		if (!rc)
+			cpr_vreg->vsens_enabled = false;
+	}
 
 	if (dir == DOWN) {
 		if (!rc && cpr_vreg->mem_acc_vreg)
@@ -748,6 +763,22 @@ static int cpr_scale_voltage(struct cpr_regulator *cpr_vreg, int corner,
 	if (!rc && vdd_mx_vmin && dir == DOWN) {
 		if (vdd_mx_vmin != cpr_vreg->vdd_mx_vmin)
 			rc = cpr_mx_set(cpr_vreg, corner, vdd_mx_vmin);
+	}
+
+	if (!rc && cpr_vreg->vdd_vsens_corner) {
+		vsens_corner = cpr_vreg->vsens_corner_map[fuse_corner];
+		rc = regulator_set_voltage(cpr_vreg->vdd_vsens_corner,
+					vsens_corner, vsens_corner);
+	}
+	if (!rc && cpr_vreg->vdd_vsens_voltage) {
+		rc = regulator_set_voltage(cpr_vreg->vdd_vsens_voltage,
+					cpr_vreg->floor_volt[corner],
+					cpr_vreg->ceiling_volt[corner]);
+		if (!rc && !cpr_vreg->vsens_enabled) {
+			rc = regulator_enable(cpr_vreg->vdd_vsens_voltage);
+			if (!rc)
+				cpr_vreg->vsens_enabled = true;
+		}
 	}
 
 	return rc;
@@ -4208,6 +4239,70 @@ static int cpr_rpm_apc_init(struct platform_device *pdev,
 	return rc;
 }
 
+static int cpr_vsens_init(struct platform_device *pdev,
+			       struct cpr_regulator *cpr_vreg)
+{
+	int rc = 0, len = 0;
+	struct device_node *of_node = pdev->dev.of_node;
+
+	if (of_find_property(of_node, "vdd-vsens-voltage-supply", NULL)) {
+		cpr_vreg->vdd_vsens_voltage = devm_regulator_get(&pdev->dev,
+							"vdd-vsens-voltage");
+		if (IS_ERR_OR_NULL(cpr_vreg->vdd_vsens_voltage)) {
+			rc = PTR_ERR(cpr_vreg->vdd_vsens_voltage);
+			cpr_vreg->vdd_vsens_voltage = NULL;
+			if (rc == -EPROBE_DEFER)
+				return rc;
+			/* device not found */
+			cpr_debug(cpr_vreg, "regulator_get: vdd-vsens-voltage: rc=%d\n",
+					rc);
+			return 0;
+		}
+	}
+
+	if (of_find_property(of_node, "vdd-vsens-corner-supply", NULL)) {
+		cpr_vreg->vdd_vsens_corner = devm_regulator_get(&pdev->dev,
+							"vdd-vsens-corner");
+		if (IS_ERR_OR_NULL(cpr_vreg->vdd_vsens_corner)) {
+			rc = PTR_ERR(cpr_vreg->vdd_vsens_corner);
+			cpr_vreg->vdd_vsens_corner = NULL;
+			if (rc == -EPROBE_DEFER)
+				return rc;
+			/* device not found */
+			cpr_debug(cpr_vreg, "regulator_get: vdd-vsens-corner: rc=%d\n",
+					rc);
+			return 0;
+		}
+
+		if (!of_find_property(of_node, "qcom,vsens-corner-map", &len)) {
+			cpr_err(cpr_vreg, "qcom,vsens-corner-map missing\n");
+			return -EINVAL;
+		}
+
+		if (len != cpr_vreg->num_fuse_corners * sizeof(u32)) {
+			cpr_err(cpr_vreg, "qcom,vsens-corner-map length=%d is invalid: required:%d\n",
+				len, cpr_vreg->num_fuse_corners);
+			return -EINVAL;
+		}
+
+		cpr_vreg->vsens_corner_map = devm_kcalloc(&pdev->dev,
+					(cpr_vreg->num_fuse_corners + 1),
+			sizeof(*cpr_vreg->vsens_corner_map), GFP_KERNEL);
+		if (!cpr_vreg->vsens_corner_map)
+			return -ENOMEM;
+
+		rc = of_property_read_u32_array(of_node,
+					"qcom,vsens-corner-map",
+					&cpr_vreg->vsens_corner_map[1],
+					cpr_vreg->num_fuse_corners);
+		if (rc)
+			cpr_err(cpr_vreg, "read qcom,vsens-corner-map failed, rc = %d\n",
+				rc);
+	}
+
+	return rc;
+}
+
 static int cpr_init_cpr(struct platform_device *pdev,
 			       struct cpr_regulator *cpr_vreg)
 {
@@ -5022,6 +5117,13 @@ static int cpr_regulator_probe(struct platform_device *pdev)
 	if (rc) {
 		cpr_err(cpr_vreg, "Initialize PVS wrong: rc=%d\n", rc);
 		goto err_out;
+	}
+
+	rc = cpr_vsens_init(pdev, cpr_vreg);
+	if (rc) {
+		cpr_err(cpr_vreg, "Initialize vsens configuration failed rc=%d\n",
+			rc);
+		return rc;
 	}
 
 	rc = cpr_apc_init(pdev, cpr_vreg);
