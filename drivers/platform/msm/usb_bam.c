@@ -39,6 +39,9 @@
 
 #define USB_BAM_NR_PORTS	4
 
+/* Additional memory to be allocated than required data fifo size */
+#define DATA_FIFO_EXTRA_MEM_ALLOC_SIZE 512
+
 #define ARRAY_INDEX_FROM_ADDR(base, addr) ((addr) - (base))
 
 /* Offset relative to QSCRATCH_RAM1_REG */
@@ -460,11 +463,24 @@ static int usb_bam_alloc_buffer(struct usb_bam_pipe_connect *pipe_connect)
 		log_event(1, "%s: USB BAM using system memory\n", __func__);
 		/* BAM would use system memory, allocate FIFOs */
 		data_buf->size = pipe_connect->data_fifo_size;
-		data_buf->base =
-			dma_alloc_coherent(&ctx.usb_bam_pdev->dev,
-			pipe_connect->data_fifo_size,
-			&(data_buf->phys_base),
-			GFP_KERNEL);
+		/* On platforms which use CI controller, USB HW can fetch
+		 * additional 128 bytes at the end of circular buffer when
+		 * AXI prefetch is enabled and hence requirement is to
+		 * allocate 512 bytes more than required length.
+		 */
+		if (pipe_connect->bam_type == CI_CTRL)
+			data_buf->base =
+				dma_alloc_coherent(&ctx.usb_bam_pdev->dev,
+				(pipe_connect->data_fifo_size +
+					DATA_FIFO_EXTRA_MEM_ALLOC_SIZE),
+				&(data_buf->phys_base),
+				GFP_KERNEL);
+		else
+			data_buf->base =
+				dma_alloc_coherent(&ctx.usb_bam_pdev->dev,
+				pipe_connect->data_fifo_size,
+				&(data_buf->phys_base),
+				GFP_KERNEL);
 		if (!data_buf->base) {
 			pr_err("%s: dma_alloc_coherent failed for data fifo\n",
 								__func__);
@@ -482,9 +498,17 @@ static int usb_bam_alloc_buffer(struct usb_bam_pipe_connect *pipe_connect)
 		if (!desc_buf->base) {
 			pr_err("%s: dma_alloc_coherent failed for desc fifo\n",
 								__func__);
-			dma_free_coherent(&ctx.usb_bam_pdev->dev,
-			pipe_connect->data_fifo_size, data_buf->base,
-			data_buf->phys_base);
+			if (pipe_connect->bam_type == CI_CTRL)
+				dma_free_coherent(&ctx.usb_bam_pdev->dev,
+				(pipe_connect->data_fifo_size +
+					DATA_FIFO_EXTRA_MEM_ALLOC_SIZE),
+				data_buf->base,
+				data_buf->phys_base);
+			else
+				dma_free_coherent(&ctx.usb_bam_pdev->dev,
+				pipe_connect->data_fifo_size,
+				data_buf->base,
+				data_buf->phys_base);
 			ret = -ENOMEM;
 			goto disable_memclk;
 		}
@@ -805,11 +829,19 @@ static int disconnect_pipe(u8 idx)
 	case SYSTEM_MEM:
 		log_event(1, "%s: Freeing system memory used by PIPE\n",
 				__func__);
-		if (sps_connection->data.phys_base)
-			dma_free_coherent(&ctx.usb_bam_pdev->dev,
+		if (sps_connection->data.phys_base) {
+			if (pipe_connect->bam_type == CI_CTRL)
+				dma_free_coherent(&ctx.usb_bam_pdev->dev,
+					(sps_connection->data.size +
+						DATA_FIFO_EXTRA_MEM_ALLOC_SIZE),
+					sps_connection->data.base,
+					sps_connection->data.phys_base);
+			else
+				dma_free_coherent(&ctx.usb_bam_pdev->dev,
 					sps_connection->data.size,
 					sps_connection->data.base,
 					sps_connection->data.phys_base);
+		}
 		if (sps_connection->desc.phys_base)
 			dma_free_coherent(&ctx.usb_bam_pdev->dev,
 					sps_connection->desc.size,
