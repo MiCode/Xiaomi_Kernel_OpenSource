@@ -649,6 +649,12 @@ Optional properties:
 				the RPM corner to the corresponding APC virtual
 				corner. This property must be defined if
 				'rpm-apc-supply' is present.
+- qcom,vsens-corner-map:	Array of integers which define the mapping of the VSENS corner to the
+				corresponding APC fuse corner. The qcom,vsens-corner-map and
+				vdd-vsense-corner-supply properties must both be specified for a given
+				cpr-regulator device or neither must be specified.
+- vdd-vsens-corner-supply:	Regulator to specify the current operating fuse corner to the Voltage Sensor.
+- vdd-vsens-voltage-supply:	Regulator to specify the corner floor/ceiling voltages to the Voltage Sensor.
 
 Example:
 	apc_vreg_corner: regulator@f9018000 {
@@ -721,6 +727,10 @@ Example:
 		qcom,cpr-gcnt-time = <1>;
 		qcom,cpr-clamp-timer-interval = <1>;
 		qcom,cpr-apc-volt-step = <5000>;
+
+		qcom,vsens-corner-map = <1 2 2>;
+		vdd-vsens-corner-supply = <&vsens_apc0_corner>;
+		vdd-vsens-voltage-supply = <&vsens_apc0_voltage>;
 
 		rpm-apc-supply = <&rpm_apc_vreg>;
 		qcom,rpm-apc-corner-map = <4 4 5 5 7 7 7 7 7 7 7 7>;
