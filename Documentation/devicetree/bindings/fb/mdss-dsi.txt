@@ -13,6 +13,25 @@ Required properties:
 					space, parent address space and the length.
 - vdda-supply:				Phandle for vreg regulator device node.
 
+Bus Scaling Data:
+- qcom,msm-bus,name:		String property describing MDSS client.
+- qcom, msm-bus,num-cases:	This is the number of bus scaling use cases
+				defined in the vectors property. This must be
+				set to <2> for MDSS DSI driver where use-case 0
+				is used to remove BW votes from the system. Use
+				case 1 is used to generate bandwidth requestes
+				when sending command packets.
+- qcom,msm-bus,num-paths:	This represents number of paths in each bus
+				scaling usecase. This value depends on number of
+				AXI master ports dedicated to MDSS for
+				particular chipset.
+- qcom,msm-bus,vectors-KBps:	A series of 4 cell properties, with a format
+				of (src, dst, ab, ib) which is defined at
+				Documentation/devicetree/bindings/arm/msm/msm_bus.txt.
+				DSI driver should always set average bandwidth
+				(ab) to 0 and always use instantaneous
+				bandwidth(ib) values.
+
 Optional properties:
 - vcca-supply:				Phandle for vcca regulator device node.
 - qcom,<type>-supply-entries:		A node that lists the elements of the supply used by the

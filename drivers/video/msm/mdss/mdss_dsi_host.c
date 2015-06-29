@@ -21,6 +21,8 @@
 #include <linux/iopoll.h>
 #include <linux/kthread.h>
 
+#include <linux/msm-bus.h>
+
 #include "mdss.h"
 #include "mdss_dsi.h"
 #include "mdss_panel.h"
@@ -1878,6 +1880,37 @@ static int mdss_dsi_cmd_dma_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 	return rx_byte;
 }
 
+static int mdss_dsi_bus_bandwidth_vote(struct dsi_shared_data *sdata, bool on)
+{
+	int rc = 0;
+	bool changed = false;
+
+	if (on) {
+		if (sdata->bus_refcount == 0)
+			changed = true;
+		sdata->bus_refcount++;
+	} else {
+		if (sdata->bus_refcount != 0) {
+			sdata->bus_refcount--;
+			if (sdata->bus_refcount == 0)
+				changed = true;
+		} else {
+			pr_warn("%s: bus bw votes are not balanced\n",
+				__func__);
+		}
+	}
+
+	if (changed) {
+		rc = msm_bus_scale_client_update_request(sdata->bus_handle,
+							 on ? 1 : 0);
+		if (rc)
+			pr_err("%s: Bus bandwidth vote failed\n", __func__);
+	}
+
+	return rc;
+}
+
+
 int mdss_dsi_en_wait4dynamic_done(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	unsigned long flag;
@@ -2152,11 +2185,13 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 	 * also, axi bus bandwidth need since dsi controller will
 	 * fetch dcs commands from axi bus
 	 */
-	if (ctrl->mdss_util->bus_bandwidth_ctrl)
-		ctrl->mdss_util->bus_bandwidth_ctrl(1);
-
-	if (ctrl->mdss_util->bus_scale_set_quota)
-		ctrl->mdss_util->bus_scale_set_quota(MDSS_DSI_RT, 0, SZ_1M);
+	rc = mdss_dsi_bus_bandwidth_vote(ctrl->shared_data, true);
+	if (rc) {
+		pr_err("%s: Bus bw vote failed\n", __func__);
+		if (from_mdp)
+			mutex_unlock(&ctrl->cmd_mutex);
+		return rc;
+	}
 
 	pr_debug("%s:  from_mdp=%d pid=%d\n", __func__, from_mdp, current->pid);
 
@@ -2188,10 +2223,8 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 
 	mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle, MDSS_DSI_ALL_CLKS,
 			  MDSS_DSI_CLK_OFF);
-	if (ctrl->mdss_util->bus_scale_set_quota)
-		ctrl->mdss_util->bus_scale_set_quota(MDSS_DSI_RT, 0, 0);
-	if (ctrl->mdss_util->bus_bandwidth_ctrl)
-		ctrl->mdss_util->bus_bandwidth_ctrl(0);
+
+	(void)mdss_dsi_bus_bandwidth_vote(ctrl->shared_data, false);
 need_lock:
 
 	MDSS_XLOG(ctrl->ndx, from_mdp, ctrl->mdp_busy, current->pid,
