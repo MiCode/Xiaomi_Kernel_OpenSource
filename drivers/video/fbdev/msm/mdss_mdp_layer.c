@@ -1299,6 +1299,10 @@ int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
 
 	mutex_lock(&mdp5_data->list_lock);
 	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_used, list) {
+		if (pipe->flags & MDP_SOLID_FILL) {
+			src_data[i] = NULL;
+			continue;
+		}
 		src_data[i] = __map_layer_buffer(mfd, pipe, layer_list,
 			layer_count);
 		if (IS_ERR_OR_NULL(src_data[i++])) {
@@ -1322,7 +1326,8 @@ map_err:
 	if (ret) {
 		mutex_lock(&mdp5_data->list_lock);
 		for (i--; i >= 0; i--)
-			mdss_mdp_overlay_buf_free(mfd, src_data[i]);
+			if (src_data[i])
+				mdss_mdp_overlay_buf_free(mfd, src_data[i]);
 		mutex_unlock(&mdp5_data->list_lock);
 	}
 end:
