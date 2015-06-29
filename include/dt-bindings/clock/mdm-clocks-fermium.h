@@ -44,12 +44,6 @@
 #define clk_xo_pil_mss_clk					 0xe97a8354
 #define clk_bb_clk1						 0xf5304268
 #define clk_bb_clk1_pin						 0x6dd0a779
-#define clk_bb_clk2						 0xfe15cb87
-#define clk_bb_clk2_pin						 0x498938e5
-#define clk_rf_clk1						 0xaabeea5a
-#define clk_rf_clk1_pin						 0x8f463562
-#define clk_rf_clk2						 0x24a30992
-#define clk_rf_clk2_pin						 0xa7c5602a
 
 /* SRCs */
 #define clk_apss_ahb_clk_src					 0x36f8495f
@@ -142,7 +136,8 @@
 #define clk_gcc_usb_hsic_io_cal_clk				 0xbc21f776
 #define clk_gcc_usb_hsic_io_cal_sleep_clk			 0x20e09a22
 #define clk_gcc_usb_hsic_system_clk				 0x145e9366
-
+#define clk_gcc_usb2_hs_phy_only_clk				 0x0047179d
+#define clk_gcc_qusb2_phy_clk					 0x996884d5
 /* DEBUG */
 #define clk_gcc_debug_mux					 0x8121ac15
 #define clk_wcnss_m_clk						 0x709f430b
