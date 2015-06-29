@@ -67,18 +67,22 @@ struct msm_l2ccc_of_info {
 static int kick_l2spm(struct device_node *l2ccc_node,
 				struct device_node *vctl_node)
 {
-	struct resource res;
+	struct resource res, acinactm_res;
 	int val;
 	int timeout = 10, ret = 0;
 	void __iomem *l2spm_base = of_iomap(vctl_node, 0);
-
+	bool use_acinactm = false;
+	int index;
 	if (!l2spm_base)
 		return -ENOMEM;
 
 	if (!(__raw_readl(l2spm_base + L2_SPM_STS) & 0xFFFF0000))
 		goto bail_l2_pwr_bit;
 
-	ret = of_address_to_resource(l2ccc_node, 1, &res);
+	index = of_property_match_string(l2ccc_node, "reg-names", "l2-common");
+	if (index < 0)
+		goto bail_l2_pwr_bit;
+	ret = of_address_to_resource(l2ccc_node, index, &res);
 	if (ret)
 		goto bail_l2_pwr_bit;
 
@@ -88,6 +92,20 @@ static int kick_l2spm(struct device_node *l2ccc_node,
 	val = scm_io_read((u32)res.start);
 	val |= BIT(0);
 	scm_io_write((u32)res.start, val);
+
+	use_acinactm = of_property_read_bool(l2ccc_node, "qcom,use-acinactm");
+	if (use_acinactm) {
+		index = of_property_match_string(l2ccc_node, "reg-names",
+								"l2-acinactm");
+		if (index < 0)
+			goto bail_l2_pwr_bit;
+		ret = of_address_to_resource(l2ccc_node, index, &acinactm_res);
+		if (ret)
+			goto bail_l2_pwr_bit;
+		val = scm_io_read((u32)acinactm_res.start);
+		val &= ~BIT(4);
+		scm_io_write((u32)acinactm_res.start, val);
+	}
 
 	/* Wait until the SPM status indicates that the PWR_CTL
 	 * bits are clear.
@@ -116,7 +134,7 @@ static int power_on_l2_msm8976(struct device_node *l2ccc_node, u32 pon_mask,
 	if (!vctl_node)
 		return -ENODEV;
 
-	l2_base = of_iomap(l2ccc_node, 0);
+	l2_base = of_iomap_by_name(l2ccc_node, "l2-base");
 	if (!l2_base)
 		return -ENOMEM;
 
@@ -216,7 +234,7 @@ static int power_on_l2_msm8916(struct device_node *l2ccc_node, u32 pon_mask,
 	if (vctl_node)
 		vctl_parsed = true;
 
-	l2_base = of_iomap(l2ccc_node, 0);
+	l2_base = of_iomap_by_name(l2ccc_node, "l2-base");
 	if (!l2_base)
 		return -ENOMEM;
 
@@ -288,7 +306,7 @@ static int power_on_l2_msm8994(struct device_node *l2ccc_node, u32 pon_mask,
 	if (!vctl_node)
 		return -ENODEV;
 
-	l2_base = of_iomap(l2ccc_node, 0);
+	l2_base = of_iomap_by_name(l2ccc_node, "l2-base");
 	if (!l2_base)
 		return -ENOMEM;
 
