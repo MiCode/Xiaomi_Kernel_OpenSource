@@ -94,7 +94,6 @@
 #define ULPI_MISC_A_VBUSVLDEXT		BIT(0)
 #define ULPI_MISC_A_VBUSVLDEXTSEL	BIT(1)
 
-#define PHY_ALT_INT		(1 << 28) /* PHY alternate interrupt */
 #define ASYNC_INTR_CTRL         (1 << 29) /* Enable async interrupt */
 #define ULPI_STP_CTRL           (1 << 30) /* Block communication with PHY */
 #define PHY_RETEN               (1 << 1) /* PHY retention enable/disable */
@@ -104,10 +103,6 @@
 #define PHY_POR_BIT_MASK	BIT(0)
 #define PHY_POR_ASSERT		(1 << 0) /* USB2 28nm PHY POR ASSERT */
 #define PHY_POR_DEASSERT	(0 << 0) /* USB2 28nm PHY POR DEASSERT */
-
-#define STS_PCI                 (1 << 2) /* R/WC - Port Change Detect */
-#define STS_URI                 (1 << 6) /* R/WC - RESET recv'd */
-#define STS_SLI                 (1 << 8) /* R/WC - suspend state entered */
 
 /* OTG definitions */
 #define OTGSC_INTSTS_MASK	(0x7f << 16)
@@ -120,13 +115,6 @@
 #define OTGSC_BSVIS		(1 << 19)
 #define OTGSC_IDIE		(1 << 24)
 #define OTGSC_BSVIE		(1 << 27)
-#define OTGSC_DPIE		(1 << 30)
-#define OTGSC_DPIS		(1 << 22)
-
-/* OTG interrupt status mask */
-#define OTG_USBSTS_MASK		(STS_PCI | STS_URI | STS_SLI | PHY_ALT_INT)
-#define OTG_OTGSTS_MASK		(OTGSC_IDIS | OTGSC_BSVIS | OTGSC_DPIS)
-
 
 /* USB PHY CSR registers and bit definitions */
 
