@@ -2713,7 +2713,7 @@ static void diag_debug_init(void)
 	 * Set the bit mask here as per diag_ipc_logging.h to enable debug logs
 	 * to be logged to IPC
 	 */
-	diag_debug_mask = 0;
+	diag_debug_mask = DIAG_DEBUG_PERIPHERALS;
 }
 #else
 static void diag_debug_init(void)
