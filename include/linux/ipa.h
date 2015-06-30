@@ -1289,6 +1289,9 @@ int ipa_rm_set_perf_profile(enum ipa_rm_resource_name resource_name,
 int ipa_rm_add_dependency(enum ipa_rm_resource_name resource_name,
 			enum ipa_rm_resource_name depends_on_name);
 
+int ipa_rm_add_dependency_sync(enum ipa_rm_resource_name resource_name,
+		enum ipa_rm_resource_name depends_on_name);
+
 int ipa_rm_delete_dependency(enum ipa_rm_resource_name resource_name,
 			enum ipa_rm_resource_name depends_on_name);
 
@@ -1839,6 +1842,13 @@ static inline int ipa_rm_deregister(enum ipa_rm_resource_name resource_name,
 }
 
 static inline int ipa_rm_add_dependency(
+		enum ipa_rm_resource_name resource_name,
+		enum ipa_rm_resource_name depends_on_name)
+{
+	return -EPERM;
+}
+
+static inline int ipa_rm_add_dependency_sync(
 		enum ipa_rm_resource_name resource_name,
 		enum ipa_rm_resource_name depends_on_name)
 {
