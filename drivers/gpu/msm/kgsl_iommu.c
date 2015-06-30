@@ -1121,7 +1121,7 @@ kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 		return 0;
 
 	if (kgsl_memdesc_has_guard_page(memdesc))
-		range += kgsl_memdesc_guard_page_size(memdesc);
+		range += kgsl_memdesc_guard_page_size(pt->mmu, memdesc);
 
 	if (kgsl_memdesc_is_secured(memdesc)) {
 
@@ -1188,8 +1188,9 @@ int _iommu_add_guard_page(struct kgsl_pagetable *pt,
 		 * mapped to save 1MB of memory if CPZ is not used.
 		 */
 		if (kgsl_memdesc_is_secured(memdesc)) {
+			struct scatterlist *sg;
 			unsigned int sgp_size = pt->mmu->secure_align_mask + 1;
-			if (!kgsl_secure_guard_page_memdesc.physaddr) {
+			if (!kgsl_secure_guard_page_memdesc.sgt) {
 				if (kgsl_allocate_user(pt->mmu->device,
 					&kgsl_secure_guard_page_memdesc, pt,
 					sgp_size, sgp_size,
@@ -1200,12 +1201,13 @@ int _iommu_add_guard_page(struct kgsl_pagetable *pt,
 				}
 			}
 
-			physaddr = kgsl_secure_guard_page_memdesc.physaddr;
+			sg = kgsl_secure_guard_page_memdesc.sgt->sgl;
+			physaddr = page_to_phys(sg_page(sg));
 		}
 
 		mutex_lock(&pt->mmu->device->mutex_pc_smmu);
 		ret = iommu_map(iommu_pt->domain, gpuaddr, physaddr,
-				kgsl_memdesc_guard_page_size(memdesc),
+				kgsl_memdesc_guard_page_size(pt->mmu, memdesc),
 				protflags & ~IOMMU_WRITE);
 		mutex_unlock(&pt->mmu->device->mutex_pc_smmu);
 		if (ret) {
@@ -1856,7 +1858,7 @@ static int kgsl_iommu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 		return -EINVAL;
 
 	if (kgsl_memdesc_has_guard_page(memdesc))
-		size += kgsl_memdesc_guard_page_size(memdesc);
+		size += kgsl_memdesc_guard_page_size(pagetable->mmu, memdesc);
 
 	align = 1 << kgsl_memdesc_get_align(memdesc);
 
