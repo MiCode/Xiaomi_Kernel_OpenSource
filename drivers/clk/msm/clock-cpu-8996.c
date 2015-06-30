@@ -534,8 +534,9 @@ static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 			if (cpuclk->alt_pll_freqs[i] < rate &&
 			    cpuclk->alt_pll_freqs[i+1] >= rate)
 				alt_pll_rate = cpuclk->alt_pll_freqs[i];
-
+		mutex_lock(&scm_lmh_lock);
 		ret = clk_set_rate(cpuclk->alt_pll, alt_pll_rate);
+		mutex_unlock(&scm_lmh_lock);
 		if (ret) {
 			pr_err("failed to set rate %lu on alt_pll when setting %lu on %s (%d)\n",
 			alt_pll_rate, rate, c->dbg_name, ret);
@@ -555,7 +556,9 @@ static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 	 * CPU frequency to ramp up from 384MHz to 550MHz.
 	 */
 	if (c->rate > 600000000 && rate < 600000000) {
+		mutex_lock(&scm_lmh_lock);
 		ret = clk_set_rate(c->parent, c->rate/2);
+		mutex_unlock(&scm_lmh_lock);
 		if (ret) {
 			pr_err("failed to set rate %lu on %s (%d)\n",
 				c->rate/2, c->dbg_name, ret);
@@ -563,7 +566,9 @@ static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 		}
 	}
 
+	mutex_lock(&scm_lmh_lock);
 	ret = clk_set_rate(c->parent, rate);
+	mutex_unlock(&scm_lmh_lock);
 	if (ret) {
 		pr_err("failed to set rate %lu on %s (%d)\n",
 			rate, c->dbg_name, ret);
@@ -578,7 +583,9 @@ static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 set_rate_fail:
 	/* Restore parent rate if we halved it */
 	if (c->rate > 600000000 && rate < 600000000) {
+		mutex_lock(&scm_lmh_lock);
 		err_ret = clk_set_rate(c->parent, c->rate);
+		mutex_unlock(&scm_lmh_lock);
 		if (err_ret)
 			pr_err("failed to restore %s rate to %lu\n",
 			       c->dbg_name, c->rate);
@@ -586,7 +593,9 @@ set_rate_fail:
 
 fail:
 	if (cpuclk->alt_pll && (n_alt_freqs > 0)) {
+		mutex_lock(&scm_lmh_lock);
 		err_ret = clk_set_rate(cpuclk->alt_pll, alt_pll_prev_rate);
+		mutex_unlock(&scm_lmh_lock);
 		if (err_ret)
 			pr_err("failed to reset rate to %lu on alt pll after failing to  set %lu on %s (%d)\n",
 				alt_pll_prev_rate, rate, c->dbg_name, err_ret);
