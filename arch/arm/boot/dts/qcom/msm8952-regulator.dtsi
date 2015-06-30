@@ -250,9 +250,9 @@
 	rpm-regulator-ldoa19 {
 		status = "okay";
 		pm8950_l19: regulator-l19 {
-			regulator-min-microvolt = <1300000>;
+			regulator-min-microvolt = <1225000>;
 			regulator-max-microvolt = <1350000>;
-			qcom,init-voltage = <1300000>;
+			qcom,init-voltage = <1225000>;
 			status = "okay";
 		};
 	};
@@ -330,7 +330,7 @@
 
 		qcom,cpr-fuse-corners = <3>;
 		qcom,cpr-voltage-ceiling = <1050000 1225000 1350000>;
-		qcom,cpr-voltage-floor = <1050000 1050000 1155000>;
+		qcom,cpr-voltage-floor = <1050000 1050000 1130000>;
 		vdd-apc-supply = <&pm8950_s5>;
 
 		vdd-mx-supply = <&pm8950_l3_level_ao>;
@@ -362,9 +362,9 @@
 		qcom,cpr-timer-cons-up = <0>;
 		qcom,cpr-timer-cons-down = <2>;
 		qcom,cpr-irq-line = <0>;
-		qcom,cpr-step-quotient = <10>;
-		qcom,cpr-up-threshold = <0>;
-		qcom,cpr-down-threshold = <2>;
+		qcom,cpr-step-quotient = <16>;
+		qcom,cpr-up-threshold = <2>;
+		qcom,cpr-down-threshold = <4>;
 		qcom,cpr-idle-clocks = <15>;
 		qcom,cpr-gcnt-time = <1>;
 		qcom,vdd-apc-step-up-limit = <1>;
@@ -397,8 +397,33 @@
 				<8 1651200000>;
 		qcom,speed-bin-fuse-sel = <1 34 3 0>;
 		qcom,cpr-speed-bin-max-corners =
-					<0 0 1 4 7>;
-		qcom,cpr-quot-adjust-scaling-factor-max = <1400>;
+					<0 0 1 5 7>,
+					<1 0 1 5 7>,
+					<2 0 1 5 8>;
+		qcom,cpr-quot-adjust-scaling-factor-max = <0 1400 1400>;
+		qcom,cpr-fuse-revision = <30 61 3 0>;
+		qcom,cpr-fuse-version-map =
+		/* <Speed_bits PVS_version CPR_Rev - - -> */
+			<0          0xffffffff          1 0xffffffff 0xffffffff
+								0xffffffff>,
+			<1          0xffffffff          2 0xffffffff 0xffffffff
+								0xffffffff>,
+			<0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff
+								0xffffffff>;
+		qcom,cpr-virtual-corner-quotient-adjustment =
+			<0 (-124) (-124) (-124) (-132) (-58) (-132) (-132)>,
+			<0    0      0      0      0     0      17    17>,
+			<0    0      0      0      0     0       0     0>;
+		qcom,cpr-floor-to-ceiling-max-range =
+			<(-1) (-1) (-1) (-1) (-1) (-1) 50000 50000>,
+			<(-1) (-1) (-1) (-1) (-1) (-1) 50000 50000>,
+			<(-1) (-1) (-1) (-1) (-1) (-1) 50000 50000>;
+		qcom,cpr-scaled-init-voltage-as-ceiling;
+		qcom,cpr-voltage-scaling-factor-max = <0 2000 2000>;
+		qcom,cpr-voltage-floor-override =
+			<0xffffffff 0xffffffff 1050000 1050000 1050000
+			1050000 1050000 1130000 1155000 1155000>;
+		qcom,cpr-enable;
 	};
 };
 
