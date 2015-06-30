@@ -123,6 +123,11 @@
 #define TSENS_CONTROLLER_ID(n)			((n) + 0x1000)
 #define TSENS_DEBUG_CONTROL(n)			((n) + 0x1130)
 #define TSENS_DEBUG_DATA(n)			((n) + 0x1134)
+#define TSENS_TM_MTC_ZONE0_SW_MASK_ADDR(n)	((n) + 0x1140)
+#define TSENS_TM_MTC_ZONE0_LOG(n)		((n) + 0x1150)
+#define TSENS_TM_MTC_ZONE0_HISTORY(n)		((n) + 0x1160)
+#define TSENS_RESET_HISTORY_MASK	0x4
+#define TSENS_RESET_HISTORY_SHIFT	2
 /* End TSENS_TM registers for 8996 */
 
 #define TSENS_CTRL_ADDR(n)		(n)
@@ -1864,10 +1869,10 @@ static void tsens_poll(struct work_struct *work)
 			msecs_to_jiffies(tsens_sec_to_msec_value));
 }
 
-int tsens_set_mtc_zone_sw_mask(unsigned int zone , unsigned int th1_enable,
-				unsigned int th2_enable)
+int tsens_mtc_reset_history_counter(unsigned int zone)
 {
-	unsigned int reg_cntl;
+	unsigned int reg_cntl, is_valid;
+	void __iomem *sensor_addr;
 	struct tsens_tm_device *tmdev = NULL;
 
 	if (zone > TSENS_NUM_MTC_ZONES_SUPPORT)
@@ -1879,28 +1884,71 @@ int tsens_set_mtc_zone_sw_mask(unsigned int zone , unsigned int th1_enable,
 		return -EPROBE_DEFER;
 	}
 
+	sensor_addr = TSENS_TM_MTC_ZONE0_SW_MASK_ADDR(tmdev->tsens_addr);
+	reg_cntl = readl_relaxed((sensor_addr +
+				(zone * TSENS_SN_ADDR_OFFSET)));
+	is_valid = (reg_cntl & TSENS_RESET_HISTORY_MASK)
+				>> TSENS_RESET_HISTORY_SHIFT;
+	if (!is_valid) {
+		/*Enable the bit to reset counter*/
+		writel_relaxed(reg_cntl | (1 << TSENS_RESET_HISTORY_SHIFT),
+				(sensor_addr + (zone * TSENS_SN_ADDR_OFFSET)));
+		reg_cntl = readl_relaxed((sensor_addr +
+				(zone * TSENS_SN_ADDR_OFFSET)));
+		pr_debug("tsens : zone =%d reg=%x\n", zone , reg_cntl);
+	}
+
+	/*Disble the bit to start counter*/
+	writel_relaxed(reg_cntl & ~(1 << TSENS_RESET_HISTORY_SHIFT),
+				(sensor_addr + (zone * TSENS_SN_ADDR_OFFSET)));
+	reg_cntl = readl_relaxed((sensor_addr +
+			(zone * TSENS_SN_ADDR_OFFSET)));
+	pr_debug("tsens : zone =%d reg=%x\n", zone , reg_cntl);
+
+	return 0;
+}
+EXPORT_SYMBOL(tsens_mtc_reset_history_counter);
+
+int tsens_set_mtc_zone_sw_mask(unsigned int zone , unsigned int th1_enable,
+				unsigned int th2_enable)
+{
+	unsigned int reg_cntl;
+	void __iomem *sensor_addr;
+	struct tsens_tm_device *tmdev = NULL;
+
+	if (zone > TSENS_NUM_MTC_ZONES_SUPPORT)
+			return -EINVAL;
+
+	tmdev = tsens_controller_is_present();
+	if (!tmdev) {
+		pr_err("No TSENS controller present\n");
+		return -EPROBE_DEFER;
+	}
+
+	if (tmdev->tsens_type == TSENS_TYPE3)
+			sensor_addr = TSENS_TM_MTC_ZONE0_SW_MASK_ADDR
+						(tmdev->tsens_addr);
+		else
+			sensor_addr = TSENS_MTC_ZONE0_SW_MASK_ADDR
+						(tmdev->tsens_addr);
+
 	if (th1_enable && th2_enable)
 		writel_relaxed(TSENS_MTC_IN_EFFECT,
-				(TSENS_MTC_ZONE0_SW_MASK_ADDR
-				(tmdev->tsens_addr) +
+				(sensor_addr +
 				(zone * TSENS_SN_ADDR_OFFSET)));
 	if (!th1_enable && !th2_enable)
 		writel_relaxed(TSENS_MTC_DISABLE,
-				(TSENS_MTC_ZONE0_SW_MASK_ADDR
-				(tmdev->tsens_addr) +
+				(sensor_addr +
 				(zone * TSENS_SN_ADDR_OFFSET)));
 	if (th1_enable && !th2_enable)
 		writel_relaxed(TSENS_TH1_MTC_IN_EFFECT,
-				(TSENS_MTC_ZONE0_SW_MASK_ADDR
-				(tmdev->tsens_addr) +
+				(sensor_addr +
 				(zone * TSENS_SN_ADDR_OFFSET)));
 	if (!th1_enable && th2_enable)
 		writel_relaxed(TSENS_TH2_MTC_IN_EFFECT,
-				(TSENS_MTC_ZONE0_SW_MASK_ADDR
-				(tmdev->tsens_addr) +
+				(sensor_addr +
 				(zone * TSENS_SN_ADDR_OFFSET)));
-	reg_cntl = readl_relaxed((TSENS_MTC_ZONE0_SW_MASK_ADDR
-				(tmdev->tsens_addr) +
+	reg_cntl = readl_relaxed((sensor_addr +
 				(zone *	TSENS_SN_ADDR_OFFSET)));
 	pr_debug("tsens : zone =%d th1=%d th2=%d reg=%x\n",
 		zone , th1_enable , th2_enable , reg_cntl);
@@ -1913,6 +1961,7 @@ int tsens_get_mtc_zone_log(unsigned int zone , void *zone_log)
 {
 	unsigned int i , reg_cntl , is_valid , log[TSENS_MTC_ZONE_LOG_SIZE];
 	int *zlog = (int *)zone_log;
+	void __iomem *sensor_addr;
 	struct tsens_tm_device *tmdev = NULL;
 
 	if (zone > TSENS_NUM_MTC_ZONES_SUPPORT)
@@ -1924,9 +1973,13 @@ int tsens_get_mtc_zone_log(unsigned int zone , void *zone_log)
 		return -EPROBE_DEFER;
 	}
 
-	reg_cntl = readl_relaxed((TSENS_MTC_ZONE0_LOG
-				(tmdev->tsens_addr) +
-				(zone *	TSENS_SN_ADDR_OFFSET)));
+	if (tmdev->tsens_type == TSENS_TYPE3)
+		sensor_addr = TSENS_TM_MTC_ZONE0_LOG(tmdev->tsens_addr);
+	else
+		sensor_addr = TSENS_MTC_ZONE0_LOG(tmdev->tsens_addr);
+
+	reg_cntl = readl_relaxed((sensor_addr +
+				(zone * TSENS_SN_ADDR_OFFSET)));
 	is_valid = (reg_cntl & TSENS_LOGS_VALID_MASK)
 				>> TSENS_LOGS_VALID_SHIFT;
 	if (is_valid) {

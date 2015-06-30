@@ -54,6 +54,7 @@ int tsens_get_max_sensor_num(uint32_t *tsens_num_sensors);
 int tsens_set_mtc_zone_sw_mask(unsigned int zone , unsigned int th1_enable,
 				unsigned int th2_enable);
 int tsens_get_mtc_zone_log(unsigned int zone , void *zone_log);
+int tsens_mtc_reset_history_counter(unsigned int zone);
 #else
 static inline int tsens_is_ready(void)
 { return -ENXIO; }
@@ -69,6 +70,8 @@ static inline int tsens_set_mtc_zone_sw_mask(unsigned int zone ,
 				unsigned int th2_enable)
 { return -ENXIO; }
 static inline int tsens_get_mtc_zone_log(unsigned int zone , void *zone_log)
+{ return -ENXIO; }
+static inline int tsens_mtc_reset_history_counter(unsigned int zone)
 { return -ENXIO; }
 #endif
 
