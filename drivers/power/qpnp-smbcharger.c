@@ -5378,10 +5378,7 @@ static irqreturn_t otg_oc_handler(int irq, void *_chip)
 	pr_smb(PR_INTERRUPT, "triggered\n");
 
 	if (chip->schg_version == QPNP_SCHG_LITE) {
-		pr_smb(PR_STATUS, "Clear OTG-OC by enable/disable OTG\n");
-		rc = otg_oc_reset(chip);
-		if (rc)
-			pr_err("Failed to reset OTG OC state rc=%d\n", rc);
+		pr_warn("OTG OC triggered - OTG disabled\n");
 		return IRQ_HANDLED;
 	}
 
@@ -5599,6 +5596,8 @@ static inline int get_bpd(const char *name)
 #define HVDCP_AUTH_ALG_EN_BIT		BIT(6)
 #define CMD_APSD			0x41
 #define APSD_RERUN_BIT			BIT(0)
+#define OTG_OC_CFG			0xF1
+#define HICCUP_ENABLED_BIT		BIT(6)
 static int smbchg_hw_init(struct smbchg_chip *chip)
 {
 	int rc, i;
@@ -5986,6 +5985,15 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 
 	if (chip->force_aicl_rerun)
 		rc = smbchg_aicl_config(chip);
+
+	if (chip->schg_version == QPNP_SCHG_LITE) {
+		/* enable OTG hiccup mode */
+		rc = smbchg_sec_masked_write(chip, chip->otg_base + OTG_OC_CFG,
+					HICCUP_ENABLED_BIT, HICCUP_ENABLED_BIT);
+		if (rc < 0)
+			dev_err(chip->dev, "Couldn't set OTG OC config rc = %d\n",
+				rc);
+	}
 
 	return rc;
 }
