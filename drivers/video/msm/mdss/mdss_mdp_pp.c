@@ -500,6 +500,7 @@ static int pp_ad_linearize_bl(struct mdss_ad_info *ad, u32 bl, u32 *bl_out,
 		int inv);
 static int pp_ad_calc_bl(struct msm_fb_data_type *mfd, int bl_in, int *bl_out,
 		bool *bl_out_notify);
+static int pp_ad_work_setup(struct msm_fb_data_type *mfd);
 static int pp_ad_shutdown_cleanup(struct msm_fb_data_type *mfd);
 static int pp_num_to_side(struct mdss_mdp_ctl *ctl, u32 num);
 static inline bool pp_sts_is_enabled(u32 sts, int side);
@@ -2243,6 +2244,7 @@ int mdss_mdp_pp_overlay_init(struct msm_fb_data_type *mfd)
 
 	if (mdata->nad_cfgs) {
 		mfd->mdp.ad_calc_bl = pp_ad_calc_bl;
+		mfd->mdp.ad_work_setup = pp_ad_work_setup;
 		mfd->mdp.ad_shutdown_cleanup = pp_ad_shutdown_cleanup;
 	}
 	return 0;
@@ -2318,6 +2320,31 @@ static int pp_ad_calc_bl(struct msm_fb_data_type *mfd, int bl_in, int *bl_out,
 	return 0;
 }
 
+static int pp_ad_work_setup(struct msm_fb_data_type *mfd)
+{
+	int i = 0;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if ((!mdata) || (!mfd))
+		return -EPERM;
+
+	if (mdata->ad_calc_wq)
+		goto remove_setup;
+
+	mdata->ad_calc_wq = create_singlethread_workqueue("ad_calc_wq");
+	for (i = 0; i < mdata->nad_cfgs; i++) {
+		mdata->ad_cfgs[i].ops = 0;
+		mdata->ad_cfgs[i].reg_sts = 0;
+		mdata->ad_cfgs[i].calc_itr = 0;
+		mdata->ad_cfgs[i].last_str = 0xFFFFFFFF;
+		mdata->ad_cfgs[i].last_bl = 0;
+	}
+
+remove_setup:
+	mfd->mdp.ad_work_setup = NULL;
+	return 0;
+}
+
 static int pp_ad_shutdown_cleanup(struct msm_fb_data_type *mfd)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
@@ -2347,6 +2374,9 @@ static int pp_ad_shutdown_cleanup(struct msm_fb_data_type *mfd)
 	if (ctl && ctl->ops.remove_vsync_handler)
 		ctl->ops.remove_vsync_handler(ctl, &ad->handle);
 	cancel_work_sync(&ad->calc_work);
+
+	/* Add setup function in case of target not actually shutting down */
+	mfd->mdp.ad_work_setup = pp_ad_work_setup;
 
 	/* Check if any other AD config is active */
 	for (i = 0; i < mdata->nad_cfgs; i++) {
@@ -5382,22 +5412,17 @@ int mdss_mdp_ad_addr_setup(struct mdss_data_type *mdata, u32 *ad_offsets)
 		return -ENOMEM;
 	}
 
-	mdata->ad_calc_wq = create_singlethread_workqueue("ad_calc_wq");
 	for (i = 0; i < mdata->nad_cfgs; i++) {
 		mdata->ad_off[i].base = mdata->mdss_io.base + ad_offsets[i];
 		mdata->ad_off[i].num = i;
 		mdata->ad_cfgs[i].num = i;
-		mdata->ad_cfgs[i].ops = 0;
-		mdata->ad_cfgs[i].reg_sts = 0;
-		mdata->ad_cfgs[i].calc_itr = 0;
-		mdata->ad_cfgs[i].last_str = 0xFFFFFFFF;
-		mdata->ad_cfgs[i].last_bl = 0;
 		mutex_init(&mdata->ad_cfgs[i].lock);
 		init_completion(&mdata->ad_cfgs[i].comp);
 		mdata->ad_cfgs[i].handle.vsync_handler = pp_ad_vsync_handler;
 		mdata->ad_cfgs[i].handle.cmd_post_flush = true;
 		INIT_WORK(&mdata->ad_cfgs[i].calc_work, pp_ad_calc_worker);
 	}
+
 	return rc;
 }
 
