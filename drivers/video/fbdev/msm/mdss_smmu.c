@@ -497,7 +497,7 @@ int mdss_smmu_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_smmu_client *mdss_smmu;
-	int order = 0, rc = 0;
+	int rc = 0;
 	u32 domain;
 	size_t va_start, va_size;
 	const struct of_device_id *match;
@@ -575,7 +575,7 @@ int mdss_smmu_probe(struct platform_device *pdev)
 	}
 
 	mdss_smmu->mmu_mapping = arm_iommu_create_mapping(
-		&platform_bus_type, va_start, va_size, order);
+		&platform_bus_type, va_start, va_size);
 	if (IS_ERR(mdss_smmu->mmu_mapping)) {
 		pr_err("iommu create mapping failed for domain[%d]\n", domain);
 		rc = PTR_ERR(mdss_smmu->mmu_mapping);
