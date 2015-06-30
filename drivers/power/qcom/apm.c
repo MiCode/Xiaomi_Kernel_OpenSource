@@ -81,6 +81,7 @@ struct msm_apm_ctrl_dev {
 	struct list_head	list;
 	struct device		*dev;
 	enum msm_apm_supply	supply;
+	spinlock_t		lock;
 	void __iomem		*reg_base;
 	void __iomem		*apcs_csr_base;
 	void __iomem		**apcs_spm_events_addr;
@@ -219,6 +220,9 @@ static int msm_apm_switch_to_mx(struct msm_apm_ctrl_dev *ctrl_dev)
 	int i, timeout = MSM_APM_SWITCH_TIMEOUT_US;
 	u32 regval;
 	int ret = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&ctrl_dev->lock, flags);
 
 	/* Perform revision-specific programming steps */
 	if (ctrl_dev->version < HMSS_VERSION_1P2) {
@@ -292,6 +296,8 @@ static int msm_apm_switch_to_mx(struct msm_apm_ctrl_dev *ctrl_dev)
 		dev_dbg(ctrl_dev->dev, "APM supply switched to MX\n");
 	}
 
+	spin_unlock_irqrestore(&ctrl_dev->lock, flags);
+
 	return ret;
 }
 
@@ -300,6 +306,9 @@ static int msm_apm_switch_to_apcc(struct msm_apm_ctrl_dev *ctrl_dev)
 	int i, timeout = MSM_APM_SWITCH_TIMEOUT_US;
 	u32 regval;
 	int ret = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&ctrl_dev->lock, flags);
 
 	/* Perform revision-specific programming steps */
 	if (ctrl_dev->version < HMSS_VERSION_1P2) {
@@ -372,6 +381,8 @@ static int msm_apm_switch_to_apcc(struct msm_apm_ctrl_dev *ctrl_dev)
 		ctrl_dev->supply = MSM_APM_SUPPLY_APCC;
 		dev_dbg(ctrl_dev->dev, "APM supply switched to APCC\n");
 	}
+
+	spin_unlock_irqrestore(&ctrl_dev->lock, flags);
 
 	return ret;
 }
@@ -566,6 +577,7 @@ static int msm_apm_probe(struct platform_device *pdev)
 	}
 
 	INIT_LIST_HEAD(&ctrl->list);
+	spin_lock_init(&ctrl->lock);
 	ctrl->dev = dev;
 	platform_set_drvdata(pdev, ctrl);
 
