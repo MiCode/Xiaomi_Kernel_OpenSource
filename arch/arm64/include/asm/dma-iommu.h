@@ -16,7 +16,6 @@ struct dma_iommu_mapping {
 
 	void			*bitmap;
 	size_t			bits;
-	unsigned int		order;
 	dma_addr_t		base;
 
 	spinlock_t		lock;
@@ -26,8 +25,7 @@ struct dma_iommu_mapping {
 #ifdef CONFIG_ARM64_DMA_USE_IOMMU
 
 struct dma_iommu_mapping *
-arm_iommu_create_mapping(struct bus_type *bus, dma_addr_t base, size_t size,
-			 int order);
+arm_iommu_create_mapping(struct bus_type *bus, dma_addr_t base, size_t size);
 
 void arm_iommu_release_mapping(struct dma_iommu_mapping *mapping);
 
