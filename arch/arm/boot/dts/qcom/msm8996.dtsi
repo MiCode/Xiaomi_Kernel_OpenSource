@@ -156,6 +156,13 @@
 			size = <0 0x1400000>;
 		};
 
+		secure_display_memory: secure_region {
+			compatible = "shared-dma-pool";
+			alloc-ranges = <0 0x00000000 0 0xffffffff>;
+			reusable;
+			alignment = <0 0x200000>;
+			size = <0 0x5c00000>;
+		};
 		modem_mem: modem_region@88800000 {
 			compatible = "removed-dma-pool";
 			no-map;

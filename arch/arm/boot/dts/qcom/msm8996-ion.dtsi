@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,12 @@
 			reg = <27>;
 			memory-region = <&qseecom_mem>;
 			qcom,ion-heap-type = "DMA";
+		};
+
+		qcom,ion-heap@10 { /* SECURE DISPLAY HEAP */
+			reg = <10>;
+			memory-region = <&secure_display_memory>;
+			qcom,ion-heap-type = "HYP_CMA";
 		};
 
 		qcom,ion-heap@9 {
