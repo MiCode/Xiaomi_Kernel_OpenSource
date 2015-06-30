@@ -730,7 +730,6 @@ static struct dci_pkt_req_entry_t *diag_register_dci_transaction(int uid,
 	if (!entry)
 		return NULL;
 
-	mutex_lock(&driver->dci_mutex);
 	driver->dci_tag++;
 	entry->client_id = client_id;
 	entry->uid = uid;
@@ -738,7 +737,6 @@ static struct dci_pkt_req_entry_t *diag_register_dci_transaction(int uid,
 	pr_debug("diag: Registering DCI cmd req, client_id: %d, uid: %d, tag:%d\n",
 				entry->client_id, entry->uid, entry->tag);
 	list_add_tail(&entry->track, &driver->dci_req_list);
-	mutex_unlock(&driver->dci_mutex);
 
 	return entry;
 }
@@ -1781,10 +1779,12 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 		return -EIO;
 	}
 
+	mutex_lock(&driver->dci_mutex);
 	dci_entry = diag_dci_get_client_entry(req_hdr.client_id);
 	if (!dci_entry) {
 		pr_err("diag: Invalid client %d in %s\n",
 		       req_hdr.client_id, __func__);
+		mutex_unlock(&driver->dci_mutex);
 		return DIAG_DCI_NO_REG;
 	}
 
@@ -1793,6 +1793,7 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 		pr_debug("diag: command not supported %d %d %d",
 			 header->cmd_code, header->subsys_id,
 			 header->subsys_cmd_code);
+		mutex_unlock(&driver->dci_mutex);
 		return DIAG_DCI_SEND_DATA_FAIL;
 	}
 
@@ -1800,6 +1801,7 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 	if (common_cmd < 0) {
 		pr_debug("diag: error in checking common command, %d\n",
 			 common_cmd);
+		mutex_unlock(&driver->dci_mutex);
 		return DIAG_DCI_SEND_DATA_FAIL;
 	}
 
@@ -1818,6 +1820,7 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 	if (driver->in_busy_dcipktdata) {
 		pr_err("diag: In %s, apps dci buffer is still busy. Dropping packet\n",
 								__func__);
+		mutex_unlock(&driver->dci_mutex);
 		return -EAGAIN;
 	}
 
@@ -1826,8 +1829,10 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 						  req_hdr.client_id);
 	if (!req_entry) {
 		pr_alert("diag: registering new DCI transaction failed\n");
+		mutex_unlock(&driver->dci_mutex);
 		return DIAG_DCI_NO_REG;
 	}
+	mutex_unlock(&driver->dci_mutex);
 
 	/*
 	 * If the client has registered for remote data, route the packet to the
@@ -1904,9 +1909,11 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 		read_len += sizeof(int);
 
 		/* find client table entry */
+		mutex_lock(&driver->dci_mutex);
 		dci_entry = diag_dci_get_client_entry(client_id);
 		if (!dci_entry) {
 			pr_err("diag: In %s, invalid client\n", __func__);
+			mutex_unlock(&driver->dci_mutex);
 			return ret;
 		}
 		client_token = dci_entry->client_info.token;
@@ -1914,6 +1921,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 		if (num_codes == 0 || (num_codes >= (USER_SPACE_DATA - 8)/2)) {
 			pr_err("diag: dci: Invalid number of log codes %d\n",
 								num_codes);
+			mutex_unlock(&driver->dci_mutex);
 			return -EIO;
 		}
 
@@ -1921,6 +1929,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 		if (!head_log_mask_ptr) {
 			pr_err("diag: dci: Invalid Log mask pointer in %s\n",
 								__func__);
+			mutex_unlock(&driver->dci_mutex);
 			return -ENOMEM;
 		}
 		pr_debug("diag: head of dci log mask %p\n", head_log_mask_ptr);
@@ -1930,6 +1939,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			if (read_len >= USER_SPACE_DATA) {
 				pr_err("diag: dci: Invalid length for log type in %s",
 								__func__);
+				mutex_unlock(&driver->dci_mutex);
 				return -EIO;
 			}
 			log_code = *(uint16_t *)temp;
@@ -1938,6 +1948,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			byte_index = item_num/8 + 2;
 			if (byte_index >= (DCI_MAX_ITEMS_PER_LOG_CODE+2)) {
 				pr_err("diag: dci: Log type, invalid byte index\n");
+				mutex_unlock(&driver->dci_mutex);
 				return ret;
 			}
 			byte_mask = 0x01 << (item_num % 8);
@@ -1963,6 +1974,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			}
 			if (!found) {
 				pr_err("diag: dci equip id not found\n");
+				mutex_unlock(&driver->dci_mutex);
 				return ret;
 			}
 			*(log_mask_ptr+1) = 1; /* set the dirty byte */
@@ -1985,6 +1997,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			diag_update_userspace_clients(DCI_LOG_MASKS_TYPE);
 		/* send updated mask to peripherals */
 		ret = dci_ops_tbl[client_token].send_log_mask(client_token);
+		mutex_unlock(&driver->dci_mutex);
 	} else if (*(int *)temp == DCI_EVENT_TYPE) {
 		/* Minimum length of a event mask config is 12 + 4 bytes for
 		  atleast one event id to be set or reset. */
@@ -2007,9 +2020,11 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 		read_len += sizeof(int);
 
 		/* find client table entry */
+		mutex_lock(&driver->dci_mutex);
 		dci_entry = diag_dci_get_client_entry(client_id);
 		if (!dci_entry) {
 			pr_err("diag: In %s, invalid client\n", __func__);
+			mutex_unlock(&driver->dci_mutex);
 			return ret;
 		}
 		client_token = dci_entry->client_info.token;
@@ -2020,6 +2035,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 		if (num_codes == 0 || (num_codes >= (USER_SPACE_DATA - 8)/2)) {
 			pr_err("diag: dci: Invalid number of event ids %d\n",
 								num_codes);
+			mutex_unlock(&driver->dci_mutex);
 			return -EIO;
 		}
 
@@ -2027,6 +2043,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 		if (!event_mask_ptr) {
 			pr_err("diag: dci: Invalid event mask pointer in %s\n",
 								__func__);
+			mutex_unlock(&driver->dci_mutex);
 			return -ENOMEM;
 		}
 		pr_debug("diag: head of dci event mask %p\n", event_mask_ptr);
@@ -2035,12 +2052,14 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			if (read_len >= USER_SPACE_DATA) {
 				pr_err("diag: dci: Invalid length for event type in %s",
 								__func__);
+				mutex_unlock(&driver->dci_mutex);
 				return -EIO;
 			}
 			event_id = *(int *)temp;
 			byte_index = event_id/8;
 			if (byte_index >= DCI_EVENT_MASK_SIZE) {
 				pr_err("diag: dci: Event type, invalid byte index\n");
+				mutex_unlock(&driver->dci_mutex);
 				return ret;
 			}
 			bit_index = event_id % 8;
@@ -2066,6 +2085,7 @@ int diag_process_dci_transaction(unsigned char *buf, int len)
 			diag_update_userspace_clients(DCI_EVENT_MASKS_TYPE);
 		/* send updated mask to peripherals */
 		ret = dci_ops_tbl[client_token].send_event_mask(client_token);
+		mutex_unlock(&driver->dci_mutex);
 	} else {
 		pr_alert("diag: Incorrect DCI transaction\n");
 	}
