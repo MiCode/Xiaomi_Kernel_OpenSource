@@ -314,6 +314,31 @@
 		clock-names = "cam_src_clk", "cam_clk";
 	};
 
+	eeprom5: qcom,eeprom@5 {
+		cell-index = <5>;
+		reg = <5>;
+		qcom,eeprom-name = "imx258_gt24c16";
+		compatible = "qcom,eeprom";
+		qcom,slave-addr = <0xa0>;
+		qcom,cci-master = <0>;
+		qcom,num-blocks = <1>;
+		qcom,page0 = <0 0 0 0 0 0>;
+		qcom,poll0 = <0 0 0 0 0 0>;
+		qcom,saddr0 = <0xa0>;
+		qcom,mem0 = <2160 0x00 2 0 1 0>;
+
+		cam_vio-supply = <&pm8994_lvs1>;
+		qcom,cam-vreg-name = "cam_vio";
+		qcom,cam-vreg-min-voltage = <0>;
+		qcom,cam-vreg-max-voltage = <0>;
+		qcom,cam-vreg-op-mode = <0>;
+		qcom,cam-power-seq-type = "sensor_vreg";
+		qcom,cam-power-seq-val = "cam_vio";
+		qcom,cam-power-seq-cfg-val = <1>;
+		qcom,cam-power-seq-delay = <1>;
+		status = "ok";
+	};
+
 	qcom,camera@0 {
 		cell-index = <0>;
 		compatible = "qcom,camera";
@@ -321,7 +346,7 @@
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <270>;
-		qcom,eeprom-src = <&eeprom0 &eeprom2 &eeprom4>;
+		qcom,eeprom-src = <&eeprom0 &eeprom2 &eeprom4 &eeprom5>;
 		qcom,actuator-src = <&actuator0>;
 		qcom,ois-src = <&ois0>;
 		qcom,led-flash-src = <&led_flash0>;
