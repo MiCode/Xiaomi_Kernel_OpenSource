@@ -62,10 +62,6 @@ static int override_phy_init;
 module_param(override_phy_init, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(override_phy_init, "Override HSPHY Init Seq");
 
-static bool usb_lpm_override;
-module_param(usb_lpm_override, bool, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(usb_lpm_override, "Override no_suspend_resume with USB");
-
 /* Max current to be drawn for HVDCP charger */
 static int hvdcp_max_current = DWC3_HVDCP_CHG_MAX;
 module_param(hvdcp_max_current, int, S_IRUGO|S_IWUSR);
@@ -204,12 +200,8 @@ struct dwc3_msm {
 	enum dwc3_id_state	id_state;
 	unsigned long		lpm_flags;
 #define MDWC3_SS_PHY_SUSPEND		BIT(0)
-#define MDWC3_TCXO_SHUTDOWN		BIT(1)
-#define MDWC3_ASYNC_IRQ_WAKE_CAPABILITY	BIT(2)
-#define MDWC3_POWER_COLLAPSE		BIT(3)
-#define MDWC3_CORECLK_OFF		BIT(4)
-
-	bool suspend_resume_no_support;
+#define MDWC3_ASYNC_IRQ_WAKE_CAPABILITY	BIT(1)
+#define MDWC3_POWER_COLLAPSE		BIT(2)
 
 	bool power_collapse; /* power collapse on cable disconnect */
 	bool power_collapse_por; /* perform POR sequence after power collapse */
@@ -1208,18 +1200,13 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 
 static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 {
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	unsigned long timeout;
 	u32 reg = 0;
-	bool device_mode;
 
-	device_mode = dwc->is_drd &&
-			mdwc->otg_state == OTG_STATE_B_PERIPHERAL;
-
-	if ((mdwc->in_host_mode || device_mode) &&
-			dwc3_msm_is_superspeed(mdwc)) {
+	if ((mdwc->in_host_mode || mdwc->vbus_active)
+			&& dwc3_msm_is_superspeed(mdwc)) {
 		if (!atomic_read(&mdwc->in_p3)) {
-			dev_err(mdwc->dev, "Not in P3, aborting LPM sequence\n");
+			dev_err(mdwc->dev, "Not in P3,aborting LPM sequence\n");
 			return -EBUSY;
 		}
 	}
@@ -1287,28 +1274,15 @@ static void dwc3_msm_bus_vote_w(struct work_struct *w)
 static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 {
 	int ret, i;
-	bool dcp;
-	bool host_ss_active;
 	bool can_suspend_ssphy;
-	bool device_bus_suspend = false;
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
-	dev_dbg(mdwc->dev, "%s: entering lpm. usb_lpm_override:%d\n",
-					 __func__, usb_lpm_override);
 	dbg_event(0xFF, "Ctl Sus", atomic_read(&dwc->in_lpm));
-
-	if (!usb_lpm_override && mdwc->suspend_resume_no_support) {
-		dev_dbg(mdwc->dev, "%s no support for suspend\n", __func__);
-		return -EPERM;
-	}
 
 	if (atomic_read(&dwc->in_lpm)) {
 		dev_dbg(mdwc->dev, "%s: Already suspended\n", __func__);
 		return 0;
 	}
-
-	if (dwc->is_drd && mdwc->otg_state == OTG_STATE_B_SUSPEND)
-		device_bus_suspend = true;
 
 	if (!mdwc->in_host_mode) {
 		/* pending device events unprocessed */
@@ -1342,33 +1316,12 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		return -EBUSY;
 	}
 
-	host_ss_active = dwc3_msm_is_host_superspeed(mdwc);
-
-	if (mdwc->chg_state != USB_CHG_STATE_DETECTED) {
-		/* charger detection wasn't complete; re-init flags */
-		mdwc->chg_state = USB_CHG_STATE_UNDEFINED;
-		mdwc->chg_type = DWC3_INVALID_CHARGER;
-	}
-
-	dcp = ((mdwc->chg_type == DWC3_DCP_CHARGER) ||
-	      (mdwc->chg_type == DWC3_PROPRIETARY_CHARGER) ||
-	      (mdwc->chg_type == DWC3_FLOATED_CHARGER));
-	if (dcp) {
-		mdwc->hs_phy->flags |= PHY_CHARGER_CONNECTED;
-		mdwc->ss_phy->flags |= PHY_CHARGER_CONNECTED;
-	} else {
-		mdwc->hs_phy->flags &= ~PHY_CHARGER_CONNECTED;
-		mdwc->ss_phy->flags &= ~PHY_CHARGER_CONNECTED;
-	}
-
-	can_suspend_ssphy = !(mdwc->in_host_mode && host_ss_active);
-
 	/*
 	 * Check if device is not in CONFIGURED state
-	 * then check cotroller state of L2 and break
-	 * LPM sequeunce.
+	 * then check controller state of L2 and break
+	 * LPM sequence. Check this for device bus suspend case.
 	 */
-	if (device_bus_suspend &&
+	if ((dwc->is_drd && mdwc->otg_state == OTG_STATE_B_SUSPEND) &&
 		(dwc->gadget.state != USB_STATE_CONFIGURED)) {
 		pr_err("%s(): Trying to go in LPM with state:%d\n",
 					__func__, dwc->gadget.state);
@@ -1379,6 +1332,10 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	ret = dwc3_msm_prepare_suspend(mdwc);
 	if (ret)
 		return ret;
+
+	/* Initialize variables here */
+	can_suspend_ssphy = !(mdwc->in_host_mode &&
+				dwc3_msm_is_host_superspeed(mdwc));
 
 	/* Disable core irq */
 	if (dwc->irq)
@@ -1391,40 +1348,38 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		enable_irq_wake(mdwc->pwr_event_irq);
 	}
 
+	/* Suspend HS PHY */
 	usb_phy_set_suspend(mdwc->hs_phy, 1);
 
+	/* Suspend SS PHY */
 	if (can_suspend_ssphy) {
 		usb_phy_set_suspend(mdwc->ss_phy, 1);
-		usleep_range(1000, 1200);
 		mdwc->lpm_flags |= MDWC3_SS_PHY_SUSPEND;
 	}
 
 	/* make sure above writes are completed before turning off clocks */
 	wmb();
 
+	/* Disable clocks */
+	clk_disable_unprepare(mdwc->iface_clk);
+	if (mdwc->bus_aggr_clk)
+		clk_disable_unprepare(mdwc->bus_aggr_clk);
+	clk_disable_unprepare(mdwc->utmi_clk);
+
+	clk_set_rate(mdwc->core_clk, 19200000);
+	clk_disable_unprepare(mdwc->core_clk);
+	/* USB PHY no more requires TCXO */
+	clk_disable_unprepare(mdwc->xo_clk);
+
 	/* Perform controller power collapse */
-	if (!mdwc->in_host_mode && !device_bus_suspend &&
-				mdwc->power_collapse) {
+	if (!mdwc->in_host_mode && !mdwc->vbus_active && mdwc->power_collapse) {
 		mdwc->lpm_flags |= MDWC3_POWER_COLLAPSE;
 		dev_dbg(mdwc->dev, "%s: power collapse\n", __func__);
 		dwc3_msm_config_gdsc(mdwc, 0);
 		clk_disable_unprepare(mdwc->sleep_clk);
 	}
 
-	clk_disable_unprepare(mdwc->iface_clk);
-	if (mdwc->bus_aggr_clk)
-		clk_disable_unprepare(mdwc->bus_aggr_clk);
-	clk_disable_unprepare(mdwc->utmi_clk);
-
-	if (can_suspend_ssphy) {
-		clk_set_rate(mdwc->core_clk, 19200000);
-		clk_disable_unprepare(mdwc->core_clk);
-		mdwc->lpm_flags |= MDWC3_CORECLK_OFF;
-		/* USB PHY no more requires TCXO */
-		clk_disable_unprepare(mdwc->xo_clk);
-		mdwc->lpm_flags |= MDWC3_TCXO_SHUTDOWN;
-	}
-
+	/* Remove bus voting */
 	if (mdwc->bus_perf_client) {
 		mdwc->bus_vote = 0;
 		schedule_work(&mdwc->bus_vote_w);
@@ -1443,19 +1398,18 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		pm_relax(mdwc->dev);
 	}
 
-	if (mdwc->hs_phy_irq) {
-		/*
-		 * with DCP or during cable disconnect, we dont require wakeup
-		 * using HS_PHY_IRQ. Hence enable wakeup only in case of host
-		 * bus suspend and device bus suspend.
-		 */
-		if (mdwc->in_host_mode || device_bus_suspend) {
-			enable_irq_wake(mdwc->hs_phy_irq);
-			mdwc->lpm_flags |= MDWC3_ASYNC_IRQ_WAKE_CAPABILITY;
-		}
+	/*
+	 * with DCP or during cable disconnect, we dont require wakeup
+	 * using HS_PHY_IRQ. Hence enable wakeup only in case of host
+	 * bus suspend and device bus suspend.
+	 */
+	if (mdwc->hs_phy_irq && (mdwc->vbus_active || mdwc->in_host_mode)) {
+		enable_irq_wake(mdwc->hs_phy_irq);
+		mdwc->lpm_flags |= MDWC3_ASYNC_IRQ_WAKE_CAPABILITY;
 	}
 
 	atomic_set(&dwc->in_lpm, 1);
+
 	if (mdwc->pwr_event_irq)
 		enable_irq(mdwc->pwr_event_irq);
 
@@ -1466,7 +1420,6 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 {
 	int ret;
-	bool dcp;
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
 	dev_dbg(mdwc->dev, "%s: exiting lpm\n", __func__);
@@ -1478,30 +1431,17 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	pm_stay_awake(mdwc->dev);
 
+	/* Enable bus voting */
 	if (mdwc->bus_perf_client) {
 		mdwc->bus_vote = 1;
 		schedule_work(&mdwc->bus_vote_w);
 	}
 
-	dcp = ((mdwc->chg_type == DWC3_DCP_CHARGER) ||
-	      (mdwc->chg_type == DWC3_PROPRIETARY_CHARGER) ||
-	      (mdwc->chg_type == DWC3_FLOATED_CHARGER));
-	if (dcp) {
-		mdwc->hs_phy->flags |= PHY_CHARGER_CONNECTED;
-		mdwc->ss_phy->flags |= PHY_CHARGER_CONNECTED;
-	} else {
-		mdwc->hs_phy->flags &= ~PHY_CHARGER_CONNECTED;
-		mdwc->ss_phy->flags &= ~PHY_CHARGER_CONNECTED;
-	}
-
-	if (mdwc->lpm_flags & MDWC3_TCXO_SHUTDOWN) {
-		/* Vote for TCXO while waking up USB HSPHY */
-		ret = clk_prepare_enable(mdwc->xo_clk);
-		if (ret)
-			dev_err(mdwc->dev, "%s failed to vote TCXO buffer%d\n",
+	/* Vote for TCXO while waking up USB HSPHY */
+	ret = clk_prepare_enable(mdwc->xo_clk);
+	if (ret)
+		dev_err(mdwc->dev, "%s failed to vote TCXO buffer%d\n",
 						__func__, ret);
-		mdwc->lpm_flags &= ~MDWC3_TCXO_SHUTDOWN;
-	}
 
 	/* Restore controller power collapse */
 	if (mdwc->lpm_flags & MDWC3_POWER_COLLAPSE) {
@@ -1512,31 +1452,25 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		/* HW requires a short delay for reset to take place properly */
 		usleep_range(1000, 1200);
 		clk_reset(mdwc->core_clk, CLK_RESET_DEASSERT);
+		clk_prepare_enable(mdwc->sleep_clk);
 	}
 
-
+	/* Resume SS PHY */
 	if (mdwc->lpm_flags & MDWC3_SS_PHY_SUSPEND) {
 		usb_phy_set_suspend(mdwc->ss_phy, 0);
 		mdwc->lpm_flags &= ~MDWC3_SS_PHY_SUSPEND;
 	}
-	usleep_range(1000, 1200);
 
+	/* Resume HS PHY */
+	usb_phy_set_suspend(mdwc->hs_phy, 0);
+
+	/* Enable clocks */
+	clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
+	clk_prepare_enable(mdwc->core_clk);
+	clk_prepare_enable(mdwc->utmi_clk);
 	if (mdwc->bus_aggr_clk)
 		clk_prepare_enable(mdwc->bus_aggr_clk);
-
 	clk_prepare_enable(mdwc->iface_clk);
-	if (mdwc->lpm_flags & MDWC3_CORECLK_OFF) {
-		clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
-		clk_prepare_enable(mdwc->core_clk);
-		mdwc->lpm_flags &= ~MDWC3_CORECLK_OFF;
-	}
-
-	clk_prepare_enable(mdwc->utmi_clk);
-
-	if (mdwc->lpm_flags & MDWC3_POWER_COLLAPSE)
-		clk_prepare_enable(mdwc->sleep_clk);
-
-	usb_phy_set_suspend(mdwc->hs_phy, 0);
 
 	/* Recover from controller power collapse */
 	if (mdwc->lpm_flags & MDWC3_POWER_COLLAPSE) {
@@ -1584,8 +1518,8 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	/* Disable wakeup capable for HS_PHY IRQ, if enabled */
 	if (mdwc->hs_phy_irq &&
 			(mdwc->lpm_flags & MDWC3_ASYNC_IRQ_WAKE_CAPABILITY)) {
-			disable_irq_wake(mdwc->hs_phy_irq);
-			mdwc->lpm_flags &= ~MDWC3_ASYNC_IRQ_WAKE_CAPABILITY;
+		disable_irq_wake(mdwc->hs_phy_irq);
+		mdwc->lpm_flags &= ~MDWC3_ASYNC_IRQ_WAKE_CAPABILITY;
 	}
 
 	dev_info(mdwc->dev, "DWC3 exited from low power mode\n");
@@ -2216,9 +2150,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mdwc->id_state = DWC3_ID_FLOAT;
 	mdwc->charging_disabled = of_property_read_bool(node,
 				"qcom,charging-disabled");
-
-	mdwc->suspend_resume_no_support = of_property_read_bool(node,
-				"qcom,no-suspend-resume");
 
 	mdwc->power_collapse_por = of_property_read_bool(node,
 		"qcom,por-after-power-collapse");
