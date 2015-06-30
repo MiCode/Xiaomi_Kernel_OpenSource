@@ -345,8 +345,7 @@ static inline void msm_isp_get_timestamp(struct msm_isp_timestamp *time_stamp)
 	get_monotonic_boottime(&ts);
 	time_stamp->buf_time.tv_sec    = ts.tv_sec;
 	time_stamp->buf_time.tv_usec   = ts.tv_nsec/1000;
-	time_stamp->event_time.tv_sec  = ts.tv_sec;
-	time_stamp->event_time.tv_usec = ts.tv_nsec/1000;
+	do_gettimeofday(&(time_stamp->event_time));
 }
 
 static inline u32 msm_isp_evt_mask_to_isp_event(u32 evt_mask)
