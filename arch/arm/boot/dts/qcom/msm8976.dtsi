@@ -1816,6 +1816,7 @@
 			"csr_gp_io_lpaif_pri_pcm_pri_mode_muxsel";
 
 		qcom,audio-routing =
+			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
 			"AMIC2", "MIC BIAS2",
 			"MIC BIAS2", "Headset Mic",
