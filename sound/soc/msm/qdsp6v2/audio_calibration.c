@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,7 @@
 #include <linux/mutex.h>
 #include <linux/msm_ion.h>
 #include <linux/msm_audio_ion.h>
+#include <linux/ratelimit.h>
 #include <sound/audio_calibration.h>
 #include <sound/audio_cal_utils.h>
 
@@ -295,6 +296,8 @@ static int call_set_cals(int32_t cal_type,
 	int				ret2 = 0;
 	struct list_head		*ptr, *next;
 	struct audio_cal_client_info	*client_info_node = NULL;
+	static DEFINE_RATELIMIT_STATE(rl, HZ/2, 1);
+
 	pr_debug("%s cal type %d\n", __func__, cal_type);
 
 	list_for_each_safe(ptr, next,
@@ -309,7 +312,8 @@ static int call_set_cals(int32_t cal_type,
 		ret2 = client_info_node->callbacks->
 			set_cal(cal_type, cal_type_size, data);
 		if (ret2 < 0) {
-			pr_err("%s: set_cal failed!\n", __func__);
+			if (__ratelimit(&rl))
+				pr_err("%s: set_cal failed!\n", __func__);
 			ret = ret2;
 		}
 	}
