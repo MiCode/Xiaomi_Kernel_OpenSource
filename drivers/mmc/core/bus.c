@@ -206,7 +206,9 @@ static int mmc_runtime_idle(struct device *dev)
 	struct mmc_card *card = mmc_dev_to_card(dev);
 	struct mmc_host *host = card->host;
 
-	return host->bus_ops->runtime_idle(host);
+	if (host->bus_ops->runtime_idle)
+		return host->bus_ops->runtime_idle(host);
+	return 0;
 }
 
 #endif /* !CONFIG_PM */
