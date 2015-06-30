@@ -45,6 +45,8 @@
 #define SHIFT_BF_SCALE_BIT 1
 #define VFE47_NUM_STATS_COMP 2
 
+#define VFE47_BUS_RD_CGC_OVERRIDE_BIT 16
+
 /*composite mask order*/
 #define STATS_COMP_IDX_HDR_BE    0
 #define STATS_COMP_IDX_BG        1
@@ -984,6 +986,9 @@ static void msm_vfe47_cfg_fetch_engine(struct vfe_device *vfe_dev,
 			__func__, vfe_dev->pdev->id, fe_cfg->buf_width,
 			fe_cfg->buf_height,
 			fe_cfg->fetch_width, fe_cfg->fetch_height);
+
+		vfe_dev->hw_info->vfe_ops.axi_ops.update_cgc_override(vfe_dev,
+			VFE47_BUS_RD_CGC_OVERRIDE_BIT, 1);
 
 		temp = msm_camera_io_r(vfe_dev->vfe_base + 0x84);
 		temp &= 0xFFFFFFFD;
