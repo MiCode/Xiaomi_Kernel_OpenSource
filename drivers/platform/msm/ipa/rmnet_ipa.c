@@ -2199,12 +2199,12 @@ static void rmnet_ipa_free_msg(void *buff, u32 len, u32 type)
 }
 
 /**
- * rmnet_ipa_get_stats_and_update() - Gets pipe stats from Modem
+ * rmnet_ipa_get_stats_and_update(bool reset) - Gets pipe stats from Modem
  *
  * This function queries the IPA Modem driver for the pipe stats
  * via QMI, and updates the user space IPA entity.
  */
-static void rmnet_ipa_get_stats_and_update(void)
+static void rmnet_ipa_get_stats_and_update(bool reset)
 {
 	struct ipa_get_data_stats_req_msg_v01 req;
 	struct ipa_get_data_stats_resp_msg_v01 *resp;
@@ -2222,6 +2222,11 @@ static void rmnet_ipa_get_stats_and_update(void)
 	memset(resp, 0, sizeof(struct ipa_get_data_stats_resp_msg_v01));
 
 	req.ipa_stats_type = QMI_IPA_STATS_TYPE_PIPE_V01;
+	if (reset == true) {
+		req.reset_stats_valid = true;
+		req.reset_stats = true;
+		IPAWANERR("Get the latest pipe-stats and reset it\n");
+	}
 
 	rc = ipa_qmi_get_data_stats(&req, resp);
 
@@ -2248,7 +2253,7 @@ static void rmnet_ipa_get_stats_and_update(void)
  */
 static void tethering_stats_poll_queue(struct work_struct *work)
 {
-	rmnet_ipa_get_stats_and_update();
+	rmnet_ipa_get_stats_and_update(false);
 
 	schedule_delayed_work(&ipa_tether_stats_poll_wakequeue_work,
 			msecs_to_jiffies(ipa_rmnet_ctx.polling_interval*1000));
@@ -2318,7 +2323,7 @@ int rmnet_ipa_poll_tethering_stats(struct wan_ioctl_poll_tethering_stats *data)
 	if (0 == ipa_rmnet_ctx.polling_interval) {
 		ipa_qmi_stop_data_qouta();
 		rmnet_ipa_get_network_stats_and_update();
-		rmnet_ipa_get_stats_and_update();
+		rmnet_ipa_get_stats_and_update(true);
 		return 0;
 	}
 
