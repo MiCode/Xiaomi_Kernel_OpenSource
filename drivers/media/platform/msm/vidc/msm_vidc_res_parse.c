@@ -722,7 +722,6 @@ static int msm_vidc_setup_context_bank(struct context_bank_info *cb,
 		struct device *dev)
 {
 	int rc = 0;
-	int order = 0;
 	bool disable_htw = true;
 	int secure_vmid = VMID_INVAL;
 
@@ -734,7 +733,7 @@ static int msm_vidc_setup_context_bank(struct context_bank_info *cb,
 
 	cb->dev = dev;
 	cb->mapping = arm_iommu_create_mapping(&platform_bus_type,
-			cb->addr_range.start, cb->addr_range.size, order);
+			cb->addr_range.start, cb->addr_range.size);
 
 	if (IS_ERR_OR_NULL(cb->mapping)) {
 		dprintk(VIDC_ERR, "%s - failed to create mapping\n", __func__);

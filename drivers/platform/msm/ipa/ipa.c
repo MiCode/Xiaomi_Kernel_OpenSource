@@ -3863,7 +3863,6 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 static int ipa_smmu_uc_cb_probe(struct device *dev)
 {
 	struct ipa_smmu_cb_ctx *cb = &smmu_cb[IPA_SMMU_CB_UC];
-	int order = 0;
 	int disable_htw = 1;
 	int ret;
 
@@ -3877,7 +3876,7 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 
 	cb->dev = dev;
 	cb->mapping = arm_iommu_create_mapping(&platform_bus_type,
-			IPA_SMMU_UC_VA_START, IPA_SMMU_UC_VA_SIZE, order);
+			IPA_SMMU_UC_VA_START, IPA_SMMU_UC_VA_SIZE);
 	if (IS_ERR(cb->mapping)) {
 		IPADBG("Fail to create mapping\n");
 		/* assume this failure is because iommu driver is not ready */
@@ -3910,7 +3909,6 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 static int ipa_smmu_ap_cb_probe(struct device *dev)
 {
 	struct ipa_smmu_cb_ctx *cb = &smmu_cb[IPA_SMMU_CB_AP];
-	int order = 0;
 	int result;
 	int disable_htw = 1;
 	int atomic_ctx = 1;
@@ -3925,7 +3923,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 
 	cb->dev = dev;
 	cb->mapping = arm_iommu_create_mapping(&platform_bus_type,
-			IPA_SMMU_AP_VA_START, IPA_SMMU_AP_VA_SIZE, order);
+			IPA_SMMU_AP_VA_START, IPA_SMMU_AP_VA_SIZE);
 	if (IS_ERR(cb->mapping)) {
 		IPADBG("Fail to create mapping\n");
 		/* assume this failure is because iommu driver is not ready */

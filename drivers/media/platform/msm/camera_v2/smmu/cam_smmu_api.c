@@ -803,7 +803,6 @@ static int cam_smmu_setup_cb(struct cam_context_bank_info *cb,
 	struct device *dev)
 {
 	int rc = 0;
-	int order = 0;
 	int disable_htw = 1;
 
 	if (!cb || !dev) {
@@ -817,7 +816,7 @@ static int cam_smmu_setup_cb(struct cam_context_bank_info *cb,
 
 	/* create a virtual mapping */
 	cb->mapping = arm_iommu_create_mapping(&platform_bus_type,
-		cb->va_start, cb->va_len, order);
+		cb->va_start, cb->va_len);
 	if (IS_ERR(cb->mapping)) {
 		pr_err("Error: create mapping Failed\n");
 		rc = -ENODEV;
