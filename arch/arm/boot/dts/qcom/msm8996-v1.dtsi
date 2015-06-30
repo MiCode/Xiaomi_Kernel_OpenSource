@@ -53,6 +53,14 @@
 	status = "disabled";
 };
 
+&pm8994_s11 {
+	regulator-min-microvolt = <520000>;
+};
+
+&pm8994_s11_limit {
+	regulator-min-microvolt = <520000>;
+};
+
 /* Ensure that both possible VDD_GFX supplies cannot be disabled. */
 &pmi8994_s2 {
 	regulator-always-on;
@@ -65,12 +73,21 @@
 &apc0_pwrcl_vreg {
 	qcom,cpr-fuse-combos = <2>;
 	qcom,ldo-max-voltage = <783000>;
+	qcom,cpr-voltage-floor =
+		<520000 550000 555000 565000 585000 615000 635000 655000 690000
+		 720000 740000 750000 760000 770000 780000 790000 815000 840000
+		 850000>;
+	/delete-property/ qcom,cpr-floor-to-ceiling-max-range;
 	qcom,cpr-open-loop-voltage-fuse-adjustment =   <0 0 0 0 0>;
 	qcom,cpr-closed-loop-voltage-fuse-adjustment = <0 0 0 0 0>;
 };
 
 &apc0_cbf_vreg {
 	qcom,cpr-fuse-combos = <2>;
+	qcom,cpr-voltage-floor =
+		<520000 545000 565000 595000 635000 660000 690000 730000 750000
+		 850000>;
+	/delete-property/ qcom,cpr-floor-to-ceiling-max-range;
 	qcom,cpr-open-loop-voltage-fuse-adjustment =   <0 0 0 0 0>;
 	qcom,cpr-closed-loop-voltage-fuse-adjustment = <0 0 0 0 0>;
 };
@@ -78,6 +95,11 @@
 &apc1_vreg {
 	qcom,cpr-fuse-combos = <2>;
 	qcom,ldo-max-voltage = <780000>;
+	qcom,cpr-voltage-floor =
+		<520000 530000 545000 590000 620000 635000 660000 685000 700000
+		 730000 740000 750000 765000 790000 805000 815000 830000
+		 850000>;
+	/delete-property/ qcom,cpr-floor-to-ceiling-max-range;
 	qcom,cpr-open-loop-voltage-fuse-adjustment =   <0 0 0 5000 0>;
 	qcom,cpr-closed-loop-voltage-fuse-adjustment = <0 0 0 20000 0>;
 };
