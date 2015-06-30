@@ -2655,7 +2655,7 @@ static struct branch_clk gcc_ufs_axi_clk = {
 
 static struct branch_clk gcc_ufs_ice_core_clk = {
 	.cbcr_reg = GCC_UFS_ICE_CORE_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "gcc_ufs_ice_core_clk",
