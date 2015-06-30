@@ -244,6 +244,7 @@ struct venus_hfi_device {
 	enum venus_hfi_state state;
 	struct hfi_packetization_ops *pkt_ops;
 	enum hfi_packetization_type packetization_type;
+	struct msm_vidc_cb_info *response_pkt;
 };
 
 void venus_hfi_delete_device(void *device);
