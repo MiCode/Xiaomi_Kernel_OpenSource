@@ -1930,6 +1930,13 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		ATRACE_END("display_commit");
 	}
 
+	/*
+	 * release the validate flag; we are releasing this flag
+	 * after the commit, since now the transaction status
+	 * in the cmd mode controllers is busy.
+	 */
+	mfd->validate_pending = false;
+
 	if ((!need_cleanup) && (!mdp5_data->kickoff_released))
 		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_CTX_DONE);
 

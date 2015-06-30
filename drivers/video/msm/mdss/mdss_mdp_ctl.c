@@ -1533,10 +1533,11 @@ void mdss_mdp_ctl_perf_set_transaction_status(struct mdss_mdp_ctl *ctl,
 	set_status(&ctl->perf_transaction_status, new_status,
 		(u32)component);
 
-	pr_debug("component:%d previous_transaction:%d transaction_status:%d\n",
-		component, previous_transaction, ctl->perf_transaction_status);
-	pr_debug("new_status:%d prev_status:%d\n",
-		new_status, previous_status);
+	pr_debug("ctl:%d component:%d previous:%d status:%d\n",
+		ctl->num, component, previous_transaction,
+		ctl->perf_transaction_status);
+	pr_debug("ctl:%d new_status:%d prev_status:%d\n",
+		ctl->num, new_status, previous_status);
 
 	spin_unlock_irqrestore(&ctl->spin_lock, flags);
 }
@@ -1580,6 +1581,8 @@ u32 mdss_mdp_ctl_perf_get_transaction_status(struct mdss_mdp_ctl *ctl)
 	spin_lock_irqsave(&ctl->spin_lock, flags);
 	transaction_status = ctl->perf_transaction_status;
 	spin_unlock_irqrestore(&ctl->spin_lock, flags);
+	pr_debug("ctl:%d status:%d\n", ctl->num,
+		transaction_status);
 
 	return transaction_status;
 }

@@ -599,6 +599,7 @@ struct mdss_overlay_private {
 	struct list_head pipes_cleanup;
 	struct list_head rot_proc_list;
 	bool mixer_swap;
+	u32 resources_state;
 
 	/* list of buffers that can be reused */
 	struct list_head bufs_chunks;

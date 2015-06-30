@@ -258,6 +258,8 @@ struct msm_fb_data_type {
 	int idle_time;
 	struct delayed_work idle_notify_work;
 
+	bool validate_pending;
+
 	int op_enable;
 	u32 fb_imgType;
 	int panel_reconfig;

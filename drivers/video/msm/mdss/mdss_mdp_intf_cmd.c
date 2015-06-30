@@ -18,8 +18,8 @@
 #include "mdss_panel.h"
 #include "mdss_debug.h"
 #include "mdss_mdp_trace.h"
+#include "mdss_dsi_clk.h"
 
-#define VSYNC_EXPIRE_TICK 6
 #define MAX_RECOVERY_TRIALS 10
 #define MAX_SESSIONS 2
 
@@ -27,8 +27,9 @@
 /* wait for at most 2 vsync for lowest refresh rate (24hz) */
 #define KOFF_TIMEOUT msecs_to_jiffies(84)
 
-#define STOP_TIMEOUT(hz) msecs_to_jiffies((1000 / hz) * (VSYNC_EXPIRE_TICK + 2))
+#define STOP_TIMEOUT(hz) msecs_to_jiffies((1000 / hz) * (6 + 2))
 #define POWER_COLLAPSE_TIME msecs_to_jiffies(100)
+#define CMD_MODE_IDLE_TIMEOUT msecs_to_jiffies(16 * 4)
 
 static DEFINE_MUTEX(cmd_clk_mtx);
 
@@ -38,18 +39,18 @@ struct mdss_mdp_cmd_ctx {
 	u8 ref_cnt;
 	struct completion stop_comp;
 	struct completion readptr_done;
+	struct completion pp_done;
 	wait_queue_head_t pp_waitq;
 	struct list_head vsync_handlers;
 	int panel_power_state;
 	atomic_t koff_cnt;
 	u32 intf_stopped;
-	int clk_enabled;
-	int vsync_enabled;
-	int rdptr_enabled;
+	struct mutex mdp_rdptr_lock;
 	struct mutex clk_mtx;
 	spinlock_t clk_lock;
 	spinlock_t koff_lock;
-	struct work_struct clk_work;
+	struct work_struct gate_clk_work;
+	struct delayed_work delayed_off_clk_work;
 	struct work_struct pp_done_work;
 	struct mutex autorefresh_mtx;
 	atomic_t pp_done_cnt;
@@ -69,6 +70,9 @@ struct mdss_mdp_cmd_ctx {
 struct mdss_mdp_cmd_ctx mdss_mdp_cmd_ctx_list[MAX_SESSIONS];
 
 static int mdss_mdp_cmd_do_notifier(struct mdss_mdp_cmd_ctx *ctx);
+static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx);
+static inline void mdss_mdp_cmd_clk_off(struct mdss_mdp_cmd_ctx *ctx);
+static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg);
 
 static bool __mdss_mdp_cmd_is_panel_power_off(struct mdss_mdp_cmd_ctx *ctx)
 {
@@ -277,9 +281,392 @@ err:
 	return rc;
 }
 
+/**
+ * enum mdp_rsrc_ctl_events - events for the resource control state machine
+ * @MDP_RSRC_CTL_EVENT_KICKOFF:
+ *	This event happens at NORMAL priority.
+ *	Event that signals the start of the transfer, regardless of the
+ *	state at which we enter this state (ON/OFF or GATE),
+ *	we must ensure that power state is ON when we return from this
+ *	event.
+ *
+ * @MDP_RSRC_CTL_EVENT_PP_DONE:
+ *	This event happens at INTERRUPT level.
+ *	Event signals the end of the data transfer, when getting this
+ *	event we should have been in ON state, since a transfer was
+ *	ongoing (if this is not the case, then
+ *	there is a bug).
+ *	Since this event is received at interrupt ievel, by the end of
+ *	the event we haven't changed the power state, but scheduled
+ *	work items to do the transition, so by the end of this event:
+ *	1. A work item is scheduled to go to gate state as soon as
+ *		possible (as soon as scheduler give us the chance)
+ *	2. A delayed work is scheduled to go to OFF after
+ *		CMD_MODE_IDLE_TIMEOUT time. Power State will be updated
+ *		at the end of each work item, to make sure we update
+ *		the status once the transition is fully done.
+ *
+ * @MDP_RSRC_CTL_EVENT_STOP:
+ *	This event happens at NORMAL priority.
+ *	When we get this event, we are expected to wait to finish any
+ *	pending data transfer and turn off all the clocks/resources,
+ *	so after return from this event we must be in off
+ *	state.
+ */
+enum mdp_rsrc_ctl_events {
+	MDP_RSRC_CTL_EVENT_KICKOFF = 1,
+	MDP_RSRC_CTL_EVENT_PP_DONE,
+	MDP_RSRC_CTL_EVENT_STOP
+};
+
+enum {
+	MDP_RSRC_CTL_STATE_OFF,
+	MDP_RSRC_CTL_STATE_ON,
+	MDP_RSRC_CTL_STATE_GATE,
+};
+
+/* helper functions for debugging */
+static char *get_sw_event_name(u32 sw_event)
+{
+	switch (sw_event) {
+	case MDP_RSRC_CTL_EVENT_KICKOFF:
+		return "KICKOFF";
+	case MDP_RSRC_CTL_EVENT_PP_DONE:
+		return "PP_DONE";
+	case MDP_RSRC_CTL_EVENT_STOP:
+		return "STOP";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+static char *get_clk_pwr_state_name(u32 pwr_state)
+{
+	switch (pwr_state) {
+	case MDP_RSRC_CTL_STATE_ON:
+		return "STATE_ON";
+	case MDP_RSRC_CTL_STATE_OFF:
+		return "STATE_OFF";
+	case MDP_RSRC_CTL_STATE_GATE:
+		return "STATE_GATE";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+/**
+ * mdss_mdp_get_split_display_ctls() - get the display controllers
+ * @ctl: Pointer to pointer to the controller used to do the operation.
+ *	This can be the pointer to the master or slave of a display with
+ *	the MDP_DUAL_LM_DUAL_DISPLAY split mode.
+ * @sctl: Pointer to pointer where it is expected to be set the slave
+ *	controller. Function does not expect any input parameter here.
+ *
+ * This function will populate the pointers to pointers with the controllers of
+ * the split display ordered such way that the first input parameter will be
+ * populated with the master controller and second parameter will be populated
+ * with the slave controller, so the caller can assume both controllers are set
+ * in the right order after return.
+ *
+ * This function can only be called for split configuration that uses two
+ * controllers, it expects that first pointer is the one passed to do the
+ * operation and it can be either the pointer of the master or slave,
+ * since is the job of this function to find and accommodate the master/slave
+ * controllers accordingly.
+ *
+ * Return: 0 - succeed, otherwise - fail
+ */
+int mdss_mdp_get_split_display_ctls(struct mdss_mdp_ctl **ctl,
+	struct mdss_mdp_ctl **sctl)
+{
+	int rc = 0;
+	*sctl = NULL;
+
+	if (*ctl == NULL) {
+		pr_err("%s invalid ctl\n", __func__);
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	if ((*ctl)->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
+		*sctl = mdss_mdp_get_split_ctl(*ctl);
+		if (*sctl) {
+			/* pointers are in the correct order */
+			pr_debug("%s ctls in correct order ctl:%d sctl:%d\n",
+				__func__, (*ctl)->num, (*sctl)->num);
+			goto exit;
+		} else {
+			/*
+			 * If we have a split display and we didn't find the
+			 * Slave controller from the Master, this means that
+			 * ctl is the slave controller, so look for the Master
+			 */
+			*sctl = mdss_mdp_get_main_ctl(*ctl);
+			if (!(*sctl)) {
+				/*
+				 * Bad state, this shouldn't happen, we should
+				 * be having both controllers since we are in
+				 * dual-lm, dual-display.
+				 */
+				pr_err("%s cannot find master ctl\n",
+					__func__);
+				BUG();
+			}
+			/*
+			 * We have both controllers but sctl has the Master,
+			 * swap the pointers so we can keep the master in the
+			 * ctl pointer and control the order in the power
+			 * sequence.
+			 */
+			pr_debug("ctl is not the master, swap pointers\n");
+			swap(*ctl, *sctl);
+		}
+	} else {
+		pr_debug("%s no split mode:%d\n", __func__,
+			(*ctl)->mfd->split_mode);
+	}
+exit:
+	return rc;
+}
+
+/**
+ * mdss_mdp_resource_control() - control the state of mdp resources
+ * @ctl: pointer to controller to notify the event.
+ * @sw_event: software event to modify the state of the resources.
+ *
+ * This function implements an state machine to control the state of
+ * the mdp resources (clocks, bw, mmu), the states can be ON, OFF and GATE,
+ * transition between each state is controlled through the MDP_RSRC_CTL_EVENT_
+ * events.
+ *
+ * Return: 0 - succeed, otherwise - fail
+ */
+int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
+{
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(ctl->mfd);
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_mdp_ctl *sctl = NULL;
+	struct mdss_mdp_cmd_ctx *ctx, *sctx = NULL;
+	u32 status;
+	int rc = 0;
+
+	/* Get both controllers in the correct order for dual displays */
+	mdss_mdp_get_split_display_ctls(&ctl, &sctl);
+
+	ctx = (struct mdss_mdp_cmd_ctx *) ctl->intf_ctx[MASTER_CTX];
+	if (!ctx) {
+		pr_err("%s invalid ctx\n", __func__);
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	if (sctl)
+		sctx = (struct mdss_mdp_cmd_ctx *) sctl->intf_ctx[MASTER_CTX];
+
+	/* In pingpong split we have single controller, dual context */
+	if (ctl->mfd->split_mode == MDP_PINGPONG_SPLIT)
+		sctx = (struct mdss_mdp_cmd_ctx *) ctl->intf_ctx[SLAVE_CTX];
+
+	pr_debug("%s ctl:%d pwr_state:%s event:%s\n",
+		__func__, ctl->num,
+		get_clk_pwr_state_name(mdp5_data->resources_state),
+		get_sw_event_name(sw_event));
+
+	switch (sw_event) {
+	case MDP_RSRC_CTL_EVENT_KICKOFF:
+		/*
+		 * Cancel any work item pending:
+		 * If POWER-OFF was cancel:
+		 *	Only UNGATE the clocks (resources should be ON)
+		 * If GATE && POWER-OFF were cancel:
+		 *	UNGATE and POWER-ON
+		 * If only GATE was cancel:
+		 *	something can be wrong, OFF should have been
+		 *	cancel as well.
+		 */
+
+		/* Cancel GATE Work Item */
+		if (cancel_work_sync(&ctx->gate_clk_work)) {
+			pr_debug("%s gate work canceled\n", __func__);
+
+			if (mdp5_data->resources_state !=
+					MDP_RSRC_CTL_STATE_ON)
+				pr_debug("%s unexpected power state\n",
+					__func__);
+		}
+
+		/* Cancel OFF Work Item  */
+		if (cancel_delayed_work_sync(&ctx->delayed_off_clk_work)) {
+			pr_debug("%s off work canceled\n", __func__);
+
+			if (mdp5_data->resources_state ==
+					MDP_RSRC_CTL_STATE_OFF)
+				pr_debug("%s unexpected OFF state\n",
+					__func__);
+		}
+
+		/* Transition OFF->ON || GATE->ON (enable clocks) */
+		if ((mdp5_data->resources_state == MDP_RSRC_CTL_STATE_OFF) ||
+			(mdp5_data->resources_state ==
+			MDP_RSRC_CTL_STATE_GATE)) {
+
+			/* Enable/Ungate DSI clocks and resources */
+			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+
+			mdss_mdp_ctl_intf_event /* enable master */
+				(ctx->ctl, MDSS_EVENT_PANEL_CLK_CTRL,
+				(void *)MDSS_DSI_CLK_ON, true);
+
+			if (sctx) /* then slave */
+				mdss_mdp_ctl_intf_event
+				 (sctx->ctl, MDSS_EVENT_PANEL_CLK_CTRL,
+				 (void *)MDSS_DSI_CLK_ON, true);
+
+			if (mdp5_data->resources_state ==
+					MDP_RSRC_CTL_STATE_GATE)
+				mdp5_data->resources_state =
+					MDP_RSRC_CTL_STATE_ON;
+		}
+
+		/* Transition OFF->ON (enable resources)*/
+		if (mdp5_data->resources_state ==
+				MDP_RSRC_CTL_STATE_OFF) {
+			/* Enable MDP resources */
+			mdss_mdp_cmd_clk_on(ctx);
+			if (sctx)
+				mdss_mdp_cmd_clk_on(sctx);
+
+			mdp5_data->resources_state = MDP_RSRC_CTL_STATE_ON;
+		}
+
+		if (mdp5_data->resources_state != MDP_RSRC_CTL_STATE_ON) {
+			/* we must be ON by the end of kickoff */
+			pr_err("%s unexpected power state during:%s\n",
+				__func__, get_sw_event_name(sw_event));
+			BUG();
+		}
+		break;
+	case MDP_RSRC_CTL_EVENT_PP_DONE:
+		if (mdp5_data->resources_state != MDP_RSRC_CTL_STATE_ON) {
+			pr_err("%s unexpected power state during:%s\n",
+				__func__, get_sw_event_name(sw_event));
+			BUG();
+		}
+
+		/* Check that no pending kickoff is on-going */
+		 status = mdss_mdp_ctl_perf_get_transaction_status(ctl);
+
+		/*
+		 * Same for the slave controller. for cases where
+		 * transaction is only pending in the slave controller.
+		 */
+		if (sctl)
+			status |= mdss_mdp_ctl_perf_get_transaction_status(
+				sctl);
+
+		/*
+		 * Schedule the work items to shut down only if
+		 * 1. no kickoff has been scheduled
+		 * 2. no stop command has been started
+		 * 3. no autorefresh is enabled
+		 * 4. no validate is pending
+		 */
+		if ((PERF_STATUS_DONE == status) &&
+			!ctx->intf_stopped &&
+			!ctx->autorefresh_init &&
+			!ctl->mfd->validate_pending) {
+			pr_debug("schedule release after:%d ms\n",
+				jiffies_to_msecs
+				(CMD_MODE_IDLE_TIMEOUT));
+
+			/* start work item to gate */
+			if (mdata->enable_gate)
+				schedule_work(&ctx->gate_clk_work);
+
+			/* start work item to shut down after delay */
+			schedule_delayed_work(
+					&ctx->delayed_off_clk_work,
+					CMD_MODE_IDLE_TIMEOUT);
+		}
+
+		break;
+	case MDP_RSRC_CTL_EVENT_STOP:
+
+		/* If we are already OFF, just return */
+		if (mdp5_data->resources_state ==
+				MDP_RSRC_CTL_STATE_OFF) {
+			pr_debug("resources already off\n");
+			goto exit;
+		}
+
+		/* If pp_done is on-going, wait for it to finish */
+		mdss_mdp_cmd_wait4pingpong(ctl, NULL);
+
+		if (sctl)
+			mdss_mdp_cmd_wait4pingpong(sctl, NULL);
+
+		/*
+		 * If a pp_done happened just before the stop,
+		 * we can still have some work items running;
+		 * cancel any pending works.
+		 */
+
+		/* Cancel GATE Work Item */
+		if (cancel_work_sync(&ctx->gate_clk_work)) {
+			pr_debug("gate work canceled\n");
+
+			if (mdp5_data->resources_state !=
+				MDP_RSRC_CTL_STATE_ON)
+				pr_debug("%s power state is not ON\n",
+					__func__);
+		}
+
+		/* Cancel OFF Work Item  */
+		if (cancel_delayed_work_sync(&ctx->delayed_off_clk_work)) {
+			pr_debug("off work canceled\n");
+
+
+			if (mdp5_data->resources_state ==
+					MDP_RSRC_CTL_STATE_OFF)
+				pr_debug("%s unexpected OFF state\n",
+					__func__);
+		}
+
+		if ((mdp5_data->resources_state == MDP_RSRC_CTL_STATE_ON) ||
+				(mdp5_data->resources_state
+				== MDP_RSRC_CTL_STATE_GATE)) {
+
+			/* Enable MDP clocks if gated */
+			if (mdp5_data->resources_state ==
+					MDP_RSRC_CTL_STATE_GATE)
+				mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+
+			/* First Power off slave DSI (if present) */
+			if (sctx)
+				mdss_mdp_cmd_clk_off(sctx);
+
+			/* Now Power off master DSI */
+			mdss_mdp_cmd_clk_off(ctx);
+
+			/* we are done accessing the resources */
+			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+
+			/* update the state, now we are in off */
+			mdp5_data->resources_state = MDP_RSRC_CTL_STATE_OFF;
+		}
+		break;
+	default:
+		pr_warn("%s unexpected event (%d)\n", __func__, sw_event);
+		break;
+	}
+
+exit:
+	return rc;
+}
+
+
 static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx)
 {
-	unsigned long flags;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	int rc;
 
@@ -287,33 +674,22 @@ static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx)
 		return;
 
 	mutex_lock(&ctx->clk_mtx);
-	MDSS_XLOG(ctx->pp_num, atomic_read(&ctx->koff_cnt), ctx->clk_enabled,
-						ctx->rdptr_enabled);
-	if (!ctx->clk_enabled) {
-		mdss_bus_bandwidth_ctrl(true);
-		ctx->clk_enabled = 1;
+	MDSS_XLOG(ctx->pp_num, atomic_read(&ctx->koff_cnt));
 
-		rc = mdss_iommu_ctrl(1);
-		if (IS_ERR_VALUE(rc))
-			pr_err("IOMMU attach failed\n");
+	mdss_bus_bandwidth_ctrl(true);
 
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-		mdss_mdp_ctl_intf_event
-			(ctx->ctl, MDSS_EVENT_PANEL_CLK_CTRL, (void *)1, false);
-		mdss_mdp_hist_intr_setup(&mdata->hist_intr, MDSS_IRQ_RESUME);
-	}
-	spin_lock_irqsave(&ctx->clk_lock, flags);
-	ctx->rdptr_enabled = VSYNC_EXPIRE_TICK;
-	spin_unlock_irqrestore(&ctx->clk_lock, flags);
+	rc = mdss_iommu_ctrl(1);
+	if (IS_ERR_VALUE(rc))
+		pr_err("IOMMU attach failed\n");
+
+	mdss_mdp_hist_intr_setup(&mdata->hist_intr, MDSS_IRQ_RESUME);
 
 	mutex_unlock(&ctx->clk_mtx);
 }
 
 static inline void mdss_mdp_cmd_clk_off(struct mdss_mdp_cmd_ctx *ctx)
 {
-	unsigned long flags;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	int set_clk_off = 0;
 
 	if (ctx->autorefresh_init) {
 		/* Do not turn off clocks if aurtorefresh is on. */
@@ -321,24 +697,22 @@ static inline void mdss_mdp_cmd_clk_off(struct mdss_mdp_cmd_ctx *ctx)
 	}
 
 	mutex_lock(&ctx->clk_mtx);
-	MDSS_XLOG(ctx->pp_num, atomic_read(&ctx->koff_cnt), ctx->clk_enabled,
-						ctx->rdptr_enabled);
-	spin_lock_irqsave(&ctx->clk_lock, flags);
-	if (!ctx->rdptr_enabled)
-		set_clk_off = 1;
-	spin_unlock_irqrestore(&ctx->clk_lock, flags);
+	MDSS_XLOG(ctx->pp_num, atomic_read(&ctx->koff_cnt));
 
-	pr_debug("clk_enabled =%d set_clk_off=%d\n", ctx->clk_enabled,
-			set_clk_off);
-	if (ctx->clk_enabled && set_clk_off) {
-		ctx->clk_enabled = 0;
-		mdss_mdp_hist_intr_setup(&mdata->hist_intr, MDSS_IRQ_SUSPEND);
+	mdss_mdp_hist_intr_setup(&mdata->hist_intr, MDSS_IRQ_SUSPEND);
+
+	/* Power off DSI, is caller responsibility to do slave then master  */
+	if (ctx->ctl) {
 		mdss_mdp_ctl_intf_event
-			(ctx->ctl, MDSS_EVENT_PANEL_CLK_CTRL, (void *)0, false);
-		mdss_iommu_ctrl(0);
-		mdss_bus_bandwidth_ctrl(false);
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+			(ctx->ctl, MDSS_EVENT_PANEL_CLK_CTRL,
+			(void *) MDSS_DSI_CLK_OFF, true);
+	} else {
+		pr_err("OFF with ctl:NULL\n");
 	}
+
+	mdss_iommu_ctrl(0);
+	mdss_bus_bandwidth_ctrl(false);
+
 	mutex_unlock(&ctx->clk_mtx);
 }
 
@@ -364,29 +738,13 @@ static void mdss_mdp_cmd_readptr_done(void *arg)
 
 	vsync_time = ktime_get();
 	ctl->vsync_cnt++;
-	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctx->clk_enabled,
-				ctx->rdptr_enabled);
+	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt));
 
 	spin_lock(&ctx->clk_lock);
 	list_for_each_entry(tmp, &ctx->vsync_handlers, list) {
 		if (tmp->enabled && !tmp->cmd_post_flush)
 			tmp->vsync_handler(ctl, vsync_time);
 	}
-
-	if (!ctx->vsync_enabled) {
-		if (ctx->rdptr_enabled && !ctx->autorefresh_init)
-			ctx->rdptr_enabled--;
-
-		/* keep clk on during kickoff */
-		if (ctx->rdptr_enabled == 0 && atomic_read(&ctx->koff_cnt))
-			ctx->rdptr_enabled++;
-	}
-
-	if (ctx->rdptr_enabled == 0) {
-		complete(&ctx->stop_comp);
-		schedule_work(&ctx->clk_work);
-	}
-
 	spin_unlock(&ctx->clk_lock);
 }
 
@@ -451,8 +809,7 @@ static void mdss_mdp_cmd_pingpong_done(void *arg)
 
 	spin_lock(&ctx->koff_lock);
 	mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num);
-	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctx->clk_enabled,
-					ctx->rdptr_enabled);
+	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt));
 
 	if (atomic_add_unless(&ctx->koff_cnt, -1, 0)) {
 		if (atomic_read(&ctx->koff_cnt))
@@ -463,6 +820,9 @@ static void mdss_mdp_cmd_pingpong_done(void *arg)
 			status = mdss_mdp_ctl_perf_get_transaction_status(ctl);
 			if (status == 0)
 				schedule_work(&ctx->pp_done_work);
+
+			mdss_mdp_resource_control(ctl,
+				MDP_RSRC_CTL_EVENT_PP_DONE);
 		}
 		wake_up_all(&ctx->pp_waitq);
 	} else if (!ctl->cmd_autorefresh_en) {
@@ -491,10 +851,95 @@ static void pingpong_done_work(struct work_struct *work)
 	}
 }
 
-static void clk_ctrl_work(struct work_struct *work)
+static void clk_ctrl_delayed_off_work(struct work_struct *work)
 {
+	struct mdss_overlay_private *mdp5_data;
+	struct delayed_work *dw = to_delayed_work(work);
+	struct mdss_mdp_cmd_ctx *ctx = container_of(dw,
+		struct mdss_mdp_cmd_ctx, delayed_off_clk_work);
+	struct mdss_mdp_ctl *ctl, *sctl;
+	struct mdss_mdp_cmd_ctx *sctx = NULL;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if (!ctx) {
+		pr_err("%s: invalid ctx\n", __func__);
+		return;
+	}
+
+	ctl = ctx->ctl;
+	if (!ctl || !ctl->panel_data) {
+		pr_err("NULL ctl||panel_data\n");
+		return;
+	}
+
+	mdp5_data = mfd_to_mdp5_data(ctl->mfd);
+	ATRACE_BEGIN(__func__);
+
+	/*
+	 * Ideally we should not wait for the gate work item to finish, since
+	 * this work happens CMD_MODE_IDLE_TIMEOUT time after,
+	 * but if the system is laggy, prevent from a race condition
+	 * between both work items by waiting for the gate to finish.
+	 */
+	if (mdata->enable_gate)
+		flush_work(&ctx->gate_clk_work);
+
+	pr_debug("ctl:%d pwr_state:%s\n", ctl->num,
+		get_clk_pwr_state_name
+		(mdp5_data->resources_state));
+
+	if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
+		if (mdss_mdp_get_split_display_ctls(&ctl, &sctl)) {
+			/* error when getting both controllers, just returnr */
+			pr_err("cannot get both controllers for the split display\n");
+			return;
+		}
+
+		/* re-assign to have the correct order in the context */
+		ctx = (struct mdss_mdp_cmd_ctx *) ctl->intf_ctx[MASTER_CTX];
+		sctx = (struct mdss_mdp_cmd_ctx *) sctl->intf_ctx[MASTER_CTX];
+		if (!ctx || !sctl) {
+			pr_err("invalid %s %s\n",
+				ctx?"":"ctx", sctx?"":"sctx");
+			return;
+		}
+		mutex_lock(&cmd_clk_mtx);
+	}
+
+	/* Enable clocks if Gate feature is enabled and we are in this state */
+	if (mdata->enable_gate) {
+		/* clocks are gated at this time */
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+
+		if (mdp5_data->resources_state
+			!= MDP_RSRC_CTL_STATE_GATE)
+			pr_warn("enter off from unexpected state\n");
+	}
+
+	/* first power off the slave DSI  (if present) */
+	if (sctx)
+		mdss_mdp_cmd_clk_off(sctx);
+
+	/* now power off the master DSI */
+	mdss_mdp_cmd_clk_off(ctx);
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+
+	/* update state machine that power off transition is done */
+	mdp5_data->resources_state = MDP_RSRC_CTL_STATE_OFF;
+
+	/* do this at the end, so we can also protect the global power state*/
+	if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY)
+		mutex_unlock(&cmd_clk_mtx);
+
+	ATRACE_END(__func__);
+}
+
+static void clk_ctrl_gate_work(struct work_struct *work)
+{
+	struct mdss_overlay_private *mdp5_data;
 	struct mdss_mdp_cmd_ctx *ctx =
-		container_of(work, typeof(*ctx), clk_work);
+		container_of(work, typeof(*ctx), gate_clk_work);
 	struct mdss_mdp_ctl *ctl, *sctl;
 	struct mdss_mdp_cmd_ctx *sctx = NULL;
 
@@ -503,35 +948,72 @@ static void clk_ctrl_work(struct work_struct *work)
 		return;
 	}
 
+	ATRACE_BEGIN(__func__);
 	ctl = ctx->ctl;
+	if (!ctl) {
+		pr_err("%s: invalid ctl\n", __func__);
+		return;
+	}
 
-	if (ctl->panel_data->panel_info.is_split_display) {
-		mutex_lock(&cmd_clk_mtx);
+	mdp5_data = mfd_to_mdp5_data(ctl->mfd);
+	if (!mdp5_data) {
+		pr_err("%s: invalid mdp data\n", __func__);
+		return;
+	}
 
-		sctl = mdss_mdp_get_split_ctl(ctl);
-		if (sctl) {
-			sctx =
-			(struct mdss_mdp_cmd_ctx *)sctl->intf_ctx[MASTER_CTX];
-		} else {
-			/* slave ctl, let master ctl do clk control */
-			mutex_unlock(&cmd_clk_mtx);
+	pr_debug("%s ctl:%d pwr_state:%s\n", __func__,
+		ctl->num, get_clk_pwr_state_name
+		(mdp5_data->resources_state));
+
+	if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
+		if (mdss_mdp_get_split_display_ctls(&ctl, &sctl)) {
+			/* error when getting both controllers, just return */
+			pr_err("%s cannot get both cts for the split display\n",
+				__func__);
 			return;
 		}
+
+		/* re-assign to have the correct order in the context */
+		ctx = (struct mdss_mdp_cmd_ctx *) ctl->intf_ctx[MASTER_CTX];
+		sctx = (struct mdss_mdp_cmd_ctx *) sctl->intf_ctx[MASTER_CTX];
+		if (!ctx || !sctx) {
+			pr_err("%s ERROR invalid %s %s\n", __func__,
+				ctx?"":"ctx", sctx?"":"sctx");
+			return;
+		}
+		mutex_lock(&cmd_clk_mtx);
 	}
 
-	mdss_mdp_cmd_clk_off(ctx);
+	/* First gate the DSI clocks for the slave controller (if present) */
+	if (sctx)
+		mdss_mdp_ctl_intf_event
+			(sctx->ctl, MDSS_EVENT_PANEL_CLK_CTRL,
+			(void *)MDSS_DSI_CLK_EARLY_GATE, true);
 
-	if (ctl->panel_data->panel_info.is_split_display) {
-		if (sctx)
-			mdss_mdp_cmd_clk_off(sctx);
+	/* Now gate DSI clocks for the master */
+		mdss_mdp_ctl_intf_event
+			(ctx->ctl, MDSS_EVENT_PANEL_CLK_CTRL,
+			(void *)MDSS_DSI_CLK_EARLY_GATE, true);
+
+	/* Gate mdp clocks */
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+
+	/* update state machine that gate transition is done */
+	mdp5_data->resources_state = MDP_RSRC_CTL_STATE_GATE;
+
+	/* unlock mutex needed for split display */
+	if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY)
 		mutex_unlock(&cmd_clk_mtx);
-	}
+
+	ATRACE_END(__func__);
 }
 
 static int mdss_mdp_setup_vsync(struct mdss_mdp_cmd_ctx *ctx,
 	bool enable)
 {
 	int changed = 0;
+
+	mutex_lock(&ctx->mdp_rdptr_lock);
 
 	if (enable) {
 		if (ctx->vsync_irq_cnt == 0)
@@ -551,9 +1033,10 @@ static int mdss_mdp_setup_vsync(struct mdss_mdp_cmd_ctx *ctx,
 	if (changed)
 		MDSS_XLOG(ctx->vsync_irq_cnt, enable, current->pid);
 
-	pr_debug("%pS->%s: vsync_cnt=%d changed=%d enable=%d\n",
+	pr_debug("%pS->%s: vsync_cnt=%d changed=%d enable=%d ctl:%d pp:%d\n",
 			__builtin_return_address(0), __func__,
-			ctx->vsync_irq_cnt, changed, enable);
+			ctx->vsync_irq_cnt, changed, enable,
+			ctx->ctl->num, ctx->pp_num);
 
 	if (changed) {
 		if (enable) {
@@ -569,6 +1052,7 @@ static int mdss_mdp_setup_vsync(struct mdss_mdp_cmd_ctx *ctx,
 		}
 	}
 
+	mutex_unlock(&ctx->mdp_rdptr_lock);
 	return ctx->vsync_irq_cnt;
 }
 
@@ -589,8 +1073,7 @@ static int mdss_mdp_cmd_add_vsync_handler(struct mdss_mdp_ctl *ctl,
 	pr_debug("%pS->%s ctl:%d\n",
 		__builtin_return_address(0), __func__, ctl->num);
 
-	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctx->clk_enabled,
-					ctx->rdptr_enabled);
+	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt));
 	sctl = mdss_mdp_get_split_ctl(ctl);
 	if (sctl)
 		sctx = (struct mdss_mdp_cmd_ctx *) sctl->intf_ctx[MASTER_CTX];
@@ -601,11 +1084,6 @@ static int mdss_mdp_cmd_add_vsync_handler(struct mdss_mdp_ctl *ctl,
 		list_add(&handle->list, &ctx->vsync_handlers);
 
 		enable_rdptr = !handle->cmd_post_flush;
-		if (enable_rdptr) {
-			ctx->vsync_enabled++;
-			if (sctx)
-				sctx->vsync_enabled++;
-		}
 	}
 	spin_unlock_irqrestore(&ctx->clk_lock, flags);
 
@@ -640,8 +1118,7 @@ static int mdss_mdp_cmd_remove_vsync_handler(struct mdss_mdp_ctl *ctl,
 	pr_debug("%pS->%s ctl:%d\n",
 		__builtin_return_address(0), __func__, ctl->num);
 
-	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctx->clk_enabled,
-				ctx->rdptr_enabled, 0x88888);
+	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), 0x88888);
 	sctl = mdss_mdp_get_split_ctl(ctl);
 	if (sctl)
 		sctx = (struct mdss_mdp_cmd_ctx *) sctl->intf_ctx[MASTER_CTX];
@@ -650,30 +1127,21 @@ static int mdss_mdp_cmd_remove_vsync_handler(struct mdss_mdp_ctl *ctl,
 	if (handle->enabled) {
 		handle->enabled = false;
 		list_del_init(&handle->list);
-
-		if (!handle->cmd_post_flush) {
-			if (ctx->vsync_enabled) {
-				ctx->vsync_enabled--;
-				if (sctx)
-					sctx->vsync_enabled--;
-
-				disable_vsync_irq = true;
-			}
-			else
-				WARN(1, "unbalanced vsync disable");
-		}
+		disable_vsync_irq = !handle->cmd_post_flush;
 	}
 	spin_unlock_irqrestore(&ctx->clk_lock, flags);
 
 	if (disable_vsync_irq) {
 		/* disable rd_ptr interrupt and clocks */
 		mdss_mdp_setup_vsync(ctx, false);
+		complete(&ctx->stop_comp);
 	}
 
 	return 0;
 }
 
-int mdss_mdp_cmd_reconfigure_splash_done(struct mdss_mdp_ctl *ctl, bool handoff)
+int mdss_mdp_cmd_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
+	bool handoff)
 {
 	struct mdss_panel_data *pdata;
 	struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
@@ -681,8 +1149,12 @@ int mdss_mdp_cmd_reconfigure_splash_done(struct mdss_mdp_ctl *ctl, bool handoff)
 
 	pdata = ctl->panel_data;
 
-	mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_CLK_CTRL, (void *)0,
-		false);
+	if (sctl)
+		mdss_mdp_ctl_intf_event(sctl, MDSS_EVENT_PANEL_CLK_CTRL,
+			(void *)MDSS_DSI_CLK_OFF, true);
+
+	mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_CLK_CTRL,
+		(void *)MDSS_DSI_CLK_OFF, true);
 
 	pdata->panel_info.cont_splash_enabled = 0;
 	if (sctl)
@@ -708,8 +1180,7 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 
 	pdata = ctl->panel_data;
 
-	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctx->clk_enabled,
-			ctx->rdptr_enabled, ctl->roi_bkup.w,
+	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctl->roi_bkup.w,
 			ctl->roi_bkup.h);
 
 	pr_debug("%s: intf_num=%d ctx=%p koff_cnt=%d\n", __func__,
@@ -768,8 +1239,7 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 	while (atomic_add_unless(&ctx->pp_done_cnt, -1, 0))
 		mdss_mdp_ctl_notify(ctx->ctl, MDP_NOTIFY_FRAME_DONE);
 
-	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctx->clk_enabled,
-			ctx->rdptr_enabled, rc);
+	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), rc);
 
 	return rc;
 }
@@ -914,8 +1384,13 @@ static int __mdss_mdp_cmd_configure_autorefresh(struct mdss_mdp_ctl *ctl, int
 			ctx->autorefresh_pending_frame_cnt = frame_cnt;
 		} else {
 			if (!ctx->autorefresh_init) {
+				/*
+				 * clocks and resources were powered on
+				 * during kickoff and following flag
+				 * will prevent to schedule work
+				 * items to release resources.
+				 */
 				ctx->autorefresh_init = true;
-				mdss_mdp_cmd_clk_on(ctx);
 			}
 			mdss_mdp_pingpong_write(ctl->mixer_left->pingpong_base,
 					MDSS_MDP_REG_PP_AUTOREFRESH_CONFIG,
@@ -1037,7 +1512,13 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 
 	trace_mdp_cmd_kickoff(ctl->num, atomic_read(&ctx->koff_cnt));
 
-	mdss_mdp_cmd_clk_on(ctx);
+	/*
+	 * Call state machine with kickoff event, we just do it for
+	 * current CTL, but internally state machine will check and
+	 * if this is a dual dsi, it will enable the power resources
+	 * for both DSIs
+	 */
+	mdss_mdp_resource_control(ctl, MDP_RSRC_CTL_EVENT_KICKOFF);
 
 	mdss_mdp_cmd_set_partial_roi(ctl);
 
@@ -1055,10 +1536,12 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 		 * If autorefresh is enabled then do not queue the frame till
 		 * the next read ptr is done otherwise we might get a pp done
 		 * immediately for the past autorefresh frame instead.
+		 * Clocks and resources were already powered on during kickoff,
+		 * and "autorefresh_init" flag will prevent from release
+		 * resources during pp done.
 		 */
 		pr_debug("Wait for read pointer done before enabling PP irq\n");
 		wait_for_completion(&ctx->readptr_done);
-		mdss_mdp_cmd_clk_on(ctx);
 	}
 
 	mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num);
@@ -1083,8 +1566,7 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 	}
 
 	mb();
-	MDSS_XLOG(ctl->num,  atomic_read(&ctx->koff_cnt), ctx->clk_enabled,
-						ctx->rdptr_enabled);
+	MDSS_XLOG(ctl->num,  atomic_read(&ctx->koff_cnt));
 	return 0;
 }
 
@@ -1108,10 +1590,6 @@ int mdss_mdp_cmd_ctx_stop(struct mdss_mdp_ctl *ctl,
 {
 	struct mdss_mdp_cmd_ctx *sctx = NULL;
 	struct mdss_mdp_ctl *sctl = NULL;
-	unsigned long flags;
-	unsigned long sflags;
-	int need_wait = 0;
-	int hz;
 
 	sctl = mdss_mdp_get_split_ctl(ctl);
 	if (sctl)
@@ -1119,36 +1597,19 @@ int mdss_mdp_cmd_ctx_stop(struct mdss_mdp_ctl *ctl,
 
 	/* intf stopped,  no more kickoff */
 	ctx->intf_stopped = 1;
-	spin_lock_irqsave(&ctx->clk_lock, flags);
-	if (ctx->rdptr_enabled) {
-		reinit_completion(&ctx->stop_comp);
-		need_wait = 1;
-		/*
-		 * clk off at next vsync after pp_done  OR
-		 * next vsync if there has no kickoff pending
-		 */
-		ctx->rdptr_enabled = 1;
-		if (sctx) {
-			spin_lock_irqsave(&sctx->clk_lock, sflags);
-			if (sctx->rdptr_enabled)
-				sctx->rdptr_enabled = 1;
-			spin_unlock_irqrestore(&sctx->clk_lock, sflags);
-		}
-	}
-	spin_unlock_irqrestore(&ctx->clk_lock, flags);
 
-	if (need_wait) {
-		hz = mdss_panel_get_framerate(&ctl->panel_data->panel_info);
-		if (wait_for_completion_timeout(&ctx->stop_comp,
-			STOP_TIMEOUT(hz)) <= 0) {
-			WARN(1, "stop cmd time out\n");
-			ctx->rdptr_enabled = 0;
-			atomic_set(&ctx->koff_cnt, 0);
-		}
+	/*
+	 * if any vsyncs are still enabled, loop until the refcount
+	 * goes to zero, so the rd ptr interrupt is disabled.
+	 * Ideally this shouldn't be the case since vsync handlers
+	 * has been flushed by now, so issue a warning in case
+	 * that we hit this condition.
+	 */
+	if (ctx->vsync_irq_cnt) {
+		WARN(1, "vsync still enabled\n");
+		while (mdss_mdp_setup_vsync(ctx, false))
+			;
 	}
-
-	if (cancel_work_sync(&ctx->clk_work))
-		pr_debug("no pending clk work\n");
 
 	if (!pend_switch) {
 		mdss_mdp_ctl_intf_event(ctl,
@@ -1157,7 +1618,9 @@ int mdss_mdp_cmd_ctx_stop(struct mdss_mdp_ctl *ctl,
 			false);
 	}
 
-	mdss_mdp_cmd_clk_off(ctx);
+	/* shut down the MDP/DSI resources if still enabled */
+	mdss_mdp_resource_control(ctl, MDP_RSRC_CTL_EVENT_STOP);
+
 	flush_work(&ctx->pp_done_work);
 	mdss_mdp_cmd_tearcheck_setup(ctx, false);
 	mdss_mdp_tearcheck_enable(ctl, false);
@@ -1225,8 +1688,7 @@ static int mdss_mdp_cmd_stop_sub(struct mdss_mdp_ctl *ctl,
 
 	list_for_each_entry_safe(handle, tmp, &ctx->vsync_handlers, list)
 		mdss_mdp_cmd_remove_vsync_handler(ctl, handle);
-	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctx->clk_enabled,
-				ctx->rdptr_enabled, XLOG_FUNC_ENTRY);
+	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), XLOG_FUNC_ENTRY);
 
 	/* Command mode is supported only starting at INTF1 */
 	session = ctl->intf_num - MDSS_MDP_INTF1;
@@ -1365,8 +1827,7 @@ panel_events:
 end:
 	if (!IS_ERR_VALUE(ret))
 		ctx->panel_power_state = panel_power_state;
-	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctx->clk_enabled,
-				ctx->rdptr_enabled, XLOG_FUNC_EXIT);
+	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), XLOG_FUNC_EXIT);
 	mutex_unlock(&ctl->offlock);
 	pr_debug("%s:-\n", __func__);
 
@@ -1386,11 +1847,15 @@ static int mdss_mdp_cmd_ctx_setup(struct mdss_mdp_ctl *ctl,
 	init_waitqueue_head(&ctx->pp_waitq);
 	init_completion(&ctx->stop_comp);
 	init_completion(&ctx->readptr_done);
+	init_completion(&ctx->pp_done);
 	spin_lock_init(&ctx->clk_lock);
 	spin_lock_init(&ctx->koff_lock);
 	mutex_init(&ctx->clk_mtx);
+	mutex_init(&ctx->mdp_rdptr_lock);
 	mutex_init(&ctx->autorefresh_mtx);
-	INIT_WORK(&ctx->clk_work, clk_ctrl_work);
+	INIT_WORK(&ctx->gate_clk_work, clk_ctrl_gate_work);
+	INIT_DELAYED_WORK(&ctx->delayed_off_clk_work,
+		clk_ctrl_delayed_off_work);
 	INIT_WORK(&ctx->pp_done_work, pingpong_done_work);
 	atomic_set(&ctx->pp_done_cnt, 0);
 	ctx->autorefresh_off_pending = false;
@@ -1403,8 +1868,7 @@ static int mdss_mdp_cmd_ctx_setup(struct mdss_mdp_ctl *ctl,
 	ctx->intf_stopped = 0;
 
 	pr_debug("%s: ctx=%p num=%d\n", __func__, ctx, ctx->pp_num);
-	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctx->clk_enabled,
-					ctx->rdptr_enabled);
+	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt));
 
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_RD_PTR,
 		ctx->pp_num, mdss_mdp_cmd_readptr_done, ctl);

@@ -335,6 +335,7 @@ struct mdss_data_type {
 	u32 *clock_levels;
 	u32 nclk_lvl;
 
+	u32 enable_gate;
 	u32 enable_bw_release;
 	u32 enable_rotator_bw_release;
 	u32 serialize_wait4pp;
