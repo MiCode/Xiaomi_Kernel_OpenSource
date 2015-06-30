@@ -376,15 +376,6 @@ static int msm_cpe_lsm_lab_stop(struct snd_pcm_substream *substream)
 			"%s: open data failed %d\n", __func__, rc);
 	dma_data->ph = 0;
 
-	rc = lsm_ops->lab_ch_setup(cpe->core_handle,
-				   session,
-				   WCD_CPE_POST_DISABLE);
-	if (rc)
-		dev_err(rtd->dev,
-			"%s: POST ch teardown failed, err = %d\n",
-			__func__, rc);
-	lab_d->thread_status = MSM_LSM_LAB_THREAD_STOP;
-
 	/*
 	 * Even though LAB stop failed,
 	 * output AFE port needs to be stopped
@@ -395,7 +386,16 @@ static int msm_cpe_lsm_lab_stop(struct snd_pcm_substream *substream)
 		dev_err(rtd->dev,
 			"%s: AFE out port stop failed, err = %d\n",
 			__func__, rc);
+
+	rc = lsm_ops->lab_ch_setup(cpe->core_handle,
+				   session,
+				   WCD_CPE_POST_DISABLE);
+	if (rc)
+		dev_err(rtd->dev,
+			"%s: POST ch teardown failed, err = %d\n",
+			__func__, rc);
 done:
+	lab_d->thread_status = MSM_LSM_LAB_THREAD_STOP;
 	lab_d->buf_idx = 0;
 	atomic_set(&lab_d->in_count, 0);
 	lab_d->dma_write = 0;
@@ -526,6 +526,7 @@ static int msm_cpe_lab_thread(void *data)
 	struct cpe_hw_params *hw_params = &lsm_d->hw_params;
 	struct cpe_priv *cpe = cpe_get_private_data(substream);
 	struct wcd_cpe_lsm_ops *lsm_ops;
+	struct wcd_cpe_afe_ops *afe_ops;
 	struct cpe_data_pcm_buf *cur_buf, *next_buf;
 	struct msm_slim_dma_data *dma_data = NULL;
 	struct snd_soc_pcm_runtime *rtd = NULL;
@@ -562,6 +563,7 @@ static int msm_cpe_lab_thread(void *data)
 	}
 
 	lsm_ops = &cpe->lsm_ops;
+	afe_ops = &cpe->afe_ops;
 
 	if (!kthread_should_stop()) {
 		rc = lsm_ops->lab_ch_setup(cpe->core_handle,
@@ -578,16 +580,6 @@ static int msm_cpe_lab_thread(void *data)
 		if (rc) {
 			dev_err(rtd->dev,
 				"%s: open data failed %d\n", __func__, rc);
-			goto done;
-		}
-
-		rc = lsm_ops->lab_ch_setup(cpe->core_handle,
-					   session,
-					   WCD_CPE_POST_ENABLE);
-		if (rc) {
-			dev_err(rtd->dev,
-				"%s: POST ch setup failed, err = %d\n",
-				__func__, rc);
 			goto done;
 		}
 
@@ -609,6 +601,25 @@ static int msm_cpe_lab_thread(void *data)
 
 		cur_buf = &lab_d->pcm_buf[0];
 		next_buf = &lab_d->pcm_buf[1];
+		rc = lsm_ops->lab_ch_setup(cpe->core_handle,
+					   session,
+					   WCD_CPE_POST_ENABLE);
+		if (rc) {
+			dev_err(rtd->dev,
+				"%s: POST ch setup failed, err = %d\n",
+				__func__, rc);
+			goto done;
+		}
+
+		rc = afe_ops->afe_port_start(cpe->core_handle,
+				&session->afe_out_port_cfg);
+		if (rc) {
+			dev_err(rtd->dev,
+				"%s: AFE out port start failed, err = %d\n",
+				__func__, rc);
+			goto done;
+		}
+
 	} else {
 		dev_dbg(rtd->dev,
 			"%s: LAB stopped before starting read\n",
@@ -1535,14 +1546,6 @@ static int msm_cpe_lsm_lab_start(struct snd_pcm_substream *substream,
 		if (rc) {
 			dev_err(rtd->dev,
 				"%s: Failed afe generic config v2, err = %d\n",
-				__func__, rc);
-			return rc;
-		}
-
-		rc = afe_ops->afe_port_start(cpe->core_handle, out_port);
-		if (rc) {
-			dev_err(rtd->dev,
-				"%s: AFE out port start failed, err = %d\n",
 				__func__, rc);
 			return rc;
 		}
