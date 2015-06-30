@@ -721,6 +721,13 @@ struct mask_info {
 	uint32_t			mask_bits;
 };
 
+struct tsens_mtc_sysfs {
+	uint32_t zone_log;
+	int zone_mtc;
+	int th1;
+	int th2;
+};
+
 struct tsens_tm_device {
 	struct platform_device		*pdev;
 	bool				is_ready;
@@ -752,6 +759,7 @@ struct tsens_tm_device {
 	bool				tsens_valid_status_check;
 	struct tsens_dbg_counter	tsens_thread_iq_dbg;
 	struct tsens_sensor_dbg_info	sensor_dbg_info[16];
+	struct tsens_mtc_sysfs		mtcsys;
 	struct tsens_tm_device_sensor	sensor[0];
 };
 
@@ -809,37 +817,33 @@ static struct of_device_id tsens_match[] = {
 static ssize_t
 zonemask_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	unsigned int zone_mtc , th1 , th2;
-	int ret;
-
-	ret = sscanf(buf, "%d %d %d", &zone_mtc , &th1 , &th2);
-
-	if (ret != TSENS_ZONEMASK_PARAMS)
-		pr_err("Invalid command line arguments\n");
-	else {
-		pr_debug("store zone_mtc=%d th1=%d th2=%d\n",
-				zone_mtc , th1 , th2);
-		tsens_set_mtc_zone_sw_mask(zone_mtc , th1 , th2);
-	}
-
-	return 0;
+	return snprintf(buf, PAGE_SIZE,
+		"Zone =%d th1=%d th2=%d\n" , tmdev->mtcsys.zone_mtc,
+				tmdev->mtcsys.th1 , tmdev->mtcsys.th2);
 }
 
 static ssize_t
 zonemask_store(struct device *dev, struct device_attribute *attr,
 		const char *buf, size_t count)
 {
-	unsigned int zone_mtc , th1 , th2;
 	int ret;
 
-	ret = sscanf(buf, "%d %d %d", &zone_mtc , &th1 , &th2);
+	ret = sscanf(buf, "%d %d %d", &tmdev->mtcsys.zone_mtc ,
+				&tmdev->mtcsys.th1 , &tmdev->mtcsys.th2);
 
-	if (ret != TSENS_ZONEMASK_PARAMS)
+	if (ret != TSENS_ZONEMASK_PARAMS) {
 		pr_err("Invalid command line arguments\n");
-	else {
+		return -EINVAL;
+	} else {
 		pr_debug("store zone_mtc=%d th1=%d th2=%d\n",
-				zone_mtc , th1 , th2);
-		tsens_set_mtc_zone_sw_mask(zone_mtc , th1 , th2);
+				tmdev->mtcsys.zone_mtc,
+				tmdev->mtcsys.th1 , tmdev->mtcsys.th2);
+		ret = tsens_set_mtc_zone_sw_mask(tmdev->mtcsys.zone_mtc ,
+					tmdev->mtcsys.th1 , tmdev->mtcsys.th2);
+		if (ret < 0) {
+			pr_err("Invalid command line arguments\n");
+			count = -EINVAL;
+		}
 	}
 
 	return count;
@@ -848,45 +852,34 @@ zonemask_store(struct device *dev, struct device_attribute *attr,
 static ssize_t
 zonelog_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	unsigned int zone_log;
 	int *p , ret;
-
-	p = vmalloc(sizeof(int));
+	p = vmalloc((sizeof(int)) * 6);
 
 	if (!p)
-		pr_err("vmalloc failed\n");
+		return -ENOMEM;
 	else {
-		ret = sscanf(buf, "%d", &zone_log);
-		if (ret != TSENS_ZONELOG_PARAMS)
+		ret = tsens_get_mtc_zone_log(tmdev->mtcsys.zone_log , p);
+		if (ret < 0) {
 			pr_err("Invalid command line arguments\n");
-		else {
-			pr_debug("show zone_log=%d\n", zone_log);
-			tsens_get_mtc_zone_log(zone_log , p);
+			return -EINVAL;
 		}
 	}
 
-	return 0;
+	return snprintf(buf, PAGE_SIZE,
+		"Log[0]=%d\nLog[1]=%d\nLog[2]=%d\nLog[3]=%d\nLog[4]=%d\nLog[5]=%d\n",
+		*(p+0), *(p+1), *(p+2), *(p+3), *(p+4), *(p+5));
 }
 
 static ssize_t
 zonelog_store(struct device *dev, struct device_attribute *attr,
 		const char *buf, size_t count)
 {
-	unsigned int zone_log;
-	int *p , ret;
+	int ret;
 
-	p = vmalloc(sizeof(int));
-
-	if (!p)
-		pr_err("vmalloc failed\n");
-	else {
-		ret = sscanf(buf, "%d", &zone_log);
-		if (ret != TSENS_ZONELOG_PARAMS)
-			pr_err("Invalid command line arguments\n");
-		else {
-			pr_debug("show zone_log=%d\n", zone_log);
-			tsens_get_mtc_zone_log(zone_log , p);
-		}
+	ret = sscanf(buf, "%d", &tmdev->mtcsys.zone_log);
+	if (ret != TSENS_ZONELOG_PARAMS) {
+		pr_err("Invalid command line arguments\n");
+		return -EINVAL;
 	}
 
 	return count;
@@ -915,7 +908,7 @@ static int create_tsens_mtc_sysfs(struct platform_device *pdev)
 	return result;
 
 error:
-	for (i = 0; i < ARRAY_SIZE(tsens_mtc_dev_attr); i++)
+	for (i--; i >= 0; i--)
 		device_remove_file(&pdev->dev, &attr_ptr[i]);
 
 	return result;
