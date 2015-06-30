@@ -3860,6 +3860,25 @@ static void smbchg_hvdcp_det_work(struct work_struct *work)
 	}
 }
 
+static int set_usb_psy_dp_dm(struct smbchg_chip *chip, int state)
+{
+	int rc;
+	u8 reg;
+
+	/*
+	 * ensure that we are not in the middle of an insertion where usbin_uv
+	 * is low and src_detect hasnt gone high. If so force dp=F dm=F
+	 * which guarantees proper type detection
+	 */
+	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + RT_STS, 1);
+	if (!rc && !(reg & USBIN_UV_BIT) && !(reg & USBIN_SRC_DET_BIT)) {
+		pr_smb(PR_MISC, "overwriting state = %d with %d\n",
+				state, POWER_SUPPLY_DP_DM_DPF_DMF);
+		state = POWER_SUPPLY_DP_DM_DPF_DMF;
+	}
+	pr_smb(PR_MISC, "setting usb psy dp dm = %d\n", state);
+	return power_supply_set_dp_dm(chip->usb_psy, state);
+}
 static void handle_usb_removal(struct smbchg_chip *chip)
 {
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
@@ -3884,9 +3903,7 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 		pr_smb(PR_MISC, "setting usb psy present = %d\n",
 				chip->usb_present);
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
-		pr_smb(PR_MISC, "setting usb psy dp=r dm=r\n");
-		power_supply_set_dp_dm(chip->usb_psy,
-				POWER_SUPPLY_DP_DM_DPR_DMR);
+		set_usb_psy_dp_dm(chip, POWER_SUPPLY_DP_DM_DPR_DMR);
 		schedule_work(&chip->usb_set_online_work);
 		pr_smb(PR_MISC, "setting usb psy health UNKNOWN\n");
 		rc = power_supply_set_health_state(chip->usb_psy,
