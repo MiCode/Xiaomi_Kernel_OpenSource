@@ -38,6 +38,7 @@
 		synaptics,bypass-packrat-id-check;
 		synaptics,device1 {
 			synaptics,package-id = <3528>;
+			synaptics,bypass-sensor-coords-check;
 			synaptics,display-coords = <0 0 1439 2559>;
 			synaptics,panel-coords = <0 0 1439 2559>;
 		};
