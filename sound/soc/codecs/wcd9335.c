@@ -201,6 +201,7 @@ static struct afe_param_id_cdc_aanc_version tasha_cdc_aanc_version = {
 enum {
 	VI_SENSE_1,
 	VI_SENSE_2,
+	AIF4_SWITCH_VALUE,
 };
 
 enum {
@@ -3486,6 +3487,10 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"MAD_SEL MUX", "SPE", "MAD_CPE_INPUT"},
 	{"MAD_SEL MUX", "MSM", "MADINPUT"},
 	{"MADONOFF", "Switch", "MAD_SEL MUX"},
+	{"MAD_BROADCAST", "Switch", "MAD_SEL MUX"},
+
+	{"AIF4", "Switch", "TX13 INP MUX"},
+	{"AIF4 MAD", NULL, "AIF4"},
 	{"AIF4 MAD", NULL, "MADONOFF"},
 
 	/* SLIMBUS Connections */
@@ -3511,7 +3516,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"AIF1_CAP Mixer", "SLIM TX9", "SLIM TX9 MUX"},
 	{"AIF1_CAP Mixer", "SLIM TX10", "SLIM TX10 MUX"},
 	{"AIF1_CAP Mixer", "SLIM TX11", "SLIM TX11 MUX"},
-	{"AIF1_CAP Mixer", "SLIM TX13", "SLIM TX13 MUX"},
+	{"AIF1_CAP Mixer", "SLIM TX13", "TX13 INP MUX"},
 	/* SLIM_MIXER("AIF2_CAP Mixer"),*/
 	{"AIF2_CAP Mixer", "SLIM TX0", "SLIM TX0 MUX"},
 	{"AIF2_CAP Mixer", "SLIM TX1", "SLIM TX1 MUX"},
@@ -3525,7 +3530,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"AIF2_CAP Mixer", "SLIM TX9", "SLIM TX9 MUX"},
 	{"AIF2_CAP Mixer", "SLIM TX10", "SLIM TX10 MUX"},
 	{"AIF2_CAP Mixer", "SLIM TX11", "SLIM TX11 MUX"},
-	{"AIF2_CAP Mixer", "SLIM TX13", "SLIM TX13 MUX"},
+	{"AIF2_CAP Mixer", "SLIM TX13", "TX13 INP MUX"},
 	/* SLIM_MIXER("AIF3_CAP Mixer"),*/
 	{"AIF3_CAP Mixer", "SLIM TX0", "SLIM TX0 MUX"},
 	{"AIF3_CAP Mixer", "SLIM TX1", "SLIM TX1 MUX"},
@@ -3539,7 +3544,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"AIF3_CAP Mixer", "SLIM TX9", "SLIM TX9 MUX"},
 	{"AIF3_CAP Mixer", "SLIM TX10", "SLIM TX10 MUX"},
 	{"AIF3_CAP Mixer", "SLIM TX11", "SLIM TX11 MUX"},
-	{"AIF3_CAP Mixer", "SLIM TX13", "SLIM TX13 MUX"},
+	{"AIF3_CAP Mixer", "SLIM TX13", "TX13 INP MUX"},
 
 	{"SLIM TX0 MUX", "DEC0", "ADC MUX0"},
 	{"SLIM TX0 MUX", "RX_MIX_TX0", "RX MIX TX0 MUX"},
@@ -3581,6 +3586,8 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SLIM TX11 INP1 MUX", "DEC5", "ADC MUX5"},
 	{"SLIM TX11 INP1 MUX", "RX_MIX_TX5", "RX MIX TX5 MUX"},
 
+	{"TX13 INP MUX", "MAD_BRDCST", "MAD_BROADCAST"},
+	{"TX13 INP MUX", "CDC_DEC_5", "SLIM TX13 MUX"},
 	{"SLIM TX13 MUX", "DEC5", "ADC MUX5"},
 
 	{"RX MIX TX0 MUX", "RX_MIX0", "RX INT0 SEC MIX"},
@@ -5264,8 +5271,10 @@ static int tasha_codec_enable_mad(struct snd_soc_dapm_widget *w,
 		"%s: event = %d\n", __func__, event);
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		snd_soc_update_bits(codec, WCD9335_CPE_SS_CFG,
-				    0x60, 0x20);
+
+		/* Turn on MAD clk */
+		snd_soc_update_bits(codec, WCD9335_CPE_SS_MAD_CTL,
+				    0x01, 0x01);
 
 		/* Undo reset for MAD */
 		snd_soc_update_bits(codec, WCD9335_CPE_SS_MAD_CTL,
@@ -5280,12 +5289,59 @@ static int tasha_codec_enable_mad(struct snd_soc_dapm_widget *w,
 		/* Reset the MAD block */
 		snd_soc_update_bits(codec, WCD9335_CPE_SS_MAD_CTL,
 				    0x02, 0x02);
+		/* Turn off MAD clk */
+		snd_soc_update_bits(codec, WCD9335_CPE_SS_MAD_CTL,
+				    0x01, 0x00);
 		break;
 	}
 
 	return ret;
 }
 
+static int tasha_codec_aif4_mixer_switch_get(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dapm_widget_list *wlist =
+			dapm_kcontrol_get_wlist(kcontrol);
+	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_codec *codec = widget->codec;
+	struct tasha_priv *tasha_p = snd_soc_codec_get_drvdata(codec);
+
+	if (test_bit(AIF4_SWITCH_VALUE, &tasha_p->status_mask))
+		ucontrol->value.integer.value[0] = 1;
+	else
+		ucontrol->value.integer.value[0] = 0;
+
+	dev_dbg(codec->dev, "%s: AIF4 switch value = %ld\n",
+		__func__, ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int tasha_codec_aif4_mixer_switch_put(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dapm_widget_list *wlist =
+			dapm_kcontrol_get_wlist(kcontrol);
+	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_dapm_update *update = NULL;
+	struct snd_soc_codec *codec = widget->codec;
+	struct tasha_priv *tasha_p = snd_soc_codec_get_drvdata(codec);
+
+	dev_dbg(codec->dev, "%s: AIF4 switch value = %ld\n",
+		__func__, ucontrol->value.integer.value[0]);
+
+	if (ucontrol->value.integer.value[0]) {
+		snd_soc_dapm_mixer_update_power(widget->dapm,
+						kcontrol, 1, update);
+		set_bit(AIF4_SWITCH_VALUE, &tasha_p->status_mask);
+	} else {
+		snd_soc_dapm_mixer_update_power(widget->dapm,
+						kcontrol, 0, update);
+		clear_bit(AIF4_SWITCH_VALUE, &tasha_p->status_mask);
+	}
+
+	return 1;
+}
 
 static const char * const tasha_ear_pa_gain_text[] = {
 	"G_6_DB", "G_4P5_DB", "G_3_DB", "G_1P5_DB",
@@ -5409,6 +5465,10 @@ static const char * const sb_tx11_inp1_mux_text[] = {
 
 static const char * const sb_tx13_mux_text[] = {
 	"ZERO", "DEC5", "DEC5_192"
+};
+
+static const char * const tx13_inp_mux_text[] = {
+	"CDC_DEC_5", "MAD_BRDCST"
 };
 
 static const char * const iir_inp_mux_text[] = {
@@ -5888,6 +5948,10 @@ static const struct soc_enum sb_tx13_mux_enum =
 	SOC_ENUM_SINGLE(WCD9335_CDC_IF_ROUTER_TX_MUX_CFG3, 4, 3,
 			sb_tx13_mux_text);
 
+static const struct soc_enum tx13_inp_mux_enum =
+	SOC_ENUM_SINGLE(WCD9335_DATA_HUB_DATA_HUB_SB_TX13_INP_CFG, 0, 2,
+			tx13_inp_mux_text);
+
 static const struct soc_enum rx_mix_tx0_mux_enum =
 	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_RX_MIX_CFG0, 0, 14,
 			rx_echo_mux_text);
@@ -6348,6 +6412,9 @@ static const struct snd_kcontrol_new sb_tx11_inp1_mux =
 static const struct snd_kcontrol_new sb_tx13_mux =
 	SOC_DAPM_ENUM("SLIM TX13 MUX Mux", sb_tx13_mux_enum);
 
+static const struct snd_kcontrol_new tx13_inp_mux =
+	SOC_DAPM_ENUM("TX13 INP MUX Mux", tx13_inp_mux_enum);
+
 static const struct snd_kcontrol_new rx_mix_tx0_mux =
 	SOC_DAPM_ENUM("RX MIX TX0 MUX Mux", rx_mix_tx0_mux_enum);
 
@@ -6430,7 +6497,15 @@ static const struct snd_kcontrol_new mad_sel_mux =
 	SOC_DAPM_ENUM("MAD_SEL MUX Mux", mad_sel_enum);
 
 static const struct snd_kcontrol_new aif4_mad_switch =
-	SOC_DAPM_SINGLE("Switch", WCD9335_CPE_SS_MAD_CTL, 0, 1, 0);
+	SOC_DAPM_SINGLE("Switch", WCD9335_CPE_SS_CFG, 5, 1, 0);
+
+static const struct snd_kcontrol_new mad_brdcst_switch =
+	SOC_DAPM_SINGLE("Switch", WCD9335_CPE_SS_CFG, 6, 1, 0);
+
+static const struct snd_kcontrol_new aif4_switch_mixer_controls =
+	SOC_SINGLE_EXT("Switch", SND_SOC_NOPM,
+			0, 1, 0, tasha_codec_aif4_mixer_switch_get,
+			tasha_codec_aif4_mixer_switch_put);
 
 static const struct snd_kcontrol_new anc_hphl_switch =
 	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 1, 0);
@@ -6690,6 +6765,8 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 		&sb_tx11_inp1_mux),
 	SND_SOC_DAPM_MUX("SLIM TX13 MUX", SND_SOC_NOPM, TASHA_TX13, 0,
 		&sb_tx13_mux),
+	SND_SOC_DAPM_MUX("TX13 INP MUX", SND_SOC_NOPM, 0, 0,
+			 &tx13_inp_mux),
 
 	SND_SOC_DAPM_MUX_E("ADC MUX0", WCD9335_CDC_TX0_TX_PATH_CTL, 5, 0,
 			   &tx_adc_mux0, tasha_codec_enable_dec,
@@ -7108,6 +7185,10 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("MADINPUT"),
 	SND_SOC_DAPM_SWITCH("MADONOFF", SND_SOC_NOPM, 0, 0,
 			    &aif4_mad_switch),
+	SND_SOC_DAPM_SWITCH("MAD_BROADCAST", SND_SOC_NOPM, 0, 0,
+			    &mad_brdcst_switch),
+	SND_SOC_DAPM_SWITCH("AIF4", SND_SOC_NOPM, 0, 0,
+			    &aif4_switch_mixer_controls),
 	SND_SOC_DAPM_SWITCH("ANC HPHL Enable", SND_SOC_NOPM, 0, 0,
 			&anc_hphl_switch),
 	SND_SOC_DAPM_SWITCH("ANC HPHR Enable", SND_SOC_NOPM, 0, 0,
