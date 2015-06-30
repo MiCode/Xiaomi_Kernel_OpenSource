@@ -2494,6 +2494,7 @@ static void handle_exception(struct fsg_common *common)
 	enum fsg_state		old_state;
 	struct fsg_lun		*curlun;
 	unsigned int		exception_req_tag;
+	unsigned long		flags;
 
 	/*
 	 * Clear the existing signals.  Anything but SIGUSR1 is converted
@@ -2553,7 +2554,7 @@ static void handle_exception(struct fsg_common *common)
 	 * Reset the I/O buffer states and pointers, the SCSI
 	 * state, and the exception.  Then invoke the handler.
 	 */
-	spin_lock_irq(&common->lock);
+	spin_lock_irqsave(&common->lock, flags);
 
 	for (i = 0; i < common->fsg_num_buffers; ++i) {
 		bh = &common->buffhds[i];
@@ -2579,7 +2580,7 @@ static void handle_exception(struct fsg_common *common)
 		}
 		common->state = FSG_STATE_IDLE;
 	}
-	spin_unlock_irq(&common->lock);
+	spin_unlock_irqrestore(&common->lock, flags);
 
 	/* Carry out any extra actions required for the exception */
 	switch (old_state) {
@@ -2972,9 +2973,14 @@ void fsg_common_remove_luns(struct fsg_common *common)
 
 void fsg_common_free_luns(struct fsg_common *common)
 {
+	unsigned long flags;
+
 	fsg_common_remove_luns(common);
+	spin_lock_irqsave(&common->lock, flags);
 	kfree(common->luns);
 	common->luns = NULL;
+	common->nluns = 0;
+	spin_unlock_irqrestore(&common->lock, flags);
 }
 EXPORT_SYMBOL_GPL(fsg_common_free_luns);
 
