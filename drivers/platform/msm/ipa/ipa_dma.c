@@ -414,8 +414,19 @@ int ipa_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src, int len)
 	}
 
 	ep_idx = ipa_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_SYNC_CONS);
+	if (-1 == ep_idx) {
+		IPADMA_ERR("Client %u is not mapped\n",
+			IPA_CLIENT_MEMCPY_DMA_SYNC_CONS);
+		return -EFAULT;
+	}
 	cons_sys = ipa_ctx->ep[ep_idx].sys;
+
 	ep_idx = ipa_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_SYNC_PROD);
+	if (-1 == ep_idx) {
+		IPADMA_ERR("Client %u is not mapped\n",
+			IPA_CLIENT_MEMCPY_DMA_SYNC_PROD);
+		return -EFAULT;
+	}
 	prod_sys = ipa_ctx->ep[ep_idx].sys;
 
 	xfer_descr = kmem_cache_zalloc(ipa_dma_ctx->ipa_dma_xfer_wrapper_cache,
@@ -555,8 +566,19 @@ int ipa_dma_async_memcpy(phys_addr_t dest, phys_addr_t src, int len,
 	}
 
 	ep_idx = ipa_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS);
+	if (-1 == ep_idx) {
+		IPADMA_ERR("Client %u is not mapped\n",
+			IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS);
+		return -EFAULT;
+	}
 	cons_sys = ipa_ctx->ep[ep_idx].sys;
+
 	ep_idx = ipa_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD);
+	if (-1 == ep_idx) {
+		IPADMA_ERR("Client %u is not mapped\n",
+			IPA_CLIENT_MEMCPY_DMA_SYNC_PROD);
+		return -EFAULT;
+	}
 	prod_sys = ipa_ctx->ep[ep_idx].sys;
 
 	xfer_descr = kmem_cache_zalloc(ipa_dma_ctx->ipa_dma_xfer_wrapper_cache,

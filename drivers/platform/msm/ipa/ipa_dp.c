@@ -577,6 +577,11 @@ int ipa_send_cmd(u16 num_desc, struct ipa_desc *descr)
 	IPADBG("sending command\n");
 
 	ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_CMD_PROD);
+	if (-1 == ep_idx) {
+		IPAERR("Client %u is not mapped\n",
+			IPA_CLIENT_APPS_CMD_PROD);
+		return -EFAULT;
+	}
 	sys = ipa_ctx->ep[ep_idx].sys;
 
 	ipa_inc_client_enable_clks();
@@ -1309,9 +1314,18 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	 */
 	if (IPA_CLIENT_IS_CONS(dst)) {
 		src_ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_WAN_PROD);
+		if (-1 == src_ep_idx) {
+			IPAERR("Client %u is not mapped\n",
+				IPA_CLIENT_APPS_LAN_WAN_PROD);
+			return -EFAULT;
+		}
 		dst_ep_idx = ipa_get_ep_mapping(dst);
 	} else {
 		src_ep_idx = ipa_get_ep_mapping(dst);
+		if (-1 == src_ep_idx) {
+			IPAERR("Client %u is not mapped\n", dst);
+			return -EFAULT;
+		}
 		if (meta && meta->pkt_init_dst_ep_valid)
 			dst_ep_idx = meta->pkt_init_dst_ep;
 		else
