@@ -852,22 +852,17 @@ zonemask_store(struct device *dev, struct device_attribute *attr,
 static ssize_t
 zonelog_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	int *p , ret;
-	p = vmalloc((sizeof(int)) * 6);
+	int ret, zlog[TSENS_MTC_ZONE_LOG_SIZE];
 
-	if (!p)
-		return -ENOMEM;
-	else {
-		ret = tsens_get_mtc_zone_log(tmdev->mtcsys.zone_log , p);
-		if (ret < 0) {
-			pr_err("Invalid command line arguments\n");
-			return -EINVAL;
-		}
+	ret = tsens_get_mtc_zone_log(tmdev->mtcsys.zone_log , zlog);
+	if (ret < 0) {
+		pr_err("Invalid command line arguments\n");
+		return -EINVAL;
 	}
 
 	return snprintf(buf, PAGE_SIZE,
 		"Log[0]=%d\nLog[1]=%d\nLog[2]=%d\nLog[3]=%d\nLog[4]=%d\nLog[5]=%d\n",
-		*(p+0), *(p+1), *(p+2), *(p+3), *(p+4), *(p+5));
+			zlog[0], zlog[1], zlog[2], zlog[3], zlog[4], zlog[5]);
 }
 
 static ssize_t
