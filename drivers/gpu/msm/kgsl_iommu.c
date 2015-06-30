@@ -881,10 +881,10 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 		iommu->gtbu_clk = clk_get(&pdev->dev, "gtbu_clk");
 
 	if (kgsl_msm_supports_iommu_v2()) {
-		if (adreno_is_a530(adreno_dev)) {
+		if (adreno_is_a5xx(adreno_dev)) {
 			iommu->iommu_reg_list = kgsl_iommuv2_reg;
-			iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V2_A530;
-			iommu->ctx_ahb_offset = KGSL_IOMMU_CTX_OFFSET_V2_A530;
+			iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V2_A5XX;
+			iommu->ctx_ahb_offset = KGSL_IOMMU_CTX_OFFSET_V2_A5XX;
 		} else {
 			iommu->iommu_reg_list = kgsl_iommuv1_reg;
 			iommu->ctx_ahb_offset = KGSL_IOMMU_CTX_AHB_OFFSET_V2;
