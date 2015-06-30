@@ -1303,7 +1303,7 @@ int qpnp_ibb_set_pd_strength(struct regulator *regulator, u32 strength)
 	labibb = regulator_get_drvdata(regulator);
 
 	mutex_lock(&(labibb->ibb_vreg.ibb_mutex));
-	rc = qpnp_labibb_masked_write(labibb, labibb->lab_base +
+	rc = qpnp_labibb_masked_write(labibb, labibb->ibb_base +
 				REG_IBB_PD_CTL,
 				IBB_PD_CTL_STRENGTH_MASK,
 				val,
@@ -1337,7 +1337,7 @@ int qpnp_ibb_pd_enable_ctl(struct regulator *regulator, bool enable)
 	labibb = regulator_get_drvdata(regulator);
 
 	mutex_lock(&(labibb->ibb_vreg.ibb_mutex));
-	rc = qpnp_labibb_masked_write(labibb, labibb->lab_base +
+	rc = qpnp_labibb_masked_write(labibb, labibb->ibb_base +
 				REG_IBB_PD_CTL,
 				IBB_PD_CTL_EN_MASK,
 				val,
