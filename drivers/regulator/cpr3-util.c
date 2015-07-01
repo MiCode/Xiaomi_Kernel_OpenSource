@@ -404,8 +404,9 @@ int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg,
 	}
 
 	if (vreg->fuse_combo >= max_fuse_combos) {
-		cpr3_err(vreg, "device tree config supports fuse combos 0-%u but the hardware has config %d\n",
+		cpr3_err(vreg, "device tree config supports fuse combos 0-%u but the hardware has combo %d\n",
 			max_fuse_combos - 1, vreg->fuse_combo);
+		BUG_ON(1);
 		return -EINVAL;
 	}
 
