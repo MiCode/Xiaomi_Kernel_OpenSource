@@ -915,6 +915,7 @@ static int mdss_mdp_get_img(struct msmfb_data *img,
 		data->addr = 0;
 		data->len = 0;
 		data->mapped = false;
+		data->skip_detach = false;
 		/* return early, mapping will be done later */
 
 		return 0;
@@ -1031,7 +1032,7 @@ int mdss_mdp_data_map(struct mdss_mdp_data *data, bool rotator, int dir)
 {
 	int i, rc = 0;
 
-	if (!data || !data->num_planes)
+	if (!data || !data->num_planes || data->num_planes > MAX_PLANES)
 		return -EINVAL;
 
 	for (i = 0; i < data->num_planes; i++) {
