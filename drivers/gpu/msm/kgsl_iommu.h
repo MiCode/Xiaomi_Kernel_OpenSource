@@ -87,7 +87,7 @@ struct kgsl_iommu_register_list {
 };
 
 /* Max number of iommu clks per IOMMU unit */
-#define KGSL_IOMMU_MAX_CLKS 5
+#define KGSL_IOMMU_MAX_CLKS 6
 
 enum kgsl_iommu_context_id {
 	KGSL_IOMMU_CONTEXT_USER = 0,
@@ -203,6 +203,7 @@ struct kgsl_iommu {
 	struct kgsl_iommu_register_list *iommu_reg_list;
 	struct clk *gtcu_iface_clk;
 	struct clk *gtbu_clk;
+	struct clk *gtbu1_clk;
 	struct kgsl_memdesc smmu_info;
 };
 

@@ -96,6 +96,10 @@ static struct clk_pair clks[KGSL_MAX_CLKS] = {
 		.map = KGSL_CLK_GFX_GTBU,
 	},
 	{
+		.name = "gtbu1_clk",
+		.map = KGSL_CLK_GFX_GTBU1,
+	},
+	{
 		.name = "aon_clk",
 		.map = KGSL_CLK_AON,
 	},
