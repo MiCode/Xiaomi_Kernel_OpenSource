@@ -569,11 +569,22 @@ static int ffs_function_bind_config(struct android_usb_function *f,
 				    struct usb_configuration *c)
 {
 	struct functionfs_config *config = f->config;
+	int ret;
+
 	config->func = usb_get_function(config->fi);
 	if (IS_ERR(config->func))
 		return PTR_ERR(config->func);
 
-	return usb_add_function(c, config->func);
+	ret = usb_add_function(c, config->func);
+	if (ret) {
+		pr_err("%s(): usb_add_function() fails (err:%d) for ffs\n",
+							__func__, ret);
+
+		usb_put_function(config->func);
+		config->func = NULL;
+	}
+
+	return ret;
 }
 
 static ssize_t
@@ -670,7 +681,8 @@ static void functionfs_closed_callback(struct ffs_data *ffs)
 	if (dev)
 		mutex_unlock(&dev->mutex);
 
-	usb_put_function(config->func);
+	if (config->func)
+		usb_put_function(config->func);
 }
 
 /* ACM */
