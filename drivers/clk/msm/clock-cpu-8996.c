@@ -1044,6 +1044,11 @@ static void populate_opp_table(struct platform_device *pdev)
 
 static int perfclspeedbin;
 
+unsigned long pwrcl_early_boot_rate = 883200000;
+unsigned long perfcl_early_boot_rate = 883200000;
+unsigned long cbf_early_boot_rate = 614400000;
+unsigned long alt_pll_early_boot_rate = 307200000;
+
 static int cpu_clock_8996_driver_probe(struct platform_device *pdev)
 {
 	int ret, cpu;
@@ -1154,11 +1159,6 @@ static int cpu_clock_8996_driver_probe(struct platform_device *pdev)
 		}
 	}
 
-	/* Set low frequencies until thermal/cpufreq probe. */
-	clk_set_rate(&pwrcl_clk.c, 768000000);
-	clk_set_rate(&perfcl_clk.c, 300000000);
-	clk_set_rate(&cbf_clk.c, 595200000);
-
 	/* Permanently enable the cluster PLLs */
 	clk_prepare_enable(&perfcl_pll.c);
 	clk_prepare_enable(&pwrcl_pll.c);
@@ -1230,7 +1230,7 @@ int __init cpu_clock_8996_early_init(void)
 	if (!ofnode)
 		return 0;
 
-	pr_info("clock-cpu-8996: configuring clocks for the perf cluster\n");
+	pr_info("clock-cpu-8996: configuring cluster clocks\n");
 
 	/*
 	 * We definitely don't want to parse DT here - this is too early and in
@@ -1294,7 +1294,7 @@ int __init cpu_clock_8996_early_init(void)
 	writel_relaxed(0xC, vbases[APC0_BASE] + MUX_OFFSET);
 
 	/* Select GPLL0 for 300MHz on the CBF  */
-	writel_relaxed(0xC, vbases[CBF_BASE] + CBF_MUX_OFFSET);
+	writel_relaxed(0x3, vbases[CBF_BASE] + CBF_MUX_OFFSET);
 
 	/* Ensure write goes through before PLLs are reconfigured */
 	mb();
@@ -1338,15 +1338,16 @@ int __init cpu_clock_8996_early_init(void)
 	__init_alpha_pll(&perfcl_alt_pll.c);
 	__init_alpha_pll(&pwrcl_alt_pll.c);
 
-	/* Set an appropriate rate on the perf cluster's PLLs */
-	perfcl_pll.c.ops->set_rate(&perfcl_pll.c, 614400000);
-	perfcl_alt_pll.c.ops->set_rate(&perfcl_alt_pll.c, 307200000);
+	/* Set an appropriate rate on the perf clusters PLLs */
+	perfcl_pll.c.ops->set_rate(&perfcl_pll.c, pwrcl_early_boot_rate);
+	perfcl_alt_pll.c.ops->set_rate(&perfcl_alt_pll.c,
+				       alt_pll_early_boot_rate);
+	pwrcl_pll.c.ops->set_rate(&pwrcl_pll.c, perfcl_early_boot_rate);
+	pwrcl_alt_pll.c.ops->set_rate(&pwrcl_alt_pll.c,
+				      alt_pll_early_boot_rate);
 
 	/* Set an appropriate rate on the CBF PLL */
-	cbf_pll.c.ops->set_rate(&cbf_pll.c, 614400000);
-
-	/* Set an appropriate rate on the power cluster's alternate PLL */
-	pwrcl_alt_pll.c.ops->set_rate(&pwrcl_alt_pll.c, 307200000);
+	cbf_pll.c.ops->set_rate(&cbf_pll.c, cbf_early_boot_rate);
 
 	/*
 	 * Enable FSM mode on the primary PLLs.
@@ -1404,8 +1405,15 @@ int __init cpu_clock_8996_early_init(void)
 	mb();
 	udelay(5);
 
-	/* Switch the power cluster to use the primary PLL again */
-	writel_relaxed(0x34, vbases[APC0_BASE] + MUX_OFFSET);
+	/* Switch the clusters to use the primary PLLs */
+	writel_relaxed(0x31, vbases[APC0_BASE] + MUX_OFFSET);
+	writel_relaxed(0x31, vbases[APC1_BASE] + MUX_OFFSET);
+
+	/* Switch the CBF to use the primary PLL */
+	regval = readl_relaxed(vbases[CBF_BASE] + CBF_MUX_OFFSET);
+	regval &= ~BM(1, 0);
+	regval |= 0x1;
+	writel_relaxed(regval, vbases[CBF_BASE] + CBF_MUX_OFFSET);
 
 	/*
 	 * One time print during boot - this is the earliest time
