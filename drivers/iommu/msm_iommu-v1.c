@@ -1534,6 +1534,7 @@ static int msm_iommu_domain_get_attr(struct iommu_domain *domain,
 				enum iommu_attr attr, void *data)
 {
 	struct msm_iommu_priv *priv = domain->priv;
+	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 
 	switch (attr) {
 	case DOMAIN_ATTR_COHERENT_HTW_DISABLE:
@@ -1541,6 +1542,14 @@ static int msm_iommu_domain_get_attr(struct iommu_domain *domain,
 		break;
 	case DOMAIN_ATTR_PT_BASE_ADDR:
 		*((phys_addr_t *)data) = virt_to_phys(priv->pt.fl_table);
+		break;
+	case DOMAIN_ATTR_CONTEXT_BANK:
+		if (list_empty(&priv->list_attached))
+			return -ENODEV;
+
+		ctx_drvdata = list_first_entry(&priv->list_attached,
+			struct msm_iommu_ctx_drvdata, attached_elm);
+		*((unsigned int *) data) = ctx_drvdata->num;
 		break;
 	default:
 		return -EINVAL;
