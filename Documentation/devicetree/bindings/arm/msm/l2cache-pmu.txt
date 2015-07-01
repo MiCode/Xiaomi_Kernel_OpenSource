@@ -1,0 +1,20 @@
+L2 cache performance monitor unit
+
+L2 cache controllers have a performance monitor unit to measure
+events such as cache hits and misses. There is one L2 cache PMU
+for each cluster of CPUs.
+
+Required properties:
+
+- compatible : should be "qcom,qcom-l2cache-pmu"
+- interrupts : 1 interrupt for each cluster.
+- qcom,cpu-affinity: specifies the id of the first CPU in the cluster.
+
+Example:
+
+	l2cache-pmu {
+		    compatible = "qcom,qcom-l2cache-pmu";
+		    interrupts = <0 0 1>, <0 8 1>;
+		    qcom,cpu-affinity = <0>, <2>
+	};
+
