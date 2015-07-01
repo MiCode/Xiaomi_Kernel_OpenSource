@@ -879,6 +879,9 @@ static int adreno_of_get_iommu(struct platform_device *pdev,
 	data->regstart = reg_val[0];
 	data->regsize = reg_val[1];
 
+	if (of_property_read_bool(node, "qcom,global_pt"))
+		data->features |= KGSL_MMU_GLOBAL_PAGETABLE;
+
 	data->iommu_ctx_count = 0;
 
 	for_each_child_of_node(node, child)
