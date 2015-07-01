@@ -2052,7 +2052,7 @@ EXPORT_SYMBOL(mmc_get_card);
  * This is a helper function, which drops the runtime
  * pm reference for the card device.
  */
-static void __mmc_put_card(struct mmc_card *card)
+void __mmc_put_card(struct mmc_card *card)
 {
 	/* In case of runtime_idle, it will handle the suspend */
 	if (card->host->bus_ops->runtime_idle)
@@ -2060,6 +2060,7 @@ static void __mmc_put_card(struct mmc_card *card)
 	else
 		pm_runtime_put_autosuspend(&card->dev);
 }
+EXPORT_SYMBOL(__mmc_put_card);
 
 /*
  * This is a helper function, which releases the host and drops the runtime

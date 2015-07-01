@@ -88,6 +88,7 @@
 
 /* response mode error mask */
 #define CQRMEM		0x50
+#define CQ_EXCEPTION	(1 << 6)
 
 /* task error info */
 #define CQTERRI		0x54
