@@ -437,6 +437,11 @@
 };
 
 &soc {
+	drv2667_vreg: drv2667_vdd_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_drv2667";
+	};
+
 	gpio_keys {
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
@@ -588,6 +593,25 @@
 };
 
 &i2c_7 {
+	ti-drv2667@59 {
+		compatible = "ti,drv2667";
+		reg = <0x59>;
+		vdd-supply = <&drv2667_vreg>;
+		vdd-i2c-supply = <&pm8994_s4>;
+		ti,label = "vibrator";
+		ti,gain = <2>;
+		ti,idle-timeout-ms = <20>;
+		ti,max-runtime-ms = <15000>;
+		ti,mode = <2>;
+		ti,wav-seq = [
+			/* wave form id */
+			01
+			/* header size, start and stop bytes */
+			05 80 06 00 09
+			/* repeat, amp, freq, duration, envelope */
+			01 ff 19 02 00];
+	};
+
 	silabs4705@11 { /* SiLabs FM chip, slave id 0x11*/
 		status = "ok";
 		compatible = "silabs,si4705";
