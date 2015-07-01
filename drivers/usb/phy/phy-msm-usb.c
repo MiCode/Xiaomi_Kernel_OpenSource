@@ -738,7 +738,6 @@ static int msm_otg_reset(struct usb_phy *phy)
 	 */
 	if (motg->err_event_seen) {
 		dev_info(phy->dev, "performing USB h/w reset for recovery\n");
-		motg->err_event_seen = false;
 	} else if (pdata->disable_reset_on_disconnect && motg->reset_counter) {
 		return 0;
 	}
@@ -801,6 +800,12 @@ static int msm_otg_reset(struct usb_phy *phy)
 	if (pdata->enable_axi_prefetch)
 		writel_relaxed(readl_relaxed(USB_HS_APF_CTRL) | (APF_CTRL_EN),
 							USB_HS_APF_CTRL);
+
+	/*
+	 * Enable USB BAM if USB BAM is enabled already before block reset as
+	 * block reset also resets USB BAM registers.
+	 */
+	msm_usb_bam_enable(CI_CTRL, phy->otg->gadget->bam2bam_func_enabled);
 
 	return 0;
 }
@@ -1147,6 +1152,8 @@ static irqreturn_t msm_otg_phy_irq_handler(int irq, void *data)
 
 #define PHY_SUSPEND_RETRIES_MAX 3
 
+static void msm_otg_set_vbus_state(int online);
+
 #ifdef CONFIG_PM_SLEEP
 static int msm_otg_suspend(struct msm_otg *motg)
 {
@@ -1185,6 +1192,10 @@ lpm_start:
 	/* !BSV, but its handling is in progress by otg sm_work */
 	sm_work_busy = !test_bit(B_SESS_VLD, &motg->inputs) &&
 			phy->state == OTG_STATE_B_PERIPHERAL;
+
+	/* Perform block reset to recover from UDC error events on disconnect */
+	if (!host_bus_suspend && !device_bus_suspend)
+		msm_otg_reset(phy);
 
 	/* Enable line state difference wakeup fix for only device and host
 	 * bus suspend scenarios.  Otherwise PHY can not be suspended when
@@ -1466,6 +1477,14 @@ phcd_retry:
 	dev_info(phy->dev, "USB in low power mode\n");
 	msm_otg_dbg_log_event(phy, "LPM ENTER DONE",
 			motg->caps, motg->lpm_flags);
+
+	if (motg->err_event_seen) {
+		motg->err_event_seen = false;
+		if (motg->vbus_state != test_bit(B_SESS_VLD, &motg->inputs))
+			msm_otg_set_vbus_state(motg->vbus_state);
+		if (motg->id_state != test_bit(ID, &motg->inputs))
+			msm_id_status_w(&motg->id_status_work.work);
+	}
 
 	return 0;
 
@@ -2749,7 +2768,6 @@ static void msm_otg_sm_work(struct work_struct *w)
 				ulpi_write(otg->phy, 0x2, 0x86);
 			}
 			msm_chg_block_off(motg);
-			msm_otg_reset(otg->phy);
 			msm_otg_dbg_log_event(&motg->phy,
 					"PM RUNTIME: NOCHG PUT",
 					get_pm_runtime_counter(otg->phy->dev),
@@ -2908,6 +2926,11 @@ static void msm_otg_set_vbus_state(int online)
 	struct msm_otg *motg = the_msm_otg;
 	static bool init;
 
+	motg->vbus_state = online;
+
+	if (motg->err_event_seen)
+		return;
+
 	if (online) {
 		pr_debug("PMIC: BSV set\n");
 		msm_otg_dbg_log_event(&motg->phy, "PMIC: BSV SET",
@@ -2987,6 +3010,9 @@ static void msm_id_status_w(struct work_struct *w)
 		motg->id_state = gpio_get_value(motg->pdata->usb_id_gpio);
 	else if (motg->phy_irq)
 		motg->id_state = msm_otg_read_phy_id_state(motg);
+
+	if (motg->err_event_seen)
+		return;
 
 	if (motg->id_state) {
 		if (gpio_is_valid(motg->pdata->switch_sel_gpio))
