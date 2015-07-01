@@ -2041,7 +2041,7 @@ static int mdss_dsi_mdp_busy_tout_check(struct mdss_dsi_ctrl_pdata *ctrl)
 
 	isr = MIPI_INP(ctrl->ctrl_base + 0x0110);
 	if (isr & DSI_INTR_CMD_MDP_DONE) {
-		WARN(1, "INTR_CMD_MDP_DONE set but isr not fired\n");
+		pr_warn("INTR_CMD_MDP_DONE set but isr not fired\n");
 		isr &= DSI_INTR_MASK_ALL;
 		isr |= DSI_INTR_CMD_MDP_DONE; /* clear this isr only */
 		MIPI_OUTP(ctrl->ctrl_base + 0x0110, isr);
