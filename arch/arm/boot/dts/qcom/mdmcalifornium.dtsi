@@ -238,10 +238,9 @@
 		qcom,num-locks = <8>;
 	};
 
-	/* Based on 9x45 - needs to be revisited */
 	qcom,smem@87e80000 {
 		compatible = "qcom,smem";
-		reg = <0x87e80000 0x100000>,
+		reg = <0x87e80000 0xc0000>,
 			<0xb011008 0x4>,
 			<0x60000 0x6000>,
 			<0x193D000 0x8>;
@@ -336,7 +335,7 @@
 
 	qcom,glink-smem-native-xprt-modem@87e80000 {
 		compatible = "qcom,glink-smem-native-xprt";
-		reg = <0x87e80000 0x100000>,
+		reg = <0x87e80000 0xc0000>,
 			<0xb011008 0x4>;
 		reg-names = "smem", "irq-reg-base";
 		qcom,irq-mask = <0x8000>;
