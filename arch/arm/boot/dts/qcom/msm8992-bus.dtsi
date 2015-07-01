@@ -11,6 +11,7 @@
  */
 
 #include <dt-bindings/msm/msm-bus-ids.h>
+#include <dt-bindings/msm/msm-bus-rule-ops.h>
 
 &soc {
 	ad_hoc_bus: ad-hoc-bus@fc460000 {
@@ -1464,6 +1465,39 @@
 			qcom,buswidth = <8>;
 			qcom,connections = <&mas_cnoc_snoc>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_CNOC_SNOC>;
+		};
+	};
+
+	static-rules {
+		compatible = "qcom,msm-bus-static-bw-rules";
+
+		rule0 {
+			qcom,src-nodes = <&mas_apps_proc>;
+			qcom,src-field = <FLD_CLK>;
+			qcom,src-op = <OP_LE>;
+			qcom,thresh = <250000>;
+			qcom,mode = <THROTTLE_ON>;
+			qcom,dest-node = <&mas_apps_proc>;
+			qcom,dest-bw = <600000>;
+		};
+
+		rule1 {
+			qcom,src-nodes = <&mas_apps_proc>;
+			qcom,src-field = <FLD_CLK>;
+			qcom,src-op = <OP_LE>;
+			qcom,thresh = <307000>;
+			qcom,mode = <THROTTLE_ON>;
+			qcom,dest-node = <&mas_apps_proc>;
+			qcom,dest-bw = <900000>;
+		};
+
+		rule2 {
+			qcom,src-nodes = <&mas_apps_proc>;
+			qcom,src-field = <FLD_CLK>;
+			qcom,src-op = <OP_GT>;
+			qcom,thresh = <307000>;
+			qcom,mode = <THROTTLE_OFF>;
+			qcom,dest-node = <&mas_apps_proc>;
 		};
 	};
 
