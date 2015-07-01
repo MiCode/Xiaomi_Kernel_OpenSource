@@ -342,7 +342,6 @@ struct msm_ssphy_qmp {
 	struct clk		*aux_clk;
 	struct clk		*cfg_ahb_clk;
 	struct clk		*pipe_clk;
-	struct clk		*phy_com_reset;
 	struct clk		*phy_reset;
 	struct clk		*phy_phy_reset;
 	bool			clk_enabled;
@@ -635,26 +634,17 @@ static int msm_ssphy_qmp_reset(struct usb_phy *uphy)
 	dev_dbg(uphy->dev, "Resetting QMP phy\n");
 
 	/* Assert USB3 PHY reset */
-	if (phy->phy_com_reset) {
-		ret = clk_reset(phy->phy_com_reset, CLK_RESET_ASSERT);
-		if (ret) {
-			dev_err(uphy->dev, "phy_com_reset clk assert failed\n");
-			return ret;
-		}
-	}
-
-	/* Assert USB3 PHY reset */
 	if (phy->phy_phy_reset) {
 		ret = clk_reset(phy->phy_phy_reset, CLK_RESET_ASSERT);
 		if (ret) {
 			dev_err(uphy->dev, "phy_phy reset assert failed\n");
-			goto deassert_phy_com_reset;
+			goto exit;
 		}
 	} else {
 		ret = clk_reset(phy->pipe_clk, CLK_RESET_ASSERT);
 		if (ret) {
 			dev_err(uphy->dev, "pipe_clk reset assert failed\n");
-			goto deassert_phy_com_reset;
+			goto exit;
 		}
 	}
 
@@ -677,23 +667,16 @@ static int msm_ssphy_qmp_reset(struct usb_phy *uphy)
 		ret = clk_reset(phy->phy_phy_reset, CLK_RESET_DEASSERT);
 		if (ret) {
 			dev_err(uphy->dev, "phy_phy reset deassert failed\n");
-			goto deassert_phy_com_reset;
+			goto exit;
 		}
 	} else {
 		ret = clk_reset(phy->pipe_clk, CLK_RESET_DEASSERT);
 		if (ret) {
 			dev_err(uphy->dev, "pipe_clk reset deassert failed\n");
-			goto deassert_phy_com_reset;
+			goto exit;
 		}
 	}
 
-	if (phy->phy_com_reset) {
-		ret = clk_reset(phy->phy_com_reset, CLK_RESET_DEASSERT);
-		if (ret) {
-			dev_err(uphy->dev, "phy_com_reset clk deassert failed\n");
-			return ret;
-		}
-	}
 	return 0;
 
 deassert_phy_phy_reset:
@@ -701,10 +684,7 @@ deassert_phy_phy_reset:
 		clk_reset(phy->phy_phy_reset, CLK_RESET_DEASSERT);
 	else
 		clk_reset(phy->pipe_clk, CLK_RESET_DEASSERT);
-deassert_phy_com_reset:
-	if (phy->phy_com_reset)
-		clk_reset(phy->phy_com_reset, CLK_RESET_DEASSERT);
-
+exit:
 	phy->in_suspend = false;
 
 	return ret;
@@ -869,18 +849,6 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		if (ret != -EPROBE_DEFER)
 			dev_err(dev, "failed to get pipe_clk\n");
 		goto err;
-	}
-
-	if (of_property_match_string(pdev->dev.of_node,
-				"clock-names", "phy_com_reset") >= 0) {
-		phy->phy_com_reset = clk_get(&pdev->dev,
-							"phy_com_reset");
-		if (IS_ERR(phy->phy_com_reset)) {
-			ret = PTR_ERR(phy->phy_com_reset);
-			phy->phy_com_reset = NULL;
-			dev_dbg(dev, "failed to get phy_com_reset\n");
-			goto err;
-		}
 	}
 
 	if (of_property_match_string(pdev->dev.of_node,
