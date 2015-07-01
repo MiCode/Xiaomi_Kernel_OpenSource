@@ -27,10 +27,6 @@ MODULE_PARM_DESC(use_msi,
 		 " Use MSI interrupt: "
 		 "0 - don't, 1 - (default) - single, or 3");
 
-static bool debug_fw; /* = false; */
-module_param(debug_fw, bool, S_IRUGO);
-MODULE_PARM_DESC(debug_fw, " load driver if FW not ready. For FW debug");
-
 static
 void wil_set_capabilities(struct wil6210_priv *wil)
 {
@@ -133,8 +129,6 @@ static int wil_if_pcie_enable(struct wil6210_priv *wil)
 	mutex_lock(&wil->mutex);
 	rc = wil_reset(wil, false);
 	mutex_unlock(&wil->mutex);
-	if (debug_fw)
-		rc = 0;
 	if (rc)
 		goto release_irq;
 
@@ -254,8 +248,6 @@ static int wil_pcie_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	wil6210_debugfs_init(wil);
 
-	/* check FW is alive */
-	wmi_echo(wil);
 
 	return 0;
 
