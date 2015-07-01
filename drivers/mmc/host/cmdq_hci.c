@@ -342,6 +342,11 @@ static int cmdq_enable(struct mmc_host *mmc)
 	cmdq_writel(cq_host, cmdq_readl(cq_host, CQSSC1) | SEND_QSR_INTERVAL,
 				CQSSC1);
 
+	/* enable bkops exception indication */
+	if (mmc_card_configured_manual_bkops(mmc->card))
+		cmdq_writel(cq_host, cmdq_readl(cq_host, CQRMEM) | CQ_EXCEPTION,
+				CQRMEM);
+
 	/* ensure the writes are done before enabling CQE */
 	mb();
 
@@ -666,9 +671,18 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 		 * In most cases, this would require a reset.
 		 */
 		if (status & CQIS_RED) {
+			/*
+			 * will check if the RED error is due to a bkops
+			 * exception once the queue is empty
+			 */
+			BUG_ON(!mmc->card);
+			if (mmc_card_configured_manual_bkops(mmc->card) &&
+			    !mmc_card_configured_auto_bkops(mmc->card))
+				mmc->card->bkops.needs_check = true;
+
 			mrq->cmdq_req->resp_err = true;
 			pr_err("%s: Response error (0x%08x) from card !!!",
-					mmc_hostname(mmc), status);
+				mmc_hostname(mmc), status);
 		} else {
 			mrq->cmdq_req->resp_idx = cmdq_readl(cq_host, CQCRI);
 			mrq->cmdq_req->resp_arg = cmdq_readl(cq_host, CQCRA);
