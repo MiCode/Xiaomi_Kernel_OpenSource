@@ -3280,10 +3280,10 @@ static void msm_mmsscc_8996_v2_fixup(void)
 	mmpll2.vco_tbl = mmpll_gfx_vco;
 	mmpll2.num_vco = ARRAY_SIZE(mmpll_gfx_vco),
 	mmpll2.c.rate = 0;
-	mmpll2.c.fmax[VDD_DIG_LOWER] = 650000000;
-	mmpll2.c.fmax[VDD_DIG_LOW] = 650000000;
-	mmpll2.c.fmax[VDD_DIG_NOMINAL] = 1300000000;
-	mmpll2.c.fmax[VDD_DIG_HIGH] = 1300000000;
+	mmpll2.c.fmax[VDD_DIG_LOWER] = 1000000000;
+	mmpll2.c.fmax[VDD_DIG_LOW] = 1000000000;
+	mmpll2.c.fmax[VDD_DIG_NOMINAL] = 1000000000;
+	mmpll2.c.fmax[VDD_DIG_HIGH] = 1000000000;
 	mmpll2.no_prepared_reconfig = true;
 	mmpll2.c.ops = &clk_ops_alpha_pll;
 
@@ -3307,10 +3307,10 @@ static void msm_mmsscc_8996_v2_fixup(void)
 	mmpll8.vco_tbl = mmpll_gfx_vco;
 	mmpll8.num_vco = ARRAY_SIZE(mmpll_gfx_vco),
 	mmpll8.c.rate = 0;
-	mmpll8.c.fmax[VDD_DIG_LOWER] = 650000000;
-	mmpll8.c.fmax[VDD_DIG_LOW] = 650000000;
-	mmpll8.c.fmax[VDD_DIG_NOMINAL] = 1300000000;
-	mmpll8.c.fmax[VDD_DIG_HIGH] = 1300000000;
+	mmpll8.c.fmax[VDD_DIG_LOWER] = 1000000000;
+	mmpll8.c.fmax[VDD_DIG_LOW] = 1000000000;
+	mmpll8.c.fmax[VDD_DIG_NOMINAL] = 1000000000;
+	mmpll8.c.fmax[VDD_DIG_HIGH] = 1000000000;
 	mmpll8.no_prepared_reconfig = true;
 	mmpll8.c.ops = &clk_ops_alpha_pll;
 
