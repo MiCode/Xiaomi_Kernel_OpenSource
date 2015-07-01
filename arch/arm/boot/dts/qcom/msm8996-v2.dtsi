@@ -321,6 +321,7 @@
 		qcom,ipa-hw-mode = <0>;
 		qcom,ee = <0>;
 		qcom,use-ipa-tethering-bridge;
+		qcom,ipa-bam-remote-mode;
 		qcom,modem-cfg-emb-pipe-flt;
 		clocks = <&clock_gcc clk_ipa_clk>,
 			<&clock_gcc clk_aggre2_noc_clk>;
