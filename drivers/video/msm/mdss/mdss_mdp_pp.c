@@ -316,7 +316,7 @@ static int pp_read_pa_v2_regs(char __iomem *addr,
 static void pp_read_pa_mem_col_regs(char __iomem *addr,
 				struct mdp_pa_mem_col_cfg *mem_col_cfg);
 static struct msm_fb_data_type *mdss_get_mfd_from_index(int index);
-static int mdss_ad_init_checks(struct msm_fb_data_type *mfd);
+static int mdss_mdp_mfd_valid_ad(struct msm_fb_data_type *mfd);
 static int mdss_mdp_get_ad(struct msm_fb_data_type *mfd,
 					struct mdss_ad_info **ad);
 static int pp_ad_invalidate_input(struct msm_fb_data_type *mfd);
@@ -343,7 +343,8 @@ static int pp_update_pcc_pipe_setup(struct mdss_mdp_pipe *pipe, u32 location);
 static void mdss_mdp_hist_irq_set_mask(u32 irq);
 static void mdss_mdp_hist_irq_clear_mask(u32 irq);
 static void mdss_mdp_hist_intr_notify(u32 disp);
-static int mdss_mdp_panel_default_dither_config(u32 panel_bpp, u32 disp_num);
+static int mdss_mdp_panel_default_dither_config(struct msm_fb_data_type *mfd,
+					u32 panel_bpp);
 
 static u32 last_sts, last_state;
 
@@ -2003,28 +2004,26 @@ exit:
  * Set dirty and write bits on features that were enabled so they will be
  * reconfigured
  */
-int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 dspp_num)
+int mdss_mdp_pp_resume(struct msm_fb_data_type *mfd)
 {
-	u32 flags = 0, disp_num, bl, ret = 0;
+	u32 flags = 0, disp_num, ret = 0;
 	struct pp_sts_type pp_sts;
 	struct mdss_ad_info *ad;
-	struct mdss_data_type *mdata;
-	struct msm_fb_data_type *bl_mfd;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdp_pa_v2_cfg_data *pa_v2_cache_cfg = NULL;
 
-	if (!ctl || !ctl->mdata || !ctl->mfd) {
-		pr_err("invalid input: ctl = 0x%p, mdata = 0x%p, mfd = 0x%p\n",
-			ctl, (!ctl) ? NULL : ctl->mdata,
-			(!ctl) ? NULL : ctl->mfd);
+	if (!mfd) {
+		pr_err("invalid input: mfd = 0x%p\n", mfd);
+		return -EINVAL;
+	}
+
+	if (!mdss_mdp_mfd_valid_dspp(mfd)) {
+		pr_warn("PP not supported on display num %d hw config\n",
+			mfd->index);
 		return -EPERM;
 	}
 
-	mdata = ctl->mdata;
-	if (dspp_num >= mdata->ndspp) {
-		pr_err("invalid dspp_num %d\n", dspp_num);
-		return -EINVAL;
-	}
-	disp_num = ctl->mfd->index;
+	disp_num = mfd->index;
 	pp_sts = mdss_pp_res->pp_disp_sts[disp_num];
 
 	if (pp_sts.pa_sts & PP_STS_ENABLE) {
@@ -2098,42 +2097,26 @@ int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 dspp_num)
 	mdss_pp_res->pp_disp_flags[disp_num] |= flags;
 	mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_RESUME_COMMIT;
 
-	if (dspp_num < mdata->nad_cfgs) {
-		ret = mdss_mdp_get_ad(ctl->mfd, &ad);
-		if (ret) {
-			pr_warn("Failed to get AD info, err = %d\n", ret);
-			return ret;
-		}
-		if (ctl->mfd->panel_info->type == WRITEBACK_PANEL) {
-			bl_mfd = mdss_get_mfd_from_index(0);
-			if (!bl_mfd) {
-				ret = -EINVAL;
-				pr_warn("Failed to get primary FB bl handle, err = %d\n",
-						ret);
-				return ret;
-			}
-		} else {
-			bl_mfd = ctl->mfd;
-		}
-
-		mutex_lock(&ad->lock);
-		bl = bl_mfd->ad_bl_level;
-		if (PP_AD_STATE_CFG & ad->state)
-			pp_ad_cfg_write(&mdata->ad_off[dspp_num], ad);
-		if (PP_AD_STATE_INIT & ad->state)
-			pp_ad_init_write(&mdata->ad_off[dspp_num], ad, ctl);
-		if ((PP_AD_STATE_DATA & ad->state) &&
-			(ad->sts & PP_STS_ENABLE)) {
-			ad->last_bl = bl;
-			linear_map(bl, &ad->bl_data,
-				bl_mfd->panel_info->bl_max,
-				MDSS_MDP_AD_BL_SCALE);
-			pp_ad_input_write(&mdata->ad_off[dspp_num], ad);
-		}
-		if ((PP_AD_STATE_VSYNC & ad->state) && ad->calc_itr)
-			ctl->ops.add_vsync_handler(ctl, &ad->handle);
-		mutex_unlock(&ad->lock);
+	ret = mdss_mdp_get_ad(mfd, &ad);
+	if (ret == -ENODEV || ret == -EPERM) {
+		pr_debug("AD not supported on device, disp num %d\n",
+			mfd->index);
+		return 0;
+	} else if (ret || !ad) {
+		pr_err("Failed to get ad info: ret = %d, ad = 0x%p.\n",
+			ret, ad);
+		return ret;
 	}
+
+	mutex_lock(&ad->lock);
+	if (PP_AD_STATE_CFG & ad->state)
+		ad->sts |= PP_AD_STS_DIRTY_CFG;
+	if (PP_AD_STATE_INIT & ad->state)
+		ad->sts |= PP_AD_STS_DIRTY_INIT;
+	if ((PP_AD_STATE_DATA & ad->state) &&
+			(ad->sts & PP_STS_ENABLE))
+		ad->sts |= PP_AD_STS_DIRTY_DATA;
+	mutex_unlock(&ad->lock);
 
 	return 0;
 }
@@ -2392,8 +2375,7 @@ int mdss_mdp_pp_default_overlay_config(struct msm_fb_data_type *mfd,
 		return -EINVAL;
 	}
 
-	ret = mdss_mdp_panel_default_dither_config(pdata->panel_info.bpp,
-						mfd->index);
+	ret = mdss_mdp_panel_default_dither_config(mfd, pdata->panel_info.bpp);
 	if (ret)
 		pr_err("Unable to configure default dither on fb%d\n",
 			mfd->index);
@@ -2410,9 +2392,10 @@ static int pp_ad_calc_bl(struct msm_fb_data_type *mfd, int bl_in, int *bl_out,
 	struct mdss_ad_info *ad;
 
 	ret = mdss_mdp_get_ad(mfd, &ad);
-	if (ret == -ENODEV) {
-		pr_debug("AD not supported on device.\n");
-		return ret;
+	if (ret == -ENODEV || ret == -EPERM) {
+		pr_debug("AD not supported on device, disp num %d\n",
+			mfd->index);
+		return 0;
 	} else if (ret || !ad) {
 		pr_err("Failed to get ad info: ret = %d, ad = 0x%p.\n",
 			ret, ad);
@@ -3047,6 +3030,12 @@ int mdss_mdp_limited_lut_igc_config(struct mdss_mdp_ctl *ctl)
 	if (!ctl)
 		return -EINVAL;
 
+	if (!mdss_mdp_mfd_valid_dspp(ctl->mfd)) {
+		pr_warn("IGC not supported on display num %d hw configuration\n",
+			ctl->mfd->index);
+		return 0;
+	}
+
 	config.len = IGC_LUT_ENTRIES;
 	config.ops = MDP_PP_OPS_WRITE | MDP_PP_OPS_ENABLE;
 	config.block = (ctl->mfd->index) + MDP_LOGICAL_BLOCK_DISP_0;
@@ -3588,19 +3577,23 @@ enhist_config_exit:
 	return ret;
 }
 
-static int mdss_mdp_panel_default_dither_config(u32 panel_bpp, u32 disp_num)
+static int mdss_mdp_panel_default_dither_config(struct msm_fb_data_type *mfd,
+					u32 panel_bpp)
 {
 	int ret = 0;
-	struct mdp_dither_cfg_data dither = {
-		.block = disp_num + MDP_LOGICAL_BLOCK_DISP_0,
-		.flags = MDP_PP_OPS_DISABLE,
-	};
+	struct mdp_dither_cfg_data dither;
 	struct mdp_pp_feature_version dither_version = {
 		.pp_feature = DITHER,
 	};
 	struct mdp_dither_data_v1_7 dither_data;
 
-	dither.block = disp_num + MDP_LOGICAL_BLOCK_DISP_0;
+	if (!mdss_mdp_mfd_valid_dspp(mfd)) {
+		pr_warn("dither config not supported on display num %d\n",
+			mfd->index);
+		return 0;
+	}
+
+	dither.block = mfd->index + MDP_LOGICAL_BLOCK_DISP_0;
 	dither.flags = MDP_PP_OPS_DISABLE;
 
 	ret = mdss_mdp_pp_get_version(&dither_version);
@@ -4744,67 +4737,42 @@ static int pp_num_to_side(struct mdss_mdp_ctl *ctl, u32 num)
 	return -EINVAL;
 }
 
-static int mdss_ad_init_checks(struct msm_fb_data_type *mfd)
+static int mdss_mdp_get_ad(struct msm_fb_data_type *mfd,
+					struct mdss_ad_info **ret_ad)
 {
-	u32 mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
-	u32 mixer_num;
-	u32 ret = -EINVAL;
-	int i = 0;
-	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
-	struct msm_fb_data_type *ad_mfd = mfd;
+	int ret = 0;
+	struct mdss_data_type *mdata;
+	struct mdss_mdp_ctl *ctl = NULL;
 
-	if (ad_mfd->ext_ad_ctrl >= 0)
-		ad_mfd = mdss_get_mfd_from_index(ad_mfd->ext_ad_ctrl);
-
-	if (!ad_mfd || !mdata)
-		return ret;
+	*ret_ad = NULL;
+	if (!mfd) {
+		pr_err("invalid parameter mfd %p\n", mfd);
+		return -EINVAL;
+	}
+	mdata = mfd_to_mdata(mfd);
 
 	if (mdata->nad_cfgs == 0) {
 		pr_debug("Assertive Display not supported by device\n");
 		return -ENODEV;
 	}
 
-	if (ad_mfd->panel_info->type == DTV_PANEL) {
+	if (!mdss_mdp_mfd_valid_ad(mfd)) {
+		pr_warn("AD not supported on display num %d hw config\n",
+			mfd->index);
+		return -EPERM;
+	}
+
+	if (mfd->panel_info->type == DTV_PANEL) {
 		pr_debug("AD not supported on external display\n");
-		return ret;
+		return -EPERM;
 	}
 
-	mixer_num = mdss_mdp_get_ctl_mixers(ad_mfd->index, mixer_id);
-	if (!mixer_num) {
-		pr_debug("no mixers connected, %d\n", mixer_num);
-		return -EHOSTDOWN;
-	}
-	if (mixer_num > mdata->nmax_concurrent_ad_hw) {
-		pr_debug("too many mixers, not supported, %d > %d\n", mixer_num,
-						mdata->nmax_concurrent_ad_hw);
-		return ret;
-	}
-
-	do {
-		if (mixer_id[i] >= mdata->nad_cfgs) {
-			pr_err("invalid mixer input, %d\n", mixer_id[i]);
-			return ret;
-		}
-		i++;
-	} while (i < mixer_num);
-
-	return mixer_id[0];
-}
-
-static int mdss_mdp_get_ad(struct msm_fb_data_type *mfd,
-					struct mdss_ad_info **ret_ad)
-{
-	int ad_num, ret = 0;
-	struct mdss_data_type *mdata;
-	struct mdss_ad_info *ad = NULL;
-	mdata = mfd_to_mdata(mfd);
-
-	ad_num = mdss_ad_init_checks(mfd);
-	if (ad_num >= 0)
-		ad = &mdata->ad_cfgs[ad_num];
+	ctl = mfd_to_ctl(mfd);
+	if ((ctl) && (ctl->mixer_left))
+		*ret_ad = &mdata->ad_cfgs[ctl->mixer_left->num];
 	else
-		ret = ad_num;
-	*ret_ad = ad;
+		ret = -EPERM;
+
 	return ret;
 }
 
@@ -4813,22 +4781,21 @@ static int pp_ad_invalidate_input(struct msm_fb_data_type *mfd)
 {
 	int ret;
 	struct mdss_ad_info *ad;
-	struct mdss_mdp_ctl *ctl;
 
 	if (!mfd) {
 		pr_err("Invalid mfd\n");
 		return -EINVAL;
 	}
-	ctl = mfd_to_ctl(mfd);
-	if (!ctl) {
-		pr_err("Invalid ctl\n");
-		return -EINVAL;
-	}
 
 	ret = mdss_mdp_get_ad(mfd, &ad);
-	if (ret || !ad) {
-		pr_err("Fail to get ad: ret = %d, ad = 0x%p\n", ret, ad);
-		return -EINVAL;
+	if (ret == -ENODEV || ret == -EPERM) {
+		pr_debug("AD not supported on device, disp num %d\n",
+			mfd->index);
+		return 0;
+	} else if (ret || !ad) {
+		pr_err("Failed to get ad info: ret = %d, ad = 0x%p.\n",
+			ret, ad);
+		return ret;
 	}
 	pr_debug("AD backlight level changed (%d), trigger update to AD\n",
 						mfd->ad_bl_level);
@@ -4855,8 +4822,15 @@ int mdss_mdp_ad_config(struct msm_fb_data_type *mfd,
 	u32 last_ops;
 
 	ret = mdss_mdp_get_ad(mfd, &ad);
-	if (ret)
+	if (ret == -ENODEV || ret == -EPERM) {
+		pr_err("AD not supported on device, disp num %d\n",
+			mfd->index);
 		return ret;
+	} else if (ret || !ad) {
+		pr_err("Failed to get ad info: ret = %d, ad = 0x%p.\n",
+			ret, ad);
+		return ret;
+	}
 	if (mfd->panel_info->type == WRITEBACK_PANEL) {
 		bl_mfd = mdss_get_mfd_from_index(0);
 		if (!bl_mfd)
@@ -4959,8 +4933,15 @@ int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
 	u32 bl;
 
 	ret = mdss_mdp_get_ad(mfd, &ad);
-	if (ret)
+	if (ret == -ENODEV || ret == -EPERM) {
+		pr_err("AD not supported on device, disp num %d\n",
+			mfd->index);
 		return ret;
+	} else if (ret || !ad) {
+		pr_err("Failed to get ad info: ret = %d, ad = 0x%p.\n",
+			ret, ad);
+		return ret;
+	}
 
 	mutex_lock(&ad->lock);
 	if ((!PP_AD_STATE_IS_INITCFG(ad->state) &&
@@ -5285,10 +5266,14 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 	u32 bypass = MDSS_PP_AD_BYPASS_DEF, bl;
 
 	ret = mdss_mdp_get_ad(mfd, &ad);
-	if (ret) {
-		ret = -EINVAL;
-		pr_debug("failed to get ad_info, err = %d\n", ret);
-		goto exit;
+	if (ret == -ENODEV || ret == -EPERM) {
+		pr_debug("AD not supported on device, disp num %d\n",
+			mfd->index);
+		return 0;
+	} else if (ret || !ad) {
+		pr_err("Failed to get ad info: ret = %d, ad = 0x%p.\n",
+			ret, ad);
+		return ret;
 	}
 	if (mfd->panel_info->type == WRITEBACK_PANEL) {
 		bl_mfd = mdss_get_mfd_from_index(0);
@@ -6450,4 +6435,32 @@ void mdss_mdp_free_layer_pp_info(struct mdp_input_layer *layer)
 	kfree(pp_info->pa_v2_cfg_data.cfg_payload);
 	kfree(pp_info->pcc_cfg_data.cfg_payload);
 	kfree(pp_info);
+}
+
+int mdss_mdp_mfd_valid_dspp(struct msm_fb_data_type *mfd)
+{
+	struct mdss_mdp_ctl *ctl = NULL;
+	int valid_dspp = false;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	ctl = mfd_to_ctl(mfd);
+	valid_dspp = (ctl) && (ctl->mixer_left) &&
+			(ctl->mixer_left->num < mdata->ndspp);
+	if ((ctl) && (ctl->mixer_right))
+		valid_dspp &= (ctl->mixer_right->num < mdata->ndspp);
+	return valid_dspp;
+}
+
+static int mdss_mdp_mfd_valid_ad(struct msm_fb_data_type *mfd)
+{
+	struct mdss_mdp_ctl *ctl = NULL;
+	int valid_ad = false;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	ctl = mfd_to_ctl(mfd);
+	valid_ad = (ctl) && (ctl->mixer_left) &&
+			(ctl->mixer_left->num < mdata->nad_cfgs);
+	if ((ctl) && (ctl->mixer_right))
+		valid_ad &= (ctl->mixer_right->num < mdata->nad_cfgs);
+	return valid_ad;
 }
