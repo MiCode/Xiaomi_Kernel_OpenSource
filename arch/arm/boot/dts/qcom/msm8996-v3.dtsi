@@ -155,6 +155,15 @@
 			qcom,bus-min = <0>;
 			qcom,bus-max = <0>;
 		};
+
+	};
+};
+
+&soc {
+	l2-pmu {
+		compatible = "qcom,qcom-l2cache-pmu";
+		interrupts = <0 0 1>, <0 8 1>;
+		qcom,cpu-affinity = <0>, <2>;
 	};
 };
 
