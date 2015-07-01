@@ -1052,4 +1052,5 @@ int ufshcd_change_power_mode(struct ufs_hba *hba,
 			     struct ufs_pa_layer_attr *pwr_mode);
 void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba,
 		int result);
+u32 ufshcd_get_local_unipro_ver(struct ufs_hba *hba);
 #endif /* End of Header */
