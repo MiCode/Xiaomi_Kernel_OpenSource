@@ -1294,6 +1294,15 @@ static int diag_ioctl_vote_real_time(unsigned long ioarg)
 			sizeof(struct real_time_vote_t)))
 		return -EFAULT;
 
+	if (vote.proc > DIAG_PROC_MEMORY_DEVICE ||
+		vote.real_time_vote > MODE_UNKNOWN ||
+		vote.client_id < 0) {
+		pr_err("diag: %s, invalid params, proc: %d, vote: %d, client_id: %d\n",
+			__func__, vote.proc, vote.real_time_vote,
+			vote.client_id);
+		return -EINVAL;
+	}
+
 	driver->real_time_update_busy++;
 	if (vote.proc == DIAG_PROC_DCI) {
 		dci_client = diag_dci_get_client_entry(vote.client_id);
