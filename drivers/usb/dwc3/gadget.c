@@ -2968,17 +2968,6 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 
 		reg = dwc3_readl(dwc->regs, DWC3_DCTL);
 		reg &= ~(DWC3_DCTL_HIRD_THRES_MASK | DWC3_DCTL_L1_HIBER_EN);
-		reg |= DWC3_DCTL_HIRD_THRES(dwc->hird_thresh);
-
-		/*
-		 * If USB2.0 LPM ECN Errata is enabled in DWC Core then set
-		 * LPM_NYET_THRESH.
-		 */
-		if (dwc->revision >= DWC3_REVISION_240A &&
-					dwc->lpm_nyet_thresh) {
-			reg &= ~DWC3_DCTL_LPM_NYET_THRES_MASK;
-			reg |= DWC3_DCTL_LPM_NYET_THRES(dwc->lpm_nyet_thresh);
-		}
 
 		reg |= DWC3_DCTL_HIRD_THRES(dwc->hird_threshold);
 

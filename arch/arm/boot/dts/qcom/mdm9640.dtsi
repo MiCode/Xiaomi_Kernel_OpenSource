@@ -653,8 +653,9 @@
 			snps,nominal-elastic-buffer;
 			snps,hsphy-auto-suspend-disable;
 			snps,ssphy-auto-suspend-disable;
-			snps,hird_thresh = <0x7>;
-			snps,lpm-nyet-thresh = <0x8>;
+			snps,has-lpm-erratum;
+			snps,lpm-nyet-threshold = /bits/ 8 <0x8>;
+			snps,hird-threshold = /bits/ 8 <0x7>;
 			snps,bus-suspend-enable;
 			snps,usb3-u1u2-disable;
 		};
