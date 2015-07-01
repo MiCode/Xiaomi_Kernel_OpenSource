@@ -189,34 +189,53 @@ msm_slim_sps_mem_free(struct msm_slim_ctrl *dev, struct sps_mem_buffer *mem)
 	mem->phys_base = 0;
 }
 
-void msm_hw_set_port(struct msm_slim_ctrl *dev, u8 port_b, u8 pn)
+void msm_hw_set_port(struct msm_slim_ctrl *dev, u8 pipenum, u8 portnum)
 {
 	struct slim_controller *ctrl;
 	struct slim_ch *chan;
 	struct msm_slim_pshpull_parm *parm;
-	u32 set_cfg = DEF_WATERMARK | DEF_ALIGN | DEF_PACK | ENABLE_PORT;
+	u32 set_cfg = 0;
+	struct slim_port_cfg cfg = dev->ctrl.ports[portnum].cfg;
 
 	if (!dev) {
 		pr_err("%s:Dev node is null\n", __func__);
 		return;
 	}
-	if (pn >= dev->port_nums) {
+	if (portnum >= dev->port_nums) {
 		pr_err("%s:Invalid port\n", __func__);
 		return;
 	}
 	ctrl = &dev->ctrl;
-	chan = ctrl->ports[pn].ch;
-	parm = &dev->pipes[pn].psh_pull;
-	writel_relaxed(set_cfg, PGD_PORT(PGD_PORT_CFGn, port_b, dev->ver));
-	writel_relaxed(DEF_BLKSZ, PGD_PORT(PGD_PORT_BLKn, port_b, dev->ver));
-	writel_relaxed(DEF_TRANSZ, PGD_PORT(PGD_PORT_TRANn, port_b, dev->ver));
+	chan = ctrl->ports[portnum].ch;
+	parm = &dev->pipes[portnum].psh_pull;
+
+	if (cfg.watermark)
+		set_cfg = (cfg.watermark << 1);
+	else
+		set_cfg = DEF_WATERMARK;
+
+	if (cfg.port_opts & SLIM_OPT_NO_PACK)
+		set_cfg |= DEF_NO_PACK;
+	else
+		set_cfg |= DEF_PACK;
+
+	if (cfg.port_opts & SLIM_OPT_ALIGN_MSB)
+		set_cfg |= DEF_ALIGN_MSB;
+	else
+		set_cfg |= DEF_ALIGN_LSB;
+
+	set_cfg |= ENABLE_PORT;
+
+	writel_relaxed(set_cfg, PGD_PORT(PGD_PORT_CFGn, pipenum, dev->ver));
+	writel_relaxed(DEF_BLKSZ, PGD_PORT(PGD_PORT_BLKn, pipenum, dev->ver));
+	writel_relaxed(DEF_TRANSZ, PGD_PORT(PGD_PORT_TRANn, pipenum, dev->ver));
 
 	if (chan->prot == SLIM_PUSH || chan->prot == SLIM_PULL) {
 		set_cfg = 0;
 		set_cfg |= ((0xFFFF & parm->num_samples)<<16);
 		set_cfg |= (0xFFFF & parm->rpt_period);
 		writel_relaxed(set_cfg, PGD_PORT(PGD_PORT_PSHPLLn,
-							port_b, dev->ver));
+							pipenum, dev->ver));
 	}
 	/* Make sure that port registers are updated before returning */
 	mb();
