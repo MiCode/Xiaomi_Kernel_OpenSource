@@ -972,6 +972,11 @@ static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 	return 0;
 }
 
+static bool msm_iommu_capable(enum iommu_cap cap)
+{
+	return false;
+}
+
 void msm_iommu_check_scm_call_avail(void)
 {
 	is_secure = scm_is_call_available(SCM_SVC_MP, IOMMU_SECURE_CFG);
@@ -998,6 +1003,11 @@ int is_vfe_secure(void)
 	return secure_camera_enabled;
 }
 
+static int msm_iommu_dma_supported(struct iommu_domain *domain,
+				  struct device *dev, u64 mask)
+{
+	return ((1ULL << 32) - 1) < mask ? 0 : 1;
+}
 
 static struct iommu_ops msm_iommu_ops = {
 	.domain_init = msm_iommu_domain_init,
@@ -1010,7 +1020,9 @@ static struct iommu_ops msm_iommu_ops = {
 	.map_sg = msm_iommu_map_sg,
 	.unmap_range = msm_iommu_unmap_range,
 	.iova_to_phys = msm_iommu_iova_to_phys,
+	.capable = msm_iommu_capable,
 	.pgsize_bitmap = MSM_IOMMU_PGSIZES,
+	.dma_supported = msm_iommu_dma_supported,
 };
 
 static int __init msm_iommu_sec_init(void)

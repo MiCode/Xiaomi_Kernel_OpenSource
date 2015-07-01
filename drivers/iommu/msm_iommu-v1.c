@@ -1188,6 +1188,11 @@ fail:
 	return ret;
 }
 
+static bool msm_iommu_capable(enum iommu_cap cap)
+{
+	return false;
+}
+
 #ifdef CONFIG_IOMMU_LPAE
 static inline void print_ctx_mem_attr_regs(struct msm_iommu_context_reg regs[])
 {
@@ -1543,6 +1548,12 @@ static int msm_iommu_domain_get_attr(struct iommu_domain *domain,
 	return 0;
 }
 
+static int msm_iommu_dma_supported(struct iommu_domain *domain,
+				  struct device *dev, u64 mask)
+{
+	return ((1ULL << 32) - 1) < mask ? 0 : 1;
+}
+
 static struct iommu_ops msm_iommu_ops = {
 	.domain_init = msm_iommu_domain_init,
 	.domain_destroy = msm_iommu_domain_destroy,
@@ -1554,9 +1565,11 @@ static struct iommu_ops msm_iommu_ops = {
 	.unmap_range = msm_iommu_unmap_range,
 	.map_sg = msm_iommu_map_sg,
 	.iova_to_phys = msm_iommu_iova_to_phys,
+	.capable = msm_iommu_capable,
 	.pgsize_bitmap = MSM_IOMMU_PGSIZES,
 	.domain_set_attr = msm_iommu_domain_set_attr,
 	.domain_get_attr = msm_iommu_domain_get_attr,
+	.dma_supported = msm_iommu_dma_supported,
 };
 
 static int __init msm_iommu_init(void)
