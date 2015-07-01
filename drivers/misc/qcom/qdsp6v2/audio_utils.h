@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,6 +89,7 @@ struct q6audio_in {
 	int				buf_alloc;
 	uint16_t			min_frame_size;
 	uint16_t			max_frames_per_buf;
+	bool				reset_event;
 	long (*enc_ioctl)(struct file *, unsigned int, unsigned long);
 	long (*enc_compat_ioctl)(struct file *, unsigned int, unsigned long);
 };

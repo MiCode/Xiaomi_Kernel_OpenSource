@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,6 +56,7 @@ void q6asm_in_cb(uint32_t opcode, uint32_t token,
 		audio->enabled = 0;
 		audio->stopped = 1;
 		audio->event_abort = 1;
+		audio->reset_event = true;
 		wake_up(&audio->read_wait);
 		wake_up(&audio->write_wait);
 		break;
