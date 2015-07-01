@@ -966,6 +966,7 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 				__func__, ret);
 			return;
 		}
+		gadget->bam2bam_func_enabled = true;
 
 		spin_lock_irqsave(&port->port_lock, flags);
 		if (port->last_event ==  U_BAM_DATA_DISCONNECT_E) {

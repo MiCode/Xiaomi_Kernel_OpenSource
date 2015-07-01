@@ -3513,6 +3513,26 @@ bool msm_bam_usb_lpm_ok(enum usb_ctrl bam)
 }
 EXPORT_SYMBOL(msm_bam_usb_lpm_ok);
 
+bool msm_usb_bam_enable(enum usb_ctrl bam, bool bam_enable)
+{
+	struct msm_usb_bam_platform_data *pdata;
+
+	if (!ctx.usb_bam_pdev)
+		return 0;
+
+	pdata = ctx.usb_bam_pdev->dev.platform_data;
+	if ((bam != CI_CTRL) || !(bam_enable ||
+					pdata->enable_hsusb_bam_on_boot))
+		return 0;
+
+	msm_hw_bam_disable(1);
+	sps_device_reset(ctx.h_bam[bam]);
+	msm_hw_bam_disable(0);
+
+	return 0;
+}
+EXPORT_SYMBOL(msm_usb_bam_enable);
+
 /**
  * msm_bam_hsic_host_pipe_empty - Check all HSIC host BAM pipe state
  *
