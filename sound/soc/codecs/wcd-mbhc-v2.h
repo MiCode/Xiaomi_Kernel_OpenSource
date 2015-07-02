@@ -357,6 +357,8 @@ struct wcd_mbhc {
 	struct notifier_block nblock;
 
 	struct wcd_mbhc_register *wcd_mbhc_regs;
+
+	struct completion btn_press_compl;
 };
 #define WCD_MBHC_CAL_SIZE(buttons, rload) ( \
 	sizeof(struct wcd_mbhc_general_cfg) + \
