@@ -20,10 +20,6 @@ config KASAN
 	  See KASAN_SANITIZE_ALL for selectively compiling files and directories
 	  with this compiler feature enabled.
 
-config KASAN_SHADOW_OFFSET
-	hex
-	default 0xdffffc0000000000 if X86_64
-
 choice
 	prompt "Instrumentation type"
 	depends on KASAN
