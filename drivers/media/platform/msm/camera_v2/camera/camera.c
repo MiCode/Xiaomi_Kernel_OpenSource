@@ -681,6 +681,7 @@ static int camera_v4l2_close(struct file *filep)
 
 		/* This should take care of both normal close
 		 * and application crashes */
+		camera_v4l2_vb2_q_release(filep);
 		msm_destroy_session(pvdev->vdev->num);
 		pm_relax(&pvdev->vdev->dev);
 	} else {
@@ -692,10 +693,10 @@ static int camera_v4l2_close(struct file *filep)
 		msm_delete_command_ack_q(pvdev->vdev->num,
 			sp->stream_id);
 
+		camera_v4l2_vb2_q_release(filep);
 		msm_delete_stream(pvdev->vdev->num, sp->stream_id);
 	}
 
-	camera_v4l2_vb2_q_release(filep);
 	camera_v4l2_fh_release(filep);
 
 	return rc;
