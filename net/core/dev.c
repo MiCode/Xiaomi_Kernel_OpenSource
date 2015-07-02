@@ -3077,8 +3077,7 @@ static void rps_trigger_softirq(void *data)
 {
 	struct softnet_data *sd = data;
 
-	if (!test_bit(NAPI_STATE_SCHED, &sd->backlog.state))
-		____napi_schedule(sd, &sd->backlog);
+	____napi_schedule(sd, &sd->backlog);
 	sd->received_rps++;
 }
 
