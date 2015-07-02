@@ -39,6 +39,32 @@ enum {
 	MDSS_PLL_TARGET_8996,
 };
 
+#define DFPS_MAX_NUM_OF_FRAME_RATES 10
+
+struct dfps_panel_info {
+	uint32_t enabled;
+	uint32_t frame_rate_cnt;
+	uint32_t frame_rate[DFPS_MAX_NUM_OF_FRAME_RATES]; /* hz */
+};
+
+struct dfps_pll_codes {
+	uint32_t pll_codes_1;
+	uint32_t pll_codes_2;
+};
+
+struct dfps_codes_info {
+	uint32_t is_valid;
+	uint32_t frame_rate;	/* hz */
+	uint32_t clk_rate;	/* hz */
+	struct dfps_pll_codes pll_codes;
+};
+
+struct dfps_info {
+	struct dfps_panel_info panel_dfps;
+	struct dfps_codes_info codes_dfps[DFPS_MAX_NUM_OF_FRAME_RATES];
+	void *dfps_fb_base;
+};
+
 struct mdss_pll_resources {
 
 	/* Pll specific resources like GPIO, power supply, clocks, etc*/
@@ -136,6 +162,12 @@ struct mdss_pll_resources {
 	int		revision;
 
 	void *priv;
+
+	/*
+	 * dynamic refresh pll codes stored in this structure
+	 */
+	struct dfps_info *dfps;
+
 };
 
 struct mdss_pll_vco_calc {
