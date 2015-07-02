@@ -657,7 +657,7 @@ static const struct snd_soc_dapm_widget wsa881x_dapm_widgets[] = {
 	SND_SOC_DAPM_VIRT_MUX("WSA_RDAC", SND_SOC_NOPM, 0, 0,
 		rdac_mux),
 
-	SND_SOC_DAPM_PGA_E("WSA_SPKR PGA", SND_SOC_NOPM, 0, 0, NULL, 0,
+	SND_SOC_DAPM_PGA_S("WSA_SPKR PGA", 1, SND_SOC_NOPM, 0, 0,
 			wsa881x_spkr_pa_event,
 			SND_SOC_DAPM_POST_PMU |	SND_SOC_DAPM_PRE_PMD),
 
