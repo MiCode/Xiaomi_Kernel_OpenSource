@@ -1243,7 +1243,7 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 		buff_req = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
 		if (buff_req) {
 			*num_buffers = buff_req->buffer_count_actual =
-			max(*num_buffers, buff_req->buffer_count_actual);
+			max(*num_buffers, buff_req->buffer_count_min);
 		}
 
 		if (*num_buffers < MIN_NUM_CAPTURE_BUFFERS ||
@@ -1288,6 +1288,8 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 			}
 		}
 
+		dprintk(VIDC_DBG, "actual output buffer count set to fw = %d\n",
+				*num_buffers);
 		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
 		new_buf_count.buffer_type = HAL_BUFFER_OUTPUT;
 		new_buf_count.buffer_count_actual = *num_buffers;
@@ -1304,11 +1306,14 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 
 		*num_buffers = inst->buff_req.buffer[0].buffer_count_actual =
 			max(*num_buffers, inst->buff_req.buffer[0].
-				buffer_count_actual);
+				buffer_count_min);
 
 		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
 		new_buf_count.buffer_type = HAL_BUFFER_INPUT;
 		new_buf_count.buffer_count_actual = *num_buffers;
+
+		dprintk(VIDC_DBG, "actual input buffer count set to fw = %d\n",
+				*num_buffers);
 
 		ctrl = v4l2_ctrl_find(&inst->ctrl_handler,
 			V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA);
