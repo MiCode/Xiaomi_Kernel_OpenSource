@@ -20,6 +20,7 @@
 #include <linux/sched.h>
 #include <linux/msm_audio_ion.h>
 #include <linux/delay.h>
+#include <linux/ratelimit.h>
 #include <sound/apr_audio-v2.h>
 #include <sound/q6afe-v2.h>
 #include <sound/q6audio-v2.h>
@@ -2900,6 +2901,7 @@ int afe_cmd_memory_map(phys_addr_t dma_addr_p, u32 dma_buf_sz)
 	struct afe_service_cmd_shared_mem_map_regions *mregion = NULL;
 	struct  afe_service_shared_map_region_payload *mregion_pl = NULL;
 	int index = 0;
+	static DEFINE_RATELIMIT_STATE(rl, HZ/2, 1);
 
 	pr_debug("%s:\n", __func__);
 
@@ -2908,7 +2910,9 @@ int afe_cmd_memory_map(phys_addr_t dma_addr_p, u32 dma_buf_sz)
 					0xFFFFFFFF, &this_afe);
 		pr_debug("%s: Register AFE\n", __func__);
 		if (this_afe.apr == NULL) {
-			pr_err("%s: Unable to register AFE\n", __func__);
+			if (__ratelimit(&rl))
+				pr_err("%s: Unable to register AFE\n",
+					__func__);
 			ret = -ENODEV;
 			return ret;
 		}
@@ -2955,8 +2959,9 @@ int afe_cmd_memory_map(phys_addr_t dma_addr_p, u32 dma_buf_sz)
 	this_afe.mmap_handle = 0;
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) mmap_region_cmd);
 	if (ret < 0) {
-		pr_err("%s: AFE memory map cmd failed %d\n",
-		       __func__, ret);
+		if (__ratelimit(&rl))
+			pr_err("%s: AFE memory map cmd failed %d\n",
+				__func__, ret);
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
@@ -2970,9 +2975,10 @@ int afe_cmd_memory_map(phys_addr_t dma_addr_p, u32 dma_buf_sz)
 		goto fail_cmd;
 	}
 	if (atomic_read(&this_afe.status) > 0) {
-		pr_err("%s: config cmd failed [%s]\n",
-			__func__, adsp_err_get_err_str(
-			atomic_read(&this_afe.status)));
+		if (__ratelimit(&rl))
+			pr_err("%s: config cmd failed [%s]\n",
+				__func__, adsp_err_get_err_str(
+				atomic_read(&this_afe.status)));
 		ret = adsp_err_get_lnx_err_code(
 				atomic_read(&this_afe.status));
 		goto fail_cmd;
@@ -2982,7 +2988,8 @@ int afe_cmd_memory_map(phys_addr_t dma_addr_p, u32 dma_buf_sz)
 	return 0;
 fail_cmd:
 	kfree(mmap_region_cmd);
-	pr_err("%s: fail_cmd\n", __func__);
+	if (__ratelimit(&rl))
+		pr_err("%s: fail_cmd\n", __func__);
 	return ret;
 }
 
@@ -4482,6 +4489,7 @@ static int afe_set_cal(int32_t cal_type, size_t data_size,
 {
 	int				ret = 0;
 	int				cal_index;
+	static DEFINE_RATELIMIT_STATE(rl, HZ/2, 1);
 	pr_debug("%s:\n", __func__);
 
 	cal_index = get_cal_type_index(cal_type);
@@ -4495,8 +4503,9 @@ static int afe_set_cal(int32_t cal_type, size_t data_size,
 	ret = cal_utils_set_cal(data_size, data,
 		this_afe.cal_data[cal_index], 0, NULL);
 	if (ret < 0) {
-		pr_err("%s: cal_utils_set_cal failed, ret = %d, cal type = %d!\n",
-			__func__, ret, cal_type);
+		if (__ratelimit(&rl))
+			pr_err("%s: cal_utils_set_cal failed, ret = %d, cal type = %d!\n",
+				__func__, ret, cal_type);
 		ret = -EINVAL;
 		goto done;
 	}
@@ -4687,6 +4696,7 @@ static int afe_map_cal_data(int32_t cal_type,
 {
 	int ret = 0;
 	int cal_index;
+	static DEFINE_RATELIMIT_STATE(rl, HZ/2, 1);
 	pr_debug("%s:\n", __func__);
 
 	cal_index = get_cal_type_index(cal_type);
@@ -4703,9 +4713,10 @@ static int afe_map_cal_data(int32_t cal_type,
 			cal_block->map_data.map_size);
 	atomic_set(&this_afe.mem_map_cal_index, -1);
 	if (ret < 0) {
-		pr_err("%s: mmap did not work! size = %zd ret %d\n",
-			__func__,
-			cal_block->map_data.map_size, ret);
+		if (__ratelimit(&rl))
+			pr_err("%s: mmap did not work! size = %zd ret %d\n",
+				__func__,
+				cal_block->map_data.map_size, ret);
 		pr_debug("%s: mmap did not work! addr = 0x%pa, size = %zd\n",
 			__func__,
 			&cal_block->cal_data.paddr,

@@ -35,6 +35,7 @@
 #include <linux/qdsp6v2/apr.h>
 #include <linux/qdsp6v2/apr_tal.h>
 #include <linux/qdsp6v2/dsp_debug.h>
+#include <linux/ratelimit.h>
 
 #define SCM_Q6_NMI_CMD 0x1
 
@@ -288,19 +289,22 @@ int apr_send_pkt(void *handle, uint32_t *buf)
 	uint16_t client_id;
 	uint16_t w_len;
 	unsigned long flags;
+	static DEFINE_RATELIMIT_STATE(rl, HZ/2, 1);
 
 	if (!handle || !buf) {
 		pr_err("APR: Wrong parameters\n");
 		return -EINVAL;
 	}
 	if (svc->need_reset) {
-		pr_err("apr: send_pkt service need reset\n");
+		if (__ratelimit(&rl))
+			pr_err("apr: send_pkt service need reset\n");
 		return -ENETRESET;
 	}
 
 	if ((svc->dest_id == APR_DEST_QDSP6) &&
 	    (apr_get_q6_state() != APR_SUBSYS_LOADED)) {
-		pr_err("%s: Still dsp is not Up\n", __func__);
+		if (__ratelimit(&rl))
+			pr_err("%s: Still dsp is not Up\n", __func__);
 		return -ENETRESET;
 	} else if ((svc->dest_id == APR_DEST_MODEM) &&
 		   (apr_get_modem_state() == APR_SUBSYS_DOWN)) {
@@ -345,6 +349,7 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 	int temp_port = 0;
 	struct apr_svc *svc = NULL;
 	int rc = 0;
+	static DEFINE_RATELIMIT_STATE(rl, HZ/2, 1);
 
 	if (!dest || !svc_name || !svc_fn)
 		return NULL;
@@ -365,7 +370,8 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 
 	if (dest_id == APR_DEST_QDSP6) {
 		if (apr_get_q6_state() != APR_SUBSYS_LOADED) {
-			pr_err("%s: adsp not up\n", __func__);
+			if (__ratelimit(&rl))
+				pr_err("%s: adsp not up\n", __func__);
 			return NULL;
 		}
 		pr_debug("%s: adsp Up\n", __func__);
