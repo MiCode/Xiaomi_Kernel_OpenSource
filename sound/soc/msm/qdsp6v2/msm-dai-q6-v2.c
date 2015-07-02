@@ -128,6 +128,15 @@ static const struct soc_enum mi2s_config_enum[] = {
 	SOC_ENUM_SINGLE_EXT(4, mi2s_format),
 };
 
+static const char *const sb_format[] = {
+	"UNPACKED",
+	"PACKED_16B",
+};
+
+static const struct soc_enum sb_config_enum[] = {
+	SOC_ENUM_SINGLE_EXT(2, sb_format),
+};
+
 static u16 msm_dai_q6_max_num_slot(int frame_rate)
 {
 	/* Max num of slots is bits per frame divided
@@ -1080,6 +1089,9 @@ static int msm_dai_q6_slim_bus_hw_params(struct snd_pcm_hw_params *params,
 	case SNDRV_PCM_FORMAT_S24_LE:
 		dai_data->port_config.slim_sch.bit_width = 24;
 		break;
+	case SNDRV_PCM_FORMAT_S32_LE:
+		dai_data->port_config.slim_sch.bit_width = 32;
+		break;
 	default:
 		pr_err("%s: format %d\n",
 			__func__, params_format(params));
@@ -1088,9 +1100,8 @@ static int msm_dai_q6_slim_bus_hw_params(struct snd_pcm_hw_params *params,
 
 	dai_data->port_config.slim_sch.sb_cfg_minor_version =
 				AFE_API_VERSION_SLIMBUS_CONFIG;
-	dai_data->port_config.slim_sch.data_format = 0;
-	dai_data->port_config.slim_sch.num_channels = dai_data->channels;
 	dai_data->port_config.slim_sch.sample_rate = dai_data->rate;
+	dai_data->port_config.slim_sch.num_channels = dai_data->channels;
 
 	dev_dbg(dai->dev, "%s:slimbus_dev_id[%hu] bit_wd[%hu] format[%hu]\n"
 		"num_channel %hu  shared_ch_mapping[0]  %hu\n"
@@ -1418,6 +1429,38 @@ static inline void msm_dai_q6_set_dai_id(struct snd_soc_dai *dai)
 	return;
 }
 
+static int msm_dai_q6_sb_format_put(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct msm_dai_q6_dai_data *dai_data = kcontrol->private_data;
+	int value = ucontrol->value.integer.value[0];
+
+	if (dai_data) {
+		dai_data->port_config.slim_sch.data_format = value;
+		pr_debug("%s: format = %d\n",  __func__, value);
+	}
+
+	return 0;
+}
+
+static int msm_dai_q6_sb_format_get(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct msm_dai_q6_dai_data *dai_data = kcontrol->private_data;
+
+	if (dai_data)
+		ucontrol->value.integer.value[0] =
+			dai_data->port_config.slim_sch.data_format;
+
+	return 0;
+}
+
+static const struct snd_kcontrol_new sb_config_controls[] = {
+	SOC_ENUM_EXT("SLIM_4_TX Format", sb_config_enum[0],
+		     msm_dai_q6_sb_format_get,
+		     msm_dai_q6_sb_format_put),
+};
+
 static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
 {
 	struct msm_dai_q6_dai_data *dai_data;
@@ -1443,6 +1486,15 @@ static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
 
 	msm_dai_q6_set_dai_id(dai);
 
+	if (dai->id == SLIMBUS_4_TX) {
+		rc = snd_ctl_add(dai->card->snd_card,
+				  snd_ctl_new1(&sb_config_controls[0],
+				  dai_data));
+		if (IS_ERR_VALUE(rc)) {
+			dev_err(dai->dev, "%s: err add TX format ctl DAI = %s\n",
+				__func__, dai->name);
+		}
+	}
 	rc = msm_dai_q6_dai_add_route(dai);
 	return rc;
 }
@@ -2180,7 +2232,8 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_tx_dai[] = {
 			SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000 |
 			SNDRV_PCM_RATE_192000,
 			.formats = SNDRV_PCM_FMTBIT_S16_LE |
-				   SNDRV_PCM_FMTBIT_S24_LE,
+				   SNDRV_PCM_FMTBIT_S24_LE |
+				   SNDRV_PCM_FMTBIT_S32_LE,
 			.channels_min = 2,
 			.channels_max = 4,
 			.rate_min = 8000,
