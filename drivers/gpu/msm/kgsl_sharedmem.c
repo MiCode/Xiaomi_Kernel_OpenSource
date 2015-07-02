@@ -417,7 +417,7 @@ static void kgsl_page_alloc_free(struct kgsl_memdesc *memdesc)
 	/* Secure buffers need to be unlocked before being freed */
 	if (memdesc->priv & KGSL_MEMDESC_TZ_LOCKED) {
 		int ret;
-		int dest_perms = PERM_READ | PERM_WRITE;
+		int dest_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
 		int source_vm = VMID_CP_PIXEL;
 		int dest_vm = VMID_HLOS;
 
