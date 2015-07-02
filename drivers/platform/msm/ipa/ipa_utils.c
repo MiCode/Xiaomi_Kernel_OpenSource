@@ -121,6 +121,8 @@ static const int ep_mapping[3][IPA_CLIENT_MAX] = {
 	[IPA_2_0][IPA_CLIENT_MHI_PROD]           = 18,
 	[IPA_2_0][IPA_CLIENT_Q6_LAN_PROD]        =  6,
 	[IPA_2_0][IPA_CLIENT_Q6_CMD_PROD]        =  7,
+	[IPA_2_0][IPA_CLIENT_Q6_DECOMP_PROD]     = -1,
+	[IPA_2_0][IPA_CLIENT_Q6_DECOMP2_PROD]    = -1,
 	[IPA_2_0][IPA_CLIENT_MEMCPY_DMA_SYNC_PROD]
 						 =  12,
 	[IPA_2_0][IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD]
@@ -157,6 +159,8 @@ static const int ep_mapping[3][IPA_CLIENT_MAX] = {
 	[IPA_2_0][IPA_CLIENT_Q6_LAN_CONS]        =  8,
 	[IPA_2_0][IPA_CLIENT_Q6_WAN_CONS]        =  9,
 	[IPA_2_0][IPA_CLIENT_Q6_DUN_CONS]        = 10,
+	[IPA_2_0][IPA_CLIENT_Q6_DECOMP_CONS]     = -1,
+	[IPA_2_0][IPA_CLIENT_Q6_DECOMP2_CONS]    = -1,
 	[IPA_2_0][IPA_CLIENT_MEMCPY_DMA_SYNC_CONS]
 						 =  13,
 	[IPA_2_0][IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS]
@@ -185,10 +189,15 @@ static const int ep_mapping[3][IPA_CLIENT_MAX] = {
 	[IPA_2_6L][IPA_CLIENT_APPS_LAN_WAN_PROD]  =  4,
 	[IPA_2_6L][IPA_CLIENT_APPS_CMD_PROD]      =  3,
 	[IPA_2_6L][IPA_CLIENT_ODU_PROD]           = -1,
+	[IPA_2_6L][IPA_CLIENT_MHI_PROD]           = -1,
 	[IPA_2_6L][IPA_CLIENT_Q6_LAN_PROD]        =  6,
 	[IPA_2_6L][IPA_CLIENT_Q6_CMD_PROD]        =  7,
 	[IPA_2_6L][IPA_CLIENT_Q6_DECOMP_PROD]     = 11,
 	[IPA_2_6L][IPA_CLIENT_Q6_DECOMP2_PROD]    = 13,
+	[IPA_2_6L][IPA_CLIENT_MEMCPY_DMA_SYNC_PROD]
+						 =  -1,
+	[IPA_2_6L][IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD]
+						 =  -1,
 
 	/* Only for test purpose */
 	[IPA_2_6L][IPA_CLIENT_TEST_PROD]          = 11,
@@ -218,12 +227,16 @@ static const int ep_mapping[3][IPA_CLIENT_MAX] = {
 	[IPA_2_6L][IPA_CLIENT_APPS_WAN_CONS]      =  5,
 	[IPA_2_6L][IPA_CLIENT_ODU_EMB_CONS]       = -1,
 	[IPA_2_6L][IPA_CLIENT_ODU_TETH_CONS]      = -1,
+	[IPA_2_6L][IPA_CLIENT_MHI_CONS]           = -1,
 	[IPA_2_6L][IPA_CLIENT_Q6_LAN_CONS]        =  8,
 	[IPA_2_6L][IPA_CLIENT_Q6_WAN_CONS]        =  9,
 	[IPA_2_6L][IPA_CLIENT_Q6_DUN_CONS]        = -1,
 	[IPA_2_6L][IPA_CLIENT_Q6_DECOMP_CONS]     = 12,
 	[IPA_2_6L][IPA_CLIENT_Q6_DECOMP2_CONS]    = 14,
-
+	[IPA_2_6L][IPA_CLIENT_MEMCPY_DMA_SYNC_CONS]
+						 =  -1,
+	[IPA_2_6L][IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS]
+						 =  -1,
 	/* Only for test purpose */
 	[IPA_2_6L][IPA_CLIENT_TEST_CONS]          = 15,
 	[IPA_2_6L][IPA_CLIENT_TEST1_CONS]         = 15,
@@ -4390,6 +4403,7 @@ int ipa_tag_process(struct ipa_desc desc[],
 	struct sk_buff *dummy_skb;
 	int res;
 	struct ipa_tag_completion *comp;
+	int ep_idx;
 
 	/* Not enough room for the required descriptors for the tag process */
 	if (IPA_TAG_MAX_DESC - descs_num < REQUIRED_TAG_PROCESS_DESCRIPTORS) {
@@ -4399,7 +4413,13 @@ int ipa_tag_process(struct ipa_desc desc[],
 		return -ENOMEM;
 	}
 
-	sys = ipa_ctx->ep[ipa_get_ep_mapping(IPA_CLIENT_APPS_CMD_PROD)].sys;
+	ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_CMD_PROD);
+	if (-1 == ep_idx) {
+		IPAERR("Client %u is not mapped\n",
+			IPA_CLIENT_APPS_CMD_PROD);
+		return -EFAULT;
+	}
+	sys = ipa_ctx->ep[ep_idx].sys;
 
 	tag_desc = kzalloc(sizeof(*tag_desc) * IPA_TAG_MAX_DESC, GFP_KERNEL);
 	if (!tag_desc) {
