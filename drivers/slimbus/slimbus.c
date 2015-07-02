@@ -686,13 +686,14 @@ EXPORT_SYMBOL(slim_framer_booted);
 void slim_msg_response(struct slim_controller *ctrl, u8 *reply, u8 tid, u8 len)
 {
 	int i;
+	unsigned long flags;
 	bool async;
 	struct slim_msg_txn *txn;
 
-	spin_lock(&ctrl->txn_lock);
+	spin_lock_irqsave(&ctrl->txn_lock, flags);
 	txn = ctrl->txnt[tid];
 	if (txn == NULL || txn->rbuf == NULL) {
-		spin_unlock(&ctrl->txn_lock);
+		spin_unlock_irqrestore(&ctrl->txn_lock, flags);
 		if (txn == NULL)
 			dev_err(&ctrl->dev, "Got response to invalid TID:%d, len:%d",
 				tid, len);
@@ -706,7 +707,7 @@ void slim_msg_response(struct slim_controller *ctrl, u8 *reply, u8 tid, u8 len)
 	if (txn->comp)
 		complete(txn->comp);
 	ctrl->txnt[tid] = NULL;
-	spin_unlock(&ctrl->txn_lock);
+	spin_unlock_irqrestore(&ctrl->txn_lock, flags);
 	if (async)
 		kfree(txn);
 }
@@ -717,22 +718,24 @@ static int slim_processtxn(struct slim_controller *ctrl,
 {
 	u8 i = 0;
 	int ret = 0;
+	unsigned long flags;
+
 	if (need_tid) {
-		spin_lock(&ctrl->txn_lock);
+		spin_lock_irqsave(&ctrl->txn_lock, flags);
 		for (i = 0; i < ctrl->last_tid; i++) {
 			if (ctrl->txnt[i] == NULL)
 				break;
 		}
 		if (i >= ctrl->last_tid) {
 			if (ctrl->last_tid == 255) {
-				spin_unlock(&ctrl->txn_lock);
+				spin_unlock_irqrestore(&ctrl->txn_lock, flags);
 				return -ENOMEM;
 			}
 			ctrl->last_tid++;
 		}
 		ctrl->txnt[i] = txn;
 		txn->tid = i;
-		spin_unlock(&ctrl->txn_lock);
+		spin_unlock_irqrestore(&ctrl->txn_lock, flags);
 	}
 
 	ret = ctrl->xfer_msg(ctrl, txn);
@@ -1052,6 +1055,8 @@ int slim_xfer_msg(struct slim_controller *ctrl, struct slim_device *sbdev,
 	if (wbuf)
 		txn->rl += len;
 	if (rbuf) {
+		unsigned long flags;
+
 		txn->rl++;
 		ret = slim_processtxn(ctrl, txn, true);
 
@@ -1060,19 +1065,19 @@ int slim_xfer_msg(struct slim_controller *ctrl, struct slim_device *sbdev,
 			ret = wait_for_completion_timeout(&complete, HZ);
 			if (!ret) {
 				dev_err(&ctrl->dev, "slimbus Read timed out");
-				spin_lock(&ctrl->txn_lock);
+				spin_lock_irqsave(&ctrl->txn_lock, flags);
 				/* Invalidate the transaction */
 				ctrl->txnt[txn->tid] = NULL;
-				spin_unlock(&ctrl->txn_lock);
+				spin_unlock_irqrestore(&ctrl->txn_lock, flags);
 				ret = -ETIMEDOUT;
 			} else
 				ret = 0;
 		} else if (ret < 0 && !msg->comp) {
 			dev_err(&ctrl->dev, "slimbus Read error");
-			spin_lock(&ctrl->txn_lock);
+			spin_lock_irqsave(&ctrl->txn_lock, flags);
 			/* Invalidate the transaction */
 			ctrl->txnt[txn->tid] = NULL;
-			spin_unlock(&ctrl->txn_lock);
+			spin_unlock_irqrestore(&ctrl->txn_lock, flags);
 		}
 
 	} else
