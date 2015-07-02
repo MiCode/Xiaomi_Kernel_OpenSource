@@ -721,7 +721,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			if (led->flash_node[3].flash_on)
 				flash_node->trigger |= FLASH_LED1_TRIGGER;
 
-			val = (u8)(flash_node[3].prgm_current *
+			val = (u8)(led->flash_node[3].prgm_current *
 						FLASH_TORCH_MAX_LEVEL
 					/ led->flash_node[3].max_current);
 			rc = qpnp_led_masked_write(led->spmi_dev,
