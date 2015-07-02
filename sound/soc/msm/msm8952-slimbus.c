@@ -59,6 +59,7 @@
 #define SEC_MI2S_ID     (1 << 1)
 #define TER_MI2S_ID     (1 << 2)
 #define QUAT_MI2S_ID    (1 << 3)
+#define QUIN_MI2S_ID    (1 << 4)
 
 #define ADSP_STATE_READY_TIMEOUT_MS 50
 #define HS_STARTWORK_TIMEOUT        4000
@@ -91,8 +92,6 @@ static int mi2s_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 
 static int msm_proxy_rx_ch = 2;
 static void *adsp_state_notifier;
-
-atomic_t quat_mi2s_clk_ref;
 
 static int msm8952_enable_codec_mclk(struct snd_soc_codec *codec, int enable,
 					bool dapm);
@@ -285,9 +284,11 @@ struct msm8952_asoc_mach_data {
 	struct delayed_work hs_detect_dwork;
 	struct snd_soc_codec *codec;
 	struct msm8952_codec msm8952_codec_fn;
+	struct ext_intf_cfg clk_ref;
 	void __iomem *vaddr_gpio_mux_spkr_ctl;
 	void __iomem *vaddr_gpio_mux_mic_ctl;
 	void __iomem *vaddr_gpio_mux_pcm_ctl;
+	void __iomem *vaddr_gpio_mux_quin_ctl;
 };
 
 static inline int param_is_mask(int p)
@@ -890,6 +891,22 @@ int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+int msm_quin_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+				struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_RATE);
+
+	struct snd_interval *channels = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	pr_debug("%s()\n", __func__);
+	rate->min = rate->max = 48000;
+	channels->min = channels->max = 2;
+
+	return 0;
+}
+
 int msm_btsco_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					struct snd_pcm_hw_params *params)
 {
@@ -1372,6 +1389,55 @@ static int quat_mi2s_clk_ctl(struct snd_pcm_substream *substream, bool enable)
 	return ret;
 }
 
+static int quin_mi2s_sclk_ctl(struct snd_pcm_substream *substream, bool enable)
+{
+	int ret = 0;
+
+	if (enable) {
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			if (mi2s_rx_bit_format == SNDRV_PCM_FORMAT_S24_LE)
+				mi2s_rx_clk.clk_val1 =
+					Q6AFE_LPASS_IBIT_CLK_3_P072_MHZ;
+			else
+				mi2s_rx_clk.clk_val1 =
+					Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
+			ret = afe_set_lpass_clock(
+					AFE_PORT_ID_QUINARY_MI2S_RX,
+					&mi2s_rx_clk);
+		} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+			mi2s_tx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ;
+			ret = afe_set_lpass_clock(
+					AFE_PORT_ID_QUINARY_MI2S_TX,
+					&mi2s_tx_clk);
+		} else {
+			pr_err("%s:Not valid substream.\n", __func__);
+		}
+
+		if (ret < 0)
+			pr_err("%s:afe_set_lpass_clock failed\n", __func__);
+
+	} else {
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			mi2s_rx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_DISABLE;
+			ret = afe_set_lpass_clock(
+					AFE_PORT_ID_QUINARY_MI2S_RX,
+					&mi2s_rx_clk);
+		} else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+			mi2s_tx_clk.clk_val1 = Q6AFE_LPASS_IBIT_CLK_DISABLE;
+			ret = afe_set_lpass_clock(
+					AFE_PORT_ID_QUINARY_MI2S_TX,
+					&mi2s_tx_clk);
+		} else
+			pr_err("%s:Not valid substream %d\n", __func__,
+					substream->stream);
+
+		if (ret < 0)
+				pr_err("%s:afe_set_lpass_clock failed ret=%d\n",
+					__func__, ret);
+	}
+	return ret;
+}
+
 static int  msm8952_adsp_state_callback(struct notifier_block *nb,
 		unsigned long value, void *priv)
 {
@@ -1405,8 +1471,8 @@ void msm_quat_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 		ret = quat_mi2s_clk_ctl(substream, false);
 		if (ret < 0)
 			pr_err("%s:clock disable failed\n", __func__);
-		if (atomic_read(&quat_mi2s_clk_ref) > 0)
-			atomic_dec(&quat_mi2s_clk_ref);
+		if (atomic_read(&pdata->clk_ref.quat_mi2s_clk_ref) > 0)
+			atomic_dec(&pdata->clk_ref.quat_mi2s_clk_ref);
 		ret = msm_gpioset_suspend(CLIENT_WCD_EXT, "quat_i2s");
 		if (ret < 0) {
 			pr_err("%s: failed to disable quat gpio's state\n",
@@ -1450,7 +1516,7 @@ int msm_quat_mi2s_snd_startup(struct snd_pcm_substream *substream)
 		pr_err("%s: error codec type\n", __func__);
 	}
 
-	if (atomic_inc_return(&quat_mi2s_clk_ref) == 1) {
+	if (atomic_inc_return(&pdata->clk_ref.quat_mi2s_clk_ref) == 1) {
 		ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
 		if (ret < 0)
 			pr_err("%s: set fmt cpu dai failed\n", __func__);
@@ -1462,6 +1528,71 @@ err:
 	if (ret < 0)
 		pr_err("%s:failed to disable sclk\n", __func__);
 	return ret;
+}
+
+int msm_quin_mi2s_snd_startup(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct msm8952_asoc_mach_data *pdata =
+			snd_soc_card_get_drvdata(card);
+	int ret = 0, val = 0;
+
+	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
+				substream->name, substream->stream);
+	if (pdata->vaddr_gpio_mux_quin_ctl) {
+		val = ioread32(pdata->vaddr_gpio_mux_quin_ctl);
+		val = val | 0x00000001;
+		iowrite32(val, pdata->vaddr_gpio_mux_quin_ctl);
+	} else {
+		return -EINVAL;
+	}
+	ret = quin_mi2s_sclk_ctl(substream, true);
+	if (ret < 0) {
+		pr_err("failed to enable sclk\n");
+		return ret;
+	}
+	ret = msm_gpioset_activate(CLIENT_WCD_EXT, "quin_i2s");
+	if (ret < 0) {
+		pr_err("failed to enable codec gpios\n");
+		goto err;
+	}
+	if (atomic_inc_return(&pdata->clk_ref.quin_mi2s_clk_ref) == 1) {
+		ret = snd_soc_dai_set_fmt(cpu_dai, SND_SOC_DAIFMT_CBS_CFS);
+		if (ret < 0)
+			pr_debug("%s: set fmt cpu dai failed\n", __func__);
+	}
+	return ret;
+err:
+	ret = quin_mi2s_sclk_ctl(substream, false);
+	if (ret < 0)
+		pr_err("failed to disable sclk\n");
+	return ret;
+}
+
+void msm_quin_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
+{
+	int ret;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct msm8952_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+
+	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
+				substream->name, substream->stream);
+	if ((pdata->ext_pa & QUIN_MI2S_ID) == QUIN_MI2S_ID) {
+		ret = quin_mi2s_sclk_ctl(substream, false);
+		if (ret < 0)
+			pr_err("%s:clock disable failed\n", __func__);
+		if (atomic_read(&pdata->clk_ref.quin_mi2s_clk_ref) > 0)
+			atomic_dec(&pdata->clk_ref.quin_mi2s_clk_ref);
+		ret = msm_gpioset_suspend(CLIENT_WCD_EXT, "quin_i2s");
+		if (ret < 0) {
+			pr_err("%s: gpio set cannot be de-activated %sd",
+						__func__, "quin_i2s");
+			return;
+		}
+	}
 }
 
 static int msm8952_wcd93xx_codec_up(struct snd_soc_codec *codec)
@@ -1989,10 +2120,26 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+	muxsel = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+			"csr_gp_io_mux_quin_ctl");
+	if (!muxsel) {
+		dev_dbg(&pdev->dev, "MUX addr invalid for MI2S\n");
+		ret = -ENODEV;
+	} else {
+		pdata->vaddr_gpio_mux_quin_ctl =
+			ioremap(muxsel->start, resource_size(muxsel));
+		if (pdata->vaddr_gpio_mux_quin_ctl == NULL) {
+			pr_err("%s ioremap failure for muxsel virt addr\n",
+					__func__);
+			ret = -ENOMEM;
+			goto err;
+		}
+	}
+
 	pdev->id = 0;
 
 	INIT_DELAYED_WORK(&pdata->hs_detect_dwork, hs_detect_work);
-	atomic_set(&quat_mi2s_clk_ref, 0);
+	atomic_set(&pdata->clk_ref.quat_mi2s_clk_ref, 0);
 	card = populate_snd_card_dailinks(&pdev->dev);
 	if (!card) {
 		dev_err(&pdev->dev, "%s: Card uninitialized\n", __func__);
@@ -2043,6 +2190,8 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 			pdata->ext_pa = (pdata->ext_pa | TER_MI2S_ID);
 		else if (!strcmp(ext_pa_str, "quaternary"))
 			pdata->ext_pa = (pdata->ext_pa | QUAT_MI2S_ID);
+		else if (!strcmp(ext_pa_str, "quinary"))
+			pdata->ext_pa = (pdata->ext_pa | QUIN_MI2S_ID);
 	}
 
 	/* Reading the gpio configurations from dtsi file*/
@@ -2075,6 +2224,8 @@ err:
 		iounmap(pdata->vaddr_gpio_mux_spkr_ctl);
 	if (pdata->vaddr_gpio_mux_mic_ctl)
 		iounmap(pdata->vaddr_gpio_mux_mic_ctl);
+	if (pdata->vaddr_gpio_mux_quin_ctl)
+		iounmap(pdata->vaddr_gpio_mux_quin_ctl);
 	cancel_delayed_work_sync(&pdata->hs_detect_dwork);
 	devm_kfree(&pdev->dev, pdata);
 	return ret;
@@ -2095,6 +2246,8 @@ static int msm8952_asoc_machine_remove(struct platform_device *pdev)
 		iounmap(pdata->vaddr_gpio_mux_spkr_ctl);
 	if (pdata->vaddr_gpio_mux_mic_ctl)
 		iounmap(pdata->vaddr_gpio_mux_mic_ctl);
+	if (pdata->vaddr_gpio_mux_quin_ctl)
+		iounmap(pdata->vaddr_gpio_mux_quin_ctl);
 
 	msm895x_free_auxdev_mem(pdev);
 
