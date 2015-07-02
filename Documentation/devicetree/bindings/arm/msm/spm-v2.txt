@@ -69,6 +69,10 @@ only on SAW2 v3.0 and above.
 	wfi. So a wfe could trigger a spm for clock gating as well.
 - qcom,use-c1-exit-fsm-for-wfi: This boolean property is used to indicate
 	that C1 staggered exit FSM will be used insted of the SPM for wfi.
+- qcom,use-spm-legacy-mode-workaround: This boolean property is used to
+	indicate that the SPM_LEGACY_MODE bit in L2 SPM Qchannel configuration
+	needs to be set during system boot, so that CCI SPM can be triggered
+	with one cluster in reset.
 
 Example 1:
 	qcom,spm@f9089000 {
