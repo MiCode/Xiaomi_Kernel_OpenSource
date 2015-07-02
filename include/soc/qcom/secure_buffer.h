@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,7 @@
 
 #define PERM_READ                       0x4
 #define PERM_WRITE                      0x2
+#define PERM_EXEC			0x1
 
 #ifdef CONFIG_QCOM_SECURE_BUFFER
 int msm_secure_table(struct sg_table *table);
