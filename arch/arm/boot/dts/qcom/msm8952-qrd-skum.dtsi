@@ -285,7 +285,7 @@
 	qcom,platform-reset-gpio = <&msm_gpio 0 0>;
 };
 
-&sdhc_2 {
+&sdc2_cd_on {
 	/delete-property/ bias-pull-up;
 	bias-disable;
 };
