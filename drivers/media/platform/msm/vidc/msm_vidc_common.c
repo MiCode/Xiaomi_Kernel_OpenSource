@@ -749,6 +749,7 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	struct v4l2_event seq_changed_event = {0};
 	int rc = 0;
 	bool bit_depth_changed = false;
+	struct hfi_device *hdev;
 
 	if (!event_notify) {
 		dprintk(VIDC_WARN, "Got an empty event from hfi\n");
@@ -757,10 +758,11 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 
 	inst = get_inst(get_vidc_core(event_notify->device_id),
 			event_notify->session_id);
-	if (!inst) {
+	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
-		return;
+		goto err_bad_event;
 	}
+	hdev = inst->core->device;
 
 	switch (event_notify->hal_event_type) {
 	case HAL_EVENT_SEQ_CHANGED_SUFFICIENT_RESOURCES:
@@ -768,9 +770,20 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 
 		rc = msm_comm_g_ctrl(inst,
 			V4L2_CID_MPEG_VIDC_VIDEO_CONTINUE_DATA_TRANSFER);
-		if (!IS_ERR_VALUE(rc) && rc == true)
-			event = V4L2_EVENT_SEQ_CHANGED_SUFFICIENT;
 
+		if (!IS_ERR_VALUE(rc) && rc == true) {
+			event = V4L2_EVENT_SEQ_CHANGED_SUFFICIENT;
+			dprintk(VIDC_DBG,
+				"send session_continue after sufficient event\n");
+			rc = call_hfi_op(hdev, session_continue,
+					(void *) inst->session);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"%s - failed to send session_continue\n",
+					__func__);
+				goto err_bad_event;
+			}
+		}
 		break;
 	case HAL_EVENT_SEQ_CHANGED_INSUFFICIENT_RESOURCES:
 		event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
