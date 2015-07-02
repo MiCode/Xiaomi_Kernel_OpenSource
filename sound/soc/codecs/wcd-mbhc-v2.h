@@ -18,6 +18,7 @@
 #define TOMBAK_MBHC_NC	0
 #define TOMBAK_MBHC_NO	1
 #define WCD_MBHC_DEF_BUTTONS 8
+#define WCD_MBHC_KEYCODE_NUM 8
 #define WCD_MBHC_USLEEP_RANGE_MARGIN_US 100
 
 struct wcd_mbhc;
@@ -206,6 +207,8 @@ struct wcd_mbhc_config {
 	bool mono_stero_detection;
 	bool (*swap_gnd_mic) (struct snd_soc_codec *codec);
 	bool hs_ext_micbias;
+	int key_code[WCD_MBHC_KEYCODE_NUM];
+	uint32_t linein_th;
 };
 
 struct wcd_mbhc_intr {
@@ -411,6 +414,7 @@ struct wcd_mbhc {
 	(sizeof(cfg_ptr->_rload[0]) + sizeof(cfg_ptr->_alpha[0]))))
 
 #ifdef CONFIG_SND_SOC_WCD_MBHC
+int wcd_mbhc_set_keycode(struct wcd_mbhc *mbhc);
 int wcd_mbhc_start(struct wcd_mbhc *mbhc,
 		       struct wcd_mbhc_config *mbhc_cfg);
 void wcd_mbhc_stop(struct wcd_mbhc *mbhc);
