@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,8 @@
 #include <linux/err.h>
 #include <linux/string.h>
 #include <linux/clk/msm-clock-generic.h>
+#include <linux/of_address.h>
+#include <linux/dma-mapping.h>
 
 #include "mdss-pll.h"
 
@@ -327,6 +329,48 @@ clk_err:
 	return rc;
 }
 
+static int mdss_pll_util_parse_dt_dfps(struct platform_device *pdev,
+					struct mdss_pll_resources *pll_res)
+{
+	int rc = 0;
+	struct device_node *pnode;
+	void __iomem *addr;
+
+	pnode = of_parse_phandle(pdev->dev.of_node, "memory-region", 0);
+	if (IS_ERR_OR_NULL(pnode)) {
+		rc = PTR_ERR(pnode);
+		goto pnode_err;
+	}
+
+	/* get the physical address for pll codes */
+	addr = of_iomap(pnode, 0);
+	if (IS_ERR_OR_NULL(addr)) {
+			rc = PTR_ERR(addr);
+			pr_err("couldn't get dfps physical address\n");
+			goto pnode_err;
+		}
+
+	pll_res->dfps = kzalloc(sizeof(struct dfps_info), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(pll_res->dfps)) {
+		rc = PTR_ERR(pll_res->dfps);
+		pr_err("couldn't allocate dfps kernel memory\n");
+		goto addr_err;
+	}
+
+	/* memcopy complete dfps structure from physical memory */
+	memcpy_fromio(pll_res->dfps, addr, sizeof(struct dfps_info));
+
+addr_err:
+	iounmap(addr);
+
+pnode_err:
+	if (pnode)
+		of_node_put(pnode);
+
+	dma_release_declared_memory(&pdev->dev);
+	return rc;
+}
+
 int mdss_pll_util_resource_parse(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res)
 {
@@ -344,6 +388,9 @@ int mdss_pll_util_resource_parse(struct platform_device *pdev,
 		pr_err("clock name parsing failed rc=%d", rc);
 		goto clk_err;
 	}
+
+	if (mdss_pll_util_parse_dt_dfps(pdev, pll_res))
+		pr_err("dfps not enabled!\n");
 
 	return rc;
 
