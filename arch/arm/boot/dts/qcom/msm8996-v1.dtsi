@@ -65,15 +65,21 @@
 &apc0_pwrcl_vreg {
 	qcom,cpr-fuse-combos = <2>;
 	qcom,ldo-max-voltage = <783000>;
+	qcom,cpr-open-loop-voltage-fuse-adjustment =   <0 0 0 0 0>;
+	qcom,cpr-closed-loop-voltage-fuse-adjustment = <0 0 0 0 0>;
 };
 
 &apc0_cbf_vreg {
 	qcom,cpr-fuse-combos = <2>;
+	qcom,cpr-open-loop-voltage-fuse-adjustment =   <0 0 0 0 0>;
+	qcom,cpr-closed-loop-voltage-fuse-adjustment = <0 0 0 0 0>;
 };
 
 &apc1_vreg {
 	qcom,cpr-fuse-combos = <2>;
 	qcom,ldo-max-voltage = <780000>;
+	qcom,cpr-open-loop-voltage-fuse-adjustment =   <0 0 0 5000 0>;
+	qcom,cpr-closed-loop-voltage-fuse-adjustment = <0 0 0 20000 0>;
 };
 
 &gfx_vreg {

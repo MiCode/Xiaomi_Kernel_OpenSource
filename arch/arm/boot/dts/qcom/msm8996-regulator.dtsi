@@ -633,8 +633,14 @@
 				       2193 2201 2283 2296    0    0    0    0>;
 
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
+					<0 0 0 0 0>,
+					<0 0 0 0 0>,
+					<0 0 0 0 0>,
 					<0 0 0 0 0>;
 				qcom,cpr-closed-loop-voltage-fuse-adjustment =
+					<0 0 0 0 0>,
+					<0 0 0 0 0>,
+					<0 0 0 0 0>,
 					<0 0 0 0 0>;
 
 				qcom,allow-voltage-interpolation;
@@ -680,9 +686,15 @@
 				       2193 2201 2283 2296    0    0    0    0>;
 
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
-					<0 0 0 0 0>;
+					<0 0 0 0 0>,
+					<0 0 0 0 0>,
+					<0 0 0 0 (-130000)>,
+					<0 0 0 0 (-130000)>;
 				qcom,cpr-closed-loop-voltage-fuse-adjustment =
-					<0 0 0 0 0>;
+					<0 0 0 0 0>,
+					<0 0 0 0 0>,
+					<0 0 0 0 (-115000)>,
+					<0 0 0 0 (-115000)>;
 
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
@@ -744,9 +756,15 @@
 				       2203 2210 2297 2297    0    0    0    0>;
 
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
-					<0 0 0 5000 0>;
+					<0 0 0 5000 0>,
+					<0 0 0 5000 0>,
+					<0 0 0 0 0>,
+					<0 0 0 0 0>;
 				qcom,cpr-closed-loop-voltage-fuse-adjustment =
-					<0 0 0 20000 0>;
+					<0 0 0 20000 0>,
+					<0 0 0 20000 0>,
+					<0 0 0 0 0>,
+					<0 0 0 0 0>;
 
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
