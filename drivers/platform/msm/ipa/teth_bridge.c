@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,7 @@
 #include <linux/skbuff.h>
 #include <linux/types.h>
 #include <linux/ipa.h>
+#include <linux/netdevice.h>
 #include "ipa_i.h"
 
 #define TETH_BRIDGE_DRV_NAME "ipa_tethering_bridge"
@@ -53,6 +54,34 @@ struct teth_bridge_ctx {
 static struct teth_bridge_ctx *teth_ctx;
 
 /**
+* teth_bridge_ipa_cb() - Callback to handle IPA data path events
+* @priv - private data
+* @evt - event type
+* @data - event specific data (usually skb)
+*
+* This callback is called by IPA driver for exception packets from USB.
+* All exception packets are handled by Q6 and should not reach this function.
+* Packets will arrive to AP exception pipe only in case where packets are
+* sent from USB before Q6 has setup the call.
+*/
+static void teth_bridge_ipa_cb(void *priv, enum ipa_dp_evt_type evt,
+	unsigned long data)
+{
+	struct sk_buff *skb = (struct sk_buff *)data;
+
+	TETH_DBG_FUNC_ENTRY();
+	if (evt != IPA_RECEIVE) {
+		TETH_ERR("unexpected event %d\n", evt);
+		WARN_ON(1);
+		return;
+	}
+
+	TETH_ERR("Unexpected exception packet from USB, dropping packet\n");
+	dev_kfree_skb_any(skb);
+	TETH_DBG_FUNC_EXIT();
+}
+
+/**
 * teth_bridge_init() - Initialize the Tethering bridge driver
 * @params - in/out params for USB initialization API (please look at struct
 *  definition for more info)
@@ -79,7 +108,7 @@ int teth_bridge_init(struct teth_bridge_init_params *params)
 		return -EINVAL;
 	}
 
-	params->usb_notify_cb = NULL;
+	params->usb_notify_cb = teth_bridge_ipa_cb;
 	params->private_data = NULL;
 	params->skip_ep_cfg = true;
 
