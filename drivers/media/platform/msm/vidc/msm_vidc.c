@@ -1075,7 +1075,7 @@ EXPORT_SYMBOL(msm_vidc_streamoff);
 int msm_vidc_enum_framesizes(void *instance, struct v4l2_frmsizeenum *fsize)
 {
 	struct msm_vidc_inst *inst = instance;
-	struct msm_vidc_core_capability *capability = NULL;
+	struct msm_vidc_capability *capability = NULL;
 
 	if (!inst || !fsize) {
 		dprintk(VIDC_ERR, "%s: invalid parameter: %p %p\n",

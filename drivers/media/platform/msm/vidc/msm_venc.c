@@ -2720,7 +2720,7 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 	struct hal_vc1e_perf_cfg_type search_range = { {0} };
 	u32 property_id = 0;
 	void *pdata = NULL;
-	struct msm_vidc_core_capability *cap = NULL;
+	struct msm_vidc_capability *cap = NULL;
 	struct hal_initial_quantization quant;
 
 	if (!inst || !inst->core || !inst->core->device || !ctrl) {
