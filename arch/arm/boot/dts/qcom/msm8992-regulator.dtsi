@@ -870,6 +870,13 @@
 				<0 0 42 (-63)>,
 				<0 0 (-96) 60>,
 				<0 0 (-96) 60>;
+		qcom,cpr-fuse-min-quot-diff = <0 0 0 0>;
+		qcom,cpr-min-quot-diff-adjustment =
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>;
 		qcom,cpr-init-voltage-adjustment =
 				<0 0 0 0>,
 				<0 0 (-25000) (-25000)>,
