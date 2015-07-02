@@ -88,8 +88,8 @@ static int voice_alloc_oob_shared_mem(void);
 static int voice_free_oob_shared_mem(void);
 static int voice_alloc_oob_mem_table(void);
 static int voice_alloc_and_map_oob_mem(struct voice_data *v);
-static int voc_disable_cvp(uint32_t session_id);
-static int voc_enable_cvp(uint32_t session_id);
+static int voice_disable_cvp(uint32_t session_id);
+static int voice_enable_cvp(uint32_t session_id);
 static void voice_vote_powerstate_to_bms(struct voice_data *v, bool state);
 
 static struct voice_data *voice_get_session_by_idx(int idx);
@@ -410,11 +410,6 @@ static struct voice_data *voice_get_session_by_idx(int idx)
 				NULL : &common.voice[idx]);
 }
 
-static bool is_voice_session(u32 session_id)
-{
-	return (session_id == common.voice[VOC_PATH_PASSIVE].session_id);
-}
-
 static bool is_voip_session(u32 session_id)
 {
 	return (session_id == common.voice[VOC_PATH_FULL].session_id);
@@ -497,10 +492,43 @@ static bool is_other_session_active(u32 session_id)
 	return ret;
 }
 
+static bool is_sub1_vsid(u32 session_id)
+{
+	bool ret;
+
+	switch (session_id) {
+	case VOICE_SESSION_VSID:
+	case VOLTE_SESSION_VSID:
+	case VOWLAN_SESSION_VSID:
+	case VOICEMMODE1_VSID:
+		ret = true;
+		break;
+	default:
+		ret = false;
+	}
+
+	return ret;
+}
+
+static bool is_sub2_vsid(u32 session_id)
+{
+	bool ret;
+
+	switch (session_id) {
+	case VOICE2_SESSION_VSID:
+	case VOICEMMODE2_VSID:
+		ret = true;
+		break;
+	default:
+		ret = false;
+	}
+
+	return ret;
+}
+
 static bool is_voice_app_id(u32 session_id)
 {
-	return (((session_id & APP_ID_MASK) >> APP_ID_SHIFT) ==
-						VSID_APP_CS_VOICE);
+	return is_sub1_vsid(session_id) || is_sub2_vsid(session_id);
 }
 
 static void init_session_id(void)
@@ -4723,55 +4751,48 @@ done:
 
 int voc_start_playback(uint32_t set, uint16_t port_id)
 {
+	struct voice_data *v = NULL;
 	int ret = 0;
+	struct voice_session_itr itr;
 	u16 cvs_handle;
 
-	struct voice_data *v = NULL;
+	pr_debug("%s port_id = %#x set = %d", __func__, port_id, set);
 
-	if (port_id == VOICE_PLAYBACK_TX)
-		v = voice_get_session(voc_get_session_id(VOICE_SESSION_NAME));
-	else if (port_id == VOICE2_PLAYBACK_TX)
-		v = voice_get_session(voc_get_session_id(VOICE2_SESSION_NAME));
-	else
-		pr_err("%s: Invalid port_id 0x%x", __func__, port_id);
+	voice_itr_init(&itr, ALL_SESSION_VSID);
+	while (voice_itr_get_next_session(&itr, &v)) {
+		if ((v != NULL) &&
+		    (((port_id == VOICE_PLAYBACK_TX) &&
+		       is_sub1_vsid(v->session_id)) ||
+		     ((port_id == VOICE2_PLAYBACK_TX) &&
+		       is_sub2_vsid(v->session_id)))) {
 
-	while (v != NULL) {
-		mutex_lock(&v->lock);
-		v->music_info.port_id = port_id;
-		v->music_info.play_enable = set;
-		if (set)
-			v->music_info.count++;
-		else
-			v->music_info.count--;
-		pr_debug("%s: music_info count =%d\n", __func__,
-			v->music_info.count);
-
-		cvs_handle = voice_get_cvs_handle(v);
-		if (cvs_handle != 0) {
+			mutex_lock(&v->lock);
+			v->music_info.port_id = port_id;
+			v->music_info.play_enable = set;
 			if (set)
-				ret = voice_cvs_start_playback(v);
+				v->music_info.count++;
 			else
-				ret = voice_cvs_stop_playback(v);
-		}
+				v->music_info.count--;
+			pr_debug("%s: music_info count=%d\n", __func__,
+				 v->music_info.count);
 
-		mutex_unlock(&v->lock);
-
-		/* Voice and VoLTE call use the same pseudo port and hence
-		 * use the same mixer control. So enable incall delivery
-		 * for VoLTE as well with Voice.
-		 */
-		if (is_voice_session(v->session_id)) {
-			v = voice_get_session(voc_get_session_id(
-							VOLTE_SESSION_NAME));
+			cvs_handle = voice_get_cvs_handle(v);
+			if (cvs_handle != 0) {
+				if (set)
+					ret = voice_cvs_start_playback(v);
+				else
+					ret = voice_cvs_stop_playback(v);
+			}
+			mutex_unlock(&v->lock);
 		} else {
-			break;
+			pr_err("%s: Invalid session\n", __func__);
 		}
 	}
 
 	return ret;
 }
 
-static int voc_disable_cvp(uint32_t session_id)
+static int voice_disable_cvp(uint32_t session_id)
 {
 	struct voice_data *v = voice_get_session(session_id);
 	int ret = 0;
@@ -4810,7 +4831,7 @@ done:
 	return ret;
 }
 
-static int voc_enable_cvp(uint32_t session_id)
+static int voice_enable_cvp(uint32_t session_id)
 {
 	struct voice_data *v = voice_get_session(session_id);
 	int ret = 0;
@@ -5099,9 +5120,7 @@ int voc_set_pp_enable(uint32_t session_id, uint32_t module_id, uint32_t enable)
 	voice_itr_init(&itr, session_id);
 	while (voice_itr_get_next_session(&itr, &v)) {
 		if (v != NULL) {
-			if (!(is_voice_app_id(v->session_id) ||
-			      is_volte_session(v->session_id) ||
-			      is_vowlan_session(v->session_id)))
+			if (!(is_voice_app_id(v->session_id)))
 				continue;
 
 			mutex_lock(&v->lock);
@@ -5507,17 +5526,17 @@ int voc_set_lch(uint32_t session_id, enum voice_lch_mode lch_mode)
 			goto done;
 		}
 	} else {
-		ret = voc_disable_cvp(session_id);
+		ret = voice_disable_cvp(session_id);
 		if (ret < 0) {
-			pr_err("%s: voc_disable_cvp failed ret=%d\n",
+			pr_err("%s: voice_disable_cvp failed ret=%d\n",
 				__func__, ret);
 			goto done;
 		}
 
 		/* Mute and topology_none are set during vocproc enable */
-		ret = voc_enable_cvp(session_id);
+		ret = voice_enable_cvp(session_id);
 		if (ret < 0) {
-			pr_err("%s: voc_enable_cvp failed ret=%d\n",
+			pr_err("%s: voice_enable_cvp failed ret=%d\n",
 				 __func__, ret);
 			goto done;
 		}
