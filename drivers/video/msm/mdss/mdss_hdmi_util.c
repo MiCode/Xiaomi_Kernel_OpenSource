@@ -1345,3 +1345,239 @@ int hdmi_setup_ddc_timers(struct hdmi_tx_ddc_ctrl *ctrl,
 
 	return 0;
 }
+
+void hdmi_hdcp2p2_ddc_reset(struct hdmi_tx_ddc_ctrl *ctrl)
+{
+	u32 reg_val;
+
+	if (!ctrl) {
+		DEV_ERR("%s: Invalid parameters\n", __func__);
+		return;
+	}
+
+	/*
+	 * Clear acks for DDC_REQ, DDC_DONE, DDC_FAILED, RXSTATUS_READY,
+	 * RXSTATUS_MSG_SIZE
+	 */
+	reg_val = BIT(30) | BIT(17) | BIT(13) | BIT(9) | BIT(5) | BIT(1);
+	DSS_REG_W(ctrl->io, HDMI_DDC_INT_CTRL0, reg_val);
+
+	/* Reset DDC timers */
+	reg_val = BIT(0) | DSS_REG_R(ctrl->io, HDMI_HDCP2P2_DDC_CTRL);
+	DSS_REG_W(ctrl->io, HDMI_HDCP2P2_DDC_CTRL, reg_val);
+	reg_val = DSS_REG_R(ctrl->io, HDMI_HDCP2P2_DDC_CTRL);
+	reg_val &= ~BIT(0);
+	DSS_REG_W(ctrl->io, HDMI_HDCP2P2_DDC_CTRL, reg_val);
+}
+
+void hdmi_hdcp2p2_ddc_disable(struct hdmi_tx_ddc_ctrl *ctrl)
+{
+	u32 reg_val;
+	u32 retry_read = 100;
+	bool ddc_hw_not_ready;
+
+	if (!ctrl) {
+		DEV_ERR("%s: Invalid parameters\n", __func__);
+		return;
+	}
+
+	/* Clear RXSTATUS_DDC_DONE interrupt */
+	DSS_REG_W(ctrl->io, HDMI_DDC_INT_CTRL0, BIT(5));
+	ddc_hw_not_ready = true;
+
+	/* Make sure the interrupt is clear */
+	do {
+		reg_val = DSS_REG_R(ctrl->io, HDMI_DDC_INT_CTRL0);
+		ddc_hw_not_ready = reg_val & BIT(5);
+		if (ddc_hw_not_ready)
+			msleep(20);
+	} while (ddc_hw_not_ready && --retry_read);
+
+	/* Disable HW DDC access to RxStatus register */
+	reg_val = DSS_REG_R(ctrl->io, HDMI_HW_DDC_CTRL);
+	reg_val &= ~(BIT(1) | BIT(0));
+	DSS_REG_W(ctrl->io, HDMI_HW_DDC_CTRL, reg_val);
+}
+
+int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl,
+	struct hdmi_tx_hdcp2p2_ddc_data *hdcp2p2_ddc_data,
+	struct completion *rxstatus_completion)
+{
+	u32 reg_val;
+	u32 reg_field_shift;
+	u32 reg_field_mask;
+	u32 reg_intr_ack_shift;
+	u32 reg_intr_mask_shift;
+	u32 timeout;
+	u32 rxstatus_read_method;
+	u32 rxstatus_bytes;
+	bool poll_sink;
+
+	if (!hdcp2p2_ddc_data)
+		return -EINVAL;
+
+	/* We return a u32 for all RxStatus bits being read */
+	if (hdcp2p2_ddc_data->ddc_data.data_len < sizeof(u32))
+		return -EINVAL;
+
+	poll_sink = hdcp2p2_ddc_data->poll_sink;
+
+	/*
+	 * Setup shifts and masks based on which RxStatus bits we are dealing
+	 * with in this call
+	 */
+	switch (hdcp2p2_ddc_data->rxstatus_field) {
+	case RXSTATUS_MESSAGE_SIZE:
+		reg_field_shift = HDCP2P2_RXSTATUS_MESSAGE_SIZE_SHIFT;
+		reg_field_mask = HDCP2P2_RXSTATUS_MESSAGE_SIZE_MASK;
+		reg_intr_ack_shift =
+			HDCP2P2_RXSTATUS_MESSAGE_SIZE_ACK_SHIFT;
+		reg_intr_mask_shift =
+			HDCP2P2_RXSTATUS_MESSAGE_SIZE_INTR_SHIFT;
+		break;
+	case RXSTATUS_REAUTH_REQ:
+		reg_field_shift = HDCP2P2_RXSTATUS_REAUTH_REQ_SHIFT;
+		reg_field_mask = HDCP2P2_RXSTATUS_REAUTH_REQ_MASK;
+		reg_intr_ack_shift =
+			HDCP2P2_RXSTATUS_REAUTH_REQ_ACK_SHIFT;
+		reg_intr_mask_shift =
+			HDCP2P2_RXSTATUS_REAUTH_REQ_INTR_SHIFT;
+		break;
+	case RXSTATUS_READY:
+		reg_field_shift = HDCP2P2_RXSTATUS_READY_SHIFT;
+		reg_field_mask = HDCP2P2_RXSTATUS_READY_MASK;
+		reg_intr_ack_shift =
+			HDCP2P2_RXSTATUS_READY_ACK_SHIFT;
+		reg_intr_mask_shift =
+			HDCP2P2_RXSTATUS_READY_INTR_SHIFT;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	DEV_DBG("%s: Requested msg size, shift %u mask %u ack %u mask %u\n",
+			__func__, reg_field_shift, reg_field_mask,
+			reg_intr_ack_shift, reg_intr_mask_shift);
+	/* Disable short read for now, sinks don't support it */
+	reg_val = DSS_REG_R(ctrl->io, HDMI_HDCP2P2_DDC_CTRL);
+	reg_val |= BIT(4);
+	DSS_REG_W(ctrl->io, HDMI_HDCP2P2_DDC_CTRL, reg_val);
+
+	/* Clear interrupt status bits */
+	reg_val = DSS_REG_R(ctrl->io, HDMI_DDC_INT_CTRL0);
+	reg_val &= ~BIT(reg_intr_ack_shift);
+	DSS_REG_W(ctrl->io, HDMI_DDC_INT_CTRL0, reg_val);
+
+	/*
+	 * Setup the DDC timers for HDMI_HDCP2P2_DDC_TIMER_CTRL1 and
+	 *  HDMI_HDCP2P2_DDC_TIMER_CTRL2.
+	 * Following are the timers:
+	 * 1. DDC_REQUEST_TIMER: Timeout in hsyncs in which to wait for the
+	 *	HDCP 2.2 sink to respond to an RxStatus request
+	 * 2. DDC_URGENT_TIMER: Time period in hsyncs to issue an urgent flag
+	 *	when an RxStatus DDC request is made but not accepted by I2C
+	 *	engine
+	 * 3. DDC_TIMEOUT_TIMER: Timeout in hsyncs which starts counting when
+	 *	a request is made and stops when it is accepted by DDC arbiter
+	 */
+	timeout = hdcp2p2_ddc_data->timer_delay_lines & 0xffff;
+	DSS_REG_W(ctrl->io, HDMI_HDCP2P2_DDC_TIMER_CTRL, timeout);
+	/* Set both urgent and hw-timeout fields to the same value */
+	DSS_REG_W(ctrl->io, HDMI_HDCP2P2_DDC_TIMER_CTRL2,
+			(timeout << 16 | timeout));
+
+	/* Enable the interrupt for the requested field, and enable timeouts */
+	reg_val = DSS_REG_R(ctrl->io, HDMI_DDC_INT_CTRL0);
+	reg_val |= BIT(reg_intr_mask_shift);
+	reg_val |= BIT(HDCP2P2_RXSTATUS_DDC_FAILED_INTR_MASK);
+	DEV_DBG("%s: Enabling interrupts for req field\n", __func__);
+	DSS_REG_W(ctrl->io, HDMI_DDC_INT_CTRL0, reg_val);
+
+	/*
+	 * Enable hardware DDC access to RxStatus register
+	 *
+	 * HDMI_HW_DDC_CTRL:Bits 1:0 (RXSTATUS_DDC_ENABLE) read like this:
+	 *
+	 * 0 = disable HW controlled DDC access to RxStatus
+	 * 1 = automatic on when HDCP 2.2 is authenticated and loop based on
+	 * request timer (i.e. the hardware will loop automatically)
+	 * 2 = force on and loop based on request timer (hardware will loop)
+	 * 3 = enable by sw trigger and loop until interrupt is generated for
+	 * RxStatus.reauth_req, RxStatus.ready or RxStatus.message_Size.
+	 *
+	 * Depending on the value of ddc_data::poll_sink, we make the decision
+	 * to use either SW_TRIGGER(3) (poll_sink = false) which means that the
+	 * hardware will poll sink and generate interrupt when sink responds,
+	 * or use AUTOMATIC_LOOP(1) (poll_sink = true) which will poll the sink
+	 * based on request timer
+	 */
+	reg_val = DSS_REG_R(ctrl->io, HDMI_HW_DDC_CTRL);
+	reg_val &= ~(BIT(1) | BIT(0));
+
+	rxstatus_read_method =
+		poll_sink ? HDCP2P2_RXSTATUS_HW_DDC_AUTOMATIC_LOOP
+			  : HDCP2P2_RXSTATUS_HW_DDC_SW_TRIGGER;
+
+	if (poll_sink)
+		reg_val |= BIT(0);
+	else
+		reg_val |= (BIT(1) | BIT(0));
+
+	DEV_DBG("%s: Enabling hardware access to rxstatus\n", __func__);
+	DSS_REG_W(ctrl->io, HDMI_HW_DDC_CTRL, reg_val);
+
+	if (rxstatus_read_method == HDCP2P2_RXSTATUS_HW_DDC_SW_TRIGGER) {
+		/* If we are using SW_TRIGGER, then go ahead and trigger it */
+		DSS_REG_W(ctrl->io, HDMI_HDCP2P2_DDC_SW_TRIGGER, 1);
+
+		/*
+		 * Now wait for interrupt bits to be set to indicate that the
+		 * register is available to read
+		 */
+		DEV_DBG("%s: HDMI_DDC_INT_CTRL0 is 0x%x, waiting for ISR\n",
+			__func__, DSS_REG_R(ctrl->io, HDMI_DDC_INT_CTRL0));
+		if (!wait_for_completion_timeout(rxstatus_completion,
+						msecs_to_jiffies(200))) {
+			DEV_ERR("%s: Timeout in waiting for interrupt\n",
+					__func__);
+			return -ETIMEDOUT;
+		}
+	}
+
+	/* Make sure no errors occurred during DDC transaction */
+	reg_val = DSS_REG_R(ctrl->io, HDMI_HDCP2P2_DDC_STATUS);
+
+	/* Check for NACK0, NACK1, TIMEOUT, ABORT bits */
+	reg_val &= (BIT(12) | BIT(14) | BIT(4) | BIT(8));
+
+	if (reg_val) {
+		DEV_ERR("%s: DDC transaction error\n", __func__);
+		return -EIO;
+	}
+
+	/* Read the RxStatus field that was requested */
+	reg_val = DSS_REG_R(ctrl->io, HDMI_DDC_INT_CTRL0);
+	rxstatus_bytes = reg_val;
+	rxstatus_bytes &= reg_field_mask;
+	rxstatus_bytes >>= reg_field_shift;
+	memcpy(hdcp2p2_ddc_data->ddc_data.data_buf,
+			&rxstatus_bytes, sizeof(rxstatus_bytes));
+
+	/* Read the RxStatus field that was requested */
+	/* Write the interrupt ack back */
+	reg_val |= BIT(reg_intr_ack_shift);
+	DSS_REG_W(ctrl->io, HDMI_DDC_INT_CTRL0, reg_val);
+
+	/* Clear the ack bits and the DDC_FAILED bit next */
+	reg_val = DSS_REG_R(ctrl->io, HDMI_DDC_INT_CTRL0);
+	reg_val &= ~BIT(reg_intr_ack_shift);
+	reg_val &= ~BIT(HDCP2P2_RXSTATUS_DDC_FAILED_INTR_MASK);
+	DSS_REG_W(ctrl->io, HDMI_DDC_INT_CTRL0, reg_val);
+
+	/* Disable hardware access to RxStatus register */
+	reg_val = DSS_REG_R(ctrl->io, HDMI_HW_DDC_CTRL);
+	reg_val &= ~(BIT(1) | BIT(0));
+	DSS_REG_W(ctrl->io, HDMI_HW_DDC_CTRL, reg_val);
+
+	return 0;
+}
