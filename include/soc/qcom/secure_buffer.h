@@ -30,6 +30,7 @@
 
 #define PERM_READ                       0x4
 #define PERM_WRITE                      0x2
+#define PERM_EXEC			0x1
 
 #ifdef CONFIG_QCOM_SECURE_BUFFER
 int msm_secure_table(struct sg_table *table);
