@@ -132,7 +132,7 @@ static struct pll_clk a72ss_hf_pll = {
 		.main_output_mask = BIT(0),
 	},
 	.vals = {
-		.config_ctl_val = 0x04D0405D,
+		.config_ctl_val = 0x04E0405D,
 		.enable_mn = true,
 		.post_div_masked = BVAL(9, 8, (1)),
 	},
