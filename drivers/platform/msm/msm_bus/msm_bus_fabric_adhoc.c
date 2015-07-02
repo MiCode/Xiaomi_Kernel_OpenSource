@@ -180,7 +180,7 @@ static int enable_nodeclk(struct nodeclk *nclk, struct device *dev)
 {
 	int ret = 0;
 
-	if (!nclk->enable) {
+	if (!nclk->enable && !nclk->setrate_only_clk) {
 		if (dev && strlen(nclk->reg_name)) {
 			if (IS_ERR_OR_NULL(nclk->reg)) {
 				ret = bus_get_reg(nclk, dev);
@@ -214,7 +214,7 @@ static int disable_nodeclk(struct nodeclk *nclk)
 {
 	int ret = 0;
 
-	if (nclk->enable) {
+	if (nclk->enable && !nclk->setrate_only_clk) {
 		clk_disable_unprepare(nclk->clk);
 		nclk->enable = false;
 		bus_disable_reg(nclk);
@@ -725,6 +725,8 @@ static int msm_bus_init_clk(struct device *bus_dev,
 			node_dev->clk[ctx].clk = pdata->clk[ctx].clk;
 			node_dev->clk[ctx].enable_only_clk =
 					pdata->clk[ctx].enable_only_clk;
+			node_dev->clk[ctx].setrate_only_clk =
+					pdata->clk[ctx].setrate_only_clk;
 			node_dev->clk[ctx].enable = false;
 			node_dev->clk[ctx].dirty = false;
 			strlcpy(node_dev->clk[ctx].reg_name,
@@ -740,6 +742,8 @@ static int msm_bus_init_clk(struct device *bus_dev,
 		node_dev->bus_qos_clk.clk = pdata->bus_qos_clk.clk;
 		node_dev->bus_qos_clk.enable_only_clk =
 					pdata->bus_qos_clk.enable_only_clk;
+		node_dev->bus_qos_clk.setrate_only_clk =
+					pdata->bus_qos_clk.setrate_only_clk;
 		node_dev->bus_qos_clk.enable = false;
 		strlcpy(node_dev->bus_qos_clk.reg_name,
 			pdata->bus_qos_clk.reg_name, MAX_REG_NAME);
@@ -763,6 +767,8 @@ static int msm_bus_init_clk(struct device *bus_dev,
 					pdata->node_qos_clks[i].clk;
 			node_dev->node_qos_clks[i].enable_only_clk =
 					pdata->node_qos_clks[i].enable_only_clk;
+			node_dev->node_qos_clks[i].setrate_only_clk =
+				pdata->node_qos_clks[i].setrate_only_clk;
 			node_dev->node_qos_clks[i].enable = false;
 			strlcpy(node_dev->node_qos_clks[i].reg_name,
 				pdata->node_qos_clks[i].reg_name, MAX_REG_NAME);
