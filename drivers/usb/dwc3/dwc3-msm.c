@@ -42,7 +42,6 @@
 #include <linux/clk/msm-clk.h>
 #include <linux/msm-bus.h>
 #include <linux/irq.h>
-#include <soc/qcom/scm.h>
 
 #include "power.h"
 #include "core.h"
@@ -102,13 +101,6 @@ MODULE_PARM_DESC(dcp_max_current, "max current drawn for DCP charger");
 #define PIPE_UTMI_CLK_SEL	BIT(0)
 #define PIPE3_PHYSTATUS_SW	BIT(3)
 #define PIPE_UTMI_CLK_DIS	BIT(8)
-
-/* TZ SCM parameters */
-#define DWC3_MSM_RESTORE_SCM_CFG_CMD 0x2
-struct dwc3_msm_scm_cmd_buf {
-	unsigned int device_id;
-	unsigned int spare;
-};
 
 struct dwc3_msm_req_complete {
 	struct list_head list_item;
@@ -219,7 +211,6 @@ struct dwc3_msm {
 #define MDWC3_CORECLK_OFF		BIT(4)
 
 	u32 qscratch_ctl_val;
-	unsigned int scm_dev_id;
 	bool suspend_resume_no_support;
 
 	bool power_collapse; /* power collapse on cable disconnect */
@@ -980,28 +971,6 @@ static int dwc3_msm_config_gdsc(struct dwc3_msm *mdwc, int on)
 	return 0;
 }
 
-/* Restores VMIDMT/xPU security configuration in TrustZone */
-static int dwc3_msm_restore_sec_config(unsigned int device_id)
-{
-	struct dwc3_msm_scm_cmd_buf cbuf;
-	int ret, scm_ret = 0;
-
-	if (!device_id)
-		return 0;
-
-	cbuf.device_id = device_id;
-
-	ret = scm_call(SCM_SVC_MP, DWC3_MSM_RESTORE_SCM_CFG_CMD, &cbuf,
-			sizeof(cbuf), &scm_ret, sizeof(scm_ret));
-	if (ret || scm_ret) {
-		pr_err("%s: failed(%d) to restore sec config, scm_ret=%d\n",
-			__func__, ret, scm_ret);
-		return ret;
-	}
-
-	return 0;
-}
-
 static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
 {
 	int ret = 0;
@@ -1162,7 +1131,6 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 		}
 
 		dwc3_msm_update_ref_clk(mdwc);
-		dwc3_msm_restore_sec_config(mdwc->scm_dev_id);
 		dwc->tx_fifo_size = mdwc->tx_fifo_size;
 		break;
 	case DWC3_CONTROLLER_CONNDONE_EVENT:
@@ -1600,10 +1568,6 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 			dev_err(mdwc->dev, "ssphy reset failed\n");
 			return ret;
 		}
-
-		ret = dwc3_msm_restore_sec_config(mdwc->scm_dev_id);
-		if (ret)
-			return ret;
 
 		if (mdwc->power_collapse_por)
 			dwc3_msm_power_collapse_por(mdwc);
@@ -2401,11 +2365,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			}
 		}
 	}
-
-	ret = of_property_read_u32(node, "qcom,restore-sec-cfg-for-scm-dev-id",
-					&mdwc->scm_dev_id);
-	if (ret)
-		dev_dbg(&pdev->dev, "unable to read scm device id (%d)\n", ret);
 
 	if (of_property_read_u32(node, "qcom,dwc-usb3-msm-tx-fifo-size",
 				 &mdwc->tx_fifo_size))
