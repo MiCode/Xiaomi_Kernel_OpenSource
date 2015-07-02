@@ -88,6 +88,7 @@ struct hdcp2p2_ctrl {
 	bool hdcp_txmtr_init; /* Has the HDCP TZ transmitter been initialized */
 	struct hdcp_txmtr_ops *txmtr_ops; /* Ops for driver to call into TZ */
 	struct hdcp_client_ops *client_ops; /* Ops for driver to export to TZ */
+	struct completion rxstatus_completion; /* Rx status interrupt */
 };
 
 static int hdcp2p2_authenticate(void *input);
@@ -324,50 +325,51 @@ static int hdcp2p2_read_version(struct hdcp2p2_ctrl *hdcp2p2_ctrl,
 
 /**
  * Work item that polls the sink for an incoming message.
- * Since messages from sink during auth are always in response to messages
- * sent by TX, we know when to expect sink messages, and thus polling is
- * required by the HDCP 2.2 spec
  */
 static void hdcp2p2_sink_message_work(struct work_struct *work)
 {
 	struct hdcp2p2_ctrl *hdcp2p2_ctrl = container_of(work,
 			struct hdcp2p2_ctrl, hdcp_sink_message_work);
-	struct hdmi_tx_ddc_data ddc_data;
+	struct hdmi_tx_hdcp2p2_ddc_data hdcp2p2_ddc_data;
 	int rc;
-	u16 rx_status;
 	int msg_size;
-	int wait_cycles = 50; /* 50 20 ms cycles of wait = 1 second total */
+	u64 mult;
+	u64 div;
+	struct msm_hdmi_mode_timing_info *timing;
 
-	do {
-		memset(&ddc_data, 0, sizeof(ddc_data));
-		ddc_data.dev_addr = HDCP_SINK_DDC_SLAVE_ADDR;
-		ddc_data.offset = HDCP_SINK_DDC_HDCP2_RXSTATUS;
-		ddc_data.data_buf = (u8 *)&rx_status;
-		ddc_data.data_len = 2;
-		ddc_data.request_len = 2;
-		ddc_data.retry = 1;
-		ddc_data.what = "HDCP2RxStatus";
+	if (!hdcp2p2_ctrl) {
+		DEV_ERR("%s: invalid hdcp2p2 data\n", __func__);
+		return;
+	}
 
-		rc = hdmi_ddc_read(hdcp2p2_ctrl->init_data.ddc_ctrl, &ddc_data);
-		if (rc) {
-			DEV_ERR("%s: Error %d in read HDCP RX status register",
-					__func__, rc);
-			return;
-		}
+	timing = hdcp2p2_ctrl->init_data.timing;
 
-		msg_size = rx_status & 0x3FF;
-		if (msg_size) {
-			DEV_DBG("%s: Message available at sink, size %d\n",
-					__func__, msg_size);
-			break;
-		}
+	/* calculate number of lines sent in 10ms */
+	mult = 10000 * ((u64)timing->pixel_freq * 1000);
+	div = hdmi_tx_get_v_total(timing) * 1000000;
+	if (div)
+		do_div(mult, div);
+	else
+		mult = 0;
 
-		msleep(20);
+	memset(&hdcp2p2_ddc_data, 0, sizeof(hdcp2p2_ddc_data));
+	hdcp2p2_ddc_data.ddc_data.what = "HDCP2RxStatus";
+	hdcp2p2_ddc_data.ddc_data.data_buf = (u8 *)&msg_size;
+	hdcp2p2_ddc_data.ddc_data.data_len = sizeof(msg_size);
+	hdcp2p2_ddc_data.rxstatus_field = RXSTATUS_MESSAGE_SIZE;
+	hdcp2p2_ddc_data.timer_delay_lines = (u32)mult;
+	hdcp2p2_ddc_data.irq_wait_count = 100;
+	hdcp2p2_ddc_data.poll_sink = false;
 
-	} while (--wait_cycles);
+	hdmi_ddc_config(hdcp2p2_ctrl->init_data.ddc_ctrl);
+	DEV_DBG("%s: Reading rxstatus, timer delay lines %u\n", __func__,
+								(u32)mult);
+	rc = hdmi_hdcp2p2_ddc_read_rxstatus(hdcp2p2_ctrl->init_data.ddc_ctrl,
+				&hdcp2p2_ddc_data,
+				&hdcp2p2_ctrl->rxstatus_completion);
 
-	if (!wait_cycles) {
-		DEV_ERR("%s: Timeout in waiting for sink\n", __func__);
+	if (rc) {
+		DEV_ERR("%s: Could not read rxstatus from sink\n", __func__);
 		goto error;
 	} else {
 		/* Read message from sink now */
@@ -378,6 +380,7 @@ static void hdcp2p2_sink_message_work(struct work_struct *work)
 			DEV_ERR("%s: Could not allocate memory\n", __func__);
 			goto error;
 		}
+
 		message->message_bytes = kmalloc(msg_size, GFP_KERNEL);
 		if (!message->message_bytes) {
 			DEV_ERR("%s: Could not allocate memory\n", __func__);
@@ -408,6 +411,11 @@ static void hdcp2p2_tz_message_work(struct work_struct *work)
 			struct hdcp2p2_ctrl, hdcp_tz_message_work);
 	struct list_head *prev, *next;
 	struct hdcp2p2_message *msg;
+
+	if (!hdcp2p2_ctrl) {
+		DEV_ERR("%s: invalid hdcp2p2 data\n", __func__);
+		return;
+	}
 
 	mutex_lock(&hdcp2p2_ctrl->mutex);
 	if (list_empty(&hdcp2p2_ctrl->hdcp_sink_messages)) {
@@ -497,6 +505,8 @@ static int hdcp2p2_isr(void *input)
 		return -EINVAL;
 	}
 
+	DEV_DBG("%s\n INT_CTRL0 is 0x%x\n", __func__,
+		DSS_REG_R(hdcp2p2_ctrl->init_data.core_io, HDMI_DDC_INT_CTRL0));
 	reg_val = DSS_REG_R(hdcp2p2_ctrl->init_data.core_io,
 			HDMI_HDCP_INT_CTRL2);
 	if (reg_val & BIT(0)) {
@@ -505,6 +515,15 @@ static int hdcp2p2_isr(void *input)
 		DSS_REG_W(hdcp2p2_ctrl->init_data.core_io, HDMI_HDCP_INT_CTRL2,
 			reg_val);
 	}
+
+	reg_val = DSS_REG_R(hdcp2p2_ctrl->init_data.core_io,
+							HDMI_DDC_INT_CTRL0);
+	if (reg_val & HDCP2P2_RXSTATUS_MESSAGE_SIZE_MASK) {
+		DSS_REG_W(hdcp2p2_ctrl->init_data.core_io, HDMI_DDC_INT_CTRL0,
+						reg_val & ~(BIT(31)));
+		complete(&hdcp2p2_ctrl->rxstatus_completion);
+	}
+
 	return 0;
 }
 
@@ -630,6 +649,7 @@ static int hdcp2p2_send_message_to_sink(void *client_ctx, void *hdcp_handle,
 		return rc;
 	}
 
+	DEV_DBG("%s: Polling sink for next message\n", __func__);
 	/* Start polling sink for the next expected message in the protocol */
 	if (!authenticated)
 		schedule_work(&hdcp2p2_ctrl->hdcp_sink_message_work);
@@ -739,7 +759,7 @@ void *hdmi_hdcp2p2_init(struct hdmi_hdcp_init_data *init_data)
 	}
 
 	if (init_data->hdmi_tx_ver < MIN_HDMI_TX_MAJOR_VERSION) {
-		DEV_DBG("%s: HDMI Tx does not support HDCP 2.2\n", __func__);
+		DEV_ERR("%s: HDMI Tx does not support HDCP 2.2\n", __func__);
 		return ERR_PTR(-ENODEV);
 	}
 
@@ -765,6 +785,7 @@ void *hdmi_hdcp2p2_init(struct hdmi_hdcp_init_data *init_data)
 	INIT_WORK(&hdcp2p2_ctrl->hdcp_tz_message_work,
 			hdcp2p2_tz_message_work);
 	INIT_LIST_HEAD(&hdcp2p2_ctrl->hdcp_sink_messages);
+	init_completion(&hdcp2p2_ctrl->rxstatus_completion);
 
 	hdcp2p2_ctrl->sink_status = SINK_DISCONNECTED;
 

@@ -14,6 +14,7 @@
 #define __MDSS_HDMI_HDCP_H__
 
 #include "mdss_hdmi_util.h"
+#include <video/msm_hdmi_modes.h>
 #include <soc/qcom/scm.h>
 
 enum hdmi_hdcp_state {
@@ -35,6 +36,7 @@ struct hdmi_hdcp_init_data {
 	struct hdmi_tx_ddc_ctrl *ddc_ctrl;
 	u32 phy_addr;
 	u32 hdmi_tx_ver;
+	struct msm_hdmi_mode_timing_info *timing;
 };
 
 struct hdmi_hdcp_ops {
