@@ -1,0 +1,152 @@
+Introduction
+============
+Per-File-Tagger (PFT) driver.
+
+This is part of solution to provide per-file encryption functionality.
+
+Objective
+=========
+Android devices are being used by individuals to access information on
+the go. This increases the risk of their information being leaked if
+device is stolen or lost. One of the security measures to protect the
+user information on the device is to encrypt the data. If the device is
+lost or stolen, it minimizes the risk that unknown person would be able
+to extract the information from the device.
+
+Android provides an encryption mechanism to encrypt the user data on the
+device. However currently only Full-Disk encryption method is supported
+and there are other implementations is via software only. While there
+are filesystem-level encryption solutions (such as eCryptfs), non of
+those are used as part of Android and are user-space solution
+based.
+
+QTI has developed it own Full-disk-encryption solution (based on
+dm-req-crypt) to address the performance issues, and our objective is to
+utilize this solution to provide high granularity and high secure
+per-file-encryption solution.
+
+Solution
+========
+The PFT driver is part of solution to provide per-file encryption
+functionality. PFT is designed to provide two main services:
+1. File access control to insure that only registered UIDs will be able
+to create/read/write/close encrypted files
+2. Block level services (DM-Req-Crypt) that query whether the block I/O
+request should be encrypted/decrypted, and if so using which key_index.
+
+Hardware description
+====================
+No hardware dependency for PFT driver.
+
+Software description
+====================
+
+                            Software component diagram
+                            --------------------------
+
+   +++++++++++++++++++++++        ++++++++++++++         ++++++++++++++
+   +  VFS                + -----> +   SE-LINUX + ------> +    P F T   +
+   +++++++++++++++++++++++        ++++++++++++++         ++++++++++++++
+   + Logical File System +                                      ^
+   +++++++++++++++++++++++                                      |
+   +  Block Layer        + -------------------------------------|
+   +++++++++++++++++++++++                                      |
+   + Device Mapper       +                                      |
+   +++++++++++++++++++++++                                      |
+   +++++++++++++++++++++++          ++++++++++++++++++          |
+   + Clone & Map Bios    + <------> +  DM_Req_Crypt  + ---------|
+   +++++++++++++++++++++++          ++++++++++++++++++
+   +++++++++++++++++++++++
+   +  Block Layer        +
+   +++++++++++++++++++++++
+
+When a user issues a create/open/read/write/close operation the kernel
+issues the corresponding kernel syscall. These calls are routed
+through SE-Linux that provides file access security mechanism. In this
+solution, PFT is acting as an extension of SE-Linux. In several points
+(see Interface for SE-Linux), the PFT decides whether to allow or
+disallow the requested operation. In addition, PFT responds to
+queries whether the block I/O request should be encrypted/decrypted,
+and if so using which key index. The encryption key index is stored per
+file using xattr (extended attributes) of the filesystem.
+
+The driver runs entirely in the context of the caller task and has no
+dedicated execution context of its own.
+
+Power management
+================
+None.
+
+SMP/multi-core
+==============
+The driver data structure stores the system state. This structure is
+protected against concurrent access from multiple processes/threads and
+interrupt handlers using mutex.
+
+Security
+========
+This driver provides an additional file access control security
+mechanism based on process group identifier (GID). Obviously the driver
+is part of a system Per-File-Encryption that provides security for data
+at rest.
+
+Performance
+===========
+None.
+
+Interfaces
+==========
+Interface for SE-Linux
+----------------------
+pft_inode_create() - Security call to approve inode creation
+pft_inode_post_create() - Create file permission and file tagging.
+pft_file_permission() - Read/Write file permission.
+pft_file_close() - File closing security call.
+
+Interface for DM-Req-Crypt and Block Layer
+------------------------------------------
+pft_get_key_index() - Provides the given inode's encryption key index,
+and well as indications whether the file is encrypted or is currently
+being in-placed encrypted.
+pft_merge_bio_disallowed()- Replies whether the 2 BIOs should not be merged.
+
+User Space Interface
+--------------------
+A character device file (/dev/pft) will be exposed by the PFT driver.
+open(), read(), write() and release() methods are implemented.
+This device node is accessible only to the root by default.
+Each command is written by the requester to the file and block it from
+continuing. PFT fulfils the requested command and writes the response to
+the file, that will be read by the requester.
+The command and response are defined through structures exposed to user
+space at UAPI.
+
+The PFT driver supports the following commands:
+ * Full feature activation and deactivation
+ * Encryption key management (load, and remove)
+ * Update the registered applications list which would create and
+   access encrypted files.
+
+open() & close() - Allow only one client to the char device.
+Write() - Send command to PFE driver.
+Read() - Receive the last command execution result.
+
+Config options
+==============
+Turn on PFT config to enable this feature: CONFIG_PFT=y
+
+Dependency
+==========
+SE-Linux.
+
+User space utilities
+====================
+None. Only one user space entity is to be interact with the PFT driver.
+
+Known issues
+============
+None.
+
+To do
+=====
+None.
