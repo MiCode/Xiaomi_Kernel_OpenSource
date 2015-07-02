@@ -275,7 +275,11 @@ out_micb_en:
 		if (mbhc->mbhc_cb->set_cap_mode)
 			mbhc->mbhc_cb->set_cap_mode(codec, micbias1, false);
 		break;
+	case WCD_EVENT_PRE_HPHL_PA_OFF:
+		mutex_lock(&mbhc->hphl_pa_lock);
+		break;
 	case WCD_EVENT_POST_HPHL_PA_OFF:
+		clear_bit(WCD_MBHC_HPHL_PA_OFF_ACK, &mbhc->hph_pa_dac_state);
 		if (mbhc->hph_status & SND_JACK_OC_HPHL)
 			hphlocp_off_report(mbhc, SND_JACK_OC_HPHL);
 		clear_bit(WCD_MBHC_EVENT_PA_HPHL, &mbhc->event_state);
@@ -286,8 +290,13 @@ out_micb_en:
 		else
 			/* Disable micbias, pullup & enable cs */
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
+		mutex_unlock(&mbhc->hphl_pa_lock);
+		break;
+	case WCD_EVENT_PRE_HPHR_PA_OFF:
+		mutex_lock(&mbhc->hphr_pa_lock);
 		break;
 	case WCD_EVENT_POST_HPHR_PA_OFF:
+		clear_bit(WCD_MBHC_HPHR_PA_OFF_ACK, &mbhc->hph_pa_dac_state);
 		if (mbhc->hph_status & SND_JACK_OC_HPHR)
 			hphrocp_off_report(mbhc, SND_JACK_OC_HPHR);
 		clear_bit(WCD_MBHC_EVENT_PA_HPHR, &mbhc->event_state);
@@ -298,6 +307,7 @@ out_micb_en:
 		else
 			/* Disable micbias, pullup & enable cs */
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
+		mutex_unlock(&mbhc->hphr_pa_lock);
 		break;
 	case WCD_EVENT_PRE_HPHL_PA_ON:
 		set_bit(WCD_MBHC_EVENT_PA_HPHL, &mbhc->event_state);
@@ -381,21 +391,25 @@ static void wcd_mbhc_clr_and_turnon_hph_padac(struct wcd_mbhc *mbhc)
 	WCD_MBHC_REG_READ(WCD_MBHC_HPH_CNP_WG_TIME, wg_time);
 	wg_time += 1;
 
+	mutex_lock(&mbhc->hphr_pa_lock);
 	if (test_and_clear_bit(WCD_MBHC_HPHR_PA_OFF_ACK,
 			       &mbhc->hph_pa_dac_state)) {
 		pr_debug("%s: HPHR clear flag and enable PA\n", __func__);
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HPHR_PA_EN, 1);
 		pa_turned_on = true;
 	}
+	mutex_unlock(&mbhc->hphr_pa_lock);
+	mutex_lock(&mbhc->hphl_pa_lock);
 	if (test_and_clear_bit(WCD_MBHC_HPHL_PA_OFF_ACK,
 			       &mbhc->hph_pa_dac_state)) {
 		pr_debug("%s: HPHL clear flag and enable PA\n", __func__);
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HPHL_PA_EN, 1);
 		pa_turned_on = true;
 	}
+	mutex_unlock(&mbhc->hphl_pa_lock);
 
 	if (pa_turned_on) {
-		pr_debug("%s: PA was turned off by MBHC and not by DAPM\n",
+		pr_debug("%s: PA was turned on by MBHC and not by DAPM\n",
 			 __func__);
 		usleep_range(wg_time * 1000, wg_time * 1000 + 50);
 	}
@@ -1969,6 +1983,8 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 				  wcd_mbhc_fw_read);
 		INIT_DELAYED_WORK(&mbhc->mbhc_btn_dwork, wcd_btn_lpress_fn);
 	}
+	mutex_init(&mbhc->hphl_pa_lock);
+	mutex_init(&mbhc->hphr_pa_lock);
 
 	/* Register event notifier */
 	mbhc->nblock.notifier_call = wcd_event_notify;
