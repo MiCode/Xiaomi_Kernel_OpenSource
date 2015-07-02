@@ -388,6 +388,13 @@
 		clock-frequency = <19200000>;
 	};
 
+	restart@4ab000 {
+		compatible = "qcom,pshold";
+		reg = <0x4ab000 0x4>,
+			<0x193d100 0x4>;
+		reg-names = "pshold-base", "tcsr-boot-misc-detect";
+	};
+
 	timer@b120000 {
 		#address-cells = <1>;
 		#size-cells = <1>;
