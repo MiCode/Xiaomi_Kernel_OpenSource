@@ -1536,6 +1536,20 @@ out:
 }
 
 /*
+ * a5xx_cp_crash_dumper_init() - Initialize CP Crash Dumper. Allocate memory
+ *				for capturescript and for register dump
+ * @adreno_dev: Pointer to adreno device
+ */
+static void a5xx_cp_crash_dumper_init(struct adreno_device *adreno_dev)
+{
+	kgsl_allocate_global(&adreno_dev->dev, &adreno_dev->capturescript,
+				PAGE_SIZE, KGSL_MEMFLAGS_GPUREADONLY, 0);
+	kgsl_allocate_global(&adreno_dev->dev, &adreno_dev->snapshot_registers,
+				a5xx_num_registers() * 4, 0 , 0);
+	adreno_dev->capturescript_working = true;
+}
+
+/*
  * a5xx_start() - Device start
  * @adreno_dev: Pointer to adreno device
  *
@@ -3279,4 +3293,5 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.preemption_init = a5xx_preemption_init,
 	.preemption_schedule = a5xx_preemption_schedule,
 	.enable_64bit = a5xx_enable_64bit,
+	.cp_crash_dumper_init = a5xx_cp_crash_dumper_init,
 };

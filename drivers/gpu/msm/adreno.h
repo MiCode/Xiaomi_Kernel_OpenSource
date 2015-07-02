@@ -343,6 +343,10 @@ struct adreno_device {
 	struct kgsl_memdesc preemption_counters;
 	struct work_struct gpmu_work;
 	uint32_t lm_leakage;
+
+	struct kgsl_memdesc capturescript;
+	struct kgsl_memdesc snapshot_registers;
+	bool capturescript_working;
 };
 
 /**
@@ -678,6 +682,7 @@ struct adreno_gpudev {
 	void (*preemption_init)(struct adreno_device *);
 	void (*preemption_schedule)(struct adreno_device *);
 	void (*enable_64bit)(struct adreno_device *);
+	void (*cp_crash_dumper_init)(struct adreno_device *);
 };
 
 struct log_field {

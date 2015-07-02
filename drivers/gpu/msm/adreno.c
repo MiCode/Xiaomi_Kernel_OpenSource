@@ -1339,6 +1339,8 @@ static int adreno_init(struct kgsl_device *device)
 	if (gpudev->preemption_init && adreno_is_preemption_enabled(adreno_dev))
 		gpudev->preemption_init(adreno_dev);
 
+	if (gpudev->cp_crash_dumper_init)
+		gpudev->cp_crash_dumper_init(adreno_dev);
 	return 0;
 }
 

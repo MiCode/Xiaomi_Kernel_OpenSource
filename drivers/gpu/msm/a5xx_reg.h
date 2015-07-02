@@ -66,6 +66,9 @@
 #define A5XX_CP_PFP_STAT_DATA            0x809
 #define A5XX_CP_DRAW_STATE_ADDR          0x80B
 #define A5XX_CP_DRAW_STATE_DATA          0x80C
+#define A5XX_CP_CRASH_SCRIPT_BASE_LO     0x817
+#define A5XX_CP_CRASH_SCRIPT_BASE_HI     0x818
+#define A5XX_CP_CRASH_DUMP_CNTL          0x819
 #define A5XX_CP_ME_STAT_ADDR             0x81A
 #define A5XX_CP_ROQ_THRESHOLDS_1         0x81F
 #define A5XX_CP_ROQ_THRESHOLDS_2         0x820

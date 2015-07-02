@@ -15,6 +15,8 @@
 
 #include "kgsl_snapshot.h"
 
+#define CP_CRASH_DUMPER_TIMEOUT 1000
+
 #define DEBUG_SECTION_SZ(_dwords) (((_dwords) * sizeof(unsigned int)) \
 		+ sizeof(struct kgsl_snapshot_debug))
 
