@@ -564,7 +564,12 @@
 			};
 
 			pcie0_clkreq_sleep: pcie0_clkreq_sleep {
-				pcie0 {
+				mux {
+					pins = "gpio36";
+					function = "gpio";
+				};
+
+				config {
 					pins = "gpio36";
 					drive-strength = <2>;
 					bias-disabled;
@@ -572,7 +577,12 @@
 			};
 
 			pcie0_wake_sleep: pcie0_wake_sleep {
-				pcie0 {
+				mux {
+					pins = "gpio37";
+					function = "gpio";
+				};
+
+				config {
 					pins = "gpio37";
 					drive-strength = <2>;
 					bias-disabled;
@@ -621,7 +631,12 @@
 			};
 
 			pcie1_clkreq_sleep: pcie1_clkreq_sleep {
-				pcie1 {
+				mux {
+					pins = "gpio131";
+					function = "gpio";
+				};
+
+				config {
 					pins = "gpio131";
 					drive-strength = <2>;
 					bias-disable;
@@ -629,7 +644,12 @@
 			};
 
 			pcie1_wake_sleep: pcie1_wake_sleep {
-				pcie1 {
+				mux {
+					pins = "gpio132";
+					function = "gpio";
+				};
+
+				config {
 					pins = "gpio132";
 					drive-strength = <2>;
 					bias-disable;
@@ -678,7 +698,12 @@
 			};
 
 			pcie2_clkreq_sleep: pcie2_clkreq_sleep {
-				pcie2 {
+				mux {
+					pins = "gpio115";
+					function = "gpio";
+				};
+
+				config {
 					pins = "gpio115";
 					drive-strength = <2>;
 					bias-disable;
@@ -686,7 +711,12 @@
 			};
 
 			pcie2_wake_sleep: pcie2_wake_sleep {
-				pcie2 {
+				mux {
+					pins = "gpio116";
+					function = "gpio";
+				};
+
+				config {
 					pins = "gpio116";
 					drive-strength = <2>;
 					bias-disable;
