@@ -1287,6 +1287,20 @@
 			};
 		};
 
+		pri-tlmm-lines {
+			qcom,pins = <&gp 123>, <&gp 124>, <&gp 125>;
+			qcom,num-grp-pins = <3>;
+			qcom,pin-func = <1>;
+			label = "pri-tlmm-lines";
+			pri_tlmm_lines_act: pri_tlmm_lines_act {
+				drive-strength = <8>;
+			};
+			pri_tlmm_lines_sus:  pri_tlmm_lines_sus {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
 		wcnss_pmux_5wire: wcnss_pmux_5wire {
 			/* Uses general purpose pins */
 			qcom,pins = <&gp 40>, <&gp 41>,
