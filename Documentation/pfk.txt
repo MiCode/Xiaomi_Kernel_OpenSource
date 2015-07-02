@@ -1,0 +1,140 @@
+Introduction
+============
+Per-File-Key (PFK) driver.
+
+This is part of solution to provide per-file encryption functionality
+with ICE accelerated eCryptfs.
+
+Objective
+=========
+Android devices are being used by individuals to access information on
+the go. This increases the risk of their information being leaked if
+device is stolen or lost. One of the security measures to protect the
+user information on the device is to encrypt the data. If the device is
+lost or stolen, it minimizes the risk that unknown person would be able
+to extract the information from the device.
+
+Android provides an encryption mechanism to encrypt the user data on the
+device. However currently only Full-Disk encryption method is supported
+there are other solutions via software only. While there
+are filesystem-level encryption solutions (such as eCryptfs), non of
+those are part of the Android and are user-space solution
+based.
+
+Andoid has open source stack file system with encryption. Up until now
+it was not enabled for QTI targets. Starting now, it will be
+enabled with enhanced hardware support provided by Inline Crypto Engine
+(ICE).
+
+
+Solution
+========
+The PFK driver is part of solution to provide per-file encryption
+functionality. PFK is designed to provide three main services:
+1. Store File Encryption Key (FEK) information for each inode in
+eCryptfs system during runtime.
+2. Provide interfaces for ICE Layer to store and remove FEK to/from ICE
+engine.
+3. Provide interface for Block Layer that will determine whether 2 requests
+can be merged into one.
+
+
+Hardware description
+====================
+PFK will only be invoked if hardware encryption is enabled and ICE is present.
+
+Software description
+====================
+
+                            Software component diagram
+                            --------------------------
+
+   +++++++++++++++++++++++                   +++++++++++++++
+   +        VFS          +                -- +    P F K    + ---
+   +++++++++++++++++++++++               |   +++++++++++++++    |
+   + EXT4   +  eCryptfs  + ---------------    | |               |
+   +++++++++++++++++++++++                    | |               |
+   +    Block Layer      + -------------------- |               |
+   +++++++++++++++++++++++                      |               |
+   +++++++++++++++++++++++                      |         ++++++++++++++
+   +    ICE Driver       + ----------------------         +     TZ     +
+   +++++++++++++++++++++++                                +            +
+   +++++++++++++++++++++++                                +   +++++++  +
+   +        ICE          + -----------------------------  +   + scm +  +
+   +++++++++++++++++++++++                                ++++++++++++++
+
+When eCryptfs  opens file, eCryptfs generates random File Encryption
+Key and invokes callback in PFK module. PFK stores the key inside eCryptfs
+file inode. Later, when ICE driver configures ICE hardware for a particular
+request, it queries PFK with that request. PFK fetches the FEK that was
+stored earlier in inode and loads it to available empty key index in TZ and
+returns the index number back to ICE driver, which can now configure ICE
+to use particular key index for encryption/decryption. PFK manages internal
+cache table with keys that were loaded to TZ. If the number of files open
+simultaneously is bigger than the table size, the oldest entry is evicted.
+Key is loaded to TZ only if it is not present in cache table.
+When file is released (was closed by all its users), another PFK callback
+is invoked and it removes the entry from cache table and invalidates
+file's FEK in TZ.
+Additionally, when block layer tries to merge 2 requests it also queries
+PFK to determine whether 2 blocks can be merged (belong to the same
+encrypted file).
+
+Power management
+================
+None.
+
+SMP/multi-core
+==============
+Cache table in PFK can be modified/accessed from multiple threads/processes
+therefore it is protected by mutexes/spinlocks.
+
+Security
+========
+This module is part of secure Per File Encryption solution. Each file
+is encrypted with its own random key, which in turn is encrypted with key
+provided by user during mount.
+
+Performance
+===========
+In general, eCryptfs with ICE acceleration gives practically line-rate
+performance for encryption/decryption.
+
+Interfaces
+==========
+Interface for eCryptfs
+----------------------
+pfk_open_cb() - callback invoked when file is opened.
+pfk_release_cb() - callback invoked when file is released.
+pfk_is_cipher_supported_cb() - determines whether a particular cipher
+is supported by PFK module.
+pfk_is_hw_crypt_cb() - tells whether PFK module uses HW encryption.
+
+Interface for Block Layer
+------------------------------------------
+pfk_allow_merge_bio() - determine whether two requests can be merged.
+
+Interface for ICE
+------------------------------------------
+pfk_load_key() - loads the key to TZ and returns key index.
+
+Interfaces for external modules
+------------------------------------------
+pfk_remove_key() - allows removing key from TZ and from key cache at any
+time for security reasons.
+
+Dependency
+==========
+eCryptfs.
+
+User space utilities
+====================
+None. User can't interract with PFK directly.
+
+Known issues
+============
+None.
+
+To do
+=====
+None.
