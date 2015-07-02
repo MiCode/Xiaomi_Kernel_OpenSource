@@ -1688,22 +1688,10 @@ void msm_isp_update_error_frame_count(struct vfe_device *vfe_dev)
 
 void ms_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 {
-	struct msm_isp_event_data error_event;
-	struct msm_vfe_axi_halt_cmd halt_cmd;
-	uint32_t i;
+	pr_err("%s:%d] VFE%d Handle Page fault! vfe_dev %p\n", __func__,
+		__LINE__,  vfe_dev->pdev->id, vfe_dev);
 
-	memset(&halt_cmd, 0, sizeof(struct msm_vfe_axi_halt_cmd));
-	halt_cmd.stop_camif = 1;
-	halt_cmd.overflow_detected = 0;
-	halt_cmd.blocking_halt = 0;
-
-	msm_isp_axi_halt(vfe_dev, &halt_cmd);
-
-	pr_err("%s:%d] vfe_dev %p id %d\n", __func__,
-		__LINE__, vfe_dev, vfe_dev->pdev->id);
-
-	error_event.frame_id =
-		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
+	msm_isp_halt_send_error(vfe_dev);
 	if (vfe_dev->buf_mgr->pagefault_debug_disable == 0) {
 		vfe_dev->buf_mgr->pagefault_debug_disable = 1;
 		vfe_dev->buf_mgr->ops->buf_mgr_debug(vfe_dev->buf_mgr,
@@ -1713,11 +1701,6 @@ void ms_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 		vfe_dev->hw_info->vfe_ops.axi_ops.
 			read_wm_ping_pong_addr(vfe_dev);
 	}
-
-	for (i = 0; i < MAX_NUM_STREAM; i++)
-		vfe_dev->axi_data.stream_info[i].state = INACTIVE;
-
-	msm_isp_send_event(vfe_dev, ISP_EVENT_IOMMU_P_FAULT, &error_event);
 }
 
 void msm_isp_process_error_info(struct vfe_device *vfe_dev)
@@ -1792,10 +1775,15 @@ static void msm_isp_process_overflow_irq(
 		*irq_status0 = 0;
 		*irq_status1 = 0;
 
-		error_event.frame_id =
-			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
-		error_event.u.error_info.err_type = ISP_ERROR_BUS_OVERFLOW;
-		msm_isp_send_event(vfe_dev, ISP_EVENT_ERROR, &error_event);
+		if (atomic_read(&vfe_dev->error_info.overflow_state)
+			!= HALT_ENFORCED) {
+			error_event.frame_id =
+				vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
+			error_event.u.error_info.err_type =
+				ISP_ERROR_BUS_OVERFLOW;
+			msm_isp_send_event(vfe_dev,
+				ISP_EVENT_ERROR, &error_event);
+		}
 	}
 }
 

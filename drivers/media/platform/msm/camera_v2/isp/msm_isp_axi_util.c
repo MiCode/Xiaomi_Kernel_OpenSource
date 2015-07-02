@@ -1188,8 +1188,10 @@ void msm_isp_halt_send_error(struct vfe_device *vfe_dev)
 	halt_cmd.overflow_detected = 0;
 	halt_cmd.blocking_halt = 0;
 
-	pr_err("%s: vfe%d fatal scheduling error!\n",
-		__func__, vfe_dev->pdev->id);
+	pr_err("%s: vfe%d fatal error!\n", __func__, vfe_dev->pdev->id);
+
+	atomic_set(&vfe_dev->error_info.overflow_state,
+		HALT_ENFORCED);
 
 	/*heavy spin lock in in axi halt, avoid spin lock outside.*/
 	msm_isp_axi_halt(vfe_dev, &halt_cmd);
@@ -1812,10 +1814,11 @@ int msm_isp_axi_halt(struct vfe_device *vfe_dev,
 			&vfe_dev->error_info.overflow_recover_irq_mask0,
 			&vfe_dev->error_info.overflow_recover_irq_mask1);
 		}
-		atomic_set(&vfe_dev->error_info.overflow_state,
-			OVERFLOW_DETECTED);
-		pr_err("%s: Bus overflow detected: start recovery!\n",
-			__func__);
+
+		atomic_cmpxchg(&vfe_dev->error_info.overflow_state,
+			NO_OVERFLOW, OVERFLOW_DETECTED);
+		pr_err("%s: VFE%d Bus overflow detected: start recovery!\n",
+			__func__, vfe_dev->pdev->id);
 	}
 
 	rc = vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev,
@@ -1901,6 +1904,12 @@ int msm_isp_axi_restart(struct vfe_device *vfe_dev,
 	uint32_t wm_reload_mask = 0x0;
 
 	vfe_dev->buf_mgr->frameId_mismatch_recovery = 0;
+	if (atomic_read(&vfe_dev->error_info.overflow_state)
+		== HALT_ENFORCED) {
+		pr_err_ratelimited("%s: no restart, halt enforced.\n",
+			__func__);
+		return rc;
+	}
 
 	for (i = 0, j = 0; j < axi_data->num_active_stream &&
 		i < MAX_NUM_STREAM; i++, j++) {
@@ -1967,8 +1976,6 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 		return -EINVAL;
 
 	if (camif_update == ENABLE_CAMIF) {
-		atomic_set(&vfe_dev->error_info.overflow_state,
-				NO_OVERFLOW);
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id = 0;
 		vfe_dev->axi_data.src_info[VFE_PIX_0].camif_sof_frame_id = 0;
 	}
@@ -2226,6 +2233,9 @@ int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	if (axi_data->num_active_stream == 0) {
 		/*Configure UB*/
 		vfe_dev->hw_info->vfe_ops.axi_ops.cfg_ub(vfe_dev);
+		/*when start reset overflow state*/
+		atomic_set(&vfe_dev->error_info.overflow_state,
+			NO_OVERFLOW);
 	}
 	camif_update = msm_isp_get_camif_update_state(vfe_dev, stream_cfg_cmd);
 
