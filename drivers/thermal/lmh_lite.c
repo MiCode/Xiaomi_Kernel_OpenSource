@@ -203,7 +203,8 @@ static int lmh_reset(struct lmh_sensor_ops *ops)
 		trace_lmh_sensor_interrupt(lmh_sensor->sensor_name,
 			lmh_sensor->last_read_value);
 	} else {
-		goto reset_exit;
+		pr_err("Sensor:[%s] is already in reset state\n",
+			lmh_sensor->sensor_name);
 	}
 
 	if (!lmh_data->intr_status_val) {
@@ -222,20 +223,21 @@ static int lmh_reset(struct lmh_sensor_ops *ops)
 					lmh_iter_sensor->last_read_value);
 			}
 		}
-		if (!lmh_data->intr_status_val)
+		if (!lmh_data->intr_status_val) {
 			lmh_data->intr_state = LMH_ISR_MONITOR;
+			pr_debug("Zero throttling. Re-enabling interrupt\n");
+			/*
+			 * Don't use cancel_delayed_work_sync as it will lead
+			 * to deadlock because of the mutex
+			 */
+			cancel_delayed_work(&lmh_data->poll_work);
+			trace_lmh_event_call("Lmh Interrupt Clear");
+			enable_irq(lmh_data->irq_num);
+		}
 	}
 
 reset_exit:
 	up_write(&lmh_sensor_access);
-	if (!lmh_data->intr_status_val) {
-		/* cancel the poll work after releasing the lock to avoid
-		** deadlock situation */
-		pr_debug("Zero throttling. Re-enabling interrupt\n");
-		cancel_delayed_work_sync(&lmh_data->poll_work);
-		trace_lmh_event_call("Lmh Interrupt Clear");
-		enable_irq(lmh_data->irq_num);
-	}
 	return ret;
 }
 
@@ -364,10 +366,13 @@ static void lmh_trim_error(void)
 
 static void lmh_notify(struct work_struct *work)
 {
-	struct lmh_driver_data *lmh_dat;
+	struct lmh_driver_data *lmh_dat = container_of(work,
+			struct lmh_driver_data, isr_work);
 
+	/* Cancel any pending polling work event before scheduling new one */
+	cancel_delayed_work_sync(&lmh_dat->poll_work);
 	down_write(&lmh_sensor_access);
-	lmh_dat = container_of(work, struct lmh_driver_data, isr_work);
+	lmh_dat->intr_state = LMH_ISR_POLLING;
 	lmh_dat->intr_reg_val = readl_relaxed(lmh_dat->intr_addr);
 	pr_debug("Lmh hw interrupt:%d\n", lmh_dat->intr_reg_val);
 	if (lmh_dat->intr_reg_val & BIT(lmh_dat->trim_err_offset)) {
@@ -396,13 +401,12 @@ notify_exit:
 
 static irqreturn_t lmh_handle_isr(int irq, void *data)
 {
-	struct lmh_driver_data *lmh_dat = (struct lmh_driver_data *)data;
+	struct lmh_driver_data *lmh_dat = data;
 
 	pr_debug("LMH Interrupt triggered\n");
 	trace_lmh_event_call("Lmh Interrupt");
 	if (lmh_dat->intr_state == LMH_ISR_MONITOR) {
 		disable_irq_nosync(lmh_dat->irq_num);
-		lmh_dat->intr_state = LMH_ISR_POLLING;
 		queue_work(lmh_dat->isr_wq, &lmh_dat->isr_work);
 	}
 
