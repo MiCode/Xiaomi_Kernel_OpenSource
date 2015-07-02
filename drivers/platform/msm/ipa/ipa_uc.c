@@ -591,8 +591,10 @@ int ipa_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 				uc_rsp.raw32b = ipa_ctx->uc_ctx.uc_sram_mmio->
 						responseParams;
 				if (uc_rsp.params.originalCmdOp ==
-				    ipa_ctx->uc_ctx.pending_cmd)
+				    ipa_ctx->uc_ctx.pending_cmd) {
+					ipa_ctx->uc_ctx.pending_cmd = -1;
 					break;
+				}
 			}
 			usleep(IPA_UC_POLL_SLEEP_USEC);
 		}
@@ -626,10 +628,12 @@ int ipa_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 	if (ipa_ctx->uc_ctx.uc_status != expected_status) {
 		IPAERR("Recevied status %u, Expected status %u\n",
 			ipa_ctx->uc_ctx.uc_status, expected_status);
+		ipa_ctx->uc_ctx.pending_cmd = -1;
 		mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 		return -EFAULT;
 	}
 
+	ipa_ctx->uc_ctx.pending_cmd = -1;
 	mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 
 	IPADBG("uC cmd %u send succeeded\n", opcode);
