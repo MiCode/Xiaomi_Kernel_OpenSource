@@ -63,10 +63,16 @@
 };
 
 &apc0_pwrcl_vreg {
+	qcom,cpr-fuse-combos = <2>;
 	qcom,ldo-max-voltage = <783000>;
 };
 
+&apc0_cbf_vreg {
+	qcom,cpr-fuse-combos = <2>;
+};
+
 &apc1_vreg {
+	qcom,cpr-fuse-combos = <2>;
 	qcom,ldo-max-voltage = <780000>;
 };
 

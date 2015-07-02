@@ -593,7 +593,7 @@
 
 				qcom,cpr-pd-bypass-mask = <0x07>;
 				qcom,cpr-fuse-corners = <5>;
-				qcom,cpr-fuse-combos = <1>;
+				qcom,cpr-fuse-combos = <4>;
 				qcom,cpr-corners = <19>;
 
 				qcom,ldo-headroom-voltage = <150000>;
@@ -649,7 +649,7 @@
 
 				qcom,cpr-pd-bypass-mask = <0x18>;
 				qcom,cpr-fuse-corners = <5>;
-				qcom,cpr-fuse-combos = <1>;
+				qcom,cpr-fuse-combos = <4>;
 				qcom,cpr-corners = <10>;
 
 				qcom,cpr-corner-fmax-map = <1 2 5 9 10>;
@@ -704,7 +704,7 @@
 
 				qcom,cpr-pd-bypass-mask = <0xe0>;
 				qcom,cpr-fuse-corners = <5>;
-				qcom,cpr-fuse-combos = <1>;
+				qcom,cpr-fuse-combos = <4>;
 				qcom,cpr-corners = <18>;
 
 				qcom,ldo-headroom-voltage = <150000>;
