@@ -1519,6 +1519,13 @@ static bool wcd9335_is_volatile_register(struct device *dev, unsigned int reg)
 	    (reg <= WCD9335_CDC_SIDETONE_IIR1_IIR_COEF_B2_CTL))
 		return true;
 
+	if ((reg >= WCD9335_CDC_ANC0_IIR_COEFF_1_CTL) &&
+	    (reg <= WCD9335_CDC_ANC0_IIR_COEFF_2_CTL))
+		return true;
+
+	if ((reg >= WCD9335_CDC_ANC1_IIR_COEFF_1_CTL) &&
+	    (reg <= WCD9335_CDC_ANC1_IIR_COEFF_2_CTL))
+		return true;
 	/*
 	 * CPE inbox and outbox registers are volatile
 	 * since they can be updated in the codec hardware
