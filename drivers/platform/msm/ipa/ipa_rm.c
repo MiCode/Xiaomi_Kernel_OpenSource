@@ -191,6 +191,62 @@ int ipa_rm_add_dependency(enum ipa_rm_resource_name resource_name,
 }
 EXPORT_SYMBOL(ipa_rm_add_dependency);
 
+/**
+ * ipa_rm_add_dependency_sync() - Create a dependency between 2 resources
+ * in a synchronized fashion. In case a producer resource is in GRANTED state
+ * and the newly added consumer resource is in RELEASED state, the consumer
+ * entity will be requested and the function will block until the consumer
+ * is granted.
+ * @resource_name: name of dependent resource
+ * @depends_on_name: name of its dependency
+ *
+ * Returns: 0 on success, negative on failure
+ *
+ * Side effects: May block. See documentation above.
+ */
+int ipa_rm_add_dependency_sync(enum ipa_rm_resource_name resource_name,
+		enum ipa_rm_resource_name depends_on_name)
+{
+	int result;
+	struct ipa_rm_resource *consumer;
+	unsigned long time;
+	unsigned long flags;
+
+	IPA_RM_DBG("%s -> %s\n", ipa_rm_resource_str(resource_name),
+				 ipa_rm_resource_str(depends_on_name));
+	spin_lock_irqsave(&ipa_rm_ctx->ipa_rm_lock, flags);
+	result = ipa_rm_dep_graph_add_dependency(
+						ipa_rm_ctx->dep_graph,
+						resource_name,
+						depends_on_name);
+	spin_unlock_irqrestore(&ipa_rm_ctx->ipa_rm_lock, flags);
+	if (result == -EINPROGRESS) {
+		ipa_rm_dep_graph_get_resource(ipa_rm_ctx->dep_graph,
+				depends_on_name,
+				&consumer);
+		IPA_RM_DBG("%s waits for GRANT of %s.\n",
+				ipa_rm_resource_str(resource_name),
+				ipa_rm_resource_str(depends_on_name));
+		time = wait_for_completion_timeout(
+				&((struct ipa_rm_resource_cons *)consumer)->
+				request_consumer_in_progress,
+				HZ);
+		result = 0;
+		if (!time) {
+			IPA_RM_ERR("TIMEOUT waiting for %s GRANT event.",
+					ipa_rm_resource_str(depends_on_name));
+			result = -ETIME;
+		}
+		IPA_RM_DBG("%s waited for %s GRANT %lu time.\n",
+				ipa_rm_resource_str(resource_name),
+				ipa_rm_resource_str(depends_on_name),
+				time);
+	}
+	IPA_RM_DBG("EXIT with %d\n", result);
+
+	return result;
+}
+EXPORT_SYMBOL(ipa_rm_add_dependency_sync);
 
 /**
  * ipa_rm_delete_dependency() - create dependency
