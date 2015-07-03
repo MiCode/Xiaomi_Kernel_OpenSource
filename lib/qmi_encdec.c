@@ -25,6 +25,7 @@
 #define TLV_LEN_SIZE sizeof(uint16_t)
 #define TLV_TYPE_SIZE sizeof(uint8_t)
 #define U8_MAX 255
+#define OPTIONAL_TLV_TYPE_START 0x10
 
 #ifdef CONFIG_QMI_ENCDEC_DEBUG
 
@@ -793,9 +794,13 @@ static int _qmi_kernel_decode(struct elem_info *ei_array,
 			buf_src += (TLV_TYPE_SIZE + TLV_LEN_SIZE);
 			decoded_bytes += (TLV_TYPE_SIZE + TLV_LEN_SIZE);
 			temp_ei = find_ei(ei_array, tlv_type);
-			if (!temp_ei) {
+			if (!temp_ei && (tlv_type < OPTIONAL_TLV_TYPE_START)) {
 				pr_err("%s: Inval element info\n", __func__);
 				return -EINVAL;
+			} else if (!temp_ei) {
+				UPDATE_DECODE_VARIABLES(buf_src,
+						decoded_bytes, tlv_len);
+				continue;
 			}
 		} else {
 			/*
