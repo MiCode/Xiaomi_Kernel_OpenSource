@@ -1593,24 +1593,11 @@ static bool fg_is_batt_empty(struct fg_chip *chip)
 	return (fg_soc_sts & SOC_EMPTY) != 0;
 }
 
-#define EMPTY_CAPACITY		0
-#define DEFAULT_CAPACITY	50
-#define MISSING_CAPACITY	100
-static int get_prop_capacity(struct fg_chip *chip)
+static int get_monotonic_soc_raw(struct fg_chip *chip)
 {
 	u8 cap[2];
-	int rc, capacity = 0, tries = 0;
+	int rc, tries = 0;
 
-	if (chip->battery_missing)
-		return MISSING_CAPACITY;
-	if (!chip->profile_loaded && !chip->use_otp_profile)
-		return DEFAULT_CAPACITY;
-	if (chip->soc_empty) {
-		if (fg_debug_mask & FG_POWER_SUPPLY)
-			pr_info_ratelimited("capacity: %d, EMPTY\n",
-					EMPTY_CAPACITY);
-		return EMPTY_CAPACITY;
-	}
 	while (tries < MAX_TRIES_SOC) {
 		rc = fg_read(chip, cap,
 				chip->soc_base + SOC_MONOTONIC_SOC, 2);
@@ -1631,13 +1618,37 @@ static int get_prop_capacity(struct fg_chip *chip)
 		return -EINVAL;
 	}
 
-	if (cap[0] > 0)
-		capacity = (cap[0] * 100 / FULL_PERCENT);
-
 	if (fg_debug_mask & FG_POWER_SUPPLY)
-		pr_info_ratelimited("capacity: %d, raw: 0x%02x\n",
-				capacity, cap[0]);
-	return capacity;
+		pr_info_ratelimited("raw: 0x%02x\n", cap[0]);
+	return cap[0];
+}
+
+#define EMPTY_CAPACITY		0
+#define DEFAULT_CAPACITY	50
+#define MISSING_CAPACITY	100
+#define FULL_CAPACITY		100
+#define FULL_SOC_RAW		0xFF
+static int get_prop_capacity(struct fg_chip *chip)
+{
+	int msoc;
+
+	if (chip->battery_missing)
+		return MISSING_CAPACITY;
+	if (!chip->profile_loaded && !chip->use_otp_profile)
+		return DEFAULT_CAPACITY;
+	if (chip->soc_empty) {
+		if (fg_debug_mask & FG_POWER_SUPPLY)
+			pr_info_ratelimited("capacity: %d, EMPTY\n",
+					EMPTY_CAPACITY);
+		return EMPTY_CAPACITY;
+	}
+	msoc = get_monotonic_soc_raw(chip);
+	if (msoc == 0)
+		return EMPTY_CAPACITY;
+	else if (msoc == FULL_SOC_RAW)
+		return FULL_CAPACITY;
+	return DIV_ROUND_CLOSEST((msoc - 1) * (FULL_CAPACITY - 2),
+			FULL_SOC_RAW - 2) + 1;
 }
 
 #define HIGH_BIAS	3
@@ -3413,46 +3424,43 @@ static void set_resume_soc_work(struct work_struct *work)
 	struct fg_chip *chip = container_of(work,
 				struct fg_chip,
 				set_resume_soc_work);
-	int resume_soc, rc;
-	u8 resume_soc_raw;
+	int rc, resume_soc_raw;
 
 	if (is_input_present(chip) && !chip->resume_soc_lowered) {
 		if (!chip->charge_done)
 			goto done;
-		resume_soc = get_prop_capacity(chip)
-			- (100 - settings[FG_MEM_RESUME_SOC].value);
-		if (resume_soc > 0) {
-			resume_soc_raw = soc_to_setpoint(resume_soc);
+		resume_soc_raw = get_monotonic_soc_raw(chip)
+			- (0xFF - settings[FG_MEM_RESUME_SOC].value);
+		if (resume_soc_raw > 0 && resume_soc_raw < FULL_SOC_RAW) {
 			rc = fg_set_resume_soc(chip, resume_soc_raw);
 			if (rc) {
 				pr_err("Couldn't set resume SOC for FG\n");
 				goto done;
 			}
 			if (fg_debug_mask & FG_STATUS) {
-				pr_info("resume soc lowered to %d/%x\n",
-						resume_soc, resume_soc_raw);
+				pr_info("resume soc lowered to 0x%02x\n",
+						resume_soc_raw);
 			}
-		} else {
-			pr_info("FG auto recharge threshold not specified in DT\n");
+		} else if (settings[FG_MEM_RESUME_SOC].value > 0) {
+			pr_err("bad resume soc 0x%02x\n", resume_soc_raw);
 		}
 		chip->charge_done = false;
 		chip->resume_soc_lowered = true;
 	} else if (chip->resume_soc_lowered && (!is_input_present(chip)
 				|| chip->health == POWER_SUPPLY_HEALTH_GOOD)) {
-		resume_soc = settings[FG_MEM_RESUME_SOC].value;
-		if (resume_soc > 0) {
-			resume_soc_raw = soc_to_setpoint(resume_soc);
+		resume_soc_raw = settings[FG_MEM_RESUME_SOC].value;
+		if (resume_soc_raw > 0 && resume_soc_raw < FULL_SOC_RAW) {
 			rc = fg_set_resume_soc(chip, resume_soc_raw);
 			if (rc) {
 				pr_err("Couldn't set resume SOC for FG\n");
 				goto done;
 			}
 			if (fg_debug_mask & FG_STATUS) {
-				pr_info("resume soc set to %d/%x\n",
-						resume_soc, resume_soc_raw);
+				pr_info("resume soc set to 0x%02x\n",
+						resume_soc_raw);
 			}
-		} else {
-			pr_info("FG auto recharge threshold not specified in DT\n");
+		} else if (settings[FG_MEM_RESUME_SOC].value > 0) {
+			pr_err("bad resume soc 0x%02x\n", resume_soc_raw);
 		}
 		chip->resume_soc_lowered = false;
 	}
@@ -4272,6 +4280,10 @@ static int fg_of_init(struct fg_chip *chip)
 		chip->use_thermal_coefficients = true;
 	}
 	OF_READ_SETTING(FG_MEM_RESUME_SOC, "resume-soc", rc, 1);
+	settings[FG_MEM_RESUME_SOC].value =
+		DIV_ROUND_CLOSEST(settings[FG_MEM_RESUME_SOC].value
+				* FULL_SOC_RAW, FULL_CAPACITY);
+	OF_READ_SETTING(FG_MEM_RESUME_SOC, "resume-soc-raw", rc, 1);
 	OF_READ_SETTING(FG_MEM_IRQ_VOLT_EMPTY, "irq-volt-empty-mv", rc, 1);
 	OF_READ_SETTING(FG_MEM_VBAT_EST_DIFF, "vbat-estimate-diff-mv", rc, 1);
 	OF_READ_SETTING(FG_MEM_DELTA_SOC, "fg-delta-soc", rc, 1);
@@ -5030,17 +5042,16 @@ static int bcl_trim_workaround(struct fg_chip *chip)
 static int fg_common_hw_init(struct fg_chip *chip)
 {
 	int rc;
-	u8 resume_soc;
+	int resume_soc_raw;
 
 	update_iterm(chip);
 	update_cutoff_voltage(chip);
 	update_irq_volt_empty(chip);
 	update_bcl_thresholds(chip);
 
-	resume_soc = settings[FG_MEM_RESUME_SOC].value;
-	if (resume_soc > 0) {
-		resume_soc = resume_soc * 255 / 100;
-		rc = fg_set_resume_soc(chip, resume_soc);
+	resume_soc_raw = settings[FG_MEM_RESUME_SOC].value;
+	if (resume_soc_raw > 0) {
+		rc = fg_set_resume_soc(chip, resume_soc_raw);
 		if (rc) {
 			pr_err("Couldn't set resume SOC for FG\n");
 			return rc;
