@@ -145,6 +145,7 @@
 			"AMIC1", "MIC BIAS External",
 			"AMIC2", "MIC BIAS External2",
 			"AMIC3", "MIC BIAS External",
+			"WSA_SPK OUT", "VDD_WSA_SWITCH",
 			"SpkrMono WSA_IN", "WSA_SPK OUT";
 		qcom,msm-gpios =
 			"pri_i2s",
@@ -200,6 +201,10 @@
 		asoc-codec-names = "msm-stub-codec.1", "cajon_codec";
 		asoc-wsa-codec-names = "wsa881x-i2c-codec.8-000f";
 		asoc-wsa-codec-prefixes = "SpkrMono";
+
+		msm-vdd-wsa-switch-supply = <&pm8950_l13>;
+		qcom,msm-vdd-wsa-switch-voltage = <3075000>;
+		qcom,msm-vdd-wsa-switch-current = <5000>;
 	};
 
 	i2c@7af8000 {
