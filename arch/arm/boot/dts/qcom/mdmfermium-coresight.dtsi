@@ -345,4 +345,30 @@
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
+
+	rpm_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <21>;
+		coresight-name = "coresight-rpm-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <0>;
+
+		qcom,inst-id = <4>;
+	};
+
+	modem_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <22>;
+		coresight-name = "coresight-modem-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <2>;
+
+		qcom,inst-id = <2>;
+	};
 };
