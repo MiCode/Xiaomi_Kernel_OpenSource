@@ -1982,6 +1982,7 @@ static void mdss_dsi_dba_work(struct work_struct *work)
 	utils_init_data.chip_name = "adv7533";
 	utils_init_data.client_name = "dsi";
 	utils_init_data.instance_id = 0;
+	utils_init_data.fb_node = ctrl_pdata->fb_node;
 	utils_init_data.kobj = ctrl_pdata->kobj;
 	utils_init_data.pinfo = pinfo;
 
@@ -2109,6 +2110,7 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 			break;
 
 		ctrl_pdata->kobj = &fbi->dev->kobj;
+		ctrl_pdata->fb_node = fbi->node;
 
 		if (IS_ENABLED(CONFIG_MSM_DBA))
 			queue_delayed_work(ctrl_pdata->workq,

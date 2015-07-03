@@ -463,6 +463,7 @@ struct mdss_dsi_ctrl_pdata {
 	bool ds_registered;
 
 	struct kobject *kobj;
+	int fb_node;
 
 	struct workqueue_struct *workq;
 	struct delayed_work dba_work;

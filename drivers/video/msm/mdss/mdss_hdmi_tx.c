@@ -3568,25 +3568,8 @@ static int hdmi_tx_dev_init(struct hdmi_tx_ctrl *hdmi_ctrl)
 	hdmi_ctrl->audio_data.sample_rate = AUDIO_SAMPLE_RATE_48KHZ;
 	hdmi_ctrl->audio_data.channel_num = MSM_HDMI_AUDIO_CHANNEL_2;
 
-	hdmi_ctrl->sdev.name = "hdmi";
-	if (switch_dev_register(&hdmi_ctrl->sdev) < 0) {
-		DEV_ERR("%s: Hdmi switch registration failed\n", __func__);
-		rc = -ENODEV;
-		goto fail_create_workq;
-	}
-
-	hdmi_ctrl->audio_sdev.name = "hdmi_audio";
-	if (switch_dev_register(&hdmi_ctrl->audio_sdev) < 0) {
-		DEV_ERR("%s: hdmi_audio switch registration failed\n",
-			__func__);
-		rc = -ENODEV;
-		goto fail_audio_switch_dev;
-	}
-
 	return 0;
 
-fail_audio_switch_dev:
-	switch_dev_unregister(&hdmi_ctrl->sdev);
 fail_create_workq:
 	if (hdmi_ctrl->workq)
 		destroy_workqueue(hdmi_ctrl->workq);
@@ -3624,6 +3607,40 @@ static int hdmi_tx_start_hdcp(struct hdmi_tx_ctrl *hdmi_ctrl)
 	return rc;
 }
 
+static int hdmi_tx_init_switch_dev(struct hdmi_tx_ctrl *hdmi_ctrl,
+	struct fb_info *fbi)
+{
+	int rc = -EINVAL, ret;
+
+	if (!hdmi_ctrl || !fbi) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		goto end;
+	}
+
+	ret = snprintf(hdmi_ctrl->disp_switch_name,
+		sizeof(hdmi_ctrl->disp_switch_name),
+		"fb%d", fbi->node);
+	if (!ret) {
+		DEV_ERR("%s: couldn't write display switch node\n", __func__);
+		goto end;
+	}
+
+	hdmi_ctrl->sdev.name = hdmi_ctrl->disp_switch_name;
+	rc = switch_dev_register(&hdmi_ctrl->sdev);
+	if (rc) {
+		DEV_ERR("%s: display switch registration failed\n", __func__);
+		goto end;
+	}
+
+	hdmi_ctrl->audio_sdev.name = "hdmi_audio";
+	rc = switch_dev_register(&hdmi_ctrl->audio_sdev);
+	if (rc)
+		DEV_ERR("%s: audio switch registration failed\n", __func__);
+
+end:
+	return rc;
+}
+
 static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 	int event, void *arg)
 {
@@ -3651,6 +3668,14 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 		if (rc) {
 			DEV_ERR("%s: init_features failed.rc=%d\n",
 					__func__, rc);
+			hdmi_tx_sysfs_remove(hdmi_ctrl);
+			return rc;
+		}
+
+		rc = hdmi_tx_init_switch_dev(hdmi_ctrl, arg);
+		if (rc) {
+			DEV_ERR("%s: init switch dev failed.rc=%d\n",
+				__func__, rc);
 			hdmi_tx_sysfs_remove(hdmi_ctrl);
 			return rc;
 		}
