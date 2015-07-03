@@ -2902,6 +2902,7 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 	reg = dwc3_readl(dwc->regs, DWC3_DSTS);
 	speed = reg & DWC3_DSTS_CONNECTSPD;
 	dwc->speed = speed;
+	dwc->gadget.l1_supported = true;
 
 	dwc3_update_ram_clk_sel(dwc, speed);
 
@@ -2930,6 +2931,7 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 	case DWC3_DCFG_HIGHSPEED:
 		dwc3_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(64);
 		dwc->gadget.ep0->maxpacket = 64;
+		dwc->gadget.l1_supported = false;
 		dwc->gadget.speed = USB_SPEED_HIGH;
 		break;
 	case DWC3_DCFG_FULLSPEED2:
