@@ -141,6 +141,13 @@
 			coresight-outports = <0>;
 			coresight-child-list = <&funnel_in1>;
 			coresight-child-ports = <0>;
+			mmagic-ahb-no-rate-supply = <&gdsc_mmagic_bimc>;
+			mmagic-mdss-axi-no-rate-supply =
+						<&gdsc_mmagic_mdss>;
+			mmagic-camss-axi-no-rate-supply =
+						<&gdsc_mmagic_camss>;
+			mmagic-video-axi-no-rate-supply =
+						<&gdsc_mmagic_video>;
 			qcom,node-qos-clks {
 				clock-names = "mmagic-ahb-no-rate",
 				"mmagic-cfg-ahb-no-rate",
@@ -158,13 +165,6 @@
 			     <&clock_mmss clk_mmagic_camss_noc_cfg_ahb_clk>,
 			     <&clock_mmss clk_mmagic_video_axi_clk>,
 			     <&clock_mmss clk_mmagic_video_noc_cfg_ahb_clk>;
-				mmagic-ahb-no-rate-supply = <&gdsc_mmagic_bimc>;
-				mmagic-mdss-axi-no-rate-supply =
-							<&gdsc_mmagic_mdss>;
-				mmagic-camss-axi-no-rate-supply =
-							<&gdsc_mmagic_camss>;
-				mmagic-video-axi-no-rate-supply =
-							<&gdsc_mmagic_video>;
 			};
 		};
 
