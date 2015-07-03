@@ -31,7 +31,7 @@ enum {
 	COLOR_ALPHA_4BIT = 1,
 };
 
-#define UBWC_META_MACRO_W 16
+#define UBWC_META_MACRO_W_H 16
 #define UBWC_META_BLOCK_SIZE 256
 
 #define FMT_RGB_565(fmt, fetch_type, flag_arg, e0, e1, e2)		\
