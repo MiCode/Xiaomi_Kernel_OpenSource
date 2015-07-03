@@ -973,6 +973,11 @@ static int mdss_dsi_read_status(struct mdss_dsi_ctrl_pdata *ctrl)
 	cmdreq.cb = NULL;
 	cmdreq.rbuf = ctrl->status_buf.data;
 
+	if (ctrl->status_cmds.link_state == DSI_LP_MODE)
+		cmdreq.flags  |= CMD_REQ_LP_MODE;
+	else if (ctrl->status_cmds.link_state == DSI_HS_MODE)
+		cmdreq.flags |= CMD_REQ_HS_MODE;
+
 	return mdss_dsi_cmdlist_put(ctrl, &cmdreq);
 }
 
@@ -996,19 +1001,11 @@ int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		return 0;
 	}
 
-	mutex_lock(&ctrl_pdata->cmd_mutex);
-
 	pr_debug("%s: Checking Register status\n", __func__);
 
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
 
-	if (ctrl_pdata->status_cmds.link_state == DSI_HS_MODE)
-		mdss_dsi_set_tx_power_mode(0, &ctrl_pdata->panel_data);
-
 	ret = mdss_dsi_read_status(ctrl_pdata);
-
-	if (ctrl_pdata->status_cmds.link_state == DSI_HS_MODE)
-		mdss_dsi_set_tx_power_mode(1, &ctrl_pdata->panel_data);
 
 	/*
 	 * mdss_dsi_read_status returns the number of bytes returned
@@ -1023,8 +1020,6 @@ int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
 	pr_debug("%s: Read register done with ret: %d\n", __func__, ret);
-
-	mutex_unlock(&ctrl_pdata->cmd_mutex);
 
 	return ret;
 }
