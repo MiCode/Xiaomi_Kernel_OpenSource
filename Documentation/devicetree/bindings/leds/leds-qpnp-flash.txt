@@ -54,9 +54,6 @@ Optional properties:
 				  when battery voltage is low
 - qcom,otst2-module-enabled	: Boolean type. This enables driver to enable MASK to support
 				OTST2 connection.
-- qcom,duration			: Duration for flash LED. When duration time expires, hardware
-				will turn off flash LED. Values should be from 10 ms to 1280 ms
-				with 10 ms incremental step. Not applicable to torch.
 - qcom,follow-otst2-rb-disabled	: Boolean type. This allows driver to reset/deset module.
 				By default, driver resets module. This entry allows driver to
 				bypass reset module sequence.
@@ -90,12 +87,17 @@ operational simplification. For backward compatibility purpose, swicth node can 
 			  "1", etc..
 - qcom,max-current	: maximum current allowed on this LED. Valid values should be
 			integer from 0 to 1000 inclusive, indicating 0 to 1000 mA.
+
 Optional properties inside child node:
 - qcom,current		: default current intensity for LED. Accepted values should be
 			  integer from 0 t 1000 inclusive, indicating 0 to 1000 mA.
 - boost-supply		: flash LED boost power source for flash LED
 - boost-voltage-max	: maximum voltage for flash LED boost regulator in uV. This attribute is
 			: required if boost-supply is defined.
+- qcom,duration	: Duration for flash LED. When duration time expires, hardware will turn off
+		flash LED. Values should be from 10 ms to 1280 ms with 10 ms incremental
+		step. Not applicable to torch. It is required for LED:SWITCH node to handle
+		LED used as flash.
 
 Example:
 	qcom,leds@d300 {
@@ -119,7 +121,6 @@ Example:
 		qcom,vph-pwr-droop-debounce-time = <10>;
 		qcom,headroom-sense-ch0-enabled;
 		qcom,headroom-sense-ch1-enabled;
-		qcom,duration = <1280>;
 		qcom,die-current-derate-enabled;
 		qcom,die-temp-vadc = <&pmi8994_vadc>;
 		qcom,die-temp-threshold = <85 80 75 70 65>;
@@ -132,6 +133,7 @@ Example:
 			qcom,default-led-trigger =
 					"flash0_trigger";
 			qcom,id = <0>;
+			qcom,duration = <1280>;
 			qcom,current = <625>;
 			qcom,max-current = <1000>;
 		};
@@ -154,6 +156,7 @@ Example:
 			boost-supply = <&pm8226_chg_boost>;
 			qcom,id = <2>;
 			qcom,current = <625>;
+			qcom,duration = <1280>;
 			qcom,max-current = <1000>;
 			boost-voltage-max = <3600000>;
 		};
