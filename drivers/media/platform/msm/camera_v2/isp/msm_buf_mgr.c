@@ -411,6 +411,11 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 				spin_unlock_irqrestore(
 					&bufq->bufq_lock, flags);
 				return rc;
+			} else if (temp_buf_info->buf_used[id] &&
+					temp_buf_info->buf_reuse_flag) {
+				spin_unlock_irqrestore(
+					&bufq->bufq_lock, flags);
+				return rc;
 			}
 		}
 	}
