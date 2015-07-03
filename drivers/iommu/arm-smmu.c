@@ -381,6 +381,7 @@ struct arm_smmu_device {
 
 	struct regulator		*gdsc;
 
+	/* Protects against domains attaching to the same SMMU concurrently */
 	struct mutex			attach_lock;
 	unsigned int			attach_count;
 
@@ -1538,12 +1539,14 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		return -ENXIO;
 	}
 
+	mutex_lock(&smmu->attach_lock);
 	if (dev->archdata.iommu) {
 		dev_err(dev, "already attached to IOMMU domain\n");
+		mutex_unlock(&smmu->attach_lock);
+		mutex_unlock(&smmu_domain->init_mutex);
 		return -EEXIST;
 	}
 
-	mutex_lock(&smmu->attach_lock);
 	if (!smmu->attach_count++) {
 		/*
 		 * We need an extra power vote if we can't retain register
@@ -1563,7 +1566,6 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	} else {
 		arm_smmu_enable_clocks(smmu);
 	}
-	mutex_unlock(&smmu->attach_lock);
 
 	/* Ensure that the domain is finalised */
 	ret = arm_smmu_init_domain_context(domain, smmu);
@@ -1603,6 +1605,7 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		goto err_destroy_domain_context;
 	dev->archdata.iommu = domain;
 	arm_smmu_disable_clocks(smmu);
+	mutex_unlock(&smmu->attach_lock);
 	mutex_unlock(&smmu_domain->init_mutex);
 	return ret;
 
@@ -1610,12 +1613,11 @@ err_destroy_domain_context:
 	arm_smmu_destroy_domain_context(domain);
 err_disable_clocks:
 	arm_smmu_disable_clocks(smmu);
-	mutex_unlock(&smmu_domain->init_mutex);
-	mutex_lock(&smmu->attach_lock);
 	if (!--smmu->attach_count &&
 	    (!(smmu->options & ARM_SMMU_OPT_REGISTER_SAVE) || atomic_ctx))
 		arm_smmu_disable_regulators(smmu);
 	mutex_unlock(&smmu->attach_lock);
+	mutex_unlock(&smmu_domain->init_mutex);
 	return ret;
 }
 
@@ -1647,18 +1649,18 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain, struct device *dev)
 		return;
 	}
 
+	mutex_lock(&smmu->attach_lock);
+
 	cfg = find_smmu_master_cfg(dev);
-	if (!cfg) {
-		mutex_unlock(&smmu_domain->init_mutex);
-		return;
-	}
+	if (!cfg)
+		goto unlock;
 
 	dev->archdata.iommu = NULL;
 	arm_smmu_domain_remove_master(smmu_domain, cfg);
 	arm_smmu_destroy_domain_context(domain);
-	mutex_lock(&smmu->attach_lock);
 	if (!--smmu->attach_count)
 		arm_smmu_power_off(smmu, atomic_ctx);
+unlock:
 	mutex_unlock(&smmu->attach_lock);
 	mutex_unlock(&smmu_domain->init_mutex);
 }
