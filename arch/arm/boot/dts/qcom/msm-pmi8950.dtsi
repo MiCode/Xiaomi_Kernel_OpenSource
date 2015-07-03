@@ -540,7 +540,6 @@
 			qcom,vph-pwr-droop-debounce-time = <10>;
 			qcom,headroom-sense-ch0-enabled;
 			qcom,headroom-sense-ch1-enabled;
-			qcom,duration = <1280>;
 
 			pmi8950_flash0: qcom,flash_0 {
 				label = "flash";
@@ -590,6 +589,7 @@
 				qcom,default-led-trigger =
 						"switch_trigger";
 				qcom,max-current = <1000>;
+				qcom,duration = <1280>;
 				qcom,id = <2>;
 				qcom,current = <625>;
 			};
