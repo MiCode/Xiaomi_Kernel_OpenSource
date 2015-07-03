@@ -3089,6 +3089,7 @@ static int set_low_power_mode(struct iris_device *radio, int power_mode)
 
 	int rds_grps_proc = 0x00;
 	int retval = 0;
+	struct hci_fm_rds_grp_req grp_3a;
 
 	if (unlikely(radio == NULL)) {
 		FMDERR(":radio is null");
@@ -3098,6 +3099,13 @@ static int set_low_power_mode(struct iris_device *radio, int power_mode)
 	if (radio->power_mode != power_mode) {
 
 		if (power_mode) {
+			memcpy(&grp_3a, &radio->rds_grp,
+					sizeof(struct hci_fm_rds_grp_req));
+			/* Disable 3A group */
+			grp_3a.rds_grp_enable_mask &= ~FM_RDS_3A_GRP;
+			retval = hci_fm_rds_grp(&grp_3a, radio->fm_hdev);
+			if (retval < 0)
+				FMDERR("error in disable 3A group mask\n");
 			radio->event_mask = 0x00;
 			if (radio->af_jump_bit)
 				rds_grps_proc = 0x00 | AF_JUMP_ENABLE;
@@ -3113,7 +3121,11 @@ static int set_low_power_mode(struct iris_device *radio, int power_mode)
 			retval = hci_conf_event_mask(&radio->event_mask,
 				radio->fm_hdev);
 		} else {
-
+			/* Enable RDS group to normal */
+			retval = hci_fm_rds_grp(&radio->rds_grp,
+							radio->fm_hdev);
+			if (retval < 0)
+				FMDERR("error in enable 3A group mask\n");
 			radio->event_mask = SIG_LEVEL_INTR |
 					RDS_SYNC_INTR | AUDIO_CTRL_INTR;
 			retval = hci_conf_event_mask(&radio->event_mask,
