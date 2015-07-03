@@ -1335,18 +1335,34 @@ static int mdss_rotator_validate_item_matches_session(
 	return 0;
 }
 
+/* Only need to validate x and y offset for ubwc dst fmt */
+static int mdss_rotator_validate_img_roi(struct mdp_rotation_item *item)
+{
+	struct mdss_mdp_format_params *fmt;
+	int ret = 0;
+
+	fmt = mdss_mdp_get_format_params(item->input.format);
+	if (!fmt) {
+		pr_err("invalid input format:%d\n", item->input.format);
+		return -EINVAL;
+	}
+
+	if (mdss_mdp_is_ubwc_format(fmt))
+		ret = mdss_mdp_validate_offset_for_ubwc_format(fmt,
+			item->dst_rect.x, item->dst_rect.y);
+
+	return ret;
+}
+
 static int mdss_rotator_validate_entry(struct mdss_rot_mgr *mgr,
 	struct mdss_rot_file_private *private,
 	struct mdss_rot_entry *entry)
 {
 	int ret;
-	u32 out_format, in_format;
 	struct mdp_rotation_item *item;
 	struct mdss_rot_perf *perf;
 
 	item = &entry->item;
-	in_format = item->input.format;
-	out_format = item->output.format;
 
 	if (item->wb_idx != item->pipe_idx) {
 		pr_err("invalid writeback and pipe idx\n");
@@ -1369,6 +1385,12 @@ static int mdss_rotator_validate_entry(struct mdss_rot_mgr *mgr,
 	if (ret) {
 		pr_err("Work item does not match session:%u\n",
 			item->session_id);
+		return ret;
+	}
+
+	ret = mdss_rotator_validate_img_roi(item);
+	if (ret) {
+		pr_err("Image roi is invalid\n");
 		return ret;
 	}
 
