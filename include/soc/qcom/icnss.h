@@ -74,5 +74,9 @@ extern int icnss_wlan_disable(enum icnss_driver_mode mode);
 extern void icnss_enable_irq(unsigned int ce_id);
 extern void icnss_disable_irq(unsigned int ce_id);
 extern int icnss_get_soc_info(struct icnss_soc_info *info);
+extern int icnss_ce_free_irq(unsigned int ce_id, void *ctx);
+extern int icnss_ce_request_irq(unsigned int ce_id,
+	irqreturn_t (*handler)(int, void *),
+	unsigned long flags, const char *name, void *ctx);
 
 #endif /* _ICNSS_WLAN_H_ */

@@ -163,6 +163,71 @@ out:
 }
 EXPORT_SYMBOL(icnss_unregister_ce_irq);
 
+int icnss_ce_request_irq(unsigned int ce_id,
+	irqreturn_t (*handler)(int, void *),
+		unsigned long flags, const char *name, void *ctx)
+{
+	int ret = 0;
+	unsigned int irq;
+	struct ce_irq_list *irq_entry;
+
+	if (!penv || !penv->pdev) {
+		ret = -ENODEV;
+		goto out;
+	}
+	if (ce_id >= ICNSS_MAX_IRQ_REGISTRATIONS) {
+		pr_err("icnss: Invalid CE ID %d\n", ce_id);
+		ret = -EINVAL;
+		goto out;
+	}
+	irq = penv->ce_irqs[ce_id];
+	irq_entry = &penv->ce_irq_list[ce_id];
+
+	if (irq_entry->handler || irq_entry->irq) {
+		pr_err("icnss: handler already registered %d\n", irq);
+		ret = -EEXIST;
+		goto out;
+	}
+
+	ret = request_irq(irq, handler, flags, name, ctx);
+	if (ret) {
+		pr_err("icnss: IRQ not registered %d\n", irq);
+		ret = -EINVAL;
+		goto out;
+	}
+	irq_entry->irq = irq;
+	irq_entry->handler = handler;
+	pr_debug("icnss: IRQ registered %d\n", irq);
+out:
+	return ret;
+}
+EXPORT_SYMBOL(icnss_ce_request_irq);
+
+int icnss_ce_free_irq(unsigned int ce_id, void *ctx)
+{
+	int ret = 0;
+	unsigned int irq;
+	struct ce_irq_list *irq_entry;
+
+	if (!penv || !penv->pdev) {
+		ret = -ENODEV;
+		goto out;
+	}
+	irq = penv->ce_irqs[ce_id];
+	irq_entry = &penv->ce_irq_list[ce_id];
+	if (!irq_entry->handler || !irq_entry->irq) {
+		pr_err("icnss: handler not registered %d\n", irq);
+		ret = -EEXIST;
+		goto out;
+	}
+	free_irq(irq, ctx);
+	irq_entry->irq = 0;
+	irq_entry->handler = NULL;
+out:
+	return ret;
+}
+EXPORT_SYMBOL(icnss_ce_free_irq);
+
 void icnss_enable_irq(unsigned int ce_id)
 {
 	unsigned int irq;
