@@ -69,6 +69,7 @@ static const struct platform_device_id msm_vfe_dev_id[] = {
 static char stat_line[OVERFLOW_LENGTH];
 
 static struct msm_isp_buf_mgr vfe_buf_mgr;
+static struct dual_vfe_resource dualvfe;
 struct msm_isp_statistics stats;
 struct msm_isp_ub_info ub_info;
 static int msm_isp_enable_debugfs(struct vfe_device *vfe_dev,
@@ -479,6 +480,12 @@ static int vfe_probe(struct platform_device *pdev)
 	ISP_DBG("%s: device id = %d\n", __func__, pdev->id);
 
 	vfe_dev->pdev = pdev;
+	vfe_dev->dual_vfe_res = &dualvfe;
+	vfe_dev->dual_vfe_res->axi_data[vfe_dev->pdev->id] =
+		&vfe_dev->axi_data;
+	vfe_dev->dual_vfe_res->stats_data[vfe_dev->pdev->id] =
+		&vfe_dev->stats_data;
+
 	rc = vfe_dev->hw_info->vfe_ops.core_ops.get_platform_data(vfe_dev);
 	if (rc < 0) {
 		pr_err("%s: failed to get platform resources\n", __func__);
