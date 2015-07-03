@@ -25,7 +25,6 @@
 		clocks = <&clock_gcc clk_gcc_smmu_cfg_clk>,
 			 <&clock_gcc_gfx clk_gcc_gfx_tcu_clk>;
 		clock-names = "iface_clk", "core_clk";
-		qcom,global_pt;
 		status = "ok";
 
 		gfx3d_user: qcom,iommu-ctx@1f08000 {
