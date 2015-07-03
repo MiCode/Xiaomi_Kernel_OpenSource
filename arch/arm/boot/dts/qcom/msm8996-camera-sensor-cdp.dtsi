@@ -51,6 +51,7 @@
 		qcom,eeprom-name = "onsemi_cat24c32";
 		compatible = "qcom,eeprom";
 		qcom,slave-addr = <0xa0>;
+		qcom,i2c-freq-mode = <1>;
 		qcom,cci-master = <0>;
 		qcom,num-blocks = <1>;
 		qcom,page0 = <0 0 0 0 0 0>;
@@ -75,6 +76,7 @@
 		qcom,eeprom-name = "onsemi_cat24c16";
 		compatible = "qcom,eeprom";
 		qcom,slave-addr = <0xa0>;
+		qcom,i2c-freq-mode = <1>;
 		qcom,cci-master = <1>;
 		qcom,num-blocks = <7>;
 
