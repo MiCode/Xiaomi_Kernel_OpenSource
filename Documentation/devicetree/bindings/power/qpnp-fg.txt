@@ -46,6 +46,9 @@ Parent node optional properties:
 					be exactly 6 bytes in length.
 					Example: [01 02 03 04 05 06]
 - qcom,resume-soc:			soc to resume charging in percentage.
+- qcom,resume-soc-raw:			soc to resume charging in the scale of
+					[0-255]. This overrides qcom,resume-soc
+					if defined.
 - qcom,bcl-lm-threshold-ma:		BCL LPM to MPM mode transition threshold
 					in milliAmpere.
 - qcom,bcl-mh-threshold-ma:		BCL MPM to HPM mode transition threshold
