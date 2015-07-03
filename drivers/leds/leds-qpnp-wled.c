@@ -42,6 +42,7 @@
 #define QPNP_WLED_SC_PRO_REG(b)		(b + 0x5E)
 #define QPNP_WLED_TEST1_REG(b)		(b + 0xE2)
 #define QPNP_WLED_TEST3_REG(b)		(b + 0xE4)
+#define QPNP_WLED_TEST4_REG(b)		(b + 0xE5)
 
 #define QPNP_WLED_EN_MASK		0x7F
 #define QPNP_WLED_EN_SHIFT		7
@@ -73,6 +74,7 @@
 #define QPNP_WLED_TEST3_OVP_DIS		0x1F
 #define QPNP_WLED_TEST3_OVP_EN		0x3F
 #define QPNP_WLED_TEST3_OVP_DLY_US	100
+#define QPNP_WLED_TEST4_EN_VREF_UP	0x32
 
 /* sink registers */
 #define QPNP_WLED_CURR_SINK_REG(b)	(b + 0x46)
@@ -771,6 +773,19 @@ static int qpnp_wled_set_disp(struct qpnp_wled *wled, u16 base_addr)
 			QPNP_WLED_DISP_SEL_REG(base_addr));
 	if (rc)
 		return rc;
+
+	/* enable VREF_UP to avoid false ovp on low brightness for LCD */
+	if (!wled->disp_type_amoled) {
+		rc = qpnp_wled_sec_access(wled, base_addr);
+		if (rc)
+			return rc;
+
+		reg = QPNP_WLED_TEST4_EN_VREF_UP;
+		rc = qpnp_wled_write_reg(wled, &reg,
+				QPNP_WLED_TEST4_REG(base_addr));
+		if (rc)
+			return rc;
+	}
 
 	return 0;
 }
