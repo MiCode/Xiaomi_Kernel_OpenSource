@@ -38,7 +38,8 @@ dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v2-pmi8994-cdp.dtb \
 	apq8096-v2-dragonboard.dtb \
 	apq8096-v3-dragonboard.dtb
 
-dtb-$(CONFIG_ARCH_MSMCOBALT) += msmcobalt-sim.dtb
+dtb-$(CONFIG_ARCH_MSMCOBALT) += msmcobalt-sim.dtb \
+	msmcobalt-rumi.dtb
 
 dtb-$(CONFIG_ARCH_MDM9640) += mdm9640-sim.dtb \
 	mdm9640-rumi.dtb \
