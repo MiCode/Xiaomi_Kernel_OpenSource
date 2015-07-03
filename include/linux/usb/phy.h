@@ -132,6 +132,8 @@ struct usb_phy {
 	/* for notification of usb_phy_dbg_events */
 	void    (*dbg_event)(struct usb_phy *x,
 			char *event, int msg1, int msg2);
+	/* update DP/DM state */
+	int	(*change_dpdm)(struct usb_phy *x, int dpdm);
 };
 
 /**
@@ -276,6 +278,14 @@ usb_phy_set_power(struct usb_phy *x, unsigned mA)
 {
 	if (x && x->set_power)
 		return x->set_power(x, mA);
+	return 0;
+}
+
+static inline int
+usb_phy_change_dpdm(struct usb_phy *x, int dpdm)
+{
+	if (x && x->change_dpdm)
+		return x->change_dpdm(x, dpdm);
 	return 0;
 }
 
