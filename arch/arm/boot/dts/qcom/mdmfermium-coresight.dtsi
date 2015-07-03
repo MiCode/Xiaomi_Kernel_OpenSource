@@ -323,4 +323,26 @@
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
+
+	hwevent: hwevent@606c000 {
+		compatible = "qcom,coresight-hwevent";
+		reg = <0x606c000 0x148>,
+		      <0x606cfb0 0x4>,
+		      <0x78640cc 0x4>,
+		      <0x78240cc 0x4>,
+		      <0x7885010 0x4>,
+		      <0x200c004 0x4>,
+		      <0x78d90a0 0x4>;
+		reg-names = "wrapper-mux", "wrapper-lockaccess",
+			    "wrapper-sdcc2", "wrapper-sdcc1",
+			    "blsp-mux", "spmi-mux" ,"usb-mux";
+
+		coresight-id = <20>;
+		coresight-name = "coresight-hwevent";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
 };
