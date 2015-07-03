@@ -76,6 +76,7 @@ Optional properties:
 - qcom,mmss-phyreset-ctrl-offset:	Specifies the offset for dsi phy reset control register.
 - qcom,dsi-irq-line:			Boolean specifies if DSI has a different irq line than mdp.
 - qcom,timing-db-mode:			Boolean specifies dsi timing mode registers are supported or not.
+- qcom,dsi-clk-ln-recovery:		Boolean which enables the clk lane recovery
 
 Example:
         mdss_dsi0: qcom,mdss_dsi@fd922800 {
@@ -115,6 +116,7 @@ Example:
 		qcom,dsi-panel-bias-vreg;
 		qcom,dsi-irq-line;
 		qcom,timing-db-mode;
+		qcom,dsi-clk-ln-recovery;
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;
