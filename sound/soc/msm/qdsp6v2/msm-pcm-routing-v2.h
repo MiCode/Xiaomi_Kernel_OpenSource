@@ -168,6 +168,8 @@ enum {
 	MSM_BACKEND_DAI_MAX,
 };
 
+#define MSM_SNDCARD_GENERIC_HW_DEP 999
+
 enum msm_pcm_routing_event {
 	MSM_PCM_RT_EVT_BUF_RECFG,
 	MSM_PCM_RT_EVT_DEVSWITCH,
