@@ -1253,6 +1253,8 @@ static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 			vfe_dev->error_info.
 				stream_framedrop_count[stream_idx]++;
 			vfe_dev->error_info.framedrop_flag = 1;
+			pr_err_ratelimited("%s: get buf fail! , rc = %d\n",
+				__func__, rc);
 			return rc;
 		}
 
@@ -2298,7 +2300,8 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 			VFE_PING_FLAG, 1);
 		if (rc) {
 			spin_unlock_irqrestore(&stream_info->lock, flags);
-			pr_err("%s:%d fail to set ping pong address\n",
+			stream_info->undelivered_request_cnt--;
+			pr_err_ratelimited("%s:%d fail to cfg HAL buffer\n",
 				__func__, __LINE__);
 			return rc;
 		}
@@ -2316,10 +2319,17 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 			pingpong_status, 1);
 		if (rc) {
 			spin_unlock_irqrestore(&stream_info->lock, flags);
-			pr_err("%s:%d fail to set ping pong address\n",
+			stream_info->undelivered_request_cnt--;
+			pr_err_ratelimited("%s:%d Failed to cfg HAL buffer\n",
 				__func__, __LINE__);
 			return rc;
 		}
+	} else {
+		spin_unlock_irqrestore(&stream_info->lock, flags);
+		stream_info->undelivered_request_cnt--;
+		pr_err_ratelimited("%s: Invalid undeliver frame count %d\n",
+			__func__, stream_info->undelivered_request_cnt);
+		return -EINVAL;
 	}
 
 	msm_isp_calculate_framedrop(&vfe_dev->axi_data, &stream_cfg_cmd);
