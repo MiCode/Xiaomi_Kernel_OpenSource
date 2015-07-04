@@ -60,7 +60,7 @@
 #define AXI_HALT_TIMEOUT_US	0x4000
 #define AUTOSUSPEND_TIMEOUT_MS	200
 #define DEFAULT_MDP_PIPE_WIDTH	2048
-#define RES_1080p		(1080*1920)
+#define RES_1080p		(1088*1920)
 #define RES_UHD			(3840*2160)
 
 struct mdss_data_type *mdss_res;
@@ -1098,6 +1098,12 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
 		mdata->min_prefill_lines = 12;
 		mdata->props = mdss_get_props();
+		break;
+	case MDSS_MDP_HW_REV_112:
+		mdata->max_target_zorder = 4; /* excluding base layer */
+		mdata->max_cursor_size = 64;
+		mdata->min_prefill_lines = 12;
+		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
 		break;
 	default:
 		mdata->max_target_zorder = 4; /* excluding base layer */

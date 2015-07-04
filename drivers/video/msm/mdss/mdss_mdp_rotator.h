@@ -50,6 +50,8 @@ struct mdss_mdp_rotator_session {
 	struct work_struct commit_work;
 
 	struct mdp_overlay req_data;
+
+	u32 frame_rate;
 };
 
 static inline u32 mdss_mdp_get_rotator_dst_format(u32 in_format, u32 in_rot90,

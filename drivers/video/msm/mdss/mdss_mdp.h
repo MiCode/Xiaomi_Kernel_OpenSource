@@ -564,6 +564,8 @@ struct mdss_mdp_pipe {
 	struct mdp_scale_data scale;
 	u8 chroma_sample_h;
 	u8 chroma_sample_v;
+
+	u32 frame_rate;
 };
 
 struct mdss_mdp_writeback_arg {
