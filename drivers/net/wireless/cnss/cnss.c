@@ -1292,15 +1292,13 @@ static int cnss_wlan_is_codeswap_supported(u16 revision)
 static int cnss_smmu_init(struct device *dev)
 {
 	struct dma_iommu_mapping *mapping;
-	int order = 0;
 	int disable_htw = 1;
 	int atomic_ctx = 1;
 	int ret;
 
 	mapping = arm_iommu_create_mapping(&platform_bus_type,
 					   penv->smmu_iova_start,
-					   penv->smmu_iova_len,
-					   order);
+					   penv->smmu_iova_len);
 	if (IS_ERR(mapping)) {
 		pr_err("%s: create mapping failed, err = %d\n", __func__, ret);
 		ret = PTR_ERR(mapping);

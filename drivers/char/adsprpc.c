@@ -1633,7 +1633,7 @@ static int fastrpc_cb_probe(struct device *dev)
 	sess->smmu.cb = iommuspec.args[0];
 	VERIFY(err, !IS_ERR_OR_NULL(sess->smmu.mapping =
 				arm_iommu_create_mapping(&platform_bus_type,
-						0x80000000, 0x7fffffff, 0)));
+						0x80000000, 0x7fffffff)));
 	if (err)
 		goto bail;
 	iommu_domain_set_attr(sess->smmu.mapping->domain,

@@ -149,12 +149,11 @@ static void venus_clock_disable_unprepare(void)
 static int venus_setup_cb(struct device *dev,
 				u32 size)
 {
-	int order = 0;
 	dma_addr_t va_start = 0x0;
 	size_t va_size = size;
 
 	venus_data->mapping = arm_iommu_create_mapping(
-		&platform_bus_type, va_start, va_size, order);
+		&platform_bus_type, va_start, va_size);
 	if (IS_ERR_OR_NULL(venus_data->mapping)) {
 		dprintk(VIDC_ERR, "%s: failed to create mapping for %s\n",
 		__func__, dev_name(dev));

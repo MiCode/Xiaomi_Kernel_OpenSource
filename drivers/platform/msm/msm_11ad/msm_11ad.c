@@ -133,7 +133,7 @@ static int msm_11ad_smmu_init(struct msm11ad_ctx *ctx)
 		return 0;
 
 	ctx->mapping = arm_iommu_create_mapping(&platform_bus_type,
-						SMMU_BASE, SMMU_SIZE, 0);
+						SMMU_BASE, SMMU_SIZE);
 	if (IS_ERR_OR_NULL(ctx->mapping)) {
 		rc = PTR_ERR(ctx->mapping) ?: -ENODEV;
 		dev_err(ctx->dev, "Failed to create IOMMU mapping (%d)\n", rc);
