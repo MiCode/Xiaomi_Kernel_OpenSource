@@ -2356,8 +2356,12 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 		(ctrl_pdata->panel_data.panel_info.pdest == DISPLAY_1))) {
 		rc = mdss_panel_parse_bl_settings(dsi_pan_node, ctrl_pdata);
 		if (rc) {
-			pr_err("%s: dsi bl settings parse failed\n", __func__);
-			goto error_pan_node;
+			pr_warn("%s: dsi bl settings parse failed\n", __func__);
+			/* Panels like AMOLED and dsi2hdmi chip
+			 * does not need backlight control.
+			 * So we should not fail probe here.
+			 */
+			ctrl_pdata->bklt_ctrl = UNKNOWN_CTRL;
 		}
 	} else {
 		ctrl_pdata->bklt_ctrl = UNKNOWN_CTRL;
