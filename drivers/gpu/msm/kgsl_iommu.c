@@ -495,6 +495,8 @@ static void kgsl_iommu_destroy_pagetable(struct kgsl_pagetable *pt)
 	struct kgsl_iommu_pt *iommu_pt = pt->priv;
 	struct kgsl_mmu *mmu = pt->mmu;
 
+	BUG_ON(!list_empty(&pt->list));
+
 	if (iommu_pt->domain) {
 		phys_addr_t domain_ptbase =
 					kgsl_iommu_get_pt_base_addr(mmu, pt);
