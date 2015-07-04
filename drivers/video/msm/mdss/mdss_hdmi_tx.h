@@ -171,6 +171,8 @@ struct hdmi_tx_ctrl {
 	bool hpd_disabled;
 	bool ds_registered;
 	u32 hdcp14_present;
+	bool audio_ack_enabled;
+	atomic_t audio_ack_pending;
 
 	u8 spd_vendor_name[9];
 	u8 spd_product_description[17];
