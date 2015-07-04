@@ -1125,18 +1125,26 @@ static int adv7533_video_on(void *client, bool on,
 	struct msm_dba_video_cfg *cfg, u32 flags)
 {
 	int ret = -EINVAL;
-	struct adv7533 *pdata =
-		adv7533_get_platform_data(client);
+	u8 lanes;
+	struct adv7533 *pdata = adv7533_get_platform_data(client);
 
-	if (!pdata) {
+	if (!pdata || !cfg) {
 		pr_err("%s: invalid platform data\n", __func__);
 		return ret;
 	}
 
 	mutex_lock(&pdata->ops_mutex);
 
+	/* configure lanes wrt resolution */
+	if (cfg->v_active == 1080)
+		lanes = 0x40;
+	else if (cfg->v_active == 720)
+		lanes = 0x30;
+	else
+		lanes = 0x10;
+
 	/* lane configuration, 4 lanes */
-	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x1C, 0x40);
+	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x1C, lanes);
 
 	adv7533_video_setup(pdata, cfg);
 
