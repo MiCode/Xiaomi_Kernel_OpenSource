@@ -1009,7 +1009,6 @@
 		compatible = "qcom,android-usb";
 		reg = <0x086000c8 0xc8>;
 		qcom,pm-qos-latency = <2 1001 12701>;
-		qcom,android-usb-uicc-nluns = /bits/ 8 <1>;
 	};
 
 	slim_msm: slim@c140000{
