@@ -418,6 +418,8 @@ struct msm_dba_video_cfg {
  *		       hdcp_get_ksv_list_size first and then allocate 40*size
  *		       bytes to hold all the KSVs.
  *		       DEFER and ASYNC flags are not supported.
+ * @hdmi_cec_on: enable or disable cec module. Clients need to enable CEC
+ *		 feature before they do read or write CEC messages.
  * @hdmi_cec_write: perform a CEC write. For bridges with HDMI as output
  *		    interface, this function allows clients to send a CEC
  *		    message. Client should pack the data according to the CEC
@@ -520,6 +522,10 @@ struct msm_dba_ops {
 				 u32 count,
 				 char *buf,
 				 u32 flags);
+
+	int (*hdmi_cec_on)(void *client,
+			      bool enable,
+			      u32 flags);
 
 	int (*hdmi_cec_write)(void *client,
 			      u32 size,

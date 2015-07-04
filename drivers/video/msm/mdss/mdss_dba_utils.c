@@ -36,6 +36,7 @@ struct mdss_dba_utils_data {
 	struct mdss_panel_info *pinfo;
 	void *dba_data;
 	void *edid_data;
+	void *cec_abst_data;
 	u8 *edid_buf;
 	u32 edid_buf_size;
 	u8 cec_buf[CEC_BUF_SIZE];
@@ -287,6 +288,22 @@ static void mdss_dba_utils_dba_cb(void *data, enum msm_dba_callback_event event)
 	}
 }
 
+static int mdss_dba_utils_cec_enable(void *data, bool enable)
+{
+	int ret = -EINVAL;
+	struct mdss_dba_utils_data *udata = data;
+
+	if (!udata) {
+		pr_err("%s: Invalid data\n", __func__);
+		return -EINVAL;
+	}
+
+	if (udata->ops.hdmi_cec_on)
+		ret = udata->ops.hdmi_cec_on(udata->dba_data, enable, 0);
+
+	return ret;
+}
+
 static int mdss_dba_utils_send_cec_msg(void *data, struct cec_msg *msg)
 {
 	int ret = -EINVAL, i;
@@ -445,7 +462,8 @@ void *mdss_dba_utils_init(struct mdss_dba_utils_init_data *uid)
 	struct hdmi_edid_init_data edid_init_data;
 	struct mdss_dba_utils_data *udata = NULL;
 	struct msm_dba_reg_info info;
-	struct cec_data cec_abstract_data;
+	struct cec_abstract_init_data cec_abst_init_data;
+	void *cec_abst_data;
 	int ret = 0;
 
 	if (!uid) {
@@ -518,20 +536,32 @@ void *mdss_dba_utils_init(struct mdss_dba_utils_init_data *uid)
 	if (uid->pinfo)
 		uid->pinfo->edid_data = udata->edid_data;
 
-	/* Initialize cec abstract layer and get callbacks */
-	udata->cops.send_msg = mdss_dba_utils_send_cec_msg;
-	udata->cops.data     = udata;
-
-	cec_abstract_data.id         = 0;
-	cec_abstract_data.sysfs_kobj = uid->kobj;
-	cec_abstract_data.ops        = &udata->cops;
-	cec_abstract_data.cbs        = &udata->ccbs;
-
-	cec_abstract_init(&cec_abstract_data);
-
 	/* get edid buffer from edid parser */
 	udata->edid_buf = edid_init_data.buf;
 	udata->edid_buf_size = edid_init_data.buf_size;
+
+	/* Initialize cec abstract layer and get callbacks */
+	udata->cops.send_msg = mdss_dba_utils_send_cec_msg;
+	udata->cops.enable   = mdss_dba_utils_cec_enable;
+	udata->cops.data     = udata;
+
+	/* initialize cec abstraction module */
+	cec_abst_init_data.kobj = uid->kobj;
+	cec_abst_init_data.ops  = &udata->cops;
+	cec_abst_init_data.cbs  = &udata->ccbs;
+
+	udata->cec_abst_data = cec_abstract_init(&cec_abst_init_data);
+	if (IS_ERR_OR_NULL(udata->cec_abst_data)) {
+		pr_err("error initializing cec abstract module\n");
+		ret = PTR_ERR(cec_abst_data);
+		goto error;
+	}
+
+	/* update cec data to retrieve it back in cec abstract module */
+	if (uid->pinfo) {
+		uid->pinfo->is_cec_supported = true;
+		uid->pinfo->cec_data = udata->cec_abst_data;
+	}
 
 	/* power on downstream device */
 	if (udata->ops.power_on) {
@@ -563,11 +593,16 @@ void mdss_dba_utils_deinit(void *data)
 		return;
 	}
 
+	if (!IS_ERR_OR_NULL(udata->cec_abst_data))
+		cec_abstract_deinit(udata->cec_abst_data);
+
 	if (udata->edid_data)
 		hdmi_edid_deinit(udata->edid_data);
 
-	if (udata->pinfo)
+	if (udata->pinfo) {
 		udata->pinfo->edid_data = NULL;
+		udata->pinfo->is_cec_supported = false;
+	}
 
 	if (udata->audio_switch_registered)
 		switch_dev_unregister(&udata->sdev_audio);
