@@ -373,7 +373,7 @@
 			label = "mas-xm-usb-hs1";
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
-			qcom,connections = <&pcnoc_int_1>;
+			qcom,connections = <&pcnoc_int_0>;
 			qcom,bus-dev = <&fab_pcnoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_XM_USB_HS1>;
 			qcom,blacklist = <&slv_blsp_2 &slv_crypto_0_cfg &slv_sdcc_2
@@ -436,7 +436,7 @@
 			qcom,ap-owned;
 			qcom,qport = <16 17>;
 			qcom,qos-mode = "bypass";
-			qcom,connections = <&slv_smmnoc_bimc>;
+			qcom,connections = <&slv_smmnoc_bimc &mm_int_0>;
 			qcom,bus-dev = <&fab_snoc_mm>;
 			qcom,mas-rpm-id = <ICBID_MASTER_GFX3D>;
 			qcom,blacklist = <&slv_lpass &slv_cats_1 &slv_cats_0
@@ -451,6 +451,7 @@
 			qcom,ap-owned;
 			qcom,qport = <7>;
 			qcom,qos-mode = "bypass";
+			qcom,vrail-comp = <50>;
 			qcom,connections = <&mm_int_0 &slv_smmnoc_bimc>;
 			qcom,bus-dev = <&fab_snoc_mm>;
 			qcom,mas-rpm-id = <ICBID_MASTER_MDP0>;
@@ -466,6 +467,7 @@
 			qcom,ap-owned;
 			qcom,qport = <13>;
 			qcom,qos-mode = "bypass";
+			qcom,vrail-comp = <50>;
 			qcom,connections = <&mm_int_0 &slv_smmnoc_bimc>;
 			qcom,bus-dev = <&fab_snoc_mm>;
 			qcom,mas-rpm-id = <ICBID_MASTER_MDP1>;
