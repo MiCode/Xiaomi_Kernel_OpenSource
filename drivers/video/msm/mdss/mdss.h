@@ -111,6 +111,11 @@ struct mdss_mdp_ppb {
 	u32 cfg_off;
 };
 
+struct mdss_mdp_dsc {
+	u32 num;
+	char __iomem *base;
+};
+
 enum mdss_hw_index {
 	MDSS_HW_MDP,
 	MDSS_HW_DSI0 = 1,
@@ -319,6 +324,9 @@ struct mdss_data_type {
 	u32 bcolor0;
 	u32 bcolor1;
 	u32 bcolor2;
+	struct mdss_mdp_dsc *dsc_off;
+	u32 ndsc;
+
 };
 extern struct mdss_data_type *mdss_res;
 
