@@ -781,7 +781,13 @@ static void handle_event_change(enum command_response cmd, void *data)
 
 	rc = msm_vidc_check_session_supported(inst);
 	if (!rc) {
-		msm_vidc_queue_v4l2_event(inst, event);
+		struct v4l2_event seq_changed_event = {.id = 0, .type = event };
+		u32 *ptr = NULL;
+		ptr = (u32 *)seq_changed_event.u.data;
+		ptr[0] = event_notify->height;
+		ptr[1] = event_notify->width;
+		v4l2_event_queue_fh(&inst->event_handler, &seq_changed_event);
+		wake_up(&inst->kernel_event_queue);
 	} else if (rc == -ENOTSUPP) {
 		msm_vidc_queue_v4l2_event(inst,
 				V4L2_EVENT_MSM_VIDC_HW_UNSUPPORTED);
