@@ -14,7 +14,7 @@
 #include <linux/list.h>
 #include <linux/module.h>
 #include <linux/slab.h>
-#include <linux/mutex.h>
+#include <linux/rtmutex.h>
 #include <linux/clk.h>
 #include <linux/msm-bus.h>
 #include "msm_bus_core.h"
@@ -40,7 +40,7 @@ static LIST_HEAD(input_list);
 static LIST_HEAD(apply_list);
 static LIST_HEAD(commit_list);
 
-DEFINE_MUTEX(msm_bus_adhoc_lock);
+DEFINE_RT_MUTEX(msm_bus_adhoc_lock);
 
 static bool chk_bl_list(struct list_head *black_list, unsigned int id)
 {
@@ -856,7 +856,7 @@ static void unregister_client_adhoc(uint32_t cl)
 	struct msm_bus_client *client;
 	struct device *src_dev;
 
-	mutex_lock(&msm_bus_adhoc_lock);
+	rt_mutex_lock(&msm_bus_adhoc_lock);
 	if (!cl) {
 		MSM_BUS_ERR("%s: Null cl handle passed unregister\n",
 				__func__);
@@ -895,7 +895,7 @@ static void unregister_client_adhoc(uint32_t cl)
 	kfree(client);
 	handle_list.cl_list[cl] = NULL;
 exit_unregister_client:
-	mutex_unlock(&msm_bus_adhoc_lock);
+	rt_mutex_unlock(&msm_bus_adhoc_lock);
 	return;
 }
 
@@ -973,7 +973,7 @@ static uint32_t register_client_adhoc(struct msm_bus_scale_pdata *pdata)
 	struct device *dev;
 	uint32_t handle = 0;
 
-	mutex_lock(&msm_bus_adhoc_lock);
+	rt_mutex_lock(&msm_bus_adhoc_lock);
 	client = kzalloc(sizeof(struct msm_bus_client), GFP_KERNEL);
 	if (!client) {
 		MSM_BUS_ERR("%s: Error allocating client data", __func__);
@@ -1029,7 +1029,7 @@ static uint32_t register_client_adhoc(struct msm_bus_scale_pdata *pdata)
 	MSM_BUS_DBG("%s:Client handle %d %s", __func__, handle,
 						client->pdata->name);
 exit_register_client:
-	mutex_unlock(&msm_bus_adhoc_lock);
+	rt_mutex_unlock(&msm_bus_adhoc_lock);
 	return handle;
 }
 
@@ -1108,7 +1108,7 @@ static int update_context(uint32_t cl, bool active_only,
 	struct msm_bus_scale_pdata *pdata;
 	struct msm_bus_client *client;
 
-	mutex_lock(&msm_bus_adhoc_lock);
+	rt_mutex_lock(&msm_bus_adhoc_lock);
 	if (!cl) {
 		MSM_BUS_ERR("%s: Invalid client handle %d", __func__, cl);
 		ret = -ENXIO;
@@ -1152,7 +1152,7 @@ static int update_context(uint32_t cl, bool active_only,
 	trace_bus_update_request_end(pdata->name);
 
 exit_update_context:
-	mutex_unlock(&msm_bus_adhoc_lock);
+	rt_mutex_unlock(&msm_bus_adhoc_lock);
 	return ret;
 }
 
@@ -1164,7 +1164,7 @@ static int update_request_adhoc(uint32_t cl, unsigned int index)
 	const char *test_cl = "Null";
 	bool log_transaction = false;
 
-	mutex_lock(&msm_bus_adhoc_lock);
+	rt_mutex_lock(&msm_bus_adhoc_lock);
 
 	if (!cl) {
 		MSM_BUS_ERR("%s: Invalid client handle %d", __func__, cl);
@@ -1215,7 +1215,7 @@ static int update_request_adhoc(uint32_t cl, unsigned int index)
 	trace_bus_update_request_end(pdata->name);
 
 exit_update_request:
-	mutex_unlock(&msm_bus_adhoc_lock);
+	rt_mutex_unlock(&msm_bus_adhoc_lock);
 	return ret;
 }
 
@@ -1235,7 +1235,7 @@ static int update_bw_adhoc(struct msm_bus_client_handle *cl, u64 ab, u64 ib)
 	bool log_transaction = false;
 	u64 slp_ib, slp_ab;
 
-	mutex_lock(&msm_bus_adhoc_lock);
+	rt_mutex_lock(&msm_bus_adhoc_lock);
 
 	if (!cl) {
 		MSM_BUS_ERR("%s: Invalid client handle %p", __func__, cl);
@@ -1280,7 +1280,7 @@ static int update_bw_adhoc(struct msm_bus_client_handle *cl, u64 ab, u64 ib)
 		getpath_debug(cl->mas, cl->first_hop, cl->active_only);
 	trace_bus_update_request_end(cl->name);
 exit_update_request:
-	mutex_unlock(&msm_bus_adhoc_lock);
+	rt_mutex_unlock(&msm_bus_adhoc_lock);
 
 	return ret;
 }
@@ -1290,7 +1290,7 @@ static int update_bw_context(struct msm_bus_client_handle *cl, u64 act_ab,
 {
 	int ret = 0;
 
-	mutex_lock(&msm_bus_adhoc_lock);
+	rt_mutex_lock(&msm_bus_adhoc_lock);
 	if (!cl) {
 		MSM_BUS_ERR("Invalid client handle %p", cl);
 		ret = -ENXIO;
@@ -1323,13 +1323,13 @@ static int update_bw_context(struct msm_bus_client_handle *cl, u64 act_ab,
 	cl->cur_slp_ab = slp_ab;
 	trace_bus_update_request_end(cl->name);
 exit_change_context:
-	mutex_unlock(&msm_bus_adhoc_lock);
+	rt_mutex_unlock(&msm_bus_adhoc_lock);
 	return ret;
 }
 
 static void unregister_adhoc(struct msm_bus_client_handle *cl)
 {
-	mutex_lock(&msm_bus_adhoc_lock);
+	rt_mutex_lock(&msm_bus_adhoc_lock);
 	if (!cl) {
 		MSM_BUS_ERR("%s: Null cl handle passed unregister\n",
 				__func__);
@@ -1344,7 +1344,7 @@ static void unregister_adhoc(struct msm_bus_client_handle *cl)
 	msm_bus_dbg_remove_client(cl);
 	kfree(cl);
 exit_unregister_client:
-	mutex_unlock(&msm_bus_adhoc_lock);
+	rt_mutex_unlock(&msm_bus_adhoc_lock);
 	return;
 }
 
@@ -1354,7 +1354,7 @@ register_adhoc(uint32_t mas, uint32_t slv, char *name, bool active_only)
 	struct msm_bus_client_handle *client = NULL;
 	int len = 0;
 
-	mutex_lock(&msm_bus_adhoc_lock);
+	rt_mutex_lock(&msm_bus_adhoc_lock);
 
 	if (!(mas && slv && name)) {
 		pr_err("%s: Error: src dst name num_paths are required",
@@ -1403,7 +1403,7 @@ register_adhoc(uint32_t mas, uint32_t slv, char *name, bool active_only)
 						client->name);
 	msm_bus_dbg_add_client(client);
 exit_register:
-	mutex_unlock(&msm_bus_adhoc_lock);
+	rt_mutex_unlock(&msm_bus_adhoc_lock);
 	return client;
 }
 /**
