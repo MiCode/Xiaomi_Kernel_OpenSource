@@ -1330,7 +1330,7 @@
 		"MAX";
 
 		qcom,cpu-affinity = "affine_cores";
-		qcom,cpu-dma-latency-us = <301>;
+		qcom,cpu-dma-latency-us = <0>;
 
 		status = "disabled";
 
