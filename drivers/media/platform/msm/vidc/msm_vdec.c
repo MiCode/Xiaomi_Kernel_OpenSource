@@ -1344,15 +1344,6 @@ static int set_default_properties(struct msm_vidc_inst *inst)
 			dprintk(VIDC_ERR, "set alloc_mode failed\n");
 	}
 
-	if (defaults & HAL_VIDEO_CONTINUE_DATA_TRANSFER) {
-		dprintk(VIDC_DBG, "Enable continue_data_transfer\n");
-		ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_CONTINUE_DATA_TRANSFER;
-		ctrl.value = true;
-		rc = v4l2_s_ctrl(NULL, &inst->ctrl_handler, &ctrl);
-		if (rc)
-			dprintk(VIDC_ERR, "set cont_data_transfer failed\n");
-	}
-
 	return rc;
 }
 

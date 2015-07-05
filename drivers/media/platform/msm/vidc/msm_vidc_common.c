@@ -647,6 +647,7 @@ static void handle_session_init_done(enum command_response cmd, void *data)
 static void handle_event_change(enum command_response cmd, void *data)
 {
 	struct msm_vidc_inst *inst;
+	struct hfi_device *hdev;
 	struct v4l2_control control = {0};
 	struct msm_vidc_cb_event *event_notify = data;
 	int event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
@@ -658,6 +659,12 @@ static void handle_event_change(enum command_response cmd, void *data)
 	}
 
 	inst = (struct msm_vidc_inst *)event_notify->session_id;
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
+		return;
+	}
+	hdev = inst->core->device;
+
 	switch (event_notify->hal_event_type) {
 	case HAL_EVENT_SEQ_CHANGED_SUFFICIENT_RESOURCES:
 		event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
@@ -667,8 +674,19 @@ static void handle_event_change(enum command_response cmd, void *data)
 		if (rc)
 			dprintk(VIDC_WARN,
 					"Failed to get Smooth streamng flag\n");
-		if (!rc && control.value == true)
+		if (!rc && control.value == true) {
 			event = V4L2_EVENT_SEQ_CHANGED_SUFFICIENT;
+			dprintk(VIDC_DBG,
+				"send session_continue after sufficient event\n");
+			rc = call_hfi_op(hdev, session_continue,
+					(void *) inst->session);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"%s - failed to send session_continue\n",
+					__func__);
+				return;
+			}
+		}
 		break;
 	case HAL_EVENT_SEQ_CHANGED_INSUFFICIENT_RESOURCES:
 		event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
