@@ -756,26 +756,13 @@ static const struct of_device_id adreno_match_table[] = {
 	{}
 };
 
-static struct device_node *adreno_of_find_subnode(struct device_node *parent,
-	const char *name)
-{
-	struct device_node *child;
-
-	for_each_child_of_node(parent, child) {
-		if (of_device_is_compatible(child, name))
-			return child;
-	}
-
-	return NULL;
-}
-
 static int adreno_of_get_pwrlevels(struct device_node *parent,
 	struct kgsl_device_platform_data *pdata)
 {
 	struct device_node *node, *child;
 	int ret = -EINVAL;
 
-	node = adreno_of_find_subnode(parent, "qcom,gpu-pwrlevels");
+	node = of_find_node_by_name(parent, "qcom,gpu-pwrlevels");
 
 	if (node == NULL) {
 		KGSL_CORE_ERR("Unable to find 'qcom,gpu-pwrlevels'\n");
