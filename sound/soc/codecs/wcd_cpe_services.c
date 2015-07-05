@@ -268,6 +268,7 @@ struct cpe_priv {
 	u32 cpe_msg_buffer;
 	void *cpe_cmi_handle;
 	struct mutex cpe_api_mutex;
+	struct mutex cpe_svc_lock;
 	struct cpe_svc_boot_event cpe_debug_vector;
 	void *cdc_priv;
 };
@@ -507,11 +508,13 @@ static void cpe_broadcast_notification(const struct cpe_info *t_info,
 		 __func__, payload->event);
 	payload->private_data = cpe_d.cdc_priv;
 
+	CPE_SVC_GRAB_LOCK(&cpe_d.cpe_svc_lock, "cpe_svc");
 	list_for_each_entry(n, &t_info->client_list, list) {
 		if (!(n->mask & CPE_SVC_CMI_MSG)) {
 			cpe_notify_client(n, payload);
 		}
 	}
+	CPE_SVC_REL_LOCK(&cpe_d.cpe_svc_lock, "cpe_svc");
 }
 
 static void *cpe_register_generic(struct cpe_info *t_info,
@@ -538,11 +541,13 @@ static void *cpe_register_generic(struct cpe_info *t_info,
 	n->disabled = false;
 	n->name = name;
 
+	CPE_SVC_GRAB_LOCK(&cpe_d.cpe_svc_lock, "cpe_svc");
 	/* Make sure CPE core service is first */
 	if (service == CMI_CPE_CORE_SERVICE_ID)
 		list_add(&n->list, &t_info->client_list);
 	else
 		list_add_tail(&n->list, &t_info->client_list);
+	CPE_SVC_REL_LOCK(&cpe_d.cpe_svc_lock, "cpe_svc");
 
 	return n;
 }
@@ -590,7 +595,7 @@ static void cpe_notify_cmi_client(struct cpe_info *t_info, u8 *payload,
 		enum cpe_svc_result result)
 {
 	struct cpe_notif_node *n = NULL;
-	struct cpe_svc_notification notif;
+	struct cmi_api_notification notif;
 	struct cmi_hdr *hdr;
 	u8 service = 0;
 
@@ -605,12 +610,19 @@ static void cpe_notify_cmi_client(struct cpe_info *t_info, u8 *payload,
 
 	notif.event = CPE_SVC_CMI_MSG;
 	notif.result = result;
-	notif.payload = payload;
+	notif.message = payload;
 
+	CPE_SVC_GRAB_LOCK(&cpe_d.cpe_svc_lock, "cpe_svc");
 	list_for_each_entry(n, &t_info->client_list, list) {
-		if ((n->mask & CPE_SVC_CMI_MSG) && n->service == service)
-			cpe_notify_client(n, &notif);
+
+		if ((n->mask & CPE_SVC_CMI_MSG) &&
+		    n->service == service &&
+		    n->notif.cmi_notification) {
+			n->notif.cmi_notification(&notif);
+			break;
+		}
 	}
+	CPE_SVC_REL_LOCK(&cpe_d.cpe_svc_lock, "cpe_svc");
 }
 
 static void cpe_toggle_irq_notification(struct cpe_info *t_info, u32 value)
@@ -1283,11 +1295,11 @@ static enum cpe_process_result cpe_mt_process_cmd(
 		service = CMI_HDR_GET_SERVICE(hdr);
 		pr_debug("%s: msg send success, notifying clients\n",
 			 __func__);
+		cpe_change_state(t_info,
+				 CPE_STATE_IDLE, CPE_SS_IDLE);
 		cpe_notify_cmi_client(t_info,
 			t_info->tgt->outbox, CPE_SVC_SUCCESS);
 		cpe_command_cleanup(command_node);
-		cpe_change_state(t_info,
-				 CPE_STATE_IDLE, CPE_SS_IDLE);
 		t_info->pending = NULL;
 		break;
 
@@ -1521,6 +1533,7 @@ void *cpe_svc_initialize(
 	t_info->cpe_cmd_validate = cpe_mt_validate_cmd;
 	t_info->cpe_start_notification = broadcast_boot_event;
 	mutex_init(&cpe_d.cpe_api_mutex);
+	mutex_init(&cpe_d.cpe_svc_lock);
 	pr_debug("%s: cpe services initialized\n", __func__);
 	t_info->state = CPE_STATE_INITIALIZED;
 	t_info->initialized = true;
@@ -1563,6 +1576,7 @@ enum cpe_svc_result cpe_svc_deinitialize(void *cpe_handle)
 	kfree(t_info->tgt);
 	kfree(t_info);
 	mutex_destroy(&cpe_d.cpe_api_mutex);
+	mutex_destroy(&cpe_d.cpe_svc_lock);
 
 	return rc;
 }
@@ -1870,10 +1884,12 @@ enum cmi_api_result cmi_deregister(void *reg_handle)
 	rc = (enum cmi_api_result) cpe_deregister_generic(
 		cpe_d.cpe_default_handle, reg_handle);
 
+	CPE_SVC_GRAB_LOCK(&cpe_d.cpe_svc_lock, "cpe_svc");
 	list_for_each_entry(n, &cpe_d.cpe_default_handle->client_list, list) {
 		if (n->mask & CPE_SVC_CMI_MSG)
 			clients++;
 	}
+	CPE_SVC_REL_LOCK(&cpe_d.cpe_svc_lock, "cpe_svc");
 
 	if (clients == 0) {
 		payload.event = CPE_SVC_CMI_CLIENTS_DEREG;
