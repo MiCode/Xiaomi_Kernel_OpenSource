@@ -63,7 +63,7 @@
 #define WCD_CPE_STATE_MAX_LEN 11
 #define CPE_OFFLINE_WAIT_TIMEOUT (2 * HZ)
 #define CPE_READY_WAIT_TIMEOUT (3 * HZ)
-
+#define WCD_CPE_SYSFS_DIR_MAX_LENGTH 32
 
 #define CPE_ERR_IRQ_CB(core) \
 	(core->cpe_cdc_cb->cpe_err_irq_control)
@@ -106,6 +106,25 @@ static u32 ramdump_enable;
 
 static int wcd_cpe_afe_svc_cmd_mode(void *core_handle,
 				    u8 mode);
+struct wcd_cpe_attribute {
+	struct attribute attr;
+	ssize_t (*show)(struct wcd_cpe_core *core, char *buf);
+	ssize_t (*store)(struct wcd_cpe_core *core, const char *buf,
+			 ssize_t count);
+};
+
+#define WCD_CPE_ATTR(_name, _mode, _show, _store) \
+static struct wcd_cpe_attribute cpe_attr_##_name = { \
+	.attr = {.name = __stringify(_name), .mode = _mode}, \
+	.show = _show, \
+	.store = _store, \
+}
+
+#define to_wcd_cpe_attr(a) \
+	container_of((a), struct wcd_cpe_attribute, attr)
+
+#define kobj_to_cpe_core(kobj) \
+	container_of((kobj), struct wcd_cpe_core, cpe_kobj)
 
 /* wcd_cpe_lsm_session_active: check if any session is active
  * return true if any session is active.
@@ -725,6 +744,49 @@ static struct snd_info_entry_ops wcd_cpe_state_proc_ops = {
 	.poll = wcd_cpe_state_poll,
 };
 
+static int wcd_cpe_check_new_image(struct wcd_cpe_core *core)
+{
+	int rc = 0;
+	char temp_img_name[WCD_CPE_IMAGE_FNAME_MAX];
+
+	if (!strcmp(core->fname, core->dyn_fname) &&
+	    core->ssr_type != WCD_CPE_INITIALIZED) {
+		dev_dbg(core->dev,
+			"%s: Firmware unchanged, fname = %s, ssr_type 0x%x\n",
+			__func__, core->fname, core->ssr_type);
+		goto done;
+	}
+
+	/*
+	 * Different firmware name requested,
+	 * Re-load the instruction section
+	 */
+	strlcpy(temp_img_name, core->fname,
+		WCD_CPE_IMAGE_FNAME_MAX);
+	strlcpy(core->fname, core->dyn_fname,
+		WCD_CPE_IMAGE_FNAME_MAX);
+
+	rc = wcd_cpe_load_fw(core, ELF_FLAG_EXECUTE);
+	if (rc) {
+		dev_err(core->dev,
+			"%s: Failed to dload new image %s, err = %d\n",
+			__func__, core->fname, rc);
+		/* If new image download failed, revert back to old image */
+		strlcpy(core->fname, temp_img_name,
+			WCD_CPE_IMAGE_FNAME_MAX);
+		rc = wcd_cpe_load_fw(core, ELF_FLAG_EXECUTE);
+		if (rc)
+			dev_err(core->dev,
+				"%s: Failed to re-dload image %s, err = %d\n",
+				__func__, core->fname, rc);
+	} else {
+		dev_info(core->dev, "%s: fw changed to %s\n",
+			 __func__, core->fname);
+	}
+done:
+	return rc;
+}
+
 static int wcd_cpe_enable(struct wcd_cpe_core *core,
 		bool enable)
 {
@@ -738,6 +800,10 @@ static int wcd_cpe_enable(struct wcd_cpe_core *core,
 				__func__, ret);
 			goto done;
 		}
+		ret = wcd_cpe_check_new_image(core);
+		if (ret)
+			goto fail_boot;
+
 		/* Dload data section */
 		ret = wcd_cpe_load_fw(core, ELF_FLAG_RW);
 		if (ret) {
@@ -1575,6 +1641,106 @@ err_create_dir:
 	return rc;
 }
 
+static ssize_t fw_name_show(struct wcd_cpe_core *core, char *buf)
+{
+	return snprintf(buf, WCD_CPE_IMAGE_FNAME_MAX, "%s",
+			core->dyn_fname);
+}
+
+static ssize_t fw_name_store(struct wcd_cpe_core *core,
+		const char *buf, ssize_t count)
+{
+	int copy_count = count;
+	const char *pos;
+
+	pos = memchr(buf, '\n', count);
+	if (pos)
+		copy_count = pos - buf;
+
+	if (copy_count > WCD_CPE_IMAGE_FNAME_MAX) {
+		dev_err(core->dev,
+			"%s: Invalid length %d, max allowed %d\n",
+			__func__, copy_count, WCD_CPE_IMAGE_FNAME_MAX);
+		return -EINVAL;
+	}
+
+	strlcpy(core->dyn_fname, buf, copy_count + 1);
+
+	return count;
+}
+
+WCD_CPE_ATTR(fw_name, 0660, fw_name_show, fw_name_store);
+
+static ssize_t wcd_cpe_sysfs_show(struct kobject *kobj,
+		struct attribute *attr, char *buf)
+{
+	struct wcd_cpe_attribute *cpe_attr = to_wcd_cpe_attr(attr);
+	struct wcd_cpe_core *core = kobj_to_cpe_core(kobj);
+	ssize_t ret = -EINVAL;
+
+	if (core && cpe_attr->show)
+		ret = cpe_attr->show(core, buf);
+
+	return ret;
+}
+
+static ssize_t wcd_cpe_sysfs_store(struct kobject *kobj,
+		struct attribute *attr, const char *buf,
+		size_t count)
+{
+	struct wcd_cpe_attribute *cpe_attr = to_wcd_cpe_attr(attr);
+	struct wcd_cpe_core *core = kobj_to_cpe_core(kobj);
+	ssize_t ret = -EINVAL;
+
+	if (core && cpe_attr->store)
+		ret = cpe_attr->store(core, buf, count);
+
+	return ret;
+}
+
+static const struct sysfs_ops wcd_cpe_sysfs_ops = {
+	.show = wcd_cpe_sysfs_show,
+	.store = wcd_cpe_sysfs_store,
+};
+
+static struct kobj_type wcd_cpe_ktype = {
+	.sysfs_ops = &wcd_cpe_sysfs_ops,
+};
+
+static int wcd_cpe_sysfs_init(struct wcd_cpe_core *core, int id)
+{
+	char sysfs_dir_name[WCD_CPE_SYSFS_DIR_MAX_LENGTH];
+	int rc = 0;
+
+	snprintf(sysfs_dir_name, WCD_CPE_SYSFS_DIR_MAX_LENGTH,
+		 "%s%d", "wcd_cpe", id);
+
+	rc = kobject_init_and_add(&core->cpe_kobj, &wcd_cpe_ktype,
+				  kernel_kobj,
+				  sysfs_dir_name);
+	if (unlikely(rc)) {
+		dev_err(core->dev,
+			"%s: Failed to add kobject %s, err = %d\n",
+			__func__, sysfs_dir_name, rc);
+		goto done;
+	}
+
+	rc = sysfs_create_file(&core->cpe_kobj, &cpe_attr_fw_name.attr);
+	if (rc) {
+		dev_err(core->dev,
+			"%s: Failed to fw_name sysfs entry to %s\n",
+			__func__, sysfs_dir_name);
+		goto fail_create_file;
+	}
+
+	return 0;
+
+fail_create_file:
+	kobject_put(&core->cpe_kobj);
+done:
+	return rc;
+}
+
 static int wcd_cpe_validate_params(
 	struct snd_soc_codec *codec,
 	struct wcd_cpe_params *params)
@@ -1637,6 +1803,7 @@ struct wcd_cpe_core *wcd_cpe_init(const char *img_fname,
 	}
 
 	snprintf(core->fname, sizeof(core->fname), "%s", img_fname);
+	strlcpy(core->dyn_fname, core->fname, WCD_CPE_IMAGE_FNAME_MAX);
 
 	wcd_get_cpe_core = params->get_cpe_core;
 
@@ -1731,6 +1898,8 @@ struct wcd_cpe_core *wcd_cpe_init(const char *img_fname,
 	}
 
 	wcd_cpe_debugfs_init(core);
+
+	wcd_cpe_sysfs_init(core, id);
 
 	/* Setup the ramdump device and buffer */
 	core->cpe_ramdump_dev = create_ramdump_device("cpe",
