@@ -91,6 +91,8 @@ static irqreturn_t ngd_slim_interrupt(int irq, void *d)
 	u32 stat = readl_relaxed(ngd + NGD_INT_STAT);
 	u32 pstat;
 
+	if (dev->bulk.in_progress)
+		SLIM_INFO(dev, "Interrupt in bulk:stat:0x%x", stat);
 	if ((stat & NGD_INT_MSG_BUF_CONTE) ||
 		(stat & NGD_INT_MSG_TX_INVAL) || (stat & NGD_INT_DEV_ERR) ||
 		(stat & NGD_INT_TX_NACKED_2)) {
@@ -652,32 +654,41 @@ ngd_xfer_err:
 	return ret ? ret : dev->err;
 }
 
+static int ngd_get_ec(u16 start_offset, u8 len, u16 *ec)
+{
+	if (len > SLIM_MAX_VE_SLC_BYTES ||
+		start_offset > MSM_SLIM_VE_MAX_MAP_ADDR)
+		return -EINVAL;
+	if (len <= 4) {
+		*ec = len - 1;
+	} else if (len <= 8) {
+		if (len & 0x1)
+			return -EINVAL;
+		*ec = ((len >> 1) + 1);
+	} else {
+		if (len & 0x3)
+			return -EINVAL;
+		*ec = ((len >> 2) + 3);
+	}
+	*ec |= (0x8 | ((start_offset & 0xF) << 4));
+	*ec |= ((start_offset & 0xFF0) << 4);
+	return 0;
+}
+
 static int ngd_user_msg(struct slim_controller *ctrl, u8 la, u8 mt, u8 mc,
 				struct slim_ele_access *msg, u8 *buf, u8 len)
 {
+	int ret;
 	struct slim_msg_txn txn;
 
 	if (mt != SLIM_MSG_MT_DEST_REFERRED_USER ||
 		mc != SLIM_USR_MC_REPEAT_CHANGE_VALUE) {
 		return -EPROTONOSUPPORT;
 	}
-	if (len > SLIM_MAX_VE_SLC_BYTES ||
-		msg->start_offset > MSM_SLIM_VE_MAX_MAP_ADDR)
-		return -EINVAL;
-	if (len <= 4) {
-		txn.ec = len - 1;
-	} else if (len <= 8) {
-		if (len & 0x1)
-			return -EINVAL;
-		txn.ec = ((len >> 1) + 1);
-	} else {
-		if (len & 0x3)
-			return -EINVAL;
-		txn.ec = ((len >> 2) + 3);
-	}
-	txn.ec |= (0x8 | ((msg->start_offset & 0xF) << 4));
-	txn.ec |= ((msg->start_offset & 0xFF0) << 4);
 
+	ret = ngd_get_ec(msg->start_offset, len, &txn.ec);
+	if (ret)
+		return ret;
 	txn.la = la;
 	txn.mt = mt;
 	txn.mc = mc;
@@ -688,6 +699,132 @@ static int ngd_user_msg(struct slim_controller *ctrl, u8 la, u8 mt, u8 mc,
 	txn.rbuf = NULL;
 	txn.comp = msg->comp;
 	return ngd_xfer_msg(ctrl, &txn);
+}
+
+static int ngd_bulk_cb(void *ctx, int err)
+{
+	if (ctx)
+		complete(ctx);
+	return err;
+}
+
+static int ngd_bulk_wr(struct slim_controller *ctrl, u8 la, u8 mt, u8 mc,
+			struct slim_val_inf msgs[], int n,
+			int (*comp_cb)(void *ctx, int err), void *ctx)
+{
+	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctrl);
+	int i, ret;
+	struct msm_slim_endp *endpoint = &dev->tx_msgq;
+	struct sps_pipe *pipe = endpoint->sps;
+	u32 *header;
+	DECLARE_COMPLETION_ONSTACK(done);
+
+	msm_slim_get_ctrl(dev);
+	mutex_lock(&dev->tx_lock);
+	if (dev->state == MSM_CTRL_ASLEEP) {
+		mutex_unlock(&dev->tx_lock);
+		ret = ngd_slim_runtime_resume(dev->dev);
+
+		if (ret) {
+			SLIM_ERR(dev, "slim resume failed ret:%d, state:%d",
+					ret, dev->state);
+			return -EREMOTEIO;
+		}
+		mutex_lock(&dev->tx_lock);
+	}
+	if (dev->use_tx_msgqs != MSM_MSGQ_ENABLED) {
+		SLIM_WARN(dev, "bulk wr not supported");
+		ret = -EPROTONOSUPPORT;
+		goto ret_async;
+	}
+	if (dev->bulk.in_progress) {
+		SLIM_WARN(dev, "bulk wr in progress:");
+		ret = -EAGAIN;
+		goto ret_async;
+	}
+	if (dev->bulk.size) {
+		dma_free_coherent(dev->dev, dev->bulk.size, dev->bulk.base,
+					dev->bulk.phys);
+		memset(&dev->bulk, 0, sizeof(dev->bulk));
+	}
+	/* every txn has 5 bytes of overhead: la, mc, mt, ec, len */
+	dev->bulk.size = n * 5;
+	for (i = 0; i < n; i++) {
+		dev->bulk.size += msgs[i].num_bytes;
+		dev->bulk.size += (4 - ((msgs[i].num_bytes + 1) & 0x3));
+	}
+
+	if (dev->bulk.size > 0xffff) {
+		SLIM_WARN(dev, "len exceeds limit, split bulk and retry");
+		ret = -EDQUOT;
+		goto ret_async;
+	}
+	header = dma_alloc_coherent(dev->dev, dev->bulk.size, &dev->bulk.phys,
+					GFP_KERNEL);
+	if (!header) {
+		ret = -ENOMEM;
+		goto ret_async;
+	}
+
+	dev->bulk.base = header;
+	dev->bulk.in_progress = true;
+	for (i = 0; i < n; i++) {
+		u8 *buf = (u8 *)header;
+		int rl = msgs[i].num_bytes + 5;
+		u16 ec;
+
+		*header = SLIM_MSG_ASM_FIRST_WORD(rl, mt, mc, 0, la);
+		buf += 3;
+		ret = ngd_get_ec(msgs[i].start_offset, msgs[i].num_bytes, &ec);
+		if (ret)
+			goto retpath;
+		*(buf++) = (ec & 0xFF);
+		*(buf++) = (ec >> 8) & 0xFF;
+		memcpy(buf, msgs[i].wbuf, msgs[i].num_bytes);
+		buf += msgs[i].num_bytes;
+		header += (rl >> 2);
+		if (rl & 3) {
+			header++;
+			memset(buf, 0, ((u8 *)header - buf));
+		}
+	}
+	header = dev->bulk.base;
+	/* SLIM_INFO only prints to internal buffer log, does not do pr_info */
+	for (i = 0; i < (dev->bulk.size); i += 4, header += 4)
+		SLIM_INFO(dev, "bulk sz:%d:0x%x, 0x%x, 0x%x, 0x%x",
+			  dev->bulk.size, *header, *(header+1), *(header+2),
+			  *(header+3));
+	if (comp_cb) {
+		dev->bulk.cb = comp_cb;
+		dev->bulk.ctx = ctx;
+	} else {
+		dev->bulk.cb = ngd_bulk_cb;
+		dev->bulk.ctx = &done;
+	}
+	ret = sps_transfer_one(pipe, dev->bulk.phys, dev->bulk.size, NULL,
+				SPS_IOVEC_FLAG_EOT);
+	if (ret) {
+		SLIM_WARN(dev, "sps transfer one returned error:%d", ret);
+		goto retpath;
+	}
+	if (dev->bulk.cb == ngd_bulk_cb) {
+		int timeout = wait_for_completion_timeout(&done, HZ);
+
+		if (!timeout) {
+			SLIM_WARN(dev, "timeout for bulk wr");
+			ret = -ETIMEDOUT;
+		}
+	} else {
+		goto ret_async;
+	}
+retpath:
+	dma_free_coherent(dev->dev, dev->bulk.size, dev->bulk.base,
+				dev->bulk.phys);
+	memset(&dev->bulk, 0, sizeof(dev->bulk));
+ret_async:
+	mutex_unlock(&dev->tx_lock);
+	msm_slim_put_ctrl(dev);
+	return ret;
 }
 
 static int ngd_xferandwait_ack(struct slim_controller *ctrl,
@@ -1451,6 +1588,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	dev->ctrl.allocbw = ngd_allocbw;
 	dev->ctrl.xfer_msg = ngd_xfer_msg;
 	dev->ctrl.xfer_user_msg = ngd_user_msg;
+	dev->ctrl.xfer_bulk_wr = ngd_bulk_wr;
 	dev->ctrl.wakeup = NULL;
 	dev->ctrl.alloc_port = msm_alloc_port;
 	dev->ctrl.dealloc_port = msm_dealloc_port;
@@ -1461,7 +1599,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	init_completion(&dev->reconf);
 	init_completion(&dev->ctrl_up);
 	mutex_init(&dev->tx_lock);
-	mutex_init(&dev->tx_buf_lock);
+	spin_lock_init(&dev->tx_buf_lock);
 	spin_lock_init(&dev->rx_lock);
 	dev->ee = 1;
 	dev->irq = irq->start;
@@ -1489,9 +1627,18 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	dev->ctrl.dev.of_node = pdev->dev.of_node;
 	dev->state = MSM_CTRL_DOWN;
 
-	ret = request_threaded_irq(dev->irq, NULL,
+	/*
+	 * As this does not perform expensive
+	 * operations, it can execute in an
+	 * interrupt context. This avoids
+	 * context switches, provides
+	 * extensive benifits and performance
+	 * improvements.
+	 */
+	ret = request_irq(dev->irq,
 			ngd_slim_interrupt,
-			IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "ngd_slim_irq", dev);
+			IRQF_TRIGGER_HIGH,
+			"ngd_slim_irq", dev);
 
 	if (ret) {
 		dev_err(&pdev->dev, "request IRQ failed\n");
@@ -1583,6 +1730,10 @@ static int ngd_slim_remove(struct platform_device *pdev)
 	if (!IS_ERR_OR_NULL(dev->ext_mdm.ssr))
 		subsys_notif_unregister_notifier(dev->ext_mdm.ssr,
 						&dev->ext_mdm.nb);
+	if (dev->bulk.size)
+		dma_free_coherent(dev->dev, dev->bulk.size, dev->bulk.base,
+					dev->bulk.phys);
+
 	free_irq(dev->irq, dev);
 	slim_del_controller(&dev->ctrl);
 	kthread_stop(dev->rx_msgq_thread);
