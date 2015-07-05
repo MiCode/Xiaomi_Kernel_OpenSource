@@ -2109,7 +2109,10 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		rtac_set_adm_handle(this_adm.apr);
 	}
 
-	if (perf_mode == ULTRA_LOW_LATENCY_PCM_MODE) {
+	if (perf_mode == ULL_POST_PROCESSING_PCM_MODE) {
+		flags = ADM_ULL_POST_PROCESSING_DEVICE_SESSION;
+		topology = DEFAULT_COPP_TOPOLOGY;
+	} else if (perf_mode == ULTRA_LOW_LATENCY_PCM_MODE) {
 		flags = ADM_ULTRA_LOW_LATENCY_DEVICE_SESSION;
 		topology = NULL_COPP_TOPOLOGY;
 		rate = ULL_SUPPORTED_SAMPLE_RATE;

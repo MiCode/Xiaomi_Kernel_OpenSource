@@ -103,6 +103,9 @@ struct adm_cmd_matrix_map_routings_v5 {
 /* Definition for a ultra low latency stream session. */
 #define ADM_ULTRA_LOW_LATENCY_DEVICE_SESSION		0x4000
 
+/* Definition for a ultra low latency with Post Processing stream session. */
+#define ADM_ULL_POST_PROCESSING_DEVICE_SESSION		0x8000
+
 /* Definition for a legacy device session. */
 #define ADM_LEGACY_DEVICE_SESSION                                      0
 
@@ -4249,6 +4252,8 @@ struct asm_session_cmdrsp_get_path_delay_v2 {
 #define ASM_LOW_LATENCY_STREAM_SESSION				0x10000000
 
 #define ASM_ULTRA_LOW_LATENCY_STREAM_SESSION			0x20000000
+
+#define ASM_ULL_POST_PROCESSING_STREAM_SESSION			0x40000000
 
 #define ASM_LEGACY_STREAM_SESSION                                      0
 

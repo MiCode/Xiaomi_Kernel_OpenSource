@@ -2324,7 +2324,9 @@ static int __q6asm_open_write(struct audio_client *ac, uint32_t format,
 			__func__, open.hdr.token, stream_id, ac->session);
 	open.hdr.opcode = ASM_STREAM_CMD_OPEN_WRITE_V3;
 	open.mode_flags = 0x00;
-	if (ac->perf_mode == ULTRA_LOW_LATENCY_PCM_MODE)
+	if (ac->perf_mode == ULL_POST_PROCESSING_PCM_MODE)
+		open.mode_flags |= ASM_ULL_POST_PROCESSING_STREAM_SESSION;
+	else if (ac->perf_mode == ULTRA_LOW_LATENCY_PCM_MODE)
 		open.mode_flags |= ASM_ULTRA_LOW_LATENCY_STREAM_SESSION;
 	else if (ac->perf_mode == LOW_LATENCY_PCM_MODE)
 		open.mode_flags |= ASM_LOW_LATENCY_STREAM_SESSION;
