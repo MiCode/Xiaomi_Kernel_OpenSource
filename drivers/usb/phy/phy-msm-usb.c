@@ -1384,6 +1384,8 @@ static int msm_otg_suspend(struct msm_otg *motg)
 
 	motg->ui_enabled = 0;
 	disable_irq(motg->irq);
+	if (motg->phy_irq)
+		disable_irq(motg->phy_irq);
 lpm_start:
 	host_bus_suspend = !test_bit(MHL, &motg->inputs) && phy->otg->host &&
 		!test_bit(ID, &motg->inputs);
@@ -1425,6 +1427,8 @@ lpm_start:
 			motg->pm_done = 1;
 		motg->ui_enabled = 1;
 		enable_irq(motg->irq);
+		if (motg->phy_irq)
+			enable_irq(motg->phy_irq);
 		return -EBUSY;
 	}
 
@@ -1673,6 +1677,8 @@ phcd_retry:
 	/* Enable ASYNC IRQ (if present) during LPM */
 	if (motg->async_irq)
 		enable_irq(motg->async_irq);
+	if (motg->phy_irq)
+		enable_irq(motg->phy_irq);
 
 	/* XO shutdown during idle , non wakeable irqs must be disabled */
 	if (device_bus_suspend || host_bus_suspend || !motg->async_irq) {
@@ -1692,6 +1698,8 @@ phcd_retry:
 phy_suspend_fail:
 	motg->ui_enabled = 1;
 	enable_irq(motg->irq);
+	if (motg->phy_irq)
+		enable_irq(motg->phy_irq);
 	return ret;
 }
 
