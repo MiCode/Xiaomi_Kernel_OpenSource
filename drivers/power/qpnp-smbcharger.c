@@ -258,6 +258,7 @@ enum pmic_subtype {
 enum smbchg_wa {
 	SMBCHG_AICL_DEGLITCH_WA = BIT(0),
 	SMBCHG_HVDCP_9V_EN_WA	= BIT(1),
+	SMBCHG_USB100_WA = BIT(2),
 };
 
 enum print_reason {
@@ -1413,6 +1414,10 @@ static int smbchg_set_usb_current_max(struct smbchg_chip *chip,
 
 	switch (usb_supply_type) {
 	case POWER_SUPPLY_TYPE_USB:
+		if ((current_ma < CURRENT_150_MA) &&
+				(chip->wa_flags & SMBCHG_USB100_WA))
+			current_ma = CURRENT_150_MA;
+
 		if (current_ma < CURRENT_150_MA) {
 			/* force 100mA */
 			rc = smbchg_sec_masked_write(chip,
@@ -6017,10 +6022,12 @@ static int smbchg_wa_config(struct smbchg_chip *chip)
 	case PMI8994:
 		chip->wa_flags |= SMBCHG_AICL_DEGLITCH_WA;
 	case PMI8950:
-		if (pmic_rev_id->rev4 < 2) /* PMI8950 1.0 */
+		if (pmic_rev_id->rev4 < 2) /* PMI8950 1.0 */ {
 			chip->wa_flags |= SMBCHG_AICL_DEGLITCH_WA;
-		else	/* rev > PMI8950 v1.0 */
-			chip->wa_flags |= SMBCHG_HVDCP_9V_EN_WA;
+		} else	{ /* rev > PMI8950 v1.0 */
+			chip->wa_flags |= SMBCHG_HVDCP_9V_EN_WA
+					| SMBCHG_USB100_WA;
+		}
 		break;
 	default:
 		pr_err("PMIC subtype %d not supported, WA flags not set\n",
