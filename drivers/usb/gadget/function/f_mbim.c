@@ -41,6 +41,7 @@ enum mbim_peripheral_ep_type {
 	MBIM_DATA_EP_TYPE_HSUSB      = 0x2,
 	MBIM_DATA_EP_TYPE_PCIE       = 0x3,
 	MBIM_DATA_EP_TYPE_EMBEDDED   = 0x4,
+	MBIM_DATA_EP_TYPE_BAM_DMUX   = 0x5,
 };
 
 struct mbim_peripheral_ep_info {
@@ -164,9 +165,6 @@ static inline struct f_mbim *func_to_mbim(struct usb_function *f)
 #define MBIM_NTB_OUT_SIZE_IPA		(0x4000)
 
 #define MBIM_FORMATS_SUPPORTED	USB_CDC_NCM_NTB16_SUPPORTED
-static int mbim_ntb_out_size_sys2bam;
-module_param(mbim_ntb_out_size_sys2bam, int, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(mbim_ntb_out_size_sys2bam, "MBIM OUT SIZE for SYS2BAM Mode");
 
 static struct usb_cdc_ncm_ntb_parameters mbim_ntb_parameters = {
 	.wLength = sizeof mbim_ntb_parameters,
@@ -243,7 +241,7 @@ static struct usb_cdc_mbim_desc mbim_desc = {
 	.wMaxControlMessage =	cpu_to_le16(0x1000),
 	.bNumberFilters =	0x20,
 	.bMaxFilterSize =	0x80,
-	.wMaxSegmentSize =	cpu_to_le16(0xfe0),
+	.wMaxSegmentSize =	cpu_to_le16(0x800),
 	.bmNetworkCapabilities = 0x20,
 };
 
@@ -1135,86 +1133,96 @@ static int mbim_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			return 0;
 
 		if (mbim->bam_port.in->driver_data) {
-			pr_info("reset mbim\n");
+			pr_info("reset mbim, alt-%d\n", alt);
 			mbim_reset_values(mbim);
 		}
+
+		if (alt == 0) {
+			/*
+			 * perform bam data disconnect handshake upon usb
+			 * disconnect
+			 */
+			switch (mbim->xport) {
+			case USB_GADGET_XPORT_BAM:
+				gbam_mbim_disconnect();
+				break;
+			case USB_GADGET_XPORT_BAM2BAM_IPA:
+				bam_data_disconnect(&mbim->bam_port,
+						USB_FUNC_MBIM, mbim->port_num);
+				if (!gadget_is_dwc3(cdev->gadget))
+					break;
+
+				if (msm_ep_unconfig(mbim->bam_port.in) ||
+				    msm_ep_unconfig(mbim->bam_port.out)) {
+					pr_err("ep_unconfig failed\n");
+					goto fail;
+				}
+			default:
+				pr_err("unknown transport\n");
+			}
+			goto notify_ready;
+		}
+
+		pr_info("Alt set 1, initialize ports\n");
 
 		/*
 		 * CDC Network only sends data in non-default altsettings.
 		 * Changing altsettings resets filters, statistics, etc.
 		 */
-		if (alt == 1) {
-			pr_info("Alt set 1, initialize ports\n");
+		pr_info("Choose endpoints\n");
 
-			if (!mbim->bam_port.in->desc) {
-
-				pr_info("Choose endpoints\n");
-
-				ret = config_ep_by_speed(cdev->gadget, f,
-							mbim->bam_port.in);
-				if (ret) {
-					mbim->bam_port.in->desc = NULL;
-					pr_err("IN ep %s failed: %d\n",
+		ret = config_ep_by_speed(cdev->gadget, f,
+				mbim->bam_port.in);
+		if (ret) {
+			mbim->bam_port.in->desc = NULL;
+			pr_err("IN ep %s failed: %d\n",
 					mbim->bam_port.in->name, ret);
-					return ret;
-				}
+			return ret;
+		}
 
-				pr_info("Set mbim port in_desc = 0x%p\n",
-					mbim->bam_port.in->desc);
+		pr_info("Set mbim port in_desc = 0x%p\n",
+				mbim->bam_port.in->desc);
 
-				ret = config_ep_by_speed(cdev->gadget, f,
-							mbim->bam_port.out);
-				if (ret) {
-					mbim->bam_port.out->desc = NULL;
-					pr_err("OUT ep %s failed: %d\n",
+		ret = config_ep_by_speed(cdev->gadget, f,
+				mbim->bam_port.out);
+		if (ret) {
+			mbim->bam_port.out->desc = NULL;
+			pr_err("OUT ep %s failed: %d\n",
 					mbim->bam_port.out->name, ret);
-					return ret;
-				}
+			return ret;
+		}
 
-				pr_info("Set mbim port out_desc = 0x%p\n",
-					mbim->bam_port.out->desc);
+		pr_info("Set mbim port out_desc = 0x%p\n",
+				mbim->bam_port.out->desc);
 
-				if (mbim->xport == USB_GADGET_XPORT_BAM2BAM_IPA
-					&& gadget_is_dwc3(cdev->gadget)) {
-					if (msm_ep_config(mbim->bam_port.in) ||
-					   msm_ep_config(mbim->bam_port.out)) {
-						pr_err("%s: ep_config failed\n",
+		pr_debug("Activate mbim\n");
+		switch (mbim->xport) {
+		case USB_GADGET_XPORT_BAM:
+			gbam_mbim_connect(cdev->gadget, mbim->bam_port.in,
+						mbim->bam_port.out);
+			break;
+		case USB_GADGET_XPORT_BAM2BAM_IPA:
+			if (gadget_is_dwc3(cdev->gadget)) {
+				if (msm_ep_config(mbim->bam_port.in) ||
+					msm_ep_config(mbim->bam_port.out)) {
+					pr_err("%s: ep_config failed\n",
 							__func__);
-						goto fail;
-					}
-				}
-
-				ret = bam_data_connect(&mbim->bam_port,
-					mbim->xport, mbim->port_num,
-					USB_FUNC_MBIM);
-				if (ret) {
-					pr_err("bam_data_setup failed:err:%d\n",
-							ret);
-					goto fail;
-				}
-			} else {
-				pr_info("PORTS already SET\n");
-			}
-		}
-
-		if (alt == 0 && mbim->bam_port.in->driver_data) {
-			/*
-			 * perform bam data disconnect handshake upon usb
-			 * disconnect
-			 */
-			bam_data_disconnect(&mbim->bam_port, USB_FUNC_MBIM,
-					mbim->port_num);
-			if (mbim->xport == USB_GADGET_XPORT_BAM2BAM_IPA &&
-					mbim->data_interface_up &&
-					gadget_is_dwc3(cdev->gadget)) {
-				if (msm_ep_unconfig(mbim->bam_port.in) ||
-					msm_ep_unconfig(mbim->bam_port.out)) {
-					pr_err("ep_unconfig failed\n");
 					goto fail;
 				}
 			}
+			ret = bam_data_connect(&mbim->bam_port,
+				mbim->xport, mbim->port_num,
+				USB_FUNC_MBIM);
+			if (ret) {
+				pr_err("bam_data_setup failed:err:%d\n",
+						ret);
+				goto fail;
+			}
+			break;
+		default:
+			pr_err("unknown transport\n");
 		}
-
+notify_ready:
 		mbim->data_interface_up = alt;
 		spin_lock(&mbim->lock);
 		mbim->not_port.notify_state = MBIM_NOTIFY_RESPONSE_AVAILABLE;
@@ -1275,13 +1283,21 @@ static void mbim_disable(struct usb_function *f)
 		return;
 	}
 
-	if (mbim->xport == USB_GADGET_XPORT_BAM2BAM_IPA &&
-			gadget_is_dwc3(cdev->gadget)) {
-		msm_ep_unconfig(mbim->bam_port.out);
-		msm_ep_unconfig(mbim->bam_port.in);
+	switch (mbim->xport) {
+	case USB_GADGET_XPORT_BAM:
+		gbam_mbim_disconnect();
+		break;
+	case USB_GADGET_XPORT_BAM2BAM_IPA:
+		if (gadget_is_dwc3(cdev->gadget)) {
+			msm_ep_unconfig(mbim->bam_port.out);
+			msm_ep_unconfig(mbim->bam_port.in);
+		}
+		bam_data_disconnect(&mbim->bam_port, USB_FUNC_MBIM,
+						mbim->port_num);
+		break;
+	default:
+		pr_err("unknown transport\n");
 	}
-
-	bam_data_disconnect(&mbim->bam_port, USB_FUNC_MBIM, mbim->port_num);
 
 	mbim->data_interface_up = false;
 	pr_info("mbim deactivated\n");
@@ -1298,6 +1314,9 @@ static void mbim_suspend(struct usb_function *f)
 
 	pr_debug("%s(): remote_wakeup:%d\n:", __func__,
 			mbim->cdev->gadget->remote_wakeup);
+
+	if (mbim->xport == USB_GADGET_XPORT_BAM)
+		return;
 
 	/* If the function is in Function Suspend state, avoid suspending the
 	 * MBIM function again.
@@ -1330,6 +1349,9 @@ static void mbim_resume(struct usb_function *f)
 	struct f_mbim	*mbim = func_to_mbim(f);
 
 	pr_info("mbim resumed\n");
+
+	if (mbim->xport == USB_GADGET_XPORT_BAM)
+		return;
 
 	/*
 	 * If the function is in USB3 Function Suspend state, resume is
@@ -1506,11 +1528,6 @@ mbim_bind(struct usb_configuration *c, struct usb_function *f)
 	event->wIndex = cpu_to_le16(mbim->ctrl_id);
 	event->wLength = cpu_to_le16(0);
 
-	if (mbim->xport == USB_GADGET_XPORT_BAM2BAM_IPA)
-		mbim_desc.wMaxSegmentSize = cpu_to_le16(0x800);
-	else
-		mbim_desc.wMaxSegmentSize = cpu_to_le16(0xfe0);
-
 	/* copy descriptors, and track endpoint copies */
 	f->fs_descriptors = usb_copy_descriptors(mbim_fs_function);
 	if (!f->fs_descriptors)
@@ -1625,7 +1642,6 @@ int mbim_bind_config(struct usb_configuration *c, unsigned portno,
 {
 	struct f_mbim	*mbim = NULL;
 	int status = 0;
-	int mbim_out_max_size;
 
 	pr_info("port number %u\n", portno);
 
@@ -1634,6 +1650,45 @@ int mbim_bind_config(struct usb_configuration *c, unsigned portno,
 		       portno, nr_mbim_ports);
 		return -ENODEV;
 	}
+
+	/* allocate and initialize one new instance */
+	mbim = mbim_ports[portno].port;
+	if (!mbim) {
+		pr_err("mbim struct not allocated\n");
+		return -ENOMEM;
+	}
+
+	mbim->xport = str_to_xport(xport_name);
+	switch (mbim->xport) {
+	case USB_GADGET_XPORT_BAM:
+		status = gbam_mbim_setup();
+		if (status)
+			break;
+		break;
+	case USB_GADGET_XPORT_BAM2BAM_IPA:
+		status = mbim_bam_setup(nr_mbim_ports);
+		if (status)
+			break;
+		mbim_ntb_parameters.wNtbOutMaxDatagrams = 16;
+		/* For IPA this is proven to give maximum throughput */
+		mbim_ntb_parameters.dwNtbInMaxSize =
+				cpu_to_le32(NTB_DEFAULT_IN_SIZE_IPA);
+		mbim_ntb_parameters.dwNtbOutMaxSize =
+				cpu_to_le32(MBIM_NTB_OUT_SIZE_IPA);
+		/* update rx buffer size to be used by usb rx request buffer */
+		mbim->bam_port.rx_buffer_size = MBIM_NTB_OUT_SIZE_IPA;
+		mbim_ntb_parameters.wNdpInDivisor = 1;
+		pr_debug("MBIM: dwNtbOutMaxSize:%d\n", MBIM_NTB_OUT_SIZE_IPA);
+		break;
+	default:
+		status = -EINVAL;
+	}
+
+	if (status) {
+		pr_err("%s transport setup failed\n", xport_name);
+		return status;
+	}
+
 
 	/* maybe allocate device-global string IDs */
 	if (mbim_string_defs[0].id == 0) {
@@ -1654,13 +1709,6 @@ int mbim_bind_config(struct usb_configuration *c, unsigned portno,
 		mbim_data_intf.iInterface = status;
 	}
 
-	/* allocate and initialize one new instance */
-	mbim = mbim_ports[0].port;
-	if (!mbim) {
-		pr_info("mbim struct not allocated\n");
-		return -ENOMEM;
-	}
-
 	mbim->cdev = c->cdev;
 
 	mbim_reset_values(mbim);
@@ -1677,34 +1725,6 @@ int mbim_bind_config(struct usb_configuration *c, unsigned portno,
 	mbim->function.func_suspend = mbim_func_suspend;
 	mbim->function.get_status = mbim_get_status;
 	mbim->function.resume = mbim_resume;
-	mbim->xport = str_to_xport(xport_name);
-
-	/* Only BAM2BAM_IPA supported */
-	if (mbim->xport != USB_GADGET_XPORT_BAM2BAM_IPA) {
-		pr_err("Only IPA xport supported\n");
-		return -EINVAL;
-	}
-
-	/* For IPA we use limit of 16 */
-	mbim_ntb_parameters.wNtbOutMaxDatagrams = 16;
-	/* For IPA this is proven to give maximum throughput */
-	mbim_ntb_parameters.dwNtbInMaxSize =
-	cpu_to_le32(NTB_DEFAULT_IN_SIZE_IPA);
-	/*
-	 * If mbim_ntb_out_size_sys2bam is set, use that value
-	 * otherwise use default value.
-	 */
-	if (mbim_ntb_out_size_sys2bam)
-		mbim_out_max_size = mbim_ntb_out_size_sys2bam;
-	else
-		mbim_out_max_size = MBIM_NTB_OUT_SIZE_IPA;
-
-	mbim_ntb_parameters.dwNtbOutMaxSize =
-			cpu_to_le32(mbim_out_max_size);
-	/* update rx buffer size to be used by usb rx request buffer */
-	mbim->bam_port.rx_buffer_size = mbim_out_max_size;
-	mbim_ntb_parameters.wNdpInDivisor = 1;
-	pr_debug("MBIM: dwNtbOutMaxSize:%d\n", mbim_out_max_size);
 
 	INIT_LIST_HEAD(&mbim->cpkt_req_q);
 	INIT_LIST_HEAD(&mbim->cpkt_resp_q);
@@ -1928,6 +1948,7 @@ static int mbim_release(struct inode *ip, struct file *fp)
 	return 0;
 }
 
+#define BAM_DMUX_CHANNEL_ID 8
 static long mbim_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 {
 	struct f_mbim *mbim = fp->private_data;
@@ -1973,18 +1994,38 @@ static long mbim_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 			return -ENOTCONN;
 		}
 
-		port = &mbim->bam_port;
-		if ((port->ipa_producer_ep == -1) ||
-			(port->ipa_consumer_ep == -1)) {
-			pr_err("EP_LOOKUP failed - IPA pipes not updated\n");
-			ret = -EAGAIN;
+		switch (mbim->xport) {
+		case USB_GADGET_XPORT_BAM:
+			/*
+			 * Rmnet and MBIM share the same BAM-DMUX channel.
+			 * This channel number 8 should be in sync with
+			 * the one defined in u_bam.c.
+			 */
+			info.ph_ep_info.ep_type = MBIM_DATA_EP_TYPE_BAM_DMUX;
+			info.ph_ep_info.peripheral_iface_id =
+						BAM_DMUX_CHANNEL_ID;
+			info.ipa_ep_pair.cons_pipe_num = 0;
+			info.ipa_ep_pair.prod_pipe_num = 0;
+			break;
+		case USB_GADGET_XPORT_BAM2BAM_IPA:
+			port = &mbim->bam_port;
+			if ((port->ipa_producer_ep == -1) ||
+				(port->ipa_consumer_ep == -1)) {
+				pr_err("EP_LOOKUP failed - IPA pipes not updated\n");
+				ret = -EAGAIN;
+				break;
+			}
+
+			info.ph_ep_info.ep_type = MBIM_DATA_EP_TYPE_HSUSB;
+			info.ph_ep_info.peripheral_iface_id = mbim->data_id;
+			info.ipa_ep_pair.cons_pipe_num = port->ipa_consumer_ep;
+			info.ipa_ep_pair.prod_pipe_num = port->ipa_producer_ep;
+			break;
+		default:
+			ret = -ENODEV;
+			pr_err("unknown transport\n");
 			break;
 		}
-
-		info.ph_ep_info.ep_type = MBIM_DATA_EP_TYPE_HSUSB;
-		info.ph_ep_info.peripheral_iface_id = mbim->data_id;
-		info.ipa_ep_pair.cons_pipe_num = port->ipa_consumer_ep;
-		info.ipa_ep_pair.prod_pipe_num = port->ipa_producer_ep;
 
 		ret = copy_to_user((void __user *)arg, &info,
 			sizeof(info));
@@ -2071,12 +2112,6 @@ static int mbim_init(int instances)
 	}
 
 	pr_info("Initialized %d ports\n", nr_mbim_ports);
-
-	ret = mbim_bam_setup(nr_mbim_ports);
-	if (ret) {
-		pr_err("bam_data_setup failed err: %d\n", ret);
-		return ret;
-	}
 
 	return ret;
 
