@@ -613,9 +613,6 @@ static void ufshcd_print_host_state(struct ufs_hba *hba)
 	dev_err(hba->dev, "Clk gate=%d, hibern8 on idle=%d, PM QoS=%d\n",
 		hba->clk_gating.state, hba->hibern8_on_idle.state,
 		hba->pm_qos.state);
-	dev_err(hba->dev, "Clk gate=%d, hibern8 on idle=%d, PM QoS=%d\n",
-		hba->clk_gating.state, hba->hibern8_on_idle.state,
-		hba->pm_qos.state);
 	dev_err(hba->dev, "error handling flags=0x%x, req. abort count=%d\n",
 		hba->eh_flags, hba->req_abort_count);
 	dev_err(hba->dev, "Host capabilities=0x%x, caps=0x%x\n",
