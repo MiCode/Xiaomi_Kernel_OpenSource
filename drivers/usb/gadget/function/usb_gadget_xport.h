@@ -19,7 +19,6 @@ enum transport_type {
 	USB_GADGET_XPORT_TTY,
 	USB_GADGET_XPORT_SMD,
 	USB_GADGET_XPORT_QTI,
-	USB_GADGET_XPORT_BAM,
 	USB_GADGET_XPORT_BAM2BAM,
 	USB_GADGET_XPORT_BAM2BAM_IPA,
 	USB_GADGET_XPORT_HSIC,
@@ -41,8 +40,6 @@ static char *xport_to_str(enum transport_type t)
 		return "SMD";
 	case USB_GADGET_XPORT_QTI:
 		return "QTI";
-	case USB_GADGET_XPORT_BAM:
-		return "BAM";
 	case USB_GADGET_XPORT_BAM2BAM:
 		return "BAM2BAM";
 	case USB_GADGET_XPORT_BAM2BAM_IPA:
@@ -75,9 +72,8 @@ static enum transport_type str_to_xport(const char *name)
 		return USB_GADGET_XPORT_SMD;
 	if (!strncasecmp("QTI", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_QTI;
-	if (!strncasecmp("BAM", name, XPORT_STR_LEN))
-		return USB_GADGET_XPORT_BAM;
-	if (!strncasecmp("BAM2BAM", name, XPORT_STR_LEN))
+	if (!strncasecmp("BAM", name, XPORT_STR_LEN) ||
+	    !strncasecmp("BAM2BAM", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_BAM2BAM;
 	if (!strncasecmp("BAM2BAM_IPA", name, XPORT_STR_LEN))
 		return USB_GADGET_XPORT_BAM2BAM_IPA;
