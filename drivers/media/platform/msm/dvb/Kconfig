@@ -1,0 +1,10 @@
+config DVB_MPQ
+	tristate "Qualcomm Multimedia Processor DVB Adapter"
+	depends on ARCH_MSM && DVB_CORE
+	default n
+
+	help
+	  Support for Qualcomm MPQ based DVB adapter.
+	  Say Y or M if you own such a device and want to use it.
+
+source "drivers/media/platform/msm/dvb/demux/Kconfig"

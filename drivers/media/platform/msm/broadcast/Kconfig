@@ -1,0 +1,14 @@
+#
+# MSM Broadcast subsystem drivers
+#
+
+config TSPP
+	depends on ARCH_MSM
+	tristate "TSPP (Transport Stream Packet Processor) Support"
+	---help---
+	Transport Stream Packet Processor v1 is used to offload the
+	processing of MPEG transport streams from the main processor.
+	It is used to process incoming transport streams from TSIF
+	to supports use-cases such as transport stream live play
+	and recording.
+	This can also be compiled as a loadable module.
