@@ -11,6 +11,11 @@
  */
 
 / {
+	psci {
+		compatible = "arm,psci-0.2";
+		method = "smc";
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -50,7 +55,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x100>;
-			enable-method = "qcom,arm-cortex-acc";
+			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile0>;
 			qcom,acc = <&acc0>;
 			next-level-cache = <&L2_1>;
@@ -65,7 +70,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x101>;
-			enable-method = "qcom,arm-cortex-acc";
+			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile1>;
 			qcom,acc = <&acc1>;
 			next-level-cache = <&L2_1>;
@@ -75,7 +80,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x102>;
-			enable-method = "qcom,arm-cortex-acc";
+			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile2>;
 			qcom,acc = <&acc2>;
 			next-level-cache = <&L2_1>;
@@ -85,7 +90,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x103>;
-			enable-method = "qcom,arm-cortex-acc";
+			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile3>;
 			qcom,acc = <&acc3>;
 			next-level-cache = <&L2_1>;
@@ -95,7 +100,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x0>;
-			enable-method = "qcom,arm-cortex-acc";
+			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile4>;
 			qcom,acc = <&acc4>;
 			next-level-cache = <&L2_0>;
@@ -110,7 +115,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x1>;
-			enable-method = "qcom,arm-cortex-acc";
+			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile4>;
 			qcom,acc = <&acc5>;
 			next-level-cache = <&L2_0>;
@@ -120,7 +125,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x2>;
-			enable-method = "qcom,arm-cortex-acc";
+			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile4>;
 			qcom,acc = <&acc6>;
 			next-level-cache = <&L2_0>;
@@ -130,7 +135,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x3>;
-			enable-method = "qcom,arm-cortex-acc";
+			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile4>;
 			qcom,acc = <&acc7>;
 			next-level-cache = <&L2_0>;
