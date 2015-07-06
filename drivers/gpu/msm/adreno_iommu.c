@@ -907,7 +907,7 @@ static int _set_ctxt_gpu(struct adreno_ringbuffer *rb,
  * @rb: The rb for which pagetable needs to be switched
  * @new_pt: The pagetable to switch to
  */
-int _set_pagetable_cpu(struct adreno_ringbuffer *rb,
+static int _set_pagetable_cpu(struct adreno_ringbuffer *rb,
 			struct kgsl_pagetable *new_pt)
 {
 	struct kgsl_device *device = rb->device;
@@ -942,7 +942,7 @@ int _set_pagetable_cpu(struct adreno_ringbuffer *rb,
  *    submitted
  * @new_pt: The pagetable to switch to
  */
-int _set_pagetable_gpu(struct adreno_ringbuffer *rb,
+static int _set_pagetable_gpu(struct adreno_ringbuffer *rb,
 			struct kgsl_pagetable *new_pt)
 {
 	unsigned int *link = NULL, *cmds;

@@ -286,7 +286,7 @@ EXPORT_SYMBOL(kgsl_pwrctrl_buslevel_update);
  * @post: flag to check if the call is before/after the clk_rate change
  * @wake_up: flag to check if device is active or waking up
  */
-void kgsl_pwrctrl_pwrlevel_change_settings(struct kgsl_device *device,
+static void kgsl_pwrctrl_pwrlevel_change_settings(struct kgsl_device *device,
 			bool post)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
@@ -308,7 +308,7 @@ void kgsl_pwrctrl_pwrlevel_change_settings(struct kgsl_device *device,
  * @pwr: Pointer to the kgsl_pwrctrl struct
  * @new_level: the level to transition to
  */
-void kgsl_pwrctrl_set_thermal_cycle(struct kgsl_pwrctrl *pwr,
+static void kgsl_pwrctrl_set_thermal_cycle(struct kgsl_pwrctrl *pwr,
 						unsigned int new_level)
 {
 	if ((new_level != pwr->thermal_pwrlevel) || !pwr->sysfs_pwr_limit)
@@ -1184,7 +1184,7 @@ void kgsl_pwrctrl_busy_time(struct kgsl_device *device, u64 time, u64 busy)
 }
 EXPORT_SYMBOL(kgsl_pwrctrl_busy_time);
 
-void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
+static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 					  int requested_state)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
@@ -1371,7 +1371,7 @@ static void kgsl_thermal_cycle(struct work_struct *work)
 	mutex_unlock(&device->mutex);
 }
 
-void kgsl_thermal_timer(unsigned long data)
+static void kgsl_thermal_timer(unsigned long data)
 {
 	struct kgsl_device *device = (struct kgsl_device *) data;
 
@@ -2070,7 +2070,7 @@ _slumber(struct kgsl_device *device)
  *
  * Return 0 on success else error code
  */
-int _suspend(struct kgsl_device *device)
+static int _suspend(struct kgsl_device *device)
 {
 	int ret = 0;
 

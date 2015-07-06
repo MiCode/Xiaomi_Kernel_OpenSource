@@ -917,7 +917,7 @@ static void adreno_dispatcher_preempt_timer(unsigned long data)
 }
 
 /**
- * __adreno_dispatcher_get_highest_busy_rb() - Returns the highest priority RB
+ * adreno_dispatcher_get_highest_busy_rb() - Returns the highest priority RB
  * which is busy
  * @adreno_dev: Device whose RB is returned
  */
@@ -1425,7 +1425,7 @@ void adreno_fault_skipcmd_detached(struct kgsl_device *device,
  * @base: The IB1 base at the time of fault
  * @fault: The fault type
  */
-void process_cmdbatch_fault(struct kgsl_device *device,
+static void process_cmdbatch_fault(struct kgsl_device *device,
 		struct kgsl_cmdbatch **replay, int count,
 		unsigned int base,
 		int fault)

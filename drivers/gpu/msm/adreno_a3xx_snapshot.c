@@ -17,6 +17,7 @@
 #include "kgsl_snapshot.h"
 #include "a3xx_reg.h"
 #include "adreno_snapshot.h"
+#include "adreno_a3xx.h"
 
 /*
  * Set of registers to dump for A3XX on snapshot.

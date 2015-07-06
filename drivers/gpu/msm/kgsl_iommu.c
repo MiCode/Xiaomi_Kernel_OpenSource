@@ -1233,10 +1233,10 @@ kgsl_iommu_unmap(struct kgsl_pagetable *pt,
  *
  * Return 0 on success, error on map fail
  */
-int _iommu_add_guard_page(struct kgsl_pagetable *pt,
-						   struct kgsl_memdesc *memdesc,
-						   uint64_t gpuaddr,
-						   unsigned int protflags)
+static int _iommu_add_guard_page(struct kgsl_pagetable *pt,
+				   struct kgsl_memdesc *memdesc,
+				   uint64_t gpuaddr,
+				   unsigned int protflags)
 {
 	struct kgsl_iommu_pt *iommu_pt = pt->priv;
 	phys_addr_t physaddr = page_to_phys(kgsl_guard_page);
@@ -1649,7 +1649,8 @@ static int kgsl_iommu_set_pf_policy(struct kgsl_mmu *mmu,
 	return ret;
 }
 
-struct kgsl_protected_registers *kgsl_iommu_get_prot_regs(struct kgsl_mmu *mmu)
+static struct kgsl_protected_registers *
+kgsl_iommu_get_prot_regs(struct kgsl_mmu *mmu)
 {
 	static struct kgsl_protected_registers iommuv1_regs = { 0x4000, 14 };
 	static struct kgsl_protected_registers iommuv2_regs;
@@ -1984,7 +1985,6 @@ struct kgsl_mmu_ops kgsl_iommu_ops = {
 	.mmu_start = kgsl_iommu_start,
 	.mmu_stop = kgsl_iommu_stop,
 	.mmu_set_pt = kgsl_iommu_set_pt,
-	.mmu_pagefault_resume = kgsl_iommu_pagefault_resume,
 	.mmu_clear_fsr = kgsl_iommu_clear_fsr,
 	.mmu_get_current_ptbase = kgsl_iommu_get_current_ptbase,
 	.mmu_enable_clk = kgsl_iommu_enable_clk,

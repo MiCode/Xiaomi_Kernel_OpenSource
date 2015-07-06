@@ -494,7 +494,7 @@ void kgsl_context_dump(struct kgsl_context *context)
 EXPORT_SYMBOL(kgsl_context_dump);
 
 /* Allocate a new context ID */
-int _kgsl_get_context_id(struct kgsl_device *device,
+static int _kgsl_get_context_id(struct kgsl_device *device,
 		struct kgsl_context *context)
 {
 	int id;
@@ -2846,7 +2846,7 @@ out:
 }
 
 #ifdef CONFIG_ARM64
-uint64_t kgsl_filter_cachemode(uint64_t flags)
+static uint64_t kgsl_filter_cachemode(uint64_t flags)
 {
 	/*
 	 * WRITETHROUGH is not supported in arm64, so we tell the user that we
@@ -2861,7 +2861,7 @@ uint64_t kgsl_filter_cachemode(uint64_t flags)
 	return flags;
 }
 #else
-uint64_t kgsl_filter_cachemode(uint64_t flags)
+static uint64_t kgsl_filter_cachemode(uint64_t flags)
 {
 	return flags;
 }

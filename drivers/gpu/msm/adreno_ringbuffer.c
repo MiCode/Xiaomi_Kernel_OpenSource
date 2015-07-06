@@ -875,7 +875,7 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 	return ret;
 }
 
-void adreno_ringbuffer_set_constraint(struct kgsl_device *device,
+static void adreno_ringbuffer_set_constraint(struct kgsl_device *device,
 			struct kgsl_cmdbatch *cmdbatch)
 {
 	struct kgsl_context *context = cmdbatch->context;

@@ -610,7 +610,7 @@ int adreno_a3xx_pwron_fixup_init(struct adreno_device *adreno_dev)
  * a3xx_gpudev_init() - Initialize gpudev specific fields
  * @adreno_dev: Pointer to adreno device
  */
-void a3xx_gpudev_init(struct adreno_device *adreno_dev)
+static void a3xx_gpudev_init(struct adreno_device *adreno_dev)
 {
 	struct adreno_gpudev *gpudev;
 	const struct adreno_reg_offsets *reg_offsets;
@@ -678,7 +678,7 @@ static int a3xx_rb_init(struct adreno_device *adreno_dev,
  * @adreno_dev: Pointer to device
  * @bit: Interrupt bit
  */
-void a3xx_err_callback(struct adreno_device *adreno_dev, int bit)
+static void a3xx_err_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	unsigned int reg;
@@ -1176,7 +1176,7 @@ static struct adreno_perfcounters a3xx_perfcounters = {
 	ARRAY_SIZE(a3xx_perfcounter_groups),
 };
 
-struct adreno_ft_perf_counters a3xx_ft_perf_counters[] = {
+static struct adreno_ft_perf_counters a3xx_ft_perf_counters[] = {
 	{KGSL_PERFCOUNTER_GROUP_SP, SP_ALU_ACTIVE_CYCLES},
 	{KGSL_PERFCOUNTER_GROUP_SP, SP0_ICL1_MISSES},
 	{KGSL_PERFCOUNTER_GROUP_SP, SP_FS_CFLOW_INSTRUCTIONS},
@@ -1449,7 +1449,7 @@ static unsigned int a3xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A3XX_VBIF_XIN_HALT_CTRL1),
 };
 
-const struct adreno_reg_offsets a3xx_reg_offsets = {
+static const struct adreno_reg_offsets a3xx_reg_offsets = {
 	.offsets = a3xx_register_offsets,
 	.offset_0 = ADRENO_REG_REGISTER_MAX,
 };
