@@ -31,10 +31,6 @@ Optional properties :
   regulator node to the USB controller.
 - qcom,dwc-usb3-msm-tx-fifo-size: If present, represents RAM size available for
 		TX fifo allocation in bytes
-- qcom,restore-sec-cfg-for-scm-dev-id: If present then device id value is
-  passed to secure channel manager(scm) driver. scm driver uses this device
-  id to restore USB controller related security configuration after coming
-  out of the controller power collapse.
 - qcom,utmi-clk-rate: Indicates refclk frequency (in Hz) to the core. If not
   specified, default of 19.2MHz is assumed.
 - qcom,no-suspend-resume: If present, the device will not perform any activity
