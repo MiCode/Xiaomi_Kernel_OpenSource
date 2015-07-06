@@ -3068,20 +3068,32 @@ static void a5xx_preempt_complete_state(
 	uint64_t rbbase;
 	unsigned int wptr;
 	unsigned int val;
+	static unsigned long wait_for_preemption_complete;
 
 	del_timer_sync(&dispatcher->preempt_timer);
 
 	adreno_readreg(adreno_dev, ADRENO_REG_CP_PREEMPT, &val);
 
 	if (val) {
-		KGSL_DRV_ERR(device,
-		"Invalid state after preemption CP_PREEMPT:%08x BUSY:%1x STOP:%1x\n",
+		/*
+		 * Wait for 50ms for preemption state to be updated by CP
+		 * before triggering hang
+		 */
+		if (wait_for_preemption_complete == 0)
+			wait_for_preemption_complete = jiffies +
+						msecs_to_jiffies(50);
+		if (time_after(jiffies, wait_for_preemption_complete)) {
+			wait_for_preemption_complete = 0;
+			KGSL_DRV_ERR(device,
+			"Invalid state after preemption CP_PREEMPT:%08x STOP:%1x BUSY:%1x\n",
 					 val, (val & 0x1), (val & 0x10)>>4);
-		adreno_set_gpu_fault(adreno_dev, ADRENO_PREEMPT_FAULT);
+			adreno_set_gpu_fault(adreno_dev, ADRENO_PREEMPT_FAULT);
+		}
 		adreno_dispatcher_schedule(device);
 		return;
 	}
 
+	wait_for_preemption_complete = 0;
 	adreno_readreg64(adreno_dev, ADRENO_REG_CP_RB_BASE,
 				ADRENO_REG_CP_RB_BASE_HI, &rbbase);
 	if (rbbase != adreno_dev->next_rb->buffer_desc.gpuaddr) {
