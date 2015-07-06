@@ -264,8 +264,10 @@ struct ufs_clk_info {
 	bool enabled;
 };
 
-#define PRE_CHANGE      0
-#define POST_CHANGE     1
+enum ufs_notify_change_status {
+	PRE_CHANGE,
+	POST_CHANGE,
+};
 
 struct ufs_pa_layer_attr {
 	u32 gear_rx;
@@ -325,10 +327,13 @@ struct ufs_hba_variant_ops {
 	int	(*clk_scale_notify)(struct ufs_hba *, bool, bool);
 	int	(*setup_clocks)(struct ufs_hba *, bool);
 	int	(*setup_regulators)(struct ufs_hba *, bool);
-	int	(*hce_enable_notify)(struct ufs_hba *, bool);
-	int	(*link_startup_notify)(struct ufs_hba *, bool);
+	int	(*hce_enable_notify)(struct ufs_hba *,
+				     enum ufs_notify_change_status);
+	int	(*link_startup_notify)(struct ufs_hba *,
+				       enum ufs_notify_change_status);
 	int	(*pwr_change_notify)(struct ufs_hba *,
-					bool, struct ufs_pa_layer_attr *,
+					enum ufs_notify_change_status status,
+					struct ufs_pa_layer_attr *,
 					struct ufs_pa_layer_attr *);
 	int	(*suspend)(struct ufs_hba *, enum ufs_pm_op);
 	int	(*resume)(struct ufs_hba *, enum ufs_pm_op);

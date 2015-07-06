@@ -345,7 +345,8 @@ static void ufs_qcom_enable_hw_clk_gating(struct ufs_hba *hba)
 	mb();
 }
 
-static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba, bool status)
+static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
+				      enum ufs_notify_change_status status)
 {
 	struct ufs_qcom_host *host = hba->priv;
 	int err = 0;
@@ -530,7 +531,8 @@ out:
 	return ret;
 }
 
-static int ufs_qcom_link_startup_notify(struct ufs_hba *hba, bool status)
+static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
+					enum ufs_notify_change_status status)
 {
 	int err = 0;
 	struct ufs_qcom_host *host = hba->priv;
@@ -908,7 +910,7 @@ static void ufs_qcom_dev_ref_clk_ctrl(struct ufs_qcom_host *host, bool enable)
 }
 
 static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
-				bool status,
+				enum ufs_notify_change_status status,
 				struct ufs_pa_layer_attr *dev_max_params,
 				struct ufs_pa_layer_attr *dev_req_params)
 {
