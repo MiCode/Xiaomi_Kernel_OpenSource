@@ -90,7 +90,7 @@ struct platform_device *qcom_ice_get_pdevice(struct device_node *node);
 #ifdef CONFIG_CRYPTO_DEV_QCOM_ICE
 int qcom_ice_setup_ice_hw(const char *, int);
 #else
-static inline int qcom_ice_setup_ice_hw(const char *, int)
+static inline int qcom_ice_setup_ice_hw(const char *storage_type, int enable)
 {
 	return 0;
 }
