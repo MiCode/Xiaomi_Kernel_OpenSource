@@ -118,7 +118,7 @@
 #include "msm8952-ion.dtsi"
 #include "msm8952-iommu.dtsi"
 #include "msm8952-iommu-domains.dtsi"
-#include "msm8939-cpu.dtsi"
+#include "msm8952-cpu.dtsi"
 #include "msm8952-mdss.dtsi"
 #include "msm8952-pinctrl.dtsi"
 #include "msm8952-smp2p.dtsi"
@@ -2293,16 +2293,6 @@
 				"iface_clk", "bus_clk";
 		qcom,ce-opp-freq = <100000000>;
 	};
-};
-
-&l2ccc_0 {
-	qcom,vctl-node = <&cluster0_spm>;
-	qcom,use-acinactm;
-};
-
-&l2ccc_1 {
-	qcom,vctl-node = <&cluster1_spm>;
-	qcom,use-acinactm;
 };
 
 &gdsc_venus {
