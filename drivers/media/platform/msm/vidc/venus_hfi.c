@@ -841,7 +841,10 @@ static int __unvote_buses(struct venus_hfi_device *device)
 		int local_rc = 0;
 		unsigned long zero = 0;
 
-		devfreq_suspend_device(bus->devfreq);
+		rc = devfreq_suspend_device(bus->devfreq);
+		if (rc)
+			goto err_unknown_device;
+
 		local_rc = __devfreq_target(bus->dev, &zero, 0);
 		rc = rc ?: local_rc;
 	}
@@ -849,6 +852,7 @@ static int __unvote_buses(struct venus_hfi_device *device)
 	if (rc)
 		dprintk(VIDC_WARN, "Failed to unvote some buses\n");
 
+err_unknown_device:
 	return rc;
 }
 
@@ -897,7 +901,11 @@ static int __vote_buses(struct venus_hfi_device *device,
 	device->bus_vote.imem_size = device->res->imem_size;
 
 	venus_hfi_for_each_bus(device, bus) {
-		devfreq_resume_device(bus->devfreq); /* NOP if already resume */
+		/* NOP if already resume */
+		rc = devfreq_resume_device(bus->devfreq);
+		if (rc)
+			goto err_no_mem;
+
 		/* Kick devfreq awake incase _resume() didn't do it */
 		bus->devfreq->nb.notifier_call(&bus->devfreq->nb, 0, NULL);
 	}
