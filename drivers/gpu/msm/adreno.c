@@ -1511,26 +1511,6 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 			goto error_mmu_off;
 	}
 
-	/* Set up LM before initializing the GPMU */
-	if (gpudev->lm_init)
-		gpudev->lm_init(adreno_dev);
-
-	/* Enable h/w power collapse feature */
-	if (gpudev->enable_pc)
-		gpudev->enable_pc(adreno_dev);
-
-	/* GPMU initialization and start */
-	if (gpudev->gpmu_start)
-		gpudev->gpmu_start(adreno_dev);
-
-	/* Enable peak power detect feature */
-	if (gpudev->enable_ppd)
-		gpudev->enable_ppd(adreno_dev);
-
-	/* Enable limits management */
-	if (gpudev->lm_enable)
-		gpudev->lm_enable(adreno_dev);
-
 	/* Start the dispatcher */
 	adreno_dispatcher_start(device);
 
@@ -2146,13 +2126,19 @@ static int adreno_soft_reset(struct kgsl_device *device)
 		ret = adreno_ringbuffer_warm_start(adreno_dev);
 	else
 		ret = adreno_ringbuffer_cold_start(adreno_dev);
+	if (ret)
+		goto done;
 
-	if (!ret) {
-		device->reset_counter++;
-		/* device is back online */
-		set_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
-	}
+	if (gpudev->hw_init)
+		ret = gpudev->hw_init(adreno_dev);
+	if (ret)
+		goto done;
 
+	device->reset_counter++;
+	/* device is back online */
+	set_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
+
+done:
 	return ret;
 }
 

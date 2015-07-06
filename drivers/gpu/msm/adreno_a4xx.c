@@ -1550,6 +1550,14 @@ int adreno_a4xx_pwron_fixup_init(struct adreno_device *adreno_dev)
 	return 0;
 }
 
+static int a4xx_hw_init(struct adreno_device *adreno_dev)
+{
+	a4xx_enable_pc(adreno_dev);
+	a4xx_enable_ppd(adreno_dev);
+
+	return 0;
+}
+
 /*
  * a4xx_rb_init() - Initialize ringbuffer
  * @adreno_dev: Pointer to adreno device
@@ -2128,14 +2136,13 @@ struct adreno_gpudev adreno_a4xx_gpudev = {
 	.perfcounter_init = a4xx_perfcounter_init,
 	.perfcounter_close = a4xx_perfcounter_close,
 	.rb_init = a4xx_rb_init,
+	.hw_init = a4xx_hw_init,
 	.microcode_read = a3xx_microcode_read,
 	.microcode_load = a3xx_microcode_load,
 	.coresight = &a4xx_coresight,
 	.start = a4xx_start,
 	.snapshot = a4xx_snapshot,
 	.is_sptp_idle = a4xx_is_sptp_idle,
-	.enable_pc = a4xx_enable_pc,
-	.enable_ppd = a4xx_enable_ppd,
 	.pwrlevel_change_settings = a4xx_pwrlevel_change_settings,
 	.regulator_enable = a4xx_regulator_enable,
 	.regulator_disable = a4xx_regulator_disable,
