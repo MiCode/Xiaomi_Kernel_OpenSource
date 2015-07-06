@@ -97,6 +97,7 @@ Optional Properties:
 			   the chip identification read from the GPU hardware.
 			   This is used to override faulty hardware readings.
 - qcom,strtstp-sleepwake:  Boolean. Enables use of GPU SLUMBER instead of SLEEP for power savings
+- qcom,gx-retention:  	   Boolean. Enables use of GX rail RETENTION voltage
 
 - qcom,pm-qos-active-latency:
 				Right after GPU wakes up from sleep, driver votes for

@@ -84,19 +84,22 @@
 		/*
 		 * Clocks = KGSL_CLK_CORE | KGSL_CLK_IFACE
 		 * KGSL_CLK_RBBMTIMER | KGSL_CLK_MEM_IFACE
-		 * KGSL_CLK_ALT_MEM_IFACE | KGSL_CLK_MEM
+		 * KGSL_CLK_ALT_MEM_IFACE | KGSL_CLK_MEM |
+		 * KGSL_CLK_MX
 		 */
-		qcom,clk-map = <0x000000DE>;
+		qcom,clk-map = <0x000004DE>;
 
 		clocks = <&clock_gpu clk_gpu_gx_gfx3d_clk>,
 			<&clock_gpu clk_gpu_ahb_clk>,
 			<&clock_gpu clk_gpu_gx_rbbmtimer_clk>,
 			<&clock_gcc clk_gcc_bimc_gfx_clk>,
 			<&clock_gcc clk_gcc_mmss_bimc_gfx_clk>,
-			<&clock_mmss clk_mmss_mmagic_ahb_clk>;
+			<&clock_mmss clk_mmss_mmagic_ahb_clk>,
+			<&clock_gpu clk_gpu_mx_clk>;
 
 		clock-names = "core_clk", "iface_clk", "rbbmtimer_clk",
-			"mem_clk", "mem_iface_clk", "alt_mem_iface_clk";
+			"mem_clk", "mem_iface_clk", "alt_mem_iface_clk",
+			"mx_clk";
 
 		/* Bus Scale Settings */
 		qcom,gpubw-dev = <&gpubw>;
@@ -125,6 +128,7 @@
 		vddcx-supply = <&gdsc_gpu>;
 		vdd-supply = <&gdsc_gpu_gx>;
 
+		qcom,gx-retention;
 		/* Power levels */
 		qcom,gpu-pwrlevels {
 			#address-cells = <1>;
