@@ -167,12 +167,12 @@
 			};
 		};
 
-		mdss_fb1: qcom,mdss_fb_wfd {
+		mdss_fb1: qcom,mdss_fb_secondary {
 			cell-index = <1>;
 			compatible = "qcom,mdss-fb";
 		};
 
-		mdss_fb2: qcom,mdss_fb_secondary {
+		mdss_fb2: qcom,mdss_fb_wfd {
 			cell-index = <2>;
 			compatible = "qcom,mdss-fb";
 		};
@@ -184,7 +184,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		qcom,mdss-fb-map-prim = <&mdss_fb0>;
-		qcom,mdss-fb-map-sec = <&mdss_fb2>;
+		qcom,mdss-fb-map-sec = <&mdss_fb1>;
 		gdsc-supply = <&gdsc_mdss>;
 		vdda-supply = <&pm8950_l1>;
 		vddio-supply = <&pm8950_l6>;
@@ -320,7 +320,7 @@
 		compatible = "qcom,mdss_wb";
 		qcom,mdss_pan_res = <1280 720>;
 		qcom,mdss_pan_bpp = <24>;
-		qcom,mdss-fb-map = <&mdss_fb1>;
+		qcom,mdss-fb-map = <&mdss_fb2>;
 	};
 };
 
