@@ -120,8 +120,6 @@ struct kgsl_memdesc_ops {
 #define KGSL_MEMDESC_MAPPED BIT(3)
 /* The memdesc is secured for content protection */
 #define KGSL_MEMDESC_SECURE BIT(4)
-/* The memdesc is private for use during pagetable switch only */
-#define KGSL_MEMDESC_PRIVATE BIT(5)
 /* Memory is accessible in privileged mode */
 #define KGSL_MEMDESC_PRIVILEGED BIT(6)
 /* The memdesc is TZ locked content protection */
