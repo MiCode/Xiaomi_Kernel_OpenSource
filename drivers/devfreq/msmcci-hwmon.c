@@ -73,6 +73,7 @@ struct msmcci_hwmon {
 	struct cache_hwmon hw;
 	struct device *dev;
 	bool secure_io;
+	bool irq_shared;
 };
 
 #define to_mon(ptr) container_of(ptr, struct msmcci_hwmon, hw)
@@ -154,6 +155,25 @@ static void mon_clear_single(struct msmcci_hwmon *m, int idx)
 static void mon_set_limit_single(struct msmcci_hwmon *m, int idx, u32 limit)
 {
 	write_mon_reg(m, idx, EVNT_CNT_MATCH_VAL, limit);
+}
+
+static irqreturn_t msmcci_hwmon_shared_intr_handler(int irq, void *dev)
+{
+	struct msmcci_hwmon *m = dev;
+	int idx = -1, i;
+
+	for (i = 0; i < m->num_counters; i++) {
+		if (mon_is_match_flag_set(m, i)) {
+			idx = i;
+			break;
+		}
+	}
+	if (idx == -1)
+		return IRQ_NONE;
+
+	update_cache_hwmon(&m->hw);
+
+	return IRQ_HANDLED;
 }
 
 static irqreturn_t msmcci_hwmon_intr_handler(int irq, void *dev)
@@ -383,16 +403,24 @@ static void unregister_pm_nofitifier(void)
 	mutex_unlock(&notifier_reg_lock);
 }
 
-static int start_hwmon(struct cache_hwmon *hw, struct mrps_stats *mrps)
+static int request_shared_interrupt(struct msmcci_hwmon *m)
 {
-	struct msmcci_hwmon *m = to_mon(hw);
-	unsigned int sample_ms = hw->df->profile->polling_ms;
-	int ret, i;
-	u32 limit;
+	int ret;
 
-	ret = register_pm_notifier(m);
+	ret = request_threaded_irq(m->irq[HIGH], NULL,
+			msmcci_hwmon_shared_intr_handler,
+			IRQF_ONESHOT | IRQF_SHARED,
+			dev_name(m->dev), m);
 	if (ret)
-		return ret;
+		dev_err(m->dev, "Unable to register shared interrupt handler for irq %d\n",
+			m->irq[HIGH]);
+
+	return ret;
+}
+
+static int request_interrupts(struct msmcci_hwmon  *m)
+{
+	int i, ret;
 
 	for (i = 0; i < m->num_counters; i++) {
 		ret = request_threaded_irq(m->irq[i], NULL,
@@ -404,7 +432,36 @@ static int start_hwmon(struct cache_hwmon *hw, struct mrps_stats *mrps)
 			goto irq_failure;
 		}
 	}
+	return 0;
 
+irq_failure:
+	for (i--; i > 0; i--) {
+		disable_irq(m->irq[i]);
+		free_irq(m->irq[i], m);
+	}
+	return ret;
+}
+
+static int start_hwmon(struct cache_hwmon *hw, struct mrps_stats *mrps)
+{
+	struct msmcci_hwmon *m = to_mon(hw);
+	unsigned int sample_ms = hw->df->profile->polling_ms;
+	int ret, i;
+	u32 limit;
+
+	ret = register_pm_notifier(m);
+	if (ret)
+		return ret;
+
+	if (m->irq_shared)
+		ret = request_shared_interrupt(m);
+	else
+		ret = request_interrupts(m);
+
+	if (ret) {
+		unregister_pm_nofitifier();
+		return ret;
+	}
 	mon_init(m);
 	mon_disable(m);
 	for (i = 0; i < m->num_counters; i++) {
@@ -416,14 +473,6 @@ static int start_hwmon(struct cache_hwmon *hw, struct mrps_stats *mrps)
 	m->mon_enabled = true;
 
 	return 0;
-
-irq_failure:
-	for (i--; i > 0; i--) {
-		disable_irq(m->irq[i]);
-		free_irq(m->irq[i], m);
-	}
-	unregister_pm_nofitifier();
-	return ret;
 }
 
 static void stop_hwmon(struct cache_hwmon *hw)
@@ -433,11 +482,15 @@ static void stop_hwmon(struct cache_hwmon *hw)
 
 	m->mon_enabled = false;
 	mon_disable(m);
+
 	for (i = 0; i < m->num_counters; i++) {
-		disable_irq(m->irq[i]);
-		free_irq(m->irq[i], m);
+		if (!m->irq_shared || i == HIGH) {
+			disable_irq(m->irq[i]);
+			free_irq(m->irq[i], m);
+		}
 		mon_clear_single(m, i);
 	}
+
 	unregister_pm_nofitifier();
 }
 
@@ -475,12 +528,14 @@ static int msmcci_hwmon_parse_dt(struct platform_device *pdev,
 	}
 	m->event_sel[idx] = sel;
 
-	m->irq[idx] = platform_get_irq(pdev, idx);
-	if (m->irq[idx] < 0) {
-		dev_err(dev, "Counter[%d] failed to get IRQ number\n", idx);
-		return m->irq[idx];
+	if (!m->irq_shared || idx == HIGH) {
+		m->irq[idx] = platform_get_irq(pdev, idx);
+		if (m->irq[idx] < 0) {
+			dev_err(dev, "Counter[%d] failed to get IRQ number\n",
+									idx);
+			return m->irq[idx];
+		}
 	}
-
 	m->num_counters++;
 	return 0;
 }
@@ -498,6 +553,9 @@ static int msmcci_hwmon_driver_probe(struct platform_device *pdev)
 
 	m->secure_io = of_property_read_bool(pdev->dev.of_node,
 					"qcom,secure-io");
+
+	m->irq_shared = of_property_read_bool(pdev->dev.of_node,
+						"qcom,shared-irq");
 
 	ret = msmcci_hwmon_parse_dt(pdev, m, HIGH);
 	if (ret)

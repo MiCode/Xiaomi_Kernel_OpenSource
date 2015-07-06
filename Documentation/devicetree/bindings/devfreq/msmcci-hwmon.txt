@@ -14,6 +14,7 @@ Required properties:
 
 Optional properties:
 - qcom,secure-io	Indicates register access are secured.
+- qcom,shared-irq       Indicates ccci-hwmon counters share the interrupt.
 
 Example:
 	qcom,msmcci-hwmon {
