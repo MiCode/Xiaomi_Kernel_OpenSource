@@ -342,24 +342,29 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 			ctx->ctx_id, &ptbase,
 			write ? "write" : "read", fault_type);
 
-		_check_if_freed(ctx, addr, ptname);
+		/* Don't print the debug if this is a permissions fault */
+		if (!(flags & IOMMU_FAULT_PERMISSION)) {
+			_check_if_freed(ctx, addr, ptname);
 
-		KGSL_LOG_DUMP(ctx->kgsldev, "---- nearby memory ----\n");
+			KGSL_LOG_DUMP(ctx->kgsldev,
+				"---- nearby memory ----\n");
 
-		_find_mem_entries(mmu, addr, ptbase, &prev, &next);
+			_find_mem_entries(mmu, addr, ptbase, &prev, &next);
 
-		if (prev.gpuaddr)
-			_print_entry(ctx->kgsldev, &prev);
-		else
-			KGSL_LOG_DUMP(ctx->kgsldev, "*EMPTY*\n");
+			if (prev.gpuaddr)
+				_print_entry(ctx->kgsldev, &prev);
+			else
+				KGSL_LOG_DUMP(ctx->kgsldev, "*EMPTY*\n");
 
-		KGSL_LOG_DUMP(ctx->kgsldev, " <- fault @ %8.8lX\n", addr);
+			KGSL_LOG_DUMP(ctx->kgsldev, " <- fault @ %8.8lX\n",
+				addr);
 
-		if (next.gpuaddr != (uint64_t) -1)
-			_print_entry(ctx->kgsldev, &next);
-		else
-			KGSL_LOG_DUMP(ctx->kgsldev, "*EMPTY*\n");
+			if (next.gpuaddr != (uint64_t) -1)
+				_print_entry(ctx->kgsldev, &next);
+			else
+				KGSL_LOG_DUMP(ctx->kgsldev, "*EMPTY*\n");
 
+		}
 	}
 
 	trace_kgsl_mmu_pagefault(ctx->kgsldev, addr,
