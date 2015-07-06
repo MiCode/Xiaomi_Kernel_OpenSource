@@ -83,6 +83,7 @@ struct ice_device {
 	dev_t			device_no;
 	struct class		*driver_class;
 	void __iomem		*mmio;
+	struct resource		*res;
 	int			irq;
 	bool			is_irq_enabled;
 	bool			is_ice_enabled;
@@ -611,17 +612,16 @@ out:
 static int qcom_ice_get_device_tree_data(struct platform_device *pdev,
 		struct ice_device *ice_dev)
 {
-	struct resource *res;
 	struct device *dev = &pdev->dev;
 	int irq, rc = -1;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
+	ice_dev->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!ice_dev->res) {
 		pr_err("%s: No memory available for IORESOURCE\n", __func__);
 		return -ENOMEM;
 	}
 
-	ice_dev->mmio = devm_ioremap_resource(dev, res);
+	ice_dev->mmio = devm_ioremap_resource(dev, ice_dev->res);
 	if (IS_ERR(ice_dev->mmio)) {
 		rc = PTR_ERR(ice_dev->mmio);
 		pr_err("%s: Error = %d mapping ICE io memory\n", __func__, rc);
@@ -940,13 +940,11 @@ static int qcom_ice_secure_ice_init(struct ice_device *ice_dev)
 	int ret = 0;
 	u32 regval;
 
-	regval = scm_call_atomic1(SCM_SVC_TZ, SCM_IO_READ,
-			(unsigned long)ice_dev->mmio +
+	regval = scm_io_read((unsigned long)ice_dev->res +
 			QCOM_ICE_LUT_KEYS_ICE_SEC_IRQ_MASK);
 
 	regval &= ~QCOM_ICE_SEC_IRQ_MASK;
-	ret = scm_call_atomic2(SCM_SVC_TZ, SCM_IO_WRITE,
-			(unsigned long)ice_dev->mmio +
+	ret = scm_io_write((unsigned long)ice_dev->res +
 			QCOM_ICE_LUT_KEYS_ICE_SEC_IRQ_MASK, regval);
 
 	/*
@@ -1051,7 +1049,9 @@ static void qcom_ice_finish_init(void *data, async_cookie_t cookie)
 		return;
 	}
 
-	if (!qcom_ice_secure_ice_init(ice_dev)) {
+	/* TZ side of ICE driver would handle secure init of ICE HW from v2 */
+	if (ICE_REV(ice_dev->ice_hw_version, MAJOR) == 1 &&
+		!qcom_ice_secure_ice_init(ice_dev)) {
 		pr_err("%s: Error: ICE_ERROR_ICE_TZ_INIT_FAILED\n", __func__);
 		ice_dev->error_cb(ice_dev->host_controller_data,
 					ICE_ERROR_ICE_TZ_INIT_FAILED);
