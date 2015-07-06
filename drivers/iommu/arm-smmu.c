@@ -1308,7 +1308,7 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	return ret;
 }
 
-static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
+static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 					      dma_addr_t iova)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
@@ -1376,10 +1376,32 @@ static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
 	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
 	if (smmu_domain->smmu->features & ARM_SMMU_FEAT_TRANS_OPS &&
 			smmu_domain->stage == ARM_SMMU_DOMAIN_S1) {
-		ret = arm_smmu_iova_to_phys_hard(domain, iova);
+		ret = __arm_smmu_iova_to_phys_hard(domain, iova);
 	} else {
 		ret = ops->iova_to_phys(ops, iova);
 	}
+
+	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
+
+	return ret;
+}
+
+/*
+ * This function can sleep, and cannot be called from atomic context. Will
+ * power on register block if required. This restriction does not apply to the
+ * original iova_to_phys() op.
+ */
+static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
+					dma_addr_t iova)
+{
+	phys_addr_t ret = 0;
+	unsigned long flags;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+
+	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
+	if (smmu_domain->smmu->features & ARM_SMMU_FEAT_TRANS_OPS &&
+			smmu_domain->stage == ARM_SMMU_DOMAIN_S1)
+		ret = __arm_smmu_iova_to_phys_hard(domain, iova);
 
 	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
 
@@ -1565,6 +1587,7 @@ static struct iommu_ops arm_smmu_ops = {
 	.unmap			= arm_smmu_unmap,
 	.map_sg			= default_iommu_map_sg,
 	.iova_to_phys		= arm_smmu_iova_to_phys,
+	.iova_to_phys_hard	= arm_smmu_iova_to_phys_hard,
 	.add_device		= arm_smmu_add_device,
 	.remove_device		= arm_smmu_remove_device,
 	.device_group		= arm_smmu_device_group,
