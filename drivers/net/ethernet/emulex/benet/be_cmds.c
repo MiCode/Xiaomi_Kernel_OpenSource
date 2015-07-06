@@ -1705,9 +1705,9 @@ int be_cmd_get_regs(struct be_adapter *adapter, u32 buf_len, void *buf)
 	total_size = buf_len;
 
 	get_fat_cmd.size = sizeof(struct be_cmd_req_get_fat) + 60*1024;
-	get_fat_cmd.va = pci_alloc_consistent(adapter->pdev,
-					      get_fat_cmd.size,
-					      &get_fat_cmd.dma);
+	get_fat_cmd.va = dma_zalloc_coherent(&adapter->pdev->dev,
+					     get_fat_cmd.size,
+					     &get_fat_cmd.dma, GFP_ATOMIC);
 	if (!get_fat_cmd.va) {
 		dev_err(&adapter->pdev->dev,
 			"Memory allocation failure while reading FAT data\n");
@@ -1752,8 +1752,8 @@ int be_cmd_get_regs(struct be_adapter *adapter, u32 buf_len, void *buf)
 		log_offset += buf_size;
 	}
 err:
-	pci_free_consistent(adapter->pdev, get_fat_cmd.size,
-			    get_fat_cmd.va, get_fat_cmd.dma);
+	dma_free_coherent(&adapter->pdev->dev, get_fat_cmd.size,
+			  get_fat_cmd.va, get_fat_cmd.dma);
 	spin_unlock_bh(&adapter->mcc_lock);
 	return status;
 }
@@ -2223,12 +2223,12 @@ int be_cmd_read_port_transceiver_data(struct be_adapter *adapter,
 		return -EINVAL;
 
 	cmd.size = sizeof(struct be_cmd_resp_port_type);
-	cmd.va = pci_alloc_consistent(adapter->pdev, cmd.size, &cmd.dma);
+	cmd.va = dma_zalloc_coherent(&adapter->pdev->dev, cmd.size, &cmd.dma,
+				     GFP_ATOMIC);
 	if (!cmd.va) {
 		dev_err(&adapter->pdev->dev, "Memory allocation failed\n");
 		return -ENOMEM;
 	}
-	memset(cmd.va, 0, cmd.size);
 
 	spin_lock_bh(&adapter->mcc_lock);
 
@@ -2253,7 +2253,7 @@ int be_cmd_read_port_transceiver_data(struct be_adapter *adapter,
 	}
 err:
 	spin_unlock_bh(&adapter->mcc_lock);
-	pci_free_consistent(adapter->pdev, cmd.size, cmd.va, cmd.dma);
+	dma_free_coherent(&adapter->pdev->dev, cmd.size, cmd.va, cmd.dma);
 	return status;
 }
 
@@ -2702,7 +2702,8 @@ int be_cmd_get_phy_info(struct be_adapter *adapter)
 		goto err;
 	}
 	cmd.size = sizeof(struct be_cmd_req_get_phy_info);
-	cmd.va = pci_alloc_consistent(adapter->pdev, cmd.size, &cmd.dma);
+	cmd.va = dma_zalloc_coherent(&adapter->pdev->dev, cmd.size, &cmd.dma,
+				     GFP_ATOMIC);
 	if (!cmd.va) {
 		dev_err(&adapter->pdev->dev, "Memory alloc failure\n");
 		status = -ENOMEM;
@@ -2736,7 +2737,7 @@ int be_cmd_get_phy_info(struct be_adapter *adapter)
 				BE_SUPPORTED_SPEED_1GBPS;
 		}
 	}
-	pci_free_consistent(adapter->pdev, cmd.size, cmd.va, cmd.dma);
+	dma_free_coherent(&adapter->pdev->dev, cmd.size, cmd.va, cmd.dma);
 err:
 	spin_unlock_bh(&adapter->mcc_lock);
 	return status;
@@ -2787,8 +2788,9 @@ int be_cmd_get_cntl_attributes(struct be_adapter *adapter)
 
 	memset(&attribs_cmd, 0, sizeof(struct be_dma_mem));
 	attribs_cmd.size = sizeof(struct be_cmd_resp_cntl_attribs);
-	attribs_cmd.va = pci_alloc_consistent(adapter->pdev, attribs_cmd.size,
-					      &attribs_cmd.dma);
+	attribs_cmd.va = dma_zalloc_coherent(&adapter->pdev->dev,
+					     attribs_cmd.size,
+					     &attribs_cmd.dma, GFP_ATOMIC);
 	if (!attribs_cmd.va) {
 		dev_err(&adapter->pdev->dev, "Memory allocation failure\n");
 		status = -ENOMEM;
@@ -2815,8 +2817,8 @@ int be_cmd_get_cntl_attributes(struct be_adapter *adapter)
 err:
 	mutex_unlock(&adapter->mbox_lock);
 	if (attribs_cmd.va)
-		pci_free_consistent(adapter->pdev, attribs_cmd.size,
-				    attribs_cmd.va, attribs_cmd.dma);
+		dma_free_coherent(&adapter->pdev->dev, attribs_cmd.size,
+				  attribs_cmd.va, attribs_cmd.dma);
 	return status;
 }
 
@@ -2954,9 +2956,10 @@ int be_cmd_get_mac_from_list(struct be_adapter *adapter, u8 *mac,
 
 	memset(&get_mac_list_cmd, 0, sizeof(struct be_dma_mem));
 	get_mac_list_cmd.size = sizeof(struct be_cmd_resp_get_mac_list);
-	get_mac_list_cmd.va = pci_alloc_consistent(adapter->pdev,
-						   get_mac_list_cmd.size,
-						   &get_mac_list_cmd.dma);
+	get_mac_list_cmd.va = dma_zalloc_coherent(&adapter->pdev->dev,
+						  get_mac_list_cmd.size,
+						  &get_mac_list_cmd.dma,
+						  GFP_ATOMIC);
 
 	if (!get_mac_list_cmd.va) {
 		dev_err(&adapter->pdev->dev,
@@ -3029,8 +3032,8 @@ int be_cmd_get_mac_from_list(struct be_adapter *adapter, u8 *mac,
 
 out:
 	spin_unlock_bh(&adapter->mcc_lock);
-	pci_free_consistent(adapter->pdev, get_mac_list_cmd.size,
-			    get_mac_list_cmd.va, get_mac_list_cmd.dma);
+	dma_free_coherent(&adapter->pdev->dev, get_mac_list_cmd.size,
+			  get_mac_list_cmd.va, get_mac_list_cmd.dma);
 	return status;
 }
 
@@ -3083,8 +3086,8 @@ int be_cmd_set_mac_list(struct be_adapter *adapter, u8 *mac_array,
 
 	memset(&cmd, 0, sizeof(struct be_dma_mem));
 	cmd.size = sizeof(struct be_cmd_req_set_mac_list);
-	cmd.va = dma_alloc_coherent(&adapter->pdev->dev, cmd.size,
-				    &cmd.dma, GFP_KERNEL);
+	cmd.va = dma_zalloc_coherent(&adapter->pdev->dev, cmd.size, &cmd.dma,
+				     GFP_KERNEL);
 	if (!cmd.va)
 		return -ENOMEM;
 
@@ -3255,7 +3258,8 @@ int be_cmd_get_acpi_wol_cap(struct be_adapter *adapter)
 
 	memset(&cmd, 0, sizeof(struct be_dma_mem));
 	cmd.size = sizeof(struct be_cmd_resp_acpi_wol_magic_config_v1);
-	cmd.va = pci_alloc_consistent(adapter->pdev, cmd.size, &cmd.dma);
+	cmd.va = dma_zalloc_coherent(&adapter->pdev->dev, cmd.size, &cmd.dma,
+				     GFP_ATOMIC);
 	if (!cmd.va) {
 		dev_err(&adapter->pdev->dev, "Memory allocation failure\n");
 		status = -ENOMEM;
@@ -3290,7 +3294,8 @@ int be_cmd_get_acpi_wol_cap(struct be_adapter *adapter)
 err:
 	mutex_unlock(&adapter->mbox_lock);
 	if (cmd.va)
-		pci_free_consistent(adapter->pdev, cmd.size, cmd.va, cmd.dma);
+		dma_free_coherent(&adapter->pdev->dev, cmd.size, cmd.va,
+				  cmd.dma);
 	return status;
 
 }
@@ -3304,8 +3309,9 @@ int be_cmd_set_fw_log_level(struct be_adapter *adapter, u32 level)
 
 	memset(&extfat_cmd, 0, sizeof(struct be_dma_mem));
 	extfat_cmd.size = sizeof(struct be_cmd_resp_get_ext_fat_caps);
-	extfat_cmd.va = pci_alloc_consistent(adapter->pdev, extfat_cmd.size,
-					     &extfat_cmd.dma);
+	extfat_cmd.va = dma_zalloc_coherent(&adapter->pdev->dev,
+					    extfat_cmd.size, &extfat_cmd.dma,
+					    GFP_ATOMIC);
 	if (!extfat_cmd.va)
 		return -ENOMEM;
 
@@ -3327,8 +3333,8 @@ int be_cmd_set_fw_log_level(struct be_adapter *adapter, u32 level)
 
 	status = be_cmd_set_ext_fat_capabilites(adapter, &extfat_cmd, cfgs);
 err:
-	pci_free_consistent(adapter->pdev, extfat_cmd.size, extfat_cmd.va,
-			    extfat_cmd.dma);
+	dma_free_coherent(&adapter->pdev->dev, extfat_cmd.size, extfat_cmd.va,
+			  extfat_cmd.dma);
 	return status;
 }
 
@@ -3341,8 +3347,9 @@ int be_cmd_get_fw_log_level(struct be_adapter *adapter)
 
 	memset(&extfat_cmd, 0, sizeof(struct be_dma_mem));
 	extfat_cmd.size = sizeof(struct be_cmd_resp_get_ext_fat_caps);
-	extfat_cmd.va = pci_alloc_consistent(adapter->pdev, extfat_cmd.size,
-					     &extfat_cmd.dma);
+	extfat_cmd.va = dma_zalloc_coherent(&adapter->pdev->dev,
+					    extfat_cmd.size, &extfat_cmd.dma,
+					    GFP_ATOMIC);
 
 	if (!extfat_cmd.va) {
 		dev_err(&adapter->pdev->dev, "%s: Memory allocation failure\n",
@@ -3360,8 +3367,8 @@ int be_cmd_get_fw_log_level(struct be_adapter *adapter)
 				level = cfgs->module[0].trace_lvl[j].dbg_lvl;
 		}
 	}
-	pci_free_consistent(adapter->pdev, extfat_cmd.size, extfat_cmd.va,
-			    extfat_cmd.dma);
+	dma_free_coherent(&adapter->pdev->dev, extfat_cmd.size, extfat_cmd.va,
+			  extfat_cmd.dma);
 err:
 	return level;
 }
@@ -3567,7 +3574,8 @@ int be_cmd_get_func_config(struct be_adapter *adapter, struct be_resources *res)
 
 	memset(&cmd, 0, sizeof(struct be_dma_mem));
 	cmd.size = sizeof(struct be_cmd_resp_get_func_config);
-	cmd.va = pci_alloc_consistent(adapter->pdev, cmd.size, &cmd.dma);
+	cmd.va = dma_zalloc_coherent(&adapter->pdev->dev, cmd.size, &cmd.dma,
+				     GFP_ATOMIC);
 	if (!cmd.va) {
 		dev_err(&adapter->pdev->dev, "Memory alloc failure\n");
 		status = -ENOMEM;
@@ -3607,7 +3615,8 @@ int be_cmd_get_func_config(struct be_adapter *adapter, struct be_resources *res)
 err:
 	mutex_unlock(&adapter->mbox_lock);
 	if (cmd.va)
-		pci_free_consistent(adapter->pdev, cmd.size, cmd.va, cmd.dma);
+		dma_free_coherent(&adapter->pdev->dev, cmd.size, cmd.va,
+				  cmd.dma);
 	return status;
 }
 
@@ -3628,7 +3637,8 @@ int be_cmd_get_profile_config(struct be_adapter *adapter,
 
 	memset(&cmd, 0, sizeof(struct be_dma_mem));
 	cmd.size = sizeof(struct be_cmd_resp_get_profile_config);
-	cmd.va = pci_alloc_consistent(adapter->pdev, cmd.size, &cmd.dma);
+	cmd.va = dma_zalloc_coherent(&adapter->pdev->dev, cmd.size, &cmd.dma,
+				     GFP_ATOMIC);
 	if (!cmd.va)
 		return -ENOMEM;
 
@@ -3667,7 +3677,8 @@ int be_cmd_get_profile_config(struct be_adapter *adapter,
 		res->vf_if_cap_flags = vf_res->cap_flags;
 err:
 	if (cmd.va)
-		pci_free_consistent(adapter->pdev, cmd.size, cmd.va, cmd.dma);
+		dma_free_coherent(&adapter->pdev->dev, cmd.size, cmd.va,
+				  cmd.dma);
 	return status;
 }
 
@@ -3682,7 +3693,8 @@ static int be_cmd_set_profile_config(struct be_adapter *adapter, void *desc,
 
 	memset(&cmd, 0, sizeof(struct be_dma_mem));
 	cmd.size = sizeof(struct be_cmd_req_set_profile_config);
-	cmd.va = pci_alloc_consistent(adapter->pdev, cmd.size, &cmd.dma);
+	cmd.va = dma_zalloc_coherent(&adapter->pdev->dev, cmd.size, &cmd.dma,
+				     GFP_ATOMIC);
 	if (!cmd.va)
 		return -ENOMEM;
 
@@ -3698,7 +3710,8 @@ static int be_cmd_set_profile_config(struct be_adapter *adapter, void *desc,
 	status = be_cmd_notify_wait(adapter, &wrb);
 
 	if (cmd.va)
-		pci_free_consistent(adapter->pdev, cmd.size, cmd.va, cmd.dma);
+		dma_free_coherent(&adapter->pdev->dev, cmd.size, cmd.va,
+				  cmd.dma);
 	return status;
 }
 
