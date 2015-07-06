@@ -58,7 +58,7 @@ Bus Scaling Data:
 					Current values of dst are:
 						0 = MSM_BUS_SLAVE_EBI_CH0
 						1 = MSM_BUS_SLAVE_OCMEM
-					ab: Represents aggregated bandwidth. This value is 0 for Graphics.
+					ab: Represents aggregated bandwidth.
 					ib: Represents instantaneous bandwidth. This value has a range <0 8000 MB/s>
 
 - qcom,ocmem-bus-client: Container for another set of bus scaling properties
