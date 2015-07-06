@@ -17,6 +17,7 @@
 #include <linux/file.h>
 #include <linux/inetdevice.h>
 #include <linux/module.h>
+#include <linux/miscdevice.h>
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter/xt_qtaguid.h>
 #include <linux/ratelimit.h>
@@ -1588,10 +1589,10 @@ static struct sock *qtaguid_find_sk(const struct sk_buff *skb,
 
 	switch (par->family) {
 	case NFPROTO_IPV6:
-		sk = xt_socket_get6_sk(skb, par);
+		sk = nf_sk_lookup_slow_v6(dev_net(skb->dev), skb, par->in);
 		break;
 	case NFPROTO_IPV4:
-		sk = xt_socket_get4_sk(skb, par);
+		sk = nf_sk_lookup_slow_v4(dev_net(skb->dev), skb, par->in);
 		break;
 	default:
 		return NULL;
@@ -2541,7 +2542,6 @@ static void pp_stats_header(struct seq_file *m)
 static int pp_stats_line(struct seq_file *m, struct tag_stat *ts_entry,
 			 int cnt_set)
 {
-	int ret;
 	struct data_counters *cnts;
 	tag_t tag = ts_entry->tn.tag;
 	uid_t stat_uid = get_uid_from_tag(tag);
@@ -2560,7 +2560,7 @@ static int pp_stats_line(struct seq_file *m, struct tag_stat *ts_entry,
 	}
 	ppi->item_index++;
 	cnts = &ts_entry->counters;
-	ret = seq_printf(m, "%d %s 0x%llx %u %u "
+	seq_printf(m, "%d %s 0x%llx %u %u "
 		"%llu %llu "
 		"%llu %llu "
 		"%llu %llu "
@@ -2590,7 +2590,7 @@ static int pp_stats_line(struct seq_file *m, struct tag_stat *ts_entry,
 		cnts->bpc[cnt_set][IFS_TX][IFS_UDP].packets,
 		cnts->bpc[cnt_set][IFS_TX][IFS_PROTO_OTHER].bytes,
 		cnts->bpc[cnt_set][IFS_TX][IFS_PROTO_OTHER].packets);
-	return ret ?: 1;
+	return seq_has_overflowed(m) ? -ENOSPC : 1;
 }
 
 static bool pp_sets(struct seq_file *m, struct tag_stat *ts_entry)
