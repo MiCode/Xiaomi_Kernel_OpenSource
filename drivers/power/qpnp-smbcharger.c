@@ -3990,6 +3990,10 @@ void update_usb_status(struct smbchg_chip *chip, bool usb_present, bool force)
 		chip->usb_present = usb_present;
 		handle_usb_removal(chip);
 	}
+
+	/* update FG */
+	set_property_on_fg(chip, POWER_SUPPLY_PROP_STATUS,
+			get_prop_batt_status(chip));
 unlock:
 	mutex_unlock(&chip->usb_status_lock);
 }
@@ -4854,6 +4858,10 @@ static irqreturn_t usbid_change_handler(int irq, void *_chip)
 		power_supply_set_usb_otg(chip->usb_psy, otg_present ? 1 : 0);
 	if (otg_present)
 		pr_smb(PR_STATUS, "OTG detected\n");
+
+	/* update FG */
+	set_property_on_fg(chip, POWER_SUPPLY_PROP_STATUS,
+			get_prop_batt_status(chip));
 
 	return IRQ_HANDLED;
 }
