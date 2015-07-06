@@ -289,6 +289,13 @@
 
 #define FSYNR0_WNR			(1 << 4)
 
+#define ARM_SMMU_IMPL_DEF0(smmu) \
+	((smmu)->base + (2 * (1 << (smmu)->pgshift)))
+#define ARM_SMMU_IMPL_DEF1(smmu) \
+	((smmu)->base + (6 * (1 << (smmu)->pgshift)))
+#define IMPL_DEF1_MICRO_MMU_CTRL	0
+#define MICRO_MMU_CTRL_LOCAL_HALT_REQ	(1 << 2)
+
 static int force_stage;
 module_param_named(force_stage, force_stage, int, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(force_stage,
@@ -388,7 +395,7 @@ struct arm_smmu_device {
 	struct arm_smmu_impl_def_reg	*impl_def_attach_registers;
 	unsigned int			num_impl_def_attach_registers;
 
-	struct mutex			atos_lock;
+	spinlock_t			atos_lock;
 	unsigned int			clock_refs_count;
 	spinlock_t			clock_refs_lock;
 };
@@ -1834,6 +1841,96 @@ static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
 	return ret;
 }
 
+static int arm_smmu_halt(struct arm_smmu_device *smmu)
+{
+	void __iomem *impl_def1_base = ARM_SMMU_IMPL_DEF1(smmu);
+	u32 tmp;
+
+	writel_relaxed(MICRO_MMU_CTRL_LOCAL_HALT_REQ,
+		impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+
+	if (readl_poll_timeout_atomic(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL,
+					tmp, (tmp & MICRO_MMU_CTRL_IDLE),
+					0, 30000)) {
+		dev_err(smmu->dev, "Couldn't halt SMMU!\n");
+		return -EBUSY;
+	}
+
+	return 0;
+}
+
+static void arm_smmu_resume(struct arm_smmu_device *smmu)
+{
+	void __iomem *impl_def1_base = ARM_SMMU_IMPL_DEF1(smmu);
+	u32 reg;
+
+	reg = readl_relaxed(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+	reg &= ~MICRO_MMU_CTRL_LOCAL_HALT_REQ;
+	writel_relaxed(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+}
+
+static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
+					      dma_addr_t iova)
+{
+	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+	struct device *dev = smmu->dev;
+	void __iomem *cb_base;
+	u32 tmp;
+	u64 phys;
+	unsigned long flags;
+
+	arm_smmu_enable_clocks(smmu);
+
+	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+
+	spin_lock_irqsave(&smmu->atos_lock, flags);
+
+	if (arm_smmu_halt(smmu))
+		goto err_unlock;
+
+	if (smmu->version == 1)
+		writel_relaxed(iova & ~0xfff, cb_base + ARM_SMMU_CB_ATS1PR_LO);
+	else
+		writeq_relaxed(iova & ~0xfffULL,
+			       cb_base + ARM_SMMU_CB_ATS1PR_LO);
+
+	if (readl_poll_timeout_atomic(cb_base + ARM_SMMU_CB_ATSR, tmp,
+				      !(tmp & ATSR_ACTIVE), 5, 50)) {
+		dev_err(dev, "iova to phys timed out\n");
+		goto err_resume;
+	}
+
+	phys = readl_relaxed(cb_base + ARM_SMMU_CB_PAR_LO);
+	phys |= ((u64) readl_relaxed(cb_base + ARM_SMMU_CB_PAR_HI)) << 32;
+
+	arm_smmu_resume(smmu);
+	spin_unlock_irqrestore(&smmu->atos_lock, flags);
+
+	if (phys & CB_PAR_F) {
+		dev_err(dev, "translation fault on %s!\n", dev_name(dev));
+		dev_err(dev, "PAR = 0x%llx\n", phys);
+		phys = 0;
+	} else {
+		phys = (phys & (PHYS_MASK & ~0xfffULL)) | (iova & 0xfff);
+	}
+
+	arm_smmu_disable_clocks(smmu);
+	return phys;
+
+err_resume:
+	arm_smmu_resume(smmu);
+err_unlock:
+	spin_unlock_irqrestore(&smmu->atos_lock, flags);
+	arm_smmu_disable_clocks(smmu);
+	phys = arm_smmu_iova_to_phys(domain, iova);
+	dev_err(dev,
+		"iova to phys failed 0x%pa. software table walk result=%pa.\n",
+		&iova, &phys);
+	return 0;
+}
+
 static bool arm_smmu_capable(enum iommu_cap cap)
 {
 	switch (cap) {
@@ -2053,6 +2150,7 @@ static struct iommu_ops arm_smmu_ops = {
 	.unmap			= arm_smmu_unmap,
 	.map_sg			= arm_smmu_map_sg,
 	.iova_to_phys		= arm_smmu_iova_to_phys,
+	.iova_to_phys_hard	= arm_smmu_iova_to_phys_hard,
 	.add_device		= arm_smmu_add_device,
 	.remove_device		= arm_smmu_remove_device,
 	.domain_get_attr	= arm_smmu_domain_get_attr,
@@ -2424,7 +2522,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	}
 	smmu->dev = dev;
 	mutex_init(&smmu->attach_lock);
-	mutex_init(&smmu->atos_lock);
+	spin_lock_init(&smmu->atos_lock);
 	spin_lock_init(&smmu->clock_refs_lock);
 
 	of_id = of_match_node(arm_smmu_of_match, dev->of_node);
