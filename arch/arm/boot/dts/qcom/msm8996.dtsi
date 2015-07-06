@@ -2810,6 +2810,7 @@
 
 	qcom,msm-thermal {
 		compatible = "qcom,msm-thermal";
+		reg = <0x70000 0x1000>;
 		qcom,sensor-id = <11>;
 		qcom,poll-ms = <100>;
 		qcom,limit-temp = <60>;
