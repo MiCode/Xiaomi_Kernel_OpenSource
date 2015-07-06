@@ -18,10 +18,6 @@
 #include <linux/scatterlist.h>
 #include <linux/dma-mapping.h>
 
-enum msm_dma_map_attr {
-	MSM_DMA_ATTR_NO_DELAYED_UNMAP = 0x1,
-};
-
 #ifdef CONFIG_IOMMU_API
 /*
 * This function is not taking a reference to the dma_buf here. It is expected
@@ -30,22 +26,25 @@ enum msm_dma_map_attr {
 */
 int msm_dma_map_sg_attrs(struct device *dev, struct scatterlist *sg, int nents,
 		   enum dma_data_direction dir, struct dma_buf *dma_buf,
-		   int flags);
+		   struct dma_attrs *attrs);
 
 static inline int msm_dma_map_sg_lazy(struct device *dev,
 			       struct scatterlist *sg, int nents,
 			       enum dma_data_direction dir,
 			       struct dma_buf *dma_buf)
 {
-	return msm_dma_map_sg_attrs(dev, sg, nents, dir, dma_buf, 0);
+	return msm_dma_map_sg_attrs(dev, sg, nents, dir, dma_buf, NULL);
 }
 
 static inline int msm_dma_map_sg(struct device *dev, struct scatterlist *sg,
 				  int nents, enum dma_data_direction dir,
 				  struct dma_buf *dma_buf)
 {
-	return msm_dma_map_sg_attrs(dev, sg, nents, dir, dma_buf,
-			      MSM_DMA_ATTR_NO_DELAYED_UNMAP);
+	DEFINE_DMA_ATTRS(attrs);
+
+	init_dma_attrs(&attrs);
+	dma_set_attr(DMA_ATTR_NO_DELAYED_UNMAP, &attrs);
+	return msm_dma_map_sg_attrs(dev, sg, nents, dir, dma_buf, &attrs);
 }
 
 void msm_dma_unmap_sg(struct device *dev, struct scatterlist *sgl, int nents,
