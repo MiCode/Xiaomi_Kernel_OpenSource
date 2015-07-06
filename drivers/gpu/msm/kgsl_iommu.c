@@ -1612,15 +1612,6 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 
 	kgsl_iommu_disable_clk(mmu, KGSL_IOMMU_MAX_UNITS);
 
-	if (mmu->secured) {
-		kgsl_regwrite(mmu->device, A4XX_RBBM_SECVID_TRUST_CONFIG, 0x2);
-		kgsl_regwrite(mmu->device, A4XX_RBBM_SECVID_TSB_CONTROL, 0x0);
-		kgsl_regwrite(mmu->device, A4XX_RBBM_SECVID_TSB_TRUSTED_BASE,
-						KGSL_IOMMU_SECURE_MEM_BASE);
-		kgsl_regwrite(mmu->device, A4XX_RBBM_SECVID_TSB_TRUSTED_SIZE,
-						KGSL_IOMMU_SECURE_MEM_SIZE);
-	}
-
 done:
 	return status;
 }
