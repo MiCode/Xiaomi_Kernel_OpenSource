@@ -85,7 +85,6 @@ MODULE_PARM_DESC(dcp_max_current, "max current drawn for DCP charger");
  *
  */
 #define QSCRATCH_REG_OFFSET	(0x000F8800)
-#define QSCRATCH_CTRL_REG      (QSCRATCH_REG_OFFSET + 0x04)
 #define QSCRATCH_GENERAL_CFG	(QSCRATCH_REG_OFFSET + 0x08)
 #define CGCTL_REG		(QSCRATCH_REG_OFFSET + 0x28)
 #define PWR_EVNT_IRQ_STAT_REG    (QSCRATCH_REG_OFFSET + 0x58)
@@ -210,7 +209,6 @@ struct dwc3_msm {
 #define MDWC3_POWER_COLLAPSE		BIT(3)
 #define MDWC3_CORECLK_OFF		BIT(4)
 
-	u32 qscratch_ctl_val;
 	bool suspend_resume_no_support;
 
 	bool power_collapse; /* power collapse on cable disconnect */
@@ -1062,12 +1060,6 @@ static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *mdwc)
 	dwc3_msm_write_reg(mdwc->base, CGCTL_REG,
 		dwc3_msm_read_reg(mdwc->base, CGCTL_REG) | 0x18);
 
-	/*
-	 * This is required to restore the POR value after userspace
-	 * is done with charger detection.
-	 */
-	mdwc->qscratch_ctl_val =
-		dwc3_msm_read_reg(mdwc->base, QSCRATCH_CTRL_REG);
 }
 
 static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
@@ -1391,10 +1383,6 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	/* Disable core irq */
 	if (dwc->irq)
 		disable_irq(dwc->irq);
-
-	if (!dcp && !mdwc->in_host_mode)
-		dwc3_msm_write_reg(mdwc->base, QSCRATCH_CTRL_REG,
-			mdwc->qscratch_ctl_val);
 
 	/* Enable wakeup from LPM */
 	if (mdwc->pwr_event_irq) {
