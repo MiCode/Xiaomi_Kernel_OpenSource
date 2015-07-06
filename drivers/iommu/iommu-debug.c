@@ -315,7 +315,7 @@ out_domain_free:
 	iommu_domain_free(domain);
 }
 
-static int iommu_debug_device_show(struct seq_file *s, void *ignored)
+static int iommu_debug_profiling_show(struct seq_file *s, void *ignored)
 {
 	struct iommu_debug_device *ddev = s->private;
 
@@ -324,13 +324,13 @@ static int iommu_debug_device_show(struct seq_file *s, void *ignored)
 	return 0;
 }
 
-static int iommu_debug_device_open(struct inode *inode, struct file *file)
+static int iommu_debug_profiling_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, iommu_debug_device_show, inode->i_private);
+	return single_open(file, iommu_debug_profiling_show, inode->i_private);
 }
 
-static const struct file_operations iommu_debug_device_fops = {
-	.open	 = iommu_debug_device_open,
+static const struct file_operations iommu_debug_profiling_fops = {
+	.open	 = iommu_debug_profiling_open,
 	.read	 = seq_read,
 	.llseek	 = seq_lseek,
 	.release = single_release,
@@ -360,7 +360,7 @@ static int snarf_iommu_devices(struct device *dev, void *ignored)
 		goto err;
 	}
 	profiling_dentry = debugfs_create_file("profiling", S_IRUSR, dir, ddev,
-					       &iommu_debug_device_fops);
+					       &iommu_debug_profiling_fops);
 	if (!profiling_dentry) {
 		pr_err("Couldn't create iommu/devices/%s/profiling debugfs file\n",
 		       dev_name(dev));
