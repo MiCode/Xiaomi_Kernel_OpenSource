@@ -427,7 +427,8 @@ static ssize_t diag_dbgfs_read_usbinfo(struct file *file, char __user *ubuf,
 			"read work pending: %d\n"
 			"read done work pending: %d\n"
 			"connect work pending: %d\n"
-			"disconnect work pending: %d\n\n",
+			"disconnect work pending: %d\n"
+			"max size supported: %d\n\n",
 			usb_info->id,
 			usb_info->name,
 			usb_info->hdl,
@@ -441,7 +442,8 @@ static ssize_t diag_dbgfs_read_usbinfo(struct file *file, char __user *ubuf,
 			work_pending(&usb_info->read_work),
 			work_pending(&usb_info->read_done_work),
 			work_pending(&usb_info->connect_work),
-			work_pending(&usb_info->disconnect_work));
+			work_pending(&usb_info->disconnect_work),
+			usb_info->max_size);
 		bytes_in_buffer += bytes_written;
 
 		/* Check if there is room to add another table entry */
