@@ -88,6 +88,7 @@ static const struct file_operations kgsl_fops;
 static DEFINE_SPINLOCK(memfree_lock);
 
 struct memfree_entry {
+	pid_t ptname;
 	uint64_t gpuaddr;
 	uint64_t size;
 	pid_t pid;
@@ -114,8 +115,8 @@ static void kgsl_memfree_exit(void)
 	memset(&memfree, 0, sizeof(memfree));
 }
 
-int kgsl_memfree_find_entry(pid_t pid, uint64_t *gpuaddr,
-	uint64_t *size, uint64_t *flags)
+int kgsl_memfree_find_entry(pid_t ptname, uint64_t *gpuaddr,
+	uint64_t *size, uint64_t *flags, pid_t *pid)
 {
 	int ptr;
 
@@ -132,12 +133,13 @@ int kgsl_memfree_find_entry(pid_t pid, uint64_t *gpuaddr,
 	while (ptr != memfree.tail) {
 		struct memfree_entry *entry = &memfree.list[ptr];
 
-		if ((entry->pid == pid) &&
+		if ((entry->ptname == ptname) &&
 			(*gpuaddr >= entry->gpuaddr &&
 			 *gpuaddr < (entry->gpuaddr + entry->size))) {
 			*gpuaddr = entry->gpuaddr;
 			*flags = entry->flags;
 			*size = entry->size;
+			*pid = entry->pid;
 
 			spin_unlock(&memfree_lock);
 			return 1;
@@ -153,7 +155,7 @@ int kgsl_memfree_find_entry(pid_t pid, uint64_t *gpuaddr,
 	return 0;
 }
 
-static void kgsl_memfree_add(pid_t pid, uint64_t gpuaddr,
+static void kgsl_memfree_add(pid_t pid, pid_t ptname, uint64_t gpuaddr,
 		uint64_t size, uint64_t flags)
 
 {
@@ -167,6 +169,7 @@ static void kgsl_memfree_add(pid_t pid, uint64_t gpuaddr,
 	entry = &memfree.list[memfree.head];
 
 	entry->pid = pid;
+	entry->ptname = ptname;
 	entry->gpuaddr = gpuaddr;
 	entry->size = size;
 	entry->flags = flags;
@@ -1657,12 +1660,17 @@ long kgsl_ioctl_drawctxt_destroy(struct kgsl_device_private *dev_priv,
 
 static long gpumem_free_entry(struct kgsl_mem_entry *entry)
 {
+	pid_t ptname = 0;
+
 	if (!kgsl_mem_entry_set_pend(entry))
 		return -EBUSY;
 
 	trace_kgsl_mem_free(entry);
 
-	kgsl_memfree_add(entry->priv->pid, entry->memdesc.gpuaddr,
+	if (entry->memdesc.pagetable != NULL)
+		ptname = entry->memdesc.pagetable->name;
+
+	kgsl_memfree_add(entry->priv->pid, ptname, entry->memdesc.gpuaddr,
 		entry->memdesc.size, entry->memdesc.flags);
 
 	kgsl_mem_entry_put(entry);

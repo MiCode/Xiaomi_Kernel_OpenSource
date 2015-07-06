@@ -239,16 +239,17 @@ static void _print_entry(struct kgsl_device *device, struct _mem_entry *entry)
 }
 
 static void _check_if_freed(struct kgsl_iommu_context *ctx,
-	uint64_t addr, pid_t pid)
+	uint64_t addr, pid_t ptname)
 {
 	uint64_t gpuaddr = addr;
 	uint64_t size = 0;
 	uint64_t flags = 0;
+	pid_t pid;
 
 	char name[32];
 	memset(name, 0, sizeof(name));
 
-	if (kgsl_memfree_find_entry(pid, &gpuaddr, &size, &flags)) {
+	if (kgsl_memfree_find_entry(ptname, &gpuaddr, &size, &flags, &pid)) {
 		kgsl_get_memory_usage(name, sizeof(name) - 1, flags);
 		KGSL_LOG_DUMP(ctx->kgsldev, "---- premature free ----\n");
 		KGSL_LOG_DUMP(ctx->kgsldev,
@@ -266,7 +267,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	struct kgsl_iommu *iommu;
 	struct kgsl_iommu_context *ctx;
 	phys_addr_t ptbase;
-	pid_t pid;
+	pid_t ptname;
 	struct _mem_entry prev, next;
 	int write;
 	struct kgsl_device *device;
@@ -327,7 +328,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	ptbase = KGSL_IOMMU_GET_CTX_REG_Q(iommu, ctx->ctx_id, TTBR0)
 			& KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
 
-	pid = kgsl_mmu_get_ptname_from_ptbase(mmu, ptbase);
+	ptname = kgsl_mmu_get_ptname_from_ptbase(mmu, ptbase);
 
 	if (test_bit(KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE,
 		&adreno_dev->ft_pf_policy))
@@ -335,13 +336,13 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 
 	if (!no_page_fault_log) {
 		KGSL_MEM_CRIT(ctx->kgsldev,
-			"GPU PAGE FAULT: addr = %lX pid = %d\n", addr, pid);
+			"GPU PAGE FAULT: addr = %lX pid = %d\n", addr, ptname);
 		KGSL_MEM_CRIT(ctx->kgsldev,
 			"context = %d TTBR0 = %pa (%s %s fault)\n",
 			ctx->ctx_id, &ptbase,
 			write ? "write" : "read", fault_type);
 
-		_check_if_freed(ctx, addr, pid);
+		_check_if_freed(ctx, addr, ptname);
 
 		KGSL_LOG_DUMP(ctx->kgsldev, "---- nearby memory ----\n");
 

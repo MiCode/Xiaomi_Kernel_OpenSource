@@ -622,8 +622,8 @@ int kgsl_context_init(struct kgsl_device_private *, struct kgsl_context
 
 void kgsl_context_dump(struct kgsl_context *context);
 
-int kgsl_memfree_find_entry(pid_t pid, uint64_t *gpuaddr,
-	uint64_t *size, uint64_t *flags);
+int kgsl_memfree_find_entry(pid_t ptname, uint64_t *gpuaddr,
+	uint64_t *size, uint64_t *flags, pid_t *pid);
 
 long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg);
 
