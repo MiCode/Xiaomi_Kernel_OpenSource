@@ -3155,6 +3155,12 @@ static void a5xx_preemption_schedule(
 
 	mutex_lock(&device->mutex);
 
+	/*
+	 * This barrier is needed for most updated preemption_state
+	 * to be read.
+	 */
+	smp_mb();
+
 	if (KGSL_STATE_ACTIVE == device->state)
 		FOR_EACH_RINGBUFFER(adreno_dev, rb, i)
 			rb->rptr = adreno_get_rptr(rb);
