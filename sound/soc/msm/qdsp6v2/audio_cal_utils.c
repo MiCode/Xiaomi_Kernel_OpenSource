@@ -107,6 +107,9 @@ size_t get_cal_info_size(int32_t cal_type)
 	case LSM_TOPOLOGY_CAL_TYPE:
 		size = sizeof(struct audio_cal_info_lsm_top);
 		break;
+	case ULP_LSM_TOPOLOGY_ID_CAL_TYPE:
+		size = sizeof(struct audio_cal_info_lsm_top);
+		break;
 	case LSM_CAL_TYPE:
 		size = sizeof(struct audio_cal_info_lsm);
 		break;
@@ -232,6 +235,9 @@ size_t get_user_cal_type_size(int32_t cal_type)
 		size = sizeof(struct audio_cal_type_basic);
 		break;
 	case LSM_TOPOLOGY_CAL_TYPE:
+		size = sizeof(struct audio_cal_type_lsm_top);
+		break;
+	case ULP_LSM_TOPOLOGY_ID_CAL_TYPE:
 		size = sizeof(struct audio_cal_type_lsm_top);
 		break;
 	case LSM_CAL_TYPE:
