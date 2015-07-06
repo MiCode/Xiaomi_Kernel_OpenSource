@@ -133,4 +133,9 @@ void msm_ipc_router_free_skb(struct sk_buff_head *skb_head);
  */
 int ipc_router_set_conn(struct msm_ipc_port *port_ptr,
 			struct msm_ipc_addr *addr);
+
+void *msm_ipc_load_default_node(void);
+
+void msm_ipc_unload_default_node(void *pil);
+
 #endif

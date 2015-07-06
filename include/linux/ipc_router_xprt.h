@@ -165,15 +165,4 @@ void release_pkt(struct rr_packet *pkt);
  */
 int ipc_router_peek_pkt_size(char *data);
 
-#if defined CONFIG_MSM_IPC_ROUTER_SMD_XPRT || CONFIG_MSM_IPC_ROUTER_GLINK_XPRT
-extern void *msm_ipc_load_default_node(void);
-
-extern void msm_ipc_unload_default_node(void *pil);
-#else
-static inline void *msm_ipc_load_default_node(void)
-{ return NULL; }
-
-static inline void msm_ipc_unload_default_node(void *pil) { }
-#endif
-
 #endif

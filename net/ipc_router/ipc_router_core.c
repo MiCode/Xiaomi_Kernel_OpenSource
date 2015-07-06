@@ -32,6 +32,7 @@
 #include <linux/ipc_router_xprt.h>
 #include <linux/kref.h>
 #include <soc/qcom/subsystem_notif.h>
+#include <soc/qcom/subsystem_restart.h>
 
 #include <asm/byteorder.h>
 
@@ -48,6 +49,7 @@ enum {
 static int msm_ipc_router_debug_mask;
 module_param_named(debug_mask, msm_ipc_router_debug_mask,
 		   int, S_IRUGO | S_IWUSR | S_IWGRP);
+#define MODULE_NAME "ipc_router"
 
 #define IPC_RTR_INFO_PAGES 6
 
@@ -192,6 +194,15 @@ static void *ipc_router_get_log_ctx(char *sub_name);
 static int process_resume_tx_msg(union rr_control_msg *msg,
 				 struct rr_packet *pkt);
 static void ipc_router_reset_conn(struct msm_ipc_router_remote_port *rport_ptr);
+
+struct pil_vote_info {
+	void *pil_handle;
+	struct work_struct load_work;
+	struct work_struct unload_work;
+};
+
+#define PIL_SUBSYSTEM_NAME_LEN 32
+static char default_peripheral[PIL_SUBSYSTEM_NAME_LEN];
 
 enum {
 	DOWN,
@@ -3520,6 +3531,96 @@ int msm_ipc_router_close(void)
 	return 0;
 }
 
+/**
+ * pil_vote_load_worker() - Process vote to load the modem
+ *
+ * @work: Work item to process
+ *
+ * This function is called to process votes to load the modem that have been
+ * queued by msm_ipc_load_default_node().
+ */
+static void pil_vote_load_worker(struct work_struct *work)
+{
+	struct pil_vote_info *vote_info;
+
+	vote_info = container_of(work, struct pil_vote_info, load_work);
+	if (strlen(default_peripheral)) {
+		vote_info->pil_handle = subsystem_get(default_peripheral);
+		if (IS_ERR(vote_info->pil_handle)) {
+			IPC_RTR_ERR("%s: Failed to load %s\n",
+				    __func__, default_peripheral);
+			vote_info->pil_handle = NULL;
+		}
+	} else {
+		vote_info->pil_handle = NULL;
+	}
+}
+
+/**
+ * pil_vote_unload_worker() - Process vote to unload the modem
+ *
+ * @work: Work item to process
+ *
+ * This function is called to process votes to unload the modem that have been
+ * queued by msm_ipc_unload_default_node().
+ */
+static void pil_vote_unload_worker(struct work_struct *work)
+{
+	struct pil_vote_info *vote_info;
+
+	vote_info = container_of(work, struct pil_vote_info, unload_work);
+
+	if (vote_info->pil_handle) {
+		subsystem_put(vote_info->pil_handle);
+		vote_info->pil_handle = NULL;
+	}
+	kfree(vote_info);
+}
+
+/**
+ * msm_ipc_load_default_node() - Queue a vote to load the modem.
+ *
+ * @return: PIL vote info structure on success, NULL on failure.
+ *
+ * This function places a work item that loads the modem on the
+ * single-threaded workqueue used for processing PIL votes to load
+ * or unload the modem.
+ */
+void *msm_ipc_load_default_node(void)
+{
+	struct pil_vote_info *vote_info;
+
+	vote_info = kmalloc(sizeof(*vote_info), GFP_KERNEL);
+	if (!vote_info)
+		return vote_info;
+
+	INIT_WORK(&vote_info->load_work, pil_vote_load_worker);
+	queue_work(msm_ipc_router_workqueue, &vote_info->load_work);
+
+	return vote_info;
+}
+
+/**
+ * msm_ipc_unload_default_node() - Queue a vote to unload the modem.
+ *
+ * @pil_vote: PIL vote info structure, containing the PIL handle
+ * and work structure.
+ *
+ * This function places a work item that unloads the modem on the
+ * single-threaded workqueue used for processing PIL votes to load
+ * or unload the modem.
+ */
+void msm_ipc_unload_default_node(void *pil_vote)
+{
+	struct pil_vote_info *vote_info;
+
+	if (pil_vote) {
+		vote_info = (struct pil_vote_info *)pil_vote;
+		INIT_WORK(&vote_info->unload_work, pil_vote_unload_worker);
+		queue_work(msm_ipc_router_workqueue, &vote_info->unload_work);
+	}
+}
+
 #if defined(CONFIG_DEBUG_FS)
 static void dump_routing_table(struct seq_file *s)
 {
@@ -3933,6 +4034,63 @@ void msm_ipc_router_xprt_notify(struct msm_ipc_router_xprt *xprt,
 	queue_work(xprt_info->workqueue, &xprt_info->read_data);
 }
 
+/**
+ * parse_devicetree() - parse device tree binding
+ *
+ * @node: pointer to device tree node
+ *
+ * @return: 0 on success, -ENODEV on failure.
+ */
+static int parse_devicetree(struct device_node *node)
+{
+	char *key;
+	const char *peripheral = NULL;
+
+	key = "qcom,default-peripheral";
+	peripheral = of_get_property(node, key, NULL);
+	if (peripheral)
+		strlcpy(default_peripheral, peripheral, PIL_SUBSYSTEM_NAME_LEN);
+
+	return 0;
+}
+
+/**
+ * ipc_router_probe() - Probe the IPC Router
+ *
+ * @pdev: Platform device corresponding to IPC Router.
+ *
+ * @return: 0 on success, standard Linux error codes on error.
+ *
+ * This function is called when the underlying device tree driver registers
+ * a platform device, mapped to IPC Router.
+ */
+static int ipc_router_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+
+	if (pdev && pdev->dev.of_node) {
+		ret = parse_devicetree(pdev->dev.of_node);
+		if (ret)
+			IPC_RTR_ERR("%s: Failed to parse device tree\n",
+				    __func__);
+	}
+	return ret;
+}
+
+static struct of_device_id ipc_router_match_table[] = {
+	{ .compatible = "qcom,ipc_router" },
+	{},
+};
+
+static struct platform_driver ipc_router_driver = {
+	.probe = ipc_router_probe,
+	.driver = {
+		.name = MODULE_NAME,
+		.owner = THIS_MODULE,
+		.of_match_table = ipc_router_match_table,
+	 },
+};
+
 static int msm_ipc_router_init(void)
 {
 	int i, ret;
@@ -3978,6 +4136,12 @@ static int msm_ipc_router_init(void)
 		return -ENOMEM;
 	}
 	is_ipc_router_inited = true;
+
+	ret = platform_driver_register(&ipc_router_driver);
+	if (ret)
+		IPC_RTR_ERR(
+		"%s: ipc_router_driver register failed %d\n", __func__, ret);
+
 	ipc_router_log_ctx_init();
 	mutex_unlock(&ipc_router_init_lock);
 	return ret;

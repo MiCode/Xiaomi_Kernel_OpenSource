@@ -135,11 +135,7 @@ struct ipc_router_glink_xprt_config {
 static DEFINE_MUTEX(glink_xprt_list_lock_lha1);
 static LIST_HEAD(glink_xprt_list);
 
-static void pil_vote_load_worker(struct work_struct *work);
-static void pil_vote_unload_worker(struct work_struct *work);
 static struct workqueue_struct *glink_xprt_wq;
-
-static bool is_pil_loading_disabled(char *edge);
 
 static void glink_xprt_link_state_cb(struct glink_link_state_cb_info *cb_info,
 				     void *priv);
@@ -388,33 +384,6 @@ static void glink_xprt_qrx_intent_worker(struct work_struct *work)
 	kfree(qrx_intent_work);
 }
 
-/**
-* is_pil_loading_disabled() - Check if pil loading a subsystem is disabled
-* @pil_edge: Remote subsystem edge name understood by PIL.
-*
-* @return: true if disabled, false if enabled.
-*/
-static bool is_pil_loading_disabled(char *pil_edge)
-{
-	struct ipc_router_glink_xprt *glink_xprtp;
-
-	mutex_lock(&glink_xprt_list_lock_lha1);
-	list_for_each_entry(glink_xprtp, &glink_xprt_list, list) {
-		if (!strcmp(glink_xprtp->pil_edge, pil_edge)) {
-			mutex_unlock(&glink_xprt_list_lock_lha1);
-			return glink_xprtp->disable_pil_loading;
-		}
-	}
-	mutex_unlock(&glink_xprt_list_lock_lha1);
-	return true;
-}
-
-struct pil_vote_info {
-	void *pil_handle;
-	struct work_struct load_work;
-	struct work_struct unload_work;
-};
-
 static void msm_ipc_unload_subsystem(struct ipc_router_glink_xprt *glink_xprtp)
 {
 	if (glink_xprtp->pil) {
@@ -437,104 +406,6 @@ static void *msm_ipc_load_subsystem(struct ipc_router_glink_xprt *glink_xprtp)
 	}
 	return pil;
 }
-
-/**
- * pil_vote_load_worker() - Process vote to load the modem
- *
- * @work: Work item to process
- *
- * This function is called to process votes to load the modem that have been
- * queued by msm_ipc_load_default_node().
- */
-static void pil_vote_load_worker(struct work_struct *work)
-{
-	char *peripheral;
-	struct pil_vote_info *vote_info;
-	bool loading_disabled;
-
-	vote_info = container_of(work, struct pil_vote_info, load_work);
-	peripheral = "modem";
-	loading_disabled = is_pil_loading_disabled(peripheral);
-	if (!loading_disabled) {
-		vote_info->pil_handle = subsystem_get(peripheral);
-		if (IS_ERR(vote_info->pil_handle)) {
-			IPC_RTR_ERR("%s: Failed to load %s\n",
-				__func__, peripheral);
-			vote_info->pil_handle = NULL;
-		}
-	} else {
-		vote_info->pil_handle = NULL;
-	}
-}
-
-/**
- * pil_vote_unload_worker() - Process vote to unload the modem
- *
- * @work: Work item to process
- *
- * This function is called to process votes to unload the modem that have been
- * queued by msm_ipc_unload_default_node().
- */
-static void pil_vote_unload_worker(struct work_struct *work)
-{
-	struct pil_vote_info *vote_info;
-
-	vote_info = container_of(work, struct pil_vote_info, unload_work);
-
-	if (vote_info->pil_handle) {
-		subsystem_put(vote_info->pil_handle);
-		vote_info->pil_handle = NULL;
-	}
-	kfree(vote_info);
-}
-
-/**
- * msm_ipc_load_default_node() - Queue a vote to load the modem.
- *
- * @return: PIL vote info structure on success, NULL on failure.
- *
- * This function places a work item that loads the modem on the
- * single-threaded workqueue used for processing PIL votes to load
- * or unload the modem.
- */
-void *msm_ipc_load_default_node(void)
-{
-	struct pil_vote_info *vote_info;
-
-	vote_info = kmalloc(sizeof(struct pil_vote_info), GFP_KERNEL);
-	if (vote_info == NULL) {
-		pr_err("%s: mem alloc for pil_vote_info failed\n", __func__);
-		return NULL;
-	}
-
-	INIT_WORK(&vote_info->load_work, pil_vote_load_worker);
-	queue_work(glink_xprt_wq, &vote_info->load_work);
-
-	return vote_info;
-}
-EXPORT_SYMBOL(msm_ipc_load_default_node);
-
-/**
- * msm_ipc_unload_default_node() - Queue a vote to unload the modem.
- *
- * @pil_vote: PIL vote info structure, containing the PIL handle
- * and work structure.
- *
- * This function places a work item that unloads the modem on the
- * single-threaded workqueue used for processing PIL votes to load
- * or unload the modem.
- */
-void msm_ipc_unload_default_node(void *pil_vote)
-{
-	struct pil_vote_info *vote_info;
-
-	if (pil_vote) {
-		vote_info = (struct pil_vote_info *) pil_vote;
-		INIT_WORK(&vote_info->unload_work, pil_vote_unload_worker);
-		queue_work(glink_xprt_wq, &vote_info->unload_work);
-	}
-}
-EXPORT_SYMBOL(msm_ipc_unload_default_node);
 
 static void glink_xprt_notify_rxv(void *handle, const void *priv,
 	const void *pkt_priv, void *ptr, size_t size,
