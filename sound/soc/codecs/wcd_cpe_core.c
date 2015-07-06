@@ -1458,6 +1458,11 @@ static int wcd_cpe_get_cal_index(int32_t cal_type)
 		cal_index = WCD_CPE_LSM_CAL_AFE;
 	else if (cal_type == ULP_LSM_CAL_TYPE)
 		cal_index = WCD_CPE_LSM_CAL_LSM;
+	else if (cal_type == ULP_LSM_TOPOLOGY_ID_CAL_TYPE)
+		cal_index = WCD_CPE_LSM_CAL_TOPOLOGY_ID;
+	else
+		pr_debug("%s: invalid cal_type %d\n",
+			__func__, cal_type);
 
 	return cal_index;
 }
@@ -1536,6 +1541,11 @@ static int wcd_cpe_cal_init(struct wcd_cpe_core *core)
 		{NULL, NULL, cal_utils_match_buf_num} },
 
 		{{ULP_LSM_CAL_TYPE,
+		 {wcd_cpe_alloc_cal, wcd_cpe_dealloc_cal, NULL,
+		  wcd_cpe_set_cal, NULL, NULL} },
+		 {NULL, NULL, cal_utils_match_buf_num} },
+
+		{{ULP_LSM_TOPOLOGY_ID_CAL_TYPE,
 		 {wcd_cpe_alloc_cal, wcd_cpe_dealloc_cal, NULL,
 		  wcd_cpe_set_cal, NULL, NULL} },
 		 {NULL, NULL, cal_utils_match_buf_num} },
