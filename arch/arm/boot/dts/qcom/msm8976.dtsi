@@ -1938,6 +1938,8 @@
 				"msm-dai-q6-dev.12292", "msm-dai-q6-dev.12293";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
+		asoc-wsa-codec-names = "wsa881x.20170212", "wsa881x.20170211";
+		asoc-wsa-codec-prefixes = "SpkrLeft", "SpkrRight";
 	};
 
 	wcd9xxx_intc: wcd9xxx-irq {
@@ -2515,29 +2517,6 @@
 
 		clock-names = "wcd_clk";
 		clocks = <&clock_audio clk_audio_pmi_clk>;
-
-		swr_master {
-			compatible = "qcom,swr-wcd";
-			#address-cells = <2>;
-			#size-cells = <0>;
-			wsa881x@20170212 {
-				compatible = "qcom,wsa881x";
-				reg = <0x00 0x20170212>;
-				pinctrl-names = "wsa_spkr_sd_act",
-					"wsa_spkr_sd_sus";
-				pinctrl-0 = <&wsa_spkr_sd_act>;
-				pinctrl-1 = <&wsa_spkr_sd_sus>;
-			};
-
-			wsa881x@20170211 {
-				compatible = "qcom,wsa881x";
-				reg = <0x00 0x20170211>;
-				pinctrl-names = "wsa_spkr_sd_act",
-					"wsa_spkr_sd_sus";
-				pinctrl-0 = <&wsa_spkr_sd_act>;
-				pinctrl-1 = <&wsa_spkr_sd_sus>;
-			};
-		};
 	};
 };
 
