@@ -89,6 +89,19 @@
 #define MIN_SLEEP_TIME_US 50
 #define MAX_SLEEP_TIME_US 100
 
+#define SYN_FW_CFG_GREATER(fwu, config_id) \
+		((fwu->config_data[0] == 0) && (config_id[0] == 0) && \
+		 (fwu->config_data[1] == config_id[1]) && \
+		  (((fwu->config_data[2] == config_id[2]) && \
+		    (fwu->config_data[3] > config_id[3])) || \
+			(fwu->config_data[2] > config_id[2])))
+
+#define SYN_FW_CFG_EQUAL(fwu, config_id) \
+		((fwu->config_data[0] == 0) && (config_id[0] == 0) && \
+		 (fwu->config_data[1] == config_id[1]) && \
+		 (fwu->config_data[2] == config_id[2]) && \
+		 (fwu->config_data[3] == config_id[3]))
+
 static ssize_t fwu_sysfs_show_image(struct file *data_file,
 		struct kobject *kobj, struct bin_attribute *attributes,
 		char *buf, loff_t pos, size_t count);
@@ -631,56 +644,56 @@ static enum flash_area fwu_go_nogo(struct image_header_data *header)
 		goto exit;
 	}
 
-	if (!rmi4_data->hw_if->board_data->bypass_packrat_id_check) {
-		/* Get device firmware ID */
-		device_fw_id = rmi4_data->firmware_id;
-		dev_info(rmi4_data->pdev->dev.parent,
-				"%s: Device firmware ID = %d\n",
-				__func__, device_fw_id);
+	/* Get device firmware ID */
+	device_fw_id = rmi4_data->firmware_id;
+	dev_info(rmi4_data->pdev->dev.parent,
+			"%s: Device firmware ID = %d\n",
+			__func__, device_fw_id);
 
-		/* Get image firmware ID */
-		if (header->contains_firmware_id) {
-			image_fw_id = header->firmware_id;
-		} else {
-			strptr = strnstr(fwu->image_name, "PR",
-					sizeof(fwu->image_name));
-			if (!strptr) {
-				dev_err(rmi4_data->pdev->dev.parent,
+	/* Get image firmware ID */
+	if (header->contains_firmware_id) {
+		image_fw_id = header->firmware_id;
+	} else {
+		strptr = strnstr(fwu->image_name, "PR",
+				sizeof(fwu->image_name));
+		if (!strptr) {
+			dev_err(rmi4_data->pdev->dev.parent,
 					"%s: No valid PR number (PRxxxxxxx) found in image file name (%s)\n",
 					__func__, fwu->image_name);
-				flash_area = NONE;
-				goto exit;
-			}
-
-			strptr += 2;
-			firmware_id = kzalloc(MAX_FIRMWARE_ID_LEN, GFP_KERNEL);
-			if (!firmware_id) {
-				dev_err(rmi4_data->pdev->dev.parent,
-						"%s: Failed to alloc mem for firmware id\n",
-						__func__);
-				flash_area = NONE;
-				goto exit;
-			}
-
-			while (strptr[index] >= '0' && strptr[index] <= '9') {
-				firmware_id[index] = strptr[index];
-				index++;
-			}
-
-			retval = sstrtoul(firmware_id, 10, &image_fw_id);
-			kfree(firmware_id);
-			if (retval) {
-				dev_err(rmi4_data->pdev->dev.parent,
-						"%s: Failed to obtain image firmware ID\n",
-						__func__);
-				flash_area = NONE;
-				goto exit;
-			}
+			flash_area = NONE;
+			goto exit;
 		}
-		dev_info(rmi4_data->pdev->dev.parent,
-				"%s: Image firmware ID = %d\n",
-				__func__, (unsigned int)image_fw_id);
 
+		strptr += 2;
+		firmware_id = kzalloc(MAX_FIRMWARE_ID_LEN, GFP_KERNEL);
+		if (!firmware_id) {
+			dev_err(rmi4_data->pdev->dev.parent,
+					"%s: Failed to alloc mem for firmware id\n",
+					__func__);
+			flash_area = NONE;
+			goto exit;
+		}
+
+		while (strptr[index] >= '0' && strptr[index] <= '9') {
+			firmware_id[index] = strptr[index];
+			index++;
+		}
+
+		retval = sstrtoul(firmware_id, 10, &image_fw_id);
+		kfree(firmware_id);
+		if (retval) {
+			dev_err(rmi4_data->pdev->dev.parent,
+					"%s: Failed to obtain image firmware ID\n",
+					__func__);
+			flash_area = NONE;
+			goto exit;
+		}
+	}
+	dev_info(rmi4_data->pdev->dev.parent,
+			"%s: Image firmware ID = %d\n",
+			__func__, (unsigned int)image_fw_id);
+
+	if (!rmi4_data->hw_if->board_data->bypass_packrat_id_check) {
 		if (image_fw_id > device_fw_id) {
 			flash_area = UI_FIRMWARE;
 			goto exit;
@@ -722,14 +735,80 @@ static enum flash_area fwu_go_nogo(struct image_header_data *header)
 			fwu->config_data[2],
 			fwu->config_data[3]);
 
-	if (fwu->config_data[1] == config_id[1]) {
-		if (fwu->config_data[2] == config_id[2]) {
-			if (fwu->config_data[3] > config_id[3]) {
-				flash_area = CONFIG_AREA;
-				goto exit;
-			}
-		} else if (fwu->config_data[2] > config_id[2]) {
+	if (SYN_FW_CFG_GREATER(fwu, config_id)) {
+		if (image_fw_id > device_fw_id) {
+			dev_info(rmi4_data->pdev->dev.parent,
+				"%s: Image file has higher packrat id than device\n",
+				__func__);
+			/*
+			 * If packrat id of the firmware file is greater than
+			 * the firmware build id in the device(same as packrat
+			 * id), then both firmware and config area need to be
+			 * upgraded.
+			 */
+			flash_area = UI_FIRMWARE;
+			goto exit;
+		} else if (image_fw_id == device_fw_id) {
+			dev_info(rmi4_data->pdev->dev.parent,
+				"%s: Image file has equal packrat id as is in device\n",
+				__func__);
+			/*
+			 * If packrat id of the firmware file equals the
+			 * firmware build id in the device(same as packrat id),
+			 * then only config area needs to be upgraded.
+			 */
 			flash_area = CONFIG_AREA;
+			goto exit;
+		} else if (image_fw_id < device_fw_id) {
+			dev_info(rmi4_data->pdev->dev.parent,
+				"%s: Image file has lesser packrat id than device, even though config id is greater\n",
+				__func__);
+			/*
+			 * If packrat id of the firmware file is lesser than
+			 * the firmware build id in the device(same as packrat
+			 * id), then it is treated as an error
+			 */
+			flash_area = NONE;
+			goto exit;
+		}
+	} else if (SYN_FW_CFG_EQUAL(fwu, config_id)) {
+		if (image_fw_id > device_fw_id) {
+			dev_info(rmi4_data->pdev->dev.parent,
+				"%s: Image file has higher packrat id than device, though config id is equal\n",
+				__func__);
+			/*
+			 * If config id of the firmware file equals the config
+			 * id in the device, but packrat id of the firmware is
+			 * greater than the firmware build id in the device
+			 * (same as packrat id), then both firmware and config
+			 * area need to be upgraded.
+			 */
+			flash_area = UI_FIRMWARE;
+			goto exit;
+		} else if (image_fw_id == device_fw_id) {
+			dev_info(rmi4_data->pdev->dev.parent,
+				"%s: Image file has equal packrat id and config id as are in device\n",
+				__func__);
+			/*
+			 * If config id of the firmware file equals the config
+			 * id in the device and if packrat id of the firmware
+			 * is also equal to the firmware build id in the device
+			 * (same as packrat id), then no update is needed.
+			 */
+			flash_area = NONE;
+			goto exit;
+		} else if (image_fw_id < device_fw_id) {
+			dev_info(rmi4_data->pdev->dev.parent,
+				"%s: Image file has lesser packrat id than device, though config id is equal\n",
+				__func__);
+			/*
+			 * If config id of the firmware file equals the config
+			 * id in the device, but the packrat id of the firmware
+			 * file is lesser than the firmware build id in the
+			 * device(same as packrat id), then it is treated as an
+			 * error and no update is needed.
+			 */
+			flash_area = NONE;
 			goto exit;
 		}
 	}
