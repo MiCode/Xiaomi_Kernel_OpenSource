@@ -1306,14 +1306,17 @@ static int mdss_dsi_pinctrl_set_state(
 	bool active)
 {
 	struct pinctrl_state *pin_state;
+	struct mdss_panel_info *pinfo = NULL;
 	int rc = -EFAULT;
 
 	if (IS_ERR_OR_NULL(ctrl_pdata->pin_res.pinctrl))
 		return PTR_ERR(ctrl_pdata->pin_res.pinctrl);
 
-	if (mdss_dsi_is_right_ctrl(ctrl_pdata) &&
-		mdss_dsi_is_hw_config_split(ctrl_pdata->shared_data)) {
-		pr_debug("%s:%d, right ctrl pinctrl config not needed\n",
+	pinfo = &ctrl_pdata->panel_data.panel_info;
+	if ((mdss_dsi_is_right_ctrl(ctrl_pdata) &&
+		mdss_dsi_is_hw_config_split(ctrl_pdata->shared_data)) ||
+			pinfo->is_dba_panel) {
+		pr_debug("%s:%d, pinctrl config not needed\n",
 			__func__, __LINE__);
 		return 0;
 	}
@@ -2153,9 +2156,11 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		ctrl_pdata->kobj = &fbi->dev->kobj;
 		ctrl_pdata->fb_node = fbi->node;
 
-		if (IS_ENABLED(CONFIG_MSM_DBA))
-			queue_delayed_work(ctrl_pdata->workq,
-				&ctrl_pdata->dba_work, HZ);
+		if (IS_ENABLED(CONFIG_MSM_DBA) &&
+			pdata->panel_info.is_dba_panel) {
+				queue_delayed_work(ctrl_pdata->workq,
+					&ctrl_pdata->dba_work, HZ);
+		}
 		break;
 	default:
 		pr_debug("%s: unhandled event=%d\n", __func__, event);

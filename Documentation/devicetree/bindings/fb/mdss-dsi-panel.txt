@@ -427,6 +427,8 @@ Optional properties:
 					"split-1p2d" - Split two DSI output to single panel
 - qcom,mdss-dsc-config-by-manufacture-cmd: Indicates panel use manufacture command to setup pps
 					instead of standard dcs type 0x0A.
+- qcom,dba-panel:			Indicates whether the current panel is used as a display bridge
+					to a non-DSI interface.
 
 Note, if a given optional qcom,* binding is not present, then the driver will configure
 the default values specified.
@@ -605,5 +607,6 @@ Example:
 		qcom,mdss-dsc-ich-reset-override = <0>;
 		qcom,mdss-dsc-data-path-mode = "1p1d";
 		qcom,mdss-dsc-config-by-manufacture-cmd;
+		qcom,dba-panel;
 	};
 };

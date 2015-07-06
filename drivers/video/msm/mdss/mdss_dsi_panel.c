@@ -286,9 +286,11 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
-	if (mdss_dsi_is_right_ctrl(ctrl_pdata) &&
-		mdss_dsi_is_hw_config_split(ctrl_pdata->shared_data)) {
-		pr_debug("%s:%d, right ctrl gpio configuration not needed\n",
+	pinfo = &ctrl_pdata->panel_data.panel_info;
+	if ((mdss_dsi_is_right_ctrl(ctrl_pdata) &&
+		mdss_dsi_is_hw_config_split(ctrl_pdata->shared_data)) ||
+			pinfo->is_dba_panel) {
+		pr_debug("%s:%d, gpio configuration not needed\n",
 			__func__, __LINE__);
 		return rc;
 	}
@@ -305,7 +307,6 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	}
 
 	pr_debug("%s: enable = %d\n", __func__, enable);
-	pinfo = &(ctrl_pdata->panel_data.panel_info);
 
 	if (enable) {
 		rc = mdss_dsi_request_gpios(ctrl_pdata);
@@ -1286,6 +1287,7 @@ static int mdss_dsi_parse_compression_params(struct device_node *np,
 	pinfo->fbc.enabled = 0;
 	pinfo->fbc.target_bpp = pinfo->bpp;
 
+	pinfo->compression_mode = COMPRESSION_NONE;
 	data = of_get_property(np, "qcom,mdss-dsi-compression", NULL);
 	if (data) {
 		if (!strcmp(data, "dsc"))
@@ -2117,6 +2119,9 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	mdss_dsi_parse_panel_horizintal_line_idle(np, ctrl_pdata);
 
 	mdss_dsi_parse_dfps_config(np, ctrl_pdata);
+
+	pinfo->is_dba_panel = of_property_read_bool(np,
+			"qcom,dba-panel");
 
 	return 0;
 
