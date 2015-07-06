@@ -115,6 +115,14 @@ static void kgsl_memfree_exit(void)
 	memset(&memfree, 0, sizeof(memfree));
 }
 
+static inline bool match_memfree_addr(struct memfree_entry *entry,
+		pid_t ptname, uint64_t gpuaddr)
+{
+	return ((entry->ptname == ptname) &&
+		(entry->size > 0) &&
+		(gpuaddr >= entry->gpuaddr &&
+			 gpuaddr < (entry->gpuaddr + entry->size)));
+}
 int kgsl_memfree_find_entry(pid_t ptname, uint64_t *gpuaddr,
 	uint64_t *size, uint64_t *flags, pid_t *pid)
 {
@@ -133,9 +141,7 @@ int kgsl_memfree_find_entry(pid_t ptname, uint64_t *gpuaddr,
 	while (ptr != memfree.tail) {
 		struct memfree_entry *entry = &memfree.list[ptr];
 
-		if ((entry->ptname == ptname) &&
-			(*gpuaddr >= entry->gpuaddr &&
-			 *gpuaddr < (entry->gpuaddr + entry->size))) {
+		if (match_memfree_addr(entry, ptname, *gpuaddr)) {
 			*gpuaddr = entry->gpuaddr;
 			*flags = entry->flags;
 			*size = entry->size;
@@ -153,6 +159,38 @@ int kgsl_memfree_find_entry(pid_t ptname, uint64_t *gpuaddr,
 
 	spin_unlock(&memfree_lock);
 	return 0;
+}
+
+static void kgsl_memfree_purge(pid_t ptname, uint64_t gpuaddr,
+		uint64_t size)
+{
+	int i;
+
+	if (memfree.list == NULL)
+		return;
+
+	spin_lock(&memfree_lock);
+
+	for (i = 0; i < MEMFREE_ENTRIES; i++) {
+		struct memfree_entry *entry = &memfree.list[i];
+
+		if (entry->ptname != ptname || entry->size == 0)
+			continue;
+
+		if (gpuaddr > entry->gpuaddr &&
+			gpuaddr < entry->gpuaddr + entry->size) {
+			/* truncate the end of the entry */
+			entry->size = entry->gpuaddr - gpuaddr;
+		} else if (gpuaddr <= entry->gpuaddr &&
+			gpuaddr + size < entry->gpuaddr + entry->size)
+			/* Truncate the beginning of the entry */
+			entry->gpuaddr = gpuaddr + size;
+		else if (gpuaddr + size >= entry->gpuaddr + entry->size) {
+			/* Remove the entire entry */
+			entry->size = 0;
+		}
+	}
+	spin_unlock(&memfree_lock);
 }
 
 static void kgsl_memfree_add(pid_t pid, pid_t ptname, uint64_t gpuaddr,
@@ -391,6 +429,10 @@ kgsl_mem_entry_attach_process(struct kgsl_mem_entry *entry,
 		if (ret)
 			kgsl_mem_entry_detach_process(entry);
 	}
+
+	kgsl_memfree_purge(pagetable ? pagetable->name : 0,
+		entry->memdesc.gpuaddr, entry->memdesc.size);
+
 	return ret;
 
 err_put_proc_priv:
@@ -3280,6 +3322,10 @@ static unsigned long _gpu_set_svm_region(struct kgsl_process_private *private,
 				&entry->memdesc);
 		return ret;
 	}
+
+	kgsl_memfree_purge(private->pagetable ? private->pagetable->name : 0,
+		entry->memdesc.gpuaddr, entry->memdesc.size);
+
 	return addr;
 }
 
