@@ -55,6 +55,12 @@ Optional properties when qcom,actuator-type is "lra"
  - qcom,misc-trim-error-rc19p2-clk-reg-present : boolean, use this if TRIM_ERROR_RC19P2_CLK
 				register is present in MISC module. This register holds
 				the frequency error in 19.2Mhz RC clock.
+ - qcom,lra-auto-res-mode : auto resonance technique, four different modes
+			"none" : no auto resonance
+			"zxd" : zero crossing based discontinuous method
+			"qwd" : quarter wave drive method
+			"max-qwd" : Maximum QWD
+			"zxd-eop" : ZXD + End of pattern (This is the Default)
 
 Example:
 		qcom,haptic@c000 {
@@ -78,4 +84,5 @@ Example:
 			qcom,wave-samples = [3e 3e 3e 3e 3e 3e 3e 3e];
 			qcom,wave-rep-cnt = <1>;
 			qcom,wave-samp-rep-cnt = <1>;
+			qcom,lra-auto-res-mode = "zxd";
 		};
