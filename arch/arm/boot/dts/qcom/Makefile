@@ -50,6 +50,9 @@ dtb-$(CONFIG_ARCH_MDM9640) += mdm9640-sim.dtb \
 	mdm9640-nand-cdp.dtb \
 	mdm9640-mtp.dtb
 
+dtb-$(CONFIG_ARCH_MSMTITANIUM) += msmtitanium-sim.dtb \
+	msmtitanium-rumi.dtb
+
 targets += dtbs
 targets += $(addprefix ../, $(dtb-y))
 endif
