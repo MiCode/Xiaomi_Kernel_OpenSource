@@ -646,19 +646,18 @@ void kgsl_snapshot_add_section(struct kgsl_device *device, u16 id,
  * Given a device, construct a binary snapshot dump of the current device state
  * and store it in the device snapshot memory.
  */
-int kgsl_device_snapshot(struct kgsl_device *device,
+void kgsl_device_snapshot(struct kgsl_device *device,
 		struct kgsl_context *context)
 {
 	struct kgsl_snapshot_header *header = device->snapshot_memory.ptr;
 	struct kgsl_snapshot *snapshot;
 	struct timespec boot;
-	int ret = 0;
 	phys_addr_t pa;
 
 	if (device->snapshot_memory.ptr == NULL) {
 		KGSL_DRV_ERR(device,
 			"snapshot: no snapshot memory available\n");
-		return -ENOMEM;
+		return;
 	}
 
 	BUG_ON(!kgsl_state_is_awake(device));
@@ -670,14 +669,13 @@ int kgsl_device_snapshot(struct kgsl_device *device,
 	 * a new snapshot instance if the old one hasn't been grabbed yet
 	 */
 	if (device->snapshot != NULL)
-		goto done;
+		return;
 
 	/* Allocate memory for the snapshot instance */
 	snapshot = kzalloc(sizeof(*snapshot), GFP_KERNEL);
-	if (snapshot == NULL) {
-		ret = -ENOMEM;
-		goto done;
-	}
+	if (snapshot == NULL)
+		return;
+
 	init_completion(&snapshot->dump_gate);
 	INIT_LIST_HEAD(&snapshot->obj_list);
 	INIT_LIST_HEAD(&snapshot->cp_list);
@@ -729,8 +727,6 @@ int kgsl_device_snapshot(struct kgsl_device *device,
 	 *
 	 */
 	queue_work(device->work_queue, &snapshot->work);
-done:
-	return ret;
 }
 EXPORT_SYMBOL(kgsl_device_snapshot);
 

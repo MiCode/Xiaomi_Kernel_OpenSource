@@ -583,7 +583,7 @@ void kgsl_device_platform_remove(struct kgsl_device *device);
 const char *kgsl_pwrstate_to_str(unsigned int state);
 
 int kgsl_device_snapshot_init(struct kgsl_device *device);
-int kgsl_device_snapshot(struct kgsl_device *device,
+void kgsl_device_snapshot(struct kgsl_device *device,
 			struct kgsl_context *context);
 void kgsl_device_snapshot_close(struct kgsl_device *device);
 void kgsl_snapshot_save_frozen_objs(struct work_struct *work);
