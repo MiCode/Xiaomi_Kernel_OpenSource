@@ -1858,7 +1858,7 @@ static uint64_t kgsl_iommu_find_svm_region(struct kgsl_pagetable *pagetable,
 static int kgsl_iommu_set_svm_region(struct kgsl_pagetable *pagetable,
 		uint64_t gpuaddr, uint64_t size)
 {
-	int ret;
+	int ret = -ENOMEM;
 	struct kgsl_iommu_pt *pt = pagetable->priv;
 	struct rb_node *node;
 

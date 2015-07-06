@@ -3489,8 +3489,8 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 
 	if (IS_ERR_VALUE(val))
 		KGSL_MEM_ERR(device,
-			"pid %d pgoff %lx len %ld failed error %d\n",
-			private->pid, pgoff, len, (int) val);
+			"pid %d addr %lx pgoff %lx len %ld failed error %d\n",
+			private->pid, addr, pgoff, len, (int) val);
 
 	kgsl_mem_entry_put(entry);
 	return val;
