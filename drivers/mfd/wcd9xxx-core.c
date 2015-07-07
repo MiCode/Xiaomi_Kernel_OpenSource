@@ -2805,9 +2805,65 @@ static int wcd9xxx_slim_device_down(struct slim_device *sldev)
 	return 0;
 }
 
+static int wcd9xxx_disable_static_supplies_to_optimum(
+			struct wcd9xxx *wcd9xxx,
+			struct wcd9xxx_pdata *pdata)
+{
+	int i;
+	int ret = 0;
+
+	for (i = 0; i < wcd9xxx->num_of_supplies; i++) {
+		if (pdata->regulator[i].ondemand)
+			continue;
+		if (regulator_count_voltages(wcd9xxx->supplies[i].consumer) <=
+			0)
+			continue;
+		regulator_set_voltage(wcd9xxx->supplies[i].consumer, 0,
+			pdata->regulator[i].max_uV);
+		regulator_set_optimum_mode(wcd9xxx->supplies[i].consumer, 0);
+		dev_dbg(wcd9xxx->dev, "Regulator %s set optimum mode\n",
+				 wcd9xxx->supplies[i].supply);
+	}
+	return ret;
+}
+
+static int wcd9xxx_enable_static_supplies_to_optimum(
+			struct wcd9xxx *wcd9xxx,
+			struct wcd9xxx_pdata *pdata)
+{
+	int i;
+	int ret = 0;
+
+	for (i = 0; i < wcd9xxx->num_of_supplies; i++) {
+		if (pdata->regulator[i].ondemand)
+			continue;
+		if (regulator_count_voltages(wcd9xxx->supplies[i].consumer) <=
+			0)
+			continue;
+
+		ret = regulator_set_voltage(wcd9xxx->supplies[i].consumer,
+			pdata->regulator[i].min_uV,
+			pdata->regulator[i].max_uV);
+		if (ret) {
+			dev_err(wcd9xxx->dev,
+				"Setting volt failed for regulator %s err %d\n",
+				wcd9xxx->supplies[i].supply, ret);
+		}
+
+		ret = regulator_set_optimum_mode(wcd9xxx->supplies[i].consumer,
+			pdata->regulator[i].optimum_uA);
+		dev_dbg(wcd9xxx->dev, "Regulator %s set optimum mode\n",
+			 wcd9xxx->supplies[i].supply);
+	}
+	return ret;
+}
+
 static int wcd9xxx_slim_resume(struct slim_device *sldev)
 {
 	struct wcd9xxx *wcd9xxx = slim_get_devicedata(sldev);
+	struct wcd9xxx_pdata *pdata = sldev->dev.platform_data;
+
+	wcd9xxx_enable_static_supplies_to_optimum(wcd9xxx, pdata);
 	return wcd9xxx_core_res_resume(&wcd9xxx->core_res);
 }
 
@@ -2823,6 +2879,9 @@ static int wcd9xxx_i2c_resume(struct i2c_client *i2cdev)
 static int wcd9xxx_slim_suspend(struct slim_device *sldev, pm_message_t pmesg)
 {
 	struct wcd9xxx *wcd9xxx = slim_get_devicedata(sldev);
+	struct wcd9xxx_pdata *pdata = sldev->dev.platform_data;
+
+	wcd9xxx_disable_static_supplies_to_optimum(wcd9xxx, pdata);
 	return wcd9xxx_core_res_suspend(&wcd9xxx->core_res, pmesg);
 }
 
