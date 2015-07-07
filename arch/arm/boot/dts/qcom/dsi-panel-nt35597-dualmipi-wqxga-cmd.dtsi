@@ -43,11 +43,11 @@
 		qcom,mdss-dsi-lane-1-state;
 		qcom,mdss-dsi-lane-2-state;
 		qcom,mdss-dsi-lane-3-state;
-		qcom,mdss-dsi-panel-timings = [cd 32 22 00 60 64 26 34 29 03
+		qcom,mdss-dsi-panel-timings = [d5 32 22 00 60 64 26 36 29 03
 									04 00];
 		qcom,mdss-dsi-reset-sequence = <1 10>, <0 10>, <1 10>;
-		qcom,mdss-dsi-t-clk-post = <0x0d>;
-		qcom,mdss-dsi-t-clk-pre = <0x2d>;
+		qcom,mdss-dsi-t-clk-post = <0x2b>;
+		qcom,mdss-dsi-t-clk-pre = <0x28>;
 		qcom,mdss-dsi-bl-max-level = <4095>;
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
