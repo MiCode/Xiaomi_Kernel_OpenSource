@@ -1756,17 +1756,13 @@ static int tasha_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 					      &dai->grph);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		ret = wcd9xxx_disconnect_port(core, &dai->wcd9xxx_ch_list,
+					      dai->grph);
+		dev_dbg(codec->dev, "%s: Disconnect RX port, ret = %d\n",
+			__func__, ret);
 		ret = wcd9xxx_close_slim_sch_rx(core, &dai->wcd9xxx_ch_list,
 						dai->grph);
 		ret = tasha_codec_enable_slim_chmask(dai, false);
-		if (ret < 0) {
-			ret = wcd9xxx_disconnect_port(core,
-						      &dai->wcd9xxx_ch_list,
-						      dai->grph);
-			dev_dbg(codec->dev, "%s: Disconnect RX port, ret = %d\n",
-				 __func__, ret);
-		}
-
 		break;
 	}
 	return ret;
