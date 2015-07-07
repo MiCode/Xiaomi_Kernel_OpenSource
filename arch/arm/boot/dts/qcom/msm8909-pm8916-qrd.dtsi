@@ -61,6 +61,15 @@
 			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
+
+		vol_down {
+			label = "volume_down";
+			gpios = <&msm_gpio 91 0x1>;
+			linux,input-type = <1>;
+			linux,code = <114>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
 	};
 };
 
