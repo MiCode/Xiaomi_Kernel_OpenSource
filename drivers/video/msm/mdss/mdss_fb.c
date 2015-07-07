@@ -2038,6 +2038,7 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 {
 	int ret = -ENODEV;
 	int bpp;
+	char panel_name[20];
 	struct mdss_panel_info *panel_info = mfd->panel_info;
 	struct fb_info *fbi = mfd->fbi;
 	struct fb_fix_screeninfo *fix;
@@ -2260,7 +2261,9 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 		return -EPERM;
 	}
 
-	mdss_panel_debugfs_init(panel_info);
+	snprintf(panel_name, ARRAY_SIZE(panel_name), "mdss_panel_fb%d",
+		mfd->index);
+	mdss_panel_debugfs_init(panel_info, panel_name);
 	pr_info("FrameBuffer[%d] %dx%d registered successfully!\n", mfd->index,
 					fbi->var.xres, fbi->var.yres);
 
