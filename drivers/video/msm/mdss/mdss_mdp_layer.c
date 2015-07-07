@@ -36,9 +36,9 @@
 #define CHECK_LAYER_BOUNDS(offset, size, max_size) \
 	(((size) > (max_size)) || ((offset) > ((max_size) - (size))))
 
-#define IS_PIPE_TYPE_CURSOR(pipe_id) \
-	((pipe_id >= MDSS_MDP_SSPP_CURSOR0) &&\
-	(pipe_id <= MDSS_MDP_SSPP_CURSOR1))
+#define IS_PIPE_TYPE_CURSOR(pipe_ndx) \
+	((pipe_ndx >= (1 << MDSS_MDP_SSPP_CURSOR0)) &&\
+	(pipe_ndx <= (1 << MDSS_MDP_SSPP_CURSOR1)))
 
 enum {
 	MDSS_MDP_RELEASE_FENCE = 0,
