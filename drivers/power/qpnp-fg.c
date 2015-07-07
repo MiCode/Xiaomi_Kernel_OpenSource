@@ -2253,6 +2253,9 @@ static int fg_get_cycle_count(struct fg_chip *chip)
 	if (!chip->cyc_ctr.en)
 		return 0;
 
+	if ((chip->cyc_ctr.id <= 0) || (chip->cyc_ctr.id > BUCKET_COUNT))
+		return -EINVAL;
+
 	mutex_lock(&chip->cyc_ctr.lock);
 	count = chip->cyc_ctr.count[chip->cyc_ctr.id - 1];
 	mutex_unlock(&chip->cyc_ctr.lock);
@@ -3092,7 +3095,13 @@ static int fg_power_set_property(struct power_supply *psy,
 		}
 		break;
 	case POWER_SUPPLY_PROP_CYCLE_COUNT_ID:
-		chip->cyc_ctr.id = val->intval;
+		if ((val->intval > 0) && (val->intval <= BUCKET_COUNT)) {
+			chip->cyc_ctr.id = val->intval;
+		} else {
+			pr_err("rejecting invalid cycle_count_id = %d\n",
+								val->intval);
+			rc = -EINVAL;
+		}
 		break;
 	default:
 		return -EINVAL;
