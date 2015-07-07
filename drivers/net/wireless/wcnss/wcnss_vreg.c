@@ -433,10 +433,13 @@ static void wcnss_vregs_off(struct vregs_info regulators[], uint size,
 		/* Set voltage to lowest level */
 		if (regulators[i].state & VREG_SET_VOLTAGE_MASK) {
 
-			if (cfg->vbatt < WCNSS_VBATT_THRESHOLD
-			  && !memcmp(regulators[i].name,
-				VDD_PA, sizeof(VDD_PA))) {
-				voltage_level[i].max_voltage = WCNSS_VBATT_LOW;
+			if (cfg->is_pronto_vadc) {
+				if (cfg->vbatt < WCNSS_VBATT_THRESHOLD &&
+				    !memcmp(regulators[i].name,
+				    VDD_PA, sizeof(VDD_PA))) {
+					voltage_level[i].max_voltage =
+						WCNSS_VBATT_LOW;
+				}
 			}
 
 			rc = regulator_set_voltage(regulators[i].regulator,
@@ -496,12 +499,15 @@ static int wcnss_vregs_on(struct device *dev,
 		if ((voltage_level[i].nominal_min ||
 			voltage_level[i].max_voltage) && (reg_cnt > 0)) {
 
-			if (cfg->vbatt < WCNSS_VBATT_THRESHOLD
-			  && !memcmp(regulators[i].name,
-				VDD_PA, sizeof(VDD_PA))) {
-				voltage_level[i].nominal_min =
-					WCNSS_VBATT_INITIAL;
-				voltage_level[i].max_voltage = WCNSS_VBATT_LOW;
+			if (cfg->is_pronto_vadc) {
+				if (cfg->vbatt < WCNSS_VBATT_THRESHOLD &&
+				    !memcmp(regulators[i].name,
+				    VDD_PA, sizeof(VDD_PA))) {
+					voltage_level[i].nominal_min =
+						WCNSS_VBATT_INITIAL;
+					voltage_level[i].max_voltage =
+						WCNSS_VBATT_LOW;
+				}
 			}
 
 			rc = regulator_set_voltage(regulators[i].regulator,
