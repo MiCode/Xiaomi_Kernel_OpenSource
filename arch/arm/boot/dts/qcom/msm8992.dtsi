@@ -1042,7 +1042,8 @@
 
 	qcom,cnss {
 		compatible = "qcom,cnss";
-		wlan-bootstrap-gpio = <&msm_gpio 112 0>,
+		wlan-bootstrap-gpio = <&msm_gpio 111 0>,
+				      <&msm_gpio 112 0>,
 				      <&msm_gpio 0 0>,
 				      <&msm_gpio 1 0>;
 		wlan-en-gpio = <&msm_gpio 113 0>;
