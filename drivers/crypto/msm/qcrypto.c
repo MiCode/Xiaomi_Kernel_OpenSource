@@ -47,7 +47,7 @@
 #include <crypto/internal/aead.h>
 
 #include <linux/fips_status.h>
-#include "qcryptoi.h"
+
 #include "qce.h"
 
 #define DEBUG_MAX_FNAME  16
@@ -61,8 +61,7 @@
 
 #define QCRYPTO_HIGH_BANDWIDTH_TIMEOUT 1000
 
-/* are FIPS self tests done ?? */
-static bool is_fips_qcrypto_tests_done;
+
 
 /* Status of response workq */
 enum resp_workq_sts {
@@ -774,11 +773,6 @@ static int _qcrypto_cipher_cra_init(struct crypto_tfm *tfm)
 	struct qcrypto_alg *q_alg;
 	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(tfm);
 
-	/* IF FIPS tests not passed, return error */
-	if (((g_fips140_status == FIPS140_STATUS_FAIL) ||
-		(g_fips140_status == FIPS140_STATUS_PASS_CRYPTO)) &&
-		is_fips_qcrypto_tests_done)
-		return -ENXIO;
 
 	q_alg = container_of(alg, struct qcrypto_alg, cipher_alg);
 	ctx->flags = 0;
@@ -807,12 +801,6 @@ static int _qcrypto_ahash_cra_init(struct crypto_tfm *tfm)
 						struct ahash_alg, halg);
 	struct qcrypto_alg *q_alg = container_of(alg, struct qcrypto_alg,
 								sha_alg);
-
-	/* IF FIPS tests not passed, return error */
-	if (((g_fips140_status == FIPS140_STATUS_FAIL) ||
-		(g_fips140_status == FIPS140_STATUS_PASS_CRYPTO)) &&
-		is_fips_qcrypto_tests_done)
-		return -ENXIO;
 
 	crypto_ahash_set_reqsize(ahash, sizeof(struct qcrypto_sha_req_ctx));
 	/* update context with ptr to cp */
@@ -4012,23 +4000,6 @@ static int _qcrypto_prefix_alg_cra_name(char cra_name[], unsigned int size)
 	return 0;
 }
 
-/*
- * Fill up fips_selftest_data structure
- */
-
-static void _qcrypto_fips_selftest_d(struct fips_selftest_data *selftest_d,
-					struct ce_hw_support *ce_support,
-					char *prefix)
-{
-	strlcpy(selftest_d->algo_prefix, prefix, CRYPTO_MAX_ALG_NAME);
-	selftest_d->prefix_ahash_algo = ce_support->use_sw_ahash_algo;
-	selftest_d->prefix_hmac_algo = ce_support->use_sw_hmac_algo;
-	selftest_d->prefix_aes_xts_algo = ce_support->use_sw_aes_xts_algo;
-	selftest_d->prefix_aes_cbc_ecb_ctr_algo =
-		ce_support->use_sw_aes_cbc_ecb_ctr_algo;
-	selftest_d->prefix_aead_algo = ce_support->use_sw_aead_algo;
-	selftest_d->ce_device = ce_support->ce_device;
-}
 
 int qcrypto_cipher_set_device(struct ablkcipher_request *req, unsigned int dev)
 {
@@ -4710,10 +4681,6 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	unsigned long flags;
 	struct qcrypto_req_control *pqcrypto_req_control = NULL;
 
-	/* For FIPS140-2 Power on self tests */
-	struct fips_selftest_data selftest_d;
-	char prefix[10] = "";
-
 	pengine = kzalloc(sizeof(*pengine), GFP_KERNEL);
 	if (!pengine) {
 		pr_err("qcrypto Memory allocation of q_alg FAIL, error %ld\n",
@@ -4813,7 +4780,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 
 	if (cp->total_units != 1) {
 		mutex_unlock(&cp->engine_lock);
-		goto fips_selftest;
+		return 0;
 	}
 
 	/* register crypto cipher algorithms the device supports */
@@ -5104,33 +5071,6 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 
 	mutex_unlock(&cp->engine_lock);
 
-fips_selftest:
-	/*
-	* FIPS140-2 Known Answer Tests :
-	* IN case of any failure, do not Init the module
-	*/
-	is_fips_qcrypto_tests_done = false;
-
-	if (g_fips140_status != FIPS140_STATUS_NA) {
-
-		_qcrypto_prefix_alg_cra_name(prefix, 0);
-		_qcrypto_fips_selftest_d(&selftest_d, &cp->ce_support, prefix);
-		if (_fips_qcrypto_sha_selftest(&selftest_d) ||
-			_fips_qcrypto_cipher_selftest(&selftest_d) ||
-			_fips_qcrypto_aead_selftest(&selftest_d)) {
-			pr_err("qcrypto: FIPS140-2 Known Answer Tests : Failed\n");
-			panic("SYSTEM CAN NOT BOOT!!!");
-			rc = -1;
-			goto err;
-		} else
-			pr_info("qcrypto: FIPS140-2 Known Answer Tests: Successful\n");
-		if (g_fips140_status != FIPS140_STATUS_PASS)
-			g_fips140_status = FIPS140_STATUS_PASS_CRYPTO;
-
-	} else
-		pr_info("qcrypto: FIPS140-2 Known Answer Tests: Skipped\n");
-
-	is_fips_qcrypto_tests_done = true;
 
 	return 0;
 err:

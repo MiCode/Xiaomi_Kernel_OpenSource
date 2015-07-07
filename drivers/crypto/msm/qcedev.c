@@ -1,6 +1,6 @@
 /* Qualcomm CE device driver.
  *
- * Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,9 +42,6 @@
 
 #define CACHE_LINE_SIZE 32
 #define CE_SHA_BLOCK_SIZE SHA256_BLOCK_SIZE
-
-/* are FIPS integrity tests done ?? */
-bool is_fips_qcedev_integritytest_done;
 
 static uint8_t  _std_init_vector_sha1_uint8[] =   {
 	0x67, 0x45, 0x23, 0x01, 0xEF, 0xCD, 0xAB, 0x89,
@@ -175,12 +172,6 @@ static int qcedev_open(struct inode *inode, struct file *file)
 {
 	struct qcedev_handle *handle;
 	struct qcedev_control *podev;
-
-	/* IF FIPS tests not passed, return error */
-	if (((g_fips140_status == FIPS140_STATUS_FAIL) ||
-		(g_fips140_status == FIPS140_STATUS_PASS_CRYPTO)) &&
-		is_fips_qcedev_integritytest_done)
-		return -ENXIO;
 
 	podev = qcedev_minor_to_control(MINOR(inode->i_rdev));
 	if (podev == NULL) {
@@ -1823,58 +1814,6 @@ long qcedev_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 		}
 		break;
 
-		/* This IOCTL call can be called only once
-		by FIPS Integrity test */
-	case QCEDEV_IOCTL_UPDATE_FIPS_STATUS:
-		{
-		enum fips_status status;
-		if (is_fips_qcedev_integritytest_done)
-			return -EPERM;
-
-		if (!access_ok(VERIFY_WRITE, (void __user *)arg,
-			sizeof(enum fips_status)))
-			return -EFAULT;
-
-		if (__copy_from_user(&status, (void __user *)arg,
-			sizeof(enum fips_status)))
-			return -EFAULT;
-
-		g_fips140_status = _fips_update_status(status);
-		pr_info("qcedev: FIPS140-2 Global status flag: %d\n",
-			g_fips140_status);
-		is_fips_qcedev_integritytest_done = true;
-
-		if (g_fips140_status == FIPS140_STATUS_FAIL) {
-			pr_info("qcedev: FIPS140-2 Integrity test failed\n");
-			break;
-		}
-
-		if (!(_do_msm_fips_drbg_init(drbg_call_back)) &&
-			(g_fips140_status != FIPS140_STATUS_NA))
-			g_fips140_status = FIPS140_STATUS_PASS;
-		}
-
-		pr_info("qcedev: FIPS140-2 Global status flag: %d\n",
-			g_fips140_status);
-
-		break;
-
-		/* Read only IOCTL call to read the
-		current FIPS140-2 Status */
-	case QCEDEV_IOCTL_QUERY_FIPS_STATUS:
-		{
-		enum fips_status status;
-		if (!access_ok(VERIFY_WRITE, (void __user *)arg,
-			sizeof(enum fips_status)))
-			return -EFAULT;
-
-		status = g_fips140_status;
-		if (__copy_to_user((void __user *)arg, &status,
-			sizeof(enum fips_status)))
-			return -EFAULT;
-
-		}
-		break;
 	default:
 		return -ENOTTY;
 	}
@@ -1950,24 +1889,6 @@ static int qcedev_probe(struct platform_device *pdev)
 			goto err;
 		}
 	}
-
-/*
- * FIPS140-2 Known Answer Tests:
- * IN case of any failure, do not Init the module
- */
-	is_fips_qcedev_integritytest_done = false;
-	if (g_fips140_status != FIPS140_STATUS_NA) {
-		if (_fips_qcedev_cipher_selftest(&qce_dev[0]) ||
-			_fips_qcedev_sha_selftest(&qce_dev[0])) {
-			pr_err("qcedev: FIPS140-2 Known Answer Tests : Failed\n");
-			panic("SYSTEM CAN NOT BOOT !!!");
-			rc = -1;
-		} else {
-			pr_info("qcedev: FIPS140-2 Known Answer Tests : Successful\n");
-			rc = 0;
-		}
-	} else
-		pr_info("qcedev: FIPS140-2 Known Answer Tests : Skipped\n");
 
 	if (rc >= 0)
 		return 0;
