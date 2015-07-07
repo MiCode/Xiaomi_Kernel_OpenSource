@@ -616,6 +616,12 @@
 			qcom,sensor-type =  "llm";
 			qcom,sensor-name = "LLM_IA72";
 		};
+
+		sensor_information18: qcom,sensor-information-18 {
+			qcom,sensor-type = "alarm";
+			qcom,sensor-name = "pm8004_tz";
+			qcom,scaling-factor = <1000>;
+		};
 	};
 
 	qcom,msm-thermal {
