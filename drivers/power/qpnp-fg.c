@@ -4145,9 +4145,26 @@ static int fg_do_restart(struct fg_chip *chip, bool write_profile)
 	int rc;
 	int tries = 0;
 	u8 reg = 0;
+	u8 buf[2];
 
 	if (fg_debug_mask & FG_STATUS)
 		pr_info("restarting fuel gauge...\n");
+
+	/*
+	 * save the temperature if the sw rbias control is active so that there
+	 * is no gap of time when there is no valid temperature read after the
+	 * restart
+	 */
+	if (chip->sw_rbias_ctrl) {
+		rc = fg_mem_read(chip, buf,
+				fg_data[FG_DATA_BATT_TEMP].address,
+				fg_data[FG_DATA_BATT_TEMP].len,
+				fg_data[FG_DATA_BATT_TEMP].offset, 0);
+		if (rc) {
+			pr_err("failed to read batt temp rc=%d\n", rc);
+			goto sub_and_fail;
+		}
+	}
 	/*
 	 * release the sram access and configure the correct settings
 	 * before re-requesting access.
@@ -4273,6 +4290,21 @@ static int fg_do_restart(struct fg_chip *chip, bool write_profile)
 	if (rc) {
 		pr_err("failed to unset fg restart: %d\n", rc);
 		goto fail;
+	}
+
+	/* restore the battery temperature reading here */
+	if (chip->sw_rbias_ctrl) {
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("reloaded 0x%02x%02x into batt temp",
+					buf[0], buf[1]);
+		rc = fg_mem_write(chip, buf,
+				fg_data[FG_DATA_BATT_TEMP].address,
+				fg_data[FG_DATA_BATT_TEMP].len,
+				fg_data[FG_DATA_BATT_TEMP].offset, 0);
+		if (rc) {
+			pr_err("failed to write batt temp rc=%d\n", rc);
+			goto fail;
+		}
 	}
 
 	if (fg_debug_mask & FG_STATUS)
