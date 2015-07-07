@@ -528,8 +528,7 @@ static void ufshcd_print_host_regs(struct ufs_hba *hba)
 
 	ufshcd_print_clk_freqs(hba);
 
-	if (hba->vops && hba->vops->dbg_register_dump)
-		hba->vops->dbg_register_dump(hba);
+	ufshcd_vops_dbg_register_dump(hba);
 }
 
 static
@@ -1097,22 +1096,18 @@ static int ufshcd_scale_clks(struct ufs_hba *hba, bool scale_up)
 {
 	int ret = 0;
 
-	if (hba->vops && hba->vops->clk_scale_notify) {
-		ret = hba->vops->clk_scale_notify(hba, scale_up, PRE_CHANGE);
-		if (ret)
-			return ret;
-	}
+	ret = ufshcd_vops_clk_scale_notify(hba, scale_up, PRE_CHANGE);
+	if (ret)
+		return ret;
 
 	ret = ufshcd_set_clk_freq(hba, scale_up);
 	if (ret)
 		return ret;
 
-	if (hba->vops && hba->vops->clk_scale_notify) {
-		ret = hba->vops->clk_scale_notify(hba, scale_up, POST_CHANGE);
-		if (ret) {
-			ufshcd_set_clk_freq(hba, !scale_up);
-			return ret;
-		}
+	ret = ufshcd_vops_clk_scale_notify(hba, scale_up, POST_CHANGE);
+	if (ret) {
+		ufshcd_set_clk_freq(hba, !scale_up);
+		return ret;
 	}
 
 	return ret;
@@ -1947,14 +1942,12 @@ int ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
 {
 	int ret = 0;
 
-	if (hba->vops && hba->vops->crypto_engine_cfg) {
-		ret = hba->vops->crypto_engine_cfg(hba, task_tag);
-		if (ret) {
-			dev_err(hba->dev,
-				"%s: failed to configure crypto engine %d\n",
-				__func__, ret);
-			return ret;
-		}
+	ret = ufshcd_vops_crypto_engine_cfg(hba, task_tag);
+	if (ret) {
+		dev_err(hba->dev,
+			"%s: failed to configure crypto engine %d\n",
+			__func__, ret);
+		return ret;
 	}
 
 	hba->lrb[task_tag].issue_time_stamp = ktime_get();
@@ -3893,13 +3886,11 @@ static int ufshcd_link_recovery(struct ufs_hba *hba)
 	ufshcd_set_eh_in_progress(hba);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
-	if (hba->vops && hba->vops->full_reset) {
-		ret = hba->vops->full_reset(hba);
-		if (ret)
-			dev_warn(hba->dev,
-				"full reset returned %d, trying to recover the link\n",
-				ret);
-	}
+	ret = ufshcd_vops_full_reset(hba);
+	if (ret)
+		dev_warn(hba->dev,
+			"full reset returned %d, trying to recover the link\n",
+			ret);
 
 	ret = ufshcd_host_reset_and_restore(hba);
 
@@ -4442,12 +4433,6 @@ static int ufshcd_link_startup(struct ufs_hba *hba)
 
 	if (hba->dev_quirks & UFS_DEVICE_QUIRK_BROKEN_LCC) {
 		ret = ufshcd_disable_host_tx_lcc(hba);
-		if (ret)
-			goto out;
-	}
-
-	if (hba->quirks & UFSHCD_QUIRK_BROKEN_LCC) {
-		ret = ufshcd_disable_device_tx_lcc(hba);
 		if (ret)
 			goto out;
 	}
@@ -5453,8 +5438,7 @@ static void ufshcd_err_handler(struct work_struct *work)
 		}
 	}
 
-	if (hba->vops && hba->vops->crypto_engine_get_err)
-		crypto_engine_err = hba->vops->crypto_engine_get_err(hba);
+	crypto_engine_err = ufshcd_vops_crypto_engine_get_err(hba);
 
 	if ((hba->saved_err & INT_FATAL_ERRORS) || crypto_engine_err ||
 	    ((hba->saved_err & UIC_ERROR) &&
@@ -5541,8 +5525,7 @@ skip_pending_xfer_clear:
 		scsi_report_bus_reset(hba->host, 0);
 		hba->saved_err = 0;
 		hba->saved_uic_err = 0;
-		if (hba->vops && hba->vops->crypto_engine_reset_err)
-			hba->vops->crypto_engine_reset_err(hba);
+		ufshcd_vops_crypto_engine_reset_err(hba);
 	}
 
 skip_err_handling:
@@ -5640,8 +5623,7 @@ static void ufshcd_check_errors(struct ufs_hba *hba)
 	bool queue_eh_work = false;
 	int crypto_engine_err = 0;
 
-	if (hba->vops && hba->vops->crypto_engine_get_err)
-		crypto_engine_err = hba->vops->crypto_engine_get_err(hba);
+	crypto_engine_err = ufshcd_vops_crypto_engine_get_err(hba);
 
 	if (hba->errors & INT_FATAL_ERRORS || crypto_engine_err)
 		queue_eh_work = true;
@@ -5703,8 +5685,7 @@ static void ufshcd_sl_intr(struct ufs_hba *hba, u32 intr_status)
 	ufsdbg_error_inject_dispatcher(hba,
 		ERR_INJECT_INTR, intr_status, &intr_status);
 
-	if (hba->vops && hba->vops->crypto_engine_eh)
-		crypto_engine_err = hba->vops->crypto_engine_eh(hba);
+	ufshcd_vops_crypto_engine_eh(hba);
 
 	hba->errors = UFSHCD_ERROR_MASK & intr_status;
 	if (hba->errors || crypto_engine_err)
@@ -6138,8 +6119,8 @@ static int ufshcd_host_reset_and_restore(struct ufs_hba *hba)
 		goto out;
 	}
 
-	if (!err && hba->vops && hba->vops->crypto_engine_reset) {
-		err = hba->vops->crypto_engine_reset(hba);
+	if (!err) {
+		err = ufshcd_vops_crypto_engine_reset(hba);
 		if (err) {
 			dev_err(hba->dev,
 				"%s: failed to reset crypto engine %d\n",
@@ -7150,8 +7131,8 @@ static int ufshcd_setup_hba_vreg(struct ufs_hba *hba, bool on)
 	if (info->vdd_hba) {
 		ret = ufshcd_toggle_vreg(hba->dev, info->vdd_hba, on);
 
-		if (!ret && hba->vops && hba->vops->update_sec_cfg)
-			hba->vops->update_sec_cfg(hba, on);
+		if (!ret)
+			ufshcd_vops_update_sec_cfg(hba, on);
 	}
 
 	return ret;
@@ -7254,8 +7235,8 @@ static int __ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
 	 * this standard driver hence call the vendor specific setup_clocks
 	 * before disabling the clocks managed here.
 	 */
-	if (hba->vops && hba->vops->setup_clocks && !on) {
-		ret = hba->vops->setup_clocks(hba, on);
+	if (!on) {
+		ret = ufshcd_vops_setup_clocks(hba, on);
 		if (ret)
 			return ret;
 	}
@@ -7287,7 +7268,8 @@ static int __ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
 	 * this standard driver hence call the vendor specific setup_clocks
 	 * after enabling the clocks managed here.
 	 */
-	ret = ufshcd_vops_setup_clocks(hba, on);
+	if (on)
+		ret = ufshcd_vops_setup_clocks(hba, on);
 
 out:
 	if (ret) {
@@ -7302,8 +7284,7 @@ out:
 			hba->clk_gating.state);
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
 		/* restore the secure configuration as clocks are enabled */
-		if (hba->vops && hba->vops->update_sec_cfg)
-			hba->vops->update_sec_cfg(hba, true);
+		ufshcd_vops_update_sec_cfg(hba, true);
 	}
 
 	if (clk_state_changed)
@@ -7361,7 +7342,7 @@ static int ufshcd_variant_hba_init(struct ufs_hba *hba)
 {
 	int err = 0;
 
-	if (!hba->vops)
+	if (!hba->var || !hba->var->vops)
 		goto out;
 
 	err = ufshcd_vops_init(hba);
@@ -7385,7 +7366,7 @@ out:
 
 static void ufshcd_variant_hba_exit(struct ufs_hba *hba)
 {
-	if (!hba->vops)
+	if (!hba->var || !hba->var->vops)
 		return;
 
 	ufshcd_vops_setup_clocks(hba, false);
@@ -8367,10 +8348,6 @@ static bool ufshcd_is_devfreq_scaling_required(struct ufs_hba *hba,
 
 	if (!head || list_empty(head))
 		return false;
-
-	ret = ufshcd_vops_clk_scale_notify(hba, scale_up, PRE_CHANGE);
-	if (ret)
-		return ret;
 
 	list_for_each_entry(clki, head, list) {
 		if (!IS_ERR_OR_NULL(clki->clk)) {
