@@ -2212,6 +2212,14 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	var->pixclock = panel_info->clk_rate / 1000;
 
 	/*
+	 * Store the cont splash state in the var reserved[3] field.
+	 * The continuous splash is considered to be active if either
+	 * splash_enabled is set or if splash pipe has been allocated.
+	 */
+	var->reserved[3] = panel_info->cont_splash_enabled |
+				mfd->splash_info.splash_pipe_allocated;
+
+	/*
 	 * Populate smem length here for uspace to get the
 	 * Framebuffer size when FBIO_FSCREENINFO ioctl is
 	 * called.
