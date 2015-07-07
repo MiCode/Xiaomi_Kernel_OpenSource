@@ -539,6 +539,7 @@
 			qcom,headroom-sense-ch0-enabled;
 			qcom,headroom-sense-ch1-enabled;
 			qcom,otst2-module-enabled;
+			qcom,duration = <1280>;
 
 			pmi8950_flash0: qcom,flash_0 {
 				label = "flash";
@@ -580,6 +581,16 @@
 				qcom,max-current = <200>;
 				qcom,id = <1>;
 				qcom,current = <120>;
+			};
+
+			pmi8950_switch: qcom,switch {
+				label = "switch";
+				qcom,led-name = "led:switch";
+				qcom,default-led-trigger =
+						"switch_trigger";
+				qcom,max-current = <1000>;
+				qcom,id = <2>;
+				qcom,current = <625>;
 			};
 		};
 
