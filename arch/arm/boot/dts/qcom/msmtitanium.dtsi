@@ -84,6 +84,7 @@
 #include "msmtitanium-pinctrl.dtsi"
 #include "msmtitanium-cpu.dtsi"
 #include "msmtitanium-ion.dtsi"
+#include "msmtitanium-smp2p.dtsi"
 
 &soc {
 	#address-cells = <1>;
