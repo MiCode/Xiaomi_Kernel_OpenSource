@@ -220,6 +220,10 @@
 #define HDMI_DDC_INT_CTRL3               (0x0000043C)
 #define HDMI_DDC_INT_CTRL4               (0x00000440)
 #define HDMI_DDC_INT_CTRL5               (0x00000444)
+#define HDMI_HDCP2P2_DDC_CTRL            (0x0000044C)
+#define HDMI_HDCP2P2_DDC_TIMER_CTRL      (0x00000450)
+#define HDMI_HDCP2P2_DDC_TIMER_CTRL2     (0x00000454)
+#define HDMI_HDCP2P2_DDC_STATUS          (0x00000458)
 #define HDMI_SCRAMBLER_STATUS_DDC_CTRL   (0x00000464)
 #define HDMI_SCRAMBLER_STATUS_DDC_TIMER_CTRL    (0x00000468)
 #define HDMI_SCRAMBLER_STATUS_DDC_TIMER_CTRL2   (0x0000046C)
@@ -227,6 +231,7 @@
 #define HDMI_SCRAMBLER_STATUS_DDC_TIMER_STATUS  (0x00000474)
 #define HDMI_SCRAMBLER_STATUS_DDC_TIMER_STATUS2 (0x00000478)
 #define HDMI_HW_DDC_CTRL                 (0x000004CC)
+#define HDMI_HDCP2P2_DDC_SW_TRIGGER      (0x000004D0)
 #define HDMI_HDCP_STATUS                 (0x00000500)
 #define HDMI_HDCP_INT_CTRL2              (0x00000504)
 
@@ -297,6 +302,67 @@
 #define HDCP_SEC_TZ_HV_HLOS_HDCP_SHA_CTRL       (0x00000024)
 #define HDCP_SEC_TZ_HV_HLOS_HDCP_SHA_DATA       (0x00000028)
 
+/*
+ * Offsets in HDMI_DDC_INT_CTRL0 register
+ *
+ * The HDMI_DDC_INT_CTRL0 register is intended for HDCP 2.2 RxStatus
+ * register manipulation. It reads like this:
+ *
+ * Bit 31: RXSTATUS_MESSAGE_SIZE_MASK (1 = generate interrupt when size > 0)
+ * Bit 30: RXSTATUS_MESSAGE_SIZE_ACK  (1 = Acknowledge message size intr)
+ * Bits 29-20: RXSTATUS_MESSAGE_SIZE  (Actual size of message available)
+ * Bits 19-18: RXSTATUS_READY_MASK    (1 = generate interrupt when ready = 1
+ *				       2 = generate interrupt when ready = 0)
+ * Bit 17: RXSTATUS_READY_ACK         (1 = Acknowledge ready bit interrupt)
+ * Bit 16: RXSTATUS_READY	      (1 = Rxstatus ready bit read is 1)
+ * Bit 15: RXSTATUS_READY_NOT         (1 = Rxstatus ready bit read is 0)
+ * Bit 14: RXSTATUS_REAUTH_REQ_MASK   (1 = generate interrupt when reauth is
+ *					   requested by sink)
+ * Bit 13: RXSTATUS_REAUTH_REQ_ACK    (1 = Acknowledge Reauth req interrupt)
+ * Bit 12: RXSTATUS_REAUTH_REQ        (1 = Rxstatus reauth req bit read is 1)
+ * Bit 10: RXSTATUS_DDC_FAILED_MASK   (1 = generate interrupt when DDC
+ *					   tranasaction fails)
+ * Bit 9:  RXSTATUS_DDC_FAILED_ACK    (1 = Acknowledge ddc failure interrupt)
+ * Bit 8:  RXSTATUS_DDC_FAILED	      (1 = DDC transaction failed)
+ * Bit 6:  RXSTATUS_DDC_DONE_MASK     (1 = generate interrupt when DDC
+ *					   transaction completes)
+ * Bit 5:  RXSTATUS_DDC_DONE_ACK      (1 = Acknowledge ddc done interrupt)
+ * Bit 4:  RXSTATUS_DDC_DONE	      (1 = DDC transaction is done)
+ * Bit 2:  RXSTATUS_DDC_REQ_MASK      (1 = generate interrupt when DDC Read
+ *					   request for RXstatus is made)
+ * Bit 1:  RXSTATUS_DDC_REQ_ACK       (1 = Acknowledge Rxstatus read interrupt)
+ * Bit 0:  RXSTATUS_DDC_REQ           (1 = RXStatus DDC read request is made)
+ *
+ */
+#define HDCP2P2_RXSTATUS_MESSAGE_SIZE_SHIFT         20
+#define HDCP2P2_RXSTATUS_MESSAGE_SIZE_MASK          0x3ff00000
+#define HDCP2P2_RXSTATUS_MESSAGE_SIZE_ACK_SHIFT     30
+#define HDCP2P2_RXSTATUS_MESSAGE_SIZE_INTR_SHIFT    31
+
+#define HDCP2P2_RXSTATUS_REAUTH_REQ_SHIFT           12
+#define HDCP2P2_RXSTATUS_REAUTH_REQ_MASK             1
+#define HDCP2P2_RXSTATUS_REAUTH_REQ_ACK_SHIFT	    13
+#define HDCP2P2_RXSTATUS_REAUTH_REQ_INTR_SHIFT	    14
+
+#define HDCP2P2_RXSTATUS_READY_SHIFT		    16
+#define HDCP2P2_RXSTATUS_READY_MASK                  1
+#define HDCP2P2_RXSTATUS_READY_ACK_SHIFT            17
+#define HDCP2P2_RXSTATUS_READY_INTR_SHIFT           18
+#define HDCP2P2_RXSTATUS_READY_INTR_MASK            18
+
+#define HDCP2P2_RXSTATUS_DDC_FAILED_SHIFT           8
+#define HDCP2P2_RXSTATUS_DDC_FAILED_ACKSHIFT        9
+#define HDCP2P2_RXSTATUS_DDC_FAILED_INTR_MASK       10
+
+/*
+ * Bits 1:0 in HDMI_HW_DDC_CTRL that dictate how the HDCP 2.2 RxStatus will be
+ * read by the hardware
+ */
+#define HDCP2P2_RXSTATUS_HW_DDC_DISABLE             0
+#define HDCP2P2_RXSTATUS_HW_DDC_AUTOMATIC_LOOP      1
+#define HDCP2P2_RXSTATUS_HW_DDC_FORCE_LOOP          2
+#define HDCP2P2_RXSTATUS_HW_DDC_SW_TRIGGER          3
+
 enum hdmi_tx_feature_type {
 	HDMI_TX_FEAT_EDID,
 	HDMI_TX_FEAT_HDCP,
@@ -344,6 +410,21 @@ struct hdmi_tx_ddc_data {
 	u32 no_align;
 	int retry;
 };
+
+enum hdmi_tx_hdcp2p2_rxstatus_field {
+	RXSTATUS_MESSAGE_SIZE,
+	RXSTATUS_REAUTH_REQ,
+	RXSTATUS_READY,
+};
+
+struct hdmi_tx_hdcp2p2_ddc_data {
+	struct hdmi_tx_ddc_data ddc_data;
+	enum hdmi_tx_hdcp2p2_rxstatus_field rxstatus_field;
+	u32 timer_delay_lines;
+	bool poll_sink;
+	int irq_wait_count;
+};
+
 
 struct hdmi_util_ds_data {
 	bool ds_registered;
@@ -396,5 +477,10 @@ int hdmi_scdc_read(struct hdmi_tx_ddc_ctrl *ctrl, u32 data_type, u32 *val);
 int hdmi_scdc_write(struct hdmi_tx_ddc_ctrl *ctrl, u32 data_type, u32 val);
 int hdmi_setup_ddc_timers(struct hdmi_tx_ddc_ctrl *ctrl,
 			  u32 type, u32 to_in_num_lines);
+void hdmi_hdcp2p2_ddc_reset(struct hdmi_tx_ddc_ctrl *ctrl);
+void hdmi_hdcp2p2_ddc_disable(struct hdmi_tx_ddc_ctrl *ctrl);
+int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl,
+	struct hdmi_tx_hdcp2p2_ddc_data *hdcp2p2_ddc_data,
+	struct completion *rxstatus_completion);
 
 #endif /* __HDMI_UTIL_H__ */

@@ -1285,6 +1285,7 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl)
 	hdcp_init_data.notify_status = hdmi_tx_hdcp_cb;
 	hdcp_init_data.cb_data = (void *)hdmi_ctrl;
 	hdcp_init_data.hdmi_tx_ver = hdmi_ctrl->hdmi_tx_ver;
+	hdcp_init_data.timing = &hdmi_ctrl->vid_cfg.timing;
 
 	/*
 	 * Try to initialize both HDCP 1.4 and 2.2 features, decide which one
