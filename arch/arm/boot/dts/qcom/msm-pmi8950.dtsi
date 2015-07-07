@@ -310,8 +310,6 @@
 			qcom,fg-chg-iterm-ma = <100>;
 			qcom,pmic-revid = <&pmi8950_revid>;
 			qcom,cycle-counter-en;
-			qcom,cycle-counter-low-soc = <15>;
-			qcom,cycle-counter-high-soc = <85>;
 			qcom,capacity-learning-on;
 
 			qcom,fg-soc@4000 {
