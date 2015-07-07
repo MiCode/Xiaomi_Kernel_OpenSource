@@ -74,6 +74,8 @@ struct cpe_lsm_session {
 
 	u32 lab_enable;
 	struct lsm_out_fmt_cfg out_fmt_cfg;
+
+	bool is_topology_used;
 };
 
 struct wcd_cpe_afe_ops {
@@ -146,6 +148,13 @@ struct wcd_cpe_lsm_ops {
 			bool detect_failure);
 	int (*lsm_set_fmt_cfg)(void *core_handle,
 			struct cpe_lsm_session *session);
+	int (*lsm_set_one_param)(void *core_handle,
+			struct cpe_lsm_session *session,
+			struct lsm_params_info *p_info,
+			void *data, enum LSM_PARAM_TYPE param_type);
+	void (*lsm_get_snd_model_offset)
+		(void *core_handle, struct cpe_lsm_session *,
+		 size_t *offset);
 };
 
 int wcd_cpe_get_lsm_ops(struct wcd_cpe_lsm_ops *);

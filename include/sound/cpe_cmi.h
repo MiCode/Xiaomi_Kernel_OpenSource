@@ -57,9 +57,14 @@
 #define CPE_LSM_SESSION_CMDRSP_SHARED_MEM_ALLOC (0x2009)
 #define CPE_LSM_SESSION_CMD_SHARED_MEM_DEALLOC	(0x200A)
 #define CPE_LSM_SESSION_CMD_TX_BUFF_OUTPUT_CONFIG (0x200f)
+#define CPE_LSM_SESSION_CMD_OPEN_TX_V2		(0x200D)
+#define CPE_LSM_SESSION_CMD_SET_PARAMS_V2	(0x200E)
 
 /* LSM Service module and param IDs */
 #define CPE_LSM_MODULE_ID_VOICE_WAKEUP		(0x00012C00)
+#define CPE_LSM_MODULE_ID_VOICE_WAKEUP_V2	(0x00012C0D)
+#define CPE_LSM_MODULE_FRAMEWORK		(0x00012C0E)
+
 #define CPE_LSM_PARAM_ID_ENDPOINT_DETECT_THRESHOLD (0x00012C01)
 #define CPE_LSM_PARAM_ID_OPERATION_MODE		(0x00012C02)
 #define CPE_LSM_PARAM_ID_GAIN			(0x00012C03)
@@ -73,6 +78,8 @@
 #define CPE_LSM_PARAM_ID_LAB_ENABLE	0x00012C09
 /* used for T in LAB config DSP internal buffer*/
 #define CPE_LSM_PARAM_ID_LAB_CONFIG	0x00012C0A
+#define CPE_LSM_PARAM_ID_REGISTER_SOUND_MODEL	(0x00012C14)
+#define CPE_LSM_PARAM_ID_DEREGISTER_SOUND_MODEL	(0x00012C15)
 
 /* AFE Service command opcodes */
 #define CPE_AFE_PORT_CMD_START			(0x1001)
@@ -263,6 +270,11 @@ struct cpe_lsm_cmd_open_tx {
 	u32 sampling_rate;
 } __packed;
 
+struct cpe_lsm_cmd_open_tx_v2 {
+	struct cmi_hdr hdr;
+	u32 topology_id;
+} __packed;
+
 struct cpe_cmd_shmem_alloc {
 	struct cmi_hdr hdr;
 	u32 size;
@@ -285,10 +297,35 @@ struct cpe_lsm_event_detect_v2 {
 	u8 payload[0];
 } __packed;
 
+struct cpe_lsm_psize_res {
+	u16 param_size;
+	u16 reserved;
+} __packed;
+
+union cpe_lsm_param_size {
+	u32 param_size;
+	struct cpe_lsm_psize_res sr;
+} __packed;
+
 struct cpe_param_data {
 	u32 module_id;
 	u32 param_id;
-	u16 param_size;
+	union cpe_lsm_param_size p_size;
+} __packed;
+
+struct cpe_lsm_param_epd_thres {
+	struct cmi_hdr hdr;
+	struct cpe_param_data param;
+	u32 minor_version;
+	u32 epd_begin;
+	u32 epd_end;
+} __packed;
+
+struct cpe_lsm_param_gain {
+	struct cmi_hdr hdr;
+	struct cpe_param_data param;
+	u32 minor_version;
+	u16 gain;
 	u16 reserved;
 } __packed;
 
@@ -319,21 +356,23 @@ struct cpe_afe_params {
 	struct cmi_hdr hdr;
 	struct cpe_afe_hw_mad_ctrl hw_mad_ctrl;
 	struct cpe_afe_port_cfg port_cfg;
-};
+} __packed;
 
 struct cpe_afe_svc_cmd_mode {
 	struct cmi_hdr hdr;
 	u8 mode;
 } __packed;
 
-struct cpe_lsm_operation_mode {
+struct cpe_lsm_param_opmode {
+	struct cmi_hdr hdr;
 	struct cpe_param_data param;
 	u32 minor_version;
 	u16 mode;
 	u16 reserved;
 } __packed;
 
-struct cpe_lsm_connect_to_port {
+struct cpe_lsm_param_connectport {
+	struct cmi_hdr hdr;
 	struct cpe_param_data param;
 	u32 minor_version;
 	u16 afe_port_id;
@@ -355,12 +394,6 @@ struct cpe_lsm_output_format_cfg {
 	u8 format;
 	u8 packing;
 	u8 data_path_events;
-} __packed;
-
-struct cpe_lsm_params {
-	struct cmi_hdr hdr;
-	struct cpe_lsm_operation_mode op_mode;
-	struct cpe_lsm_connect_to_port connect_port;
 } __packed;
 
 struct cpe_lsm_lab_enable {
@@ -397,12 +430,6 @@ struct cpe_lsm_lab_latency_config {
 				sizeof(struct cmi_hdr))
 #define PARAM_SIZE_LSM_CONTROL_SIZE (sizeof(struct cpe_lsm_lab_enable) - \
 					sizeof(struct cpe_param_data))
-#define PARAM_SIZE_LSM_OP_MODE (sizeof(struct cpe_lsm_operation_mode) - \
-				sizeof(struct cpe_param_data))
-#define PARAM_SIZE_LSM_CONNECT_PORT (sizeof(struct cpe_lsm_connect_to_port) - \
-				sizeof(struct cpe_param_data))
-#define CPE_PARAM_PAYLOAD_SIZE (sizeof(struct cpe_lsm_params) - \
-				sizeof(struct cmi_hdr))
 #define PARAM_SIZE_AFE_HW_MAD_CTRL (sizeof(struct cpe_afe_hw_mad_ctrl) - \
 				sizeof(struct cpe_param_data))
 #define PARAM_SIZE_AFE_PORT_CFG (sizeof(struct cpe_afe_port_cfg) - \
@@ -412,7 +439,8 @@ struct cpe_lsm_lab_latency_config {
 
 #define OPEN_CMD_PAYLOAD_SIZE (sizeof(struct cpe_lsm_cmd_open_tx) - \
 			       sizeof(struct cmi_hdr))
-
+#define OPEN_V2_CMD_PAYLOAD_SIZE (sizeof(struct cpe_lsm_cmd_open_tx_v2) - \
+			       sizeof(struct cmi_hdr))
 #define SHMEM_ALLOC_CMD_PLD_SIZE (sizeof(struct cpe_cmd_shmem_alloc) - \
 				      sizeof(struct cmi_hdr))
 
@@ -429,4 +457,21 @@ struct cpe_lsm_lab_latency_config {
 #define CPE_AFE_CMD_MODE_PAYLOAD_SIZE \
 		(sizeof(struct cpe_afe_svc_cmd_mode) - \
 		 sizeof(struct cmi_hdr))
+#define CPE_CMD_EPD_THRES_PLD_SIZE (sizeof(struct cpe_lsm_param_epd_thres) - \
+				    sizeof(struct cmi_hdr))
+#define CPE_EPD_THRES_PARAM_SIZE ((CPE_CMD_EPD_THRES_PLD_SIZE) - \
+				  sizeof(struct cpe_param_data))
+#define CPE_CMD_OPMODE_PLD_SIZE (sizeof(struct cpe_lsm_param_opmode) - \
+				 sizeof(struct cmi_hdr))
+#define CPE_OPMODE_PARAM_SIZE ((CPE_CMD_OPMODE_PLD_SIZE) -\
+			       sizeof(struct cpe_param_data))
+#define CPE_CMD_CONNECTPORT_PLD_SIZE \
+	(sizeof(struct cpe_lsm_param_connectport) - \
+	 sizeof(struct cmi_hdr))
+#define CPE_CONNECTPORT_PARAM_SIZE ((CPE_CMD_CONNECTPORT_PLD_SIZE) - \
+				    sizeof(struct cpe_param_data))
+#define CPE_CMD_GAIN_PLD_SIZE (sizeof(struct cpe_lsm_param_gain) - \
+			       sizeof(struct cmi_hdr))
+#define CPE_GAIN_PARAM_SIZE ((CPE_CMD_GAIN_PLD_SIZE) - \
+			     sizeof(struct cpe_param_data))
 #endif /* __CPE_CMI_H__ */
