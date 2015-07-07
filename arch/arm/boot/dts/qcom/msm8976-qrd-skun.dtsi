@@ -99,6 +99,43 @@
 			debounce-interval = <15>;
 		};
 	};
+
+	sound-9335 {
+		qcom,model = "msm8976-tasha-skun-snd-card";
+
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"AMIC1", "MIC BIAS1",
+			"MIC BIAS1", "Handset Mic",
+			"AMIC2", "MIC BIAS2",
+			"MIC BIAS2", "Headset Mic",
+			"AMIC3", "MIC BIAS3",
+			"MIC BIAS3", "Secondary Mic",
+			"SpkrRight IN", "SPK2 OUT";
+
+		qcom,msm-mbhc-hphl-swh = <1>;
+		asoc-wsa-codec-names = "wsa881x.20170211";
+		asoc-wsa-codec-prefixes = "SpkrRight";
+	};
+};
+
+&slim_msm {
+	tasha_codec {
+		swr_master {
+			compatible = "qcom,swr-wcd";
+			#address-cells = <2>;
+			#size-cells = <0>;
+
+			wsa881x@20170211 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x20170211>;
+				pinctrl-names = "wsa_spkr_sd_act",
+						"wsa_spkr_sd_sus";
+				pinctrl-0 = <&wsa_spkr_sd_act>;
+				pinctrl-1 = <&wsa_spkr_sd_sus>;
+			};
+		};
+	};
 };
 
 &tlmm_pinmux {
