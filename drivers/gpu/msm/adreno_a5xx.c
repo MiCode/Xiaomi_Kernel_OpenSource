@@ -1747,24 +1747,35 @@ static int _preemption_init(
 	return cmds - cmds_orig;
 }
 
-static void a5xx_preemption_load(struct adreno_device *adreno_dev)
+static void a5xx_post_start(struct adreno_device *adreno_dev)
 {
 	unsigned int *cmds, *start;
 	int status = 0;
 	struct kgsl_device *device = &(adreno_dev->dev);
 	struct adreno_ringbuffer *rb = adreno_dev->cur_rb;
 
-	if (!adreno_is_preemption_enabled(adreno_dev))
-		return;
-
-	cmds = adreno_ringbuffer_allocspace(rb, 40);
+	cmds = adreno_ringbuffer_allocspace(rb, 42);
 	if (IS_ERR_OR_NULL(cmds))
 		return;
 
 	start = cmds;
-	cmds += _preemption_init(adreno_dev, rb, cmds, 0);
 
-	rb->wptr = rb->wptr - (40 - (cmds - start));
+	/*
+	 * Send a pipeline stat event whenever the GPU gets powered up
+	 * to cause misbehaving perf counters to start ticking
+	 */
+	if (adreno_is_a530(adreno_dev)) {
+		*cmds++ = cp_packet(adreno_dev, CP_EVENT_WRITE, 1);
+		*cmds++ = 0xF;
+	}
+
+	if (adreno_is_preemption_enabled(adreno_dev))
+		cmds += _preemption_init(adreno_dev, rb, cmds, 0);
+
+	if (cmds == start)
+		return;
+
+	rb->wptr = rb->wptr - (42 - (cmds - start));
 
 	adreno_ringbuffer_submit(rb, NULL);
 
@@ -1798,8 +1809,7 @@ static int a5xx_hw_init(struct adreno_device *adreno_dev)
 	/* Enable limits management */
 	a5xx_lm_enable(adreno_dev);
 
-	/* Program preemption */
-	a5xx_preemption_load(adreno_dev);
+	a5xx_post_start(adreno_dev);
 
 	/* Enable GPMU based power collapse */
 	a5xx_enable_pc(adreno_dev);
