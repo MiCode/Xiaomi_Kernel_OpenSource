@@ -528,8 +528,7 @@ static void ufshcd_print_host_regs(struct ufs_hba *hba)
 
 	ufshcd_print_clk_freqs(hba);
 
-	if (hba->vops && hba->vops->dbg_register_dump)
-		hba->vops->dbg_register_dump(hba);
+	ufshcd_vops_dbg_register_dump(hba);
 }
 
 static
@@ -709,8 +708,7 @@ static inline u32 ufshcd_get_intr_mask(struct ufs_hba *hba)
 static inline u32 ufshcd_get_ufs_version(struct ufs_hba *hba)
 {
 	if (hba->quirks & UFSHCD_QUIRK_BROKEN_UFS_HCI_VERSION) {
-		if (hba->vops && hba->vops->get_ufs_hci_version)
-			return hba->vops->get_ufs_hci_version(hba);
+		return ufshcd_vops_get_ufs_hci_version(hba);
 	}
 
 	return ufshcd_readl(hba, REG_UFS_VERSION);
@@ -1099,22 +1097,18 @@ static int ufshcd_scale_clks(struct ufs_hba *hba, bool scale_up)
 {
 	int ret = 0;
 
-	if (hba->vops && hba->vops->clk_scale_notify) {
-		ret = hba->vops->clk_scale_notify(hba, scale_up, PRE_CHANGE);
-		if (ret)
-			return ret;
-	}
+	ret = ufshcd_vops_clk_scale_notify(hba, scale_up, PRE_CHANGE);
+	if (ret)
+		return ret;
 
 	ret = ufshcd_set_clk_freq(hba, scale_up);
 	if (ret)
 		return ret;
 
-	if (hba->vops && hba->vops->clk_scale_notify) {
-		ret = hba->vops->clk_scale_notify(hba, scale_up, POST_CHANGE);
-		if (ret) {
-			ufshcd_set_clk_freq(hba, !scale_up);
-			return ret;
-		}
+	ret = ufshcd_vops_clk_scale_notify(hba, scale_up, POST_CHANGE);
+	if (ret) {
+		ufshcd_set_clk_freq(hba, !scale_up);
+		return ret;
 	}
 
 	return ret;
@@ -1947,14 +1941,12 @@ int ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
 {
 	int ret = 0;
 
-	if (hba->vops && hba->vops->crypto_engine_cfg) {
-		ret = hba->vops->crypto_engine_cfg(hba, task_tag);
-		if (ret) {
-			dev_err(hba->dev,
-				"%s: failed to configure crypto engine %d\n",
-				__func__, ret);
-			return ret;
-		}
+	ret = ufshcd_vops_crypto_engine_cfg(hba, task_tag);
+	if (ret) {
+		dev_err(hba->dev,
+			"%s: failed to configure crypto engine %d\n",
+			__func__, ret);
+		return ret;
 	}
 
 	hba->lrb[task_tag].issue_time_stamp = ktime_get();
@@ -3893,13 +3885,11 @@ static int ufshcd_link_recovery(struct ufs_hba *hba)
 	ufshcd_set_eh_in_progress(hba);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
-	if (hba->vops && hba->vops->full_reset) {
-		ret = hba->vops->full_reset(hba);
-		if (ret)
-			dev_warn(hba->dev,
-				"full reset returned %d, trying to recover the link\n",
-				ret);
-	}
+	ret = ufshcd_vops_full_reset(hba);
+	if (ret)
+		dev_warn(hba->dev,
+			"full reset returned %d, trying to recover the link\n",
+			ret);
 
 	ret = ufshcd_host_reset_and_restore(hba);
 
@@ -4133,9 +4123,8 @@ int ufshcd_change_power_mode(struct ufs_hba *hba,
 		dev_err(hba->dev,
 			"%s: power mode change failed %d\n", __func__, ret);
 	} else {
-		if (hba->vops && hba->vops->pwr_change_notify)
-			hba->vops->pwr_change_notify(hba,
-				POST_CHANGE, NULL, pwr_mode);
+		ufshcd_vops_pwr_change_notify(hba, POST_CHANGE, NULL,
+						pwr_mode);
 
 		memcpy(&hba->pwr_info, pwr_mode,
 			sizeof(struct ufs_pa_layer_attr));
@@ -4159,9 +4148,9 @@ static int ufshcd_config_pwr_mode(struct ufs_hba *hba,
 	int ret;
 
 	/* Get the connected lane count */
-	if (hba->vops && hba->vops->pwr_change_notify)
-		hba->vops->pwr_change_notify(hba,
-		     PRE_CHANGE, desired_pwr_mode, &final_params);
+	if (hba->var && hba->var->vops && hba->var->vops->pwr_change_notify)
+		ufshcd_vops_pwr_change_notify(hba, PRE_CHANGE,
+					desired_pwr_mode, &final_params);
 	else
 		memcpy(&final_params, desired_pwr_mode, sizeof(final_params));
 
@@ -4314,8 +4303,7 @@ static int ufshcd_hba_enable(struct ufs_hba *hba)
 	/* UniPro link is disabled at this point */
 	ufshcd_set_link_off(hba);
 
-	if (hba->vops && hba->vops->hce_enable_notify)
-		hba->vops->hce_enable_notify(hba, PRE_CHANGE);
+	ufshcd_vops_hce_enable_notify(hba, PRE_CHANGE);
 
 	/* start controller initialization sequence */
 	ufshcd_hba_start(hba);
@@ -4348,8 +4336,7 @@ static int ufshcd_hba_enable(struct ufs_hba *hba)
 	/* enable UIC related interrupts */
 	ufshcd_enable_intr(hba, UFSHCD_UIC_MASK);
 
-	if (hba->vops && hba->vops->hce_enable_notify)
-		hba->vops->hce_enable_notify(hba, POST_CHANGE);
+	ufshcd_vops_hce_enable_notify(hba, POST_CHANGE);
 
 	return 0;
 }
@@ -4407,8 +4394,7 @@ static int ufshcd_link_startup(struct ufs_hba *hba)
 	int retries = DME_LINKSTARTUP_RETRIES;
 
 	do {
-		if (hba->vops && hba->vops->link_startup_notify)
-			hba->vops->link_startup_notify(hba, PRE_CHANGE);
+		ufshcd_vops_link_startup_notify(hba, PRE_CHANGE);
 
 		ret = ufshcd_dme_link_startup(hba);
 		if (ret)
@@ -4452,11 +4438,9 @@ static int ufshcd_link_startup(struct ufs_hba *hba)
 	}
 
 	/* Include any host controller configuration via UIC commands */
-	if (hba->vops && hba->vops->link_startup_notify) {
-		ret = hba->vops->link_startup_notify(hba, POST_CHANGE);
-		if (ret)
-			goto out;
-	}
+	ret = ufshcd_vops_link_startup_notify(hba, POST_CHANGE);
+	if (ret)
+		goto out;
 
 	ret = ufshcd_make_hba_operational(hba);
 out:
@@ -5475,8 +5459,7 @@ static void ufshcd_err_handler(struct work_struct *work)
 		}
 	}
 
-	if (hba->vops && hba->vops->crypto_engine_get_err)
-		crypto_engine_err = hba->vops->crypto_engine_get_err(hba);
+	crypto_engine_err = ufshcd_vops_crypto_engine_get_err(hba);
 
 	if ((hba->saved_err & INT_FATAL_ERRORS) || crypto_engine_err ||
 	    ((hba->saved_err & UIC_ERROR) &&
@@ -5563,8 +5546,7 @@ skip_pending_xfer_clear:
 		scsi_report_bus_reset(hba->host, 0);
 		hba->saved_err = 0;
 		hba->saved_uic_err = 0;
-		if (hba->vops && hba->vops->crypto_engine_reset_err)
-			hba->vops->crypto_engine_reset_err(hba);
+		ufshcd_vops_crypto_engine_reset_err(hba);
 	}
 
 skip_err_handling:
@@ -5662,8 +5644,7 @@ static void ufshcd_check_errors(struct ufs_hba *hba)
 	bool queue_eh_work = false;
 	int crypto_engine_err = 0;
 
-	if (hba->vops && hba->vops->crypto_engine_get_err)
-		crypto_engine_err = hba->vops->crypto_engine_get_err(hba);
+	crypto_engine_err = ufshcd_vops_crypto_engine_get_err(hba);
 
 	if (hba->errors & INT_FATAL_ERRORS || crypto_engine_err)
 		queue_eh_work = true;
@@ -5725,8 +5706,7 @@ static void ufshcd_sl_intr(struct ufs_hba *hba, u32 intr_status)
 	ufsdbg_error_inject_dispatcher(hba,
 		ERR_INJECT_INTR, intr_status, &intr_status);
 
-	if (hba->vops && hba->vops->crypto_engine_eh)
-		crypto_engine_err = hba->vops->crypto_engine_eh(hba);
+	ufshcd_vops_crypto_engine_eh(hba);
 
 	hba->errors = UFSHCD_ERROR_MASK & intr_status;
 	if (hba->errors || crypto_engine_err)
@@ -6160,8 +6140,8 @@ static int ufshcd_host_reset_and_restore(struct ufs_hba *hba)
 		goto out;
 	}
 
-	if (!err && hba->vops && hba->vops->crypto_engine_reset) {
-		err = hba->vops->crypto_engine_reset(hba);
+	if (!err) {
+		err = ufshcd_vops_crypto_engine_reset(hba);
 		if (err) {
 			dev_err(hba->dev,
 				"%s: failed to reset crypto engine %d\n",
@@ -7178,8 +7158,8 @@ static int ufshcd_setup_hba_vreg(struct ufs_hba *hba, bool on)
 	if (info->vdd_hba) {
 		ret = ufshcd_toggle_vreg(hba->dev, info->vdd_hba, on);
 
-		if (!ret && hba->vops && hba->vops->update_sec_cfg)
-			hba->vops->update_sec_cfg(hba, on);
+		if (!ret)
+			ufshcd_vops_update_sec_cfg(hba, on);
 	}
 
 	return ret;
@@ -7282,8 +7262,8 @@ static int __ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
 	 * this standard driver hence call the vendor specific setup_clocks
 	 * before disabling the clocks managed here.
 	 */
-	if (hba->vops && hba->vops->setup_clocks && !on) {
-		ret = hba->vops->setup_clocks(hba, on);
+	if (!on) {
+		ret = ufshcd_vops_setup_clocks(hba, on);
 		if (ret)
 			return ret;
 	}
@@ -7315,8 +7295,8 @@ static int __ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
 	 * this standard driver hence call the vendor specific setup_clocks
 	 * after enabling the clocks managed here.
 	 */
-	if (hba->vops && hba->vops->setup_clocks && on)
-		ret = hba->vops->setup_clocks(hba, on);
+	if (on)
+		ret = ufshcd_vops_setup_clocks(hba, on);
 
 out:
 	if (ret) {
@@ -7331,8 +7311,7 @@ out:
 			hba->clk_gating.state);
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
 		/* restore the secure configuration as clocks are enabled */
-		if (hba->vops && hba->vops->update_sec_cfg)
-			hba->vops->update_sec_cfg(hba, true);
+		ufshcd_vops_update_sec_cfg(hba, true);
 	}
 
 	if (clk_state_changed)
@@ -7390,46 +7369,38 @@ static int ufshcd_variant_hba_init(struct ufs_hba *hba)
 {
 	int err = 0;
 
-	if (!hba->vops)
+	if (!hba->var || !hba->var->vops)
 		goto out;
 
-	if (hba->vops->init) {
-		err = hba->vops->init(hba);
-		if (err)
-			goto out;
-	}
+	err = ufshcd_vops_init(hba);
+	if (err)
+		goto out;
 
-	if (hba->vops->setup_regulators) {
-		err = hba->vops->setup_regulators(hba, true);
-		if (err)
-			goto out_exit;
-	}
+	err = ufshcd_vops_setup_regulators(hba, true);
+	if (err)
+		goto out_exit;
 
 	goto out;
 
 out_exit:
-	if (hba->vops->exit)
-		hba->vops->exit(hba);
+	ufshcd_vops_exit(hba);
 out:
 	if (err)
 		dev_err(hba->dev, "%s: variant %s init failed err %d\n",
-			__func__, hba->vops ? hba->vops->name : "", err);
+			__func__, ufshcd_get_var_name(hba), err);
 	return err;
 }
 
 static void ufshcd_variant_hba_exit(struct ufs_hba *hba)
 {
-	if (!hba->vops)
+	if (!hba->var || !hba->var->vops)
 		return;
 
-	if (hba->vops->setup_clocks)
-		hba->vops->setup_clocks(hba, false);
+	ufshcd_vops_setup_clocks(hba, false);
 
-	if (hba->vops->setup_regulators)
-		hba->vops->setup_regulators(hba, false);
+	ufshcd_vops_setup_regulators(hba, false);
 
-	if (hba->vops->exit)
-		hba->vops->exit(hba);
+	ufshcd_vops_exit(hba);
 }
 
 static int ufshcd_hba_init(struct ufs_hba *hba)
@@ -7839,17 +7810,13 @@ disable_clks:
 	 * vendor specific host controller register space call them before the
 	 * host clocks are ON.
 	 */
-	if (hba->vops && hba->vops->suspend) {
-		ret = hba->vops->suspend(hba, pm_op);
-		if (ret)
-			goto set_link_active;
-	}
+	ret = ufshcd_vops_suspend(hba, pm_op);
+	if (ret)
+		goto set_link_active;
 
-	if (hba->vops && hba->vops->setup_clocks) {
-		ret = hba->vops->setup_clocks(hba, false);
-		if (ret)
-			goto vops_resume;
-	}
+	ret = ufshcd_vops_setup_clocks(hba, false);
+	if (ret)
+		goto vops_resume;
 
 	if (!ufshcd_is_link_active(hba))
 		ufshcd_setup_clocks(hba, false);
@@ -7869,8 +7836,7 @@ disable_clks:
 	goto out;
 
 vops_resume:
-	if (hba->vops && hba->vops->resume)
-		hba->vops->resume(hba, pm_op);
+	ufshcd_vops_resume(hba, pm_op);
 set_link_active:
 	ufshcd_resume_clkscaling(hba);
 	ufshcd_vreg_set_hpm(hba);
@@ -7939,11 +7905,9 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	 * vendor specific host controller register space call them when the
 	 * host clocks are ON.
 	 */
-	if (hba->vops && hba->vops->resume) {
-		ret = hba->vops->resume(hba, pm_op);
-		if (ret)
-			goto disable_vreg;
-	}
+	ret = ufshcd_vops_resume(hba, pm_op);
+	if (ret)
+		goto disable_vreg;
 
 	if (ufshcd_is_link_hibern8(hba)) {
 		ret = ufshcd_uic_hibern8_exit(hba);
@@ -7999,8 +7963,7 @@ set_old_link_state:
 	if (ufshcd_is_link_hibern8(hba))
 		hba->hibern8_on_idle.state = HIBERN8_ENTERED;
 vendor_suspend:
-	if (hba->vops && hba->vops->suspend)
-		hba->vops->suspend(hba, pm_op);
+	ufshcd_vops_suspend(hba, pm_op);
 disable_vreg:
 	ufshcd_vreg_set_lpm(hba);
 disable_irq_and_vops_clks:

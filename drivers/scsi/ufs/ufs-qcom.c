@@ -1807,31 +1807,38 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
  * The variant operations configure the necessary controller and PHY
  * handshake during initialization.
  */
-const struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
-	.name                   = "qcom",
-	.init                   = ufs_qcom_init,
-	.exit                   = ufs_qcom_exit,
+static struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
+	.init			= ufs_qcom_init,
+	.exit			= ufs_qcom_exit,
 	.get_ufs_hci_version	= ufs_qcom_get_ufs_hci_version,
 	.clk_scale_notify	= ufs_qcom_clk_scale_notify,
-	.setup_clocks           = ufs_qcom_setup_clocks,
-	.hce_enable_notify      = ufs_qcom_hce_enable_notify,
-	.link_startup_notify    = ufs_qcom_link_startup_notify,
+	.setup_clocks		= ufs_qcom_setup_clocks,
+	.hce_enable_notify	= ufs_qcom_hce_enable_notify,
+	.link_startup_notify	= ufs_qcom_link_startup_notify,
 	.pwr_change_notify	= ufs_qcom_pwr_change_notify,
 	.suspend		= ufs_qcom_suspend,
 	.resume			= ufs_qcom_resume,
 	.full_reset		= ufs_qcom_full_reset,
 	.update_sec_cfg		= ufs_qcom_update_sec_cfg,
-	.crypto_engine_cfg	= ufs_qcom_crytpo_engine_cfg,
-	.crypto_engine_reset	= ufs_qcom_crytpo_engine_reset,
-	.crypto_engine_eh	= ufs_qcom_crypto_engine_eh,
-	.crypto_engine_get_err	= ufs_qcom_crypto_engine_get_err,
-	.crypto_engine_reset_err = ufs_qcom_crypto_engine_reset_err,
 	.dbg_register_dump	= ufs_qcom_dump_dbg_regs,
 #ifdef CONFIG_DEBUG_FS
 	.add_debugfs		= ufs_qcom_dbg_add_debugfs,
 #endif
 };
-EXPORT_SYMBOL(ufs_hba_qcom_vops);
+
+static struct ufs_hba_crypto_variant_ops ufs_hba_crypto_variant_ops = {
+	.crypto_engine_cfg	= ufs_qcom_crytpo_engine_cfg,
+	.crypto_engine_reset	= ufs_qcom_crytpo_engine_reset,
+	.crypto_engine_eh	= ufs_qcom_crypto_engine_eh,
+	.crypto_engine_get_err	= ufs_qcom_crypto_engine_get_err,
+	.crypto_engine_reset_err = ufs_qcom_crypto_engine_reset_err,
+};
+
+static struct ufs_hba_variant ufs_hba_qcom_variant = {
+	.name		= "qcom",
+	.vops		= &ufs_hba_qcom_vops,
+	.crypto_vops	= &ufs_hba_crypto_variant_ops,
+};
 
 /**
  * ufs_qcom_probe - probe routine of the driver
@@ -1841,7 +1848,7 @@ EXPORT_SYMBOL(ufs_hba_qcom_vops);
  */
 static int ufs_qcom_probe(struct platform_device *pdev)
 {
-	dev_set_drvdata(&pdev->dev, (void *)&ufs_hba_qcom_vops);
+	dev_set_drvdata(&pdev->dev, (void *)&ufs_hba_qcom_variant);
 	return 0;
 }
 
