@@ -94,6 +94,9 @@ static const struct voltage_range ult_hf_range1 = {750000, 750000, 1525000,
 #define QPNP_FTS2_STEP_DELAY		8
 #define QPNP_ULT_HF_STEP_DELAY		20
 
+/* Arbitrarily large max step size used to avoid possible numerical overflow */
+#define SPM_REGULATOR_MAX_STEP_UV	10000000
+
 /*
  * The ratio QPNP_FTS2_STEP_MARGIN_NUM/QPNP_FTS2_STEP_MARGIN_DEN is use to
  * adjust the step rate in order to account for oscillator variance.
@@ -113,6 +116,7 @@ struct spm_vreg {
 	int				last_set_uV;
 	unsigned			vlevel;
 	unsigned			last_set_vlevel;
+	u32				max_step_uV;
 	bool				online;
 	u16				spmi_base_addr;
 	u8				init_mode;
@@ -132,6 +136,48 @@ static inline bool spm_regulator_using_avs(struct spm_vreg *vreg)
 	return vreg->avs_rdev && !vreg->bypass_spm;
 }
 
+static int spm_regulator_uv_to_vlevel(struct spm_vreg *vreg, int uV)
+{
+	int vlevel;
+
+	vlevel = DIV_ROUND_UP(uV - vreg->range->min_uV, vreg->range->step_uV);
+
+	/* Fix VSET for ULT HF Buck */
+	if (vreg->regulator_type == QPNP_TYPE_ULT_HF
+	    && vreg->range == &ult_hf_range1) {
+		vlevel &= 0x1F;
+		vlevel |= ULT_SMPS_RANGE_SPLIT;
+	}
+
+	return vlevel;
+}
+
+static int spm_regulator_vlevel_to_uv(struct spm_vreg *vreg, int vlevel)
+{
+	/*
+	 * Calculate ULT HF buck VSET based on range:
+	 * In case of range 0: VSET is a 7 bit value.
+	 * In case of range 1: VSET is a 5 bit value.
+	 */
+	if (vreg->regulator_type == QPNP_TYPE_ULT_HF
+	    && vreg->range == &ult_hf_range1)
+		vlevel &= ~ULT_SMPS_RANGE_SPLIT;
+
+	return vlevel * vreg->range->step_uV + vreg->range->min_uV;
+}
+
+static unsigned spm_regulator_vlevel_to_selector(struct spm_vreg *vreg,
+						 unsigned vlevel)
+{
+	/* Fix VSET for ULT HF Buck */
+	if (vreg->regulator_type == QPNP_TYPE_ULT_HF
+	    && vreg->range == &ult_hf_range1)
+		vlevel &= ~ULT_SMPS_RANGE_SPLIT;
+
+	return vlevel - (vreg->range->set_point_min_uV - vreg->range->min_uV)
+				/ vreg->range->step_uV;
+}
+
 static int qpnp_smps_read_voltage(struct spm_vreg *vreg)
 {
 	int rc;
@@ -146,17 +192,7 @@ static int qpnp_smps_read_voltage(struct spm_vreg *vreg)
 	}
 
 	vreg->last_set_vlevel = reg;
-
-	/*
-	 * Calculate ULT HF buck VSET based on range:
-	 * In case of range 0: VSET is a 7 bit value.
-	 * In case of range 1: VSET is a 5 bit value.
-	 */
-	if (vreg->regulator_type == QPNP_TYPE_ULT_HF
-	    && vreg->range == &ult_hf_range1)
-		reg &= ~ULT_SMPS_RANGE_SPLIT;
-
-	vreg->last_set_uV = reg * vreg->range->step_uV + vreg->range->min_uV;
+	vreg->last_set_uV = spm_regulator_vlevel_to_uv(vreg, reg);
 
 	return rc;
 }
@@ -197,40 +233,24 @@ static int spm_regulator_get_voltage(struct regulator_dev *rdev)
 		}
 
 		vreg->last_set_vlevel = vlevel;
-		vreg->last_set_uV = vlevel * vreg->range->step_uV
-			+ vreg->range->min_uV;
+		vreg->last_set_uV = spm_regulator_vlevel_to_uv(vreg, vlevel);
+
 		return vreg->last_set_uV;
 	} else {
 		return vreg->uV;
 	}
 };
 
-static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
+static int spm_regulator_write_voltage(struct spm_vreg *vreg, int uV)
 {
-	struct spm_vreg *vreg = rdev_get_drvdata(rdev);
+	unsigned vlevel = spm_regulator_uv_to_vlevel(vreg, uV);
 	bool spm_failed = false;
 	int rc = 0;
 	u8 reg;
 
-	rc = spm_regulator_get_voltage(rdev);
-	if (IS_ERR_VALUE(rc))
-		return rc;
-
-	if (vreg->vlevel == vreg->last_set_vlevel)
-		return 0;
-
-	if ((vreg->regulator_type == QPNP_TYPE_FTS2)
-	    && !(vreg->init_mode & QPNP_SMPS_MODE_PWM)
-	    && vreg->uV > vreg->last_set_uV) {
-		/* Switch to PWM mode so that voltage ramping is fast. */
-		rc = qpnp_fts2_set_mode(vreg, QPNP_SMPS_MODE_PWM);
-		if (rc)
-			return rc;
-	}
-
 	if (likely(!vreg->bypass_spm)) {
 		/* Set voltage control register via SPM. */
-		rc = msm_spm_set_vdd(vreg->cpu_num, vreg->vlevel);
+		rc = msm_spm_set_vdd(vreg->cpu_num, vlevel);
 		if (rc) {
 			pr_debug("%s: msm_spm_set_vdd failed, rc=%d; falling back on SPMI write\n",
 				vreg->rdesc.name, rc);
@@ -240,7 +260,7 @@ static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 
 	if (unlikely(vreg->bypass_spm || spm_failed)) {
 		/* Set voltage control register via SPMI. */
-		reg = vreg->vlevel;
+		reg = vlevel;
 		rc = spmi_ext_register_writel(vreg->spmi_dev->ctrl,
 			vreg->spmi_dev->sid,
 			vreg->spmi_base_addr + QPNP_SMPS_REG_VOLTAGE_SETPOINT,
@@ -252,15 +272,53 @@ static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 		}
 	}
 
-	if (vreg->uV > vreg->last_set_uV) {
+	if (uV > vreg->last_set_uV) {
 		/* Wait for voltage stepping to complete. */
-		udelay(DIV_ROUND_UP(vreg->uV - vreg->last_set_uV,
-					vreg->step_rate));
+		udelay(DIV_ROUND_UP(uV - vreg->last_set_uV, vreg->step_rate));
 	}
 
-	if ((vreg->regulator_type == QPNP_TYPE_FTS2)
-	    && !(vreg->init_mode & QPNP_SMPS_MODE_PWM)
-	    && vreg->uV > vreg->last_set_uV) {
+	vreg->last_set_uV = uV;
+	vreg->last_set_vlevel = vlevel;
+
+	return rc;
+}
+
+static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
+{
+	struct spm_vreg *vreg = rdev_get_drvdata(rdev);
+	bool pwm_required;
+	int rc = 0;
+	int uV;
+
+	rc = spm_regulator_get_voltage(rdev);
+	if (IS_ERR_VALUE(rc))
+		return rc;
+
+	if (vreg->vlevel == vreg->last_set_vlevel)
+		return 0;
+
+	pwm_required = (vreg->regulator_type == QPNP_TYPE_FTS2)
+			&& !(vreg->init_mode & QPNP_SMPS_MODE_PWM)
+			&& vreg->uV > vreg->last_set_uV;
+
+	if (pwm_required) {
+		/* Switch to PWM mode so that voltage ramping is fast. */
+		rc = qpnp_fts2_set_mode(vreg, QPNP_SMPS_MODE_PWM);
+		if (rc)
+			return rc;
+	}
+
+	do {
+		uV = vreg->uV > vreg->last_set_uV
+		    ? min(vreg->uV, vreg->last_set_uV + (int)vreg->max_step_uV)
+		    : max(vreg->uV, vreg->last_set_uV - (int)vreg->max_step_uV);
+
+		rc = spm_regulator_write_voltage(vreg, uV);
+		if (rc)
+			return rc;
+	} while (vreg->last_set_uV != vreg->uV);
+
+	if (pwm_required) {
 		/* Wait for mode transition to complete. */
 		udelay(QPNP_FTS2_MODE_CHANGE_DELAY - QPNP_SPMI_WRITE_MIN_DELAY);
 		/* Switch to AUTO mode so that power consumption is lowered. */
@@ -268,9 +326,6 @@ static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 		if (rc)
 			return rc;
 	}
-
-	vreg->last_set_uV = vreg->uV;
-	vreg->last_set_vlevel = vreg->vlevel;
 
 	return rc;
 }
@@ -293,8 +348,8 @@ static int spm_regulator_set_voltage(struct regulator_dev *rdev, int min_uV,
 		return -EINVAL;
 	}
 
-	vlevel = DIV_ROUND_UP(uV - range->min_uV, range->step_uV);
-	uV = vlevel * range->step_uV + range->min_uV;
+	vlevel = spm_regulator_uv_to_vlevel(vreg, uV);
+	uV = spm_regulator_vlevel_to_uv(vreg, vlevel);
 
 	if (uV > max_uV) {
 		pr_err("%s: request v=[%d, %d] cannot be met by any set point\n",
@@ -302,18 +357,7 @@ static int spm_regulator_set_voltage(struct regulator_dev *rdev, int min_uV,
 		return -EINVAL;
 	}
 
-	*selector = vlevel -
-		(vreg->range->set_point_min_uV - vreg->range->min_uV)
-			/ vreg->range->step_uV;
-
-	/* Fix VSET for ULT HF Buck */
-	if ((vreg->regulator_type == QPNP_TYPE_ULT_HF) &&
-					(range == &ult_hf_range1)) {
-
-		vlevel &= 0x1F;
-		vlevel |= ULT_SMPS_RANGE_SPLIT;
-	}
-
+	*selector = spm_regulator_vlevel_to_selector(vreg, vlevel);
 	vreg->vlevel = vlevel;
 	vreg->uV = uV;
 
@@ -392,8 +436,8 @@ static int spm_regulator_avs_set_voltage(struct regulator_dev *rdev, int min_uV,
 		return -EINVAL;
 	}
 
-	vlevel_min = DIV_ROUND_UP(uV - range->min_uV, range->step_uV);
-	avs_min_uV = vlevel_min * range->step_uV + range->min_uV;
+	vlevel_min = spm_regulator_uv_to_vlevel(vreg, uV);
+	avs_min_uV = spm_regulator_vlevel_to_uv(vreg, vlevel_min);
 
 	if (avs_min_uV > max_uV) {
 		pr_err("%s: request v=[%d, %d] cannot be met by any set point\n",
@@ -414,25 +458,12 @@ static int spm_regulator_avs_set_voltage(struct regulator_dev *rdev, int min_uV,
 	}
 
 	vlevel_max = (uV - range->min_uV) / range->step_uV;
-	avs_max_uV = vlevel_max * range->step_uV + range->min_uV;
+	avs_max_uV = spm_regulator_vlevel_to_uv(vreg, vlevel_max);
 
 	if (avs_max_uV < min_uV) {
 		pr_err("%s: request v=[%d, %d] cannot be met by any set point\n",
 			vreg->avs_rdesc.name, min_uV, max_uV);
 		return -EINVAL;
-	}
-
-	*selector = vlevel_min -
-		(vreg->range->set_point_min_uV - vreg->range->min_uV)
-			/ vreg->range->step_uV;
-
-	/* Update vlevel for ULT HF Buck */
-	if (vreg->regulator_type == QPNP_TYPE_ULT_HF
-	    && range == &ult_hf_range1) {
-		vlevel_min &= 0x1F;
-		vlevel_min |= ULT_SMPS_RANGE_SPLIT;
-		vlevel_max &= 0x1F;
-		vlevel_max |= ULT_SMPS_RANGE_SPLIT;
 	}
 
 	if (likely(!vreg->bypass_spm)) {
@@ -445,6 +476,7 @@ static int spm_regulator_avs_set_voltage(struct regulator_dev *rdev, int min_uV,
 		}
 	}
 
+	*selector = spm_regulator_vlevel_to_selector(vreg, vlevel_min);
 	vreg->avs_min_uV = avs_min_uV;
 	vreg->avs_max_uV = avs_max_uV;
 
@@ -855,6 +887,17 @@ static int spm_regulator_probe(struct spmi_device *spmi)
 	vreg->rdesc.n_voltages
 		= (vreg->range->max_uV - vreg->range->set_point_min_uV)
 			/ vreg->range->step_uV + 1;
+
+	vreg->max_step_uV = SPM_REGULATOR_MAX_STEP_UV;
+	of_property_read_u32(vreg->spmi_dev->dev.of_node,
+				"qcom,max-voltage-step", &vreg->max_step_uV);
+
+	if (vreg->max_step_uV > SPM_REGULATOR_MAX_STEP_UV)
+		vreg->max_step_uV = SPM_REGULATOR_MAX_STEP_UV;
+
+	vreg->max_step_uV = rounddown(vreg->max_step_uV, vreg->range->step_uV);
+	pr_debug("%s: max single voltage step size=%u uV\n",
+		vreg->rdesc.name, vreg->max_step_uV);
 
 	reg_config.dev = &spmi->dev;
 	reg_config.init_data = init_data;
