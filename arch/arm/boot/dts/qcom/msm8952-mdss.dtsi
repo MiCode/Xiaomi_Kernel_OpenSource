@@ -78,7 +78,6 @@
 		qcom,mdss-wfd-mode = "dedicated";
 		qcom,mdss-has-non-scalar-rgb;
 		qcom,mdss-has-decimation;
-		qcom,mdss-traffic-shaper-enabled;
 		qcom,mdss-no-hist-vote;
 		qcom,mdss-needs-iommu-bw-vote;
 
