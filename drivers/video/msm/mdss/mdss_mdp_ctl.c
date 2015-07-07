@@ -555,7 +555,7 @@ u32 apply_comp_ratio_factor(u32 quota,
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
-	if (!mdata || test_bit(MDSS_QOS_OVERHEAD_FACTOR,
+	if (!mdata || !test_bit(MDSS_QOS_OVERHEAD_FACTOR,
 		      mdata->mdss_qos_map))
 		return quota;
 
