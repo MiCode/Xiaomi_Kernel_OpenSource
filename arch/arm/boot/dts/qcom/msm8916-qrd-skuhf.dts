@@ -53,7 +53,6 @@
 
 &dsi_otm1283a_720p_video {
 	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
-	qcom,cont-splash-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 

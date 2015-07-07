@@ -365,14 +365,12 @@
 };
 
 &dsi_truly_1080_vid {
-	qcom,cont-splash-enabled;
 	qcom,mdss-dsi-pan-enable-dynamic-fps;
 	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_sharp_1080_cmd {
-	qcom,cont-splash-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,partial-update-enabled;
 };
@@ -399,7 +397,6 @@
 };
 
 &dsi_truly_1080_cmd {
-	qcom,cont-splash-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,ulps-enabled;
 };

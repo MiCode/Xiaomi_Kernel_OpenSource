@@ -166,7 +166,6 @@
 };
 
 &dsi_innolux_720p_video {
-	qcom,cont-splash-enabled;
 	qcom,esd-check-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_tps_qrd>;
 };

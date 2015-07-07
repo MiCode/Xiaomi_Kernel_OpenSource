@@ -54,9 +54,6 @@
 	qcom,lane-map = "lane_map_3012";
 };
 
-&dsi_hx8389b_qhd_vid {
-	qcom,cont-splash-enabled;
-};
 &soc {
 	i2c@f9925000 {
 		fsl@1c {

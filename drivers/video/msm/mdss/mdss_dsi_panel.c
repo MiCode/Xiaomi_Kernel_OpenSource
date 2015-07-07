@@ -1589,9 +1589,6 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 
 	pinfo = &ctrl->panel_data.panel_info;
 
-	pinfo->cont_splash_enabled = of_property_read_bool(np,
-		"qcom,cont-splash-enabled");
-
 	pinfo->partial_update_supported = of_property_read_bool(np,
 		"qcom,partial-update-enabled");
 	if (pinfo->mipi.mode == DSI_CMD_MODE) {
@@ -2130,8 +2127,7 @@ error:
 }
 
 int mdss_dsi_panel_init(struct device_node *node,
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata,
-	bool cmd_cfg_cont_splash)
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	int rc = 0;
 	static const char *panel_name;
@@ -2159,11 +2155,6 @@ int mdss_dsi_panel_init(struct device_node *node,
 		pr_err("%s:%d panel dt parse failed\n", __func__, __LINE__);
 		return rc;
 	}
-
-	if (!cmd_cfg_cont_splash)
-		pinfo->cont_splash_enabled = false;
-	pr_info("%s: Continuous splash %s\n", __func__,
-		pinfo->cont_splash_enabled ? "enabled" : "disabled");
 
 	pinfo->dynamic_switch_pending = false;
 	pinfo->is_lpm_mode = false;

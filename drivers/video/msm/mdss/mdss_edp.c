@@ -1181,8 +1181,8 @@ static int mdss_edp_probe(struct platform_device *pdev)
 
 	mdss_edp_event_setup(edp_drv);
 
-	edp_drv->cont_splash = of_property_read_bool(pdev->dev.of_node,
-			"qcom,cont-splash-enabled");
+	edp_drv->cont_splash = edp_drv->mdss_util->panel_intf_status(DISPLAY_1,
+		MDSS_PANEL_INTF_EDP) ? true : false;
 
 	/* only need aux and ahb clock for aux channel */
 	mdss_edp_prepare_aux_clocks(edp_drv);

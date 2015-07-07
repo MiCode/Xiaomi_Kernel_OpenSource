@@ -551,8 +551,7 @@ void mdss_dsi_get_hw_revision(struct mdss_dsi_ctrl_pdata *ctrl);
 u32 mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
 		char cmd1, void (*fxn)(int), char *rbuf, int len);
 int mdss_dsi_panel_init(struct device_node *node,
-		struct mdss_dsi_ctrl_pdata *ctrl_pdata,
-		bool cmd_cfg_cont_splash);
+		struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 int mdss_panel_parse_bl_settings(struct device_node *np,
 			struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 int mdss_panel_get_dst_fmt(u32 bpp, char mipi_mode, u32 pixel_packing,
