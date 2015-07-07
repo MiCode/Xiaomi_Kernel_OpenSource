@@ -119,3 +119,10 @@ reference so that when the buffer is freed, the mapping is not destroyed
 and can be re-used. By specifying this attribute, an additional reference
 will NOT be held by the lazy mapping code and it will be released as soon
 as the buffer is freed.
+
+DMA_ATTR_EXEC_MAPPING
+---------------------
+
+By default, the DMA mappings are non-executable. Some use cases might require
+an executable mapping. This attribute can be used to indicate to the DMA
+subsystem to create an executable mappings for the buffer.
