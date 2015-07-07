@@ -1352,6 +1352,7 @@ void mdss_hw_init(struct mdss_data_type *mdata)
 	int i, j;
 	char *offset;
 	struct mdss_mdp_pipe *vig;
+	u32 data = 0;
 
 	mdss_hw_rev_init(mdata);
 
@@ -1372,11 +1373,16 @@ void mdss_hw_init(struct mdss_data_type *mdata)
 	for (i = 0; i < mdata->ndspp; i++) {
 		offset = mdata->mixer_intf[i].dspp_base +
 				MDSS_MDP_REG_DSPP_HIST_LUT_BASE;
-		for (j = 0; j < ENHIST_LUT_ENTRIES; j++)
-			writel_relaxed(j, offset);
-
+		for (j = 0; j < (ENHIST_LUT_ENTRIES / 2); j++) {
+			data = 2 * j;
+			data |= (2 * j + 1) << 16;
+			writel_relaxed(data, offset);
+			offset += 4;
+		}
 		/* swap */
-		writel_relaxed(1, offset + 4);
+		offset = mdata->mixer_intf[i].dspp_base +
+				MDSS_MDP_REG_DSPP_HIST_LUT_SWAP;
+		writel_relaxed(1, offset);
 	}
 	vig = mdata->vig_pipes;
 	for (i = 0; i < mdata->nvig_pipes; i++) {
