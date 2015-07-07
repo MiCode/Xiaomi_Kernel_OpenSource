@@ -8649,6 +8649,8 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 					control->slim_slave->laddr;
 		tasha_slimbus_slave_port_cfg.slave_dev_pgd_la =
 					control->slim->laddr;
+		tasha_slimbus_slave_port_cfg.slave_port_mapping[0] =
+					TASHA_TX13;
 		tasha_init_slim_slave_cfg(codec);
 	}
 
