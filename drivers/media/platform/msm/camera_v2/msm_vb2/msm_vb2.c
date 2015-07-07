@@ -142,35 +142,10 @@ static void msm_vb2_stop_stream(struct vb2_queue *q)
 	spin_unlock_irqrestore(&stream->stream_lock, flags);
 }
 
-static void msm_vb2_buf_cleanup(struct vb2_buffer *vb)
-{
-	struct msm_vb2_buffer *msm_vb2;
-	struct msm_stream *stream;
-	unsigned long flags;
-
-	msm_vb2 = container_of(vb, struct msm_vb2_buffer, vb2_buf);
-
-	if (!msm_vb2) {
-		pr_err("%s:%d] vb2 NULL", __func__, __LINE__);
-		return;
-	}
-
-	stream = msm_get_stream_from_vb2q(vb->vb2_queue);
-	if (!stream) {
-		pr_err("%s:%d] NULL stream", __func__, __LINE__);
-		return;
-	}
-
-	spin_lock_irqsave(&stream->stream_lock, flags);
-	INIT_LIST_HEAD(&stream->queued_list);
-	spin_unlock_irqrestore(&stream->stream_lock, flags);
-}
-
 static struct vb2_ops msm_vb2_get_q_op = {
 	.queue_setup	= msm_vb2_queue_setup,
 	.buf_init	= msm_vb2_buf_init,
 	.buf_queue	= msm_vb2_buf_queue,
-	.buf_cleanup	= msm_vb2_buf_cleanup,
 	.buf_finish	= msm_vb2_buf_finish,
 	.stop_streaming = msm_vb2_stop_stream,
 };
