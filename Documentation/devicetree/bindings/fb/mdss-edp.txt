@@ -30,7 +30,6 @@ Optional properties
 
 
 Optional properties:
-- qcom,cont-splash-enabled:             Boolean used to enable continuous splash mode.
 - qcom,mdss-brightness-max-level:	Specifies the max brightness level supported.
 					255 = default value.
 
