@@ -39,6 +39,16 @@
 	qcom,mdss-dsi-mode-sel-gpio-state = "dsc_mode";
 };
 
+&dsi_truly_1080_vid {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+};
+
+&dsi_truly_1080_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+};
+
 &pmx_mdss {
 	qcom,num-grp-pins = <3>;
 	qcom,pins = <&gp 25>, <&gp 66>, <&gp 107>;
