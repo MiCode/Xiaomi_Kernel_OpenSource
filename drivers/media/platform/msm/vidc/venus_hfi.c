@@ -834,9 +834,6 @@ static int __unvote_buses(struct venus_hfi_device *device)
 	int rc = 0;
 	struct bus_info *bus = NULL;
 
-	kfree(device->bus_vote.data);
-	device->bus_vote = DEFAULT_BUS_VOTE;
-
 	venus_hfi_for_each_bus(device, bus) {
 		int local_rc = 0;
 		unsigned long zero = 0;
