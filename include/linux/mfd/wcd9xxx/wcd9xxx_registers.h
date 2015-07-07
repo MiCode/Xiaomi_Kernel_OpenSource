@@ -329,4 +329,5 @@
 #define WCD9XXX_A_ANA_RX_SUPPLIES			(0x608)
 #define WCD9XXX_A_ANA_HPH				(0x609)
 #define WCD9XXX_A_CDC_CLSH_CRC				(0xC01)
+#define WCD9XXX_FLYBACK_EN				(0x6A4)
 #endif
