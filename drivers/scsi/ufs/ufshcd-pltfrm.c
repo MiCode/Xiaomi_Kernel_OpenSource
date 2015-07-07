@@ -321,12 +321,12 @@ static void ufshcd_init_lanes_per_dir(struct ufs_hba *hba)
 /**
  * ufshcd_pltfrm_init - probe routine of the driver
  * @pdev: pointer to Platform device handle
- * @vops: pointer to variant ops
+ * @var: pointer to variant specific data
  *
  * Returns 0 on success, non-zero value on failure
  */
 int ufshcd_pltfrm_init(struct platform_device *pdev,
-		       struct ufs_hba_variant_ops *vops)
+		       struct ufs_hba_variant *var)
 {
 	struct ufs_hba *hba;
 	void __iomem *mmio_base;
@@ -354,7 +354,7 @@ int ufshcd_pltfrm_init(struct platform_device *pdev,
 		goto out;
 	}
 
-	hba->vops = vops;
+	hba->var = var;
 
 	err = ufshcd_parse_clock_info(hba);
 	if (err) {

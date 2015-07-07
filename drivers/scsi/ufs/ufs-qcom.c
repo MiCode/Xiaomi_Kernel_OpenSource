@@ -1853,7 +1853,6 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
  * handshake during initialization.
  */
 static struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
-	.name                   = "qcom",
 	.init                   = ufs_qcom_init,
 	.exit                   = ufs_qcom_exit,
 	.get_ufs_hci_version	= ufs_qcom_get_ufs_hci_version,
@@ -1871,11 +1870,20 @@ static struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 #ifdef CONFIG_DEBUG_FS
 	.add_debugfs		= ufs_qcom_dbg_add_debugfs,
 #endif
+};
+
+static struct ufs_hba_crypto_variant_ops ufs_hba_crypto_variant_ops = {
 	.crypto_engine_cfg	= ufs_qcom_crytpo_engine_cfg,
 	.crypto_engine_reset	= ufs_qcom_crytpo_engine_reset,
 	.crypto_engine_eh	= ufs_qcom_crypto_engine_eh,
 	.crypto_engine_get_err	= ufs_qcom_crypto_engine_get_err,
 	.crypto_engine_reset_err = ufs_qcom_crypto_engine_reset_err,
+};
+
+static struct ufs_hba_variant ufs_hba_qcom_variant = {
+	.name		= "qcom",
+	.vops		= &ufs_hba_qcom_vops,
+	.crypto_vops	= &ufs_hba_crypto_variant_ops,
 };
 
 /**
@@ -1890,7 +1898,7 @@ static int ufs_qcom_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 
 	/* Perform generic probe */
-	err = ufshcd_pltfrm_init(pdev, &ufs_hba_qcom_vops);
+	err = ufshcd_pltfrm_init(pdev, &ufs_hba_qcom_variant);
 	if (err)
 		dev_err(dev, "ufshcd_pltfrm_init() failed %d\n", err);
 
