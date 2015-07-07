@@ -927,6 +927,9 @@ Optional Properties:
 - asoc-codec-names: This property contains list of codec dai names. The order of the
 		    codec dai names should match to that of the phandle order given
 		    in "asoc-codec".
+- asoc-wsa-codec-names: This property contains list of wsa codec names. The names
+			should comply with the wsa nodes configurations.
+- asoc-wsa-codec-prefixes: This property contains list of wsa codec prefixes.
 
 Example:
 	 sound {
@@ -1023,6 +1026,8 @@ Example:
 				"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
+		asoc-wsa-codec-names = "wsa881x.20170212";
+		asoc-wsa-codec-prefixes = "SpkrLeft";
 	};
 
 * MSM8974 ASoC Machine driver
