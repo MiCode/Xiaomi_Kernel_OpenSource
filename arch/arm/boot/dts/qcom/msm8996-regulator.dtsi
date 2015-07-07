@@ -831,9 +831,9 @@
 					  0 2539    0    0    0    0    0    0>;
 
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
-					<35000 0 0 0>;
+					<55000 (-5000) (-50000) (-135000)>;
 				qcom,cpr-closed-loop-voltage-adjustment =
-					<0 45000 0 0 0>;
+					<0 55000 (-10000) (-35000) (-85000)>;
 
 				qcom,allow-voltage-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
