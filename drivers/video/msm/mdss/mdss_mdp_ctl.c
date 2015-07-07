@@ -3022,13 +3022,33 @@ int mdss_mdp_ctl_intf_event(struct mdss_mdp_ctl *ctl, int event, void *arg)
 static void mdss_mdp_ctl_restore_sub(struct mdss_mdp_ctl *ctl)
 {
 	u32 temp;
+	int ret = 0;
 
 	temp = readl_relaxed(ctl->mdata->mdp_base +
-		MDSS_MDP_REG_DISP_INTF_SEL);
+			MDSS_MDP_REG_DISP_INTF_SEL);
 	temp |= (ctl->intf_type << ((ctl->intf_num - MDSS_MDP_INTF0) * 8));
 	writel_relaxed(temp, ctl->mdata->mdp_base +
-		MDSS_MDP_REG_DISP_INTF_SEL);
-	mdss_mdp_pp_resume(ctl, ctl->mixer_left->num);
+			MDSS_MDP_REG_DISP_INTF_SEL);
+
+	if (ctl->mixer_left) {
+		mdss_mdp_pp_resume(ctl, ctl->mixer_left->num);
+		if (ctl->mixer_right)
+			mdss_mdp_pp_resume(ctl, ctl->mixer_right->num);
+
+		if (ctl->panel_data->panel_info.compression_mode ==
+				COMPRESSION_DSC) {
+			ret = mdss_mdp_ctl_dsc_enable(1, ctl->mixer_left,
+					&ctl->panel_data->panel_info);
+			if (ret)
+				pr_err("Failed to restore DSC mode\n");
+		} else if (ctl->panel_data->panel_info.compression_mode ==
+				COMPRESSION_FBC) {
+			ret = mdss_mdp_ctl_fbc_enable(1, ctl->mixer_left,
+					&ctl->panel_data->panel_info);
+			if (ret)
+				pr_err("Failed to restore FBC mode\n");
+		}
+	}
 }
 
 /*
