@@ -1442,7 +1442,7 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 		SPRINT(" bwc");
 	if (mdata->has_decimation)
 		SPRINT(" decimation");
-	if (mdata->highest_bank_bit)
+	if (mdata->highest_bank_bit && !mdss_mdp_is_ubwc_supported(mdata))
 		SPRINT(" tile_format");
 	if (mdata->has_non_scalar_rgb)
 		SPRINT(" non_scalar_rgb");
