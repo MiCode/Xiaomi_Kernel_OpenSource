@@ -4639,7 +4639,6 @@ static int hdmi_tx_get_dt_data(struct platform_device *pdev,
 	int i, rc = 0;
 	struct device_node *of_node = NULL;
 	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
-	bool splash_en;
 
 	if (!pdev || !pdata) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -4696,12 +4695,10 @@ static int hdmi_tx_get_dt_data(struct platform_device *pdev,
 	pdata->cond_power_on = of_property_read_bool(pdev->dev.of_node,
 		"qcom,conditional-power-on");
 
-	 splash_en = of_property_read_bool(pdev->dev.of_node,
-			"qcom,cont-splash-enabled");
-
-	/* cont splash screen is supported only for hdmi primary */
-	pdata->cont_splash_enabled =
-		hdmi_ctrl->pdata.primary ? splash_en : false;
+	if (!pdata->cont_splash_enabled)
+		pdata->cont_splash_enabled =
+			hdmi_ctrl->mdss_util->panel_intf_status(DISPLAY_2,
+			MDSS_PANEL_INTF_HDMI) ? true : false;
 
 	return rc;
 

@@ -2261,7 +2261,6 @@ static struct device_node *mdss_dsi_config_panel(struct platform_device *pdev)
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = platform_get_drvdata(pdev);
 	char panel_cfg[MDSS_MAX_PANEL_LEN];
 	struct device_node *dsi_pan_node = NULL;
-	bool cmd_cfg_cont_splash = true;
 	int rc = 0;
 
 	if (!ctrl_pdata) {
@@ -2284,9 +2283,7 @@ static struct device_node *mdss_dsi_config_panel(struct platform_device *pdev)
 		return NULL;
 	}
 
-	cmd_cfg_cont_splash = mdss_panel_get_boot_cfg() ? true : false;
-
-	rc = mdss_dsi_panel_init(dsi_pan_node, ctrl_pdata, cmd_cfg_cont_splash);
+	rc = mdss_dsi_panel_init(dsi_pan_node, ctrl_pdata);
 	if (rc) {
 		pr_err("%s: dsi panel init failed\n", __func__);
 		of_node_put(dsi_pan_node);
@@ -3428,6 +3425,12 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 		}
 	}
 
+	pinfo->cont_splash_enabled =
+		ctrl_pdata->mdss_util->panel_intf_status(pinfo->pdest,
+		MDSS_PANEL_INTF_DSI) ? true : false;
+
+	pr_info("%s: Continuous splash %s\n", __func__,
+		pinfo->cont_splash_enabled ? "enabled" : "disabled");
 
 	rc = mdss_register_panel(ctrl_pdev, &(ctrl_pdata->panel_data));
 	if (rc) {
