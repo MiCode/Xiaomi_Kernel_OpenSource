@@ -72,6 +72,10 @@
  * is freed.
  */
 #define DMA_ATTR_NO_DELAYED_UNMAP	(1UL << 10)
+/*
+ * DMA_ATTR_EXEC_MAPPING: The mapping has executable permissions.
+ */
+#define DMA_ATTR_EXEC_MAPPING		(1UL << 11)
 
 /*
  * A dma_addr_t can hold any valid DMA or bus address for the platform.
