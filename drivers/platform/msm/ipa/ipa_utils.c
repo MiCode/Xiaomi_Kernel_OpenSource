@@ -55,6 +55,8 @@ static const int ipa_ihl_ofst_meq32[] = { IPA_IHL_OFFSET_MEQ32_0,
 #define IPA_2_0 (1)
 #define IPA_2_6L (2)
 
+#define INVALID_EP_MAPPING_INDEX (-1)
+
 static const int ep_mapping[3][IPA_CLIENT_MAX] = {
 	[IPA_1_1][IPA_CLIENT_HSIC1_PROD]         = 19,
 	[IPA_1_1][IPA_CLIENT_WLAN1_PROD]         = -1,
@@ -865,7 +867,7 @@ int ipa_init_hw(void)
  * ipa_get_ep_mapping() - provide endpoint mapping
  * @client: client type
  *
- * Return value: endpoint mapping
+ * Return value: endpoint mapping or -1 if unmapped/invalid
  */
 int ipa_get_ep_mapping(enum ipa_client_type client)
 {
@@ -873,7 +875,7 @@ int ipa_get_ep_mapping(enum ipa_client_type client)
 
 	if (client >= IPA_CLIENT_MAX || client < 0) {
 		IPAERR("Bad client number! client =%d\n", client);
-		return -EINVAL;
+		return INVALID_EP_MAPPING_INDEX;
 	}
 
 	switch (ipa_ctx->ipa_hw_type) {
