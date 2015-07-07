@@ -674,7 +674,8 @@ static int32_t
 		if ((channel == LR_MUX7_HW_ID) ||
 			(channel == P_MUX2_1_1) ||
 			(channel == LR_MUX3_XO_THERM) ||
-			(channel == LR_MUX3_BUF_XO_THERM_BUF)) {
+			(channel == LR_MUX3_BUF_XO_THERM_BUF) ||
+			(channel == P_MUX4_1_1)) {
 			vadc->adc->amux_prop->chan_prop->calib_type =
 								CALIB_ABSOLUTE;
 			return rc;
