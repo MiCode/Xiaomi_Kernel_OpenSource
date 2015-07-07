@@ -51,7 +51,7 @@ enum msm_buspm_ioc_cmds {
 	_IOW(MSM_BUSPM_IOC_MAGIC, 3, struct buspm_xfer_req)
 
 #define MSM_BUSPM_IOC_RD_PHYS_ADDR	\
-	_IOR(MSM_BUSPM_IOC_MAGIC, 4, unsigned long)
+	_IOR(MSM_BUSPM_IOC_MAGIC, 4, uint32_t)
 
 #define MSM_BUSPM_IOC_CMD	\
 	_IOR(MSM_BUSPM_IOC_MAGIC, 5, uint32_t)
