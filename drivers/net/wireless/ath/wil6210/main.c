@@ -25,6 +25,10 @@
 #define WAIT_FOR_DISCONNECT_TIMEOUT_MS 2000
 #define WAIT_FOR_DISCONNECT_INTERVAL_MS 10
 
+bool debug_fw; /* = false; */
+module_param(debug_fw, bool, S_IRUGO);
+MODULE_PARM_DESC(debug_fw, " do not perform card reset. For FW debug");
+
 bool no_fw_recovery;
 module_param(no_fw_recovery, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(no_fw_recovery, " disable automatic FW error recovery");
@@ -68,6 +72,7 @@ MODULE_PARM_DESC(mtu_max, " Max MTU value.");
 
 static uint rx_ring_order = WIL_RX_RING_SIZE_ORDER_DEFAULT;
 static uint tx_ring_order = WIL_TX_RING_SIZE_ORDER_DEFAULT;
+static uint bcast_ring_order = WIL_BCAST_RING_SIZE_ORDER_DEFAULT;
 
 static int ring_order_set(const char *val, const struct kernel_param *kp)
 {
@@ -95,6 +100,8 @@ module_param_cb(rx_ring_order, &ring_order_ops, &rx_ring_order, S_IRUGO);
 MODULE_PARM_DESC(rx_ring_order, " Rx ring order; size = 1 << order");
 module_param_cb(tx_ring_order, &ring_order_ops, &tx_ring_order, S_IRUGO);
 MODULE_PARM_DESC(tx_ring_order, " Tx ring order; size = 1 << order");
+module_param_cb(bcast_ring_order, &ring_order_ops, &bcast_ring_order, S_IRUGO);
+MODULE_PARM_DESC(bcast_ring_order, " Bcast ring order; size = 1 << order");
 
 #define RST_DELAY (20) /* msec, for loop in @wil_target_reset */
 #define RST_COUNT (1 + 1000/RST_DELAY) /* round up to be above 1 sec total */
@@ -145,7 +152,6 @@ __acquires(&sta->tid_rx_lock) __releases(&sta->tid_rx_lock)
 	wil_dbg_misc(wil, "%s(CID %d, status %d)\n", __func__, cid,
 		     sta->status);
 
-	sta->data_port_open = false;
 	if (sta->status != wil_sta_unused) {
 		if (!from_event)
 			wmi_disconnect_sta(wil, sta->addr, reason_code);
@@ -216,6 +222,7 @@ static void _wil6210_disconnect(struct wil6210_priv *wil, const u8 *bssid,
 	switch (wdev->iftype) {
 	case NL80211_IFTYPE_STATION:
 	case NL80211_IFTYPE_P2P_CLIENT:
+		wil_bcast_fini(wil);
 		netif_tx_stop_all_queues(ndev);
 		netif_carrier_off(ndev);
 
@@ -360,6 +367,36 @@ static int wil_find_free_vring(struct wil6210_priv *wil)
 	return -EINVAL;
 }
 
+int wil_bcast_init(struct wil6210_priv *wil)
+{
+	int ri = wil->bcast_vring, rc;
+
+	if ((ri >= 0) && wil->vring_tx[ri].va)
+		return 0;
+
+	ri = wil_find_free_vring(wil);
+	if (ri < 0)
+		return ri;
+
+	wil->bcast_vring = ri;
+	rc = wil_vring_init_bcast(wil, ri, 1 << bcast_ring_order);
+	if (rc)
+		wil->bcast_vring = -1;
+
+	return rc;
+}
+
+void wil_bcast_fini(struct wil6210_priv *wil)
+{
+	int ri = wil->bcast_vring;
+
+	if (ri < 0)
+		return;
+
+	wil->bcast_vring = -1;
+	wil_vring_fini_tx(wil, ri);
+}
+
 static void wil_connect_worker(struct work_struct *work)
 {
 	int rc;
@@ -407,6 +444,7 @@ int wil_priv_init(struct wil6210_priv *wil)
 	init_completion(&wil->wmi_call);
 
 	wil->pending_connect_cid = -1;
+	wil->bcast_vring = -1;
 	setup_timer(&wil->connect_timer, wil_connect_timer_fn, (ulong)wil);
 	setup_timer(&wil->scan_timer, wil_scan_timer_fn, (ulong)wil);
 
@@ -515,7 +553,7 @@ static inline void wil_release_cpu(struct wil6210_priv *wil)
 static int wil_target_reset(struct wil6210_priv *wil)
 {
 	int delay = 0;
-	u32 x;
+	u32 x, x1 = 0;
 
 	wil_dbg_misc(wil, "Resetting \"%s\"...\n", wil->hw_name);
 
@@ -570,12 +608,16 @@ static int wil_target_reset(struct wil6210_priv *wil)
 	do {
 		msleep(RST_DELAY);
 		x = R(RGF_USER_BL + offsetof(struct RGF_BL, ready));
+		if (x1 != x) {
+			wil_dbg_misc(wil, "BL.ready 0x%08x => 0x%08x\n", x1, x);
+			x1 = x;
+		}
 		if (delay++ > RST_COUNT) {
 			wil_err(wil, "Reset not completed, bl.ready 0x%08x\n",
 				x);
 			return -ETIME;
 		}
-	} while (!(x & BIT_BL_READY));
+	} while (x != BIT_BL_READY);
 
 	C(RGF_USER_CLKS_CTL_0, BIT_USER_CLKS_RST_PWGD);
 
@@ -654,8 +696,20 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 	WARN_ON(!mutex_is_locked(&wil->mutex));
 	WARN_ON(test_bit(wil_status_napi_en, wil->status));
 
+	if (debug_fw) {
+		static const u8 mac[ETH_ALEN] = {
+			0x00, 0xde, 0xad, 0x12, 0x34, 0x56,
+		};
+		struct net_device *ndev = wil_to_ndev(wil);
+
+		ether_addr_copy(ndev->perm_addr, mac);
+		ether_addr_copy(ndev->dev_addr, ndev->perm_addr);
+		return 0;
+	}
+
 	cancel_work_sync(&wil->disconnect_worker);
 	wil6210_disconnect(wil, NULL, WLAN_REASON_DEAUTH_LEAVING, false);
+	wil_bcast_fini(wil);
 
 	/* prevent NAPI from being scheduled */
 	bitmap_zero(wil->status, wil_status_last);
@@ -714,6 +768,7 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 
 	/* init after reset */
 	wil->pending_connect_cid = -1;
+	wil->ap_isolate = 0;
 	reinit_completion(&wil->wmi_ready);
 	reinit_completion(&wil->wmi_call);
 
@@ -723,6 +778,8 @@ int wil_reset(struct wil6210_priv *wil, bool load_fw)
 
 		/* we just started MAC, wait for FW ready */
 		rc = wil_wait_for_fw_ready(wil);
+		if (rc == 0) /* check FW is responsive */
+			rc = wmi_echo(wil);
 	}
 
 	return rc;
