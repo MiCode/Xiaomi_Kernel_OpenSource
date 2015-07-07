@@ -170,10 +170,9 @@
 		clocks = <&clock_audio clk_audio_pmi_clk>;
 
 		qcom,cdc-micbias1-ext-cap;
-		qcom,cdc-micbias2-ext-cap;
 
 		cdc-vdd-buck-supply = <&eldo2_8952>;
-		qcom,cdc-vdd-buck-voltage = <1800000 2150000>;
+		qcom,cdc-vdd-buck-voltage = <2150000 2150000>;
 		qcom,cdc-vdd-buck-current = <650000>;
 
 		cdc-vdd-tx-h-supply = <&pm8950_l5>;
