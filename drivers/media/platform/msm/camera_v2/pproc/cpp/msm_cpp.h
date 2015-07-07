@@ -90,7 +90,6 @@
 #define MSM_CPP_TASKLETQ_SIZE		16
 #define MSM_CPP_TX_FIFO_LEVEL		16
 #define MSM_CPP_RX_FIFO_LEVEL		512
-#define MSM_CPP_GROUP_CMD_LEN		69
 
 struct cpp_subscribe_info {
 	struct v4l2_fh *vfh;
@@ -192,6 +191,8 @@ struct msm_cpp_payload_params {
 	uint32_t we_mmu_pf_ptr_off;
 	uint32_t dup_we_mmu_pf_ptr_off;
 	uint32_t ref_we_mmu_pf_ptr_off;
+	uint32_t set_group_buffer_len;
+	uint32_t dup_frame_indicator_off;
 };
 
 struct cpp_device {
