@@ -1801,6 +1801,9 @@ static int a5xx_hw_init(struct adreno_device *adreno_dev)
 	/* Set up LM before initializing the GPMU */
 	a5xx_lm_init(adreno_dev);
 
+	/* Enable SPTP based power collapse before enabling GPMU */
+	a5xx_enable_pc(adreno_dev);
+
 	/* Program the GPMU */
 	ret = a5xx_gpmu_start(adreno_dev);
 	if (ret)
@@ -1810,9 +1813,6 @@ static int a5xx_hw_init(struct adreno_device *adreno_dev)
 	a5xx_lm_enable(adreno_dev);
 
 	a5xx_post_start(adreno_dev);
-
-	/* Enable GPMU based power collapse */
-	a5xx_enable_pc(adreno_dev);
 
 	return 0;
 }
