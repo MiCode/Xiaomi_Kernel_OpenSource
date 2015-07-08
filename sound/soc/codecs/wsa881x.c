@@ -803,6 +803,9 @@ static struct regmap *wsa881x_get_regmap(struct device *dev)
 {
 	struct wsa881x_priv *control = swr_get_dev_data(to_swr_device(dev));
 
+	if (!control)
+		return NULL;
+
 	return control->regmap;
 }
 
