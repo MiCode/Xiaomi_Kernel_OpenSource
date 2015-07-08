@@ -73,6 +73,7 @@ int ecryptfs_register_to_events(struct ecryptfs_events *ops)
 	events_ptr->is_cipher_supported_cb =
 		ops->is_cipher_supported_cb;
 	events_ptr->is_hw_crypt_cb = ops->is_hw_crypt_cb;
+	events_ptr->get_salt_key_size_cb = ops->get_salt_key_size_cb;
 
 	get_random_bytes(&handle, sizeof(handle));
 	ret_value = handle;
@@ -168,6 +169,29 @@ size_t ecryptfs_get_key_size(void *data)
 
 /**
  * Given ecryptfs data, the function
+ * returns appropriate salt size.
+ *
+ * !!! crypt_stat cipher name and mode must be initialized
+ */
+size_t ecryptfs_get_salt_size(void *data)
+{
+	struct ecryptfs_crypt_stat *stat = NULL;
+
+	if (!data) {
+		ecryptfs_printk(KERN_ERR,
+				"ecryptfs_get_salt_size: invalid data parameter\n");
+		return 0;
+	}
+
+	stat = (struct ecryptfs_crypt_stat *)data;
+	return ecryptfs_get_salt_size_for_cipher(
+			ecryptfs_get_full_cipher(stat->cipher,
+						 stat->cipher_mode));
+
+}
+
+/**
+ * Given ecryptfs data, the function
  * returns appropriate cipher.
  */
 const unsigned char *ecryptfs_get_cipher(void *data)
@@ -203,6 +227,23 @@ const unsigned char *ecryptfs_get_key(void *data)
 }
 
 /**
+ * Given ecryptfs data, the function
+ * returns file encryption salt.
+ */
+const unsigned char *ecryptfs_get_salt(void *data)
+{
+	struct ecryptfs_crypt_stat *stat = NULL;
+
+	if (!data) {
+		ecryptfs_printk(KERN_ERR,
+			"ecryptfs_get_salt: invalid data parameter\n");
+		return NULL;
+	}
+	stat = (struct ecryptfs_crypt_stat *)data;
+	return stat->key + ecryptfs_get_salt_size(data);
+}
+
+/**
  * Returns ecryptfs events pointer
  */
 inline struct ecryptfs_events *get_events(void)
@@ -210,3 +251,108 @@ inline struct ecryptfs_events *get_events(void)
 	return events_ptr;
 }
 
+/**
+ * If external crypto module requires salt in addition to key,
+ * we store it as part of key array (if there is enough space)
+ * Checks whether a salt key can fit into array allocated for
+ * regular key
+ */
+bool ecryptfs_check_space_for_salt(const size_t key_size,
+		const size_t salt_size)
+{
+	if ((salt_size + key_size) > ECRYPTFS_MAX_KEY_BYTES)
+		return false;
+
+	return true;
+}
+
+/*
+ * If there is salt that is used by external crypto module, it is stored
+ * in the same array where regular key is. Salt is going to be used by
+ * external crypto module only, so for all internal crypto operations salt
+ * should be ignored.
+ *
+ * Get key size in cases where it is going to be used for data encryption
+ * or for all other general purposes
+ */
+size_t ecryptfs_get_key_size_to_enc_data(
+		struct ecryptfs_crypt_stat *crypt_stat)
+{
+	if (!crypt_stat)
+		return 0;
+
+	return crypt_stat->key_size;
+}
+
+/*
+ * If there is salt that is used by external crypto module, it is stored
+ * in the same array where regular key is. Salt is going to be used by
+ * external crypto module only, but we still need to save and restore it
+ * (in encrypted form) as part of ecryptfs header along with the regular
+ * key.
+ *
+ * Get key size in cases where it is going to be stored persistently
+ *
+ * !!! crypt_stat cipher name and mode must be initialized
+ */
+size_t ecryptfs_get_key_size_to_store_key(
+		struct ecryptfs_crypt_stat *crypt_stat)
+{
+	size_t salt_size = 0;
+
+	if (!crypt_stat)
+		return 0;
+
+	salt_size = ecryptfs_get_salt_size(crypt_stat);
+
+	if (!ecryptfs_check_space_for_salt(crypt_stat->key_size, salt_size)) {
+		ecryptfs_printk(KERN_WARNING,
+			"ecryptfs_get_key_size_to_store_key: not enough space for salt\n");
+		return crypt_stat->key_size;
+	}
+
+	return crypt_stat->key_size + salt_size;
+}
+
+/*
+ * If there is salt that is used by external crypto module, it is stored
+ * in the same array where regular key is. Salt is going to be used by
+ * external crypto module only, but we still need to save and restore it
+ * (in encrypted form) as part of ecryptfs header along with the regular
+ * key.
+ *
+ * Get key size in cases where it is going to be restored from storage
+ *
+ * !!! crypt_stat cipher name and mode must be initialized
+ */
+size_t ecryptfs_get_key_size_to_restore_key(size_t stored_key_size,
+		const char *cipher)
+{
+	size_t salt_size = 0;
+
+	if (!cipher)
+		return 0;
+
+	salt_size = ecryptfs_get_salt_size_for_cipher(cipher);
+
+	if (salt_size >= stored_key_size) {
+		ecryptfs_printk(KERN_WARNING,
+			"ecryptfs_get_key_size_to_restore_key: salt %zu >= stred size %zu\n",
+			salt_size, stored_key_size);
+
+		return stored_key_size;
+	}
+
+	return stored_key_size - salt_size;
+}
+
+/**
+ * Given cipher, the function returns appropriate salt size.
+ */
+size_t ecryptfs_get_salt_size_for_cipher(const char *cipher)
+{
+	if (!get_events() || !(get_events()->get_salt_key_size_cb))
+		return 0;
+
+	return get_events()->get_salt_key_size_cb(cipher);
+}

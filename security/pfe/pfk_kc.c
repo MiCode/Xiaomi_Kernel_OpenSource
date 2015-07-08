@@ -41,15 +41,17 @@
 /** the first available index in ice engine */
 #define PFK_KC_STARTING_INDEX 2
 
-/** currently the only supported key size */
+/** currently the only supported key and salt sizes */
 #define PFK_KC_KEY_SIZE 32
+#define PFK_KC_SALT_SIZE 32
 
 /** Table size */
 /* TODO replace by some constant from ice.h */
 #define PFK_KC_TABLE_SIZE ((32) - (PFK_KC_STARTING_INDEX))
 
-/** The maximum key size */
+/** The maximum key and salt size */
 #define PFK_MAX_KEY_SIZE PFK_KC_KEY_SIZE
+#define PFK_MAX_SALT_SIZE PFK_KC_SALT_SIZE
 
 static DEFINE_SPINLOCK(kc_lock);
 static bool kc_ready;
@@ -57,11 +59,15 @@ static bool kc_ready;
 struct kc_entry {
 	 unsigned char key[PFK_MAX_KEY_SIZE];
 	 size_t key_size;
+
+	 unsigned char salt[PFK_MAX_SALT_SIZE];
+	 size_t salt_size;
+
 	 u64 time_stamp;
 	 u32 key_index;
 };
 
-static struct kc_entry kc_table[PFK_KC_TABLE_SIZE] = {{{0} , 0, 0, 0} };
+static struct kc_entry kc_table[PFK_KC_TABLE_SIZE] = {{{0}, 0, {0}, 0, 0, 0} };
 
 /**
  * pfk_min_time_entry() - update min time and update min entry
@@ -96,28 +102,63 @@ static inline bool kc_is_ready(void)
 }
 
 /**
- * kc_find_key() - find kc entry
+ * kc_find_key_at_index() - find kc entry starting at specific index
  * @key: key to look for
  * @key_size: the key size
+ * @salt: salt to look for
+ * @salt_size: the salt size
+ * @sarting_index: index to start search with, if entry found, updated with
+ * index of that entry
  *
  * Return entry or NULL in case of error
  * Should be invoked under lock
  */
-static struct kc_entry *kc_find_key(const unsigned char *key, size_t key_size)
+static struct kc_entry *kc_find_key_at_index(const unsigned char *key,
+	size_t key_size, const unsigned char *salt, size_t salt_size,
+	int *starting_index)
 {
 	struct kc_entry *entry = NULL;
 	int i = 0;
 
-	for (i = 0; i < PFK_KC_TABLE_SIZE; i++) {
+	for (i = *starting_index; i < PFK_KC_TABLE_SIZE; i++) {
 		entry = &(kc_table[i]);
+
+		if (NULL != salt) {
+			if (entry->salt_size != salt_size)
+				continue;
+
+			if (0 != memcmp(entry->salt, salt, salt_size))
+				continue;
+		}
+
 		if (entry->key_size != key_size)
 			continue;
 
-		if (0 == memcmp(entry->key, key, key_size))
+		if (0 == memcmp(entry->key, key, key_size)) {
+			*starting_index = i;
 			return entry;
+		}
 	}
 
 	return NULL;
+}
+
+/**
+ * kc_find_key() - find kc entry
+ * @key: key to look for
+ * @key_size: the key size
+ * @salt: salt to look for
+ * @salt_size: the salt size
+ *
+ * Return entry or NULL in case of error
+ * Should be invoked under lock
+ */
+static struct kc_entry *kc_find_key(const unsigned char *key, size_t key_size,
+		const unsigned char *salt, size_t salt_size)
+{
+	int index = 0;
+
+	return kc_find_key_at_index(key, key_size, salt, salt_size, &index);
 }
 
 /**
@@ -183,6 +224,7 @@ static void kc_clear_entry(struct kc_entry *entry, bool clear_qscee)
 		qti_pfk_ice_invalidate_key(entry->key_index);
 
 	memset(entry->key, 0, entry->key_size);
+	memset(entry->salt, 0, entry->salt_size);
 
 	entry->time_stamp = 0;
 }
@@ -194,13 +236,15 @@ static void kc_clear_entry(struct kc_entry *entry, bool clear_qscee)
  * @entry: entry to replace key in
  * @key: key
  * @key_size: key_size
+ * @salt: salt
+ * @salt_size: salt_size
  *
  * The previous key is securely released and wiped, the new one is loaded
  * to ICE.
  * Should be invoked under lock
  */
 static int kc_replace_entry(struct kc_entry *entry, const unsigned char *key,
-				size_t key_size)
+	size_t key_size, const unsigned char *salt, size_t salt_size)
 {
 	int ret = 0;
 
@@ -209,7 +253,11 @@ static int kc_replace_entry(struct kc_entry *entry, const unsigned char *key,
 	memcpy(entry->key, key, key_size);
 	entry->key_size = key_size;
 
-	ret = qti_pfk_ice_set_key(entry->key_index, (uint8_t *) key);
+	memcpy(entry->salt, salt, salt_size);
+	entry->salt_size = salt_size;
+
+	ret = qti_pfk_ice_set_key(entry->key_index, (uint8_t *) key,
+		(uint8_t *) salt);
 	if (ret != 0) {
 		ret = -EINVAL;
 		goto err;
@@ -265,7 +313,9 @@ int pfk_kc_deinit(void)
  * pfk_kc_load_key() - retrieve the key from cache or add it if it's not there
  *                     return the ICE hw key index
  * @key: pointer to the key
- * @key_size: the size of the key, assumed to be not bigger than
+ * @key_size: the size of the key
+ * @salt: pointer to the salt
+ * @salt_size: the size of the salt
  * @key_index: the pointer to key_index where the output will be stored
  *
  * If key is present in cache, than the key_index will be retrieved from cache.
@@ -275,7 +325,8 @@ int pfk_kc_deinit(void)
  *
  * Return 0 in case of success, error otherwise
  */
-int pfk_kc_load_key(const unsigned char *key, size_t key_size, u32 *key_index)
+int pfk_kc_load_key(const unsigned char *key, size_t key_size,
+		const unsigned char *salt, size_t salt_size, u32 *key_index)
 {
 	int ret = 0;
 	struct kc_entry *entry = NULL;
@@ -283,14 +334,17 @@ int pfk_kc_load_key(const unsigned char *key, size_t key_size, u32 *key_index)
 	if (!kc_is_ready())
 		return -ENODEV;
 
-	if (!key || !key_index)
+	if (!key || !salt || !key_index)
 		return -EPERM;
 
 	if (key_size != PFK_KC_KEY_SIZE)
 		return -EPERM;
 
+	if (salt_size != PFK_KC_SALT_SIZE)
+		return -EPERM;
+
 	spin_lock(&kc_lock);
-	entry = kc_find_key(key, key_size);
+	entry = kc_find_key(key, key_size, salt, salt_size);
 	if (!entry) {
 		entry = kc_find_oldest_entry();
 		if (!entry) {
@@ -302,7 +356,7 @@ int pfk_kc_load_key(const unsigned char *key, size_t key_size, u32 *key_index)
 		pr_debug("didn't found key in cache, replacing entry with index %d\n",
 				entry->key_index);
 
-		ret = kc_replace_entry(entry, key, key_size);
+		ret = kc_replace_entry(entry, key, key_size, salt, salt_size);
 		if (ret) {
 			spin_unlock(&kc_lock);
 			return -EINVAL;
@@ -322,7 +376,54 @@ int pfk_kc_load_key(const unsigned char *key, size_t key_size, u32 *key_index)
 /**
  * pfk_kc_remove_key() - remove the key from cache and from ICE engine
  * @key: pointer to the key
- * @key_size: the size of the key, assumed to be not bigger than
+ * @key_size: the size of the key
+ * @salt: pointer to the key
+ * @salt_size: the size of the key
+ *
+ * Return 0 in case of success, error otherwise (also in case of non
+ * (existing key)
+ */
+int pfk_kc_remove_key_with_salt(const unsigned char *key, size_t key_size,
+		const unsigned char *salt, size_t salt_size)
+{
+	struct kc_entry *entry = NULL;
+
+	if (!kc_is_ready())
+		return -ENODEV;
+
+	if (!key)
+		return -EPERM;
+
+	if (!salt)
+		return -EPERM;
+
+	if (key_size != PFK_KC_KEY_SIZE)
+		return -EPERM;
+
+	if (salt_size != PFK_KC_SALT_SIZE)
+		return -EPERM;
+
+	spin_lock(&kc_lock);
+	entry = kc_find_key(key, key_size, salt, salt_size);
+	if (!entry) {
+		pr_err("key does not exist\n");
+		spin_unlock(&kc_lock);
+		return -EINVAL;
+	}
+
+	kc_clear_entry(entry, true);
+	spin_unlock(&kc_lock);
+
+	return 0;
+}
+
+/**
+ * pfk_kc_remove_key() - remove the key from cache and from ICE engine
+ * when no salt is available. Will only search key part, if there are several,
+ * all will be removed
+ *
+ * @key: pointer to the key
+ * @key_size: the size of the key
  *
  * Return 0 in case of success, error otherwise (also in case of non
  * (existing key)
@@ -330,6 +431,7 @@ int pfk_kc_load_key(const unsigned char *key, size_t key_size, u32 *key_index)
 int pfk_kc_remove_key(const unsigned char *key, size_t key_size)
 {
 	struct kc_entry *entry = NULL;
+	int index = 0;
 
 	if (!kc_is_ready())
 		return -ENODEV;
@@ -341,7 +443,8 @@ int pfk_kc_remove_key(const unsigned char *key, size_t key_size)
 		return -EPERM;
 
 	spin_lock(&kc_lock);
-	entry = kc_find_key(key, key_size);
+
+	entry = kc_find_key_at_index(key, key_size, NULL, 0, &index);
 	if (!entry) {
 		pr_err("key does not exist\n");
 		spin_unlock(&kc_lock);
@@ -349,6 +452,16 @@ int pfk_kc_remove_key(const unsigned char *key, size_t key_size)
 	}
 
 	kc_clear_entry(entry, true);
+
+	/* let's clean additional entries with the same key if there are any */
+	do {
+		entry = kc_find_key_at_index(key, key_size, NULL, 0, &index);
+		if (!entry)
+			break;
+
+		kc_clear_entry(entry, true);
+	} while (true);
+
 	spin_unlock(&kc_lock);
 
 	return 0;
