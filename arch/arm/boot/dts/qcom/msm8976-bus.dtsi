@@ -13,7 +13,7 @@
 #include <dt-bindings/msm/msm-bus-ids.h>
 
 &soc {
-	/* Version = 2 */
+	/* Version = 3 */
 	ad_hoc_bus: ad-hoc-bus {
 		compatible = "qcom,msm-bus-device";
 		reg = <0x580000 0x1A000>,
@@ -411,6 +411,7 @@
 			qcom,connections = <&snoc_int_2>;
 			qcom,bus-dev = <&fab_snoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_BIMC_SNOC>;
+			qcom,blacklist = <&slv_snoc_bimc>;
 		};
 
 		mas_jpeg: mas-jpeg {
