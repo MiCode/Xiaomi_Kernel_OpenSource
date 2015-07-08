@@ -517,7 +517,10 @@ void msm_usb_irq_disable(bool disable)
 	spin_lock_irqsave(udc->lock, flags);
 
 	if (_udc_ctxt.irq_disabled == disable) {
-		mod_timer(&_udc_ctxt.irq_enable_timer, IRQ_ENABLE_DELAY);
+		pr_debug("Interrupt state already disable = %d\n", disable);
+		if (disable)
+			mod_timer(&_udc_ctxt.irq_enable_timer,
+					IRQ_ENABLE_DELAY);
 		spin_unlock_irqrestore(udc->lock, flags);
 		return;
 	}
@@ -525,10 +528,12 @@ void msm_usb_irq_disable(bool disable)
 	if (disable) {
 		disable_irq_nosync(_udc_ctxt.irq);
 		/* start timer here */
+		pr_debug("%s: Disabling interrupts\n", __func__);
 		mod_timer(&_udc_ctxt.irq_enable_timer, IRQ_ENABLE_DELAY);
 		_udc_ctxt.irq_disabled = true;
 
 	} else {
+		pr_debug("%s: Enabling interrupts\n", __func__);
 		del_timer(&_udc_ctxt.irq_enable_timer);
 		enable_irq(_udc_ctxt.irq);
 		_udc_ctxt.irq_disabled = false;
@@ -539,6 +544,7 @@ void msm_usb_irq_disable(bool disable)
 
 static void enable_usb_irq_timer_func(unsigned long data)
 {
+	pr_debug("enabling interrupt from timer\n");
 	msm_usb_irq_disable(false);
 }
 
