@@ -655,11 +655,12 @@ static struct mdss_mdp_pipe *mdss_mdp_wait4pipe(struct msm_fb_data_type *mfd,
 		}
 	}
 
-	pr_debug("wait for pipe, pipe_type_used_map = 0x%x, pipe num = %d\n",
-			pipe_cleanup_map, wait_pipe->num);
-
 	if (wait_pipe) {
 		int ret;
+
+		pr_debug("wait for pipe, pipe_type_used_map = 0x%x, pipe num = %d\n",
+				pipe_cleanup_map, wait_pipe->num);
+
 		ret = wait_event_interruptible_timeout(wait_pipe->free_waitq,
 			   !atomic_read(&wait_pipe->kref.refcount),
 				usecs_to_jiffies(PIPE_CLEANUP_TIMEOUT_US));
