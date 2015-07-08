@@ -23,6 +23,7 @@
 #include "msm_jpeg_core.h"
 #include "msm_jpeg_platform.h"
 #include "msm_jpeg_common.h"
+#include "cam_hw_ops.h"
 
 #define JPEG_REG_SIZE 0x308
 #define JPEG_DEV_CNT 4
@@ -725,6 +726,12 @@ int __msm_jpeg_open(struct msm_jpeg_device *pgmn_dev)
 
 	mutex_unlock(&pgmn_dev->lock);
 
+	rc = cam_config_ahb_clk(CAM_AHB_CLIENT_JPEG, CAMERA_AHB_SVS_VOTE);
+	if (rc < 0) {
+		pr_err("%s: failed to vote for AHB\n", __func__);
+		return rc;
+	}
+
 	msm_jpeg_core_irq_install(msm_jpeg_irq);
 	if (pgmn_dev->core_type == MSM_JPEG_CORE_CODEC)
 		core_irq = msm_jpeg_core_irq;
@@ -737,7 +744,7 @@ int __msm_jpeg_open(struct msm_jpeg_device *pgmn_dev)
 	if (rc) {
 		JPEG_PR_ERR("%s:%d] platform_init fail %d\n", __func__,
 			__LINE__, rc);
-		return rc;
+		goto platform_init_fail;
 	}
 
 	JPEG_DBG("%s:%d] platform resources - mem %p, base %p, irq %d\n",
@@ -753,6 +760,12 @@ int __msm_jpeg_open(struct msm_jpeg_device *pgmn_dev)
 	msm_jpeg_core_init(pgmn_dev);
 
 	JPEG_DBG("%s:%d] success\n", __func__, __LINE__);
+	return rc;
+
+platform_init_fail:
+	if (cam_config_ahb_clk(CAM_AHB_CLIENT_JPEG,
+		CAMERA_AHB_SUSPEND_VOTE) < 0)
+		pr_err("%s: failed to remove vote for AHB\n", __func__);
 	return rc;
 }
 
@@ -783,6 +796,11 @@ int __msm_jpeg_release(struct msm_jpeg_device *pgmn_dev)
 		pgmn_dev->irq, pgmn_dev);
 
 	JPEG_DBG("%s:%d]\n", __func__, __LINE__);
+
+	if (cam_config_ahb_clk(CAM_AHB_CLIENT_JPEG,
+		CAMERA_AHB_SUSPEND_VOTE) < 0)
+		pr_err("%s: failed to remove vote for AHB\n", __func__);
+
 	return 0;
 }
 

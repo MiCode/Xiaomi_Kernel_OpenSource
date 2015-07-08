@@ -25,94 +25,13 @@
 #include <linux/iommu.h>
 #include <linux/platform_device.h>
 #include <linux/debugfs.h>
-#include <linux/msm-bus.h>
-#include <linux/msm-bus-board.h>
 #include <media/v4l2-fh.h>
 #include "msm.h"
 #include "msm_vb2.h"
 #include "msm_sd.h"
+#include "cam_hw_ops.h"
 #include <media/msmb_generic_buf_mgr.h>
 
-/*
-	AHB frequency calculation
-	ab = 0
-	ib = MMSS_AHB_CLK * 8
-	LOWER, 40000000, NOMINAL, 80000000
-	AHB 40 MHZ = 40000000 * 8 = 320000000
-	AHB 80 MHZ = 80000000 * 8 = 640000000
-
-	ab = 0, ib = 0 - removes your vote
- */
-#define CAMERA_AHB_40_MHZ 320000000
-#define CAMERA_AHB_80_MHZ 640000000
-
-#define CAMERA_AHB_INIT_VOTE		0
-#define CAMERA_AHB_SVS_VOTE			1
-#define CAMERA_AHB_NOMINAL_VOTE		2
-#define CAMERA_AHB_TURBO_VOTE		3
-
-static struct msm_bus_vectors msm_camera_ahb_init_vectors[] = {
-	{
-		.src = MSM_BUS_MASTER_AMPSS_M0,
-		.dst = MSM_BUS_SLAVE_CAMERA_CFG,
-		.ab  = 0,
-		.ib  = 0,
-	},
-};
-
-static struct msm_bus_vectors msm_camera_ahb_svs_vectors[] = {
-	{
-		.src = MSM_BUS_MASTER_AMPSS_M0,
-		.dst = MSM_BUS_SLAVE_CAMERA_CFG,
-		.ab  = 0,
-		.ib  = CAMERA_AHB_40_MHZ,
-	},
-};
-
-static struct msm_bus_vectors msm_camera_ahb_nominal_vectors[] = {
-	{
-		.src = MSM_BUS_MASTER_AMPSS_M0,
-		.dst = MSM_BUS_SLAVE_CAMERA_CFG,
-		.ab  = 0,
-		.ib  = CAMERA_AHB_80_MHZ,
-	},
-};
-
-static struct msm_bus_vectors msm_camera_ahb_turbo_vectors[] = {
-	{
-		.src = MSM_BUS_MASTER_AMPSS_M0,
-		.dst = MSM_BUS_SLAVE_CAMERA_CFG,
-		.ab  = 0,
-		.ib  = CAMERA_AHB_80_MHZ,
-	},
-};
-
-static struct msm_bus_paths msm_camera_client_config[] = {
-	{
-		ARRAY_SIZE(msm_camera_ahb_init_vectors),
-		msm_camera_ahb_init_vectors,
-	},
-	{
-		ARRAY_SIZE(msm_camera_ahb_svs_vectors),
-		msm_camera_ahb_svs_vectors,
-	},
-	{
-		ARRAY_SIZE(msm_camera_ahb_nominal_vectors),
-		msm_camera_ahb_nominal_vectors,
-	},
-	{
-		ARRAY_SIZE(msm_camera_ahb_turbo_vectors),
-		msm_camera_ahb_turbo_vectors,
-	},
-};
-
-static struct msm_bus_scale_pdata msm_camera_ahb_client_pdata = {
-	.usecase = msm_camera_client_config,
-	.num_usecases = ARRAY_SIZE(msm_camera_client_config),
-	.name = "msm_camera_ahb",
-};
-
-static uint32_t ahb_client;
 
 static struct v4l2_device *msm_v4l2_dev;
 static struct list_head    ordered_sd_list;
@@ -452,9 +371,6 @@ int msm_create_session(unsigned int session_id, struct video_device *vdev)
 		return -ENOMEM;
 	}
 
-	if (!msm_session_q->len)
-		msm_bus_scale_client_update_request(ahb_client,
-			CAMERA_AHB_SVS_VOTE);
 	session->session_id = session_id;
 	session->event_q.vdev = vdev;
 	msm_init_queue(&session->command_ack_q);
@@ -631,10 +547,6 @@ int msm_destroy_session(unsigned int session_id)
 	} else {
 		pr_err("%s: Buff manger device node is NULL\n", __func__);
 	}
-
-	if (!msm_session_q->len)
-		msm_bus_scale_client_update_request(ahb_client,
-			CAMERA_AHB_INIT_VOTE);
 
 	return 0;
 }
@@ -1216,19 +1128,6 @@ static int msm_probe(struct platform_device *pdev)
 	if (WARN_ON(!msm_session_q))
 		goto v4l2_fail;
 
-	ahb_client =
-		msm_bus_scale_register_client(&msm_camera_ahb_client_pdata);
-	if (!ahb_client) {
-		pr_err("%s: camera ahb client register failed\n", __func__);
-		goto v4l2_fail;
-	}
-
-	rc = msm_bus_scale_client_update_request(ahb_client,
-		CAMERA_AHB_SVS_VOTE);
-	if (rc < 0) {
-		pr_err("%s: camera ahb update failed\n", __func__);
-		goto ahb_update_fail;
-	}
 	msm_init_queue(msm_session_q);
 	spin_lock_init(&msm_eventq_lock);
 	spin_lock_init(&msm_pid_lock);
@@ -1247,10 +1146,14 @@ static int msm_probe(struct platform_device *pdev)
 			pr_warn("NON-FATAL: failed to create logsync debugfs file\n");
 	}
 
+	rc = cam_ahb_clk_init(pdev);
+	if (rc < 0) {
+		pr_err("%s: failed to register ahb clocks\n", __func__);
+		goto v4l2_fail;
+	}
+
 	goto probe_end;
 
-ahb_update_fail:
-	msm_bus_scale_unregister_client(ahb_client);
 v4l2_fail:
 	v4l2_device_unregister(pvdev->vdev->v4l2_dev);
 register_fail:

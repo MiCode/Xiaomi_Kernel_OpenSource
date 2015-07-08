@@ -26,6 +26,7 @@
 
 #include "msm_jpeg_dma_dev.h"
 #include "msm_jpeg_dma_hw.h"
+#include "cam_hw_ops.h"
 
 #define MSM_JPEGDMA_DRV_NAME "msm_jpegdma"
 
@@ -501,6 +502,13 @@ static int msm_jpegdma_open(struct file *file)
 	init_completion(&ctx->completion);
 	complete_all(&ctx->completion);
 	dev_dbg(ctx->jdma_device->dev, "Jpeg v4l2 dma open success\n");
+
+	ret = cam_config_ahb_clk(CAM_AHB_CLIENT_JPEG, CAMERA_AHB_SVS_VOTE);
+	if (ret < 0) {
+		pr_err("%s: failed to vote for AHB\n", __func__);
+		goto error_m2m_init;
+	}
+
 	return 0;
 
 error_m2m_init:
@@ -524,6 +532,10 @@ static int msm_jpegdma_release(struct file *file)
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
 	kfree(ctx);
+
+	if (cam_config_ahb_clk(CAM_AHB_CLIENT_JPEG,
+		CAMERA_AHB_SUSPEND_VOTE) < 0)
+		pr_err("%s: failed to remove vote for AHB\n", __func__);
 
 	return 0;
 }

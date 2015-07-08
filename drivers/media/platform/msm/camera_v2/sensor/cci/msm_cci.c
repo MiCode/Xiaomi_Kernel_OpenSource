@@ -23,6 +23,7 @@
 #include "msm_cam_cci_hwreg.h"
 #include "msm_camera_io_util.h"
 #include "msm_camera_dt_util.h"
+#include "cam_hw_ops.h"
 
 #define V4L2_IDENT_CCI 50005
 #define CCI_I2C_QUEUE_0_SIZE 64
@@ -1200,6 +1201,13 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 		rc = -EINVAL;
 		return rc;
 	}
+
+	rc = cam_config_ahb_clk(CAM_AHB_CLIENT_CCI, CAMERA_AHB_SVS_VOTE);
+	if (rc < 0) {
+		pr_err("%s: failed to vote for AHB\n", __func__);
+		return rc;
+	}
+
 	if (cci_dev->ref_count++) {
 		CDBG("%s ref_count %d\n", __func__, cci_dev->ref_count);
 		master = c_ctrl->cci_info->cci_i2c_master;
@@ -1354,6 +1362,9 @@ clk_enable_failed:
 		cci_dev->cci_gpio_tbl_size, 0);
 request_gpio_failed:
 	cci_dev->ref_count--;
+	if (cam_config_ahb_clk(CAM_AHB_CLIENT_CCI,
+		CAMERA_AHB_SUSPEND_VOTE) < 0)
+		pr_err("%s: failed to remove vote for AHB\n", __func__);
 	return rc;
 }
 
@@ -1366,11 +1377,13 @@ static int32_t msm_cci_release(struct v4l2_subdev *sd)
 	if (!cci_dev->ref_count || cci_dev->cci_state != CCI_STATE_ENABLED) {
 		pr_err("%s invalid ref count %d / cci state %d\n",
 			__func__, cci_dev->ref_count, cci_dev->cci_state);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto ahb_vote_suspend;
 	}
 	if (--cci_dev->ref_count) {
 		CDBG("%s ref_count Exit %d\n", __func__, cci_dev->ref_count);
-		return 0;
+		rc = 0;
+		goto ahb_vote_suspend;
 	}
 	for (i = 0; i < MASTER_MAX; i++)
 		if (cci_dev->write_wq[i])
@@ -1406,7 +1419,11 @@ static int32_t msm_cci_release(struct v4l2_subdev *sd)
 	cci_dev->cycles_per_us = 0;
 	cci_dev->cci_clk_src = 0;
 
-	return 0;
+ahb_vote_suspend:
+	if (cam_config_ahb_clk(CAM_AHB_CLIENT_CCI,
+		CAMERA_AHB_SUSPEND_VOTE) < 0)
+		pr_err("%s: failed to remove vote for AHB\n", __func__);
+	return rc;
 }
 
 static int32_t msm_cci_write(struct v4l2_subdev *sd,

@@ -26,6 +26,7 @@
 #include "msm_fd_dev.h"
 #include "msm_fd_hw.h"
 #include "msm_fd_regs.h"
+#include "cam_hw_ops.h"
 
 #define MSM_FD_DRV_NAME "msm_fd"
 
@@ -381,6 +382,12 @@ static int msm_fd_open(struct file *file)
 		goto error_stats_vmalloc;
 	}
 
+	ret = cam_config_ahb_clk(CAM_AHB_CLIENT_FD, CAMERA_AHB_SVS_VOTE);
+	if (ret < 0) {
+		pr_err("%s: failed to vote for AHB\n", __func__);
+		return ret;
+	}
+
 	return 0;
 
 error_stats_vmalloc:
@@ -411,6 +418,10 @@ static int msm_fd_release(struct file *file)
 	v4l2_fh_exit(&ctx->fh);
 
 	kfree(ctx);
+
+	if (cam_config_ahb_clk(CAM_AHB_CLIENT_FD,
+		CAMERA_AHB_SUSPEND_VOTE) < 0)
+		pr_err("%s: failed to remove vote for AHB\n", __func__);
 
 	return 0;
 }

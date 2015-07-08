@@ -24,6 +24,7 @@
 #include "include/msm_csid_3_1_hwreg.h"
 #include "include/msm_csid_3_2_hwreg.h"
 #include "include/msm_csid_3_5_hwreg.h"
+#include "cam_hw_ops.h"
 
 #define V4L2_IDENT_CSID                            50002
 #define CSID_VERSION_V20                      0x02000011
@@ -416,11 +417,18 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 		return -EINVAL;
 	}
 
+	rc = cam_config_ahb_clk(CAM_AHB_CLIENT_CSID, CAMERA_AHB_SVS_VOTE);
+	if (rc < 0) {
+		pr_err("%s: failed to vote for AHB\n", __func__);
+		return rc;
+	}
+
 	csid_dev->base = ioremap(csid_dev->mem->start,
 		resource_size(csid_dev->mem));
 	if (!csid_dev->base) {
 		pr_err("%s csid_dev->base NULL\n", __func__);
-		return -ENOMEM;
+		rc = -ENOMEM;
+		goto ioremap_fail;
 	}
 
 	pr_info("%s: CSID_VERSION = 0x%x\n", __func__,
@@ -533,6 +541,10 @@ csid_vreg_config_failed:
 top_vreg_config_failed:
 	iounmap(csid_dev->base);
 	csid_dev->base = NULL;
+ioremap_fail:
+	if (cam_config_ahb_clk(CAM_AHB_CLIENT_CSID,
+		CAMERA_AHB_SUSPEND_VOTE) < 0)
+		pr_err("%s: failed to remove vote from AHB\n", __func__);
 	return rc;
 }
 
@@ -600,6 +612,10 @@ static int msm_csid_release(struct csid_device *csid_dev)
 	iounmap(csid_dev->base);
 	csid_dev->base = NULL;
 	csid_dev->csid_state = CSID_POWER_DOWN;
+
+	if (cam_config_ahb_clk(CAM_AHB_CLIENT_CSID,
+		CAMERA_AHB_SUSPEND_VOTE) < 0)
+		pr_err("%s: failed to remove vote from AHB\n", __func__);
 	return 0;
 }
 
