@@ -64,6 +64,8 @@
 #define BU21150_PINCTRL_VALID_STATE_CNT		2
 #define	BU21150_RESET_DURATION_US		10
 #define	BU21150_HOLD_DURATION_US		10
+#define BU21150_REG_INT_RUN_ENB_DELAY1_MS	70
+#define BU21150_REG_INT_RUN_ENB_DELAY2_US	1000
 
 #define AFE_SCAN_DEFAULT			0x00
 #define AFE_SCAN_SELF_CAP			0x01
@@ -198,7 +200,6 @@ static void get_frame_timer_handler(unsigned long data);
 static void get_frame_timer_delete(void);
 static int bu21150_fb_suspend(struct device *dev);
 static int bu21150_fb_early_resume(struct device *dev);
-static int bu21150_fb_resume(struct device *dev);
 static int fb_notifier_callback(struct notifier_block *self,
 					unsigned long event, void *data);
 
@@ -1145,7 +1146,7 @@ static int bu21150_fb_early_resume(struct device *dev)
 		rc = bu21150_pin_enable(ts, true);
 		if (rc) {
 			dev_err(&ts->client->dev,
-				"failed to enable panel power\n");
+				"failed to enable pin\n");
 			goto err_pin_enable;
 		}
 	}
@@ -1158,6 +1159,17 @@ static int bu21150_fb_early_resume(struct device *dev)
 		dev_err(&ts->client->dev,
 			"%s: failed to write %d to REG_INT_RUN_ENB (%d)\n",
 			__func__, buf[0], rc);
+	msleep(BU21150_REG_INT_RUN_ENB_DELAY1_MS);
+
+	buf[0] = 0x03;
+	rc = bu21150_write_register(REG_INT_RUN_ENB, (u16)sizeof(buf), buf);
+	if (rc)
+		dev_err(&ts->client->dev,
+			"%s: failed to write %d to REG_INT_RUN_ENB (%d)\n",
+			__func__, buf[0], rc);
+	usleep_range(BU21150_REG_INT_RUN_ENB_DELAY2_US,
+		BU21150_REG_INT_RUN_ENB_DELAY2_US + BU21150_HOLD_DURATION_US);
+
 	/* empty list */
 	mutex_lock(&ts->mutex_frame);
 	list_for_each_safe(pos, n, &ts->frame_list.list) {
@@ -1176,23 +1188,6 @@ err_pin_enable:
 	bu21150_power_enable(ts, false);
 
 	return rc;
-}
-
-static int bu21150_fb_resume(struct device *dev)
-{
-	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
-	int rc;
-	u8 buf[2] = {0x01, 0x00};
-
-	buf[0] = 0x03;
-	rc = bu21150_write_register(REG_INT_RUN_ENB, (u16)sizeof(buf), buf);
-	if (rc)
-		dev_err(&ts->client->dev,
-			"%s: failed to write %d to REG_INT_RUN_ENB (%d)\n",
-			__func__, buf[0], rc);
-	usleep(1000);
-
-	return 0;
 }
 
 static int fb_notifier_callback(struct notifier_block *self,
@@ -1228,9 +1223,6 @@ static int fb_notifier_callback(struct notifier_block *self,
 							FB_BLANK_POWERDOWN) {
 			if (!cont_splash)
 				bu21150_fb_suspend(dev);
-		} else if (event == FB_EVENT_BLANK && *blank ==
-							FB_BLANK_UNBLANK) {
-			bu21150_fb_resume(dev);
 		}
 	}
 
