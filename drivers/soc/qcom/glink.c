@@ -363,6 +363,7 @@ int glink_ssr(const char *subsystem)
 	int ret = 0;
 	bool transport_found = false;
 	struct glink_core_xprt_ctx *xprt_ctx = NULL;
+	struct channel_ctx *ch_ctx, *temp_ch_ctx;
 
 
 	mutex_lock(&transport_list_lock_lha0);
@@ -370,6 +371,15 @@ int glink_ssr(const char *subsystem)
 		if (!strcmp(subsystem, xprt_ctx->edge) &&
 				xprt_is_fully_opened(xprt_ctx)) {
 			GLINK_INFO_XPRT(xprt_ctx, "%s: SSR\n", __func__);
+			mutex_lock(&xprt_ctx->tx_ready_mutex_lhb2);
+			if (!list_empty(&xprt_ctx->tx_ready))
+				list_for_each_entry_safe(ch_ctx, temp_ch_ctx,
+							&xprt_ctx->tx_ready,
+							tx_ready_list_node)
+					list_del_init(
+						&ch_ctx->tx_ready_list_node);
+			mutex_unlock(&xprt_ctx->tx_ready_mutex_lhb2);
+
 			xprt_ctx->ops->ssr(xprt_ctx->ops);
 			transport_found = true;
 		}
@@ -4181,6 +4191,8 @@ static void tx_work_func(struct work_struct *work)
 			GLINK_ERR_XPRT(xprt_ptr,
 					"%s: unrecoverable xprt failure %d\n",
 					__func__, ret);
+			mutex_unlock(&ch_ptr->tx_lists_mutex_lhc3);
+			break;
 		}
 
 		if (!tx_info->size_remaining) {
