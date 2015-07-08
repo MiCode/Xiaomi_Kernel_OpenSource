@@ -274,6 +274,7 @@ out:
 int ufs_qcom_phy_init_vregulators(struct ufs_qcom_phy *phy_common)
 {
 	int err;
+	int vdda_phy_uV;
 
 	err = ufs_qcom_phy_init_vreg(phy_common->dev, &phy_common->vdda_pll,
 		"vdda-pll");
@@ -282,9 +283,12 @@ int ufs_qcom_phy_init_vregulators(struct ufs_qcom_phy *phy_common)
 
 	err = ufs_qcom_phy_init_vreg(phy_common->dev, &phy_common->vdda_phy,
 		"vdda-phy");
-
 	if (err)
 		goto out;
+
+	vdda_phy_uV = regulator_get_voltage(phy_common->vdda_phy.reg);
+	phy_common->vdda_phy.max_uV = vdda_phy_uV;
+	phy_common->vdda_phy.min_uV = vdda_phy_uV;
 
 	err = ufs_qcom_phy_init_vreg(phy_common->dev, &phy_common->vddp_ref_clk,
 				     "vddp-ref-clk");

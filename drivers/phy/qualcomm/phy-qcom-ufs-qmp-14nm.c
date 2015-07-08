@@ -15,7 +15,6 @@
 #include "phy-qcom-ufs-qmp-14nm.h"
 
 #define UFS_PHY_NAME "ufs_phy_qmp_14nm"
-#define UFS_PHY_VDDA_PHY_UV	(925000)
 
 static
 int ufs_qcom_phy_qmp_14nm_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
@@ -246,9 +245,6 @@ static int ufs_qcom_phy_qmp_14nm_probe(struct platform_device *pdev)
 	err = ufs_qcom_phy_init_vregulators(phy_common);
 	if (err)
 		goto out;
-
-	phy_common->vdda_phy.max_uV = UFS_PHY_VDDA_PHY_UV;
-	phy_common->vdda_phy.min_uV = UFS_PHY_VDDA_PHY_UV;
 
 	ufs_qcom_phy_qmp_14nm_advertise_quirks(phy_common);
 
