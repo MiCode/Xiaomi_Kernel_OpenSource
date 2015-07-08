@@ -97,6 +97,7 @@ EXPORT_SYMBOL(boot_tvec_bases);
 static DEFINE_PER_CPU(struct tvec_base *, tvec_bases) = &boot_tvec_bases;
 #ifdef CONFIG_SMP
 struct tvec_base tvec_base_deferrable;
+static atomic_t deferrable_pending;
 #endif
 
 static inline void __run_timers(struct tvec_base *base);
@@ -676,9 +677,13 @@ static inline bool is_deferrable_timer_base(struct tvec_base *base)
 
 static inline void __run_deferrable_timers(void)
 {
-	if (smp_processor_id() == tick_do_timer_cpu &&
-	    time_after_eq(jiffies, tvec_base_deferrable.timer_jiffies))
-		__run_timers(&tvec_base_deferrable);
+	if (time_after_eq(jiffies, tvec_base_deferrable.timer_jiffies)) {
+		if ((atomic_cmpxchg(&deferrable_pending, 1, 0) &&
+			tick_do_timer_cpu == TICK_DO_TIMER_NONE) ||
+			tick_do_timer_cpu == smp_processor_id())
+				__run_timers(&tvec_base_deferrable);
+
+	}
 }
 
 static inline void init_deferrable_timer(void)
@@ -1401,6 +1406,30 @@ static unsigned long cmp_next_hrtimer_event(unsigned long now,
 		return now;
 	return expires;
 }
+
+#ifdef CONFIG_SMP
+/*
+ * check_pending_deferrable_timers - Check for unbound deferrable timer expiry.
+ * @cpu - Current CPU
+ *
+ * The function checks whether any global deferrable pending timers
+ * are exipired or not. This function does not check cpu bounded
+ * diferrable pending timers expiry.
+ *
+ * The function returns true when a cpu unbounded deferrable timer is expired.
+ */
+bool check_pending_deferrable_timers(int cpu)
+{
+	if (cpu == tick_do_timer_cpu ||
+		tick_do_timer_cpu == TICK_DO_TIMER_NONE) {
+		if (time_after_eq(jiffies, tvec_base_deferrable.timer_jiffies)
+			&& !atomic_cmpxchg(&deferrable_pending, 0, 1)) {
+				return true;
+		}
+	}
+	return false;
+}
+#endif
 
 /**
  * get_next_timer_interrupt - return the jiffy of the next pending timer
