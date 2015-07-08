@@ -729,6 +729,8 @@ static int cmdq_halt(struct mmc_host *mmc, bool halt)
 
 		return val ? 0 : -ETIMEDOUT;
 	} else {
+		if (cq_host->ops->set_data_timeout)
+			cq_host->ops->set_data_timeout(mmc, 0xf);
 		if (cq_host->ops->clear_set_irqs)
 			cq_host->ops->clear_set_irqs(mmc, true);
 		cmdq_writel(cq_host, cmdq_readl(cq_host, CQCTL) & ~HALT,
