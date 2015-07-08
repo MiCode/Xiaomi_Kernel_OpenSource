@@ -534,6 +534,11 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 		/* Transition OFF->ON (enable resources)*/
 		if (mdp5_data->resources_state ==
 				MDP_RSRC_CTL_STATE_OFF) {
+
+			/* Add an extra vote for the ahb bus */
+			mdss_update_reg_bus_vote(mdata->reg_bus_clt,
+				VOTE_INDEX_19_MHZ);
+
 			/* Enable MDP resources */
 			mdss_mdp_cmd_clk_on(ctx);
 			if (sctx)
@@ -651,6 +656,11 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 			/* Now Power off master DSI */
 			mdss_mdp_cmd_clk_off(ctx);
 
+			/* Remove extra vote for the ahb bus */
+			mdss_update_reg_bus_vote(mdata->reg_bus_clt,
+				VOTE_INDEX_DISABLE);
+
+
 			/* we are done accessing the resources */
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
@@ -671,7 +681,6 @@ exit:
 static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	int rc;
 
 	if (__mdss_mdp_cmd_is_panel_power_off(ctx))
 		return;
@@ -680,10 +689,6 @@ static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx)
 	MDSS_XLOG(ctx->pp_num, atomic_read(&ctx->koff_cnt));
 
 	mdss_bus_bandwidth_ctrl(true);
-
-	rc = mdss_iommu_ctrl(1);
-	if (IS_ERR_VALUE(rc))
-		pr_err("IOMMU attach failed\n");
 
 	mdss_mdp_hist_intr_setup(&mdata->hist_intr, MDSS_IRQ_RESUME);
 
@@ -713,7 +718,6 @@ static inline void mdss_mdp_cmd_clk_off(struct mdss_mdp_cmd_ctx *ctx)
 		pr_err("OFF with ctl:NULL\n");
 	}
 
-	mdss_iommu_ctrl(0);
 	mdss_bus_bandwidth_ctrl(false);
 
 	mutex_unlock(&ctx->clk_mtx);
@@ -926,6 +930,10 @@ static void clk_ctrl_delayed_off_work(struct work_struct *work)
 	/* now power off the master DSI */
 	mdss_mdp_cmd_clk_off(ctx);
 
+	/* Remove extra vote for the ahb bus */
+	mdss_update_reg_bus_vote(mdata->reg_bus_clt,
+		VOTE_INDEX_DISABLE);
+
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
 	/* update state machine that power off transition is done */
@@ -994,9 +1002,9 @@ static void clk_ctrl_gate_work(struct work_struct *work)
 			(void *)MDSS_DSI_CLK_EARLY_GATE, true);
 
 	/* Now gate DSI clocks for the master */
-		mdss_mdp_ctl_intf_event
-			(ctx->ctl, MDSS_EVENT_PANEL_CLK_CTRL,
-			(void *)MDSS_DSI_CLK_EARLY_GATE, true);
+	mdss_mdp_ctl_intf_event
+		(ctx->ctl, MDSS_EVENT_PANEL_CLK_CTRL,
+		(void *)MDSS_DSI_CLK_EARLY_GATE, true);
 
 	/* Gate mdp clocks */
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
