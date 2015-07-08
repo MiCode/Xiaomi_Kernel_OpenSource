@@ -772,6 +772,77 @@ static struct device_node *adreno_of_find_subnode(struct device_node *parent,
 	return NULL;
 }
 
+/*
+ * Get bus data based on the GPU speed configuration. If GPU speed config is
+ * not valid it will get normal bus data, otherwise it will get speed config
+ * bus data.
+ */
+static int adreno_of_get_bus_data(struct platform_device *pdev,
+		struct device_node *node,
+		struct kgsl_device_platform_data *pdata)
+{
+	struct device_node *parent =  pdev->dev.of_node;
+	int ret, num_usecases = 0, num_paths, len;
+	const uint32_t *vec_arr = NULL;
+	const char *name;
+
+	if (node != parent) {
+		ret = of_property_read_string(node, "qcom,msm-bus,name",
+				&name);
+		if (ret)
+			goto use_parent;
+
+		ret = of_property_read_u32(node, "qcom,msm-bus,num-cases",
+				&num_usecases);
+		if (ret)
+			goto use_parent;
+
+		ret = of_property_read_u32(node, "qcom,msm-bus,num-paths",
+				&num_paths);
+		if (ret)
+			goto use_parent;
+
+		vec_arr = of_get_property(node, "qcom,msm-bus,vectors-KBps",
+				&len);
+		if (vec_arr == NULL)
+			goto use_parent;
+		/*
+		 * All bus scale properties are valid, get all bus data from
+		 * the child node.
+		 */
+		pdev->dev.of_node = node;
+	}
+
+	pdata->bus_scale_table = msm_bus_cl_get_pdata(pdev);
+
+	/*
+	 * Set node back to parent if it's updated. We don't need any
+	 * data from child.
+	 */
+	if (node != parent)
+		pdev->dev.of_node = parent;
+
+	if (IS_ERR_OR_NULL(pdata->bus_scale_table)) {
+		ret = PTR_ERR(pdata->bus_scale_table);
+		if (!ret)
+			ret = -EINVAL;
+	}
+
+	return ret;
+
+use_parent:
+	ret = 0;
+	pdata->bus_scale_table = msm_bus_cl_get_pdata(pdev);
+
+	if (IS_ERR_OR_NULL(pdata->bus_scale_table)) {
+		ret = PTR_ERR(pdata->bus_scale_table);
+		if (!ret)
+			ret = -EINVAL;
+	}
+
+	return ret;
+}
+
 static int adreno_of_get_pwrlevels(struct device_node *parent,
 	struct kgsl_device_platform_data *pdata)
 {
@@ -1045,14 +1116,9 @@ static int adreno_of_get_pdata(struct platform_device *pdev)
 		goto err;
 
 	/* Bus Scale Data */
-
-	pdata->bus_scale_table = msm_bus_cl_get_pdata(pdev);
-	if (IS_ERR_OR_NULL(pdata->bus_scale_table)) {
-		ret = PTR_ERR(pdata->bus_scale_table);
-		if (!ret)
-			ret = -EINVAL;
+	ret = adreno_of_get_bus_data(pdev, node, pdata);
+	if (ret)
 		goto err;
-	}
 
 	/* If iommu phandle present parse iommu data old way */
 	if (of_parse_phandle(pdev->dev.of_node, "iommu", 0)) {
