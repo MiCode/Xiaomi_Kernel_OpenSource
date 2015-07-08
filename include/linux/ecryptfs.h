@@ -119,7 +119,7 @@ struct ecryptfs_auth_tok {
  * such as ecryptfs_get_key_size(), ecryptfs_get_cipher() etc.
  */
 struct ecryptfs_events {
-	bool (*is_cipher_supported_cb)(char *cipher);
+	bool (*is_cipher_supported_cb)(const char *cipher);
 	void (*open_cb)(struct inode *inode, void *ecrytpfs_data);
 	void (*release_cb)(struct inode *inode);
 	int (*encrypt_cb)(struct page *in_page, struct page *out_page,
@@ -127,6 +127,7 @@ struct ecryptfs_events {
 	int (*decrypt_cb)(struct page *in_page, struct page *out_page,
 		struct inode *inode, unsigned long extent_offset);
 	bool (*is_hw_crypt_cb)(void);
+	size_t (*get_salt_key_size_cb)(const char *cipher);
 };
 
 
@@ -137,6 +138,10 @@ int ecryptfs_unregister_from_events(int user_handle);
 const unsigned char *ecryptfs_get_key(void *ecrytpfs_data);
 
 size_t ecryptfs_get_key_size(void *ecrytpfs_data);
+
+const unsigned char *ecryptfs_get_salt(void *ecrytpfs_data);
+
+size_t ecryptfs_get_salt_size(void *ecrytpfs_data);
 
 const unsigned char *ecryptfs_get_cipher(void *ecrytpfs_data);
 
