@@ -681,7 +681,7 @@ out:
 static
 int ufs_qcom_crytpo_engine_cfg(struct ufs_hba *hba, unsigned int task_tag)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct ufshcd_lrb *lrbp = &hba->lrb[task_tag];
 	int err = 0;
 
@@ -697,7 +697,7 @@ out:
 static
 int ufs_qcom_crytpo_engine_reset(struct ufs_hba *hba)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	int err = 0;
 
 	if (!host->ice.pdev)
@@ -710,7 +710,7 @@ out:
 
 static int ufs_qcom_crypto_engine_eh(struct ufs_hba *hba)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	int ice_status = 0;
 	int err = 0;
 
@@ -745,14 +745,14 @@ static int ufs_qcom_crypto_engine_eh(struct ufs_hba *hba)
 
 static int ufs_qcom_crypto_engine_get_err(struct ufs_hba *hba)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	return host->ice.crypto_engine_err;
 }
 
 static void ufs_qcom_crypto_engine_reset_err(struct ufs_hba *hba)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	host->ice.crypto_engine_err = 0;
 }
@@ -1830,7 +1830,7 @@ static void ufs_qcom_print_unipro_testbus(struct ufs_hba *hba)
 
 static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	ufs_qcom_dump_regs(hba, REG_UFS_SYS1CLK_1US, 16,
 			"HCI Vendor Specific Registers ");
