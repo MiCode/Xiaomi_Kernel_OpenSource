@@ -364,6 +364,31 @@
 		label = "rpm";
 	};
 
+	qcom,glink_pkt {
+		compatible = "qcom,glinkpkt";
+
+		qcom,glinkpkt-at-mdm0 {
+			qcom,glinkpkt-transport = "smd_trans";
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DS";
+			qcom,glinkpkt-dev-name = "at_mdm0";
+		};
+
+		qcom,glinkpkt-loopback_cntl {
+			qcom,glinkpkt-transport = "lloop";
+			qcom,glinkpkt-edge = "local";
+			qcom,glinkpkt-ch-name = "LOCAL_LOOPBACK_CLNT";
+			qcom,glinkpkt-dev-name = "glink_pkt_loopback_ctrl";
+		};
+
+		qcom,glinkpkt-loopback_data {
+			qcom,glinkpkt-transport = "lloop";
+			qcom,glinkpkt-edge = "local";
+			qcom,glinkpkt-ch-name = "glink_pkt_lloop_CLNT";
+			qcom,glinkpkt-dev-name = "glink_pkt_loopback";
+		};
+	};
+
 	ufsphy1: ufsphy@1da7000 {
 		compatible = "qcom,ufs-phy-qmp-v3";
 		reg = <0x1da7000 0xda8>;
