@@ -921,6 +921,27 @@ int ufshcd_wait_for_register(struct ufs_hba *hba, u32 reg, u32 mask,
 				u32 val, unsigned long interval_us,
 				unsigned long timeout_ms, bool can_sleep);
 
+/**
+ * ufshcd_bind_variant - bind variant specific data to the hba
+ * @hba - per adapter instance
+ * @variant - pointer to variant specific data
+ */
+static inline void ufshcd_bind_variant(struct ufs_hba *hba, void *variant)
+{
+	BUG_ON(!hba);
+	hba->priv = variant;
+}
+
+/**
+ * ufshcd_get_variant - get variant specific data from the hba
+ * @hba - per adapter instance
+ */
+static inline void *ufshcd_get_variant(struct ufs_hba *hba)
+{
+	BUG_ON(!hba);
+	return hba->priv;
+}
+
 extern int ufshcd_runtime_suspend(struct ufs_hba *hba);
 extern int ufshcd_runtime_resume(struct ufs_hba *hba);
 extern int ufshcd_runtime_idle(struct ufs_hba *hba);
