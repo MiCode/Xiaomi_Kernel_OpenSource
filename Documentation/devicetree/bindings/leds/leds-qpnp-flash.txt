@@ -54,9 +54,12 @@ Optional properties:
 				  when battery voltage is low
 -qcom,otst2-module-enabled	: Boolean type. This enables driver to enable MASK to support
 				OTST2 connection.
-- qcom,duration	:	duration for flash LED. When duration time expires, hardware
-			will turn off flash LED. Values should be from 10 ms to 1280 ms
-			with 10 ms incremental step. Not applicable to torch.
+- qcom,duration			: Duration for flash LED. When duration time expires, hardware
+				will turn off flash LED. Values should be from 10 ms to 1280 ms
+				with 10 ms incremental step. Not applicable to torch.
+- qcom,follow-otst2-rb-disabled	: Boolean type. This allows driver to reset/deset module.
+				By default, driver resets module. This entry allows driver to
+				bypass reset module sequence.
 
 Required properties inside child node. Child node contains settings for each individual LED.
 Each LED hardware needs a node for itself and a switch node to control brightness.
