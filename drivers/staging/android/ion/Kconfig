@@ -40,3 +40,11 @@ config ION_HISI
 	  Choose this option if you wish to use ion on Hisilicon Platform.
 
 source "drivers/staging/android/ion/hisilicon/Kconfig"
+
+config ION_POOL_CACHE_POLICY
+	bool "Ion set page pool cache policy"
+	depends on ION
+	default y if X86
+	help
+	  Choose this option if need to explicity set cache policy of the
+	  pages in the page pool.
