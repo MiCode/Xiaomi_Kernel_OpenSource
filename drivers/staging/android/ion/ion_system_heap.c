@@ -111,12 +111,15 @@ static void free_buffer_page(struct ion_system_heap *heap,
 			pool = heap->cached_pools[order_to_index(order)];
 		else
 			pool = heap->uncached_pools[order_to_index(order)];
-		ion_page_pool_free(pool, page);
+
+		if (buffer->private_flags & ION_PRIV_FLAG_SHRINKER_FREE)
+			ion_page_pool_free_immediate(pool, page);
+		else
+			ion_page_pool_free(pool, page);
 	} else {
 		__free_pages(page, order);
 	}
 }
-
 
 static struct page_info *alloc_largest_available(struct ion_system_heap *heap,
 						 struct ion_buffer *buffer,

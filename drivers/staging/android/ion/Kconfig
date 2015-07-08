@@ -46,3 +46,11 @@ config ALLOC_BUFFERS_IN_4K_CHUNKS
 	help
           Choose this option if you want ION to allocate buffers in
           only 4KB chunks.
+
+config ION_POOL_CACHE_POLICY
+	bool "Ion set page pool cache policy"
+	depends on ION
+	default y if X86
+	help
+	  Choose this option if need to explicity set cache policy of the
+	  pages in the page pool.
