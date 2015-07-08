@@ -317,6 +317,28 @@ static int __cpuinit msm8936_boot_secondary(unsigned int cpu,
 	return release_from_pen(cpu);
 }
 
+static int __cpuinit msm8976_boot_secondary(unsigned int cpu,
+						struct task_struct *idle)
+{
+	int ret = 0;
+
+	pr_debug("Starting secondary CPU %d\n", cpu);
+
+	if (per_cpu(cold_boot_done, cpu) == false) {
+		if (of_board_is_sim()) {
+			ret = msm_unclamp_secondary_arm_cpu_sim(cpu);
+			if (ret)
+				return ret;
+		} else if (!of_board_is_rumi()) {
+			ret = msm8976_unclamp_secondary_arm_cpu(cpu);
+			if (ret)
+				return ret;
+		}
+		per_cpu(cold_boot_done, cpu) = true;
+	}
+	return release_from_pen(cpu);
+}
+
 int __cpuinit arm_boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	pr_debug("Starting secondary CPU %d\n", cpu);
@@ -452,7 +474,7 @@ struct smp_operations msm8976_smp_ops __initdata = {
 	.smp_init_cpus = arm_smp_init_cpus,
 	.smp_prepare_cpus = msm_platform_smp_prepare_cpus_mc,
 	.smp_secondary_init = msm_secondary_init,
-	.smp_boot_secondary = msm8936_boot_secondary, /*TODO: needs update*/
+	.smp_boot_secondary = msm8976_boot_secondary,
 #ifdef CONFIG_HOTPLUG
 	.cpu_die = msm_cpu_die,
 	.cpu_kill = msm_cpu_kill,
