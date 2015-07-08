@@ -3147,8 +3147,9 @@ static void pp_update_hist_lut(char __iomem *addr,
 	}
 
 	for (i = 0; i < (ENHIST_LUT_ENTRIES / 2); i++) {
-		data = cfg->data[2 * i] & 0xFF;
-		data |= (cfg->data[2 * i + 1] & 0xFF) << 16;
+		data = cfg->data[2 * i] & ENHIST_VALUE_MASK;
+		data |= (cfg->data[2 * i + 1] & ENHIST_VALUE_MASK) <<
+							ENHIST_BIT_SHIFT;
 		writel_relaxed(data, offset_data);
 		offset_data += 4;
 	}
