@@ -2323,8 +2323,7 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 			sizeof(struct msm8916_asoc_mach_data), GFP_KERNEL);
 	if (!pdata) {
 		dev_err(&pdev->dev, "Can't allocate msm8x16_asoc_mach_data\n");
-		ret = -ENOMEM;
-		goto err;
+		return -ENOMEM;
 	}
 
 	muxsel = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -2332,7 +2331,7 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 	if (!muxsel) {
 		dev_err(&pdev->dev, "MUX addr invalid for MI2S\n");
 		ret = -ENODEV;
-		goto err;
+		goto err1;
 	}
 	pdata->vaddr_gpio_mux_mic_ctl =
 		ioremap(muxsel->start, resource_size(muxsel));
