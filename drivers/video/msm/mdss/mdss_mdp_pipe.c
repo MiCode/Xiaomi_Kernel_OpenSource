@@ -50,6 +50,7 @@ static int mdss_mdp_calc_stride(struct mdss_mdp_pipe *pipe,
 	struct mdss_mdp_plane_sizes *ps);
 static u32 mdss_mdp_calc_per_plane_num_blks(u32 ystride,
 	struct mdss_mdp_pipe *pipe);
+static int mdss_mdp_pipe_program_pixel_extn(struct mdss_mdp_pipe *pipe);
 
 static inline void mdss_mdp_pipe_write(struct mdss_mdp_pipe *pipe,
 				       u32 reg, u32 val)
@@ -1998,6 +1999,10 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 		((pipe->type == MDSS_MDP_PIPE_TYPE_DMA) &&
 		 (pipe->mixer_left->type == MDSS_MDP_MIXER_TYPE_WRITEBACK) &&
 		 (ctl->mdata->mixer_switched)) || ctl->roi_changed;
+
+	if (params_changed && pipe->scale.enable_pxl_ext)
+		mdss_mdp_pipe_program_pixel_extn(pipe);
+
 	if ((!(pipe->flags & MDP_VPU_PIPE) && (src_data == NULL)) ||
 	    (pipe->flags & MDP_SOLID_FILL)) {
 		pipe->params_changed = 0;
@@ -2148,7 +2153,7 @@ static inline void __mdss_mdp_pipe_program_pixel_extn_helper(
  * Function programs the pixel extn values calculated during
  * scale setup.
  */
-int mdss_mdp_pipe_program_pixel_extn(struct mdss_mdp_pipe *pipe)
+static int mdss_mdp_pipe_program_pixel_extn(struct mdss_mdp_pipe *pipe)
 {
 	/* Y plane pixel extn */
 	__mdss_mdp_pipe_program_pixel_extn_helper(pipe, 0, 0);
