@@ -1578,12 +1578,10 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "MADINPUT");
 	snd_soc_dapm_ignore_suspend(dapm, "MAD_CPE_INPUT");
 	snd_soc_dapm_ignore_suspend(dapm, "EAR");
-	snd_soc_dapm_ignore_suspend(dapm, "HEADPHONE");
 	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT1");
 	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT2");
 	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT3");
 	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT4");
-	snd_soc_dapm_ignore_suspend(dapm, "ANC HEADPHONE");
 	snd_soc_dapm_ignore_suspend(dapm, "ANC EAR");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC1");
 	snd_soc_dapm_ignore_suspend(dapm, "AMIC2");
@@ -1601,10 +1599,16 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		snd_soc_dapm_ignore_suspend(dapm, "DMIC0");
 		snd_soc_dapm_ignore_suspend(dapm, "SPK1 OUT");
 		snd_soc_dapm_ignore_suspend(dapm, "SPK2 OUT");
+		snd_soc_dapm_ignore_suspend(dapm, "HPHL");
+		snd_soc_dapm_ignore_suspend(dapm, "HPHR");
+		snd_soc_dapm_ignore_suspend(dapm, "ANC HPHL");
+		snd_soc_dapm_ignore_suspend(dapm, "ANC HPHR");
 	} else {
 		snd_soc_dapm_ignore_suspend(dapm, "DMIC6");
 		snd_soc_dapm_ignore_suspend(dapm, "Digital Mic6");
 		snd_soc_dapm_ignore_suspend(dapm, "SPK_OUT");
+		snd_soc_dapm_ignore_suspend(dapm, "HEADPHONE");
+		snd_soc_dapm_ignore_suspend(dapm, "ANC HEADPHONE");
 	}
 	snd_soc_dapm_ignore_suspend(dapm, "AIF4 VI");
 	snd_soc_dapm_ignore_suspend(dapm, "VIINPUT");
