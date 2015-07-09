@@ -577,7 +577,7 @@ static void cpufreq_stats_create_table(unsigned int cpu)
 
 	table = cpufreq_frequency_get_table(policy->cpu);
 	if (likely(table)) {
-		cpufreq_for_each_valid_entry(pos, table);
+		cpufreq_for_each_valid_entry(pos, table)
 			count++;
 
 		if (!per_cpu(all_cpufreq_stats, cpu))
@@ -608,7 +608,7 @@ static int cpufreq_stat_notifier_policy(struct notifier_block *nb,
 	if (!table)
 		return 0;
 
-	cpufreq_for_each_valid_entry(pos, table);
+	cpufreq_for_each_valid_entry(pos, table)
 		count++;
 
 	if (!per_cpu(all_cpufreq_stats, cpu))
