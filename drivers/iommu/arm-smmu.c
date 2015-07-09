@@ -1436,6 +1436,8 @@ static int arm_smmu_domain_init(struct iommu_domain *domain)
 		return -ENOMEM;
 
 	smmu_domain->secure_vmid = VMID_INVAL;
+	/* disable coherent htw by default */
+	smmu_domain->attributes = (1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE);
 	INIT_LIST_HEAD(&smmu_domain->pte_info_list);
 	mutex_init(&smmu_domain->init_mutex);
 	spin_lock_init(&smmu_domain->pgtbl_lock);
