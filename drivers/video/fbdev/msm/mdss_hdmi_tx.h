@@ -170,6 +170,7 @@ struct hdmi_tx_ctrl {
 	bool hdcp_feature_on;
 	bool hpd_disabled;
 	bool ds_registered;
+	bool scrambler_enabled;
 	u32 hdcp14_present;
 	bool audio_ack_enabled;
 	atomic_t audio_ack_pending;
