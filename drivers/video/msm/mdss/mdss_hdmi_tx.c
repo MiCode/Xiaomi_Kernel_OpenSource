@@ -2968,23 +2968,21 @@ static void hdmi_tx_audio_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 	DEV_INFO("HDMI Audio: Disabled\n");
 } /* hdmi_tx_audio_off */
 
-static int hdmi_tx_setup_tmds_clk_ratio(struct hdmi_tx_ctrl *hdmi_ctrl)
+static int hdmi_tx_setup_tmds_clk_rate(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	int rc = 0;
 	u32 rate = 0;
 	struct msm_hdmi_mode_timing_info *timing = NULL;
-	u32 tmds_clock_ratio = 0;
 	u32 rate_ratio;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: Bad input parameters\n", __func__);
-		return -EINVAL;
+		goto end;
 	}
 
 	timing = &hdmi_ctrl->vid_cfg.timing;
 	if (!timing) {
 		DEV_ERR("%s: Invalid timing info\n", __func__);
-		return -EINVAL;
+		goto end;
 	}
 
 	switch (hdmi_ctrl->vid_cfg.avi_iframe.pixel_format) {
@@ -3001,16 +2999,8 @@ static int hdmi_tx_setup_tmds_clk_ratio(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	rate = timing->pixel_freq / rate_ratio;
 
-	if (rate > HDMI_TX_SCRAMBLER_THRESHOLD_RATE_KHZ) {
-		DEV_DBG("%s: TMDS CLOCK PERIOD RATIO: 1\n", __func__);
-		tmds_clock_ratio = 1;
-	}
-
-	rc = hdmi_scdc_write(&hdmi_ctrl->ddc_ctrl,
-			     HDMI_TX_SCDC_TMDS_BIT_CLOCK_RATIO_UPDATE,
-			     tmds_clock_ratio);
-
-	return rc;
+end:
+	return rate;
 }
 
 int hdmi_tx_setup_scrambler(struct hdmi_tx_ctrl *hdmi_ctrl)
@@ -3018,9 +3008,11 @@ int hdmi_tx_setup_scrambler(struct hdmi_tx_ctrl *hdmi_ctrl)
 	int rc = 0;
 	u32 rate = 0;
 	u32 reg_val = 0;
+	u32 tmds_clock_ratio = 0;
 	bool scrambler_on = false;
 	struct dss_io_data *io = NULL;
 	struct msm_hdmi_mode_timing_info *timing = NULL;
+	void *edid_data = NULL;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: Bad input parameters\n", __func__);
@@ -3032,6 +3024,8 @@ int hdmi_tx_setup_scrambler(struct hdmi_tx_ctrl *hdmi_ctrl)
 		DEV_ERR("%s: core io is not initialized\n", __func__);
 		return -EINVAL;
 	}
+
+	edid_data = hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID];
 
 	timing = &hdmi_ctrl->vid_cfg.timing;
 	if (!timing) {
@@ -3045,35 +3039,31 @@ int hdmi_tx_setup_scrambler(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return 0;
 	}
 
-	if (!hdmi_edid_get_scdc_support(
-			hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID])) {
-		DEV_DBG("%s: HDMI TX does not support scdc\n", __func__);
-		return 0;
-	}
-	switch (hdmi_ctrl->vid_cfg.avi_iframe.pixel_format) {
-	case MDP_Y_CBCR_H2V2:
-		rate = timing->pixel_freq /
-			HDMI_TX_YUV420_24BPP_PCLK_TMDS_CH_RATE_RATIO;
-		break;
-	case MDP_Y_CBCR_H2V1:
-		rate = timing->pixel_freq /
-			HDMI_TX_YUV422_24BPP_PCLK_TMDS_CH_RATE_RATIO;
-		break;
-	default:
-		rate = timing->pixel_freq /
-			HDMI_TX_RGB_24BPP_PCLK_TMDS_CH_RATE_RATIO;
-		break;
-	}
+	if (!hdmi_edid_get_scdc_support(edid_data))
+		DEV_WARN("%s: sink didn't provide scdc support\n", __func__);
+
+	rate = hdmi_tx_setup_tmds_clk_rate(hdmi_ctrl);
 
 	if (rate > HDMI_TX_SCRAMBLER_THRESHOLD_RATE_KHZ) {
 		scrambler_on = true;
+		tmds_clock_ratio = 1;
 	} else {
-		if (hdmi_edid_get_sink_scrambler_support(
-				hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]))
+		if (hdmi_edid_get_sink_scrambler_support(edid_data))
 			scrambler_on = true;
 	}
 
 	if (scrambler_on) {
+		u64 mult;
+		u64 div;
+
+		rc = hdmi_scdc_write(&hdmi_ctrl->ddc_ctrl,
+			HDMI_TX_SCDC_TMDS_BIT_CLOCK_RATIO_UPDATE,
+			tmds_clock_ratio);
+		if (rc) {
+			DEV_ERR("%s: TMDS CLK RATIO ERR\n", __func__);
+			return rc;
+		}
+
 		reg_val = DSS_REG_R(io, HDMI_CTRL);
 		reg_val |= BIT(31); /* Enable Update DATAPATH_MODE */
 		reg_val |= BIT(28); /* Set SCRAMBLER_EN bit */
@@ -3081,28 +3071,20 @@ int hdmi_tx_setup_scrambler(struct hdmi_tx_ctrl *hdmi_ctrl)
 		DSS_REG_W(io, HDMI_CTRL, reg_val);
 
 		rc = hdmi_scdc_write(&hdmi_ctrl->ddc_ctrl,
-				     HDMI_TX_SCDC_SCRAMBLING_ENABLE,
-				     0x1);
-	} else {
-		rc = hdmi_scdc_write(&hdmi_ctrl->ddc_ctrl,
-				     HDMI_TX_SCDC_SCRAMBLING_ENABLE,
-				     0x0);
-	}
+			HDMI_TX_SCDC_SCRAMBLING_ENABLE, 0x1);
+		if (!rc) {
+			hdmi_ctrl->scrambler_enabled = true;
+		} else {
+			DEV_ERR("%s: failed to enable scrambling\n",
+				__func__);
+			return rc;
+		}
 
-	if (rc) {
-		DEV_ERR("%s: SCDC write failed\n", __func__);
-		return rc;
-	}
-
-	/*
-	 * Setup hardware to periodically check for scrambler status bit on the
-	 * sink. Sink should set this bit with in 200ms after scrambler is
-	 * enabled.
-	 */
-	if (scrambler_on) {
-		u64 mult;
-		u64 div;
-		/* calculate number of lines sent in 200ms */
+		/*
+		 * Setup hardware to periodically check for scrambler
+		 * status bit on the sink. Sink should set this bit
+		 * with in 200ms after scrambler is enabled.
+		 */
 		mult = HDMI_TX_SCRAMBLER_TIMEOUT_USEC *
 			((u64)timing->pixel_freq * HDMI_TX_KHZ_TO_HZ);
 		div = hdmi_tx_get_v_total(timing) * HDMI_TX_MHZ_TO_HZ;
@@ -3112,8 +3094,14 @@ int hdmi_tx_setup_scrambler(struct hdmi_tx_ctrl *hdmi_ctrl)
 			mult = 0;
 
 		rc = hdmi_setup_ddc_timers(&hdmi_ctrl->ddc_ctrl,
-					   HDMI_TX_DDC_TIMER_SCRAMBLER_STATUS,
-					   (u32)mult);
+			HDMI_TX_DDC_TIMER_SCRAMBLER_STATUS, (u32)mult);
+	} else {
+		if (hdmi_ctrl->scrambler_enabled) {
+			hdmi_scdc_write(&hdmi_ctrl->ddc_ctrl,
+				HDMI_TX_SCDC_SCRAMBLING_ENABLE, 0x0);
+
+			hdmi_ctrl->scrambler_enabled = false;
+		}
 	}
 
 	return rc;
@@ -3311,15 +3299,7 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 			goto end;
 		}
 	}
-	if (hdmi_edid_get_scdc_support(
-			hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID])) {
 
-		rc = hdmi_tx_setup_tmds_clk_ratio(hdmi_ctrl);
-		if (rc) {
-			DEV_ERR("%s: failed to set TMDS CLK RATIO\n", __func__);
-			return rc;
-		}
-	}
 	rc = hdmi_tx_core_on(hdmi_ctrl);
 	if (rc) {
 		DEV_ERR("%s: hdmi_msm_core_on failed\n", __func__);
@@ -3555,24 +3535,48 @@ static irqreturn_t hdmi_tx_isr(int irq, void *data)
 	struct dss_io_data *io = NULL;
 	struct hdmi_tx_ctrl *hdmi_ctrl = (struct hdmi_tx_ctrl *)data;
 	unsigned long flags;
+	u32 hpd_current_state;
+	u32 reg_val = 0;
 
 	if (!hdmi_ctrl) {
 		DEV_WARN("%s: invalid input data, ISR ignored\n", __func__);
-		return IRQ_HANDLED;
+		goto end;
 	}
 
 	io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
 	if (!io->base) {
 		DEV_WARN("%s: core io not initialized, ISR ignored\n",
 			__func__);
-		return IRQ_HANDLED;
+		goto end;
 	}
 
 	if (DSS_REG_R(io, HDMI_HPD_INT_STATUS) & BIT(0)) {
 		spin_lock_irqsave(&hdmi_ctrl->hpd_state_lock, flags);
+		hpd_current_state = hdmi_ctrl->hpd_state;
 		hdmi_ctrl->hpd_state =
 			(DSS_REG_R(io, HDMI_HPD_INT_STATUS) & BIT(1)) >> 1;
 		spin_unlock_irqrestore(&hdmi_ctrl->hpd_state_lock, flags);
+
+		/*
+		 * check if this is a spurious interrupt, if yes, reset
+		 * interrupts and return
+		 */
+		if (hpd_current_state == hdmi_ctrl->hpd_state) {
+			DEV_DBG("%s: spurious interrupt %d\n", __func__,
+				hpd_current_state);
+
+			/* enable interrupts */
+			reg_val |= BIT(2);
+
+			/* set polarity, reverse of current state */
+			reg_val |= (~hpd_current_state << 1) & BIT(1);
+
+			/* ack interrupt */
+			reg_val |= BIT(0);
+
+			DSS_REG_W(io, HDMI_HPD_INT_CTRL, reg_val);
+			goto end;
+		}
 
 		/*
 		 * Ack the current hpd interrupt and stop listening to
@@ -3602,7 +3606,7 @@ static irqreturn_t hdmi_tx_isr(int irq, void *data)
 		if (hdmi_ctrl->hdcp_ops->hdmi_hdcp_isr(
 					hdmi_ctrl->hdcp_feature_data))
 			DEV_ERR("%s: hdmi_hdcp_isr failed\n", __func__);
-
+end:
 	return IRQ_HANDLED;
 } /* hdmi_tx_isr */
 

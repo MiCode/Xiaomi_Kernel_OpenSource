@@ -989,43 +989,47 @@ static void hdmi_edid_extract_speaker_allocation_data(
 static void hdmi_edid_extract_sink_caps(struct hdmi_edid_ctrl *edid_ctrl,
 	const u8 *in_buf)
 {
-	u8 len = 0;
+	u8 len = 0, i = 0;
 	const u8 *vsd = NULL;
-	u32 vsd_offset = 0;
+	u32 vsd_offset = DBC_START_OFFSET;
 	u32 hf_ieee_oui = 0;
+
 	if (!edid_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return;
 	}
 
-	/*
-	 * Find the first vsdb block and then search for the 2nd vsdb block.
-	 * HF-VSDB block should always follow the H14b vsdb
-	 */
-	vsd = hdmi_edid_find_block(in_buf, DBC_START_OFFSET,
-				   VENDOR_SPECIFIC_DATA_BLOCK, &len);
+	/* Find HF-VSDB with HF-OUI */
+	do {
+		vsd = hdmi_edid_find_block(in_buf, vsd_offset,
+			   VENDOR_SPECIFIC_DATA_BLOCK, &len);
 
-	if (vsd == NULL || len == 0 || len > MAX_DATA_BLOCK_SIZE) {
-		DEV_ERR("%s: EDID: No H14b VSDB present\n", __func__);
+		if (!vsd || !len || len > MAX_DATA_BLOCK_SIZE) {
+			if (i == 0)
+				DEV_ERR("%s: VSDB not found\n", __func__);
+			else
+				DEV_DBG("%s: no more VSDB found\n", __func__);
+			break;
+		}
+
+		hf_ieee_oui = (vsd[1] << 16) | (vsd[2] << 8) | vsd[3];
+
+		if (hf_ieee_oui == HDMI_FORUM_IEEE_OUI) {
+			DEV_DBG("%s: found HF-VSDB\n", __func__);
+			break;
+		}
+
+		DEV_DBG("%s: Not a HF OUI 0x%x\n", __func__, hf_ieee_oui);
+
+		i++;
+		vsd_offset = vsd - in_buf + len + 1;
+	} while (1);
+
+	if (!vsd) {
+		DEV_DBG("%s: HF-VSDB not found\n", __func__);
 		return;
 	}
-	vsd_offset = vsd - in_buf;
-	len = 0;
 
-	vsd = hdmi_edid_find_block(in_buf, vsd_offset,
-				   VENDOR_SPECIFIC_DATA_BLOCK, &len);
-
-	if (vsd == NULL || len == 0 || len > MAX_DATA_BLOCK_SIZE) {
-		DEV_ERR("%s: EDID: No HF VSDB present\n", __func__);
-		return;
-	}
-
-	hf_ieee_oui = (vsd[1] << 16) | (vsd[2] << 8) | vsd[3];
-	DEV_DBG("%s: HF IEEE OUI = 0x%x", __func__, hf_ieee_oui);
-	if (hf_ieee_oui != HDMI_FORUM_IEEE_OUI) {
-		DEV_ERR("%s: Not a HF OUI", __func__);
-		return;
-	}
 	/* Max pixel clock is in  multiples of 5Mhz. */
 	edid_ctrl->sink_caps.max_pclk_in_hz =
 			vsd[5]*5000000;
