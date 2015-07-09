@@ -331,7 +331,7 @@ static int32_t msm_cci_calc_cmd_len(struct cci_device *cci_dev,
 		pack_max_len = size < (cci_dev->payload_size-len) ?
 			size : (cci_dev->payload_size-len);
 		for (i = 0; i < pack_max_len;) {
-			if (cmd->delay || ((cmd - i2c_cmd) >= cmd_size))
+			if (cmd->delay || ((cmd - i2c_cmd) >= (cmd_size - 1)))
 				break;
 			if (cmd->reg_addr + 1 ==
 				(cmd+1)->reg_addr) {
