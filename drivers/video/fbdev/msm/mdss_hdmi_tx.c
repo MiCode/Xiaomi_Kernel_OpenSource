@@ -21,6 +21,7 @@
 #include <linux/of_platform.h>
 #include <linux/types.h>
 #include <linux/msm_hdmi.h>
+#include <linux/hdcp_qseecom.h>
 
 #define REG_DUMP 0
 
@@ -396,11 +397,24 @@ static bool hdmi_tx_is_cea_format(int mode)
 
 static inline bool hdmi_tx_is_hdcp_enabled(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	if (hdmi_ctrl->hdcp_feature_on &&
-		(hdmi_ctrl->hdcp14_present || hdmi_ctrl->hdcp22_present))
-		return true;
+	bool ret = false;
 
-	return false;
+	if (hdmi_ctrl->hdcp_feature_on) {
+		if (hdmi_ctrl->hdcp14_present) {
+			/* Check to see if sw keys are available */
+			if (hdmi_ctrl->hdcp14_sw_keys) {
+				u32 m_aksv, l_aksv;
+
+				ret = !hdcp1_set_keys(&m_aksv, &l_aksv);
+			} else {
+				ret = true;
+			}
+		}
+		if (hdmi_ctrl->hdcp22_present)
+			ret = true;
+	}
+
+	return ret;
 }
 
 static const char *hdmi_tx_pm_name(enum hdmi_tx_power_module_type module)
@@ -1636,6 +1650,7 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 static int hdmi_tx_check_capability(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	u32 hdmi_disabled, hdcp_disabled, reg_val;
+	bool sw_keys = false;
 	struct dss_io_data *io = NULL;
 
 	if (!hdmi_ctrl) {
@@ -1662,14 +1677,15 @@ static int hdmi_tx_check_capability(struct hdmi_tx_ctrl *hdmi_ctrl)
 		hdmi_disabled = reg_val & BIT(13);
 		reg_val = DSS_REG_R_ND(io, SEC_CTRL_HW_VERSION);
 		/*
-		 * With HDCP enabled on HDCP 2.2 capable hardware, check if HW
-		 * or SW keys should be used. If using SW keys, disable HDCP 1.4
+		 * With HDCP enabled on capable hardware, check if HW
+		 * or SW keys should be used.
 		 */
 		if (!hdcp_disabled && (reg_val >= HDCP_SEL_MIN_SEC_VERSION)) {
 			reg_val = DSS_REG_R_ND(io,
 				QFPROM_RAW_FEAT_CONFIG_ROW0_MSB +
 				QFPROM_RAW_VERSION_4);
-			hdcp_disabled = !(reg_val & BIT(23));
+			if (!(reg_val & BIT(23)))
+				sw_keys = true;
 		}
 	}
 
@@ -1686,6 +1702,7 @@ static int hdmi_tx_check_capability(struct hdmi_tx_ctrl *hdmi_ctrl)
 		DEV_WARN("%s: HDCP disabled\n", __func__);
 	} else {
 		hdmi_ctrl->hdcp14_present = 1;
+		hdmi_ctrl->hdcp14_sw_keys = sw_keys;
 		DEV_DBG("%s: Device is HDCP enabled\n", __func__);
 	}
 
