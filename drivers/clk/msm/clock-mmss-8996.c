@@ -76,6 +76,7 @@ static int vdd_mmpll4_levels[] = {
 static DEFINE_VDD_REGULATORS(vdd_mmpll4, VDD_DIG_NUM, 2, vdd_mmpll4_levels,
 									NULL);
 DEFINE_VDD_REGS_INIT(vdd_gfx, 2);
+DEFINE_VDD_REGS_INIT(vdd_gpu_mx, 1);
 
 static struct alpha_pll_masks pll_masks_p = {
 	.lock_mask = BIT(31),
@@ -2316,6 +2317,15 @@ static struct branch_clk gpu_gx_gfx3d_clk = {
 	},
 };
 
+static struct fixed_clk gpu_mx_clk = {
+	.c = {
+		.dbg_name = "gpu_mx_clk",
+		.vdd_class = &vdd_gpu_mx,
+		.ops = &clk_ops_dummy,
+		CLK_INIT(gpu_mx_clk.c),
+	},
+};
+
 static struct branch_clk gpu_gx_rbbmtimer_clk = {
 	.cbcr_reg = MMSS_GPU_GX_RBBMTIMER_CBCR,
 	.has_sibling = 0,
@@ -3362,8 +3372,9 @@ static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
 								char *prop_name)
 {
 	struct device_node *of = pdev->dev.of_node;
-	int prop_len, i;
+	int prop_len, i, j;
 	struct clk_vdd_class *vdd = c->vdd_class;
+	int num = vdd->num_regulators + 1;
 	u32 *array;
 
 	if (!of_find_property(of, prop_name, &prop_len)) {
@@ -3372,19 +3383,19 @@ static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
 	}
 
 	prop_len /= sizeof(u32);
-	if (prop_len % 3) {
+	if (prop_len % num) {
 		dev_err(&pdev->dev, "bad length %d\n", prop_len);
 		return -EINVAL;
 	}
 
-	prop_len /= 3;
+	prop_len /= num;
 	vdd->level_votes = devm_kzalloc(&pdev->dev, prop_len * sizeof(int),
 					GFP_KERNEL);
 	if (!vdd->level_votes)
 		return -ENOMEM;
 
-	vdd->vdd_uv = devm_kzalloc(&pdev->dev, prop_len * sizeof(int) * 2,
-					GFP_KERNEL);
+	vdd->vdd_uv = devm_kzalloc(&pdev->dev,
+			prop_len * sizeof(int) * (num - 1), GFP_KERNEL);
 	if (!vdd->vdd_uv)
 		return -ENOMEM;
 
@@ -3394,15 +3405,17 @@ static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
 		return -ENOMEM;
 
 	array = devm_kzalloc(&pdev->dev,
-			prop_len * sizeof(u32) * 3, GFP_KERNEL);
+			prop_len * sizeof(u32) * num, GFP_KERNEL);
 	if (!array)
 		return -ENOMEM;
 
-	of_property_read_u32_array(of, prop_name, array, prop_len * 3);
+	of_property_read_u32_array(of, prop_name, array, prop_len * num);
 	for (i = 0; i < prop_len; i++) {
-		c->fmax[i] = array[3 * i];
-		vdd->vdd_uv[2 * i] = array[3 * i + 1];
-		vdd->vdd_uv[2 * i + 1] = array[3 * i + 2];
+		c->fmax[i] = array[num * i];
+		for (j = 1; j < num; j++) {
+			vdd->vdd_uv[(num - 1) * i + (j - 1)] =
+						array[num * i + j];
+		}
 	}
 
 	devm_kfree(&pdev->dev, array);
@@ -3652,6 +3665,7 @@ static struct clk_lookup msm_clocks_gpu_8996[] = {
 	CLK_LIST(gpu_ahb_clk),
 	CLK_LIST(gpu_aon_isense_clk),
 	CLK_LIST(gpu_gx_gfx3d_clk),
+	CLK_LIST(gpu_mx_clk),
 	CLK_LIST(gpu_gx_rbbmtimer_clk),
 	CLK_LIST(gpu_gcc_dbg_clk),
 };
@@ -3662,6 +3676,7 @@ static struct clk_lookup msm_clocks_gpu_8996_v2[] = {
 	CLK_LIST(gpu_ahb_clk),
 	CLK_LIST(gpu_aon_isense_clk),
 	CLK_LIST(gpu_gx_gfx3d_clk),
+	CLK_LIST(gpu_mx_clk),
 	CLK_LIST(gpu_gx_rbbmtimer_clk),
 	CLK_LIST(gpu_gcc_dbg_clk),
 };
@@ -3704,6 +3719,14 @@ int msm_gpucc_8996_probe(struct platform_device *pdev)
 		return PTR_ERR(reg);
 	}
 
+	reg = vdd_gpu_mx.regulator[0] = devm_regulator_get(&pdev->dev,
+								"vdd_gpu_mx");
+	if (IS_ERR(reg)) {
+		if (PTR_ERR(reg) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Unable to get vdd_gpu_mx regulator!");
+		return PTR_ERR(reg);
+	}
+
 	is_v2_gpu = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,gpucc-8996-v2");
 	if (!is_v2_gpu) {
@@ -3711,6 +3734,13 @@ int msm_gpucc_8996_probe(struct platform_device *pdev)
 					"qcom,gfxfreq-corner-v0");
 		if (rc) {
 			dev_err(&pdev->dev, "Unable to get gfx freq-corner mapping info\n");
+			return rc;
+		}
+
+		rc = of_get_fmax_vdd_class(pdev, &gpu_mx_clk.c,
+					"qcom,gpufreq-mx-corner-v0");
+		if (rc) {
+			dev_err(&pdev->dev, "Unable to get gpu mx freq-corner mapping info\n");
 			return rc;
 		}
 
@@ -3725,6 +3755,13 @@ int msm_gpucc_8996_probe(struct platform_device *pdev)
 					"qcom,gfxfreq-corner-v2");
 		if (rc) {
 			dev_err(&pdev->dev, "Unable to get gfx freq-corner mapping info\n");
+			return rc;
+		}
+
+		rc = of_get_fmax_vdd_class(pdev, &gpu_mx_clk.c,
+					"qcom,gpufreq-mx-corner-v2");
+		if (rc) {
+			dev_err(&pdev->dev, "Unable to get gpu mx freq-corner mapping info\n");
 			return rc;
 		}
 

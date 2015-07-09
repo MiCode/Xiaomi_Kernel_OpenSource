@@ -62,15 +62,16 @@ Optional properties:
 - <pll>_analog-supply:	Some PLLs might have separate analog supply on some
 			targets. These properties will be provided on those
 			targets for specific PLLs.
+- vdd_gpu_mx-supply:	MX rail supply for the GPU core.
 - #clock_cells:		If this device will also be providing controllable
 			clocks, the clock_cells property needs to be specified.
 			This will allow the common clock device tree framework
 			to recognize _this_ device node as a clock provider.
-- qcom,dev-opp-list:	List of device nodes for which the drivers would need
-			the Operating Performance Points(OPP). OPPs are the
-			frequency/voltage pairs that the device can operate at.
-			drivers can use the OPP library API to operate on the
-			list of OPPs registered.
+- qcom,<clk>-corner-<vers>: List of frequency voltage pairs that the clock can
+			    operate at. Drivers can use the OPP library API to
+			    operate on the list of OPPs registered using these
+			    values.
+
 
 Example:
 	clock_rpm: qcom,rpmcc@fc4000000 {

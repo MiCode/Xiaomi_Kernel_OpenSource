@@ -409,6 +409,7 @@
 #define clk_gpu_ahb_clk			0xf97f1d43
 #define clk_gpu_aon_isense_clk		0xa9e9b297
 #define clk_gpu_gx_gfx3d_clk		0xb7ece823
+#define clk_gpu_mx_clk			0xb80ccedf
 #define clk_gpu_gx_rbbmtimer_clk	0xdeba634e
 #define clk_mdss_ahb_clk		0x684ccb41
 #define clk_mdss_axi_clk		0xcc07d687
