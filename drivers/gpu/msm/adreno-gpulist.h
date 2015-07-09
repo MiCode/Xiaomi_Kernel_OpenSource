@@ -142,7 +142,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.minor = 0,
 		.patchid = ANY_ID,
 		.features = ADRENO_GPMU | ADRENO_SPTP_PC | ADRENO_LM |
-				ADRENO_PREEMPTION | ADRENO_SYNC_SMMU_PC,
+			ADRENO_PREEMPTION | ADRENO_SYNC_SMMU_PC | ADRENO_64BIT,
 		.pm4fw_name = "a530_pm4.fw",
 		.pfpfw_name = "a530_pfp.fw",
 		.zap_name = "a530_zap",
