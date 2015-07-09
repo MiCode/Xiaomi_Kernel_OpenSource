@@ -30,6 +30,9 @@
 #define SMMU_SIZE	0x40000000 /* Device address range size */
 
 #define WIGIG_ENABLE_DELAY	50
+#define PM_OPT_SUSPEND (MSM_PCIE_CONFIG_NO_CFG_RESTORE | \
+			MSM_PCIE_CONFIG_LINKDOWN)
+#define PM_OPT_RESUME MSM_PCIE_CONFIG_NO_CFG_RESTORE
 
 struct device;
 
@@ -85,7 +88,7 @@ static int ops_suspend(void *handle)
 		return rc;
 	}
 	rc = msm_pcie_pm_control(MSM_PCIE_SUSPEND, pcidev->bus->number,
-				 pcidev, NULL, 0);
+				 pcidev, NULL, PM_OPT_SUSPEND);
 	if (rc) {
 		dev_err(ctx->dev, "msm_pcie_pm_control(SUSPEND) failed :%d\n",
 			rc);
@@ -112,13 +115,18 @@ static int ops_resume(void *handle)
 	msleep(WIGIG_ENABLE_DELAY);
 
 	rc = msm_pcie_pm_control(MSM_PCIE_RESUME, pcidev->bus->number,
-				 pcidev, NULL, 0);
+				 pcidev, NULL, PM_OPT_RESUME);
 	if (rc) {
 		dev_err(ctx->dev, "msm_pcie_pm_control(RESUME) failed :%d\n",
 			rc);
 		return rc;
 	}
-	pci_restore_state(pcidev);
+	rc = msm_pcie_recover_config(pcidev);
+	if (rc) {
+		dev_err(ctx->dev, "msm_pcie_recover_config failed :%d\n",
+			rc);
+		return rc;
+	}
 
 	return rc;
 }
