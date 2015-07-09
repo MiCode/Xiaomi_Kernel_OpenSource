@@ -478,6 +478,16 @@ int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg,
 		}
 	}
 
+	/* Load optional system-supply voltages */
+	if (of_find_property(vreg->of_node, "qcom,system-voltage", NULL)) {
+		rc = cpr3_parse_array_property(vreg, "qcom,system-voltage",
+			vreg->corner_count, *corner_sum, *combo_offset, temp);
+		if (rc)
+			goto free_temp;
+		for (i = 0; i < vreg->corner_count; i++)
+			vreg->corner[i].system_volt = temp[i];
+	}
+
 	rc = cpr3_parse_array_property(vreg, "qcom,corner-frequencies",
 			vreg->corner_count, *corner_sum, *combo_offset, temp);
 	if (rc)
@@ -730,6 +740,18 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
 			cpr3_err(ctrl, "unable request core clock, rc=%d\n",
 				rc);
 		return rc;
+	}
+
+	ctrl->system_regulator = devm_regulator_get_optional(ctrl->dev,
+								"system");
+	if (IS_ERR(ctrl->system_regulator)) {
+		rc = PTR_ERR(ctrl->system_regulator);
+		if (rc != -EPROBE_DEFER) {
+			rc = 0;
+			ctrl->system_regulator = NULL;
+		} else {
+			return rc;
+		}
 	}
 
 	return rc;

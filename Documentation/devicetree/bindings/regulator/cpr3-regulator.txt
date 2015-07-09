@@ -56,6 +56,14 @@ Platform independent properties:
 	Definition: phandle of the underlying regulator device that is managed
 		    by this CPR controller.
 
+- system-supply
+	Usage:      optional
+	Value type: <phandle>
+	Definition: phandle of the system-level regulator device which the
+		    vdd-supply depends upon.  Requests for this regulator must
+		    be made before increasing the vdd-supply voltage and after
+		    decreasing the vdd-supply voltage.
+
 - clocks
 	Usage:      required
 	Value type: <prop-encoded-array>
@@ -272,6 +280,16 @@ Platform independent properties:
 	Definition: A list of integer tuples which each define the CPR floor
 		    voltage in microvolts for each voltage corner in order from
 		    lowest to highest.
+
+		    The list and tuples must meet the same size requirements as
+		    those specified for qcom,cpr-voltage-ceiling above.
+
+- qcom,system-voltage
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the system-supply
+		    voltage in microvolts or corners or levels for each voltage
+		    corner in order from lowest to highest.
 
 		    The list and tuples must meet the same size requirements as
 		    those specified for qcom,cpr-voltage-ceiling above.

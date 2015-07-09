@@ -948,12 +948,24 @@ static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
 	}
 
 	if (new_volt < last_volt) {
+		/* Decreasing VDD voltage */
 		rc = cpr3_regulator_config_ldo(ctrl, aggr_corner->floor_volt,
 					       last_max_volt, last_volt);
 		if (rc) {
 			cpr3_err(ctrl, "unable to configure LDO state, rc=%d\n",
 				 rc);
 			return rc;
+		}
+	} else {
+		/* Increasing VDD voltage */
+		if (ctrl->system_regulator) {
+			rc = regulator_set_voltage(ctrl->system_regulator,
+				aggr_corner->system_volt, INT_MAX);
+			if (rc) {
+				cpr3_err(ctrl, "regulator_set_voltage(system) == %d failed, rc=%d\n",
+					aggr_corner->system_volt, rc);
+				return rc;
+			}
 		}
 	}
 
@@ -972,12 +984,24 @@ static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
 	}
 
 	if (new_volt >= last_volt) {
+		/* Increasing VDD voltage */
 		rc = cpr3_regulator_config_ldo(ctrl, aggr_corner->floor_volt,
 					       max_volt, new_volt);
 		if (rc) {
 			cpr3_err(ctrl, "unable to configure LDO state, rc=%d\n",
 				 rc);
 			return rc;
+		}
+	} else {
+		/* Decreasing VDD voltage */
+		if (ctrl->system_regulator) {
+			rc = regulator_set_voltage(ctrl->system_regulator,
+				aggr_corner->system_volt, INT_MAX);
+			if (rc) {
+				cpr3_err(ctrl, "regulator_set_voltage(system) == %d failed, rc=%d\n",
+					aggr_corner->system_volt, rc);
+				return rc;
+			}
 		}
 	}
 
@@ -1008,6 +1032,8 @@ static void cpr3_regulator_aggregate_corners(struct cpr3_corner *aggr_corner,
 		= max(aggr_corner->last_volt, corner->last_volt);
 	aggr_corner->open_loop_volt
 		= max(aggr_corner->open_loop_volt, corner->open_loop_volt);
+	aggr_corner->system_volt
+		= max(aggr_corner->system_volt, corner->system_volt);
 	aggr_corner->irq_en |= corner->irq_en;
 
 	if (aggr_quot) {
@@ -1357,6 +1383,15 @@ static int cpr3_regulator_enable(struct regulator_dev *rdev)
 
 	mutex_lock(&ctrl->lock);
 
+	if (ctrl->system_regulator) {
+		rc = regulator_enable(ctrl->system_regulator);
+		if (rc) {
+			cpr3_err(ctrl, "regulator_enable(system) failed, rc=%d\n",
+				rc);
+			goto done;
+		}
+	}
+
 	rc = regulator_enable(ctrl->vdd_regulator);
 	if (rc) {
 		cpr3_err(vreg, "regulator_enable(vdd) failed, rc=%d\n", rc);
@@ -1447,6 +1482,15 @@ static int cpr3_regulator_disable(struct regulator_dev *rdev)
 		rc2 = regulator_enable(ctrl->vdd_regulator);
 		vreg->vreg_enabled = true;
 		goto done;
+	}
+
+	if (ctrl->system_regulator) {
+		rc = regulator_disable(ctrl->system_regulator);
+		if (rc) {
+			cpr3_err(ctrl, "regulator_disable(system) failed, rc=%d\n",
+				rc);
+			goto done;
+		}
 	}
 
 	cpr3_debug(vreg, "Disabled\n");
