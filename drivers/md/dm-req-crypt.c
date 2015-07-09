@@ -1041,8 +1041,11 @@ static void req_crypt_dtr(struct dm_target *ti)
 		destroy_workqueue(req_crypt_queue);
 		req_crypt_queue = NULL;
 	}
-	kmem_cache_destroy(_req_dm_scatterlist_pool);
-	kmem_cache_destroy(_req_crypt_io_pool);
+	if (_req_dm_scatterlist_pool)
+		kmem_cache_destroy(_req_dm_scatterlist_pool);
+
+	if (_req_crypt_io_pool)
+		kmem_cache_destroy(_req_crypt_io_pool);
 
 	if (dev) {
 		dm_put_device(ti, dev);
