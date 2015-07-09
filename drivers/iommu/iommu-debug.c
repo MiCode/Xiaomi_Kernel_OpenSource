@@ -79,6 +79,23 @@ static const struct file_operations iommu_debug_attachment_info_fops = {
 	.release = single_release,
 };
 
+static ssize_t iommu_debug_attachment_trigger_fault_write(
+	struct file *file, const char __user *ubuf, size_t count,
+	loff_t *offset)
+{
+	struct iommu_debug_attachment *attach = file->private_data;
+
+	iommu_trigger_fault(attach->domain);
+
+	return count;
+}
+
+static const struct file_operations
+iommu_debug_attachment_trigger_fault_fops = {
+	.open	= simple_open,
+	.write	= iommu_debug_attachment_trigger_fault_write,
+};
+
 void iommu_debug_attach_device(struct iommu_domain *domain,
 			       struct device *dev)
 {
@@ -91,11 +108,11 @@ void iommu_debug_attach_device(struct iommu_domain *domain,
 	uuid_le_gen(&uuid);
 	attach_name = kasprintf(GFP_KERNEL, "%s-%pUl", dev_name(dev), uuid.b);
 	if (!attach_name)
-		goto unlock;
+		goto err_unlock;
 
 	attach = kmalloc(sizeof(*attach), GFP_KERNEL);
 	if (!attach)
-		goto free_attach_name;
+		goto err_free_attach_name;
 
 	attach->domain = domain;
 	attach->dev = dev;
@@ -106,7 +123,7 @@ void iommu_debug_attach_device(struct iommu_domain *domain,
 		pr_err("Couldn't create iommu/attachments/%s debugfs directory for domain 0x%p\n",
 		       attach_name, domain);
 		kfree(attach);
-		goto free_attach_name;
+		goto err_free_attach_name;
 	}
 
 	if (!debugfs_create_file(
@@ -114,15 +131,27 @@ void iommu_debug_attach_device(struct iommu_domain *domain,
 		    &iommu_debug_attachment_info_fops)) {
 		pr_err("Couldn't create iommu/attachments/%s/info debugfs file for domain 0x%p\n",
 		       dev_name(dev), domain);
-		debugfs_remove_recursive(attach->dentry);
-		kfree(attach);
-		goto unlock;
+		goto err_rmdir;
+	}
+
+	if (!debugfs_create_file(
+		    "trigger_fault", S_IRUSR, attach->dentry, attach,
+		    &iommu_debug_attachment_trigger_fault_fops)) {
+		pr_err("Couldn't create iommu/attachments/%s/trigger_fault debugfs file for domain 0x%p\n",
+		       dev_name(dev), domain);
+		goto err_rmdir;
 	}
 
 	list_add(&attach->list, &iommu_debug_attachments);
-free_attach_name:
 	kfree(attach_name);
-unlock:
+	mutex_unlock(&iommu_debug_attachments_lock);
+	return;
+err_rmdir:
+	debugfs_remove_recursive(attach->dentry);
+	kfree(attach);
+err_free_attach_name:
+	kfree(attach_name);
+err_unlock:
 	mutex_unlock(&iommu_debug_attachments_lock);
 }
 
