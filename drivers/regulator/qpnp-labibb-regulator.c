@@ -529,29 +529,6 @@ static int qpnp_lab_dt_init(struct qpnp_labibb *labibb,
 		}
 	}
 
-	rc = of_property_read_u32(of_node, "qcom,qpnp-lab-soft-start",
-					&(labibb->lab_vreg.soft_start));
-	if (rc < 0) {
-		pr_err("qcom,qpnp-lab-soft-start is missing, rc = %d\n",
-			rc);
-		return rc;
-	}
-
-	for (val = 0; val < sizeof(ARRAY_SIZE(lab_soft_start_plan)); val++)
-		if (lab_soft_start_plan[val] == labibb->lab_vreg.soft_start)
-			break;
-
-	if (val == ARRAY_SIZE(lab_soft_start_plan))
-		val = ARRAY_SIZE(lab_soft_start_plan) - 1;
-
-	rc = qpnp_labibb_write(labibb, labibb->lab_base +
-				REG_LAB_SOFT_START_CTL, &val, 1);
-	if (rc) {
-		pr_err("qpnp_lab_dt_init write register %x failed rc = %d\n",
-			REG_LAB_SOFT_START_CTL, rc);
-		return rc;
-	}
-
 	val = 0;
 
 	if (of_property_read_bool(of_node, "qcom,qpnp-lab-full-pull-down"))
@@ -1091,6 +1068,32 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 		return rc;
 	}
 
+	rc = of_property_read_u32(of_node, "qcom,qpnp-lab-soft-start",
+					&(labibb->lab_vreg.soft_start));
+	if (rc < 0) {
+		pr_err("qcom,qpnp-lab-soft-start is missing, rc = %d\n",
+			rc);
+		return rc;
+	}
+
+	for (val = 0; val < ARRAY_SIZE(lab_soft_start_plan); val++)
+		if (lab_soft_start_plan[val] == labibb->lab_vreg.soft_start)
+			break;
+
+	if (val == ARRAY_SIZE(lab_soft_start_plan))
+		val = ARRAY_SIZE(lab_soft_start_plan) - 1;
+
+	rc = qpnp_labibb_write(labibb, labibb->lab_base +
+				REG_LAB_SOFT_START_CTL, &val, 1);
+	if (rc) {
+		pr_err("qpnp_labibb_write register %x failed rc = %d\n",
+			REG_LAB_SOFT_START_CTL, rc);
+		return rc;
+	}
+
+	labibb->lab_vreg.soft_start = lab_soft_start_plan
+				[val & LAB_SOFT_START_CTL_MASK];
+
 	rc = qpnp_labibb_read(labibb, &ibb_en_rdy_val,
 				labibb->lab_base + REG_LAB_IBB_EN_RDY, 1);
 	if (rc) {
@@ -1147,16 +1150,6 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 			}
 
 		}
-
-		rc = qpnp_labibb_read(labibb, &val,
-				labibb->lab_base + REG_LAB_SOFT_START_CTL, 1);
-		if (rc) {
-			pr_err("qpnp_lab_read read register %x failed rc = %d\n",
-				REG_LAB_SOFT_START_CTL, rc);
-			return rc;
-		}
-		labibb->lab_vreg.soft_start = lab_soft_start_plan
-					[val & LAB_SOFT_START_CTL_MASK];
 
 		labibb->lab_vreg.vreg_enabled = 1;
 	} else {
@@ -1493,43 +1486,6 @@ static int qpnp_ibb_dt_init(struct qpnp_labibb *labibb,
 				REG_IBB_LCD_AMOLED_SEL, rc);
 			return rc;
 		}
-	}
-
-	rc = of_property_read_u32(of_node, "qcom,qpnp-ibb-discharge-resistor",
-			&tmp);
-
-	if (rc < 0) {
-		pr_err("qcom,qpnp-ibb-discharge-resistor is missing, rc = %d\n",
-			rc);
-		return rc;
-	}
-
-
-	if (labibb->mode == QPNP_LABIBB_AMOLED_MODE) {
-		/*
-		 * AMOLED mode needs ibb discharge resistor to be
-		 * configured for 300KOhm
-		 */
-		if (tmp < ibb_discharge_resistor_plan[0])
-			tmp = ibb_discharge_resistor_plan[0];
-	}
-
-	for (val = 0; val < sizeof(ARRAY_SIZE(ibb_discharge_resistor_plan));
-		val++)
-		if (ibb_discharge_resistor_plan[val] == tmp)
-			break;
-
-	if (val == ARRAY_SIZE(ibb_discharge_resistor_plan)) {
-		pr_err("Invalid property in qcom,qpnp-ibb-discharge-resistor\n");
-		return -EINVAL;
-	}
-
-	rc = qpnp_labibb_write(labibb, labibb->ibb_base +
-				REG_IBB_SOFT_START_CTL, &val, 1);
-	if (rc) {
-		pr_err("qpnp_ibb_dt_init write register %x failed rc = %d\n",
-			REG_IBB_SOFT_START_CTL, rc);
-		return rc;
 	}
 
 	rc = of_property_read_u32(of_node, "qcom,qpnp-ibb-lab-pwrdn-delay",
@@ -1947,7 +1903,8 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 	struct regulator_init_data *init_data;
 	struct regulator_desc *rdesc;
 	struct regulator_config cfg = {};
-	u8 val;
+	u8 val, ibb_enable_ctl;
+	u32 tmp;
 
 	if (!of_node) {
 		dev_err(labibb->dev, "qpnp ibb regulator device tree node is missing\n");
@@ -1991,7 +1948,42 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 		return rc;
 	}
 
-	rc = qpnp_labibb_read(labibb, &val,
+	rc = of_property_read_u32(of_node, "qcom,qpnp-ibb-discharge-resistor",
+			&tmp);
+
+	if (rc < 0) {
+		pr_err("qcom,qpnp-ibb-discharge-resistor is missing, rc = %d\n",
+			rc);
+		return rc;
+	}
+
+	if (labibb->mode == QPNP_LABIBB_AMOLED_MODE) {
+		/*
+		 * AMOLED mode needs ibb discharge resistor to be
+		 * configured for 300KOhm
+		 */
+		if (tmp < ibb_discharge_resistor_plan[0])
+			tmp = ibb_discharge_resistor_plan[0];
+	}
+
+	for (val = 0; val < ARRAY_SIZE(ibb_discharge_resistor_plan); val++)
+		if (ibb_discharge_resistor_plan[val] == tmp)
+			break;
+
+	if (val == ARRAY_SIZE(ibb_discharge_resistor_plan)) {
+		pr_err("Invalid property in qcom,qpnp-ibb-discharge-resistor\n");
+		return -EINVAL;
+	}
+
+	rc = qpnp_labibb_write(labibb, labibb->ibb_base +
+			REG_IBB_SOFT_START_CTL, &val, 1);
+	if (rc) {
+		pr_err("qpnp_labibb_write register %x failed rc = %d\n",
+			REG_IBB_SOFT_START_CTL, rc);
+		return rc;
+	}
+
+	rc = qpnp_labibb_read(labibb, &ibb_enable_ctl,
 				labibb->ibb_base + REG_IBB_ENABLE_CTL, 1);
 	if (rc) {
 		pr_err("qpnp_ibb_read register %x failed rc = %d\n",
@@ -1999,7 +1991,7 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 		return rc;
 	}
 
-	if (val != 0) {
+	if (ibb_enable_ctl != 0) {
 		rc = qpnp_labibb_read(labibb, &val,
 			labibb->ibb_base + REG_IBB_LCD_AMOLED_SEL, 1);
 		if (rc) {
