@@ -621,7 +621,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	dpb_compression_enabled = __ubwc(dpb_color_format);
 	original_compression_enabled = __ubwc(original_color_format);
 
-	two_stage_encoding = true;
+	two_stage_encoding = false;
 	low_power = d->power_mode == VIDC_POWER_LOW;
 	b_frames_enabled = false;
 
