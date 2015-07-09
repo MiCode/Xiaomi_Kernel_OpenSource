@@ -3126,7 +3126,7 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 
 	rc = chip->usb_psy->get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_CURRENT_MAX, &prop);
-	if (rc != 0)
+	if (rc == 0)
 		current_limit = prop.intval / 1000;
 
 	read_usb_type(chip, &usb_type_name, &usb_supply_type);
