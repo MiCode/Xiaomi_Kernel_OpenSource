@@ -1052,6 +1052,12 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		ep->connect.source = ipa_ctx->bam_handle;
 		ep->connect.dest_pipe_index = ipa_ctx->a5_pipe_index++;
 		ep->connect.src_pipe_index = ipa_ep_idx;
+		/*
+		 * Determine how many buffers/descriptors remaining will
+		 * cause to drop below the yellow WM bar.
+		 */
+		ep->rx_replenish_threshold = ipa_get_sys_yellow_wm()
+						/ ep->sys->rx_buff_sz;
 	} else {
 		ep->connect.mode = SPS_MODE_DEST;
 		ep->connect.source = SPS_DEV_HANDLE_MEM;
@@ -1771,15 +1777,17 @@ static void ipa_fast_replenish_rx_cache(struct ipa_sys_context *sys)
 
 	queue_work(sys->repl_wq, &sys->repl_work);
 
-	if (rx_len_cached == 0) {
-		if (sys->ep->client == IPA_CLIENT_APPS_WAN_CONS)
-			IPA_STATS_INC_CNT(ipa_ctx->stats.wan_rx_empty);
-		else if (sys->ep->client == IPA_CLIENT_APPS_LAN_CONS)
-			IPA_STATS_INC_CNT(ipa_ctx->stats.lan_rx_empty);
-		else
-			WARN_ON(1);
+	if (rx_len_cached <= sys->ep->rx_replenish_threshold) {
+		if (rx_len_cached == 0) {
+			if (sys->ep->client == IPA_CLIENT_APPS_WAN_CONS)
+				IPA_STATS_INC_CNT(ipa_ctx->stats.wan_rx_empty);
+			else if (sys->ep->client == IPA_CLIENT_APPS_LAN_CONS)
+				IPA_STATS_INC_CNT(ipa_ctx->stats.lan_rx_empty);
+			else
+				WARN_ON(1);
+		}
 		queue_delayed_work(sys->wq, &sys->replenish_rx_work,
-				msecs_to_jiffies(1));
+			msecs_to_jiffies(1));
 	}
 
 	return;
