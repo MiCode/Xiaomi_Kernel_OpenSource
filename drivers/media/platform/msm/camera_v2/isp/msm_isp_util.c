@@ -1781,6 +1781,7 @@ void ms_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 		__LINE__,  vfe_dev->pdev->id, vfe_dev);
 
 	msm_isp_halt_send_error(vfe_dev);
+
 	if (vfe_dev->buf_mgr->pagefault_debug_disable == 0) {
 		vfe_dev->buf_mgr->pagefault_debug_disable = 1;
 		vfe_dev->buf_mgr->ops->buf_mgr_debug(vfe_dev->buf_mgr,
@@ -2247,7 +2248,7 @@ void msm_isp_save_framedrop_values(struct vfe_device *vfe_dev)
 	struct msm_vfe_axi_stream *stream_info = NULL;
 	uint32_t j = 0;
 
-	for (j = 0; j < MAX_NUM_STREAM; j++) {
+	for (j = 0; j < VFE_AXI_SRC_MAX; j++) {
 		stream_info =
 			&vfe_dev->axi_data.stream_info[j];
 		stream_info->prev_framedrop_pattern =
