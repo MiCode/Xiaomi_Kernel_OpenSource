@@ -160,6 +160,26 @@
 	qcom,cnss {
 		status = "disabled";
 	};
+
+	qcom,lpm-levels {
+		qcom,pm-cluster@0 {
+			qcom,pm-cluster@0{
+				qcom,pm-cpu {
+					qcom,pm-cpu-level@1 { /* C4 */
+						qcom,jtag-save-restore;
+					};
+				};
+			};
+
+			qcom,pm-cluster@1{
+				qcom,pm-cpu {
+					qcom,pm-cpu-level@1 { /* C4 */
+						qcom,jtag-save-restore;
+					};
+				};
+			};
+		};
+	};
 };
 
 &mdss_dsi0_pll {
