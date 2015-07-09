@@ -5062,6 +5062,7 @@ static struct platform_device *msm_otg_add_pdev(
 		ci_pdata.system_clk = otg_pdata->system_clk;
 		ci_pdata.pclk = otg_pdata->pclk;
 		ci_pdata.enable_streaming = otg_pdata->enable_streaming;
+		ci_pdata.enable_axi_prefetch = otg_pdata->enable_axi_prefetch;
 		ci_pdata.max_nominal_system_clk_rate =
 					motg->max_nominal_system_clk_rate;
 		ci_pdata.default_system_clk_rate = motg->core_clk_rate;
