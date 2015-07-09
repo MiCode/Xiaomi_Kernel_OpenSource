@@ -37,7 +37,7 @@
 #define MODEM_INST_BASE		0
 #define LPASS_INST_BASE		64
 #define WCNSS_INST_BASE		128
-#define SENSORS_INST_BASE	256
+#define SENSORS_INST_BASE	192
 
 #define INST_ID_CNTL		0
 #define INST_ID_CMD		1
