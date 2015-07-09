@@ -25,41 +25,6 @@
 
 static int msm_bus_dev_init_qos(struct device *dev, void *data);
 
-
-ssize_t vrail_show(struct device *dev, struct device_attribute *attr,
-			  char *buf)
-{
-	struct msm_bus_node_info_type *node_info = NULL;
-	struct msm_bus_node_device_type *bus_node = NULL;
-
-	bus_node = dev->platform_data;
-	if (!bus_node)
-		return -EINVAL;
-	node_info = bus_node->node_info;
-
-	return snprintf(buf, PAGE_SIZE, "%u", node_info->vrail_comp);
-}
-
-ssize_t vrail_store(struct device *dev, struct device_attribute *attr,
-			   const char *buf, size_t count)
-{
-	struct msm_bus_node_info_type *node_info = NULL;
-	struct msm_bus_node_device_type *bus_node = NULL;
-	int ret = 0;
-
-	bus_node = dev->platform_data;
-	if (!bus_node)
-		return -EINVAL;
-	node_info = bus_node->node_info;
-
-	ret = sscanf(buf, "%u", &node_info->vrail_comp);
-	if (ret != 1)
-		return -EINVAL;
-	return count;
-}
-
-DEVICE_ATTR(vrail, 0600, vrail_show, vrail_store);
-
 ssize_t bw_show(struct device *dev, struct device_attribute *attr,
 			  char *buf)
 {
@@ -92,17 +57,29 @@ ssize_t bw_show(struct device *dev, struct device_attribute *attr,
 			bus_node->lnode_list[i].lnode_ab[DUAL_CTX]);
 	}
 	off += scnprintf((buf + off), PAGE_SIZE,
-	"Max_Act_IB %llu Sum_Act_AB %llu\nMax_Slp_IB %llu Sum_Slp_AB %llu\n",
+	"Max_Act_IB %llu Sum_Act_AB %llu Act_Util_fact %d Act_Vrail_comp %d\n",
 		bus_node->node_bw[ACTIVE_CTX].max_ib,
 		bus_node->node_bw[ACTIVE_CTX].sum_ab,
+		bus_node->node_bw[ACTIVE_CTX].util_used,
+		bus_node->node_bw[ACTIVE_CTX].vrail_used);
+	off += scnprintf((buf + off), PAGE_SIZE,
+	"Max_Slp_IB %llu Sum_Slp_AB %llu Slp_Util_fact %d Slp_Vrail_comp %d\n",
 		bus_node->node_bw[DUAL_CTX].max_ib,
-		bus_node->node_bw[DUAL_CTX].sum_ab);
+		bus_node->node_bw[DUAL_CTX].sum_ab,
+		bus_node->node_bw[DUAL_CTX].util_used,
+		bus_node->node_bw[DUAL_CTX].vrail_used);
 	trace_printk(
-	"Max_Act_IB %llu Sum_Act_AB %llu\nMax_Slp_IB %llu Sum_Slp_AB %llu\n",
+	"Max_Act_IB %llu Sum_Act_AB %llu Act_Util_fact %d Act_Vrail_comp %d\n",
 		bus_node->node_bw[ACTIVE_CTX].max_ib,
 		bus_node->node_bw[ACTIVE_CTX].sum_ab,
+		bus_node->node_bw[ACTIVE_CTX].util_used,
+		bus_node->node_bw[ACTIVE_CTX].vrail_used);
+	trace_printk(
+	"Max_Slp_IB %llu Sum_Slp_AB %lluSlp_Util_fact %d Slp_Vrail_comp %d\n",
 		bus_node->node_bw[DUAL_CTX].max_ib,
-		bus_node->node_bw[DUAL_CTX].sum_ab);
+		bus_node->node_bw[DUAL_CTX].sum_ab,
+		bus_node->node_bw[DUAL_CTX].util_used,
+		bus_node->node_bw[DUAL_CTX].vrail_used);
 	return off;
 }
 
@@ -909,8 +886,6 @@ static int msm_bus_fabric_init(struct device *dev,
 	fabdev->qos_freq = pdata->fabdev->qos_freq;
 	fabdev->bus_type = pdata->fabdev->bus_type;
 	fabdev->bypass_qos_prg = pdata->fabdev->bypass_qos_prg;
-	fabdev->util_fact = pdata->fabdev->util_fact;
-	fabdev->vrail_comp = pdata->fabdev->vrail_comp;
 	msm_bus_fab_init_noc_ops(node_dev);
 
 	fabdev->qos_base = devm_ioremap(dev,
@@ -1020,8 +995,6 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 	node_info->num_connections = pdata_node_info->num_connections;
 	node_info->num_blist = pdata_node_info->num_blist;
 	node_info->num_qports = pdata_node_info->num_qports;
-	node_info->num_aggports = pdata_node_info->num_aggports;
-	node_info->buswidth = pdata_node_info->buswidth;
 	node_info->virt_dev = pdata_node_info->virt_dev;
 	node_info->is_fab_dev = pdata_node_info->is_fab_dev;
 	node_info->qos_params.mode = pdata_node_info->qos_params.mode;
@@ -1036,8 +1009,28 @@ static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,
 	node_info->qos_params.thmp = pdata_node_info->qos_params.thmp;
 	node_info->qos_params.ws = pdata_node_info->qos_params.ws;
 	node_info->qos_params.bw_buffer = pdata_node_info->qos_params.bw_buffer;
-	node_info->util_fact = pdata_node_info->util_fact;
-	node_info->vrail_comp = pdata_node_info->vrail_comp;
+	node_info->agg_params.buswidth = pdata_node_info->agg_params.buswidth;
+	node_info->agg_params.agg_scheme =
+					pdata_node_info->agg_params.agg_scheme;
+	node_info->agg_params.vrail_comp =
+					pdata_node_info->agg_params.vrail_comp;
+	node_info->agg_params.num_aggports =
+				pdata_node_info->agg_params.num_aggports;
+	node_info->agg_params.num_util_levels =
+				pdata_node_info->agg_params.num_util_levels;
+	node_info->agg_params.util_levels = devm_kzalloc(bus_dev,
+			sizeof(struct node_util_levels_type) *
+			node_info->agg_params.num_util_levels,
+			GFP_KERNEL);
+	if (!node_info->agg_params.util_levels) {
+		MSM_BUS_ERR("%s: Agg util level alloc failed\n", __func__);
+		ret = -ENOMEM;
+		goto exit_copy_node_info;
+	}
+	memcpy(node_info->agg_params.util_levels,
+		pdata_node_info->agg_params.util_levels,
+		sizeof(struct node_util_levels_type) *
+			pdata_node_info->agg_params.num_util_levels);
 
 	node_info->dev_connections = devm_kzalloc(bus_dev,
 			sizeof(struct device *) *
@@ -1181,7 +1174,6 @@ static struct device *msm_bus_device_init(
 		bus_dev = NULL;
 		goto exit_device_init;
 	}
-	device_create_file(bus_dev, &dev_attr_vrail);
 	device_create_file(bus_dev, &dev_attr_bw);
 
 exit_device_init:
@@ -1271,7 +1263,7 @@ static int msm_bus_node_debug(struct device *bus_dev, void *data)
 	}
 
 	MSM_BUS_DBG("Device = %d buswidth %u", bus_node->node_info->id,
-				bus_node->node_info->buswidth);
+				bus_node->node_info->agg_params.buswidth);
 	for (j = 0; j < bus_node->node_info->num_connections; j++) {
 		struct msm_bus_node_device_type *bdev =
 			(struct msm_bus_node_device_type *)

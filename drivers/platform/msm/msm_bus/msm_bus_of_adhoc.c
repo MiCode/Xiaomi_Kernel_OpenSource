@@ -29,6 +29,7 @@
 #define DEFAULT_QOS_FREQ	19200
 #define DEFAULT_UTIL_FACT	100
 #define DEFAULT_VRAIL_COMP	100
+#define DEFAULT_AGG_SCHEME	AGG_SCHEME_LEG
 
 static int get_qos_mode(struct platform_device *pdev,
 			struct device_node *node, const char *qos_mode)
@@ -148,21 +149,6 @@ static struct msm_bus_fab_device_type *get_fab_device_info(
 		fab_dev->qos_freq = DEFAULT_QOS_FREQ;
 	}
 
-	ret = of_property_read_u32(dev_node, "qcom,util-fact",
-						&fab_dev->util_fact);
-	if (ret) {
-		dev_info(&pdev->dev, "Util-fact is missing, default to %d\n",
-				DEFAULT_UTIL_FACT);
-		fab_dev->util_fact = DEFAULT_UTIL_FACT;
-	}
-
-	ret = of_property_read_u32(dev_node, "qcom,vrail-comp",
-						&fab_dev->vrail_comp);
-	if (ret) {
-		dev_info(&pdev->dev, "Vrail-comp is missing, default to %d\n",
-				DEFAULT_VRAIL_COMP);
-		fab_dev->vrail_comp = DEFAULT_VRAIL_COMP;
-	}
 
 	return fab_dev;
 
@@ -268,7 +254,7 @@ static int msm_bus_of_parse_clk_array(struct device_node *dev_node,
 									id);
 			continue;
 		}
-		if (strnstr(clk_name, "no-rate", strlen("no-rate")))
+		if (strnstr(clk_name, "no-rate", strlen(clk_name)))
 			(*clk_arr)[idx].enable_only_clk = true;
 
 		scnprintf(gdsc_string, MAX_REG_NAME, "%s-supply", clk_name);
@@ -284,6 +270,102 @@ static int msm_bus_of_parse_clk_array(struct device_node *dev_node,
 	}
 exit_of_parse_clk_array:
 	return ret;
+}
+
+static void get_agg_params(
+		struct device_node * const dev_node,
+		struct platform_device * const pdev,
+		struct msm_bus_node_info_type *node_info)
+{
+	int ret;
+
+
+	ret = of_property_read_u32(dev_node, "qcom,buswidth",
+					&node_info->agg_params.buswidth);
+	if (ret) {
+		dev_dbg(&pdev->dev, "Using default 8 bytes %d", node_info->id);
+		node_info->agg_params.buswidth = 8;
+	}
+
+	ret = of_property_read_u32(dev_node, "qcom,agg-ports",
+				   &node_info->agg_params.num_aggports);
+	if (ret)
+		node_info->agg_params.num_aggports = node_info->num_qports;
+
+	ret = of_property_read_u32(dev_node, "qcom,agg-scheme",
+					&node_info->agg_params.agg_scheme);
+	if (ret) {
+		if (node_info->is_fab_dev)
+			node_info->agg_params.agg_scheme = DEFAULT_AGG_SCHEME;
+		else {
+			node_info->agg_params.agg_scheme = AGG_SCHEME_NONE;
+			goto exit_get_agg_params;
+		}
+	}
+
+	ret = of_property_read_u32(dev_node, "qcom,vrail-comp",
+					&node_info->agg_params.vrail_comp);
+	if (ret) {
+		if (node_info->is_fab_dev)
+			node_info->agg_params.vrail_comp = DEFAULT_VRAIL_COMP;
+		else
+			node_info->agg_params.vrail_comp = 0;
+	}
+
+	if (node_info->agg_params.agg_scheme == AGG_SCHEME_LEG) {
+		node_info->agg_params.num_util_levels = 1;
+		node_info->agg_params.util_levels = devm_kzalloc(&pdev->dev,
+			(node_info->agg_params.num_util_levels *
+			sizeof(struct node_util_levels_type)), GFP_KERNEL);
+		if (IS_ERR_OR_NULL(node_info->agg_params.util_levels))
+			goto err_get_agg_params;
+
+		ret = of_property_read_u32(dev_node, "qcom,util-fact",
+			&node_info->agg_params.util_levels[0].util_fact);
+		if (ret) {
+			if (node_info->is_fab_dev)
+				node_info->agg_params.util_levels[0].util_fact
+							= DEFAULT_UTIL_FACT;
+		}
+	} else if (node_info->agg_params.agg_scheme == AGG_SCHEME_1) {
+		uint32_t len = 0;
+		const uint32_t *util_levels;
+		int i, index = 0;
+
+		util_levels =
+			of_get_property(dev_node, "qcom,util-levels", &len);
+		if (!util_levels)
+			goto err_get_agg_params;
+
+		node_info->agg_params.num_util_levels =
+					len / (sizeof(uint32_t) * 2);
+		node_info->agg_params.util_levels = devm_kzalloc(&pdev->dev,
+			(node_info->agg_params.num_util_levels *
+			sizeof(struct node_util_levels_type)), GFP_KERNEL);
+
+		if (IS_ERR_OR_NULL(node_info->agg_params.util_levels))
+			goto err_get_agg_params;
+
+		for (i = 0; i < node_info->agg_params.num_util_levels; i++) {
+			node_info->agg_params.util_levels[i].threshold =
+				KBTOB(be32_to_cpu(util_levels[index++]));
+			node_info->agg_params.util_levels[i].util_fact =
+					be32_to_cpu(util_levels[index++]);
+			dev_dbg(&pdev->dev, "[%d]:Thresh:%llu util_fact:%d\n",
+				i,
+				node_info->agg_params.util_levels[i].threshold,
+				node_info->agg_params.util_levels[i].util_fact);
+		}
+	} else {
+		dev_err(&pdev->dev, "Agg scheme%d unknown, using default\n",
+			node_info->agg_params.agg_scheme);
+		goto err_get_agg_params;
+	}
+
+exit_get_agg_params:
+	return;
+err_get_agg_params:
+	node_info->agg_params.agg_scheme = DEFAULT_AGG_SCHEME;
 }
 
 static struct msm_bus_node_info_type *get_node_info_data(
@@ -318,11 +400,6 @@ static struct msm_bus_node_info_type *get_node_info_data(
 	}
 	node_info->qport = get_arr(pdev, dev_node, "qcom,qport",
 			&node_info->num_qports);
-
-	ret = of_property_read_u32(dev_node, "qcom,agg-ports",
-				   &node_info->num_aggports);
-	if (ret)
-		node_info->num_aggports = node_info->num_qports;
 
 	if (of_get_property(dev_node, "qcom,connections", &size)) {
 		node_info->num_connections = size / sizeof(int);
@@ -381,12 +458,6 @@ static struct msm_bus_node_info_type *get_node_info_data(
 	node_info->is_fab_dev = of_property_read_bool(dev_node, "qcom,fab-dev");
 	node_info->virt_dev = of_property_read_bool(dev_node, "qcom,virt-dev");
 
-	ret = of_property_read_u32(dev_node, "qcom,buswidth",
-						&node_info->buswidth);
-	if (ret) {
-		dev_dbg(&pdev->dev, "Using default 8 bytes %d", node_info->id);
-		node_info->buswidth = 8;
-	}
 
 	ret = of_property_read_u32(dev_node, "qcom,mas-rpm-id",
 						&node_info->mas_rpm_id);
@@ -401,14 +472,8 @@ static struct msm_bus_node_info_type *get_node_info_data(
 		dev_dbg(&pdev->dev, "slv rpm id is missing\n");
 		node_info->slv_rpm_id = -1;
 	}
-	ret = of_property_read_u32(dev_node, "qcom,util-fact",
-						&node_info->util_fact);
-	if (ret)
-		node_info->util_fact = 0;
-	ret = of_property_read_u32(dev_node, "qcom,vrail-comp",
-						&node_info->vrail_comp);
-	if (ret)
-		node_info->vrail_comp = 0;
+
+	get_agg_params(dev_node, pdev, node_info);
 	get_qos_params(dev_node, pdev, node_info);
 
 	return node_info;
@@ -624,7 +689,7 @@ struct msm_bus_device_node_registration
 				pdata->info[i].node_info->num_connections);
 		dev_dbg(&pdev->dev, "\nbus_device_id %d\n buswidth %d\n",
 				pdata->info[i].node_info->bus_device_id,
-				pdata->info[i].node_info->buswidth);
+				pdata->info[i].node_info->agg_params.buswidth);
 		for (j = 0; j < pdata->info[i].node_info->num_connections;
 									j++) {
 			dev_dbg(&pdev->dev, "connection[%d]: %d\n", j,

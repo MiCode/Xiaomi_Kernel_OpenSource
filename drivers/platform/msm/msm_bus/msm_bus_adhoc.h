@@ -51,6 +51,8 @@ struct nodebw {
 	uint64_t last_sum_ab;
 	uint64_t max_ib;
 	uint64_t cur_clk_hz;
+	uint32_t util_used;
+	uint32_t vrail_used;
 };
 
 struct msm_bus_fab_device_type {
@@ -60,8 +62,6 @@ struct msm_bus_fab_device_type {
 	uint32_t base_offset;
 	uint32_t qos_freq;
 	uint32_t qos_off;
-	uint32_t util_fact;
-	uint32_t vrail_comp;
 	struct msm_bus_noc_ops noc_ops;
 	enum msm_bus_hw_sel bus_type;
 	bool bypass_qos_prg;
@@ -81,6 +81,20 @@ struct qos_params_type {
 	unsigned int ws;
 	int cur_mode;
 	u64 bw_buffer;
+};
+
+struct node_util_levels_type {
+	uint64_t threshold;
+	uint32_t util_fact;
+};
+
+struct node_agg_params_type {
+	uint32_t agg_scheme;
+	uint32_t num_aggports;
+	unsigned int buswidth;
+	uint32_t vrail_comp;
+	uint32_t num_util_levels;
+	struct node_util_levels_type *util_levels;
 };
 
 struct msm_bus_node_info_type {
@@ -103,13 +117,10 @@ struct msm_bus_node_info_type {
 	struct device **black_connections;
 	unsigned int bus_device_id;
 	struct device *bus_device;
-	unsigned int buswidth;
 	struct rule_update_path_info rule;
 	uint64_t lim_bw;
-	uint32_t util_fact;
-	uint32_t vrail_comp;
-	uint32_t num_aggports;
 	bool defer_qos;
+	struct node_agg_params_type agg_params;
 };
 
 struct msm_bus_node_device_type {
