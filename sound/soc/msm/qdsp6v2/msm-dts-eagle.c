@@ -415,6 +415,8 @@ static void _reg_ion_mem_NT(void)
 	if (rc < 0) {
 		eagle_drv_err("%s: memory map failed", __func__);
 		msm_audio_ion_free(_ion_client_NT, _ion_handle_NT);
+		_ion_client_NT = NULL;
+		_ion_handle_NT = NULL;
 	}
 }
 
@@ -427,6 +429,9 @@ static void _unreg_ion_mem_NT(void)
 	rc = msm_audio_ion_free(_ion_client_NT, _ion_handle_NT);
 	if (rc < 0)
 		eagle_drv_err("%s: mem free failed", __func__);
+
+	_ion_client_NT = NULL;
+	_ion_handle_NT = NULL;
 }
 
 static struct audio_client *_getNTDeviceAC(void)
