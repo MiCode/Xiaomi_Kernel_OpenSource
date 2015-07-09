@@ -1689,7 +1689,7 @@ void msm_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 
 	msm_isp_axi_halt(vfe_dev, &halt_cmd);
 
-	pr_err("%s:%d] vfe_dev %p id %d\n", __func__,
+	pr_err_ratelimited("%s:%d] vfe_dev %p id %d\n", __func__,
 		__LINE__, vfe_dev, vfe_dev->pdev->id);
 
 	error_event.frame_id =
@@ -1698,7 +1698,7 @@ void msm_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 	msm_isp_print_ping_pong_address(vfe_dev);
 	vfe_dev->hw_info->vfe_ops.axi_ops.read_wm_ping_pong_addr(vfe_dev);
 
-	for (i = 0; i < MAX_NUM_STREAM; i++)
+	for (i = 0; i < VFE_AXI_SRC_MAX; i++)
 		vfe_dev->axi_data.stream_info[i].state = INACTIVE;
 
 	msm_isp_send_event(vfe_dev, ISP_EVENT_IOMMU_P_FAULT, &error_event);

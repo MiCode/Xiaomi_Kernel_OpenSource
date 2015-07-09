@@ -517,7 +517,7 @@ static void msm_vfe44_process_reg_update(struct vfe_device *vfe_dev,
 				(uint32_t)BIT(i));
 			switch (i) {
 			case VFE_PIX_0:
-				for (j = 0; j < MAX_NUM_STREAM; j++) {
+				for (j = 0; j < VFE_AXI_SRC_MAX; j++) {
 					stream_info =
 						&vfe_dev->axi_data.
 							stream_info[j];
