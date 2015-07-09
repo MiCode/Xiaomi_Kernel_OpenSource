@@ -218,6 +218,7 @@ struct cpp_device {
 	enum cpp_iommu_state iommu_state;
 	uint8_t is_firmware_loaded;
 	char *fw_name_bin;
+	const struct firmware *fw;
 	struct workqueue_struct *timer_wq;
 	struct msm_cpp_work_t *work;
 	uint32_t fw_version;

@@ -1025,7 +1025,7 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 	and this was the smallest number which works. This
 	sleep is needed to leave enough time for Microcontroller
 	to resets all its registers.*/
-	usleep_range(10000, 12000);
+	usleep_range(1000, 1200);
 
 	rc = clk_reset(cpp_dev->cpp_clk[msm_micro_iface_idx],
 		CLK_RESET_DEASSERT);
@@ -1225,9 +1225,6 @@ static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 {
 	uint32_t i;
 	uint32_t *ptr_bin = NULL;
-	int32_t rc = -EFAULT;
-	const struct firmware *fw = NULL;
-	struct device *dev = &cpp_dev->pdev->dev;
 
 	msm_camera_io_w(0x1, cpp_dev->base + MSM_CPP_MICRO_CLKEN_CTL);
 	msm_camera_io_w(0x1, cpp_dev->base +
@@ -1236,40 +1233,29 @@ static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 
 	if (fw_name_bin) {
 		pr_debug("%s: FW file: %s\n", __func__, fw_name_bin);
-		rc = request_firmware(&fw, fw_name_bin, dev);
-		if (rc) {
-			dev_err(dev,
-				"Fail to loc blob %s from dev %p, Error: %d\n",
-				fw_name_bin, dev, rc);
-		}
-		if (NULL != fw)
-			ptr_bin = (uint32_t *)fw->data;
+		if (NULL != cpp_dev->fw)
+			ptr_bin = (uint32_t *)cpp_dev->fw->data;
 
-		msm_camera_io_w(0x1, cpp_dev->base +
-					 MSM_CPP_MICRO_BOOT_START);
-		msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_CMD);
 		msm_camera_io_w(0xFFFFFFFF, cpp_dev->base +
 			MSM_CPP_MICRO_IRQGEN_CLR);
 
 		/*Start firmware loading*/
 		msm_cpp_write(MSM_CPP_CMD_FW_LOAD, cpp_dev->base);
-		if (fw)
-			msm_cpp_write(fw->size, cpp_dev->base);
+		if (cpp_dev->fw)
+			msm_cpp_write(cpp_dev->fw->size, cpp_dev->base);
 		else
 			msm_cpp_write(MSM_CPP_END_ADDRESS, cpp_dev->base);
 		msm_cpp_write(MSM_CPP_START_ADDRESS, cpp_dev->base);
 
 		if (ptr_bin) {
 			msm_cpp_poll_rx_empty(cpp_dev->base);
-			for (i = 0; i < fw->size/4; i++) {
+			for (i = 0; i < cpp_dev->fw->size/4; i++) {
 				msm_cpp_write(*ptr_bin, cpp_dev->base);
 				if (i % MSM_CPP_RX_FIFO_LEVEL == 0)
 					msm_cpp_poll_rx_empty(cpp_dev->base);
 				ptr_bin++;
 			}
 		}
-		if (fw)
-			release_firmware(fw);
 		msm_camera_io_w_mb(0x00, cpp_dev->cpp_hw_base + 0xC);
 		msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_OK);
 		msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_CMD);
@@ -1283,29 +1269,6 @@ static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 	msm_cpp_poll(cpp_dev->base, 0x1);
 	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_JUMP_ACK);
 	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_TRAILER);
-
-	/*Get Bootloader Version*/
-	msm_cpp_write(MSM_CPP_CMD_GET_BOOTLOADER_VER, cpp_dev->base);
-	pr_info("MC Bootloader Version: 0x%x\n",
-		   msm_cpp_read(cpp_dev->base));
-
-	/*Get Firmware Version*/
-	msm_cpp_write(MSM_CPP_CMD_GET_FW_VER, cpp_dev->base);
-	msm_cpp_write(MSM_CPP_MSG_ID_CMD, cpp_dev->base);
-	msm_cpp_write(0x1, cpp_dev->base);
-	msm_cpp_write(MSM_CPP_CMD_GET_FW_VER, cpp_dev->base);
-	msm_cpp_write(MSM_CPP_MSG_ID_TRAILER, cpp_dev->base);
-
-	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_CMD);
-	msm_cpp_poll(cpp_dev->base, 0x2);
-	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_FW_VER);
-	cpp_dev->fw_version = msm_cpp_read(cpp_dev->base);
-	pr_info("CPP FW Version: 0x%08x\n", cpp_dev->fw_version);
-	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_TRAILER);
-
-	/*Disable MC clock*/
-	/*msm_camera_io_w(0x0, cpp_dev->base +
-					   MSM_CPP_MICRO_CLKEN_CTL);*/
 }
 
 static int cpp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
@@ -2419,6 +2382,23 @@ static int msm_cpp_copy_from_ioctl_ptr(void *dst_ptr,
 }
 #endif
 
+static void msm_cpp_fw_version(struct cpp_device *cpp_dev)
+{
+	/*Get Firmware Version*/
+	msm_cpp_write(MSM_CPP_CMD_GET_FW_VER, cpp_dev->base);
+	msm_cpp_write(MSM_CPP_MSG_ID_CMD, cpp_dev->base);
+	msm_cpp_write(0x1, cpp_dev->base);
+	msm_cpp_write(MSM_CPP_CMD_GET_FW_VER, cpp_dev->base);
+	msm_cpp_write(MSM_CPP_MSG_ID_TRAILER, cpp_dev->base);
+
+	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_CMD);
+	msm_cpp_poll(cpp_dev->base, 0x2);
+	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_FW_VER);
+	cpp_dev->fw_version = msm_cpp_read(cpp_dev->base);
+	pr_info("CPP FW Version: 0x%08x\n", cpp_dev->fw_version);
+	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_TRAILER);
+}
+
 long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 			unsigned int cmd, void *arg)
 {
@@ -2457,6 +2437,10 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 				kfree(cpp_dev->fw_name_bin);
 				cpp_dev->fw_name_bin = NULL;
 			}
+			if (cpp_dev->fw) {
+				release_firmware(cpp_dev->fw);
+				cpp_dev->fw = NULL;
+			}
 			if ((ioctl_ptr->len == 0) ||
 				(ioctl_ptr->len > MSM_CPP_MAX_FW_NAME_LEN)) {
 				pr_err("ioctl_ptr->len is 0\n");
@@ -2489,8 +2473,23 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 				return -EINVAL;
 			}
 			*(cpp_dev->fw_name_bin+ioctl_ptr->len) = '\0';
+			rc = request_firmware(&cpp_dev->fw,
+				cpp_dev->fw_name_bin,
+				&cpp_dev->pdev->dev);
+			if (rc) {
+				dev_err(&cpp_dev->pdev->dev,
+					"Fail to loc blob %s dev %p, rc:%d\n",
+					cpp_dev->fw_name_bin,
+					&cpp_dev->pdev->dev, rc);
+				kfree(cpp_dev->fw_name_bin);
+				cpp_dev->fw_name_bin = NULL;
+				cpp_dev->fw = NULL;
+				mutex_unlock(&cpp_dev->mutex);
+				return -EINVAL;
+			}
 			disable_irq(cpp_dev->irq->start);
 			cpp_load_fw(cpp_dev, cpp_dev->fw_name_bin);
+			msm_cpp_fw_version(cpp_dev);
 			enable_irq(cpp_dev->irq->start);
 			cpp_dev->is_firmware_loaded = 1;
 		}
@@ -3801,7 +3800,10 @@ static int cpp_device_remove(struct platform_device *dev)
 		pr_err("%s: cpp device is NULL\n", __func__);
 		return 0;
 	}
-
+	if (cpp_dev->fw) {
+		release_firmware(cpp_dev->fw);
+		cpp_dev->fw = NULL;
+	}
 	msm_sd_unregister(&cpp_dev->msm_sd);
 	release_mem_region(cpp_dev->mem->start, resource_size(cpp_dev->mem));
 	release_mem_region(cpp_dev->vbif_mem->start,
