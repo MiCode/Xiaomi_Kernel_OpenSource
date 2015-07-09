@@ -1207,8 +1207,8 @@ static void msm_vfe47_cfg_camif(struct vfe_device *vfe_dev,
 	msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x49C);
 	if (subsample_period && subsample_pattern) {
 		val = msm_camera_io_r(vfe_dev->vfe_base + 0x494);
-		val &= 0xFFE0FFFF;
-		val = (subsample_period - 1) << 16;
+		val &= 0xFFFFE0FF;
+		val = (subsample_period - 1) << 8;
 		msm_camera_io_w(val, vfe_dev->vfe_base + 0x494);
 		ISP_DBG("%s:camif PERIOD %x PATTERN %x\n",
 			__func__,  subsample_period, subsample_pattern);
