@@ -71,5 +71,6 @@ struct hdcp_client_ops {
 int hdcp_library_init(void **pphdcpcontext, struct hdcp_client_ops *client_ops,
 	struct hdcp_txmtr_ops *txmtr_ops, void *client_ctx);
 int hdcp_library_deinit(void *phdcpcontext);
+int hdcp1_set_keys(uint32_t *aksv_msb, uint32_t *aksv_lsb);
 
 #endif /* __HDCP_QSEECOM_H */
