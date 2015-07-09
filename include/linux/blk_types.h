@@ -186,6 +186,7 @@ enum rq_flag_bits {
 	__REQ_INTEGRITY,	/* I/O includes block integrity payload */
 	__REQ_FUA,		/* forced unit access */
 	__REQ_FLUSH,		/* request for cache flush */
+	__REQ_POST_FLUSH_BARRIER,/* cache barrier after a data req */
 	__REQ_BARRIER,		/* marks flush req as barrier */
 
 	/* bio only flags */
@@ -261,6 +262,7 @@ enum rq_flag_bits {
 #define REQ_ALLOCED		(1ULL << __REQ_ALLOCED)
 #define REQ_COPY_USER		(1ULL << __REQ_COPY_USER)
 #define REQ_FLUSH		(1ULL << __REQ_FLUSH)
+#define REQ_POST_FLUSH_BARRIER	(1ULL << __REQ_POST_FLUSH_BARRIER)
 #define REQ_FLUSH_SEQ		(1ULL << __REQ_FLUSH_SEQ)
 #define REQ_IO_STAT		(1ULL << __REQ_IO_STAT)
 #define REQ_MIXED_MERGE		(1ULL << __REQ_MIXED_MERGE)
