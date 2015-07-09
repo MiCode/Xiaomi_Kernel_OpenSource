@@ -1010,10 +1010,9 @@ int create_pkt_cmd_session_set_property(
 	}
 	case HAL_CONFIG_REALTIME:
 	{
-		struct hfi_enable *hfi;
-		pkt->rg_property_data[0] = HFI_PROPERTY_CONFIG_REALTIME;
-		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
-		hfi->enable = ((struct hfi_enable *) pdata)->enable;
+		create_pkt_enable(pkt->rg_property_data,
+				HFI_PROPERTY_CONFIG_REALTIME,
+				((struct hal_enable *)pdata)->enable);
 		pkt->size += sizeof(u32) * 2;
 		break;
 	}
@@ -1115,21 +1114,17 @@ int create_pkt_cmd_session_set_property(
 	}
 	case HAL_PARAM_VDEC_OUTPUT2_KEEP_ASPECT_RATIO:
 	{
-		struct hfi_enable *hfi;
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_VDEC_OUTPUT2_KEEP_ASPECT_RATIO;
-		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
-		hfi->enable = ((struct hfi_enable *) pdata)->enable;
+		create_pkt_enable(pkt->rg_property_data,
+			HFI_PROPERTY_PARAM_VDEC_OUTPUT2_KEEP_ASPECT_RATIO,
+			((struct hal_enable *)pdata)->enable);
 		pkt->size += sizeof(u32) * 2;
 		break;
 	}
 	case HAL_CONFIG_VDEC_POST_LOOP_DEBLOCKER:
 	{
-		struct hfi_enable *hfi;
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_CONFIG_VDEC_POST_LOOP_DEBLOCKER;
-		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
-		hfi->enable = ((struct hfi_enable *) pdata)->enable;
+		create_pkt_enable(pkt->rg_property_data,
+			HFI_PROPERTY_CONFIG_VDEC_POST_LOOP_DEBLOCKER,
+			((struct hal_enable *)pdata)->enable);
 		pkt->size += sizeof(u32) * 2;
 		break;
 	}
@@ -1192,41 +1187,33 @@ int create_pkt_cmd_session_set_property(
 	}
 	case HAL_CONFIG_VDEC_MB_ERROR_MAP_REPORTING:
 	{
-		struct hfi_enable *hfi;
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_CONFIG_VDEC_MB_ERROR_MAP_REPORTING;
-		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
-		hfi->enable = ((struct hfi_enable *) pdata)->enable;
+		create_pkt_enable(pkt->rg_property_data,
+			HFI_PROPERTY_CONFIG_VDEC_MB_ERROR_MAP_REPORTING,
+			((struct hal_enable *)pdata)->enable);
 		pkt->size += sizeof(u32) * 2;
 		break;
 	}
 	case HAL_PARAM_VDEC_CONTINUE_DATA_TRANSFER:
 	{
-		struct hfi_enable *hfi;
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_VDEC_CONTINUE_DATA_TRANSFER;
-		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
-		hfi->enable = ((struct hfi_enable *) pdata)->enable;
+		create_pkt_enable(pkt->rg_property_data,
+			HFI_PROPERTY_PARAM_VDEC_CONTINUE_DATA_TRANSFER,
+			((struct hal_enable *)pdata)->enable);
 		pkt->size += sizeof(u32) * 2;
 		break;
 	}
 	case HAL_PARAM_VDEC_SYNC_FRAME_DECODE:
 	{
-		struct hfi_enable *hfi;
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_VDEC_THUMBNAIL_MODE;
-		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
-		hfi->enable = ((struct hfi_enable *) pdata)->enable;
+		create_pkt_enable(pkt->rg_property_data,
+			HFI_PROPERTY_PARAM_VDEC_THUMBNAIL_MODE,
+			((struct hal_enable *)pdata)->enable);
 		pkt->size += sizeof(u32) * 2;
 		break;
 	}
 	case HAL_PARAM_VENC_SYNC_FRAME_SEQUENCE_HEADER:
 	{
-		struct hfi_enable *hfi;
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_CONFIG_VENC_SYNC_FRAME_SEQUENCE_HEADER;
-		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
-		hfi->enable = ((struct hfi_enable *) pdata)->enable;
+		create_pkt_enable(pkt->rg_property_data,
+			HFI_PROPERTY_CONFIG_VENC_SYNC_FRAME_SEQUENCE_HEADER,
+			((struct hal_enable *)pdata)->enable);
 		pkt->size += sizeof(u32) * 2;
 		break;
 	}
