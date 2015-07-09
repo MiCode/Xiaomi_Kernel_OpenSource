@@ -46,6 +46,7 @@
 #define REG_LAB_CLK_DIV			0x48
 #define REG_LAB_IBB_EN_RDY		0x49
 #define REG_LAB_CURRENT_LIMIT		0x4B
+#define REG_LAB_CURRENT_SENSE		0x4C
 #define REG_LAB_PS_CTL			0x50
 #define REG_LAB_RDSON_MNGMNT		0x53
 #define REG_LAB_PRECHARGE_CTL		0x5E
@@ -61,7 +62,7 @@
 /* REG_LAB_VOLTAGE */
 #define LAB_VOLTAGE_OVERRIDE_EN		BIT(7)
 #define LAB_VOLTAGE_SET_BITS		4
-#define LAB_VOLTAGE_SET_MASK		((1<<LAB_VOLTAGE_SET_BITS)-1)
+#define LAB_VOLTAGE_SET_MASK		((1 << LAB_VOLTAGE_SET_BITS) - 1)
 
 /* REG_LAB_RING_SUPPRESSION_CTL */
 #define LAB_RING_SUPPRESSION_CTL_EN	BIT(7)
@@ -83,31 +84,36 @@
 
 /* REG_LAB_CURRENT_LIMIT */
 #define LAB_CURRENT_LIMIT_BITS		3
-#define LAB_CURRENT_LIMIT_MASK		((1<<LAB_CURRENT_LIMIT_BITS)-1)
+#define LAB_CURRENT_LIMIT_MASK		((1 << LAB_CURRENT_LIMIT_BITS) - 1)
 #define LAB_CURRENT_LIMIT_EN		BIT(7)
+
+/* REG_LAB_CURRENT_SENSE */
+#define LAB_CURRENT_SENSE_GAIN_BITS	2
+#define LAB_CURRENT_SENSE_GAIN_MASK	((1 << LAB_CURRENT_SENSE_GAIN_BITS) \
+					- 1)
 
 /* REG_LAB_PS_CTL */
 #define LAB_PS_CTL_BITS			2
-#define LAB_PS_CTL_MASK			((1<<LAB_PS_CTL_BITS)-1)
+#define LAB_PS_CTL_MASK			((1 << LAB_PS_CTL_BITS) - 1)
 #define LAB_PS_CTL_EN			BIT(7)
 
 /* REG_LAB_RDSON_MNGMNT */
 #define LAB_RDSON_MNGMNT_NFET_SLEW_EN	BIT(5)
 #define LAB_RDSON_MNGMNT_PFET_SLEW_EN	BIT(4)
 #define LAB_RDSON_MNGMNT_NFET_BITS	2
-#define LAB_RDSON_MNGMNT_NFET_MASK	((1<<LAB_RDSON_MNGMNT_NFET_BITS)-1)
+#define LAB_RDSON_MNGMNT_NFET_MASK	((1 << LAB_RDSON_MNGMNT_NFET_BITS) - 1)
 #define LAB_RDSON_MNGMNT_NFET_SHIFT	2
 #define LAB_RDSON_MNGMNT_PFET_BITS	2
-#define LAB_RDSON_MNGMNT_PFET_MASK	((1<<LAB_RDSON_MNGMNT_PFET_BITS)-1)
+#define LAB_RDSON_MNGMNT_PFET_MASK	((1 << LAB_RDSON_MNGMNT_PFET_BITS) - 1)
 
 /* REG_LAB_PRECHARGE_CTL */
 #define LAB_PRECHARGE_CTL_EN		BIT(2)
 #define LAB_PRECHARGE_CTL_EN_BITS	2
-#define LAB_PRECHARGE_CTL_EN_MASK	((1<<LAB_PRECHARGE_CTL_EN_BITS)-1)
+#define LAB_PRECHARGE_CTL_EN_MASK	((1 << LAB_PRECHARGE_CTL_EN_BITS) - 1)
 
 /* REG_LAB_SOFT_START_CTL */
 #define LAB_SOFT_START_CTL_BITS		2
-#define LAB_SOFT_START_CTL_MASK		((1<<LAB_SOFT_START_CTL_BITS)-1)
+#define LAB_SOFT_START_CTL_MASK		((1 << LAB_SOFT_START_CTL_BITS) - 1)
 
 /* IBB register offset definitions */
 #define REG_IBB_STATUS1			0x08
@@ -134,7 +140,7 @@
 /* REG_IBB_VOLTAGE */
 #define IBB_VOLTAGE_OVERRIDE_EN		BIT(7)
 #define IBB_VOLTAGE_SET_BITS		6
-#define IBB_VOLTAGE_SET_MASK		((1<<IBB_VOLTAGE_SET_BITS)-1)
+#define IBB_VOLTAGE_SET_MASK		((1 << IBB_VOLTAGE_SET_BITS) - 1)
 
 /* REG_IBB_RING_SUPPRESSION_CTL */
 #define IBB_RING_SUPPRESSION_CTL_EN	BIT(7)
@@ -153,7 +159,7 @@
 
 /* REG_IBB_CURRENT_LIMIT */
 #define IBB_CURRENT_LIMIT_BITS		5
-#define IBB_CURRENT_LIMIT_MASK		((1<<IBB_CURRENT_LIMIT_BITS)-1)
+#define IBB_CURRENT_LIMIT_MASK		((1 << IBB_CURRENT_LIMIT_BITS) - 1)
 #define IBB_CURRENT_LIMIT_DEBOUNCE_SHIFT	5
 #define IBB_CURRENT_LIMIT_EN		BIT(7)
 
@@ -167,10 +173,12 @@
 
 /* REG_IBB_PWRUP_PWRDN_CTL_1 */
 #define IBB_PWRUP_PWRDN_CTL_1_DLY1_BITS	2
-#define IBB_PWRUP_PWRDN_CTL_1_DLY1_MASK	((1<<IBB_PWRUP_PWRDN_CTL_1_DLY1_BITS)-1)
+#define IBB_PWRUP_PWRDN_CTL_1_DLY1_MASK	\
+	((1 << IBB_PWRUP_PWRDN_CTL_1_DLY1_BITS) - 1)
 #define IBB_PWRUP_PWRDN_CTL_1_DLY1_SHIFT	3
 #define IBB_PWRUP_PWRDN_CTL_1_DLY2_BITS	2
-#define IBB_PWRUP_PWRDN_CTL_1_DLY2_MASK	((1<<IBB_PWRUP_PWRDN_CTL_1_DLY2_BITS)-1)
+#define IBB_PWRUP_PWRDN_CTL_1_DLY2_MASK	\
+	((1 << IBB_PWRUP_PWRDN_CTL_1_DLY2_BITS) - 1)
 #define IBB_PWRUP_PWRDN_CTL_1_LAB_VREG_OK	BIT(7)
 #define IBB_PWRUP_PWRDN_CTL_1_EN_DLY1	BIT(6)
 #define PWRUP_PWRDN_CTL_1_DISCHARGE_EN	BIT(2)
@@ -257,6 +265,13 @@ static const int lab_current_limit_plan[] = {
 	400,
 	600,
 	800,
+};
+
+static const char * const lab_current_sense_plan[] = {
+	"0.5x",
+	"1x",
+	"1.5x",
+	"2x"
 };
 
 static const int ibb_current_limit_plan[] = {
@@ -478,6 +493,17 @@ static int qpnp_ibb_unlock_sec_access(struct qpnp_labibb *labibb)
 		pr_err("qpnp_ibb_unlock_sec_access write register %x failed rc = %d\n",
 			REG_IBB_SEC_ACCESS, rc);
 	return rc;
+}
+
+static int qpnp_labibb_get_matching_idx(const char *val)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(lab_current_sense_plan); i++)
+		if (!strcmp(lab_current_sense_plan[i], val))
+			return i;
+
+	return -EINVAL;
 }
 
 static int qpnp_lab_dt_init(struct qpnp_labibb *labibb,
@@ -1033,6 +1059,8 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 	struct regulator_desc *rdesc;
 	struct regulator_config cfg = {};
 	u8 ibb_en_rdy_val, val;
+	const char *current_sense_str;
+	bool config_current_sense = false;
 
 	if (!of_node) {
 		dev_err(labibb->dev, "qpnp lab regulator device tree node is missing\n");
@@ -1149,6 +1177,45 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 				return rc;
 			}
 
+		}
+
+		if (labibb->mode == QPNP_LABIBB_AMOLED_MODE) {
+			/*
+			 * default to 1.5 times current gain if
+			 * user doesn't specify the current-sense
+			 * dt parameter
+			 */
+			current_sense_str = "1.5x";
+			val = qpnp_labibb_get_matching_idx(current_sense_str);
+			config_current_sense = true;
+		}
+
+		if (of_find_property(of_node,
+			"qpnp,qpnp-lab-current-sense", NULL)) {
+			config_current_sense = true;
+			rc = of_property_read_string(of_node,
+				"qpnp,qpnp-lab-current-sense",
+				&current_sense_str);
+			if (!rc) {
+				val = qpnp_labibb_get_matching_idx(
+						current_sense_str);
+			} else {
+				pr_err("qpnp,qpnp-lab-current-sense configured incorrectly rc = %d\n",
+					rc);
+				return rc;
+			}
+		}
+
+		if (config_current_sense) {
+			rc = qpnp_labibb_masked_write(labibb, labibb->lab_base +
+				REG_LAB_CURRENT_SENSE,
+				LAB_CURRENT_SENSE_GAIN_MASK,
+				val, 1);
+			if (rc) {
+				pr_err("qpnp_labibb_write register %x failed rc = %d\n",
+					REG_LAB_CURRENT_SENSE, rc);
+				return rc;
+			}
 		}
 
 		labibb->lab_vreg.vreg_enabled = 1;
