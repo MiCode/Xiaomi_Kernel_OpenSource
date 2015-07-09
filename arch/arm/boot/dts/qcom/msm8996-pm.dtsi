@@ -61,6 +61,7 @@
 				qcom,time-overhead = <3200>;
 				qcom,min-child-idx = <2>;
 				qcom,notify-rpm;
+				qcom,is-reset;
 			};
 
 			qcom,pm-cluster@0{
@@ -104,6 +105,7 @@
 					qcom,energy-overhead = <65000>;
 					qcom,time-overhead = <1900>;
 					qcom,min-child-idx = <1>;
+					qcom,is-reset;
 				};
 
 				qcom,pm-cpu {
@@ -175,6 +177,7 @@
 					qcom,energy-overhead = <80000>;
 					qcom,time-overhead = <2300>;
 					qcom,min-child-idx = <1>;
+					qcom,is-reset;
 				};
 
 				qcom,pm-cpu {
