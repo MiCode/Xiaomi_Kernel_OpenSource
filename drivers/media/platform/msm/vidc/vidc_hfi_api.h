@@ -183,7 +183,6 @@ enum hal_property {
 	HAL_CONFIG_VDEC_MULTI_STREAM,
 	HAL_PARAM_VENC_MULTI_SLICE_INFO,
 	HAL_CONFIG_VENC_TIMESTAMP_SCALE,
-	HAL_PARAM_VENC_LOW_LATENCY,
 	HAL_PARAM_VENC_SYNC_FRAME_SEQUENCE_HEADER,
 	HAL_PARAM_VDEC_SYNC_FRAME_DECODE,
 	HAL_PARAM_VENC_H264_ENTROPY_CABAC_MODEL,
@@ -217,6 +216,10 @@ enum hal_property {
 	HAL_PARAM_VENC_HIER_P_HYBRID_MODE,
 	HAL_PARAM_VENC_MBI_STATISTICS_MODE,
 	HAL_PARAM_SYNC_BASED_INTERRUPT,
+	HAL_CONFIG_VENC_FRAME_QP,
+	HAL_CONFIG_VENC_BASELAYER_PRIORITYID,
+	HAL_PARAM_EXTRADATA_INPUT_CROP,
+	HAL_PROPERTY_PARAM_VENC_ASPECT_RATIO,
 };
 
 enum hal_domain {
@@ -913,6 +916,11 @@ struct hal_seq_header_info {
 	u32 nax_header_len;
 };
 
+struct hal_aspect_ratio {
+	u32 aspect_width;
+	u32 aspect_height;
+};
+
 struct hal_codec_supported {
 	u32 decoder_codec_supported;
 	u32 encoder_codec_supported;
@@ -1371,6 +1379,22 @@ struct vidc_bus_vote_data {
 	enum msm_vidc_power_mode power_mode;
 };
 
+struct hal_index_extradata_input_crop_payload {
+	u32 size;
+	u32 version;
+	u32 port_index;
+	u32 left;
+	u32 top;
+	u32 width;
+	u32 height;
+};
+
+struct hal_cmd_sys_get_property_packet {
+	u32 size;
+	u32 packet_type;
+	u32 num_properties;
+	u32 rg_property_data[1];
+};
 
 #define call_hfi_op(q, op, args...)			\
 	(((q) && (q)->op) ? ((q)->op(args)) : 0)

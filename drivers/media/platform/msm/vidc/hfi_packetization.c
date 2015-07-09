@@ -1919,7 +1919,54 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) * 2;
 		break;
 	}
+	case HAL_CONFIG_VENC_FRAME_QP:
+	{
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_CONFIG_VENC_FRAME_QP;
+		pkt->rg_property_data[1] = *(u32 *)pdata;
+		pkt->size += sizeof(u32) * 2;
+		break;
+	}
+	case HAL_CONFIG_VENC_BASELAYER_PRIORITYID:
+	{
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_CONFIG_VENC_BASELAYER_PRIORITYID;
+		pkt->rg_property_data[1] = *(u32 *)pdata;
+		pkt->size += sizeof(u32) * 2;
+		break;
+	}
+	case HAL_PARAM_EXTRADATA_INPUT_CROP:
+	{
+		struct hfi_index_extradata_input_crop_payload *hfi = NULL;
+		struct hal_index_extradata_input_crop_payload *hal = pdata;
 
+		pkt->rg_property_data[0] =
+			HFI_INDEX_EXTRADATA_INPUT_CROP;
+		hfi = (struct hfi_index_extradata_input_crop_payload *)
+			&pkt->rg_property_data[1];
+		memcpy(hfi, hal,
+			sizeof(struct
+				hfi_index_extradata_input_crop_payload));
+		pkt->size += sizeof(u32) +
+				sizeof(struct
+				hfi_index_extradata_input_crop_payload);
+		break;
+	}
+	case HAL_PROPERTY_PARAM_VENC_ASPECT_RATIO:
+	{
+		struct hfi_aspect_ratio *hfi = NULL;
+		struct hal_aspect_ratio *hal = pdata;
+
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VENC_ASPECT_RATIO;
+		hfi = (struct hfi_aspect_ratio *)
+			&pkt->rg_property_data[1];
+		memcpy(hfi, hal,
+			sizeof(struct hfi_aspect_ratio));
+		pkt->size += sizeof(u32) +
+				sizeof(struct hfi_aspect_ratio);
+		break;
+	}
 	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */
 	case HAL_CONFIG_BUFFER_REQUIREMENTS:
 	case HAL_CONFIG_PRIORITY:
@@ -1945,7 +1992,6 @@ int create_pkt_cmd_session_set_property(
 	case HAL_CONFIG_VDEC_MULTI_STREAM:
 	case HAL_PARAM_VENC_MULTI_SLICE_INFO:
 	case HAL_CONFIG_VENC_TIMESTAMP_SCALE:
-	case HAL_PARAM_VENC_LOW_LATENCY:
 	default:
 		dprintk(VIDC_ERR, "DEFAULT: Calling %#x\n", ptype);
 		rc = -ENOTSUPP;

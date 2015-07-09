@@ -1077,6 +1077,56 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.default_value = V4L2_VIDC_QBUF_STANDARD,
 		.step = 1,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_MAX_HIERP_LAYERS,
+		.name = "Set Max Hier P num layers sessions",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 0,
+		.maximum = 3,
+		.default_value = 0,
+		.step = 1,
+		.qmenu = NULL,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_BASELAYER_ID,
+		.name = "Set Base Layer ID for Hier-P",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 0,
+		.maximum = 3,
+		.default_value = 0,
+		.step = 1,
+		.qmenu = NULL,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_CONFIG_QP,
+		.name = "Set frame level QP",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 1,
+		.maximum = 51,
+		.default_value = 1,
+		.step = 1,
+		.qmenu = NULL,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VENC_PARAM_SAR_WIDTH,
+		.name = "SAR Width",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 1,
+		.maximum = 4096,
+		.default_value = 1,
+		.step = 1,
+		.qmenu = NULL,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VENC_PARAM_SAR_HEIGHT,
+		.name = "SAR Height",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 1,
+		.maximum = 2160,
+		.default_value = 1,
+		.step = 1,
+		.qmenu = NULL,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
@@ -1885,6 +1935,9 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_hybrid_hierp hyb_hierp;
 	u32 hier_p_layers = 0, hier_b_layers = 0, mbi_statistics_mode = 0;
 	enum hal_perf_mode venc_mode;
+	int max_hierp_layers;
+	int baselayerid = 0;
+	int frameqp = 0;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -2682,14 +2735,10 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_HIER_P_NUM_LAYERS:
 		property_id = HAL_CONFIG_VENC_HIER_P_NUM_FRAMES;
 		hier_p_layers = ctrl->val;
-		rc = msm_venc_toggle_hier_p(inst, ctrl->val);
-		if (rc)
-			break;
 		if (hier_p_layers > inst->capability.hier_p.max) {
 			dprintk(VIDC_ERR,
-				"Error setting hier p num layers = %d max supported by f/w = %d\n",
-				hier_p_layers,
-				inst->capability.hier_p.max);
+				"Error setting hier p num layers %d max supported is %d\n",
+				hier_p_layers, inst->capability.hier_p.max);
 			rc = -ENOTSUPP;
 			break;
 		}
@@ -2760,6 +2809,28 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		enable.enable = ctrl->val == V4L2_VIDC_QBUF_BATCHED;
 		pdata = &enable;
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_MAX_HIERP_LAYERS:
+		property_id = HAL_PARAM_VENC_HIER_P_MAX_ENH_LAYERS;
+		max_hierp_layers = ctrl->val;
+		if (max_hierp_layers > inst->capability.hier_p.max) {
+			dprintk(VIDC_ERR,
+				"Error max HP layers(%d)>max supported(%d)\n",
+				max_hierp_layers, inst->capability.hier_p.max);
+			rc = -ENOTSUPP;
+			break;
+		}
+		pdata = &max_hierp_layers;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_BASELAYER_ID:
+		property_id = HAL_CONFIG_VENC_BASELAYER_PRIORITYID;
+		baselayerid = ctrl->val;
+		pdata = &baselayerid;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_CONFIG_QP:
+		property_id = HAL_CONFIG_VENC_FRAME_QP;
+		frameqp = ctrl->val;
+		pdata = &frameqp;
+		break;
 	default:
 		dprintk(VIDC_ERR, "Unsupported index: %x\n", ctrl->id);
 		rc = -ENOTSUPP;
@@ -2792,6 +2863,7 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 	void *pdata = NULL;
 	struct msm_vidc_core_capability *cap = NULL;
 	struct hal_initial_quantization quant;
+	struct hal_aspect_ratio sar;
 
 	if (!inst || !inst->core || !inst->core->device || !ctrl) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -2883,6 +2955,16 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 			search_range.b_frame.y_subsampled = control[i].value;
 			property_id = HAL_PARAM_VENC_SEARCH_RANGE;
 			pdata = &search_range;
+			break;
+		case V4L2_CID_MPEG_VIDC_VENC_PARAM_SAR_WIDTH:
+			sar.aspect_width = control[i].value;
+			property_id = HAL_PROPERTY_PARAM_VENC_ASPECT_RATIO;
+			pdata = &sar;
+			break;
+		case V4L2_CID_MPEG_VIDC_VENC_PARAM_SAR_HEIGHT:
+			sar.aspect_height = control[i].value;
+			property_id = HAL_PROPERTY_PARAM_VENC_ASPECT_RATIO;
+			pdata = &sar;
 			break;
 		default:
 			dprintk(VIDC_ERR, "Invalid id set: %d\n",
@@ -3020,6 +3102,53 @@ int msm_venc_querycap(struct msm_vidc_inst *inst, struct v4l2_capability *cap)
 						V4L2_CAP_STREAMING;
 	memset(cap->reserved, 0, sizeof(cap->reserved));
 	return 0;
+}
+
+int msm_venc_s_crop(struct msm_vidc_inst *inst, const struct v4l2_crop *c)
+{
+	int rc = 0, property_id = 0;
+	struct hfi_device *hdev;
+	struct hal_index_extradata_input_crop_payload payload;
+
+	if (!inst || !c || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR,
+			"Invalid input, inst = %p, f = %p\n", inst, c);
+		return -EINVAL;
+	}
+
+	hdev = inst->core->device;
+
+	switch (c->type) {
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+	{
+		payload.port_index = HAL_BUFFER_INPUT;
+		payload.top = c->c.top;
+		payload.left = c->c.left;
+		payload.width = c->c.width;
+		payload.height = c->c.height;
+		property_id = HAL_PARAM_EXTRADATA_INPUT_CROP;
+		dprintk(VIDC_ERR, "Setting rectangle data\n");
+
+		rc = call_hfi_op(hdev, session_set_property,
+				(void *)inst->session, property_id, &payload);
+
+		if (rc) {
+			dprintk(VIDC_WARN,
+				"Failed to set rectangle info%d\n", rc);
+		}
+		break;
+	}
+	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+		dprintk(VIDC_WARN,
+			"Rectangle info not supported in CAPTURE_PLANE\n");
+		break;
+	default:
+		dprintk(VIDC_ERR,
+				"%s Unknown buffer type %d\n",
+				__func__, c->type);
+		break;
+	}
+	return rc;
 }
 
 int msm_venc_enum_fmt(struct msm_vidc_inst *inst, struct v4l2_fmtdesc *f)
