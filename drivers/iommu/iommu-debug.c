@@ -58,6 +58,29 @@ static const struct file_operations iommu_debug_attachment_info_fops = {
 	.release = single_release,
 };
 
+static ssize_t iommu_debug_attachment_trigger_fault_write(
+	struct file *file, const char __user *ubuf, size_t count,
+	loff_t *offset)
+{
+	struct iommu_debug_attachment *attach = file->private_data;
+	unsigned long flags;
+
+	if (kstrtoul_from_user(ubuf, count, 0, &flags)) {
+		pr_err("Invalid flags format\n");
+		return -EFAULT;
+	}
+
+	iommu_trigger_fault(attach->domain, flags);
+
+	return count;
+}
+
+static const struct file_operations
+iommu_debug_attachment_trigger_fault_fops = {
+	.open	= simple_open,
+	.write	= iommu_debug_attachment_trigger_fault_write,
+};
+
 /* should be called with iommu_debug_attachments_lock locked */
 static int iommu_debug_attach_add_debugfs(
 	struct iommu_debug_attachment *attach)
@@ -103,6 +126,12 @@ static int iommu_debug_attach_add_debugfs(
 		goto err_rmdir;
 	}
 
+	if (!debugfs_create_file(
+		    "trigger_fault", S_IRUSR, attach->dentry, attach,
+		    &iommu_debug_attachment_trigger_fault_fops)) {
+		pr_err("Couldn't create iommu/attachments/%s/trigger_fault debugfs file for domain 0x%p\n",
+		       dev_name(dev), domain);
+		goto err_rmdir;
 	return 0;
 
 err_rmdir:
