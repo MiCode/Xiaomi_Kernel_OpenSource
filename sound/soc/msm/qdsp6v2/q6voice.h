@@ -1549,6 +1549,8 @@ struct voice_data {
 	u32 cvs_state;
 	u32 cvp_state;
 
+	u32 async_err;
+
 	/* Handle to MVM in the Q6 */
 	u16 mvm_handle;
 	/* Handle to CVS in the Q6 */
