@@ -1262,6 +1262,9 @@ static int msm_pcm_probe(struct platform_device *pdev)
 		if (!rc) {
 			if (!strcmp(latency_level, "ultra"))
 				pdata->perf_mode = ULTRA_LOW_LATENCY_PCM_MODE;
+			else if (!strcmp(latency_level, "ull-pp"))
+				pdata->perf_mode =
+					ULL_POST_PROCESSING_PCM_MODE;
 		}
 	}
 	else

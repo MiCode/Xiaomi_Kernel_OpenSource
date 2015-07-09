@@ -26,7 +26,7 @@ Required properties:
                             low latency.
                             regular : regular low latency stream
                             ultra : ultra low latency stream
-
+                            ull-pp : ultra low latency stream with post-processing capability
 * msm-pcm-routing
 
 Required properties:
