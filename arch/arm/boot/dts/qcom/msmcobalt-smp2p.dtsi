@@ -157,4 +157,19 @@
 		compatible = "qcom,smp2pgpio_test_smp2p_3_out";
 		gpios = <&smp2pgpio_smp2p_3_out 0 0>;
 	};
+
+	smp2pgpio_sleepstate_3_out: qcom,smp2pgpio-sleepstate-gpio-3-out {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "sleepstate";
+		qcom,remote-pid = <3>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	qcom,smp2pgpio-sleepstate-3-out {
+		compatible = "qcom,smp2pgpio_sleepstate_3_out";
+		gpios = <&smp2pgpio_sleepstate_3_out 0 0>;
+	};
 };
