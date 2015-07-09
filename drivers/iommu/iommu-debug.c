@@ -41,6 +41,7 @@ static int iommu_debug_attachment_info_show(struct seq_file *s, void *ignored)
 {
 	struct iommu_debug_attachment *attach = s->private;
 	phys_addr_t pt_phys;
+	int coherent_htw_disable;
 
 	seq_printf(s, "Domain: 0x%p\n", attach->domain);
 	if (iommu_domain_get_attr(attach->domain, DOMAIN_ATTR_PT_BASE_ADDR,
@@ -52,6 +53,14 @@ static int iommu_debug_attachment_info_show(struct seq_file *s, void *ignored)
 		seq_printf(s, "PT_BASE_ADDR: virt=0x%p phys=%pa\n",
 			   pt_virt, &pt_phys);
 	}
+
+	seq_puts(s, "COHERENT_HTW_DISABLE: ");
+	if (iommu_domain_get_attr(attach->domain,
+				  DOMAIN_ATTR_COHERENT_HTW_DISABLE,
+				  &coherent_htw_disable))
+		seq_puts(s, "(Unknown)\n");
+	else
+		seq_printf(s, "%d\n", coherent_htw_disable);
 
 	return 0;
 }
