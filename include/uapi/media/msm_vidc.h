@@ -134,6 +134,13 @@ struct msm_vidc_vqzip_sei_payload {
 	unsigned int data[1];
 };
 
+struct msm_vidc_yuv_stats_payload {
+	unsigned int frame_qp;
+	unsigned int texture;
+	unsigned int luma_in_q16;
+	unsigned int frame_difference;
+};
+
 enum msm_vidc_extradata_type {
 	MSM_VIDC_EXTRADATA_NONE = 0x00000000,
 	MSM_VIDC_EXTRADATA_MB_QUANTIZATION = 0x00000001,
@@ -159,6 +166,7 @@ enum msm_vidc_extradata_type {
 	MSM_VIDC_EXTRADATA_METADATA_LTR = 0x7F100004,
 	MSM_VIDC_EXTRADATA_METADATA_FILLER = 0x7FE00002,
 	MSM_VIDC_EXTRADATA_METADATA_MBI = 0x7F100005,
+	MSM_VIDC_EXTRADATA_YUVSTATS_INFO = 0x7F100007,
 };
 enum msm_vidc_interlace_type {
 	MSM_VIDC_INTERLACE_FRAME_PROGRESSIVE = 0x01,
