@@ -664,6 +664,10 @@ static int mmc_decode_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		 */
 		card->ext_csd.strobe_support = ext_csd[EXT_CSD_STROBE_SUPPORT];
 		card->ext_csd.cmdq_support = ext_csd[EXT_CSD_CMDQ_SUPPORT];
+		card->ext_csd.fw_version = ext_csd[EXT_CSD_FIRMWARE_VERSION];
+		pr_info("%s: eMMC FW version: 0x%02x\n",
+			mmc_hostname(card->host),
+			card->ext_csd.fw_version);
 		if (card->ext_csd.cmdq_support) {
 			/*
 			 * Queue Depth = N + 1,
