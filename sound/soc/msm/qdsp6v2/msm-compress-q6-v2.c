@@ -1315,6 +1315,7 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 	case SND_AUDIOCODEC_PCM: {
 		pr_debug("SND_AUDIOCODEC_PCM\n");
 		prtd->codec = FORMAT_LINEAR_PCM;
+		is_format_gapless = true;
 		break;
 	}
 
