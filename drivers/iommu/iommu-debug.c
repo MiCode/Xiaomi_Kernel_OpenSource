@@ -38,7 +38,7 @@ struct iommu_debug_attachment {
 	struct list_head list;
 };
 
-static int iommu_debug_attachment_show(struct seq_file *s, void *ignored)
+static int iommu_debug_attachment_info_show(struct seq_file *s, void *ignored)
 {
 	struct iommu_debug_attachment *attach = s->private;
 
@@ -46,13 +46,15 @@ static int iommu_debug_attachment_show(struct seq_file *s, void *ignored)
 	return 0;
 }
 
-static int iommu_debug_attachment_open(struct inode *inode, struct file *file)
+static int iommu_debug_attachment_info_open(struct inode *inode,
+					    struct file *file)
 {
-	return single_open(file, iommu_debug_attachment_show, inode->i_private);
+	return single_open(file, iommu_debug_attachment_info_show,
+			   inode->i_private);
 }
 
-static const struct file_operations iommu_debug_attachment_fops = {
-	.open	 = iommu_debug_attachment_open,
+static const struct file_operations iommu_debug_attachment_info_fops = {
+	.open	 = iommu_debug_attachment_info_open,
 	.read	 = seq_read,
 	.llseek	 = seq_lseek,
 	.release = single_release,
@@ -79,14 +81,23 @@ void iommu_debug_attach_device(struct iommu_domain *domain,
 	attach->domain = domain;
 	attach->dev = dev;
 
-	attach->dentry = debugfs_create_file(
-		attach_name, S_IRUSR, debugfs_attachments_dir, attach,
-		&iommu_debug_attachment_fops);
+	attach->dentry = debugfs_create_dir(attach_name,
+					    debugfs_attachments_dir);
 	if (!attach->dentry) {
-		pr_err("Couldn't create iommu/attachments/%s debugfs file for domain 0x%p\n",
+		pr_err("Couldn't create iommu/attachments/%s debugfs directory for domain 0x%p\n",
 		       attach_name, domain);
 		kfree(attach);
 		goto free_attach_name;
+	}
+
+	if (!debugfs_create_file(
+		    "info", S_IRUSR, attach->dentry, attach,
+		    &iommu_debug_attachment_info_fops)) {
+		pr_err("Couldn't create iommu/attachments/%s/info debugfs file for domain 0x%p\n",
+		       dev_name(dev), domain);
+		debugfs_remove_recursive(attach->dentry);
+		kfree(attach);
+		goto unlock;
 	}
 
 	list_add(&attach->list, &iommu_debug_attachments);
