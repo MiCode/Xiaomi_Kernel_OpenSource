@@ -462,6 +462,26 @@
 		qcom,cdc-micbias3-ext-cap;
 		qcom,cdc-micbias4-ext-cap;
 	};
+
+	tasha_codec {
+		swr_master {
+			compatible = "qcom,swr-wcd";
+			#address-cells = <2>;
+			#size-cells = <0>;
+
+			wsa881x_1: wsa881x@20170212 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x20170212>;
+				qcom,spkr-sd-n-gpio = <&pmi8994_gpios 3 0>;
+			};
+
+			wsa881x_2: wsa881x@20170211 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x20170211>;
+				qcom,spkr-sd-n-gpio = <&pmi8994_gpios 2 0>;
+			};
+		};
+	};
 };
 
 &pm8994_gpios {
@@ -629,6 +649,7 @@
 		asoc-codec = <&stub_codec>, <&hdmi_audio>;
 		asoc-codec-names = "msm-stub-codec.1", "msm-hdmi-audio-codec-rx";
 		qcom,us-euro-gpios = <&pm8994_mpps 2 0>;
+		qcom,aux-codec = <&wsa881x_1>, <&wsa881x_2>;
 	};
 };
 

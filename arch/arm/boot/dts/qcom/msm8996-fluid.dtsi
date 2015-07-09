@@ -440,11 +440,12 @@
 	};
 
 	sound-9335 {
-		qcom,model = "msm8996-tasha-mtp-snd-card";
+		qcom,model = "msm8996-tasha-fluid-snd-card";
 		qcom,hdmi-audio-rx;
 		asoc-codec = <&stub_codec>, <&hdmi_audio>;
 		asoc-codec-names = "msm-stub-codec.1",
 				"msm-hdmi-audio-codec-rx";
+		qcom,aux-codec = <&wsa881x_1>;
 	};
 
 };
@@ -611,5 +612,21 @@
 		qcom,vin-sel = <0>;     /* VIN0 */
 		qcom,master-en = <1>;
 		status = "okay";
+	};
+};
+
+&slim_msm {
+	tasha_codec {
+		swr_master {
+			compatible = "qcom,swr-wcd";
+			#address-cells = <2>;
+			#size-cells = <0>;
+
+			wsa881x_1: wsa881x@20170211 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x20170211>;
+				qcom,spkr-sd-n-gpio = <&pmi8994_gpios 2 0>;
+			};
+		};
 	};
 };

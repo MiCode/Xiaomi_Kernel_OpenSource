@@ -482,6 +482,7 @@
 		qcom,hdmi-audio-rx;
 		asoc-codec = <&stub_codec>, <&hdmi_audio>;
 		asoc-codec-names = "msm-stub-codec.1", "msm-hdmi-audio-codec-rx";
+		qcom,aux-codec = <&wsa881x_1>, <&wsa881x_2>;
 	};
 };
 
@@ -654,5 +655,25 @@
 		qcom,cdc-micbias2-ext-cap;
 		qcom,cdc-micbias3-ext-cap;
 		qcom,cdc-micbias4-ext-cap;
+	};
+
+	tasha_codec {
+		swr_master {
+			compatible = "qcom,swr-wcd";
+			#address-cells = <2>;
+			#size-cells = <0>;
+
+			wsa881x_1: wsa881x@21170214 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x21170214>;
+				qcom,spkr-sd-n-gpio = <&pmi8994_gpios 3 0>;
+			};
+
+			wsa881x_2: wsa881x@21170213 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x21170213>;
+				qcom,spkr-sd-n-gpio = <&pmi8994_gpios 2 0>;
+			};
+		};
 	};
 };
