@@ -58,6 +58,7 @@ struct hdcp_txmtr_ops {
 		unsigned char *msg, uint32_t msg_size);
 	int (*hdcp_txmtr_get_state)(void *phdcpcontext,
 		uint32_t *state);
+	int (*hdcp_txmtr_query_stream_type)(void *phdcpcontext);
 };
 
 struct hdcp_client_ops {

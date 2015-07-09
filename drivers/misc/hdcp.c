@@ -111,7 +111,7 @@
 #define HDCP_TXMTR_PROCESS_RECEIVED_MESSAGE       SERVICE_TXMTR_CREATE_CMD(3)
 #define HDCP_TXMTR_SEND_MESSAGE_TIMEOUT           SERVICE_TXMTR_CREATE_CMD(4)
 #define HDCP_TXMTR_SET_HW_KEY                     SERVICE_TXMTR_CREATE_CMD(5)
-#define HDCP_TXMTR_SET_STREAM_TYPE                SERVICE_TXMTR_CREATE_CMD(6)
+#define HDCP_TXMTR_QUERY_STREAM_TYPE              SERVICE_TXMTR_CREATE_CMD(6)
 #define HDCP_TXMTR_GET_KSXORLC128_AND_RIV         SERVICE_TXMTR_CREATE_CMD(7)
 #define HDCP_TXMTR_PROVISION_KEY                  SERVICE_TXMTR_CREATE_CMD(8)
 #define HDCP_TXMTR_GET_TOPOLOGY_INFO              SERVICE_TXMTR_CREATE_CMD(9)
@@ -242,6 +242,18 @@ struct __attribute__ ((__packed__)) hdcp_send_timeout_rsp {
 	uint8_t  message[MAX_TX_MESSAGE_SIZE];
 };
 
+struct __attribute__ ((__packed__)) hdcp_query_stream_type_req {
+	uint32_t commandid;
+	uint32_t ctxhandle;
+};
+
+struct __attribute__ ((__packed__)) hdcp_query_stream_type_rsp {
+	uint32_t status;
+	uint32_t commandid;
+	uint32_t timeout;
+	uint32_t msglen;
+	uint8_t  msg[MAX_TX_MESSAGE_SIZE];
+};
 
 struct __attribute__ ((__packed__)) hdcp_set_stream_type_req {
 	uint32_t commandid;
@@ -374,6 +386,7 @@ static int hdcp2p2_txmtr_init(void *);
 static int hdcp2p2_txmtr_deinit(void *);
 static void hdcp2p2_msg_arrive_work_fn(struct work_struct *);
 static int hdcp2p2_txmtr_process_message(void *, unsigned char *, uint32_t);
+static int hdcp2p2_txmtr_query_stream_type(void *);
 
 /* called on hdcp thread */
 static int hdcp2p2_send_message(struct hdcp_client_handle *hdcp_handle)
@@ -687,7 +700,10 @@ int hdcp_library_init(void **pphdcpcontext, struct hdcp_client_ops *client_ops,
 	hdcp_mod.ref_cnt++;
 	txmtr_ops->hdcp_txmtr_deinit = hdcp2p2_txmtr_deinit;
 	txmtr_ops->hdcp_txmtr_init = hdcp2p2_txmtr_init;
-	txmtr_ops->hdcp_txmtr_process_message = hdcp2p2_txmtr_process_message;
+	txmtr_ops->hdcp_txmtr_process_message =
+				hdcp2p2_txmtr_process_message;
+	txmtr_ops->hdcp_txmtr_query_stream_type =
+				hdcp2p2_txmtr_query_stream_type;
 
 	ops = NULL;
 
@@ -742,6 +758,82 @@ unlock:
 }
 EXPORT_SYMBOL(hdcp_library_init);
 
+
+static int hdcp2p2_txmtr_query_stream_type(void *phdcpcontext)
+{
+	int rc = 0;
+	struct hdcp_query_stream_type_req *req_buf;
+	struct hdcp_query_stream_type_rsp *rsp_buf;
+	struct hdcp_client_handle *hdcp_handle;
+
+	if (!phdcpcontext) {
+		pr_err("%s: hdcp context passed is NULL\n", __func__);
+		return -EINVAL;
+	}
+	mutex_lock(&hdcp_mod.hdcp_lock);
+	if (hdcp_mod.hdcp_state == HDCP_STATE_DEINIT) {
+		pr_debug("%s: hdcp library already deinitialized\n", __func__);
+		goto unlock;
+	}
+
+	if (hdcp_mod.hdcp_state == HDCP_STATE_INIT) {
+		pr_err("%s: only hdcp library but not txmtr is initialized\n",
+				__func__);
+		rc = -EINVAL;
+		goto unlock;
+	}
+
+	if (hdcp_mod.hdcp_state == HDCP_STATE_TXMTR_DEINIT) {
+		pr_debug("%s: hdcp txmtr already deinitialized\n", __func__);
+		goto unlock;
+	}
+
+	hdcp_handle = (struct hdcp_client_handle *)phdcpcontext;
+
+	/* send command to TZ */
+	req_buf = (struct hdcp_query_stream_type_req *)hdcp_mod.
+			qseecom_handle->sbuf;
+	req_buf->commandid = HDCP_TXMTR_QUERY_STREAM_TYPE;
+	req_buf->ctxhandle = hdcp_handle->tz_ctxhandle;
+	rsp_buf = (struct hdcp_query_stream_type_rsp *)(hdcp_mod.
+		qseecom_handle->sbuf + QSEECOM_ALIGN(sizeof(
+			struct hdcp_query_stream_type_req)));
+
+	rc = qseecom_send_command(hdcp_mod.qseecom_handle, req_buf,
+	QSEECOM_ALIGN(sizeof(struct hdcp_query_stream_type_req)), rsp_buf,
+		QSEECOM_ALIGN(sizeof(struct hdcp_query_stream_type_rsp)));
+
+	if ((rc < 0) || (rsp_buf->status < 0) || (rsp_buf->msglen <= 0) ||
+		(rsp_buf->commandid != HDCP_TXMTR_QUERY_STREAM_TYPE) ||
+				(rsp_buf->msg == NULL)) {
+		pr_err("%s: qseecom cmd failed with err=%d status=%d\n",
+			__func__, rc, rsp_buf->status);
+		/* set the timeout flag so that the next message returns */
+		hdcp_handle->timeout_flag = 1;
+		rc = -1;
+		goto unlock;
+	}
+
+	pr_err("%s: message received is %s\n", __func__,
+			hdcp2p2_message_name((int)rsp_buf->msg[0]));
+
+	mutex_lock(&hdcp_handle->mutex);
+	memset(hdcp_handle->listener_buf, 0, MAX_TX_MESSAGE_SIZE);
+	memcpy(hdcp_handle->listener_buf, (unsigned char *)rsp_buf->msg,
+			rsp_buf->msglen);
+	hdcp_handle->hdcp_timeout = rsp_buf->timeout;
+	hdcp_handle->msglen = rsp_buf->msglen;
+	mutex_unlock(&hdcp_handle->mutex);
+	/* before queuing the work, initialize completion variable */
+	init_completion(&hdcp_handle->done);
+	queue_work(hdcp_handle->hdcp_workqueue, &hdcp_handle->work_msg_arrive);
+	pr_debug("%s: hdcp txmtr query stream type success", __func__);
+
+unlock:
+	mutex_unlock(&hdcp_mod.hdcp_lock);
+	return rc;
+
+}
 
 /*
  * deinitializes internal states of HDCP library
@@ -848,8 +940,8 @@ static int hdcp2p2_txmtr_init(void *phdcpcontext)
 
 	/* library should be initialized before calling this API */
 	if (hdcp_mod.hdcp_state == HDCP_STATE_DEINIT) {
-		pr_err("%s: invalid state of hdcp library: %s\n",
-				__func__, HDCP_STATE_NAME);
+		pr_err("%s: hdcp library already deinitialized\n",
+				__func__);
 		rc = -EINVAL;
 		goto unlock;
 	}
@@ -969,10 +1061,10 @@ static int hdcp2p2_txmtr_process_message(void *phdcpcontext,
 		return -EINVAL;
 	}
 	mutex_lock(&hdcp_mod.hdcp_lock);
-	/* If library is not yet initialized then return error */
+	/* If the app has not been loaded yet, return error */
 	if (hdcp_mod.hdcp_state == HDCP_STATE_DEINIT) {
-		pr_err("%s: invalid state of hdcp library: %s\n",
-				__func__, HDCP_STATE_NAME);
+		pr_err("%s: hdcp library is deinitialized\n",
+				__func__);
 		rc = -EINVAL;
 		goto unlock;
 	}
@@ -1006,6 +1098,13 @@ static int hdcp2p2_txmtr_process_message(void *phdcpcontext,
 	if ((msg[0] == AKE_SEND_H_PRIME_MESSAGE_ID) &&
 			hdcp_handle->no_stored_km_flag) {
 		pr_debug("%s: Got HPrime from tx, nothing sent to rx\n",
+				__func__);
+		goto unlock;
+	}
+
+	if ((msg[0] == REPEATER_AUTH_STREAM_READY_MESSAGE_ID) &&
+			(rc == 0) && (rsp_buf->status == 0)) {
+		pr_debug("%s: Got Auth_Stream_Ready from tx, nothing sent to rx\n",
 				__func__);
 		goto unlock;
 	}
