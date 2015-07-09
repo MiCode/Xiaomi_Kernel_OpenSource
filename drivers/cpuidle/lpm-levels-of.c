@@ -640,6 +640,9 @@ static int parse_cpu_levels(struct device_node *node, struct lpm_cluster *c)
 
 		key = "qcom,cpu-is-reset";
 		l->is_reset = of_property_read_bool(n, key);
+
+		key = "qcom,jtag-save-restore";
+		l->jtag_save_restore = of_property_read_bool(n, key);
 	}
 	return 0;
 failed:

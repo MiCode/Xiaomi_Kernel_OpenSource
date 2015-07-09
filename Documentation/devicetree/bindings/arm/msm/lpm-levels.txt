@@ -123,6 +123,8 @@ qcom,pm-cpu-levels.
 	- qcom,psci-mode-mask: Same as cluster level fields.
 	- qcom,psci-cpu-mode: ID to be passed into PSCI firmware.
 	- qcom,cpu-is-reset: Whether CPU get reset are not.
+	- qcom,jtag-save-restore: A boolean specifying jtag registers save and restore
+	required are not.
 
 [Example dts]
 
