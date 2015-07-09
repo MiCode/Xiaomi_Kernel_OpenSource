@@ -3594,6 +3594,12 @@ static int msm8996_asoc_machine_probe(struct platform_device *pdev)
 
 	match = of_match_node(msm8996_asoc_machine_of_match,
 			pdev->dev.of_node);
+	if (!match) {
+		dev_err(&pdev->dev, "%s: no matched codec is found.\n",
+			__func__);
+		goto err;
+	}
+
 	if (!strcmp(match->data, "tomtom_codec"))
 		mclk_freq_prop_name = "qcom,tomtom-mclk-clk-freq";
 	else
