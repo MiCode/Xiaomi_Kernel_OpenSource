@@ -90,6 +90,7 @@
 		qcom,mdss-has-decimation;
 		qcom,mdss-traffic-shaper-enabled;
 		qcom,mdss-no-hist-vote;
+		qcom,mdss-has-10bit-pa;
 		qcom,mdss-needs-iommu-bw-vote;
 		qcom,mdss-has-panic-ctrl;
 		qcom,mdss-has-dst-split;
