@@ -1370,7 +1370,8 @@ static int get_cpu_freq_plan(int cpu,
 
 	rcu_read_lock();
 	while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(cpu_dev, &freq))) {
-		freq_table_ptr[table_len].frequency = freq;
+		/* Convert from Hz to kHz */
+		freq_table_ptr[table_len].frequency = freq / 1000;
 		pr_debug("cpu%d freq %d :%d\n", cpu, table_len,
 			freq_table_ptr[table_len].frequency);
 		freq++;
