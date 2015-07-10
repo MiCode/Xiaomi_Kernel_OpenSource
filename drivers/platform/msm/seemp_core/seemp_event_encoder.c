@@ -13,24 +13,24 @@
 
 #define PROVIDE_PARAM_ID
 
+#include "seemp_logk.h"
 #include <linux/seemp_param_id.h>
 #include "seemp_event_encoder.h"
-#include "seemp_logk.h"
 
 static char *scan_id(char *s);
 static void encode_seemp_section(char *section_start, char *section_eq,
 				char *section_end, bool param, bool numeric,
 				int id, __s32 numeric_value);
 
-static void check_param_range(char *section_eq, char **s, char ch, bool *param,
+static void check_param_range(char *section_eq, bool *param,
 	bool *numeric, int val_len, __s32 *numeric_value)
 {
 	long long_value = 0;
 
 	if (*param && *numeric) {
 		/*check if 2 bytes & in[-99999,999999]*/
-		*numeric = (val_len >= 2);
-		if ((val_len >= 2) && (val_len <= 6)) {
+		*numeric = (val_len >= 2) && (val_len <= 6);
+		if (*numeric) {
 			if (kstrtol(section_eq + 1, 10, &long_value)
 			!= 0) {
 				*numeric = false;
@@ -39,7 +39,6 @@ static void check_param_range(char *section_eq, char **s, char ch, bool *param,
 				*numeric = (*numeric_value >= -32768) &&
 					(*numeric_value <= 32767);
 			}
-			**s = ch;
 		}
 	}
 }
@@ -97,8 +96,9 @@ void encode_seemp_params(struct seemp_logk_blk *blk)
 				ch = *s;
 				*s = 0;
 
-				check_param_range(section_eq, &s, ch, &param,
+				check_param_range(section_eq, &param,
 					&numeric, val_len, &numeric_value);
+				*s = ch;
 			}
 		}
 
