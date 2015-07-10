@@ -304,6 +304,9 @@ Optional properties:
 - qcom,mdss-no-hist-vote	Boolean property to indicate histogram reads
 				and histogram LUT writes do not need additional
 				bandwidth voting.
+- qcom,mdss-has-10bit-pa:	Boolean property to indicate PA block is 10 bit
+				rather than 8 bit. This is required for
+				calculating shift while programming PA LUT.
 - qcom,mdss-mdp-wfd-mode:	A string that specifies what is the mode of
 				   writeback wfd block.
 				"intf" = Writeback wfd block is
@@ -644,6 +647,7 @@ Example:
 		qcom,mdss-wfd-mode = "intf";
 		qcom,mdss-no-lut-read;
 		qcom,mdss-no-hist-vote;
+		qcom,mdss-has-10bit-pa;
 		qcom,mdss-traffic-shaper-enabled;
 		qcom,mdss-has-rotator-downscale;
 

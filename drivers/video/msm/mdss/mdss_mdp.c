@@ -1352,7 +1352,7 @@ void mdss_hw_init(struct mdss_data_type *mdata)
 	int i, j;
 	char *offset;
 	struct mdss_mdp_pipe *vig;
-	u32 data = 0;
+	u32 data = 0, lut_bit_depth_shift = 0;
 
 	mdss_hw_rev_init(mdata);
 
@@ -1370,12 +1370,16 @@ void mdss_hw_init(struct mdss_data_type *mdata)
 		}
 	}
 
+	if (mdata->has_10_bit_pa)
+		lut_bit_depth_shift = 2;
+
 	for (i = 0; i < mdata->ndspp; i++) {
 		offset = mdata->mixer_intf[i].dspp_base +
 				MDSS_MDP_REG_DSPP_HIST_LUT_BASE;
 		for (j = 0; j < (ENHIST_LUT_ENTRIES / 2); j++) {
-			data = 2 * j;
-			data |= (2 * j + 1) << 16;
+			data = (2 * j) << lut_bit_depth_shift;
+			data |= ((2 * j + 1) << lut_bit_depth_shift) <<
+							ENHIST_BIT_SHIFT;
 			writel_relaxed(data, offset);
 			offset += 4;
 		}
@@ -3049,6 +3053,8 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 		"qcom,mdss-no-lut-read");
 	mdata->needs_hist_vote = !(of_property_read_bool(pdev->dev.of_node,
 		"qcom,mdss-no-hist-vote"));
+	mdata->has_10_bit_pa = of_property_read_bool(pdev->dev.of_node,
+		"qcom,mdss-has-10bit-pa");
 	wfd_data = of_get_property(pdev->dev.of_node,
 					"qcom,mdss-wfd-mode", NULL);
 	if (wfd_data) {
