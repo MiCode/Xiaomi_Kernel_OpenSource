@@ -14,6 +14,7 @@ obj-$(CONFIG_QPNP_COINCELL) += qpnp-coincell.o
 obj-$(CONFIG_SPS) += sps/
 obj-$(CONFIG_I2C_MSM_PROF_DBG) += i2c-msm-prof-dbg.o
 obj-$(CONFIG_IPA) += ipa/
+obj-$(CONFIG_SEEMP_CORE) += seemp_core/
 obj-$(CONFIG_QPNP_HAPTIC) += qpnp-haptic.o
 obj-$(CONFIG_USB_BAM) += usb_bam.o
 obj-$(CONFIG_MSM_AVTIMER) += avtimer.o
