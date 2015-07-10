@@ -2355,7 +2355,6 @@
 		pinctrl-0 = <&cnss_default>;
 		qcom,wlan-rc-num = <0>;
 		qcom,wlan-ramdump-dynamic = <0x200000>;
-		qcom,wlan-smmu-iova-address = <0 0x10000000>;
 	};
 
 	wil6210: qcom,wil6210 {
