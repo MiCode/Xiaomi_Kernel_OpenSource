@@ -776,7 +776,8 @@ int soc_new_compress(struct snd_soc_pcm_runtime *rtd, int num)
 			rtd->dai_link->stream_name);
 
 		ret = snd_pcm_new_internal(rtd->card->snd_card, new_name, num,
-				1, 0, &be_pcm);
+				rtd->dai_link->dpcm_playback,
+				rtd->dai_link->dpcm_capture, &be_pcm);
 		if (ret < 0) {
 			dev_err(rtd->card->dev, "ASoC: can't create compressed for %s\n",
 				rtd->dai_link->name);
@@ -793,6 +794,10 @@ int soc_new_compress(struct snd_soc_pcm_runtime *rtd, int num)
 			be_playback_substream->private_data = rtd;
 		if (be_capture_substream)
 			be_capture_substream->private_data = rtd;
+		if (rtd->dai_link->dpcm_playback)
+			be_pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream->private_data = rtd;
+		else if (rtd->dai_link->dpcm_capture)
+			be_pcm->streams[SNDRV_PCM_STREAM_CAPTURE].substream->private_data = rtd;
 		memcpy(compr->ops, &soc_compr_dyn_ops, sizeof(soc_compr_dyn_ops));
 	} else
 		memcpy(compr->ops, &soc_compr_ops, sizeof(soc_compr_ops));
