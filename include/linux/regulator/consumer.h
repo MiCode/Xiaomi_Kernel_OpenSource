@@ -129,7 +129,7 @@ struct pre_voltage_change_data {
 	unsigned long min_uV;
 	unsigned long max_uV;
 };
-#define REGULATOR_EVENT_ENABLE			0x100
+#define REGULATOR_EVENT_ENABLE			0x80000000
 
 struct regulator;
 
