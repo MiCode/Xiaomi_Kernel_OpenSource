@@ -74,6 +74,7 @@ struct diag_cntl_socket_info {
 	atomic_t data_ready;
 	struct workqueue_struct *wq;
 	struct work_struct read_work;
+	struct work_struct init_work;
 	wait_queue_head_t read_wait_q;
 	struct socket *hdl;
 };
