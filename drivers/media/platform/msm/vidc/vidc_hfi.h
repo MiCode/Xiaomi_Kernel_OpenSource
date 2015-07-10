@@ -864,6 +864,8 @@ struct hfi_cmd_session_continue_packet {
 struct hal_session {
 	struct list_head list;
 	void *session_id;
+	enum hal_video_codec codec;
+	enum hal_domain domain;
 	u32 is_decoder;
 	void *device;
 };
@@ -883,5 +885,14 @@ u32 hfi_process_msg_packet(msm_vidc_callback callback,
 
 struct hal_session *hfi_process_get_session(
 		struct list_head *sessions, u32 session_id);
+
+enum vidc_status hfi_process_sys_init_done_prop_read(
+	struct hfi_msg_sys_init_done_packet *pkt,
+	struct vidc_hal_sys_init_done *sys_init_done);
+
+enum vidc_status hfi_process_session_init_done_prop_read(
+	struct hfi_msg_sys_session_init_done_packet *pkt,
+	struct vidc_hal_session_init_done *session_init_done);
+
 #endif
 

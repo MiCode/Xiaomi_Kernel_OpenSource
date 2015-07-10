@@ -583,9 +583,9 @@ static u32 get_frame_size(struct msm_vidc_inst *inst,
 		frame_size = fmt->get_frame_size(plane,
 					inst->capability.mbs_per_frame.max,
 					MB_SIZE_IN_PIXEL);
-		if (inst->capability.buffer_size_limit &&
-			(inst->capability.buffer_size_limit < frame_size)) {
-			frame_size = inst->capability.buffer_size_limit;
+		if (inst->buffer_size_limit &&
+			(inst->buffer_size_limit < frame_size)) {
+			frame_size = inst->buffer_size_limit;
 			dprintk(VIDC_DBG, "input buffer size limited to %d\n",
 				frame_size);
 		} else {
@@ -1976,8 +1976,8 @@ int msm_vdec_inst_init(struct msm_vidc_inst *inst)
 	inst->capability.height.max = DEFAULT_HEIGHT;
 	inst->capability.width.min = MIN_SUPPORTED_WIDTH;
 	inst->capability.width.max = DEFAULT_WIDTH;
-	inst->capability.buffer_mode[OUTPUT_PORT] = HAL_BUFFER_MODE_STATIC;
-	inst->capability.buffer_mode[CAPTURE_PORT] = HAL_BUFFER_MODE_STATIC;
+	inst->capability.alloc_mode_in = HAL_BUFFER_MODE_STATIC;
+	inst->capability.alloc_mode_out = HAL_BUFFER_MODE_STATIC;
 	inst->capability.secure_output2_threshold.min = 0;
 	inst->capability.secure_output2_threshold.max = 0;
 	inst->buffer_mode_set[OUTPUT_PORT] = HAL_BUFFER_MODE_STATIC;
@@ -2321,10 +2321,10 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		property_id = HAL_PARAM_BUFFER_ALLOC_MODE;
 		alloc_mode.buffer_mode = get_buf_type(ctrl->val);
 		if (!(alloc_mode.buffer_mode &
-			inst->capability.buffer_mode[CAPTURE_PORT])) {
-			dprintk(VIDC_DBG,
-				"buffer mode[%d] not supported for Capture Port\n",
-				ctrl->val);
+			inst->capability.alloc_mode_out)) {
+			dprintk(VIDC_WARN,
+				"buffer mode[%d] not supported for capture port[0x%x]\n",
+				ctrl->val, inst->capability.alloc_mode_out);
 			rc = -ENOTSUPP;
 			break;
 		}
@@ -2470,9 +2470,10 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &profile_level;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_BUFFER_SIZE_LIMIT:
-		inst->capability.buffer_size_limit = ctrl->val;
 		dprintk(VIDC_DBG,
-			"Limiting input buffer size to :%u\n", ctrl->val);
+			"Limiting input buffer size from %u to %u\n",
+			inst->buffer_size_limit, ctrl->val);
+		inst->buffer_size_limit = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_NON_SECURE_OUTPUT2:
 		property_id = HAL_PARAM_VDEC_NON_SECURE_OUTPUT2;

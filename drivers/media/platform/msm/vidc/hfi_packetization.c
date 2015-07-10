@@ -108,9 +108,10 @@ static inline int hal_to_hfi_type(int property, int hal_type)
 	}
 }
 
-static inline u32 get_hfi_layout(enum hal_buffer_layout_type hal_buf_layout)
+u32 get_hfi_layout(enum hal_buffer_layout_type hal_buf_layout)
 {
 	u32 hfi_layout;
+
 	switch (hal_buf_layout) {
 	case HAL_BUFFER_LAYOUT_TOP_BOTTOM:
 		hfi_layout = HFI_MVC_BUFFER_LAYOUT_TOP_BOTTOM;
@@ -127,9 +128,110 @@ static inline u32 get_hfi_layout(enum hal_buffer_layout_type hal_buf_layout)
 	return hfi_layout;
 }
 
-static inline u32 get_hfi_codec(enum hal_video_codec hal_codec)
+enum hal_domain vidc_get_hal_domain(u32 hfi_domain)
 {
-	u32 hfi_codec;
+	enum hal_domain hal_domain = 0;
+
+	switch (hfi_domain) {
+	case HFI_VIDEO_DOMAIN_VPE:
+		hal_domain = HAL_VIDEO_DOMAIN_VPE;
+		break;
+	case HFI_VIDEO_DOMAIN_ENCODER:
+		hal_domain = HAL_VIDEO_DOMAIN_ENCODER;
+		break;
+	case HFI_VIDEO_DOMAIN_DECODER:
+		hal_domain = HAL_VIDEO_DOMAIN_DECODER;
+		break;
+	default:
+		dprintk(VIDC_ERR, "%s: invalid domain 0x%x\n",
+			__func__, hfi_domain);
+		hal_domain = 0;
+		break;
+	}
+	return hal_domain;
+}
+
+enum hal_video_codec vidc_get_hal_codec(u32 hfi_codec)
+{
+	enum hal_video_codec hal_codec = 0;
+
+	switch (hfi_codec) {
+	case HFI_VIDEO_CODEC_H264:
+		hal_codec = HAL_VIDEO_CODEC_H264;
+		break;
+	case HFI_VIDEO_CODEC_H263:
+		hal_codec = HAL_VIDEO_CODEC_H263;
+		break;
+	case HFI_VIDEO_CODEC_MPEG1:
+		hal_codec = HAL_VIDEO_CODEC_MPEG1;
+		break;
+	case HFI_VIDEO_CODEC_MPEG2:
+		hal_codec = HAL_VIDEO_CODEC_MPEG2;
+		break;
+	case HFI_VIDEO_CODEC_MPEG4:
+		hal_codec = HAL_VIDEO_CODEC_MPEG4;
+		break;
+	case HFI_VIDEO_CODEC_DIVX_311:
+		hal_codec = HAL_VIDEO_CODEC_DIVX_311;
+		break;
+	case HFI_VIDEO_CODEC_DIVX:
+		hal_codec = HAL_VIDEO_CODEC_DIVX;
+		break;
+	case HFI_VIDEO_CODEC_VC1:
+		hal_codec = HAL_VIDEO_CODEC_VC1;
+		break;
+	case HFI_VIDEO_CODEC_SPARK:
+		hal_codec = HAL_VIDEO_CODEC_SPARK;
+		break;
+	case HFI_VIDEO_CODEC_VP8:
+		hal_codec = HAL_VIDEO_CODEC_VP8;
+		break;
+	case HFI_VIDEO_CODEC_HEVC:
+		hal_codec = HAL_VIDEO_CODEC_HEVC;
+		break;
+	case HFI_VIDEO_CODEC_VP9:
+		hal_codec = HAL_VIDEO_CODEC_VP9;
+		break;
+	case HFI_VIDEO_CODEC_HEVC_HYBRID:
+		hal_codec = HAL_VIDEO_CODEC_HEVC_HYBRID;
+		break;
+	default:
+		dprintk(VIDC_ERR, "%s: invalid codec 0x%x\n",
+			__func__, hfi_codec);
+		hal_codec = 0;
+		break;
+	}
+	return hal_codec;
+}
+
+
+u32 vidc_get_hfi_domain(enum hal_domain hal_domain)
+{
+	u32 hfi_domain;
+
+	switch (hal_domain) {
+	case HAL_VIDEO_DOMAIN_VPE:
+		hfi_domain = HFI_VIDEO_DOMAIN_VPE;
+		break;
+	case HAL_VIDEO_DOMAIN_ENCODER:
+		hfi_domain = HFI_VIDEO_DOMAIN_ENCODER;
+		break;
+	case HAL_VIDEO_DOMAIN_DECODER:
+		hfi_domain = HFI_VIDEO_DOMAIN_DECODER;
+		break;
+	default:
+		dprintk(VIDC_ERR, "%s: invalid domain 0x%x\n",
+			__func__, hal_domain);
+		hfi_domain = 0;
+		break;
+	}
+	return hfi_domain;
+}
+
+u32 vidc_get_hfi_codec(enum hal_video_codec hal_codec)
+{
+	u32 hfi_codec = 0;
+
 	switch (hal_codec) {
 	case HAL_VIDEO_CODEC_MVC:
 	case HAL_VIDEO_CODEC_H264:
@@ -172,7 +274,8 @@ static inline u32 get_hfi_codec(enum hal_video_codec hal_codec)
 		hfi_codec = HFI_VIDEO_CODEC_HEVC_HYBRID;
 		break;
 	default:
-		dprintk(VIDC_ERR, "Invalid codec 0x%x\n", hal_codec);
+		dprintk(VIDC_ERR, "%s: invalid codec 0x%x\n",
+			__func__, hal_codec);
 		hfi_codec = 0;
 		break;
 	}
@@ -339,8 +442,8 @@ inline int create_pkt_cmd_sys_session_init(
 	pkt->size = sizeof(struct hfi_cmd_sys_session_init_packet);
 	pkt->packet_type = HFI_CMD_SYS_SESSION_INIT;
 	pkt->session_id = hash32_ptr(session);
-	pkt->session_domain = session_domain;
-	pkt->session_codec = get_hfi_codec(session_codec);
+	pkt->session_domain = vidc_get_hfi_domain(session_domain);
+	pkt->session_codec = vidc_get_hfi_codec(session_codec);
 	if (!pkt->session_codec)
 		return -EINVAL;
 

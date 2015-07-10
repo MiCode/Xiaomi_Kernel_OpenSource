@@ -2780,6 +2780,12 @@ static void *venus_hfi_session_init(void *device, void *session_id,
 	else if (session_type == 2)
 		new_session->is_decoder = 1;
 	new_session->device = dev;
+	new_session->codec = codec_type;
+	new_session->domain = session_type;
+	dprintk(VIDC_DBG,
+		"%s: inst %p, session %p, codec 0x%x, domain 0x%x\n",
+		__func__, session_id, new_session,
+		new_session->codec, new_session->domain);
 
 	mutex_lock(&dev->session_lock);
 	list_add_tail(&new_session->list, &dev->sess_head);
