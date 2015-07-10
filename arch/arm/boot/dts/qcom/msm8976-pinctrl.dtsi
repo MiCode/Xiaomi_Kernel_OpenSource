@@ -31,6 +31,36 @@
 			};
 		};
 
+		cdc-pdm-lines {
+			qcom,pins = <&gp 120>, <&gp 121>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <1>;
+			label = "cdc-pdm-lines";
+			cdc_pdm_lines_act: pdm_lines_on {
+				drive-strength = <8>;
+			};
+
+			cdc_pdm_lines_sus: pdm_lines_off {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		cdc-pdm-2-lines {
+			qcom,pins = <&gp 116>, <&gp 117>, <&gp 118>, <&gp 119>;
+			qcom,num-grp-pins = <4>;
+			qcom,pin-func = <2>;
+			label = "cdc-pdm-2-lines";
+			cdc_pdm_lines_2_act: pdm_lines_2_on {
+				drive-strength = <8>;
+			};
+
+			cdc_pdm_lines_2_sus: pdm_lines_2_off {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		pmx-uartconsole {
 			qcom,pins = <&gp 4>, <&gp 5>;
 			qcom,num-grp-pins = <2>;
@@ -1283,7 +1313,26 @@
 
 			wsa_spkr_sd_sus: lines_off {
 					 drive-strength = <2>;
+					 output-low;
 					 bias-disable;
+			};
+		};
+
+		/* WSA CLK */
+		wsa_clk {
+			qcom,pins = <&gp 62>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "wsa_clk";
+			wsa_clk_on: wsa_on {
+				drive-strength = <8>; /* 8 MA */
+				output-high;
+			};
+
+			wsa_clk_off: wsa_off {
+				drive-strength = <2>; /* 2 MA */
+				output-low;
+				bias-pull-down;
 			};
 		};
 
