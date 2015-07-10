@@ -235,7 +235,7 @@ void kgsl_process_init_debugfs(struct kgsl_process_private *private)
 
 void kgsl_core_debugfs_init(void)
 {
-	kgsl_debugfs_dir = debugfs_create_dir("kgsl", 0);
+	kgsl_debugfs_dir = debugfs_create_dir("kgsl", NULL);
 	proc_d_debugfs = debugfs_create_dir("proc", kgsl_debugfs_dir);
 }
 

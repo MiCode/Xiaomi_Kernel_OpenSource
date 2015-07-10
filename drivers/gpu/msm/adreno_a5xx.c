@@ -1810,7 +1810,7 @@ static void a5xx_post_start(struct adreno_device *adreno_dev)
 	}
 
 	if (adreno_is_preemption_enabled(adreno_dev))
-		cmds += _preemption_init(adreno_dev, rb, cmds, 0);
+		cmds += _preemption_init(adreno_dev, rb, cmds, NULL);
 
 	if (cmds == start)
 		return;
@@ -3169,7 +3169,7 @@ static void a5xx_preempt_complete_state(
 	adreno_dev->cur_rb = adreno_dev->next_rb;
 	adreno_dev->cur_rb->preempted_midway = 0;
 	adreno_dev->cur_rb->wptr_preempt_end = 0xFFFFFFFF;
-	adreno_dev->next_rb = 0;
+	adreno_dev->next_rb = NULL;
 
 	if (adreno_disp_preempt_fair_sched) {
 		/* starved rb is now scheduled so unhalt dispatcher */

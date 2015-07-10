@@ -792,7 +792,7 @@ error_free:
 	return size;
 }
 
-static int _pipe_print_pending(char *ubuf, size_t max)
+static int _pipe_print_pending(char __user *ubuf, size_t max)
 {
 	loff_t unused = 0;
 	char str[] = "Operation Would Block!";
@@ -802,11 +802,11 @@ static int _pipe_print_pending(char *ubuf, size_t max)
 }
 
 static int _pipe_print_results(struct adreno_device *adreno_dev,
-		char *ubuf, size_t max)
+		char __user *ubuf, size_t max)
 {
 	struct adreno_profile *profile = &adreno_dev->profile;
 	const char *grp_name;
-	char *usr_buf = ubuf;
+	char __user *usr_buf = ubuf;
 	unsigned int *log_ptr = NULL, *tmp_log_ptr = NULL;
 	int len, i;
 	int status = 0;
@@ -946,7 +946,7 @@ static ssize_t profile_pipe_print(struct file *filep, char __user *ubuf,
 	struct kgsl_device *device = (struct kgsl_device *) filep->private_data;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_profile *profile = &adreno_dev->profile;
-	char *usr_buf = ubuf;
+	char __user *usr_buf = ubuf;
 	int status = 0;
 
 	/*

@@ -1339,7 +1339,7 @@ static void a4xx_perfcounter_init(struct adreno_device *adreno_dev)
 		 * are swizzled so only a subset of them are usable
 		 */
 
-		if (counters != 0) {
+		if (counters != NULL) {
 			counters->groups[KGSL_PERFCOUNTER_GROUP_CP].regs =
 				a420_perfcounters_cp;
 			counters->groups[KGSL_PERFCOUNTER_GROUP_CP].reg_count =
@@ -1968,7 +1968,7 @@ static void a4xx_preempt_clear_state(
 	if (dispatch_tempq->head != dispatch_tempq->tail)
 		cmdbatch = dispatch_tempq->cmd_q[dispatch_tempq->head];
 	else
-		cmdbatch = 0;
+		cmdbatch = NULL;
 	if (cmdbatch)
 		adreno_ringbuffer_mmu_disable_clk_on_ts(device,
 			adreno_dev->next_rb,
@@ -2043,7 +2043,7 @@ static void a4xx_preempt_complete_state(
 	adreno_dev->cur_rb = adreno_dev->next_rb;
 	adreno_dev->cur_rb->preempted_midway = 0;
 	adreno_dev->cur_rb->wptr_preempt_end = 0xFFFFFFFF;
-	adreno_dev->next_rb = 0;
+	adreno_dev->next_rb = NULL;
 	if (adreno_disp_preempt_fair_sched) {
 		/* starved rb is now scheduled so unhalt dispatcher */
 		if (ADRENO_DISPATCHER_RB_STARVE_TIMER_ELAPSED ==

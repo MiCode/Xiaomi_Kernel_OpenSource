@@ -2299,14 +2299,14 @@ static int adreno_suspend_context(struct kgsl_device *device)
  * @value - Value read from the device memory
  * @mem_len - Length of the device memory mapped to the kernel
  */
-static void adreno_read(struct kgsl_device *device, void *base,
+static void adreno_read(struct kgsl_device *device, void __iomem *base,
 		unsigned int offsetwords, unsigned int *value,
 		unsigned int mem_len)
 {
 
-	unsigned int *reg;
+	unsigned int __iomem *reg;
 	BUG_ON(offsetwords*sizeof(uint32_t) >= mem_len);
-	reg = (unsigned int *)(base + (offsetwords << 2));
+	reg = (unsigned int __iomem *)(base + (offsetwords << 2));
 
 	if (!in_interrupt())
 		kgsl_pre_hwaccess(device);
@@ -2346,7 +2346,7 @@ static void adreno_regwrite(struct kgsl_device *device,
 				unsigned int offsetwords,
 				unsigned int value)
 {
-	unsigned int *reg;
+	unsigned int __iomem *reg;
 
 	BUG_ON(offsetwords*sizeof(uint32_t) >= device->reg_len);
 
@@ -2356,7 +2356,7 @@ static void adreno_regwrite(struct kgsl_device *device,
 	trace_kgsl_regwrite(device, offsetwords, value);
 
 	kgsl_cffdump_regwrite(device, offsetwords << 2, value);
-	reg = (unsigned int *)(device->reg_virt + (offsetwords << 2));
+	reg = (unsigned int __iomem *)(device->reg_virt + (offsetwords << 2));
 
 	/*ensure previous writes post before this one,
 	 * i.e. act like normal writel() */
