@@ -33,6 +33,9 @@ Required properties:
 				"alt_mem_iface_clk", "rbbmtimer_clk"
 				"core_clk" and "iface_clk" are required and others are optional
 
+- qcom,gpu-efuse-leakage:	memory region for GPU power rail leakage.
+- qcom,base-leakage-coefficient: Dynamic leakage coefficient.
+
 Bus Scaling Data:
 - qcom,msm-bus,name: String property to describe the name of the 3D graphics processor.
 - qcom,msm-bus,num-cases: This is the the number of Bus Scaling use cases defined in the vectors property.

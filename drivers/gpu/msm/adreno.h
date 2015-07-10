@@ -342,6 +342,7 @@ struct adreno_device {
 	uint32_t lm_size;
 	struct kgsl_memdesc preemption_counters;
 	struct work_struct gpmu_work;
+	uint32_t lm_leakage;
 };
 
 /**
