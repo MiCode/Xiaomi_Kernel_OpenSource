@@ -472,4 +472,9 @@ static inline int _copy_from_user(void *dest, void __user *src,
 	return copy_from_user(dest, src, copy) ? -EFAULT : 0;
 }
 
+static inline void __user *to_user_ptr(uint64_t address)
+{
+	return (void __user *)(uintptr_t)address;
+}
+
 #endif /* __KGSL_H */

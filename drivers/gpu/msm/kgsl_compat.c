@@ -168,7 +168,7 @@ kgsl_ioctl_gpumem_sync_cache_bulk_compat(struct kgsl_device_private *dev_priv,
 	struct kgsl_gpumem_sync_cache_bulk_compat *param32 = data;
 	struct kgsl_gpumem_sync_cache_bulk param;
 
-	param.id_list = (unsigned int __user *)(uintptr_t)param32->id_list;
+	param.id_list = to_user_ptr(param32->id_list);
 	param.count = param32->count;
 	param.op = param32->op;
 
