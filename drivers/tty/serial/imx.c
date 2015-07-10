@@ -590,13 +590,6 @@ static void imx_start_tx(struct uart_port *port)
 		temp &= ~(UCR1_RRDYEN);
 		writel(temp, sport->port.membase + UCR1);
 	}
-	/* Clear any pending ORE flag before enabling interrupt */
-	temp = readl(sport->port.membase + USR2);
-	writel(temp | USR2_ORE, sport->port.membase + USR2);
-
-	temp = readl(sport->port.membase + UCR4);
-	temp |= UCR4_OREN;
-	writel(temp, sport->port.membase + UCR4);
 
 	if (!sport->dma_is_enabled) {
 		temp = readl(sport->port.membase + UCR1);
@@ -771,7 +764,7 @@ static irqreturn_t imx_int(int irq, void *dev_id)
 	if (sts2 & USR2_ORE) {
 		dev_err(sport->port.dev, "Rx FIFO overrun\n");
 		sport->port.icount.overrun++;
-		writel(sts2 | USR2_ORE, sport->port.membase + USR2);
+		writel(USR2_ORE, sport->port.membase + USR2);
 	}
 
 	return IRQ_HANDLED;
@@ -1141,10 +1134,12 @@ static int imx_startup(struct uart_port *port)
 	}
 
 	spin_lock_irqsave(&sport->port.lock, flags);
+
 	/*
 	 * Finally, clear and enable interrupts
 	 */
 	writel(USR1_RTSD, sport->port.membase + USR1);
+	writel(USR2_ORE, sport->port.membase + USR2);
 
 	temp = readl(sport->port.membase + UCR1);
 	temp |= UCR1_RRDYEN | UCR1_RTSDEN | UCR1_UARTEN;
@@ -1155,6 +1150,10 @@ static int imx_startup(struct uart_port *port)
 	}
 
 	writel(temp, sport->port.membase + UCR1);
+
+	temp = readl(sport->port.membase + UCR4);
+	temp |= UCR4_OREN;
+	writel(temp, sport->port.membase + UCR4);
 
 	temp = readl(sport->port.membase + UCR2);
 	temp |= (UCR2_RXEN | UCR2_TXEN);
