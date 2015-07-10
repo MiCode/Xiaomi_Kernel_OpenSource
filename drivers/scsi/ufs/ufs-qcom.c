@@ -205,7 +205,7 @@ out:
 
 static int ufs_qcom_link_startup_post_change(struct ufs_hba *hba)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct phy *phy = host->generic_phy;
 	u32 tx_lanes;
 	int err = 0;
@@ -282,7 +282,7 @@ static void ufs_qcom_select_unipro_mode(struct ufs_qcom_host *host)
 
 static int ufs_qcom_power_up_sequence(struct ufs_hba *hba)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct phy *phy = host->generic_phy;
 	int ret = 0;
 	bool is_rate_B = (UFS_QCOM_LIMIT_HS_RATE == PA_HS_MODE_B)
@@ -348,7 +348,7 @@ static void ufs_qcom_enable_hw_clk_gating(struct ufs_hba *hba)
 static int ufs_qcom_hce_enable_notify(struct ufs_hba *hba,
 				      enum ufs_notify_change_status status)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	int err = 0;
 
 	switch (status) {
@@ -391,7 +391,7 @@ static int ufs_qcom_cfg_timers(struct ufs_hba *hba, u32 gear,
 			       u32 hs, u32 rate, bool update_link_startup_timer)
 {
 	int ret = 0;
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct ufs_clk_info *clki;
 	u32 core_clk_period_in_ns;
 	u32 tx_clk_cycles_per_us = 0;
@@ -535,7 +535,7 @@ static int ufs_qcom_link_startup_notify(struct ufs_hba *hba,
 					enum ufs_notify_change_status status)
 {
 	int err = 0;
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct phy *phy = host->generic_phy;
 
 	switch (status) {
@@ -587,7 +587,7 @@ out:
 
 static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct phy *phy = host->generic_phy;
 	int ret = 0;
 
@@ -625,7 +625,7 @@ out:
 
 static int ufs_qcom_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct phy *phy = host->generic_phy;
 	int err;
 
@@ -677,7 +677,7 @@ out:
 static
 int ufs_qcom_crytpo_engine_cfg(struct ufs_hba *hba, unsigned int task_tag)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct ufshcd_lrb *lrbp = &hba->lrb[task_tag];
 	int err = 0;
 
@@ -693,7 +693,7 @@ out:
 static
 int ufs_qcom_crytpo_engine_reset(struct ufs_hba *hba)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	int err = 0;
 
 	if (!host->ice.pdev)
@@ -706,7 +706,7 @@ out:
 
 static int ufs_qcom_crypto_engine_eh(struct ufs_hba *hba)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	int ice_status = 0;
 	int err = 0;
 
@@ -741,14 +741,14 @@ static int ufs_qcom_crypto_engine_eh(struct ufs_hba *hba)
 
 static int ufs_qcom_crypto_engine_get_err(struct ufs_hba *hba)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	return host->ice.crypto_engine_err;
 }
 
 static void ufs_qcom_crypto_engine_reset_err(struct ufs_hba *hba)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	host->ice.crypto_engine_err = 0;
 }
@@ -915,7 +915,7 @@ static int ufs_qcom_pwr_change_notify(struct ufs_hba *hba,
 				struct ufs_pa_layer_attr *dev_req_params)
 {
 	u32 val;
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct phy *phy = host->generic_phy;
 	struct ufs_qcom_dev_params ufs_qcom_cap;
 	int ret = 0;
@@ -1013,7 +1013,7 @@ out:
 
 static u32 ufs_qcom_get_ufs_hci_version(struct ufs_hba *hba)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	if (host->hw_ver.major == 0x1)
 		return UFSHCI_VERSION_11;
@@ -1032,7 +1032,7 @@ static u32 ufs_qcom_get_ufs_hci_version(struct ufs_hba *hba)
  */
 static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	if (host->hw_ver.major == 0x1) {
 		hba->quirks |= (UFSHCD_QUIRK_DELAY_BEFORE_DME_CMDS
@@ -1058,7 +1058,7 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 
 static void ufs_qcom_set_caps(struct ufs_hba *hba)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	hba->caps |= UFSHCD_CAP_CLK_GATING | UFSHCD_CAP_CLK_SCALING;
 	hba->caps |= UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
@@ -1147,7 +1147,7 @@ static void ufs_qcom_get_speed_mode(struct ufs_pa_layer_attr *p, char *result)
 
 static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	int err;
 	int vote = 0;
 
@@ -1203,7 +1203,7 @@ show_ufs_to_mem_max_bus_bw(struct device *dev, struct device_attribute *attr,
 			char *buf)
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	return snprintf(buf, PAGE_SIZE, "%u\n",
 			host->bus_vote.is_max_bw_needed);
@@ -1214,7 +1214,7 @@ store_ufs_to_mem_max_bus_bw(struct device *dev, struct device_attribute *attr,
 		const char *buf, size_t count)
 {
 	struct ufs_hba *hba = dev_get_drvdata(dev);
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	uint32_t value;
 
 	if (!kstrtou32(buf, 0, &value)) {
@@ -1309,8 +1309,9 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 		goto out;
 	}
 
+	/* Make a two way bind between the qcom host and the hba */
 	host->hba = hba;
-	hba->priv = (void *)host;
+	ufshcd_bind_variant(hba, host);
 
 	err = ufs_qcom_ice_get_dev(host);
 	if (err == -EPROBE_DEFER) {
@@ -1417,14 +1418,14 @@ out_unregister_bus:
 	msm_bus_scale_unregister_client(host->bus_vote.client_handle);
 out_host_free:
 	devm_kfree(dev, host);
-	hba->priv = NULL;
+	ufshcd_bind_variant(hba, NULL);
 out:
 	return err;
 }
 
 static void ufs_qcom_exit(struct ufs_hba *hba)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	msm_bus_scale_unregister_client(host->bus_vote.client_handle);
 	ufs_qcom_disable_lane_clks(host);
@@ -1467,7 +1468,7 @@ static int ufs_qcom_clk_scale_up_pre_change(struct ufs_hba *hba)
 
 static int ufs_qcom_clk_scale_up_post_change(struct ufs_hba *hba)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	if (!ufs_qcom_cap_qunipro(host))
 		return 0;
@@ -1478,7 +1479,7 @@ static int ufs_qcom_clk_scale_up_post_change(struct ufs_hba *hba)
 
 static int ufs_qcom_clk_scale_down_pre_change(struct ufs_hba *hba)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	int err;
 	u32 core_clk_ctrl_reg;
 
@@ -1503,7 +1504,7 @@ static int ufs_qcom_clk_scale_down_pre_change(struct ufs_hba *hba)
 
 static int ufs_qcom_clk_scale_down_post_change(struct ufs_hba *hba)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	if (!ufs_qcom_cap_qunipro(host))
 		return 0;
@@ -1515,7 +1516,7 @@ static int ufs_qcom_clk_scale_down_post_change(struct ufs_hba *hba)
 static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
 				      bool scale_up, bool status)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct ufs_pa_layer_attr *dev_req_params = &host->dev_req_params;
 	int err = 0;
 
@@ -1556,7 +1557,7 @@ out:
 static int ufs_qcom_update_sec_cfg(struct ufs_hba *hba, bool restore_sec_cfg)
 {
 	int ret = 0, scm_ret = 0;
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	/* scm command buffer structrue */
 	struct msm_scm_cmd_buf {
@@ -1626,7 +1627,7 @@ void ufs_qcom_print_hw_debug_reg_all(struct ufs_hba *hba, void *priv,
 		return;
 	}
 
-	host = hba->priv;
+	host = ufshcd_get_variant(hba);
 	if (!(host->dbg_print_en & UFS_QCOM_DBG_PRINT_REGS_EN))
 		return;
 
@@ -1792,7 +1793,7 @@ static void ufs_qcom_testbus_read(struct ufs_hba *hba)
 
 static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 {
-	struct ufs_qcom_host *host = hba->priv;
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
 	ufs_qcom_dump_regs(hba, REG_UFS_SYS1CLK_1US, 16,
 			"HCI Vendor Specific Registers ");
@@ -1808,31 +1809,38 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
  * The variant operations configure the necessary controller and PHY
  * handshake during initialization.
  */
-const struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
-	.name                   = "qcom",
-	.init                   = ufs_qcom_init,
-	.exit                   = ufs_qcom_exit,
+static struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
+	.init			= ufs_qcom_init,
+	.exit			= ufs_qcom_exit,
 	.get_ufs_hci_version	= ufs_qcom_get_ufs_hci_version,
 	.clk_scale_notify	= ufs_qcom_clk_scale_notify,
-	.setup_clocks           = ufs_qcom_setup_clocks,
-	.hce_enable_notify      = ufs_qcom_hce_enable_notify,
-	.link_startup_notify    = ufs_qcom_link_startup_notify,
+	.setup_clocks		= ufs_qcom_setup_clocks,
+	.hce_enable_notify	= ufs_qcom_hce_enable_notify,
+	.link_startup_notify	= ufs_qcom_link_startup_notify,
 	.pwr_change_notify	= ufs_qcom_pwr_change_notify,
 	.suspend		= ufs_qcom_suspend,
 	.resume			= ufs_qcom_resume,
 	.full_reset		= ufs_qcom_full_reset,
 	.update_sec_cfg		= ufs_qcom_update_sec_cfg,
-	.crypto_engine_cfg	= ufs_qcom_crytpo_engine_cfg,
-	.crypto_engine_reset	= ufs_qcom_crytpo_engine_reset,
-	.crypto_engine_eh	= ufs_qcom_crypto_engine_eh,
-	.crypto_engine_get_err	= ufs_qcom_crypto_engine_get_err,
-	.crypto_engine_reset_err = ufs_qcom_crypto_engine_reset_err,
 	.dbg_register_dump	= ufs_qcom_dump_dbg_regs,
 #ifdef CONFIG_DEBUG_FS
 	.add_debugfs		= ufs_qcom_dbg_add_debugfs,
 #endif
 };
-EXPORT_SYMBOL(ufs_hba_qcom_vops);
+
+static struct ufs_hba_crypto_variant_ops ufs_hba_crypto_variant_ops = {
+	.crypto_engine_cfg	= ufs_qcom_crytpo_engine_cfg,
+	.crypto_engine_reset	= ufs_qcom_crytpo_engine_reset,
+	.crypto_engine_eh	= ufs_qcom_crypto_engine_eh,
+	.crypto_engine_get_err	= ufs_qcom_crypto_engine_get_err,
+	.crypto_engine_reset_err = ufs_qcom_crypto_engine_reset_err,
+};
+
+static struct ufs_hba_variant ufs_hba_qcom_variant = {
+	.name		= "qcom",
+	.vops		= &ufs_hba_qcom_vops,
+	.crypto_vops	= &ufs_hba_crypto_variant_ops,
+};
 
 /**
  * ufs_qcom_probe - probe routine of the driver
@@ -1842,7 +1850,7 @@ EXPORT_SYMBOL(ufs_hba_qcom_vops);
  */
 static int ufs_qcom_probe(struct platform_device *pdev)
 {
-	dev_set_drvdata(&pdev->dev, (void *)&ufs_hba_qcom_vops);
+	dev_set_drvdata(&pdev->dev, (void *)&ufs_hba_qcom_variant);
 	return 0;
 }
 

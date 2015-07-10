@@ -69,9 +69,10 @@
 
 #include <linux/fault-inject.h>
 #include "ufs.h"
+#include "ufshci.h"
 
 #define UFSHCD "ufshcd"
-#define UFSHCD_DRIVER_VERSION "0.2"
+#define UFSHCD_DRIVER_VERSION "0.3"
 
 #define UFS_BIT(x)	BIT(x)
 
@@ -286,7 +287,6 @@ struct ufs_pwr_mode_info {
 
 /**
  * struct ufs_hba_variant_ops - variant specific callbacks
- * @name: variant name
  * @init: called when the driver is initialized
  * @exit: called to cleanup everything done in init
  * @get_ufs_hci_version: called to get UFS HCI version
@@ -304,23 +304,12 @@ struct ufs_pwr_mode_info {
  * @resume: called during host controller PM callback
  * @full_reset:  called during link recovery for handling variant specific
  *		 implementations of resetting the hci
- * @update_sec_cfg: called to restore host controller secure configuration
- * @crypto_engine_cfg: configure cryptographic engine according to tag parameter
- * @crypto_engine_eh: cryptographic engine error handling.
- *                Return true is it detects an error, false on
- *                success
- * @crypto_engine_get_err: returns the saved error status of the
- *                         cryptographic engine.If a positive
- *                         value is returned, host controller
- *                         should be reset.
- * @crypto_engine_reset_err: resets the saved error status of
- *                         the cryptographic engine
  * @dbg_register_dump: used to dump controller debug information
+ * @update_sec_cfg: called to restore host controller secure configuration
  * @add_debugfs: used to add debugfs entries
  * @remove_debugfs: used to remove debugfs entries
  */
 struct ufs_hba_variant_ops {
-	const char *name;
 	int	(*init)(struct ufs_hba *);
 	void	(*exit)(struct ufs_hba *);
 	u32	(*get_ufs_hci_version)(struct ufs_hba *);
@@ -338,18 +327,45 @@ struct ufs_hba_variant_ops {
 	int	(*suspend)(struct ufs_hba *, enum ufs_pm_op);
 	int	(*resume)(struct ufs_hba *, enum ufs_pm_op);
 	int	(*full_reset)(struct ufs_hba *);
-	int	(*update_sec_cfg)(struct ufs_hba *hba, bool restore_sec_cfg);
-	int	(*crypto_engine_cfg)(struct ufs_hba *, unsigned int);
-	int	(*crypto_engine_reset)(struct ufs_hba *);
-	int	(*crypto_engine_eh)(struct ufs_hba *);
-	int	(*crypto_engine_get_err)(struct ufs_hba *);
-	void	(*crypto_engine_reset_err)(struct ufs_hba *);
 	void	(*dbg_register_dump)(struct ufs_hba *hba);
+	int	(*update_sec_cfg)(struct ufs_hba *hba, bool restore_sec_cfg);
 #ifdef CONFIG_DEBUG_FS
 	void	(*add_debugfs)(struct ufs_hba *hba, struct dentry *root);
 	void	(*remove_debugfs)(struct ufs_hba *hba);
 #endif
 };
+
+/**
+ * struct ufs_hba_crypto_variant_ops - variant specific crypto callbacks
+ * @crypto_engine_cfg: configure cryptographic engine according to tag parameter
+ * @crypto_engine_eh: cryptographic engine error handling.
+ *                Return true is it detects an error, false on
+ *                success
+ * @crypto_engine_get_err: returns the saved error status of the
+ *                         cryptographic engine.If a positive
+ *                         value is returned, host controller
+ *                         should be reset.
+ * @crypto_engine_reset_err: resets the saved error status of
+ *                         the cryptographic engine
+ */
+struct ufs_hba_crypto_variant_ops {
+	int	(*crypto_engine_cfg)(struct ufs_hba *, unsigned int);
+	int	(*crypto_engine_reset)(struct ufs_hba *);
+	int	(*crypto_engine_eh)(struct ufs_hba *);
+	int	(*crypto_engine_get_err)(struct ufs_hba *);
+	void	(*crypto_engine_reset_err)(struct ufs_hba *);
+};
+
+/**
+ * struct ufs_hba_variant - variant specific parameters
+ * @name: variant name
+ */
+struct ufs_hba_variant {
+	const char				*name;
+	struct ufs_hba_variant_ops		*vops;
+	struct ufs_hba_crypto_variant_ops	*crypto_vops;
+};
+
 
 /* clock gating state  */
 enum clk_gating_state {
@@ -618,7 +634,7 @@ struct ufshcd_pm_qos {
  * @nutrs: Transfer Request Queue depth supported by controller
  * @nutmrs: Task Management Queue depth supported by controller
  * @ufs_version: UFS Version to which controller complies
- * @vops: pointer to variant specific operations
+ * @var: pointer to variant specific data
  * @priv: pointer to variant specific private data
  * @irq: Irq number of the controller
  * @active_uic_cmd: handle of active UIC command
@@ -697,7 +713,7 @@ struct ufs_hba {
 	int nutrs;
 	int nutmrs;
 	u32 ufs_version;
-	struct ufs_hba_variant_ops *vops;
+	struct ufs_hba_variant *var;
 	void *priv;
 	unsigned int irq;
 	bool is_irq_enabled;
@@ -926,6 +942,27 @@ int ufshcd_wait_for_register(struct ufs_hba *hba, u32 reg, u32 mask,
 				u32 val, unsigned long interval_us,
 				unsigned long timeout_ms, bool can_sleep);
 
+/**
+ * ufshcd_bind_variant - bind variant specific data to the hba
+ * @hba - per adapter instance
+ * @variant - pointer to variant specific data
+ */
+static inline void ufshcd_bind_variant(struct ufs_hba *hba, void *variant)
+{
+	BUG_ON(!hba);
+	hba->priv = variant;
+}
+
+/**
+ * ufshcd_get_variant - get variant specific data from the hba
+ * @hba - per adapter instance
+ */
+static inline void *ufshcd_get_variant(struct ufs_hba *hba)
+{
+	BUG_ON(!hba);
+	return hba->priv;
+}
+
 extern int ufshcd_runtime_suspend(struct ufs_hba *hba);
 extern int ufshcd_runtime_resume(struct ufs_hba *hba);
 extern int ufshcd_runtime_idle(struct ufs_hba *hba);
@@ -1007,6 +1044,23 @@ static inline void ufshcd_init_req_stats(struct ufs_hba *hba) {}
 int ufshcd_read_string_desc(struct ufs_hba *hba, int desc_index, u8 *buf,
 				u32 size, bool ascii);
 
+/* Expose Query-Request API */
+int ufshcd_query_flag(struct ufs_hba *hba, enum query_opcode opcode,
+	enum flag_idn idn, bool *flag_res);
+int ufshcd_query_attr(struct ufs_hba *hba, enum query_opcode opcode,
+	enum attr_idn idn, u8 index, u8 selector, u32 *attr_val);
+int ufshcd_query_descriptor(struct ufs_hba *hba, enum query_opcode opcode,
+	enum desc_idn idn, u8 index, u8 selector, u8 *desc_buf, int *buf_len);
+
+int ufshcd_hold(struct ufs_hba *hba, bool async);
+void ufshcd_release(struct ufs_hba *hba, bool no_sched);
+int ufshcd_wait_for_doorbell_clr(struct ufs_hba *hba, u64 wait_timeout_us);
+int ufshcd_change_power_mode(struct ufs_hba *hba,
+			     struct ufs_pa_layer_attr *pwr_mode);
+void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba,
+		int result);
+u32 ufshcd_get_local_unipro_ver(struct ufs_hba *hba);
+
 #ifndef CONFIG_SMP
 static inline int ufshcd_pm_qos_init(struct ufs_hba *hba)
 {
@@ -1050,12 +1104,179 @@ int ufshcd_query_attr(struct ufs_hba *hba, enum query_opcode opcode,
 int ufshcd_query_descriptor(struct ufs_hba *hba, enum query_opcode opcode,
 	enum desc_idn idn, u8 index, u8 selector, u8 *desc_buf, int *buf_len);
 
-int ufshcd_hold(struct ufs_hba *hba, bool async);
-void ufshcd_release(struct ufs_hba *hba, bool no_sched);
-int ufshcd_wait_for_doorbell_clr(struct ufs_hba *hba, u64 wait_timeout_us);
-int ufshcd_change_power_mode(struct ufs_hba *hba,
-			     struct ufs_pa_layer_attr *pwr_mode);
-void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba,
-		int result);
-u32 ufshcd_get_local_unipro_ver(struct ufs_hba *hba);
+/* Wrapper functions for safely calling variant operations */
+static inline const char *ufshcd_get_var_name(struct ufs_hba *hba)
+{
+	if (hba->var && hba->var->name)
+		return hba->var->name;
+	return "";
+}
+
+static inline int ufshcd_vops_init(struct ufs_hba *hba)
+{
+	if (hba->var && hba->var->vops && hba->var->vops->init)
+		return hba->var->vops->init(hba);
+	return 0;
+}
+
+static inline void ufshcd_vops_exit(struct ufs_hba *hba)
+{
+	if (hba->var && hba->var->vops && hba->var->vops->exit)
+		hba->var->vops->exit(hba);
+}
+
+static inline u32 ufshcd_vops_get_ufs_hci_version(struct ufs_hba *hba)
+{
+	if (hba->var && hba->var->vops && hba->var->vops->get_ufs_hci_version)
+		return hba->var->vops->get_ufs_hci_version(hba);
+	return ufshcd_readl(hba, REG_UFS_VERSION);
+}
+
+static inline int ufshcd_vops_clk_scale_notify(struct ufs_hba *hba,
+						bool up, bool status)
+{
+	if (hba->var && hba->var->vops && hba->var->vops->clk_scale_notify)
+		return hba->var->vops->clk_scale_notify(hba, up, status);
+	return 0;
+}
+
+static inline int ufshcd_vops_setup_clocks(struct ufs_hba *hba, bool on)
+{
+	if (hba->var && hba->var->vops && hba->var->vops->setup_clocks)
+		return hba->var->vops->setup_clocks(hba, on);
+	return 0;
+}
+
+static inline int ufshcd_vops_setup_regulators(struct ufs_hba *hba, bool status)
+{
+	if (hba->var && hba->var->vops && hba->var->vops->setup_regulators)
+		return hba->var->vops->setup_regulators(hba, status);
+	return 0;
+}
+
+static inline int ufshcd_vops_hce_enable_notify(struct ufs_hba *hba,
+						bool status)
+{
+	if (hba->var && hba->var->vops && hba->var->vops->hce_enable_notify)
+		hba->var->vops->hce_enable_notify(hba, status);
+	return 0;
+}
+static inline int ufshcd_vops_link_startup_notify(struct ufs_hba *hba,
+						bool status)
+{
+	if (hba->var && hba->var->vops && hba->var->vops->link_startup_notify)
+		return hba->var->vops->link_startup_notify(hba, status);
+	return 0;
+}
+
+static inline int ufshcd_vops_pwr_change_notify(struct ufs_hba *hba,
+				  bool status,
+				  struct ufs_pa_layer_attr *dev_max_params,
+				  struct ufs_pa_layer_attr *dev_req_params)
+{
+	if (hba->var && hba->var->vops && hba->var->vops->pwr_change_notify)
+		return hba->var->vops->pwr_change_notify(hba, status,
+					dev_max_params, dev_req_params);
+	return 0;
+}
+
+static inline int ufshcd_vops_suspend(struct ufs_hba *hba, enum ufs_pm_op op)
+{
+	if (hba->var && hba->var->vops && hba->var->vops->suspend)
+		return hba->var->vops->suspend(hba, op);
+	return 0;
+}
+
+static inline int ufshcd_vops_resume(struct ufs_hba *hba, enum ufs_pm_op op)
+{
+	if (hba->var && hba->var->vops && hba->var->vops->resume)
+		return hba->var->vops->resume(hba, op);
+	return 0;
+}
+
+static inline int ufshcd_vops_full_reset(struct ufs_hba *hba)
+{
+	if (hba->var && hba->var->vops && hba->var->vops->full_reset)
+		return hba->var->vops->full_reset(hba);
+	return 0;
+}
+
+
+static inline void ufshcd_vops_dbg_register_dump(struct ufs_hba *hba)
+{
+	if (hba->var && hba->var->vops && hba->var->vops->dbg_register_dump)
+		hba->var->vops->dbg_register_dump(hba);
+}
+
+static inline int ufshcd_vops_update_sec_cfg(struct ufs_hba *hba,
+						bool restore_sec_cfg)
+{
+	if (hba->var && hba->var->vops && hba->var->vops->update_sec_cfg)
+		return hba->var->vops->update_sec_cfg(hba, restore_sec_cfg);
+	return 0;
+}
+
+#ifdef CONFIG_DEBUG_FS
+static inline void ufshcd_vops_add_debugfs(struct ufs_hba *hba,
+						struct dentry *root)
+{
+	if (hba->var && hba->var->vops && hba->var->vops->add_debugfs)
+		hba->var->vops->add_debugfs(hba, root);
+}
+
+static inline void ufshcd_vops_remove_debugfs(struct ufs_hba *hba)
+{
+	if (hba->var && hba->var->vops && hba->var->vops->remove_debugfs)
+		hba->var->vops->remove_debugfs(hba);
+}
+#else
+static inline void ufshcd_vops_add_debugfs(struct ufs_hba *hba, struct dentry *)
+{
+}
+
+static inline void ufshcd_vops_remove_debugfs(struct ufs_hba *hba)
+{
+}
+#endif
+
+static inline int ufshcd_vops_crypto_engine_cfg(struct ufs_hba *hba,
+						unsigned int task_tag)
+{
+	if (hba->var && hba->var->crypto_vops &&
+	    hba->var->crypto_vops->crypto_engine_cfg)
+		return hba->var->crypto_vops->crypto_engine_cfg(hba, task_tag);
+	return 0;
+}
+
+static inline int ufshcd_vops_crypto_engine_reset(struct ufs_hba *hba)
+{
+	if (hba->var && hba->var->crypto_vops &&
+	    hba->var->crypto_vops->crypto_engine_reset)
+		return hba->var->crypto_vops->crypto_engine_reset(hba);
+	return 0;
+}
+
+static inline int ufshcd_vops_crypto_engine_eh(struct ufs_hba *hba)
+{
+	if (hba->var && hba->var->crypto_vops &&
+	    hba->var->crypto_vops->crypto_engine_eh)
+		return hba->var->crypto_vops->crypto_engine_eh(hba);
+	return 0;
+}
+
+static inline int ufshcd_vops_crypto_engine_get_err(struct ufs_hba *hba)
+{
+	if (hba->var && hba->var->crypto_vops &&
+	    hba->var->crypto_vops->crypto_engine_get_err)
+		return hba->var->crypto_vops->crypto_engine_get_err(hba);
+	return 0;
+}
+
+static inline void ufshcd_vops_crypto_engine_reset_err(struct ufs_hba *hba)
+{
+	if (hba->var && hba->var->crypto_vops &&
+	    hba->var->crypto_vops->crypto_engine_reset_err)
+		hba->var->crypto_vops->crypto_engine_reset_err(hba);
+}
+
 #endif /* End of Header */

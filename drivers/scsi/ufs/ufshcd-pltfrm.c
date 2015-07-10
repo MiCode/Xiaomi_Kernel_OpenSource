@@ -377,7 +377,7 @@ static int ufshcd_pltfrm_probe(struct platform_device *pdev)
 				of_find_device_by_node(ufs_variant_node);
 
 			if (ufs_variant_pdev)
-				hba->vops = (struct ufs_hba_variant_ops *)
+				hba->var = (struct ufs_hba_variant *)
 				     dev_get_drvdata(&ufs_variant_pdev->dev);
 		}
 	}
