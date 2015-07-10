@@ -175,6 +175,7 @@ enum bimc_m_bke_thresh_low {
 	M_BKE_THL_THRESH_SHFT		= 0x0,
 };
 
+#define NUM_HEALTH_LEVEL	(4)
 #define M_BKE_HEALTH_0_CONFIG_ADDR(b, n) \
 	(M_REG_BASE(b) + (0x4000 * (n)) + 0x00000340)
 enum bimc_m_bke_health_0 {
@@ -252,90 +253,22 @@ static int bimc_div(int64_t *a, uint32_t b)
 	}
 }
 
-static void set_qos_mode(void __iomem *baddr, uint32_t index, uint32_t val0,
-	uint32_t val1, uint32_t val2)
+static void set_bke_en(void __iomem *addr, uint32_t index,
+		bool req)
 {
-	uint32_t reg_val, val;
+	uint32_t old_val, new_val;
 
-	reg_val = readl_relaxed(M_PRIOLVL_OVERRIDE_ADDR(baddr,
-		index)) & M_PRIOLVL_OVERRIDE_RMSK;
-	val = val0 << M_PRIOLVL_OVERRIDE_OVERRIDE_PRIOLVL_SHFT;
-	writel_relaxed(((reg_val & ~(M_PRIOLVL_OVERRIDE_OVERRIDE_PRIOLVL_BMSK))
-		| (val & M_PRIOLVL_OVERRIDE_OVERRIDE_PRIOLVL_BMSK)),
-		M_PRIOLVL_OVERRIDE_ADDR(baddr, index));
-	reg_val = readl_relaxed(M_RD_CMD_OVERRIDE_ADDR(baddr, index)) &
-		M_RD_CMD_OVERRIDE_RMSK;
-	val = val1 << M_RD_CMD_OVERRIDE_OVERRIDE_AREQPRIO_SHFT;
-	writel_relaxed(((reg_val & ~(M_RD_CMD_OVERRIDE_OVERRIDE_AREQPRIO_BMSK
-		)) | (val & M_RD_CMD_OVERRIDE_OVERRIDE_AREQPRIO_BMSK)),
-		M_RD_CMD_OVERRIDE_ADDR(baddr, index));
-	reg_val = readl_relaxed(M_WR_CMD_OVERRIDE_ADDR(baddr, index)) &
-		M_WR_CMD_OVERRIDE_RMSK;
-	val = val2 << M_WR_CMD_OVERRIDE_OVERRIDE_AREQPRIO_SHFT;
-	writel_relaxed(((reg_val & ~(M_WR_CMD_OVERRIDE_OVERRIDE_AREQPRIO_BMSK
-		)) | (val & M_WR_CMD_OVERRIDE_OVERRIDE_AREQPRIO_BMSK)),
-		M_WR_CMD_OVERRIDE_ADDR(baddr, index));
-	/* Ensure the priority register writes go through */
+	old_val = readl_relaxed(M_BKE_EN_ADDR(addr, index));
+	new_val = req << M_BKE_EN_EN_SHFT;
+	if ((old_val & M_BKE_EN_RMSK) == (new_val))
+		return;
+	writel_relaxed(((old_val & ~(M_BKE_EN_EN_BMSK)) | (new_val &
+				M_BKE_EN_EN_BMSK)), M_BKE_EN_ADDR(addr, index));
+	/* Ensure that BKE register is programmed set before returning */
 	wmb();
 }
 
-static void msm_bus_bimc_set_qos_mode(void __iomem *base,
-	uint32_t mas_index, uint8_t qmode_sel)
-{
-	uint32_t reg_val, val;
-
-	switch (qmode_sel) {
-	case BIMC_QOS_MODE_FIXED:
-		reg_val = readl_relaxed(M_BKE_EN_ADDR(base,
-			mas_index));
-		writel_relaxed((reg_val & (~M_BKE_EN_EN_BMSK)),
-			M_BKE_EN_ADDR(base, mas_index));
-		/*
-		 * Ensure that the book-keeping register writes
-		 * go through before setting QoS mode.
-		 * QoS mode registers might write beyond 1K
-		 * boundary in future
-		 */
-		wmb();
-		set_qos_mode(base, mas_index, 1, 1, 1);
-		break;
-
-	case BIMC_QOS_MODE_BYPASS:
-		reg_val = readl_relaxed(M_BKE_EN_ADDR(base,
-			mas_index));
-		writel_relaxed((reg_val & (~M_BKE_EN_EN_BMSK)),
-			M_BKE_EN_ADDR(base, mas_index));
-		/* Ensure that the book-keeping register writes
-		 * go through before setting QoS mode.
-		 * QoS mode registers might write beyond 1K
-		 * boundary in future
-		 */
-		wmb();
-		set_qos_mode(base, mas_index, 0, 0, 0);
-		break;
-
-	case BIMC_QOS_MODE_REGULATOR:
-	case BIMC_QOS_MODE_LIMITER:
-		set_qos_mode(base, mas_index, 0, 0, 0);
-		reg_val = readl_relaxed(M_BKE_EN_ADDR(base,
-			mas_index));
-		val = 1 << M_BKE_EN_EN_SHFT;
-		/* Ensure that the book-keeping register writes
-		 * go through before setting QoS mode.
-		 * QoS mode registers might write beyond 1K
-		 * boundary in future
-		 */
-		wmb();
-		writel_relaxed(((reg_val & (~M_BKE_EN_EN_BMSK)) | (val &
-			M_BKE_EN_EN_BMSK)), M_BKE_EN_ADDR(base,
-			mas_index));
-		break;
-	default:
-		break;
-	}
-}
-
-static void set_qos_prio_rl(void __iomem *addr, uint32_t rmsk,
+static void set_health_reg(void __iomem *addr, uint32_t rmsk,
 	uint8_t index, struct msm_bus_bimc_qos_mode *qmode)
 {
 	uint32_t reg_val, val0, val;
@@ -347,7 +280,8 @@ static void set_qos_prio_rl(void __iomem *addr, uint32_t rmsk,
 		qmode->rl.qhealth[index].prio_level);
 	val = ((reg_val & (~(BKE_HEALTH_MASK))) | (val0 & BKE_HEALTH_MASK));
 	writel_relaxed(val, addr);
-	/* Ensure that priority for regulator/limiter modes are
+	/*
+	 * Ensure that priority for regulator/limiter modes are
 	 * set before returning
 	 */
 	wmb();
@@ -357,52 +291,24 @@ static void msm_bus_bimc_set_qos_prio(void __iomem *base,
 	uint32_t mas_index, uint8_t qmode_sel,
 	struct msm_bus_bimc_qos_mode *qmode)
 {
-	uint32_t reg_val, val;
 
 	switch (qmode_sel) {
 	case BIMC_QOS_MODE_FIXED:
-		reg_val = readl_relaxed(M_PRIOLVL_OVERRIDE_ADDR(
-			base, mas_index)) & M_PRIOLVL_OVERRIDE_RMSK;
-		val =  qmode->fixed.prio_level <<
-			M_PRIOLVL_OVERRIDE_SHFT;
-		writel_relaxed(((reg_val &
-			~(M_PRIOLVL_OVERRIDE_BMSK)) | (val
-			& M_PRIOLVL_OVERRIDE_BMSK)),
-			M_PRIOLVL_OVERRIDE_ADDR(base, mas_index));
-
-		reg_val = readl_relaxed(M_RD_CMD_OVERRIDE_ADDR(
-			base, mas_index)) & M_RD_CMD_OVERRIDE_RMSK;
-		val =  qmode->fixed.areq_prio_rd <<
-			M_RD_CMD_OVERRIDE_AREQPRIO_SHFT;
-		writel_relaxed(((reg_val & ~(M_RD_CMD_OVERRIDE_AREQPRIO_BMSK))
-			| (val & M_RD_CMD_OVERRIDE_AREQPRIO_BMSK)),
-			M_RD_CMD_OVERRIDE_ADDR(base, mas_index));
-
-		reg_val = readl_relaxed(M_WR_CMD_OVERRIDE_ADDR(
-			base, mas_index)) & M_WR_CMD_OVERRIDE_RMSK;
-		val =  qmode->fixed.areq_prio_wr <<
-			M_WR_CMD_OVERRIDE_AREQPRIO_SHFT;
-		writel_relaxed(((reg_val & ~(M_WR_CMD_OVERRIDE_AREQPRIO_BMSK))
-			| (val & M_WR_CMD_OVERRIDE_AREQPRIO_BMSK)),
-			M_WR_CMD_OVERRIDE_ADDR(base, mas_index));
-		/* Ensure that fixed mode register writes go through
-		 * before returning
-		 */
-		wmb();
-		break;
-
 	case BIMC_QOS_MODE_REGULATOR:
 	case BIMC_QOS_MODE_LIMITER:
-		set_qos_prio_rl(M_BKE_HEALTH_3_CONFIG_ADDR(base,
+		set_health_reg(M_BKE_HEALTH_3_CONFIG_ADDR(base,
 			mas_index), M_BKE_HEALTH_3_CONFIG_RMSK, 3, qmode);
-		set_qos_prio_rl(M_BKE_HEALTH_2_CONFIG_ADDR(base,
+		set_health_reg(M_BKE_HEALTH_2_CONFIG_ADDR(base,
 			mas_index), M_BKE_HEALTH_2_CONFIG_RMSK, 2, qmode);
-		set_qos_prio_rl(M_BKE_HEALTH_1_CONFIG_ADDR(base,
+		set_health_reg(M_BKE_HEALTH_1_CONFIG_ADDR(base,
 			mas_index), M_BKE_HEALTH_1_CONFIG_RMSK, 1, qmode);
-		set_qos_prio_rl(M_BKE_HEALTH_0_CONFIG_ADDR(base,
+		set_health_reg(M_BKE_HEALTH_0_CONFIG_ADDR(base,
 			mas_index), M_BKE_HEALTH_0_CONFIG_RMSK, 0 , qmode);
+		set_bke_en(base, mas_index, true);
 		break;
 	case BIMC_QOS_MODE_BYPASS:
+		set_bke_en(base, mas_index, false);
+		break;
 	default:
 		break;
 	}
@@ -457,29 +363,6 @@ static void set_qos_bw_regs(void __iomem *baddr, uint32_t mas_index,
 	 * before returning
 	 */
 	wmb();
-}
-
-static void bke_switch(
-	void __iomem *baddr, uint32_t mas_index, bool req, int mode)
-{
-	uint32_t reg_val, val, cur_val;
-
-	val = req << M_BKE_EN_EN_SHFT;
-	reg_val = readl_relaxed(M_BKE_EN_ADDR(baddr, mas_index));
-	cur_val = reg_val & M_BKE_EN_RMSK;
-	if (val == cur_val)
-		return;
-
-	if (!req && mode == BIMC_QOS_MODE_FIXED)
-		set_qos_mode(baddr, mas_index, 1, 1, 1);
-
-	writel_relaxed(((reg_val & ~(M_BKE_EN_EN_BMSK)) | (val &
-		M_BKE_EN_EN_BMSK)), M_BKE_EN_ADDR(baddr, mas_index));
-	/* Make sure BKE on/off goes through before changing priorities */
-	wmb();
-
-	if (req)
-		set_qos_mode(baddr, mas_index, 0, 0, 0);
 }
 
 static void bimc_set_static_qos_bw(void __iomem *base, unsigned int qos_freq,
@@ -541,6 +424,7 @@ static int msm_bus_bimc_limit_mport(struct msm_bus_node_device_type *info,
 {
 	int mode;
 	int i;
+	struct msm_bus_bimc_qos_mode qmode = {0};
 
 	if (ZERO_OR_NULL_PTR(info->node_info->qport)) {
 		MSM_BUS_DBG("No QoS Ports to limit\n");
@@ -550,21 +434,15 @@ static int msm_bus_bimc_limit_mport(struct msm_bus_node_device_type *info,
 	if ((enable_lim == THROTTLE_ON) && lim_bw) {
 		mode =  BIMC_QOS_MODE_LIMITER;
 
-		if (!info->node_info->lim_bw) {
-			struct msm_bus_bimc_qos_mode qmode;
-
-			qmode.rl.qhealth[0].limit_commands = 1;
-			qmode.rl.qhealth[1].limit_commands = 0;
-			qmode.rl.qhealth[2].limit_commands = 0;
-			qmode.rl.qhealth[3].limit_commands = 0;
-
-			for (i = 0; i < info->node_info->num_qports; i++) {
-				/* If not in bypass mode, update priority */
-				if (mode != BIMC_QOS_MODE_BYPASS)
-					msm_bus_bimc_set_qos_prio(qos_base,
-					info->node_info->qport[i], mode,
-					&qmode);
-			}
+		qmode.rl.qhealth[0].limit_commands = 1;
+		qmode.rl.qhealth[1].limit_commands = 0;
+		qmode.rl.qhealth[2].limit_commands = 0;
+		qmode.rl.qhealth[3].limit_commands = 0;
+		for (i = 0; i < NUM_HEALTH_LEVEL; i++) {
+			qmode.rl.qhealth[i].prio_level =
+					info->node_info->qos_params.prio_lvl;
+			qmode.rl.qhealth[i].areq_prio =
+					info->node_info->qos_params.prio_rd;
 		}
 
 		for (i = 0; i < info->node_info->num_qports; i++) {
@@ -578,17 +456,23 @@ static int msm_bus_bimc_limit_mport(struct msm_bus_node_device_type *info,
 				bimc_set_static_qos_bw(qos_base, qos_freq,
 					info->node_info->qport[i], &qbw);
 			}
-			bke_switch(qos_base, info->node_info->qport[i],
-				BKE_ON, mode);
 		}
 		info->node_info->lim_bw = lim_bw;
 	} else {
 		mode = info->node_info->qos_params.mode;
-		for (i = 0; i < info->node_info->num_qports; i++)
-			bke_switch(qos_base, info->node_info->qport[i],
-				BKE_OFF, mode);
+		if (mode != BIMC_QOS_MODE_BYPASS) {
+			for (i = 0; i < NUM_HEALTH_LEVEL; i++) {
+				qmode.rl.qhealth[i].prio_level =
+					info->node_info->qos_params.prio_lvl;
+				qmode.rl.qhealth[i].areq_prio =
+					info->node_info->qos_params.prio_rd;
+			}
+		}
 	}
-	info->node_info->qos_params.cur_mode = mode;
+
+	for (i = 0; i < info->node_info->num_qports; i++)
+		msm_bus_bimc_set_qos_prio(qos_base, info->node_info->qport[i],
+				mode, &qmode);
 	return 0;
 }
 
@@ -609,45 +493,44 @@ static int msm_bus_bimc_qos_init(struct msm_bus_node_device_type *info,
 				uint32_t qos_freq)
 {
 	int i;
-	struct msm_bus_bimc_qos_mode qmode;
-
-	switch (info->node_info->qos_params.mode) {
-	case BIMC_QOS_MODE_FIXED:
-		qmode.fixed.prio_level = info->node_info->qos_params.prio_lvl;
-		qmode.fixed.areq_prio_rd = info->node_info->qos_params.prio_rd;
-		qmode.fixed.areq_prio_wr = info->node_info->qos_params.prio_wr;
-		break;
-	case BIMC_QOS_MODE_LIMITER:
-		qmode.rl.qhealth[0].limit_commands = 1;
-		qmode.rl.qhealth[1].limit_commands = 0;
-		qmode.rl.qhealth[2].limit_commands = 0;
-		qmode.rl.qhealth[3].limit_commands = 0;
-		break;
-	default:
-		break;
-	}
+	struct msm_bus_bimc_qos_mode qmode = {0};
 
 	if (ZERO_OR_NULL_PTR(info->node_info->qport)) {
 		MSM_BUS_DBG("No QoS Ports to init\n");
 		return 0;
 	}
 
-	for (i = 0; i < info->node_info->num_qports; i++) {
-		/* If not in bypass mode, update priority */
-		if (info->node_info->qos_params.mode != BIMC_QOS_MODE_BYPASS)
-			msm_bus_bimc_set_qos_prio(qos_base, info->node_info->
-				qport[i], info->node_info->qos_params.mode,
-									&qmode);
-
-		/* set mode */
-		if (info->node_info->qos_params.mode == BIMC_QOS_MODE_LIMITER)
-			bke_switch(qos_base, info->node_info->qport[i],
-				BKE_OFF, BIMC_QOS_MODE_FIXED);
-		else
-		       msm_bus_bimc_set_qos_mode(qos_base,
-				info->node_info->qport[i],
-				info->node_info->qos_params.mode);
+	switch (info->node_info->qos_params.mode) {
+		/* For now Fixed and regulator are handled the same way. */
+	case BIMC_QOS_MODE_FIXED:
+	case BIMC_QOS_MODE_REGULATOR:
+		for (i = 0; i < NUM_HEALTH_LEVEL; i++) {
+			qmode.rl.qhealth[i].prio_level =
+				info->node_info->qos_params.prio_lvl;
+			qmode.rl.qhealth[i].areq_prio =
+				info->node_info->qos_params.prio_rd;
+		}
+		break;
+	case BIMC_QOS_MODE_LIMITER:
+		qmode.rl.qhealth[0].limit_commands = 1;
+		qmode.rl.qhealth[1].limit_commands = 0;
+		qmode.rl.qhealth[2].limit_commands = 0;
+		qmode.rl.qhealth[3].limit_commands = 0;
+		for (i = 0; i < NUM_HEALTH_LEVEL; i++) {
+			qmode.rl.qhealth[i].prio_level =
+				info->node_info->qos_params.prio_lvl;
+			qmode.rl.qhealth[i].areq_prio =
+				info->node_info->qos_params.prio_rd;
+		}
+		break;
+	default:
+		break;
 	}
+
+
+	for (i = 0; i < info->node_info->num_qports; i++)
+		msm_bus_bimc_set_qos_prio(qos_base, info->node_info->qport[i],
+			info->node_info->qos_params.mode, &qmode);
 
 	return 0;
 }
@@ -657,50 +540,58 @@ static int msm_bus_bimc_set_bw(struct msm_bus_node_device_type *dev,
 				uint32_t qos_delta, uint32_t qos_freq)
 {
 	struct msm_bus_bimc_qos_bw qbw;
+	struct msm_bus_bimc_qos_mode qmode = {0};
 	int i;
 	int64_t bw = 0;
 	int ret = 0;
 	struct msm_bus_node_info_type *info = dev->node_info;
+	int mode;
 
 	if (info && info->num_qports &&
-		((info->qos_params.mode == BIMC_QOS_MODE_LIMITER) ||
-		(info->qos_params.mode == BIMC_QOS_MODE_REGULATOR))) {
+		((info->qos_params.mode == BIMC_QOS_MODE_LIMITER))) {
 		bw = msm_bus_div64(info->num_qports,
 				dev->node_bw[ACTIVE_CTX].sum_ab);
 
-		for (i = 0; i < info->num_qports; i++) {
-			MSM_BUS_DBG("BIMC: Update mas_bw for ID: %d -> %llu\n",
+		MSM_BUS_DBG("BIMC: Update mas_bw for ID: %d -> %llu\n",
 				info->id, bw);
 
-			if (!info->qport) {
-				MSM_BUS_DBG("No qos ports to update!\n");
-				break;
-			}
+		if (!info->qport) {
+			MSM_BUS_DBG("No qos ports to update!\n");
+			goto exit_set_bw;
+		}
 
-			qbw.bw = bw + info->qos_params.bw_buffer;
-			trace_bus_bimc_config_limiter(info->id, bw);
+		qbw.bw = bw + info->qos_params.bw_buffer;
+		trace_bus_bimc_config_limiter(info->id, bw);
 
-			/* Default to gp of 5us */
-			qbw.gp = (info->qos_params.gp ?
-					info->qos_params.gp : 5000);
-			/* Default to thmp of 50% */
-			qbw.thmp = (info->qos_params.thmp ?
-					info->qos_params.thmp : 50);
-			/*
-			 * If the BW vote is 0 then set the QoS mode to
-			 * Fixed.
-			 */
-			if (bw) {
+		/* Default to gp of 5us */
+		qbw.gp = (info->qos_params.gp ?
+				info->qos_params.gp : 5000);
+		/* Default to thmp of 50% */
+		qbw.thmp = (info->qos_params.thmp ?
+				info->qos_params.thmp : 50);
+		/*
+		 * If the BW vote is 0 then set the QoS mode to
+		 * Fixed/0/0.
+		 */
+		if (bw) {
+			qmode.rl.qhealth[0].limit_commands = 1;
+			qmode.rl.qhealth[1].limit_commands = 0;
+			qmode.rl.qhealth[2].limit_commands = 0;
+			qmode.rl.qhealth[3].limit_commands = 0;
+			mode = info->qos_params.mode;
+		} else {
+			mode =	BIMC_QOS_MODE_FIXED;
+		}
+
+		for (i = 0; i < info->num_qports; i++) {
+			msm_bus_bimc_set_qos_prio(qos_base,
+				info->qport[i], mode, &qmode);
+			if (bw)
 				bimc_set_static_qos_bw(qos_base, qos_freq,
 					info->qport[i], &qbw);
-				bke_switch(qos_base, info->qport[i],
-					BKE_ON, info->qos_params.mode);
-			} else {
-				bke_switch(qos_base, info->qport[i],
-					BKE_OFF, BIMC_QOS_MODE_FIXED);
-			}
 		}
 	}
+exit_set_bw:
 	return ret;
 }
 

@@ -79,7 +79,6 @@ struct qos_params_type {
 	unsigned int gp;
 	unsigned int thmp;
 	unsigned int ws;
-	int cur_mode;
 	u64 bw_buffer;
 };
 
