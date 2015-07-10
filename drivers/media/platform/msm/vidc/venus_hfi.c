@@ -1352,12 +1352,15 @@ static int venus_hfi_suspend(void *dev)
 	mutex_lock(&device->lock);
 
 	if (device->power_enabled) {
-		rc = flush_delayed_work(&venus_hfi_pm_work);
-		dprintk(VIDC_INFO, "%s flush delayed work %d\n", __func__, rc);
+		dprintk(VIDC_DBG, "Venus is busy\n");
+		rc = -EBUSY;
+	} else {
+		dprintk(VIDC_DBG, "Venus is power suspended\n");
+		rc = 0;
 	}
 
 	mutex_unlock(&device->lock);
-	return 0;
+	return rc;
 }
 
 static enum hal_default_properties venus_hfi_get_default_properties(void *dev)
