@@ -2832,7 +2832,7 @@ static void fg_cap_learning_save_data(struct fg_chip *chip)
 			cc_to_soc_coeff = div64_s64(half_float(data), cc_mah);
 			half_float_to_buffer(cc_to_soc_coeff, data);
 			rc = fg_mem_write(chip, (u8 *)data,
-					FG_AGING_STORAGE_REG, 2,
+					ACTUAL_CAPACITY_REG, 2,
 					CC_SOC_COEFF_OFFSET, 0);
 			if (rc)
 				pr_err("Failed to write cc_soc_coeff_offset: %d\n",
