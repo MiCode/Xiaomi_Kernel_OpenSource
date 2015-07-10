@@ -25,6 +25,7 @@
 		status = "disabled";
 		compatible = "qcom,smmu-v2";
 		qcom,tz-device-id = "GPU";
+		qcom,dynamic;
 		reg = <0xb40000 0x10000>;
 		#iommu-cells = <1>;
 	};
