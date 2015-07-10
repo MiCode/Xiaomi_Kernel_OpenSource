@@ -1521,9 +1521,6 @@ static int ipa_q6_set_ex_path_dis_agg(void)
 */
 int ipa_q6_cleanup(void)
 {
-	int client_idx;
-	int res;
-
 	ipa_inc_client_enable_clks();
 
 	if (ipa_q6_pipe_delay()) {
@@ -1542,7 +1539,27 @@ int ipa_q6_cleanup(void)
 		IPAERR("Failed to disable aggregation on Q6 pipes\n");
 		BUG();
 	}
+	return 0;
+}
 
+/**
+* ipa_q6_pipe_reset() - A cleanup for the Q6 pipes
+*                    in IPA HW. This is performed in case of SSR.
+*
+* Return codes:
+* 0: success
+* This is a mandatory procedure, in case one of the steps fails, the
+* AP needs to restart.
+*/
+int ipa_q6_pipe_reset(void)
+{
+	int client_idx;
+	int res;
+	/*
+	 * Q6 relies on the AP to reset all Q6 IPA pipes.
+	 * In case the uC is not loaded, or upon any failure in the pipe reset
+	 * sequence, we have to assert.
+	 */
 	if (!ipa_ctx->uc_ctx.uc_loaded) {
 		IPAERR("uC is not loaded, won't reset Q6 pipes\n");
 		ipa_dec_client_disable_clks();
@@ -1562,6 +1579,7 @@ int ipa_q6_cleanup(void)
 	ipa_dec_client_disable_clks();
 	return 0;
 }
+
 
 int _ipa_init_sram_v2(void)
 {
