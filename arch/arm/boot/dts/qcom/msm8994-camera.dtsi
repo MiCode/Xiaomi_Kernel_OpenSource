@@ -458,6 +458,8 @@
 			qcom,we-ptr-off = <20>;
 			qcom,ref-fe-ptr-off = <14>;
 			qcom,ref-we-ptr-off = <30>;
+			qcom,set-group-buffer-len = <69>;
+			qcom,dup-frame-indicator-off = <37>;
 		};
 	};
 
