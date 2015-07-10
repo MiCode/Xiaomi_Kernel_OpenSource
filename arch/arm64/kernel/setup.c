@@ -51,6 +51,7 @@
 #include <asm/cputype.h>
 #include <asm/elf.h>
 #include <asm/cputable.h>
+#include <asm/cpufeature.h>
 #include <asm/cpu_ops.h>
 #include <asm/sections.h>
 #include <asm/setup.h>
@@ -82,6 +83,8 @@ EXPORT_SYMBOL(arch_read_hardware_id);
 unsigned int compat_elf_hwcap __read_mostly = COMPAT_ELF_HWCAP_DEFAULT;
 unsigned int compat_elf_hwcap2 __read_mostly;
 #endif
+
+DECLARE_BITMAP(cpu_hwcaps, NCAPS);
 
 unsigned int boot_reason;
 EXPORT_SYMBOL(boot_reason);
