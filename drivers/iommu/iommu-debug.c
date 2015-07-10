@@ -71,27 +71,36 @@ void iommu_debug_attach_device(struct iommu_domain *domain,
 			       struct device *dev)
 {
 	struct iommu_debug_attachment *attach;
+	char *attach_name;
+	uuid_le uuid;
 
 	mutex_lock(&iommu_debug_attachments_lock);
 
+	uuid_le_gen(&uuid);
+	attach_name = kasprintf(GFP_KERNEL, "%s-%pUl", dev_name(dev), uuid.b);
+	if (!attach_name)
+		goto unlock;
+
 	attach = kmalloc(sizeof(*attach), GFP_KERNEL);
 	if (!attach)
-		goto unlock;
+		goto free_attach_name;
 
 	attach->domain = domain;
 	attach->dev = dev;
 
 	attach->dentry = debugfs_create_file(
-		dev_name(dev), S_IRUSR, debugfs_attachments_dir, attach,
+		attach_name, S_IRUSR, debugfs_attachments_dir, attach,
 		&iommu_debug_attachment_fops);
 	if (!attach->dentry) {
 		pr_err("Couldn't create iommu/attachments/%s debugfs file for domain 0x%p\n",
-		       dev_name(dev), domain);
+		       attach_name, domain);
 		kfree(attach);
-		goto unlock;
+		goto free_attach_name;
 	}
 
 	list_add(&attach->list, &iommu_debug_attachments);
+free_attach_name:
+	kfree(attach_name);
 unlock:
 	mutex_unlock(&iommu_debug_attachments_lock);
 }
