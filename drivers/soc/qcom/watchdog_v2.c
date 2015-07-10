@@ -406,7 +406,7 @@ void msm_trigger_wdog_bite(void)
 	__raw_writel(1, wdog_data->base + WDT0_RST);
 	mb();
 	/* Delay to make sure bite occurs */
-	mdelay(1);
+	mdelay(2000);
 	pr_err("Wdog - STS: 0x%x, CTL: 0x%x, BARK TIME: 0x%x, BITE TIME: 0x%x",
 		__raw_readl(wdog_data->base + WDT0_STS),
 		__raw_readl(wdog_data->base + WDT0_EN),
