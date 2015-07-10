@@ -327,6 +327,7 @@ struct cpe_afe_svc_cmd_mode {
 } __packed;
 
 struct cpe_lsm_operation_mode {
+	struct cmi_hdr hdr;
 	struct cpe_param_data param;
 	u32 minor_version;
 	u16 mode;
@@ -334,6 +335,7 @@ struct cpe_lsm_operation_mode {
 } __packed;
 
 struct cpe_lsm_connect_to_port {
+	struct cmi_hdr hdr;
 	struct cpe_param_data param;
 	u32 minor_version;
 	u16 afe_port_id;
@@ -355,12 +357,6 @@ struct cpe_lsm_output_format_cfg {
 	u8 format;
 	u8 packing;
 	u8 data_path_events;
-} __packed;
-
-struct cpe_lsm_params {
-	struct cmi_hdr hdr;
-	struct cpe_lsm_operation_mode op_mode;
-	struct cpe_lsm_connect_to_port connect_port;
 } __packed;
 
 struct cpe_lsm_lab_enable {
@@ -398,11 +394,11 @@ struct cpe_lsm_lab_latency_config {
 #define PARAM_SIZE_LSM_CONTROL_SIZE (sizeof(struct cpe_lsm_lab_enable) - \
 					sizeof(struct cpe_param_data))
 #define PARAM_SIZE_LSM_OP_MODE (sizeof(struct cpe_lsm_operation_mode) - \
+				sizeof(struct cmi_hdr) - \
 				sizeof(struct cpe_param_data))
 #define PARAM_SIZE_LSM_CONNECT_PORT (sizeof(struct cpe_lsm_connect_to_port) - \
+				sizeof(struct cmi_hdr) - \
 				sizeof(struct cpe_param_data))
-#define CPE_PARAM_PAYLOAD_SIZE (sizeof(struct cpe_lsm_params) - \
-				sizeof(struct cmi_hdr))
 #define PARAM_SIZE_AFE_HW_MAD_CTRL (sizeof(struct cpe_afe_hw_mad_ctrl) - \
 				sizeof(struct cpe_param_data))
 #define PARAM_SIZE_AFE_PORT_CFG (sizeof(struct cpe_afe_port_cfg) - \

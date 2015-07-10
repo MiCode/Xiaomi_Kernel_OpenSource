@@ -667,7 +667,7 @@ static int msm_cpe_lab_thread(void *data)
 
 		if (done_len ||
 		    ((!done_len) &&
-		     lab_d->thread_status == MSM_LSM_LAB_THREAD_ERROR)) {
+		     lab_d->thread_status != MSM_LSM_LAB_THREAD_RUNNING)) {
 			atomic_inc(&lab_d->in_count);
 			lab_d->dma_write += snd_pcm_lib_period_bytes(substream);
 			snd_pcm_period_elapsed(substream);
@@ -1474,6 +1474,19 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		}
 		break;
 
+	case SNDRV_LSM_SET_PORT:
+		dev_dbg(rtd->dev,
+			"%s: %s\n",
+			__func__, "SNDRV_LSM_SET_PORT");
+		rc = lsm_ops->lsm_set_port(cpe->core_handle, session);
+		if (rc) {
+			dev_err(rtd->dev,
+				"%s: lsm_set_port failed, err = %d\n",
+				 __func__, rc);
+			return rc;
+		}
+		break;
+
 	default:
 		dev_dbg(rtd->dev,
 			"%s: Default snd_lib_ioctl cmd 0x%x\n",
@@ -1557,6 +1570,7 @@ static int msm_cpe_lsm_lab_start(struct snd_pcm_substream *substream,
 		}
 
 		atomic_set(&lab_d->abort_read, 0);
+		atomic_set(&lab_d->in_count, 0);
 		dev_dbg(rtd->dev,
 			"%s: KW detected, scheduling LAB thread\n",
 			__func__);
@@ -2223,7 +2237,7 @@ static int msm_cpe_lsm_copy(struct snd_pcm_substream *substream, int a,
 			(2 * HZ));
 	if (atomic_read(&lab_d->abort_read)) {
 		pr_debug("%s: LSM LAB Abort read\n", __func__);
-		return -EIO;
+		return 0;
 	}
 	if (lab_d->thread_status != MSM_LSM_LAB_THREAD_RUNNING) {
 		pr_err("%s: Lab stopped\n", __func__);

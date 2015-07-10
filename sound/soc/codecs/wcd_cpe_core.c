@@ -2241,36 +2241,38 @@ unlock_cal_mutex:
 }
 
 /*
- * wcd_cpe_lsm_set_params: set the parameters for lsm service
+ * wcd_cpe_lsm_set_opmode: set operation mode for listen
  * @core: handle to cpe core
  * @session: session for which the parameters are to be set
  * @detect_mode: mode for detection
  * @detect_failure: flag indicating failure detection enabled/disabled
  *
  */
-static int wcd_cpe_lsm_set_params(
+static int wcd_cpe_lsm_set_opmode(
 				 struct wcd_cpe_core *core,
 				 struct cpe_lsm_session *session,
 				 enum lsm_detection_mode detect_mode,
 				 bool detect_failure)
 {
-	struct cpe_lsm_params lsm_params;
-	struct cpe_lsm_operation_mode *op_mode = &lsm_params.op_mode;
-	struct cpe_lsm_connect_to_port *connect_port =
-					&lsm_params.connect_port;
+	struct cpe_lsm_operation_mode op_mode;
+	struct cmi_hdr *hdr = &op_mode.hdr;
+	struct cpe_param_data *param_d = &op_mode.param;
 	int ret = 0;
-	u8 pld_size = CPE_PARAM_PAYLOAD_SIZE;
+	u8 pld_size = 0;
 
 	ret = wcd_cpe_send_lsm_cal(core, session);
 	if (ret) {
-		pr_err("%s: fail to sent acdb cal, err = %d",
+		pr_err("%s: fail to sent acdb cal, err = %d\n",
 			__func__, ret);
 		return ret;
 	}
 
-	memset(&lsm_params, 0, sizeof(lsm_params));
+	memset(&op_mode, 0, sizeof(struct cpe_lsm_operation_mode));
 
-	if (fill_lsm_cmd_header_v0_inband(&lsm_params.hdr,
+	pld_size = (sizeof(struct cpe_lsm_operation_mode) -
+				sizeof(struct cmi_hdr));
+
+	if (fill_lsm_cmd_header_v0_inband(hdr,
 				session->id,
 				pld_size,
 				CPE_LSM_SESSION_CMD_SET_PARAMS)) {
@@ -2278,36 +2280,83 @@ static int wcd_cpe_lsm_set_params(
 		goto err_ret;
 	}
 
-	op_mode->param.module_id = CPE_LSM_MODULE_ID_VOICE_WAKEUP;
-	op_mode->param.param_id = CPE_LSM_PARAM_ID_OPERATION_MODE;
-	op_mode->param.param_size = PARAM_SIZE_LSM_OP_MODE;
-	op_mode->param.reserved = 0;
-	op_mode->minor_version = 1;
+	param_d->module_id = CPE_LSM_MODULE_ID_VOICE_WAKEUP;
+	param_d->param_id = CPE_LSM_PARAM_ID_OPERATION_MODE;
+	param_d->param_size = PARAM_SIZE_LSM_OP_MODE;
+	param_d->reserved = 0;
+
+	op_mode.minor_version = 1;
 	if (detect_mode == LSM_MODE_KEYWORD_ONLY_DETECTION)
-		op_mode->mode = 1;
+		op_mode.mode = 1;
 	else
-		op_mode->mode = 3;
+		op_mode.mode = 3;
 
 	if (detect_failure)
-		op_mode->mode |= 0x04;
+		op_mode.mode |= 0x04;
 
-	op_mode->reserved = 0;
+	op_mode.reserved = 0;
 
-	connect_port->param.module_id = CPE_LSM_MODULE_ID_VOICE_WAKEUP;
-	connect_port->param.param_id = CPE_LSM_PARAM_ID_CONNECT_TO_PORT;
-	connect_port->param.param_size = PARAM_SIZE_LSM_CONNECT_PORT;
-	connect_port->param.reserved = 0;
-	connect_port->minor_version = 1;
-	connect_port->afe_port_id = CPE_AFE_PORT_1_TX;
-	connect_port->reserved = 0;
-
-	ret = wcd_cpe_cmi_send_lsm_msg(core, session, &lsm_params);
+	ret = wcd_cpe_cmi_send_lsm_msg(core, session, &op_mode);
 	if (ret)
-		pr_err("%s: lsm_set_params failed, rc %dn",
+		pr_err("%s:  lsm_set_opmode failed, rc %d\n",
 			__func__, ret);
 err_ret:
 	return ret;
 }
+
+/*
+ * wcd_cpe_lsm_set_port: send the afe port connected
+ * @core: handle to cpe core
+ * @session: session for which the parameters are to be set
+ */
+static int wcd_cpe_lsm_set_port(void *core_handle,
+				struct cpe_lsm_session *session)
+{
+	struct cpe_lsm_connect_to_port connect_port;
+	struct cmi_hdr *hdr = &connect_port.hdr;
+	struct cpe_param_data *param_d = &connect_port.param;
+	struct wcd_cpe_core *core = core_handle;
+	int ret = 0;
+	u8 pld_size = 0;
+
+	ret = wcd_cpe_is_valid_lsm_session(core, session,
+					   __func__);
+	if (ret)
+		return ret;
+
+	WCD_CPE_GRAB_LOCK(&session->lsm_lock, "lsm");
+
+	memset(&connect_port, 0, sizeof(struct cpe_lsm_connect_to_port));
+
+	pld_size = (sizeof(struct cpe_lsm_connect_to_port) -
+				sizeof(struct cmi_hdr));
+
+	if (fill_lsm_cmd_header_v0_inband(hdr,
+				session->id,
+				pld_size,
+				CPE_LSM_SESSION_CMD_SET_PARAMS)) {
+		ret = -EINVAL;
+		goto err_ret;
+	}
+
+	param_d->module_id = CPE_LSM_MODULE_ID_VOICE_WAKEUP;
+	param_d->param_id = CPE_LSM_PARAM_ID_CONNECT_TO_PORT;
+	param_d->param_size = PARAM_SIZE_LSM_CONNECT_PORT;
+	param_d->reserved = 0;
+
+	connect_port.minor_version = 1;
+	connect_port.afe_port_id = CPE_AFE_PORT_1_TX;
+	connect_port.reserved = 0;
+
+	ret = wcd_cpe_cmi_send_lsm_msg(core, session, &connect_port);
+	if (ret)
+		pr_err("%s:  lsm_set_port failed, rc %d\n",
+			__func__, ret);
+err_ret:
+	WCD_CPE_REL_LOCK(&session->lsm_lock, "lsm");
+	return ret;
+}
+
 
 /*
  * wcd_cpe_lsm_set_conf_levels: send the confidence levels for listen
@@ -2378,7 +2427,7 @@ int wcd_cpe_lsm_set_data(void *core_handle,
 
 	WCD_CPE_GRAB_LOCK(&session->lsm_lock, "lsm");
 	if (session->num_confidence_levels > 0) {
-		ret = wcd_cpe_lsm_set_params(core, session, detect_mode,
+		ret = wcd_cpe_lsm_set_opmode(core, session, detect_mode,
 				       detect_failure);
 		if (ret) {
 			dev_err(core->dev,
@@ -3009,6 +3058,7 @@ int wcd_cpe_get_lsm_ops(struct wcd_cpe_lsm_ops *lsm_ops)
 	lsm_ops->lab_ch_setup = wcd_cpe_lab_ch_setup;
 	lsm_ops->lsm_set_data = wcd_cpe_lsm_set_data;
 	lsm_ops->lsm_set_fmt_cfg = wcd_cpe_lsm_set_fmt_cfg;
+	lsm_ops->lsm_set_port = wcd_cpe_lsm_set_port;
 	return 0;
 }
 EXPORT_SYMBOL(wcd_cpe_get_lsm_ops);
