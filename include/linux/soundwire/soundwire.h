@@ -130,6 +130,7 @@ struct swr_master {
 	struct swr_reg **reg_txn;
 	u8 last_tid;
 	u8 num_port;
+	u8 num_dev;
 	int (*connect_port)(struct swr_master *mstr, struct swr_params *txn);
 	int (*disconnect_port)(struct swr_master *mstr, struct swr_params *txn);
 	int (*read)(struct swr_master *mstr, u8 dev_num, u32 reg_addr,

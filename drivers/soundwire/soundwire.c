@@ -166,6 +166,7 @@ int of_register_swr_devices(struct swr_master *master)
 			of_node_put(node);
 			continue;
 		}
+		master->num_dev++;
 	}
 	return 0;
 }
