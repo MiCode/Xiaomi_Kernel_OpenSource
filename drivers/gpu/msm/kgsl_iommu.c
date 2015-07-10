@@ -1884,12 +1884,20 @@ static uint64_t kgsl_iommu_find_svm_region(struct kgsl_pagetable *pagetable,
 	return addr;
 }
 
+#define ADDR_IN_GLOBAL(_a) \
+	(((_a) >= KGSL_MMU_GLOBAL_MEM_BASE) && \
+	 ((_a) < (KGSL_MMU_GLOBAL_MEM_BASE + KGSL_MMU_GLOBAL_MEM_SIZE)))
+
 static int kgsl_iommu_set_svm_region(struct kgsl_pagetable *pagetable,
 		uint64_t gpuaddr, uint64_t size)
 {
 	int ret = -ENOMEM;
 	struct kgsl_iommu_pt *pt = pagetable->priv;
 	struct rb_node *node;
+
+	/* Make sure the requested address doesn't fall in the global range */
+	if (ADDR_IN_GLOBAL(gpuaddr) || ADDR_IN_GLOBAL(gpuaddr + size))
+		return -ENOMEM;
 
 	spin_lock(&pagetable->lock);
 	node = pt->rbtree.rb_node;
