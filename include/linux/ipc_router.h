@@ -75,6 +75,11 @@ struct comm_mode_info {
 	void *xprt_info;
 };
 
+enum ipc_rtr_af_event_type {
+	IPCRTR_AF_INIT = 1,
+	IPCRTR_AF_DEINIT,
+};
+
 /**
  * msm_ipc_port - Definition of IPC Router port
  * @list: List(local/control ports) in which this port is present.
@@ -242,6 +247,26 @@ int msm_ipc_router_register_server(struct msm_ipc_port *server_port,
  */
 int msm_ipc_router_unregister_server(struct msm_ipc_port *server_port);
 
+/**
+ * register_ipcrtr_af_init_notifier() - Register for ipc router socket
+ *				address family initialization callback
+ * @nb: Notifier block which will be notified once address family is
+ *	initialized.
+ *
+ * Return: 0 on success, standard error code otherwise.
+ */
+int register_ipcrtr_af_init_notifier(struct notifier_block *nb);
+
+/**
+ * unregister_ipcrtr_af_init_notifier() - Unregister for ipc router socket
+ *					address family initialization callback
+ * @nb: Notifier block which will be notified once address family is
+ *	initialized.
+ *
+ * Return: 0 on success, standard error code otherwise.
+ */
+int unregister_ipcrtr_af_init_notifier(struct notifier_block *nb);
+
 #else
 
 struct msm_ipc_port *msm_ipc_router_create_port(
@@ -300,6 +325,16 @@ static inline int msm_ipc_router_register_server(
 
 static inline int msm_ipc_router_unregister_server(
 			struct msm_ipc_port *server_port)
+{
+	return -ENODEV;
+}
+
+int register_ipcrtr_af_notifier(struct notifier_block *nb)
+{
+	return -ENODEV;
+}
+
+int register_ipcrtr_af_notifier(struct notifier_block *nb)
 {
 	return -ENODEV;
 }

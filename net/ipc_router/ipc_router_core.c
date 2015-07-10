@@ -4125,10 +4125,6 @@ static int msm_ipc_router_init(void)
 	rt_entry = create_routing_table_entry(IPC_ROUTER_NID_LOCAL, NULL);
 	kref_put(&rt_entry->ref, ipc_router_release_rtentry);
 
-	ret = msm_ipc_router_init_sockets();
-	if (ret < 0)
-		IPC_RTR_ERR("%s: Init sockets failed\n", __func__);
-
 	ret = msm_ipc_router_security_init();
 	if (ret < 0)
 		IPC_RTR_ERR("%s: Security Init failed\n", __func__);
@@ -4139,12 +4135,17 @@ static int msm_ipc_router_init(void)
 		mutex_unlock(&ipc_router_init_lock);
 		return -ENOMEM;
 	}
-	is_ipc_router_inited = true;
 
 	ret = platform_driver_register(&ipc_router_driver);
 	if (ret)
 		IPC_RTR_ERR(
 		"%s: ipc_router_driver register failed %d\n", __func__, ret);
+
+	ret = msm_ipc_router_init_sockets();
+	if (ret < 0)
+		IPC_RTR_ERR("%s: Init sockets failed\n", __func__);
+
+	is_ipc_router_inited = true;
 
 	ipc_router_log_ctx_init();
 	mutex_unlock(&ipc_router_init_lock);
