@@ -355,6 +355,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_ERRATA_TZ_ATOS	(1 << 7)
 #define ARM_SMMU_OPT_NO_M		(1 << 8)
 #define ARM_SMMU_OPT_NO_SMR_CHECK	(1 << 9)
+#define ARM_SMMU_OPT_DYNAMIC		(1 << 10)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 
@@ -385,6 +386,7 @@ struct arm_smmu_device {
 	/* Protects against domains attaching to the same SMMU concurrently */
 	struct mutex			attach_lock;
 	unsigned int			attach_count;
+	struct idr			asid_idr;
 
 	struct arm_smmu_impl_def_reg	*impl_def_attach_registers;
 	unsigned int			num_impl_def_attach_registers;
@@ -406,6 +408,11 @@ struct arm_smmu_cfg {
 #define INVALID_CBNDX			0xff
 #define INVALID_ASID			0xffff
 #define INVALID_VMID			0xff
+/*
+ * In V7L and V8L with TTBCR2.AS == 0, ASID is 8 bits.
+ * V8L 16 with TTBCR2.AS == 1 (16 bit ASID) isn't supported yet.
+ */
+#define MAX_ASID			0xff
 
 #define ARM_SMMU_CB_ASID(cfg)		((cfg)->asid)
 #define ARM_SMMU_CB_VMID(cfg)		((cfg)->vmid)
@@ -455,6 +462,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_ERRATA_TZ_ATOS, "qcom,errata-tz-atos" },
 	{ ARM_SMMU_OPT_NO_M, "qcom,no-mmu-enable" },
 	{ ARM_SMMU_OPT_NO_SMR_CHECK, "qcom,no-smr-check" },
+	{ ARM_SMMU_OPT_DYNAMIC, "qcom,dynamic" },
 	{ 0, NULL},
 };
 
@@ -1537,6 +1545,79 @@ static void arm_smmu_impl_def_programming(struct arm_smmu_device *smmu)
 
 static void arm_smmu_device_reset(struct arm_smmu_device *smmu);
 
+static int arm_smmu_attach_dynamic(struct iommu_domain *domain,
+					struct arm_smmu_device *smmu)
+{
+	int ret;
+	struct arm_smmu_domain *smmu_domain = domain->priv;
+	enum io_pgtable_fmt fmt;
+	struct io_pgtable_ops *pgtbl_ops;
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+
+	if (!(smmu->options & ARM_SMMU_OPT_DYNAMIC)) {
+		dev_err(smmu->dev, "dynamic domains not supported\n");
+		return -EPERM;
+	}
+
+	if (smmu_domain->smmu != NULL) {
+		dev_err(smmu->dev, "domain is already attached\n");
+		return -EBUSY;
+	}
+
+	if (smmu_domain->cfg.cbndx >= smmu->num_context_banks) {
+		dev_err(smmu->dev, "invalid context bank\n");
+		return -ENODEV;
+	}
+
+	if (smmu->features & ARM_SMMU_FEAT_TRANS_NESTED) {
+		smmu_domain->cfg.cbar = CBAR_TYPE_S1_TRANS_S2_BYPASS;
+	} else if (smmu->features & ARM_SMMU_FEAT_TRANS_S1) {
+		smmu_domain->cfg.cbar = CBAR_TYPE_S1_TRANS_S2_BYPASS;
+	} else {
+		/* dynamic only makes sense for S1. */
+		return -EINVAL;
+	}
+
+	smmu_domain->pgtbl_cfg = (struct io_pgtable_cfg) {
+		.pgsize_bitmap	= arm_smmu_ops.pgsize_bitmap,
+		.ias		= smmu->va_size,
+		.oas		= smmu->ipa_size,
+		.tlb		= &arm_smmu_gather_ops,
+	};
+
+	fmt = IS_ENABLED(CONFIG_64BIT) ? ARM_64_LPAE_S1 : ARM_32_LPAE_S1;
+
+	pgtbl_ops = alloc_io_pgtable_ops(fmt, &smmu_domain->pgtbl_cfg,
+					 smmu_domain);
+	if (!pgtbl_ops)
+		return -ENOMEM;
+
+	cfg->vmid = cfg->cbndx + 2;
+	smmu_domain->smmu = smmu;
+
+	mutex_lock(&smmu->attach_lock);
+	/* try to avoid reusing an old ASID right away */
+	ret = idr_alloc_cyclic(&smmu->asid_idr, domain,
+				smmu->num_context_banks + 2,
+				MAX_ASID + 1, GFP_KERNEL);
+	if (ret < 0) {
+		dev_err(smmu->dev, "dynamic ASID allocation failed: %d\n",
+			ret);
+		goto out;
+	}
+
+	smmu_domain->cfg.asid = ret;
+	smmu_domain->smmu = smmu;
+	smmu_domain->pgtbl_ops = pgtbl_ops;
+	ret = 0;
+out:
+	if (ret)
+		kfree(pgtbl_ops);
+	mutex_unlock(&smmu->attach_lock);
+
+	return ret;
+}
+
 static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 {
 	int ret;
@@ -1553,7 +1634,14 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		return -ENXIO;
 	}
 
+	if (smmu_domain->attributes & (1 << DOMAIN_ATTR_DYNAMIC)) {
+		ret = arm_smmu_attach_dynamic(domain, smmu);
+		mutex_unlock(&smmu_domain->init_mutex);
+		return ret;
+	}
+
 	mutex_lock(&smmu->attach_lock);
+
 	if (dev->archdata.iommu) {
 		dev_err(dev, "already attached to IOMMU domain\n");
 		mutex_unlock(&smmu->attach_lock);
@@ -1648,6 +1736,23 @@ static void arm_smmu_power_off(struct arm_smmu_device *smmu,
 		arm_smmu_disable_regulators(smmu);
 }
 
+static void arm_smmu_detach_dynamic(struct iommu_domain *domain,
+					struct arm_smmu_device *smmu)
+{
+	struct arm_smmu_domain *smmu_domain = domain->priv;
+
+	mutex_lock(&smmu->attach_lock);
+	if (smmu->attach_count > 0) {
+		arm_smmu_enable_clocks(smmu_domain->smmu);
+		arm_smmu_tlb_inv_context(smmu_domain);
+		arm_smmu_disable_clocks(smmu_domain->smmu);
+	}
+	idr_remove(&smmu->asid_idr, smmu_domain->cfg.asid);
+	smmu_domain->cfg.asid = INVALID_ASID;
+	smmu_domain->smmu = NULL;
+	mutex_unlock(&smmu->attach_lock);
+}
+
 static void arm_smmu_detach_dev(struct iommu_domain *domain, struct device *dev)
 {
 	struct arm_smmu_domain *smmu_domain = domain->priv;
@@ -1659,6 +1764,13 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain, struct device *dev)
 	smmu = smmu_domain->smmu;
 	if (!smmu) {
 		dev_err(dev, "Domain already detached!\n");
+		mutex_unlock(&smmu_domain->init_mutex);
+		return;
+	}
+
+
+	if (smmu_domain->attributes & (1 << DOMAIN_ATTR_DYNAMIC)) {
+		arm_smmu_detach_dynamic(domain, smmu);
 		mutex_unlock(&smmu_domain->init_mutex);
 		return;
 	}
@@ -1988,6 +2100,11 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		*((u32 *)data) = smmu_domain->cfg.procid;
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_DYNAMIC:
+		*((int *)data) = !!(smmu_domain->attributes
+					& (1 << DOMAIN_ATTR_DYNAMIC));
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
 		break;
@@ -2062,8 +2179,42 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		smmu_domain->cfg.procid = *((u32 *)data);
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_DYNAMIC: {
+		int dynamic = *((int *)data);
+
+		if (smmu_domain->smmu != NULL) {
+			dev_err(smmu_domain->smmu->dev,
+			  "cannot change dynamic attribute while attached\n");
+			ret = -EBUSY;
+			break;
+		}
+
+		if (dynamic)
+			smmu_domain->attributes |= 1 << DOMAIN_ATTR_DYNAMIC;
+		else
+			smmu_domain->attributes &= ~(1 << DOMAIN_ATTR_DYNAMIC);
+		ret = 0;
+		break;
+	}
+	case DOMAIN_ATTR_CONTEXT_BANK:
+		/* context bank can't be set while attached */
+		if (smmu_domain->smmu != NULL) {
+			ret = -EBUSY;
+			break;
+		}
+		/* ... and it can only be set for dynamic contexts. */
+		if (!(smmu_domain->attributes & (1 << DOMAIN_ATTR_DYNAMIC))) {
+			ret = -EINVAL;
+			break;
+		}
+
+		/* this will be validated during attach */
+		smmu_domain->cfg.cbndx = *((unsigned int *)data);
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
+		break;
 	}
 
 out_unlock:
@@ -2577,6 +2728,8 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 		}
 	}
 
+	idr_init(&smmu->asid_idr);
+
 	INIT_LIST_HEAD(&smmu->list);
 	spin_lock(&arm_smmu_devices_lock);
 	list_add(&smmu->list, &arm_smmu_devices);
@@ -2631,6 +2784,7 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 		free_irq(smmu->irqs[i], smmu);
 
 	mutex_lock(&smmu->attach_lock);
+	idr_destroy(&smmu->asid_idr);
 	/*
 	 * If all devices weren't detached for some reason, we're
 	 * still powered on. Power off now.
