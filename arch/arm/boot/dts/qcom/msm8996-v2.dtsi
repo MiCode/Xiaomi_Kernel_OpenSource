@@ -294,6 +294,11 @@
 	};
 };
 
+&gdsc_venus {
+	proxy-supply = <&gdsc_venus>;
+	qcom,proxy-consumer-enable;
+};
+
 &soc {
 	tsens1: tsens@4ad000 {
 		compatible = "qcom,msm8996-tsens";
