@@ -1062,6 +1062,9 @@ static int mdss_debugfs_perf_init(struct mdss_debug_data *mdd,
 	debugfs_create_file("threshold_bw_limit", 0644, mdd->perf,
 		(struct mdss_data_type *)mdata, &mdss_perf_bw_limit_fops);
 
+	debugfs_create_u32("lines_before_active", 0644, mdd->perf,
+		(u32 *)&mdata->lines_before_active);
+
 	return 0;
 }
 
