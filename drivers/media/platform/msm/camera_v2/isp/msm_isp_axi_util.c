@@ -1503,8 +1503,8 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 				__func__, vfe_dev->pdev->id, buf->buf_idx,
 				buf->bufq_handle);
 
-			msm_isp_send_event(vfe_dev, ISP_EVENT_BUF_DIVERT +
-				stream_idx, &buf_event);
+			msm_isp_send_event(vfe_dev, ISP_EVENT_BUF_DIVERT,
+					&buf_event);
 		} else {
 			ISP_DBG("%s: vfe_id %d send buf done buf-id %d\n",
 				__func__, vfe_dev->pdev->id, buf->buf_idx);
