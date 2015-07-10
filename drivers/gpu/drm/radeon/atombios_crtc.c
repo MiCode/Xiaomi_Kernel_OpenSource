@@ -330,8 +330,10 @@ atombios_set_crtc_dtd_timing(struct drm_crtc *crtc,
 		misc |= ATOM_COMPOSITESYNC;
 	if (mode->flags & DRM_MODE_FLAG_INTERLACE)
 		misc |= ATOM_INTERLACE;
-	if (mode->flags & DRM_MODE_FLAG_DBLSCAN)
+	if (mode->flags & DRM_MODE_FLAG_DBLCLK)
 		misc |= ATOM_DOUBLE_CLOCK_MODE;
+	if (mode->flags & DRM_MODE_FLAG_DBLSCAN)
+		misc |= ATOM_H_REPLICATIONBY2 | ATOM_V_REPLICATIONBY2;
 
 	args.susModeMiscInfo.usAccess = cpu_to_le16(misc);
 	args.ucCRTC = radeon_crtc->crtc_id;
@@ -374,8 +376,10 @@ static void atombios_crtc_set_timing(struct drm_crtc *crtc,
 		misc |= ATOM_COMPOSITESYNC;
 	if (mode->flags & DRM_MODE_FLAG_INTERLACE)
 		misc |= ATOM_INTERLACE;
-	if (mode->flags & DRM_MODE_FLAG_DBLSCAN)
+	if (mode->flags & DRM_MODE_FLAG_DBLCLK)
 		misc |= ATOM_DOUBLE_CLOCK_MODE;
+	if (mode->flags & DRM_MODE_FLAG_DBLSCAN)
+		misc |= ATOM_H_REPLICATIONBY2 | ATOM_V_REPLICATIONBY2;
 
 	args.susModeMiscInfo.usAccess = cpu_to_le16(misc);
 	args.ucCRTC = radeon_crtc->crtc_id;
@@ -576,6 +580,9 @@ static u32 atombios_adjust_pll(struct drm_crtc *crtc,
 		else
 			radeon_crtc->pll_flags |= RADEON_PLL_PREFER_LOW_REF_DIV;
 
+		/* if there is no audio, set MINM_OVER_MAXP  */
+		if (!drm_detect_monitor_audio(radeon_connector_edid(connector)))
+			radeon_crtc->pll_flags |= RADEON_PLL_PREFER_MINM_OVER_MAXP;
 		if (rdev->family < CHIP_RV770)
 			radeon_crtc->pll_flags |= RADEON_PLL_PREFER_MINM_OVER_MAXP;
 		/* use frac fb div on APUs */
