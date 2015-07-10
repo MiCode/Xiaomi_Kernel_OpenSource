@@ -989,8 +989,7 @@ static void dwc3_prepare_trbs(struct dwc3_ep *dep, bool starting)
 					bool mpkt = false;
 
 					chain = false;
-					if (list_is_last(&req->list,
-							&dep->request_list)) {
+					if (list_empty(&dep->request_list)) {
 						last_one = true;
 						goto start_trb_queuing;
 					}
@@ -1041,6 +1040,9 @@ start_trb_queuing:
 					break;
 			}
 			dbg_queue(dep->number, &req->request, trbs_left);
+
+			if (last_one)
+				break;
 		} else {
 			struct dwc3_request	*req1;
 			int maxpkt_size = usb_endpoint_maxp(dep->endpoint.desc);
