@@ -236,8 +236,8 @@ static int regmap_slim_read(void *context, const void *reg, size_t reg_size,
 		goto err;
 	ret = wcd9xxx->read_dev(wcd9xxx, c_reg, val_size, val, false);
 	if (ret < 0)
-		dev_err(dev, "%s: Codec read failed (%d), reg: 0x%x\n",
-			__func__, ret, rreg);
+		dev_err(dev, "%s: Codec read failed (%d), reg: 0x%x, size:%zd\n",
+			__func__, ret, rreg, val_size);
 	else {
 		for (i = 0; i < val_size; i++)
 			dev_dbg(dev, "%s: Read 0x%02x from 0x%x\n",
@@ -334,7 +334,8 @@ static int regmap_slim_gather_write(void *context,
 	ret = wcd9xxx->write_dev(wcd9xxx, c_reg, val_size, (void *) val,
 				 false);
 	if (ret < 0)
-		dev_err(dev, "%s: Codec write failed (%d)\n", __func__, ret);
+		dev_err(dev, "%s: Codec write failed (%d), reg:0x%x, size:%zd\n",
+			__func__, ret, rreg, val_size);
 
 err:
 	mutex_unlock(&wcd9xxx->io_lock);
