@@ -12,6 +12,7 @@
 
 #include "skeleton64.dtsi"
 #include <dt-bindings/clock/msm-clocks-8996.h>
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM COBALT";
@@ -206,3 +207,5 @@
 		#clock-cells = <1>;
 	};
 };
+
+#include "msmcobalt-regulator.dtsi"
