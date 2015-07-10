@@ -88,6 +88,7 @@ static const struct file_operations kgsl_fops;
 static DEFINE_SPINLOCK(memfree_lock);
 
 struct memfree_entry {
+	pid_t ptname;
 	uint64_t gpuaddr;
 	uint64_t size;
 	pid_t pid;
@@ -114,8 +115,16 @@ static void kgsl_memfree_exit(void)
 	memset(&memfree, 0, sizeof(memfree));
 }
 
-int kgsl_memfree_find_entry(pid_t pid, uint64_t *gpuaddr,
-	uint64_t *size, uint64_t *flags)
+static inline bool match_memfree_addr(struct memfree_entry *entry,
+		pid_t ptname, uint64_t gpuaddr)
+{
+	return ((entry->ptname == ptname) &&
+		(entry->size > 0) &&
+		(gpuaddr >= entry->gpuaddr &&
+			 gpuaddr < (entry->gpuaddr + entry->size)));
+}
+int kgsl_memfree_find_entry(pid_t ptname, uint64_t *gpuaddr,
+	uint64_t *size, uint64_t *flags, pid_t *pid)
 {
 	int ptr;
 
@@ -132,12 +141,11 @@ int kgsl_memfree_find_entry(pid_t pid, uint64_t *gpuaddr,
 	while (ptr != memfree.tail) {
 		struct memfree_entry *entry = &memfree.list[ptr];
 
-		if ((entry->pid == pid) &&
-			(*gpuaddr >= entry->gpuaddr &&
-			 *gpuaddr < (entry->gpuaddr + entry->size))) {
+		if (match_memfree_addr(entry, ptname, *gpuaddr)) {
 			*gpuaddr = entry->gpuaddr;
 			*flags = entry->flags;
 			*size = entry->size;
+			*pid = entry->pid;
 
 			spin_unlock(&memfree_lock);
 			return 1;
@@ -153,7 +161,39 @@ int kgsl_memfree_find_entry(pid_t pid, uint64_t *gpuaddr,
 	return 0;
 }
 
-static void kgsl_memfree_add(pid_t pid, uint64_t gpuaddr,
+static void kgsl_memfree_purge(pid_t ptname, uint64_t gpuaddr,
+		uint64_t size)
+{
+	int i;
+
+	if (memfree.list == NULL)
+		return;
+
+	spin_lock(&memfree_lock);
+
+	for (i = 0; i < MEMFREE_ENTRIES; i++) {
+		struct memfree_entry *entry = &memfree.list[i];
+
+		if (entry->ptname != ptname || entry->size == 0)
+			continue;
+
+		if (gpuaddr > entry->gpuaddr &&
+			gpuaddr < entry->gpuaddr + entry->size) {
+			/* truncate the end of the entry */
+			entry->size = entry->gpuaddr - gpuaddr;
+		} else if (gpuaddr <= entry->gpuaddr &&
+			gpuaddr + size < entry->gpuaddr + entry->size)
+			/* Truncate the beginning of the entry */
+			entry->gpuaddr = gpuaddr + size;
+		else if (gpuaddr + size >= entry->gpuaddr + entry->size) {
+			/* Remove the entire entry */
+			entry->size = 0;
+		}
+	}
+	spin_unlock(&memfree_lock);
+}
+
+static void kgsl_memfree_add(pid_t pid, pid_t ptname, uint64_t gpuaddr,
 		uint64_t size, uint64_t flags)
 
 {
@@ -167,6 +207,7 @@ static void kgsl_memfree_add(pid_t pid, uint64_t gpuaddr,
 	entry = &memfree.list[memfree.head];
 
 	entry->pid = pid;
+	entry->ptname = ptname;
 	entry->gpuaddr = gpuaddr;
 	entry->size = size;
 	entry->flags = flags;
@@ -388,6 +429,10 @@ kgsl_mem_entry_attach_process(struct kgsl_mem_entry *entry,
 		if (ret)
 			kgsl_mem_entry_detach_process(entry);
 	}
+
+	kgsl_memfree_purge(pagetable ? pagetable->name : 0,
+		entry->memdesc.gpuaddr, entry->memdesc.size);
+
 	return ret;
 
 err_put_proc_priv:
@@ -449,7 +494,7 @@ void kgsl_context_dump(struct kgsl_context *context)
 EXPORT_SYMBOL(kgsl_context_dump);
 
 /* Allocate a new context ID */
-int _kgsl_get_context_id(struct kgsl_device *device,
+static int _kgsl_get_context_id(struct kgsl_device *device,
 		struct kgsl_context *context)
 {
 	int id;
@@ -553,13 +598,12 @@ EXPORT_SYMBOL(kgsl_context_init);
  * detached by checking the KGSL_CONTEXT_PRIV_DETACHED bit in
  * context->priv.
  */
-int kgsl_context_detach(struct kgsl_context *context)
+static void kgsl_context_detach(struct kgsl_context *context)
 {
-	int ret;
 	struct kgsl_device *device;
 
 	if (context == NULL)
-		return -EINVAL;
+		return;
 
 	/*
 	 * Mark the context as detached to keep others from using
@@ -567,13 +611,13 @@ int kgsl_context_detach(struct kgsl_context *context)
 	 * we don't try to detach twice.
 	 */
 	if (test_and_set_bit(KGSL_CONTEXT_PRIV_DETACHED, &context->priv))
-		return -EINVAL;
+		return;
 
 	device = context->device;
 
 	trace_kgsl_context_detach(device, context);
 
-	ret = context->device->ftbl->drawctxt_detach(context);
+	context->device->ftbl->drawctxt_detach(context);
 
 	/*
 	 * Cancel all pending events after the device-specific context is
@@ -586,8 +630,6 @@ int kgsl_context_detach(struct kgsl_context *context)
 	kgsl_del_event_group(&context->events);
 
 	kgsl_context_put(context);
-
-	return ret;
 }
 
 void
@@ -1647,24 +1689,30 @@ long kgsl_ioctl_drawctxt_destroy(struct kgsl_device_private *dev_priv,
 {
 	struct kgsl_drawctxt_destroy *param = data;
 	struct kgsl_context *context;
-	long result;
 
 	context = kgsl_context_get_owner(dev_priv, param->drawctxt_id);
+	if (context == NULL)
+		return -EINVAL;
 
-	result = kgsl_context_detach(context);
-
+	kgsl_context_detach(context);
 	kgsl_context_put(context);
-	return result;
+
+	return 0;
 }
 
 static long gpumem_free_entry(struct kgsl_mem_entry *entry)
 {
+	pid_t ptname = 0;
+
 	if (!kgsl_mem_entry_set_pend(entry))
 		return -EBUSY;
 
 	trace_kgsl_mem_free(entry);
 
-	kgsl_memfree_add(entry->priv->pid, entry->memdesc.gpuaddr,
+	if (entry->memdesc.pagetable != NULL)
+		ptname = entry->memdesc.pagetable->name;
+
+	kgsl_memfree_add(entry->priv->pid, ptname, entry->memdesc.gpuaddr,
 		entry->memdesc.size, entry->memdesc.flags);
 
 	kgsl_mem_entry_put(entry);
@@ -2798,7 +2846,7 @@ out:
 }
 
 #ifdef CONFIG_ARM64
-uint64_t kgsl_filter_cachemode(uint64_t flags)
+static uint64_t kgsl_filter_cachemode(uint64_t flags)
 {
 	/*
 	 * WRITETHROUGH is not supported in arm64, so we tell the user that we
@@ -2813,7 +2861,7 @@ uint64_t kgsl_filter_cachemode(uint64_t flags)
 	return flags;
 }
 #else
-uint64_t kgsl_filter_cachemode(uint64_t flags)
+static uint64_t kgsl_filter_cachemode(uint64_t flags)
 {
 	return flags;
 }
@@ -3274,6 +3322,10 @@ static unsigned long _gpu_set_svm_region(struct kgsl_process_private *private,
 				&entry->memdesc);
 		return ret;
 	}
+
+	kgsl_memfree_purge(private->pagetable ? private->pagetable->name : 0,
+		entry->memdesc.gpuaddr, entry->memdesc.size);
+
 	return addr;
 }
 
@@ -3437,8 +3489,8 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 
 	if (IS_ERR_VALUE(val))
 		KGSL_MEM_ERR(device,
-			"pid %d pgoff %lx len %ld failed error %d\n",
-			private->pid, pgoff, len, (int) val);
+			"pid %d addr %lx pgoff %lx len %ld failed error %d\n",
+			private->pid, addr, pgoff, len, (int) val);
 
 	kgsl_mem_entry_put(entry);
 	return val;

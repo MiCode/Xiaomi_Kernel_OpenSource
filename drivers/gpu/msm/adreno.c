@@ -582,7 +582,7 @@ static int adreno_soft_reset(struct kgsl_device *device);
  * all the HW logic, restores GPU registers to default state and
  * flushes out pending VBIF transactions.
  */
-void _soft_reset(struct adreno_device *adreno_dev)
+static void _soft_reset(struct adreno_device *adreno_dev)
 {
 	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 	unsigned int reg;
@@ -1064,7 +1064,7 @@ adreno_ocmem_free(struct adreno_device *adreno_dev)
 }
 #endif
 
-int adreno_probe(struct platform_device *pdev)
+static int adreno_probe(struct platform_device *pdev)
 {
 	struct kgsl_device *device;
 	struct adreno_device *adreno_dev;
@@ -2382,9 +2382,9 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 		return -ENOTTY;
 	}
 
-	/* Return -EINVAL if the context has been detached */
+	/* Return -ENOENT if the context has been detached */
 	if (kgsl_context_detached(context))
-		return -EINVAL;
+		return -ENOENT;
 
 	ret = adreno_drawctxt_wait(ADRENO_DEVICE(device), context,
 		timestamp, msecs);
@@ -2412,8 +2412,8 @@ static int adreno_waittimestamp(struct kgsl_device *device,
  * @type: Type of timestamp to read
  * @timestamp: The out parameter where the timestamp is read
  */
-int __adreno_readtimestamp(struct kgsl_device *device, int index, int type,
-		unsigned int *timestamp)
+static int __adreno_readtimestamp(struct kgsl_device *device, int index,
+				int type, unsigned int *timestamp)
 {
 	int status = 0;
 

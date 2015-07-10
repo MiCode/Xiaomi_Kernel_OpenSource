@@ -26,7 +26,6 @@
    as an identifier */
 #define KGSL_MMU_GLOBAL_PT 0
 #define KGSL_MMU_SECURE_PT 1
-#define KGSL_MMU_PRIV_PT   0xFFFFFFFF
 
 struct kgsl_device;
 

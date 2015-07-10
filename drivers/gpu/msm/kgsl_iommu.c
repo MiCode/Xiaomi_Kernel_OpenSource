@@ -239,16 +239,17 @@ static void _print_entry(struct kgsl_device *device, struct _mem_entry *entry)
 }
 
 static void _check_if_freed(struct kgsl_iommu_context *ctx,
-	uint64_t addr, pid_t pid)
+	uint64_t addr, pid_t ptname)
 {
 	uint64_t gpuaddr = addr;
 	uint64_t size = 0;
 	uint64_t flags = 0;
+	pid_t pid;
 
 	char name[32];
 	memset(name, 0, sizeof(name));
 
-	if (kgsl_memfree_find_entry(pid, &gpuaddr, &size, &flags)) {
+	if (kgsl_memfree_find_entry(ptname, &gpuaddr, &size, &flags, &pid)) {
 		kgsl_get_memory_usage(name, sizeof(name) - 1, flags);
 		KGSL_LOG_DUMP(ctx->kgsldev, "---- premature free ----\n");
 		KGSL_LOG_DUMP(ctx->kgsldev,
@@ -266,7 +267,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	struct kgsl_iommu *iommu;
 	struct kgsl_iommu_context *ctx;
 	phys_addr_t ptbase;
-	pid_t pid;
+	pid_t ptname;
 	struct _mem_entry prev, next;
 	int write;
 	struct kgsl_device *device;
@@ -327,7 +328,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	ptbase = KGSL_IOMMU_GET_CTX_REG_Q(iommu, ctx->ctx_id, TTBR0)
 			& KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
 
-	pid = kgsl_mmu_get_ptname_from_ptbase(mmu, ptbase);
+	ptname = kgsl_mmu_get_ptname_from_ptbase(mmu, ptbase);
 
 	if (test_bit(KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE,
 		&adreno_dev->ft_pf_policy))
@@ -335,30 +336,35 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 
 	if (!no_page_fault_log) {
 		KGSL_MEM_CRIT(ctx->kgsldev,
-			"GPU PAGE FAULT: addr = %lX pid = %d\n", addr, pid);
+			"GPU PAGE FAULT: addr = %lX pid = %d\n", addr, ptname);
 		KGSL_MEM_CRIT(ctx->kgsldev,
 			"context = %d TTBR0 = %pa (%s %s fault)\n",
 			ctx->ctx_id, &ptbase,
 			write ? "write" : "read", fault_type);
 
-		_check_if_freed(ctx, addr, pid);
+		/* Don't print the debug if this is a permissions fault */
+		if (!(flags & IOMMU_FAULT_PERMISSION)) {
+			_check_if_freed(ctx, addr, ptname);
 
-		KGSL_LOG_DUMP(ctx->kgsldev, "---- nearby memory ----\n");
+			KGSL_LOG_DUMP(ctx->kgsldev,
+				"---- nearby memory ----\n");
 
-		_find_mem_entries(mmu, addr, ptbase, &prev, &next);
+			_find_mem_entries(mmu, addr, ptbase, &prev, &next);
 
-		if (prev.gpuaddr)
-			_print_entry(ctx->kgsldev, &prev);
-		else
-			KGSL_LOG_DUMP(ctx->kgsldev, "*EMPTY*\n");
+			if (prev.gpuaddr)
+				_print_entry(ctx->kgsldev, &prev);
+			else
+				KGSL_LOG_DUMP(ctx->kgsldev, "*EMPTY*\n");
 
-		KGSL_LOG_DUMP(ctx->kgsldev, " <- fault @ %8.8lX\n", addr);
+			KGSL_LOG_DUMP(ctx->kgsldev, " <- fault @ %8.8lX\n",
+				addr);
 
-		if (next.gpuaddr != (uint64_t) -1)
-			_print_entry(ctx->kgsldev, &next);
-		else
-			KGSL_LOG_DUMP(ctx->kgsldev, "*EMPTY*\n");
+			if (next.gpuaddr != (uint64_t) -1)
+				_print_entry(ctx->kgsldev, &next);
+			else
+				KGSL_LOG_DUMP(ctx->kgsldev, "*EMPTY*\n");
 
+		}
 	}
 
 	trace_kgsl_mmu_pagefault(ctx->kgsldev, addr,
@@ -1227,10 +1233,10 @@ kgsl_iommu_unmap(struct kgsl_pagetable *pt,
  *
  * Return 0 on success, error on map fail
  */
-int _iommu_add_guard_page(struct kgsl_pagetable *pt,
-						   struct kgsl_memdesc *memdesc,
-						   uint64_t gpuaddr,
-						   unsigned int protflags)
+static int _iommu_add_guard_page(struct kgsl_pagetable *pt,
+				   struct kgsl_memdesc *memdesc,
+				   uint64_t gpuaddr,
+				   unsigned int protflags)
 {
 	struct kgsl_iommu_pt *iommu_pt = pt->priv;
 	phys_addr_t physaddr = page_to_phys(kgsl_guard_page);
@@ -1645,7 +1651,8 @@ static int kgsl_iommu_set_pf_policy(struct kgsl_mmu *mmu,
 	return ret;
 }
 
-struct kgsl_protected_registers *kgsl_iommu_get_prot_regs(struct kgsl_mmu *mmu)
+static struct kgsl_protected_registers *
+kgsl_iommu_get_prot_regs(struct kgsl_mmu *mmu)
 {
 	static struct kgsl_protected_registers iommuv1_regs = { 0x4000, 14 };
 	static struct kgsl_protected_registers iommuv2_regs;
@@ -1853,7 +1860,7 @@ static uint64_t kgsl_iommu_find_svm_region(struct kgsl_pagetable *pagetable,
 static int kgsl_iommu_set_svm_region(struct kgsl_pagetable *pagetable,
 		uint64_t gpuaddr, uint64_t size)
 {
-	int ret;
+	int ret = -ENOMEM;
 	struct kgsl_iommu_pt *pt = pagetable->priv;
 	struct rb_node *node;
 
@@ -1980,7 +1987,6 @@ struct kgsl_mmu_ops kgsl_iommu_ops = {
 	.mmu_start = kgsl_iommu_start,
 	.mmu_stop = kgsl_iommu_stop,
 	.mmu_set_pt = kgsl_iommu_set_pt,
-	.mmu_pagefault_resume = kgsl_iommu_pagefault_resume,
 	.mmu_clear_fsr = kgsl_iommu_clear_fsr,
 	.mmu_get_current_ptbase = kgsl_iommu_get_current_ptbase,
 	.mmu_enable_clk = kgsl_iommu_enable_clk,

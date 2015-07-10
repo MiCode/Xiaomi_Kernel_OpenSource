@@ -17,12 +17,13 @@
 #include "kgsl.h"
 #include "kgsl_device.h"
 #include "kgsl_sharedmem.h"
+#include "kgsl_debugfs.h"
 
 /*default log levels is error for everything*/
 #define KGSL_LOG_LEVEL_MAX     7
 
 struct dentry *kgsl_debugfs_dir;
-struct dentry *proc_d_debugfs;
+static struct dentry *proc_d_debugfs;
 
 static inline int kgsl_log_set(unsigned int *log_val, void *data, u64 val)
 {

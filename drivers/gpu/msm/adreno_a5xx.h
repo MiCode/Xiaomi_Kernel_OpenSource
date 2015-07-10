@@ -68,4 +68,7 @@ struct a5xx_cp_smmu_info {
 	uint32_t  context_idr;
 };
 
+void a5xx_snapshot(struct adreno_device *adreno_dev,
+		struct kgsl_snapshot *snapshot);
+
 #endif

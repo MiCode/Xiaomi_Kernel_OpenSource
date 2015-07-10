@@ -117,21 +117,8 @@ static void kgsl_unmap_global_pt_entries(struct kgsl_pagetable *pagetable)
 
 	for (i = 0; i < KGSL_MAX_GLOBAL_PT_ENTRIES; i++) {
 		struct kgsl_memdesc *entry = kgsl_global_pt_entries.entries[i];
-		/* entry was removed */
-		if (entry == NULL)
-			continue;
-
-		/*
-		 * Private entries are only in the private pagetable,
-		 * but they are in the global list so that they have a unique
-		 * address.
-		 */
-		if ((entry->priv & KGSL_MEMDESC_PRIVATE) &&
-			(pagetable->name != KGSL_MMU_PRIV_PT))
-			continue;
-
-		kgsl_mmu_unmap(pagetable,
-				kgsl_global_pt_entries.entries[i]);
+		if (entry != NULL)
+			kgsl_mmu_unmap(pagetable, entry);
 	}
 
 	spin_lock_irqsave(&kgsl_driver.ptlock, flags);
@@ -160,22 +147,11 @@ void kgsl_map_global_pt_entries(struct kgsl_pagetable *pagetable)
 
 	for (i = 0; !ret && i < KGSL_MAX_GLOBAL_PT_ENTRIES; i++) {
 		struct kgsl_memdesc *entry = kgsl_global_pt_entries.entries[i];
-		/* entry was removed */
-		if (entry == NULL)
-			continue;
 
-		/*
-		 * Private entries are only in the private pagetable,
-		 * but they are in the global list so that they have a unique
-		 * address.
-		 */
-		if ((entry->priv & KGSL_MEMDESC_PRIVATE) &&
-			(pagetable->name != KGSL_MMU_PRIV_PT))
-			continue;
-
-		ret = kgsl_mmu_map(pagetable, entry);
-		/* If we cannot map the global entries, nothing will work. */
-		BUG_ON(ret);
+		if (entry != NULL) {
+			ret = kgsl_mmu_map(pagetable, entry);
+			BUG_ON(ret);
+		}
 	}
 
 	spin_lock_irqsave(&kgsl_driver.ptlock, flags);
@@ -205,8 +181,7 @@ void kgsl_remove_global_pt_entry(struct kgsl_memdesc *memdesc)
 	for (i = 0; i < kgsl_global_pt_entries.count; i++) {
 		if (kgsl_global_pt_entries.entries[i] == memdesc) {
 			memdesc->gpuaddr = 0;
-			memdesc->priv &= ~(KGSL_MEMDESC_GLOBAL |
-						KGSL_MEMDESC_PRIVATE);
+			memdesc->priv &= ~KGSL_MEMDESC_GLOBAL;
 			for (j = i; j < kgsl_global_pt_entries.count; j++)
 				kgsl_global_pt_entries.entries[j] =
 				kgsl_global_pt_entries.entries[j + 1];

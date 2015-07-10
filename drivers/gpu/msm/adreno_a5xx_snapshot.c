@@ -17,6 +17,7 @@
 #include "kgsl_snapshot.h"
 #include "adreno_snapshot.h"
 #include "a5xx_reg.h"
+#include "adreno_a5xx.h"
 
 enum a5xx_rbbm_debbus_id {
 	A5XX_RBBM_DBGBUS_CP          = 0x1,
@@ -337,12 +338,13 @@ static const unsigned int a5xx_vbif_ver_20040000_registers[] = {
 	0x3120, 0x3120, 0x3124, 0x3125, 0x3129, 0x3129, 0x3131, 0x3131,
 };
 
-const struct adreno_vbif_snapshot_registers a5xx_vbif_snapshot_registers[] = {
+static const struct adreno_vbif_snapshot_registers
+a5xx_vbif_snapshot_registers[] = {
 	{ 0x20040000, a5xx_vbif_ver_20040000_registers,
 				ARRAY_SIZE(a5xx_vbif_ver_20040000_registers)/2},
 };
 
-const unsigned int a5xx_vbif_snapshot_reg_cnt =
+static const unsigned int a5xx_vbif_snapshot_reg_cnt =
 				ARRAY_SIZE(a5xx_vbif_snapshot_registers);
 
 static void a5xx_snapshot_vbif_registers(struct kgsl_device *device,
@@ -376,7 +378,7 @@ static void a5xx_snapshot_vbif_registers(struct kgsl_device *device,
  * is the stop offset (inclusive)
  */
 
-const unsigned int a5xx_registers[] = {
+static const unsigned int a5xx_registers[] = {
 	/* RBBM */
 	0x0000, 0x0002, 0x0004, 0x0020, 0x0022, 0x0026, 0x0029, 0x002B,
 	0x002E, 0x0035, 0x0038, 0x0042, 0x0044, 0x0044, 0x0047, 0x0095,
@@ -433,7 +435,7 @@ const unsigned int a5xx_registers[] = {
 	0xEA80, 0xEA80, 0xEA82, 0xEAA3, 0xEAA5, 0xEAC2,
 };
 
-const unsigned int a5xx_registers_count = ARRAY_SIZE(a5xx_registers) / 2;
+static const unsigned int a5xx_registers_count = ARRAY_SIZE(a5xx_registers) / 2;
 
 struct a5xx_hlsq_sp_tp_regs {
 	unsigned int statetype;
@@ -672,8 +674,8 @@ static int get_hlsq_registers(struct kgsl_device *device,
 	return regs->size;
 }
 
-size_t a5xx_snapshot_dump_hlsq_sp_tp_regs(struct kgsl_device *device, u8 *buf,
-	size_t remain, void *priv)
+static size_t a5xx_snapshot_dump_hlsq_sp_tp_regs(struct kgsl_device *device,
+		u8 *buf, size_t remain, void *priv)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_snapshot_regs *header = (struct kgsl_snapshot_regs *)buf;

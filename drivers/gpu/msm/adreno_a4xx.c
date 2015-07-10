@@ -723,7 +723,7 @@ static void a4xx_start(struct adreno_device *adreno_dev)
  * @adreno_dev: Pointer to device
  * @bit: Interrupt bit
  */
-void a4xx_err_callback(struct adreno_device *adreno_dev, int bit)
+static void a4xx_err_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	unsigned int reg;
@@ -908,7 +908,7 @@ static unsigned int a4xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A4XX_VBIF_XIN_HALT_CTRL1),
 };
 
-const struct adreno_reg_offsets a4xx_reg_offsets = {
+static const struct adreno_reg_offsets a4xx_reg_offsets = {
 	.offsets = a4xx_register_offsets,
 	.offset_0 = ADRENO_REG_REGISTER_MAX,
 };
@@ -1228,7 +1228,7 @@ static struct adreno_perfcounters a4xx_perfcounters = {
 	ARRAY_SIZE(a4xx_perfcounter_groups),
 };
 
-struct adreno_ft_perf_counters a4xx_ft_perf_counters[] = {
+static struct adreno_ft_perf_counters a4xx_ft_perf_counters[] = {
 	{KGSL_PERFCOUNTER_GROUP_SP, A4XX_SP_ALU_ACTIVE_CYCLES},
 	{KGSL_PERFCOUNTER_GROUP_SP, A4XX_SP0_ICL1_MISSES},
 	{KGSL_PERFCOUNTER_GROUP_SP, A4XX_SP_FS_CFLOW_INSTRUCTIONS},

@@ -1824,7 +1824,7 @@ static int a5xx_hw_init(struct adreno_device *adreno_dev)
  *
  * Submit commands for ME initialization,
  */
-int a5xx_rb_init(struct adreno_device *adreno_dev,
+static int a5xx_rb_init(struct adreno_device *adreno_dev,
 			 struct adreno_ringbuffer *rb)
 {
 	unsigned int *cmds;
@@ -1897,7 +1897,7 @@ static int _load_firmware(struct adreno_device *adreno_dev, const char *fwfile,
  * a5xx_microcode_read() - Read microcode
  * @adreno_dev: Pointer to adreno device
  */
-int a5xx_microcode_read(struct adreno_device *adreno_dev)
+static int a5xx_microcode_read(struct adreno_device *adreno_dev)
 {
 	int ret;
 
@@ -1927,8 +1927,8 @@ int a5xx_microcode_read(struct adreno_device *adreno_dev)
  * @adreno_dev: Pointer to adreno device
  * @start_type: type of device start cold/warm
  */
-int a5xx_microcode_load(struct adreno_device *adreno_dev,
-						unsigned int start_type)
+static int a5xx_microcode_load(struct adreno_device *adreno_dev,
+				unsigned int start_type)
 {
 	void *ptr;
 	struct kgsl_device *device = &adreno_dev->dev;
@@ -2389,7 +2389,7 @@ static struct adreno_perfcounters a5xx_perfcounters = {
 	ARRAY_SIZE(a5xx_perfcounter_groups),
 };
 
-struct adreno_ft_perf_counters a5xx_ft_perf_counters[] = {
+static struct adreno_ft_perf_counters a5xx_ft_perf_counters[] = {
 	{KGSL_PERFCOUNTER_GROUP_SP, A5XX_SP_ALU_ACTIVE_CYCLES},
 	{KGSL_PERFCOUNTER_GROUP_SP, A5XX_SP0_ICL1_MISSES},
 	{KGSL_PERFCOUNTER_GROUP_SP, A5XX_SP_FS_CFLOW_INSTRUCTIONS},
@@ -2476,12 +2476,12 @@ static unsigned int a5xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 
 };
 
-const struct adreno_reg_offsets a5xx_reg_offsets = {
+static const struct adreno_reg_offsets a5xx_reg_offsets = {
 	.offsets = a5xx_register_offsets,
 	.offset_0 = ADRENO_REG_REGISTER_MAX,
 };
 
-void a5xx_cp_hw_err_callback(struct adreno_device *adreno_dev, int bit)
+static void a5xx_cp_hw_err_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	unsigned int status1, status2;
@@ -2530,7 +2530,7 @@ void a5xx_cp_hw_err_callback(struct adreno_device *adreno_dev, int bit)
 	}
 }
 
-void a5xx_err_callback(struct adreno_device *adreno_dev, int bit)
+static void a5xx_err_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	unsigned int reg;
