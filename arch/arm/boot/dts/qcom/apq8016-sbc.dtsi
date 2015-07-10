@@ -422,6 +422,7 @@
 		qcom,mdss-pan-physical-height-dimension = <90>;
 		qcom,mdss-dsi-force-clock-lane-hs;
 		qcom,mdss-dsi-always-on;
+		qcom,dba-panel;
 	};
 
 	dsi_adv7533_1080p: qcom,mdss_dsi_adv7533_1080p {
@@ -477,6 +478,7 @@
 		qcom,mdss-pan-physical-height-dimension = <90>;
 		qcom,mdss-dsi-force-clock-lane-hs;
 		qcom,mdss-dsi-always-on;
+		qcom,dba-panel;
 	};
 };
 
