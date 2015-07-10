@@ -8652,6 +8652,9 @@ static int tasha_codec_cpe_fll_update_divider(
 static int tasha_codec_cpe_fll_enable(struct snd_soc_codec *codec,
 				   bool enable)
 {
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
+	u8 clk_sel_reg_val = 0x00;
+
 	dev_dbg(codec->dev,
 		"%s: enable = %s\n",
 		__func__, enable ? "true" : "false");
@@ -8661,11 +8664,14 @@ static int tasha_codec_cpe_fll_enable(struct snd_soc_codec *codec,
 				CPE_FLL_CLK_75MHZ))
 			return -EINVAL;
 
-		tasha_cdc_mclk_enable(codec, true, false);
+		if (TASHA_IS_1_0(wcd9xxx->version)) {
+			tasha_cdc_mclk_enable(codec, true, false);
+			clk_sel_reg_val = 0x02;
+		}
 
-		/* Setup CPE reference clk as MCLK */
+		/* Setup CPE reference clk */
 		snd_soc_update_bits(codec, WCD9335_ANA_CLK_TOP,
-				    0x02, 0x02);
+				    0x02, clk_sel_reg_val);
 
 		/* enable CPE FLL reference clk */
 		snd_soc_update_bits(codec, WCD9335_ANA_CLK_TOP,
@@ -8675,9 +8681,7 @@ static int tasha_codec_cpe_fll_enable(struct snd_soc_codec *codec,
 		snd_soc_update_bits(codec, WCD9335_CPE_FLL_USER_CTL_0,
 				    0x01, 0x01);
 
-		/* TEST clk enable */
-		snd_soc_update_bits(codec, WCD9335_CPE_FLL_USER_CTL_0,
-				    0x02, 0x02);
+		/* TEST clk setting */
 		snd_soc_update_bits(codec, WCD9335_CPE_FLL_TEST_CTL_0,
 				    0x80, 0x80);
 		/* set FLL mode to HW controlled */
@@ -8688,9 +8692,7 @@ static int tasha_codec_cpe_fll_enable(struct snd_soc_codec *codec,
 		/* disable CPE FLL reference clk */
 		snd_soc_update_bits(codec, WCD9335_ANA_CLK_TOP,
 				    0x01, 0x00);
-		/* TEST clk disable */
-		snd_soc_update_bits(codec, WCD9335_CPE_FLL_USER_CTL_0,
-				    0x02, 0x00);
+		/* undo TEST clk setting */
 		snd_soc_update_bits(codec, WCD9335_CPE_FLL_TEST_CTL_0,
 				    0x80, 0x00);
 		/* undo FLL mode to HW control */
@@ -8701,7 +8703,8 @@ static int tasha_codec_cpe_fll_enable(struct snd_soc_codec *codec,
 		snd_soc_update_bits(codec, WCD9335_CPE_FLL_USER_CTL_0,
 				    0x01, 0x00);
 
-		tasha_cdc_mclk_enable(codec, false, false);
+		if (TASHA_IS_1_0(wcd9xxx->version))
+			tasha_cdc_mclk_enable(codec, false, false);
 	}
 
 	return 0;
