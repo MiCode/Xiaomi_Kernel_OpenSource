@@ -2103,6 +2103,11 @@ static int adreno_soft_reset(struct kgsl_device *device)
 	/* start of new CFF after reset */
 	kgsl_cffdump_open(device);
 
+	/* Enable 64 bit gpu addr if feature is set */
+	if (gpudev->enable_64bit &&
+			ADRENO_FEATURE(adreno_dev, ADRENO_64BIT))
+		gpudev->enable_64bit(adreno_dev);
+
 	/* Restore physical performance counter values after soft reset */
 	adreno_perfcounter_restore(adreno_dev);
 
