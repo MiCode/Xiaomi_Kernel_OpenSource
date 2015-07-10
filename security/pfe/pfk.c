@@ -64,6 +64,7 @@ static int g_events_handle;
 /* might be replaced by a table when more than one cipher is supported */
 #define PFK_SUPPORTED_CIPHER "aes_xts"
 #define PFK_SUPPORTED_KEY_SIZE 32
+#define PFK_SUPPORTED_SALT_SIZE 32
 
 static int pfk_inode_alloc_security(struct inode *inode)
 {
@@ -336,12 +337,14 @@ int pfk_load_key(const struct bio *bio, struct ice_crypto_setting *ice_setting)
 	struct inode *inode = NULL;
 	int ret = 0;
 	const unsigned char *key = NULL;
+	const unsigned char *salt = NULL;
 	const unsigned char *cipher = NULL;
 	void *ecryptfs_data = NULL;
 	u32 key_index = 0;
 	enum ice_cryto_algo_mode algo_mode = 0;
 	enum ice_crpto_key_size key_size_type = 0;
 	size_t key_size = 0;
+	size_t salt_size = 0;
 	pgoff_t offset;
 	bool is_metadata = false;
 
@@ -396,6 +399,20 @@ int pfk_load_key(const struct bio *bio, struct ice_crypto_setting *ice_setting)
 		goto end;
 	}
 
+	salt = ecryptfs_get_salt(ecryptfs_data);
+	if (!salt) {
+		pr_err("could not parse salt from ecryptfs\n");
+		ret = -EINVAL;
+		goto end;
+	}
+
+	salt_size = ecryptfs_get_salt_size(ecryptfs_data);
+	if (!salt_size) {
+		pr_err("could not parse salt size from ecryptfs\n");
+		ret = -EINVAL;
+		goto end;
+	}
+
 	cipher = ecryptfs_get_cipher(ecryptfs_data);
 	if (!key) {
 		pr_err("could not parse key from ecryptfs\n");
@@ -411,7 +428,7 @@ int pfk_load_key(const struct bio *bio, struct ice_crypto_setting *ice_setting)
 	if (ret != 0)
 		return ret;
 
-	ret = pfk_kc_load_key(key, key_size, &key_index);
+	ret = pfk_kc_load_key(key, key_size, salt, salt_size, &key_index);
 	if (ret != 0) {
 		pr_err("could not load key into pfk key cache, error %d\n",
 			 ret);
@@ -513,7 +530,6 @@ bool pfk_allow_merge_bio(struct bio *bio1, struct bio *bio2)
 		goto end;
 	}
 
-
 	/*
 	 *  at this point both bio's are in the same file which is probably
 	 *  encrypted, last thing to check is header vs data
@@ -597,7 +613,9 @@ static void pfk_open_cb(struct inode *inode, void *ecryptfs_data)
 static void pfk_release_cb(struct inode *inode)
 {
 	const unsigned char *key = NULL;
-	size_t key_size;
+	const unsigned char *salt = NULL;
+	size_t key_size = 0;
+	size_t salt_size = 0;
 	void *data = NULL;
 
 	if (!pfk_is_ready())
@@ -626,14 +644,26 @@ static void pfk_release_cb(struct inode *inode)
 		return;
 	}
 
-	pfk_kc_remove_key(key, key_size);
+	salt = ecryptfs_get_salt(data);
+	if (!salt) {
+		pr_err("could not parse salt from ecryptfs\n");
+		return;
+	}
+
+	salt_size = ecryptfs_get_salt_size(data);
+	if (!salt_size) {
+		pr_err("could not parse salt size from ecryptfs\n");
+		return;
+	}
+
+	pfk_kc_remove_key_with_salt(key, key_size, salt, salt_size);
 
 	mutex_lock(&pfk_lock);
 	pfk_set_ecryptfs_data(inode, NULL);
 	mutex_unlock(&pfk_lock);
 }
 
-static bool pfk_is_cipher_supported_cb(char *cipher)
+static bool pfk_is_cipher_supported_cb(const char *cipher)
 {
 	if (!pfk_is_ready())
 		return false;
@@ -650,6 +680,17 @@ static bool pfk_is_hw_crypt_cb(void)
 		return false;
 
 	return true;
+}
+
+static size_t pfk_get_salt_key_size_cb(const char *cipher)
+{
+	if (!pfk_is_ready())
+		return 0;
+
+	if (!pfk_is_cipher_supported_cb(cipher))
+		return 0;
+
+	return PFK_SUPPORTED_SALT_SIZE;
 }
 
 
@@ -670,6 +711,7 @@ static int __init pfk_init(void)
 	events.release_cb = pfk_release_cb;
 	events.is_cipher_supported_cb = pfk_is_cipher_supported_cb;
 	events.is_hw_crypt_cb = pfk_is_hw_crypt_cb;
+	events.get_salt_key_size_cb = pfk_get_salt_key_size_cb;
 
 	g_events_handle = ecryptfs_register_to_events(&events);
 	if (0 == g_events_handle) {
