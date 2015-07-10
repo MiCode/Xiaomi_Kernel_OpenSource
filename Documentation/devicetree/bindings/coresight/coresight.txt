@@ -167,6 +167,8 @@ Optional properties:
 		    interrupts specified in the 'interrupts' property.
 - qcom,sg-enable : indicates whether scatter gather feature is supported for TMC
 		   ETR configuration.
+- qcom,force-reg-dump : boolean, indicate whether TMC register need to be dumped.
+			Used for TMC component
 - qcom,nidntsw : boolean, indicating NIDnT software debug or trace support
 		 present. Used for tpiu component
 - qcom,nidnthw : boolean, indicating NIDnT hardware sensing support present.
