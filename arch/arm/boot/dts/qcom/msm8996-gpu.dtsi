@@ -176,10 +176,13 @@
 
 	};
 
-	/* IOMMU Data */
 	kgsl_msm_iommu: qcom,kgsl-iommu {
 		compatible = "qcom,kgsl-smmu-v2";
+
 		reg = <0xb40000 0x20000>;
+		qcom,protect = <0x40000 0x20000>;
+		qcom,micro-mmu-control = <0x6000>;
+
 		clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
 			<&clock_mmss clk_mmss_mmagic_cfg_ahb_clk>,
 			<&clock_gpu clk_gpu_ahb_clk>,
@@ -187,21 +190,20 @@
 			<&clock_gcc clk_gcc_bimc_gfx_clk>;
 		clock-names = "mmagic_ahb_clk", "mmagic_cfg_ahb_clk", "gpu_ahb_clk",
 			"gcc_mmss_bimc_gfx_clk", "gcc_bimc_gfx_clk";
-		num_cb = <2>;
-		qcom,secure_align_mask = <0xfff>;
-		retention;
 
-		iommu_kgsl_cb2: iommu_kgsl_cb2 {
+		qcom,secure_align_mask = <0xfff>;
+		qcom,retention;
+
+		gfx3d_user: gfx3d_user {
 			compatible = "qcom,smmu-kgsl-cb";
 			label = "gfx3d_user";
 			iommus = <&kgsl_smmu 0>;
+			qcom,gpu-offset = <0x48000>;
 		};
 
-		iommu_kgsl_cb3: iommu_kgsl_cb3 {
+		gfx3d_secure: gfx3d_secure {
 			compatible = "qcom,smmu-kgsl-cb";
-			label = "gfx3d_secure";
 			iommus = <&kgsl_smmu 2>;
 		};
 	};
-
 };

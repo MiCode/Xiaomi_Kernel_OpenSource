@@ -112,8 +112,6 @@ struct kgsl_mmu_pt_ops {
 #define MMU_FEATURE(_mmu, _bit) \
 	((_mmu)->features & (_bit))
 
-/* MMU can use DMA API */
-#define KGSL_MMU_DMA_API    BIT(0)
 /* MMU has register retention */
 #define KGSL_MMU_RETENTION  BIT(1)
 /* MMU requires the TLB to be flushed on map */
@@ -126,6 +124,8 @@ struct kgsl_mmu_pt_ops {
 #define KGSL_MMU_FORCE_32BIT BIT(5)
 /* 64 bit address is live */
 #define KGSL_MMU_64BIT BIT(6)
+/* MMU can do coherent hardware table walks */
+#define KGSL_MMU_COHERENT_HTW BIT(7)
 
 struct kgsl_mmu {
 	uint32_t      flags;

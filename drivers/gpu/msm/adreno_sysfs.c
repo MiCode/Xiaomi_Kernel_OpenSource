@@ -54,17 +54,14 @@ static int _ft_pagefault_policy_store(struct adreno_device *adreno_dev,
 		unsigned int val)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
-	int ret;
 
 	mutex_lock(&device->mutex);
 	val &= KGSL_FT_PAGEFAULT_MASK;
-	ret = kgsl_mmu_set_pagefault_policy(&device->mmu, (unsigned long) val);
-	if (!ret)
-		adreno_dev->ft_pf_policy = val;
+	adreno_dev->ft_pf_policy = val;
 
 	mutex_unlock(&device->mutex);
 
-	return ret;
+	return 0;
 }
 
 static unsigned int _ft_pagefault_policy_show(struct adreno_device *adreno_dev)

@@ -257,6 +257,16 @@ struct kgsl_event_group {
 	void *priv;
 };
 
+/**
+ * struct kgsl_protected_registers - Protected register range
+ * @base: Offset of the range to be protected
+ * @range: Range (# of registers = 2 ** range)
+ */
+struct kgsl_protected_registers {
+	unsigned int base;
+	int range;
+};
+
 long kgsl_ioctl_device_getproperty(struct kgsl_device_private *dev_priv,
 					  unsigned int cmd, void *data);
 long kgsl_ioctl_device_setproperty(struct kgsl_device_private *dev_priv,
