@@ -2875,6 +2875,28 @@ static void sdhci_msm_cmdq_init(struct sdhci_host *host,
 }
 #endif
 
+static bool sdhci_msm_is_bootdevice(struct device *dev)
+{
+	if (strnstr(saved_command_line, "androidboot.bootdevice=",
+		    strlen(saved_command_line))) {
+		char search_string[50];
+
+		snprintf(search_string, ARRAY_SIZE(search_string),
+			"androidboot.bootdevice=%s", dev_name(dev));
+		if (strnstr(saved_command_line, search_string,
+		    strlen(saved_command_line)))
+			return true;
+		else
+			return false;
+	}
+
+	/*
+	 * "androidboot.bootdevice=" argument is not present then
+	 * return true as we don't know the boot device anyways.
+	 */
+	return true;
+}
+
 static int sdhci_msm_probe(struct platform_device *pdev)
 {
 	struct sdhci_host *host;
@@ -2913,6 +2935,11 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 				ret);
 			goto pltfm_free;
 		}
+
+		/* skip the probe if eMMC isn't a boot device */
+		if ((ret == 1) && !sdhci_msm_is_bootdevice(&pdev->dev))
+			goto pltfm_free;
+
 		if (disable_slots & (1 << (ret - 1))) {
 			dev_info(&pdev->dev, "%s: Slot %d disabled\n", __func__,
 				ret);
