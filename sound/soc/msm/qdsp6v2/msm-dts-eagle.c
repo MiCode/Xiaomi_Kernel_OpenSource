@@ -509,12 +509,13 @@ static int _sendcache_post(int port_id, int copp_idx, int topology)
 	}
 
 	index = adm_validate_and_get_port_index(port_id);
-	if (index < 0)
+	if (index < 0) {
 		eagle_postcache_err("%s: Invalid port idx %d port_id %#x",
 			__func__, index, port_id);
-	else
-		eagle_postcache_dbg("%s: valid port idx %d for port_id %#x set to %i",
-			 __func__, index, port_id, copp_idx);
+		return -EINVAL;
+	}
+	eagle_postcache_dbg("%s: valid port idx %d for port_id %#x set to %i",
+		__func__, index, port_id, copp_idx);
 	_cidx[index] = copp_idx;
 
 	mask = _get_dev_mask_for_pid(port_id);
