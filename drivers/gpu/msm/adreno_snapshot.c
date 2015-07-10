@@ -19,6 +19,7 @@
 #include "a3xx_reg.h"
 #include "adreno_cp_parser.h"
 #include "adreno_snapshot.h"
+#include "adreno_a5xx.h"
 
 /* Number of dwords of ringbuffer history to record */
 #define NUM_DWORDS_OF_RINGBUFFER_HISTORY 100
@@ -33,6 +34,11 @@
 
 /* Used to print error message if an IB has too many objects in it */
 static int ib_max_objs;
+
+struct snapshot_rb_params {
+	struct kgsl_snapshot *snapshot;
+	struct adreno_ringbuffer *rb;
+};
 
 /* Keep track of how many bytes are frozen after a snapshot and tell the user */
 static size_t snapshot_frozen_objsize;
@@ -225,19 +231,22 @@ static inline void parse_ib(struct kgsl_device *device,
 
 }
 
-/* Snapshot the ringbuffer memory */
-static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
-	size_t remain, void *priv)
+/**
+ * snapshot_rb_ibs() - Dump rb data and capture the IB's in the RB as well
+ * @rb: The RB to dump
+ * @data: Pointer to memory where the RB data is to be dumped
+ * @snapshot: Pointer to information about the current snapshot being taken
+ */
+static void snapshot_rb_ibs(struct adreno_ringbuffer *rb,
+			unsigned int *data,
+			struct kgsl_snapshot *snapshot)
 {
-	struct kgsl_snapshot_rb_v2 *header = (struct kgsl_snapshot_rb_v2 *)buf;
-	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	struct kgsl_device *device = rb->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
 	unsigned int rptr, *rbptr;
 	uint64_t ibbase;
 	int index, i;
 	int parse_ibs = 0, ib_parse_start;
-	struct kgsl_snapshot *snapshot = priv;
 
 	/* Get the current read pointers for the RB */
 	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_RPTR, &rptr);
@@ -311,31 +320,6 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 	ib_parse_start = index;
 
 	/*
-	 * Dump the entire ringbuffer - the parser can choose how much of it to
-	 * process
-	 */
-
-	if (remain < KGSL_RB_SIZE + sizeof(*header)) {
-		KGSL_CORE_ERR("snapshot: Not enough memory for the rb section");
-		return 0;
-	}
-
-	/* Write the sub-header for the section */
-	header->start = rb->wptr;
-	header->end = rb->wptr;
-	header->wptr = rb->wptr;
-	header->rptr = rptr;
-	header->rbsize = KGSL_RB_DWORDS;
-	header->gpuaddr = rb->buffer_desc.gpuaddr;
-	header->count = KGSL_RB_DWORDS;
-	header->id = rb->id;
-
-	adreno_rb_readtimestamp(device, rb, KGSL_TIMESTAMP_QUEUED,
-					&header->timestamp_queued);
-	adreno_rb_readtimestamp(device, rb, KGSL_TIMESTAMP_RETIRED,
-					&header->timestamp_retired);
-
-	/*
 	 * Loop through the RB, copying the data and looking for indirect
 	 * buffers and MMU pagetable changes
 	 */
@@ -386,6 +370,53 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 		data++;
 	}
 
+}
+
+/* Snapshot the ringbuffer memory */
+static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
+	size_t remain, void *priv)
+{
+	struct kgsl_snapshot_rb_v2 *header = (struct kgsl_snapshot_rb_v2 *)buf;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct snapshot_rb_params *snap_rb_params = priv;
+	struct kgsl_snapshot *snapshot = snap_rb_params->snapshot;
+	struct adreno_ringbuffer *rb = snap_rb_params->rb;
+
+	/*
+	 * Dump the entire ringbuffer - the parser can choose how much of it to
+	 * process
+	 */
+
+	if (remain < KGSL_RB_SIZE + sizeof(*header)) {
+		KGSL_CORE_ERR("snapshot: Not enough memory for the rb section");
+		return 0;
+	}
+
+	/* Write the sub-header for the section */
+	header->start = rb->wptr;
+	header->end = rb->wptr;
+	header->wptr = rb->wptr;
+	header->rptr = rb->rptr;
+	header->rbsize = KGSL_RB_DWORDS;
+	header->count = KGSL_RB_DWORDS;
+	adreno_rb_readtimestamp(device, rb, KGSL_TIMESTAMP_QUEUED,
+					&header->timestamp_queued);
+	adreno_rb_readtimestamp(device, rb, KGSL_TIMESTAMP_RETIRED,
+					&header->timestamp_retired);
+	header->gpuaddr = rb->buffer_desc.gpuaddr;
+	header->id = rb->id;
+
+	if (rb == adreno_dev->cur_rb) {
+		snapshot_rb_ibs(rb, data, snapshot);
+	} else {
+		unsigned int *rbptr = rb->buffer_desc.hostptr;
+		/* just copy the RB data, no need to look for IB's */
+		memcpy(data, (void *)(rbptr + rb->wptr),
+			(KGSL_RB_DWORDS - rb->wptr) * sizeof(unsigned int));
+		memcpy((void *)(data + (KGSL_RB_DWORDS - rb->wptr)), rbptr,
+			rb->wptr * sizeof(unsigned int));
+	}
 	/* Return the size of the section */
 	return KGSL_RB_SIZE + sizeof(*header);
 }
@@ -654,6 +685,46 @@ static size_t snapshot_global(struct kgsl_device *device, u8 *buf,
 	return memdesc->size + sizeof(*header);
 }
 
+/* Snapshot a preemption record buffer */
+static size_t snapshot_preemption_record(struct kgsl_device *device, u8 *buf,
+	size_t remain, void *priv)
+{
+	struct kgsl_memdesc *memdesc = priv;
+	struct a5xx_cp_preemption_record record;
+	int size = sizeof(record);
+
+	struct kgsl_snapshot_gpu_object_v2 *header =
+		(struct kgsl_snapshot_gpu_object_v2 *)buf;
+
+	u8 *ptr = buf + sizeof(*header);
+
+	if (size == 0)
+		return 0;
+
+	if (remain < (size + sizeof(*header))) {
+		KGSL_CORE_ERR(
+			"snapshot: Not enough memory for preemption record\n");
+		return 0;
+	}
+
+	if (memdesc->hostptr == NULL) {
+		KGSL_CORE_ERR(
+		"snapshot: no kernel mapping for preemption record 0x%016llX\n",
+				memdesc->gpuaddr);
+		return 0;
+	}
+
+	header->size = size >> 2;
+	header->gpuaddr = memdesc->gpuaddr;
+	header->ptbase =
+		kgsl_mmu_pagetable_get_ptbase(device->mmu.defaultpagetable);
+	header->type = SNAPSHOT_GPU_OBJECT_GLOBAL;
+
+	memcpy(ptr, memdesc->hostptr, size);
+
+	return size + sizeof(*header);
+}
+
 /* adreno_snapshot - Snapshot the Adreno GPU state
  * @device - KGSL device to snapshot
  * @snapshot - Pointer to the snapshot instance
@@ -670,6 +741,9 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	unsigned int ib1size, ib2size;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct adreno_ringbuffer *rb;
+	struct snapshot_rb_params snap_rb_params;
+	struct kgsl_iommu *iommu = device->mmu.priv;
 
 	ib_max_objs = 0;
 	/* Reset the list of objects */
@@ -680,9 +754,25 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	setup_fault_process(device, snapshot,
 			context ? context->proc_priv : NULL);
 
-	/* Dump the ringbuffer */
+	/* Dump the current ringbuffer */
+	snap_rb_params.snapshot = snapshot;
+	snap_rb_params.rb = adreno_dev->cur_rb;
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_RB_V2, snapshot,
-			snapshot_rb, snapshot);
+			snapshot_rb, &snap_rb_params);
+
+	/* Dump the prev ringbuffer */
+	if (adreno_dev->prev_rb) {
+		snap_rb_params.rb = adreno_dev->prev_rb;
+		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_RB_V2,
+			snapshot, snapshot_rb, &snap_rb_params);
+	}
+
+	/* Dump next ringbuffer */
+	if (adreno_dev->next_rb) {
+		snap_rb_params.rb = adreno_dev->next_rb;
+		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_RB_V2,
+			snapshot, snapshot_rb, &snap_rb_params);
+	}
 
 	adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB1_BASE,
 			ADRENO_REG_CP_IB1_BASE_HI, &ib1base);
@@ -706,6 +796,29 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
 			snapshot, snapshot_global,
 			&adreno_dev->pwron_fixup);
+
+	/* Dump the pt switch IB for each RB */
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_HAS_REG_TO_REG_CMDS)) {
+		FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
+				snapshot, snapshot_global,
+				&rb->pt_update_desc);
+		}
+	}
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) {
+		FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+			kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
+				snapshot, snapshot_preemption_record,
+				&rb->preemption_desc);
+		}
+
+		kgsl_snapshot_add_section(device,
+				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
+				snapshot, snapshot_global, &iommu->smmu_info);
+	}
 
 	/*
 	 * Add a section that lists (gpuaddr, size, memtype) tuples of the
