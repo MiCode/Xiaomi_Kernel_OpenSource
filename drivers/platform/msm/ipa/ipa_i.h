@@ -1225,6 +1225,7 @@ struct ipa_context {
 	unsigned long peer_bam_dev;
 	u32 peer_bam_map_cnt;
 	u32 wdi_map_cnt;
+	bool use_dma_zone;
 };
 
 /**
@@ -1274,6 +1275,7 @@ struct ipa_plat_drv_res {
 	bool modem_cfg_emb_pipe_flt;
 	u32 wan_rx_ring_size;
 	bool skip_uc_pipe_reset;
+	bool use_dma_zone;
 };
 
 struct ipa_mem_partition {

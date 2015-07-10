@@ -326,6 +326,7 @@
 		clock-names = "core_clk", "smmu_clk";
 		qcom,arm-smmu;
 		qcom,smmu-disable-htw;
+		qcom,use-dma-zone;
 
 		ipa_smmu_ap: ipa_smmu_ap {
 			compatible = "qcom,ipa-smmu-ap-cb";

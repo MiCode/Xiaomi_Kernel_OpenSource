@@ -53,6 +53,10 @@ memory allocation over a PCIe bridge
                                 configures embedded pipe filtering rules
 - qcom,skip-uc-pipe-reset:      Boolean context flag to indicate whether
                                 a pipe reset via the IPA uC is required
+- qcom,use-dma-zone:            Boolean context flag to indicate whether memory
+                                allocations controlled by IPA driver that do not
+				specify a struct device * should use GFP_DMA to
+				workaround IPA HW limitations
 
 IPA pipe sub nodes (A2 static pipes configurations):
 

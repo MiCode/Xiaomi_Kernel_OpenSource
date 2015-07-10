@@ -1055,7 +1055,7 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	ep->connect.options = ep->sys->sps_option;
 	ep->connect.desc.size = sys_in->desc_fifo_sz;
 	ep->connect.desc.base = dma_alloc_coherent(ipa_ctx->pdev,
-			ep->connect.desc.size, &dma_addr, 0);
+			ep->connect.desc.size, &dma_addr, GFP_KERNEL);
 	if (!ipa_ctx->smmu_present) {
 		ep->connect.desc.phys_base = dma_addr;
 	} else {
@@ -1414,7 +1414,7 @@ static void ipa_wq_repl_rx(struct work_struct *work)
 	struct ipa_sys_context *sys;
 	void *ptr;
 	struct ipa_rx_pkt_wrapper *rx_pkt;
-	gfp_t flag = GFP_KERNEL;
+	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 	u32 next;
 	u32 curr;
 
@@ -1579,7 +1579,8 @@ static void ipa_alloc_wlan_rx_common_cache(u32 size)
 	void *ptr;
 	struct ipa_rx_pkt_wrapper *rx_pkt;
 	int rx_len_cached = 0;
-	gfp_t flag = GFP_NOWAIT | __GFP_NOWARN;
+	gfp_t flag = GFP_NOWAIT | __GFP_NOWARN |
+		(ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 
 	rx_len_cached = ipa_ctx->wc_memb.wlan_comm_total_cnt;
 	while (rx_len_cached < size) {
@@ -1649,7 +1650,8 @@ static void ipa_replenish_rx_cache(struct ipa_sys_context *sys)
 	struct ipa_rx_pkt_wrapper *rx_pkt;
 	int ret;
 	int rx_len_cached = 0;
-	gfp_t flag = GFP_NOWAIT | __GFP_NOWARN;
+	gfp_t flag = GFP_NOWAIT | __GFP_NOWARN |
+		(ipa_ctx->use_dma_zone ? GFP_DMA : 0);
 
 	rx_len_cached = sys->len;
 
