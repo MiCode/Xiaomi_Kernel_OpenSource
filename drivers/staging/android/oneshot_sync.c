@@ -67,6 +67,7 @@ struct oneshot_sync_state {
 struct oneshot_sync_pt {
 	struct sync_pt sync_pt;
 	struct oneshot_sync_state *state;
+	bool dup;
 };
 #define to_oneshot_pt(_p) container_of((_p), struct oneshot_sync_pt, sync_pt)
 
@@ -127,13 +128,15 @@ static struct sync_pt *oneshot_pt_dup(struct sync_pt *sync_pt)
 	if (!kref_get_unless_zero(&pt->state->refcount))
 		return NULL;
 
-	out_pt = (struct oneshot_sync_pt *)sync_pt_create(sync_pt->parent,
-							 sizeof(*out_pt));
+	out_pt = (struct oneshot_sync_pt *)
+		sync_pt_create(sync_pt_parent(sync_pt), sizeof(*out_pt));
+
 	if (out_pt == NULL) {
 		oneshot_state_put(pt->state);
 		return NULL;
 	}
 	out_pt->state = pt->state;
+	out_pt->dup = true;
 
 	return &out_pt->sync_pt;
 }
@@ -161,8 +164,8 @@ static void oneshot_pt_free(struct sync_pt *sync_pt)
 {
 	struct oneshot_sync_pt *pt = to_oneshot_pt(sync_pt);
 
-	struct oneshot_sync_timeline *timeline =
-		sync_pt->parent ? to_oneshot_timeline(sync_pt->parent) : NULL;
+	struct oneshot_sync_timeline *timeline = sync_pt_parent(sync_pt) ?
+		to_oneshot_timeline(sync_pt_parent(sync_pt)) : NULL;
 
 	if (timeline != NULL) {
 		spin_lock(&timeline->lock);
@@ -172,8 +175,8 @@ static void oneshot_pt_free(struct sync_pt *sync_pt)
 		 * safely, so there could be a delay until the pt's
 		 * state change is noticed.
 		 */
-		if (pt->state->orig_fence == sync_pt->fence) {
 
+		if (pt->dup == false) {
 			/*
 			 * If the original pt goes away, force it signaled to
 			 * avoid deadlock.
@@ -183,8 +186,6 @@ static void oneshot_pt_free(struct sync_pt *sync_pt)
 						pt->state->id);
 				pt->state->signaled = true;
 			}
-			/* clear the pointer, since it will be freed soon */
-			pt->state->orig_fence = NULL;
 		}
 		spin_unlock(&timeline->lock);
 	}

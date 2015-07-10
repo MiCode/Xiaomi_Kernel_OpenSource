@@ -97,7 +97,6 @@ config SW_SYNC_USER
 
 config ONESHOT_SYNC
 	bool "One shot sync objects"
-	default n
 	depends on SYNC
 	help
 	  This sync driver provides a way to create sync objects that may
