@@ -1012,17 +1012,17 @@ TRACE_EVENT(kgsl_active_count,
 );
 
 TRACE_EVENT(kgsl_pagetable_destroy,
-	TP_PROTO(phys_addr_t ptbase, unsigned int name),
+	TP_PROTO(u64 ptbase, unsigned int name),
 	TP_ARGS(ptbase, name),
 	TP_STRUCT__entry(
-		__field(phys_addr_t, ptbase)
+		__field(u64, ptbase)
 		__field(unsigned int, name)
 	),
 	TP_fast_assign(
 		__entry->ptbase = ptbase;
 		__entry->name = name;
 	),
-	TP_printk("ptbase=%pa name=%u", &__entry->ptbase, __entry->name)
+	TP_printk("ptbase=%llx name=%u", __entry->ptbase, __entry->name)
 );
 
 DECLARE_EVENT_CLASS(syncpoint_timestamp_template,

@@ -475,8 +475,7 @@ static size_t snapshot_capture_mem_list(struct kgsl_device *device,
 	}
 
 	header->num_entries = num_mem;
-	header->ptbase =
-		kgsl_mmu_pagetable_get_ptbase(process->pagetable);
+	header->ptbase = kgsl_mmu_pagetable_get_ttbr0(process->pagetable);
 	/*
 	 * Walk throught the memory list and store the
 	 * tuples(gpuaddr, size, memtype) in snapshot
@@ -555,7 +554,7 @@ static size_t snapshot_ib(struct kgsl_device *device, u8 *buf,
 	/* Write the sub-header for the section */
 	header->gpuaddr = obj->gpuaddr;
 	header->ptbase =
-		kgsl_mmu_pagetable_get_ptbase(obj->entry->priv->pagetable);
+		kgsl_mmu_pagetable_get_ttbr0(obj->entry->priv->pagetable);
 	header->size = obj->size >> 2;
 
 	/* Write the contents of the ib */
@@ -607,39 +606,39 @@ static void setup_fault_process(struct kgsl_device *device,
 				struct kgsl_snapshot *snapshot,
 				struct kgsl_process_private *process)
 {
-	phys_addr_t hw_ptbase, proc_ptbase;
+	u64 hw_ptbase, proc_ptbase;
 
 	if (process != NULL && !kgsl_process_private_get(process))
 		process = NULL;
 
 	/* Get the physical address of the MMU pagetable */
-	hw_ptbase = kgsl_mmu_get_current_ptbase(&device->mmu);
+	hw_ptbase = kgsl_mmu_get_current_ttbr0(&device->mmu);
 
 	/* if we have an input process, make sure the ptbases match */
 	if (process) {
-		proc_ptbase = kgsl_mmu_pagetable_get_ptbase(process->pagetable);
+		proc_ptbase = kgsl_mmu_pagetable_get_ttbr0(process->pagetable);
 		/* agreement! No need to check further */
 		if (hw_ptbase == proc_ptbase)
 			goto done;
 
 		kgsl_process_private_put(process);
 		process = NULL;
-		KGSL_CORE_ERR("snapshot: ptbase mismatch hw %pa sw %pa\n",
-				&hw_ptbase, &proc_ptbase);
+		KGSL_CORE_ERR("snapshot: ptbase mismatch hw %llx sw %llx\n",
+				hw_ptbase, proc_ptbase);
 	}
 
 	/* try to find the right pagetable by walking the process list */
 	if (kgsl_mmu_is_perprocess(&device->mmu)) {
-		struct kgsl_process_private *tmp_private;
+		struct kgsl_process_private *tmp;
 
 		mutex_lock(&kgsl_driver.process_mutex);
-		list_for_each_entry(tmp_private,
-				&kgsl_driver.process_list, list) {
-			if (kgsl_mmu_pt_equal(&device->mmu,
-						tmp_private->pagetable,
-						hw_ptbase)
-				&& kgsl_process_private_get(tmp_private)) {
-					process = tmp_private;
+		list_for_each_entry(tmp, &kgsl_driver.process_list, list) {
+			u64 pt_ttbr0;
+
+			pt_ttbr0 = kgsl_mmu_pagetable_get_ttbr0(tmp->pagetable);
+			if ((pt_ttbr0 == hw_ptbase)
+			    && kgsl_process_private_get(tmp)) {
+				process = tmp;
 				break;
 			}
 		}
@@ -677,7 +676,7 @@ static size_t snapshot_global(struct kgsl_device *device, u8 *buf,
 	header->size = memdesc->size >> 2;
 	header->gpuaddr = memdesc->gpuaddr;
 	header->ptbase =
-		kgsl_mmu_pagetable_get_ptbase(device->mmu.defaultpagetable);
+		kgsl_mmu_pagetable_get_ttbr0(device->mmu.defaultpagetable);
 	header->type = SNAPSHOT_GPU_OBJECT_GLOBAL;
 
 	memcpy(ptr, memdesc->hostptr, memdesc->size);
@@ -717,7 +716,7 @@ static size_t snapshot_preemption_record(struct kgsl_device *device, u8 *buf,
 	header->size = size >> 2;
 	header->gpuaddr = memdesc->gpuaddr;
 	header->ptbase =
-		kgsl_mmu_pagetable_get_ptbase(device->mmu.defaultpagetable);
+		kgsl_mmu_pagetable_get_ttbr0(device->mmu.defaultpagetable);
 	header->type = SNAPSHOT_GPU_OBJECT_GLOBAL;
 
 	memcpy(ptr, memdesc->hostptr, size);

@@ -52,8 +52,8 @@ struct adreno_submit_time {
  * switching of pagetable this value equals current_rb_ptname.
  * @switch_pt_enable: Flag used during pagetable switch to check if pt
  * switch can be skipped
- * @adreno_ttbr0: Parameters used during pagetable switch, it contains the
- * pagetable values that need to be programmmed into the TTBR0 registers
+ * @ttbr0: value to program into TTBR0 during pagetable switch.
+ * @contextidr: value to program into CONTEXTIDR during pagetable switch.
  */
 struct adreno_ringbuffer_pagetable_info {
 	int current_global_ptname;
@@ -61,6 +61,7 @@ struct adreno_ringbuffer_pagetable_info {
 	int incoming_ptname;
 	int switch_pt_enable;
 	uint64_t ttbr0;
+	unsigned int contextidr;
 };
 
 /**
