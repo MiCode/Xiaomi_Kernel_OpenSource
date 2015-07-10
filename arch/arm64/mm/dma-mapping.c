@@ -60,7 +60,7 @@ static int __init early_coherent_pool(char *p)
 }
 early_param("coherent_pool", early_coherent_pool);
 
-static void *__alloc_from_pool(size_t size, struct page **ret_pages)
+static void *__alloc_from_pool(size_t size, struct page **ret_pages, gfp_t flags)
 {
 	unsigned long val;
 	void *ptr = NULL;
@@ -80,6 +80,8 @@ static void *__alloc_from_pool(size_t size, struct page **ret_pages)
 			phys += 1 << PAGE_SHIFT;
 		}
 		ptr = (void *)val;
+		if (flags & __GFP_ZERO)
+			memset(ptr, 0, size);
 	}
 
 	return ptr;
@@ -149,6 +151,7 @@ static void *__dma_alloc_coherent(struct device *dev, size_t size,
 		flags |= GFP_DMA;
 	if (IS_ENABLED(CONFIG_DMA_CMA) && (flags & __GFP_WAIT)) {
 		struct page *page;
+		void *addr;
 
 		size = PAGE_ALIGN(size);
 		page = dma_alloc_from_contiguous(dev, size >> PAGE_SHIFT,
@@ -167,7 +170,10 @@ static void *__dma_alloc_coherent(struct device *dev, size_t size,
 		}
 
 		*dma_handle = phys_to_dma(dev, page_to_phys(page));
-		return page_address(page);
+		addr = page_address(page);
+		if (flags & __GFP_ZERO)
+			memset(addr, 0, size);
+		return addr;
 	} else {
 		return swiotlb_alloc_coherent(dev, size, dma_handle, flags);
 	}
@@ -220,7 +226,7 @@ static void *__dma_alloc_noncoherent(struct device *dev, size_t size,
 		if (!page)
 			return NULL;
 
-		addr = __alloc_from_pool(size, page);
+		addr = __alloc_from_pool(size, page, flags);
 
 		if (addr)
 			*dma_handle = phys_to_dma(dev, page_to_phys(*page));
@@ -878,7 +884,7 @@ void *__iommu_alloc_atomic(struct device *dev, size_t size,
 	if (!pages)
 		return NULL;
 
-	addr = __alloc_from_pool(size, pages);
+	addr = __alloc_from_pool(size, pages, gfp);
 	if (!addr)
 		goto err_free;
 
