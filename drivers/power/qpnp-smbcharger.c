@@ -3655,6 +3655,11 @@ static void smbchg_vfloat_adjust_work(struct work_struct *work)
 		goto stop;
 	}
 
+	if (get_prop_batt_health(chip) != POWER_SUPPLY_HEALTH_GOOD) {
+		pr_smb(PR_STATUS, "JEITA active, skipping\n");
+		goto reschedule;
+	}
+
 	set_property_on_fg(chip, POWER_SUPPLY_PROP_UPDATE_NOW, 1);
 	rc = get_property_from_fg(chip,
 			POWER_SUPPLY_PROP_VOLTAGE_NOW, &vbat_uv);
