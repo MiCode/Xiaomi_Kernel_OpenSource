@@ -199,6 +199,7 @@
 #define ARM_SMMU_CB_PAR_LO		0x50
 #define ARM_SMMU_CB_PAR_HI		0x54
 #define ARM_SMMU_CB_FSR			0x58
+#define ARM_SMMU_CB_FSRRESTORE		0x5c
 #define ARM_SMMU_CB_FAR_LO		0x60
 #define ARM_SMMU_CB_FAR_HI		0x64
 #define ARM_SMMU_CB_FSYNR0		0x68
@@ -1164,6 +1165,29 @@ static irqreturn_t arm_smmu_global_fault(int irq, void *dev)
 	writel(gfsr, gr0_base + ARM_SMMU_GR0_sGFSR);
 	arm_smmu_disable_clocks(smmu);
 	return IRQ_HANDLED;
+}
+
+static void arm_smmu_trigger_fault(struct iommu_domain *domain)
+{
+	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+	struct arm_smmu_device *smmu;
+	void __iomem *cb_base;
+
+	if (!smmu_domain->smmu) {
+		pr_err("Can't trigger faults on non-attached domains\n");
+		return;
+	}
+
+	smmu = smmu_domain->smmu;
+
+	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+	arm_smmu_enable_clocks(smmu);
+	/* trigger a translation fault */
+	dev_err(smmu->dev, "Triggering translation fault on cb %d\n",
+		cfg->cbndx);
+	writel_relaxed(FSR_TF, cb_base + ARM_SMMU_CB_FSRRESTORE);
+	arm_smmu_disable_clocks(smmu);
 }
 
 static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
@@ -2252,6 +2276,7 @@ static struct iommu_ops arm_smmu_ops = {
 	.domain_set_attr	= arm_smmu_domain_set_attr,
 	.pgsize_bitmap		= -1UL, /* Restricted during device attach */
 	.dma_supported		= arm_smmu_dma_supported,
+	.trigger_fault		= arm_smmu_trigger_fault,
 };
 
 static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
