@@ -1804,51 +1804,78 @@ static uint64_t _get_unmapped_area_topdown(struct kgsl_pagetable *pagetable,
 	struct kgsl_iommu_pt *pt = pagetable->priv;
 	struct rb_node *node = rb_last(&pt->rbtree);
 	uint64_t end = top;
-
+	uint64_t mask = ~(align - 1);
 	struct kgsl_iommu_addr_entry *entry;
 
-	if (node == NULL)
-		return (top - size) & ~(align - 1);
+	/* Make sure that the bottom is correctly aligned */
+	bottom = ALIGN(bottom, align);
 
-	entry = rb_entry(node, struct kgsl_iommu_addr_entry, node);
+	/* Make sure the requested size will fit in the range */
+	if (size > (top - bottom))
+		return -ENOMEM;
 
-	if (ALIGN(entry->base + entry->size, align) < top) {
-		if (top - ALIGN(entry->base + entry->size, align) >= size)
-			return (top - size) & ~(align - 1);
+	/* Walk back through the list to find the highest entry in the range */
+	for (node = rb_last(&pt->rbtree); node != NULL; node = rb_prev(node)) {
+		entry = rb_entry(node, struct kgsl_iommu_addr_entry, node);
+		if (entry->base < top)
+			break;
 	}
 
 	while (node != NULL) {
-		uint64_t gap;
+		uint64_t offset;
 
 		entry = rb_entry(node, struct kgsl_iommu_addr_entry, node);
 
+		/* If the entire entry is below the range the search is over */
 		if ((entry->base + entry->size) < bottom)
 			break;
 
-		if ((entry->base + entry->size) < end) {
-			gap = end - ALIGN(entry->base + entry->size, align);
-			if (gap >= size)
-				return ALIGN(entry->base + entry->size, align);
+		/* Get the top of the entry properly aligned */
+		offset = ALIGN(entry->base + entry->size, align);
+
+		/*
+		 * Try to allocate the memory from the top of the gap,
+		 * making sure that it fits between the top of this entry and
+		 * the bottom of the previous one
+		 */
+
+		if (offset < end) {
+			uint64_t chunk = (end - size) & mask;
+
+			if (chunk >= offset)
+				return chunk;
 		}
+
+		/*
+		 * If we get here and the current entry is outside of the range
+		 * then we are officially out of room
+		 */
 
 		if (entry->base < bottom)
 			return (uint64_t) -ENOMEM;
 
+		/* Set the top of the gap to the current entry->base */
 		end = entry->base;
+
+		/* And move on to the next lower entry */
 		node = rb_prev(node);
 	}
 
-	if (((end - size) & ~(align - 1)) >= bottom)
-		return (end - size) & ~(align - 1);
+	/* If we get here then there are no more entries in the region */
+	if (((end - size) & mask) >= bottom)
+		return (end - size) & mask;
 
 	return (uint64_t) -ENOMEM;
 }
 
 static uint64_t kgsl_iommu_find_svm_region(struct kgsl_pagetable *pagetable,
 		uint64_t start, uint64_t end, uint64_t size,
-		unsigned int alignment)
+		uint64_t alignment)
 {
 	uint64_t addr;
+
+	/* Avoid black holes */
+	BUG_ON(end <= start);
 
 	spin_lock(&pagetable->lock);
 	addr = _get_unmapped_area_topdown(pagetable,

@@ -682,7 +682,7 @@ static int _nommu_get_gpuaddr(struct kgsl_memdesc *memdesc)
  */
 uint64_t kgsl_mmu_find_svm_region(struct kgsl_pagetable *pagetable,
 		uint64_t start, uint64_t end, uint64_t size,
-		unsigned int align)
+		uint64_t align)
 {
 	BUG_ON(pagetable == NULL || pagetable->pt_ops->find_svm_region == NULL);
 	return pagetable->pt_ops->find_svm_region(pagetable, start, end, size,
