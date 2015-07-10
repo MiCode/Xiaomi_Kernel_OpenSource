@@ -73,6 +73,8 @@ const struct msm_vidc_gov_data DEFAULT_BUS_VOTE = {
 	.imem_size = 0,
 };
 
+const int max_packets = 250;
+
 static void venus_hfi_pm_handler(struct work_struct *work);
 static DECLARE_DELAYED_WORK(venus_hfi_pm_work, venus_hfi_pm_handler);
 static inline int __power_on(struct venus_hfi_device *device);
@@ -3479,22 +3481,19 @@ static struct hal_session *__get_session(struct venus_hfi_device *device,
 	return NULL;
 }
 
-static struct msm_vidc_cb_info *__response_handler(
-		struct venus_hfi_device *device, int *num_packets)
+static int __response_handler(struct venus_hfi_device *device)
 {
-	struct msm_vidc_cb_info *packets = NULL;
+	struct msm_vidc_cb_info *packets = device->response_pkt;
 	int packet_count = 0;
-	const int max_packets = 32;
 	u8 *raw_packet = NULL;
 
 	raw_packet = kzalloc(VIDC_IFACEQ_VAR_HUGE_PKT_SIZE, GFP_TEMPORARY);
-	packets = kmalloc_array(max_packets, sizeof(*packets), GFP_TEMPORARY);
 	if (!raw_packet || !packets) {
 		dprintk(VIDC_ERR, "%s: Failed to allocate memory\n",  __func__);
 
 		kfree(raw_packet);
 		kfree(packets);
-		return NULL;
+		return 0;
 	}
 
 	if (device->intr_status & VIDC_WRAPPER_INTR_CLEAR_A2HWD_BMSK) {
@@ -3629,16 +3628,13 @@ static struct msm_vidc_cb_info *__response_handler(
 	__flush_debug_queue(device, raw_packet);
 
 	kfree(raw_packet);
-
-	*num_packets = packet_count;
-	return packets;
+	return packet_count;
 }
 
 static void venus_hfi_core_work_handler(struct work_struct *work)
 {
 	struct venus_hfi_device *device = list_first_entry(
 		&hal_ctxt.dev_head, struct venus_hfi_device, list);
-	struct msm_vidc_cb_info *responses = NULL;
 	int num_responses = 0, i = 0;
 
 	mutex_lock(&device->lock);
@@ -3666,7 +3662,7 @@ static void venus_hfi_core_work_handler(struct work_struct *work)
 	}
 
 	__core_clear_interrupt(device);
-	responses = __response_handler(device, &num_responses);
+	num_responses = __response_handler(device);
 
 	if (!(device->intr_status & VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK))
 		enable_irq(device->hal_data->irq);
@@ -3679,14 +3675,12 @@ err_no_work:
 	 * re-entrancy.
 	 */
 
-	for (i = 0; !IS_ERR_OR_NULL(responses) && i < num_responses; ++i) {
-		struct msm_vidc_cb_info *r = &responses[i];
+	for (i = 0; !IS_ERR_OR_NULL(device->response_pkt) &&
+		i < num_responses; ++i) {
+		struct msm_vidc_cb_info *r = &device->response_pkt[i];
 
 		device->callback(r->response_type, &r->response);
 	}
-
-	kfree(responses);
-	responses = NULL;
 
 	/*
 	 * XXX: Don't add any code beyond here.  Reacquiring locks after release
@@ -4025,6 +4019,15 @@ static int __init_resources(struct venus_hfi_device *device,
 		goto err_init_bus;
 	}
 
+	device->response_pkt = kmalloc_array(max_packets,
+				sizeof(*device->response_pkt), GFP_TEMPORARY);
+
+	if (!device->response_pkt) {
+		dprintk(VIDC_ERR, "Failed to allocate resp_packets\n");
+		rc = -ENOMEM;
+		goto err_init_bus;
+	}
+
 	return rc;
 
 err_init_bus:
@@ -4039,6 +4042,8 @@ static void __deinit_resources(struct venus_hfi_device *device)
 	__deinit_bus(device);
 	__deinit_clocks(device);
 	__deinit_regulators(device);
+	kfree(device->response_pkt);
+	device->response_pkt = NULL;
 }
 
 static int __protect_cp_mem(struct venus_hfi_device *device)
@@ -4246,7 +4251,7 @@ static int __load_fw(struct venus_hfi_device *device)
 {
 	int rc = 0;
 
-	/* Initialize hardware resources */
+	/* Initialize resources */
 	rc = __init_resources(device, device->res);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to init resources: %d\n", rc);
