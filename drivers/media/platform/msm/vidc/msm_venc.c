@@ -2762,14 +2762,15 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_PERF_MODE:
 		property_id = HAL_CONFIG_VENC_PERF_MODE;
-		venc_mode = ctrl->val;
-		pdata = &venc_mode;
+
 		switch (ctrl->val) {
 		case V4L2_MPEG_VIDC_VIDEO_PERF_POWER_SAVE:
 			inst->flags |= VIDC_LOW_POWER;
+			venc_mode = HAL_PERF_MODE_POWER_SAVE;
 			break;
 		case V4L2_MPEG_VIDC_VIDEO_PERF_MAX_QUALITY:
 			inst->flags &= ~VIDC_LOW_POWER;
+			venc_mode = HAL_PERF_MODE_POWER_MAX_QUALITY;
 			break;
 		default:
 			dprintk(VIDC_ERR, "Power save mode %x not supported\n",
@@ -2778,6 +2779,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			property_id = 0;
 			break;
 		}
+		pdata = &venc_mode;
 
 		msm_dcvs_enc_set_power_save_mode(inst,
 			ctrl->val == V4L2_MPEG_VIDC_VIDEO_PERF_POWER_SAVE);
