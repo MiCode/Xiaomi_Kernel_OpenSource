@@ -1344,7 +1344,7 @@ static void a4xx_perfcounter_init(struct adreno_device *adreno_dev)
 		 * are swizzled so only a subset of them are usable
 		 */
 
-		if (counters != 0) {
+		if (counters != NULL) {
 			counters->groups[KGSL_PERFCOUNTER_GROUP_CP].regs =
 				a420_perfcounters_cp;
 			counters->groups[KGSL_PERFCOUNTER_GROUP_CP].reg_count =

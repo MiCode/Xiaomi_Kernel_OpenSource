@@ -223,13 +223,13 @@ struct kgsl_device {
 	unsigned long reg_phys;
 
 	/* Starting Kernel virtual address for GPU registers */
-	void *reg_virt;
+	void __iomem *reg_virt;
 
 	/* Total memory size for all GPU registers */
 	unsigned int reg_len;
 
 	/* Kernel virtual address for GPU shader memory */
-	void *shader_mem_virt;
+	void __iomem *shader_mem_virt;
 
 	/* Starting physical address for GPU shader memory */
 	unsigned long shader_mem_phys;
