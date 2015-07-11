@@ -38,6 +38,7 @@
 #define WCD_CPE_AFE_MAX_PORTS 2
 #define WCD_CPE_DRAM_SIZE 0x30000
 #define WCD_CPE_DRAM_OFFSET 0x50000
+#define AFE_SVC_EXPLICIT_PORT_START 1
 
 #define ELF_FLAG_EXECUTE (1 << 0)
 #define ELF_FLAG_WRITE (1 << 1)
@@ -102,6 +103,9 @@ static void wcd_cpe_svc_event_cb(const struct cpe_svc_notification *param);
 static int wcd_cpe_setup_irqs(struct wcd_cpe_core *core);
 static void wcd_cpe_cleanup_irqs(struct wcd_cpe_core *core);
 static u32 ramdump_enable;
+
+static int wcd_cpe_afe_svc_cmd_mode(void *core_handle,
+				    u8 mode);
 
 /* wcd_cpe_lsm_session_active: check if any session is active
  * return true if any session is active.
@@ -1165,9 +1169,9 @@ void wcd_cpe_cmi_afe_cb(const struct cmi_api_notification *param)
 static void wcd_cpe_initialize_afe_port_data(void)
 {
 	struct wcd_cmi_afe_port_data *afe_port_d;
-	int i = 0;
+	int i;
 
-	for (i = 1; i <= WCD_CPE_AFE_MAX_PORTS; i++) {
+	for (i = 0; i <= WCD_CPE_AFE_MAX_PORTS; i++) {
 		afe_port_d = &afe_ports[i];
 		afe_port_d->port_id = i;
 		init_completion(&afe_port_d->afe_cmd_complete);
@@ -1185,9 +1189,9 @@ static void wcd_cpe_initialize_afe_port_data(void)
 static void wcd_cpe_deinitialize_afe_port_data(void)
 {
 	struct wcd_cmi_afe_port_data *afe_port_d;
-	int i = 0;
+	int i;
 
-	for (i = 1; i <= WCD_CPE_AFE_MAX_PORTS; i++) {
+	for (i = 0; i <= WCD_CPE_AFE_MAX_PORTS; i++) {
 		afe_port_d = &afe_ports[i];
 		afe_port_d->port_state = AFE_PORT_STATE_DEINIT;
 		mutex_destroy(&afe_port_d->afe_lock);
@@ -2648,6 +2652,12 @@ static struct cpe_lsm_session *wcd_cpe_alloc_lsm_session(
 				__func__);
 			goto err_afe_svc_reg;
 		}
+
+		/* Once AFE service is registered, send the mode command */
+		ret = wcd_cpe_afe_svc_cmd_mode(core,
+				AFE_SVC_EXPLICIT_PORT_START);
+		if (ret)
+			goto err_afe_mode_cmd;
 	}
 
 	session->lsm_mem_handle = 0;
@@ -2655,6 +2665,9 @@ static struct cpe_lsm_session *wcd_cpe_alloc_lsm_session(
 
 	lsm_sessions[session_id] = session;
 	return session;
+
+err_afe_mode_cmd:
+	cmi_deregister(core->cmi_afe_handle);
 
 err_afe_svc_reg:
 	cmi_deregister(session->cmi_reg_handle);
@@ -3000,7 +3013,6 @@ int wcd_cpe_get_lsm_ops(struct wcd_cpe_lsm_ops *lsm_ops)
 }
 EXPORT_SYMBOL(wcd_cpe_get_lsm_ops);
 
-
 static int fill_afe_cmd_header(struct cmi_hdr *hdr, u8 port_id,
 				u16 opcode, u8 pld_size,
 				bool obm_flag)
@@ -3321,6 +3333,45 @@ static int wcd_cpe_is_valid_port(struct wcd_cpe_core *core,
 		func, afe_cfg->port_id);
 
 	return 0;
+}
+
+static int wcd_cpe_afe_svc_cmd_mode(void *core_handle,
+				    u8 mode)
+{
+	struct cpe_afe_svc_cmd_mode afe_mode;
+	struct wcd_cpe_core *core = core_handle;
+	struct wcd_cmi_afe_port_data *afe_port_d;
+	int ret;
+
+	afe_port_d = &afe_ports[0];
+	/*
+	 * AFE SVC mode command is for the service and not port
+	 * specific, hence use AFE port as 0 so the command will
+	 * be applied to all AFE ports on CPE.
+	 */
+	afe_port_d->port_id = 0;
+
+	WCD_CPE_GRAB_LOCK(&afe_port_d->afe_lock, "afe");
+	memset(&afe_mode, 0, sizeof(afe_mode));
+	if (fill_afe_cmd_header(&afe_mode.hdr, afe_port_d->port_id,
+				CPE_AFE_SVC_CMD_LAB_MODE,
+				CPE_AFE_CMD_MODE_PAYLOAD_SIZE,
+				false)) {
+		ret = -EINVAL;
+		goto err_ret;
+	}
+
+	afe_mode.mode = mode;
+
+	ret = wcd_cpe_cmi_send_afe_msg(core, afe_port_d, &afe_mode);
+	if (ret)
+		dev_err(core->dev,
+			"%s: afe_svc_mode cmd failed, err = %d\n",
+			__func__, ret);
+
+err_ret:
+	WCD_CPE_REL_LOCK(&afe_port_d->afe_lock, "afe");
+	return ret;
 }
 
 static int wcd_cpe_afe_cmd_port_cfg(void *core_handle,

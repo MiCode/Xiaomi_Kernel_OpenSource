@@ -83,6 +83,7 @@
 #define CPE_AFE_PORT_CMDRSP_SHARED_MEM_ALLOC	(0x1006)
 #define CPE_AFE_PORT_CMD_SHARED_MEM_DEALLOC	(0x1007)
 #define CPE_AFE_PORT_CMD_GENERIC_CONFIG		(0x1008)
+#define CPE_AFE_SVC_CMD_LAB_MODE		(0x1009)
 
 /* AFE Service module and param IDs */
 #define CPE_AFE_CMD_SET_PARAM			(0x1000)
@@ -320,6 +321,11 @@ struct cpe_afe_params {
 	struct cpe_afe_port_cfg port_cfg;
 };
 
+struct cpe_afe_svc_cmd_mode {
+	struct cmi_hdr hdr;
+	u8 mode;
+} __packed;
+
 struct cpe_lsm_operation_mode {
 	struct cpe_param_data param;
 	u32 minor_version;
@@ -418,5 +424,9 @@ struct cpe_lsm_lab_latency_config {
 
 #define CPE_AFE_CMD_PORT_CFG_PAYLOAD_SIZE \
 		(sizeof(struct cpe_afe_cmd_port_cfg) - \
+		 sizeof(struct cmi_hdr))
+
+#define CPE_AFE_CMD_MODE_PAYLOAD_SIZE \
+		(sizeof(struct cpe_afe_svc_cmd_mode) - \
 		 sizeof(struct cmi_hdr))
 #endif /* __CPE_CMI_H__ */
