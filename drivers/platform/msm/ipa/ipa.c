@@ -3872,6 +3872,16 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 		return ret;
 	}
 
+	IPAERR("map IPA region to WLAN_CB IOMMU\n");
+	ret = iommu_map(cb->iommu, 0x680000, 0x680000,
+			0x64000,
+			IOMMU_READ | IOMMU_WRITE | IOMMU_DEVICE);
+	if (ret) {
+		IPAERR("map IPA to WLAN_CB IOMMU failed ret=%d\n",
+			ret);
+		return ret;
+	}
+
 	cb->valid = true;
 
 	return 0;
@@ -3945,6 +3955,16 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		IPADBG("Fail to create mapping\n");
 		/* assume this failure is because iommu driver is not ready */
 		return -EPROBE_DEFER;
+	}
+
+	IPAERR("map IPA region to AP_CB IOMMU\n");
+	result = iommu_map(cb->mapping->domain, 0x680000, 0x680000,
+		0x64000,
+			IOMMU_READ | IOMMU_WRITE | IOMMU_DEVICE);
+	if (result) {
+		IPAERR("map IPA region to AP_CB IOMMU failed ret=%d\n",
+			result);
+		return result;
 	}
 
 	if (smmu_disable_htw) {
