@@ -592,10 +592,17 @@ static bool cfg80211_secondary_chans_ok(struct wiphy *wiphy,
 
 	for (freq = start_freq; freq <= end_freq; freq += 20) {
 		c = ieee80211_get_channel(wiphy, freq);
-		if (!c || c->flags & prohibited_flags)
+
+		if (!c)
+			return false;
+
+		if ((!(wiphy->flags & WIPHY_FLAG_DFS_OFFLOAD)) &&
+		    (c->flags & prohibited_flags & IEEE80211_CHAN_RADAR))
+			return false;
+
+		if (c->flags & prohibited_flags & ~IEEE80211_CHAN_RADAR)
 			return false;
 	}
-
 	return true;
 }
 
