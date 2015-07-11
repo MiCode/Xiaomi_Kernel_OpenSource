@@ -24,13 +24,6 @@
 #define SWR_MSTR_PORT_LEN	8 /* Number of master ports */
 
 enum {
-	SWR_MSTR_PAUSE,
-	SWR_MSTR_RESUME,
-	SWR_MSTR_UP,
-	SWR_MSTR_DOWN,
-};
-
-enum {
 	SWR_IRQ_FREE,
 	SWR_IRQ_REGISTER,
 };
@@ -76,7 +69,6 @@ struct swr_mstr_ctrl {
 	struct completion reset;
 	struct completion broadcast;
 	struct mutex mlock;
-	struct mutex reslock;
 	u8 rcmd_id;
 	u8 wcmd_id;
 	void *handle; /* SWR Master handle from client for read and writes */
@@ -90,8 +82,6 @@ struct swr_mstr_ctrl {
 	int slave_status;
 	struct list_head mport_list;
 	struct swr_mstr_port *mstr_port;
-	int state;
-	struct platform_device *pdev;
 };
 
 #endif /* _SWR_WCD_CTRL_H */
