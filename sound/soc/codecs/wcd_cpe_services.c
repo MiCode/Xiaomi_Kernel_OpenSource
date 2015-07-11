@@ -16,6 +16,7 @@
 #include <linux/sched.h>
 #include <linux/completion.h>
 #include <linux/kthread.h>
+#include <linux/delay.h>
 #include <linux/mfd/wcd9xxx/core.h>
 #include <sound/cpe_cmi.h>
 #include <sound/soc.h>
@@ -30,6 +31,7 @@
 #define CMI_DRIVER_SUPPORTED_VERSION 0
 #define CMI_API_SUCCESS 0
 #define CMI_MSG_TRANSPORT (0x0002)
+#define CPE_SVC_INACTIVE_STATE_RETRIES_MAX 10
 
 #define TOMTOM_A_SVASS_SPE_DRAM_OFFSET				0x50000
 #define TOMTOM_A_SVASS_SPE_DRAM_SIZE				0x30000
@@ -1251,6 +1253,7 @@ static enum cpe_process_result cpe_mt_process_cmd(
 	struct cpe_send_msg *m;
 	struct cmi_hdr *hdr;
 	u8 service = 0;
+	u8 retries = 0;
 
 	if (!t_info || !command_node) {
 		pr_err("%s: Invalid handle/command node\n",
@@ -1285,6 +1288,20 @@ static enum cpe_process_result cpe_mt_process_cmd(
 
 	case CPE_CMD_SEND_TRANS_MSG:
 		m = (struct cpe_send_msg *)command_node->data;
+
+		while (retries < CPE_SVC_INACTIVE_STATE_RETRIES_MAX) {
+			if (t_info->tgt->tgt_is_active()) {
+				++retries;
+				/* Wait for CPE to be inactive */
+				usleep_range(5000, 5100);
+			} else {
+				break;
+			}
+		}
+
+		pr_debug("%s: cpe inactive after %d attempts\n",
+			 __func__, retries);
+
 		cpe_change_state(t_info, CPE_STATE_SENDING_MSG,
 				CPE_SS_MSG_SEND_INBOX);
 		rc = cpe_send_msg_to_inbox(t_info, 0, m);
