@@ -1854,17 +1854,17 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 					pipe->num, pipe->flags);
 		}
 	}
+
 	/*
-	 * If there is no secure display session and sd_enabled, disable the
-	 * secure display session
+	 * start secure display session if there is secure display session and
+	 * sd_enabled is not true.
 	 */
-	if (!sd_in_pipe && mdp5_data->sd_enabled) {
-		/* disable the secure display on last client */
-		if (mdss_get_sd_client_cnt() == 1)
-			ret = mdss_mdp_secure_display_ctrl(0);
+	if (!mdp5_data->sd_enabled && sd_in_pipe) {
+		if (!mdss_get_sd_client_cnt())
+			ret = mdss_mdp_secure_display_ctrl(1);
 		if (!ret) {
-			mdss_update_sd_client(mdp5_data->mdata, false);
-			mdp5_data->sd_enabled = 0;
+			mdp5_data->sd_enabled = 1;
+			mdss_update_sd_client(mdp5_data->mdata, true);
 		}
 	}
 
@@ -1936,14 +1936,17 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	ATRACE_END("display_wait4comp");
 	mutex_lock(&mdp5_data->ov_lock);
 
-	if (ret == 0) {
-		if (!mdp5_data->sd_enabled && sd_in_pipe) {
-			if (!mdss_get_sd_client_cnt())
-				ret = mdss_mdp_secure_display_ctrl(1);
-			if (!ret) {
-				mdp5_data->sd_enabled = 1;
-				mdss_update_sd_client(mdp5_data->mdata, true);
-			}
+	/*
+	 * If there is no secure display session and sd_enabled, disable the
+	 * secure display session
+	 */
+	if (mdp5_data->sd_enabled && !sd_in_pipe && !ret) {
+		/* disable the secure display on last client */
+		if (mdss_get_sd_client_cnt() == 1)
+			ret = mdss_mdp_secure_display_ctrl(0);
+		if (!ret) {
+			mdss_update_sd_client(mdp5_data->mdata, false);
+			mdp5_data->sd_enabled = 0;
 		}
 	}
 
@@ -2145,7 +2148,8 @@ static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 	if (pipe->flags & MDP_SOLID_FILL)
 		pr_warn("Unexpected buffer queue to a solid fill pipe\n");
 
-	flags = (pipe->flags & MDP_SECURE_OVERLAY_SESSION);
+	flags = (pipe->flags & (MDP_SECURE_OVERLAY_SESSION |
+		MDP_SECURE_DISPLAY_OVERLAY_SESSION));
 
 	mutex_lock(&mdp5_data->list_lock);
 	src_data = mdss_mdp_overlay_buf_alloc(mfd, pipe);
