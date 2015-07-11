@@ -1412,6 +1412,8 @@ bool ipa_get_modem_cfg_emb_pipe_flt(void);
 struct device *ipa_get_dma_dev(void);
 struct iommu_domain *ipa_get_smmu_domain(void);
 
+int ipa_disable_apps_wan_cons_deaggr(uint32_t agg_size, uint32_t agg_count);
+
 #else /* CONFIG_IPA */
 
 /*
@@ -2141,6 +2143,10 @@ static inline int ipa_release_wdi_mapping(u32 num_buffers,
 	return -EINVAL;
 }
 
+static inline int ipa_disable_apps_wan_cons_deaggr(void)
+{
+	return -EINVAL;
+}
 #endif /* CONFIG_IPA*/
 
 #endif /* _IPA_H_ */
