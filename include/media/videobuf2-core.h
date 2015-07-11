@@ -407,7 +407,7 @@ struct vb2_queue {
 /* private: internal use only */
 	struct mutex			mmap_lock;
 	enum v4l2_memory		memory;
-	struct vb2_buffer		*bufs[VIDEO_MAX_FRAME];
+	struct vb2_buffer		*bufs[VB2_MAX_FRAME];
 	unsigned int			num_buffers;
 
 	struct list_head		queued_list;
