@@ -135,10 +135,6 @@ Optional properties :
 	to supply voltage to the D+ line during VDD minimization and peripheral
 	bus suspend. If not exists, then VDD minimization will not be allowed
 	during peripheral bus suspend.
-- qcom,hsusb-otg-rw-during-lpm-workaround: If present, indicates that remote-
-	wakeup during USB low-power mode SW workaround will be applied. When
-	this workaround is applied, the PHCD and the FPR bits are written
-	to the PORTSC register in the same register write operation.
 - qcom,ahb-async-bridge-bypass: If present, indicates that enable AHB2AHB By Pass
 	mode with device controller for better throughput. With this mode, USB Core
 	runs using PNOC clock and synchronous to it. Hence it is must to have proper
@@ -210,7 +206,6 @@ Example HSUSB OTG controller device node :
 		pinctrl-0 = <&vddmin_act>;
 		pinctrl-0 = <&vddmin_sus>;
 		qcom,hsusb-otg-vddmin-gpio = <&pm8019_mpps 6 0>;
-		qcom,hsusb-otg-rw-during-lpm-workaround = <1>;
 		qcom,disable-retention-with-vdd-min;
 		qcom,usbin-vadc = <&pm8226_vadc>;
 		qcom,usbid-gpio = <&msm_gpio 110 0>;

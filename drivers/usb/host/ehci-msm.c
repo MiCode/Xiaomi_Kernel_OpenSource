@@ -149,6 +149,7 @@ static int ehci_msm_probe(struct platform_device *pdev)
 
 	hcd->usb_phy = phy;
 	device_init_wakeup(&pdev->dev, 1);
+	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 
 	msm_bam_set_usb_host_dev(&pdev->dev);
@@ -180,69 +181,32 @@ static int ehci_msm_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM_RUNTIME
-static int ehci_msm_runtime_idle(struct device *dev)
-{
-	dev_dbg(dev, "ehci runtime idle\n");
-	return 0;
-}
-
 static int ehci_msm_runtime_suspend(struct device *dev)
 {
-	struct usb_hcd *hcd = dev_get_drvdata(dev);
-
 	dev_dbg(dev, "ehci runtime suspend\n");
-	/*
-	 * Notify OTG about suspend.  It takes care of
-	 * putting the hardware in LPM.
-	 */
-	return usb_phy_set_suspend(hcd->usb_phy, 1);
+
+	return 0;
 }
 
 static int ehci_msm_runtime_resume(struct device *dev)
 {
 	struct usb_hcd *hcd = dev_get_drvdata(dev);
-	int ret;
 	u32 portsc;
 
 	dev_dbg(dev, "ehci runtime resume\n");
-	ret = usb_phy_set_suspend(hcd->usb_phy, 0);
-	if (ret)
-		return ret;
 
 	portsc = readl_relaxed(USB_PORTSC);
 	portsc &= ~PORT_RWC_BITS;
 	portsc |= PORT_RESUME;
 	writel_relaxed(portsc, USB_PORTSC);
 
-	return ret;
-}
-#endif
-
-#ifdef CONFIG_PM_SLEEP
-static int ehci_msm_pm_suspend(struct device *dev)
-{
-	struct usb_hcd *hcd = dev_get_drvdata(dev);
-
-	dev_dbg(dev, "ehci-msm PM suspend\n");
-
-	if (!hcd->rh_registered)
-		return 0;
-
-	return usb_phy_set_suspend(hcd->usb_phy, 1);
-}
-
-static int ehci_msm_pm_resume(struct device *dev)
-{
-	dev_dbg(dev, "ehci-msm PM resume\n");
-
 	return 0;
 }
 #endif
 
 static const struct dev_pm_ops ehci_msm_dev_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(ehci_msm_pm_suspend, ehci_msm_pm_resume)
 	SET_RUNTIME_PM_OPS(ehci_msm_runtime_suspend, ehci_msm_runtime_resume,
-				ehci_msm_runtime_idle)
+			   NULL)
 };
 
 static const struct of_device_id msm_ehci_dt_match[] = {

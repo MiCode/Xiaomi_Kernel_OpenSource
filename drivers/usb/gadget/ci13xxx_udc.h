@@ -148,9 +148,7 @@ struct ci13xxx_udc_driver {
 #define CI13XXX_CONTROLLER_ERROR_EVENT			7
 
 	void	(*notify_event)(struct ci13xxx *udc, unsigned event);
-	bool (*cancel_pending_suspend)(struct ci13xxx *udc);
 	bool    (*in_lpm)(struct ci13xxx *udc);
-	void    (*set_fpr_flag)(struct ci13xxx *udc);
 	struct clk *system_clk;
 };
 
