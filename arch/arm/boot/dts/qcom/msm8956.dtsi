@@ -1995,6 +1995,7 @@
 			"csr_gp_io_lpaif_pri_pcm_pri_mode_muxsel";
 
 		qcom,audio-routing =
+			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
 			"AMIC2", "MIC BIAS2",
 			"MIC BIAS2", "Headset Mic",
@@ -2069,6 +2070,8 @@
 				"msm-dai-q6-dev.12292", "msm-dai-q6-dev.12293";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
+		asoc-wsa-codec-names = "wsa881x.20170212", "wsa881x.20170211";
+		asoc-wsa-codec-prefixes = "SpkrLeft", "SpkrRight";
 	};
 
 	wcd9xxx_intc: wcd9xxx-irq {
@@ -2451,6 +2454,11 @@
 };
 
 &slim_msm {
+	msm_dai_slim {
+		compatible = "qcom,msm-dai-slim";
+		elemental-addr = [ff ff ff fe 17 02];
+	};
+
 	tasha_codec {
 		compatible = "qcom,tasha-slim-pgd";
 		elemental-addr = [00 01 A0 01 17 02];
@@ -2488,7 +2496,7 @@
 			"cdc-vdd-px";
 
 		qcom,cdc-micbias1-mv = <1800>;
-		qcom,cdc-micbias2-mv = <2700>;
+		qcom,cdc-micbias2-mv = <1800>;
 		qcom,cdc-micbias3-mv = <1800>;
 		qcom,cdc-micbias4-mv = <1800>;
 
@@ -2499,29 +2507,6 @@
 
 		clock-names = "wcd_clk";
 		clocks = <&clock_audio clk_audio_pmi_clk>;
-
-		swr_master {
-			compatible = "qcom,swr-wcd";
-			#address-cells = <2>;
-			#size-cells = <0>;
-			wsa881x@20170212 {
-				compatible = "qcom,wsa881x";
-				reg = <0x00 0x20170212>;
-				pinctrl-names = "wsa_spkr_sd_act",
-					"wsa_spkr_sd_sus";
-				pinctrl-0 = <&wsa_spkr_sd_act>;
-				pinctrl-1 = <&wsa_spkr_sd_sus>;
-			};
-
-			wsa881x@20170211 {
-				compatible = "qcom,wsa881x";
-				reg = <0x00 0x20170211>;
-				pinctrl-names = "wsa_spkr_sd_act",
-					"wsa_spkr_sd_sus";
-				pinctrl-0 = <&wsa_spkr_sd_act>;
-				pinctrl-1 = <&wsa_spkr_sd_sus>;
-			};
-		};
 	};
 };
 
