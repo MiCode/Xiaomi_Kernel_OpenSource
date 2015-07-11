@@ -65,6 +65,21 @@ static struct snd_soc_dai_link msm8952_tasha_fe_dai[] = {
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ops = &msm8952_slimbus_2_be_ops,
 	},
+	/* CPE LSM direct dai-link */
+	{
+		.name = "CPE Listen service",
+		.stream_name = "CPE Listen Audio Service",
+		.cpu_dai_name = "msm-dai-slim",
+		.platform_name = "msm-cpe-lsm",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "tasha_mad1",
+		.codec_name = "tasha_codec",
+		.ops = &msm8952_cpe_ops,
+	},
 };
 
 static struct snd_soc_dai_link msm8952_tasha_be_dai[] = {
