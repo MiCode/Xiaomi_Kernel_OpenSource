@@ -106,4 +106,6 @@ extern void tasha_mbhc_hs_detect_exit(struct snd_soc_codec *codec);
 extern void tasha_mbhc_zdet_gpio_ctrl(
 		int (*zdet_gpio_cb)(struct snd_soc_codec *codec, bool high),
 		struct snd_soc_codec *codec);
+extern int tasha_codec_info_create_codec_entry(struct snd_info_entry *,
+					       struct snd_soc_codec *);
 #endif

@@ -36,6 +36,7 @@
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <sound/tlv.h>
+#include <sound/info.h>
 #include "wcd9335.h"
 #include "wcd-mbhc-v2.h"
 #include "wcd9xxx-common-v2.h"
@@ -103,6 +104,8 @@
 #define TASHA_MBHC_ZDET_C_MAX  3
 #define TASHA_MBHC_ZDET_CONST  (74 * 16384)
 #define TASHA_MBHC_ZDET_DELAY_PER_MEAS_US  1000
+
+#define TASHA_VERSION_ENTRY_SIZE 17
 
 static int cpe_debug_mode = 1;
 module_param(cpe_debug_mode, int,
@@ -567,6 +570,9 @@ struct tasha_priv {
 	struct mutex swr_clk_lock;
 	int swr_clk_users;
 	int (*zdet_gpio_cb)(struct snd_soc_codec *codec, bool high);
+
+	struct snd_info_entry *entry;
+	struct snd_info_entry *version_entry;
 };
 
 int tasha_enable_efuse_sensing(struct snd_soc_codec *codec)
@@ -8073,6 +8079,93 @@ int tasha_cdc_mclk_enable(struct snd_soc_codec *codec, int enable, bool dapm)
 	return __tasha_cdc_mclk_enable(tasha, enable);
 }
 EXPORT_SYMBOL(tasha_cdc_mclk_enable);
+
+static ssize_t tasha_codec_version_read(struct snd_info_entry *entry,
+			       void *file_private_data, struct file *file,
+			       char __user *buf, size_t count, loff_t pos)
+{
+	struct tasha_priv *tasha;
+	struct wcd9xxx *wcd9xxx;
+	char buffer[TASHA_VERSION_ENTRY_SIZE];
+	int len;
+
+	tasha = (struct tasha_priv *) entry->private_data;
+	if (!tasha) {
+		pr_err("%s: tasha priv is null\n", __func__);
+		return -EINVAL;
+	}
+
+	wcd9xxx = tasha->wcd9xxx;
+
+	if (wcd9xxx->codec_type->id_major == TASHA_MAJOR) {
+		if (TASHA_IS_1_0(wcd9xxx->version))
+			len = snprintf(buffer, sizeof(buffer), "WCD9335_1_0\n");
+		else if (TASHA_IS_1_1(wcd9xxx->version))
+			len = snprintf(buffer, sizeof(buffer), "WCD9335_1_1\n");
+	} else
+		len = snprintf(buffer, sizeof(buffer), "VER_UNDEFINED\n");
+
+	return simple_read_from_buffer(buf, count, &pos, buffer, len);
+}
+
+static struct snd_info_entry_ops tasha_codec_info_ops = {
+	.read = tasha_codec_version_read,
+};
+
+/*
+ * tasha_codec_info_create_codec_entry - creates wcd9335 module
+ * @codec_root: The parent directory
+ * @codec: Codec instance
+ *
+ * Creates wcd9335 module and version entry under the given
+ * parent directory.
+ *
+ * Return: 0 on success or negative error code on failure.
+ */
+int tasha_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
+					struct snd_soc_codec *codec)
+{
+	struct snd_info_entry *version_entry;
+	struct tasha_priv *tasha;
+	struct snd_soc_card *card;
+
+	if (!codec_root || !codec)
+		return -EINVAL;
+
+	tasha = snd_soc_codec_get_drvdata(codec);
+	card = codec->component.card;
+	tasha->entry = snd_register_module_info(codec_root->module,
+						"tasha",
+						codec_root);
+	if (!tasha->entry) {
+		dev_dbg(codec->dev, "%s: failed to create wcd9335 entry\n",
+			__func__);
+		return -ENOMEM;
+	}
+
+	version_entry = snd_info_create_card_entry(card->snd_card,
+						   "version",
+						   tasha->entry);
+	if (!version_entry) {
+		dev_dbg(codec->dev, "%s: failed to create wcd9335 version entry\n",
+			__func__);
+		return -ENOMEM;
+	}
+
+	version_entry->private_data = tasha;
+	version_entry->size = TASHA_VERSION_ENTRY_SIZE;
+	version_entry->content = SNDRV_INFO_CONTENT_DATA;
+	version_entry->c.ops = &tasha_codec_info_ops;
+
+	if (snd_info_register(version_entry) < 0) {
+		snd_info_free_entry(version_entry);
+		return -ENOMEM;
+	}
+	tasha->version_entry = version_entry;
+
+	return 0;
+}
+EXPORT_SYMBOL(tasha_codec_info_create_codec_entry);
 
 /*
  * tasha_codec_internal_rco_ctrl()

@@ -89,6 +89,8 @@ struct wsa881x_priv {
 	int clk_cnt;
 	struct mutex bg_lock;
 	struct mutex res_lock;
+	struct snd_info_entry *entry;
+	struct snd_info_entry *version_entry;
 };
 
 #define SWR_SLV_MAX_REG_ADDR	0x390
@@ -98,6 +100,8 @@ struct wsa881x_priv {
 #define SWR_SLV_RD_BUF_LEN	8
 #define SWR_SLV_WR_BUF_LEN	32
 #define SWR_SLV_MAX_DEVICES	2
+
+#define WSA881X_VERSION_ENTRY_SIZE 27
 
 static struct wsa881x_priv *dbgwsa881x;
 static struct dentry *debugfs_wsa881x_dent;
@@ -138,6 +142,88 @@ static int get_parameters(char *buf, u32 *param1, int num_of_par)
 	}
 	return 0;
 }
+
+static ssize_t wsa881x_codec_version_read(struct snd_info_entry *entry,
+			       void *file_private_data, struct file *file,
+			       char __user *buf, size_t count, loff_t pos)
+{
+	struct wsa881x_priv *wsa881x;
+	char buffer[WSA881X_VERSION_ENTRY_SIZE];
+	int len;
+
+	wsa881x = (struct wsa881x_priv *) entry->private_data;
+	if (!wsa881x) {
+		pr_err("%s: wsa881x priv is null\n", __func__);
+		return -EINVAL;
+	}
+
+	len = snprintf(buffer, sizeof(buffer), "WSA881X-SOUNDWIRE_1_0\n");
+
+	return simple_read_from_buffer(buf, count, &pos, buffer, len);
+}
+
+static struct snd_info_entry_ops wsa881x_codec_info_ops = {
+	.read = wsa881x_codec_version_read,
+};
+
+/*
+ * wsa881x_codec_info_create_codec_entry - creates wsa881x module
+ * @codec_root: The parent directory
+ * @codec: Codec instance
+ *
+ * Creates wsa881x module and version entry under the given
+ * parent directory.
+ *
+ * Return: 0 on success or negative error code on failure.
+ */
+int wsa881x_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
+					  struct snd_soc_codec *codec)
+{
+	struct snd_info_entry *version_entry;
+	struct wsa881x_priv *wsa881x;
+	struct snd_soc_card *card;
+	char name[80];
+
+	if (!codec_root || !codec)
+		return -EINVAL;
+
+	wsa881x = snd_soc_codec_get_drvdata(codec);
+	card = codec->component.card;
+	snprintf(name, sizeof(name), "%s.%x", "wsa881x",
+		 (u32)wsa881x->swr_slave->addr);
+
+	wsa881x->entry = snd_register_module_info(codec_root->module,
+						  (const char *)name,
+						  codec_root);
+	if (!wsa881x->entry) {
+		dev_dbg(codec->dev, "%s: failed to create wsa881x entry\n",
+			__func__);
+		return -ENOMEM;
+	}
+
+	version_entry = snd_info_create_card_entry(card->snd_card,
+						   "version",
+						   wsa881x->entry);
+	if (!version_entry) {
+		dev_dbg(codec->dev, "%s: failed to create wsa881x version entry\n",
+			__func__);
+		return -ENOMEM;
+	}
+
+	version_entry->private_data = wsa881x;
+	version_entry->size = WSA881X_VERSION_ENTRY_SIZE;
+	version_entry->content = SNDRV_INFO_CONTENT_DATA;
+	version_entry->c.ops = &wsa881x_codec_info_ops;
+
+	if (snd_info_register(version_entry) < 0) {
+		snd_info_free_entry(version_entry);
+		return -ENOMEM;
+	}
+	wsa881x->version_entry = version_entry;
+
+	return 0;
+}
+EXPORT_SYMBOL(wsa881x_codec_info_create_codec_entry);
 
 static bool is_swr_slv_reg_readable(int reg)
 {

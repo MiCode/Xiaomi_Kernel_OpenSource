@@ -15,6 +15,7 @@
 
 #include <linux/regmap.h>
 #include <sound/soc.h>
+#include <sound/info.h>
 #include "wsa881x-registers.h"
 
 #define WSA881X_MAX_SWR_PORTS   4
@@ -25,5 +26,7 @@ extern int wsa881x_set_channel_map(struct snd_soc_codec *codec, u8 *port,
 
 extern const u8 wsa881x_reg_readable[WSA881X_CACHE_SIZE];
 extern struct regmap_config wsa881x_regmap_config;
-
+extern int wsa881x_codec_info_create_codec_entry(
+					struct snd_info_entry *codec_root,
+					struct snd_soc_codec *codec);
 #endif /* _WSA881X_H */
