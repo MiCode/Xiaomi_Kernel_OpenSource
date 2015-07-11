@@ -1193,7 +1193,7 @@ static void rmnet_force_unassociate_device(struct net_device *dev)
 int rmnet_config_notify_cb(struct notifier_block *nb,
 				  unsigned long event, void *data)
 {
-	struct net_device *dev = (struct net_device *)data;
+	struct net_device *dev = netdev_notifier_info_to_dev(data);
 
 	if (!dev)
 		BUG();
@@ -1204,10 +1204,8 @@ int rmnet_config_notify_cb(struct notifier_block *nb,
 	case NETDEV_UNREGISTER_FINAL:
 	case NETDEV_UNREGISTER:
 		trace_rmnet_unregister_cb_entry(dev);
-		if (_rmnet_is_physical_endpoint_associated(dev)) {
-			LOGH("Kernel is trying to unregister %s", dev->name);
-			rmnet_force_unassociate_device(dev);
-		}
+		LOGH("Kernel is trying to unregister %s", dev->name);
+		rmnet_force_unassociate_device(dev);
 		trace_rmnet_unregister_cb_exit(dev);
 		break;
 
