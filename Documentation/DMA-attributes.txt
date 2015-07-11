@@ -109,3 +109,13 @@ of mapping (no unaligned accesses, no re-ordering, no write merging, no
 buffering, no pre-fetching). This has severe performance penalties and
 should not be used for general purpose DMA allocations. It should only
 be used if one of the restrictions on strongly ordered memory is required.
+
+DMA_ATTR_NO_DELAYED_UNMAP
+-------------------------
+
+DMA_ATTR_NO_DELAYED_UNMAP is used only by the msm specific lazy mapping
+feature. By default, the lazy mapping and unmapping holds an additional
+reference so that when the buffer is freed, the mapping is not destroyed
+and can be re-used. By specifying this attribute, an additional reference
+will NOT be held by the lazy mapping code and it will be released as soon
+as the buffer is freed.

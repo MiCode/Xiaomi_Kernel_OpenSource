@@ -801,7 +801,7 @@ __iommu_create_mapping(struct device *dev, struct page **pages, size_t size)
 
 		len = (j - i) << PAGE_SHIFT;
 		ret = iommu_map(mapping->domain, iova, phys, len,
-				IOMMU_READ|IOMMU_WRITE);
+				IOMMU_READ|IOMMU_WRITE|IOMMU_NOEXEC);
 		if (ret < 0)
 			goto fail;
 		iova += len;
