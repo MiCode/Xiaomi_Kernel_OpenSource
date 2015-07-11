@@ -8013,7 +8013,7 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 			.rate_max = 48000,
 			.rate_min = 8000,
 			.channels_min = 1,
-			.channels_max = 2,
+			.channels_max = 4,
 		 },
 		.ops = &tasha_dai_ops,
 	},
