@@ -3544,14 +3544,12 @@
 	clock-names = "core0_clk";
 	clocks = <&clock_mmss clk_video_subcore0_clk>;
 	status = "ok";
-	qcom,support-hw-trigger;
 };
 
 &gdsc_venus_core1 {
 	clock-names = "core1_clk";
 	clocks = <&clock_mmss clk_video_subcore1_clk>;
 	status = "ok";
-	qcom,support-hw-trigger;
 };
 
 &gdsc_camss_top {
