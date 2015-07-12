@@ -1600,7 +1600,7 @@
 
 		/* GPIO output to wcnss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_4_out 0 0>;
-		linux,contiguous-region = <&reloc_mem>;
+		memory-region = <&reloc_mem>;
 	};
 
 	dma_blsp1: qcom,sps-dma@7884000 { /* BLSP1 */

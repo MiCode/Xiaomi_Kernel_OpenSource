@@ -31,6 +31,7 @@
 
 /* Q6 Register Offsets */
 #define QDSP6SS_RST_EVB			0x010
+#define QDSP6SS_DBG_CFG			0x018
 
 /* AXI Halting Registers */
 #define MSS_Q6_HALT_BASE		0x180
@@ -82,6 +83,10 @@ module_param(modem_auth_timeout_ms, int, S_IRUGO | S_IWUSR);
 /* If set to 0xAABADEAD, MBA failures trigger a kernel panic */
 static uint modem_trigger_panic;
 module_param(modem_trigger_panic, uint, S_IRUGO | S_IWUSR);
+
+/* To set the modem debug cookie in DBG_CFG register for debugging */
+static uint modem_dbg_cfg;
+module_param(modem_dbg_cfg, uint, S_IRUGO | S_IWUSR);
 
 static void modem_log_rmb_regs(void __iomem *base)
 {
@@ -403,6 +408,9 @@ static int pil_mss_reset(struct pil_desc *pil)
 	ret = pil_mss_enable_clks(drv);
 	if (ret)
 		goto err_clks;
+
+	if (modem_dbg_cfg)
+		writel_relaxed(modem_dbg_cfg, drv->reg_base + QDSP6SS_DBG_CFG);
 
 	/* Program Image Address */
 	if (drv->self_auth) {

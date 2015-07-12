@@ -58,6 +58,8 @@ struct cpr3_fuse_param {
  *			microvolts
  * @last_volt:		Last known settled CPR closed-loop voltage which is used
  *			when switching to a new corner
+ * @system_volt:	The system-supply voltage in microvolts or corners or
+ *			levels
  * @proc_freq:		Processor frequency in Hertz (only used by platform
  *			specific CPR3 driver for interpolation)
  * @cpr_fuse_corner:	Fused corner index associated with this virtual corner
@@ -83,6 +85,7 @@ struct cpr3_corner {
 	int			ceiling_volt;
 	int			open_loop_volt;
 	int			last_volt;
+	int			system_volt;
 	u32			proc_freq;
 	int			cpr_fuse_corner;
 	u32			target_quot[CPR3_RO_COUNT];
@@ -261,6 +264,8 @@ enum cpr3_count_mode {
  *			all of the threads associated with the controller
  * @vdd_regulator:	Pointer to the VDD supply regulator which this CPR3
  *			controller manages
+ * @system_regulator:	Pointer to the optional system-supply regulator upon
+ *			which the VDD supply regulator depends.
  * @vdd_limit_regulator: Pointer to the VDD supply limit regulator which is used
  *			for hardware closed-loop in order specify ceiling and
  *			floor voltage limits (platform specific)
@@ -347,6 +352,7 @@ struct cpr3_controller {
 	int			sensor_count;
 	struct mutex		lock;
 	struct regulator	*vdd_regulator;
+	struct regulator	*system_regulator;
 	struct regulator	*vdd_limit_regulator;
 	struct clk		*core_clk;
 	struct clk		*iface_clk;

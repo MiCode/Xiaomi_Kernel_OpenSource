@@ -837,9 +837,9 @@
 		vdd_gpu_mx-supply = <&pm8994_s2_corner>;
 		qcom,gfxfreq-corner-v0 =
 			<	   0  0  0 >,
-			<   19200000  2  4 >,
-			<   60000000  2  4 >,
-			<  120000000  2  4 >,
+			<   19200000  3  4 >,
+			<   60000000  3  4 >,
+			<  120000000  3  4 >,
 			<  205000000  3  4 >,
 			<  360000000  4  5 >,
 			<  480000000  5  7 >;
@@ -1423,8 +1423,10 @@
 		gdsc-vdd-supply = <&gdsc_pcie_0>;
 		vreg-1.8-supply = <&pm8994_l12>;
 		vreg-0.9-supply = <&pm8994_l28>;
+		vreg-cx-supply = <&pm8994_s1_corner_ao>;
 
 		qcom,vreg-0.9-voltage-level = <925000 925000 24000>;
+		qcom,vreg-cx-voltage-level = <7 4 0>;
 
 		qcom,l1-supported;
 		qcom,l1ss-supported;
@@ -1575,8 +1577,10 @@
 		gdsc-vdd-supply = <&gdsc_pcie_1>;
 		vreg-1.8-supply = <&pm8994_l12>;
 		vreg-0.9-supply = <&pm8994_l28>;
+		vreg-cx-supply = <&pm8994_s1_corner_ao>;
 
 		qcom,vreg-0.9-voltage-level = <925000 925000 24000>;
+		qcom,vreg-cx-voltage-level = <7 5 0>;
 
 		qcom,l1-supported;
 		qcom,l1ss-supported;
@@ -1724,8 +1728,10 @@
 		gdsc-vdd-supply = <&gdsc_pcie_2>;
 		vreg-1.8-supply = <&pm8994_l12>;
 		vreg-0.9-supply = <&pm8994_l28>;
+		vreg-cx-supply = <&pm8994_s1_corner_ao>;
 
 		qcom,vreg-0.9-voltage-level = <925000 925000 24000>;
+		qcom,vreg-cx-voltage-level = <7 4 0>;
 
 		qcom,l1-supported;
 		qcom,l1ss-supported;
@@ -2429,6 +2435,7 @@
 
 		interrupts = <0 24 1>;
 		vdd_cx-supply = <&pm8994_s1_corner>;
+		vdd_cx-voltage = <7>;
 		vdd_mx-supply = <&pm8994_s2_corner>;
 		vdd_mx-uV = <6>;
 		vdd_pll-supply = <&pm8994_l12>;

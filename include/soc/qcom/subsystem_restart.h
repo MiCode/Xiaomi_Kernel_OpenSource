@@ -39,6 +39,7 @@ struct module;
  * @powerup: Start a subsystem
  * @crash_shutdown: Shutdown a subsystem when the system crashes (can't sleep)
  * @ramdump: Collect a ramdump of the subsystem
+ * @free_memory: Free the memory associated with this subsystem
  * @is_not_loadable: Indicate if subsystem firmware is not loadable via pil
  * framework
  * @no_auth: Set if subsystem does not rely on PIL to authenticate and bring
@@ -61,6 +62,7 @@ struct subsys_desc {
 	int (*powerup)(const struct subsys_desc *desc);
 	void (*crash_shutdown)(const struct subsys_desc *desc);
 	int (*ramdump)(int, const struct subsys_desc *desc);
+	void (*free_memory)(const struct subsys_desc *desc);
 	irqreturn_t (*err_fatal_handler) (int irq, void *dev_id);
 	irqreturn_t (*stop_ack_handler) (int irq, void *dev_id);
 	irqreturn_t (*wdog_bite_handler) (int irq, void *dev_id);
@@ -85,12 +87,15 @@ struct subsys_desc {
  * struct notif_data - additional notif information
  * @crashed: indicates if subsystem has crashed
  * @enable_ramdump: ramdumps disabled if set to 0
+ * @enable_mini_ramdumps: enable flag for minimized critical-memory-only
+ * ramdumps
  * @no_auth: set if subsystem does not use PIL to bring it out of reset
  * @pdev: subsystem platform device pointer
  */
 struct notif_data {
 	bool crashed;
 	int enable_ramdump;
+	int enable_mini_ramdumps;
 	bool no_auth;
 	struct platform_device *pdev;
 };

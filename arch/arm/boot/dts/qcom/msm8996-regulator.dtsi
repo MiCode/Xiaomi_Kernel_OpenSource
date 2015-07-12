@@ -777,6 +777,8 @@
 		vdd-supply = <&pmi8994_s2>;
 		qcom,voltage-step = <5000>;
 
+		system-supply = <&pm8994_s1_corner>;
+
 		qcom,cpr-enable;
 
 		thread@0 {
@@ -801,6 +803,8 @@
 					<400000 670000  745000  905000 1015000>;
 				qcom,cpr-voltage-floor =
 					<400000 545000  625000  755000  855000>;
+
+				qcom,system-voltage = <2 2 2 2 4>;
 
 				qcom,corner-frequencies =
 					<0 210000000 300000000 500000000
