@@ -250,7 +250,8 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 	if (!(stats_comp_mask || stats_irq_mask))
 		return;
 
-	ISP_DBG("%s: status: 0x%x\n", __func__, irq_status0);
+	ISP_DBG("%s: vfe %d status: 0x%x\n", __func__, vfe_dev->pdev->id,
+		irq_status0);
 
 	/* Clear composite mask irq bits, they will be restored by comp mask */
 	for (j = 0; j < num_stats_comp_mask; j++) {
