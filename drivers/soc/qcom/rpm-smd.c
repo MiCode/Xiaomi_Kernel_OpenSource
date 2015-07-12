@@ -358,6 +358,7 @@ static inline int msm_rpm_get_error_from_ack(uint8_t *buf)
 	uint8_t *tmp;
 	uint32_t req_len = ((struct msm_rpm_ack_msg *)buf)->req_len;
 
+	struct msm_rpm_ack_msg *tmp_buf = (struct msm_rpm_ack_msg *)buf;
 	int rc = -ENODEV;
 
 	req_len -= sizeof(struct msm_rpm_ack_msg);
@@ -365,9 +366,15 @@ static inline int msm_rpm_get_error_from_ack(uint8_t *buf)
 	if (!req_len)
 		return 0;
 
+	pr_err("%s:rpm returned error or nack req_len: %d id_ack: %d\n",
+				__func__, tmp_buf->req_len, tmp_buf->id_ack);
+
 	tmp = buf + sizeof(struct msm_rpm_ack_msg);
 
-	BUG_ON(memcmp(tmp, ERR, sizeof(uint32_t)));
+	if (memcmp(tmp, ERR, sizeof(uint32_t))) {
+		pr_err("%s rpm returned error\n", __func__);
+		BUG_ON(1);
+	}
 
 	tmp += 2 * sizeof(uint32_t);
 
@@ -874,7 +881,10 @@ static int msm_rpm_read_smd_data(char *buf)
 	if (!pkt_sz)
 		return -EAGAIN;
 
-	BUG_ON(pkt_sz > MAX_ERR_BUFFER_SIZE);
+	if (pkt_sz > MAX_ERR_BUFFER_SIZE) {
+		pr_err("rpm_smd pkt_sz is greater than max size\n");
+		goto error;
+	}
 
 	if (pkt_sz != smd_read_avail(msm_rpm_data.ch_info))
 		return -EAGAIN;
@@ -888,7 +898,13 @@ static int msm_rpm_read_smd_data(char *buf)
 
 	} while (pkt_sz > 0);
 
-	BUG_ON(pkt_sz < 0);
+	if (pkt_sz < 0) {
+		pr_err("rpm_smd pkt_sz is less than zero\n");
+		goto error;
+	}
+	return 0;
+error:
+	BUG_ON(1);
 
 	return 0;
 }
