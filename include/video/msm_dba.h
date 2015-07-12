@@ -463,6 +463,8 @@ struct msm_dba_video_cfg {
  *		 have been applied so far after the reset is complete. In case
  *		 of multiple clients, driver will issue a reset callback.
  * @dump_debug_info: dumps debug information to dmesg.
+ * @check_hpd: Check if cable is connected or not. if cable is connected we
+ *		send notification to display framework.
  *
  * The msm_dba_ops structure represents a set of operations that can be
  * supported by each bridge chip. Depending on the functionality supported by a
@@ -560,6 +562,7 @@ struct msm_dba_ops {
 
 	int (*force_reset)(void *client, u32 flags);
 	int (*dump_debug_info)(void *client, u32 flags);
+	int (*check_hpd)(void *client, u32 flags);
 };
 
 /**
