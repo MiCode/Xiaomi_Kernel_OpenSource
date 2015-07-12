@@ -4086,12 +4086,11 @@ static void xprt_schedule_tx(struct glink_core_xprt_ctx *xprt_ptr,
 
 	mutex_lock(&ch_ptr->tx_lists_mutex_lhc3);
 	list_add_tail(&tx_info->list_node, &ch_ptr->tx_active);
-	mutex_unlock(&ch_ptr->tx_lists_mutex_lhc3);
-	mutex_unlock(&xprt_ptr->tx_ready_mutex_lhb2);
-
 	if (unlikely(tx_info->tracer_pkt))
 		tracer_pkt_log_event((void *)(tx_info->data),
 				     GLINK_QUEUE_TO_SCHEDULER);
+	mutex_unlock(&ch_ptr->tx_lists_mutex_lhc3);
+	mutex_unlock(&xprt_ptr->tx_ready_mutex_lhb2);
 
 	queue_work(xprt_ptr->tx_wq, &xprt_ptr->tx_work);
 }
