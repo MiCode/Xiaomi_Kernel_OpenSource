@@ -1148,6 +1148,7 @@ static void tasha_wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 	int z1L, z1R;
 	bool is_fsm_disable = false;
 	bool is_second_ramp = false;
+	bool is_change = false;
 	struct tasha_mbhc_zdet_param zdet_param[2] = {
 		{2, 0, 2, 0x80},
 		{5, 4, 3, 0x80},
@@ -1156,7 +1157,7 @@ static void tasha_wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
 
 	if (tasha->zdet_gpio_cb)
-		tasha->zdet_gpio_cb(codec, true);
+		is_change = tasha->zdet_gpio_cb(codec, true);
 
 	reg0 = snd_soc_read(codec, WCD9335_ANA_MBHC_BTN5);
 	reg1 = snd_soc_read(codec, WCD9335_ANA_MBHC_BTN6);
@@ -1217,7 +1218,7 @@ complete_zdet:
 	snd_soc_write(codec, WCD9335_MBHC_CTL_1, reg3);
 	if (is_fsm_disable)
 		snd_soc_update_bits(codec, WCD9335_ANA_MBHC_ELECT, 0x80, 0x80);
-	if (tasha->zdet_gpio_cb)
+	if (tasha->zdet_gpio_cb && is_change)
 		tasha->zdet_gpio_cb(codec, false);
 }
 
