@@ -3727,7 +3727,7 @@ static ssize_t mxt_secure_touch_enable_store(struct device *dev,
 			err = -EIO;
 			break;
 		}
-		INIT_COMPLETION(data->st_powerdown);
+		reinit_completion(&data->st_powerdown);
 		atomic_set(&data->st_enabled, 1);
 		synchronize_irq(data->client->irq);
 		atomic_set(&data->st_pending_irqs, 0);
