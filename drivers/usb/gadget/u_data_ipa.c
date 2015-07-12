@@ -359,6 +359,7 @@ static void ipa_data_connect_work(struct work_struct *w)
 			pr_err("usb_bam_connect_ipa out failed err:%d\n", ret);
 			goto free_rx_tx_req;
 		}
+		gadget->bam2bam_func_enabled = true;
 
 		gport->ipa_consumer_ep = port->ipa_params.ipa_cons_ep_idx;
 
@@ -401,6 +402,7 @@ static void ipa_data_connect_work(struct work_struct *w)
 			pr_err("usb_bam_connect_ipa IN failed err:%d\n", ret);
 			goto unconfig_msm_ep_out;
 		}
+		gadget->bam2bam_func_enabled = true;
 
 		gport->ipa_producer_ep = port->ipa_params.ipa_prod_ep_idx;
 		if (gadget_is_dwc3(gadget)) {
