@@ -51,6 +51,7 @@ static int auto_detect;
 #define WCN3620       0x5111
 #define WCN3620A      0x5112
 #define WCN3610       0x9101
+#define WCN3610V1     0x9110
 
 #define WCNSS_PMU_CFG_IRIS_XO_CFG          BIT(3)
 #define WCNSS_PMU_CFG_IRIS_XO_EN           BIT(4)
@@ -204,6 +205,7 @@ int validate_iris_chip_id(u32 reg)
 	case WCN3620:
 	case WCN3620A:
 	case WCN3610:
+	case WCN3610V1:
 		return 0;
 	default:
 		return 1;

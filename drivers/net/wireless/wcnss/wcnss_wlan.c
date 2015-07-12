@@ -957,6 +957,25 @@ void wcnss_reset_intr(void)
 }
 EXPORT_SYMBOL(wcnss_reset_intr);
 
+void wcnss_reset_fiq(bool clk_chk_en)
+{
+	if (wcnss_hardware_type() == WCNSS_PRONTO_HW) {
+		if (clk_chk_en) {
+			wcnss_log_debug_regs_on_bite();
+		} else {
+			wcnss_pronto_log_debug_regs();
+			if (wcnss_get_mux_control())
+				wcnss_log_iris_regs();
+		}
+		/* Insert memory barrier before writing fiq register */
+		wmb();
+		__raw_writel(1 << 16, penv->fiq_reg);
+	} else {
+		wcnss_riva_log_debug_regs();
+	}
+}
+EXPORT_SYMBOL(wcnss_reset_fiq);
+
 static int wcnss_create_sysfs(struct device *dev)
 {
 	int ret;
