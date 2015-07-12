@@ -156,6 +156,17 @@
 	};
 };
 
+&ufsphy1 {
+	clock-names = "ref_clk_src",
+		"ref_clk",
+		"tx_iface_clk",
+		"rx_iface_clk";
+	clocks = <&clock_gcc clk_ln_bb_clk>,
+		<&clock_gcc clk_gcc_ufs_clkref_clk>,
+		<&clock_gcc clk_gcc_ufs_tx_cfg_clk>,
+		<&clock_gcc clk_gcc_ufs_rx_cfg_clk>;
+};
+
 &ufs1 {
 	clock-names =
 		"core_clk_src",
