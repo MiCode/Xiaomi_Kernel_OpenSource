@@ -67,15 +67,16 @@ static int is_power_on;
 #define VREG_SET_VOLTAGE_MASK       0x0002
 #define VREG_OPTIMUM_MODE_MASK      0x0004
 #define VREG_ENABLE_MASK            0x0008
+#define VDD_PA                      "qcom,iris-vddpa"
 
 #define WCNSS_INVALID_IRIS_REG      0xbaadbaad
 
 struct vregs_info {
 	const char * const name;
 	int state;
-	const int nominal_min;
-	const int low_power_min;
-	const int max_voltage;
+	int nominal_min;
+	int low_power_min;
+	int max_voltage;
 	const int uA_load;
 	struct regulator *regulator;
 };
@@ -467,6 +468,14 @@ fail:
 static void wcnss_vregs_off(struct vregs_info regulators[], uint size)
 {
 	int i, rc = 0;
+	struct wcnss_wlan_config *cfg;
+
+	cfg = wcnss_get_wlan_config();
+
+	if (!cfg) {
+		pr_err("Failed to get WLAN configuration\n");
+		return;
+	}
 
 	/* Regulators need to be turned off in the reverse order */
 	for (i = (size-1); i >= 0; i--) {
@@ -484,6 +493,12 @@ static void wcnss_vregs_off(struct vregs_info regulators[], uint size)
 
 		/* Set voltage to lowest level */
 		if (regulators[i].state & VREG_SET_VOLTAGE_MASK) {
+			if (cfg->vbatt < WCNSS_VBATT_THRESHOLD &&
+			    !memcmp(regulators[i].name,
+				VDD_PA, sizeof(VDD_PA))) {
+				regulators[i].max_voltage = WCNSS_VBATT_LOW;
+			}
+
 			rc = regulator_set_voltage(regulators[i].regulator,
 					regulators[i].low_power_min,
 					regulators[i].max_voltage);
@@ -513,6 +528,14 @@ static int wcnss_vregs_on(struct device *dev,
 		struct vregs_info regulators[], uint size)
 {
 	int i, rc = 0, reg_cnt;
+	struct wcnss_wlan_config *cfg;
+
+	cfg = wcnss_get_wlan_config();
+
+	if (!cfg) {
+		pr_err("Failed to get WLAN configuration\n");
+		return -EINVAL;
+	}
 
 	for (i = 0; i < size; i++) {
 			/* Get regulator source */
@@ -529,6 +552,13 @@ static int wcnss_vregs_on(struct device *dev,
 		/* Set voltage to nominal. Exclude swtiches e.g. LVS */
 		if ((regulators[i].nominal_min || regulators[i].max_voltage)
 				&& (reg_cnt > 0)) {
+			if (cfg->vbatt < WCNSS_VBATT_THRESHOLD &&
+			    !memcmp(regulators[i].name,
+				VDD_PA, sizeof(VDD_PA))) {
+				regulators[i].nominal_min = WCNSS_VBATT_INITIAL;
+				regulators[i].max_voltage = WCNSS_VBATT_LOW;
+			}
+
 			rc = regulator_set_voltage(regulators[i].regulator,
 					regulators[i].nominal_min,
 					regulators[i].max_voltage);

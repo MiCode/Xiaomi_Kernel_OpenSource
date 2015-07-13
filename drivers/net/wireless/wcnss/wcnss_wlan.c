@@ -180,10 +180,6 @@ static DEFINE_SPINLOCK(reg_spinlock);
 #define MCU_FDBR_FDAHB_TIMEOUT_OFFSET		0x3ac
 
 #define WCNSS_DEF_WLAN_RX_BUFF_COUNT		1024
-#define WCNSS_VBATT_THRESHOLD		3500000
-#define WCNSS_VBATT_GUARD		20000
-#define WCNSS_VBATT_HIGH		3700000
-#define WCNSS_VBATT_LOW			3300000
 
 #define WCNSS_CTRL_CHANNEL			"WCNSS_CTRL"
 #define WCNSS_MAX_FRAME_SIZE		(4*1024)
@@ -371,6 +367,7 @@ static struct {
 	int		triggered;
 	int		smd_channel_ready;
 	u32		wlan_rx_buff_count;
+	int		is_vsys_adc_channel;
 	smd_channel_t	*smd_ch;
 	unsigned char	wcnss_version[WCNSS_VERSION_LEN];
 	unsigned char   fw_major;
@@ -386,6 +383,7 @@ static struct {
 	struct work_struct wcnss_pm_config_work;
 	struct work_struct wcnssctrl_nvbin_dnld_work;
 	struct work_struct wcnssctrl_rx_work;
+	struct work_struct wcnss_vadc_work;
 	struct wake_lock wcnss_wake_lock;
 	void __iomem *msm_wcnss_base;
 	void __iomem *riva_ccu_base;
@@ -421,6 +419,7 @@ static struct {
 	wait_queue_head_t read_wait;
 	struct qpnp_adc_tm_btm_param vbat_monitor_params;
 	struct qpnp_adc_tm_chip *adc_tm_dev;
+	struct qpnp_vadc_chip *vadc_dev;
 	struct mutex vbat_monitor_mutex;
 	u16 unsafe_ch_count;
 	u16 unsafe_ch_list[WCNSS_MAX_CH_NUM];
@@ -570,7 +569,7 @@ void wcnss_riva_dump_pmic_regs(void)
 	}
 }
 
-/* wcnss_reset_intr() is invoked when host drivers fails to
+/* wcnss_reset_fiq() is invoked when host drivers fails to
  * communicate with WCNSS over SMD; so logging these registers
  * helps to know WCNSS failure reason
  */
@@ -1145,20 +1144,6 @@ void wcnss_log_debug_regs_on_bite(void)
 #endif
 
 /* interface to reset wcnss by sending the reset interrupt */
-void wcnss_reset_intr(void)
-{
-	if (wcnss_hardware_type() == WCNSS_PRONTO_HW) {
-		wcnss_pronto_log_debug_regs();
-		if (wcnss_get_mux_control())
-			wcnss_log_iris_regs();
-		wmb();
-		__raw_writel(1 << 16, penv->fiq_reg);
-	} else {
-		wcnss_riva_log_debug_regs();
-	}
-}
-EXPORT_SYMBOL(wcnss_reset_intr);
-
 void wcnss_reset_fiq(bool clk_chk_en)
 {
 	if (wcnss_hardware_type() == WCNSS_PRONTO_HW) {
@@ -1291,7 +1276,8 @@ static void wcnss_smd_notify_event(void *data, unsigned int event)
 		schedule_work(&penv->wcnss_pm_config_work);
 		cancel_delayed_work(&penv->wcnss_pm_qos_del_req);
 		schedule_delayed_work(&penv->wcnss_pm_qos_del_req, 0);
-
+		if (penv->wlan_config.is_pronto_v3 && (penv->vadc_dev))
+			schedule_work(&penv->wcnss_vadc_work);
 		break;
 
 	case SMD_EVENT_CLOSE:
@@ -1870,8 +1856,34 @@ static int wcnss_smd_tx(void *data, int len)
 	return ret;
 }
 
+static int wcnss_get_battery_volt(int *result_uv)
+{
+	int rc = -1;
+	struct qpnp_vadc_result adc_result;
+
+	if (!penv->vadc_dev) {
+		pr_err("wcnss: not setting up vadc\n");
+		return rc;
+	}
+
+	rc = qpnp_vadc_read(penv->vadc_dev, VBAT_SNS, &adc_result);
+	if (rc) {
+		pr_err("error reading adc channel = %d, rc = %d\n",
+		       VBAT_SNS, rc);
+		return rc;
+	}
+
+	pr_info("Battery mvolts phy=%lld meas=0x%llx\n", adc_result.physical,
+		adc_result.measurement);
+	*result_uv = (int)adc_result.physical;
+
+	return 0;
+}
+
 static void wcnss_notify_vbat(enum qpnp_tm_state state, void *ctx)
 {
+	int rc = 0;
+
 	mutex_lock(&penv->vbat_monitor_mutex);
 	cancel_delayed_work_sync(&penv->vbatt_work);
 
@@ -1899,9 +1911,15 @@ static void wcnss_notify_vbat(enum qpnp_tm_state state, void *ctx)
 			penv->vbat_monitor_params.low_thr,
 			penv->vbat_monitor_params.high_thr);
 
-	qpnp_adc_tm_channel_measure(penv->adc_tm_dev,
-			&penv->vbat_monitor_params);
-	schedule_delayed_work(&penv->vbatt_work, msecs_to_jiffies(2000));
+	rc = qpnp_adc_tm_channel_measure(penv->adc_tm_dev,
+					 &penv->vbat_monitor_params);
+
+	if (rc)
+		pr_err("%s: tm setup failed: %d\n", __func__, rc);
+	else
+		schedule_delayed_work(&penv->vbatt_work,
+				      msecs_to_jiffies(2000));
+
 	mutex_unlock(&penv->vbat_monitor_mutex);
 }
 
@@ -1916,7 +1934,12 @@ static int wcnss_setup_vbat_monitoring(void)
 	penv->vbat_monitor_params.low_thr = WCNSS_VBATT_THRESHOLD;
 	penv->vbat_monitor_params.high_thr = WCNSS_VBATT_THRESHOLD;
 	penv->vbat_monitor_params.state_request = ADC_TM_HIGH_LOW_THR_ENABLE;
-	penv->vbat_monitor_params.channel = VBAT_SNS;
+
+	if (penv->is_vsys_adc_channel)
+		penv->vbat_monitor_params.channel = VSYS;
+	else
+		penv->vbat_monitor_params.channel = VBAT_SNS;
+
 	penv->vbat_monitor_params.btm_ctx = (void *)penv;
 	penv->vbat_monitor_params.timer_interval = ADC_MEAS1_INTERVAL_1S;
 	penv->vbat_monitor_params.threshold_notification = &wcnss_notify_vbat;
@@ -1927,9 +1950,29 @@ static int wcnss_setup_vbat_monitoring(void)
 	rc = qpnp_adc_tm_channel_measure(penv->adc_tm_dev,
 					&penv->vbat_monitor_params);
 	if (rc)
-		pr_err("wcnss: tm setup failed: %d\n", rc);
+		pr_err("%s: tm setup failed: %d\n", __func__, rc);
 
 	return rc;
+}
+
+static void wcnss_send_vbatt_indication(struct work_struct *work)
+{
+	struct vbatt_message vbatt_msg;
+	int ret = 0;
+
+	vbatt_msg.hdr.msg_type = WCNSS_VBATT_LEVEL_IND;
+	vbatt_msg.hdr.msg_len = sizeof(struct vbatt_message);
+	vbatt_msg.vbatt.threshold = WCNSS_VBATT_THRESHOLD;
+
+	mutex_lock(&penv->vbat_monitor_mutex);
+	vbatt_msg.vbatt.curr_volt = penv->wlan_config.vbatt;
+	mutex_unlock(&penv->vbat_monitor_mutex);
+	pr_debug("wcnss: send curr_volt: %d to FW\n",
+		 vbatt_msg.vbatt.curr_volt);
+
+	ret = wcnss_smd_tx(&vbatt_msg, vbatt_msg.hdr.msg_len);
+	if (ret < 0)
+		pr_err("wcnss: smd tx failed\n");
 }
 
 static void wcnss_update_vbatt(struct work_struct *work)
@@ -2657,6 +2700,7 @@ static int
 wcnss_trigger_config(struct platform_device *pdev)
 {
 	int ret;
+	int rc;
 	struct qcom_wcnss_opts *pdata;
 	struct resource *res;
 	int is_pronto_vt;
@@ -2671,6 +2715,8 @@ wcnss_trigger_config(struct platform_device *pdev)
 	is_pronto_v3 = of_property_read_bool(pdev->dev.of_node,
 							"qcom,is-pronto-v3");
 
+	penv->is_vsys_adc_channel = of_property_read_bool(pdev->dev.of_node,
+						"qcom,has-vsys-adc-channel");
 	if (of_property_read_u32(pdev->dev.of_node,
 			"qcom,wlan-rx-buff-count", &penv->wlan_rx_buff_count)) {
 		penv->wlan_rx_buff_count = WCNSS_DEF_WLAN_RX_BUFF_COUNT;
@@ -2989,6 +3035,23 @@ wcnss_trigger_config(struct platform_device *pdev)
 		penv->fw_vbatt_state = WCNSS_CONFIG_UNSPECIFIED;
 	}
 
+	if (penv->wlan_config.is_pronto_v3) {
+		penv->vadc_dev = qpnp_get_vadc(&penv->pdev->dev, "wcnss");
+
+		if (IS_ERR(penv->vadc_dev)) {
+			pr_err("%s:  vadc get failed\n", __func__);
+			penv->vadc_dev = NULL;
+		} else {
+			rc = wcnss_get_battery_volt(&penv->wlan_config.vbatt);
+			INIT_WORK(&penv->wcnss_vadc_work,
+				  wcnss_send_vbatt_indication);
+
+			if (rc < 0)
+				pr_err("Failed to get battery voltage with error= %d\n",
+				       rc);
+		}
+	}
+
 	do {
 		/* trigger initialization of the WCNSS */
 		penv->pil = subsystem_get(WCNSS_PIL_DEVICE);
@@ -3001,7 +3064,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 	} while (pil_retry++ < WCNSS_MAX_PIL_RETRY && IS_ERR(penv->pil));
 
 	if (IS_ERR(penv->pil)) {
-		wcnss_reset_intr();
+		wcnss_reset_fiq(false);
 		if (penv->wcnss_notif_hdle)
 			subsys_notif_unregister_notifier(penv->wcnss_notif_hdle,
 				&wnb);
