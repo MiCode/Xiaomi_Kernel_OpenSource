@@ -29,6 +29,7 @@ obj-$(CONFIG_PHY_QCOM_IPQ806X_SATA)	+= phy-qcom-ipq806x-sata.o
 phy_qcom_ufs_mod-y				+= phy-qcom-ufs.o
 phy_qcom_ufs_mod-$(CONFIG_PHY_QCOM_UFS_20NM)	+= phy-qcom-ufs-qmp-20nm.o
 phy_qcom_ufs_mod-$(CONFIG_PHY_QCOM_UFS_14NM)	+= phy-qcom-ufs-qmp-14nm.o
+phy_qcom_ufs_mod-$(CONFIG_PHY_QCOM_UFS_V3)	+= phy-qcom-ufs-qmp-v3.o
 obj-$(CONFIG_PHY_QCOM_UFS)			+= phy_qcom_ufs_mod.o
 obj-$(CONFIG_PHY_ST_SPEAR1310_MIPHY)	+= phy-spear1310-miphy.o
 obj-$(CONFIG_PHY_ST_SPEAR1340_MIPHY)	+= phy-spear1340-miphy.o

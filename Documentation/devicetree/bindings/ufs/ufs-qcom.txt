@@ -8,8 +8,8 @@ contain a phandle reference to UFS PHY node.
 
 Required properties:
 - compatible        : compatible list, contains "qcom,ufs-phy-qmp-20nm"
-		      or "qcom,ufs-phy-qmp-14nm" according to the relevant
-		      phy in use.
+		      or "qcom,ufs-phy-qmp-14nm" or "qcom,ufs-phy-qmp-v3"
+		      according to the relevant phy in use.
 - reg               : should contain PHY register address space (mandatory),
 - reg-names         : indicates various resources passed to driver (via reg proptery) by name.
                       Required "reg-names" is "phy_mem".
