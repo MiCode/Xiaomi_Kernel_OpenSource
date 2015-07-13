@@ -83,6 +83,8 @@ static int __disable_regulators(struct venus_hfi_device *device);
 static int __enable_regulators(struct venus_hfi_device *device);
 static inline int __prepare_enable_clks(struct venus_hfi_device *device);
 static inline void __disable_unprepare_clks(struct venus_hfi_device *device);
+static int __scale_clocks(struct venus_hfi_device *device, int load,
+		int codecs_enabled, unsigned long instant_bitrate);
 static void __flush_debug_queue(struct venus_hfi_device *device, u8 *packet);
 static int __initialize_packetization(struct venus_hfi_device *device);
 static struct hal_session *__get_session(struct venus_hfi_device *device,
@@ -1570,12 +1572,6 @@ static int __iface_cmdq_write_relaxed(struct venus_hfi_device *device,
 	if (!__write_queue(q_info, (u8 *)pkt, requires_interrupt)) {
 		if (__resume(device)) {
 			dprintk(VIDC_ERR, "%s: Power on failed\n", __func__);
-			goto err_q_write;
-		}
-
-		if (__scale_clocks(device, device->clk_load,
-			 device->codecs_enabled, device->clk_bitrate)) {
-			dprintk(VIDC_ERR, "Clock scaling failed\n");
 			goto err_q_write;
 		}
 
@@ -4180,6 +4176,14 @@ static int __venus_power_on(struct venus_hfi_device *device)
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to enable clocks: %d\n", rc);
 		goto fail_enable_clks;
+	}
+
+	rc = __scale_clocks(device, device->clk_load, device->codecs_enabled,
+			device->clk_bitrate);
+	if (rc) {
+		dprintk(VIDC_WARN,
+				"Failed to scale clocks, performance might be affected\n");
+		rc = 0;
 	}
 
 	/* Hand off control of regulators to h/w _after_ enabling clocks */
