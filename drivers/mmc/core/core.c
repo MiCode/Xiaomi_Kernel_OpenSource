@@ -364,7 +364,7 @@ static bool mmc_is_valid_state_for_clk_scaling(struct mmc_host *host)
 	return R1_CURRENT_STATE(status) == R1_STATE_TRAN;
 }
 
-static int mmc_cmdq_halt_on_empty_queue(struct mmc_host *host)
+int mmc_cmdq_halt_on_empty_queue(struct mmc_host *host)
 {
 	int err = 0;
 
@@ -387,6 +387,7 @@ static int mmc_cmdq_halt_on_empty_queue(struct mmc_host *host)
 out:
 	return err;
 }
+EXPORT_SYMBOL(mmc_cmdq_halt_on_empty_queue);
 
 int mmc_clk_update_freq(struct mmc_host *host,
 		unsigned long freq, enum mmc_load state)

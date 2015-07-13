@@ -1172,6 +1172,17 @@ static int mmc_blk_ioctl_cmd(struct block_device *bdev,
 
 	mmc_get_card(card);
 
+	if (mmc_card_cmdq(card)) {
+		err = mmc_cmdq_halt_on_empty_queue(card->host);
+		if (err) {
+			pr_err("%s: halt failed while doing %s err (%d)\n",
+					mmc_hostname(card->host),
+					__func__, err);
+			mmc_put_card(card);
+			goto cmd_done;
+		}
+	}
+
 	ioc_err = __mmc_blk_ioctl_cmd(card, md, idata);
 
 	/* Always switch back to main area after RPMB access */
@@ -1181,6 +1192,12 @@ static int mmc_blk_ioctl_cmd(struct block_device *bdev,
 	mmc_put_card(card);
 
 	err = mmc_blk_ioctl_copy_to_user(ic_ptr, idata);
+
+	if (mmc_card_cmdq(card)) {
+		if (mmc_cmdq_halt(card->host, false))
+			pr_err("%s: %s: cmdq unhalt failed\n",
+			       mmc_hostname(card->host), __func__);
+	}
 
 cmd_done:
 	mmc_blk_put(md);
