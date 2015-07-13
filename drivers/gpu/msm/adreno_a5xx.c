@@ -1080,6 +1080,7 @@ static const struct {
 	const struct kgsl_hwcg_reg *regs;
 	unsigned int count;
 } a5xx_hwcg_registers[] = {
+	{ adreno_is_a530v3, a530_hwcg_regs, ARRAY_SIZE(a530_hwcg_regs) },
 	{ adreno_is_a530v2, a530_hwcg_regs, ARRAY_SIZE(a530_hwcg_regs) },
 	{ adreno_is_a510, a510_hwcg_regs, ARRAY_SIZE(a510_hwcg_regs) },
 };
