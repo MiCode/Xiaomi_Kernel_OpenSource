@@ -15,6 +15,7 @@
 #include <linux/slab.h>
 #include <linux/sort.h>
 #include <linux/of.h>
+#include <linux/sched.h>
 #include <linux/cputime.h>
 
 static spinlock_t cpufreq_stats_lock;
@@ -124,6 +125,25 @@ static int get_index_all_cpufreq_stat(struct all_cpufreq_stats *all_stat,
 	}
 	return -1;
 }
+
+void acct_update_power(struct task_struct *task, cputime_t cputime) {
+	struct cpufreq_power_stats *powerstats;
+	struct cpufreq_stats *stats;
+	unsigned int cpu_num, curr;
+
+	if (!task)
+		return;
+	cpu_num = task_cpu(task);
+	powerstats = per_cpu(cpufreq_power_stats, cpu_num);
+	stats = per_cpu(cpufreq_stats_table, cpu_num);
+	if (!powerstats || !stats)
+		return;
+
+	curr = powerstats->curr[stats->last_index];
+	if (task->cpu_power != ULLONG_MAX)
+		task->cpu_power += curr * cputime_to_usecs(cputime);
+}
+EXPORT_SYMBOL_GPL(acct_update_power);
 
 static ssize_t show_current_in_state(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
@@ -557,7 +577,7 @@ static void cpufreq_stats_create_table(unsigned int cpu)
 
 	table = cpufreq_frequency_get_table(policy->cpu);
 	if (likely(table)) {
-		cpufreq_for_each_valid_entry(pos, table);
+		cpufreq_for_each_valid_entry(pos, table)
 			count++;
 
 		if (!per_cpu(all_cpufreq_stats, cpu))
@@ -577,7 +597,7 @@ static int cpufreq_stat_notifier_policy(struct notifier_block *nb,
 	int ret = 0, count = 0;
 	struct cpufreq_policy *policy = data;
 	struct cpufreq_frequency_table *table, *pos;
-	unsigned int cpu = policy->cpu;
+	unsigned int cpu_num, cpu = policy->cpu;
 
 	if (val == CPUFREQ_UPDATE_POLICY_CPU) {
 		cpufreq_stats_update_policy_cpu(policy);
@@ -588,14 +608,16 @@ static int cpufreq_stat_notifier_policy(struct notifier_block *nb,
 	if (!table)
 		return 0;
 
-	cpufreq_for_each_valid_entry(pos, table);
+	cpufreq_for_each_valid_entry(pos, table)
 		count++;
 
 	if (!per_cpu(all_cpufreq_stats, cpu))
 		cpufreq_allstats_create(cpu, table, count);
 
-	if (!per_cpu(cpufreq_power_stats, cpu))
-		cpufreq_powerstats_create(cpu, table, count);
+	for_each_possible_cpu(cpu_num) {
+		if (!per_cpu(cpufreq_power_stats, cpu_num))
+			cpufreq_powerstats_create(cpu_num, table, count);
+	}
 
 	if (val == CPUFREQ_CREATE_POLICY)
 		ret = __cpufreq_stats_create_table(policy, table, count);
