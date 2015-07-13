@@ -8132,21 +8132,12 @@ static void tasha_codec_power_gate_work(struct work_struct *work)
 	wcd9xxx_set_power_state(tasha->wcd9xxx,
 			WCD_REGION_POWER_COLLAPSE_BEGIN,
 			WCD9XXX_DIG_CORE_REGION_1);
-	if (TASHA_IS_1_0(tasha->wcd9xxx->version)) {
-		snd_soc_update_bits(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
-				0x04, 0x04);
-		snd_soc_update_bits(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
-				0x01, 0x01);
-		snd_soc_update_bits(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
-				0x02, 0x02);
-	} else {
-		snd_soc_update_bits(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
-				0x04, 0x04);
-		snd_soc_update_bits(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
-				0x01, 0x00);
-		snd_soc_update_bits(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
-				0x02, 0x00);
-	}
+	snd_soc_update_bits(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
+			0x04, 0x04);
+	snd_soc_update_bits(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
+			0x01, 0x00);
+	snd_soc_update_bits(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
+			0x02, 0x00);
 	wcd9xxx_set_power_state(tasha->wcd9xxx, WCD_REGION_POWER_DOWN,
 				WCD9XXX_DIG_CORE_REGION_1);
 exit:
@@ -8159,16 +8150,10 @@ exit:
 static int tasha_dig_core_remove_power_collapse(struct snd_soc_codec *codec)
 {
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
-	struct wcd9xxx *wcd9xxx = tasha->wcd9xxx;
 
-	if (TASHA_IS_1_0(wcd9xxx->version)) {
-		snd_soc_write(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
-			      0x03);
-	} else {
-		snd_soc_write(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x5);
-		snd_soc_write(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x7);
-		snd_soc_write(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x3);
-	}
+	snd_soc_write(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x5);
+	snd_soc_write(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x7);
+	snd_soc_write(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x3);
 	snd_soc_update_bits(codec, WCD9335_CODEC_RPM_RST_CTL, 0x02, 0x00);
 	snd_soc_update_bits(codec, WCD9335_CODEC_RPM_RST_CTL, 0x02, 0x02);
 
