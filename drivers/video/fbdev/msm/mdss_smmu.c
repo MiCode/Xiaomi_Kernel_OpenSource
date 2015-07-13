@@ -183,7 +183,7 @@ static int mdss_smmu_attach_v2(struct mdss_data_type *mdata)
 			}
 		} else {
 			pr_err("iommu device not attached for domain[%d]\n", i);
-			goto err;
+			return -ENODEV;
 		}
 	}
 	return 0;
@@ -210,17 +210,14 @@ static int mdss_smmu_detach_v2(struct mdss_data_type *mdata)
 {
 	struct mdss_smmu_client *mdss_smmu;
 	int i;
-	struct dss_module_power *mp;
 
 	for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
 		if (!mdss_smmu_is_valid_domain_type(mdata, i))
 			continue;
 
 		mdss_smmu = mdss_smmu_get_cb(i);
-		if (mdss_smmu->dev) {
-			mp = &mdss_smmu->mp;
+		if (mdss_smmu->dev && !mdss_smmu->handoff_pending)
 			mdss_smmu_enable_power(mdss_smmu, false);
-		}
 	}
 	return 0;
 }
