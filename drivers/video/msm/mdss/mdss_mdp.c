@@ -736,8 +736,9 @@ int mdss_iommu_ctrl(int enable)
 	int rc = 0;
 
 	mutex_lock(&mdp_iommu_lock);
-	pr_debug("%pS: enable %d mdata->iommu_ref_cnt %d\n",
-		__builtin_return_address(0), enable, mdata->iommu_ref_cnt);
+	pr_debug("%pS: enable:%d ref_cnt:%d attach:%d hoff:%d\n",
+		__builtin_return_address(0), enable, mdata->iommu_ref_cnt,
+		mdata->iommu_attached, mdata->handoff_pending);
 
 	if (enable) {
 		/*
