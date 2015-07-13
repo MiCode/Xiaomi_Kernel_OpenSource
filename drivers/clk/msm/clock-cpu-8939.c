@@ -26,8 +26,11 @@
 #include <linux/of.h>
 #include <linux/clk/msm-clock-generic.h>
 #include <linux/suspend.h>
+#include <linux/of_platform.h>
+#include <linux/pm_opp.h>
 #include <soc/qcom/clock-local2.h>
 
+#include "clock.h"
 #include <dt-bindings/clock/msm-cpu-clocks-8939.h>
 
 DEFINE_VDD_REGS_INIT(vdd_cpu_bc, 1);
@@ -314,6 +317,187 @@ static int cpu_parse_devicetree(struct platform_device *pdev, int mux_id)
 	return 0;
 }
 
+static long corner_to_voltage(unsigned long corner, struct device *dev)
+{
+	struct dev_pm_opp *oppl;
+	long uv;
+
+	rcu_read_lock();
+	oppl = dev_pm_opp_find_freq_exact(dev, corner, true);
+	rcu_read_unlock();
+	if (IS_ERR_OR_NULL(oppl))
+		return -EINVAL;
+
+	rcu_read_lock();
+	uv = dev_pm_opp_get_voltage(oppl);
+	rcu_read_unlock();
+
+	return uv;
+}
+
+
+static int add_opp(struct clk *c, struct device *cpudev, struct device *vregdev,
+			unsigned long max_rate)
+{
+	unsigned long rate = 0;
+	int level;
+	long ret, uv, corner;
+	bool use_voltages = false;
+	struct dev_pm_opp *oppl;
+
+	rcu_read_lock();
+	/* Check if the regulator driver has already populated OPP tables */
+	oppl = dev_pm_opp_find_freq_exact(vregdev, 2, true);
+	rcu_read_unlock();
+	if (!IS_ERR_OR_NULL(oppl))
+		use_voltages = true;
+
+	while (1) {
+		ret = clk_round_rate(c, rate + 1);
+		if (ret < 0) {
+			pr_warn("clock-cpu: round_rate failed at %lu\n", rate);
+			return ret;
+		}
+		rate = ret;
+		level = find_vdd_level(c, rate);
+		if (level <= 0) {
+			pr_warn("clock-cpu: no uv for %lu.\n", rate);
+			return -EINVAL;
+		}
+		uv = corner = c->vdd_class->vdd_uv[level];
+		/*
+		 * If corner to voltage mapping is available, populate the OPP
+		 * table with the voltages rather than corners.
+		 */
+		if (use_voltages) {
+			uv = corner_to_voltage(corner, vregdev);
+			if (uv < 0) {
+				pr_warn("clock-cpu: no uv for corner %lu\n",
+					 corner);
+				return uv;
+			}
+			ret = dev_pm_opp_add(cpudev, rate, uv);
+			if (ret) {
+				pr_warn("clock-cpu: couldn't add OPP for %lu\n",
+					 rate);
+				return ret;
+			}
+
+		} else {
+			/*
+			 * Populate both CPU and regulator devices with the
+			 * freq-to-corner OPP table to maintain backward
+			 * compatibility.
+			 */
+			ret = dev_pm_opp_add(cpudev, rate, corner);
+			if (ret) {
+				pr_warn("clock-cpu: couldn't add OPP for %lu\n",
+					rate);
+				return ret;
+			}
+			ret = dev_pm_opp_add(vregdev, rate, corner);
+			if (ret) {
+				pr_warn("clock-cpu: couldn't add OPP for %lu\n",
+					rate);
+				return ret;
+			}
+		}
+		if (rate >= max_rate)
+			break;
+	}
+
+	return 0;
+}
+
+static void print_opp_table(int a53_c0_cpu, int a53_c1_cpu)
+{
+	struct dev_pm_opp *oppfmax, *oppfmin;
+	unsigned long apc0_fmax, apc1_fmax, apc0_fmin, apc1_fmin;
+
+	apc0_fmax = a53ssmux_lc.c.fmax[a53ssmux_lc.c.num_fmax - 1];
+	apc1_fmax = a53ssmux_bc.c.fmax[a53ssmux_bc.c.num_fmax - 1];
+	apc0_fmin = a53ssmux_lc.c.fmax[1];
+	apc1_fmin = a53ssmux_bc.c.fmax[1];
+
+	rcu_read_lock();
+	oppfmax = dev_pm_opp_find_freq_exact(get_cpu_device(a53_c0_cpu),
+						apc0_fmax, true);
+	oppfmin = dev_pm_opp_find_freq_exact(get_cpu_device(a53_c0_cpu),
+						apc0_fmin, true);
+	/*
+	 * One time information during boot. Important to know that this looks
+	 * sane since it can eventually make its way to the scheduler.
+	 */
+	pr_info("clock_cpu: a53_c0: OPP voltage for %lu: %ld\n", apc0_fmin,
+		dev_pm_opp_get_voltage(oppfmin));
+	pr_info("clock_cpu: a53_c0: OPP voltage for %lu: %ld\n", apc0_fmax,
+		dev_pm_opp_get_voltage(oppfmax));
+
+	oppfmax = dev_pm_opp_find_freq_exact(get_cpu_device(a53_c1_cpu),
+						apc1_fmax, true);
+	oppfmin = dev_pm_opp_find_freq_exact(get_cpu_device(a53_c1_cpu),
+						apc1_fmin, true);
+	pr_info("clock_cpu: a53_c1: OPP voltage for %lu: %lu\n", apc1_fmin,
+		dev_pm_opp_get_voltage(oppfmin));
+	pr_info("clock_cpu: a53_c1: OPP voltage for %lu: %lu\n", apc1_fmax,
+		dev_pm_opp_get_voltage(oppfmax));
+	rcu_read_unlock();
+}
+
+static void populate_opp_table(struct platform_device *pdev)
+{
+	struct platform_device *apc0_dev, *apc1_dev;
+	struct device_node *apc0_node, *apc1_node;
+	unsigned long apc0_fmax, apc1_fmax;
+	int cpu, a53_c0_cpu, a53_c1_cpu;
+
+	apc0_node = of_parse_phandle(pdev->dev.of_node, "vdd-c0-supply", 0);
+	apc1_node = of_parse_phandle(pdev->dev.of_node, "vdd-c1-supply", 0);
+	if (!apc0_node) {
+		pr_err("can't find the apc0 dt node.\n");
+		return;
+	}
+	if (!apc1_node) {
+		pr_err("can't find the apc1 dt node.\n");
+		return;
+	}
+
+	apc0_dev = of_find_device_by_node(apc0_node);
+	apc1_dev = of_find_device_by_node(apc1_node);
+	if (!apc0_dev) {
+		pr_err("can't find the apc0 device node.\n");
+		return;
+	}
+	if (!apc1_dev) {
+		pr_err("can't find the apc1 device node.\n");
+		return;
+	}
+
+	apc0_fmax = a53ssmux_lc.c.fmax[a53ssmux_lc.c.num_fmax - 1];
+	apc1_fmax = a53ssmux_bc.c.fmax[a53ssmux_bc.c.num_fmax - 1];
+
+	for_each_possible_cpu(cpu) {
+		pr_info("the CPU number is : %d\n", cpu);
+		if (cpu/4 == 0) {
+			a53_c1_cpu = cpu;
+			WARN(add_opp(&a53ssmux_bc.c, get_cpu_device(cpu),
+				     &apc1_dev->dev, apc1_fmax),
+				     "Failed to add OPP levels for A53 big cluster\n");
+		} else if (cpu/4 == 1) {
+			a53_c0_cpu = cpu;
+			WARN(add_opp(&a53ssmux_lc.c, get_cpu_device(cpu),
+				     &apc0_dev->dev, apc0_fmax),
+				     "Failed to add OPP levels for A53 little cluster\n");
+		}
+	}
+
+	/* One time print during bootup */
+	pr_info("clock-cpu-8939: OPP tables populated (cpu %d and %d)",
+		a53_c0_cpu, a53_c1_cpu);
+
+	print_opp_table(a53_c0_cpu, a53_c1_cpu);
+}
+
 static void config_pll(int mux_id)
 {
 	unsigned long rate, aux_rate;
@@ -356,6 +540,8 @@ static int clock_8939_pm_event(struct notifier_block *this,
 static struct notifier_block clock_8939_pm_notifier = {
 	.notifier_call = clock_8939_pm_event,
 };
+
+struct platform_device *cpu_clock_8939_dev;
 
 static int clock_a53_probe(struct platform_device *pdev)
 {
@@ -423,6 +609,7 @@ static int clock_a53_probe(struct platform_device *pdev)
 	}
 	put_online_cpus();
 	register_pm_notifier(&clock_8939_pm_notifier);
+	cpu_clock_8939_dev = pdev;
 	return 0;
 }
 
@@ -445,6 +632,15 @@ static int __init clock_a53_init(void)
 	return platform_driver_register(&clock_a53_driver);
 }
 arch_initcall(clock_a53_init);
+
+/* CPU devices are not currently available in arch_initcall */
+static int __init cpu_clock_8939_init_opp(void)
+{
+	if (cpu_clock_8939_dev)
+		populate_opp_table(cpu_clock_8939_dev);
+	return 0;
+}
+module_init(cpu_clock_8939_init_opp);
 
 #define APCS_C0_PLL			0xb116000
 #define C0_PLL_MODE			0x0
