@@ -1305,7 +1305,7 @@ static int msm_tsens_get_temp(int sensor_client_id, unsigned long *temp)
 		*temp = last_temp;
 	}
 
-	trace_tsens_read(*temp, sensor_hw_num);
+	trace_tsens_read(*temp, sensor_client_id);
 
 	return 0;
 }
@@ -2238,20 +2238,21 @@ static irqreturn_t tsens_tm_irq_thread(int irq, void *data)
 					&sensor_sw_id, tm);
 			if (rc < 0)
 				pr_debug("tsens mapping index not found\n");
+			/* Use sensor_client_id for multiple controllers */
 			pr_debug("sensor:%d trigger temp (%d degC)\n",
-				tm->sensor[i].sensor_hw_num,
+				tm->sensor[i].sensor_client_id,
 				(status & TSENS_TM_SN_LAST_TEMP_MASK));
 			if (upper_thr) {
 				trace_tsens_threshold_hit(
 					TSENS_TM_UPPER_THRESHOLD_VALUE(
 						threshold),
-					tm->sensor[i].sensor_hw_num);
+					tm->sensor[i].sensor_client_id);
 				tm->tsens_upper_irq_cnt++;
 			} else {
 				trace_tsens_threshold_clear(
 					TSENS_TM_LOWER_THRESHOLD_VALUE(
 						threshold),
-					tm->sensor[i].sensor_hw_num);
+					tm->sensor[i].sensor_client_id);
 				tm->tsens_lower_irq_cnt++;
 			}
 		}
