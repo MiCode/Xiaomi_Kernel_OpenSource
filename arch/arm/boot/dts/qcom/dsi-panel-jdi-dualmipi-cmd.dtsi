@@ -84,8 +84,51 @@
 			05 01 00 00 10 00 01 29];
 			/* Set display on, wait 16ms */
 		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
-		qcom,mdss-dsi-off-command = [05 01 00 00 32 00 02 28 00
+		qcom,mdss-dsi-post-mode-switch-on-command =
+					[05 01 00 00 0a 00 01 00
+						/* Soft reset, wait 10ms */
+					15 01 00 00 0a 00 02 3a 77
+						/* Set Pixel format (24 bpp) */
+					39 01 00 00 0a 00 05 2a 00 00 04 ff
+						/* Set Column address */
+					39 01 00 00 0a 00 05 2b 00 00 05 9f
+						/* Set page address */
+					15 01 00 00 0a 00 02 35 00
+						/* Set tear on */
+					39 01 00 00 0a 00 03 44 00 00
+						/* Set tear scan line */
+					15 01 00 00 0a 00 02 51 ff
+						/* write display brightness */
+					15 01 00 00 0a 00 02 53 24
+						/* write control brightness */
+					15 01 00 00 0a 00 02 55 00
+						/* CABC brightness */
+					05 01 00 00 78 00 01 11
+					/* exit sleep mode, wait 120ms */
+					23 01 00 00 0a 00 02 b0 00
+						/* MCAP */
+					29 01 00 00 0a 00 02 b3 14
+						/* Interface setting */
+					29 01 00 00 0a 00 14 ce 7d 40 48 56 67
+					78 88 98 a7 b5 c3 d1 de e9 f2 fa ff 04
+					00    /* Backlight control 4 */
+					23 01 00 00 0a 00 02 b0 03
+						/* MCAP */
+					05 01 00 00 10 00 01 29];
+					/* Set display on, wait 16ms */
+		qcom,mdss-dsi-post-mode-switch-on-command-state = "dsi_lp_mode";
+		qcom,mdss-dsi-off-command =[05 01 00 00 32 00 02 28 00
 					05 01 00 00 78 00 02 10 00];
 		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+		qcom,dynamic-mode-switch-enabled;
+		qcom,dynamic-mode-switch-type = "dynamic-switch-immediate";
+		qcom,video-to-cmd-mode-switch-commands =
+			[23 00 00 00 00 00 02 b0 00
+			29 00 00 00 00 00 02 b3 0c
+			23 01 00 00 00 00 02 b0 03];
+		qcom,cmd-to-video-mode-switch-commands =
+			[23 00 00 00 00 00 02 b0 00
+			29 00 00 00 00 00 02 b3 1c
+			23 01 00 00 00 00 02 b0 03];
 	};
 };
