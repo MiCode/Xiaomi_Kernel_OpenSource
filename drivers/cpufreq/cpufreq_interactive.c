@@ -1521,7 +1521,6 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 	struct cpufreq_frequency_table *freq_table;
 	struct cpufreq_interactive_tunables *tunables;
 	unsigned long flags;
-	int first_cpu;
 
 	if (have_governor_per_policy())
 		tunables = policy->governor_data;
@@ -1539,10 +1538,6 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 			policy->governor_data = tunables;
 			return 0;
 		}
-
-		first_cpu = cpumask_first(policy->related_cpus);
-		for_each_cpu(j, policy->related_cpus)
-			per_cpu(cpuinfo, j).first_cpu = first_cpu;
 
 		tunables = restore_tunables(policy);
 		if (!tunables) {
