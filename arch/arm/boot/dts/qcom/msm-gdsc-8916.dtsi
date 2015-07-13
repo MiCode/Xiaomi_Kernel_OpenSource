@@ -81,4 +81,11 @@
 		reg = <0x185904c 0x4>;
 		status = "disabled";
 	};
+
+	gdsc_usb30: qcom,gdsc@183f078 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_usb30";
+		reg = <0x183f078 0x4>;
+		status = "disabled";
+	};
 };
