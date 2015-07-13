@@ -777,17 +777,22 @@ __iommu_alloc_remap(struct page **pages, size_t size, gfp_t gfp, pgprot_t prot,
 /*
  * Create a mapping in device IO address space for specified pages
  */
-static dma_addr_t
-__iommu_create_mapping(struct device *dev, struct page **pages, size_t size)
+static dma_addr_t __iommu_create_mapping(struct device *dev,
+					struct page **pages, size_t size,
+					struct dma_attrs *attrs)
 {
 	struct dma_iommu_mapping *mapping = dev->archdata.mapping;
 	unsigned int count = PAGE_ALIGN(size) >> PAGE_SHIFT;
 	dma_addr_t dma_addr, iova;
 	int i, ret;
+	int prot = IOMMU_READ | IOMMU_WRITE;
 
 	dma_addr = __alloc_iova(mapping, size);
 	if (dma_addr == DMA_ERROR_CODE)
 		return dma_addr;
+
+	if (!dma_get_attr(DMA_ATTR_EXEC_MAPPING, attrs))
+		prot |= IOMMU_NOEXEC;
 
 	iova = dma_addr;
 	for (i = 0; i < count; ) {
@@ -800,8 +805,7 @@ __iommu_create_mapping(struct device *dev, struct page **pages, size_t size)
 				break;
 
 		len = (j - i) << PAGE_SHIFT;
-		ret = iommu_map(mapping->domain, iova, phys, len,
-				IOMMU_READ|IOMMU_WRITE|IOMMU_NOEXEC);
+		ret = iommu_map(mapping->domain, iova, phys, len, prot);
 		if (ret < 0)
 			goto fail;
 		iova += len;
@@ -859,7 +863,7 @@ static struct page **__iommu_get_pages(void *cpu_addr, struct dma_attrs *attrs)
 }
 
 void *__iommu_alloc_atomic(struct device *dev, size_t size,
-				  dma_addr_t *handle, gfp_t gfp)
+			dma_addr_t *handle, gfp_t gfp, struct dma_attrs *attrs)
 {
 	struct page **pages;
 	int count = size >> PAGE_SHIFT;
@@ -878,7 +882,7 @@ void *__iommu_alloc_atomic(struct device *dev, size_t size,
 	if (!addr)
 		goto err_free;
 
-	*handle = __iommu_create_mapping(dev, pages, size);
+	*handle = __iommu_create_mapping(dev, pages, size, attrs);
 	if (*handle == DMA_ERROR_CODE)
 		goto err_mapping;
 
@@ -910,7 +914,7 @@ static void *arm_iommu_alloc_attrs(struct device *dev, size_t size,
 	size = PAGE_ALIGN(size);
 
 	if (!(gfp & __GFP_WAIT))
-		return __iommu_alloc_atomic(dev, size, handle, gfp);
+		return __iommu_alloc_atomic(dev, size, handle, gfp, attrs);
 
 	/*
 	 * Following is a work-around (a.k.a. hack) to prevent pages
@@ -925,7 +929,7 @@ static void *arm_iommu_alloc_attrs(struct device *dev, size_t size,
 	if (!pages)
 		return NULL;
 
-	*handle = __iommu_create_mapping(dev, pages, size);
+	*handle = __iommu_create_mapping(dev, pages, size, attrs);
 	if (*handle == DMA_ERROR_CODE)
 		goto err_buffer;
 
@@ -1067,6 +1071,8 @@ static int __map_sg_chunk(struct device *dev, struct scatterlist *sg,
 					dir);
 
 		prot = __dma_direction_to_prot(dir);
+		if (!dma_get_attr(DMA_ATTR_EXEC_MAPPING, attrs))
+			prot |= IOMMU_NOEXEC;
 
 		ret = iommu_map(mapping->domain, iova, phys, len, prot);
 		if (ret < 0)
@@ -1178,6 +1184,9 @@ int arm_iommu_map_sg(struct device *dev, struct scatterlist *sg,
 		dev_err(dev, "Couldn't allocate iova for sg %p\n", sg);
 		return 0;
 	}
+
+	if (!dma_get_attr(DMA_ATTR_EXEC_MAPPING, attrs))
+		prot |= IOMMU_NOEXEC;
 
 	ret = iommu_map_sg(mapping->domain, iova, sg, nents, prot);
 	if (ret != total_length) {
@@ -1311,6 +1320,8 @@ static dma_addr_t arm_coherent_iommu_map_page(struct device *dev,
 		return dma_addr;
 
 	prot = __dma_direction_to_prot(dir);
+	if (!dma_get_attr(DMA_ATTR_EXEC_MAPPING, attrs))
+		prot |= IOMMU_NOEXEC;
 
 	ret = iommu_map(mapping->domain, dma_addr, page_to_phys(page), len,
 			prot);

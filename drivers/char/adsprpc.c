@@ -38,6 +38,7 @@
 #include <linux/iommu.h>
 #include <linux/kref.h>
 #include <linux/sort.h>
+#include <linux/msm_dma_iommu_mapping.h>
 #include <asm/dma-iommu.h>
 #include "adsprpc_compat.h"
 #include "adsprpc_shared.h"
@@ -308,8 +309,8 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map)
 	if (map->refs)
 		return;
 	if (map->size || map->phys)
-		dma_unmap_sg(fl->sctx->smmu.dev, map->table->sgl,
-				map->table->nents, DMA_BIDIRECTIONAL);
+		msm_dma_unmap_sg(fl->sctx->smmu.dev, map->table->sgl,
+				map->table->nents, DMA_BIDIRECTIONAL, map->buf);
 	if (!IS_ERR_OR_NULL(map->table))
 		dma_buf_unmap_attachment(map->attach, map->table,
 				DMA_BIDIRECTIONAL);
@@ -325,6 +326,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, uintptr_t va,
 {
 	struct fastrpc_session_ctx *sess = fl->sctx;
 	struct fastrpc_mmap *map = 0;
+	struct dma_attrs attrs;
 	int err = 0;
 	if (!fastrpc_mmap_find(fl, fd, va, len, ppmap))
 		return 0;
@@ -345,9 +347,11 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, uintptr_t va,
 				DMA_BIDIRECTIONAL)));
 	if (err)
 		goto bail;
-	VERIFY(err, map->table->nents == dma_map_sg(sess->smmu.dev,
+	init_dma_attrs(&attrs);
+	dma_set_attr(DMA_ATTR_EXEC_MAPPING, &attrs);
+	VERIFY(err, map->table->nents == msm_dma_map_sg_attrs(sess->smmu.dev,
 				map->table->sgl, map->table->nents,
-				DMA_BIDIRECTIONAL));
+				DMA_BIDIRECTIONAL, map->buf, &attrs));
 	if (err)
 		goto bail;
 	map->phys = sg_dma_address(map->table->sgl);
