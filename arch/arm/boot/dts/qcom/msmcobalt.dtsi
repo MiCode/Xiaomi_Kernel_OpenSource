@@ -205,4 +205,98 @@
 		compatible = "qcom,dummycc";
 		#clock-cells = <1>;
 	};
+
+	qcom,ipc-spinlock@1f40000 {
+		compatible = "qcom,ipc-spinlock-sfpb";
+		reg = <0x1f40000 0x8000>;
+		qcom,num-locks = <8>;
+	};
+
+	qcom,smem@86000000 {
+		compatible = "qcom,smem";
+		reg = <0x86000000 0x200000>,
+			<0x17820010 0x4>,
+			<0x778000 0x8000>,
+			<0x1fd4000 0x8>;
+		reg-names = "smem", "irq-reg-base", "aux-mem1",
+			"smem_targ_info_reg";
+		qcom,mpu-enabled;
+
+		qcom,smd-modem {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <0>;
+			qcom,smd-irq-offset = <0x0>;
+			qcom,smd-irq-bitmask = <0x1000>;
+			interrupts = <0 449 1>;
+			label = "modem";
+			qcom,not-loadable;
+		};
+
+		qcom,smd-adsp {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <1>;
+			qcom,smd-irq-offset = <0x0>;
+			qcom,smd-irq-bitmask = <0x100>;
+			interrupts = <0 156 1>;
+			label = "adsp";
+		};
+
+		qcom,smd-dsps {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <3>;
+			qcom,smd-irq-offset = <0x0>;
+			qcom,smd-irq-bitmask = <0x2000000>;
+			interrupts = <0 176 1>;
+			label = "dsps";
+		};
+	};
+
+	qcom,smdpkt {
+		compatible = "qcom,smdpkt";
+
+		qcom,smdpkt-apr-apps2 {
+			qcom,smdpkt-remote = "adsp";
+			qcom,smdpkt-port-name = "apr_apps2";
+			qcom,smdpkt-dev-name = "apr_apps2";
+		};
+
+		qcom,smdpkt-loopback {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "LOOPBACK";
+			qcom,smdpkt-dev-name = "smd_pkt_loopback";
+		};
+	};
+
+	glink_mpss: qcom,glink-ssr-modem {
+		compatible = "qcom,glink_ssr";
+		label = "modem";
+		qcom,edge = "mpss";
+		qcom,notify-edges = <&glink_lpass>, <&glink_dsps>, <&glink_rpm>;
+		qcom,xprt = "smem";
+	};
+
+	glink_lpass: qcom,glink-ssr-adsp {
+		compatible = "qcom,glink_ssr";
+		label = "adsp";
+		qcom,edge = "lpass";
+		qcom,notify-edges = <&glink_mpss>, <&glink_dsps>, <&glink_rpm>;
+		qcom,xprt = "smem";
+	};
+
+	glink_dsps: qcom,glink-ssr-dsps {
+		compatible = "qcom,glink_ssr";
+		label = "slpi";
+		qcom,edge = "dsps";
+		qcom,notify-edges = <&glink_mpss>, <&glink_lpass>, <&glink_rpm>;
+		qcom,xprt = "smem";
+	};
+
+	glink_rpm: qcom,glink-ssr-rpm {
+		compatible = "qcom,glink_ssr";
+		label = "rpm";
+		qcom,edge = "rpm";
+		qcom,notify-edges = <&glink_lpass>, <&glink_mpss>,
+					<&glink_dsps>;
+		qcom,xprt = "smem";
+	};
 };
