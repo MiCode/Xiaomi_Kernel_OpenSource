@@ -385,7 +385,7 @@ static void handle_sys_init_done(enum command_response cmd, void *data)
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_core *core;
 	struct vidc_hal_sys_init_done *sys_init_msg;
-	unsigned int index;
+	u32 index;
 
 	if (!IS_SYS_CMD_VALID(cmd)) {
 		dprintk(VIDC_ERR, "%s - invalid cmd\n", __func__);
@@ -408,16 +408,26 @@ static void handle_sys_init_done(enum command_response cmd, void *data)
 		dprintk(VIDC_ERR, "sys_init_done message not proper\n");
 		return;
 	}
+
 	core->enc_codec_supported = sys_init_msg->enc_codec_supported;
 	core->dec_codec_supported = sys_init_msg->dec_codec_supported;
 	if (core->id == MSM_VIDC_CORE_VENUS &&
 		(core->dec_codec_supported & HAL_VIDEO_CODEC_H264))
 			core->dec_codec_supported |=
 				HAL_VIDEO_CODEC_MVC;
-	dprintk(VIDC_DBG, "supported_codecs: enc = 0x%x, dec = 0x%x\n",
-		core->enc_codec_supported, core->dec_codec_supported);
-	dprintk(VIDC_DBG, "ptr[%d] = %p\n", index, &(core->completions[index]));
+
+	core->codec_count = sys_init_msg->codec_count;
+	memcpy(core->capabilities, sys_init_msg->capabilities,
+		sys_init_msg->codec_count * sizeof(struct msm_vidc_capability));
+
+	dprintk(VIDC_DBG,
+		"%s: supported_codecs[%d]: enc = %#x, dec = %#x\n",
+		__func__, core->codec_count, core->enc_codec_supported,
+		core->dec_codec_supported);
+
 	complete(&(core->completions[index]));
+
+	return;
 }
 
 static void handle_session_release_buf_done(enum command_response cmd,
@@ -590,63 +600,105 @@ static void msm_comm_generate_max_clients_error(struct msm_vidc_inst *inst)
 	handle_session_error(cmd, (void *)&response);
 }
 
+static void print_cap(const char *type,
+		struct hal_capability_supported *cap)
+{
+	dprintk(VIDC_DBG,
+		"%-16s: %-8d %-8d %-8d\n",
+		type, cap->min, cap->max, cap->step_size);
+}
+
 static void handle_session_init_done(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst = NULL;
+	struct vidc_hal_session_init_done *session_init_done = NULL;
+	struct msm_vidc_capability *capability = NULL;
 	struct hfi_device *hdev;
+	struct msm_vidc_core *core;
+	u32 i, codec;
 
-	if (response) {
-		struct vidc_hal_session_init_done *session_init_done =
-			(struct vidc_hal_session_init_done *)
-			response->data;
-		inst = (struct msm_vidc_inst *)response->session_id;
-		if (!inst || !inst->core || !inst->core->device) {
-			dprintk(VIDC_ERR, "%s: invalid parameters (0x%p)\n",
-				__func__, inst);
-			return;
-		}
-
-		hdev = inst->core->device;
-
-		if (!response->status && session_init_done) {
-			inst->capability.width = session_init_done->width;
-			inst->capability.height = session_init_done->height;
-			inst->capability.frame_rate =
-				session_init_done->frame_rate;
-			inst->capability.scale_x = session_init_done->scale_x;
-			inst->capability.scale_y = session_init_done->scale_y;
-			inst->capability.hier_p = session_init_done->hier_p;
-			inst->capability.ltr_count =
-				session_init_done->ltr_count;
-			inst->capability.pixelprocess_capabilities =
-				call_hfi_op(hdev, get_core_capabilities);
-			inst->capability.mbs_per_frame =
-				session_init_done->mbs_per_frame;
-			inst->capability.capability_set = true;
-			inst->capability.buffer_mode[CAPTURE_PORT] =
-				session_init_done->alloc_mode_out;
-			inst->capability.secure_output2_threshold =
-				session_init_done->secure_output2_threshold;
-		} else {
-			dprintk(VIDC_ERR,
-				"Session init response from FW : 0x%x\n",
-				response->status);
-			if (response->status == VIDC_ERR_MAX_CLIENTS)
-				msm_comm_generate_max_clients_error(inst);
-			else
-				msm_comm_generate_session_error(inst);
-		}
-		signal_session_msg_receipt(cmd, inst);
-	} else {
+	if (!response) {
 		dprintk(VIDC_ERR,
 				"Failed to get valid response for session init\n");
+		return;
 	}
+	if (response->status) {
+		dprintk(VIDC_ERR,
+			"Session init response from FW : 0x%x\n",
+			response->status);
+		if (response->status == VIDC_ERR_MAX_CLIENTS)
+			msm_comm_generate_max_clients_error(inst);
+		else
+			msm_comm_generate_session_error(inst);
+	}
+
+	inst = response->session_id;
+	if (!inst) {
+		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
+		return;
+	}
+	core = inst->core;
+	hdev = inst->core->device;
+	codec = inst->session_type == MSM_VIDC_DECODER ?
+			inst->fmts[OUTPUT_PORT]->fourcc :
+			inst->fmts[CAPTURE_PORT]->fourcc;
+
+	/* check if capabilities are available for this session */
+	for (i = 0; i < VIDC_MAX_SESSIONS; i++) {
+		if (core->capabilities[i].codec ==
+				get_hal_codec_type(codec) &&
+			core->capabilities[i].domain ==
+				get_hal_domain(inst->session_type)) {
+			capability = &core->capabilities[i];
+			break;
+		}
+	}
+
+	if (capability && capability->capability_set) {
+		dprintk(VIDC_DBG,
+			"%s: capabilities available for codec 0x%x, domain 0x%x\n",
+			__func__, capability->codec, capability->domain);
+		memcpy(&inst->capability, capability,
+			sizeof(struct msm_vidc_capability));
+	} else {
+		session_init_done = (struct vidc_hal_session_init_done *)
+				response->data;
+		if (!session_init_done) {
+			dprintk(VIDC_ERR,
+				"%s: Failed to get valid response for session init\n",
+				__func__);
+			return;
+		}
+		capability = &session_init_done->capability;
+		dprintk(VIDC_DBG,
+			"%s: got capabilities for codec 0x%x, domain 0x%x\n",
+			__func__, capability->codec,
+			capability->domain);
+		memcpy(&inst->capability, capability,
+			sizeof(struct msm_vidc_capability));
+	}
+	inst->capability.pixelprocess_capabilities =
+		call_hfi_op(hdev, get_core_capabilities);
+
+	dprintk(VIDC_DBG,
+		"Capability type : min      max      step size\n");
+	print_cap("width", &inst->capability.width);
+	print_cap("height", &inst->capability.height);
+	print_cap("mbs_per_frame", &inst->capability.mbs_per_frame);
+	print_cap("frame_rate", &inst->capability.frame_rate);
+	print_cap("scale_x", &inst->capability.scale_x);
+	print_cap("scale_y", &inst->capability.scale_y);
+	print_cap("hier_p", &inst->capability.hier_p);
+	print_cap("ltr_count", &inst->capability.ltr_count);
+
+	signal_session_msg_receipt(cmd, inst);
 }
 
 static void handle_event_change(enum command_response cmd, void *data)
 {
 	struct msm_vidc_inst *inst;
+	struct hfi_device *hdev;
 	struct v4l2_control control = {0};
 	struct msm_vidc_cb_event *event_notify = data;
 	int event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
@@ -658,6 +710,12 @@ static void handle_event_change(enum command_response cmd, void *data)
 	}
 
 	inst = (struct msm_vidc_inst *)event_notify->session_id;
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
+		return;
+	}
+	hdev = inst->core->device;
+
 	switch (event_notify->hal_event_type) {
 	case HAL_EVENT_SEQ_CHANGED_SUFFICIENT_RESOURCES:
 		event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
@@ -667,8 +725,19 @@ static void handle_event_change(enum command_response cmd, void *data)
 		if (rc)
 			dprintk(VIDC_WARN,
 					"Failed to get Smooth streamng flag\n");
-		if (!rc && control.value == true)
+		if (!rc && control.value == true) {
 			event = V4L2_EVENT_SEQ_CHANGED_SUFFICIENT;
+			dprintk(VIDC_DBG,
+				"send session_continue after sufficient event\n");
+			rc = call_hfi_op(hdev, session_continue,
+					(void *) inst->session);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"%s - failed to send session_continue\n",
+					__func__);
+				return;
+			}
+		}
 		break;
 	case HAL_EVENT_SEQ_CHANGED_INSUFFICIENT_RESOURCES:
 		event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
@@ -781,7 +850,13 @@ static void handle_event_change(enum command_response cmd, void *data)
 
 	rc = msm_vidc_check_session_supported(inst);
 	if (!rc) {
-		msm_vidc_queue_v4l2_event(inst, event);
+		struct v4l2_event seq_changed_event = {.id = 0, .type = event };
+		u32 *ptr = NULL;
+		ptr = (u32 *)seq_changed_event.u.data;
+		ptr[0] = event_notify->height;
+		ptr[1] = event_notify->width;
+		v4l2_event_queue_fh(&inst->event_handler, &seq_changed_event);
+		wake_up(&inst->kernel_event_queue);
 	} else if (rc == -ENOTSUPP) {
 		msm_vidc_queue_v4l2_event(inst,
 				V4L2_EVENT_MSM_VIDC_HW_UNSUPPORTED);
@@ -2015,6 +2090,21 @@ int msm_comm_load_fw(struct msm_vidc_core *core)
 				core->id, core->state);
 		goto core_already_inited;
 	}
+	if (!core->capabilities) {
+		core->capabilities = kzalloc(VIDC_MAX_SESSIONS *
+				sizeof(struct msm_vidc_capability), GFP_KERNEL);
+		if (!core->capabilities) {
+			dprintk(VIDC_ERR,
+				"%s: failed to allocate capabilities\n",
+				__func__);
+			rc = -ENOMEM;
+			goto fail_alloc_mem;
+		}
+	} else {
+		dprintk(VIDC_WARN,
+			"%s: capabilities memory is expected to be freed\n",
+			__func__);
+	}
 	mutex_unlock(&core->lock);
 
 	rc = msm_comm_vote_bus(core);
@@ -2067,6 +2157,9 @@ fail_core_init:
 fail_load_fw:
 	msm_comm_unvote_buses(core);
 fail_vote_bus:
+	kfree(core->capabilities);
+	core->capabilities = NULL;
+fail_alloc_mem:
 	return rc;
 }
 
@@ -4117,7 +4210,7 @@ int msm_vidc_check_scaling_supported(struct msm_vidc_inst *inst)
 
 int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 {
-	struct msm_vidc_core_capability *capability;
+	struct msm_vidc_capability *capability;
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct msm_vidc_core *core;
@@ -4391,6 +4484,9 @@ void msm_vidc_fw_unload_handler(struct work_struct *work)
 		call_hfi_op(hdev, unload_fw, hdev->hfi_device_data);
 		dprintk(VIDC_DBG, "Firmware unloaded\n");
 		msm_comm_unvote_buses(core);
+
+		kfree(core->capabilities);
+		core->capabilities = NULL;
 	}
 	mutex_unlock(&core->lock);
 }

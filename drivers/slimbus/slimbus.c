@@ -1105,6 +1105,50 @@ int slim_user_msg(struct slim_device *sb, u8 la, u8 mt, u8 mc,
 EXPORT_SYMBOL(slim_user_msg);
 
 /*
+ * Queue bulk of message writes:
+ * slim_bulk_msg_write: Write bulk of messages (e.g. downloading FW)
+ * @sb: Client handle sending these messages
+ * @la: Destination device for these messages
+ * @mt: Message Type
+ * @mc: Message Code
+ * @msgs: List of messages to be written in bulk
+ * @n: Number of messages in the list
+ * @cb: Callback if client needs this to be non-blocking
+ * @ctx: Context for this callback
+ * If supported by controller, this message list will be sent in bulk to the HW
+ * If the client specifies this to be non-blocking, the callback will be
+ * called from atomic context.
+ */
+int slim_bulk_msg_write(struct slim_device *sb, u8 mt, u8 mc,
+			struct slim_val_inf msgs[], int n,
+			int (*comp_cb)(void *ctx, int err), void *ctx)
+{
+	int i, ret;
+
+	if (!sb || !sb->ctrl || !msgs)
+		return -EINVAL;
+	if (!sb->ctrl->xfer_bulk_wr) {
+		pr_warn("controller does not support bulk WR, serializing");
+		for (i = 0; i < n; i++) {
+			struct slim_ele_access ele;
+
+			ele.comp = NULL;
+			ele.start_offset = msgs[i].start_offset;
+			ele.num_bytes = msgs[i].num_bytes;
+			ret = slim_xfer_msg(sb->ctrl, sb, &ele, mc,
+					msgs[i].rbuf, msgs[i].wbuf,
+					ele.num_bytes);
+			if (ret)
+				return ret;
+		}
+		return ret;
+	}
+	return sb->ctrl->xfer_bulk_wr(sb->ctrl, sb->laddr, mt, mc, msgs, n,
+					comp_cb, ctx);
+}
+EXPORT_SYMBOL(slim_bulk_msg_write);
+
+/*
  * slim_alloc_mgrports: Allocate port on manager side.
  * @sb: device/client handle.
  * @req: Port request type.

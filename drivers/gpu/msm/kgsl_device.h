@@ -130,10 +130,10 @@ struct kgsl_functable {
 	int (*start) (struct kgsl_device *device, int priority);
 	int (*stop) (struct kgsl_device *device);
 	int (*getproperty) (struct kgsl_device *device,
-		enum kgsl_property_type type, void __user *value,
+		unsigned int type, void __user *value,
 		size_t sizebytes);
 	int (*getproperty_compat) (struct kgsl_device *device,
-		enum kgsl_property_type type, void __user *value,
+		unsigned int type, void __user *value,
 		size_t sizebytes);
 	int (*waittimestamp) (struct kgsl_device *device,
 		struct kgsl_context *context, unsigned int timestamp,
@@ -164,10 +164,10 @@ struct kgsl_functable {
 	long (*compat_ioctl) (struct kgsl_device_private *dev_priv,
 		unsigned int cmd, unsigned long arg);
 	int (*setproperty) (struct kgsl_device_private *dev_priv,
-		enum kgsl_property_type type, void __user *value,
+		unsigned int type, void __user *value,
 		unsigned int sizebytes);
 	int (*setproperty_compat) (struct kgsl_device_private *dev_priv,
-		enum kgsl_property_type type, void __user *value,
+		unsigned int type, void __user *value,
 		unsigned int sizebytes);
 	void (*drawctxt_sched)(struct kgsl_device *device,
 		struct kgsl_context *context);
@@ -724,16 +724,8 @@ static inline int _kgsl_context_get(struct kgsl_context *context)
 {
 	int ret = 0;
 
-	if (context) {
+	if (context)
 		ret = kref_get_unless_zero(&context->refcount);
-		/*
-		 * We shouldn't realistically fail kref_get_unless_zero unless
-		 * we did something really dumb so make the failure both public
-		 * and painful
-		 */
-
-		WARN_ON(!ret);
-	}
 
 	return ret;
 }

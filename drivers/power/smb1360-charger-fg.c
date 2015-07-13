@@ -61,6 +61,7 @@
 #define CHG_EN_BY_PIN_BIT		BIT(7)
 #define CHG_EN_ACTIVE_LOW_BIT		BIT(6)
 #define PRE_TO_FAST_REQ_CMD_BIT		BIT(5)
+#define CFG_BAT_OV_ENDS_CHG_CYC		BIT(4)
 #define CHG_CURR_TERM_DIS_BIT		BIT(3)
 #define CFG_AUTO_RECHG_DIS_BIT		BIT(2)
 #define CFG_CHG_INHIBIT_EN_BIT		BIT(0)
@@ -283,6 +284,22 @@ enum {
 
 static int otg_curr_ma[] = {350, 550, 950, 1500};
 
+struct otp_backup_pool {
+	u8 reg_start;
+	u8 reg_end;
+	u8 start_now;
+	u16 alg_bitmap;
+	bool initialized;
+	struct mutex lock;
+};
+
+enum otp_backup_alg {
+	OTP_BACKUP_NOT_USE = 0,
+	OTP_BACKUP_FG_USE,
+	OTP_BACKUP_PROF_A_USE,
+	OTP_BACKUP_PROF_B_USE,
+};
+
 struct smb1360_otg_regulator {
 	struct regulator_desc	rdesc;
 	struct regulator_dev	*rdev;
@@ -311,6 +328,7 @@ struct smb1360_chip {
 	bool				shdn_after_pwroff;
 	bool				config_hard_thresholds;
 	bool				soft_jeita_supported;
+	bool				ov_ends_chg_cycle_disabled;
 	int				iterm_ma;
 	int				vfloat_mv;
 	int				safety_time;
@@ -406,6 +424,8 @@ struct smb1360_chip {
 	struct work_struct		parallel_work;
 	struct mutex			otp_gain_lock;
 	struct mutex			fg_access_request_lock;
+	struct otp_backup_pool		otp_backup;
+	u8				current_gain_otp_reg;
 };
 
 static int chg_time[] = {
@@ -815,6 +835,68 @@ static int smb1360_enable_volatile_writes(struct smb1360_chip *chip)
 	if (rc < 0)
 		dev_err(chip->dev,
 			"Couldn't set VOLATILE_W_PERM_BIT rc=%d\n", rc);
+
+	return rc;
+}
+
+void smb1360_otp_backup_pool_init(struct smb1360_chip *chip)
+{
+	struct otp_backup_pool *pool = &chip->otp_backup;
+
+	pool->reg_start = 0xE0;
+	pool->reg_end = 0xEF;
+	pool->start_now = pool->reg_start;
+	mutex_init(&pool->lock);
+}
+
+static int smb1360_alloc_otp_backup_register(struct smb1360_chip *chip,
+						u8 size, int usage)
+{
+	int rc = 0, i;
+	u8 inv_pos;
+	struct otp_backup_pool *pool = &chip->otp_backup;
+
+	if (size % 2) {
+		pr_err("Must be allocated with pairs\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&pool->lock);
+	if (pool->start_now + size > pool->reg_end) {
+		pr_err("Allocation fail: start = 0x%x, size = %d\n",
+						pool->start_now, size);
+		mutex_unlock(&pool->lock);
+		return -EBUSY;
+	}
+	rc = pool->start_now;
+	inv_pos = pool->reg_end - pool->start_now + 1;
+	for (i = 0; i < size; i = i + 2) {
+		inv_pos -= i;
+		pool->alg_bitmap |= usage << (inv_pos - 2);
+	}
+	pr_debug("Allocation success, start = 0x%x, size = %d, alg_bitmap = 0x%x\n",
+						rc, size, pool->alg_bitmap);
+	pool->start_now += size;
+	mutex_unlock(&pool->lock);
+
+	return rc;
+}
+
+#define OTP_BACKUP_WA_ALG_1	0xF0
+#define OTP_BACKUP_WA_ALG_2	0xF1
+static int smb1360_otp_backup_alg_update(struct smb1360_chip *chip)
+{
+	int rc = 0;
+	struct otp_backup_pool *pool = &chip->otp_backup;
+
+	mutex_lock(&pool->lock);
+	rc = smb1360_fg_write(chip, OTP_BACKUP_WA_ALG_1,
+			(u8)(pool->alg_bitmap >> 8));
+	rc |= smb1360_fg_write(chip, OTP_BACKUP_WA_ALG_2,
+			(u8)(pool->alg_bitmap));
+	if (rc)
+		pr_err("Write FG address F0/F1 failed, rc = %d\n", rc);
+	mutex_unlock(&pool->lock);
 
 	return rc;
 }
@@ -2072,31 +2154,27 @@ static int smb1360_select_fg_i2c_address(struct smb1360_chip *chip)
 }
 
 static int smb1360_adjust_current_gain(struct smb1360_chip *chip,
-							int gain_factor)
+						int gain_factor)
 {
 	int i, rc;
 	int64_t current_gain, new_current_gain;
-	u8 reg[2];
 	u16 reg_value1 = 0, reg_value2 = 0;
-	u8 reg_val_mapping[][2] = {
-			{0xE0, 0x1D},
-			{0xE1, 0x00},
-			{0xE2, 0x1E},
-			{0xE3, 0x00},
-			{0xE4, 0x00},
-			{0xE5, 0x00},
-			{0xE6, 0x00},
-			{0xE7, 0x00},
-			{0xE8, 0x00},
-			{0xE9, 0x00},
-			{0xEA, 0x00},
-			{0xEB, 0x00},
-			{0xEC, 0x00},
-			{0xED, 0x00},
-			{0xEF, 0x00},
-			{0xF0, 0x50},
-			{0xF1, 0x00},
-	};
+	u8 reg[4] = {0x1D, 0x00, 0x1E, 0x00};
+	u8 otp_reg = 0;
+
+	if (!chip->current_gain_otp_reg) {
+		otp_reg = smb1360_alloc_otp_backup_register(chip,
+				ARRAY_SIZE(reg), OTP_BACKUP_FG_USE);
+		if (otp_reg <= 0) {
+			pr_err("OTP reg allocation fail for adjusting current gain\n");
+			return otp_reg;
+		} else {
+			chip->current_gain_otp_reg = otp_reg;
+		}
+	} else {
+		otp_reg = chip->current_gain_otp_reg;
+	}
+	pr_debug("current_gain_otp_reg = 0x%x\n", chip->current_gain_otp_reg);
 
 	if (gain_factor) {
 		rc = smb1360_fg_read(chip, CURRENT_GAIN_LSB_REG, &reg[0]);
@@ -2117,27 +2195,26 @@ static int smb1360_adjust_current_gain(struct smb1360_chip *chip,
 		current_gain = float_decode(reg_value1);
 		new_current_gain = MICRO_UNIT  + (gain_factor * current_gain);
 		reg_value2 = float_encode(new_current_gain);
-		reg[0] = reg_value2 & 0xFF;
-		reg[1] = (reg_value2 & 0xFF00) >> 8;
+		reg[1] = reg_value2 & 0xFF;
+		reg[3] = (reg_value2 & 0xFF00) >> 8;
 		pr_debug("current_gain_reg=0x%x current_gain_decoded=%lld new_current_gain_decoded=%lld new_current_gain_reg=0x%x\n",
 			reg_value1, current_gain, new_current_gain, reg_value2);
 
-		for (i = 0; i < ARRAY_SIZE(reg_val_mapping); i++) {
-			if (reg_val_mapping[i][0] == 0xE1)
-				reg_val_mapping[i][1] = reg[0];
-			if (reg_val_mapping[i][0] == 0xE3)
-				reg_val_mapping[i][1] = reg[1];
-
+		for (i = 0; i < ARRAY_SIZE(reg); i++) {
 			pr_debug("Writing reg_add=%x value=%x\n",
-				reg_val_mapping[i][0], reg_val_mapping[i][1]);
+					otp_reg + i, reg[i]);
 
-			rc = smb1360_fg_write(chip, reg_val_mapping[i][0],
-					reg_val_mapping[i][1]);
+			rc = smb1360_fg_write(chip, (otp_reg + i), reg[i]);
 			if (rc) {
-				pr_err("Write fg address 0x%x failed, rc = %d\n",
-						reg_val_mapping[i][0], rc);
+				pr_err("Write FG address 0x%x failed, rc = %d\n",
+							otp_reg + i, rc);
 				return rc;
 			}
+		}
+		rc = smb1360_otp_backup_alg_update(chip);
+		if (rc) {
+			pr_err("Update OTP backup algorithm failed\n");
+			return rc;
 		}
 	} else {
 		pr_debug("Disabling gain correction\n");
@@ -3882,6 +3959,16 @@ static int smb1360_hw_init(struct smb1360_chip *chip)
 		return rc;
 	}
 
+	rc = smb1360_masked_write(chip, CFG_CHG_MISC_REG,
+					CFG_BAT_OV_ENDS_CHG_CYC,
+					chip->ov_ends_chg_cycle_disabled ?
+					0 : CFG_BAT_OV_ENDS_CHG_CYC);
+	if (rc) {
+		dev_err(chip->dev, "Couldn't set bat_ov_ends_charge rc = %d\n"
+									, rc);
+		return rc;
+	}
+
 	/* battery missing detection */
 	rc = smb1360_masked_write(chip, CFG_BATT_MISSING_REG,
 				BATT_MISSING_SRC_THERM_BIT,
@@ -4352,6 +4439,9 @@ static int smb_parse_dt(struct smb1360_chip *chip)
 	chip->min_icl_usb100 = of_property_read_bool(node,
 						"qcom,min-icl-100ma");
 
+	chip->ov_ends_chg_cycle_disabled = of_property_read_bool(node,
+					"qcom,disable-ov-ends-chg-cycle");
+
 	rc = smb1360_parse_parallel_charging_params(chip);
 	if (rc) {
 		pr_err("Couldn't parse parallel charginng params rc=%d\n", rc);
@@ -4532,7 +4622,7 @@ static int smb1360_probe(struct i2c_client *client,
 	INIT_WORK(&chip->parallel_work, smb1360_parallel_work);
 
 	pr_debug("default_i2c_addr=%x\n", chip->default_i2c_addr);
-
+	smb1360_otp_backup_pool_init(chip);
 	rc = smb1360_hw_init(chip);
 	if (rc < 0) {
 		dev_err(&client->dev,

@@ -37,6 +37,7 @@
 
 #include "msm-pcm-q6-v2.h"
 #include "msm-pcm-routing-v2.h"
+#include <linux/ratelimit.h>
 
 enum stream_state {
 	IDLE = 0,
@@ -502,6 +503,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct msm_audio *prtd;
 	int ret = 0;
+	static DEFINE_RATELIMIT_STATE(rl, HZ/2, 1);
 
 	prtd = kzalloc(sizeof(struct msm_audio), GFP_KERNEL);
 	if (prtd == NULL) {
@@ -512,7 +514,8 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	prtd->audio_client = q6asm_audio_client_alloc(
 				(app_cb)event_handler, prtd);
 	if (!prtd->audio_client) {
-		pr_info("%s: Could not allocate memory\n", __func__);
+		if (__ratelimit(&rl))
+			pr_err("%s: Could not allocate memory\n", __func__);
 		kfree(prtd);
 		return -ENOMEM;
 	}
@@ -1199,9 +1202,37 @@ static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
 	return ret;
 }
 
+static snd_pcm_sframes_t msm_pcm_delay_blk(struct snd_pcm_substream *substream,
+		struct snd_soc_dai *dai)
+{
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct msm_audio *prtd = runtime->private_data;
+	struct audio_client *ac = prtd->audio_client;
+	snd_pcm_sframes_t frames;
+	int ret;
+
+	ret = q6asm_get_path_delay(prtd->audio_client);
+	if (ret) {
+		pr_err("%s: get_path_delay failed, ret=%d\n", __func__, ret);
+		return 0;
+	}
+
+	/* convert microseconds to frames */
+	frames = ac->path_delay / 1000 * runtime->rate / 1000;
+
+	/* also convert the remainder from the initial division */
+	frames += ac->path_delay % 1000 * runtime->rate / 1000000;
+
+	/* overcompensate for the loss of precision (empirical) */
+	frames += 2;
+
+	return frames;
+}
+
 static struct snd_soc_platform_driver msm_soc_platform = {
 	.ops		= &msm_pcm_ops,
 	.pcm_new	= msm_asoc_pcm_new,
+	.delay_blk      = msm_pcm_delay_blk,
 };
 
 static int msm_pcm_probe(struct platform_device *pdev)

@@ -97,7 +97,7 @@ struct tasha_reg_mask_val {
 
 extern void *tasha_get_afe_config(struct snd_soc_codec *codec,
 				  enum afe_config_type config_type);
-extern int tasha_cdc_mclk_enable(struct snd_soc_codec *codec, bool enable,
+extern int tasha_cdc_mclk_enable(struct snd_soc_codec *codec, int enable,
 				 bool dapm);
 extern int tasha_mbhc_hs_detect(struct snd_soc_codec *codec,
 				struct wcd_mbhc_config *mbhc_cfg);

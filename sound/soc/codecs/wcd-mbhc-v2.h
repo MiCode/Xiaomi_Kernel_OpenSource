@@ -13,12 +13,16 @@
 #define __WCD_MBHC_V2_H__
 
 #include <linux/wait.h>
+#include <linux/stringify.h>
 #include "wcdcal-hwdep.h"
 
 #define TOMBAK_MBHC_NC	0
 #define TOMBAK_MBHC_NO	1
 #define WCD_MBHC_DEF_BUTTONS 8
+#define WCD_MBHC_KEYCODE_NUM 8
 #define WCD_MBHC_USLEEP_RANGE_MARGIN_US 100
+#define WCD_MBHC_THR_HS_MICB_MV  2700
+#define WCD_MBHC_STRINGIFY(s)  __stringify(s)
 
 struct wcd_mbhc;
 enum wcd_mbhc_register_function {
@@ -104,11 +108,17 @@ enum wcd_notify_event {
 	WCD_EVENT_POST_MICBIAS_2_OFF,
 	WCD_EVENT_PRE_MICBIAS_2_ON,
 	WCD_EVENT_POST_MICBIAS_2_ON,
+	WCD_EVENT_PRE_DAPM_MICBIAS_2_OFF,
+	WCD_EVENT_POST_DAPM_MICBIAS_2_OFF,
+	WCD_EVENT_PRE_DAPM_MICBIAS_2_ON,
+	WCD_EVENT_POST_DAPM_MICBIAS_2_ON,
 	/* events for PA ON and OFF */
 	WCD_EVENT_PRE_HPHL_PA_ON,
 	WCD_EVENT_POST_HPHL_PA_OFF,
 	WCD_EVENT_PRE_HPHR_PA_ON,
 	WCD_EVENT_POST_HPHR_PA_OFF,
+	WCD_EVENT_PRE_HPHL_PA_OFF,
+	WCD_EVENT_PRE_HPHR_PA_OFF,
 	WCD_EVENT_LAST,
 };
 
@@ -206,6 +216,8 @@ struct wcd_mbhc_config {
 	bool mono_stero_detection;
 	bool (*swap_gnd_mic) (struct snd_soc_codec *codec);
 	bool hs_ext_micbias;
+	int key_code[WCD_MBHC_KEYCODE_NUM];
+	uint32_t linein_th;
 };
 
 struct wcd_mbhc_intr {
@@ -299,6 +311,7 @@ struct wcd_mbhc_cb {
 	void (*mbhc_micb_ramp_control)(struct snd_soc_codec *, bool);
 	void (*skip_imped_detect)(struct snd_soc_codec *);
 	bool (*extn_use_mb)(struct snd_soc_codec *);
+	int (*mbhc_micb_ctrl_thr_mic)(struct snd_soc_codec *, int, bool);
 };
 
 struct wcd_mbhc {
@@ -357,6 +370,10 @@ struct wcd_mbhc {
 	struct notifier_block nblock;
 
 	struct wcd_mbhc_register *wcd_mbhc_regs;
+
+	struct completion btn_press_compl;
+	struct mutex hphl_pa_lock;
+	struct mutex hphr_pa_lock;
 };
 #define WCD_MBHC_CAL_SIZE(buttons, rload) ( \
 	sizeof(struct wcd_mbhc_general_cfg) + \
@@ -411,6 +428,7 @@ struct wcd_mbhc {
 	(sizeof(cfg_ptr->_rload[0]) + sizeof(cfg_ptr->_alpha[0]))))
 
 #ifdef CONFIG_SND_SOC_WCD_MBHC
+int wcd_mbhc_set_keycode(struct wcd_mbhc *mbhc);
 int wcd_mbhc_start(struct wcd_mbhc *mbhc,
 		       struct wcd_mbhc_config *mbhc_cfg);
 void wcd_mbhc_stop(struct wcd_mbhc *mbhc);

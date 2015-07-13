@@ -469,6 +469,9 @@ static void a5xx_regulator_disable(struct adreno_device *adreno_dev)
 	unsigned int reg;
 	struct kgsl_device *device = &adreno_dev->dev;
 
+	if (adreno_is_a510(adreno_dev))
+		return;
+
 	/* If feature is not supported or not enabled */
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC) ||
 		!test_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag)) {
@@ -672,13 +675,34 @@ static const struct kgsl_hwcg_reg a530_hwcg_regs[] = {
 	{A5XX_RBBM_CLOCK_DELAY_VFD, 0x00002222}
 };
 
-static void a5xx_hwcg_init(struct kgsl_device *device,
-	const struct kgsl_hwcg_reg *regs, unsigned int nregs)
+static const struct {
+	int (*devfunc)(struct adreno_device *adreno_dev);
+	const struct kgsl_hwcg_reg *regs;
+	unsigned int count;
+} a5xx_hwcg_registers[] = {
+	{ adreno_is_a530v2, a530_hwcg_regs, ARRAY_SIZE(a530_hwcg_regs) },
+	{ adreno_is_a510, a510_hwcg_regs, ARRAY_SIZE(a510_hwcg_regs) },
+};
+
+static void a5xx_hwcg_init(struct adreno_device *adreno_dev)
 {
-	unsigned int i;
-	/* program revision specific HWCG settings */
-	for (i = 0; i < nregs; i++)
-		kgsl_regwrite(device, regs[i].off, regs[i].val);
+	struct kgsl_device *device = &adreno_dev->dev;
+	const struct kgsl_hwcg_reg *regs;
+	int i, j;
+
+	for (i = 0; i < ARRAY_SIZE(a5xx_hwcg_registers); i++) {
+		if (a5xx_hwcg_registers[i].devfunc(adreno_dev))
+			break;
+	}
+
+	if (i == ARRAY_SIZE(a5xx_hwcg_registers))
+		return;
+
+	regs = a5xx_hwcg_registers[i].regs;
+
+	for (j = 0; j < a5xx_hwcg_registers[i].count; j++)
+		kgsl_regwrite(device, regs[j].off, regs[j].val);
+
 	/* enable top level HWCG */
 	kgsl_regwrite(device, A5XX_RBBM_CLOCK_CNTL, 0xAAA8AA00);
 	kgsl_regwrite(device, A5XX_RBBM_ISDB_CNT, 0x00000182);
@@ -1420,12 +1444,7 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	/* Set the USE_RETENTION_FLOPS chicken bit */
 	kgsl_regwrite(device, A5XX_CP_CHICKEN_DBG, 0x02000000);
 
-	if (adreno_is_a530(adreno_dev) && !adreno_is_a530v1(adreno_dev))
-		a5xx_hwcg_init(device, a530_hwcg_regs,
-			ARRAY_SIZE(a530_hwcg_regs));
-	else if (adreno_is_a510(adreno_dev))
-		a5xx_hwcg_init(device, a510_hwcg_regs,
-			ARRAY_SIZE(a510_hwcg_regs));
+	a5xx_hwcg_init(adreno_dev);
 
 	a5xx_protect_init(adreno_dev);
 }
@@ -1486,7 +1505,8 @@ int a5xx_rb_init(struct adreno_device *adreno_dev,
 }
 
 static int _load_firmware(struct adreno_device *adreno_dev, const char *fwfile,
-			  struct kgsl_memdesc *ucode, size_t *ucode_size)
+			  struct kgsl_memdesc *ucode, size_t *ucode_size,
+			  unsigned int *ucode_version)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	const struct firmware *fw = NULL;
@@ -1495,7 +1515,7 @@ static int _load_firmware(struct adreno_device *adreno_dev, const char *fwfile,
 	ret = request_firmware(&fw, fwfile, device->dev);
 
 	if (ret) {
-		KGSL_DRV_FATAL(device, "request_firmware(%s) failed: %d\n",
+		KGSL_DRV_ERR(device, "request_firmware(%s) failed: %d\n",
 				fwfile, ret);
 		return ret;
 	}
@@ -1508,6 +1528,7 @@ static int _load_firmware(struct adreno_device *adreno_dev, const char *fwfile,
 
 	memcpy(ucode->hostptr, &fw->data[4], fw->size - 4);
 	*ucode_size = (fw->size - 4) / sizeof(uint32_t);
+	*ucode_version = *(unsigned int *)&fw->data[4];
 
 	release_firmware(fw);
 
@@ -1521,26 +1542,21 @@ static int _load_firmware(struct adreno_device *adreno_dev, const char *fwfile,
 int a5xx_microcode_read(struct adreno_device *adreno_dev)
 {
 	int ret;
-	uint *ucode;
 
 	ret = _load_firmware(adreno_dev,
 			 adreno_dev->gpucore->pm4fw_name, &adreno_dev->pm4,
-						 &adreno_dev->pm4_fw_size);
+			 &adreno_dev->pm4_fw_size, &adreno_dev->pm4_fw_version);
 	if (ret)
 		return ret;
 
 	ret = _load_firmware(adreno_dev,
 			 adreno_dev->gpucore->pfpfw_name, &adreno_dev->pfp,
-						 &adreno_dev->pfp_fw_size);
+			 &adreno_dev->pfp_fw_size, &adreno_dev->pfp_fw_version);
 	if (ret)
 		return ret;
 
-	_load_regfile(adreno_dev);
-
-	ucode = (int *) adreno_dev->pm4.hostptr;
-	adreno_dev->pm4_fw_version = ucode[0];
-	ucode = (int *) adreno_dev->pfp.hostptr;
-	adreno_dev->pfp_fw_version = ucode[0];
+	if (!adreno_is_a510(adreno_dev))
+		_load_regfile(adreno_dev);
 
 	return ret;
 }

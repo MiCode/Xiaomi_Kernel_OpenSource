@@ -290,21 +290,21 @@ enum kgsl_timestamp_type {
 };
 
 /* property types - used with kgsl_device_getproperty */
-enum kgsl_property_type {
-	KGSL_PROP_DEVICE_INFO     = 0x00000001,
-	KGSL_PROP_DEVICE_SHADOW   = 0x00000002,
-	KGSL_PROP_DEVICE_POWER    = 0x00000003,
-	KGSL_PROP_SHMEM           = 0x00000004,
-	KGSL_PROP_SHMEM_APERTURES = 0x00000005,
-	KGSL_PROP_MMU_ENABLE 	  = 0x00000006,
-	KGSL_PROP_INTERRUPT_WAITS = 0x00000007,
-	KGSL_PROP_VERSION         = 0x00000008,
-	KGSL_PROP_GPU_RESET_STAT  = 0x00000009,
-	KGSL_PROP_PWRCTRL         = 0x0000000E,
-	KGSL_PROP_PWR_CONSTRAINT  = 0x00000012,
-	KGSL_PROP_UCHE_GMEM_VADDR = 0x00000013,
-	KGSL_PROP_SP_GENERIC_MEM  = 0x00000014,
-};
+#define KGSL_PROP_DEVICE_INFO		0x1
+#define KGSL_PROP_DEVICE_SHADOW		0x2
+#define KGSL_PROP_DEVICE_POWER		0x3
+#define KGSL_PROP_SHMEM			0x4
+#define KGSL_PROP_SHMEM_APERTURES	0x5
+#define KGSL_PROP_MMU_ENABLE		0x6
+#define KGSL_PROP_INTERRUPT_WAITS	0x7
+#define KGSL_PROP_VERSION		0x8
+#define KGSL_PROP_GPU_RESET_STAT	0x9
+#define KGSL_PROP_PWRCTRL		0xE
+#define KGSL_PROP_PWR_CONSTRAINT	0x12
+#define KGSL_PROP_UCHE_GMEM_VADDR	0x13
+#define KGSL_PROP_SP_GENERIC_MEM	0x14
+#define KGSL_PROP_UCODE_VERSION		0x15
+#define KGSL_PROP_GPMU_VERSION		0x16
 
 struct kgsl_shadowprop {
 	unsigned long gpuaddr;
@@ -322,6 +322,17 @@ struct kgsl_version {
 struct kgsl_sp_generic_mem {
 	uint64_t local;
 	uint64_t pvt;
+};
+
+struct kgsl_ucode_version {
+	unsigned int pfp;
+	unsigned int pm4;
+};
+
+struct kgsl_gpmu_version {
+	unsigned int major;
+	unsigned int minor;
+	unsigned int features;
 };
 
 /* Performance counter groups */
@@ -351,8 +362,8 @@ struct kgsl_sp_generic_mem {
 #define KGSL_PERFCOUNTER_GROUP_L2 0x16
 #define KGSL_PERFCOUNTER_GROUP_VSC 0x17
 #define KGSL_PERFCOUNTER_GROUP_CCU 0x18
-#define KGSL_PERFCOUNTER_GROUP_CMP 0x19
-#define KGSL_PERFCOUNTER_GROUP_LRZ 0x1A
+#define KGSL_PERFCOUNTER_GROUP_LRZ 0x19
+#define KGSL_PERFCOUNTER_GROUP_CMP 0x1A
 #define KGSL_PERFCOUNTER_GROUP_ALWAYSON 0x1B
 #define KGSL_PERFCOUNTER_GROUP_SP_PWR 0x1C
 #define KGSL_PERFCOUNTER_GROUP_TP_PWR 0x1D

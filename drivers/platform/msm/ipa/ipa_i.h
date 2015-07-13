@@ -139,9 +139,25 @@
 #define MAX_RESOURCE_TO_CLIENTS (IPA_CLIENT_MAX)
 #define IPA_MEM_PART(x_) (ipa_ctx->ctrl->mem_partition.x_)
 
+#define IPA_SMMU_AP_VA_START 0x1000
+#define IPA_SMMU_AP_VA_SIZE 0x40000000
+#define IPA_SMMU_AP_VA_END (IPA_SMMU_AP_VA_START +  IPA_SMMU_AP_VA_SIZE)
+#define IPA_SMMU_UC_VA_START 0x40000000
+#define IPA_SMMU_UC_VA_SIZE 0x20000000
+#define IPA_SMMU_UC_VA_END (IPA_SMMU_UC_VA_START +  IPA_SMMU_UC_VA_SIZE)
+
+
 struct ipa_client_names {
 	enum ipa_client_type names[MAX_RESOURCE_TO_CLIENTS];
 	int length;
+};
+
+struct ipa_smmu_cb_ctx {
+	bool valid;
+	struct device *dev;
+	struct dma_iommu_mapping *mapping;
+	struct iommu_domain *iommu;
+	unsigned long next_addr;
 };
 
 /**
@@ -1010,7 +1026,6 @@ struct ipa_uc_ctx {
 
 /**
  * struct ipa_uc_wdi_ctx
- * @wdi_dma_pool: DMA pool used for WDI operations
  * @wdi_uc_top_ofst:
  * @wdi_uc_top_mmio:
  * @wdi_uc_stats_ofst:
@@ -1018,7 +1033,6 @@ struct ipa_uc_ctx {
  */
 struct ipa_uc_wdi_ctx {
 	/* WDI specific fields */
-	struct dma_pool *wdi_dma_pool;
 	u32 wdi_uc_stats_ofst;
 	struct IpaHwStatsWDIInfoData_t *wdi_uc_stats_mmio;
 	void *priv;
@@ -1092,6 +1106,7 @@ struct ipa_sps_pm {
  * @tag_process_before_gating: indicates whether to start tag process before
  *  gating IPA clocks
  * @sps_pm: sps power management related information
+ * @lan_rx_clnt_notify_lock: protects LAN_CONS packet recieve notification CB
  * @pipe_mem_pool: pipe memory pool
  * @dma_pool: special purpose DMA pool
  * @ipa_active_clients: structure for reference counting connected IPA clients
@@ -1110,6 +1125,7 @@ struct ipa_sps_pm {
  * @uc_wdi_ctx: WDI specific fields for uC interface
  * @ipa_num_pipes: The number of pipes used by IPA HW
  * @skip_uc_pipe_reset: Indicates whether pipe reset via uC needs to be avoided
+ * @ipa_client_apps_wan_cons_agg_gro: RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA
 
  * IPA context - holds all relevant info about IPA driver and its state
  */
@@ -1170,6 +1186,7 @@ struct ipa_context {
 	u32 clnt_hdl_cmd;
 	u32 clnt_hdl_data_in;
 	u32 clnt_hdl_data_out;
+	spinlock_t lan_rx_clnt_notify_lock;
 	u8 a5_pipe_index;
 	struct list_head intf_list;
 	struct list_head msg_list;
@@ -1188,6 +1205,7 @@ struct ipa_context {
 	struct ipa_controller *ctrl;
 	struct idr ipa_idr;
 	struct device *pdev;
+	struct device *uc_pdev;
 	spinlock_t idr_lock;
 	u32 enable_clock_scaling;
 	u32 curr_ipa_clk_rate;
@@ -1207,6 +1225,10 @@ struct ipa_context {
 	u32 peer_bam_map_size;
 	unsigned long peer_bam_dev;
 	u32 peer_bam_map_cnt;
+	u32 wdi_map_cnt;
+
+	/* RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA */
+	bool ipa_client_apps_wan_cons_agg_gro;
 };
 
 /**
@@ -1562,4 +1584,7 @@ int ipa_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);
 u32 ipa_get_num_pipes(void);
 int ipa_smmu_map_peer_bam(unsigned long dev);
 int ipa_smmu_unmap_peer_bam(unsigned long dev);
+struct ipa_smmu_cb_ctx *ipa_get_wlan_smmu_ctx(void);
+struct ipa_smmu_cb_ctx *ipa_get_uc_smmu_ctx(void);
+struct iommu_domain *ipa_get_uc_smmu_domain(void);
 #endif /* _IPA_I_H_ */

@@ -17,6 +17,8 @@
 #include "mdss_hdmi_util.h"
 #include "mdss_cec_abstract.h"
 
+#define MAX_SWITCH_NAME_SIZE        5
+
 enum hdmi_tx_io_type {
 	HDMI_TX_CORE_IO,
 	HDMI_TX_QFPROM_IO,
@@ -123,6 +125,8 @@ struct hdmi_tx_ctrl {
 
 	u8 *edid_buf;
 	u32 edid_buf_size;
+
+	char disp_switch_name[MAX_SWITCH_NAME_SIZE];
 };
 
 #endif /* __MDSS_HDMI_TX_H__ */

@@ -209,6 +209,7 @@
 			qcom,parallel-usb-9v-min-current-ma = <900>;
 			qcom,parallel-allowed-lowering-ma = <500>;
 			qcom,autoadjust-vfloat;
+			qcom,pmic-revid = <&pmi8994_revid>;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
@@ -314,8 +315,6 @@
 			qcom,fg-iterm-ma = <100>;
 			qcom,fg-chg-iterm-ma = <100>;
 			qcom,cycle-counter-en;
-			qcom,cycle-counter-low-soc = <15>;
-			qcom,cycle-counter-high-soc = <85>;
 			qcom,capacity-learning-on;
 			qcom,fg-cc-cv-threshold-mv = <4340>;
 			qcom,pmic-revid = <&pmi8994_revid>;

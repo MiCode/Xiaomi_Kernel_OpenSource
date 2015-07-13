@@ -839,51 +839,26 @@ long adreno_ioctl_perfcounter_get(struct kgsl_device_private *dev_priv,
 long adreno_ioctl_perfcounter_put(struct kgsl_device_private *dev_priv,
 	unsigned int cmd, void *data);
 
+#define ADRENO_TARGET(_name, _id) \
+static inline int adreno_is_##_name(struct adreno_device *adreno_dev) \
+{ \
+	return ADRENO_GPUREV(adreno_dev) == (_id); \
+}
+
 static inline int adreno_is_a3xx(struct adreno_device *adreno_dev)
 {
 	return ((ADRENO_GPUREV(adreno_dev) >= 300) &&
 		(ADRENO_GPUREV(adreno_dev) < 400));
 }
 
-static inline int adreno_is_a304(struct adreno_device *adreno_dev)
-{
-	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A304);
-}
-
-static inline int adreno_is_a305(struct adreno_device *adreno_dev)
-{
-	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A305);
-}
-
-static inline int adreno_is_a305b(struct adreno_device *adreno_dev)
-{
-	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A305B);
-}
-
-static inline int adreno_is_a305c(struct adreno_device *adreno_dev)
-{
-	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A305C);
-}
-
-static inline int adreno_is_a306(struct adreno_device *adreno_dev)
-{
-	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A306);
-}
-
-static inline int adreno_is_a310(struct adreno_device *adreno_dev)
-{
-	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A310);
-}
-
-static inline int adreno_is_a320(struct adreno_device *adreno_dev)
-{
-	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A320);
-}
-
-static inline int adreno_is_a330(struct adreno_device *adreno_dev)
-{
-	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A330);
-}
+ADRENO_TARGET(a304, ADRENO_REV_A304)
+ADRENO_TARGET(a305, ADRENO_REV_A305)
+ADRENO_TARGET(a305b, ADRENO_REV_A305B)
+ADRENO_TARGET(a305c, ADRENO_REV_A305C)
+ADRENO_TARGET(a306, ADRENO_REV_A306)
+ADRENO_TARGET(a310, ADRENO_REV_A310)
+ADRENO_TARGET(a320, ADRENO_REV_A320)
+ADRENO_TARGET(a330, ADRENO_REV_A330)
 
 static inline int adreno_is_a330v2(struct adreno_device *adreno_dev)
 {
@@ -903,10 +878,7 @@ static inline int adreno_is_a4xx(struct adreno_device *adreno_dev)
 		ADRENO_GPUREV(adreno_dev) < 500;
 }
 
-static inline int adreno_is_a405(struct adreno_device *adreno_dev)
-{
-	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A405);
-}
+ADRENO_TARGET(a405, ADRENO_REV_A405);
 
 static inline int adreno_is_a405v2(struct adreno_device *adreno_dev)
 {
@@ -914,24 +886,14 @@ static inline int adreno_is_a405v2(struct adreno_device *adreno_dev)
 		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 0x10);
 }
 
-static inline int adreno_is_a420(struct adreno_device *adreno_dev)
-{
-	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A420);
-}
-
-static inline int adreno_is_a430(struct adreno_device *adreno_dev)
-{
-	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A430);
-}
+ADRENO_TARGET(a418, ADRENO_REV_A418)
+ADRENO_TARGET(a420, ADRENO_REV_A420)
+ADRENO_TARGET(a430, ADRENO_REV_A430)
 
 static inline int adreno_is_a430v2(struct adreno_device *adreno_dev)
 {
 	return ((ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A430) &&
 		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 1));
-}
-static inline int adreno_is_a418(struct adreno_device *adreno_dev)
-{
-	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A418);
 }
 
 static inline int adreno_is_a5xx(struct adreno_device *adreno_dev)
@@ -940,10 +902,8 @@ static inline int adreno_is_a5xx(struct adreno_device *adreno_dev)
 			ADRENO_GPUREV(adreno_dev) < 600;
 }
 
-static inline int adreno_is_a530(struct adreno_device *adreno_dev)
-{
-	return ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A530;
-}
+ADRENO_TARGET(a510, ADRENO_REV_A510)
+ADRENO_TARGET(a530, ADRENO_REV_A530)
 
 static inline int adreno_is_a530v1(struct adreno_device *adreno_dev)
 {
@@ -951,9 +911,10 @@ static inline int adreno_is_a530v1(struct adreno_device *adreno_dev)
 		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 0);
 }
 
-static inline int adreno_is_a510(struct adreno_device *adreno_dev)
+static inline int adreno_is_a530v2(struct adreno_device *adreno_dev)
 {
-	return ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A510;
+	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A530) &&
+		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) != 0);
 }
 
 /**
@@ -1148,8 +1109,8 @@ static inline void adreno_vbif_start(struct adreno_device *adreno_dev,
 			break;
 		}
 	}
-	BUG_ON(vbif == NULL);
-	while (vbif->reg != 0) {
+
+	while ((vbif != NULL) && (vbif->reg != 0)) {
 		kgsl_regwrite(&adreno_dev->dev, vbif->reg, vbif->val);
 		vbif++;
 	}

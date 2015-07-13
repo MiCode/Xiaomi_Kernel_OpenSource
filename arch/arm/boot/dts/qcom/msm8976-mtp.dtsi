@@ -14,6 +14,7 @@
 #include "msm8976.dtsi"
 #include "msm8976-pinctrl.dtsi"
 #include "msm8976-camera-sensor-mtp.dtsi"
+#include "msm8976-mdss-mtp.dtsi"
 
 &i2c_4 { /* BLSP1 QUP4 */
 	synaptics@20 {
@@ -34,26 +35,17 @@
 		synaptics,power-down;
 		synaptics,disable-gpios;
 		synaptics,detect-device;
+		synaptics,bypass-packrat-id-check;
 		synaptics,device1 {
 			synaptics,package-id = <3528>;
+			synaptics,bypass-sensor-coords-check;
 			synaptics,display-coords = <0 0 1439 2559>;
-			synaptics,panel-coords = <0 0 1599 2703>;
-			synaptics,key-codes = <158 139 172 217>;
+			synaptics,panel-coords = <0 0 1439 2559>;
 		};
 	};
 };
 
 &soc {
-	gen-vkeys {
-		compatible = "qcom,gen-vkeys";
-		label = "synaptics_dsx";
-		qcom,disp-maxx = <1439>;
-		qcom,disp-maxy = <2559>;
-		qcom,panel-maxx = <1439>;
-		qcom,panel-maxy = <2703>;
-		qcom,key-codes = <158 139 172 217>;
-	};
-
 	gpio_keys {
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
@@ -85,6 +77,20 @@
 			debounce-interval = <15>;
 		};
 	};
+
+	sound-9335 {
+		qcom,msm-gpios =
+			"us_eu_gpio";
+		qcom,pinctrl-names =
+			"all_off",
+			"us_eu_gpio_act";
+		pinctrl-names =
+			"all_off",
+			"us_eu_gpio_act";
+		pinctrl-0 = <&cross_conn_det_sus>;
+		pinctrl-1 = <&cross_conn_det_act>;
+		qcom,cdc-us-euro-gpios = <&msm_gpio 144 0>;
+	};
 };
 
 &blsp1_uart2 {
@@ -101,25 +107,29 @@
 		};
 
 		qcom,haptic@c000 {
+			compatible = "qcom,qpnp-haptic";
+			reg = <0xc000 0x100>;
+			interrupts = <0x3 0xc0 0x0>,
+				<0x3 0xc0 0x1>;
+			interrupt-names = "sc-irq", "play-irq";
+			qcom,play-mode = "direct";
+			qcom,wave-play-rate-us = <5263>;
 			qcom,actuator-type = "lra";
-		};
-	};
-
-	qcom,pm8004@4 {
-		qcom,leds@a100 {
-			status = "okay";
-			qcom,led_mpp_2 {
-				label = "mpp";
-				linux,name = "button-backlight";
-				linux,default-trigger = "none";
-				qcom,default-state = "off";
-				qcom,max-current = <40>;
-				qcom,current-setting = <5>;
-				qcom,id = <6>;
-				qcom,mode = "manual";
-				qcom,source-sel = <1>;
-				qcom,mode-ctrl = <0x60>;
-			};
+			qcom,wave-shape = "square";
+			qcom,vmax-mv = <2000>;
+			qcom,ilim-ma = <800>;
+			qcom,sc-deb-cycles = <8>;
+			qcom,int-pwm-freq-khz = <505>;
+			qcom,en-brake;
+			qcom,brake-pattern = [03 03 00 00];
+			qcom,use-play-irq;
+			qcom,use-sc-irq;
+			qcom,wave-samples = [3e 3e 3e 3e 3e 3e 3e 3e];
+			qcom,wave-rep-cnt = <1>;
+			qcom,wave-samp-rep-cnt = <1>;
+			qcom,lra-auto-res-mode="qwd";
+			qcom,lra-high-z="opt1";
+			qcom,lra-res-cal-period = <0>;
 		};
 	};
 };
@@ -174,48 +184,6 @@
 	status = "ok";
 };
 
-&mdss_mdp {
-	qcom,mdss-pref-prim-intf = "dsi";
-};
-
-&dsi_dual_nt35597_video {
-	qcom,cont-splash-enabled;
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
-	qcom,mdss-dsi-bl-min-level = <1>;
-	qcom,mdss-dsi-bl-max-level = <4095>;
-};
-
-&pmx_mdss {
-	qcom,num-grp-pins = <3>;
-	qcom,pins = <&gp 25>, <&gp 66>, <&gp 107>;
-};
-
-&pmx_mdss_te {
-	qcom,num-grp-pins = <1>;
-	qcom,pins = <&gp 24>;
-};
-
-&mdss_dsi0 {
-	pinctrl-names = "mdss_default", "mdss_sleep";
-	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
-	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
-	qcom,dsi-pref-prim-pan = <&dsi_dual_nt35597_video>;
-
-	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
-	qcom,platform-bklight-en-gpio = <&msm_gpio 66 0>;
-	qcom,panel-mode-gpio = <&msm_gpio 107 0>;
-};
-
-&mdss_dsi1 {
-	qcom,dsi-pref-prim-pan = <&dsi_dual_nt35597_video>;
-};
-
-&labibb {
-	status = "ok";
-	qpnp,qpnp-labibb-mode = "lcd";
-};
-
 /{
 	mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
@@ -232,4 +200,55 @@
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,chg-led-support;
 	qcom,chg-led-sw-controls;
+};
+
+/* CoreSight */
+&tpiu {
+	pinctrl-names = "sdcard", "trace", "swduart",
+			"swdtrc", "jtag", "spmi";
+	/* NIDnT */
+	pinctrl-0 = <&qdsd_clk_sdcard &qdsd_cmd_sdcard
+		     &qdsd_data0_sdcard &qdsd_data1_sdcard
+		     &qdsd_data2_sdcard &qdsd_data3_sdcard>;
+	pinctrl-1 = <&qdsd_clk_trace &qdsd_cmd_trace
+		     &qdsd_data0_trace &qdsd_data1_trace
+		     &qdsd_data2_trace &qdsd_data3_trace>;
+	pinctrl-2 = <&qdsd_cmd_swduart &qdsd_data0_swduart
+		     &qdsd_data1_swduart &qdsd_data2_swduart
+		     &qdsd_data3_swduart>;
+	pinctrl-3 = <&qdsd_clk_swdtrc &qdsd_cmd_swdtrc
+		     &qdsd_data0_swdtrc &qdsd_data1_swdtrc
+		     &qdsd_data2_swdtrc &qdsd_data3_swdtrc>;
+	pinctrl-4 = <&qdsd_cmd_jtag &qdsd_data0_jtag
+		     &qdsd_data1_jtag &qdsd_data2_jtag
+		     &qdsd_data3_jtag>;
+	pinctrl-5 = <&qdsd_clk_spmi &qdsd_cmd_spmi
+		     &qdsd_data0_spmi &qdsd_data3_spmi>;
+};
+
+&slim_msm {
+	tasha_codec {
+		swr_master {
+			compatible = "qcom,swr-wcd";
+			#address-cells = <2>;
+			#size-cells = <0>;
+			wsa881x@20170212 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x20170212>;
+				pinctrl-names = "wsa_spkr_sd_act",
+						"wsa_spkr_sd_sus";
+				pinctrl-0 = <&wsa_spkr_sd_act>;
+				pinctrl-1 = <&wsa_spkr_sd_sus>;
+			};
+
+			wsa881x@20170211 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x20170211>;
+				pinctrl-names = "wsa_spkr_sd_act",
+						"wsa_spkr_sd_sus";
+				pinctrl-0 = <&wsa_spkr_sd_act>;
+				pinctrl-1 = <&wsa_spkr_sd_sus>;
+			};
+		};
+	};
 };

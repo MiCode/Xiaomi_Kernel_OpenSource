@@ -151,6 +151,7 @@ struct mdss_intf_recovery {
  * @MDSS_EVENT_UNBLANK:		Sent before first frame update from MDP is
  *				sent to panel.
  * @MDSS_EVENT_PANEL_ON:	After first frame update from MDP.
+ * @MDSS_EVENT_POST_PANEL_ON	send 2nd phase panel on commands to panel
  * @MDSS_EVENT_BLANK:		MDP has no contents to display only blank screen
  *				is shown in panel. Sent before panel off.
  * @MDSS_EVENT_PANEL_OFF:	MDP has suspended frame updates, panel should be
@@ -206,6 +207,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_LINK_READY,
 	MDSS_EVENT_UNBLANK,
 	MDSS_EVENT_PANEL_ON,
+	MDSS_EVENT_POST_PANEL_ON,
 	MDSS_EVENT_BLANK,
 	MDSS_EVENT_PANEL_OFF,
 	MDSS_EVENT_CLOSE,
@@ -348,6 +350,75 @@ struct lvds_panel_info {
 	char channel_swap;
 };
 
+enum {
+	DSC_PATH_1P1D,
+	DSC_PATH_MERGE_1P1D,
+	DSC_PATH_SPLIT_1P2D
+};
+
+enum {
+	COMPRESSION_NONE,
+	COMPRESSION_DSC,
+	COMPRESSION_FBC
+};
+
+struct dsc_desc {
+	int data_path_model;		/* multiplex + split_panel */
+	int ich_reset_value;
+	int ich_reset_override;
+	int initial_lines;
+	int slice_last_group_size;
+	int bpp;	/* target bit per pixel */
+	int bpc;	/* bit per component */
+	int line_buf_depth;
+	bool config_by_manufacture_cmd;
+	bool block_pred_enable;
+	int enable_422;
+	int convert_rgb;
+	int input_10_bits;
+	int slice_per_pkt;
+
+	int pic_height;
+	int pic_width;
+	int slice_height;
+	int slice_width;
+	int chunk_size;
+
+	int pkt_per_line;
+	int bytes_per_pkt;
+	int eol_byte_num;
+	int pclk_per_line;	/* width */
+
+	int initial_dec_delay;
+	int initial_xmit_delay;
+
+	int initial_scale_value;
+	int scale_decrement_interval;
+	int scale_increment_interval;
+
+	int first_line_bpg_offset;
+	int nfl_bpg_offset;
+	int slice_bpg_offset;
+
+	int initial_offset;
+	int final_offset;
+
+	int rc_model_size;	/* rate_buffer_size */
+
+	int det_thresh_flatness;
+	int max_qp_flatness;
+	int min_qp_flatness;
+	int edge_factor;
+	int quant_incr_limit0;
+	int quant_incr_limit1;
+	int tgt_offset_hi;
+	int tgt_offset_lo;
+	u32 *buf_thresh;
+	char *range_min_qp;
+	char *range_max_qp;
+	char *range_bpg_offset;
+};
+
 struct fbc_panel_info {
 	u32 enabled;
 	u32 target_bpp;
@@ -440,6 +511,7 @@ struct mdss_panel_info {
 	struct ion_handle *splash_ihdl;
 	int panel_power_state;
 	int blank_state;
+	int compression_mode;
 
 	uint32_t panel_dead;
 	u32 panel_force_dead;
@@ -450,13 +522,16 @@ struct mdss_panel_info {
 
 	bool is_prim_panel;
 	bool is_pluggable;
+	bool is_cec_supported;
 
 	void *edid_data;
 	void *dba_data;
+	void *cec_data;
 
 	char panel_name[MDSS_MAX_PANEL_LEN];
 	struct mdss_mdp_pp_tear_check te;
 
+	struct dsc_desc dsc;
 	struct lcd_panel_info lcdc;
 	struct fbc_panel_info fbc;
 	struct mipi_panel_info mipi;
@@ -566,12 +641,20 @@ static inline int mdss_panel_get_vtotal(struct mdss_panel_info *pinfo)
 static inline int mdss_panel_get_htotal(struct mdss_panel_info *pinfo, bool
 		consider_fbc)
 {
+	struct dsc_desc *dsc = NULL;
+
 	int adj_xres = pinfo->xres + pinfo->lcdc.border_left +
 				pinfo->lcdc.border_right;
 
-	if (consider_fbc && pinfo->fbc.enabled)
-		adj_xres = mult_frac(adj_xres,
+	if (consider_fbc) {
+		if (pinfo->compression_mode == COMPRESSION_DSC) {
+			dsc = &pinfo->dsc;
+			adj_xres = dsc->pclk_per_line;
+		} else if (pinfo->fbc.enabled) {
+			adj_xres = mult_frac(adj_xres,
 				pinfo->fbc.target_bpp, pinfo->bpp);
+		}
+	}
 
 	return adj_xres + pinfo->lcdc.h_back_porch +
 		pinfo->lcdc.h_front_porch +

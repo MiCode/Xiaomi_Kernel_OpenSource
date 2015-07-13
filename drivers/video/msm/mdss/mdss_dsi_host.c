@@ -1045,11 +1045,44 @@ int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	return ret;
 }
 
+static void mdss_dsi_dsc_config(struct mdss_dsi_ctrl_pdata *ctrl,
+				struct dsc_desc *dsc)
+{
+	u32 data;
+
+	if (ctrl->panel_mode == DSI_VIDEO_MODE) {
+		/* MDSS_DSI_VIDEO_COMPRESSION_MODE_CTRL2 */
+		MIPI_OUTP((ctrl->ctrl_base) + 0x2a4, 0);
+		data = dsc->bytes_per_pkt << 16;
+		data |= (0x0b << 8);	/*  dtype of compressed image */
+		data |= (dsc->pkt_per_line - 1) << 6;
+		data |= dsc->eol_byte_num << 4;
+		data |= 1;	/* enable */
+		/* MDSS_DSI_VIDEO_COMPRESSION_MODE_CTRL */
+		MIPI_OUTP((ctrl->ctrl_base) + 0x2a0, data);
+	} else {
+		/* strem 0 */
+		/* MDSS_DSI_COMMAND_COMPRESSION_MODE_CTRL3 */
+		MIPI_OUTP((ctrl->ctrl_base) + 0x2b0, 0);
+
+		/* MDSS_DSI_COMMAND_COMPRESSION_MODE_CTRL2 */
+		MIPI_OUTP((ctrl->ctrl_base) + 0x2ac, dsc->bytes_per_pkt);
+
+		data = 0x0b << 8;
+		data |= (dsc->pkt_per_line - 1) << 6;
+		data |= dsc->eol_byte_num << 4;
+		data |= 1;	/* enable */
+		/* MDSS_DSI_COMMAND_COMPRESSION_MODE_CTRL */
+		MIPI_OUTP((ctrl->ctrl_base) + 0x2a8, data);
+	}
+}
+
 static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdss_panel_info *pinfo;
 	struct mipi_panel_info *mipi;
+	struct dsc_desc *dsc = NULL;
 	u32 clk_rate;
 	u32 hbp, hfp, vbp, vfp, hspw, vspw, width, height;
 	u32 ystride, bpp, dst_bpp;
@@ -1061,6 +1094,8 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 				panel_data);
 
 	pinfo = &pdata->panel_info;
+	if (pinfo->compression_mode == COMPRESSION_DSC)
+		dsc = &pinfo->dsc;
 
 	clk_rate = pdata->panel_info.clk_rate;
 	clk_rate = min(clk_rate, pdata->panel_info.clk_max);
@@ -1077,6 +1112,9 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 	width = mult_frac(pdata->panel_info.xres, dst_bpp,
 			pdata->panel_info.bpp);
 	height = pdata->panel_info.yres;
+
+	if (dsc)	/* compressed */
+		width = dsc->pclk_per_line;
 
 	if (pdata->panel_info.type == MIPI_VIDEO_PANEL) {
 		dummy_xres = mult_frac((pdata->panel_info.lcdc.border_left +
@@ -1140,6 +1178,9 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x64, stream_total);
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x5C, stream_total);
 	}
+
+	if (dsc)	/* compressed */
+		mdss_dsi_dsc_config(ctrl_pdata, dsc);
 }
 
 void mdss_dsi_ctrl_setup(struct mdss_dsi_ctrl_pdata *ctrl)
@@ -1367,7 +1408,6 @@ static int mdss_dsi_cmds2buf_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 			tp->data = tp->start; /* begin of buf */
 
 			wait = mdss_dsi_wait4video_eng_busy(ctrl);
-
 			mdss_dsi_enable_irq(ctrl, DSI_CMD_TERM);
 			if (use_dma_tpg)
 				len = mdss_dsi_cmd_dma_tpg_tx(ctrl, tp);
@@ -1379,6 +1419,7 @@ static int mdss_dsi_cmds2buf_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 					__func__,  cmds->payload[0]);
 				return 0;
 			}
+
 
 			if (!wait || dchdr->wait > VSYNC_PERIOD)
 				usleep(dchdr->wait * 1000);

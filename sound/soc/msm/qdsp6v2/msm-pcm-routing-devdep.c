@@ -178,7 +178,7 @@ int msm_pcm_create_generic_hwdep_node(struct snd_soc_platform *platform)
 
 	rc = snd_hwdep_new(platform->card->snd_card,
 			"GENERIC_AUDIO_DEP_NODE",
-			SNDRV_HWDEP_IFACE_AUDIO_GENERIC, &hwdep);
+			MSM_SNDCARD_GENERIC_HW_DEP, &hwdep);
 	if (hwdep == NULL) {
 		pr_err("%s: hwdep intf failed to create generic hwdep NULL\n",
 			__func__);

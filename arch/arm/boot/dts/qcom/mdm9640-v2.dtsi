@@ -28,3 +28,33 @@
 		< 200000000    3    0    0     0 &gpll0_out_main>,
 		<>;
 };
+
+&jtag_fuse {
+	reg = <0xa601c 0x8>;
+	reg-names = "fuse-base";
+};
+
+&tsens {
+	reg = <0x4a8000 0x2000>,
+		<0xa4200 0x1000>;
+	compatible = "qcom,mdm9640v2-tsens";
+	reg-names = "tsens_physical", "tsens_eeprom_physical";
+};
+
+&fuse {
+	reg = <0xa601c 0x8>,
+		<0xa0168 0x4>,
+		<0xa600c 0x4>;
+	reg-names = "fuse-base", "nidnt-fuse-base", "qpdi-fuse-base";
+};
+
+&qusb_phy {
+	reg = <0x00079000 0x180>,
+	    <0x08af8800 0x400>,
+	    <0x000a020c 0x4>;
+	reg-names = "qusb_phy_base",
+		"qscratch_base",
+		"tune2_efuse_addr";
+	qcom,tune2-efuse-bit-pos = <20>;
+	qcom,tune2-efuse-num-bits = <4>;
+};

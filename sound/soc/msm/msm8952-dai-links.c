@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/of.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -63,6 +64,21 @@ static struct snd_soc_dai_link msm8952_tasha_fe_dai[] = {
 		.ignore_suspend = 1,
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ops = &msm8952_slimbus_2_be_ops,
+	},
+	/* CPE LSM direct dai-link */
+	{
+		.name = "CPE Listen service",
+		.stream_name = "CPE Listen Audio Service",
+		.cpu_dai_name = "msm-dai-slim",
+		.platform_name = "msm-cpe-lsm",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "tasha_mad1",
+		.codec_name = "tasha_codec",
+		.ops = &msm8952_cpe_ops,
 	},
 };
 
@@ -181,6 +197,20 @@ static struct snd_soc_dai_link msm8952_tasha_be_dai[] = {
 		.ops = &msm8952_slimbus_be_ops,
 		/* dai link has playback support */
 		.ignore_pmdown_time = 1,
+		.ignore_suspend = 1,
+	},
+	/* MAD BE */
+	{
+		.name = LPASS_BE_SLIMBUS_5_TX,
+		.stream_name = "Slimbus5 Capture",
+		.cpu_dai_name = "msm-dai-q6-dev.16395",
+		.platform_name = "msm-pcm-routing",
+		.codec_name = "tasha_codec",
+		.codec_dai_name = "tasha_mad1",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SLIMBUS_5_TX,
+		.be_hw_params_fixup = msm_slim_5_tx_be_hw_params_fixup,
+		.ops = &msm8952_slimbus_be_ops,
 		.ignore_suspend = 1,
 	},
 };
@@ -1049,24 +1079,24 @@ static struct snd_soc_dai_link msm8952_common_be_dai[] = {
 static struct snd_soc_aux_dev msm895x_aux_dev[] = {
 	{
 		.name = "wsa881x.0",
-		.codec_name = "wsa881x.20170212",
+		.codec_name =  NULL,
 		.init = msm895x_wsa881x_init,
 	},
 	{
 		.name = "wsa881x.1",
-		.codec_name = "wsa881x.20170211",
+		.codec_name = NULL,
 		.init = msm895x_wsa881x_init,
 	},
 };
 
 static struct snd_soc_codec_conf msm895x_codec_conf[] = {
 	{
-		.dev_name = "wsa881x.20170212",
-		.name_prefix = "SpkrLeft",
+		.dev_name = NULL,
+		.name_prefix = NULL,
 	},
 	{
-		.dev_name = "wsa881x.20170211",
-		.name_prefix = "SpkrRight",
+		.dev_name = NULL,
+		.name_prefix = NULL,
 	},
 };
 
@@ -1086,7 +1116,14 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 {
 	struct snd_soc_card *card = &snd_soc_card_msm_card;
 	struct snd_soc_dai_link *msm8952_dai_links = NULL;
-	int num_links, ret, len1, len2, len3;
+	int num_links, ret, len1, len2, len3, i;
+	const char *wsa = "asoc-wsa-codec-names";
+	const char *wsa_prefix = "asoc-wsa-codec-prefixes";
+	int num_strings;
+	char *temp_str = NULL;
+	const char *wsa_str = NULL;
+	const char *wsa_prefix_str = NULL;
+
 	card->dev = dev;
 	ret = snd_soc_of_parse_card_name(card, "qcom,model");
 	if (ret) {
@@ -1128,10 +1165,53 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 			msm8952_tasha_be_dai, sizeof(msm8952_tasha_be_dai));
 		msm8952_dai_links = msm8952_tasha_dai_links;
 
+		num_strings = of_property_count_strings(dev->of_node,
+				wsa);
 		card->aux_dev = msm895x_aux_dev;
-		card->num_aux_devs	= ARRAY_SIZE(msm895x_aux_dev);
+		card->num_aux_devs	= num_strings;
 		card->codec_conf	= msm895x_codec_conf;
-		card->num_configs	= ARRAY_SIZE(msm895x_codec_conf);
+		card->num_configs	= num_strings;
+
+		for (i = 0; i < num_strings; i++) {
+			ret = of_property_read_string_index(
+					dev->of_node, wsa,
+					i, &wsa_str);
+			if (ret) {
+				dev_err(dev,
+					"%s:of read string %s i %d error %d\n",
+					__func__, wsa, i, ret);
+				goto err;
+			}
+
+			temp_str = kstrdup(wsa_str, GFP_KERNEL);
+			if (!temp_str)
+				goto err;
+			msm895x_aux_dev[i].codec_name = temp_str;
+			temp_str = NULL;
+
+			temp_str = kstrdup(wsa_str, GFP_KERNEL);
+			if (!temp_str)
+				goto err;
+			msm895x_codec_conf[i].dev_name = temp_str;
+			temp_str = NULL;
+
+			ret = of_property_read_string_index(
+					dev->of_node, wsa_prefix,
+					i, &wsa_prefix_str);
+			if (ret) {
+				dev_err(dev,
+					"%s:of read string %s i %d error %d\n",
+					__func__, wsa_prefix, i, ret);
+				goto err;
+			}
+
+			temp_str = kstrdup(wsa_prefix_str, GFP_KERNEL);
+			if (!temp_str)
+				goto err;
+			msm895x_codec_conf[i].name_prefix = temp_str;
+
+			temp_str = NULL;
+		}
 	}
 
 	card->dai_link = msm8952_dai_links;
@@ -1139,4 +1219,27 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 	card->dev = dev;
 
 	return card;
+err:
+	if (card->num_aux_devs > 0) {
+		for (i = 0; i < card->num_aux_devs; i++) {
+			kfree(msm895x_aux_dev[i].codec_name);
+			kfree(msm895x_codec_conf[i].dev_name);
+			kfree(msm895x_codec_conf[i].name_prefix);
+		}
+	}
+	return NULL;
+}
+
+void msm895x_free_auxdev_mem(struct platform_device *pdev)
+{
+	struct snd_soc_card *card = platform_get_drvdata(pdev);
+	int i;
+
+	if (card->num_aux_devs > 0) {
+		for (i = 0; i < card->num_aux_devs; i++) {
+			kfree(msm895x_aux_dev[i].codec_name);
+			kfree(msm895x_codec_conf[i].dev_name);
+			kfree(msm895x_codec_conf[i].name_prefix);
+		}
+	}
 }

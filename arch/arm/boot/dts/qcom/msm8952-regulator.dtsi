@@ -405,12 +405,16 @@
 		/* <Speed_bits PVS_version CPR_Rev - - -> */
 			<0          0xffffffff          1 0xffffffff 0xffffffff 0xffffffff>,
 			<1          0xffffffff          2 0xffffffff 0xffffffff 0xffffffff>,
+			<2          0xffffffff          2 0xffffffff 0xffffffff 0xffffffff>,
 			<0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff>;
-		qcom,cpr-virtual-corner-quotient-adjustment =
-			<0 (-124) (-124) (-124) (-132) (-58) (-132) (-132)>,
-			<0    0      0      0      0     0      17    17>,
-			<0    0      0      0      0     0       0     0>;
+
+		qcom,cpr-quotient-adjustment =
+			<0 (-132) (-132)>, /* NOM - 80mv, TURBO - 80mv */
+			<0    0       17>, /* TURBO + 10mv */
+			<0    42      66>, /* NOM + 25mv, TURBO + 40mv */
+			<0    0        0>;
 		qcom,cpr-floor-to-ceiling-max-range =
+			<(-1) (-1) (-1) (-1) (-1) (-1) 50000 50000>,
 			<(-1) (-1) (-1) (-1) (-1) (-1) 50000 50000>,
 			<(-1) (-1) (-1) (-1) (-1) (-1) 50000 50000>,
 			<(-1) (-1) (-1) (-1) (-1) (-1) 50000 50000>;

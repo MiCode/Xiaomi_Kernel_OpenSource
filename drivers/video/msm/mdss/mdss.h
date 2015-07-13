@@ -38,6 +38,8 @@ enum mdss_mdp_clk_type {
 	MDSS_CLK_MDP_CORE,
 	MDSS_CLK_MDP_LUT,
 	MDSS_CLK_MDP_VSYNC,
+	MDSS_CLK_MDP_TBU,
+	MDSS_CLK_MDP_TBU_RT,
 	MDSS_MAX_CLK
 };
 
@@ -107,6 +109,11 @@ struct mdss_prefill_data {
 struct mdss_mdp_ppb {
 	u32 ctl_off;
 	u32 cfg_off;
+};
+
+struct mdss_mdp_dsc {
+	u32 num;
+	char __iomem *base;
 };
 
 enum mdss_hw_index {
@@ -185,6 +192,7 @@ struct mdss_data_type {
 	bool has_pingpong_split;
 	bool has_pixel_ram;
 	bool needs_hist_vote;
+	bool has_10_bit_pa;
 
 	u32 default_ot_rd_limit;
 	u32 default_ot_wr_limit;
@@ -317,6 +325,9 @@ struct mdss_data_type {
 	u32 bcolor0;
 	u32 bcolor1;
 	u32 bcolor2;
+	struct mdss_mdp_dsc *dsc_off;
+	u32 ndsc;
+
 };
 extern struct mdss_data_type *mdss_res;
 

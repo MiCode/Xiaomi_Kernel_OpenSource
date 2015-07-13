@@ -1690,6 +1690,7 @@ static struct local_vote_clk gcc_crypto_clk = {
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_crypto_clk",
+		.parent = &crypto_clk_src.c,
 		.ops = &clk_ops_vote,
 		CLK_INIT(gcc_crypto_clk.c),
 	},

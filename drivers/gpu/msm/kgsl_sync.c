@@ -115,8 +115,10 @@ static int _add_fence_event(struct kgsl_device *device,
 	 * Increase the refcount for the context to keep it through the
 	 * callback
 	 */
-
-	_kgsl_context_get(context);
+	if (!_kgsl_context_get(context)) {
+		kfree(event);
+		return -ENOENT;
+	}
 
 	event->context = context;
 	event->timestamp = timestamp;

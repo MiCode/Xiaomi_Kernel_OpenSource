@@ -1020,8 +1020,8 @@
 	fuse: fuse@a601c {
 		compatible = "arm,coresight-fuse-v2";
 		reg = <0xa601c 0x8>,
-		      <0x58040 0x4>,
-		      <0x5e00c 0x4>;
+		      <0xa6004 0x4>,
+		      <0xa600c 0x4>;
 		reg-names = "fuse-base", "nidnt-fuse-base", "qpdi-fuse-base";
 
 		coresight-id = <63>;

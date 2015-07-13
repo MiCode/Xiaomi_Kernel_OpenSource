@@ -966,7 +966,7 @@ static void __adreno_dispatcher_preempt_trig_state(
 {
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 	struct kgsl_device *device = &(adreno_dev->dev);
-	unsigned int rbbase;
+	uint64_t rbbase;
 
 	/*
 	 * Hardware not yet idle means that preemption interrupt
@@ -989,7 +989,8 @@ static void __adreno_dispatcher_preempt_trig_state(
 	 * be device went idle w/o encountering any preempt token or
 	 * we already preempted w/o interrupt
 	 */
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_BASE, &rbbase);
+	adreno_readreg64(adreno_dev, ADRENO_REG_CP_RB_BASE,
+			ADRENO_REG_CP_RB_BASE_HI, &rbbase);
 	 /* Did preemption occur, if so then change states and return */
 	if (rbbase != adreno_dev->cur_rb->buffer_desc.gpuaddr) {
 		unsigned int val;
@@ -2126,7 +2127,8 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 	struct adreno_dispatcher_cmdqueue *dispatch_q = NULL, *dispatch_q_temp;
 	struct adreno_ringbuffer *rb;
 	struct adreno_ringbuffer *hung_rb = NULL;
-	unsigned int reg, base;
+	unsigned int reg;
+	uint64_t base;
 	struct kgsl_cmdbatch *cmdbatch = NULL;
 	int ret, i;
 	int fault;
@@ -2166,7 +2168,8 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 	/* hang opcode */
 	kgsl_cffdump_hang(device);
 
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_BASE, &base);
+	adreno_readreg64(adreno_dev, ADRENO_REG_CP_RB_BASE,
+		ADRENO_REG_CP_RB_BASE_HI, &base);
 
 	/*
 	 * If the fault was due to a timeout then stop the CP to ensure we don't
@@ -2213,7 +2216,8 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 	/* Set pagefault if it occurred */
 	kgsl_mmu_set_pagefault(&device->mmu);
 
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB1_BASE, &base);
+	adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB1_BASE,
+		ADRENO_REG_CP_IB1_BASE_HI, &base);
 
 	/*
 	 * Dump the snapshot information if this is the first

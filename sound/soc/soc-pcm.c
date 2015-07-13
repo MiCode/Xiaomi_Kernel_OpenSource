@@ -25,6 +25,7 @@
 #include <linux/export.h>
 #include <linux/debugfs.h>
 #include <linux/dma-mapping.h>
+#include <linux/ratelimit.h>
 #include <sound/core.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
@@ -161,6 +162,7 @@ static int soc_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_soc_dai_driver *cpu_dai_drv = cpu_dai->driver;
 	struct snd_soc_dai_driver *codec_dai_drv = codec_dai->driver;
 	int ret = 0;
+	static DEFINE_RATELIMIT_STATE(rl, HZ/2, 1);
 
 	pm_runtime_get_sync(cpu_dai->dev);
 	pm_runtime_get_sync(codec_dai->dev);
@@ -182,8 +184,10 @@ static int soc_pcm_open(struct snd_pcm_substream *substream)
 	if (platform->driver->ops && platform->driver->ops->open) {
 		ret = platform->driver->ops->open(substream);
 		if (ret < 0) {
-			dev_err(platform->dev, "ASoC: can't open platform"
-				" %s: %d\n", platform->name, ret);
+			if (__ratelimit(&rl))
+				dev_err(platform->dev,
+					"ASoC: can't open platform %s: %d\n",
+					platform->name, ret);
 			goto platform_err;
 		}
 	}
@@ -744,6 +748,9 @@ static snd_pcm_uframes_t soc_pcm_pointer(struct snd_pcm_substream *substream)
 	if (platform->driver->ops && platform->driver->ops->pointer)
 		offset = platform->driver->ops->pointer(substream);
 
+	if (platform->driver->delay_blk)
+		return offset;
+
 	if (cpu_dai->driver->ops->delay)
 		delay += cpu_dai->driver->ops->delay(substream, cpu_dai);
 
@@ -756,6 +763,21 @@ static snd_pcm_uframes_t soc_pcm_pointer(struct snd_pcm_substream *substream)
 	runtime->delay = delay;
 
 	return offset;
+}
+
+static int soc_pcm_delay_blk(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_platform *platform = rtd->platform;
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	snd_pcm_sframes_t delay = 0;
+
+	if (platform->driver->delay_blk)
+		delay = platform->driver->delay_blk(substream, rtd->codec_dai);
+
+	runtime->delay = delay;
+
+	return 0;
 }
 
 /* connect a FE and BE */
@@ -1200,6 +1222,7 @@ static int dpcm_fe_dai_startup(struct snd_pcm_substream *fe_substream)
 	struct snd_soc_pcm_runtime *fe = fe_substream->private_data;
 	struct snd_pcm_runtime *runtime = fe_substream->runtime;
 	int stream = fe_substream->stream, ret = 0;
+	static DEFINE_RATELIMIT_STATE(rl, HZ/2, 1);
 
 	fe->dpcm[stream].runtime_update = SND_SOC_DPCM_UPDATE_FE;
 
@@ -1214,7 +1237,8 @@ static int dpcm_fe_dai_startup(struct snd_pcm_substream *fe_substream)
 	/* start the DAI frontend */
 	ret = soc_pcm_open(fe_substream);
 	if (ret < 0) {
-		dev_err(fe->dev,"ASoC: failed to start FE %d\n", ret);
+		if (__ratelimit(&rl))
+			dev_err(fe->dev, "ASoC: failed to start FE %d\n", ret);
 		goto unwind;
 	}
 
@@ -2391,6 +2415,7 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 		rtd->ops.hw_free	= dpcm_fe_dai_hw_free;
 		rtd->ops.close		= dpcm_fe_dai_close;
 		rtd->ops.pointer	= soc_pcm_pointer;
+		rtd->ops.delay_blk	= soc_pcm_delay_blk;
 		rtd->ops.ioctl		= soc_pcm_ioctl;
 		rtd->ops.compat_ioctl   = soc_pcm_compat_ioctl;
 	} else {
@@ -2401,6 +2426,7 @@ int soc_new_pcm(struct snd_soc_pcm_runtime *rtd, int num)
 		rtd->ops.hw_free	= soc_pcm_hw_free;
 		rtd->ops.close		= soc_pcm_close;
 		rtd->ops.pointer	= soc_pcm_pointer;
+		rtd->ops.delay_blk	= soc_pcm_delay_blk;
 		rtd->ops.ioctl		= soc_pcm_ioctl;
 		rtd->ops.compat_ioctl   = soc_pcm_compat_ioctl;
 	}

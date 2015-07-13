@@ -658,6 +658,7 @@ static int aac_in_open(struct inode *inode, struct file *file)
 		goto fail;
 	}
 	audio->opened = 1;
+	audio->reset_event = false;
 	atomic_set(&audio->in_count, PCM_BUF_COUNT);
 	atomic_set(&audio->out_count, 0x00);
 	audio->enc_compat_ioctl = aac_in_compat_ioctl;

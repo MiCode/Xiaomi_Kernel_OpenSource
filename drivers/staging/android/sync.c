@@ -345,8 +345,21 @@ static int sync_fence_merge_pts(struct sync_fence *dst, struct sync_fence *src)
 			 * the later of the two
 			 */
 			if (dst_pt->parent == src_pt->parent) {
-				if (dst_pt->parent->ops->compare(dst_pt, src_pt)
-						 == -1) {
+				int cmp_val;
+				int (*cmp_fn)
+					(struct sync_pt *, struct sync_pt *);
+
+				cmp_fn = dst_pt->parent->ops->compare;
+				cmp_val = cmp_fn(dst_pt, src_pt);
+
+				/*
+				 * Out-of-order users like oneshot don't follow
+				 * a timeline ordering.
+				 */
+				if (cmp_val != -cmp_fn(src_pt, dst_pt))
+					break;
+
+				if (cmp_val == -1) {
 					struct sync_pt *new_pt =
 						sync_pt_dup(src_pt);
 					if (new_pt == NULL)

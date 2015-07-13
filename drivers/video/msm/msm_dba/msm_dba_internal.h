@@ -306,6 +306,13 @@ int msm_dba_register_hdcp_monitor(struct msm_dba_device_info *dev, bool enable);
 int msm_dba_helper_sysfs_init(struct device *dev);
 
 /**
+ * msm_dba_helper_sysfs_remove() - remove sysfs attributes
+ * @dev: pointer to struct device structure.
+ *
+ */
+void msm_dba_helper_sysfs_remove(struct device *dev);
+
+/**
  * msm_dba_helper_force_reset() - force reset bridge chip
  * @client: client handle
  * @flags: flags

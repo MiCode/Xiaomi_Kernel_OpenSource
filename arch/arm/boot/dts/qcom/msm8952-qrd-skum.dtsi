@@ -59,21 +59,12 @@
 		synaptics,i2c-pull-up;
 		synaptics,power-down;
 		synaptics,disable-gpios;
+		synaptics,bypass-packrat-id-check;
 		synaptics,button-map = <139 172 158>;
 	};
 };
 
 &soc {
-	gen-vkeys {
-		compatible = "qcom,gen-vkeys";
-		label = "synaptics_rmi4_i2c";
-		qcom,disp-maxx = <1079>;
-		qcom,disp-maxy = <1919>;
-		qcom,panel-maxx = <1079>;
-		qcom,panel-maxy = <2084>;
-		qcom,key-codes = <139 172 158>;
-	};
-
 	gpio_keys {
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
@@ -238,18 +229,19 @@
 	qpnp,qpnp-labibb-mode = "lcd";
 };
 
-&pmi8950_charger {
-	qcom,float-voltage-mv = <4400>;
-	qcom,chg-led-sw-controls;
-	qcom,chg-led-support;
-	status = "okay";
-};
-
 / {
 	qrd_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
 		#include "batterydata-qrd-skum-4v4-2920mah.dtsi"
 	};
+};
+
+&pmi8950_charger {
+	qcom,battery-data = <&qrd_batterydata>;
+	qcom,float-voltage-mv = <4400>;
+	qcom,chg-led-sw-controls;
+	qcom,chg-led-support;
+	status = "okay";
 };
 
 &pmi8950_fg {
@@ -258,6 +250,10 @@
 	qcom,cool-bat-decidegc = <(-100)>;
 	qcom,hot-bat-decidegc = <550>;
 	qcom,warm-bat-decidegc = <550>;
+};
+
+&pmi8950_haptic {
+	qcom,vmax-mv = <3300>;
 };
 
 &mdss_mdp {
@@ -283,7 +279,7 @@
 	qcom,platform-reset-gpio = <&msm_gpio 0 0>;
 };
 
-&sdhc_2 {
+&sdc2_cd_on {
 	/delete-property/ bias-pull-up;
 	bias-disable;
 };
@@ -291,4 +287,8 @@
 &dsi_otm1906c_1080p_cmd {
 	qcom,cont-splash-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&sdc1_clk_on {
+	drive-strength = <10>; /* 10 MA */
 };

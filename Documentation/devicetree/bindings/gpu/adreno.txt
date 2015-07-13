@@ -25,6 +25,8 @@ Required properties:
 				KGSL_CLK_RBBMTIMER 0x00000080
 				KGSL_CLK_GFX_GTCU 0x00000100
 				KGSL_CLK_GFX_GTBU 0x00000200
+				KGSL_CLK_AON	0x00000400
+				KGSL_CLK_GFX_GTBU1 0x00000800
 
 - clocks:		List of phandle and clock specifier pairs, one pair
 			for each clock input to the device.
@@ -32,7 +34,8 @@ Required properties:
 			order as the clocks property.
 				Current values of clock-names are:
 				"src_clk", "core_clk", "iface_clk", "mem_clk", "mem_iface_clk",
-				"alt_mem_iface_clk", "rbbmtimer_clk", "gtcu_iface_clk", "gtcu_clk", "gtbu_clk"
+				"alt_mem_iface_clk", "rbbmtimer_clk", "gtcu_iface_clk", "gtcu_clk",
+				"gtbu_clk", "aon_clk", "gtbu1_clk"
 				"core_clk" and "iface_clk" are required and others are optional
 
 Bus Scaling Data:

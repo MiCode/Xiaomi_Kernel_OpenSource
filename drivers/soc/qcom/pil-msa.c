@@ -514,7 +514,7 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	ret = request_firmware(&dp_fw, dp_name, pil->dev);
 	if (ret) {
 		drv->dp_virt = NULL;
-		dev_warn(pil->dev, "MBA: Failed to load debug policy - %s\n",
+		dev_warn(pil->dev, "MBA: Debug policy not present - %s\n",
 						dp_name);
 	} else {
 		if (!dp_fw || !dp_fw->data) {
@@ -625,6 +625,12 @@ fail:
 				drv->q6->mba_virt, drv->q6->mba_phys,
 				&drv->attrs_dma);
 		drv->q6->mba_virt = NULL;
+		if (drv->q6->dp_virt) {
+			dma_free_attrs(&drv->mba_mem_dev, drv->q6->dp_size,
+				drv->q6->dp_virt, drv->q6->dp_phys,
+				&drv->attrs_dma);
+			drv->q6->dp_virt = NULL;
+		}
 	}
 	return ret;
 }

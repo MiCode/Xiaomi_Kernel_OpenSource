@@ -756,26 +756,13 @@ static const struct of_device_id adreno_match_table[] = {
 	{}
 };
 
-static struct device_node *adreno_of_find_subnode(struct device_node *parent,
-	const char *name)
-{
-	struct device_node *child;
-
-	for_each_child_of_node(parent, child) {
-		if (of_device_is_compatible(child, name))
-			return child;
-	}
-
-	return NULL;
-}
-
 static int adreno_of_get_pwrlevels(struct device_node *parent,
 	struct kgsl_device_platform_data *pdata)
 {
 	struct device_node *node, *child;
 	int ret = -EINVAL;
 
-	node = adreno_of_find_subnode(parent, "qcom,gpu-pwrlevels");
+	node = of_find_node_by_name(parent, "qcom,gpu-pwrlevels");
 
 	if (node == NULL) {
 		KGSL_CORE_ERR("Unable to find 'qcom,gpu-pwrlevels'\n");
@@ -878,6 +865,9 @@ static int adreno_of_get_iommu(struct platform_device *pdev,
 
 	data->regstart = reg_val[0];
 	data->regsize = reg_val[1];
+
+	if (of_property_read_bool(node, "qcom,global_pt"))
+		data->features |= KGSL_MMU_GLOBAL_PAGETABLE;
 
 	data->iommu_ctx_count = 0;
 
@@ -1387,6 +1377,10 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	/* Set the bit to indicate that we've just powered on */
 	set_bit(ADRENO_DEVICE_PWRON, &adreno_dev->priv);
 
+	/* Soft reset the GPU if a regulator is stuck on*/
+	if (regulator_left_on)
+		_soft_reset(adreno_dev);
+
 	status = kgsl_mmu_start(device);
 	if (status)
 		goto error_pwr_off;
@@ -1411,10 +1405,6 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 		KGSL_DRV_ERR(device, "OCMEM malloc failed\n");
 		goto error_mmu_off;
 	}
-
-	/* Soft reset GPU if regulator is stuck on*/
-	if (regulator_left_on)
-		_soft_reset(adreno_dev);
 
 	if (adreno_dev->perfctr_pwr_lo == 0) {
 		int ret = adreno_perfcounter_get(adreno_dev,
@@ -1686,7 +1676,7 @@ int adreno_reset(struct kgsl_device *device)
 }
 
 static int adreno_getproperty(struct kgsl_device *device,
-				enum kgsl_property_type type,
+				unsigned int type,
 				void __user *value,
 				size_t sizebytes)
 {
@@ -1812,6 +1802,57 @@ static int adreno_getproperty(struct kgsl_device *device,
 			status = 0;
 		}
 		break;
+	case KGSL_PROP_UCODE_VERSION:
+		{
+			struct kgsl_ucode_version ucode;
+
+			if (sizebytes != sizeof(ucode)) {
+				status = -EINVAL;
+				break;
+			}
+			memset(&ucode, 0, sizeof(ucode));
+
+			ucode.pfp = adreno_dev->pfp_fw_version;
+			ucode.pm4 = adreno_dev->pm4_fw_version;
+
+			if (copy_to_user(value, &ucode, sizeof(ucode))) {
+				status = -EFAULT;
+				break;
+			}
+			status = 0;
+		}
+		break;
+	case KGSL_PROP_GPMU_VERSION:
+		{
+			struct kgsl_gpmu_version gpmu;
+
+			if (adreno_dev->gpucore == NULL) {
+				status = -EINVAL;
+				break;
+			}
+
+			if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU)) {
+				status = -EOPNOTSUPP;
+				break;
+			}
+
+			if (sizebytes != sizeof(gpmu)) {
+				status = -EINVAL;
+				break;
+			}
+			memset(&gpmu, 0, sizeof(gpmu));
+
+			gpmu.major = adreno_dev->gpucore->gpmu_major;
+			gpmu.minor = adreno_dev->gpucore->gpmu_minor;
+			gpmu.features = adreno_dev->gpucore->gpmu_features;
+
+			if (copy_to_user(value, &gpmu, sizeof(gpmu))) {
+				status = -EFAULT;
+				break;
+			}
+			status = 0;
+		}
+		break;
 	default:
 		status = -EINVAL;
 	}
@@ -1880,7 +1921,7 @@ int adreno_set_constraint(struct kgsl_device *device,
 }
 
 static int adreno_setproperty(struct kgsl_device_private *dev_priv,
-				enum kgsl_property_type type,
+				unsigned int type,
 				void __user *value,
 				unsigned int sizebytes)
 {

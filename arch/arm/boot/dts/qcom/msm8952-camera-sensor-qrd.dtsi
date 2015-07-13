@@ -191,6 +191,7 @@
 		qcom,mount-angle = <90>;
 		qcom,actuator-src = <&actuator0>;
 		qcom,led-flash-src = <&led_flash0>;
+		qcom,eeprom-src = <&eeprom0>;
 		cam_vdig-supply = <&pm8950_l23>;
 		cam_vana-supply = <&pm8950_l22>;
 		cam_vio-supply = <&pm8950_l6>;
@@ -317,7 +318,7 @@ qcom,camera@20 {
 		qcom,csiphy-sd-index = <1>;
 		qcom,csid-sd-index = <1>;
 		qcom,mount-angle = <90>;
-		qcom,sensor-name = "ov2685";
+		qcom,sensor-name = "ov2685_scv3b4035";
 		cam_vdig-supply = <&pm8950_l6>;
 		cam_vio-supply = <&pm8950_l6>;
 		cam_vana-supply = <&pm8950_l22>;

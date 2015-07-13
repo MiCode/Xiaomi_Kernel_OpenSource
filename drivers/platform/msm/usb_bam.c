@@ -39,6 +39,9 @@
 
 #define USB_BAM_NR_PORTS	4
 
+/* Additional memory to be allocated than required data fifo size */
+#define DATA_FIFO_EXTRA_MEM_ALLOC_SIZE 512
+
 #define ARRAY_INDEX_FROM_ADDR(base, addr) ((addr) - (base))
 
 /* Offset relative to QSCRATCH_RAM1_REG */
@@ -460,11 +463,24 @@ static int usb_bam_alloc_buffer(struct usb_bam_pipe_connect *pipe_connect)
 		log_event(1, "%s: USB BAM using system memory\n", __func__);
 		/* BAM would use system memory, allocate FIFOs */
 		data_buf->size = pipe_connect->data_fifo_size;
-		data_buf->base =
-			dma_alloc_coherent(&ctx.usb_bam_pdev->dev,
-			pipe_connect->data_fifo_size,
-			&(data_buf->phys_base),
-			GFP_KERNEL);
+		/* On platforms which use CI controller, USB HW can fetch
+		 * additional 128 bytes at the end of circular buffer when
+		 * AXI prefetch is enabled and hence requirement is to
+		 * allocate 512 bytes more than required length.
+		 */
+		if (pipe_connect->bam_type == CI_CTRL)
+			data_buf->base =
+				dma_alloc_coherent(&ctx.usb_bam_pdev->dev,
+				(pipe_connect->data_fifo_size +
+					DATA_FIFO_EXTRA_MEM_ALLOC_SIZE),
+				&(data_buf->phys_base),
+				GFP_KERNEL);
+		else
+			data_buf->base =
+				dma_alloc_coherent(&ctx.usb_bam_pdev->dev,
+				pipe_connect->data_fifo_size,
+				&(data_buf->phys_base),
+				GFP_KERNEL);
 		if (!data_buf->base) {
 			pr_err("%s: dma_alloc_coherent failed for data fifo\n",
 								__func__);
@@ -482,9 +498,17 @@ static int usb_bam_alloc_buffer(struct usb_bam_pipe_connect *pipe_connect)
 		if (!desc_buf->base) {
 			pr_err("%s: dma_alloc_coherent failed for desc fifo\n",
 								__func__);
-			dma_free_coherent(&ctx.usb_bam_pdev->dev,
-			pipe_connect->data_fifo_size, data_buf->base,
-			data_buf->phys_base);
+			if (pipe_connect->bam_type == CI_CTRL)
+				dma_free_coherent(&ctx.usb_bam_pdev->dev,
+				(pipe_connect->data_fifo_size +
+					DATA_FIFO_EXTRA_MEM_ALLOC_SIZE),
+				data_buf->base,
+				data_buf->phys_base);
+			else
+				dma_free_coherent(&ctx.usb_bam_pdev->dev,
+				pipe_connect->data_fifo_size,
+				data_buf->base,
+				data_buf->phys_base);
 			ret = -ENOMEM;
 			goto disable_memclk;
 		}
@@ -805,11 +829,19 @@ static int disconnect_pipe(u8 idx)
 	case SYSTEM_MEM:
 		log_event(1, "%s: Freeing system memory used by PIPE\n",
 				__func__);
-		if (sps_connection->data.phys_base)
-			dma_free_coherent(&ctx.usb_bam_pdev->dev,
+		if (sps_connection->data.phys_base) {
+			if (pipe_connect->bam_type == CI_CTRL)
+				dma_free_coherent(&ctx.usb_bam_pdev->dev,
+					(sps_connection->data.size +
+						DATA_FIFO_EXTRA_MEM_ALLOC_SIZE),
+					sps_connection->data.base,
+					sps_connection->data.phys_base);
+			else
+				dma_free_coherent(&ctx.usb_bam_pdev->dev,
 					sps_connection->data.size,
 					sps_connection->data.base,
 					sps_connection->data.phys_base);
+		}
 		if (sps_connection->desc.phys_base)
 			dma_free_coherent(&ctx.usb_bam_pdev->dev,
 					sps_connection->desc.size,
@@ -1941,9 +1973,9 @@ static void usb_bam_finish_resume(struct work_struct *w)
 			bam_enable_strings[cur_bam]);
 	mutex_lock(&info[cur_bam].suspend_resume_mutex);
 
-	/* Suspend happened in the meantime */
+	/* Suspend or disconnect happened in the meantime */
 	spin_lock(&usb_bam_ipa_handshake_info_lock);
-	if (info[cur_bam].bus_suspend) {
+	if (info[cur_bam].bus_suspend || info[cur_bam].disconnected) {
 		spin_unlock(&usb_bam_ipa_handshake_info_lock);
 		log_event(1, "%s: Bus suspended, not resuming", __func__);
 		mutex_unlock(&info[cur_bam].suspend_resume_mutex);
@@ -3480,6 +3512,26 @@ bool msm_bam_usb_lpm_ok(enum usb_ctrl bam)
 	}
 }
 EXPORT_SYMBOL(msm_bam_usb_lpm_ok);
+
+bool msm_usb_bam_enable(enum usb_ctrl bam, bool bam_enable)
+{
+	struct msm_usb_bam_platform_data *pdata;
+
+	if (!ctx.usb_bam_pdev)
+		return 0;
+
+	pdata = ctx.usb_bam_pdev->dev.platform_data;
+	if ((bam != CI_CTRL) || !(bam_enable ||
+					pdata->enable_hsusb_bam_on_boot))
+		return 0;
+
+	msm_hw_bam_disable(1);
+	sps_device_reset(ctx.h_bam[bam]);
+	msm_hw_bam_disable(0);
+
+	return 0;
+}
+EXPORT_SYMBOL(msm_usb_bam_enable);
 
 /**
  * msm_bam_hsic_host_pipe_empty - Check all HSIC host BAM pipe state

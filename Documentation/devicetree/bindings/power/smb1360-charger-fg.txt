@@ -41,6 +41,12 @@ Optional Properties:
 - qcom,iterm-disabled		Disables the termination current feature. This is a bool
 				property.
 - qcom,chg-inhibit-disabled	Disables the charger-inhibit function.
+- qcom,disable-ov-ends-chg-cycle
+				The boolean property to indicate if the ov-ends-charge-cycle
+				feature is disabled. If the feature is disabled, charging
+				could be resumed from battery OV (over voltage) status; otherwise,
+				charging cycle will be terminated after battery OV event and
+				won't be resumed until disable/enable charging.
 - qcom,batt-id-disabled		Disabled the batt-id function. Doing this will
 				disable the ability of RID based battery profile selection.
 - qcom,fg-delta-soc		The delta in SOC which will generate an interrupt

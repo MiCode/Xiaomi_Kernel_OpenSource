@@ -862,6 +862,19 @@ struct ipa_wdi_ul_params {
 };
 
 /**
+ * struct  ipa_wdi_ul_params_smmu - WDI_RX configuration (with WLAN SMMU)
+ * @rdy_ring: SG table describing the Rx ring (containing Rx buffers)
+ * @rdy_ring_size: size of the Rx ring in bytes
+ * @rdy_ring_rp_pa: physical address of the location through which IPA uc is
+ * expected to communicate about the Read pointer into the Rx Ring
+ */
+struct ipa_wdi_ul_params_smmu {
+	struct sg_table rdy_ring;
+	u32 rdy_ring_size;
+	phys_addr_t rdy_ring_rp_pa;
+};
+
+/**
  * struct  ipa_wdi_dl_params - WDI_TX configuration
  * @comp_ring_base_pa: physical address of the base of the Tx completion ring
  * @comp_ring_size: size of the Tx completion ring in bytes
@@ -882,17 +895,42 @@ struct ipa_wdi_dl_params {
 };
 
 /**
+ * struct  ipa_wdi_dl_params_smmu - WDI_TX configuration (with WLAN SMMU)
+ * @comp_ring: SG table describing the Tx completion ring
+ * @comp_ring_size: size of the Tx completion ring in bytes
+ * @ce_ring: SG table describing the Copy Engine Source Ring
+ * @ce_door_bell_pa: physical address of the doorbell that the IPA uC has to
+ * write into to trigger the copy engine
+ * @ce_ring_size: Copy Engine Ring size in bytes
+ * @num_tx_buffers: Number of pkt buffers allocated
+ */
+struct ipa_wdi_dl_params_smmu {
+	struct sg_table comp_ring;
+	u32 comp_ring_size;
+	struct sg_table ce_ring;
+	phys_addr_t ce_door_bell_pa;
+	u32 ce_ring_size;
+	u32 num_tx_buffers;
+};
+
+/**
  * struct  ipa_wdi_in_params - information provided by WDI client
  * @sys: IPA EP configuration info
  * @ul: WDI_RX configuration info
  * @dl: WDI_TX configuration info
+ * @ul_smmu: WDI_RX configuration info when WLAN uses SMMU
+ * @dl_smmu: WDI_TX configuration info when WLAN uses SMMU
+ * @smmu_enabled: true if WLAN uses SMMU
  */
 struct ipa_wdi_in_params {
 	struct ipa_sys_connect_params sys;
 	union {
 		struct ipa_wdi_ul_params ul;
 		struct ipa_wdi_dl_params dl;
+		struct ipa_wdi_ul_params_smmu ul_smmu;
+		struct ipa_wdi_dl_params_smmu dl_smmu;
 	} u;
+	bool smmu_enabled;
 };
 
 /**
@@ -927,6 +965,22 @@ struct ipa_wdi_uc_ready_params {
 	bool is_uC_ready;
 	void *priv;
 	ipa_uc_ready_cb notify;
+};
+
+/**
+ * struct  ipa_wdi_buffer_info - address info of a WLAN allocated buffer
+ * @pa: physical address of the buffer
+ * @iova: IOVA of the buffer as embedded inside the WDI descriptors
+ * @size: size in bytes of the buffer
+ * @result: result of map or unmap operations (out param)
+ *
+ * IPA driver will create/release IOMMU mapping in IPA SMMU from iova->pa
+ */
+struct ipa_wdi_buffer_info {
+	phys_addr_t pa;
+	unsigned long iova;
+	size_t size;
+	int result;
 };
 
 /**
@@ -1213,6 +1267,9 @@ int ipa_uc_wdi_get_dbpa(struct ipa_wdi_db_params *out);
  */
 int ipa_uc_reg_rdyCB(struct ipa_wdi_uc_ready_params *param);
 
+int ipa_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
+int ipa_release_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
+
 /*
  * Resource manager
  */
@@ -1354,6 +1411,8 @@ enum ipa_rm_resource_name ipa_get_rm_resource_from_ep(int pipe_idx);
 bool ipa_get_modem_cfg_emb_pipe_flt(void);
 struct device *ipa_get_dma_dev(void);
 struct iommu_domain *ipa_get_smmu_domain(void);
+
+int ipa_disable_apps_wan_cons_deaggr(uint32_t agg_size, uint32_t agg_count);
 
 #else /* CONFIG_IPA */
 
@@ -2072,6 +2131,22 @@ static inline struct iommu_domain *ipa_get_smmu_domain(void)
 	return NULL;
 }
 
+static inline int ipa_create_wdi_mapping(u32 num_buffers,
+		struct ipa_wdi_buffer_info *info)
+{
+	return -EINVAL;
+}
+
+static inline int ipa_release_wdi_mapping(u32 num_buffers,
+		struct ipa_wdi_buffer_info *info)
+{
+	return -EINVAL;
+}
+
+static inline int ipa_disable_apps_wan_cons_deaggr(void)
+{
+	return -EINVAL;
+}
 #endif /* CONFIG_IPA*/
 
 #endif /* _IPA_H_ */

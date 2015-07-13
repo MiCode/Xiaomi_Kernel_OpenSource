@@ -234,6 +234,8 @@ struct dsi_shared_data {
 	struct clk *ahb_clk;
 	struct clk *axi_clk;
 	struct clk *mmss_misc_ahb_clk;
+	struct clk *tbu_clk;
+	struct clk *tbu_rt_clk;
 
 	/* Other shared clocks */
 	struct clk *ext_byte0_clk;
@@ -337,6 +339,7 @@ struct panel_horizontal_idle {
 struct mdss_dsi_ctrl_pdata {
 	int ndx;	/* panel_num */
 	int (*on) (struct mdss_panel_data *pdata);
+	int (*post_panel_on)(struct mdss_panel_data *pdata);
 	int (*off) (struct mdss_panel_data *pdata);
 	int (*low_power_config) (struct mdss_panel_data *pdata, int enable);
 	int (*set_col_page_addr)(struct mdss_panel_data *pdata, bool force);
@@ -386,6 +389,7 @@ struct mdss_dsi_ctrl_pdata {
 	int clk_lane_cnt;
 	bool dmap_iommu_map;
 	bool dsi_irq_line;
+	bool dcs_cmd_insert;
 	atomic_t te_irq_ready;
 
 	bool cmd_sync_wait_broadcast;
@@ -404,6 +408,7 @@ struct mdss_dsi_ctrl_pdata {
 
 	struct dsi_panel_cmds on_cmds;
 	struct dsi_panel_cmds post_dms_on_cmds;
+	struct dsi_panel_cmds post_panel_on_cmds;
 	struct dsi_panel_cmds off_cmds;
 	struct dsi_panel_cmds status_cmds;
 	u32 status_cmds_rlen;
@@ -461,6 +466,7 @@ struct mdss_dsi_ctrl_pdata {
 	bool ds_registered;
 
 	struct kobject *kobj;
+	int fb_node;
 
 	struct workqueue_struct *workq;
 	struct delayed_work dba_work;

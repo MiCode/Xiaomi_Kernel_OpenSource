@@ -52,6 +52,13 @@
 #define TOMBAK_IS_1_0(ver) \
 	((ver == TOMBAK_VERSION_1_0) ? 1 : 0)
 
+#define TASHA_VERSION_1_0     0
+#define TASHA_VERSION_1_1     1
+#define TASHA_IS_1_0(ver) \
+	((ver == TASHA_VERSION_1_0) ? 1 : 0)
+#define TASHA_IS_1_1(ver) \
+	((ver == TASHA_VERSION_1_1) ? 1 : 0)
+
 enum wcd9xxx_slim_slave_addr_type {
 	WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TABLA,
 	WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TAIKO,
@@ -269,6 +276,12 @@ struct wcd9xxx {
 	u8 prev_pg;
 };
 
+struct wcd9xxx_reg_val {
+	unsigned short reg; /* register address */
+	u8 *buf;            /* buffer to be written to reg. addr */
+	int bytes;          /* number of bytes to be written */
+};
+
 int wcd9xxx_interface_reg_read(struct wcd9xxx *wcd9xxx, unsigned short reg);
 int wcd9xxx_interface_reg_write(struct wcd9xxx *wcd9xxx, unsigned short reg,
 		u8 val);
@@ -277,6 +290,10 @@ int wcd9xxx_slim_write_repeat(struct wcd9xxx *wcd9xxx, unsigned short reg,
 			     int bytes, void *src);
 int wcd9xxx_slim_reserve_bw(struct wcd9xxx *wcd9xxx,
 			    u32 bw_ops, bool commit);
+
+int wcd9xxx_slim_bulk_write(struct wcd9xxx *wcd9xxx,
+			    struct wcd9xxx_reg_val *bulk_reg,
+			    unsigned int size, bool interface);
 
 #if defined(CONFIG_WCD9310_CODEC) || \
 	defined(CONFIG_WCD9304_CODEC) || \

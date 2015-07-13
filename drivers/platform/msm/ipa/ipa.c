@@ -208,12 +208,6 @@ enum ipa_smmu_cb_type {
 
 };
 
-struct ipa_smmu_cb_ctx {
-	bool valid;
-	struct device *dev;
-	struct dma_iommu_mapping *mapping;
-};
-
 static struct ipa_smmu_cb_ctx smmu_cb[IPA_SMMU_CB_MAX];
 
 #if !defined(CONFIG_ARM_DMA_USE_IOMMU) && !defined(CONFIG_ARM64_DMA_USE_IOMMU)
@@ -237,18 +231,42 @@ void arm_iommu_detach_device(struct device *dev) { }
 
 struct iommu_domain *ipa_get_smmu_domain(void)
 {
-	if (smmu_cb[IPA_SMMU_CB_AP].valid)
+	if (smmu_cb[IPA_SMMU_CB_AP].valid) {
 		return smmu_cb[IPA_SMMU_CB_AP].mapping->domain;
-	else
+	} else {
+		IPAERR("CB not valid\n");
 		return NULL;
+	}
 }
 EXPORT_SYMBOL(ipa_get_smmu_domain);
+
+struct iommu_domain *ipa_get_uc_smmu_domain(void)
+{
+	struct iommu_domain *domain = NULL;
+
+	if (smmu_cb[IPA_SMMU_CB_UC].valid)
+		domain = smmu_cb[IPA_SMMU_CB_UC].mapping->domain;
+	else
+		IPAERR("CB not valid\n");
+
+	return domain;
+}
 
 struct device *ipa_get_dma_dev(void)
 {
 	return ipa_ctx->pdev;
 }
 EXPORT_SYMBOL(ipa_get_dma_dev);
+
+struct ipa_smmu_cb_ctx *ipa_get_wlan_smmu_ctx(void)
+{
+	return &smmu_cb[IPA_SMMU_CB_WLAN];
+}
+
+struct ipa_smmu_cb_ctx *ipa_get_uc_smmu_ctx(void)
+{
+	return &smmu_cb[IPA_SMMU_CB_UC];
+}
 
 static int ipa_open(struct inode *inode, struct file *filp)
 {
@@ -2173,6 +2191,15 @@ static int ipa_setup_apps_pipes(void)
 	} else {
 		WARN_ON(1);
 	}
+
+	/**
+	 * ipa_lan_rx_cb() intended to notify the source EP about packet
+	 * being received on the LAN_CONS via calling the source EP call-back.
+	 * There could be a race condition with calling this call-back. Other
+	 * thread may nullify it - e.g. on EP disconnect.
+	 * This lock intended to protect the access to the source EP call-back
+	 */
+	spin_lock_init(&ipa_ctx->lan_rx_clnt_notify_lock);
 	if (ipa_setup_sys_pipe(&sys_in, &ipa_ctx->clnt_hdl_data_in)) {
 		IPAERR(":setup sys pipe failed.\n");
 		result = -EPERM;
@@ -3090,6 +3117,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	}
 
 	ipa_ctx->pdev = ipa_dev;
+	ipa_ctx->uc_pdev = ipa_dev;
 	ipa_ctx->smmu_present = smmu_present;
 	ipa_ctx->ipa_wrapper_base = resource_p->ipa_mem_base;
 	ipa_ctx->ipa_hw_type = resource_p->ipa_hw_type;
@@ -3741,10 +3769,6 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	return 0;
 }
 
-#define IPA_SMMU_AP_VA_START 0x1000
-#define IPA_SMMU_AP_VA_SIZE 0x40000000
-#define IPA_SMMU_AP_VA_END (IPA_SMMU_AP_VA_START +  IPA_SMMU_AP_VA_SIZE)
-
 int ipa_smmu_map_peer_bam(unsigned long dev)
 {
 	phys_addr_t base;
@@ -3817,14 +3841,102 @@ int ipa_smmu_unmap_peer_bam(unsigned long dev)
 
 static int ipa_smmu_wlan_cb_probe(struct device *dev)
 {
+	struct ipa_smmu_cb_ctx *cb = &smmu_cb[IPA_SMMU_CB_WLAN];
+	int disable_htw = 1;
+	int atomic_ctx = 1;
+	int ret;
+
 	IPADBG("sub pdev=%p\n", dev);
+
+	cb->dev = dev;
+	cb->iommu = iommu_domain_alloc(&platform_bus_type);
+	if (!cb->iommu) {
+		IPAERR("could not alloc iommu domain\n");
+		/* assume this failure is because iommu driver is not ready */
+		return -EPROBE_DEFER;
+	}
+
+	if (smmu_disable_htw) {
+		ret = iommu_domain_set_attr(cb->iommu,
+			DOMAIN_ATTR_COHERENT_HTW_DISABLE,
+			&disable_htw);
+		if (ret) {
+			IPAERR("couldn't disable coherent HTW\n");
+			return -EIO;
+		}
+	}
+
+	if (iommu_domain_set_attr(cb->iommu,
+				DOMAIN_ATTR_ATOMIC,
+				&atomic_ctx)) {
+		IPAERR("couldn't disable coherent HTW\n");
+		return -EIO;
+	}
+
+	ret = iommu_attach_device(cb->iommu, dev);
+	if (ret) {
+		IPAERR("could not attach device ret=%d\n", ret);
+		return ret;
+	}
+
+	IPADBG("map IPA region to WLAN_CB IOMMU\n");
+	ret = iommu_map(cb->iommu, 0x680000, 0x680000,
+			0x64000,
+			IOMMU_READ | IOMMU_WRITE | IOMMU_DEVICE);
+	if (ret) {
+		IPAERR("map IPA to WLAN_CB IOMMU failed ret=%d\n",
+			ret);
+		return ret;
+	}
+
+	cb->valid = true;
 
 	return 0;
 }
 
 static int ipa_smmu_uc_cb_probe(struct device *dev)
 {
+	struct ipa_smmu_cb_ctx *cb = &smmu_cb[IPA_SMMU_CB_UC];
+	int order = 0;
+	int disable_htw = 1;
+	int ret;
+
 	IPADBG("sub pdev=%p\n", dev);
+
+	if (dma_set_mask(dev, DMA_BIT_MASK(32)) ||
+		    dma_set_coherent_mask(dev, DMA_BIT_MASK(32))) {
+		IPAERR("DMA set mask failed\n");
+		return -EOPNOTSUPP;
+	}
+
+	cb->dev = dev;
+	cb->mapping = arm_iommu_create_mapping(&platform_bus_type,
+			IPA_SMMU_UC_VA_START, IPA_SMMU_UC_VA_SIZE, order);
+	if (IS_ERR(cb->mapping)) {
+		IPADBG("Fail to create mapping\n");
+		/* assume this failure is because iommu driver is not ready */
+		return -EPROBE_DEFER;
+	}
+
+	ret = arm_iommu_attach_device(cb->dev, cb->mapping);
+	if (ret) {
+		IPAERR("could not attach device ret=%d\n", ret);
+		return ret;
+	}
+
+	if (smmu_disable_htw) {
+		if (iommu_domain_set_attr(cb->mapping->domain,
+				DOMAIN_ATTR_COHERENT_HTW_DISABLE,
+				 &disable_htw)) {
+			IPAERR("couldn't disable coherent HTW\n");
+			arm_iommu_detach_device(cb->dev);
+			return -EIO;
+		}
+	}
+
+	cb->valid = true;
+	cb->next_addr = IPA_SMMU_UC_VA_END;
+	ipa_ctx->uc_pdev = dev;
 
 	return 0;
 }
@@ -3856,6 +3968,16 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	result = arm_iommu_attach_device(cb->dev, cb->mapping);
 	if (result) {
 		IPAERR("couldn't attach to IOMMU ret=%d\n", result);
+		return result;
+	}
+
+	IPADBG("map IPA region to AP_CB IOMMU\n");
+	result = iommu_map(cb->mapping->domain, 0x680000, 0x680000,
+		0x64000,
+			IOMMU_READ | IOMMU_WRITE | IOMMU_DEVICE);
+	if (result) {
+		IPAERR("map IPA region to AP_CB IOMMU failed ret=%d\n",
+			result);
 		return result;
 	}
 

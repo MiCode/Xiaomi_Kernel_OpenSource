@@ -7323,6 +7323,7 @@ struct asm_dts_eagle_param_get {
 #define AFE_PARAM_ID_CDC_SLIMBUS_SLAVE_CFG		(0x00010235)
 #define AFE_PARAM_ID_CDC_REG_CFG			(0x00010236)
 #define AFE_PARAM_ID_CDC_REG_CFG_INIT			(0x00010237)
+#define AFE_PARAM_ID_CDC_REG_PAGE_CFG                   (0x00010296)
 
 #define AFE_MAX_CDC_REGISTERS_TO_CONFIG			(20)
 
@@ -7629,6 +7630,7 @@ enum afe_config_type {
 	AFE_AANC_VERSION,
 	AFE_CDC_CLIP_REGISTERS_CONFIG,
 	AFE_CLIP_BANK_SEL,
+	AFE_CDC_REGISTER_PAGE_CONFIG,
 	AFE_MAX_CONFIG_TYPES,
 };
 
@@ -7658,6 +7660,21 @@ struct afe_param_cdc_reg_cfg {
 	uint32_t reg_field_bit_mask;
 	uint16_t reg_bit_width;
 	uint16_t reg_offset_scale;
+} __packed;
+
+#define AFE_API_VERSION_CDC_REG_PAGE_CFG   1
+
+enum {
+	AFE_CDC_REG_PAGE_ASSIGN_PROC_ID_0 = 0,
+	AFE_CDC_REG_PAGE_ASSIGN_PROC_ID_1,
+	AFE_CDC_REG_PAGE_ASSIGN_PROC_ID_2,
+	AFE_CDC_REG_PAGE_ASSIGN_PROC_ID_3,
+};
+
+struct afe_param_cdc_reg_page_cfg {
+	uint32_t minor_version;
+	uint32_t enable;
+	uint32_t proc_id;
 } __packed;
 
 struct afe_param_cdc_reg_cfg_data {
@@ -7723,6 +7740,13 @@ struct afe_svc_cmd_sb_slave_cfg {
 	struct afe_svc_cmd_set_param param;
 	struct afe_port_param_data_v2 pdata;
 	struct afe_param_cdc_slimbus_slave_cfg sb_slave_cfg;
+} __packed;
+
+struct afe_svc_cmd_cdc_reg_page_cfg {
+	struct apr_hdr hdr;
+	struct afe_svc_cmd_set_param param;
+	struct afe_port_param_data_v2 pdata;
+	struct afe_param_cdc_reg_page_cfg cdc_reg_page_cfg;
 } __packed;
 
 struct afe_svc_cmd_cdc_aanc_version {

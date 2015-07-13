@@ -858,7 +858,8 @@ static void kgsl_destroy_process_private(struct kref *kref)
 	idr_destroy(&private->syncsource_idr);
 
 	/* When using global pagetables, do not detach global pagetable */
-	if (private->pagetable->name != KGSL_MMU_GLOBAL_PT)
+	if (kgsl_mmu_enabled() &&
+		 private->pagetable->name != KGSL_MMU_GLOBAL_PT)
 		kgsl_mmu_putpagetable(private->pagetable);
 
 	kfree(private);
@@ -1010,7 +1011,8 @@ static void kgsl_process_private_close(struct kgsl_device_private *dev_priv,
 	process_release_sync_sources(private);
 
 	/* When using global pagetables, do not detach global pagetable */
-	if (private->pagetable->name != KGSL_MMU_GLOBAL_PT)
+	if (kgsl_mmu_enabled() &&
+		private->pagetable->name != KGSL_MMU_GLOBAL_PT)
 		kgsl_mmu_detach_pagetable(private->pagetable);
 
 	/* Remove the process struct from the master list */
@@ -2337,8 +2339,7 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 			| KGSL_MEMTYPE_MASK
 			| KGSL_MEMALIGN_MASK
 			| KGSL_MEMFLAGS_USE_CPU_MAP
-			| KGSL_MEMFLAGS_SECURE
-			| KGSL_MEMFLAGS_GPUWRITEONLY;
+			| KGSL_MEMFLAGS_SECURE;
 
 	entry->memdesc.flags = param->flags;
 
@@ -2571,7 +2572,6 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	 * determined by type of allocation being mapped.
 	 */
 	param->flags &= KGSL_MEMFLAGS_GPUREADONLY
-			| KGSL_MEMFLAGS_GPUWRITEONLY
 			| KGSL_MEMTYPE_MASK
 			| KGSL_MEMALIGN_MASK
 			| KGSL_MEMFLAGS_USE_CPU_MAP
@@ -2984,7 +2984,6 @@ static struct kgsl_mem_entry *gpumem_alloc_entry(
 	unsigned int align;
 
 	flags &= KGSL_MEMFLAGS_GPUREADONLY
-		| KGSL_MEMFLAGS_GPUWRITEONLY
 		| KGSL_CACHEMODE_MASK
 		| KGSL_MEMTYPE_MASK
 		| KGSL_MEMALIGN_MASK
@@ -3792,7 +3791,7 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 
 put:
 	if (IS_ERR_VALUE(ret))
-		KGSL_MEM_ERR(device,
+		KGSL_MEM_ERR_RATELIMITED(device,
 				"pid %d pgoff %lx len %ld failed error %ld\n",
 				private->pid, pgoff, len, ret);
 	kgsl_mem_entry_put(entry);
@@ -3885,11 +3884,28 @@ static irqreturn_t kgsl_irq_handler(int irq, void *data)
 
 }
 
+#define KGSL_READ_MESSAGE "OH HAI GPU"
+
+static ssize_t kgsl_read(struct file *filep, char __user *buf, size_t count,
+		loff_t *pos)
+{
+	int ret;
+
+	if (*pos >= strlen(KGSL_READ_MESSAGE) + 1)
+		return 0;
+
+	ret = snprintf(buf, count, "%s\n", KGSL_READ_MESSAGE);
+	*pos += ret;
+
+	return ret;
+}
+
 static const struct file_operations kgsl_fops = {
 	.owner = THIS_MODULE,
 	.release = kgsl_release,
 	.open = kgsl_open,
 	.mmap = kgsl_mmap,
+	.read = kgsl_read,
 	.get_unmapped_area = kgsl_get_unmapped_area,
 	.unlocked_ioctl = kgsl_ioctl,
 	.compat_ioctl = kgsl_compat_ioctl,

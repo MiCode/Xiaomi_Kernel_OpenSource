@@ -46,6 +46,9 @@ Parent node optional properties:
 					be exactly 6 bytes in length.
 					Example: [01 02 03 04 05 06]
 - qcom,resume-soc:			soc to resume charging in percentage.
+- qcom,resume-soc-raw:			soc to resume charging in the scale of
+					[0-255]. This overrides qcom,resume-soc
+					if defined.
 - qcom,bcl-lm-threshold-ma:		BCL LPM to MPM mode transition threshold
 					in milliAmpere.
 - qcom,bcl-mh-threshold-ma:		BCL MPM to HPM mode transition threshold
@@ -109,16 +112,16 @@ Parent node optional properties:
 					present, then the following properties
 					to specify low and high soc thresholds
 					should be defined.
-- qcom,cycle-counter-low-soc:		Low SOC threshold which will be compared
-					against the battery SOC before starting
-					the cycle counter algorithm.
-- qcom,cycle-counter-high-soc:		High SOC threshold which will be compared
-					against the battery SOC before incrementing
-					the cycle counter.
 - qcom,capacity-learning-on:		A boolean property to have the fuel
 					gauge driver attempt to learn the
 					battery capacity when charging. Takes
 					precedence over capacity-estimation-on.
+- qcom,capacity-learning-feedback:	A boolean property to have the fuel
+					gauge driver to feedback the learned
+					capacity into the capacity learning
+					algorithm. This has to be used only if
+					the property "qcom,capacity-learning-on"
+					is specified.
 - qcom,cl-max-increment-deciperc:	The maximum percent that the capacity
 					can rise as the result of a single
 					charge cycle. This property corresponds

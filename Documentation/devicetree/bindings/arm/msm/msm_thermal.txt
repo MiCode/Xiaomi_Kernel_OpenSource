@@ -121,6 +121,12 @@ Optional properties
 - qcom,disable-cx-phase-ctrl: If this property is defined, the feature
 			cx phase control will be disabled. All other properties
 			corresponding to this feature will be ignored.
+- qcom,disable-core-control: If this property is defined, the feature core
+			control will be disabled. All other properties
+			corresponding to this feature will be ignored.
+- qcom,disable-freq-mitigation: If this property is defined, the feature core
+			frequency control will be disabled. All other properties
+			corresponding to this feature will be ignored.
 
 Optional child nodes
 - qcom,pmic-opt-curr-temp: Threshold temperature for requesting optimum current (request

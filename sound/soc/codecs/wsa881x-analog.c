@@ -36,6 +36,7 @@
 #include "../msm/msm-audio-pinctrl.h"
 
 #define SPK_GAIN_12DB 4
+#define WIDGET_NAME_MAX_SIZE 80
 
 /*
  * Private data Structure for wsa881x. All parameters related to
@@ -657,7 +658,7 @@ static const struct snd_soc_dapm_widget wsa881x_dapm_widgets[] = {
 	SND_SOC_DAPM_VIRT_MUX("WSA_RDAC", SND_SOC_NOPM, 0, 0,
 		rdac_mux),
 
-	SND_SOC_DAPM_PGA_E("WSA_SPKR PGA", SND_SOC_NOPM, 0, 0, NULL, 0,
+	SND_SOC_DAPM_PGA_S("WSA_SPKR PGA", 1, SND_SOC_NOPM, 0, 0,
 			wsa881x_spkr_pa_event,
 			SND_SOC_DAPM_POST_PMU |	SND_SOC_DAPM_PRE_PMD),
 
@@ -739,6 +740,8 @@ static int wsa881x_probe(struct snd_soc_codec *codec)
 	struct i2c_client *client;
 	int ret = 0;
 	int wsa881x_index = 0;
+	struct snd_soc_dapm_context *dapm = &codec->dapm;
+	char *widget_name = NULL;
 
 	client = dev_get_drvdata(codec->dev);
 	ret = wsa881x_i2c_get_client_index(client, &wsa881x_index);
@@ -752,6 +755,27 @@ static int wsa881x_probe(struct snd_soc_codec *codec)
 	wsa_pdata[wsa881x_index].spk_pa_gain = SPK_GAIN_12DB;
 	snd_soc_codec_set_drvdata(codec, &wsa_pdata[wsa881x_index]);
 
+	if (codec->name_prefix) {
+		widget_name = kcalloc(WIDGET_NAME_MAX_SIZE, sizeof(char),
+					GFP_KERNEL);
+		if (!widget_name) {
+			pr_err("%s: Cannot allocate memory for widget name",
+				__func__);
+			return -ENOMEM;
+		}
+		snprintf(widget_name, WIDGET_NAME_MAX_SIZE,
+			"%s WSA_SPKR", codec->name_prefix);
+		snd_soc_dapm_ignore_suspend(dapm, widget_name);
+		snprintf(widget_name, WIDGET_NAME_MAX_SIZE,
+			"%s WSA_IN", codec->name_prefix);
+		snd_soc_dapm_ignore_suspend(dapm, widget_name);
+		kfree(widget_name);
+	} else {
+		snd_soc_dapm_ignore_suspend(dapm, "WSA_SPKR");
+		snd_soc_dapm_ignore_suspend(dapm, "WSA_IN");
+	}
+
+	snd_soc_dapm_sync(dapm);
 	return 0;
 }
 

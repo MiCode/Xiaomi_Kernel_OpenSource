@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,6 +67,8 @@ int msm_camera_fill_vreg_params(struct camera_vreg_t *cam_vreg,
 					break;
 				}
 			}
+			if (j == num_vreg)
+				power_setting[i].seq_val = INVALID_VREG;
 			break;
 
 		case CAM_VIO:
@@ -86,6 +88,8 @@ int msm_camera_fill_vreg_params(struct camera_vreg_t *cam_vreg,
 					break;
 				}
 			}
+			if (j == num_vreg)
+				power_setting[i].seq_val = INVALID_VREG;
 			break;
 
 		case CAM_VANA:
@@ -105,6 +109,8 @@ int msm_camera_fill_vreg_params(struct camera_vreg_t *cam_vreg,
 					break;
 				}
 			}
+			if (j == num_vreg)
+				power_setting[i].seq_val = INVALID_VREG;
 			break;
 
 		case CAM_VAF:
@@ -124,6 +130,8 @@ int msm_camera_fill_vreg_params(struct camera_vreg_t *cam_vreg,
 					break;
 				}
 			}
+			if (j == num_vreg)
+				power_setting[i].seq_val = INVALID_VREG;
 			break;
 
 		case CAM_V_CUSTOM1:
@@ -144,6 +152,8 @@ int msm_camera_fill_vreg_params(struct camera_vreg_t *cam_vreg,
 					break;
 				}
 			}
+			if (j == num_vreg)
+				power_setting[i].seq_val = INVALID_VREG;
 			break;
 
 		case CAM_V_CUSTOM2:
@@ -164,6 +174,8 @@ int msm_camera_fill_vreg_params(struct camera_vreg_t *cam_vreg,
 					break;
 				}
 			}
+			if (j == num_vreg)
+				power_setting[i].seq_val = INVALID_VREG;
 			break;
 
 		default:
@@ -1353,6 +1365,8 @@ int msm_camera_power_up(struct msm_camera_power_ctrl_t *ctrl,
 				(int) power_setting->config_val);
 			break;
 		case SENSOR_VREG:
+			if (power_setting->seq_val == INVALID_VREG)
+				break;
 			if (power_setting->seq_val >= CAM_VREG_MAX) {
 				pr_err("%s vreg index %d >= max %d\n", __func__,
 					power_setting->seq_val,
@@ -1544,6 +1558,8 @@ int msm_camera_power_down(struct msm_camera_power_ctrl_t *ctrl,
 				(int) pd->config_val);
 			break;
 		case SENSOR_VREG:
+			if (pd->seq_val == INVALID_VREG)
+				break;
 			if (pd->seq_val >= CAM_VREG_MAX) {
 				pr_err("%s vreg index %d >= max %d\n", __func__,
 					pd->seq_val,

@@ -43,6 +43,13 @@
 #define IPA_EOT_COAL_GRAN_MIN (1)
 #define IPA_EOT_COAL_GRAN_MAX (16)
 
+#define IPA_AGGR_BYTE_LIMIT (\
+		IPA_ENDP_INIT_AGGR_N_AGGR_BYTE_LIMIT_BMSK >> \
+		IPA_ENDP_INIT_AGGR_N_AGGR_BYTE_LIMIT_SHFT)
+#define IPA_AGGR_PKT_LIMIT (\
+		IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_BMSK >> \
+		IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_SHFT)
+
 static const int ipa_ofst_meq32[] = { IPA_OFFSET_MEQ32_0,
 					IPA_OFFSET_MEQ32_1, -1 };
 static const int ipa_ofst_meq128[] = { IPA_OFFSET_MEQ128_0,
@@ -54,6 +61,8 @@ static const int ipa_ihl_ofst_meq32[] = { IPA_IHL_OFFSET_MEQ32_0,
 #define IPA_1_1 (0)
 #define IPA_2_0 (1)
 #define IPA_2_6L (2)
+
+#define INVALID_EP_MAPPING_INDEX (-1)
 
 static const int ep_mapping[3][IPA_CLIENT_MAX] = {
 	[IPA_1_1][IPA_CLIENT_HSIC1_PROD]         = 19,
@@ -121,6 +130,8 @@ static const int ep_mapping[3][IPA_CLIENT_MAX] = {
 	[IPA_2_0][IPA_CLIENT_MHI_PROD]           = 18,
 	[IPA_2_0][IPA_CLIENT_Q6_LAN_PROD]        =  6,
 	[IPA_2_0][IPA_CLIENT_Q6_CMD_PROD]        =  7,
+	[IPA_2_0][IPA_CLIENT_Q6_DECOMP_PROD]     = -1,
+	[IPA_2_0][IPA_CLIENT_Q6_DECOMP2_PROD]    = -1,
 	[IPA_2_0][IPA_CLIENT_MEMCPY_DMA_SYNC_PROD]
 						 =  12,
 	[IPA_2_0][IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD]
@@ -157,6 +168,8 @@ static const int ep_mapping[3][IPA_CLIENT_MAX] = {
 	[IPA_2_0][IPA_CLIENT_Q6_LAN_CONS]        =  8,
 	[IPA_2_0][IPA_CLIENT_Q6_WAN_CONS]        =  9,
 	[IPA_2_0][IPA_CLIENT_Q6_DUN_CONS]        = 10,
+	[IPA_2_0][IPA_CLIENT_Q6_DECOMP_CONS]     = -1,
+	[IPA_2_0][IPA_CLIENT_Q6_DECOMP2_CONS]    = -1,
 	[IPA_2_0][IPA_CLIENT_MEMCPY_DMA_SYNC_CONS]
 						 =  13,
 	[IPA_2_0][IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS]
@@ -185,10 +198,15 @@ static const int ep_mapping[3][IPA_CLIENT_MAX] = {
 	[IPA_2_6L][IPA_CLIENT_APPS_LAN_WAN_PROD]  =  4,
 	[IPA_2_6L][IPA_CLIENT_APPS_CMD_PROD]      =  3,
 	[IPA_2_6L][IPA_CLIENT_ODU_PROD]           = -1,
+	[IPA_2_6L][IPA_CLIENT_MHI_PROD]           = -1,
 	[IPA_2_6L][IPA_CLIENT_Q6_LAN_PROD]        =  6,
 	[IPA_2_6L][IPA_CLIENT_Q6_CMD_PROD]        =  7,
 	[IPA_2_6L][IPA_CLIENT_Q6_DECOMP_PROD]     = 11,
 	[IPA_2_6L][IPA_CLIENT_Q6_DECOMP2_PROD]    = 13,
+	[IPA_2_6L][IPA_CLIENT_MEMCPY_DMA_SYNC_PROD]
+						 =  -1,
+	[IPA_2_6L][IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD]
+						 =  -1,
 
 	/* Only for test purpose */
 	[IPA_2_6L][IPA_CLIENT_TEST_PROD]          = 11,
@@ -218,12 +236,16 @@ static const int ep_mapping[3][IPA_CLIENT_MAX] = {
 	[IPA_2_6L][IPA_CLIENT_APPS_WAN_CONS]      =  5,
 	[IPA_2_6L][IPA_CLIENT_ODU_EMB_CONS]       = -1,
 	[IPA_2_6L][IPA_CLIENT_ODU_TETH_CONS]      = -1,
+	[IPA_2_6L][IPA_CLIENT_MHI_CONS]           = -1,
 	[IPA_2_6L][IPA_CLIENT_Q6_LAN_CONS]        =  8,
 	[IPA_2_6L][IPA_CLIENT_Q6_WAN_CONS]        =  9,
 	[IPA_2_6L][IPA_CLIENT_Q6_DUN_CONS]        = -1,
 	[IPA_2_6L][IPA_CLIENT_Q6_DECOMP_CONS]     = 12,
 	[IPA_2_6L][IPA_CLIENT_Q6_DECOMP2_CONS]    = 14,
-
+	[IPA_2_6L][IPA_CLIENT_MEMCPY_DMA_SYNC_CONS]
+						 =  -1,
+	[IPA_2_6L][IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS]
+						 =  -1,
 	/* Only for test purpose */
 	[IPA_2_6L][IPA_CLIENT_TEST_CONS]          = 15,
 	[IPA_2_6L][IPA_CLIENT_TEST1_CONS]         = 15,
@@ -852,7 +874,7 @@ int ipa_init_hw(void)
  * ipa_get_ep_mapping() - provide endpoint mapping
  * @client: client type
  *
- * Return value: endpoint mapping
+ * Return value: endpoint mapping or -1 if unmapped/invalid
  */
 int ipa_get_ep_mapping(enum ipa_client_type client)
 {
@@ -860,7 +882,7 @@ int ipa_get_ep_mapping(enum ipa_client_type client)
 
 	if (client >= IPA_CLIENT_MAX || client < 0) {
 		IPAERR("Bad client number! client =%d\n", client);
-		return -EINVAL;
+		return INVALID_EP_MAPPING_INDEX;
 	}
 
 	switch (ipa_ctx->ipa_hw_type) {
@@ -4390,6 +4412,7 @@ int ipa_tag_process(struct ipa_desc desc[],
 	struct sk_buff *dummy_skb;
 	int res;
 	struct ipa_tag_completion *comp;
+	int ep_idx;
 
 	/* Not enough room for the required descriptors for the tag process */
 	if (IPA_TAG_MAX_DESC - descs_num < REQUIRED_TAG_PROCESS_DESCRIPTORS) {
@@ -4399,7 +4422,13 @@ int ipa_tag_process(struct ipa_desc desc[],
 		return -ENOMEM;
 	}
 
-	sys = ipa_ctx->ep[ipa_get_ep_mapping(IPA_CLIENT_APPS_CMD_PROD)].sys;
+	ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_CMD_PROD);
+	if (-1 == ep_idx) {
+		IPAERR("Client %u is not mapped\n",
+			IPA_CLIENT_APPS_CMD_PROD);
+		return -EFAULT;
+	}
+	sys = ipa_ctx->ep[ep_idx].sys;
 
 	tag_desc = kzalloc(sizeof(*tag_desc) * IPA_TAG_MAX_DESC, GFP_KERNEL);
 	if (!tag_desc) {
@@ -4780,3 +4809,36 @@ u32 ipa_get_num_pipes(void)
 		return IPA_MAX_NUM_PIPES;
 }
 EXPORT_SYMBOL(ipa_get_num_pipes);
+
+/**
+ * ipa_disable_apps_wan_cons_deaggr()- set ipa_ctx->ipa_client_apps_wan_cons_agg_gro
+ *
+ * Return value: 0 or negative in case of failure
+ */
+int ipa_disable_apps_wan_cons_deaggr(uint32_t agg_size, uint32_t agg_count)
+{
+	int res = -1;
+
+	/* checking if IPA-HW can support */
+	if ((agg_size >> 10) >
+		IPA_AGGR_BYTE_LIMIT) {
+		IPAWANERR("IPA-AGG byte limit %d\n",
+		IPA_AGGR_BYTE_LIMIT);
+		IPAWANERR("exceed aggr_byte_limit\n");
+		return res;
+		}
+	if (agg_count >
+		IPA_AGGR_PKT_LIMIT) {
+		IPAWANERR("IPA-AGG pkt limit %d\n",
+		IPA_AGGR_PKT_LIMIT);
+		IPAWANERR("exceed aggr_pkt_limit\n");
+		return res;
+	}
+
+	if (ipa_ctx) {
+		ipa_ctx->ipa_client_apps_wan_cons_agg_gro = true;
+		return 0;
+	}
+	return res;
+}
+EXPORT_SYMBOL(ipa_disable_apps_wan_cons_deaggr);

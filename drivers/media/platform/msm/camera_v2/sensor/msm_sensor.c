@@ -1709,11 +1709,11 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev,
 	s_ctrl->msm_sd.sd.entity.name =
 		s_ctrl->msm_sd.sd.name;
 
-	mount_pos = s_ctrl->sensordata->sensor_info->position << 16;
+	mount_pos = s_ctrl->sensordata->sensor_info->position << 16 |
+		((s_ctrl->is_yuv & 0x1) << 25);
 	mount_pos = mount_pos | ((s_ctrl->sensordata->sensor_info->
 					sensor_mount_angle / 90) << 8);
 	s_ctrl->msm_sd.sd.entity.flags = mount_pos | MEDIA_ENT_FL_DEFAULT;
-
 	rc = camera_init_v4l2(&s_ctrl->pdev->dev, &session_id);
 	CDBG("%s rc %d session_id %d\n", __func__, rc, session_id);
 	s_ctrl->sensordata->sensor_info->session_id = session_id;
@@ -1837,7 +1837,8 @@ int msm_sensor_i2c_probe(struct i2c_client *client,
 	s_ctrl->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_SENSOR;
 	s_ctrl->msm_sd.sd.entity.name =
 		s_ctrl->msm_sd.sd.name;
-	mount_pos = s_ctrl->sensordata->sensor_info->position << 16;
+	mount_pos = s_ctrl->sensordata->sensor_info->position << 16 |
+		((s_ctrl->is_yuv & 0x1) << 25);
 	mount_pos = mount_pos | ((s_ctrl->sensordata->sensor_info->
 					sensor_mount_angle / 90) << 8);
 	s_ctrl->msm_sd.sd.entity.flags = mount_pos | MEDIA_ENT_FL_DEFAULT;

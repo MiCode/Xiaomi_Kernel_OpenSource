@@ -61,6 +61,7 @@ struct kgsl_pagetable {
 	struct kgsl_mmu *mmu;
 	unsigned long *mem_bitmap;
 	unsigned int bitmap_size;
+	bool globals_mapped;
 };
 
 struct kgsl_mmu;
@@ -174,6 +175,7 @@ int kgsl_mmu_gpuaddr_in_range(struct kgsl_pagetable *pt, uint64_t gpuaddr);
 int kgsl_add_global_pt_entry(struct kgsl_device *device,
 	struct kgsl_memdesc *memdesc);
 void kgsl_remove_global_pt_entry(struct kgsl_memdesc *memdesc);
+void kgsl_map_global_pt_entries(struct kgsl_pagetable *pagetable);
 
 struct kgsl_memdesc *kgsl_search_global_pt_entries(unsigned int gpuaddr,
 		unsigned int size);

@@ -997,8 +997,11 @@ int mmc_cmdq_halt(struct mmc_host *host, bool halt)
 	int err = 0;
 
 	if ((halt && mmc_host_halt(host)) ||
-	    (!halt && !mmc_host_halt(host)))
-		return -EINVAL;
+	    (!halt && !mmc_host_halt(host))) {
+		pr_debug("%s: %s: CQE is already %s\n", mmc_hostname(host),
+				__func__, halt ? "halted" : "un-halted");
+		return 0;
+	}
 
 	mmc_host_clk_hold(host);
 	if (host->cmdq_ops->halt) {
@@ -3409,7 +3412,7 @@ out:
 	return err;
 }
 
-static int mmc_cmdq_halt_on_empty_queue(struct mmc_host *host)
+int mmc_cmdq_halt_on_empty_queue(struct mmc_host *host)
 {
 	int err = 0;
 
@@ -3430,6 +3433,7 @@ static int mmc_cmdq_halt_on_empty_queue(struct mmc_host *host)
 out:
 	return err;
 }
+EXPORT_SYMBOL(mmc_cmdq_halt_on_empty_queue);
 
 /**
  * mmc_clk_scaling() - clock scaling decision algorithm
@@ -4272,11 +4276,11 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 	case PM_POST_RESTORE:
 
 		spin_lock_irqsave(&host->lock, flags);
+		host->rescan_disable = 0;
 		if (mmc_bus_manual_resume(host)) {
 			spin_unlock_irqrestore(&host->lock, flags);
 			break;
 		}
-		host->rescan_disable = 0;
 		spin_unlock_irqrestore(&host->lock, flags);
 		mmc_detect_change(host, 0);
 		break;

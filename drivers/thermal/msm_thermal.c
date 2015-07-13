@@ -144,6 +144,8 @@ static bool psm_enabled;
 static bool psm_nodes_called;
 static bool psm_probed;
 static bool freq_mitigation_enabled;
+static bool disable_freq_mitigation;
+static bool disable_core_control;
 static bool ocr_enabled;
 static bool ocr_nodes_called;
 static bool ocr_probed;
@@ -2665,7 +2667,7 @@ static void __ref do_core_control(long temp)
 	int i = 0;
 	int ret = 0;
 
-	if (!core_control_enabled)
+	if (!core_control_enabled || disable_core_control)
 		return;
 
 	mutex_lock(&core_control_mutex);
@@ -3186,6 +3188,8 @@ static void do_freq_control(long temp)
 	uint32_t cpu = 0;
 	uint32_t max_freq = cpus[cpu].limited_max_freq;
 
+	if (disable_freq_mitigation)
+		return;
 	if (core_ptr)
 		return do_cluster_freq_ctrl(temp);
 	if (!freq_table_get)
@@ -5987,6 +5991,13 @@ static int probe_cc(struct device_node *node, struct msm_thermal_data *data,
 		hotplug_enabled = 1;
 	}
 
+	key = "qcom,disable-core-control";
+	if (of_property_read_bool(node, key)) {
+		hotplug_enabled = 0;
+		disable_core_control = 1;
+		return ret;
+	}
+
 	key = "qcom,core-limit-temp";
 	ret = of_property_read_u32(node, key, &data->core_limit_temp_degC);
 	if (ret)
@@ -6281,6 +6292,9 @@ static int probe_freq_mitigation(struct device_node *node,
 {
 	char *key = NULL;
 	int ret = 0;
+
+	if (disable_freq_mitigation)
+		return ret;
 
 	key = "qcom,freq-mitigation-temp";
 	ret = of_property_read_u32(node, key, &data->freq_mitig_temp_degc);
@@ -6648,20 +6662,27 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	if (ret)
 		goto fail;
 
-	key = "qcom,limit-temp";
-	ret = of_property_read_u32(node, key, &data.limit_temp_degC);
-	if (ret)
-		goto fail;
+	key = "qcom,disable-freq-mitigation";
+	if (!of_property_read_bool(node, key)) {
 
-	key = "qcom,temp-hysteresis";
-	ret = of_property_read_u32(node, key, &data.temp_hysteresis_degC);
-	if (ret)
-		goto fail;
+		key = "qcom,limit-temp";
+		ret = of_property_read_u32(node, key, &data.limit_temp_degC);
+		if (ret)
+			goto fail;
 
-	key = "qcom,freq-step";
-	ret = of_property_read_u32(node, key, &data.bootup_freq_step);
-	if (ret)
-		goto fail;
+		key = "qcom,temp-hysteresis";
+		ret = of_property_read_u32(node, key,
+				&data.temp_hysteresis_degC);
+		if (ret)
+			goto fail;
+
+		key = "qcom,freq-step";
+		ret = of_property_read_u32(node, key, &data.bootup_freq_step);
+		if (ret)
+			goto fail;
+	} else {
+		disable_freq_mitigation = 1;
+	}
 
 	key = "qcom,online-hotplug-core";
 	if (of_property_read_bool(node, key))

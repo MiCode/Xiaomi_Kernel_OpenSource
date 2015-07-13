@@ -546,18 +546,9 @@ static int wcd9xxx_slim_get_allowed_slice(struct wcd9xxx *wcd9xxx,
 	return allowed_sz;
 }
 
-/*
- * wcd9xxx_slim_write_repeat: Write the same register with multiple values
- * @wcd9xxx: handle to wcd core
- * @reg: register to be written
- * @bytes: number of bytes to be written to reg
- * @src: buffer with data content to be written to reg
- * This API will write reg with bytes from src in a single slimbus
- * transaction. All values from 1 to 16 are supported by this API.
- */
-
-int wcd9xxx_slim_write_repeat(struct wcd9xxx *wcd9xxx, unsigned short reg,
-			      int bytes, void *src)
+static int __wcd9xxx_slim_write_repeat(struct wcd9xxx *wcd9xxx,
+		unsigned short reg,
+		int bytes, void *src)
 {
 	int ret = 0, bytes_to_write = bytes, bytes_allowed;
 	struct slim_ele_access slim_msg;
@@ -593,6 +584,39 @@ int wcd9xxx_slim_write_repeat(struct wcd9xxx *wcd9xxx, unsigned short reg,
 		src = ((u8 *)src) + bytes_allowed;
 	};
 
+	return ret;
+}
+
+/*
+ * wcd9xxx_slim_write_repeat: Write the same register with multiple values
+ * @wcd9xxx: handle to wcd core
+ * @reg: register to be written
+ * @bytes: number of bytes to be written to reg
+ * @src: buffer with data content to be written to reg
+ * This API will write reg with bytes from src in a single slimbus
+ * transaction. All values from 1 to 16 are supported by this API.
+ */
+int wcd9xxx_slim_write_repeat(struct wcd9xxx *wcd9xxx, unsigned short reg,
+			      int bytes, void *src)
+{
+	int ret = 0;
+
+	mutex_lock(&wcd9xxx->io_lock);
+	if (wcd9xxx->type == WCD9335) {
+		ret = wcd9xxx_page_write(wcd9xxx, &reg);
+		if (ret)
+			goto err;
+
+		ret = __wcd9xxx_slim_write_repeat(wcd9xxx, reg, bytes, src);
+		if (ret < 0)
+			dev_err(wcd9xxx->dev,
+				"%s: Codec repeat write failed (%d)\n",
+				__func__, ret);
+	} else {
+		ret = __wcd9xxx_slim_write_repeat(wcd9xxx, reg, bytes, src);
+	}
+err:
+	mutex_unlock(&wcd9xxx->io_lock);
 	return ret;
 }
 EXPORT_SYMBOL(wcd9xxx_slim_write_repeat);
@@ -647,6 +671,69 @@ static int wcd9xxx_slim_write_device(struct wcd9xxx *wcd9xxx,
 
 	return ret;
 }
+
+/*
+ * wcd9xxx_slim_bulk_write: API to write multiple registers with one descriptor
+ * @wcd9xxx: Handle to the wcd9xxx core
+ * @wcd9xxx_reg_val: structure holding register and values to be written
+ * @size: Indicates number of messages to be written with one descriptor
+ * @interface: Indicates whether the register is for slim interface or for
+ *	       general registers.
+ * @return: returns 0 if success or error information to the caller in case
+ *	    of failure.
+ */
+int wcd9xxx_slim_bulk_write(struct wcd9xxx *wcd9xxx,
+			    struct wcd9xxx_reg_val *bulk_reg,
+			    unsigned int size, bool interface)
+{
+	int ret, i;
+	struct slim_val_inf *msgs;
+	unsigned short reg;
+
+	if (!bulk_reg || !size || !wcd9xxx) {
+		pr_err("%s: Invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	msgs = kzalloc(size * (sizeof(struct slim_val_inf)), GFP_KERNEL);
+	if (!msgs) {
+		ret = -ENOMEM;
+		goto mem_fail;
+	}
+
+	mutex_lock(&wcd9xxx->io_lock);
+	reg = bulk_reg->reg;
+	for (i = 0; i < size; i++) {
+		msgs[i].start_offset = WCD9XXX_REGISTER_START_OFFSET +
+					(bulk_reg->reg & 0xFF);
+		msgs[i].num_bytes = bulk_reg->bytes;
+		msgs[i].wbuf = bulk_reg->buf;
+		bulk_reg++;
+	}
+	ret = wcd9xxx_page_write(wcd9xxx, &reg);
+	if (ret) {
+		pr_err("%s: Page write error for reg: 0x%x\n",
+			__func__, reg);
+		goto err;
+	}
+
+	ret = slim_bulk_msg_write(interface ?
+				  wcd9xxx->slim_slave : wcd9xxx->slim,
+				  SLIM_MSG_MT_CORE,
+				  SLIM_MSG_MC_CHANGE_VALUE, msgs, size,
+				  NULL, NULL);
+	if (ret)
+		pr_err("%s: Error, Codec bulk write failed (%d)\n",
+			__func__, ret);
+	/* 700 usec sleep is needed as per HW requirement */
+	usleep_range(700, 710);
+err:
+	mutex_unlock(&wcd9xxx->io_lock);
+	kfree(msgs);
+mem_fail:
+	return ret;
+}
+EXPORT_SYMBOL(wcd9xxx_slim_bulk_write);
 
 static struct mfd_cell tabla1x_devs[] = {
 	{
@@ -749,7 +836,7 @@ static const struct wcd9xxx_codec_type wcd9xxx_codecs[] = {
 	},
 	{
 		TASHA_MAJOR, cpu_to_le16(0x0), tasha_devs,
-		ARRAY_SIZE(tasha_devs), TASHA_NUM_IRQS, 1,
+		ARRAY_SIZE(tasha_devs), TASHA_NUM_IRQS, -1,
 		WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TAIKO, 0x01
 	},
 };
@@ -765,6 +852,8 @@ static void wcd9335_bring_up(struct wcd9xxx *wcd9xxx)
 
 	if (val & 0x80) {
 		__wcd9xxx_reg_write(wcd9xxx, WCD9335_CODEC_RPM_RST_CTL, 0x01);
+		__wcd9xxx_reg_write(wcd9xxx, WCD9335_SIDO_SIDO_CCL_2, 0x74);
+		__wcd9xxx_reg_write(wcd9xxx, WCD9335_SIDO_SIDO_CCL_4, 0x21);
 		__wcd9xxx_reg_write(wcd9xxx,
 				    WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x5);
 		__wcd9xxx_reg_write(wcd9xxx,
@@ -774,6 +863,8 @@ static void wcd9335_bring_up(struct wcd9xxx *wcd9xxx)
 		__wcd9xxx_reg_write(wcd9xxx, WCD9335_CODEC_RPM_RST_CTL, 0x3);
 	} else {
 		__wcd9xxx_reg_write(wcd9xxx, WCD9335_CODEC_RPM_RST_CTL, 0x01);
+		__wcd9xxx_reg_write(wcd9xxx, WCD9335_SIDO_SIDO_CCL_2, 0x74);
+		__wcd9xxx_reg_write(wcd9xxx, WCD9335_SIDO_SIDO_CCL_4, 0x21);
 		__wcd9xxx_reg_write(wcd9xxx,
 				    WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x3);
 		__wcd9xxx_reg_write(wcd9xxx, WCD9335_CODEC_RPM_RST_CTL, 0x3);
@@ -968,6 +1059,14 @@ static const struct wcd9xxx_codec_type
 	} else {
 		if (d->version > -1) {
 			*version = d->version;
+		} else if (d->id_major == TASHA_MAJOR) {
+			rc = __wcd9xxx_reg_read(wcd9xxx,
+					WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT0);
+			if (rc < 0) {
+				d = NULL;
+				goto exit;
+			}
+			*version = ((u8)rc & 0x80) >> 7;
 		} else {
 			rc = __wcd9xxx_reg_read(wcd9xxx,
 							WCD9XXX_A_CHIP_VERSION);
@@ -1130,8 +1229,8 @@ static const struct intr_data intr_tbl_v4[] = {
 	{WCD9335_IRQ_SVA_ERROR, false},
 	{WCD9335_IRQ_MAD_AUDIO, false},
 	{WCD9335_IRQ_MAD_BEACON, false},
-	{WCD9335_IRQ_SVA_OUTBOX1, false},
-	{WCD9335_IRQ_SVA_OUTBOX2, false},
+	{WCD9335_IRQ_SVA_OUTBOX1, true},
+	{WCD9335_IRQ_SVA_OUTBOX2, true},
 	{WCD9335_IRQ_MAD_ULTRASOUND, false},
 	{WCD9335_IRQ_VBAT_ATTACK, false},
 	{WCD9335_IRQ_VBAT_RESTORE, false},
@@ -2706,9 +2805,65 @@ static int wcd9xxx_slim_device_down(struct slim_device *sldev)
 	return 0;
 }
 
+static int wcd9xxx_disable_static_supplies_to_optimum(
+			struct wcd9xxx *wcd9xxx,
+			struct wcd9xxx_pdata *pdata)
+{
+	int i;
+	int ret = 0;
+
+	for (i = 0; i < wcd9xxx->num_of_supplies; i++) {
+		if (pdata->regulator[i].ondemand)
+			continue;
+		if (regulator_count_voltages(wcd9xxx->supplies[i].consumer) <=
+			0)
+			continue;
+		regulator_set_voltage(wcd9xxx->supplies[i].consumer, 0,
+			pdata->regulator[i].max_uV);
+		regulator_set_optimum_mode(wcd9xxx->supplies[i].consumer, 0);
+		dev_dbg(wcd9xxx->dev, "Regulator %s set optimum mode\n",
+				 wcd9xxx->supplies[i].supply);
+	}
+	return ret;
+}
+
+static int wcd9xxx_enable_static_supplies_to_optimum(
+			struct wcd9xxx *wcd9xxx,
+			struct wcd9xxx_pdata *pdata)
+{
+	int i;
+	int ret = 0;
+
+	for (i = 0; i < wcd9xxx->num_of_supplies; i++) {
+		if (pdata->regulator[i].ondemand)
+			continue;
+		if (regulator_count_voltages(wcd9xxx->supplies[i].consumer) <=
+			0)
+			continue;
+
+		ret = regulator_set_voltage(wcd9xxx->supplies[i].consumer,
+			pdata->regulator[i].min_uV,
+			pdata->regulator[i].max_uV);
+		if (ret) {
+			dev_err(wcd9xxx->dev,
+				"Setting volt failed for regulator %s err %d\n",
+				wcd9xxx->supplies[i].supply, ret);
+		}
+
+		ret = regulator_set_optimum_mode(wcd9xxx->supplies[i].consumer,
+			pdata->regulator[i].optimum_uA);
+		dev_dbg(wcd9xxx->dev, "Regulator %s set optimum mode\n",
+			 wcd9xxx->supplies[i].supply);
+	}
+	return ret;
+}
+
 static int wcd9xxx_slim_resume(struct slim_device *sldev)
 {
 	struct wcd9xxx *wcd9xxx = slim_get_devicedata(sldev);
+	struct wcd9xxx_pdata *pdata = sldev->dev.platform_data;
+
+	wcd9xxx_enable_static_supplies_to_optimum(wcd9xxx, pdata);
 	return wcd9xxx_core_res_resume(&wcd9xxx->core_res);
 }
 
@@ -2724,6 +2879,9 @@ static int wcd9xxx_i2c_resume(struct i2c_client *i2cdev)
 static int wcd9xxx_slim_suspend(struct slim_device *sldev, pm_message_t pmesg)
 {
 	struct wcd9xxx *wcd9xxx = slim_get_devicedata(sldev);
+	struct wcd9xxx_pdata *pdata = sldev->dev.platform_data;
+
+	wcd9xxx_disable_static_supplies_to_optimum(wcd9xxx, pdata);
 	return wcd9xxx_core_res_suspend(&wcd9xxx->core_res, pmesg);
 }
 

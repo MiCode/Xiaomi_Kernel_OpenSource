@@ -35,6 +35,7 @@
 #define VFE40_8916_VERSION 0x10030000
 #define VFE40_8939_VERSION 0x10040000
 #define VFE40_8952_VERSION 0x10060000
+#define VFE40_8976_VERSION 0x10050000
 #define VFE32_8909_VERSION 0x30600
 
 #define MAX_IOMMU_CTX 2
@@ -56,6 +57,8 @@
 
 #define MSM_ISP_MIN_AB 100000000
 #define MSM_ISP_MIN_IB 100000000
+
+#define MAX_VFE 2
 
 struct vfe_device;
 struct msm_vfe_axi_stream;
@@ -133,14 +136,14 @@ struct msm_vfe_irq_ops {
 };
 
 struct msm_vfe_axi_ops {
-	void (*reload_wm) (struct vfe_device *vfe_dev,
+	void (*reload_wm)(struct vfe_device *vfe_dev, void __iomem *vfe_base,
 		uint32_t reload_mask);
 	void (*enable_wm) (struct vfe_device *vfe_dev,
 		uint8_t wm_idx, uint8_t enable);
 	int32_t (*cfg_io_format) (struct vfe_device *vfe_dev,
 		enum msm_vfe_axi_stream_src stream_src,
 		uint32_t io_format);
-	void (*cfg_framedrop) (struct vfe_device *vfe_dev,
+	void (*cfg_framedrop)(void __iomem *vfe_base,
 		struct msm_vfe_axi_stream *stream_info,
 		uint32_t framedrop_pattern, uint32_t framedrop_period);
 	void (*clear_framedrop) (struct vfe_device *vfe_dev,
@@ -170,7 +173,7 @@ struct msm_vfe_axi_ops {
 
 	void (*read_wm_ping_pong_addr)(struct vfe_device *vfe_dev);
 
-	void (*update_ping_pong_addr) (struct vfe_device *vfe_dev,
+	void (*update_ping_pong_addr)(void __iomem *vfe_base,
 		uint8_t wm_idx, uint32_t pingpong_status, dma_addr_t paddr);
 
 	uint32_t (*get_wm_mask) (uint32_t irq_status0, uint32_t irq_status1);
@@ -222,9 +225,10 @@ struct msm_vfe_stats_ops {
 		uint32_t framedrop_pattern, uint32_t framedrop_period);
 	void (*clear_framedrop) (struct vfe_device *vfe_dev,
 		struct msm_vfe_stats_stream *stream_info);
-	void (*cfg_comp_mask) (struct vfe_device *vfe_dev,
-		uint32_t stats_mask, uint8_t enable);
-	void (*cfg_wm_irq_mask) (struct vfe_device *vfe_dev,
+	void (*cfg_comp_mask)(struct vfe_device *vfe_dev,
+		uint32_t stats_mask, uint8_t comp_index,
+		uint8_t enable);
+	void (*cfg_wm_irq_mask)(struct vfe_device *vfe_dev,
 		struct msm_vfe_stats_stream *stream_info);
 	void (*clear_wm_irq_mask) (struct vfe_device *vfe_dev,
 		struct msm_vfe_stats_stream *stream_info);
@@ -239,7 +243,7 @@ struct msm_vfe_stats_ops {
 	void (*enable_module) (struct vfe_device *vfe_dev,
 		uint32_t stats_mask, uint8_t enable);
 
-	void (*update_ping_pong_addr) (struct vfe_device *vfe_dev,
+	void (*update_ping_pong_addr)(void __iomem *vfe_base,
 		struct msm_vfe_stats_stream *stream_info,
 		uint32_t pingpong_status, dma_addr_t paddr);
 
@@ -279,7 +283,7 @@ struct msm_vfe_axi_hardware_info {
 };
 
 enum msm_vfe_axi_state {
-	AVALIABLE,
+	AVAILABLE,
 	INACTIVE,
 	ACTIVE,
 	PAUSED,
@@ -413,7 +417,7 @@ enum msm_wm_ub_cfg_type {
 
 struct msm_vfe_axi_shared_data {
 	struct msm_vfe_axi_hardware_info *hw_info;
-	struct msm_vfe_axi_stream stream_info[MAX_NUM_STREAM];
+	struct msm_vfe_axi_stream stream_info[VFE_AXI_SRC_MAX];
 	uint32_t free_wm[MAX_NUM_WM];
 	uint32_t wm_image_size[MAX_NUM_WM];
 	enum msm_wm_ub_cfg_type wm_ub_cfg_policy;
@@ -605,6 +609,14 @@ struct msm_vfe_common_subdev {
 	struct msm_vfe_common_dev_data *common_data;
 };
 
+struct dual_vfe_resource {
+	void __iomem *vfe_base[MAX_VFE];
+	uint32_t reg_update_mask[MAX_VFE];
+	struct msm_vfe_stats_shared_data *stats_data[MAX_VFE];
+	struct msm_vfe_axi_shared_data *axi_data[MAX_VFE];
+	uint32_t wm_reload_mask[MAX_VFE];
+};
+
 struct vfe_device {
 	struct platform_device *pdev;
 	struct msm_vfe_common_dev_data *common_data;
@@ -671,6 +683,8 @@ struct vfe_device {
 	enum msm_vfe_hvx_streaming_cmd hvx_cmd;
 	uint8_t reg_update_requested;
 	uint8_t reg_updated;
+	struct dual_vfe_resource *dual_vfe_res;
+	uint32_t is_split;
 };
 
 struct vfe_parent_device {

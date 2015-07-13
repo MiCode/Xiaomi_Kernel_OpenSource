@@ -26,6 +26,7 @@
 #include <sound/q6core.h>
 #include <sound/pcm_params.h>
 #include <soc/qcom/socinfo.h>
+#include <linux/input.h>
 #include "qdsp6v2/msm-pcm-routing-v2.h"
 #include "msm-audio-pinctrl.h"
 #include "msm8952-slimbus.h"
@@ -127,6 +128,14 @@ static struct wcd9xxx_mbhc_config wcd9xxx_mbhc_cfg = {
 	.use_vddio_meas = true,
 	.enable_anc_mic_detect = false,
 	.hw_jack_type = FOUR_POLE_JACK,
+	.key_code[0] = KEY_MEDIA,
+	.key_code[1] = KEY_VOICECOMMAND,
+	.key_code[2] = KEY_VOLUMEUP,
+	.key_code[3] = KEY_VOLUMEDOWN,
+	.key_code[4] = 0,
+	.key_code[5] = 0,
+	.key_code[6] = 0,
+	.key_code[7] = 0,
 };
 
 static void *def_tasha_mbhc_cal(void)
@@ -215,21 +224,21 @@ static void *def_codec_mbhc_cal(void)
 	btn_high = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg,
 					       MBHC_BTN_DET_V_BTN_HIGH);
 	btn_low[0] = -50;
-	btn_high[0] = 20;
-	btn_low[1] = 21;
-	btn_high[1] = 61;
-	btn_low[2] = 62;
-	btn_high[2] = 104;
-	btn_low[3] = 105;
-	btn_high[3] = 148;
-	btn_low[4] = 149;
-	btn_high[4] = 189;
-	btn_low[5] = 190;
-	btn_high[5] = 228;
-	btn_low[6] = 229;
-	btn_high[6] = 269;
-	btn_low[7] = 270;
-	btn_high[7] = 500;
+	btn_high[0] = 90;
+	btn_low[1] = 130;
+	btn_high[1] = 220;
+	btn_low[2] = 235;
+	btn_high[2] = 335;
+	btn_low[3] = 375;
+	btn_high[3] = 655;
+	btn_low[4] = 656;
+	btn_high[4] = 660;
+	btn_low[5] = 661;
+	btn_high[5] = 670;
+	btn_low[6] = 671;
+	btn_high[6] = 680;
+	btn_low[7] = 681;
+	btn_high[7] = 690;
 	n_ready = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_N_READY);
 	n_ready[0] = 80;
 	n_ready[1] = 68;
@@ -1240,6 +1249,16 @@ static int msm_afe_set_config(struct snd_soc_codec *codec)
 	}
 
 	config_data = pdata->msm8952_codec_fn.get_afe_config_fn(codec,
+			AFE_CDC_REGISTER_PAGE_CONFIG);
+	if (config_data) {
+		rc = afe_set_config(AFE_CDC_REGISTER_PAGE_CONFIG, config_data,
+				    0);
+		if (rc)
+			pr_err("%s: Failed to set cdc register page config\n",
+				__func__);
+	}
+
+	config_data = pdata->msm8952_codec_fn.get_afe_config_fn(codec,
 			AFE_SLIMBUS_SLAVE_CONFIG);
 	if (config_data) {
 		rc = afe_set_config(AFE_SLIMBUS_SLAVE_CONFIG, config_data, 0);
@@ -1283,6 +1302,16 @@ static int msm_afe_set_config(struct snd_soc_codec *codec)
 				__func__, rc);
 			return rc;
 		}
+	}
+
+	config_data = pdata->msm8952_codec_fn.get_afe_config_fn(codec,
+			AFE_CDC_REGISTER_PAGE_CONFIG);
+	if (config_data) {
+		rc = afe_set_config(AFE_CDC_REGISTER_PAGE_CONFIG, config_data,
+				0);
+		if (rc)
+			pr_err("%s: Failed to set cdc register page config\n",
+					__func__);
 	}
 
 	return 0;
@@ -1522,6 +1551,7 @@ static const struct snd_soc_dapm_widget msm8952_tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_SPK("Lineout_4 amp", NULL),
 	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
+	SND_SOC_DAPM_MIC("Secondary Mic", NULL),
 	SND_SOC_DAPM_MIC("ANCRight Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("ANCLeft Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("Analog Mic4", NULL),
@@ -2065,6 +2095,8 @@ static int msm8952_asoc_machine_remove(struct platform_device *pdev)
 		iounmap(pdata->vaddr_gpio_mux_spkr_ctl);
 	if (pdata->vaddr_gpio_mux_mic_ctl)
 		iounmap(pdata->vaddr_gpio_mux_mic_ctl);
+
+	msm895x_free_auxdev_mem(pdev);
 
 	snd_soc_unregister_card(card);
 	return 0;

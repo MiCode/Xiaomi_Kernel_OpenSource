@@ -222,11 +222,14 @@ static enum MHI_STATUS process_m1_transition(
 		if (r) {
 			mhi_log(MHI_MSG_ERROR,
 				"Failed to remove counter ret %d\n", r);
+			BUG_ON(mhi_dev_ctxt->dev_info->
+				plat_dev->dev.power.runtime_error);
 		}
 	}
 	atomic_set(&mhi_dev_ctxt->flags.m2_transition, 0);
 	mhi_log(MHI_MSG_INFO, "M2 transition complete.\n");
 	write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
+	BUG_ON(atomic_read(&mhi_dev_ctxt->outbound_acks) < 0);
 
 	return MHI_STATUS_SUCCESS;
 }
@@ -840,6 +843,16 @@ int mhi_initiate_m0(struct mhi_device_ctxt *mhi_dev_ctxt)
 			mhi_set_m_state(mhi_dev_ctxt, MHI_STATE_M0);
 		}
 		write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
+		r = wait_event_interruptible_timeout(
+				*mhi_dev_ctxt->mhi_ev_wq.m0_event,
+				mhi_dev_ctxt->mhi_state == MHI_STATE_M0 ||
+				mhi_dev_ctxt->mhi_state == MHI_STATE_M1,
+				msecs_to_jiffies(MHI_MAX_RESUME_TIMEOUT));
+		WARN_ON(!r || -ERESTARTSYS == r);
+		if (!r || -ERESTARTSYS == r)
+			mhi_log(MHI_MSG_ERROR,
+				"Failed to get M0 event ret %d\n", r);
+		r = 0;
 	}
 exit:
 	mutex_unlock(&mhi_dev_ctxt->pm_lock);
@@ -870,6 +883,7 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 					"Failed to set bus freq ret %d\n", r);
 		goto exit;
 		break;
+	case MHI_STATE_M0:
 	case MHI_STATE_M1:
 	case MHI_STATE_M2:
 		mhi_log(MHI_MSG_INFO,
@@ -968,6 +982,7 @@ exit:
 		atomic_inc(&mhi_dev_ctxt->flags.data_pending);
 		write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
 		ring_all_chan_dbs(mhi_dev_ctxt);
+		ring_all_cmd_dbs(mhi_dev_ctxt);
 		atomic_dec(&mhi_dev_ctxt->flags.data_pending);
 		mhi_deassert_device_wake(mhi_dev_ctxt);
 	}

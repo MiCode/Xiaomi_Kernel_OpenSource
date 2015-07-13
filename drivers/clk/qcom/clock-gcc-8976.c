@@ -72,13 +72,16 @@ DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(bb_clk2_pin, bb_clk2_a_pin, BB_CLK2_ID);
 static DEFINE_CLK_VOTER(bimc_msmbus_clk, &bimc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(bimc_msmbus_a_clk, &bimc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(bimc_usb_a_clk, &bimc_a_clk.c, LONG_MAX);
+static DEFINE_CLK_VOTER(bimc_usb_clk, &bimc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(pcnoc_keepalive_a_clk, &pcnoc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(pcnoc_msmbus_clk, &pcnoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(pcnoc_msmbus_a_clk, &pcnoc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(pcnoc_usb_a_clk, &pcnoc_a_clk.c, LONG_MAX);
+static DEFINE_CLK_VOTER(pcnoc_usb_clk, &pcnoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(snoc_msmbus_clk, &snoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(snoc_msmbus_a_clk, &snoc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(snoc_usb_a_clk, &snoc_a_clk.c, LONG_MAX);
+static DEFINE_CLK_VOTER(snoc_usb_clk, &snoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(sysmmnoc_msmbus_clk,  &sysmmnoc_clk.c,  LONG_MAX);
 static DEFINE_CLK_VOTER(sysmmnoc_msmbus_a_clk,  &sysmmnoc_a_clk.c,  LONG_MAX);
 
@@ -1446,6 +1449,8 @@ static struct rcg_clk usb_hs_system_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_vcodec0_clk_src[] = {
+	F(  72727200,          gpll0,   11,    0,     0),
+	F(  80000000,          gpll0,   10,    0,     0),
 	F( 100000000,          gpll0,    8,    0,     0),
 	F( 133333333,          gpll0,    6,    0,     0),
 	F( 228570000,          gpll0,  3.5,    0,     0),
@@ -2915,6 +2920,7 @@ static struct local_vote_clk gcc_crypto_clk = {
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_crypto_clk",
+		.parent = &crypto_clk_src.c,
 		.ops = &clk_ops_vote,
 		CLK_INIT(gcc_crypto_clk.c),
 	},
@@ -3307,13 +3313,16 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	 CLK_LIST(sysmmnoc_msmbus_a_clk),
 	 CLK_LIST(bimc_msmbus_clk),
 	 CLK_LIST(bimc_msmbus_a_clk),
+	 CLK_LIST(bimc_usb_clk),
 	 CLK_LIST(bimc_usb_a_clk),
 	 CLK_LIST(pcnoc_keepalive_a_clk),
 	 CLK_LIST(pcnoc_msmbus_clk),
 	 CLK_LIST(pcnoc_msmbus_a_clk),
+	 CLK_LIST(pcnoc_usb_clk),
 	 CLK_LIST(pcnoc_usb_a_clk),
 	 CLK_LIST(snoc_msmbus_clk),
 	 CLK_LIST(snoc_msmbus_a_clk),
+	 CLK_LIST(snoc_usb_clk),
 	 CLK_LIST(snoc_usb_a_clk),
 	 CLK_LIST(xo_lpm_clk),
 	 CLK_LIST(xo_otg_clk),
@@ -3450,6 +3459,8 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	 CLK_LIST(gcc_venus_tbu_clk),
 	 CLK_LIST(gcc_vfe1_tbu_clk),
 	 CLK_LIST(gcc_vfe_tbu_clk),
+	 CLK_LIST(gcc_aps_0_clk),
+	 CLK_LIST(gcc_aps_1_clk),
 	 CLK_LIST(aps_0_clk_src),
 	 CLK_LIST(aps_1_clk_src),
 	 CLK_LIST(apss_ahb_clk_src),

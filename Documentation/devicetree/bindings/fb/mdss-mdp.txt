@@ -304,6 +304,9 @@ Optional properties:
 - qcom,mdss-no-hist-vote	Boolean property to indicate histogram reads
 				and histogram LUT writes do not need additional
 				bandwidth voting.
+- qcom,mdss-has-10bit-pa:	Boolean property to indicate PA block is 10 bit
+				rather than 8 bit. This is required for
+				calculating shift while programming PA LUT.
 - qcom,mdss-mdp-wfd-mode:	A string that specifies what is the mode of
 				   writeback wfd block.
 				"intf" = Writeback wfd block is
@@ -312,6 +315,9 @@ Optional properties:
 				   between wfd and rotator.
 				"dedicated" = Dedicated writeback
 				   block for wfd using writeback mixer.
+				"intf_no_dspp" = Writeback wfd block is
+				  connected to the interface mixer without
+				  dspp.
 - qcom,mdss-smp-mb-per-pipe:	Maximum number of shared memory pool blocks
 				restricted for a source surface pipe. If this
 				property is not specified, no such restriction
@@ -472,6 +478,12 @@ Fudge Factors:			Fudge factors are used to boost demand for
 				qcom,mdss-pipe-dma-off
 - qcom,mdss-has-dst-split:	Boolean property to indicate if destination
 				split feature is available or not in the target.
+- qcom,mdss-dsc-off:            Array of offset addresses for the available
+				display stream compression module block.
+				These offsets will be calculated from
+				register "mdp_phys" define in reg property. The
+				number of dsc offsets should reflect the number
+				of dsc blocks present in hardware.
 - qcom,max-pipe-width:		This value specifies the maximum MDP SSPP width
 				the device supports. If not specified, a default value
 				of 2048 will be applied.
@@ -610,6 +622,7 @@ Example:
 					  0x00002600>;
 		qcom,mdss-pipe-dma-off = <0x00002A00 0x00002E00>;
 		qcom,mdss-pipe-cursor-off = <0x00035000 0x00037000>;
+		qcom,mdss-dsc-off = <0x00081000 0x00081400>;
 		qcom,mdss-pipe-vig-fetch-id = <1 4 7>;
 		qcom,mdss-pipe-rgb-fetch-id = <16 17 18>;
 		qcom,mdss-pipe-dma-fetch-id = <10 13>;
@@ -634,6 +647,7 @@ Example:
 		qcom,mdss-wfd-mode = "intf";
 		qcom,mdss-no-lut-read;
 		qcom,mdss-no-hist-vote;
+		qcom,mdss-has-10bit-pa;
 		qcom,mdss-traffic-shaper-enabled;
 		qcom,mdss-has-rotator-downscale;
 

@@ -59,6 +59,18 @@ static struct msm_sensor_power_setting ov2685_power_setting[] = {
 		.delay = 10,
 	},
 	{
+		.seq_type = SENSOR_GPIO,
+		.seq_val = SENSOR_GPIO_STANDBY,
+		.config_val = GPIO_OUT_LOW,
+		.delay = 5,
+	},
+	{
+		.seq_type = SENSOR_GPIO,
+		.seq_val = SENSOR_GPIO_STANDBY,
+		.config_val = GPIO_OUT_HIGH,
+		.delay = 10,
+	},
+	{
 		.seq_type = SENSOR_CLK,
 		.seq_val = SENSOR_CAM_MCLK,
 		.config_val = 24000000,
@@ -1345,6 +1357,7 @@ static struct msm_sensor_ctrl_t ov2685_s_ctrl = {
 	.sensor_v4l2_subdev_info = ov2685_subdev_info,
 	.sensor_v4l2_subdev_info_size = ARRAY_SIZE(ov2685_subdev_info),
 	.func_tbl = &ov2685_sensor_func_tbl,
+	.is_yuv = 1,
 };
 
 module_init(ov2685_init_module);

@@ -598,6 +598,7 @@ struct msm_otg {
 	rwlock_t dbg_lock;
 	char (buf[DEBUG_MAX_MSG])[DEBUG_MSG_LEN];   /* buffer */
 	u32 max_nominal_system_clk_rate;
+	unsigned int vbus_state;
 };
 
 struct ci13xxx_platform_data {
@@ -716,6 +717,7 @@ void msm_bam_usb_host_notify_on_resume(void);
 void msm_bam_hsic_host_notify_on_resume(void);
 bool msm_bam_hsic_host_pipe_empty(void);
 void msm_bam_set_qdss_usb_active(bool is_active);
+bool msm_usb_bam_enable(enum usb_ctrl ctrl, bool bam_enable);
 #else
 static inline bool msm_bam_usb_lpm_ok(enum usb_ctrl ctrl) { return true; }
 static inline void msm_bam_notify_lpm_resume(enum usb_ctrl ctrl) {}
@@ -729,6 +731,10 @@ static inline void msm_bam_hsic_host_notify_on_resume(void) {}
 static inline void msm_bam_usb_host_notify_on_resume(void) {}
 static inline bool msm_bam_hsic_host_pipe_empty(void) { return true; }
 static inline void msm_bam_set_qdss_usb_active(bool is_active) {}
+static inline bool msm_usb_bam_enable(enum usb_ctrl ctrl, bool bam_enable)
+{
+	return true;
+}
 #endif
 #ifdef CONFIG_USB_CI13XXX_MSM
 void msm_hw_bam_disable(bool bam_disable);

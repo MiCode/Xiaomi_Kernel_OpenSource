@@ -17,6 +17,7 @@
 #include <linux/atomic.h>
 #include <linux/wait.h>
 #include <linux/qdsp6v2/apr.h>
+#include <linux/ratelimit.h>
 #include <sound/apr_audio-v2.h>
 #include <sound/q6adm-v2.h>
 #include <sound/q6audio-v2.h>
@@ -1589,13 +1590,16 @@ static int adm_memory_map_regions(phys_addr_t *buf_add, uint32_t mempool_id,
 	int     ret = 0;
 	int     i = 0;
 	int     cmd_size = 0;
+	static DEFINE_RATELIMIT_STATE(rl, HZ/2, 1);
 
 	pr_debug("%s:\n", __func__);
 	if (this_adm.apr == NULL) {
 		this_adm.apr = apr_register("ADSP", "ADM", adm_callback,
 						0xFFFFFFFF, &this_adm);
 		if (this_adm.apr == NULL) {
-			pr_err("%s: Unable to register ADM\n", __func__);
+			if (__ratelimit(&rl))
+				pr_err("%s: Unable to register ADM\n",
+					__func__);
 			ret = -ENODEV;
 			return ret;
 		}
@@ -2916,6 +2920,8 @@ static int adm_set_cal(int32_t cal_type, size_t data_size, void *data)
 {
 	int				ret = 0;
 	int				cal_index;
+	static DEFINE_RATELIMIT_STATE(rl, HZ/2, 1);
+
 	pr_debug("%s:\n", __func__);
 
 	cal_index = get_cal_type_index(cal_type);
@@ -2929,7 +2935,8 @@ static int adm_set_cal(int32_t cal_type, size_t data_size, void *data)
 	ret = cal_utils_set_cal(data_size, data,
 		this_adm.cal_data[cal_index], 0, NULL);
 	if (ret < 0) {
-		pr_err("%s: cal_utils_set_cal failed, ret = %d, cal type = %d!\n",
+		if (__ratelimit(&rl))
+			pr_err("%s: cal_utils_set_cal failed, ret = %d, cal type = %d!\n",
 			__func__, ret, cal_type);
 		ret = -EINVAL;
 		goto done;
@@ -2949,6 +2956,8 @@ static int adm_map_cal_data(int32_t cal_type,
 {
 	int ret = 0;
 	int cal_index;
+	static DEFINE_RATELIMIT_STATE(rl, HZ/2, 1);
+
 	pr_debug("%s:\n", __func__);
 
 	cal_index = get_cal_type_index(cal_type);
@@ -2963,8 +2972,9 @@ static int adm_map_cal_data(int32_t cal_type,
 	ret = adm_memory_map_regions(&cal_block->cal_data.paddr, 0,
 		(uint32_t *)&cal_block->map_data.map_size, 1);
 	if (ret < 0) {
-		pr_err("%s: map did not work! cal_type %i ret %d\n",
-			__func__, cal_index, ret);
+		if (__ratelimit(&rl))
+			pr_err("%s: map did not work! cal_type %i ret %d\n",
+				__func__, cal_index, ret);
 		ret = -ENODEV;
 		goto done;
 	}

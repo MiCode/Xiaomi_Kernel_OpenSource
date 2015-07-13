@@ -71,9 +71,12 @@
 #define DEF_RETRY_MS	10
 #define MSM_CONCUR_MSG	8
 #define SAT_CONCUR_MSG	8
+
 #define DEF_WATERMARK	(8 << 1)
-#define DEF_ALIGN	0
+#define DEF_ALIGN_LSB	0
+#define DEF_ALIGN_MSB	(1 << 7)
 #define DEF_PACK	(1 << 6)
+#define DEF_NO_PACK	0
 #define ENABLE_PORT	1
 
 #define DEF_BLKSZ	0
@@ -238,6 +241,15 @@ struct msm_slim_pdata {
 	u32 eapc;
 };
 
+struct msm_slim_bulk_wr {
+	phys_addr_t	phys;
+	void		*base;
+	int		size;
+	int (*cb)(void *ctx, int err);
+	void		*ctx;
+	bool		in_progress;
+};
+
 struct msm_slim_ctrl {
 	struct slim_controller  ctrl;
 	struct slim_framer	framer;
@@ -268,7 +280,7 @@ struct msm_slim_ctrl {
 	struct clk		*rclk;
 	struct clk		*hclk;
 	struct mutex		tx_lock;
-	struct mutex		tx_buf_lock;
+	spinlock_t		tx_buf_lock;
 	u8			pgdla;
 	enum msm_slim_msgq	use_rx_msgqs;
 	enum msm_slim_msgq	use_tx_msgqs;
@@ -284,10 +296,12 @@ struct msm_slim_ctrl {
 	struct msm_slim_pdata	pdata;
 	struct msm_slim_ss	ext_mdm;
 	struct msm_slim_ss	dsp;
+	struct msm_slim_bulk_wr	bulk;
 	int			default_ipc_log_mask;
 	int			ipc_log_mask;
 	bool			sysfs_created;
 	void			*ipc_slimbus_log;
+	void (*rx_slim)(struct msm_slim_ctrl *dev, u8 *buf);
 };
 
 struct msm_sat_chan {
@@ -379,7 +393,7 @@ void msm_slim_put_ctrl(struct msm_slim_ctrl *dev);
 irqreturn_t msm_slim_port_irq_handler(struct msm_slim_ctrl *dev, u32 pstat);
 int msm_slim_init_endpoint(struct msm_slim_ctrl *dev, struct msm_slim_endp *ep);
 void msm_slim_free_endpoint(struct msm_slim_endp *ep);
-void msm_hw_set_port(struct msm_slim_ctrl *dev, u8 pn, u8 port_no);
+void msm_hw_set_port(struct msm_slim_ctrl *dev, u8 pipenum, u8 portnum);
 int msm_alloc_port(struct slim_controller *ctrl, u8 pn);
 void msm_dealloc_port(struct slim_controller *ctrl, u8 pn);
 int msm_slim_connect_pipe_port(struct msm_slim_ctrl *dev, u8 pn);
@@ -398,8 +412,7 @@ int msm_slim_sps_init(struct msm_slim_ctrl *dev, struct resource *bam_mem,
 void msm_slim_sps_exit(struct msm_slim_ctrl *dev, bool dereg);
 
 int msm_slim_connect_endp(struct msm_slim_ctrl *dev,
-				struct msm_slim_endp *endpoint,
-				struct completion *notify);
+				struct msm_slim_endp *endpoint);
 void msm_slim_disconnect_endp(struct msm_slim_ctrl *dev,
 					struct msm_slim_endp *endpoint,
 					enum msm_slim_msgq *msgq_flag);

@@ -1239,18 +1239,20 @@ static void diag_hdlc_start_recovery(unsigned char *buf, int len)
 	int i;
 	static uint32_t bad_byte_counter;
 	unsigned char *start_ptr = NULL;
+	struct diag_pkt_frame_t *actual_pkt = NULL;
 
 	hdlc_reset = 1;
 	hdlc_reset_timer_start();
 
+	actual_pkt = (struct diag_pkt_frame_t *)buf;
 	for (i = 0; i < len; i++) {
-		if (buf[i] == CONTROL_CHAR && (i +
-				sizeof(struct diag_pkt_frame_t)
-				<= (len - 1))) {
-			if (buf[i+1] == 1) {
+		if (actual_pkt->start == CONTROL_CHAR &&
+			actual_pkt->version == 1 &&
+			actual_pkt->length < len &&
+			(*(uint8_t *)(buf + sizeof(struct diag_pkt_frame_t) +
+			actual_pkt->length) == CONTROL_CHAR)) {
 				start_ptr = &buf[i];
 				break;
-			}
 		}
 		bad_byte_counter++;
 		if (bad_byte_counter > (DIAG_MAX_REQ_SIZE +

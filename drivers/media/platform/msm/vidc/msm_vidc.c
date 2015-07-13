@@ -933,8 +933,7 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 		dprintk(VIDC_DBG, "Queueing device address = 0x%pa\n",
 				&binfo->device_addr[i]);
 
-		if ((inst->fmts[OUTPUT_PORT]->fourcc ==
-			V4L2_PIX_FMT_HEVC_HYBRID) &&  binfo->handle[i] &&
+		if (binfo->handle[i] &&
 			(b->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)) {
 			rc = msm_comm_smem_cache_operations(inst,
 				binfo->handle[i], SMEM_CACHE_INVALIDATE);
@@ -1076,7 +1075,7 @@ EXPORT_SYMBOL(msm_vidc_streamoff);
 int msm_vidc_enum_framesizes(void *instance, struct v4l2_frmsizeenum *fsize)
 {
 	struct msm_vidc_inst *inst = instance;
-	struct msm_vidc_core_capability *capability = NULL;
+	struct msm_vidc_capability *capability = NULL;
 
 	if (!inst || !fsize) {
 		dprintk(VIDC_ERR, "%s: invalid parameter: %p %p\n",
@@ -1202,6 +1201,12 @@ static int setup_event_queue(void *inst,
 {
 	int rc = 0;
 	struct msm_vidc_inst *vidc_inst = (struct msm_vidc_inst *)inst;
+
+	if (!inst || !pvdev) {
+		dprintk(VIDC_ERR, "%s Invalid params inst %p pvdev %p\n",
+					__func__, inst, pvdev);
+		return -EINVAL;
+	}
 
 	v4l2_fh_init(&vidc_inst->event_handler, pvdev);
 	v4l2_fh_add(&vidc_inst->event_handler);
@@ -1344,9 +1349,18 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->debugfs_root =
 		msm_vidc_debugfs_init_inst(inst, core->debugfs_root);
 
-	setup_event_queue(inst, &core->vdev[session_type].vdev);
+	rc = setup_event_queue(inst, &core->vdev[session_type].vdev);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"%s Failed to set up event queue\n", __func__);
+		goto fail_setup;
+	}
 
 	return inst;
+
+fail_setup:
+	debugfs_remove_recursive(inst->debugfs_root);
+
 fail_init:
 	vb2_queue_release(&inst->bufq[OUTPUT_PORT].vb2_bufq);
 

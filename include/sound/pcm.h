@@ -73,12 +73,13 @@ struct snd_pcm_ops {
 	int (*prepare)(struct snd_pcm_substream *substream);
 	int (*trigger)(struct snd_pcm_substream *substream, int cmd);
 	snd_pcm_uframes_t (*pointer)(struct snd_pcm_substream *substream);
+	int (*delay_blk)(struct snd_pcm_substream *substream);
 	int (*wall_clock)(struct snd_pcm_substream *substream,
 			  struct timespec *audio_ts);
 	int (*copy)(struct snd_pcm_substream *substream, int channel,
 		    snd_pcm_uframes_t pos,
 		    void __user *buf, snd_pcm_uframes_t count);
-	int (*silence)(struct snd_pcm_substream *substream, int channel, 
+	int (*silence)(struct snd_pcm_substream *substream, int channel,
 		       snd_pcm_uframes_t pos, snd_pcm_uframes_t count);
 	struct page *(*page)(struct snd_pcm_substream *substream,
 			     unsigned long offset);
@@ -888,10 +889,11 @@ void snd_pcm_set_ops(struct snd_pcm * pcm, int direction, struct snd_pcm_ops *op
 void snd_pcm_set_sync(struct snd_pcm_substream *substream);
 int snd_pcm_lib_interleave_len(struct snd_pcm_substream *substream);
 int snd_pcm_lib_ioctl(struct snd_pcm_substream *substream,
-		      unsigned int cmd, void *arg);                      
+		      unsigned int cmd, void *arg);
 int snd_pcm_update_state(struct snd_pcm_substream *substream,
 			 struct snd_pcm_runtime *runtime);
 int snd_pcm_update_hw_ptr(struct snd_pcm_substream *substream);
+int snd_pcm_update_delay_blk(struct snd_pcm_substream *substream);
 int snd_pcm_playback_xrun_check(struct snd_pcm_substream *substream);
 int snd_pcm_capture_xrun_check(struct snd_pcm_substream *substream);
 int snd_pcm_playback_xrun_asap(struct snd_pcm_substream *substream);

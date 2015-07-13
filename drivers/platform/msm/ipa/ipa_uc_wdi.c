@@ -18,15 +18,27 @@
 #define IPA_HW_INTERFACE_WDI_VERSION 0x0001
 #define IPA_HW_WDI_RX_MBOX_START_INDEX 48
 #define IPA_HW_WDI_TX_MBOX_START_INDEX 50
-#define IPA_WDI_DMA_POOL_SIZE (max(sizeof(struct IpaHwWdiTxSetUpCmdData_t), \
-	sizeof(struct IpaHwWdiRxSetUpCmdData_t)))
-#define IPA_WDI_DMA_POOL_ALIGNMENT 8
-#define IPA_WDI_DMA_POOL_BOUNDARY 1024
+#define IPA_WDI_RING_ALIGNMENT 8
 
 #define IPA_WDI_CONNECTED BIT(0)
 #define IPA_WDI_ENABLED BIT(1)
 #define IPA_WDI_RESUMED BIT(2)
 #define IPA_UC_POLL_SLEEP_USEC 100
+
+#define IPA_WDI_RX_RING_RES	0
+#define IPA_WDI_RX_RING_RP_RES	1
+#define IPA_WDI_TX_RING_RES	2
+#define IPA_WDI_CE_RING_RES	3
+#define IPA_WDI_CE_DB_RES	4
+#define IPA_WDI_MAX_RES		5
+
+struct ipa_wdi_res {
+	struct ipa_wdi_buffer_info *res;
+	unsigned int nents;
+	bool valid;
+};
+
+static struct ipa_wdi_res wdi_res[IPA_WDI_MAX_RES];
 
 static void ipa_uc_wdi_loaded_handler(void);
 
@@ -444,15 +456,6 @@ int ipa_wdi_init(void)
 {
 	struct ipa_uc_hdlrs uc_wdi_cbs = { 0 };
 
-	ipa_ctx->uc_wdi_ctx.wdi_dma_pool = dma_pool_create("ipa_wdi1k",
-			ipa_ctx->pdev,
-			IPA_WDI_DMA_POOL_SIZE, IPA_WDI_DMA_POOL_ALIGNMENT,
-			IPA_WDI_DMA_POOL_BOUNDARY);
-	if (!ipa_ctx->uc_wdi_ctx.wdi_dma_pool) {
-		IPAERR("fail to setup DMA pool\n");
-		return -ENOMEM;
-	}
-
 	uc_wdi_cbs.ipa_uc_event_hdlr = ipa_uc_wdi_event_handler;
 	uc_wdi_cbs.ipa_uc_event_log_info_hdlr =
 		ipa_uc_wdi_event_log_info_handler;
@@ -460,6 +463,218 @@ int ipa_wdi_init(void)
 		ipa_uc_wdi_loaded_handler;
 
 	ipa_uc_register_handlers(IPA_HW_FEATURE_WDI, &uc_wdi_cbs);
+
+	return 0;
+}
+
+static int ipa_create_uc_smmu_mapping_pa(phys_addr_t pa, size_t len,
+		bool device, unsigned long *iova)
+{
+	struct ipa_smmu_cb_ctx *cb = ipa_get_uc_smmu_ctx();
+	unsigned long va = roundup(cb->next_addr, PAGE_SIZE);
+	int prot = IOMMU_READ | IOMMU_WRITE;
+	size_t true_len = roundup(len + pa - rounddown(pa, PAGE_SIZE),
+			PAGE_SIZE);
+	int ret;
+
+	if (!cb->valid) {
+		IPAERR("No SMMU CB setup\n");
+		return -EINVAL;
+	}
+
+	ret = iommu_map(cb->mapping->domain, va, rounddown(pa, PAGE_SIZE),
+			true_len,
+			device ? (prot | IOMMU_DEVICE) : prot);
+	if (ret) {
+		IPAERR("iommu map failed for pa=%pa len=%zu\n", &pa, true_len);
+		return -EINVAL;
+	}
+
+	ipa_ctx->wdi_map_cnt++;
+	cb->next_addr = va + true_len;
+	*iova = va + pa - rounddown(pa, PAGE_SIZE);
+	return 0;
+}
+
+static int ipa_create_uc_smmu_mapping_sgt(struct sg_table *sgt,
+		unsigned long *iova)
+{
+	struct ipa_smmu_cb_ctx *cb = ipa_get_uc_smmu_ctx();
+	unsigned long va = roundup(cb->next_addr, PAGE_SIZE);
+	int prot = IOMMU_READ | IOMMU_WRITE;
+	int ret;
+	int i;
+	struct scatterlist *sg;
+	unsigned long start_iova = va;
+	phys_addr_t phys;
+	size_t len;
+	int count = 0;
+
+	if (!cb->valid) {
+		IPAERR("No SMMU CB setup\n");
+		return -EINVAL;
+	}
+
+	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
+		phys = page_to_phys(sg_page(sg));
+		len = PAGE_ALIGN(sg->offset + sg->length);
+
+		ret = iommu_map(cb->mapping->domain, va, phys, len, prot);
+		if (ret) {
+			IPAERR("iommu map failed for pa=%pa len=%zu\n",
+					&phys, len);
+			goto bad_mapping;
+		}
+		va += len;
+		ipa_ctx->wdi_map_cnt++;
+		count++;
+	}
+	cb->next_addr = va;
+	*iova = start_iova;
+
+	return 0;
+
+bad_mapping:
+	for_each_sg(sgt->sgl, sg, count, i)
+		iommu_unmap(cb->mapping->domain, sg_dma_address(sg),
+				sg_dma_len(sg));
+	return -EINVAL;
+}
+
+static void ipa_release_uc_smmu_mappings(enum ipa_client_type client)
+{
+	struct ipa_smmu_cb_ctx *cb = ipa_get_uc_smmu_ctx();
+	int i;
+	int j;
+	int start;
+	int end;
+
+	if (IPA_CLIENT_IS_CONS(client)) {
+		start = IPA_WDI_TX_RING_RES;
+		end = IPA_WDI_CE_DB_RES;
+	} else {
+		start = IPA_WDI_RX_RING_RES;
+		end = IPA_WDI_RX_RING_RP_RES;
+	}
+
+	for (i = start; i <= end; i++) {
+		if (wdi_res[i].valid) {
+			for (j = 0; j < wdi_res[i].nents; j++) {
+				iommu_unmap(cb->mapping->domain,
+					wdi_res[i].res[j].iova,
+					wdi_res[i].res[j].size);
+				ipa_ctx->wdi_map_cnt--;
+			}
+			kfree(wdi_res[i].res);
+			wdi_res[i].valid = false;
+		}
+	}
+
+	if (ipa_ctx->wdi_map_cnt == 0)
+		cb->next_addr = IPA_SMMU_UC_VA_END;
+
+}
+
+static void ipa_save_uc_smmu_mapping_pa(int res_idx, phys_addr_t pa,
+		unsigned long iova, size_t len)
+{
+	IPADBG("--res_idx=%d pa=0x%pa iova=0x%lx sz=0x%zx\n", res_idx,
+			&pa, iova, len);
+	wdi_res[res_idx].res = kzalloc(sizeof(struct ipa_wdi_res), GFP_KERNEL);
+	if (!wdi_res[res_idx].res)
+		BUG();
+	wdi_res[res_idx].nents = 1;
+	wdi_res[res_idx].valid = true;
+	wdi_res[res_idx].res->pa = rounddown(pa, PAGE_SIZE);
+	wdi_res[res_idx].res->iova = rounddown(iova, PAGE_SIZE);
+	wdi_res[res_idx].res->size = roundup(len + pa - rounddown(pa,
+				PAGE_SIZE), PAGE_SIZE);
+	IPADBG("res_idx=%d pa=0x%pa iova=0x%lx sz=0x%zx\n", res_idx,
+			&wdi_res[res_idx].res->pa, wdi_res[res_idx].res->iova,
+			wdi_res[res_idx].res->size);
+}
+
+static void ipa_save_uc_smmu_mapping_sgt(int res_idx, struct sg_table *sgt,
+		unsigned long iova)
+{
+	int i;
+	struct scatterlist *sg;
+	unsigned long curr_iova = iova;
+
+	wdi_res[res_idx].res = kcalloc(sgt->nents, sizeof(struct ipa_wdi_res),
+			GFP_KERNEL);
+	if (!wdi_res[res_idx].res)
+		BUG();
+	wdi_res[res_idx].nents = sgt->nents;
+	wdi_res[res_idx].valid = true;
+	for_each_sg(sgt->sgl, sg, sgt->nents, i) {
+		wdi_res[res_idx].res[i].pa = page_to_phys(sg_page(sg));
+		wdi_res[res_idx].res[i].iova = curr_iova;
+		wdi_res[res_idx].res[i].size = PAGE_ALIGN(sg->offset +
+				sg->length);
+		IPADBG("res_idx=%d pa=0x%pa iova=0x%lx sz=0x%zx\n", res_idx,
+			&wdi_res[res_idx].res[i].pa,
+			wdi_res[res_idx].res[i].iova,
+			wdi_res[res_idx].res[i].size);
+		curr_iova += wdi_res[res_idx].res[i].size;
+	}
+}
+
+static int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
+		phys_addr_t pa, struct sg_table *sgt, size_t len, bool device,
+		unsigned long *iova)
+{
+	/* support for SMMU on WLAN but no SMMU on IPA */
+	if (wlan_smmu_en && !ipa_ctx->smmu_present) {
+		IPAERR("Unsupported SMMU pairing\n");
+		return -EINVAL;
+	}
+
+	/* legacy: no SMMUs on either end */
+	if (!wlan_smmu_en && !ipa_ctx->smmu_present) {
+		*iova = pa;
+		return 0;
+	}
+
+	/* no SMMU on WLAN but SMMU on IPA */
+	if (!wlan_smmu_en && ipa_ctx->smmu_present) {
+		if (ipa_create_uc_smmu_mapping_pa(pa, len,
+			(res_idx == IPA_WDI_CE_DB_RES) ? true : false, iova)) {
+			IPAERR("Fail to create mapping res %d\n", res_idx);
+			return -EFAULT;
+		}
+		ipa_save_uc_smmu_mapping_pa(res_idx, pa, *iova, len);
+		return 0;
+	}
+
+	/* SMMU on WLAN and SMMU on IPA */
+	if (wlan_smmu_en && ipa_ctx->smmu_present) {
+		switch (res_idx) {
+		case IPA_WDI_RX_RING_RP_RES:
+		case IPA_WDI_CE_DB_RES:
+			if (ipa_create_uc_smmu_mapping_pa(pa, len,
+				(res_idx == IPA_WDI_CE_DB_RES) ? true : false,
+				iova)) {
+				IPAERR("Fail to create mapping res %d\n",
+						res_idx);
+				return -EFAULT;
+			}
+			ipa_save_uc_smmu_mapping_pa(res_idx, pa, *iova, len);
+			break;
+		case IPA_WDI_RX_RING_RES:
+		case IPA_WDI_TX_RING_RES:
+		case IPA_WDI_CE_RING_RES:
+			if (ipa_create_uc_smmu_mapping_sgt(sgt, iova)) {
+				IPAERR("Fail to create mapping res %d\n",
+						res_idx);
+				return -EFAULT;
+			}
+			ipa_save_uc_smmu_mapping_sgt(res_idx, sgt, *iova);
+			break;
+		default:
+			BUG();
+		}
+	}
 
 	return 0;
 }
@@ -483,6 +698,9 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	struct IpaHwWdiTxSetUpCmdData_t *tx;
 	struct IpaHwWdiRxSetUpCmdData_t *rx;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
+	unsigned long va;
+	phys_addr_t pa;
+	u32 len;
 
 	if (in == NULL || out == NULL || in->sys.client >= IPA_CLIENT_MAX) {
 		IPAERR("bad parm. in=%p out=%p\n", in, out);
@@ -492,13 +710,13 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	}
 
 	if (IPA_CLIENT_IS_CONS(in->sys.client)) {
-		if (in->u.dl.comp_ring_base_pa % IPA_WDI_DMA_POOL_ALIGNMENT ||
-			in->u.dl.ce_ring_base_pa % IPA_WDI_DMA_POOL_ALIGNMENT) {
+		if (in->u.dl.comp_ring_base_pa % IPA_WDI_RING_ALIGNMENT ||
+			in->u.dl.ce_ring_base_pa % IPA_WDI_RING_ALIGNMENT) {
 			IPAERR("alignment failure on TX\n");
 			return -EINVAL;
 		}
 	} else {
-		if (in->u.ul.rdy_ring_base_pa % IPA_WDI_DMA_POOL_ALIGNMENT) {
+		if (in->u.ul.rdy_ring_base_pa % IPA_WDI_RING_ALIGNMENT) {
 			IPAERR("alignment failure on RX\n");
 			return -EINVAL;
 		}
@@ -542,8 +760,8 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		IPADBG("rx_ring_rp_pa=0x%pa\n", &in->u.ul.rdy_ring_rp_pa);
 	}
 
-	cmd.base = dma_pool_alloc(ipa_ctx->uc_wdi_ctx.wdi_dma_pool, GFP_KERNEL,
-			&cmd.phys_base);
+	cmd.base = dma_alloc_coherent(ipa_ctx->uc_pdev, cmd.size,
+			&cmd.phys_base, GFP_KERNEL);
 	if (cmd.base == NULL) {
 		IPAERR("fail to get DMA memory.\n");
 		result = -ENOMEM;
@@ -552,11 +770,61 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 
 	if (IPA_CLIENT_IS_CONS(in->sys.client)) {
 		tx = (struct IpaHwWdiTxSetUpCmdData_t *)cmd.base;
-		tx->comp_ring_base_pa = in->u.dl.comp_ring_base_pa;
-		tx->comp_ring_size = in->u.dl.comp_ring_size;
-		tx->ce_ring_base_pa = in->u.dl.ce_ring_base_pa;
-		tx->ce_ring_size = in->u.dl.ce_ring_size;
-		tx->ce_ring_doorbell_pa = in->u.dl.ce_door_bell_pa;
+
+		len = in->smmu_enabled ? in->u.dl_smmu.comp_ring_size :
+			in->u.dl.comp_ring_size;
+		IPADBG("TX ring smmu_en=%d ring_size=%d %d\n", in->smmu_enabled,
+				in->u.dl_smmu.comp_ring_size,
+				in->u.dl.comp_ring_size);
+		if (ipa_create_uc_smmu_mapping(IPA_WDI_TX_RING_RES,
+					in->smmu_enabled,
+					in->u.dl.comp_ring_base_pa,
+					&in->u.dl_smmu.comp_ring,
+					len,
+					false,
+					&va)) {
+				IPAERR("fail to create uc mapping TX ring.\n");
+				result = -ENOMEM;
+				goto uc_timeout;
+		}
+		tx->comp_ring_base_pa = va;
+		tx->comp_ring_size = len;
+
+		len = in->smmu_enabled ? in->u.dl_smmu.ce_ring_size :
+			in->u.dl.ce_ring_size;
+		IPADBG("TX CE ring smmu_en=%d ring_size=%d %d\n",
+				in->smmu_enabled,
+				in->u.dl_smmu.ce_ring_size,
+				in->u.dl.ce_ring_size);
+		if (ipa_create_uc_smmu_mapping(IPA_WDI_CE_RING_RES,
+					in->smmu_enabled,
+					in->u.dl.ce_ring_base_pa,
+					&in->u.dl_smmu.ce_ring,
+					len,
+					false,
+					&va)) {
+				IPAERR("fail to create uc mapping CE ring.\n");
+				result = -ENOMEM;
+				goto uc_timeout;
+		}
+		tx->ce_ring_base_pa = va;
+		tx->ce_ring_size = len;
+
+		pa = in->smmu_enabled ? in->u.dl_smmu.ce_door_bell_pa :
+			in->u.dl.ce_door_bell_pa;
+		if (ipa_create_uc_smmu_mapping(IPA_WDI_CE_DB_RES,
+					in->smmu_enabled,
+					pa,
+					NULL,
+					4,
+					true,
+					&va)) {
+				IPAERR("fail to create uc mapping CE DB.\n");
+				result = -ENOMEM;
+				goto uc_timeout;
+		}
+		tx->ce_ring_doorbell_pa = va;
+
 		tx->num_tx_buffers = in->u.dl.num_tx_buffers;
 		tx->ipa_pipe_number = ipa_ep_idx;
 		if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_5) {
@@ -576,9 +844,41 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		}
 	} else {
 		rx = (struct IpaHwWdiRxSetUpCmdData_t *)cmd.base;
-		rx->rx_ring_base_pa = in->u.ul.rdy_ring_base_pa;
-		rx->rx_ring_size = in->u.ul.rdy_ring_size;
-		rx->rx_ring_rp_pa = in->u.ul.rdy_ring_rp_pa;
+
+		len = in->smmu_enabled ? in->u.ul_smmu.rdy_ring_size :
+			in->u.ul.rdy_ring_size;
+		IPADBG("RX ring smmu_en=%d ring_size=%d %d\n", in->smmu_enabled,
+				in->u.ul_smmu.rdy_ring_size,
+				in->u.ul.rdy_ring_size);
+		if (ipa_create_uc_smmu_mapping(IPA_WDI_RX_RING_RES,
+					in->smmu_enabled,
+					in->u.ul.rdy_ring_base_pa,
+					&in->u.ul_smmu.rdy_ring,
+					len,
+					false,
+					&va)) {
+				IPAERR("fail to create uc mapping RX ring.\n");
+				result = -ENOMEM;
+				goto uc_timeout;
+		}
+		rx->rx_ring_base_pa = va;
+		rx->rx_ring_size = len;
+
+		pa = in->smmu_enabled ? in->u.ul_smmu.rdy_ring_rp_pa :
+			in->u.ul.rdy_ring_rp_pa;
+		if (ipa_create_uc_smmu_mapping(IPA_WDI_RX_RING_RP_RES,
+					in->smmu_enabled,
+					pa,
+					NULL,
+					4,
+					false,
+					&va)) {
+				IPAERR("fail to create uc mapping RX rng RP\n");
+				result = -ENOMEM;
+				goto uc_timeout;
+		}
+		rx->rx_ring_rp_pa = va;
+
 		rx->ipa_pipe_number = ipa_ep_idx;
 		if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_5) {
 				out->uc_door_bell_pa =
@@ -646,8 +946,7 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	if (!ep->keep_ipa_awake)
 		ipa_dec_client_disable_clks();
 
-	dma_pool_free(ipa_ctx->uc_wdi_ctx.wdi_dma_pool, cmd.base,
-		      cmd.phys_base);
+	dma_free_coherent(ipa_ctx->uc_pdev, cmd.size, cmd.base, cmd.phys_base);
 	ep->wdi_state |= IPA_WDI_CONNECTED;
 	IPADBG("client %d (ep: %d) connected\n", in->sys.client, ipa_ep_idx);
 
@@ -656,14 +955,15 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 ipa_cfg_ep_fail:
 	memset(&ipa_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa_ep_context));
 uc_timeout:
-	dma_pool_free(ipa_ctx->uc_wdi_ctx.wdi_dma_pool, cmd.base,
-		      cmd.phys_base);
+	ipa_release_uc_smmu_mappings(in->sys.client);
+	dma_free_coherent(ipa_ctx->uc_pdev, cmd.size, cmd.base, cmd.phys_base);
 dma_alloc_fail:
 	ipa_dec_client_disable_clks();
 fail:
 	return result;
 }
 EXPORT_SYMBOL(ipa_connect_wdi_pipe);
+
 
 /**
  * ipa_disconnect_wdi_pipe() - WDI client disconnect
@@ -714,6 +1014,8 @@ int ipa_disconnect_wdi_pipe(u32 clnt_hdl)
 	}
 
 	ipa_delete_dflt_flt_rules(clnt_hdl);
+	ipa_release_uc_smmu_mappings(ep->client);
+
 	memset(&ipa_ctx->ep[clnt_hdl], 0, sizeof(struct ipa_ep_context));
 	ipa_dec_client_disable_clks();
 
@@ -1188,3 +1490,64 @@ static void ipa_uc_wdi_loaded_handler(void)
 
 	return;
 }
+
+int ipa_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
+{
+	struct ipa_smmu_cb_ctx *cb = ipa_get_wlan_smmu_ctx();
+	int i;
+	int ret = 0;
+	int prot = IOMMU_READ | IOMMU_WRITE;
+
+	if (!info) {
+		IPAERR("info = %p\n", info);
+		return -EINVAL;
+	}
+
+	if (!cb->valid) {
+		IPAERR("No SMMU CB setup\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < num_buffers; i++) {
+		IPADBG("i=%d pa=0x%pa iova=0x%lx sz=0x%zx\n", i,
+			&info[i].pa, info[i].iova, info[i].size);
+		info[i].result = iommu_map(cb->iommu,
+			rounddown(info[i].iova, PAGE_SIZE),
+			rounddown(info[i].pa, PAGE_SIZE),
+			roundup(info[i].size + info[i].pa -
+				rounddown(info[i].pa, PAGE_SIZE), PAGE_SIZE),
+			prot);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_create_wdi_mapping);
+
+int ipa_release_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
+{
+	struct ipa_smmu_cb_ctx *cb = ipa_get_wlan_smmu_ctx();
+	int i;
+	int ret = 0;
+
+	if (!info) {
+		IPAERR("info = %p\n", info);
+		return -EINVAL;
+	}
+
+	if (!cb->valid) {
+		IPAERR("No SMMU CB setup\n");
+		return -EINVAL;
+	}
+
+	for (i = 0; i < num_buffers; i++) {
+		IPADBG("i=%d pa=0x%pa iova=0x%lx sz=0x%zx\n", i,
+			&info[i].pa, info[i].iova, info[i].size);
+		info[i].result = iommu_unmap(cb->iommu,
+			rounddown(info[i].iova, PAGE_SIZE),
+			roundup(info[i].size + info[i].pa -
+				rounddown(info[i].pa, PAGE_SIZE), PAGE_SIZE));
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_release_wdi_mapping);

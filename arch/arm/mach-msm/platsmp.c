@@ -390,6 +390,9 @@ static void __init msm_platform_smp_prepare_cpus_mc(unsigned int max_cpus)
 	if (scm_set_boot_addr_mc(virt_to_phys(msm_secondary_startup),
 		aff0_mask, aff1_mask, aff2_mask, SCM_FLAG_COLDBOOT_MC))
 		pr_warn("Failed to set CPU boot address\n");
+
+	/* Mark CPU0 cold boot flag as done */
+	per_cpu(cold_boot_done, 0) = true;
 }
 
 static void __init msm_platform_smp_prepare_cpus(unsigned int max_cpus)
@@ -412,6 +415,9 @@ static void __init msm_platform_smp_prepare_cpus(unsigned int max_cpus)
 
 	if (scm_set_boot_addr(virt_to_phys(msm_secondary_startup), flags))
 		pr_warn("Failed to set CPU boot address\n");
+
+	/* Mark CPU0 cold boot flag as done */
+	per_cpu(cold_boot_done, 0) = true;
 }
 
 int  msm_cpu_disable(unsigned int cpu)

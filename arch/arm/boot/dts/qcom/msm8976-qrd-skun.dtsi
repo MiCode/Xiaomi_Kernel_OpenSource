@@ -14,6 +14,41 @@
 #include "msm8976-qrd.dtsi"
 
 &i2c_4 { /* BLSP1 QUP4 */
+	focaltech@38 {
+		compatible = "focaltech,5x06";
+		reg = <0x38>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <65 0x2>;
+		vdd-supply = <&pm8950_l17>;
+		vcc_i2c-supply = <&pm8950_l6>;
+		/* pins used by touchscreen */
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+		focaltech,name = "ft5446";
+		focaltech,family-id = <0x06>;
+		focaltech,reset-gpio = <&msm_gpio 64 0x0>;
+		focaltech,irq-gpio = <&msm_gpio 65 0x2008>;
+		focaltech,display-coords = <0 0 1079 1919>;
+		focaltech,panel-coords = <0 0 1079 2084>;
+		focaltech,button-map= <139 102 158>;
+		focaltech,no-force-update;
+		focaltech,i2c-pull-up;
+		focaltech,group-id = <1>;
+		focaltech,hard-reset-delay-ms = <20>;
+		focaltech,soft-reset-delay-ms = <200>;
+		focaltech,num-max-touches = <2>;
+		focaltech,fw-delay-aa-ms = <30>;
+		focaltech,fw-delay-55-ms = <30>;
+		focaltech,fw-upgrade-id1 = <0x79>;
+		focaltech,fw-upgrade-id2 = <0x08>;
+		focaltech,fw-delay-readid-ms = <10>;
+		focaltech,fw-delay-era-flsh-ms = <2000>;
+		focaltech,fw-auto-cal;
+		focaltech,ignore-id-check;
+	};
+
 	synaptics@20 {
 		compatible = "synaptics,rmi4";
 		reg = <0x20>;
@@ -33,21 +68,12 @@
 		synaptics,i2c-pull-up;
 		synaptics,power-down;
 		synaptics,disable-gpios;
+		synaptics,bypass-packrat-id-check;
 		synaptics,button-map = <139 172 158>;
 	};
 };
 
 &soc {
-	gen-vkeys {
-		compatible = "qcom,gen-vkeys";
-		label = "synaptics_rmi4_i2c";
-		qcom,disp-maxx = <1079>;
-		qcom,disp-maxy = <1919>;
-		qcom,panel-maxx = <1079>;
-		qcom,panel-maxy = <2084>;
-		qcom,key-codes = <139 172 158>;
-	};
-
 	gpio_keys {
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
@@ -71,6 +97,43 @@
 			linux,code = <102>;
 			gpio-key,wakeup;
 			debounce-interval = <15>;
+		};
+	};
+
+	sound-9335 {
+		qcom,model = "msm8976-tasha-skun-snd-card";
+
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"AMIC1", "MIC BIAS1",
+			"MIC BIAS1", "Handset Mic",
+			"AMIC2", "MIC BIAS2",
+			"MIC BIAS2", "Headset Mic",
+			"AMIC3", "MIC BIAS3",
+			"MIC BIAS3", "Secondary Mic",
+			"SpkrRight IN", "SPK2 OUT";
+
+		qcom,msm-mbhc-hphl-swh = <1>;
+		asoc-wsa-codec-names = "wsa881x.20170211";
+		asoc-wsa-codec-prefixes = "SpkrRight";
+	};
+};
+
+&slim_msm {
+	tasha_codec {
+		swr_master {
+			compatible = "qcom,swr-wcd";
+			#address-cells = <2>;
+			#size-cells = <0>;
+
+			wsa881x@20170211 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x20170211>;
+				pinctrl-names = "wsa_spkr_sd_act",
+						"wsa_spkr_sd_sus";
+				pinctrl-0 = <&wsa_spkr_sd_act>;
+				pinctrl-1 = <&wsa_spkr_sd_sus>;
+			};
 		};
 	};
 };
@@ -134,6 +197,15 @@
 };
 
 &dsi_otm1906c_1080p_cmd {
+	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+};
+
+&dsi_hx8399a_1080p_video {
+	qcom,cont-splash-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 	qcom,mdss-dsi-bl-min-level = <1>;
@@ -157,6 +229,24 @@
 	qcom,dsi-pref-prim-pan = <&dsi_otm1906c_1080p_cmd>;
 
 	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
+};
+
+&pmi8950_charger {
+	qcom,float-voltage-mv = <4400>;
+	qcom,chg-led-sw-controls;
+	qcom,chg-led-support;
+	status = "okay";
+};
+
+/ {
+	qrd_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "batterydata-qrd-skum-4v4-2920mah.dtsi"
+	};
+};
+
+&pmi8950_fg {
+	qcom,battery-data = <&qrd_batterydata>;
 };
 
 &labibb {

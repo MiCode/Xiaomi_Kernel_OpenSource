@@ -29,7 +29,7 @@ Required properties:
 - phy-mode:  Specifies PHY type being used (eg., "sgmii", "rgmii", "gmii" etc).
 - qcom,id: Unique Identifier for the GMAC block.This field is unique identifier for the core,
 	                which is also used as an index for global nss context.
-- qcom,chanid: Specifies the channel ID used by PHY to communicate with MAC Chip.
+- qcom,pcs-chanid: Specifies the channel ID used by PHY to communicate with MAC Chip.
 - qcom,phy-mdio-addr: MDIO port number, used for communication with PHY chips
 - qcom,poll-required: Enables disables auto-negotiation , thus polling the PHY chip to
 			determine the configuration attributes of relavant chips.
@@ -47,7 +47,7 @@ gmac0: ethernet@e7000000 {
 	interrupts = <0 242 0>;
 	phy-mode = "sgmii";
 	qcom,id = <0>;
-	qcom,chanid = <1>;
+	qcom,pcs-chanid = <1>;
 	qcom,phy-mdio-addr = <0>;
 	qcom,poll-required = <1>;
 	qcom,rgmii-delay = <0>;

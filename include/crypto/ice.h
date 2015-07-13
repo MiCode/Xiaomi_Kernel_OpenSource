@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,6 +67,18 @@ enum ice_error_code {
 	ICE_ERROR_STREAM2_PREMATURE_LBA_CHANGE,
 	ICE_ERROR_STREAM1_UNEXPECTED_LBA,
 	ICE_ERROR_STREAM2_UNEXPECTED_LBA,
+	ICE_ERROR_STREAM1_NOT_EXPECTED_DUN,
+	ICE_ERROR_STREAM2_NOT_EXPECTED_DUN,
+	ICE_ERROR_STREAM1_NOT_EXPECTED_DUS,
+	ICE_ERROR_STREAM2_NOT_EXPECTED_DUS,
+	ICE_ERROR_STREAM1_NOT_EXPECTED_DBO,
+	ICE_ERROR_STREAM2_NOT_EXPECTED_DBO,
+	ICE_ERROR_STREAM1_NOT_EXPECTED_ENC_SEL,
+	ICE_ERROR_STREAM2_NOT_EXPECTED_ENC_SEL,
+	ICE_ERROR_STREAM1_NOT_EXPECTED_CONF_IDX,
+	ICE_ERROR_STREAM2_NOT_EXPECTED_CONF_IDX,
+	ICE_ERROR_STREAM1_NOT_EXPECTED_NEW_TRNS,
+	ICE_ERROR_STREAM2_NOT_EXPECTED_NEW_TRNS
 };
 
 typedef void (*ice_success_cb)(void *, enum ice_event_completion);
@@ -74,6 +86,15 @@ typedef void (*ice_error_cb)(void *, enum ice_error_code);
 
 struct qcom_ice_variant_ops *qcom_ice_get_variant_ops(struct device_node *node);
 struct platform_device *qcom_ice_get_pdevice(struct device_node *node);
+
+#ifdef CONFIG_CRYPTO_DEV_QCOM_ICE
+int qcom_ice_setup_ice_hw(const char *, int);
+#else
+static inline int qcom_ice_setup_ice_hw(const char *storage_type, int enable)
+{
+	return 0;
+}
+#endif
 
 struct qcom_ice_variant_ops {
 	const char *name;

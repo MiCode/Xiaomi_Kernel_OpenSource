@@ -840,6 +840,12 @@ static int ipa_mhi_reset_ul_channel(struct ipa_mhi_channel_ctx *channel)
 				continue;
 			ep_idx = ipa_get_ep_mapping(
 				ipa_mhi_ctx->dl_channels[i].client);
+			if (-1 == ep_idx) {
+				IPA_MHI_ERR("Client %u is not mapped\n",
+					ipa_mhi_ctx->dl_channels[i].client);
+				BUG();
+				return -EFAULT;
+			}
 			memset(&ep_holb, 0, sizeof(ep_holb));
 			ep_holb.en = 1;
 			ep_holb.tmr_val = 0;

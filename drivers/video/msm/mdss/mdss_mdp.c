@@ -175,6 +175,7 @@ static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_ppb_off(struct platform_device *pdev);
 static int mdss_iommu_attach(struct mdss_data_type *mdata);
 static int mdss_iommu_dettach(struct mdss_data_type *mdata);
+static int mdss_mdp_parse_dt_dsc(struct platform_device *pdev);
 
 /**
  * mdss_mdp_vbif_axi_halt() - Halt MDSS AXI ports
@@ -942,6 +943,8 @@ void mdss_mdp_clk_ctrl(int enable)
 		mdss_mdp_clk_update(MDSS_CLK_AXI, enable);
 		mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, enable);
 		mdss_mdp_clk_update(MDSS_CLK_MDP_LUT, enable);
+		mdss_mdp_clk_update(MDSS_CLK_MDP_TBU, enable);
+		mdss_mdp_clk_update(MDSS_CLK_MDP_TBU_RT, enable);
 		if (mdata->vsync_ena)
 			mdss_mdp_clk_update(MDSS_CLK_MDP_VSYNC, enable);
 
@@ -986,6 +989,8 @@ static void __mdss_restore_sec_cfg(struct mdss_data_type *mdata)
 
 	mdss_mdp_clk_update(MDSS_CLK_AHB, 1);
 	mdss_mdp_clk_update(MDSS_CLK_AXI, 1);
+	mdss_mdp_clk_update(MDSS_CLK_MDP_TBU, 1);
+	mdss_mdp_clk_update(MDSS_CLK_MDP_TBU_RT, 1);
 	mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 1);
 
 	ret = scm_restore_sec_cfg(SEC_DEVICE_MDSS, 0, &scm_ret);
@@ -995,6 +1000,8 @@ static void __mdss_restore_sec_cfg(struct mdss_data_type *mdata)
 
 	mdss_mdp_clk_update(MDSS_CLK_AHB, 0);
 	mdss_mdp_clk_update(MDSS_CLK_AXI, 0);
+	mdss_mdp_clk_update(MDSS_CLK_MDP_TBU, 0);
+	mdss_mdp_clk_update(MDSS_CLK_MDP_TBU_RT, 0);
 	mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 0);
 }
 
@@ -1081,6 +1088,12 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 	    mdss_mdp_irq_clk_register(mdata, "core_clk",
 				      MDSS_CLK_MDP_CORE))
 		return -EINVAL;
+
+	/* tbu_clk is not present on all MDSS revisions */
+	mdss_mdp_irq_clk_register(mdata, "tbu_clk", MDSS_CLK_MDP_TBU);
+
+	/* tbu_rt_clk is not present on all MDSS revisions */
+	mdss_mdp_irq_clk_register(mdata, "tbu_rt_clk", MDSS_CLK_MDP_TBU_RT);
 
 	/* lut_clk is not present on all MDSS revisions */
 	mdss_mdp_irq_clk_register(mdata, "lut_clk", MDSS_CLK_MDP_LUT);
@@ -1339,6 +1352,7 @@ void mdss_hw_init(struct mdss_data_type *mdata)
 	int i, j;
 	char *offset;
 	struct mdss_mdp_pipe *vig;
+	u32 data = 0, lut_bit_depth_shift = 0;
 
 	mdss_hw_rev_init(mdata);
 
@@ -1356,14 +1370,23 @@ void mdss_hw_init(struct mdss_data_type *mdata)
 		}
 	}
 
+	if (mdata->has_10_bit_pa)
+		lut_bit_depth_shift = 2;
+
 	for (i = 0; i < mdata->ndspp; i++) {
 		offset = mdata->mixer_intf[i].dspp_base +
 				MDSS_MDP_REG_DSPP_HIST_LUT_BASE;
-		for (j = 0; j < ENHIST_LUT_ENTRIES; j++)
-			writel_relaxed(j, offset);
-
+		for (j = 0; j < (ENHIST_LUT_ENTRIES / 2); j++) {
+			data = (2 * j) << lut_bit_depth_shift;
+			data |= ((2 * j + 1) << lut_bit_depth_shift) <<
+							ENHIST_BIT_SHIFT;
+			writel_relaxed(data, offset);
+			offset += 4;
+		}
 		/* swap */
-		writel_relaxed(1, offset + 4);
+		offset = mdata->mixer_intf[i].dspp_base +
+				MDSS_MDP_REG_DSPP_HIST_LUT_SWAP;
+		writel_relaxed(1, offset);
 	}
 	vig = mdata->vig_pipes;
 	for (i = 0; i < mdata->nvig_pipes; i++) {
@@ -2013,6 +2036,10 @@ static int mdss_mdp_parse_dt(struct platform_device *pdev)
 	if (rc)
 		pr_debug("Info in device tree: ppb offset not configured\n");
 
+	rc = mdss_mdp_parse_dt_dsc(pdev);
+	if (rc)
+		pr_debug("DSC offset not found in device tree\n");
+
 	/* Parse the mdp specific register base offset*/
 	rc = of_property_read_u32(pdev->dev.of_node,
 		"qcom,mdss-mdp-reg-offset", &data);
@@ -2572,6 +2599,72 @@ dspp_alloc_fail:
 	return rc;
 }
 
+static int mdss_mdp_dsc_addr_setup(struct mdss_data_type *mdata,
+				   u32 *dsc_offsets, u32 len)
+{
+	struct mdss_mdp_dsc *head;
+	u32 i = 0;
+
+	head = devm_kzalloc(&mdata->pdev->dev, sizeof(struct mdss_mdp_dsc) *
+				len, GFP_KERNEL);
+	if (!head) {
+		pr_err("%s: no memory for CDM info\n", __func__);
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < len; i++) {
+		head[i].num = i;
+		head[i].base = (mdata->mdss_io.base) + dsc_offsets[i];
+		pr_debug("%s: dsc off (%d) = %p\n", __func__, i, head[i].base);
+	}
+
+	mdata->dsc_off = head;
+	return 0;
+}
+
+static int mdss_mdp_parse_dt_dsc(struct platform_device *pdev)
+{
+	int rc = 0;
+	u32 *dsc_offsets = NULL;
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+
+	mdata->ndsc = mdss_mdp_parse_dt_prop_len(pdev, "qcom,mdss-dsc-off");
+
+	if (!mdata->ndsc) {
+		rc = 0;
+		pr_debug("%s: No DSC offsets present in DT\n", __func__);
+		goto end;
+	}
+	pr_debug("%s: dsc len == %d\n", __func__, mdata->ndsc);
+	dsc_offsets = kzalloc(sizeof(u32) * mdata->ndsc, GFP_KERNEL);
+	if (!dsc_offsets) {
+		pr_err("no more memory for dsc offsets\n");
+		rc = -ENOMEM;
+		mdata->ndsc = 0;
+		goto end;
+	}
+
+	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-dsc-off", dsc_offsets,
+				       mdata->ndsc);
+	if (rc) {
+		pr_err("device tree err: failed to get cdm offsets\n");
+		goto fail;
+	}
+
+	rc = mdss_mdp_dsc_addr_setup(mdata, dsc_offsets, mdata->ndsc);
+	if (rc) {
+		pr_err("%s: DSC address setup failed\n", __func__);
+		goto fail;
+	}
+
+fail:
+	kfree(dsc_offsets);
+	if (rc)
+		mdata->ndsc = 0;
+end:
+	return rc;
+}
+
 static int mdss_mdp_parse_dt_ctl(struct platform_device *pdev)
 {
 	int rc = 0;
@@ -2960,6 +3053,8 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 		"qcom,mdss-no-lut-read");
 	mdata->needs_hist_vote = !(of_property_read_bool(pdev->dev.of_node,
 		"qcom,mdss-no-hist-vote"));
+	mdata->has_10_bit_pa = of_property_read_bool(pdev->dev.of_node,
+		"qcom,mdss-has-10bit-pa");
 	wfd_data = of_get_property(pdev->dev.of_node,
 					"qcom,mdss-wfd-mode", NULL);
 	if (wfd_data) {
@@ -2970,6 +3065,8 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 			mdata->wfd_mode = MDSS_MDP_WFD_SHARED;
 		} else if (!strcmp(wfd_data, "dedicated")) {
 			mdata->wfd_mode = MDSS_MDP_WFD_DEDICATED;
+		} else if (!strcmp(wfd_data, "intf_no_dspp")) {
+			mdata->wfd_mode = MDSS_MDP_WFD_INTF_NO_DSPP;
 		} else {
 			pr_debug("wfd default mode: Shared\n");
 			mdata->wfd_mode = MDSS_MDP_WFD_SHARED;
@@ -3331,7 +3428,7 @@ int mdss_panel_get_boot_cfg(void)
 
 	if (!mdss_res || !mdss_res->pan_cfg.init_done)
 		return -EPROBE_DEFER;
-	if (mdss_res->pan_cfg.lk_cfg)
+	if (mdss_res->handoff_pending)
 		rc = 1;
 	else
 		rc = 0;

@@ -44,7 +44,8 @@
 
 #define WCD9XXX_JACK_MASK (SND_JACK_HEADSET | SND_JACK_OC_HPHL | \
 			   SND_JACK_OC_HPHR | SND_JACK_LINEOUT | \
-			   SND_JACK_UNSUPPORTED | SND_JACK_MICROPHONE2)
+			   SND_JACK_UNSUPPORTED | SND_JACK_MICROPHONE2 | \
+			   SND_JACK_MECHANICAL)
 #define WCD9XXX_JACK_BUTTON_MASK (SND_JACK_BTN_0 | SND_JACK_BTN_1 | \
 				  SND_JACK_BTN_2 | SND_JACK_BTN_3 | \
 				  SND_JACK_BTN_4 | SND_JACK_BTN_5 | \
@@ -140,6 +141,12 @@
 #define WCD9XXX_IS_IN_ZDET_ZONE_3(x) (x > WCD9XXX_ZDET_ZONE_2 ? 1 : 0)
 #define WCD9XXX_BOX_CAR_AVRG_MIN 1
 #define WCD9XXX_BOX_CAR_AVRG_MAX 10
+
+/* Android L spec
+ * Need to report LINEIN if H/L impedance
+ * is larger than 5K ohm
+ */
+#define WCD9XXX_LINEIN_THRESHOLD 5000000
 
 static int impedance_detect_en;
 module_param(impedance_detect_en, int,
@@ -491,7 +498,7 @@ void *wcd9xxx_mbhc_cal_btn_det_mp(
 			    const struct wcd9xxx_mbhc_btn_detect_cfg *btn_det,
 			    const enum wcd9xxx_mbhc_btn_det_mem mem)
 {
-	void *ret = &btn_det->_v_btn_low;
+	void *ret = (void *)&btn_det->_v_btn_low;
 
 	switch (mem) {
 	case MBHC_BTN_DET_GAIN:
@@ -924,8 +931,6 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 		}
 
 		/* Report insertion */
-		mbhc->hph_status |= jack_type;
-
 		if (jack_type == SND_JACK_HEADPHONE) {
 			mbhc->current_plug = PLUG_TYPE_HEADPHONE;
 		} else if (jack_type == SND_JACK_UNSUPPORTED) {
@@ -941,19 +946,31 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 			mbhc->current_plug = PLUG_TYPE_ANC_HEADPHONE;
 		}
 
+		if (mbhc->impedance_detect && impedance_detect_en) {
+			wcd9xxx_detect_impedance(mbhc,
+					&mbhc->zl, &mbhc->zr);
+			if ((mbhc->zl > WCD9XXX_LINEIN_THRESHOLD) &&
+				(mbhc->zr > WCD9XXX_LINEIN_THRESHOLD)) {
+				jack_type = SND_JACK_LINEOUT;
+				mbhc->current_plug = PLUG_TYPE_HIGH_HPH;
+				pr_debug("%s: Replace with SND_JACK_LINEOUT\n",
+				__func__);
+			}
+		}
+
+		mbhc->hph_status |= jack_type;
+
 		if (mbhc->micbias_enable && mbhc->micbias_enable_cb) {
 			pr_debug("%s: Enabling micbias\n", __func__);
 			mbhc->micbias_enable_cb(mbhc->codec, true,
 						mbhc->mbhc_cfg->micbias);
 		}
 
-		if (mbhc->impedance_detect && impedance_detect_en)
-			wcd9xxx_detect_impedance(mbhc, &mbhc->zl, &mbhc->zr);
-
 		pr_debug("%s: Reporting insertion %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
 		wcd9xxx_jack_report(mbhc, &mbhc->headset_jack,
-				    mbhc->hph_status, WCD9XXX_JACK_MASK);
+				    (mbhc->hph_status | SND_JACK_MECHANICAL),
+				    WCD9XXX_JACK_MASK);
 		/*
 		 * if PA is already on, switch micbias
 		 * source to VDDIO
@@ -4536,6 +4553,64 @@ static void wcd9xxx_cleanup_debugfs(struct wcd9xxx_mbhc *mbhc)
 }
 #endif
 
+int wcd9xxx_mbhc_set_keycode(struct wcd9xxx_mbhc *mbhc)
+{
+	enum snd_jack_types type;
+	int i, ret, result = 0;
+	int *btn_key_code;
+
+	btn_key_code = mbhc->mbhc_cfg->key_code;
+
+	for (i = 0 ; i < 8 ; i++) {
+		if (btn_key_code[i] != 0) {
+			switch (i) {
+			case 0:
+				type = SND_JACK_BTN_0;
+				break;
+			case 1:
+				type = SND_JACK_BTN_1;
+				break;
+			case 2:
+				type = SND_JACK_BTN_2;
+				break;
+			case 3:
+				type = SND_JACK_BTN_3;
+				break;
+			case 4:
+				type = SND_JACK_BTN_4;
+				break;
+			case 5:
+				type = SND_JACK_BTN_5;
+				break;
+			case 6:
+				type = SND_JACK_BTN_6;
+				break;
+			case 7:
+				type = SND_JACK_BTN_7;
+				break;
+			default:
+				WARN_ONCE(1, "Wrong button number:%d\n", i);
+				result = -1;
+				break;
+			}
+			ret = snd_jack_set_key(mbhc->button_jack.jack,
+					       type,
+					       btn_key_code[i]);
+			if (ret) {
+				pr_err("%s: Failed to set code for %d\n",
+					__func__, btn_key_code[i]);
+				result = -1;
+			}
+			input_set_capability(
+				mbhc->button_jack.jack->input_dev,
+				EV_KEY, btn_key_code[i]);
+			pr_debug("%s: set btn%d key code:%d\n", __func__,
+				i, btn_key_code[i]);
+		}
+	}
+	return result;
+}
+
 int wcd9xxx_mbhc_start(struct wcd9xxx_mbhc *mbhc,
 		       struct wcd9xxx_mbhc_config *mbhc_cfg)
 {
@@ -4558,6 +4633,10 @@ int wcd9xxx_mbhc_start(struct wcd9xxx_mbhc *mbhc,
 
 	/* Save mbhc config */
 	mbhc->mbhc_cfg = mbhc_cfg;
+
+	/* Set btn key code */
+	if (wcd9xxx_mbhc_set_keycode(mbhc))
+		pr_err("Set btn key code error!!!\n");
 
 	/* Get HW specific mbhc registers' address */
 	wcd9xxx_get_mbhc_micbias_regs(mbhc, MBHC_PRIMARY_MIC_MB);

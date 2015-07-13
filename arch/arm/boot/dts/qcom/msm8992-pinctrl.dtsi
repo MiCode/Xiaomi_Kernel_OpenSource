@@ -826,8 +826,9 @@
 		};
 
 		cnss_pins {
-			qcom,pins = <&gp 112>, <&gp 0>, <&gp 1>, <&gp 113>;
-			qcom,num-grp-pins = <4>;
+			qcom,pins = <&gp 111>, <&gp 112>, <&gp 113>,
+				    <&gp 0>, <&gp 1>;
+			qcom,num-grp-pins = <5>;
 			qcom,pin-func = <0>;
 			label = "cnss_pins";
 			cnss_default: default {

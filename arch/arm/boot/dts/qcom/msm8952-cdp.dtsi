@@ -23,6 +23,9 @@
 		interrupts = <65 0x2008>;
 		avdd-supply = <&pm8950_l17>;
 		vdd-supply = <&pm8950_l6>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			<&clock_gcc clk_gcc_blsp1_qup3_i2c_apps_clk>;
 		/* pins used by touchscreen */
 		pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_release";
 		pinctrl-0 = <&ts_int_active &ts_reset_active>;
@@ -32,6 +35,7 @@
 		synaptics,reset-gpio = <&msm_gpio 64 0x0>;
 		synaptics,disable-gpios;
 		synaptics,detect-device;
+		synaptics,bypass-packrat-id-check;
 		synaptics,device1 {
 			synaptics,package-id = <3408>;
 			synaptics,display-coords = <0 0 1079 1919>;

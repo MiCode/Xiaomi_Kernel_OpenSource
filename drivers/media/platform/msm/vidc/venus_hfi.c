@@ -578,7 +578,8 @@ static int venus_hfi_read_queue(void *info, u8 *packet, u32 *pb_tx_req_is_set)
 
 	*pb_tx_req_is_set = (1 == queue->qhdr_tx_req) ? 1 : 0;
 
-	if (msm_vidc_debug & VIDC_PKT) {
+	if ((msm_vidc_debug & VIDC_PKT) &&
+		(queue->qhdr_type & HFI_Q_ID_CTRL_TO_HOST_MSG_Q)) {
 		dprintk(VIDC_PKT, "%s: %p\n", __func__, qinfo);
 		venus_hfi_dump_packet(packet);
 	}
@@ -2522,6 +2523,10 @@ static int venus_hfi_core_release(void *device)
 					"Failed in unset_free_ocmem() in %s, rc : %d\n",
 					__func__, rc);
 		}
+
+		/* flush debug queue before stop cpu */
+		venus_hfi_flush_debug_queue(dev, NULL);
+
 		venus_hfi_write_register(dev, VIDC_CPU_CS_SCIACMDARG3, 0);
 		if (!(dev->intr_status & VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK))
 			disable_irq_nosync(dev->hal_data->irq);
@@ -2775,6 +2780,12 @@ static void *venus_hfi_session_init(void *device, void *session_id,
 	else if (session_type == 2)
 		new_session->is_decoder = 1;
 	new_session->device = dev;
+	new_session->codec = codec_type;
+	new_session->domain = session_type;
+	dprintk(VIDC_DBG,
+		"%s: inst %p, session %p, codec 0x%x, domain 0x%x\n",
+		__func__, session_id, new_session,
+		new_session->codec, new_session->domain);
 
 	mutex_lock(&dev->session_lock);
 	list_add_tail(&new_session->list, &dev->sess_head);

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2011 Google, Inc
- * Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -228,6 +228,11 @@ int msm_ion_hyp_assign_call(struct sg_table *table,
 	struct scm_desc desc = {0};
 
 	info_list = get_info_list(table);
+
+	if (!info_list) {
+		pr_info("%s: Failed to assign memory protection\n", __func__);
+		return -ENOMEM;
+	}
 
 	desc.args[0] = virt_to_phys(info_list->list_head);
 	desc.args[1] = info_list->list_size;

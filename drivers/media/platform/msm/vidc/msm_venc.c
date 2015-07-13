@@ -1175,6 +1175,7 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 	rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to open instance\n");
+		msm_comm_session_clean(inst);
 		return rc;
 	}
 
@@ -2716,7 +2717,7 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 	struct hal_vc1e_perf_cfg_type search_range = { {0} };
 	u32 property_id = 0;
 	void *pdata = NULL;
-	struct msm_vidc_core_capability *cap = NULL;
+	struct msm_vidc_capability *cap = NULL;
 	struct hal_initial_quantization quant;
 
 	if (!inst || !inst->core || !inst->core->device || !ctrl) {
@@ -3245,6 +3246,7 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to open instance\n");
+			msm_comm_session_clean(inst);
 			goto exit;
 		}
 

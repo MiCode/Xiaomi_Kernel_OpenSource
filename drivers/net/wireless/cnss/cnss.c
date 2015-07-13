@@ -112,7 +112,7 @@ static struct cnss_fw_files FW_FILES_DEFAULT = {
 #define WLAN_SWREG_NAME		"wlan-soc-swreg"
 #define WLAN_EN_GPIO_NAME	"wlan-en-gpio"
 #define WLAN_BOOTSTRAP_GPIO_NAME "wlan-bootstrap-gpio"
-#define NUM_OF_BOOTSTRAP 3
+#define NUM_OF_BOOTSTRAP 4
 #define PM_OPTIONS		0
 #define PM_OPTIONS_SUSPEND_LINK_DOWN \
 	(MSM_PCIE_CONFIG_NO_CFG_RESTORE | MSM_PCIE_CONFIG_LINKDOWN)

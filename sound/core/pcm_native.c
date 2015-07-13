@@ -2497,6 +2497,12 @@ static int snd_pcm_delay(struct snd_pcm_substream *substream,
 	int err;
 	snd_pcm_sframes_t n = 0;
 
+	/*
+	 * Called outside irq lock, as this will block waiting for
+	 * DSP to respond.
+	 */
+	snd_pcm_update_delay_blk(substream);
+
 	snd_pcm_stream_lock_irq(substream);
 	switch (runtime->status->state) {
 	case SNDRV_PCM_STATE_DRAINING:

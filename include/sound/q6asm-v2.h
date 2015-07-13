@@ -194,6 +194,8 @@ struct audio_client {
 	int (*fptr_cache_ops)(struct audio_buffer *abuff, int cache_op);
 	atomic_t               unmap_cb_success;
 	atomic_t               reset;
+	/* holds latest DSP pipeline delay */
+	uint32_t               path_delay;
 };
 
 void q6asm_audio_client_free(struct audio_client *ac);
@@ -471,5 +473,7 @@ int q6asm_send_mtmx_strtr_window(struct audio_client *ac,
 		struct asm_session_mtmx_strtr_param_window_v2_t *window_param,
 		uint32_t param_id);
 
+/* Retrieve the current DSP path delay */
+int q6asm_get_path_delay(struct audio_client *ac);
 
 #endif /* __Q6_ASM_H__ */

@@ -52,6 +52,7 @@
 		qcom,mdss-pipe-vig-off = <0x00005000 0x00007000>;
 		qcom,mdss-pipe-rgb-off = <0x00015000 0x00017000>;
 		qcom,mdss-pipe-dma-off = <0x00025000>;
+		qcom,mdss-pipe-cursor-off = <0x000450DC>;
 		qcom,mdss-pipe-vig-fetch-id = <1 9>;
 		qcom,mdss-pipe-rgb-fetch-id = <7 8>;
 		qcom,mdss-pipe-dma-fetch-id = <4>;
@@ -59,6 +60,7 @@
 		qcom,mdss-pipe-vig-xin-id = <0 4>;
 		qcom,mdss-pipe-rgb-xin-id = <1 5>;
 		qcom,mdss-pipe-dma-xin-id = <2>;
+		qcom,mdss-pipe-cursor-xin-id = <7>;
 
 		/* Panic/robust control register offsets for pipes */
 		qcom,mdss-pipe-vig-panic-ctrl-offsets = <0 1>;
@@ -83,26 +85,31 @@
 		qcom,mdss-slave-pingpong-off = <0x00073000>;
 		qcom,mdss-ad-off = <0x0079000>;
 		qcom,mdss-rot-block-size = <64>;
-		qcom,mdss-wfd-mode = "intf";
+		qcom,mdss-wfd-mode = "intf_no_dspp";
 		qcom,mdss-has-non-scalar-rgb;
 		qcom,mdss-has-decimation;
 		qcom,mdss-traffic-shaper-enabled;
 		qcom,mdss-no-hist-vote;
+		qcom,mdss-has-10bit-pa;
 		qcom,mdss-needs-iommu-bw-vote;
 		qcom,mdss-has-panic-ctrl;
 		qcom,mdss-has-dst-split;
+		qcom,mdss-dsc-off = <0x00081000 0x00081400>;
 
 		clocks = <&clock_gcc clk_gcc_mdss_ahb_clk>,
 			 <&clock_gcc clk_gcc_mdss_axi_clk>,
 			 <&clock_gcc clk_mdp_clk_src>,
 			 <&clock_gcc clk_gcc_mdss_mdp_clk>,
-			 <&clock_gcc clk_gcc_mdss_vsync_clk>;
+			 <&clock_gcc clk_gcc_mdss_vsync_clk>,
+			 <&clock_gcc clk_gcc_mdp_tbu_clk>,
+			 <&clock_gcc clk_gcc_mdp_rt_tbu_clk>;
 		clock-names = "iface_clk", "bus_clk", "core_clk_src",
-				"core_clk", "vsync_clk";
-		qcom,mdp-settings = <0x0000117C 0x0000FFFF>,
-				    <0x00001180 0x0000000F>,
-				    <0x00001184 0x0000FF00>,
-				    <0x000011e0 0x000000E4>,
+				"core_clk", "vsync_clk", "tbu_clk",
+				"tbu_rt_clk";
+		qcom,mdp-settings = <0x0000117c 0x0000ffff>,
+				    <0x00001180 0x0000000f>,
+				    <0x00001184 0x0000ffc0>,
+				    <0x000011e0 0x000000e4>,
 				    <0x000011e4 0x00000000>,
 				    <0x00065048 0x00000008>,
 				    <0x00065848 0x00000008>,
@@ -181,11 +188,11 @@
 		gdsc-supply = <&gdsc_mdss>;
 		vdda-supply = <&pm8950_l1>;
 		vddio-supply = <&pm8950_l6>;
-		ranges = <0x1a94000 0x1a94000 0x25c
+		ranges = <0x1a94000 0x1a94000 0x300
 		      0x1a94400 0x1a94400 0x280
 		      0x1a94b80 0x1a94b80 0x30
 		      0x193e000 0x193e000 0x30
-			  0x1a96000 0x1a96000 0x25c
+			  0x1a96000 0x1a96000 0x300
 		      0x1a96400 0x1a96400 0x280
 		      0x1a96b80 0x1a96b80 0x30
 		      0x193e000 0x193e000 0x30>;
@@ -246,7 +253,7 @@
 			compatible = "qcom,mdss-dsi-ctrl";
 			label = "MDSS DSI CTRL->0";
 			cell-index = <0>;
-			reg = <0x1a94000 0x25c>,
+			reg = <0x1a94000 0x300>,
 			      <0x1a94400 0x280>,
 			      <0x1a94b80 0x30>,
 			      <0x193e000 0x30>;
@@ -279,9 +286,9 @@
 			compatible = "qcom,mdss-dsi-ctrl";
 			label = "MDSS DSI CTRL->1";
 			cell-index = <1>;
-			reg = <0x1a96000 0x25c>,
+			reg = <0x1a96000 0x300>,
 			      <0x1a96400 0x280>,
-			      <0x1a96b80 0x30>,
+			      <0x1a94b80 0x30>,
 			      <0x193e000 0x30>;
 			reg-names = "dsi_ctrl", "dsi_phy",
 			      "dsi_phy_regulator", "mmss_misc_phys";

@@ -133,6 +133,7 @@ struct bio {
  * at the dm level
  */
 #define BIO_DONTFREE 14
+#define BIO_INLINECRYPT 15
 
 #define bio_flagged(bio, flag)	((bio)->bi_flags & (1 << (flag)))
 

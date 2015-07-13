@@ -60,7 +60,7 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x84a00000 0x0 0x1e00000>;
+			reg = <0x0 0x85e00000 0x0 0xa00000>;
 			label = "other_ext_mem";
 		};
 
@@ -136,6 +136,7 @@
 #include "msm8952-iommu-domains.dtsi"
 #include "msm8952-mdss-pll.dtsi"
 #include "msm8952-gpu.dtsi"
+#include "msm-rdbg.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -209,7 +210,7 @@
 			<  800000000 4>,
 			<  998400000 5>,
 			< 1094400000 6>,
-			< 1209600000 8>;
+			< 1209600000 7>;
 
 		qcom,speed0-bin-v0-c1 =
 			<          0 0>,
@@ -222,6 +223,57 @@
 			< 1516800000 7>;
 
 		qcom,speed0-bin-v0-cci =
+			<          0 0>,
+			<  200000000 1>,
+			<  307200000 2>,
+			<  400000000 4>,
+			<  600000000 6>;
+
+		qcom,speed1-bin-v0-c0 =
+			<          0 0>,
+			<  400000000 1>,
+			<  800000000 4>,
+			<  998400000 5>,
+			< 1094400000 6>,
+			< 1209600000 7>;
+
+		qcom,speed1-bin-v0-c1 =
+			<          0 0>,
+			<  499200000 1>,
+			<  800000000 2>,
+			<  960000000 3>,
+			< 1094400000 4>,
+			< 1344000000 5>,
+			< 1440000000 6>,
+			< 1516800000 7>;
+
+		qcom,speed1-bin-v0-cci =
+			<          0 0>,
+			<  200000000 1>,
+			<  307200000 2>,
+			<  400000000 4>,
+			<  600000000 6>;
+
+		qcom,speed2-bin-v0-c0 =
+			<          0 0>,
+			<  400000000 1>,
+			<  800000000 4>,
+			<  998400000 5>,
+			< 1094400000 6>,
+			< 1209600000 8>;
+
+		qcom,speed2-bin-v0-c1 =
+			<          0 0>,
+			<  499200000 1>,
+			<  800000000 2>,
+			<  960000000 3>,
+			< 1094400000 4>,
+			< 1344000000 5>,
+			< 1440000000 6>,
+			< 1516800000 7>,
+			< 1651200000 8>;
+
+		qcom,speed2-bin-v0-cci =
 			<          0 0>,
 			<  200000000 1>,
 			<  307200000 2>,
@@ -304,7 +356,7 @@
 			< 1094400  5346 >,	/* SVS+  */
 			< 1344000  5712 >,	/* NOM   */
 			< 1440000  6152 >,	/* NOM+  */
-			< 1516800  7031 >;	/* TURBO */
+			< 1651200  7031 >;	/* TURBO */
 		cpu-to-dev-map-4 =
 			<  400000  2929 >,	/* SVS   */
 			<  800000  5346 >,	/* SVS+  */
@@ -329,7 +381,7 @@
 			<  500000  200000 >,
 			<  960000  307200 >,
 			< 1344000  400000 >,
-			< 1516800  600000 >;
+			< 1651200  600000 >;
 		cpu-to-dev-map-4 =
 			<  400000  200000 >,
 			<  800000  307200 >,
@@ -365,7 +417,8 @@
 			 < 1094400 >,
 			 < 1344000 >,
 			 < 1440000 >,
-			 < 1516800 >;
+			 < 1516800 >,
+			 < 1651200 >;
 		qcom,cpufreq-table-4 =
 			 <  200000 >,
 			 <  400000 >,
@@ -687,13 +740,13 @@
 		reg = <0x07900000 0x4effc>, <0x07904000 0x26934>;
 		reg-names = "ipa-base", "bam-base";
 		interrupts = <0 228 0>,
-		             <0 231 0>;
+		             <0 230 0>;
 		interrupt-names = "ipa-irq", "bam-irq";
 		qcom,ipa-hw-ver = <6>; /* IPA core version = IPAv2.6L */
 		qcom,ipa-hw-mode = <0>; /* IPA hw type = Normal */
 		clock-names = "core_clk";
 		clocks = <&clock_gcc clk_ipa_clk>;
-		qcom,ee = <2>;
+		qcom,ee = <0>;
 		qcom,msm-bus,name = "ipa";
 		qcom,msm-bus,num-cases = <3>;
 		qcom,msm-bus,num-paths = <1>;
@@ -1099,6 +1152,8 @@
 		vbus_otg-supply = <&smbcharger_charger_otg>;
 		qcom,vdd-voltage-level = <0 1200000 1200000>;
 
+		qcom,hsusb-otg-phy-init-seq =
+			<0x68 0x81 0x24 0x82 0xffffffff>;
 		qcom,hsusb-otg-phy-type = <3>; /* SNPS Femto PHY */
 		qcom,hsusb-otg-mode = <3>; /* OTG mode */
 		qcom,hsusb-otg-otg-control = <2>; /* PMIC */
@@ -1238,6 +1293,21 @@
 		reg = <0x7803000 0x8000>;
 		interrupt-names = "sdcc_ice_nonsec_level_irq", "sdcc_ice_sec_level_irq";
 		interrupts = <0 312 0>, <0 313 0>;
+		qcom,enable-ice-clk;
+		clock-names = "ice_core_clk_src", "ice_core_clk",
+				"bus_clk", "iface_clk";
+		clocks = <&clock_gcc clk_sdcc1_ice_core_clk_src>,
+			 <&clock_gcc clk_gcc_sdcc1_ice_core_clk>,
+			 <&clock_gcc clk_gcc_sdcc1_apps_clk>,
+			 <&clock_gcc clk_gcc_sdcc1_ahb_clk>;
+		qcom,op-freq-hz = <200000000>, <0>, <0>, <0>;
+		qcom,msm-bus,name = "sdcc_ice_noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<78 512 0 0>,    /* No vote */
+			<78 512 1000 0>; /* Max. bandwidth */
+		qcom,bus-vector-names = "MIN", "MAX";
 		qcom,instance-type = "sdcc";
 	};
 
@@ -1528,9 +1598,9 @@
 		qcom,ce-opp-freq = <100000000>;
 	};
 
-	qcom_seecom: qseecom@86000000 {
+	qcom_seecom: qseecom@85e00000 {
 		compatible = "qcom,qseecom";
-		reg = <0x86000000 0x300000>;
+		reg = <0x85e00000 0x500000>;
 		reg-names = "secapp-region";
 		qcom,hlos-num-ce-hw-instances = <1>;
 		qcom,hlos-ce-hw-instance = <0>;
@@ -1549,15 +1619,9 @@
 		clocks = <&clock_gcc clk_crypto_clk_src>,
 			 <&clock_gcc clk_gcc_crypto_clk>,
 			 <&clock_gcc clk_gcc_crypto_ahb_clk>,
-			 <&clock_gcc clk_gcc_crypto_axi_clk>,
-			 <&clock_gcc clk_sdcc1_ice_core_clk_src>,
-			 <&clock_gcc clk_gcc_sdcc1_ice_core_clk>,
-			 <&clock_gcc clk_gcc_sdcc1_ahb_clk>,
-			 <&clock_gcc clk_gcc_sdcc1_apps_clk>;
+			 <&clock_gcc clk_gcc_crypto_axi_clk>;
 		clock-names = "core_clk_src", "core_clk",
-				"iface_clk", "bus_clk",
-				"sdcc_core_clk_src", "sdcc_core_clk",
-				"sdcc_bus_clk", "sdcc_iface_clk";
+				"iface_clk", "bus_clk";
 		qcom,ce-opp-freq = <100000000>;
 	};
 

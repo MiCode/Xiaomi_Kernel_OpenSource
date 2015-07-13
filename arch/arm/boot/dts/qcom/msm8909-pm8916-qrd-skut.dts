@@ -46,7 +46,7 @@
 			qcom,chg-inhibit-disabled;
 
 			qcom,using-pmic-therm;
-			qcom,hot-bat-decidegc = <600>;
+			qcom,hot-bat-decidegc = <520>;
 			qcom,cold-bat-decidegc = <0>;
 			qcom,bat-present-decidegc = <200>;
 			/*
@@ -70,10 +70,10 @@
 
 / {
 	qrd_batterydata: qcom,battery-data {
-		qcom,rpull-up-kohm = <100>;
+		qcom,rpull-up-kohm = <0>;
 		qcom,vref-batt-therm = <1800000>;
 
-		#include "batterydata-qrd-skul-4v4-2920mah.dtsi"
+		#include "batterydata-qrd-skut-4v35-2300mah.dtsi"
 	};
 };
 

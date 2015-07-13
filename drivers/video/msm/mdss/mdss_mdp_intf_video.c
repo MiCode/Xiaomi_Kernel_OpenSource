@@ -248,8 +248,9 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 		display_v_end -= p->h_front_porch;
 	}
 
-	/* TIMING_2 flush bit on 8939 is BIT 31 */
-	if (mdata->mdp_rev == MDSS_MDP_HW_REV_108 &&
+	/* TIMING_2 flush bit on 8939/8976 is BIT 31 */
+	if ((mdata->mdp_rev == MDSS_MDP_HW_REV_108 ||
+		mdata->mdp_rev == MDSS_MDP_HW_REV_111) &&
 				ctx->intf_num == MDSS_MDP_INTF2)
 		ctl->flush_bits |= BIT(31);
 	else
@@ -853,8 +854,11 @@ static void mdss_mdp_video_timegen_flush(struct mdss_mdp_ctl *ctl,
 	mdata = ctl->mdata;
 	ctl_flush = (BIT(31) >> (ctl->intf_num - MDSS_MDP_INTF0));
 	if (sctx) {
-		/* For 8939, sctx is always INTF2 and the flush bit is BIT 31 */
-		if (mdata->mdp_rev == MDSS_MDP_HW_REV_108)
+		/* For 8939/8976, sctx is always INTF2
+		 * and the flush bit is BIT 31
+		 */
+		if (mdata->mdp_rev == MDSS_MDP_HW_REV_108 ||
+				mdata->mdp_rev == MDSS_MDP_HW_REV_111)
 			ctl_flush |= BIT(31);
 		else
 			ctl_flush |= (BIT(31) >>
@@ -1072,6 +1076,7 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 		ctx->timegen_en = true;
 		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_ON, NULL);
 		WARN(rc, "intf %d panel on error (%d)\n", ctl->intf_num, rc);
+		mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_POST_PANEL_ON, NULL);
 	}
 
 	return 0;
@@ -1209,6 +1214,7 @@ static int mdss_mdp_video_ctx_setup(struct mdss_mdp_ctl *ctl,
 {
 	struct intf_timing_params itp = {0};
 	u32 dst_bpp;
+	struct dsc_desc *dsc = NULL;
 
 	ctx->intf_type = ctl->intf_type;
 	init_completion(&ctx->vsync_comp);
@@ -1231,6 +1237,9 @@ static int mdss_mdp_video_ctx_setup(struct mdss_mdp_ctl *ctl,
 		ctx->intf_recovery.fxn = NULL;
 		ctx->intf_recovery.data = NULL;
 	}
+
+	if (pinfo->compression_mode == COMPRESSION_DSC)
+		dsc = &pinfo->dsc;
 
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_INTF_VSYNC,
 			ctx->intf_num, mdss_mdp_video_vsync_intr_done,
@@ -1255,6 +1264,11 @@ static int mdss_mdp_video_ctx_setup(struct mdss_mdp_ctl *ctl,
 
 	itp.yres = pinfo->yres + pinfo->lcdc.border_top +
 				pinfo->lcdc.border_bottom;
+
+	if (dsc) {	/* compressed */
+		itp.width = dsc->pclk_per_line;
+		itp.xres = dsc->pclk_per_line;
+	}
 
 	itp.h_back_porch = pinfo->lcdc.h_back_porch;
 	itp.h_front_porch = pinfo->lcdc.h_front_porch;

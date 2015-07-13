@@ -19,14 +19,14 @@
 /* Pagetable virtual base */
 #define KGSL_IOMMU_CTX_OFFSET_V1	0x8000
 #define KGSL_IOMMU_CTX_OFFSET_V2	0x9000
-#define KGSL_IOMMU_CTX_OFFSET_V2_A530	0x8000
+#define KGSL_IOMMU_CTX_OFFSET_V2_A5XX	0x8000
 #define KGSL_IOMMU_CTX_OFFSET_A405V2	0x8000
 #define KGSL_IOMMU_CTX_SHIFT		12
 
 /* IOMMU V2 AHB base is fixed */
 #define KGSL_IOMMU_V2_AHB_BASE_OFFSET		0xA000
 #define KGSL_IOMMU_V2_AHB_BASE_OFFSET_A405  0x48000
-#define KGSL_IOMMU_V2_AHB_BASE_OFFSET_A530  0x40000
+#define KGSL_IOMMU_V2_AHB_BASE_OFFSET_A5XX  0x40000
 /* IOMMU_V2 AHB base points to ContextBank1 */
 #define KGSL_IOMMU_CTX_AHB_OFFSET_V2   0
 
@@ -87,7 +87,7 @@ struct kgsl_iommu_register_list {
 };
 
 /* Max number of iommu clks per IOMMU unit */
-#define KGSL_IOMMU_MAX_CLKS 5
+#define KGSL_IOMMU_MAX_CLKS 6
 
 enum kgsl_iommu_context_id {
 	KGSL_IOMMU_CONTEXT_USER = 0,
@@ -203,6 +203,7 @@ struct kgsl_iommu {
 	struct kgsl_iommu_register_list *iommu_reg_list;
 	struct clk *gtcu_iface_clk;
 	struct clk *gtbu_clk;
+	struct clk *gtbu1_clk;
 	struct kgsl_memdesc smmu_info;
 };
 
@@ -210,10 +211,12 @@ struct kgsl_iommu {
  * struct kgsl_iommu_pt - Iommu pagetable structure private to kgsl driver
  * @domain: Pointer to the iommu domain that contains the iommu pagetable
  * @iommu: Pointer to iommu structure
+ * @pt_base: physical base pointer of this pagetable.
  */
 struct kgsl_iommu_pt {
 	struct iommu_domain *domain;
 	struct kgsl_iommu *iommu;
+	phys_addr_t pt_base;
 };
 
 /*

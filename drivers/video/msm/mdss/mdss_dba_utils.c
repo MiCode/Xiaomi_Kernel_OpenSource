@@ -18,7 +18,12 @@
 
 #include "mdss_dba_utils.h"
 #include "mdss_hdmi_edid.h"
+#include "mdss_cec_abstract.h"
 #include "mdss_fb.h"
+
+/* standard cec buf size + 1 byte specific to driver */
+#define CEC_BUF_SIZE    (MAX_CEC_FRAME_SIZE + 1)
+#define MAX_SWITCH_NAME_SIZE        5
 
 struct mdss_dba_utils_data {
 	struct msm_dba_ops ops;
@@ -31,8 +36,13 @@ struct mdss_dba_utils_data {
 	struct mdss_panel_info *pinfo;
 	void *dba_data;
 	void *edid_data;
+	void *cec_abst_data;
 	u8 *edid_buf;
 	u32 edid_buf_size;
+	u8 cec_buf[CEC_BUF_SIZE];
+	struct cec_ops cops;
+	struct cec_cbs ccbs;
+	char disp_switch_name[MAX_SWITCH_NAME_SIZE];
 };
 
 static struct mdss_dba_utils_data *mdss_dba_utils_get_data(
@@ -189,7 +199,11 @@ static void mdss_dba_utils_dba_cb(void *data, enum msm_dba_callback_event event)
 {
 	int ret = -EINVAL;
 	struct mdss_dba_utils_data *udata = data;
+	struct cec_msg msg = {0};
 	bool pluggable = false;
+	bool operands_present = false;
+	u32 no_of_operands, size, i;
+	u32 operands_offset = MAX_CEC_FRAME_SIZE - MAX_OPERAND_SIZE;
 
 	if (!udata) {
 		pr_err("Invalid data\n");
@@ -234,9 +248,130 @@ static void mdss_dba_utils_dba_cb(void *data, enum msm_dba_callback_event event)
 		udata->hpd_state = false;
 		break;
 
+	case MSM_DBA_CB_CEC_READ_PENDING:
+		if (udata->ops.hdmi_cec_read) {
+			ret = udata->ops.hdmi_cec_read(
+				udata->dba_data,
+				&size,
+				udata->cec_buf, 0);
+
+			if (ret || !size || size > CEC_BUF_SIZE) {
+				pr_err("%s: cec read failed\n", __func__);
+				return;
+			}
+		}
+
+		/* prepare cec msg */
+		msg.recvr_id   = udata->cec_buf[0] & 0x0F;
+		msg.sender_id  = (udata->cec_buf[0] & 0xF0) >> 4;
+		msg.opcode     = udata->cec_buf[1];
+		msg.frame_size = (udata->cec_buf[MAX_CEC_FRAME_SIZE] & 0x1F);
+
+		operands_present = (msg.frame_size > operands_offset) &&
+			(msg.frame_size <= MAX_CEC_FRAME_SIZE);
+
+		if (operands_present) {
+			no_of_operands = msg.frame_size - operands_offset;
+
+			for (i = 0; i < no_of_operands; i++)
+				msg.operand[i] =
+					udata->cec_buf[operands_offset + i];
+		}
+
+		ret = udata->ccbs.msg_recv_notify(udata->ccbs.data, &msg);
+		if (ret)
+			pr_err("%s: failed to notify cec msg\n", __func__);
+		break;
+
 	default:
 		break;
 	}
+}
+
+static int mdss_dba_utils_cec_enable(void *data, bool enable)
+{
+	int ret = -EINVAL;
+	struct mdss_dba_utils_data *udata = data;
+
+	if (!udata) {
+		pr_err("%s: Invalid data\n", __func__);
+		return -EINVAL;
+	}
+
+	if (udata->ops.hdmi_cec_on)
+		ret = udata->ops.hdmi_cec_on(udata->dba_data, enable, 0);
+
+	return ret;
+}
+
+static int mdss_dba_utils_send_cec_msg(void *data, struct cec_msg *msg)
+{
+	int ret = -EINVAL, i;
+	u32 operands_offset = MAX_CEC_FRAME_SIZE - MAX_OPERAND_SIZE;
+	struct mdss_dba_utils_data *udata = data;
+
+	u8 buf[MAX_CEC_FRAME_SIZE];
+
+	if (!udata || !msg) {
+		pr_err("%s: Invalid data\n", __func__);
+		return -EINVAL;
+	}
+
+	buf[0] = (msg->sender_id << 4) | msg->recvr_id;
+	buf[1] = msg->opcode;
+
+	for (i = 0; i < MAX_OPERAND_SIZE &&
+		i < msg->frame_size - operands_offset; i++)
+		buf[operands_offset + i] = msg->operand[i];
+
+	if (udata->ops.hdmi_cec_write)
+		ret = udata->ops.hdmi_cec_write(udata->dba_data,
+			msg->frame_size, (char *)buf, 0);
+
+	return ret;
+}
+
+static int mdss_dba_utils_init_switch_dev(struct mdss_dba_utils_data *udata,
+	u32 fb_node)
+{
+	int rc = -EINVAL, ret;
+
+	if (!udata) {
+		pr_err("invalid input\n");
+		goto end;
+	}
+
+	pr_debug("fb_node %d\n", fb_node);
+
+	ret = snprintf(udata->disp_switch_name,
+		sizeof(udata->disp_switch_name),
+		"fb%d", fb_node);
+	if (!ret) {
+		DEV_ERR("%s: couldn't write display switch node\n", __func__);
+		goto end;
+	}
+
+	/* create switch device to update display modules */
+	udata->sdev_display.name = udata->disp_switch_name;
+	rc = switch_dev_register(&udata->sdev_display);
+	if (rc) {
+		pr_err("display switch registration failed\n");
+		goto end;
+	}
+
+	udata->display_switch_registered = true;
+
+	/* create switch device to update audio modules */
+	udata->sdev_audio.name = "hdmi_audio";
+	ret = switch_dev_register(&udata->sdev_audio);
+	if (ret) {
+		pr_err("audio switch registration failed\n");
+		goto end;
+	}
+
+	udata->audio_switch_registered = true;
+end:
+	return rc;
 }
 
 /**
@@ -275,6 +410,8 @@ int mdss_dba_utils_video_on(void *data, struct mdss_panel_info *pinfo)
 	if (ud->ops.video_on)
 		ret = ud->ops.video_on(ud->dba_data, true, &video_cfg, 0);
 
+	if (ud->ops.hdcp_enable)
+		ret = ud->ops.hdcp_enable(ud->dba_data, true, true, 0);
 end:
 	return ret;
 }
@@ -301,6 +438,8 @@ int mdss_dba_utils_video_off(void *data)
 	if (ud->ops.video_on)
 		ret = ud->ops.video_on(ud->dba_data, false, NULL, 0);
 
+	if (ud->ops.hdcp_enable)
+		ret = ud->ops.hdcp_enable(ud->dba_data, false, false, 0);
 end:
 	return ret;
 }
@@ -323,6 +462,8 @@ void *mdss_dba_utils_init(struct mdss_dba_utils_init_data *uid)
 	struct hdmi_edid_init_data edid_init_data;
 	struct mdss_dba_utils_data *udata = NULL;
 	struct msm_dba_reg_info info;
+	struct cec_abstract_init_data cec_abst_init_data;
+	void *cec_abst_data;
 	int ret = 0;
 
 	if (!uid) {
@@ -373,24 +514,12 @@ void *mdss_dba_utils_init(struct mdss_dba_utils_init_data *uid)
 	udata->kobj = uid->kobj;
 	udata->pinfo = uid->pinfo;
 
-	/* create switch device to update display modules */
-	udata->sdev_display.name = "bridge_display";
-	ret = switch_dev_register(&udata->sdev_display);
+	/* register display and audio switch devices */
+	ret = mdss_dba_utils_init_switch_dev(udata, uid->fb_node);
 	if (ret) {
-		pr_err("display switch registration failed\n");
+		pr_err("switch dev registration failed\n");
 		goto error;
 	}
-	udata->display_switch_registered = true;
-
-	/* create switch device to update audio modules */
-	udata->sdev_audio.name = "hdmi_audio";
-	ret = switch_dev_register(&udata->sdev_audio);
-	if (ret) {
-		pr_err("audio switch registration failed\n");
-		goto error;
-	}
-
-	udata->audio_switch_registered = true;
 
 	/* Initialize EDID feature */
 	edid_init_data.kobj = uid->kobj;
@@ -410,6 +539,29 @@ void *mdss_dba_utils_init(struct mdss_dba_utils_init_data *uid)
 	/* get edid buffer from edid parser */
 	udata->edid_buf = edid_init_data.buf;
 	udata->edid_buf_size = edid_init_data.buf_size;
+
+	/* Initialize cec abstract layer and get callbacks */
+	udata->cops.send_msg = mdss_dba_utils_send_cec_msg;
+	udata->cops.enable   = mdss_dba_utils_cec_enable;
+	udata->cops.data     = udata;
+
+	/* initialize cec abstraction module */
+	cec_abst_init_data.kobj = uid->kobj;
+	cec_abst_init_data.ops  = &udata->cops;
+	cec_abst_init_data.cbs  = &udata->ccbs;
+
+	udata->cec_abst_data = cec_abstract_init(&cec_abst_init_data);
+	if (IS_ERR_OR_NULL(udata->cec_abst_data)) {
+		pr_err("error initializing cec abstract module\n");
+		ret = PTR_ERR(cec_abst_data);
+		goto error;
+	}
+
+	/* update cec data to retrieve it back in cec abstract module */
+	if (uid->pinfo) {
+		uid->pinfo->is_cec_supported = true;
+		uid->pinfo->cec_data = udata->cec_abst_data;
+	}
 
 	/* power on downstream device */
 	if (udata->ops.power_on) {
@@ -441,11 +593,16 @@ void mdss_dba_utils_deinit(void *data)
 		return;
 	}
 
+	if (!IS_ERR_OR_NULL(udata->cec_abst_data))
+		cec_abstract_deinit(udata->cec_abst_data);
+
 	if (udata->edid_data)
 		hdmi_edid_deinit(udata->edid_data);
 
-	if (udata->pinfo)
+	if (udata->pinfo) {
 		udata->pinfo->edid_data = NULL;
+		udata->pinfo->is_cec_supported = false;
+	}
 
 	if (udata->audio_switch_registered)
 		switch_dev_unregister(&udata->sdev_audio);
