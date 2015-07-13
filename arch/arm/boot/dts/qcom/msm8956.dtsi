@@ -1568,25 +1568,25 @@
 		clock-names = "core_clk", "core0_clk", "iface_clk", "bus_clk";
 		qcom,clock-configs = <0x1 0x0 0x0 0x0>;
 		qcom,sw-power-collapse;
-		qcom,max-hw-load = <972000>; /* 3840 x 2160 @ 30 fps */
+		qcom,max-hw-load = <979200>; /* 3840 x 2176 @ 30 fps */
 
 		qcom,load-freq-tbl =
-			<979200 400000000 0xffffffff>, /* NOM+ , decoders, 1920 x 1088 @ 120 fps */
-			<979200 466000000 0x55555555>, /* TURBO, encoders, 1920 x 1088 @ 120 fps */
-			<972000 400000000 0xffffffff>, /* NOM+ , decoders, 3840 x 2160 @ 30 fps  */
-			<972000 466000000 0x55555555>, /* TURBO, encoders, 3840 x 2160 @ 30 fps  */
-			<489600 228570000 0xffffffff>, /* SVS  , decoders, 1920 x 1088 @ 60 fps  */
-			<489600 400000000 0x55555555>, /* NOM+ , encoders, 1920 x 1088 @ 60 fps  */
-			<432000 228570000 0xffffffff>, /* SVS  , decoders, 1280 x 720  @ 120 fps */
-			<489600 310670000 0x55555555>, /* NOM  , encoders, 1280 x 720  @ 120 fps */
-			<244800 228570000 0xffffffff>, /* SVS  , decoders, 1920 x 1088 @ 30 fps  */
-			<244800 228570000 0x55555555>, /* SVS  , encoders, 1920 x 1088 @ 30 fps  */
-			<216000 228570000 0xffffffff>, /* SVS  , decoders, 1280 x 720  @ 60 fps  */
-			<216000 228570000 0x55555555>, /* SVS  , encoders, 1280 x 720  @ 60 fps  */
-			<108000 100000000 0xffffffff>, /* SVS--, decoders, 1280 x 720  @ 30 fps  */
-			<108000 100000000 0x55555555>, /* SVS- , encoders, 1280 x 720  @ 30 fps  */
-			<36000 100000000 0xffffffff>,  /* SVS--, decoders, 720 x 480   @ 30 fps  */
-			<36000 100000000 0x55555555>;  /* SVS--, encoders, 720 x 480   @ 30 fps  */
+			<979200 400000000 0xffffffff>, /* NOM+ , UHD30D   */
+			<979200 466000000 0x55555555>, /* TURBO, UHD30E   */
+			<734400 360000000 0xffffffff>, /* NOM  , 1080p90D */
+			<734400 400000000 0x55555555>, /* NOM+ , 1080p90E */
+			<489600 228570000 0xffffffff>, /* SVS  , 1080p60D */
+			<489600 400000000 0x55555555>, /* NOM+ , 1080p60E */
+			<432000 228570000 0xffffffff>, /* SVS  , 720p120D */
+			<432000 360000000 0x55555555>, /* NOM  , 720p120E */
+			<244800 100000000 0xffffffff>, /* SVS- , 1080p30D */
+			<244800 228570000 0x55555555>, /* SVS  , 1080p30E */
+			<216000 100000000 0xffffffff>, /* SVS- , 720p60D  */
+			<216000 228570000 0x55555555>, /* SVS  , 720p60E  */
+			<108000 80000000 0xffffffff>,  /* SVS--, 720p30D  */
+			<108000 100000000 0x55555555>, /* SVS- , 720p30E  */
+			<36000 72727200 0xffffffff>,   /* SVS--, 480p30D  */
+			<36000 80000000 0x55555555>;   /* SVS--, 480p30E  */
 
 		qcom,qdss-presets =
 			<0x6025000 0x1000>,
@@ -1602,9 +1602,12 @@
 			<0x80124 0x00000003>;
 
 		qcom,clock-voltage-tbl =
+			<72727200 RPM_SMD_REGULATOR_LEVEL_SVS>,
+			<80000000 RPM_SMD_REGULATOR_LEVEL_SVS>,
 			<100000000 RPM_SMD_REGULATOR_LEVEL_SVS>,
+			<133333333 RPM_SMD_REGULATOR_LEVEL_SVS>,
 			<228570000 RPM_SMD_REGULATOR_LEVEL_SVS>,
-			<310670000 RPM_SMD_REGULATOR_LEVEL_SVS_PLUS>,
+			<310667000 RPM_SMD_REGULATOR_LEVEL_SVS_PLUS>,
 			<360000000 RPM_SMD_REGULATOR_LEVEL_NOM>,
 			<400000000 RPM_SMD_REGULATOR_LEVEL_NOM_PLUS>,
 			<466000000 RPM_SMD_REGULATOR_LEVEL_TURBO>;
