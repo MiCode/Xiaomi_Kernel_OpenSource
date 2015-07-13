@@ -725,6 +725,7 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 		if ((pdata->panel_info.cont_splash_enabled &&
 			!ctl->mfd->splash_info.splash_logo_enabled)
 			|| (ctl->mfd->splash_info.splash_logo_enabled
+			&& ctl->mfd->splash_info.splash_thread
 			&& !is_mdss_iommu_attached())) {
 			rc = wait_for_completion_timeout(&ctx->vsync_comp,
 					usecs_to_jiffies(VSYNC_TIMEOUT_US));
