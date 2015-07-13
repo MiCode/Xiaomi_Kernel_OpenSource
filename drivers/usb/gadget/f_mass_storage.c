@@ -2987,7 +2987,8 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 		bh->next = bh + 1;
 		++bh;
 buffhds_first_it:
-		bh->buf = kmalloc(FSG_BUFLEN, GFP_KERNEL);
+		bh->buf = kmalloc(FSG_BUFLEN + (gadget->extra_buf_alloc),
+				GFP_KERNEL);
 		if (unlikely(!bh->buf)) {
 			rc = -ENOMEM;
 			goto error_release;
