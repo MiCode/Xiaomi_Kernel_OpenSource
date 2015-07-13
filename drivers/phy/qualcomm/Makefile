@@ -5,6 +5,7 @@ obj-$(CONFIG_PHY_QCOM_QUSB2)		+= phy-qcom-qusb2.o
 phy_qcom_ufs_mod-y				+= phy-qcom-ufs.o
 phy_qcom_ufs_mod-$(CONFIG_PHY_QCOM_UFS_20NM)	+= phy-qcom-ufs-qmp-20nm.o
 phy_qcom_ufs_mod-$(CONFIG_PHY_QCOM_UFS_14NM)	+= phy-qcom-ufs-qmp-14nm.o
+phy_qcom_ufs_mod-$(CONFIG_PHY_QCOM_UFS_V3)	+= phy-qcom-ufs-qmp-v3.o
 obj-$(CONFIG_PHY_QCOM_UFS)			+= phy_qcom_ufs_mod.o
 obj-$(CONFIG_PHY_QCOM_USB_HS) 		+= phy-qcom-usb-hs.o
 obj-$(CONFIG_PHY_QCOM_USB_HSIC) 	+= phy-qcom-usb-hsic.o
