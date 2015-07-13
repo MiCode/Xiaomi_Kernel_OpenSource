@@ -185,6 +185,15 @@ config QPNP_HAPTIC
 	  on the Qualcomm Technologies' QPNP PMICs. It uses the android
 	  timed-output framework.
 
+config GPIO_USB_DETECT
+	tristate "GPIO-based USB VBUS Detection"
+	depends on POWER_SUPPLY
+	help
+	  This driver supports external USB VBUS detection circuitry whose
+	  output is connected to a GPIO. The driver in turn notifies the
+	  USB driver of VBUS presence/disconnection using the power_supply
+	  framework.
+
 config MSM_11AD
 	tristate "Platform driver for 11ad chip"
 	depends on PCI

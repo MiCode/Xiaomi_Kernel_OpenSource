@@ -373,6 +373,10 @@
 	status = "okay";
 };
 
+&usb3 {
+	vbus_dwc3-supply = <&usb_otg_switch>;
+};
+
 &pm8994_mpps {
 	mpp@a300 { /* MPP 4 */
 		/* HDMI_5v_vreg regulator enable */
@@ -488,6 +492,13 @@
 		asoc-codec = <&stub_codec>, <&hdmi_audio>;
 		asoc-codec-names = "msm-stub-codec.1", "msm-hdmi-audio-codec-rx";
 		qcom,aux-codec = <&wsa881x_1>, <&wsa881x_2>;
+	};
+
+	usb_detect {
+		compatible = "qcom,gpio-usbdetect";
+		interrupt-parent = <&tlmm>;
+		interrupts = <78 0>;
+		interrupt-names = "vbus_det_irq";
 	};
 };
 
