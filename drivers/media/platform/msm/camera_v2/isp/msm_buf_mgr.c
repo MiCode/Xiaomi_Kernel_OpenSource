@@ -1228,8 +1228,8 @@ static int msm_isp_buf_mgr_debug(struct msm_isp_buf_mgr *buf_mgr)
 {
 	struct msm_isp_buffer *bufs = NULL;
 	uint32_t i = 0, j = 0, k = 0, rc = 0;
-	char *print_buf = NULL, temp_buf[512];
-	uint32_t start_addr = 0, end_addr = 0, print_buf_size = 2500;
+	char *print_buf = NULL, temp_buf[100];
+	uint32_t start_addr = 0, end_addr = 0, print_buf_size = 2000;
 	if (!buf_mgr) {
 		pr_err_ratelimited("%s: %d] NULL buf_mgr\n",
 			__func__, __LINE__);
@@ -1242,6 +1242,10 @@ static int msm_isp_buf_mgr_debug(struct msm_isp_buf_mgr *buf_mgr)
 	}
 	snprintf(print_buf, print_buf_size, "%s\n", __func__);
 	for (i = 0; i < BUF_MGR_NUM_BUF_Q; i++) {
+		if (i % 2 == 0 && i > 0) {
+			pr_err("%s\n", print_buf);
+			print_buf[0] = 0;
+		}
 		if (buf_mgr->bufq[i].bufq_handle != 0) {
 			snprintf(temp_buf, sizeof(temp_buf),
 				"handle %x stream %x num_bufs %d\n",
@@ -1252,7 +1256,7 @@ static int msm_isp_buf_mgr_debug(struct msm_isp_buf_mgr *buf_mgr)
 			for (j = 0; j < buf_mgr->bufq[i].num_bufs; j++) {
 				bufs = &buf_mgr->bufq[i].bufs[j];
 				if (!bufs) {
-					break;
+					continue;
 				}
 				for (k = 0; k < bufs->num_planes; k++) {
 					start_addr = bufs->
