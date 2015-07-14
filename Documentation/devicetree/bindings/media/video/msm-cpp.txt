@@ -50,6 +50,10 @@ Optional properties of the child node:
    mmu prefetch address min location in payload.
 - qcom,ref-we-mmu-pf-ptr-off =  offset from plane base to reference write engine
    mmu prefetch address min location in payload.
+- qcom,set-group-buffer-len = length/size of set group buffer command used for
+  hfr.
+- qcom,dup-frame-indicator-off =  offset for duplicate frame indicator in a
+  batch for frames
 
 Optional properties:
 - mmagic-vdd-supply: phandle to GDSC regulator controlling mmagic.
@@ -108,5 +112,8 @@ Example:
 			qcom,we-mmu-pf-ptr-off = <12>;
 			qcom,dup-we-mmu-pf-ptr-off = <17>;
 			qcom,ref-we-mmu-pf-ptr-off = <22>;
+			qcom,set-group-buffer-len = <91>;
+			qcom,dup-frame-indicator-off = <48>;
+
 		};
 	};
