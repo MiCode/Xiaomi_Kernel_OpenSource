@@ -27,6 +27,9 @@ struct alpha_pll_masks {
 	u32 alpha_en_mask;	/* alpha_en bit */
 	u32 output_mask;	/* pllout_* bits */
 	u32 post_div_mask;
+
+	u32 test_ctl_lo_mask;
+	u32 test_ctl_hi_mask;
 };
 
 struct alpha_pll_vco_tbl {
@@ -53,6 +56,8 @@ struct alpha_pll_clk {
 	u32 enable_config;	/* bitmask of outputs to be enabled */
 	u32 post_div_config;	/* masked post divider setting */
 	u32 config_ctl_val;	/* config register init value */
+	u32 test_ctl_lo_val;	/* test control settings */
+	u32 test_ctl_hi_val;
 
 	struct alpha_pll_vco_tbl *vco_tbl;
 	u32 num_vco;
