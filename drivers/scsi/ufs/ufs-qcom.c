@@ -50,10 +50,6 @@ enum {
 
 static struct ufs_qcom_host *ufs_qcom_hosts[MAX_UFS_QCOM_HOSTS];
 
-static void ufs_qcom_get_speed_mode(struct ufs_pa_layer_attr *p, char *result);
-static int ufs_qcom_get_bus_vote(struct ufs_qcom_host *host,
-		const char *speed_mode);
-static int ufs_qcom_set_bus_vote(struct ufs_qcom_host *host, int vote);
 static int ufs_qcom_update_sec_cfg(struct ufs_hba *hba, bool restore_sec_cfg);
 static void ufs_qcom_get_default_testbus_cfg(struct ufs_qcom_host *host);
 static int ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(struct ufs_hba *hba,
@@ -851,6 +847,81 @@ static int ufs_qcom_get_pwr_dev_param(struct ufs_qcom_dev_params *qcom_param,
 	return 0;
 }
 
+#ifdef CONFIG_MSM_BUS_SCALING
+static int ufs_qcom_get_bus_vote(struct ufs_qcom_host *host,
+		const char *speed_mode)
+{
+	struct device *dev = host->hba->dev;
+	struct device_node *np = dev->of_node;
+	int err;
+	const char *key = "qcom,bus-vector-names";
+
+	if (!speed_mode) {
+		err = -EINVAL;
+		goto out;
+	}
+
+	if (host->bus_vote.is_max_bw_needed && !!strcmp(speed_mode, "MIN"))
+		err = of_property_match_string(np, key, "MAX");
+	else
+		err = of_property_match_string(np, key, speed_mode);
+
+out:
+	if (err < 0)
+		dev_err(dev, "%s: Invalid %s mode %d\n",
+				__func__, speed_mode, err);
+	return err;
+}
+
+static void ufs_qcom_get_speed_mode(struct ufs_pa_layer_attr *p, char *result)
+{
+	int gear = max_t(u32, p->gear_rx, p->gear_tx);
+	int lanes = max_t(u32, p->lane_rx, p->lane_tx);
+	int pwr;
+
+	/* default to PWM Gear 1, Lane 1 if power mode is not initialized */
+	if (!gear)
+		gear = 1;
+
+	if (!lanes)
+		lanes = 1;
+
+	if (!p->pwr_rx && !p->pwr_tx) {
+		pwr = SLOWAUTO_MODE;
+		snprintf(result, BUS_VECTOR_NAME_LEN, "MIN");
+	} else if (p->pwr_rx == FAST_MODE || p->pwr_rx == FASTAUTO_MODE ||
+		 p->pwr_tx == FAST_MODE || p->pwr_tx == FASTAUTO_MODE) {
+		pwr = FAST_MODE;
+		snprintf(result, BUS_VECTOR_NAME_LEN, "%s_R%s_G%d_L%d", "HS",
+			 p->hs_rate == PA_HS_MODE_B ? "B" : "A", gear, lanes);
+	} else {
+		pwr = SLOW_MODE;
+		snprintf(result, BUS_VECTOR_NAME_LEN, "%s_G%d_L%d",
+			 "PWM", gear, lanes);
+	}
+}
+
+static int ufs_qcom_set_bus_vote(struct ufs_qcom_host *host, int vote)
+{
+	int err = 0;
+
+	if (vote != host->bus_vote.curr_vote) {
+		err = msm_bus_scale_client_update_request(
+				host->bus_vote.client_handle, vote);
+		if (err) {
+			dev_err(host->hba->dev,
+				"%s: msm_bus_scale_client_update_request() failed: bus_client_handle=0x%x, vote=%d, err=%d\n",
+				__func__, host->bus_vote.client_handle,
+				vote, err);
+			goto out;
+		}
+
+		host->bus_vote.curr_vote = vote;
+	}
+out:
+	return err;
+}
+
 static int ufs_qcom_update_bus_bw_vote(struct ufs_qcom_host *host)
 {
 	int vote;
@@ -871,6 +942,93 @@ static int ufs_qcom_update_bus_bw_vote(struct ufs_qcom_host *host)
 		host->bus_vote.saved_vote = vote;
 	return err;
 }
+
+static ssize_t
+show_ufs_to_mem_max_bus_bw(struct device *dev, struct device_attribute *attr,
+			char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	return snprintf(buf, PAGE_SIZE, "%u\n",
+			host->bus_vote.is_max_bw_needed);
+}
+
+static ssize_t
+store_ufs_to_mem_max_bus_bw(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	uint32_t value;
+
+	if (!kstrtou32(buf, 0, &value)) {
+		host->bus_vote.is_max_bw_needed = !!value;
+		ufs_qcom_update_bus_bw_vote(host);
+	}
+
+	return count;
+}
+
+static int ufs_qcom_bus_register(struct ufs_qcom_host *host)
+{
+	int err;
+	struct msm_bus_scale_pdata *bus_pdata;
+	struct device *dev = host->hba->dev;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct device_node *np = dev->of_node;
+
+	bus_pdata = msm_bus_cl_get_pdata(pdev);
+	if (!bus_pdata) {
+		dev_err(dev, "%s: failed to get bus vectors\n", __func__);
+		err = -ENODATA;
+		goto out;
+	}
+
+	err = of_property_count_strings(np, "qcom,bus-vector-names");
+	if (err < 0 || err != bus_pdata->num_usecases) {
+		dev_err(dev, "%s: qcom,bus-vector-names not specified correctly %d\n",
+				__func__, err);
+		goto out;
+	}
+
+	host->bus_vote.client_handle = msm_bus_scale_register_client(bus_pdata);
+	if (!host->bus_vote.client_handle) {
+		dev_err(dev, "%s: msm_bus_scale_register_client failed\n",
+				__func__);
+		err = -EFAULT;
+		goto out;
+	}
+
+	/* cache the vote index for minimum and maximum bandwidth */
+	host->bus_vote.min_bw_vote = ufs_qcom_get_bus_vote(host, "MIN");
+	host->bus_vote.max_bw_vote = ufs_qcom_get_bus_vote(host, "MAX");
+
+	host->bus_vote.max_bus_bw.show = show_ufs_to_mem_max_bus_bw;
+	host->bus_vote.max_bus_bw.store = store_ufs_to_mem_max_bus_bw;
+	sysfs_attr_init(&host->bus_vote.max_bus_bw.attr);
+	host->bus_vote.max_bus_bw.attr.name = "max_bus_bw";
+	host->bus_vote.max_bus_bw.attr.mode = S_IRUGO | S_IWUSR;
+	err = device_create_file(dev, &host->bus_vote.max_bus_bw);
+out:
+	return err;
+}
+#else /* CONFIG_MSM_BUS_SCALING */
+static int ufs_qcom_update_bus_bw_vote(struct ufs_qcom_host *host)
+{
+	return 0;
+}
+
+static int ufs_qcom_set_bus_vote(struct ufs_qcom_host *host, int vote)
+{
+	return 0;
+}
+
+static int ufs_qcom_bus_register(struct ufs_qcom_host *host)
+{
+	return 0;
+}
+#endif /* CONFIG_MSM_BUS_SCALING */
 
 static void ufs_qcom_dev_ref_clk_ctrl(struct ufs_qcom_host *host, bool enable)
 {
@@ -1071,80 +1229,6 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 	}
 }
 
-static int ufs_qcom_get_bus_vote(struct ufs_qcom_host *host,
-		const char *speed_mode)
-{
-	struct device *dev = host->hba->dev;
-	struct device_node *np = dev->of_node;
-	int err;
-	const char *key = "qcom,bus-vector-names";
-
-	if (!speed_mode) {
-		err = -EINVAL;
-		goto out;
-	}
-
-	if (host->bus_vote.is_max_bw_needed && !!strcmp(speed_mode, "MIN"))
-		err = of_property_match_string(np, key, "MAX");
-	else
-		err = of_property_match_string(np, key, speed_mode);
-
-out:
-	if (err < 0)
-		dev_err(dev, "%s: Invalid %s mode %d\n",
-				__func__, speed_mode, err);
-	return err;
-}
-
-static int ufs_qcom_set_bus_vote(struct ufs_qcom_host *host, int vote)
-{
-	int err = 0;
-
-	if (vote != host->bus_vote.curr_vote) {
-		err = msm_bus_scale_client_update_request(
-				host->bus_vote.client_handle, vote);
-		if (err) {
-			dev_err(host->hba->dev,
-				"%s: msm_bus_scale_client_update_request() failed: bus_client_handle=0x%x, vote=%d, err=%d\n",
-				__func__, host->bus_vote.client_handle,
-				vote, err);
-			goto out;
-		}
-
-		host->bus_vote.curr_vote = vote;
-	}
-out:
-	return err;
-}
-
-static void ufs_qcom_get_speed_mode(struct ufs_pa_layer_attr *p, char *result)
-{
-	int gear = max_t(u32, p->gear_rx, p->gear_tx);
-	int lanes = max_t(u32, p->lane_rx, p->lane_tx);
-	int pwr;
-
-	/* default to PWM Gear 1, Lane 1 if power mode is not initialized */
-	if (!gear)
-		gear = 1;
-
-	if (!lanes)
-		lanes = 1;
-
-	if (!p->pwr_rx && !p->pwr_tx) {
-		pwr = SLOWAUTO_MODE;
-		snprintf(result, BUS_VECTOR_NAME_LEN, "MIN");
-	} else if (p->pwr_rx == FAST_MODE || p->pwr_rx == FASTAUTO_MODE ||
-		 p->pwr_tx == FAST_MODE || p->pwr_tx == FASTAUTO_MODE) {
-		pwr = FAST_MODE;
-		snprintf(result, BUS_VECTOR_NAME_LEN, "%s_R%s_G%d_L%d", "HS",
-			 p->hs_rate == PA_HS_MODE_B ? "B" : "A", gear, lanes);
-	} else {
-		pwr = SLOW_MODE;
-		snprintf(result, BUS_VECTOR_NAME_LEN, "%s_G%d_L%d",
-			 "PWM", gear, lanes);
-	}
-}
-
 static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
@@ -1194,77 +1278,6 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on)
 		dev_err(hba->dev, "%s: set bus vote failed %d\n",
 				__func__, err);
 
-out:
-	return err;
-}
-
-static ssize_t
-show_ufs_to_mem_max_bus_bw(struct device *dev, struct device_attribute *attr,
-			char *buf)
-{
-	struct ufs_hba *hba = dev_get_drvdata(dev);
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-
-	return snprintf(buf, PAGE_SIZE, "%u\n",
-			host->bus_vote.is_max_bw_needed);
-}
-
-static ssize_t
-store_ufs_to_mem_max_bus_bw(struct device *dev, struct device_attribute *attr,
-		const char *buf, size_t count)
-{
-	struct ufs_hba *hba = dev_get_drvdata(dev);
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	uint32_t value;
-
-	if (!kstrtou32(buf, 0, &value)) {
-		host->bus_vote.is_max_bw_needed = !!value;
-		ufs_qcom_update_bus_bw_vote(host);
-	}
-
-	return count;
-}
-
-static int ufs_qcom_bus_register(struct ufs_qcom_host *host)
-{
-	int err;
-	struct msm_bus_scale_pdata *bus_pdata;
-	struct device *dev = host->hba->dev;
-	struct platform_device *pdev = to_platform_device(dev);
-	struct device_node *np = dev->of_node;
-
-	bus_pdata = msm_bus_cl_get_pdata(pdev);
-	if (!bus_pdata) {
-		dev_err(dev, "%s: failed to get bus vectors\n", __func__);
-		err = -ENODATA;
-		goto out;
-	}
-
-	err = of_property_count_strings(np, "qcom,bus-vector-names");
-	if (err < 0 || err != bus_pdata->num_usecases) {
-		dev_err(dev, "%s: qcom,bus-vector-names not specified correctly %d\n",
-				__func__, err);
-		goto out;
-	}
-
-	host->bus_vote.client_handle = msm_bus_scale_register_client(bus_pdata);
-	if (!host->bus_vote.client_handle) {
-		dev_err(dev, "%s: msm_bus_scale_register_client failed\n",
-				__func__);
-		err = -EFAULT;
-		goto out;
-	}
-
-	/* cache the vote index for minimum and maximum bandwidth */
-	host->bus_vote.min_bw_vote = ufs_qcom_get_bus_vote(host, "MIN");
-	host->bus_vote.max_bw_vote = ufs_qcom_get_bus_vote(host, "MAX");
-
-	host->bus_vote.max_bus_bw.show = show_ufs_to_mem_max_bus_bw;
-	host->bus_vote.max_bus_bw.store = store_ufs_to_mem_max_bus_bw;
-	sysfs_attr_init(&host->bus_vote.max_bus_bw.attr);
-	host->bus_vote.max_bus_bw.attr.name = "max_bus_bw";
-	host->bus_vote.max_bus_bw.attr.mode = S_IRUGO | S_IWUSR;
-	err = device_create_file(dev, &host->bus_vote.max_bus_bw);
 out:
 	return err;
 }
