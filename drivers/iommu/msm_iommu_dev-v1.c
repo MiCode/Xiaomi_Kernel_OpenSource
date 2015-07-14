@@ -633,6 +633,10 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 	}
 	ctx_drvdata->n_sid_mask = n_sid_mask;
 
+	if (!of_property_read_u32(pdev->dev.of_node, "qcom,prefetch-depth",
+				&(ctx_drvdata->prefetch_depth)))
+		ctx_drvdata->prefetch_depth = 0;
+
 out:
 	return ret;
 }

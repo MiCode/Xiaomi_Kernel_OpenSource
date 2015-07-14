@@ -625,6 +625,8 @@ do { \
 		SET_CONTEXT_FIELD(b, c, CB_ACTLR, BPRCISH, v)
 #define SET_CB_ACTLR_BPRCNSH(b, c, v) \
 		SET_CONTEXT_FIELD(b, c, CB_ACTLR, BPRCNSH, v)
+#define SET_CB_ACTLR_PF_WINDOW(b, c, v) \
+		SET_CONTEXT_FIELD(b, c, CB_ACTLR, PF_WINDOW, v)
 
 #define GET_CB_ACTLR_REQPRIORITY (b, c) \
 		GET_CONTEXT_FIELD(b, c, CB_ACTLR, REQPRIORITY)
@@ -634,6 +636,8 @@ do { \
 #define GET_CB_ACTLR_BPRCOSH(b, c)  GET_CONTEXT_FIELD(b, c, CB_ACTLR, BPRCOSH)
 #define GET_CB_ACTLR_BPRCISH(b, c)  GET_CONTEXT_FIELD(b, c, CB_ACTLR, BPRCISH)
 #define GET_CB_ACTLR_BPRCNSH(b, c)  GET_CONTEXT_FIELD(b, c, CB_ACTLR, BPRCNSH)
+#define GET_CB_ACTLR_PF_WINDOW(b, c) \
+				GET_CONTEXT_FIELD(b, c, CB_ACTLR, PF_WINDOW)
 
 /* Address Translation, Stage 1, Privileged Read: CB_ATS1PR */
 #define SET_CB_ATS1PR_ADDR(b, c, v) SET_CONTEXT_FIELD(b, c, CB_ATS1PR, ADDR, v)
@@ -1354,6 +1358,8 @@ do { \
 #define CB_ACTLR_BPRCOSH (CB_ACTLR_BPRCOSH_MASK << CB_ACTLR_BPRCOSH_SHIFT)
 #define CB_ACTLR_BPRCISH (CB_ACTLR_BPRCISH_MASK << CB_ACTLR_BPRCISH_SHIFT)
 #define CB_ACTLR_BPRCNSH (CB_ACTLR_BPRCNSH_MASK << CB_ACTLR_BPRCNSH_SHIFT)
+#define CB_ACTLR_PF_WINDOW \
+		(CB_ACTLR_PF_WINDOW_MASK << CB_ACTLR_PF_WINDOW_SHIFT)
 
 /* Address Translation, Stage 1, Privileged Read: CB_ATS1PR */
 #define CB_ATS1PR_ADDR  (CB_ATS1PR_ADDR_MASK << CB_ATS1PR_ADDR_SHIFT)
@@ -1769,6 +1775,7 @@ do { \
 #define CB_ACTLR_BPRCOSH_MASK        0x1
 #define CB_ACTLR_BPRCISH_MASK        0x1
 #define CB_ACTLR_BPRCNSH_MASK        0x1
+#define CB_ACTLR_PF_WINDOW_MASK      0x2
 
 /* Address Translation, Stage 1, Privileged Read: CB_ATS1PR */
 #define CB_ATS1PR_ADDR_MASK     0xFFFFF
@@ -2178,6 +2185,7 @@ do { \
 #define CB_ACTLR_BPRCOSH_SHIFT         28
 #define CB_ACTLR_BPRCISH_SHIFT         29
 #define CB_ACTLR_BPRCNSH_SHIFT         30
+#define CB_ACTLR_PF_WINDOW_SHIFT       8
 
 /* Address Translation, Stage 1, Privileged Read: CB_ATS1PR */
 #define CB_ATS1PR_ADDR_SHIFT       12
