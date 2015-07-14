@@ -568,6 +568,8 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 		h_total = mixer->width;
 	}
 
+	mixer->ctl->frame_rate = fps;
+
 	if (roi && !mixer->ctl->is_video_mode && !pipe->src_split_req)
 		mdss_mdp_crop_rect(&src, &dst, roi);
 

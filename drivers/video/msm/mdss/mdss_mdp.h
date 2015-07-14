@@ -300,6 +300,8 @@ struct mdss_mdp_ctl {
 	u32 wb_type;
 	u32 prg_fet;
 	bool force_ctl_start;
+
+	u16 frame_rate;
 };
 
 struct mdss_mdp_mixer {
@@ -594,6 +596,7 @@ struct mdss_mdp_set_ot_params {
 	u32 num;
 	u32 width;
 	u32 height;
+	u16 frame_rate;
 	bool is_rot;
 	bool is_wb;
 	bool is_yuv;
@@ -717,6 +720,7 @@ static inline bool is_dynamic_ot_limit_required(u32 mdp_rev)
 	return mdp_rev == MDSS_MDP_HW_REV_105 ||
 		mdp_rev == MDSS_MDP_HW_REV_109 ||
 		mdp_rev == MDSS_MDP_HW_REV_110 ||
+		mdp_rev == MDSS_MDP_HW_REV_111 ||
 		mdp_rev == MDSS_MDP_HW_REV_112;
 }
 
