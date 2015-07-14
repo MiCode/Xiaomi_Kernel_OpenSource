@@ -22,7 +22,7 @@
 
 #define WCD_USLEEP_RANGE 50
 
-static void (*clsh_state_fp[NUM_CLSH_STATES])(struct snd_soc_codec *,
+static void (*clsh_state_fp[NUM_CLSH_STATES_V2])(struct snd_soc_codec *,
 					      struct wcd_clsh_cdc_data *,
 					      u8 req_state, bool en, int mode);
 
@@ -725,7 +725,7 @@ void wcd_clsh_fsm(struct snd_soc_codec *codec,
 	case WCD_CLSH_EVENT_POST_PA:
 		old_state = cdc_clsh_d->state;
 		new_state = old_state & (~req_state);
-		if (new_state < NUM_CLSH_STATES) {
+		if (new_state < NUM_CLSH_STATES_V2) {
 			if (!wcd_clsh_is_state_valid(old_state)) {
 				dev_err(codec->dev,
 					"%s:Invalid old state:%s\n",
@@ -762,7 +762,7 @@ void wcd_clsh_init(struct wcd_clsh_cdc_data *clsh)
 	int i;
 	clsh->state = WCD_CLSH_STATE_IDLE;
 
-	for (i = 0; i < NUM_CLSH_STATES; i++)
+	for (i = 0; i < NUM_CLSH_STATES_V2; i++)
 		clsh_state_fp[i] = wcd_clsh_state_err;
 
 	clsh_state_fp[WCD_CLSH_STATE_EAR] = wcd_clsh_state_ear;
