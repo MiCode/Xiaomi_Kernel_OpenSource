@@ -2265,6 +2265,11 @@
 		qcom,smmu-sid = <0x1>;
 	};
 
+	qcom,adsprpc-mem {
+		compatible = "qcom,msm-adsprpc-mem-region";
+		linux,contiguous-region = <&adsp_mem>;
+	};
+
 	qcom,msm-adsp-loader {
 		compatible = "qcom,adsp-loader";
 		qcom,adsp-state = <0>;
