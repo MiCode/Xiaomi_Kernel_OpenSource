@@ -403,7 +403,9 @@ static void _do_partner_event(struct work_struct *work, unsigned int event)
 {
 	struct devfreq *bus_devfreq = partner_gpu_profile->bus_devfreq;
 
-	if (bus_devfreq->governor && bus_devfreq->governor->event_handler)
+	if (bus_devfreq != NULL &&
+		bus_devfreq->governor &&
+		bus_devfreq->governor->event_handler)
 		bus_devfreq->governor->event_handler(bus_devfreq, event, NULL);
 }
 
