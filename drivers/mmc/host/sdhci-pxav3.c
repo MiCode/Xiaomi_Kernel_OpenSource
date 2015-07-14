@@ -330,16 +330,6 @@ static int sdhci_pxav3_probe(struct platform_device *pdev)
 	/* enable 1/8V DDR capable */
 	host->mmc->caps |= MMC_CAP_1_8V_DDR;
 
-	if (of_device_is_compatible(np, "marvell,armada-380-sdhci")) {
-		ret = armada_38x_quirks(pdev, host);
-		if (ret < 0)
-			goto err_clk_get;
-		ret = mv_conf_mbus_windows(pdev, mv_mbus_dram_info());
-		if (ret < 0)
-			goto err_mbus_win;
-	}
-
-
 	pltfm_host = sdhci_priv(host);
 	pltfm_host->priv = pxa;
 
@@ -351,6 +341,15 @@ static int sdhci_pxav3_probe(struct platform_device *pdev)
 	}
 	pltfm_host->clk = clk;
 	clk_prepare_enable(clk);
+
+	if (of_device_is_compatible(np, "marvell,armada-380-sdhci")) {
+		ret = armada_38x_quirks(pdev, host);
+		if (ret < 0)
+			goto err_clk_get;
+		ret = mv_conf_mbus_windows(pdev, mv_mbus_dram_info());
+		if (ret < 0)
+			goto err_mbus_win;
+	}
 
 	match = of_match_device(of_match_ptr(sdhci_pxav3_of_match), &pdev->dev);
 	if (match) {
@@ -421,9 +420,9 @@ err_add_host:
 	pm_runtime_put_noidle(&pdev->dev);
 err_of_parse:
 err_cd_req:
+err_mbus_win:
 	clk_disable_unprepare(clk);
 err_clk_get:
-err_mbus_win:
 	sdhci_pltfm_free(pdev);
 	return ret;
 }
