@@ -11,6 +11,7 @@
  */
 
 #include "msm8996-pinctrl.dtsi"
+#include "msm8996-camera-sensor-liquid.dtsi"
 
 / {
 	bluetooth: bt_qca6174 {
