@@ -270,6 +270,8 @@ struct ufs_qcom_pm_qos_cpu_group {
 /**
  * struct ufs_qcom_pm_qos - data related to PM QoS voting logic
  * @groups: PM QoS cpu group state array
+ * @enable_attr: sysfs attribute to enable/disable PM QoS voting logic
+ * @latency_attr: sysfs attribute to set latency value
  * @workq: single threaded workqueue to run PM QoS voting/unvoting
  * @num_clusters: number of clusters defined
  * @default_cpu: cpu to use for voting for request not specifying a cpu
@@ -277,6 +279,8 @@ struct ufs_qcom_pm_qos_cpu_group {
  */
 struct ufs_qcom_pm_qos {
 	struct ufs_qcom_pm_qos_cpu_group *groups;
+	struct device_attribute enable_attr;
+	struct device_attribute latency_attr;
 	struct workqueue_struct *workq;
 	int num_groups;
 	int default_cpu;

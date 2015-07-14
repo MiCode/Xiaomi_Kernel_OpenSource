@@ -61,8 +61,6 @@ static int ufs_qcom_update_sec_cfg(struct ufs_hba *hba, bool restore_sec_cfg);
 static void ufs_qcom_get_default_testbus_cfg(struct ufs_qcom_host *host);
 static int ufs_qcom_set_dme_vs_core_clk_ctrl_clear_div(struct ufs_hba *hba,
 						       u32 clk_cycles);
-static int ufs_qcom_pm_qos_init(struct ufs_qcom_host *host);
-static void ufs_qcom_pm_qos_remove(struct ufs_qcom_host *host);
 static void ufs_qcom_pm_qos_suspend(struct ufs_qcom_host *host);
 
 static void ufs_qcom_dump_regs(struct ufs_hba *hba, int offset, int len,
@@ -1396,9 +1394,122 @@ static void ufs_qcom_pm_qos_unvote_work(struct work_struct *work)
 		group->latency_us, UFS_QCOM_PM_QOS_UNVOTE_TIMEOUT_US);
 }
 
+static ssize_t ufs_qcom_pm_qos_enable_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev->parent);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", host->pm_qos.is_enabled);
+}
+
+static ssize_t ufs_qcom_pm_qos_enable_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev->parent);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	unsigned long value;
+	unsigned long flags;
+	bool enable;
+	int i;
+
+	if (kstrtoul(buf, 0, &value))
+		return -EINVAL;
+
+	enable = !!value;
+
+	/*
+	 * Must take the spinlock and save irqs before changing the enabled
+	 * flag in order to keep correctness of PM QoS release.
+	 */
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	if (enable == host->pm_qos.is_enabled) {
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+		return count;
+	}
+	host->pm_qos.is_enabled = enable;
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+	if (!enable)
+		for (i = 0; i < host->pm_qos.num_groups; i++) {
+			cancel_work_sync(&host->pm_qos.groups[i].vote_work);
+			cancel_work_sync(&host->pm_qos.groups[i].unvote_work);
+			spin_lock_irqsave(hba->host->host_lock, flags);
+			host->pm_qos.groups[i].state = PM_QOS_UNVOTED;
+			host->pm_qos.groups[i].active_reqs = 0;
+			spin_unlock_irqrestore(hba->host->host_lock, flags);
+			pm_qos_update_request(&host->pm_qos.groups[i].req,
+				PM_QOS_DEFAULT_VALUE);
+		}
+
+	return count;
+}
+
+static ssize_t ufs_qcom_pm_qos_latency_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev->parent);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	int ret;
+	int i;
+	int offset = 0;
+
+	for (i = 0; i < host->pm_qos.num_groups; i++) {
+		ret = snprintf(&buf[offset], PAGE_SIZE,
+			"cpu group #%d(mask=0x%lx): %d\n", i,
+			host->pm_qos.groups[i].mask.bits[0],
+			host->pm_qos.groups[i].latency_us);
+		if (ret > 0)
+			offset += ret;
+		else
+			break;
+	}
+
+	return offset;
+}
+
+static ssize_t ufs_qcom_pm_qos_latency_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev->parent);
+	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
+	unsigned long value;
+	unsigned long flags;
+	char *strbuf;
+	char *strbuf_copy;
+	char *token;
+	int i;
+	int ret;
+
+	/* reserve one byte for null termination */
+	strbuf = kmalloc(count + 1, GFP_KERNEL);
+	if (!strbuf)
+		return -ENOMEM;
+	strbuf_copy = strbuf;
+	strlcpy(strbuf, buf, count + 1);
+
+	for (i = 0; i < host->pm_qos.num_groups; i++) {
+		token = strsep(&strbuf, ",");
+		if (!token)
+			break;
+
+		ret = kstrtoul(token, 0, &value);
+		if (ret)
+			break;
+
+		spin_lock_irqsave(hba->host->host_lock, flags);
+		host->pm_qos.groups[i].latency_us = value;
+		spin_unlock_irqrestore(hba->host->host_lock, flags);
+	}
+
+	kfree(strbuf_copy);
+	return count;
+}
+
 static int ufs_qcom_pm_qos_init(struct ufs_qcom_host *host)
 {
 	struct device_node *node = host->hba->dev->of_node;
+	struct device_attribute *attr;
 	int ret = 0;
 	int num_groups;
 	int num_values;
@@ -1495,6 +1606,26 @@ static int ufs_qcom_pm_qos_init(struct ufs_qcom_host *host)
 	for (i = 0; i < host->pm_qos.num_groups; i++)
 		pm_qos_add_request(&host->pm_qos.groups[i].req,
 			PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
+
+	/* PM QoS latency sys-fs attribute */
+	attr = &host->pm_qos.latency_attr;
+	attr->show = ufs_qcom_pm_qos_latency_show;
+	attr->store = ufs_qcom_pm_qos_latency_store;
+	sysfs_attr_init(&attr->attr);
+	attr->attr.name = "pm_qos_latency_us";
+	attr->attr.mode = S_IRUGO | S_IWUSR;
+	if (device_create_file(host->hba->var->dev, attr))
+		dev_dbg(host->hba->dev, "Failed to create sysfs for pm_qos_latency_us\n");
+
+	/* PM QoS enable sys-fs attribute */
+	attr = &host->pm_qos.enable_attr;
+	attr->show = ufs_qcom_pm_qos_enable_show;
+	attr->store = ufs_qcom_pm_qos_enable_store;
+	sysfs_attr_init(&attr->attr);
+	attr->attr.name = "pm_qos_enable";
+	attr->attr.mode = S_IRUGO | S_IWUSR;
+	if (device_create_file(host->hba->var->dev, attr))
+		dev_dbg(host->hba->dev, "Failed to create sysfs for pm_qos enable\n");
 
 	host->pm_qos.is_enabled = true;
 
@@ -2123,6 +2254,7 @@ static struct ufs_hba_variant ufs_hba_qcom_variant = {
  */
 static int ufs_qcom_probe(struct platform_device *pdev)
 {
+	ufs_hba_qcom_variant.dev = &pdev->dev;
 	dev_set_drvdata(&pdev->dev, (void *)&ufs_hba_qcom_variant);
 	return 0;
 }
