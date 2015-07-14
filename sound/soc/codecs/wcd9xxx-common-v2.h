@@ -35,7 +35,7 @@
 #define	WCD_CLSH_STATE_HPHR (0x01 << 2)
 #define	WCD_CLSH_STATE_LO (0x01 << 3)
 #define WCD_CLSH_STATE_MAX 4
-#define NUM_CLSH_STATES (0x01 << WCD_CLSH_STATE_MAX)
+#define NUM_CLSH_STATES_V2 (0x01 << WCD_CLSH_STATE_MAX)
 
 
 /* Derived State: Bits 1 and 2 should be set for Headphone stereo */
