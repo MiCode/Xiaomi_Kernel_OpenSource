@@ -12,6 +12,7 @@
 #ifndef _SOC_QCOM_GLINK_CORE_IF_H_
 #define _SOC_QCOM_GLINK_CORE_IF_H_
 
+#include <linux/of.h>
 #include <linux/types.h>
 #include "glink_private.h"
 
@@ -167,6 +168,16 @@ int glink_core_register_transport(struct glink_transport_if *if_ptr,
 		struct glink_core_transport_cfg *cfg);
 
 void glink_core_unregister_transport(struct glink_transport_if *if_ptr);
+
+/**
+ * of_get_glink_core_qos_cfg() - Parse the qos related dt entries
+ * @phandle:	The handle to the qos related node in DT.
+ * @cfg:	The transport configuration to be filled.
+ *
+ * Return: 0 on Success, standard Linux error otherwise.
+ */
+int of_get_glink_core_qos_cfg(struct device_node *phandle,
+				struct glink_core_transport_cfg *cfg);
 
 /**
  * rx_linear_vbuf_provider() - Virtual Buffer Provider for linear buffers
