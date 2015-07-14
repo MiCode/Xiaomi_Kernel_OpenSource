@@ -204,6 +204,7 @@ struct flash_led_platform_data {
 	bool				hdrm_sns_ch1_en;
 	bool				power_detect_en;
 	bool				mask3_en;
+	bool				follow_rb_disable;
 };
 
 struct qpnp_flash_led_buffer {
@@ -1589,7 +1590,7 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 		return rc;
 	}
 
-	if (led->pdata->mask3_en) {
+	if (led->pdata->mask3_en && led->pdata->follow_rb_disable) {
 		rc = spmi_ext_register_readl(led->spmi_dev->ctrl,
 				led->spmi_dev->sid,
 				FLASH_PERPH_RESET_CTRL(led->base),
@@ -1956,6 +1957,12 @@ static int qpnp_flash_led_parse_common_dt(
 	led->pdata->power_detect_en = of_property_read_bool(node,
 						"qcom,power-detect-enabled");
 
+	led->pdata->mask3_en = of_property_read_bool(node,
+						"qcom,otst2-module-enabled");
+
+	led->pdata->follow_rb_disable = of_property_read_bool(node,
+						"qcom,follow-otst2-rb-disabled");
+
 	led->pinctrl = devm_pinctrl_get(&led->spmi_dev->dev);
 	if (IS_ERR_OR_NULL(led->pinctrl)) {
 		dev_err(&led->spmi_dev->dev,
@@ -1984,8 +1991,6 @@ static int qpnp_flash_led_parse_common_dt(
 		}
 	}
 
-	led->pdata->mask3_en = of_property_read_bool(node,
-						"qcom,otst2-module-enabled");
 	return 0;
 }
 
