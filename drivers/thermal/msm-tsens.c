@@ -854,7 +854,7 @@ static struct tsens_tm_device *tsens_controller_is_present(void)
 	return tmdev_chip;
 }
 
-static uint32_t get_tsens_sensor_for_client_id(struct tsens_tm_device *tmdev,
+static int32_t get_tsens_sensor_for_client_id(struct tsens_tm_device *tmdev,
 						uint32_t sensor_client_id)
 {
 	bool id_found = false;
