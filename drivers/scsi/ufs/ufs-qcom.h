@@ -227,6 +227,7 @@ struct qcom_debugfs_files {
 	struct dentry *testbus_cfg;
 	struct dentry *testbus_bus;
 	struct dentry *dbg_regs;
+	struct dentry *pm_qos;
 };
 #endif
 
