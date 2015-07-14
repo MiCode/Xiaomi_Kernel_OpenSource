@@ -929,7 +929,6 @@ static int msm_dai_q6_spdif_dai_remove(struct snd_soc_dai *dai)
 		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
 	}
 	kfree(dai_data);
-	snd_soc_unregister_component(dai->dev);
 
 	return 0;
 }
@@ -1516,7 +1515,6 @@ static int msm_dai_q6_dai_remove(struct snd_soc_dai *dai)
 		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
 	}
 	kfree(dai_data);
-	snd_soc_unregister_component(dai->dev);
 
 	return 0;
 }
@@ -2421,7 +2419,6 @@ static int msm_dai_q6_dai_mi2s_remove(struct snd_soc_dai *dai)
 			  mi2s_dai_data->tx_dai.mi2s_dai_data.status_mask);
 	}
 	kfree(mi2s_dai_data);
-	snd_soc_unregister_component(dai->dev);
 	return 0;
 }
 
