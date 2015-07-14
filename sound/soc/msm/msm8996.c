@@ -1501,6 +1501,19 @@ static int msm8996_codec_event_cb(struct snd_soc_codec *codec,
 	}
 }
 
+static int msm8996_tasha_codec_event_cb(struct snd_soc_codec *codec,
+					enum wcd9335_codec_event codec_event)
+{
+	switch (codec_event) {
+	case WCD9335_CODEC_EVENT_CODEC_UP:
+		return msm8996_wcd93xx_codec_up(codec);
+	default:
+		pr_err("%s: UnSupported codec event %d\n",
+			__func__, codec_event);
+		return -EINVAL;
+	}
+}
+
 static int msm8996_config_hph_en0_gpio(struct snd_soc_codec *codec, bool high)
 {
 	struct snd_soc_card *card = codec->component.card;
@@ -1732,8 +1745,10 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	if (cdc_type == 0) {
 		tomtom_event_register(msm8996_codec_event_cb, rtd->codec);
 		tomtom_enable_qfuse_sensing(rtd->codec);
-	} else
+	} else {
+		tasha_event_register(msm8996_tasha_codec_event_cb, rtd->codec);
 		tasha_enable_efuse_sensing(rtd->codec);
+	}
 
 	codec_reg_done = true;
 
