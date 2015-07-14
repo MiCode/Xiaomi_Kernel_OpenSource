@@ -299,4 +299,95 @@
 					<&glink_dsps>;
 		qcom,xprt = "smem";
 	};
+
+	ufsphy1: ufsphy@1da7000 {
+		compatible = "qcom,ufs-phy-qmp-v3";
+		reg = <0x1da7000 0xda8>;
+		reg-names = "phy_mem";
+		#phy-cells = <0>;
+		vdda-phy-max-microamp = <51430>;
+		vdda-pll-max-microamp = <14170>;
+		vddp-ref-clk-max-microamp = <100>;
+		vddp-ref-clk-always-on;
+		clock-names = "ref_clk_src",
+			"ref_clk";
+		clocks = <&clock_gcc clk_ln_bb_clk>,
+			<&clock_gcc clk_gcc_ufs_clkref_clk>;
+		status = "disabled";
+	};
+
+	ufs1: ufshc@1da4000 {
+		compatible = "jedec,ufs-1.1";
+		reg = <0x1da4000 0x2500>;
+		interrupts = <0 265 0>;
+		phys = <&ufsphy1>;
+		phy-names = "ufsphy";
+		vdd-hba-fixed-regulator;
+		vcc-max-microamp = <750000>;
+		vccq-max-microamp = <450000>;
+		vccq2-max-microamp = <750000>;
+
+		clock-names =
+			"core_clk_src",
+			"core_clk",
+			"iface_clk",
+			"core_clk_unipro_src",
+			"core_clk_unipro",
+			"core_clk_ice",
+			"ref_clk",
+			"tx_lane0_sync_clk",
+			"rx_lane0_sync_clk";
+		clocks =
+			<&clock_gcc clk_ufs_axi_clk_src>,
+			<&clock_gcc clk_gcc_ufs_axi_clk>,
+			<&clock_gcc clk_gcc_ufs_ahb_clk>,
+			<&clock_gcc clk_ufs_ice_core_clk_src>,
+			<&clock_gcc clk_gcc_ufs_unipro_core_clk>,
+			<&clock_gcc clk_gcc_ufs_ice_core_clk>,
+			<&clock_gcc clk_bb_clk1>,
+			<&clock_gcc clk_gcc_ufs_tx_symbol_0_clk>,
+			<&clock_gcc clk_gcc_ufs_rx_symbol_0_clk>;
+		freq-table-hz =
+			<100000000 200000000>,
+			<0 0>,
+			<0 0>,
+			<150000000 300000000>,
+			<0 0>,
+			<0 0>,
+			<0 0>,
+			<0 0>,
+			<0 0>;
+
+		lanes-per-direction = <1>;
+		qcom,msm-bus,name = "ufs1";
+		qcom,msm-bus,num-cases = <12>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+		<95 512 0 0>, <1 650 0 0>,          /* No vote */
+		<95 512 922 0>, <1 650 1000 0>,     /* PWM G1 */
+		<95 512 1844 0>, <1 650 1000 0>,    /* PWM G2 */
+		<95 512 3688 0>, <1 650 1000 0>,    /* PWM G3 */
+		<95 512 7376 0>, <1 650 1000 0>,    /* PWM G4 */
+		<95 512 127796 0>, <1 650 1000 0>,  /* HS G1 RA */
+		<95 512 255591 0>, <1 650 1000 0>,  /* HS G2 RA */
+		<95 512 511181 0>, <1 650 1000 0>,  /* HS G3 RA */
+		<95 512 149422 0>, <1 650 1000 0>,  /* HS G1 RB */
+		<95 512 298189 0>, <1 650 1000 0>,  /* HS G2 RB */
+		<95 512 596378 0>, <1 650 1000 0>,  /* HS G3 RB */
+		<95 512 4096000 0>, <1 650 1000 0>; /* Max. bandwidth */
+		qcom,bus-vector-names = "MIN",
+		"PWM_G1_L1", "PWM_G2_L1", "PWM_G3_L1", "PWM_G4_L1",
+		"HS_RA_G1_L1", "HS_RA_G2_L1", "HS_RA_G3_L1",
+		"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1",
+		"MAX";
+
+		qcom,cpu-affinity = "affine_cores";
+		qcom,cpu-dma-latency-us = <301>;
+
+		status = "disabled";
+
+		ufs_variant {
+			compatible = "qcom,ufs_variant";
+		};
+	};
 };
