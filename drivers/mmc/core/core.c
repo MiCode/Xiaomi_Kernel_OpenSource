@@ -287,7 +287,8 @@ bool mmc_can_scale_clk(struct mmc_host *host)
 		return false;
 	}
 
-	return host->caps2 & MMC_CAP2_CLK_SCALE;
+	return (host->caps2 & MMC_CAP2_CLK_SCALE) &&
+		(!(host->pm_flags & MMC_PM_IGNORE_PM_NOTIFY));
 }
 EXPORT_SYMBOL(mmc_can_scale_clk);
 
@@ -744,7 +745,7 @@ int mmc_exit_clk_scaling(struct mmc_host *host)
 		return -EINVAL;
 	}
 
-	if (!mmc_can_scale_clk(host))
+	if (!mmc_can_scale_clk(host) || !host->clk_scaling.enable)
 		return 0;
 
 	if (!host->clk_scaling.devfreq) {
@@ -4347,6 +4348,7 @@ static int mmc_pm_notify(struct notifier_block *notify_block,
 		spin_unlock_irqrestore(&host->lock, flags);
 		cancel_delayed_work_sync(&host->detect);
 
+		mmc_disable_clk_scaling(host);
 		if (!host->bus_ops)
 			break;
 
