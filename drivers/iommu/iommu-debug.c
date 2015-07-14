@@ -60,50 +60,71 @@ static const struct file_operations iommu_debug_attachment_info_fops = {
 	.release = single_release,
 };
 
-void iommu_debug_attach_device(struct iommu_domain *domain,
-			       struct device *dev)
+/* should be called with iommu_debug_attachments_lock locked */
+static int iommu_debug_attach_add_debugfs(
+	struct iommu_debug_attachment *attach)
 {
-	struct iommu_debug_attachment *attach;
-	char *attach_name;
 	uuid_le uuid;
-
-	mutex_lock(&iommu_debug_attachments_lock);
+	char *attach_name;
+	struct device *dev = attach->dev;
+	struct iommu_domain *domain = attach->domain;
 
 	uuid_le_gen(&uuid);
 	attach_name = kasprintf(GFP_KERNEL, "%s-%pUl", dev_name(dev), uuid.b);
 	if (!attach_name)
-		goto unlock;
-
-	attach = kmalloc(sizeof(*attach), GFP_KERNEL);
-	if (!attach)
-		goto free_attach_name;
-
-	attach->domain = domain;
-	attach->dev = dev;
+		return -ENOMEM;
 
 	attach->dentry = debugfs_create_dir(attach_name,
 					    debugfs_attachments_dir);
 	if (!attach->dentry) {
 		pr_err("Couldn't create iommu/attachments/%s debugfs directory for domain 0x%p\n",
 		       attach_name, domain);
-		kfree(attach);
-		goto free_attach_name;
+		kfree(attach_name);
+		return -EIO;
 	}
+	kfree(attach_name);
 
 	if (!debugfs_create_file(
 		    "info", S_IRUSR, attach->dentry, attach,
 		    &iommu_debug_attachment_info_fops)) {
 		pr_err("Couldn't create iommu/attachments/%s/info debugfs file for domain 0x%p\n",
 		       dev_name(dev), domain);
-		debugfs_remove_recursive(attach->dentry);
-		kfree(attach);
-		goto unlock;
+		goto err_rmdir;
 	}
 
+	return 0;
+
+err_rmdir:
+	debugfs_remove_recursive(attach->dentry);
+	return -EIO;
+}
+
+void iommu_debug_attach_device(struct iommu_domain *domain,
+			       struct device *dev)
+{
+	struct iommu_debug_attachment *attach;
+
+	mutex_lock(&iommu_debug_attachments_lock);
+
+	attach = kmalloc(sizeof(*attach), GFP_KERNEL);
+	if (!attach)
+		goto out_unlock;
+
+	attach->domain = domain;
+	attach->dev = dev;
+
+	/*
+	 * we might not init until after other drivers start calling
+	 * iommu_attach_device. Only set up the debugfs nodes if we've
+	 * already init'd to avoid polluting the top-level debugfs
+	 * directory (by calling debugfs_create_dir with a NULL
+	 * parent). These will be flushed out later once we init.
+	 */
+	if (debugfs_attachments_dir)
+		iommu_debug_attach_add_debugfs(attach);
+
 	list_add(&attach->list, &iommu_debug_attachments);
-free_attach_name:
-	kfree(attach_name);
-unlock:
+out_unlock:
 	mutex_unlock(&iommu_debug_attachments_lock);
 }
 
@@ -130,14 +151,25 @@ void iommu_debug_detach_device(struct iommu_domain *domain,
 
 static int iommu_debug_init_tracking(void)
 {
+	int ret = 0;
+	struct iommu_debug_attachment *attach;
+
+	mutex_lock(&iommu_debug_attachments_lock);
 	debugfs_attachments_dir = debugfs_create_dir("attachments",
 						     debugfs_top_dir);
 	if (!debugfs_attachments_dir) {
 		pr_err("Couldn't create iommu/attachments debugfs directory\n");
-		return -ENODEV;
+		ret = -ENODEV;
+		goto out_unlock;
 	}
 
-	return 0;
+	/* set up debugfs entries for attachments made during early boot */
+	list_for_each_entry(attach, &iommu_debug_attachments, list)
+		iommu_debug_attach_add_debugfs(attach);
+
+out_unlock:
+	mutex_unlock(&iommu_debug_attachments_lock);
+	return ret;
 }
 #else
 static inline int iommu_debug_init_tracking(void) { return 0; }
