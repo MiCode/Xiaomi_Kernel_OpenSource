@@ -917,6 +917,9 @@ struct ufs_hba {
 
 	struct rw_semaphore clk_scaling_lock;
 
+	/* If set, don't gate device ref_clk during clock gating */
+	bool no_ref_clk_gating;
+
 	struct reset_control *core_reset;
 
 	struct ufs_desc_size desc_size;
