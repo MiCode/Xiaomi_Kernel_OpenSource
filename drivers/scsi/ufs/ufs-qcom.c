@@ -1719,6 +1719,13 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	host->hba = hba;
 	ufshcd_bind_variant(hba, host);
 
+	/*
+	 * voting/devoting device ref_clk source is time consuming hence
+	 * skip devoting it during aggressive clock gating. This clock
+	 * will still be gated off during runtime suspend.
+	 */
+	hba->no_ref_clk_gating = true;
+
 	err = ufs_qcom_ice_get_dev(host);
 	if (err == -EPROBE_DEFER) {
 		/*

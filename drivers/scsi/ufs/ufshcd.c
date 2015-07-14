@@ -1270,7 +1270,7 @@ static void ufshcd_gate_work(struct work_struct *work)
 
 	ufshcd_suspend_clkscaling(hba);
 
-	if (!ufshcd_is_link_active(hba))
+	if (!ufshcd_is_link_active(hba) && !hba->no_ref_clk_gating)
 		ufshcd_setup_clocks(hba, false);
 	else
 		/* If link is active, device ref_clk can't be switched off */
