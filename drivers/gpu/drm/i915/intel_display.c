@@ -2358,13 +2358,19 @@ static bool intel_alloc_plane_obj(struct intel_crtc *crtc,
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_gem_object *obj = NULL;
 	struct drm_mode_fb_cmd2 mode_cmd = { 0 };
-	u32 base = plane_config->base;
+	u32 base_aligned = round_down(plane_config->base, PAGE_SIZE);
+	u32 size_aligned = round_up(plane_config->base + plane_config->size,
+				    PAGE_SIZE);
+
+	size_aligned -= base_aligned;
 
 	if (plane_config->size == 0)
 		return false;
 
-	obj = i915_gem_object_create_stolen_for_preallocated(dev, base, base,
-							     plane_config->size);
+	obj = i915_gem_object_create_stolen_for_preallocated(dev,
+							     base_aligned,
+							     base_aligned,
+							     size_aligned);
 	if (!obj)
 		return false;
 
@@ -6383,8 +6389,7 @@ static void i9xx_get_plane_config(struct intel_crtc *crtc,
 	aligned_height = intel_align_height(dev, crtc->base.primary->fb->height,
 					    plane_config->tiled);
 
-	plane_config->size = PAGE_ALIGN(crtc->base.primary->fb->pitches[0] *
-					aligned_height);
+	plane_config->size = crtc->base.primary->fb->pitches[0] * aligned_height;
 
 	DRM_DEBUG_KMS("pipe/plane %d/%d with fb: size=%dx%d@%d, offset=%x, pitch %d, size 0x%x\n",
 		      pipe, plane, crtc->base.primary->fb->width,
@@ -7424,8 +7429,7 @@ static void ironlake_get_plane_config(struct intel_crtc *crtc,
 	aligned_height = intel_align_height(dev, crtc->base.primary->fb->height,
 					    plane_config->tiled);
 
-	plane_config->size = PAGE_ALIGN(crtc->base.primary->fb->pitches[0] *
-					aligned_height);
+	plane_config->size = crtc->base.primary->fb->pitches[0] * aligned_height;
 
 	DRM_DEBUG_KMS("pipe/plane %d/%d with fb: size=%dx%d@%d, offset=%x, pitch %d, size 0x%x\n",
 		      pipe, plane, crtc->base.primary->fb->width,
@@ -10019,7 +10023,7 @@ static int intel_crtc_page_flip(struct drm_crtc *crtc,
 		if (obj->tiling_mode != work->old_fb_obj->tiling_mode)
 			/* vlv: DISPLAY_FLIP fails to change tiling */
 			ring = NULL;
-	} else if (IS_IVYBRIDGE(dev)) {
+	} else if (IS_IVYBRIDGE(dev) || IS_HASWELL(dev)) {
 		ring = &dev_priv->ring[BCS];
 	} else if (INTEL_INFO(dev)->gen >= 7) {
 		ring = obj->ring;
@@ -12895,6 +12899,9 @@ static struct intel_quirk intel_quirks[] = {
 
 	/* HP Chromebook 14 (Celeron 2955U) */
 	{ 0x0a06, 0x103c, 0x21ed, quirk_backlight_present },
+
+	/* Dell Chromebook 11 */
+	{ 0x0a06, 0x1028, 0x0a35, quirk_backlight_present },
 };
 
 static void intel_init_quirks(struct drm_device *dev)
@@ -12933,11 +12940,7 @@ static void i915_disable_vga(struct drm_device *dev)
 	vga_put(dev->pdev, VGA_RSRC_LEGACY_IO);
 	udelay(300);
 
-	/*
-	 * Fujitsu-Siemens Lifebook S6010 (830) has problems resuming
-	 * from S3 without preserving (some of?) the other bits.
-	 */
-	I915_WRITE(vga_reg, dev_priv->bios_vgacntr | VGA_DISP_DISABLE);
+	I915_WRITE(vga_reg, VGA_DISP_DISABLE);
 	POSTING_READ(vga_reg);
 }
 
@@ -13026,8 +13029,6 @@ void intel_modeset_init(struct drm_device *dev)
 
 	intel_shared_dpll_init(dev);
 
-	/* save the BIOS value before clobbering it */
-	dev_priv->bios_vgacntr = I915_READ(i915_vgacntrl_reg(dev));
 	/* Just disable it once at startup */
 	i915_disable_vga(dev);
 	intel_setup_outputs(dev);

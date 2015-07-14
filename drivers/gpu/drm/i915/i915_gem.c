@@ -3050,6 +3050,13 @@ static void i965_write_fence_reg(struct drm_device *dev, int reg,
 		u32 size = i915_gem_obj_ggtt_size(obj);
 		uint64_t val;
 
+		/* Adjust fence size to match tiled area */
+		if (obj->tiling_mode != I915_TILING_NONE) {
+			uint32_t row_size = obj->stride *
+				(obj->tiling_mode == I915_TILING_Y ? 32 : 8);
+			size = (size / row_size) * row_size;
+		}
+
 		val = (uint64_t)((i915_gem_obj_ggtt_offset(obj) + size - 4096) &
 				 0xfffff000) << 32;
 		val |= i915_gem_obj_ggtt_offset(obj) & 0xfffff000;
@@ -4193,7 +4200,7 @@ i915_gem_pin_ioctl(struct drm_device *dev, void *data,
 	struct drm_i915_gem_object *obj;
 	int ret;
 
-	if (INTEL_INFO(dev)->gen >= 6)
+	if (drm_core_check_feature(dev, DRIVER_MODESET))
 		return -ENODEV;
 
 	ret = i915_mutex_lock_interruptible(dev);
@@ -4248,6 +4255,9 @@ i915_gem_unpin_ioctl(struct drm_device *dev, void *data,
 	struct drm_i915_gem_pin *args = data;
 	struct drm_i915_gem_object *obj;
 	int ret;
+
+	if (drm_core_check_feature(dev, DRIVER_MODESET))
+		return -ENODEV;
 
 	ret = i915_mutex_lock_interruptible(dev);
 	if (ret)
@@ -4808,25 +4818,18 @@ i915_gem_init_hw(struct drm_device *dev)
 	for (i = 0; i < NUM_L3_SLICES(dev); i++)
 		i915_gem_l3_remap(&dev_priv->ring[RCS], i);
 
-	/*
-	 * XXX: Contexts should only be initialized once. Doing a switch to the
-	 * default context switch however is something we'd like to do after
-	 * reset or thaw (the latter may not actually be necessary for HW, but
-	 * goes with our code better). Context switching requires rings (for
-	 * the do_switch), but before enabling PPGTT. So don't move this.
-	 */
+	ret = i915_ppgtt_init_hw(dev);
+	if (ret && ret != -EIO) {
+		DRM_ERROR("PPGTT enable failed %d\n", ret);
+		i915_gem_cleanup_ringbuffer(dev);
+	}
+
 	ret = i915_gem_context_enable(dev_priv);
 	if (ret && ret != -EIO) {
 		DRM_ERROR("Context enable failed %d\n", ret);
 		i915_gem_cleanup_ringbuffer(dev);
 
 		return ret;
-	}
-
-	ret = i915_ppgtt_init_hw(dev);
-	if (ret && ret != -EIO) {
-		DRM_ERROR("PPGTT enable failed %d\n", ret);
-		i915_gem_cleanup_ringbuffer(dev);
 	}
 
 	return ret;
@@ -5141,7 +5144,7 @@ static bool mutex_is_locked_by(struct mutex *mutex, struct task_struct *task)
 	if (!mutex_is_locked(mutex))
 		return false;
 
-#if defined(CONFIG_SMP) || defined(CONFIG_DEBUG_MUTEXES)
+#if defined(CONFIG_SMP) && !defined(CONFIG_DEBUG_MUTEXES)
 	return mutex->owner == task;
 #else
 	/* Since UP may be pre-empted, we cannot assume that we own the lock */

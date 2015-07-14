@@ -1184,7 +1184,7 @@ iscsit_handle_scsi_cmd(struct iscsi_conn *conn, struct iscsi_cmd *cmd,
 	 * traditional iSCSI block I/O.
 	 */
 	if (iscsit_allocate_iovecs(cmd) < 0) {
-		return iscsit_add_reject_cmd(cmd,
+		return iscsit_reject_cmd(cmd,
 				ISCSI_REASON_BOOKMARK_NO_RESOURCES, buf);
 	}
 	immed_data = cmd->immediate_data;
@@ -4220,11 +4220,17 @@ int iscsit_close_connection(
 	pr_debug("Closing iSCSI connection CID %hu on SID:"
 		" %u\n", conn->cid, sess->sid);
 	/*
-	 * Always up conn_logout_comp just in case the RX Thread is sleeping
-	 * and the logout response never got sent because the connection
-	 * failed.
+	 * Always up conn_logout_comp for the traditional TCP case just in case
+	 * the RX Thread in iscsi_target_rx_opcode() is sleeping and the logout
+	 * response never got sent because the connection failed.
+	 *
+	 * However for iser-target, isert_wait4logout() is using conn_logout_comp
+	 * to signal logout response TX interrupt completion.  Go ahead and skip
+	 * this for iser since isert_rx_opcode() does not wait on logout failure,
+	 * and to avoid iscsi_conn pointer dereference in iser-target code.
 	 */
-	complete(&conn->conn_logout_comp);
+	if (conn->conn_transport->transport_type == ISCSI_TCP)
+		complete(&conn->conn_logout_comp);
 
 	iscsi_release_thread_set(conn);
 

@@ -1085,12 +1085,12 @@ static void cayman_gpu_init(struct radeon_device *rdev)
 
 	if ((rdev->config.cayman.max_backends_per_se == 1) &&
 	    (rdev->flags & RADEON_IS_IGP)) {
-		if ((disabled_rb_mask & 3) == 1) {
-			/* RB0 disabled, RB1 enabled */
-			tmp = 0x11111111;
-		} else {
+		if ((disabled_rb_mask & 3) == 2) {
 			/* RB1 disabled, RB0 enabled */
 			tmp = 0x00000000;
+		} else {
+			/* RB0 disabled, RB1 enabled */
+			tmp = 0x11111111;
 		}
 	} else {
 		tmp = gb_addr_config & NUM_PIPES_MASK;
@@ -1269,7 +1269,8 @@ static int cayman_pcie_gart_enable(struct radeon_device *rdev)
 	 */
 	for (i = 1; i < 8; i++) {
 		WREG32(VM_CONTEXT0_PAGE_TABLE_START_ADDR + (i << 2), 0);
-		WREG32(VM_CONTEXT0_PAGE_TABLE_END_ADDR + (i << 2), rdev->vm_manager.max_pfn);
+		WREG32(VM_CONTEXT0_PAGE_TABLE_END_ADDR + (i << 2),
+			rdev->vm_manager.max_pfn - 1);
 		WREG32(VM_CONTEXT0_PAGE_TABLE_BASE_ADDR + (i << 2),
 		       rdev->vm_manager.saved_table_addr[i]);
 	}

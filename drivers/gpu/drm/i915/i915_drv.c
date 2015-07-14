@@ -692,10 +692,11 @@ static int __i915_drm_thaw(struct drm_device *dev, bool restore_gtt_mappings)
 			spin_unlock_irqrestore(&dev_priv->irq_lock, irqflags);
 		}
 
-		intel_dp_mst_resume(dev);
 		drm_modeset_lock_all(dev);
 		intel_modeset_setup_hw_state(dev, true);
 		drm_modeset_unlock_all(dev);
+
+		intel_dp_mst_resume(dev);
 
 		/*
 		 * ... but also need to make sure that hotplug processing
@@ -1087,7 +1088,7 @@ static void vlv_save_gunit_s0ix_state(struct drm_i915_private *dev_priv)
 		s->lra_limits[i] = I915_READ(GEN7_LRA_LIMITS_BASE + i * 4);
 
 	s->media_max_req_count	= I915_READ(GEN7_MEDIA_MAX_REQ_COUNT);
-	s->gfx_max_req_count	= I915_READ(GEN7_MEDIA_MAX_REQ_COUNT);
+	s->gfx_max_req_count	= I915_READ(GEN7_GFX_MAX_REQ_COUNT);
 
 	s->render_hwsp		= I915_READ(RENDER_HWS_PGA_GEN7);
 	s->ecochk		= I915_READ(GAM_ECOCHK);
@@ -1140,6 +1141,7 @@ static void vlv_save_gunit_s0ix_state(struct drm_i915_private *dev_priv)
 	/* Gunit-Display CZ domain, 0x182028-0x1821CF */
 	s->gu_ctl0		= I915_READ(VLV_GU_CTL0);
 	s->gu_ctl1		= I915_READ(VLV_GU_CTL1);
+	s->pcbr			= I915_READ(VLV_PCBR);
 	s->clock_gate_dis2	= I915_READ(VLV_GUNIT_CLOCK_GATE2);
 
 	/*
@@ -1168,7 +1170,7 @@ static void vlv_restore_gunit_s0ix_state(struct drm_i915_private *dev_priv)
 		I915_WRITE(GEN7_LRA_LIMITS_BASE + i * 4, s->lra_limits[i]);
 
 	I915_WRITE(GEN7_MEDIA_MAX_REQ_COUNT, s->media_max_req_count);
-	I915_WRITE(GEN7_MEDIA_MAX_REQ_COUNT, s->gfx_max_req_count);
+	I915_WRITE(GEN7_GFX_MAX_REQ_COUNT, s->gfx_max_req_count);
 
 	I915_WRITE(RENDER_HWS_PGA_GEN7,	s->render_hwsp);
 	I915_WRITE(GAM_ECOCHK,		s->ecochk);
@@ -1234,6 +1236,7 @@ static void vlv_restore_gunit_s0ix_state(struct drm_i915_private *dev_priv)
 	/* Gunit-Display CZ domain, 0x182028-0x1821CF */
 	I915_WRITE(VLV_GU_CTL0,			s->gu_ctl0);
 	I915_WRITE(VLV_GU_CTL1,			s->gu_ctl1);
+	I915_WRITE(VLV_PCBR,			s->pcbr);
 	I915_WRITE(VLV_GUNIT_CLOCK_GATE2,	s->clock_gate_dis2);
 }
 
@@ -1242,19 +1245,7 @@ int vlv_force_gfx_clock(struct drm_i915_private *dev_priv, bool force_on)
 	u32 val;
 	int err;
 
-	val = I915_READ(VLV_GTLC_SURVIVABILITY_REG);
-	WARN_ON(!!(val & VLV_GFX_CLK_FORCE_ON_BIT) == force_on);
-
 #define COND (I915_READ(VLV_GTLC_SURVIVABILITY_REG) & VLV_GFX_CLK_STATUS_BIT)
-	/* Wait for a previous force-off to settle */
-	if (force_on) {
-		err = wait_for(!COND, 20);
-		if (err) {
-			DRM_ERROR("timeout waiting for GFX clock force-off (%08x)\n",
-				  I915_READ(VLV_GTLC_SURVIVABILITY_REG));
-			return err;
-		}
-	}
 
 	val = I915_READ(VLV_GTLC_SURVIVABILITY_REG);
 	val &= ~VLV_GFX_CLK_FORCE_ON_BIT;

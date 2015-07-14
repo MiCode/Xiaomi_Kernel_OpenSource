@@ -517,8 +517,6 @@ static void free_hugepd_range(struct mmu_gather *tlb, hugepd_t *hpdp, int pdshif
 	for (i = 0; i < num_hugepd; i++, hpdp++)
 		hpdp->pd = 0;
 
-	tlb->need_flush = 1;
-
 #ifdef CONFIG_PPC_FSL_BOOK3E
 	hugepd_free(tlb, hugepte);
 #else
@@ -701,6 +699,14 @@ follow_huge_addr(struct mm_struct *mm, unsigned long address, int write)
 struct page *
 follow_huge_pmd(struct mm_struct *mm, unsigned long address,
 		pmd_t *pmd, int write)
+{
+	BUG();
+	return NULL;
+}
+
+struct page *
+follow_huge_pud(struct mm_struct *mm, unsigned long address,
+		pud_t *pud, int write)
 {
 	BUG();
 	return NULL;

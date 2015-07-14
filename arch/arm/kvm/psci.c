@@ -15,6 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <linux/preempt.h>
 #include <linux/kvm_host.h>
 #include <linux/wait.h>
 
@@ -166,6 +167,23 @@ static unsigned long kvm_psci_vcpu_affinity_info(struct kvm_vcpu *vcpu)
 
 static void kvm_prepare_system_event(struct kvm_vcpu *vcpu, u32 type)
 {
+	int i;
+	struct kvm_vcpu *tmp;
+
+	/*
+	 * The KVM ABI specifies that a system event exit may call KVM_RUN
+	 * again and may perform shutdown/reboot at a later time that when the
+	 * actual request is made.  Since we are implementing PSCI and a
+	 * caller of PSCI reboot and shutdown expects that the system shuts
+	 * down or reboots immediately, let's make sure that VCPUs are not run
+	 * after this call is handled and before the VCPUs have been
+	 * re-initialized.
+	 */
+	kvm_for_each_vcpu(i, tmp, vcpu->kvm) {
+		tmp->arch.pause = true;
+		kvm_vcpu_kick(tmp);
+	}
+
 	memset(&vcpu->run->system_event, 0, sizeof(vcpu->run->system_event));
 	vcpu->run->system_event.type = type;
 	vcpu->run->exit_reason = KVM_EXIT_SYSTEM_EVENT;
@@ -219,10 +237,6 @@ static int kvm_psci_0_2_call(struct kvm_vcpu *vcpu)
 	case PSCI_0_2_FN64_AFFINITY_INFO:
 		val = kvm_psci_vcpu_affinity_info(vcpu);
 		break;
-	case PSCI_0_2_FN_MIGRATE:
-	case PSCI_0_2_FN64_MIGRATE:
-		val = PSCI_RET_NOT_SUPPORTED;
-		break;
 	case PSCI_0_2_FN_MIGRATE_INFO_TYPE:
 		/*
 		 * Trusted OS is MP hence does not require migration
@@ -230,10 +244,6 @@ static int kvm_psci_0_2_call(struct kvm_vcpu *vcpu)
 		 * Trusted OS is not present
 		 */
 		val = PSCI_0_2_TOS_MP;
-		break;
-	case PSCI_0_2_FN_MIGRATE_INFO_UP_CPU:
-	case PSCI_0_2_FN64_MIGRATE_INFO_UP_CPU:
-		val = PSCI_RET_NOT_SUPPORTED;
 		break;
 	case PSCI_0_2_FN_SYSTEM_OFF:
 		kvm_psci_system_off(vcpu);
@@ -260,7 +270,8 @@ static int kvm_psci_0_2_call(struct kvm_vcpu *vcpu)
 		ret = 0;
 		break;
 	default:
-		return -EINVAL;
+		val = PSCI_RET_NOT_SUPPORTED;
+		break;
 	}
 
 	*vcpu_reg(vcpu, 0) = val;
@@ -280,12 +291,9 @@ static int kvm_psci_0_1_call(struct kvm_vcpu *vcpu)
 	case KVM_PSCI_FN_CPU_ON:
 		val = kvm_psci_vcpu_on(vcpu);
 		break;
-	case KVM_PSCI_FN_CPU_SUSPEND:
-	case KVM_PSCI_FN_MIGRATE:
+	default:
 		val = PSCI_RET_NOT_SUPPORTED;
 		break;
-	default:
-		return -EINVAL;
 	}
 
 	*vcpu_reg(vcpu, 0) = val;

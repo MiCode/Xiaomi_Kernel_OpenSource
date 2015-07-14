@@ -540,6 +540,9 @@ static int radeon_info_ioctl(struct drm_device *dev, void *data, struct drm_file
 		else
 			*value = 1;
 		break;
+	case RADEON_INFO_VA_UNMAP_WORKING:
+		*value = true;
+		break;
 	default:
 		DRM_DEBUG_KMS("Invalid request %d\n", info->request);
 		return -EINVAL;
@@ -598,14 +601,14 @@ int radeon_driver_open_kms(struct drm_device *dev, struct drm_file *file_priv)
 			return -ENOMEM;
 		}
 
-		vm = &fpriv->vm;
-		r = radeon_vm_init(rdev, vm);
-		if (r) {
-			kfree(fpriv);
-			return r;
-		}
-
 		if (rdev->accel_working) {
+			vm = &fpriv->vm;
+			r = radeon_vm_init(rdev, vm);
+			if (r) {
+				kfree(fpriv);
+				return r;
+			}
+
 			r = radeon_bo_reserve(rdev->ring_tmp_bo.bo, false);
 			if (r) {
 				radeon_vm_fini(rdev, vm);
@@ -663,9 +666,9 @@ void radeon_driver_postclose_kms(struct drm_device *dev,
 					radeon_vm_bo_rmv(rdev, vm->ib_bo_va);
 				radeon_bo_unreserve(rdev->ring_tmp_bo.bo);
 			}
+			radeon_vm_fini(rdev, vm);
 		}
 
-		radeon_vm_fini(rdev, vm);
 		kfree(fpriv);
 		file_priv->driver_priv = NULL;
 	}

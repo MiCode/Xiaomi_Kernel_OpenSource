@@ -16,6 +16,7 @@
 #include <linux/mmu_context.h>
 #include <linux/signal.h>
 #include <linux/slab.h>
+#include <linux/vmalloc.h>
 #include <asm/asm-offsets.h>
 #include <asm/uaccess.h>
 #include "kvm-s390.h"
@@ -270,7 +271,7 @@ static int __must_check __deliver_prog_irq(struct kvm_vcpu *vcpu,
 		break;
 	case PGM_MONITOR:
 		rc = put_guest_lc(vcpu, pgm_info->mon_class_nr,
-				  (u64 *)__LC_MON_CLASS_NR);
+				  (u16 *)__LC_MON_CLASS_NR);
 		rc |= put_guest_lc(vcpu, pgm_info->mon_code,
 				   (u64 *)__LC_MON_CODE);
 		break;
@@ -613,7 +614,7 @@ no_timer:
 	__unset_cpu_idle(vcpu);
 	vcpu->srcu_idx = srcu_read_lock(&vcpu->kvm->srcu);
 
-	hrtimer_try_to_cancel(&vcpu->arch.ckc_timer);
+	hrtimer_cancel(&vcpu->arch.ckc_timer);
 	return 0;
 }
 
@@ -633,10 +634,20 @@ void kvm_s390_vcpu_wakeup(struct kvm_vcpu *vcpu)
 enum hrtimer_restart kvm_s390_idle_wakeup(struct hrtimer *timer)
 {
 	struct kvm_vcpu *vcpu;
+	u64 now, sltime;
 
 	vcpu = container_of(timer, struct kvm_vcpu, arch.ckc_timer);
-	kvm_s390_vcpu_wakeup(vcpu);
+	now = get_tod_clock_fast() + vcpu->arch.sie_block->epoch;
+	sltime = tod_to_ns(vcpu->arch.sie_block->ckc - now);
 
+	/*
+	 * If the monotonic clock runs faster than the tod clock we might be
+	 * woken up too early and have to go back to sleep to avoid deadlocks.
+	 */
+	if (vcpu->arch.sie_block->ckc > now &&
+	    hrtimer_forward_now(timer, ns_to_ktime(sltime)))
+		return HRTIMER_RESTART;
+	kvm_s390_vcpu_wakeup(vcpu);
 	return HRTIMER_NORESTART;
 }
 
@@ -774,7 +785,6 @@ struct kvm_s390_interrupt_info *kvm_s390_get_io_int(struct kvm *kvm,
 
 	if ((!schid && !cr6) || (schid && cr6))
 		return NULL;
-	mutex_lock(&kvm->lock);
 	fi = &kvm->arch.float_int;
 	spin_lock(&fi->lock);
 	inti = NULL;
@@ -802,7 +812,6 @@ struct kvm_s390_interrupt_info *kvm_s390_get_io_int(struct kvm *kvm,
 	if (list_empty(&fi->list))
 		atomic_set(&fi->active, 0);
 	spin_unlock(&fi->lock);
-	mutex_unlock(&kvm->lock);
 	return inti;
 }
 
@@ -815,7 +824,6 @@ static int __inject_vm(struct kvm *kvm, struct kvm_s390_interrupt_info *inti)
 	int sigcpu;
 	int rc = 0;
 
-	mutex_lock(&kvm->lock);
 	fi = &kvm->arch.float_int;
 	spin_lock(&fi->lock);
 	if (fi->irq_count >= KVM_S390_MAX_FLOAT_IRQS) {
@@ -840,6 +848,8 @@ static int __inject_vm(struct kvm *kvm, struct kvm_s390_interrupt_info *inti)
 		list_add_tail(&inti->list, &iter->list);
 	}
 	atomic_set(&fi->active, 1);
+	if (atomic_read(&kvm->online_vcpus) == 0)
+		goto unlock_fi;
 	sigcpu = find_first_bit(fi->idle_mask, KVM_MAX_VCPUS);
 	if (sigcpu == KVM_MAX_VCPUS) {
 		do {
@@ -856,7 +866,6 @@ static int __inject_vm(struct kvm *kvm, struct kvm_s390_interrupt_info *inti)
 	kvm_s390_vcpu_wakeup(kvm_get_vcpu(kvm, sigcpu));
 unlock_fi:
 	spin_unlock(&fi->lock);
-	mutex_unlock(&kvm->lock);
 	return rc;
 }
 
@@ -864,6 +873,7 @@ int kvm_s390_inject_vm(struct kvm *kvm,
 		       struct kvm_s390_interrupt *s390int)
 {
 	struct kvm_s390_interrupt_info *inti;
+	int rc;
 
 	inti = kzalloc(sizeof(*inti), GFP_KERNEL);
 	if (!inti)
@@ -911,13 +921,16 @@ int kvm_s390_inject_vm(struct kvm *kvm,
 	trace_kvm_s390_inject_vm(s390int->type, s390int->parm, s390int->parm64,
 				 2);
 
-	return __inject_vm(kvm, inti);
+	rc = __inject_vm(kvm, inti);
+	if (rc)
+		kfree(inti);
+	return rc;
 }
 
-void kvm_s390_reinject_io_int(struct kvm *kvm,
+int kvm_s390_reinject_io_int(struct kvm *kvm,
 			      struct kvm_s390_interrupt_info *inti)
 {
-	__inject_vm(kvm, inti);
+	return __inject_vm(kvm, inti);
 }
 
 int kvm_s390_inject_vcpu(struct kvm_vcpu *vcpu,
@@ -1013,7 +1026,6 @@ void kvm_s390_clear_float_irqs(struct kvm *kvm)
 	struct kvm_s390_float_interrupt *fi;
 	struct kvm_s390_interrupt_info	*n, *inti = NULL;
 
-	mutex_lock(&kvm->lock);
 	fi = &kvm->arch.float_int;
 	spin_lock(&fi->lock);
 	list_for_each_entry_safe(inti, n, &fi->list, list) {
@@ -1023,66 +1035,68 @@ void kvm_s390_clear_float_irqs(struct kvm *kvm)
 	fi->irq_count = 0;
 	atomic_set(&fi->active, 0);
 	spin_unlock(&fi->lock);
-	mutex_unlock(&kvm->lock);
 }
 
-static inline int copy_irq_to_user(struct kvm_s390_interrupt_info *inti,
-				   u8 *addr)
+static void inti_to_irq(struct kvm_s390_interrupt_info *inti,
+		       struct kvm_s390_irq *irq)
 {
-	struct kvm_s390_irq __user *uptr = (struct kvm_s390_irq __user *) addr;
-	struct kvm_s390_irq irq = {0};
-
-	irq.type = inti->type;
+	irq->type = inti->type;
 	switch (inti->type) {
 	case KVM_S390_INT_PFAULT_INIT:
 	case KVM_S390_INT_PFAULT_DONE:
 	case KVM_S390_INT_VIRTIO:
 	case KVM_S390_INT_SERVICE:
-		irq.u.ext = inti->ext;
+		irq->u.ext = inti->ext;
 		break;
 	case KVM_S390_INT_IO_MIN...KVM_S390_INT_IO_MAX:
-		irq.u.io = inti->io;
+		irq->u.io = inti->io;
 		break;
 	case KVM_S390_MCHK:
-		irq.u.mchk = inti->mchk;
+		irq->u.mchk = inti->mchk;
 		break;
-	default:
-		return -EINVAL;
 	}
-
-	if (copy_to_user(uptr, &irq, sizeof(irq)))
-		return -EFAULT;
-
-	return 0;
 }
 
-static int get_all_floating_irqs(struct kvm *kvm, __u8 *buf, __u64 len)
+static int get_all_floating_irqs(struct kvm *kvm, u8 __user *usrbuf, u64 len)
 {
 	struct kvm_s390_interrupt_info *inti;
 	struct kvm_s390_float_interrupt *fi;
+	struct kvm_s390_irq *buf;
+	int max_irqs;
 	int ret = 0;
 	int n = 0;
 
-	mutex_lock(&kvm->lock);
+	if (len > KVM_S390_FLIC_MAX_BUFFER || len == 0)
+		return -EINVAL;
+
+	/*
+	 * We are already using -ENOMEM to signal
+	 * userspace it may retry with a bigger buffer,
+	 * so we need to use something else for this case
+	 */
+	buf = vzalloc(len);
+	if (!buf)
+		return -ENOBUFS;
+
+	max_irqs = len / sizeof(struct kvm_s390_irq);
+
 	fi = &kvm->arch.float_int;
 	spin_lock(&fi->lock);
-
 	list_for_each_entry(inti, &fi->list, list) {
-		if (len < sizeof(struct kvm_s390_irq)) {
+		if (n == max_irqs) {
 			/* signal userspace to try again */
 			ret = -ENOMEM;
 			break;
 		}
-		ret = copy_irq_to_user(inti, buf);
-		if (ret)
-			break;
-		buf += sizeof(struct kvm_s390_irq);
-		len -= sizeof(struct kvm_s390_irq);
+		inti_to_irq(inti, &buf[n]);
 		n++;
 	}
-
 	spin_unlock(&fi->lock);
-	mutex_unlock(&kvm->lock);
+	if (!ret && n > 0) {
+		if (copy_to_user(usrbuf, buf, sizeof(struct kvm_s390_irq) * n))
+			ret = -EFAULT;
+	}
+	vfree(buf);
 
 	return ret < 0 ? ret : n;
 }
@@ -1093,7 +1107,7 @@ static int flic_get_attr(struct kvm_device *dev, struct kvm_device_attr *attr)
 
 	switch (attr->group) {
 	case KVM_DEV_FLIC_GET_ALL_IRQS:
-		r = get_all_floating_irqs(dev->kvm, (u8 *) attr->addr,
+		r = get_all_floating_irqs(dev->kvm, (u8 __user *) attr->addr,
 					  attr->attr);
 		break;
 	default:

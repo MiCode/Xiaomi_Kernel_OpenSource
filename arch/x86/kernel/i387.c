@@ -13,6 +13,7 @@
 #include <asm/sigcontext.h>
 #include <asm/processor.h>
 #include <asm/math_emu.h>
+#include <asm/tlbflush.h>
 #include <asm/uaccess.h>
 #include <asm/ptrace.h>
 #include <asm/i387.h>
@@ -155,6 +156,21 @@ static void init_thread_xstate(void)
 		xstate_size = sizeof(struct i387_fxsave_struct);
 	else
 		xstate_size = sizeof(struct i387_fsave_struct);
+
+	/*
+	 * Quirk: we don't yet handle the XSAVES* instructions
+	 * correctly, as we don't correctly convert between
+	 * standard and compacted format when interfacing
+	 * with user-space - so disable it for now.
+	 *
+	 * The difference is small: with recent CPUs the
+	 * compacted format is only marginally smaller than
+	 * the standard FPU state format.
+	 *
+	 * ( This is easy to backport while we are fixing
+	 *   XSAVES* support. )
+	 */
+	setup_clear_cpu_cap(X86_FEATURE_XSAVES);
 }
 
 /*
@@ -180,7 +196,7 @@ void fpu_init(void)
 	if (cpu_has_xmm)
 		cr4_mask |= X86_CR4_OSXMMEXCPT;
 	if (cr4_mask)
-		set_in_cr4(cr4_mask);
+		cr4_set_bits(cr4_mask);
 
 	cr0 = read_cr0();
 	cr0 &= ~(X86_CR0_TS|X86_CR0_EM); /* clear TS and EM */

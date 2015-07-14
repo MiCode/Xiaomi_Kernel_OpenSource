@@ -2123,6 +2123,9 @@ static irqreturn_t valleyview_irq_handler(int irq, void *arg)
 	u32 iir, gt_iir, pm_iir;
 	irqreturn_t ret = IRQ_NONE;
 
+	if (!intel_irqs_enabled(dev_priv))
+		return IRQ_NONE;
+
 	while (true) {
 		/* Find, clear, then process each source of interrupt */
 
@@ -2166,6 +2169,9 @@ static irqreturn_t cherryview_irq_handler(int irq, void *arg)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	u32 master_ctl, iir;
 	irqreturn_t ret = IRQ_NONE;
+
+	if (!intel_irqs_enabled(dev_priv))
+		return IRQ_NONE;
 
 	for (;;) {
 		master_ctl = I915_READ(GEN8_MASTER_IRQ) & ~GEN8_MASTER_IRQ_CONTROL;
@@ -2455,6 +2461,9 @@ static irqreturn_t ironlake_irq_handler(int irq, void *arg)
 	u32 de_iir, gt_iir, de_ier, sde_ier = 0;
 	irqreturn_t ret = IRQ_NONE;
 
+	if (!intel_irqs_enabled(dev_priv))
+		return IRQ_NONE;
+
 	/* We get interrupts on unclaimed registers, so check for this before we
 	 * do any I915_{READ,WRITE}. */
 	intel_uncore_check_errors(dev);
@@ -2524,6 +2533,9 @@ static irqreturn_t gen8_irq_handler(int irq, void *arg)
 	irqreturn_t ret = IRQ_NONE;
 	uint32_t tmp = 0;
 	enum pipe pipe;
+
+	if (!intel_irqs_enabled(dev_priv))
+		return IRQ_NONE;
 
 	master_ctl = I915_READ(GEN8_MASTER_IRQ);
 	master_ctl &= ~GEN8_MASTER_IRQ_CONTROL;
@@ -3986,14 +3998,12 @@ static int i8xx_irq_postinstall(struct drm_device *dev)
 		~(I915_DISPLAY_PIPE_A_EVENT_INTERRUPT |
 		  I915_DISPLAY_PIPE_B_EVENT_INTERRUPT |
 		  I915_DISPLAY_PLANE_A_FLIP_PENDING_INTERRUPT |
-		  I915_DISPLAY_PLANE_B_FLIP_PENDING_INTERRUPT |
-		  I915_RENDER_COMMAND_PARSER_ERROR_INTERRUPT);
+		  I915_DISPLAY_PLANE_B_FLIP_PENDING_INTERRUPT);
 	I915_WRITE16(IMR, dev_priv->irq_mask);
 
 	I915_WRITE16(IER,
 		     I915_DISPLAY_PIPE_A_EVENT_INTERRUPT |
 		     I915_DISPLAY_PIPE_B_EVENT_INTERRUPT |
-		     I915_RENDER_COMMAND_PARSER_ERROR_INTERRUPT |
 		     I915_USER_INTERRUPT);
 	POSTING_READ16(IER);
 
@@ -4022,8 +4032,6 @@ static bool i8xx_handle_vblank(struct drm_device *dev,
 	if ((iir & flip_pending) == 0)
 		goto check_page_flip;
 
-	intel_prepare_page_flip(dev, plane);
-
 	/* We detect FlipDone by looking for the change in PendingFlip from '1'
 	 * to '0' on the following vblank, i.e. IIR has the Pendingflip
 	 * asserted following the MI_DISPLAY_FLIP, but ISR is deasserted, hence
@@ -4033,6 +4041,7 @@ static bool i8xx_handle_vblank(struct drm_device *dev,
 	if (I915_READ16(ISR) & flip_pending)
 		goto check_page_flip;
 
+	intel_prepare_page_flip(dev, plane);
 	intel_finish_page_flip(dev, pipe);
 	return true;
 
@@ -4052,6 +4061,9 @@ static irqreturn_t i8xx_irq_handler(int irq, void *arg)
 	u16 flip_mask =
 		I915_DISPLAY_PLANE_A_FLIP_PENDING_INTERRUPT |
 		I915_DISPLAY_PLANE_B_FLIP_PENDING_INTERRUPT;
+
+	if (!intel_irqs_enabled(dev_priv))
+		return IRQ_NONE;
 
 	iir = I915_READ16(IIR);
 	if (iir == 0)
@@ -4159,14 +4171,12 @@ static int i915_irq_postinstall(struct drm_device *dev)
 		  I915_DISPLAY_PIPE_A_EVENT_INTERRUPT |
 		  I915_DISPLAY_PIPE_B_EVENT_INTERRUPT |
 		  I915_DISPLAY_PLANE_A_FLIP_PENDING_INTERRUPT |
-		  I915_DISPLAY_PLANE_B_FLIP_PENDING_INTERRUPT |
-		  I915_RENDER_COMMAND_PARSER_ERROR_INTERRUPT);
+		  I915_DISPLAY_PLANE_B_FLIP_PENDING_INTERRUPT);
 
 	enable_mask =
 		I915_ASLE_INTERRUPT |
 		I915_DISPLAY_PIPE_A_EVENT_INTERRUPT |
 		I915_DISPLAY_PIPE_B_EVENT_INTERRUPT |
-		I915_RENDER_COMMAND_PARSER_ERROR_INTERRUPT |
 		I915_USER_INTERRUPT;
 
 	if (I915_HAS_HOTPLUG(dev)) {
@@ -4210,8 +4220,6 @@ static bool i915_handle_vblank(struct drm_device *dev,
 	if ((iir & flip_pending) == 0)
 		goto check_page_flip;
 
-	intel_prepare_page_flip(dev, plane);
-
 	/* We detect FlipDone by looking for the change in PendingFlip from '1'
 	 * to '0' on the following vblank, i.e. IIR has the Pendingflip
 	 * asserted following the MI_DISPLAY_FLIP, but ISR is deasserted, hence
@@ -4221,6 +4229,7 @@ static bool i915_handle_vblank(struct drm_device *dev,
 	if (I915_READ(ISR) & flip_pending)
 		goto check_page_flip;
 
+	intel_prepare_page_flip(dev, plane);
 	intel_finish_page_flip(dev, pipe);
 	return true;
 
@@ -4239,6 +4248,9 @@ static irqreturn_t i915_irq_handler(int irq, void *arg)
 		I915_DISPLAY_PLANE_A_FLIP_PENDING_INTERRUPT |
 		I915_DISPLAY_PLANE_B_FLIP_PENDING_INTERRUPT;
 	int pipe, ret = IRQ_NONE;
+
+	if (!intel_irqs_enabled(dev_priv))
+		return IRQ_NONE;
 
 	iir = I915_READ(IIR);
 	do {
@@ -4467,6 +4479,9 @@ static irqreturn_t i965_irq_handler(int irq, void *arg)
 	u32 flip_mask =
 		I915_DISPLAY_PLANE_A_FLIP_PENDING_INTERRUPT |
 		I915_DISPLAY_PLANE_B_FLIP_PENDING_INTERRUPT;
+
+	if (!intel_irqs_enabled(dev_priv))
+		return IRQ_NONE;
 
 	iir = I915_READ(IIR);
 
@@ -4779,4 +4794,5 @@ void intel_runtime_pm_restore_interrupts(struct drm_device *dev)
 	dev_priv->pm._irqs_disabled = false;
 	dev->driver->irq_preinstall(dev);
 	dev->driver->irq_postinstall(dev);
+	synchronize_irq(dev_priv->dev->irq);
 }
