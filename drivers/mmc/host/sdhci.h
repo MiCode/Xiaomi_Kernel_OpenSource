@@ -328,6 +328,7 @@ struct sdhci_ops {
 					  u32 type);
 	int	(*enable_controller_clock)(struct sdhci_host *host);
 	void	(*clear_set_dumpregs)(struct sdhci_host *host, bool set);
+	void	(*enhanced_strobe_mask)(struct sdhci_host *host, bool set);
 };
 
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS
