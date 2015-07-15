@@ -6311,6 +6311,7 @@ static int q6asm_send_asm_cal(struct audio_client *ac)
 		goto unlock;
 	}
 
+	/* asm_stream_cmd_set_pp_params_v2 has no APR header in it */
 	q6asm_add_hdr_async(ac, &hdr, (sizeof(struct apr_hdr) +
 		sizeof(struct asm_stream_cmd_set_pp_params_v2)), TRUE);
 
