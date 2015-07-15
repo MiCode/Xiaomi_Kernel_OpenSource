@@ -333,6 +333,7 @@ struct sdhci_ops {
 	int	(*notify_load)(struct sdhci_host *host, enum mmc_load state);
 	void	(*notify_pm_status)(struct sdhci_host *host,
 					enum dev_state state);
+	void	(*enhanced_strobe_mask)(struct sdhci_host *host, bool set);
 };
 
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS
