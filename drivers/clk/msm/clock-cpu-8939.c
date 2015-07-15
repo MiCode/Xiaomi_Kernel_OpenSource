@@ -344,6 +344,7 @@ static int add_opp(struct clk *c, struct device *cpudev, struct device *vregdev,
 	long ret, uv, corner;
 	bool use_voltages = false;
 	struct dev_pm_opp *oppl;
+	int j = 1;
 
 	rcu_read_lock();
 	/* Check if the regulator driver has already populated OPP tables */
@@ -353,12 +354,7 @@ static int add_opp(struct clk *c, struct device *cpudev, struct device *vregdev,
 		use_voltages = true;
 
 	while (1) {
-		ret = clk_round_rate(c, rate + 1);
-		if (ret < 0) {
-			pr_warn("clock-cpu: round_rate failed at %lu\n", rate);
-			return ret;
-		}
-		rate = ret;
+		rate = c->fmax[j++];
 		level = find_vdd_level(c, rate);
 		if (level <= 0) {
 			pr_warn("clock-cpu: no uv for %lu.\n", rate);
