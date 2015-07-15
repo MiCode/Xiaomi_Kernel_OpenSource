@@ -6292,8 +6292,17 @@ static int q6asm_send_asm_cal(struct audio_client *ac)
 	}
 	mutex_lock(&cal_data[ASM_AUDSTRM_CAL]->lock);
 	cal_block = cal_utils_get_only_cal_block(cal_data[ASM_AUDSTRM_CAL]);
-	if (cal_block == NULL)
+	if (cal_block == NULL) {
+		pr_err("%s: cal_block is NULL\n",
+			__func__);
 		goto unlock;
+	}
+
+	if (cal_block->cal_data.size == 0) {
+		pr_debug("%s: cal_data.size is 0, don't send cal data\n",
+			__func__);
+		goto unlock;
+	}
 
 	rc = remap_cal_data(cal_block);
 	if (rc) {
