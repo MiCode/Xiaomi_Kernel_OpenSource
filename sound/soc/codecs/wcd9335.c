@@ -9342,8 +9342,6 @@ static int tasha_codec_remove(struct snd_soc_codec *codec)
 	/* Cleanup MBHC */
 	/* Cleanup resmgr */
 
-	devm_kfree(codec->dev, tasha);
-
 	return 0;
 }
 
@@ -9724,6 +9722,7 @@ static int tasha_remove(struct platform_device *pdev)
 	tasha = platform_get_drvdata(pdev);
 
 	clk_put(tasha->wcd_ext_clk);
+	devm_kfree(&pdev->dev, tasha);
 	snd_soc_unregister_codec(&pdev->dev);
 	return 0;
 }
