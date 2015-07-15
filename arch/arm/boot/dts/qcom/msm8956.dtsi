@@ -110,6 +110,12 @@
 			reg = <0x0 0x83000000 0x0 0x2800000>;
 			label = "cont_splash_mem";
 		};
+
+		adsp_mem: adsp_region@0 {
+			linux,reserve-contiguous-region;
+			reg = <0x0 0x0 0x0 0x400000>;
+			label = "adsp_mem";
+		};
 	};
 };
 
@@ -2400,6 +2406,11 @@
 		compatible = "qcom,msm-audio-ion";
 		qcom,smmu-enabled;
 		qcom,smmu-sid = <0x1>;
+	};
+
+	qcom,adsprpc-mem {
+		compatible = "qcom,msm-adsprpc-mem-region";
+		linux,contiguous-region = <&adsp_mem>;
 	};
 
 	qcom,msm-adsp-loader {
