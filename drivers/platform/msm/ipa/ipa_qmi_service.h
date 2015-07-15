@@ -58,18 +58,6 @@ struct rmnet_mux_val {
 	uint32_t  hdr_hdl;
 };
 
-int rmnet_ipa_poll_tethering_stats(struct wan_ioctl_poll_tethering_stats *data);
-int rmnet_ipa_set_data_quota(struct wan_ioctl_set_data_quota *data);
-void ipa_broadcast_quota_reach_ind(uint32_t mux_id);
-
-int ipa_qmi_get_data_stats(struct ipa_get_data_stats_req_msg_v01 *req,
-	struct ipa_get_data_stats_resp_msg_v01 *resp);
-int ipa_qmi_get_network_stats(struct ipa_get_apn_data_stats_req_msg_v01 *req,
-	struct ipa_get_apn_data_stats_resp_msg_v01 *resp);
-int ipa_qmi_set_data_quota(struct ipa_set_data_usage_quota_req_msg_v01 *req);
-int ipa_qmi_stop_data_qouta(void);
-void ipa_q6_handshake_complete(bool);
-
 extern struct elem_info ipa_init_modem_driver_req_msg_data_v01_ei[];
 extern struct elem_info ipa_init_modem_driver_resp_msg_data_v01_ei[];
 extern struct elem_info ipa_indication_reg_req_msg_data_v01_ei[];
@@ -144,6 +132,24 @@ void wan_ioctl_enable_qmi_messages(void);
 void wan_ioctl_deinit(void);
 
 void ipa_qmi_stop_workqueues(void);
+
+int rmnet_ipa_poll_tethering_stats(struct wan_ioctl_poll_tethering_stats *data);
+
+int rmnet_ipa_set_data_quota(struct wan_ioctl_set_data_quota *data);
+
+void ipa_broadcast_quota_reach_ind(uint32_t mux_id);
+
+int ipa_qmi_get_data_stats(struct ipa_get_data_stats_req_msg_v01 *req,
+	struct ipa_get_data_stats_resp_msg_v01 *resp);
+
+int ipa_qmi_get_network_stats(struct ipa_get_apn_data_stats_req_msg_v01 *req,
+	struct ipa_get_apn_data_stats_resp_msg_v01 *resp);
+
+int ipa_qmi_set_data_quota(struct ipa_set_data_usage_quota_req_msg_v01 *req);
+
+int ipa_qmi_stop_data_qouta(void);
+
+void ipa_q6_handshake_complete(bool ssr_bootup);
 
 #else /* CONFIG_RMNET_IPA */
 
@@ -224,44 +230,51 @@ static inline int vote_for_bus_bw(uint32_t *bw_mbps)
 	return -EPERM;
 }
 
-int rmnet_ipa_poll_tethering_stats(struct wan_ioctl_poll_tethering_stats *data)
+static inline int rmnet_ipa_poll_tethering_stats(
+	struct wan_ioctl_poll_tethering_stats *data)
 {
 	return -EPERM;
 }
 
-int rmnet_ipa_set_data_quota(struct wan_ioctl_set_data_quota *data)
+static inline int rmnet_ipa_set_data_quota(
+	struct wan_ioctl_set_data_quota *data)
 {
 	return -EPERM;
 }
 
-void ipa_broadcast_quota_reach_ind(uint8_t mux_id)
+static inline void ipa_broadcast_quota_reach_ind(uint32_t mux_id)
 {
+	return;
 }
 
-int ipa_qmi_get_data_stats(struct ipa_get_data_stats_req_msg_v01 *req,
-	struct ipa_get_data_stats_resp_msg_v01 *resp);
+static inline int ipa_qmi_get_data_stats(
+	struct ipa_get_data_stats_req_msg_v01 *req,
+	struct ipa_get_data_stats_resp_msg_v01 *resp)
 {
 	return -EPERM;
 }
 
-int ipa_qmi_get_network_stats(struct ipa_get_apn_data_stats_req_msg_v01 *req,
-	struct ipa_get_apn_data_stats_resp_msg_v01 *resp);
+static inline int ipa_qmi_get_network_stats(
+	struct ipa_get_apn_data_stats_req_msg_v01 *req,
+	struct ipa_get_apn_data_stats_resp_msg_v01 *resp)
 {
 	return -EPERM;
 }
 
-int ipa_qmi_set_data_quota(struct ipa_set_network_quota_req_msg_v01 *req)
+static inline int ipa_qmi_set_data_quota(
+	struct ipa_set_data_usage_quota_req_msg_v01 *req)
 {
 	return -EPERM;
 }
 
-int ipa_qmi_stop_data_qouta(void)
+static inline int ipa_qmi_stop_data_qouta(void)
 {
 	return -EPERM;
 }
 
-void ipa_q6_handshake_complete(bool)
+static inline void ipa_q6_handshake_complete(bool ssr_bootup)
 {
+	return;
 }
 #endif /* CONFIG_RMNET_IPA */
 
