@@ -232,20 +232,19 @@ DEFINE_FIXED_DIV_CLK(cci_sr_pll_main, 2, &cci_sr_pll.c);
 
 static const char const *mux_names[] = {"c0", "c1", "cci"};
 
-#define SAFE_NUM	3
+#define SAFE_NUM	2
 
-#define SRC_SAFE_FREQ(f1, f2, f3)			  \
+#define SRC_SAFE_FREQ(f1, f2)			  \
 	.safe_freq = f1,			\
 	.safe_freqs = (unsigned long[SAFE_NUM]) {  \
 		[0] = (f1),			  \
 		[1] = (f2),			  \
-		[2] = (f3),			  \
 	},					  \
 	.safe_num = SAFE_NUM
 
 static struct mux_div_clk a72ssmux = {
 	.ops = &rcg_mux_div_ops,
-	SRC_SAFE_FREQ(400000000, 800000000, 1200000000),
+	SRC_SAFE_FREQ(400000000, 800000000),
 	.data = {
 		.max_div = 32,
 		.min_div = 2,
@@ -269,7 +268,7 @@ static struct mux_div_clk a72ssmux = {
 
 static struct mux_div_clk a53ssmux = {
 	.ops = &rcg_mux_div_ops,
-	SRC_SAFE_FREQ(400000000, 800000000, 1200000000),
+	SRC_SAFE_FREQ(400000000, 800000000),
 	.data = {
 		.max_div = 32,
 		.min_div = 2,
