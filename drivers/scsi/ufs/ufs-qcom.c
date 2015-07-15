@@ -1284,8 +1284,9 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 		/* M-PHY RMMI interface clocks can be turned off */
 		ufs_qcom_phy_disable_iface_clk(host->generic_phy);
 		if (!ufs_qcom_is_link_active(hba)) {
-			/* turn off UFS local PHY ref_clk */
-			ufs_qcom_phy_disable_ref_clk(host->generic_phy);
+			if (!is_gating_context)
+				/* turn off UFS local PHY ref_clk */
+				ufs_qcom_phy_disable_ref_clk(host->generic_phy);
 			/* disable device ref_clk */
 			ufs_qcom_dev_ref_clk_ctrl(host, false);
 		}
