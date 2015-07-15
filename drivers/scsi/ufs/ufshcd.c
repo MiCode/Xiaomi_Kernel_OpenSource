@@ -6427,33 +6427,6 @@ out:
 }
 
 /**
- * ufshcd_get_device_ref_clk - get the device bRefClkFreq
- * @hba: per-adapter instance
- *
- * Returns zero on success, non-zero error value on failure.
- */
-static int ufshcd_get_device_ref_clk(struct ufs_hba *hba)
-{
-	int err = 0;
-	int val = -1;
-	char *arr[] = {"19.2 MHz", "26 MHz", "38.4 MHz", "52 MHz"};
-
-	err = ufshcd_query_attr_retry(hba, UPIU_QUERY_OPCODE_READ_ATTR,
-			QUERY_ATTR_IDN_REF_CLK_FREQ, 0, 0, &val);
-
-	if (err || val >= ARRAY_SIZE(arr) || val < 0) {
-		dev_err(hba->dev, "%s: err = %d, val = %d",
-			 __func__, err, val);
-		goto out;
-	}
-
-	dev_info(hba->dev, "%s: bRefClkFreq = %s", __func__, arr[val]);
-
-out:
-	return err;
-}
-
-/**
  * ufshcd_tune_pa_tactivate - Tunes PA_TActivate of local UniPro
  * @hba: per-adapter instance
  *
@@ -6625,16 +6598,6 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 		(hba->dev_quirks & UFS_DEVICE_NO_VCCQ) ? true : false);
 	if (ret)
 		goto out;
-
-	if (!hba->is_init_prefetch) {
-		ret = ufshcd_get_device_ref_clk(hba);
-		if (ret) {
-			dev_err(hba->dev,
-				"%s: Failed reading bRefClkFreq attribute\n",
-				__func__);
-			ret = 0;
-		}
-	}
 
 	/* UFS device is also active now */
 	ufshcd_set_ufs_dev_active(hba);
