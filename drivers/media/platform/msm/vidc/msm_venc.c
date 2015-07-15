@@ -1566,7 +1566,8 @@ static void msm_venc_stop_streaming(struct vb2_queue *q)
 	struct msm_vidc_inst *inst;
 	int rc = 0;
 	if (!q || !q->drv_priv) {
-		dprintk(VIDC_ERR, "Invalid input, q = %p\n", q);
+		dprintk(VIDC_ERR, "%s - Invalid input, q = %p\n", __func__, q);
+		return;
 	}
 
 	inst = q->drv_priv;
