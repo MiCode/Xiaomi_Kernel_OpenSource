@@ -10,10 +10,27 @@
  * GNU General Public License for more details.
  */
 
-#include "msmcobalt-pinctrl.dtsi"
+&soc {
+	tlmm: pinctrl@03400000 {
+		compatible = "qcom,msmcobalt-pinctrl";
+		reg = <0x03400000 0x4000000>;
+		interrupts = <0 208 0>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
 
-&uartblsp2dm1 {
-	status = "ok";
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart_console_active>;
+		uart_console_active: uart_console_active {
+			mux {
+				pins = "gpio4", "gpio5";
+				function = "blsp_uart";
+			};
+
+			config {
+				pins = "gpio4", "gpio5";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+	};
 };
