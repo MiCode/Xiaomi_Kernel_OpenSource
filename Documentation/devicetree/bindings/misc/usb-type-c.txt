@@ -1,7 +1,7 @@
 USB Type-C Detection Chip
 
 Required properties :
-- compatible : Must be "pericom,usb-type-c"
+- compatible : Must be "pericom,usb-type-c" or "ti,usb-type-c"
 - reg: 7bit I2C slave address
 - interrupt-parent: Should be phandle for the interrupt controller
                     that services interrupts for this device.
@@ -16,10 +16,11 @@ Optional properties:
   It should specify the names of the configs that pinctrl can install in driver.
   Following are the pinctrl config that can be installed:
       "usbc_int_default" : Default configuration of pins.
-- pericom,enb-gpio : This corresponds to GPIO that is used to drive ENB pin.
+- <vendor-name>,enb-gpio : This corresponds to GPIO that is used to drive ENB
+  pin. <vendor-name> can be 'pericom' or 'ti'.
   GPIO flag represents whether ENB pin is active-high(0) or active-low(1).
-- pericom,disable-on-suspend : If present then disable chip on suspend if
-  state is not attached.
+- <vendor-name>,disable-on-suspend : If present then disable chip on suspend if
+  state is not attached. <vendor-name> can be 'pericom' or 'ti'.
 
 Example :
 	pericom-type-c@3d {
