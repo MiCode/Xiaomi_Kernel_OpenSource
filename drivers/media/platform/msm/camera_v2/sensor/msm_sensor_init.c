@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -100,7 +100,7 @@ static int32_t msm_sensor_driver_cmd(struct msm_sensor_init_t *s_init,
 static long msm_sensor_init_subdev_ioctl(struct v4l2_subdev *sd,
 	unsigned int cmd, void *arg)
 {
-	int32_t rc = 0;
+	long rc = 0;
 	struct msm_sensor_init_t *s_init = v4l2_get_subdevdata(sd);
 	CDBG("Enter");
 
@@ -120,7 +120,7 @@ static long msm_sensor_init_subdev_ioctl(struct v4l2_subdev *sd,
 		break;
 	}
 
-	return 0;
+	return rc;
 }
 
 #ifdef CONFIG_COMPAT
