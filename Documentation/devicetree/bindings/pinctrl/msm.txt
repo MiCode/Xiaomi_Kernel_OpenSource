@@ -8,6 +8,7 @@ Required properties:
 	      "qcom,msm8952-pinctrl"
 	      "qcom,msmtitanium-pinctrl"
 	      "qcom,msmthorium-pinctrl"
+	      "qcom,msmcobalt-pinctrl"
 
 - reg: Should be the base address and length of the TLMM block.
 - interrupts: Should be the parent IRQ of the TLMM block.
