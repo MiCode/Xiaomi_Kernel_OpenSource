@@ -1876,6 +1876,7 @@ int msm_isp_axi_restart(struct vfe_device *vfe_dev,
 	if (rc < 0)
 		pr_err("%s Error restarting HW\n", __func__);
 
+
 	return rc;
 }
 
