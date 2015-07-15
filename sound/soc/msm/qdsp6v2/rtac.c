@@ -33,7 +33,6 @@
 
 /* Max size of payload (buf size - apr header) */
 #define MAX_PAYLOAD_SIZE		4076
-#define RTAC_MAX_ACTIVE_DEVICES		4
 #define RTAC_MAX_ACTIVE_VOICE_COMBOS	2
 #define RTAC_MAX_ACTIVE_POPP		8
 #define RTAC_BUF_SIZE			163840
@@ -70,28 +69,7 @@ static struct rtac_apr_data	rtac_asm_apr_data[SESSION_MAX+1];
 static struct rtac_apr_data	rtac_afe_apr_data;
 static struct rtac_apr_data	rtac_voice_apr_data[RTAC_VOICE_MODES];
 
-
 /* ADM info & APR */
-struct rtac_popp_data {
-	uint32_t	popp;
-	uint32_t	popp_topology;
-};
-
-struct rtac_adm_data {
-	uint32_t		topology_id;
-	uint32_t		afe_port;
-	uint32_t		copp;
-	uint32_t		num_of_popp;
-	uint32_t		app_type;
-	uint32_t		acdb_dev_id;
-	struct rtac_popp_data	popp[RTAC_MAX_ACTIVE_POPP];
-};
-
-struct rtac_adm {
-	uint32_t			num_of_dev;
-	struct rtac_adm_data		device[RTAC_MAX_ACTIVE_DEVICES];
-};
-
 static struct rtac_adm		rtac_adm_data;
 static u32			*rtac_adm_buffer;
 
@@ -1534,6 +1512,12 @@ done:
 	return bytes_returned;
 }
 
+void get_rtac_adm_data(struct rtac_adm *adm_data)
+{
+	mutex_lock(&rtac_adm_mutex);
+	memcpy(adm_data, &rtac_adm_data, sizeof(struct rtac_adm));
+	mutex_unlock(&rtac_adm_mutex);
+}
 
 
 static long rtac_ioctl_shared(struct file *f,
@@ -1548,25 +1532,31 @@ static long rtac_ioctl_shared(struct file *f,
 
 	switch (cmd) {
 	case AUDIO_GET_RTAC_ADM_INFO: {
+		mutex_lock(&rtac_adm_mutex);
 		if (copy_to_user((void *)arg, &rtac_adm_data,
 						sizeof(rtac_adm_data))) {
 			pr_err("%s: copy_to_user failed for AUDIO_GET_RTAC_ADM_INFO\n",
 					__func__);
+			mutex_unlock(&rtac_adm_mutex);
 			return -EFAULT;
 		} else {
 			result = sizeof(rtac_adm_data);
 		}
+		mutex_unlock(&rtac_adm_mutex);
 		break;
 	}
 	case AUDIO_GET_RTAC_VOICE_INFO: {
+		mutex_lock(&rtac_voice_mutex);
 		if (copy_to_user((void *)arg, &rtac_voice_data,
 						sizeof(rtac_voice_data))) {
 			pr_err("%s: copy_to_user failed for AUDIO_GET_RTAC_VOICE_INFO\n",
 					__func__);
+			mutex_unlock(&rtac_voice_mutex);
 			return -EFAULT;
 		} else {
 			result = sizeof(rtac_voice_data);
 		}
+		mutex_unlock(&rtac_voice_mutex);
 		break;
 	}
 

@@ -62,6 +62,7 @@ size_t get_cal_info_size(int32_t cal_type)
 		size = sizeof(struct audio_cal_info_audproc);
 		break;
 	case ADM_AUDVOL_CAL_TYPE:
+	case ADM_RTAC_AUDVOL_CAL_TYPE:
 		size = sizeof(struct audio_cal_info_audvol);
 		break;
 	case ASM_TOPOLOGY_CAL_TYPE:
@@ -188,6 +189,7 @@ size_t get_user_cal_type_size(int32_t cal_type)
 		size = sizeof(struct audio_cal_type_audproc);
 		break;
 	case ADM_AUDVOL_CAL_TYPE:
+	case ADM_RTAC_AUDVOL_CAL_TYPE:
 		size = sizeof(struct audio_cal_type_audvol);
 		break;
 	case ASM_TOPOLOGY_CAL_TYPE:

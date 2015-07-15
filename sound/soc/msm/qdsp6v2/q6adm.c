@@ -1870,6 +1870,28 @@ static struct cal_block_data *adm_find_cal(int cal_index, int path,
 	return adm_find_cal_by_app_type(cal_index, path, app_type);
 }
 
+static int adm_remap_and_send_cal_block(int cal_index, int port_id,
+	int copp_idx, struct cal_block_data *cal_block, int perf_mode,
+	int app_type, int acdb_id, int sample_rate)
+{
+	int ret = 0;
+
+	pr_debug("%s: Sending cal_index cal %d\n", __func__, cal_index);
+	ret = remap_cal_data(cal_block, cal_index);
+	if (ret) {
+		pr_err("%s: Remap_cal_data failed for cal %d!\n",
+			__func__, cal_index);
+		goto done;
+	}
+	ret = send_adm_cal_block(port_id, copp_idx, cal_block, perf_mode,
+				app_type, acdb_id, sample_rate);
+	if (ret < 0)
+		pr_debug("%s: No cal sent for cal_index %d, port_id = 0x%x! ret %d sample_rate %d\n",
+			__func__, cal_index, port_id, ret, sample_rate);
+done:
+	return ret;
+}
+
 static void send_adm_cal_type(int cal_index, int path, int port_id,
 			      int copp_idx, int perf_mode, int app_type,
 			      int acdb_id, int sample_rate)
@@ -1891,18 +1913,8 @@ static void send_adm_cal_type(int cal_index, int path, int port_id,
 	if (cal_block == NULL)
 		goto unlock;
 
-	pr_debug("%s: Sending cal_index cal %d\n", __func__, cal_index);
-	ret = remap_cal_data(cal_block, cal_index);
-	if (ret) {
-		pr_err("%s: Remap_cal_data failed for cal %d!\n",
-			__func__, cal_index);
-		goto unlock;
-	}
-	ret = send_adm_cal_block(port_id, copp_idx, cal_block, perf_mode,
-				app_type, acdb_id, sample_rate);
-	if (ret < 0)
-		pr_debug("%s: No cal sent for cal_index %d, port_id = 0x%x! ret %d sample_rate %d\n",
-			__func__, cal_index, port_id, ret, sample_rate);
+	ret = adm_remap_and_send_cal_block(cal_index, port_id, copp_idx,
+		cal_block, perf_mode, app_type, acdb_id, sample_rate);
 unlock:
 	mutex_unlock(&this_adm.cal_data[cal_index]->lock);
 done:
@@ -2534,6 +2546,79 @@ int adm_close(int port_id, int perf_mode, int copp_idx)
 	return 0;
 }
 
+int send_rtac_audvol_cal(void)
+{
+	int ret = 0;
+	int ret2 = 0;
+	int i = 0;
+	int copp_idx, port_idx, acdb_id, app_id, path;
+	struct cal_block_data *cal_block = NULL;
+	struct audio_cal_info_audvol *audvol_cal_info = NULL;
+	struct rtac_adm rtac_adm_data;
+
+	mutex_lock(&this_adm.cal_data[ADM_RTAC_AUDVOL_CAL]->lock);
+
+	cal_block = cal_utils_get_only_cal_block(
+		this_adm.cal_data[ADM_RTAC_AUDVOL_CAL]);
+	if (cal_block == NULL) {
+		pr_err("%s: can't find cal block!\n", __func__);
+		goto unlock;
+	}
+
+	audvol_cal_info = cal_block->cal_info;
+	if (audvol_cal_info == NULL) {
+		pr_err("%s: audvol_cal_info is NULL!\n", __func__);
+		goto unlock;
+	}
+
+	get_rtac_adm_data(&rtac_adm_data);
+	for (; i < rtac_adm_data.num_of_dev; i++) {
+
+		acdb_id = rtac_adm_data.device[i].acdb_dev_id;
+		if (acdb_id == 0)
+			acdb_id = audvol_cal_info->acdb_id;
+
+		app_id = rtac_adm_data.device[i].app_type;
+		if (app_id == 0)
+			app_id = audvol_cal_info->app_type;
+
+		path = afe_get_port_type(rtac_adm_data.device[i].afe_port);
+		if ((acdb_id == audvol_cal_info->acdb_id) &&
+			(app_id == audvol_cal_info->app_type) &&
+			(path == audvol_cal_info->path)) {
+
+			if (adm_get_indexes_from_copp_id(rtac_adm_data.
+				device[i].copp, &copp_idx, &port_idx) != 0) {
+				pr_debug("%s: Copp Id %d is not active\n",
+					__func__,
+					rtac_adm_data.device[i].copp);
+				continue;
+			}
+
+			ret2 = adm_remap_and_send_cal_block(ADM_RTAC_AUDVOL_CAL,
+				rtac_adm_data.device[i].afe_port,
+				copp_idx, cal_block,
+				atomic_read(&this_adm.copp.
+				mode[port_idx][copp_idx]),
+				audvol_cal_info->app_type,
+				audvol_cal_info->acdb_id,
+				atomic_read(&this_adm.copp.
+				rate[port_idx][copp_idx]));
+			if (ret2 < 0) {
+				pr_debug("%s: remap and send failed for copp Id %d, acdb id %d, app type %d, path %d\n",
+					__func__, rtac_adm_data.device[i].copp,
+					audvol_cal_info->acdb_id,
+					audvol_cal_info->app_type,
+					audvol_cal_info->path);
+				ret = ret2;
+			}
+		}
+	}
+unlock:
+	mutex_unlock(&this_adm.cal_data[ADM_RTAC_AUDVOL_CAL]->lock);
+	return ret;
+}
+
 int adm_map_rtac_block(struct rtac_cal_block_data *cal_block)
 {
 	int	result = 0;
@@ -2643,6 +2728,9 @@ static int get_cal_type_index(int32_t cal_type)
 	case ADM_RTAC_APR_CAL_TYPE:
 		ret = ADM_RTAC_APR_CAL;
 		break;
+	case ADM_RTAC_AUDVOL_CAL_TYPE:
+		ret = ADM_RTAC_AUDVOL_CAL;
+		break;
 	default:
 		pr_err("%s: invalid cal type %d!\n", __func__, cal_type);
 	}
@@ -2728,6 +2816,8 @@ static int adm_set_cal(int32_t cal_type, size_t data_size, void *data)
 		mutex_lock(&this_adm.cal_data[ADM_CUSTOM_TOP_CAL]->lock);
 		this_adm.set_custom_topology = 1;
 		mutex_unlock(&this_adm.cal_data[ADM_CUSTOM_TOP_CAL]->lock);
+	} else if (cal_index == ADM_RTAC_AUDVOL_CAL) {
+		send_rtac_audvol_cal();
 	}
 done:
 	return ret;
@@ -2838,7 +2928,13 @@ static int adm_init_cal_data(void)
 
 		{{SRS_TRUMEDIA_CAL_TYPE,
 		{NULL, NULL, NULL, NULL, NULL, NULL} },
-		{NULL, NULL, cal_utils_match_buf_num} }
+		{NULL, NULL, cal_utils_match_buf_num} },
+
+		{{ADM_RTAC_AUDVOL_CAL_TYPE,
+		{adm_alloc_cal, adm_dealloc_cal, NULL,
+		adm_set_cal, NULL, NULL} },
+		{adm_map_cal_data, adm_unmap_cal_data,
+		cal_utils_match_buf_num} },
 	};
 	pr_debug("%s:\n", __func__);
 
