@@ -157,6 +157,7 @@
 
 #define CORE_VENDOR_SPEC3	0x1B0
 #define CORE_PWRSAVE_DLL	(1 << 3)
+#define CORE_CMDEN_HS400_INPUT_MASK_CNT (1 << 13)
 
 #define CORE_DLL_CONFIG_2	0x1B4
 #define CORE_DDR_CAL_EN		(1 << 0)
@@ -2795,6 +2796,35 @@ void sdhci_msm_reset(struct sdhci_host *host, u8 mask)
 	sdhci_reset(host, mask);
 }
 
+/*
+ * sdhci_msm_enhanced_strobe_mask :-
+ * Before running CMDQ transfers in HS400 Enhanced Strobe mode,
+ * SW should write 3 to
+ * HC_VENDOR_SPECIFIC_FUNC3.CMDEN_HS400_INPUT_MASK_CNT register.
+ * The default reset value of this register is 2.
+ */
+static void sdhci_msm_enhanced_strobe_mask(struct sdhci_host *host, bool set)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	if (!msm_host->enhanced_strobe) {
+		pr_debug("%s: host does not support hs400 enhanced strobe\n",
+				mmc_hostname(host->mmc));
+		return;
+	}
+
+	if (set) {
+		writel_relaxed((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC3)
+				| CORE_CMDEN_HS400_INPUT_MASK_CNT),
+				host->ioaddr + CORE_VENDOR_SPEC3);
+	} else {
+		writel_relaxed((readl_relaxed(host->ioaddr + CORE_VENDOR_SPEC3)
+				& ~CORE_CMDEN_HS400_INPUT_MASK_CNT),
+				host->ioaddr + CORE_VENDOR_SPEC3);
+	}
+}
+
 static void sdhci_msm_clear_set_dumpregs(struct sdhci_host *host, bool set)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -2829,6 +2859,7 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.set_bus_width = sdhci_set_bus_width,
 	.reset = sdhci_msm_reset,
 	.clear_set_dumpregs = sdhci_msm_clear_set_dumpregs,
+	.enhanced_strobe_mask = sdhci_msm_enhanced_strobe_mask,
 };
 
 static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
