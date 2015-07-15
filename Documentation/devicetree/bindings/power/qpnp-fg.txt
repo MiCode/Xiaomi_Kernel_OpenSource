@@ -39,6 +39,9 @@ Parent node optional properties:
 - qcom,cool-bat-decidegc:		Cool battery temperature in decidegC.
 - qcom,hot-bat-decidegc:		Hot battery temperature in decidegC.
 - qcom,cold-bat-decidegc:		Cold battery temperature in decidegC.
+- qcom,cold-hot-jeita-hysteresis:	A tuple of 2. Index[0] is cold
+					hysteresis and index[1] is hot
+					hysterisis(in decidegC).
 - qcom,ext-sense-type:			Current sense channel used by the FG.
 					Set this to use external rsense.
 - qcom,thermal-coefficients:		Byte array of thermal coefficients for
@@ -256,5 +259,7 @@ pmi8994_fg: qcom,fg {
 
 		interrupt-names =	"mem-avail",
 					"data-rcvry-sug";
+
+		qcom,cold-hot-jeita-hysteresis = <30 50>;
 	};
 };
