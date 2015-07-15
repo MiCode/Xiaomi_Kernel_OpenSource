@@ -1536,12 +1536,9 @@ int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl,
 		 */
 		DEV_DBG("%s: HDMI_DDC_INT_CTRL0 is 0x%x, waiting for ISR\n",
 			__func__, DSS_REG_R(ctrl->io, HDMI_DDC_INT_CTRL0));
-		if (!wait_for_completion_timeout(rxstatus_completion,
-						msecs_to_jiffies(200))) {
-			DEV_ERR("%s: Timeout in waiting for interrupt\n",
-					__func__);
-			return -ETIMEDOUT;
-		}
+		reinit_completion(rxstatus_completion);
+		wait_for_completion_timeout(rxstatus_completion,
+						msecs_to_jiffies(200));
 	}
 
 	/* Make sure no errors occurred during DDC transaction */
