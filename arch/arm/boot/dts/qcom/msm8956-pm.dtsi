@@ -179,13 +179,13 @@
 			c0 04 46 30 50 0f];
 	};
 
-	qcom,spm@b099000 {
+	qcom,spm@b0b9000 {
 		compatible = "qcom,spm-v2";
 		#address-cells = <1>;
 		#size-cells = <1>;
-		reg = <0xb099000 0x1000>,
-		    <0xb098064 0x8>, /* SPM_QCHANNEL_CFG */
-		    <0xb098090 0x8>; /* QCHANNEL_STANDBY_FSM_CTL */
+		reg = <0xb0b9000 0x1000>,
+		    <0xb0b8064 0x8>, /* SPM_QCHANNEL_CFG */
+		    <0xb0b8090 0x8>; /* QCHANNEL_STANDBY_FSM_CTL */
 		qcom,name = "cpu5";
 		qcom,cpu = <&CPU5>;
 		qcom,saw2-ver-reg = <0xfd0>;
@@ -628,7 +628,7 @@
 			<0xb1a8008 0x100>,
 			<0xb1b8008 0x100>,
 			<0xb088008 0x100>,
-			<0xb098008 0x100>;
+			<0xb0b8008 0x100>;
 		qcom,sleep-status-mask= <0x40000>;
 	};
 

@@ -294,9 +294,9 @@
 		clock-names = "core_clk", "core_a_clk";
 	};
 
-	etm5: etm@6d40000 {
+	etm5: etm@6f40000 {
 		compatible = "arm,coresight-etmv4";
-		reg = <0x6d40000 0x1000>;
+		reg = <0x6f40000 0x1000>;
 		reg-names = "etm-base";
 
 		coresight-id = <15>;
@@ -629,9 +629,9 @@
 		clock-names = "core_clk", "core_a_clk";
 	};
 
-	cti_cpu5: cti@6d20000 {
+	cti_cpu5: cti@6f20000 {
 		compatible = "arm,coresight-cti";
-		reg = <0x6d20000 0x1000>;
+		reg = <0x6f20000 0x1000>;
 		reg-names = "cti-base";
 
 		coresight-id = <38>;
