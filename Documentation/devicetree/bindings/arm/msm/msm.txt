@@ -104,6 +104,9 @@ SoCs:
 - APQ8076
   compatible = "qcom,apq8076"
 
+- APQ8056
+  compatible = "qcom,apq8056"
+
 Generic board variants:
 
 - CDP device:
@@ -254,3 +257,5 @@ compatible = "qcom,mdmcalifornium-rumi"
 compatible = "qcom,mdmcalifornium-sim"
 compatible = "qcom,apq8076-cdp"
 compatible = "qcom,apq8076-mtp"
+compatible = "qcom,apq8056-cdp"
+compatible = "qcom,apq8056-mtp"
