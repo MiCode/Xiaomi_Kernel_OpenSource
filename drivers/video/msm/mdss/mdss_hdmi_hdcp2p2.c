@@ -334,7 +334,6 @@ static void hdcp2p2_sink_message_work(struct work_struct *work)
 	int rc;
 	int msg_size;
 	u64 mult;
-	u64 div;
 	struct msm_hdmi_mode_timing_info *timing;
 
 	if (!hdcp2p2_ctrl) {
@@ -344,14 +343,7 @@ static void hdcp2p2_sink_message_work(struct work_struct *work)
 
 	timing = hdcp2p2_ctrl->init_data.timing;
 
-	/* calculate number of lines sent in 10ms */
-	mult = 10000 * ((u64)timing->pixel_freq * 1000);
-	div = hdmi_tx_get_v_total(timing) * 1000000;
-	if (div)
-		do_div(mult, div);
-	else
-		mult = 0;
-
+	mult = hdmi_tx_get_v_total(timing) / 20;
 	memset(&hdcp2p2_ddc_data, 0, sizeof(hdcp2p2_ddc_data));
 	hdcp2p2_ddc_data.ddc_data.what = "HDCP2RxStatus";
 	hdcp2p2_ddc_data.ddc_data.data_buf = (u8 *)&msg_size;
@@ -391,6 +383,8 @@ static void hdcp2p2_sink_message_work(struct work_struct *work)
 		hdcp2p2_ddc_read_message(hdcp2p2_ctrl, message->message_bytes,
 				msg_size);
 		message->msg_size = msg_size;
+		DEV_DBG("%s: message received of size: %d\n", __func__,
+								msg_size);
 
 		INIT_LIST_HEAD(&message->entry);
 		list_for_each(pos, &hdcp2p2_ctrl->hdcp_sink_messages);
@@ -521,7 +515,13 @@ static int hdcp2p2_isr(void *input)
 	if (reg_val & HDCP2P2_RXSTATUS_MESSAGE_SIZE_MASK) {
 		DSS_REG_W(hdcp2p2_ctrl->init_data.core_io, HDMI_DDC_INT_CTRL0,
 						reg_val & ~(BIT(31)));
-		complete(&hdcp2p2_ctrl->rxstatus_completion);
+		if (!completion_done(&hdcp2p2_ctrl->rxstatus_completion))
+			complete_all(&hdcp2p2_ctrl->rxstatus_completion);
+	} else if (reg_val & BIT(8)) {
+		DSS_REG_W(hdcp2p2_ctrl->init_data.core_io, HDMI_DDC_INT_CTRL0,
+						reg_val & ~(BIT(9) | BIT(10)));
+		if (!completion_done(&hdcp2p2_ctrl->rxstatus_completion))
+			complete_all(&hdcp2p2_ctrl->rxstatus_completion);
 	}
 
 	return 0;
