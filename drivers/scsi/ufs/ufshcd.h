@@ -313,7 +313,7 @@ struct ufs_hba_variant_ops {
 	void	(*exit)(struct ufs_hba *);
 	u32	(*get_ufs_hci_version)(struct ufs_hba *);
 	int	(*clk_scale_notify)(struct ufs_hba *, bool, bool);
-	int	(*setup_clocks)(struct ufs_hba *, bool);
+	int	(*setup_clocks)(struct ufs_hba *, bool, bool);
 	int	(*setup_regulators)(struct ufs_hba *, bool);
 	int	(*hce_enable_notify)(struct ufs_hba *,
 				     enum ufs_notify_change_status);
@@ -1081,10 +1081,11 @@ static inline int ufshcd_vops_clk_scale_notify(struct ufs_hba *hba,
 	return 0;
 }
 
-static inline int ufshcd_vops_setup_clocks(struct ufs_hba *hba, bool on)
+static inline int ufshcd_vops_setup_clocks(struct ufs_hba *hba, bool on,
+					   bool is_gating_context)
 {
 	if (hba->var && hba->var->vops && hba->var->vops->setup_clocks)
-		return hba->var->vops->setup_clocks(hba, on);
+		return hba->var->vops->setup_clocks(hba, on, is_gating_context);
 	return 0;
 }
 

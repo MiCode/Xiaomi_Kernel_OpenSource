@@ -1236,7 +1236,18 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 	}
 }
 
-static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on)
+/**
+ * ufs_qcom_setup_clocks - enables/disable clocks
+ * @hba: host controller instance
+ * @on: If true, enable clocks else disable them.
+ * @is_gating_context: If true then it means this function is called from
+ * aggressive clock gating context and we may only need to gate off important
+ * clocks. If false then make sure to gate off all clocks.
+ *
+ * Returns 0 on success, non-zero on failure.
+ */
+static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
+				 bool is_gating_context)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	int err;
@@ -1812,7 +1823,7 @@ static int ufs_qcom_init(struct ufs_hba *hba)
 	ufs_qcom_set_caps(hba);
 	ufs_qcom_advertise_quirks(hba);
 
-	ufs_qcom_setup_clocks(hba, true);
+	ufs_qcom_setup_clocks(hba, true, false);
 
 	if (hba->dev->id < MAX_UFS_QCOM_HOSTS)
 		ufs_qcom_hosts[hba->dev->id] = host;

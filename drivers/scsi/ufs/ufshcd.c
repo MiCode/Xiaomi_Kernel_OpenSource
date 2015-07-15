@@ -359,9 +359,11 @@ static int ufshcd_eh_host_reset_handler(struct scsi_cmnd *cmd);
 static int ufshcd_clear_tm_cmd(struct ufs_hba *hba, int tag);
 static void ufshcd_hba_exit(struct ufs_hba *hba);
 static int ufshcd_probe_hba(struct ufs_hba *hba);
-static int __ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
-				 bool skip_ref_clk);
-static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on);
+static int ufshcd_enable_clocks(struct ufs_hba *hba);
+static int ufshcd_disable_clocks(struct ufs_hba *hba,
+				 bool is_gating_context);
+static int ufshcd_disable_clocks_skip_ref_clk(struct ufs_hba *hba,
+					      bool is_gating_context);
 static int ufshcd_set_vccq_rail_unused(struct ufs_hba *hba, bool unused);
 static int ufshcd_uic_hibern8_exit(struct ufs_hba *hba);
 static int ufshcd_uic_hibern8_enter(struct ufs_hba *hba);
@@ -1136,7 +1138,7 @@ static void ufshcd_ungate_work(struct work_struct *work)
 
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 	ufshcd_hba_vreg_set_hpm(hba);
-	ufshcd_setup_clocks(hba, true);
+	ufshcd_enable_clocks(hba);
 
 	/* Exit from hibern8 */
 	if (ufshcd_can_hibern8_during_gating(hba)) {
@@ -1271,10 +1273,10 @@ static void ufshcd_gate_work(struct work_struct *work)
 	ufshcd_suspend_clkscaling(hba);
 
 	if (!ufshcd_is_link_active(hba) && !hba->no_ref_clk_gating)
-		ufshcd_setup_clocks(hba, false);
+		ufshcd_disable_clocks(hba, true);
 	else
 		/* If link is active, device ref_clk can't be switched off */
-		__ufshcd_setup_clocks(hba, false, true);
+		ufshcd_disable_clocks_skip_ref_clk(hba, true);
 
 	/* Put the host controller in low power mode if possible */
 	ufshcd_hba_vreg_set_lpm(hba);
@@ -7057,8 +7059,8 @@ out:
 	return ret;
 }
 
-static int __ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
-					bool skip_ref_clk)
+static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
+			       bool skip_ref_clk, bool is_gating_context)
 {
 	int ret = 0;
 	struct ufs_clk_info *clki;
@@ -7076,7 +7078,7 @@ static int __ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
 	 * before disabling the clocks managed here.
 	 */
 	if (!on) {
-		ret = ufshcd_vops_setup_clocks(hba, on);
+		ret = ufshcd_vops_setup_clocks(hba, on, is_gating_context);
 		if (ret)
 			return ret;
 	}
@@ -7109,7 +7111,7 @@ static int __ufshcd_setup_clocks(struct ufs_hba *hba, bool on,
 	 * after enabling the clocks managed here.
 	 */
 	if (on)
-		ret = ufshcd_vops_setup_clocks(hba, on);
+		ret = ufshcd_vops_setup_clocks(hba, on, is_gating_context);
 
 out:
 	if (ret) {
@@ -7134,9 +7136,21 @@ out:
 	return ret;
 }
 
-static int ufshcd_setup_clocks(struct ufs_hba *hba, bool on)
+static int ufshcd_enable_clocks(struct ufs_hba *hba)
 {
-	return  __ufshcd_setup_clocks(hba, on, false);
+	return  ufshcd_setup_clocks(hba, true, false, false);
+}
+
+static int ufshcd_disable_clocks(struct ufs_hba *hba,
+				 bool is_gating_context)
+{
+	return  ufshcd_setup_clocks(hba, false, false, is_gating_context);
+}
+
+static int ufshcd_disable_clocks_skip_ref_clk(struct ufs_hba *hba,
+					      bool is_gating_context)
+{
+	return  ufshcd_setup_clocks(hba, false, true, is_gating_context);
 }
 
 static int ufshcd_init_clocks(struct ufs_hba *hba)
@@ -7209,8 +7223,6 @@ static void ufshcd_variant_hba_exit(struct ufs_hba *hba)
 	if (!hba->var || !hba->var->vops)
 		return;
 
-	ufshcd_vops_setup_clocks(hba, false);
-
 	ufshcd_vops_setup_regulators(hba, false);
 
 	ufshcd_vops_exit(hba);
@@ -7239,7 +7251,7 @@ static int ufshcd_hba_init(struct ufs_hba *hba)
 	if (err)
 		goto out_disable_hba_vreg;
 
-	err = ufshcd_setup_clocks(hba, true);
+	err = ufshcd_enable_clocks(hba);
 	if (err)
 		goto out_disable_hba_vreg;
 
@@ -7261,7 +7273,7 @@ static int ufshcd_hba_init(struct ufs_hba *hba)
 out_disable_vreg:
 	ufshcd_setup_vreg(hba, false);
 out_disable_clks:
-	ufshcd_setup_clocks(hba, false);
+	ufshcd_disable_clocks(hba, false);
 out_disable_hba_vreg:
 	ufshcd_setup_hba_vreg(hba, false);
 out:
@@ -7274,7 +7286,7 @@ static void ufshcd_hba_exit(struct ufs_hba *hba)
 		ufshcd_variant_hba_exit(hba);
 		ufshcd_setup_vreg(hba, false);
 		ufshcd_suspend_clkscaling(hba);
-		ufshcd_setup_clocks(hba, false);
+		ufshcd_disable_clocks(hba, false);
 		ufshcd_setup_hba_vreg(hba, false);
 		hba->is_powered = false;
 	}
@@ -7619,15 +7631,13 @@ disable_clks:
 	if (ret)
 		goto set_link_active;
 
-	ret = ufshcd_vops_setup_clocks(hba, false);
-	if (ret)
-		goto vops_resume;
-
 	if (!ufshcd_is_link_active(hba))
-		ufshcd_setup_clocks(hba, false);
+		ret = ufshcd_disable_clocks(hba, false);
 	else
 		/* If link is active, device ref_clk can't be switched off */
-		__ufshcd_setup_clocks(hba, false, true);
+		ret = ufshcd_disable_clocks_skip_ref_clk(hba, false);
+	if (ret)
+		goto set_link_active;
 
 	hba->clk_gating.state = CLKS_OFF;
 	trace_ufshcd_clk_gating(dev_name(hba->dev), hba->clk_gating.state);
@@ -7640,8 +7650,6 @@ disable_clks:
 	ufshcd_hba_vreg_set_lpm(hba);
 	goto out;
 
-vops_resume:
-	ufshcd_vops_resume(hba, pm_op);
 set_link_active:
 	ufshcd_resume_clkscaling(hba);
 	ufshcd_vreg_set_hpm(hba);
@@ -7688,7 +7696,7 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 	ufshcd_hba_vreg_set_hpm(hba);
 	/* Make sure clocks are enabled before accessing controller */
-	ret = ufshcd_setup_clocks(hba, true);
+	ret = ufshcd_enable_clocks(hba);
 	if (ret)
 		goto out;
 
@@ -7764,7 +7772,7 @@ disable_vreg:
 disable_irq_and_vops_clks:
 	ufshcd_disable_irq(hba);
 	ufshcd_suspend_clkscaling(hba);
-	ufshcd_setup_clocks(hba, false);
+	ufshcd_disable_clocks(hba, false);
 out:
 	hba->pm_op_in_progress = 0;
 
