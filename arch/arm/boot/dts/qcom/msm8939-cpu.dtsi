@@ -133,12 +133,20 @@
 &soc {
 	l2ccc_0: clock-controller@b111000 {
 		compatible = "qcom,8916-l2ccc";
-		reg = <0x0b111000 0x1000>;
+		reg = <0x0b111000 0x1000>,
+		      <0x0b1d1208 0x4>,
+		      <0x0b111218 0x4>;
+		reg-names = "l2-base", "l2-common",
+				"l2-acinactm";
 	};
 
 	l2ccc_1: clock-controller@b011000 {
 		compatible = "qcom,8916-l2ccc";
-		reg = <0x0b011000 0x1000>;
+		reg = <0x0b011000 0x1000>,
+		      <0x0b1d1208 0x4>,
+		      <0x0b011218 0x4>;
+		reg-names = "l2-base", "l2-common",
+				"l2-acinactm";
 	};
 
 	acc0:clock-controller@b088000 {

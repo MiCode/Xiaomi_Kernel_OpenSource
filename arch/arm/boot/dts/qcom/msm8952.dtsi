@@ -2295,7 +2295,16 @@
 				"iface_clk", "bus_clk";
 		qcom,ce-opp-freq = <100000000>;
 	};
+};
 
+&l2ccc_0 {
+	qcom,vctl-node = <&cluster0_spm>;
+	qcom,use-acinactm;
+};
+
+&l2ccc_1 {
+	qcom,vctl-node = <&cluster1_spm>;
+	qcom,use-acinactm;
 };
 
 &gdsc_venus {
