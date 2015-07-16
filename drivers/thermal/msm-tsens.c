@@ -671,9 +671,8 @@
 #define TSENS_NO_CALIB_POINT2_DATA 780
 
 /* debug defines */
-#define TSENS_DEBUG_BUS_ID_2		2
-#define TSENS_DEBUG_BUS_ID_3		3
-#define TSENS_DEBUG_BUS_ID_4		4
+#define TSENS_DBG_BUS_ID_0		0
+#define TSENS_DBG_BUS_ID_15		15
 #define TSENS_DEBUG_LOOP_COUNT		5
 #define TSENS_DEBUG_SROT_OFFSET_RANGE	0x140
 #define TSENS_DEBUG_TM_OFFSET_RANGE	0x80
@@ -1832,7 +1831,7 @@ static void tsens_poll(struct work_struct *work)
 				&tmdev->tsens_rslt_completion,
 				tsens_completion_timeout_hz);
 	if (!rc) {
-		pr_err("Switch to polling, TSENS critical interrupt failed\n");
+		pr_debug("Switch to polling, TSENS critical interrupt failed\n");
 		sensor_status_addr = TSENS_TM_SN_STATUS(tmdev->tsens_addr);
 		sensor_int_mask_addr =
 			TSENS_TM_CRITICAL_INT_MASK(tmdev->tsens_addr);
@@ -1872,7 +1871,7 @@ static void tsens_poll(struct work_struct *work)
 
 		debug_dump = readl_relaxed(controller_id_addr);
 		pr_err("Controller_id: 0x%x\n", debug_dump);
-		for (i = TSENS_DEBUG_BUS_ID_2; i < TSENS_DEBUG_BUS_ID_4; i++) {
+		for (i = TSENS_DBG_BUS_ID_0; i <= TSENS_DBG_BUS_ID_15; i++) {
 			loop = 0;
 			while (loop < TSENS_DEBUG_LOOP_COUNT) {
 				writel_relaxed((i << 1) | 1,
