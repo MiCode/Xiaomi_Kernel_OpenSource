@@ -993,6 +993,19 @@ int cpr3_adjust_open_loop_voltages(struct cpr3_regulator *vreg, int corner_sum,
 		}
 	}
 
+	/* Ensure that open-loop voltages increase monotonically */
+	for (i = 1; i < vreg->corner_count; i++) {
+		if (vreg->corner[i].open_loop_volt
+		    < vreg->corner[i - 1].open_loop_volt) {
+			cpr3_info(vreg, "adjusted corner %d open-loop voltage=%d uV < corner %d voltage=%d uV; overriding: corner %d voltage=%d\n",
+				i, vreg->corner[i].open_loop_volt,
+				i - 1, vreg->corner[i - 1].open_loop_volt,
+				i, vreg->corner[i - 1].open_loop_volt);
+			vreg->corner[i].open_loop_volt
+				= vreg->corner[i - 1].open_loop_volt;
+		}
+	}
+
 done:
 	kfree(volt_adjust);
 	return rc;

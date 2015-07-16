@@ -308,6 +308,23 @@ static int cpr3_mmss_adjust_target_quotients(struct cpr3_regulator *vreg,
 		}
 	}
 
+	/* Ensure that target quotients increase monotonically */
+	for (i = 1; i < vreg->corner_count; i++) {
+		for (j = 0; j < CPR3_RO_COUNT; j++) {
+			if (vreg->corner[i].target_quot[j]
+			    && vreg->corner[i].target_quot[j]
+					< vreg->corner[i - 1].target_quot[j]) {
+				cpr3_info(vreg, "adjusted corner %d RO%u target quot=%u < adjusted corner %d RO%u target quot=%u; overriding: corner %d RO%u target quot=%u\n",
+					i, j, vreg->corner[i].target_quot[j],
+					i - 1, j,
+					vreg->corner[i - 1].target_quot[j], i,
+					j, vreg->corner[i - 1].target_quot[j]);
+				vreg->corner[i].target_quot[j]
+					= vreg->corner[i - 1].target_quot[j];
+			}
+		}
+	}
+
 done:
 	kfree(volt_adjust);
 	kfree(ro_scale);
@@ -376,9 +393,10 @@ static int cpr3_msm8996_mmss_calculate_open_loop_voltages(
 
 	for (i = 1; i < vreg->fuse_corner_count; i++) {
 		if (fuse_volt[i] < fuse_volt[i - 1]) {
-			cpr3_err(vreg, "voltage fuse[%d]=%d < fuse[%d]=%d uV; interpolation not possible\n",
-				i, fuse_volt[i], i - 1, fuse_volt[i - 1]);
-			allow_interpolation = false;
+			cpr3_info(vreg, "fuse corner %d voltage=%d uV < fuse corner %d voltage=%d uV; overriding: fuse corner %d voltage=%d\n",
+				i, fuse_volt[i], i - 1, fuse_volt[i - 1],
+				i, fuse_volt[i - 1]);
+			fuse_volt[i] = fuse_volt[i - 1];
 		}
 	}
 
