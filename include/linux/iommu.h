@@ -97,6 +97,8 @@ enum iommu_attr {
 	DOMAIN_ATTR_MAX,
 };
 
+extern struct dentry *iommu_debugfs_top;
+
 #ifdef CONFIG_IOMMU_API
 
 /**
