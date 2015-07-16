@@ -392,6 +392,7 @@ struct dsc_desc {
 	int line_buf_depth;
 	bool config_by_manufacture_cmd;
 	bool block_pred_enable;
+	int vbr_enable;
 	int enable_422;
 	int convert_rgb;
 	int input_10_bits;

@@ -1069,7 +1069,7 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 	struct dsc_desc *dsc = NULL;
 	u64 clk_rate;
 	u32 hbp, hfp, vbp, vfp, hspw, vspw, width, height;
-	u32 ystride, bpp, dst_bpp;
+	u32 ystride, bpp, dst_bpp, byte_num;
 	u32 stream_ctrl, stream_total;
 	u32 dummy_xres = 0, dummy_yres = 0;
 	u32 hsync_period, vsync_period;
@@ -1143,7 +1143,11 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 		ystride = width * bpp + 1;
 
 		if (dsc) {
-			stream_ctrl = ((dsc->bytes_in_slice + 1) << 16) |
+			byte_num =  dsc->bytes_per_pkt;
+			if (pinfo->mipi.insert_dcs_cmd)
+				byte_num++;
+
+			stream_ctrl = (byte_num << 16) |
 					(mipi->vc << 8) | DTYPE_DCS_LWRITE;
 			stream_total = dsc->pic_height << 16 |
 							dsc->pclk_per_line;
