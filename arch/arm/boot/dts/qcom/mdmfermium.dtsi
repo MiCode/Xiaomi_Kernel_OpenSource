@@ -22,6 +22,30 @@
 	qcom,msm-id = <290 0x10000>;
 	interrupt-parent = <&intc>;
 
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		modem_adsp_mem: modem_adsp_region@0 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x82a00000 0x5000000>;
+		};
+
+		external_image_mem: external_image_region@0 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x87c00000 0x400000>;
+		};
+
+		audio_mem: audio_region@0 {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x400000>;
+		};
+	};
+
 	cpus {
 		#size-cells = <0>;
 		#address-cells = <1>;
@@ -34,6 +58,8 @@
 	};
 	soc: soc { };
 };
+
+#include "mdmfermium-ion.dtsi"
 
 &soc {
 	#address-cells = <1>;
