@@ -42,6 +42,8 @@ import subprocess
 allowed_warnings = set([
     "fdt.c:932",
     "hid-magicmouse.c:579",
+    "sysrq.c:956",
+    "hci_sock.c:980",
  ])
 
 # Capture the name of the object file, can find it.
