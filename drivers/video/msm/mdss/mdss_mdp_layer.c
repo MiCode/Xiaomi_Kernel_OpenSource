@@ -937,7 +937,6 @@ static struct mdss_mdp_pipe *__assign_pipe_for_layer(
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
-	u32 pipe_list = 0;
 
 	pipe = __find_used_pipe(mfd, pipe_ndx);
 	*new_pipe = pipe ? false : true;
@@ -963,8 +962,8 @@ static struct mdss_mdp_pipe *__assign_pipe_for_layer(
 
 	pipe = mdss_mdp_pipe_assign(mdata, mixer, pipe_ndx);
 	if (IS_ERR_OR_NULL(pipe)) {
-		pr_err("error reserving pipe. pipe_ndx=0x%x pipe_list=0x%x\n",
-				pipe_ndx, pipe_list);
+		pr_err("error reserving pipe. pipe_ndx=0x%x mfd ndx=%d\n",
+			pipe_ndx, mfd->index);
 		goto end;
 	}
 
