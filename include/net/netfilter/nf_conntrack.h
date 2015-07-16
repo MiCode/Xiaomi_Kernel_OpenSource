@@ -112,6 +112,10 @@ struct nf_conn {
 	unsigned long nattype_entry;
 #endif
 
+#ifdef CONFIG_ENABLE_SFE
+	void *sfe_entry;
+#endif
+
 	/* Storage reserved for other modules, must be the last member */
 	union nf_conntrack_proto proto;
 };
