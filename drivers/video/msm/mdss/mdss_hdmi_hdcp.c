@@ -16,7 +16,7 @@
 #include <linux/slab.h>
 #include <linux/stat.h>
 #include <soc/qcom/scm.h>
-
+#include <linux/hdcp_qseecom.h>
 #include "mdss_hdmi_hdcp.h"
 #include "video/msm_hdmi_hdcp_mgr.h"
 
@@ -241,12 +241,13 @@ static int hdcp_scm_call(struct scm_hdcp_req *req, u32 *resp)
 static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 {
 	int rc;
+	u32 reg_val;
 	u32 qfprom_aksv_lsb, qfprom_aksv_msb;
 	u32 link0_aksv_0, link0_aksv_1;
 	u32 link0_bksv_0, link0_bksv_1;
 	u32 link0_an_0, link0_an_1;
 	u32 timeout_count;
-	bool is_match;
+	bool is_match, use_sw_keys = false;
 	bool stale_an = false;
 	struct dss_io_data *io;
 	struct dss_io_data *hdcp_io;
@@ -282,17 +283,37 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 		goto error;
 	}
 
-	/* Fetch aksv from QFPROM, this info should be public. */
-	ksv_lsb_addr = HDCP_KSV_LSB;
-	ksv_msb_addr = HDCP_KSV_MSB;
-	if (hdcp_ctrl->hdmi_tx_ver_4) {
-		ksv_lsb_addr += HDCP_KSV_VERSION_4_OFFSET;
-		ksv_msb_addr += HDCP_KSV_VERSION_4_OFFSET;
+	/* On compatible hardware, use SW aksv */
+	reg_val = DSS_REG_R(hdcp_ctrl->init_data.qfprom_io,
+			SEC_CTRL_HW_VERSION);
+	if (reg_val >= HDCP_SEL_MIN_SEC_VERSION) {
+		reg_val = DSS_REG_R(hdcp_ctrl->init_data.qfprom_io,
+				QFPROM_RAW_FEAT_CONFIG_ROW0_MSB +
+				QFPROM_RAW_VERSION_4);
+		if (!(reg_val & BIT(23)))
+			use_sw_keys = true;
 	}
-	qfprom_aksv_lsb = DSS_REG_R(hdcp_ctrl->init_data.qfprom_io,
-		ksv_lsb_addr);
-	qfprom_aksv_msb = DSS_REG_R(hdcp_ctrl->init_data.qfprom_io,
-		ksv_msb_addr);
+
+	if (use_sw_keys) {
+		if (hdcp1_set_keys(&qfprom_aksv_msb, &qfprom_aksv_lsb)) {
+			pr_err("%s: setting of hdcp SW keys failed\n",
+						__func__);
+			rc = -EINVAL;
+			goto error;
+		}
+	} else {
+		/* Fetch aksv from QFPROM, this info should be public. */
+		ksv_lsb_addr = HDCP_KSV_LSB;
+		ksv_msb_addr = HDCP_KSV_MSB;
+		if (hdcp_ctrl->hdmi_tx_ver_4) {
+			ksv_lsb_addr += HDCP_KSV_VERSION_4_OFFSET;
+			ksv_msb_addr += HDCP_KSV_VERSION_4_OFFSET;
+		}
+		qfprom_aksv_lsb = DSS_REG_R(hdcp_ctrl->init_data.qfprom_io,
+			ksv_lsb_addr);
+		qfprom_aksv_msb = DSS_REG_R(hdcp_ctrl->init_data.qfprom_io,
+			ksv_msb_addr);
+	}
 
 	aksv[0] =  qfprom_aksv_lsb        & 0xFF;
 	aksv[1] = (qfprom_aksv_lsb >> 8)  & 0xFF;
