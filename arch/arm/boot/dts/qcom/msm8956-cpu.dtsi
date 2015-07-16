@@ -12,6 +12,11 @@
 
 
 / {
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -45,7 +50,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x0>;
-			enable-method = "qcom,8976-arm-cortex-acc";
+			enable-method = "psci";
 			efficiency = <1024>;
 			qcom,acc = <&acc0>;
 			next-level-cache = <&L2_0>;
@@ -60,7 +65,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x1>;
-			enable-method = "qcom,8976-arm-cortex-acc";
+			enable-method = "psci";
 			efficiency = <1024>;
 			qcom,acc = <&acc1>;
 			next-level-cache = <&L2_0>;
@@ -70,7 +75,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x2>;
-			enable-method = "qcom,8976-arm-cortex-acc";
+			enable-method = "psci";
 			efficiency = <1024>;
 			qcom,acc = <&acc2>;
 			next-level-cache = <&L2_0>;
@@ -80,7 +85,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x3>;
-			enable-method = "qcom,8976-arm-cortex-acc";
+			enable-method = "psci";
 			efficiency = <1024>;
 			qcom,acc = <&acc3>;
 			next-level-cache = <&L2_0>;
@@ -90,7 +95,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x100>;
-			enable-method = "qcom,8976-arm-cortex-acc";
+			enable-method = "psci";
 			efficiency = <1830>;
 			qcom,acc = <&acc4>;
 			qcom,ldo = <&ldo4>;
@@ -106,7 +111,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x101>;
-			enable-method = "qcom,8976-arm-cortex-acc";
+			enable-method = "psci";
 			efficiency = <1830>;
 			qcom,acc = <&acc5>;
 			qcom,ldo = <&ldo5>;
@@ -119,25 +124,15 @@
 
 	l2ccc_0: clock-controller@b111000 {
 		compatible = "qcom,8976-l2ccc";
-		reg = <0x0b111000 0x1000>,
-		      <0x0b1d1208 0x4>,
-		      <0x0b111218 0x4>;
-		reg-names = "l2-base", "l2-common",
-				"l2-acinactm";
-		qcom,vctl-node = <&cluster0_spm>;
-		qcom,use-acinactm;
+		reg = <0x0b111000 0x1000>;
+		reg-names = "l2-base";
 	};
 
 	l2ccc_1: clock-controller@b011000 {
 		compatible = "qcom,8976-l2ccc";
-		reg = <0x0b011000 0x1000>,
-		      <0x0b1d1208 0x4>,
-		      <0x0b011218 0x4>;
-		reg-names = "l2-base", "l2-common",
-				"l2-acinactm";
-		qcom,vctl-node = <&cluster1_spm>;
+		reg = <0x0b011000 0x1000>;
+		reg-names = "l2-base";
 		qcom,vctl-val = <0xb8>;
-		qcom,use-acinactm;
 	};
 
 	acc0:clock-controller@b188000 {
