@@ -25,6 +25,7 @@
 #include <sound/q6audio-v2.h>
 #include "msm-pcm-routing-v2.h"
 #include <sound/audio_cal_utils.h>
+#include <sound/adsp_err.h>
 
 #define WAKELOCK_TIMEOUT	5000
 enum {
@@ -225,7 +226,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 				payload[0], payload[1], data->token);
 			/* payload[1] contains the error status for response */
 			if (payload[1] != 0) {
-				atomic_set(&this_afe.status, -1);
+				atomic_set(&this_afe.status, payload[1]);
 				pr_err("%s: cmd = 0x%x returned error = 0x%x\n",
 					__func__, payload[0], payload[1]);
 			}
@@ -469,10 +470,17 @@ static int afe_apr_send_pkt(void *data, wait_queue_head_t *wait)
 			ret = wait_event_timeout(*wait,
 					(atomic_read(&this_afe.state) == 0),
 					msecs_to_jiffies(TIMEOUT_MS));
-			if (ret)
-				ret = 0;
-			else
+			if (!ret) {
 				ret = -ETIMEDOUT;
+			} else if (atomic_read(&this_afe.status) > 0) {
+				pr_err("%s: DSP returned error[%s]\n", __func__,
+					adsp_err_get_err_str(atomic_read(
+					&this_afe.status)));
+				ret = adsp_err_get_lnx_err_code(
+						atomic_read(&this_afe.status));
+			} else {
+				ret = 0;
+			}
 		} else {
 			ret = 0;
 		}
@@ -664,6 +672,7 @@ static int afe_spk_ramp_dn_cfg(int port)
 	config.pdata.param_id = AFE_PARAM_ID_FBSP_PTONE_RAMP_CFG;
 	config.pdata.param_size = 0;
 	atomic_set(&this_afe.state, 1);
+	atomic_set(&this_afe.status, 0);
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &config);
 	if (ret < 0) {
 		pr_err("%s: port = 0x%x param = 0x%x failed %d\n",
@@ -678,9 +687,12 @@ static int afe_spk_ramp_dn_cfg(int port)
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-	if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: config cmd failed\n", __func__);
-		ret = -EINVAL;
+	if (atomic_read(&this_afe.status) > 0) {
+		pr_err("%s: config cmd failed [%s]\n",
+			__func__, adsp_err_get_err_str(
+			atomic_read(&this_afe.status)));
+		ret = adsp_err_get_lnx_err_code(
+				atomic_read(&this_afe.status));
 		goto fail_cmd;
 	}
 	/* dsp needs atleast 15ms to ramp down pilot tone*/
@@ -752,6 +764,7 @@ static int afe_spk_prot_prepare(int src_port, int dst_port, int param_id,
 	config.pdata.param_size = sizeof(config.prot_config);
 	config.prot_config = *prot_config;
 	atomic_set(&this_afe.state, 1);
+	atomic_set(&this_afe.status, 0);
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &config);
 	if (ret < 0) {
 		pr_err("%s: port = 0x%x param = 0x%x failed %d\n",
@@ -766,9 +779,12 @@ static int afe_spk_prot_prepare(int src_port, int dst_port, int param_id,
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-	if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: config cmd failed\n", __func__);
-		ret = -EINVAL;
+	if (atomic_read(&this_afe.status) > 0) {
+		pr_err("%s: config cmd failed [%s]\n",
+			__func__, adsp_err_get_err_str(
+			atomic_read(&this_afe.status)));
+		ret = adsp_err_get_lnx_err_code(
+				atomic_read(&this_afe.status));
 		goto fail_cmd;
 	}
 	ret = 0;
@@ -919,10 +935,6 @@ static int afe_send_hw_delay(u16 port_id, u32 rate)
 		pr_err("%s: AFE hw delay for port 0x%x failed %d\n",
 		       __func__, port_id, ret);
 		goto fail_cmd;
-	} else if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: config cmd failed\n", __func__);
-		ret = -EINVAL;
-		goto fail_cmd;
 	}
 
 fail_cmd:
@@ -1053,10 +1065,6 @@ static int afe_send_port_topology_id(u16 port_id)
 	if (ret) {
 		pr_err("%s: AFE set topology id enable for port 0x%x failed %d\n",
 			__func__, port_id, ret);
-		goto done;
-	} else if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: set topology_id config cmd failed\n", __func__);
-		ret = -EINVAL;
 		goto done;
 	}
 done:
@@ -1328,9 +1336,6 @@ static int afe_init_cdc_reg_config(void)
 	if (ret) {
 		pr_err("%s: AFE_PARAM_ID_CDC_INIT_REG_CFG failed %d\n",
 		       __func__, ret);
-	} else if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: config cmd failed\n", __func__);
-		ret = -EINVAL;
 	}
 
 	return ret;
@@ -1373,9 +1378,6 @@ static int afe_send_slimbus_slave_port_cfg(
 	if (ret) {
 		pr_err("%s: AFE_PARAM_ID_SLIMBUS_SLAVE_PORT_CFG failed %d\n",
 			__func__, ret);
-	} else if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: config cmd failed\n", __func__);
-		ret = -EINVAL;
 	}
 	pr_debug("%s: leave %d\n", __func__, ret);
 	return ret;
@@ -1455,9 +1457,6 @@ static int afe_aanc_port_cfg(void *apr, uint16_t tx_port, uint16_t rx_port)
 	if (ret) {
 		pr_err("%s: AFE AANC port config failed for tx_port 0x%x, rx_port 0x%x ret %d\n",
 			__func__, tx_port, rx_port, ret);
-	} else if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: config cmd failed\n", __func__);
-		ret = -EINVAL;
 	}
 
 	return ret;
@@ -1512,9 +1511,6 @@ static int afe_aanc_mod_enable(void *apr, uint16_t tx_port, uint16_t enable)
 	if (ret) {
 		pr_err("%s: AFE AANC enable failed for tx_port 0x%x ret %d\n",
 			__func__, tx_port, ret);
-	} else if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: config cmd failed\n", __func__);
-		ret = -EINVAL;
 	}
 	return ret;
 }
@@ -1551,9 +1547,6 @@ static int afe_send_bank_selection_clip(
 	if (ret) {
 		pr_err("%s: AFE_PARAM_ID_CLIP_BANK_SEL_CFG failed %d\n",
 		__func__, ret);
-	} else if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: config cmd failed\n", __func__);
-		ret = -EAGAIN;
 	}
 	return ret;
 }
@@ -1587,9 +1580,6 @@ int afe_send_aanc_version(
 	if (ret) {
 		pr_err("%s: AFE_PARAM_ID_CDC_AANC_VERSION failed %d\n",
 		__func__, ret);
-	} else if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: config cmd failed\n", __func__);
-	ret = -EINVAL;
 	}
 	return ret;
 }
@@ -1741,6 +1731,8 @@ int afe_send_spdif_clk_cfg(struct afe_param_id_spdif_clk_cfg *cfg,
 			cfg->clk_value, cfg->clk_root,
 			q6audio_get_port_id(port_id));
 
+	atomic_set(&this_afe.state, 1);
+	atomic_set(&this_afe.status, 0);
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &clk_cfg);
 	if (ret < 0) {
 		pr_err("%s: AFE send clock config for port 0x%x failed ret = %d\n",
@@ -1758,9 +1750,12 @@ int afe_send_spdif_clk_cfg(struct afe_param_id_spdif_clk_cfg *cfg,
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-	if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: config cmd failed\n", __func__);
-		ret = -EINVAL;
+	if (atomic_read(&this_afe.status) > 0) {
+		pr_err("%s: config cmd failed [%s]\n",
+			__func__, adsp_err_get_err_str(
+			atomic_read(&this_afe.status)));
+		ret = adsp_err_get_lnx_err_code(
+				atomic_read(&this_afe.status));
 		goto fail_cmd;
 	}
 
@@ -1811,6 +1806,8 @@ int afe_send_spdif_ch_status_cfg(struct afe_param_id_spdif_ch_status_cfg
 		- sizeof(struct apr_hdr) - sizeof(ch_status.param);
 	ch_status.ch_status = *ch_status_cfg;
 
+	atomic_set(&this_afe.state, 1);
+	atomic_set(&this_afe.status, 0);
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &ch_status);
 	if (ret < 0) {
 		pr_err("%s: AFE send channel status for port 0x%x failed ret = %d\n",
@@ -1828,9 +1825,12 @@ int afe_send_spdif_ch_status_cfg(struct afe_param_id_spdif_ch_status_cfg
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-	if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: config cmd failed\n", __func__);
-		ret = -EINVAL;
+	if (atomic_read(&this_afe.status) > 0) {
+		pr_err("%s: config cmd failed [%s]\n",
+			__func__, adsp_err_get_err_str(
+			atomic_read(&this_afe.status)));
+		ret = adsp_err_get_lnx_err_code(
+				atomic_read(&this_afe.status));
 		goto fail_cmd;
 	}
 
@@ -1943,10 +1943,6 @@ int afe_spdif_port_start(u16 port_id, struct afe_spdif_port_config *spdif_port,
 	if (ret) {
 		pr_err("%s: AFE enable for port 0x%x failed ret = %d\n",
 				__func__, port_id, ret);
-		goto fail_cmd;
-	} else if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: config cmd failed\n", __func__);
-		ret = -EINVAL;
 		goto fail_cmd;
 	}
 
@@ -2162,10 +2158,6 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	if (ret) {
 		pr_err("%s: AFE enable for port 0x%x failed %d\n",
 			__func__, port_id, ret);
-		goto fail_cmd;
-	} else if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: config cmd failed\n", __func__);
-		ret = -EINVAL;
 		goto fail_cmd;
 	}
 
@@ -2396,10 +2388,6 @@ int afe_open(u16 port_id,
 		pr_err("%s: AFE enable for port 0x%x opcode[0x%x]failed %d\n",
 			__func__, port_id, cfg_type, ret);
 		goto fail_cmd;
-	} else if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: config cmd failed\n", __func__);
-		ret = -EINVAL;
-		goto fail_cmd;
 	}
 	start.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
@@ -2582,7 +2570,7 @@ int afe_pseudo_port_start_nowait(u16 port_id)
 	if (ret) {
 		pr_err("%s: AFE enable for port 0x%x failed %d\n",
 		       __func__, port_id, ret);
-		return -EINVAL;
+		return ret;
 	}
 	return 0;
 }
@@ -3004,9 +2992,12 @@ int afe_cmd_memory_map(phys_addr_t dma_addr_p, u32 dma_buf_sz)
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-	if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: Memory map cmd failed\n", __func__);
-		ret = -EINVAL;
+	if (atomic_read(&this_afe.status) > 0) {
+		pr_err("%s: config cmd failed [%s]\n",
+			__func__, adsp_err_get_err_str(
+			atomic_read(&this_afe.status)));
+		ret = adsp_err_get_lnx_err_code(
+				atomic_read(&this_afe.status));
 		goto fail_cmd;
 	}
 
@@ -3181,10 +3172,6 @@ int afe_cmd_memory_unmap(u32 mem_map_handle)
 	if (ret)
 		pr_err("%s: AFE memory unmap cmd failed %d\n",
 		       __func__, ret);
-	if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: Memory unmap cmd failed\n", __func__);
-		ret = -EINVAL;
-	}
 
 	return ret;
 }
@@ -3634,6 +3621,7 @@ int afe_dtmf_generate_rx(int64_t duration_in_ms,
 	cmd_dtmf.port_ids = q6audio_get_port_id(this_afe.dtmf_gen_rx_portid);
 
 	atomic_set(&this_afe.state, 1);
+	atomic_set(&this_afe.status, 0);
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &cmd_dtmf);
 	if (ret < 0) {
 		pr_err("%s: AFE DTMF failed for num_ports:%d ids:0x%x\n",
@@ -3648,6 +3636,14 @@ int afe_dtmf_generate_rx(int64_t duration_in_ms,
 	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	if (atomic_read(&this_afe.status) > 0) {
+		pr_err("%s: config cmd failed [%s]\n",
+			__func__, adsp_err_get_err_str(
+			atomic_read(&this_afe.status)));
+		ret = adsp_err_get_lnx_err_code(
+				atomic_read(&this_afe.status));
 		goto fail_cmd;
 	}
 	return 0;
@@ -4002,9 +3998,12 @@ int afe_set_digital_codec_core_clock(u16 port_id,
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-	if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: config cmd failed\n", __func__);
-		ret = -EINVAL;
+	if (atomic_read(&this_afe.status) > 0) {
+		pr_err("%s: config cmd failed [%s]\n",
+			__func__, adsp_err_get_err_str(
+			atomic_read(&this_afe.status)));
+		ret = adsp_err_get_lnx_err_code(
+				atomic_read(&this_afe.status));
 		goto fail_cmd;
 	}
 
@@ -4084,9 +4083,12 @@ int afe_set_lpass_clock(u16 port_id, struct afe_clk_cfg *cfg)
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-	if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: config cmd failed\n", __func__);
-		ret = -EINVAL;
+	if (atomic_read(&this_afe.status) > 0) {
+		pr_err("%s: config cmd failed [%s]\n",
+			__func__, adsp_err_get_err_str(
+			atomic_read(&this_afe.status)));
+		ret = adsp_err_get_lnx_err_code(
+				atomic_read(&this_afe.status));
 		goto fail_cmd;
 	}
 
@@ -4245,9 +4247,12 @@ int afe_set_lpass_internal_digital_codec_clock(u16 port_id,
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-	if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: config cmd failed\n", __func__);
-		ret = -EINVAL;
+	if (atomic_read(&this_afe.status) > 0) {
+		pr_err("%s: config cmd failed [%s]\n",
+			__func__, adsp_err_get_err_str(
+			atomic_read(&this_afe.status)));
+		ret = adsp_err_get_lnx_err_code(
+				atomic_read(&this_afe.status));
 		goto fail_cmd;
 	}
 
@@ -4318,9 +4323,12 @@ int afe_enable_lpass_core_shared_clock(u16 port_id, u32 enable)
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-	if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: config cmd failed\n", __func__);
-		ret = -EINVAL;
+	if (atomic_read(&this_afe.status) > 0) {
+		pr_err("%s: config cmd failed [%s]\n",
+			__func__, adsp_err_get_err_str(
+			atomic_read(&this_afe.status)));
+		ret = adsp_err_get_lnx_err_code(
+				atomic_read(&this_afe.status));
 		goto fail_cmd;
 	}
 
@@ -4387,6 +4395,7 @@ int afe_spk_prot_get_calib_data(struct afe_spkr_prot_get_vi_calib *calib_resp)
 	calib_resp->pdata.module_id = AFE_MODULE_FB_SPKR_PROT_VI_PROC_V2;
 	calib_resp->pdata.param_id = AFE_PARAM_ID_CALIB_RES_CFG_V2;
 	calib_resp->pdata.param_size = sizeof(calib_resp->res_cfg);
+	atomic_set(&this_afe.status, 0);
 	atomic_set(&this_afe.state, 1);
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *)calib_resp);
 	if (ret < 0) {
@@ -4402,9 +4411,12 @@ int afe_spk_prot_get_calib_data(struct afe_spkr_prot_get_vi_calib *calib_resp)
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-	if (atomic_read(&this_afe.status) != 0) {
-		pr_err("%s: config cmd failed\n", __func__);
-		ret = -EINVAL;
+	if (atomic_read(&this_afe.status) > 0) {
+		pr_err("%s: config cmd failed [%s]\n",
+			__func__, adsp_err_get_err_str(
+			atomic_read(&this_afe.status)));
+		ret = adsp_err_get_lnx_err_code(
+				atomic_read(&this_afe.status));
 		goto fail_cmd;
 	}
 	memcpy(&calib_resp->res_cfg , &this_afe.calib_data.res_cfg,
