@@ -1,0 +1,35 @@
+Qualcomm Technologies, Inc. G-link Mailbox Transport
+
+Required properties:
+-compatible : should be "qcom,glink-mailbox-xprt"
+-reg : the mailbox register to store the location of the fifo
+	the mailbox register to store the size of the fifo
+	the irq register base address for triggering interrupts
+	the register to enable sending interrupts
+	the register to reset the rx irq line
+-reg-names : "mbox-loc-addr" - string to identify the mailbox location reg
+		"mbox-loc-size" - string to identify the mailbox size reg
+		"irq-reg-base" - string to identify the irq register region
+		"irq-rx-reset" - string to identify the rx irq reset register
+-qcom,irq-mask : the bitmask to trigger an interrupt
+-interrupts : the receiving interrupt line
+-label : the name of the subsystem this link connects to
+-qcom,tx-ring-size: size of the transmit ring buffer in bytes
+-qcom,rx-ring-size: size of the receive ring buffer in bytes
+
+Example:
+
+	qcom,glink-mailbox-xprt-spss@1d05008 {
+		compatible = "qcom,glink-mailbox-xprt";
+		reg = <0x1d05008 0x8>,
+			<0x1d05010 0x4>,
+			<0x1d06004 0x4>,
+			<0x1d06020 0x4>;
+		reg-names = "mbox-loc-addr", "mbox-loc-size", "irq-reg-base",
+			"irq-rx-reset";
+		qcom,irq-mask = <0x1000>;
+		interrupts = <0 25 4>;
+		label = "spss";
+		qcom,tx-ring-size = <0x400>;
+		qcom,rx-ring-size = <0x400>;
+	};
