@@ -119,6 +119,16 @@ static struct afe_clk_cfg mi2s_tx_clk = {
 	0,
 };
 
+static struct afe_clk_cfg wsa_ana_clk = {
+	AFE_API_VERSION_I2S_CONFIG,
+	0,
+	Q6AFE_LPASS_OSR_CLK_9_P600_MHZ,
+	Q6AFE_LPASS_CLK_SRC_INTERNAL,
+	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
+	Q6AFE_LPASS_MODE_CLK2_VALID,
+	0,
+};
+
 static char const *rx_bit_format_text[] = {"S16_LE", "S24_LE"};
 static const char *const ter_mi2s_tx_ch_text[] = {"One", "Two"};
 static const char *const loopback_mclk_text[] = {"DISABLE", "ENABLE"};
@@ -932,6 +942,18 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 				__func__, ret);
 		return ret;
 	}
+	if (card->aux_dev && substream->stream ==
+			SNDRV_PCM_STREAM_PLAYBACK) {
+		wsa_ana_clk.clk_val2 =
+				Q6AFE_LPASS_OSR_CLK_9_P600_MHZ;
+		ret = afe_set_lpass_clock(AFE_PORT_ID_PRIMARY_MI2S_RX,
+					  &wsa_ana_clk);
+		if (ret < 0) {
+			pr_err("%s: failed to enable mclk for wsa %d\n",
+				__func__, ret);
+			return ret;
+		}
+	}
 	ret =  msm8952_enable_dig_cdc_clk(codec, 1, true);
 	if (ret < 0) {
 		pr_err("failed to enable mclk\n");
@@ -965,6 +987,17 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	if (ret < 0)
 		pr_err("%s:clock disable failed; ret=%d\n", __func__,
 				ret);
+	if (card->aux_dev && substream->stream ==
+			SNDRV_PCM_STREAM_PLAYBACK) {
+		wsa_ana_clk.clk_val2 =
+				Q6AFE_LPASS_OSR_CLK_DISABLE;
+		ret = afe_set_lpass_clock(AFE_PORT_ID_PRIMARY_MI2S_RX,
+					  &wsa_ana_clk);
+		if (ret < 0) {
+			pr_err("%s: failed to disable mclk for wsa %d\n",
+				__func__, ret);
+		}
+	}
 	if (atomic_read(&pdata->mclk_rsc_ref) > 0) {
 		atomic_dec(&pdata->mclk_rsc_ref);
 		pr_debug("%s: decrementing mclk_res_ref %d\n",
