@@ -97,6 +97,7 @@ enum dsi_panel_bl_ctrl {
 };
 
 enum dsi_panel_status_mode {
+	ESD_NONE = 0,
 	ESD_BTA,
 	ESD_REG,
 	ESD_REG_NT35596,
