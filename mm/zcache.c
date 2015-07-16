@@ -69,6 +69,9 @@ static u64 zcache_evict_zpages;
 static u64 zcache_evict_filepages;
 static u64 zcache_inactive_pages_refused;
 static u64 zcache_reclaim_fail;
+static u64 zcache_pool_shrink;
+static u64 zcache_pool_shrink_fail;
+static u64 zcache_pool_shrink_pages;
 static atomic_t zcache_stored_pages = ATOMIC_INIT(0);
 
 #define GFP_ZCACHE \
@@ -153,6 +156,64 @@ static void zcache_rbnode_cache_destroy(void)
 {
 	kmem_cache_destroy(zcache_rbnode_cache);
 }
+
+static unsigned long zcache_count(struct shrinker *s,
+				  struct shrink_control *sc)
+{
+	unsigned long active_file;
+	long file_gap;
+
+	active_file = global_page_state(NR_ACTIVE_FILE);
+	file_gap = zcache_pool_pages - active_file;
+	if (file_gap < 0)
+		file_gap = 0;
+	return file_gap;
+}
+
+static unsigned long zcache_scan(struct shrinker *s, struct shrink_control *sc)
+{
+	unsigned long active_file;
+	long file_gap;
+	unsigned long freed = 0;
+	static bool running;
+	struct zcache_pool *zpool = zcache.pools[0];
+
+	if (running)
+		goto end;
+
+	running = true;
+	active_file = global_page_state(NR_ACTIVE_FILE);
+
+	/*
+	 * file_gap == 0 means that the number of pages
+	 * stored by zcache is around twice as many as the
+	 * number of active file pages.
+	 */
+	file_gap = zcache_pool_pages - active_file;
+	if (file_gap < 0)
+		file_gap = 0;
+	else
+		zcache_pool_shrink++;
+	while (file_gap-- > 0) {
+		if (zbud_reclaim_page(zpool->pool, 8)) {
+			zcache_pool_shrink_fail++;
+			break;
+		}
+		freed++;
+	}
+
+	zcache_pool_shrink_pages += freed;
+	zcache_pool_pages = zbud_get_pool_size(zpool->pool);
+	running = false;
+end:
+	return freed;
+}
+
+static struct shrinker zcache_shrinker = {
+	.scan_objects = zcache_scan,
+	.count_objects = zcache_count,
+	.seeks = DEFAULT_SEEKS * 16
+};
 
 /*
  * Compression functions
@@ -895,6 +956,12 @@ static int __init zcache_debugfs_init(void)
 			&zcache_reclaim_fail);
 	debugfs_create_u64("inactive_pages_refused", S_IRUGO,
 			zcache_debugfs_root, &zcache_inactive_pages_refused);
+	debugfs_create_u64("pool_shrink_count", S_IRUGO,
+			zcache_debugfs_root, &zcache_pool_shrink);
+	debugfs_create_u64("pool_shrink_fail", S_IRUGO,
+			zcache_debugfs_root, &zcache_pool_shrink_fail);
+	debugfs_create_u64("pool_shrink_pages", S_IRUGO,
+			zcache_debugfs_root, &zcache_pool_shrink_pages);
 	return 0;
 }
 
@@ -940,6 +1007,7 @@ static int __init init_zcache(void)
 
 	if (zcache_debugfs_init())
 		pr_warn("debugfs initialization failed\n");
+	register_shrinker(&zcache_shrinker);
 	return 0;
 pcpufail:
 	zcache_comp_exit();
