@@ -59,16 +59,6 @@ struct wsa881x_pdata {
 	int index;
 };
 
-static struct afe_clk_cfg mi2s_rx_clk = {
-	AFE_API_VERSION_I2S_CONFIG,
-	0,
-	Q6AFE_LPASS_OSR_CLK_9_P600_MHZ,
-	Q6AFE_LPASS_CLK_SRC_INTERNAL,
-	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
-	Q6AFE_LPASS_MODE_CLK2_VALID,
-	0,
-};
-
 enum {
 	WSA881X_STATUS_PROBING,
 	WSA881X_STATUS_I2C,
@@ -678,15 +668,7 @@ static int wsa881x_startup(struct wsa881x_pdata *pdata)
 	int ret = 0;
 
 	pr_debug("%s(): wsa startup\n", __func__);
-	mi2s_rx_clk.clk_val2 =
-			Q6AFE_LPASS_OSR_CLK_9_P600_MHZ;
-	ret = afe_set_lpass_clock(AFE_PORT_ID_PRIMARY_MI2S_RX,
-				  &mi2s_rx_clk);
-	if (ret < 0) {
-		pr_err("%s: clock failed enable %d\n",
-			__func__, ret);
-		return ret;
-	}
+
 	ret = msm_gpioset_activate(CLIENT_WSA_BONGO_1, "wsa_clk");
 	if (ret) {
 		pr_err("%s: gpio set cannot be activated %s\n",
@@ -708,15 +690,7 @@ static int wsa881x_shutdown(struct wsa881x_pdata *pdata)
 			__func__, ret);
 		return ret;
 	}
-	mi2s_rx_clk.clk_val2 =
-			Q6AFE_LPASS_OSR_CLK_DISABLE;
-	ret = afe_set_lpass_clock(AFE_PORT_ID_PRIMARY_MI2S_RX,
-				  &mi2s_rx_clk);
-	if (ret < 0) {
-		pr_err("%s: clock failed disable %d\n",
-			__func__, ret);
-		return ret;
-	}
+
 	ret = msm_gpioset_suspend(CLIENT_WSA_BONGO_1, "wsa_clk");
 	if (ret) {
 		pr_err("%s: gpio set cannot be suspended %s\n",
