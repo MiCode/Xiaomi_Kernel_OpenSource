@@ -649,11 +649,16 @@ static void mdss_dsi_28nm_phy_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	wmb();
 
 	/* DSI_0_PHY_DSIPHY_GLBL_TEST_CTRL */
-	if (((ctrl_pdata->panel_data).panel_info.pdest == DISPLAY_1) ||
-		(ctrl_pdata->shared_data->hw_rev == MDSS_DSI_HW_REV_103_1))
+	if (!mdss_dsi_is_hw_config_split(ctrl_pdata->shared_data)) {
 		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x01d4, 0x01);
-	else
-		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x01d4, 0x00);
+	} else {
+		if (((ctrl_pdata->panel_data).panel_info.pdest == DISPLAY_1) ||
+		(ctrl_pdata->shared_data->hw_rev == MDSS_DSI_HW_REV_103_1))
+			MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x01d4, 0x01);
+		else
+			MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x01d4, 0x00);
+	}
+	/* ensure DSIPHY_GLBL_TEST_CTRL is set */
 	wmb();
 
 	/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
