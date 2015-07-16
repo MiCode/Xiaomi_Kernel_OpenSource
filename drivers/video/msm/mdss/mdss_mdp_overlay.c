@@ -735,7 +735,6 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		mutex_unlock(&mdp5_data->list_lock);
 		pipe->mixer_left = mixer;
 		pipe->mfd = mfd;
-		pipe->pid = current->tgid;
 		pipe->play_cnt = 0;
 	} else {
 		pipe = __overlay_find_pipe(mfd, req->id);
@@ -1987,7 +1986,7 @@ int mdss_mdp_overlay_release(struct msm_fb_data_type *mfd, int ndx)
 
 			unset_ndx |= pipe->ndx;
 
-			pipe->pid = 0;
+			pipe->file = NULL;
 			destroy_pipe = pipe->play_cnt == 0;
 			if (!destroy_pipe)
 				list_move(&pipe->list,
@@ -2069,20 +2068,20 @@ done:
  * Return number of resources released
  */
 static int __mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd,
-	bool release_all, uint32_t pid)
+	struct file *file)
 {
 	struct mdss_mdp_pipe *pipe;
-	struct mdss_mdp_rotator_session *rot, *tmp;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	u32 unset_ndx = 0;
 	int cnt = 0;
 
-	pr_debug("releasing all resources for fb%d pid=%d\n", mfd->index, pid);
+	pr_debug("releasing all resources for fb%d file:%p\n",
+		mfd->index, file);
 
 	mutex_lock(&mdp5_data->ov_lock);
 	mutex_lock(&mdp5_data->list_lock);
 	list_for_each_entry(pipe, &mdp5_data->pipes_used, list) {
-		if (release_all || (pipe->pid == pid)) {
+		if (!file || pipe->file == file) {
 			unset_ndx |= pipe->ndx;
 			cnt++;
 		}
@@ -2094,8 +2093,8 @@ static int __mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd,
 		cnt++;
 	}
 
-	pr_debug("release_all=%d mfd->ref_cnt=%d unset_ndx=0x%x cnt=%d\n",
-		release_all, mfd->ref_cnt, unset_ndx, cnt);
+	pr_debug("mfd->ref_cnt=%d unset_ndx=0x%x cnt=%d\n",
+		mfd->ref_cnt, unset_ndx, cnt);
 
 	mutex_unlock(&mdp5_data->list_lock);
 
@@ -2104,14 +2103,6 @@ static int __mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd,
 		mdss_mdp_overlay_release(mfd, unset_ndx);
 	}
 	mutex_unlock(&mdp5_data->ov_lock);
-
-	list_for_each_entry_safe(rot, tmp, &mdp5_data->rot_proc_list, list) {
-		if (rot->pid == pid) {
-			if (!list_empty(&rot->list))
-				list_del_init(&rot->list);
-			mdss_mdp_rotator_release(rot);
-		}
-	}
 
 	return cnt;
 }

@@ -1227,6 +1227,9 @@ static long fb_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 	if (!info)
 		return -ENODEV;
+	mutex_lock(&info->lock);
+	info->file = file;
+	mutex_unlock(&info->lock);
 	return do_fb_ioctl(info, cmd, arg);
 }
 
