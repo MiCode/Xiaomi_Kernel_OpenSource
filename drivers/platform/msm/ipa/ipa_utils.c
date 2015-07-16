@@ -43,6 +43,13 @@
 #define IPA_EOT_COAL_GRAN_MIN (1)
 #define IPA_EOT_COAL_GRAN_MAX (16)
 
+#define IPA_AGGR_BYTE_LIMIT (\
+		IPA_ENDP_INIT_AGGR_N_AGGR_BYTE_LIMIT_BMSK >> \
+		IPA_ENDP_INIT_AGGR_N_AGGR_BYTE_LIMIT_SHFT)
+#define IPA_AGGR_PKT_LIMIT (\
+		IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_BMSK >> \
+		IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_SHFT)
+
 static const int ipa_ofst_meq32[] = { IPA_OFFSET_MEQ32_0,
 					IPA_OFFSET_MEQ32_1, -1 };
 static const int ipa_ofst_meq128[] = { IPA_OFFSET_MEQ128_0,
@@ -4802,3 +4809,36 @@ u32 ipa_get_num_pipes(void)
 		return IPA_MAX_NUM_PIPES;
 }
 EXPORT_SYMBOL(ipa_get_num_pipes);
+
+/**
+ * ipa_disable_apps_wan_cons_deaggr()- set ipa_ctx->ipa_client_apps_wan_cons_agg_gro
+ *
+ * Return value: 0 or negative in case of failure
+ */
+int ipa_disable_apps_wan_cons_deaggr(uint32_t agg_size, uint32_t agg_count)
+{
+	int res = -1;
+
+	/* checking if IPA-HW can support */
+	if ((agg_size >> 10) >
+		IPA_AGGR_BYTE_LIMIT) {
+		IPAWANERR("IPA-AGG byte limit %d\n",
+		IPA_AGGR_BYTE_LIMIT);
+		IPAWANERR("exceed aggr_byte_limit\n");
+		return res;
+		}
+	if (agg_count >
+		IPA_AGGR_PKT_LIMIT) {
+		IPAWANERR("IPA-AGG pkt limit %d\n",
+		IPA_AGGR_PKT_LIMIT);
+		IPAWANERR("exceed aggr_pkt_limit\n");
+		return res;
+	}
+
+	if (ipa_ctx) {
+		ipa_ctx->ipa_client_apps_wan_cons_agg_gro = true;
+		return 0;
+	}
+	return res;
+}
+EXPORT_SYMBOL(ipa_disable_apps_wan_cons_deaggr);

@@ -32,6 +32,7 @@
 #include <soc/qcom/subsystem_notif.h>
 #include "ipa_qmi_service.h"
 #include <linux/rmnet_ipa_fd_ioctl.h>
+#include <linux/ipa.h>
 
 #define WWAN_METADATA_SHFT 24
 #define WWAN_METADATA_MASK 0xFF000000
@@ -1428,6 +1429,27 @@ static int ipa_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 					RMNET_IOCTL_INGRESS_FORMAT_CHECKSUM)
 				ipa_to_apps_ep_cfg.ipa_ep_cfg.cfg.
 					cs_offload_en = 2;
+
+			if ((extend_ioctl_data.u.data) &
+					RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA) {
+				IPAWANERR("get AGG size %d count %d\n",
+					extend_ioctl_data.u.
+					ingress_format.agg_size,
+					extend_ioctl_data.u.
+					ingress_format.agg_count);
+				if (!ipa_disable_apps_wan_cons_deaggr(
+					extend_ioctl_data.u.
+					ingress_format.agg_size,
+					extend_ioctl_data.
+					u.ingress_format.agg_count)) {
+					ipa_to_apps_ep_cfg.ipa_ep_cfg.aggr.
+					aggr_byte_limit = extend_ioctl_data.
+					u.ingress_format.agg_size;
+					ipa_to_apps_ep_cfg.ipa_ep_cfg.aggr.
+					aggr_pkt_limit = extend_ioctl_data.
+					u.ingress_format.agg_count;
+				}
+			}
 
 			ipa_to_apps_ep_cfg.ipa_ep_cfg.hdr.hdr_len = 4;
 			ipa_to_apps_ep_cfg.ipa_ep_cfg.hdr.
