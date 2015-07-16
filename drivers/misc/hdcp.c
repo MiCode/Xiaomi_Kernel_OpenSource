@@ -33,11 +33,13 @@
 #include "qseecom_kernel.h"
 
 #define TZAPP_NAME            "hdcp2p2"
+#define HDCP1_APP_NAME        "hdcp1"
 #define QSEECOM_SBUFF_SIZE    0x1000
 
 #define MAX_TX_MESSAGE_SIZE	129
 #define MAX_RX_MESSAGE_SIZE	534
 #define MAX_TOPOLOGY_ELEMS	32
+#define HDCP1_AKSV_SIZE         8
 
 /* parameters related to LC_Init message */
 #define MESSAGE_ID_SIZE            1
@@ -60,6 +62,7 @@
 #define REPEATER_AUTH_SEND_ACK_MESSAGE_ID      15
 #define REPEATER_AUTH_STREAM_MANAGE_MESSAGE_ID 16
 #define REPEATER_AUTH_STREAM_READY_MESSAGE_ID  17
+#define HDCP1_SET_KEY_MESSAGE_ID       202
 
 #define BITS_8_IN_BYTES       1
 #define BITS_16_IN_BYTES      2
@@ -156,6 +159,16 @@ struct receiver_info {
 struct topology_info {
 	unsigned int nNumRcvrs;
 	struct receiver_info rcvinfo[MAX_TOPOLOGY_ELEMS];
+};
+
+struct __attribute__ ((__packed__)) hdcp1_key_set_req {
+	uint32_t commandid;
+};
+
+struct __attribute__ ((__packed__)) hdcp1_key_set_rsp {
+	uint32_t commandid;
+	uint32_t ret;
+	uint8_t ksv[HDCP1_AKSV_SIZE];
 };
 
 struct __attribute__ ((__packed__)) hdcp_init_req {
@@ -533,6 +546,60 @@ static void hdcp2p2_msg_arrive_work_fn(struct work_struct *work)
 /*
  * APIs exposed to all clients
  */
+
+int hdcp1_set_keys(uint32_t *aksv_msb, uint32_t *aksv_lsb)
+{
+	int rc = 0;
+	struct hdcp1_key_set_req *key_set_req;
+	struct hdcp1_key_set_rsp *key_set_rsp;
+	struct qseecom_handle *hdcp1_handle = NULL;
+
+	if (aksv_msb == NULL || aksv_lsb == NULL)
+		return -EINVAL;
+
+	/* start hdcp1 app */
+	rc = qseecom_start_app(&hdcp1_handle, HDCP1_APP_NAME,
+						QSEECOM_SBUFF_SIZE);
+	if (rc) {
+		pr_err("%s: qseecom_start_app failed %d\n", __func__, rc);
+		return -ENOSYS;
+	}
+
+	/* set keys and request aksv */
+	key_set_req = (struct hdcp1_key_set_req *)hdcp1_handle->sbuf;
+	key_set_req->commandid = HDCP1_SET_KEY_MESSAGE_ID;
+	key_set_rsp = (struct hdcp1_key_set_rsp *)(hdcp1_handle->sbuf +
+			QSEECOM_ALIGN(sizeof(struct hdcp1_key_set_req)));
+	rc = qseecom_send_command(hdcp1_handle,
+		key_set_req, QSEECOM_ALIGN(sizeof(struct hdcp1_key_set_req)),
+		key_set_rsp, QSEECOM_ALIGN(sizeof(struct hdcp1_key_set_rsp)));
+
+	if (rc < 0) {
+		pr_err("%s: qseecom cmd failed err=%d\n", __func__, rc);
+		return -ENOKEY;
+	}
+
+	rc = key_set_rsp->ret;
+	if (rc) {
+		pr_err("%s: set key cmd failed, rsp=%d\n", __func__,
+			key_set_rsp->ret);
+		return -ENOKEY;
+	}
+
+	/* copy bytes into msb and lsb */
+	*aksv_msb = key_set_rsp->ksv[0] << 24;
+	*aksv_msb |= key_set_rsp->ksv[1] << 16;
+	*aksv_msb |= key_set_rsp->ksv[2] << 8;
+	*aksv_msb |= key_set_rsp->ksv[3];
+	*aksv_lsb = key_set_rsp->ksv[4] << 24;
+	*aksv_lsb |= key_set_rsp->ksv[5] << 16;
+	*aksv_lsb |= key_set_rsp->ksv[6] << 8;
+	*aksv_lsb |= key_set_rsp->ksv[7];
+
+	return 0;
+}
+EXPORT_SYMBOL(hdcp1_set_keys);
+
 
 /*
  * initilaizes internal states of the library and loads HDCP secure application
