@@ -219,8 +219,10 @@ static void diagfwd_data_read_done(struct diagfwd_info *fwd_info,
 	unsigned char *write_buf = NULL;
 	struct diagfwd_buf_t *temp_buf = NULL;
 
-	if (!fwd_info || !buf || len <= 0)
+	if (!fwd_info || !buf || len <= 0) {
+		diag_ws_release();
 		return;
+	}
 
 	switch (fwd_info->type) {
 	case TYPE_DATA:
@@ -230,6 +232,7 @@ static void diagfwd_data_read_done(struct diagfwd_info *fwd_info,
 		pr_err_ratelimited("diag: In %s, invalid type %d for peripheral %d\n",
 				   __func__, fwd_info->type,
 				   fwd_info->peripheral);
+		diag_ws_release();
 		return;
 	}
 
@@ -301,7 +304,6 @@ static void diagfwd_data_read_done(struct diagfwd_info *fwd_info,
 		if (err) {
 			pr_err_ratelimited("diag: In %s, unable to write to mux error: %d\n",
 					   __func__, err);
-			diag_ws_release();
 			goto end;
 		}
 	}
@@ -311,6 +313,7 @@ static void diagfwd_data_read_done(struct diagfwd_info *fwd_info,
 	return;
 
 end:
+	diag_ws_release();
 	mutex_unlock(&fwd_info->data_mutex);
 	mutex_unlock(&driver->hdlc_disable_mutex);
 	if (temp_buf) {
@@ -324,12 +327,15 @@ end:
 static void diagfwd_cntl_read_done(struct diagfwd_info *fwd_info,
 				   unsigned char *buf, int len)
 {
-	if (!fwd_info)
+	if (!fwd_info) {
+		diag_ws_release();
 		return;
+	}
 
 	if (fwd_info->type != TYPE_CNTL) {
 		pr_err("diag: In %s, invalid type %d for peripheral %d\n",
 		       __func__, fwd_info->type, fwd_info->peripheral);
+		diag_ws_release();
 		return;
 	}
 
@@ -808,17 +814,19 @@ int diagfwd_channel_close(struct diagfwd_info *fwd_info)
 int diagfwd_channel_read_done(struct diagfwd_info *fwd_info,
 			      unsigned char *buf, uint32_t len)
 {
-	if (!fwd_info)
+	if (!fwd_info) {
+		diag_ws_release();
 		return -EIO;
+	}
 
 	/*
 	 * Diag peripheral layers should send len as 0 if there is any error
 	 * in reading data from the transport. Use this information to reset the
-	 * in_busy flags and to queue a read again.
+	 * in_busy flags. No need to queue read in this case.
 	 */
 	if (len == 0) {
 		diagfwd_reset_buffers(fwd_info, buf);
-		diagfwd_queue_read(fwd_info);
+		diag_ws_release();
 		return 0;
 	}
 
@@ -854,8 +862,10 @@ void diagfwd_channel_read(struct diagfwd_info *fwd_info)
 	unsigned char *read_buf = NULL;
 	struct diagfwd_buf_t *temp_buf = NULL;
 
-	if (!fwd_info)
+	if (!fwd_info) {
+		diag_ws_release();
 		return;
+	}
 
 	if (!fwd_info->inited || !atomic_read(&fwd_info->opened)) {
 		pr_debug("diag: In %s, p: %d, t: %d, inited: %d, opened: %d  ch_open: %d\n",
@@ -895,8 +905,10 @@ void diagfwd_channel_read(struct diagfwd_info *fwd_info)
 			 __func__, fwd_info->peripheral, fwd_info->type);
 	}
 
-	if (!read_buf)
+	if (!read_buf) {
+		diag_ws_release();
 		return;
+	}
 
 	if (!(fwd_info->p_ops && fwd_info->p_ops->read && fwd_info->ctxt))
 		goto fail_return;
@@ -910,6 +922,7 @@ void diagfwd_channel_read(struct diagfwd_info *fwd_info)
 	return;
 
 fail_return:
+	diag_ws_release();
 	atomic_set(&temp_buf->in_busy, 0);
 	return;
 }
