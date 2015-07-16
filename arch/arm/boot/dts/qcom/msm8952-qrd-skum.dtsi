@@ -53,6 +53,7 @@
 		synaptics,i2c-pull-up;
 		synaptics,power-down;
 		synaptics,disable-gpios;
+		synaptics,bypass-packrat-id-check;
 		synaptics,button-map = <139 172 158>;
 	};
 };
