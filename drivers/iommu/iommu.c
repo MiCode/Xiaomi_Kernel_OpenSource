@@ -31,6 +31,7 @@
 #include <linux/err.h>
 #include <linux/pci.h>
 #include <linux/bitops.h>
+#include <linux/debugfs.h>
 #include <trace/events/iommu.h>
 
 #include "iommu-debug.h"
@@ -1490,11 +1491,19 @@ void iommu_domain_window_disable(struct iommu_domain *domain, u32 wnd_nr)
 }
 EXPORT_SYMBOL_GPL(iommu_domain_window_disable);
 
+struct dentry *iommu_debugfs_top;
+
 static int __init iommu_init(void)
 {
 	iommu_group_kset = kset_create_and_add("iommu_groups",
 					       NULL, kernel_kobj);
 	BUG_ON(!iommu_group_kset);
+
+	iommu_debugfs_top = debugfs_create_dir("iommu", NULL);
+	if (!iommu_debugfs_top) {
+		pr_err("Couldn't create iommu debugfs directory\n");
+		return -ENODEV;
+	}
 
 	return 0;
 }

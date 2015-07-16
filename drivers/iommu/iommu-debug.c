@@ -23,8 +23,6 @@
 #include <linux/module.h>
 #include <linux/uaccess.h>
 
-static struct dentry *debugfs_top_dir;
-
 #ifdef CONFIG_IOMMU_DEBUG_TRACKING
 
 static DEFINE_MUTEX(iommu_debug_attachments_lock);
@@ -156,7 +154,7 @@ static int iommu_debug_init_tracking(void)
 
 	mutex_lock(&iommu_debug_attachments_lock);
 	debugfs_attachments_dir = debugfs_create_dir("attachments",
-						     debugfs_top_dir);
+						     iommu_debugfs_top);
 	if (!debugfs_attachments_dir) {
 		pr_err("Couldn't create iommu/attachments debugfs directory\n");
 		ret = -ENODEV;
@@ -171,8 +169,14 @@ out_unlock:
 	mutex_unlock(&iommu_debug_attachments_lock);
 	return ret;
 }
+
+static void iommu_debug_destroy_tracking(void)
+{
+	debugfs_remove_recursive(debugfs_attachments_dir);
+}
 #else
 static inline int iommu_debug_init_tracking(void) { return 0; }
+static inline void iommu_debug_destroy_tracking(void) { }
 #endif
 
 #ifdef CONFIG_IOMMU_TESTS
@@ -752,7 +756,7 @@ err:
 static int iommu_debug_init_tests(void)
 {
 	debugfs_tests_dir = debugfs_create_dir("tests",
-					       debugfs_top_dir);
+					       iommu_debugfs_top);
 	if (!debugfs_tests_dir) {
 		pr_err("Couldn't create iommu/tests debugfs directory\n");
 		return -ENODEV;
@@ -761,33 +765,31 @@ static int iommu_debug_init_tests(void)
 	return bus_for_each_dev(&platform_bus_type, NULL, NULL,
 				snarf_iommu_devices);
 }
+
+static void iommu_debug_destroy_tests(void)
+{
+	debugfs_remove_recursive(debugfs_tests_dir);
+}
 #else
 static inline int iommu_debug_init_tests(void) { return 0; }
+static inline void iommu_debug_destroy_tests(void) { }
 #endif
 
 static int iommu_debug_init(void)
 {
-	debugfs_top_dir = debugfs_create_dir("iommu", NULL);
-	if (!debugfs_top_dir) {
-		pr_err("Couldn't create iommu debugfs directory\n");
-		return -ENODEV;
-	}
-
 	if (iommu_debug_init_tracking())
-		goto err;
+		return -ENODEV;
 
 	if (iommu_debug_init_tests())
-		goto err;
+		return -ENODEV;
 
 	return 0;
-err:
-	debugfs_remove_recursive(debugfs_top_dir);
-	return -ENODEV;
 }
 
 static void iommu_debug_exit(void)
 {
-	debugfs_remove_recursive(debugfs_top_dir);
+	iommu_debug_destroy_tracking();
+	iommu_debug_destroy_tests();
 }
 
 module_init(iommu_debug_init);

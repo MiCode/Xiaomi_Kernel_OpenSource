@@ -144,6 +144,8 @@ struct iommu_dm_region {
 	int			prot;
 };
 
+extern struct dentry *iommu_debugfs_top;
+
 #ifdef CONFIG_IOMMU_API
 
 /**
