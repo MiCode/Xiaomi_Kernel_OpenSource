@@ -1088,7 +1088,7 @@ int mdss_mdp_pp_init(struct device *dev);
 void mdss_mdp_pp_term(struct device *dev);
 int mdss_mdp_pp_overlay_init(struct msm_fb_data_type *mfd);
 
-int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 mixer_num);
+int mdss_mdp_pp_resume(struct msm_fb_data_type *mfd);
 
 int mdss_mdp_pp_setup(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl);
@@ -1103,6 +1103,8 @@ int mdss_mdp_smp_setup(struct mdss_data_type *mdata, u32 cnt, u32 size);
 
 void mdss_hw_init(struct mdss_data_type *mdata);
 
+int mdss_mdp_mfd_valid_dspp(struct msm_fb_data_type *mfd);
+
 int mdss_mdp_pa_config(struct mdp_pa_cfg_data *config, u32 *copyback);
 int mdss_mdp_pa_v2_config(struct mdp_pa_v2_cfg_data *config, u32 *copyback);
 int mdss_mdp_pcc_config(struct mdp_pcc_cfg_data *cfg_ptr, u32 *copyback);
@@ -1113,7 +1115,7 @@ int mdss_mdp_hist_lut_config(struct mdp_hist_lut_data *config, u32 *copyback);
 int mdss_mdp_pp_default_overlay_config(struct msm_fb_data_type *mfd,
 					struct mdss_panel_data *pdata);
 int mdss_mdp_dither_config(struct mdp_dither_cfg_data *config, u32 *copyback,
-				int copy_from_kernel);
+			   int copy_from_kernel);
 int mdss_mdp_gamut_config(struct mdp_gamut_cfg_data *config, u32 *copyback);
 
 int mdss_mdp_hist_intr_req(struct mdss_intr *intr, u32 bits, bool en);

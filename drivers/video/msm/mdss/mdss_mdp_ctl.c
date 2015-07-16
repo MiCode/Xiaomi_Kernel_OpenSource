@@ -3023,9 +3023,7 @@ static void mdss_mdp_ctl_restore_sub(struct mdss_mdp_ctl *ctl)
 			MDSS_MDP_REG_DISP_INTF_SEL);
 
 	if (ctl->mixer_left) {
-		mdss_mdp_pp_resume(ctl, ctl->mixer_left->num);
-		if (ctl->mixer_right)
-			mdss_mdp_pp_resume(ctl, ctl->mixer_right->num);
+		mdss_mdp_pp_resume(ctl->mfd);
 
 		if (ctl->panel_data->panel_info.compression_mode ==
 				COMPRESSION_DSC) {
@@ -3113,12 +3111,6 @@ static int mdss_mdp_ctl_start_sub(struct mdss_mdp_ctl *ctl, bool handoff)
 			mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_LAYER(i), 0);
 	}
 
-	mixer = ctl->mixer_left;
-	if (mixer) {
-		mdss_mdp_pp_resume(ctl, mixer->num);
-		mixer->params_changed++;
-	}
-
 	temp = readl_relaxed(ctl->mdata->mdp_base +
 		MDSS_MDP_REG_DISP_INTF_SEL);
 	temp |= (ctl->intf_type << ((ctl->intf_num - MDSS_MDP_INTF0) * 8));
@@ -3128,7 +3120,9 @@ static int mdss_mdp_ctl_start_sub(struct mdss_mdp_ctl *ctl, bool handoff)
 	writel_relaxed(temp, ctl->mdata->mdp_base +
 		MDSS_MDP_REG_DISP_INTF_SEL);
 
+	mixer = ctl->mixer_left;
 	if (mixer) {
+		mixer->params_changed++;
 		outsize = (mixer->height << 16) | mixer->width;
 		mdp_mixer_write(mixer, MDSS_MDP_REG_LM_OUT_SIZE, outsize);
 
@@ -3203,7 +3197,6 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff)
 			struct mdss_mdp_mixer *mixer = ctl->mixer_right;
 			u32 out;
 
-			mdss_mdp_pp_resume(ctl, mixer->num);
 			mixer->params_changed++;
 			out = (mixer->height << 16) | mixer->width;
 			mdp_mixer_write(mixer, MDSS_MDP_REG_LM_OUT_SIZE, out);

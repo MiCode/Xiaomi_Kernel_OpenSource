@@ -1362,6 +1362,14 @@ int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 		}
 	}
 
+	/* Restore any previously configured PP features by resetting the dirty
+	 * bits for enabled features. The dirty bits will be consumed during the
+	 * first display commit when the PP hardware blocks are updated
+	 */
+	rc = mdss_mdp_pp_resume(mfd);
+	if (rc && (rc != -EPERM) && (rc != -ENODEV))
+		pr_err("PP resume err %d\n", rc);
+
 	/*
 	 * Increment the overlay active count prior to calling ctl_start.
 	 * This is needed to ensure that if idle power collapse kicks in
@@ -3517,6 +3525,11 @@ static int mdss_mdp_pp_ioctl(struct msm_fb_data_type *mfd,
 			mdp_pp.op != mdp_op_calib_dcm_state))
 		return -EPERM;
 
+	if (!mdss_mdp_mfd_valid_dspp(mfd)) {
+		pr_err("invalid display num %d for PP config\n", mfd->index);
+		return -EPERM;
+	}
+
 	switch (mdp_pp.op) {
 	case mdp_op_pa_cfg:
 		ret = mdss_mdp_pa_config(&mdp_pp.data.pa_cfg_data,
@@ -4232,6 +4245,7 @@ static struct mdss_mdp_ctl *__mdss_mdp_overlay_ctl_init(
 	int rc = 0;
 	struct mdss_mdp_ctl *ctl;
 	struct mdss_panel_data *pdata;
+	struct mdss_overlay_private *mdp5_data;
 
 	if (!mfd)
 		return ERR_PTR(-EINVAL);
@@ -4240,6 +4254,12 @@ static struct mdss_mdp_ctl *__mdss_mdp_overlay_ctl_init(
 	if (!pdata) {
 		pr_err("no panel connected for fb%d\n", mfd->index);
 		rc = -ENODEV;
+		goto error;
+	}
+
+	mdp5_data = mfd_to_mdp5_data(mfd);
+	if (!mdp5_data) {
+		rc = -EINVAL;
 		goto error;
 	}
 
@@ -4270,10 +4290,12 @@ static struct mdss_mdp_ctl *__mdss_mdp_overlay_ctl_init(
 		}
 	}
 
+	mdp5_data->ctl = ctl;
+
 	rc = mdss_mdp_pp_default_overlay_config(mfd, pdata);
 	if (rc) {
-		pr_err("Unable to set default postprocessing configs for fb%d\n",
-			mfd->index);
+		pr_err("Unable to set default postprocessing configs for fb%d ret %d\n",
+			mfd->index, rc);
 		rc = 0;
 	}
 
@@ -4304,7 +4326,6 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 		ctl = __mdss_mdp_overlay_ctl_init(mfd);
 		if (IS_ERR_OR_NULL(ctl))
 			return PTR_ERR(ctl);
-		mdp5_data->ctl = ctl;
 	} else {
 		ctl = mdp5_data->ctl;
 	}
@@ -4319,7 +4340,7 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 
 	if (mdss_fb_is_power_on(mfd)) {
 		pr_debug("panel was never turned off\n");
-		rc = mdss_mdp_ctl_start(mdp5_data->ctl, false);
+		rc = mdss_mdp_ctl_start(ctl, false);
 		goto panel_on;
 	}
 
@@ -4333,7 +4354,7 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 			rc = mdss_mdp_overlay_kickoff(mfd, NULL);
 		}
 	} else {
-		rc = mdss_mdp_ctl_setup(mdp5_data->ctl);
+		rc = mdss_mdp_ctl_setup(ctl);
 		if (rc)
 			goto end;
 	}
@@ -4548,7 +4569,6 @@ static int mdss_mdp_overlay_handoff(struct msm_fb_data_type *mfd)
 			rc = PTR_ERR(ctl);
 			goto error;
 		}
-		mdp5_data->ctl = ctl;
 	} else {
 		ctl = mdp5_data->ctl;
 	}
