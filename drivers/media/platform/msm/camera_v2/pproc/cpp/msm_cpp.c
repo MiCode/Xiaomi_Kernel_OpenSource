@@ -3430,13 +3430,16 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 	case VIDIOC_MSM_CPP_ENQUEUE_STREAM_BUFF_INFO32:
 	case VIDIOC_MSM_CPP_DELETE_STREAM_BUFF32:
 	{
+		compat_uptr_t p;
 		struct msm_cpp_stream_buff_info32_t *u32_cpp_buff_info =
 		  (struct msm_cpp_stream_buff_info32_t *)kp_ioctl.ioctl_ptr;
 
-		k_cpp_buff_info.identity = u32_cpp_buff_info->identity;
-		k_cpp_buff_info.num_buffs = u32_cpp_buff_info->num_buffs;
-		k_cpp_buff_info.buffer_info =
-			compat_ptr(u32_cpp_buff_info->buffer_info);
+		get_user(k_cpp_buff_info.identity,
+			&u32_cpp_buff_info->identity);
+		get_user(k_cpp_buff_info.num_buffs,
+			&u32_cpp_buff_info->num_buffs);
+		get_user(p, &u32_cpp_buff_info->buffer_info);
+		k_cpp_buff_info.buffer_info = compat_ptr(p);
 
 		kp_ioctl.ioctl_ptr = (void *)&k_cpp_buff_info;
 		if (is_compat_task()) {
