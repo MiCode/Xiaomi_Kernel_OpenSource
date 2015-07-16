@@ -283,6 +283,9 @@ static int dw_msi_setup_irq(struct msi_chip *chip, struct pci_dev *pdev,
 	struct msi_msg msg;
 	struct pcie_port *pp = sys_to_pcie(pdev->bus->sysdata);
 
+	if (desc->msi_attrib.is_msix)
+		return -EINVAL;
+
 	irq = assign_irq(1, desc, &pos);
 	if (irq < 0)
 		return irq;
@@ -339,7 +342,7 @@ static const struct irq_domain_ops msi_domain_ops = {
 	.map = dw_pcie_msi_map,
 };
 
-int __init dw_pcie_host_init(struct pcie_port *pp)
+int dw_pcie_host_init(struct pcie_port *pp)
 {
 	struct device_node *np = pp->dev->of_node;
 	struct platform_device *pdev = to_platform_device(pp->dev);

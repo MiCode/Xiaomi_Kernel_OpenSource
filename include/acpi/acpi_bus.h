@@ -312,6 +312,7 @@ struct acpi_device_wakeup_flags {
 	u8 valid:1;		/* Can successfully enable wakeup? */
 	u8 run_wake:1;		/* Run-Wake GPE devices */
 	u8 notifier_present:1;  /* Wake-up notify handler has been installed */
+	u8 enabled:1;		/* Enabled for wakeup */
 };
 
 struct acpi_device_wakeup_context {
@@ -337,6 +338,12 @@ struct acpi_device_physical_node {
 	bool put_online:1;
 };
 
+/* ACPI Device Specific Data (_DSD) */
+struct acpi_device_data {
+	const union acpi_object *pointer;
+	const union acpi_object *properties;
+};
+
 /* Device */
 struct acpi_device {
 	int device_type;
@@ -353,6 +360,7 @@ struct acpi_device {
 	struct acpi_device_wakeup wakeup;
 	struct acpi_device_perf performance;
 	struct acpi_device_dir dir;
+	struct acpi_device_data data;
 	struct acpi_scan_handler *handler;
 	struct acpi_hotplug_context *hp;
 	struct acpi_driver *driver;

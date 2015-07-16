@@ -135,6 +135,7 @@ static inline int sad_pkg(const struct interleave_pkg *table, u32 reg,
 
 #define TOLM		0x80
 #define	TOHM		0x84
+#define HASWELL_TOLM	0xd0
 #define HASWELL_TOHM_0	0xd4
 #define HASWELL_TOHM_1	0xd8
 
@@ -706,8 +707,8 @@ static u64 haswell_get_tolm(struct sbridge_pvt *pvt)
 {
 	u32 reg;
 
-	pci_read_config_dword(pvt->info.pci_vtd, TOLM, &reg);
-	return (GET_BITFIELD(reg, 26, 31) << 26) | 0x1ffffff;
+	pci_read_config_dword(pvt->info.pci_vtd, HASWELL_TOLM, &reg);
+	return (GET_BITFIELD(reg, 26, 31) << 26) | 0x3ffffff;
 }
 
 static u64 haswell_get_tohm(struct sbridge_pvt *pvt)
@@ -848,7 +849,7 @@ static int get_dimm_config(struct mem_ctl_info *mci)
 	else
 		edac_dbg(0, "Memory is unregistered\n");
 
-	if (mtype == MEM_DDR4 || MEM_RDDR4)
+	if (mtype == MEM_DDR4 || mtype == MEM_RDDR4)
 		banks = 16;
 	else
 		banks = 8;
@@ -2297,7 +2298,7 @@ static int sbridge_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		rc = sbridge_get_all_devices(&num_mc, pci_dev_descr_ibridge_table);
 		type = IVY_BRIDGE;
 		break;
-	case PCI_DEVICE_ID_INTEL_SBRIDGE_IMC_TA:
+	case PCI_DEVICE_ID_INTEL_SBRIDGE_IMC_HA0:
 		rc = sbridge_get_all_devices(&num_mc, pci_dev_descr_sbridge_table);
 		type = SANDY_BRIDGE;
 		break;
@@ -2306,8 +2307,11 @@ static int sbridge_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		type = HASWELL;
 		break;
 	}
-	if (unlikely(rc < 0))
+	if (unlikely(rc < 0)) {
+		edac_dbg(0, "couldn't get all devices for 0x%x\n", pdev->device);
 		goto fail0;
+	}
+
 	mc = 0;
 
 	list_for_each_entry(sbridge_dev, &sbridge_edac_list, list) {
@@ -2320,7 +2324,7 @@ static int sbridge_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 			goto fail1;
 	}
 
-	sbridge_printk(KERN_INFO, "Driver loaded.\n");
+	sbridge_printk(KERN_INFO, "%s\n", SBRIDGE_REVISION);
 
 	mutex_unlock(&sbridge_edac_lock);
 	return 0;

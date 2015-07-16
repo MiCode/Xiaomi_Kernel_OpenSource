@@ -319,7 +319,7 @@ static struct strip_zone *find_zone(struct r0conf *conf,
 
 /*
  * remaps the bio to the target device. we separate two flows.
- * power 2 flow and a general flow for the sake of perfromance
+ * power 2 flow and a general flow for the sake of performance
 */
 static struct md_rdev *map_sector(struct mddev *mddev, struct strip_zone *zone,
 				sector_t sector, sector_t *sector_offset)
@@ -529,6 +529,9 @@ static void raid0_make_request(struct mddev *mddev, struct bio *bio)
 			(likely(is_power_of_2(chunk_sects))
 			 ? (sector & (chunk_sects-1))
 			 : sector_div(sector, chunk_sects));
+
+		/* Restore due to sector_div */
+		sector = bio->bi_iter.bi_sector;
 
 		if (sectors < bio_sectors(bio)) {
 			split = bio_split(bio, sectors, GFP_NOIO, fs_bio_set);

@@ -1132,7 +1132,7 @@ struct nfs41_state_protection {
 	struct nfs4_op_map allow;
 };
 
-#define NFS4_EXCHANGE_ID_LEN	(48)
+#define NFS4_EXCHANGE_ID_LEN	(127)
 struct nfs41_exchange_id_args {
 	struct nfs_client		*client;
 	nfs4_verifier			*verifier;
@@ -1328,7 +1328,7 @@ struct nfs_commit_completion_ops {
 };
 
 struct nfs_commit_info {
-	spinlock_t			*lock;
+	spinlock_t			*lock;	/* inode->i_lock */
 	struct nfs_mds_commit_info	*mds;
 	struct pnfs_ds_commit_info	*ds;
 	struct nfs_direct_req		*dreq;	/* O_DIRECT request */

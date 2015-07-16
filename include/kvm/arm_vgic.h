@@ -113,6 +113,7 @@ struct vgic_ops {
 	void	(*sync_lr_elrsr)(struct kvm_vcpu *, int, struct vgic_lr);
 	u64	(*get_elrsr)(const struct kvm_vcpu *vcpu);
 	u64	(*get_eisr)(const struct kvm_vcpu *vcpu);
+	void	(*clear_eisr)(struct kvm_vcpu *vcpu);
 	u32	(*get_interrupt_status)(const struct kvm_vcpu *vcpu);
 	void	(*enable_underflow)(struct kvm_vcpu *vcpu);
 	void	(*disable_underflow)(struct kvm_vcpu *vcpu);
@@ -274,7 +275,7 @@ struct kvm_exit_mmio;
 #ifdef CONFIG_KVM_ARM_VGIC
 int kvm_vgic_addr(struct kvm *kvm, unsigned long type, u64 *addr, bool write);
 int kvm_vgic_hyp_init(void);
-int kvm_vgic_init(struct kvm *kvm);
+int kvm_vgic_map_resources(struct kvm *kvm);
 int kvm_vgic_create(struct kvm *kvm);
 void kvm_vgic_destroy(struct kvm *kvm);
 void kvm_vgic_vcpu_destroy(struct kvm_vcpu *vcpu);
@@ -321,7 +322,7 @@ static inline int kvm_vgic_addr(struct kvm *kvm, unsigned long type, u64 *addr, 
 	return -ENXIO;
 }
 
-static inline int kvm_vgic_init(struct kvm *kvm)
+static inline int kvm_vgic_map_resources(struct kvm *kvm)
 {
 	return 0;
 }

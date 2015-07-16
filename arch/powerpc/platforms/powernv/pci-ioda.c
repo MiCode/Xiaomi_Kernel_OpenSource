@@ -1355,13 +1355,13 @@ static void set_msi_irq_chip(struct pnv_phb *phb, unsigned int virq)
 
 #ifdef CONFIG_CXL_BASE
 
-struct device_node *pnv_pci_to_phb_node(struct pci_dev *dev)
+struct device_node *pnv_pci_get_phb_node(struct pci_dev *dev)
 {
 	struct pci_controller *hose = pci_bus_to_host(dev->bus);
 
-	return hose->dn;
+	return of_node_get(hose->dn);
 }
-EXPORT_SYMBOL(pnv_pci_to_phb_node);
+EXPORT_SYMBOL(pnv_pci_get_phb_node);
 
 int pnv_phb_to_cxl(struct pci_dev *dev)
 {
@@ -1645,7 +1645,8 @@ static void pnv_ioda_setup_pe_seg(struct pci_controller *hose,
 				region.start += phb->ioda.io_segsize;
 				index++;
 			}
-		} else if (res->flags & IORESOURCE_MEM) {
+		} else if ((res->flags & IORESOURCE_MEM) &&
+			   !pnv_pci_is_mem_pref_64(res->flags)) {
 			region.start = res->start -
 				       hose->mem_offset[0] -
 				       phb->ioda.m32_pci_base;

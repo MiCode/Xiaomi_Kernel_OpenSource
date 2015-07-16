@@ -623,6 +623,7 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
 	arg.iov[0].iov_base = (unsigned char *)&rep;
 	arg.iov[0].iov_len  = sizeof(rep.th);
 
+	net = sk ? sock_net(sk) : dev_net(skb_dst(skb)->dev);
 #ifdef CONFIG_TCP_MD5SIG
 	hash_location = tcp_parse_md5sig_option(th);
 	if (!sk && hash_location) {
@@ -633,7 +634,7 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
 		 * Incoming packet is checked with md5 hash with finding key,
 		 * no RST generated if md5 hash doesn't match.
 		 */
-		sk1 = __inet_lookup_listener(dev_net(skb_dst(skb)->dev),
+		sk1 = __inet_lookup_listener(net,
 					     &tcp_hashinfo, ip_hdr(skb)->saddr,
 					     th->source, ip_hdr(skb)->daddr,
 					     ntohs(th->source), inet_iif(skb));
@@ -681,9 +682,9 @@ static void tcp_v4_send_reset(struct sock *sk, struct sk_buff *skb)
 	if (sk)
 		arg.bound_dev_if = sk->sk_bound_dev_if;
 
-	net = dev_net(skb_dst(skb)->dev);
 	arg.tos = ip_hdr(skb)->tos;
-	ip_send_unicast_reply(net, skb, &TCP_SKB_CB(skb)->header.h4.opt,
+	ip_send_unicast_reply(*this_cpu_ptr(net->ipv4.tcp_sk),
+			      skb, &TCP_SKB_CB(skb)->header.h4.opt,
 			      ip_hdr(skb)->saddr, ip_hdr(skb)->daddr,
 			      &arg, arg.iov[0].iov_len);
 
@@ -767,7 +768,8 @@ static void tcp_v4_send_ack(struct sk_buff *skb, u32 seq, u32 ack,
 	if (oif)
 		arg.bound_dev_if = oif;
 	arg.tos = tos;
-	ip_send_unicast_reply(net, skb, &TCP_SKB_CB(skb)->header.h4.opt,
+	ip_send_unicast_reply(*this_cpu_ptr(net->ipv4.tcp_sk),
+			      skb, &TCP_SKB_CB(skb)->header.h4.opt,
 			      ip_hdr(skb)->saddr, ip_hdr(skb)->daddr,
 			      &arg, arg.iov[0].iov_len);
 
@@ -1512,7 +1514,7 @@ void tcp_v4_early_demux(struct sk_buff *skb)
 		skb->sk = sk;
 		skb->destructor = sock_edemux;
 		if (sk->sk_state != TCP_TIME_WAIT) {
-			struct dst_entry *dst = sk->sk_rx_dst;
+			struct dst_entry *dst = READ_ONCE(sk->sk_rx_dst);
 
 			if (dst)
 				dst = dst_check(dst, 0);
@@ -2426,14 +2428,39 @@ struct proto tcp_prot = {
 };
 EXPORT_SYMBOL(tcp_prot);
 
-static int __net_init tcp_sk_init(struct net *net)
-{
-	net->ipv4.sysctl_tcp_ecn = 2;
-	return 0;
-}
-
 static void __net_exit tcp_sk_exit(struct net *net)
 {
+	int cpu;
+
+	for_each_possible_cpu(cpu)
+		inet_ctl_sock_destroy(*per_cpu_ptr(net->ipv4.tcp_sk, cpu));
+	free_percpu(net->ipv4.tcp_sk);
+}
+
+static int __net_init tcp_sk_init(struct net *net)
+{
+	int res, cpu;
+
+	net->ipv4.tcp_sk = alloc_percpu(struct sock *);
+	if (!net->ipv4.tcp_sk)
+		return -ENOMEM;
+
+	for_each_possible_cpu(cpu) {
+		struct sock *sk;
+
+		res = inet_ctl_sock_create(&sk, PF_INET, SOCK_RAW,
+					   IPPROTO_TCP, net);
+		if (res)
+			goto fail;
+		*per_cpu_ptr(net->ipv4.tcp_sk, cpu) = sk;
+	}
+	net->ipv4.sysctl_tcp_ecn = 2;
+	return 0;
+
+fail:
+	tcp_sk_exit(net);
+
+	return res;
 }
 
 static void __net_exit tcp_sk_exit_batch(struct list_head *net_exit_list)

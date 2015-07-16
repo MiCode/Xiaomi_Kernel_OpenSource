@@ -1280,6 +1280,7 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 	i8042.notimeout	[HW] Ignore timeout condition signalled by controller
 	i8042.reset	[HW] Reset the controller during init and cleanup
 	i8042.unlock	[HW] Unlock (ignore) the keylock
+	i8042.kbdreset  [HW] Reset device connected to KBD port
 
 	i810=		[HW,DRM]
 
@@ -3653,6 +3654,8 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 					READ_CAPACITY_16 command);
 				f = NO_REPORT_OPCODES (don't use report opcodes
 					command, uas only);
+				g = MAX_SECTORS_240 (don't transfer more than
+					240 sectors at a time, uas only);
 				h = CAPACITY_HEURISTICS (decrease the
 					reported device capacity by one
 					sector if the number is odd);

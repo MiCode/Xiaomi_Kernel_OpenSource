@@ -58,13 +58,24 @@ struct ieee80211_local;
 #define IEEE80211_UNSET_POWER_LEVEL	INT_MIN
 
 /*
- * Some APs experience problems when working with U-APSD. Decrease the
- * probability of that happening by using legacy mode for all ACs but VO.
- * The AP that caused us trouble was a Cisco 4410N. It ignores our
- * setting, and always treats non-VO ACs as legacy.
+ * Some APs experience problems when working with U-APSD. Decreasing the
+ * probability of that happening by using legacy mode for all ACs but VO isn't
+ * enough.
+ *
+ * Cisco 4410N originally forced us to enable VO by default only because it
+ * treated non-VO ACs as legacy.
+ *
+ * However some APs (notably Netgear R7000) silently reclassify packets to
+ * different ACs. Since u-APSD ACs require trigger frames for frame retrieval
+ * clients would never see some frames (e.g. ARP responses) or would fetch them
+ * accidentally after a long time.
+ *
+ * It makes little sense to enable u-APSD queues by default because it needs
+ * userspace applications to be aware of it to actually take advantage of the
+ * possible additional powersavings. Implicitly depending on driver autotrigger
+ * frame support doesn't make much sense.
  */
-#define IEEE80211_DEFAULT_UAPSD_QUEUES \
-	IEEE80211_WMM_IE_STA_QOSINFO_AC_VO
+#define IEEE80211_DEFAULT_UAPSD_QUEUES 0
 
 #define IEEE80211_DEFAULT_MAX_SP_LEN		\
 	IEEE80211_WMM_IE_STA_QOSINFO_SP_ALL
@@ -193,6 +204,8 @@ enum ieee80211_packet_rx_flags {
  * @IEEE80211_RX_CMNTR: received on cooked monitor already
  * @IEEE80211_RX_BEACON_REPORTED: This frame was already reported
  *	to cfg80211_report_obss_beacon().
+ * @IEEE80211_RX_REORDER_TIMER: this frame is released by the
+ *	reorder buffer timeout timer, not the normal RX path
  *
  * These flags are used across handling multiple interfaces
  * for a single frame.
@@ -200,6 +213,7 @@ enum ieee80211_packet_rx_flags {
 enum ieee80211_rx_flags {
 	IEEE80211_RX_CMNTR		= BIT(0),
 	IEEE80211_RX_BEACON_REPORTED	= BIT(1),
+	IEEE80211_RX_REORDER_TIMER	= BIT(2),
 };
 
 struct ieee80211_rx_data {

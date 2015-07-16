@@ -481,6 +481,23 @@ int radeon_vm_bo_set_addr(struct radeon_device *rdev,
 	}
 
 	mutex_lock(&vm->mutex);
+	soffset /= RADEON_GPU_PAGE_SIZE;
+	eoffset /= RADEON_GPU_PAGE_SIZE;
+	if (soffset || eoffset) {
+		struct interval_tree_node *it;
+		it = interval_tree_iter_first(&vm->va, soffset, eoffset - 1);
+		if (it && it != &bo_va->it) {
+			struct radeon_bo_va *tmp;
+			tmp = container_of(it, struct radeon_bo_va, it);
+			/* bo and tmp overlap, invalid offset */
+			dev_err(rdev->dev, "bo %p va 0x%010Lx conflict with "
+				"(bo %p 0x%010lx 0x%010lx)\n", bo_va->bo,
+				soffset, tmp->bo, tmp->it.start, tmp->it.last);
+			mutex_unlock(&vm->mutex);
+			return -EINVAL;
+		}
+	}
+
 	if (bo_va->it.start || bo_va->it.last) {
 		if (bo_va->addr) {
 			/* add a clone of the bo_va to clear the old address */
@@ -496,6 +513,8 @@ int radeon_vm_bo_set_addr(struct radeon_device *rdev,
 			tmp->addr = bo_va->addr;
 			tmp->bo = radeon_bo_ref(bo_va->bo);
 			list_add(&tmp->vm_status, &vm->freed);
+
+			bo_va->addr = 0;
 		}
 
 		interval_tree_remove(&bo_va->it, &vm->va);
@@ -503,21 +522,7 @@ int radeon_vm_bo_set_addr(struct radeon_device *rdev,
 		bo_va->it.last = 0;
 	}
 
-	soffset /= RADEON_GPU_PAGE_SIZE;
-	eoffset /= RADEON_GPU_PAGE_SIZE;
 	if (soffset || eoffset) {
-		struct interval_tree_node *it;
-		it = interval_tree_iter_first(&vm->va, soffset, eoffset - 1);
-		if (it) {
-			struct radeon_bo_va *tmp;
-			tmp = container_of(it, struct radeon_bo_va, it);
-			/* bo and tmp overlap, invalid offset */
-			dev_err(rdev->dev, "bo %p va 0x%010Lx conflict with "
-				"(bo %p 0x%010lx 0x%010lx)\n", bo_va->bo,
-				soffset, tmp->bo, tmp->it.start, tmp->it.last);
-			mutex_unlock(&vm->mutex);
-			return -EINVAL;
-		}
 		bo_va->it.start = soffset;
 		bo_va->it.last = eoffset - 1;
 		interval_tree_insert(&bo_va->it, &vm->va);
@@ -753,9 +758,11 @@ static void radeon_vm_frag_ptes(struct radeon_device *rdev,
 	 */
 
 	/* NI is optimized for 256KB fragments, SI and newer for 64KB */
-	uint64_t frag_flags = rdev->family == CHIP_CAYMAN ?
+	uint64_t frag_flags = ((rdev->family == CHIP_CAYMAN) ||
+			       (rdev->family == CHIP_ARUBA)) ?
 			R600_PTE_FRAG_256KB : R600_PTE_FRAG_64KB;
-	uint64_t frag_align = rdev->family == CHIP_CAYMAN ? 0x200 : 0x80;
+	uint64_t frag_align = ((rdev->family == CHIP_CAYMAN) ||
+			       (rdev->family == CHIP_ARUBA)) ? 0x200 : 0x80;
 
 	uint64_t frag_start = ALIGN(pe_start, frag_align);
 	uint64_t frag_end = pe_end & ~(frag_align - 1);
@@ -1053,7 +1060,8 @@ void radeon_vm_bo_rmv(struct radeon_device *rdev,
 	list_del(&bo_va->bo_list);
 
 	mutex_lock(&vm->mutex);
-	interval_tree_remove(&bo_va->it, &vm->va);
+	if (bo_va->it.start || bo_va->it.last)
+		interval_tree_remove(&bo_va->it, &vm->va);
 	list_del(&bo_va->vm_status);
 
 	if (bo_va->addr) {

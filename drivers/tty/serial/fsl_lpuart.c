@@ -506,9 +506,6 @@ static inline void lpuart_prepare_rx(struct lpuart_port *sport)
 
 	spin_lock_irqsave(&sport->port.lock, flags);
 
-	init_timer(&sport->lpuart_timer);
-	sport->lpuart_timer.function = lpuart_timer_func;
-	sport->lpuart_timer.data = (unsigned long)sport;
 	sport->lpuart_timer.expires = jiffies + sport->dma_rx_timeout;
 	add_timer(&sport->lpuart_timer);
 
@@ -758,18 +755,18 @@ out:
 static irqreturn_t lpuart_int(int irq, void *dev_id)
 {
 	struct lpuart_port *sport = dev_id;
-	unsigned char sts;
+	unsigned char sts, crdma;
 
 	sts = readb(sport->port.membase + UARTSR1);
+	crdma = readb(sport->port.membase + UARTCR5);
 
-	if (sts & UARTSR1_RDRF) {
+	if (sts & UARTSR1_RDRF && !(crdma & UARTCR5_RDMAS)) {
 		if (sport->lpuart_dma_use)
 			lpuart_prepare_rx(sport);
 		else
 			lpuart_rxint(irq, dev_id);
 	}
-	if (sts & UARTSR1_TDRE &&
-		!(readb(sport->port.membase + UARTCR5) & UARTCR5_TDMAS)) {
+	if (sts & UARTSR1_TDRE && !(crdma & UARTCR5_TDMAS)) {
 		if (sport->lpuart_dma_use)
 			lpuart_pio_tx(sport);
 		else
@@ -912,6 +909,9 @@ static void lpuart_setup_watermark(struct lpuart_port *sport)
 	val = readb(sport->port.membase + UARTPFIFO);
 	writeb(val | UARTPFIFO_TXFE | UARTPFIFO_RXFE,
 			sport->port.membase + UARTPFIFO);
+
+	/* explicitly clear RDRF */
+	readb(sport->port.membase + UARTSR1);
 
 	/* flush Tx and Rx FIFO */
 	writeb(UARTCFIFO_TXFLUSH | UARTCFIFO_RXFLUSH,
@@ -1098,6 +1098,8 @@ static int lpuart_startup(struct uart_port *port)
 	sport->txfifo_size = 0x1 << (((temp >> UARTPFIFO_TXSIZE_OFF) &
 		UARTPFIFO_FIFOSIZE_MASK) + 1);
 
+	sport->port.fifosize = sport->txfifo_size;
+
 	sport->rxfifo_size = 0x1 << (((temp >> UARTPFIFO_RXSIZE_OFF) &
 		UARTPFIFO_FIFOSIZE_MASK) + 1);
 
@@ -1106,7 +1108,10 @@ static int lpuart_startup(struct uart_port *port)
 		sport->lpuart_dma_use = false;
 	} else {
 		sport->lpuart_dma_use = true;
+		setup_timer(&sport->lpuart_timer, lpuart_timer_func,
+			    (unsigned long)sport);
 		temp = readb(port->membase + UARTCR5);
+		temp &= ~UARTCR5_RDMAS;
 		writeb(temp | UARTCR5_TDMAS, port->membase + UARTCR5);
 	}
 
@@ -1180,6 +1185,8 @@ static void lpuart_shutdown(struct uart_port *port)
 	devm_free_irq(port->dev, port->irq, sport);
 
 	if (sport->lpuart_dma_use) {
+		del_timer_sync(&sport->lpuart_timer);
+
 		lpuart_dma_tx_free(port);
 		lpuart_dma_rx_free(port);
 	}

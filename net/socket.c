@@ -904,9 +904,6 @@ static ssize_t sock_splice_read(struct file *file, loff_t *ppos,
 static struct sock_iocb *alloc_sock_iocb(struct kiocb *iocb,
 					 struct sock_iocb *siocb)
 {
-	if (!is_sync_kiocb(iocb))
-		BUG();
-
 	siocb->kiocb = iocb;
 	iocb->private = siocb;
 	return siocb;
@@ -2057,14 +2054,12 @@ static int ___sys_sendmsg(struct socket *sock, struct msghdr __user *msg,
 	int err, ctl_len, total_len;
 
 	err = -EFAULT;
-	if (MSG_CMSG_COMPAT & flags) {
-		if (get_compat_msghdr(msg_sys, msg_compat))
-			return -EFAULT;
-	} else {
+	if (MSG_CMSG_COMPAT & flags)
+		err = get_compat_msghdr(msg_sys, msg_compat);
+	else
 		err = copy_msghdr_from_user(msg_sys, msg);
-		if (err)
-			return err;
-	}
+	if (err)
+		return err;
 
 	if (msg_sys->msg_iovlen > UIO_FASTIOV) {
 		err = -EMSGSIZE;
@@ -2269,14 +2264,12 @@ static int ___sys_recvmsg(struct socket *sock, struct msghdr __user *msg,
 	struct sockaddr __user *uaddr;
 	int __user *uaddr_len;
 
-	if (MSG_CMSG_COMPAT & flags) {
-		if (get_compat_msghdr(msg_sys, msg_compat))
-			return -EFAULT;
-	} else {
+	if (MSG_CMSG_COMPAT & flags)
+		err = get_compat_msghdr(msg_sys, msg_compat);
+	else
 		err = copy_msghdr_from_user(msg_sys, msg);
-		if (err)
-			return err;
-	}
+	if (err)
+		return err;
 
 	if (msg_sys->msg_iovlen > UIO_FASTIOV) {
 		err = -EMSGSIZE;

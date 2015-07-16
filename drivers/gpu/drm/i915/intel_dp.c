@@ -778,10 +778,8 @@ intel_dp_aux_ch(struct intel_dp *intel_dp,
 				      DP_AUX_CH_CTL_RECEIVE_ERROR))
 				continue;
 			if (status & DP_AUX_CH_CTL_DONE)
-				break;
+				goto done;
 		}
-		if (status & DP_AUX_CH_CTL_DONE)
-			break;
 	}
 
 	if ((status & DP_AUX_CH_CTL_DONE) == 0) {
@@ -790,6 +788,7 @@ intel_dp_aux_ch(struct intel_dp *intel_dp,
 		goto out;
 	}
 
+done:
 	/* Check for timeout or receive error.
 	 * Timeouts occur when the sink is not connected
 	 */
@@ -1037,7 +1036,7 @@ intel_dp_compute_config(struct intel_encoder *encoder,
 
 	pipe_config->has_dp_encoder = true;
 	pipe_config->has_drrs = false;
-	pipe_config->has_audio = intel_dp->has_audio;
+	pipe_config->has_audio = intel_dp->has_audio && port != PORT_A;
 
 	if (is_edp(intel_dp) && intel_connector->panel.fixed_mode) {
 		intel_fixed_panel_mode(intel_connector->panel.fixed_mode,
@@ -1879,8 +1878,8 @@ static void intel_dp_get_config(struct intel_encoder *encoder,
 	int dotclock;
 
 	tmp = I915_READ(intel_dp->output_reg);
-	if (tmp & DP_AUDIO_OUTPUT_ENABLE)
-		pipe_config->has_audio = true;
+
+	pipe_config->has_audio = tmp & DP_AUDIO_OUTPUT_ENABLE && port != PORT_A;
 
 	if ((port == PORT_A) || !HAS_PCH_CPT(dev)) {
 		if (tmp & DP_SYNC_HS_HIGH)
@@ -3645,8 +3644,6 @@ intel_dp_link_down(struct intel_dp *intel_dp)
 	enum port port = intel_dig_port->port;
 	struct drm_device *dev = intel_dig_port->base.base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	struct intel_crtc *intel_crtc =
-		to_intel_crtc(intel_dig_port->base.base.crtc);
 	uint32_t DP = intel_dp->DP;
 
 	if (WARN_ON(HAS_DDI(dev)))
@@ -3671,8 +3668,6 @@ intel_dp_link_down(struct intel_dp *intel_dp)
 
 	if (HAS_PCH_IBX(dev) &&
 	    I915_READ(intel_dp->output_reg) & DP_PIPEB_SELECT) {
-		struct drm_crtc *crtc = intel_dig_port->base.base.crtc;
-
 		/* Hardware workaround: leaving our transcoder select
 		 * set to transcoder B while it's off will prevent the
 		 * corresponding HDMI output on transcoder A.
@@ -3683,18 +3678,7 @@ intel_dp_link_down(struct intel_dp *intel_dp)
 		 */
 		DP &= ~DP_PIPEB_SELECT;
 		I915_WRITE(intel_dp->output_reg, DP);
-
-		/* Changes to enable or select take place the vblank
-		 * after being written.
-		 */
-		if (WARN_ON(crtc == NULL)) {
-			/* We should never try to disable a port without a crtc
-			 * attached. For paranoia keep the code around for a
-			 * bit. */
-			POSTING_READ(intel_dp->output_reg);
-			msleep(50);
-		} else
-			intel_wait_for_vblank(dev, intel_crtc->pipe);
+		POSTING_READ(intel_dp->output_reg);
 	}
 
 	DP &= ~DP_AUDIO_OUTPUT_ENABLE;

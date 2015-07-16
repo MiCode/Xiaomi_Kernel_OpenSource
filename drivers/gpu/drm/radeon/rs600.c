@@ -625,11 +625,8 @@ static void rs600_gart_fini(struct radeon_device *rdev)
 	radeon_gart_table_vram_free(rdev);
 }
 
-void rs600_gart_set_page(struct radeon_device *rdev, unsigned i,
-			 uint64_t addr, uint32_t flags)
+uint64_t rs600_gart_get_page_entry(uint64_t addr, uint32_t flags)
 {
-	void __iomem *ptr = (void *)rdev->gart.ptr;
-
 	addr = addr & 0xFFFFFFFFFFFFF000ULL;
 	addr |= R600_PTE_SYSTEM;
 	if (flags & RADEON_GART_PAGE_VALID)
@@ -640,7 +637,14 @@ void rs600_gart_set_page(struct radeon_device *rdev, unsigned i,
 		addr |= R600_PTE_WRITEABLE;
 	if (flags & RADEON_GART_PAGE_SNOOP)
 		addr |= R600_PTE_SNOOPED;
-	writeq(addr, ptr + (i * 8));
+	return addr;
+}
+
+void rs600_gart_set_page(struct radeon_device *rdev, unsigned i,
+			 uint64_t entry)
+{
+	void __iomem *ptr = (void *)rdev->gart.ptr;
+	writeq(entry, ptr + (i * 8));
 }
 
 int rs600_irq_set(struct radeon_device *rdev)
@@ -689,6 +693,10 @@ int rs600_irq_set(struct radeon_device *rdev)
 	WREG32(R_007D18_DC_HOT_PLUG_DETECT2_INT_CONTROL, hpd2);
 	if (ASIC_IS_DCE2(rdev))
 		WREG32(R_007408_HDMI0_AUDIO_PACKET_CONTROL, hdmi0);
+
+	/* posting read */
+	RREG32(R_000040_GEN_INT_CNTL);
+
 	return 0;
 }
 

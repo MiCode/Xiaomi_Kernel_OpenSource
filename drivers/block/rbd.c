@@ -1998,11 +1998,11 @@ static struct rbd_obj_request *rbd_obj_request_create(const char *object_name,
 	rbd_assert(obj_request_type_valid(type));
 
 	size = strlen(object_name) + 1;
-	name = kmalloc(size, GFP_KERNEL);
+	name = kmalloc(size, GFP_NOIO);
 	if (!name)
 		return NULL;
 
-	obj_request = kmem_cache_zalloc(rbd_obj_request_cache, GFP_KERNEL);
+	obj_request = kmem_cache_zalloc(rbd_obj_request_cache, GFP_NOIO);
 	if (!obj_request) {
 		kfree(name);
 		return NULL;
@@ -2098,32 +2098,26 @@ static void rbd_dev_parent_put(struct rbd_device *rbd_dev)
  * If an image has a non-zero parent overlap, get a reference to its
  * parent.
  *
- * We must get the reference before checking for the overlap to
- * coordinate properly with zeroing the parent overlap in
- * rbd_dev_v2_parent_info() when an image gets flattened.  We
- * drop it again if there is no overlap.
- *
  * Returns true if the rbd device has a parent with a non-zero
  * overlap and a reference for it was successfully taken, or
  * false otherwise.
  */
 static bool rbd_dev_parent_get(struct rbd_device *rbd_dev)
 {
-	int counter;
+	int counter = 0;
 
 	if (!rbd_dev->parent_spec)
 		return false;
 
-	counter = atomic_inc_return_safe(&rbd_dev->parent_ref);
-	if (counter > 0 && rbd_dev->parent_overlap)
-		return true;
-
-	/* Image was flattened, but parent is not yet torn down */
+	down_read(&rbd_dev->header_rwsem);
+	if (rbd_dev->parent_overlap)
+		counter = atomic_inc_return_safe(&rbd_dev->parent_ref);
+	up_read(&rbd_dev->header_rwsem);
 
 	if (counter < 0)
 		rbd_warn(rbd_dev, "parent reference overflow");
 
-	return false;
+	return counter > 0;
 }
 
 /*
@@ -2267,6 +2261,11 @@ static bool rbd_img_obj_end_request(struct rbd_obj_request *obj_request)
 			result, xferred);
 		if (!img_request->result)
 			img_request->result = result;
+		/*
+		 * Need to end I/O on the entire obj_request worth of
+		 * bytes in case of error.
+		 */
+		xferred = obj_request->length;
 	}
 
 	/* Image object requests don't own their page array */
@@ -4236,7 +4235,6 @@ static int rbd_dev_v2_parent_info(struct rbd_device *rbd_dev)
 		 */
 		if (rbd_dev->parent_overlap) {
 			rbd_dev->parent_overlap = 0;
-			smp_mb();
 			rbd_dev_parent_put(rbd_dev);
 			pr_info("%s: clone image has been flattened\n",
 				rbd_dev->disk->disk_name);
@@ -4282,7 +4280,6 @@ static int rbd_dev_v2_parent_info(struct rbd_device *rbd_dev)
 	 * treat it specially.
 	 */
 	rbd_dev->parent_overlap = overlap;
-	smp_mb();
 	if (!overlap) {
 
 		/* A null parent_spec indicates it's the initial probe */
@@ -5111,10 +5108,7 @@ static void rbd_dev_unprobe(struct rbd_device *rbd_dev)
 {
 	struct rbd_image_header	*header;
 
-	/* Drop parent reference unless it's already been done (or none) */
-
-	if (rbd_dev->parent_overlap)
-		rbd_dev_parent_put(rbd_dev);
+	rbd_dev_parent_put(rbd_dev);
 
 	/* Free dynamic fields from the header, then zero it out */
 

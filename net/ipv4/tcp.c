@@ -2602,10 +2602,13 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
 
 	case TCP_FASTOPEN:
 		if (val >= 0 && ((1 << sk->sk_state) & (TCPF_CLOSE |
-		    TCPF_LISTEN)))
+		    TCPF_LISTEN))) {
+			tcp_fastopen_init_key_once(true);
+
 			err = fastopen_init_queue(sk, val);
-		else
+		} else {
 			err = -EINVAL;
+		}
 		break;
 	case TCP_TIMESTAMP:
 		if (!tp->repair)
@@ -2656,6 +2659,7 @@ void tcp_get_info(const struct sock *sk, struct tcp_info *info)
 	const struct tcp_sock *tp = tcp_sk(sk);
 	const struct inet_connection_sock *icsk = inet_csk(sk);
 	u32 now = tcp_time_stamp;
+	u32 rate;
 
 	memset(info, 0, sizeof(*info));
 
@@ -2716,10 +2720,12 @@ void tcp_get_info(const struct sock *sk, struct tcp_info *info)
 
 	info->tcpi_total_retrans = tp->total_retrans;
 
-	info->tcpi_pacing_rate = sk->sk_pacing_rate != ~0U ?
-					sk->sk_pacing_rate : ~0ULL;
-	info->tcpi_max_pacing_rate = sk->sk_max_pacing_rate != ~0U ?
-					sk->sk_max_pacing_rate : ~0ULL;
+	rate = READ_ONCE(sk->sk_pacing_rate);
+	info->tcpi_pacing_rate = rate != ~0U ? rate : ~0ULL;
+
+	rate = READ_ONCE(sk->sk_max_pacing_rate);
+	info->tcpi_max_pacing_rate = rate != ~0U ? rate : ~0ULL;
+
 	/*
 	* Expose reference count for socket.
 	*/

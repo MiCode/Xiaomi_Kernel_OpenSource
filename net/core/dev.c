@@ -943,7 +943,7 @@ bool dev_valid_name(const char *name)
 		return false;
 
 	while (*name) {
-		if (*name == '/' || isspace(*name))
+		if (*name == '/' || *name == ':' || isspace(*name))
 			return false;
 		name++;
 	}
@@ -1697,6 +1697,7 @@ int __dev_forward_skb(struct net_device *dev, struct sk_buff *skb)
 
 	skb_scrub_packet(skb, true);
 	skb->protocol = eth_type_trans(skb, dev);
+	skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
 
 	return 0;
 }
@@ -2565,7 +2566,7 @@ static netdev_features_t harmonize_features(struct sk_buff *skb,
 
 netdev_features_t netif_skb_features(struct sk_buff *skb)
 {
-	const struct net_device *dev = skb->dev;
+	struct net_device *dev = skb->dev;
 	netdev_features_t features = dev->features;
 	u16 gso_segs = skb_shinfo(skb)->gso_segs;
 	__be16 protocol = skb->protocol;
@@ -2573,11 +2574,21 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
 	if (gso_segs > dev->gso_max_segs || gso_segs < dev->gso_min_segs)
 		features &= ~NETIF_F_GSO_MASK;
 
-	if (protocol == htons(ETH_P_8021Q) || protocol == htons(ETH_P_8021AD)) {
-		struct vlan_ethhdr *veh = (struct vlan_ethhdr *)skb->data;
-		protocol = veh->h_vlan_encapsulated_proto;
-	} else if (!vlan_tx_tag_present(skb)) {
-		return harmonize_features(skb, features);
+	/* If encapsulation offload request, verify we are testing
+	 * hardware encapsulation features instead of standard
+	 * features for the netdev
+	 */
+	if (skb->encapsulation)
+		features &= dev->hw_enc_features;
+
+	if (!vlan_tx_tag_present(skb)) {
+		if (unlikely(protocol == htons(ETH_P_8021Q) ||
+			     protocol == htons(ETH_P_8021AD))) {
+			struct vlan_ethhdr *veh = (struct vlan_ethhdr *)skb->data;
+			protocol = veh->h_vlan_encapsulated_proto;
+		} else {
+			goto finalize;
+		}
 	}
 
 	features = netdev_intersect_features(features,
@@ -2593,6 +2604,11 @@ netdev_features_t netif_skb_features(struct sk_buff *skb)
 						     NETIF_F_GEN_CSUM |
 						     NETIF_F_HW_VLAN_CTAG_TX |
 						     NETIF_F_HW_VLAN_STAG_TX);
+
+finalize:
+	if (dev->netdev_ops->ndo_features_check)
+		features &= dev->netdev_ops->ndo_features_check(skb, dev,
+								features);
 
 	return harmonize_features(skb, features);
 }
@@ -2647,12 +2663,8 @@ static struct sk_buff *validate_xmit_vlan(struct sk_buff *skb,
 					  netdev_features_t features)
 {
 	if (vlan_tx_tag_present(skb) &&
-	    !vlan_hw_offload_capable(features, skb->vlan_proto)) {
-		skb = __vlan_put_tag(skb, skb->vlan_proto,
-				     vlan_tx_tag_get(skb));
-		if (skb)
-			skb->vlan_tci = 0;
-	}
+	    !vlan_hw_offload_capable(features, skb->vlan_proto))
+		skb = __vlan_hwaccel_push_inside(skb);
 	return skb;
 }
 
@@ -2668,19 +2680,12 @@ static struct sk_buff *validate_xmit_skb(struct sk_buff *skb, struct net_device 
 	if (unlikely(!skb))
 		goto out_null;
 
-	/* If encapsulation offload request, verify we are testing
-	 * hardware encapsulation features instead of standard
-	 * features for the netdev
-	 */
-	if (skb->encapsulation)
-		features &= dev->hw_enc_features;
-
 	if (netif_needs_gso(dev, skb, features)) {
 		struct sk_buff *segs;
 
 		segs = skb_gso_segment(skb, features);
 		if (IS_ERR(segs)) {
-			segs = NULL;
+			goto out_kfree_skb;
 		} else if (segs) {
 			consume_skb(skb);
 			skb = segs;
@@ -2848,7 +2853,9 @@ static void skb_update_prio(struct sk_buff *skb)
 #define skb_update_prio(skb)
 #endif
 
-static DEFINE_PER_CPU(int, xmit_recursion);
+DEFINE_PER_CPU(int, xmit_recursion);
+EXPORT_SYMBOL(xmit_recursion);
+
 #define RECURSION_LIMIT 10
 
 /**
@@ -5097,7 +5104,7 @@ static int __netdev_upper_dev_link(struct net_device *dev,
 	if (__netdev_find_adj(upper_dev, dev, &upper_dev->all_adj_list.upper))
 		return -EBUSY;
 
-	if (__netdev_find_adj(dev, upper_dev, &dev->all_adj_list.upper))
+	if (__netdev_find_adj(dev, upper_dev, &dev->adj_list.upper))
 		return -EEXIST;
 
 	if (master && netdev_master_upper_dev_get(dev))
@@ -7005,10 +7012,20 @@ static int dev_cpu_callback(struct notifier_block *nfb,
 		oldsd->output_queue = NULL;
 		oldsd->output_queue_tailp = &oldsd->output_queue;
 	}
-	/* Append NAPI poll list from offline CPU. */
-	if (!list_empty(&oldsd->poll_list)) {
-		list_splice_init(&oldsd->poll_list, &sd->poll_list);
-		raise_softirq_irqoff(NET_RX_SOFTIRQ);
+	/* Append NAPI poll list from offline CPU, with one exception :
+	 * process_backlog() must be called by cpu owning percpu backlog.
+	 * We properly handle process_queue & input_pkt_queue later.
+	 */
+	while (!list_empty(&oldsd->poll_list)) {
+		struct napi_struct *napi = list_first_entry(&oldsd->poll_list,
+							    struct napi_struct,
+							    poll_list);
+
+		list_del_init(&napi->poll_list);
+		if (napi->poll == process_backlog)
+			napi->state = 0;
+		else
+			____napi_schedule(sd, napi);
 	}
 
 	raise_softirq_irqoff(NET_TX_SOFTIRQ);
@@ -7019,7 +7036,7 @@ static int dev_cpu_callback(struct notifier_block *nfb,
 		netif_rx_internal(skb);
 		input_queue_head_incr(oldsd);
 	}
-	while ((skb = __skb_dequeue(&oldsd->input_pkt_queue))) {
+	while ((skb = skb_dequeue(&oldsd->input_pkt_queue))) {
 		netif_rx_internal(skb);
 		input_queue_head_incr(oldsd);
 	}

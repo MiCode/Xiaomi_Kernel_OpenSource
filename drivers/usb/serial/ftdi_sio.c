@@ -604,6 +604,7 @@ static const struct usb_device_id id_table_combined[] = {
 		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
 	{ USB_DEVICE(FTDI_VID, FTDI_NT_ORIONLXM_PID),
 		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
+	{ USB_DEVICE(FTDI_VID, FTDI_SYNAPSE_SS200_PID) },
 	/*
 	 * ELV devices:
 	 */
@@ -698,6 +699,7 @@ static const struct usb_device_id id_table_combined[] = {
 	{ USB_DEVICE(XSENS_VID, XSENS_AWINDA_DONGLE_PID) },
 	{ USB_DEVICE(XSENS_VID, XSENS_AWINDA_STATION_PID) },
 	{ USB_DEVICE(XSENS_VID, XSENS_CONVERTER_PID) },
+	{ USB_DEVICE(XSENS_VID, XSENS_MTDEVBOARD_PID) },
 	{ USB_DEVICE(XSENS_VID, XSENS_MTW_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_OMNI1509) },
 	{ USB_DEVICE(MOBILITY_VID, MOBILITY_USB_SERIAL_PID) },
@@ -799,6 +801,8 @@ static const struct usb_device_id id_table_combined[] = {
 	{ USB_DEVICE(FTDI_VID, FTDI_ELSTER_UNICOM_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_PROPOX_JTAGCABLEII_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_PROPOX_ISPCABLEIII_PID) },
+	{ USB_DEVICE(FTDI_VID, CYBER_CORTEX_AV_PID),
+		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
 	{ USB_DEVICE(OLIMEX_VID, OLIMEX_ARM_USB_OCD_PID),
 		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
 	{ USB_DEVICE(OLIMEX_VID, OLIMEX_ARM_USB_OCD_H_PID),
@@ -978,6 +982,23 @@ static const struct usb_device_id id_table_combined[] = {
 	{ USB_DEVICE_INTERFACE_NUMBER(INFINEON_VID, INFINEON_TRIBOARD_PID, 1) },
 	/* GE Healthcare devices */
 	{ USB_DEVICE(GE_HEALTHCARE_VID, GE_HEALTHCARE_NEMO_TRACKER_PID) },
+	/* Active Research (Actisense) devices */
+	{ USB_DEVICE(FTDI_VID, ACTISENSE_NDC_PID) },
+	{ USB_DEVICE(FTDI_VID, ACTISENSE_USG_PID) },
+	{ USB_DEVICE(FTDI_VID, ACTISENSE_NGT_PID) },
+	{ USB_DEVICE(FTDI_VID, ACTISENSE_NGW_PID) },
+	{ USB_DEVICE(FTDI_VID, ACTISENSE_D9AC_PID) },
+	{ USB_DEVICE(FTDI_VID, ACTISENSE_D9AD_PID) },
+	{ USB_DEVICE(FTDI_VID, ACTISENSE_D9AE_PID) },
+	{ USB_DEVICE(FTDI_VID, ACTISENSE_D9AF_PID) },
+	{ USB_DEVICE(FTDI_VID, CHETCO_SEAGAUGE_PID) },
+	{ USB_DEVICE(FTDI_VID, CHETCO_SEASWITCH_PID) },
+	{ USB_DEVICE(FTDI_VID, CHETCO_SEASMART_NMEA2000_PID) },
+	{ USB_DEVICE(FTDI_VID, CHETCO_SEASMART_ETHERNET_PID) },
+	{ USB_DEVICE(FTDI_VID, CHETCO_SEASMART_WIFI_PID) },
+	{ USB_DEVICE(FTDI_VID, CHETCO_SEASMART_DISPLAY_PID) },
+	{ USB_DEVICE(FTDI_VID, CHETCO_SEASMART_LITE_PID) },
+	{ USB_DEVICE(FTDI_VID, CHETCO_SEASMART_ANALOG_PID) },
 	{ }					/* Terminating entry */
 };
 
@@ -1864,8 +1885,12 @@ static int ftdi_8u2232c_probe(struct usb_serial *serial)
 {
 	struct usb_device *udev = serial->dev;
 
-	if ((udev->manufacturer && !strcmp(udev->manufacturer, "CALAO Systems")) ||
-	    (udev->product && !strcmp(udev->product, "BeagleBone/XDS100V2")))
+	if (udev->manufacturer && !strcmp(udev->manufacturer, "CALAO Systems"))
+		return ftdi_jtag_probe(serial);
+
+	if (udev->product &&
+		(!strcmp(udev->product, "BeagleBone/XDS100V2") ||
+		 !strcmp(udev->product, "SNAP Connect E10")))
 		return ftdi_jtag_probe(serial);
 
 	return 0;

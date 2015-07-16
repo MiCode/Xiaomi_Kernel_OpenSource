@@ -68,6 +68,20 @@ UNUSUAL_DEV(0x0bc2, 0xa003, 0x0000, 0x9999,
 		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
 		US_FL_NO_ATA_1X),
 
+/* Reported-by: Marcin Zajączkowski <mszpak@wp.pl> */
+UNUSUAL_DEV(0x0bc2, 0xa013, 0x0000, 0x9999,
+		"Seagate",
+		"Backup Plus",
+		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
+		US_FL_NO_ATA_1X),
+
+/* Reported-by: Hans de Goede <hdegoede@redhat.com> */
+UNUSUAL_DEV(0x0bc2, 0xa0a4, 0x0000, 0x9999,
+		"Seagate",
+		"Backup Plus Desk",
+		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
+		US_FL_NO_ATA_1X),
+
 /* https://bbs.archlinux.org/viewtopic.php?id=183190 */
 UNUSUAL_DEV(0x0bc2, 0xab20, 0x0000, 0x9999,
 		"Seagate",
@@ -81,6 +95,27 @@ UNUSUAL_DEV(0x0bc2, 0xab21, 0x0000, 0x9999,
 		"Backup+ BK",
 		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
 		US_FL_NO_ATA_1X),
+
+/* Reported-by: G. Richard Bellamy <rbellamy@pteradigm.com> */
+UNUSUAL_DEV(0x0bc2, 0xab2a, 0x0000, 0x9999,
+		"Seagate",
+		"BUP Fast HDD",
+		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
+		US_FL_NO_ATA_1X),
+
+/* Reported-by: Benjamin Tissoires <benjamin.tissoires@redhat.com> */
+UNUSUAL_DEV(0x13fd, 0x3940, 0x0000, 0x9999,
+		"Initio Corporation",
+		"",
+		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
+		US_FL_NO_ATA_1X),
+
+/* Reported-by: Tom Arild Naess <tanaess@gmail.com> */
+UNUSUAL_DEV(0x152d, 0x0539, 0x0000, 0x9999,
+		"JMicron",
+		"JMS539",
+		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
+		US_FL_NO_REPORT_OPCODES),
 
 /* Reported-by: Claudio Bizzarri <claudio.bizzarri@gmail.com> */
 UNUSUAL_DEV(0x152d, 0x0567, 0x0000, 0x9999,
@@ -104,9 +139,23 @@ UNUSUAL_DEV(0x2109, 0x0711, 0x0000, 0x9999,
 		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
 		US_FL_NO_ATA_1X),
 
+/* Reported-by: Takeo Nakayama <javhera@gmx.com> */
+UNUSUAL_DEV(0x357d, 0x7788, 0x0000, 0x9999,
+		"JMicron",
+		"JMS566",
+		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
+		US_FL_NO_REPORT_OPCODES),
+
 /* Reported-by: Hans de Goede <hdegoede@redhat.com> */
 UNUSUAL_DEV(0x4971, 0x1012, 0x0000, 0x9999,
 		"Hitachi",
 		"External HDD",
 		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
 		US_FL_IGNORE_UAS),
+
+/* Reported-by: Richard Henderson <rth@redhat.com> */
+UNUSUAL_DEV(0x4971, 0x8017, 0x0000, 0x9999,
+		"SimpleTech",
+		"External HDD",
+		USB_SC_DEVICE, USB_PR_DEVICE, NULL,
+		US_FL_NO_REPORT_OPCODES),

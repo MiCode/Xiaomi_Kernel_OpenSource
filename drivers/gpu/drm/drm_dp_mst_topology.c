@@ -839,6 +839,8 @@ static void drm_dp_put_mst_branch_device(struct drm_dp_mst_branch *mstb)
 
 static void drm_dp_port_teardown_pdt(struct drm_dp_mst_port *port, int old_pdt)
 {
+	struct drm_dp_mst_branch *mstb;
+
 	switch (old_pdt) {
 	case DP_PEER_DEVICE_DP_LEGACY_CONV:
 	case DP_PEER_DEVICE_SST_SINK:
@@ -846,8 +848,9 @@ static void drm_dp_port_teardown_pdt(struct drm_dp_mst_port *port, int old_pdt)
 		drm_dp_mst_unregister_i2c_bus(&port->aux);
 		break;
 	case DP_PEER_DEVICE_MST_BRANCHING:
-		drm_dp_put_mst_branch_device(port->mstb);
+		mstb = port->mstb;
 		port->mstb = NULL;
+		drm_dp_put_mst_branch_device(mstb);
 		break;
 	}
 }
@@ -1149,6 +1152,8 @@ static struct drm_dp_mst_branch *drm_dp_get_mst_branch_device(struct drm_dp_mst_
 	struct drm_dp_mst_port *port;
 	int i;
 	/* find the port by iterating down */
+
+	mutex_lock(&mgr->lock);
 	mstb = mgr->mst_primary;
 
 	for (i = 0; i < lct - 1; i++) {
@@ -1168,6 +1173,7 @@ static struct drm_dp_mst_branch *drm_dp_get_mst_branch_device(struct drm_dp_mst_
 		}
 	}
 	kref_get(&mstb->kref);
+	mutex_unlock(&mgr->lock);
 	return mstb;
 }
 
@@ -1175,7 +1181,7 @@ static void drm_dp_check_and_send_link_address(struct drm_dp_mst_topology_mgr *m
 					       struct drm_dp_mst_branch *mstb)
 {
 	struct drm_dp_mst_port *port;
-
+	struct drm_dp_mst_branch *mstb_child;
 	if (!mstb->link_address_sent) {
 		drm_dp_send_link_address(mgr, mstb);
 		mstb->link_address_sent = true;
@@ -1190,17 +1196,31 @@ static void drm_dp_check_and_send_link_address(struct drm_dp_mst_topology_mgr *m
 		if (!port->available_pbn)
 			drm_dp_send_enum_path_resources(mgr, mstb, port);
 
-		if (port->mstb)
-			drm_dp_check_and_send_link_address(mgr, port->mstb);
+		if (port->mstb) {
+			mstb_child = drm_dp_get_validated_mstb_ref(mgr, port->mstb);
+			if (mstb_child) {
+				drm_dp_check_and_send_link_address(mgr, mstb_child);
+				drm_dp_put_mst_branch_device(mstb_child);
+			}
+		}
 	}
 }
 
 static void drm_dp_mst_link_probe_work(struct work_struct *work)
 {
 	struct drm_dp_mst_topology_mgr *mgr = container_of(work, struct drm_dp_mst_topology_mgr, work);
+	struct drm_dp_mst_branch *mstb;
 
-	drm_dp_check_and_send_link_address(mgr, mgr->mst_primary);
-
+	mutex_lock(&mgr->lock);
+	mstb = mgr->mst_primary;
+	if (mstb) {
+		kref_get(&mstb->kref);
+	}
+	mutex_unlock(&mgr->lock);
+	if (mstb) {
+		drm_dp_check_and_send_link_address(mgr, mstb);
+		drm_dp_put_mst_branch_device(mstb);
+	}
 }
 
 static bool drm_dp_validate_guid(struct drm_dp_mst_topology_mgr *mgr,

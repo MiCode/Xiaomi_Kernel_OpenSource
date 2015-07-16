@@ -9307,7 +9307,8 @@ unload_error:
 	 * function stop ramrod is sent, since as part of this ramrod FW access
 	 * PTP registers.
 	 */
-	bnx2x_stop_ptp(bp);
+	if (bp->flags & PTP_SUPPORTED)
+		bnx2x_stop_ptp(bp);
 
 	/* Disable HW interrupts, NAPI */
 	bnx2x_netif_stop(bp, 1);
@@ -12710,6 +12711,9 @@ static int bnx2x_init_dev(struct bnx2x *bp, struct pci_dev *pdev,
 	/* clean indirect addresses */
 	pci_write_config_dword(bp->pdev, PCICFG_GRC_ADDRESS,
 			       PCICFG_VENDOR_ID_OFFSET);
+
+	/* Set PCIe reset type to fundamental for EEH recovery */
+	pdev->needs_freset = 1;
 
 	/* AER (Advanced Error reporting) configuration */
 	rc = pci_enable_pcie_error_reporting(pdev);

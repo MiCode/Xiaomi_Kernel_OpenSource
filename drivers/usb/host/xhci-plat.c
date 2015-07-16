@@ -89,15 +89,6 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (!res)
 		return -ENODEV;
 
-	if (of_device_is_compatible(pdev->dev.of_node,
-				    "marvell,armada-375-xhci") ||
-	    of_device_is_compatible(pdev->dev.of_node,
-				    "marvell,armada-380-xhci")) {
-		ret = xhci_mvebu_mbus_init_quirk(pdev);
-		if (ret)
-			return ret;
-	}
-
 	/* Initialize dma_mask and coherent_dma_mask to 32-bits */
 	ret = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
 	if (ret)
@@ -140,6 +131,15 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
+
+	if (of_device_is_compatible(pdev->dev.of_node,
+				    "marvell,armada-375-xhci") ||
+	    of_device_is_compatible(pdev->dev.of_node,
+				    "marvell,armada-380-xhci")) {
+		ret = xhci_mvebu_mbus_init_quirk(pdev);
+		if (ret)
+			goto disable_clk;
+	}
 
 	ret = usb_add_hcd(hcd, irq, IRQF_SHARED);
 	if (ret)

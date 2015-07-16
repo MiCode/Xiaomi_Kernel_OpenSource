@@ -42,9 +42,10 @@
 #include "drm_crtc_internal.h"
 #include "drm_internal.h"
 
-static struct drm_framebuffer *add_framebuffer_internal(struct drm_device *dev,
-							struct drm_mode_fb_cmd2 *r,
-							struct drm_file *file_priv);
+static struct drm_framebuffer *
+internal_framebuffer_create(struct drm_device *dev,
+			    struct drm_mode_fb_cmd2 *r,
+			    struct drm_file *file_priv);
 
 /* Avoid boilerplate.  I'm tired of typing. */
 #define DRM_ENUM_NAME_FN(fnname, list)				\
@@ -529,17 +530,6 @@ void drm_framebuffer_reference(struct drm_framebuffer *fb)
 	kref_get(&fb->refcount);
 }
 EXPORT_SYMBOL(drm_framebuffer_reference);
-
-static void drm_framebuffer_free_bug(struct kref *kref)
-{
-	BUG();
-}
-
-static void __drm_framebuffer_unreference(struct drm_framebuffer *fb)
-{
-	DRM_DEBUG("%p: FB ID: %d (%d)\n", fb, fb->base.id, atomic_read(&fb->refcount.refcount));
-	kref_put(&fb->refcount, drm_framebuffer_free_bug);
-}
 
 /**
  * drm_framebuffer_unregister_private - unregister a private fb from the lookup idr
@@ -1296,7 +1286,7 @@ void drm_plane_force_disable(struct drm_plane *plane)
 		return;
 	}
 	/* disconnect the plane from the fb and crtc: */
-	__drm_framebuffer_unreference(plane->old_fb);
+	drm_framebuffer_unreference(plane->old_fb);
 	plane->old_fb = NULL;
 	plane->fb = NULL;
 	plane->crtc = NULL;
@@ -2739,13 +2729,11 @@ static int drm_mode_cursor_universal(struct drm_crtc *crtc,
 	 */
 	if (req->flags & DRM_MODE_CURSOR_BO) {
 		if (req->handle) {
-			fb = add_framebuffer_internal(dev, &fbreq, file_priv);
+			fb = internal_framebuffer_create(dev, &fbreq, file_priv);
 			if (IS_ERR(fb)) {
 				DRM_DEBUG_KMS("failed to wrap cursor buffer in drm framebuffer\n");
 				return PTR_ERR(fb);
 			}
-
-			drm_framebuffer_reference(fb);
 		} else {
 			fb = NULL;
 		}
@@ -3114,9 +3102,10 @@ static int framebuffer_check(const struct drm_mode_fb_cmd2 *r)
 	return 0;
 }
 
-static struct drm_framebuffer *add_framebuffer_internal(struct drm_device *dev,
-							struct drm_mode_fb_cmd2 *r,
-							struct drm_file *file_priv)
+static struct drm_framebuffer *
+internal_framebuffer_create(struct drm_device *dev,
+			    struct drm_mode_fb_cmd2 *r,
+			    struct drm_file *file_priv)
 {
 	struct drm_mode_config *config = &dev->mode_config;
 	struct drm_framebuffer *fb;
@@ -3148,12 +3137,6 @@ static struct drm_framebuffer *add_framebuffer_internal(struct drm_device *dev,
 		return fb;
 	}
 
-	mutex_lock(&file_priv->fbs_lock);
-	r->fb_id = fb->base.id;
-	list_add(&fb->filp_head, &file_priv->fbs);
-	DRM_DEBUG_KMS("[FB:%d]\n", fb->base.id);
-	mutex_unlock(&file_priv->fbs_lock);
-
 	return fb;
 }
 
@@ -3175,14 +3158,23 @@ static struct drm_framebuffer *add_framebuffer_internal(struct drm_device *dev,
 int drm_mode_addfb2(struct drm_device *dev,
 		    void *data, struct drm_file *file_priv)
 {
+	struct drm_mode_fb_cmd2 *r = data;
 	struct drm_framebuffer *fb;
 
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return -EINVAL;
 
-	fb = add_framebuffer_internal(dev, data, file_priv);
+	fb = internal_framebuffer_create(dev, r, file_priv);
 	if (IS_ERR(fb))
 		return PTR_ERR(fb);
+
+	/* Transfer ownership to the filp for reaping on close */
+
+	DRM_DEBUG_KMS("[FB:%d]\n", fb->base.id);
+	mutex_lock(&file_priv->fbs_lock);
+	r->fb_id = fb->base.id;
+	list_add(&fb->filp_head, &file_priv->fbs);
+	mutex_unlock(&file_priv->fbs_lock);
 
 	return 0;
 }

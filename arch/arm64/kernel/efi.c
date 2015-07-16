@@ -351,7 +351,6 @@ static int __init arm64_enter_virtual_mode(void)
 	}
 
 	mapsize = memmap.map_end - memmap.map;
-	early_memunmap(memmap.map, mapsize);
 
 	if (efi_runtime_disabled()) {
 		pr_info("EFI runtime services will be disabled.\n");

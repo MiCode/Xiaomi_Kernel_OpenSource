@@ -498,6 +498,11 @@ static __init void init_hrtick(void)
  */
 void hrtick_start(struct rq *rq, u64 delay)
 {
+	/*
+	 * Don't schedule slices shorter than 10000ns, that just
+	 * doesn't make sense. Rely on vruntime for fairness.
+	 */
+	delay = max_t(u64, delay, 10000LL);
 	__hrtimer_start_range_ns(&rq->hrtick_timer, ns_to_ktime(delay), 0,
 			HRTIMER_MODE_REL_PINNED, 0);
 }
@@ -3227,8 +3232,10 @@ void wake_up_if_idle(int cpu)
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long flags;
 
-	if (!is_idle_task(rq->curr))
-		return;
+	rcu_read_lock();
+
+	if (!is_idle_task(rcu_dereference(rq->curr)))
+		goto out;
 
 	if (set_nr_if_polling(rq->idle)) {
 		trace_sched_wake_idle_without_ipi(cpu);
@@ -3239,6 +3246,9 @@ void wake_up_if_idle(int cpu)
 		/* Else cpu is not in idle, do nothing here */
 		raw_spin_unlock_irqrestore(&rq->lock, flags);
 	}
+
+out:
+	rcu_read_unlock();
 }
 
 bool cpus_share_cache(int this_cpu, int that_cpu)
@@ -4769,6 +4779,8 @@ void rt_mutex_setprio(struct task_struct *p, int prio)
 	} else {
 		if (dl_prio(oldprio))
 			p->dl.dl_boosted = 0;
+		if (rt_prio(oldprio))
+			p->rt.timeout = 0;
 		p->sched_class = &fair_sched_class;
 	}
 
@@ -4997,15 +5009,18 @@ static void __setscheduler_params(struct task_struct *p,
 
 /* Actually do priority change: must hold pi & rq lock. */
 static void __setscheduler(struct rq *rq, struct task_struct *p,
-			   const struct sched_attr *attr)
+			   const struct sched_attr *attr, bool keep_boost)
 {
 	__setscheduler_params(p, attr);
 
 	/*
-	 * If we get here, there was no pi waiters boosting the
-	 * task. It is safe to use the normal prio.
+	 * Keep a potential priority boosting if called from
+	 * sched_setscheduler().
 	 */
-	p->prio = normal_prio(p);
+	if (keep_boost)
+		p->prio = rt_mutex_get_effective_prio(p, normal_prio(p));
+	else
+		p->prio = normal_prio(p);
 
 	if (dl_prio(p->prio))
 		p->sched_class = &dl_sched_class;
@@ -5091,7 +5106,7 @@ static int __sched_setscheduler(struct task_struct *p,
 	int newprio = dl_policy(attr->sched_policy) ? MAX_DL_PRIO - 1 :
 		      MAX_RT_PRIO - 1 - attr->sched_priority;
 	int retval, oldprio, oldpolicy = -1, queued, running;
-	int policy = attr->sched_policy;
+	int new_effective_prio, policy = attr->sched_policy;
 	unsigned long flags;
 	const struct sched_class *prev_class;
 	struct rq *rq;
@@ -5273,15 +5288,14 @@ change:
 	oldprio = p->prio;
 
 	/*
-	 * Special case for priority boosted tasks.
-	 *
-	 * If the new priority is lower or equal (user space view)
-	 * than the current (boosted) priority, we just store the new
+	 * Take priority boosted tasks into account. If the new
+	 * effective priority is unchanged, we just store the new
 	 * normal parameters and do not touch the scheduler class and
 	 * the runqueue. This will be done when the task deboost
 	 * itself.
 	 */
-	if (rt_mutex_check_prio(p, newprio)) {
+	new_effective_prio = rt_mutex_get_effective_prio(p, newprio);
+	if (new_effective_prio == oldprio) {
 		__setscheduler_params(p, attr);
 		task_rq_unlock(rq, p, &flags);
 		return 0;
@@ -5295,7 +5309,7 @@ change:
 		put_prev_task(rq, p);
 
 	prev_class = p->sched_class;
-	__setscheduler(rq, p, attr);
+	__setscheduler(rq, p, attr, true);
 
 	if (running)
 		p->sched_class->set_curr_task(rq);
@@ -8997,7 +9011,7 @@ static void normalize_task(struct rq *rq, struct task_struct *p)
 	queued = task_on_rq_queued(p);
 	if (queued)
 		dequeue_task(rq, p, 0);
-	__setscheduler(rq, p, &attr);
+	__setscheduler(rq, p, &attr, false);
 	if (queued) {
 		enqueue_task(rq, p, 0);
 		resched_curr(rq);
@@ -9231,6 +9245,12 @@ static DEFINE_MUTEX(rt_constraints_mutex);
 static inline int tg_has_rt_tasks(struct task_group *tg)
 {
 	struct task_struct *g, *p;
+
+	/*
+	 * Autogroups do not have RT tasks; see autogroup_create().
+	 */
+	if (task_group_is_autogroup(tg))
+		return 0;
 
 	for_each_process_thread(g, p) {
 		if (rt_task(p) && task_group(p) == tg)

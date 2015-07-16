@@ -593,6 +593,7 @@ int i2c_generic_scl_recovery(struct i2c_adapter *adap)
 	adap->bus_recovery_info->set_scl(adap, 1);
 	return i2c_generic_recovery(adap);
 }
+EXPORT_SYMBOL_GPL(i2c_generic_scl_recovery);
 
 int i2c_generic_gpio_recovery(struct i2c_adapter *adap)
 {
@@ -607,6 +608,7 @@ int i2c_generic_gpio_recovery(struct i2c_adapter *adap)
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(i2c_generic_gpio_recovery);
 
 int i2c_recover_bus(struct i2c_adapter *adap)
 {
@@ -616,6 +618,7 @@ int i2c_recover_bus(struct i2c_adapter *adap)
 	dev_dbg(&adap->dev, "Trying i2c bus recovery\n");
 	return adap->bus_recovery_info->recover_bus(adap);
 }
+EXPORT_SYMBOL_GPL(i2c_recover_bus);
 
 static int i2c_device_probe(struct device *dev)
 {
@@ -664,9 +667,6 @@ static int i2c_device_remove(struct device *dev)
 		dev_dbg(dev, "remove\n");
 		status = driver->remove(client);
 	}
-
-	if (dev->of_node)
-		irq_dispose_mapping(client->irq);
 
 	dev_pm_domain_detach(&client->dev, true);
 	return status;

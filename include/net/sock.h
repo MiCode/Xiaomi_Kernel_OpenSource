@@ -67,6 +67,7 @@
 #include <linux/atomic.h>
 #include <net/dst.h>
 #include <net/checksum.h>
+#include <net/tcp_states.h>
 #include <linux/net_tstamp.h>
 
 struct cgroup;
@@ -1806,6 +1807,8 @@ struct dst_entry *__sk_dst_check(struct sock *sk, u32 cookie);
 
 struct dst_entry *sk_dst_check(struct sock *sk, u32 cookie);
 
+bool sk_mc_loop(struct sock *sk);
+
 static inline bool sk_can_gso(const struct sock *sk)
 {
 	return net_gso_ok(sk->sk_route_caps, sk->sk_gso_type);
@@ -2263,6 +2266,14 @@ static inline struct sock *skb_steal_sock(struct sk_buff *skb)
 		return sk;
 	}
 	return NULL;
+}
+
+/* This helper checks if a socket is a full socket,
+ * ie _not_ a timewait or request socket.
+ */
+static inline bool sk_fullsock(const struct sock *sk)
+{
+	return (1 << sk->sk_state) & ~(TCPF_TIME_WAIT | TCPF_NEW_SYN_RECV);
 }
 
 void sock_enable_timestamp(struct sock *sk, int flag);

@@ -21,8 +21,10 @@
 #include <linux/init.h>
 #include <linux/linkage.h>
 
+#include <asm/alternative-asm.h>
 #include <asm/assembler.h>
 #include <asm/asm-offsets.h>
+#include <asm/cpufeature.h>
 #include <asm/errno.h>
 #include <asm/esr.h>
 #include <asm/thread_info.h>
@@ -118,6 +120,24 @@
 	.if	\el == 0
 	ct_user_enter
 	ldr	x23, [sp, #S_SP]		// load return stack pointer
+
+#ifdef CONFIG_ARM64_ERRATUM_845719
+	alternative_insn						\
+	"nop",								\
+	"tbz x22, #4, 1f",						\
+	ARM64_WORKAROUND_845719
+#ifdef CONFIG_PID_IN_CONTEXTIDR
+	alternative_insn						\
+	"nop; nop",							\
+	"mrs x29, contextidr_el1; msr contextidr_el1, x29; 1:",		\
+	ARM64_WORKAROUND_845719
+#else
+	alternative_insn						\
+	"nop",								\
+	"msr contextidr_el1, xzr; 1:",					\
+	ARM64_WORKAROUND_845719
+#endif
+#endif
 	.endif
 	.if	\ret
 	ldr	x1, [sp, #S_X1]			// preserve x0 (syscall return)
@@ -498,6 +518,7 @@ el0_sp_pc:
 	mrs	x26, far_el1
 	// enable interrupts before calling the main handler
 	enable_dbg_and_irq
+	ct_user_exit
 	mov	x0, x26
 	mov	x1, x25
 	mov	x2, sp
