@@ -24,6 +24,7 @@
 #include "include/msm_csiphy_3_1_hwreg.h"
 #include "include/msm_csiphy_3_2_hwreg.h"
 #include "include/msm_csiphy_3_5_hwreg.h"
+#include "cam_hw_ops.h"
 
 #define DBG_CSIPHY 0
 #define SOF_DEBUG_ENABLE 1
@@ -568,13 +569,19 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 	}
 	CDBG("%s:%d called\n", __func__, __LINE__);
 
+	rc = cam_config_ahb_clk(CAM_AHB_CLIENT_CSIPHY, CAMERA_AHB_SVS_VOTE);
+	if (rc < 0) {
+		pr_err("%s: failed to vote for AHB\n", __func__);
+		return rc;
+	}
+
 	csiphy_dev->base = ioremap(csiphy_dev->mem->start,
 		resource_size(csiphy_dev->mem));
 	if (!csiphy_dev->base) {
 		pr_err("%s: csiphy_dev->base NULL\n", __func__);
 		csiphy_dev->ref_count--;
 		rc = -ENOMEM;
-		return rc;
+		goto ioremap_fail;
 	}
 	CDBG("%s:%d called\n", __func__, __LINE__);
 
@@ -588,7 +595,7 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 				csiphy_dev->clk_mux_mem,
 				csiphy_dev->clk_mux_io);
 			rc = -ENOMEM;
-			return rc;
+			goto csiphy_base_fail;
 		}
 		csiphy_dev->clk_mux_base = ioremap(
 			csiphy_dev->clk_mux_mem->start,
@@ -596,7 +603,7 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 		if (!csiphy_dev->clk_mux_base) {
 			pr_err("%s: ERROR %d\n", __func__, __LINE__);
 			rc = -ENOMEM;
-			return rc;
+			goto csiphy_base_fail;
 		}
 
 		CDBG("%s:%d called\n", __func__, __LINE__);
@@ -607,16 +614,14 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 		pr_err("%s: ERROR Invalid CSIPHY Version %d",
 			 __func__, __LINE__);
 		rc = -EINVAL;
-		return rc;
+		goto csiphy_base_fail;
 	}
 
 	CDBG("%s:%d called\n", __func__, __LINE__);
 	if (rc < 0) {
 		pr_err("%s: csiphy clk enable failed\n", __func__);
 		csiphy_dev->ref_count--;
-		iounmap(csiphy_dev->base);
-		csiphy_dev->base = NULL;
-		return rc;
+		goto csiphy_mux_base_fail;
 	}
 	CDBG("%s:%d called\n", __func__, __LINE__);
 
@@ -641,6 +646,18 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 		csiphy_dev->hw_version);
 	csiphy_dev->csiphy_state = CSIPHY_POWER_UP;
 	return 0;
+
+csiphy_mux_base_fail:
+	iounmap(csiphy_dev->clk_mux_base);
+	csiphy_dev->clk_mux_base = NULL;
+csiphy_base_fail:
+	iounmap(csiphy_dev->base);
+	csiphy_dev->base = NULL;
+ioremap_fail:
+	if (cam_config_ahb_clk(CAM_AHB_CLIENT_CSIPHY,
+		CAMERA_AHB_SUSPEND_VOTE) < 0)
+		pr_err("%s: failed to vote for AHB\n", __func__);
+	return rc;
 }
 #else
 static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
@@ -667,6 +684,11 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 		return rc;
 	}
 	CDBG("%s:%d called\n", __func__, __LINE__);
+	rc = cam_config_ahb_clk(CAM_AHB_CLIENT_CSIPHY, CAMERA_AHB_SVS_VOTE);
+	if (rc < 0) {
+		pr_err("%s: failed to vote for AHB\n", __func__);
+		return rc;
+	}
 
 	csiphy_dev->base = ioremap(csiphy_dev->mem->start,
 		resource_size(csiphy_dev->mem));
@@ -674,7 +696,7 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 		pr_err("%s: csiphy_dev->base NULL\n", __func__);
 		csiphy_dev->ref_count--;
 		rc = -ENOMEM;
-		return rc;
+		goto ioremap_fail;
 	}
 	if (csiphy_dev->hw_dts_version <= CSIPHY_VERSION_V22) {
 		CDBG("%s:%d called\n", __func__, __LINE__);
@@ -687,7 +709,7 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 				csiphy_dev->clk_mux_mem,
 				csiphy_dev->clk_mux_io);
 			rc = -ENOMEM;
-			return rc;
+			goto csiphy_base_fail;
 		}
 		csiphy_dev->clk_mux_base = ioremap(
 			csiphy_dev->clk_mux_mem->start,
@@ -695,7 +717,7 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 		if (!csiphy_dev->clk_mux_base) {
 			pr_err("%s: ERROR %d\n", __func__, __LINE__);
 			rc = -ENOMEM;
-			return rc;
+			goto csiphy_base_fail;
 		}
 		CDBG("%s:%d called\n", __func__, __LINE__);
 		rc = msm_cam_clk_enable(&csiphy_dev->pdev->dev,
@@ -705,16 +727,14 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 		pr_err("%s: ERROR Invalid CSIPHY Version %d",
 			 __func__, __LINE__);
 		rc = -EINVAL;
-		return rc;
+		goto csiphy_base_fail;
 	}
 
 	CDBG("%s:%d called\n", __func__, __LINE__);
 	if (rc < 0) {
 		pr_err("%s: csiphy clk enable failed\n", __func__);
 		csiphy_dev->ref_count--;
-		iounmap(csiphy_dev->base);
-		csiphy_dev->base = NULL;
-		return rc;
+		goto csiphy_mux_base_fail;
 	}
 	CDBG("%s:%d called\n", __func__, __LINE__);
 
@@ -738,6 +758,18 @@ static int msm_csiphy_init(struct csiphy_device *csiphy_dev)
 		csiphy_dev->hw_version);
 	csiphy_dev->csiphy_state = CSIPHY_POWER_UP;
 	return 0;
+
+csiphy_mux_base_fail:
+	iounmap(csiphy_dev->clk_mux_base);
+	csiphy_dev->clk_mux_base = NULL;
+csiphy_base_fail:
+	iounmap(csiphy_dev->base);
+	csiphy_dev->base = NULL;
+ioremap_fail:
+	if (cam_config_ahb_clk(CAM_AHB_CLIENT_CSIPHY,
+		CAMERA_AHB_SUSPEND_VOTE) < 0)
+		pr_err("%s: failed to vote for AHB\n", __func__);
+	return rc;
 }
 #endif
 
@@ -842,6 +874,12 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 	iounmap(csiphy_dev->base);
 	csiphy_dev->base = NULL;
 	csiphy_dev->csiphy_state = CSIPHY_POWER_DOWN;
+
+	rc = cam_config_ahb_clk(CAM_AHB_CLIENT_CSIPHY, CAMERA_AHB_SUSPEND_VOTE);
+	if (rc < 0) {
+		pr_err("%s: failed to remove vote for AHB\n", __func__);
+		return rc;
+	}
 	return 0;
 }
 #else
@@ -944,6 +982,9 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 	iounmap(csiphy_dev->base);
 	csiphy_dev->base = NULL;
 	csiphy_dev->csiphy_state = CSIPHY_POWER_DOWN;
+	if (cam_config_ahb_clk(CAM_AHB_CLIENT_CSIPHY,
+		 CAMERA_AHB_SUSPEND_VOTE) < 0)
+		pr_err("%s: failed to remove vote for AHB\n", __func__);
 	return 0;
 }
 

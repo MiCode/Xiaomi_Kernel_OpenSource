@@ -26,6 +26,7 @@
 #include "msm.h"
 #include "msm_sd.h"
 #include "msm_camera_io_util.h"
+#include "cam_hw_ops.h"
 
 #ifdef CONFIG_MSM_ISPIF_V1
 #include "msm_ispif_hwreg_v1.h"
@@ -1381,6 +1382,11 @@ static int msm_ispif_init(struct ispif_device *ispif,
 		goto error_irq;
 	}
 
+	rc = cam_config_ahb_clk(CAM_AHB_CLIENT_ISPIF, CAMERA_AHB_SVS_VOTE);
+	if (rc < 0) {
+		pr_err("%s: failed to vote for AHB\n", __func__);
+		goto ahb_vote_fail;
+	}
 	msm_ispif_reset_hw(ispif);
 
 	rc = msm_ispif_clk_ahb_enable(ispif, 1);
@@ -1397,6 +1403,11 @@ static int msm_ispif_init(struct ispif_device *ispif,
 	}
 
 error_ahb:
+	rc = cam_config_ahb_clk(CAM_AHB_CLIENT_ISPIF,
+			CAMERA_AHB_SUSPEND_VOTE);
+	if (rc < 0)
+		pr_err("%s: failed to vote for AHB\n", __func__);
+ahb_vote_fail:
 	free_irq(ispif->irq->start, ispif);
 error_irq:
 	iounmap(ispif->base);
@@ -1433,6 +1444,9 @@ static void msm_ispif_release(struct ispif_device *ispif)
 
 	ispif->ispif_state = ISPIF_POWER_DOWN;
 
+	if (cam_config_ahb_clk(CAM_AHB_CLIENT_ISPIF,
+		CAMERA_AHB_SUSPEND_VOTE) < 0)
+		pr_err("%s: failed to remove vote for AHB\n", __func__);
 }
 
 static long msm_ispif_cmd(struct v4l2_subdev *sd, void *arg)
