@@ -67,15 +67,22 @@ struct msm_vfe_stats_stream;
 
 #define VFE_SD_HW_MAX VFE_SD_COMMON
 
+/* This struct is used to save/track SOF info for some INTF.
+ * e.g. used in Master-Slave mode */
 struct msm_vfe_sof_info {
 	uint32_t timestamp_ms;
 	uint32_t mono_timestamp_ms;
 	uint32_t frame_id;
 };
 
+/* Each INTF in Master-Slave mode uses this struct. */
 struct msm_vfe_dual_hw_ms_info {
+	/* type is Master/Slave */
 	enum msm_vfe_dual_hw_ms_type dual_hw_ms_type;
+	/* sof_info is resource from common_data. If NULL, then this INTF
+	 * sof does not need to be saved */
 	struct msm_vfe_sof_info *sof_info;
+	/* slave_id is index in common_data sof_info array for slaves */
 	uint8_t slave_id;
 };
 
@@ -598,8 +605,7 @@ struct dual_vfe_resource {
 	uint32_t wm_reload_mask[MAX_VFE];
 };
 
-struct msm_vfe_common_dev_data {
-	spinlock_t common_dev_data_lock;
+struct master_slave_resource_info {
 	enum msm_vfe_dual_hw_type dual_hw_type;
 	struct msm_vfe_sof_info master_sof_info;
 	uint8_t master_active;
@@ -608,6 +614,12 @@ struct msm_vfe_common_dev_data {
 	uint32_t reserved_slave_mask;
 	uint32_t slave_active_mask;
 	struct msm_vfe_sof_info slave_sof_info[MS_NUM_SLAVE_MAX];
+};
+
+struct msm_vfe_common_dev_data {
+	spinlock_t common_dev_data_lock;
+	struct dual_vfe_resource *dual_vfe_res;
+	struct master_slave_resource_info ms_resource;
 };
 
 struct msm_vfe_common_subdev {
@@ -625,9 +637,13 @@ struct msm_vfe_common_subdev {
 };
 
 struct vfe_device {
+	/* Driver private data */
 	struct platform_device *pdev;
 	struct msm_vfe_common_dev_data *common_data;
 	struct msm_sd_subdev subdev;
+	struct msm_isp_buf_mgr *buf_mgr;
+
+	/* Resource info */
 	struct resource *vfe_irq;
 	struct resource *vfe_mem;
 	struct resource *vfe_vbif_mem;
@@ -635,19 +651,14 @@ struct vfe_device {
 	struct resource *vfe_vbif_io;
 	void __iomem *vfe_base;
 	void __iomem *vfe_vbif_base;
-
 	struct device *iommu_ctx[MAX_IOMMU_CTX];
-	/*Add secure context banks*/
-	struct device *iommu_secure_ctx[MAX_IOMMU_CTX];
-
 	struct regulator *fs_vfe;
 	struct regulator *fs_camss;
 	struct regulator *fs_mmagic_camss;
 	struct clk **vfe_clk;
 	uint32_t num_clk;
 
-	uint32_t bus_perf_client;
-
+	/* Sync variables*/
 	struct completion reset_complete;
 	struct completion halt_complete;
 	struct completion stream_config_complete;
@@ -655,47 +666,51 @@ struct vfe_device {
 	struct mutex realtime_mutex;
 	struct mutex core_mutex;
 	struct mutex buf_mgr_mutex;
-
-	atomic_t irq_cnt;
-	uint8_t taskletq_idx;
-	spinlock_t tasklet_lock;
 	spinlock_t shared_data_lock;
 	spinlock_t reg_update_lock;
+	spinlock_t tasklet_lock;
+
+	/* Tasklet info */
+	atomic_t irq_cnt;
+	uint8_t taskletq_idx;
 	struct list_head tasklet_q;
 	struct tasklet_struct vfe_tasklet;
 	struct msm_vfe_tasklet_queue_cmd
 		tasklet_queue_cmd[MSM_VFE_TASKLETQ_SIZE];
 
-	uint32_t vfe_hw_version;
-	uint32_t dual_vfe_enable;
+	/* Data structures */
 	struct msm_vfe_hardware_info *hw_info;
 	struct msm_vfe_axi_shared_data axi_data;
 	struct msm_vfe_stats_shared_data stats_data;
 	struct msm_vfe_error_info error_info;
-	struct msm_isp_buf_mgr *buf_mgr;
-	int dump_reg;
+	struct msm_vfe_fetch_engine_info fetch_engine_info;
+	enum msm_vfe_hvx_streaming_cmd hvx_cmd;
+
+	/* State variables */
+	uint32_t vfe_hw_version;
 	int vfe_clk_idx;
 	uint32_t vfe_open_cnt;
 	uint8_t vt_enable;
 	uint8_t ignore_error;
+	uint32_t vfe_ub_policy;
+	uint8_t reset_pending;
+	uint8_t reg_update_requested;
+	uint8_t reg_updated;
+	uint32_t is_split;
+	uint32_t dual_vfe_enable;
+	unsigned long page_fault_addr;
+
+	/* Debug variables */
+	int dump_reg;
 	struct msm_isp_statistics *stats;
-	struct msm_vfe_fetch_engine_info fetch_engine_info;
 	uint64_t msm_isp_last_overflow_ab;
 	uint64_t msm_isp_last_overflow_ib;
 	uint64_t msm_isp_vfe_clk_rate;
 	struct msm_isp_ub_info *ub_info;
-	uint32_t vfe_ub_policy;
 	uint32_t isp_sof_debug;
 	uint32_t isp_raw0_debug;
 	uint32_t isp_raw1_debug;
 	uint32_t isp_raw2_debug;
-	uint8_t reset_pending;
-	enum msm_vfe_hvx_streaming_cmd hvx_cmd;
-	uint8_t reg_update_requested;
-	uint8_t reg_updated;
-	struct dual_vfe_resource *dual_vfe_res;
-	uint32_t is_split;
-	unsigned long page_fault_addr;
 };
 
 struct vfe_parent_device {
