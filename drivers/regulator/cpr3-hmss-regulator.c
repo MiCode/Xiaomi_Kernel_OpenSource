@@ -74,14 +74,28 @@ struct cpr3_msm8996_hmss_fuses {
 /**
  * enum cpr3_msm8996_hmss_fuse_combo - fuse combinations supported by the HMSS
  *			CPR3 controller on MSM8996
- * %CPR3_MSM8996_HMSS_FUSE_COMBO_DEFAULT:	Initial default combination
+ * %CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV0:	Part with CPR fusing rev == 0
+ * %CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV1:	Part with CPR fusing rev == 1
+ * %CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV2:	Part with CPR fusing rev == 2
+ * %CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV3:	Part with CPR fusing rev == 3
+ * %CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV4:	Part with CPR fusing rev == 4
+ * %CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV5:	Part with CPR fusing rev == 5
+ * %CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV6:	Part with CPR fusing rev == 6
+ * %CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV7:	Part with CPR fusing rev == 7
  * %CPR3_MSM8996_HMSS_FUSE_COMBO_COUNT:		Defines the number of
  *						combinations supported
  *
  * This list will be expanded as new requirements are added.
  */
 enum cpr3_msm8996_hmss_fuse_combo {
-	CPR3_MSM8996_HMSS_FUSE_COMBO_DEFAULT = 0,
+	CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV0 = 0,
+	CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV1 = 1,
+	CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV2 = 2,
+	CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV3 = 3,
+	CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV4 = 4,
+	CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV5 = 5,
+	CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV6 = 6,
+	CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV7 = 7,
 	CPR3_MSM8996_HMSS_FUSE_COMBO_COUNT
 };
 
@@ -447,11 +461,17 @@ static int cpr3_msm8996_hmss_read_fuse_data(struct cpr3_regulator *vreg)
 		}
 	}
 
+	vreg->fuse_combo = fuse->cpr_fusing_rev;
+	if (vreg->fuse_combo >= CPR3_MSM8996_HMSS_FUSE_COMBO_COUNT) {
+		cpr3_err(vreg, "invalid CPR fuse combo = %d found\n",
+			vreg->fuse_combo);
+		return -EINVAL;
+	}
+
 	vreg->speed_bin_fuse	= fuse->speed_bin;
 	vreg->cpr_rev_fuse	= fuse->cpr_fusing_rev;
 	vreg->fuse_corner_count	= MSM8996_HMSS_FUSE_CORNERS;
 	vreg->platform_fuses	= fuse;
-	vreg->fuse_combo	= CPR3_MSM8996_HMSS_FUSE_COMBO_DEFAULT;
 
 	return 0;
 }
@@ -1168,6 +1188,12 @@ static int cpr3_hmss_init_regulator(struct cpr3_regulator *vreg)
 	}
 
 	cpr3_open_loop_voltage_as_ceiling(vreg);
+
+	rc = cpr3_limit_floor_voltages(vreg, corner_sum, combo_offset);
+	if (rc) {
+		cpr3_err(vreg, "unable to limit floor voltages, rc=%d\n", rc);
+		return rc;
+	}
 
 	rc = cpr3_msm8996_hmss_calculate_target_quotients(vreg, corner_sum,
 			combo_offset);

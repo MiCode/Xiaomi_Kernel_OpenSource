@@ -284,6 +284,24 @@ Platform independent properties:
 		    The list and tuples must meet the same size requirements as
 		    those specified for qcom,cpr-voltage-ceiling above.
 
+- qcom,cpr-floor-to-ceiling-max-range
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the maximum
+		    allowed difference between the final floor voltage and the
+		    final ceiling voltage in microvolts for each voltage corner
+		    in order from lowest to highest.  A negative value may be
+		    specified for an element to indicate that there is no
+		    limitation of the floor to ceiling voltage range for the
+		    corresponding corner.
+
+		    In the case that the initial floor to ceiling voltage is
+		    greater than the max range specified, the floor voltage will
+		    be increased in order to satisfy the max range constraint.
+
+		    The list and tuples must meet the same size requirements as
+		    those specified for qcom,cpr-voltage-ceiling above.
+
 - qcom,system-voltage
 	Usage:      optional
 	Value type: <prop-encoded-array>

@@ -434,6 +434,8 @@ int cpr3_parse_common_thread_data(struct cpr3_thread *thread);
 int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl);
 int cpr3_limit_open_loop_voltages(struct cpr3_regulator *vreg);
 void cpr3_open_loop_voltage_as_ceiling(struct cpr3_regulator *vreg);
+int cpr3_limit_floor_voltages(struct cpr3_regulator *vreg, int corner_sum,
+		int combo_offset);
 void cpr3_print_quots(struct cpr3_regulator *vreg);
 int cpr3_adjust_fused_open_loop_voltages(struct cpr3_regulator *vreg,
 		int *fuse_volt);
@@ -545,6 +547,12 @@ static inline void cpr3_open_loop_voltage_as_ceiling(
 			struct cpr3_regulator *vreg)
 {
 	return;
+}
+
+static inline int cpr3_limit_floor_voltages(struct cpr3_regulator *vreg,
+			int corner_sum, int combo_offset)
+{
+	return -EPERM;
 }
 
 static inline void cpr3_print_quots(struct cpr3_regulator *vreg)
