@@ -962,13 +962,10 @@ static void mdss_mdp_fixed_qos_arbiter_setup(struct mdss_data_type *mdata,
 static int mdss_mdp_pipe_init_config(struct mdss_mdp_pipe *pipe,
 	struct mdss_mdp_mixer *mixer, bool pipe_share)
 {
-	bool is_realtime;
 	int rc = 0;
 	struct mdss_data_type *mdata;
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-
-	if (pipe) {
+	if (pipe && pipe->unhalted) {
 		rc = mdss_mdp_pipe_fetch_halt(pipe);
 		if (rc) {
 			pr_err("%d failed because pipe is in bad state\n",
@@ -979,24 +976,11 @@ static int mdss_mdp_pipe_init_config(struct mdss_mdp_pipe *pipe,
 
 	mdata = mixer->ctl->mdata;
 
-	mdss_mdp_pipe_panic_vblank_signal_ctrl(pipe, false);
-	mdss_mdp_pipe_panic_signal_ctrl(pipe, false);
-
-	if (pipe && mdss_mdp_pipe_is_sw_reset_available(mdata))
-		mdss_mdp_pipe_clk_force_off(pipe);
-
 	if (pipe) {
 		pr_debug("type=%x   pnum=%d\n", pipe->type, pipe->num);
 		kref_init(&pipe->kref);
 		INIT_LIST_HEAD(&pipe->buf_queue);
 
-		is_realtime = !((mixer->ctl->intf_num == MDSS_MDP_NO_INTF)
-				|| mixer->rotator_mode);
-		mdss_mdp_qos_vbif_remapper_setup(mdata, pipe, is_realtime);
-		mdss_mdp_fixed_qos_arbiter_setup(mdata, pipe, is_realtime);
-
-		if (mdata->vbif_nrt_io.base)
-			mdss_mdp_pipe_nrt_vbif_setup(mdata, pipe);
 	} else if (pipe_share) {
 		/*
 		 * when there is no dedicated wfd blk, DMA pipe can be
@@ -1012,7 +996,6 @@ static int mdss_mdp_pipe_init_config(struct mdss_mdp_pipe *pipe,
 	}
 
 end:
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	return rc;
 }
 
@@ -1303,7 +1286,6 @@ static bool mdss_mdp_check_pipe_in_use(struct mdss_mdp_pipe *pipe)
 	else
 		stage_off_mask = stage_off_mask << (3 * pipe->num);
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	for (i = 0; i < mdata->nctl; i++) {
 		ctl = mdata->ctl_off + i;
 		if (!ctl || !ctl->ref_cnt)
@@ -1330,7 +1312,6 @@ static bool mdss_mdp_check_pipe_in_use(struct mdss_mdp_pipe *pipe)
 			MDSS_XLOG_TOUT_HANDLER("mdp", "panic");
 		}
 	}
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
 	return in_use;
 }
@@ -1342,8 +1323,6 @@ static int mdss_mdp_is_pipe_idle(struct mdss_mdp_pipe *pipe,
 	u32 vbif_idle_mask, forced_on_mask, clk_status_idle_mask;
 	bool is_idle = false, is_forced_on;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
 	forced_on_mask = BIT(pipe->clk_ctrl.bit_off + CLK_FORCE_ON_OFFSET);
 	reg_val = readl_relaxed(mdata->mdp_base + pipe->clk_ctrl.reg_off);
@@ -1388,8 +1367,6 @@ static int mdss_mdp_is_pipe_idle(struct mdss_mdp_pipe *pipe,
 			pipe->num, reg_val, vbif_idle_mask);
 
 exit:
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
-
 	return is_idle;
 }
 
@@ -1444,6 +1421,8 @@ int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe)
 	u32 sw_reset_off = pipe->sw_reset.reg_off;
 	u32 clk_ctrl_off = pipe->clk_ctrl.reg_off;
 
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+
 	is_idle = mdss_mdp_is_pipe_idle(pipe, true, is_nrt_vbif);
 	if (!is_idle)
 		in_use = mdss_mdp_check_pipe_in_use(pipe);
@@ -1453,7 +1432,6 @@ int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe)
 		pr_err("%pS: pipe%d is not idle. xin_id=%d\n",
 			__builtin_return_address(0), pipe->num, pipe->xin_id);
 
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 		mutex_lock(&mdata->reg_lock);
 		idle_mask = BIT(pipe->xin_id + 16);
 
@@ -1506,9 +1484,9 @@ int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe)
 		}
 		writel_relaxed(clk_val, mdata->mdp_base + clk_ctrl_off);
 		mutex_unlock(&mdata->reg_lock);
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	}
 
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	return rc;
 }
 
@@ -2073,8 +2051,25 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 		 (pipe->mixer_left->type == MDSS_MDP_MIXER_TYPE_WRITEBACK) &&
 		 (ctl->mdata->mixer_switched)) || ctl->roi_changed;
 
-	if (params_changed && pipe->scale.enable_pxl_ext)
-		mdss_mdp_pipe_program_pixel_extn(pipe);
+	if (params_changed) {
+		bool is_realtime = !((ctl->intf_num == MDSS_MDP_NO_INTF)
+				|| pipe->mixer_left->rotator_mode);
+
+		mdss_mdp_pipe_panic_vblank_signal_ctrl(pipe, false);
+		mdss_mdp_pipe_panic_signal_ctrl(pipe, false);
+
+		mdss_mdp_qos_vbif_remapper_setup(mdata, pipe, is_realtime);
+		mdss_mdp_fixed_qos_arbiter_setup(mdata, pipe, is_realtime);
+
+		if (mdata->vbif_nrt_io.base)
+			mdss_mdp_pipe_nrt_vbif_setup(mdata, pipe);
+
+		if (pipe && mdss_mdp_pipe_is_sw_reset_available(mdata))
+			mdss_mdp_pipe_clk_force_off(pipe);
+
+		if (pipe->scale.enable_pxl_ext)
+			mdss_mdp_pipe_program_pixel_extn(pipe);
+	}
 
 	if ((!(pipe->flags & MDP_VPU_PIPE) && (src_data == NULL)) ||
 	    (pipe->flags & MDP_SOLID_FILL)) {
