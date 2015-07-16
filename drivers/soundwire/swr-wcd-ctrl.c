@@ -459,12 +459,16 @@ static int swrm_read(struct swr_master *master, u8 dev_num, u32 reg_addr,
 {
 	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(master);
 
+	if (!swrm) {
+		dev_err(&master->dev, "%s: swrm is NULL\n", __func__);
+		return -EINVAL;
+	}
+
 	if (pm_runtime_suspended(&swrm->pdev->dev)) {
 		dev_dbg(swrm->dev, "%s: suspended state, enable pm_runtime\n",
 			__func__);
 		pm_runtime_get_sync(&swrm->pdev->dev);
-		pm_runtime_mark_last_busy(&swrm->pdev->dev);
-		pm_runtime_put_autosuspend(&swrm->pdev->dev);
+		swrm->is_suspend = true;
 	}
 
 	if (dev_num) {
@@ -479,6 +483,11 @@ static int swrm_read(struct swr_master *master, u8 dev_num, u32 reg_addr,
 			return -EINVAL;
 		}
 	}
+	pm_runtime_mark_last_busy(&swrm->pdev->dev);
+	if (swrm->is_suspend) {
+		pm_runtime_put_autosuspend(&swrm->pdev->dev);
+		swrm->is_suspend = false;
+	}
 	return 0;
 }
 
@@ -488,12 +497,16 @@ static int swrm_write(struct swr_master *master, u8 dev_num, u32 reg_addr,
 	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(master);
 	int ret = 0;
 
+	if (!swrm) {
+		dev_err(&master->dev, "%s: swrm is NULL\n", __func__);
+		return -EINVAL;
+	}
+
 	if (pm_runtime_suspended(&swrm->pdev->dev)) {
 		dev_dbg(swrm->dev, "%s: suspended state, enable pm_runtime\n",
 			__func__);
 		pm_runtime_get_sync(&swrm->pdev->dev);
-		pm_runtime_mark_last_busy(&swrm->pdev->dev);
-		pm_runtime_put_autosuspend(&swrm->pdev->dev);
+		swrm->is_suspend = true;
 	}
 
 	if (dev_num) {
@@ -506,6 +519,11 @@ static int swrm_write(struct swr_master *master, u8 dev_num, u32 reg_addr,
 				__func__, reg_addr);
 			return -EINVAL;
 		}
+	}
+	pm_runtime_mark_last_busy(&swrm->pdev->dev);
+	if (swrm->is_suspend) {
+		pm_runtime_put_autosuspend(&swrm->pdev->dev);
+		swrm->is_suspend = false;
 	}
 	return ret;
 }
