@@ -69,6 +69,7 @@
 };
 
 #include "mdmfermium-ion.dtsi"
+#include "mdmfermium-smp2p.dtsi"
 
 &soc {
 	#address-cells = <1>;
