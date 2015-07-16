@@ -379,6 +379,8 @@
 		coresight-child-list = <&tpda_apss>;
 		coresight-child-ports = <0>;
 
+		qcom,clk-enable;
+
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";

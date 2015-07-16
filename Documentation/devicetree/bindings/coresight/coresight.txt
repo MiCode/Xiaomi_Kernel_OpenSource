@@ -208,6 +208,8 @@ Optional properties:
 - qcom,cmb-elem-size : specifies the CMB element size supported by each monitor
 		       connected to the aggregator on each port. Should be specified
 		       in pairs (port, cmb element size).
+- qcom,clk-enable: specifies whether additional clock bit needs to be set for
+		   M4M TPDM.
 - qcom,tpda-atid : specifies the ATID for TPDA.
 - qcom,inst-id : QMI instance id for remote ETMs.
 - qcom,noovrflw-enable : boolean, indicating whether no overflow bit needs to be
