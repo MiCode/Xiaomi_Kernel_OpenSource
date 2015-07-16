@@ -1369,7 +1369,7 @@ register_adhoc(uint32_t mas, uint32_t slv, char *name, bool active_only)
 	}
 
 	len = strnlen(name, MAX_STR_CL);
-	client->name = kzalloc(len, GFP_KERNEL);
+	client->name = kzalloc((len + 1), GFP_KERNEL);
 	if (!client->name) {
 		MSM_BUS_ERR("%s: Error allocating client name buf", __func__);
 		free_cl_mem(client);
