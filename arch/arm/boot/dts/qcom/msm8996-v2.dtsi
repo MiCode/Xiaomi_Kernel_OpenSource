@@ -126,10 +126,6 @@
 	};
 };
 
-&kgsl_msm_iommu {
-	qcom,global_pt;
-};
-
 &mdss_mdp {
 	gdsc-venus-supply = <&gdsc_venus>;
 };
