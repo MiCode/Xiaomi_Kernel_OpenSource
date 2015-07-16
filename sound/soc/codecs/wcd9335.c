@@ -9778,6 +9778,7 @@ static int tasha_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&tasha->power_gate_work, tasha_codec_power_gate_work);
 	mutex_init(&tasha->power_lock);
 	INIT_WORK(&tasha->swr_add_devices_work, wcd_swr_ctrl_add_devices);
+	BLOCKING_INIT_NOTIFIER_HEAD(&tasha->notifier);
 	mutex_init(&tasha->micb_lock);
 	mutex_init(&tasha->swr_read_lock);
 	mutex_init(&tasha->swr_write_lock);
