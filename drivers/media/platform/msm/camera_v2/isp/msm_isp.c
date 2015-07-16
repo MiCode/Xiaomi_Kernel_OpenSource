@@ -545,10 +545,10 @@ int vfe_hw_probe(struct platform_device *pdev)
 	ISP_DBG("%s: device id = %d\n", __func__, pdev->id);
 
 	vfe_dev->pdev = pdev;
-	vfe_dev->dual_vfe_res = &dualvfe;
-	vfe_dev->dual_vfe_res->axi_data[vfe_dev->pdev->id] =
+	vfe_dev->common_data->dual_vfe_res = &dualvfe;
+	vfe_dev->common_data->dual_vfe_res->axi_data[vfe_dev->pdev->id] =
 		&vfe_dev->axi_data;
-	vfe_dev->dual_vfe_res->stats_data[vfe_dev->pdev->id] =
+	vfe_dev->common_data->dual_vfe_res->stats_data[vfe_dev->pdev->id] =
 		&vfe_dev->stats_data;
 
 	rc = vfe_dev->hw_info->vfe_ops.core_ops.get_platform_data(vfe_dev);
