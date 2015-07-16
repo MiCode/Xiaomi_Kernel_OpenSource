@@ -11,16 +11,25 @@ Required properties:
 		"qcom,8976-l2ccc"
 - reg:		This specifies the base address and size of
 		the register region.
+- reg-names:    "l2-base" - string to identify physical address for l2 base.
 
 Optional properties:
-- reg:		An optional second tuple specifies the shared common base
-		address required to trigger the L2 SPM out of power collapse.
+- reg:		Second tuple specifies the shared common base address required
+		to trigger the L2 SPM out of power collapse. Third tuple specifies
+		the acinactm address for L2 SPM to wake up from power collapse.
+		Third tuple is required if qcom,use-acinactm is present.
+- reg-names:	"l2-common" - string to identify physical address for chicken bit.
+		"l2-acinactm" - string to identify physical address for l2 acinactm.
 - qcom,vctl-node: Reference to a node that controls the power rails for the
  cluster.
 - qcom,vctl-val: The voltage control register value that must be set before
 		the caches can be turned on. This would be a required property
 		if the target necessitates a voltage rail be turned on before
 		turning on the cache.
+- qcom,use-acinactm:
+		This property indicates if acinactm bit is used to wake up l2
+		from low power mode.
+
 Example:
 
 	clock-controller@f900f000 {
