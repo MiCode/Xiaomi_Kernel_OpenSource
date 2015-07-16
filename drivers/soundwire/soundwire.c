@@ -143,7 +143,7 @@ int of_register_swr_devices(struct swr_master *master)
 
 	for_each_available_child_of_node(master->dev.of_node, node) {
 		struct swr_boardinfo info = {};
-		phys_addr_t addr;
+		u64 addr;
 
 		dev_dbg(&master->dev, "of_swr:register %s\n", node->full_name);
 
