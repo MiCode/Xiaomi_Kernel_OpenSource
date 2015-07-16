@@ -538,6 +538,18 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		card->ext_csd.rst_n_function = ext_csd[EXT_CSD_RST_N_FUNCTION];
 
 		/*
+		 * Some eMMC vendors violate eMMC 5.0 spec and set
+		 * REL_WR_SEC_C register to 0x10 to indicate the
+		 * ability of RPMB throughput improvement thus lead
+		 * to failure when TZ module write data to RPMB
+		 * partition. So check bit[4] of EXT_CSD[166] and
+		 * if it is not set then change value of REL_WR_SEC_C
+		 * to 0x1 directly ignoring value of EXT_CSD[222].
+		 */
+		if (!(card->ext_csd.rel_param & EXT_CSD_WR_REL_PARAM_EN_RPMB))
+			card->ext_csd.rel_sectors = 0x1;
+
+		/*
 		 * RPMB regions are defined in multiples of 128K.
 		 */
 		card->ext_csd.raw_rpmb_size_mult = ext_csd[EXT_CSD_RPMB_MULT];
