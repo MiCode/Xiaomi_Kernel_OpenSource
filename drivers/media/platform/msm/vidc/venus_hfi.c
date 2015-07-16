@@ -900,13 +900,16 @@ static int __vote_buses(struct venus_hfi_device *device,
 	device->bus_vote.imem_size = device->res->imem_size;
 
 	venus_hfi_for_each_bus(device, bus) {
-		/* NOP if already resume */
-		rc = devfreq_resume_device(bus->devfreq);
-		if (rc)
-			goto err_no_mem;
+		if (bus && bus->devfreq) {
+			/* NOP if already resume */
+			rc = devfreq_resume_device(bus->devfreq);
+			if (rc)
+				goto err_no_mem;
 
-		/* Kick devfreq awake incase _resume() didn't do it */
-		bus->devfreq->nb.notifier_call(&bus->devfreq->nb, 0, NULL);
+			/* Kick devfreq awake incase _resume() didn't do it */
+			bus->devfreq->nb.notifier_call(
+				&bus->devfreq->nb, 0, NULL);
+		}
 	}
 
 err_no_mem:
@@ -2349,11 +2352,13 @@ static int __core_release(struct venus_hfi_device *device)
 		return -EIO;
 	}
 
-	rc = __unset_free_imem(device);
-	if (rc)
-		dprintk(VIDC_ERR,
-				"Failed to unset and free imem in core release: %d\n",
-				rc);
+	if (device->state != VENUS_STATE_DEINIT) {
+		rc = __unset_free_imem(device);
+		if (rc)
+			dprintk(VIDC_ERR,
+					"Failed to unset and free imem in core release: %d\n",
+					rc);
+	}
 
 	if (!(device->intr_status & VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK))
 		disable_irq_nosync(device->hal_data->irq);
@@ -3496,16 +3501,19 @@ static struct hal_session *__get_session(struct venus_hfi_device *device,
 
 static int __response_handler(struct venus_hfi_device *device)
 {
-	struct msm_vidc_cb_info *packets = device->response_pkt;
+	struct msm_vidc_cb_info *packets;
 	int packet_count = 0;
 	u8 *raw_packet = NULL;
+
+	if (!device || device->state != VENUS_STATE_INIT)
+		return 0;
+
+	packets = device->response_pkt;
 
 	raw_packet = kzalloc(VIDC_IFACEQ_VAR_HUGE_PKT_SIZE, GFP_TEMPORARY);
 	if (!raw_packet || !packets) {
 		dprintk(VIDC_ERR, "%s: Failed to allocate memory\n",  __func__);
-
 		kfree(raw_packet);
-		kfree(packets);
 		return 0;
 	}
 
@@ -4378,7 +4386,6 @@ static void __unload_fw(struct venus_hfi_device *device)
 	if (!device->resources.fw.cookie)
 		return;
 
-	flush_workqueue(device->vidc_workq);
 	cancel_delayed_work(&venus_hfi_pm_work);
 	if (device->state != VENUS_STATE_DEINIT)
 		flush_workqueue(device->venus_pm_workq);
@@ -4410,49 +4417,6 @@ static void venus_hfi_unload_fw(void *dev)
 	mutex_lock(&device->lock);
 	__unload_fw(device);
 	mutex_unlock(&device->lock);
-}
-
-static int venus_hfi_resurrect_fw(void *dev)
-{
-	struct venus_hfi_device *device = dev;
-	int rc = 0;
-
-	if (!device) {
-		dprintk(VIDC_ERR, "%s Invalid paramter: %p\n",
-			__func__, device);
-		return -EINVAL;
-	}
-
-	mutex_lock(&device->lock);
-
-	rc = __core_release(device);
-	if (rc) {
-		dprintk(VIDC_ERR, "%s - failed to release venus core rc = %d\n",
-				__func__, rc);
-		goto exit;
-	}
-
-	dprintk(VIDC_ERR, "praying for firmware resurrection\n");
-	__unload_fw(device);
-
-	rc = __vote_buses(device, device->bus_vote.data,
-			device->bus_vote.data_count);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to scale buses\n");
-		goto exit;
-	}
-
-	rc = __load_fw(device);
-	if (rc) {
-		dprintk(VIDC_ERR, "%s - failed to load venus fw rc = %d\n",
-				__func__, rc);
-		goto exit;
-	}
-
-	dprintk(VIDC_ERR, "Hurray!! firmware has restarted\n");
-exit:
-	mutex_unlock(&device->lock);
-	return rc;
 }
 
 static int venus_hfi_get_fw_info(void *dev, enum fw_info info)
@@ -4687,7 +4651,6 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->unvote_bus = venus_hfi_unvote_buses;
 	hdev->load_fw = venus_hfi_load_fw;
 	hdev->unload_fw = venus_hfi_unload_fw;
-	hdev->resurrect_fw = venus_hfi_resurrect_fw;
 	hdev->get_fw_info = venus_hfi_get_fw_info;
 	hdev->get_core_capabilities = venus_hfi_get_core_capabilities;
 	hdev->resume = venus_hfi_resume;
