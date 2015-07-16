@@ -2691,15 +2691,18 @@ static void adreno_regulator_disable_poll(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	unsigned long wait_time = jiffies + msecs_to_jiffies(200);
-	int i, rail_on = 1;
+	unsigned long wait_time;
+	int i, rail_on;
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_SYNC_SMMU_PC)) {
 		adreno_iommu_sync(device, true);
 		/* Turn off CX and then GX as recommened by HW team */
 		for (i = 0; i <= KGSL_MAX_REGULATORS - 1; i++) {
-			if (pwr->gpu_reg[i])
-				regulator_disable(pwr->gpu_reg[i]);
+			if (pwr->gpu_reg[i] == NULL)
+				continue;
+			regulator_disable(pwr->gpu_reg[i]);
+			rail_on = 1;
+			wait_time = jiffies + msecs_to_jiffies(200);
 			while (!time_after(jiffies, wait_time)) {
 				if (regulator_is_enabled(pwr->gpu_reg[i]) == 0)
 					rail_on = 0;
