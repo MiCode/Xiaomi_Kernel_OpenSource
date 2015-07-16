@@ -345,6 +345,7 @@ static void mdss_mdp_hist_irq_clear_mask(u32 irq);
 static void mdss_mdp_hist_intr_notify(u32 disp);
 static int mdss_mdp_panel_default_dither_config(struct msm_fb_data_type *mfd,
 					u32 panel_bpp);
+static int mdss_mdp_limited_lut_igc_config(struct msm_fb_data_type *mfd);
 
 static u32 last_sts, last_state;
 
@@ -2374,8 +2375,15 @@ int mdss_mdp_pp_default_overlay_config(struct msm_fb_data_type *mfd,
 
 	ret = mdss_mdp_panel_default_dither_config(mfd, pdata->panel_info.bpp);
 	if (ret)
-		pr_err("Unable to configure default dither on fb%d\n",
-			mfd->index);
+		pr_err("Unable to configure default dither on fb%d ret %d\n",
+			mfd->index, ret);
+
+	if (pdata->panel_info.type == DTV_PANEL) {
+		ret = mdss_mdp_limited_lut_igc_config(mfd);
+		if (ret)
+			pr_err("Unable to configure DTV panel default IGC ret %d\n",
+				ret);
+	}
 
 	return ret;
 }
@@ -3017,27 +3025,49 @@ static void pp_update_igc_lut(struct mdp_igc_lut_data *cfg,
 		writel_relaxed((cfg->c2_data[i] & 0xFFF) | data, addr);
 }
 
-int mdss_mdp_limited_lut_igc_config(struct mdss_mdp_ctl *ctl)
+static int mdss_mdp_limited_lut_igc_config(struct msm_fb_data_type *mfd)
 {
 	int ret = 0;
 	u32 copyback = 0;
 	u32 copy_from_kernel = 1;
 	struct mdp_igc_lut_data config;
+	struct mdp_pp_feature_version igc_version = {
+		.pp_feature = IGC,
+	};
+	struct mdp_igc_lut_data_v1_7 igc_data;
 
-	if (!ctl)
+	if (!mfd)
 		return -EINVAL;
 
-	if (!mdss_mdp_mfd_valid_dspp(ctl->mfd)) {
+	if (!mdss_mdp_mfd_valid_dspp(mfd)) {
 		pr_warn("IGC not supported on display num %d hw configuration\n",
-			ctl->mfd->index);
+			mfd->index);
 		return 0;
 	}
 
-	config.len = IGC_LUT_ENTRIES;
+	ret = mdss_mdp_pp_get_version(&igc_version);
+	if (ret)
+		pr_err("failed to get default IGC version, ret %d\n", ret);
+
+	config.version = igc_version.version_info;
 	config.ops = MDP_PP_OPS_WRITE | MDP_PP_OPS_ENABLE;
-	config.block = (ctl->mfd->index) + MDP_LOGICAL_BLOCK_DISP_0;
-	config.c0_c1_data = igc_limited;
-	config.c2_data = igc_limited;
+	config.block = (mfd->index) + MDP_LOGICAL_BLOCK_DISP_0;
+	switch (config.version) {
+	case mdp_igc_v1_7:
+		config.cfg_payload = &igc_data;
+		igc_data.table_fmt = mdp_igc_custom;
+		igc_data.len = IGC_LUT_ENTRIES;
+		igc_data.c0_c1_data = igc_limited;
+		igc_data.c2_data = igc_limited;
+		break;
+	case mdp_pp_legacy:
+	default:
+		config.cfg_payload = NULL;
+		config.len = IGC_LUT_ENTRIES;
+		config.c0_c1_data = igc_limited;
+		config.c2_data = igc_limited;
+		break;
+	}
 
 	ret = mdss_mdp_igc_lut_config(&config, &copyback,
 					copy_from_kernel);
