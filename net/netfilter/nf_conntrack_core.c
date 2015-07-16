@@ -287,6 +287,9 @@ static void nf_ct_del_from_dying_or_unconfirmed_list(struct nf_conn *ct)
 	spin_unlock(&pcpu->lock);
 }
 
+void (*delete_sfe_entry)(struct nf_conn *ct) __rcu __read_mostly;
+EXPORT_SYMBOL(delete_sfe_entry);
+
 static void
 destroy_conntrack(struct nf_conntrack *nfct)
 {
@@ -296,11 +299,22 @@ destroy_conntrack(struct nf_conntrack *nfct)
 	struct sip_list *sip_node = NULL;
 	struct list_head *sip_node_list;
 	struct list_head *sip_node_save_list;
+	void (*delete_entry)(struct nf_conn *ct);
 
 	pr_debug("destroy_conntrack(%p)\n", ct);
 	NF_CT_ASSERT(atomic_read(&nfct->use) == 0);
 	NF_CT_ASSERT(!timer_pending(&ct->timeout));
 
+	if (ct->sfe_entry != NULL) {
+		delete_entry = rcu_dereference(delete_sfe_entry);
+		if (delete_entry)
+			delete_entry(ct);
+	}
+
+	/* To make sure we don't get any weird locking issues here:
+	 * destroy_conntrack() MUST NOT be called with a write lock
+	 * to nf_conntrack_lock!!! -HW
+	*/
 	rcu_read_lock();
 	l4proto = __nf_ct_l4proto_find(nf_ct_l3num(ct), nf_ct_protonum(ct));
 	if (l4proto && l4proto->destroy)
