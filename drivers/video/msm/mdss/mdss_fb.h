@@ -141,6 +141,18 @@ enum dyn_mode_switch_state {
 	MDSS_MDP_WAIT_FOR_COMMIT,
 };
 
+/**
+ * enum mdss_fb_idle_state - idle states based on frame updates
+ * @MDSS_FB_NOT_IDLE: Frame updates have started
+ * @MDSS_FB_IDLE_TIMER_RUNNING: Idle timer has been kicked
+ * @MDSS_FB_IDLE: Currently idle
+ */
+enum mdss_fb_idle_state {
+	MDSS_FB_NOT_IDLE,
+	MDSS_FB_IDLE_TIMER_RUNNING,
+	MDSS_FB_IDLE
+};
+
 struct disp_info_type_suspend {
 	int op_enable;
 	int panel_power_state;
@@ -257,6 +269,7 @@ struct msm_fb_data_type {
 	struct fb_info *fbi;
 
 	int idle_time;
+	u32 idle_state;
 	struct delayed_work idle_notify_work;
 
 	bool validate_pending;
