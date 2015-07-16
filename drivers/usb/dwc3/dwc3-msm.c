@@ -970,10 +970,10 @@ static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
 			disable_irq(mdwc->pwr_event_irq);
 		/* Using asynchronous block reset to the hardware */
 		dev_dbg(mdwc->dev, "block_reset ASSERT\n");
-		clk_disable_unprepare(mdwc->iface_clk);
 		clk_disable_unprepare(mdwc->utmi_clk);
 		clk_disable_unprepare(mdwc->sleep_clk);
 		clk_disable_unprepare(mdwc->core_clk);
+		clk_disable_unprepare(mdwc->iface_clk);
 		ret = clk_reset(mdwc->core_clk, CLK_RESET_ASSERT);
 		if (ret)
 			dev_err(mdwc->dev, "dwc3 core_clk assert failed\n");
@@ -981,10 +981,10 @@ static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
 		dev_dbg(mdwc->dev, "block_reset DEASSERT\n");
 		ret = clk_reset(mdwc->core_clk, CLK_RESET_DEASSERT);
 		ndelay(200);
+		clk_prepare_enable(mdwc->iface_clk);
 		clk_prepare_enable(mdwc->core_clk);
 		clk_prepare_enable(mdwc->sleep_clk);
 		clk_prepare_enable(mdwc->utmi_clk);
-		clk_prepare_enable(mdwc->iface_clk);
 		if (ret)
 			dev_err(mdwc->dev, "dwc3 core_clk deassert failed\n");
 		if (mdwc->pwr_event_irq)
@@ -1361,13 +1361,18 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	wmb();
 
 	/* Disable clocks */
-	clk_disable_unprepare(mdwc->iface_clk);
 	if (mdwc->bus_aggr_clk)
 		clk_disable_unprepare(mdwc->bus_aggr_clk);
 	clk_disable_unprepare(mdwc->utmi_clk);
 
 	clk_set_rate(mdwc->core_clk, 19200000);
 	clk_disable_unprepare(mdwc->core_clk);
+	/*
+	 * Disable iface_clk only after core_clk as core_clk has FSM
+	 * depedency on iface_clk. Hence iface_clk should be turned off
+	 * after core_clk is turned off.
+	 */
+	clk_disable_unprepare(mdwc->iface_clk);
 	/* USB PHY no more requires TCXO */
 	clk_disable_unprepare(mdwc->xo_clk);
 
@@ -1464,13 +1469,16 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	/* Resume HS PHY */
 	usb_phy_set_suspend(mdwc->hs_phy, 0);
 
-	/* Enable clocks */
+	/*
+	 * Enable clocks
+	 * Turned ON iface_clk before core_clk due to FSM depedency.
+	 */
+	clk_prepare_enable(mdwc->iface_clk);
 	clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
 	clk_prepare_enable(mdwc->core_clk);
 	clk_prepare_enable(mdwc->utmi_clk);
 	if (mdwc->bus_aggr_clk)
 		clk_prepare_enable(mdwc->bus_aggr_clk);
-	clk_prepare_enable(mdwc->iface_clk);
 
 	/* Recover from controller power collapse */
 	if (mdwc->lpm_flags & MDWC3_POWER_COLLAPSE) {
@@ -2064,6 +2072,14 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		goto put_xo;
 	}
 
+	mdwc->iface_clk = devm_clk_get(&pdev->dev, "iface_clk");
+	if (IS_ERR(mdwc->iface_clk)) {
+		dev_err(&pdev->dev, "failed to get iface_clk\n");
+		ret = PTR_ERR(mdwc->iface_clk);
+		goto disable_xo;
+	}
+	clk_prepare_enable(mdwc->iface_clk);
+
 	/*
 	 * DWC3 Core requires its CORE CLK (aka master / bus clk) to
 	 * run at 125Mhz in SSUSB mode and >60MHZ for HSUSB mode.
@@ -2073,7 +2089,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (IS_ERR(mdwc->core_clk)) {
 		dev_err(&pdev->dev, "failed to get core_clk\n");
 		ret = PTR_ERR(mdwc->core_clk);
-		goto disable_xo;
+		goto disable_iface_clk;
 	}
 
 	/*
@@ -2089,22 +2105,13 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "fail to set core_clk freq:%d\n",
 								ret);
 	}
-
 	clk_prepare_enable(mdwc->core_clk);
-
-	mdwc->iface_clk = devm_clk_get(&pdev->dev, "iface_clk");
-	if (IS_ERR(mdwc->iface_clk)) {
-		dev_err(&pdev->dev, "failed to get iface_clk\n");
-		ret = PTR_ERR(mdwc->iface_clk);
-		goto disable_core_clk;
-	}
-	clk_prepare_enable(mdwc->iface_clk);
 
 	mdwc->sleep_clk = devm_clk_get(&pdev->dev, "sleep_clk");
 	if (IS_ERR(mdwc->sleep_clk)) {
 		dev_err(&pdev->dev, "failed to get sleep_clk\n");
 		ret = PTR_ERR(mdwc->sleep_clk);
-		goto disable_iface_clk;
+		goto disable_core_clk;
 	}
 	clk_set_rate(mdwc->sleep_clk, 32000);
 	clk_prepare_enable(mdwc->sleep_clk);
@@ -2461,11 +2468,11 @@ disable_aggr_clk:
 	clk_disable_unprepare(mdwc->utmi_clk);
 disable_sleep_clk:
 	clk_disable_unprepare(mdwc->sleep_clk);
-disable_iface_clk:
-	clk_disable_unprepare(mdwc->iface_clk);
 disable_core_clk:
 	clk_set_rate(mdwc->core_clk, 19200000);
 	clk_disable_unprepare(mdwc->core_clk);
+disable_iface_clk:
+	clk_disable_unprepare(mdwc->iface_clk);
 disable_xo:
 	clk_disable_unprepare(mdwc->xo_clk);
 put_xo:
