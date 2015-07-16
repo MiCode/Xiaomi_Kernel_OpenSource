@@ -249,8 +249,8 @@ static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 	/* Grab a pointer to the next level */
 	pte = *ptep;
 	if (!pte) {
-		cptep = alloc_pages_exact(1UL << data->pg_shift,
-					 GFP_ATOMIC | __GFP_ZERO);
+		cptep = io_pgtable_alloc_pages_exact(1UL << data->pg_shift,
+						     GFP_ATOMIC | __GFP_ZERO);
 		if (!cptep)
 			return -ENOMEM;
 
@@ -414,7 +414,7 @@ static void __arm_lpae_free_pgtable(struct arm_lpae_io_pgtable *data, int lvl,
 	}
 
 	data->iop.cfg.tlb->unprepare_pgtable(data->iop.cookie, start);
-	free_pages_exact(start, table_size);
+	io_pgtable_free_pages_exact(start, table_size);
 }
 
 static void arm_lpae_free_pgtable(struct io_pgtable *iop)
@@ -733,7 +733,8 @@ arm_64_lpae_alloc_pgtable_s1(struct io_pgtable_cfg *cfg, void *cookie)
 	cfg->arm_lpae_s1_cfg.mair[1] = 0;
 
 	/* Looking good; allocate a pgd */
-	data->pgd = alloc_pages_exact(data->pgd_size, GFP_KERNEL | __GFP_ZERO);
+	data->pgd = io_pgtable_alloc_pages_exact(data->pgd_size,
+						 GFP_KERNEL | __GFP_ZERO);
 	if (!data->pgd)
 		goto out_free_data;
 
@@ -821,7 +822,8 @@ arm_64_lpae_alloc_pgtable_s2(struct io_pgtable_cfg *cfg, void *cookie)
 	cfg->arm_lpae_s2_cfg.vtcr = reg;
 
 	/* Allocate pgd pages */
-	data->pgd = alloc_pages_exact(data->pgd_size, GFP_KERNEL | __GFP_ZERO);
+	data->pgd = io_pgtable_alloc_pages_exact(data->pgd_size,
+						 GFP_KERNEL | __GFP_ZERO);
 	if (!data->pgd)
 		goto out_free_data;
 

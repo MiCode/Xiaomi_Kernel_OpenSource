@@ -148,4 +148,24 @@ struct io_pgtable_init_fns {
 	void (*free)(struct io_pgtable *iop);
 };
 
+/**
+ * io_pgtable_alloc_pages_exact - allocate an exact number physically-contiguous pages.
+ * @size: the number of bytes to allocate
+ * @gfp_mask: GFP flags for the allocation
+ *
+ * Like alloc_pages_exact(), but with some additional accounting for debug
+ * purposes.
+ */
+void *io_pgtable_alloc_pages_exact(size_t size, gfp_t gfp_mask);
+
+/**
+ * io_pgtable_free_pages_exact - release memory allocated via io_pgtable_alloc_pages_exact()
+ * @virt: the value returned by alloc_pages_exact.
+ * @size: size of allocation, same value as passed to alloc_pages_exact().
+ *
+ * Like free_pages_exact(), but with some additional accounting for debug
+ * purposes.
+ */
+void io_pgtable_free_pages_exact(void *virt, size_t size);
+
 #endif /* __IO_PGTABLE_H */
