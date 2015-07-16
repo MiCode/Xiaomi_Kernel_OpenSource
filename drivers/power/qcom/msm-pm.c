@@ -285,13 +285,8 @@ static bool __ref msm_pm_spm_power_collapse(
 
 	msm_jtag_save_state();
 
-#ifdef CONFIG_CPU_V7
-	collapsed = save_cpu_regs ?
-		!cpu_suspend(0, msm_pm_collapse) : msm_pm_pc_hotplug();
-#else
 	collapsed = save_cpu_regs ?
 		!__cpu_suspend(0, msm_pm_collapse) : msm_pm_pc_hotplug();
-#endif
 
 	msm_jtag_restore_state();
 
