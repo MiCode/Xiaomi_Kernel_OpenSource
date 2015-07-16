@@ -133,7 +133,7 @@
 							of sizeof(int) bytes */
 #define MAX_BLEND_INDEX 49
 /* HCI timeouts */
-#define RADIO_HCI_TIMEOUT	(10000)	/* 10 seconds */
+#define RADIO_HCI_TIMEOUT	(1500)	/* 1.5 seconds */
 
 #define TUNE_PARAM 16
 #define FM_RDS_3A_GRP (0x40)
