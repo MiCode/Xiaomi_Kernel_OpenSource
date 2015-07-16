@@ -27,8 +27,10 @@
 #include <asm/opcodes-virt.h>
 #include <asm/psci.h>
 #include <asm/system_misc.h>
+#include <asm/suspend.h>
 
 struct psci_operations psci_ops;
+#define PSCI_POWER_STATE_BIT	BIT(30)
 
 static int (*invoke_psci_fn)(u32, u32, u32, u32);
 typedef int (*psci_initcall_t)(const struct device_node *);
@@ -113,15 +115,14 @@ static int psci_get_version(void)
 	return err;
 }
 
-static int psci_cpu_suspend(struct psci_power_state state,
+static int psci_cpu_suspend(unsigned long  state_id,
 			    unsigned long entry_point)
 {
 	int err;
-	u32 fn, power_state;
+	u32 fn;
 
 	fn = psci_function_id[PSCI_FN_CPU_SUSPEND];
-	power_state = psci_power_state_pack(state);
-	err = invoke_psci_fn(fn, power_state, entry_point, 0);
+	err = invoke_psci_fn(fn, state_id, entry_point, 0);
 	return psci_to_linux_errno(err);
 }
 
@@ -208,6 +209,29 @@ static void psci_sys_poweroff(void)
 {
 	invoke_psci_fn(PSCI_0_2_FN_SYSTEM_OFF, 0, 0, 0);
 }
+
+static int psci_suspend_finisher(unsigned long state_id)
+{
+	return psci_ops.cpu_suspend(state_id, virt_to_phys(cpu_resume));
+}
+
+/*
+ * The PSCI changes are to support Os initiated low power mode where the
+ * cluster mode aggregation happens in HLOS. In this case, the cpuidle
+ * driver aggregates the cluster low power mode will provide in the
+ * composite stateID to be passed down to the PSCI layer.
+ */
+int cpu_psci_cpu_suspend(unsigned long state_id)
+{
+	if (WARN_ON_ONCE(!state_id))
+		return -EINVAL;
+
+	if (state_id & PSCI_POWER_STATE_BIT)
+		return __cpu_suspend(state_id, psci_suspend_finisher);
+	else
+		return  psci_ops.cpu_suspend(state_id, 0);
+}
+EXPORT_SYMBOL(cpu_psci_cpu_suspend);
 
 /*
  * PSCI Function IDs for v0.2+ are well defined so use
