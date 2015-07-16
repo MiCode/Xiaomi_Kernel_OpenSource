@@ -95,7 +95,7 @@ void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb);
 #define FMDERR(fmt, args...) pr_err("iris_radio: " fmt, ##args)
 
 /* HCI timeouts */
-#define RADIO_HCI_TIMEOUT	(10000)	/* 10 seconds */
+#define RADIO_HCI_TIMEOUT	(1500)	/* 1.5 seconds */
 
 int hci_def_data_read(struct hci_fm_def_data_rd_req *arg,
 	struct radio_hci_dev *hdev);
