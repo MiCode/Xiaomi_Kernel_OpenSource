@@ -598,6 +598,9 @@ struct tasha_priv {
 	struct snd_info_entry *entry;
 	struct snd_info_entry *version_entry;
 	int power_active_ref;
+
+	int (*machine_codec_event_cb)(struct snd_soc_codec *codec,
+				      enum wcd9335_codec_event);
 };
 
 int tasha_enable_efuse_sensing(struct snd_soc_codec *codec)
@@ -649,6 +652,31 @@ void *tasha_get_afe_config(struct snd_soc_codec *codec,
 	}
 }
 EXPORT_SYMBOL(tasha_get_afe_config);
+
+/*
+ * tasha_event_register: Registers a machine driver callback
+ * function with codec private data for post ADSP sub-system
+ * restart (SSR). This callback function will be called from
+ * codec driver once codec comes out of reset after ADSP SSR.
+ *
+ * @machine_event_cb: callback function from machine driver
+ * @codec: Codec instance
+ *
+ * Return: none
+ */
+void tasha_event_register(
+	int (*machine_event_cb)(struct snd_soc_codec *codec,
+				enum wcd9335_codec_event),
+	struct snd_soc_codec *codec)
+{
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	if (tasha)
+		tasha->machine_codec_event_cb = machine_event_cb;
+	else
+		dev_dbg(codec->dev, "%s: Invalid tasha_priv data\n", __func__);
+}
+EXPORT_SYMBOL(tasha_event_register);
 
 static int tasha_mbhc_request_irq(struct snd_soc_codec *codec,
 				   int irq, irq_handler_t handler,
@@ -2014,6 +2042,7 @@ static int tasha_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
+		dai->bus_down_in_recovery = false;
 		tasha_codec_enable_int_port(dai, codec);
 		(void) tasha_codec_enable_slim_chmask(dai, true);
 		ret = wcd9xxx_cfg_slim_sch_rx(core, &dai->wcd9xxx_ch_list,
@@ -2027,7 +2056,12 @@ static int tasha_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 			__func__, ret);
 		ret = wcd9xxx_close_slim_sch_rx(core, &dai->wcd9xxx_ch_list,
 						dai->grph);
-		ret = tasha_codec_enable_slim_chmask(dai, false);
+		if (!dai->bus_down_in_recovery)
+			ret = tasha_codec_enable_slim_chmask(dai, false);
+		else
+			dev_dbg(codec->dev,
+				"%s: bus in recovery skip enable slim_chmask",
+				__func__);
 		break;
 	}
 	return ret;
@@ -2100,6 +2134,7 @@ static int tasha_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 				WCD9335_CDC_TX12_SPKR_PROT_PATH_CTL, 0x10,
 				0x10);
 		}
+		dai->bus_down_in_recovery = false;
 		tasha_codec_enable_int_port(dai, codec);
 		(void) tasha_codec_enable_slim_chmask(dai, true);
 		ret = wcd9xxx_cfg_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
@@ -2112,7 +2147,8 @@ static int tasha_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 		if (ret)
 			dev_err(codec->dev, "%s error in close_slim_sch_tx %d\n",
 				__func__, ret);
-		ret = tasha_codec_enable_slim_chmask(dai, false);
+		if (!dai->bus_down_in_recovery)
+			ret = tasha_codec_enable_slim_chmask(dai, false);
 		if (ret < 0) {
 			ret = wcd9xxx_disconnect_port(core,
 				&dai->wcd9xxx_ch_list,
@@ -2169,6 +2205,7 @@ static int __tasha_codec_enable_slimtx(struct snd_soc_codec *codec,
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
+		dai->bus_down_in_recovery = false;
 		tasha_codec_enable_int_port(dai, codec);
 		(void) tasha_codec_enable_slim_chmask(dai, true);
 		ret = wcd9xxx_cfg_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
@@ -2178,7 +2215,8 @@ static int __tasha_codec_enable_slimtx(struct snd_soc_codec *codec,
 	case SND_SOC_DAPM_POST_PMD:
 		ret = wcd9xxx_close_slim_sch_tx(core, &dai->wcd9xxx_ch_list,
 						dai->grph);
-		ret = tasha_codec_enable_slim_chmask(dai, false);
+		if (!dai->bus_down_in_recovery)
+			ret = tasha_codec_enable_slim_chmask(dai, false);
 		if (ret < 0) {
 			ret = wcd9xxx_disconnect_port(core,
 						      &dai->wcd9xxx_ch_list,
@@ -9174,6 +9212,116 @@ static int tasha_cpe_initialize(struct snd_soc_codec *codec)
 	return 0;
 }
 
+static const struct wcd_resmgr_cb tasha_resmgr_cb = {
+	.cdc_rco_ctrl = tasha_codec_internal_rco_ctrl,
+};
+
+static int tasha_device_down(struct wcd9xxx *wcd9xxx)
+{
+	struct snd_soc_codec *codec;
+	struct tasha_priv *priv;
+	int count;
+
+	codec = (struct snd_soc_codec *)(wcd9xxx->ssr_priv);
+	priv = snd_soc_codec_get_drvdata(codec);
+	wcd_cpe_ssr_event(priv->cpe_core, WCD_CPE_BUS_DOWN_EVENT);
+	snd_soc_card_change_online_state(codec->component.card, 0);
+	for (count = 0; count < NUM_CODEC_DAIS; count++)
+		priv->dai[count].bus_down_in_recovery = true;
+
+	return 0;
+}
+
+static int tasha_post_reset_cb(struct wcd9xxx *wcd9xxx)
+{
+	int i, ret = 0;
+	struct wcd9xxx *control;
+	struct snd_soc_codec *codec;
+	struct tasha_priv *tasha;
+	struct wcd9xxx_pdata *pdata;
+
+	codec = (struct snd_soc_codec *)(wcd9xxx->ssr_priv);
+	tasha = snd_soc_codec_get_drvdata(codec);
+	control = dev_get_drvdata(codec->dev->parent);
+
+	wcd9xxx_set_power_state(tasha->wcd9xxx,
+				WCD_REGION_POWER_COLLAPSE_REMOVE,
+				WCD9XXX_DIG_CORE_REGION_1);
+	snd_soc_card_change_online_state(codec->component.card, 1);
+
+	mutex_lock(&codec->mutex);
+
+	/* Class-H Init*/
+	wcd_clsh_init(&tasha->clsh_d);
+	/* Default HPH Mode to Class-H HiFi */
+	tasha->hph_mode = CLS_H_HIFI;
+
+	tasha_update_reg_defaults(tasha);
+
+	tasha->codec = codec;
+	for (i = 0; i < COMPANDER_MAX; i++)
+		tasha->comp_enabled[i] = 0;
+
+	dev_dbg(codec->dev, "%s: MCLK Rate = %x\n",
+		__func__, control->mclk_rate);
+
+	if (control->mclk_rate == TASHA_MCLK_CLK_12P288MHZ)
+		snd_soc_update_bits(codec, WCD9335_CODEC_RPM_CLK_MCLK_CFG,
+				    0x03, 0x00);
+	else if (control->mclk_rate == TASHA_MCLK_CLK_9P6MHZ)
+		snd_soc_update_bits(codec, WCD9335_CODEC_RPM_CLK_MCLK_CFG,
+				    0x03, 0x01);
+	tasha_codec_init_reg(codec);
+
+	regcache_mark_dirty(codec->component.regmap);
+	regcache_sync(codec->component.regmap);
+
+	pdata = dev_get_platdata(codec->dev->parent);
+	ret = tasha_handle_pdata(tasha, pdata);
+	if (IS_ERR_VALUE(ret))
+		dev_err(codec->dev, "%s: invalid pdata\n", __func__);
+
+	tasha_slimbus_slave_port_cfg.slave_dev_intfdev_la =
+		control->slim_slave->laddr;
+	tasha_slimbus_slave_port_cfg.slave_dev_pgd_la =
+		control->slim->laddr;
+	tasha_init_slim_slave_cfg(codec);
+
+	wcd_resmgr_post_ssr_v2(tasha->resmgr);
+
+	/* MBHC Init */
+	wcd_mbhc_deinit(&tasha->mbhc);
+	tasha->mbhc_started = false;
+
+	/* Initialize MBHC module */
+	ret = wcd_mbhc_init(&tasha->mbhc, codec, &mbhc_cb, &intr_ids,
+		      wcd_mbhc_registers, TASHA_ZDET_SUPPORTED);
+	if (ret)
+		dev_err(codec->dev, "%s: mbhc initialization failed\n",
+			__func__);
+	else
+		tasha_mbhc_hs_detect(codec, tasha->mbhc.mbhc_cfg);
+
+	if (tasha->machine_codec_event_cb)
+		tasha->machine_codec_event_cb(codec,
+				       WCD9335_CODEC_EVENT_CODEC_UP);
+
+	tasha_cleanup_irqs(tasha);
+	ret = tasha_setup_irqs(tasha);
+	if (ret) {
+		dev_err(codec->dev, "%s: tasha irq setup failed %d\n",
+			__func__, ret);
+		goto err;
+	}
+
+	tasha_enable_efuse_sensing(codec);
+	wcd_cpe_ssr_event(tasha->cpe_core, WCD_CPE_BUS_UP_EVENT);
+
+err:
+	mutex_unlock(&codec->mutex);
+	return ret;
+}
+
 static int tasha_codec_probe(struct snd_soc_codec *codec)
 {
 	struct wcd9xxx *control;
@@ -9187,9 +9335,16 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 
 	dev_info(codec->dev, "%s()\n", __func__);
 	tasha = snd_soc_codec_get_drvdata(codec);
+	tasha->intf_type = wcd9xxx_get_intf_type();
+
+	if (tasha->intf_type == WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
+		control->dev_down = tasha_device_down;
+		control->post_reset = tasha_post_reset_cb;
+		control->ssr_priv = (void *)codec;
+	}
 
 	/* Resource Manager post Init */
-	ret = wcd_resmgr_post_init(tasha->resmgr, codec);
+	ret = wcd_resmgr_post_init(tasha->resmgr, &tasha_resmgr_cb, codec);
 	if (ret) {
 		dev_err(codec->dev, "%s: wcd resmgr post init failed\n",
 			__func__);
@@ -9205,7 +9360,6 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 		tasha->comp_enabled[i] = 0;
 
 	tasha_update_reg_reset_values(codec);
-	tasha->intf_type = wcd9xxx_get_intf_type();
 	pr_debug("%s: MCLK Rate = %x\n", __func__, control->mclk_rate);
 	if (control->mclk_rate == TASHA_MCLK_CLK_12P288MHZ)
 		snd_soc_update_bits(codec, WCD9335_CODEC_RPM_CLK_MCLK_CFG,

@@ -58,6 +58,59 @@ int wcd_resmgr_get_clk_type(struct wcd9xxx_resmgr_v2 *resmgr)
 	return resmgr->clk_type;
 }
 
+static void wcd_resmgr_cdc_specific_get_clk(struct wcd9xxx_resmgr_v2 *resmgr,
+						int clk_users)
+{
+	/* Caller of this function should have acquired BG_CLK lock */
+	WCD9XXX_V2_BG_CLK_UNLOCK(resmgr);
+	if (clk_users) {
+		if (resmgr->resmgr_cb &&
+		    resmgr->resmgr_cb->cdc_rco_ctrl) {
+			while (clk_users--)
+				resmgr->resmgr_cb->cdc_rco_ctrl(resmgr->codec,
+								true);
+		}
+	}
+	/* Acquire BG_CLK lock before return */
+	WCD9XXX_V2_BG_CLK_LOCK(resmgr);
+}
+
+void wcd_resmgr_post_ssr_v2(struct wcd9xxx_resmgr_v2 *resmgr)
+{
+	int old_bg_audio_users;
+	int old_clk_rco_users, old_clk_mclk_users;
+
+	WCD9XXX_V2_BG_CLK_LOCK(resmgr);
+
+	old_bg_audio_users = resmgr->master_bias_users;
+	old_clk_mclk_users = resmgr->clk_mclk_users;
+	old_clk_rco_users = resmgr->clk_rco_users;
+	resmgr->master_bias_users = 0;
+	resmgr->clk_mclk_users = 0;
+	resmgr->clk_rco_users = 0;
+	resmgr->clk_type = WCD_CLK_OFF;
+
+	pr_debug("%s: old_bg_audio_users=%d old_clk_mclk_users=%d old_clk_rco_users=%d\n",
+		 __func__, old_bg_audio_users,
+		 old_clk_mclk_users, old_clk_rco_users);
+
+	if (old_bg_audio_users) {
+		while (old_bg_audio_users--)
+			wcd_resmgr_enable_master_bias(resmgr);
+	}
+
+	if (old_clk_mclk_users) {
+		while (old_clk_mclk_users--)
+			wcd_resmgr_enable_clk_block(resmgr, WCD_CLK_MCLK);
+	}
+
+	if (old_clk_rco_users)
+		wcd_resmgr_cdc_specific_get_clk(resmgr, old_clk_rco_users);
+
+	WCD9XXX_V2_BG_CLK_UNLOCK(resmgr);
+}
+
+
 /*
  * wcd_resmgr_enable_master_bias: enable codec master bias
  * @resmgr: handle to struct wcd9xxx_resmgr_v2
@@ -388,9 +441,11 @@ void wcd_resmgr_remove(struct wcd9xxx_resmgr_v2 *resmgr)
 /*
  * wcd_resmgr_post_init: post init call to assign codec handle
  * @resmgr: handle to struct wcd9xxx_resmgr_v2 created during early init
+ * @resmgr_cb: codec callback function for resmgr
  * @codec: handle to struct snd_soc_codec
  */
 int wcd_resmgr_post_init(struct wcd9xxx_resmgr_v2 *resmgr,
+			 const struct wcd_resmgr_cb *resmgr_cb,
 			 struct snd_soc_codec *codec)
 {
 	if (!resmgr) {
