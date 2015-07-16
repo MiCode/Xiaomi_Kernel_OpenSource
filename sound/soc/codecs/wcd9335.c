@@ -5130,6 +5130,94 @@ static int tasha_mad_input_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int tasha_pinctl_mode_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	u16 ctl_reg;
+	u8 reg_val, pinctl_position;
+
+	pinctl_position = ((struct soc_multi_mixer_control *)
+					kcontrol->private_value)->shift;
+	switch (pinctl_position >> 3) {
+	case 0:
+		ctl_reg = WCD9335_TEST_DEBUG_PIN_CTL_OE_0;
+		break;
+	case 1:
+		ctl_reg = WCD9335_TEST_DEBUG_PIN_CTL_OE_1;
+		break;
+	case 2:
+		ctl_reg = WCD9335_TEST_DEBUG_PIN_CTL_OE_2;
+		break;
+	case 3:
+		ctl_reg = WCD9335_TEST_DEBUG_PIN_CTL_OE_3;
+		break;
+	default:
+		dev_err(codec->dev, "%s: Invalid pinctl position = %d\n",
+			__func__, pinctl_position);
+		return -EINVAL;
+	}
+
+	reg_val = snd_soc_read(codec, ctl_reg);
+	reg_val = (reg_val >> (pinctl_position & 0x07)) & 0x1;
+	ucontrol->value.integer.value[0] = reg_val;
+
+	return 0;
+}
+
+static int tasha_pinctl_mode_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	u16 ctl_reg, cfg_reg;
+	u8 ctl_val, cfg_val, pinctl_position, pinctl_mode, mask;
+
+	/* 1- high or low; 0- high Z */
+	pinctl_mode = ucontrol->value.integer.value[0];
+	pinctl_position = ((struct soc_multi_mixer_control *)
+					kcontrol->private_value)->shift;
+
+	switch (pinctl_position >> 3) {
+	case 0:
+		ctl_reg = WCD9335_TEST_DEBUG_PIN_CTL_OE_0;
+		break;
+	case 1:
+		ctl_reg = WCD9335_TEST_DEBUG_PIN_CTL_OE_1;
+		break;
+	case 2:
+		ctl_reg = WCD9335_TEST_DEBUG_PIN_CTL_OE_2;
+		break;
+	case 3:
+		ctl_reg = WCD9335_TEST_DEBUG_PIN_CTL_OE_3;
+		break;
+	default:
+		dev_err(codec->dev, "%s: Invalid pinctl position = %d\n",
+			__func__, pinctl_position);
+		return -EINVAL;
+	}
+
+	ctl_val = pinctl_mode << (pinctl_position & 0x07);
+	mask = 1 << (pinctl_position & 0x07);
+	snd_soc_update_bits(codec, ctl_reg, mask, ctl_val);
+
+	cfg_reg = WCD9335_TLMM_BIST_MODE_PINCFG + pinctl_position;
+	if (!pinctl_mode) {
+		if (tasha->intf_type == WCD9XXX_INTERFACE_TYPE_SLIMBUS)
+			cfg_val = 0x4;
+		else
+			cfg_val = 0xC;
+	} else {
+		cfg_val = 0;
+	}
+	snd_soc_update_bits(codec, cfg_reg, 0x07, cfg_val);
+
+	dev_dbg(codec->dev, "%s: reg=0x%x mask=0x%x val=%d reg=0x%x val=%d\n",
+			__func__, ctl_reg, mask, ctl_val, cfg_reg, cfg_val);
+
+	return 0;
+}
+
 static const char * const rx_hph_mode_mux_text[] = {
 	"CLS_H_INVALID", "CLS_H_HIFI", "CLS_H_LP", "CLS_AB"
 };
@@ -5291,6 +5379,24 @@ static const struct snd_kcontrol_new tasha_snd_controls[] = {
 
 	SOC_ENUM_EXT("MAD Input", tasha_conn_mad_enum,
 		     tasha_mad_input_get, tasha_mad_input_put),
+
+	SOC_SINGLE_EXT("DMIC1_CLK_PIN_MODE", SND_SOC_NOPM, 17, 1, 0,
+		       tasha_pinctl_mode_get, tasha_pinctl_mode_put),
+
+	SOC_SINGLE_EXT("DMIC1_DATA_PIN_MODE", SND_SOC_NOPM, 18, 1, 0,
+		       tasha_pinctl_mode_get, tasha_pinctl_mode_put),
+
+	SOC_SINGLE_EXT("DMIC2_CLK_PIN_MODE", SND_SOC_NOPM, 19, 1, 0,
+		       tasha_pinctl_mode_get, tasha_pinctl_mode_put),
+
+	SOC_SINGLE_EXT("DMIC2_DATA_PIN_MODE", SND_SOC_NOPM, 20, 1, 0,
+		       tasha_pinctl_mode_get, tasha_pinctl_mode_put),
+
+	SOC_SINGLE_EXT("DMIC3_CLK_PIN_MODE", SND_SOC_NOPM, 21, 1, 0,
+		       tasha_pinctl_mode_get, tasha_pinctl_mode_put),
+
+	SOC_SINGLE_EXT("DMIC3_DATA_PIN_MODE", SND_SOC_NOPM, 22, 1, 0,
+		       tasha_pinctl_mode_get, tasha_pinctl_mode_put),
 };
 
 static int tasha_put_dec_enum(struct snd_kcontrol *kcontrol,
