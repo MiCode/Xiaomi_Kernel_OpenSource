@@ -537,8 +537,9 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 			notifications_successful = false;
 
 			/* Check for RPM, as it can't be restarted */
-			if (strcmp(ss_leaf_entry->ssr_name, "rpm") &&
-					!ss_leaf_entry->restarted)
+			if (!strcmp(ss_leaf_entry->ssr_name, "rpm"))
+				panic("%s: RPM failed to respond!\n", __func__);
+			else if (!ss_leaf_entry->restarted)
 				subsystem_restart(ss_leaf_entry->ssr_name);
 		}
 		ss_leaf_entry->restarted = false;
