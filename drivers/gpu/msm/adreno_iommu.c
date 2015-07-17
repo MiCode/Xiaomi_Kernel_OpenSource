@@ -14,6 +14,7 @@
 #include "kgsl_sharedmem.h"
 #include "a3xx_reg.h"
 #include "adreno_pm4types.h"
+#include "kgsl_mmu.h"
 
 #define A5XX_PFP_PER_PROCESS_UCODE_VER 0x5FF064
 #define A5XX_PM4_PER_PROCESS_UCODE_VER 0x5FF052
@@ -880,11 +881,19 @@ static int _set_pagetable_cpu(struct adreno_ringbuffer *rb,
 			current_global_ptname), new_pt->name);
 	}
 
-	/* Update the RB pagetable here */
+	/* Update the RB pagetable info here */
 	kgsl_sharedmem_writel(device, &rb->pagetable_desc,
 		offsetof(
 		struct adreno_ringbuffer_pagetable_info,
 		current_rb_ptname), new_pt->name);
+	kgsl_sharedmem_writeq(device, &rb->pagetable_desc,
+		offsetof(
+		struct adreno_ringbuffer_pagetable_info,
+		ttbr0), kgsl_mmu_pagetable_get_ttbr0(new_pt));
+	kgsl_sharedmem_writel(device, &rb->pagetable_desc,
+		offsetof(
+		struct adreno_ringbuffer_pagetable_info,
+		contextidr), kgsl_mmu_pagetable_get_contextidr(new_pt));
 
 	return 0;
 }
