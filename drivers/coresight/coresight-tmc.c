@@ -206,6 +206,8 @@ struct tmc_drvdata {
 	char			*byte_cntr_node;
 	uint32_t		mem_size;
 	bool			sticky_enable;
+	bool			force_reg_dump;
+	bool			dump_reg;
 	bool			sg_enable;
 	enum tmc_etr_mem_type	mem_type;
 	enum tmc_etr_mem_type	memtype;
@@ -215,6 +217,7 @@ struct tmc_drvdata {
 	struct notifier_block	jtag_save_blk;
 };
 
+static void __tmc_reg_dump(struct tmc_drvdata *drvdata);
 static void tmc_wait_for_flush(struct tmc_drvdata *drvdata)
 {
 	int count;
@@ -910,6 +913,11 @@ static int tmc_enable(struct tmc_drvdata *drvdata, enum tmc_mode mode)
 			__tmc_etf_enable(drvdata);
 	}
 	drvdata->enable = true;
+	if (drvdata->force_reg_dump) {
+		drvdata->dump_reg = true;
+		__tmc_reg_dump(drvdata);
+		drvdata->dump_reg = false;
+	}
 
 	/*
 	 * sticky_enable prevents users from reading tmc dev node before
@@ -952,7 +960,9 @@ static void __tmc_reg_dump(struct tmc_drvdata *drvdata)
 	char *reg_hdr;
 	uint32_t *reg_buf;
 
-	if (!drvdata->reg_buf || !drvdata->aborting)
+	if (!drvdata->reg_buf)
+		return;
+	else if (!drvdata->aborting && !drvdata->dump_reg)
 		return;
 
 	reg_hdr = drvdata->reg_buf - PAGE_SIZE;
@@ -2379,6 +2389,10 @@ static int tmc_probe(struct platform_device *pdev)
 	ret = clk_prepare_enable(drvdata->clk);
 	if (ret)
 		return ret;
+
+	drvdata->force_reg_dump = of_property_read_bool
+				  (pdev->dev.of_node,
+				  "qcom,force-reg-dump");
 
 	devid = tmc_readl(drvdata, CORESIGHT_DEVID);
 	drvdata->config_type = BMVAL(devid, 6, 7);
