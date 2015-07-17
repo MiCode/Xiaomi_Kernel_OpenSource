@@ -1933,19 +1933,20 @@ static int _load_firmware(struct adreno_device *adreno_dev, const char *fwfile,
 		return ret;
 	}
 
-	ret = kgsl_allocate_global(device, ucode, fw->size,
+	ret = kgsl_allocate_global(device, ucode, fw->size - 4,
 				KGSL_MEMFLAGS_GPUREADONLY, 0);
 
 	if (ret)
-		return ret;
+		goto done;
 
 	memcpy(ucode->hostptr, &fw->data[4], fw->size - 4);
 	*ucode_size = (fw->size - 4) / sizeof(uint32_t);
 	*ucode_version = *(unsigned int *)&fw->data[4];
 
+done:
 	release_firmware(fw);
 
-	return 0;
+	return ret;
 }
 
 /*
