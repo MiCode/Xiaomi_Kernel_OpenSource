@@ -59,7 +59,7 @@ struct adm_copp {
 	wait_queue_head_t adm_delay_wait[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	atomic_t adm_delay_stat[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	uint32_t adm_delay[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
-	enum adm_cal_status adm_status[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
+	unsigned long adm_status[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 };
 
 struct source_tracking_data {
