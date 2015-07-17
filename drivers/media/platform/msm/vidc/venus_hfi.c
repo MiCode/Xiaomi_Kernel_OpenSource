@@ -2678,8 +2678,10 @@ static int venus_hfi_session_set_property(void *sess,
 			pkt, session, ptype, pdata);
 
 	if (rc == -ENOTSUPP) {
-		dprintk(VIDC_DBG, "%s Property not permitted\n", __func__);
-		return rc;
+		dprintk(VIDC_DBG,
+			"%s Property not permitted ptype = 0x%x\n",
+			__func__, ptype);
+		return 0;
 	} else if (rc) {
 		dprintk(VIDC_ERR, "set property: failed to create packet\n");
 		return -EINVAL;
