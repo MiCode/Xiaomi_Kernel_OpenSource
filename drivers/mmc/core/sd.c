@@ -377,9 +377,9 @@ int mmc_sd_switch_hs(struct mmc_card *card)
 		goto out;
 
 	if ((status[16] & 0xF) != 1) {
-		pr_warn("%s: Problem switching card into high-speed mode!\n",
-			mmc_hostname(card->host));
-		err = 0;
+		pr_warn("%s: Problem switching card into high-speed mode!, status:%x\n",
+			mmc_hostname(card->host), (status[16] & 0xF));
+		err = -EBUSY;
 	} else {
 		err = 1;
 	}
@@ -525,15 +525,17 @@ static int sd_set_bus_speed_mode(struct mmc_card *card, u8 *status)
 	if (err)
 		return err;
 
-	if ((status[16] & 0xF) != card->sd_bus_speed)
-		pr_warn("%s: Problem setting bus speed mode!\n",
-			mmc_hostname(card->host));
-	else {
+	if ((status[16] & 0xF) != card->sd_bus_speed) {
+		pr_warn("%s: Problem setting bus speed mode(%u)! max_dtr:%u, timing:%u, status:%x\n",
+			mmc_hostname(card->host), card->sd_bus_speed,
+			card->sw_caps.uhs_max_dtr, timing, (status[16] & 0xF));
+		err = -EBUSY;
+	} else {
 		mmc_set_timing(card->host, timing);
 		mmc_set_clock(card->host, card->sw_caps.uhs_max_dtr);
 	}
 
-	return 0;
+	return err;
 }
 
 /* Get host's max current setting at its current voltage */
