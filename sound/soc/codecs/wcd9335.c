@@ -1222,6 +1222,21 @@ complete_zdet:
 		tasha->zdet_gpio_cb(codec, false);
 }
 
+static void tasha_mbhc_gnd_det_ctrl(struct snd_soc_codec *codec, bool enable)
+{
+	if (enable) {
+		snd_soc_update_bits(codec, WCD9335_ANA_MBHC_MECH,
+				    0x02, 0x02);
+		snd_soc_update_bits(codec, WCD9335_ANA_MBHC_MECH,
+				    0x40, 0x40);
+	} else {
+		snd_soc_update_bits(codec, WCD9335_ANA_MBHC_MECH,
+				    0x40, 0x00);
+		snd_soc_update_bits(codec, WCD9335_ANA_MBHC_MECH,
+				    0x02, 0x00);
+	}
+}
+
 static const struct wcd_mbhc_cb mbhc_cb = {
 	.request_irq = tasha_mbhc_request_irq,
 	.irq_control = tasha_mbhc_irq_control,
@@ -1240,6 +1255,7 @@ static const struct wcd_mbhc_cb mbhc_cb = {
 	.get_hwdep_fw_cal = tasha_get_hwdep_fw_cal,
 	.mbhc_micb_ctrl_thr_mic = tasha_mbhc_micb_ctrl_threshold_mic,
 	.compute_impedance = tasha_wcd_mbhc_calc_impedance,
+	.mbhc_gnd_det_ctrl = tasha_mbhc_gnd_det_ctrl,
 };
 
 static int tasha_get_anc_slot(struct snd_kcontrol *kcontrol,
