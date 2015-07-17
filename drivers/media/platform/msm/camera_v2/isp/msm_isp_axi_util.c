@@ -855,7 +855,7 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 
 	stream_info->memory_input = stream_cfg_cmd->memory_input;
 	vfe_dev->reg_update_requested &=
-		~(BIT(stream_info->stream_src));
+		~(BIT(SRC_TO_INTF(stream_info->stream_src)));
 
 	msm_isp_axi_reserve_wm(vfe_dev, &vfe_dev->axi_data, stream_info);
 
@@ -2207,7 +2207,7 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 			HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i])];
 		msm_isp_deinit_stream_ping_pong_reg(vfe_dev, stream_info);
 		vfe_dev->reg_update_requested &=
-			~(BIT(stream_info->stream_src));
+			~(BIT(SRC_TO_INTF(stream_info->stream_src)));
 	}
 
 	return rc;

@@ -746,14 +746,13 @@ static void msm_vfe40_reg_update(struct vfe_device *vfe_dev,
 		vfe_dev->reg_update_requested;
 	if ((vfe_dev->is_split && vfe_dev->pdev->id == ISP_VFE1) &&
 		((frame_src == VFE_PIX_0) || (frame_src == VFE_SRC_MAX))) {
-		msm_camera_io_w_mb(
-			vfe_dev->dual_vfe_res->reg_update_mask[ISP_VFE0],
+		msm_camera_io_w_mb(update_mask,
 			vfe_dev->dual_vfe_res->vfe_base[ISP_VFE0] + 0x378);
-		msm_camera_io_w_mb(vfe_dev->reg_update_requested,
+		msm_camera_io_w_mb(update_mask,
 			vfe_dev->vfe_base + 0x378);
 	} else if (!vfe_dev->is_split ||
 		(frame_src >= VFE_RAW_0 && frame_src <= VFE_SRC_MAX)) {
-		msm_camera_io_w_mb(vfe_dev->reg_update_requested,
+		msm_camera_io_w_mb(update_mask,
 			vfe_dev->vfe_base + 0x378);
 	}
 	spin_unlock_irqrestore(&vfe_dev->reg_update_lock, flags);
