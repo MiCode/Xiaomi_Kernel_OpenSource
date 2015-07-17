@@ -1828,7 +1828,7 @@ static void a5xx_post_start(struct adreno_device *adreno_dev)
 	}
 
 	if (adreno_is_preemption_enabled(adreno_dev))
-		cmds += _preemption_init(adreno_dev, rb, cmds, 0);
+		cmds += _preemption_init(adreno_dev, rb, cmds, NULL);
 
 	if (cmds == start)
 		return;
@@ -3101,6 +3101,9 @@ static void a5xx_preempt_clear_state(
 	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_RPTR,
 			&(adreno_dev->cur_rb->rptr));
 
+	/* turn on IOMMU as the preemption may trigger pt switch */
+	kgsl_mmu_enable_clk(&device->mmu);
+
 	/*
 	 * setup memory to do the switch to highest priority RB
 	 * which is not empty or may be starving away(poor thing)
@@ -3185,7 +3188,7 @@ static void a5xx_preempt_complete_state(
 	adreno_dev->cur_rb = adreno_dev->next_rb;
 	adreno_dev->cur_rb->preempted_midway = 0;
 	adreno_dev->cur_rb->wptr_preempt_end = 0xFFFFFFFF;
-	adreno_dev->next_rb = 0;
+	adreno_dev->next_rb = NULL;
 
 	if (adreno_disp_preempt_fair_sched) {
 		/* starved rb is now scheduled so unhalt dispatcher */
@@ -3208,6 +3211,8 @@ static void a5xx_preempt_complete_state(
 				ADRENO_DISPATCHER_RB_STARVE_TIMER_UNINIT;
 		}
 	}
+	adreno_ringbuffer_mmu_disable_clk_on_ts(device, adreno_dev->cur_rb,
+						adreno_dev->cur_rb->timestamp);
 
 	atomic_set(&dispatcher->preemption_state,
 		ADRENO_DISPATCHER_PREEMPT_CLEAR);

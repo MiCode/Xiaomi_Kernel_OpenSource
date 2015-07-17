@@ -468,7 +468,7 @@ TRACE_EVENT(kgsl_mem_unmapped_area_collision,
 		 unsigned long addr,
 		 unsigned long len),
 
-	TP_ARGS(mem_entry, len, addr),
+	TP_ARGS(mem_entry, addr, len),
 
 	TP_STRUCT__entry(
 		__field(unsigned int, id)

@@ -17,7 +17,11 @@
 #include <linux/genalloc.h>
 #include <linux/slab.h>
 #include <linux/iommu.h>
+#ifdef CONFIG_MSM_IOMMU
+#include <linux/qcom_iommu.h>
+#endif
 #include <linux/msm_kgsl.h>
+#include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
 #include <stddef.h>
 
@@ -34,36 +38,18 @@
 
 static struct kgsl_mmu_pt_ops iommu_pt_ops;
 
-static struct kgsl_iommu_register_list kgsl_iommuv1_reg[KGSL_IOMMU_REG_MAX] = {
-	{ 0, 0 },			/* GLOBAL_BASE */
-	{ 0x0, 1 },			/* SCTLR */
-	{ 0x20, 1 },			/* TTBR0 */
-	{ 0x28, 1 },			/* TTBR1 */
-	{ 0x58, 1 },			/* FSR */
-	{ 0x60, 1 },			/* FAR_0 */
-	{ 0x618, 1 },			/* TLBIALL */
-	{ 0x008, 1 },			/* RESUME */
-	{ 0x68, 1 },			/* FSYNR0 */
-	{ 0x6C, 1 },			/* FSYNR1 */
-	{ 0x7F0, 1 },			/* TLBSYNC */
-	{ 0x7F4, 1 },			/* TLBSTATUS */
-	{ 0x2000, 0 }			/* IMPLDEF_MICRO_MMU_CRTL */
-};
-
-static struct kgsl_iommu_register_list kgsl_iommuv2_reg[KGSL_IOMMU_REG_MAX] = {
-	{ 0, 0 },			/* GLOBAL_BASE */
-	{ 0x0, 1 },			/* SCTLR */
-	{ 0x20, 1 },			/* TTBR0 */
-	{ 0x28, 1 },			/* TTBR1 */
-	{ 0x58, 1 },			/* FSR */
-	{ 0x60, 1 },			/* FAR_0 */
-	{ 0x618, 1 },			/* TLBIALL */
-	{ 0x008, 1 },			/* RESUME */
-	{ 0x68, 1 },			/* FSYNR0 */
-	{ 0x6C, 1 },			/* FSYNR1 */
-	{ 0x7F0, 1 },			/* TLBSYNC */
-	{ 0x7F4, 1 },			/* TLBSTATUS */
-	{ 0x6000, 0 }			/* IMPLDEF_MICRO_MMU_CRTL */
+const unsigned int kgsl_iommu_reg_list[KGSL_IOMMU_REG_MAX] = {
+	0x0,/* SCTLR */
+	0x20,/* TTBR0 */
+	0x28,/* TTBR1 */
+	0x58,/* FSR */
+	0x60,/* FAR_0 */
+	0x618,/* TLBIALL */
+	0x008,/* RESUME */
+	0x68,/* FSYNR0 */
+	0x6C,/* FSYNR1 */
+	0x7F0,/* TLBSYNC */
+	0x7F4,/* TLBSTATUS */
 };
 
 /*
@@ -325,7 +311,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	else if (flags & IOMMU_FAULT_PERMISSION)
 		fault_type = "permission";
 
-	ptbase = KGSL_IOMMU_GET_CTX_REG_Q(iommu, ctx->ctx_id, TTBR0)
+	ptbase = KGSL_IOMMU_GET_CTX_REG_Q(ctx, TTBR0)
 			& KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
 
 	ptname = kgsl_mmu_get_ptname_from_ptbase(mmu, ptbase);
@@ -338,8 +324,8 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 		KGSL_MEM_CRIT(ctx->kgsldev,
 			"GPU PAGE FAULT: addr = %lX pid = %d\n", addr, ptname);
 		KGSL_MEM_CRIT(ctx->kgsldev,
-			"context = %d TTBR0 = %pa (%s %s fault)\n",
-			ctx->ctx_id, &ptbase,
+			"context = %s TTBR0 = %llx (%s %s fault)\n",
+			ctx->name, ptbase,
 			write ? "write" : "read", fault_type);
 
 		/* Don't print the debug if this is a permissions fault */
@@ -382,9 +368,9 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 		uint32_t sctlr_val;
 		ret = -EBUSY;
 		/* Disable context fault interrupts */
-		sctlr_val = KGSL_IOMMU_GET_CTX_REG(iommu, ctx->ctx_id, SCTLR);
+		sctlr_val = KGSL_IOMMU_GET_CTX_REG(ctx, SCTLR);
 		sctlr_val &= ~(0x1 << KGSL_IOMMU_SCTLR_CFIE_SHIFT);
-		KGSL_IOMMU_SET_CTX_REG(iommu, ctx->ctx_id, SCTLR, sctlr_val);
+		KGSL_IOMMU_SET_CTX_REG(ctx, SCTLR, sctlr_val);
 
 		adreno_set_gpu_fault(adreno_dev, ADRENO_IOMMU_PAGE_FAULT);
 		/* Go ahead with recovery*/
@@ -590,7 +576,7 @@ static int kgsl_iommu_init_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	int ret = 0;
 	struct kgsl_iommu_pt *iommu_pt = NULL;
 	struct bus_type *bus = &platform_bus_type;
-	int disable_htw = 1;
+	int disable_htw = !MMU_FEATURE(mmu, KGSL_MMU_COHERENT_HTW);
 
 	if (pt == NULL)
 		return -EINVAL;
@@ -616,7 +602,6 @@ static int kgsl_iommu_init_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 		return -ENOMEM;
 	}
 
-	/* Disable coherent HTW, it is not supported by SMMU driver */
 	iommu_domain_set_attr(iommu_pt->domain,
 			DOMAIN_ATTR_COHERENT_HTW_DISABLE, &disable_htw);
 
@@ -659,149 +644,13 @@ err:
 	return ret;
 }
 
-/*
- * kgsl_detach_pagetable_iommu_domain - Detach the IOMMU from a
- * pagetable
- * @mmu - Pointer to the device mmu structure
- * @priv - Flag indicating whether the private or user context is to be
- * detached
- *
- * Detach the IOMMU with the domain that is contained in the
- * hwpagetable of the given mmu. After detaching the IOMMU is not
- * in use because the PTBR will not be set after a detach
- * Return - void
- */
-static void kgsl_detach_pagetable_iommu_domain(struct kgsl_mmu *mmu)
-{
-	struct kgsl_iommu_pt *iommu_pt;
-	struct kgsl_iommu *iommu = mmu->priv;
-	struct kgsl_iommu_context *ctx;
-	int i;
 
-	iommu_pt = mmu->defaultpagetable->priv;
-	for (i = 0; i < KGSL_IOMMU_CONTEXT_MAX; i++) {
-		ctx = &iommu->ctx[i];
-		if (ctx->dev == NULL)
-			continue;
-		if (mmu->securepagetable && (KGSL_IOMMU_CONTEXT_SECURE == i))
-			iommu_pt = mmu->securepagetable->priv;
-		if (ctx->attached) {
-			iommu_detach_device(iommu_pt->domain, ctx->dev);
-			ctx->attached = false;
-			KGSL_MEM_INFO(mmu->device,
-				"iommu %p detached from user dev of MMU: %p\n",
-				iommu_pt->domain, mmu);
-		}
-	}
+#ifndef CONFIG_MSM_IOMMU
+static struct device *msm_iommu_get_ctx(const char *name)
+{
+	return ERR_PTR(-ENODEV);
 }
-
-/*
- * _iommu_get_clks - get iommu clocks
- * @mmu - Pointer to the device mmu structure
- */
-void _iommu_get_clks(struct kgsl_mmu *mmu)
-{
-	struct kgsl_device_platform_data *pdata =
-		dev_get_platdata(&mmu->device->pdev->dev);
-	struct kgsl_iommu *iommu = mmu->priv;
-	struct kgsl_device_iommu_data *data = pdata->iommu_data;
-#ifdef CONFIG_MSM_IOMMU
-	struct kgsl_iommu_context  *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
-	struct msm_iommu_drvdata *drvdata = 0;
 #endif
-	int i;
-
-	/* Init IOMMU clks here */
-#ifdef CONFIG_MSM_IOMMU
-	if (MMU_FEATURE(mmu, KGSL_MMU_DMA_API)) {
-		for (i = 0; i < KGSL_IOMMU_MAX_CLKS; i++)
-			iommu->clks[i] = data->clks[i];
-	} else {
-		drvdata = dev_get_drvdata(ctx->dev->parent);
-		iommu->clks[0] = drvdata->pclk;
-		iommu->clks[1] = drvdata->clk;
-		iommu->clks[2] = drvdata->aclk;
-		iommu->clks[3] = iommu->gtcu_iface_clk;
-	}
-#else
-	for (i = 0; i < KGSL_IOMMU_MAX_CLKS; i++)
-		iommu->clks[i] = data->clks[i];
-#endif
-}
-
-/*
- * kgsl_attach_pagetable_iommu_domain - Attach the IOMMU to a
- * pagetable, i.e set the IOMMU's PTBR to the pagetable address and
- * setup other IOMMU registers for the device so that it becomes
- * active
- * @mmu - Pointer to the device mmu structure
- * @priv - Flag indicating whether the private or user context is to be
- * attached
- *
- * Attach the IOMMU with the domain that is contained in the
- * hwpagetable of the given mmu.
- * Return - 0 on success else error code
- */
-static int kgsl_attach_pagetable_iommu_domain(struct kgsl_mmu *mmu)
-{
-	struct kgsl_iommu_pt *iommu_pt;
-	struct kgsl_iommu *iommu = mmu->priv;
-	struct kgsl_iommu_context *ctx;
-	int i, ret = 0;
-
-	/*
-	 * If retention is supported, iommu hw retains the configuration
-	 * on power collapse. If retention is supported we need to attach
-	 * only once.
-	 */
-	if (MMU_FEATURE(mmu, KGSL_MMU_RETENTION) &&
-		iommu->ctx[KGSL_IOMMU_CONTEXT_USER].attached)
-		return 0;
-
-	/* Loop through all the iommu devices and attach the domain */
-	iommu_pt = mmu->defaultpagetable->priv;
-	for (i = 0; i < KGSL_IOMMU_CONTEXT_MAX; i++) {
-
-		ctx = &iommu->ctx[i];
-		if (ctx->dev == NULL || ctx->attached)
-			continue;
-
-		if (KGSL_IOMMU_CONTEXT_SECURE == i) {
-			if (mmu->securepagetable)
-				iommu_pt = mmu->securepagetable->priv;
-			else
-				continue;
-		}
-
-		ret = iommu_attach_device(iommu_pt->domain, ctx->dev);
-		if (ret) {
-			KGSL_MEM_ERR(mmu->device,
-					"Failed to attach device, err %d\n",
-					ret);
-			goto done;
-		}
-		ctx->attached = true;
-		KGSL_MEM_INFO(mmu->device,
-				"iommu pt %p attached to dev %p, ctx_id %d\n",
-				iommu_pt->domain, ctx->dev, ctx->ctx_id);
-		if (KGSL_IOMMU_CONTEXT_SECURE != i) {
-			ret = iommu_domain_get_attr(iommu_pt->domain,
-					DOMAIN_ATTR_PT_BASE_ADDR,
-					&iommu_pt->pt_base);
-			if (ret) {
-				KGSL_CORE_ERR(
-				  "pt_base query failed, using global pt\n");
-				mmu->features |= KGSL_MMU_GLOBAL_PAGETABLE;
-				ret = 0;
-			}
-		}
-	}
-
-	_iommu_get_clks(mmu);
-
-done:
-	return ret;
-}
 
 /*
  * _get_iommu_ctxs - Get device pointer to IOMMU contexts
@@ -811,99 +660,35 @@ done:
  */
 static int _get_iommu_ctxs(struct kgsl_mmu *mmu)
 {
-	struct kgsl_device_platform_data *pdata =
-		dev_get_platdata(&mmu->device->pdev->dev);
 	struct kgsl_iommu *iommu = mmu->priv;
-	struct kgsl_device_iommu_data *data = pdata->iommu_data;
 	struct kgsl_iommu_context *ctx;
 	int i;
 	int ret = 0;
 
-	for (i = 0; i < data->iommu_ctx_count; i++) {
-		if (!strcmp("gfx3d_user", data->iommu_ctxs[i].iommu_ctx_name)) {
-			ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
-		} else if (!strcmp("gfx3d_secure",
-				data->iommu_ctxs[i].iommu_ctx_name)) {
-			ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE];
-			mmu->secured = true;
-		} else if (!strcmp("gfx3d_spare",
-				data->iommu_ctxs[i].iommu_ctx_name)) {
+	for (i = 0; i < KGSL_IOMMU_CONTEXT_MAX; i++) {
+		ctx = &iommu->ctx[i];
+		/* skip contexts not found in dt */
+		if (ctx->name == NULL)
 			continue;
-		} else if (!strcmp("gfx3d_priv",
-				data->iommu_ctxs[i].iommu_ctx_name)) {
-			continue;
-		} else {
-			KGSL_CORE_ERR("dt: IOMMU context %s is invalid\n",
-				data->iommu_ctxs[i].iommu_ctx_name);
-			return -EINVAL;
-		}
-
-		/* Add ctx name here */
-		ctx->name = data->iommu_ctxs[i].iommu_ctx_name;
-
-		/* Add device ptr here */
-#ifdef CONFIG_MSM_IOMMU
-		if (data->iommu_ctxs[i].dev)
-			ctx->dev = data->iommu_ctxs[i].dev;
-		else
-			ctx->dev = msm_iommu_get_ctx(ctx->name);
-#else
-		if (data->iommu_ctxs[i].dev)
-                        ctx->dev = data->iommu_ctxs[i].dev;
-#endif
-
-		/* Add ctx_id here */
-		ctx->ctx_id = data->iommu_ctxs[i].ctx_id;
-
 		ctx->kgsldev = mmu->device;
 
-		if ((!ctx->dev) || IS_ERR(ctx->dev)) {
+		if (ctx->dev != NULL)
+			continue;
+		/*
+		 * The old iommu driver requires that we query the context bank
+		 * device rather than getting it from dt.
+		 */
+		ctx->dev = msm_iommu_get_ctx(ctx->name);
+		if (IS_ERR_OR_NULL(ctx->dev)) {
 			ret = (!ctx->dev) ? -EINVAL : PTR_ERR(ctx->dev);
 			memset(ctx, 0, sizeof(*ctx));
-			KGSL_CORE_ERR(
-			   "Failed to initialize iommu contexts, err: %d\n",
-			   ret);
+			KGSL_CORE_ERR("ctx %s: msm_iommu_get_ctx err: %d\n",
+					ctx->name, ret);
+			break;
 		}
 	}
 
 	return ret;
-}
-
-/*
- * _iommu_set_register_map - Map the IOMMU registers
- */
-static int _iommu_set_register_map(struct kgsl_mmu *mmu)
-{
-	struct kgsl_device_platform_data *pdata =
-		dev_get_platdata(&mmu->device->pdev->dev);
-	struct kgsl_iommu *iommu = mmu->device->mmu.priv;
-	struct kgsl_device_iommu_data *data = pdata->iommu_data;
-
-	/* set iommu features */
-	mmu->features |= data->features;
-
-	/* Clear 64 bit support if the DT overruled it */
-	if (mmu->features & KGSL_MMU_FORCE_32BIT)
-		mmu->features &= ~KGSL_MMU_64BIT;
-
-	mmu->secure_align_mask = data->secure_align_mask;
-
-	/* set up the IOMMU register map */
-	if (!data->regstart || !data->regsize) {
-		KGSL_CORE_ERR("The register range for IOMMU not specified\n");
-		return -EINVAL;
-	}
-
-	iommu->regbase = ioremap(data->regstart, data->regsize);
-	if (iommu->regbase == NULL) {
-		KGSL_CORE_ERR("Could not map IOMMU registers 0x%X:0x%x\n",
-			data->regstart, data->regsize);
-		return -ENOMEM;
-	}
-
-	iommu->ahb_base_offset = data->regstart - mmu->device->reg_phys;
-
-	return 0;
 }
 
 /*
@@ -937,17 +722,12 @@ static uint64_t kgsl_iommu_get_default_ttbr0(struct kgsl_mmu *mmu,
 static unsigned int kgsl_iommu_get_reg_ahbaddr(struct kgsl_mmu *mmu,
 		enum kgsl_iommu_context_id id, enum kgsl_iommu_reg_map reg)
 {
+	unsigned int result;
 	struct kgsl_iommu *iommu = mmu->priv;
-	int ctx_id = iommu->ctx[id].ctx_id;
+	struct kgsl_iommu_context *ctx = &iommu->ctx[id];
 
-	if (iommu->iommu_reg_list[reg].ctx_reg)
-		return iommu->ahb_base_offset +
-			iommu->iommu_reg_list[reg].reg_offset +
-			(ctx_id << KGSL_IOMMU_CTX_SHIFT) +
-			iommu->ctx_ahb_offset;
-	else
-		return iommu->ahb_base_offset +
-			iommu->iommu_reg_list[reg].reg_offset;
+	result = ctx->gpu_offset + kgsl_iommu_reg_list[reg];
+	return result;
 }
 
 static int kgsl_iommu_init(struct kgsl_mmu *mmu)
@@ -957,46 +737,37 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	 *
 	 * call this with the global lock held
 	 */
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(mmu->device);
 	int status = 0;
-	struct kgsl_iommu *iommu;
-	struct platform_device *pdev = mmu->device->pdev;
+	struct kgsl_iommu *iommu = mmu->priv;
+	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 
-	iommu = kzalloc(sizeof(struct kgsl_iommu), GFP_KERNEL);
-	if (!iommu)
+	if (ctx->name == NULL) {
+		KGSL_CORE_ERR("dt: gfx3d0_user context bank not found\n");
+		return -EINVAL;
+	}
+
+	/* check requirements for per process pagetables */
+	if (ctx->gpu_offset == UINT_MAX) {
+		KGSL_CORE_ERR("missing qcom,gpu-offset forces global pt\n");
+		mmu->features |= KGSL_MMU_GLOBAL_PAGETABLE;
+	}
+
+	if (iommu->version == 1 && iommu->micro_mmu_ctrl == UINT_MAX) {
+		KGSL_CORE_ERR(
+			"missing qcom,micro-mmu-control forces global pt\n");
+		mmu->features |= KGSL_MMU_GLOBAL_PAGETABLE;
+	}
+
+	iommu->regbase = ioremap(iommu->regstart, iommu->regsize);
+	if (iommu->regbase == NULL) {
+		KGSL_CORE_ERR("Could not map IOMMU registers 0x%lx:0x%x\n",
+			iommu->regstart, iommu->regsize);
 		return -ENOMEM;
+	}
 
-	mmu->priv = iommu;
 	status = _get_iommu_ctxs(mmu);
 	if (status)
 		goto done;
-	status = _iommu_set_register_map(mmu);
-	if (status)
-		goto done;
-
-	if (of_property_match_string(pdev->dev.of_node, "clock-names",
-						"gtcu_iface_clk") >= 0)
-		iommu->gtcu_iface_clk = clk_get(&pdev->dev, "gtcu_iface_clk");
-
-	if (kgsl_msm_supports_iommu_v2()) {
-		if (adreno_is_a530(adreno_dev)) {
-			iommu->iommu_reg_list = kgsl_iommuv2_reg;
-			iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V2_A530;
-			iommu->ctx_ahb_offset = KGSL_IOMMU_CTX_OFFSET_V2_A530;
-		} else {
-			iommu->iommu_reg_list = kgsl_iommuv1_reg;
-			iommu->ctx_ahb_offset = KGSL_IOMMU_CTX_AHB_OFFSET_V2;
-			if (adreno_is_a405v2(adreno_dev))
-				iommu->ctx_offset =
-					KGSL_IOMMU_CTX_OFFSET_A405V2;
-			else
-				iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V2;
-		}
-	}  else {
-		iommu->iommu_reg_list = kgsl_iommuv1_reg;
-		iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V1;
-		iommu->ctx_ahb_offset = KGSL_IOMMU_CTX_OFFSET_V1;
-	}
 
 	if (addr_entry_cache == NULL) {
 		addr_entry_cache = KMEM_CACHE(kgsl_iommu_addr_entry, 0);
@@ -1016,94 +787,82 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	}
 
 done:
-	if (status) {
-		kfree(iommu);
-		mmu->priv = NULL;
-	}
 	return status;
 }
 
-/*
- * kgsl_iommu_setup_defaultpagetable - Setup the initial defualtpagetable
- * for iommu. This function is only called once during first start, successive
- * start do not call this funciton.
- * @mmu - Pointer to mmu structure
- *
- * Create the  initial defaultpagetable and setup the iommu mappings to it
- * Return - 0 on success else error code
- */
-static int kgsl_iommu_setup_defaultpagetable(struct kgsl_mmu *mmu)
+static void _detach_context(struct kgsl_iommu_context *ctx)
 {
-	int status = 0;
+	struct kgsl_iommu_pt *iommu_pt;
 
-	mmu->defaultpagetable = kgsl_mmu_getpagetable(mmu, KGSL_MMU_GLOBAL_PT);
-	/* Return error if the default pagetable doesn't exist */
-	if (mmu->defaultpagetable == NULL) {
-		status = -ENOMEM;
-		goto err;
-	}
+	if (ctx->default_pt == NULL)
+		return;
 
-	if (mmu->secured) {
-		mmu->securepagetable = kgsl_mmu_getpagetable(mmu,
-				KGSL_MMU_SECURE_PT);
-		/* Return error if the secure pagetable doesn't exist */
-		if (mmu->securepagetable == NULL) {
-			KGSL_DRV_ERR(mmu->device,
-			"Unable to create secure pagetable, disable content protection\n");
-			status = -ENOMEM;
-			goto err;
-		}
-	}
-	return status;
-err:
-	if (mmu->defaultpagetable) {
-		kgsl_mmu_putpagetable(mmu->defaultpagetable);
-		mmu->defaultpagetable = NULL;
-	}
-	return status;
+	iommu_pt = ctx->default_pt->priv;
+	iommu_detach_device(iommu_pt->domain, ctx->dev);
+	ctx->default_pt = NULL;
 }
 
-static int kgsl_iommu_start(struct kgsl_mmu *mmu)
+static int _setup_user_context(struct kgsl_mmu *mmu)
 {
-	int status;
+	int ret;
 	struct kgsl_iommu *iommu = mmu->priv;
-	struct kgsl_iommu_context *ctx;
-	int i;
-	int sctlr_val = 0;
+	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(mmu->device);
+	unsigned int cb_num;
+	struct kgsl_iommu_pt *iommu_pt;
+
+	/* if retention is enabled, we might already be attached */
+	if (ctx->default_pt != NULL)
+		return 0;
 
 	if (mmu->defaultpagetable == NULL) {
-		status = kgsl_iommu_setup_defaultpagetable(mmu);
-		if (status)
-			return -ENOMEM;
+		mmu->defaultpagetable = kgsl_mmu_getpagetable(mmu,
+						KGSL_MMU_GLOBAL_PT);
+		/* if we don't have a default pagetable, nothing will work */
+		BUG_ON(mmu->defaultpagetable == NULL);
 	}
+	iommu_pt = mmu->defaultpagetable->priv;
 
-	status = kgsl_attach_pagetable_iommu_domain(mmu);
-	if (status)
+	ret = iommu_attach_device(iommu_pt->domain, ctx->dev);
+	if (ret) {
+		KGSL_CORE_ERR("Failed to attach, err %d\n", ret);
 		goto done;
+	}
+	ctx->default_pt = mmu->defaultpagetable;
+
+	ret = iommu_domain_get_attr(iommu_pt->domain, DOMAIN_ATTR_CONTEXT_BANK,
+					&cb_num);
+	if (ret) {
+		KGSL_CORE_ERR("get CONTEXT_BANK attr, err %d\n", ret);
+		goto done;
+	}
+	ctx->cb_num = cb_num;
+	ctx->regbase = iommu->regbase + KGSL_IOMMU_CB0_OFFSET
+		+ (cb_num << KGSL_IOMMU_CB_SHIFT);
+
+	ret = iommu_domain_get_attr(iommu_pt->domain,
+			DOMAIN_ATTR_PT_BASE_ADDR, &iommu_pt->pt_base);
+	if (ret) {
+		KGSL_CORE_ERR("get CONTEXT_BANK attr, err %d\n", ret);
+		goto done;
+	}
 
 	kgsl_map_global_pt_entries(mmu->defaultpagetable);
 
 	kgsl_iommu_enable_clk(mmu);
-	KGSL_IOMMU_SET_CTX_REG(iommu, 0, TLBIALL, 1);
+	KGSL_IOMMU_SET_CTX_REG(ctx, TLBIALL, 1);
 
-	/* Get the lsb value of pagetables set in the IOMMU ttbr0 register as
-	 * that value should not change when we change pagetables, so while
-	 * changing pagetables we can use this lsb value of the pagetable w/o
-	 * having to read it again
+	/*
+	 * Do not halt IOMMU on pagefault if FT pagefault policy
+	 * is set  accordingly.
 	 */
-	for (i = 0; i < KGSL_IOMMU_CONTEXT_MAX; i++) {
-		ctx = &iommu->ctx[i];
+	if (!test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
+				&adreno_dev->ft_pf_policy)) {
+		unsigned int  sctlr_val;
 
-		if (ctx->dev == NULL)
-			continue;
+		sctlr_val = KGSL_IOMMU_GET_CTX_REG(ctx, SCTLR);
 
-		/*
-		 *  1) HLOS cannot program secure context bank.
-		 *  2) If context bank is not attached skip.
-		 */
-		if (!ctx->attached || (KGSL_IOMMU_CONTEXT_SECURE == i))
-			continue;
+		sctlr_val |= (0x1 << KGSL_IOMMU_SCTLR_HUPCF_SHIFT);
 
 		/*
 		 * For IOMMU V1, if pagefault policy is GPUHALT_ENABLE,
@@ -1116,7 +875,7 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 		 *    independently of any outstanding fault)
 		 */
 
-		sctlr_val = KGSL_IOMMU_GET_CTX_REG(iommu, ctx->ctx_id, SCTLR);
+		sctlr_val = KGSL_IOMMU_GET_CTX_REG(ctx, SCTLR);
 		if (test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
 					&adreno_dev->ft_pf_policy)) {
 			sctlr_val |= (0x1 << KGSL_IOMMU_SCTLR_CFCFG_SHIFT);
@@ -1125,14 +884,80 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 			sctlr_val &= ~(0x1 << KGSL_IOMMU_SCTLR_CFCFG_SHIFT);
 			sctlr_val |= (0x1 << KGSL_IOMMU_SCTLR_HUPCF_SHIFT);
 		}
-		KGSL_IOMMU_SET_CTX_REG(iommu, ctx->ctx_id, SCTLR, sctlr_val);
-		ctx->default_ttbr0 = KGSL_IOMMU_GET_CTX_REG_Q(iommu,
-				ctx->ctx_id, TTBR0);
+		KGSL_IOMMU_SET_CTX_REG(ctx, SCTLR, sctlr_val);
+		ctx->default_ttbr0 = KGSL_IOMMU_GET_CTX_REG_Q(ctx, TTBR0);
 	}
 
-	kgsl_iommu_disable_clk(mmu);
+	/* Get the lsb value of pagetables set in the IOMMU ttbr0 register as
+	 * that value should not change when we change pagetables, so while
+	 * changing pagetables we can use this lsb value of the pagetable w/o
+	 * having to read it again
+	 */
+	ctx->default_ttbr0 = KGSL_IOMMU_GET_CTX_REG_Q(ctx, TTBR0);
 
+	kgsl_iommu_disable_clk(mmu);
 done:
+	if (ret)
+		_detach_context(ctx);
+	return ret;
+}
+
+static int _setup_secure_context(struct kgsl_mmu *mmu)
+{
+	int ret;
+	struct kgsl_iommu *iommu = mmu->priv;
+	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE];
+	unsigned int cb_num;
+	struct kgsl_iommu_pt *iommu_pt;
+
+	if (ctx->dev == NULL || !mmu->secured)
+		return 0;
+
+	/* if retention is enabled, we might already be attached */
+	if (ctx->default_pt != NULL)
+		return 0;
+
+	if (mmu->securepagetable == NULL) {
+		mmu->securepagetable = kgsl_mmu_getpagetable(mmu,
+						KGSL_MMU_SECURE_PT);
+		if (mmu->securepagetable == NULL)
+			return -ENOMEM;
+	}
+	iommu_pt = mmu->securepagetable->priv;
+
+	ret = iommu_attach_device(iommu_pt->domain, ctx->dev);
+	if (ret) {
+		KGSL_CORE_ERR("Failed to attach, err %d\n", ret);
+		goto done;
+	}
+	ctx->default_pt = mmu->securepagetable;
+
+	ret = iommu_domain_get_attr(iommu_pt->domain, DOMAIN_ATTR_CONTEXT_BANK,
+					&cb_num);
+	if (ret) {
+		KGSL_CORE_ERR("get CONTEXT_BANK attr, err %d\n", ret);
+		goto done;
+	}
+	ctx->cb_num = cb_num;
+done:
+	if (ret)
+		_detach_context(ctx);
+	return ret;
+}
+
+static int kgsl_iommu_start(struct kgsl_mmu *mmu)
+{
+	int status;
+	struct kgsl_iommu *iommu = mmu->priv;
+
+	status = _setup_user_context(mmu);
+	if (status)
+		return status;
+
+	status = _setup_secure_context(mmu);
+	if (status)
+		_detach_context(&iommu->ctx[KGSL_IOMMU_CONTEXT_USER]);
+
 	return status;
 }
 
@@ -1374,108 +1199,87 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 /* This function must be called with context bank attached */
 static void kgsl_iommu_clear_fsr(struct kgsl_mmu *mmu)
 {
-	int i;
 	struct kgsl_iommu *iommu = mmu->priv;
-	struct kgsl_iommu_context  *ctx;
+	struct kgsl_iommu_context  *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 
-	kgsl_iommu_enable_clk(mmu);
-
-	for (i = 0; i < KGSL_IOMMU_CONTEXT_MAX; i++) {
-		ctx = &iommu->ctx[i];
-		if (ctx->dev == NULL)
-			continue;
-
-		/*
-		 *  1) HLOS cannot program secure context bank.
-		 *  2) If context bank is not attached skip.
-		 */
-		if (!ctx->attached || (KGSL_IOMMU_CONTEXT_SECURE == i))
-			continue;
-
-		KGSL_IOMMU_SET_CTX_REG(iommu, ctx->ctx_id, FSR, 0xffffffff);
+	if (ctx->default_pt != NULL) {
+		kgsl_iommu_enable_clk(mmu);
+		KGSL_IOMMU_SET_CTX_REG(ctx, FSR, 0xffffffff);
+		kgsl_iommu_disable_clk(mmu);
 	}
-
-	kgsl_iommu_disable_clk(mmu);
 }
 
 static void kgsl_iommu_pagefault_resume(struct kgsl_mmu *mmu)
 {
 	struct kgsl_iommu *iommu = mmu->priv;
-	struct kgsl_iommu_context *ctx;
+	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 	unsigned int sctlr_val;
-	int i;
 
-	kgsl_iommu_enable_clk(mmu);
-	for (i = 0; i < KGSL_IOMMU_CONTEXT_MAX; i++) {
-		ctx = &iommu->ctx[i];
-		if (ctx->dev == NULL)
-			continue;
-
+	if (ctx->default_pt != NULL && ctx->fault) {
 		/*
-		 *  1) HLOS cannot program secure context bank.
-		 *  2) If context bank is not attached skip.
+		 * Write 1 to RESUME.TnR to terminate the
+		 * stalled transaction. Also, re-enable
+		 * context fault interrupts by writing 1
+		 * to SCTLR.CFIE
 		 */
-		if (!ctx->attached || (KGSL_IOMMU_CONTEXT_SECURE == i))
-			continue;
-
-		if (ctx->fault) {
-			/*
-			 * Write 1 to RESUME.TnR to terminate the
-			 * stalled transaction. Also, re-enable
-			 * context fault interrupts by writing 1
-			 * to SCTLR.CFIE
-			 */
-			sctlr_val = KGSL_IOMMU_GET_CTX_REG(iommu, ctx->ctx_id,
-					SCTLR);
-			sctlr_val |=
-				(0x1 << KGSL_IOMMU_SCTLR_CFIE_SHIFT);
-			KGSL_IOMMU_SET_CTX_REG(iommu, ctx->ctx_id, RESUME, 1);
-			KGSL_IOMMU_SET_CTX_REG(iommu, ctx->ctx_id,
-					SCTLR, sctlr_val);
-			/*
-			 * Make sure the above register writes
-			 * are not reordered across the barrier
-			 * as we use writel_relaxed to write them
-			 */
-			wmb();
-			ctx->fault = 0;
-		}
+		sctlr_val = KGSL_IOMMU_GET_CTX_REG(ctx, SCTLR);
+		sctlr_val |= (0x1 << KGSL_IOMMU_SCTLR_CFIE_SHIFT);
+		KGSL_IOMMU_SET_CTX_REG(ctx, RESUME, 1);
+		KGSL_IOMMU_SET_CTX_REG(ctx, SCTLR, sctlr_val);
+		/*
+		 * Make sure the above register writes
+		 * are not reordered across the barrier
+		 * as we use writel_relaxed to write them
+		 */
+		wmb();
+		ctx->fault = 0;
 	}
-	kgsl_iommu_disable_clk(mmu);
 }
 
 
 static void kgsl_iommu_stop(struct kgsl_mmu *mmu)
 {
+	int i;
+	struct kgsl_iommu *iommu = mmu->priv;
+
 	/*
-	 *  stop device mmu
-	 *
-	 *  call this with the global lock held
-	 *  detach iommu attachment
+	 * If the iommu supports retention, we don't need
+	 * to detach when stopping.
 	 */
-	/* detach iommu attachment */
-	if (!MMU_FEATURE(mmu, KGSL_MMU_RETENTION))
-		kgsl_detach_pagetable_iommu_domain(mmu);
+	if (!MMU_FEATURE(mmu, KGSL_MMU_RETENTION)) {
+		for (i = 0; i < KGSL_IOMMU_CONTEXT_MAX; i++)
+			_detach_context(&iommu->ctx[i]);
+	}
 }
 
 static int kgsl_iommu_close(struct kgsl_mmu *mmu)
 {
 	struct kgsl_iommu *iommu = mmu->priv;
+	int i;
 
-	if (mmu->defaultpagetable != NULL)
+	for (i = 0; i < KGSL_IOMMU_CONTEXT_MAX; i++)
+		_detach_context(&iommu->ctx[i]);
+
+	if (mmu->defaultpagetable != NULL) {
 		kgsl_mmu_putpagetable(mmu->defaultpagetable);
+		mmu->defaultpagetable = NULL;
+	}
+
+
+	if (mmu->securepagetable != NULL) {
+		kgsl_mmu_putpagetable(mmu->securepagetable);
+		mmu->securepagetable = NULL;
+	}
 
 	if (iommu->regbase != NULL)
 		iounmap(iommu->regbase);
 
-	kfree(iommu);
+	kgsl_sharedmem_free(&kgsl_secure_guard_page_memdesc);
 
 	if (kgsl_guard_page != NULL) {
 		__free_page(kgsl_guard_page);
 		kgsl_guard_page = NULL;
 	}
-
-	kgsl_sharedmem_free(&kgsl_secure_guard_page_memdesc);
 
 	return 0;
 }
@@ -1491,8 +1295,8 @@ kgsl_iommu_get_current_ptbase(struct kgsl_mmu *mmu)
 		return 0;
 	/* Return the current pt base by reading IOMMU pt_base register */
 	kgsl_iommu_enable_clk(mmu);
-	pt_base = KGSL_IOMMU_GET_CTX_REG_Q(iommu,
-		iommu->ctx[KGSL_IOMMU_CONTEXT_USER].ctx_id, TTBR0);
+	pt_base = KGSL_IOMMU_GET_CTX_REG_Q(&iommu->ctx[KGSL_IOMMU_CONTEXT_USER],
+					TTBR0);
 	kgsl_iommu_disable_clk(mmu);
 	return pt_base & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
 }
@@ -1505,13 +1309,12 @@ static int kgsl_iommu_flush_pt(struct kgsl_mmu *mmu)
 {
 	struct kgsl_iommu *iommu = mmu->priv;
 	unsigned long wait_for_flush;
-	unsigned int tlbflush_ctxt =
-		iommu->ctx[KGSL_IOMMU_CONTEXT_USER].ctx_id;
+	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 	int ret = 0;
 
 	kgsl_iommu_enable_clk(mmu);
 
-	KGSL_IOMMU_SET_CTX_REG(iommu, tlbflush_ctxt, TLBIALL, 1);
+	KGSL_IOMMU_SET_CTX_REG(ctx, TLBIALL, 1);
 	mb();
 	/*
 	 * Wait for flush to complete by polling the flush
@@ -1521,8 +1324,8 @@ static int kgsl_iommu_flush_pt(struct kgsl_mmu *mmu)
 	 * or bring the system down.
 	 */
 	wait_for_flush = jiffies + msecs_to_jiffies(2000);
-	KGSL_IOMMU_SET_CTX_REG(iommu, tlbflush_ctxt, TLBSYNC, 0);
-	while (KGSL_IOMMU_GET_CTX_REG(iommu, tlbflush_ctxt, TLBSTATUS) &
+	KGSL_IOMMU_SET_CTX_REG(ctx, TLBSYNC, 0);
+	while (KGSL_IOMMU_GET_CTX_REG(ctx, TLBSTATUS) &
 		(KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE)) {
 		if (time_after(jiffies, wait_for_flush)) {
 			KGSL_DRV_WARN(mmu->device,
@@ -1553,11 +1356,12 @@ static int kgsl_iommu_set_pt(struct kgsl_mmu *mmu,
 				struct kgsl_pagetable *pt)
 {
 	struct kgsl_iommu *iommu = mmu->priv;
-	uint ctx_id = iommu->ctx[KGSL_IOMMU_CONTEXT_USER].ctx_id;
+	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 	int temp;
 	int ret = 0;
 	phys_addr_t pt_base;
 	uint64_t pt_val;
+
 
 	kgsl_iommu_enable_clk(mmu);
 
@@ -1577,10 +1381,10 @@ static int kgsl_iommu_set_pt(struct kgsl_mmu *mmu,
 	pt_base &= KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
 	pt_val &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
 	pt_val |= pt_base;
-	KGSL_IOMMU_SET_CTX_REG_Q(iommu, ctx_id, TTBR0, pt_val);
+	KGSL_IOMMU_SET_CTX_REG_Q(ctx, TTBR0, pt_val);
 
 	mb();
-	temp = KGSL_IOMMU_GET_CTX_REG_Q(iommu, ctx_id, TTBR0);
+	temp = KGSL_IOMMU_GET_CTX_REG_Q(ctx, TTBR0);
 
 	kgsl_iommu_flush_pt(mmu);
 
@@ -1601,9 +1405,8 @@ static int kgsl_iommu_set_pt(struct kgsl_mmu *mmu,
 static int kgsl_iommu_set_pf_policy(struct kgsl_mmu *mmu,
 				unsigned long pf_policy)
 {
-	int i;
 	struct kgsl_iommu *iommu = mmu->priv;
-	struct kgsl_iommu_context  *ctx;
+	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(mmu->device);
 	int ret = 0;
 	unsigned int sctlr_val;
@@ -1613,28 +1416,16 @@ static int kgsl_iommu_set_pf_policy(struct kgsl_mmu *mmu,
 		(pf_policy & BIT(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE)))
 		return 0;
 
-	kgsl_iommu_enable_clk(mmu);
+	/* If not attached, policy will be updated during the next attach */
+	if (ctx->default_pt != NULL) {
+		/* Need to idle device before changing options */
+		ret = mmu->device->ftbl->idle(mmu->device);
+		if (ret)
+			return ret;
 
-	/* Need to idle device before changing options */
-	ret = mmu->device->ftbl->idle(mmu->device);
-	if (ret) {
-		kgsl_iommu_disable_clk(mmu);
-		return ret;
-	}
+		kgsl_iommu_enable_clk(mmu);
 
-	for (i = 0; i < KGSL_IOMMU_CONTEXT_MAX; i++) {
-		ctx = &iommu->ctx[i];
-		if (ctx->dev == NULL)
-			continue;
-
-		/*
-		 *  1) HLOS cannot program secure context bank.
-		 *  2) If context bank is not attached skip.
-		 */
-		if (!ctx->attached || (KGSL_IOMMU_CONTEXT_SECURE == i))
-			continue;
-
-		sctlr_val = KGSL_IOMMU_GET_CTX_REG(iommu, ctx->ctx_id, SCTLR);
+		sctlr_val = KGSL_IOMMU_GET_CTX_REG(ctx, SCTLR);
 
 		if (test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE, &pf_policy)) {
 			sctlr_val |= (0x1 << KGSL_IOMMU_SCTLR_CFCFG_SHIFT);
@@ -1644,29 +1435,20 @@ static int kgsl_iommu_set_pf_policy(struct kgsl_mmu *mmu,
 			sctlr_val |= (0x1 << KGSL_IOMMU_SCTLR_HUPCF_SHIFT);
 		}
 
-		KGSL_IOMMU_SET_CTX_REG(iommu, ctx->ctx_id, SCTLR, sctlr_val);
+		KGSL_IOMMU_SET_CTX_REG(ctx, SCTLR, sctlr_val);
+
+		kgsl_iommu_disable_clk(mmu);
 	}
 
-	kgsl_iommu_disable_clk(mmu);
 	return ret;
 }
 
 static struct kgsl_protected_registers *
 kgsl_iommu_get_prot_regs(struct kgsl_mmu *mmu)
 {
-	static struct kgsl_protected_registers iommuv1_regs = { 0x4000, 14 };
-	static struct kgsl_protected_registers iommuv2_regs;
+	struct kgsl_iommu *iommu = mmu->priv;
 
-	if (kgsl_msm_supports_iommu_v2()) {
-
-		struct kgsl_iommu *iommu = mmu->priv;
-
-		iommuv2_regs.base = iommu->ahb_base_offset >> 2;
-		iommuv2_regs.range = 10;
-		return &iommuv2_regs;
-	}
-	else
-		return &iommuv1_regs;
+	return &iommu->protect;
 }
 
 static struct kgsl_iommu_addr_entry *_find_gpuaddr(
@@ -1804,51 +1586,78 @@ static uint64_t _get_unmapped_area_topdown(struct kgsl_pagetable *pagetable,
 	struct kgsl_iommu_pt *pt = pagetable->priv;
 	struct rb_node *node = rb_last(&pt->rbtree);
 	uint64_t end = top;
-
+	uint64_t mask = ~(align - 1);
 	struct kgsl_iommu_addr_entry *entry;
 
-	if (node == NULL)
-		return (top - size) & ~(align - 1);
+	/* Make sure that the bottom is correctly aligned */
+	bottom = ALIGN(bottom, align);
 
-	entry = rb_entry(node, struct kgsl_iommu_addr_entry, node);
+	/* Make sure the requested size will fit in the range */
+	if (size > (top - bottom))
+		return -ENOMEM;
 
-	if (ALIGN(entry->base + entry->size, align) < top) {
-		if (top - ALIGN(entry->base + entry->size, align) >= size)
-			return (top - size) & ~(align - 1);
+	/* Walk back through the list to find the highest entry in the range */
+	for (node = rb_last(&pt->rbtree); node != NULL; node = rb_prev(node)) {
+		entry = rb_entry(node, struct kgsl_iommu_addr_entry, node);
+		if (entry->base < top)
+			break;
 	}
 
 	while (node != NULL) {
-		uint64_t gap;
+		uint64_t offset;
 
 		entry = rb_entry(node, struct kgsl_iommu_addr_entry, node);
 
+		/* If the entire entry is below the range the search is over */
 		if ((entry->base + entry->size) < bottom)
 			break;
 
-		if ((entry->base + entry->size) < end) {
-			gap = end - ALIGN(entry->base + entry->size, align);
-			if (gap >= size)
-				return ALIGN(entry->base + entry->size, align);
+		/* Get the top of the entry properly aligned */
+		offset = ALIGN(entry->base + entry->size, align);
+
+		/*
+		 * Try to allocate the memory from the top of the gap,
+		 * making sure that it fits between the top of this entry and
+		 * the bottom of the previous one
+		 */
+
+		if (offset < end) {
+			uint64_t chunk = (end - size) & mask;
+
+			if (chunk >= offset)
+				return chunk;
 		}
+
+		/*
+		 * If we get here and the current entry is outside of the range
+		 * then we are officially out of room
+		 */
 
 		if (entry->base < bottom)
 			return (uint64_t) -ENOMEM;
 
+		/* Set the top of the gap to the current entry->base */
 		end = entry->base;
+
+		/* And move on to the next lower entry */
 		node = rb_prev(node);
 	}
 
-	if (((end - size) & ~(align - 1)) >= bottom)
-		return (end - size) & ~(align - 1);
+	/* If we get here then there are no more entries in the region */
+	if (((end - size) & mask) >= bottom)
+		return (end - size) & mask;
 
 	return (uint64_t) -ENOMEM;
 }
 
 static uint64_t kgsl_iommu_find_svm_region(struct kgsl_pagetable *pagetable,
 		uint64_t start, uint64_t end, uint64_t size,
-		unsigned int alignment)
+		uint64_t alignment)
 {
 	uint64_t addr;
+
+	/* Avoid black holes */
+	BUG_ON(end <= start);
 
 	spin_lock(&pagetable->lock);
 	addr = _get_unmapped_area_topdown(pagetable,
@@ -1857,12 +1666,20 @@ static uint64_t kgsl_iommu_find_svm_region(struct kgsl_pagetable *pagetable,
 	return addr;
 }
 
+#define ADDR_IN_GLOBAL(_a) \
+	(((_a) >= KGSL_MMU_GLOBAL_MEM_BASE) && \
+	 ((_a) < (KGSL_MMU_GLOBAL_MEM_BASE + KGSL_MMU_GLOBAL_MEM_SIZE)))
+
 static int kgsl_iommu_set_svm_region(struct kgsl_pagetable *pagetable,
 		uint64_t gpuaddr, uint64_t size)
 {
 	int ret = -ENOMEM;
 	struct kgsl_iommu_pt *pt = pagetable->priv;
 	struct rb_node *node;
+
+	/* Make sure the requested address doesn't fall in the global range */
+	if (ADDR_IN_GLOBAL(gpuaddr) || ADDR_IN_GLOBAL(gpuaddr + size))
+		return -ENOMEM;
 
 	spin_lock(&pagetable->lock);
 	node = pt->rbtree.rb_node;

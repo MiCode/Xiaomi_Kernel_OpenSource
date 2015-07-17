@@ -74,7 +74,7 @@ void kgsl_dump_syncpoints(struct kgsl_device *device,
 	struct kgsl_cmdbatch_sync_event *event;
 
 	/* Print all the pending sync objects */
-	list_for_each_entry(event, &cmdbatch->synclist, node) {
+	list_for_each_entry_rcu(event, &cmdbatch->synclist, node) {
 
 		switch (event->type) {
 		case KGSL_CMD_SYNCPOINT_TYPE_TIMESTAMP: {
@@ -121,14 +121,14 @@ static void _kgsl_cmdbatch_timer(unsigned long data)
 	kgsl_context_dump(cmdbatch->context);
 	clear_bit(CMDBATCH_FLAG_FENCE_LOG, &cmdbatch->priv);
 
-	spin_lock(&cmdbatch->lock);
 	/* Print all the fences */
-	list_for_each_entry(event, &cmdbatch->synclist, node) {
+	rcu_read_lock();
+	list_for_each_entry_rcu(event, &cmdbatch->synclist, node) {
 		if (KGSL_CMD_SYNCPOINT_TYPE_FENCE == event->type &&
 			event->handle && event->handle->fence)
 			kgsl_sync_fence_log(event->handle->fence);
 	}
-	spin_unlock(&cmdbatch->lock);
+	rcu_read_unlock();
 	dev_err(device->dev, "--gpu syncpoint deadlock print end--\n");
 }
 
@@ -187,12 +187,7 @@ static void kgsl_cmdbatch_sync_expire(struct kgsl_device *device,
 	int sched = 0;
 	int removed = 0;
 
-	/*
-	 * We may have cmdbatch timer running, which also uses same lock,
-	 * take a lock with software interrupt disabled (bh) to avoid
-	 * spin lock recursion.
-	 */
-	spin_lock_bh(&event->cmdbatch->lock);
+	spin_lock(&event->cmdbatch->lock);
 
 	/*
 	 * sync events that are contained by a cmdbatch which has been
@@ -201,14 +196,14 @@ static void kgsl_cmdbatch_sync_expire(struct kgsl_device *device,
 
 	list_for_each_entry_safe(e, tmp, &event->cmdbatch->synclist, node) {
 		if (e == event) {
-			list_del_init(&event->node);
+			list_del_rcu(&event->node);
 			removed = 1;
 			break;
 		}
 	}
 
 	sched = list_empty(&event->cmdbatch->synclist) ? 1 : 0;
-	spin_unlock_bh(&event->cmdbatch->lock);
+	spin_unlock(&event->cmdbatch->lock);
 
 	/* If the list is empty delete the canary timer */
 	if (sched)
@@ -276,12 +271,9 @@ void kgsl_cmdbatch_destroy(struct kgsl_cmdbatch *cmdbatch)
 	/* Zap the canary timer */
 	del_timer_sync(&cmdbatch->timer);
 
-	/* non-bh because we just destroyed timer */
-	spin_lock(&cmdbatch->lock);
-
 	/* Empty the synclist before canceling events */
-	list_splice_init(&cmdbatch->synclist, &cancel_synclist);
-	spin_unlock(&cmdbatch->lock);
+	list_splice_init_rcu(&cmdbatch->synclist, &cancel_synclist,
+		synchronize_rcu);
 
 	/*
 	 * Finish canceling events outside the cmdbatch spinlock and
@@ -394,7 +386,7 @@ static int kgsl_cmdbatch_add_sync_fence(struct kgsl_device *device,
 
 	/* non-bh because, we haven't started cmdbatch timer yet */
 	spin_lock(&cmdbatch->lock);
-	list_add(&event->node, &cmdbatch->synclist);
+	list_add_rcu(&event->node, &cmdbatch->synclist);
 	spin_unlock(&cmdbatch->lock);
 
 	/*
@@ -417,7 +409,7 @@ static int kgsl_cmdbatch_add_sync_fence(struct kgsl_device *device,
 
 		/* Remove event from the synclist */
 		spin_lock(&cmdbatch->lock);
-		list_del(&event->node);
+		list_del_rcu(&event->node);
 		spin_unlock(&cmdbatch->lock);
 		kgsl_cmdbatch_sync_event_put(event);
 
@@ -511,7 +503,7 @@ static int kgsl_cmdbatch_add_sync_timestamp(struct kgsl_device *device,
 
 	/* non-bh because, we haven't started cmdbatch timer yet */
 	spin_lock(&cmdbatch->lock);
-	list_add(&event->node, &cmdbatch->synclist);
+	list_add_rcu(&event->node, &cmdbatch->synclist);
 	spin_unlock(&cmdbatch->lock);
 
 	ret = kgsl_add_event(device, &context->events, sync->timestamp,
@@ -519,7 +511,7 @@ static int kgsl_cmdbatch_add_sync_timestamp(struct kgsl_device *device,
 
 	if (ret) {
 		spin_lock(&cmdbatch->lock);
-		list_del(&event->node);
+		list_del_rcu(&event->node);
 		spin_unlock(&cmdbatch->lock);
 
 		kgsl_cmdbatch_put(cmdbatch);
@@ -720,7 +712,7 @@ struct kgsl_cmdbatch *kgsl_cmdbatch_create(struct kgsl_device *device,
 
 	kref_init(&cmdbatch->refcount);
 	INIT_LIST_HEAD(&cmdbatch->cmdlist);
-	INIT_LIST_HEAD(&cmdbatch->synclist);
+	INIT_LIST_HEAD_RCU(&cmdbatch->synclist);
 	INIT_LIST_HEAD(&cmdbatch->memlist);
 	spin_lock_init(&cmdbatch->lock);
 
@@ -1004,7 +996,7 @@ int kgsl_cmdbatch_add_synclist(struct kgsl_device *device,
 			return ret;
 
 		sync.type = syncpoint.type;
-		sync.priv = (void __user *) (uintptr_t) syncpoint.priv;
+		sync.priv = to_user_ptr(syncpoint.priv);
 		sync.size = syncpoint.size;
 
 		ret = kgsl_cmdbatch_add_sync(device, cmdbatch, &sync);

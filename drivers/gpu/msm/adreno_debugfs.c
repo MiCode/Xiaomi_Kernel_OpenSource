@@ -148,15 +148,10 @@ static void cmdbatch_print(struct seq_file *s, struct kgsl_cmdbatch *cmdbatch)
 {
 	struct kgsl_cmdbatch_sync_event *sync_event;
 
-	/*
-	 * print fences first, since they block this cmdbatch.
-	 * We may have cmdbatch timer running, which also uses
-	 * same lock, take a lock with software interrupt disabled (bh)
-	 * to avoid spin lock recursion.
-	 */
-	spin_lock_bh(&cmdbatch->lock);
+	/* print fences first, since they block this cmdbatch */
 
-	list_for_each_entry(sync_event, &cmdbatch->synclist, node) {
+	rcu_read_lock();
+	list_for_each_entry_rcu(sync_event, &cmdbatch->synclist, node) {
 		/*
 		 * Timestamp is 0 for KGSL_CONTEXT_SYNC, but print it anyways
 		 * so that it is clear if the fence was a separate submit
@@ -166,8 +161,7 @@ static void cmdbatch_print(struct seq_file *s, struct kgsl_cmdbatch *cmdbatch)
 		sync_event_print(s, sync_event);
 		seq_puts(s, "\n");
 	}
-
-	spin_unlock_bh(&cmdbatch->lock);
+	rcu_read_unlock();
 
 	/* if this flag is set, there won't be an IB */
 	if (cmdbatch->flags & KGSL_CONTEXT_SYNC)

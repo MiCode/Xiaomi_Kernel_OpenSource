@@ -160,8 +160,7 @@ static long adreno_ioctl_perfcounter_query_compat(
 	long result;
 
 	query.groupid = query32->groupid;
-	query.countables =
-		(unsigned int __user *)(uintptr_t) query32->countables;
+	query.countables = to_user_ptr(query32->countables);
 	query.count = query32->count;
 	query.max_counters = query32->max_counters;
 

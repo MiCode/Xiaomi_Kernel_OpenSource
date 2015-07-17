@@ -1604,19 +1604,19 @@ long kgsl_ioctl_gpu_command(struct kgsl_device_private *dev_priv,
 	}
 
 	result = kgsl_cmdbatch_add_cmdlist(device, cmdbatch,
-		(void __user *) (uintptr_t) param->cmdlist,
+		to_user_ptr(param->cmdlist),
 		param->cmdsize, param->numcmds);
 	if (result)
 		goto done;
 
 	result = kgsl_cmdbatch_add_memlist(device, cmdbatch,
-		(void __user *) (uintptr_t) param->objlist,
+		to_user_ptr(param->objlist),
 		param->objsize, param->numobjs);
 	if (result)
 		goto done;
 
 	result = kgsl_cmdbatch_add_synclist(device, cmdbatch,
-		(void __user *) (uintptr_t) param->synclist,
+		to_user_ptr(param->synclist),
 		param->syncsize, param->numsyncs);
 	if (result)
 		goto done;
@@ -1809,7 +1809,7 @@ static long gpuobj_free_on_timestamp(struct kgsl_device_private *dev_priv,
 
 	memset(&event, 0, sizeof(event));
 
-	ret = _copy_from_user(&event, (void __user *) (uintptr_t) param->priv,
+	ret = _copy_from_user(&event, to_user_ptr(param->priv),
 		sizeof(event), param->len);
 	if (ret)
 		return ret;
@@ -1843,7 +1843,7 @@ static long gpuobj_free_on_fence(struct kgsl_device_private *dev_priv,
 
 	memset(&event, 0, sizeof(event));
 
-	ret = _copy_from_user(&event, (void __user *) (uintptr_t) param->priv,
+	ret = _copy_from_user(&event, to_user_ptr(param->priv),
 		sizeof(event), param->len);
 	if (ret)
 		return ret;
@@ -2151,7 +2151,7 @@ static long _gpuobj_map_useraddr(struct kgsl_device *device,
 		return -ENOTSUPP;
 
 	ret = _copy_from_user(&useraddr,
-		(void __user *) (uintptr_t) param->priv, sizeof(useraddr),
+		to_user_ptr(param->priv), sizeof(useraddr),
 		param->priv_len);
 	if (ret)
 		return ret;
@@ -2189,7 +2189,7 @@ static long _gpuobj_map_dma_buf(struct kgsl_device *device,
 		entry->memdesc.priv |= KGSL_MEMDESC_SECURE;
 	}
 
-	ret = _copy_from_user(&buf, (void __user *) (uintptr_t) param->priv,
+	ret = _copy_from_user(&buf, to_user_ptr(param->priv),
 			sizeof(buf), param->priv_len);
 	if (ret)
 		return ret;
@@ -2277,8 +2277,10 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 	return 0;
 
 unmap:
-	if (param->type == KGSL_USER_MEM_TYPE_DMABUF)
+	if (param->type == KGSL_USER_MEM_TYPE_DMABUF) {
 		kgsl_destroy_ion(entry->priv_data);
+		entry->memdesc.sgt = NULL;
+	}
 
 	kgsl_sharedmem_free(&entry->memdesc);
 
@@ -2799,7 +2801,7 @@ long kgsl_ioctl_gpuobj_sync(struct kgsl_device_private *dev_priv,
 		goto out;
 	}
 
-	ptr = (void __user *) (uintptr_t) param->objs;
+	ptr = to_user_ptr(param->objs);
 
 	for (i = 0; i < param->count; i++) {
 		ret = _copy_from_user(&objs[i], ptr, sizeof(*objs),
@@ -3347,15 +3349,14 @@ static unsigned long _gpu_find_svm(struct kgsl_process_private *private,
 
 /* Search top down in the CPU VM region for a free address */
 static unsigned long _cpu_get_unmapped_area(unsigned long bottom,
-		unsigned long top, unsigned long start,
-		unsigned long len, unsigned int align)
+		unsigned long top, unsigned long len, unsigned long align)
 {
 	struct vm_unmapped_area_info info;
 	unsigned long addr, err;
 
 	info.flags = VM_UNMAPPED_AREA_TOPDOWN;
 	info.low_limit = bottom;
-	info.high_limit = min_t(unsigned long, top, start);
+	info.high_limit = top;
 	info.length = len;
 	info.align_offset = 0;
 	info.align_mask = align - 1;
@@ -3372,13 +3373,14 @@ static unsigned long _cpu_get_unmapped_area(unsigned long bottom,
 static unsigned long _search_range(struct kgsl_process_private *private,
 		struct kgsl_mem_entry *entry,
 		unsigned long start, unsigned long end,
-		unsigned long len, unsigned int align)
+		unsigned long len, uint64_t align)
 {
-	unsigned long cpu = end, gpu = end, result = -ENOMEM;
+	unsigned long cpu, gpu = end, result = -ENOMEM;
 
 	while (gpu > start) {
 		/* find a new empty spot on the CPU below the last one */
-		cpu = _cpu_get_unmapped_area(start, cpu, gpu, len, align);
+		cpu = _cpu_get_unmapped_area(start, gpu, len,
+			(unsigned long) align);
 		if (IS_ERR_VALUE(cpu)) {
 			result = cpu;
 			break;
@@ -3390,12 +3392,32 @@ static unsigned long _search_range(struct kgsl_process_private *private,
 
 		trace_kgsl_mem_unmapped_area_collision(entry, cpu, len);
 
+		if (cpu <= start) {
+			result = -ENOMEM;
+			break;
+		}
+
 		/* move downward to the next empty spot on the GPU */
 		gpu = _gpu_find_svm(private, start, cpu, len, align);
 		if (IS_ERR_VALUE(gpu)) {
 			result = gpu;
 			break;
 		}
+
+		/* Check that_gpu_find_svm doesn't put us in a loop */
+		BUG_ON(gpu >= cpu);
+
+		/* Break if the recommended GPU address is out of range */
+		if (gpu < start) {
+			result = -ENOMEM;
+			break;
+		}
+
+		/*
+		 * Add the length of the chunk to the GPU address to yield the
+		 * upper bound for the CPU search
+		 */
+		gpu += len;
 	}
 	return result;
 }
@@ -3408,6 +3430,7 @@ static unsigned long _get_svm_area(struct kgsl_process_private *private,
 	int align_shift = kgsl_memdesc_get_align(&entry->memdesc);
 	uint64_t align;
 	unsigned long result;
+	unsigned long addr;
 
 	if (align_shift >= ilog2(SZ_2M))
 		align = SZ_2M;
@@ -3439,13 +3462,13 @@ static unsigned long _get_svm_area(struct kgsl_process_private *private,
 		 * See if the hint is usable, if not we will use
 		 * it as the start point for searching.
 		 */
-		hint = clamp_t(unsigned long, hint & ~(align - 1),
+		addr = clamp_t(unsigned long, hint & ~(align - 1),
 				start, end);
 
-		vma = find_vma(current->mm, hint);
+		vma = find_vma(current->mm, addr);
 
-		if (vma == NULL || ((hint + len) <= vma->vm_start)) {
-			result = _gpu_set_svm_region(private, entry, hint, len);
+		if (vma == NULL || ((addr + len) <= vma->vm_start)) {
+			result = _gpu_set_svm_region(private, entry, addr, len);
 
 			/* On failure drop down to keep searching */
 			if (!IS_ERR_VALUE(result))
@@ -3453,16 +3476,17 @@ static unsigned long _get_svm_area(struct kgsl_process_private *private,
 		}
 	} else {
 		/* no hint, start search at the top and work down */
-		hint = end & ~(align - 1);
+		addr = end & ~(align - 1);
 	}
 
 	/*
 	 * Search downwards from the hint first. If that fails we
 	 * must try to search above it.
 	 */
-	result = _search_range(private, entry, start, hint, len, align);
-	if (IS_ERR_VALUE(result))
-		result = _search_range(private, entry, hint, end, len, align);
+	result = _search_range(private, entry, start, addr, len, align);
+	if (IS_ERR_VALUE(result) && hint != 0)
+		result = _search_range(private, entry, addr, end, len, align);
+
 	return result;
 }
 
@@ -3486,15 +3510,19 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 	if (ret)
 		return ret;
 
-	if (!kgsl_memdesc_use_cpu_map(&entry->memdesc))
+	if (!kgsl_memdesc_use_cpu_map(&entry->memdesc)) {
 		val = get_unmapped_area(NULL, addr, len, 0, flags);
-	else
+		if (IS_ERR_VALUE(val))
+			KGSL_MEM_ERR(device,
+				"get_unmapped_area: pid %d addr %lx pgoff %lx len %ld failed error %d\n",
+				private->pid, addr, pgoff, len, (int) val);
+	} else {
 		 val = _get_svm_area(private, entry, addr, len, flags);
-
-	if (IS_ERR_VALUE(val))
-		KGSL_MEM_ERR(device,
-			"pid %d addr %lx pgoff %lx len %ld failed error %d\n",
-			private->pid, addr, pgoff, len, (int) val);
+		 if (IS_ERR_VALUE(val))
+			KGSL_MEM_ERR(device,
+				"_get_svm_area: pid %d addr %lx pgoff %lx len %ld failed error %d\n",
+				private->pid, addr, pgoff, len, (int) val);
+	}
 
 	kgsl_mem_entry_put(entry);
 	return val;
@@ -3586,20 +3614,13 @@ static irqreturn_t kgsl_irq_handler(int irq, void *data)
 
 }
 
-#define KGSL_READ_MESSAGE "OH HAI GPU"
+#define KGSL_READ_MESSAGE "OH HAI GPU\n"
 
 static ssize_t kgsl_read(struct file *filep, char __user *buf, size_t count,
 		loff_t *pos)
 {
-	int ret;
-
-	if (*pos >= strlen(KGSL_READ_MESSAGE) + 1)
-		return 0;
-
-	ret = snprintf(buf, count, "%s\n", KGSL_READ_MESSAGE);
-	*pos += ret;
-
-	return ret;
+	return simple_read_from_buffer(buf, count, pos,
+			KGSL_READ_MESSAGE, strlen(KGSL_READ_MESSAGE) + 1);
 }
 
 static const struct file_operations kgsl_fops = {

@@ -59,9 +59,14 @@ static unsigned int  _iommu_lock(struct adreno_device *adreno_dev,
 				 unsigned int *cmds)
 {
 	unsigned int *start = cmds;
-	unsigned int mmu_ctrl = kgsl_mmu_get_reg_ahbaddr(
-			&adreno_dev->dev.mmu, KGSL_IOMMU_CONTEXT_USER,
-			KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL) >> 2;
+	struct kgsl_iommu *iommu = adreno_dev->dev.mmu.priv;
+
+	/*
+	 * If we don't have this register, probe should have forced
+	 * global pagetables and we shouldn't get here.
+	 * BUG() so we don't debug a bad register write.
+	 */
+	BUG_ON(iommu->micro_mmu_ctrl == UINT_MAX);
 
 	/*
 	 * glue commands together until next
@@ -73,14 +78,14 @@ static unsigned int  _iommu_lock(struct adreno_device *adreno_dev,
 
 	/* set the iommu lock bit */
 	*cmds++ = cp_packet(adreno_dev, CP_REG_RMW, 3);
-	*cmds++ = mmu_ctrl;
+	*cmds++ = iommu->micro_mmu_ctrl >> 2;
 	/* AND to unmask the lock bit */
 	*cmds++ = ~(KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT);
 	/* OR to set the IOMMU lock bit */
 	*cmds++ = KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT;
 
 	/* wait for smmu to lock */
-	cmds += _wait_reg(adreno_dev, cmds, mmu_ctrl,
+	cmds += _wait_reg(adreno_dev, cmds, iommu->micro_mmu_ctrl >> 2,
 			KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE,
 			KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE, 0xF);
 
@@ -90,14 +95,14 @@ static unsigned int  _iommu_lock(struct adreno_device *adreno_dev,
 static unsigned int _iommu_unlock(struct adreno_device *adreno_dev,
 				  unsigned int *cmds)
 {
+	struct kgsl_iommu *iommu = adreno_dev->dev.mmu.priv;
 	unsigned int *start = cmds;
-	unsigned int mmu_ctrl = kgsl_mmu_get_reg_ahbaddr(
-			&adreno_dev->dev.mmu, KGSL_IOMMU_CONTEXT_USER,
-			KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL) >> 2;
+
+	BUG_ON(iommu->micro_mmu_ctrl == UINT_MAX);
 
 	/* unlock the IOMMU lock */
 	*cmds++ = cp_packet(adreno_dev, CP_REG_RMW, 3);
-	*cmds++ = mmu_ctrl;
+	*cmds++ = iommu->micro_mmu_ctrl >> 2;
 	/* AND to unmask the lock bit */
 	*cmds++ = ~(KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT);
 	/* OR with 0 so lock bit is unset */
@@ -162,11 +167,12 @@ static unsigned int _cp_smmu_reg(struct adreno_device *adreno_dev,
 {
 	unsigned int *start = cmds;
 	unsigned int offset;
+	struct kgsl_iommu *iommu = adreno_dev->dev.mmu.priv;
 
 	offset = kgsl_mmu_get_reg_ahbaddr(&adreno_dev->dev.mmu,
 					  KGSL_IOMMU_CONTEXT_USER, reg) >> 2;
 
-	if (adreno_is_a5xx(adreno_dev) || !kgsl_msm_supports_iommu_v2()) {
+	if (adreno_is_a5xx(adreno_dev) || iommu->version == 1) {
 		*cmds++ = cp_register(adreno_dev, offset, num);
 	} else if (adreno_is_a3xx(adreno_dev)) {
 		*cmds++ = cp_packet(adreno_dev, CP_REG_WR_NO_CTXT, num + 1);
@@ -710,6 +716,7 @@ unsigned int adreno_iommu_set_pt_generate_cmds(
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	phys_addr_t pt_val;
 	unsigned int *cmds_orig = cmds;
+	struct kgsl_iommu *iommu = adreno_dev->dev.mmu.priv;
 
 	/* If we are in a fault the MMU will be reset soon */
 	if (test_bit(ADRENO_DEVICE_FAULT, &adreno_dev->priv))
@@ -721,18 +728,21 @@ unsigned int adreno_iommu_set_pt_generate_cmds(
 		device->mmu.setstate_memory.gpuaddr +
 		KGSL_IOMMU_SETSTATE_NOP_OFFSET);
 
-	if (kgsl_msm_supports_iommu_v2())
+	if (iommu->version >= 2) {
 		if (adreno_is_a5xx(adreno_dev))
 			cmds += _adreno_iommu_set_pt_v2_a5xx(device, cmds,
 						pt_val, rb);
 		else if (adreno_is_a4xx(adreno_dev))
 			cmds += _adreno_iommu_set_pt_v2_a4xx(device, cmds,
 						pt_val);
-		else
+		else if (adreno_is_a3xx(adreno_dev))
 			cmds += _adreno_iommu_set_pt_v2_a3xx(device, cmds,
 						pt_val);
-	else
+		else
+			BUG(); /* new GPU family? */
+	} else {
 		cmds += _adreno_iommu_set_pt_v1(rb, cmds, pt_val, pt->name);
+	}
 
 	/* invalidate all base pointers */
 	cmds += cp_invalidate_state(adreno_dev, cmds);
@@ -1006,23 +1016,9 @@ done:
 int adreno_iommu_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
-	struct kgsl_iommu *iommu = device->mmu.priv;
 
 	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE)
 		return 0;
-
-	/* Overwrite the ahb_base_offset for iommu v2 targets here */
-	if (kgsl_msm_supports_iommu_v2()) {
-		if (adreno_is_a405(adreno_dev))
-			iommu->ahb_base_offset =
-					KGSL_IOMMU_V2_AHB_BASE_OFFSET_A405;
-		else if (adreno_is_a530(adreno_dev))
-			iommu->ahb_base_offset =
-					KGSL_IOMMU_V2_AHB_BASE_OFFSET_A530;
-		else
-			iommu->ahb_base_offset =
-					KGSL_IOMMU_V2_AHB_BASE_OFFSET;
-	}
 
 	/*
 	 * A nop is required in an indirect buffer when switching

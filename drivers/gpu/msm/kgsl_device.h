@@ -225,13 +225,13 @@ struct kgsl_device {
 	unsigned long reg_phys;
 
 	/* Starting Kernel virtual address for GPU registers */
-	void *reg_virt;
+	void __iomem *reg_virt;
 
 	/* Total memory size for all GPU registers */
 	unsigned int reg_len;
 
 	/* Kernel virtual address for GPU shader memory */
-	void *shader_mem_virt;
+	void __iomem *shader_mem_virt;
 
 	/* Starting physical address for GPU shader memory */
 	unsigned long shader_mem_phys;
@@ -486,16 +486,6 @@ struct kgsl_snapshot_object {
 	int type;
 	struct kgsl_mem_entry *entry;
 	struct list_head node;
-};
-
-/**
- * struct kgsl_protected_registers - Protected register range
- * @base: Offset of the range to be protected
- * @range: Range (# of registers = 2 ** range)
- */
-struct kgsl_protected_registers {
-	unsigned int base;
-	int range;
 };
 
 struct kgsl_device *kgsl_get_device(int dev_idx);

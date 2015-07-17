@@ -106,6 +106,10 @@ conditions.
                   support, the stream matching table is programmed before
                   control is even turned over to Linux.
 
+- qcom,dynamic  : Allow dynamic domains to be attached. This is only
+		  useful if the upstream hardware is capable of switching
+		  between multiple domains within a single context bank.
+
 - clocks        : List of clocks to be used during SMMU register access. See
                   Documentation/devicetree/bindings/clock/clock-bindings.txt
                   for information about the format. For each clock specified

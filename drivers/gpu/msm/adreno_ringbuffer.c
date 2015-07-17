@@ -499,7 +499,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	uint64_t gpuaddr = rb->device->memstore.gpuaddr;
 	bool profile_ready;
 	struct adreno_context *drawctxt = rb->drawctxt_active;
-	struct kgsl_context *context = 0;
+	struct kgsl_context *context = NULL;
 	bool secured_ctxt = false;
 	uint64_t cond_addr;
 
@@ -613,7 +613,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 					 preempted);
 		ringcmds += gpudev->preemption_pre_ibsubmit(
 					adreno_dev, rb, ringcmds, context,
-					cond_addr, 0);
+					cond_addr, NULL);
 	}
 
 	if (flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE) {
