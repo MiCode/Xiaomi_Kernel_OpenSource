@@ -62,6 +62,8 @@
 #define BU21150_MAX_OPS_LOAD_UA	150000
 #define BU21150_PIN_ENABLE_DELAY_US		1000
 #define BU21150_PINCTRL_VALID_STATE_CNT		2
+#define	BU21150_RESET_DURATION_US		10
+#define	BU21150_HOLD_DURATION_US		10
 
 #define AFE_SCAN_DEFAULT			0x00
 #define AFE_SCAN_SELF_CAP			0x01
@@ -1082,11 +1084,31 @@ static int bu21150_fb_early_resume(struct device *dev)
 			return rc;
 		}
 
+		rc = bu21150_pinctrl_select(ts, true);
+		if (rc < 0) {
+			dev_err(&ts->client->dev,
+				"failed to enable panel pins\n");
+			goto err_pin_enable;
+		}
+
 		/*
 		 * Wait before pin enablement to comply
 		 * with hardware requirement.
 		 */
-		usleep(BU21150_PIN_ENABLE_DELAY_US);
+		usleep_range(BU21150_PIN_ENABLE_DELAY_US,
+			BU21150_PIN_ENABLE_DELAY_US +
+			BU21150_HOLD_DURATION_US);
+
+		rc = bu21150_pinctrl_select(ts, false);
+		if (rc < 0) {
+			dev_err(&ts->client->dev,
+				"failed to toggle AFE reset pin\n");
+			goto err_pin_enable;
+		}
+
+		usleep_range(BU21150_RESET_DURATION_US,
+				BU21150_RESET_DURATION_US +
+				BU21150_HOLD_DURATION_US);
 
 		rc = bu21150_pin_enable(ts, true);
 		if (rc) {
