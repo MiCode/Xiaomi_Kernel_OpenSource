@@ -46,6 +46,7 @@
 #include <linux/sw_sync.h>
 #include <linux/file.h>
 #include <linux/kthread.h>
+#include <linux/input.h>
 
 #include <linux/qcom_iommu.h>
 #include <linux/msm_iommu_domains.h>
@@ -151,6 +152,150 @@ static struct led_classdev backlight_led = {
 	.brightness_set = mdss_fb_set_bl_brightness,
 	.max_brightness = MDSS_MAX_BL_BRIGHTNESS,
 };
+
+static void mdss_mdp_process_input(struct work_struct *work)
+{
+	struct msm_fb_data_type *mfd;
+	int rc = 0;
+
+	mfd = container_of(work, struct msm_fb_data_type, mdss_fb_input_work);
+	if (!mfd) {
+		pr_err("Unable to retrieve mfd\n");
+		return;
+	}
+
+	if (mfd->mdp.input_event_handler) {
+		rc = mfd->mdp.input_event_handler(mfd);
+		if (rc)
+			pr_err("mdp input event handler failed\n");
+	}
+}
+
+static void mdss_fb_input_event_handler(struct input_handle *handle,
+	unsigned int type, unsigned int code, int value)
+{
+	struct msm_fb_data_type *mfd = handle->handler->private;
+
+	if (type != EV_ABS)
+		return;
+
+	if (!mfd) {
+		pr_err("Unable to access handler private data\n");
+		return;
+	}
+
+	if (mdss_fb_is_power_off(mfd))
+		return;
+	/*
+	 * Ignore spurious touch interrupts
+	 */
+	if (is_fb_awake(mfd))
+		return;
+
+	if (is_fb_idle(mfd)) {
+		mfd->fb_state = MDP_FB_STATE_TOUCH_AWAKE;
+		schedule_work(&mfd->mdss_fb_input_work);
+	}
+}
+
+static int mdss_fb_input_connect(struct input_handler *handler,
+		struct input_dev *dev, const struct input_device_id *id)
+{
+	struct input_handle *handle;
+	int ret;
+
+	handle = kzalloc(sizeof(*handle), GFP_KERNEL);
+	if (handle == NULL)
+		return -ENOMEM;
+
+	handle->dev = dev;
+	handle->handler = handler;
+	handle->name = handler->name;
+
+	ret = input_register_handle(handle);
+	if (ret) {
+		pr_err("Failed input register ret:%d\n", ret);
+		kfree(handle);
+		return ret;
+	}
+
+	ret = input_open_device(handle);
+	if (ret) {
+		pr_err("Failed input open device ret:%d\n", ret);
+		input_unregister_handle(handle);
+		kfree(handle);
+		return ret;
+	}
+
+	pr_debug("fb connected to input events\n");
+	return ret;
+}
+
+static void mdss_fb_input_disconnect(struct input_handle *handle)
+{
+	if (!handle) {
+		pr_err("NULL input handle\n");
+		return;
+	}
+
+	input_close_device(handle);
+	input_unregister_handle(handle);
+	kfree(handle);
+	pr_debug("fb disconnected to input events\n");
+}
+
+static const struct input_device_id mdss_fb_input_ids[] = {
+	{
+		.flags = INPUT_DEVICE_ID_MATCH_EVBIT,
+		.evbit = { BIT_MASK(EV_ABS) },
+		.absbit = { [BIT_WORD(ABS_MT_POSITION_X)] =
+				BIT_MASK(ABS_MT_POSITION_X) |
+				BIT_MASK(ABS_MT_POSITION_Y) },
+	},
+};
+
+static int mdss_fb_register_input_handler(struct msm_fb_data_type *mfd)
+{
+	int rc;
+	struct input_handler *handler;
+
+	if (mfd->input_handler)
+		return -EINVAL;
+
+	handler = kzalloc(sizeof(*handler), GFP_KERNEL);
+	if (!handler)
+		return -ENOMEM;
+
+	handler->event = mdss_fb_input_event_handler;
+	handler->connect = mdss_fb_input_connect;
+	handler->disconnect = mdss_fb_input_disconnect;
+	handler->name = "mdss_fb";
+	handler->id_table = mdss_fb_input_ids;
+	handler->private = mfd;
+
+	rc = input_register_handler(handler);
+	if (rc) {
+		pr_err("Unable to register the input handler\n");
+		kfree(handler);
+	} else {
+		mfd->input_handler = handler;
+		INIT_WORK(&mfd->mdss_fb_input_work, mdss_mdp_process_input);
+		pr_debug("mdss_input_handler register done\n");
+	}
+
+	return rc;
+}
+
+static void mdss_fb_unregister_input_handler(struct msm_fb_data_type *mfd)
+{
+	if (!mfd->input_handler)
+		return;
+
+	cancel_work_sync(&mfd->mdss_fb_input_work);
+	input_unregister_handler(mfd->input_handler);
+	kfree(mfd->input_handler);
+	mfd->input_handler = NULL;
+}
 
 static ssize_t mdss_fb_get_type(struct device *dev,
 				struct device_attribute *attr, char *buf)
@@ -367,6 +512,7 @@ static void __mdss_fb_idle_notify_work(struct work_struct *work)
 
 	/* Notify idle-ness here */
 	pr_debug("Idle timeout %dms expired!\n", mfd->idle_time);
+	mfd->fb_state = MDP_FB_STATE_IDLE;
 	if (mfd->idle_time)
 		sysfs_notify(&mfd->fbi->dev->kobj, NULL, "idle_notify");
 }
@@ -833,6 +979,10 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	if (mfd->mdp.splash_init_fnc)
 		mfd->mdp.splash_init_fnc(mfd);
 
+	if (mfd->panel_info->type == MIPI_VIDEO_PANEL)
+		if (mdss_fb_register_input_handler(mfd))
+			pr_err("failed to register input handler\n");
+
 	INIT_DELAYED_WORK(&mfd->idle_notify_work, __mdss_fb_idle_notify_work);
 
 	return rc;
@@ -879,6 +1029,8 @@ static int mdss_fb_remove(struct platform_device *pdev)
 	if (mdss_fb_suspend_sub(mfd))
 		pr_err("msm_fb_remove: can't stop the device %d\n",
 			    mfd->index);
+
+	mdss_fb_unregister_input_handler(mfd);
 
 	/* remove /dev/fb* */
 	unregister_framebuffer(mfd->fbi);
@@ -2595,6 +2747,7 @@ static int __mdss_fb_sync_buf_done_callback(struct notifier_block *p,
 					msecs_to_jiffies(WAIT_DISP_OP_TIMEOUT)))
 			pr_debug("fb%d: start idle delayed work\n",
 					mfd->index);
+		mfd->fb_state = MDP_FB_STATE_AWAKE;
 		break;
 	case MDP_NOTIFY_FRAME_READY:
 		if (sync_pt_data->async_wait_fences &&
@@ -2609,6 +2762,7 @@ static int __mdss_fb_sync_buf_done_callback(struct notifier_block *p,
 					msecs_to_jiffies(mfd->idle_time)))
 			pr_debug("fb%d: restarted idle work\n",
 					mfd->index);
+		mfd->fb_state = MDP_FB_STATE_AWAKE;
 		if (ret == -ETIME)
 			ret = NOTIFY_BAD;
 		break;
