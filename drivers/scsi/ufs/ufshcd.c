@@ -1332,6 +1332,8 @@ out:
 /* host lock must be held before calling this variant */
 static void __ufshcd_release(struct ufs_hba *hba, bool no_sched)
 {
+	unsigned long delay_in_jiffies;
+
 	if (!ufshcd_is_clkgating_allowed(hba))
 		return;
 
@@ -1346,8 +1348,20 @@ static void __ufshcd_release(struct ufs_hba *hba, bool no_sched)
 
 	hba->clk_gating.state = REQ_CLKS_OFF;
 	trace_ufshcd_clk_gating(dev_name(hba->dev), hba->clk_gating.state);
-	schedule_delayed_work(&hba->clk_gating.gate_work,
-			msecs_to_jiffies(hba->clk_gating.delay_ms));
+
+	/*
+	 * Scheduling the delayed work after 1 jiffies will make the work to
+	 * get schedule any time from 0ms to 1000/HZ ms which is not desirable
+	 * for hibern8 enter work as it may impact the performance if it gets
+	 * scheduled almost immediately. Hence make sure that hibern8 enter
+	 * work gets scheduled atleast after 2 jiffies (any time between
+	 * 1000/HZ ms to 2000/HZ ms).
+	 */
+	delay_in_jiffies = msecs_to_jiffies(hba->clk_gating.delay_ms);
+	if (delay_in_jiffies == 1)
+		delay_in_jiffies++;
+
+	schedule_delayed_work(&hba->clk_gating.gate_work, delay_in_jiffies);
 }
 
 void ufshcd_release(struct ufs_hba *hba, bool no_sched)
@@ -1423,7 +1437,7 @@ static void ufshcd_init_clk_gating(struct ufs_hba *hba)
 	if (!ufshcd_is_clkgating_allowed(hba))
 		return;
 
-	hba->clk_gating.delay_ms = 50;
+	hba->clk_gating.delay_ms = 10;
 	INIT_DELAYED_WORK(&hba->clk_gating.gate_work, ufshcd_gate_work);
 	INIT_WORK(&hba->clk_gating.ungate_work, ufshcd_ungate_work);
 
