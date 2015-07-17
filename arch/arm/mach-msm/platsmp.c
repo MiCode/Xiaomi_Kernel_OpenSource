@@ -321,6 +321,7 @@ static int __cpuinit msm8976_boot_secondary(unsigned int cpu,
 						struct task_struct *idle)
 {
 	int ret = 0;
+	u32 mpidr = cpu_logical_map(cpu);
 
 	pr_debug("Starting secondary CPU %d\n", cpu);
 
@@ -331,6 +332,11 @@ static int __cpuinit msm8976_boot_secondary(unsigned int cpu,
 				return ret;
 		} else if (!of_board_is_rumi()) {
 			ret = msm8976_unclamp_secondary_arm_cpu(cpu);
+			if (ret)
+				return ret;
+		}
+		if (MPIDR_AFFINITY_LEVEL(mpidr, 1)) {
+			ret = msm8976_cpu_ldo_config(cpu);
 			if (ret)
 				return ret;
 		}
