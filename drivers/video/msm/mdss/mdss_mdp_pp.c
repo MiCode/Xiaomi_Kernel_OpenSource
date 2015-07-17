@@ -4447,11 +4447,25 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 				pr_err("hist error: dspp[%d] collect %d\n",
 					dspp_num, ret);
 		}
+		/* state of dspp histogram blocks attached to logical display
+		 * should be changed atomically to idle. This will ensure that
+		 * histogram interrupt will see consistent states for all dspp's
+		 * attached to logical display.
+		 * */
 		for (i = 0; i < hist_cnt; i++) {
-			/* Change the state of histogram back to idle */
-			spin_lock_irqsave(&hists[i]->hist_lock, flag);
+			if (!i)
+				spin_lock_irqsave(&hists[i]->hist_lock, flag);
+			else
+				spin_lock(&hists[i]->hist_lock);
+		}
+		for (i = 0; i < hist_cnt; i++)
 			hists[i]->col_state = HIST_IDLE;
-			spin_unlock_irqrestore(&hists[i]->hist_lock, flag);
+		for (i = hist_cnt - 1; i >= 0; i--) {
+			if (!i)
+				spin_unlock_irqrestore(&hists[i]->hist_lock,
+						       flag);
+			else
+				spin_unlock(&hists[i]->hist_lock);
 		}
 		if (ret || temp_ret) {
 			ret = ret ? ret : temp_ret;
