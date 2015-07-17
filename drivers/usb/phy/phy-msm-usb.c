@@ -2091,6 +2091,7 @@ static void msm_otg_start_host(struct usb_otg *otg, int on)
 	struct msm_otg *motg = container_of(otg->phy, struct msm_otg, phy);
 	struct msm_otg_platform_data *pdata = motg->pdata;
 	struct usb_hcd *hcd;
+	u32 val;
 
 	if (!otg->host)
 		return;
@@ -2106,6 +2107,11 @@ static void msm_otg_start_host(struct usb_otg *otg, int on)
 			ulpi_write(otg->phy, OTG_COMP_DISABLE,
 				ULPI_SET(ULPI_PWR_CLK_MNG_REG));
 
+		if (pdata->enable_axi_prefetch) {
+			val = readl_relaxed(USB_HS_APF_CTRL);
+			val &= ~APF_CTRL_EN;
+			writel_relaxed(val, USB_HS_APF_CTRL);
+		}
 		usb_add_hcd(hcd, hcd->irq, IRQF_SHARED);
 	} else {
 		dev_dbg(otg->phy->dev, "host off\n");
@@ -2114,6 +2120,11 @@ static void msm_otg_start_host(struct usb_otg *otg, int on)
 
 		wake_up(&motg->host_suspend_wait);
 		usb_remove_hcd(hcd);
+
+		if (pdata->enable_axi_prefetch)
+			writel_relaxed(readl_relaxed(USB_HS_APF_CTRL)
+					| (APF_CTRL_EN), USB_HS_APF_CTRL);
+
 		/* HCD core reset all bits of PORTSC. select ULPI phy */
 		writel_relaxed(0x80000000, USB_PORTSC);
 
