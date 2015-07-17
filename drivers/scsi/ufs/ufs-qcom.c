@@ -1995,7 +1995,7 @@ static int ufs_qcom_update_sec_cfg(struct ufs_hba *hba, bool restore_sec_cfg)
 	cbuf.device_id = UFS_TZ_DEV_ID;
 	ret = scm_restore_sec_cfg(cbuf.device_id, cbuf.spare, &scm_ret);
 	if (ret || scm_ret) {
-		dev_err(hba->dev, "%s: failed, ret %d scm_ret %d\n",
+		dev_dbg(hba->dev, "%s: failed, ret %d scm_ret %d\n",
 			__func__, ret, scm_ret);
 		if (!ret)
 			ret = scm_ret;
