@@ -474,6 +474,7 @@ static struct alpha_pll_clk gpll3_clk_src = {
 		.parent = &xo_clk_src.c,
 		.dbg_name = "gpll3_clk_src",
 		.ops = &clk_ops_dyna_alpha_pll,
+		VDD_DIG_FMAX_MAP1(NOMINAL, 1400000000),
 		CLK_INIT(gpll3_clk_src.c),
 	},
 };
@@ -489,6 +490,7 @@ static struct pll_vote_clk gpll4_clk_src = {
 		.parent = &xo_clk_src.c,
 		.dbg_name = "gpll4_clk_src",
 		.ops = &clk_ops_pll_vote,
+		VDD_DIG_FMAX_MAP1(NOMINAL, 1400000000),
 		CLK_INIT(gpll4_clk_src.c),
 	},
 };
