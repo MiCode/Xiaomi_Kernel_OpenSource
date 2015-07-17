@@ -135,6 +135,7 @@ static struct pll_clk a72ss_hf_pll = {
 		.config_ctl_val = 0x04E0405D,
 		.enable_mn = true,
 		.post_div_masked = BVAL(9, 8, (1)),
+		.vco_mode_masked = BVAL(21, 20, 1),
 	},
 	.base = &virt_bases[APCS_C1_PLL_BASE],
 	.max_rate = 1843200000,
@@ -143,7 +144,8 @@ static struct pll_clk a72ss_hf_pll = {
 		.parent = &xo_a_clk.c,
 		.dbg_name = "a72ss_hf_pll",
 		.ops = &clk_ops_hf_pll,
-		VDD_MX_HF_FMAX_MAP2(SVS, 1000000000, NOM, 2000000000),
+		/* MX level of MSM is much higher than of PLL */
+		VDD_MX_HF_FMAX_MAP2(SVS, 2000000000, NOM, 2900000000UL),
 		CLK_INIT(a72ss_hf_pll.c),
 	},
 };
