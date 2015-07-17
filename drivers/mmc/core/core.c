@@ -444,7 +444,6 @@ int mmc_clk_update_freq(struct mmc_host *host,
 		if (!mmc_is_vaild_state_for_clk_scaling(host)) {
 			pr_debug("%s: invalid state for clock scaling - skipping",
 				mmc_hostname(host));
-			err = -EAGAIN;
 			goto error;
 		}
 
