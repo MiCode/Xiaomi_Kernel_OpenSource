@@ -43,6 +43,22 @@
 #define CACHE_LINE_SIZE 32
 #define CE_SHA_BLOCK_SIZE SHA256_BLOCK_SIZE
 
+#ifndef CONFIG_FIPS_ENABLE
+#ifndef CONFIG_HW_RANDOM_MSM
+/* Global FIPS status  */
+enum fips_status g_fips140_status = FIPS140_STATUS_NA;
+EXPORT_SYMBOL(g_fips140_status);
+int _do_msm_fips_drbg_init(void *rng_dev)
+{
+	return 0;
+}
+EXPORT_SYMBOL(_do_msm_fips_drbg_init);
+/*FIPS140-2 call back for DRBG self test */
+void *drbg_call_back;
+EXPORT_SYMBOL(drbg_call_back);
+#endif
+#endif
+
 /* are FIPS integrity tests done ?? */
 bool is_fips_qcedev_integritytest_done;
 
