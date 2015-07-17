@@ -1,0 +1,136 @@
+Voltage Sensors
+
+Voltage Sensors are hardware blocks that sense the voltage at
+a particular point in hardware. The device is capable of issuing
+interrupts when a programmed min or max threshold is crossed.
+
+Required Properties
+- compatible:
+	Must be 'qcom,msm-vsens'
+
+- reg:
+	specifies the address and size of the Voltage Sensor block
+
+- reg-names:
+	"base" to identify the physical address base of the
+	Voltage Sensor block.
+
+- label:
+	String indicating this vsens instance.
+
+- qcom,vsens-cpus:
+	Array of CPU phandles which correspond to the cores which are
+	supplied power by the rail monitored by this vsens device.
+
+- qcom,vsens-cal-id:
+	The VSENS rail id to index into the SMEM data which points to
+	the calibarated voltage and vsens-codes. This value is determined
+	based on the number of voltage-sensors supported on a target.
+
+Optional Properties
+- interrupts:
+	IRQ lines used by Voltage Sensors
+
+- interrupt-names:
+	Descriptive names for IRQs used by Voltage Sensors.
+	"max": maximum threshold crossed IRQ
+	"min": minium threshold crossed IRQ
+
+- qcom,temperature-pct:
+	The percentage shift in voltage values over operational
+	temperature range. This value is used to lower the floor
+	and raise a ceiling voltage to account for temperature
+	shifts. If not specified a default value of 15% is used.
+
+- qcom,min-operational-floor-uv:
+	The min floor voltage below which the voltage sensor
+	is not operational and must be disabled. If this
+	is not specified the voltage sensor is assumed to be
+	operational for all voltage ranges.
+
+- clocks:
+	Array of clock tuples in which each tuple consists of a
+	phandle to a clock device and a clock ID number.
+
+- clock-names:
+	The name of the voltage-sensor clock. The supported
+	clock-name is 'vsens-clk'.
+
+- qcom,corner-clock-rate:
+	The clock rate (HZ) of the voltage sensor clock
+	for each corner. The number of entries should match
+	the 'qcom,num-corners'.
+
+- qcom,calib-clock-rate:
+	The clock rate (HZ) at which the VSENS calibration
+	is done.
+
+- qcom,num-corners:
+	The number of corners supported by the voltage sensor.
+	Its determined by the number of operating frequencies of
+	the vsens-clk.
+
+Sub Node required regulators
+- qcom,vsens-voltage:
+	A node to indicate the voltage range monitored by the sensor.
+
+- qcom,vsens-corner:
+	A node to indicate the current corner of the voltage sensor.
+
+Sub-nodes required properties for 'qcom,vsens-voltage' regulator
+
+- regulator-name:		A string used to describe the regulator
+- regulator-min-microvolt:	Minimum voltage level expected to be
+				monitored by the voltage sensor for
+				a rail.
+- regulator-max-microvolt:	Maximum voltage level expected to be
+				monitored by the voltage sensor for
+				a rail.
+
+Sub-nodes required properties for 'qcom,vsens-corner' regulator
+
+- regulator-name:		A string used to describe the regulator
+- regulator-min-microvolt:	The lowest corner supported by the voltage
+				sensor. Its value is 1.
+- regulator-max-microvolt:	The max corner supported by the voltage sensor.
+				Its value is equal to 'qcom,num-corners'.
+
+Any property defined as part of the core regulator binding, defined in
+regulator.txt, can also be used.
+
+Example:
+	vsens_apc0: vsens@b1d6000 {
+		compatible = "qcom,msm-vsens";
+		reg = <0xb1d6000 0xc>;
+		reg-names = "base";
+		interrupts = <0 265 0>,
+				<0 266 0>;
+		interrupt-names = "max",
+				  "min";
+		label = "vsens-acpu0";
+
+		qcom,vsens-cal-id = <3>;
+		qcom,vsens-cpus = <&CPU0 &CPU1 &CPU2 &CPU3>;
+
+		clock-names = "vsens_clk";
+		clocks = <&clock_gcc clk_gcc_aps_0_clk>;
+
+		qcom,num-corners = <2>;
+		qcom,corner-clock-rate =
+			<300000000 540000000>;
+		qcom,calib-clock-rate = <540000000>;
+		qcom,min-operational-floor-uv = <500000>;
+		qcom,temperature-pct = <20>;
+
+		vsens_apc0_voltage:qcom,vsens-voltage {
+			regulator-name = "msm-vsens-apc0-voltage";
+			regulator-min-microvolt = <700000>;
+			regulator-max-microvolt = <1165000>;
+		};
+
+		vsens_apc0_corner:qcom,vsens-corner {
+			regulator-name = "msm-vsens-apc0-corner";
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <2>;
+		};
+	};
