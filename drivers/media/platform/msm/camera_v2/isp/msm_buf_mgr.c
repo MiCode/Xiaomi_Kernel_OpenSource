@@ -36,6 +36,8 @@
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
+#define BUF_DEBUG_FULL 0
+
 struct msm_isp_bufq *msm_isp_get_bufq(
 	struct msm_isp_buf_mgr *buf_mgr,
 	uint32_t bufq_handle)
@@ -515,7 +517,7 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 
 			}
 		} else {
-			CDBG("%s: No Buffer session_id: %d stream_id: %d\n",
+			CDBG("%s: No HAL Buffer session_id: %d stream_id: %d\n",
 				__func__, bufq->session_id, bufq->stream_id);
 			rc = -EINVAL;
 		}
@@ -707,7 +709,8 @@ static int msm_isp_update_put_buf_cnt(struct msm_isp_buf_mgr *buf_mgr,
 			}
 		}
 	} else {
-		pr_warn("%s: Invalid state\n", __func__);
+		pr_warn("%s: Invalid state, stream id %x, state %d\n", __func__,
+			bufq->stream_id, state);
 	}
 	spin_unlock_irqrestore(&bufq->bufq_lock, flags);
 	return 0;
@@ -1224,35 +1227,31 @@ int msm_isp_proc_buf_cmd(struct msm_isp_buf_mgr *buf_mgr,
 	return 0;
 }
 
-static int msm_isp_buf_mgr_debug(struct msm_isp_buf_mgr *buf_mgr)
+static int msm_isp_buf_mgr_debug(struct msm_isp_buf_mgr *buf_mgr,
+	unsigned long fault_addr)
 {
 	struct msm_isp_buffer *bufs = NULL;
 	uint32_t i = 0, j = 0, k = 0, rc = 0;
 	char *print_buf = NULL, temp_buf[100];
 	uint32_t start_addr = 0, end_addr = 0, print_buf_size = 2000;
+	int buf_addr_delta = -1;
+	int temp_delta = 0;
+	uint32_t debug_stream_id = 0;
+	uint32_t debug_buf_idx = 0;
+	uint32_t debug_buf_plane = 0;
+	uint32_t debug_start_addr = 0;
+	uint32_t debug_end_addr = 0;
+	uint32_t debug_frame_id = 0;
+	enum msm_isp_buffer_state debug_state;
+
 	if (!buf_mgr) {
 		pr_err_ratelimited("%s: %d] NULL buf_mgr\n",
 			__func__, __LINE__);
 		return -EINVAL;
 	}
-	print_buf = kzalloc(print_buf_size, GFP_ATOMIC);
-	if (!print_buf) {
-		pr_err("%s failed: No memory", __func__);
-		return -ENOMEM;
-	}
-	snprintf(print_buf, print_buf_size, "%s\n", __func__);
+
 	for (i = 0; i < BUF_MGR_NUM_BUF_Q; i++) {
-		if (i % 2 == 0 && i > 0) {
-			pr_err("%s\n", print_buf);
-			print_buf[0] = 0;
-		}
 		if (buf_mgr->bufq[i].bufq_handle != 0) {
-			snprintf(temp_buf, sizeof(temp_buf),
-				"handle %x stream %x num_bufs %d\n",
-				buf_mgr->bufq[i].bufq_handle,
-				buf_mgr->bufq[i].stream_id,
-				buf_mgr->bufq[i].num_bufs);
-			strlcat(print_buf, temp_buf, print_buf_size);
 			for (j = 0; j < buf_mgr->bufq[i].num_bufs; j++) {
 				bufs = &buf_mgr->bufq[i].bufs[j];
 				if (!bufs) {
@@ -1262,20 +1261,85 @@ static int msm_isp_buf_mgr_debug(struct msm_isp_buf_mgr *buf_mgr)
 					start_addr = bufs->
 							mapped_info[k].paddr;
 					end_addr = bufs->mapped_info[k].paddr +
-						bufs->mapped_info[k].len;
-					snprintf(temp_buf, sizeof(temp_buf),
-						" buf %d plane %d start_addr %x end_addr %x\n",
-						j, k, start_addr, end_addr);
-					strlcat(print_buf, temp_buf,
-						print_buf_size);
+						bufs->mapped_info[k].len - 1;
+					temp_delta = fault_addr - start_addr;
+					if (temp_delta < 0)
+						continue;
+
+					if (buf_addr_delta == -1 ||
+						temp_delta < buf_addr_delta) {
+						buf_addr_delta = temp_delta;
+						debug_stream_id = buf_mgr->
+							bufq[i].stream_id;
+						debug_buf_idx = j;
+						debug_buf_plane = k;
+						debug_start_addr = start_addr;
+						debug_end_addr = end_addr;
+						debug_frame_id = bufs->frame_id;
+						debug_state = bufs->state;
+					}
 				}
 			}
 			start_addr = 0;
 			end_addr = 0;
 		}
 	}
-	pr_err("%s\n", print_buf);
-	kfree(print_buf);
+	pr_err("%s: ==== SMMU page fault addr %lx ====\n", __func__,
+		fault_addr);
+	pr_err("%s: nearby stream id %x, frame_id %d\n", __func__,
+		debug_stream_id, debug_frame_id);
+	pr_err("%s: nearby buf index %d, plane %d, state %d\n", __func__,
+		debug_buf_idx, debug_buf_plane, debug_state);
+	pr_err("%s: buf address 0x%x -- 0x%x\n", __func__,
+		debug_start_addr, debug_end_addr);
+
+	if (BUF_DEBUG_FULL) {
+		print_buf = kzalloc(print_buf_size, GFP_ATOMIC);
+		if (!print_buf) {
+			pr_err("%s failed: No memory", __func__);
+			return -ENOMEM;
+		}
+		snprintf(print_buf, print_buf_size, "%s\n", __func__);
+		for (i = 0; i < BUF_MGR_NUM_BUF_Q; i++) {
+			if (i % 2 == 0 && i > 0) {
+				pr_err("%s\n", print_buf);
+				print_buf[0] = 0;
+			}
+			if (buf_mgr->bufq[i].bufq_handle != 0) {
+				snprintf(temp_buf, sizeof(temp_buf),
+					"handle %x stream %x num_bufs %d\n",
+					buf_mgr->bufq[i].bufq_handle,
+					buf_mgr->bufq[i].stream_id,
+					buf_mgr->bufq[i].num_bufs);
+				strlcat(print_buf, temp_buf, print_buf_size);
+				for (j = 0; j < buf_mgr->bufq[i].num_bufs;
+					j++) {
+					bufs = &buf_mgr->bufq[i].bufs[j];
+					if (!bufs)
+						break;
+
+					for (k = 0; k < bufs->num_planes; k++) {
+						start_addr = bufs->
+							mapped_info[k].paddr;
+						end_addr = bufs->mapped_info[k].
+							paddr + bufs->
+							mapped_info[k].len;
+						snprintf(temp_buf,
+							sizeof(temp_buf),
+							" buf %d plane %d start_addr %x end_addr %x\n",
+							j, k, start_addr,
+							end_addr);
+						strlcat(print_buf, temp_buf,
+							print_buf_size);
+					}
+				}
+				start_addr = 0;
+				end_addr = 0;
+			}
+		}
+		pr_err("%s\n", print_buf);
+		kfree(print_buf);
+	}
 	return rc;
 }
 
