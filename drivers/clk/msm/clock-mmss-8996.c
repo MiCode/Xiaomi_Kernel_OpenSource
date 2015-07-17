@@ -654,6 +654,7 @@ static struct clk_freq_tbl ftbl_maxi_clk_src[] = {
 };
 
 static struct clk_freq_tbl ftbl_maxi_clk_src_v2[] = {
+	F_MM(  19200000,        mmsscc_xo,    1,    0,     0),
 	F_MM(  75000000, mmsscc_gpll0_div,    4,    0,     0),
 	F_MM( 100000000,     mmsscc_gpll0,    6,    0,     0),
 	F_MM( 200000000,     mmsscc_gpll0,    3,    0,     0),
