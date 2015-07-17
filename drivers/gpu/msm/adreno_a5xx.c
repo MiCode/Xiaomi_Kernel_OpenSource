@@ -113,6 +113,8 @@ static void a5xx_preemption_start(struct adreno_device *adreno_dev,
 	struct kgsl_iommu *iommu = device->mmu.priv;
 	uint64_t ttbr0;
 	uint32_t contextidr;
+	struct kgsl_pagetable *pt;
+	bool switch_default_pt = true;
 
 	kgsl_sharedmem_writel(device, &rb->preemption_desc,
 		PREEMPT_RECORD(wptr), rb->wptr);
@@ -124,6 +126,23 @@ static void a5xx_preemption_start(struct adreno_device *adreno_dev,
 		offsetof(struct adreno_ringbuffer_pagetable_info, ttbr0));
 	kgsl_sharedmem_readl(&rb->pagetable_desc, &contextidr,
 		offsetof(struct adreno_ringbuffer_pagetable_info, contextidr));
+
+	spin_lock(&kgsl_driver.ptlock);
+	list_for_each_entry(pt, &kgsl_driver.pagetable_list, list) {
+		if (kgsl_mmu_pagetable_get_ttbr0(pt) == ttbr0) {
+			switch_default_pt = false;
+			break;
+		}
+	}
+	spin_unlock(&kgsl_driver.ptlock);
+
+	if (switch_default_pt) {
+		ttbr0 = kgsl_mmu_pagetable_get_ttbr0(
+				device->mmu.defaultpagetable);
+		contextidr = kgsl_mmu_pagetable_get_contextidr(
+				device->mmu.defaultpagetable);
+	}
+
 	kgsl_sharedmem_writeq(device, &iommu->smmu_info,
 		offsetof(struct a5xx_cp_smmu_info, ttbr0), ttbr0);
 	kgsl_sharedmem_writel(device, &iommu->smmu_info,
