@@ -804,6 +804,9 @@ static int _load_gpmu_firmware(struct adreno_device *adreno_dev)
 	uint32_t fw_size, header_size, block_size;
 	int ret;
 
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
+		return 0;
+
 	/* gpmu fw already saved and verified so do nothing new */
 	if (adreno_dev->gpmu_cmds_size != 0)
 		return 0;
