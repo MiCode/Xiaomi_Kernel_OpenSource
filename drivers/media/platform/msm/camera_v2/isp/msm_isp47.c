@@ -1295,7 +1295,6 @@ static void msm_vfe47_configure_hvx(struct vfe_device *vfe_dev,
 		val = msm_camera_io_r(vfe_dev->vfe_base + 0x50);
 		val &= 0xFFFFFFF7;
 		msm_camera_io_w_mb(val, vfe_dev->vfe_base + 0x50);
-		vfe_dev->hvx_cmd = HVX_DISABLE;
 	}
 }
 
