@@ -2157,9 +2157,9 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 				irq, ret);
 		goto err0;
 	}
-	dwc->irq = irq;
 
 	pm_runtime_get_sync(dwc->dev);
+	dwc->irq = irq;
 	dbg_event(0xFF, "GdgStrt Begin",
 		atomic_read(&dwc->dev->power.usage_count));
 	spin_lock_irqsave(&dwc->lock, flags);
