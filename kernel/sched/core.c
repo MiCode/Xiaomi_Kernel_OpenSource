@@ -1605,14 +1605,8 @@ static void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 		/* The IRQ busy time spanned multiple windows. Process the
 		 * busy time preceding the current window start first. */
 		delta = window_start - mark_start;
-		if (delta > window_size) {
+		if (delta > window_size)
 			delta = window_size;
-			/* If there's 1 or more full windows of IRQ busy time
-			 * then the entire prev_runnable_sum will be a window
-			 * of IRQ time - there should be no contribution from
-			 * anything else. */
-			rq->prev_runnable_sum = 0;
-		}
 		delta = scale_exec_time(delta, rq);
 		rq->prev_runnable_sum += delta;
 
