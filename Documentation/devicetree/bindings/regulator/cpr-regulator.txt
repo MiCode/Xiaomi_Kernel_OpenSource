@@ -460,9 +460,10 @@ Optional properties:
 				applied unconditionally.
 - qcom,cpr-cpus:		Array of CPU phandles which correspond to the cores that this cpr-regulator
 				device must monitor when adjusting the voltage and/or target quotient based
-				upon the number of online cores. This property must be specified in order to
+				upon the number of online cores or make sure that one of them must be online
+				when performing de-aging measurements. This property must be specified in order to
 				utilize the qcom,cpr-online-cpu-virtual-corner-init-voltage-adjustment or
-				qcom,cpr-online-cpu-virtual-corner-quotient-adjustment properties.
+				qcom,cpr-online-cpu-virtual-corner-quotient-adjustment or qcom,cpr-aging-sensor-id properties.
 - qcom,cpr-online-cpu-virtual-corner-init-voltage-adjustment:	Array of tuples where each tuple specifies
 				the voltage adjustment for each corner. These adjustments apply to the
 				initial voltage of each corner. The size of each tuple must be equal
@@ -655,7 +656,58 @@ Optional properties:
 				cpr-regulator device or neither must be specified.
 - vdd-vsens-corner-supply:	Regulator to specify the current operating fuse corner to the Voltage Sensor.
 - vdd-vsens-voltage-supply:	Regulator to specify the corner floor/ceiling voltages to the Voltage Sensor.
-
+- qcom,cpr-aging-sensor-id:	Array of CPR sensor IDs to be used in the CPR de-aging algorithm. The number
+				of values should be equal to number of sensors selected for age calibration.
+				If this property is not specified, then the de-aging procedure is not enabled.
+- qcom,cpr-de-aging-allowed:	Integer values that specify whether the CPR de-aging procedure is allowed or
+				not for a particular fuse revision. If the qcom,cpr-fuse-version-map
+				property is specified, then qcom,cpr-de-aging-allowed must contain the same number
+				of elements as there are tuples in qcom,cpr-fuse-version-map. If qcom,cpr-fuse-version-map
+				is not specified, then qcom,cpr-de-aging-allowed must contain a single value that
+				is used unconditionally. An element value of 1 means that the CPR de-aging procedure
+				can be performed for parts with the corresponding fuse revision. An element value of 0
+				means that CPR de-aging cannot be performed.
+				This property is required if the qcom,cpr-aging-sensor-id property has been specified.
+- qcom,cpr-aging-ref-corner:	The vdd-apc-supply reference virtual voltage corner to be set during the CPR de-aging
+				measurements. This corner value is needed to set appropriate voltage on
+				the dependent voltage rails such as vdd-mx and mem-acc.
+				This property is required if the qcom,cpr-aging-sensor-id property has been specified.
+- qcom,cpr-aging-ref-voltage:	The vdd-apc-supply reference voltage in microvolts to be set during the
+				CPR de-aging measurements.
+				This property is required if the qcom,cpr-aging-sensor-id property has been specified.
+- qcom,cpr-max-aging-margin:	The maximum allowed aging voltage margin in microvolts. This is used to limit
+				the calculated aging voltage margin.
+				This property is required if the qcom,cpr-aging-sensor-id property has been specified.
+- qcom,cpr-non-collapsible-sensors: Array of CPR sensor IDs which are in non-collapsible domain. The sensor IDs not
+				specified in the array should be bypassed for the de-aging procedure. The number of
+				elements should be less than or equal to 32. The values of the array elements should
+				be greater than or equal to 0 and less than or equal to 31.
+				This property is required if the qcom,cpr-aging-sensor-id property has been specified.
+- qcom,cpr-aging-ro-scaling-factor:	The aging ring oscillator (RO) scaling factor with units of QUOT/V.
+				This value is used for calculating a voltage margin from RO measurements.
+				This property is required if the qcom,cpr-aging-sensor-id property has been specified.
+- qcom,cpr-ro-scaling-factor:	Array of scaling factors with units of QUOT/V for each ring oscillator ordered
+				from the lowest to the highest RO. These values are used to calculate
+				the aging voltage margin adjustment for all of the ROs. Since CPR2 supports
+				exactly 8 ROs, the array must contain 8 elements corresponding to RO0 through RO7 in order.
+				If a given RO is unused for a fuse corner, then its scaling factor may be specified as 0.
+				This property is required if the qcom,cpr-aging-sensor-id property has been specified.
+- qcom,cpr-aging-derate:	Array of scaling factors which define the amount of derating to apply to the reference
+				aging voltage margin adjustment for each of the fuse corners. Each element has units
+				of uV/mV. This property must be of length defined by qcom,cpr-fuse-corners.
+				The elements are ordered from the lowest to the highest fuse corner.
+				This property is required if the qcom,cpr-aging-sensor-id property has been specified.
+- qcom,cpr-fuse-aging-init-quot-diff:	Array of quadruples in which each quadruple specifies a fuse location to read in
+				order to get an initial quotient difference. The difference between quot min and quot max
+				is fused as the initial quotient difference.
+				The 4 elements in one quadruple are:
+				[0]: => the fuse row number of the bits
+				[1]: => LSB bit position of the bits
+				[2]: => number of the bits
+				[3]: => fuse reading method, 0 for direct reading or 1 for SCM reading
+				The number of quadruples should be equal to the number of values specified in
+				the qcom,cpr-aging-sensor-id property. This property is required if
+				the qcom,cpr-aging-sensor-id property has been specified.
 Example:
 	apc_vreg_corner: regulator@f9018000 {
 		status = "okay";
@@ -889,4 +941,20 @@ Example:
 				<140 7 3 0>,
 				<138 45 5 0>;
 		qcom,cpr-fuse-quot-offset-scale = <5 5 5>;
+
+		qcom,cpr-aging-sensor-id = <17, 18>;
+		qcom,cpr-aging-ref-corner = <4>;
+		qcom,cpr-aging-ref-voltage = <1050000>;
+		qcom,cpr-max-aging-margin = <15000>;
+		qcom,cpr-de-aging-allowed =
+				<0>,
+				<0>,
+				<1>;
+		qcom,cpr-non-collapsible-sensors= <7 12 17 22>;
+		qcom,cpr-aging-ro-scaling-factor = <3500>;
+		qcom,cpr-ro-scaling-factor = <0 2500 2500 2500 0 0 0 0>;
+		qcom,cpr-aging-derate = <1000 1000 1250>;
+		qcom,cpr-fuse-aging-init-quot-diff =
+				<101 0 8 0>,
+				<101 8 8 0>;
 	};
