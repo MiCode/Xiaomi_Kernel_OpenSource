@@ -390,3 +390,5 @@ config MSM_EVENT_TIMER
         need to be monitored by the PM. The enables the PM code to monitor
         events that require the core to be awake and ready to handle the
         event.
+
+source "drivers/soc/qcom/memshare/Kconfig"
