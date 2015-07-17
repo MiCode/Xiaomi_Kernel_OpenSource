@@ -1820,7 +1820,8 @@ int a3xx_microcode_load(struct adreno_device *adreno_dev,
 			if (status != 0)
 				return status;
 		}
-	}
+	} else
+		return -EINVAL;
 
 	return 0;
 }

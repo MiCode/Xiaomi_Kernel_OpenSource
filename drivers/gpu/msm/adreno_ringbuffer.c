@@ -328,15 +328,12 @@ static int _ringbuffer_start_common(struct adreno_ringbuffer *rb)
 }
 
 /**
- * adreno_ringbuffer_warm_start() - Ringbuffer warm start
+ * adreno_ringbuffer_start() - Ringbuffer start
  * @adreno_dev: Pointer to adreno device
- *
- * Start the ringbuffer but load only jump tables part of the
- * microcode. Only need to start the current active ringbuffer
- * do not mess with inactive ringbuffers state because they
- * could contain valid commands.
+ * @start_type: Warm or cold start
  */
-int adreno_ringbuffer_warm_start(struct adreno_device *adreno_dev)
+int adreno_ringbuffer_start(struct adreno_device *adreno_dev,
+	unsigned int start_type)
 {
 	int status;
 	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
@@ -344,28 +341,7 @@ int adreno_ringbuffer_warm_start(struct adreno_device *adreno_dev)
 
 	_ringbuffer_setup_common(rb);
 
-	status = gpudev->microcode_load(adreno_dev, ADRENO_START_WARM);
-	if (status)
-		return status;
-
-	return _ringbuffer_start_common(rb);
-}
-
-/**
- * adreno_ringbuffer_cold_start() - Ringbuffer cold start
- * @adreno_dev: Pointer to adreno device
- *
- * Start the ringbuffers from power collapse. All ringbuffers are started.
- */
-int adreno_ringbuffer_cold_start(struct adreno_device *adreno_dev)
-{
-	int status;
-	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-
-	_ringbuffer_setup_common(rb);
-
-	status = gpudev->microcode_load(adreno_dev, ADRENO_START_COLD);
+	status = gpudev->microcode_load(adreno_dev, start_type);
 	if (status)
 		return status;
 
@@ -452,17 +428,6 @@ void adreno_ringbuffer_close(struct adreno_device *adreno_dev)
 {
 	struct adreno_ringbuffer *rb;
 	int i;
-
-	kfree(adreno_dev->pfp_fw);
-	kfree(adreno_dev->pm4_fw);
-	kfree(adreno_dev->gpmu_cmds);
-
-	adreno_dev->pfp_fw = NULL;
-	adreno_dev->pm4_fw = NULL;
-	adreno_dev->gpmu_cmds = NULL;
-
-	kgsl_free_global(&adreno_dev->pm4);
-	kgsl_free_global(&adreno_dev->pfp);
 
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i)
 		_adreno_ringbuffer_close(rb);

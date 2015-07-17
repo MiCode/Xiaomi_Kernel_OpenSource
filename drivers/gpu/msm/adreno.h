@@ -158,10 +158,8 @@ enum adreno_gpurev {
 	ADRENO_REV_A530 = 530,
 };
 
-enum adreno_start_type {
-	ADRENO_START_WARM,
-	ADRENO_START_COLD,
-};
+#define ADRENO_START_WARM 0
+#define ADRENO_START_COLD 1
 
 #define ADRENO_SOFT_FAULT BIT(0)
 #define ADRENO_HARD_FAULT BIT(1)
