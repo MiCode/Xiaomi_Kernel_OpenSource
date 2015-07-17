@@ -90,7 +90,8 @@
 						      <0x2C4 4 8>;
 		qcom,mdss-pipe-dma-clk-ctrl-offsets = <0x2AC 8 12>,
 						      <0x2B4 8 12>;
-
+		qcom,mdss-pipe-cursor-clk-ctrl-offsets = <0x3A8 16 15>,
+						         <0x3B0 16 15>;
 		qcom,mdss-pipe-sw-reset-off = <0x0028>;
 		qcom,mdss-pipe-vig-sw-reset-map = <5 6 7 8>;
 		qcom,mdss-pipe-rgb-sw-reset-map = <9 10 11 12>;
