@@ -302,6 +302,14 @@ static int handle_alloc_generic_req(void *req_h, void *req, void *conn_h)
 	alloc_resp->resp.error = QMI_ERR_NO_MEMORY_V01;
 	client_id = check_client(alloc_req->client_id, alloc_req->proc_id,
 								CHECK);
+
+	if (client_id >= MAX_CLIENTS) {
+		pr_err("memshare: %s client not found, requested client: %d, proc_id: %d\n",
+				__func__, alloc_req->client_id,
+				alloc_req->proc_id);
+		return -EINVAL;
+	}
+
 	if (!memblock[client_id].alloted) {
 		rc = memshare_alloc(memsh_drv->dev, alloc_req->num_bytes,
 					&memblock[client_id]);
@@ -448,6 +456,14 @@ static int handle_query_size_req(void *req_h, void *req, void *conn_h)
 		query_req->client_id, query_req->proc_id);
 	client_id = check_client(query_req->client_id, query_req->proc_id,
 								CHECK);
+
+	if (client_id >= MAX_CLIENTS) {
+		pr_err("memshare: %s client not found, requested client: %d, proc_id: %d\n",
+				__func__, query_req->client_id,
+				query_req->proc_id);
+		return -EINVAL;
+	}
+
 	if (memblock[client_id].size) {
 		query_resp->size_valid = 1;
 		query_resp->size = memblock[client_id].size;
