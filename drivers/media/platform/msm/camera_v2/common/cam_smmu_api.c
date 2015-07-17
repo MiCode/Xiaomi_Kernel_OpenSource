@@ -22,6 +22,10 @@
 #include <linux/msm_dma_iommu_mapping.h>
 #include "cam_smmu_api.h"
 
+#define SCRATCH_ALLOC_START SZ_128K
+#define SCRATCH_ALLOC_END   SZ_256M
+#define VA_SPACE_END	    SZ_2G
+#define IOMMU_INVALID_DIR -1
 #define BYTE_SIZE 8
 #define COOKIE_NUM_BYTE 2
 #define COOKIE_SIZE (BYTE_SIZE*COOKIE_NUM_BYTE)
@@ -56,6 +60,13 @@ enum cam_smmu_buf_state {
 	CAM_SMMU_BUFF_NOT_EXIST
 };
 
+struct scratch_mapping {
+	void *bitmap;
+	size_t bits;
+	unsigned int order;
+	dma_addr_t base;
+};
+
 struct cam_context_bank_info {
 	struct device *dev;
 	struct dma_iommu_mapping *mapping;
@@ -63,6 +74,8 @@ struct cam_context_bank_info {
 	size_t va_len;
 	const char *name;
 	bool is_secure;
+	uint8_t scratch_buf_support;
+	struct scratch_mapping scratch_map;
 	struct list_head list_head;
 	struct mutex lock;
 	int handle;
@@ -91,34 +104,71 @@ struct cam_dma_buff_info {
 	struct dma_buf_attachment *attach;
 	struct sg_table *table;
 	enum dma_data_direction dir;
+	int iommu_dir;
 	int ref_count;
 	dma_addr_t paddr;
 	spinlock_t sp_lock;
 	struct list_head list;
 	int ion_fd;
 	size_t len;
+	size_t phys_len;
 };
 
 static struct cam_iommu_cb_set iommu_cb_set;
+
 static struct mutex iommu_table_lock;
 
 static enum dma_data_direction cam_smmu_translate_dir(
 	enum cam_smmu_map_dir dir);
+
 static int cam_smmu_check_handle_unique(int hdl);
+
 static int cam_smmu_create_iommu_handle(int idx);
+
 static int cam_smmu_create_add_handle_in_table(char *name,
 	int *hdl);
+
 static struct cam_dma_buff_info *cam_smmu_find_mapping_by_ion_index(int idx,
 	int ion_fd);
+
+static int cam_smmu_init_scratch_map(struct scratch_mapping *scratch_map,
+					dma_addr_t base, size_t size,
+					int order);
+
+static int cam_smmu_alloc_scratch_va(struct scratch_mapping *mapping,
+					size_t size,
+					dma_addr_t *iova);
+
+static int cam_smmu_free_scratch_va(struct scratch_mapping *mapping,
+					dma_addr_t addr, size_t size);
+
+static struct cam_dma_buff_info *cam_smmu_find_mapping_by_virt_address(int idx,
+		dma_addr_t virt_addr);
+
 static int cam_smmu_map_buffer_and_add_to_list(int idx, int ion_fd,
 	enum dma_data_direction dma_dir, dma_addr_t *paddr_ptr,
 	size_t *len_ptr);
+
+static int cam_smmu_alloc_scratch_buffer_add_to_list(int idx,
+					      size_t virt_len,
+					      size_t phys_len,
+					      unsigned int iommu_dir,
+					      dma_addr_t *virt_addr);
 static int cam_smmu_unmap_buf_and_remove_from_list(
 	struct cam_dma_buff_info *mapping_info, int idx);
+
+static int cam_smmu_free_scratch_buffer_remove_from_list(
+					struct cam_dma_buff_info *mapping_info,
+					int idx);
+
 static void cam_smmu_clean_buffer_list(int idx);
+
 static void cam_smmu_init_iommu_table(void);
+
 static void cam_smmu_print_list(int idx);
+
 static void cam_smmu_print_table(void);
+
 static int cam_smmu_probe(struct platform_device *pdev);
 
 static void cam_smmu_print_list(int idx)
@@ -235,6 +285,24 @@ static int cam_smmu_iommu_fault_handler(struct iommu_domain *domain,
 	}
 	pr_err("Error: cb_name %s is not valid.\n", (char *)token);
 	return -ENOSYS;
+}
+
+static int cam_smmu_translate_dir_to_iommu_dir(
+			enum cam_smmu_map_dir dir)
+{
+	switch (dir) {
+	case CAM_SMMU_MAP_READ:
+		return IOMMU_READ;
+	case CAM_SMMU_MAP_WRITE:
+		return IOMMU_WRITE;
+	case CAM_SMMU_MAP_RW:
+		return IOMMU_READ|IOMMU_WRITE;
+	case CAM_SMMU_MAP_INVALID:
+	default:
+		pr_err("Error: Direction is invalid. dir = %d\n", dir);
+		break;
+	};
+	return IOMMU_INVALID_DIR;
 }
 
 static enum dma_data_direction cam_smmu_translate_dir(
@@ -386,6 +454,113 @@ int cam_smmu_find_index_by_handle(int hdl)
 	return idx;
 }
 
+static int cam_smmu_init_scratch_map(struct scratch_mapping *scratch_map,
+					dma_addr_t base, size_t size,
+					int order)
+{
+	unsigned int count = size >> (PAGE_SHIFT + order);
+	unsigned int bitmap_size = BITS_TO_LONGS(count) * sizeof(long);
+	int err = 0;
+
+	if (!count) {
+		err = -EINVAL;
+		pr_err("Error: wrong size passed, page count can't be zero");
+		goto bail;
+	}
+
+	scratch_map->bitmap = kzalloc(bitmap_size, GFP_KERNEL);
+	if (!scratch_map->bitmap) {
+		err = -ENOMEM;
+		goto bail;
+	}
+
+	scratch_map->base = base;
+	scratch_map->bits = BITS_PER_BYTE * bitmap_size;
+	scratch_map->order = order;
+
+bail:
+	return err;
+}
+
+static int cam_smmu_alloc_scratch_va(struct scratch_mapping *mapping,
+					size_t size,
+					dma_addr_t *iova)
+{
+	int rc = 0;
+	unsigned int order = get_order(size);
+	unsigned int align = 0;
+	unsigned int count, start;
+
+	count = ((PAGE_ALIGN(size) >> PAGE_SHIFT) +
+		 (1 << mapping->order) - 1) >> mapping->order;
+
+	/* Transparently, add a guard page to the total count of pages
+	 * to be allocated */
+	count++;
+
+	if (order > mapping->order)
+		align = (1 << (order - mapping->order)) - 1;
+
+	start = bitmap_find_next_zero_area(mapping->bitmap, mapping->bits, 0,
+					   count, align);
+
+	if (start > mapping->bits)
+		rc = -ENOMEM;
+
+	bitmap_set(mapping->bitmap, start, count);
+
+	*iova = mapping->base + (start << (mapping->order + PAGE_SHIFT));
+	return rc;
+}
+
+static int cam_smmu_free_scratch_va(struct scratch_mapping *mapping,
+					dma_addr_t addr, size_t size)
+{
+	unsigned int start = (addr - mapping->base) >>
+			     (mapping->order + PAGE_SHIFT);
+	unsigned int count = ((size >> PAGE_SHIFT) +
+			      (1 << mapping->order) - 1) >> mapping->order;
+
+	if (!addr) {
+		pr_err("Error: Invalid address\n");
+		return -EINVAL;
+	}
+
+	if (start + count > mapping->bits) {
+		pr_err("Error: Invalid page bits in scratch map\n");
+		return -EINVAL;
+	}
+
+	/* Transparently, add a guard page to the total count of pages
+	 * to be freed */
+	count++;
+
+	bitmap_clear(mapping->bitmap, start, count);
+
+	return 0;
+}
+
+static struct cam_dma_buff_info *cam_smmu_find_mapping_by_virt_address(int idx,
+		dma_addr_t virt_addr)
+{
+	struct cam_dma_buff_info *mapping;
+
+	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
+	list_for_each_entry(mapping, &iommu_cb_set.cb_info[idx].list_head,
+			list) {
+		if (mapping->paddr == virt_addr) {
+			CDBG("Found virtual address %llx\n", virt_addr);
+			mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+			return mapping;
+		}
+	}
+
+	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+	pr_err("Error: Cannot find virtual address %llx by index %d\n",
+		virt_addr, idx);
+	return NULL;
+}
+
 static struct cam_dma_buff_info *cam_smmu_find_mapping_by_ion_index(int idx,
 		int ion_fd)
 {
@@ -417,10 +592,22 @@ static void cam_smmu_clean_buffer_list(int idx)
 		CDBG("Free mapping address %p, i = %d, fd = %d\n",
 			 (void *)mapping_info->paddr, idx,
 			mapping_info->ion_fd);
-		ret = cam_smmu_unmap_buf_and_remove_from_list(mapping_info,
-				idx);
+
+		if (mapping_info->ion_fd == 0xDEADBEEF)
+			/* Clean up scratch buffers */
+			ret = cam_smmu_free_scratch_buffer_remove_from_list(
+							mapping_info, idx);
+		else
+			/* Clean up regular mapped buffers */
+			ret = cam_smmu_unmap_buf_and_remove_from_list(
+					mapping_info,
+					idx);
+
 		if (ret < 0) {
-			pr_err("Error: Deleting one buffer failed\n");
+			pr_err("Buffer delete failed: idx = %d\n", idx);
+			pr_err("Buffer delete failed: addr = %llx, fd = %d\n",
+					mapping_info->paddr,
+					mapping_info->ion_fd);
 			/*
 			 * Ignore this error and continue to delete other
 			 * buffers in the list
@@ -662,6 +849,276 @@ int cam_smmu_ops(int handle, enum cam_smmu_ops_param ops)
 }
 EXPORT_SYMBOL(cam_smmu_ops);
 
+static int cam_smmu_alloc_scratch_buffer_add_to_list(int idx,
+					      size_t virt_len,
+					      size_t phys_len,
+					      unsigned int iommu_dir,
+					      dma_addr_t *virt_addr)
+{
+	unsigned long nents = virt_len / phys_len;
+	struct cam_dma_buff_info *mapping_info = NULL;
+	size_t unmapped;
+	dma_addr_t iova = 0;
+	struct scatterlist *sg;
+	int i = 0;
+	int rc;
+	struct iommu_domain *domain = NULL;
+	struct page *page;
+	struct sg_table *table = NULL;
+
+	CDBG("%s: nents = %lu, idx = %d, virt_len  = %zx\n",
+		__func__, nents, idx, virt_len);
+	CDBG("%s: phys_len = %zx, iommu_dir = %d, virt_addr = %p\n",
+		__func__, phys_len, iommu_dir, virt_addr);
+
+	/* This table will go inside the 'mapping' structure
+	 * where it will be held until put_scratch_buffer is called
+	 */
+	table = kzalloc(sizeof(struct sg_table), GFP_KERNEL);
+	if (!table) {
+		rc = -ENOMEM;
+		goto err_table_alloc;
+	}
+
+	rc = sg_alloc_table(table, nents, GFP_KERNEL);
+	if (rc < 0) {
+		rc = -EINVAL;
+		goto err_sg_alloc;
+	}
+
+	page = alloc_pages(GFP_KERNEL, get_order(phys_len));
+	if (!page) {
+		rc = -ENOMEM;
+		goto err_page_alloc;
+	}
+
+	/* Now we create the sg list */
+	for_each_sg(table->sgl, sg, table->nents, i)
+		sg_set_page(sg, page, phys_len, 0);
+
+
+	/* Get the domain from within our cb_set struct and map it*/
+	domain = iommu_cb_set.cb_info[idx].mapping->domain;
+
+	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
+	rc = cam_smmu_alloc_scratch_va(&iommu_cb_set.cb_info[idx].scratch_map,
+					virt_len, &iova);
+	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+
+	if (rc < 0) {
+		pr_err("Could not find valid iova for scratch buffer");
+		goto err_iommu_map;
+	}
+
+	if (iommu_map_sg(domain,
+			  iova,
+			  table->sgl,
+			  table->nents,
+			  iommu_dir) != virt_len) {
+		pr_err("iommu_map_sg() failed");
+		goto err_iommu_map;
+	}
+
+	/* Now update our mapping information within the cb_set struct */
+	mapping_info = kzalloc(sizeof(struct cam_dma_buff_info), GFP_KERNEL);
+	if (!mapping_info) {
+		rc = -ENOMEM;
+		goto err_mapping_info;
+	}
+
+	mapping_info->ion_fd = 0xDEADBEEF;
+	mapping_info->buf = NULL;
+	mapping_info->attach = NULL;
+	mapping_info->table = table;
+	mapping_info->paddr = iova;
+	mapping_info->len = virt_len;
+	mapping_info->iommu_dir = iommu_dir;
+	mapping_info->ref_count = 1;
+	mapping_info->phys_len = phys_len;
+
+	CDBG("%s: paddr = %p, len = %zx, phys_len = %zx",
+		__func__, (void *)mapping_info->paddr,
+		mapping_info->len, mapping_info->phys_len);
+
+	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
+	list_add(&mapping_info->list, &iommu_cb_set.cb_info[idx].list_head);
+	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+
+	*virt_addr = (dma_addr_t)iova;
+
+	CDBG("%s: mapped virtual address = %llX\n", __func__, *virt_addr);
+	return 0;
+
+err_mapping_info:
+	unmapped = iommu_unmap(domain, iova,  virt_len);
+	if (unmapped != virt_len)
+		pr_err("Unmapped only %zx instead of %zx", unmapped, virt_len);
+err_iommu_map:
+	__free_pages(sg_page(table->sgl), get_order(phys_len));
+err_page_alloc:
+	sg_free_table(table);
+err_sg_alloc:
+	kfree(table);
+err_table_alloc:
+	return rc;
+}
+
+static int cam_smmu_free_scratch_buffer_remove_from_list(
+					struct cam_dma_buff_info *mapping_info,
+					int idx)
+{
+	int rc = 0;
+	size_t unmapped;
+	struct iommu_domain *domain =
+		iommu_cb_set.cb_info[idx].mapping->domain;
+	struct scratch_mapping *scratch_map =
+		&iommu_cb_set.cb_info[idx].scratch_map;
+
+	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
+	if (!mapping_info->table) {
+		pr_err("Error: Invalid params: dev = %p, table = %p, ",
+				(void *)iommu_cb_set.cb_info[idx].dev,
+				(void *)mapping_info->table);
+		mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+		return -EINVAL;
+	}
+
+	/* Clean up the mapping_info struct from the list */
+	unmapped = iommu_unmap(domain, mapping_info->paddr, mapping_info->len);
+	if (unmapped != mapping_info->len)
+		pr_err("Unmapped only %zx instead of %zx",
+				unmapped, mapping_info->len);
+
+	rc = cam_smmu_free_scratch_va(scratch_map,
+				mapping_info->paddr,
+				mapping_info->len);
+	if (rc < 0) {
+		pr_err("Error: Invalid iova while freeing scratch buffer\n");
+		rc = -EINVAL;
+	}
+
+	__free_pages(sg_page(mapping_info->table->sgl),
+			get_order(mapping_info->phys_len));
+	sg_free_table(mapping_info->table);
+	kfree(mapping_info->table);
+	list_del_init(&mapping_info->list);
+	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+
+	kfree(mapping_info);
+	mapping_info = NULL;
+
+	return rc;
+}
+
+int cam_smmu_get_phy_addr_scratch(int handle,
+				  enum cam_smmu_map_dir dir,
+				  dma_addr_t *paddr_ptr,
+				  size_t virt_len,
+				  size_t phys_len)
+{
+	int idx, rc;
+	unsigned int iommu_dir;
+
+	if (!paddr_ptr || !virt_len || !phys_len) {
+		pr_err("Error: Input pointer or lengths invalid\n");
+		return -EINVAL;
+	}
+
+	if (virt_len < phys_len) {
+		pr_err("Error: virt_len > phys_len");
+		return -EINVAL;
+	}
+
+	iommu_dir = cam_smmu_translate_dir_to_iommu_dir(dir);
+	if (iommu_dir == IOMMU_INVALID_DIR) {
+		pr_err("Error: translate direction failed. dir = %d\n", dir);
+		return -EINVAL;
+	}
+
+	idx = cam_smmu_find_index_by_handle(handle);
+	if (idx < 0 || idx >= iommu_cb_set.cb_num) {
+		pr_err("Error: index is not valid, index = %d\n", idx);
+		return -EINVAL;
+	}
+
+	if (!iommu_cb_set.cb_info[idx].scratch_buf_support) {
+		pr_err("Error: Context bank does not support scratch bufs\n");
+		return -EINVAL;
+	}
+
+	CDBG("%s: smmu handle = %x, idx = %d, dir = %d\n",
+		__func__, handle, idx, dir);
+	CDBG("%s: virt_len = %zx, phys_len  = %zx\n",
+		__func__, phys_len, virt_len);
+
+	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
+	if (iommu_cb_set.cb_info[idx].state != CAM_SMMU_ATTACH) {
+		pr_err("Error: Device %s should call SMMU attach before map buffer\n",
+				iommu_cb_set.cb_info[idx].name);
+		mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+		return -EINVAL;
+	}
+	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+
+	if (!IS_ALIGNED(virt_len, PAGE_SIZE)) {
+		pr_err("Requested scratch buffer length not page aligned");
+		return -EINVAL;
+	}
+
+	if (!IS_ALIGNED(virt_len, phys_len)) {
+		pr_err("Requested virtual length not aligned with physical length");
+		return -EINVAL;
+	}
+
+	rc = cam_smmu_alloc_scratch_buffer_add_to_list(idx,
+							virt_len,
+							phys_len,
+							iommu_dir,
+							paddr_ptr);
+	if (rc < 0) {
+		pr_err("Error: mapping or add list fail\n");
+		return rc;
+	}
+
+	return 0;
+}
+
+int cam_smmu_put_phy_addr_scratch(int handle,
+				  dma_addr_t paddr)
+{
+	int idx;
+	int rc = -1;
+	struct cam_dma_buff_info *mapping_info;
+
+	/* find index in the iommu_cb_set.cb_info */
+	idx = cam_smmu_find_index_by_handle(handle);
+	if (idx < 0 || idx >= iommu_cb_set.cb_num) {
+		pr_err("Error: index is not valid, index = %d.\n", idx);
+		return -EINVAL;
+	}
+
+	if (!iommu_cb_set.cb_info[idx].scratch_buf_support) {
+		pr_err("Error: Context bank does not support scratch buffers");
+		return -EINVAL;
+	}
+
+	/* Based on virtual address and index, we can find mapping info
+	 * of the scratch buffer
+	 */
+	mapping_info = cam_smmu_find_mapping_by_virt_address(idx, paddr);
+	if (!mapping_info) {
+		pr_err("Error: Invalid params\n");
+		return -EINVAL;
+	}
+
+	/* unmapping one buffer from device */
+	rc = cam_smmu_free_scratch_buffer_remove_from_list(mapping_info, idx);
+	if (rc < 0)
+		pr_err("Error: unmap or remove list fail\n");
+
+	return rc;
+}
+
 int cam_smmu_get_phy_addr(int handle, int ion_fd,
 		enum cam_smmu_map_dir dir, dma_addr_t *paddr_ptr,
 		size_t *len_ptr)
@@ -811,8 +1268,26 @@ static int cam_smmu_setup_cb(struct cam_context_bank_info *cb,
 	}
 
 	cb->dev = dev;
-	cb->va_start = SZ_128K;
-	cb->va_len = SZ_2G - SZ_128K;
+	/* Reserve 256M if scratch buffer support is desired
+	 * and initialize the scratch mapping structure
+	 */
+	if (cb->scratch_buf_support) {
+		cb->va_start = SCRATCH_ALLOC_END;
+		cb->va_len = VA_SPACE_END - SCRATCH_ALLOC_END;
+
+		rc = cam_smmu_init_scratch_map(&cb->scratch_map,
+				SCRATCH_ALLOC_START,
+				SCRATCH_ALLOC_END - SCRATCH_ALLOC_START,
+				0);
+		if (rc < 0) {
+			pr_err("Error: failed to create scratch map\n");
+			rc = -ENODEV;
+			goto end;
+		}
+	} else {
+		cb->va_start = SZ_128K;
+		cb->va_len = VA_SPACE_END - SZ_128K;
+	}
 
 	/* create a virtual mapping */
 	cb->mapping = arm_iommu_create_mapping(&platform_bus_type,
@@ -914,13 +1389,20 @@ static int cam_populate_smmu_context_banks(struct device *dev,
 		goto cb_init_fail;
 	}
 
+	/* Check if context bank supports scratch buffers */
+	if (of_property_read_bool(dev->of_node, "qcom,scratch-buf-support"))
+		cb->scratch_buf_support = 1;
+	else
+		cb->scratch_buf_support = 0;
+
 	/* set the secure/non secure domain type */
 	if (of_property_read_bool(dev->of_node, "qcom,secure-context"))
 		cb->is_secure = CAM_SECURE;
 	else
 		cb->is_secure = CAM_NON_SECURE;
 
-	CDBG("cb->name : %s, cb->is_secure :%d\n", cb->name, cb->is_secure);
+	CDBG("cb->name :%s, cb->is_secure :%d, cb->scratch_support :%d\n",
+			cb->name, cb->is_secure, cb->scratch_buf_support);
 
 	/* set up the iommu mapping for the  context bank */
 	ctx = dev;
