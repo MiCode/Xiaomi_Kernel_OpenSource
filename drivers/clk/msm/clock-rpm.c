@@ -31,14 +31,42 @@
 static int clk_rpmrs_set_rate_smd(struct rpm_clk *r, uint32_t value,
 				uint32_t context)
 {
+	int ret;
+
 	struct msm_rpm_kvp kvp = {
 		.key = r->rpm_key,
 		.data = (void *)&value,
 		.length = sizeof(value),
 	};
 
-	return msm_rpm_send_message(context, r->rpm_res_type, r->rpm_clk_id,
+	switch (context) {
+	case MSM_RPM_CTX_ACTIVE_SET:
+		if (*r->last_active_set_vote == value)
+			return 0;
+		break;
+	case MSM_RPM_CTX_SLEEP_SET:
+		 if (*r->last_sleep_set_vote == value)
+			return 0;
+		break;
+	default:
+		return -EINVAL;
+	};
+
+	ret = msm_rpm_send_message(context, r->rpm_res_type, r->rpm_clk_id,
 			&kvp, 1);
+	if (ret)
+		return ret;
+
+	switch (context) {
+	case MSM_RPM_CTX_ACTIVE_SET:
+		*r->last_active_set_vote = value;
+		break;
+	case MSM_RPM_CTX_SLEEP_SET:
+		*r->last_sleep_set_vote = value;
+		break;
+	}
+
+	return 0;
 }
 
 static int clk_rpmrs_handoff_smd(struct rpm_clk *r)

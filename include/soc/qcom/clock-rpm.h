@@ -41,6 +41,8 @@ struct rpm_clk {
 	struct clk_rpmrs_data *rpmrs_data;
 	struct rpm_clk *peer;
 	struct clk c;
+	uint32_t *last_active_set_vote;
+	uint32_t *last_sleep_set_vote;
 };
 
 static inline struct rpm_clk *to_rpm_clk(struct clk *clk)
@@ -58,9 +60,24 @@ int vote_bimc(struct rpm_clk *r, uint32_t value);
 
 extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 
+/*
+ * A note on name##last_{active,sleep}_set_vote below:
+ * We track the last active and sleep set votes across both
+ * active-only and active+sleep set clocks. We use the same
+ * tracking variables for both clocks in order to keep both
+ * updated about the last vote irrespective of which clock
+ * actually made the request. This is the only way to allow
+ * optimizations that prevent duplicate requests from being sent
+ * to the RPM. Separate tracking does not work since it is not
+ * possible to know if the peer's last request was actually sent
+ * to the RPM.
+ */
+
 #define __DEFINE_CLK_RPM(name, active, type, r_id, stat_id, dep, key, \
 				rpmrsdata) \
 	static struct rpm_clk active; \
+	static uint32_t name##last_active_set_vote; \
+	static uint32_t name##last_sleep_set_vote; \
 	static struct rpm_clk name = { \
 		.rpm_res_type = (type), \
 		.rpm_clk_id = (r_id), \
@@ -68,6 +85,8 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		.rpm_key = (key), \
 		.peer = &active, \
 		.rpmrs_data = (rpmrsdata),\
+		.last_active_set_vote = &name##last_active_set_vote, \
+		.last_sleep_set_vote = &name##last_sleep_set_vote, \
 		.c = { \
 			.ops = &clk_ops_rpm, \
 			.dbg_name = #name, \
@@ -83,6 +102,8 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		.peer = &name, \
 		.active_only = true, \
 		.rpmrs_data = (rpmrsdata),\
+		.last_active_set_vote = &name##last_active_set_vote, \
+		.last_sleep_set_vote = &name##last_sleep_set_vote, \
 		.c = { \
 			.ops = &clk_ops_rpm, \
 			.dbg_name = #active, \
@@ -94,6 +115,8 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 #define __DEFINE_CLK_RPM_BRANCH(name, active, type, r_id, stat_id, r, \
 					key, rpmrsdata) \
 	static struct rpm_clk active; \
+	static uint32_t name##last_active_set_vote; \
+	static uint32_t name##last_sleep_set_vote; \
 	static struct rpm_clk name = { \
 		.rpm_res_type = (type), \
 		.rpm_clk_id = (r_id), \
@@ -102,6 +125,8 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		.peer = &active, \
 		.branch = true, \
 		.rpmrs_data = (rpmrsdata),\
+		.last_active_set_vote = &name##last_active_set_vote, \
+		.last_sleep_set_vote = &name##last_sleep_set_vote, \
 		.c = { \
 			.ops = &clk_ops_rpm_branch, \
 			.dbg_name = #name, \
@@ -118,6 +143,8 @@ extern struct clk_rpmrs_data clk_rpmrs_data_smd;
 		.active_only = true, \
 		.branch = true, \
 		.rpmrs_data = (rpmrsdata),\
+		.last_active_set_vote = &name##last_active_set_vote, \
+		.last_sleep_set_vote = &name##last_sleep_set_vote, \
 		.c = { \
 			.ops = &clk_ops_rpm_branch, \
 			.dbg_name = #active, \
