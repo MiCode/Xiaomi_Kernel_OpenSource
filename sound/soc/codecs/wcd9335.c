@@ -101,6 +101,21 @@ module_param(tasha_cpe_debug_mode, int,
 	     S_IRUGO | S_IWUSR | S_IWGRP);
 MODULE_PARM_DESC(tasha_cpe_debug_mode, "tasha boot cpe in debug mode");
 
+#define TASHA_DIG_CORE_COLLAPSE_TIMER_MS  (5 * 1000)
+#define POWER_COLLAPSE  0
+#define POWER_RESUME    1
+
+static int power_gate;
+module_param(power_gate, int,
+		S_IRUGO | S_IWUSR | S_IWGRP);
+MODULE_PARM_DESC(power_gate, "enable/disable power gating");
+
+/* Power gating timer in seconds */
+static int power_gate_timer = (TASHA_DIG_CORE_COLLAPSE_TIMER_MS/1000);
+module_param(power_gate_timer, int,
+		S_IRUGO | S_IWUSR | S_IWGRP);
+MODULE_PARM_DESC(power_gate_timer, "timer for power gating");
+
 static struct afe_param_slimbus_slave_port_cfg tasha_slimbus_slave_port_cfg = {
 	.minor_version = 1,
 	.slimbus_dev_id = AFE_SLIMBUS_DEVICE_1,
@@ -540,6 +555,8 @@ struct tasha_priv {
 	int spl_src_users[SPLINE_SRC_MAX];
 
 	struct wcd9xxx_resmgr_v2 *resmgr;
+	struct delayed_work power_gate_work;
+	struct mutex power_lock;
 
 	/* mbhc module */
 	struct wcd_mbhc mbhc;
@@ -551,6 +568,7 @@ struct tasha_priv {
 	struct mutex swr_write_lock;
 	struct mutex swr_clk_lock;
 	int swr_clk_users;
+	int power_active_ref;
 };
 
 int tasha_enable_efuse_sensing(struct snd_soc_codec *codec)
@@ -7781,6 +7799,135 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 	},
 };
 
+static void tasha_codec_power_gate_work(struct work_struct *work)
+{
+	struct tasha_priv *tasha;
+	struct delayed_work *dwork;
+	struct snd_soc_codec *codec;
+
+	dwork = to_delayed_work(work);
+	tasha = container_of(dwork, struct tasha_priv, power_gate_work);
+	codec = tasha->codec;
+
+	mutex_lock(&tasha->power_lock);
+	dev_dbg(codec->dev, "%s: Entering power gating function, %d\n",
+		__func__, tasha->power_active_ref);
+
+	if (tasha->power_active_ref > 0)
+		goto exit;
+
+	wcd9xxx_set_power_state(tasha->wcd9xxx,
+			WCD_DIG_CORE_POWER_COLLAPSE_BEGIN);
+	if (TASHA_IS_1_0(tasha->wcd9xxx->version)) {
+		snd_soc_update_bits(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
+				0x04, 0x04);
+		snd_soc_update_bits(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
+				0x01, 0x01);
+		snd_soc_update_bits(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
+				0x02, 0x02);
+	} else if (TASHA_IS_1_1(tasha->wcd9xxx->version)) {
+		snd_soc_update_bits(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
+				0x04, 0x04);
+		snd_soc_update_bits(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
+				0x01, 0x00);
+		snd_soc_update_bits(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
+				0x02, 0x00);
+	} else {
+		pr_err("%s: codec version not set\n", __func__);
+		goto exit;
+	}
+	wcd9xxx_set_power_state(tasha->wcd9xxx, WCD_DIG_CORE_POWER_DOWN);
+exit:
+	dev_dbg(codec->dev, "%s: Exiting power gating function, %d\n",
+		__func__, tasha->power_active_ref);
+	mutex_unlock(&tasha->power_lock);
+}
+
+/* called under power_lock acquisition */
+static int tasha_dig_core_remove_power_collapse(struct snd_soc_codec *codec)
+{
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx *wcd9xxx = tasha->wcd9xxx;
+
+	if (TASHA_IS_1_0(wcd9xxx->version)) {
+		snd_soc_write(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
+			      0x03);
+	} else if (TASHA_IS_1_1(wcd9xxx->version)) {
+		snd_soc_write(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x5);
+		snd_soc_write(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x7);
+		snd_soc_write(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x3);
+	}
+	snd_soc_update_bits(codec, WCD9335_CODEC_RPM_RST_CTL, 0x02, 0x00);
+	snd_soc_update_bits(codec, WCD9335_CODEC_RPM_RST_CTL, 0x02, 0x02);
+
+	regcache_mark_dirty(codec->control_data);
+	regcache_sync(codec->control_data);
+	wcd9xxx_set_power_state(tasha->wcd9xxx,
+			WCD_DIG_CORE_POWER_COLLAPSE_REMOVE);
+
+	return 0;
+}
+
+static int tasha_dig_core_power_collapse(struct tasha_priv *tasha,
+					 int req_state)
+{
+	struct snd_soc_codec *codec;
+	int cur_state;
+
+	/* Exit if feature is disabled */
+	if (!power_gate)
+		return 0;
+
+	mutex_lock(&tasha->power_lock);
+	if (req_state == POWER_COLLAPSE)
+		tasha->power_active_ref--;
+	else if (req_state == POWER_RESUME)
+		tasha->power_active_ref++;
+	else
+		goto unlock_mutex;
+
+	if (tasha->power_active_ref < 0) {
+		dev_dbg(tasha->dev, "%s: power_active_ref is negative\n",
+			__func__);
+		goto unlock_mutex;
+	}
+
+	codec = tasha->codec;
+	if (!codec)
+		goto unlock_mutex;
+
+	if (req_state == POWER_COLLAPSE) {
+		if (tasha->power_active_ref == 0) {
+			schedule_delayed_work(&tasha->power_gate_work,
+				msecs_to_jiffies(power_gate_timer * 1000));
+		}
+	} else if (req_state == POWER_RESUME) {
+		if (tasha->power_active_ref == 1) {
+			/*
+			 * At this point, there can be two cases:
+			 * 1. Core already in power collapse state
+			 * 2. Timer kicked in and still did not expire or
+			 * waiting for the power_lock
+			 */
+			cur_state = wcd9xxx_get_current_power_state(
+							tasha->wcd9xxx);
+			if (cur_state == WCD_DIG_CORE_POWER_DOWN)
+				tasha_dig_core_remove_power_collapse(codec);
+			else {
+				mutex_unlock(&tasha->power_lock);
+				cancel_delayed_work_sync(
+						&tasha->power_gate_work);
+				mutex_lock(&tasha->power_lock);
+			}
+		}
+	}
+
+unlock_mutex:
+	mutex_unlock(&tasha->power_lock);
+
+	return 0;
+}
+
 static int __tasha_cdc_mclk_enable_locked(struct tasha_priv *tasha,
 					  bool enable)
 {
@@ -7794,6 +7941,7 @@ static int __tasha_cdc_mclk_enable_locked(struct tasha_priv *tasha,
 	dev_dbg(tasha->dev, "%s: mclk_enable = %u\n", __func__, enable);
 
 	if (enable) {
+		tasha_dig_core_power_collapse(tasha, POWER_RESUME);
 		ret = clk_prepare_enable(tasha->wcd_ext_clk);
 		if (ret) {
 			dev_err(tasha->dev, "%s: ext clk enable failed\n",
@@ -7810,6 +7958,7 @@ static int __tasha_cdc_mclk_enable_locked(struct tasha_priv *tasha,
 		/* put BG */
 		wcd_resmgr_disable_master_bias(tasha->resmgr);
 		clk_disable_unprepare(tasha->wcd_ext_clk);
+		tasha_dig_core_power_collapse(tasha, POWER_COLLAPSE);
 	}
 
 err:
@@ -9084,6 +9233,8 @@ static int tasha_probe(struct platform_device *pdev)
 
 	tasha->wcd9xxx = dev_get_drvdata(pdev->dev.parent);
 	tasha->dev = &pdev->dev;
+	INIT_DELAYED_WORK(&tasha->power_gate_work, tasha_codec_power_gate_work);
+	mutex_init(&tasha->power_lock);
 	INIT_WORK(&tasha->swr_add_devices_work, wcd_swr_ctrl_add_devices);
 	mutex_init(&tasha->micb_lock);
 	mutex_init(&tasha->swr_read_lock);
