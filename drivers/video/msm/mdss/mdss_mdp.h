@@ -456,7 +456,6 @@ struct mdss_ad_info {
 	struct msm_fb_data_type *mfd;
 	struct msm_fb_data_type *bl_mfd;
 	struct mdss_mdp_vsync_handler handle;
-	struct completion comp;
 	u32 last_str;
 	u32 last_bl;
 	u32 bl_data;

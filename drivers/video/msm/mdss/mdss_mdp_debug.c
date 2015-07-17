@@ -397,6 +397,8 @@ int mdss_mdp_debugfs_init(struct mdss_data_type *mdata)
 		(u32 *)&mdata->bcolor1);
 	debugfs_create_u32("color2", 0644, mdd->bordercolor,
 		(u32 *)&mdata->bcolor2);
+	debugfs_create_u32("ad_debugen", 0644, mdd->postproc,
+		(u32 *)&mdata->ad_debugen);
 
 	return 0;
 }

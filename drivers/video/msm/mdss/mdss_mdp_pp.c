@@ -238,6 +238,7 @@ static u32 igc_limited[IGC_LUT_ENTRIES] = {
 				((ad)->cfg.mode == MDSS_AD_MODE_AUTO_BL))
 #define MDSS_AD_RUNNING_AUTO_STR(ad) (((ad)->state & PP_AD_STATE_RUN) &&\
 				((ad)->cfg.mode == MDSS_AD_MODE_AUTO_STR))
+#define MDSS_AD_AUTO_TRIGGER 0x80
 
 #define SHARP_STRENGTH_DEFAULT	32
 #define SHARP_EDGE_THR_DEFAULT	112
@@ -346,6 +347,7 @@ static void mdss_mdp_hist_intr_notify(u32 disp);
 static int mdss_mdp_panel_default_dither_config(struct msm_fb_data_type *mfd,
 					u32 panel_bpp);
 static int mdss_mdp_limited_lut_igc_config(struct msm_fb_data_type *mfd);
+static int pp_ad_shutdown_cleanup(struct msm_fb_data_type *mfd);
 
 static u32 last_sts, last_state;
 
@@ -2354,12 +2356,16 @@ void mdss_mdp_pp_term(struct device *dev)
 
 int mdss_mdp_pp_overlay_init(struct msm_fb_data_type *mfd)
 {
-	if (!mfd) {
-		pr_err("Invalid mfd.\n");
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if (!mfd || !mdata) {
+		pr_err("Invalid mfd %p mdata %p\n", mfd, mdata);
 		return -EPERM;
 	}
-
-	mfd->mdp.ad_calc_bl = pp_ad_calc_bl;
+	if (mdata->nad_cfgs) {
+		mfd->mdp.ad_calc_bl = pp_ad_calc_bl;
+		mfd->mdp.ad_shutdown_cleanup = pp_ad_shutdown_cleanup;
+	}
 	return 0;
 }
 
@@ -5058,21 +5064,6 @@ int mdss_mdp_ad_input(struct msm_fb_data_type *mfd,
 	}
 error:
 	mutex_unlock(&ad->lock);
-	if (!ret) {
-		if (wait) {
-			mutex_lock(&ad->lock);
-			reinit_completion(&ad->comp);
-			mutex_unlock(&ad->lock);
-		}
-		if (wait) {
-			ret = wait_for_completion_timeout(
-					&ad->comp, HIST_WAIT_TIMEOUT(1));
-			if (ret == 0)
-				ret = -ETIMEDOUT;
-			else if (ret > 0)
-				input->output = ad->last_str;
-		}
-	}
 	return ret;
 }
 
@@ -5247,7 +5238,8 @@ static void pp_ad_cfg_write(struct mdss_mdp_ad *ad_hw, struct mdss_ad_info *ad)
 	case MDSS_AD_MODE_MAN_STR:
 		writel_relaxed(ad->cfg.backlight_scale,
 				base + MDSS_MDP_REG_AD_BL_MAX);
-		writel_relaxed(ad->cfg.mode, base + MDSS_MDP_REG_AD_MODE_SEL);
+		writel_relaxed(ad->cfg.mode | MDSS_AD_AUTO_TRIGGER,
+			       base + MDSS_MDP_REG_AD_MODE_SEL);
 		pr_debug("stab_itr = %d\n", ad->cfg.stab_itr);
 		break;
 	default:
@@ -5471,7 +5463,6 @@ static void pp_ad_calc_worker(struct work_struct *work)
 	struct mdss_overlay_private *mdp5_data;
 	struct mdss_data_type *mdata;
 	char __iomem *base;
-	u32 calc_done = 0;
 	ad = container_of(work, struct mdss_ad_info, calc_work);
 
 	mutex_lock(&ad->lock);
@@ -5489,42 +5480,21 @@ static void pp_ad_calc_worker(struct work_struct *work)
 		mutex_unlock(&ad->lock);
 		return;
 	}
-
 	base = mdata->ad_off[ad->calc_hw_num].base;
 
 	if ((ad->cfg.mode == MDSS_AD_MODE_AUTO_STR) && (ad->last_bl == 0)) {
-		complete(&ad->comp);
 		mutex_unlock(&ad->lock);
 		return;
 	}
-
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-	if (PP_AD_STATE_RUN & ad->state) {
-		/* Kick off calculation */
+	if ((PP_AD_STATE_RUN & ad->state) && ad->calc_itr > 0)
 		ad->calc_itr--;
-		writel_relaxed(1, base + MDSS_MDP_REG_AD_START_CALC);
+
+	if (mdata->ad_debugen) {
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+		pr_info("itr number %d str %d\n", ad->calc_itr,
+			readl_relaxed(base + MDSS_MDP_REG_AD_STR_OUT));
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	}
-	if (ad->state & PP_AD_STATE_RUN) {
-		do {
-			calc_done = readl_relaxed(base +
-				MDSS_MDP_REG_AD_CALC_DONE);
-			if (!calc_done)
-				usleep_range(MDSS_PP_AD_SLEEP, MDSS_PP_AD_SLEEP);
-		} while (!calc_done && (ad->state & PP_AD_STATE_RUN));
-		if (calc_done) {
-			ad->last_str = 0xFF & readl_relaxed(base +
-						MDSS_MDP_REG_AD_STR_OUT);
-			if (MDSS_AD_RUNNING_AUTO_BL(ad))
-				pr_err("AD auto backlight no longer supported.\n");
-			pr_debug("calc_str = %d, calc_itr %d\n",
-							ad->last_str & 0xFF,
-							ad->calc_itr);
-		} else {
-			ad->last_str = 0xFFFFFFFF;
-		}
-	}
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
-	complete(&ad->comp);
 
 	if (!ad->calc_itr) {
 		ad->state &= ~PP_AD_STATE_VSYNC;
@@ -5536,13 +5506,6 @@ static void pp_ad_calc_worker(struct work_struct *work)
 		}
 	}
 	mutex_unlock(&ad->lock);
-	/* dspp3 doesn't have ad attached to it so following is safe */
-	mutex_lock(&ctl->lock);
-	ctl->flush_bits |= BIT(13 + ad->num);
-	mutex_unlock(&ctl->lock);
-
-	/* Trigger update notify to wake up those waiting for display updates */
-	mdss_fb_update_notify_update(bl_mfd);
 }
 
 #define PP_AD_LUT_LEN 33
@@ -5700,7 +5663,6 @@ int mdss_mdp_ad_addr_setup(struct mdss_data_type *mdata, u32 *ad_offsets)
 		mdata->ad_cfgs[i].last_str = 0xFFFFFFFF;
 		mdata->ad_cfgs[i].last_bl = 0;
 		mutex_init(&mdata->ad_cfgs[i].lock);
-		init_completion(&mdata->ad_cfgs[i].comp);
 		mdata->ad_cfgs[i].handle.vsync_handler = pp_ad_vsync_handler;
 		mdata->ad_cfgs[i].handle.cmd_post_flush = true;
 		INIT_WORK(&mdata->ad_cfgs[i].calc_work, pp_ad_calc_worker);
@@ -6504,4 +6466,32 @@ static int mdss_mdp_mfd_valid_ad(struct msm_fb_data_type *mfd)
 	if ((ctl) && (ctl->mixer_right))
 		valid_ad &= (ctl->mixer_right->num < mdata->nad_cfgs);
 	return valid_ad;
+}
+
+static int pp_ad_shutdown_cleanup(struct msm_fb_data_type *mfd)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_mdp_ctl *ctl = NULL;
+	struct mdss_ad_info *ad = NULL;
+	int ret = 0;
+
+	if (!mdata || !mfd) {
+		pr_err("invalid params mdata %p mfd %p\n", mdata, mfd);
+		return -EINVAL;
+	}
+	if (!mdata->ad_calc_wq)
+		return 0;
+
+	ret = mdss_mdp_get_ad(mfd, &ad);
+	if (ret) {
+		pr_err("failed to get ad_info ret %d\n", ret);
+		return ret;
+	}
+	if (!ad->mfd)
+		return 0;
+	ctl = mfd_to_ctl(mfd);
+	if (ctl && ctl->ops.remove_vsync_handler)
+		ctl->ops.remove_vsync_handler(ctl, &ad->handle);
+	cancel_work_sync(&ad->calc_work);
+	return ret;
 }
