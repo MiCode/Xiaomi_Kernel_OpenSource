@@ -493,12 +493,10 @@ static unsigned int _adreno_iommu_pt_update_pid_to_mem(
 
 static unsigned int _adreno_iommu_set_pt_v1(struct adreno_ringbuffer *rb,
 					unsigned int *cmds_orig,
-					phys_addr_t pt_val,
-					unsigned int ptname)
+					u64 ttbr0, u32 contextidr, u32 ptname)
 {
 	struct kgsl_device *device = rb->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	uint64_t ttbr0 = 0;
 	unsigned int *cmds = cmds_orig;
 	unsigned int *cond_exec_ptr;
 
@@ -521,28 +519,19 @@ static unsigned int _adreno_iommu_set_pt_v1(struct adreno_ringbuffer *rb,
 	cmds++;
 
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_HAS_REG_TO_REG_CMDS)) {
-		int count = 1;
-
-		if (_hi_32(KGSL_IOMMU_CTX_TTBR0_ADDR_MASK))
-			count = 2;
-		/* transfer the ttbr0 value to ME_SCRATCH */
+		/* transfer the ttbr0 and contextidr values to ME_SCRATCH */
 		*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_TO_REG, 2, 1);
-		*cmds++ = count << 16 | adreno_getreg(adreno_dev,
+		*cmds++ = 3 << 16 | adreno_getreg(adreno_dev,
 				ADRENO_REG_CP_SCRATCH_REG6);
 		cmds += cp_gpuaddr(adreno_dev, cmds,
 			   (rb->pagetable_desc.gpuaddr +
 			   offsetof(struct adreno_ringbuffer_pagetable_info,
-			   ttbr0) + sizeof(uint64_t)));
+			   ttbr0)));
 		cmds += cp_wait_for_idle(adreno_dev, cmds);
 		*cmds++ = cp_packet(adreno_dev, CP_REG_TO_SCRATCH, 1);
-		*cmds++ = (count << 24) | (6 << 16) |
+		*cmds++ = (3 << 24) | (6 << 16) |
 			adreno_getreg(adreno_dev,
 					ADRENO_REG_CP_SCRATCH_REG6);
-	} else {
-		ttbr0 = kgsl_mmu_get_default_ttbr0(&device->mmu,
-			KGSL_IOMMU_CONTEXT_USER);
-		ttbr0 &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
-		ttbr0 |= (pt_val & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK);
 	}
 
 	cmds += cp_wait_for_idle(adreno_dev, cmds);
@@ -552,22 +541,18 @@ static unsigned int _adreno_iommu_set_pt_v1(struct adreno_ringbuffer *rb,
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_HAS_REG_TO_REG_CMDS)) {
 		/* ME_SCRATCH_REG to REG copy */
 		*cmds++ = cp_packet(adreno_dev, CP_SCRATCH_TO_REG, 1);
-		if (_hi_32(KGSL_IOMMU_CTX_TTBR0_ADDR_MASK))
-			*cmds++ = (2 << 24) | (6 << 16) | ttbr0;
-		else
-			*cmds++ = (1 << 24) | (6 << 16) | ttbr0;
+		*cmds++ = (2 << 24) | (6 << 16) | ttbr0;
+		*cmds++ = cp_packet(adreno_dev, CP_SCRATCH_TO_REG, 1);
+		*cmds++ = (1 << 24) | (8 << 16) | ttbr0;
 	} else {
-		if (_hi_32(KGSL_IOMMU_CTX_TTBR0_ADDR_MASK)) {
-			cmds += _cp_smmu_reg(adreno_dev, cmds,
-					KGSL_IOMMU_CTX_TTBR0, 2);
-			*cmds++ = _lo_32(ttbr0);
-			*cmds++ = _hi_32(ttbr0);
-		} else {
-			cmds += _cp_smmu_reg(adreno_dev, cmds,
-					KGSL_IOMMU_CTX_TTBR0, 1);
-			*cmds++ = _lo_32(ttbr0);
-		}
+		cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TTBR0, 2);
+		*cmds++ = _lo_32(ttbr0);
+		*cmds++ = _hi_32(ttbr0);
+		cmds += _cp_smmu_reg(adreno_dev, cmds,
+				KGSL_IOMMU_CTX_CONTEXTIDR, 1);
+		*cmds++ = contextidr;
 	}
+
 	/* a3xx doesn't have MEQ space to hold the TLBI commands */
 	if (adreno_is_a3xx(adreno_dev))
 		cmds += _iommu_unlock(adreno_dev, cmds);
@@ -591,29 +576,20 @@ static unsigned int _adreno_iommu_set_pt_v1(struct adreno_ringbuffer *rb,
 
 static unsigned int _adreno_iommu_set_pt_v2_a3xx(struct kgsl_device *device,
 					unsigned int *cmds_orig,
-					phys_addr_t pt_val)
+					u64 ttbr0, u32 contextidr)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	uint64_t ttbr0;
 	unsigned int *cmds = cmds_orig;
 
 	cmds += _adreno_iommu_add_idle_cmds(adreno_dev, cmds);
 
-	ttbr0 = kgsl_mmu_get_default_ttbr0(&device->mmu,
-			KGSL_IOMMU_CONTEXT_USER);
-	ttbr0 &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
-	ttbr0 |= (pt_val & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK);
-
 	cmds += _vbif_lock(adreno_dev, cmds);
 
-	if (_hi_32(KGSL_IOMMU_CTX_TTBR0_ADDR_MASK)) {
-		cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TTBR0, 2);
-		*cmds++ = _lo_32(ttbr0);
-		*cmds++ = _hi_32(ttbr0);
-	} else {
-		cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TTBR0, 1);
-		*cmds++ = _lo_32(ttbr0);
-	}
+	cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TTBR0, 2);
+	*cmds++ = _lo_32(ttbr0);
+	*cmds++ = _hi_32(ttbr0);
+	cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_CONTEXTIDR, 1);
+	*cmds++ = contextidr;
 
 	cmds += _vbif_unlock(adreno_dev, cmds);
 
@@ -629,29 +605,20 @@ static unsigned int _adreno_iommu_set_pt_v2_a3xx(struct kgsl_device *device,
 
 static unsigned int _adreno_iommu_set_pt_v2_a4xx(struct kgsl_device *device,
 					unsigned int *cmds_orig,
-					phys_addr_t pt_val)
+					u64 ttbr0, u32 contextidr)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	uint64_t ttbr0;
 	unsigned int *cmds = cmds_orig;
 
 	cmds += _adreno_iommu_add_idle_cmds(adreno_dev, cmds);
 
-	ttbr0 = kgsl_mmu_get_default_ttbr0(&device->mmu,
-			KGSL_IOMMU_CONTEXT_USER);
-	ttbr0 &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
-	ttbr0 |= (pt_val & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK);
-
 	cmds += _vbif_lock(adreno_dev, cmds);
 
-	if (_hi_32(KGSL_IOMMU_CTX_TTBR0_ADDR_MASK)) {
-		cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TTBR0, 2);
-		*cmds++ = _lo_32(ttbr0);
-		*cmds++ = _hi_32(ttbr0);
-	} else {
-		cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TTBR0, 1);
-		*cmds++ = _lo_32(ttbr0);
-	}
+	cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TTBR0, 2);
+	*cmds++ = _lo_32(ttbr0);
+	*cmds++ = _hi_32(ttbr0);
+	cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_CONTEXTIDR, 1);
+	*cmds++ = contextidr;
 
 	cmds += _vbif_unlock(adreno_dev, cmds);
 
@@ -666,17 +633,12 @@ static unsigned int _adreno_iommu_set_pt_v2_a4xx(struct kgsl_device *device,
 }
 
 static unsigned int _adreno_iommu_set_pt_v2_a5xx(struct kgsl_device *device,
-			unsigned int *cmds_orig,
-			phys_addr_t pt_val, struct adreno_ringbuffer *rb)
+					unsigned int *cmds_orig,
+					u64 ttbr0, u32 contextidr,
+					struct adreno_ringbuffer *rb)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	uint64_t ttbr0 = 0;
 	unsigned int *cmds = cmds_orig;
-
-	ttbr0 = kgsl_mmu_get_default_ttbr0(&device->mmu,
-			KGSL_IOMMU_CONTEXT_USER);
-	ttbr0 &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
-	ttbr0 |= (pt_val & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK);
 
 	cmds += _adreno_iommu_add_idle_cmds(adreno_dev, cmds);
 	cmds += cp_wait_for_me(adreno_dev, cmds);
@@ -685,13 +647,14 @@ static unsigned int _adreno_iommu_set_pt_v2_a5xx(struct kgsl_device *device,
 	*cmds++ = cp_packet(adreno_dev, CP_SMMU_TABLE_UPDATE, 3);
 	*cmds++ = _lo_32(ttbr0);
 	*cmds++ = _hi_32(ttbr0);
-	*cmds++ = 0;
+	*cmds++ = contextidr;
 
-	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
+	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 4, 1);
 	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc.gpuaddr +
 		offsetof(struct adreno_ringbuffer_pagetable_info, ttbr0)));
 	*cmds++ = _lo_32(ttbr0);
 	*cmds++ = _hi_32(ttbr0);
+	*cmds++ = contextidr;
 
 	/* release all commands with wait_for_me */
 	cmds += cp_wait_for_me(adreno_dev, cmds);
@@ -714,7 +677,8 @@ unsigned int adreno_iommu_set_pt_generate_cmds(
 {
 	struct kgsl_device *device = rb->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	phys_addr_t pt_val;
+	u64 ttbr0;
+	u32 contextidr;
 	unsigned int *cmds_orig = cmds;
 	struct kgsl_iommu *iommu = adreno_dev->dev.mmu.priv;
 
@@ -722,7 +686,8 @@ unsigned int adreno_iommu_set_pt_generate_cmds(
 	if (test_bit(ADRENO_DEVICE_FAULT, &adreno_dev->priv))
 		return 0;
 
-	pt_val = kgsl_mmu_get_pt_base_addr(&device->mmu, pt);
+	ttbr0 = kgsl_mmu_pagetable_get_ttbr0(pt);
+	contextidr = kgsl_mmu_pagetable_get_contextidr(pt);
 
 	cmds += _adreno_iommu_add_idle_indirect_cmds(adreno_dev, cmds,
 		device->mmu.setstate_memory.gpuaddr +
@@ -731,17 +696,18 @@ unsigned int adreno_iommu_set_pt_generate_cmds(
 	if (iommu->version >= 2) {
 		if (adreno_is_a5xx(adreno_dev))
 			cmds += _adreno_iommu_set_pt_v2_a5xx(device, cmds,
-						pt_val, rb);
+						ttbr0, contextidr, rb);
 		else if (adreno_is_a4xx(adreno_dev))
 			cmds += _adreno_iommu_set_pt_v2_a4xx(device, cmds,
-						pt_val);
+						ttbr0, contextidr);
 		else if (adreno_is_a3xx(adreno_dev))
 			cmds += _adreno_iommu_set_pt_v2_a3xx(device, cmds,
-						pt_val);
+						ttbr0, contextidr);
 		else
 			BUG(); /* new GPU family? */
 	} else {
-		cmds += _adreno_iommu_set_pt_v1(rb, cmds, pt_val, pt->name);
+		cmds += _adreno_iommu_set_pt_v1(rb, cmds, ttbr0, contextidr,
+						pt->name);
 	}
 
 	/* invalidate all base pointers */
@@ -751,7 +717,7 @@ unsigned int adreno_iommu_set_pt_generate_cmds(
 }
 
 /**
- * adreno_iommu_set_pt_ib() - Generate commands to swicth pagetable. The
+ * adreno_iommu_set_pt_ib() - Generate commands to switch pagetable. The
  * commands generated use an IB
  * @rb: The RB in which the commands will be executed
  * @cmds: Memory pointer where commands are generated
@@ -764,45 +730,22 @@ unsigned int adreno_iommu_set_pt_ib(struct adreno_ringbuffer *rb,
 	struct kgsl_device *device = rb->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int *cmds_orig = cmds;
-	phys_addr_t pt_val;
-	uint64_t ttbr0;
+	struct kgsl_iommu_pt *iommu_pt = pt->priv;
 
-	pt_val = kgsl_mmu_get_pt_base_addr(&(rb->device->mmu), pt);
-
-	/* put the ptname in pagetable desc */
-	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
+	/* Write the ttbr0 and contextidr values to pagetable desc memory */
+	*cmds++ =  cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
 	cmds += cp_gpuaddr(adreno_dev, cmds,
 			(rb->pagetable_desc.gpuaddr +
 			offsetof(struct adreno_ringbuffer_pagetable_info,
-			incoming_ptname)));
-	*cmds++ = pt->name;
-	/* Write the ttbr0 value to pagetable desc memory */
-	ttbr0 = kgsl_mmu_get_default_ttbr0(&device->mmu,
-			KGSL_IOMMU_CONTEXT_USER);
-	ttbr0 &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
-	ttbr0 |= (pt_val & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK);
+			ttbr0)));
+	*cmds++ = _lo_32(iommu_pt->ttbr0);
 
-	if (_hi_32(KGSL_IOMMU_CTX_TTBR0_ADDR_MASK)) {
-		*cmds++ =  cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
-		cmds += cp_gpuaddr(adreno_dev, cmds,
-			   (rb->pagetable_desc.gpuaddr +
-			   offsetof(struct adreno_ringbuffer_pagetable_info,
-			   ttbr0) + sizeof(uint64_t)));
-		*cmds++ = _lo_32(ttbr0);
-		*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
-		cmds += cp_gpuaddr(adreno_dev, cmds,
-			   (rb->pagetable_desc.gpuaddr +
-			   offsetof(struct adreno_ringbuffer_pagetable_info,
-			   ttbr0) + sizeof(uint64_t) + sizeof(unsigned int)));
-		*cmds++ = _hi_32(ttbr0);
-	} else {
-		*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
-		cmds += cp_gpuaddr(adreno_dev, cmds,
-			   (rb->pagetable_desc.gpuaddr +
-			   offsetof(struct adreno_ringbuffer_pagetable_info,
-			   ttbr0) + sizeof(uint64_t)));
-		*cmds++ = _lo_32(ttbr0);
-	}
+	*cmds++ =  cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
+	cmds += cp_gpuaddr(adreno_dev, cmds,
+			(rb->pagetable_desc.gpuaddr +
+			offsetof(struct adreno_ringbuffer_pagetable_info,
+			contextidr)));
+	*cmds++ = iommu_pt->contextidr;
 
 	*cmds++ = cp_packet(adreno_dev, CP_WAIT_MEM_WRITES, 1);
 	*cmds++ = 0;

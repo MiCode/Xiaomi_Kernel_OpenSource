@@ -454,16 +454,16 @@ kgsl_mmu_detach_pagetable(struct kgsl_pagetable *pagetable)
 }
 
 int
-kgsl_mmu_get_ptname_from_ptbase(struct kgsl_mmu *mmu, phys_addr_t pt_base)
+kgsl_mmu_get_ptname_from_ptbase(struct kgsl_mmu *mmu, u64 pt_base)
 {
 	struct kgsl_pagetable *pt;
 	int ptid = -1;
 
-	if (!mmu->mmu_ops || !mmu->mmu_ops->mmu_pt_equal)
+	if (!mmu->mmu_ops)
 		return KGSL_MMU_GLOBAL_PT;
 	spin_lock(&kgsl_driver.ptlock);
 	list_for_each_entry(pt, &kgsl_driver.pagetable_list, list) {
-		if (mmu->mmu_ops->mmu_pt_equal(mmu, pt, pt_base)) {
+		if (kgsl_mmu_pagetable_get_ttbr0(pt) == pt_base) {
 			ptid = (int) pt->name;
 			break;
 		}
@@ -499,11 +499,11 @@ kgsl_mmu_log_fault_addr(struct kgsl_mmu *mmu, phys_addr_t pt_base,
 	struct kgsl_pagetable *pt;
 	unsigned int ret = 0;
 
-	if (!mmu->mmu_ops || !mmu->mmu_ops->mmu_pt_equal)
+	if (!mmu->mmu_ops)
 		return 0;
 	spin_lock(&kgsl_driver.ptlock);
 	list_for_each_entry(pt, &kgsl_driver.pagetable_list, list) {
-		if (mmu->mmu_ops->mmu_pt_equal(mmu, pt, pt_base)) {
+		if (kgsl_mmu_pagetable_get_ttbr0(pt) == pt_base) {
 			if ((addr & ~(PAGE_SIZE-1)) == pt->fault_addr) {
 				ret = 1;
 				break;
@@ -585,7 +585,7 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu,
 
 	pagetable = kzalloc(sizeof(struct kgsl_pagetable), GFP_KERNEL);
 	if (pagetable == NULL)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	kref_init(&pagetable->refcount);
 
@@ -605,7 +605,7 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu,
 			goto err;
 	}
 
-	if ((KGSL_MMU_SECURE_PT != name) && (KGSL_MMU_GLOBAL_PT != name))
+	if (KGSL_MMU_SECURE_PT != name)
 		kgsl_map_global_pt_entries(pagetable);
 
 	spin_lock_irqsave(&kgsl_driver.ptlock, flags);
@@ -623,7 +623,7 @@ err:
 
 	kfree(pagetable);
 
-	return NULL;
+	return ERR_PTR(status);
 }
 
 struct kgsl_pagetable *kgsl_mmu_getpagetable(struct kgsl_mmu *mmu,

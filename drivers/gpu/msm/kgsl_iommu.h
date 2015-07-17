@@ -58,23 +58,6 @@
 #define KGSL_IOMMU_V1_FSYNR0_WNR_MASK		0x00000001
 #define KGSL_IOMMU_V1_FSYNR0_WNR_SHIFT		4
 
-/*
- * TTBR0 register fields
- * On arm64 bit mask is not required
- */
-#ifdef CONFIG_ARM64
-	#define KGSL_IOMMU_CTX_TTBR0_ADDR_MASK	0x0000FFFFFFFFFFFFULL
-#else
-	#ifdef CONFIG_IOMMU_LPAE
-		#define KGSL_IOMMU_CTX_TTBR0_ADDR_MASK_LPAE \
-					0x000000FFFFFFFFE0ULL
-		#define KGSL_IOMMU_CTX_TTBR0_ADDR_MASK \
-					KGSL_IOMMU_CTX_TTBR0_ADDR_MASK_LPAE
-	#else
-		#define KGSL_IOMMU_CTX_TTBR0_ADDR_MASK	0xFFFFC000
-	#endif
-#endif
-
 /* TLBSTATUS register fields */
 #define KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE BIT(0)
 
@@ -90,7 +73,7 @@
 enum kgsl_iommu_reg_map {
 	KGSL_IOMMU_CTX_SCTLR = 0,
 	KGSL_IOMMU_CTX_TTBR0,
-	KGSL_IOMMU_CTX_TTBR1,
+	KGSL_IOMMU_CTX_CONTEXTIDR,
 	KGSL_IOMMU_CTX_FSR,
 	KGSL_IOMMU_CTX_FAR,
 	KGSL_IOMMU_CTX_TLBIALL,
@@ -119,9 +102,6 @@ enum kgsl_iommu_context_id {
  * bank
  * @dev: pointer to the iommu context's device
  * @name: context name
- * @attached: Indicates whether this iommu context is presently attached to
- * a pagetable/domain or not
- * @default_ttbr0: The TTBR0 value set by iommu driver on start up
  * @id: The id of the context, used for deciding how it is used.
  * @cb_num: The hardware context bank number, used for calculating register
  *		offsets.
@@ -135,8 +115,6 @@ enum kgsl_iommu_context_id {
 struct kgsl_iommu_context {
 	struct device *dev;
 	const char *name;
-	bool attached;
-	uint64_t default_ttbr0;
 	enum kgsl_iommu_context_id id;
 	unsigned int cb_num;
 	struct kgsl_device *kgsldev;
@@ -177,7 +155,9 @@ struct kgsl_iommu {
  * struct kgsl_iommu_pt - Iommu pagetable structure private to kgsl driver
  * @domain: Pointer to the iommu domain that contains the iommu pagetable
  * @iommu: Pointer to iommu structure
- * @pt_base: physical base pointer of this pagetable.
+ * @ttbr0: register value to set when using this pagetable
+ * @contextidr: register value to set when using this pagetable
+ * @attached: is the pagetable attached?
  * @rbtree: all buffers mapped into the pagetable, indexed by gpuaddr
  * @va_start: Start of virtual range used in this pagetable.
  * @va_end: End of virtual range.
@@ -190,7 +170,9 @@ struct kgsl_iommu {
 struct kgsl_iommu_pt {
 	struct iommu_domain *domain;
 	struct kgsl_iommu *iommu;
-	phys_addr_t pt_base;
+	u64 ttbr0;
+	u32 contextidr;
+	bool attached;
 
 	struct rb_root rbtree;
 
@@ -215,6 +197,7 @@ extern const unsigned int kgsl_iommu_reg_list[KGSL_IOMMU_REG_MAX];
 static inline void __iomem *
 kgsl_iommu_reg(struct kgsl_iommu_context *ctx, enum kgsl_iommu_reg_map reg)
 {
+	BUG_ON(ctx->regbase == NULL);
 	BUG_ON(reg >= KGSL_IOMMU_REG_MAX);
 	return ctx->regbase + kgsl_iommu_reg_list[reg];
 }

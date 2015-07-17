@@ -110,6 +110,7 @@ static void a5xx_preemption_start(struct adreno_device *adreno_dev,
 	struct kgsl_device *device = &(adreno_dev->dev);
 	struct kgsl_iommu *iommu = device->mmu.priv;
 	uint64_t ttbr0;
+	uint32_t contextidr;
 
 	kgsl_sharedmem_writel(device, &rb->preemption_desc,
 		PREEMPT_RECORD(wptr), rb->wptr);
@@ -119,8 +120,12 @@ static void a5xx_preemption_start(struct adreno_device *adreno_dev,
 		_hi_32(rb->preemption_desc.gpuaddr));
 	kgsl_sharedmem_readq(&rb->pagetable_desc, &ttbr0,
 		offsetof(struct adreno_ringbuffer_pagetable_info, ttbr0));
+	kgsl_sharedmem_readl(&rb->pagetable_desc, &contextidr,
+		offsetof(struct adreno_ringbuffer_pagetable_info, contextidr));
 	kgsl_sharedmem_writeq(device, &iommu->smmu_info,
 		offsetof(struct a5xx_cp_smmu_info, ttbr0), ttbr0);
+	kgsl_sharedmem_writel(device, &iommu->smmu_info,
+		offsetof(struct a5xx_cp_smmu_info, context_idr), contextidr);
 }
 
 /*
@@ -1567,6 +1572,7 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	uint val = 0, i;
 	struct adreno_ringbuffer *rb;
 	uint64_t def_ttbr0;
+	uint32_t contextidr;
 
 	adreno_vbif_start(adreno_dev, a5xx_vbif_platforms,
 			ARRAY_SIZE(a5xx_vbif_platforms));
@@ -1730,8 +1736,10 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A5XX_RBBM_AHB_CNTL2, 0x0000003F);
 
 	if (adreno_is_preemption_enabled(adreno_dev)) {
-		def_ttbr0 = kgsl_mmu_get_default_ttbr0(&device->mmu,
-				KGSL_IOMMU_CONTEXT_USER);
+		struct kgsl_pagetable *pt = device->mmu.defaultpagetable;
+
+		def_ttbr0 = kgsl_mmu_pagetable_get_ttbr0(pt);
+		contextidr = kgsl_mmu_pagetable_get_contextidr(pt);
 
 		/* Initialize the context switch record here */
 		kgsl_sharedmem_writel(device, &iommu->smmu_info,
@@ -1739,8 +1747,17 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 				A5XX_CP_SMMU_INFO_MAGIC_REF);
 		kgsl_sharedmem_writeq(device, &iommu->smmu_info,
 				PREEMPT_SMMU_RECORD(ttbr0), def_ttbr0);
+		/*
+		 * The CP doesn't actually use the asid field, so
+		 * put a bad value into it until it is removed from
+		 * the preemption record.
+		 */
 		kgsl_sharedmem_writeq(device, &iommu->smmu_info,
-				PREEMPT_SMMU_RECORD(asid), 1);
+				PREEMPT_SMMU_RECORD(asid),
+				0xdecafbad);
+		kgsl_sharedmem_writeq(device, &iommu->smmu_info,
+				PREEMPT_SMMU_RECORD(context_idr),
+				contextidr);
 		adreno_writereg64(adreno_dev,
 				ADRENO_REG_CP_CONTEXT_SWITCH_SMMU_INFO_LO,
 				ADRENO_REG_CP_CONTEXT_SWITCH_SMMU_INFO_HI,

@@ -133,7 +133,7 @@ static size_t snapshot_os(struct kgsl_device *device,
 	pid_t pid;
 	int ctxtcount = 0;
 	size_t size = sizeof(*header);
-	phys_addr_t temp_ptbase;
+	u64 temp_ptbase;
 
 	/* Figure out how many active contexts there are - these will
 	 * be appended on the end of the structure */
@@ -178,7 +178,7 @@ static size_t snapshot_os(struct kgsl_device *device,
 
 
 	/* Get the current PT base */
-	temp_ptbase = kgsl_mmu_get_current_ptbase(&device->mmu);
+	temp_ptbase = kgsl_mmu_get_current_ttbr0(&device->mmu);
 	/* Truncate to 32 bits in case LPAE is used */
 	header->ptbase = (__u32)temp_ptbase;
 	/* And the PID for the task leader */
@@ -1060,7 +1060,7 @@ static size_t _mempool_add_object(u8 *data, struct kgsl_snapshot_object *obj)
 	header->size = size >> 2;
 	header->gpuaddr = obj->gpuaddr;
 	header->ptbase =
-		kgsl_mmu_pagetable_get_ptbase(obj->entry->priv->pagetable);
+		kgsl_mmu_pagetable_get_ttbr0(obj->entry->priv->pagetable);
 	header->type = obj->type;
 
 	memcpy(dest, obj->entry->memdesc.hostptr + obj->offset, size);

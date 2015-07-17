@@ -61,27 +61,14 @@ struct kgsl_mmu_ops {
 	int (*mmu_start) (struct kgsl_mmu *mmu);
 	void (*mmu_stop) (struct kgsl_mmu *mmu);
 	int (*mmu_set_pt) (struct kgsl_mmu *mmu, struct kgsl_pagetable *pt);
-	phys_addr_t (*mmu_get_current_ptbase)
-			(struct kgsl_mmu *mmu);
-	void (*mmu_pagefault_resume)
-			(struct kgsl_mmu *mmu);
-	void (*mmu_clear_fsr)
-			(struct kgsl_mmu *mmu);
-	void (*mmu_enable_clk)
-		(struct kgsl_mmu *mmu);
-	void (*mmu_disable_clk)
-		(struct kgsl_mmu *mmu);
-	uint64_t (*mmu_get_default_ttbr0)(struct kgsl_mmu *mmu,
-				enum kgsl_iommu_context_id ctx_id);
+	uint64_t (*mmu_get_current_ttbr0)(struct kgsl_mmu *mmu);
+	void (*mmu_pagefault_resume)(struct kgsl_mmu *mmu);
+	void (*mmu_clear_fsr)(struct kgsl_mmu *mmu);
+	void (*mmu_enable_clk)(struct kgsl_mmu *mmu);
+	void (*mmu_disable_clk)(struct kgsl_mmu *mmu);
 	unsigned int (*mmu_get_reg_ahbaddr)(struct kgsl_mmu *mmu,
 			enum kgsl_iommu_context_id ctx_id,
 			enum kgsl_iommu_reg_map reg);
-	int (*mmu_pt_equal) (struct kgsl_mmu *mmu,
-			struct kgsl_pagetable *pt,
-			phys_addr_t pt_base);
-	phys_addr_t (*mmu_get_pt_base_addr)
-			(struct kgsl_mmu *mmu,
-			struct kgsl_pagetable *pt);
 	int (*mmu_set_pf_policy)(struct kgsl_mmu *mmu, unsigned long pf_policy);
 	struct kgsl_protected_registers *(*mmu_get_prot_regs)
 			(struct kgsl_mmu *mmu);
@@ -89,12 +76,13 @@ struct kgsl_mmu_ops {
 };
 
 struct kgsl_mmu_pt_ops {
-	int (*mmu_map) (struct kgsl_pagetable *pt,
+	int (*mmu_map)(struct kgsl_pagetable *pt,
 			struct kgsl_memdesc *memdesc);
-	int (*mmu_unmap) (struct kgsl_pagetable *pt,
+	int (*mmu_unmap)(struct kgsl_pagetable *pt,
 			struct kgsl_memdesc *memdesc);
 	void (*mmu_destroy_pagetable) (struct kgsl_pagetable *);
-	phys_addr_t (*get_ptbase) (struct kgsl_pagetable *);
+	u64 (*get_ttbr0)(struct kgsl_pagetable *);
+	u32 (*get_contextidr)(struct kgsl_pagetable *);
 	int (*get_gpuaddr)(struct kgsl_pagetable *, struct kgsl_memdesc *);
 	void (*put_gpuaddr)(struct kgsl_pagetable *, struct kgsl_memdesc *);
 	uint64_t (*find_svm_region)(struct kgsl_pagetable *, uint64_t, uint64_t,
@@ -148,7 +136,7 @@ struct kgsl_pagetable *kgsl_mmu_getpagetable(struct kgsl_mmu *,
 						unsigned long name);
 
 struct kgsl_pagetable *kgsl_mmu_getpagetable_ptbase(struct kgsl_mmu *,
-						phys_addr_t ptbase);
+						u64 ptbase);
 
 void kgsl_mmu_putpagetable(struct kgsl_pagetable *pagetable);
 int kgsl_mmu_init(struct kgsl_device *device);
@@ -165,8 +153,7 @@ int kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 int kgsl_mmu_put_gpuaddr(struct kgsl_pagetable *pagetable,
 		 struct kgsl_memdesc *memdesc);
 unsigned int kgsl_virtaddr_to_physaddr(void *virtaddr);
-int kgsl_mmu_get_ptname_from_ptbase(struct kgsl_mmu *mmu,
-					phys_addr_t pt_base);
+int kgsl_mmu_get_ptname_from_ptbase(struct kgsl_mmu *mmu, u64 pt_base);
 unsigned int kgsl_mmu_log_fault_addr(struct kgsl_mmu *mmu,
 			phys_addr_t pt_base, unsigned int addr);
 int kgsl_mmu_enabled(void);
@@ -209,10 +196,10 @@ int kgsl_mmu_svm_range(struct kgsl_pagetable *pagetable,
  * of as wrappers around the actual function
  */
 
-static inline phys_addr_t kgsl_mmu_get_current_ptbase(struct kgsl_mmu *mmu)
+static inline u64 kgsl_mmu_get_current_ttbr0(struct kgsl_mmu *mmu)
 {
-	if (mmu->mmu_ops && mmu->mmu_ops->mmu_get_current_ptbase)
-		return mmu->mmu_ops->mmu_get_current_ptbase(mmu);
+	if (mmu->mmu_ops && mmu->mmu_ops->mmu_get_current_ttbr0)
+		return mmu->mmu_ops->mmu_get_current_ttbr0(mmu);
 	else
 		return 0;
 }
@@ -230,34 +217,6 @@ static inline void kgsl_mmu_stop(struct kgsl_mmu *mmu)
 {
 	if (mmu->mmu_ops && mmu->mmu_ops->mmu_stop)
 		mmu->mmu_ops->mmu_stop(mmu);
-}
-
-static inline int kgsl_mmu_pt_equal(struct kgsl_mmu *mmu,
-			struct kgsl_pagetable *pt,
-			phys_addr_t pt_base)
-{
-	if (mmu->mmu_ops && mmu->mmu_ops->mmu_pt_equal)
-		return mmu->mmu_ops->mmu_pt_equal(mmu, pt, pt_base);
-	else
-		return 1;
-}
-
-static inline phys_addr_t kgsl_mmu_get_pt_base_addr(struct kgsl_mmu *mmu,
-						struct kgsl_pagetable *pt)
-{
-	if (mmu->mmu_ops && mmu->mmu_ops->mmu_get_pt_base_addr)
-		return mmu->mmu_ops->mmu_get_pt_base_addr(mmu, pt);
-	else
-		return 0;
-}
-
-static inline phys_addr_t kgsl_mmu_get_default_ttbr0(struct kgsl_mmu *mmu,
-					enum kgsl_iommu_context_id ctx_id)
-{
-	if (mmu->mmu_ops && mmu->mmu_ops->mmu_get_default_ttbr0)
-		return mmu->mmu_ops->mmu_get_default_ttbr0(mmu, ctx_id);
-	else
-		return 0;
 }
 
 static inline void kgsl_mmu_enable_clk(struct kgsl_mmu *mmu)
@@ -354,11 +313,19 @@ static inline int kgsl_mmu_is_secured(struct kgsl_mmu *mmu)
 	return mmu && (mmu->secured) && (mmu->securepagetable);
 }
 
-static inline phys_addr_t
-kgsl_mmu_pagetable_get_ptbase(struct kgsl_pagetable *pagetable)
+static inline u64
+kgsl_mmu_pagetable_get_ttbr0(struct kgsl_pagetable *pagetable)
 {
-	if (pagetable && pagetable->pt_ops->get_ptbase)
-		return pagetable->pt_ops->get_ptbase(pagetable);
+	if (pagetable && pagetable->pt_ops->get_ttbr0)
+		return pagetable->pt_ops->get_ttbr0(pagetable);
+	return 0;
+}
+
+static inline u32
+kgsl_mmu_pagetable_get_contextidr(struct kgsl_pagetable *pagetable)
+{
+	if (pagetable && pagetable->pt_ops->get_contextidr)
+		return pagetable->pt_ops->get_contextidr(pagetable);
 	return 0;
 }
 
