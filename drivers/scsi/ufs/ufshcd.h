@@ -55,7 +55,6 @@
 #include <linux/clk.h>
 #include <linux/completion.h>
 #include <linux/regulator/consumer.h>
-#include <linux/pm_qos.h>
 #include "unipro.h"
 
 #include <asm/irq.h>
@@ -357,15 +356,24 @@ struct ufs_hba_crypto_variant_ops {
 };
 
 /**
+* struct ufs_hba_pm_qos_variant_ops - variant specific PM QoS callbacks
+*/
+struct ufs_hba_pm_qos_variant_ops {
+	void		(*req_start)(struct ufs_hba *, struct request *);
+	void		(*req_end)(struct ufs_hba *, struct request *, bool);
+};
+
+/**
  * struct ufs_hba_variant - variant specific parameters
  * @name: variant name
  */
 struct ufs_hba_variant {
+	struct device				*dev;
 	const char				*name;
 	struct ufs_hba_variant_ops		*vops;
 	struct ufs_hba_crypto_variant_ops	*crypto_vops;
+	struct ufs_hba_pm_qos_variant_ops	*pm_qos_vops;
 };
-
 
 /* clock gating state  */
 enum clk_gating_state {
@@ -565,38 +573,6 @@ struct ufs_stats {
 	struct ufs_uic_err_reg_hist nl_err;
 	struct ufs_uic_err_reg_hist tl_err;
 	struct ufs_uic_err_reg_hist dme_err;
-};
-
-/* PM QoS voting state  */
-enum ufshcd_pm_qos_state {
-	PM_QOS_UNVOTED,
-	PM_QOS_VOTED,
-	PM_QOS_REQ_VOTE,
-	PM_QOS_REQ_UNVOTE,
-};
-
-/* Default latency for PM QOS */
-#define UFS_DEFAULT_CPU_DMA_LATENCY_US	200	/* microseconds */
-
-/**
- * struct ufshcd_pm_qos - data related to PM QoS voting logic
- * @vote_work: work object for voting procedure
- * @unvote_work: work object for un-voting procedure
- * @req: request object for PM QoS
- * @cpu_dma_latency_us: requested latency value used for voting in microseconds
- * @state: voting state machine current state
- * @active_reqs: number of active requests requiring PM QoS voting
- * @is_suspended: flag specifying whether voting logic is suspended.
- * When set, voting will not occur for pending requests.
- */
-struct ufshcd_pm_qos {
-	struct work_struct vote_work;
-	struct work_struct unvote_work;
-	struct pm_qos_request req;
-	u32 cpu_dma_latency_us;
-	enum ufshcd_pm_qos_state state;
-	int active_reqs;
-	bool is_suspended;
 };
 
 /* UFS Host Controller debug print bitmask */
@@ -808,9 +784,6 @@ struct ufs_hba {
 	struct list_head clk_list_head;
 
 	bool wlun_dev_clr_ua;
-
-	/* PM Quality-of-Service (QoS) data */
-	struct ufshcd_pm_qos pm_qos;
 
 	/* Number of requests aborts */
 	int req_abort_count;
@@ -1061,41 +1034,6 @@ void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba,
 		int result);
 u32 ufshcd_get_local_unipro_ver(struct ufs_hba *hba);
 
-#ifndef CONFIG_SMP
-static inline int ufshcd_pm_qos_init(struct ufs_hba *hba)
-{
-	return 0;
-}
-
-static inline int ufshcd_pm_qos_hold(struct ufs_hba *hba, bool async)
-{
-	return 0;
-}
-
-static inline int __ufshcd_pm_qos_hold(struct ufs_hba *hba, bool async)
-{
-	return 0;
-}
-
-static inline int ufshcd_pm_qos_release(struct ufs_hba *hba)
-{
-	return 0;
-}
-
-static inline int __ufshcd_pm_qos_release(struct ufs_hba *hba)
-{
-	return 0;
-}
-
-static inline void ufshcd_pm_qos_remove(struct ufs_hba *hba)
-{
-}
-
-static inline void ufshcd_parse_pm_qos(struct ufs_hba *hba)
-{
-}
-#endif /* CONFIG_SMP */
-
 /* Expose Query-Request API */
 int ufshcd_query_flag(struct ufs_hba *hba, enum query_opcode opcode,
 	enum flag_idn idn, bool *flag_res);
@@ -1277,6 +1215,21 @@ static inline void ufshcd_vops_crypto_engine_reset_err(struct ufs_hba *hba)
 	if (hba->var && hba->var->crypto_vops &&
 	    hba->var->crypto_vops->crypto_engine_reset_err)
 		hba->var->crypto_vops->crypto_engine_reset_err(hba);
+}
+
+static inline void ufshcd_vops_pm_qos_req_start(struct ufs_hba *hba,
+		struct request *req)
+{
+	if (hba->var && hba->var->pm_qos_vops &&
+		hba->var->pm_qos_vops->req_start)
+		hba->var->pm_qos_vops->req_start(hba, req);
+}
+
+static inline void ufshcd_vops_pm_qos_req_end(struct ufs_hba *hba,
+		struct request *req, bool lock)
+{
+	if (hba->var && hba->var->pm_qos_vops && hba->var->pm_qos_vops->req_end)
+		hba->var->pm_qos_vops->req_end(hba, req, lock);
 }
 
 #endif /* End of Header */

@@ -115,23 +115,19 @@ Note: The instantaneous bandwidth (IB) value in the vectors-KBps field should
 - qcom,bus-vector-names: specifies string IDs for the corresponding
 bus vectors in the same order as qcom,msm-bus,vectors-KBps property.
 
-- qcom,cpu-dma-latency-us: optional parameter specifying the allowed CPU-DMA
-  latency parameter for PM QOS, in units of microseconds. If this parameter is
-  not specified a default of 200us is used.
-- qcom,cpu-affinity: this is a string that specifies the pm QoS request type.
-  The supported cpu affinity modes are:
-  "all_cores" - PM_QOS_REQ_ALL_CORES is applicable to all CPU cores that are
-  online and this would have a power impact when there are more number of CPUs.
-  "affine_irq" - PM_QOS_REQ_AFFINE_IRQ request type shall update/apply the vote
-  only to that CPU to which this IRQ's affinity is set to.
-  "affine_cores" - PM_QOS_REQ_AFFINE_CORES request type is used for targets that
-  have little cluster and will update/apply the vote to all the cores in the
-  little cluster.
-  The default CPU affinity mode is PM_QOS_REQ_AFFINE_IRQ.
-- qcom,cpu-affinity-mask: this property is taken into consideration only in case
-  "affine_cores" is specified for qcom,cpu-affinity. It specifies which cores the
-  PM QoS voting should apply to. In practice, for system with big / little cluster
-  configuration, this should specify the cores of the little cluster.
+* The following parameters are optional, but required in order for PM QoS to be
+enabled and functional in the driver:
+- qcom,pm-qos-cpu-groups:		arrays of unsigned integers representing the cpu groups.
+					The number of values in the array defines the number of cpu-groups.
+					Each value is a bit-mask defining the cpus that take part in that cpu group.
+					i.e. if bit N is set, then cpuN is a part of the cpu group. So basically,
+					a cpu group corelated to a cpu cluster.
+					A PM QoS request object is maintained for each cpu-group.
+- qcom,pm-qos-cpu-group-latency-us:	array of values used for PM QoS voting, one for each cpu-group defined.
+					the number of values must match the number of values defined in
+					qcom,pm-qos-cpu-mask property.
+- qcom,pm-qos-default-cpu:		PM QoS voting is based on the cpu associated with each IO request by the block layer.
+					This defined the default cpu used for PM QoS voting in case a specific cpu value is not available.
 
 Example:
 	ufshc@0xfc598000 {
@@ -176,6 +172,10 @@ Example:
 					"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1",
 					"HS_RB_G1_L2", "HS_RB_G2_L2", "HS_RB_G3_L2",
 					"MAX";
+
+		qcom,pm-qos-cpu-groups = <0x03 0x0C>; /* group0: cpu0, cpu1, group1: cpu2, cpu3 */
+		qcom,pm-qos-cpu-group-latency-us = <200 300>; /* group0: 200us, group1: 300us */
+		qcom,pm-qos-default-cpu = <0>;
 	};
 
 This is an example to a variant sub-node of ufshc:

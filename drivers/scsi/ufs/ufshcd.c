@@ -220,8 +220,6 @@ void ufshcd_update_query_stats(struct ufs_hba *hba,
 /* IOCTL opcode for command - ufs set device read only */
 #define UFS_IOCTL_BLKROSET      BLKROSET
 
-#define UFSHCD_PM_QOS_UNVOTE_TIMEOUT_US	(10000) /* microseconds */
-
 #define UFSHCD_DEFAULT_LANES_PER_DIRECTION		2
 
 #define ufshcd_toggle_vreg(_dev, _vreg, _on)				\
@@ -609,9 +607,8 @@ static void ufshcd_print_host_state(struct ufs_hba *hba)
 		hba->pm_op_in_progress, hba->is_sys_suspended);
 	dev_err(hba->dev, "Auto BKOPS=%d, Host self-block=%d\n",
 		hba->auto_bkops_enabled, hba->host->host_self_blocked);
-	dev_err(hba->dev, "Clk gate=%d, hibern8 on idle=%d, PM QoS=%d\n",
-		hba->clk_gating.state, hba->hibern8_on_idle.state,
-		hba->pm_qos.state);
+	dev_err(hba->dev, "Clk gate=%d, hibern8 on idle=%d\n",
+		hba->clk_gating.state, hba->hibern8_on_idle.state);
 	dev_err(hba->dev, "error handling flags=0x%x, req. abort count=%d\n",
 		hba->eh_flags, hba->req_abort_count);
 	dev_err(hba->dev, "Host capabilities=0x%x, caps=0x%x\n",
@@ -1734,173 +1731,15 @@ static void ufshcd_exit_hibern8_on_idle(struct ufs_hba *hba)
 	device_remove_file(hba->dev, &hba->hibern8_on_idle.enable_attr);
 }
 
-#ifdef CONFIG_SMP
-
-/* Host lock is assumed to be held by caller */
-static int ufshcd_pm_qos_hold(struct ufs_hba *hba, bool async)
-{
-	int ret = 0;
-	unsigned long flags;
-
-	if (!hba->pm_qos.cpu_dma_latency_us)
-		return 0;
-
-	spin_lock_irqsave(hba->host->host_lock, flags);
-	hba->pm_qos.active_reqs++;
-	if (hba->pm_qos.is_suspended)
-		goto out;
-start:
-	switch (hba->pm_qos.state) {
-	case PM_QOS_VOTED:
-		/* nothing to do */
-		break;
-	case PM_QOS_REQ_UNVOTE:
-		/*
-		 * Fall-through - unvoting is either running or completed,
-		 * so need to perform voting.
-		 */
-	case PM_QOS_UNVOTED:
-		scsi_block_requests(hba->host);
-		hba->pm_qos.state = PM_QOS_REQ_VOTE;
-		schedule_work(&hba->pm_qos.vote_work);
-		/* fall-through */
-	case PM_QOS_REQ_VOTE:
-		if (async) {
-			hba->pm_qos.active_reqs--;
-			ret = -EAGAIN;
-			break;
-		}
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
-		flush_work(&hba->pm_qos.vote_work);
-		spin_lock_irqsave(hba->host->host_lock, flags);
-		goto start;
-	default:
-		dev_err(hba->dev, "%s: PM QoS invalid state %d\n", __func__,
-			hba->pm_qos.state);
-		ret = -EINVAL;
-		break;
-	}
-out:
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
-	return ret;
-}
-
-/* Host lock is assumed to be held by caller */
-static void __ufshcd_pm_qos_release(struct ufs_hba *hba, bool no_sched)
-{
-	if (!hba->pm_qos.cpu_dma_latency_us)
-		return;
-
-	if (--hba->pm_qos.active_reqs || no_sched)
-		return;
-
-	hba->pm_qos.state = PM_QOS_REQ_UNVOTE;
-	schedule_work(&hba->pm_qos.unvote_work);
-}
-
-static void ufshcd_pm_qos_release(struct ufs_hba *hba, bool no_sched)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(hba->host->host_lock, flags);
-	__ufshcd_pm_qos_release(hba, no_sched);
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
-}
-
-static void ufshcd_pm_qos_vote_work(struct work_struct *work)
-{
-	struct ufshcd_pm_qos *ufs_pm_qos =
-		container_of(work, struct ufshcd_pm_qos, vote_work);
-	struct ufs_hba *hba = container_of(ufs_pm_qos, struct ufs_hba, pm_qos);
-	unsigned long flags;
-
-	/*
-	 * un-voting work might be running when a new request arrives
-	 * and causes voting work to schedule. To prevent race condition
-	 * make sure the un-voting is finished.
-	 */
-	cancel_work_sync(&hba->pm_qos.unvote_work);
-
-	pm_qos_update_request(&hba->pm_qos.req,
-		hba->pm_qos.cpu_dma_latency_us);
-
-	spin_lock_irqsave(hba->host->host_lock, flags);
-	hba->pm_qos.state = PM_QOS_VOTED;
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
-
-	scsi_unblock_requests(hba->host);
-}
-
-static void ufshcd_pm_qos_unvote_work(struct work_struct *work)
-{
-	struct ufshcd_pm_qos *ufs_pm_qos =
-		container_of(work, struct ufshcd_pm_qos, unvote_work);
-	struct ufs_hba *hba = container_of(ufs_pm_qos, struct ufs_hba, pm_qos);
-	unsigned long flags;
-
-	/*
-	 * Check if new requests were submitted in the meantime and do not
-	 * unvote if so.
-	 */
-	spin_lock_irqsave(hba->host->host_lock, flags);
-	if (hba->pm_qos.active_reqs) {
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
-		return;
-	}
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
-
-	/*
-	 * When PM QoS voting is suspended (clocks scaled down or PM suspend
-	 * taking place) we can un-vote immediately. Otherwise, un-voting is
-	 * best done a bit later to accommodate for a burst of new upcoming
-	 * requests.
-	 */
-	if (hba->pm_qos.is_suspended)
-		pm_qos_update_request(&hba->pm_qos.req, PM_QOS_DEFAULT_VALUE);
-	else
-		pm_qos_update_request_timeout(&hba->pm_qos.req,
-			PM_QOS_DEFAULT_VALUE, UFSHCD_PM_QOS_UNVOTE_TIMEOUT_US);
-
-	spin_lock_irqsave(hba->host->host_lock, flags);
-	hba->pm_qos.state = PM_QOS_UNVOTED;
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
-}
-
-static int ufshcd_pm_qos_init(struct ufs_hba *hba)
-{
-	if (hba->pm_qos.cpu_dma_latency_us)
-		pm_qos_add_request(&hba->pm_qos.req,
-			PM_QOS_CPU_DMA_LATENCY, hba->pm_qos.cpu_dma_latency_us);
-	else
-		pm_qos_add_request(&hba->pm_qos.req,
-			PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
-	hba->pm_qos.state = PM_QOS_VOTED;
-	hba->pm_qos.active_reqs = 0;
-	hba->pm_qos.is_suspended = false;
-	INIT_WORK(&hba->pm_qos.vote_work, ufshcd_pm_qos_vote_work);
-	INIT_WORK(&hba->pm_qos.unvote_work, ufshcd_pm_qos_unvote_work);
-
-	return 0;
-}
-
-static void ufshcd_pm_qos_remove(struct ufs_hba *hba)
-{
-	pm_qos_remove_request(&hba->pm_qos.req);
-}
-
-#endif /* CONFIG_SMP */
-
 static void ufshcd_hold_all(struct ufs_hba *hba)
 {
 	ufshcd_hold(hba, false);
-	ufshcd_pm_qos_hold(hba, false);
 	ufshcd_hibern8_hold(hba, false);
 }
 
 static void ufshcd_release_all(struct ufs_hba *hba)
 {
 	ufshcd_hibern8_release(hba, false);
-	ufshcd_pm_qos_release(hba, false);
 	ufshcd_release(hba, false);
 }
 
@@ -2537,23 +2376,18 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	}
 	WARN_ON(hba->clk_gating.state != CLKS_ON);
 
-	err = ufshcd_pm_qos_hold(hba, true);
-	if (err) {
-		err = SCSI_MLQUEUE_HOST_BUSY;
-		clear_bit_unlock(tag, &hba->lrb_in_use);
-		ufshcd_release(hba, true);
-		goto out;
-	}
-
 	err = ufshcd_hibern8_hold(hba, true);
 	if (err) {
 		clear_bit_unlock(tag, &hba->lrb_in_use);
 		err = SCSI_MLQUEUE_HOST_BUSY;
-		ufshcd_pm_qos_release(hba, true);
 		ufshcd_release(hba, true);
 		goto out;
 	}
 	WARN_ON(hba->hibern8_on_idle.state != HIBERN8_EXITED);
+
+	/* Vote PM QoS for the request */
+	ufshcd_vops_pm_qos_req_start(hba, cmd->request);
+
 	lrbp = &hba->lrb[tag];
 
 	WARN_ON(lrbp->cmd);
@@ -2573,6 +2407,7 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 		lrbp->cmd = NULL;
 		clear_bit_unlock(tag, &hba->lrb_in_use);
 		ufshcd_release_all(hba);
+		ufshcd_vops_pm_qos_req_end(hba, cmd->request, true);
 		goto out;
 	}
 
@@ -2588,6 +2423,7 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 		lrbp->cmd = NULL;
 		clear_bit_unlock(tag, &hba->lrb_in_use);
 		ufshcd_release_all(hba);
+		ufshcd_vops_pm_qos_req_end(hba, cmd->request, true);
 		dev_err(hba->dev, "%s: failed sending command, %d\n",
 							__func__, err);
 		err = DID_ERROR;
@@ -4957,8 +4793,10 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 			/* Do not touch lrbp after scsi done */
 			cmd->scsi_done(cmd);
 			__ufshcd_release(hba, false);
-			__ufshcd_pm_qos_release(hba, false);
 			__ufshcd_hibern8_release(hba, false);
+			if (cmd->request)
+				ufshcd_vops_pm_qos_req_end(hba, cmd->request,
+					false);
 		} else if (lrbp->command_type == UTP_CMD_TYPE_DEV_MANAGE) {
 			if (hba->dev_cmd.complete) {
 				ufshcd_cond_add_cmd_trace(hba, index,
@@ -7722,7 +7560,6 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	enum ufs_pm_level pm_lvl;
 	enum ufs_dev_pwr_mode req_dev_pwr_mode;
 	enum uic_link_state req_link_state;
-	unsigned long flags;
 
 	hba->pm_op_in_progress = 1;
 	if (!ufshcd_is_shutdown_pm(pm_op)) {
@@ -7744,13 +7581,6 @@ static int ufshcd_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	ufshcd_hold_all(hba);
 	hba->clk_gating.is_suspended = true;
 	hba->hibern8_on_idle.is_suspended = true;
-
-	/* While entering PM suspend release the PM QoS vote and suspend it */
-	if (hba->pm_qos.state == PM_QOS_VOTED) {
-		pm_qos_update_request(&hba->pm_qos.req, PM_QOS_DEFAULT_VALUE);
-		hba->pm_qos.state = PM_QOS_UNVOTED;
-	}
-	hba->pm_qos.is_suspended = true;
 
 	ufshcd_suspend_clkscaling(hba);
 
@@ -7853,9 +7683,6 @@ enable_gating:
 	ufshcd_resume_clkscaling(hba);
 	hba->hibern8_on_idle.is_suspended = false;
 	hba->clk_gating.is_suspended = false;
-	spin_lock_irqsave(hba->host->host_lock, flags);
-	hba->pm_qos.is_suspended = false;
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
 	ufshcd_release_all(hba);
 out:
 	hba->pm_op_in_progress = 0;
@@ -7880,7 +7707,6 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	int ret;
 	enum uic_link_state old_link_state;
-	unsigned long flags;
 
 	hba->pm_op_in_progress = 1;
 	old_link_state = hba->uic_link_state;
@@ -7946,10 +7772,6 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 	hba->clk_gating.is_suspended = false;
 	hba->hibern8_on_idle.is_suspended = false;
-
-	spin_lock_irqsave(hba->host->host_lock, flags);
-	hba->pm_qos.is_suspended = false;
-	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
 	if (hba->clk_scaling.is_allowed)
 		ufshcd_resume_clkscaling(hba);
@@ -8634,13 +8456,8 @@ static int ufshcd_devfreq_target(struct device *dev,
 
 	ret = ufshcd_devfreq_scale(hba, scale_up);
 
-	spin_lock_irqsave(hba->host->host_lock, irq_flags);
-	/* suspend PM QoS voting when scaled down and vise versa */
-	hba->pm_qos.is_suspended = !scale_up;
-
 	if (release_clk_hold)
-		__ufshcd_release(hba, false);
-	spin_unlock_irqrestore(hba->host->host_lock, irq_flags);
+		ufshcd_release(hba, false);
 
 	trace_ufshcd_profile_clk_scaling(dev_name(hba->dev),
 		(scale_up ? "up" : "down"),
@@ -8790,13 +8607,6 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 		goto out_disable;
 	}
 
-	/* Configure PM_QOS latency */
-	err = ufshcd_pm_qos_init(hba);
-	if (err) {
-		dev_err(hba->dev, "ufshcd_pm_qos_init failed, err=%d\n", err);
-		goto exit_gating;
-	}
-
 	/* Configure LRB */
 	ufshcd_host_memory_configure(hba);
 
@@ -8851,7 +8661,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	err = devm_request_irq(dev, irq, ufshcd_intr, IRQF_SHARED, UFSHCD, hba);
 	if (err) {
 		dev_err(hba->dev, "request irq failed\n");
-		goto pm_qos_remove;
+		goto exit_gating;
 	} else {
 		hba->is_irq_enabled = true;
 	}
@@ -8860,13 +8670,13 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	err = scsi_init_shared_tag_map(host, host->can_queue);
 	if (err) {
 		dev_err(hba->dev, "init shared queue failed\n");
-		goto pm_qos_remove;
+		goto exit_gating;
 	}
 
 	err = scsi_add_host(host, hba->dev);
 	if (err) {
 		dev_err(hba->dev, "scsi_add_host failed\n");
-		goto pm_qos_remove;
+		goto exit_gating;
 	}
 
 	/* Host controller enable */
@@ -8925,8 +8735,6 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 
 out_remove_scsi_host:
 	scsi_remove_host(hba->host);
-pm_qos_remove:
-	ufshcd_pm_qos_remove(hba);
 exit_gating:
 	ufshcd_exit_clk_gating(hba);
 out_disable:
