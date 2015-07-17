@@ -552,6 +552,10 @@
 	status = "okay";
 };
 
+&flash_led {
+	qcom,follow-otst2-rb-disabled;
+};
+
 &blsp1_uart2 {
 	status = "ok";
 };

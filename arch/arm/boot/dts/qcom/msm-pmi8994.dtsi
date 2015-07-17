@@ -606,7 +606,7 @@
 			};
 		};
 
-		qcom,leds@d300 {
+		flash_led: qcom,leds@d300 {
 			compatible = "qcom,qpnp-flash-led";
 			status = "okay";
 			reg = <0xd300 0x100>;
