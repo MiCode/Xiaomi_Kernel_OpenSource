@@ -9,7 +9,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
 &soc {
 	qcom,spm@9A10000 {
 		compatible = "qcom,spm-v2";
@@ -435,6 +434,17 @@
 			    "offset_addr",
 			    "heap_phys_addrbase";
 		qcom,sleep-stats-version = <2>;
+	};
+
+	qcom,pm-snoc-client {
+		compatible = "qcom,pm-snoc-client";
+		qcom,msm-bus,name = "ocimem_snoc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,active-only;
+		qcom,msm-bus,vectors-KBps =
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_OCIMEM 0 0>,
+			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_OCIMEM 0 800000>;
 	};
 
 };
