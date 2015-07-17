@@ -8582,6 +8582,8 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_val[] = {
 	{WCD9335_SOC_MAD_AUDIO_CTL_2, 0x03, 0x03},
 	{WCD9335_MICB2_TEST_CTL_2, 0x07, 0x01},
 	{WCD9335_HPH_PA_CTL2, 0x40, 0x00},
+	{WCD9335_CDC_TOP_TOP_CFG1, 0x02, 0x02},
+	{WCD9335_CDC_TOP_TOP_CFG1, 0x01, 0x01},
 };
 
 static void tasha_update_reg_reset_values(struct snd_soc_codec *codec)
