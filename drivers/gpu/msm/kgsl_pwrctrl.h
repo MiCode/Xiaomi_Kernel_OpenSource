@@ -48,6 +48,11 @@
 #define KGSL_PWR_DEL_LIMIT 1
 #define KGSL_PWR_SET_LIMIT 2
 
+enum kgsl_pwrctrl_timer_type {
+	KGSL_PWR_IDLE_TIMER,
+	KGSL_PWR_DEEP_NAP_TIMER,
+};
+
 /*
  * States for thermal cycling.  _DISABLE means that no cycling has been
  * requested.  _ENABLE means that cycling has been requested, but GPU
@@ -123,6 +128,8 @@ struct kgsl_pwr_constraint {
  * @limits - list head for limits
  * @limits_lock - spin lock to protect limits list
  * @sysfs_pwr_limit - pointer to the sysfs limits node
+ * @deep_nap_timer - Timer struct for entering deep nap
+ * @deep_nap_timeout - Timeout for entering deep nap
  */
 
 struct kgsl_pwrctrl {
@@ -169,6 +176,8 @@ struct kgsl_pwrctrl {
 	struct list_head limits;
 	spinlock_t limits_lock;
 	struct kgsl_pwr_limit *sysfs_pwr_limit;
+	struct timer_list deep_nap_timer;
+	uint32_t deep_nap_timeout;
 };
 
 int kgsl_pwrctrl_init(struct kgsl_device *device);
