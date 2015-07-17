@@ -409,6 +409,7 @@
 	};
 
 	qcom,camera@90 {
+		cell-index = <1>;
 		compatible = "qcom,mt9m114";
 		reg = <0x90>;
 		qcom,slave-id = <0x90 0x0 0x2481>;
