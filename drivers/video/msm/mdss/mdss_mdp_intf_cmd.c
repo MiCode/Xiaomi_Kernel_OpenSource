@@ -905,7 +905,7 @@ static void clk_ctrl_delayed_off_work(struct work_struct *work)
 		/* re-assign to have the correct order in the context */
 		ctx = (struct mdss_mdp_cmd_ctx *) ctl->intf_ctx[MASTER_CTX];
 		sctx = (struct mdss_mdp_cmd_ctx *) sctl->intf_ctx[MASTER_CTX];
-		if (!ctx || !sctl) {
+		if (!ctx || !sctx) {
 			pr_err("invalid %s %s\n",
 				ctx?"":"ctx", sctx?"":"sctx");
 			return;
