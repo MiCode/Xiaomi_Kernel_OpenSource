@@ -42,6 +42,7 @@
 		i2c4  = &i2c_4;
 		i2c6  = &i2c_6;
 		i2c8  = &i2c_8;
+		qup10 = &test_pacman;
 	};
 
 	soc: soc { };
@@ -1842,6 +1843,14 @@
 
 	qcom,msm-ssc-sensors {
 		compatible = "qcom,msm-ssc-sensors";
+	};
+
+	qcom,msm-pacman {
+		compatible = "qcom,msm-pacman";
+	};
+
+	test_pacman: test {
+		compatible = "qcom,msm-test-pacman";
 	};
 
 	qcom,pronto@a21b000 {
