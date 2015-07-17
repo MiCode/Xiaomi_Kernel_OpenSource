@@ -563,6 +563,7 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 	struct msm_spm_device *dev = NULL;
 	struct resource *res = NULL;
 	uint32_t mode_count = 0;
+	bool spm_legacy_workaround = 0;
 
 	struct spm_of {
 		char *key;
@@ -726,6 +727,9 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 
 	cpu = get_cpu_id(pdev->dev.of_node);
 
+	key = "qcom,use-spm-legacy-mode-workaround";
+	spm_legacy_workaround = of_property_read_bool(pdev->dev.of_node, key);
+
 	/* For CPUs that are online, the SPM has to be programmed for
 	 * clockgating mode to ensure that it can use SPM for entering
 	 * these low power modes.
@@ -734,7 +738,7 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 	if ((cpu >= 0) && (cpu < num_possible_cpus()) && (cpu_online(cpu)))
 		msm_spm_config_low_power_mode(dev,
 			MSM_SPM_MODE_CLOCK_GATING, false);
-	else
+	else if (spm_legacy_workaround)
 		/*
 		* At system boot, cpus and or clusters can remain in reset.
 		* CCI SPM will not be triggered unless SPM_LEGACY_MODE bit
