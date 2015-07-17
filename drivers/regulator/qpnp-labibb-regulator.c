@@ -140,7 +140,7 @@
 #define IBB_RING_SUPPRESSION_CTL_EN	BIT(7)
 
 /* REG_IBB_MODULE_RDY */
-#define REG_IBB_MODULE_RDY_EN		BIT(7)
+#define IBB_MODULE_RDY_EN		BIT(7)
 
 /* REG_IBB_ENABLE_CTL */
 #define IBB_ENABLE_CTL_EN		BIT(7)
@@ -789,20 +789,6 @@ static int qpnp_lab_dt_init(struct qpnp_labibb *labibb,
 		return rc;
 	}
 
-	if (labibb->mode != QPNP_LABIBB_STANDALONE_MODE) {
-		val = LAB_MODULE_RDY_EN;
-
-		rc = qpnp_labibb_write(labibb, labibb->lab_base +
-			REG_LAB_MODULE_RDY, &val, 1);
-
-		if (rc) {
-			pr_err("qpnp_lab_dt_init write register %x failed rc = %d\n",
-				REG_LAB_MODULE_RDY, rc);
-			return rc;
-		}
-
-	}
-
 	return rc;
 }
 
@@ -1082,14 +1068,6 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 		return -ENOMEM;
 	}
 
-	rc = qpnp_labibb_read(labibb, &ibb_en_rdy_val,
-				labibb->lab_base + REG_LAB_IBB_EN_RDY, 1);
-	if (rc) {
-		pr_err("qpnp_lab_read register %x failed rc = %d\n",
-			REG_LAB_IBB_EN_RDY, rc);
-		return rc;
-	}
-
 	rc = of_property_read_u32(of_node, "qcom,qpnp-lab-min-voltage",
 					&(labibb->lab_vreg.min_volt));
 	if (rc < 0) {
@@ -1110,6 +1088,14 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 	if (rc < 0) {
 		pr_err("qcom,qpnp-lab-slew-rate is missing, rc = %d\n",
 			rc);
+		return rc;
+	}
+
+	rc = qpnp_labibb_read(labibb, &ibb_en_rdy_val,
+				labibb->lab_base + REG_LAB_IBB_EN_RDY, 1);
+	if (rc) {
+		pr_err("qpnp_lab_read register %x failed rc = %d\n",
+			REG_LAB_IBB_EN_RDY, rc);
 		return rc;
 	}
 
@@ -1178,6 +1164,28 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 		if (rc) {
 			pr_err("qpnp-lab: wrong DT parameter specified: rc = %d\n",
 				rc);
+			return rc;
+		}
+	}
+
+	rc = qpnp_labibb_read(labibb, &val,
+			labibb->lab_base + REG_LAB_MODULE_RDY, 1);
+	if (rc) {
+		pr_err("qpnp_lab_read read register %x failed rc = %d\n",
+			REG_LAB_MODULE_RDY, rc);
+		return rc;
+	}
+
+	if (labibb->mode != QPNP_LABIBB_STANDALONE_MODE &&
+			!(val & LAB_MODULE_RDY_EN)) {
+		val = LAB_MODULE_RDY_EN;
+
+		rc = qpnp_labibb_write(labibb, labibb->lab_base +
+			REG_LAB_MODULE_RDY, &val, 1);
+
+		if (rc) {
+			pr_err("qpnp_lab_dt_init write register %x failed rc = %d\n",
+				REG_LAB_MODULE_RDY, rc);
 			return rc;
 		}
 	}
@@ -1796,18 +1804,6 @@ static int qpnp_ibb_dt_init(struct qpnp_labibb *labibb,
 		pr_err("qpnp_ibb_masked_write write register %x failed rc = %d\n",
 			REG_IBB_VOLTAGE, rc);
 
-	if (labibb->mode != QPNP_LABIBB_STANDALONE_MODE) {
-		val = REG_IBB_MODULE_RDY_EN;
-
-		rc = qpnp_labibb_write(labibb, labibb->ibb_base +
-			REG_IBB_MODULE_RDY, &val, 1);
-
-		if (rc) {
-			pr_err("qpnp_ibb_dt_init write register %x failed rc = %d\n",
-				REG_IBB_MODULE_RDY, rc);
-			return rc;
-		}
-	}
 
 	return rc;
 }
@@ -1964,14 +1960,6 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 		return -ENOMEM;
 	}
 
-	rc = qpnp_labibb_read(labibb, &val,
-				labibb->ibb_base + REG_IBB_ENABLE_CTL, 1);
-	if (rc) {
-		pr_err("qpnp_ibb_read register %x failed rc = %d\n",
-			REG_IBB_ENABLE_CTL, rc);
-		return rc;
-	}
-
 	rc = of_property_read_u32(of_node, "qcom,qpnp-ibb-min-voltage",
 					&(labibb->ibb_vreg.min_volt));
 	if (rc < 0) {
@@ -2000,6 +1988,14 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 	if (rc < 0) {
 		pr_err("qcom,qpnp-ibb-soft-start is missing, rc = %d\n",
 			rc);
+		return rc;
+	}
+
+	rc = qpnp_labibb_read(labibb, &val,
+				labibb->ibb_base + REG_IBB_ENABLE_CTL, 1);
+	if (rc) {
+		pr_err("qpnp_ibb_read register %x failed rc = %d\n",
+			REG_IBB_ENABLE_CTL, rc);
 		return rc;
 	}
 
@@ -2072,6 +2068,27 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 		if (rc) {
 			pr_err("qpnp-ibb: wrong DT parameter specified: rc = %d\n",
 				rc);
+			return rc;
+		}
+	}
+	rc = qpnp_labibb_read(labibb, &val,
+			labibb->ibb_base + REG_IBB_MODULE_RDY, 1);
+	if (rc) {
+		pr_err("qpnp_ibb_read read register %x failed rc = %d\n",
+			REG_IBB_MODULE_RDY, rc);
+		return rc;
+	}
+
+	if (labibb->mode != QPNP_LABIBB_STANDALONE_MODE &&
+			!(val & IBB_MODULE_RDY_EN)) {
+		val = IBB_MODULE_RDY_EN;
+
+		rc = qpnp_labibb_write(labibb, labibb->ibb_base +
+			REG_IBB_MODULE_RDY, &val, 1);
+
+		if (rc) {
+			pr_err("qpnp_ibb_dt_init write register %x failed rc = %d\n",
+				REG_IBB_MODULE_RDY, rc);
 			return rc;
 		}
 	}
