@@ -111,6 +111,8 @@ struct sdhci_msm_pltfm_data {
 	cpumask_t cpu_affinity_mask;
 	u32 *sup_ice_clk_table;
 	unsigned char sup_ice_clk_cnt;
+	u32 ice_clk_max;
+	u32 ice_clk_min;
 };
 
 struct sdhci_msm_bus_vote {
