@@ -71,6 +71,7 @@ struct msm_bus_client_handle {
 	int mas;
 	int slv;
 	int first_hop;
+	struct device *mas_dev;
 	u64 cur_act_ib;
 	u64 cur_act_ab;
 	u64 cur_slp_ib;
