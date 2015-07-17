@@ -81,6 +81,9 @@ node-gdsc-supply:	Optional node device parameter that is a reference to a GDSC s
 			that is needed before node-clock operations.
 qcom,enable-only-clk:   Optional property that is represents if the clock doesn't support
                         the clk_set_rate API and should only be enabled/disabled.
+qcom,setrate-only-clk:   Optional property that is indicates that bus driver should only
+			set a rate on a clock handle and not call the enable/disable
+			clock API.
 clock-names:		Optional property that represents the clock name associated
 			with the device "bus_clk", "bus_a_clk";
 clocks:			Property pair that represents the clock controller and the clock

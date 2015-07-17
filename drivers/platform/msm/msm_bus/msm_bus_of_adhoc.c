@@ -490,6 +490,7 @@ static int get_bus_node_device_data(
 		struct msm_bus_node_device_type * const node_device)
 {
 	bool enable_only;
+	bool setrate_only;
 
 	node_device->node_info = get_node_info_data(dev_node, pdev);
 	if (IS_ERR_OR_NULL(node_device->node_info)) {
@@ -518,6 +519,19 @@ static int get_bus_node_device_data(
 							"qcom,enable-only-clk");
 		node_device->clk[DUAL_CTX].enable_only_clk = enable_only;
 		node_device->clk[ACTIVE_CTX].enable_only_clk = enable_only;
+
+		/*
+		 * Doesn't make sense to have a clk handle you can't enable or
+		 * set rate on.
+		 */
+		if (!enable_only) {
+			setrate_only = of_property_read_bool(dev_node,
+						"qcom,setrate-only-clk");
+			node_device->clk[DUAL_CTX].setrate_only_clk =
+								setrate_only;
+			node_device->clk[ACTIVE_CTX].setrate_only_clk =
+								setrate_only;
+		}
 
 		node_device->clk[DUAL_CTX].clk = of_clk_get_by_name(dev_node,
 							"bus_clk");
@@ -612,6 +626,19 @@ static int get_bus_node_device_data(
 							"qcom,enable-only-clk");
 		node_device->clk[DUAL_CTX].enable_only_clk = enable_only;
 		node_device->bus_qos_clk.enable_only_clk = enable_only;
+
+		/*
+		 * Doesn't make sense to have a clk handle you can't enable or
+		 * set rate on.
+		 */
+		if (!enable_only) {
+			setrate_only = of_property_read_bool(dev_node,
+						"qcom,setrate-only-clk");
+			node_device->clk[DUAL_CTX].setrate_only_clk =
+								setrate_only;
+			node_device->clk[ACTIVE_CTX].setrate_only_clk =
+								setrate_only;
+		}
 
 		node_device->clk[DUAL_CTX].clk = of_clk_get_by_name(dev_node,
 							"node_clk");
