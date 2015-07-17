@@ -60,6 +60,8 @@ Optional properties:
 - camss-vdd-supply: phandle to GDSC regulator controlling camss.
 - qcom,bus-master: Flag for presence of CPP bus master. It has to be set only for
   platforms that support such feature.
+- qcom,vbif-setting: The offset and value for vbif core qos registers.
+  The first entry is register offset and second entry is register value.
 
 Example:
 
@@ -97,6 +99,10 @@ Example:
 		qcom,clock-rates = <0 0 0 0 465000000 0 0 465000000 0 0 0 0>;
 		qcom,min-clock-rate = <320000000>;
 		qcom,bus-master = <1>;
+		qcom,vbif-qos-setting = <0x20 0x10000000>,
+			<0x24 0x10000000>,
+			<0x28 0x10000000>,
+			<0x2C 0x10000000>;
 		qcom,cpp-fw-payload-info {
 			qcom,stripe-base = <553>;
 			qcom,plane-base = <481>;
