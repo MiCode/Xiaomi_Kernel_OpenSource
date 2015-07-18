@@ -214,6 +214,18 @@
 		qcom,max-nominal-sysclk-rate = <100000000>;
 	};
 
+	 tsens: tsens@4a8000 {
+		compatible = "qcom,mdmfermium-tsens";
+		reg = <0x4a8000 0x2000>,
+			<0xa4000  0x1000>;
+		reg-names = "tsens_physical", "tsens_eeprom_physical";
+		interrupts = <0 184 0>;
+		interrupt-names = "tsens-upper-lower";
+		qcom,sensors = <5>;
+		qcom,slope = <3000 3000 3000 3000 3000>;
+		qcom,sensor-id = <0 1 2 3 4>;
+	};
+
 	android_usb: android_usb@086000c8 {
 		compatible = "qcom,android-usb";
 		reg = <0x086000c8 0xc8>;
