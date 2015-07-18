@@ -32,6 +32,7 @@
 #include <linux/msm_audio_ion.h>
 #include <sound/q6afe-v2.h>
 #include <sound/audio_cal_utils.h>
+#include <sound/adsp_err.h>
 
 #define APR_TIMEOUT	(5 * HZ)
 #define LSM_ALIGN_BOUNDARY 512
@@ -385,10 +386,15 @@ static int q6lsm_apr_send_pkt(struct lsm_client *client, void *handle,
 					 APR_TIMEOUT);
 		if (likely(ret)) {
 			/* q6 returned error */
-			if (client->cmd_err_code)
-				ret = -EINVAL;
-			else
+			if (client->cmd_err_code) {
+				pr_err("%s: DSP returned error[%s]\n",
+					__func__, adsp_err_get_err_str(
+					client->cmd_err_code));
+				ret = adsp_err_get_lnx_err_code(
+						client->cmd_err_code);
+			} else {
 				ret = 0;
+			}
 		} else {
 			pr_err("%s: wait timedout, apr_opcode = 0x%x, size = %d\n",
 				__func__, msg_hdr->opcode, msg_hdr->pkt_size);
