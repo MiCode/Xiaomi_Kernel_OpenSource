@@ -867,9 +867,9 @@
 					  0 2539    0    0    0    0    0    0>;
 
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
-					<90000 (-5000) (-30000) (-115000)>;
+					<0 (-5000) (-30000) (-115000)>;
 				qcom,cpr-closed-loop-voltage-adjustment =
-					<0 75000 0 (-10000) (-65000)>;
+					<0 0 0 (-10000) (-65000)>;
 				qcom,cpr-floor-to-ceiling-max-range =
 					<0 130000 40000 85000 85000>;
 
