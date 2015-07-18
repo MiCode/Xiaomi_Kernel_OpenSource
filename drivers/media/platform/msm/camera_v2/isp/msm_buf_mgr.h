@@ -164,7 +164,7 @@ struct msm_isp_buf_ops {
 struct msm_isp_buf_mgr {
 	int init_done;
 	uint32_t open_count;
-	uint32_t pagefault_debug;
+	uint32_t pagefault_debug_disable;
 	uint32_t frameId_mismatch_recovery;
 	uint16_t num_buf_q;
 	struct msm_isp_bufq *bufq;
