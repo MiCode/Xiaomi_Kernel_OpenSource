@@ -12,6 +12,7 @@
  */
 #include <linux/firmware.h>
 #include <soc/qcom/subsystem_restart.h>
+#include <soc/qcom/scm.h>
 #include <linux/pm_opp.h>
 
 #include "adreno.h"
@@ -22,6 +23,7 @@
 #include "adreno_trace.h"
 #include "adreno_pm4types.h"
 #include "adreno_perfcounter.h"
+#include "adreno_ringbuffer.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_log.h"
 #include "kgsl.h"
@@ -1577,9 +1579,6 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	adreno_vbif_start(adreno_dev, a5xx_vbif_platforms,
 			ARRAY_SIZE(a5xx_vbif_platforms));
 
-	/* GPU comes up in secured mode, make it unsecured by default */
-	kgsl_regwrite(device, A5XX_RBBM_SECVID_TRUST_CNTL, 0x0);
-
 	/* Make all blocks contribute to the GPU BUSY perf counter */
 	kgsl_regwrite(device, A5XX_RBBM_PERFCTR_GPU_BUSY_MASKED, 0xFFFFFFFF);
 
@@ -1937,6 +1936,23 @@ static int a5xx_rb_init(struct adreno_device *adreno_dev,
 	return 0;
 }
 
+int a5xx_switch_to_unsecure_mode(struct adreno_device *adreno_dev,
+				struct adreno_ringbuffer *rb)
+{
+	unsigned int *cmds;
+
+	cmds = adreno_ringbuffer_allocspace(rb, 2);
+	if (IS_ERR(cmds))
+		return PTR_ERR(cmds);
+	if (cmds == NULL)
+		return -ENOSPC;
+
+	cmds += cp_secure_mode(adreno_dev, cmds, 0);
+
+	adreno_ringbuffer_submit(rb, NULL);
+	return 0;
+}
+
 static int _load_firmware(struct adreno_device *adreno_dev, const char *fwfile,
 			  struct kgsl_memdesc *ucode, size_t *ucode_size,
 			  unsigned int *ucode_version)
@@ -2022,13 +2038,32 @@ static int a5xx_microcode_load(struct adreno_device *adreno_dev,
 	kgsl_regwrite(device, A5XX_CP_PFP_INSTR_BASE_HI,
 				((uint64_t)(gpuaddr) >> 32));
 
+	/*
+	 * Resume call to write the zap shader base address into the
+	 * appropriate register
+	 */
+	if (zap_ucode_loaded) {
+		int ret;
+		struct scm_desc desc = {0};
+
+		desc.args[0] = 0;
+		desc.args[1] = 13;
+		desc.arginfo = SCM_ARGS(2);
+
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_BOOT, 0xA), &desc);
+		if (ret) {
+			pr_err("SCM resume call failed with error %d\n", ret);
+			BUG();
+		}
+
+	}
+
 	/* Load the zap shader firmware through PIL if its available */
 	if (adreno_dev->gpucore->zap_name && !zap_ucode_loaded) {
 		ptr = subsystem_get(adreno_dev->gpucore->zap_name);
 
-		/* Disable content protecttion if the above call fails */
-		if (IS_ERR_OR_NULL(ptr))
-			device->mmu.secured = false;
+		/* Crash the device if the zap shader cannot be loaded */
+		BUG_ON(IS_ERR_OR_NULL(ptr));
 
 		zap_ucode_loaded = 1;
 	}
@@ -3305,6 +3340,7 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.gpudev_init = a5xx_gpudev_init,
 	.rb_init = a5xx_rb_init,
 	.hw_init = a5xx_hw_init,
+	.switch_to_unsecure_mode = a5xx_switch_to_unsecure_mode,
 	.microcode_read = a5xx_microcode_read,
 	.microcode_load = a5xx_microcode_load,
 	.perfcounters = &a5xx_perfcounters,

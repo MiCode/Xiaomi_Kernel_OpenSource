@@ -324,6 +324,18 @@ static int _ringbuffer_start_common(struct adreno_ringbuffer *rb)
 		"ringbuffer initialization failed to idle\n");
 		kgsl_device_snapshot(device, NULL);
 	}
+
+	if (gpudev->switch_to_unsecure_mode) {
+		status = gpudev->switch_to_unsecure_mode(adreno_dev, rb);
+		if (status)
+			return status;
+
+		status = adreno_spin_idle(device);
+		if (status)
+			KGSL_DRV_ERR(rb->device,
+			"switching to unsecure mode failed to idle\n");
+	}
+
 	return status;
 }
 
@@ -442,7 +454,8 @@ void adreno_ringbuffer_close(struct adreno_device *adreno_dev)
  * Add commands to the ringbuffer to put the GPU in secure mode
  * or unsecure mode based on the variable set.
  */
-static int cp_secure_mode(struct adreno_device *adreno_dev, uint *cmds, int set)
+int cp_secure_mode(struct adreno_device *adreno_dev, uint *cmds,
+				int set)
 {
 	uint *start = cmds;
 

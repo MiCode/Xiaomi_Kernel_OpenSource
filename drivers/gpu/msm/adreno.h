@@ -656,6 +656,8 @@ struct adreno_gpudev {
 	void (*gpudev_init)(struct adreno_device *);
 	int (*rb_init)(struct adreno_device *, struct adreno_ringbuffer *);
 	int (*hw_init)(struct adreno_device *);
+	int (*switch_to_unsecure_mode)(struct adreno_device *,
+				struct adreno_ringbuffer *);
 	int (*microcode_read)(struct adreno_device *);
 	int (*microcode_load)(struct adreno_device *, unsigned int start_type);
 	void (*perfcounter_init)(struct adreno_device *);

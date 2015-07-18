@@ -137,6 +137,8 @@ struct adreno_ringbuffer {
 #define KGSL_MEMSTORE_RB_OFFSET(rb, field)	\
 	KGSL_MEMSTORE_OFFSET((rb->id + KGSL_MEMSTORE_MAX), field)
 
+int cp_secure_mode(struct adreno_device *adreno_dev, uint *cmds, int set);
+
 int adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 				struct kgsl_context *context,
 				struct kgsl_cmdbatch *cmdbatch,
