@@ -2744,8 +2744,7 @@ static void a5xx_gpmu_int_callback(struct adreno_device *adreno_dev, int bit)
 	 (1 << A5XX_INT_UCHE_OOB_ACCESS) |		\
 	 (1 << A5XX_INT_UCHE_TRAP_INTR) |		\
 	 (1 << A5XX_INT_CP_SW) |			\
-	 (1 << A5XX_INT_GPMU_VOLTAGE_DROOP) |		\
-	 (1 << A5XX_INT_GPMU_FIRMWARE))
+	 (1 << A5XX_INT_GPMU_VOLTAGE_DROOP))
 
 
 static struct adreno_irq_funcs a5xx_irq_funcs[] = {
