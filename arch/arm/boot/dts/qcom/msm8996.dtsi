@@ -387,7 +387,7 @@
 			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0_OCMEM>; /* legacy OCMEM == VMEM */
 			qcom,bus-slave = <MSM_BUS_SLAVE_VMEM>;
 			qcom,bus-governor = "msm-vidc-bw-vmem";
-			qcom,bus-range-kbps = <1000 3388000>;
+			qcom,bus-range-kbps = <1000 6776000>;
 		};
 
 		arm9_bus_ddr {
