@@ -35,6 +35,7 @@
 		synaptics,reset-gpio = <&msm_gpio 64 0x0>;
 		synaptics,disable-gpios;
 		synaptics,detect-device;
+		synaptics,bypass-packrat-id-check;
 		synaptics,device1 {
 			synaptics,package-id = <3408>;
 			synaptics,display-coords = <0 0 1079 1919>;
@@ -93,7 +94,6 @@
 			gpios = <&msm_gpio 85 0x1>;
 			linux,input-type = <1>;
 			linux,code = <115>;
-			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
 
