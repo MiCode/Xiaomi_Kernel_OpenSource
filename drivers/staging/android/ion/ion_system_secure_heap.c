@@ -53,7 +53,7 @@ static void ion_system_secure_heap_free(struct ion_buffer *buffer)
 		return;
 	}
 	dest_vmid = VMID_HLOS;
-	dest_perms = PERM_READ | PERM_WRITE;
+	dest_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
 
 	ret = hyp_assign_table(buffer->priv_virt, &source_vm, 1,
 					&dest_vmid, &dest_perms, 1);
