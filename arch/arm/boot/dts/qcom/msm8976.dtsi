@@ -2553,7 +2553,7 @@
 
 		cdc-vdd-px-supply = <&pm8950_l5>;
 		qcom,cdc-vdd-px-voltage = <1800000 1800000>;
-		qcom,cdc-vdd-px-current = <45000>;
+		qcom,cdc-vdd-px-current = <10000>;
 
 		qcom,cdc-static-supplies =
 			"cdc-vdd-buck",
