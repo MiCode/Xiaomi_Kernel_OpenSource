@@ -759,7 +759,7 @@ static inline unsigned int VENUS_BUFFER_SIZE(
 		break;
 	case COLOR_FMT_RGBA8888:
 		rgb_plane = MSM_MEDIA_ALIGN(rgb_stride  * rgb_scanlines, 4096);
-		size = rgb_plane + extra_size;
+		size = rgb_plane;
 		size =  MSM_MEDIA_ALIGN(size, 4096);
 		break;
 	case COLOR_FMT_RGBA8888_UBWC:
@@ -770,7 +770,7 @@ static inline unsigned int VENUS_BUFFER_SIZE(
 					height);
 		rgb_meta_plane = MSM_MEDIA_ALIGN(rgb_meta_stride *
 					rgb_meta_scanlines, 4096);
-		size = rgb_ubwc_plane + rgb_meta_plane + extra_size;
+		size = rgb_ubwc_plane + rgb_meta_plane;
 		size = MSM_MEDIA_ALIGN(size, 4096);
 		break;
 	default:
