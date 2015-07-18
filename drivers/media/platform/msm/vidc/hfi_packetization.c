@@ -2186,7 +2186,10 @@ static int create_3x_pkt_cmd_session_set_property(
 	}
 	/* Deprecated param on Venus 3xx */
 	case HAL_PARAM_VDEC_CONTINUE_DATA_TRANSFER:
+	{
+		rc = -ENOTSUPP;
 		break;
+	}
 	default:
 		rc = create_pkt_cmd_session_set_property(pkt,
 				session, ptype, pdata);
