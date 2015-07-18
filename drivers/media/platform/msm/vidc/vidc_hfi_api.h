@@ -1440,7 +1440,6 @@ struct hfi_device {
 	int (*unvote_bus)(void *dev);
 	int (*load_fw)(void *dev);
 	void (*unload_fw)(void *dev);
-	int (*resurrect_fw)(void *dev);
 	int (*get_fw_info)(void *dev, enum fw_info info);
 	int (*session_clean)(void *sess);
 	int (*get_core_capabilities)(void *dev);
