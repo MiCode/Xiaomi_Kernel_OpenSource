@@ -367,12 +367,13 @@ static int qusb_phy_update_dpdm(struct usb_phy *phy, int value)
 		usleep_range(2000, 3000);
 
 		 /* Set DP to 0.6v, sleep 2-3ms */
-		reg = readl_relaxed(qphy->base + QUSB2PHY_PORT_QC2);
-		reg &= ~(RDP_UP_EN | RPUP_LOW_EN);
-		writel_relaxed(reg, qphy->base + QUSB2PHY_PORT_QC2);
 		reg = readl_relaxed(qphy->base + QUSB2PHY_PORT_QC1);
 		reg |= VDP_SRC_EN;
 		writel_relaxed(reg, qphy->base + QUSB2PHY_PORT_QC1);
+
+		reg = readl_relaxed(qphy->base + QUSB2PHY_PORT_QC2);
+		reg &= ~(RDP_UP_EN | RPUP_LOW_EN);
+		writel_relaxed(reg, qphy->base + QUSB2PHY_PORT_QC2);
 		/* complete above write */
 		mb();
 		/*
@@ -385,13 +386,14 @@ static int qusb_phy_update_dpdm(struct usb_phy *phy, int value)
 	case POWER_SUPPLY_DP_DM_DM_PULSE:
 		dev_dbg(phy->dev, "POWER_SUPPLY_DP_DM_DM_PULSE\n");
 		/* Set DM to 0.6v, sleep 2-3ms */
+		reg = readl_relaxed(qphy->base + QUSB2PHY_PORT_QC1);
+		reg |= VDM_SRC_EN;
+		writel_relaxed(reg, qphy->base + QUSB2PHY_PORT_QC1);
+
 		reg = readl_relaxed(qphy->base + QUSB2PHY_PORT_QC2);
 		reg &= ~(RDM_UP_EN | RPUM_LOW_EN);
 		writel_relaxed(reg, qphy->base + QUSB2PHY_PORT_QC2);
 
-		reg = readl_relaxed(qphy->base + QUSB2PHY_PORT_QC1);
-		reg |= VDM_SRC_EN;
-		writel_relaxed(reg, qphy->base + QUSB2PHY_PORT_QC1);
 		/* complete above write */
 		mb();
 
@@ -402,13 +404,14 @@ static int qusb_phy_update_dpdm(struct usb_phy *phy, int value)
 		usleep_range(2000, 3000);
 
 		/* DM to 3.075v, sleep 2-3ms */
+		reg = readl_relaxed(qphy->base + QUSB2PHY_PORT_QC2);
+		reg |= (RPUM_LOW_EN | RDM_UP_EN);
+		writel_relaxed(reg, qphy->base + QUSB2PHY_PORT_QC2);
+
 		reg = readl_relaxed(qphy->base + QUSB2PHY_PORT_QC1);
 		reg &= ~VDM_SRC_EN;
 		writel_relaxed(reg, qphy->base + QUSB2PHY_PORT_QC1);
 
-		reg = readl_relaxed(qphy->base + QUSB2PHY_PORT_QC2);
-		reg |= (RPUM_LOW_EN | RDM_UP_EN);
-		writel_relaxed(reg, qphy->base + QUSB2PHY_PORT_QC2);
 		/* complete above write */
 		mb();
 
