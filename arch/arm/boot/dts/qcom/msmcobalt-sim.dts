@@ -22,3 +22,11 @@
 	compatible = "qcom,msmcobalt-sim", "qcom,msmcobalt", "qcom,sim";
 	qcom,board-id = <16 0>;
 };
+
+&ufsphy1 {
+	status = "ok";
+};
+
+&ufs1 {
+	status = "ok";
+};
