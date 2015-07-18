@@ -22,6 +22,8 @@
 #include <linux/string.h>
 #include <linux/types.h>
 #include <linux/uaccess.h>
+#include <linux/of.h>
+
 #include <soc/qcom/scm.h>
 #include <soc/qcom/qseecomi.h>
 
@@ -180,6 +182,40 @@ struct tzdbg_t {
 	struct tzdbg_log_t ring_buffer;	/* TZ Ring Buffer */
 };
 
+struct hypdbg_log_pos_t {
+	uint16_t wrap;
+	uint16_t offset;
+};
+
+struct hypdbg_boot_info_t {
+	uint32_t warm_entry_cnt;
+	uint32_t warm_exit_cnt;
+};
+
+struct hypdbg_t {
+	/* Magic Number */
+	uint32_t magic_num;
+
+	/* Number of CPU's */
+	uint32_t cpu_count;
+
+	/* Ring Buffer Offset */
+	uint32_t ring_off;
+
+	/* Ring buffer position mgmt */
+	struct hypdbg_log_pos_t log_pos;
+	uint32_t log_len;
+
+	/* S2 fault numbers */
+	uint32_t s2_fault_counter;
+
+	/* Boot Info */
+	struct hypdbg_boot_info_t boot_info[TZBSP_MAX_CPU_COUNT];
+
+	/* Ring buffer pointer */
+	uint8_t log_buf_p[];
+};
+
 /*
  * Enumeration order for VMID's
  */
@@ -191,6 +227,8 @@ enum tzdbg_stats_type {
 	TZDBG_GENERAL,
 	TZDBG_LOG,
 	TZDBG_QSEE_LOG,
+	TZDBG_HYP_GENERAL,
+	TZDBG_HYP_LOG,
 	TZDBG_STATS_MAX
 };
 
@@ -201,14 +239,17 @@ struct tzdbg_stat {
 
 struct tzdbg {
 	void __iomem *virt_iobase;
+	void __iomem *hyp_virt_iobase;
 	struct tzdbg_t *diag_buf;
+	struct hypdbg_t *hyp_diag_buf;
 	char *disp_buf;
 	int debug_tz[TZDBG_STATS_MAX];
 	struct tzdbg_stat stat[TZDBG_STATS_MAX];
+	uint32_t hyp_debug_rw_buf_size;
+	bool is_hyplog_enabled;
 };
 
 static struct tzdbg tzdbg = {
-
 	.stat[TZDBG_BOOT].name = "boot",
 	.stat[TZDBG_RESET].name = "reset",
 	.stat[TZDBG_INTERRUPT].name = "interrupt",
@@ -216,6 +257,8 @@ static struct tzdbg tzdbg = {
 	.stat[TZDBG_GENERAL].name = "general",
 	.stat[TZDBG_LOG].name = "log",
 	.stat[TZDBG_QSEE_LOG].name = "qsee_log",
+	.stat[TZDBG_HYP_GENERAL].name = "hyp_general",
+	.stat[TZDBG_HYP_LOG].name = "hyp_log",
 };
 
 static struct tzdbg_log_t *g_qsee_log;
@@ -464,6 +507,78 @@ static int _disp_log_stats(struct tzdbg_log_t *log,
 	return len;
 }
 
+static int __disp_hyp_log_stats(uint8_t *log,
+			struct hypdbg_log_pos_t *log_start, uint32_t log_len,
+			size_t count, uint32_t buf_idx)
+{
+	struct hypdbg_t *hyp = tzdbg.hyp_diag_buf;
+	unsigned long t = 0;
+	uint32_t wrap_start;
+	uint32_t wrap_end;
+	uint32_t wrap_cnt;
+	int max_len;
+	int len = 0;
+	int i = 0;
+
+	wrap_start = log_start->wrap;
+	wrap_end = hyp->log_pos.wrap;
+
+	/* Calculate difference in # of buffer wrap-arounds */
+	if (wrap_end >= wrap_start) {
+		wrap_cnt = wrap_end - wrap_start;
+	} else {
+		/* wrap counter has wrapped around, invalidate start position */
+		wrap_cnt = 2;
+	}
+
+	if (wrap_cnt > 1) {
+		/* end position has wrapped around more than once, */
+		/* current start no longer valid                   */
+		log_start->wrap = hyp->log_pos.wrap - 1;
+		log_start->offset = (hyp->log_pos.offset + 1) % log_len;
+	} else if ((wrap_cnt == 1) &&
+		(hyp->log_pos.offset > log_start->offset)) {
+		/* end position has overwritten start */
+		log_start->offset = (hyp->log_pos.offset + 1) % log_len;
+	}
+
+	while (log_start->offset == hyp->log_pos.offset) {
+		/*
+		 * No data in ring buffer,
+		 * so we'll hang around until something happens
+		 */
+		t = msleep_interruptible(50);
+		if (t != 0) {
+			/* Some event woke us up, so let's quit */
+			return 0;
+		}
+
+		/* TZDBG_HYP_LOG */
+		memcpy_fromio((void *)tzdbg.hyp_diag_buf, tzdbg.hyp_virt_iobase,
+						tzdbg.hyp_debug_rw_buf_size);
+	}
+
+	max_len = (count > tzdbg.hyp_debug_rw_buf_size) ?
+				tzdbg.hyp_debug_rw_buf_size : count;
+
+	/*
+	 *  Read from ring buff while there is data and space in return buff
+	 */
+	while ((log_start->offset != hyp->log_pos.offset) && (len < max_len)) {
+		tzdbg.disp_buf[i++] = log[log_start->offset];
+		log_start->offset = (log_start->offset + 1) % log_len;
+		if (0 == log_start->offset)
+			++log_start->wrap;
+		++len;
+	}
+
+	/*
+	 * return buffer to caller
+	 */
+	tzdbg.stat[buf_idx].data = tzdbg.disp_buf;
+	return len;
+}
+
 static int _disp_tz_log_stats(size_t count)
 {
 	static struct tzdbg_log_pos_t log_start = {0};
@@ -476,6 +591,18 @@ static int _disp_tz_log_stats(size_t count)
 				tzdbg.diag_buf->ring_len, count, TZDBG_LOG);
 }
 
+static int _disp_hyp_log_stats(size_t count)
+{
+	static struct hypdbg_log_pos_t log_start = {0};
+	uint8_t *log_ptr;
+
+	log_ptr = (uint8_t *)((unsigned char *)tzdbg.hyp_diag_buf +
+				tzdbg.hyp_diag_buf->ring_off);
+
+	return __disp_hyp_log_stats(log_ptr, &log_start,
+			tzdbg.hyp_debug_rw_buf_size, count, TZDBG_HYP_LOG);
+}
+
 static int _disp_qsee_log_stats(size_t count)
 {
 	static struct tzdbg_log_pos_t log_start = {0};
@@ -483,6 +610,42 @@ static int _disp_qsee_log_stats(size_t count)
 	return _disp_log_stats(g_qsee_log, &log_start,
 			QSEE_LOG_BUF_SIZE - sizeof(struct tzdbg_log_pos_t),
 			count, TZDBG_QSEE_LOG);
+}
+
+static int _disp_hyp_general_stats(size_t count)
+{
+	int len = 0;
+	int i;
+	struct hypdbg_boot_info_t *ptr = NULL;
+
+	len += snprintf((unsigned char *)tzdbg.disp_buf + len,
+			tzdbg.hyp_debug_rw_buf_size - 1,
+			"   Magic Number    : 0x%x\n"
+			"   CPU Count       : 0x%x\n"
+			"   S2 Fault Counter: 0x%x\n",
+			tzdbg.hyp_diag_buf->magic_num,
+			tzdbg.hyp_diag_buf->cpu_count,
+			tzdbg.hyp_diag_buf->s2_fault_counter);
+
+	ptr = tzdbg.hyp_diag_buf->boot_info;
+	for (i = 0; i < tzdbg.hyp_diag_buf->cpu_count; i++) {
+		len += snprintf((unsigned char *)tzdbg.disp_buf + len,
+				(tzdbg.hyp_debug_rw_buf_size - 1) - len,
+				"  CPU #: %d\n"
+				"     Warmboot entry CPU counter: 0x%x\n"
+				"     Warmboot exit CPU counter : 0x%x\n",
+				i, ptr->warm_entry_cnt, ptr->warm_exit_cnt);
+
+		if (len > (tzdbg.hyp_debug_rw_buf_size - 1)) {
+			pr_warn("%s: Cannot fit all info into the buffer\n",
+								__func__);
+			break;
+		}
+		ptr++;
+	}
+
+	tzdbg.stat[TZDBG_HYP_GENERAL].data = (char *)tzdbg.disp_buf;
+	return len;
 }
 
 static ssize_t tzdbgfs_read(struct file *file, char __user *buf,
@@ -493,6 +656,8 @@ static ssize_t tzdbgfs_read(struct file *file, char __user *buf,
 
 	memcpy_fromio((void *)tzdbg.diag_buf, tzdbg.virt_iobase,
 						debug_rw_buf_size);
+	memcpy_fromio((void *)tzdbg.hyp_diag_buf, tzdbg.hyp_virt_iobase,
+					tzdbg.hyp_debug_rw_buf_size);
 	switch (*tz_id) {
 	case TZDBG_BOOT:
 		len = _disp_tz_boot_stats();
@@ -520,6 +685,13 @@ static ssize_t tzdbgfs_read(struct file *file, char __user *buf,
 		break;
 	case TZDBG_QSEE_LOG:
 		len = _disp_qsee_log_stats(count);
+		*offp = 0;
+		break;
+	case TZDBG_HYP_GENERAL:
+		len = _disp_hyp_general_stats(count);
+		break;
+	case TZDBG_HYP_LOG:
+		len = _disp_hyp_log_stats(count);
 		*offp = 0;
 		break;
 	default:
@@ -658,7 +830,8 @@ static int  tzdbgfs_init(struct platform_device *pdev)
 			goto err;
 		}
 	}
-	tzdbg.disp_buf = kzalloc(debug_rw_buf_size, GFP_KERNEL);
+	tzdbg.disp_buf = kzalloc(max(debug_rw_buf_size,
+			tzdbg.hyp_debug_rw_buf_size), GFP_KERNEL);
 	if (tzdbg.disp_buf == NULL) {
 		pr_err("%s: Can't Allocate memory for tzdbg.disp_buf\n",
 			__func__);
@@ -685,8 +858,51 @@ static void tzdbgfs_exit(struct platform_device *pdev)
 			ion_unmap_kernel(g_ion_clnt, g_ihandle);
 			ion_free(g_ion_clnt, g_ihandle);
 		}
-	ion_client_destroy(g_ion_clnt);
+		ion_client_destroy(g_ion_clnt);
+	}
 }
+
+static int __update_hypdbg_base(struct platform_device *pdev,
+			void __iomem *virt_iobase)
+{
+	phys_addr_t hypdiag_phy_iobase;
+	uint32_t hyp_address_offset;
+	uint32_t hyp_size_offset;
+	struct hypdbg_t *hyp;
+	uint32_t *ptr = NULL;
+
+	if (of_property_read_u32((&pdev->dev)->of_node, "hyplog-address-offset",
+							&hyp_address_offset)) {
+		dev_err(&pdev->dev, "hyplog address offset is not defined\n");
+		return -EINVAL;
+	}
+	if (of_property_read_u32((&pdev->dev)->of_node, "hyplog-size-offset",
+							&hyp_size_offset)) {
+		dev_err(&pdev->dev, "hyplog size offset is not defined\n");
+		return -EINVAL;
+	}
+
+	hypdiag_phy_iobase = readl_relaxed(virt_iobase + hyp_address_offset);
+	tzdbg.hyp_debug_rw_buf_size = readl_relaxed(virt_iobase +
+					hyp_size_offset);
+
+	tzdbg.hyp_virt_iobase = devm_ioremap_nocache(&pdev->dev,
+					hypdiag_phy_iobase,
+					tzdbg.hyp_debug_rw_buf_size);
+	if (!tzdbg.hyp_virt_iobase) {
+		dev_err(&pdev->dev, "ERROR could not ioremap: start=%pr, len=%u\n",
+			&hypdiag_phy_iobase, tzdbg.hyp_debug_rw_buf_size);
+		return -ENXIO;
+	}
+
+	ptr = kzalloc(tzdbg.hyp_debug_rw_buf_size, GFP_KERNEL);
+	if (!ptr)
+		return -ENOMEM;
+
+	tzdbg.hyp_diag_buf = (struct hypdbg_t *)ptr;
+	hyp = tzdbg.hyp_diag_buf;
+	hyp->log_pos.wrap = hyp->log_pos.offset = 0;
+	return 0;
 }
 
 /*
@@ -698,6 +914,7 @@ static int tz_log_probe(struct platform_device *pdev)
 	void __iomem *virt_iobase;
 	phys_addr_t tzdiag_phy_iobase;
 	uint32_t *ptr = NULL;
+	int ret = 0;
 
 	/*
 	 * Get address that stores the physical location diagnostic data
@@ -726,6 +943,24 @@ static int tz_log_probe(struct platform_device *pdev)
 			(unsigned int)(debug_rw_buf_size));
 		return -ENXIO;
 	}
+
+	if (pdev->dev.of_node) {
+		tzdbg.is_hyplog_enabled = of_property_read_bool(
+			(&pdev->dev)->of_node, "qcom,hyplog-enabled");
+		if (tzdbg.is_hyplog_enabled) {
+			ret = __update_hypdbg_base(pdev, virt_iobase);
+			if (ret) {
+				dev_err(&pdev->dev, "%s() failed to get device tree data ret = %d\n",
+						__func__, ret);
+				return -EINVAL;
+			}
+		} else {
+			dev_info(&pdev->dev, "Hyp log service is not supported\n");
+		}
+	} else {
+		dev_dbg(&pdev->dev, "Device tree data is not found\n");
+	}
+
 	/*
 	 * Retrieve the address of diagnostic data
 	 */
@@ -768,6 +1003,8 @@ err:
 static int tz_log_remove(struct platform_device *pdev)
 {
 	kzfree(tzdbg.diag_buf);
+	if (tzdbg.hyp_diag_buf)
+		kzfree(tzdbg.hyp_diag_buf);
 	tzdbgfs_exit(pdev);
 
 	return 0;
@@ -804,5 +1041,4 @@ module_exit(tz_log_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("TZ Log driver");
-MODULE_VERSION("1.1");
 MODULE_ALIAS("platform:tz_log");
