@@ -1,0 +1,62 @@
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,liquid8996_sanyo {
+	/* #Liquid8996_860_79873_ES00_7560mAh_averaged_MasterSlave_June4th2015*/
+	qcom,max-voltage-uv = <4350000>;
+	qcom,v-cutoff-uv = <3400000>;
+	qcom,chg-term-ua = <100000>;
+	qcom,nom-batt-capacity-mah = <7560>;
+	qcom,batt-id-kohm = <50>;
+	qcom,battery-beta = <3380>;
+	qcom,battery-type = "liquid8996_860_79873_es00_7560mah";
+	qcom,chg-rslow-comp-c1 = <5647648>;
+	qcom,chg-rslow-comp-c2 = <14300640>;
+	qcom,chg-rs-to-rslow = <785202>;
+	qcom,chg-rslow-comp-thr = <0xCD>;
+	qcom,checksum = <0xE5C0>;
+	qcom,gui-version = "PMI8994GUI - 2.1.6.5";
+	qcom,fg-profile-data = [
+		 EA 83 27 7D
+		 03 81 EE 76
+		 3E 83 93 59
+		 06 82 AD 8D
+		 F1 81 36 93
+		 6F AD 00 AB
+		 5C 14 2F 83
+		 EE 6B 8C 5D
+		 5B 69 14 83
+		 8B 7B CC 8C
+		 94 88 0F 82
+		 C4 99 8F BC
+		 00 C9 77 14
+		 8C 1D E8 58
+		 CE 6E E1 FA
+		 F5 2A 8B 4D
+		 CA 49 00 00
+		 21 46 A3 33
+		 55 3E 00 00
+		 00 00 00 00
+		 00 00 00 00
+		 5A 6A D2 69
+		 7B 66 29 89
+		 60 7D B9 71
+		 55 74 33 83
+		 EC 7C A8 70
+		 4B 68 22 B8
+		 29 C8 60 B8
+		 5D A0 71 0C
+		 28 00 FF 36
+		 F0 11 30 03
+		 00 00 00 0C
+	];
+};
