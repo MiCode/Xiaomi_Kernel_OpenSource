@@ -16,6 +16,9 @@
 
 #include <linux/device.h>
 
+#define IRIS_REGULATORS		4
+#define PRONTO_REGULATORS	3
+
 enum wcnss_opcode {
 	WCNSS_WLAN_SWITCH_OFF = 0,
 	WCNSS_WLAN_SWITCH_ON,
@@ -26,13 +29,22 @@ enum wcnss_hw_type {
 	WCNSS_PRONTO_HW,
 };
 
+struct vregs_level {
+	int nominal_min;
+	int low_power_min;
+	int max_voltage;
+	int uA_load;
+};
+
 struct wcnss_wlan_config {
 	int	use_48mhz_xo;
-	int	is_pronto_vt;
+	int	is_pronto_vadc;
 	int	is_pronto_v3;
 	void __iomem	*msm_wcnss_base;
 	int	iris_id;
 	int	vbatt;
+	struct vregs_level pronto_vlevel[PRONTO_REGULATORS];
+	struct vregs_level iris_vlevel[IRIS_REGULATORS];
 };
 
 enum {
