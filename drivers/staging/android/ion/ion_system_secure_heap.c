@@ -33,22 +33,6 @@ static bool is_cp_flag_present(unsigned long flags)
 			ION_FLAG_CP_CAMERA);
 }
 
-static int get_secure_vmid(unsigned long flags)
-{
-	if (flags & ION_FLAG_CP_TOUCH)
-		return VMID_CP_TOUCH;
-	if (flags & ION_FLAG_CP_BITSTREAM)
-		return VMID_CP_BITSTREAM;
-	if (flags & ION_FLAG_CP_PIXEL)
-		return VMID_CP_PIXEL;
-	if (flags & ION_FLAG_CP_NON_PIXEL)
-		return VMID_CP_NON_PIXEL;
-	if (flags & ION_FLAG_CP_CAMERA)
-		return VMID_CP_CAMERA;
-
-	return -EINVAL;
-}
-
 static void ion_system_secure_heap_free(struct ion_buffer *buffer)
 {
 	int ret = 0;
