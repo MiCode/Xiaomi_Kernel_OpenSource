@@ -45,6 +45,8 @@
 static int sockets_enabled;
 static struct proto msm_ipc_proto;
 static const struct proto_ops msm_ipc_proto_ops;
+static RAW_NOTIFIER_HEAD(ipcrtr_af_init_chain);
+static DEFINE_MUTEX(ipcrtr_af_init_lock);
 
 static struct sk_buff_head *msm_ipc_router_build_msg(unsigned int num_sect,
 					  struct iovec const *msg_sect,
@@ -561,6 +563,48 @@ static int msm_ipc_router_close(struct socket *sock)
 	return ret;
 }
 
+/**
+ * register_ipcrtr_af_init_notifier() - Register for ipc router socket
+ *				address family initialization callback
+ * @nb: Notifier block which will be notified when address family is
+ *	initialized.
+ *
+ * Return: 0 on success, standard error code otherwise.
+ */
+int register_ipcrtr_af_init_notifier(struct notifier_block *nb)
+{
+	int ret;
+
+	if (!nb)
+		return -EINVAL;
+	mutex_lock(&ipcrtr_af_init_lock);
+	if (sockets_enabled)
+		nb->notifier_call(nb, IPCRTR_AF_INIT, NULL);
+	ret = raw_notifier_chain_register(&ipcrtr_af_init_chain, nb);
+	mutex_unlock(&ipcrtr_af_init_lock);
+	return ret;
+}
+EXPORT_SYMBOL(register_ipcrtr_af_init_notifier);
+
+/**
+ * unregister_ipcrtr_af_init_notifier() - Unregister for ipc router socket
+ *				address family initialization callback
+ * @nb: Notifier block which will be notified once address family is
+ *	initialized.
+ *
+ * Return: 0 on success, standard error code otherwise.
+ */
+int unregister_ipcrtr_af_init_notifier(struct notifier_block *nb)
+{
+	int ret;
+
+	if (!nb)
+		return -EINVAL;
+	ret = raw_notifier_chain_unregister(&ipcrtr_af_init_chain, nb);
+	return ret;
+}
+EXPORT_SYMBOL(unregister_ipcrtr_af_init_notifier);
+
 static const struct net_proto_family msm_ipc_family_ops = {
 	.owner		= THIS_MODULE,
 	.family		= AF_MSM_IPC,
@@ -620,7 +664,11 @@ int msm_ipc_router_init_sockets(void)
 		goto out_init_sockets;
 	}
 
+	mutex_lock(&ipcrtr_af_init_lock);
 	sockets_enabled = 1;
+	raw_notifier_call_chain(&ipcrtr_af_init_chain,
+				IPCRTR_AF_INIT, NULL);
+	mutex_unlock(&ipcrtr_af_init_lock);
 out_init_sockets:
 	return ret;
 }
@@ -630,7 +678,11 @@ void msm_ipc_router_exit_sockets(void)
 	if (!sockets_enabled)
 		return;
 
-	sockets_enabled = 0;
 	sock_unregister(msm_ipc_family_ops.family);
 	proto_unregister(&msm_ipc_proto);
+	mutex_lock(&ipcrtr_af_init_lock);
+	sockets_enabled = 0;
+	raw_notifier_call_chain(&ipcrtr_af_init_chain,
+				IPCRTR_AF_DEINIT, NULL);
+	mutex_unlock(&ipcrtr_af_init_lock);
 }
