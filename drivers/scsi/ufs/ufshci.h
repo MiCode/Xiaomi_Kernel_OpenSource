@@ -74,6 +74,11 @@ enum {
 	REG_UIC_COMMAND_ARG_3			= 0x9C,
 
 	UFSHCI_REG_SPACE_SIZE			= 0xA0,
+
+	REG_UFS_CCAP				= 0x100,
+	REG_UFS_CRYPTOCAP			= 0x104,
+
+	UFSHCI_CRYPTO_REG_SPACE_SIZE		= 0x400,
 };
 
 /* Controller capability masks */
@@ -94,6 +99,7 @@ enum {
 	UFSHCI_VERSION_10 = 0x00010000, /* 1.0 */
 	UFSHCI_VERSION_11 = 0x00010100, /* 1.1 */
 	UFSHCI_VERSION_20 = 0x00000200, /* 2.0 */
+	UFSHCI_VERSION_21 = 0x00000210, /* 2.1 */
 };
 
 /*
@@ -266,6 +272,9 @@ enum {
 
 	/* Interrupt disable mask for UFSHCI v1.1 */
 	INTERRUPT_MASK_ALL_VER_11	= 0x31FFF,
+
+	/* Interrupt disable mask for UFSHCI v2.1 */
+	INTERRUPT_MASK_ALL_VER_21	= 0x71FFF,
 };
 
 /*
