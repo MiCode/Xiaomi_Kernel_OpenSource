@@ -769,15 +769,6 @@ int hdcp_library_deinit(void *phdcpcontext)
 		goto unlock;
 	}
 
-	/* this API cannot be called before deinitializing the txmtr */
-	if ((hdcp_mod.hdcp_state != HDCP_STATE_TXMTR_DEINIT) &&
-			(hdcp_mod.hdcp_state != HDCP_STATE_INIT)) {
-		pr_err("%s: invalid state; cur state is %s\n",
-			__func__, HDCP_STATE_NAME);
-		rc = -EINVAL;
-		goto unlock;
-	}
-
 	handle = (struct hdcp_client_handle *)phdcpcontext;
 	/* deallocate resources */
 	complete(&handle->done);
@@ -815,10 +806,9 @@ int hdcp_library_deinit(void *phdcpcontext)
 		}
 
 		pr_debug("%s: unloading secure app success\n", __func__);
-
+		hdcp_mod.hdcp_state = HDCP_STATE_DEINIT;
 	}
 	hdcp_mod.ref_cnt--;
-	hdcp_mod.hdcp_state = HDCP_STATE_DEINIT;
 
 	kzfree(handle);
 	handle = NULL;
@@ -857,7 +847,7 @@ static int hdcp2p2_txmtr_init(void *phdcpcontext)
 	}
 
 	/* library should be initialized before calling this API */
-	if (hdcp_mod.hdcp_state != HDCP_STATE_INIT) {
+	if (hdcp_mod.hdcp_state == HDCP_STATE_DEINIT) {
 		pr_err("%s: invalid state of hdcp library: %s\n",
 				__func__, HDCP_STATE_NAME);
 		rc = -EINVAL;
@@ -979,8 +969,8 @@ static int hdcp2p2_txmtr_process_message(void *phdcpcontext,
 		return -EINVAL;
 	}
 	mutex_lock(&hdcp_mod.hdcp_lock);
-	/* If txmtr is not yet initialized then return error */
-	if (hdcp_mod.hdcp_state != HDCP_STATE_TXMTR_INIT) {
+	/* If library is not yet initialized then return error */
+	if (hdcp_mod.hdcp_state == HDCP_STATE_DEINIT) {
 		pr_err("%s: invalid state of hdcp library: %s\n",
 				__func__, HDCP_STATE_NAME);
 		rc = -EINVAL;
