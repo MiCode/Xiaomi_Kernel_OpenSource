@@ -1805,7 +1805,7 @@ static void single_mod_exit_timer(unsigned long data)
 static int init_cluster_control(void)
 {
 	unsigned int i;
-	int ret;
+	int ret = 0;
 	struct kobject *module_kobj;
 
 	managed_clusters = kzalloc(num_clusters * sizeof(struct cluster *),
@@ -1820,19 +1820,22 @@ static int init_cluster_control(void)
 								GFP_KERNEL);
 		if (!managed_clusters[i]) {
 			pr_err("msm_perf:Cluster %u mem alloc failed\n", i);
-			return -ENOMEM;
+			ret = -ENOMEM;
+			goto error;
 		}
 		if (!alloc_cpumask_var(&managed_clusters[i]->cpus,
 		     GFP_KERNEL)) {
 			pr_err("msm_perf:Cluster %u cpu alloc failed\n",
 			       i);
-			return -ENOMEM;
+			ret = -ENOMEM;
+			goto error;
 		}
 		if (!alloc_cpumask_var(&managed_clusters[i]->offlined_cpus,
 		     GFP_KERNEL)) {
 			pr_err("msm_perf:Cluster %u off_cpus alloc failed\n",
 			       i);
-			return -ENOMEM;
+			ret = -ENOMEM;
+			goto error;
 		}
 		managed_clusters[i]->max_cpu_request = -1;
 		managed_clusters[i]->single_enter_load = DEF_SINGLE_ENT;
@@ -1861,23 +1864,41 @@ static int init_cluster_control(void)
 	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
 	if (!module_kobj) {
 		pr_err("msm_perf: Couldn't find module kobject\n");
-		return -ENOENT;
+		ret = -ENOENT;
+		goto error;
 	}
 	mode_kobj = kobject_create_and_add("workload_modes", module_kobj);
 	if (!mode_kobj) {
 		pr_err("msm_perf: Failed to add mode_kobj\n");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		kobject_put(module_kobj);
+		goto error;
 	}
 	ret = sysfs_create_group(mode_kobj, &attr_group);
 	if (ret) {
 		pr_err("msm_perf: Failed to create sysfs\n");
-		return ret;
+		kobject_put(module_kobj);
+		kobject_put(mode_kobj);
+		goto error;
 	}
 
 	notify_thread = kthread_run(notify_userspace, NULL, "wrkld_notify");
 	clusters_inited = true;
 
 	return 0;
+
+error:
+	for (i = 0; i < num_clusters; i++) {
+		if (!managed_clusters[i])
+			break;
+		if (managed_clusters[i]->offlined_cpus)
+			free_cpumask_var(managed_clusters[i]->offlined_cpus);
+		if (managed_clusters[i]->cpus)
+			free_cpumask_var(managed_clusters[i]->cpus);
+		kfree(managed_clusters[i]);
+	}
+	kfree(managed_clusters);
+	return ret;
 }
 
 static int init_events_group(void)
