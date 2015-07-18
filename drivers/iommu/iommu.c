@@ -31,6 +31,7 @@
 #include <linux/err.h>
 #include <linux/pci.h>
 #include <linux/bitops.h>
+#include <linux/debugfs.h>
 #include <trace/events/iommu.h>
 
 #include "iommu-debug.h"
@@ -917,6 +918,21 @@ void iommu_set_fault_handler(struct iommu_domain *domain,
 }
 EXPORT_SYMBOL_GPL(iommu_set_fault_handler);
 
+/**
+ * iommu_trigger_fault() - trigger an IOMMU fault
+ * @domain: iommu domain
+ *
+ * Triggers a fault on the device to which this domain is attached.
+ *
+ * This function should only be used for debugging purposes, for obvious
+ * reasons.
+ */
+void iommu_trigger_fault(struct iommu_domain *domain)
+{
+	if (domain->ops->trigger_fault)
+		domain->ops->trigger_fault(domain);
+}
+
 struct iommu_domain *iommu_domain_alloc(struct bus_type *bus)
 {
 	struct iommu_domain *domain;
@@ -1026,6 +1042,15 @@ phys_addr_t iommu_iova_to_phys(struct iommu_domain *domain, dma_addr_t iova)
 	return domain->ops->iova_to_phys(domain, iova);
 }
 EXPORT_SYMBOL_GPL(iommu_iova_to_phys);
+
+phys_addr_t iommu_iova_to_phys_hard(struct iommu_domain *domain,
+				    dma_addr_t iova)
+{
+	if (unlikely(domain->ops->iova_to_phys_hard == NULL))
+		return 0;
+
+	return domain->ops->iova_to_phys_hard(domain, iova);
+}
 
 size_t iommu_pgsize(unsigned long pgsize_bitmap,
 		    unsigned long addr_merge, size_t size)
@@ -1245,6 +1270,8 @@ void iommu_domain_window_disable(struct iommu_domain *domain, u32 wnd_nr)
 }
 EXPORT_SYMBOL_GPL(iommu_domain_window_disable);
 
+struct dentry *iommu_debugfs_top;
+
 static int __init iommu_init(void)
 {
 	iommu_group_kset = kset_create_and_add("iommu_groups",
@@ -1253,6 +1280,12 @@ static int __init iommu_init(void)
 	mutex_init(&iommu_group_mutex);
 
 	BUG_ON(!iommu_group_kset);
+
+	iommu_debugfs_top = debugfs_create_dir("iommu", NULL);
+	if (!iommu_debugfs_top) {
+		pr_err("Couldn't create iommu debugfs directory\n");
+		return -ENODEV;
+	}
 
 	return 0;
 }
