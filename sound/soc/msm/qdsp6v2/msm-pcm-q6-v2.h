@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2012-2014 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015 The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -52,6 +52,11 @@ struct audio_locks {
 	wait_queue_head_t flush_wait;
 };
 
+struct msm_audio_in_frame_info {
+	uint32_t size;
+	uint32_t offset;
+};
+
 struct msm_audio {
 	struct snd_pcm_substream *substream;
 	unsigned int pcm_size;
@@ -95,6 +100,7 @@ struct msm_audio {
 	int cmd_interrupt;
 	bool meta_data_mode;
 	uint32_t volume;
+	struct msm_audio_in_frame_info *in_frame_info; /* array of frame info */
 };
 
 struct output_meta_data_st {

@@ -117,8 +117,6 @@ static unsigned int supported_sample_rates[] = {
 	88200, 96000, 176400, 192000
 };
 
-static uint32_t in_frame_info[CAPTURE_MAX_NUM_PERIODS][2];
-
 static struct snd_pcm_hw_constraint_list constraints_sample_rates = {
 	.count = ARRAY_SIZE(supported_sample_rates),
 	.list = supported_sample_rates,
@@ -184,11 +182,11 @@ static void event_handler(uint32_t opcode,
 	case ASM_DATA_EVENT_READ_DONE_V2: {
 		pr_debug("ASM_DATA_EVENT_READ_DONE_V2\n");
 		pr_debug("token = 0x%08x\n", token);
-		in_frame_info[token][0] = payload[4];
-		in_frame_info[token][1] = payload[5];
+		prtd->in_frame_info[token].size = payload[4];
+		prtd->in_frame_info[token].offset = payload[5];
 		/* assume data size = 0 during flushing */
-		if (in_frame_info[token][0]) {
-			prtd->pcm_irq_pos += in_frame_info[token][0];
+		if (prtd->in_frame_info[token].size) {
+			prtd->pcm_irq_pos += prtd->in_frame_info[token].size;
 			pr_debug("pcm_irq_pos=%d\n", prtd->pcm_irq_pos);
 			if (atomic_read(&prtd->start))
 				snd_pcm_period_elapsed(substream);
@@ -379,6 +377,12 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 
 	pr_debug("%s\n", __func__);
 	if (prtd->enabled == IDLE) {
+		prtd->in_frame_info = kcalloc(runtime->periods,
+					sizeof(struct msm_audio_in_frame_info),
+					GFP_KERNEL);
+		if (!prtd->in_frame_info)
+			return -ENOMEM;
+
 		params = &soc_prtd->dpcm[substream->stream].hw_params;
 		if (params_format(params) == SNDRV_PCM_FORMAT_S24_LE)
 			bits_per_sample = 24;
@@ -399,6 +403,7 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 			pr_err("%s: q6asm_open_read failed\n", __func__);
 			q6asm_audio_client_free(prtd->audio_client);
 			prtd->audio_client = NULL;
+			kfree(prtd->in_frame_info);
 			return -ENOMEM;
 		}
 
@@ -756,7 +761,7 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 		xfer = fbytes;
 		if (xfer > size)
 			xfer = size;
-		offset = in_frame_info[idx][1];
+		offset = prtd->in_frame_info[idx].offset;
 		pr_debug("Offset value = %d\n", offset);
 		if (copy_to_user(buf, bufptr+offset, xfer)) {
 			pr_err("Failed to copy buf to user\n");
@@ -765,12 +770,12 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 		}
 		fbytes -= xfer;
 		size -= xfer;
-		in_frame_info[idx][1] += xfer;
+		prtd->in_frame_info[idx].offset += xfer;
 		pr_debug("%s:fbytes = %d: size=%d: xfer=%d\n",
 					__func__, fbytes, size, xfer);
 		pr_debug(" Sending next buffer to dsp\n");
-		memset(&in_frame_info[idx], 0,
-			sizeof(uint32_t) * 2);
+		memset(&prtd->in_frame_info[idx], 0,
+		       sizeof(struct msm_audio_in_frame_info));
 		atomic_dec(&prtd->in_count);
 		ret = q6asm_read(prtd->audio_client);
 		if (ret < 0) {
@@ -795,6 +800,7 @@ static int msm_pcm_capture_close(struct snd_pcm_substream *substream)
 
 	pr_debug("%s\n", __func__);
 	if (prtd->audio_client) {
+		kfree(prtd->in_frame_info);
 		q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 		q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);
