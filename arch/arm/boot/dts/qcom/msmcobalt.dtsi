@@ -94,6 +94,30 @@
 	};
 
 	soc: soc { };
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		removed_regions: removed_regions@85800000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x85800000 0 0x4f00000>;
+		};
+
+		peripheral_mem: peripheral_region@91400000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x91400000 0 0x2d00000>;
+		};
+
+		modem_mem: modem_region@8a700000 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0 0x8a700000 0 0x6d00000>;
+		};
+	};
 };
 
 &soc {
