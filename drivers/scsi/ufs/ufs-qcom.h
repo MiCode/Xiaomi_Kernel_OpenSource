@@ -68,6 +68,16 @@ enum {
 	UFS_TEST_BUS_CTRL_2			= 0xF4,
 	UFS_UNIPRO_CFG				= 0xF8,
 
+	/*
+	 * QCOM UFS host controller vendor specific registers
+	 * added in HW Version 3.0.0
+	 */
+	UFS_AH8_CFG				= 0xFC,
+};
+
+
+/* QCOM UFS host controller vendor specific debug registers */
+enum {
 	UFS_DBG_RD_REG_UAWM			= 0x100,
 	UFS_DBG_RD_REG_UARM			= 0x200,
 	UFS_DBG_RD_REG_TXUC			= 0x300,
@@ -82,6 +92,9 @@ enum {
 	UFS_UFS_DBG_RD_RESP_RAM			= 0x1800,
 	UFS_UFS_DBG_RD_EDTL_RAM			= 0x1900,
 };
+
+#define UFS_CNTLR_2_x_x_VEN_REGS_OFFSET(x)	(0x000 + x)
+#define UFS_CNTLR_3_x_x_VEN_REGS_OFFSET(x)	(0x400 + x)
 
 /* bit definitions for REG_UFS_CFG1 register */
 #define QUNIPRO_SEL	UFS_BIT(0)
@@ -329,6 +342,15 @@ struct ufs_qcom_host {
 	/* Bitmask for enabling debug prints */
 	u32 dbg_print_en;
 	struct ufs_qcom_testbus testbus;
+};
+
+static inline u32
+ufs_qcom_get_debug_reg_offset(struct ufs_qcom_host *host, u32 reg)
+{
+	if (host->hw_ver.major <= 0x02)
+		return UFS_CNTLR_2_x_x_VEN_REGS_OFFSET(reg);
+
+	return UFS_CNTLR_3_x_x_VEN_REGS_OFFSET(reg);
 };
 
 #define ufs_qcom_is_link_off(hba) ufshcd_is_link_off(hba)
