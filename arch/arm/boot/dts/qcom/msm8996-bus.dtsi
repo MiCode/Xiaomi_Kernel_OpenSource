@@ -90,6 +90,14 @@
 			coresight-outports = <0>;
 			coresight-child-list = <&funnel_in1>;
 			coresight-child-ports = <5>;
+			qcom,node-qos-clks {
+				clock-names = "clk-aggre2-noc-clk-no-rate",
+				"clk-gcc-ufs-axi-clk",
+				"clk-aggre2-ufs-axi-clk-no-rate";
+				clocks = <&clock_gcc clk_aggre2_noc_clk>,
+				<&clock_gcc clk_gcc_ufs_axi_clk>,
+				<&clock_gcc clk_gcc_aggre2_ufs_axi_clk>;
+			};
 		};
 
 		fab_bimc: fab-bimc {
@@ -97,9 +105,10 @@
 			label = "fab-bimc";
 			qcom,fab-dev;
 			qcom,base-name = "bimc-base";
+			qcom,base-offset = <0x8000>;
+			qcom,qos-off = <0x4000>;
 			qcom,util-fact = <154>;
 			qcom,bus-type = <2>;
-			qcom,bypass-qos-prg;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc  clk_bimc_msmbus_clk>,
 			     <&clock_gcc  clk_bimc_msmbus_a_clk>;
@@ -335,6 +344,7 @@
 			cell-id = <MSM_BUS_MASTER_UFS>;
 			label = "mas-ufs";
 			qcom,buswidth = <8>;
+			qcom,qport = <2>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
 			qcom,qos-mode = "fixed";
@@ -394,7 +404,6 @@
 			label = "mas-snoc-bimc";
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <2>;
-			qcom,qport = <3>;
 			qcom,qos-mode = "bypass";
 			qcom,connections = < &slv_hmss_l3&slv_ebi>;
 			qcom,bus-dev = <&fab_bimc>;
