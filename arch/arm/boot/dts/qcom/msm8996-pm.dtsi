@@ -241,6 +241,13 @@
 			<0xff 60>,  /* mss_to_apps_irq(3) */
 			<0xff 61>,  /* mss_a2_bam_irq */
 			<0xff 62>,  /* QTMR_qgicFrm0VirtIrq */
+			<0xff 63>,  /* QTMR_qgicFrm1PhysIrq */
+			<0xff 64>,  /* QTMR_qgicFrm2PhysIrq */
+			<0xff 65>,  /* QTMR_qgicFrm3PhysIrq */
+			<0xff 66>,  /* QTMR_qgicFrm4PhysIrq */
+			<0xff 67>,  /* QTMR_qgicFrm5PhysIrq */
+			<0xff 68>,  /* QTMR_qgicFrm6PhysIrq */
+			<0xff 69>,  /* QTMR_qgicFrm7PhysIrq */
 			<0xff 70>,  /* iommu_pmon_nonsecure_irq */
 			<0xff 74>,  /* osmmu_CIrpt[1] */
 			<0xff 75>,  /* osmmu_CIrpt[0] */
