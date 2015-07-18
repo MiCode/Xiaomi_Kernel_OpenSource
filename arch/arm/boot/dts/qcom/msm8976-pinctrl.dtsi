@@ -1320,5 +1320,31 @@
 				bias-pull-up; /* PULL UP */
 			};
 		};
+
+		pmx_adv7533_int: pmx_adv7533_int {
+			label = "pmx_adv7533_int";
+			adv7533_int_active: adv7533_int_active {
+				drive-strength = <16>;
+				bias-disable;
+			};
+
+			adv7533_int_suspend: adv7533_int_suspend {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		pmx_adv7533_hpd_int: pmx_adv7533_hpd_int {
+			label = "pmx_adv7533_hpd_int";
+			adv7533_hpd_int_active: adv7533_hpd_int_active {
+				drive-strength = <16>;
+				bias-disable;
+			};
+
+			adv7533_hpd_int_suspend: adv7533_hpd_int_suspend {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
 	};
 };
