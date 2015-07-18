@@ -183,6 +183,7 @@
 			qcom,fab-dev;
 			qcom,base-name = "mmnoc-ahb-base";
 			qcom,bypass-qos-prg;
+			qcom,setrate-only-clk;
 			qcom,bus-type = <1>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
