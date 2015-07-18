@@ -34,8 +34,6 @@
 #define PCIE_USB3_PHY_SW_RESET			0x600
 #define PCIE_USB3_PHY_POWER_DOWN_CONTROL	0x604
 #define PCIE_USB3_PHY_START			0x608
-#define PCIE_USB3_PHY_AUTONOMOUS_MODE_CTRL	0x6BC
-#define PCIE_USB3_PHY_LFPS_RXTERM_IRQ_CLEAR	0x6C0
 
 #define PHYSTATUS				BIT(6)
 
@@ -56,6 +54,7 @@ enum qmp_phy_rev_reg {
 	USB3_REVISION_ID3,
 	USB3_PHY_PCS_STATUS,
 	USB3_PHY_AUTONOMOUS_MODE_CTRL,
+	USB3_PHY_LFPS_RXTERM_IRQ_CLEAR,
 };
 
 /* QMP PHY register offset for rev1 */
@@ -66,6 +65,7 @@ unsigned int qmp_phy_rev1[] = {
 	[USB3_REVISION_ID3] = 0x73c,
 	[USB3_PHY_PCS_STATUS] = 0x728,
 	[USB3_PHY_AUTONOMOUS_MODE_CTRL] = 0x6BC,
+	[USB3_PHY_LFPS_RXTERM_IRQ_CLEAR] = 0x6C0,
 };
 
 /* QMP PHY register offset for rev2 */
@@ -76,6 +76,7 @@ unsigned int qmp_phy_rev2[] = {
 	[USB3_REVISION_ID3] = 0x794,
 	[USB3_PHY_PCS_STATUS] = 0x77C,
 	[USB3_PHY_AUTONOMOUS_MODE_CTRL] = 0x6D4,
+	[USB3_PHY_LFPS_RXTERM_IRQ_CLEAR] = 0x6D8,
 };
 
 struct qmp_reg_val {
@@ -374,16 +375,20 @@ static inline char *get_cable_status_str(struct msm_ssphy_qmp *phy)
 
 static void msm_ssusb_qmp_clr_lfps_rxterm_int(struct msm_ssphy_qmp *phy)
 {
-	writeb_relaxed(1, phy->base + PCIE_USB3_PHY_LFPS_RXTERM_IRQ_CLEAR);
+	writeb_relaxed(1, phy->base +
+			phy->phy_reg[USB3_PHY_LFPS_RXTERM_IRQ_CLEAR]);
 	/* flush the previous write before next write */
 	wmb();
-	writeb_relaxed(0, phy->base + PCIE_USB3_PHY_LFPS_RXTERM_IRQ_CLEAR);
+	writeb_relaxed(0, phy->base +
+			phy->phy_reg[USB3_PHY_LFPS_RXTERM_IRQ_CLEAR]);
 }
 
 static void msm_ssusb_qmp_enable_autonomous(struct msm_ssphy_qmp *phy,
 		int enable)
 {
 	u8 val;
+	unsigned int autonomous_mode_offset =
+			phy->phy_reg[USB3_PHY_AUTONOMOUS_MODE_CTRL];
 
 	dev_dbg(phy->phy.dev, "enabling QMP autonomous mode with cable %s\n",
 			get_cable_status_str(phy));
@@ -391,19 +396,17 @@ static void msm_ssusb_qmp_enable_autonomous(struct msm_ssphy_qmp *phy,
 	if (enable) {
 		msm_ssusb_qmp_clr_lfps_rxterm_int(phy);
 		val =
-		readb_relaxed(phy->base + PCIE_USB3_PHY_AUTONOMOUS_MODE_CTRL);
+		readb_relaxed(phy->base + autonomous_mode_offset);
 		val |= ARCVR_DTCT_EN;
 		val |= ALFPS_DTCT_EN;
 		val &= ~ARCVR_DTCT_EVENT_SEL;
-		writeb_relaxed(val,
-				phy->base + PCIE_USB3_PHY_AUTONOMOUS_MODE_CTRL);
+		writeb_relaxed(val, phy->base + autonomous_mode_offset);
 
-		 /* clamp phy level shifter to perform autonomous detection */
+		/* clamp phy level shifter to perform autonomous detection */
 		writel_relaxed(0x1, phy->vls_clamp_reg);
 	} else {
 		writel_relaxed(0x0, phy->vls_clamp_reg);
-		writeb_relaxed(0,
-				phy->base + PCIE_USB3_PHY_AUTONOMOUS_MODE_CTRL);
+		writeb_relaxed(0, phy->base + autonomous_mode_offset);
 		msm_ssusb_qmp_clr_lfps_rxterm_int(phy);
 	}
 }
