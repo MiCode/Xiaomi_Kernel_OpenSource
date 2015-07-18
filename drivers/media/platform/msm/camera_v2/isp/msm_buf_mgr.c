@@ -736,8 +736,18 @@ static int msm_isp_flush_buf(struct msm_isp_buf_mgr *buf_mgr,
 					__func__);
 			} else if (buf_info->state ==
 				MSM_ISP_BUFFER_STATE_DEQUEUED) {
-				msm_isp_put_buf_unsafe(buf_mgr,
-					bufq_handle, buf_info->buf_idx);
+				if (buf_info->buf_get_count ==
+					ISP_SHARE_BUF_CLIENT) {
+					msm_isp_put_buf_unsafe(buf_mgr,
+						bufq_handle, buf_info->buf_idx);
+				} else {
+					buf_info->state =
+						MSM_ISP_BUFFER_STATE_DEQUEUED;
+					buf_info->buf_get_count = 0;
+					buf_info->buf_put_count = 0;
+					memset(buf_info->buf_used, 0,
+						sizeof(uint8_t) * 2);
+				}
 			}
 		}
 	}
