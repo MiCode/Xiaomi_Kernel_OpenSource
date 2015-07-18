@@ -26,19 +26,21 @@
 
 #define WAIT_MAX_LOOPS 100
 
-#define MODE_REG(pll) (*pll->base + pll->offset + 0x0)
-#define LOCK_REG(pll) (*pll->base + pll->offset + 0x0)
-#define ACTIVE_REG(pll) (*pll->base + pll->offset + 0x0)
-#define UPDATE_REG(pll) (*pll->base + pll->offset + 0x0)
-#define L_REG(pll) (*pll->base + pll->offset + 0x4)
-#define A_REG(pll) (*pll->base + pll->offset + 0x8)
-#define VCO_REG(pll) (*pll->base + pll->offset + 0x10)
-#define ALPHA_EN_REG(pll) (*pll->base + pll->offset + 0x10)
-#define OUTPUT_REG(pll) (*pll->base + pll->offset + 0x10)
-#define VOTE_REG(pll) (*pll->base + pll->fsm_reg_offset)
-#define USER_CTL_LO_REG(pll) (*pll->base + pll->offset + 0x10)
-#define USER_CTL_HI_REG(pll) (*pll->base + pll->offset + 0x14)
-#define CONFIG_CTL_REG(pll) (*pll->base + pll->offset + 0x18)
+#define MODE_REG(pll)		(*pll->base + pll->offset + 0x0)
+#define LOCK_REG(pll)		(*pll->base + pll->offset + 0x0)
+#define ACTIVE_REG(pll)		(*pll->base + pll->offset + 0x0)
+#define UPDATE_REG(pll)		(*pll->base + pll->offset + 0x0)
+#define L_REG(pll)		(*pll->base + pll->offset + 0x4)
+#define A_REG(pll)		(*pll->base + pll->offset + 0x8)
+#define VCO_REG(pll)		(*pll->base + pll->offset + 0x10)
+#define ALPHA_EN_REG(pll)	(*pll->base + pll->offset + 0x10)
+#define OUTPUT_REG(pll)		(*pll->base + pll->offset + 0x10)
+#define VOTE_REG(pll)		(*pll->base + pll->fsm_reg_offset)
+#define USER_CTL_LO_REG(pll)	(*pll->base + pll->offset + 0x10)
+#define USER_CTL_HI_REG(pll)	(*pll->base + pll->offset + 0x14)
+#define CONFIG_CTL_REG(pll)	(*pll->base + pll->offset + 0x18)
+#define TEST_CTL_LO_REG(pll)	(*pll->base + pll->offset + 0x1c)
+#define TEST_CTL_HI_REG(pll)	(*pll->base + pll->offset + 0x20)
 
 #define PLL_BYPASSNL 0x2
 #define PLL_RESET_N  0x4
@@ -689,6 +691,20 @@ void __init_alpha_pll(struct clk *c)
 		regval = readl_relaxed(USER_CTL_HI_REG(pll));
 		regval &= ~PLL_LATCH_INTERFACE;
 		writel_relaxed(regval, USER_CTL_HI_REG(pll));
+	}
+
+	if (masks->test_ctl_lo_mask) {
+		regval = readl_relaxed(TEST_CTL_LO_REG(pll));
+		regval &= ~masks->test_ctl_lo_mask;
+		regval |= pll->test_ctl_lo_val;
+		writel_relaxed(regval, TEST_CTL_LO_REG(pll));
+	}
+
+	if (masks->test_ctl_hi_mask) {
+		regval = readl_relaxed(TEST_CTL_HI_REG(pll));
+		regval &= ~masks->test_ctl_hi_mask;
+		regval |= pll->test_ctl_hi_val;
+		writel_relaxed(regval, TEST_CTL_HI_REG(pll));
 	}
 
 	if (pll->fsm_en_mask)
