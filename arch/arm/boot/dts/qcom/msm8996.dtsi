@@ -2389,6 +2389,19 @@
 		pinctrl-0 = <&cnss_default>;
 		qcom,wlan-rc-num = <0>;
 		qcom,wlan-ramdump-dynamic = <0x200000>;
+
+		qcom,msm-bus,name = "msm-cnss";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+					/* No vote */
+					<45 512 0 0>,
+					/* Up to 200 Mbps */
+					<45 512 41421 1520000>,
+					/* Up to 400 Mbps */
+					<45 512 96650 1520000>,
+					/* Up to 800 Mbps */
+					<45 512 207108 3120000>;
 	};
 
 	wil6210: qcom,wil6210 {
