@@ -28,6 +28,12 @@
 		compatible = "qcom,devbw";
 		governor = "bw_vbif";
 		qcom,src-dst-ports = <26 512>;
+		/*
+		 * active-only flag is used while registering the bus
+		 * governor.It helps release the bus vote when the CPU
+		 * subsystem is inactiv3
+		 */
+		qcom,active-only;
 		qcom,bw-tbl =
 			<     0 /*  off     */ >,
 			<   762 /*  100 MHz */ >,
@@ -62,6 +68,11 @@
 		qcom,initial-pwrlevel = <2>;
 
 		qcom,idle-timeout = <8>; //<HZ/12>
+		/*
+		 * Timeout to enter deeper power saving state
+		 * from NAP.
+		 */
+		qcom,deep-nap-timeout = <2>; //<HZ/50>
 		qcom,strtstp-sleepwake;
 
 		/* Trace bus */
