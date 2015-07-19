@@ -7870,37 +7870,35 @@ static int tasha_set_interpolator_rate(struct snd_soc_dai *dai,
 	int rate_val = 0;
 	int i, ret;
 
-	if (dai->id == AIF_MIX1_PB) {
-		/* set mixing path rate */
-		for (i = 0; i < ARRAY_SIZE(int_mix_sample_rate_val); i++) {
-			if (sample_rate ==
-			    int_mix_sample_rate_val[i].sample_rate) {
-				rate_val =
-					int_mix_sample_rate_val[i].rate_val;
-				break;
-			}
+	/* set mixing path rate */
+	for (i = 0; i < ARRAY_SIZE(int_mix_sample_rate_val); i++) {
+		if (sample_rate ==
+				int_mix_sample_rate_val[i].sample_rate) {
+			rate_val =
+				int_mix_sample_rate_val[i].rate_val;
+			break;
 		}
-		if ((i == ARRAY_SIZE(int_mix_sample_rate_val)) ||
-		    (rate_val < 0))
-			return -EINVAL;
-		ret = tasha_set_mix_interpolator_rate(dai,
-				(u8) rate_val, sample_rate);
-	} else {
-		/* set primary path sample rate */
-		for (i = 0; i < ARRAY_SIZE(int_prim_sample_rate_val); i++) {
-			if (sample_rate ==
-			    int_prim_sample_rate_val[i].sample_rate) {
-				rate_val =
-					int_prim_sample_rate_val[i].rate_val;
-				break;
-			}
-		}
-		if ((i == ARRAY_SIZE(int_prim_sample_rate_val)) ||
-		    (rate_val < 0))
-			return -EINVAL;
-		ret = tasha_set_prim_interpolator_rate(dai,
-				(u8) rate_val, sample_rate);
 	}
+	if ((i == ARRAY_SIZE(int_mix_sample_rate_val)) ||
+			(rate_val < 0))
+		goto prim_rate;
+	ret = tasha_set_mix_interpolator_rate(dai,
+			(u8) rate_val, sample_rate);
+prim_rate:
+	/* set primary path sample rate */
+	for (i = 0; i < ARRAY_SIZE(int_prim_sample_rate_val); i++) {
+		if (sample_rate ==
+				int_prim_sample_rate_val[i].sample_rate) {
+			rate_val =
+				int_prim_sample_rate_val[i].rate_val;
+			break;
+		}
+	}
+	if ((i == ARRAY_SIZE(int_prim_sample_rate_val)) ||
+			(rate_val < 0))
+		return -EINVAL;
+	ret = tasha_set_prim_interpolator_rate(dai,
+			(u8) rate_val, sample_rate);
 	return ret;
 }
 
