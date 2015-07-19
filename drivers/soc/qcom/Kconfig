@@ -575,4 +575,13 @@ config MSM_PERFORMANCE_HOTPLUG_ON
 	  compile out the nodes needed for core-control functionality through
 	  msm_performance.
 
+config MSM_SERVICE_LOCATOR
+	bool "Service Locator"
+	depends on MSM_QMI_INTERFACE
+	help
+	  The Service Locator provides a library to retrieve location
+	  information given a service identifier. Location here translates
+	  to what process domain exports the service, and which subsystem
+	  that process domain will execute in.
+
 endif # ARCH_MSM
