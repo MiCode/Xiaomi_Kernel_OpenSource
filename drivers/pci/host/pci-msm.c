@@ -1195,7 +1195,7 @@ static void pcie_pcs_port_phy_init(struct msm_pcie_dev_t *dev)
 		0x00);
 	msm_pcie_write_reg(dev->phy,
 		PCIE_N_LP_WAKEUP_DLY_TIME_AUXCLK(dev->rc_idx, common_phy),
-		0x00);
+		0x01);
 	msm_pcie_write_reg(dev->phy,
 		PCIE_N_PLL_LOCK_CHK_DLY_TIME(dev->rc_idx, common_phy),
 		0x05);
