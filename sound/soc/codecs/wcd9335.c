@@ -5196,6 +5196,34 @@ static const struct snd_kcontrol_new tasha_snd_controls[] = {
 	SOC_SINGLE_SX_TLV("RX8 Digital Volume", WCD9335_CDC_RX8_RX_VOL_CTL,
 		0, -84, 40, digital_gain),
 
+	SOC_SINGLE_SX_TLV("RX0 Mix Digital Volume",
+			  WCD9335_CDC_RX0_RX_VOL_MIX_CTL,
+			  0, -84, 40, digital_gain), /* -84dB min - 40dB max */
+	SOC_SINGLE_SX_TLV("RX1 Mix Digital Volume",
+			  WCD9335_CDC_RX1_RX_VOL_MIX_CTL,
+			  0, -84, 40, digital_gain), /* -84dB min - 40dB max */
+	SOC_SINGLE_SX_TLV("RX2 Mix Digital Volume",
+			  WCD9335_CDC_RX2_RX_VOL_MIX_CTL,
+			  0, -84, 40, digital_gain), /* -84dB min - 40dB max */
+	SOC_SINGLE_SX_TLV("RX3 Mix Digital Volume",
+			  WCD9335_CDC_RX3_RX_VOL_MIX_CTL,
+			  0, -84, 40, digital_gain), /* -84dB min - 40dB max */
+	SOC_SINGLE_SX_TLV("RX4 Mix Digital Volume",
+			  WCD9335_CDC_RX4_RX_VOL_MIX_CTL,
+			  0, -84, 40, digital_gain), /* -84dB min - 40dB max */
+	SOC_SINGLE_SX_TLV("RX5 Mix Digital Volume",
+			  WCD9335_CDC_RX5_RX_VOL_MIX_CTL,
+			  0, -84, 40, digital_gain), /* -84dB min - 40dB max */
+	SOC_SINGLE_SX_TLV("RX6 Mix Digital Volume",
+			  WCD9335_CDC_RX6_RX_VOL_MIX_CTL,
+			  0, -84, 40, digital_gain), /* -84dB min - 40dB max */
+	SOC_SINGLE_SX_TLV("RX7 Mix Digital Volume",
+			  WCD9335_CDC_RX7_RX_VOL_MIX_CTL,
+			  0, -84, 40, digital_gain), /* -84dB min - 40dB max */
+	SOC_SINGLE_SX_TLV("RX8 Mix Digital Volume",
+			  WCD9335_CDC_RX8_RX_VOL_MIX_CTL,
+			  0, -84, 40, digital_gain), /* -84dB min - 40dB max */
+
 	SOC_SINGLE_SX_TLV("DEC0 Volume", WCD9335_CDC_TX0_TX_VOL_CTL, 0,
 					  -84, 40, digital_gain),
 	SOC_SINGLE_SX_TLV("DEC1 Volume", WCD9335_CDC_TX1_TX_VOL_CTL, 0,
