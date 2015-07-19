@@ -861,6 +861,14 @@ static void ipa_handle_rx(struct ipa_sys_context *sys)
 		} else {
 			inactive_cycles = 0;
 		}
+
+		/* if pipe is out of buffers there is no point polling for
+		 * completed descs; release the worker so delayed work can
+		 * run in a timely manner
+		 */
+		if (sys->len == 0)
+			break;
+
 	} while (inactive_cycles <= POLLING_INACTIVITY_RX);
 
 	ipa_rx_switch_to_intr_mode(sys);
