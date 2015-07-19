@@ -18,8 +18,9 @@
 		#clock-cells = <1>;
 
 		reg = <0x00994400 0x588>,
-		      <0x008C2300 0x8>;
-		reg-names = "pll_base", "gdsc_base";
+		      <0x008C2300 0x8>,
+		      <0x00994200 0x98>;
+		reg-names = "pll_base", "gdsc_base", "dynamic_pll_base";
 
 		gdsc-supply = <&gdsc_mdss>;
 
@@ -50,8 +51,9 @@
 		#clock-cells = <1>;
 
 		reg = <0x00996400 0x588>,
-		      <0x008C2300 0x8>;
-		reg-names = "pll_base", "gdsc_base";
+		      <0x008C2300 0x8>,
+		      <0x00996200 0x98>;
+		reg-names = "pll_base", "gdsc_base", "dynamic_pll_base";
 
 		gdsc-supply = <&gdsc_mdss>;
 
