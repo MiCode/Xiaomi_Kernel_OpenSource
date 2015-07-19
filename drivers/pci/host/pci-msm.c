@@ -117,6 +117,7 @@
 #define QSERDES_RX_N_SIGDET_ENABLES(n, m)		(RX(n, m) + 0x110)
 #define QSERDES_RX_N_SIGDET_DEGLITCH_CNTRL(n, m)	(RX(n, m) + 0x11C)
 #define QSERDES_RX_N_SIGDET_LVL(n, m)			(RX(n, m) + 0x118)
+#define QSERDES_RX_N_RX_BAND(n, m)			(RX(n, m) + 0x120)
 
 #define PCIE_N_SW_RESET(n, m)			(PCS_PORT(n, m) + 0x00)
 #define PCIE_N_POWER_DOWN_CONTROL(n, m)		(PCS_PORT(n, m) + 0x04)
@@ -1177,6 +1178,9 @@ static void pcie_pcs_port_phy_init(struct msm_pcie_dev_t *dev)
 	msm_pcie_write_reg(dev->phy,
 		QSERDES_RX_N_RX_EQU_ADAPTOR_CNTRL4(dev->rc_idx, common_phy),
 		0xDB);
+	msm_pcie_write_reg(dev->phy,
+		QSERDES_RX_N_RX_BAND(dev->rc_idx, common_phy),
+		0x18);
 	msm_pcie_write_reg(dev->phy,
 		QSERDES_RX_N_UCDR_SO_GAIN(dev->rc_idx, common_phy),
 		0x04);
