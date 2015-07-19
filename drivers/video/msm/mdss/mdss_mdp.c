@@ -872,8 +872,9 @@ void mdss_mdp_clk_ctrl(int enable)
 	if (changed)
 		MDSS_XLOG(mdp_clk_cnt, enable, current->pid);
 
-	pr_debug("%s: clk_cnt=%d changed=%d enable=%d\n",
-			__func__, mdp_clk_cnt, changed, enable);
+	pr_debug("%pS: clk_cnt=%d changed=%d enable=%d\n",
+			__builtin_return_address(0), mdp_clk_cnt,
+			changed, enable);
 
 	if (changed) {
 		if (enable) {
@@ -1106,6 +1107,8 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 	mdata->hflip_buffer_reused = true;
 	/* prevent disable of prefill calculations */
 	mdata->min_prefill_lines = 0xffff;
+	/* clock gating feature is disabled by default */
+	mdata->enable_gate = true;
 
 	switch (mdata->mdp_rev) {
 	case MDSS_MDP_HW_REV_107:

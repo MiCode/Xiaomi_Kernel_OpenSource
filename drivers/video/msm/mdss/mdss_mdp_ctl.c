@@ -1533,10 +1533,11 @@ void mdss_mdp_ctl_perf_set_transaction_status(struct mdss_mdp_ctl *ctl,
 	set_status(&ctl->perf_transaction_status, new_status,
 		(u32)component);
 
-	pr_debug("component:%d previous_transaction:%d transaction_status:%d\n",
-		component, previous_transaction, ctl->perf_transaction_status);
-	pr_debug("new_status:%d prev_status:%d\n",
-		new_status, previous_status);
+	pr_debug("ctl:%d component:%d previous:%d status:%d\n",
+		ctl->num, component, previous_transaction,
+		ctl->perf_transaction_status);
+	pr_debug("ctl:%d new_status:%d prev_status:%d\n",
+		ctl->num, new_status, previous_status);
 
 	spin_unlock_irqrestore(&ctl->spin_lock, flags);
 }
@@ -1580,6 +1581,8 @@ u32 mdss_mdp_ctl_perf_get_transaction_status(struct mdss_mdp_ctl *ctl)
 	spin_lock_irqsave(&ctl->spin_lock, flags);
 	transaction_status = ctl->perf_transaction_status;
 	spin_unlock_irqrestore(&ctl->spin_lock, flags);
+	pr_debug("ctl:%d status:%d\n", ctl->num,
+		transaction_status);
 
 	return transaction_status;
 }
@@ -2973,7 +2976,7 @@ int mdss_mdp_ctl_destroy(struct mdss_mdp_ctl *ctl)
 	struct mdss_mdp_ctl *sctl;
 	int rc;
 
-	rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CLOSE, NULL);
+	rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CLOSE, NULL, false);
 	WARN(rc, "unable to close panel for intf=%d\n", ctl->intf_num);
 
 	sctl = mdss_mdp_get_split_ctl(ctl);
@@ -2987,7 +2990,8 @@ int mdss_mdp_ctl_destroy(struct mdss_mdp_ctl *ctl)
 	return 0;
 }
 
-int mdss_mdp_ctl_intf_event(struct mdss_mdp_ctl *ctl, int event, void *arg)
+int mdss_mdp_ctl_intf_event(struct mdss_mdp_ctl *ctl, int event, void *arg,
+	bool skip_broadcast)
 {
 	struct mdss_panel_data *pdata;
 	int rc = 0;
@@ -3003,7 +3007,7 @@ int mdss_mdp_ctl_intf_event(struct mdss_mdp_ctl *ctl, int event, void *arg)
 		if (pdata->event_handler)
 			rc = pdata->event_handler(pdata, event, arg);
 		pdata = pdata->next;
-	} while (rc == 0 && pdata);
+	} while (rc == 0 && pdata && !skip_broadcast);
 
 	return rc;
 }
@@ -3176,7 +3180,7 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff)
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
-	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_RESET, NULL);
+	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_RESET, NULL, false);
 	if (ret) {
 		pr_err("panel power on failed ctl=%d\n", ctl->num);
 		goto error;
@@ -4212,7 +4216,7 @@ int mdss_mdp_display_wait4pingpong(struct mdss_mdp_ctl *ctl, bool use_lock)
 			mdss_mdp_ctl_reset(sctl);
 
 		mdss_mdp_ctl_intf_event(ctl,
-				MDSS_EVENT_DSI_RESET_WRITE_PTR, NULL);
+				MDSS_EVENT_DSI_RESET_WRITE_PTR, NULL, false);
 
 		pr_debug("pingpong timeout recovery finished\n");
 	}

@@ -1712,7 +1712,7 @@ int mdss_mode_switch_post(struct msm_fb_data_type *mfd, u32 mode)
 		pr_debug("%s, start\n", __func__);
 		rc = mdss_mdp_ctl_intf_event(ctl,
 			MDSS_EVENT_DSI_DYNAMIC_SWITCH,
-			(void *) MIPI_VIDEO_PANEL);
+			(void *) MIPI_VIDEO_PANEL, false);
 		pr_debug("%s, end\n", __func__);
 	} else if (mode == MIPI_CMD_PANEL) {
 		/*
@@ -1721,7 +1721,8 @@ int mdss_mode_switch_post(struct msm_fb_data_type *mfd, u32 mode)
 		 * power collapse to work as intended.
 		 */
 		mdss_mdp_ctl_intf_event(ctl,
-			MDSS_EVENT_PANEL_CLK_CTRL, (void *)0);
+			MDSS_EVENT_PANEL_CLK_CTRL, (void *)0,
+			false);
 	}
 	return rc;
 }
@@ -1928,6 +1929,13 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		}
 		ATRACE_END("display_commit");
 	}
+
+	/*
+	 * release the validate flag; we are releasing this flag
+	 * after the commit, since now the transaction status
+	 * in the cmd mode controllers is busy.
+	 */
+	mfd->validate_pending = false;
 
 	if ((!need_cleanup) && (!mdp5_data->kickoff_released))
 		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_CTX_DONE);
@@ -4767,7 +4775,7 @@ static int mdss_mdp_update_panel_info(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_ctl *sctl;
 
 	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_DSI_UPDATE_PANEL_DATA,
-						(void *)(unsigned long)mode);
+		(void *)(unsigned long)mode, false);
 	if (ret)
 		pr_err("Dynamic switch to %s mode failed!\n",
 					mode ? "command" : "video");

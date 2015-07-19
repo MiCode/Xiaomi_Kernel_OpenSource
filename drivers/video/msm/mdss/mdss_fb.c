@@ -2877,6 +2877,8 @@ int mdss_fb_atomic_commit(struct fb_info *info,
 			__ioctl_transition_dyn_mode_state(mfd,
 				MSMFB_ATOMIC_COMMIT, 1);
 			ret = mfd->mdp.atomic_validate(mfd, file, commit_v1);
+			if (!ret)
+				mfd->validate_pending = true;
 		}
 		goto end;
 	} else {
