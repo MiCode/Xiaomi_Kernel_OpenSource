@@ -695,6 +695,10 @@ void mdss_dsi_core_clk_deinit(struct device *dev, struct dsi_shared_data *sdata)
 		devm_clk_put(dev, sdata->axi_clk);
 	if (sdata->ahb_clk)
 		devm_clk_put(dev, sdata->ahb_clk);
+	if (sdata->reg_bus_clt) {
+		mdss_reg_bus_vote_client_destroy(sdata->reg_bus_clt);
+		sdata->reg_bus_clt = NULL;
+	}
 	if (sdata->mdp_core_clk)
 		devm_clk_put(dev, sdata->mdp_core_clk);
 }
@@ -717,6 +721,14 @@ int mdss_dsi_core_clk_init(struct platform_device *pdev,
 	if (IS_ERR(sdata->mdp_core_clk)) {
 		rc = PTR_ERR(sdata->mdp_core_clk);
 		pr_err("%s: Unable to get mdp core clk. rc=%d\n",
+			__func__, rc);
+		goto error;
+	}
+
+	sdata->reg_bus_clt = mdss_reg_bus_vote_client_create();
+	if (IS_ERR_OR_NULL(sdata->reg_bus_clt)) {
+		rc = PTR_ERR(sdata->reg_bus_clt);
+		pr_err("%s: Unable to get ahb bus clk handle. rc=%d\n",
 			__func__, rc);
 		goto error;
 	}
@@ -1017,237 +1029,6 @@ int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 	return 0;
 }
 
-static int mdss_dsi_core_clk_start(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
-{
-	int rc = 0;
-	struct dsi_shared_data *sdata = ctrl_pdata->shared_data;
-
-	pr_debug("%s: ndx=%d\n", __func__, ctrl_pdata->ndx);
-
-	rc = clk_prepare_enable(sdata->mdp_core_clk);
-	if (rc) {
-		pr_err("%s: failed to enable mdp_core_clock. rc=%d\n",
-							 __func__, rc);
-		goto error;
-	}
-	mdss_update_reg_bus_vote(VOTE_INDEX_19_MHZ);
-
-	rc = clk_prepare_enable(sdata->ahb_clk);
-	if (rc) {
-		pr_err("%s: failed to enable ahb clock. rc=%d\n", __func__, rc);
-		goto disable_core_clk;
-	}
-
-	rc = clk_prepare_enable(sdata->axi_clk);
-	if (rc) {
-		pr_err("%s: failed to enable ahb clock. rc=%d\n", __func__, rc);
-		goto disable_ahb_clk;
-	}
-
-	if (sdata->mmss_misc_ahb_clk) {
-		rc = clk_prepare_enable(sdata->mmss_misc_ahb_clk);
-		if (rc) {
-			pr_err("%s: failed to enable mmss misc ahb clk.rc=%d\n",
-				__func__, rc);
-			goto disable_axi_clk;
-		}
-	}
-	return rc;
-
-disable_axi_clk:
-	clk_disable_unprepare(sdata->axi_clk);
-disable_ahb_clk:
-	clk_disable_unprepare(sdata->ahb_clk);
-disable_core_clk:
-	mdss_update_reg_bus_vote(VOTE_INDEX_DISABLE);
-	clk_disable_unprepare(sdata->mdp_core_clk);
-error:
-	return rc;
-}
-
-static void mdss_dsi_core_clk_stop(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
-{
-	struct dsi_shared_data *sdata = ctrl_pdata->shared_data;
-	if (sdata->mmss_misc_ahb_clk)
-		clk_disable_unprepare(sdata->mmss_misc_ahb_clk);
-	clk_disable_unprepare(sdata->axi_clk);
-	clk_disable_unprepare(sdata->ahb_clk);
-	mdss_update_reg_bus_vote(VOTE_INDEX_DISABLE);
-	clk_disable_unprepare(sdata->mdp_core_clk);
-}
-
-static int mdss_dsi_link_clk_prepare(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
-{
-	int rc = 0;
-
-	rc = clk_prepare(ctrl_pdata->esc_clk);
-	if (rc) {
-		pr_err("%s: Failed to prepare dsi esc clk\n", __func__);
-		goto esc_clk_err;
-	}
-
-	rc = clk_prepare(ctrl_pdata->byte_clk);
-	if (rc) {
-		pr_err("%s: Failed to prepare dsi byte clk\n", __func__);
-		goto byte_clk_err;
-	}
-
-	rc = clk_prepare(ctrl_pdata->pixel_clk);
-	if (rc) {
-		pr_err("%s: Failed to prepare dsi pixel clk\n", __func__);
-		goto pixel_clk_err;
-	}
-
-	return rc;
-
-pixel_clk_err:
-	clk_unprepare(ctrl_pdata->byte_clk);
-byte_clk_err:
-	clk_unprepare(ctrl_pdata->esc_clk);
-esc_clk_err:
-	return rc;
-}
-
-static void mdss_dsi_link_clk_unprepare(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
-{
-	if (!ctrl_pdata) {
-		pr_err("%s: Invalid input data\n", __func__);
-		return;
-	}
-
-	clk_unprepare(ctrl_pdata->pixel_clk);
-	clk_unprepare(ctrl_pdata->byte_clk);
-	clk_unprepare(ctrl_pdata->esc_clk);
-}
-
-static int mdss_dsi_link_clk_set_rate(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
-{
-	u32 esc_clk_rate = 19200000;
-	int rc = 0;
-
-	if (ctrl_pdata->panel_data.panel_info.cont_splash_enabled) {
-		pr_debug("%s: cont splash enabled, not setting rate\n",
-			__func__);
-		return rc;
-	}
-
-	pr_debug("%s: Set clk rates: pclk=%d, byteclk=%d escclk=%d\n",
-		__func__, ctrl_pdata->pclk_rate,
-		ctrl_pdata->byte_clk_rate, esc_clk_rate);
-	rc = clk_set_rate(ctrl_pdata->esc_clk, esc_clk_rate);
-	if (rc) {
-		pr_err("%s: dsi_esc_clk - clk_set_rate failed\n",
-			__func__);
-		goto error;
-	}
-
-	rc =  clk_set_rate(ctrl_pdata->byte_clk, ctrl_pdata->byte_clk_rate);
-	if (rc) {
-		pr_err("%s: dsi_byte_clk - clk_set_rate failed\n",
-			__func__);
-		goto error;
-	}
-
-	rc = clk_set_rate(ctrl_pdata->pixel_clk, ctrl_pdata->pclk_rate);
-	if (rc) {
-		pr_err("%s: dsi_pixel_clk - clk_set_rate failed\n",
-			__func__);
-		goto error;
-	}
-
-error:
-	return rc;
-}
-
-static int mdss_dsi_link_clk_enable(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
-{
-	int rc = 0;
-
-	if (!ctrl_pdata) {
-		pr_err("%s: Invalid input data\n", __func__);
-		return -EINVAL;
-	}
-
-	pr_debug("%s: ndx=%d\n", __func__, ctrl_pdata->ndx);
-
-	rc = clk_enable(ctrl_pdata->esc_clk);
-	if (rc) {
-		pr_err("%s: Failed to enable dsi esc clk\n", __func__);
-		goto esc_clk_err;
-	}
-
-	rc = clk_enable(ctrl_pdata->byte_clk);
-	if (rc) {
-		pr_err("%s: Failed to enable dsi byte clk\n", __func__);
-		goto byte_clk_err;
-	}
-
-	rc = clk_enable(ctrl_pdata->pixel_clk);
-	if (rc) {
-		pr_err("%s: Failed to enable dsi pixel clk\n", __func__);
-		goto pixel_clk_err;
-	}
-
-	return rc;
-
-pixel_clk_err:
-	clk_disable(ctrl_pdata->byte_clk);
-byte_clk_err:
-	clk_disable(ctrl_pdata->esc_clk);
-esc_clk_err:
-	return rc;
-}
-
-static void mdss_dsi_link_clk_disable(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
-{
-	if (!ctrl_pdata) {
-		pr_err("%s: Invalid input data\n", __func__);
-		return;
-	}
-
-	pr_debug("%s: ndx=%d\n", __func__, ctrl_pdata->ndx);
-
-	clk_disable(ctrl_pdata->esc_clk);
-	clk_disable(ctrl_pdata->pixel_clk);
-	clk_disable(ctrl_pdata->byte_clk);
-}
-
-static int mdss_dsi_link_clk_start(struct mdss_dsi_ctrl_pdata *ctrl)
-{
-	int rc = 0;
-
-	rc = mdss_dsi_link_clk_set_rate(ctrl);
-	if (rc) {
-		pr_err("%s: failed to set clk rates. rc=%d\n",
-			__func__, rc);
-		goto error;
-	}
-
-	rc = mdss_dsi_link_clk_prepare(ctrl);
-	if (rc) {
-		pr_err("%s: failed to prepare clks. rc=%d\n",
-			__func__, rc);
-		goto error;
-	}
-
-	rc = mdss_dsi_link_clk_enable(ctrl);
-	if (rc) {
-		pr_err("%s: failed to enable clks. rc=%d\n",
-			__func__, rc);
-		mdss_dsi_link_clk_unprepare(ctrl);
-		goto error;
-	}
-
-error:
-	return rc;
-}
-
-static void mdss_dsi_link_clk_stop(struct mdss_dsi_ctrl_pdata *ctrl)
-{
-	mdss_dsi_link_clk_disable(ctrl);
-	mdss_dsi_link_clk_unprepare(ctrl);
-}
-
 /**
  * mdss_dsi_ulps_config() - Program DSI lanes to enter/exit ULPS mode
  * @ctrl: pointer to DSI controller structure
@@ -1513,73 +1294,175 @@ static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 	return 0;
 }
 
-/**
- * mdss_dsi_core_power_ctrl() - Enable/disable DSI core power
- * @ctrl: pointer to DSI controller structure
- * @enable: 1 to enable power, 0 to disable power
- *
- * When all DSI core clocks are disabled, DSI core power module can be turned
- * off to save any leakage current. This function implements the necessary
- * programming sequence for the same. For command mode panels, the core power
- * can be turned off for idle-screen usecases, where additional programming is
- * needed to clamp DSI phy.
- */
-static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
-	int enable)
+DEFINE_MUTEX(dsi_clk_mutex);
+
+int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, void *clk_handle,
+	enum mdss_dsi_clk_type clk_type, enum mdss_dsi_clk_state clk_state)
 {
 	int rc = 0;
-	int i = 0;
-	struct mdss_panel_data *pdata = NULL;
-	struct dsi_shared_data *sdata;
+	struct mdss_dsi_ctrl_pdata *mctrl = NULL;
+	int i;
 
 	if (!ctrl) {
-		pr_err("%s: invalid input\n", __func__);
+		pr_err("%s: Invalid arg\n", __func__);
 		return -EINVAL;
 	}
 
-	sdata = ctrl->shared_data;
-	pdata = &ctrl->panel_data;
-	if (!pdata) {
-		pr_err("%s: Invalid panel data\n", __func__);
-		return -EINVAL;
+	mutex_lock(&dsi_clk_mutex);
+	/*
+	 * In sync_wait_broadcast mode, we need to enable clocks
+	 * for the other controller as well when enabling clocks
+	 * for the trigger controller.
+	 *
+	 * If sync wait_broadcase mode is not enabled, but if split display
+	 * mode is enabled where both DSI controller's branch clocks are
+	 * sourced out of a single PLL, then we need to ensure that the
+	 * controller associated with that PLL also has it's clocks turned
+	 * on. This is required to make sure that if that controller's PLL/PHY
+	 * are clamped then they can be removed.
+	 */
+	if (mdss_dsi_sync_wait_trigger(ctrl)) {
+		mctrl = mdss_dsi_get_other_ctrl(ctrl);
+		if (!mctrl)
+			pr_warn("%s: Unable to get other control\n", __func__);
+	} else if (mdss_dsi_is_ctrl_clk_slave(ctrl)) {
+		mctrl = mdss_dsi_get_ctrl_clk_master();
+		if (!mctrl)
+			pr_warn("%s: Unable to get clk master control\n",
+				__func__);
 	}
 
-	if (enable) {
-		if (!ctrl->core_power) {
-			/*
-			 *              Enable DSI core power
-			 * 1.> PANEL_PM are controlled as part of
-			 *     panel_power_ctrl. Needed not be handled here.
-			 * 2.> PHY_PM and CTRL_PM need to be enabled/disabled
-			 *     only during unblank/blank. Their state should
-			 *     not be changed during static screen.
-			 */
-			pr_debug("%s: Enable DSI core power\n", __func__);
-			for (i = DSI_CORE_PM; i < DSI_MAX_PM; i++) {
-				if (((DSI_CORE_PM != i) &&
-					(pdata->panel_info.blank_state !=
-					MDSS_PANEL_BLANK_BLANK) &&
-					!pdata->panel_info.cont_splash_enabled))
-					continue;
-				rc = msm_dss_enable_vreg(
-					sdata->power_data[i].vreg_config,
-					sdata->power_data[i].num_vreg, 1);
-				if (rc) {
-					pr_err("%s: failed to enable vregs for %s\n",
-						__func__,
-						__mdss_dsi_pm_name(i));
-					goto error;
-				}
-			}
-			ctrl->core_power = true;
-		}
-
-		rc = mdss_dsi_core_clk_start(ctrl);
+	/*
+	 * When DSI is used in split mode, the link clock for master controller
+	 * has to be turned on first before the link clock for slave can be
+	 * turned on. In case the current controller is a slave, an ON vote is
+	 * cast for master before changing the state of the slave clock. After
+	 * the state change for slave, the ON votes will be removed depending on
+	 * the new state.
+	 */
+	pr_debug("%s: DSI_%d: clk = %d, state = %d, caller = %pS, mctrl=%d\n",
+		 __func__, ctrl->ndx, clk_type, clk_state,
+		 __builtin_return_address(0), mctrl ? 1 : 0);
+	if (mctrl && (clk_type & MDSS_DSI_LINK_CLK)) {
+		rc = mdss_dsi_clk_req_state(mctrl->dsi_clk_handle,
+					     MDSS_DSI_ALL_CLKS,
+					     MDSS_DSI_CLK_ON);
 		if (rc) {
-			pr_err("%s: Failed to start core clocks. rc=%d\n",
-				__func__, rc);
-			goto error_core_clk_start;
+			pr_err("%s: failed to turn on mctrl clocks, rc=%d\n",
+				 __func__, rc);
+			goto error;
 		}
+		ctrl->m_vote_cnt++;
+	}
+
+	rc = mdss_dsi_clk_req_state(clk_handle, clk_type, clk_state);
+	if (rc) {
+		pr_err("%s: failed set clk state, rc = %d\n", __func__, rc);
+		goto error;
+	}
+
+	if (mctrl && (clk_type & MDSS_DSI_LINK_CLK) &&
+			clk_state != MDSS_DSI_CLK_ON) {
+
+		/*
+		 * In case of split dsi, an ON vote is cast for all state change
+		 * requests. If the current state is ON, then the vote would not
+		 * be released.
+		 *
+		 * If the current state is ECG, there is one possible way to
+		 * transition in to this state, which is ON -> ECG. In this case
+		 * two votes will be removed because one was cast at ON and
+		 * other when entering ECG.
+		 *
+		 * If the current state is OFF, it could have been due to two
+		 * possible transitions in to OFF state.
+		 *	1. ON -> OFF: In this case two votes were cast by the
+		 *	   slave controller, one during ON (which is not
+		 *	   removed) and one during OFF. So we need to remove two
+		 *	   votes.
+		 *	2. ECG -> OFF: In this case there is only one vote
+		 *	   for ON, since the previous ECG state must have
+		 *	   removed two votes to let clocks turn off.
+		 *
+		 * To satisfy the above requirement, m_vote_cnt keeps track of
+		 * the number of ON votes for master requested by slave. For
+		 * every OFF/ECG state request, Either 2 or m_vote_cnt number of
+		 * votes are removed depending on which is lower.
+		 */
+		for (i = 0; (i < ctrl->m_vote_cnt && i < 2); i++) {
+			rc = mdss_dsi_clk_req_state(mctrl->dsi_clk_handle,
+						     MDSS_DSI_ALL_CLKS,
+						     MDSS_DSI_CLK_OFF);
+			if (rc) {
+				pr_err("%s: failed to set mctrl clk state, rc = %d\n",
+				       __func__, rc);
+				goto error;
+			}
+		}
+		ctrl->m_vote_cnt -= i;
+		pr_debug("%s: ctrl=%d, m_vote_cnt=%d\n", __func__, ctrl->ndx,
+			 ctrl->m_vote_cnt);
+	}
+
+error:
+	mutex_unlock(&dsi_clk_mutex);
+	return rc;
+}
+
+int mdss_dsi_pre_clkoff_cb(void *priv,
+			   enum mdss_dsi_clk_type clk,
+			   enum mdss_dsi_clk_state new_state)
+{
+	int rc = 0;
+	struct mdss_dsi_ctrl_pdata *ctrl = priv;
+	struct mdss_panel_data *pdata = NULL;
+
+	pdata = &ctrl->panel_data;
+
+	if ((clk & MDSS_DSI_LINK_CLK) && (new_state == MDSS_DSI_CLK_OFF)) {
+
+		rc = mdss_dsi_ulps_config(ctrl, 1);
+		if (rc) {
+			pr_err("%s: failed enable ulps, rc = %d\n",
+			       __func__, rc);
+		}
+	}
+
+	if ((clk & MDSS_DSI_CORE_CLK) && (new_state == MDSS_DSI_CLK_OFF)) {
+
+		/*
+		 * Enable DSI clamps only if entering idle power collapse or
+		 * when ULPS during suspend is enabled.
+		 */
+		if ((pdata->panel_info.blank_state != MDSS_PANEL_BLANK_BLANK) ||
+			pdata->panel_info.ulps_suspend_enabled) {
+			rc = mdss_dsi_clamp_ctrl(ctrl, 1);
+			if (rc)
+				pr_err("%s: Failed to enable dsi clamps. rc=%d\n",
+					__func__, rc);
+		}
+	}
+
+	if (clk & MDSS_DSI_CORE_CLK)
+		mdss_update_reg_bus_vote(ctrl->shared_data->reg_bus_clt,
+					 VOTE_INDEX_DISABLE);
+
+	return rc;
+}
+
+int mdss_dsi_post_clkon_cb(void *priv,
+			   enum mdss_dsi_clk_type clk,
+			   enum mdss_dsi_clk_state curr_state)
+{
+	int rc = 0;
+	struct mdss_panel_data *pdata = NULL;
+	struct mdss_dsi_ctrl_pdata *ctrl = priv;
+
+	pdata = &ctrl->panel_data;
+
+	if (clk & MDSS_DSI_CORE_CLK) {
+		mdss_update_reg_bus_vote(ctrl->shared_data->reg_bus_clt,
+					 VOTE_INDEX_19_MHZ);
 
 		if (!pdata->panel_info.cont_splash_enabled)
 			mdss_dsi_read_hw_revision(ctrl);
@@ -1623,7 +1506,7 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 			if (rc) {
 				pr_err("%s: Failed to enter ULPS. rc=%d\n",
 					__func__, rc);
-				goto error_ulps;
+				goto error;
 			}
 		}
 
@@ -1631,349 +1514,110 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 		if (rc) {
 			pr_err("%s: Failed to disable dsi clamps. rc=%d\n",
 				__func__, rc);
-			goto error_ulps;
-		}
-	} else {
-		/*
-		 * Enable DSI clamps only if entering idle power collapse or
-		 * when ULPS during suspend is enabled.
-		 */
-		if ((pdata->panel_info.blank_state != MDSS_PANEL_BLANK_BLANK) ||
-			pdata->panel_info.ulps_suspend_enabled) {
-			rc = mdss_dsi_clamp_ctrl(ctrl, 1);
-			if (rc)
-				pr_err("%s: Failed to enable dsi clamps. rc=%d\n",
-					__func__, rc);
-		}
-
-		/*
-		 * disable core clocks irrespective of whether dsi phy was
-		 * successfully clamped or not
-		 */
-		mdss_dsi_core_clk_stop(ctrl);
-
-		/* disable DSI core power if dsi phy was successfully clamped */
-		if (rc) {
-			pr_debug("%s: leaving DSI core power on\n", __func__);
-		} else {
-			pr_debug("%s: Disable DSI core power\n", __func__);
-			for (i = DSI_MAX_PM - 1; i >= DSI_CORE_PM; i--) {
-				if (((DSI_CORE_PM != i) &&
-					(pdata->panel_info.blank_state !=
-						MDSS_PANEL_BLANK_BLANK)))
-					continue;
-				rc = msm_dss_enable_vreg(
-					sdata->power_data[i].vreg_config,
-					sdata->power_data[i].num_vreg, 0);
-				if (rc) {
-					pr_warn("%s: failed to disable vregs for %s\n",
-						__func__,
-						__mdss_dsi_pm_name(i));
-					rc = 0;
-				} else {
-					ctrl->core_power = false;
-				}
-			}
+			goto error;
 		}
 	}
-	return rc;
-
-error_ulps:
-	mdss_dsi_core_clk_stop(ctrl);
-error_core_clk_start:
-	for (i = DSI_MAX_PM - 1; i >= DSI_CORE_PM; i--) {
-		if (((DSI_CORE_PM != i) && (pdata->panel_info.blank_state !=
-			MDSS_PANEL_BLANK_BLANK)))
-			continue;
-		rc = msm_dss_enable_vreg(sdata->power_data[i].vreg_config,
-			sdata->power_data[i].num_vreg, 0);
+	if (clk & MDSS_DSI_LINK_CLK) {
+		rc = mdss_dsi_ulps_config(ctrl, 0);
 		if (rc) {
-			pr_warn("%s: failed to disable vregs for %s\n",
-				__func__, __mdss_dsi_pm_name(i));
-		} else {
-			ctrl->core_power = false;
+			pr_err("%s: failed to disable ulps, rc= %d\n",
+			       __func__, rc);
+			goto error;
 		}
 	}
 error:
 	return rc;
 }
 
-static int __mdss_dsi_update_clk_cnt(u32 *clk_cnt, int enable)
-{
-	int changed = 0;
-
-	if (enable) {
-		if (*clk_cnt == 0)
-			changed++;
-		(*clk_cnt)++;
-	} else {
-		if (*clk_cnt != 0) {
-			(*clk_cnt)--;
-			if (*clk_cnt == 0)
-				changed++;
-		} else {
-			pr_debug("%s: clk cnt already zero\n", __func__);
-		}
-	}
-
-	return changed;
-}
-
-static int mdss_dsi_clk_ctrl_sub(struct mdss_dsi_ctrl_pdata *ctrl,
-	u8 clk_type, int enable)
+int mdss_dsi_post_clkoff_cb(void *priv,
+			    enum mdss_dsi_clk_type clk_type,
+			    enum mdss_dsi_clk_state curr_state)
 {
 	int rc = 0;
-	struct mdss_panel_data *pdata;
+	struct mdss_dsi_ctrl_pdata *ctrl = priv;
+	struct mdss_panel_data *pdata = NULL;
+	struct dsi_shared_data *sdata;
+	int i;
 
 	if (!ctrl) {
 		pr_err("%s: Invalid arg\n", __func__);
 		return -EINVAL;
 	}
 
-	pdata = &ctrl->panel_data;
+	if ((clk_type & MDSS_DSI_CORE_CLK) &&
+	    (curr_state == MDSS_DSI_CLK_OFF)) {
+		sdata = ctrl->shared_data;
+		pdata = &ctrl->panel_data;
 
-	pr_debug("%s: ndx=%d clk_type=%08x enable=%d\n", __func__,
-		ctrl->ndx, clk_type, enable);
-
-	if (enable) {
-		if (clk_type & DSI_CORE_CLKS) {
-			rc = mdss_dsi_core_power_ctrl(ctrl, enable);
+		for (i = DSI_MAX_PM - 1; i >= DSI_CORE_PM; i--) {
+			if ((i != DSI_CORE_PM) &&
+			    (pdata->panel_info.blank_state !=
+			     MDSS_PANEL_BLANK_BLANK))
+				continue;
+			rc = msm_dss_enable_vreg(
+				sdata->power_data[i].vreg_config,
+				sdata->power_data[i].num_vreg, 0);
 			if (rc) {
-				pr_err("%s: Failed to enable core power. rc=%d\n",
-					__func__, rc);
-				goto error;
-			}
-		}
-		if (clk_type & DSI_LINK_CLKS) {
-			rc = mdss_dsi_link_clk_start(ctrl);
-			if (rc) {
-				pr_err("%s: Failed to start link clocks. rc=%d\n",
-					__func__, rc);
-				goto error_link_clk_start;
-			}
-			/* Disable ULPS, if enabled */
-			if (ctrl->ulps) {
-				rc = mdss_dsi_ulps_config(ctrl, 0);
-				if (rc) {
-					pr_err("%s: Failed to exit ulps. rc=%d\n",
-						__func__, rc);
-					goto error_ulps_exit;
-				}
-			}
-		}
-	} else {
-		if (clk_type & DSI_LINK_CLKS) {
-			mdss_dsi_ulps_config(ctrl, 1);
-			mdss_dsi_link_clk_stop(ctrl);
-		}
-		if (clk_type & DSI_CORE_CLKS) {
-			rc = mdss_dsi_core_power_ctrl(ctrl, enable);
-			if (rc) {
-				pr_err("%s: Failed to disable core power. rc=%d\n",
-					__func__, rc);
+				pr_warn("%s: failed to disable vregs for %s\n",
+					__func__,
+					__mdss_dsi_pm_name(i));
+				rc = 0;
+			} else {
+				ctrl->core_power = false;
 			}
 		}
 	}
-
-	return rc;
-
-error_ulps_exit:
-	mdss_dsi_link_clk_stop(ctrl);
-error_link_clk_start:
-	if ((clk_type & DSI_CORE_CLKS) &&
-		(mdss_dsi_core_power_ctrl(ctrl, !enable)))
-		pr_warn("%s: Failed to disable core power. rc=%d\n",
-			__func__, rc);
-error:
 	return rc;
 }
 
-static DEFINE_MUTEX(dsi_clk_lock); /* per system */
-
-bool __mdss_dsi_clk_enabled(struct mdss_dsi_ctrl_pdata *ctrl, u8 clk_type)
-{
-	bool core_enabled = true;
-	bool link_enabled = true;
-
-	mutex_lock(&dsi_clk_lock);
-	if (clk_type & DSI_CORE_CLKS)
-		core_enabled = ctrl->core_clk_cnt ? true : false;
-	if (clk_type & DSI_LINK_CLKS)
-		link_enabled = ctrl->link_clk_cnt ? true : false;
-	mutex_unlock(&dsi_clk_lock);
-
-	return core_enabled && link_enabled;
-}
-
-int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
-	u8 clk_type, int enable)
+int mdss_dsi_pre_clkon_cb(void *priv,
+			  enum mdss_dsi_clk_type clk_type,
+			  enum mdss_dsi_clk_state new_state)
 {
 	int rc = 0;
-	int link_changed = 0, core_changed = 0;
-	int m_link_changed = 0, m_core_changed = 0;
-	struct mdss_dsi_ctrl_pdata *mctrl = NULL;
+	struct mdss_dsi_ctrl_pdata *ctrl = priv;
+	struct mdss_panel_data *pdata = NULL;
+	struct dsi_shared_data *sdata;
+	int i;
 
 	if (!ctrl) {
-		pr_err("%s: Invalid arg\n", __func__);
+		pr_err("%s: invalid input\n", __func__);
 		return -EINVAL;
 	}
 
-	/*
-	 * In sync_wait_broadcast mode, we need to enable clocks
-	 * for the other controller as well when enabling clocks
-	 * for the trigger controller.
-	 *
-	 * If sync wait_broadcase mode is not enabled, but if split display
-	 * mode is enabled where both DSI controller's branch clocks are
-	 * sourced out of a single PLL, then we need to ensure that the
-	 * controller associated with that PLL also has it's clocks turned
-	 * on. This is required to make sure that if that controller's PLL/PHY
-	 * are clamped then they can be removed.
-	 */
-	if (mdss_dsi_sync_wait_trigger(ctrl)) {
-		mctrl = mdss_dsi_get_other_ctrl(ctrl);
-		if (!mctrl)
-			pr_warn("%s: Unable to get other control\n", __func__);
-	} else if (mdss_dsi_is_ctrl_clk_slave(ctrl)) {
-		mctrl = mdss_dsi_get_ctrl_clk_master();
-		if (!mctrl)
-			pr_warn("%s: Unable to get clk master control\n",
-				__func__);
-	}
+	if ((clk_type & MDSS_DSI_CORE_CLK) && (new_state == MDSS_DSI_CLK_ON) &&
+	    (ctrl->core_power == false)) {
+		sdata = ctrl->shared_data;
+		pdata = &ctrl->panel_data;
+		/*
+		 *              Enable DSI core power
+		 * 1.> PANEL_PM are controlled as part of
+		 *     panel_power_ctrl. Needed not be handled here.
+		 * 2.> CORE_PM are controlled by dsi clk manager.
+		 * 2.> PHY_PM and CTRL_PM need to be enabled/disabled
+		 *     only during unblank/blank. Their state should
+		 *     not be changed during static screen.
+		 */
+		pr_debug("%s: Enable DSI core power\n", __func__);
+		for (i = DSI_CORE_PM; i < DSI_MAX_PM; i++) {
+			if ((i != DSI_CORE_PM) &&
+			    (pdata->panel_info.blank_state !=
+				MDSS_PANEL_BLANK_BLANK) &&
+				!pdata->panel_info.cont_splash_enabled)
+				continue;
+			rc = msm_dss_enable_vreg(
+				sdata->power_data[i].vreg_config,
+				sdata->power_data[i].num_vreg, 1);
+			if (rc) {
+				pr_err("%s: failed to enable vregs for %s\n",
+					__func__,
+					__mdss_dsi_pm_name(i));
+			} else {
+				ctrl->core_power = true;
+			}
 
-	pr_debug("%s++: ndx=%d clk_type=%d core_clk_cnt=%d link_clk_cnt=%d\n",
-		__func__, ctrl->ndx, clk_type, ctrl->core_clk_cnt,
-		ctrl->link_clk_cnt);
-	pr_debug("%s++: mctrl=%s m_core_clk_cnt=%d m_link_clk_cnt=%d, enable=%d\n",
-		__func__, mctrl ? "yes" : "no",
-		mctrl ? mctrl->core_clk_cnt : -1,
-		mctrl ? mctrl->link_clk_cnt : -1, enable);
-
-	mutex_lock(&dsi_clk_lock);
-
-	if (clk_type & DSI_CORE_CLKS) {
-		core_changed = __mdss_dsi_update_clk_cnt(&ctrl->core_clk_cnt,
-			enable);
-		if (core_changed && mctrl)
-			m_core_changed = __mdss_dsi_update_clk_cnt(
-				&mctrl->core_clk_cnt, enable);
-	}
-
-	if (clk_type & DSI_LINK_CLKS) {
-		link_changed = __mdss_dsi_update_clk_cnt(&ctrl->link_clk_cnt,
-			enable);
-		if (link_changed && mctrl)
-			m_link_changed = __mdss_dsi_update_clk_cnt(
-				&mctrl->link_clk_cnt, enable);
-	}
-
-	if (!link_changed && !core_changed)
-		goto no_error; /* clk cnts updated, nothing else needed */
-
-	/*
-	 * If updating link clock, need to make sure that the core
-	 * clocks are enabled
-	 */
-	if (link_changed && (!core_changed && !ctrl->core_clk_cnt)) {
-		pr_err("%s: Trying to enable link clks w/o enabling core clks for ctrl%d",
-			__func__, ctrl->ndx);
-		goto error_mctrl_core_start;
-	}
-
-	if (m_link_changed && (!m_core_changed && !mctrl->core_clk_cnt)) {
-		pr_err("%s: Trying to enable link clks w/o enabling core clks for ctrl%d",
-			__func__, ctrl->ndx);
-		goto error_mctrl_core_start;
-	}
-
-	if (enable && m_core_changed) {
-		rc = mdss_dsi_clk_ctrl_sub(mctrl, DSI_CORE_CLKS, 1);
-		if (rc) {
-			pr_err("Failed to start mctrl core clocks rc=%d\n", rc);
-			goto error_mctrl_core_start;
 		}
 	}
-	if (enable && core_changed) {
-		rc = mdss_dsi_clk_ctrl_sub(ctrl, DSI_CORE_CLKS, 1);
-		if (rc) {
-			pr_err("Failed to start ctrl core clocks rc=%d\n", rc);
-			goto error_ctrl_core_start;
-		}
-	}
-
-	if (m_link_changed) {
-		rc = mdss_dsi_clk_ctrl_sub(mctrl, DSI_LINK_CLKS, enable);
-		if (rc) {
-			pr_err("Failed to %s mctrl clocks. rc=%d\n",
-			(enable ? "start" : "stop"), rc);
-			goto error_mctrl_link_change;
-		}
-	}
-	if (link_changed) {
-		rc = mdss_dsi_clk_ctrl_sub(ctrl, DSI_LINK_CLKS, enable);
-		if (rc) {
-			pr_err("Failed to %s ctrl clocks. rc=%d\n",
-			(enable ? "start" : "stop"), rc);
-			goto error_ctrl_link_change;
-		}
-	}
-
-	if (!enable && m_core_changed) {
-		rc = mdss_dsi_clk_ctrl_sub(mctrl, DSI_CORE_CLKS, 0);
-		if (rc) {
-			pr_err("Failed to stop mctrl core clocks rc=%d\n", rc);
-			goto error_mctrl_core_stop;
-		}
-	}
-	if (!enable && core_changed) {
-		rc = mdss_dsi_clk_ctrl_sub(ctrl, DSI_CORE_CLKS, 0);
-		if (rc) {
-			pr_err("Failed to stop ctrl core clocks\n rc=%d", rc);
-			goto error_ctrl_core_stop;
-		}
-	}
-
-	goto no_error;
-
-error_ctrl_core_stop:
-	if (m_core_changed)
-		mdss_dsi_clk_ctrl_sub(mctrl, DSI_CORE_CLKS, 1);
-error_mctrl_core_stop:
-	if (link_changed)
-		mdss_dsi_clk_ctrl_sub(ctrl, DSI_LINK_CLKS, enable ? 0 : 1);
-error_ctrl_link_change:
-	if (m_link_changed)
-		mdss_dsi_clk_ctrl_sub(mctrl, DSI_LINK_CLKS, enable ? 0 : 1);
-error_mctrl_link_change:
-	if (core_changed && enable)
-		mdss_dsi_clk_ctrl_sub(ctrl, DSI_CORE_CLKS, 0);
-error_ctrl_core_start:
-	if (m_core_changed && enable)
-		mdss_dsi_clk_ctrl_sub(mctrl, DSI_CORE_CLKS, 0);
-error_mctrl_core_start:
-	if (clk_type & DSI_CORE_CLKS) {
-		if (mctrl)
-			__mdss_dsi_update_clk_cnt(&mctrl->core_clk_cnt,
-				enable ? 0 : 1);
-		__mdss_dsi_update_clk_cnt(&ctrl->core_clk_cnt, enable ? 0 : 1);
-	}
-	if (clk_type & DSI_LINK_CLKS) {
-		if (mctrl)
-			__mdss_dsi_update_clk_cnt(&mctrl->link_clk_cnt,
-				enable ? 0 : 1);
-		__mdss_dsi_update_clk_cnt(&ctrl->link_clk_cnt, enable ? 0 : 1);
-	}
-
-no_error:
-	mutex_unlock(&dsi_clk_lock);
-	pr_debug("%s--: ndx=%d clk_type=%d core_clk_cnt=%d link_clk_cnt=%d changed=%d\n",
-		__func__, ctrl->ndx, clk_type, ctrl->core_clk_cnt,
-		ctrl->link_clk_cnt, link_changed && core_changed);
-	pr_debug("%s--: mctrl=%s m_core_clk_cnt=%d m_link_clk_cnt=%d, m_changed=%d, enable=%d\n",
-		__func__, mctrl ? "yes" : "no",
-		mctrl ? mctrl->core_clk_cnt : -1,
-		mctrl ? mctrl->link_clk_cnt : -1,
-		m_link_changed && m_core_changed, enable);
 
 	return rc;
 }

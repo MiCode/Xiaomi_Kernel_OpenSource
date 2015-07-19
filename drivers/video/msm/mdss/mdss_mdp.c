@@ -409,36 +409,74 @@ static int mdss_mdp_bus_scale_set_quota(u64 ab_quota_rt, u64 ab_quota_nrt,
 	return rc;
 }
 
-int mdss_update_reg_bus_vote(int usecase_ndx)
+struct reg_bus_client *mdss_reg_bus_vote_client_create()
 {
-	int changed = 0, ret = 0;
+	struct reg_bus_client *client;
+	static u32 id;
 
-	if (!mdss_res || !mdss_res->reg_bus_hdl)
+	client = kzalloc(sizeof(struct reg_bus_client), GFP_KERNEL);
+	if (!client)
+		return ERR_PTR(-ENOMEM);
+
+	mutex_lock(&mdss_res->reg_bus_lock);
+	client->usecase_ndx = VOTE_INDEX_DISABLE;
+	client->id = id;
+	pr_debug("bus vote client created:%p id :%d\n", client, id);
+	id++;
+	list_add(&client->list, &mdss_res->reg_bus_clist);
+	mutex_unlock(&mdss_res->reg_bus_lock);
+
+	return client;
+}
+
+void mdss_reg_bus_vote_client_destroy(struct reg_bus_client *client)
+{
+	if (!client) {
+		pr_err("reg bus vote: invalid client handle\n");
+	} else {
+		pr_debug("bus vote client destroyed:%p id:%u\n",
+			client, client->id);
+		mutex_lock(&mdss_res->reg_bus_lock);
+		list_del_init(&client->list);
+		mutex_unlock(&mdss_res->reg_bus_lock);
+		kfree(client);
+	}
+}
+
+int mdss_update_reg_bus_vote(struct reg_bus_client *bus_client, u32 usecase_ndx)
+{
+	int ret = 0;
+	bool changed = false;
+	u32 max_usecase_ndx = VOTE_INDEX_DISABLE;
+	struct reg_bus_client *client, *temp_client;
+
+	if (!mdss_res || !mdss_res->reg_bus_hdl || !bus_client)
 		return 0;
 
 	mutex_lock(&mdss_res->reg_bus_lock);
-	if (usecase_ndx) {
-		if (mdss_res->reg_bus_ref_cnt == 0)
-			changed++;
-		mdss_res->reg_bus_ref_cnt++;
-	} else {
-		if (mdss_res->reg_bus_ref_cnt) {
-			mdss_res->reg_bus_ref_cnt--;
-			if (mdss_res->reg_bus_ref_cnt == 0)
-				changed++;
-		} else {
-			pr_err("Can not be turned off\n");
-		}
+	bus_client->usecase_ndx = usecase_ndx;
+	list_for_each_entry_safe(client, temp_client, &mdss_res->reg_bus_clist,
+		list) {
+
+		if (client->usecase_ndx < VOTE_INDEX_MAX &&
+		    client->usecase_ndx > max_usecase_ndx)
+			max_usecase_ndx = client->usecase_ndx;
 	}
 
-	pr_debug("clk_cnt=%d changed=%d usecase_index=%d\n",
-		mdss_res->reg_bus_ref_cnt, changed, usecase_ndx);
+	if (mdss_res->reg_bus_usecase_ndx != max_usecase_ndx) {
+		changed = true;
+		mdss_res->reg_bus_usecase_ndx = max_usecase_ndx;
+	}
+
+	pr_debug("%pS: changed=%d current idx=%d request client id:%u idx:%d\n",
+		__builtin_return_address(0), changed, max_usecase_ndx,
+		bus_client->id, usecase_ndx);
+	MDSS_XLOG(changed, max_usecase_ndx, bus_client->id, usecase_ndx);
 	if (changed)
 		ret = msm_bus_scale_client_update_request(mdss_res->reg_bus_hdl,
-			usecase_ndx);
+			max_usecase_ndx);
 
 	mutex_unlock(&mdss_res->reg_bus_lock);
-
 	return ret;
 }
 
@@ -840,7 +878,8 @@ void mdss_mdp_clk_ctrl(int enable)
 	if (changed) {
 		if (enable) {
 			pm_runtime_get_sync(&mdata->pdev->dev);
-			mdss_update_reg_bus_vote(VOTE_INDEX_19_MHZ);
+			mdss_update_reg_bus_vote(mdata->reg_bus_clt,
+				VOTE_INDEX_19_MHZ);
 		}
 
 		mdata->clk_ena = enable;
@@ -852,7 +891,8 @@ void mdss_mdp_clk_ctrl(int enable)
 			mdss_mdp_clk_update(MDSS_CLK_MDP_VSYNC, enable);
 
 		if (!enable) {
-			mdss_update_reg_bus_vote(VOTE_INDEX_DISABLE);
+			mdss_update_reg_bus_vote(mdata->reg_bus_clt,
+				VOTE_INDEX_DISABLE);
 			pm_runtime_mark_last_busy(&mdata->pdev->dev);
 			pm_runtime_put_autosuspend(&mdata->pdev->dev);
 		}
@@ -894,7 +934,7 @@ static void __mdss_restore_sec_cfg(struct mdss_data_type *mdata)
 
 	pr_debug("restoring mdss secure config\n");
 
-	mdss_update_reg_bus_vote(VOTE_INDEX_19_MHZ);
+	mdss_update_reg_bus_vote(mdata->reg_bus_clt, VOTE_INDEX_19_MHZ);
 	mdss_mdp_clk_update(MDSS_CLK_AHB, 1);
 	mdss_mdp_clk_update(MDSS_CLK_AXI, 1);
 	mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 1);
@@ -905,7 +945,7 @@ static void __mdss_restore_sec_cfg(struct mdss_data_type *mdata)
 				ret, scm_ret);
 
 	mdss_mdp_clk_update(MDSS_CLK_AHB, 0);
-	mdss_update_reg_bus_vote(VOTE_INDEX_DISABLE);
+	mdss_update_reg_bus_vote(mdata->reg_bus_clt, VOTE_INDEX_DISABLE);
 	mdss_mdp_clk_update(MDSS_CLK_AXI, 0);
 	mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 0);
 }
@@ -973,6 +1013,12 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 		pr_debug("unable to get CX reg. rc=%d\n",
 					PTR_RET(mdata->vdd_cx));
 		mdata->vdd_cx = NULL;
+	}
+
+	mdata->reg_bus_clt = mdss_reg_bus_vote_client_create();
+	if (IS_ERR_OR_NULL(mdata->reg_bus_clt)) {
+		pr_err("bus client register failed\n");
+		return PTR_ERR(mdata->reg_bus_clt);
 	}
 
 	if (mdss_mdp_irq_clk_register(mdata, "bus_clk", MDSS_CLK_AXI) ||
@@ -1523,6 +1569,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	mutex_init(&mdata->reg_lock);
 	mutex_init(&mdata->reg_bus_lock);
 	mutex_init(&mdata->bus_lock);
+	INIT_LIST_HEAD(&mdata->reg_bus_clist);
 	atomic_set(&mdata->sd_client_count, 0);
 	atomic_set(&mdata->active_intf_cnt, 0);
 

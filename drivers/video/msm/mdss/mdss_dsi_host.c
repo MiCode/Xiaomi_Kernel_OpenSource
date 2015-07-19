@@ -146,26 +146,22 @@ void mdss_dsi_clk_req(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 	}
 
 	MDSS_XLOG(ctrl->ndx, enable, ctrl->mdp_busy, current->pid);
-	mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, enable);
+	mdss_dsi_clk_ctrl(ctrl, ctrl->mdp_clk_handle,
+		  MDSS_DSI_ALL_CLKS, enable);
 }
 
 void mdss_dsi_pll_relock(struct mdss_dsi_ctrl_pdata *ctrl)
 {
-	int i, cnt;
+	int rc;
 
 	/*
 	 * todo: this code does not work very well with dual
 	 * dsi use cases. Need to fix this eventually.
 	 */
-	cnt = ctrl->link_clk_cnt;
 
-	/* disable dsi clk */
-	for (i = 0; i < cnt; i++)
-		mdss_dsi_clk_ctrl(ctrl, DSI_LINK_CLKS, 0);
-
-	/* enable dsi clk */
-	for (i = 0; i < cnt; i++)
-		mdss_dsi_clk_ctrl(ctrl, DSI_LINK_CLKS, 1);
+	rc = mdss_dsi_clk_force_toggle(ctrl->dsi_clk_handle, MDSS_DSI_LINK_CLK);
+	if (rc)
+		pr_err("clock toggle failed, rc = %d\n", rc);
 }
 
 void mdss_dsi_enable_irq(struct mdss_dsi_ctrl_pdata *ctrl, u32 term)
@@ -265,9 +261,11 @@ void mdss_dsi_read_hw_revision(struct mdss_dsi_ctrl_pdata *ctrl)
 
 void mdss_dsi_get_hw_revision(struct mdss_dsi_ctrl_pdata *ctrl)
 {
-	mdss_dsi_clk_ctrl(ctrl, DSI_CORE_CLKS, 1);
+	mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle, MDSS_DSI_CORE_CLK,
+			  MDSS_DSI_CLK_ON);
 	ctrl->shared_data->hw_rev = MIPI_INP(ctrl->ctrl_base);
-	mdss_dsi_clk_ctrl(ctrl, DSI_CORE_CLKS, 0);
+	mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle, MDSS_DSI_CORE_CLK,
+			  MDSS_DSI_CLK_OFF);
 
 	pr_debug("%s: ndx=%d hw_rev=%x\n", __func__,
 				ctrl->ndx, ctrl->shared_data->hw_rev);
@@ -534,7 +532,8 @@ static void mdss_dsi_start_hs_clk_lane(struct mdss_dsi_ctrl_pdata *ctrl)
 	mdss_dsi_stop_hs_clk_lane(ctrl);
 
 	mutex_lock(&ctrl->clk_lane_mutex);
-	mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 1);
+	mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle, MDSS_DSI_ALL_CLKS,
+			  MDSS_DSI_CLK_ON);
 	if (ctrl->clk_lane_cnt) {
 		pr_err("%s: ndx=%d do-wait, cnt=%d\n",
 				__func__, ctrl->ndx, ctrl->clk_lane_cnt);
@@ -546,7 +545,8 @@ static void mdss_dsi_start_hs_clk_lane(struct mdss_dsi_ctrl_pdata *ctrl)
 	ctrl->clk_lane_cnt++;
 	pr_debug("%s: ndx=%d, set_hs, cnt=%d\n", __func__,
 				ctrl->ndx, ctrl->clk_lane_cnt);
-	mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 0);
+	mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle, MDSS_DSI_ALL_CLKS,
+			  MDSS_DSI_CLK_OFF);
 	mutex_unlock(&ctrl->clk_lane_mutex);
 }
 
@@ -564,7 +564,8 @@ static void mdss_dsi_stop_hs_clk_lane(struct mdss_dsi_ctrl_pdata *ctrl)
 	if (ctrl->clk_lane_cnt == 0)	/* stopped already */
 		goto release;
 
-	mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 1);
+	mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle, MDSS_DSI_ALL_CLKS,
+			  MDSS_DSI_CLK_ON);
 	/* fifo */
 	if (readl_poll_timeout(((ctrl->ctrl_base) + 0x000c),
 			   fifo,
@@ -594,7 +595,8 @@ release:
 	pr_debug("%s: ndx=%d, cnt=%d\n", __func__,
 			ctrl->ndx, ctrl->clk_lane_cnt);
 
-	mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 0);
+	mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle, MDSS_DSI_ALL_CLKS,
+			  MDSS_DSI_CLK_OFF);
 	mutex_unlock(&ctrl->clk_lane_mutex);
 }
 
@@ -999,7 +1001,8 @@ int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 
 	pr_debug("%s: Checking Register status\n", __func__);
 
-	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_ON);
 
 	if (ctrl_pdata->status_cmds.link_state == DSI_HS_MODE)
 		mdss_dsi_set_tx_power_mode(0, &ctrl_pdata->panel_data);
@@ -1020,7 +1023,8 @@ int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		pr_err("%s: Read status register returned error\n", __func__);
 	}
 
-	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_OFF);
 	pr_debug("%s: Read register done with ret: %d\n", __func__, ret);
 
 	mutex_unlock(&ctrl_pdata->cmd_mutex);
@@ -1217,7 +1221,8 @@ int mdss_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 
 	pr_debug("%s: Checking BTA status\n", __func__);
 
-	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_ON);
 	spin_lock_irqsave(&ctrl_pdata->mdp_lock, flag);
 	reinit_completion(&ctrl_pdata->bta_comp);
 	mdss_dsi_enable_irq(ctrl_pdata, DSI_BTA_TERM);
@@ -1232,7 +1237,8 @@ int mdss_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		pr_err("%s: DSI BTA error: %i\n", __func__, ret);
 	}
 
-	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_OFF);
 	pr_debug("%s: BTA done with ret: %d\n", __func__, ret);
 
 	mutex_unlock(&ctrl_pdata->cmd_mutex);
@@ -1973,7 +1979,8 @@ static int mdss_dsi_mdp_busy_tout_check(struct mdss_dsi_ctrl_pdata *ctrl)
 	 * 2) DSI_INTR_CMD_MDP_DONE set and cleared (isr fired)
 	 * but event_thread not wakeup
 	 */
-	mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 1);
+	mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle, MDSS_DSI_ALL_CLKS,
+			  MDSS_DSI_CLK_ON);
 	spin_lock_irqsave(&ctrl->mdp_lock, flag);
 
 	isr = MIPI_INP(ctrl->ctrl_base + 0x0110);
@@ -1999,7 +2006,8 @@ static int mdss_dsi_mdp_busy_tout_check(struct mdss_dsi_ctrl_pdata *ctrl)
 
 	complete_all(&ctrl->mdp_comp);
 
-	mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 0);
+	mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle, MDSS_DSI_ALL_CLKS,
+			  MDSS_DSI_CLK_OFF);
 
 	return tout;
 }
@@ -2161,7 +2169,8 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 		}
 	}
 
-	mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 1);
+	mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle, MDSS_DSI_ALL_CLKS,
+			  MDSS_DSI_CLK_ON);
 
 	if (req->flags & CMD_REQ_HS_MODE)
 		mdss_dsi_set_tx_power_mode(0, &ctrl->panel_data);
@@ -2177,7 +2186,8 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 	if (ctrl->mdss_util->iommu_ctrl)
 		ctrl->mdss_util->iommu_ctrl(0);
 
-	mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 0);
+	mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle, MDSS_DSI_ALL_CLKS,
+			  MDSS_DSI_CLK_OFF);
 	if (ctrl->mdss_util->bus_scale_set_quota)
 		ctrl->mdss_util->bus_scale_set_quota(MDSS_DSI_RT, 0, 0);
 	if (ctrl->mdss_util->bus_bandwidth_ctrl)
@@ -2272,11 +2282,15 @@ static int dsi_event_thread(void *data)
 			if (ctrl->recovery) {
 				pr_debug("%s: Handling underflow event\n",
 							__func__);
-				mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 1);
+				mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle,
+						  MDSS_DSI_ALL_CLKS,
+						  MDSS_DSI_CLK_ON);
 				mdss_dsi_sw_reset(ctrl, true);
 				ctrl->recovery->fxn(ctrl->recovery->data,
 					MDP_INTF_DSI_CMD_FIFO_UNDERFLOW);
-				mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 0);
+				mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle,
+						  MDSS_DSI_ALL_CLKS,
+						  MDSS_DSI_CLK_OFF);
 			}
 			mutex_unlock(&ctrl->mutex);
 			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
@@ -2309,21 +2323,29 @@ static int dsi_event_thread(void *data)
 						& DSI_CLK_LANE_STOP_STATE)) {
 				pr_debug("%s: Handling overflow event.\n",
 								__func__);
-				mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 1);
+				mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle,
+						  MDSS_DSI_ALL_CLKS,
+						  MDSS_DSI_CLK_ON);
 				mdss_dsi_ctl_phy_reset(ctrl);
 				mdss_dsi_err_intr_ctrl(ctrl,
 						DSI_INTR_ERROR_MASK, 1);
-				mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 0);
+				mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle,
+						  MDSS_DSI_ALL_CLKS,
+						  MDSS_DSI_CLK_OFF);
 			} else if (ctrl->recovery
 					&& (ctrl->shared_data->hw_rev
 					    == MDSS_DSI_HW_REV_103)) {
 				pr_debug("%s: Handle overflow->Rev_103\n",
 								__func__);
-				mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 1);
+				mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle,
+						  MDSS_DSI_ALL_CLKS,
+						  MDSS_DSI_CLK_ON);
 				mdss_dsi_ctl_phy_reset(ctrl);
 				mdss_dsi_err_intr_ctrl(ctrl,
 						DSI_INTR_ERROR_MASK, 1);
-				mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 0);
+				mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle,
+						  MDSS_DSI_ALL_CLKS,
+						  MDSS_DSI_CLK_OFF);
 			}
 			mutex_unlock(&dsi_mtx);
 		}
@@ -2338,9 +2360,11 @@ static int dsi_event_thread(void *data)
 			spin_unlock_irqrestore(&ctrl->mdp_lock, flag);
 
 			/* enable dsi error interrupt */
-			mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 1);
+			mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle,
+					  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_ON);
 			mdss_dsi_err_intr_ctrl(ctrl, DSI_INTR_ERROR_MASK, 1);
-			mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 0);
+			mdss_dsi_clk_ctrl(ctrl, ctrl->dsi_clk_handle,
+					  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_OFF);
 		}
 
 		if (todo & DSI_EV_STOP_HS_CLK_LANE)
