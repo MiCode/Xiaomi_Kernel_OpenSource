@@ -329,10 +329,15 @@ static inline void _pop_cmdbatch(struct adreno_context *drawctxt)
 		ADRENO_CONTEXT_CMDQUEUE_SIZE);
 	drawctxt->queued--;
 }
-
-static struct kgsl_cmdbatch *_get_cmdbatch(struct adreno_context *drawctxt)
+/**
+ * Removes all expired marker and sync cmdbatches from
+ * the context queue when marker command and dependent
+ * timestamp are retired. This function is recursive.
+ * returns cmdbatch if context has command, NULL otherwise.
+ */
+static struct kgsl_cmdbatch *_expire_markers(struct adreno_context *drawctxt)
 {
-	struct kgsl_cmdbatch *cmdbatch = NULL;
+	struct kgsl_cmdbatch *cmdbatch;
 	bool pending = false;
 
 	if (drawctxt->cmdqueue_head == drawctxt->cmdqueue_tail)
@@ -340,28 +345,66 @@ static struct kgsl_cmdbatch *_get_cmdbatch(struct adreno_context *drawctxt)
 
 	cmdbatch = drawctxt->cmdqueue[drawctxt->cmdqueue_head];
 
+	if (cmdbatch == NULL)
+		return NULL;
+
 	/* Check to see if this is a marker we can skip over */
-	if (cmdbatch->flags & KGSL_CMDBATCH_MARKER) {
-		if (_marker_expired(cmdbatch)) {
-			_pop_cmdbatch(drawctxt);
-			_retire_marker(cmdbatch);
-
-			/* Get the next thing in the queue */
-			return _get_cmdbatch(drawctxt);
-		}
-
-		/*
-		 * If the marker isn't expired but the SKIP bit is set
-		 * then there are real commands following this one in
-		 * the queue.  This means that we need to dispatch the
-		 * command so that we can keep the timestamp accounting
-		 * correct.  If skip isn't set then we block this queue
-		 * until the dependent timestamp expires
-		 */
-
-		if (!test_bit(CMDBATCH_FLAG_SKIP, &cmdbatch->priv))
-			pending = true;
+	if ((cmdbatch->flags & KGSL_CMDBATCH_MARKER) &&
+			_marker_expired(cmdbatch)) {
+		_pop_cmdbatch(drawctxt);
+		_retire_marker(cmdbatch);
+		return _expire_markers(drawctxt);
 	}
+
+	if (cmdbatch->flags & KGSL_CMDBATCH_SYNC) {
+		/*
+		 * We may have cmdbatch timer running, which also uses same
+		 * lock, take a lock with software interrupt disabled (bh) to
+		 * avoid spin lock recursion.
+		 */
+		spin_lock_bh(&cmdbatch->lock);
+		if (!list_empty(&cmdbatch->synclist))
+			pending = true;
+		spin_unlock_bh(&cmdbatch->lock);
+
+		if (!pending) {
+			_pop_cmdbatch(drawctxt);
+			kgsl_cmdbatch_destroy(cmdbatch);
+			return _expire_markers(drawctxt);
+		}
+	}
+
+	return cmdbatch;
+}
+
+static void expire_markers(struct adreno_context *drawctxt)
+{
+	spin_lock(&drawctxt->lock);
+	_expire_markers(drawctxt);
+	spin_unlock(&drawctxt->lock);
+}
+
+static struct kgsl_cmdbatch *_get_cmdbatch(struct adreno_context *drawctxt)
+{
+	struct kgsl_cmdbatch *cmdbatch;
+	bool pending = false;
+
+	cmdbatch = _expire_markers(drawctxt);
+
+	if (cmdbatch == NULL)
+		return NULL;
+
+	/*
+	 * If the marker isn't expired but the SKIP bit is set
+	 * then there are real commands following this one in
+	 * the queue.  This means that we need to dispatch the
+	 * command so that we can keep the timestamp accounting
+	 * correct.  If skip isn't set then we block this queue
+	 * until the dependent timestamp expires
+	 */
+	if ((cmdbatch->flags & KGSL_CMDBATCH_MARKER) &&
+			(!test_bit(CMDBATCH_FLAG_SKIP, &cmdbatch->priv)))
+		pending = true;
 
 	rcu_read_lock();
 	if (!list_empty(&cmdbatch->synclist))
@@ -639,8 +682,10 @@ static int dispatcher_context_sendcmds(struct adreno_device *adreno_dev,
 	int inflight = _cmdqueue_inflight(dispatch_q);
 	unsigned int timestamp;
 
-	if (dispatch_q->inflight >= inflight)
+	if (dispatch_q->inflight >= inflight) {
+		expire_markers(drawctxt);
 		return -EBUSY;
+	}
 
 	/*
 	 * Each context can send a specific number of command batches per cycle
