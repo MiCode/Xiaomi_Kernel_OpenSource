@@ -315,6 +315,7 @@ struct mdss_data_type {
 	u32 nrt_axi_port_cnt;
 	u32 bus_channels;
 	u32 curr_bw_uc_idx;
+	u32 ao_bw_uc_idx; /* active only idx */
 	struct msm_bus_scale_pdata *bus_scale_table;
 	u32 max_bw_low;
 	u32 max_bw_high;

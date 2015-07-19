@@ -485,6 +485,9 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 		 *	cancel as well.
 		 */
 
+		/* update the active only vote */
+		mdata->ao_bw_uc_idx = mdata->curr_bw_uc_idx;
+
 		/* Cancel GATE Work Item */
 		if (cancel_work_sync(&ctx->gate_clk_work)) {
 			pr_debug("%s gate work canceled\n", __func__);
