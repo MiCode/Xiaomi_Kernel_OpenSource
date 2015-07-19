@@ -36,6 +36,7 @@ struct pil_priv;
  * @unmap_fw_mem: Custom function used to undo mapping by map_fw_mem.
  * This defaults to iounmap if not specified.
  * @shutdown_fail: Set if PIL op for shutting down subsystem fails.
+ * @subsys_vmid: memprot id for the subsystem.
  */
 struct pil_desc {
 	const char *name;
@@ -53,6 +54,7 @@ struct pil_desc {
 	void (*unmap_fw_mem)(void *virt, size_t size, void *data);
 	void *map_data;
 	bool shutdown_fail;
+	u32 subsys_vmid;
 };
 
 /**
@@ -100,6 +102,14 @@ extern void pil_free_memory(struct pil_desc *desc);
 extern void pil_desc_release(struct pil_desc *desc);
 extern phys_addr_t pil_get_entry_addr(struct pil_desc *desc);
 extern int pil_do_ramdump(struct pil_desc *desc, void *ramdump_dev);
+extern int pil_assign_mem_to_subsys(struct pil_desc *desc, phys_addr_t addr,
+						size_t size);
+extern int pil_assign_mem_to_linux(struct pil_desc *desc, phys_addr_t addr,
+						size_t size);
+extern int pil_assign_mem_to_subsys_and_linux(struct pil_desc *desc,
+						phys_addr_t addr, size_t size);
+extern int pil_reclaim_mem(struct pil_desc *desc, phys_addr_t addr, size_t size,
+						int VMid);
 #else
 static inline int pil_desc_init(struct pil_desc *desc) { return 0; }
 static inline int pil_boot(struct pil_desc *desc) { return 0; }
@@ -111,6 +121,26 @@ static inline phys_addr_t pil_get_entry_addr(struct pil_desc *desc)
 	return 0;
 }
 static inline int pil_do_ramdump(struct pil_desc *desc, void *ramdump_dev)
+{
+	return 0;
+}
+static inline int pil_assign_mem_to_subsys(struct pil_desc *desc,
+						phys_addr_t addr, size_t size)
+{
+	return 0;
+}
+static inline int pil_assign_mem_to_linux(struct pil_desc *desc,
+						phys_addr_t addr, size_t size)
+{
+	return 0;
+}
+static inline int pil_assign_mem_to_subsys_and_linux(struct pil_desc *desc,
+						phys_addr_t addr, size_t size)
+{
+	return 0;
+}
+static inline int pil_reclaim_mem(struct pil_desc *desc, phys_addr_t addr,
+					size_t size, int VMid)
 {
 	return 0;
 }

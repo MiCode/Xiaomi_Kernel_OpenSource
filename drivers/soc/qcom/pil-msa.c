@@ -24,6 +24,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/dma-mapping.h>
 #include <soc/qcom/scm.h>
+#include <soc/qcom/secure_buffer.h>
 
 #include "peripheral-loader.h"
 #include "pil-q6v5.h"
@@ -322,12 +323,19 @@ int __pil_mss_deinit_image(struct pil_desc *pil, bool err_path)
 	/* In case of any failure where reclaim MBA memory
 	 * could not happen, free the memory here */
 	if (drv->q6->mba_virt) {
+		if (pil->subsys_vmid > 0)
+			pil_assign_mem_to_linux(pil, drv->q6->mba_phys,
+						drv->q6->mba_size);
 		dma_free_attrs(&drv->mba_mem_dev, drv->q6->mba_size,
 				drv->q6->mba_virt, drv->q6->mba_phys,
 				&drv->attrs_dma);
 		drv->q6->mba_virt = NULL;
 	}
+
 	if (drv->q6->dp_virt) {
+		if (pil->subsys_vmid > 0)
+			pil_assign_mem_to_linux(pil, drv->q6->dp_phys,
+						drv->q6->dp_size);
 		dma_free_attrs(&drv->mba_mem_dev, drv->q6->dp_size,
 				drv->q6->dp_virt, drv->q6->dp_phys,
 				&drv->attrs_dma);
@@ -480,6 +488,7 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	dma_addr_t mba_phys, mba_phys_end;
 	int ret, count;
 	const u8 *data;
+	bool mba_mem_unprotect = false;
 
 	fw_name_p = drv->non_elf_image ? fw_name_legacy : fw_name;
 	/* Load and authenticate mba image */
@@ -520,6 +529,16 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	memcpy(mba_virt, data, count);
 	wmb();
 
+	if (pil->subsys_vmid > 0) {
+		ret = pil_assign_mem_to_subsys(pil, drv->mba_phys,
+							drv->mba_size);
+		if (ret) {
+			pr_err("scm_call to unprotect MBA mem failed\n");
+			goto err_mba_data;
+		}
+		mba_mem_unprotect = true;
+	}
+
 	/* Load modem debug policy */
 	ret = request_firmware(&dp_fw, dp_name, pil->dev);
 	if (ret) {
@@ -549,6 +568,15 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 		memcpy(mba_virt, dp_fw->data, dp_fw->size);
 		/* Ensure memcpy is done before powering up modem */
 		wmb();
+
+		if (pil->subsys_vmid > 0) {
+			ret = pil_assign_mem_to_subsys(pil, drv->dp_phys,
+							drv->dp_size);
+			if (ret) {
+				pr_err("scm_call to unprotect DP mem failed\n");
+				goto err_dp_scm;
+			}
+		}
 	}
 
 	ret = pil_mss_reset(pil);
@@ -564,17 +592,23 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 	return 0;
 
 err_mss_reset:
-	if (drv->dp_virt)
-		dma_free_attrs(&md->mba_mem_dev,  dp_fw->size, drv->dp_virt,
+	if (drv->dp_virt && pil->subsys_vmid > 0)
+		pil_assign_mem_to_linux(pil, drv->dp_phys, drv->dp_size);
+err_dp_scm:
+	if (drv->dp_virt) {
+		dma_free_attrs(&md->mba_mem_dev, dp_fw->size, drv->dp_virt,
 				drv->dp_phys, &md->attrs_dma);
+		drv->dp_virt = NULL;
+	}
 err_invalid_fw:
 	if (dp_fw)
 		release_firmware(dp_fw);
 err_mba_data:
+	if (mba_mem_unprotect && pil->subsys_vmid > 0)
+		pil_assign_mem_to_linux(pil, drv->mba_phys, drv->mba_size);
 	dma_free_attrs(&md->mba_mem_dev, drv->mba_size, drv->mba_virt,
 				drv->mba_phys, &md->attrs_dma);
 	drv->mba_virt = NULL;
-	drv->dp_virt = NULL;
 err_dma_alloc:
 	release_firmware(fw);
 	return ret;
@@ -605,6 +639,17 @@ static int pil_msa_auth_modem_mdt(struct pil_desc *pil, const u8 *metadata,
 	/* wmb() ensures copy completes prior to starting authentication. */
 	wmb();
 
+	if (pil->subsys_vmid > 0) {
+		ret = pil_assign_mem_to_subsys(pil, mdata_phys,
+							ALIGN(size, SZ_4K));
+		if (ret) {
+			pr_err("scm_call to unprotect modem metadata mem failed\n");
+			dma_free_attrs(&drv->mba_mem_dev, size, mdata_virt,
+							mdata_phys, &attrs);
+			goto fail;
+		}
+	}
+
 	/* Initialize length counter to 0 */
 	writel_relaxed(0, drv->rmb_base + RMB_PMI_CODE_LENGTH);
 
@@ -622,6 +667,9 @@ static int pil_msa_auth_modem_mdt(struct pil_desc *pil, const u8 *metadata,
 		ret = -EINVAL;
 	}
 
+	if (pil->subsys_vmid > 0)
+		pil_assign_mem_to_linux(pil, mdata_phys, ALIGN(size, SZ_4K));
+
 	dma_free_attrs(&drv->mba_mem_dev, size, mdata_virt, mdata_phys, &attrs);
 
 	if (!ret)
@@ -631,14 +679,21 @@ fail:
 	modem_log_rmb_regs(drv->rmb_base);
 	if (drv->q6) {
 		pil_mss_shutdown(pil);
+		if (pil->subsys_vmid > 0)
+			pil_assign_mem_to_linux(pil, drv->q6->mba_phys,
+						drv->q6->mba_size);
 		dma_free_attrs(&drv->mba_mem_dev, drv->q6->mba_size,
 				drv->q6->mba_virt, drv->q6->mba_phys,
 				&drv->attrs_dma);
 		drv->q6->mba_virt = NULL;
+
 		if (drv->q6->dp_virt) {
+			if (pil->subsys_vmid > 0)
+				pil_assign_mem_to_linux(pil, drv->q6->dp_phys,
+						drv->q6->dp_size);
 			dma_free_attrs(&drv->mba_mem_dev, drv->q6->dp_size,
-				drv->q6->dp_virt, drv->q6->dp_phys,
-				&drv->attrs_dma);
+					drv->q6->dp_virt, drv->q6->dp_phys,
+					&drv->attrs_dma);
 			drv->q6->dp_virt = NULL;
 		}
 	}
@@ -704,14 +759,21 @@ static int pil_msa_mba_auth(struct pil_desc *pil)
 	if (drv->q6) {
 		if (drv->q6->mba_virt) {
 			/* Reclaim MBA memory. */
+			if (pil->subsys_vmid > 0)
+				pil_assign_mem_to_linux(pil, drv->q6->mba_phys,
+					drv->q6->mba_size);
 			dma_free_attrs(&drv->mba_mem_dev, drv->q6->mba_size,
 					drv->q6->mba_virt, drv->q6->mba_phys,
 					&drv->attrs_dma);
+
 			drv->q6->mba_virt = NULL;
 		}
 
 		if (drv->q6->dp_virt) {
 			/* Reclaim Modem DP memory. */
+			if (pil->subsys_vmid > 0)
+				pil_assign_mem_to_linux(pil, drv->q6->dp_phys,
+					drv->q6->dp_size);
 			dma_free_attrs(&drv->mba_mem_dev, drv->q6->dp_size,
 					drv->q6->dp_virt, drv->q6->dp_phys,
 					&drv->attrs_dma);
