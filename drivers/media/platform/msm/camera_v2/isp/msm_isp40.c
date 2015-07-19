@@ -27,6 +27,8 @@
 #define VFE40_BURST_LEN 1
 #define VFE40_BURST_LEN_8916_VERSION 2
 #define VFE40_BURST_LEN_8952_VERSION 3
+#define VFE40_WM_BIT_SHIFT 4
+#define VFE40_WM_BIT_SHIFT_8976_VERSION 3
 #define VFE40_STATS_BURST_LEN 1
 #define VFE40_STATS_BURST_LEN_8916_VERSION 2
 #define VFE40_FETCH_BURST_LEN 3
@@ -1368,16 +1370,22 @@ static void msm_vfe40_axi_cfg_wm_reg(
 	uint8_t plane_idx)
 {
 	uint32_t val;
-	uint32_t burst_len;
+	uint32_t burst_len, wm_bit_shift = VFE40_WM_BIT_SHIFT_8976_VERSION;
 	uint32_t wm_base = VFE40_WM_BASE(stream_info->wm[plane_idx]);
 
 	if (vfe_dev->vfe_hw_version == VFE40_8916_VERSION ||
-	    vfe_dev->vfe_hw_version == VFE40_8939_VERSION)
+	    vfe_dev->vfe_hw_version == VFE40_8939_VERSION) {
 		burst_len = VFE40_BURST_LEN_8916_VERSION;
-	else if (vfe_dev->vfe_hw_version == VFE40_8952_VERSION)
+		wm_bit_shift = VFE40_WM_BIT_SHIFT;
+	} else if (vfe_dev->vfe_hw_version == VFE40_8952_VERSION) {
 		burst_len = VFE40_BURST_LEN_8952_VERSION;
-	else
+		wm_bit_shift = VFE40_WM_BIT_SHIFT;
+	} else if (vfe_dev->vfe_hw_version == VFE40_8976_VERSION) {
+		burst_len = VFE40_BURST_LEN_8952_VERSION;
+		wm_bit_shift = VFE40_WM_BIT_SHIFT_8976_VERSION;
+	} else {
 		burst_len = VFE40_BURST_LEN;
+	}
 
 	if (!stream_info->frame_based) {
 		msm_camera_io_w(0x0, vfe_dev->vfe_base + wm_base);
@@ -1397,7 +1405,7 @@ static void msm_vfe40_axi_cfg_wm_reg(
 			stream_info->plane_cfg[
 				plane_idx].output_stride) << 16 |
 			(stream_info->plane_cfg[
-				plane_idx].output_height - 1) << 4 |
+				plane_idx].output_height - 1) << wm_bit_shift |
 			burst_len;
 		msm_camera_io_w(val, vfe_dev->vfe_base + wm_base + 0x18);
 	} else {
@@ -1875,7 +1883,8 @@ static void msm_vfe40_stats_cfg_ub(struct vfe_device *vfe_dev)
 	    vfe_dev->vfe_hw_version == VFE40_8939_VERSION) {
 		stats_burst_len = VFE40_STATS_BURST_LEN_8916_VERSION;
 		ub_offset = VFE40_UB_SIZE_8916;
-	} else if (vfe_dev->vfe_hw_version == VFE40_8952_VERSION) {
+	} else if (vfe_dev->vfe_hw_version == VFE40_8952_VERSION ||
+	    vfe_dev->vfe_hw_version == VFE40_8976_VERSION) {
 		stats_burst_len = VFE40_STATS_BURST_LEN_8916_VERSION;
 		ub_offset = VFE40_UB_SIZE_8952;
 	} else {
