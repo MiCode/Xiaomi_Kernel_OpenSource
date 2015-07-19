@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,16 +45,17 @@
 #define DIAG_MHI_NAME_SZ	24
 
 struct diag_mhi_buf_tbl_t {
-	unsigned char *buf;
-	int len;
 	struct list_head link;
+	unsigned char *buf;
+	dma_addr_t dma_addr;
+	int len;
 };
 
 struct diag_mhi_ch_t {
 	uint8_t type;
 	u32 channel;
 	enum MHI_CLIENT_CHANNEL chan;
-	uint8_t opened;
+	atomic_t opened;
 	spinlock_t lock;
 	struct mhi_client_info_t client_info;
 	struct mhi_client_handle *hdl;
