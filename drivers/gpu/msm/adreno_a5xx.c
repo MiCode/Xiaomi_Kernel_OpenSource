@@ -1384,8 +1384,8 @@ static void a5xx_lm_init(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A5XX_GPMU_BASE_LEAKAGE,
 		gfx_base_leakage(adreno_dev));
 
-	/* default of 6A */
-	kgsl_regwrite(device, A5XX_GPMU_GPMU_PWR_THRESHOLD, 0x80001000);
+	/* Enable the power threshold and set it to 6000m */
+	kgsl_regwrite(device, A5XX_GPMU_GPMU_PWR_THRESHOLD, 0x80000000 | 6000);
 
 	kgsl_regwrite(device, A5XX_GPMU_BEC_ENABLE, 0x10001FFF);
 	kgsl_regwrite(device, A5XX_GDPM_CONFIG1, 0x00201FF1);
