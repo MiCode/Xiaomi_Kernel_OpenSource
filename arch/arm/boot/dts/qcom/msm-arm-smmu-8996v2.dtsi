@@ -199,6 +199,7 @@
 	status = "ok";
 	qcom,register-save;
 	qcom,skip-init;
+	qcom,dynamic;
 	#global-interrupts = <1>;
 	interrupts = <0 334 0>, <0 329 0>, <0 330 0>,
 		<0 331 0>, <0 332 0>;
