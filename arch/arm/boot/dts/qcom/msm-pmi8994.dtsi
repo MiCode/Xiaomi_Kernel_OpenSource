@@ -629,7 +629,6 @@
 			qcom,headroom-sense-ch1-enabled;
 			qcom,power-detect-enabled;
 			qcom,otst2-module-enabled;
-			qcom,duration = <1280>;
 
 			pmi8994_flash0: qcom,flash_0 {
 				label = "flash";
@@ -637,6 +636,7 @@
 				qcom,default-led-trigger =
 						"flash0_trigger";
 				qcom,id = <0>;
+				qcom,duration = <1280>;
 				qcom,current = <625>;
 				qcom,max-current = <1000>;
 			};
@@ -647,6 +647,7 @@
 				qcom,default-led-trigger =
 						"flash1_trigger";
 				qcom,id = <1>;
+				qcom,duration = <1280>;
 				qcom,current = <625>;
 				qcom,max-current = <1000>;
 			};
@@ -683,6 +684,7 @@
 				qcom,id = <2>;
 				qcom,current = <625>;
 				qcom,max-current = <1000>;
+				qcom,duration = <1280>;
 				boost-supply = <&pmi8994_boostbypass>;
 				boost-voltage-max = <3600000>;
 			};
