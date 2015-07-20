@@ -498,6 +498,9 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 			if (strcmp(ss_leaf_entry->ssr_name, "rpm")) {
 				subsystem_restart(ss_leaf_entry->ssr_name);
 				ss_leaf_entry->restarted = true;
+			} else {
+				panic("%s: Could not queue intent for RPM!\n",
+						__func__);
 			}
 			atomic_dec(&responses_remaining);
 			continue;
