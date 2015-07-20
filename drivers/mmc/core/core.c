@@ -346,7 +346,7 @@ static int mmc_devfreq_get_dev_status(struct device *dev,
 	return 0;
 }
 
-static bool mmc_is_vaild_state_for_clk_scaling(struct mmc_host *host)
+static bool mmc_is_valid_state_for_clk_scaling(struct mmc_host *host)
 {
 	struct mmc_card *card = host->card;
 	u32 status;
@@ -422,6 +422,9 @@ int mmc_clk_update_freq(struct mmc_host *host,
 			host->card->clk_scaling_lowest);
 	}
 
+	if (freq == host->clk_scaling.curr_freq)
+		goto out;
+
 	if (host->ops->notify_load) {
 		err = host->ops->notify_load(host, state);
 		if (err) {
@@ -431,36 +434,36 @@ int mmc_clk_update_freq(struct mmc_host *host,
 		}
 	}
 
-	if (freq != host->clk_scaling.curr_freq) {
-		if (cmdq_mode) {
-			err = mmc_cmdq_halt_on_empty_queue(host);
-			if (err) {
-				pr_err("%s: %s: failed halting queue (%d)\n",
-					mmc_hostname(host), __func__, err);
-				goto error;
-			}
-		}
-
-		if (!mmc_is_vaild_state_for_clk_scaling(host)) {
-			pr_debug("%s: invalid state for clock scaling - skipping",
-				mmc_hostname(host));
-			goto error;
-		}
-
-		err = host->bus_ops->change_bus_speed(host, &freq);
-		if (!err)
-			host->clk_scaling.curr_freq = freq;
-		else
-			pr_err("%s: %s: failed (%d) at freq=%lu\n",
-				mmc_hostname(host), __func__, err, freq);
-
-		if (cmdq_mode) {
-			if (mmc_cmdq_halt(host, false))
-				pr_err("%s: %s: cmdq unhalt failed\n",
-				mmc_hostname(host), __func__);
+	if (cmdq_mode) {
+		err = mmc_cmdq_halt_on_empty_queue(host);
+		if (err) {
+			pr_err("%s: %s: failed halting queue (%d)\n",
+				mmc_hostname(host), __func__, err);
+			goto halt_failed;
 		}
 	}
-error:
+
+	if (!mmc_is_valid_state_for_clk_scaling(host)) {
+		pr_debug("%s: invalid state for clock scaling - skipping",
+			mmc_hostname(host));
+		goto invalid_state;
+	}
+
+	err = host->bus_ops->change_bus_speed(host, &freq);
+	if (!err)
+		host->clk_scaling.curr_freq = freq;
+	else
+		pr_err("%s: %s: failed (%d) at freq=%lu\n",
+			mmc_hostname(host), __func__, err, freq);
+
+invalid_state:
+	if (cmdq_mode) {
+		if (mmc_cmdq_halt(host, false))
+			pr_err("%s: %s: cmdq unhalt failed\n",
+			mmc_hostname(host), __func__);
+	}
+
+halt_failed:
 	if (err) {
 		/* restore previous state */
 		if (host->ops->notify_load)
