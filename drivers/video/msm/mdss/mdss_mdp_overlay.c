@@ -4802,6 +4802,17 @@ static int mdss_mdp_update_panel_info(struct msm_fb_data_type *mfd,
 	return 0;
 }
 
+int mdss_mdp_input_event_handler(struct msm_fb_data_type *mfd)
+{
+	int rc = 0;
+	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
+
+	if (ctl->ops.early_wake_up_fnc)
+		rc = ctl->ops.early_wake_up_fnc(ctl);
+
+	return rc;
+}
+
 int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 {
 	struct device *dev = mfd->fbi->dev;
@@ -4841,6 +4852,7 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mdp5_interface->get_sync_fnc = mdss_mdp_rotator_sync_pt_get;
 	mdp5_interface->splash_init_fnc = mdss_mdp_splash_init;
 	mdp5_interface->configure_panel = mdss_mdp_update_panel_info;
+	mdp5_interface->input_event_handler = mdss_mdp_input_event_handler;
 
 	if (mfd->panel_info->type == WRITEBACK_PANEL) {
 		mdp5_interface->atomic_validate =
