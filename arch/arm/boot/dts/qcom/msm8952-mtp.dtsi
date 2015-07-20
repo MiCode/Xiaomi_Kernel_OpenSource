@@ -219,6 +219,11 @@
 	};
 
 	qcom,pmi8950@3 {
+		qcom,leds@d800 {
+			qcom,cons-sync-write-delay-us = <1000>;
+			qcom,fs-curr-ua = <30000>;
+		};
+
 		qcom,leds@d300 {
 			compatible = "qcom,qpnp-flash-led";
 			status = "disabled";
