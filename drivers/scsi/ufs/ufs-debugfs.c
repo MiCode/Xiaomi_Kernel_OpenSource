@@ -1217,11 +1217,11 @@ static int ufsdbg_config_pwr_mode(struct ufs_hba *hba,
 	int ret;
 
 	pm_runtime_get_sync(hba->dev);
-	scsi_block_requests(hba->host);
+	ufshcd_scsi_block_requests(hba);
 	ret = ufshcd_wait_for_doorbell_clr(hba, DOORBELL_CLR_TOUT_US);
 	if (!ret)
 		ret = ufshcd_change_power_mode(hba, desired_pwr_mode);
-	scsi_unblock_requests(hba->host);
+	ufshcd_scsi_unblock_requests(hba);
 	pm_runtime_put_sync(hba->dev);
 
 	return ret;
@@ -1312,7 +1312,7 @@ static int ufsdbg_dme_read(void *data, u64 *attr_val, bool peer)
 	attr_id = peer ? hba->debugfs_files.dme_peer_attr_id :
 			 hba->debugfs_files.dme_local_attr_id;
 	pm_runtime_get_sync(hba->dev);
-	scsi_block_requests(hba->host);
+	ufshcd_scsi_block_requests(hba);
 	ret = ufshcd_wait_for_doorbell_clr(hba, DOORBELL_CLR_TOUT_US);
 	if (!ret) {
 		if ((attr_id >= MPHY_RX_ATTR_ADDR_START)
@@ -1324,7 +1324,7 @@ static int ufsdbg_dme_read(void *data, u64 *attr_val, bool peer)
 
 		ret = read_func(hba, attr_sel, &read_val);
 	}
-	scsi_unblock_requests(hba->host);
+	ufshcd_scsi_unblock_requests(hba);
 	pm_runtime_put_sync(hba->dev);
 
 	if (!ret)

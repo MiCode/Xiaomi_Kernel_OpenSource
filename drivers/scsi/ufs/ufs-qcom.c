@@ -733,7 +733,7 @@ static int ufs_qcom_crypto_engine_eh(struct ufs_hba *hba)
 			 * Host reset will be handled in a seperate workqueue
 			 * and will be triggered from ufshcd_check_errors.
 			 */
-			scsi_block_requests(hba->host);
+			ufshcd_scsi_block_requests(hba);
 
 			ufshcd_abort_outstanding_transfer_requests(hba,
 					DID_TARGET_FAILURE);
