@@ -795,7 +795,7 @@
 		sdhc-msm-crypto = <&sdcc1_ice>;
 		qcom,bus-width = <8>;
 
-		qcom,cpu-dma-latency-us = <701>;
+		qcom,cpu-dma-latency-us = <2 601 801>;
 
 		qcom,msm-bus,name = "sdhc1";
 		qcom,msm-bus,num-cases = <9>;
