@@ -131,6 +131,7 @@ static struct msm_bus_scale_pdata mdp_reg_bus_scale_table = {
 	.usecase = mdp_reg_bus_usecases,
 	.num_usecases = ARRAY_SIZE(mdp_reg_bus_usecases),
 	.name = "mdss_reg",
+	.active_only = true,
 };
 
 static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on);
@@ -736,8 +737,9 @@ int mdss_iommu_ctrl(int enable)
 	int rc = 0;
 
 	mutex_lock(&mdp_iommu_lock);
-	pr_debug("%pS: enable %d mdata->iommu_ref_cnt %d\n",
-		__builtin_return_address(0), enable, mdata->iommu_ref_cnt);
+	pr_debug("%pS: enable:%d ref_cnt:%d attach:%d hoff:%d\n",
+		__builtin_return_address(0), enable, mdata->iommu_ref_cnt,
+		mdata->iommu_attached, mdata->handoff_pending);
 
 	if (enable) {
 		/*
@@ -856,6 +858,7 @@ void mdss_mdp_clk_ctrl(int enable)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	static int mdp_clk_cnt;
 	int changed = 0;
+	int rc = 0;
 
 	mutex_lock(&mdp_clk_lock);
 	if (enable) {
@@ -886,6 +889,10 @@ void mdss_mdp_clk_ctrl(int enable)
 			mdss_update_reg_bus_vote(mdata->reg_bus_clt,
 				VOTE_INDEX_19_MHZ);
 
+			rc = mdss_iommu_ctrl(1);
+			if (IS_ERR_VALUE(rc))
+				pr_err("IOMMU attach failed\n");
+
 			/* Active+Sleep */
 			msm_bus_scale_client_update_context(mdata->bus_hdl,
 				false, mdata->curr_bw_uc_idx);
@@ -900,6 +907,8 @@ void mdss_mdp_clk_ctrl(int enable)
 			mdss_mdp_clk_update(MDSS_CLK_MDP_VSYNC, enable);
 
 		if (!enable) {
+			/* release iommu control */
+			mdss_iommu_ctrl(0);
 
 			/* Active-Only */
 			msm_bus_scale_client_update_context(mdata->bus_hdl,
