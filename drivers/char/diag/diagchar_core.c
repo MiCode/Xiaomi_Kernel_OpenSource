@@ -2331,7 +2331,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 	int index = -1, i = 0, ret = 0;
 	int data_type;
 	int copy_dci_data = 0;
-	int exit_stat;
+	int exit_stat = 0;
 	int write_len = 0;
 
 	for (i = 0; i < driver->num_clients; i++)
@@ -2359,7 +2359,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		COPY_USER_SPACE_OR_EXIT(buf, data_type, sizeof(int));
 		/* place holder for number of data field */
 		ret += sizeof(int);
-		exit_stat = diag_md_copy_to_user(buf, &ret);
+		exit_stat = diag_md_copy_to_user(buf, &ret, count);
 		goto exit;
 	} else if (driver->data_ready[index] & USER_SPACE_DATA_TYPE) {
 		/* In case, the thread wakes up and the logging mode is

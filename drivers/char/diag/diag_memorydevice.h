@@ -51,5 +51,5 @@ void diag_md_open_all(void);
 void diag_md_close_all(void);
 int diag_md_register(int id, int ctx, struct diag_mux_ops *ops);
 int diag_md_write(int id, unsigned char *buf, int len, int ctx);
-int diag_md_copy_to_user(char __user *buf, int *pret);
+int diag_md_copy_to_user(char __user *buf, int *pret, size_t buf_size);
 #endif
