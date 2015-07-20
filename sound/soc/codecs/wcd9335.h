@@ -144,4 +144,5 @@ extern int tasha_codec_enable_standalone_micbias(struct snd_soc_codec *codec,
 						 bool enable);
 extern int tasha_set_spkr_mode(struct snd_soc_codec *codec, int mode);
 extern int tasha_set_spkr_gain_offset(struct snd_soc_codec *codec, int offset);
+extern enum codec_variant tasha_codec_ver(void);
 #endif

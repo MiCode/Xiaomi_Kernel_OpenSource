@@ -67,6 +67,7 @@ enum codec_variant {
 	WCD9XXX,
 	WCD9330,
 	WCD9335,
+	WCD9326,
 };
 
 enum {
