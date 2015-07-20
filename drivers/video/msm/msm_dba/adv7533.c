@@ -27,6 +27,7 @@
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
 #include "msm_dba_internal.h"
+#include <linux/mdss_io_util.h>
 
 #define ADV7533_REG_CHIP_REVISION (0x00)
 #define ADV7533_RESET_DELAY (100)
@@ -151,6 +152,7 @@ struct adv7533 {
 	bool audio;
 	bool disable_gpios;
 	bool adv_output;
+	struct dss_module_power power_data;
 	bool hdcp_enabled;
 	bool cec_enabled;
 	void *edid_data;
@@ -288,6 +290,114 @@ static struct adv7533_reg_cfg I2S_cfg[] = {
 	{I2C_ADDR_MAX}
 };
 
+static void adv7533_parse_vreg_dt(struct device *dev,
+				struct dss_module_power *mp)
+{
+	int i, rc = 0;
+	int dt_vreg_total = 0;
+	struct device_node *of_node = NULL;
+	u32 *val_array = NULL;
+
+	of_node = dev->of_node;
+
+	dt_vreg_total = of_property_count_strings(of_node, "qcom,supply-names");
+	if (dt_vreg_total <= 0) {
+		pr_warn("%s: vreg not found. rc=%d\n", __func__,
+					dt_vreg_total);
+		goto end;
+	}
+	mp->num_vreg = dt_vreg_total;
+	mp->vreg_config = devm_kzalloc(dev, sizeof(struct dss_vreg) *
+			dt_vreg_total, GFP_KERNEL);
+	if (!mp->vreg_config)
+		goto end;
+
+	val_array = devm_kzalloc(dev, sizeof(u32) * dt_vreg_total, GFP_KERNEL);
+	if (!val_array)
+		goto end;
+
+	for (i = 0; i < dt_vreg_total; i++) {
+		const char *st = NULL;
+		/* vreg-name */
+		rc = of_property_read_string_index(of_node,
+				"qcom,supply-names", i, &st);
+		if (rc) {
+			pr_warn("%s: error reading name. i=%d, rc=%d\n",
+				__func__, i, rc);
+			goto end;
+		}
+		snprintf(mp->vreg_config[i].vreg_name, 32, "%s", st);
+
+		/* vreg-min-voltage */
+		memset(val_array, 0, sizeof(u32) * dt_vreg_total);
+		rc = of_property_read_u32_array(of_node,
+			"qcom,min-voltage-level", val_array,
+					dt_vreg_total);
+		if (rc) {
+			pr_warn("%s: error read min volt. rc=%d\n",
+						__func__, rc);
+			goto end;
+		}
+		mp->vreg_config[i].min_voltage = val_array[i];
+
+		/* vreg-max-voltage */
+		memset(val_array, 0, sizeof(u32) * dt_vreg_total);
+		rc = of_property_read_u32_array(of_node,
+				"qcom,max-voltage-level", val_array,
+						dt_vreg_total);
+		if (rc) {
+			pr_warn("%s: error read max volt. rc=%d\n",
+					__func__, rc);
+			goto end;
+		}
+		mp->vreg_config[i].max_voltage = val_array[i];
+
+		/* vreg-op-mode */
+		memset(val_array, 0, sizeof(u32) * dt_vreg_total);
+		rc = of_property_read_u32_array(of_node,
+				"qcom,enable-load", val_array,
+					dt_vreg_total);
+		if (rc) {
+			pr_warn("%s: error read enable load. rc=%d\n",
+				__func__, rc);
+			goto end;
+		}
+		mp->vreg_config[i].enable_load = val_array[i];
+
+		memset(val_array, 0, sizeof(u32) * dt_vreg_total);
+		rc = of_property_read_u32_array(of_node,
+			"qcom,disable-load", val_array,
+			dt_vreg_total);
+		if (rc) {
+			pr_warn("%s: error read disable load. rc=%d\n",
+				__func__, rc);
+			goto end;
+		}
+		mp->vreg_config[i].disable_load = val_array[i];
+
+		pr_debug("%s: %s min=%d, max=%d, enable=%d disable=%d\n",
+			__func__,
+			mp->vreg_config[i].vreg_name,
+			mp->vreg_config[i].min_voltage,
+			mp->vreg_config[i].max_voltage,
+			mp->vreg_config[i].enable_load,
+			mp->vreg_config[i].disable_load);
+	}
+
+	devm_kfree(dev, val_array);
+	return;
+
+end:
+	if (mp->vreg_config) {
+		devm_kfree(dev, mp->vreg_config);
+		mp->vreg_config = NULL;
+	}
+	mp->num_vreg = 0;
+
+	if (val_array)
+		devm_kfree(dev, val_array);
+}
+
 static int adv7533_parse_dt(struct device *dev,
 	struct adv7533 *pdata)
 {
@@ -317,6 +427,8 @@ static int adv7533_parse_dt(struct device *dev,
 	pdata->video_mode = (u8)temp_val;
 
 	pdata->audio = of_property_read_bool(np, "adi,enable-audio");
+
+	adv7533_parse_vreg_dt(dev, &pdata->power_data);
 
 	/* Get pinctrl if target uses pinctrl */
 	pdata->ts_pinctrl = devm_pinctrl_get(dev);
@@ -1507,6 +1619,47 @@ static void adv7533_unregister_dba(struct adv7533 *pdata)
 	msm_dba_remove_probed_device(&pdata->dev_info);
 }
 
+static int adv7533_config_vreg(struct adv7533 *pdata, int enable)
+{
+	int rc = 0;
+	struct dss_module_power *power_data = NULL;
+
+	if (!pdata) {
+		pr_err("invalid input\n");
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	power_data = &pdata->power_data;
+	if (!power_data) {
+		pr_warn("%s: Error: invalid power data\n", __func__);
+		return 0;
+	}
+
+	if (enable) {
+		rc = msm_dss_config_vreg(&pdata->i2c_client->dev,
+					power_data->vreg_config,
+					power_data->num_vreg, 1);
+		if (rc) {
+			pr_err("%s: Failed to config vreg. Err=%d\n",
+				__func__, rc);
+			goto exit;
+		}
+	} else {
+		rc = msm_dss_config_vreg(&pdata->i2c_client->dev,
+					power_data->vreg_config,
+					power_data->num_vreg, 0);
+		if (rc) {
+			pr_err("%s: Failed to config vreg. Err=%d\n",
+				__func__, rc);
+			goto exit;
+		}
+	}
+exit:
+	return rc;
+
+}
+
 static int adv7533_probe(struct i2c_client *client,
 	 const struct i2c_device_id *id)
 {
@@ -1533,6 +1686,12 @@ static int adv7533_probe(struct i2c_client *client,
 
 	pdata->i2c_client = client;
 
+	ret = adv7533_config_vreg(pdata, 1);
+	if (ret) {
+		pr_err("%s: Failed to config vreg\n", __func__);
+		return -EPROBE_DEFER;
+	}
+
 	mutex_init(&pdata->ops_mutex);
 
 	ret = adv7533_register_dba(pdata);
@@ -1554,7 +1713,8 @@ static int adv7533_probe(struct i2c_client *client,
 		goto err_gpio_cfg;
 	}
 
-	gpio_set_value(pdata->switch_gpio, 0);
+	if (gpio_is_valid(pdata->switch_gpio))
+		gpio_set_value(pdata->switch_gpio, 0);
 
 	pdata->irq = gpio_to_irq(pdata->irq_gpio);
 
