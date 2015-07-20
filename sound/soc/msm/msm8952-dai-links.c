@@ -1438,6 +1438,8 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 	struct snd_soc_card *card = &snd_soc_card_msm_card;
 	struct snd_soc_dai_link *msm8952_dai_links = NULL;
 	int num_links, ret, len1, len2, len3;
+	enum codec_variant codec_ver = 0;
+	const char *tasha_lite = "msm8952-tashalite-snd-card";
 
 	card->dev = dev;
 	ret = snd_soc_of_parse_card_name(card, "qcom,model");
@@ -1467,6 +1469,9 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 			!strcmp(card->name, "msm8976-tasha-skun-snd-card") ||
 			!strcmp(card->name, "msm8952-tasha-snd-card") ||
 			!strcmp(card->name, "msm8952-tasha-skun-snd-card")) {
+		codec_ver = tasha_codec_ver();
+		if (codec_ver == WCD9326)
+			card->name = tasha_lite;
 
 		len1 = ARRAY_SIZE(msm8952_common_fe_dai);
 		len2 = len1 + ARRAY_SIZE(msm8952_tasha_fe_dai);
