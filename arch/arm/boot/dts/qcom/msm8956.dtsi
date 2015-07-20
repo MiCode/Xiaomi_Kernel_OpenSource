@@ -210,10 +210,10 @@
                 reg = <0x1800000 0x80000>;
                 reg-names = "cc_base";
 		vdd_gfx-supply = <&gfx_vreg_corner>;
-		/* TODO: gpu_handle */
+		gpu_handle = <&msm_gpu>;
                 qcom,gfxfreq-corner =
 			<         0   0 >,
-			< 100000000   1 >,  /* Min SVS   */
+			< 133333333   1 >,  /* Min SVS   */
 			< 200000000   1 >,  /* Low SVS   */
 			< 266666667   1 >,  /* SVS Minus */
 			< 300000000   1 >,  /* SVS       */
@@ -2448,6 +2448,7 @@
 	clocks =<&clock_gcc_gfx clk_gfx3d_clk_src>,
 		<&clock_gcc_gfx clk_gcc_oxili_gmem_clk>;
 	qcom,enable-root-clk;
+	parent-supply = <&gfx_vreg_corner>;
 	status = "okay";
 };
 
