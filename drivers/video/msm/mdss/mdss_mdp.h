@@ -1182,6 +1182,8 @@ int mdss_mdp_get_rau_strides(u32 w, u32 h, struct mdss_mdp_format_params *fmt,
 void mdss_mdp_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 	struct mdss_mdp_plane_sizes *ps, struct mdss_mdp_format_params *fmt);
 struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format);
+int mdss_mdp_validate_offset_for_ubwc_format(
+	struct mdss_mdp_format_params *fmt, u16 x, u16 y);
 void mdss_mdp_get_v_h_subsample_rate(u8 chroma_samp,
 	u8 *v_sample, u8 *h_sample);
 struct mult_factor *mdss_mdp_get_comp_factor(u32 format,

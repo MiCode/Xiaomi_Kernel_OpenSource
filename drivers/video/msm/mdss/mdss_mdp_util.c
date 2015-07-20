@@ -804,6 +804,32 @@ int mdss_mdp_data_check(struct mdss_mdp_data *data,
 	return 0;
 }
 
+int mdss_mdp_validate_offset_for_ubwc_format(
+	struct mdss_mdp_format_params *fmt, u16 x, u16 y)
+{
+	int ret;
+	u16 micro_w, micro_h;
+
+	ret = mdss_mdp_get_ubwc_micro_dim(fmt->format, &micro_w, &micro_h);
+	if (ret || !micro_w || !micro_h) {
+		pr_err("Could not get valid micro tile dimensions\n");
+		return -EINVAL;
+	}
+
+	if (x % (micro_w * UBWC_META_MACRO_W_H)) {
+		pr_err("x=%d does not align with meta width=%d\n", x,
+			micro_w * UBWC_META_MACRO_W_H);
+		return -EINVAL;
+	}
+
+	if (y % (UBWC_META_MACRO_W_H)) {
+		pr_err("y=%d does not align with meta height=%d\n", y,
+			UBWC_META_MACRO_W_H);
+		return -EINVAL;
+	}
+	return ret;
+}
+
 /* x and y are assumednt to be valid, expected to line up with start of tiles */
 void mdss_mdp_ubwc_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 	struct mdss_mdp_plane_sizes *ps, struct mdss_mdp_format_params *fmt)
@@ -850,7 +876,7 @@ void mdss_mdp_ubwc_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 		}
 
 		offset = (y / 8) * ps->ystride[2] +
-			((x / micro_w) / UBWC_META_MACRO_W) *
+			((x / micro_w) / UBWC_META_MACRO_W_H) *
 			UBWC_META_BLOCK_SIZE;
 		if (offset < data->p[2].len) {
 			data->p[2].addr += offset;
@@ -860,7 +886,7 @@ void mdss_mdp_ubwc_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 		}
 
 		offset = ((y / 2) / 8) * ps->ystride[3] +
-			(((x / 2) / chroma_micro_w) / UBWC_META_MACRO_W) *
+			(((x / 2) / chroma_micro_w) / UBWC_META_MACRO_W_H) *
 			UBWC_META_BLOCK_SIZE;
 		if (offset < data->p[3].len) {
 			data->p[3].addr += offset;
@@ -880,7 +906,7 @@ void mdss_mdp_ubwc_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 		}
 
 		offset = DIV_ROUND_UP(y, 8) * ps->ystride[2] +
-			((x / micro_w) / UBWC_META_MACRO_W) *
+			((x / micro_w) / UBWC_META_MACRO_W_H) *
 			UBWC_META_BLOCK_SIZE;
 		if (offset < data->p[2].len) {
 			data->p[2].addr += offset;
