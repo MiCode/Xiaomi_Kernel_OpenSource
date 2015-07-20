@@ -407,7 +407,8 @@ int msm_isp_axi_check_stream_state(
 					__func__, stream_info->state);
 				spin_unlock_irqrestore(
 					&stream_info->lock, flags);
-				rc = -EINVAL;
+				if (stream_cfg_cmd->cmd == START_STREAM)
+					rc = -EINVAL;
 				break;
 			}
 		}
