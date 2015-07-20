@@ -2226,6 +2226,12 @@ static int zone_id_to_tsen_id(int zone_id, int *tsens_id)
 	int i = 0;
 	int ret = 0;
 
+	if (!zone_id_tsens_map) {
+		pr_debug("zone_id_tsens_map is not initialized.\n");
+		*tsens_id = zone_id;
+		return ret;
+	}
+
 	for (i = 0; i < max_tsens_num; i++) {
 		if (zone_id == zone_id_tsens_map[i]) {
 			*tsens_id = tsens_id_map[i];
