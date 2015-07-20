@@ -21,3 +21,18 @@
 		   "qcom,msm8976", "qcom,qrd";
 	qcom,board-id= <0x3000b 0>;
 };
+
+&spmi_bus {
+	qcom,pmi8950@3 {
+		qcom,leds@d300 {
+			/delete-node/ qcom,flash_1;
+			/delete-node/ qcom,torch_1;
+		};
+	};
+};
+
+&led_flash0{
+	qcom,flash-source = <&pmi8950_flash0>;
+	qcom,torch-source = <&pmi8950_torch0>;
+
+};
