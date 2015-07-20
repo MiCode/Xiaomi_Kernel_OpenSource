@@ -695,10 +695,6 @@ void mdss_dsi_core_clk_deinit(struct device *dev, struct dsi_shared_data *sdata)
 		devm_clk_put(dev, sdata->axi_clk);
 	if (sdata->ahb_clk)
 		devm_clk_put(dev, sdata->ahb_clk);
-	if (sdata->reg_bus_clt) {
-		mdss_reg_bus_vote_client_destroy(sdata->reg_bus_clt);
-		sdata->reg_bus_clt = NULL;
-	}
 	if (sdata->mdp_core_clk)
 		devm_clk_put(dev, sdata->mdp_core_clk);
 }
@@ -721,14 +717,6 @@ int mdss_dsi_core_clk_init(struct platform_device *pdev,
 	if (IS_ERR(sdata->mdp_core_clk)) {
 		rc = PTR_ERR(sdata->mdp_core_clk);
 		pr_err("%s: Unable to get mdp core clk. rc=%d\n",
-			__func__, rc);
-		goto error;
-	}
-
-	sdata->reg_bus_clt = mdss_reg_bus_vote_client_create();
-	if (IS_ERR_OR_NULL(sdata->reg_bus_clt)) {
-		rc = PTR_ERR(sdata->reg_bus_clt);
-		pr_err("%s: Unable to get ahb bus clk handle. rc=%d\n",
 			__func__, rc);
 		goto error;
 	}
@@ -1443,10 +1431,6 @@ int mdss_dsi_pre_clkoff_cb(void *priv,
 		}
 	}
 
-	if (clk & MDSS_DSI_CORE_CLK)
-		mdss_update_reg_bus_vote(ctrl->shared_data->reg_bus_clt,
-					 VOTE_INDEX_DISABLE);
-
 	return rc;
 }
 
@@ -1461,9 +1445,6 @@ int mdss_dsi_post_clkon_cb(void *priv,
 	pdata = &ctrl->panel_data;
 
 	if (clk & MDSS_DSI_CORE_CLK) {
-		mdss_update_reg_bus_vote(ctrl->shared_data->reg_bus_clt,
-					 VOTE_INDEX_19_MHZ);
-
 		if (!pdata->panel_info.cont_splash_enabled)
 			mdss_dsi_read_hw_revision(ctrl);
 
