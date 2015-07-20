@@ -106,4 +106,5 @@ extern int tasha_enable_efuse_sensing(struct snd_soc_codec *codec);
 extern void tasha_mbhc_zdet_gpio_ctrl(
 		int (*zdet_gpio_cb)(struct snd_soc_codec *codec, bool high),
 		struct snd_soc_codec *codec);
+extern enum codec_variant tasha_codec_ver(void);
 #endif
