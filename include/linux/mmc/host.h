@@ -197,6 +197,7 @@ struct mmc_host_ops {
 
 	int	(*notify_load)(struct mmc_host *, enum mmc_load);
 	void	(*notify_halt)(struct mmc_host *mmc, bool halt);
+	void	(*detect)(struct mmc_host *host, bool detected);
 };
 
 struct mmc_card;

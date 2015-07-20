@@ -2622,6 +2622,14 @@ static void sdhci_card_event(struct mmc_host *mmc)
 	spin_unlock_irqrestore(&host->lock, flags);
 }
 
+static void sdhci_detect(struct mmc_host *mmc, bool detected)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	if (host->ops->detect)
+		host->ops->detect(host, detected);
+}
+
 static const struct mmc_host_ops sdhci_ops = {
 	.request	= sdhci_request,
 	.post_req	= sdhci_post_req,
@@ -2642,6 +2650,7 @@ static const struct mmc_host_ops sdhci_ops = {
 	.disable	= sdhci_disable,
 	.notify_load	= sdhci_notify_load,
 	.notify_halt	= sdhci_notify_halt,
+	.detect		= sdhci_detect,
 };
 
 /*****************************************************************************\
