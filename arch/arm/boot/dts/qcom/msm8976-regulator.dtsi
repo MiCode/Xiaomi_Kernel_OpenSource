@@ -620,4 +620,12 @@
 		enable-active-high;
 		gpio = <&pm8950_gpios 7 0>;
 	};
+
+	adv_vreg: adv_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "adv_vreg";
+		startup-delay-us = <400>;
+		enable-avtive-high;
+		gpio = <&pm8004_mpps 4 0>;
+	};
 };
