@@ -929,6 +929,9 @@ static void mmc_sdio_detect(struct mmc_host *host)
 	 */
 	err = _mmc_detect_card_removed(host);
 
+	if (host->ops && host->ops->detect)
+		host->ops->detect(host, err);
+
 	mmc_release_host(host);
 
 	/*
