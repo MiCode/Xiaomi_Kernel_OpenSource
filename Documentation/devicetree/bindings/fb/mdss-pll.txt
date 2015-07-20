@@ -13,7 +13,7 @@ Required properties:
 			"qcom,mdss_dsi_pll_8992", "qcom,mdss_hdmi_pll_8992",
 			"qcom,mdss_dsi_pll_8996", "qcom,mdss_hdmi_pll_8996",
 			"qcom,mdss_hdmi_pll_8996_v2", "qcom,mdss_dsi_pll_8996_v2",
-			"qcom,mdss_hdmi_pll_8996_v3"
+			"qcom,mdss_hdmi_pll_8996_v3", "qcom,mdss_dsi_pll_8952"
 - cell-index:		Specifies the controller used
 - reg:			offset and length of the register set for the device.
 - reg-names :		names to refer to register sets related to this device
