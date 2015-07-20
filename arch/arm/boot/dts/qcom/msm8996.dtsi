@@ -941,7 +941,7 @@
 		reg = <0x075e7000 0x1000>, /* MSM_TSIF0_PHYS */
 		      <0x075e8000 0x1000>, /* MSM_TSIF1_PHYS */
 		      <0x075e9000 0x1000>, /* MSM_TSPP_PHYS  */
-		      <0x075c4000 0x11000>; /* MSM_TSPP_BAM_PHYS */
+		      <0x075c4000 0x23000>; /* MSM_TSPP_BAM_PHYS */
 		reg-names = "MSM_TSIF0_PHYS",
 			"MSM_TSIF1_PHYS",
 			"MSM_TSPP_PHYS",
