@@ -902,12 +902,14 @@ static int mdss_dsi_debugfs_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 
 	do {
 		struct mdss_panel_info panel_info = pdata->panel_info;
-		rc = mdss_dsi_debugfs_setup(pdata,
+		if (panel_info.debugfs_info) {
+			rc = mdss_dsi_debugfs_setup(pdata,
 					panel_info.debugfs_info->root);
-		if (rc) {
-			pr_err("%s: Error in initilizing dsi ctrl debugfs\n",
-				__func__);
-			return rc;
+			if (rc) {
+				pr_err("%s: Error in initilizing dsi ctrl debugfs\n",
+						__func__);
+				return rc;
+			}
 		}
 		pdata = pdata->next;
 	} while (pdata);

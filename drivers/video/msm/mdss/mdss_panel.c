@@ -21,7 +21,7 @@
 
 #include "mdss_panel.h"
 
-#define NUM_DSI_INTF 2
+#define NUM_INTF 2
 
 int mdss_panel_debugfs_fbc_setup(struct mdss_panel_debugfs_info *debugfs_info,
 	struct mdss_panel_info *panel_info, struct dentry *parent)
@@ -425,7 +425,7 @@ int mdss_panel_debugfs_panel_setup(struct mdss_panel_debugfs_info *debugfs_info,
 }
 
 int mdss_panel_debugfs_setup(struct mdss_panel_info *panel_info, struct dentry
-		*parent, char *dsi_str)
+		*parent, char *intf_str)
 {
 	struct mdss_panel_debugfs_info *debugfs_info;
 	debugfs_info = kzalloc(sizeof(*debugfs_info), GFP_KERNEL);
@@ -434,7 +434,7 @@ int mdss_panel_debugfs_setup(struct mdss_panel_info *panel_info, struct dentry
 		return -ENOMEM;
 	}
 
-	debugfs_info->root = debugfs_create_dir(dsi_str, parent);
+	debugfs_info->root = debugfs_create_dir(intf_str, parent);
 	if (IS_ERR_OR_NULL(debugfs_info->root)) {
 		pr_err("Debugfs create dir failed with error: %ld\n",
 					PTR_ERR(debugfs_info->root));
@@ -456,12 +456,13 @@ int mdss_panel_debugfs_setup(struct mdss_panel_info *panel_info, struct dentry
 	return 0;
 }
 
-int mdss_panel_debugfs_init(struct mdss_panel_info *panel_info)
+int mdss_panel_debugfs_init(struct mdss_panel_info *panel_info,
+		char const *panel_name)
 {
 	struct mdss_panel_data *pdata;
 	struct dentry *parent;
-	char dsi_str[10];
-	int dsi_index = 0;
+	char intf_str[10];
+	int intf_index = 0;
 	int rc = 0;
 
 	if (panel_info->type != MIPI_VIDEO_PANEL
@@ -469,7 +470,7 @@ int mdss_panel_debugfs_init(struct mdss_panel_info *panel_info)
 		return -ENOTSUPP;
 
 	pdata = container_of(panel_info, struct mdss_panel_data, panel_info);
-	parent = debugfs_create_dir("mdss_panel", NULL);
+	parent = debugfs_create_dir(panel_name, NULL);
 	if (IS_ERR_OR_NULL(parent)) {
 		pr_err("Debugfs create dir failed with error: %ld\n",
 			PTR_ERR(parent));
@@ -477,15 +478,15 @@ int mdss_panel_debugfs_init(struct mdss_panel_info *panel_info)
 	}
 
 	do {
-		snprintf(dsi_str, sizeof(dsi_str), "dsi%d", dsi_index++);
+		snprintf(intf_str, sizeof(intf_str), "intf%d", intf_index++);
 		rc = mdss_panel_debugfs_setup(&pdata->panel_info, parent,
-				dsi_str);
+				intf_str);
 		if (rc) {
 			pr_err("error in initilizing panel debugfs\n");
 			return rc;
 		}
 		pdata = pdata->next;
-	} while (pdata && dsi_index < NUM_DSI_INTF);
+	} while (pdata && intf_index < NUM_INTF);
 
 	pr_debug("Initilized mdss_panel_debugfs_info\n");
 	return 0;
