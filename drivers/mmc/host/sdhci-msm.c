@@ -2841,6 +2841,19 @@ static void sdhci_msm_clear_set_dumpregs(struct sdhci_host *host, bool set)
 	}
 }
 
+static void sdhci_msm_detect(struct sdhci_host *host, bool detected)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	struct mmc_host *mmc = msm_host->mmc;
+	struct mmc_card *card = mmc->card;
+
+	if (detected && mmc_card_sdio(card))
+		mmc->pm_caps |= MMC_PM_KEEP_POWER;
+	else
+		mmc->pm_caps &= ~MMC_PM_KEEP_POWER;
+}
+
 static struct sdhci_ops sdhci_msm_ops = {
 	.crypto_engine_cfg = sdhci_msm_ice_cfg,
 	.crypto_engine_reset = sdhci_msm_ice_reset,
@@ -2860,6 +2873,7 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.reset = sdhci_msm_reset,
 	.clear_set_dumpregs = sdhci_msm_clear_set_dumpregs,
 	.enhanced_strobe_mask = sdhci_msm_enhanced_strobe_mask,
+	.detect = sdhci_msm_detect,
 };
 
 static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
@@ -3296,7 +3310,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->mmc->caps2 |= MMC_CAP2_ASYNC_SDIO_IRQ_4BIT_MODE;
 	msm_host->mmc->caps2 |= MMC_CAP2_HS400_POST_TUNING;
 	msm_host->mmc->caps2 |= MMC_CAP2_CLK_SCALE;
-	msm_host->mmc->pm_caps |= MMC_PM_KEEP_POWER;
 
 	if (msm_host->pdata->nonremovable)
 		msm_host->mmc->caps |= MMC_CAP_NONREMOVABLE;
