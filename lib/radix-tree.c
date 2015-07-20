@@ -1035,6 +1035,49 @@ radix_tree_gang_lookup(struct radix_tree_root *root, void **results,
 EXPORT_SYMBOL(radix_tree_gang_lookup);
 
 /**
+ *	radix_tree_gang_lookup_index - perform multiple lookup on a radix tree
+ *	@root:		radix tree root
+ *	@results:	where the results of the lookup are placed
+ *	@indices:	where their indices should be placed
+ *	@first_index:	start the lookup from this key
+ *	@max_items:	place up to this many items at *results
+ *
+ *	Performs an index-ascending scan of the tree for present items.  Places
+ *	them at *@results and returns the number of items which were placed at
+ *	*@results. The indices are placed in @indices.
+ *
+ *	The implementation is naive.
+ *
+ *	Just one difference from radix_tree_gang_lookup, the indices are also
+ *	collected along with the results of lookup.
+ */
+unsigned int
+radix_tree_gang_lookup_index(struct radix_tree_root *root, void **results,
+			unsigned long *indices, unsigned long first_index,
+			unsigned int max_items)
+{
+	struct radix_tree_iter iter;
+	void **slot;
+	unsigned int ret = 0;
+
+	if (unlikely(!max_items))
+		return 0;
+
+	radix_tree_for_each_slot(slot, root, &iter, first_index) {
+		results[ret] = indirect_to_ptr(rcu_dereference_raw(*slot));
+		if (!results[ret])
+			continue;
+		if (indices)
+			indices[ret] = iter.index;
+		if (++ret == max_items)
+			break;
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(radix_tree_gang_lookup_index);
+
+/**
  *	radix_tree_gang_lookup_slot - perform multiple slot lookup on radix tree
  *	@root:		radix tree root
  *	@results:	where the results of the lookup are placed
