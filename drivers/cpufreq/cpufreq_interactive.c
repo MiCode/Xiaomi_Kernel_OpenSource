@@ -190,6 +190,7 @@ static void cpufreq_interactive_timer_resched(unsigned long cpu,
 	int i;
 
 	spin_lock_irqsave(&ppol->load_lock, flags);
+	expires = round_to_nw_start(ppol->last_evaluated_jiffy, tunables);
 	if (!slack_only) {
 		for_each_cpu(i, ppol->policy->cpus) {
 			pcpu = &per_cpu(cpuinfo, i);
@@ -200,8 +201,6 @@ static void cpufreq_interactive_timer_resched(unsigned long cpu,
 			pcpu->cputime_speedadj_timestamp =
 						pcpu->time_in_idle_timestamp;
 		}
-		expires = round_to_nw_start(ppol->last_evaluated_jiffy,
-					    tunables);
 		del_timer(&ppol->policy_timer);
 		ppol->policy_timer.expires = expires;
 		add_timer(&ppol->policy_timer);
