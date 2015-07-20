@@ -128,7 +128,7 @@
 #include "msm8956-coresight.dtsi"
 #include "msm8956-pm.dtsi"
 #include "msm8976-gpu.dtsi"
-#include "msm8956-cpu.dtsi"
+#include "msm8976-cpu.dtsi"
 #include "msm8976-mdss.dtsi"
 #include "msm8976-mdss-pll.dtsi"
 
