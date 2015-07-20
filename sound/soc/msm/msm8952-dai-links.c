@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/mfd/wcd9xxx/core.h>
 #include <linux/of.h>
 #include <sound/core.h>
 #include <sound/soc.h>
@@ -17,6 +18,7 @@
 #include <sound/pcm.h>
 #include "msm8952-slimbus.h"
 #include "qdsp6v2/msm-pcm-routing-v2.h"
+#include "../codecs/wcd9335.h"
 
 static struct snd_soc_card snd_soc_card_msm[MAX_CODECS];
 static struct snd_soc_card snd_soc_card_msm_card;
@@ -1158,6 +1160,8 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 	char *temp_str = NULL;
 	const char *wsa_str = NULL;
 	const char *wsa_prefix_str = NULL;
+	enum codec_variant codec_ver = 0;
+	const char *tasha_lite = "msm8976-tashalite-snd-card";
 
 	card->dev = dev;
 	ret = snd_soc_of_parse_card_name(card, "qcom,model");
@@ -1185,6 +1189,10 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		msm8952_dai_links = msm8952_tomtom_dai_links;
 	} else if (!strcmp(card->name, "msm8976-tasha-snd-card") ||
 			!strcmp(card->name, "msm8976-tasha-skun-snd-card")) {
+		codec_ver = tasha_codec_ver();
+		if (codec_ver == WCD9326)
+			card->name = tasha_lite;
+
 		len1 = ARRAY_SIZE(msm8952_common_fe_dai);
 		len2 = len1 + ARRAY_SIZE(msm8952_tasha_fe_dai);
 		len3 = len2 + ARRAY_SIZE(msm8952_common_be_dai);
