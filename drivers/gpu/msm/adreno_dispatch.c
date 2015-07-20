@@ -571,6 +571,11 @@ static int sendcmd(struct adreno_device *adreno_dev,
 		return -EBUSY;
 	}
 
+	if (kgsl_context_detached(cmdbatch->context)) {
+		mutex_unlock(&device->mutex);
+		return -ENOENT;
+	}
+
 	dispatcher->inflight++;
 	dispatch_q->inflight++;
 
