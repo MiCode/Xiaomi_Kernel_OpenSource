@@ -3234,6 +3234,28 @@ void wcnss_flush_delayed_work(struct delayed_work *dwork)
 }
 EXPORT_SYMBOL(wcnss_flush_delayed_work);
 
+/* wlan prop driver cannot invoke INIT_WORK function
+ * directly, so to invoke this function call
+ * wcnss_init_work function.
+ */
+void wcnss_init_work(struct work_struct *work , void *callbackptr)
+{
+	if (work && callbackptr)
+		INIT_WORK(work, callbackptr);
+}
+EXPORT_SYMBOL(wcnss_init_work);
+
+/* wlan prop driver cannot invoke INIT_DELAYED_WORK
+ * function directly, so to invoke this function
+ * call wcnss_init_delayed_work function.
+ */
+void wcnss_init_delayed_work(struct delayed_work *dwork , void *callbackptr)
+{
+	if (dwork && callbackptr)
+		INIT_DELAYED_WORK(dwork, callbackptr);
+}
+EXPORT_SYMBOL(wcnss_init_delayed_work);
+
 static int wcnss_node_open(struct inode *inode, struct file *file)
 {
 	struct platform_device *pdev;
