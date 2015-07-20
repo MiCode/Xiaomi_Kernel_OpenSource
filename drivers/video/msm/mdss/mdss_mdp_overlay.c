@@ -3175,6 +3175,7 @@ static int mdss_mdp_hw_cursor_pipe_update(struct msm_fb_data_type *mfd,
 	u32 start_y = img->dy;
 	u32 left_lm_w = left_lm_w_from_mfd(mfd);
 	u32 cursor_frame_size = mdss_mdp_get_cursor_frame_size(mdata);
+	u32 input_frame_size = img->width * img->height * 4;
 
 	ret = mutex_lock_interruptible(&mdp5_data->ov_lock);
 	if (ret)
@@ -3182,6 +3183,12 @@ static int mdss_mdp_hw_cursor_pipe_update(struct msm_fb_data_type *mfd,
 
 	if (mdss_fb_is_power_off(mfd)) {
 		ret = -EPERM;
+		goto done;
+	}
+
+	if (input_frame_size > cursor_frame_size) {
+		pr_err("Input frame bigger than max cursor size\n");
+		ret = -EINVAL;
 		goto done;
 	}
 
@@ -3292,7 +3299,7 @@ static int mdss_mdp_hw_cursor_pipe_update(struct msm_fb_data_type *mfd,
 
 	if (mfd->cursor_buf && (cursor->set & FB_CUR_SETIMAGE)) {
 		ret = copy_from_user(mfd->cursor_buf, img->data,
-				     img->width * img->height * 4);
+					input_frame_size);
 		if (ret) {
 			pr_err("copy_from_user error. rc=%d\n", ret);
 			goto done;
