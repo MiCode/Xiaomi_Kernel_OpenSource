@@ -39,6 +39,8 @@ struct mdss_dsi_clk_mngr {
 	struct dsi_core_clks core_clks;
 	struct dsi_link_clks link_clks;
 
+	struct reg_bus_client *reg_bus_clt;
+
 	pre_clockoff_cb pre_clkoff_cb;
 	post_clockoff_cb post_clkoff_cb;
 	post_clockon_cb post_clkon_cb;
@@ -96,9 +98,19 @@ static int dsi_core_clk_start(struct dsi_core_clks *c_clks)
 			goto disable_axi_clk;
 		}
 	}
+
+	rc = mdss_update_reg_bus_vote(mngr->reg_bus_clt, VOTE_INDEX_19_MHZ);
+	if (rc) {
+		pr_err("failed to vote for reg bus\n");
+		goto disable_mmss_misc_clk;
+	}
+
 	pr_debug("%s:CORE CLOCK IS ON\n", mngr->name);
 	return rc;
 
+disable_mmss_misc_clk:
+	if (c_clks->clks.mmss_misc_ahb_clk)
+		clk_disable_unprepare(c_clks->clks.mmss_misc_ahb_clk);
 disable_axi_clk:
 	clk_disable_unprepare(c_clks->clks.axi_clk);
 disable_ahb_clk:
@@ -117,6 +129,7 @@ static int dsi_core_clk_stop(struct dsi_core_clks *c_clks)
 
 	mngr = container_of(c_clks, struct mdss_dsi_clk_mngr, core_clks);
 
+	mdss_update_reg_bus_vote(mngr->reg_bus_clt, VOTE_INDEX_DISABLE);
 	if (c_clks->clks.mmss_misc_ahb_clk)
 		clk_disable_unprepare(c_clks->clks.mmss_misc_ahb_clk);
 	clk_disable_unprepare(c_clks->clks.axi_clk);
@@ -859,6 +872,13 @@ void *mdss_dsi_clk_init(struct mdss_dsi_clk_info *info)
 	mngr->pre_clkoff_cb = info->pre_clkoff_cb;
 	mngr->post_clkon_cb = info->post_clkon_cb;
 	mngr->priv_data = info->priv_data;
+	mngr->reg_bus_clt = mdss_reg_bus_vote_client_create();
+	if (IS_ERR_OR_NULL(mngr->reg_bus_clt)) {
+		pr_err("Unable to get handle for reg bus vote\n");
+		kfree(mngr);
+		mngr = ERR_PTR(-EINVAL);
+		goto error;
+	}
 	memcpy(mngr->name, info->name, DSI_CLK_NAME_LEN);
 error:
 	pr_debug("EXIT %s, rc = %ld\n", mngr->name, PTR_ERR(mngr));
@@ -892,6 +912,7 @@ int mdss_dsi_clk_deinit(void *clk_mngr)
 	rc = dsi_recheck_clk_state(mngr);
 	if (rc)
 		pr_err("failed to disable all clocks\n");
+	mdss_reg_bus_vote_client_destroy(mngr->reg_bus_clt);
 	mutex_unlock(&mngr->clk_mutex);
 	pr_debug("%s: EXIT, rc = %d\n", mngr->name, rc);
 	kfree(mngr);
