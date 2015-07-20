@@ -64,6 +64,7 @@ static struct msm_bus_scale_pdata rot_reg_bus_scale_table = {
 	.usecase = rot_reg_bus_usecases,
 	.num_usecases = ARRAY_SIZE(rot_reg_bus_usecases),
 	.name = "mdss_rot_reg",
+	.active_only = 1,
 };
 
 static struct mdss_rot_mgr *rot_mgr;
@@ -264,52 +265,60 @@ static int mdss_rotator_clk_ctrl(struct mdss_rot_mgr *mgr, int enable)
 {
 	struct clk *clk;
 	int ret = 0;
-	int i;
+	int i, changed = 0;
 
-	/* Ref counting done by clock driver */
-	for (i = 0; i < MDSS_CLK_ROTATOR_END_IDX; i++) {
-		clk = mgr->rot_clk[i];
+	mutex_lock(&mgr->clk_lock);
+	if (enable) {
+		if (mgr->rot_enable_clk_cnt == 0)
+			changed++;
+		mgr->rot_enable_clk_cnt++;
+	} else {
+		if (mgr->rot_enable_clk_cnt) {
+			mgr->rot_enable_clk_cnt--;
+			if (mgr->rot_enable_clk_cnt == 0)
+				changed++;
+		} else {
+			pr_err("Can not be turned off\n");
+		}
+	}
+
+	if (changed) {
+		pr_debug("Rotator clk %s\n", enable ? "enable" : "disable");
+		for (i = 0; i < MDSS_CLK_ROTATOR_END_IDX; i++) {
+			clk = mgr->rot_clk[i];
+			if (enable) {
+				ret = clk_prepare_enable(clk);
+				if (ret) {
+					pr_err("enable failed clk_idx %d\n", i);
+					goto error;
+				}
+			} else {
+				clk_disable_unprepare(clk);
+			}
+		}
+		mutex_lock(&mgr->bus_lock);
 		if (enable) {
-			ret = clk_enable(clk);
-			if (ret) {
-				pr_err("enable failed clk_idx %d\n", i);
-				goto error;
-			}
+			/* Active+Sleep */
+			msm_bus_scale_client_update_context(
+				mgr->data_bus.bus_hdl, false,
+				mgr->data_bus.curr_bw_uc_idx);
+			trace_rotator_bw_ao_as_context(0);
 		} else {
-			clk_disable(clk);
+			/* Active Only */
+			msm_bus_scale_client_update_context(
+				mgr->data_bus.bus_hdl, true,
+				mgr->data_bus.curr_bw_uc_idx);
+			trace_rotator_bw_ao_as_context(1);
 		}
+		mutex_unlock(&mgr->bus_lock);
 	}
+	mutex_unlock(&mgr->clk_lock);
 
 	return ret;
 error:
 	for (i--; i >= 0; i--)
-		clk_disable(mgr->rot_clk[i]);
-	return ret;
-}
-
-static int __mdss_rotator_clk_prepare(struct mdss_rot_mgr *mgr, int prepare)
-{
-	struct clk *clk;
-	int ret = 0;
-	int i;
-
-	for (i = 0; i < MDSS_CLK_ROTATOR_END_IDX; i++) {
-		clk = mgr->rot_clk[i];
-		if (prepare) {
-			ret = clk_prepare(clk);
-			if (ret) {
-				pr_err("prepare_enable failed clk_idx %d\n", i);
-				goto error;
-			}
-		} else {
-			clk_unprepare(clk);
-		}
-	}
-
-	return ret;
-error:
-	for (i--; i >= 0; i--)
-		clk_unprepare(mgr->rot_clk[i]);
+		clk_disable_unprepare(mgr->rot_clk[i]);
+	mutex_unlock(&mgr->clk_lock);
 	return ret;
 }
 
@@ -338,13 +347,10 @@ int mdss_rotator_resource_ctrl(struct mdss_rot_mgr *mgr, int enable)
 	MDSS_XLOG(mgr->res_ref_cnt, changed, enable);
 
 	if (changed) {
-		if (enable) {
+		if (enable)
 			mdss_rotator_footswitch_ctrl(mgr, true);
-			ret = __mdss_rotator_clk_prepare(mgr, enable);
-		} else {
-			__mdss_rotator_clk_prepare(mgr, enable);
+		else
 			mdss_rotator_footswitch_ctrl(mgr, false);
-		}
 	}
 	mutex_unlock(&mgr->clk_lock);
 	return ret;

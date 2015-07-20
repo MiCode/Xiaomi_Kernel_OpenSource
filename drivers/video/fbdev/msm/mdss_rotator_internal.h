@@ -174,6 +174,7 @@ struct mdss_rot_mgr {
 	struct mutex clk_lock;
 	int res_ref_cnt;
 	struct clk *rot_clk[MDSS_CLK_ROTATOR_END_IDX];
+	int rot_enable_clk_cnt;
 
 	bool has_downscale;
 	bool has_ubwc;

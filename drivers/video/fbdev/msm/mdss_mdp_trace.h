@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -339,6 +339,20 @@ TRACE_EVENT(mdp_trace_counter,
 	),
 	TP_printk("%d|%s|%d", __entry->pid,
 			__get_str(counter_name), __entry->value)
+);
+
+TRACE_EVENT(rotator_bw_ao_as_context,
+	TP_PROTO(u32 state),
+	TP_ARGS(state),
+	TP_STRUCT__entry(
+			__field(u32, state)
+	),
+	TP_fast_assign(
+			__entry->state = state;
+	),
+	TP_printk("Rotator bw context %s",
+			__entry->state ? "Active Only" : "Active+Sleep")
+
 );
 
 #endif /* if !defined(TRACE_MDSS_MDP_H) || defined(TRACE_HEADER_MULTI_READ) */
