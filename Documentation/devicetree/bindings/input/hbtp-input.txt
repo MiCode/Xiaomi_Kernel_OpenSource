@@ -1,0 +1,28 @@
+Platform device for Host Based Touch Processing (HBTP)
+
+hbtp_input is a kernel driver that provides functionality needed by
+Host Based Touch Processing (HBTP) from the kernel. One of the
+functionality is to manage the power source for touch Analog Front
+End (AFE).
+
+Required properties:
+
+ - compatible		: should be "qcom,hbtp-input"
+
+Optional properties:
+
+ - vcc_ana-supply	: Analog power supply needed to power device
+ - qcom,afe-load	: AFE load in uA
+ - qcom,afe-vtg-min	: AFE minimum voltage in uV
+ - qcom,afe-vtg-max	: AFE maximum voltage in uV
+
+Example:
+	&soc {
+		hbtp {
+			compatible = "qcom,hbtp-input";
+			vcc_ana-supply = <&pm8941_l18>;
+			qcom,afe-load = <150000>;
+			qcom,afe-vtg-min = <2700000>;
+			qcom,afe-vtg-max = <3300000>;
+		};
+	};
