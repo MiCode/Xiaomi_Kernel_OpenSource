@@ -656,7 +656,8 @@ int mdss_mdp_get_plane_sizes(struct mdss_mdp_format_params *fmt, u32 w, u32 h,
 		}
 	}
 
-	for (i = 0; i < ps->num_planes; i++)
+	/* Safe to use MAX_PLANES as ps is memset at start of function */
+	for (i = 0; i < MAX_PLANES; i++)
 		ps->total_size += ps->plane_size[i];
 
 	return rc;
@@ -666,7 +667,7 @@ static int mdss_mdp_ubwc_data_check(struct mdss_mdp_data *data,
 			struct mdss_mdp_plane_sizes *ps,
 			struct mdss_mdp_format_params *fmt)
 {
-	int i, rc = 0;
+	int rc = 0;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	unsigned long data_size = 0;
 	dma_addr_t base_addr;
@@ -677,18 +678,17 @@ static int mdss_mdp_ubwc_data_check(struct mdss_mdp_data *data,
 		goto end;
 	}
 
-	for (i = 0; i < MAX_PLANES; i++)
-		data_size += data->p[i].len;
+	if (data->p[0].len == ps->plane_size[0])
+		goto end;
 
+	/* From this point, assumption is plane 0 is to be divided */
+	data_size = data->p[0].len;
 	if (data_size < ps->total_size) {
 		pr_err("insufficient current mem len=%lu required mem len=%u\n",
 		       data_size, ps->total_size);
 		rc = -ENOMEM;
 		goto end;
 	}
-
-	if (data->p[0].len == ps->plane_size[0])
-		goto end;
 
 	base_addr = data->p[0].addr;
 
