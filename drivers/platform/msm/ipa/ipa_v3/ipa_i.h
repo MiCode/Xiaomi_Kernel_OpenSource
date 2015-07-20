@@ -857,6 +857,8 @@ struct ipa3_stats {
 	u32 wan_repl_rx_empty;
 	u32 lan_rx_empty;
 	u32 lan_repl_rx_empty;
+	u32 flow_enable;
+	u32 flow_disable;
 };
 
 struct ipa3_active_clients {
@@ -2144,6 +2146,6 @@ int ipa3_set_flt_tuple_mask(int pipe_idx, struct ipa3_hash_tuple *tuple);
 int ipa3_set_rt_tuple_mask(int tbl_idx, struct ipa3_hash_tuple *tuple);
 void ipa3_set_resorce_groups_min_max_limits(void);
 void ipa3_suspend_apps_pipes(bool suspend);
-
-
+void ipa3_flow_control(enum ipa_client_type ipa_client, bool enable,
+			uint32_t qmap_id);
 #endif /* _IPA3_I_H_ */

@@ -278,6 +278,51 @@ static int ipa_open(struct inode *inode, struct file *filp)
 	return 0;
 }
 
+/**
+* ipa_flow_control() - Enable/Disable flow control on a particular client.
+* Return codes:
+* None
+*/
+void ipa_flow_control(enum ipa_client_type ipa_client,
+		bool enable, uint32_t qmap_id)
+{
+	struct ipa_ep_cfg_ctrl ep_ctrl = {0};
+	int ep_idx;
+	struct ipa_ep_context *ep;
+
+	/* Check if ep is valid. */
+	ep_idx = ipa2_get_ep_mapping(ipa_client);
+	if (ep_idx == -1) {
+		IPAERR("Invalid IPA client\n");
+		return;
+	}
+
+	ep = &ipa_ctx->ep[ep_idx];
+	if (!ep->valid) {
+		IPAERR("EP not valid.\n");
+		return;
+	}
+
+	/* Check if the QMAP_ID matches. */
+	if (ep->cfg.meta.qmap_id != qmap_id) {
+		IPADBG("Flow control indication not for the same flow: %u %u\n",
+			ep->cfg.meta.qmap_id, qmap_id);
+		return;
+	}
+
+	if (enable) {
+		IPADBG("Enabling Flow\n");
+		ep_ctrl.ipa_ep_delay = false;
+		IPA_STATS_INC_CNT(ipa_ctx->stats.flow_enable);
+	} else {
+		IPADBG("Disabling Flow\n");
+		ep_ctrl.ipa_ep_delay = true;
+		IPA_STATS_INC_CNT(ipa_ctx->stats.flow_disable);
+	}
+	ep_ctrl.ipa_ep_suspend = false;
+	ipa2_cfg_ep_ctrl(ep_idx, &ep_ctrl);
+}
+
 static void ipa_wan_msg_free_cb(void *buff, u32 len, u32 type)
 {
 	if (!buff) {
