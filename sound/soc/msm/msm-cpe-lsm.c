@@ -472,7 +472,7 @@ static int msm_cpe_lab_buf_dealloc(struct snd_pcm_substream *substream,
 
 	pcm_buf = lab_d->pcm_buf;
 	dma_alloc = bufsz * bufcnt;
-	if (pcm_buf)
+	if (dma_data && pcm_buf)
 		dma_free_coherent(dma_data->sdev->dev.parent, dma_alloc,
 				  pcm_buf->mem, pcm_buf->phys);
 	kfree(pcm_buf);
