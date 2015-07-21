@@ -2851,8 +2851,8 @@ int msm_nand_scan(struct mtd_info *mtd)
 			supported_flash->blksize = flashdev->erasesize;
 			supported_flash->oobsize = flashdev->oobsize;
 			supported_flash->ecc_correctability =
-					flashdev->ecc_correctable_bits;
-			if (!flashdev->ecc_correctable_bits)
+					flashdev->ecc.strength_ds;
+			if (!flashdev->ecc.strength_ds)
 				pr_err("num ecc correctable bit not specified and defaults to 4 bit BCH\n");
 		}
 		supported_flash->flash_id = flash_id;
