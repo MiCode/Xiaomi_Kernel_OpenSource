@@ -124,6 +124,12 @@ static void mmc_set_erase_size(struct mmc_card *card)
 	mmc_init_erase(card);
 }
 
+static void add_pm_flag_mmc(struct mmc_card *card, int data)
+{
+	if (mmc_card_mmc(card))
+		card->host->pm_flags |= data;
+}
+
 static const struct mmc_fixup mmc_fixups[] = {
 
 	/* avoid HPI for specific cards */
@@ -133,6 +139,9 @@ static const struct mmc_fixup mmc_fixups[] = {
 	/* Disable cache for specific cards */
 	MMC_FIXUP("MMC16G", CID_MANFID_KINGSTON, CID_OEMID_ANY,
 		add_quirk_mmc, MMC_QUIRK_CACHE_DISABLE),
+
+	MMC_FIXUP_EXT_CSD_REV(CID_NAME_ANY, CID_MANFID_HYNIX, CID_OEMID_ANY,
+		add_pm_flag_mmc, MMC_PM_KEEP_POWER, MMC_V5_0),
 
 	END_FIXUP
 };
@@ -434,6 +443,9 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	 * are authorized, see JEDEC JESD84-B50 section B.8.
 	 */
 	card->ext_csd.rev = ext_csd[EXT_CSD_REV];
+
+	/* fixup device after ext_csd revision field is updated */
+	mmc_fixup_device(card, mmc_fixups);
 
 	card->ext_csd.raw_sectors[0] = ext_csd[EXT_CSD_SEC_CNT + 0];
 	card->ext_csd.raw_sectors[1] = ext_csd[EXT_CSD_SEC_CNT + 1];
@@ -2210,6 +2222,9 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 	if (mmc_card_suspended(host->card))
 		goto out;
 
+	if (is_suspend)
+		host->dev_status = DEV_SUSPENDING;
+
 	if (mmc_card_cmdq(host->card)) {
 		BUG_ON(host->cmdq_ctx.active_reqs);
 
@@ -2249,6 +2264,10 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 		mmc_card_set_suspended(host->card);
 	}
 out:
+	if (err)
+		host->dev_status = DEV_UNKNOWN;
+	else if (is_suspend)
+		host->dev_status = DEV_SUSPENDED;
 	mmc_release_host(host);
 	return err;
 }
@@ -2324,6 +2343,8 @@ static int _mmc_resume(struct mmc_host *host)
 		mmc_init_clk_scaling(host);
 
 out:
+	if (!err)
+		host->dev_status = DEV_RESUMED;
 	return err;
 }
 
