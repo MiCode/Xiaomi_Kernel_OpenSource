@@ -1709,18 +1709,26 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 
 		struct mdss_rect ctl_roi = pipe->mixer_left->ctl->roi;
 		bool is_right_mixer = pipe->mixer_left->is_right_mixer;
-		/* sctl can be NULL, check validity before use */
-		struct mdss_mdp_ctl *sctl =
-			mdss_mdp_get_split_ctl(pipe->mixer_left->ctl);
 		/* main_ctl can be NULL, check validity before use */
 		struct mdss_mdp_ctl *main_ctl =
 			mdss_mdp_get_main_ctl(pipe->mixer_left->ctl);
 
 		/* adjust roi or dst_x before crop is applied */
-		if (pipe->src_split_req && sctl)
-			ctl_roi.w += sctl->roi.w;
-		else if (mdata->has_src_split && is_right_mixer && main_ctl)
+		if (pipe->src_split_req) {
+			int r_roi_w = ctl_roi.w;
+			struct mdss_mdp_ctl *sctl;
+
+			if (pipe->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
+				sctl = mdss_mdp_get_split_ctl(
+						pipe->mixer_left->ctl);
+				if (sctl)
+					r_roi_w = sctl->roi.w;
+			}
+
+			ctl_roi.w += r_roi_w;
+		} else if (mdata->has_src_split && is_right_mixer && main_ctl) {
 			dst.x -= main_ctl->mixer_left->width;
+		}
 
 		mdss_mdp_crop_rect(&src, &dst, &ctl_roi);
 
