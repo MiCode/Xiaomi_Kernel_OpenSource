@@ -1382,6 +1382,7 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 	uint32_t frame_id;
 	uint32_t buf_src;
 	uint8_t drop_frame = 0;
+	struct msm_isp_bufq *bufq = NULL;
 	memset(&buf_event, 0, sizeof(buf_event));
 
 	frame_id = vfe_dev->axi_data.
@@ -1497,13 +1498,24 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 			stream_info->runtime_output_format;
 		if (stream_info->buf_divert &&
 			buf_src != MSM_ISP_BUFFER_SRC_SCRATCH) {
-			ISP_DBG(
-				"%s: vfe_id %d send buf_divert buf-id %d bufq %x\n",
+			ISP_DBG("%s: VFE%d send buf_divert buf id %d Q %x\n",
 				__func__, vfe_dev->pdev->id, buf->buf_idx,
 				buf->bufq_handle);
 
-			msm_isp_send_event(vfe_dev, ISP_EVENT_BUF_DIVERT,
-					&buf_event);
+			bufq = vfe_dev->buf_mgr->ops->get_bufq(vfe_dev->buf_mgr,
+				buf->bufq_handle);
+			if (!bufq) {
+				pr_err("%s: Invalid bufq buf_handle %x\n",
+					__func__, buf->bufq_handle);
+			}
+
+			if ((bufq != NULL) && bufq->buf_type == ISP_SHARE_BUF)
+				msm_isp_send_event(vfe_dev->dual_vfe_res->
+					vfe_dev[ISP_VFE1],
+					ISP_EVENT_BUF_DIVERT, &buf_event);
+			else
+				msm_isp_send_event(vfe_dev,
+				ISP_EVENT_BUF_DIVERT, &buf_event);
 		} else {
 			ISP_DBG("%s: vfe_id %d send buf done buf-id %d\n",
 				__func__, vfe_dev->pdev->id, buf->buf_idx);
