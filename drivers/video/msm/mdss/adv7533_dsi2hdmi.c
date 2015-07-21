@@ -671,6 +671,9 @@ static int adv7533_probe(struct i2c_client *client_,
 
 	client = client_;
 
+	if (strnstr(mdss_mdp_panel, "no_display", MDSS_MAX_PANEL_LEN))
+		 return 0;
+
 	if (client->dev.of_node) {
 		pdata = devm_kzalloc(&client->dev,
 			sizeof(struct adv7533_platform_data), GFP_KERNEL);
