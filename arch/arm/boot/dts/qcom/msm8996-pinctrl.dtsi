@@ -1586,10 +1586,12 @@
 
 		/* sync signal is only used if configured to mode-2 */
 		tsif0_sync_active: tsif0_sync_active {
-			pins = "gpio39";	/* TSIF0 SYNC */
-			function = "tsif1_sync";
-			drive_strength = <2>;	/* 2 mA */
-			bias-pull-down;		/* pull down */
+			tsif1_sync {
+				pins = "gpio39";	/* TSIF0 SYNC */
+				function = "tsif1_sync";
+				drive_strength = <2>;	/* 2 mA */
+				bias-pull-down;		/* pull down */
+			};
 		};
 
 		tsif1_signals_active: tsif1_signals_active {
@@ -1614,10 +1616,12 @@
 
 		/* sync signal is only used if configured to mode-2 */
 		tsif1_sync_active: tsif1_sync_active {
-			pins = "gpio96";	/* TSIF1 SYNC */
-			function = "tsif2_sync";
-			drive_strength = <2>;	/* 2 mA */
-			bias-pull-down;		/* pull down */
+			tsif2_sync {
+				pins = "gpio96";	/* TSIF1 SYNC */
+				function = "tsif2_sync";
+				drive_strength = <2>;	/* 2 mA */
+				bias-pull-down;		/* pull down */
+			};
 		};
 	};
 };
