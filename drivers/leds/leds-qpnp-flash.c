@@ -1156,9 +1156,7 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 		flash_node->prgm_current = value;
 	}
 
-	mutex_lock(&led->flash_led_lock);
 	queue_work(led->ordered_workq, &flash_node->work);
-	mutex_unlock(&led->flash_led_lock);
 
 	return;
 }
