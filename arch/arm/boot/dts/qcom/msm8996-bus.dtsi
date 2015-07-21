@@ -142,8 +142,8 @@
 			qcom,bus-type = <1>;
 			qcom,util-fact = <154>;
 			clock-names = "bus_clk", "bus_a_clk";
-			clocks = <&clock_mmss clk_mmss_s0_axi_clk>,
-			     <&clock_mmss clk_mmss_s0_axi_clk>;
+			clocks = <&clock_gcc clk_mmssnoc_axi_clk>,
+				 <&clock_gcc clk_mmssnoc_axi_a_clk>;
 			coresight-id = <202>;
 			coresight-name = "coresight-mnoc";
 			coresight-nr-inports = <0>;
@@ -1516,7 +1516,7 @@
 			qcom,slv-rpm-id = <ICBID_SLAVE_MNOC_BIMC>;
 			qcom,enable-only-clk;
 			clock-names = "node_clk";
-			clocks = <&clock_mmss clk_mmagic_bimc_axi_clk>;
+			clocks = <&clock_gcc clk_mmssnoc_axi_clk>;
 		};
 
 		slv_vmem: slv-vmem {
