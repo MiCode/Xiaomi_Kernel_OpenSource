@@ -318,6 +318,7 @@ struct msm_nand_info {
 	struct mutex lock;
 	struct flash_identification flash_dev;
 	struct msm_nand_clk_data clk_data;
+	u64 dma_mask;
 };
 
 /* Structure that defines an ONFI parameter page (512B) */
