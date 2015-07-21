@@ -36,6 +36,7 @@ struct lpm_cpu_level {
 	struct power_params pwr;
 	unsigned int psci_id;
 	bool is_reset;
+	bool jtag_save_restore;
 };
 
 struct lpm_cpu {
