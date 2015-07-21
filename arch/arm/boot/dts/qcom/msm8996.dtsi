@@ -737,6 +737,9 @@
 		vdd_dig-supply = <&pm8994_s1_corner>;
 		mmpll4_dig-supply = <&pm8994_s1_corner>;
 		mmpll4_analog-supply = <&pm8994_l12>;
+		qcom,vfe0_clk_src-opp-store-vcorner = <&vfe0>;
+		qcom,vfe1_clk_src-opp-store-vcorner = <&vfe1>;
+		qcom,cpp_clk_src-opp-store-vcorner = <&cpp>;
 		clock-names = "xo", "gpll0", "gpll0_div",
 				"pclk0_src", "pclk1_src",
 				"byte0_src", "byte1_src",
