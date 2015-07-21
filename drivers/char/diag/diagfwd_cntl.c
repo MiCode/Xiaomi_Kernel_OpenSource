@@ -22,6 +22,7 @@
 #include "diag_dci.h"
 #include "diagmem.h"
 #include "diag_masks.h"
+#include "diag_ipc_logging.h"
 
 #define FEATURE_SUPPORTED(x)	((feature_mask << (i * 8)) & (1 << x))
 
@@ -409,8 +410,6 @@ static void process_log_range_report(uint8_t *buf, uint32_t len,
 	int read_len = 0;
 	int header_len = sizeof(struct diag_ctrl_log_range_report);
 	uint8_t *ptr = buf;
-	uint8_t *temp = NULL;
-	uint32_t mask_size;
 	struct diag_ctrl_log_range_report *header = NULL;
 	struct diag_ctrl_log_range *log_range = NULL;
 	struct diag_log_mask_t *mask_ptr = NULL;
@@ -436,23 +435,10 @@ static void process_log_range_report(uint8_t *buf, uint32_t len,
 		}
 		mask_ptr = (struct diag_log_mask_t *)log_mask.ptr;
 		mask_ptr = &mask_ptr[log_range->equip_id];
-		mutex_lock(&(mask_ptr->lock));
-		mask_size = LOG_ITEMS_TO_SIZE(log_range->num_items);
-		if (mask_size < mask_ptr->range)
-			goto proceed;
 
-		temp = krealloc(mask_ptr->ptr, mask_size, GFP_KERNEL);
-		if (!temp) {
-			pr_err("diag: In %s, Unable to reallocate log mask ptr to size: %d, equip_id: %d\n",
-			       __func__, mask_size, log_range->equip_id);
-			mutex_unlock(&(mask_ptr->lock));
-			continue;
-		}
-		mask_ptr->ptr = temp;
-		mask_ptr->range = mask_size;
-proceed:
-		if (log_range->num_items > mask_ptr->num_items)
-			mask_ptr->num_items = log_range->num_items;
+		mutex_lock(&(mask_ptr->lock));
+		mask_ptr->num_items = log_range->num_items;
+		mask_ptr->range = LOG_ITEMS_TO_SIZE(log_range->num_items);
 		mutex_unlock(&(mask_ptr->lock));
 	}
 }

@@ -20,6 +20,7 @@
 #include "diagfwd_cntl.h"
 #include "diag_masks.h"
 #include "diagfwd_peripheral.h"
+#include "diag_ipc_logging.h"
 
 #define ALL_EQUIP_ID		100
 #define ALL_SSID		-1
@@ -132,9 +133,9 @@ static void diag_send_log_mask_update(uint8_t peripheral, int equip_id)
 		ctrl_pkt.stream_id = 1;
 		ctrl_pkt.status = log_mask.status;
 		if (log_mask.status == DIAG_CTRL_MASK_VALID) {
-			mask_size = LOG_ITEMS_TO_SIZE(mask->num_items);
+			mask_size = LOG_ITEMS_TO_SIZE(mask->num_items_tools);
 			ctrl_pkt.equip_id = i;
-			ctrl_pkt.num_items = mask->num_items;
+			ctrl_pkt.num_items = mask->num_items_tools;
 			ctrl_pkt.log_mask_size = mask_size;
 		}
 		ctrl_pkt.data_len = LOG_MASK_CTRL_HEADER_LEN + mask_size;
@@ -156,6 +157,12 @@ static void diag_send_log_mask_update(uint8_t peripheral, int equip_id)
 		if (mask_size > 0)
 			memcpy(buf + header_len, mask->ptr, mask_size);
 		mutex_unlock(&mask->lock);
+
+		DIAG_LOG(DIAG_DEBUG_MASKS,
+			 "sending ctrl pkt to %d, e %d num_items %d size %d\n",
+			 peripheral, i, ctrl_pkt.num_items,
+			 ctrl_pkt.log_mask_size);
+
 		err = diagfwd_write(peripheral, TYPE_CNTL,
 				    buf, header_len + mask_size);
 		if (err && err != -ENODEV) {
@@ -868,7 +875,7 @@ static int diag_cmd_get_log_mask(unsigned char *src_buf, int src_len,
 		if (log_item->equip_id != req->equip_id)
 			continue;
 		mutex_lock(&log_item->lock);
-		mask_size = LOG_ITEMS_TO_SIZE(log_item->num_items);
+		mask_size = LOG_ITEMS_TO_SIZE(log_item->num_items_tools);
 		/*
 		 * Make sure we have space to fill the response in the buffer.
 		 * Destination buffer should atleast be able to hold equip_id
@@ -885,12 +892,16 @@ static int diag_cmd_get_log_mask(unsigned char *src_buf, int src_len,
 		}
 		*(uint32_t *)(dest_buf + write_len) = log_item->equip_id;
 		write_len += sizeof(uint32_t);
-		*(uint32_t *)(dest_buf + write_len) = log_item->num_items;
+		*(uint32_t *)(dest_buf + write_len) = log_item->num_items_tools;
 		write_len += sizeof(uint32_t);
 		if (mask_size > 0) {
 			memcpy(dest_buf + write_len, log_item->ptr, mask_size);
 			write_len += mask_size;
 		}
+		DIAG_LOG(DIAG_DEBUG_MASKS,
+			 "sending log e %d num_items %d size %d\n",
+			 log_item->equip_id, log_item->num_items_tools,
+			 log_item->range_tools);
 		mutex_unlock(&log_item->lock);
 		status = LOG_STATUS_SUCCESS;
 		break;
@@ -929,7 +940,7 @@ static int diag_cmd_get_log_range(unsigned char *src_buf, int src_len,
 	write_len += sizeof(rsp);
 
 	for (i = 0; i < MAX_EQUIP_ID && write_len < dest_len; i++, mask++) {
-		*(uint32_t *)(dest_buf + write_len) = mask->num_items;
+		*(uint32_t *)(dest_buf + write_len) = mask->num_items_tools;
 		write_len += sizeof(uint32_t);
 	}
 
@@ -950,6 +961,7 @@ static int diag_cmd_set_log_mask(unsigned char *src_buf, int src_len,
 	struct diag_log_mask_t *mask = (struct diag_log_mask_t *)log_mask.ptr;
 	struct diag_log_config_req_t *req;
 	struct diag_log_config_set_rsp_t rsp;
+	unsigned char *temp_buf = NULL;
 
 	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0) {
 		pr_err("diag: Invalid input in %s, src_buf: %p, src_len: %d, dest_buf: %p, dest_len: %d",
@@ -965,27 +977,56 @@ static int diag_cmd_set_log_mask(unsigned char *src_buf, int src_len,
 		       __func__, req->equip_id);
 		status = LOG_STATUS_INVALID;
 	}
+
+	if (req->num_items == 0) {
+		pr_err("diag: In %s, Invalid number of items in log mask request, equip_id: %d\n",
+		       __func__, req->equip_id);
+		status = LOG_STATUS_INVALID;
+	}
+
 	mutex_lock(&log_mask.lock);
 	for (i = 0; i < MAX_EQUIP_ID && !status; i++, mask++) {
 		if (mask->equip_id != req->equip_id)
 			continue;
 		mutex_lock(&mask->lock);
-		if (req->num_items < mask->num_items)
-			mask->num_items = req->num_items;
-		mask_size = LOG_ITEMS_TO_SIZE(req->num_items);
-		if (mask_size > mask->range) {
-			/*
-			 * If the size of the log mask cannot fit into our
-			 * buffer, trim till we have space left in the buffer.
-			 * num_items should then reflect the items that we have
-			 * in our buffer.
-			 */
-			mask_size = mask->range;
-			mask->num_items = LOG_SIZE_TO_ITEMS(mask_size);
-			req->num_items = mask->num_items;
+
+		DIAG_LOG(DIAG_DEBUG_MASKS, "e: %d current: %d %d new: %d %d",
+			 mask->equip_id, mask->num_items_tools,
+			 mask->range_tools, req->num_items,
+			 LOG_ITEMS_TO_SIZE(req->num_items));
+		/*
+		 * If the size of the log mask cannot fit into our
+		 * buffer, trim till we have space left in the buffer.
+		 * num_items should then reflect the items that we have
+		 * in our buffer.
+		 */
+		mask->num_items_tools = (req->num_items > MAX_ITEMS_ALLOWED) ?
+					MAX_ITEMS_ALLOWED : req->num_items;
+		mask_size = LOG_ITEMS_TO_SIZE(mask->num_items_tools);
+		memset(mask->ptr, 0, mask->range_tools);
+		if (mask_size > mask->range_tools) {
+			DIAG_LOG(DIAG_DEBUG_MASKS,
+				 "log range mismatch, e: %d old: %d new: %d\n",
+				 req->equip_id, mask->range_tools,
+				 LOG_ITEMS_TO_SIZE(mask->num_items_tools));
+			/* Change in the mask reported by tools */
+			temp_buf = krealloc(mask->ptr, mask_size, GFP_KERNEL);
+			if (!temp_buf) {
+				log_mask.status = DIAG_CTRL_MASK_INVALID;
+				mutex_unlock(&mask->lock);
+				break;
+			}
+			mask->ptr = temp_buf;
+			memset(mask->ptr, 0, mask_size);
+			mask->range_tools = mask_size;
 		}
+		req->num_items = mask->num_items_tools;
 		if (mask_size > 0)
 			memcpy(mask->ptr, src_buf + read_len, mask_size);
+		DIAG_LOG(DIAG_DEBUG_MASKS,
+			 "copying log mask, e %d num %d range %d size %d\n",
+			 req->equip_id, mask->num_items_tools,
+			 mask->range_tools, mask_size);
 		mutex_unlock(&mask->lock);
 		log_mask.status = DIAG_CTRL_MASK_VALID;
 		break;
@@ -998,7 +1039,7 @@ static int diag_cmd_set_log_mask(unsigned char *src_buf, int src_len,
 	 * response.
 	 */
 	payload_len = LOG_ITEMS_TO_SIZE(req->num_items);
-	if (payload_len + rsp_header_len > dest_len) {
+	if ((payload_len + rsp_header_len > dest_len) || (payload_len == 0)) {
 		pr_err("diag: In %s, invalid length, payload_len: %d, header_len: %d, dest_len: %d\n",
 		       __func__, payload_len, rsp_header_len , dest_len);
 		status = LOG_STATUS_FAIL;
@@ -1244,11 +1285,13 @@ static int diag_create_log_mask_table(void)
 	for (i = 0; i < MAX_EQUIP_ID; i++, mask++) {
 		mask->equip_id = i;
 		mask->num_items = LOG_GET_ITEM_NUM(log_code_last_tbl[i]);
+		mask->num_items_tools = mask->num_items;
 		mutex_init(&mask->lock);
 		if (LOG_ITEMS_TO_SIZE(mask->num_items) > MAX_ITEMS_PER_EQUIP_ID)
 			mask->range = LOG_ITEMS_TO_SIZE(mask->num_items);
 		else
 			mask->range = MAX_ITEMS_PER_EQUIP_ID;
+		mask->range_tools = mask->range;
 		mask->ptr = kzalloc(mask->range, GFP_KERNEL);
 		if (!mask->ptr) {
 			err = -ENOMEM;
@@ -1488,7 +1531,7 @@ int diag_copy_to_user_log_mask(char __user *buf, size_t count)
 		len = 0;
 		mutex_lock(&mask->lock);
 		header.equip_id = mask->equip_id;
-		header.num_items = mask->num_items;
+		header.num_items = mask->num_items_tools;
 		memcpy(ptr, &header, sizeof(header));
 		len += sizeof(header);
 		copy_len = LOG_ITEMS_TO_SIZE(header.num_items);
