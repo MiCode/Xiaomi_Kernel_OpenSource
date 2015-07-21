@@ -14,6 +14,7 @@
 #ifndef MDSS_PANEL_H
 #define MDSS_PANEL_H
 
+#include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/stringify.h>
 #include <linux/types.h>
@@ -689,6 +690,7 @@ struct mdss_panel_data {
 	struct mdss_panel_timing *current_timing;
 	bool active;
 
+	struct device_node *cfg_np; /* NULL if config node is not present */
 	struct mdss_panel_data *next;
 };
 
