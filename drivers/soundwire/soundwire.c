@@ -53,9 +53,12 @@ static struct swr_master *swr_master_get(struct swr_master *master)
 static void swr_dev_release(struct device *dev)
 {
 	struct swr_device *swr_dev = to_swr_device(dev);
-	struct swr_master *master = swr_dev->master;
+	struct swr_master *master;
 
-	if (!swr_dev || !master)
+	if (!swr_dev)
+		return;
+	master = swr_dev->master;
+	if (!master)
 		return;
 	mutex_lock(&master->mlock);
 	list_del_init(&swr_dev->dev_list);
