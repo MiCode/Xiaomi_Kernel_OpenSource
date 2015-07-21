@@ -2299,14 +2299,14 @@ static int glink_rpm_native_probe(struct platform_device *pdev)
 								RPM_TOC_SIZE);
 	tocp = (uint32_t *)toc;
 	if (*tocp != RPM_TOC_ID) {
-		rc = ENODEV;
+		rc = -ENODEV;
 		pr_err("%s: TOC id %d is not valid\n", __func__, *tocp);
 		goto toc_init_fail;
 	}
 	++tocp;
 	num_toc_entries = *tocp;
 	if (num_toc_entries > RPM_MAX_TOC_ENTRIES) {
-		rc = ENODEV;
+		rc = -ENODEV;
 		pr_err("%s: %d is too many toc entries\n", __func__,
 							num_toc_entries);
 		goto toc_init_fail;
@@ -2339,7 +2339,7 @@ static int glink_rpm_native_probe(struct platform_device *pdev)
 		break;
 	}
 	if (!einfo->tx_fifo) {
-		rc = ENODEV;
+		rc = -ENODEV;
 		pr_err("%s: tx fifo not found\n", __func__);
 		goto toc_init_fail;
 	}
@@ -2372,7 +2372,7 @@ static int glink_rpm_native_probe(struct platform_device *pdev)
 		break;
 	}
 	if (!einfo->rx_fifo) {
-		rc = ENODEV;
+		rc = -ENODEV;
 		pr_err("%s: rx fifo not found\n", __func__);
 		goto toc_init_fail;
 	}
