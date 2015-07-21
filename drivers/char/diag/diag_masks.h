@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +18,9 @@
 struct diag_log_mask_t {
 	uint8_t equip_id;
 	uint32_t num_items;
+	uint32_t num_items_tools;
 	uint32_t range;
+	uint32_t range_tools;
 	uint8_t *ptr;
 } __packed;
 
@@ -124,6 +126,7 @@ struct diag_log_mask_userspace_t {
 #define LOG_MASK_SIZE	(MAX_EQUIP_ID * sizeof(struct diag_log_mask_t))
 #define EVENT_MASK_SIZE 513
 #define MAX_ITEMS_PER_EQUIP_ID	512
+#define MAX_ITEMS_ALLOWED	0xFFF
 
 #define LOG_MASK_CTRL_HEADER_LEN	11
 #define MSG_MASK_CTRL_HEADER_LEN	11
