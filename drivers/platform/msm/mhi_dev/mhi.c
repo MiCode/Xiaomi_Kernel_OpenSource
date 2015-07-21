@@ -1164,10 +1164,6 @@ int mhi_dev_suspend(struct mhi_dev *mhi)
 
 	}
 
-	rc = mhi_dev_send_cmd_comp_event(mhi);
-	if (rc)
-		pr_err("Error sending command completion event\n");
-
 	mutex_unlock(&mhi_ctx->mhi_write_test);
 
 	return rc;
@@ -1195,10 +1191,6 @@ int mhi_dev_resume(struct mhi_dev *mhi)
 				&mhi->ch_ctx_cache[ch_id].ch_state,
 				sizeof(enum mhi_dev_ch_ctx_state));
 	}
-
-	rc = mhi_dev_send_cmd_comp_event(mhi);
-	if (rc)
-		pr_err("Error sending command completion event\n");
 
 	atomic_set(&mhi->is_suspended, 0);
 
