@@ -2525,7 +2525,13 @@ static int venus_hfi_session_set_property(void *sess,
 
 	rc = call_hfi_pkt_op(device, session_set_property,
 			pkt, session, ptype, pdata);
-	if (rc) {
+
+	if (rc == -ENOTSUPP) {
+		dprintk(VIDC_DBG,
+			"set property: unsupported prop id: %#x\n", ptype);
+		rc = 0;
+		goto err_set_prop;
+	} else if (rc) {
 		dprintk(VIDC_ERR, "set property: failed to create packet\n");
 		rc = -EINVAL;
 		goto err_set_prop;
