@@ -27,6 +27,8 @@
 #define SMP_MB_ENTRY_SIZE	16
 #define MAX_BPP 4
 
+#define PIPE_CLEANUP_TIMEOUT_US 100000
+
 /* following offsets are relative to ctrl register bit offset */
 #define CLK_FORCE_ON_OFFSET	0x0
 #define CLK_FORCE_OFF_OFFSET	0x1
@@ -959,6 +961,13 @@ static void mdss_mdp_fixed_qos_arbiter_setup(struct mdss_data_type *mdata,
 	mutex_unlock(&mdata->reg_lock);
 }
 
+static void mdss_mdp_init_pipe_params(struct mdss_mdp_pipe *pipe)
+{
+	kref_init(&pipe->kref);
+	init_waitqueue_head(&pipe->free_waitq);
+	INIT_LIST_HEAD(&pipe->buf_queue);
+}
+
 static int mdss_mdp_pipe_init_config(struct mdss_mdp_pipe *pipe,
 	struct mdss_mdp_mixer *mixer, bool pipe_share)
 {
@@ -978,8 +987,7 @@ static int mdss_mdp_pipe_init_config(struct mdss_mdp_pipe *pipe,
 
 	if (pipe) {
 		pr_debug("type=%x   pnum=%d\n", pipe->type, pipe->num);
-		kref_init(&pipe->kref);
-		INIT_LIST_HEAD(&pipe->buf_queue);
+		mdss_mdp_init_pipe_params(pipe);
 
 	} else if (pipe_share) {
 		/*
@@ -1067,8 +1075,7 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 	}
 
 	if (pipe && type == MDSS_MDP_PIPE_TYPE_CURSOR) {
-		kref_init(&pipe->kref);
-		INIT_LIST_HEAD(&pipe->buf_queue);
+		mdss_mdp_init_pipe_params(pipe);
 		pr_debug("cursor: type=%x pnum=%d\n",
 			pipe->type, pipe->num);
 		goto cursor_done;
@@ -1146,6 +1153,7 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_assign(struct mdss_data_type *mdata,
 {
 	struct mdss_mdp_pipe *pipe = NULL;
 	int rc;
+	int retry_count = 0;
 
 	if (!ndx)
 		return ERR_PTR(-EINVAL);
@@ -1159,9 +1167,27 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_assign(struct mdss_data_type *mdata,
 	}
 
 	if (atomic_read(&pipe->kref.refcount) != 0) {
-		pr_err("pipe is in use\n");
-		pipe = ERR_PTR(-EBUSY);
-		goto error;
+		mutex_unlock(&mdss_mdp_sspp_lock);
+		do {
+			rc = wait_event_interruptible_timeout(pipe->free_waitq,
+				!atomic_read(&pipe->kref.refcount),
+				usecs_to_jiffies(PIPE_CLEANUP_TIMEOUT_US));
+			if (rc == 0 || retry_count == 5) {
+				pr_err("pipe ndx:%d free wait failed, mfd ndx:%d rc=%d\n",
+					pipe->ndx,
+					pipe->mfd ? pipe->mfd->index : -1, rc);
+				pipe = ERR_PTR(-EBUSY);
+				goto end;
+			} else if (rc == -ERESTARTSYS) {
+				pr_debug("interrupt signal received\n");
+				retry_count++;
+				continue;
+			} else {
+				break;
+			}
+		} while (true);
+
+		mutex_lock(&mdss_mdp_sspp_lock);
 	}
 	pipe->mixer_left = mixer;
 
@@ -1171,6 +1197,7 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_assign(struct mdss_data_type *mdata,
 
 error:
 	mutex_unlock(&mdss_mdp_sspp_lock);
+end:
 	return pipe;
 }
 
@@ -1499,6 +1526,7 @@ int mdss_mdp_pipe_destroy(struct mdss_mdp_pipe *pipe)
 		return -EBUSY;
 	}
 
+	wake_up_all(&pipe->free_waitq);
 	mutex_unlock(&mdss_mdp_sspp_lock);
 
 	return 0;
@@ -1566,8 +1594,7 @@ int mdss_mdp_pipe_handoff(struct mdss_mdp_pipe *pipe)
 
 	pipe->is_handed_off = true;
 	pipe->play_cnt = 1;
-	kref_init(&pipe->kref);
-	INIT_LIST_HEAD(&pipe->buf_queue);
+	mdss_mdp_init_pipe_params(pipe);
 
 error:
 	return rc;
