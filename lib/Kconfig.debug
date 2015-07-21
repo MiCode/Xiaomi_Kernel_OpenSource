@@ -858,6 +858,16 @@ config SCHED_DEBUG
 	  that can help debug the scheduler. The runtime overhead of this
 	  option is minimal.
 
+config PANIC_ON_SCHED_BUG
+	bool "Panic on all bugs encountered by the scheduler"
+	help
+	  Say Y here to panic on all 'BUG:' conditions encountered by the
+	  scheduler, even potentially-recoverable ones such as scheduling
+	  while atomic, sleeping from invalid context, and detection of
+	  broken arch topologies.
+
+	  Say N if unsure.
+
 config PANIC_ON_RT_THROTTLING
 	bool "Panic on RT throttling"
 	help
