@@ -14,6 +14,7 @@
 #include <linux/ioctl.h>
 #include "kgsl_device.h"
 #include "adreno.h"
+#include "adreno_a5xx.h"
 
 long adreno_ioctl_perfcounter_get(struct kgsl_device_private *dev_priv,
 	unsigned int cmd, void *data)
@@ -79,6 +80,40 @@ static long adreno_ioctl_perfcounter_read(struct kgsl_device_private *dev_priv,
 		read->count);
 }
 
+static long adreno_ioctl_preemption_counters_query(
+		struct kgsl_device_private *dev_priv,
+		unsigned int cmd, void *data)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(dev_priv->device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct kgsl_preemption_counters_query *read = data;
+	int size_level = A5XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE_IN_DWORDS *
+					 sizeof(unsigned int);
+	int levels_to_copy;
+
+	if (!adreno_is_a5xx(adreno_dev) ||
+		!adreno_is_preemption_enabled(adreno_dev))
+		return -EOPNOTSUPP;
+
+	if (read->size_user < size_level)
+		return -EINVAL;
+
+	/* Calculate number of preemption counter levels to copy to userspace */
+	levels_to_copy = (read->size_user / size_level);
+	if (levels_to_copy > gpudev->num_prio_levels)
+		levels_to_copy = gpudev->num_prio_levels;
+
+	if (copy_to_user((void __user *) (uintptr_t) read->counters,
+			adreno_dev->preemption_counters.hostptr,
+			levels_to_copy * size_level))
+		return -EFAULT;
+
+	read->max_priority_level = levels_to_copy;
+	read->size_priority_level = size_level;
+
+	return 0;
+}
+
 long adreno_ioctl_helper(struct kgsl_device_private *dev_priv,
 		unsigned int cmd, unsigned long arg,
 		const struct kgsl_ioctl *cmds, int len)
@@ -122,6 +157,8 @@ static struct kgsl_ioctl adreno_ioctl_funcs[] = {
 	{ IOCTL_KGSL_PERFCOUNTER_PUT, adreno_ioctl_perfcounter_put },
 	{ IOCTL_KGSL_PERFCOUNTER_QUERY, adreno_ioctl_perfcounter_query },
 	{ IOCTL_KGSL_PERFCOUNTER_READ, adreno_ioctl_perfcounter_read },
+	{ IOCTL_KGSL_PREEMPTIONCOUNTER_QUERY,
+		adreno_ioctl_preemption_counters_query },
 };
 
 long adreno_ioctl(struct kgsl_device_private *dev_priv,

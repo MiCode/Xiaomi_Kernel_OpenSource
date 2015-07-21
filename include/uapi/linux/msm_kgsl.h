@@ -1386,4 +1386,31 @@ struct kgsl_gpu_command {
 #define IOCTL_KGSL_GPU_COMMAND \
 	_IOWR(KGSL_IOC_TYPE, 0x4A, struct kgsl_gpu_command)
 
+/**
+ * struct kgsl_preemption_counters_query - argument to
+ * IOCTL_KGSL_PREEMPTIONCOUNTER_QUERY
+ * @counters: Return preemption counters array
+ * @size_user: Size allocated by userspace
+ * @size_priority_level: Size of preemption counters for each
+ * priority level
+ * @max_priority_level: Return max number of priority levels
+ *
+ * Query the available preemption counters. The array counters
+ * is used to return preemption counters. The size of the array
+ * is passed in so the kernel will only write at most size_user
+ * or max available preemption counters.  The total number of
+ * preemption counters is returned in max_priority_level. If the
+ * array or size passed in are invalid, then an error is
+ * returned back.
+ */
+struct kgsl_preemption_counters_query {
+	uint64_t __user counters;
+	unsigned int size_user;
+	unsigned int size_priority_level;
+	unsigned int max_priority_level;
+};
+
+#define IOCTL_KGSL_PREEMPTIONCOUNTER_QUERY \
+	_IOWR(KGSL_IOC_TYPE, 0x4B, struct kgsl_preemption_counters_query)
+
 #endif /* _UAPI_MSM_KGSL_H */
