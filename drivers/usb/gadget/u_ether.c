@@ -820,7 +820,8 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 		skb = req->context;
 		/* Is aggregation already enabled and buffers allocated ? */
 		if (dev->port_usb->multi_pkt_xfer && dev->tx_req_bufsize) {
-			req->buf = kzalloc(dev->tx_req_bufsize, GFP_ATOMIC);
+			req->buf = kzalloc(dev->tx_req_bufsize
+				+ dev->gadget->extra_buf_alloc, GFP_ATOMIC);
 			req->context = NULL;
 		} else {
 			req->buf = NULL;
@@ -859,8 +860,8 @@ static int alloc_tx_buffer(struct eth_dev *dev)
 	list_for_each(act, &dev->tx_reqs) {
 		req = container_of(act, struct usb_request, list);
 		if (!req->buf) {
-			req->buf = kzalloc(dev->tx_req_bufsize,
-						GFP_ATOMIC);
+			req->buf = kzalloc(dev->tx_req_bufsize
+				+ dev->gadget->extra_buf_alloc, GFP_ATOMIC);
 			if (!req->buf)
 				goto free_buf;
 		}
