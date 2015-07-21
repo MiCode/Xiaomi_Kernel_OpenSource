@@ -85,7 +85,7 @@ struct lpm_cluster {
 	struct cpuidle_driver *drv;
 	spinlock_t sync_lock;
 	struct cpumask child_cpus;
-	struct cpumask num_childs_in_sync;
+	struct cpumask num_children_in_sync;
 	struct lpm_cluster *parent;
 	struct lpm_stats *stats;
 	bool no_saw_devices;
