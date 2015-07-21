@@ -567,10 +567,10 @@ static int __read_queue(struct vidc_iface_q_info *qinfo, u8 *packet,
 	return rc;
 }
 
-static int __smem_alloc(struct venus_hfi_device *dev, void *mem,
-			u32 size, u32 align, u32 flags, u32 usage)
+static int __smem_alloc(struct venus_hfi_device *dev,
+			struct vidc_mem_addr *mem, u32 size, u32 align,
+			u32 flags, u32 usage)
 {
-	struct vidc_mem_addr *vmem = NULL;
 	struct msm_smem *alloc = NULL;
 	int rc = 0;
 
@@ -579,9 +579,7 @@ static int __smem_alloc(struct venus_hfi_device *dev, void *mem,
 		return -EINVAL;
 	}
 
-	vmem = (struct vidc_mem_addr *)mem;
 	dprintk(VIDC_INFO, "start to alloc size: %d, flags: %d\n", size, flags);
-
 	alloc = msm_smem_alloc(dev->hal_client, size, align, flags, usage, 1);
 	if (!alloc) {
 		dprintk(VIDC_ERR, "Alloc failed\n");
@@ -598,10 +596,10 @@ static int __smem_alloc(struct venus_hfi_device *dev, void *mem,
 		dprintk(VIDC_WARN, "This may result in undefined behavior\n");
 	}
 
-	vmem->mem_size = alloc->size;
-	vmem->mem_data = alloc;
-	vmem->align_virtual_addr = alloc->kvaddr;
-	vmem->align_device_addr = alloc->device_addr;
+	mem->mem_size = alloc->size;
+	mem->mem_data = alloc;
+	mem->align_virtual_addr = alloc->kvaddr;
+	mem->align_device_addr = alloc->device_addr;
 	return rc;
 fail_smem_alloc:
 	return rc;
@@ -1971,7 +1969,7 @@ static int __interface_queues_init(struct venus_hfi_device *dev)
 	mem_addr = &dev->mem_addr;
 	if (!is_iommu_present(dev->res))
 		fw_bias = dev->hal_data->firmware_base;
-	rc = __smem_alloc(dev, (void *) mem_addr, q_size, 1, 0,
+	rc = __smem_alloc(dev, mem_addr, q_size, 1, 0,
 			HAL_BUFFER_INTERNAL_CMD_QUEUE);
 	if (rc) {
 		dprintk(VIDC_ERR, "iface_q_table_alloc_fail\n");
@@ -2000,7 +1998,7 @@ static int __interface_queues_init(struct venus_hfi_device *dev)
 	}
 
 	if ((msm_vidc_fw_debug_mode & HFI_DEBUG_MODE_QDSS) && num_entries) {
-		rc = __smem_alloc(dev, (void *) mem_addr,
+		rc = __smem_alloc(dev, mem_addr,
 				ALIGNED_QDSS_SIZE, 1, 0,
 				HAL_BUFFER_INTERNAL_CMD_QUEUE);
 		if (rc) {
@@ -2017,7 +2015,7 @@ static int __interface_queues_init(struct venus_hfi_device *dev)
 		}
 	}
 
-	rc = __smem_alloc(dev, (void *) mem_addr,
+	rc = __smem_alloc(dev, mem_addr,
 			ALIGNED_SFR_SIZE, 1, 0,
 			HAL_BUFFER_INTERNAL_CMD_QUEUE);
 	if (rc) {
