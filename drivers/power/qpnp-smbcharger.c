@@ -5313,14 +5313,14 @@ static irqreturn_t src_detect_handler(int irq, void *_chip)
 	 * instead of the USBIN_UV handler since the latter is untrustworthy
 	 * when the battery voltage is high.
 	 */
+	chip->very_weak_charger = false;
+	rc = smbchg_primary_usb_en(chip, true, REASON_WEAK_CHARGER, &unused);
+	if (rc < 0)
+		pr_err("could not enable charger: %d\n", rc);
+
 	if (src_detect) {
 		update_usb_status(chip, usb_present, 0);
 	} else {
-		chip->very_weak_charger = false;
-		rc = smbchg_primary_usb_en(chip, true,
-				REASON_WEAK_CHARGER, &unused);
-		if (rc)
-			pr_err("could not enable charger: %d", rc);
 		update_usb_status(chip, 0, false);
 		chip->aicl_irq_count = 0;
 	}
