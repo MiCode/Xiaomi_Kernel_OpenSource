@@ -1828,6 +1828,7 @@ static int serial_function_bind_config(struct android_usb_function *f,
 							name);
 					goto out;
 				}
+				config->instances_on++;
 			}
 			ports++;
 			if (ports >= MAX_SERIAL_INSTANCES) {
@@ -1837,7 +1838,9 @@ static int serial_function_bind_config(struct android_usb_function *f,
 		}
 	}
 
-	config->instances_on = ports;
+	/* limit the serial ports init only for boot ports */
+	if (ports > config->instances_on)
+		ports = config->instances_on;
 
 	if (serial_initialized)
 		goto bind_config;
@@ -1848,6 +1851,7 @@ static int serial_function_bind_config(struct android_usb_function *f,
 		goto out;
 	}
 
+	config->instances_on = ports;
 	for (i = 0; i < ports; i++) {
 		config->f_serial_inst[i] = usb_get_function_instance("gser");
 		if (IS_ERR(config->f_serial_inst[i])) {
