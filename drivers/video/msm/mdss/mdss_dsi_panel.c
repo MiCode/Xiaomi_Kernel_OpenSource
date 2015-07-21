@@ -1374,6 +1374,11 @@ static int mdss_dsi_parse_dsc_params(struct device_node *np,
 	int rc = 0;
 	struct dsc_desc *dsc = &timing->dsc;
 
+	if (!np) {
+		pr_err("%s: device node pointer is NULL\n", __func__);
+		return -EINVAL;
+	}
+
 	rc = of_property_read_u32(np, "qcom,mdss-dsc-encoders", &data);
 	if (rc) {
 		if (!of_find_property(np, "qcom,mdss-dsc-encoders", NULL)) {
@@ -1471,32 +1476,40 @@ end:
 }
 
 static int mdss_dsi_parse_compression_params(struct device_node *np,
-	struct dsi_panel_timing *pt, bool is_split_display)
+	struct dsi_panel_timing *pt, struct mdss_panel_data *panel_data)
 {
 	int rc = 0;
+	bool is_split_display = panel_data->panel_info.is_split_display;
 	const char *data;
-	struct device_node *cfg_np = NULL;
 	struct mdss_panel_timing *timing = &pt->timing;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	struct device_node *cfg_np;
 
-	if (of_find_property(np, "qcom,config-select", NULL)) {
+	ctrl_pdata = container_of(panel_data, struct mdss_dsi_ctrl_pdata,
+							panel_data);
+	cfg_np = ctrl_pdata->panel_data.cfg_np;
+
+	if (!cfg_np && of_find_property(np, "qcom,config-select", NULL)) {
 		cfg_np = of_parse_phandle(np, "qcom,config-select", 0);
-		if (!cfg_np) {
-			pr_err("%s: error parsing qcom,config-select\n",
-				__func__);
-		} else {
-			if (!of_property_read_u32_array(cfg_np, "qcom,lm-split",
-			    timing->lm_widths, 2)) {
-				if (is_split_display &&
-				    (timing->lm_widths[1] != 0)) {
-					pr_err("%s: lm-split not allowed with split display\n",
-						__func__);
-					rc = -EINVAL;
-					goto end;
-				}
+		if (!cfg_np)
+			pr_err("%s:err parsing qcom,config-select\n", __func__);
+		ctrl_pdata->panel_data.cfg_np = cfg_np;
+	}
+
+	if (cfg_np) {
+		if (!of_property_read_u32_array(cfg_np, "qcom,lm-split",
+		    timing->lm_widths, 2)) {
+			if (mdss_dsi_is_hw_config_split(ctrl_pdata->shared_data)
+			    && (timing->lm_widths[1] != 0)) {
+				pr_err("%s: lm-split not allowed with split display\n",
+					__func__);
+				rc = -EINVAL;
+				goto end;
 			}
 		}
-	} else {
-		pr_debug("%s: qcom,config-select is not present\n", __func__);
+		pr_info("%s: cfg_node name %s lm_split:%dx%d\n", __func__,
+			cfg_np->name,
+			timing->lm_widths[0], timing->lm_widths[1]);
 	}
 
 	if ((timing->lm_widths[0] == 0) && (timing->lm_widths[1] == 0))
@@ -2224,7 +2237,7 @@ static int  mdss_dsi_panel_config_res_properties(struct device_node *np,
 		"qcom,mdss-dsi-timing-switch-command-state");
 
 	rc = mdss_dsi_parse_compression_params(np, pt,
-			panel_data->panel_info.is_split_display);
+			panel_data);
 	if (rc) {
 		pr_err("%s: parsing compression params failed. rc:%d\n",
 			__func__, rc);

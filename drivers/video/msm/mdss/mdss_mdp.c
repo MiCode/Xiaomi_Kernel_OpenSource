@@ -4095,12 +4095,17 @@ static int __init mdss_mdp_driver_init(void)
 
 module_param_string(panel, mdss_mdp_panel, MDSS_MAX_PANEL_LEN, 0);
 MODULE_PARM_DESC(panel,
-		"panel=<lk_cfg>:<pan_intf>:<pan_intf_cfg> "
+		"panel=<lk_cfg>:<pan_intf>:<pan_intf_cfg>:<panel_topology_cfg> "
 		"where <lk_cfg> is "1"-lk/gcdb config or "0" non-lk/non-gcdb "
 		"config; <pan_intf> is dsi:<ctrl_id> or hdmi or edp "
 		"<pan_intf_cfg> is panel interface specific string "
 		"Ex: This string is panel's device node name from DT "
 		"for DSI interface "
-		"hdmi/edp interface does not use this string");
+		"hdmi/edp interface does not use this string "
+		"<panel_topology_cfg> is an optional string. Currently it is "
+		"only valid for DSI panels. In dual-DSI case, it needs to be"
+		"used on both panels or none. When used, format is config%d "
+		"where %d is one of the configuration found in device node of "
+		"panel selected by <pan_intf_cfg>");
 
 module_init(mdss_mdp_driver_init);
