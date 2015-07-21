@@ -557,6 +557,7 @@ struct mdss_mdp_pipe {
 	struct mdp_input_layer layer;
 	u32 params_changed;
 	bool dirty;
+	bool unhalted;
 	bool async_update;
 
 	struct mdss_mdp_pipe_smp_map smp_map[MAX_PLANES];

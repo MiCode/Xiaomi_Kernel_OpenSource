@@ -1221,6 +1221,7 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd,
 				mdss_mdp_mixer_unstage_all(ctl->mixer_right);
 			}
 			pipe->params_changed++;
+			pipe->unhalted = true;
 			mdss_mdp_pipe_queue_data(pipe, NULL);
 		}
 	}
