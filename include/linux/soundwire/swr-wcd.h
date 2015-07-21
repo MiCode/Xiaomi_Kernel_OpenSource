@@ -29,6 +29,6 @@ struct swr_mstr_port {
 	u8 *port;
 };
 
-extern int swrm_notify(struct platform_device *pdev, u32 id, void *data);
+extern int swrm_wcd_notify(struct platform_device *pdev, u32 id, void *data);
 
 #endif /* _LINUX_SWR_WCD_H */
