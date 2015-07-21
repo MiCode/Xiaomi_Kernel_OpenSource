@@ -325,6 +325,7 @@ enum MHI_STATUS mhi_open_channel(struct mhi_client_handle *client_handle)
 	if (MHI_STATUS_SUCCESS != ret_val)
 		mhi_log(MHI_MSG_ERROR,
 			"Failed to start chan 0x%x\n", chan);
+	BUG_ON(ret_val);
 	client_handle->chan_status = 1;
 	mhi_log(MHI_MSG_INFO,
 		"Exited chan 0x%x\n", chan);
@@ -655,7 +656,8 @@ static enum MHI_STATUS mhi_queue_dma_xfer(
 	MHI_ASSERT(VALID_BUF(buf, buf_len, mhi_dev_ctxt),
 			"Client buffer is of invalid length\n");
 	chan = client_handle->chan_info.chan_nr;
-	pm_runtime_get(&mhi_dev_ctxt->dev_info->plat_dev->dev);
+	mhi_log(MHI_MSG_INFO, "Getting Reference %d", chan);
+	pm_runtime_get(&mhi_dev_ctxt->dev_info->pcie_device->dev);
 
 	pkt_loc = mhi_dev_ctxt->mhi_local_chan_ctxt[chan].wp;
 	pkt_loc->data_tx_pkt.buffer_ptr = buf;
@@ -697,8 +699,9 @@ static enum MHI_STATUS mhi_queue_dma_xfer(
 	read_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
 
 error:
-	pm_runtime_mark_last_busy(&mhi_dev_ctxt->dev_info->plat_dev->dev);
-	pm_runtime_put_noidle(&mhi_dev_ctxt->dev_info->plat_dev->dev);
+	pm_runtime_mark_last_busy(&mhi_dev_ctxt->dev_info->pcie_device->dev);
+	mhi_log(MHI_MSG_INFO, "Putting Reference %d", chan);
+	pm_runtime_put_noidle(&mhi_dev_ctxt->dev_info->pcie_device->dev);
 	return ret_val;
 }
 
@@ -769,8 +772,8 @@ enum MHI_STATUS mhi_send_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 			mhi_dev_ctxt->mhi_state,
 			mhi_dev_ctxt->dev_exec_env,
 			chan, cmd);
-
-	pm_runtime_get(&mhi_dev_ctxt->dev_info->plat_dev->dev);
+	mhi_log(MHI_MSG_INFO, "Getting Reference %d", chan);
+	pm_runtime_get(&mhi_dev_ctxt->dev_info->pcie_device->dev);
 	/*
 	 * If there is a cmd pending a device confirmation,
 	 * do not send anymore for this channel
@@ -834,8 +837,9 @@ enum MHI_STATUS mhi_send_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 error_general:
 	mutex_unlock(&mhi_dev_ctxt->mhi_cmd_mutex_list[PRIMARY_CMD_RING]);
 error_invalid:
-	pm_runtime_mark_last_busy(&mhi_dev_ctxt->dev_info->plat_dev->dev);
-	pm_runtime_put_noidle(&mhi_dev_ctxt->dev_info->plat_dev->dev);
+	pm_runtime_mark_last_busy(&mhi_dev_ctxt->dev_info->pcie_device->dev);
+	mhi_log(MHI_MSG_INFO, "Putting Reference %d", chan);
+	pm_runtime_put_noidle(&mhi_dev_ctxt->dev_info->pcie_device->dev);
 
 	atomic_dec(&mhi_dev_ctxt->flags.data_pending);
 	mhi_log(MHI_MSG_INFO, "Exited ret %d.\n", ret_val);

@@ -208,17 +208,17 @@ msi_config_err:
 }
 
 static const struct dev_pm_ops pm_ops = {
-	.runtime_suspend = mhi_runtime_suspend,
-	.runtime_resume = mhi_runtime_resume,
-	.runtime_idle = NULL,
+	SET_RUNTIME_PM_OPS(mhi_runtime_suspend, mhi_runtime_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(mhi_pci_suspend, mhi_pci_resume)
 };
 
 static struct pci_driver mhi_pcie_driver = {
 	.name = "mhi_pcie_drv",
 	.id_table = mhi_pcie_device_id,
 	.probe = mhi_pci_probe,
-	.suspend = mhi_pci_suspend,
-	.resume = mhi_pci_resume,
+	.driver = {
+		.pm = &pm_ops
+	}
 };
 
 static int mhi_pci_probe(struct pci_dev *pcie_device,
@@ -239,6 +239,7 @@ static int mhi_pci_probe(struct pci_dev *pcie_device,
 	mhi_devices.nr_of_devices++;
 	plat_dev = mhi_devices.device_list[nr_dev].plat_dev;
 	pcie_device->dev.of_node = plat_dev->dev.of_node;
+	pm_runtime_put_noidle(&pcie_device->dev);
 	mhi_pcie_dev->pcie_device = pcie_device;
 	mhi_pcie_dev->mhi_pcie_driver = &mhi_pcie_driver;
 	mhi_pcie_dev->mhi_pci_link_event.events =
@@ -272,7 +273,6 @@ static struct platform_driver mhi_plat_driver = {
 		.name		= "mhi",
 		.owner		= THIS_MODULE,
 		.of_match_table	= mhi_plat_match,
-		.pm = &pm_ops,
 	},
 };
 
