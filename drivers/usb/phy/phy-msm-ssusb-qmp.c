@@ -512,6 +512,10 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 		return 0;
 
 	if (!phy->clk_enabled) {
+		if (phy->ref_clk_src)
+			clk_prepare_enable(phy->ref_clk_src);
+		if (phy->ref_clk)
+			clk_prepare_enable(phy->ref_clk);
 		clk_prepare_enable(phy->aux_clk);
 		clk_prepare_enable(phy->cfg_ahb_clk);
 
@@ -764,6 +768,10 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 		clk_disable_unprepare(phy->cfg_ahb_clk);
 		clk_disable_unprepare(phy->aux_clk);
 		clk_disable_unprepare(phy->pipe_clk);
+		if (phy->ref_clk)
+			clk_disable_unprepare(phy->ref_clk);
+		if (phy->ref_clk_src)
+			clk_disable_unprepare(phy->ref_clk_src);
 		phy->clk_enabled = false;
 		phy->in_suspend = true;
 		msm_ssphy_power_enable(phy, 0);
@@ -772,6 +780,10 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 		msm_ssphy_power_enable(phy, 1);
 		clk_prepare_enable(phy->pipe_clk);
 		if (!phy->clk_enabled) {
+			if (phy->ref_clk_src)
+				clk_prepare_enable(phy->ref_clk_src);
+			if (phy->ref_clk)
+				clk_prepare_enable(phy->ref_clk);
 			clk_prepare_enable(phy->aux_clk);
 			clk_prepare_enable(phy->cfg_ahb_clk);
 			phy->clk_enabled = true;
@@ -973,11 +985,11 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	}
 
 	phy->ref_clk_src = devm_clk_get(dev, "ref_clk_src");
-	if (!IS_ERR(phy->ref_clk_src))
-		clk_prepare_enable(phy->ref_clk_src);
+	if (IS_ERR(phy->ref_clk_src))
+		phy->ref_clk_src = NULL;
 	phy->ref_clk = devm_clk_get(dev, "ref_clk");
-	if (!IS_ERR(phy->ref_clk))
-		clk_prepare_enable(phy->ref_clk);
+	if (IS_ERR(phy->ref_clk))
+		phy->ref_clk = NULL;
 
 	platform_set_drvdata(pdev, phy);
 
@@ -1011,10 +1023,6 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	return 0;
 
 disable_ss_ldo:
-	if (!IS_ERR(phy->ref_clk))
-		clk_disable_unprepare(phy->ref_clk);
-	if (!IS_ERR(phy->ref_clk_src))
-		clk_disable_unprepare(phy->ref_clk_src);
 	msm_ssusb_qmp_ldo_enable(phy, 0);
 disable_ss_vdd:
 	regulator_disable(phy->vdd);
@@ -1032,9 +1040,9 @@ static int msm_ssphy_qmp_remove(struct platform_device *pdev)
 		return 0;
 
 	usb_remove_phy(&phy->phy);
-	if (!IS_ERR(phy->ref_clk))
+	if (phy->ref_clk)
 		clk_disable_unprepare(phy->ref_clk);
-	if (!IS_ERR(phy->ref_clk_src))
+	if (phy->ref_clk_src)
 		clk_disable_unprepare(phy->ref_clk_src);
 	msm_ssusb_qmp_ldo_enable(phy, 0);
 	regulator_disable(phy->vdd);
