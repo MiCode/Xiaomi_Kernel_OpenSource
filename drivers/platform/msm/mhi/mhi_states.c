@@ -225,14 +225,14 @@ static enum MHI_STATUS process_m1_transition(
 		mhi_assert_device_wake(mhi_dev_ctxt);
 	} else {
 		pm_runtime_mark_last_busy(
-				&mhi_dev_ctxt->dev_info->plat_dev->dev);
+				&mhi_dev_ctxt->dev_info->pcie_device->dev);
 		r = pm_request_autosuspend(
-				&mhi_dev_ctxt->dev_info->plat_dev->dev);
+				&mhi_dev_ctxt->dev_info->pcie_device->dev);
 		if (r) {
 			mhi_log(MHI_MSG_ERROR,
 				"Failed to remove counter ret %d\n", r);
 			BUG_ON(mhi_dev_ctxt->dev_info->
-				plat_dev->dev.power.runtime_error);
+				pcie_device->dev.power.runtime_error);
 		}
 	}
 	atomic_set(&mhi_dev_ctxt->flags.m2_transition, 0);
@@ -329,7 +329,8 @@ static enum MHI_STATUS process_wake_transition(
 		goto exit;
 	}
 	if (mhi_dev_ctxt->flags.mhi_initialized) {
-		r = pm_request_resume(&mhi_dev_ctxt->dev_info->plat_dev->dev);
+		r = pm_request_resume(
+				&mhi_dev_ctxt->dev_info->pcie_device->dev);
 		mhi_log(MHI_MSG_VERBOSE,
 			"MHI is initialized, transitioning to M0, ret %d\n", r);
 	}
@@ -560,16 +561,17 @@ static enum MHI_STATUS process_sbl_transition(
 {
 	int r;
 
-	mhi_log(MHI_MSG_INFO, "Processing SBL state transition\n");
-	pm_runtime_set_autosuspend_delay(&mhi_dev_ctxt->dev_info->plat_dev->dev,
-					 MHI_RPM_AUTOSUSPEND_TMR_VAL_MS);
-	pm_runtime_use_autosuspend(&mhi_dev_ctxt->dev_info->plat_dev->dev);
-	r = pm_runtime_set_active(&mhi_dev_ctxt->dev_info->plat_dev->dev);
+	pm_runtime_set_autosuspend_delay(
+				 &mhi_dev_ctxt->dev_info->pcie_device->dev,
+				 MHI_RPM_AUTOSUSPEND_TMR_VAL_MS);
+	pm_runtime_use_autosuspend(&mhi_dev_ctxt->dev_info->pcie_device->dev);
+	r = pm_runtime_set_active(&mhi_dev_ctxt->dev_info->pcie_device->dev);
 	if (r) {
 		mhi_log(MHI_MSG_ERROR,
 		"Failed to activate runtime pm ret %d\n", r);
 	}
-	pm_runtime_enable(&mhi_dev_ctxt->dev_info->plat_dev->dev);
+	pm_runtime_enable(&mhi_dev_ctxt->dev_info->pcie_device->dev);
+	pm_runtime_put_noidle(&mhi_dev_ctxt->dev_info->pcie_device->dev);
 	mhi_log(MHI_MSG_INFO, "Enabled runtime pm\n");
 	mhi_dev_ctxt->dev_exec_env = MHI_EXEC_ENV_SBL;
 	enable_clients(mhi_dev_ctxt, mhi_dev_ctxt->dev_exec_env);

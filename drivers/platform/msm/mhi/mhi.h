@@ -608,8 +608,8 @@ enum MHI_STATUS mhi_init_state_transition(struct mhi_device_ctxt *mhi_dev_ctxt,
 					enum STATE_TRANSITION new_state);
 enum MHI_STATUS mhi_wait_for_mdm(struct mhi_device_ctxt *mhi_dev_ctxt);
 enum hrtimer_restart mhi_initiate_m1(struct hrtimer *timer);
-int mhi_pci_suspend(struct pci_dev *dev, pm_message_t state);
-int mhi_pci_resume(struct pci_dev *dev);
+int mhi_pci_suspend(struct device *dev);
+int mhi_pci_resume(struct device *dev);
 int mhi_init_pcie_device(struct mhi_pcie_dev_info *mhi_pcie_dev);
 int mhi_init_pm_sysfs(struct device *dev);
 void mhi_rem_pm_sysfs(struct device *dev);
