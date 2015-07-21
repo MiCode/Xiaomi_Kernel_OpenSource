@@ -3567,13 +3567,6 @@ static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	hdmi_tx_set_mode(hdmi_ctrl, false);
 
-	if (hdmi_ctrl->hpd_state) {
-		rc = hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM, 0);
-		if (rc)
-			DEV_INFO("%s: Failed to disable ddc power. Error=%d\n",
-				__func__, rc);
-	}
-
 	rc = hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_HPD_PM, 0);
 	if (rc)
 		DEV_INFO("%s: Failed to disable hpd power. Error=%d\n",
