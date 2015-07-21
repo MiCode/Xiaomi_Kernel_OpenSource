@@ -1846,10 +1846,10 @@ static void a5xx_post_start(struct adreno_device *adreno_dev)
 	if (adreno_is_preemption_enabled(adreno_dev))
 		cmds += _preemption_init(adreno_dev, rb, cmds, NULL);
 
+	rb->wptr = rb->wptr - (42 - (cmds - start));
+
 	if (cmds == start)
 		return;
-
-	rb->wptr = rb->wptr - (42 - (cmds - start));
 
 	adreno_ringbuffer_submit(rb, NULL);
 
