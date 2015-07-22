@@ -55,6 +55,12 @@ dtb-$(CONFIG_ARCH_MSMTITANIUM) += msmtitanium-sim.dtb \
 
 dtb-$(CONFIG_ARCH_MDMFERMIUM) += mdmfermium-rumi.dtb
 
+dtb-$(CONFIG_ARCH_MSM8916) += msm8952-qrd-skum.dtb \
+       msm8952-cdp.dtb \
+       msm8952-ext-codec-cdp.dtb \
+       msm8952-mtp.dtb
+
+
 targets += dtbs
 targets += $(addprefix ../, $(dtb-y))
 endif
