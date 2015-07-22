@@ -53,6 +53,7 @@
 		qcom,mdss-dsi-te-using-te-pin;
 		qcom,ulps-enabled;
 
+		qcom,adjust-timer-wakeup-ms = <1>;
 		qcom,mdss-dsi-on-command = [15 01 00 00 0a 00 02 ff 10
 			15 01 00 00 0a 00 02 fb 01
 			15 01 00 00 0a 00 02 ba 03
