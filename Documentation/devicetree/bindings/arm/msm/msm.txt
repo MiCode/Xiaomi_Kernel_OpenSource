@@ -86,6 +86,9 @@ SoCs:
 - MSMZIRC
   compatible = "qcom,msmzirc"
 
+- MDMCALIFORNIUM
+  compatible = "qcom,mdmcalifornium"
+
 - VPIPA
   compatible = "qcom,msmvpipa"
 
@@ -222,3 +225,5 @@ compatible = "qcom,msmzirc-rumi"
 compatible = "qcom,msmzirc-sim"
 compatible = "qcom,msmvpipa-sim"
 compatible = "qcom,mdmfermium-rumi"
+compatible = "qcom,mdmcalifornium-rumi"
+compatible = "qcom,mdmcalifornium-sim"

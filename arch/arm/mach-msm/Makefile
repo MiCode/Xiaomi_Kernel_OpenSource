@@ -3,3 +3,4 @@ obj-$(CONFIG_SMP) += headsmp.o platsmp.o
 obj-$(CONFIG_HOTPLUG_CPU) += hotplug.o
 obj-$(CONFIG_ARCH_MDM9640) += board-9640.o
 obj-$(CONFIG_ARCH_MDMFERMIUM) += board-fermium.o
+obj-$(CONFIG_ARCH_MDMCALIFORNIUM) += board-californium.o

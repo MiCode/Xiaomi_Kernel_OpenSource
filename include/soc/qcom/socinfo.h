@@ -68,8 +68,10 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,apq8084")
 #define early_machine_is_mdm9630()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mdm9630")
-#define early_machine_is_msmzirc()	\
-	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmzirc")
+#define early_machine_is_mdm9640()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mdm9640")
+#define early_machine_is_mdmcalifornium()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mdmcalifornium")
 #define early_machine_is_fsm9900()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,fsm9900")
 #define early_machine_is_msm8994()	\
@@ -125,6 +127,7 @@
 #define early_machine_is_msm8976() 0
 #define early_machine_is_msm8929()	0
 #define early_machine_is_mdmfermium()	0
+#define early_machine_is_mdmcalifornium()	0
 #endif
 
 #define PLATFORM_SUBTYPE_MDM	1
@@ -183,6 +186,7 @@ enum msm_cpu {
 	MSM_CPU_8976,
 	MSM_CPU_8929,
 	MSM_CPU_FERMIUM,
+	MSM_CPU_CALIFORNIUM,
 };
 
 struct msm_soc_info {
