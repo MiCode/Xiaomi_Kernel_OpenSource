@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -455,7 +455,7 @@ void *msmclk_parse_dt_node(struct device *dev, struct device_node *np)
 	}
 
 	parser = msmclk_parser_lookup(np);
-	if (IS_ERR(parser)) {
+	if (IS_ERR_OR_NULL(parser)) {
 		dt_err(np, "no parser found\n");
 		return ERR_PTR(-EINVAL);
 	}
