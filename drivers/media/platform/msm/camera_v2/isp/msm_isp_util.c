@@ -1704,10 +1704,15 @@ void ms_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 
 	error_event.frame_id =
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
-	vfe_dev->buf_mgr->ops->buf_mgr_debug(vfe_dev->buf_mgr,
-		vfe_dev->page_fault_addr);
-	msm_isp_print_ping_pong_address(vfe_dev, vfe_dev->page_fault_addr);
-	vfe_dev->hw_info->vfe_ops.axi_ops.read_wm_ping_pong_addr(vfe_dev);
+	if (vfe_dev->buf_mgr->pagefault_debug_disable == 0) {
+		vfe_dev->buf_mgr->pagefault_debug_disable = 1;
+		vfe_dev->buf_mgr->ops->buf_mgr_debug(vfe_dev->buf_mgr,
+			vfe_dev->page_fault_addr);
+		msm_isp_print_ping_pong_address(vfe_dev,
+			vfe_dev->page_fault_addr);
+		vfe_dev->hw_info->vfe_ops.axi_ops.
+			read_wm_ping_pong_addr(vfe_dev);
+	}
 
 	for (i = 0; i < MAX_NUM_STREAM; i++)
 		vfe_dev->axi_data.stream_info[i].state = INACTIVE;
@@ -1965,14 +1970,8 @@ static int msm_vfe_iommu_fault_handler(struct iommu_domain *domain,
 				vfe_dev->axi_data.num_active_stream);
 			goto end;
 		}
-		if (!vfe_dev->buf_mgr->pagefault_debug) {
-			vfe_dev->buf_mgr->pagefault_debug = 1;
-			msm_isp_enqueue_tasklet_cmd(vfe_dev, 0, 0, 1);
-		} else {
-			/* Page fault previously handled, avoid flooding logs*/
-			rc = 0;
-			goto end;
-		}
+
+		msm_isp_enqueue_tasklet_cmd(vfe_dev, 0, 0, 1);
 	} else {
 		ISP_DBG("%s:%d] no token received: %p\n",
 			__func__, __LINE__, token);
@@ -2052,7 +2051,7 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	vfe_dev->vt_enable = 0;
 	vfe_dev->reg_update_requested = 0;
 	/* Register page fault handler */
-	vfe_dev->buf_mgr->pagefault_debug = 0;
+	vfe_dev->buf_mgr->pagefault_debug_disable = 0;
 	cam_smmu_reg_client_page_fault_handler(
 			vfe_dev->buf_mgr->img_iommu_hdl,
 			msm_vfe_iommu_fault_handler, vfe_dev);

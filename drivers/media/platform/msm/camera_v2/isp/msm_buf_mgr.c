@@ -1160,7 +1160,7 @@ static int msm_isp_init_isp_buf_mgr(
 		goto get_handle_error2;
 	}
 	buf_mgr->buf_handle_cnt = 0;
-	buf_mgr->pagefault_debug = 0;
+	buf_mgr->pagefault_debug_disable = 0;
 	buf_mgr->frameId_mismatch_recovery = 0;
 	mutex_unlock(&buf_mgr->lock);
 	return 0;
@@ -1188,7 +1188,7 @@ static int msm_isp_deinit_isp_buf_mgr(
 	msm_isp_release_all_bufq(buf_mgr);
 	kfree(buf_mgr->bufq);
 	buf_mgr->num_buf_q = 0;
-	buf_mgr->pagefault_debug = 0;
+	buf_mgr->pagefault_debug_disable = 0;
 
 	cam_smmu_ops(buf_mgr->img_iommu_hdl, CAM_SMMU_DETACH);
 	cam_smmu_ops(buf_mgr->stats_iommu_hdl, CAM_SMMU_DETACH);
@@ -1375,7 +1375,7 @@ int msm_isp_create_isp_buf_mgr(
 	buf_mgr->ops = &isp_buf_ops;
 	buf_mgr->vb2_ops = vb2_ops;
 	buf_mgr->open_count = 0;
-	buf_mgr->pagefault_debug = 0;
+	buf_mgr->pagefault_debug_disable = 0;
 	buf_mgr->secure_enable = NON_SECURE_MODE;
 	buf_mgr->attach_state = MSM_ISP_BUF_MGR_DETACH;
 	mutex_init(&buf_mgr->lock);
