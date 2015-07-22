@@ -1700,8 +1700,20 @@ static int bu21150_read_register(u32 addr, u16 size, u8 *data)
 	u8 *output;
 
 	input = kzalloc(sizeof(u8)*(size)+SPI_HEADER_SIZE, GFP_KERNEL);
+	if (!input)
+		return -ENOMEM;
+
 	output = kzalloc(sizeof(u8)*(size)+SPI_HEADER_SIZE, GFP_KERNEL);
+	if (!output) {
+		ret = -ENOMEM;
+		goto err_alloc_output;
+	}
+
 	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req) {
+		ret = -ENOMEM;
+		goto err_alloc_req;
+	}
 
 	/* set header */
 	input[0] = 0x03;                 /* read command */
@@ -1725,8 +1737,10 @@ static int bu21150_read_register(u32 addr, u16 size, u8 *data)
 	}
 
 	kfree(req);
-	kfree(input);
+err_alloc_req:
 	kfree(output);
+err_alloc_output:
+	kfree(input);
 
 	return ret;
 }
@@ -1740,7 +1754,14 @@ static int bu21150_write_register(u32 addr, u16 size, u8 *data)
 	u8 *input;
 
 	input = kzalloc(sizeof(u8)*(size)+SPI_HEADER_SIZE, GFP_KERNEL);
+	if (!input)
+		return -ENOMEM;
+
 	req = kzalloc(sizeof(*req), GFP_KERNEL);
+	if (!req) {
+		ret = -ENOMEM;
+		goto err_alloc_req_write;
+	}
 
 	/* set header */
 	input[0] = 0x02;                 /* write command */
@@ -1764,6 +1785,7 @@ static int bu21150_write_register(u32 addr, u16 size, u8 *data)
 		pr_err("%s: spi_sync write data error:ret=[%d]", __func__, ret);
 
 	kfree(req);
+err_alloc_req_write:
 	kfree(input);
 
 	return ret;
