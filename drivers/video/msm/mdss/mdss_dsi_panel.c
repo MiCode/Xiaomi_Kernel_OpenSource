@@ -2129,6 +2129,33 @@ error:
 	return -EINVAL;
 }
 
+static void mdss_dsi_set_prim_panel(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	struct mdss_dsi_ctrl_pdata *octrl = NULL;
+	struct mdss_panel_info *pinfo;
+
+	pinfo = &ctrl_pdata->panel_data.panel_info;
+
+	/*
+	 * for Split and Single DSI case default is always primary
+	 * and for Dual dsi case below assumptions are made.
+	 *	1. DSI controller with bridge chip is always secondary
+	 *	2. When there is no brigde chip, DSI1 is secondary
+	 */
+	pinfo->is_prim_panel = true;
+	if (mdss_dsi_is_hw_config_dual(ctrl_pdata->shared_data)) {
+		if (pinfo->is_dba_panel) {
+			pinfo->is_prim_panel = false;
+		} else if (mdss_dsi_is_right_ctrl(ctrl_pdata)) {
+			octrl = mdss_dsi_get_other_ctrl(ctrl_pdata);
+			if (octrl && octrl->panel_data.panel_info.is_prim_panel)
+				pinfo->is_prim_panel = false;
+			else
+				pinfo->is_prim_panel = true;
+		}
+	}
+}
+
 int mdss_dsi_panel_init(struct device_node *node,
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 	bool cmd_cfg_cont_splash)
@@ -2165,6 +2192,7 @@ int mdss_dsi_panel_init(struct device_node *node,
 	pr_info("%s: Continuous splash %s\n", __func__,
 		pinfo->cont_splash_enabled ? "enabled" : "disabled");
 
+	mdss_dsi_set_prim_panel(ctrl_pdata);
 	pinfo->dynamic_switch_pending = false;
 	pinfo->is_lpm_mode = false;
 	pinfo->esd_rdy = false;
