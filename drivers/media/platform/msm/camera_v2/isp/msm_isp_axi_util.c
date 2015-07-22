@@ -1203,7 +1203,8 @@ void msm_isp_halt_send_error(struct vfe_device *vfe_dev)
 	msm_isp_send_event(vfe_dev, ISP_EVENT_IOMMU_P_FAULT, &error_event);
 }
 
-int msm_isp_print_ping_pong_address(struct vfe_device *vfe_dev)
+int msm_isp_print_ping_pong_address(struct vfe_device *vfe_dev,
+	unsigned long fault_addr)
 {
 	int i, j;
 	struct msm_isp_buffer *buf = NULL;
@@ -1222,8 +1223,8 @@ int msm_isp_print_ping_pong_address(struct vfe_device *vfe_dev)
 					pr_err("%s: buf NULL\n", __func__);
 					continue;
 				}
-				pr_err("%s: stream_id %x ping-pong %d plane %d start_addr %x addr_offset %x len %lx stride %d scanline %d\n",
-					__func__, stream_info->stream_id,
+				pr_debug("%s: stream_id %x ping-pong %d plane %d start_addr %x addr_offset %x len %lx stride %d scanline %d\n"
+					, __func__, stream_info->stream_id,
 					pingpong_bit, i,
 					(uint32_t)buf->mapped_info[i].paddr,
 					stream_info->
@@ -1517,8 +1518,8 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 				frame_id, stream_info->runtime_output_format);
 		}
 	} else {
-		pr_err_ratelimited("%s: Warning! Unexpected return value\n",
-			__func__);
+		pr_err_ratelimited("%s: Warning! Unexpected return value rc = %d\n",
+			__func__, rc);
 	}
 }
 

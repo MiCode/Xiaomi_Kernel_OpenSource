@@ -653,6 +653,7 @@ struct vfe_device {
 	uint8_t reg_updated;
 	struct dual_vfe_resource *dual_vfe_res;
 	uint32_t is_split;
+	unsigned long page_fault_addr;
 };
 
 #endif

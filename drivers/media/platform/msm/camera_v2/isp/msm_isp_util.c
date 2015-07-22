@@ -1704,8 +1704,9 @@ void ms_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 
 	error_event.frame_id =
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
-	vfe_dev->buf_mgr->ops->buf_mgr_debug(vfe_dev->buf_mgr);
-	msm_isp_print_ping_pong_address(vfe_dev);
+	vfe_dev->buf_mgr->ops->buf_mgr_debug(vfe_dev->buf_mgr,
+		vfe_dev->page_fault_addr);
+	msm_isp_print_ping_pong_address(vfe_dev, vfe_dev->page_fault_addr);
 	vfe_dev->hw_info->vfe_ops.axi_ops.read_wm_ping_pong_addr(vfe_dev);
 
 	for (i = 0; i < MAX_NUM_STREAM; i++)
@@ -1956,6 +1957,7 @@ static int msm_vfe_iommu_fault_handler(struct iommu_domain *domain,
 
 	if (token) {
 		vfe_dev = (struct vfe_device *)token;
+		vfe_dev->page_fault_addr = iova;
 		if (!vfe_dev->buf_mgr || !vfe_dev->buf_mgr->ops ||
 			!vfe_dev->axi_data.num_active_stream) {
 			pr_err("%s:%d buf_mgr %p active strms %d\n", __func__,
@@ -2118,6 +2120,7 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		vfe_dev->vt_enable = 0;
 	}
 	vfe_dev->is_split = 0;
+
 	mutex_unlock(&vfe_dev->core_mutex);
 	mutex_unlock(&vfe_dev->realtime_mutex);
 	return 0;
