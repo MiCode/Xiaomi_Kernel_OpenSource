@@ -82,6 +82,7 @@ static int set_qdss_data_connection(struct usb_gadget *gadget,
 	if (enable) {
 		res = usb_bam_connect(usb_bam_type, idx,
 					&(bam_info.usb_bam_pipe_idx));
+		gadget->bam2bam_func_enabled = true;
 		bam_info.data_fifo =
 			kzalloc(sizeof(struct sps_mem_buffer), GFP_KERNEL);
 		if (!bam_info.data_fifo) {

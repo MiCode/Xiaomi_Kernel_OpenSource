@@ -3277,6 +3277,27 @@ int usb_bam_get_bam_type(const char *core_name)
 }
 EXPORT_SYMBOL(usb_bam_get_bam_type);
 
+bool msm_usb_bam_enable(enum usb_ctrl bam, bool bam_enable)
+{
+	struct msm_usb_bam_platform_data *pdata;
+	struct usb_bam_ctx_type *ctx = &msm_usb_bam[bam];
+
+	if (!ctx->usb_bam_pdev)
+		return 0;
+
+	pdata = ctx->usb_bam_pdev->dev.platform_data;
+	if ((bam != CI_CTRL) || !(bam_enable ||
+					pdata->enable_hsusb_bam_on_boot))
+		return 0;
+
+	msm_hw_bam_disable(1);
+	sps_device_reset(ctx->h_bam);
+	msm_hw_bam_disable(0);
+
+	return 0;
+}
+EXPORT_SYMBOL(msm_usb_bam_enable);
+
 /**
  * msm_bam_hsic_host_pipe_empty - Check all HSIC host BAM pipe state
  *

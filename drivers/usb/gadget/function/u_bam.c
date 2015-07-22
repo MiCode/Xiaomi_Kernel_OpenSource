@@ -1391,6 +1391,7 @@ static void gbam2bam_connect_work(struct work_struct *w)
 			__func__, ret);
 		return;
 	}
+	gadget->bam2bam_func_enabled = true;
 
 	if (gadget_is_dwc3(gadget)) {
 		if (!port) {
