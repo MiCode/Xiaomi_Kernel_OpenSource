@@ -25,6 +25,7 @@ enum {
 	SMEM_RPM,
 	SMEM_TZ,
 	SMEM_SPSS,
+	SMEM_HYP,
 	NUM_SMEM_SUBSYSTEMS,
 };
 
