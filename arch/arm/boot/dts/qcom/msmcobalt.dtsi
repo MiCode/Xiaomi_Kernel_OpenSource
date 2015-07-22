@@ -324,6 +324,106 @@
 		qcom,xprt = "smem";
 	};
 
+	qcom,glink-smem-native-xprt-modem@86000000 {
+		compatible = "qcom,glink-smem-native-xprt";
+		reg = <0x86000000 0x200000>,
+			<0x17820010 0x4>;
+		reg-names = "smem", "irq-reg-base";
+		qcom,irq-mask = <0x8000>;
+		interrupts = <0 452 1>;
+		label = "mpss";
+	};
+
+	qcom,glink-smem-native-xprt-adsp@86000000 {
+		compatible = "qcom,glink-smem-native-xprt";
+		reg = <0x86000000 0x200000>,
+			<0x17820010 0x4>;
+		reg-names = "smem", "irq-reg-base";
+		qcom,irq-mask = <0x200>;
+		interrupts = <0 157 1>;
+		label = "lpass";
+	};
+
+	qcom,glink-smem-native-xprt-dsps@86000000 {
+		compatible = "qcom,glink-smem-native-xprt";
+		reg = <0x86000000 0x200000>,
+			<0x17820010 0x4>;
+		reg-names = "smem", "irq-reg-base";
+		qcom,irq-mask = <0x8000000>;
+		interrupts = <0 179 1>;
+		label = "dsps";
+	};
+
+	qcom,glink-smem-native-xprt-rpm@778000 {
+		compatible = "qcom,glink-rpm-native-xprt";
+		reg = <0x778000 0x8000>,
+			<0x17820010 0x4>;
+		reg-names = "msgram", "irq-reg-base";
+		qcom,irq-mask = <0x1>;
+		interrupts = <0 168 1>;
+		label = "rpm";
+	};
+
+	qcom,glink_pkt {
+		compatible = "qcom,glinkpkt";
+
+		qcom,glinkpkt-at-mdm0 {
+			qcom,glinkpkt-transport = "smd_trans";
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "DS";
+			qcom,glinkpkt-dev-name = "at_mdm0";
+		};
+
+		qcom,glinkpkt-loopback_cntl {
+			qcom,glinkpkt-transport = "lloop";
+			qcom,glinkpkt-edge = "local";
+			qcom,glinkpkt-ch-name = "LOCAL_LOOPBACK_CLNT";
+			qcom,glinkpkt-dev-name = "glink_pkt_loopback_ctrl";
+		};
+
+		qcom,glinkpkt-loopback_data {
+			qcom,glinkpkt-transport = "lloop";
+			qcom,glinkpkt-edge = "local";
+			qcom,glinkpkt-ch-name = "glink_pkt_lloop_CLNT";
+			qcom,glinkpkt-dev-name = "glink_pkt_loopback";
+		};
+	};
+
+	qcom,ipc_router {
+		compatible = "qcom,ipc_router";
+		qcom,node-id = <1>;
+	};
+
+	qcom,ipc_router_modem_xprt {
+		compatible = "qcom,ipc_router_glink_xprt";
+		qcom,ch-name = "IPCRTR";
+		qcom,xprt-remote = "mpss";
+		qcom,glink-xprt = "smem";
+		qcom,xprt-linkid = <1>;
+		qcom,xprt-version = <1>;
+		qcom,fragmented-data;
+	};
+
+	qcom,ipc_router_q6_xprt {
+		compatible = "qcom,ipc_router_glink_xprt";
+		qcom,ch-name = "IPCRTR";
+		qcom,xprt-remote = "lpass";
+		qcom,glink-xprt = "smem";
+		qcom,xprt-linkid = <1>;
+		qcom,xprt-version = <1>;
+		qcom,fragmented-data;
+	};
+
+	qcom,ipc_router_dsps_xprt {
+		compatible = "qcom,ipc_router_glink_xprt";
+		qcom,ch-name = "IPCRTR";
+		qcom,xprt-remote = "dsps";
+		qcom,glink-xprt = "smem";
+		qcom,xprt-linkid = <1>;
+		qcom,xprt-version = <1>;
+		qcom,fragmented-data;
+	};
+
 	ufsphy1: ufsphy@1da7000 {
 		compatible = "qcom,ufs-phy-qmp-v3";
 		reg = <0x1da7000 0xda8>;

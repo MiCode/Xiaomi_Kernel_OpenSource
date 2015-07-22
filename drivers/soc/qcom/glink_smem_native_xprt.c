@@ -2299,17 +2299,17 @@ static int glink_rpm_native_probe(struct platform_device *pdev)
 								RPM_TOC_SIZE);
 	tocp = (uint32_t *)toc;
 	if (*tocp != RPM_TOC_ID) {
-		rc = ENODEV;
+		rc = -ENODEV;
 		pr_err("%s: TOC id %d is not valid\n", __func__, *tocp);
-		goto kthread_fail;
+		goto toc_init_fail;
 	}
 	++tocp;
 	num_toc_entries = *tocp;
 	if (num_toc_entries > RPM_MAX_TOC_ENTRIES) {
-		rc = ENODEV;
+		rc = -ENODEV;
 		pr_err("%s: %d is too many toc entries\n", __func__,
 							num_toc_entries);
-		goto kthread_fail;
+		goto toc_init_fail;
 	}
 	++tocp;
 
@@ -2339,9 +2339,9 @@ static int glink_rpm_native_probe(struct platform_device *pdev)
 		break;
 	}
 	if (!einfo->tx_fifo) {
-		rc = ENODEV;
+		rc = -ENODEV;
 		pr_err("%s: tx fifo not found\n", __func__);
-		goto kthread_fail;
+		goto toc_init_fail;
 	}
 
 	tocp = (uint32_t *)toc;
@@ -2372,9 +2372,9 @@ static int glink_rpm_native_probe(struct platform_device *pdev)
 		break;
 	}
 	if (!einfo->rx_fifo) {
-		rc = ENODEV;
+		rc = -ENODEV;
 		pr_err("%s: rx fifo not found\n", __func__);
-		goto kthread_fail;
+		goto toc_init_fail;
 	}
 
 	einfo->tx_ch_desc->write_index = 0;
@@ -2410,6 +2410,7 @@ static int glink_rpm_native_probe(struct platform_device *pdev)
 request_irq_fail:
 	glink_core_unregister_transport(&einfo->xprt_if);
 reg_xprt_fail:
+toc_init_fail:
 	flush_kthread_worker(&einfo->kworker);
 	kthread_stop(einfo->task);
 	einfo->task = NULL;
