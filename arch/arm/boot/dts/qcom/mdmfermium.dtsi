@@ -46,6 +46,15 @@
 		};
 	};
 
+	aliases {
+		/* smdtty devices */
+		smd7 = &smdtty_data1;
+		smd8 = &smdtty_data4;
+		smd11 = &smdtty_data11;
+		smd21 = &smdtty_data21;
+		smd36 = &smdtty_loopback;
+	};
+
 	cpus {
 		#size-cells = <0>;
 		#address-cells = <1>;
@@ -60,6 +69,7 @@
 };
 
 #include "mdmfermium-ion.dtsi"
+#include "mdmfermium-smp2p.dtsi"
 
 #include "mdmfermium-coresight.dtsi"
 
@@ -237,6 +247,123 @@
 		compatible = "qcom,ipc-spinlock-sfpb";
 		reg = <0x1905000 0x8000>;
 		qcom,num-locks = <8>;
+	};
+
+	qcom,smem@87d00000 {
+		compatible = "qcom,smem";
+		reg = <0x87d00000 0x100000>,
+			<0x0b011008 0x4>,
+			<0x60000 0x8000>,
+			<0x193d000 0x8>;
+		reg-names = "smem", "irq-reg-base", "aux-mem1",
+				"smem_targ_info_reg";
+		qcom,mpu-enabled;
+
+		qcom,smd-modem {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <0>;
+			qcom,smd-irq-offset = <0x0>;
+			qcom,smd-irq-bitmask = <0x1000>;
+			interrupts = <0 25 1>;
+			label = "modem";
+		};
+
+		qcom,smsm-modem {
+			compatible = "qcom,smsm";
+			qcom,smsm-edge = <0>;
+			qcom,smsm-irq-offset = <0x0>;
+			qcom,smsm-irq-bitmask = <0x2000>;
+			interrupts = <0 26 1>;
+		};
+
+		qcom,smd-rpm {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <15>;
+			qcom,smd-irq-offset = <0x0>;
+			qcom,smd-irq-bitmask = <0x1>;
+			interrupts = <0 168 1>;
+			label = "rpm";
+			qcom,irq-no-suspend;
+			qcom,not-loadable;
+		};
+	};
+
+	qcom,smdtty {
+		compatible = "qcom,smdtty";
+
+		smdtty_data1: qcom,smdtty-data1 {
+			qcom,smdtty-remote = "modem";
+			qcom,smdtty-port-name = "DATA1";
+		};
+
+		smdtty_data4: qcom,smdtty-data4 {
+			qcom,smdtty-remote = "modem";
+			qcom,smdtty-port-name = "DATA4";
+		};
+
+		smdtty_data11: qcom,smdtty-data11 {
+			qcom,smdtty-remote = "modem";
+			qcom,smdtty-port-name = "DATA11";
+		};
+
+		smdtty_data21: qcom,smdtty-data21 {
+			qcom,smdtty-remote = "modem";
+			qcom,smdtty-port-name = "DATA21";
+		};
+
+		smdtty_loopback: smdtty-loopback {
+			qcom,smdtty-remote = "modem";
+			qcom,smdtty-port-name = "LOOPBACK";
+			qcom,smdtty-dev-name = "LOOPBACK_TTY";
+		};
+	};
+
+	qcom,smdpkt {
+		compatible = "qcom,smdpkt";
+
+		qcom,smdpkt-data5-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA5_CNTL";
+			qcom,smdpkt-dev-name = "smdcntl0";
+		};
+
+		qcom,smdpkt-data22 {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA22";
+			qcom,smdpkt-dev-name = "smd22";
+		};
+
+		qcom,smdpkt-data40-cntl {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "DATA40_CNTL";
+			qcom,smdpkt-dev-name = "smdcntl8";
+		};
+
+		qcom,smdpkt-apr-apps2 {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "apr_apps2";
+			qcom,smdpkt-dev-name = "apr_apps2";
+		};
+
+		qcom,smdpkt-loopback {
+			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-port-name = "LOOPBACK";
+			qcom,smdpkt-dev-name = "smd_pkt_loopback";
+		};
+	};
+
+	qcom,ipc_router {
+		compatible = "qcom,ipc_router";
+		qcom,node-id = <1>;
+	};
+
+	qcom,ipc_router_modem_xprt {
+		compatible = "qcom,ipc_router_smd_xprt";
+		qcom,ch-name = "IPCRTR";
+		qcom,xprt-remote = "modem";
+		qcom,xprt-linkid = <1>;
+		qcom,xprt-version = <1>;
+		qcom,fragmented-data;
 	};
 };
 
