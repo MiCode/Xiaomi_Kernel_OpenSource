@@ -2228,6 +2228,7 @@ static int msm_isp_update_dual_HW_ms_info_at_stop(
 		}
 		src_info->dual_hw_ms_info.sof_info = NULL;
 		spin_unlock(&vfe_dev->common_data->common_dev_data_lock);
+		vfe_dev->vfe_ub_policy = 0;
 	}
 
 	return rc;
