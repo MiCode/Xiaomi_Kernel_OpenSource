@@ -30,18 +30,6 @@
 		qcom,mdss-dsi-underflow-color = <0xff>;
 		qcom,mdss-dsi-border-color = <0>;
 
-		qcom,mdss-dsi-compression = "dsc";
-		qcom,mdss-dsc-slice-height = <16>;
-		qcom,mdss-dsc-slice-width = <720>;
-		qcom,mdss-dsc-slice-per-pkt = <2>;
-		qcom,mdss-dsc-bit-per-component = <8>;
-		qcom,mdss-dsc-bit-per-pixel = <8>;
-		qcom,mdss-dsc-block-prediction-enable;
-		qcom,mdss-dsc-ich-reset-value = <0>;
-		qcom,mdss-dsc-ich-reset-override = <0>;
-		qcom,mdss-dsc-data-path-mode = "1p1d";
-		qcom,mdss-dsc-config-by-manufacture-cmd;
-
 		qcom,mdss-dsi-on-command = [15 01 00 00 0a 00 02 ff 10
 			15 01 00 00 0a 00 02 fb 01
 			15 01 00 00 0a 00 02 ba 03
@@ -90,5 +78,52 @@
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-reset-sequence = <1 20>, <0 20>, <1 50>;
+
+		qcom,compression-mode = "dsc";
+		qcom,config-select = <&dsi_nt35597_dsc_video_config0>;
+
+		dsi_nt35597_dsc_video_config0: config0 {
+			qcom,mdss-dsc-encoders = <1>;
+			qcom,mdss-dsc-slice-height = <16>;
+			qcom,mdss-dsc-slice-width = <720>;
+			qcom,mdss-dsc-slice-per-pkt = <2>;
+
+			qcom,mdss-dsc-bit-per-component = <8>;
+			qcom,mdss-dsc-bit-per-pixel = <8>;
+			qcom,mdss-dsc-block-prediction-enable;
+			qcom,mdss-dsc-ich-reset-value = <0>;
+			qcom,mdss-dsc-ich-reset-override = <0>;
+			qcom,mdss-dsc-config-by-manufacture-cmd;
+		};
+
+		dsi_nt35597_dsc_video_config1: config1 {
+			qcom,lm-split = <720 720>;
+			qcom,mdss-dsc-encoders = <1>; /* 3D Mux */
+			qcom,mdss-dsc-slice-height = <16>;
+			qcom,mdss-dsc-slice-width = <720>;
+			qcom,mdss-dsc-slice-per-pkt = <2>;
+
+			qcom,mdss-dsc-bit-per-component = <8>;
+			qcom,mdss-dsc-bit-per-pixel = <8>;
+			qcom,mdss-dsc-block-prediction-enable;
+			qcom,mdss-dsc-ich-reset-value = <0>;
+			qcom,mdss-dsc-ich-reset-override = <0>;
+			qcom,mdss-dsc-config-by-manufacture-cmd;
+		};
+
+		dsi_nt35597_dsc_video_config2: config2 {
+			qcom,lm-split = <720 720>;
+			qcom,mdss-dsc-encoders = <2>; /* DSC Merge */
+			qcom,mdss-dsc-slice-height = <16>;
+			qcom,mdss-dsc-slice-width = <720>;
+			qcom,mdss-dsc-slice-per-pkt = <2>;
+
+			qcom,mdss-dsc-bit-per-component = <8>;
+			qcom,mdss-dsc-bit-per-pixel = <8>;
+			qcom,mdss-dsc-block-prediction-enable;
+			qcom,mdss-dsc-ich-reset-value = <0>;
+			qcom,mdss-dsc-ich-reset-override = <0>;
+			qcom,mdss-dsc-config-by-manufacture-cmd;
+		};
 	};
 };
