@@ -147,7 +147,7 @@
 		#clock-cells = <1>;
 	};
 
-	clock_rpm: qcom,rpmcc@1800000 {
+	clock_debug: qcom,debug@1874000 {
 		compatible = "qcom,dummycc";
 		#clock-cells = <1>;
 	};
@@ -199,13 +199,13 @@
 		clocks = <&clock_gcc clk_gcc_usb_hs_ahb_clk>,
 			 <&clock_gcc clk_gcc_usb_hs_system_clk>,
 			 <&clock_gcc clk_gcc_usb2a_phy_sleep_clk>,
-			 <&clock_rpm clk_bimc_usb_a_clk>,
-			 <&clock_rpm clk_snoc_usb_a_clk>,
-			 <&clock_rpm clk_pcnoc_usb_a_clk>,
+			 <&clock_gcc clk_bimc_usb_a_clk>,
+			 <&clock_gcc clk_snoc_usb_a_clk>,
+			 <&clock_gcc clk_pcnoc_usb_a_clk>,
 			 <&clock_gcc clk_gcc_qusb2_phy_clk>,
 			 <&clock_gcc clk_gcc_usb2_hs_phy_only_clk>,
 			 <&clock_gcc clk_gcc_usb_hs_phy_cfg_ahb_clk>,
-			 <&clock_rpm clk_xo_otg_clk>;
+			 <&clock_gcc clk_xo_otg_clk>;
 		clock-names = "iface_clk", "core_clk", "sleep_clk",
 				"bimc_clk", "snoc_clk", "pcnoc_clk",
 				"phy_reset_clk", "phy_por_clk", "phy_csr_clk",
