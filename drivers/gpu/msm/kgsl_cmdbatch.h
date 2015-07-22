@@ -68,7 +68,7 @@ struct kgsl_cmdbatch {
 	struct timer_list timer;
 	unsigned int marker_timestamp;
 	struct kgsl_mem_entry *profiling_buf_entry;
-	unsigned long profiling_buffer_gpuaddr;
+	uint64_t profiling_buffer_gpuaddr;
 	unsigned int profile_index;
 	uint64_t submit_ticks;
 	unsigned int global_ts;
