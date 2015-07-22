@@ -751,7 +751,7 @@ static inline const char *mdss_dsi_get_fb_name(struct mdss_dsi_ctrl_pdata *ctrl)
 	struct mdss_panel_info *pinfo = &(ctrl->panel_data.panel_info);
 
 	if (mdss_dsi_is_hw_config_dual(ctrl->shared_data)) {
-		if (pinfo->pdest == DISPLAY_1)
+		if (pinfo->is_prim_panel)
 			return "qcom,mdss-fb-map-prim";
 		else
 			return "qcom,mdss-fb-map-sec";
