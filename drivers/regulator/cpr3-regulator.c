@@ -794,8 +794,8 @@ static int cpr3_regulator_config_vreg_ldo(struct cpr3_regulator *vreg,
 	if (rc)
 		return rc;
 
-	if (!vreg->vreg_enabled || !vreg->ldo_mode_allowed
-	    || vreg->current_corner == CPR3_REGULATOR_CORNER_INVALID)
+	if (!vreg->vreg_enabled || vreg->current_corner
+	    == CPR3_REGULATOR_CORNER_INVALID)
 		return 0;
 
 	ldo_volt = vreg->corner[vreg->current_corner].open_loop_volt
@@ -881,7 +881,7 @@ static int cpr3_regulator_config_ldo(struct cpr3_controller *ctrl,
 		for (j = 0; j < ctrl->thread[i].vreg_count; j++) {
 			vreg = &ctrl->thread[i].vreg[j];
 
-			if (!vreg->ldo_regulator)
+			if (!vreg->ldo_regulator || !vreg->ldo_mode_allowed)
 				continue;
 
 			rc = cpr3_regulator_config_vreg_ldo(vreg,
