@@ -45,8 +45,6 @@
 
 #include "debug.h"
 
-#define DWC3_DCTL_HIRD_THRES_DEFAULT	12
-
 /* -------------------------------------------------------------------------- */
 
 void dwc3_set_mode(struct dwc3 *dwc, u32 mode)
@@ -785,14 +783,13 @@ static int dwc3_probe(struct platform_device *pdev)
 	struct device_node	*node = dev->of_node;
 	struct resource		*res;
 	struct dwc3		*dwc;
+	u8			lpm_nyet_threshold;
+	u8			hird_threshold;
 
 	int			ret;
 
 	void __iomem		*regs;
 	void			*mem;
-
-	u32			hird_thresh;
-	u32			lpm_nyet_thresh;
 
 	mem = devm_kzalloc(dev, sizeof(*dwc) + DWC3_ALIGN_MASK, GFP_KERNEL);
 	if (!mem)
@@ -844,10 +841,28 @@ static int dwc3_probe(struct platform_device *pdev)
 	 */
 	res->start -= DWC3_GLOBALS_REGS_START;
 
+	/* default to highest possible threshold */
+	lpm_nyet_threshold = 0xff;
+
+	/*
+	 * default to assert utmi_sleep_n and use maximum allowed HIRD
+	 * threshold value of 0b1100
+	 */
+	hird_threshold = 12;
+
 	if (node) {
 		dwc->maximum_speed = of_usb_get_maximum_speed(node);
+		dwc->has_lpm_erratum = of_property_read_bool(node,
+				"snps,has-lpm-erratum");
+		of_property_read_u8(node, "snps,lpm-nyet-threshold",
+				&lpm_nyet_threshold);
+		dwc->is_utmi_l1_suspend = of_property_read_bool(node,
+				"snps,is-utmi-l1-suspend");
+		of_property_read_u8(node, "snps,hird-threshold",
+				&hird_threshold);
 
-		dwc->needs_fifo_resize = of_property_read_bool(node, "tx-fifo-resize");
+		dwc->needs_fifo_resize = of_property_read_bool(node,
+				"tx-fifo-resize");
 		dwc->dr_mode = of_usb_get_dr_mode(node);
 		dwc->nominal_elastic_buffer = of_property_read_bool(node,
 				"snps,nominal-elastic-buffer");
@@ -855,16 +870,6 @@ static int dwc3_probe(struct platform_device *pdev)
 				"snps,usb3-u1u2-disable");
 		dwc->enable_bus_suspend = of_property_read_bool(node,
 						"snps,bus-suspend-enable");
-		ret = of_property_read_u32(node, "snps,hird_thresh", &hird_thresh);
-		if (!ret)
-			dwc->hird_thresh = (u8) hird_thresh;
-		else
-			dwc->hird_thresh = DWC3_DCTL_HIRD_THRES_DEFAULT;
-
-		ret = of_property_read_u32(node, "snps,lpm-nyet-thresh",
-							&lpm_nyet_thresh);
-		if (!ret)
-			dwc->lpm_nyet_thresh = (u8)lpm_nyet_thresh;
 
 		dwc->disable_clk_gating = of_property_read_bool(node,
 					"snps,disable-clk-gating");
@@ -874,6 +879,12 @@ static int dwc3_probe(struct platform_device *pdev)
 		}
 	} else if (pdata) {
 		dwc->maximum_speed = pdata->maximum_speed;
+		dwc->has_lpm_erratum = pdata->has_lpm_erratum;
+		if (pdata->lpm_nyet_threshold)
+			lpm_nyet_threshold = pdata->lpm_nyet_threshold;
+		dwc->is_utmi_l1_suspend = pdata->is_utmi_l1_suspend;
+		if (pdata->hird_threshold)
+			hird_threshold = pdata->hird_threshold;
 
 		dwc->needs_fifo_resize = pdata->tx_fifo_resize;
 		dwc->dr_mode = pdata->dr_mode;
@@ -882,6 +893,11 @@ static int dwc3_probe(struct platform_device *pdev)
 	/* default to superspeed if no maximum_speed passed */
 	if (dwc->maximum_speed == USB_SPEED_UNKNOWN)
 		dwc->maximum_speed = USB_SPEED_SUPER;
+
+	dwc->lpm_nyet_threshold = lpm_nyet_threshold;
+
+	dwc->hird_threshold = hird_threshold
+		| (dwc->is_utmi_l1_suspend << 4);
 
 	ret = dwc3_core_get_phy(dwc);
 	if (ret)

@@ -17,14 +17,14 @@ Optional properties:
  - snps,nominal-elastic-buffer: When set, the nominal elastic buffer setting
 	is used. By default, the half-full setting is used.
  - snps,usb3-u1u2-disable: If present, disable u1u2 low power modes for DWC3 core controller in SS mode.
- - snps,hird_thresh: If present, will determine the value of DCTL[HIRD_Thresh] which, in turn,
-	controls the UTMI sleep mechanism vs. the PHY. Default value is 12.
  - snps,bus-suspend-enable: If present then controller supports low power mode
 	during bus suspend.
- - snps,lpm-nyet-thresh: If present, will determine the value of DCTL[LPM_NYET_Thres].
-	If BESL value received from the host in the LPM token is less than this value we send LPM ACK to
-	the host. Otherwise the device returns LPM NYET.
  - snps,disable-clk-gating: If present, disable controller's internal clock gating. Default it is enabled.
+ - snps,has-lpm-erratum: true when DWC3 was configured with LPM Erratum enabled
+ - snps,lpm-nyet-threshold: LPM NYET threshold
+ - snps,is-utmi-l1-suspend: true when DWC3 asserts output signal
+			utmi_l1_suspend_n, false when asserts utmi_sleep_n
+ - snps,hird-threshold: HIRD threshold
 
 This is usually a subnode to DWC3 glue to which it is connected.
 

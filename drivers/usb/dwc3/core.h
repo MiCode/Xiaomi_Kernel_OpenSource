@@ -267,9 +267,6 @@
 
 #define DWC3_DCTL_APPL1RES	(1 << 23)
 
-#define DWC3_DCTL_LPM_NYET_THRES_MASK	(0x0f << 20)
-#define DWC3_DCTL_LPM_NYET_THRES(n)	((n) << 20)
-
 /* These apply for core versions 1.87a and earlier */
 #define DWC3_DCTL_TRGTULST_MASK		(0x0f << 17)
 #define DWC3_DCTL_TRGTULST(n)		((n) << 17)
@@ -280,16 +277,19 @@
 #define DWC3_DCTL_TRGTULST_SS_INACT	(DWC3_DCTL_TRGTULST(6))
 
 /* These apply for core versions 1.94a and later */
-#define DWC3_DCTL_KEEP_CONNECT	(1 << 19)
-#define DWC3_DCTL_L1_HIBER_EN	(1 << 18)
-#define DWC3_DCTL_CRS		(1 << 17)
-#define DWC3_DCTL_CSS		(1 << 16)
+#define DWC3_DCTL_LPM_ERRATA_MASK	DWC3_DCTL_LPM_ERRATA(0xf)
+#define DWC3_DCTL_LPM_ERRATA(n)		((n) << 20)
 
-#define DWC3_DCTL_INITU2ENA	(1 << 12)
-#define DWC3_DCTL_ACCEPTU2ENA	(1 << 11)
-#define DWC3_DCTL_INITU1ENA	(1 << 10)
-#define DWC3_DCTL_ACCEPTU1ENA	(1 << 9)
-#define DWC3_DCTL_TSTCTRL_MASK	(0xf << 1)
+#define DWC3_DCTL_KEEP_CONNECT		(1 << 19)
+#define DWC3_DCTL_L1_HIBER_EN		(1 << 18)
+#define DWC3_DCTL_CRS			(1 << 17)
+#define DWC3_DCTL_CSS			(1 << 16)
+
+#define DWC3_DCTL_INITU2ENA		(1 << 12)
+#define DWC3_DCTL_ACCEPTU2ENA		(1 << 11)
+#define DWC3_DCTL_INITU1ENA		(1 << 10)
+#define DWC3_DCTL_ACCEPTU1ENA		(1 << 9)
+#define DWC3_DCTL_TSTCTRL_MASK		(0xf << 1)
 
 #define DWC3_DCTL_ULSTCHNGREQ_MASK	(0x0f << 5)
 #define DWC3_DCTL_ULSTCHNGREQ(n) (((n) << 5) & DWC3_DCTL_ULSTCHNGREQ_MASK)
@@ -781,10 +781,17 @@ struct dwc3_scratchpad_array {
  * @regset: debugfs pointer to regdump file
  * @test_mode: true when we're entering a USB test mode
  * @test_mode_nr: test feature selector
+ * @lpm_nyet_threshold: LPM NYET response threshold
+ * @hird_threshold: HIRD threshold
  * @delayed_status: true when gadget driver asks for delayed status
  * @ep0_bounced: true when we used bounce buffer
  * @ep0_expect_in: true when we expect a DATA IN transfer
  * @has_hibernation: true when dwc3 was configured with Hibernation
+ * @has_lpm_erratum: true when core was configured with LPM Erratum. Note that
+ *			there's now way for software to detect this in runtime.
+ * @is_utmi_l1_suspend: the core asserts output signal
+ *	0	- utmi_sleep_n
+ *	1	- utmi_l1_suspend_n
  * @is_selfpowered: true when we are selfpowered
  * @needs_fifo_resize: not all users might want fifo resizing, flag it
  * @pullups_connected: true when Run/Stop bit is set
@@ -795,8 +802,6 @@ struct dwc3_scratchpad_array {
  * @is_drd: device supports dual-role or not
  * @err_evt_seen: previous event in queue was erratic error
  * @usb3_u1u2_disable: if true, disable U1U2 low power modes in Superspeed mode.
- * @hird_thresh: value to configure in DCTL[HIRD_Thresh]
- * @lpm_nyet_thresh: value to configure in DCTL[LPM_NYET_Thresh]
  * @in_lpm: if 1, indicates that the controller is in low power mode (no clocks)
  * @tx_fifo_size: Available RAM size for TX fifo allocation
  * @irq: irq number
@@ -899,6 +904,8 @@ struct dwc3 {
 
 	u8			test_mode;
 	u8			test_mode_nr;
+	u8			lpm_nyet_threshold;
+	u8			hird_threshold;
 
 	void (*notify_event)	(struct dwc3 *, unsigned);
 	struct work_struct	wakeup_work;
@@ -907,6 +914,8 @@ struct dwc3 {
 	unsigned		ep0_bounced:1;
 	unsigned		ep0_expect_in:1;
 	unsigned		has_hibernation:1;
+	unsigned		has_lpm_erratum:1;
+	unsigned		is_utmi_l1_suspend:1;
 	unsigned		is_selfpowered:1;
 	unsigned		needs_fifo_resize:1;
 	unsigned		pullups_connected:1;
@@ -931,8 +940,6 @@ struct dwc3 {
 
 	struct dwc3_gadget_events	dbg_gadget_events;
 
-	u8			hird_thresh;
-	u8			lpm_nyet_thresh;
 	atomic_t		in_lpm;
 	int			tx_fifo_size;
 	bool			b_suspend;

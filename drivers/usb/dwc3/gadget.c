@@ -3001,17 +3001,22 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 
 		reg = dwc3_readl(dwc->regs, DWC3_DCTL);
 		reg &= ~(DWC3_DCTL_HIRD_THRES_MASK | DWC3_DCTL_L1_HIBER_EN);
-		reg |= DWC3_DCTL_HIRD_THRES(dwc->hird_thresh);
+
+		reg |= DWC3_DCTL_HIRD_THRES(dwc->hird_threshold);
 
 		/*
-		 * If USB2.0 LPM ECN Errata is enabled in DWC Core then set
-		 * LPM_NYET_THRESH.
+		 * When dwc3 revisions >= 2.40a, LPM Erratum is enabled and
+		 * DCFG.LPMCap is set, core responses with an ACK and the
+		 * BESL value in the LPM token is less than or equal to LPM
+		 * NYET threshold.
 		 */
-		if (dwc->revision >= DWC3_REVISION_240A &&
-					dwc->lpm_nyet_thresh) {
-			reg &= ~DWC3_DCTL_LPM_NYET_THRES_MASK;
-			reg |= DWC3_DCTL_LPM_NYET_THRES(dwc->lpm_nyet_thresh);
-		}
+		WARN_ONCE(dwc->revision < DWC3_REVISION_240A
+				&& dwc->has_lpm_erratum,
+				"LPM Erratum not available on dwc3 revisisions < 2.40a\n");
+
+		if (dwc->has_lpm_erratum && dwc->revision >= DWC3_REVISION_240A)
+			reg |= DWC3_DCTL_LPM_ERRATA(dwc->lpm_nyet_threshold);
+
 		dwc3_writel(dwc->regs, DWC3_DCTL, reg);
 	} else {
 		reg = dwc3_readl(dwc->regs, DWC3_DCTL);
