@@ -303,6 +303,8 @@ struct msm_slim_ctrl {
 	bool			sysfs_created;
 	void			*ipc_slimbus_log;
 	void (*rx_slim)(struct msm_slim_ctrl *dev, u8 *buf);
+	u32			current_rx_buf[10];
+	int			current_count;
 };
 
 struct msm_sat_chan {
