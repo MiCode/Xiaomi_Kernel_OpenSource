@@ -71,11 +71,6 @@ static inline bool is_thumbnail_session(struct msm_vidc_inst *inst)
 	return !!(inst->flags & VIDC_THUMBNAIL);
 }
 
-static inline bool is_nominal_session(struct msm_vidc_inst *inst)
-{
-	return !!(inst->flags & VIDC_NOMINAL);
-}
-
 int msm_comm_g_ctrl(struct msm_vidc_inst *inst, int id)
 {
 	int rc = 0;
@@ -1771,8 +1766,6 @@ int msm_comm_scale_clocks_load(struct msm_vidc_core *core, int num_mbs_per_sec)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct msm_vidc_inst *inst = NULL;
-	bool is_nominal = false;
-	struct msm_vidc_platform_resources *res;
 
 	if (!core) {
 		dprintk(VIDC_ERR, "%s Invalid args: %p\n", __func__, core);
@@ -1780,8 +1773,6 @@ int msm_comm_scale_clocks_load(struct msm_vidc_core *core, int num_mbs_per_sec)
 	}
 
 	hdev = core->device;
-	res = &core->resources;
-
 	if (!hdev) {
 		dprintk(VIDC_ERR, "%s Invalid device handle: %p\n",
 			__func__, hdev);
@@ -1800,40 +1791,11 @@ int msm_comm_scale_clocks_load(struct msm_vidc_core *core, int num_mbs_per_sec)
 				get_hal_codec_type(codec),
 				get_hal_domain(inst->session_type));
 
-		if (is_nominal_session(inst))
-			is_nominal = true;
 	}
 	mutex_unlock(&core->lock);
 
 	dprintk(VIDC_INFO, "num_mbs_per_sec = %d codecs_enabled 0x%x\n",
 			num_mbs_per_sec, codecs_enabled);
-
-	if (is_nominal && num_mbs_per_sec) {
-		struct load_freq_table *table = res->load_freq_tbl;
-		u32 table_size = res->load_freq_tbl_size;
-		u32 low_freq = table[table_size - 1].freq;
-		int i;
-
-		/*
-		* Parse the load frequency table from highest index and
-		* whenever there is a change in frequency detected, it is
-		* assumed as nominal frequency  Check the current load
-		* against the load corresponding to nominal frequency and
-		* update num_mbs_per_sec accordingly.
-		*/
-		for (i = table_size - 1; i >= 0; i--) {
-			if (table[i].freq > low_freq) {
-				if (num_mbs_per_sec < table[i].load) {
-					num_mbs_per_sec = table[i].load;
-					dprintk(VIDC_DBG,
-						"updated num_mbs_per_sec: %d\n",
-						num_mbs_per_sec);
-				}
-				break;
-			}
-		}
-	}
-
 	rc = call_hfi_op(hdev, scale_clocks,
 		hdev->hfi_device_data, num_mbs_per_sec, codecs_enabled);
 	if (rc)
