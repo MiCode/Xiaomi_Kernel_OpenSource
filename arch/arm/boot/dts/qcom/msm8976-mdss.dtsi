@@ -56,6 +56,8 @@
 		qcom,mdss-pipe-vig-fetch-id = <1 9>;
 		qcom,mdss-pipe-rgb-fetch-id = <7 8>;
 		qcom,mdss-pipe-dma-fetch-id = <4>;
+		qcom,mdss-default-ot-wr-limit = <16>;
+		qcom,mdss-default-ot-rd-limit = <16>;
 
 		qcom,mdss-pipe-vig-xin-id = <0 4>;
 		qcom,mdss-pipe-rgb-xin-id = <1 5>;
@@ -88,7 +90,6 @@
 		qcom,mdss-wfd-mode = "intf_no_dspp";
 		qcom,mdss-has-non-scalar-rgb;
 		qcom,mdss-has-decimation;
-		qcom,mdss-traffic-shaper-enabled;
 		qcom,mdss-no-hist-vote;
 		qcom,mdss-has-10bit-pa;
 		qcom,mdss-needs-iommu-bw-vote;
