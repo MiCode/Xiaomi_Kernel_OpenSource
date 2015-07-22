@@ -1690,7 +1690,7 @@ static void msm_vfe40_cfg_axi_ub(struct vfe_device *vfe_dev)
 	axi_data->wm_ub_cfg_policy =
 		(enum msm_wm_ub_cfg_type)vfe_dev->vfe_ub_policy;
 	ISP_DBG("%s: ub_policy %d\n", __func__, axi_data->wm_ub_cfg_policy);
-	axi_data->wm_ub_cfg_policy = MSM_WM_UB_EQUAL_SLICING;
+
 	if (axi_data->wm_ub_cfg_policy == MSM_WM_UB_EQUAL_SLICING) {
 		vfe_dev->ub_info->policy = MSM_WM_UB_EQUAL_SLICING;
 		msm_vfe40_cfg_axi_ub_equal_slicing(vfe_dev);

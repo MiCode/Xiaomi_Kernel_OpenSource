@@ -630,7 +630,7 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 
 	dual_hw_ms_cmd = (struct msm_isp_set_dual_hw_ms_cmd *)arg;
 	vfe_dev->common_data->ms_resource.dual_hw_type = DUAL_HW_MASTER_SLAVE;
-
+	vfe_dev->vfe_ub_policy = MSM_WM_UB_EQUAL_SLICING;
 	if (dual_hw_ms_cmd->primary_intf >= VFE_SRC_MAX) {
 		pr_err("%s: Error! Invalid SRC param %d\n", __func__,
 			dual_hw_ms_cmd->primary_intf);
