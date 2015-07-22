@@ -901,6 +901,7 @@ extern unsigned int max_capacity;
 extern unsigned int min_capacity;
 extern unsigned int max_load_scale_factor;
 extern unsigned int max_possible_capacity;
+extern cpumask_t mpc_mask;
 extern unsigned long capacity_scale_cpu_efficiency(int cpu);
 extern unsigned long capacity_scale_cpu_freq(int cpu);
 extern unsigned int sched_mostly_idle_load;
@@ -909,7 +910,6 @@ extern unsigned int sched_upmigrate;
 extern unsigned int sched_downmigrate;
 extern unsigned int sched_init_task_load_pelt;
 extern unsigned int sched_init_task_load_windows;
-extern u64 scale_load_to_cpu(u64 load, int cpu);
 extern unsigned int sched_heavy_task;
 extern unsigned int up_down_migrate_scale_factor;
 extern void reset_cpu_hmp_stats(int cpu, int reset_cra);
@@ -920,6 +920,21 @@ extern void sched_account_irqtime(int cpu, struct task_struct *curr,
 unsigned int cpu_temp(int cpu);
 extern unsigned int nr_eligible_big_tasks(int cpu);
 extern void update_up_down_migrate(void);
+
+/*
+ * 'load' is in reference to "best cpu" at its best frequency.
+ * Scale that in reference to a given cpu, accounting for how bad it is
+ * in reference to "best cpu".
+ */
+static inline u64 scale_load_to_cpu(u64 task_load, int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	task_load *= (u64)rq->load_scale_factor;
+	task_load /= 1024;
+
+	return task_load;
+}
 
 static inline int capacity(struct rq *rq)
 {
