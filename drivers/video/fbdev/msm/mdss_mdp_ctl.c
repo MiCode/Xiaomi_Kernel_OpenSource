@@ -4096,7 +4096,8 @@ int mdss_mdp_display_wakeup_time(struct mdss_mdp_ctl *ctl,
 	struct mdss_panel_info *pinfo;
 	u32 clk_rate, clk_period;
 	u32 current_line, total_line;
-	u32 time_of_line, time_to_vsync;
+	u32 time_of_line, time_to_vsync, adjust_line_ns;
+
 	ktime_t current_time = ktime_get();
 
 	if (!ctl->ops.read_line_cnt_fnc)
@@ -4141,6 +4142,16 @@ int mdss_mdp_display_wakeup_time(struct mdss_mdp_ctl *ctl,
 		return -EINVAL;
 
 	time_to_vsync = time_of_line * (total_line - current_line);
+
+	if (pinfo->adjust_timer_delay_ms) {
+		adjust_line_ns = pinfo->adjust_timer_delay_ms
+			* 1000000; /* convert to ns */
+
+		/* Ignore large values of adjust_line_ns\ */
+		if (time_to_vsync > adjust_line_ns)
+			time_to_vsync -= adjust_line_ns;
+	}
+
 	if (!time_to_vsync)
 		return -EINVAL;
 
