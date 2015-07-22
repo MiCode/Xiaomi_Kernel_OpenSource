@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,6 +55,11 @@ struct ipa_pull_msg {
 int ipa_register_intf(const char *name, const struct ipa_tx_intf *tx,
 		       const struct ipa_rx_intf *rx)
 {
+	if (unlikely(!ipa_ctx)) {
+		IPAERR("IPA driver was not initialized\n");
+		return -EINVAL;
+	}
+
 	return ipa_register_intf_ext(name, tx, rx, NULL);
 }
 EXPORT_SYMBOL(ipa_register_intf);
@@ -181,6 +186,11 @@ int ipa_deregister_intf(const char *name)
 	struct ipa_intf *entry;
 	struct ipa_intf *next;
 	int result = -EINVAL;
+
+	if (unlikely(!ipa_ctx)) {
+		IPAERR("IPA driver was not initialized\n");
+		return -EINVAL;
+	}
 
 	if (name == NULL) {
 		IPAERR("invalid param name=%p\n", name);
@@ -360,6 +370,11 @@ int ipa_send_msg(struct ipa_msg_meta *meta, void *buff,
 		  ipa_msg_free_fn callback)
 {
 	struct ipa_push_msg *msg;
+
+	if (unlikely(!ipa_ctx)) {
+		IPAERR("IPA driver was not initialized\n");
+		return -EINVAL;
+	}
 
 	if (meta == NULL || (buff == NULL && callback != NULL) ||
 	    (buff != NULL && callback == NULL)) {
