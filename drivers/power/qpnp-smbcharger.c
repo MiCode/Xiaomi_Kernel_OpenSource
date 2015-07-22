@@ -3875,7 +3875,6 @@ static void restore_from_hvdcp_detection(struct smbchg_chip *chip)
 	int rc;
 
 	/* switch to 9V HVDCP */
-	pr_smb(PR_MISC, "Switch to 9V HVDCP\n");
 	rc = smbchg_sec_masked_write(chip, chip->usb_chgpth_base + CHGPTH_CFG,
 				HVDCP_ADAPTER_SEL_MASK, HVDCP_9V);
 	if (rc < 0)
@@ -3901,6 +3900,11 @@ static void restore_from_hvdcp_detection(struct smbchg_chip *chip)
 			ADAPTER_ALLOWANCE_MASK, USBIN_ADAPTER_5V_9V_CONT);
 	if (rc < 0)
 		pr_err("Couldn't write usb allowance rc=%d\n", rc);
+
+	rc = smbchg_sec_masked_write(chip, chip->usb_chgpth_base + USB_AICL_CFG,
+			AICL_EN_BIT, AICL_EN_BIT);
+	if (rc < 0)
+		pr_err("Couldn't enable AICL rc=%d\n", rc);
 
 	chip->hvdcp_3_det_ignore_uv = false;
 	chip->pulse_cnt = 0;
