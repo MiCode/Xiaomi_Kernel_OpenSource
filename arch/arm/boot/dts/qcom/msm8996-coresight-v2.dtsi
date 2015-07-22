@@ -1145,10 +1145,13 @@
 		      <0x600058 0x80>,
 		      <0x608058 0x80>,
 		      <0x610058 0x80>,
-		      <0x7ab360 0x80>;
+		      <0x7ab360 0x80>,
+		      <0x7ab760 0x80>,
+		      <0x7abf60 0x80>;
 		reg-names = "hmss-mux", "mmss-mux", "dsa-stm", "mdss-mdp",
 			    "phss-hwev", "gcc-eve1", "gcc-eve2", "pcie0-hwev",
-			    "pcie1-hwev", "pcie2-hwev", "tcsr-mux";
+			    "pcie1-hwev", "pcie2-hwev", "tcsr-mux", "mss-mux0",
+			    "mss-mux1";
 
 		coresight-id = <70>;
 		coresight-name = "coresight-hwevent";
