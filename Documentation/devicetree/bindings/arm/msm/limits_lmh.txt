@@ -12,6 +12,9 @@ Device/Asic specific properties:
 - qcom,lmh-trim-err-offset : This property defines the bit in the LMH
 		interrupt status register, which shows whether there is a
 		trim error in LMH hardware.
+- vdd-apss-supply : This property should hold the phandle of APSS regulator.
+		When defined, the M4M DPM will be notified for the APSS
+		voltage change.
 
 Required parameters:
 - compatible: Must be either "qcom,lmh" or "qcom,lmh_v1".
@@ -26,9 +29,11 @@ qcom,lmh {
 	interrupts = <0 332 4>;
 	reg = <0xF9117000 0x4>;
 	qcom,lmh-trim-err-offset = <18>;
+	vdd-apss-supply = <&pm8994_s11>;
 };
 
-Or for asics that don't have trim err:
+Or for asics that don't have trim err and don't require the voltage change
+update for DPM.
 
 qcom,lmh {
 	compatible = "qcom,lmh_v1";

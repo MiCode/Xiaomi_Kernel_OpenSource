@@ -27,6 +27,7 @@
 #include <asm/cacheflush.h>
 #include <soc/qcom/scm.h>
 #include <linux/dma-mapping.h>
+#include <linux/regulator/consumer.h>
 
 #define CREATE_TRACE_POINTS
 #define TRACE_MSM_LMH
@@ -51,6 +52,8 @@
 #define LMH_DEBUG_READ_BUF_SIZE		0x09
 #define LMH_DEBUG_READ			0x0A
 #define LMH_DEBUG_GET_TYPE		0x0B
+#define MAX_TRACE_EVENT_MSG_LEN		50
+#define APCS_DPM_VOLTAGE_SCALE		0x09950804
 
 #define LMH_CHECK_SCM_CMD(_cmd) \
 	do { \
@@ -152,6 +155,9 @@ struct lmh_driver_data {
 	int				max_sensor_count;
 	struct lmh_profile		dev_info;
 	struct lmh_debug		debug_info;
+	struct regulator		*regulator;
+	struct notifier_block		dpm_notifier_blk;
+	void __iomem			*dpm_voltage_scale_reg;
 };
 
 struct lmh_sensor_data {
@@ -516,6 +522,13 @@ static int lmh_get_sensor_devicetree(struct platform_device *pdev)
 			pr_err("Error reading:%s. err:%d\n", key, ret);
 			goto dev_exit;
 		}
+	}
+
+	lmh_data->regulator = devm_regulator_get(lmh_data->dev, "vdd-apss");
+	if (IS_ERR(lmh_data->regulator)) {
+		pr_err("unable to get vdd-apss regulator. err:%ld\n",
+			PTR_ERR(lmh_data->regulator));
+		lmh_data->regulator = NULL;
 	}
 
 	lmh_data->irq_num = platform_get_irq(pdev, 0);
@@ -1080,6 +1093,94 @@ static int lmh_debug_lmh_config(struct lmh_debug_ops *ops, uint32_t *buf,
 	return lmh_debug_config_write(LMH_DEBUG_SET, buf, size);
 }
 
+static void lmh_voltage_scale_set(uint32_t voltage)
+{
+	char trace_buf[MAX_TRACE_EVENT_MSG_LEN] = "";
+
+	writel_relaxed(voltage, lmh_data->dpm_voltage_scale_reg);
+	snprintf(trace_buf, MAX_TRACE_EVENT_MSG_LEN,
+		"DPM voltage scale %d mV", voltage);
+	pr_debug("%s\n", trace_buf);
+	trace_lmh_event_call(trace_buf);
+}
+
+static int lmh_voltage_change_notifier(struct notifier_block *nb_data,
+	unsigned long event, void *data)
+{
+	uint32_t voltage = 0;
+	static uint32_t last_voltage;
+	static bool change_needed;
+
+	if (event == REGULATOR_EVENT_VOLTAGE_CHANGE) {
+		/* Convert from uV to mV */
+		voltage = ((unsigned long)data) / 1000;
+		if (change_needed == 1 &&
+			(last_voltage == voltage)) {
+			lmh_voltage_scale_set(voltage);
+			change_needed = 0;
+		}
+	} else if (event == REGULATOR_EVENT_PRE_VOLTAGE_CHANGE) {
+		struct pre_voltage_change_data *change_data =
+			(struct pre_voltage_change_data *)data;
+		last_voltage = change_data->min_uV / 1000;
+		if (change_data->min_uV > change_data->old_uV)
+			/* Going from low to high apply change first */
+			lmh_voltage_scale_set(last_voltage);
+		else
+			/* Going from high to low apply change after */
+			change_needed = 1;
+		pr_debug("Received event PRE_VOLTAGE_CHANGE\n");
+		pr_debug("max = %lu mV min = %lu mV previous = %lu mV\n",
+			change_data->max_uV / 1000, change_data->min_uV / 1000,
+			change_data->old_uV / 1000);
+	}
+
+	return NOTIFY_OK;
+}
+
+static void lmh_dpm_remove(void)
+{
+	if (!IS_ERR_OR_NULL(lmh_data->regulator) &&
+		lmh_data->dpm_notifier_blk.notifier_call != NULL) {
+		regulator_unregister_notifier(lmh_data->regulator,
+			&(lmh_data->dpm_notifier_blk));
+		lmh_data->regulator = NULL;
+	}
+}
+
+static void lmh_dpm_init(void)
+{
+	int ret = 0;
+
+	lmh_data->dpm_voltage_scale_reg = devm_ioremap(lmh_data->dev,
+			(phys_addr_t)APCS_DPM_VOLTAGE_SCALE, 4);
+	if (!lmh_data->dpm_voltage_scale_reg) {
+		ret = -ENODEV;
+		pr_err("Error mapping LMH DPM voltage scale register\n");
+		goto dpm_init_exit;
+	}
+
+	lmh_data->dpm_notifier_blk.notifier_call = lmh_voltage_change_notifier;
+	ret = regulator_register_notifier(lmh_data->regulator,
+		&(lmh_data->dpm_notifier_blk));
+	if (ret) {
+		pr_err("DPM regulator notification registration failed. err:%d\n",
+			ret);
+		goto dpm_init_exit;
+	}
+
+dpm_init_exit:
+	if (ret) {
+		if (lmh_data->dpm_notifier_blk.notifier_call)
+			regulator_unregister_notifier(lmh_data->regulator,
+				&(lmh_data->dpm_notifier_blk));
+		devm_regulator_put(lmh_data->regulator);
+		lmh_data->dpm_notifier_blk.notifier_call = NULL;
+		lmh_data->regulator = NULL;
+	}
+}
+
+
 static int lmh_debug_init(void)
 {
 	int ret = 0;
@@ -1169,6 +1270,10 @@ static int lmh_probe(struct platform_device *pdev)
 			ret);
 		ret = 0;
 	}
+
+	if (lmh_data->regulator)
+		lmh_dpm_init();
+
 	ret = lmh_debug_init();
 	if (ret) {
 		pr_err("LMH debug init failed. err:%d\n", ret);
@@ -1194,6 +1299,7 @@ static int lmh_remove(struct platform_device *pdev)
 	free_irq(lmh_dat->irq_num, lmh_dat);
 	lmh_remove_sensors();
 	lmh_device_deregister(&lmh_dat->dev_info.dev_ops);
+	lmh_dpm_remove();
 
 	return 0;
 }
