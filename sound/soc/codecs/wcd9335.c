@@ -2430,7 +2430,7 @@ static int tasha_codec_enable_anc(struct snd_soc_dapm_widget *w,
 	int anc_size_remaining;
 	u32 *anc_ptr;
 	u16 reg;
-	u8 mask, val, old_val;
+	u8 mask, val;
 	size_t cal_size;
 	const void *data;
 
@@ -2529,9 +2529,7 @@ static int tasha_codec_enable_anc(struct snd_soc_dapm_widget *w,
 
 		for (; i < anc_writes_size; i++) {
 			TASHA_CODEC_UNPACK_ENTRY(anc_ptr[i], reg, mask, val);
-			old_val = snd_soc_read(codec, reg);
-			snd_soc_write(codec, reg, (old_val & ~mask) |
-				(val & mask));
+			snd_soc_write(codec, reg, (val & mask));
 		}
 		if (!strcmp(w->name, "RX INT1 DAC") ||
 			!strcmp(w->name, "RX INT3 DAC")) {
