@@ -959,6 +959,10 @@ static int clock_cpu_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	rc = clock_rcgwr_init(pdev);
+	if (rc)
+		dev_err(&pdev->dev, "Failed to init RCGwR\n");
+
 	/*
 	 * We don't want the CPU clocks to be turned off at late init
 	 * if CPUFREQ or HOTPLUG configs are disabled. So, bump up the
