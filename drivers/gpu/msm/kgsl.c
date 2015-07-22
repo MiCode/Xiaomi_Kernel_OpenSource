@@ -3501,14 +3501,19 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 	struct kgsl_process_private *private = dev_priv->process_priv;
 	struct kgsl_device *device = dev_priv->device;
 	struct kgsl_mem_entry *entry = NULL;
-	int ret;
 
 	if (vma_offset == (unsigned long) device->memstore.gpuaddr)
 		return get_unmapped_area(NULL, addr, len, pgoff, flags);
 
-	ret = get_mmap_entry(private, &entry, pgoff, len);
-	if (ret)
-		return ret;
+	val = get_mmap_entry(private, &entry, pgoff, len);
+	if (val)
+		return val;
+
+	/* Do not allow CPU mappings for secure buffers */
+	if (kgsl_memdesc_is_secured(&entry->memdesc)) {
+		val = -EPERM;
+		goto put;
+	}
 
 	if (!kgsl_memdesc_use_cpu_map(&entry->memdesc)) {
 		val = get_unmapped_area(NULL, addr, len, 0, flags);
@@ -3524,6 +3529,7 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 				private->pid, addr, pgoff, len, (int) val);
 	}
 
+put:
 	kgsl_mem_entry_put(entry);
 	return val;
 }
