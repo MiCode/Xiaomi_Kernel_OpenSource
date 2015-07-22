@@ -92,6 +92,7 @@
  * IPA HW 2.6/2.6L Registers
  */
 #define IPA_ENABLED_PIPES_OFST 0x000005DC
+#define IPA_YELLOW_MARKER_SYS_CFG_OFST 0x00000728
 /*
  * End of IPA 2.6/2.6L Registers
  */
