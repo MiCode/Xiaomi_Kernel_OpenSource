@@ -2564,6 +2564,7 @@
 	clocks =<&clock_gcc_gfx clk_gfx3d_clk_src>,
 		<&clock_gcc_gfx clk_gcc_oxili_gmem_clk>;
 	qcom,enable-root-clk;
+	parent-supply = <&gfx_vreg_corner>;
 	status = "okay";
 };
 
