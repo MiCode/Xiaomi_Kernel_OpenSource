@@ -46,6 +46,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0>;
 			enable-method = "qcom,8976-arm-cortex-acc";
+			qcom,limits-info = <&mitigation_profile0>;
 			efficiency = <1024>;
 			qcom,acc = <&acc0>;
 			next-level-cache = <&L2_0>;
@@ -61,6 +62,7 @@
 			compatible = "arm,armv8";
 			reg = <0x1>;
 			enable-method = "qcom,8976-arm-cortex-acc";
+			qcom,limits-info = <&mitigation_profile0>;
 			efficiency = <1024>;
 			qcom,acc = <&acc1>;
 			next-level-cache = <&L2_0>;
@@ -71,6 +73,7 @@
 			compatible = "arm,armv8";
 			reg = <0x2>;
 			enable-method = "qcom,8976-arm-cortex-acc";
+			qcom,limits-info = <&mitigation_profile0>;
 			efficiency = <1024>;
 			qcom,acc = <&acc2>;
 			next-level-cache = <&L2_0>;
@@ -81,6 +84,7 @@
 			compatible = "arm,armv8";
 			reg = <0x3>;
 			enable-method = "qcom,8976-arm-cortex-acc";
+			qcom,limits-info = <&mitigation_profile0>;
 			efficiency = <1024>;
 			qcom,acc = <&acc3>;
 			next-level-cache = <&L2_0>;
@@ -91,6 +95,7 @@
 			compatible = "arm,armv8";
 			reg = <0x100>;
 			enable-method = "qcom,8976-arm-cortex-acc";
+			qcom,limits-info = <&mitigation_profile1>;
 			efficiency = <1830>;
 			qcom,acc = <&acc4>;
 			qcom,ldo = <&ldo4>;
@@ -107,6 +112,7 @@
 			compatible = "arm,armv8";
 			reg = <0x103>;
 			enable-method = "qcom,8976-arm-cortex-acc";
+			qcom,limits-info = <&mitigation_profile4>;
 			efficiency = <1830>;
 			qcom,acc = <&acc5>;
 			qcom,ldo = <&ldo5>;
