@@ -576,9 +576,10 @@ static int cpr3_msm8996_hmss_calculate_open_loop_voltages(
 
 	for (i = 1; i < vreg->fuse_corner_count; i++) {
 		if (fuse_volt[i] < fuse_volt[i - 1]) {
-			cpr3_err(vreg, "voltage fuse[%d]=%d < fuse[%d]=%d uV; interpolation not possible\n",
-				i, fuse_volt[i], i - 1, fuse_volt[i - 1]);
-			allow_interpolation = false;
+			cpr3_info(vreg, "fuse corner %d voltage=%d uV < fuse corner %d voltage=%d uV; overriding: fuse corner %d voltage=%d\n",
+				i, fuse_volt[i], i - 1, fuse_volt[i - 1],
+				i, fuse_volt[i - 1]);
+			fuse_volt[i] = fuse_volt[i - 1];
 		}
 	}
 
@@ -961,39 +962,13 @@ static int cpr3_msm8996_hmss_calculate_target_quotients(
 	i = CPR3_MSM8996_HMSS_FUSE_CORNER_MINSVS;
 	quot_adjust = cpr3_quot_adjustment(ro_scale[i], volt_adjust_fuse[i]);
 	quot = fuse->target_quot[i] + quot_adjust;
+	quot_high[i] = quot;
 	ro = fuse->ro_sel[i];
 	if (quot_adjust)
 		cpr3_info(vreg, "adjusted fuse corner %d RO%u target quot: %llu --> %u (%d uV)\n",
 			i, ro, fuse->target_quot[i], quot, volt_adjust_fuse[i]);
 	for (i = 0; i <= fmax_corner[CPR3_MSM8996_HMSS_FUSE_CORNER_MINSVS]; i++)
 		vreg->corner[i].target_quot[ro] = quot;
-
-	for (i = CPR3_MSM8996_HMSS_FUSE_CORNER_SVS;
-	     i < vreg->fuse_corner_count; i++) {
-		quot_high[i] = fuse->target_quot[i];
-		quot_low[i] = quot_high[i]
-		     - fuse->quot_offset[i] * MSM8996_HMSS_QUOT_OFFSET_SCALE;
-		if (quot_low[i] > quot_high[i]) {
-			cpr3_err(vreg, "invalid quot[%d]=%llu and quot_offset[%d]=-%llu; interpolation not possible\n",
-				i, quot_high[i], i,
-				fuse->quot_offset[i]
-					* MSM8996_HMSS_QUOT_OFFSET_SCALE);
-			rc = cpr3_msm8996_hmss_set_no_interpolation_quotients(
-				vreg, volt_adjust, volt_adjust_fuse,
-				ro_scale);
-			goto done;
-		}
-	}
-
-	if (fuse->ro_sel[CPR3_MSM8996_HMSS_FUSE_CORNER_MINSVS]
-	    != fuse->ro_sel[CPR3_MSM8996_HMSS_FUSE_CORNER_SVS]) {
-		cpr3_err(vreg, "MinSVS RO=%llu is not the same as SVS RO=%llu; interpolation not possible\n",
-			fuse->ro_sel[CPR3_MSM8996_HMSS_FUSE_CORNER_MINSVS],
-			fuse->ro_sel[CPR3_MSM8996_HMSS_FUSE_CORNER_SVS]);
-		rc = cpr3_msm8996_hmss_set_no_interpolation_quotients(vreg,
-			volt_adjust, volt_adjust_fuse, ro_scale);
-		goto done;
-	}
 
 	/*
 	 * The LowSVS target quotient is defined as:
@@ -1002,14 +977,38 @@ static int cpr3_msm8996_hmss_calculate_target_quotients(
 	 * possible to interpolate between their target quotient values.
 	 */
 	i = CPR3_MSM8996_HMSS_FUSE_CORNER_LOWSVS;
-	quot_high[i] = quot_low[CPR3_MSM8996_HMSS_FUSE_CORNER_SVS];
+	quot_high[i] = fuse->target_quot[CPR3_MSM8996_HMSS_FUSE_CORNER_SVS]
+			- fuse->quot_offset[CPR3_MSM8996_HMSS_FUSE_CORNER_SVS]
+				* MSM8996_HMSS_QUOT_OFFSET_SCALE;
 	quot_low[i] = fuse->target_quot[CPR3_MSM8996_HMSS_FUSE_CORNER_MINSVS];
-	if (quot_low[i] > quot_high[i]) {
-		cpr3_err(vreg, "invalid quot_lowsvs=%llu and quot_minsvs=%llu; interpolation not possible\n",
-			quot_high[i], quot_low[i]);
-		rc = cpr3_msm8996_hmss_set_no_interpolation_quotients(vreg,
-			volt_adjust, volt_adjust_fuse, ro_scale);
-		goto done;
+	if (quot_high[i] < quot_low[i]) {
+		cpr3_info(vreg, "quot_lowsvs=%llu < quot_minsvs=%llu; overriding: quot_lowsvs=%llu\n",
+			quot_high[i], quot_low[i], quot_low[i]);
+		quot_high[i] = quot_low[i];
+	}
+	if (fuse->ro_sel[CPR3_MSM8996_HMSS_FUSE_CORNER_MINSVS]
+	    != fuse->ro_sel[CPR3_MSM8996_HMSS_FUSE_CORNER_SVS]) {
+		cpr3_info(vreg, "MinSVS RO=%llu != SVS RO=%llu; disabling LowSVS interpolation\n",
+			fuse->ro_sel[CPR3_MSM8996_HMSS_FUSE_CORNER_MINSVS],
+			fuse->ro_sel[CPR3_MSM8996_HMSS_FUSE_CORNER_SVS]);
+		quot_low[i] = quot_high[i];
+	}
+
+	for (i = CPR3_MSM8996_HMSS_FUSE_CORNER_SVS;
+	     i < vreg->fuse_corner_count; i++) {
+		quot_high[i] = fuse->target_quot[i];
+		if (fuse->ro_sel[i] == fuse->ro_sel[i - 1])
+			quot_low[i] = quot_high[i - 1];
+		else
+			quot_low[i] = quot_high[i]
+					- fuse->quot_offset[i]
+					  * MSM8996_HMSS_QUOT_OFFSET_SCALE;
+		if (quot_high[i] < quot_low[i]) {
+			cpr3_info(vreg, "quot_high[%d]=%llu < quot_low[%d]=%llu; overriding: quot_high[%d]=%llu\n",
+				i, quot_high[i], i, quot_low[i],
+				i, quot_low[i]);
+			quot_high[i] = quot_low[i];
+		}
 	}
 
 	/* Perform per-fuse-corner target quotient adjustment */
@@ -1024,16 +1023,17 @@ static int cpr3_msm8996_hmss_calculate_target_quotients(
 				volt_adjust_fuse[i]);
 		}
 
-		quot_low[i] += cpr3_quot_adjustment(ro_scale[i],
+		if (fuse->ro_sel[i] == fuse->ro_sel[i - 1])
+			quot_low[i] = quot_high[i - 1];
+		else
+			quot_low[i] += cpr3_quot_adjustment(ro_scale[i],
 						    volt_adjust_fuse[i - 1]);
 
-		if (quot_low[i] > quot_high[i]) {
-			cpr3_err(vreg, "invalid quot_high[%d]=%llu and quot_low[%d]=%llu after adjustment; interpolation not possible\n",
-				i, quot_high[i], i, quot_low[i]);
-			rc = cpr3_msm8996_hmss_set_no_interpolation_quotients(
-				vreg, volt_adjust, volt_adjust_fuse,
-				ro_scale);
-			goto done;
+		if (quot_high[i] < quot_low[i]) {
+			cpr3_info(vreg, "quot_high[%d]=%llu < quot_low[%d]=%llu after adjustment; overriding: quot_high[%d]=%llu\n",
+				i, quot_high[i], i, quot_low[i],
+				i, quot_low[i]);
+			quot_high[i] = quot_low[i];
 		}
 	}
 
@@ -1062,6 +1062,21 @@ static int cpr3_msm8996_hmss_calculate_target_quotients(
 				i, ro, prev_quot,
 				vreg->corner[i].target_quot[ro],
 				volt_adjust[i]);
+		}
+	}
+
+	/* Ensure that target quotients increase monotonically */
+	for (i = 1; i < vreg->corner_count; i++) {
+		ro = fuse->ro_sel[vreg->corner[i].cpr_fuse_corner];
+		if (fuse->ro_sel[vreg->corner[i - 1].cpr_fuse_corner] == ro
+		    && vreg->corner[i].target_quot[ro]
+				< vreg->corner[i - 1].target_quot[ro]) {
+			cpr3_info(vreg, "adjusted corner %d RO%u target quot=%u < adjusted corner %d RO%u target quot=%u; overriding: corner %d RO%u target quot=%u\n",
+				i, ro, vreg->corner[i].target_quot[ro],
+				i - 1, ro, vreg->corner[i - 1].target_quot[ro],
+				i, ro, vreg->corner[i - 1].target_quot[ro]);
+			vreg->corner[i].target_quot[ro]
+				= vreg->corner[i - 1].target_quot[ro];
 		}
 	}
 
