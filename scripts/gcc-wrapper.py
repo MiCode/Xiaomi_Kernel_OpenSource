@@ -44,6 +44,9 @@ allowed_warnings = set([
     "hid-magicmouse.c:579",
     "sysrq.c:956",
     "hci_sock.c:980",
+    "pppopns.c:296",
+    "pppopns.c:305",
+    "pppopns.c:336",
  ])
 
 # Capture the name of the object file, can find it.
