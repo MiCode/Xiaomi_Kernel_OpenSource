@@ -468,15 +468,9 @@ void msm_slim_tx_msg_return(struct msm_slim_ctrl *dev, int err)
 		}
 		/* reclaim all packets that were delivered out of order */
 		if (idx != dev->tx_head)
-			pr_err("SLIM OUT OF ORDER TX:idx:%d, head:%d", idx,
-								dev->tx_head);
-		while (idx == dev->tx_head) {
-			dev->tx_head = (dev->tx_head + 1) % MSM_TX_BUFS;
-			idx++;
-			if (dev->tx_head == dev->tx_tail ||
-					dev->wr_comp[idx] != NULL)
-				break;
-		}
+			SLIM_WARN(dev, "SLIM OUT OF ORDER TX:idx:%d, head:%d",
+				idx, dev->tx_head);
+		dev->tx_head = (dev->tx_head + 1) % MSM_TX_BUFS;
 	}
 }
 
