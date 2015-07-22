@@ -1,0 +1,9 @@
+config MEM_SHARE_QMI_SERVICE
+       depends on MSM_QMI_INTERFACE
+       bool "Shared Heap for external processors"
+       help
+		Memory Share Kernel Qualcomm Messaging Interface Service
+		receives requests from Modem Processor Sub System
+		for heap alloc/free from Application Processor
+		Sub System and send a response back to client with
+		proper handle/address.
