@@ -153,12 +153,17 @@
 	};
 
 	clock_gcc: qcom,gcc@1800000 {
-		compatible = "qcom,dummycc";
+		compatible = "qcom,gcc-mdmfermium";
+		reg = <0x1800000 0x80000>;
+		reg-names = "cc_base";
+		vdd_dig-supply = <&mdmfermium_s3_level>;
 		#clock-cells = <1>;
 	};
 
 	clock_debug: qcom,debug@1874000 {
-		compatible = "qcom,dummycc";
+		compatible = "qcom,cc-debug-mdmfermium";
+		reg = <0x1800000 0x80000>;
+		reg-names = "cc_base";
 		#clock-cells = <1>;
 	};
 
