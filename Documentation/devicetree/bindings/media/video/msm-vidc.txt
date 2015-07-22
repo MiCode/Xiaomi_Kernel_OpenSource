@@ -70,9 +70,6 @@ Optional properties:
   scalable = 0x1 (if the driver should vary the clock's frequency based on load)
 - qcom,sw-power-collapse = A bool indicating if video hardware core can be
   power collapsed in idle state.
-- qcom,early-fw-load = A bool indicating if video firmware should be loaded
-  during probe. When no video session is active, the video hardware will be
-  power collapsed.
 - qcom,use-non-secure-pil = A bool indicating which type of pil to use to load
   the fw.
 - qcom,fw-bias = The address at which venus fw is loaded (manually).
@@ -163,7 +160,6 @@ Example:
 		clock-names = "foo_clk", "bar_clk", "baz_clk";
 		qcom,clock-configs = <0x3 0x1 0x0>;
 		qcom,sw-power-collapse;
-		qcom,early-fw-load;
 		qcom,enable-idle-indicator;
 		qcom,buffer-type-tz-usage-table = <0x1 0x1>,
 						<0x1fe 0x2>;

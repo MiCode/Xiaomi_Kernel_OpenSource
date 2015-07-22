@@ -135,7 +135,6 @@ struct msm_vidc_platform_resources {
 	bool sw_power_collapsible;
 	bool sys_idle_indicator;
 	struct list_head context_banks;
-	bool early_fw_load;
 	bool thermal_mitigable;
 	const char *fw_name;
 	const char *hfi_version;
