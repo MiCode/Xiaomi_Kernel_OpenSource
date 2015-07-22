@@ -3339,14 +3339,14 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 	if (!device->power_enabled) {
 		dprintk(VIDC_DBG, "%s: Power already disabled\n",
 				__func__);
-		return;
+		goto exit;
 	}
 
 	rc = __core_in_valid_state(device);
 	if (!rc) {
 		dprintk(VIDC_WARN,
 			"Core is in bad state, Skipping power collapse\n");
-		return;
+		goto skip_power_off;
 	}
 
 	dprintk(VIDC_DBG, "Prepare for power collapse\n");
@@ -3365,6 +3365,11 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 		dprintk(VIDC_ERR, "Failed to prepare for PC %d\n", rc);
 		__alloc_set_imem(device);
 		mutex_unlock(&device->lock);
+		/*
+		 * __process_fatal_error invokes msm_vidc layer callback
+		 * function. Hence avoid holding the device->lock over the
+		 * callback function.
+		 */
 		__process_fatal_error(device);
 		return;
 	}
@@ -3418,6 +3423,7 @@ skip_power_off:
 
 	__alloc_set_imem(device);
 err_unset_imem:
+exit:
 	mutex_unlock(&device->lock);
 	return;
 }
