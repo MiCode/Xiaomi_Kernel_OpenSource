@@ -2311,6 +2311,9 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->off_cmds,
 		"qcom,mdss-dsi-off-command", "qcom,mdss-dsi-off-command-state");
 
+	rc = of_property_read_u32(np, "qcom,adjust-timer-wakeup-ms", &tmp);
+	pinfo->adjust_timer_delay_ms = (!rc ? tmp : 0);
+
 	pinfo->mipi.force_clk_lane_hs = of_property_read_bool(np,
 		"qcom,mdss-dsi-force-clock-lane-hs");
 

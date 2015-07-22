@@ -365,6 +365,8 @@ static int _create_dsi_panel_nodes(struct mdss_panel_debugfs_info *dfs,
 			(char *)&pinfo->mipi.rx_eot_ignore);
 	debugfs_create_u8("tx_eot_append", 0644, mipi_root,
 			(char *)&pinfo->mipi.tx_eot_append);
+	debugfs_create_u32("adjust_timer_ms", 0644, mipi_root,
+			(u32 *)&pinfo->adjust_timer_delay_ms);
 
 	/* TE reltaed nodes */
 	debugfs_create_u32("te_tear_check_en", 0644, te_root,
@@ -539,6 +541,8 @@ void mdss_panel_debugfsinfo_to_panelinfo(struct mdss_panel_info *panel_info)
 		pinfo->bl_min = dfs_info->panel_info.bl_min;
 		pinfo->bl_max = dfs_info->panel_info.bl_max;
 		pinfo->brightness_max = dfs_info->panel_info.brightness_max;
+		pinfo->adjust_timer_delay_ms =
+			dfs_info->panel_info.adjust_timer_delay_ms;
 
 		if ((pinfo->type == MIPI_CMD_PANEL) ||
 		    (pinfo->type == MIPI_VIDEO_PANEL)) {

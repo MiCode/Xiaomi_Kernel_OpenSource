@@ -575,6 +575,12 @@ struct mdss_panel_info {
 	struct lvds_panel_info lvds;
 	struct edp_panel_info edp;
 
+	/*
+	 * Delay(in ms) to accommodate s/w delay while
+	 * configuring the event timer wakeup logic.
+	 */
+	u32 adjust_timer_delay_ms;
+
 	/* debugfs structure for the panel */
 	struct mdss_panel_debugfs_info *debugfs_info;
 };
