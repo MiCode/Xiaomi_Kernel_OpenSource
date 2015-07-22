@@ -444,7 +444,7 @@
 				qcom,qpnp-lab-ps-enable;
 				qcom,qpnp-lab-nfet-size = <100>;
 				qcom,qpnp-lab-pfet-size = <100>;
-				qcom,qpnp-lab-max-precharge-time = <200>;
+				qcom,qpnp-lab-max-precharge-time = <300>;
 			};
 
 			ibb_regulator: qcom,ibb@dc00 {
@@ -466,8 +466,8 @@
 				qcom,qpnp-ibb-soft-start = <1000>;
 
 				qcom,qpnp-ibb-discharge-resistor = <300>;
-				qcom,qpnp-ibb-lab-pwrup-delay = <4000>;
-				qcom,qpnp-ibb-lab-pwrdn-delay = <4000>;
+				qcom,qpnp-ibb-lab-pwrup-delay = <8000>;
+				qcom,qpnp-ibb-lab-pwrdn-delay = <8000>;
 				qcom,qpnp-ibb-en-discharge;
 
 				qcom,qpnp-ibb-full-pull-down;
