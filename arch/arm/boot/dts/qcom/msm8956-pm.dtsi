@@ -460,6 +460,7 @@
 			<0xff 39>,  /* arch_mem_timer */
 			<0xff 40>,  /* qtmr_phy_irq[0] */
 			<0xff 47>,  /* rbif_irq[0] */
+			<0xff 51>,  /* rbif_Irq[3] */
 			<0xff 56>,  /* q6_wdog_expired_irq */
 			<0xff 57>,  /* mss_to_apps_irq(0) */
 			<0xff 58>,  /* mss_to_apps_irq(1) */
@@ -484,11 +485,16 @@
 			<0xff 109>, /* smmu_bus_intr[37] */
 			<0xff 112>, /* smmu_bus_intr[38] */
 			<0xff 114>, /* qdsd_intr_out */
+			<0xff 126>, /* app_cxt_irpt_10 */
 			<0xff 129>, /* blsp1_peripheral_irq[4] */
+			<0xff 130>, /* qup_irq */
 			<0xff 131>, /* qup_irq */
+			<0xff 133>, /* app_cxt_irpt_11 */
+			<0xff 134>, /* app_cxt_irpt_12 */
 			<0xff 137>, /* smmu_intr_bus[44] */
 			<0xff 138>, /* smmu_intr_bus[45] */
 			<0xff 140>, /* uart_dm_intr */
+			<0xff 141>, /* app_cxt_irpt_17 */
 			<0xff 142>, /* smmu_bus_intr[47] */
 			<0xff 143>, /* smmu_bus_intr[48] */
 			<0xff 144>, /* smmu_bus_intr[49] */
@@ -532,6 +538,7 @@
 			<0xff 205>, /* rpm_ipc(25) */
 			<0xff 206>, /* rpm_ipc(26) */
 			<0xff 207>, /* rpm_ipc(27) */
+			<0xff 212>, /* lpass_slimbus_bam_ee1_irq */
 			<0xff 215>, /* o_bimc_intr[0] */
 			<0xff 239>, /* crypto_bam_irq[1]*/
 			<0xff 240>, /* summary_irq_kpss */
@@ -546,6 +553,8 @@
 			<0xff 275>, /* rpm_ipc(30) */
 			<0xff 276>, /* rpm_ipc(31) */
 			<0xff 277>, /* smmu_intr_bus[20] */
+			<0xff 286>, /* app_cxt_irpt_0 */
+			<0xff 287>, /* app_cxt_irpt_1 */
 			<0xff 321>, /* q6ss_irq_out(4) */
 			<0xff 322>, /* q6ss_irq_out(5) */
 			<0xff 323>, /* q6ss_irq_out(6) */
