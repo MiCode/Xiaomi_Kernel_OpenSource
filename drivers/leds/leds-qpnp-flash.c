@@ -174,6 +174,7 @@ struct flash_node_data {
 	u32				boost_voltage_max;
 	u16				max_current;
 	u16				prgm_current;
+	u16				duration;
 	u8				id;
 	u8				type;
 	u8				trigger;
@@ -190,7 +191,6 @@ struct flash_led_platform_data {
 	u16				vph_pwr_droop_threshold;
 	u16				headroom;
 	u16				clamp_current;
-	u16				duration;
 	u8				thermal_derate_threshold;
 	u8				vph_pwr_droop_debounce_time;
 	u8				startup_dly;
@@ -1297,7 +1297,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			}
 		}
 
-		val = (u8)((led->pdata->duration - FLASH_DURATION_DIVIDER)
+		val = (u8)((flash_node->duration - FLASH_DURATION_DIVIDER)
 						/ FLASH_DURATION_DIVIDER);
 		rc = qpnp_led_masked_write(led->spmi_dev,
 			FLASH_SAFETY_TIMER(led->base),
@@ -1748,6 +1748,17 @@ static int qpnp_flash_led_parse_each_led_dt(struct qpnp_flash_led *led,
 		return rc;
 	}
 
+	if (flash_node->type == SWITCH || flash_node->type == FLASH) {
+		rc = of_property_read_u32(node, "qcom,duration", &val);
+		if (!rc)
+			flash_node->duration = (u16)val;
+		else if (rc != -EINVAL) {
+			dev_err(&led->spmi_dev->dev,
+					"Unable to read duration\n");
+			return rc;
+		}
+	}
+
 	switch (led->peripheral_type) {
 	case FLASH_SUBTYPE_SINGLE:
 		flash_node->trigger = FLASH_LED0_TRIGGER;
@@ -1826,15 +1837,6 @@ static int qpnp_flash_led_parse_common_dt(
 	} else if (rc != -EINVAL) {
 		dev_err(&led->spmi_dev->dev,
 					"Unable to read clamp current\n");
-		return rc;
-	}
-
-	rc = of_property_read_u32(node, "qcom,duration", &val);
-	if (!rc) {
-		led->pdata->duration = val;
-	} else if (rc != -EINVAL) {
-		dev_err(&led->spmi_dev->dev,
-					"unable to read duration\n");
 		return rc;
 	}
 
