@@ -1908,12 +1908,12 @@ void msm_isp_do_tasklet(unsigned long data)
 		iommu_page_fault = queue_cmd->iommu_page_fault;
 		queue_cmd->iommu_page_fault = 0;
 		spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
+		ISP_DBG("%s: vfe_id %d status0: 0x%x status1: 0x%x\n",
+			__func__, vfe_dev->pdev->id, irq_status0, irq_status1);
 		if (iommu_page_fault > 0) {
 			ms_isp_process_iommu_page_fault(vfe_dev);
 			continue;
 		}
-		ISP_DBG("%s: vfe_id %d status0: 0x%x status1: 0x%x\n",
-			__func__, vfe_dev->pdev->id, irq_status0, irq_status1);
 		irq_ops->process_reset_irq(vfe_dev,
 			irq_status0, irq_status1);
 		irq_ops->process_halt_irq(vfe_dev,
