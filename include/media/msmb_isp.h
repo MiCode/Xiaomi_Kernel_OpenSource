@@ -27,6 +27,7 @@
 #define ISP1_BIT              (0x10000 << 2)
 #define ISP_META_CHANNEL_BIT  (0x10000 << 3)
 #define ISP_SCRATCH_BUF_BIT   (0x10000 << 4)
+#define ISP_PDAF_CHANNEL_BIT   (0x10000 << 5)
 #define ISP_STATS_STREAM_BIT  0x80000000
 
 struct msm_vfe_cfg_cmd_list;
@@ -105,6 +106,13 @@ struct msm_vfe_fetch_engine_cfg {
 	uint32_t buf_stride;
 };
 
+struct msm_vfe_camif_subsample_cfg {
+	uint32_t irq_subsample_period;
+	uint32_t irq_subsample_pattern;
+	uint32_t pixel_skip;
+	uint32_t line_skip;
+};
+
 struct msm_vfe_camif_cfg {
 	uint32_t lines_per_frame;
 	uint32_t pixels_per_line;
@@ -115,6 +123,7 @@ struct msm_vfe_camif_cfg {
 	uint32_t epoch_line0;
 	uint32_t epoch_line1;
 	enum msm_vfe_camif_input camif_input;
+	struct msm_vfe_camif_subsample_cfg subsample_cfg;
 };
 
 enum msm_vfe_inputmux {
