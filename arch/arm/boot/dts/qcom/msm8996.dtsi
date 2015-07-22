@@ -3672,6 +3672,8 @@
 	clocks = <&clock_mmss clk_mdss_axi_clk>,
 		 <&clock_mmss clk_mdss_mdp_clk>;
 	parent-supply = <&gdsc_mmagic_mdss>;
+	proxy-supply = <&gdsc_mdss>;
+	qcom,proxy-consumer-enable;
 	status = "ok";
 };
 
