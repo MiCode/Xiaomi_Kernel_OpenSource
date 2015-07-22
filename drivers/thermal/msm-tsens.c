@@ -713,6 +713,7 @@
 
 static uint32_t tsens_sec_to_msec_value = 3000;
 static uint32_t tsens_completion_timeout_hz = 2 * HZ;
+static uint32_t tsens_poll_check = 1;
 
 enum tsens_calib_fuse_map_type {
 	TSENS_CALIB_FUSE_MAP_8974 = 0,
@@ -867,6 +868,9 @@ static struct of_device_id tsens_match[] = {
 	},
 	{   .compatible = "qcom,mdmfermium-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_MDMFERMIUM,
+	},
+	{	.compatible = "qcom,msmtitanium-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_NONE,
 	},
 	{}
 };
@@ -4892,7 +4896,10 @@ static int get_device_tree_data(struct platform_device *pdev,
 		tmdev->tsens_type = TSENS_TYPE2;
 	else if (!strcmp(id->compatible, "qcom,msm8996-tsens"))
 		tmdev->tsens_type = TSENS_TYPE3;
-	else if (!strcmp(id->compatible, "qcom,msm8952-tsens"))
+	else if (!strcmp(id->compatible, "qcom,msmtitanium-tsens")) {
+		tmdev->tsens_type = TSENS_TYPE3;
+		tsens_poll_check = 0;
+	} else if (!strcmp(id->compatible, "qcom,msm8952-tsens"))
 		tmdev->tsens_type = TSENS_TYPE4;
 	else
 		tmdev->tsens_type = TSENS_TYPE0;
@@ -4900,7 +4907,8 @@ static int get_device_tree_data(struct platform_device *pdev,
 	if (!strcmp(id->compatible, "qcom,msm8994-tsens") ||
 		(!strcmp(id->compatible, "qcom,msmzirc-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msm8992-tsens")) ||
-		(!strcmp(id->compatible, "qcom,msm8996-tsens")))
+		(!strcmp(id->compatible, "qcom,msm8996-tsens")) ||
+		(!strcmp(id->compatible, "qcom,msmtitanium-tsens")))
 		tmdev->tsens_valid_status_check = true;
 	else
 		tmdev->tsens_valid_status_check = false;
@@ -4913,7 +4921,8 @@ static int get_device_tree_data(struct platform_device *pdev,
 		goto fail_tmdev;
 	}
 
-	if (!strcmp(id->compatible, "qcom,msm8996-tsens")) {
+	if (!strcmp(id->compatible, "qcom,msm8996-tsens") ||
+		(!strcmp(id->compatible, "qcom,msmtitanium-tsens"))) {
 		tmdev->tsens_critical_irq =
 				platform_get_irq_byname(pdev,
 						"tsens-critical");
@@ -5182,11 +5191,13 @@ static int tsens_thermal_zone_register(struct tsens_tm_device *tmdev)
 			enable_irq_wake(tmdev->tsens_critical_irq);
 		}
 
-		INIT_DEFERRABLE_WORK(&tmdev->tsens_critical_poll_test,
+		if (tsens_poll_check) {
+			INIT_DEFERRABLE_WORK(&tmdev->tsens_critical_poll_test,
 								tsens_poll);
-		schedule_delayed_work(&tmdev->tsens_critical_poll_test,
-			msecs_to_jiffies(tsens_sec_to_msec_value));
-		init_completion(&tmdev->tsens_rslt_completion);
+			schedule_delayed_work(&tmdev->tsens_critical_poll_test,
+				msecs_to_jiffies(tsens_sec_to_msec_value));
+			init_completion(&tmdev->tsens_rslt_completion);
+		}
 	} else {
 		rc = request_threaded_irq(tmdev->tsens_irq, NULL,
 			tsens_irq_thread, IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
