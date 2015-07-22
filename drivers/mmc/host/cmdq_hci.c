@@ -343,7 +343,8 @@ static int cmdq_enable(struct mmc_host *mmc)
 				CQSSC1);
 
 	/* enable bkops exception indication */
-	if (mmc_card_configured_manual_bkops(mmc->card))
+	if (mmc_card_configured_manual_bkops(mmc->card) &&
+	    !mmc_card_configured_auto_bkops(mmc->card))
 		cmdq_writel(cq_host, cmdq_readl(cq_host, CQRMEM) | CQ_EXCEPTION,
 				CQRMEM);
 
