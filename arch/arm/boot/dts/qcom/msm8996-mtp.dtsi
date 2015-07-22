@@ -588,6 +588,7 @@
 			synaptics,reset-gpio = <&tlmm 89 0x00>;
 			synaptics,irq-gpio = <&tlmm 125 0x2008>;
 			synaptics,disable-gpios;
+			synaptics,fw-name = "PR1702898-s3528t_00350002.img";
 			/* Underlying clocks used by secure touch */
 			clock-names = "iface_clk", "core_clk";
 			clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
