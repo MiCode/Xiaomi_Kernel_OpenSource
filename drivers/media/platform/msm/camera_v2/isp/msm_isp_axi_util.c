@@ -1289,8 +1289,6 @@ static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 			vfe_dev->error_info.
 				stream_framedrop_count[stream_idx]++;
 			vfe_dev->error_info.framedrop_flag = 1;
-			pr_err_ratelimited("%s: get buf fail! , rc = %d\n",
-				__func__, rc);
 			return rc;
 		}
 
@@ -1460,7 +1458,8 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 			vfe_dev->pdev->id, buf->buf_idx);
 		return;
 	} else if (rc == 0) {
-		if (buf->frame_id != frame_id) {
+		if ((buf->frame_id != frame_id) &&
+			vfe_dev->axi_data.enable_frameid_recovery) {
 			struct msm_isp_event_data error_event;
 
 			error_event.frame_id =
