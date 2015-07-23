@@ -1212,10 +1212,8 @@ static int __unset_free_imem(struct venus_hfi_device *device)
 		return 0;
 
 	rc = __unset_imem(device);
-	if (rc) {
+	if (rc)
 		dprintk(VIDC_WARN, "Failed to unset imem: %d\n", rc);
-		goto unset_failed;
-	}
 
 	rc = __free_imem(device);
 	if (rc) {
@@ -1223,7 +1221,6 @@ static int __unset_free_imem(struct venus_hfi_device *device)
 		goto free_failed;
 	}
 
-unset_failed:
 free_failed:
 	return rc;
 }
@@ -2352,13 +2349,11 @@ static int __core_release(struct venus_hfi_device *device)
 		return -EIO;
 	}
 
-	if (device->state != VENUS_STATE_DEINIT) {
-		rc = __unset_free_imem(device);
-		if (rc)
-			dprintk(VIDC_ERR,
-					"Failed to unset and free imem in core release: %d\n",
-					rc);
-	}
+	rc = __unset_free_imem(device);
+	if (rc)
+		dprintk(VIDC_ERR,
+			"Failed to unset and free imem in core release: %d\n",
+			rc);
 
 	if (!(device->intr_status & VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK))
 		disable_irq_nosync(device->hal_data->irq);
