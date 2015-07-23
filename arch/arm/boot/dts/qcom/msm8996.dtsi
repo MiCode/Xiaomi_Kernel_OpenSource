@@ -322,6 +322,14 @@
 		qcom,reg-presets = <0x80010 0xffffffff>,
 			<0x80018 0x00001556>,
 			<0x8001C 0x00001556>;
+		qcom,qdss-presets = <0x08180000 0x2000>,
+			<0x08182000 0x2000>,
+			<0x08184000 0x2000>,
+			<0x08186000 0x2000>,
+			<0x08188000 0x2000>,
+			<0x0818A000 0x2000>,
+			<0x0818C000 0x2000>,
+			<0x0818E000 0x2000>;
 		qcom,max-hw-load = <2563200>; /* Full 4k @ 60 + 1080p @ 60 */
 		qcom,firmware-name = "venus";
 		qcom,imem-size = <524288>; /* 512 kB */
