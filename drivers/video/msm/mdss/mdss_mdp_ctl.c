@@ -2017,18 +2017,14 @@ int mdss_mdp_ctl_free(struct mdss_mdp_ctl *ctl)
 		return -EINVAL;
 	}
 
-	if (ctl->mixer_left) {
+	if (ctl->mixer_left && ctl->mixer_left->ref_cnt)
 		mdss_mdp_mixer_free(ctl->mixer_left);
-		ctl->mixer_left = NULL;
-	}
-	if (ctl->mixer_right) {
+
+	if (ctl->mixer_right && ctl->mixer_right->ref_cnt)
 		mdss_mdp_mixer_free(ctl->mixer_right);
-		ctl->mixer_right = NULL;
-	}
-	if (ctl->wb) {
+
+	if (ctl->wb)
 		mdss_mdp_wb_free(ctl->wb);
-		ctl->wb = NULL;
-	}
 
 	mutex_lock(&mdss_mdp_ctl_lock);
 	ctl->ref_cnt--;
@@ -2036,6 +2032,9 @@ int mdss_mdp_ctl_free(struct mdss_mdp_ctl *ctl)
 	ctl->intf_type = MDSS_MDP_NO_INTF;
 	ctl->is_secure = false;
 	ctl->power_state = MDSS_PANEL_POWER_OFF;
+	ctl->mixer_left = NULL;
+	ctl->mixer_right = NULL;
+	ctl->wb = NULL;
 	memset(&ctl->ops, 0, sizeof(ctl->ops));
 	mutex_unlock(&mdss_mdp_ctl_lock);
 
@@ -3368,18 +3367,13 @@ int mdss_mdp_ctl_reset(struct mdss_mdp_ctl *ctl)
 	 * it takes around 30us to have mdp finish resetting its ctl path
 	 * poll every 50us so that reset should be completed at 1st poll
 	 */
-
 	do {
 		udelay(50);
 		status = mdss_mdp_ctl_read(ctl, MDSS_MDP_REG_CTL_SW_RESET);
 		status &= 0x01;
 		pr_debug("status=%x\n", status);
 		cnt--;
-		if (cnt == 0) {
-			pr_err("ctl%d reset timedout\n", ctl->num);
-			return -EAGAIN;
-		}
-	} while (status);
+	} while (cnt > 0 && status);
 
 	if (mixer) {
 		mdss_mdp_pipe_reset(mixer);
@@ -3388,7 +3382,10 @@ int mdss_mdp_ctl_reset(struct mdss_mdp_ctl *ctl)
 			mdss_mdp_pipe_reset(ctl->mixer_right);
 	}
 
-	return 0;
+	if (!cnt)
+		pr_err("ctl%d reset timedout\n", ctl->num);
+
+	return (!cnt) ? -EAGAIN : 0;
 }
 
 static void mdss_mdp_set_mixer_roi(struct mdss_mdp_ctl *ctl,
@@ -3551,8 +3548,8 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 
 		stage = i / MAX_PIPES_PER_STAGE;
 		if (stage != pipe->mixer_stage) {
-			pr_err("pipe%d stage mismatch. pipe->mixer_stage=%d, mixer->stage_pipe=%d. skip staging it\n",
-				pipe->num, pipe->mixer_stage, stage);
+			pr_err("pipe%d mixer:%d stage mismatch. pipe->mixer_stage=%d, mixer->stage_pipe=%d. skip staging it\n",
+			    pipe->num, mixer->num, pipe->mixer_stage, stage);
 			mixer->stage_pipe[i] = NULL;
 			continue;
 		}
@@ -4065,7 +4062,7 @@ int mdss_mdp_mixer_pipe_unstage(struct mdss_mdp_pipe *pipe,
 		!(pipe->src_split_req && mixer->is_right_mixer);
 	index = (pipe->mixer_stage * MAX_PIPES_PER_STAGE) + right_blend_index;
 
-	if (pipe == mixer->stage_pipe[index]) {
+	if (index < MAX_PIPES_PER_LM && pipe == mixer->stage_pipe[index]) {
 		pr_debug("unstage p%d from %s side of stage=%d lm=%d ndx=%d\n",
 			pipe->num, pipe->is_right_blend ? "right" : "left",
 			pipe->mixer_stage, mixer->num, index);
