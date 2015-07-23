@@ -68,6 +68,10 @@ Optional Properties:
 	  command-queueing mode or legacy respectively.
 	- qcom,core_3_0v_support: an optional property that is used to fake
 	  3.0V support for SDIO devices.
+	- qcom,scaling-lower-bus-speed-mode:	specifies the lower bus speed mode to be used
+						during clock scaling. If this property is not
+						defined, then it falls back to the default HS
+						bus speed mode to maintain backward compatibility.
 
 In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltage).
 	- qcom,<supply>-always-on - specifies whether supply should be kept "on" always.
@@ -137,6 +141,8 @@ Example:
 		qcom,large-address-bus;
 		qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
 		qcom,ice-clk-rates = <300000000>;
+
+		qcom,scaling-lower-bus-speed-mode = "DDR52";
 
 		gpios = <&msmgpio 40 0>, /* CLK */
 			<&msmgpio 39 0>, /* CMD */
