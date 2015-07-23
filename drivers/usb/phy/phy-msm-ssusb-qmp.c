@@ -289,14 +289,6 @@ static const struct qmp_reg_val qmp_override_pll[] = {
 	{-1, -1} /* terminating entry */
 };
 
-/* Override PLL Calibration for QMP PHY revision 2*/
-static const struct qmp_reg_val qmp_override_pll_rev2[] = {
-	{0x124, 0x1C}, /* USB3PHY_QSERDES_COM_VCO_TUNE_CTRL */
-	{0x12C, 0x3F}, /* USB3PHY_QSERDES_COM_VCO_TUNE1_MODE0 */
-	{0x130, 0x01}, /* USB3PHY_QSERDES_COM_VCO_TUNE2_MODE0 */
-	{-1, -1} /* terminating entry */
-};
-
 /* Foundry specific settings */
 static const struct qmp_reg_val qmp_settings_rev0_misc[] = {
 	{0x10C, 0x37}, /* QSERDES_COM_PLL_CRCTRL */
@@ -307,18 +299,6 @@ static const struct qmp_reg_val qmp_settings_rev0_misc[] = {
 	{0x4A8, 0xFF}, /* QSERDES_RX_RX_EQ_GAIN1_LSB */
 	{0x6B0, 0xF4}, /* PCIE_USB3_PHY_FLL_CNT_VAL_L */
 	{0x6B4, 0x41}, /* PCIE_USB3_PHY_FLL_CNT_VAL_H_TOL */
-	{-1, -1} /* terminating entry */
-};
-
-/* Override for SYSCLK */
-static const struct qmp_reg_val qmp_override_sysclk[] = {
-	{0xAC, 0x17}, /* QSERDES_COM_SYSCLK_EN_SEL */
-	/*
-	 * FLL_CNTRL2 value is changed betwen v1 and v2 except
-	 * need of sysclk and pll override workaround for v1.
-	 * Hence for v1, using this hook to program FLL_CNTRL2.
-	 */
-	{0x6C4, 0x13}, /* USB3_PHY_FLL_CNTRL2 */
 	{-1, -1} /* terminating entry */
 };
 
@@ -556,8 +536,6 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	case 0x20000000:
 	case 0x20000001:
 		reg = qmp_settings_rev2;
-		misc = qmp_override_sysclk;
-		pll = qmp_override_pll_rev2;
 		break;
 	default:
 		dev_err(uphy->dev, "Unknown revid 0x%x, cannot initialize PHY\n",
