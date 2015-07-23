@@ -2468,7 +2468,7 @@ void mdss_dsi_timeout_status(struct mdss_dsi_ctrl_pdata *ctrl)
 
 	if (status & 0x0111) {
 		MIPI_OUTP(base + 0x00c0, status);
-		if (status & 0x0010)
+		if (status & 0x0110)
 			dsi_send_events(ctrl, DSI_EV_LP_RX_TIMEOUT, 0);
 		pr_err("%s: status=%x\n", __func__, status);
 	}
