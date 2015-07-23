@@ -579,8 +579,6 @@ static int __smem_alloc(struct venus_hfi_device *dev, void *mem,
 		return -EINVAL;
 	}
 
-	__power_on(dev);
-
 	vmem = (struct vidc_mem_addr *)mem;
 	dprintk(VIDC_INFO, "start to alloc size: %d, flags: %d\n", size, flags);
 
@@ -615,9 +613,6 @@ static void __smem_free(struct venus_hfi_device *dev, struct msm_smem *mem)
 		dprintk(VIDC_ERR, "invalid param %p %p\n", dev, mem);
 		return;
 	}
-
-	if (__power_on(dev))
-		dprintk(VIDC_ERR, "%s: Power on failed\n", __func__);
 
 	msm_smem_free(dev->hal_client, mem);
 }
@@ -1593,26 +1588,6 @@ err_enable_gdsc:
 err_vote_buses:
 	device->power_enabled = false;
 	dprintk(VIDC_ERR, "Failed to resume from power collapse\n");
-	return rc;
-}
-
-static int venus_hfi_resume(void *dev)
-{
-	int rc = 0;
-	struct venus_hfi_device *device = dev;
-	if (!device) {
-		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
-		return -EINVAL;
-	}
-
-	mutex_lock(&device->lock);
-
-	rc = __power_on(device);
-	if (rc)
-		dprintk(VIDC_ERR, "%s: Failed to enable power\n", __func__);
-
-	mutex_unlock(&device->lock);
-
 	return rc;
 }
 
@@ -4658,7 +4633,6 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->unload_fw = venus_hfi_unload_fw;
 	hdev->get_fw_info = venus_hfi_get_fw_info;
 	hdev->get_core_capabilities = venus_hfi_get_core_capabilities;
-	hdev->resume = venus_hfi_resume;
 	hdev->suspend = venus_hfi_suspend;
 	hdev->get_core_clock_rate = venus_hfi_get_core_clock_rate;
 	hdev->get_default_properties = venus_hfi_get_default_properties;

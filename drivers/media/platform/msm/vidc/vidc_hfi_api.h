@@ -1443,7 +1443,6 @@ struct hfi_device {
 	int (*get_fw_info)(void *dev, enum fw_info info);
 	int (*session_clean)(void *sess);
 	int (*get_core_capabilities)(void *dev);
-	int (*resume)(void *dev);
 	int (*suspend)(void *dev);
 	unsigned long (*get_core_clock_rate)(void *dev);
 	enum hal_default_properties (*get_default_properties)(void *dev);
