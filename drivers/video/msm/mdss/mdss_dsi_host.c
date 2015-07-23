@@ -391,7 +391,7 @@ void mdss_dsi_host_init(struct mdss_panel_data *pdata)
 
 	/* allow only ack-err-status  to generate interrupt */
 	/* DSI_ERR_INT_MASK0 */
-	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x010c, 0x03f03fe0);
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x010c, 0x03f03fc0);
 
 	intr_ctrl |= DSI_INTR_ERROR_MASK;
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0110,
@@ -631,9 +631,9 @@ static void mdss_dsi_cmd_stop_hs_clk_lane(struct mdss_dsi_ctrl_pdata *ctrl)
 	mdss_dsi_stop_hs_clk_lane(ctrl);
 }
 
-static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
+static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl, u32 event)
 {
-	u32 data0, data1;
+	u32 data0, data1, mask = 0, data_lane_en = 0;
 	struct mdss_dsi_ctrl_pdata *ctrl0, *ctrl1;
 	u32 ln0, ln1, ln_ctrl0, ln_ctrl1, i;
 	/*
@@ -643,6 +643,15 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 	u32 loop = 10, u_dly = 200;
 	pr_debug("%s: MDSS DSI CTRL and PHY reset. ctrl-num = %d\n",
 					__func__, ctrl->ndx);
+
+	if (event == DSI_EV_DLNx_FIFO_OVERFLOW) {
+		mask = BIT(20); /* clock lane only for overflow recovery */
+	} else if (event == DSI_EV_LP_RX_TIMEOUT) {
+		data_lane_en = (MIPI_INP(ctrl->ctrl_base + 0x0004) &
+				DSI_DATA_LANES_ENABLED) >> 4;
+		/* clock and data lanes for LP_RX_TO recovery */
+		mask = BIT(20) | (data_lane_en << 16);
+	}
 
 	if (ctrl->panel_data.panel_info.is_split_display) {
 		pr_debug("%s: Split display enabled\n", __func__);
@@ -699,8 +708,8 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 			 __func__, ln0, ln1);
 		ln_ctrl0 = MIPI_INP(ctrl0->ctrl_base + 0x00ac);
 		ln_ctrl1 = MIPI_INP(ctrl1->ctrl_base + 0x00ac);
-		MIPI_OUTP(ctrl0->ctrl_base + 0x0ac, ln_ctrl0 | BIT(20));
-		MIPI_OUTP(ctrl1->ctrl_base + 0x0ac, ln_ctrl1 | BIT(20));
+		MIPI_OUTP(ctrl0->ctrl_base + 0x0ac, ln_ctrl0 | mask);
+		MIPI_OUTP(ctrl1->ctrl_base + 0x0ac, ln_ctrl1 | mask);
 		ln_ctrl0 = MIPI_INP(ctrl0->ctrl_base + 0x00ac);
 		ln_ctrl1 = MIPI_INP(ctrl1->ctrl_base + 0x00ac);
 		for (i = 0; i < loop; i++) {
@@ -721,8 +730,8 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 		}
 		pr_debug("%s: lane ctrl, ctrl0 = 0x%x, ctrl1 = 0x%x\n",
 			 __func__, ln0, ln1);
-		MIPI_OUTP(ctrl0->ctrl_base + 0x0ac, ln_ctrl0 & ~BIT(20));
-		MIPI_OUTP(ctrl1->ctrl_base + 0x0ac, ln_ctrl1 & ~BIT(20));
+		MIPI_OUTP(ctrl0->ctrl_base + 0x0ac, ln_ctrl0 & ~mask);
+		MIPI_OUTP(ctrl1->ctrl_base + 0x0ac, ln_ctrl1 & ~mask);
 
 		/* Enable Video mode for DSI controller */
 		MIPI_OUTP(ctrl0->ctrl_base + 0x004, data0);
@@ -774,7 +783,7 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 		pr_debug("%s: lane status, ctrl = 0x%x\n",
 			 __func__, ln0);
 		ln_ctrl0 = MIPI_INP(ctrl->ctrl_base + 0x00ac);
-		MIPI_OUTP(ctrl->ctrl_base + 0x0ac, ln_ctrl0 | BIT(20));
+		MIPI_OUTP(ctrl->ctrl_base + 0x0ac, ln_ctrl0 | mask);
 		ln_ctrl0 = MIPI_INP(ctrl->ctrl_base + 0x00ac);
 		for (i = 0; i < loop; i++) {
 			ln0 = MIPI_INP(ctrl->ctrl_base + 0x00a8);
@@ -792,7 +801,7 @@ static void mdss_dsi_ctl_phy_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 		}
 		pr_debug("%s: lane status = 0x%x\n",
 			 __func__, ln0);
-		MIPI_OUTP(ctrl->ctrl_base + 0x0ac, ln_ctrl0 & ~BIT(20));
+		MIPI_OUTP(ctrl->ctrl_base + 0x0ac, ln_ctrl0 & ~mask);
 
 		/* Enable Video mode for DSI controller */
 		MIPI_OUTP(ctrl->ctrl_base + 0x004, data0);
@@ -2373,7 +2382,8 @@ static int dsi_event_thread(void *data)
 				pr_debug("%s: Handling overflow event.\n",
 								__func__);
 				mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 1);
-				mdss_dsi_ctl_phy_reset(ctrl);
+				mdss_dsi_ctl_phy_reset(ctrl,
+						DSI_EV_DLNx_FIFO_OVERFLOW);
 				mdss_dsi_err_intr_ctrl(ctrl,
 						DSI_INTR_ERROR_MASK, 1);
 				mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 0);
@@ -2383,7 +2393,8 @@ static int dsi_event_thread(void *data)
 				pr_debug("%s: Handle overflow->Rev_103\n",
 								__func__);
 				mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 1);
-				mdss_dsi_ctl_phy_reset(ctrl);
+				mdss_dsi_ctl_phy_reset(ctrl,
+						DSI_EV_DLNx_FIFO_OVERFLOW);
 				mdss_dsi_err_intr_ctrl(ctrl,
 						DSI_INTR_ERROR_MASK, 1);
 				mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 0);
@@ -2408,6 +2419,12 @@ static int dsi_event_thread(void *data)
 
 		if (todo & DSI_EV_STOP_HS_CLK_LANE)
 			mdss_dsi_stop_hs_clk_lane(ctrl);
+
+		if (todo & DSI_EV_LP_RX_TIMEOUT) {
+			mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 1);
+			mdss_dsi_ctl_phy_reset(ctrl, DSI_EV_LP_RX_TIMEOUT);
+			mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 0);
+		}
 	}
 
 	return 0;
@@ -2451,6 +2468,8 @@ void mdss_dsi_timeout_status(struct mdss_dsi_ctrl_pdata *ctrl)
 
 	if (status & 0x0111) {
 		MIPI_OUTP(base + 0x00c0, status);
+		if (status & 0x0010)
+			dsi_send_events(ctrl, DSI_EV_LP_RX_TIMEOUT, 0);
 		pr_err("%s: status=%x\n", __func__, status);
 	}
 }
