@@ -1420,12 +1420,6 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 	if (!buf || !ts)
 		return;
 
-	if (vfe_dev->buf_mgr->frameId_mismatch_recovery == 1) {
-		pr_err_ratelimited("%s: Mismatch Recovery in progress, drop frame!\n",
-			__func__);
-		return;
-	}
-
 	if (vfe_dev->vt_enable) {
 		msm_isp_get_avtimer_ts(ts);
 		time_stamp = &ts->vt_time;
@@ -2153,6 +2147,8 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 		rc = msm_isp_axi_wait_for_cfg_done(vfe_dev, camif_update,
 			src_mask, 2);
 		if (rc < 0) {
+			pr_err("%s: wait for config done failed, retry...\n",
+				__func__);
 			for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
 				stream_info = &axi_data->stream_info[
 				HANDLE_TO_IDX(
@@ -2166,7 +2162,11 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 				rc = msm_isp_axi_wait_for_cfg_done(vfe_dev,
 					camif_update, src_mask, 1);
 				if (rc < 0)
-					pr_err("cfg done failed\n");
+					pr_err("%s: vfe%d cfg done failed\n",
+						__func__, vfe_dev->pdev->id);
+				else
+					pr_err("%s: vfe%d retry success! report err!\n",
+						__func__, vfe_dev->pdev->id);
 				rc = -EBUSY;
 			}
 		}
@@ -2754,6 +2754,14 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 				return;
 			}
 
+			if (vfe_dev->buf_mgr->frameId_mismatch_recovery == 1) {
+				pr_err_ratelimited("%s: Mismatch Recovery in progress, drop frame!\n",
+					__func__);
+				spin_unlock_irqrestore(&stream_info->lock,
+					flags);
+				return;
+			}
+
 			if (stream_info->stream_type == CONTINUOUS_STREAM ||
 				stream_info->runtime_num_burst_capture > 1) {
 				valid_address = 1;
@@ -2806,6 +2814,14 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 				spin_unlock_irqrestore(&stream_info->lock,
 					flags);
 				msm_isp_halt_send_error(vfe_dev);
+				return;
+			}
+
+			if (vfe_dev->buf_mgr->frameId_mismatch_recovery == 1) {
+				pr_err_ratelimited("%s: Mismatch Recovery in progress, drop frame!\n",
+					__func__);
+				spin_unlock_irqrestore(&stream_info->lock,
+					flags);
 				return;
 			}
 

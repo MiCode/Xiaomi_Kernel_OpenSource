@@ -147,7 +147,6 @@ static int32_t msm_isp_stats_buf_divert(struct vfe_device *vfe_dev,
 		stats_event->stats_buf_idxs
 			[stream_info->stats_type] =
 			done_buf->buf_idx;
-		done_buf->frame_id = frame_id;
 		return rc;
 	}
 
