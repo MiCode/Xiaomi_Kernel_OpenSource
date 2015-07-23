@@ -2727,19 +2727,19 @@ static int venus_hfi_session_end(void *session)
 	return rc;
 }
 
-static int venus_hfi_session_abort(void *session)
+static int venus_hfi_session_abort(void *sess)
 {
-	struct hal_session *sess;
+	struct hal_session *session;
 	struct venus_hfi_device *device;
 	int rc = 0;
+	session = sess;
 
-	if (!session) {
+	if (!session || !session->device) {
 		dprintk(VIDC_ERR, "Invalid Params %s\n", __func__);
 		return -EINVAL;
 	}
 
-	sess = session;
-	device = sess->device;
+	device = session->device;
 
 	mutex_lock(&device->lock);
 
@@ -2749,7 +2749,6 @@ static int venus_hfi_session_abort(void *session)
 	mutex_unlock(&device->lock);
 
 	return rc;
-
 }
 
 static int venus_hfi_session_set_buffers(void *sess,
