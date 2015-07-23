@@ -24,6 +24,8 @@
 #include <linux/of_device.h>
 #include <linux/uaccess.h>
 #include "nq-nci.h"
+#include <linux/dma-mapping.h>
+#include <linux/dmapool.h>
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
 #endif
@@ -70,6 +72,9 @@ struct nqx_dev {
 	/* CLK control */
 	unsigned int		core_reset_ntf;
 	bool			clk_run;
+	struct dma_pool *nfc_dma_pool;
+	dma_addr_t dma_handle_physical_addr;
+	void *dma_virtual_addr;
 };
 
 static int nfcc_reboot(struct notifier_block *notifier, unsigned long val,
@@ -141,7 +146,7 @@ static ssize_t nfc_read(struct file *filp, char __user *buf,
 					size_t count, loff_t *offset)
 {
 	struct nqx_dev *nqx_dev = filp->private_data;
-	unsigned char tmp[MAX_BUFFER_SIZE];
+	unsigned char *tmp = NULL;
 	int ret;
 	int irq_gpio_val = 0;
 
@@ -175,6 +180,7 @@ static ssize_t nfc_read(struct file *filp, char __user *buf,
 	}
 
 	/* Read data */
+	tmp = nqx_dev->dma_virtual_addr;
 	memset(tmp, 0x00, MAX_BUFFER_SIZE);
 	ret = i2c_master_recv(nqx_dev->client, tmp, count);
 
@@ -408,8 +414,8 @@ static int nfc_parse_dt(struct device *dev, struct nqx_platform_data *pdata)
 
 	r = of_property_read_string(np, "qcom,clk-src", &pdata->clk_src_name);
 
-	if (strcmp(pdata->clk_src_name, "GPCLK2"))
-		pdata->clkreq_gpio = of_get_named_gpio(np, "qcom,clk-gpio", 0);
+	pdata->clkreq_gpio = of_get_named_gpio(np, "qcom,nq-clkreq", 0);
+
 	if (r)
 		return -EINVAL;
 	return r;
@@ -472,6 +478,33 @@ static int nqx_probe(struct i2c_client *client,
 		return -ENOMEM;
 	}
 	nqx_dev->client = client;
+
+	/* if coherent_dma_mask not set by the device, set it to ULONG_MAX */
+	if (client->dev.coherent_dma_mask == 0)
+		client->dev.coherent_dma_mask = ULONG_MAX;
+
+		nqx_dev->nfc_dma_pool = NULL;
+		nqx_dev->dma_virtual_addr = NULL;
+
+		nqx_dev->nfc_dma_pool = dma_pool_create(
+				"NFC-DMA", &client->dev,
+				MAX_BUFFER_SIZE, 64, 4096);
+		if (!nqx_dev->nfc_dma_pool) {
+				dev_err(&client->dev,
+				"nfc-nci probe: failed to allocate memory for dma_pool\n");
+				r = -ENOMEM;
+				goto err_free_dev;
+		}
+
+		nqx_dev->dma_virtual_addr = dma_pool_alloc(
+				nqx_dev->nfc_dma_pool, GFP_KERNEL,
+				&nqx_dev->dma_handle_physical_addr);
+		if (!nqx_dev->dma_virtual_addr) {
+				dev_err(&client->dev,
+				"nfc-nci probe: failed to allocate coherent memory for i2c dma buffer\n");
+				r = -ENOMEM;
+				goto err_free_dev;
+		}
 
 	if (gpio_is_valid(platform_data->en_gpio)) {
 		r = gpio_request(platform_data->en_gpio, "nfc_reset_gpio");
@@ -548,7 +581,7 @@ static int nqx_probe(struct i2c_client *client,
 		nqx_dev->firm_gpio = platform_data->firm_gpio;
 	} else {
 		dev_err(&client->dev,
-			"%s: clkreq gpio not provided\n", __func__);
+			"%s: firm gpio not provided\n", __func__);
 	}
 	if (gpio_is_valid(platform_data->clkreq_gpio)) {
 		r = gpio_request(platform_data->clkreq_gpio,
@@ -559,7 +592,7 @@ static int nqx_probe(struct i2c_client *client,
 				__func__, platform_data->clkreq_gpio);
 			goto err_clkreq_gpio;
 		}
-		r = gpio_direction_output(platform_data->clkreq_gpio, 0);
+		r = gpio_direction_input(platform_data->clkreq_gpio);
 		if (r) {
 			dev_err(&client->dev,
 			"%s: cannot set direction for gpio [%d]\n",
@@ -616,8 +649,7 @@ err_request_irq_failed:
 err_misc_register:
 	mutex_destroy(&nqx_dev->read_mutex);
 err_clkreq_gpio:
-	if (strcmp(platform_data->clk_src_name, "GPCLK2"))
-		gpio_free(platform_data->clkreq_gpio);
+	gpio_free(platform_data->clkreq_gpio);
 err_irq:
 	gpio_free(platform_data->irq_gpio);
 err_en_gpio:
