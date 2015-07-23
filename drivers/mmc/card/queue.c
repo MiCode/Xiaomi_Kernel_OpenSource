@@ -95,6 +95,7 @@ static int mmc_cmdq_thread(void *d)
 		int ret = 0;
 
 		spin_lock_irqsave(q->queue_lock, flags);
+		set_current_state(TASK_INTERRUPTIBLE);
 		req = blk_peek_request(q);
 		if (req) {
 			ret = blk_queue_start_tag(q, req);
@@ -113,6 +114,7 @@ static int mmc_cmdq_thread(void *d)
 					schedule();
 					continue;
 				}
+				set_current_state(TASK_RUNNING);
 				ret = mq->cmdq_issue_fn(mq, req);
 				if (ret) {
 					pr_err("%s: failed (%d) to issue req, requeue\n",
