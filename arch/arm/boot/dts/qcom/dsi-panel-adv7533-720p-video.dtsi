@@ -61,5 +61,6 @@
 		qcom,mdss-pan-physical-height-dimension = <90>;
 		qcom,mdss-dsi-force-clock-lane-hs;
 		qcom,mdss-dsi-always-on;
+		qcom,dba-panel;
 	};
 };
