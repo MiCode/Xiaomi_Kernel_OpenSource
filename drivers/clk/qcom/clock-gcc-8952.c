@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_platform.h>
 #include <soc/qcom/clock-local2.h>
 #include <soc/qcom/clock-pll.h>
 #include <soc/qcom/clock-alpha-pll.h>
@@ -265,6 +266,10 @@ static struct pll_clk a53ss_cci_pll = {
 		.main_output_mask = BIT(0),
 	},
 	.base = &virt_bases[APCS_CCI_PLL_BASE],
+	.spm_ctrl = {
+		.offset = 0x40,
+		.event_bit = 0x0,
+	},
 	.c = {
 		.parent = &xo_a_clk_src.c,
 		.dbg_name = "a53ss_cci_pll",
@@ -311,6 +316,10 @@ static struct pll_clk a53ss_c0_pll = {
 		.main_output_mask = BIT(0),
 	},
 	.base = &virt_bases[APCS_C0_PLL_BASE],
+	.spm_ctrl = {
+		.offset = 0x50,
+		.event_bit = 0x4,
+	},
 	.c = {
 		.parent = &xo_a_clk_src.c,
 		.dbg_name = "a53ss_c0_pll",
@@ -366,6 +375,10 @@ static struct pll_clk a53ss_c1_pll = {
 		.main_output_mask = BIT(0),
 	},
 	.base = &virt_bases[APCS_C1_PLL_BASE],
+	.spm_ctrl = {
+		.offset = 0x50,
+		.event_bit = 0x4,
+	},
 	.c = {
 		.parent = &xo_a_clk_src.c,
 		.dbg_name = "a53ss_c1_pll",
@@ -3569,6 +3582,10 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	regval |= CLKFLAG_SLEEP_CYCLES << 4;
 	writel_relaxed(regval, GCC_REG_BASE(OXILI_GMEM_CBCR));
 
+	ret = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
+	if (ret)
+		return ret;
+
 	dev_info(&pdev->dev, "Registered GCC clocks\n");
 
 	return 0;
@@ -3588,9 +3605,78 @@ static struct platform_driver msm_clock_gcc_driver = {
 	},
 };
 
+static int msm_gcc_spm_probe(struct platform_device *pdev)
+{
+	struct resource *res = NULL;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "spm_c0_base");
+	if (!res) {
+		dev_err(&pdev->dev, "SPM register base not defined for c0\n");
+		return -ENOMEM;
+	}
+
+	a53ss_c0_pll.spm_ctrl.spm_base = devm_ioremap(&pdev->dev, res->start,
+						resource_size(res));
+	if (!a53ss_c0_pll.spm_ctrl.spm_base) {
+		dev_err(&pdev->dev, "Failed to ioremap c0 spm registers\n");
+		return -ENOMEM;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "spm_c1_base");
+	if (!res) {
+		dev_err(&pdev->dev, "SPM register base not defined for c1\n");
+		return -ENOMEM;
+	}
+
+	a53ss_c1_pll.spm_ctrl.spm_base = devm_ioremap(&pdev->dev, res->start,
+						resource_size(res));
+	if (!a53ss_c1_pll.spm_ctrl.spm_base) {
+		dev_err(&pdev->dev, "Failed to ioremap c1 spm registers\n");
+		return -ENOMEM;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						"spm_cci_base");
+	if (!res) {
+		dev_err(&pdev->dev, "SPM register base not defined for cci\n");
+		return -ENOMEM;
+	}
+
+	a53ss_cci_pll.spm_ctrl.spm_base = devm_ioremap(&pdev->dev, res->start,
+						resource_size(res));
+	if (!a53ss_cci_pll.spm_ctrl.spm_base) {
+		dev_err(&pdev->dev, "Failed to ioremap cci spm registers\n");
+		return -ENOMEM;
+	}
+
+	dev_info(&pdev->dev, "Registered GCC SPM clocks\n");
+
+	return 0;
+}
+
+static struct of_device_id msm_clock_spm_match_table[] = {
+	{ .compatible = "qcom,gcc-spm-8952" },
+	{}
+};
+
+static struct platform_driver msm_clock_spm_driver = {
+	.probe = msm_gcc_spm_probe,
+	.driver = {
+		.name = "qcom,gcc-spm-8952",
+		.of_match_table = msm_clock_spm_match_table,
+		.owner = THIS_MODULE,
+	},
+};
+
 static int __init msm_gcc_init(void)
 {
-	return platform_driver_register(&msm_clock_gcc_driver);
+	int ret;
+
+	ret = platform_driver_register(&msm_clock_gcc_driver);
+	if (!ret)
+		ret = platform_driver_register(&msm_clock_spm_driver);
+
+	return ret;
 }
 
 static struct clk_lookup msm_clocks_measure[] = {
