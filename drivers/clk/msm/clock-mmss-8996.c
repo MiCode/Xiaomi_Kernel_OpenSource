@@ -25,11 +25,14 @@
 #include <soc/qcom/clock-pll.h>
 #include <soc/qcom/clock-local2.h>
 #include <soc/qcom/clock-voter.h>
+#include <soc/qcom/rpm-smd.h>
+#include <soc/qcom/clock-rpm.h>
 
 #include <dt-bindings/clock/msm-clocks-8996.h>
 #include <dt-bindings/clock/msm-clocks-hwio-8996.h>
 
 #include "vdd-level-8994.h"
+#include "clock.h"
 
 static void __iomem *virt_base;
 static void __iomem *virt_base_gpu;
@@ -62,6 +65,10 @@ static void __iomem *virt_base_gpu;
 		.div_src_val = BVAL(4, 0, (int)FIXDIV(div)) \
 			| BVAL(10, 8, s##_mm_source_val), \
 	}
+
+#define GFX_MIN_SVS_LEVEL	3
+#define GPU_REQ_ID		0x3
+static struct clk_ops clk_ops_gpu;
 
 static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
@@ -373,7 +380,7 @@ static struct rcg_clk gfx3d_clk_src = {
 	.base = &virt_base_gpu,
 	.c = {
 		.dbg_name = "gfx3d_clk_src",
-		.ops = &clk_ops_rcg,
+		.ops = &clk_ops_gpu,
 		.vdd_class = &vdd_gfx,
 		CLK_INIT(gfx3d_clk_src.c),
 	},
@@ -399,7 +406,7 @@ static struct mux_div_clk gfx3d_clk_src_v2 = {
 	.num_parents = 3,
 	.c = {
 		.dbg_name = "gfx3d_clk_src_v2",
-		.ops = &clk_ops_mux_div_clk,
+		.ops = &clk_ops_gpu,
 		.vdd_class = &vdd_gfx,
 		CLK_INIT(gfx3d_clk_src_v2.c),
 	},
@@ -3484,6 +3491,42 @@ static void msm_mmsscc_8996_v3_fixup(void)
 	video_subcore1_clk_src.c.fmax[VDD_DIG_HIGH] = 533000000;
 }
 
+static int gpu_pre_set_rate(struct clk *clk, unsigned long new_rate)
+{
+	struct msm_rpm_kvp kvp;
+	struct clk_vdd_class *vdd = clk->vdd_class;
+	int old_level, new_level, old_uv, new_uv;
+	int n_regs = vdd->num_regulators;
+	uint32_t value;
+	int ret = 0;
+
+	old_level = find_vdd_level(clk, clk->rate);
+	if (old_level < 0)
+		return old_level;
+	old_uv = vdd->vdd_uv[old_level * n_regs];
+
+	new_level = find_vdd_level(clk, new_rate);
+	if (new_level < 0)
+		return new_level;
+	new_uv = vdd->vdd_uv[new_level * n_regs];
+
+	if (new_uv == old_uv)
+		return ret;
+
+	value = (new_uv == GFX_MIN_SVS_LEVEL);
+
+	kvp.key = RPM_SMD_KEY_STATE;
+	kvp.data = (void *)&value;
+	kvp.length = sizeof(value);
+
+	ret = msm_rpm_send_message(MSM_RPM_CTX_ACTIVE_SET, RPM_MISC_CLK_TYPE,
+					GPU_REQ_ID, &kvp, 1);
+	if (ret)
+		pr_err("%s: Sending the RPM message failed (value - %u)\n",
+					__func__, value);
+	return ret;
+}
+
 static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
 								char *prop_name)
 {
@@ -3863,6 +3906,9 @@ int msm_gpucc_8996_probe(struct platform_device *pdev)
 			return rc;
 		}
 
+		clk_ops_gpu = clk_ops_rcg;
+		clk_ops_gpu.pre_set_rate = gpu_pre_set_rate;
+
 		rc = of_msm_clock_register(pdev->dev.of_node,
 					msm_clocks_gpu_8996,
 					ARRAY_SIZE(msm_clocks_gpu_8996));
@@ -3883,6 +3929,9 @@ int msm_gpucc_8996_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Unable to get gpu mx freq-corner mapping info\n");
 			return rc;
 		}
+
+		clk_ops_gpu = clk_ops_mux_div_clk;
+		clk_ops_gpu.pre_set_rate = gpu_pre_set_rate;
 
 		rc = of_msm_clock_register(pdev->dev.of_node,
 					msm_clocks_gpu_8996_v2,
