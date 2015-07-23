@@ -5281,6 +5281,8 @@ static int tomtom_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 	case TOMTOM_A_RX_HPH_CNP_EN:
 	case TOMTOM_A_CDC_VBAT_GAIN_MON_VAL:
 	case TOMTOM_A_SVASS_SPE_INBOX_TRG:
+	case TOMTOM_A_BIAS_OSC_BG_CTL:
+	case TOMTOM_A_CLK_BUFF_EN2:
 		return 1;
 	}
 
