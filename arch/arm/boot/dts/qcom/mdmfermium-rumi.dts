@@ -28,6 +28,10 @@
 	pinctrl-0 = <&uart_console_sleep>;
 };
 
+&qnand_1 {
+	status = "ok";
+};
+
 &usb_otg {
 	qcom,hsusb-otg-mode = <1>; /* DEVICE only */
 	qcom,hsusb-otg-otg-control = <1>; /* PHY control */
