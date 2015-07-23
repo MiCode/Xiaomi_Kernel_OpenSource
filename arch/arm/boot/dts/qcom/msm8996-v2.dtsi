@@ -585,3 +585,7 @@
 &mdss_hdmi_tx {
 	status = "ok";
 };
+
+&ssphy {
+	qcom,qmp-misc-config;
+};
