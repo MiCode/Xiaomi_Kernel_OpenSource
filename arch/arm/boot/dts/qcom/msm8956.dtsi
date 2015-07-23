@@ -1836,6 +1836,10 @@
 		qcom,master-id = <86>;
 	};
 
+	qcom,,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+	};
+
 	qcom,pronto@a21b000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x0a21b000 0x3000>;
