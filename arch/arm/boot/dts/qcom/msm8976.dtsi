@@ -2666,4 +2666,14 @@
 		qcom,src-sel = <0>;
 		qcom,master-en = <1>;
 	};
+	gpio@c400 {
+		qcom,mode = <1>;
+		qcom,output-type = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <2>;
+		qcom,out-strength = <3>;
+		qcom,src-sel = <0>;
+		qcom,master-en = <1>;
+		status = "okay";
+	};
 };
