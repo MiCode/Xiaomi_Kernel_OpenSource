@@ -666,13 +666,13 @@
 		qcom,core-control-list = <&CPU0 &CPU1 &CPU2 &CPU3
 					&CPU4 &CPU5 &CPU6 &CPU7>;
 		qcom,hotplug-temp = <105>;
-		qcom,hotplug-temp-hysteresis = <15>;
+		qcom,hotplug-temp-hysteresis = <25>;
 		qcom,cpu-sensors = "tsens_tz_sensor9", "tsens_tz_sensor9",
 				"tsens_tz_sensor9", "tsens_tz_sensor9",
 				"tsens_tz_sensor4", "tsens_tz_sensor5",
 				"tsens_tz_sensor6", "tsens_tz_sensor7";
 		qcom,freq-mitigation-temp = <105>;
-		qcom,freq-mitigation-temp-hysteresis = <15>;
+		qcom,freq-mitigation-temp-hysteresis = <20>;
 		qcom,freq-mitigation-value = <400000>;
 		qcom,freq-mitigation-control-list = <&CPU0 &CPU1 &CPU2 &CPU3
 						&CPU4 &CPU5 &CPU6 &CPU7>;
