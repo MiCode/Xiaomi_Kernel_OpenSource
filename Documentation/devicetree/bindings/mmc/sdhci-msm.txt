@@ -76,6 +76,10 @@ Optional Properties:
         - qcom,dat1-mpm-int:    specifies MPM interrupt number (e.g. sdhc_2 node below)
 				corresponding to DAT1 line of SDHC (used only if slot has dedicated
 				DAT1 MSM pin (not GPIO))
+	- qcom,scaling-lower-bus-speed-mode:	specifies the lower bus speed mode to be used
+						during clock scaling. If this property is not
+						defined, then it falls back to the default HS
+						bus speed mode to maintain backward compatibility.
 
 In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltage).
 	- qcom,<supply>-always-on - specifies whether supply should be kept "on" always.
@@ -184,6 +188,8 @@ Example:
 		qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
 		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
 		qcom,ice-clk-rates = <200000000>;
+
+		qcom,scaling-lower-bus-speed-mode = "DDR52";
 
 		gpios = <&msmgpio 40 0>, /* CLK */
 			<&msmgpio 39 0>, /* CMD */
