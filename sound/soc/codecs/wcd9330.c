@@ -5263,23 +5263,10 @@ static int tomtom_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 	if (tomtom_is_digital_gain_register(reg))
 		return 1;
 
-	/* HPH status registers */
-	if (reg == TOMTOM_A_RX_HPH_L_STATUS || reg == TOMTOM_A_RX_HPH_R_STATUS)
-		return 1;
-
-	if (reg == TOMTOM_A_MBHC_INSERT_DET_STATUS)
-		return 1;
-
-	if (reg == TOMTOM_A_RX_HPH_CNP_EN)
-		return 1;
-
 	if (((reg >= TOMTOM_A_CDC_SPKR_CLIPDET_VAL0 &&
 	    reg <= TOMTOM_A_CDC_SPKR_CLIPDET_VAL7)) ||
 	    ((reg >= TOMTOM_A_CDC_SPKR2_CLIPDET_VAL0) &&
 	     (reg <= TOMTOM_A_CDC_SPKR2_CLIPDET_VAL7)))
-		return 1;
-
-	if (reg == TOMTOM_A_CDC_VBAT_GAIN_MON_VAL)
 		return 1;
 
 	for (i = 0; i < ARRAY_SIZE(audio_reg_cfg); i++)
@@ -5287,8 +5274,15 @@ static int tomtom_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 		    TOMTOM_REGISTER_START_OFFSET == reg)
 			return 1;
 
-	if (reg == TOMTOM_A_SVASS_SPE_INBOX_TRG)
+	switch (reg) {
+	case TOMTOM_A_RX_HPH_R_STATUS:
+	case TOMTOM_A_RX_HPH_L_STATUS:
+	case TOMTOM_A_MBHC_INSERT_DET_STATUS:
+	case TOMTOM_A_RX_HPH_CNP_EN:
+	case TOMTOM_A_CDC_VBAT_GAIN_MON_VAL:
+	case TOMTOM_A_SVASS_SPE_INBOX_TRG:
 		return 1;
+	}
 
 	return 0;
 }
