@@ -8525,6 +8525,33 @@ static void tomtom_codec_hph_auto_pull_down(struct snd_soc_codec *codec,
 	}
 }
 
+static int tomtom_codec_enable_ext_mb_source(struct snd_soc_codec *codec,
+	bool turn_on, bool use_dapm)
+{
+	int ret = 0;
+
+	if (!use_dapm)
+		return ret;
+
+	if (turn_on)
+		ret = snd_soc_dapm_force_enable_pin(&codec->dapm,
+				"MICBIAS_REGULATOR");
+	else
+		ret = snd_soc_dapm_disable_pin(&codec->dapm,
+				"MICBIAS_REGULATOR");
+
+	snd_soc_dapm_sync(&codec->dapm);
+
+	if (ret)
+		dev_err(codec->dev, "%s: Failed to %s external micbias source\n",
+			__func__, turn_on ? "enable" : "disabled");
+	else
+		dev_dbg(codec->dev, "%s: %s external micbias source\n",
+			__func__, turn_on ? "Enabled" : "Disabled");
+
+	return ret;
+}
+
 static const struct wcd9xxx_mbhc_cb mbhc_cb = {
 	.get_cdc_type = tomtom_get_cdc_type,
 	.setup_zdet = tomtom_setup_zdet,
@@ -8535,6 +8562,7 @@ static const struct wcd9xxx_mbhc_cb mbhc_cb = {
 	.codec_rco_ctrl = tomtom_codec_internal_rco_ctrl,
 	.hph_auto_pulldown_ctrl = tomtom_codec_hph_auto_pull_down,
 	.get_hwdep_fw_cal = tomtom_get_hwdep_fw_cal,
+	.enable_mb_source = tomtom_codec_enable_ext_mb_source,
 };
 
 static const struct wcd9xxx_mbhc_intr cdc_intr_ids = {
