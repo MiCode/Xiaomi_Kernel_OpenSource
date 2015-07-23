@@ -2563,7 +2563,7 @@ int msm_comm_suspend(int core_id)
 	}
 
 	mutex_lock(&core->lock);
-	if (core->state != VIDC_CORE_INIT_DONE) {
+	if (core->state == VIDC_CORE_INVALID) {
 		dprintk(VIDC_ERR,
 				"%s - fw is not in proper state, skip suspend\n",
 				__func__);
