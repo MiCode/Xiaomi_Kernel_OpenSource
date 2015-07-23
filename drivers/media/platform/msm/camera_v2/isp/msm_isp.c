@@ -497,8 +497,6 @@ static int vfe_probe(struct platform_device *pdev)
 	tasklet_init(&vfe_dev->vfe_tasklet,
 		msm_isp_do_tasklet, (unsigned long)vfe_dev);
 
-	/* init hardware will enable it back */
-	tasklet_disable(&vfe_dev->vfe_tasklet);
 	v4l2_subdev_init(&vfe_dev->subdev.sd, vfe_dev->hw_info->subdev_ops);
 	vfe_dev->subdev.sd.internal_ops =
 		vfe_dev->hw_info->subdev_internal_ops;

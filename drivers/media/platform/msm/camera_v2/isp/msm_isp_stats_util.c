@@ -202,7 +202,7 @@ static int32_t msm_isp_stats_configure(struct vfe_device *vfe_dev,
 		stream_info = &vfe_dev->stats_data.stream_info[i];
 
 		if (stream_info->state == STATS_INACTIVE) {
-			pr_warn("%s: Warning! Stream already inactive. Drop irq handling\n",
+			pr_debug("%s: Warning! Stream already inactive. Drop irq handling\n",
 				__func__);
 			continue;
 		}
