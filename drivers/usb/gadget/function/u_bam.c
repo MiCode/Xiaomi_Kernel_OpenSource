@@ -1296,34 +1296,6 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	}
 	d = &port->data_ch;
 
-	d->rx_req = usb_ep_alloc_request(port->port_usb->out, GFP_ATOMIC);
-	if (!d->rx_req) {
-		spin_unlock(&port->port_lock_dl);
-		spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
-		spin_unlock_irqrestore(&port->port_lock, flags);
-		pr_err("%s: out of memory\n", __func__);
-		return;
-	}
-
-	d->rx_req->context = port;
-	d->rx_req->complete = gbam_endless_rx_complete;
-	d->rx_req->length = 0;
-	d->rx_req->no_interrupt = 1;
-
-	d->tx_req = usb_ep_alloc_request(port->port_usb->in, GFP_ATOMIC);
-	spin_unlock(&port->port_lock_dl);
-	spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
-	if (!d->tx_req) {
-		pr_err("%s: out of memory\n", __func__);
-		spin_unlock_irqrestore(&port->port_lock, flags);
-		return;
-	}
-
-	d->tx_req->context = port;
-	d->tx_req->complete = gbam_endless_tx_complete;
-	d->tx_req->length = 0;
-	d->tx_req->no_interrupt = 1;
-
 	/*
 	 * Unlock the port here and not at the end of this work,
 	 * because we do not want to activate usb_bam, ipa and
@@ -1332,6 +1304,8 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	 * and event functions (as bam_data_connect) will not influance
 	 * while lower layers connect pipes, etc.
 	*/
+	spin_unlock(&port->port_lock_dl);
+	spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	d->ipa_params.usb_connection_speed = gadget->speed;
@@ -1467,6 +1441,13 @@ static void gbam2bam_connect_work(struct work_struct *w)
 			return;
 		}
 	}
+
+	spin_lock_irqsave(&port->port_lock, flags);
+	if (!port->port_usb) {
+		pr_debug("%s: usb cable is disconnected\n", __func__);
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		return;
+	}
 	/* Update BAM specific attributes */
 	if (gadget_is_dwc3(gadget)) {
 		sps_params = MSM_SPS_MODE | MSM_DISABLE_WB | MSM_PRODUCER |
@@ -1486,6 +1467,7 @@ static void gbam2bam_connect_work(struct work_struct *w)
 				MSM_VENDOR_ID) & ~MSM_IS_FINITE_TRANSFER;
 	}
 	d->tx_req->udc_priv = sps_params;
+	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	/* queue in & out requests */
 	if (d->src_pipe_type == USB_BAM_PIPE_BAM2BAM) {
@@ -1964,11 +1946,15 @@ static inline void gbam_debugfs_remove(void) {}
 void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 {
 	struct gbam_port	*port;
-	unsigned long		flags, flags_ul;
+	unsigned long		flags, flags_ul, flags_dl;
 	struct bam_ch_info	*d;
 
 	pr_debug("%s: grmnet:%p port#%d\n", __func__, gr, port_num);
 
+	if (trans == USB_GADGET_XPORT_BAM2BAM) {
+		pr_err("%s: invalid xport#%d\n", __func__, trans);
+		return;
+	}
 	if (trans == USB_GADGET_XPORT_BAM &&
 		port_num >= n_bam_ports) {
 		pr_err("%s: invalid bam portno#%d\n",
@@ -2030,9 +2016,26 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 	spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
 
 	/* disable endpoints */
-	if (gr->out)
+	if (gr->out) {
 		usb_ep_disable(gr->out);
+		if (trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+			spin_lock_irqsave(&port->port_lock_ul, flags_ul);
+			if (d->rx_req) {
+				usb_ep_free_request(gr->out, d->rx_req);
+				d->rx_req = NULL;
+			}
+			spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
+		}
+	}
 	usb_ep_disable(gr->in);
+	if (trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		spin_lock_irqsave(&port->port_lock_dl, flags_dl);
+		if (d->tx_req) {
+			usb_ep_free_request(gr->in, d->tx_req);
+			d->tx_req = NULL;
+		}
+		spin_unlock_irqrestore(&port->port_lock_dl, flags_dl);
+	}
 
 	/*
 	 * Set endless flag to false as USB Endpoint is already
@@ -2121,6 +2124,42 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 	spin_lock(&port->port_lock_dl);
 	port->port_usb = gr;
 	port->gadget = port->port_usb->gadget;
+
+	if (trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		d->rx_req = usb_ep_alloc_request(port->port_usb->out,
+								GFP_ATOMIC);
+		if (!d->rx_req) {
+			pr_err("%s: RX request allocation failed\n", __func__);
+			d->rx_req = NULL;
+			spin_unlock(&port->port_lock_dl);
+			spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
+			spin_unlock_irqrestore(&port->port_lock, flags);
+			return -ENOMEM;
+		}
+
+		d->rx_req->context = port;
+		d->rx_req->complete = gbam_endless_rx_complete;
+		d->rx_req->length = 0;
+		d->rx_req->no_interrupt = 1;
+
+		d->tx_req = usb_ep_alloc_request(port->port_usb->in,
+								GFP_ATOMIC);
+		if (!d->tx_req) {
+			pr_err("%s: TX request allocation failed\n", __func__);
+			d->tx_req = NULL;
+			usb_ep_free_request(port->port_usb->out, d->rx_req);
+			d->rx_req = NULL;
+			spin_unlock(&port->port_lock_dl);
+			spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
+			spin_unlock_irqrestore(&port->port_lock, flags);
+			return -ENOMEM;
+		}
+
+		d->tx_req->context = port;
+		d->tx_req->complete = gbam_endless_tx_complete;
+		d->tx_req->length = 0;
+		d->tx_req->no_interrupt = 1;
+	}
 
 	if (d->trans == USB_GADGET_XPORT_BAM) {
 		d->to_host = 0;
