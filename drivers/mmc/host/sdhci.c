@@ -1817,7 +1817,8 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	spin_lock_irqsave(&host->lock, flags);
 
-	sdhci_led_activate(host);
+	if (!(host->quirks2 & SDHCI_QUIRK2_BROKEN_LED_CONTROL))
+		sdhci_led_activate(host);
 
 	/*
 	 * Ensure we don't send the STOP for non-SET_BLOCK_COUNTED
@@ -2778,7 +2779,8 @@ static bool sdhci_request_done(struct sdhci_host *host)
 	}
 
 	if (!sdhci_has_requests(host))
-		sdhci_led_deactivate(host);
+		if (!(host->quirks2 & SDHCI_QUIRK2_BROKEN_LED_CONTROL))
+			sdhci_led_deactivate(host);
 
 	host->mrqs_done[i] = NULL;
 	host->auto_cmd_err_sts = 0;
@@ -4273,11 +4275,13 @@ int __sdhci_add_host(struct sdhci_host *host)
 	sdhci_dumpregs(host);
 #endif
 
-	ret = sdhci_led_register(host);
-	if (ret) {
-		pr_err("%s: Failed to register LED device: %d\n",
-		       mmc_hostname(mmc), ret);
-		goto unirq;
+	if (!(host->quirks2 & SDHCI_QUIRK2_BROKEN_LED_CONTROL)) {
+		ret = sdhci_led_register(host);
+		if (ret) {
+			pr_err("%s: Failed to register LED device: %d\n",
+			       mmc_hostname(mmc), ret);
+			goto unirq;
+		}
 	}
 
 	mmiowb();
@@ -4335,7 +4339,8 @@ int __sdhci_add_host(struct sdhci_host *host)
 	return 0;
 
 unled:
-	sdhci_led_unregister(host);
+	if (!(host->quirks2 & SDHCI_QUIRK2_BROKEN_LED_CONTROL))
+		sdhci_led_unregister(host);
 unirq:
 	sdhci_do_reset(host, SDHCI_RESET_ALL);
 	sdhci_writel(host, 0, SDHCI_INT_ENABLE);
@@ -4395,7 +4400,8 @@ void sdhci_remove_host(struct sdhci_host *host, int dead)
 		pm_qos_remove_request(&host->pm_qos_req_dma);
 	mmc_remove_host(host->mmc);
 
-	sdhci_led_unregister(host);
+	if (!(host->quirks2 & SDHCI_QUIRK2_BROKEN_LED_CONTROL))
+		sdhci_led_unregister(host);
 
 	if (!dead)
 		sdhci_do_reset(host, SDHCI_RESET_ALL);
