@@ -278,6 +278,11 @@ bus_scale_register_failed:
 
 static void msm_vfe47_release_hardware(struct vfe_device *vfe_dev)
 {
+	/* when closing node, disable all irq */
+	msm_camera_io_w_mb(0x0, vfe_dev->vfe_base + 0x5C);
+	msm_camera_io_w_mb(0x0, vfe_dev->vfe_base + 0x60);
+
+	disable_irq(vfe_dev->vfe_irq->start);
 	free_irq(vfe_dev->vfe_irq->start, vfe_dev);
 	tasklet_kill(&vfe_dev->vfe_tasklet);
 	iounmap(vfe_dev->vfe_vbif_base);

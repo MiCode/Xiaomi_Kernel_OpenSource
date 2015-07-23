@@ -327,6 +327,9 @@ bus_scale_register_failed:
 
 static void msm_vfe32_release_hardware(struct vfe_device *vfe_dev)
 {
+	msm_camera_io_w_mb(0x0, vfe_dev->vfe_base + 0x1C);
+	msm_camera_io_w_mb(0x0, vfe_dev->vfe_base + 0x20);
+	disable_irq(vfe_dev->vfe_irq->start);
 	free_irq(vfe_dev->vfe_irq->start, vfe_dev);
 	tasklet_kill(&vfe_dev->vfe_tasklet);
 	iounmap(vfe_dev->vfe_vbif_base);

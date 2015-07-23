@@ -346,6 +346,11 @@ bus_scale_register_failed:
 
 static void msm_vfe40_release_hardware(struct vfe_device *vfe_dev)
 {
+	/* disable all mask before tasklet kill */
+	msm_camera_io_w_mb(0x0, vfe_dev->vfe_base + 0x28);
+	msm_camera_io_w_mb(0x0, vfe_dev->vfe_base + 0x2C);
+
+	disable_irq(vfe_dev->vfe_irq->start);
 	free_irq(vfe_dev->vfe_irq->start, vfe_dev);
 	tasklet_kill(&vfe_dev->vfe_tasklet);
 	iounmap(vfe_dev->vfe_vbif_base);
