@@ -63,7 +63,7 @@ static void check_dsi_ctrl_status(struct work_struct *work)
 
 	if (mdss_panel_is_power_off(pdsi_status->mfd->panel_power_state) ||
 			pdsi_status->mfd->shutdown_pending) {
-		pr_err("%s: panel off\n", __func__);
+		pr_debug("%s: panel off\n", __func__);
 		return;
 	}
 
