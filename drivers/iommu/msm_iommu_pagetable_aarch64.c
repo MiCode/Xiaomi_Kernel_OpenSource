@@ -817,47 +817,49 @@ static void flush_pagetable_level(u64 base, int level, unsigned long va,
 					size_t len)
 {
 	unsigned long i;
-	unsigned long start;
-	unsigned long len_offset;
+	unsigned long start = 0;
+	unsigned long num_entries = 0;
 	unsigned long end = NUM_FL_PTE;
+	unsigned long len_offset;
 	unsigned long level_granurality;
 	unsigned long va_left = va;
+	unsigned long va_flushed = 0;
 	size_t len_left = len;
 	u64 *table = phys_to_virt(base);
 
-	if (level <= NUM_PT_LEVEL) {
-		switch (level) {
-		case 1:
-			start = FL_OFFSET(va);
-			level_granurality = 1ULL << FL_SHIFT;
-			len_offset = FL_OFFSET(len);
-			break;
-		case 2:
-			start = SL_OFFSET(va);
-			level_granurality = 1ULL << SL_SHIFT;
-			len_offset = SL_OFFSET(len);
-			break;
-		case 3:
-			start = TL_OFFSET(va);
-			level_granurality = 1ULL << TL_SHIFT;
-			len_offset = TL_OFFSET(len);
-			break;
-		case 4:
-			start = LL_OFFSET(va);
-			level_granurality = 1ULL << LL_SHIFT;
-			len_offset = LL_OFFSET(len);
-			goto flush_this_level;
-		default:
-			return;
-		}
+	switch (level) {
+	case 1:
+		start = FL_OFFSET(va);
+		level_granurality = 1ULL << FL_SHIFT;
+		len_offset = FL_OFFSET(len);
+		break;
+	case 2:
+		start = SL_OFFSET(va);
+		level_granurality = 1ULL << SL_SHIFT;
+		len_offset = SL_OFFSET(len);
+		break;
+	case 3:
+		start = TL_OFFSET(va);
+		level_granurality = 1ULL << TL_SHIFT;
+		len_offset = TL_OFFSET(len);
+		break;
+	case 4:
+		start = LL_OFFSET(va);
+		level_granurality = 1ULL << LL_SHIFT;
+		len_offset = LL_OFFSET(len);
+		break;
+	default:
+		return;
 	}
 
-	if ((len / level_granurality) + start < NUM_PTE)
-		end = start + len_offset;
+	num_entries = DIV_ROUND_UP(va + len, level_granurality) -
+			(va / level_granurality);
+	if (start + num_entries < NUM_PTE)
+		end = start + num_entries;
 	else
 		end = NUM_PTE;
 
-	for (i = start; i <= end; ++i) {
+	for (i = start; i < end; ++i) {
 		if ((table[i] & FLSL_TYPE_TABLE) == FLSL_TYPE_TABLE) {
 			u64 p = table[i] & FLSL_BASE_MASK;
 			if (p)
@@ -865,11 +867,12 @@ static void flush_pagetable_level(u64 base, int level, unsigned long va,
 						len_left);
 		}
 
-		va_left += level_granurality;
-		len_left -= level_granurality;
+		va_flushed = round_down(va_left + level_granurality,
+					level_granurality) - va_left;
+		va_left += va_flushed;
+		len_left -= va_flushed;
 	}
 
-flush_this_level:
 	dmac_flush_range(table + start, table + end);
 }
 
