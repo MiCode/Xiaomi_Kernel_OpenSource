@@ -650,6 +650,7 @@
 		qcom,audio-routing =
 			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
+			"MADINPUT", "MCLK",
 			"hifi amp", "LINEOUT1",
 			"hifi amp", "LINEOUT2",
 			"AMIC2", "MIC BIAS2",
