@@ -318,6 +318,7 @@
 			<0xff 268>, /* bam_irq[1] */
 			<0xff 270>, /* bam_irq[0] */
 			<0xff 271>, /* bam_irq[0] */
+			<0xff 276>, /* wlan_pci */
 			<0xff 283>, /* pcie20_0_int_pls_err */
 			<0xff 284>, /* pcie20_0_int_aer_legacy */
 			<0xff 286>, /* pcie20_0_int_pls_link_down */
