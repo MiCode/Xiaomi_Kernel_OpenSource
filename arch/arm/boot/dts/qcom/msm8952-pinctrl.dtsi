@@ -1404,5 +1404,16 @@
 				bias-pull-up;
 			};
 		};
+
+		usb_c_intn_pin {
+			qcom,pins = <&gp 93>, <&gp 133>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <0>;
+			label = "usb_typec-gpio";
+			usbc_int_default: usbc_int_default {
+				drive-strength = <2>;	/* 2 MA */
+				bias-pull-up;		/* PULL UP*/
+			};
+		};
 	};
 };
