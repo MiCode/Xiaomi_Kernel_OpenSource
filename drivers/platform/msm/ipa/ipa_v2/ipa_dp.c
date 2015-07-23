@@ -1778,13 +1778,15 @@ static void ipa_fast_replenish_rx_cache(struct ipa_sys_context *sys)
 			break;
 		}
 		rx_len_cached = ++sys->len;
+		sys->repl_trig_cnt++;
 		curr = (curr + 1) % sys->repl.capacity;
 		/* ensure write is done before setting head index */
 		mb();
 		atomic_set(&sys->repl.head_idx, curr);
 	}
 
-	queue_work(sys->repl_wq, &sys->repl_work);
+	if (sys->repl_trig_cnt % sys->repl_trig_thresh == 0)
+		queue_work(sys->repl_wq, &sys->repl_work);
 
 	if (rx_len_cached <= sys->ep->rx_replenish_threshold) {
 		if (rx_len_cached == 0) {
@@ -2679,6 +2681,7 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 						IPA_GENERIC_AGGR_PKT_LIMIT;
 					}
 				}
+				sys->repl_trig_thresh = sys->rx_pool_sz / 4;
 				if (nr_cpu_ids > 1)
 					sys->repl_hdlr =
 						ipa_fast_replenish_rx_cache;
