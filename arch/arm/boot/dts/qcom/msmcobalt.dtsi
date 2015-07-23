@@ -122,6 +122,7 @@
 };
 
 #include "msmcobalt-smp2p.dtsi"
+#include "msm-gdsc-cobalt.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -530,3 +531,75 @@
 };
 
 #include "msmcobalt-regulator.dtsi"
+
+&gdsc_mmss {
+	status = "ok";
+};
+
+&gdsc_usb30 {
+	status = "ok";
+};
+
+&gdsc_pcie_0 {
+	status = "ok";
+};
+
+&gdsc_ufs {
+	status = "ok";
+};
+
+&gdsc_bimc_smmu {
+	status = "ok";
+};
+
+&gdsc_hlos1_vote_gpu_smmu {
+	status = "ok";
+};
+
+&gdsc_hlos1_vote_lpass_adsp {
+	status = "ok";
+};
+
+&gdsc_hlos1_vote_lpass_core {
+	status = "ok";
+};
+
+&gdsc_venus {
+	status = "ok";
+};
+
+&gdsc_venus_core0 {
+	status = "ok";
+};
+
+&gdsc_venus_core1 {
+	status = "ok";
+};
+
+&gdsc_camss_top {
+	status = "ok";
+};
+
+&gdsc_vfe0 {
+	status = "ok";
+};
+
+&gdsc_vfe1 {
+	status = "ok";
+};
+
+&gdsc_cpp {
+	status = "ok";
+};
+
+&gdsc_mdss {
+	status = "ok";
+};
+
+&gdsc_gpu_gx {
+	status = "ok";
+};
+
+&gdsc_gpu_cx {
+	status = "ok";
+};
