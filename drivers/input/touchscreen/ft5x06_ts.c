@@ -200,8 +200,9 @@ static int ft5x06_handle_touchdata(struct ft5x06_ts_data *data)
 		pointid = (buf[FT_TOUCH_ID_POS + FT_TOUCH_STEP * i]) >> 4;
 		if (pointid >= FT_MAX_ID)
 			break;
-		else
-			event->touch_point++;
+
+		event->touch_point++;
+
 		event->x[i] =
 		    (s16) (buf[FT_TOUCH_X_H_POS + FT_TOUCH_STEP * i] & 0x0F) <<
 		    8 | (s16) buf[FT_TOUCH_X_L_POS + FT_TOUCH_STEP * i];
@@ -419,10 +420,8 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	}
 
 	data = kzalloc(sizeof(struct ft5x06_ts_data), GFP_KERNEL);
-	if (!data) {
-		dev_err(&client->dev, "Not enough memory\n");
+	if (!data)
 		return -ENOMEM;
-	}
 
 	input_dev = input_allocate_device();
 	if (!input_dev) {
@@ -587,7 +586,7 @@ free_mem:
 	return err;
 }
 
-static int __devexit ft5x06_ts_remove(struct i2c_client *client)
+static int ft5x06_ts_remove(struct i2c_client *client)
 {
 	struct ft5x06_ts_data *data = i2c_get_clientdata(client);
 
