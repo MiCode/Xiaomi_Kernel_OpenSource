@@ -391,10 +391,14 @@ enum clk_gating_state {
  * @ungate_work: worker to turn on clocks that will be used in case of
  * interrupt context
  * @state: the current clocks state
- * @delay_ms: gating delay in ms
+ * @delay_ms: current gating delay in ms
+ * @delay_ms_pwr_save: gating delay (in ms) in power save mode
+ * @delay_ms_perf: gating delay (in ms) in performance mode
  * @is_suspended: clk gating is suspended when set to 1 which can be used
  * during suspend/resume
- * @delay_attr: sysfs attribute to control delay_attr
+ * @delay_attr: sysfs attribute to control delay_ms if clock scaling is disabled
+ * @delay_pwr_save_attr: sysfs attribute to control delay_ms_pwr_save
+ * @delay_perf_attr: sysfs attribute to control delay_ms_perf
  * @enable_attr: sysfs attribute to enable/disable clock gating
  * @is_enabled: Indicates the current status of clock gating
  * @active_reqs: number of requests that are pending and should be waited for
@@ -405,8 +409,12 @@ struct ufs_clk_gating {
 	struct work_struct ungate_work;
 	enum clk_gating_state state;
 	unsigned long delay_ms;
+	unsigned long delay_ms_pwr_save;
+	unsigned long delay_ms_perf;
 	bool is_suspended;
 	struct device_attribute delay_attr;
+	struct device_attribute delay_pwr_save_attr;
+	struct device_attribute delay_perf_attr;
 	struct device_attribute enable_attr;
 	bool is_enabled;
 	int active_reqs;
@@ -469,6 +477,7 @@ struct ufs_saved_pwr_info {
  * @is_allowed: tracks if scaling is currently allowed or not
  * @is_busy_started: tracks if busy period has started or not
  * @is_suspended: tracks if devfreq is suspended or not
+ * @is_scaled_up: tracks if we are currently scaled up or scaled down
  */
 struct ufs_clk_scaling {
 	int active_reqs;
@@ -483,6 +492,7 @@ struct ufs_clk_scaling {
 	bool is_allowed;
 	bool is_busy_started;
 	bool is_suspended;
+	bool is_scaled_up;
 };
 
 /**

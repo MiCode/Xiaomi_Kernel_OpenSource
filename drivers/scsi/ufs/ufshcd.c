@@ -217,6 +217,9 @@ void ufshcd_update_query_stats(struct ufs_hba *hba,
 /* default value of auto suspend is 3 seconds */
 #define UFSHCD_AUTO_SUSPEND_DELAY_MS 3000 /* millisecs */
 
+#define UFSHCD_CLK_GATING_DELAY_MS_PWR_SAVE	10
+#define UFSHCD_CLK_GATING_DELAY_MS_PERF		50
+
 /* IOCTL opcode for command - ufs set device read only */
 #define UFS_IOCTL_BLKROSET      BLKROSET
 
@@ -1332,8 +1335,6 @@ out:
 /* host lock must be held before calling this variant */
 static void __ufshcd_release(struct ufs_hba *hba, bool no_sched)
 {
-	unsigned long delay_in_jiffies;
-
 	if (!ufshcd_is_clkgating_allowed(hba))
 		return;
 
@@ -1349,19 +1350,8 @@ static void __ufshcd_release(struct ufs_hba *hba, bool no_sched)
 	hba->clk_gating.state = REQ_CLKS_OFF;
 	trace_ufshcd_clk_gating(dev_name(hba->dev), hba->clk_gating.state);
 
-	/*
-	 * Scheduling the delayed work after 1 jiffies will make the work to
-	 * get schedule any time from 0ms to 1000/HZ ms which is not desirable
-	 * for hibern8 enter work as it may impact the performance if it gets
-	 * scheduled almost immediately. Hence make sure that hibern8 enter
-	 * work gets scheduled atleast after 2 jiffies (any time between
-	 * 1000/HZ ms to 2000/HZ ms).
-	 */
-	delay_in_jiffies = msecs_to_jiffies(hba->clk_gating.delay_ms);
-	if (delay_in_jiffies == 1)
-		delay_in_jiffies++;
-
-	schedule_delayed_work(&hba->clk_gating.gate_work, delay_in_jiffies);
+	schedule_delayed_work(&hba->clk_gating.gate_work,
+			      msecs_to_jiffies(hba->clk_gating.delay_ms));
 }
 
 void ufshcd_release(struct ufs_hba *hba, bool no_sched)
@@ -1393,6 +1383,63 @@ static ssize_t ufshcd_clkgate_delay_store(struct device *dev,
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->clk_gating.delay_ms = value;
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	return count;
+}
+
+static ssize_t ufshcd_clkgate_delay_pwr_save_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%lu\n",
+			hba->clk_gating.delay_ms_pwr_save);
+}
+
+static ssize_t ufshcd_clkgate_delay_pwr_save_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	unsigned long flags, value;
+
+	if (kstrtoul(buf, 0, &value))
+		return -EINVAL;
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+
+	hba->clk_gating.delay_ms_pwr_save = value;
+	if (ufshcd_is_clkscaling_supported(hba) &&
+	    !hba->clk_scaling.is_scaled_up)
+		hba->clk_gating.delay_ms = hba->clk_gating.delay_ms_pwr_save;
+
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	return count;
+}
+
+static ssize_t ufshcd_clkgate_delay_perf_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%lu\n", hba->clk_gating.delay_ms_perf);
+}
+
+static ssize_t ufshcd_clkgate_delay_perf_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	unsigned long flags, value;
+
+	if (kstrtoul(buf, 0, &value))
+		return -EINVAL;
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+
+	hba->clk_gating.delay_ms_perf = value;
+	if (ufshcd_is_clkscaling_supported(hba) &&
+	    hba->clk_scaling.is_scaled_up)
+		hba->clk_gating.delay_ms = hba->clk_gating.delay_ms_perf;
+
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 	return count;
 }
@@ -1434,15 +1481,58 @@ out:
 
 static void ufshcd_init_clk_gating(struct ufs_hba *hba)
 {
+	struct ufs_clk_gating *gating = &hba->clk_gating;
+
 	if (!ufshcd_is_clkgating_allowed(hba))
 		return;
 
-	hba->clk_gating.delay_ms = 10;
-	INIT_DELAYED_WORK(&hba->clk_gating.gate_work, ufshcd_gate_work);
-	INIT_WORK(&hba->clk_gating.ungate_work, ufshcd_ungate_work);
+	INIT_DELAYED_WORK(&gating->gate_work, ufshcd_gate_work);
+	INIT_WORK(&gating->ungate_work, ufshcd_ungate_work);
 
-	hba->clk_gating.is_enabled = true;
+	gating->is_enabled = true;
 
+	/*
+	 * Scheduling the delayed work after 1 jiffies will make the work to
+	 * get schedule any time from 0ms to 1000/HZ ms which is not desirable
+	 * for hibern8 enter work as it may impact the performance if it gets
+	 * scheduled almost immediately. Hence make sure that hibern8 enter
+	 * work gets scheduled atleast after 2 jiffies (any time between
+	 * 1000/HZ ms to 2000/HZ ms).
+	 */
+	gating->delay_ms_pwr_save = jiffies_to_msecs(
+		max_t(unsigned long,
+		      msecs_to_jiffies(UFSHCD_CLK_GATING_DELAY_MS_PWR_SAVE),
+		      2));
+	gating->delay_ms_perf = jiffies_to_msecs(
+		max_t(unsigned long,
+		      msecs_to_jiffies(UFSHCD_CLK_GATING_DELAY_MS_PERF),
+		      2));
+
+	/* start with performance mode */
+	gating->delay_ms = gating->delay_ms_perf;
+
+	if (!ufshcd_is_clkscaling_supported(hba))
+		goto scaling_not_supported;
+
+	gating->delay_pwr_save_attr.show = ufshcd_clkgate_delay_pwr_save_show;
+	gating->delay_pwr_save_attr.store = ufshcd_clkgate_delay_pwr_save_store;
+	sysfs_attr_init(&gating->delay_pwr_save_attr.attr);
+	gating->delay_pwr_save_attr.attr.name = "clkgate_delay_ms_pwr_save";
+	gating->delay_pwr_save_attr.attr.mode = S_IRUGO | S_IWUSR;
+	if (device_create_file(hba->dev, &gating->delay_pwr_save_attr))
+		dev_err(hba->dev, "Failed to create sysfs for clkgate_delay_ms_pwr_save\n");
+
+	gating->delay_perf_attr.show = ufshcd_clkgate_delay_perf_show;
+	gating->delay_perf_attr.store = ufshcd_clkgate_delay_perf_store;
+	sysfs_attr_init(&gating->delay_perf_attr.attr);
+	gating->delay_perf_attr.attr.name = "clkgate_delay_ms_perf";
+	gating->delay_perf_attr.attr.mode = S_IRUGO | S_IWUSR;
+	if (device_create_file(hba->dev, &gating->delay_perf_attr))
+		dev_err(hba->dev, "Failed to create sysfs for clkgate_delay_ms_perf\n");
+
+	goto add_clkgate_enable;
+
+scaling_not_supported:
 	hba->clk_gating.delay_attr.show = ufshcd_clkgate_delay_show;
 	hba->clk_gating.delay_attr.store = ufshcd_clkgate_delay_store;
 	sysfs_attr_init(&hba->clk_gating.delay_attr.attr);
@@ -1451,12 +1541,13 @@ static void ufshcd_init_clk_gating(struct ufs_hba *hba)
 	if (device_create_file(hba->dev, &hba->clk_gating.delay_attr))
 		dev_err(hba->dev, "Failed to create sysfs for clkgate_delay\n");
 
-	hba->clk_gating.enable_attr.show = ufshcd_clkgate_enable_show;
-	hba->clk_gating.enable_attr.store = ufshcd_clkgate_enable_store;
-	sysfs_attr_init(&hba->clk_gating.enable_attr.attr);
-	hba->clk_gating.enable_attr.attr.name = "clkgate_enable";
-	hba->clk_gating.enable_attr.attr.mode = S_IRUGO | S_IWUSR;
-	if (device_create_file(hba->dev, &hba->clk_gating.enable_attr))
+add_clkgate_enable:
+	gating->enable_attr.show = ufshcd_clkgate_enable_show;
+	gating->enable_attr.store = ufshcd_clkgate_enable_store;
+	sysfs_attr_init(&clk_gating->enable_attr.attr);
+	gating->enable_attr.attr.name = "clkgate_enable";
+	gating->enable_attr.attr.mode = S_IRUGO | S_IWUSR;
+	if (device_create_file(hba->dev, &gating->enable_attr))
 		dev_err(hba->dev, "Failed to create sysfs for clkgate_enable\n");
 }
 
@@ -1464,7 +1555,13 @@ static void ufshcd_exit_clk_gating(struct ufs_hba *hba)
 {
 	if (!ufshcd_is_clkgating_allowed(hba))
 		return;
-	device_remove_file(hba->dev, &hba->clk_gating.delay_attr);
+	if (ufshcd_is_clkscaling_supported(hba)) {
+		device_remove_file(hba->dev,
+				   &hba->clk_gating.delay_pwr_save_attr);
+		device_remove_file(hba->dev, &hba->clk_gating.delay_perf_attr);
+	} else {
+		device_remove_file(hba->dev, &hba->clk_gating.delay_attr);
+	}
 	device_remove_file(hba->dev, &hba->clk_gating.enable_attr);
 	cancel_work_sync(&hba->clk_gating.ungate_work);
 	cancel_delayed_work_sync(&hba->clk_gating.gate_work);
@@ -6542,6 +6639,7 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 		memcpy(&hba->clk_scaling.saved_pwr_info.info, &hba->pwr_info,
 		       sizeof(struct ufs_pa_layer_attr));
 		hba->clk_scaling.saved_pwr_info.is_valid = true;
+		hba->clk_scaling.is_scaled_up = true;
 		ufshcd_resume_clkscaling(hba);
 		hba->clk_scaling.is_allowed = true;
 	}
@@ -8360,6 +8458,17 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 			goto out;
 		}
 	}
+
+	if (!ret) {
+		hba->clk_scaling.is_scaled_up = scale_up;
+		if (scale_up)
+			hba->clk_gating.delay_ms =
+				hba->clk_gating.delay_ms_perf;
+		else
+			hba->clk_gating.delay_ms =
+				hba->clk_gating.delay_ms_pwr_save;
+	}
+
 	goto out;
 
 scale_up_gear:
