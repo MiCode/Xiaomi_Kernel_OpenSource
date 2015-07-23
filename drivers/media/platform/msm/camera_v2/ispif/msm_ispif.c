@@ -21,6 +21,7 @@
 #include <linux/iopoll.h>
 #include <linux/compat.h>
 #include <media/msmb_isp.h>
+#include <linux/ratelimit.h>
 
 #include "msm_ispif.h"
 #include "msm.h"
@@ -1236,6 +1237,8 @@ static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out,
 	void *data)
 {
 	struct ispif_device *ispif = (struct ispif_device *)data;
+	bool fatal_err = false;
+	int i = 0;
 
 	BUG_ON(!ispif);
 	BUG_ON(!out);
@@ -1278,17 +1281,29 @@ static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out,
 		if (out[VFE0].ispifIrqStatus0 & RESET_DONE_IRQ)
 			complete(&ispif->reset_complete[VFE0]);
 
-		if (out[VFE0].ispifIrqStatus0 & PIX_INTF_0_OVERFLOW_IRQ)
-			pr_err("%s: VFE0 pix0 overflow.\n", __func__);
+		if (out[VFE0].ispifIrqStatus0 & PIX_INTF_0_OVERFLOW_IRQ) {
+			pr_err_ratelimited("%s: VFE0 pix0 overflow.\n",
+				__func__);
+			fatal_err = true;
+		}
 
-		if (out[VFE0].ispifIrqStatus0 & RAW_INTF_0_OVERFLOW_IRQ)
-			pr_err("%s: VFE0 rdi0 overflow.\n", __func__);
+		if (out[VFE0].ispifIrqStatus0 & RAW_INTF_0_OVERFLOW_IRQ) {
+			pr_err_ratelimited("%s: VFE0 rdi0 overflow.\n",
+				__func__);
+			fatal_err = true;
+		}
 
-		if (out[VFE0].ispifIrqStatus1 & RAW_INTF_1_OVERFLOW_IRQ)
-			pr_err("%s: VFE0 rdi1 overflow.\n", __func__);
+		if (out[VFE0].ispifIrqStatus1 & RAW_INTF_1_OVERFLOW_IRQ) {
+			pr_err_ratelimited("%s: VFE0 rdi1 overflow.\n",
+				__func__);
+			fatal_err = true;
+		}
 
-		if (out[VFE0].ispifIrqStatus2 & RAW_INTF_2_OVERFLOW_IRQ)
-			pr_err("%s: VFE0 rdi2 overflow.\n", __func__);
+		if (out[VFE0].ispifIrqStatus2 & RAW_INTF_2_OVERFLOW_IRQ) {
+			pr_err_ratelimited("%s: VFE0 rdi2 overflow.\n",
+				__func__);
+			fatal_err = true;
+		}
 
 		ispif_process_irq(ispif, out, VFE0);
 	}
@@ -1296,19 +1311,41 @@ static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out,
 		if (out[VFE1].ispifIrqStatus0 & RESET_DONE_IRQ)
 			complete(&ispif->reset_complete[VFE1]);
 
-		if (out[VFE1].ispifIrqStatus0 & PIX_INTF_0_OVERFLOW_IRQ)
-			pr_err("%s: VFE1 pix0 overflow.\n", __func__);
+		if (out[VFE1].ispifIrqStatus0 & PIX_INTF_0_OVERFLOW_IRQ) {
+			pr_err_ratelimited("%s: VFE1 pix0 overflow.\n",
+				__func__);
+			fatal_err = true;
+		}
 
-		if (out[VFE1].ispifIrqStatus0 & RAW_INTF_0_OVERFLOW_IRQ)
-			pr_err("%s: VFE1 rdi0 overflow.\n", __func__);
+		if (out[VFE1].ispifIrqStatus0 & RAW_INTF_0_OVERFLOW_IRQ) {
+			pr_err_ratelimited("%s: VFE1 rdi0 overflow.\n",
+				__func__);
+			fatal_err = true;
+		}
 
-		if (out[VFE1].ispifIrqStatus1 & RAW_INTF_1_OVERFLOW_IRQ)
-			pr_err("%s: VFE1 rdi1 overflow.\n", __func__);
+		if (out[VFE1].ispifIrqStatus1 & RAW_INTF_1_OVERFLOW_IRQ) {
+			pr_err_ratelimited("%s: VFE1 rdi1 overflow.\n",
+				__func__);
+			fatal_err = true;
+		}
 
-		if (out[VFE1].ispifIrqStatus2 & RAW_INTF_2_OVERFLOW_IRQ)
-			pr_err("%s: VFE1 rdi2 overflow.\n", __func__);
+		if (out[VFE1].ispifIrqStatus2 & RAW_INTF_2_OVERFLOW_IRQ) {
+			pr_err_ratelimited("%s: VFE1 rdi2 overflow.\n",
+				__func__);
+			fatal_err = true;
+		}
 
 		ispif_process_irq(ispif, out, VFE1);
+	}
+
+	if (fatal_err == true) {
+		pr_err("%s: fatal error, stop ispif immediately\n", __func__);
+		for (i = 0; i < ispif->vfe_info.num_vfe; i++) {
+			msm_camera_io_w(ISPIF_STOP_INTF_IMMEDIATELY,
+				ispif->base + ISPIF_VFE_m_INTF_CMD_0(i));
+			msm_camera_io_w(ISPIF_STOP_INTF_IMMEDIATELY,
+				ispif->base + ISPIF_VFE_m_INTF_CMD_1(i));
+		}
 	}
 }
 
