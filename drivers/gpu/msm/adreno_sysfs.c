@@ -382,13 +382,24 @@ static struct kobj_type ktype_ppd = {
 
 static void ppd_sysfs_close(struct kgsl_device *device)
 {
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PPD))
+		return;
+
 	sysfs_remove_file(&device->ppd_kobj, &attr_enable.attr);
 	kobject_put(&device->ppd_kobj);
 }
 
 static int ppd_sysfs_init(struct kgsl_device *device)
 {
-	int ret = kobject_init_and_add(&device->ppd_kobj, &ktype_ppd,
+	int ret;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PPD))
+		return -ENODEV;
+
+	ret = kobject_init_and_add(&device->ppd_kobj, &ktype_ppd,
 		&device->dev->kobj, "ppd");
 
 	if (ret == 0)
