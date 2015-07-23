@@ -1580,12 +1580,11 @@ void dvb_dmx_swfilter_packets(struct dvb_demux *demux, const u8 *buf,
 {
 	struct timespec pre_time;
 	u8 timestamp[TIMESTAMP_LEN] = {0};
-	unsigned long flags;
 
 	if (dvb_demux_performancecheck)
 		pre_time = current_kernel_time();
 
-	spin_lock_irqsave(&demux->lock, flags);
+	spin_lock(&demux->lock);
 
 	demux->sw_filter_abort = 0;
 	dvb_dmx_configure_decoder_fullness(demux, 1);
@@ -1596,11 +1595,12 @@ void dvb_dmx_swfilter_packets(struct dvb_demux *demux, const u8 *buf,
 		buf += 188;
 	}
 
-	spin_unlock_irqrestore(&demux->lock, flags);
+	spin_unlock(&demux->lock);
 
 	if (dvb_demux_performancecheck)
 		demux->total_process_time += dvb_dmx_calc_time_delta(pre_time);
 }
+
 EXPORT_SYMBOL(dvb_dmx_swfilter_packets);
 
 static inline int find_next_packet(const u8 *buf, int pos, size_t count,
@@ -1641,12 +1641,11 @@ static inline void _dvb_dmx_swfilter(struct dvb_demux *demux, const u8 *buf,
 	const u8 *q;
 	struct timespec pre_time;
 	u8 timestamp[TIMESTAMP_LEN];
-	unsigned long flags;
 
 	if (dvb_demux_performancecheck)
 		pre_time = current_kernel_time();
 
-	spin_lock_irqsave(&demux->lock, flags);
+	spin_lock(&demux->lock);
 
 	demux->sw_filter_abort = 0;
 	dvb_dmx_configure_decoder_fullness(demux, 1);
@@ -1727,7 +1726,7 @@ static inline void _dvb_dmx_swfilter(struct dvb_demux *demux, const u8 *buf,
 	}
 
 bailout:
-	spin_unlock_irqrestore(&demux->lock, flags);
+	spin_unlock(&demux->lock);
 
 	if (dvb_demux_performancecheck)
 		demux->total_process_time += dvb_dmx_calc_time_delta(pre_time);
@@ -1747,13 +1746,11 @@ EXPORT_SYMBOL(dvb_dmx_swfilter_204);
 
 void dvb_dmx_swfilter_raw(struct dvb_demux *demux, const u8 *buf, size_t count)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&demux->lock, flags);
+	spin_lock(&demux->lock);
 
 	demux->feed->cb.ts(buf, count, NULL, 0, &demux->feed->feed.ts, DMX_OK);
 
-	spin_unlock_irqrestore(&demux->lock, flags);
+	spin_unlock(&demux->lock);
 }
 EXPORT_SYMBOL(dvb_dmx_swfilter_raw);
 
