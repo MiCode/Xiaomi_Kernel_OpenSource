@@ -293,7 +293,7 @@ enum msm_vfe_axi_stream_cmd {
 
 struct msm_vfe_axi_stream_cfg_cmd {
 	uint8_t num_streams;
-	uint32_t stream_handle[MAX_NUM_STREAM];
+	uint32_t stream_handle[VFE_AXI_SRC_MAX];
 	enum msm_vfe_axi_stream_cmd cmd;
 };
 
@@ -466,8 +466,13 @@ enum msm_vfe_dual_hw_ms_type {
 };
 
 struct msm_isp_set_dual_hw_ms_cmd {
+	uint8_t num_src;
+	/* Each session can be only one type but multiple intf if YUV cam */
 	enum msm_vfe_dual_hw_ms_type dual_hw_ms_type;
-	enum msm_vfe_input_src input_src;
+	/* Primary intf is mostly associated with preview */
+	enum msm_vfe_input_src primary_intf;
+	enum msm_vfe_input_src input_src[VFE_SRC_MAX];
+	uint32_t sof_delta_threshold; /* In milliseconds. Sent for Master */
 };
 
 enum msm_isp_buf_type {
@@ -599,6 +604,7 @@ struct msm_isp_output_info {
 };
 
 struct msm_isp_ms_delta_info {
+	uint8_t num_delta_info;
 	uint32_t delta[MS_NUM_SLAVE_MAX];
 };
 
