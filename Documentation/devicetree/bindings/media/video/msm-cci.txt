@@ -63,15 +63,6 @@ MSM sensor node contains properties of camera sensor
 Required properties:
 - compatible : should be manufacturer name followed by sensor name
     - "qcom,camera"
-    - "qcom,s5k3l1yx"
-    - "sne,imx134"
-    - "qcom,imx135"
-    - "shinetech,gc0339"
-    - "shinetech,hi256"
-    - "shinetech,s5k4e1"
-    - "ovti,ov2685"
-    - "ovti,ov5645"
-    - "qcom,mt9m114"
 - reg : should contain i2c slave address of the device
 - qcom,csiphy-sd-index : should contain csiphy instance that will used to
     receive sensor data
@@ -274,49 +265,45 @@ Example:
 		qcom,cam-vreg-op-mode = <100000>;
         };
 
-       qcom,s5k3l1yx@6e {
-               compatible = "qcom,s5k3l1yx";
-               reg = <0x6e>;
-               qcom,slave-id = <0x6e 0x0 0x3121>;
-               qcom,csiphy-sd-index = <2>;
-               qcom,csid-sd-index = <0>;
-               qcom,actuator-src = <&actuator0>;
-               qcom,eeprom-src = <&eeprom0 &eeprom1>;
-               qcom,led-flash-src = <&led_flash0>;
-               qcom,mount-angle = <90>;
-               qcom,sensor-name = "s5k3l1yx";
-               qcom,vdd-cx-supply = <&pm8841_s2>;
-               qcom,vdd-cx-name = "qcom,vdd-cx";
-               cam_vdig-supply = <&pm8941_l3>;
-               cam_vana-supply = <&pm8941_l17>;
-               cam_vio-supply = <&pm8941_lvs3>;
-               cam_vaf-supply = <&pm8941_l23>;
-               qcom,cam-vreg-name = "cam_vdig", "cam_vana", "cam_vio", "cam_vaf";
-               qcom,cam-vreg-min-voltage = <1225000 2850000 0 3000000>;
-               qcom,cam-vreg-max-voltage = <1225000 2850000 0 3000000>;
-               qcom,cam-vreg-op-mode = <105000 80000 0 100000>;
-               qcom,gpio-no-mux = <0>;
-               gpios = <&msmgpio 15 0>,
-                       <&msmgpio 90 0>,
-                       <&msmgpio 89 0>;
-               qcom,gpio-reset = <1>;
-               qcom,gpio-standby = <2>;
-               qcom,gpio-req-tbl-num = <0 1 2>;
-               qcom,gpio-req-tbl-flags = <1 0 0>;
-               qcom,gpio-req-tbl-label = "CAMIF_MCLK",
-                                         "CAM_RESET1",
-                                         "CAM_STANDBY";
-               qcom,gpio-set-tbl-num = <1 1>;
-               qcom,gpio-set-tbl-flags = <0 2>;
-               qcom,gpio-set-tbl-delay = <1000 4000>;
-               qcom,csi-lane-assign = <0x4320>;
-               qcom,csi-lane-mask = <0x1F>;
-               qcom,csi-phy-sel = <0>;
-               qcom,sensor-position = <0>;
-               qcom,sensor-mode = <1>;
-               qcom,mclk-23880000
-       };
-   };
+	qcom,camera@0 {
+		cell-index = <0>;
+		compatible = "qcom,camera";
+		reg = <0x0>;
+		qcom,csiphy-sd-index = <0>;
+		qcom,csid-sd-index = <0>;
+		qcom,mount-angle = <90>;
+		qcom,led-flash-src = <&led_flash0>;
+		qcom,actuator-src = <&actuator0>;
+		qcom,eeprom-src = <&eeprom0>;
+		cam_vdig-supply = <&pm8994_s3>;
+		cam_vio-supply = <&pm8994_lvs1>;
+		cam_vana-supply = <&pm8994_l17>;
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
+		qcom,cam-vreg-min-voltage = <1300000 0 2500000>;
+		qcom,cam-vreg-max-voltage = <1300000 0 2500000>;
+		qcom,cam-vreg-op-mode = <105000 0 80000>;
+		qcom,gpio-no-mux = <0>;
+		pinctrl-names = "cam_default", "cam_suspend";
+		pinctrl-0 = <&cam_sensor_mclk0_active &cam_sensor_rear_active>;
+		pinctrl-1 = <&cam_sensor_mclk0_suspend &cam_sensor_rear_suspend>;
+		gpios = <&tlmm 13 0>,
+			<&tlmm 30 0>,
+			<&tlmm 29 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-standby = <2>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <1 0 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK0",
+					  "CAM_RESET0",
+					  "CAM_STANDBY0";
+		qcom,sensor-position = <0>;
+		qcom,sensor-mode = <0>;
+		qcom,cci-master = <0>;
+		status = "ok";
+		clocks = <&clock_mmss clk_mclk0_clk_src>,
+				<&clock_mmss clk_camss_mclk0_clk>;
+		clock-names = "cam_src_clk", "cam_clk";
+	};
 
 &i2c_freq_100Khz {
 	qcom,hw-thigh = <78>;
