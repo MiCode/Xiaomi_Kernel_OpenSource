@@ -2135,6 +2135,7 @@ static int msm_comm_init_core_done(struct msm_vidc_inst *inst)
 	rc = msm_comm_check_core_init(inst->core);
 	if (rc) {
 		dprintk(VIDC_ERR, "%s - failed to initialize core\n", __func__);
+		msm_comm_generate_sys_error(inst);
 		return rc;
 	}
 	change_inst_state(inst, MSM_VIDC_CORE_INIT_DONE);
