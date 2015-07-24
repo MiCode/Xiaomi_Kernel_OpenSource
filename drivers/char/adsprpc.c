@@ -1404,7 +1404,7 @@ static int dma_alloc_memory(phys_addr_t *region_start, ssize_t size)
 						&attrs);
 	if (!vaddr) {
 		pr_err("ADSPRPC: Failed to allocate remote heap memory\n");
-		return 1;
+		return -ENOTTY;
 	}
 	return 0;
 }
@@ -1710,9 +1710,11 @@ static int adsp_mem_driver_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 
 	if (of_device_is_compatible(dev->of_node,
-					"qcom,msm-adsprpc-mem-region"))
+					"qcom,msm-adsprpc-mem-region")) {
 		me->adsp_mem_device = dev;
-	return 0;
+		return 0;
+	}
+	return -EINVAL;
 }
 
 static struct of_device_id adsp_mem_match_table[] = {
