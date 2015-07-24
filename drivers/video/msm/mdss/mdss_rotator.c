@@ -1341,9 +1341,9 @@ static int mdss_rotator_validate_img_roi(struct mdp_rotation_item *item)
 	struct mdss_mdp_format_params *fmt;
 	int ret = 0;
 
-	fmt = mdss_mdp_get_format_params(item->input.format);
+	fmt = mdss_mdp_get_format_params(item->output.format);
 	if (!fmt) {
-		pr_err("invalid input format:%d\n", item->input.format);
+		pr_err("invalid output format:%d\n", item->output.format);
 		return -EINVAL;
 	}
 
