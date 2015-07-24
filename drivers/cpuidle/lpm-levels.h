@@ -94,7 +94,7 @@ struct lpm_cluster {
 	struct cpuidle_driver *drv;
 	spinlock_t sync_lock;
 	struct cpumask child_cpus;
-	struct cpumask num_childs_in_sync;
+	struct cpumask num_children_in_sync;
 	struct lpm_cluster *parent;
 	struct lpm_stats *stats;
 	unsigned int psci_mode_shift;
@@ -105,6 +105,7 @@ struct lpm_cluster {
 int set_l2_mode(struct low_power_ops *ops, int mode, bool notify_rpm);
 int set_system_mode(struct low_power_ops *ops, int mode, bool notify_rpm);
 int set_l3_mode(struct low_power_ops *ops, int mode, bool notify_rpm);
+void lpm_suspend_wake_time(uint64_t wakeup_time);
 
 struct lpm_cluster *lpm_of_parse_cluster(struct platform_device *pdev);
 void free_cluster_node(struct lpm_cluster *cluster);
