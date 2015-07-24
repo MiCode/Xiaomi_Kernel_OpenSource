@@ -185,7 +185,7 @@ static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on,
 	dev_dbg(qphy->phy.dev, "%s turn %s regulators. power_enabled:%d\n",
 			__func__, on ? "on" : "off", qphy->power_enabled);
 
-	if (qphy->power_enabled == on) {
+	if (toggle_vdd && qphy->power_enabled == on) {
 		dev_dbg(qphy->phy.dev, "PHYs' regulators are already ON.\n");
 		return 0;
 	}
@@ -248,7 +248,9 @@ static int qusb_phy_enable_power(struct qusb_phy *qphy, bool on,
 		goto unset_vdd33;
 	}
 
-	qphy->power_enabled = true;
+	if (toggle_vdd)
+		qphy->power_enabled = true;
+
 	pr_debug("%s(): QUSB PHY's regulators are turned ON.\n", __func__);
 	return ret;
 
@@ -298,7 +300,8 @@ unconfig_vdd:
 								ret);
 	}
 err_vdd:
-	qphy->power_enabled = false;
+	if (toggle_vdd)
+		qphy->power_enabled = false;
 	dev_dbg(qphy->phy.dev, "QUSB PHY's regulators are turned OFF.\n");
 	return ret;
 }
