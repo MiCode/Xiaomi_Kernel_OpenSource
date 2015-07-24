@@ -270,6 +270,7 @@ struct audio_dev {
 	/* number of frames sent since start_time */
 	s64				frames_sent;
 	struct audio_source_config	*config;
+	bool				audio_ep_enabled;
 };
 
 static inline struct audio_dev *func_to_audio(struct usb_function *f)
@@ -590,11 +591,27 @@ static int audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 	pr_debug("audio_set_alt intf %d, alt %d\n", intf, alt);
 
-	ret = config_ep_by_speed(cdev->gadget, f, audio->in_ep);
-	if (ret)
-		return ret;
-
-	usb_ep_enable(audio->in_ep);
+	if (intf == as_interface_alt_1_desc.bInterfaceNumber) {
+		if (alt && !audio->audio_ep_enabled) {
+			ret = config_ep_by_speed(cdev->gadget, f, audio->in_ep);
+			if (ret) {
+				audio->in_ep->desc = NULL;
+				ERROR(cdev, "config_ep fail ep %s, result %d\n",
+						audio->in_ep->name, ret);
+				return ret;
+			}
+			ret = usb_ep_enable(audio->in_ep);
+			if (ret) {
+				ERROR(cdev, "failedto enable ep%s, result %d\n",
+					audio->in_ep->name, ret);
+				return ret;
+			}
+			audio->audio_ep_enabled = true;
+		} else if (!alt && audio->audio_ep_enabled) {
+			usb_ep_disable(audio->in_ep);
+			audio->audio_ep_enabled = false;
+		}
+	}
 	return 0;
 }
 
@@ -603,7 +620,10 @@ static void audio_disable(struct usb_function *f)
 	struct audio_dev	*audio = func_to_audio(f);
 
 	pr_debug("audio_disable\n");
-	usb_ep_disable(audio->in_ep);
+	if (audio->audio_ep_enabled) {
+		usb_ep_disable(audio->in_ep);
+		audio->audio_ep_enabled = false;
+	}
 }
 
 /*-------------------------------------------------------------------------*/
