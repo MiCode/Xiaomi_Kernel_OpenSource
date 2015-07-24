@@ -19,6 +19,8 @@
 #include "dsi-panel-nt35597-dsc-wqxga-video.dtsi"
 #include "dsi-panel-truly-1080p-video.dtsi"
 #include "dsi-panel-truly-1080p-cmd.dtsi"
+#include "dsi-panel-adv7533-1080p-video.dtsi"
+#include "dsi-panel-adv7533-720p-video.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
