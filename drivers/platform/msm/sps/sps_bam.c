@@ -1562,6 +1562,64 @@ int sps_bam_pipe_transfer(struct sps_bam *dev,
 	return 0;
 }
 
+int sps_bam_pipe_inject_zlt(struct sps_bam *dev, u32 pipe_index)
+{
+	struct sps_pipe *pipe = dev->pipes[pipe_index];
+	struct sps_iovec *desc;
+	u32 read_p, write_p, next_write;
+
+	if (pipe->state & BAM_STATE_BAM2BAM)
+		SPS_DBG2(dev, "sps: BAM-to-BAM pipe: BAM %pa pipe %d\n",
+			BAM_ID(dev), pipe_index);
+	else
+		SPS_DBG2(dev, "sps: BAM-to-System pipe: BAM %pa pipe %d\n",
+			BAM_ID(dev), pipe_index);
+
+	if (!(pipe->state & BAM_STATE_ENABLED)) {
+		SPS_ERR(dev,
+			"sps: BAM %pa pipe %d is not enabled.\n",
+			BAM_ID(dev), pipe_index);
+		return SPS_ERROR;
+	}
+
+	read_p = bam_pipe_get_desc_read_offset(&dev->base, pipe_index);
+	write_p = bam_pipe_get_desc_write_offset(&dev->base, pipe_index);
+
+	SPS_DBG2(dev,
+		"sps: BAM %pa pipe %d: read pointer:0x%x; write pointer:0x%x.\n",
+		BAM_ID(dev), pipe_index, read_p, write_p);
+
+	if (read_p == write_p) {
+		SPS_ERR(dev,
+			"sps: BAM %pa pipe %d: read pointer 0x%x is already equal to write pointer.\n",
+			BAM_ID(dev), pipe_index, read_p);
+		return SPS_ERROR;
+	}
+
+	next_write = write_p + sizeof(struct sps_iovec);
+	if (next_write >= pipe->desc_size) {
+		SPS_DBG2(dev,
+			"sps: BAM %pa pipe %d: next write is 0x%x: wrap around.\n",
+			BAM_ID(dev), pipe_index, next_write);
+		next_write = 0;
+	}
+
+	desc = (struct sps_iovec *) (pipe->connect.desc.base + write_p);
+	desc->addr = 0;
+	desc->size = 0;
+	desc->flags = SPS_IOVEC_FLAG_EOT;
+
+	bam_pipe_set_desc_write_offset(&dev->base, pipe_index,
+					       next_write);
+	wmb(); /* update write pointer in HW */
+	SPS_DBG2(dev,
+		"sps: BAM %pa pipe %d: write pointer to tell HW: 0x%x; write pointer read from HW: 0x%x\n",
+		BAM_ID(dev), pipe_index, next_write,
+		bam_pipe_get_desc_write_offset(&dev->base, pipe_index));
+
+	return 0;
+}
+
 /**
  * Allocate an event tracking struct
  *
