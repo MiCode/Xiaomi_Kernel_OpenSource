@@ -4,7 +4,7 @@
  * Copyright (C) 2003 Al Borchers (alborchers@steinerpoint.com)
  * Copyright (C) 2008 by David Brownell
  * Copyright (C) 2008 by Nokia Corporation
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015 The Linux Foundation. All rights reserved.
  *
  * This software is distributed under the terms of the GNU General
  * Public License ("GPL") as published by the Free Software Foundation,
@@ -875,7 +875,7 @@ static int gser_bind(struct usb_configuration *c, struct usb_function *f)
 	/* allocate notification */
 	gser->notify_req = gs_alloc_req(ep,
 			sizeof(struct usb_cdc_notification) + 2,
-			GFP_KERNEL);
+			(cdev->gadget->extra_buf_alloc), GFP_KERNEL);
 	if (!gser->notify_req)
 		goto fail;
 

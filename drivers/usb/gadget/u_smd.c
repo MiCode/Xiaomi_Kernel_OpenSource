@@ -1,7 +1,7 @@
 /*
  * u_smd.c - utilities for USB gadget serial over smd
  *
- * Copyright (c) 2011, 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011, 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This code also borrows from drivers/usb/gadget/u_serial.c, which is
  * Copyright (C) 2000 - 2003 Al Borchers (alborchers@steinerpoint.com)
@@ -100,6 +100,7 @@ static struct smd_portmaster {
 	struct platform_driver pdrv;
 } smd_ports[SMD_N_PORTS];
 static unsigned n_smd_ports;
+u32			extra_sz;
 
 static void gsmd_free_req(struct usb_ep *ep, struct usb_request *req)
 {
@@ -119,7 +120,7 @@ static void gsmd_free_requests(struct usb_ep *ep, struct list_head *head)
 }
 
 static struct usb_request *
-gsmd_alloc_req(struct usb_ep *ep, unsigned len, gfp_t flags)
+gsmd_alloc_req(struct usb_ep *ep, unsigned len, size_t extra_sz, gfp_t flags)
 {
 	struct usb_request *req;
 
@@ -130,7 +131,7 @@ gsmd_alloc_req(struct usb_ep *ep, unsigned len, gfp_t flags)
 	}
 
 	req->length = len;
-	req->buf = kmalloc(len, flags);
+	req->buf = kmalloc(len + extra_sz, flags);
 	if (!req->buf) {
 		pr_err("%s: request buf allocation failed\n", __func__);
 		usb_ep_free_request(ep, req);
@@ -141,7 +142,7 @@ gsmd_alloc_req(struct usb_ep *ep, unsigned len, gfp_t flags)
 }
 
 static int gsmd_alloc_requests(struct usb_ep *ep, struct list_head *head,
-		int num, int size,
+		int num, int size, size_t extra_sz,
 		void (*cb)(struct usb_ep *ep, struct usb_request *))
 {
 	int i;
@@ -151,7 +152,7 @@ static int gsmd_alloc_requests(struct usb_ep *ep, struct list_head *head,
 			ep, head, num, size, cb);
 
 	for (i = 0; i < num; i++) {
-		req = gsmd_alloc_req(ep, size, GFP_ATOMIC);
+		req = gsmd_alloc_req(ep, size, extra_sz, GFP_ATOMIC);
 		if (!req) {
 			pr_debug("%s: req allocated:%d\n", __func__, i);
 			return list_empty(head) ? -ENOMEM : 0;
@@ -333,7 +334,7 @@ static void gsmd_tx_pull(struct work_struct *w)
 		ret = usb_ep_queue(in, req, GFP_KERNEL);
 		spin_lock_irq(&port->port_lock);
 		if (ret) {
-			pr_err("%s: usb ep out queue failed"
+			pr_err("%s: usb ep in queue failed"
 					"port:%p, port#%d err:%d\n",
 					__func__, port, port->port_num, ret);
 			/* could be usb disconnected */
@@ -431,7 +432,7 @@ static void gsmd_start_io(struct gsmd_port *port)
 
 	ret = gsmd_alloc_requests(port->port_usb->out,
 				&port->read_pool,
-				SMD_RX_QUEUE_SIZE, SMD_RX_BUF_SIZE,
+				SMD_RX_QUEUE_SIZE, SMD_RX_BUF_SIZE, 0,
 				gsmd_read_complete);
 	if (ret) {
 		pr_err("%s: unable to allocate out requests\n",
@@ -441,7 +442,7 @@ static void gsmd_start_io(struct gsmd_port *port)
 
 	ret = gsmd_alloc_requests(port->port_usb->in,
 				&port->write_pool,
-				SMD_TX_QUEUE_SIZE, SMD_TX_BUF_SIZE,
+				SMD_TX_QUEUE_SIZE, SMD_TX_BUF_SIZE, extra_sz,
 				gsmd_write_complete);
 	if (ret) {
 		gsmd_free_requests(port->port_usb->out, &port->read_pool);
@@ -977,6 +978,7 @@ int gsmd_setup(struct usb_gadget *g, unsigned count)
 				__func__);
 		return -ENOMEM;
 	}
+	extra_sz = g->extra_buf_alloc;
 
 	for (i = 0; i < count; i++) {
 		mutex_init(&smd_ports[i].lock);
