@@ -628,7 +628,6 @@
 			qcom,headroom-sense-ch0-enabled;
 			qcom,headroom-sense-ch1-enabled;
 			qcom,power-detect-enabled;
-			qcom,otst2-module-enabled;
 
 			pmi8994_flash0: qcom,flash_0 {
 				label = "flash";
