@@ -77,6 +77,11 @@ Optional properties:
   the Stream Mapping Table entries.
 - qcom,report-error-on-fault : boolean indicating that when any fault
   occurs in this context bank, an error will be sent to respective master
+- qcom,prefetch-depth: Defines a custom pre-fetch depth for the CB.
+	0x0 : No additional prefetch. N = 0
+	0x1 : N = 4
+	0x2 : N = 8
+	0x3 : N = 16
 
 Example:
 

@@ -832,6 +832,10 @@ static void __program_context(struct msm_iommu_drvdata *iommu_drvdata,
 		SET_CB_ACTLR_BPRCISH(cb_base, ctx, 1);
 		SET_CB_ACTLR_BPRCOSH(cb_base, ctx, 1);
 		SET_CB_ACTLR_BPRCNSH(cb_base, ctx, 1);
+	} else if (iommu_drvdata->model == MMU_500 &&
+			ctx_drvdata->prefetch_depth) {
+		SET_CB_ACTLR_PF_WINDOW(cb_base, ctx,
+				ctx_drvdata->prefetch_depth);
 	}
 
 	/* Enable private ASID namespace */

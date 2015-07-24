@@ -200,6 +200,7 @@ struct msm_iommu_ctx_drvdata {
 	u32 sid_mask[MAX_NUM_SMR];
 	unsigned int n_sid_mask;
 	bool report_error_on_fault;
+	unsigned int prefetch_depth;
 };
 
 enum dump_reg {
