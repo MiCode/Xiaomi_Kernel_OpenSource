@@ -37,6 +37,8 @@ Optional properties:
 			to be force-enabled prior to turning on the core. The
 			clock-name which denotes the root clock should be
 			"core_root_clk".
+ - qcom,clk-dis-wait-val: Input value for CLK_DIS_WAIT controls state transition
+			 delay after halting clock in the collapsible core.
  - reg-names:		Names of the bases for the above "reg" registers.
 			Ex. "base", "domain_addr".
  - qcom,no-status-check-on-disable: Do not poll the status bit when GDSC

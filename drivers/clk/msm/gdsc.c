@@ -343,7 +343,7 @@ static int gdsc_probe(struct platform_device *pdev)
 	struct regulator_init_data *init_data;
 	struct resource *res;
 	struct gdsc *sc;
-	uint32_t regval;
+	uint32_t regval, clk_dis_wait_val = CLK_DIS_WAIT_VAL;
 	bool retain_mem, retain_periph, support_hw_trigger;
 	int i, ret;
 
@@ -434,9 +434,13 @@ static int gdsc_probe(struct platform_device *pdev)
 	regval = readl_relaxed(sc->gdscr);
 	regval &= ~(HW_CONTROL_MASK | SW_OVERRIDE_MASK);
 
+	if (!of_property_read_u32(pdev->dev.of_node, "qcom,clk-dis-wait-val",
+				  &clk_dis_wait_val))
+		clk_dis_wait_val = clk_dis_wait_val << 12;
+
 	/* Configure wait time between states. */
 	regval &= ~(EN_REST_WAIT_MASK | EN_FEW_WAIT_MASK | CLK_DIS_WAIT_MASK);
-	regval |= EN_REST_WAIT_VAL | EN_FEW_WAIT_VAL | CLK_DIS_WAIT_VAL;
+	regval |= EN_REST_WAIT_VAL | EN_FEW_WAIT_VAL | clk_dis_wait_val;
 	writel_relaxed(regval, sc->gdscr);
 
 	sc->no_status_check_on_disable =
