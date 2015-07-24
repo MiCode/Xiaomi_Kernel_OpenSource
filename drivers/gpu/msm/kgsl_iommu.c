@@ -21,6 +21,7 @@
 #include <linux/qcom_iommu.h>
 #endif
 #include <linux/msm_kgsl.h>
+#include <linux/ratelimit.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
 #include <stddef.h>
@@ -241,6 +242,10 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	struct kgsl_context *context;
 	char *fault_type = "unknown";
 
+	static DEFINE_RATELIMIT_STATE(_rs,
+					DEFAULT_RATELIMIT_INTERVAL,
+					DEFAULT_RATELIMIT_BURST);
+
 	if (mmu == NULL || mmu->priv == NULL)
 		return ret;
 
@@ -298,7 +303,7 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 		&adreno_dev->ft_pf_policy))
 		no_page_fault_log = kgsl_mmu_log_fault_addr(mmu, ptbase, addr);
 
-	if (!no_page_fault_log) {
+	if (!no_page_fault_log && __ratelimit(&_rs)) {
 		KGSL_MEM_CRIT(ctx->kgsldev,
 			"GPU PAGE FAULT: addr = %lX pid= %d\n", addr, ptname);
 		KGSL_MEM_CRIT(ctx->kgsldev,
