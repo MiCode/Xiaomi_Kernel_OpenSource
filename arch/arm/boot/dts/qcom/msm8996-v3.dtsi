@@ -106,6 +106,10 @@
 	};
 };
 
+&mdss_hdmi_pll {
+	compatible = "qcom,mdss_hdmi_pll_8996_v3";
+};
+
 &msm_vidc {
 	qcom,load-freq-tbl =
 			/* Encoders */
