@@ -278,7 +278,7 @@
 			<0xff 165>, /* usb30_hs_phy_irq */
 			<0xff 166>, /* sdc1_pwr_cmd_irq */
 			<0xff 170>, /* sdcc_pwr_cmd_irq */
-			<0xff 173>, /* o_wcss_apss_smd_hi */
+			<0xff 173>, /* sdc1_irq[0] */
 			<0xff 174>, /* o_wcss_apss_smd_med */
 			<0xff 175>, /* o_wcss_apss_smd_low */
 			<0xff 176>, /* o_wcss_apss_smsm_irq */
@@ -381,7 +381,8 @@
 			<0xff 483>, /* mss_ipc_out_irq(6) */
 			<0xff 484>, /* mss_ipc_out_irq(7) */
 			<0xff 487>, /* mss_ipc_out_irq(30) */
-			<0xff 490>; /* tsens0_tsens_upper_lower_int */
+			<0xff 490>, /* tsens0_tsens_upper_lower_int */
+			<0xff 493>; /* sdc1_ice_nonsec_level_irq */
 
 		qcom,gpio-parent = <&tlmm>;
 		qcom,gpio-map = <3  101>,
