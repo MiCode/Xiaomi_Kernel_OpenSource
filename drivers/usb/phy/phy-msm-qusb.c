@@ -137,6 +137,29 @@ static int qusb_phy_reset(struct usb_phy *phy)
 	return 0;
 }
 
+static void qusb_phy_enable_clocks(struct qusb_phy *qphy, bool on)
+{
+	dev_dbg(qphy->phy.dev, "%s(): clocks_enabled:%d on:%d\n",
+			__func__, qphy->clocks_enabled, on);
+
+	if (!qphy->clocks_enabled && on) {
+		clk_prepare_enable(qphy->ref_clk_src);
+		clk_prepare_enable(qphy->ref_clk);
+		clk_prepare_enable(qphy->cfg_ahb_clk);
+		qphy->clocks_enabled = true;
+	}
+
+	if (qphy->clocks_enabled && !on) {
+		clk_disable_unprepare(qphy->ref_clk);
+		clk_disable_unprepare(qphy->ref_clk_src);
+		clk_disable_unprepare(qphy->cfg_ahb_clk);
+		qphy->clocks_enabled = false;
+	}
+
+	dev_dbg(qphy->phy.dev, "%s(): clocks_enabled:%d\n", __func__,
+						qphy->clocks_enabled);
+}
+
 static int qusb_phy_config_vdd(struct qusb_phy *qphy, int high)
 {
 	int min, ret;
@@ -289,6 +312,12 @@ static int qusb_phy_update_dpdm(struct usb_phy *phy, int value)
 	dev_dbg(phy->dev, "%s value:%d rm_pulldown:%d\n", __func__,
 						value, qphy->rm_pulldown);
 
+	/*
+	 * Need only ahb2phy clock to access QC1 and QC2 registers. Hence
+	 * enable this.
+	 */
+	clk_prepare_enable(qphy->cfg_ahb_clk);
+
 	switch (value) {
 	case POWER_SUPPLY_DP_DM_DPF_DMF:
 		dev_dbg(phy->dev, "POWER_SUPPLY_DP_DM_DPF_DMF\n");
@@ -427,6 +456,8 @@ static int qusb_phy_update_dpdm(struct usb_phy *phy, int value)
 		break;
 	}
 
+	/* Disable ahb2phy clock as it enables above. */
+	clk_disable_unprepare(qphy->cfg_ahb_clk);
 	return ret;
 }
 
@@ -477,12 +508,7 @@ static int qusb_phy_init(struct usb_phy *phy)
 	if (ret)
 		return ret;
 
-	if (!qphy->clocks_enabled) {
-		clk_prepare_enable(qphy->ref_clk_src);
-		clk_prepare_enable(qphy->ref_clk);
-		clk_prepare_enable(qphy->cfg_ahb_clk);
-		qphy->clocks_enabled = true;
-	}
+	qusb_phy_enable_clocks(qphy, true);
 
 	if (qphy->emulation) {
 		/* Configure QUSB2 PLLs for RUMI */
@@ -560,25 +586,15 @@ static void qusb_phy_shutdown(struct usb_phy *phy)
 
 	dev_dbg(phy->dev, "%s\n", __func__);
 
-	/* clocks need to be on to access register */
-	if (!qphy->clocks_enabled) {
-		clk_prepare_enable(qphy->ref_clk_src);
-		clk_prepare_enable(qphy->ref_clk);
-		clk_prepare_enable(qphy->cfg_ahb_clk);
-		qphy->clocks_enabled = true;
-	}
+	qusb_phy_enable_clocks(qphy, true);
 
 	/* Disable the PHY */
 	writel_relaxed(CLAMP_N_EN | FREEZIO_N | POWER_DOWN,
 			qphy->base + QUSB2PHY_PORT_POWERDOWN);
 	wmb();
 
-	clk_disable_unprepare(qphy->cfg_ahb_clk);
-	clk_disable_unprepare(qphy->ref_clk);
-	clk_disable_unprepare(qphy->ref_clk_src);
-	qphy->clocks_enabled = false;
+	qusb_phy_enable_clocks(qphy, false);
 }
-
 /**
  * Performs QUSB2 PHY suspend/resume functionality.
  *
@@ -590,11 +606,6 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 {
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
 	u32 linestate = 0, intr_mask = 0;
-
-	if (!qphy->clocks_enabled) {
-		dev_dbg(phy->dev, "clocks not enabled yet\n");
-		return -EAGAIN;
-	}
 
 	if (qphy->suspended && suspend) {
 		dev_dbg(phy->dev, "%s: USB PHY is already suspended\n",
@@ -631,9 +642,7 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			writel_relaxed(intr_mask,
 				qphy->base + QUSB2PHY_PORT_INTR_CTRL);
 
-			clk_disable_unprepare(qphy->cfg_ahb_clk);
-			clk_disable_unprepare(qphy->ref_clk);
-			clk_disable_unprepare(qphy->ref_clk_src);
+			qusb_phy_enable_clocks(qphy, false);
 		} else { /* Disconnect case */
 			/* Disable all interrupts */
 			writel_relaxed(0x00,
@@ -650,9 +659,9 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 				qphy->base + QUSB2PHY_PORT_UTMI_CTRL1);
 			writel_relaxed(UTMI_ULPI_SEL | UTMI_TEST_MUX_SEL,
 				qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
-			clk_disable_unprepare(qphy->cfg_ahb_clk);
-			clk_disable_unprepare(qphy->ref_clk);
-			clk_disable_unprepare(qphy->ref_clk_src);
+
+
+			qusb_phy_enable_clocks(qphy, false);
 			qusb_phy_enable_power(qphy, false, true);
 		}
 		qphy->suspended = true;
@@ -660,17 +669,13 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 		/* Bus suspend case */
 		if (qphy->cable_connected ||
 			(qphy->phy.flags & PHY_HOST_MODE)) {
-			clk_prepare_enable(qphy->ref_clk_src);
-			clk_prepare_enable(qphy->ref_clk);
-			clk_prepare_enable(qphy->cfg_ahb_clk);
+			qusb_phy_enable_clocks(qphy, true);
 			/* Clear all interrupts on resume */
 			writel_relaxed(0x00,
 				qphy->base + QUSB2PHY_PORT_INTR_CTRL);
 		} else {
 			qusb_phy_enable_power(qphy, true, true);
-			clk_prepare_enable(qphy->ref_clk_src);
-			clk_prepare_enable(qphy->ref_clk);
-			clk_prepare_enable(qphy->cfg_ahb_clk);
+			qusb_phy_enable_clocks(qphy, true);
 		}
 		qphy->suspended = false;
 	}
