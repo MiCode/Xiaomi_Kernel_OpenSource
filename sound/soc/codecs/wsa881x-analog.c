@@ -57,6 +57,7 @@ struct wsa881x_pdata {
 	bool regmap_flag;
 	bool wsa_active;
 	int index;
+	int (*enable_mclk)(struct snd_soc_card *, bool);
 };
 
 enum {
@@ -666,8 +667,18 @@ static const struct snd_soc_dapm_route wsa881x_audio_map[] = {
 static int wsa881x_startup(struct wsa881x_pdata *pdata)
 {
 	int ret = 0;
+	struct snd_soc_codec *codec = pdata->codec;
 
 	pr_debug("%s(): wsa startup\n", __func__);
+
+	if (pdata->enable_mclk) {
+		ret = pdata->enable_mclk(codec->card, true);
+		if (ret < 0) {
+			pr_err("%s: mclk enable failed %d\n",
+				__func__, ret);
+			return ret;
+		}
+	}
 
 	ret = msm_gpioset_activate(CLIENT_WSA_BONGO_1, "wsa_clk");
 	if (ret) {
@@ -682,6 +693,7 @@ static int wsa881x_startup(struct wsa881x_pdata *pdata)
 static int wsa881x_shutdown(struct wsa881x_pdata *pdata)
 {
 	int ret = 0, reg;
+	struct snd_soc_codec *codec = pdata->codec;
 
 	pr_debug("%s(): wsa shutdown\n", __func__);
 	ret = wsa881x_reset(pdata, false);
@@ -689,6 +701,15 @@ static int wsa881x_shutdown(struct wsa881x_pdata *pdata)
 		pr_err("%s: wsa reset failed suspend %d\n",
 			__func__, ret);
 		return ret;
+	}
+
+	if (pdata->enable_mclk) {
+		ret = pdata->enable_mclk(codec->card, false);
+		if (ret < 0) {
+			pr_err("%s: mclk disable failed %d\n",
+				__func__, ret);
+			return ret;
+		}
 	}
 
 	ret = msm_gpioset_suspend(CLIENT_WSA_BONGO_1, "wsa_clk");
@@ -839,6 +860,19 @@ int wsa881x_get_presence_count(void)
 	return wsa881x_presence_count;
 }
 EXPORT_SYMBOL(wsa881x_get_presence_count);
+
+int wsa881x_set_mclk_callback(
+	int (*enable_mclk_callback)(struct snd_soc_card *, bool))
+{
+	int i;
+
+	for (i = 0; i < MAX_WSA881X_DEVICE; i++) {
+		if (wsa_pdata[i].status == WSA881X_STATUS_I2C)
+			wsa_pdata[i].enable_mclk = enable_mclk_callback;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(wsa881x_set_mclk_callback);
 
 static int check_wsa881x_presence(struct i2c_client *client)
 {
