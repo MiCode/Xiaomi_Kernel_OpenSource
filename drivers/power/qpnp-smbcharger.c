@@ -282,6 +282,7 @@ enum wake_reason {
 	PM_PARALLEL_CHECK = BIT(0),
 	PM_REASON_VFLOAT_ADJUST = BIT(1),
 	PM_ESR_PULSE = BIT(2),
+	PM_PARALLEL_TAPER = BIT(3),
 };
 
 static int smbchg_debug_mask;
@@ -1797,6 +1798,7 @@ static void smbchg_parallel_usb_taper(struct smbchg_chip *chip)
 	if (!parallel_psy || !chip->parallel_charger_detected)
 		return;
 
+	smbchg_stay_awake(chip, PM_PARALLEL_TAPER);
 try_again:
 	mutex_lock(&chip->parallel.lock);
 	if (chip->parallel.current_max_ma == 0) {
@@ -1842,6 +1844,7 @@ try_again:
 	taper_irq_en(chip, true);
 done:
 	mutex_unlock(&chip->parallel.lock);
+	smbchg_relax(chip, PM_PARALLEL_TAPER);
 }
 
 static bool smbchg_is_aicl_complete(struct smbchg_chip *chip)
@@ -7028,6 +7031,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 	mutex_init(&chip->pm_lock);
 	mutex_init(&chip->wipower_config);
 	mutex_init(&chip->usb_status_lock);
+	device_init_wakeup(chip->dev, true);
 
 	rc = smbchg_parse_peripherals(chip);
 	if (rc) {
