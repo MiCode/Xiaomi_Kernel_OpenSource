@@ -266,6 +266,10 @@ struct mdss_data_type {
 	struct mdss_max_bw_settings *max_bw_settings;
 	u32 bw_mode_bitmap;
 	u32 max_bw_settings_cnt;
+
+	struct mdss_max_bw_settings *max_per_pipe_bw_settings;
+	u32 mdss_per_pipe_bw_cnt;
+	u32 min_bw_per_pipe;
 };
 extern struct mdss_data_type *mdss_res;
 
