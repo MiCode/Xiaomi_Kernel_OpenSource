@@ -534,7 +534,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 
 	if (drawctxt != NULL && kgsl_context_detached(&drawctxt->base) &&
 		!(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE))
-		return -EINVAL;
+		return -ENOENT;
 
 	rb->timestamp++;
 
@@ -619,8 +619,6 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	ringcmds = adreno_ringbuffer_allocspace(rb, total_sizedwords);
 	if (IS_ERR(ringcmds))
 		return PTR_ERR(ringcmds);
-	if (ringcmds == NULL)
-		return -ENOSPC;
 
 	start = ringcmds;
 
@@ -1112,24 +1110,26 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 					&link[0], (cmds - link),
 					cmdbatch->timestamp, time);
 
-	/* Put the timevalues in the profiling buffer */
-	if (cmdbatch_user_profiling) {
-		profile_buffer->wall_clock_s = time->utime.tv_sec;
-		profile_buffer->wall_clock_ns = time->utime.tv_nsec;
-		profile_buffer->gpu_ticks_queued = time->ticks;
-	}
-
-	/* Corresponding unmap to the memdesc map of profile_buffer */
-	if (entry)
-		kgsl_memdesc_unmap(&entry->memdesc);
-
-	if (!ret)
+	if (!ret) {
 		cmdbatch->global_ts = drawctxt->internal_timestamp;
+
+		/* Put the timevalues in the profiling buffer */
+		if (cmdbatch_user_profiling) {
+			profile_buffer->wall_clock_s = time->utime.tv_sec;
+			profile_buffer->wall_clock_ns = time->utime.tv_nsec;
+			profile_buffer->gpu_ticks_queued = time->ticks;
+		}
+	}
 
 	kgsl_cffdump_regpoll(device,
 		adreno_getreg(adreno_dev, ADRENO_REG_RBBM_STATUS) << 2,
 		0x00000000, 0x80000000);
 done:
+	/* Corresponding unmap to the memdesc map of profile_buffer */
+	if (entry)
+		kgsl_memdesc_unmap(&entry->memdesc);
+
+
 	trace_kgsl_issueibcmds(device, context->id, cmdbatch,
 			numibs, cmdbatch->timestamp,
 			cmdbatch->flags, ret, drawctxt->type);
@@ -1327,8 +1327,6 @@ int adreno_ringbuffer_submit_preempt_token(struct adreno_ringbuffer *rb,
 
 	if (IS_ERR(ringcmds))
 		return PTR_ERR(ringcmds);
-	if (ringcmds == NULL)
-		return -ENOSPC;
 
 	start = ringcmds;
 

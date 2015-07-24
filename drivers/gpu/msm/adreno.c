@@ -2344,9 +2344,9 @@ static int adreno_waittimestamp(struct kgsl_device *device,
 		return -ENOTTY;
 	}
 
-	/* Return -EINVAL if the context has been detached */
+	/* Return -ENOENT if the context has been detached */
 	if (kgsl_context_detached(context))
-		return -EINVAL;
+		return -ENOENT;
 
 	ret = adreno_drawctxt_wait(ADRENO_DEVICE(device), context,
 		timestamp, msecs);
