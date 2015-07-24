@@ -79,12 +79,12 @@
 			};
 		};
 
-		cti_trigout_a0 {
-			qcom,pins = <&gp 32>;
+		cti_trigout_b0 {
+			qcom,pins = <&gp 22>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <8>;
-			label = "cti-trigout-a0";
-			trigout_a0: trigout_a0 {
+			qcom,pin-func = <11>;
+			label = "cti-trigout-b0";
+			trigout_b0: trigout_b0 {
 				drive-strength = <2>;
 				bias-disable;
 			};
