@@ -1130,6 +1130,7 @@ static int __unset_imem(struct venus_hfi_device *device)
 	rc = __core_in_valid_state(device);
 	if (!rc) {
 		dprintk(VIDC_WARN, "Core is in bad state, won't unset imem\n");
+		rc = -EINVAL;
 		goto imem_unset_failed;
 	}
 
