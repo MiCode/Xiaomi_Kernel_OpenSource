@@ -66,6 +66,14 @@ struct alpha_pll_clk {
 	bool slew;
 	bool no_prepared_reconfig;
 
+	/*
+	 * Some chipsets need the offline request bit to be
+	 * cleared on a second write to the register, even though
+	 * SW wants the bit to be set. Set this flag to indicate
+	 * that the workaround is required.
+	 */
+	bool offline_bit_workaround;
+
 	struct clk c;
 };
 
