@@ -148,6 +148,7 @@ struct qpnp_pon_config {
 	u16 s2_cntl2_addr;
 	bool old_state;
 	bool use_bark;
+	bool config_reset;
 };
 
 struct qpnp_pon {
@@ -1111,10 +1112,18 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon)
 
 			rc = of_property_read_u32(pp, "qcom,support-reset",
 							&cfg->support_reset);
-			if (rc && rc != -EINVAL) {
-				dev_err(&pon->spmi->dev,
-					"Unable to read 'support-reset'\n");
-				return rc;
+
+			if (rc) {
+				if (rc == -EINVAL) {
+					dev_dbg(&pon->spmi->dev,
+						"'qcom,support-reset' DT property doesn't exist\n");
+				 } else {
+					dev_err(&pon->spmi->dev,
+						"Unable to read 'qcom,support-reset'\n");
+					return rc;
+				}
+			} else {
+				cfg->config_reset = true;
 			}
 
 			cfg->use_bark = of_property_read_bool(pp,
@@ -1155,10 +1164,18 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon)
 
 			rc = of_property_read_u32(pp, "qcom,support-reset",
 							&cfg->support_reset);
-			if (rc && rc != -EINVAL) {
-				dev_err(&pon->spmi->dev,
-					"Unable to read 'support-reset'\n");
-				return rc;
+
+			if (rc) {
+				if (rc == -EINVAL) {
+					dev_dbg(&pon->spmi->dev,
+						"'qcom,support-reset' DT property doesn't exist\n");
+				} else {
+					dev_err(&pon->spmi->dev,
+						"Unable to read 'qcom,support-reset'\n");
+					return rc;
+				}
+			} else {
+				cfg->config_reset = true;
 			}
 
 			cfg->use_bark = of_property_read_bool(pp,
@@ -1228,10 +1245,18 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon)
 		case PON_KPDPWR_RESIN:
 			rc = of_property_read_u32(pp, "qcom,support-reset",
 							&cfg->support_reset);
-			if (rc && rc != -EINVAL) {
-				dev_err(&pon->spmi->dev,
-					"Unable to read 'support-reset'\n");
-				return rc;
+
+			if (rc) {
+				if (rc == -EINVAL) {
+					dev_dbg(&pon->spmi->dev,
+						"'qcom,support-reset' DT property doesn't exist\n");
+				} else {
+					dev_err(&pon->spmi->dev,
+						"Unable to read 'qcom,support-reset'\n");
+					return rc;
+				}
+			} else {
+				cfg->config_reset = true;
 			}
 
 			cfg->use_bark = of_property_read_bool(pp,
@@ -1363,22 +1388,28 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon)
 			dev_err(&pon->spmi->dev, "Unable to config pull-up\n");
 			goto unreg_input_dev;
 		}
-		/* Configure the reset-configuration */
-		if (cfg->support_reset) {
-			rc = qpnp_config_reset(pon, cfg);
-			if (rc) {
-				dev_err(&pon->spmi->dev,
-					"Unable to config pon reset\n");
-				goto unreg_input_dev;
-			}
-		} else if (cfg->pon_type != PON_CBLPWR) {
-			/* disable S2 reset */
-			rc = qpnp_pon_masked_write(pon, cfg->s2_cntl2_addr,
+
+		if (cfg->config_reset) {
+			/* Configure the reset-configuration */
+			if (cfg->support_reset) {
+				rc = qpnp_config_reset(pon, cfg);
+				if (rc) {
+					dev_err(&pon->spmi->dev,
+						"Unable to config pon reset\n");
+					goto unreg_input_dev;
+				}
+			} else {
+				if (cfg->pon_type != PON_CBLPWR) {
+					/* disable S2 reset */
+					rc = qpnp_pon_masked_write(pon,
+						cfg->s2_cntl2_addr,
 						QPNP_PON_S2_CNTL_EN, 0);
-			if (rc) {
-				dev_err(&pon->spmi->dev,
-					"Unable to disable S2 reset\n");
-				goto unreg_input_dev;
+					if (rc) {
+						dev_err(&pon->spmi->dev,
+							"Unable to disable S2 reset\n");
+						goto unreg_input_dev;
+					}
+				}
 			}
 		}
 
