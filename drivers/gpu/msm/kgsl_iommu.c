@@ -1003,10 +1003,12 @@ static int _setup_secure_context(struct kgsl_mmu *mmu)
 	}
 	iommu_pt = mmu->securepagetable->priv;
 
-	ret = iommu_attach_device(iommu_pt->domain, ctx->dev);
-	if (ret) {
-		KGSL_CORE_ERR("Failed to attach, err %d\n", ret);
-		goto done;
+	if (!iommu_pt->attached) {
+		ret = iommu_attach_device(iommu_pt->domain, ctx->dev);
+		if (ret) {
+			KGSL_CORE_ERR("Failed to attach, err %d\n", ret);
+			goto done;
+		}
 	}
 	ctx->default_pt = mmu->securepagetable;
 
