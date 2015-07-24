@@ -1749,6 +1749,8 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A5XX_RBBM_AHB_CNTL1, 0xA6FFFFFF);
 		/* enable HWCG */
 		a5xx_hwcg_init(adreno_dev);
+		/* enable DCS */
+		kgsl_regwrite(device, A5XX_GPMU_CLOCK_THROTTLE_CTRL, 0xE0015);
 	}
 
 	kgsl_regwrite(device, A5XX_RBBM_AHB_CNTL2, 0x0000003F);
