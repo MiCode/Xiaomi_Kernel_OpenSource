@@ -1784,8 +1784,17 @@ static void mdss_rotator_wq_handler(struct work_struct *work)
 	}
 
 	ret = mdss_rotator_handle_entry(hw, entry);
-	if (ret)
-		pr_err("fail to complete the roation request\n");
+	if (ret) {
+		struct mdp_rotation_item *item = &entry->item;
+
+		pr_err("Rot req fail. src{%u,%u,%u,%u}f=%u\n"
+		"dst{%u,%u,%u,%u}f=%u session_id=%u, wbidx%d, pipe_id=%d\n",
+		item->src_rect.x, item->src_rect.y,
+		item->src_rect.w, item->src_rect.h, item->input.format,
+		item->dst_rect.x, item->dst_rect.y,
+		item->dst_rect.w, item->dst_rect.h, item->output.format,
+		item->session_id, item->wb_idx, item->pipe_idx);
+	}
 
 	mdss_rotator_put_hw_resource(entry->queue, hw);
 
