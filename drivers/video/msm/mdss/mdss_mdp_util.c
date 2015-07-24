@@ -822,7 +822,7 @@ int mdss_mdp_validate_offset_for_ubwc_format(
 		return -EINVAL;
 	}
 
-	if (y % (UBWC_META_MACRO_W_H)) {
+	if (y % (micro_h * UBWC_META_MACRO_W_H)) {
 		pr_err("y=%d does not align with meta height=%d\n", y,
 			UBWC_META_MACRO_W_H);
 		return -EINVAL;
@@ -875,7 +875,7 @@ void mdss_mdp_ubwc_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 			goto done;
 		}
 
-		offset = (y / 8) * ps->ystride[2] +
+		offset = (y / micro_h) * ps->ystride[2] +
 			((x / micro_w) / UBWC_META_MACRO_W_H) *
 			UBWC_META_BLOCK_SIZE;
 		if (offset < data->p[2].len) {
@@ -885,7 +885,7 @@ void mdss_mdp_ubwc_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 			goto done;
 		}
 
-		offset = ((y / 2) / 8) * ps->ystride[3] +
+		offset = ((y / 2) / micro_h) * ps->ystride[3] +
 			(((x / 2) / chroma_micro_w) / UBWC_META_MACRO_W_H) *
 			UBWC_META_BLOCK_SIZE;
 		if (offset < data->p[3].len) {
@@ -905,7 +905,7 @@ void mdss_mdp_ubwc_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 			goto done;
 		}
 
-		offset = DIV_ROUND_UP(y, 8) * ps->ystride[2] +
+		offset = DIV_ROUND_UP(y, micro_h) * ps->ystride[2] +
 			((x / micro_w) / UBWC_META_MACRO_W_H) *
 			UBWC_META_BLOCK_SIZE;
 		if (offset < data->p[2].len) {
