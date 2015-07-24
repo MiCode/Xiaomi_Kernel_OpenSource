@@ -57,6 +57,46 @@ static int _isdb_get(void *data, u64 *val)
 
 DEFINE_SIMPLE_ATTRIBUTE(_isdb_fops, _isdb_get, _isdb_set, "%llu\n");
 
+static int _lm_limit_set(void *data, u64 val)
+{
+	struct kgsl_device *device = data;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+		return 0;
+
+	/* assure value is between 3A and 10A */
+	if (val > 10000)
+		val = 10000;
+	else if (val < 3000)
+		val = 3000;
+
+	adreno_dev->lm_limit = val;
+
+	if (test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag)) {
+		mutex_lock(&device->mutex);
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
+		mutex_unlock(&device->mutex);
+	}
+
+	return 0;
+}
+
+static int _lm_limit_get(void *data, u64 *val)
+{
+	struct kgsl_device *device = data;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+		*val = 0;
+
+	*val = (u64) adreno_dev->lm_limit;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(_lm_limit_fops, _lm_limit_get, _lm_limit_set, "%llu\n");
+
 static int _active_count_get(void *data, u64 *val)
 {
 	struct kgsl_device *device = data;
@@ -307,6 +347,10 @@ void adreno_debugfs_init(struct adreno_device *adreno_dev)
 			    &_active_count_fops);
 	adreno_dev->ctx_d_debugfs = debugfs_create_dir("ctx",
 							device->d_debugfs);
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+		debugfs_create_file("lm_limit", 0644, device->d_debugfs, device,
+			&_lm_limit_fops);
 
 	if (adreno_is_a5xx(adreno_dev))
 		debugfs_create_file("isdb", 0644, device->d_debugfs,
