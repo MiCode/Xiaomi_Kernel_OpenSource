@@ -1874,7 +1874,6 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 			if (err < 0)
 				pr_err("%s: Failed to intialise mbhc %d\n",
 						__func__, err);
-			tasha_enable_efuse_sensing(codec);
 		} else {
 			pr_err("%s: wcd_mbhc_cfg calibration is NULL\n",
 					__func__);
