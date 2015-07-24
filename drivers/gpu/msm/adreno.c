@@ -2620,8 +2620,10 @@ static void adreno_regulator_disable_poll(struct kgsl_device *device)
 			rail_on = 1;
 			wait_time = jiffies + msecs_to_jiffies(200);
 			while (!time_after(jiffies, wait_time)) {
-				if (regulator_is_enabled(pwr->gpu_reg[i]) == 0)
+				if (!regulator_is_enabled(pwr->gpu_reg[i])) {
 					rail_on = 0;
+					break;
+				}
 				cpu_relax();
 			}
 			if (rail_on)
