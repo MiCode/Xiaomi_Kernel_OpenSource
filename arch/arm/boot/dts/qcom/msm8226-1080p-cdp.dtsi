@@ -426,6 +426,5 @@
 };
 
 &dsi_jdi_1080_vid {
-	qcom,cont-splash-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
