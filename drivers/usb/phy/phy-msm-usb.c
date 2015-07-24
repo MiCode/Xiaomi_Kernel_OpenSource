@@ -1113,10 +1113,10 @@ static void msm_otg_exit_phy_retention(struct msm_otg *motg)
 		break;
 	case SNPS_FEMTO_PHY:
 		/*
-		 * Femto PHY must be POR reset to bring out
+		 * It is required to do USB block reset to bring Femto PHY out
 		 * of retention.
 		 */
-		msm_usb_phy_reset(motg);
+		msm_otg_reset(&motg->phy);
 		break;
 	default:
 		break;
@@ -1194,7 +1194,7 @@ lpm_start:
 			phy->state == OTG_STATE_B_PERIPHERAL;
 
 	/* Perform block reset to recover from UDC error events on disconnect */
-	if (!host_bus_suspend && !device_bus_suspend)
+	if (motg->err_event_seen)
 		msm_otg_reset(phy);
 
 	/* Enable line state difference wakeup fix for only device and host
