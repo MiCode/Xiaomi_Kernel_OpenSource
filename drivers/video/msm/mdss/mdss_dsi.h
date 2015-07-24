@@ -256,6 +256,10 @@ struct dsi_shared_data {
 
 	/* Shared mutex for DSI PHY regulator */
 	struct mutex phy_reg_lock;
+
+	/* Shared mutex for pm_qos ref count */
+	struct mutex pm_qos_lock;
+	u32 pm_qos_req_cnt;
 };
 
 struct mdss_dsi_data {
