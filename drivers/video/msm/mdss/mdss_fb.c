@@ -482,6 +482,7 @@ static void __mdss_fb_idle_notify_work(struct work_struct *work)
 	pr_debug("Idle timeout %dms expired!\n", mfd->idle_time);
 	if (mfd->idle_time)
 		sysfs_notify(&mfd->fbi->dev->kobj, NULL, "idle_notify");
+	mfd->idle_state = MDSS_FB_IDLE;
 }
 
 static ssize_t mdss_fb_get_idle_time(struct device *dev,
@@ -1053,9 +1054,13 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	 * Register with input driver for a callback for command mode panels.
 	 * When there is an input event, mdp clocks will be turned on to reduce
 	 * latency when a frame update happens.
-	 * Video mode panels are not handled today because clocks are always on.
+	 * For video mode panels, idle timeout will be delayed so that userspace
+	 * does not get an idle event while new frames are expected. In case of
+	 * an idle event, user space tries to fall back to GPU composition which
+	 * can lead to increased load when there are new frames.
 	 */
-	if (mfd->panel_info->type == MIPI_CMD_PANEL)
+	if ((mfd->panel_info->type == MIPI_CMD_PANEL) ||
+	    (mfd->panel_info->type == MIPI_VIDEO_PANEL))
 		if (mdss_fb_register_input_handler(mfd))
 			pr_err("failed to register input handler\n");
 
@@ -2733,6 +2738,8 @@ static int __mdss_fb_sync_buf_done_callback(struct notifier_block *p,
 					msecs_to_jiffies(WAIT_DISP_OP_TIMEOUT)))
 			pr_debug("fb%d: start idle delayed work\n",
 					mfd->index);
+
+		mfd->idle_state = MDSS_FB_NOT_IDLE;
 		break;
 	case MDP_NOTIFY_FRAME_READY:
 		if (sync_pt_data->async_wait_fences &&
@@ -2749,6 +2756,7 @@ static int __mdss_fb_sync_buf_done_callback(struct notifier_block *p,
 					mfd->index);
 		if (ret == -ETIME)
 			ret = NOTIFY_BAD;
+		mfd->idle_state = MDSS_FB_IDLE_TIMER_RUNNING;
 		break;
 	case MDP_NOTIFY_FRAME_FLUSHED:
 		pr_debug("%s: frame flushed\n", sync_pt_data->fence_name);

@@ -30,6 +30,9 @@
 /* Poll time to do recovery during active region */
 #define POLL_TIME_USEC_FOR_LN_CNT 500
 
+/* Filter out input events for 1 vsync time after receiving an input event*/
+#define INPUT_EVENT_HANDLER_DELAY_USECS 16000
+
 #define MDP_INTR_MASK_INTF_VSYNC(intf_num) \
 	(1 << (2 * (intf_num - MDSS_MDP_INTF0) + MDSS_MDP_IRQ_INTF_VSYNC))
 
@@ -1549,6 +1552,41 @@ void mdss_mdp_switch_to_cmd_mode(struct mdss_mdp_ctl *ctl, int prep)
 	mdss_bus_bandwidth_ctrl(false);
 }
 
+static int mdss_mdp_video_early_wake_up(struct mdss_mdp_ctl *ctl)
+{
+	u64 curr_time;
+
+	curr_time = ktime_to_us(ktime_get());
+
+	if ((curr_time - ctl->last_input_time) <
+			INPUT_EVENT_HANDLER_DELAY_USECS)
+		return 0;
+	ctl->last_input_time = curr_time;
+
+	/*
+	 * If the idle timer is running when input event happens, the timeout
+	 * will be delayed by idle_time again to ensure user space does not get
+	 * an idle event when new frames are expected.
+	 *
+	 * It would be nice to have this logic in mdss_fb.c itself by
+	 * implementing a new frame notification event. But input event handler
+	 * is called from interrupt context and scheduling a work item adds a
+	 * lot of latency rendering the input events useless in preventing the
+	 * idle time out.
+	 */
+	if (ctl->mfd->idle_state == MDSS_FB_IDLE_TIMER_RUNNING) {
+		if (ctl->mfd->idle_time)
+			mod_delayed_work(system_wq, &ctl->mfd->idle_notify_work,
+					 msecs_to_jiffies(ctl->mfd->idle_time));
+		pr_debug("Delayed idle time\n");
+	} else {
+		pr_debug("Nothing to done for this state (%d)\n",
+			 ctl->mfd->idle_state);
+	}
+
+	return 0;
+}
+
 int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 {
 	int intfs_num, ret = 0;
@@ -1567,6 +1605,7 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 	ctl->ops.add_vsync_handler = mdss_mdp_video_add_vsync_handler;
 	ctl->ops.remove_vsync_handler = mdss_mdp_video_remove_vsync_handler;
 	ctl->ops.config_fps_fnc = mdss_mdp_video_config_fps;
+	ctl->ops.early_wake_up_fnc = mdss_mdp_video_early_wake_up;
 
 	return 0;
 }
