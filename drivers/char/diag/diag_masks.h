@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,7 +32,9 @@ struct diag_ssid_range_t {
 struct diag_msg_mask_t {
 	uint32_t ssid_first;
 	uint32_t ssid_last;
+	uint32_t ssid_last_tools;
 	uint32_t range;
+	uint32_t range_tools;
 	uint32_t *ptr;
 } __packed;
 
