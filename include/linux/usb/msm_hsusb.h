@@ -614,6 +614,7 @@ struct ci13xxx_platform_data {
 	struct clk *pclk;
 	u32 max_nominal_system_clk_rate;
 	u32 default_system_clk_rate;
+	bool enable_axi_prefetch;
 };
 
 /**
