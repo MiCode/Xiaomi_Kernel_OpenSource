@@ -33,7 +33,6 @@
 #include <linux/uaccess.h>
 #include <linux/suspend.h>
 #include <linux/rwsem.h>
-#include <linux/mfd/pm8xxx/misc.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/pm_qos.h>
@@ -241,16 +240,6 @@ struct wcnss_version {
 struct wcnss_pmic_dump {
 	char reg_name[10];
 	u16 reg_addr;
-};
-
-static struct wcnss_pmic_dump wcnss_pmic_reg_dump[] = {
-	{"S2", 0x1D8},
-	{"L4", 0xB4},
-	{"L10", 0xC0},
-	{"LVS2", 0x62},
-	{"S4", 0x1E8},
-	{"LVS7", 0x06C},
-	{"LVS1", 0x060},
 };
 
 static int wcnss_notif_cb(struct notifier_block *this, unsigned long code,
@@ -550,25 +539,6 @@ static ssize_t wcnss_version_show(struct device *dev,
 static DEVICE_ATTR(wcnss_version, S_IRUSR,
 		wcnss_version_show, NULL);
 
-void wcnss_riva_dump_pmic_regs(void)
-{
-	int i, rc;
-	u8  val;
-
-	for (i = 0; i < ARRAY_SIZE(wcnss_pmic_reg_dump); i++) {
-		val = 0;
-		rc = pm8xxx_read_register(wcnss_pmic_reg_dump[i].reg_addr,
-				&val);
-		if (rc)
-			pr_err("PMIC READ: Failed to read addr = %d\n",
-					wcnss_pmic_reg_dump[i].reg_addr);
-		else
-			pr_info_ratelimited("PMIC READ: %s addr = %x, value = %x\n",
-				wcnss_pmic_reg_dump[i].reg_name,
-				wcnss_pmic_reg_dump[i].reg_addr, val);
-	}
-}
-
 /* wcnss_reset_fiq() is invoked when host drivers fails to
  * communicate with WCNSS over SMD; so logging these registers
  * helps to know WCNSS failure reason
@@ -593,7 +563,6 @@ void wcnss_riva_log_debug_regs(void)
 	ccu_reg = penv->riva_ccu_base + CCU_RIVA_LAST_ADDR2_OFFSET;
 	reg = readl_relaxed(ccu_reg);
 	pr_info_ratelimited("%s: CCU_CCPU_LAST_ADDR2 %08x\n", __func__, reg);
-	wcnss_riva_dump_pmic_regs();
 
 }
 EXPORT_SYMBOL(wcnss_riva_log_debug_regs);
