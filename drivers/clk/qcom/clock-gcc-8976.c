@@ -3967,6 +3967,12 @@ static int msm_gcc_gfx_probe(struct platform_device *pdev)
 	regval &= ~BIT(0);
 	writel_relaxed(regval, GCC_REG_BASE(GX_DOMAIN_MISC));
 
+	/* Configure Sleep and Wakeup cycles for OXILI clock */
+	regval = readl_relaxed(GCC_REG_BASE(OXILI_GFX3D_CBCR));
+	regval &= ~0xF0;
+	regval |= CLKFLAG_SLEEP_CYCLES << 4;
+	writel_relaxed(regval, GCC_REG_BASE(OXILI_GFX3D_CBCR));
+
 	dev_info(&pdev->dev, "Registered GCC GFX clocks.\n");
 
 	populate_gpu_opp_table(pdev);
