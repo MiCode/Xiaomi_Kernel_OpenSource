@@ -3054,7 +3054,7 @@ static void mdss_mdp_ctl_restore_sub(struct mdss_mdp_ctl *ctl)
 	writel_relaxed(temp, ctl->mdata->mdp_base +
 			MDSS_MDP_REG_DISP_INTF_SEL);
 
-	if (ctl->mixer_left) {
+	if (ctl->mfd && ctl->panel_data) {
 		mdss_mdp_pp_resume(ctl->mfd);
 
 		if (ctl->panel_data->panel_info.compression_mode ==
