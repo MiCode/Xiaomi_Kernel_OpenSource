@@ -78,17 +78,17 @@
 			29 01 00 00 00 00 08 d5 06 00 00 01 51 01 32
 			29 01 00 00 00 00 1f c7 01 0a 11 18 26 33 3e 50 38 42 52
 				60 67 6e 77 01 0a 11 18 26 33 3e 50 38 42 52 60 67 6e 77
-			29 01 00 00 c8 00 14 c8 01 00 00 00 00 fc 00 00 00 00 00 fc
-				00 00 00 00 00 fc 00
+			29 01 00 00 14 00 14 c8 01 00 00 00 00 fc 00 00 00 00
+				00 fc 00 00 00 00 00 fc 00
 			05 01 00 00 14 00 02 29 00];
-		qcom,mdss-dsi-off-command = [05 01 00 00 96 00 02 28 00
-				 05 01 00 00 96 00 02 10 00];
+		qcom,mdss-dsi-off-command = [05 01 00 00 14 00 02 28 00
+				 05 01 00 00 78 00 02 10 00];
 		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
 		qcom,mdss-dsi-off-command-state = "dsi_lp_mode";
 		qcom,mdss-dsi-bl-min-level = <1>;
 		qcom,mdss-dsi-bl-max-level = <4095>;
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
-		qcom,mdss-dsi-reset-sequence = <1 200>, <0 200>, <1 200>;
+		qcom,mdss-dsi-reset-sequence = <1 10>, <0 10>, <1 10>;
 		qcom,partial-update-enabled;
 		qcom,panel-roi-alignment = <2 2 4 2 900 2>;
 		qcom,mdss-dsi-post-init-delay = <1>;
