@@ -62,6 +62,7 @@ static char *base_names[] = {
 };
 
 static void *vbases[NUM_BASES];
+static bool cpu_clocks_v3;
 
 static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
@@ -536,9 +537,11 @@ static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 			if (cpuclk->alt_pll_freqs[i] < rate &&
 			    cpuclk->alt_pll_freqs[i+1] >= rate)
 				alt_pll_rate = cpuclk->alt_pll_freqs[i];
-		mutex_lock(&scm_lmh_lock);
+		if (!cpu_clocks_v3)
+			mutex_lock(&scm_lmh_lock);
 		ret = clk_set_rate(cpuclk->alt_pll, alt_pll_rate);
-		mutex_unlock(&scm_lmh_lock);
+		if (!cpu_clocks_v3)
+			mutex_unlock(&scm_lmh_lock);
 		if (ret) {
 			pr_err("failed to set rate %lu on alt_pll when setting %lu on %s (%d)\n",
 			alt_pll_rate, rate, c->dbg_name, ret);
@@ -558,9 +561,11 @@ static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 	 * CPU frequency to ramp up from 384MHz to 550MHz.
 	 */
 	if (c->rate > 600000000 && rate < 600000000) {
-		mutex_lock(&scm_lmh_lock);
+		if (!cpu_clocks_v3)
+			mutex_lock(&scm_lmh_lock);
 		ret = clk_set_rate(c->parent, c->rate/2);
-		mutex_unlock(&scm_lmh_lock);
+		if (!cpu_clocks_v3)
+			mutex_unlock(&scm_lmh_lock);
 		if (ret) {
 			pr_err("failed to set rate %lu on %s (%d)\n",
 				c->rate/2, c->dbg_name, ret);
@@ -568,9 +573,11 @@ static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 		}
 	}
 
-	mutex_lock(&scm_lmh_lock);
+	if (!cpu_clocks_v3)
+		mutex_lock(&scm_lmh_lock);
 	ret = clk_set_rate(c->parent, rate);
-	mutex_unlock(&scm_lmh_lock);
+	if (!cpu_clocks_v3)
+		mutex_unlock(&scm_lmh_lock);
 	if (ret) {
 		pr_err("failed to set rate %lu on %s (%d)\n",
 			rate, c->dbg_name, ret);
@@ -585,9 +592,11 @@ static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 set_rate_fail:
 	/* Restore parent rate if we halved it */
 	if (c->rate > 600000000 && rate < 600000000) {
-		mutex_lock(&scm_lmh_lock);
+		if (!cpu_clocks_v3)
+			mutex_lock(&scm_lmh_lock);
 		err_ret = clk_set_rate(c->parent, c->rate);
-		mutex_unlock(&scm_lmh_lock);
+		if (!cpu_clocks_v3)
+			mutex_unlock(&scm_lmh_lock);
 		if (err_ret)
 			pr_err("failed to restore %s rate to %lu\n",
 			       c->dbg_name, c->rate);
@@ -595,9 +604,11 @@ set_rate_fail:
 
 fail:
 	if (cpuclk->alt_pll && (n_alt_freqs > 0)) {
-		mutex_lock(&scm_lmh_lock);
+		if (!cpu_clocks_v3)
+			mutex_lock(&scm_lmh_lock);
 		err_ret = clk_set_rate(cpuclk->alt_pll, alt_pll_prev_rate);
-		mutex_unlock(&scm_lmh_lock);
+		if (!cpu_clocks_v3)
+			mutex_unlock(&scm_lmh_lock);
 		if (err_ret)
 			pr_err("failed to reset rate to %lu on alt pll after failing to  set %lu on %s (%d)\n",
 				alt_pll_prev_rate, rate, c->dbg_name, err_ret);
@@ -1177,6 +1188,7 @@ static int cpu_clock_8996_driver_probe(struct platform_device *pdev)
 
 static struct of_device_id match_table[] = {
 	{ .compatible = "qcom,cpu-clock-8996" },
+	{ .compatible = "qcom,cpu-clock-8996-v3" },
 	{}
 };
 
@@ -1232,7 +1244,17 @@ int __init cpu_clock_8996_early_init(void)
 	if (!ofnode)
 		return 0;
 
-	pr_info("clock-cpu-8996: configuring cluster clocks\n");
+	ofnode = of_find_compatible_node(NULL, NULL,
+					 "qcom,cpu-clock-8996-v3");
+	if (ofnode)
+		cpu_clocks_v3 = true;
+
+	pr_info("clock-cpu-8996: configuring clocks for the perf cluster\n");
+
+	if (cpu_clocks_v3) {
+		pwrcl_alt_pll.offline_bit_workaround = false;
+		perfcl_alt_pll.offline_bit_workaround = false;
+	}
 
 	/*
 	 * We definitely don't want to parse DT here - this is too early and in
