@@ -600,4 +600,15 @@ int sps_bam_check_irq(struct sps_bam *dev);
  * @return true if there is any desc pending
  */
 bool sps_bam_pipe_pending_desc(struct sps_bam *dev, u32 pipe_index);
+
+/*
+ * sps_bam_pipe_inject_zlt - inject a ZLT with EOT.
+ * @dev:	BAM device handle
+ * @pipe_index:	pipe index
+ *
+ * This function injects a ZLT with EOT for a pipe of a BAM.
+ *
+ * Return: 0 on success, negative value on error
+ */
+int sps_bam_pipe_inject_zlt(struct sps_bam *dev, u32 pipe_index);
 #endif	/* _SPSBAM_H_ */
