@@ -54,3 +54,4 @@ obj-$(CONFIG_MSM_EVENT_TIMER) += event_timer.o
 obj-$(CONFIG_MSM_GLADIATOR_ERP) += gladiator_erp.o
 obj-$(CONFIG_MSM_CORE_HANG_DETECT) += core_hang_detect.o
 obj-$(CONFIG_MSM_GLADIATOR_HANG_DETECT) += gladiator_hang_detect.o
+obj-$(CONFIG_MSM_RUN_QUEUE_STATS) += msm_rq_stats.o
