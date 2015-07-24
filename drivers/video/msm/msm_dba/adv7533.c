@@ -665,7 +665,7 @@ static int adv7533_rd_cec_msg(struct adv7533 *pdata, u8 *cec_buf, int msg_num)
 	if (!reg)
 		goto end;
 
-	ADV7533_READ(I2C_ADDR_CEC_DSI, 0x85, cec_buf, CEC_MSG_SIZE);
+	ADV7533_READ(I2C_ADDR_CEC_DSI, reg, cec_buf, CEC_MSG_SIZE);
 end:
 	return ret;
 }
@@ -1094,9 +1094,10 @@ end:
 	return pdata;
 }
 
-static int adv7533_cec_enable(struct adv7533 *pdata, bool cec_on)
+static int adv7533_cec_enable(void *client, bool cec_on, u32 flags)
 {
 	int ret = -EINVAL;
+	struct adv7533 *pdata = adv7533_get_platform_data(client);
 
 	if (!pdata) {
 		pr_err("%s: invalid platform data\n", __func__);
@@ -1142,18 +1143,7 @@ static int adv7533_power_on(void *client, bool on, u32 flags)
 				__func__, ret);
 			goto end;
 		}
-
-		ret = adv7533_cec_enable(pdata, true);
-		if (ret) {
-			pr_err("%s: Failed: enable CEC, err %d\n",
-				__func__, ret);
-			goto end;
-		}
 	} else {
-		ret = adv7533_cec_enable(pdata, false);
-		if (ret)
-			pr_err("%s:err disable CEC %d\n", __func__, ret);
-
 		/* power down hdmi */
 		ADV7533_WRITE(I2C_ADDR_MAIN, 0x41, 0x50);
 	}
@@ -1591,6 +1581,7 @@ static int adv7533_register_dba(struct adv7533 *pdata)
 	client_ops->video_on        = adv7533_video_on;
 	client_ops->configure_audio = adv7533_configure_audio;
 	client_ops->hdcp_enable     = adv7533_hdcp_enable;
+	client_ops->hdmi_cec_on     = adv7533_cec_enable;
 	client_ops->hdmi_cec_write  = adv7533_hdmi_cec_write;
 	client_ops->hdmi_cec_read   = adv7533_hdmi_cec_read;
 	client_ops->get_edid_size   = adv7533_get_edid_size;
