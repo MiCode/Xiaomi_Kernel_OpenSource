@@ -204,20 +204,32 @@ static int wcd9xxx_page_write(struct wcd9xxx *wcd9xxx, unsigned short *reg)
 	return ret;
 }
 
-static bool is_codec_digital_reg(struct wcd9xxx *wcd9xxx, u16 rreg)
+static bool is_wcd9xxx_reg_power_down(struct wcd9xxx *wcd9xxx, u16 rreg)
 {
 	bool ret = false;
+	int i;
+	struct wcd9xxx_power_region *wcd9xxx_pwr;
 
-	if (((wcd9xxx->pwr_collapse_reg_min == 0) &&
-	     (wcd9xxx->pwr_collapse_reg_max == 0)) ||
-	    (wcd9xxx->power_state == WCD_DIG_CORE_POWER_COLLAPSE_REMOVE))
-		ret = false;
-	else if (((wcd9xxx->power_state == WCD_DIG_CORE_POWER_DOWN) ||
-	    (wcd9xxx->power_state == WCD_DIG_CORE_POWER_COLLAPSE_BEGIN)) &&
-	    (rreg >= wcd9xxx->pwr_collapse_reg_min) &&
-	    (rreg <= wcd9xxx->pwr_collapse_reg_max))
-		ret = true;
+	if (!wcd9xxx)
+		return ret;
 
+	for (i = 0; i < WCD9XXX_MAX_PWR_REGIONS; i++) {
+		wcd9xxx_pwr = wcd9xxx->wcd9xxx_pwr[i];
+		if (!wcd9xxx_pwr)
+			continue;
+		if (((wcd9xxx_pwr->pwr_collapse_reg_min == 0) &&
+		     (wcd9xxx_pwr->pwr_collapse_reg_max == 0)) ||
+		    (wcd9xxx_pwr->power_state ==
+		     WCD_REGION_POWER_COLLAPSE_REMOVE))
+			ret = false;
+		else if (((wcd9xxx_pwr->power_state ==
+			   WCD_REGION_POWER_DOWN) ||
+			  (wcd9xxx_pwr->power_state ==
+			   WCD_REGION_POWER_COLLAPSE_BEGIN)) &&
+			 (rreg >= wcd9xxx_pwr->pwr_collapse_reg_min) &&
+			 (rreg <= wcd9xxx_pwr->pwr_collapse_reg_max))
+			ret = true;
+	}
 	return ret;
 }
 
@@ -248,7 +260,7 @@ static int regmap_slim_read(void *context, const void *reg, size_t reg_size,
 	c_reg = *(u16 *)reg;
 	rreg = c_reg;
 
-	if (is_codec_digital_reg(wcd9xxx, rreg)) {
+	if (is_wcd9xxx_reg_power_down(wcd9xxx, rreg)) {
 		ret = 0;
 		goto err;
 	}
@@ -344,7 +356,7 @@ static int regmap_slim_gather_write(void *context,
 	c_reg = *(u16 *)reg;
 	rreg = c_reg;
 
-	if (is_codec_digital_reg(wcd9xxx, rreg)) {
+	if (is_wcd9xxx_reg_power_down(wcd9xxx, rreg)) {
 		ret = 0;
 		goto err;
 	}
@@ -523,22 +535,71 @@ int wcd9xxx_bulk_write(
 }
 EXPORT_SYMBOL(wcd9xxx_bulk_write);
 
-int wcd9xxx_get_current_power_state(struct wcd9xxx *wcd9xxx)
+/*
+ * wcd9xxx_get_current_power_state: Get power state of the region
+ * @wcd9xxx: handle to wcd core
+ * @region: region index
+ *
+ * Returns current power state of the region or error code for failure
+ */
+int wcd9xxx_get_current_power_state(struct wcd9xxx *wcd9xxx,
+				    enum wcd_power_regions region)
 {
 	int state;
 
+	if (!wcd9xxx) {
+		pr_err("%s: wcd9xxx is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if ((region < 0) || (region >= WCD9XXX_MAX_PWR_REGIONS)) {
+		dev_err(wcd9xxx->dev, "%s: region index %d out of bounds\n",
+			__func__, region);
+		return -EINVAL;
+	}
+	if (!wcd9xxx->wcd9xxx_pwr[region]) {
+		dev_err(wcd9xxx->dev, "%s: memory not created for region: %d\n",
+			__func__, region);
+		return -EINVAL;
+	}
+
 	mutex_lock(&wcd9xxx->io_lock);
-	state = wcd9xxx->power_state;
+	state = wcd9xxx->wcd9xxx_pwr[region]->power_state;
 	mutex_unlock(&wcd9xxx->io_lock);
 
 	return state;
 }
 EXPORT_SYMBOL(wcd9xxx_get_current_power_state);
 
-int wcd9xxx_set_power_state(struct wcd9xxx *wcd9xxx, int state)
+/*
+ * wcd9xxx_set_power_state: set power state for the region
+ * @wcd9xxx: handle to wcd core
+ * @state: power state to be set
+ * @region: region index
+ *
+ * Returns error code in case of failure or 0 for success
+ */
+int wcd9xxx_set_power_state(struct wcd9xxx *wcd9xxx,
+			    enum codec_power_states state,
+			    enum wcd_power_regions region)
 {
+	if (!wcd9xxx) {
+		pr_err("%s: wcd9xxx is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if ((region < 0) || (region >= WCD9XXX_MAX_PWR_REGIONS)) {
+		dev_err(wcd9xxx->dev, "%s: region index %d out of bounds\n",
+			__func__, region);
+		return -EINVAL;
+	}
+	if (!wcd9xxx->wcd9xxx_pwr[region]) {
+		dev_err(wcd9xxx->dev, "%s: memory not created for region: %d\n",
+			__func__, region);
+		return -EINVAL;
+	}
 	mutex_lock(&wcd9xxx->io_lock);
-	wcd9xxx->power_state = state;
+	wcd9xxx->wcd9xxx_pwr[region]->power_state = state;
 	mutex_unlock(&wcd9xxx->io_lock);
 
 	return 0;
@@ -1338,20 +1399,6 @@ static void wcd9xxx_core_res_update_irq_regs(
 	};
 }
 
-static void wcd9xxx_init_power_states(struct wcd9xxx *wcd9xxx)
-{
-	wcd9xxx_set_power_state(wcd9xxx, WCD_DIG_CORE_POWER_COLLAPSE_REMOVE);
-
-	switch (wcd9xxx->codec_type->id_major) {
-	case TASHA_MAJOR:
-		wcd9xxx->pwr_collapse_reg_min = 0xA00;
-		wcd9xxx->pwr_collapse_reg_max = 0xDFF;
-		break;
-	default:
-		break;
-	}
-}
-
 static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx)
 {
 	int ret = 0;
@@ -1374,7 +1421,6 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx)
 		wcd9xxx->version = version;
 	}
 
-	wcd9xxx_init_power_states(wcd9xxx);
 	core_res->parent = wcd9xxx;
 	core_res->dev = wcd9xxx->dev;
 
