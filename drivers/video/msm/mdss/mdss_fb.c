@@ -1404,7 +1404,7 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 		if (ad_bl_notify_needed)
 			mdss_fb_bl_update_notify(mfd,
 				NOTIFY_TYPE_BL_AD_ATTEN_UPDATE);
-		else if (bl_notify_needed)
+		if (bl_notify_needed)
 			mdss_fb_bl_update_notify(mfd,
 				NOTIFY_TYPE_BL_UPDATE);
 	}
