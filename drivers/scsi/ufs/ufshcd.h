@@ -1034,14 +1034,6 @@ void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba,
 		int result);
 u32 ufshcd_get_local_unipro_ver(struct ufs_hba *hba);
 
-/* Expose Query-Request API */
-int ufshcd_query_flag(struct ufs_hba *hba, enum query_opcode opcode,
-	enum flag_idn idn, bool *flag_res);
-int ufshcd_query_attr(struct ufs_hba *hba, enum query_opcode opcode,
-	enum attr_idn idn, u8 index, u8 selector, u32 *attr_val);
-int ufshcd_query_descriptor(struct ufs_hba *hba, enum query_opcode opcode,
-	enum desc_idn idn, u8 index, u8 selector, u8 *desc_buf, int *buf_len);
-
 /* Wrapper functions for safely calling variant operations */
 static inline const char *ufshcd_get_var_name(struct ufs_hba *hba)
 {
