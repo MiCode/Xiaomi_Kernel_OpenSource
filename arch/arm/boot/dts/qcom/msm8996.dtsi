@@ -1357,8 +1357,10 @@
 		"HS_RB_G1_L1", "HS_RB_G2_L1", "HS_RB_G3_L1",
 		"MAX";
 
-		qcom,cpu-affinity = "affine_cores";
-		qcom,cpu-dma-latency-us = <0>;
+		/* PM QoS */
+		qcom,pm-qos-cpu-groups = <0x03 0x0C>;
+		qcom,pm-qos-cpu-group-latency-us = <200 200>;
+		qcom,pm-qos-default-cpu = <0>;
 
 		status = "disabled";
 
