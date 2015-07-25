@@ -313,6 +313,7 @@ struct wcd_mbhc_cb {
 	bool (*extn_use_mb)(struct snd_soc_codec *);
 	int (*mbhc_micb_ctrl_thr_mic)(struct snd_soc_codec *, int, bool);
 	void (*mbhc_gnd_det_ctrl)(struct snd_soc_codec *, bool);
+	void (*hph_pull_down_ctrl)(struct snd_soc_codec *, bool);
 };
 
 struct wcd_mbhc {
