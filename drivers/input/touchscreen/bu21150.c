@@ -1397,7 +1397,7 @@ static long bu21150_ioctl_get_frame(unsigned long arg)
 	if (!ts->irq_enabled) {
 		ret = request_threaded_irq(ts->client->irq, NULL,
 					bu21150_irq_thread,
-					IRQF_TRIGGER_LOW | IRQF_ONESHOT,
+					IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 					ts->client->dev.driver->name, ts);
 		if (ret) {
 			dev_err(&ts->client->dev, "Failed to register interrupt\n");
