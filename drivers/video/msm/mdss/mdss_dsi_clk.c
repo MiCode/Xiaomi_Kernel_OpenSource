@@ -857,7 +857,7 @@ void *mdss_dsi_clk_init(struct mdss_dsi_clk_info *info)
 	mngr->pre_clkon_cb = info->pre_clkon_cb;
 	mngr->post_clkon_cb = info->post_clkon_cb;
 	mngr->pre_clkoff_cb = info->pre_clkoff_cb;
-	mngr->post_clkon_cb = info->post_clkon_cb;
+	mngr->post_clkoff_cb = info->post_clkoff_cb;
 	mngr->priv_data = info->priv_data;
 	memcpy(mngr->name, info->name, DSI_CLK_NAME_LEN);
 error:
