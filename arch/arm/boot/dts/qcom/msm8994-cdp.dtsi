@@ -291,6 +291,8 @@
 #include "dsi-panel-jdi-dualmipi1-video.dtsi"
 #include "dsi-panel-jdi-dualmipi0-cmd.dtsi"
 #include "dsi-panel-jdi-dualmipi1-cmd.dtsi"
+#include "dsi-panel-nt35950-4k-dualmipi0-cmd.dtsi"
+#include "dsi-panel-nt35950-4k-dualmipi1-cmd.dtsi"
 #include "dsi-panel-nt35597-wqxga-video.dtsi"
 #include "dsi-panel-nt35597-wqxga-cmd.dtsi"
 #include "dsi-panel-jdi-1080p-video.dtsi"
@@ -360,6 +362,17 @@
 	qcom,mdss-dsi-pan-enable-dynamic-fps;
 	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 	qcom,mdss-dsi-min-refresh-rate = <30>;
+};
+
+&dsi_dual_nt35950_4k_cmd_0 {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,dcs-cmd-by-left;
+};
+
+&dsi_dual_nt35950_4k_cmd_1 {
+	qcom,dcs-cmd-by-left;
 };
 
 &dsi_dual_jdi_video_0 {
