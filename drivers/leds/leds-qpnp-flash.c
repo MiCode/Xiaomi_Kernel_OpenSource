@@ -1692,15 +1692,43 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 		return rc;
 	}
 
-	if (led->pdata->mask3_en && led->pdata->follow_rb_disable) {
-		rc = spmi_ext_register_readl(led->spmi_dev->ctrl,
-				led->spmi_dev->sid,
-				FLASH_PERPH_RESET_CTRL(led->base),
-				&val, 1);
+	rc = spmi_ext_register_readl(led->spmi_dev->ctrl,
+			led->spmi_dev->sid,
+			FLASH_PERPH_RESET_CTRL(led->base),
+			&val, 1);
+	if (rc) {
+		dev_err(&led->spmi_dev->dev,
+			"Unable to read from address %x, rc(%d)\n",
+			FLASH_PERPH_RESET_CTRL(led->base), rc);
+		return -EINVAL;
+	}
+
+	if (led->pdata->follow_rb_disable) {
+		rc = qpnp_led_masked_write(led->spmi_dev,
+				FLASH_LED_UNLOCK_SECURE(led->base),
+				FLASH_SECURE_MASK, FLASH_UNLOCK_SECURE);
 		if (rc) {
 			dev_err(&led->spmi_dev->dev,
-				"Unable to read from address %x, rc(%d)\n",
-				FLASH_PERPH_RESET_CTRL(led->base), rc);
+				"Secure reg write failed\n");
+			return -EINVAL;
+		}
+
+		val |= FLASH_FOLLOW_OTST2_RB_MASK;
+		rc = qpnp_led_masked_write(led->spmi_dev,
+				FLASH_PERPH_RESET_CTRL(led->base),
+				FLASH_FOLLOW_OTST2_RB_MASK, val);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+				"failed to reset OTST2_RB bit\n");
+			return rc;
+		}
+	} else {
+		rc = qpnp_led_masked_write(led->spmi_dev,
+				FLASH_LED_UNLOCK_SECURE(led->base),
+				FLASH_SECURE_MASK, FLASH_UNLOCK_SECURE);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+				"Secure reg write failed\n");
 			return -EINVAL;
 		}
 
