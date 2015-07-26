@@ -767,3 +767,38 @@
 	};
 };
 
+&cam_sensor_mclk0_active { /* MCLK0 */
+	config {
+		drive-strength = <8>; /* 8 MA */
+	};
+};
+
+&cam_sensor_mclk0_suspend { /* MCLK0 */
+	config {
+		drive-strength = <8>; /* 8 MA */
+	};
+};
+
+&cam_sensor_mclk1_active { /* MCLK1 */
+	config {
+		drive-strength = <8>; /* 8 MA */
+	};
+};
+
+&cam_sensor_mclk1_suspend { /* MCLK1 */
+	config {
+		drive-strength = <8>; /* 8 MA */
+	};
+};
+
+&cam_sensor_mclk2_active { /* MCLK2 */
+	config {
+		drive-strength = <8>; /* 8 MA */
+	};
+};
+
+&cam_sensor_mclk2_suspend { /* MCLK2 */
+	config {
+		drive-strength = <8>; /* 8 MA */
+	};
+};
