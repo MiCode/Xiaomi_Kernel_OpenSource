@@ -520,6 +520,7 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 					__func__);
 		}
 
+		mutex_lock(&ctl->rsrc_lock);
 		/* Transition OFF->ON || GATE->ON (enable clocks) */
 		if ((mdp5_data->resources_state == MDP_RSRC_CTL_STATE_OFF) ||
 			(mdp5_data->resources_state ==
@@ -565,6 +566,7 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 				__func__, get_sw_event_name(sw_event));
 			BUG();
 		}
+		mutex_unlock(&ctl->rsrc_lock);
 		break;
 	case MDP_RSRC_CTL_EVENT_PP_DONE:
 		if (mdp5_data->resources_state != MDP_RSRC_CTL_STATE_ON) {
@@ -652,6 +654,7 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 					__func__);
 		}
 
+		mutex_lock(&ctl->rsrc_lock);
 		if ((mdp5_data->resources_state == MDP_RSRC_CTL_STATE_ON) ||
 				(mdp5_data->resources_state
 				== MDP_RSRC_CTL_STATE_GATE)) {
@@ -679,6 +682,7 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 			/* update the state, now we are in off */
 			mdp5_data->resources_state = MDP_RSRC_CTL_STATE_OFF;
 		}
+		mutex_unlock(&ctl->rsrc_lock);
 		break;
 	case MDP_RSRC_CTL_EVENT_EARLY_WAKE_UP:
 		/*
@@ -689,6 +693,7 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 		 * 3. If the current state is POWER-OFF, Schedule a work item to
 		 *    POWER-ON.
 		 */
+		mutex_lock(&ctl->rsrc_lock);
 		if (mdp5_data->resources_state != MDP_RSRC_CTL_STATE_OFF) {
 			if (cancel_work_sync(&ctx->gate_clk_work))
 				pr_debug("%s: %s - gate_work cancelled\n",
@@ -715,7 +720,6 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 				mdss_mdp_cmd_clk_on(sctx);
 
 			mdp5_data->resources_state = MDP_RSRC_CTL_STATE_ON;
-
 			/*
 			 * Schedule off work after cmd mode idle timeout is
 			 * reached. This is to prevent the case where early wake
@@ -724,6 +728,7 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 			schedule_delayed_work(&ctx->delayed_off_clk_work,
 				      CMD_MODE_IDLE_TIMEOUT);
 		}
+		mutex_unlock(&ctl->rsrc_lock);
 		break;
 	default:
 		pr_warn("%s unexpected event (%d)\n", __func__, sw_event);
@@ -970,15 +975,12 @@ static void clk_ctrl_delayed_off_work(struct work_struct *work)
 		mutex_lock(&cmd_clk_mtx);
 	}
 
-	/* Enable clocks if Gate feature is enabled and we are in this state */
-	if (mdata->enable_gate) {
-		/* clocks are gated at this time */
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+	mutex_lock(&ctl->rsrc_lock);
 
-		if (mdp5_data->resources_state
-			!= MDP_RSRC_CTL_STATE_GATE)
-			pr_debug("%s: enter off from ON state\n", __func__);
-	}
+	/* Enable clocks if Gate feature is enabled and we are in this state */
+	if (mdata->enable_gate && (mdp5_data->resources_state
+			== MDP_RSRC_CTL_STATE_GATE))
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
 	/* first power off the slave DSI  (if present) */
 	if (sctx)
@@ -995,6 +997,8 @@ static void clk_ctrl_delayed_off_work(struct work_struct *work)
 
 	/* update state machine that power off transition is done */
 	mdp5_data->resources_state = MDP_RSRC_CTL_STATE_OFF;
+
+	mutex_unlock(&ctl->rsrc_lock);
 
 	/* do this at the end, so we can also protect the global power state*/
 	if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY)
@@ -1052,6 +1056,8 @@ static void clk_ctrl_gate_work(struct work_struct *work)
 		mutex_lock(&cmd_clk_mtx);
 	}
 
+	mutex_lock(&ctl->rsrc_lock);
+
 	/* First gate the DSI clocks for the slave controller (if present) */
 	if (sctx)
 		mdss_mdp_ctl_intf_event
@@ -1068,6 +1074,8 @@ static void clk_ctrl_gate_work(struct work_struct *work)
 
 	/* update state machine that gate transition is done */
 	mdp5_data->resources_state = MDP_RSRC_CTL_STATE_GATE;
+
+	mutex_unlock(&ctl->rsrc_lock);
 
 	/* unlock mutex needed for split display */
 	if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY)
