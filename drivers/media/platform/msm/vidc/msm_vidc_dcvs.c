@@ -478,7 +478,6 @@ bool msm_dcvs_enc_check(struct msm_vidc_inst *inst)
 
 	num_mbs_per_frame = msm_dcvs_get_mbs_per_frame(inst);
 	if (msm_vidc_enc_dcvs_mode && is_codec_supported &&
-		inst->dcvs.is_power_save_mode &&
 		IS_VALID_DCVS_SESSION(num_mbs_per_frame,
 			core->resources.dcvs_min_mbperframe)) {
 		dcvs_check_passed = true;
