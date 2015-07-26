@@ -221,8 +221,7 @@ enum msm_vidc_modes {
 	VIDC_SECURE = 1 << 0,
 	VIDC_TURBO = 1 << 1,
 	VIDC_THUMBNAIL = 1 << 2,
-	VIDC_NOMINAL = 1 << 3,
-	VIDC_POWER_SAVE = 1 << 4,
+	VIDC_POWER_SAVE = 1 << 3,
 };
 
 struct msm_vidc_idle_stats {
