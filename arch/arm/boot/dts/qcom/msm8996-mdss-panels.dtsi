@@ -22,6 +22,7 @@
 #include "dsi-panel-sim-cmd.dtsi"
 #include "dsi-panel-sim-dualmipi-cmd.dtsi"
 #include "dsi-panel-nt35597-dsc-wqxga-cmd.dtsi"
+#include "dsi-panel-hx8379a-truly-fwvga-video.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -140,4 +141,12 @@
 		31 2e 0d 12 0d 03 04 a0
 		31 2e 0d 12 0d 03 04 a0
 		31 53 0c 12 0d 03 04 a0];
+};
+
+&dsi_hx8379a_fwvga_truly_vid {
+	qcom,mdss-dsi-panel-timings-8996 = [23 20 06 09 05 03 04 a0
+		23 20 06 09 05 03 04 a0
+		23 20 06 09 05 03 04 a0
+		23 20 06 09 05 03 04 a0
+		23 2e 06 08 05 03 04 a0];
 };

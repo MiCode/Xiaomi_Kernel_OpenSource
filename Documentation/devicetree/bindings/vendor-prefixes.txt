@@ -165,6 +165,7 @@ spansion	Spansion Inc.
 st	STMicroelectronics
 ste	ST-Ericsson
 stericsson	ST-Ericsson
+synaptics	Synaptics, Inc.
 synology	Synology, Inc.
 thine	THine Electronics, Inc.
 ti	Texas Instruments
