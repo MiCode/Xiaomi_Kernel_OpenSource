@@ -713,35 +713,6 @@ static int qpnp_lab_dt_init(struct qpnp_labibb *labibb,
 		return rc;
 	}
 
-	rc = of_property_read_u32(of_node, "qcom,qpnp-lab-max-precharge-time",
-				&tmp);
-	if (rc) {
-		pr_err("get qcom,qpnp-lab-max-precharge-time failed, rc = %d\n",
-			rc);
-		return rc;
-	}
-
-	for (val = 0; val < ARRAY_SIZE(lab_max_precharge_plan); val++)
-		if (lab_max_precharge_plan[val] == tmp)
-			break;
-
-	if (val == ARRAY_SIZE(lab_max_precharge_plan)) {
-		pr_err("Invalid property in qcom,qpnp-lab-max-precharge-time\n");
-		return -EINVAL;
-	}
-
-	if (of_property_read_bool(of_node,
-			"qcom,qpnp-lab-max-precharge-enable"))
-		val |= LAB_PRECHARGE_CTL_EN;
-
-	rc = qpnp_labibb_write(labibb, labibb->lab_base +
-				REG_LAB_PRECHARGE_CTL, &val, 1);
-	if (rc) {
-		pr_err("qpnp_lab_dt_init write register %x failed rc = %d\n",
-			REG_LAB_PRECHARGE_CTL, rc);
-		return rc;
-	}
-
 	rc = of_property_read_u32(of_node, "qcom,qpnp-lab-init-voltage",
 					&(labibb->lab_vreg.curr_volt));
 	if (rc) {
@@ -1061,6 +1032,7 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 	u8 val;
 	const char *current_sense_str;
 	bool config_current_sense = false;
+	u32 tmp;
 
 	if (!of_node) {
 		dev_err(labibb->dev, "qpnp lab regulator device tree node is missing\n");
@@ -1121,6 +1093,35 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 
 	labibb->lab_vreg.soft_start = lab_soft_start_plan
 				[val & LAB_SOFT_START_CTL_MASK];
+
+	rc = of_property_read_u32(of_node, "qcom,qpnp-lab-max-precharge-time",
+				&tmp);
+	if (rc) {
+		pr_err("get qcom,qpnp-lab-max-precharge-time failed, rc = %d\n",
+			rc);
+		return rc;
+	}
+
+	for (val = 0; val < ARRAY_SIZE(lab_max_precharge_plan); val++)
+		if (lab_max_precharge_plan[val] == tmp)
+			break;
+
+	if (val == ARRAY_SIZE(lab_max_precharge_plan)) {
+		pr_err("Invalid property in qcom,qpnp-lab-max-precharge-time\n");
+		return -EINVAL;
+	}
+
+	if (of_property_read_bool(of_node,
+			"qcom,qpnp-lab-max-precharge-enable"))
+		val |= LAB_PRECHARGE_CTL_EN;
+
+	rc = qpnp_labibb_write(labibb, labibb->lab_base +
+				REG_LAB_PRECHARGE_CTL, &val, 1);
+	if (rc) {
+		pr_err("qpnp_lab_dt_init write register %x failed rc = %d\n",
+			REG_LAB_PRECHARGE_CTL, rc);
+		return rc;
+	}
 
 	rc = qpnp_labibb_read(labibb, &val,
 				labibb->ibb_base + REG_IBB_ENABLE_CTL, 1);
