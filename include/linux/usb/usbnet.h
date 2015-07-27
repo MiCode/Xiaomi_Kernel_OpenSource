@@ -108,6 +108,9 @@ struct usbnet {
 #		define EVENT_LINK_CHANGE	11
 #		define EVENT_SET_RX_MODE	12
 
+	struct completion rm_prod_granted_comp;
+	struct completion rm_prod_release_comp;
+
 	u16 ipa_free_desc_cnt;
 	u16 ipa_high_watermark;
 	u16 ipa_low_watermark;
