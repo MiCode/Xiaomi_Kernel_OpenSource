@@ -3126,16 +3126,7 @@ int mdss_mdp_cursor_pipe_setup(struct msm_fb_data_type *mfd,
 	pr_debug("req id:%d cursor_pipe:%d pnum:%d\n",
 		req->id, cursor_pipe, pipe->ndx);
 
-	if (mdata->mdss_util->iommu_attached()) {
-		cursor_addr = mfd->cursor_buf_iova;
-	} else {
-		if (MDSS_LPAE_CHECK(mfd->cursor_buf_phys)) {
-			pr_err("can't access phy mem >4GB w/o iommu\n");
-			ret = -ERANGE;
-			goto done;
-		}
-		cursor_addr = mfd->cursor_buf_phys;
-	}
+	cursor_addr = mfd->cursor_buf_iova;
 
 	buf = mdss_mdp_overlay_buf_alloc(mfd, pipe);
 	if (!buf) {
