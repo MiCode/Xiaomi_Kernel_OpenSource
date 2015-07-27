@@ -715,6 +715,10 @@ static void a4xx_start(struct adreno_device *adreno_dev)
 	if (!adreno_is_a420(adreno_dev))
 		a4xx_snap_sizes.cp_pfp = 0x34;
 
+	if (adreno_is_a405(adreno_dev))
+		gpudev->vbif_xin_halt_ctrl0_mask =
+			A405_VBIF_XIN_HALT_CTRL0_MASK;
+
 	a4xx_protect_init(adreno_dev);
 }
 
