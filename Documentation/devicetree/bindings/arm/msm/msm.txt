@@ -83,6 +83,9 @@ SoCs:
 - MSMTITANIUM
   compatible = "qcom,msmtitanium"
 
+- MSMTHORIUM
+  compatible = "qcom,msmthorium"
+
 - MSMZIRC
   compatible = "qcom,msmzirc"
 
@@ -220,6 +223,7 @@ compatible = "qcom,apq8052-cdp"
 compatible = "qcom,apq8052-mtp"
 compatible = "qcom,msmtitanium-rumi"
 compatible = "qcom,msmtitanium-sim"
+compatible = "qcom,msmthorium-rumi"
 compatible = "qcom,msmzirc-cdp"
 compatible = "qcom,msmzirc-mtp"
 compatible = "qcom,msmzirc-rumi"
