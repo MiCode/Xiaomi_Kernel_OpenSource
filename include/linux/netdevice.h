@@ -2337,6 +2337,7 @@ struct softnet_data {
 	unsigned int		time_squeeze;
 	unsigned int		cpu_collision;
 	unsigned int		received_rps;
+	unsigned int		gro_coalesced;
 
 #ifdef CONFIG_RPS
 	struct softnet_data	*rps_ipi_list;
