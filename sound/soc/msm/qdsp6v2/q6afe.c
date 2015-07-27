@@ -2416,8 +2416,7 @@ int afe_loopback(u16 enable, u16 rx_port, u16 tx_port)
 
 	lb_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 						APR_HDR_LEN(20), APR_PKT_VER);
-	lb_cmd.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
-						sizeof(lb_cmd) - APR_HDR_SIZE);
+	lb_cmd.hdr.pkt_size = sizeof(lb_cmd);
 	lb_cmd.hdr.src_port = 0;
 	lb_cmd.hdr.dest_port = 0;
 	lb_cmd.hdr.token = index;

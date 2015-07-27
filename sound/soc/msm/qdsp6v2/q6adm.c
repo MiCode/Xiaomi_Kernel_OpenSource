@@ -301,7 +301,7 @@ int adm_dts_eagle_set(int port_id, int copp_idx, int param_id,
 
 	admp.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 		APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-	admp.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE, sizeof(admp));
+	admp.hdr.pkt_size = sizeof(admp);
 	admp.hdr.src_svc = APR_SVC_ADM;
 	admp.hdr.src_domain = APR_DOMAIN_APPS;
 	admp.hdr.src_port = port_id;
@@ -409,7 +409,7 @@ int adm_dts_eagle_get(int port_id, int copp_idx, int param_id,
 
 	admp.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 			     APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-	admp.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE, sizeof(admp));
+	admp.hdr.pkt_size = sizeof(admp);
 	admp.hdr.src_svc = APR_SVC_ADM;
 	admp.hdr.src_domain = APR_DOMAIN_APPS;
 	admp.hdr.src_port = port_id;
@@ -667,8 +667,8 @@ int srs_trumedia_open(int port_id, int copp_idx, __s32 srs_tech_id,
 	adm_params->hdr.token = port_idx << 16 | copp_idx;
 	adm_params->hdr.opcode = ADM_CMD_SET_PP_PARAMS_V5;
 	if (outband && this_adm.outband_memmap.paddr) {
-		adm_params->hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE, sizeof(
-					      struct adm_cmd_set_pp_params_v5));
+		adm_params->hdr.pkt_size =
+					sizeof(struct adm_cmd_set_pp_params_v5);
 		adm_params->payload_addr_lsw = lower_32_bits(
 						this_adm.outband_memmap.paddr);
 		adm_params->payload_addr_msw = populate_upper_32_bits(
@@ -1874,8 +1874,7 @@ static int send_adm_cal_block(int port_id, int copp_idx,
 
 	adm_params.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 		APR_HDR_LEN(20), APR_PKT_VER);
-	adm_params.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
-		sizeof(adm_params));
+	adm_params.hdr.pkt_size = sizeof(adm_params);
 	adm_params.hdr.src_svc = APR_SVC_ADM;
 	adm_params.hdr.src_domain = APR_DOMAIN_APPS;
 	adm_params.hdr.src_port = port_id;
@@ -4028,7 +4027,7 @@ int adm_get_source_tracking(int port_id, int copp_idx,
 
 	admp.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-	admp.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE, sizeof(admp));
+	admp.hdr.pkt_size = sizeof(admp);
 	admp.hdr.src_svc = APR_SVC_ADM;
 	admp.hdr.src_domain = APR_DOMAIN_APPS;
 	admp.hdr.src_port = port_id;
