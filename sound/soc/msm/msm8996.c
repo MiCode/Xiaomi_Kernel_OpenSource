@@ -1616,6 +1616,10 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic3");
 	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic4");
 	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic5");
+	snd_soc_dapm_ignore_suspend(dapm, "Analog Mic4");
+	snd_soc_dapm_ignore_suspend(dapm, "Analog Mic6");
+	snd_soc_dapm_ignore_suspend(dapm, "Analog Mic7");
+	snd_soc_dapm_ignore_suspend(dapm, "Analog Mic8");
 	snd_soc_dapm_ignore_suspend(dapm, "MADINPUT");
 	snd_soc_dapm_ignore_suspend(dapm, "MAD_CPE_INPUT");
 	snd_soc_dapm_ignore_suspend(dapm, "EAR");
@@ -1644,6 +1648,8 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		snd_soc_dapm_ignore_suspend(dapm, "HPHR");
 		snd_soc_dapm_ignore_suspend(dapm, "ANC HPHL");
 		snd_soc_dapm_ignore_suspend(dapm, "ANC HPHR");
+		snd_soc_dapm_ignore_suspend(dapm, "ANC LINEOUT1");
+		snd_soc_dapm_ignore_suspend(dapm, "ANC LINEOUT2");
 	} else {
 		snd_soc_dapm_ignore_suspend(dapm, "DMIC6");
 		snd_soc_dapm_ignore_suspend(dapm, "Digital Mic6");
@@ -3350,11 +3356,14 @@ static int msm8996_wsa881x_init(struct snd_soc_component *component)
 	unsigned int ch_mask[WSA881X_MAX_SWR_PORTS] = {0x1, 0xF, 0x3, 0x3};
 	struct snd_soc_codec *codec = snd_soc_component_to_codec(component);
 	struct msm8996_asoc_mach_data *pdata;
+	struct snd_soc_dapm_context *dapm;
 
 	if (!codec) {
 		pr_err("%s codec is NULL\n", __func__);
 		return -EINVAL;
 	}
+
+	dapm = &codec->dapm;
 
 	if (component->dev->of_node == msm8996_aux_dev[0].codec_of_node) {
 		dev_dbg(codec->dev, "%s: setting left ch map to codec %s\n",
@@ -3378,6 +3387,17 @@ static int msm8996_wsa881x_init(struct snd_soc_component *component)
 	if (pdata && pdata->codec_root)
 		wsa881x_codec_info_create_codec_entry(pdata->codec_root,
 						      codec);
+
+	if (dapm->component) {
+		if (!strcmp(dapm->component->name_prefix, "SpkrLeft")) {
+			snd_soc_dapm_ignore_suspend(dapm, "SpkrLeft IN");
+			snd_soc_dapm_ignore_suspend(dapm, "SpkrLeft SPKR");
+		} else if (!strcmp(dapm->component->name_prefix, "SpkrRight")) {
+			snd_soc_dapm_ignore_suspend(dapm, "SpkrRight IN");
+			snd_soc_dapm_ignore_suspend(dapm, "SpkrRight SPKR");
+		}
+	}
+
 	return 0;
 }
 
