@@ -1,6 +1,7 @@
 /* drivers/input/touchscreen/it7258_ts_i2c.c
  *
  * Copyright (C) 2014 ITE Tech. Inc.
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,31 +29,50 @@
 #define SCREEN_X_RESOLUTION		320
 #define SCREEN_Y_RESOLUTION		320
 
-#define BUF_COMMAND			0x20 /* all commands writes go to this idx */
+/* all commands writes go to this idx */
+#define BUF_COMMAND			0x20
 #define BUF_SYS_COMMAND			0x40
-#define BUF_QUERY			0x80 /* "revice ready?" and "wake up please" and "read touch data" reads go to this idx */
-#define BUF_RESPONSE			0xA0 /* most command responce reads go to this idx */
+/*
+ * "device ready?" and "wake up please" and "read touch data" reads
+ * go to this idx
+ */
+#define BUF_QUERY			0x80
+/* most command response reads go to this idx */
+#define BUF_RESPONSE			0xA0
 #define BUF_SYS_RESPONSE		0xC0
-#define BUF_POINT_INFO			0xE0 /* reads of "point" go through here and produce 14 bytes of data */
+/* reads of "point" go through here and produce 14 bytes of data */
+#define BUF_POINT_INFO			0xE0
 
-/* commands and their subcommands. when no subcommands exist, a zero is send as the second byte */
+/*
+ * commands and their subcommands. when no subcommands exist, a zero
+ * is send as the second byte
+ */
 #define CMD_IDENT_CHIP			0x00
-#define CMD_READ_VERSIONS		0x01 /* VERSION_LENGTH bytes of data in response */
-# define VER_FIRMWARE			0x00
-# define VER_CONFIG			0x06
-# define VERSION_LENGTH			10
-#define CMD_PWR_CTL			0x04 /* subcommand is zero, next byte is power mode */
-# define PWR_CTL_LOW_POWER_MODE		0x01 /* idle mode */
-# define PWR_CTL_SLEEP_MODE		0x02 /* sleep mode */
-#define CMD_UNKNOWN_7			0x07 /* command is not documented in the datasheet v1.0.0.7 */
+/* VERSION_LENGTH bytes of data in response */
+#define CMD_READ_VERSIONS		0x01
+#define VER_FIRMWARE			0x00
+#define VER_CONFIG			0x06
+#define VERSION_LENGTH			10
+/* subcommand is zero, next byte is power mode */
+#define CMD_PWR_CTL			0x04
+/* idle mode */
+#define PWR_CTL_LOW_POWER_MODE		0x01
+/* sleep mode */
+#define PWR_CTL_SLEEP_MODE		0x02
+/* command is not documented in the datasheet v1.0.0.7 */
+#define CMD_UNKNOWN_7			0x07
 #define CMD_FIRMWARE_REINIT_C		0x0C
-#define CMD_CALIBRATE			0x13 /* needs to be followed by 4 bytes of zeroes */
+/* needs to be followed by 4 bytes of zeroes */
+#define CMD_CALIBRATE			0x13
 #define CMD_FIRMWARE_UPGRADE		0x60
-# define FIRMWARE_MODE_ENTER		0x00
-# define FIRMWARE_MODE_EXIT		0x80
-#define CMD_SET_START_OFFSET		0x61 /* address for FW read/write */
-#define CMD_FW_WRITE			0x62 /* subcommand is number of bytes to write */
-#define CMD_FW_READ			0x63 /* subcommand is number of bytes to read */
+#define FIRMWARE_MODE_ENTER		0x00
+#define FIRMWARE_MODE_EXIT		0x80
+/* address for FW read/write */
+#define CMD_SET_START_OFFSET		0x61
+/* subcommand is number of bytes to write */
+#define CMD_FW_WRITE			0x62
+/* subcommand is number of bytes to read */
+#define CMD_FW_READ			0x63
 #define CMD_FIRMWARE_REINIT_6F		0x6F
 
 #define FW_WRITE_CHUNK_SIZE		128
@@ -72,7 +92,8 @@
 #define PT_INFO_BITS			0xF8
 #define BT_INFO_NONE			0x00
 #define PT_INFO_YES			0x80
-#define BT_INFO_NONE_BUT_DOWN		0x08 /* no new data but finder(s) still down */
+/* no new data but finder(s) still down */
+#define BT_INFO_NONE_BUT_DOWN		0x08
 
 /* use this to include integers in commands */
 #define CMD_UINT16(v)		((uint8_t)(v)) , ((uint8_t)((v) >> 8))
@@ -83,19 +104,21 @@ struct FingerData {
 	uint8_t hi;
 	uint8_t yLo;
 	uint8_t pressure;
-} __attribute__((packed));
+}  __packed;
 
 struct PointData {
 	uint8_t flags;
 	uint8_t palm;
 	struct FingerData fd[3];
-} __attribute__((packed));
+}  __packed;
 
 #define PD_FLAGS_DATA_TYPE_BITS		0xF0
 /* other types (like chip-detected gestures) exist but we do not care */
 #define PD_FLAGS_DATA_TYPE_TOUCH	0x00
-#define PD_FLAGS_NOT_PEN		0x08 /* set if pen touched, clear if finger(s) */
-#define PD_FLAGS_HAVE_FINGERS		0x07 /* a bit for each finger data that is valid (from lsb to msb) */
+/* set if pen touched, clear if finger(s) */
+#define PD_FLAGS_NOT_PEN		0x08
+/* a bit for each finger data that is valid (from lsb to msb) */
+#define PD_FLAGS_HAVE_FINGERS		0x07
 #define PD_PALM_FLAG_BIT		0x01
 #define FD_PRESSURE_BITS		0x0F
 #define FD_PRESSURE_NONE		0x00
@@ -110,14 +133,13 @@ struct IT7260_ts_data {
 	struct input_dev *input_dev;
 };
 
-static int8_t fwUploadResult = SYSFS_RESULT_NOT_DONE;
-static int8_t calibrationWasSuccessful = SYSFS_RESULT_NOT_DONE;
-static bool devicePresent = false;
+static int8_t fwUploadResult;
+static int8_t calibrationWasSuccessful;
+static bool devicePresent;
 static DEFINE_MUTEX(sleepModeMutex);
-static bool chipAwake = true;
-static bool hadFingerDown = false;
-static bool isDeviceSleeping = false;
-static bool isDeviceSuspend = false;
+static bool chipAwake;
+static bool hadFingerDown;
+static bool isDeviceSuspend;
 static struct input_dev *input_dev;
 static struct IT7260_ts_data *gl_ts;
 
@@ -125,7 +147,8 @@ static struct IT7260_ts_data *gl_ts;
 #define LOGI(...)	printk(DEVICE_NAME ": " __VA_ARGS__)
 
 /* internal use func - does not make sure chip is ready before read */
-static bool i2cReadNoReadyCheck(uint8_t bufferIndex, uint8_t *dataBuffer, uint16_t dataLength)
+static bool i2cReadNoReadyCheck(uint8_t bufferIndex, uint8_t *dataBuffer,
+							uint16_t dataLength)
 {
 	struct i2c_msg msgs[2] = {
 		{
@@ -147,7 +170,8 @@ static bool i2cReadNoReadyCheck(uint8_t bufferIndex, uint8_t *dataBuffer, uint16
 	return i2c_transfer(gl_ts->client->adapter, msgs, 2);
 }
 
-static bool i2cWriteNoReadyCheck(uint8_t bufferIndex, const uint8_t *dataBuffer, uint16_t dataLength)
+static bool i2cWriteNoReadyCheck(uint8_t bufferIndex,
+			const uint8_t *dataBuffer, uint16_t dataLength)
 {
 	uint8_t txbuf[257];
 	struct i2c_msg msg = {
@@ -167,16 +191,16 @@ static bool i2cWriteNoReadyCheck(uint8_t bufferIndex, const uint8_t *dataBuffer,
 }
 
 /*
- * Device is apparently always ready for i2c but not for actual register reads/writes.
- * This function ascertains it is ready for that too. the results of this call often
- * were ignored.
+ * Device is apparently always ready for i2c but not for actual
+ * register reads/writes. This function ascertains it is ready
+ * for that too. the results of this call often were ignored.
  */
 static bool waitDeviceReady(bool forever, bool slowly)
 {
 	uint8_t ucQuery;
 	uint32_t count = DEVICE_READY_MAX_WAIT;
 
-	do{
+	do {
 		if (!i2cReadNoReadyCheck(BUF_QUERY, &ucQuery, sizeof(ucQuery)))
 			ucQuery = CMD_STATUS_BUSY;
 
@@ -185,18 +209,20 @@ static bool waitDeviceReady(bool forever, bool slowly)
 		if (!forever)
 			count--;
 
-	}while((ucQuery & CMD_STATUS_BUSY) && count);
+	} while ((ucQuery & CMD_STATUS_BUSY) && count);
 
 	return !ucQuery;
 }
 
-static bool i2cRead(uint8_t bufferIndex, uint8_t *dataBuffer, uint16_t dataLength)
+static bool i2cRead(uint8_t bufferIndex, uint8_t *dataBuffer,
+						uint16_t dataLength)
 {
 	waitDeviceReady(false, false);
 	return i2cReadNoReadyCheck(bufferIndex, dataBuffer, dataLength);
 }
 
-static bool i2cWrite(uint8_t bufferIndex, const uint8_t *dataBuffer, uint16_t dataLength)
+static bool i2cWrite(uint8_t bufferIndex, const uint8_t *dataBuffer,
+							uint16_t dataLength)
 {
 	waitDeviceReady(false, false);
 	return i2cWriteNoReadyCheck(bufferIndex, dataBuffer, dataLength);
@@ -219,7 +245,8 @@ static bool chipFirmwareReinitialize(uint8_t cmdOfChoice)
 
 static bool chipFirmwareUpgradeModeEnterExit(bool enter)
 {
-	uint8_t cmd[] = {CMD_FIRMWARE_UPGRADE, 0, 'I', 'T', '7', '2', '6', '0', 0x55, 0xAA};
+	uint8_t cmd[] = {CMD_FIRMWARE_UPGRADE, 0, 'I', 'T', '7', '2',
+						'6', '0', 0x55, 0xAA};
 	uint8_t resp[2];
 
 	cmd[1] = enter ? FIRMWARE_MODE_ENTER : FIRMWARE_MODE_EXIT;
@@ -252,11 +279,13 @@ static bool chipSetStartOffset(uint16_t offset)
 
 
 /* write fwLength bytes from fwData at chip offset writeStartOffset */
-static bool chipFlashWriteAndVerify(unsigned int fwLength, const uint8_t *fwData, uint16_t writeStartOffset)
+static bool chipFlashWriteAndVerify(unsigned int fwLength,
+			const uint8_t *fwData, uint16_t writeStartOffset)
 {
 	uint32_t curDataOfst;
 
-	for (curDataOfst = 0; curDataOfst < fwLength; curDataOfst += FW_WRITE_CHUNK_SIZE) {
+	for (curDataOfst = 0; curDataOfst < fwLength;
+				curDataOfst += FW_WRITE_CHUNK_SIZE) {
 
 		uint8_t cmdWrite[2 + FW_WRITE_CHUNK_SIZE] = {CMD_FW_WRITE};
 		uint8_t bufRead[FW_WRITE_CHUNK_SIZE];
@@ -277,9 +306,10 @@ static bool chipFlashWriteAndVerify(unsigned int fwLength, const uint8_t *fwData
 		/* prepare the read command */
 		cmdRead[1] = curWriteSz;
 
-		for (nRetries = 0; nRetries < FW_WRITE_RETRY_COUNT; nRetries++) {
+		for (nRetries = 0; nRetries < FW_WRITE_RETRY_COUNT;
+							nRetries++) {
 
-			/* set write offset and write the data*/
+			/* set write offset and write the data */
 			chipSetStartOffset(writeStartOffset + curDataOfst);
 			i2cWrite(BUF_COMMAND, cmdWrite, 2 + curWriteSz);
 
@@ -289,10 +319,13 @@ static bool chipFlashWriteAndVerify(unsigned int fwLength, const uint8_t *fwData
 			i2cRead(BUF_RESPONSE, bufRead, curWriteSz);
 
 			/* verify. If success break out of retry loop */
-			for (i = 0; i < curWriteSz && bufRead[i] == cmdWrite[i + 2]; i++);
+			i = 0;
+			while (i < curWriteSz && bufRead[i] == cmdWrite[i + 2])
+				i++;
 			if (i == curWriteSz)
 				break;
-			LOGE("write of data offset %u failed on try %u at byte %u/%u\n", curDataOfst, nRetries, i, curWriteSz);
+			pr_err("write of data offset %u failed on try %u at byte %u/%u\n",
+				curDataOfst, nRetries, i, curWriteSz);
 		}
 		/* if we've failed after all the retries, tell the caller */
 		if (nRetries == FW_WRITE_RETRY_COUNT)
@@ -302,7 +335,8 @@ static bool chipFlashWriteAndVerify(unsigned int fwLength, const uint8_t *fwData
 	return true;
 }
 
-static bool chipFirmwareUpload(uint32_t fwLen, const uint8_t *fwData, uint32_t cfgLen, const uint8_t *cfgData)
+static bool chipFirmwareUpload(uint32_t fwLen, const uint8_t *fwData,
+				uint32_t cfgLen, const uint8_t *cfgData)
 {
 	bool success = false;
 
@@ -317,7 +351,8 @@ static bool chipFirmwareUpload(uint32_t fwLen, const uint8_t *fwData, uint32_t c
 	}
 
 	/* flash config data if requested */
-	if (fwLen && fwData && !chipFlashWriteAndVerify(cfgLen, cfgData, CHIP_FLASH_SIZE - cfgLen)) {
+	if (fwLen && fwData && !chipFlashWriteAndVerify(cfgLen, cfgData,
+						CHIP_FLASH_SIZE - cfgLen)) {
 		LOGE("failed to upload touch cfg data\n");
 		goto out;
 	}
@@ -325,8 +360,10 @@ static bool chipFirmwareUpload(uint32_t fwLen, const uint8_t *fwData, uint32_t c
 	success = true;
 
 out:
-	return chipFirmwareUpgradeModeEnterExit(false) && chipFirmwareReinitialize(CMD_FIRMWARE_REINIT_6F) && success;
+	return chipFirmwareUpgradeModeEnterExit(false) &&
+		chipFirmwareReinitialize(CMD_FIRMWARE_REINIT_6F) && success;
 }
+
 
 /*
  * both buffers should be VERSION_LENGTH in size,
@@ -334,15 +371,22 @@ out:
  */
 static bool chipGetVersions(uint8_t *verFw, uint8_t *verCfg, bool logIt)
 {
-	/* this code to get versions is reproduced as was written, but it does not make sense. Something here *PROBABLY IS* wrong */
+	/*
+	 * this code to get versions is reproduced as was written, but it does
+	 * not make sense. Something here *PROBABLY IS* wrong
+	 */
 	static const uint8_t cmdReadFwVer[] = {CMD_READ_VERSIONS, VER_FIRMWARE};
 	static const uint8_t cmdReadCfgVer[] = {CMD_READ_VERSIONS, VER_CONFIG};
 	bool ret = true;
 
-	/* this structure is so that we definitely do all the calls, but still return a status in case anyone cares */
+	/*
+	 * this structure is so that we definitely do all the calls, but still
+	 * return a status in case anyone cares
+	 */
 	ret = i2cWrite(BUF_COMMAND, cmdReadFwVer, sizeof(cmdReadFwVer)) && ret;
 	ret = i2cRead(BUF_RESPONSE, verFw, VERSION_LENGTH) && ret;
-	ret = i2cWrite(BUF_COMMAND, cmdReadCfgVer, sizeof(cmdReadCfgVer)) && ret;
+	ret = i2cWrite(BUF_COMMAND, cmdReadCfgVer,
+					sizeof(cmdReadCfgVer)) && ret;
 	ret = i2cRead(BUF_RESPONSE, verCfg, VERSION_LENGTH) && ret;
 
 	if (logIt)
@@ -353,26 +397,28 @@ static bool chipGetVersions(uint8_t *verFw, uint8_t *verCfg, bool logIt)
 	return ret;
 }
 
-static ssize_t sysfsUpgradeStore(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t sysfsUpgradeStore(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
 {
 	const struct firmware *fw, *cfg;
 	uint8_t verFw[10], verCfg[10];
 	unsigned fwLen = 0, cfgLen = 0;
 	bool manualUpgrade, success;
-	int mode = 0;
+	int mode = 0, ret;
 
-	if (request_firmware(&fw, "it7260.fw", dev))
+	ret = request_firmware(&fw, "it7260.fw", dev);
+	if (ret)
 		LOGE("failed to get firmware for it7260\n");
 	else
 		fwLen = fw->size;
 
-
-	if (request_firmware(&cfg, "it7260.cfg", dev))
+	ret = request_firmware(&cfg, "it7260.cfg", dev);
+	if (ret)
 		LOGE("failed to get config data for it7260\n");
 	else
 		cfgLen = cfg->size;
 
-	sscanf(buf, "%d", &mode);
+	ret = kstrtoint(buf, 10, &mode);
 	manualUpgrade = mode == SYSFS_FW_UPLOAD_MODE_MANUAL;
 	LOGI("firmware found %ub of fw and %ub of config in %s mode\n",
 		fwLen, cfgLen, manualUpgrade ? "manual" : "normal");
@@ -389,13 +435,14 @@ static ssize_t sysfsUpgradeStore(struct device *dev, struct device_attribute *at
 			verCfg[4] < cfg->data[cfgLen - 5])){
 			LOGI("firmware/config will be upgraded\n");
 			disable_irq(gl_ts->client->irq);
-			success = chipFirmwareUpload(fwLen, fw->data, cfgLen, cfg->data);
+			success = chipFirmwareUpload(fwLen, fw->data, cfgLen,
+								cfg->data);
 			enable_irq(gl_ts->client->irq);
 
-			fwUploadResult = success ? SYSFS_RESULT_SUCCESS : SYSFS_RESULT_FAIL;
+			fwUploadResult = success ?
+				SYSFS_RESULT_SUCCESS : SYSFS_RESULT_FAIL;
 			LOGI("upload %s\n", success ? "success" : "failed");
-		}
-		else {
+		} else {
 			LOGI("firmware/config upgrade not needed\n");
 		}
 	}
@@ -409,14 +456,16 @@ static ssize_t sysfsUpgradeStore(struct device *dev, struct device_attribute *at
 	return count;
 }
 
-static ssize_t sysfsUpgradeShow(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t sysfsUpgradeShow(struct device *dev,
+				struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%d", fwUploadResult);
+	return snprintf(buf, MAX_BUFFER_SIZE, "%d", fwUploadResult);
 }
 
-static ssize_t sysfsCalibrationShow(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t sysfsCalibrationShow(struct device *dev,
+				struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%d", calibrationWasSuccessful);
+	return snprintf(buf, MAX_BUFFER_SIZE, "%d", calibrationWasSuccessful);
 }
 
 static bool chipSendCalibrationCmd(bool autoTuneOn)
@@ -425,52 +474,68 @@ static bool chipSendCalibrationCmd(bool autoTuneOn)
 	return i2cWrite(BUF_COMMAND, cmdCalibrate, sizeof(cmdCalibrate));
 }
 
-static ssize_t sysfsCalibrationStore(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t sysfsCalibrationStore(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
 {
 	uint8_t resp;
 
 	if (!chipSendCalibrationCmd(false))
 		LOGE("failed to send calibration command\n");
 	else {
-		calibrationWasSuccessful = i2cRead(BUF_RESPONSE, &resp, sizeof(resp)) ? SYSFS_RESULT_SUCCESS : SYSFS_RESULT_FAIL;
+		calibrationWasSuccessful =
+			i2cRead(BUF_RESPONSE, &resp, sizeof(resp))
+			? SYSFS_RESULT_SUCCESS : SYSFS_RESULT_FAIL;
 
-		/* previous logic that was here never called chipFirmwareReinitialize() due to checking a guaranteed-not-null value against null. We now call it. Hopefully this is OK */
+		/*
+		 * previous logic that was here never called
+		 * chipFirmwareReinitialize() due to checking a
+		 * guaranteed-not-null value against null. We now
+		 * call it. Hopefully this is OK
+		 */
 		if (!resp)
-			LOGI("chipFirmwareReinitialize -> %s\n", chipFirmwareReinitialize(CMD_FIRMWARE_REINIT_6F) ? "success" : "fail");
+			LOGI("chipFirmwareReinitialize -> %s\n",
+			chipFirmwareReinitialize(CMD_FIRMWARE_REINIT_6F)
+			? "success" : "fail");
 	}
 
 	return count;
 }
 
-static ssize_t sysfsPointShow(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t sysfsPointShow(struct device *dev,
+				struct device_attribute *attr, char *buf)
 {
 	uint8_t pointData[sizeof(struct PointData)];
 	bool readSuccess;
 	ssize_t ret;
 
-	readSuccess = i2cReadNoReadyCheck(BUF_POINT_INFO, pointData, sizeof(pointData));
-	ret = sprintf(buf, "point_show read ret[%d]--point[%x][%x][%x][%x][%x][%x][%x][%x][%x][%x][%x][%x][%x][%x]=\n",
-		readSuccess, pointData[0],pointData[1],pointData[2],pointData[3],
-		pointData[4],pointData[5],pointData[6],pointData[7],pointData[8],
-		pointData[9],pointData[10],pointData[11],pointData[12],pointData[13]);
-
+	readSuccess = i2cReadNoReadyCheck(BUF_POINT_INFO, pointData,
+							sizeof(pointData));
+	ret = snprintf(buf, MAX_BUFFER_SIZE,
+		"point_show read ret[%d]--point[%x][%x][%x][%x][%x][%x][%x][%x][%x][%x][%x][%x][%x][%x]=\n",
+		readSuccess, pointData[0], pointData[1], pointData[2],
+		pointData[3], pointData[4], pointData[5], pointData[6],
+		pointData[7], pointData[8], pointData[9], pointData[10],
+		pointData[11], pointData[12], pointData[13]);
 
 	LOGI("%s", buf);
 
 	return ret;
 }
 
-static ssize_t sysfsPointStore(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t sysfsPointStore(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
 {
 	return count;
 }
 
-static ssize_t sysfsStatusShow(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t sysfsStatusShow(struct device *dev,
+			struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%d\n", devicePresent ? 1 : 0);
+	return snprintf(buf, MAX_BUFFER_SIZE, "%d\n", devicePresent ? 1 : 0);
 }
 
-static ssize_t sysfsStatusStore(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t sysfsStatusStore(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
 {
 	uint8_t verFw[10], verCfg[10];
 
@@ -479,68 +544,82 @@ static ssize_t sysfsStatusStore(struct device *dev, struct device_attribute *att
 	return count;
 }
 
-static ssize_t sysfsVersionShow(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t sysfsVersionShow(struct device *dev,
+				struct device_attribute *attr, char *buf)
 {
 	uint8_t verFw[10], verCfg[10];
 
 	chipGetVersions(verFw, verCfg, false);
-	return sprintf(buf, "%x,%x,%x,%x # %x,%x,%x,%x\n",verFw[5], verFw[6], verFw[7], verFw[8], verCfg[1], verCfg[2], verCfg[3], verCfg[4]);
+	return snprintf(buf, MAX_BUFFER_SIZE, "%x,%x,%x,%x # %x,%x,%x,%x\n",
+			verFw[5], verFw[6], verFw[7], verFw[8],
+			verCfg[1], verCfg[2], verCfg[3], verCfg[4]);
 }
 
-static ssize_t sysfsVersionStore(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t sysfsVersionStore(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
 {
 	return count;
 }
 
-static ssize_t sysfsSleepShow(struct device *dev, struct device_attribute *attr, char *buf)
+static ssize_t sysfsSleepShow(struct device *dev,
+			struct device_attribute *attr, char *buf)
 {
 	/*
-	 * The usefulness of this was questionable at best - we were at least leaking a byte of
-	 * kernel data (by claiming to return a byte but not writing to buf. To fix this now
-	 * we actually return the sleep status
+	 * The usefulness of this was questionable at best - we were at least
+	 * leaking a byte of kernel data (by claiming to return a byte but not
+	 * writing to buf. To fix this now we actually return the sleep status
 	 */
 	if (!mutex_lock_interruptible(&sleepModeMutex)) {
 		*buf = chipAwake ? '1' : '0';
 		mutex_unlock(&sleepModeMutex);
 		return 1;
-	}
-	else
+	} else {
 		return -EINTR;
+	}
 }
 
-static ssize_t sysfsSleepStore(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+static ssize_t sysfsSleepStore(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
 {
-	static const uint8_t cmdGoSleep[] = {CMD_PWR_CTL, 0x00, PWR_CTL_SLEEP_MODE};
-	int goToSleepVal;
+	static const uint8_t cmdGoSleep[] = {CMD_PWR_CTL,
+					0x00, PWR_CTL_SLEEP_MODE};
+	int goToSleepVal, ret;
 	bool goToWake;
 	uint8_t dummy;
 
-	sscanf(buf, "%d", &goToSleepVal);
-	goToWake = !goToSleepVal;	/* convert to bool of proper polarity */
+	ret = kstrtoint(buf, 10, &goToSleepVal);
+	/* convert to bool of proper polarity */
+	goToWake = !goToSleepVal;
 
 	if (!mutex_lock_interruptible(&sleepModeMutex)) {
 		if ((chipAwake && goToWake) || (!chipAwake && !goToWake))
-			LOGE("duplicate request to %s chip\n", goToWake ? "wake" : "sleep");
+			LOGE("duplicate request to %s chip\n",
+				goToWake ? "wake" : "sleep");
 		else if (goToWake) {
 			i2cReadNoReadyCheck(BUF_QUERY, &dummy, sizeof(dummy));
 			enable_irq(gl_ts->client->irq);
-			LOGI("touch is going to wake!\n\n");
+			LOGI("touch is going to wake!\n");
 		} else {
 			disable_irq(gl_ts->client->irq);
-			i2cWriteNoReadyCheck(BUF_COMMAND, cmdGoSleep, sizeof(cmdGoSleep));
-			LOGI("touch is going to sleep...\n\n");
+			i2cWriteNoReadyCheck(BUF_COMMAND, cmdGoSleep,
+						sizeof(cmdGoSleep));
+			LOGI("touch is going to sleep...\n");
 		}
 		chipAwake = goToWake;
 		mutex_unlock(&sleepModeMutex);
 		return count;
-	} else
+	} else {
 		return -EINTR;
+	}
 }
 
 
-static DEVICE_ATTR(status, S_IRUGO|S_IWUSR|S_IWGRP, sysfsStatusShow, sysfsStatusStore);
-static DEVICE_ATTR(version, S_IRUGO|S_IWUSR|S_IWGRP, sysfsVersionShow, sysfsVersionStore);
-static DEVICE_ATTR(sleep, S_IRUGO|S_IWUSR|S_IWGRP, sysfsSleepShow, sysfsSleepStore);
+static DEVICE_ATTR(status, S_IRUGO|S_IWUSR|S_IWGRP,
+				sysfsStatusShow, sysfsStatusStore);
+static DEVICE_ATTR(version, S_IRUGO|S_IWUSR|S_IWGRP,
+				sysfsVersionShow, sysfsVersionStore);
+static DEVICE_ATTR(sleep, S_IRUGO|S_IWUSR|S_IWGRP,
+				sysfsSleepShow, sysfsSleepStore);
 
 static struct attribute *it7260_attrstatus[] = {
 	&dev_attr_status.attr,
@@ -553,10 +632,12 @@ static const struct attribute_group it7260_attrstatus_group = {
 	.attrs = it7260_attrstatus,
 };
 
-static DEVICE_ATTR(calibration, S_IRUGO|S_IWUSR|S_IWGRP, sysfsCalibrationShow, sysfsCalibrationStore);
-static DEVICE_ATTR(upgrade, S_IRUGO|S_IWUSR|S_IWGRP, sysfsUpgradeShow, sysfsUpgradeStore);
-static DEVICE_ATTR(point, S_IRUGO|S_IWUSR|S_IWGRP, sysfsPointShow, sysfsPointStore);
-
+static DEVICE_ATTR(calibration, S_IRUGO|S_IWUSR|S_IWGRP,
+			sysfsCalibrationShow, sysfsCalibrationStore);
+static DEVICE_ATTR(upgrade, S_IRUGO|S_IWUSR|S_IWGRP,
+			sysfsUpgradeShow, sysfsUpgradeStore);
+static DEVICE_ATTR(point, S_IRUGO|S_IWUSR|S_IWGRP,
+			sysfsPointShow, sysfsPointStore);
 
 static struct attribute *it7260_attributes[] = {
 	&dev_attr_calibration.attr,
@@ -573,7 +654,8 @@ static void chipExternalCalibration(bool autoTuneEnabled)
 {
 	uint8_t resp[2];
 
-	LOGI("sent calibration command -> %d\n", chipSendCalibrationCmd(autoTuneEnabled));
+	LOGI("sent calibration command -> %d\n",
+			chipSendCalibrationCmd(autoTuneEnabled));
 	waitDeviceReady(true, true);
 	i2cReadNoReadyCheck(BUF_RESPONSE, resp, sizeof(resp));
 	chipFirmwareReinitialize(CMD_FIRMWARE_REINIT_C);
@@ -585,7 +667,8 @@ void sendCalibrationCmd(void)
 }
 EXPORT_SYMBOL(sendCalibrationCmd);
 
-static void readFingerData(uint16_t *xP, uint16_t *yP, uint8_t *pressureP, const struct FingerData *fd)
+static void readFingerData(uint16_t *xP, uint16_t *yP, uint8_t *pressureP,
+						const struct FingerData *fd)
 {
 	uint16_t x = fd->xLo;
 	uint16_t y = fd->yLo;
@@ -611,15 +694,19 @@ static void readTouchDataPoint(void)
 	/* verify there is point data to read & it is readable and valid */
 	i2cReadNoReadyCheck(BUF_QUERY, &devStatus, sizeof(devStatus));
 	if (!((devStatus & PT_INFO_BITS) & PT_INFO_YES)) {
-		LOGE("readTouchDataPoint() called when no data available (0x%02X)\n", devStatus);
+		pr_err("readTouchDataPoint() called when no data available (0x%02X)\n",
+								devStatus);
 		return;
 	}
-	if (!i2cReadNoReadyCheck(BUF_POINT_INFO, (void*)&pointData, sizeof(pointData))) {
-		LOGE("readTouchDataPoint() failed to read point data buffer\n");
+	if (!i2cReadNoReadyCheck(BUF_POINT_INFO, (void *)&pointData,
+						sizeof(pointData))) {
+		pr_err("readTouchDataPoint() failed to read point data buffer\n");
 		return;
 	}
-	if ((pointData.flags & PD_FLAGS_DATA_TYPE_BITS) != PD_FLAGS_DATA_TYPE_TOUCH) {
-		LOGE("readTouchDataPoint() dropping non-point data of type 0x%02X\n", pointData.flags);
+	if ((pointData.flags & PD_FLAGS_DATA_TYPE_BITS) !=
+					PD_FLAGS_DATA_TYPE_TOUCH) {
+		pr_err("readTouchDataPoint() dropping non-point data of type 0x%02X\n",
+							pointData.flags);
 		return;
 	}
 
@@ -649,20 +736,15 @@ static void readTouchDataPoint(void)
 
 static irqreturn_t IT7260_ts_threaded_handler(int irq, void *devid)
 {
-	smp_rmb();
-	if (isDeviceSleeping) {
-		smp_wmb();
-	} else {
-		readTouchDataPoint();
-	}
-
+	readTouchDataPoint();
 	return IRQ_HANDLED;
 }
 
 static bool chipIdentifyIT7260(void)
 {
 	static const uint8_t cmdIdent[] = {CMD_IDENT_CHIP};
-	static const uint8_t expectedID[] = {0x0A, 'I', 'T', 'E', '7', '2', '6', '0'};
+	static const uint8_t expectedID[] = {0x0A, 'I', 'T', 'E', '7',
+							'2', '6', '0'};
 	uint8_t chipID[10] = {0,};
 
 	waitDeviceReady(true, false);
@@ -678,7 +760,7 @@ static bool chipIdentifyIT7260(void)
 		LOGE("i2cRead() failed\n");
 		return false;
 	}
-	pr_info("chipIdentifyIT7260 read id: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",
+	LOGI("chipIdentifyIT7260 read id: %02X %c%c%c%c%c%c%ci %c%c\n",
 		chipID[0], chipID[1], chipID[2], chipID[3], chipID[4],
 		chipID[5], chipID[6], chipID[7], chipID[8], chipID[9]);
 
@@ -690,12 +772,14 @@ static bool chipIdentifyIT7260(void)
 	else if (chipID[8] == '6' && chipID[9] == '6')
 		LOGI("rev BX4 found\n");
 	else
-		LOGI("unknown revision (0x%02X 0x%02X) found\n", chipID[8], chipID[9]);
+		LOGI("unknown revision (0x%02X 0x%02X) found\n",
+						chipID[8], chipID[9]);
 
 	return true;
 }
 
-static int IT7260_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
+static int IT7260_ts_probe(struct i2c_client *client,
+				const struct i2c_device_id *id)
 {
 	static const uint8_t cmdStart[] = {CMD_UNKNOWN_7};
 	struct IT7260_i2c_platform_data *pdata;
@@ -729,7 +813,7 @@ static int IT7260_ts_probe(struct i2c_client *client, const struct i2c_device_id
 	}
 
 	if (!chipIdentifyIT7260()) {
-		LOGI ("chipIdentifyIT7260 FAIL");
+		LOGI("chipIdentifyIT7260 FAIL");
 		goto err_ident_fail_or_input_alloc;
 	}
 
@@ -762,7 +846,8 @@ static int IT7260_ts_probe(struct i2c_client *client, const struct i2c_device_id
 		goto err_input_register;
 	}
 
-	if (request_threaded_irq(client->irq, NULL, IT7260_ts_threaded_handler, IRQF_TRIGGER_LOW | IRQF_ONESHOT, client->name, gl_ts)) {
+	if (request_threaded_irq(client->irq, NULL, IT7260_ts_threaded_handler,
+		IRQF_TRIGGER_LOW | IRQF_ONESHOT, client->name, gl_ts)) {
 		dev_err(&client->dev, "request_irq failed\n");
 		goto err_irq_reg;
 	}
