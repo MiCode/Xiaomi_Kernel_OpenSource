@@ -55,13 +55,35 @@ struct qmi_txn {
 	wait_queue_head_t wait_q;
 };
 
+/**
+ * svc_addr - Data structure to maintain a list of service addresses.
+ * @list_node: Service address list node used by "svc_addr_list"
+ * @port_addr: Service address in <node_id:port_id>.
+ */
+struct svc_addr {
+	struct list_head list_node;
+	struct msm_ipc_port_addr port_addr;
+};
+
+/**
+ * svc_event_nb - Service event notification structure.
+ * @nb_lock: Spinlock for the notifier block lists.
+ * @service_id: Service id for which list of notifier blocks are maintained.
+ * @instance_id: Instance id for which list of notifier blocks are maintained.
+ * @svc_event_rcvr_list: List of notifier blocks which clients have registered.
+ * @list: Used to chain this structure in a global list.
+ * @svc_addr_list_lock: Lock to protect @svc_addr_list.
+ * @svc_addr_list: List for mantaining all the address for a specific
+ *			<service_id:instance_id>.
+ */
 struct svc_event_nb {
 	spinlock_t nb_lock;
 	uint32_t service_id;
 	uint32_t instance_id;
-	int svc_avail;
 	struct raw_notifier_head svc_event_rcvr_list;
 	struct list_head list;
+	struct mutex svc_addr_list_lock;
+	struct list_head svc_addr_list;
 };
 
 /**
