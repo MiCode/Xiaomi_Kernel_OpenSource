@@ -140,6 +140,20 @@ enum mdp_mmap_type {
 	MDP_FB_MMAP_PHYSICAL_ALLOC,
 };
 
+/* enum mdp_fb_state - Holds current state of fb device.
+ *
+ * @MDP_FB_STATE_NONE: Unknown type.
+ * @MDP_FB_STATE_IDLE:   fb device in idle state
+ * @MDP_FB_STATE_TOUCH_AWAKE:  fb device received a touch event
+ * @MDP_FB_STATE_AWAKE:  fb device in awake state
+ */
+enum mdp_fb_state {
+	MDP_FB_STATE_NONE,
+	MDP_FB_STATE_IDLE,
+	MDP_FB_STATE_TOUCH_AWAKE,
+	MDP_FB_STATE_AWAKE
+};
+
 struct disp_info_type_suspend {
 	int op_enable;
 	int panel_power_state;
@@ -206,6 +220,7 @@ struct msm_mdp_interface {
 	void (*check_dsi_status)(struct work_struct *work, uint32_t interval);
 	int (*configure_panel)(struct msm_fb_data_type *mfd, int mode,
 				int dest_ctrl);
+	int (*input_event_handler)(struct msm_fb_data_type *mfd);
 	void *private1;
 };
 
@@ -323,6 +338,9 @@ struct msm_fb_data_type {
 	enum dyn_mode_switch_state switch_state;
 	u32 switch_new_mode;
 	struct mutex switch_lock;
+	struct work_struct mdss_fb_input_work;
+	enum mdp_fb_state fb_state;
+	struct input_handler *input_handler;
 };
 
 /* Function returns true for either any kind of dual display */
@@ -370,6 +388,18 @@ static inline bool mdss_fb_is_hdmi_primary(struct msm_fb_data_type *mfd)
 {
 	return (mfd && (mfd->index == 0) &&
 		(mfd->panel_info->type == DTV_PANEL));
+}
+
+static inline bool is_fb_awake(struct msm_fb_data_type *mfd)
+{
+	return mfd &&
+		((mfd->fb_state == MDP_FB_STATE_TOUCH_AWAKE) ||
+		(mfd->fb_state == MDP_FB_STATE_AWAKE));
+}
+
+static inline bool is_fb_idle(struct msm_fb_data_type *mfd)
+{
+	return mfd && (mfd->fb_state == MDP_FB_STATE_IDLE);
 }
 
 int mdss_fb_get_phys_info(dma_addr_t *start, unsigned long *len, int fb_num);

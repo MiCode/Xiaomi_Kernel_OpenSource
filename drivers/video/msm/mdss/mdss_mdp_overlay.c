@@ -4626,6 +4626,9 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 		__vsync_retire_signal(mfd, mdp5_data->retire_cnt);
 	}
 
+	if (mfd->input_handler)
+		cancel_work_sync(&mfd->mdss_fb_input_work);
+
 ctl_stop:
 	mutex_lock(&mdp5_data->ov_lock);
 	rc = mdss_mdp_ctl_stop(mdp5_data->ctl, mfd->panel_power_state);
@@ -4958,6 +4961,33 @@ static int mdss_mdp_update_panel_info(struct msm_fb_data_type *mfd,
 	return 0;
 }
 
+static int mdss_mdp_input_event_handler(struct msm_fb_data_type *mfd)
+{
+	struct mdss_panel_data *pdata;
+	struct mdss_mdp_ctl *ctl;
+	int rc = 0;
+
+	ctl = mfd_to_ctl(mfd);
+	if (!ctl) {
+		pr_err("Invalid ctl\n");
+		return -EINVAL;
+	}
+
+	pdata = dev_get_platdata(&mfd->pdev->dev);
+	if (!pdata) {
+		pr_err("Unable to retrieve pdata\n");
+		return -ENODEV;
+	}
+
+	/*
+	* Set max fps, when coming out of static screen.
+	*/
+	pdata->panel_info.new_fps = pdata->panel_info.max_fps;
+	rc = mdss_mdp_ctl_update_fps(ctl);
+
+	return rc;
+}
+
 int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 {
 	struct device *dev = mfd->fbi->dev;
@@ -4997,6 +5027,7 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mdp5_interface->get_sync_fnc = mdss_mdp_rotator_sync_pt_get;
 	mdp5_interface->splash_init_fnc = mdss_mdp_splash_init;
 	mdp5_interface->configure_panel = mdss_mdp_update_panel_info;
+	mdp5_interface->input_event_handler = mdss_mdp_input_event_handler;
 
 	INIT_LIST_HEAD(&mdp5_data->pipes_used);
 	INIT_LIST_HEAD(&mdp5_data->pipes_cleanup);
