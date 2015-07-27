@@ -1484,24 +1484,28 @@ static int qpnp_hap_set(struct qpnp_hap *hap, int on)
 	} else if (hap->play_mode == QPNP_HAP_BUFFER ||
 			hap->play_mode == QPNP_HAP_DIRECT) {
 		if (on) {
+			if (hap->correct_lra_drive_freq ||
+				hap->auto_res_mode == QPNP_HAP_AUTO_RES_QWD)
+				qpnp_hap_auto_res_enable(hap, 0);
+
 			rc = qpnp_hap_mod_enable(hap, on);
 			if (rc < 0)
 				return rc;
 
-			if (hap->correct_lra_drive_freq)
-				qpnp_hap_auto_res_enable(hap, 0);
-
 			rc = qpnp_hap_play(hap, on);
 
 			if (hap->act_type == QPNP_HAP_LRA &&
-					hap->correct_lra_drive_freq) {
+				(hap->correct_lra_drive_freq ||
+				hap->auto_res_mode == QPNP_HAP_AUTO_RES_QWD)) {
 				usleep_range(AUTO_RES_ENABLE_TIMEOUT,
 					(AUTO_RES_ENABLE_TIMEOUT + 1));
 
 				rc = qpnp_hap_auto_res_enable(hap, 1);
 				if (rc < 0)
 					return rc;
-
+			}
+			if (hap->act_type == QPNP_HAP_LRA &&
+						hap->correct_lra_drive_freq) {
 				/*
 				 * Start timer to poll Auto Resonance error bit
 				 */
