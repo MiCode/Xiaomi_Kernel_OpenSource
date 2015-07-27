@@ -1,0 +1,17 @@
+Qualcomm Technologies, Inc. Dynamic Heap Allocator
+
+The MSM ADSPRPC memory device allocates memory, when remote processor(ADSP)
+requests memory from application subsystem for use cases where it does not
+have enough memory available locally and later release the memory when
+use case ends.
+
+Required properties:
+-compatible: Must be "qcom,msm-adsprpc-mem-region"
+-linux,contiguous-region: A phandle that points to a memory heap where the
+dynamic heap memory is allocated
+
+Example:
+	qcom,adsprpc-mem {
+		compatible = "qcom,msm-adsprpc-mem-region";
+		linux,contiguous-region = <&adsp_mem>;
+	};

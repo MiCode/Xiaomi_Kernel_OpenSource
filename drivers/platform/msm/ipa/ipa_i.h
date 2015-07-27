@@ -498,6 +498,10 @@ struct ipa_wlan_comm_memb {
  * @skip_ep_cfg: boolean field that determines if EP should be configured
  *  by IPA driver
  * @keep_ipa_awake: when true, IPA will not be clock gated
+ * @rx_replenish_threshold: Indicates the WM value which requires the RX
+ *                          descriptors replenish function to be called to
+ *                          avoid the RX pipe to run out of descriptors
+ *                          and cause HOLB.
  */
 struct ipa_ep_context {
 	int valid;
@@ -525,7 +529,7 @@ struct ipa_ep_context {
 	bool keep_ipa_awake;
 	struct ipa_wlan_stats wstats;
 	u32 wdi_state;
-
+	u32 rx_replenish_threshold;
 	/* sys MUST be the last element of this struct */
 	struct ipa_sys_context *sys;
 };
@@ -1545,6 +1549,7 @@ int ipa_tag_process(struct ipa_desc *desc, int num_descs,
 		    unsigned long timeout);
 
 int ipa_q6_cleanup(void);
+int ipa_q6_pipe_reset(void);
 int ipa_init_q6_smem(void);
 
 int ipa_sps_connect_safe(struct sps_pipe *h, struct sps_connect *connect,
@@ -1582,6 +1587,7 @@ int ipa_uc_mhi_stop_event_update_channel(int channelHandle);
 int ipa_uc_mhi_print_stats(char *dbg_buff, int size);
 int ipa_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);
 u32 ipa_get_num_pipes(void);
+u32 ipa_get_sys_yellow_wm(void);
 int ipa_smmu_map_peer_bam(unsigned long dev);
 int ipa_smmu_unmap_peer_bam(unsigned long dev);
 struct ipa_smmu_cb_ctx *ipa_get_wlan_smmu_ctx(void);

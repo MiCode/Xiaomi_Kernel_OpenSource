@@ -49,6 +49,29 @@
 	};
 };
 
+&i2c_8 { /* BLSP2 QUP4 */
+	/* DSI_TO_HDMI I2C configuration */
+	adv7533@39 {
+		compatible = "adv7533";
+		reg = <0x39>;
+		adi,video-mode = <3>; /* 3 = 1080p */
+		adi,main-addr = <0x39>;
+		adi,cec-dsi-addr = <0x3C>;
+		adi,enable-audio;
+		pinctrl-names = "pmx_adv7533_active","pmx_adv7533_suspend";
+		pinctrl-0 = <&adv7533_int_active &adv7533_hpd_int_active>;
+		pinctrl-1 = <&adv7533_int_suspend &adv7533_hpd_int_suspend>;
+		adi,irq-gpio = <&msm_gpio 135 0x2002>;
+		adi,hpd-irq-gpio = <&msm_gpio 52 0x2003>;
+		hpd-5v-en-supply = <&adv_vreg>;
+		qcom,supply-names = "hpd-5v-en";
+		qcom,min-voltage-level = <0>;
+		qcom,max-voltage-level = <0>;
+		qcom,enable-load = <0>;
+		qcom,disable-load = <0>;
+	};
+};
+
 &soc {
 	gpio_keys {
 		compatible = "gpio-keys";
@@ -92,15 +115,22 @@
 
 	sound-9335 {
 		qcom,msm-gpios =
+			"quin_i2s",
 			"us_eu_gpio";
 		qcom,pinctrl-names =
 			"all_off",
-			"us_eu_gpio_act";
+			"quin_act",
+			"us_eu_gpio_act",
+			"quin_us_eu_gpio_act";
 		pinctrl-names =
 			"all_off",
-			"us_eu_gpio_act";
-		pinctrl-0 = <&cross_conn_det_sus>;
-		pinctrl-1 = <&cross_conn_det_act>;
+			"quin_act",
+			"us_eu_gpio_act",
+			"quin_us_eu_gpio_act";
+		pinctrl-0 = <&pri_tlmm_lines_sus &cross_conn_det_sus>;
+		pinctrl-1 = <&pri_tlmm_lines_act &cross_conn_det_sus>;
+		pinctrl-2 = <&pri_tlmm_lines_sus &cross_conn_det_act>;
+		pinctrl-3 = <&pri_tlmm_lines_act &cross_conn_det_act>;
 		qcom,cdc-us-euro-gpios = <&msm_gpio 144 0>;
 	};
 };
@@ -233,4 +263,25 @@
 			};
 		};
 	};
+};
+
+&pm8004_mpps {
+	mpp@a300 { /* PM8004 MPP4 */
+		/* HDMI_vreg regulator enable */
+		qcom,mode = <1>;                /* Digital output */
+		qcom,output-type = <0>;         /* CMOS logic */
+		qcom,vin-sel = <0>;             /* VPH_PWR */
+		qcom,src-sel = <0>;             /* Constant */
+		qcom,master-en = <1>;           /* Enable MPP */
+	};
+};
+
+&pmx_adv7533_int {
+	qcom,num-grp-pins = <1>;
+	qcom,pins = <&gp 135>;
+};
+
+&pmx_adv7533_hpd_int {
+	qcom,num-grp-pins = <1>;
+	qcom,pins = <&gp 52>;
 };

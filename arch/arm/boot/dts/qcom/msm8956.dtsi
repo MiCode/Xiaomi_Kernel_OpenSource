@@ -210,10 +210,10 @@
                 reg = <0x1800000 0x80000>;
                 reg-names = "cc_base";
 		vdd_gfx-supply = <&gfx_vreg_corner>;
-		/* TODO: gpu_handle */
+		gpu_handle = <&msm_gpu>;
                 qcom,gfxfreq-corner =
 			<         0   0 >,
-			< 100000000   1 >,  /* Min SVS   */
+			< 133333333   1 >,  /* Min SVS   */
 			< 200000000   1 >,  /* Low SVS   */
 			< 266666667   1 >,  /* SVS Minus */
 			< 300000000   1 >,  /* SVS       */
@@ -239,16 +239,46 @@
 
 	clock_cpu: qcom,cpu-clock-8976@b016000 {
 		compatible = "qcom,cpu-clock-8976";
-		reg = <0xb116000 0x40>,
-		      <0xb016000 0x40>,
-		      <0xb1d0000 0x40>,
-		      <0xb111050 0x08>,
-		      <0xb011050 0x08>,
-		      <0xb1d1050 0x08>,
-		      <0x00a412c 0x08>;
-		reg-names = "c0-pll", "c1-pll", "cci-pll",
+		reg =   <0xb114000  0x68>,
+			<0xb014000  0x68>,
+			<0xb116000  0x40>,
+			<0xb016000  0x40>,
+			<0xb1d0000  0x40>,
+			<0xb111050  0x08>,
+			<0xb011050  0x08>,
+			<0xb1d1050  0x08>,
+			<0x00a412c  0x08>;
+		reg-names = "rcgwr-c0-base", "rcgwr-c1-base",
+			    "c0-pll", "c1-pll", "cci-pll",
 			    "c0-mux", "c1-mux", "cci-mux",
 			    "efuse";
+		/* RCGwR settings */
+		qcom,num-clusters = <2>;
+		qcom,lmh-sid-c0  = < 0x30 0x077706db>,
+				   < 0x34 0x05550249>,
+				   < 0x38 0x00000111>;
+		qcom,link-sid-c0 = < 0x40 0x000fc987>;
+		qcom,dfs-sid-c0  = < 0x10 0xfefebff7>,
+				   < 0x14 0xfdff7fef>,
+				   < 0x18 0xfbffdefb>,
+				   < 0x1c 0xb69b5555>,
+				   < 0x20 0x24929249>,
+				   < 0x24 0x49241112>,
+				   < 0x28 0x11112111>,
+				   < 0x2c 0x00008102>;
+		qcom,lmh-sid-c1  = < 0x30 0x077706db>,
+				   < 0x34 0x05550249>,
+				   < 0x38 0x00000111>;
+		qcom,link-sid-c1 = < 0x40 0x000fc987>;
+		qcom,dfs-sid-c1  = < 0x10 0xfefebff7>,
+				   < 0x14 0xfdff7fef>,
+				   < 0x18 0xfbffdefb>,
+				   < 0x1c 0xb69b5555>,
+				   < 0x20 0x24929249>,
+				   < 0x24 0x49241112>,
+				   < 0x28 0x11112111>,
+				   < 0x2c 0x00008102>;
+
 		vdd_mx_hf-supply = <&pm8950_s6_level_ao>;
 		vdd_hf_pll-supply = <&pm8950_l7_ao>;
 		vdd_mx_sr-supply = <&pm8950_s6_level_ao>;
@@ -759,7 +789,7 @@
 			 <&clock_gcc clk_gcc_sdcc1_apps_clk>,
 			 <&clock_gcc clk_gcc_sdcc1_ice_core_clk>;
 		clock-names = "iface_clk", "core_clk", "ice_core_clk";
-		qcom,ice-clk-rates = <200000000>;
+		qcom,ice-clk-rates = <200000000 100000000>;
 
 		status = "disabled";
 	};
@@ -1569,6 +1599,8 @@
 		qcom,clock-configs = <0x1 0x0 0x0 0x0>;
 		qcom,sw-power-collapse;
 		qcom,max-hw-load = <979200>; /* 3840 x 2176 @ 30 fps */
+		qcom,dcvs-min-load = <734400>; /* 1920 x 1088 @ 90fps */
+		qcom,dcvs-min-mbperframe = <32400>; /* 3840 x 2160 */
 
 		qcom,load-freq-tbl =
 			<979200 400000000 0xffffffff>, /* NOM+ , UHD30D   */
@@ -1989,12 +2021,16 @@
 
 		reg = <0xc051000 0x4>,
 		    <0xc051004 0x4>,
-		    <0xc055000 0x4>;
+		    <0xc055000 0x4>,
+		    <0xc052000 0x4>;
+
 		reg-names = "csr_gp_io_mux_mic_ctl",
 			"csr_gp_io_mux_spkr_ctl",
-			"csr_gp_io_lpaif_pri_pcm_pri_mode_muxsel";
+			"csr_gp_io_lpaif_pri_pcm_pri_mode_muxsel",
+			"csr_gp_io_mux_quin_ctl";
 
 		qcom,audio-routing =
+			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
 			"AMIC2", "MIC BIAS2",
 			"MIC BIAS2", "Headset Mic",
@@ -2044,7 +2080,8 @@
 				"msm-compress-dsp", "msm-pcm-hostless", "msm-pcm-afe",
 				"msm-lsm-client", "msm-pcm-routing", "msm-cpe-lsm",
 				"msm-pcm-lpa";
-		asoc-cpu = <&dai_pri_auxpcm>, <&dai_hdmi>, <&dai_mi2s2>, <&dai_mi2s3>,
+		asoc-cpu = <&dai_pri_auxpcm>, <&dai_hdmi>, <&dai_mi2s_hdmi>,
+				<&dai_mi2s2>, <&dai_mi2s3>, <&dai_mi2s5>,
 				<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
 				<&sb_2_rx>, <&sb_2_tx>, <&sb_3_rx>, <&sb_3_tx>,
 				<&sb_4_rx>, <&sb_4_tx>, <&sb_5_tx>, <&afe_pcm_rx>,
@@ -2053,8 +2090,10 @@
 				<&incall_music_rx>, <&incall_music_2_rx>,
 				<&sb_5_rx>,  <&bt_sco_rx>,
 				<&bt_sco_tx>, <&int_fm_rx>, <&int_fm_tx>;
-		asoc-cpu-names = "msm-dai-q6-auxpcm.1",
-				"msm-dai-q6-hdmi.8", "msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
+		asoc-cpu-names = "msm-dai-q6-auxpcm.1",	"msm-dai-q6-hdmi.8",
+				"msm-dai-q6-mi2s-hdmi.4118",
+				"msm-dai-q6-mi2s.2",
+				"msm-dai-q6-mi2s.3", "msm-dai-q6-mi2s.5",
 				"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
 				"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
 				"msm-dai-q6-dev.16388", "msm-dai-q6-dev.16389",
@@ -2069,6 +2108,8 @@
 				"msm-dai-q6-dev.12292", "msm-dai-q6-dev.12293";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
+		asoc-wsa-codec-names = "wsa881x.20170212", "wsa881x.20170211";
+		asoc-wsa-codec-prefixes = "SpkrLeft", "SpkrRight";
 	};
 
 	wcd9xxx_intc: wcd9xxx-irq {
@@ -2190,11 +2231,24 @@
 			qcom,msm-mi2s-rx-lines = <0>;
 			qcom,msm-mi2s-tx-lines = <3>;
 		};
+
+		dai_mi2s5: qcom,msm-dai-q6-mi2s-quin {
+			compatible = "qcom,msm-dai-q6-mi2s";
+			qcom,msm-dai-q6-mi2s-dev-id = <5>;
+			qcom,msm-mi2s-rx-lines = <1>;
+			qcom,msm-mi2s-tx-lines = <2>;
+		};
+
 	};
 
 	dai_hdmi: qcom,msm-dai-q6-hdmi {
 		compatible = "qcom,msm-dai-q6-hdmi";
 		qcom,msm-dai-q6-dev-id = <8>;
+	};
+
+	dai_mi2s_hdmi: qcom,msm-dai-q6-mi2s-hdmi {
+		compatible = "qcom,msm-dai-q6-mi2s-hdmi";
+		qcom,msm-dai-q6-mi2s-dev-id = <4118>;
 	};
 
 	lsm: qcom,msm-lsm-client {
@@ -2443,6 +2497,7 @@
 	clocks =<&clock_gcc_gfx clk_gfx3d_clk_src>,
 		<&clock_gcc_gfx clk_gcc_oxili_gmem_clk>;
 	qcom,enable-root-clk;
+	parent-supply = <&gfx_vreg_corner>;
 	status = "okay";
 };
 
@@ -2451,6 +2506,11 @@
 };
 
 &slim_msm {
+	msm_dai_slim {
+		compatible = "qcom,msm-dai-slim";
+		elemental-addr = [ff ff ff fe 17 02];
+	};
+
 	tasha_codec {
 		compatible = "qcom,tasha-slim-pgd";
 		elemental-addr = [00 01 A0 01 17 02];
@@ -2478,7 +2538,7 @@
 
 		cdc-vdd-px-supply = <&pm8950_l5>;
 		qcom,cdc-vdd-px-voltage = <1800000 1800000>;
-		qcom,cdc-vdd-px-current = <45000>;
+		qcom,cdc-vdd-px-current = <10000>;
 
 		qcom,cdc-static-supplies =
 			"cdc-vdd-buck",
@@ -2488,7 +2548,7 @@
 			"cdc-vdd-px";
 
 		qcom,cdc-micbias1-mv = <1800>;
-		qcom,cdc-micbias2-mv = <2700>;
+		qcom,cdc-micbias2-mv = <1800>;
 		qcom,cdc-micbias3-mv = <1800>;
 		qcom,cdc-micbias4-mv = <1800>;
 
@@ -2499,29 +2559,6 @@
 
 		clock-names = "wcd_clk";
 		clocks = <&clock_audio clk_audio_pmi_clk>;
-
-		swr_master {
-			compatible = "qcom,swr-wcd";
-			#address-cells = <2>;
-			#size-cells = <0>;
-			wsa881x@20170212 {
-				compatible = "qcom,wsa881x";
-				reg = <0x00 0x20170212>;
-				pinctrl-names = "wsa_spkr_sd_act",
-					"wsa_spkr_sd_sus";
-				pinctrl-0 = <&wsa_spkr_sd_act>;
-				pinctrl-1 = <&wsa_spkr_sd_sus>;
-			};
-
-			wsa881x@20170211 {
-				compatible = "qcom,wsa881x";
-				reg = <0x00 0x20170211>;
-				pinctrl-names = "wsa_spkr_sd_act",
-					"wsa_spkr_sd_sus";
-				pinctrl-0 = <&wsa_spkr_sd_act>;
-				pinctrl-1 = <&wsa_spkr_sd_sus>;
-			};
-		};
 	};
 };
 

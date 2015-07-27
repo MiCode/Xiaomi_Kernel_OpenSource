@@ -62,6 +62,8 @@
 #define AXI_HALT_TIMEOUT_US	0x4000
 #define AUTOSUSPEND_TIMEOUT_MS	200
 #define DEFAULT_MDP_PIPE_WIDTH 2048
+#define FHD_RES (1920 * 1088)
+#define UHD_RES (3840 * 2160)
 
 struct mdss_data_type *mdss_res;
 
@@ -3506,22 +3508,35 @@ static void apply_dynamic_ot_limit(u32 *ot_lim,
 	if (!is_dynamic_ot_limit_required(mdata->mdp_rev))
 		return;
 
+	/* Dynamic OT setting done only for rotator and WFD */
+	if (!((params->is_rot && params->is_yuv) || params->is_wb))
+		return;
+
 	res = params->width * params->height;
 
 	pr_debug("w:%d h:%d rot:%d yuv:%d wb:%d res:%d\n",
 		params->width, params->height, params->is_rot,
 		params->is_yuv, params->is_wb, res);
 
-	if ((params->is_rot && params->is_yuv) ||
-		params->is_wb) {
-		if (res <= 1088 * 1920) {
+	switch (mdata->mdp_rev) {
+	case MDSS_MDP_HW_REV_111:
+		if ((res <= FHD_RES) && params->frame_rate <= 30)
 			*ot_lim = 2;
-		} else if (res <= 3840 * 2160) {
+		else if (params->is_rot && params->is_yuv)
+			*ot_lim = 4;
+		else
+			*ot_lim = 6;
+		break;
+	default:
+		if (res <= FHD_RES) {
+			*ot_lim = 2;
+		} else if (res <= UHD_RES) {
 			if (params->is_rot && params->is_yuv)
 				*ot_lim = 8;
 			else
 				*ot_lim = 16;
 		}
+		break;
 	}
 }
 

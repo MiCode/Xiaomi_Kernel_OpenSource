@@ -209,7 +209,7 @@ static void mdss_dsi_28nm_phy_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	wmb();
 
 	/* DSI_0_PHY_DSIPHY_GLBL_TEST_CTRL */
-	if (mdss_dsi_is_hw_config_single(ctrl_pdata->shared_data)) {
+	if (!mdss_dsi_is_hw_config_split(ctrl_pdata->shared_data)) {
 		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x01d4, 0x01);
 		/* ensure DSIPHY_GLBL_TEST_CTRL is set */
 		wmb();

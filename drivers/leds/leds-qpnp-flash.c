@@ -220,6 +220,7 @@ struct qpnp_flash_led {
 	struct pinctrl_state		*gpio_state_suspend;
 	struct flash_node_data		*flash_node;
 	struct power_supply		*battery_psy;
+	struct workqueue_struct		*ordered_workq;
 	struct mutex			flash_led_lock;
 	struct qpnp_flash_led_buffer	*log;
 	struct dentry			*dbgfs_root;
@@ -1471,16 +1472,16 @@ static void qpnp_flash_led_brightness_set(struct led_classdev *led_cdev,
 				flash_node->prgm_current =
 					led->flash_node[0].prgm_current +
 					led->flash_node[1].prgm_current;
-			schedule_work(&flash_node->work);
-			return;
 		}
 	} else {
 		if (value < FLASH_LED_MIN_CURRENT_MA && value != 0)
 			value = FLASH_LED_MIN_CURRENT_MA;
 		flash_node->prgm_current = value;
-		schedule_work(&flash_node->work);
-		return;
 	}
+
+	queue_work(led->ordered_workq, &flash_node->work);
+
+	return;
 }
 
 static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
@@ -2039,6 +2040,13 @@ static int qpnp_flash_led_probe(struct spmi_device *spmi)
 
 	mutex_init(&led->flash_led_lock);
 
+	led->ordered_workq = alloc_ordered_workqueue("flash_led_workqueue", 0);
+	if (!led->ordered_workq) {
+		dev_err(&spmi->dev,
+			"Failed to allocate ordered workqueue\n");
+		return -ENOMEM;
+	}
+
 	for_each_child_of_node(node, temp) {
 		led->flash_node[i].cdev.brightness_set =
 						qpnp_flash_led_brightness_set;
@@ -2148,6 +2156,8 @@ error_led_register:
 	}
 	debugfs_remove_recursive(root);
 	mutex_destroy(&led->flash_led_lock);
+	destroy_workqueue(led->ordered_workq);
+
 	return rc;
 }
 
@@ -2166,6 +2176,7 @@ static int qpnp_flash_led_remove(struct spmi_device *spmi)
 	}
 	debugfs_remove_recursive(led->dbgfs_root);
 	mutex_destroy(&led->flash_led_lock);
+	destroy_workqueue(led->ordered_workq);
 
 	return 0;
 }

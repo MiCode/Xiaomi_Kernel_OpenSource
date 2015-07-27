@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -368,6 +368,7 @@ static int evrc_in_open(struct inode *inode, struct file *file)
 	}
 
 	audio->opened = 1;
+	audio->reset_event = false;
 	atomic_set(&audio->in_count, PCM_BUF_COUNT);
 	atomic_set(&audio->out_count, 0x00);
 	audio->enc_compat_ioctl = evrc_in_compat_ioctl;

@@ -902,6 +902,11 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	char buff[IPA_RESOURCE_NAME_MAX];
 	struct iommu_domain *smmu_domain;
 
+	if (unlikely(!ipa_ctx)) {
+		IPAERR("IPA driver was not initialized\n");
+		return -EINVAL;
+	}
+
 	if (sys_in == NULL || clnt_hdl == NULL) {
 		IPAERR("NULL args\n");
 		goto fail_gen;
@@ -1048,6 +1053,12 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		ep->connect.source = ipa_ctx->bam_handle;
 		ep->connect.dest_pipe_index = ipa_ctx->a5_pipe_index++;
 		ep->connect.src_pipe_index = ipa_ep_idx;
+		/*
+		 * Determine how many buffers/descriptors remaining will
+		 * cause to drop below the yellow WM bar.
+		 */
+		ep->rx_replenish_threshold = ipa_get_sys_yellow_wm()
+						/ ep->sys->rx_buff_sz;
 	} else {
 		ep->connect.mode = SPS_MODE_DEST;
 		ep->connect.source = SPS_DEV_HANDLE_MEM;
@@ -1179,6 +1190,11 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl)
 	struct ipa_ep_context *ep;
 	int empty;
 
+	if (unlikely(!ipa_ctx)) {
+		IPAERR("IPA driver was not initialized\n");
+		return -EINVAL;
+	}
+
 	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
 	    ipa_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("bad parm.\n");
@@ -1305,6 +1321,11 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	struct ipa_ip_packet_init *cmd;
 	struct ipa_sys_context *sys;
 	int src_ep_idx;
+
+	if (unlikely(!ipa_ctx)) {
+		IPAERR("IPA driver was not initialized\n");
+		return -EINVAL;
+	}
 
 	memset(desc, 0, 2 * sizeof(struct ipa_desc));
 
@@ -1757,7 +1778,7 @@ static void ipa_fast_replenish_rx_cache(struct ipa_sys_context *sys)
 
 	queue_work(sys->repl_wq, &sys->repl_work);
 
-	if (rx_len_cached <= 1) {
+	if (rx_len_cached <= sys->ep->rx_replenish_threshold) {
 		if (rx_len_cached == 0) {
 			if (sys->ep->client == IPA_CLIENT_APPS_WAN_CONS)
 				IPA_STATS_INC_CNT(ipa_ctx->stats.wan_rx_empty);
@@ -2823,6 +2844,11 @@ int ipa_tx_dp_mul(enum ipa_client_type src,
 	u32 num_desc, cnt;
 	int ep_idx;
 
+	if (unlikely(!ipa_ctx)) {
+		IPAERR("IPA driver was not initialized\n");
+		return -EINVAL;
+	}
+
 	IPADBG("Received data desc anchor:%p\n", data_desc);
 
 	spin_lock_bh(&ipa_ctx->wc_memb.ipa_tx_mul_spinlock);
@@ -2906,6 +2932,11 @@ EXPORT_SYMBOL(ipa_tx_dp_mul);
 void ipa_free_skb(struct ipa_rx_data *data)
 {
 	struct ipa_rx_pkt_wrapper *rx_pkt;
+
+	if (unlikely(!ipa_ctx)) {
+		IPAERR("IPA driver was not initialized\n");
+		return;
+	}
 
 	spin_lock_bh(&ipa_ctx->wc_memb.wlan_spinlock);
 

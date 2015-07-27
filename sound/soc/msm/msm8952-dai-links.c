@@ -27,6 +27,12 @@ static struct snd_soc_ops msm8952_quat_mi2s_be_ops = {
 	.shutdown = msm_quat_mi2s_snd_shutdown,
 };
 
+static struct snd_soc_ops msm8952_quin_mi2s_be_ops = {
+	.startup = msm_quin_mi2s_snd_startup,
+	.hw_params = msm_mi2s_snd_hw_params,
+	.shutdown = msm_quin_mi2s_snd_shutdown,
+};
+
 static struct snd_soc_ops msm8952_slimbus_be_ops = {
 	.hw_params = msm_snd_hw_params,
 };
@@ -1074,6 +1080,35 @@ static struct snd_soc_dai_link msm8952_common_be_dai[] = {
 		.be_hw_params_fixup = msm_be_hw_params_fixup,
 		.ignore_suspend = 1,
 	},
+	{
+		.name = LPASS_BE_QUIN_MI2S_RX,
+		.stream_name = "Quinary MI2S Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s.5",
+		.platform_name = "msm-pcm-routing",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_QUINARY_MI2S_RX,
+		.be_hw_params_fixup = msm_quin_be_hw_params_fixup,
+		.ops = &msm8952_quin_mi2s_be_ops,
+		.ignore_pmdown_time = 1, /* dai link has playback support */
+		.ignore_suspend = 1,
+	},
+	{
+		.name = LPASS_BE_MI2S_HDMI_RX,
+		.stream_name = "MI2S HDMI Playback",
+		.cpu_dai_name = "msm-dai-q6-mi2s-hdmi.4118",
+		.platform_name = "msm-pcm-routing",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_MI2S_HDMI_RX,
+		.be_hw_params_fixup = msm_be_hw_params_fixup,
+		.ops = &msm8952_quin_mi2s_be_ops,
+		.ignore_pmdown_time = 1, /* dai link has playback support */
+		.ignore_suspend = 1,
+	},
+
 };
 
 static struct snd_soc_aux_dev msm895x_aux_dev[] = {
@@ -1148,7 +1183,8 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		memcpy(msm8952_tomtom_dai_links + len3,
 			msm8952_tomtom_be_dai, sizeof(msm8952_tomtom_be_dai));
 		msm8952_dai_links = msm8952_tomtom_dai_links;
-	} else if (!strcmp(card->name, "msm8976-tasha-snd-card")) {
+	} else if (!strcmp(card->name, "msm8976-tasha-snd-card") ||
+			!strcmp(card->name, "msm8976-tasha-skun-snd-card")) {
 		len1 = ARRAY_SIZE(msm8952_common_fe_dai);
 		len2 = len1 + ARRAY_SIZE(msm8952_tasha_fe_dai);
 		len3 = len2 + ARRAY_SIZE(msm8952_common_be_dai);

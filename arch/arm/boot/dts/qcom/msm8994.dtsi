@@ -459,6 +459,7 @@
 		compatible = "qcom,8994-l2ccc";
 		reg = <0xf900d000 0x1000>,
 		      <0xf911210c 0x4>;
+		reg-names = "l2-base", "l2-common";
 		qcom,vctl-node = <&cluster0_spm>;
 	};
 
@@ -466,6 +467,7 @@
 		compatible = "qcom,8994-l2ccc";
 		reg = <0xf900f000 0x1000>,
 		      <0xf911210c 0x4>;
+		reg-names = "l2-base", "l2-common";
 		qcom,vctl-node = <&cluster1_spm>;
 		qcom,vctl-val = <0xb8>;
 	};

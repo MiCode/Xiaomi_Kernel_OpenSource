@@ -39,6 +39,7 @@ obj-$(CONFIG_ARCH_MSM8916)	+=clock-gcc-8952.o
 
 # MSM8976
 obj-$(CONFIG_ARCH_MSM8916)	+=clock-gcc-8976.o
+obj-$(CONFIG_ARCH_MSM8916)	+=clock-rcgwr.o
 obj-$(CONFIG_ARCH_MSM8916)	+=clock-cpu-8976.o
 
 # FSM9010

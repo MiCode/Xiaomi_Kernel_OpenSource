@@ -1351,7 +1351,7 @@
 		clock-names = "iface_clk", "core_clk", "ice_core_clk";
 
 		qcom,clk-rates = <400000 25000000 50000000 100000000 192000000 384000000>;
-		qcom,ice-clk-rates = <200000000>;
+		qcom,ice-clk-rates = <200000000 100000000>;
 		qcom,bus-speed-mode = "HS400_1p8v", "HS200_1p8v", "DDR_1p8v";
 		status = "disabled";
 	};
@@ -2265,6 +2265,11 @@
 		qcom,smmu-sid = <0x1>;
 	};
 
+	qcom,adsprpc-mem {
+		compatible = "qcom,msm-adsprpc-mem-region";
+		linux,contiguous-region = <&adsp_mem>;
+	};
+
 	qcom,msm-adsp-loader {
 		compatible = "qcom,adsp-loader";
 		qcom,adsp-state = <0>;
@@ -2295,7 +2300,16 @@
 				"iface_clk", "bus_clk";
 		qcom,ce-opp-freq = <100000000>;
 	};
+};
 
+&l2ccc_0 {
+	qcom,vctl-node = <&cluster0_spm>;
+	qcom,use-acinactm;
+};
+
+&l2ccc_1 {
+	qcom,vctl-node = <&cluster1_spm>;
+	qcom,use-acinactm;
 };
 
 &gdsc_venus {

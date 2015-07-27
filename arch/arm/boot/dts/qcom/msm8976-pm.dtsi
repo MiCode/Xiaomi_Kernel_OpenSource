@@ -495,7 +495,8 @@
 
 		qcom,gic-parent = <&intc>;
 		qcom,gic-map = <2 216>, /* tsens_upper_lower_int */
-			<50 172>, /* usb1_hs_async_wakeup_irq */
+			<49 172>, /* usb1_hs_async_wakeup_irq */
+			<58 166>, /* usb_hs_irq */
 			<53 104>, /* mdss_irq */
 			<62 222>, /* ee0_krait_hlos_spmi_periph_irq */
 			<0xff 18>,  /* APC_qgicQTmrSecPhysIrptReq */
@@ -548,7 +549,6 @@
 			<0xff 153>, /* smmu_bus_intr[58] */
 			<0xff 155>, /* sdc1_irq(0) */
 			<0xff 157>, /* sdc2_irq(0) */
-			<0xff 166>, /* usb_hs_irq */
 			<0xff 167>, /* usb1_hs_bam_irq */
 			<0xff 170>, /* sdc1_pwr_cmd_irq */
 			<0xff 173>, /* o_wcss_apss_smd_hi */
@@ -671,14 +671,14 @@
 
 	qcom,cpu-sleep-status@b088008{
 		compatible = "qcom,cpu-sleep-status";
-		reg = <0xb088008 0x100>,
-			<0xb098008 0x100>,
-			<0xb0a8008 0x100>,
-			<0xb0b8008 0x100>,
-			<0xb188008 0x100>,
+		reg = <0xb188008 0x100>,
 			<0xb198008 0x100>,
 			<0xb1a8008 0x100>,
-			<0xb1b8008 0x100>;
+			<0xb1b8008 0x100>,
+			<0xb088008 0x100>,
+			<0xb098008 0x100>,
+			<0xb0a8008 0x100>,
+			<0xb0b8008 0x100>;
 		qcom,sleep-status-mask= <0x40000>;
 	};
 

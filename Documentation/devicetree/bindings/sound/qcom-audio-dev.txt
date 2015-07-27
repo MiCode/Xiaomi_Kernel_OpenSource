@@ -135,6 +135,14 @@ Optional properties:
 
  - compatible : "msm-dai-q6-spdif"
 
+* msm-dai-q6-mi2s-hdmi
+
+Optional properties:
+
+ - compatible : "qcom,msm-dai-q6-mi2s-hdmi"
+ - qcom,msm-dai-q6-mi2s-dev-id : Port ID of MI2S interface to
+   which HDMI is connected.
+
 * msm-dai-q6-hdmi
 
 Required properties:
@@ -396,6 +404,11 @@ Example:
 
 	qcom,msm-dai-q6-spdif {
 		compatible = "qcom,msm-dai-q6-spdif";
+	};
+
+	qcom,msm-dai-q6-mi2s-hdmi {
+		compatible = "qcom,msm-dai-q6-mi2s-hdmi";
+		qcom,msm-dai-q6-mi2s-dev-id = <4118>;
 	};
 
 	qcom,msm-dai-q6-hdmi {

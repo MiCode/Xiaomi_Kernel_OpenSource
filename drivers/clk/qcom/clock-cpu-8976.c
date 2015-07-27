@@ -132,9 +132,10 @@ static struct pll_clk a72ss_hf_pll = {
 		.main_output_mask = BIT(0),
 	},
 	.vals = {
-		.config_ctl_val = 0x04D0405D,
+		.config_ctl_val = 0x04E0405D,
 		.enable_mn = true,
 		.post_div_masked = BVAL(9, 8, (1)),
+		.vco_mode_masked = BVAL(21, 20, 1),
 	},
 	.base = &virt_bases[APCS_C1_PLL_BASE],
 	.max_rate = 1843200000,
@@ -143,7 +144,8 @@ static struct pll_clk a72ss_hf_pll = {
 		.parent = &xo_a_clk.c,
 		.dbg_name = "a72ss_hf_pll",
 		.ops = &clk_ops_hf_pll,
-		VDD_MX_HF_FMAX_MAP2(SVS, 1000000000, NOM, 2000000000),
+		/* MX level of MSM is much higher than of PLL */
+		VDD_MX_HF_FMAX_MAP2(SVS, 2000000000, NOM, 2900000000UL),
 		CLK_INIT(a72ss_hf_pll.c),
 	},
 };
@@ -232,20 +234,19 @@ DEFINE_FIXED_DIV_CLK(cci_sr_pll_main, 2, &cci_sr_pll.c);
 
 static const char const *mux_names[] = {"c0", "c1", "cci"};
 
-#define SAFE_NUM	3
+#define SAFE_NUM	2
 
-#define SRC_SAFE_FREQ(f1, f2, f3)			  \
+#define SRC_SAFE_FREQ(f1, f2)			  \
 	.safe_freq = f1,			\
 	.safe_freqs = (unsigned long[SAFE_NUM]) {  \
 		[0] = (f1),			  \
 		[1] = (f2),			  \
-		[2] = (f3),			  \
 	},					  \
 	.safe_num = SAFE_NUM
 
 static struct mux_div_clk a72ssmux = {
 	.ops = &rcg_mux_div_ops,
-	SRC_SAFE_FREQ(400000000, 800000000, 1200000000),
+	SRC_SAFE_FREQ(400000000, 800000000),
 	.data = {
 		.max_div = 32,
 		.min_div = 2,
@@ -269,7 +270,7 @@ static struct mux_div_clk a72ssmux = {
 
 static struct mux_div_clk a53ssmux = {
 	.ops = &rcg_mux_div_ops,
-	SRC_SAFE_FREQ(400000000, 800000000, 1200000000),
+	SRC_SAFE_FREQ(400000000, 800000000),
 	.data = {
 		.max_div = 32,
 		.min_div = 2,
@@ -957,6 +958,10 @@ static int clock_cpu_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "msm_clock_register failed\n");
 		return rc;
 	}
+
+	rc = clock_rcgwr_init(pdev);
+	if (rc)
+		dev_err(&pdev->dev, "Failed to init RCGwR\n");
 
 	/*
 	 * We don't want the CPU clocks to be turned off at late init

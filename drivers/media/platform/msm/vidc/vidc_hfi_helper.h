@@ -664,6 +664,10 @@ struct hfi_h264_vui_timing_info {
 #define HFI_MAX_BIAS_COEFFS 3
 #define HFI_MAX_LIMIT_COEFFS 6
 
+#define HFI_STATISTICS_MODE_DEFAULT 0x10
+#define HFI_STATISTICS_MODE_1 0x11
+#define HFI_STATISTICS_MODE_2 0x12
+
 struct hfi_uncompressed_format_select {
 	u32 buffer_type;
 	u32 format;

@@ -83,6 +83,7 @@ static void venus_hfi_flush_debug_queue(
 	struct venus_hfi_device *device, u8 *packet);
 static void venus_hfi_clock_adjust(struct venus_hfi_device *device);
 static int venus_hfi_reduce_clocks(struct venus_hfi_device *device);
+static int venus_hfi_scale_clocks(void *dev, int load, int codecs_enabled);
 
 static inline void venus_hfi_set_state(struct venus_hfi_device *device,
 		enum venus_hfi_state state)
@@ -1683,6 +1684,13 @@ static inline int venus_hfi_power_on(struct venus_hfi_device *device)
 		goto err_enable_clk;
 	}
 
+	rc = venus_hfi_scale_clocks(device,
+			device->clk_load, device->codecs_enabled);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to scale clocks\n");
+		goto err_scale_clk;
+	}
+
 	/* iommu_attach makes call to TZ for restore_sec_cfg. With this call
 	 * TZ accesses the VMIDMT block which needs all the Venus clocks.
 	 * While going to power collapse these clocks were turned OFF.
@@ -1741,6 +1749,7 @@ err_reset_core:
 err_set_video_state:
 	venus_hfi_iommu_detach(device);
 err_iommu_attach:
+err_scale_clk:
 	venus_hfi_disable_unprepare_clks(device);
 err_enable_clk:
 	venus_hfi_disable_regulators(device);
@@ -1896,11 +1905,6 @@ static int venus_hfi_iface_cmdq_write_nolock(struct venus_hfi_device *device,
 
 		if (venus_hfi_power_on(device)) {
 			dprintk(VIDC_ERR, "%s: Power on failed\n", __func__);
-			goto err_q_write;
-		}
-		if (venus_hfi_scale_clocks(device, device->clk_load,
-			 device->codecs_enabled)) {
-			dprintk(VIDC_ERR, "Clock scaling failed\n");
 			goto err_q_write;
 		}
 		if (rx_req_is_set)
@@ -2678,8 +2682,10 @@ static int venus_hfi_session_set_property(void *sess,
 			pkt, session, ptype, pdata);
 
 	if (rc == -ENOTSUPP) {
-		dprintk(VIDC_DBG, "%s Property not permitted\n", __func__);
-		return rc;
+		dprintk(VIDC_DBG,
+			"%s Property not permitted ptype = 0x%x\n",
+			__func__, ptype);
+		return 0;
 	} else if (rc) {
 		dprintk(VIDC_ERR, "set property: failed to create packet\n");
 		return -EINVAL;

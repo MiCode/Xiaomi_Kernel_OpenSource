@@ -218,6 +218,7 @@ enum hal_property {
 	HAL_PARAM_VENC_HIER_B_MAX_ENH_LAYERS,
 	HAL_PARAM_VDEC_NON_SECURE_OUTPUT2,
 	HAL_PARAM_VENC_HIER_P_HYBRID_MODE,
+	HAL_PARAM_VENC_MBI_STATISTICS_MODE,
 };
 
 enum hal_domain {
@@ -517,6 +518,12 @@ enum hal_uncompressed_format {
 	HAL_COLOR_FORMAT_RGB888       = 0x00000800,
 	HAL_COLOR_FORMAT_BGR888       = 0x00001000,
 	HAL_UNUSED_COLOR              = 0x10000000,
+};
+
+enum hal_statistics_mode_type {
+	HAL_STATISTICS_MODE_DEFAULT	= 0x00000001,
+	HAL_STATISTICS_MODE_1		= 0x00000002,
+	HAL_STATISTICS_MODE_2		= 0x00000004,
 };
 
 enum hal_ssr_trigger_type {

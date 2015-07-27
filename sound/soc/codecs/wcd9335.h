@@ -25,7 +25,7 @@
 #define TASHA_SB_PGD_PORT_RX_BASE   0x40
 #define TASHA_SB_PGD_PORT_TX_BASE   0x50
 
-#define TASHA_ZDET_SUPPORTED false
+#define TASHA_ZDET_SUPPORTED true
 
 #define WCD9335_DMIC_CLK_DIV_2  0x0
 #define WCD9335_DMIC_CLK_DIV_3  0x1
@@ -103,4 +103,7 @@ extern int tasha_mbhc_hs_detect(struct snd_soc_codec *codec,
 				struct wcd_mbhc_config *mbhc_cfg);
 extern void tasha_mbhc_hs_detect_exit(struct snd_soc_codec *codec);
 extern int tasha_enable_efuse_sensing(struct snd_soc_codec *codec);
+extern void tasha_mbhc_zdet_gpio_ctrl(
+		int (*zdet_gpio_cb)(struct snd_soc_codec *codec, bool high),
+		struct snd_soc_codec *codec);
 #endif

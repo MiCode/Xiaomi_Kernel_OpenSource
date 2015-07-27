@@ -1287,6 +1287,20 @@
 			};
 		};
 
+		pri-tlmm-lines {
+			qcom,pins = <&gp 123>, <&gp 124>, <&gp 125>;
+			qcom,num-grp-pins = <3>;
+			qcom,pin-func = <1>;
+			label = "pri-tlmm-lines";
+			pri_tlmm_lines_act: pri_tlmm_lines_act {
+				drive-strength = <8>;
+			};
+			pri_tlmm_lines_sus:  pri_tlmm_lines_sus {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
 		wcnss_pmux_5wire: wcnss_pmux_5wire {
 			/* Uses general purpose pins */
 			qcom,pins = <&gp 40>, <&gp 41>,
@@ -1318,6 +1332,32 @@
 			wcnss_gpio_default: wcnss_gpio_default {
 				drive-strength = <6>; /* 6 MA */
 				bias-pull-up; /* PULL UP */
+			};
+		};
+
+		pmx_adv7533_int: pmx_adv7533_int {
+			label = "pmx_adv7533_int";
+			adv7533_int_active: adv7533_int_active {
+				drive-strength = <16>;
+				bias-disable;
+			};
+
+			adv7533_int_suspend: adv7533_int_suspend {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		pmx_adv7533_hpd_int: pmx_adv7533_hpd_int {
+			label = "pmx_adv7533_hpd_int";
+			adv7533_hpd_int_active: adv7533_hpd_int_active {
+				drive-strength = <16>;
+				bias-disable;
+			};
+
+			adv7533_hpd_int_suspend: adv7533_hpd_int_suspend {
+				drive-strength = <16>;
+				bias-disable;
 			};
 		};
 	};
