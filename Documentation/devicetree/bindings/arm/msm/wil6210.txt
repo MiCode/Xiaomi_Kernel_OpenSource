@@ -19,6 +19,9 @@ Required properties:
 	- qcom,msm-bus,num-paths
 	- qcom,msm-bus,vectors-KBps
 
+Optional properties:
+- qcom,sleep-clk-en: GPIO for sleep clock used for low power modes by 11ad card
+
 Example:
 	wil6210: qcom,wil6210 {
 		compatible = "qcom,wil6210";
