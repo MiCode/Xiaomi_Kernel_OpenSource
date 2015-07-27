@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -82,7 +82,6 @@
 #define VIDC_WRAPPER_HW_VERSION_MINOR_VERSION_MASK  0xFFF0000
 #define VIDC_WRAPPER_HW_VERSION_MINOR_VERSION_SHIFT 16
 #define VIDC_WRAPPER_HW_VERSION_STEP_VERSION_MASK   0xFFFF
-
 #define VIDC_WRAPPER_CLOCK_CONFIG	(VIDC_WRAPPER_BASE_OFFS + 0x04)
 
 #define VIDC_WRAPPER_INTR_STATUS	(VIDC_WRAPPER_BASE_OFFS + 0x0C)
@@ -113,6 +112,7 @@
 #define VIDC_WRAPPER_AXI_HALT		(VIDC_WRAPPER_BASE_OFFS + 0x2008)
 #define VIDC_WRAPPER_AXI_HALT_STATUS	(VIDC_WRAPPER_BASE_OFFS + 0x200C)
 #define VIDC_WRAPPER_CPU_CGC_DIS	(VIDC_WRAPPER_BASE_OFFS + 0x2010)
+#define VIDC_WRAPPER_CPU_STATUS (VIDC_WRAPPER_BASE_OFFS + 0x2014)
 #define VIDC_VENUS_VBIF_CLK_ON		(VIDC_VBIF_BASE_OFFS + 0x4)
 #define VIDC_VBIF_IN_RD_LIM_CONF0       (VIDC_VBIF_BASE_OFFS + 0xB0)
 #define VIDC_VBIF_IN_RD_LIM_CONF1       (VIDC_VBIF_BASE_OFFS + 0xB4)
