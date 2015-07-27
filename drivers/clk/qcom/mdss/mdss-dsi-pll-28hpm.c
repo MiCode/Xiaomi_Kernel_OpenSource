@@ -103,19 +103,17 @@ static int dsi_pll_enable_seq(struct mdss_pll_resources *dsi_pll_res)
 	wmb();
 	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
 		DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x01);
-	udelay(300);
+	/* make sure the above register writes happen */
+	wmb();
 	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
 		DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
-	udelay(300);
-	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-		DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
-	udelay(300);
+	udelay(3);
 	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
 		DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x07);
-	udelay(300);
+	udelay(3);
 	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
 		DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
-	udelay(1000);
+	udelay(500);
 
 	if (!dsi_pll_lock_status(dsi_pll_res)) {
 		pr_err("DSI PLL lock failed\n");
@@ -161,7 +159,7 @@ static struct dsi_pll_vco_clk dsi_pll0_vco_clk = {
 	.ref_clk_rate = 19200000,
 	.min_rate = 350000000,
 	.max_rate = 750000000,
-	.pll_en_seq_cnt = 3,
+	.pll_en_seq_cnt = 1,
 	.pll_enable_seqs[0] = dsi_pll_enable_seq,
 	.lpfr_lut_size = 10,
 	.lpfr_lut = lpfr_lut_struct,
@@ -252,7 +250,7 @@ static struct dsi_pll_vco_clk dsi_pll1_vco_clk = {
 	.ref_clk_rate = 19200000,
 	.min_rate = 350000000,
 	.max_rate = 750000000,
-	.pll_en_seq_cnt = 3,
+	.pll_en_seq_cnt = 1,
 	.pll_enable_seqs[0] = dsi_pll_enable_seq,
 	.lpfr_lut_size = 10,
 	.lpfr_lut = lpfr_lut_struct,
