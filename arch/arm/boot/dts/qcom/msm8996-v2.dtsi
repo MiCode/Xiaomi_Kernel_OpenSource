@@ -62,6 +62,10 @@
 		 <&clock_gpu clk_gfx3d_clk_src_v2>;
 };
 
+&apcc_cpr {
+	compatible = "qcom,cpr3-msm8996-v2-hmss-regulator";
+};
+
 /* GPU overrides */
 &msm_gpu {
 	/* Updated chip ID */

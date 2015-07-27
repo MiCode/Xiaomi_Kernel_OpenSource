@@ -329,13 +329,22 @@ enum msm8996_cpr_limitation {
 
 /* Additional MSM8996 specific data: */
 
-/* Open loop voltage fuse reference voltages in microvolts */
-static const int msm8996_hmss_fuse_ref_volt[MSM8996_HMSS_FUSE_CORNERS] = {
+/* Open loop voltage fuse reference voltages in microvolts for MSM8996 v1/v2 */
+static const int msm8996_v1_v2_hmss_fuse_ref_volt[MSM8996_HMSS_FUSE_CORNERS] = {
 	605000,
 	745000, /* Place holder entry for LowSVS */
 	745000,
 	905000,
 	1015000,
+};
+
+/* Open loop voltage fuse reference voltages in microvolts for MSM8996 v3 */
+static const int msm8996_v3_hmss_fuse_ref_volt[MSM8996_HMSS_FUSE_CORNERS] = {
+	605000,
+	745000, /* Place holder entry for LowSVS */
+	745000,
+	905000,
+	1140000,
 };
 
 #define MSM8996_HMSS_FUSE_STEP_VOLT		10000
@@ -529,7 +538,8 @@ static int cpr3_msm8996_hmss_calculate_open_loop_voltages(
 	int rc = 0;
 	bool allow_interpolation;
 	u64 freq_low, volt_low, freq_high, volt_high;
-	int i, j;
+	int i, j, soc_revision;
+	const int *ref_volt;
 	int *fuse_volt;
 	int *fmax_corner;
 
@@ -542,9 +552,14 @@ static int cpr3_msm8996_hmss_calculate_open_loop_voltages(
 		goto done;
 	}
 
+	soc_revision = vreg->thread->ctrl->soc_revision;
+	ref_volt = soc_revision == 1 || soc_revision == 2
+			? msm8996_v1_v2_hmss_fuse_ref_volt
+			: msm8996_v3_hmss_fuse_ref_volt;
+
 	for (i = 0; i < vreg->fuse_corner_count; i++) {
 		fuse_volt[i] = cpr3_convert_open_loop_voltage_fuse(
-			msm8996_hmss_fuse_ref_volt[i],
+			ref_volt[i],
 			MSM8996_HMSS_FUSE_STEP_VOLT, fuse->init_voltage[i],
 			MSM8996_HMSS_VOLTAGE_FUSE_SIZE);
 
@@ -1439,14 +1454,31 @@ static int cpr3_hmss_regulator_resume(struct platform_device *pdev)
 	return cpr3_regulator_resume(ctrl);
 }
 
+/* Data corresponds to the SoC revision */
 static struct of_device_id cpr_regulator_match_table[] = {
-	{ .compatible = "qcom,cpr3-msm8996-hmss-regulator", },
+	{
+		.compatible = "qcom,cpr3-msm8996-v1-hmss-regulator",
+		.data = (void *)1
+	},
+	{
+		.compatible = "qcom,cpr3-msm8996-v2-hmss-regulator",
+		.data = (void *)2
+	},
+	{
+		.compatible = "qcom,cpr3-msm8996-v3-hmss-regulator",
+		.data = (void *)3
+	},
+	{
+		.compatible = "qcom,cpr3-msm8996-hmss-regulator",
+		.data = (void *)3
+	},
 	{}
 };
 
 static int cpr3_hmss_regulator_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	const struct of_device_id *match;
 	struct cpr3_controller *ctrl;
 	struct cpr3_regulator *vreg;
 	int i, j, rc;
@@ -1471,6 +1503,12 @@ static int cpr3_hmss_regulator_probe(struct platform_device *pdev)
 			rc);
 		return rc;
 	}
+
+	match = of_match_node(cpr_regulator_match_table, dev->of_node);
+	if (match)
+		ctrl->soc_revision = (uintptr_t)match->data;
+	else
+		cpr3_err(ctrl, "could not find compatible string match\n");
 
 	rc = cpr3_map_fuse_base(ctrl, pdev);
 	if (rc) {

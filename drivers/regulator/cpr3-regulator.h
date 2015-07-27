@@ -260,6 +260,9 @@ enum cpr3_count_mode {
  * @sensor_count:	The number of CPR sensors found on the CPR loop managed
  *			by this CPR controller.  Must be equal to the number of
  *			elements in the sensor_owner array
+ * @soc_revision:	Revision number of the SoC.  This may be unused by
+ *			platforms that do not have different behavior for
+ *			different SoC revisions.
  * @lock:		Mutex lock used to ensure mutual exclusion between
  *			all of the threads associated with the controller
  * @vdd_regulator:	Pointer to the VDD supply regulator which this CPR3
@@ -350,6 +353,7 @@ struct cpr3_controller {
 	int			thread_count;
 	u8			*sensor_owner;
 	int			sensor_count;
+	int			soc_revision;
 	struct mutex		lock;
 	struct regulator	*vdd_regulator;
 	struct regulator	*system_regulator;
