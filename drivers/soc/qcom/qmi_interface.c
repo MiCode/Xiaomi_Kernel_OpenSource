@@ -1756,14 +1756,54 @@ int qmi_connect_to_service(struct qmi_handle *handle,
 }
 EXPORT_SYMBOL(qmi_connect_to_service);
 
+/**
+ * svc_event_add_svc_addr() - Add a specific service address to the list
+ * @event_nb:	Reference to the service event structure.
+ * @node_id:	Node id of the service address.
+ * @port_id:	Port id of the service address.
+ *
+ * Return: 0 on success, standard error code otheriwse.
+ *
+ * This function should be called with svc_addr_list_lock locked.
+ */
+static int svc_event_add_svc_addr(struct svc_event_nb *event_nb,
+				uint32_t node_id, uint32_t port_id)
+{
+
+	struct svc_addr *addr;
+
+	if (!event_nb)
+		return -EINVAL;
+	addr = kmalloc(sizeof(*addr), GFP_KERNEL);
+	if (!addr) {
+		pr_err("%s: Memory allocation failed for address list\n",
+			__func__);
+		return -ENOMEM;
+	}
+	addr->port_addr.node_id = node_id;
+	addr->port_addr.port_id = port_id;
+	list_add_tail(&addr->list_node, &event_nb->svc_addr_list);
+	return 0;
+}
+
+/**
+ * qmi_notify_svc_event_arrive() - Notify the clients about service arrival
+ * @service:	Service id for the specific service.
+ * @instance:	Instance id for the specific service.
+ * @node_id:	Node id of the processor where the service is hosted.
+ * @port_id:	Port id of the service port created by IPC Router.
+ *
+ * Return:	0 on Success or standard error code.
+ */
 static int qmi_notify_svc_event_arrive(uint32_t service,
-					uint32_t instance)
+					uint32_t instance,
+					uint32_t node_id,
+					uint32_t port_id)
 {
 	struct svc_event_nb *temp;
 	unsigned long flags;
-	struct msm_ipc_port_name svc_name;
-	struct msm_ipc_server_info svc_info;
-	int ret;
+	struct svc_addr *addr;
+	bool already_notified = false;
 
 	mutex_lock(&svc_event_nb_list_lock);
 	temp = find_svc_event_nb(service, instance);
@@ -1771,33 +1811,47 @@ static int qmi_notify_svc_event_arrive(uint32_t service,
 		mutex_unlock(&svc_event_nb_list_lock);
 		return -EINVAL;
 	}
-	svc_name.service = service;
-	svc_name.instance = instance;
-	ret = msm_ipc_router_lookup_server_name(&svc_name, &svc_info,
-						1, LOOKUP_MASK);
-	spin_lock_irqsave(&temp->nb_lock, flags);
-	if (temp->svc_avail < ret) {
+	mutex_unlock(&svc_event_nb_list_lock);
+
+	mutex_lock(&temp->svc_addr_list_lock);
+	list_for_each_entry(addr, &temp->svc_addr_list, list_node)
+		if (addr->port_addr.node_id == node_id &&
+			addr->port_addr.port_id == port_id)
+				already_notified = true;
+	if (!already_notified) {
 		/*
 		 * Notify only if the clients are not notified about the
 		 * service during registration.
 		 */
-		temp->svc_avail = ret;
+		svc_event_add_svc_addr(temp, node_id, port_id);
+		spin_lock_irqsave(&temp->nb_lock, flags);
 		raw_notifier_call_chain(&temp->svc_event_rcvr_list,
 				QMI_SERVER_ARRIVE, NULL);
+		spin_unlock_irqrestore(&temp->nb_lock, flags);
 	}
-	spin_unlock_irqrestore(&temp->nb_lock, flags);
-	mutex_unlock(&svc_event_nb_list_lock);
+	mutex_unlock(&temp->svc_addr_list_lock);
+
 	return 0;
 }
 
+/**
+ * qmi_notify_svc_event_exit() - Notify the clients about service exit
+ * @service:	Service id for the specific service.
+ * @instance:	Instance id for the specific service.
+ * @node_id:	Node id of the processor where the service is hosted.
+ * @port_id:	Port id of the service port created by IPC Router.
+ *
+ * Return:	0 on Success or standard error code.
+ */
 static int qmi_notify_svc_event_exit(uint32_t service,
-				uint32_t instance)
+					uint32_t instance,
+					uint32_t node_id,
+					uint32_t port_id)
 {
 	struct svc_event_nb *temp;
 	unsigned long flags;
-	struct msm_ipc_port_name svc_name;
-	struct msm_ipc_server_info svc_info;
-	int ret;
+	struct svc_addr *addr;
+	struct svc_addr *temp_addr;
 
 	mutex_lock(&svc_event_nb_list_lock);
 	temp = find_svc_event_nb(service, instance);
@@ -1805,20 +1859,28 @@ static int qmi_notify_svc_event_exit(uint32_t service,
 		mutex_unlock(&svc_event_nb_list_lock);
 		return -EINVAL;
 	}
-
-	svc_name.service = service;
-	svc_name.instance = instance;
-	ret = msm_ipc_router_lookup_server_name(&svc_name, &svc_info,
-						1, LOOKUP_MASK);
-	spin_lock_irqsave(&temp->nb_lock, flags);
-	if (temp->svc_avail > ret) {
-		/* Notify only if an already notified service has gone down */
-		temp->svc_avail = ret;
-		raw_notifier_call_chain(&temp->svc_event_rcvr_list,
-				QMI_SERVER_EXIT, NULL);
-	}
-	spin_unlock_irqrestore(&temp->nb_lock, flags);
 	mutex_unlock(&svc_event_nb_list_lock);
+
+	mutex_lock(&temp->svc_addr_list_lock);
+	list_for_each_entry_safe(addr, temp_addr, &temp->svc_addr_list,
+					list_node) {
+		if (addr->port_addr.node_id == node_id &&
+			addr->port_addr.port_id == port_id) {
+			/*
+			 * Notify only if an already notified service has
+			 * gone down.
+			 */
+			spin_lock_irqsave(&temp->nb_lock, flags);
+			raw_notifier_call_chain(&temp->svc_event_rcvr_list,
+						QMI_SERVER_EXIT, NULL);
+			spin_unlock_irqrestore(&temp->nb_lock, flags);
+			list_del(&addr->list_node);
+			kfree(addr);
+		}
+	}
+
+	mutex_unlock(&temp->svc_addr_list_lock);
+
 	return 0;
 }
 
@@ -1863,8 +1925,9 @@ static struct svc_event_nb *find_and_add_svc_event_nb(uint32_t service_id,
 	temp->service_id = service_id;
 	temp->instance_id = instance_id;
 	INIT_LIST_HEAD(&temp->list);
+	INIT_LIST_HEAD(&temp->svc_addr_list);
 	RAW_INIT_NOTIFIER_HEAD(&temp->svc_event_rcvr_list);
-
+	mutex_init(&temp->svc_addr_list_lock);
 	list_add_tail(&temp->list, &svc_event_nb_list);
 
 	return temp;
@@ -1877,10 +1940,12 @@ int qmi_svc_event_notifier_register(uint32_t service_id,
 {
 	struct svc_event_nb *temp;
 	unsigned long flags;
-	int ret, num_servers;
+	int ret;
+	int i;
+	int num_servers;
 	uint32_t instance_id;
 	struct msm_ipc_port_name svc_name;
-	struct msm_ipc_server_info svc_info;
+	struct msm_ipc_server_info *svc_info_arr = NULL;
 
 	mutex_lock(&qmi_svc_event_notifier_lock);
 	if (!qmi_svc_event_notifier_port && !qmi_svc_event_notifier_wq)
@@ -1894,31 +1959,51 @@ int qmi_svc_event_notifier_register(uint32_t service_id,
 		mutex_unlock(&svc_event_nb_list_lock);
 		return -EFAULT;
 	}
-	svc_name.service = service_id;
-	svc_name.instance = instance_id;
-	num_servers = msm_ipc_router_lookup_server_name(&svc_name, &svc_info,
-						1, LOOKUP_MASK);
+	mutex_unlock(&svc_event_nb_list_lock);
+
+	mutex_lock(&temp->svc_addr_list_lock);
 	spin_lock_irqsave(&temp->nb_lock, flags);
 	ret = raw_notifier_chain_register(&temp->svc_event_rcvr_list, nb);
-	if (num_servers != 0 && temp->svc_avail >= num_servers) {
-		/*
-		 * Either all of the existing clients have already been notified
-		 * or some service has just gone down but there are still some
-		 * services available. Notify the client now.
-		 */
-		temp->svc_avail = num_servers;
-		nb->notifier_call(nb, QMI_SERVER_ARRIVE, NULL);
-	} else if (num_servers != 0 && temp->svc_avail < num_servers) {
-		/*
-		 * A new server just came up. Notify all the clients including
-		 * the one that has called notifier register.
-		 */
-		temp->svc_avail = num_servers;
-		raw_notifier_call_chain(&temp->svc_event_rcvr_list,
-				QMI_SERVER_ARRIVE, NULL);
-	}
 	spin_unlock_irqrestore(&temp->nb_lock, flags);
-	mutex_unlock(&svc_event_nb_list_lock);
+	if (!list_empty(&temp->svc_addr_list)) {
+		/* Notify this client only if Some services already exist. */
+		spin_lock_irqsave(&temp->nb_lock, flags);
+		nb->notifier_call(nb, QMI_SERVER_ARRIVE, NULL);
+		spin_unlock_irqrestore(&temp->nb_lock, flags);
+	} else {
+		/*
+		 * Check if we have missed a new server event that happened
+		 * earlier.
+		 */
+		svc_name.service = service_id;
+		svc_name.instance = instance_id;
+		num_servers = msm_ipc_router_lookup_server_name(&svc_name,
+								NULL,
+								0, LOOKUP_MASK);
+		if (num_servers > 0) {
+			svc_info_arr = kmalloc_array(num_servers,
+						sizeof(*svc_info_arr),
+						GFP_KERNEL);
+			if (!svc_info_arr)
+				return -ENOMEM;
+			num_servers = msm_ipc_router_lookup_server_name(
+								&svc_name,
+								svc_info_arr,
+								num_servers,
+								LOOKUP_MASK);
+			for (i = 0; i < num_servers; i++)
+				svc_event_add_svc_addr(temp,
+						svc_info_arr[i].node_id,
+						svc_info_arr[i].port_id);
+			kfree(svc_info_arr);
+
+			spin_lock_irqsave(&temp->nb_lock, flags);
+			raw_notifier_call_chain(&temp->svc_event_rcvr_list,
+						QMI_SERVER_ARRIVE, NULL);
+			spin_unlock_irqrestore(&temp->nb_lock, flags);
+		}
+	}
+	mutex_unlock(&temp->svc_addr_list_lock);
 
 	return ret;
 }
@@ -1975,10 +2060,14 @@ static void qmi_svc_event_worker(struct work_struct *work)
 		}
 		if (ctl_msg->cmd == IPC_ROUTER_CTRL_CMD_NEW_SERVER)
 			qmi_notify_svc_event_arrive(ctl_msg->srv.service,
-							ctl_msg->srv.instance);
+							ctl_msg->srv.instance,
+							ctl_msg->srv.node_id,
+							ctl_msg->srv.port_id);
 		else if (ctl_msg->cmd == IPC_ROUTER_CTRL_CMD_REMOVE_SERVER)
 			qmi_notify_svc_event_exit(ctl_msg->srv.service,
-							ctl_msg->srv.instance);
+							ctl_msg->srv.instance,
+							ctl_msg->srv.node_id,
+							ctl_msg->srv.port_id);
 		kfree(ctl_msg);
 	}
 }
