@@ -3881,8 +3881,9 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 		pr_smb(PR_MISC, "setting usb psy present = %d\n",
 				chip->usb_present);
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
-		pr_smb(PR_MISC, "setting usb psy allow detection 0\n");
-		power_supply_set_allow_detection(chip->usb_psy, 0);
+		pr_smb(PR_MISC, "setting usb psy dp=r dm=r\n");
+		power_supply_set_dp_dm(chip->usb_psy,
+				POWER_SUPPLY_DP_DM_DPR_DMR);
 		schedule_work(&chip->usb_set_online_work);
 		rc = power_supply_set_health_state(chip->usb_psy,
 				POWER_SUPPLY_HEALTH_UNKNOWN);
@@ -4683,12 +4684,13 @@ static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 		chip->usb_present, reg, aicl_level);
 
 	/*
-	 * set usb_psy's allow_detection if this is a new insertion, i.e. it is
+	 * set usb_psy's dp=f dm=f if this is a new insertion, i.e. it is
 	 * not already src_detected and usbin_uv is seen falling
 	 */
 	if (!(reg & USBIN_UV_BIT) && !(reg & USBIN_SRC_DET_BIT)) {
-		pr_smb(PR_MISC, "setting usb psy allow detection 1\n");
-		power_supply_set_allow_detection(chip->usb_psy, 1);
+		pr_smb(PR_MISC, "setting usb psy dp=f dm=f\n");
+		power_supply_set_dp_dm(chip->usb_psy,
+				POWER_SUPPLY_DP_DM_DPF_DMF);
 	}
 
 	if ((reg & USBIN_UV_BIT) && (reg & USBIN_SRC_DET_BIT)) {

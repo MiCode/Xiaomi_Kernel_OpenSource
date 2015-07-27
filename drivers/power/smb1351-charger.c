@@ -1850,17 +1850,16 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 		if (!chip->battery_missing && !chip->apsd_rerun
 						&& chip->usb_psy) {
 			if (type == POWER_SUPPLY_TYPE_USB) {
-				pr_debug("Setting usb psy allow detection 1 SDP and rerun\n");
-				power_supply_set_allow_detection(
-							chip->usb_psy, 1);
+				pr_debug("Setting usb psy dp=f dm=f SDP and rerun\n");
+				power_supply_set_dp_dm(chip->usb_psy,
+						POWER_SUPPLY_DP_DM_DPF_DMF);
 				chip->apsd_rerun = true;
 				rerun_apsd(chip);
 				return 0;
-			} else {
-				pr_debug("Setting usb psy allow detection 1 DCP and no rerun\n");
-				power_supply_set_allow_detection(
-							chip->usb_psy, 1);
 			}
+			pr_debug("Set usb psy dp=f dm=f DCP and no rerun\n");
+			power_supply_set_dp_dm(chip->usb_psy,
+					POWER_SUPPLY_DP_DM_DPF_DMF);
 		}
 		/*
 		 * If defined force hvdcp 2p0 property,
@@ -1892,8 +1891,9 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 						POWER_SUPPLY_TYPE_UNKNOWN);
 		power_supply_set_present(chip->usb_psy,
 						chip->chg_present);
-		pr_debug("Setting usb psy allow detection 0\n");
-		power_supply_set_allow_detection(chip->usb_psy, 0);
+		pr_debug("Set usb psy dm=r df=r\n");
+		power_supply_set_dp_dm(chip->usb_psy,
+				POWER_SUPPLY_DP_DM_DPR_DMR);
 	}
 
 	return 0;

@@ -223,7 +223,6 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(esr_count),
 	POWER_SUPPLY_ATTR(safety_timer_enabled),
 	POWER_SUPPLY_ATTR(charge_done),
-	POWER_SUPPLY_ATTR(allow_detection),
 	POWER_SUPPLY_ATTR(flash_active),
 	POWER_SUPPLY_ATTR(force_tlim),
 	POWER_SUPPLY_ATTR(dp_dm),
