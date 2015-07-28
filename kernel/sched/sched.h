@@ -973,6 +973,24 @@ dec_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 	BUG_ON((s64)stats->cumulative_runnable_avg < 0);
 }
 
+static inline void
+fixup_cumulative_runnable_avg(struct hmp_sched_stats *stats,
+			      struct task_struct *p, u32 new_task_load)
+{
+	u32 task_load;
+
+	task_load = sched_use_pelt ?
+		    p->se.avg.runnable_avg_sum_scaled : p->ravg.demand;
+	p->ravg.demand = new_task_load;
+
+	if (!sched_enable_hmp || sched_disable_window_stats)
+		return;
+
+	stats->cumulative_runnable_avg += ((s64)new_task_load - task_load);
+	BUG_ON((s64)stats->cumulative_runnable_avg < 0);
+}
+
+
 #define pct_to_real(tunable)	\
 		(div64_u64((u64)tunable * (u64)max_task_load(), 100))
 
@@ -1480,6 +1498,8 @@ struct sched_class {
 #ifdef CONFIG_SCHED_HMP
 	void (*inc_hmp_sched_stats)(struct rq *rq, struct task_struct *p);
 	void (*dec_hmp_sched_stats)(struct rq *rq, struct task_struct *p);
+	void (*fixup_hmp_sched_stats)(struct rq *rq, struct task_struct *p,
+				      u32 new_task_load);
 #endif
 };
 
