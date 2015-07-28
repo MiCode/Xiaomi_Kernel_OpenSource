@@ -618,7 +618,7 @@ static int parse_cpu_levels(struct device_node *node, struct lpm_cluster *c)
 		ret = of_property_read_u32(node, key, &c->cpu->psci_mode_shift);
 		if (ret) {
 			pr_err("Failed reading %s on device %s\n", key,
-					n->name);
+					node->name);
 			return ret;
 		}
 		key = "qcom,psci-mode-mask";
@@ -626,7 +626,7 @@ static int parse_cpu_levels(struct device_node *node, struct lpm_cluster *c)
 		ret = of_property_read_u32(node, key, &c->cpu->psci_mode_mask);
 		if (ret) {
 			pr_err("Failed reading %s on device %s\n", key,
-					n->name);
+					node->name);
 			return ret;
 		}
 	}
