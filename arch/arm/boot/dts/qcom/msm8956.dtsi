@@ -2037,10 +2037,10 @@
 		qcom,coresight-jtagmm-cpu = <&CPU4>;
 	};
 
-	jtag_mm5: jtagmm@6d40000 {
+	jtag_mm5: jtagmm@6f40000 {
 		compatible = "qcom,jtagv8-mm";
-		reg = <0x6d40000 0x1000>,
-		      <0x6d10000 0x1000>;
+		reg = <0x6f40000 0x1000>,
+		      <0x6f10000 0x1000>;
 		reg-names = "etm-base", "debug-base";
 
 		clocks = <&clock_gcc clk_qdss_clk>,

@@ -102,10 +102,10 @@
 			      };
 			};
 
-		CPU5: cpu@101 {
+		CPU5: cpu@103 {
 			device_type = "cpu";
 			compatible = "arm,armv8";
-			reg = <0x101>;
+			reg = <0x103>;
 			enable-method = "qcom,8976-arm-cortex-acc";
 			efficiency = <1830>;
 			qcom,acc = <&acc5>;
@@ -165,9 +165,9 @@
 		reg = <0x0b088000 0x1000>;
 	};
 
-	acc5:clock-controller@b098000 {
+	acc5:clock-controller@b0b8000 {
 		compatible = "qcom,arm-cortex-acc";
-		reg = <0x0b098000 0x1000>;
+		reg = <0x0b0b8000 0x1000>;
 	};
 
 	ldo4:ldo-vref@b086000 {
@@ -176,9 +176,9 @@
 		qcom,ldo-vref-ret = <0x9>;
 	};
 
-	ldo5:ldo-vref@b096000 {
+	ldo5:ldo-vref@b0b6000 {
 		compatible = "qcom,8976-cpu-ldo-vref";
-		reg = <0xb096000 0x40>;
+		reg = <0xb0b6000 0x40>;
 		qcom,ldo-vref-ret = <0x9>;
 	};
 };
