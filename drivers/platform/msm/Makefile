@@ -21,3 +21,4 @@ obj-$(CONFIG_GPIO_USB_DETECT) += gpio-usbdetect.o
 obj-$(CONFIG_USB_BAM) += usb_bam.o
 obj-$(CONFIG_MSM_AVTIMER) += avtimer.o
 obj-$(CONFIG_MSM_11AD) += msm_11ad/
+obj-$(CONFIG_MSM_MHI_DEV) += mhi_dev/
