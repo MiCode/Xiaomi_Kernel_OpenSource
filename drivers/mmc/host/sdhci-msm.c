@@ -3583,8 +3583,9 @@ static int sdhci_msm_suspend(struct device *dev)
 	int ret = 0;
 	ktime_t start = ktime_get();
 
-	if (gpio_is_valid(msm_host->pdata->status_gpio))
-		mmc_gpio_free_cd(msm_host->mmc);
+	if (gpio_is_valid(msm_host->pdata->status_gpio) &&
+		(msm_host->mmc->slot.cd_irq >= 0))
+			disable_irq(msm_host->mmc->slot.cd_irq);
 
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: already runtime suspended\n",
@@ -3606,13 +3607,10 @@ static int sdhci_msm_resume(struct device *dev)
 	int ret = 0;
 	ktime_t start = ktime_get();
 
-	if (gpio_is_valid(msm_host->pdata->status_gpio)) {
-		ret = mmc_gpio_request_cd(msm_host->mmc,
-				msm_host->pdata->status_gpio, 0);
-		if (ret)
-			pr_err("%s: %s: Failed to request card detection IRQ %d\n",
-					mmc_hostname(host->mmc), __func__, ret);
-	}
+	if (gpio_is_valid(msm_host->pdata->status_gpio) &&
+		(msm_host->mmc->slot.cd_irq >= 0))
+			enable_irq(msm_host->mmc->slot.cd_irq);
+
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: runtime suspended, defer system resume\n",
 		mmc_hostname(host->mmc), __func__);
