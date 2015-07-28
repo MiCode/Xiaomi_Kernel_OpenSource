@@ -1898,7 +1898,6 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	 * to ensure no fetches are happening after dettach or reattach.
 	 */
 	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_cleanup, list) {
-		mdss_mdp_pipe_queue_data(pipe, NULL);
 		mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_left);
 		mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_right);
 		list_move(&pipe->list, &destroy_pipes);
