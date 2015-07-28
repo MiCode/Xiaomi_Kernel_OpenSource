@@ -92,9 +92,11 @@ static int lpm_cpu_callback(struct notifier_block *cpu_nb,
 				unsigned long action, void *hcpu);
 
 static void cluster_unprepare(struct lpm_cluster *cluster,
-		const struct cpumask *cpu, int child_idx, bool from_idle);
+		const struct cpumask *cpu, int child_idx, bool from_idle,
+		int64_t time);
 static void cluster_prepare(struct lpm_cluster *cluster,
-		const struct cpumask *cpu, int child_idx, bool from_idle);
+		const struct cpumask *cpu, int child_idx, bool from_idle,
+		int64_t time);
 
 static struct notifier_block __refdata lpm_cpu_nblk = {
 	.notifier_call = lpm_cpu_callback,
@@ -184,11 +186,11 @@ static int lpm_cpu_callback(struct notifier_block *cpu_nb,
 	switch (action & ~CPU_TASKS_FROZEN) {
 	case CPU_DYING:
 		cluster_prepare(cluster, get_cpu_mask((unsigned int) cpu),
-					NR_LPM_LEVELS, false);
+					NR_LPM_LEVELS, false, 0);
 		break;
 	case CPU_STARTING:
 		cluster_unprepare(cluster, get_cpu_mask((unsigned int) cpu),
-					NR_LPM_LEVELS, false);
+					NR_LPM_LEVELS, false, 0);
 		break;
 	case CPU_ONLINE:
 		smp_call_function_single(cpu, setup_broadcast_timer,
@@ -575,7 +577,8 @@ failed_set_mode:
 }
 
 static void cluster_prepare(struct lpm_cluster *cluster,
-		const struct cpumask *cpu, int child_idx, bool from_idle)
+		const struct cpumask *cpu, int child_idx, bool from_idle,
+		int64_t start_time)
 {
 	int i;
 
@@ -616,15 +619,21 @@ static void cluster_prepare(struct lpm_cluster *cluster,
 	if (cluster_configure(cluster, i, from_idle))
 		goto failed;
 
+	cluster->stats->sleep_time = start_time;
 	cluster_prepare(cluster->parent, &cluster->num_children_in_sync, i,
-			from_idle);
+			from_idle, start_time);
+
+	spin_unlock(&cluster->sync_lock);
+	return;
 failed:
 	spin_unlock(&cluster->sync_lock);
+	cluster->stats->sleep_time = 0;
 	return;
 }
 
 static void cluster_unprepare(struct lpm_cluster *cluster,
-		const struct cpumask *cpu, int child_idx, bool from_idle)
+		const struct cpumask *cpu, int child_idx, bool from_idle,
+		int64_t end_time)
 {
 	struct lpm_cluster_level *level;
 	bool first_cpu;
@@ -654,6 +663,9 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 	if (!first_cpu || cluster->last_level == cluster->default_level)
 		goto unlock_return;
 
+	if (cluster->stats->sleep_time)
+		cluster->stats->sleep_time = end_time -
+			cluster->stats->sleep_time;
 	lpm_stats_cluster_exit(cluster->stats, cluster->last_level, true);
 
 	level = &cluster->levels[cluster->last_level];
@@ -690,7 +702,7 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 
 	cluster_notify(cluster, &cluster->levels[last_level], false);
 	cluster_unprepare(cluster->parent, &cluster->child_cpus,
-			last_level, from_idle);
+			last_level, from_idle, end_time);
 unlock_return:
 	spin_unlock(&cluster->sync_lock);
 }
@@ -875,13 +887,13 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 		pwr_params->energy_overhead, pwr_params->latency_us);
 
 	cpu_prepare(cluster, idx, true);
-	cluster_prepare(cluster, cpumask, idx, true);
+	cluster_prepare(cluster, cpumask, idx, true, ktime_to_ns(ktime_get()));
 
 	if (need_resched() || (idx < 0))
 		goto exit;
 
 	trace_cpu_idle_enter(idx);
-	lpm_stats_cpu_enter(idx);
+	lpm_stats_cpu_enter(idx, start_time);
 
 	if (!use_psci) {
 		if (idx > 0)
@@ -898,8 +910,10 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	}
 
 exit:
-	lpm_stats_cpu_exit(idx, success);
-	cluster_unprepare(cluster, cpumask, idx, true);
+	end_time = ktime_to_ns(ktime_get());
+	lpm_stats_cpu_exit(idx, end_time, success);
+
+	cluster_unprepare(cluster, cpumask, idx, true, end_time);
 	cpu_unprepare(cluster, idx, true);
 
 	sched_set_cpu_cstate(smp_processor_id(), 0, 0, 0);
@@ -1111,6 +1125,7 @@ static int lpm_suspend_enter(suspend_state_t state)
 	struct lpm_cpu *lpm_cpu = cluster->cpu;
 	const struct cpumask *cpumask = get_cpu_mask(cpu);
 	int idx;
+	int64_t time = ktime_to_ns(ktime_get());
 
 	for (idx = lpm_cpu->nlevels - 1; idx >= 0; idx--) {
 
@@ -1122,7 +1137,7 @@ static int lpm_suspend_enter(suspend_state_t state)
 		return 0;
 	}
 	cpu_prepare(cluster, idx, false);
-	cluster_prepare(cluster, cpumask, idx, false);
+	cluster_prepare(cluster, cpumask, idx, false, time);
 	if (idx > 0)
 		update_debug_pc_event(CPU_ENTER, idx, 0xdeaffeed,
 					0xdeaffeed, false);
@@ -1143,7 +1158,9 @@ static int lpm_suspend_enter(suspend_state_t state)
 	if (idx > 0)
 		update_debug_pc_event(CPU_EXIT, idx, true, 0xdeaffeed,
 					false);
-	cluster_unprepare(cluster, cpumask, idx, false);
+
+	time = ktime_to_ns(ktime_get());
+	cluster_unprepare(cluster, cpumask, idx, false, time);
 	cpu_unprepare(cluster, idx, false);
 	return 0;
 }
@@ -1354,7 +1371,7 @@ void lpm_cpu_hotplug_enter(unsigned int cpu)
 			return;
 
 		BUG_ON(idx < 0);
-		cluster_prepare(cluster, get_cpu_mask(cpu), idx, false);
+		cluster_prepare(cluster, get_cpu_mask(cpu), idx, false, 0);
 	}
 
 	msm_cpu_pm_enter_sleep(mode, false);
