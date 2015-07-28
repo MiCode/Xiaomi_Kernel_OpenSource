@@ -52,6 +52,7 @@
 
 #define DEBUG_MAX_FNAME  16
 #define DEBUG_MAX_RW_BUF 2048
+#define QCRYPTO_BIG_NUMBER 9999999 /* a big number */
 
 /*
  * For crypto 5.0 which has burst size alignment requirement.
@@ -125,13 +126,18 @@ static struct dentry *_debug_dent;
 static char _debug_read_buf[DEBUG_MAX_RW_BUF];
 static bool _qcrypto_init_assign;
 struct crypto_priv;
+struct qcrypto_req_control {
+	unsigned int index;
+	bool in_use;
+	struct crypto_engine *pce;
+	struct crypto_async_request *req;
+	struct qcrypto_resp_ctx *arsp;
+};
+
 struct crypto_engine {
 	struct list_head elist;
 	void *qce; /* qce handle */
 	struct platform_device *pdev; /* platform device */
-	struct crypto_async_request *req; /* current active request */
-	struct qcrypto_resp_ctx *arsp;    /* rsp associcated with req */
-	int res;                          /* execution result */
 	struct crypto_priv *pcp;
 	uint32_t  bus_scale_handle;
 	struct crypto_queue req_queue;	/*
@@ -158,6 +164,10 @@ struct crypto_engine {
 	u32    last_active_seq;
 
 	bool   check_flag;
+	/*Added to support multi-requests*/
+	unsigned int max_req;
+	struct   qcrypto_req_control *preq_pool;
+	atomic_t req_count;
 };
 
 struct crypto_priv {
@@ -203,6 +213,65 @@ struct crypto_priv {
 static struct crypto_priv qcrypto_dev;
 static struct crypto_engine *_qcrypto_static_assign_engine(
 					struct crypto_priv *cp);
+static struct crypto_engine *_avail_eng(struct crypto_priv *cp);
+
+static struct qcrypto_req_control *qcrypto_alloc_req_control(
+						struct crypto_engine *pce)
+{
+	int i;
+	struct qcrypto_req_control *pqcrypto_req_control = pce->preq_pool;
+
+	for (i = 0; i < pce->max_req; i++) {
+		if (xchg(&pqcrypto_req_control->in_use, true) == false) {
+			atomic_inc(&pce->req_count);
+			return pqcrypto_req_control;
+		}
+		pqcrypto_req_control++;
+	}
+	return NULL;
+}
+
+static void qcrypto_free_req_control(struct crypto_engine *pce,
+					struct qcrypto_req_control *preq)
+{
+	if (xchg(&preq->in_use, false) == false) {
+		pr_warn("request info %p free already\n", preq);
+	} else {
+		preq->req = NULL;
+		preq->arsp = NULL;
+		atomic_dec(&pce->req_count);
+	}
+}
+
+static struct qcrypto_req_control *find_req_control_for_areq(
+					struct crypto_engine *pce,
+					struct crypto_async_request *areq)
+{
+	int i;
+	struct qcrypto_req_control *pqcrypto_req_control = pce->preq_pool;
+
+	for (i = 0; i < pce->max_req; i++) {
+		if (pqcrypto_req_control->req == areq)
+			return pqcrypto_req_control;
+		pqcrypto_req_control++;
+	}
+	return NULL;
+}
+
+static void qcrypto_init_req_control(struct crypto_engine *pce,
+			struct qcrypto_req_control *pqcrypto_req_control)
+{
+	int i;
+
+	pce->preq_pool = pqcrypto_req_control;
+	atomic_set(&pce->req_count, 0);
+	for (i = 0; i < pce->max_req; i++) {
+		pqcrypto_req_control->index = i;
+		pqcrypto_req_control->in_use = false;
+		pqcrypto_req_control->pce = pce;
+		pqcrypto_req_control++;
+	}
+}
 
 static struct crypto_engine *_qrypto_find_pengine_device(struct crypto_priv *cp,
 			 unsigned int device)
@@ -579,11 +648,11 @@ static void qcrypto_bw_reaper_work(struct work_struct *work)
 		(active_seq == pengine->last_active_seq)) {
 
 		/* check if engine is stuck */
-		if (pengine->req) {
+		if (atomic_read(&pengine->req_count) > 0) {
 			if (pengine->check_flag)
 				dev_warn(&pengine->pdev->dev,
-				"The engine appears to be stuck seq %d req %p.\n",
-				active_seq, pengine->req);
+				"The engine appears to be stuck seq %d.\n",
+				active_seq);
 			pengine->check_flag = false;
 			goto ret;
 		}
@@ -1046,6 +1115,7 @@ static int _disp_stats(int id)
 			pe->unit,
 			pe->err_req
 		);
+		qce_get_driver_stats(pe->qce);
 	}
 	spin_unlock_irqrestore(&cp->lock, flags);
 	return len;
@@ -1075,6 +1145,8 @@ static void _qcrypto_remove_engine(struct crypto_engine *pengine)
 	if (pengine->bus_scale_handle != 0)
 		msm_bus_scale_unregister_client(pengine->bus_scale_handle);
 	pengine->bus_scale_handle = 0;
+
+	kzfree(pengine->preq_pool);
 
 	if (cp->total_units)
 		return;
@@ -1270,18 +1342,31 @@ static int _qcrypto_setkey_3des(struct crypto_ablkcipher *cipher, const u8 *key,
 
 static struct crypto_engine *eng_sel_avoid_first(struct crypto_priv *cp)
 {
-	struct crypto_engine *pe = NULL;
-	struct crypto_engine *pe1 = NULL;
+	/*
+	 * This function need not be spinlock protected when called from
+	 * the seq_response workq as it will not have any contentions when all
+	 * request processing is stopped.
+	 */
+	struct crypto_engine *p;
+	struct crypto_engine *q = NULL;
+	int max_user =  QCRYPTO_BIG_NUMBER;
+	int use_cnt;
 
-	pe = pe1 = list_first_entry(&cp->engine_list, struct crypto_engine,
-								elist);
-	list_for_each_entry_continue(pe, &cp->engine_list, elist) {
-		if (pe->req == NULL)
-			return pe;
+	if (unlikely(list_empty(&cp->engine_list))) {
+		pr_err("%s: no valid ce to schedule\n", __func__);
+		return NULL;
 	}
-	if (pe1->req == NULL)
-		return pe1;
-	return NULL;
+
+	p = list_first_entry(&cp->engine_list, struct crypto_engine,
+								elist);
+	list_for_each_entry_continue(p, &cp->engine_list, elist) {
+		use_cnt = atomic_read(&p->req_count);
+		if ((use_cnt < p->max_req) && (use_cnt < max_user)) {
+			q = p;
+			max_user = use_cnt;
+		}
+	}
+	return q;
 }
 
 static void seq_response(struct work_struct *work)
@@ -1376,29 +1461,27 @@ retry:
 	}
 }
 
-static void req_done(struct crypto_engine *pengine)
+static void req_done(struct qcrypto_req_control *pqcrypto_req_control)
 {
+	struct crypto_engine *pengine;
 	struct crypto_async_request *areq;
 	struct crypto_engine *pe;
 	struct crypto_priv *cp;
 	unsigned long flags;
 	struct qcrypto_resp_ctx *arsp;
-	int res;
 	u32 type = 0;
 	void *tfm_ctx = NULL;
 
+	pengine = pqcrypto_req_control->pce;
 	cp = pengine->pcp;
 	spin_lock_irqsave(&cp->lock, flags);
-	areq = pengine->req;
+	areq = pqcrypto_req_control->req;
+	arsp = pqcrypto_req_control->arsp;
+	qcrypto_free_req_control(pengine, pqcrypto_req_control);
 
-	arsp = pengine->arsp;
-	res = pengine->res;
-	pengine->req = NULL;
-	pengine->arsp = NULL;
 	if (areq) {
 		type = crypto_tfm_alg_type(areq->tfm);
 		tfm_ctx = crypto_tfm_ctx(areq->tfm);
-		arsp->res = res;
 	}
 	pe = list_first_entry(&cp->engine_list, struct crypto_engine, elist);
 	if (pe == pengine)
@@ -1418,6 +1501,7 @@ static void _qce_ahash_complete(void *cookie, unsigned char *digest,
 		unsigned char *authdata, int ret)
 {
 	struct ahash_request *areq = (struct ahash_request *) cookie;
+	struct crypto_async_request *async_req;
 	struct crypto_ahash *ahash = crypto_ahash_reqtfm(areq);
 	struct qcrypto_sha_ctx *sha_ctx = crypto_tfm_ctx(areq->base.tfm);
 	struct qcrypto_sha_req_ctx *rctx = ahash_request_ctx(areq);
@@ -1426,10 +1510,19 @@ static void _qce_ahash_complete(void *cookie, unsigned char *digest,
 	uint32_t diglen = crypto_ahash_digestsize(ahash);
 	uint32_t *auth32 = (uint32_t *)authdata;
 	struct crypto_engine *pengine;
+	struct qcrypto_req_control *pqcrypto_req_control;
 
+	async_req = &areq->base;
 	pstat = &_qcrypto_stat;
 
 	pengine = rctx->pengine;
+	pqcrypto_req_control = find_req_control_for_areq(pengine,
+							 async_req);
+	if (pqcrypto_req_control == NULL) {
+		pr_err("async request not found\n");
+		return;
+	}
+
 #ifdef QCRYPTO_DEBUG
 	dev_info(&pengine->pdev->dev, "_qce_ahash_complete: %p ret %d\n",
 				areq, ret);
@@ -1451,33 +1544,43 @@ static void _qce_ahash_complete(void *cookie, unsigned char *digest,
 	rctx->first_blk = 0;
 
 	if (ret) {
-		pengine->res = -ENXIO;
+		pqcrypto_req_control->arsp->res = -ENXIO;
 		pstat->ahash_op_fail++;
 	} else {
-		pengine->res = 0;
+		pqcrypto_req_control->arsp->res = 0;
 		pstat->ahash_op_success++;
 	}
 	if (cp->ce_support.aligned_only)  {
 		areq->src = rctx->orig_src;
 		kfree(rctx->data);
 	}
-	req_done(pengine);
+	req_done(pqcrypto_req_control);
 };
 
 static void _qce_ablk_cipher_complete(void *cookie, unsigned char *icb,
 		unsigned char *iv, int ret)
 {
 	struct ablkcipher_request *areq = (struct ablkcipher_request *) cookie;
+	struct crypto_async_request *async_req;
 	struct crypto_ablkcipher *ablk = crypto_ablkcipher_reqtfm(areq);
 	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(areq->base.tfm);
 	struct crypto_priv *cp = ctx->cp;
 	struct crypto_stat *pstat;
 	struct qcrypto_cipher_req_ctx *rctx;
 	struct crypto_engine *pengine;
+	struct qcrypto_req_control *pqcrypto_req_control;
 
+	async_req = &areq->base;
 	pstat = &_qcrypto_stat;
 	rctx = ablkcipher_request_ctx(areq);
 	pengine = rctx->pengine;
+	pqcrypto_req_control = find_req_control_for_areq(pengine,
+							 async_req);
+	if (pqcrypto_req_control == NULL) {
+		pr_err("async request not found\n");
+		return;
+	}
+
 #ifdef QCRYPTO_DEBUG
 	dev_info(&pengine->pdev->dev, "_qce_ablk_cipher_complete: %p ret %d\n",
 				areq, ret);
@@ -1486,10 +1589,10 @@ static void _qce_ablk_cipher_complete(void *cookie, unsigned char *icb,
 		memcpy(ctx->iv, iv, crypto_ablkcipher_ivsize(ablk));
 
 	if (ret) {
-		pengine->res = -ENXIO;
+		pqcrypto_req_control->arsp->res = -ENXIO;
 		pstat->ablk_cipher_op_fail++;
 	} else {
-		pengine->res = 0;
+		pqcrypto_req_control->arsp->res = 0;
 		pstat->ablk_cipher_op_success++;
 	}
 
@@ -1510,7 +1613,7 @@ static void _qce_ablk_cipher_complete(void *cookie, unsigned char *icb,
 								areq->nbytes);
 		kzfree(rctx->data);
 	}
-	req_done(pengine);
+	req_done(pqcrypto_req_control);
 };
 
 
@@ -1518,16 +1621,25 @@ static void _qce_aead_complete(void *cookie, unsigned char *icv,
 				unsigned char *iv, int ret)
 {
 	struct aead_request *areq = (struct aead_request *) cookie;
+	struct crypto_async_request *async_req;
 	struct crypto_aead *aead = crypto_aead_reqtfm(areq);
 	struct qcrypto_cipher_ctx *ctx = crypto_tfm_ctx(areq->base.tfm);
 	struct crypto_priv *cp = ctx->cp;
 	struct qcrypto_cipher_req_ctx *rctx;
 	struct crypto_stat *pstat;
 	struct crypto_engine *pengine;
+	struct qcrypto_req_control *pqcrypto_req_control;
 
+	async_req = &areq->base;
 	pstat = &_qcrypto_stat;
 	rctx = aead_request_ctx(areq);
 	pengine = rctx->pengine;
+	pqcrypto_req_control = find_req_control_for_areq(pengine,
+							 async_req);
+	if (pqcrypto_req_control == NULL) {
+		pr_err("async request not found\n");
+		return;
+	}
 
 	if (rctx->mode == QCE_MODE_CCM) {
 		if (cp->ce_support.aligned_only)  {
@@ -1623,8 +1735,8 @@ static void _qce_aead_complete(void *cookie, unsigned char *icv,
 	else
 		pstat->aead_op_success++;
 
-	pengine->res = ret;
-	req_done(pengine);
+	pqcrypto_req_control->arsp->res = ret;
+	req_done(pqcrypto_req_control);
 }
 
 static int aead_ccm_set_msg_len(u8 *block, unsigned int msglen, int csize)
@@ -1716,8 +1828,9 @@ static int qcrypto_aead_ccm_format_adata(struct qce_req *qreq, uint32_t alen,
 }
 
 static int _qcrypto_process_ablkcipher(struct crypto_engine *pengine,
-				struct crypto_async_request *async_req)
+			struct qcrypto_req_control *pqcrypto_req_control)
 {
+	struct crypto_async_request *async_req;
 	struct qce_req qreq;
 	int ret;
 	struct qcrypto_cipher_req_ctx *rctx;
@@ -1725,6 +1838,7 @@ static int _qcrypto_process_ablkcipher(struct crypto_engine *pengine,
 	struct ablkcipher_request *req;
 	struct crypto_ablkcipher *tfm;
 
+	async_req = pqcrypto_req_control->req;
 	req = container_of(async_req, struct ablkcipher_request, base);
 	cipher_ctx = crypto_tfm_ctx(async_req->tfm);
 	rctx = ablkcipher_request_ctx(req);
@@ -1780,14 +1894,16 @@ static int _qcrypto_process_ablkcipher(struct crypto_engine *pengine,
 }
 
 static int _qcrypto_process_ahash(struct crypto_engine *pengine,
-				struct crypto_async_request *async_req)
+			struct qcrypto_req_control *pqcrypto_req_control)
 {
+	struct crypto_async_request *async_req;
 	struct ahash_request *req;
 	struct qce_sha_req sreq;
 	struct qcrypto_sha_req_ctx *rctx;
 	struct qcrypto_sha_ctx *sha_ctx;
 	int ret = 0;
 
+	async_req = pqcrypto_req_control->req;
 	req = container_of(async_req,
 				struct ahash_request, base);
 	rctx = ahash_request_ctx(req);
@@ -1837,16 +1953,19 @@ static int _qcrypto_process_ahash(struct crypto_engine *pengine,
 }
 
 static int _qcrypto_process_aead(struct  crypto_engine *pengine,
-				struct crypto_async_request *async_req)
+			struct qcrypto_req_control *pqcrypto_req_control)
 {
+	struct crypto_async_request *async_req;
 	struct qce_req qreq;
 	int ret = 0;
 	struct qcrypto_cipher_req_ctx *rctx;
 	struct qcrypto_cipher_ctx *cipher_ctx;
-	struct aead_request *req = container_of(async_req,
-				struct aead_request, base);
-	struct crypto_aead *aead = crypto_aead_reqtfm(req);
+	struct aead_request *req;
+	struct crypto_aead *aead;
 
+	async_req = pqcrypto_req_control->req;
+	req = container_of(async_req, struct aead_request, base);
+	aead = crypto_aead_reqtfm(req);
 	rctx = aead_request_ctx(req);
 	rctx->pengine = pengine;
 	cipher_ctx = crypto_tfm_ctx(async_req->tfm);
@@ -2076,12 +2195,13 @@ static int _start_qcrypto_process(struct crypto_priv *cp,
 	struct ahash_request *ahash_req;
 	struct aead_request *aead_req;
 	struct qcrypto_resp_ctx *arsp;
+	struct qcrypto_req_control *pqcrypto_req_control;
 
 	pstat = &_qcrypto_stat;
 
 again:
 	spin_lock_irqsave(&cp->lock, flags);
-	if (pengine->req) {
+	if (atomic_read(&pengine->req_count) >= (pengine->max_req)) {
 		spin_unlock_irqrestore(&cp->lock, flags);
 		return 0;
 	}
@@ -2107,6 +2227,12 @@ again:
 			spin_unlock_irqrestore(&cp->lock, flags);
 			return 0;
 		}
+	}
+	pqcrypto_req_control = qcrypto_alloc_req_control(pengine);
+	if (pqcrypto_req_control == NULL) {
+		pr_err("Allocation of request failed\n");
+		spin_unlock_irqrestore(&cp->lock, flags);
+		return 0;
 	}
 
 	/* add associated rsp entry to tfm response queue */
@@ -2149,8 +2275,9 @@ again:
 	atomic_inc(&cp->resp_cnt);
 	arsp->res = -EINPROGRESS;
 	arsp->async_req = async_req;
-	pengine->req = async_req;
-	pengine->arsp = arsp;
+	pqcrypto_req_control->pce = pengine;
+	pqcrypto_req_control->req = async_req;
+	pqcrypto_req_control->arsp = arsp;
 	pengine->active_seq++;
 	pengine->check_flag = true;
 
@@ -2161,13 +2288,14 @@ again:
 		backlog_cp->complete(backlog_cp, -EINPROGRESS);
 	switch (type) {
 	case CRYPTO_ALG_TYPE_ABLKCIPHER:
-		ret = _qcrypto_process_ablkcipher(pengine, async_req);
+		ret = _qcrypto_process_ablkcipher(pengine,
+					pqcrypto_req_control);
 		break;
 	case CRYPTO_ALG_TYPE_AHASH:
-		ret = _qcrypto_process_ahash(pengine, async_req);
+		ret = _qcrypto_process_ahash(pengine, pqcrypto_req_control);
 		break;
 	case CRYPTO_ALG_TYPE_AEAD:
-		ret = _qcrypto_process_aead(pengine, async_req);
+		ret = _qcrypto_process_aead(pengine, pqcrypto_req_control);
 		break;
 	default:
 		ret = -EINVAL;
@@ -2176,10 +2304,7 @@ again:
 	if (ret) {
 		arsp->res = ret;
 		pengine->err_req++;
-		spin_lock_irqsave(&cp->lock, flags);
-		pengine->req = NULL;
-		pengine->arsp = NULL;
-		spin_unlock_irqrestore(&cp->lock, flags);
+		qcrypto_free_req_control(pengine, pqcrypto_req_control);
 
 		if (type == CRYPTO_ALG_TYPE_ABLKCIPHER)
 			pstat->ablk_cipher_op_fail++;
@@ -2197,13 +2322,25 @@ again:
 
 static struct crypto_engine *_avail_eng(struct crypto_priv *cp)
 {
-	struct crypto_engine *pe = NULL;
+	/* call this function with spinlock set */
+	struct crypto_engine *p;
+	struct crypto_engine *q = NULL;
+	int max_user =  QCRYPTO_BIG_NUMBER;
+	int use_cnt;
 
-	list_for_each_entry(pe, &cp->engine_list, elist) {
-		if (pe->req == NULL)
-			return pe;
+	if (unlikely(list_empty(&cp->engine_list))) {
+		pr_err("%s: no valid ce to schedule\n", __func__);
+		return NULL;
 	}
-	return NULL;
+
+	list_for_each_entry(p, &cp->engine_list, elist) {
+		use_cnt = atomic_read(&p->req_count);
+		if ((use_cnt < p->max_req) && (use_cnt < max_user)) {
+			q = p;
+			max_user = use_cnt;
+		}
+	}
+	return q;
 }
 
 static int _qcrypto_queue_req(struct crypto_priv *cp,
@@ -4571,6 +4708,7 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	struct msm_ce_hw_support *platform_support;
 	struct crypto_engine *pengine;
 	unsigned long flags;
+	struct qcrypto_req_control *pqcrypto_req_control = NULL;
 
 	/* For FIPS140-2 Power on self tests */
 	struct fips_selftest_data selftest_d;
@@ -4595,7 +4733,6 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 	pengine->qce = handle;
 	pengine->pcp = cp;
 	pengine->pdev = pdev;
-	pengine->req = NULL;
 	pengine->signature = 0xdeadbeef;
 
 	init_timer(&(pengine->bw_reaper_timer));
@@ -4621,6 +4758,14 @@ static int  _qcrypto_probe(struct platform_device *pdev)
 
 	qce_hw_support(pengine->qce, &cp->ce_support);
 	pengine->ce_hw_instance = cp->ce_support.ce_hw_instance;
+	pengine->max_req = cp->ce_support.max_request;
+	pqcrypto_req_control = kzalloc(sizeof(struct qcrypto_req_control) *
+			pengine->max_req, GFP_KERNEL);
+	if (pqcrypto_req_control == NULL) {
+		rc = -ENOMEM;
+		goto err;
+	}
+	qcrypto_init_req_control(pengine, pqcrypto_req_control);
 	if (cp->ce_support.bam)	 {
 		cp->platform_support.ce_shared = cp->ce_support.is_shared;
 		cp->platform_support.shared_ce_resource = 0;
@@ -4993,6 +5138,8 @@ err:
 	mutex_unlock(&cp->engine_lock);
 	if (pengine->qce)
 		qce_close(pengine->qce);
+	if (pqcrypto_req_control)
+		kzfree(pqcrypto_req_control);
 	kzfree(pengine);
 	return rc;
 };
@@ -5001,7 +5148,8 @@ static int _qcrypto_engine_in_use(struct crypto_engine *pengine)
 {
 	struct crypto_priv *cp = pengine->pcp;
 
-	if (pengine->req || pengine->req_queue.qlen || cp->req_queue.qlen)
+	if ((atomic_read(&pengine->req_count) > 0) || pengine->req_queue.qlen
+					|| cp->req_queue.qlen)
 		return 1;
 	return 0;
 }
@@ -5162,6 +5310,7 @@ static ssize_t _debug_stats_write(struct file *file, const char __user *buf,
 	list_for_each_entry(pe, &cp->engine_list, elist) {
 		pe->total_req = 0;
 		pe->err_req = 0;
+		qce_clear_driver_stats(pe->qce);
 	}
 	spin_unlock_irqrestore(&cp->lock, flags);
 	return count;
