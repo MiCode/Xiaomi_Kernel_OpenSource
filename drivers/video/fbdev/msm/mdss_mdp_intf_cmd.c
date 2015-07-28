@@ -822,6 +822,7 @@ static void mdss_mdp_cmd_intf_recovery(void *data, int event)
 {
 	struct mdss_mdp_cmd_ctx *ctx = data;
 	unsigned long flags;
+	bool reset_done = false;
 
 	if (!data) {
 		pr_err("%s: invalid ctx\n", __func__);
@@ -842,9 +843,13 @@ static void mdss_mdp_cmd_intf_recovery(void *data, int event)
 		return;
 	}
 
-	spin_lock_irqsave(&ctx->koff_lock, flags);
 	if (atomic_read(&ctx->koff_cnt)) {
 		mdss_mdp_ctl_reset(ctx->ctl);
+		reset_done = true;
+	}
+
+	spin_lock_irqsave(&ctx->koff_lock, flags);
+	if (reset_done && atomic_read(&ctx->koff_cnt)) {
 		pr_debug("%s: intf_num=%d\n", __func__,
 					ctx->ctl->intf_num);
 		atomic_dec(&ctx->koff_cnt);
