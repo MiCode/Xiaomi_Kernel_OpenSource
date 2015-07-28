@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +26,8 @@
 #include <soc/qcom/subsystem_notif.h>
 #include <soc/qcom/sysmon.h>
 #include <soc/qcom/service-locator.h>
-#include "service-notifier.h"
+#include <soc/qcom/service-notifier.h>
+#include "service-notifier-private.h"
 
 #define QMI_RESP_BIT_SHIFT(x)			(x << 16)
 #define SERVREG_NOTIF_NAME_LENGTH	QMI_SERVREG_NOTIF_NAME_LENGTH_V01

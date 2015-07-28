@@ -1,4 +1,4 @@
- /* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ /* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,14 +29,6 @@
 #define QMI_SERVREG_NOTIF_STATE_UPDATED_IND_ACK_REQ_V01 0x0023
 
 #define QMI_SERVREG_NOTIF_NAME_LENGTH_V01 64
-
-enum qmi_servreg_notif_service_state_enum_type_v01 {
-	QMI_SERVREG_NOTIF_SERVICE_STATE_ENUM_TYPE_MIN_VAL_V01 = INT_MIN,
-	QMI_SERVREG_NOTIF_SERVICE_STATE_ENUM_TYPE_MAX_VAL_V01 = INT_MAX,
-	SERVREG_NOTIF_SERVICE_STATE_DOWN_V01 = 0x0FFFFFFF,
-	SERVREG_NOTIF_SERVICE_STATE_UP_V01 = 0x1FFFFFFF,
-	SERVREG_NOTIF_SERVICE_STATE_UNINIT_V01 = 0x7FFFFFFF,
-};
 
 struct qmi_servreg_notif_register_listener_req_msg_v01 {
 	uint8_t enable;
