@@ -275,6 +275,7 @@ static void mdss_mdp_pipe_nrt_vbif_setup(struct mdss_data_type *mdata,
 	if (pipe->type != MDSS_MDP_PIPE_TYPE_DMA)
 		return;
 
+	mutex_lock(&mdata->reg_lock);
 	nrt_vbif_client_sel = readl_relaxed(mdata->mdp_base +
 				MMSS_MDP_RT_NRT_VBIF_CLIENT_SEL);
 	if (mdss_mdp_is_nrt_vbif_client(mdata, pipe))
@@ -283,6 +284,7 @@ static void mdss_mdp_pipe_nrt_vbif_setup(struct mdss_data_type *mdata,
 		nrt_vbif_client_sel &= ~BIT(pipe->num - MDSS_MDP_SSPP_DMA0);
 	writel_relaxed(nrt_vbif_client_sel,
 			mdata->mdp_base + MMSS_MDP_RT_NRT_VBIF_CLIENT_SEL);
+	mutex_unlock(&mdata->reg_lock);
 
 	return;
 }
@@ -906,6 +908,7 @@ static void mdss_mdp_qos_vbif_remapper_setup(struct mdss_data_type *mdata,
 	if (mdata->npriority_lvl == 0)
 		return;
 
+	mutex_lock(&mdata->reg_lock);
 	for (i = 0; i < mdata->npriority_lvl; i++) {
 		reg_val = MDSS_VBIF_READ(mdata, MDSS_VBIF_QOS_REMAP_BASE + i*4,
 								is_nrt_vbif);
@@ -917,6 +920,7 @@ static void mdss_mdp_qos_vbif_remapper_setup(struct mdss_data_type *mdata,
 		MDSS_VBIF_WRITE(mdata, MDSS_VBIF_QOS_REMAP_BASE + i*4, reg_val,
 								is_nrt_vbif);
 	}
+	mutex_unlock(&mdata->reg_lock);
 }
 
 /**
