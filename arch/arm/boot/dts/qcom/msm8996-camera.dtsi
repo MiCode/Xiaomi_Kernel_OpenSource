@@ -415,6 +415,7 @@
 			iommus = <&vfe_smmu 0>,
 					<&vfe_smmu 2>;
 			label = "vfe_image";
+			qcom,scratch-buf-support;
 		};
 
 		msm_cam_smmu_cb2 {
@@ -422,6 +423,7 @@
 			iommus = <&vfe_smmu 1>,
 					<&vfe_smmu 3>;
 			label = "vfe_stats";
+			qcom,scratch-buf-support;
 		};
 
 		msm_cam_smmu_cb3 {
