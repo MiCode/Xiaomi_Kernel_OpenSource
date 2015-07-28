@@ -724,19 +724,20 @@ void ipa3_dma_destroy(void)
  *
  * @priv -not in use.
  * @evt - event name - IPA_RECIVE.
- * @data -the iovec.
+ * @data -the ipa3_mem_buffer.
  */
 void ipa3_dma_async_memcpy_notify_cb(void *priv
 			, enum ipa_dp_evt_type evt, unsigned long data)
 {
 	int ep_idx = 0;
-	struct sps_iovec *iov = (struct sps_iovec *) data;
 	struct ipa3_dma_xfer_wrapper *xfer_descr_expected;
 	struct ipa3_sys_context *sys;
 	unsigned long flags;
+	struct ipa3_mem_buffer *mem_info;
 
 	IPADMA_FUNC_ENTRY();
 
+	mem_info = (struct ipa3_mem_buffer *)data;
 	ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS);
 	sys = ipa3_ctx->ep[ep_idx].sys;
 
@@ -747,8 +748,8 @@ void ipa3_dma_async_memcpy_notify_cb(void *priv
 	sys->len--;
 	spin_unlock_irqrestore(&ipa3_dma_ctx->async_lock, flags);
 
-	BUG_ON(xfer_descr_expected->phys_addr_dest != iov->addr);
-	BUG_ON(xfer_descr_expected->len != iov->size);
+	BUG_ON(xfer_descr_expected->phys_addr_dest != mem_info->phys_base);
+	BUG_ON(xfer_descr_expected->len != mem_info->size);
 
 	atomic_inc(&ipa3_dma_ctx->total_async_memcpy);
 	atomic_dec(&ipa3_dma_ctx->async_memcpy_pending_cnt);

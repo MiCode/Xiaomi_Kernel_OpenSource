@@ -20,6 +20,14 @@
 #include <linux/if_ether.h>
 
 #define IPA_APPS_MAX_BW_IN_MBPS 200
+/**
+ * enum ipa_transport_type
+ * transport type: either GSI or SPS
+ */
+enum ipa_transport_type {
+	IPA_TRANSPORT_TYPE_SPS,
+	IPA_TRANSPORT_TYPE_GSI
+};
 
 /**
  * enum ipa_nat_en_type - NAT setting type in IPA end-point
@@ -1410,6 +1418,9 @@ enum ipa_client_type ipa_get_client_mapping(int pipe_idx);
 enum ipa_rm_resource_name ipa_get_rm_resource_from_ep(int pipe_idx);
 
 bool ipa_get_modem_cfg_emb_pipe_flt(void);
+
+enum ipa_transport_type ipa_get_transport_type(void);
+
 struct device *ipa_get_dma_dev(void);
 struct iommu_domain *ipa_get_smmu_domain(void);
 
@@ -2115,6 +2126,11 @@ static inline enum ipa_rm_resource_name ipa_get_rm_resource_from_ep(
 static inline bool ipa_get_modem_cfg_emb_pipe_flt(void)
 {
 	return -EINVAL;
+}
+
+static inline enum ipa_transport_type ipa_get_transport_type(void)
+{
+	return -EFAULT;
 }
 
 static inline struct device *ipa_get_dma_dev(void)

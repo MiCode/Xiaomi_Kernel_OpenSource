@@ -43,7 +43,7 @@
 #define IPA_LAN_RX_HEADER_LENGTH (2)
 #define IPA_QMAP_HEADER_LENGTH (4)
 #define IPA_DL_CHECKSUM_LENGTH (8)
-#define IPA_NUM_DESC_PER_SW_TX (2)
+#define IPA_NUM_DESC_PER_SW_TX (3)
 #define IPA_GENERIC_RX_POOL_SZ 192
 
 #define IPADBG(fmt, args...) \
@@ -166,6 +166,14 @@
 
 #define MAX_RESOURCE_TO_CLIENTS (IPA_CLIENT_MAX)
 #define IPA_MEM_PART(x_) (ipa3_ctx->ctrl->mem_partition.x_)
+
+struct ipa_gsi_ep_config {
+	int ipa_ep_num;
+	int ipa_gsi_chan_num;
+	int ipa_if_tlv;
+	int ipa_if_aos;
+	int ee;
+};
 
 #define IPA_SMMU_AP_VA_START 0x1000
 #define IPA_SMMU_AP_VA_SIZE 0x40000000
@@ -525,6 +533,15 @@ struct ipa3_wlan_comm_memb {
 	atomic_t active_clnt_cnt;
 };
 
+struct ipa_gsi_ep_mem_info {
+	u16 evt_ring_len;
+	u64 evt_ring_base_addr;
+	void *evt_ring_base_vaddr;
+	u16 chan_ring_len;
+	u64 chan_ring_base_addr;
+	void *chan_ring_base_vaddr;
+};
+
 /**
  * struct ipa3_ep_context - IPA end point context
  * @valid: flag indicating id EP context is valid
@@ -552,6 +569,12 @@ struct ipa3_ep_context {
 	int valid;
 	enum ipa_client_type client;
 	struct sps_pipe *ep_hdl;
+	unsigned long gsi_chan_hdl;
+	unsigned long gsi_evt_ring_hdl;
+	struct ipa_gsi_ep_mem_info gsi_mem_info;
+	bool bytes_xfered_valid;
+	u16 bytes_xfered;
+	dma_addr_t phys_base;
 	struct ipa_ep_cfg cfg;
 	struct ipa_ep_cfg_holb holb;
 	struct ipa3_ep_cfg_status status;
@@ -1089,12 +1112,15 @@ struct ipa3_uc_wdi_ctx {
 };
 
 /**
- * struct ipa3_sps_pm - SPS power management related members
- * @dec_clients: true if need to decrease active clients count
- * @eot_activity: represent EOT interrupt activity to determine to reset
- *  the inactivity timer
+ * struct ipa3_transport_pm - transport power management related members
+ * @lock: lock for ensuring atomic operations
+ * @res_granted: true if SPS requested IPA resource and IPA granted it
+ * @res_rel_in_prog: true if releasing IPA resource is in progress
  */
-struct ipa3_sps_pm {
+struct ipa3_transport_pm {
+	spinlock_t lock;
+	bool res_granted;
+	bool res_rel_in_prog;
 	bool dec_clients;
 	atomic_t eot_activity;
 };
@@ -1174,10 +1200,10 @@ struct ipa3_hash_tuple {
  * @ip6_flt_tbl_lcl: where ip6 flt tables reside 1-local; 0-system
  * @empty_rt_tbl_mem: empty routing tables memory
  * @power_mgmt_wq: workqueue for power management
- * @sps_power_mgmt_wq: workqueue SPS related power management
+ * @transport_power_mgmt_wq: workqueue transport related power management
  * @tag_process_before_gating: indicates whether to start tag process before
  *  gating IPA clocks
- * @sps_pm: sps power management related information
+ * @transport_pm: transport power management related information
  * @lan_rx_clnt_notify_lock: protects LAN_CONS packet receive notification CB
  * @pipe_mem_pool: pipe memory pool
  * @dma_pool: special purpose DMA pool
@@ -1256,9 +1282,9 @@ struct ipa3_context {
 	struct dma_pool *dma_pool;
 	struct ipa3_active_clients ipa3_active_clients;
 	struct workqueue_struct *power_mgmt_wq;
-	struct workqueue_struct *sps_power_mgmt_wq;
+	struct workqueue_struct *transport_power_mgmt_wq;
 	bool tag_process_before_gating;
-	struct ipa3_sps_pm sps_pm;
+	struct ipa3_transport_pm transport_pm;
 	u32 clnt_hdl_cmd;
 	u32 clnt_hdl_data_in;
 	u32 clnt_hdl_data_out;
@@ -1295,6 +1321,9 @@ struct ipa3_context {
 	struct ipa3_uc_wdi_ctx uc_wdi_ctx;
 	u32 wan_rx_ring_size;
 	bool skip_uc_pipe_reset;
+	enum ipa_transport_type transport_prototype;
+	unsigned long gsi_dev_hdl;
+	u32 ee;
 	bool smmu_present;
 	unsigned long peer_bam_iova;
 	phys_addr_t peer_bam_pa;
@@ -1343,10 +1372,10 @@ struct ipa3_plat_drv_res {
 	bool use_ipa_teth_bridge;
 	u32 ipa_mem_base;
 	u32 ipa_mem_size;
-	u32 bam_mem_base;
-	u32 bam_mem_size;
+	u32 transport_mem_base;
+	u32 transport_mem_size;
 	u32 ipa_irq;
-	u32 bam_irq;
+	u32 transport_irq;
 	u32 ipa_pipe_mem_start_ofst;
 	u32 ipa_pipe_mem_size;
 	enum ipa_hw_type ipa_hw_type;
@@ -1356,6 +1385,7 @@ struct ipa3_plat_drv_res {
 	bool modem_cfg_emb_pipe_flt;
 	u32 wan_rx_ring_size;
 	bool skip_uc_pipe_reset;
+	enum ipa_transport_type transport_prototype;
 };
 
 struct ipa3_mem_partition {
@@ -2007,6 +2037,9 @@ int ipa3_uc_mhi_resume_channel(int channelHandle, bool LPTransitionRejected);
 int ipa3_uc_mhi_stop_event_update_channel(int channelHandle);
 int ipa3_uc_mhi_print_stats(char *dbg_buff, int size);
 int ipa3_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);
+void ipa3_tag_free_buf(void *user1, int user2);
+struct ipa_gsi_ep_config *ipa_get_gsi_ep_info(int ipa_ep_idx);
+
 u32 ipa3_get_num_pipes(void);
 struct ipa_smmu_cb_ctx *ipa3_get_wlan_smmu_ctx(void);
 struct ipa_smmu_cb_ctx *ipa3_get_uc_smmu_ctx(void);
@@ -2022,5 +2055,7 @@ int ipa3_set_flt_tuple_mask(int pipe_idx, struct ipa3_hash_tuple *tuple);
 int ipa3_set_rt_tuple_mask(int tbl_idx, struct ipa3_hash_tuple *tuple);
 void ipa3_set_resorce_groups_min_max_limits(void);
 void ipa3_suspend_apps_pipes(bool suspend);
+
+int ipa3_stop_gsi_channel(unsigned long chan_hdl);
 
 #endif /* _IPA3_I_H_ */

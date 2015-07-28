@@ -290,6 +290,8 @@ struct ipa_api_controller {
 
 	bool (*ipa_get_modem_cfg_emb_pipe_flt)(void);
 
+	enum ipa_transport_type (*ipa_get_transport_type)(void);
+
 	int (*ipa_ap_suspend)(struct device *dev);
 
 	int (*ipa_ap_resume)(struct device *dev);

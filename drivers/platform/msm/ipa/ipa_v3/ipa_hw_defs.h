@@ -33,6 +33,7 @@
 #define IPA_IP_PACKET_INIT       (16)
 #define IPA_DMA_SHARED_MEM       (19)
 #define IPA_IP_PACKET_TAG_STATUS (20)
+#define IPA_DMA_TASK_32B_ADDR(num_buff)         (17 + ((num_buff) << 8))
 
 /* Processing context TLV type */
 #define IPA_PROC_CTX_TLV_TYPE_END 0
@@ -483,6 +484,19 @@ struct ipa3_hw_imm_cmd_dma_shared_mem {
 	u64 pipeline_clear_options:2;
 	u64 reserved_2:12;
 	u64 system_addr:64;
+};
+
+/*! @brief IPA_HW_IMM_CMD_DMA_TASK_32B_ADDR Immediate Command Parameters */
+struct ipa3_hw_imm_cmd_dma_task_32b_addr {
+	u64 reserved:11;
+	u64 cmplt:1;
+	u64 eof:1;
+	u64 flsh:1;
+	u64 lock:1;
+	u64 unlock:1;
+	u64 size1:16;
+	u64 addr1:32;
+	u64 packet_size:16;
 };
 
 #endif /* _IPA_HW_DEFS_H */

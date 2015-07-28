@@ -4810,6 +4810,15 @@ bool ipa2_get_modem_cfg_emb_pipe_flt(void)
 
 	return false;
 }
+/**
+ * ipa2_get_transport_type()- Return IPA_TRANSPORT_TYPE_SPS
+ *
+ * Return value: enum ipa_transport_type
+ */
+enum ipa_transport_type ipa2_get_transport_type(void)
+{
+	return IPA_TRANSPORT_TYPE_SPS;
+}
 
 u32 ipa_get_num_pipes(void)
 {
@@ -4984,6 +4993,7 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_rm_resource_from_ep = ipa2_get_rm_resource_from_ep;
 	api_ctrl->ipa_get_modem_cfg_emb_pipe_flt =
 		ipa2_get_modem_cfg_emb_pipe_flt;
+	api_ctrl->ipa_get_transport_type = ipa2_get_transport_type;
 	api_ctrl->ipa_ap_suspend = ipa2_ap_suspend;
 	api_ctrl->ipa_ap_resume = ipa2_ap_resume;
 	api_ctrl->ipa_get_smmu_domain = ipa2_get_smmu_domain;

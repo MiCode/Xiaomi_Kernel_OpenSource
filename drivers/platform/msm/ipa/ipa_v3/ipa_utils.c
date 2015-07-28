@@ -16,6 +16,7 @@
 #include <linux/ratelimit.h>
 #include <linux/msm-bus.h>
 #include <linux/msm-bus-board.h>
+#include <linux/msm_gsi.h>
 #include "ipa_i.h"
 
 #define IPA_V3_0_CLK_RATE_SVS (75 * 1000 * 1000UL)
@@ -44,6 +45,11 @@
 #define IPA_AGGR_PKT_LIMIT (\
 		IPA_ENDP_INIT_AGGR_N_AGGR_PKT_LIMIT_BMSK >> \
 		IPA_ENDP_INIT_AGGR_N_AGGR_PKT_LIMIT_SHFT)
+
+#define IPA_GSI_CHANNEL_STOP_MAX_RETRY 10
+#define IPA_GSI_CHANNEL_STOP_PKT_SIZE 1
+#define IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC (1000)
+#define IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC (2000)
 
 /* configure IPA spare register 1 in order to have correct IPA version
  * set bits 0,2,3 and 4. see SpareBits documentation.xlsx
@@ -235,6 +241,37 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 	[IPA_3_0][IPA_CLIENT_TEST2_CONS]          = {28, IPA_GROUP_DL, false},
 	[IPA_3_0][IPA_CLIENT_TEST3_CONS]          = {29, IPA_GROUP_DL, false},
 	[IPA_3_0][IPA_CLIENT_TEST4_CONS]          = {30, IPA_GROUP_DL, false},
+};
+
+/* this array include information tuple:
+  {ipa_ep_num, ipa_gsi_chan_num, ipa_if_tlv, ipa_if_aos, ee} */
+static struct ipa_gsi_ep_config ipa_gsi_ep_info[] = {
+	{0, 0, 8, 16, 0},
+	{1, 3, 8, 16, 0},
+	{3, 5, 16, 32, 0},
+	{4, 9, 4, 4, 1},
+	{5, 0, 16, 32, 1},
+	{6, 1, 18, 28, 1},
+	{7, 2, 0, 0, 1},
+	{8, 3, 0, 0, 1},
+	{9, 4, 8, 12, 1},
+	{12, 9, 8, 16, 0},
+	{13, 10, 8, 16, 0},
+	{14, 11, 8, 16, 0},
+	{15, 7, 8, 12, 0},
+	{16, 8, 8, 12, 0},
+	{17, 2, 8, 12, 0},
+	{18, 5, 8, 12, 1},
+	{19, 6, 8, 12, 1},
+	{21, 8, 4, 4, 1},
+	{22, 6, 18, 28, 0},
+	{23, 1, 8, 8, 0},
+	{26, 12, 0, 0, 0},
+	{27, 4, 8, 8, 0},
+	{28, 13, 8, 8, 0},
+	{29, 14, 8, 8, 0},
+	{30, 7, 4, 4, 1},
+	{-1, -1, -1, -1, -1}
 };
 
 static struct msm_bus_vectors ipa_init_vectors_v3_0[]  = {
@@ -759,6 +796,28 @@ int ipa3_get_ep_mapping(enum ipa_client_type client)
 	}
 
 	return ipa3_ep_mapping[hw_type_index][client].pipe_num;
+}
+
+/**
+ * ipa_get_gsi_ep_info() - provide gsi ep information
+ * @ipa_ep_idx: IPA endpoint index
+ *
+ * Return value: pointer to ipa_gsi_ep_info
+ */
+struct ipa_gsi_ep_config *ipa_get_gsi_ep_info(int ipa_ep_idx)
+{
+	int i;
+
+	for (i = 0; ; i++) {
+		if (ipa_gsi_ep_info[i].ipa_ep_num < 0)
+			break;
+
+		if (ipa_gsi_ep_info[i].ipa_ep_num ==
+			ipa_ep_idx)
+			return &(ipa_gsi_ep_info[i]);
+	}
+
+	return NULL;
 }
 
 /**
@@ -2995,8 +3054,8 @@ void _ipa_cfg_ep_mode_v3_0(u32 pipe_number, u32 dst_pipe_number,
 			IPA_ENDP_INIT_MODE_N_DEST_PIPE_INDEX_SHFT_v3_0,
 			IPA_ENDP_INIT_MODE_N_DEST_PIPE_INDEX_BMSK_v3_0);
 
-		ipa_write_reg(ipa3_ctx->mmio,
-			IPA_ENDP_INIT_MODE_N_OFST_v3_0(pipe_number), reg_val);
+	ipa_write_reg(ipa3_ctx->mmio,
+		IPA_ENDP_INIT_MODE_N_OFST_v3_0(pipe_number), reg_val);
 }
 
 /**
@@ -4068,7 +4127,7 @@ void ipa3_id_remove(u32 id)
 	spin_unlock(&ipa3_ctx->idr_lock);
 }
 
-static void ipa3_tag_free_buf(void *user1, int user2)
+void ipa3_tag_free_buf(void *user1, int user2)
 {
 	kfree(user1);
 }
@@ -4478,6 +4537,20 @@ bool ipa3_get_modem_cfg_emb_pipe_flt(void)
 	return false;
 }
 
+/**
+ * ipa3_get_transport_type()- Return ipa3_ctx->transport_prototype
+ *
+ * Return value: enum ipa_transport_type
+ */
+enum ipa_transport_type ipa3_get_transport_type(void)
+{
+	if (ipa3_ctx)
+		return ipa3_ctx->transport_prototype;
+
+	IPAERR("IPA driver has not been initialized\n");
+	return IPA_TRANSPORT_TYPE_GSI;
+}
+
 u32 ipa3_get_num_pipes(void)
 {
 	return ipa_read_reg(ipa3_ctx->mmio, IPA_ENABLED_PIPES_OFST);
@@ -4646,6 +4719,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_rm_resource_from_ep = ipa3_get_rm_resource_from_ep;
 	api_ctrl->ipa_get_modem_cfg_emb_pipe_flt =
 		ipa3_get_modem_cfg_emb_pipe_flt;
+	api_ctrl->ipa_get_transport_type = ipa3_get_transport_type;
 	api_ctrl->ipa_ap_suspend = ipa3_ap_suspend;
 	api_ctrl->ipa_ap_resume = ipa3_ap_resume;
 	api_ctrl->ipa_get_smmu_domain = ipa3_get_smmu_domain;
@@ -4814,3 +4888,76 @@ void ipa3_suspend_apps_pipes(bool suspend)
 		ipa3_cfg_ep_ctrl(ipa_ep_idx, &cfg);
 }
 
+/**
+ * ipa_stop_gsi_channel_proc()- Stops a GSI channel in IPA
+ * @chan_hdl: GSI channel handle
+ *
+ * This function implements the sequence to stop a GSI channel
+ * in IPA. This function returns when the channel is is STOP state.
+ *
+ * Return value: 0 on success, negative otherwise
+ */
+int ipa3_stop_gsi_channel(unsigned long chan_hdl)
+{
+	struct ipa3_hw_imm_cmd_dma_task_32b_addr cmd;
+	struct ipa3_desc desc;
+	struct ipa3_mem_buffer mem;
+	int res;
+	int i;
+
+	memset(&mem, 0, sizeof(mem));
+	for (i = 0; i < IPA_GSI_CHANNEL_STOP_MAX_RETRY; i++) {
+		IPADBG("Calling gsi_stop_channel\n");
+		res = gsi_stop_channel(chan_hdl);
+		IPADBG("gsi_stop_channel returned %d\n", res);
+		if (res != -GSI_STATUS_AGAIN && res != -GSI_STATUS_TIMED_OUT)
+			goto bail;
+		if (res == -GSI_STATUS_TIMED_OUT) {
+			/* Send a 1B packet DMA_RASK to IPA and try again*/
+			IPADBG("gsi_stop_channel timed out\n");
+			if (!mem.base) {
+				mem.size = IPA_GSI_CHANNEL_STOP_PKT_SIZE;
+				mem.base = dma_alloc_coherent(ipa3_ctx->pdev,
+					mem.size,
+					&mem.phys_base,
+					GFP_KERNEL);
+				if (!mem.base) {
+					IPAERR("no mem\n");
+					res = -EFAULT;
+					goto bail;
+				}
+
+				memset(&cmd, 0, sizeof(cmd));
+				cmd.flsh = 1;
+				cmd.size1 = mem.size;
+				cmd.addr1 = mem.phys_base;
+				cmd.packet_size = mem.size;
+			}
+
+			memset(&desc, 0, sizeof(desc));
+			desc.opcode = IPA_DMA_TASK_32B_ADDR(1);
+			desc.pyld = &cmd;
+			desc.len = sizeof(cmd);
+			desc.type = IPA_IMM_CMD_DESC;
+
+			IPADBG("sending 1B packet to IPA\n");
+			if (ipa3_send_cmd(1, &desc)) {
+				IPAERR("ipa3_send_cmd failed\n");
+				dma_free_coherent(ipa3_ctx->pdev,
+					mem.size,
+					mem.base,
+					mem.phys_base);
+				res = -EFAULT;
+				goto bail;
+			}
+		}
+		/* sleep for short period to flush IPA */
+		usleep_range(IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC,
+			IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC);
+	}
+bail:
+	if (mem.base)
+		dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base,
+			mem.phys_base);
+	return res;
+}

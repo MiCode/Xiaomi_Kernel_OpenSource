@@ -30,6 +30,7 @@
 #include <linux/msm-bus-board.h>
 #include <linux/netdevice.h>
 #include <linux/delay.h>
+#include <linux/msm_gsi.h>
 #include "ipa_i.h"
 #include "ipa_rm_i.h"
 
@@ -49,7 +50,7 @@
 #define IPA_AGGR_STR_IN_BYTES(str) \
 	(strnlen((str), IPA_AGGR_MAX_STR_LENGTH - 1) + 1)
 
-#define IPA_SPS_PROD_TIMEOUT_MSEC 100
+#define IPA_TRANSPORT_PROD_TIMEOUT_MSEC 100
 
 #ifdef CONFIG_COMPAT
 #define IPA_IOC_ADD_HDR32 _IOWR(IPA_IOC_MAGIC, \
@@ -166,6 +167,15 @@ static DECLARE_WORK(ipa3_tag_work, ipa3_start_tag_process);
 static void ipa3_sps_release_resource(struct work_struct *work);
 static DECLARE_DELAYED_WORK(ipa3_sps_release_resource_work,
 	ipa3_sps_release_resource);
+static void ipa_gsi_notify_cb(struct gsi_per_notify *notify);
+
+static void ipa_gsi_request_resource(struct work_struct *work);
+static DECLARE_WORK(ipa_gsi_request_resource_work,
+	ipa_gsi_request_resource);
+
+static void ipa_gsi_release_resource(struct work_struct *work);
+static DECLARE_DELAYED_WORK(ipa_gsi_release_resource_work,
+	ipa_gsi_release_resource);
 
 static struct ipa3_plat_drv_res ipa3_res = {0, };
 struct msm_bus_scale_pdata *ipa3_bus_scale_table;
@@ -2877,9 +2887,9 @@ int ipa3_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 
 static void ipa3_sps_process_irq_schedule_rel(void)
 {
-	queue_delayed_work(ipa3_ctx->sps_power_mgmt_wq,
+	queue_delayed_work(ipa3_ctx->transport_power_mgmt_wq,
 		&ipa3_sps_release_resource_work,
-		msecs_to_jiffies(IPA_SPS_PROD_TIMEOUT_MSEC));
+		msecs_to_jiffies(IPA_TRANSPORT_PROD_TIMEOUT_MSEC));
 }
 
 /**
@@ -2908,7 +2918,7 @@ void ipa3_suspend_handler(enum ipa_irq_type interrupt,
 				 * enabling IPA clocks
 				 */
 				ipa3_inc_client_enable_clks();
-				ipa3_ctx->sps_pm.dec_clients = true;
+				ipa3_ctx->transport_pm.dec_clients = true;
 				ipa3_sps_process_irq_schedule_rel();
 			} else {
 				resource = ipa3_get_rm_resource_from_ep(i);
@@ -2932,15 +2942,15 @@ static int ipa3_apps_cons_request_resource(void)
 static void ipa3_sps_release_resource(struct work_struct *work)
 {
 	/* check whether still need to decrease client usage */
-	if (ipa3_ctx->sps_pm.dec_clients) {
-		if (atomic_read(&ipa3_ctx->sps_pm.eot_activity)) {
+	if (ipa3_ctx->transport_pm.dec_clients) {
+		if (atomic_read(&ipa3_ctx->transport_pm.eot_activity)) {
 			ipa3_sps_process_irq_schedule_rel();
 		} else {
-			ipa3_ctx->sps_pm.dec_clients = false;
+			ipa3_ctx->transport_pm.dec_clients = false;
 			ipa3_dec_client_disable_clks();
 		}
 	}
-	atomic_set(&ipa3_ctx->sps_pm.eot_activity, 0);
+	atomic_set(&ipa3_ctx->transport_pm.eot_activity, 0);
 }
 
 int ipa3_create_apps_resource(void)
@@ -3030,6 +3040,7 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 	struct sps_bam_props bam_props = { 0 };
 	struct ipa3_flt_tbl *flt_tbl;
 	struct ipa3_rt_tbl_set *rset;
+	struct gsi_per_props gsi_props;
 
 	IPADBG("IPA Driver initialization started\n");
 
@@ -3057,6 +3068,8 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->modem_cfg_emb_pipe_flt = resource_p->modem_cfg_emb_pipe_flt;
 	ipa3_ctx->wan_rx_ring_size = resource_p->wan_rx_ring_size;
 	ipa3_ctx->skip_uc_pipe_reset = resource_p->skip_uc_pipe_reset;
+	ipa3_ctx->transport_prototype = resource_p->transport_prototype;
+	ipa3_ctx->ee = resource_p->ee;
 
 	/* default aggregation parameters */
 	ipa3_ctx->aggregation_type = IPA_MBIM_16;
@@ -3182,38 +3195,67 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_init_hw;
 	}
 
-	ipa3_ctx->sps_power_mgmt_wq =
-		create_singlethread_workqueue("sps_ipa_power_mgmt");
-	if (!ipa3_ctx->sps_power_mgmt_wq) {
-		IPAERR("failed to create sps power mgmt wq\n");
+	ipa3_ctx->transport_power_mgmt_wq =
+		create_singlethread_workqueue("transport_power_mgmt");
+	if (!ipa3_ctx->transport_power_mgmt_wq) {
+		IPAERR("failed to create transport power mgmt wq\n");
 		result = -ENOMEM;
-		goto fail_create_sps_wq;
+		goto fail_create_transport_wq;
 	}
 
-	/* register IPA with SPS driver */
-	bam_props.phys_addr = resource_p->bam_mem_base;
-	bam_props.virt_size = resource_p->bam_mem_size;
-	bam_props.irq = resource_p->bam_irq;
-	bam_props.num_pipes = ipa3_ctx->ipa_num_pipes;
-	bam_props.summing_threshold = IPA_SUMMING_THRESHOLD;
-	bam_props.event_threshold = IPA_EVENT_THRESHOLD;
-	bam_props.options |= SPS_BAM_NO_LOCAL_CLK_GATING;
-	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_VIRTUAL)
-		bam_props.options |= SPS_BAM_OPT_IRQ_WAKEUP;
-	if (ipa3_ctx->ipa_bam_remote_mode == true)
-		bam_props.manage |= SPS_BAM_MGR_DEVICE_REMOTE;
-	if (ipa3_ctx->smmu_present)
-		bam_props.options |= SPS_BAM_SMMU_EN;
-	bam_props.ee = resource_p->ee;
-	bam_props.ipc_loglevel = 3;
+	spin_lock_init(&ipa3_ctx->transport_pm.lock);
+	ipa3_ctx->transport_pm.res_granted = false;
+	ipa3_ctx->transport_pm.res_rel_in_prog = false;
 
-	result = sps_register_bam_device(&bam_props, &ipa3_ctx->bam_handle);
-	if (result) {
-		IPAERR(":bam register err.\n");
-		result = -EPROBE_DEFER;
-		goto fail_register_bam_device;
+	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
+		memset(&gsi_props, 0, sizeof(gsi_props));
+		gsi_props.ee = resource_p->ee;
+		gsi_props.intr = GSI_INTR_IRQ;
+		gsi_props.irq = resource_p->transport_irq;
+		gsi_props.phys_addr = resource_p->transport_mem_base;
+		gsi_props.size = resource_p->transport_mem_size;
+		gsi_props.notify_cb = ipa_gsi_notify_cb;
+		gsi_props.req_clk_cb = NULL;
+		gsi_props.rel_clk_cb = NULL;
+
+		result = gsi_register_device(&gsi_props,
+				&ipa3_ctx->gsi_dev_hdl);
+		if (result != GSI_STATUS_SUCCESS) {
+			IPAERR(":gsi register err.\n");
+			if (result == GSI_STATUS_AGAIN)
+				result = -EPROBE_DEFER;
+			else
+				result = -ENODEV;
+			goto fail_register_device;
+		}
+		IPADBG("IPA gsi is registered.\n");
+	} else {
+		/* register IPA with SPS driver */
+		bam_props.phys_addr = resource_p->transport_mem_base;
+		bam_props.virt_size = resource_p->transport_mem_size;
+		bam_props.irq = resource_p->transport_irq;
+		bam_props.num_pipes = ipa3_ctx->ipa_num_pipes;
+		bam_props.summing_threshold = IPA_SUMMING_THRESHOLD;
+		bam_props.event_threshold = IPA_EVENT_THRESHOLD;
+		bam_props.options |= SPS_BAM_NO_LOCAL_CLK_GATING;
+		if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_VIRTUAL)
+			bam_props.options |= SPS_BAM_OPT_IRQ_WAKEUP;
+		if (ipa3_ctx->ipa_bam_remote_mode == true)
+			bam_props.manage |= SPS_BAM_MGR_DEVICE_REMOTE;
+		if (ipa3_ctx->smmu_present)
+			bam_props.options |= SPS_BAM_SMMU_EN;
+		bam_props.ee = resource_p->ee;
+		bam_props.ipc_loglevel = 3;
+
+		result = sps_register_bam_device(&bam_props,
+				&ipa3_ctx->bam_handle);
+		if (result) {
+			IPAERR(":bam register err.\n");
+			result = -EPROBE_DEFER;
+			goto fail_register_device;
+		}
+		IPADBG("IPA BAM is registered\n");
 	}
-	IPADBG("IPA BAM is registered\n");
 
 	/* init the lookaside cache */
 	ipa3_ctx->flt_rule_cache = kmem_cache_create("IPA FLT",
@@ -3540,10 +3582,13 @@ fail_hdr_cache:
 fail_rt_rule_cache:
 	kmem_cache_destroy(ipa3_ctx->flt_rule_cache);
 fail_flt_rule_cache:
-	sps_deregister_bam_device(ipa3_ctx->bam_handle);
-fail_register_bam_device:
-	destroy_workqueue(ipa3_ctx->sps_power_mgmt_wq);
-fail_create_sps_wq:
+	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI)
+		gsi_deregister_device(ipa3_ctx->gsi_dev_hdl, false);
+	else
+		sps_deregister_bam_device(ipa3_ctx->bam_handle);
+fail_register_device:
+	destroy_workqueue(ipa3_ctx->transport_power_mgmt_wq);
+fail_create_transport_wq:
 	destroy_workqueue(ipa3_ctx->power_mgmt_wq);
 fail_init_hw:
 	iounmap(ipa3_ctx->mmio);
@@ -3644,6 +3689,16 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 		ipa_drv_res->skip_uc_pipe_reset
 		? "True" : "False");
 
+	if (of_property_read_bool(pdev->dev.of_node,
+		"qcom,use-gsi"))
+		ipa_drv_res->transport_prototype = IPA_TRANSPORT_TYPE_GSI;
+	else
+		ipa_drv_res->transport_prototype = IPA_TRANSPORT_TYPE_SPS;
+
+	IPADBG(": transport type = %s\n",
+		ipa_drv_res->transport_prototype == IPA_TRANSPORT_TYPE_SPS
+		? "SPS" : "GSI");
+
 	/* Get IPA wrapper address */
 	resource = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 			"ipa-base");
@@ -3657,18 +3712,53 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 			ipa_drv_res->ipa_mem_base,
 			ipa_drv_res->ipa_mem_size);
 
-	/* Get IPA BAM address */
-	resource = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-			"bam-base");
-	if (!resource) {
-		IPAERR(":get resource failed for bam-base!\n");
-		return -ENODEV;
+	if (ipa_drv_res->transport_prototype == IPA_TRANSPORT_TYPE_SPS) {
+		/* Get IPA BAM address */
+		resource = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+				"bam-base");
+		if (!resource) {
+			IPAERR(":get resource failed for bam-base!\n");
+			return -ENODEV;
+		}
+		ipa_drv_res->transport_mem_base = resource->start;
+		ipa_drv_res->transport_mem_size = resource_size(resource);
+		IPADBG(": bam-base = 0x%x, size = 0x%x\n",
+				ipa_drv_res->transport_mem_base,
+				ipa_drv_res->transport_mem_size);
+
+		/* Get IPA BAM IRQ number */
+		resource = platform_get_resource_byname(pdev, IORESOURCE_IRQ,
+				"bam-irq");
+		if (!resource) {
+			IPAERR(":get resource failed for bam-irq!\n");
+			return -ENODEV;
+		}
+		ipa_drv_res->transport_irq = resource->start;
+		IPADBG(": bam-irq = %d\n", ipa_drv_res->transport_irq);
+	} else {
+		/* Get IPA GSI address */
+		resource = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+				"gsi-base");
+		if (!resource) {
+			IPAERR(":get resource failed for gsi-base!\n");
+			return -ENODEV;
+		}
+		ipa_drv_res->transport_mem_base = resource->start;
+		ipa_drv_res->transport_mem_size = resource_size(resource);
+		IPADBG(": gsi-base = 0x%x, size = 0x%x\n",
+				ipa_drv_res->transport_mem_base,
+				ipa_drv_res->transport_mem_size);
+
+		/* Get IPA GSI IRQ number */
+		resource = platform_get_resource_byname(pdev, IORESOURCE_IRQ,
+				"gsi-irq");
+		if (!resource) {
+			IPAERR(":get resource failed for gsi-irq!\n");
+			return -ENODEV;
+		}
+		ipa_drv_res->transport_irq = resource->start;
+		IPADBG(": gsi-irq = %d\n", ipa_drv_res->transport_irq);
 	}
-	ipa_drv_res->bam_mem_base = resource->start;
-	ipa_drv_res->bam_mem_size = resource_size(resource);
-	IPADBG(": bam-base = 0x%x, size = 0x%x\n",
-			ipa_drv_res->bam_mem_base,
-			ipa_drv_res->bam_mem_size);
 
 	/* Get IPA pipe mem start ofst */
 	resource = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -3692,16 +3782,6 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	}
 	ipa_drv_res->ipa_irq = resource->start;
 	IPADBG(":ipa-irq = %d\n", ipa_drv_res->ipa_irq);
-
-	/* Get IPA BAM IRQ number */
-	resource = platform_get_resource_byname(pdev, IORESOURCE_IRQ,
-			"bam-irq");
-	if (!resource) {
-		IPAERR(":get resource failed for bam-irq!\n");
-		return -ENODEV;
-	}
-	ipa_drv_res->bam_irq = resource->start;
-	IPADBG(":ibam-irq = %d\n", ipa_drv_res->bam_irq);
 
 	result = of_property_read_u32(pdev->dev.of_node, "qcom,ee",
 			&ipa_drv_res->ee);
@@ -3958,7 +4038,7 @@ int ipa3_ap_suspend(struct device *dev)
 	}
 
 	/* release SPS IPA resource without waiting for inactivity timer */
-	atomic_set(&ipa3_ctx->sps_pm.eot_activity, 0);
+	atomic_set(&ipa3_ctx->transport_pm.eot_activity, 0);
 	ipa3_sps_release_resource(NULL);
 	IPADBG("Exit\n");
 
@@ -3982,6 +4062,125 @@ int ipa3_ap_resume(struct device *dev)
 struct ipa3_context *ipa3_get_ctx(void)
 {
 	return ipa3_ctx;
+}
+
+static void ipa_gsi_request_resource(struct work_struct *work)
+{
+	unsigned long flags;
+	int ret;
+
+	/* request IPA clocks */
+	ipa3_inc_client_enable_clks();
+
+	/* mark transport resource as granted */
+	spin_lock_irqsave(&ipa3_ctx->transport_pm.lock, flags);
+	ipa3_ctx->transport_pm.res_granted = true;
+
+	IPADBG("IPA is ON, calling gsi driver\n");
+	ret = gsi_complete_clk_grant(ipa3_ctx->gsi_dev_hdl);
+	if (ret != GSI_STATUS_SUCCESS)
+		IPAERR("gsi_complete_clk_grant failed %d\n", ret);
+
+	spin_unlock_irqrestore(&ipa3_ctx->transport_pm.lock, flags);
+}
+
+void ipa_gsi_req_res_cb(void *user_data, bool *granted)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&ipa3_ctx->transport_pm.lock, flags);
+
+	/* make sure no release will happen */
+	cancel_delayed_work(&ipa_gsi_release_resource_work);
+	ipa3_ctx->transport_pm.res_rel_in_prog = false;
+
+	if (ipa3_ctx->transport_pm.res_granted) {
+		*granted = true;
+	} else {
+		if (ipa3_inc_client_enable_clks_no_block() == 0) {
+			ipa3_ctx->transport_pm.res_granted = true;
+			*granted = true;
+		} else {
+			queue_work(ipa3_ctx->transport_power_mgmt_wq,
+				   &ipa_gsi_request_resource_work);
+			*granted = false;
+		}
+	}
+	spin_unlock_irqrestore(&ipa3_ctx->transport_pm.lock, flags);
+}
+
+static void ipa_gsi_release_resource(struct work_struct *work)
+{
+	unsigned long flags;
+	bool dec_clients = false;
+
+	spin_lock_irqsave(&ipa3_ctx->transport_pm.lock, flags);
+	/* check whether still need to decrease client usage */
+	if (ipa3_ctx->transport_pm.res_rel_in_prog) {
+		dec_clients = true;
+		ipa3_ctx->transport_pm.res_rel_in_prog = false;
+		ipa3_ctx->transport_pm.res_granted = false;
+	}
+	spin_unlock_irqrestore(&ipa3_ctx->transport_pm.lock, flags);
+	if (dec_clients)
+		ipa3_dec_client_disable_clks();
+}
+
+int ipa_gsi_rel_res_cb(void *user_data)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&ipa3_ctx->transport_pm.lock, flags);
+
+	ipa3_ctx->transport_pm.res_rel_in_prog = true;
+	queue_delayed_work(ipa3_ctx->transport_power_mgmt_wq,
+			   &ipa_gsi_release_resource_work,
+			   msecs_to_jiffies(IPA_TRANSPORT_PROD_TIMEOUT_MSEC));
+
+	spin_unlock_irqrestore(&ipa3_ctx->transport_pm.lock, flags);
+	return 0;
+}
+
+static void ipa_gsi_notify_cb(struct gsi_per_notify *notify)
+{
+	switch (notify->evt_id) {
+	case GSI_PER_EVT_GLOB_ERROR:
+		IPAERR("Got GSI_PER_EVT_GLOB_ERROR\n");
+		IPAERR("Err_desc = 0x%04x\n", notify->data.err_desc);
+		break;
+	case GSI_PER_EVT_GLOB_GP1:
+		IPAERR("Got GSI_PER_EVT_GLOB_GP1\n");
+		BUG();
+		break;
+	case GSI_PER_EVT_GLOB_GP2:
+		IPAERR("Got GSI_PER_EVT_GLOB_GP2\n");
+		BUG();
+		break;
+	case GSI_PER_EVT_GLOB_GP3:
+		IPAERR("Got GSI_PER_EVT_GLOB_GP3\n");
+		BUG();
+		break;
+	case GSI_PER_EVT_GENERAL_BREAK_POINT:
+		IPAERR("Got GSI_PER_EVT_GENERAL_BREAK_POINT\n");
+		BUG();
+		break;
+	case GSI_PER_EVT_GENERAL_BUS_ERROR:
+		IPAERR("Got GSI_PER_EVT_GENERAL_BUS_ERROR\n");
+		BUG();
+		break;
+	case GSI_PER_EVT_GENERAL_CMD_FIFO_OVERFLOW:
+		IPAERR("Got GSI_PER_EVT_GENERAL_CMD_FIFO_OVERFLOW\n");
+		BUG();
+		break;
+	case GSI_PER_EVT_GENERAL_MCS_STACK_OVERFLOW:
+		IPAERR("Got GSI_PER_EVT_GENERAL_MCS_STACK_OVERFLOW\n");
+		BUG();
+		break;
+	default:
+		IPAERR("Received unexpected evt: %d\n",
+			notify->evt_id);
+		BUG();
+	}
 }
 
 MODULE_LICENSE("GPL v2");

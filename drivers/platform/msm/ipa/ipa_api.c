@@ -2368,6 +2368,21 @@ bool ipa_get_modem_cfg_emb_pipe_flt(void)
 EXPORT_SYMBOL(ipa_get_modem_cfg_emb_pipe_flt);
 
 /**
+ * ipa_get_transport_type()- Return ipa_ctx->transport_prototype
+ *
+ * Return value: enum ipa_transport_type
+ */
+enum ipa_transport_type ipa_get_transport_type(void)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_get_transport_type);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_get_transport_type);
+
+/**
  * ipa_get_smmu_domain()- Return the smmu domain
  *
  * Return value: pointer to iommu domain if smmu_cb valid, NULL otherwise

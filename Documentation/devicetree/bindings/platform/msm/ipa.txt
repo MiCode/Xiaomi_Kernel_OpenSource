@@ -57,6 +57,8 @@ memory allocation over a PCIe bridge
                                 allocations controlled by IPA driver that do not
 				specify a struct device * should use GFP_DMA to
 				workaround IPA HW limitations
+- qcom,use-gsi:                 Boolean context flag to indicate if the
+                                transport protocol is GSI
 
 IPA pipe sub nodes (A2 static pipes configurations):
 
