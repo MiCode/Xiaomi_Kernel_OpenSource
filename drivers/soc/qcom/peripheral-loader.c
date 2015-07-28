@@ -192,7 +192,7 @@ int pil_assign_mem_to_linux(struct pil_desc *desc, phys_addr_t addr,
 	int ret;
 	int srcVM[1] = {desc->subsys_vmid};
 	int destVM[1] = {VMID_HLOS};
-	int destVMperm[1] = {PERM_READ | PERM_WRITE};
+	int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
 
 	ret = hyp_assign_phys(addr, size, srcVM, 1, destVM, destVMperm, 1);
 	if (ret)
@@ -227,6 +227,9 @@ int pil_reclaim_mem(struct pil_desc *desc, phys_addr_t addr, size_t size,
 	int srcVM[2] = {VMID_HLOS, desc->subsys_vmid};
 	int destVM[1] = {VMid};
 	int destVMperm[1] = {PERM_READ | PERM_WRITE};
+
+	if (VMid == VMID_HLOS)
+		destVMperm[0] = PERM_READ | PERM_WRITE | PERM_EXEC;
 
 	ret = hyp_assign_phys(addr, size, srcVM, 2, destVM, destVMperm, 1);
 	if (ret)
