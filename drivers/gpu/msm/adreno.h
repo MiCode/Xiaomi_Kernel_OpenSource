@@ -291,6 +291,8 @@ struct adreno_gpu_core {
  * @lm_sequence: Pointer to the start of the register write sequence for LM
  * @lm_size: The dword size of the LM sequence
  * @lm_limit: limiting value for LM
+ * @lm_threshold_count: register value for counter for lm threshold breakin
+ * @lm_threshold_cross: number of current peaks exceeding threshold
  */
 struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
@@ -343,6 +345,8 @@ struct adreno_device {
 	struct work_struct gpmu_work;
 	uint32_t lm_leakage;
 	uint32_t lm_limit;
+	uint32_t lm_threshold_count;
+	uint32_t lm_threshold_cross;
 
 	struct kgsl_memdesc capturescript;
 	struct kgsl_memdesc snapshot_registers;
