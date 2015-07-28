@@ -587,7 +587,6 @@
 			"DMIC5", "MIC BIAS4",
 			"MIC BIAS4", "Digital Mic5";
 
-		qcom,without-aux-dev;
 		qcom,hdmi-audio-rx;
 		asoc-codec = <&stub_codec>, <&hdmi_audio>;
 		asoc-codec-names = "msm-stub-codec.1",
