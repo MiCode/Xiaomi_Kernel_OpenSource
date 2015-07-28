@@ -38,7 +38,7 @@ struct ice_crypto_setting {
 	enum ice_crpto_key_size		key_size;
 	enum ice_cryto_algo_mode	algo_mode;
 	enum ice_crpto_key_mode		key_mode;
-	unsigned short			key_index;
+	short				key_index;
 
 };
 
