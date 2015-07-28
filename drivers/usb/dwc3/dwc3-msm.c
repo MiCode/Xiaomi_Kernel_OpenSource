@@ -2779,7 +2779,6 @@ psy_error:
 
 void dwc3_otg_init_sm(struct dwc3_msm *mdwc)
 {
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	int ret;
 
 	/*
@@ -2792,14 +2791,6 @@ void dwc3_otg_init_sm(struct dwc3_msm *mdwc)
 		/* We can safely assume no cable connected */
 		set_bit(ID, &mdwc->inputs);
 	}
-
-	/*
-	 * If vbus-present property was set then set BSV to 1.
-	 * This is needed for emulation platforms as PMIC VBUS
-	 * interrupt is not available.
-	 */
-	if (dwc->vbus_active)
-		set_bit(B_SESS_VLD, &mdwc->inputs);
 }
 
 /**
