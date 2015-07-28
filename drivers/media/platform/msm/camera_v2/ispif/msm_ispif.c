@@ -55,6 +55,7 @@
 #define CDBG(fmt, args...) do { } while (0)
 #endif
 
+static int ispif_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh);
 int msm_ispif_get_clk_info(struct ispif_device *ispif_dev,
 	struct platform_device *pdev,
 	struct msm_cam_clk_info *ahb_clk_info,
@@ -1471,9 +1472,10 @@ static void msm_ispif_release(struct ispif_device *ispif)
 	/* make sure no streaming going on */
 	msm_ispif_reset(ispif);
 	msm_ispif_reset_hw(ispif);
-	msm_ispif_clk_ahb_enable(ispif, 0);
 
+	disable_irq(ispif->irq->start);
 	free_irq(ispif->irq->start, ispif);
+	msm_ispif_clk_ahb_enable(ispif, 0);
 
 	iounmap(ispif->base);
 
@@ -1561,8 +1563,15 @@ static long msm_ispif_subdev_ioctl(struct v4l2_subdev *sd,
 	case MSM_SD_SHUTDOWN: {
 		struct ispif_device *ispif =
 			(struct ispif_device *)v4l2_get_subdevdata(sd);
-		if (ispif && ispif->base)
-			msm_ispif_release(ispif);
+
+		if (ispif && ispif->base) {
+			while (ispif->open_cnt != 0)
+				ispif_close_node(sd, NULL);
+		} else {
+			pr_debug("%s:SD SHUTDOWN fail, ispif%s %p\n", __func__,
+				ispif ? "_base" : "",
+				ispif ? ispif->base : NULL);
+		}
 		return 0;
 	}
 	default:
