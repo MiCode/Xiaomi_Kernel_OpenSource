@@ -26,6 +26,7 @@
 #include <linux/pci.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
+#include <linux/regulator/rpm-smd-regulator.h>
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/of_gpio.h>
@@ -2719,8 +2720,19 @@ int msm_pcie_vreg_init(struct msm_pcie_dev_t *dev)
 	if (rc)
 		while (i--) {
 			struct regulator *hdl = dev->vreg[i].hdl;
-			if (hdl)
+			if (hdl) {
 				regulator_disable(hdl);
+				if (!strcmp(dev->vreg[i].name, "vreg-cx")) {
+					PCIE_DBG(dev,
+						"RC%d: Removing %s vote.\n",
+						dev->rc_idx,
+						dev->vreg[i].name);
+					regulator_set_voltage(hdl,
+						RPM_REGULATOR_CORNER_NONE,
+						INT_MAX);
+				}
+			}
+
 		}
 
 	PCIE_DBG(dev, "RC%d: exit\n", dev->rc_idx);
@@ -2739,6 +2751,16 @@ static void msm_pcie_vreg_deinit(struct msm_pcie_dev_t *dev)
 			PCIE_DBG(dev, "Vreg %s is being disabled\n",
 				dev->vreg[i].name);
 			regulator_disable(dev->vreg[i].hdl);
+
+			if (!strcmp(dev->vreg[i].name, "vreg-cx")) {
+				PCIE_DBG(dev,
+					"RC%d: Removing %s vote.\n",
+					dev->rc_idx,
+					dev->vreg[i].name);
+				regulator_set_voltage(dev->vreg[i].hdl,
+					RPM_REGULATOR_CORNER_NONE,
+					INT_MAX);
+			}
 		}
 	}
 
