@@ -5,6 +5,10 @@ Required properties:
 	      "qcom,mdm9640-pinctrl"
 	      "qcom,mdmfermium-pinctrl"
 	       "qcom,mdmcalifornium-pinctrl"
+	      "qcom,msm8952-pinctrl"
+	      "qcom,msmtitanium-pinctrl"
+	      "qcom,msmthorium-pinctrl"
+
 - reg: Should be the base address and length of the TLMM block.
 - interrupts: Should be the parent IRQ of the TLMM block.
 - interrupt-controller: Marks the device node as an interrupt controller.
