@@ -12,6 +12,8 @@ Required properties:
 			"qcom,ufs-phy-qmp-14nm" for legacy 14nm ufs phy,
 			"qcom,ufs-phy-qmp-v3" for V3 ufs phy present
 			 on msmcobalt platform,
+			"qcom,ufs-phy-qrbtc-v2" for QRBTC V2 ufs phy
+			 present on msmcobalt platform,
 			"qcom,msm8996-ufs-phy-qmp-14nm" for 14nm ufs phy
 			 present on MSM8996 chipset.
 - reg               : should contain PHY register address space (mandatory),
