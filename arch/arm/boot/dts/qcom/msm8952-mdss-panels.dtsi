@@ -13,6 +13,7 @@
 #include "dsi-panel-truly-1080p-video.dtsi"
 #include "dsi-panel-truly-1080p-cmd.dtsi"
 #include "dsi-panel-otm1906c-1080p-cmd.dtsi"
+#include "dsi-panel-hx8399a-1080p-video.dtsi"
 #include "dsi-panel-sim-video.dtsi"
 #include "dsi-panel-sim-cmd.dtsi"
 #include "dsi-panel-sharp-1080p-cmd.dtsi"

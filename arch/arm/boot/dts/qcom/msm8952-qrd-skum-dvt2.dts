@@ -21,3 +21,7 @@
 		   "qcom,msm8952", "qcom,qrd";
 	qcom,board-id= <0x4000b 0>;
 };
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_hx8399a_1080p_video>;
+};
