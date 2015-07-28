@@ -1209,6 +1209,7 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 int mdss_mdp_cmd_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 		bool handoff);
 int mdss_mdp_ctl_splash_finish(struct mdss_mdp_ctl *ctl, bool handoff);
+void mdss_mdp_check_ctl_reset_status(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_ctl_split_display_setup(struct mdss_mdp_ctl *ctl,
 		struct mdss_panel_data *pdata);

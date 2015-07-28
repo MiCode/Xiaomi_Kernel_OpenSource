@@ -1953,6 +1953,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
+	mdss_mdp_check_ctl_reset_status(ctl);
 	__vsync_set_vsync_handler(mfd);
 	__validate_and_set_roi(mfd, data);
 
