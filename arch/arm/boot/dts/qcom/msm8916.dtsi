@@ -124,6 +124,7 @@
 	l2ccc_0: clock-controller@b011000 {
 		compatible = "qcom,8916-l2ccc";
 		reg = <0x0b011000 0x1000>;
+		reg-names = "l2-base";
 	};
 
 	acc0:clock-controller@b088000 {

@@ -761,12 +761,14 @@ int mdss_panel_get_boot_cfg(void);
 bool mdss_is_ready(void);
 int mdss_rect_cmp(struct mdss_rect *rect1, struct mdss_rect *rect2);
 #ifdef CONFIG_FB_MSM_MDSS
-int mdss_panel_debugfs_init(struct mdss_panel_info *panel_info);
+int mdss_panel_debugfs_init(struct mdss_panel_info *panel_info,
+		char const *panel_name);
 void mdss_panel_debugfs_cleanup(struct mdss_panel_info *panel_info);
 void mdss_panel_debugfsinfo_to_panelinfo(struct mdss_panel_info *panel_info);
 #else
 static inline int mdss_panel_debugfs_init(
-			struct mdss_panel_info *panel_info) { return 0; };
+			struct mdss_panel_info *panel_info,
+			char const *panel_name) { return 0; };
 static inline void mdss_panel_debugfs_cleanup(
 			struct mdss_panel_info *panel_info) { };
 static inline void mdss_panel_debugfsinfo_to_panelinfo(

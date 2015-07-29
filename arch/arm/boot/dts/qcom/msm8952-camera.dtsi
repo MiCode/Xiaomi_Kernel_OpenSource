@@ -333,6 +333,10 @@
 			<&clock_gcc clk_gcc_camss_top_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_ahb_clk>;
 		qcom,clock-rates = <266670000 0 0 0 0>;
+		qos-reg-settings = <0x28 0x0000550E>,
+			<0xC8 0x00005555>;
+		vbif-reg-settings = <0xC0 0x10101000>,
+			<0xB0 0x10100010>;
 	};
 
 	qcom,irqrouter@1b00000 {

@@ -1707,6 +1707,9 @@ static int sdhci_notify_load(struct mmc_host *mmc, enum mmc_load state)
 		break;
 	}
 
+	if (host->ops->notify_load)
+		err = host->ops->notify_load(host, state);
+
 	return err;
 }
 

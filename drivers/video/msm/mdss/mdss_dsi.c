@@ -83,7 +83,29 @@ static void mdss_dsi_config_clk_src(struct platform_device *pdev)
 		return;
 	}
 
-	if (!mdss_dsi_is_hw_config_dual(sdata)) {
+	if (mdss_dsi_is_pll_src_default(sdata)) {
+		/*
+		 * Default Mapping:
+		 * 1. dual-dsi/single-dsi:
+		 *     DSI0 <--> PLL0
+		 *     DSI1 <--> PLL1
+		 * 2. split-dsi:
+		 *     DSI0 <--> PLL0
+		 *     DSI1 <--> PLL0
+		 */
+		sdata->byte0_parent = sdata->ext_byte0_clk;
+		sdata->pixel0_parent = sdata->ext_pixel0_clk;
+
+		if (mdss_dsi_is_hw_config_split(sdata)) {
+			sdata->byte1_parent = sdata->byte0_parent;
+			sdata->pixel1_parent = sdata->pixel0_parent;
+		} else {
+			sdata->byte1_parent = sdata->ext_byte1_clk;
+			sdata->pixel1_parent = sdata->ext_pixel1_clk;
+		}
+		pr_debug("%s: default: DSI0 <--> PLL0, DSI1 <--> %s", __func__,
+			mdss_dsi_is_hw_config_split(sdata) ? "PLL0" : "PLL1");
+	} else {
 		/*
 		 * For split-dsi and single-dsi use cases, map the PLL source
 		 * based on the pll source configuration. It is possible that
@@ -96,25 +118,13 @@ static void mdss_dsi_config_clk_src(struct platform_device *pdev)
 			pr_debug("%s: single source: PLL0", __func__);
 			sdata->byte0_parent = sdata->ext_byte0_clk;
 			sdata->pixel0_parent = sdata->ext_pixel0_clk;
-		} else {
+		} else if (mdss_dsi_is_pll_src_pll1(sdata)) {
 			pr_debug("%s: single source: PLL1", __func__);
 			sdata->byte0_parent = sdata->ext_byte1_clk;
 			sdata->pixel0_parent = sdata->ext_pixel1_clk;
 		}
 		sdata->byte1_parent = sdata->byte0_parent;
 		sdata->pixel1_parent = sdata->pixel0_parent;
-	} else {
-		/*
-		 * For dual-dsi use cases, map:
-		 *     DSI0 <--> PLL0
-		 *     DSI1 <--> PLL1
-		 */
-		pr_debug("%s: dual-dsi: DSI0 <--> PLL0, DSI1 <--> PLL1",
-			__func__);
-		sdata->byte0_parent = sdata->ext_byte0_clk;
-		sdata->byte1_parent = sdata->ext_byte1_clk;
-		sdata->pixel0_parent = sdata->ext_pixel0_clk;
-		sdata->pixel1_parent = sdata->ext_pixel1_clk;
 	}
 
 	return;
@@ -902,12 +912,14 @@ static int mdss_dsi_debugfs_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 
 	do {
 		struct mdss_panel_info panel_info = pdata->panel_info;
-		rc = mdss_dsi_debugfs_setup(pdata,
+		if (panel_info.debugfs_info) {
+			rc = mdss_dsi_debugfs_setup(pdata,
 					panel_info.debugfs_info->root);
-		if (rc) {
-			pr_err("%s: Error in initilizing dsi ctrl debugfs\n",
-				__func__);
-			return rc;
+			if (rc) {
+				pr_err("%s: Error in initilizing dsi ctrl debugfs\n",
+						__func__);
+				return rc;
+			}
 		}
 		pdata = pdata->next;
 	} while (pdata);
@@ -2356,8 +2368,12 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 		(ctrl_pdata->panel_data.panel_info.pdest == DISPLAY_1))) {
 		rc = mdss_panel_parse_bl_settings(dsi_pan_node, ctrl_pdata);
 		if (rc) {
-			pr_err("%s: dsi bl settings parse failed\n", __func__);
-			goto error_pan_node;
+			pr_warn("%s: dsi bl settings parse failed\n", __func__);
+			/* Panels like AMOLED and dsi2hdmi chip
+			 * does not need backlight control.
+			 * So we should not fail probe here.
+			 */
+			ctrl_pdata->bklt_ctrl = UNKNOWN_CTRL;
 		}
 	} else {
 		ctrl_pdata->bklt_ctrl = UNKNOWN_CTRL;
@@ -2393,6 +2409,12 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	mdss_dsi_pm_qos_add_request();
 
 	pr_debug("%s: Dsi Ctrl->%d initialized\n", __func__, index);
+
+	if (index == 0)
+		ctrl_pdata->shared_data->dsi0_active = true;
+	else
+		ctrl_pdata->shared_data->dsi1_active = true;
+
 	return 0;
 
 error_pan_node:
@@ -2621,7 +2643,7 @@ static void mdss_dsi_parse_pll_src_cfg(struct platform_device *pdev)
 	const char *data;
 	struct dsi_shared_data *sdata = mdss_dsi_res->shared_data;
 
-	sdata->pll_src_config = PLL_SRC_0;
+	sdata->pll_src_config = PLL_SRC_DEFAULT;
 	data = of_get_property(pdev->dev.of_node, "pll-src-config", NULL);
 	if (data) {
 		if (!strcmp(data, "PLL0"))
@@ -2629,16 +2651,33 @@ static void mdss_dsi_parse_pll_src_cfg(struct platform_device *pdev)
 		else if (!strcmp(data, "PLL1"))
 			sdata->pll_src_config = PLL_SRC_1;
 		else
-			pr_err("%s: invalid pll src config %s. Using PLL_SRC_0 as default\n",
+			pr_err("%s: invalid pll src config %s\n",
 				__func__, data);
 	} else {
-		pr_debug("%s: PLL src config not present. Using PLL0 by default\n",
-			__func__);
+		pr_debug("%s: PLL src config not specified\n", __func__);
 	}
 
 	pr_debug("%s: pll_src_config = %d", __func__, sdata->pll_src_config);
 
 	return;
+}
+
+static void mdss_dsi_update_hw_cfg(char *panel_cfg)
+{
+	const char *pan;
+	struct dsi_shared_data *sdata = mdss_dsi_res->shared_data;
+
+	if (!panel_cfg)
+		return;
+
+	if (mdss_dsi_is_hw_config_split(sdata)) {
+		pan = strnstr(panel_cfg, NONE_PANEL, strlen(panel_cfg));
+		if (pan) {
+			pr_debug("moving to single DSI configuraiton\n");
+			sdata->hw_config = SINGLE_DSI;
+			sdata->pll_src_config = PLL_SRC_DEFAULT;
+		}
+	}
 }
 
 static int mdss_dsi_validate_pll_src_config(struct dsi_shared_data *sdata)
@@ -2650,10 +2689,7 @@ static int mdss_dsi_validate_pll_src_config(struct dsi_shared_data *sdata)
 	 *     - For split dsi config, only PLL0 is supported
 	 *     - For dual dsi config, DSI0-PLL0 and DSI1-PLL1 is the only
 	 *       possible configuration
-	 *     - For single dsi, it is not possible to source the clocks for
-	 *       DSI0 from PLL1.
 	 */
-
 	if (mdss_dsi_is_hw_config_split(sdata) &&
 		mdss_dsi_is_pll_src_pll1(sdata)) {
 		pr_err("%s: unsupported PLL config: using PLL1 for split-dsi\n",
@@ -2662,7 +2698,12 @@ static int mdss_dsi_validate_pll_src_config(struct dsi_shared_data *sdata)
 		goto error;
 	}
 
-	/* todo: enforce remaining checks */
+	if (mdss_dsi_is_hw_config_dual(sdata) &&
+		!mdss_dsi_is_pll_src_default(sdata)) {
+		pr_debug("%s: pll src config not applicable for dual-dsi\n",
+			__func__);
+		sdata->pll_src_config = PLL_SRC_DEFAULT;
+	}
 
 error:
 	return rc;
@@ -2685,6 +2726,7 @@ static int mdss_dsi_probe(struct platform_device *pdev)
 {
 	struct mdss_panel_cfg *pan_cfg = NULL;
 	struct mdss_util_intf *util;
+	char *panel_cfg;
 	int rc = 0;
 
 	util = mdss_get_util_intf();
@@ -2712,6 +2754,14 @@ static int mdss_dsi_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	pan_cfg = util->panel_intf_type(MDSS_PANEL_INTF_DSI);
+	if (IS_ERR_OR_NULL(pan_cfg)) {
+		rc = PTR_ERR(pan_cfg);
+		goto error;
+	} else {
+		panel_cfg = pan_cfg->arg_cfg;
+	}
+
 	rc = mdss_dsi_res_init(pdev);
 	if (rc) {
 		pr_err("%s Unable to set dsi res\n", __func__);
@@ -2724,6 +2774,9 @@ static int mdss_dsi_probe(struct platform_device *pdev)
 		mdss_dsi_res_deinit(pdev);
 		return rc;
 	}
+
+	/* support hw config override until full support is not added */
+	mdss_dsi_update_hw_cfg(panel_cfg);
 
 	mdss_dsi_parse_pll_src_cfg(pdev);
 

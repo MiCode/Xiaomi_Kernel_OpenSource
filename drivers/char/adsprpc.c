@@ -171,6 +171,7 @@ struct fastrpc_apps {
 	struct hlist_head drivers;
 	spinlock_t hlock;
 	int32_t domain_id;
+	struct device *adsp_mem_device;
 };
 
 struct fastrpc_mmap {
@@ -342,10 +343,19 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map)
 	}
 	if (map->refs)
 		return;
-	ion_unmap_iommu(map->client, map->handle,
-			me->domain_id, 0);
-	ion_unmap_kernel(map->client, map->handle);
-	msm_audio_ion_client_destroy(map->client);
+	if (map->flags == ADSP_MMAP_HEAP_ADDR) {
+		DEFINE_DMA_ATTRS(attrs);
+
+		dma_set_attr(DMA_ATTR_SKIP_ZEROING, &attrs);
+		dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, &attrs);
+		dma_free_attrs(me->adsp_mem_device, map->size,
+				&(map->va), map->phys,	&attrs);
+	} else {
+		ion_unmap_iommu(map->client, map->handle,
+				me->domain_id, 0);
+		ion_unmap_kernel(map->client, map->handle);
+		msm_audio_ion_client_destroy(map->client);
+	}
 	kfree(map);
 }
 
@@ -1381,6 +1391,24 @@ static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd, uintptr_t va,
 	return -ENOTTY;
 }
 
+static int dma_alloc_memory(phys_addr_t *region_start, ssize_t size)
+{
+	struct fastrpc_apps *me = &gfa;
+	void *vaddr = 0;
+	DEFINE_DMA_ATTRS(attrs);
+
+	dma_set_attr(DMA_ATTR_SKIP_ZEROING, &attrs);
+	dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, &attrs);
+	vaddr = dma_alloc_attrs(me->adsp_mem_device, size,
+						region_start, GFP_KERNEL,
+						&attrs);
+	if (!vaddr) {
+		pr_err("ADSPRPC: Failed to allocate remote heap memory\n");
+		return 1;
+	}
+	return 0;
+}
+
 static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, uintptr_t va,
 			ssize_t len, int mflags, struct fastrpc_mmap **ppmap)
 {
@@ -1391,8 +1419,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, uintptr_t va,
 	size_t pa_len = 0;
 	ion_phys_addr_t paddr = 0;
 	void *virtual_addr = NULL;
-	struct vm_area_struct *vma;
-	unsigned long pfn;
+	phys_addr_t region_start = 0;
 
 	if (!fastrpc_mmap_find(fl, fd, va, len, mflags, ppmap))
 		return 0;
@@ -1404,26 +1431,21 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, uintptr_t va,
 	map->handle = NULL;
 	map->fl = fl;
 	map->fd = fd;
-	VERIFY(err, !msm_audio_ion_import(DEVICE_NAME, &(map->client),
-					&(map->handle), fd,
-					&ionflag, len,
-					&paddr, &pa_len, &virtual_addr));
-	if (err) {
-		pr_err("msm_audio_ion_import failed\n");
-		goto bail;
-	}
 	if (mflags == ADSP_MMAP_HEAP_ADDR) {
 		map->apps = me;
 		map->fl = 0;
-		VERIFY(err, 0 != (vma = find_vma(current->mm, va)));
-		if (err)
-			goto bail;
-		VERIFY(err, 0 == follow_pfn(vma, va , &pfn));
-		if (err)
-			goto bail;
-		map->phys = __pfn_to_phys(pfn);
+		VERIFY(err, !dma_alloc_memory(&region_start, len));
+		map->phys = (uintptr_t)region_start;
 		map->size = len;
 	} else {
+		VERIFY(err, !msm_audio_ion_import(DEVICE_NAME, &(map->client),
+						&(map->handle), fd,
+						&ionflag, len,
+					&paddr, &pa_len, &virtual_addr));
+		if (err) {
+			pr_err("msm_audio_ion_import failed\n");
+			goto bail;
+		}
 		map->phys = paddr;
 		map->size = pa_len;
 	}
@@ -1682,6 +1704,31 @@ static const struct file_operations fops = {
 	.compat_ioctl = compat_fastrpc_device_ioctl,
 };
 
+static int adsp_mem_driver_probe(struct platform_device *pdev)
+{
+	struct fastrpc_apps *me = &gfa;
+	struct device *dev = &pdev->dev;
+
+	if (of_device_is_compatible(dev->of_node,
+					"qcom,msm-adsprpc-mem-region"))
+		me->adsp_mem_device = dev;
+	return 0;
+}
+
+static struct of_device_id adsp_mem_match_table[] = {
+	{ .compatible = "qcom,msm-adsprpc-mem-region" },
+	{}
+};
+
+static struct platform_driver adsp_memory_driver = {
+	.probe = adsp_mem_driver_probe,
+	.driver = {
+		.name = "msm-adsprpc-mem-region",
+		.of_match_table = adsp_mem_match_table,
+		.owner = THIS_MODULE,
+	},
+};
+
 static int __init fastrpc_device_init(void)
 {
 	struct fastrpc_apps *me = &gfa;
@@ -1757,6 +1804,11 @@ static int __init fastrpc_device_init(void)
 	}
 	pr_debug("domain=%p, domain_id=%d, group=%p\n", domain,
 			me->domain_id, group);
+	err = platform_driver_register(&adsp_memory_driver);
+	if (err) {
+		pr_err("ADSPRPC: Failed to register adsp memory driver");
+		goto register_bail;
+	}
 
 	return 0;
 

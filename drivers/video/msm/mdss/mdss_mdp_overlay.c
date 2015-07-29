@@ -655,11 +655,12 @@ static struct mdss_mdp_pipe *mdss_mdp_wait4pipe(struct msm_fb_data_type *mfd,
 		}
 	}
 
-	pr_debug("wait for pipe, pipe_type_used_map = 0x%x, pipe num = %d\n",
-			pipe_cleanup_map, wait_pipe->num);
-
 	if (wait_pipe) {
 		int ret;
+
+		pr_debug("wait for pipe, pipe_type_used_map = 0x%x, pipe num = %d\n",
+				pipe_cleanup_map, wait_pipe->num);
+
 		ret = wait_event_interruptible_timeout(wait_pipe->free_waitq,
 			   !atomic_read(&wait_pipe->kref.refcount),
 				usecs_to_jiffies(PIPE_CLEANUP_TIMEOUT_US));
@@ -2059,6 +2060,12 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	ATRACE_BEGIN("display_wait4comp");
 	ret = mdss_mdp_display_wait4comp(mdp5_data->ctl);
 	ATRACE_END("display_wait4comp");
+
+	if (IS_ERR_VALUE(ret))
+		goto commit_fail;
+
+	ret = mdss_mdp_ctl_update_fps(ctl);
+
 	mutex_lock(&mdp5_data->ov_lock);
 
 	if (ret == 0) {
@@ -2348,6 +2355,7 @@ static int mdss_mdp_overlay_free_fb_pipe(struct msm_fb_data_type *mfd)
 	struct mdss_mdp_pipe *pipe;
 	u32 fb_ndx = 0;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	int need_release;
 
 	pipe = mdss_mdp_get_staged_pipe(mdp5_data->ctl,
 		MDSS_MDP_MIXER_MUX_LEFT, MDSS_MDP_STAGE_BASE, false);
@@ -2359,7 +2367,9 @@ static int mdss_mdp_overlay_free_fb_pipe(struct msm_fb_data_type *mfd)
 	if (pipe)
 		fb_ndx |= pipe->ndx;
 
-	if (fb_ndx) {
+	need_release = !list_empty(&mdp5_data->pipes_used);
+
+	if (fb_ndx && need_release) {
 		pr_debug("unstaging framebuffer pipes %x\n", fb_ndx);
 		mdss_mdp_overlay_release(mfd, fb_ndx);
 	}
@@ -2728,6 +2738,12 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 		return -ENODEV;
 	}
 
+	if (!pdata->panel_info.dynamic_fps) {
+		pr_err_once("%s: Dynamic fps not enabled for this panel\n",
+				__func__);
+		return -EINVAL;
+	}
+
 	if (dfps == pdata->panel_info.mipi.frame_rate) {
 		pr_debug("%s: FPS is already %d\n",
 			__func__, dfps);
@@ -2744,19 +2760,9 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 		pr_warn("Unsupported FPS. Configuring to max_fps = %d\n",
 				pdata->panel_info.max_fps);
 		dfps = pdata->panel_info.max_fps;
-		rc = mdss_mdp_ctl_update_fps(mdp5_data->ctl, dfps);
-	} else {
-		rc = mdss_mdp_ctl_update_fps(mdp5_data->ctl, dfps);
-	}
-	if (!rc) {
-		pr_debug("%s: configured to '%d' FPS\n", __func__, dfps);
-	} else {
-		pr_err("Failed to configure '%d' FPS. rc = %d\n",
-							dfps, rc);
-		mutex_unlock(&mdp5_data->dfps_lock);
-		return rc;
 	}
 	pdata->panel_info.new_fps = dfps;
+
 	mutex_unlock(&mdp5_data->dfps_lock);
 	return count;
 } /* dynamic_fps_sysfs_wta_dfps */
@@ -3276,6 +3282,7 @@ static int mdss_mdp_hw_cursor_pipe_update(struct msm_fb_data_type *mfd,
 	u32 start_y = img->dy;
 	u32 left_lm_w = left_lm_w_from_mfd(mfd);
 	u32 cursor_frame_size = mdss_mdp_get_cursor_frame_size(mdata);
+	u32 input_frame_size = img->width * img->height * 4;
 
 	ret = mutex_lock_interruptible(&mdp5_data->ov_lock);
 	if (ret)
@@ -3283,6 +3290,12 @@ static int mdss_mdp_hw_cursor_pipe_update(struct msm_fb_data_type *mfd,
 
 	if (mdss_fb_is_power_off(mfd)) {
 		ret = -EPERM;
+		goto done;
+	}
+
+	if (input_frame_size > cursor_frame_size) {
+		pr_err("Input frame bigger than max cursor size\n");
+		ret = -EINVAL;
 		goto done;
 	}
 
@@ -3393,7 +3406,7 @@ static int mdss_mdp_hw_cursor_pipe_update(struct msm_fb_data_type *mfd,
 
 	if (mfd->cursor_buf && (cursor->set & FB_CUR_SETIMAGE)) {
 		ret = copy_from_user(mfd->cursor_buf, img->data,
-				     img->width * img->height * 4);
+					input_frame_size);
 		if (ret) {
 			pr_err("copy_from_user error. rc=%d\n", ret);
 			goto done;

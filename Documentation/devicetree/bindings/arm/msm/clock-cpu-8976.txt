@@ -4,6 +4,9 @@ clock-cpu-8976 is a device that represents the MSM8976 CPU subystem clock
 tree. It lists the various power supplies that need to be scaled when the
 clocks are scaled and also other HW specific parameters like fmax tables etc.
 
+The root clock generator could have the ramp controller in built.
+Ramp control will allow programming the sequence ID for pulse swallowing,
+enable sequence and for linking sequence IDs.
 
 Required properties:
 - compatible:		Must be one of "qcom,clock-cpu-8976"
@@ -13,7 +16,8 @@ Required properties:
 - reg-names:		Names of the bases for the above registers. Expected
 			bases are:
 			"c0-pll", "c1-pll", "c0-mux", "c1-mux", "cci-mux",
-			"efuse"
+			"efuse","rcgwr-c0-base(optional)",
+			"rcgwr-c1-base(optional)".
 - clocks:		The clocks sources used by the cluster/cci mux.
 - clock-names:		Name of the clocks for the above clocks.
 - vdd_mx-supply:	The regulator powering all the PLLs of cluster-0,
@@ -34,16 +38,38 @@ Required properties:
 			the right table is picked from multiple possible tables.
 			'ZZZ' can be c1, c0 or cci depending on whether the table
 			is for the big cluster, little cluster or cci.
+Optional Properties:
+
+- qcom,num-clusters:	Number of clusters which support RCGwR.
+- qcom,lmh-sid-cX:	List of LMH SID offset and value to be programmed for
+			each cluster (X: 0 or 1)
+- qcom,link-sid-cX:	List of Link SID offset and value to be programmed for
+			each cluster (X: 0 or 1)
+- qcom,dfs-sid-cX:	List of DFS SID offset and value to be programmed for
+			each cluster (X: 0 or 1)
+- qcom,ramp-dis-cX:	Boolean property to disable ramp down for each cluster
+			(X: 0 or 1)
+
 Example:
         clock_cpu: qcom,cpu-clock-8976@b016000 {
                 compatible = "qcom,cpu-clock-8976";
-                reg = <0xb116000 0x40>,
+		qcom,num-clusters = <2>;
+		qcom,lmh-sid-c0  = < 0x30 0x077706db>,
+				   < 0x34 0x05550249>,
+				   < 0x38 0x00000111>;
+		qcom,lmh-sid-c1  = < 0x30 0x077706db>,
+				   < 0x34 0x05550249>,
+				   < 0x38 0x00000111>;
+                reg = <0xb114000 0x68>,
+		      <0xb014000 0x68>,
+		      <0xb116000 0x40>,
                       <0xb016000 0x40>,
                       <0xb1d0000 0x40>,
                       <0xb111050 0x08>,
                       <0xb011050 0x08>,
                       <0Xb1d1050 0x08>;
-                reg-names = "c0-pll", "c1-pll", "cci-pll",
+                reg-names = "rcgwr-c0-base", "rcgwr-c1-base",
+				"c0-pll", "c1-pll", "cci-pll",
                             "c0-mux", "c1-mux", "cci-mux";
                 vdd_mx-supply = <phandle for MX>;*/
                 vdd_a72-supply = <&apc_vreg_corner>;

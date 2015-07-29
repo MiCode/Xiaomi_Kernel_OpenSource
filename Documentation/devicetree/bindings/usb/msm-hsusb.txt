@@ -16,6 +16,7 @@ Required properties :
 - interrupts: IRQ line
 - interrupt-names: OTG interrupt name(s) referenced in interrupts above
             HSUSB OTG expects "core_irq" which is IRQ line from CORE and
+            "async_irq" from HSPHY for asynchronous wakeup events in LPM.
             optional ones are described in next section.
 - qcom,hsusb-otg-phy-type: PHY type can be one of
 	    1 - Chipidea PHY (obsolete)
@@ -68,7 +69,6 @@ Required properties :
 
 Optional properties :
 - interrupt-names : Optional interrupt resource entries are:
-    "async_irq" : Interrupt from HSPHY for asynchronous wakeup events in LPM.
     "pmic_id_irq" : Interrupt from PMIC for external ID pin notification.
     "phy_irq" : Interrupt from PHY. Used for ID detection.
 - qcom,hsusb-otg-disable-reset: If present then core is RESET only during

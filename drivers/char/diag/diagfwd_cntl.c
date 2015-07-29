@@ -63,18 +63,17 @@ void diag_cntl_channel_close(struct diagfwd_info *p_info)
 	if (peripheral >= NUM_PERIPHERALS)
 		return;
 
+	driver->feature[peripheral].sent_feature_mask = 0;
+	driver->feature[peripheral].rcvd_feature_mask = 0;
+	flush_workqueue(driver->cntl_wq);
 	reg_dirty |= PERIPHERAL_MASK(peripheral);
 	diag_cmd_remove_reg_by_proc(peripheral);
-	driver->feature[peripheral].rcvd_feature_mask = 0;
 	driver->feature[peripheral].stm_support = DISABLE_STM;
 	driver->feature[peripheral].log_on_demand = 0;
-	driver->feature[peripheral].sent_feature_mask = 0;
 	driver->stm_state[peripheral] = DISABLE_STM;
 	driver->stm_state_requested[peripheral] = DISABLE_STM;
 	reg_dirty ^= PERIPHERAL_MASK(peripheral);
 	diag_notify_md_client(peripheral, DIAG_STATUS_CLOSED);
-
-	flush_workqueue(driver->cntl_wq);
 }
 
 static void diag_stm_update_work_fn(struct work_struct *work)

@@ -448,6 +448,11 @@ enum vfe_sd_type {
 };
 
 /* Usecases when 2 HW need to be related or synced */
+
+/* When you change the value below, check for the sof event_data size.
+ * V4l2 limits payload to 64 bytes */
+#define MS_NUM_SLAVE_MAX 1
+
 enum msm_vfe_dual_hw_type {
 	DUAL_NONE = 0,
 	DUAL_HW_VFE_SPLIT = 1,
@@ -455,15 +460,14 @@ enum msm_vfe_dual_hw_type {
 };
 
 enum msm_vfe_dual_hw_ms_type {
-	DUAL_HW_MASTER,
-	DUAL_HW_SLAVE,
-	DUAL_HW_MAX,
+	MS_TYPE_NONE,
+	MS_TYPE_MASTER,
+	MS_TYPE_SLAVE,
 };
 
 struct msm_isp_set_dual_hw_ms_cmd {
-	uint8_t num_src;
-	enum msm_vfe_dual_hw_ms_type dual_hw_ms_type[VFE_SRC_MAX];
-	enum msm_vfe_input_src input_src[VFE_SRC_MAX];
+	enum msm_vfe_dual_hw_ms_type dual_hw_ms_type;
+	enum msm_vfe_input_src input_src;
 };
 
 enum msm_isp_buf_type {
@@ -594,6 +598,10 @@ struct msm_isp_output_info {
 	uint32_t stats_framedrop_mask;
 };
 
+struct msm_isp_ms_delta_info {
+	uint32_t delta[MS_NUM_SLAVE_MAX];
+};
+
 struct msm_isp_event_data {
 	/*Wall clock except for buffer divert events
 	 *which use monotonic clock
@@ -607,6 +615,7 @@ struct msm_isp_event_data {
 		struct msm_isp_buf_event buf_done;
 		struct msm_isp_error_info error_info;
 		struct msm_isp_output_info output_info;
+		struct msm_isp_ms_delta_info ms_delta_info;
 	} u; /* union can have max 52 bytes */
 };
 
@@ -620,6 +629,7 @@ struct msm_isp_event_data32 {
 		struct msm_isp_buf_event buf_done;
 		struct msm_isp_error_info error_info;
 		struct msm_isp_output_info output_info;
+		struct msm_isp_ms_delta_info ms_delta_info;
 	} u;
 };
 #endif

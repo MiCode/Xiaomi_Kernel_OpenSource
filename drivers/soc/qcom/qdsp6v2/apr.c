@@ -813,6 +813,7 @@ static int lpass_notifier_cb(struct notifier_block *this, unsigned long code,
 {
 	static int boot_count = 2;
 	struct notif_data *data = (struct notif_data *)_cmd;
+	struct scm_desc desc;
 
 	if (boot_count) {
 		boot_count--;
@@ -826,7 +827,15 @@ static int lpass_notifier_cb(struct notifier_block *this, unsigned long code,
 		dispatch_event(code, APR_DEST_QDSP6);
 		if (data && data->crashed) {
 			/* Send NMI to QDSP6 via an SCM call. */
-			scm_call_atomic1(SCM_SVC_UTIL, SCM_Q6_NMI_CMD, 0x1);
+			if (!is_scm_armv8()) {
+				scm_call_atomic1(SCM_SVC_UTIL,
+						 SCM_Q6_NMI_CMD, 0x1);
+			} else {
+				desc.args[0] = 0x1;
+				desc.arginfo = SCM_ARGS(1);
+				scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_UTIL,
+						 SCM_Q6_NMI_CMD), &desc);
+			}
 			/* The write should go through before q6 is shutdown */
 			mb();
 			pr_debug("L-Notify: Q6 NMI was sent.\n");
@@ -860,9 +869,19 @@ static struct notifier_block lnb = {
 static int panic_handler(struct notifier_block *this,
 				unsigned long event, void *ptr)
 {
-	if (powered_on)
+	struct scm_desc desc;
+
+	if (powered_on) {
 		/* Send NMI to QDSP6 via an SCM call. */
-		scm_call_atomic1(SCM_SVC_UTIL, SCM_Q6_NMI_CMD, 0x1);
+		if (!is_scm_armv8()) {
+			scm_call_atomic1(SCM_SVC_UTIL, SCM_Q6_NMI_CMD, 0x1);
+		} else {
+			desc.args[0] = 0x1;
+			desc.arginfo = SCM_ARGS(1);
+			scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_UTIL,
+					 SCM_Q6_NMI_CMD), &desc);
+		}
+	}
 	return NOTIFY_DONE;
 }
 

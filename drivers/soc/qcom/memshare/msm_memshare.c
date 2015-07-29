@@ -49,7 +49,6 @@ struct memshare_child {
 
 static struct memshare_driver *memsh_drv;
 static struct memshare_child *memsh_child;
-static void *curr_conn;
 static struct mem_blocks memblock[MAX_CLIENTS];
 static uint32_t num_clients;
 static struct msg_desc mem_share_svc_alloc_req_desc = {
@@ -237,7 +236,7 @@ static struct notifier_block nb = {
 	.notifier_call = modem_notifier_cb,
 };
 
-static int handle_alloc_req(void *req_h, void *req)
+static int handle_alloc_req(void *req_h, void *req, void *conn_h)
 {
 	struct mem_alloc_req_msg_v01 *alloc_req;
 	struct mem_alloc_resp_msg_v01 alloc_resp;
@@ -270,7 +269,7 @@ static int handle_alloc_req(void *req_h, void *req)
 			  alloc_resp.num_bytes,
 			  (unsigned long int)alloc_resp.handle,
 			  (unsigned long int)alloc_resp.resp);
-	rc = qmi_send_resp_from_cb(mem_share_svc_handle, curr_conn, req_h,
+	rc = qmi_send_resp_from_cb(mem_share_svc_handle, conn_h, req_h,
 			&mem_share_svc_alloc_resp_desc, &alloc_resp,
 			sizeof(alloc_resp));
 	if (rc < 0)
@@ -280,7 +279,7 @@ static int handle_alloc_req(void *req_h, void *req)
 	return rc;
 }
 
-static int handle_alloc_generic_req(void *req_h, void *req)
+static int handle_alloc_generic_req(void *req_h, void *req, void *conn_h)
 {
 	struct mem_alloc_generic_req_msg_v01 *alloc_req;
 	struct mem_alloc_generic_resp_msg_v01 *alloc_resp;
@@ -303,6 +302,14 @@ static int handle_alloc_generic_req(void *req_h, void *req)
 	alloc_resp->resp.error = QMI_ERR_NO_MEMORY_V01;
 	client_id = check_client(alloc_req->client_id, alloc_req->proc_id,
 								CHECK);
+
+	if (client_id >= MAX_CLIENTS) {
+		pr_err("memshare: %s client not found, requested client: %d, proc_id: %d\n",
+				__func__, alloc_req->client_id,
+				alloc_req->proc_id);
+		return -EINVAL;
+	}
+
 	if (!memblock[client_id].alloted) {
 		rc = memshare_alloc(memsh_drv->dev, alloc_req->num_bytes,
 					&memblock[client_id]);
@@ -327,7 +334,7 @@ static int handle_alloc_generic_req(void *req_h, void *req)
 			  (unsigned long int)
 			  alloc_resp->dhms_mem_alloc_addr_info[0].phy_addr,
 			  (unsigned long int)alloc_resp->resp.result);
-	rc = qmi_send_resp_from_cb(mem_share_svc_handle, curr_conn, req_h,
+	rc = qmi_send_resp_from_cb(mem_share_svc_handle, conn_h, req_h,
 			&mem_share_svc_alloc_generic_resp_desc, alloc_resp,
 			sizeof(alloc_resp));
 
@@ -338,7 +345,7 @@ static int handle_alloc_generic_req(void *req_h, void *req)
 	return rc;
 }
 
-static int handle_free_req(void *req_h, void *req)
+static int handle_free_req(void *req_h, void *req, void *conn_h)
 {
 	struct mem_free_req_msg_v01 *free_req;
 	struct mem_free_resp_msg_v01 free_resp;
@@ -360,7 +367,7 @@ static int handle_free_req(void *req_h, void *req)
 	}
 	free_resp.resp = QMI_RESULT_SUCCESS_V01;
 	mutex_unlock(&memsh_drv->mem_free);
-	rc = qmi_send_resp_from_cb(mem_share_svc_handle, curr_conn, req_h,
+	rc = qmi_send_resp_from_cb(mem_share_svc_handle, conn_h, req_h,
 			&mem_share_svc_free_resp_desc, &free_resp,
 			sizeof(free_resp));
 	if (rc < 0)
@@ -370,7 +377,7 @@ static int handle_free_req(void *req_h, void *req)
 	return rc;
 }
 
-static int handle_free_generic_req(void *req_h, void *req)
+static int handle_free_generic_req(void *req_h, void *req, void *conn_h)
 {
 	struct mem_free_generic_req_msg_v01 *free_req;
 	struct mem_free_generic_resp_msg_v01 free_resp;
@@ -418,7 +425,7 @@ static int handle_free_generic_req(void *req_h, void *req)
 	}
 
 	mutex_unlock(&memsh_drv->mem_free);
-	rc = qmi_send_resp_from_cb(mem_share_svc_handle, curr_conn, req_h,
+	rc = qmi_send_resp_from_cb(mem_share_svc_handle, conn_h, req_h,
 		&mem_share_svc_free_generic_resp_desc, &free_resp,
 		sizeof(free_resp));
 
@@ -429,7 +436,7 @@ static int handle_free_generic_req(void *req_h, void *req)
 	return rc;
 }
 
-static int handle_query_size_req(void *req_h, void *req)
+static int handle_query_size_req(void *req_h, void *req, void *conn_h)
 {
 	int rc, client_id;
 	struct mem_query_size_req_msg_v01 *query_req;
@@ -449,6 +456,14 @@ static int handle_query_size_req(void *req_h, void *req)
 		query_req->client_id, query_req->proc_id);
 	client_id = check_client(query_req->client_id, query_req->proc_id,
 								CHECK);
+
+	if (client_id >= MAX_CLIENTS) {
+		pr_err("memshare: %s client not found, requested client: %d, proc_id: %d\n",
+				__func__, query_req->client_id,
+				query_req->proc_id);
+		return -EINVAL;
+	}
+
 	if (memblock[client_id].size) {
 		query_resp->size_valid = 1;
 		query_resp->size = memblock[client_id].size;
@@ -463,7 +478,7 @@ static int handle_query_size_req(void *req_h, void *req)
 	pr_debug("query_resp.size :%d, alloc_resp.mem_req_result :%lx\n",
 			  query_resp->size,
 			  (unsigned long int)query_resp->resp.result);
-	rc = qmi_send_resp_from_cb(mem_share_svc_handle, curr_conn, req_h,
+	rc = qmi_send_resp_from_cb(mem_share_svc_handle, conn_h, req_h,
 			&mem_share_svc_size_query_resp_desc, query_resp,
 			sizeof(query_resp));
 
@@ -479,21 +494,16 @@ static int mem_share_svc_connect_cb(struct qmi_handle *handle,
 {
 	if (mem_share_svc_handle != handle || !conn_h)
 		return -EINVAL;
-	if (curr_conn) {
-		pr_err("%s: Service is busy\n", __func__);
-		return -EBUSY;
-	}
-	curr_conn = conn_h;
+
 	return 0;
 }
 
 static int mem_share_svc_disconnect_cb(struct qmi_handle *handle,
 				  void *conn_h)
 {
-	if (mem_share_svc_handle != handle || curr_conn != conn_h) {
+	if (mem_share_svc_handle != handle || !conn_h)
 		return -EINVAL;
-	}
-	curr_conn = NULL;
+
 	return 0;
 }
 
@@ -542,28 +552,28 @@ static int mem_share_svc_req_cb(struct qmi_handle *handle, void *conn_h,
 	int rc;
 
 	pr_debug("memshare: In %s\n", __func__);
-	if (mem_share_svc_handle != handle || curr_conn != conn_h)
+	if (mem_share_svc_handle != handle || !conn_h)
 		return -EINVAL;
 
 	switch (msg_id) {
 	case MEM_ALLOC_REQ_MSG_V01:
-		rc = handle_alloc_req(req_h, req);
+		rc = handle_alloc_req(req_h, req, conn_h);
 		break;
 
 	case MEM_FREE_REQ_MSG_V01:
-		rc = handle_free_req(req_h, req);
+		rc = handle_free_req(req_h, req, conn_h);
 		break;
 
 	case MEM_ALLOC_GENERIC_REQ_MSG_V01:
-		rc = handle_alloc_generic_req(req_h, req);
+		rc = handle_alloc_generic_req(req_h, req, conn_h);
 		break;
 
 	case MEM_FREE_GENERIC_REQ_MSG_V01:
-		rc = handle_free_generic_req(req_h, req);
+		rc = handle_free_generic_req(req_h, req, conn_h);
 		break;
 
 	case MEM_QUERY_SIZE_REQ_MSG_V01:
-		rc = handle_query_size_req(req_h, req);
+		rc = handle_query_size_req(req_h, req, conn_h);
 		break;
 
 	default:

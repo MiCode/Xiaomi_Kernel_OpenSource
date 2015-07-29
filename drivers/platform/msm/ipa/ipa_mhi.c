@@ -1099,9 +1099,9 @@ int ipa_mhi_start(struct ipa_mhi_start_params *params)
 		return -EINVAL;
 	}
 
-	if (!ipa_mhi_ctx) {
-		IPA_MHI_ERR("not initialized\n");
-		return -EPERM;
+	if (unlikely(!ipa_mhi_ctx)) {
+		IPA_MHI_ERR("IPA MHI was not initialized\n");
+		return -EINVAL;
 	}
 
 	if (ipa_uc_state_check()) {
@@ -1204,6 +1204,11 @@ int ipa_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
 
 	if (in->sys.client >= IPA_CLIENT_MAX) {
 		IPA_MHI_ERR("bad parm client:%d\n", in->sys.client);
+		return -EINVAL;
+	}
+
+	if (unlikely(!ipa_mhi_ctx)) {
+		IPA_MHI_ERR("IPA MHI was not initialized\n");
 		return -EINVAL;
 	}
 
@@ -1359,7 +1364,7 @@ int ipa_mhi_disconnect_pipe(u32 clnt_hdl)
 		return -EINVAL;
 	}
 
-	if (!ipa_mhi_ctx) {
+	if (unlikely(!ipa_mhi_ctx)) {
 		IPA_MHI_ERR("IPA MHI was not initialized\n");
 		return -EINVAL;
 	}
@@ -1594,6 +1599,11 @@ int ipa_mhi_suspend(bool force)
 
 	IPA_MHI_FUNC_ENTRY();
 
+	if (unlikely(!ipa_mhi_ctx)) {
+		IPA_MHI_ERR("IPA MHI was not initialized\n");
+		return -EINVAL;
+	}
+
 	res = ipa_mhi_set_state(IPA_MHI_STATE_SUSPEND_IN_PROGRESS);
 	if (res) {
 		IPA_MHI_ERR("ipa_mhi_set_state failed %d\n", res);
@@ -1732,6 +1742,11 @@ int ipa_mhi_resume(void)
 
 	IPA_MHI_FUNC_ENTRY();
 
+	if (unlikely(!ipa_mhi_ctx)) {
+		IPA_MHI_ERR("IPA MHI was not initialized\n");
+		return -EINVAL;
+	}
+
 	res = ipa_mhi_set_state(IPA_MHI_STATE_RESUME_IN_PROGRESS);
 	if (res) {
 		IPA_MHI_ERR("ipa_mhi_set_state failed %d\n", res);
@@ -1810,6 +1825,11 @@ EXPORT_SYMBOL(ipa_mhi_resume);
 int ipa_mhi_destroy(void)
 {
 	IPA_MHI_FUNC_ENTRY();
+
+	if (unlikely(!ipa_mhi_ctx)) {
+		IPA_MHI_ERR("IPA MHI was not initialized\n");
+		return -EINVAL;
+	}
 
 	IPAERR("Not implemented Yet!\n");
 	ipa_mhi_debugfs_destroy();

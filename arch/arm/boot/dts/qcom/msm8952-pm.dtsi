@@ -139,7 +139,7 @@
 				76 76 0b 50 1b 94 5B 80 10 26 30 50 0f];
 	};
 
-	qcom,spm@b012000 {
+	cluster1_spm:qcom,spm@b012000 {
 		compatible = "qcom,spm-v2";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -157,7 +157,7 @@
 			1f 1b b0 7b 4e 02 02 c0 d0 12 e0 6b 02 32 50 b0 0f];
 	};
 
-	qcom,spm@b112000 {
+	cluster0_spm:qcom,spm@b112000 {
 		compatible = "qcom,spm-v2";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -424,7 +424,8 @@
 		qcom,ipc-bit-offset = <1>;
 		qcom,gic-parent = <&intc>;
 		qcom,gic-map = <2 216>, /* tsens_upper_lower_int */
-			<50 172>, /* usb1_hs_async_wakeup_irq */
+			<49 172>, /* usb1_hs_async_wakeup_irq */
+			<58 166>, /* usb_hs_irq */
 			<53 104>, /* mdss_irq */
 			<62 222>, /* ee0_krait_hlos_spmi_periph_irq */
 			<0xff 18>,  /* APC_qgicQTmrSecPhysIrptReq */
@@ -477,7 +478,6 @@
 			<0xff 153>, /* smmu_bus_intr[58] */
 			<0xff 155>, /* sdc1_irq(0) */
 			<0xff 157>, /* sdc2_irq(0) */
-			<0xff 166>, /* usb_hs_irq */
 			<0xff 167>, /* usb1_hs_bam_irq */
 			<0xff 170>, /* sdc1_pwr_cmd_irq */
 			<0xff 173>, /* o_wcss_apss_smd_hi */

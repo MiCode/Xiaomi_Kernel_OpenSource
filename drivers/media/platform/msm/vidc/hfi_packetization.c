@@ -48,6 +48,12 @@ static int cabac_model[] = {
 	[ilog2(HAL_H264_CABAC_MODEL_2)] = HFI_H264_CABAC_MODEL_2,
 };
 
+static int statistics_mode[] = {
+	[ilog2(HAL_STATISTICS_MODE_DEFAULT)] = HFI_STATISTICS_MODE_DEFAULT,
+	[ilog2(HAL_STATISTICS_MODE_1)] = HFI_STATISTICS_MODE_1,
+	[ilog2(HAL_STATISTICS_MODE_2)] = HFI_STATISTICS_MODE_2,
+};
+
 static int color_format[] = {
 	[ilog2(HAL_COLOR_FORMAT_MONOCHROME)] = HFI_COLOR_FORMAT_MONOCHROME,
 	[ilog2(HAL_COLOR_FORMAT_NV12)] = HFI_COLOR_FORMAT_NV12,
@@ -103,6 +109,9 @@ static inline int hal_to_hfi_type(int property, int hal_type)
 	case HAL_PARAM_NAL_STREAM_FORMAT_SELECT:
 		return (hal_type >= ARRAY_SIZE(nal_type)) ?
 			-ENOTSUPP : nal_type[hal_type];
+	case HAL_PARAM_VENC_MBI_STATISTICS_MODE:
+		return (hal_type >= ARRAY_SIZE(statistics_mode)) ?
+			-ENOTSUPP : statistics_mode[hal_type];
 	default:
 		return -ENOTSUPP;
 	}
@@ -1985,6 +1994,17 @@ int create_pkt_cmd_session_set_property(
 			__func__, ptype);
 		return -ENOTSUPP;
 	}
+	case HAL_PARAM_VENC_MBI_STATISTICS_MODE:
+	{
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VENC_MBI_DUMPING;
+		pkt->rg_property_data[1] = hal_to_hfi_type(
+			HAL_PARAM_VENC_MBI_STATISTICS_MODE,
+				*(u32 *)pdata);
+		pkt->size += sizeof(u32) * 2;
+		break;
+	}
+
 	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */
 	case HAL_CONFIG_BUFFER_REQUIREMENTS:
 	case HAL_CONFIG_PRIORITY:
@@ -2166,7 +2186,10 @@ static int create_3x_pkt_cmd_session_set_property(
 	}
 	/* Deprecated param on Venus 3xx */
 	case HAL_PARAM_VDEC_CONTINUE_DATA_TRANSFER:
+	{
+		rc = -ENOTSUPP;
 		break;
+	}
 	default:
 		rc = create_pkt_cmd_session_set_property(pkt,
 				session, ptype, pdata);

@@ -106,6 +106,7 @@ static struct clk_pair clks[KGSL_MAX_CLKS] = {
 };
 
 static unsigned int ib_votes[KGSL_MAX_BUSLEVELS];
+static unsigned int ab_votes[KGSL_MAX_BUSLEVELS];
 static int last_vote_buslevel;
 static int max_vote_buslevel;
 
@@ -177,7 +178,7 @@ static void _ab_buslevel_update(struct kgsl_pwrctrl *pwr,
 	if (ib == 0)
 		*ab = 0;
 	else if ((!pwr->bus_percent_ab) && (!pwr->bus_ab_mbytes))
-		*ab = DEFAULT_BUS_P * ib / 100;
+		*ab = ab_votes[last_vote_buslevel];
 	else if (pwr->bus_width)
 		*ab = pwr->bus_ab_mbytes;
 	else
@@ -1629,6 +1630,15 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 					- 1;
 				if (ib_votes[i] > ib_votes[max_vote_buslevel])
 					max_vote_buslevel = i;
+
+				/* Fill the AB votes */
+				if (vector->ab == 0)
+					ab_votes[i] =
+					DEFAULT_BUS_P * ib_votes[i] / 100;
+				else
+					ab_votes[i] =
+					DIV_ROUND_UP_ULL(vector->ab, 1048576)
+					- 1;
 			}
 
 			/* check for duplicate values */
