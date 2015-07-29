@@ -1382,6 +1382,9 @@ static bool wcd9335_is_volatile_register(struct device *dev, unsigned int reg)
 	case WCD9335_SOC_MAD_AUDIO_CTL_4:
 	case WCD9335_FLYBACK_EN:
 	case WCD9335_ANA_RX_SUPPLIES:
+	case WCD9335_CDC_CLK_RST_CTRL_FS_CNT_CONTROL:
+	case WCD9335_SIDO_SIDO_CCL_2:
+	case WCD9335_SIDO_SIDO_CCL_4:
 		return true;
 	default:
 		return false;
