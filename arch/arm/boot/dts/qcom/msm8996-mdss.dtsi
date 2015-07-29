@@ -486,6 +486,7 @@
 		qcom,mdss-wb-count = <2>;
 		qcom,mdss-has-downscale;
 		qcom,mdss-has-ubwc;
+		qcom,mdss-has-reg-bus;
 		/* Bus Scale Settings */
 		qcom,msm-bus,name = "mdss_rotator";
 		qcom,msm-bus,num-cases = <3>;
