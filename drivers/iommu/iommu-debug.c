@@ -659,7 +659,7 @@ static ssize_t iommu_debug_unmap_write(struct file *file,
 	if (kstrtou64(buf, 0, &iova))
 		goto invalid_format;
 
-	if (kstrtoul(buf, 0, &size))
+	if (kstrtoul(comma1 + 1, 0, &size))
 		goto invalid_format;
 
 	unmapped = iommu_unmap(ddev->domain, iova, size);
