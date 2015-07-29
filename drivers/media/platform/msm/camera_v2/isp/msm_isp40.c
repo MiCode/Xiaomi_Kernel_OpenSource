@@ -316,7 +316,6 @@ static int msm_vfe40_init_hardware(struct vfe_device *vfe_dev)
 		goto vbif_remap_failed;
 	}
 
-	tasklet_enable(&vfe_dev->vfe_tasklet);
 	rc = request_irq(vfe_dev->vfe_irq->start, msm_isp_process_irq,
 		IRQF_TRIGGER_RISING, "vfe", vfe_dev);
 	if (rc < 0) {
@@ -325,7 +324,6 @@ static int msm_vfe40_init_hardware(struct vfe_device *vfe_dev)
 	}
 	return rc;
 irq_req_failed:
-	tasklet_disable(&vfe_dev->vfe_tasklet);
 	iounmap(vfe_dev->vfe_vbif_base);
 	vfe_dev->vfe_vbif_base = NULL;
 vbif_remap_failed:
@@ -346,8 +344,13 @@ bus_scale_register_failed:
 
 static void msm_vfe40_release_hardware(struct vfe_device *vfe_dev)
 {
+	/* disable all mask before tasklet kill */
+	msm_camera_io_w_mb(0x0, vfe_dev->vfe_base + 0x28);
+	msm_camera_io_w_mb(0x0, vfe_dev->vfe_base + 0x2C);
+
+	disable_irq(vfe_dev->vfe_irq->start);
 	free_irq(vfe_dev->vfe_irq->start, vfe_dev);
-	tasklet_disable(&vfe_dev->vfe_tasklet);
+	tasklet_kill(&vfe_dev->vfe_tasklet);
 	msm_isp_flush_tasklet(vfe_dev);
 	iounmap(vfe_dev->vfe_vbif_base);
 	vfe_dev->vfe_vbif_base = NULL;
