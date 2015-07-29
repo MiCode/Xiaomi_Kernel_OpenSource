@@ -70,6 +70,11 @@ struct swr_port {
 	u8 num_ch;
 };
 
+enum {
+	WSA881X_DEV_DOWN,
+	WSA881X_DEV_UP,
+};
+
 /*
  * Private data Structure for wsa881x. All parameters related to
  * WSA881X codec needs to be defined here.
@@ -91,6 +96,7 @@ struct wsa881x_priv {
 	struct mutex res_lock;
 	struct snd_info_entry *entry;
 	struct snd_info_entry *version_entry;
+	int state;
 };
 
 #define SWR_SLV_MAX_REG_ADDR	0x390
@@ -833,6 +839,32 @@ static int32_t wsa881x_resource_acquire(struct snd_soc_codec *codec,
 	return 0;
 }
 
+static int32_t wsa881x_thermal_resource_acquire(struct snd_soc_codec *codec,
+						bool enable)
+{
+	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
+	struct swr_device *dev;
+	u8 devnum = 0;
+
+	if (!wsa881x) {
+		dev_err(codec->dev, "%s: wsa881x is NULL\n", __func__);
+		return -EINVAL;
+	}
+	dev = wsa881x->swr_slave;
+	if (dev && (wsa881x->state == WSA881X_DEV_DOWN)) {
+		if (swr_get_logical_dev_num(dev, dev->addr, &devnum)) {
+			dev_err(codec->dev,
+				"%s get devnum %d for dev addr %lx failed\n",
+				__func__, devnum, dev->addr);
+			return -EINVAL;
+		}
+		regcache_sync(wsa881x->regmap);
+	}
+	wsa881x_resource_acquire(codec, enable);
+
+	return 0;
+}
+
 static int wsa881x_probe(struct snd_soc_codec *codec)
 {
 	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
@@ -865,10 +897,12 @@ static int wsa881x_probe(struct snd_soc_codec *codec)
 		"%s.%x", "wsatz", (u8)dev->addr);
 	wsa881x->bg_cnt = 0;
 	wsa881x->clk_cnt = 0;
+	wsa881x->state = WSA881X_DEV_UP;
 	wsa881x->tz_pdata.codec = codec;
 	wsa881x->tz_pdata.dig_base = WSA881X_DIGITAL_BASE;
 	wsa881x->tz_pdata.ana_base = WSA881X_ANALOG_BASE;
-	wsa881x->tz_pdata.wsa_resource_acquire = wsa881x_resource_acquire;
+	wsa881x->tz_pdata.wsa_resource_acquire =
+				wsa881x_thermal_resource_acquire;
 	wsa881x_init_thermal(&wsa881x->tz_pdata);
 	return ret;
 }
@@ -1041,6 +1075,8 @@ static int wsa881x_swr_up(struct swr_device *pdev)
 	ret = wsa881x_gpio_ctrl(wsa881x, true);
 	if (ret)
 		dev_err(&pdev->dev, "%s: Failed to enable gpio\n", __func__);
+	else
+		wsa881x->state = WSA881X_DEV_UP;
 
 	return ret;
 }
@@ -1059,6 +1095,8 @@ static int wsa881x_swr_down(struct swr_device *pdev)
 	ret = wsa881x_gpio_ctrl(wsa881x, false);
 	if (ret)
 		dev_err(&pdev->dev, "%s: Failed to disable gpio\n", __func__);
+	else
+		wsa881x->state = WSA881X_DEV_DOWN;
 
 	return ret;
 }
