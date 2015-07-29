@@ -1085,6 +1085,90 @@ static void msm_isp_release_all_bufq(
 	}
 }
 
+
+/**
+ * msm_isp_buf_put_scratch() - Release scratch buffers
+ * @buf_mgr: The buffer structure for h/w
+ *
+ * Returns 0 on success else error code
+ */
+static int msm_isp_buf_put_scratch(struct msm_isp_buf_mgr *buf_mgr)
+{
+	int rc, ret;
+
+	if (!buf_mgr->scratch_buf_addr)
+		return 0;
+
+	rc = cam_smmu_put_phy_addr_scratch(buf_mgr->img_iommu_hdl,
+				buf_mgr->scratch_buf_addr);
+	if (rc)
+		pr_err("%s: failed to put scratch buffer to img iommu: %d\n",
+			__func__, rc);
+
+	ret = cam_smmu_put_phy_addr_scratch(buf_mgr->stats_iommu_hdl,
+				buf_mgr->scratch_buf_addr);
+	if (ret)
+		pr_err("%s: failed to put scratch buffer to stats iommu: %d\n",
+			__func__, ret);
+
+	if (!rc && !ret)
+		buf_mgr->scratch_buf_addr = 0;
+
+	return rc | ret;
+}
+
+/**
+ * msm_isp_buf_get_scratch() - Create scratch buffers
+ * @buf_mgr: The buffer structure for h/w
+ *
+ * Create and map scratch buffers for all IOMMU's under the buffer
+ * manager.
+ *
+ * Returns 0 on success else error code
+ */
+static int msm_isp_buf_get_scratch(struct msm_isp_buf_mgr *buf_mgr)
+{
+	int rc;
+	dma_addr_t scratch_buf_addr;
+
+	if (buf_mgr->scratch_buf_addr || !buf_mgr->scratch_buf_range)
+		/* already mapped or not supported */
+		return 0;
+
+	rc = cam_smmu_get_phy_addr_scratch(
+				buf_mgr->img_iommu_hdl,
+				CAM_SMMU_MAP_RW,
+				&buf_mgr->scratch_buf_addr,
+				buf_mgr->scratch_buf_range,
+				SZ_4K);
+	if (rc) {
+		pr_err("%s: failed to map scratch buffer to img iommu: %d\n",
+			__func__, rc);
+		return rc;
+	}
+	rc = cam_smmu_get_phy_addr_scratch(
+				buf_mgr->stats_iommu_hdl,
+				CAM_SMMU_MAP_RW,
+				&scratch_buf_addr,
+				buf_mgr->scratch_buf_range,
+				SZ_4K);
+	if (rc) {
+		pr_err("%s: failed to map scratch buffer to stats iommu: %d\n",
+			__func__, rc);
+		cam_smmu_put_phy_addr_scratch(buf_mgr->img_iommu_hdl,
+				buf_mgr->scratch_buf_addr);
+		return rc;
+	}
+
+	if (scratch_buf_addr != buf_mgr->scratch_buf_addr) {
+		pr_err("%s: Scratch addr differ: %pa/%pa\n",
+		__func__, &scratch_buf_addr, &buf_mgr->scratch_buf_addr);
+		rc = -EINVAL;
+		msm_isp_buf_put_scratch(buf_mgr);
+	}
+	return rc;
+}
+
 int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 	void *arg)
 {
@@ -1117,7 +1201,13 @@ int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 			}
 		}
 		buf_mgr->attach_ref_cnt++;
+		rc = msm_isp_buf_get_scratch(buf_mgr);
+		if (rc)
+			goto err3;
 	} else {
+		rc = msm_isp_buf_put_scratch(buf_mgr);
+		if (rc)
+			goto done;
 		if (buf_mgr->attach_ref_cnt == 1) {
 			rc = cam_smmu_ops(buf_mgr->img_iommu_hdl,
 				CAM_SMMU_DETACH);
@@ -1133,15 +1223,15 @@ int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 		else
 			pr_err("%s: Error! Invalid ref_cnt\n", __func__);
 	}
+done:
 	mutex_unlock(&buf_mgr->lock);
 	return rc;
-
+err3:
+	if (cam_smmu_ops(buf_mgr->stats_iommu_hdl, CAM_SMMU_DETACH))
+		pr_err("%s: stats iommu detach fail\n", __func__);
 err2:
-	rc |= cam_smmu_ops(buf_mgr->img_iommu_hdl, CAM_SMMU_DETACH);
-	if (rc < 0) {
-		pr_err("%s: img smmu detach error, rc :%d\n",
-			__func__, rc);
-	}
+	if (cam_smmu_ops(buf_mgr->img_iommu_hdl, CAM_SMMU_DETACH))
+		pr_err("%s: img smmu detach error\n", __func__);
 err1:
 	mutex_unlock(&buf_mgr->lock);
 	return rc;
@@ -1217,6 +1307,7 @@ static int msm_isp_deinit_isp_buf_mgr(
 	buf_mgr->num_buf_q = 0;
 	buf_mgr->pagefault_debug_disable = 0;
 
+	msm_isp_buf_put_scratch(buf_mgr);
 	cam_smmu_ops(buf_mgr->img_iommu_hdl, CAM_SMMU_DETACH);
 	cam_smmu_ops(buf_mgr->stats_iommu_hdl, CAM_SMMU_DETACH);
 	cam_smmu_destroy_handle(buf_mgr->img_iommu_hdl);
@@ -1393,7 +1484,8 @@ static struct msm_isp_buf_ops isp_buf_ops = {
 int msm_isp_create_isp_buf_mgr(
 	struct msm_isp_buf_mgr *buf_mgr,
 	struct msm_sd_req_vb2_q *vb2_ops,
-	struct device *dev)
+	struct device *dev,
+	uint32_t scratch_buf_range)
 {
 	int rc = 0;
 	if (buf_mgr->init_done)
@@ -1405,6 +1497,7 @@ int msm_isp_create_isp_buf_mgr(
 	buf_mgr->pagefault_debug_disable = 0;
 	buf_mgr->secure_enable = NON_SECURE_MODE;
 	buf_mgr->attach_state = MSM_ISP_BUF_MGR_DETACH;
+	buf_mgr->scratch_buf_range = scratch_buf_range;
 	mutex_init(&buf_mgr->lock);
 
 	return 0;
