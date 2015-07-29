@@ -39,6 +39,13 @@ struct wcd_cpe_afe_port_cfg {
 	u32 sample_rate;
 };
 
+struct lsm_out_fmt_cfg {
+	u8 format;
+	u8 pack_mode;
+	u8 data_path_events;
+	u8 transfer_mode;
+};
+
 struct cpe_lsm_session {
 	/* sound model related */
 	void *snd_model_data;
@@ -65,6 +72,7 @@ struct cpe_lsm_session {
 	bool started;
 
 	u32 lab_enable;
+	struct lsm_out_fmt_cfg out_fmt_cfg;
 };
 
 struct wcd_cpe_afe_ops {
@@ -132,6 +140,8 @@ struct wcd_cpe_lsm_ops {
 			struct cpe_lsm_session *session,
 			enum lsm_detection_mode detect_mode,
 			bool detect_failure);
+	int (*lsm_set_fmt_cfg)(void *core_handle,
+			struct cpe_lsm_session *session);
 };
 
 int wcd_cpe_get_lsm_ops(struct wcd_cpe_lsm_ops *);

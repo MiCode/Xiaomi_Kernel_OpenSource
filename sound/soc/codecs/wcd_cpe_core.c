@@ -2922,6 +2922,43 @@ done:
 	return rc;
 }
 
+static int wcd_cpe_lsm_set_fmt_cfg(void *core_handle,
+			struct cpe_lsm_session *session)
+{
+	int ret;
+	struct cpe_lsm_output_format_cfg out_fmt_cfg;
+	struct wcd_cpe_core *core = core_handle;
+
+	ret = wcd_cpe_is_valid_lsm_session(core, session, __func__);
+	if (ret)
+		goto done;
+
+	WCD_CPE_GRAB_LOCK(&session->lsm_lock, "lsm");
+
+	memset(&out_fmt_cfg, 0, sizeof(out_fmt_cfg));
+	if (fill_lsm_cmd_header_v0_inband(&out_fmt_cfg.hdr,
+			session->id, OUT_FMT_CFG_CMD_PAYLOAD_SIZE,
+			CPE_LSM_SESSION_CMD_TX_BUFF_OUTPUT_CONFIG)) {
+		ret = -EINVAL;
+		goto err_ret;
+	}
+
+	out_fmt_cfg.format = session->out_fmt_cfg.format;
+	out_fmt_cfg.packing = session->out_fmt_cfg.pack_mode;
+	out_fmt_cfg.data_path_events = session->out_fmt_cfg.data_path_events;
+
+	ret = wcd_cpe_cmi_send_lsm_msg(core, session, &out_fmt_cfg);
+	if (ret)
+		dev_err(core->dev,
+			"%s: lsm_set_output_format_cfg failed, err = %d\n",
+			__func__, ret);
+
+err_ret:
+	WCD_CPE_REL_LOCK(&session->lsm_lock, "lsm");
+done:
+	return ret;
+}
+
 /*
  * wcd_cpe_get_lsm_ops: register lsm driver to codec
  * @lsm_ops: structure with lsm callbacks
@@ -2942,6 +2979,7 @@ int wcd_cpe_get_lsm_ops(struct wcd_cpe_lsm_ops *lsm_ops)
 	lsm_ops->lsm_lab_control = wcd_cpe_lsm_lab_control;
 	lsm_ops->lab_ch_setup = wcd_cpe_lab_ch_setup;
 	lsm_ops->lsm_set_data = wcd_cpe_lsm_set_data;
+	lsm_ops->lsm_set_fmt_cfg = wcd_cpe_lsm_set_fmt_cfg;
 	return 0;
 }
 EXPORT_SYMBOL(wcd_cpe_get_lsm_ops);
