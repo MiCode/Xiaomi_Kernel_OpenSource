@@ -26,4 +26,12 @@ config QCA7000
 	  To compile this driver as a module, choose M here. The module
 	  will be called qcaspi.
 
+config QCOM_EMAC
+	tristate "Qualcomm Technologies, Inc. EMAC Gigabit Ethernet support"
+	default n
+	select CRC32
+	---help---
+	  This driver supports the Qualcomm Technologies, Inc. EMAC Gigabit
+	  Ethernet controller.
+
 endif # NET_VENDOR_QUALCOMM
