@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,6 +43,8 @@ static DEFINE_PCI_DEVICE_TABLE(mhi_pcie_device_id) = {
 	{ MHI_PCIE_VENDOR_ID, MHI_PCIE_DEVICE_ID_9x35,
 		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
 	{ MHI_PCIE_VENDOR_ID, MHI_PCIE_DEVICE_ID_ZIRC,
+		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
+	{ MHI_PCIE_VENDOR_ID, MHI_PCIE_DEVICE_ID_9x55,
 		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
 	{ 0, },
 };
@@ -317,6 +319,10 @@ error:
 
 DECLARE_PCI_FIXUP_HEADER(MHI_PCIE_VENDOR_ID,
 		MHI_PCIE_DEVICE_ID_9x35,
+		mhi_msm_fixup);
+
+DECLARE_PCI_FIXUP_HEADER(MHI_PCIE_VENDOR_ID,
+		MHI_PCIE_DEVICE_ID_9x55,
 		mhi_msm_fixup);
 
 DECLARE_PCI_FIXUP_HEADER(MHI_PCIE_VENDOR_ID,
