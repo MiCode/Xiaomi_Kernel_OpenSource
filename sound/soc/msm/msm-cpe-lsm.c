@@ -332,6 +332,16 @@ static int msm_cpe_lsm_lab_stop(struct snd_pcm_substream *substream)
 			__func__);
 		rc = kthread_stop(session->lsm_lab_thread);
 
+		/*
+		 * kthread_stop returns EINTR if the thread_fn
+		 * was not scheduled before calling kthread_stop.
+		 * In this case, we dont need to wait for lab
+		 * thread to complete as lab thread will not be
+		 * scheduled at all.
+		 */
+		if (rc == -EINTR)
+			goto done;
+
 		/* Wait for the lab thread to exit */
 		rc = wait_for_completion_timeout(
 				&lab_d->thread_complete,
@@ -343,11 +353,6 @@ static int msm_cpe_lsm_lab_stop(struct snd_pcm_substream *substream)
 			return -ETIMEDOUT;
 		}
 	}
-
-	lab_d->thread_status = MSM_LSM_LAB_THREAD_STOP;
-	lab_d->buf_idx = 0;
-	atomic_set(&lab_d->in_count, 0);
-	lab_d->dma_write = 0;
 
 	rc = lsm_ops->lab_ch_setup(cpe->core_handle,
 				   session,
@@ -370,6 +375,11 @@ static int msm_cpe_lsm_lab_stop(struct snd_pcm_substream *substream)
 		dev_err(rtd->dev,
 			"%s: POST ch teardown failed, err = %d\n",
 			__func__, rc);
+done:
+	lab_d->buf_idx = 0;
+	atomic_set(&lab_d->in_count, 0);
+	lab_d->dma_write = 0;
+
 	return 0;
 }
 
