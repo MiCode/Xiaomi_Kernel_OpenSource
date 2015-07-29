@@ -985,22 +985,6 @@ static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 	arm_smmu_disable_clocks_atomic(smmu);
 }
 
-static void arm_smmu_flush_pgtable(void *addr, size_t size, void *cookie)
-{
-	struct arm_smmu_domain *smmu_domain = cookie;
-	int coherent_htw_disable = smmu_domain->attributes &
-		(1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE);
-
-
-	/*
-	 * Ensure new page tables are visible to a coherent hardware walker.
-	 * The page table code deals with flushing for the non-coherent case.
-	 */
-	if (!coherent_htw_disable &&
-		smmu_domain->smmu->features & ARM_SMMU_FEAT_COHERENT_WALK)
-		dsb(ishst);
-}
-
 struct arm_smmu_secure_pool_chunk {
 	void *addr;
 	size_t size;
@@ -1090,7 +1074,6 @@ static struct iommu_gather_ops arm_smmu_gather_ops = {
 	.tlb_flush_all	= arm_smmu_tlb_inv_context,
 	.tlb_add_flush	= arm_smmu_tlb_inv_range_nosync,
 	.tlb_sync	= arm_smmu_tlb_sync,
-	.flush_pgtable	= arm_smmu_flush_pgtable,
 	.alloc_pages_exact = arm_smmu_alloc_pages_exact,
 	.free_pages_exact = arm_smmu_free_pages_exact,
 };
