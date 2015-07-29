@@ -4035,11 +4035,13 @@ static int __init_resources(struct venus_hfi_device *device,
 	if (!device->response_pkt) {
 		dprintk(VIDC_ERR, "Failed to allocate resp_packets\n");
 		rc = -ENOMEM;
-		goto err_init_bus;
+		goto err_malloc;
 	}
 
 	return rc;
 
+err_malloc:
+	__deinit_bus(device);
 err_init_bus:
 	__deinit_clocks(device);
 err_init_clocks:
