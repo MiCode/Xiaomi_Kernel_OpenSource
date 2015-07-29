@@ -1480,6 +1480,9 @@ int mmc_cmdq_wait_for_dcmd(struct mmc_host *host,
 				mmc_hostname(host), cmd->opcode,
 				cmd->error);
 		err = cmd->error;
+		mmc_host_clk_hold(host);
+		host->cmdq_ops->dumpstate(host);
+		mmc_host_clk_release(host);
 	}
 	return err;
 }
