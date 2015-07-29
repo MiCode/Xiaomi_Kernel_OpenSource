@@ -528,7 +528,7 @@ static void handle_session_release_buf_done(enum hal_command_response cmd,
 	inst = get_inst(get_vidc_core(response->device_id),
 			response->session_id);
 	if (!inst) {
-		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
 		return;
 	}
 
@@ -704,7 +704,7 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 	inst = get_inst(get_vidc_core(response->device_id),
 			response->session_id);
 	if (!inst) {
-		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
 		return;
 	}
 
@@ -759,7 +759,7 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	inst = get_inst(get_vidc_core(event_notify->device_id),
 			event_notify->session_id);
 	if (!inst || !inst->core || !inst->core->device) {
-		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
 		goto err_bad_event;
 	}
 	hdev = inst->core->device;
@@ -929,7 +929,7 @@ static void handle_session_prop_info(enum hal_command_response cmd, void *data)
 	inst = get_inst(get_vidc_core(response->device_id),
 			response->session_id);
 	if (!inst) {
-		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
 		return;
 	}
 
@@ -971,7 +971,7 @@ static void handle_load_resource_done(enum hal_command_response cmd, void *data)
 	inst = get_inst(get_vidc_core(response->device_id),
 			response->session_id);
 	if (!inst) {
-		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
 		return;
 	}
 
@@ -998,7 +998,7 @@ static void handle_start_done(enum hal_command_response cmd, void *data)
 	inst = get_inst(get_vidc_core(response->device_id),
 			response->session_id);
 	if (!inst) {
-		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
 		return;
 	}
 
@@ -1019,7 +1019,7 @@ static void handle_stop_done(enum hal_command_response cmd, void *data)
 	inst = get_inst(get_vidc_core(response->device_id),
 			response->session_id);
 	if (!inst) {
-		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
 		return;
 	}
 
@@ -1041,7 +1041,7 @@ static void handle_release_res_done(enum hal_command_response cmd, void *data)
 	inst = get_inst(get_vidc_core(response->device_id),
 			response->session_id);
 	if (!inst) {
-		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
 		return;
 	}
 
@@ -1150,7 +1150,7 @@ static void handle_session_flush(enum hal_command_response cmd, void *data)
 	inst = get_inst(get_vidc_core(response->device_id),
 			response->session_id);
 	if (!inst) {
-		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
 		return;
 	}
 
@@ -1186,7 +1186,7 @@ static void handle_session_error(enum hal_command_response cmd, void *data)
 	inst = get_inst(get_vidc_core(response->device_id),
 			response->session_id);
 	if (!inst) {
-		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
 		return;
 	}
 
@@ -1329,7 +1329,7 @@ static void handle_session_close(enum hal_command_response cmd, void *data)
 	inst = get_inst(get_vidc_core(response->device_id),
 			response->session_id);
 	if (!inst) {
-		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
 		return;
 	}
 
@@ -1384,7 +1384,7 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 	inst = get_inst(get_vidc_core(response->device_id),
 			response->session_id);
 	if (!inst) {
-		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
 		return;
 	}
 
@@ -1607,7 +1607,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 	inst = get_inst(get_vidc_core(response->device_id),
 			response->session_id);
 	if (!inst) {
-		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
 		return;
 	}
 
@@ -1729,7 +1729,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 				vb->v4l2_planes[extra_idx].length);
 		}
 		dprintk(VIDC_DBG,
-		"Got fbd from hal: device_addr: %pa, alloc: %d, filled: %d, offset: %d, ts: %lld, flags: %#x, crop: %d %d %d %d, pic_type: %#x, mark_data: %d\n",
+		"Got fbd from hal: device_addr: %pa, alloc: %d, filled: %d, offset: %d, ts: %lld, flags: %#x, crop: %d %d %d %d, pic_type: %#x, mark_data: %#x\n",
 		&fill_buf_done->packet_buffer1, fill_buf_done->alloc_len1,
 		fill_buf_done->filled_len1, fill_buf_done->offset1, time_usec,
 		fill_buf_done->flags1, fill_buf_done->start_x_coord,
@@ -1762,7 +1762,7 @@ static void handle_seq_hdr_done(enum hal_command_response cmd, void *data)
 	inst = get_inst(get_vidc_core(response->device_id),
 			response->session_id);
 	if (!inst) {
-		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
 		return;
 	}
 
