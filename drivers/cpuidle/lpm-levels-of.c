@@ -363,10 +363,16 @@ static int parse_cluster_params(struct device_node *node,
 		key = "qcom,psci-mode-mask";
 		ret = of_property_read_u32(node, key,
 				&c->psci_mode_mask);
-		if (ret)
+		if (ret) {
 			pr_err("%s(): Failed to read param: %s\n",
 							__func__, key);
-		return ret;
+			return ret;
+		}
+
+		/* Set ndevice to 1 as default */
+		c->ndevices = 1;
+
+		return 0;
 	} else
 		return parse_legacy_cluster_params(node, c);
 }
@@ -459,8 +465,12 @@ static int parse_cluster_level(struct device_node *node,
 				goto failed;
 
 			level->mode[i] = parse_lpm_mode(spm_mode);
+
 			if (level->mode[i] < 0)
 				goto failed;
+
+			if (level->mode[i] == MSM_SPM_MODE_POWER_COLLAPSE)
+				level->is_reset |= true;
 		}
 	}
 
