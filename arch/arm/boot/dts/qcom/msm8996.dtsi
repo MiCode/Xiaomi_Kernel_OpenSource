@@ -136,16 +136,16 @@
 		#size-cells = <2>;
 		ranges;
 
-		removed_regions: removed_regions@84000000 {
+		removed_regions: removed_regions@85800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x84000000 0 0x4800000>;
+			reg = <0 0x85800000 0 0x3000000>;
 		};
 
 		peripheral_mem: peripheral_region@8e000000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x8e000000 0 0x2900000>;
+			reg = <0 0x8e400000 0 0x2b00000>;
 		};
 
 		qseecom_mem: qseecom_region {
@@ -166,7 +166,7 @@
 		modem_mem: modem_region@88800000 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0 0x88800000 0 0x5800000>;
+			reg = <0 0x88800000 0 0x5c00000>;
 		};
 
 		cont_splash_mem: cont_splash_mem@82400000 {
