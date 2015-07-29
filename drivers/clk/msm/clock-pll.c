@@ -623,10 +623,9 @@ static enum handoff variable_rate_pll_handoff(struct clk *c)
 
 	pll->src_rate = clk_get_rate(c->parent);
 
-	if ((mode & mask) != mask)
-		return HANDOFF_DISABLED_CLK;
-
 	lval = readl_relaxed(PLL_L_REG(pll));
+	if (!lval)
+		return HANDOFF_DISABLED_CLK;
 
 	c->rate = pll->src_rate * lval;
 
@@ -634,6 +633,9 @@ static enum handoff variable_rate_pll_handoff(struct clk *c)
 		WARN(1, "%s: Out of spec PLL", c->dbg_name);
 		return HANDOFF_DISABLED_CLK;
 	}
+
+	if ((mode & mask) != mask)
+		return HANDOFF_DISABLED_CLK;
 
 	return HANDOFF_ENABLED_CLK;
 }
