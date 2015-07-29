@@ -587,8 +587,6 @@ static int mhi_dev_process_stop_cmd(struct mhi_dev_ring *ring, uint32_t ch_id,
 	int rc = 0;
 	struct mhi_addr host_addr;
 
-	mhi_dev_update_wr_offset(ring);
-
 	if (ring->rd_offset != ring->wr_offset &&
 		mhi->ch_ctx_cache[ch_id].ch_type ==
 				MHI_DEV_CH_TYPE_OUTBOUND_CHANNEL) {
