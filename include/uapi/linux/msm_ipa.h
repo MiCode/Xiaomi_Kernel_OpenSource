@@ -1170,6 +1170,8 @@ struct ipa_ioc_ext_intf_prop {
 	uint8_t mux_id;
 	uint32_t filter_hdl;
 	uint8_t is_xlat_rule;
+	uint32_t rule_id;
+	uint8_t is_rule_hashable;
 };
 
 /**
