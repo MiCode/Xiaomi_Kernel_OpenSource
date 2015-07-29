@@ -262,6 +262,8 @@ static int regmap_slim_read(void *context, const void *reg, size_t reg_size,
 
 	if (is_wcd9xxx_reg_power_down(wcd9xxx, rreg)) {
 		ret = 0;
+		for (i = 0; i < val_size; i++)
+			((u8 *)val)[i] = 0;
 		goto err;
 	}
 	ret = wcd9xxx_page_write(wcd9xxx, &c_reg);
