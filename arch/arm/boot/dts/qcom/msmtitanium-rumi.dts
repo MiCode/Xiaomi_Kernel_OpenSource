@@ -13,7 +13,7 @@
 
 /dts-v1/;
 
-/memreserve/ 0x46000000 0x00000200;
+/memreserve/ 0x90000000 0x00000200;
 
 #include "msmtitanium.dtsi"
 
@@ -27,4 +27,8 @@
 	timer {
 		clock-frequency = <10000000>;
 	};
+};
+
+&blsp1_uart2 {
+	status = "ok";
 };
