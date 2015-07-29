@@ -148,14 +148,14 @@ static const char * const cpr3_msm8996_hmss_fuse_corner_name[] = {
 static const struct cpr3_fuse_param
 msm8996_hmss_ro_sel_param[2][MSM8996_HMSS_FUSE_CORNERS][2] = {
 	[MSM8996_HMSS_POWER_CLUSTER_THREAD_ID] = {
-		{{66, 42, 45}, {} },
+		{{66, 38, 41}, {} },
 		{{66, 38, 41}, {} },
 		{{66, 38, 41}, {} },
 		{{66, 34, 37}, {} },
 		{{66, 30, 33}, {} },
 	},
 	[MSM8996_HMSS_PERFORMANCE_CLUSTER_THREAD_ID] = {
-		{{64, 58, 61}, {} },
+		{{64, 54, 57}, {} },
 		{{64, 54, 57}, {} },
 		{{64, 54, 57}, {} },
 		{{64, 50, 53}, {} },
