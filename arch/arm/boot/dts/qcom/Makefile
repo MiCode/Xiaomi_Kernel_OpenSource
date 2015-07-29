@@ -49,6 +49,8 @@ dtb-$(CONFIG_ARCH_MDM9640) += mdm9640-sim.dtb \
 dtb-$(CONFIG_ARCH_MDMCALIFORNIUM) += mdmcalifornium-sim.dtb \
 	mdmcalifornium-rumi.dtb
 
+dtb-$(CONFIG_ARCH_MSMTHORIUM) += msmthorium-rumi.dtb
+
 dtb-$(CONFIG_ARCH_MSMTITANIUM) += msmtitanium-sim.dtb \
 	msmtitanium-rumi.dtb
 

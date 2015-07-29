@@ -523,6 +523,9 @@ static struct msm_soc_info cpu_of_id[] = {
 	[285] = {MSM_CPU_CALIFORNIUM, "MDMCALIFORNIUM"},
 	[286] = {MSM_CPU_CALIFORNIUM, "MDMCALIFORNIUM"},
 
+	/*MSMTHORIUM ID  */
+	[294] = {MSM_CPU_THORIUM, "MSMTHORIUM"},
+
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	   considered as unknown CPU. */
@@ -1083,6 +1086,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_mdmfermium()) {
 		dummy_socinfo.id = 290;
 		strlcpy(dummy_socinfo.build_id, "mdmfermium - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_msmthorium()) {
+		dummy_socinfo.id = 294;
+		strlcpy(dummy_socinfo.build_id, "msmthorium - ",
 			sizeof(dummy_socinfo.build_id));
 	}
 
