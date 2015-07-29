@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -53,7 +53,9 @@ static LIST_HEAD(cache_hwmon_list);
 static DEFINE_MUTEX(list_lock);
 
 static int use_cnt;
-static DEFINE_MUTEX(state_lock);
+static DEFINE_MUTEX(register_lock);
+
+static DEFINE_MUTEX(monitor_lock);
 
 #define show_attr(name) \
 static ssize_t show_##name(struct device *dev,				\
@@ -185,8 +187,12 @@ int update_cache_hwmon(struct cache_hwmon *hwmon)
 	node = df->data;
 	if (!node)
 		return -ENODEV;
-	if (!node->mon_started)
+
+	mutex_lock(&monitor_lock);
+	if (!node->mon_started) {
+		mutex_unlock(&monitor_lock);
 		return -EBUSY;
+	}
 
 	dev_dbg(df->dev.parent, "Got update request\n");
 	devfreq_monitor_stop(df);
@@ -216,6 +222,7 @@ int update_cache_hwmon(struct cache_hwmon *hwmon)
 
 	devfreq_monitor_start(df);
 
+	mutex_unlock(&monitor_lock);
 	return 0;
 }
 
@@ -289,8 +296,10 @@ static int start_monitoring(struct devfreq *df)
 		goto err_start;
 	}
 
+	mutex_lock(&monitor_lock);
 	devfreq_monitor_start(df);
 	node->mon_started = true;
+	mutex_unlock(&monitor_lock);
 
 	ret = sysfs_create_group(&df->dev.kobj, &dev_attr_group);
 	if (ret) {
@@ -301,8 +310,10 @@ static int start_monitoring(struct devfreq *df)
 	return 0;
 
 sysfs_fail:
+	mutex_lock(&monitor_lock);
 	node->mon_started = false;
 	devfreq_monitor_stop(df);
+	mutex_unlock(&monitor_lock);
 	hw->stop_hwmon(hw);
 err_start:
 	df->data = node->orig_data;
@@ -317,8 +328,10 @@ static void stop_monitoring(struct devfreq *df)
 	struct cache_hwmon *hw = node->hw;
 
 	sysfs_remove_group(&df->dev.kobj, &dev_attr_group);
+	mutex_lock(&monitor_lock);
 	node->mon_started = false;
 	devfreq_monitor_stop(df);
+	mutex_unlock(&monitor_lock);
 	hw->stop_hwmon(hw);
 	df->data = node->orig_data;
 	node->orig_data = NULL;
@@ -391,13 +404,13 @@ int register_cache_hwmon(struct device *dev, struct cache_hwmon *hwmon)
 	node->hw = hwmon;
 	node->attr_grp = &dev_attr_group;
 
-	mutex_lock(&state_lock);
+	mutex_lock(&register_lock);
 	if (!use_cnt) {
 		ret = devfreq_add_governor(&devfreq_cache_hwmon);
 		if (!ret)
 			use_cnt++;
 	}
-	mutex_unlock(&state_lock);
+	mutex_unlock(&register_lock);
 
 	if (!ret) {
 		dev_info(dev, "Cache HWmon governor registered.\n");
