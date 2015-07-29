@@ -358,11 +358,26 @@ static int mmc_dbg_card_status_get(void *data, u64 *val)
 	int		ret;
 
 	mmc_get_card(card);
+	if (mmc_card_cmdq(card)) {
+		ret = mmc_cmdq_halt_on_empty_queue(card->host);
+		if (ret) {
+			pr_err("%s: halt failed while doing %s err (%d)\n",
+					mmc_hostname(card->host), __func__,
+					ret);
+			goto out;
+		}
+	}
 
 	ret = mmc_send_status(data, &status);
 	if (!ret)
 		*val = status;
 
+	if (mmc_card_cmdq(card)) {
+		if (mmc_cmdq_halt(card->host, false))
+			pr_err("%s: %s: cmdq unhalt failed\n",
+			       mmc_hostname(card->host), __func__);
+	}
+out:
 	mmc_put_card(card);
 
 	return ret;
@@ -387,10 +402,20 @@ static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
 	ext_csd = kmalloc(512, GFP_KERNEL);
 	if (!ext_csd) {
 		err = -ENOMEM;
-		goto out_free;
+		goto out_free_halt;
 	}
 
 	mmc_get_card(card);
+	if (mmc_card_cmdq(card)) {
+		err = mmc_cmdq_halt_on_empty_queue(card->host);
+		if (err) {
+			pr_err("%s: halt failed while doing %s err (%d)\n",
+					mmc_hostname(card->host), __func__,
+					err);
+			mmc_put_card(card);
+			goto out_free_halt;
+		}
+	}
 	err = mmc_send_ext_csd(card, ext_csd);
 	mmc_put_card(card);
 	if (err)
@@ -402,10 +427,23 @@ static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
 	BUG_ON(n != EXT_CSD_STR_LEN);
 
 	filp->private_data = buf;
+
+	if (mmc_card_cmdq(card)) {
+		if (mmc_cmdq_halt(card->host, false))
+			pr_err("%s: %s: cmdq unhalt failed\n",
+			       mmc_hostname(card->host), __func__);
+	}
+
 	kfree(ext_csd);
 	return 0;
 
 out_free:
+	if (mmc_card_cmdq(card)) {
+		if (mmc_cmdq_halt(card->host, false))
+			pr_err("%s: %s: cmdq unhalt failed\n",
+			       mmc_hostname(card->host), __func__);
+	}
+out_free_halt:
 	kfree(buf);
 	kfree(ext_csd);
 	return err;
