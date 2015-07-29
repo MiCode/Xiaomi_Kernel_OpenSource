@@ -25,11 +25,14 @@
 #include <soc/qcom/clock-pll.h>
 #include <soc/qcom/clock-local2.h>
 #include <soc/qcom/clock-voter.h>
+#include <soc/qcom/rpm-smd.h>
+#include <soc/qcom/clock-rpm.h>
 
 #include <dt-bindings/clock/msm-clocks-8996.h>
 #include <dt-bindings/clock/msm-clocks-hwio-8996.h>
 
 #include "vdd-level-8994.h"
+#include "clock.h"
 
 static void __iomem *virt_base;
 static void __iomem *virt_base_gpu;
@@ -63,6 +66,10 @@ static void __iomem *virt_base_gpu;
 			| BVAL(10, 8, s##_mm_source_val), \
 	}
 
+#define GFX_MIN_SVS_LEVEL	3
+#define GPU_REQ_ID		0x3
+static struct clk_ops clk_ops_gpu;
+
 static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
 static int vdd_mmpll4_levels[] = {
@@ -95,7 +102,7 @@ static struct alpha_pll_vco_tbl mmpll_p_vco[] = {
 };
 
 static struct alpha_pll_vco_tbl mmpll_gfx_vco[] = {
-	VCO(2,  500000000, 1000000000),
+	VCO(2,  400000000, 1000000000),
 	VCO(1, 1000000000, 1500000000),
 	VCO(0, 1500000000, 2000000000),
 };
@@ -373,7 +380,7 @@ static struct rcg_clk gfx3d_clk_src = {
 	.base = &virt_base_gpu,
 	.c = {
 		.dbg_name = "gfx3d_clk_src",
-		.ops = &clk_ops_rcg,
+		.ops = &clk_ops_gpu,
 		.vdd_class = &vdd_gfx,
 		CLK_INIT(gfx3d_clk_src.c),
 	},
@@ -399,7 +406,7 @@ static struct mux_div_clk gfx3d_clk_src_v2 = {
 	.num_parents = 3,
 	.c = {
 		.dbg_name = "gfx3d_clk_src_v2",
-		.ops = &clk_ops_mux_div_clk,
+		.ops = &clk_ops_gpu,
 		.vdd_class = &vdd_gfx,
 		CLK_INIT(gfx3d_clk_src_v2.c),
 	},
@@ -418,6 +425,15 @@ static struct clk_freq_tbl ftbl_csi0_clk_src[] = {
 static struct clk_freq_tbl ftbl_csi0_clk_src_v2[] = {
 	F_MM( 100000000, mmsscc_gpll0_div,    3,    0,     0),
 	F_MM( 200000000,     mmsscc_gpll0,    3,    0,     0),
+	F_MM( 480000000,  mmpll4_out_main,    2,    0,     0),
+	F_MM( 600000000,     mmsscc_gpll0,    1,    0,     0),
+	F_END
+};
+
+static struct clk_freq_tbl ftbl_csi0_clk_src_v3[] = {
+	F_MM( 100000000, mmsscc_gpll0_div,    3,    0,     0),
+	F_MM( 200000000,     mmsscc_gpll0,    3,    0,     0),
+	F_MM( 266666667,  mmpll0_out_main,    3,    0,     0),
 	F_MM( 480000000,  mmpll4_out_main,    2,    0,     0),
 	F_MM( 600000000,     mmsscc_gpll0,    1,    0,     0),
 	F_END
@@ -453,6 +469,16 @@ static struct clk_freq_tbl ftbl_vfe0_clk_src_v2[] = {
 	F_MM(  75000000,   mmsscc_gpll0_div,    4,    0,     0),
 	F_MM( 100000000,   mmsscc_gpll0_div,    3,    0,     0),
 	F_MM( 200000000,       mmsscc_gpll0,    3,    0,     0),
+	F_MM( 320000000,    mmpll0_out_main,  2.5,    0,     0),
+	F_MM( 480000000,    mmpll4_out_main,    2,    0,     0),
+	F_MM( 600000000,       mmsscc_gpll0,    1,    0,     0),
+	F_END
+};
+
+static struct clk_freq_tbl ftbl_vfe0_clk_src_v3[] = {
+	F_MM(  75000000,   mmsscc_gpll0_div,    4,    0,     0),
+	F_MM( 100000000,   mmsscc_gpll0_div,    3,    0,     0),
+	F_MM( 300000000,       mmsscc_gpll0,    2,    0,     0),
 	F_MM( 320000000,    mmpll0_out_main,  2.5,    0,     0),
 	F_MM( 480000000,    mmpll4_out_main,    2,    0,     0),
 	F_MM( 600000000,       mmsscc_gpll0,    1,    0,     0),
@@ -495,6 +521,16 @@ static struct clk_freq_tbl ftbl_vfe1_clk_src_v2[] = {
 	F_END
 };
 
+static struct clk_freq_tbl ftbl_vfe1_clk_src_v3[] = {
+	F_MM(  75000000,   mmsscc_gpll0_div,    4,    0,     0),
+	F_MM( 100000000,   mmsscc_gpll0_div,    3,    0,     0),
+	F_MM( 300000000,       mmsscc_gpll0,    2,    0,     0),
+	F_MM( 320000000,    mmpll0_out_main,  2.5,    0,     0),
+	F_MM( 480000000,    mmpll4_out_main,    2,    0,     0),
+	F_MM( 600000000,       mmsscc_gpll0,    1,    0,     0),
+	F_END
+};
+
 static struct rcg_clk vfe1_clk_src = {
 	.cmd_rcgr_reg = MMSS_VFE1_CMD_RCGR,
 	.set_rate = set_rate_hid,
@@ -523,6 +559,15 @@ static struct clk_freq_tbl ftbl_csi1_clk_src[] = {
 static struct clk_freq_tbl ftbl_csi1_clk_src_v2[] = {
 	F_MM( 100000000, mmsscc_gpll0_div,    3,    0,     0),
 	F_MM( 200000000,     mmsscc_gpll0,    3,    0,     0),
+	F_MM( 480000000,  mmpll4_out_main,    2,    0,     0),
+	F_MM( 600000000,     mmsscc_gpll0,    1,    0,     0),
+	F_END
+};
+
+static struct clk_freq_tbl ftbl_csi1_clk_src_v3[] = {
+	F_MM( 100000000, mmsscc_gpll0_div,    3,    0,     0),
+	F_MM( 200000000,     mmsscc_gpll0,    3,    0,     0),
+	F_MM( 266666667,  mmpll0_out_main,    3,    0,     0),
 	F_MM( 480000000,  mmpll4_out_main,    2,    0,     0),
 	F_MM( 600000000,     mmsscc_gpll0,    1,    0,     0),
 	F_END
@@ -561,6 +606,15 @@ static struct clk_freq_tbl ftbl_csi2_clk_src_v2[] = {
 	F_END
 };
 
+static struct clk_freq_tbl ftbl_csi2_clk_src_v3[] = {
+	F_MM( 100000000, mmsscc_gpll0_div,    3,    0,     0),
+	F_MM( 200000000,     mmsscc_gpll0,    3,    0,     0),
+	F_MM( 266666667,  mmpll0_out_main,    3,    0,     0),
+	F_MM( 480000000,  mmpll4_out_main,    2,    0,     0),
+	F_MM( 600000000,     mmsscc_gpll0,    1,    0,     0),
+	F_END
+};
+
 static struct rcg_clk csi2_clk_src = {
 	.cmd_rcgr_reg = MMSS_CSI2_CMD_RCGR,
 	.set_rate = set_rate_hid,
@@ -589,6 +643,15 @@ static struct clk_freq_tbl ftbl_csi3_clk_src[] = {
 static struct clk_freq_tbl ftbl_csi3_clk_src_v2[] = {
 	F_MM( 100000000, mmsscc_gpll0_div,    3,    0,     0),
 	F_MM( 200000000,     mmsscc_gpll0,    3,    0,     0),
+	F_MM( 480000000,  mmpll4_out_main,    2,    0,     0),
+	F_MM( 600000000,     mmsscc_gpll0,    1,    0,     0),
+	F_END
+};
+
+static struct clk_freq_tbl ftbl_csi3_clk_src_v3[] = {
+	F_MM( 100000000, mmsscc_gpll0_div,    3,    0,     0),
+	F_MM( 200000000,     mmsscc_gpll0,    3,    0,     0),
+	F_MM( 266666667,  mmpll0_out_main,    3,    0,     0),
 	F_MM( 480000000,  mmpll4_out_main,    2,    0,     0),
 	F_MM( 600000000,     mmsscc_gpll0,    1,    0,     0),
 	F_END
@@ -872,6 +935,14 @@ static struct clk_freq_tbl ftbl_video_core_clk_src_v2[] = {
 	F_MM( 150000000,     mmsscc_gpll0,    4,    0,     0),
 	F_MM( 320000000,  mmpll0_out_main,  2.5,    0,     0),
 	F_MM( 490000000,  mmpll3_out_main,    2,    0,     0),
+	F_END
+};
+
+static struct clk_freq_tbl ftbl_video_core_clk_src_v3[] = {
+	F_MM(  75000000, mmsscc_gpll0_div,    4,    0,     0),
+	F_MM( 150000000,     mmsscc_gpll0,    4,    0,     0),
+	F_MM( 355333333,  mmpll3_out_main,    3,    0,     0),
+	F_MM( 533000000,  mmpll3_out_main,    2,    0,     0),
 	F_END
 };
 
@@ -1197,6 +1268,13 @@ static struct clk_freq_tbl ftbl_csi0phytimer_clk_src[] = {
 	F_END
 };
 
+static struct clk_freq_tbl ftbl_csi0phytimer_clk_src_v3[] = {
+	F_MM( 100000000, mmsscc_gpll0_div,    3,    0,     0),
+	F_MM( 200000000,     mmsscc_gpll0,    3,    0,     0),
+	F_MM( 266666667,  mmpll0_out_main,    3,    0,     0),
+	F_END
+};
+
 static struct rcg_clk csi0phytimer_clk_src = {
 	.cmd_rcgr_reg = MMSS_CSI0PHYTIMER_CMD_RCGR,
 	.set_rate = set_rate_hid,
@@ -1218,6 +1296,13 @@ static struct clk_freq_tbl ftbl_csi1phytimer_clk_src[] = {
 	F_END
 };
 
+static struct clk_freq_tbl ftbl_csi1phytimer_clk_src_v3[] = {
+	F_MM( 100000000, mmsscc_gpll0_div,    3,    0,     0),
+	F_MM( 200000000,     mmsscc_gpll0,    3,    0,     0),
+	F_MM( 266666667,  mmpll0_out_main,    3,    0,     0),
+	F_END
+};
+
 static struct rcg_clk csi1phytimer_clk_src = {
 	.cmd_rcgr_reg = MMSS_CSI1PHYTIMER_CMD_RCGR,
 	.set_rate = set_rate_hid,
@@ -1235,6 +1320,13 @@ static struct rcg_clk csi1phytimer_clk_src = {
 static struct clk_freq_tbl ftbl_csi2phytimer_clk_src[] = {
 	F_MM( 100000000, mmsscc_gpll0_div,    3,    0,     0),
 	F_MM( 200000000,  mmpll0_out_main,    4,    0,     0),
+	F_MM( 266666667,  mmpll0_out_main,    3,    0,     0),
+	F_END
+};
+
+static struct clk_freq_tbl ftbl_csi2phytimer_clk_src_v3[] = {
+	F_MM( 100000000, mmsscc_gpll0_div,    3,    0,     0),
+	F_MM( 200000000,     mmsscc_gpll0,    3,    0,     0),
 	F_MM( 266666667,  mmpll0_out_main,    3,    0,     0),
 	F_END
 };
@@ -1488,6 +1580,14 @@ static struct clk_freq_tbl ftbl_video_subcore0_clk_src_v2[] = {
 	F_END
 };
 
+static struct clk_freq_tbl ftbl_video_subcore0_clk_src_v3[] = {
+	F_MM(  75000000, mmsscc_gpll0_div,    4,    0,     0),
+	F_MM( 150000000,     mmsscc_gpll0,    4,    0,     0),
+	F_MM( 355333333,  mmpll3_out_main,    3,    0,     0),
+	F_MM( 533000000,  mmpll3_out_main,    2,    0,     0),
+	F_END
+};
+
 static struct rcg_clk video_subcore0_clk_src = {
 	.cmd_rcgr_reg = MMSS_VIDEO_SUBCORE0_CMD_RCGR,
 	.set_rate = set_rate_mnd,
@@ -1516,6 +1616,14 @@ static struct clk_freq_tbl ftbl_video_subcore1_clk_src_v2[] = {
 	F_MM( 150000000,     mmsscc_gpll0,    4,    0,     0),
 	F_MM( 320000000,  mmpll0_out_main,  2.5,    0,     0),
 	F_MM( 490000000,  mmpll3_out_main,    2,    0,     0),
+	F_END
+};
+
+static struct clk_freq_tbl ftbl_video_subcore1_clk_src_v3[] = {
+	F_MM(  75000000, mmsscc_gpll0_div,    4,    0,     0),
+	F_MM( 150000000,     mmsscc_gpll0,    4,    0,     0),
+	F_MM( 355333333,  mmpll3_out_main,    3,    0,     0),
+	F_MM( 533000000,  mmpll3_out_main,    2,    0,     0),
 	F_END
 };
 
@@ -3289,6 +3397,136 @@ static void msm_mmsscc_8996_v2_fixup(void)
 	video_subcore1_clk_src.c.fmax[VDD_DIG_HIGH] = 516000000;
 }
 
+static void msm_mmsscc_8996_v3_fixup(void)
+{
+	mmpll1.c.rate = 810000000;
+	mmpll1.c.fmax[VDD_DIG_LOWER] = 405000000;
+	mmpll1.c.fmax[VDD_DIG_LOW] = 405000000;
+	mmpll1.c.fmax[VDD_DIG_NOMINAL] = 810000000;
+	mmpll1.c.fmax[VDD_DIG_HIGH] = 810000000;
+
+	mmpll2.vco_tbl = mmpll_gfx_vco;
+	mmpll2.num_vco = ARRAY_SIZE(mmpll_gfx_vco),
+	mmpll2.c.rate = 0;
+	mmpll2.c.fmax[VDD_DIG_LOWER] = 1000000000;
+	mmpll2.c.fmax[VDD_DIG_LOW] = 1000000000;
+	mmpll2.c.fmax[VDD_DIG_NOMINAL] = 1000000000;
+	mmpll2.c.fmax[VDD_DIG_HIGH] = 1000000000;
+	mmpll2.no_prepared_reconfig = true;
+	mmpll2.c.ops = &clk_ops_alpha_pll;
+
+	mmpll3.c.rate = 1066000000;
+	mmpll3.c.fmax[VDD_DIG_LOWER] = 533000000;
+	mmpll3.c.fmax[VDD_DIG_LOW] = 533000000;
+	mmpll3.c.fmax[VDD_DIG_NOMINAL] = 1066000000;
+	mmpll3.c.fmax[VDD_DIG_HIGH] = 1066000000;
+
+	mmpll5.c.rate = 825000000;
+	mmpll5.c.fmax[VDD_DIG_LOWER] = 412500000;
+	mmpll5.c.fmax[VDD_DIG_LOW] = 825000000;
+	mmpll5.c.fmax[VDD_DIG_NOMINAL] = 825000000;
+	mmpll5.c.fmax[VDD_DIG_HIGH] = 825000000;
+
+	mmpll8.vco_tbl = mmpll_gfx_vco;
+	mmpll8.num_vco = ARRAY_SIZE(mmpll_gfx_vco),
+	mmpll8.c.rate = 0;
+	mmpll8.c.fmax[VDD_DIG_LOWER] = 1000000000;
+	mmpll8.c.fmax[VDD_DIG_LOW] = 1000000000;
+	mmpll8.c.fmax[VDD_DIG_NOMINAL] = 1000000000;
+	mmpll8.c.fmax[VDD_DIG_HIGH] = 1000000000;
+	mmpll8.no_prepared_reconfig = true;
+	mmpll8.c.ops = &clk_ops_alpha_pll;
+
+	mmpll9.c.rate = 1248000000;
+	mmpll9.c.fmax[VDD_DIG_LOWER] = 624000000;
+	mmpll9.c.fmax[VDD_DIG_LOW] = 624000000;
+	mmpll9.c.fmax[VDD_DIG_NOMINAL] = 1248000000;
+	mmpll9.c.fmax[VDD_DIG_HIGH] = 1248000000;
+
+	csi0_clk_src.freq_tbl = ftbl_csi0_clk_src_v3;
+	csi1_clk_src.freq_tbl = ftbl_csi1_clk_src_v3;
+	csi2_clk_src.freq_tbl = ftbl_csi2_clk_src_v3;
+	csi3_clk_src.freq_tbl = ftbl_csi3_clk_src_v3;
+
+	csiphy0_3p_clk_src.freq_tbl = ftbl_csiphy0_3p_clk_src_v2;
+	csiphy0_3p_clk_src.c.fmax[VDD_DIG_HIGH] = 384000000;
+	csiphy1_3p_clk_src.freq_tbl = ftbl_csiphy1_3p_clk_src_v2;
+	csiphy1_3p_clk_src.c.fmax[VDD_DIG_HIGH] = 384000000;
+	csiphy2_3p_clk_src.freq_tbl = ftbl_csiphy2_3p_clk_src_v2;
+	csiphy2_3p_clk_src.c.fmax[VDD_DIG_HIGH] = 384000000;
+
+	csi0phytimer_clk_src.freq_tbl = ftbl_csi0phytimer_clk_src_v3;
+	csi0phytimer_clk_src.c.fmax[VDD_DIG_LOW] = 200000000;
+	csi1phytimer_clk_src.freq_tbl = ftbl_csi1phytimer_clk_src_v3;
+	csi1phytimer_clk_src.c.fmax[VDD_DIG_LOW] = 200000000;
+	csi2phytimer_clk_src.freq_tbl = ftbl_csi2phytimer_clk_src_v3;
+	csi2phytimer_clk_src.c.fmax[VDD_DIG_LOW] = 200000000;
+
+	vfe0_clk_src.freq_tbl = ftbl_vfe0_clk_src_v3;
+	vfe0_clk_src.c.fmax[VDD_DIG_LOWER] = 100000000;
+	vfe0_clk_src.c.fmax[VDD_DIG_LOW] = 300000000;
+	vfe1_clk_src.freq_tbl = ftbl_vfe1_clk_src_v3;
+	vfe1_clk_src.c.fmax[VDD_DIG_LOW] = 300000000;
+
+	mdp_clk_src.freq_tbl = ftbl_mdp_clk_src_v2;
+	mdp_clk_src.c.fmax[VDD_DIG_LOW] = 275000000;
+	mdp_clk_src.c.fmax[VDD_DIG_NOMINAL] = 330000000;
+	mdp_clk_src.c.fmax[VDD_DIG_HIGH] = 412500000;
+
+	maxi_clk_src.freq_tbl = ftbl_maxi_clk_src_v2;
+	maxi_clk_src.c.fmax[VDD_DIG_HIGH] = 405000000;
+
+	rbcpr_clk_src.freq_tbl = ftbl_rbcpr_clk_src_v2;
+	rbcpr_clk_src.c.fmax[VDD_DIG_NOMINAL] = 50000000;
+	rbcpr_clk_src.c.fmax[VDD_DIG_HIGH] = 50000000;
+
+	video_core_clk_src.freq_tbl = ftbl_video_core_clk_src_v3;
+	video_core_clk_src.c.fmax[VDD_DIG_NOMINAL] = 355333333;
+	video_core_clk_src.c.fmax[VDD_DIG_HIGH] = 533000000;
+	video_subcore0_clk_src.freq_tbl = ftbl_video_subcore0_clk_src_v3;
+	video_subcore0_clk_src.c.fmax[VDD_DIG_NOMINAL] = 355333333;
+	video_subcore0_clk_src.c.fmax[VDD_DIG_HIGH] = 533000000;
+	video_subcore1_clk_src.freq_tbl = ftbl_video_subcore1_clk_src_v3;
+	video_subcore1_clk_src.c.fmax[VDD_DIG_NOMINAL] = 355333333;
+	video_subcore1_clk_src.c.fmax[VDD_DIG_HIGH] = 533000000;
+}
+
+static int gpu_pre_set_rate(struct clk *clk, unsigned long new_rate)
+{
+	struct msm_rpm_kvp kvp;
+	struct clk_vdd_class *vdd = clk->vdd_class;
+	int old_level, new_level, old_uv, new_uv;
+	int n_regs = vdd->num_regulators;
+	uint32_t value;
+	int ret = 0;
+
+	old_level = find_vdd_level(clk, clk->rate);
+	if (old_level < 0)
+		return old_level;
+	old_uv = vdd->vdd_uv[old_level * n_regs];
+
+	new_level = find_vdd_level(clk, new_rate);
+	if (new_level < 0)
+		return new_level;
+	new_uv = vdd->vdd_uv[new_level * n_regs];
+
+	if (new_uv == old_uv)
+		return ret;
+
+	value = (new_uv == GFX_MIN_SVS_LEVEL);
+
+	kvp.key = RPM_SMD_KEY_STATE;
+	kvp.data = (void *)&value;
+	kvp.length = sizeof(value);
+
+	ret = msm_rpm_send_message(MSM_RPM_CTX_ACTIVE_SET, RPM_MISC_CLK_TYPE,
+					GPU_REQ_ID, &kvp, 1);
+	if (ret)
+		pr_err("%s: Sending the RPM message failed (value - %u)\n",
+					__func__, value);
+	return ret;
+}
+
 static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
 								char *prop_name)
 {
@@ -3399,13 +3637,7 @@ static void populate_gpu_opp_table(struct platform_device *pdev)
 		if (!gpu_clk->fmax[i])
 			continue;
 
-		ret = clk_round_rate(gpu_clk, gpu_clk->fmax[i]);
-		if (ret < 0) {
-			pr_warn("clock-gpu: %s: round_rate failed at %lu - err: %d\n",
-							__func__, rate, ret);
-			return;
-		}
-		rate = ret;
+		rate = gpu_clk->fmax[i];
 		corner = vdd->vdd_uv[2 * i];
 		uv = regulator_list_corner_voltage(vdd_gfx.regulator[0],
 								corner);
@@ -3435,7 +3667,7 @@ int msm_mmsscc_8996_probe(struct platform_device *pdev)
 	struct clk *tmp;
 	struct regulator *reg;
 	u32 regval;
-	int is_v2 = 0;
+	int is_v2, is_v3 = 0;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cc_base");
 	if (!res) {
@@ -3524,13 +3756,19 @@ int msm_mmsscc_8996_probe(struct platform_device *pdev)
 	if (is_v2)
 		msm_mmsscc_8996_v2_fixup();
 
+	is_v3 = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,mmsscc-8996-v3");
+	if (is_v3)
+		msm_mmsscc_8996_v3_fixup();
+
+
 	rc = of_msm_clock_register(pdev->dev.of_node, msm_clocks_mmss_8996,
 				   ARRAY_SIZE(msm_clocks_mmss_8996));
 	if (rc)
 		return rc;
 
-	/* Register v2 specific clocks */
-	if (is_v2) {
+	/* Register v2/v3 specific clocks */
+	if (is_v2 || is_v3) {
 		rc = of_msm_clock_register(pdev->dev.of_node,
 				msm_clocks_mmsscc_8996_v2,
 				ARRAY_SIZE(msm_clocks_mmsscc_8996_v2));
@@ -3545,6 +3783,7 @@ int msm_mmsscc_8996_probe(struct platform_device *pdev)
 static struct of_device_id msm_clock_mmss_match_table[] = {
 	{ .compatible = "qcom,mmsscc-8996" },
 	{ .compatible = "qcom,mmsscc-8996-v2" },
+	{ .compatible = "qcom,mmsscc-8996-v3" },
 	{},
 };
 
@@ -3649,7 +3888,9 @@ int msm_gpucc_8996_probe(struct platform_device *pdev)
 	}
 
 	is_v2_gpu = of_device_is_compatible(pdev->dev.of_node,
-						"qcom,gpucc-8996-v2");
+						"qcom,gpucc-8996-v2") ||
+		of_device_is_compatible(pdev->dev.of_node,
+						"qcom,gpucc-8996-v3");
 	if (!is_v2_gpu) {
 		rc = of_get_fmax_vdd_class(pdev, &gfx3d_clk_src.c,
 					"qcom,gfxfreq-corner-v0");
@@ -3664,6 +3905,9 @@ int msm_gpucc_8996_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Unable to get gpu mx freq-corner mapping info\n");
 			return rc;
 		}
+
+		clk_ops_gpu = clk_ops_rcg;
+		clk_ops_gpu.pre_set_rate = gpu_pre_set_rate;
 
 		rc = of_msm_clock_register(pdev->dev.of_node,
 					msm_clocks_gpu_8996,
@@ -3686,6 +3930,9 @@ int msm_gpucc_8996_probe(struct platform_device *pdev)
 			return rc;
 		}
 
+		clk_ops_gpu = clk_ops_mux_div_clk;
+		clk_ops_gpu.pre_set_rate = gpu_pre_set_rate;
+
 		rc = of_msm_clock_register(pdev->dev.of_node,
 					msm_clocks_gpu_8996_v2,
 					ARRAY_SIZE(msm_clocks_gpu_8996_v2));
@@ -3702,6 +3949,7 @@ int msm_gpucc_8996_probe(struct platform_device *pdev)
 static struct of_device_id msm_clock_gpu_match_table[] = {
 	{ .compatible = "qcom,gpucc-8996" },
 	{ .compatible = "qcom,gpucc-8996-v2" },
+	{ .compatible = "qcom,gpucc-8996-v3" },
 	{},
 };
 

@@ -25,6 +25,38 @@
 	qcom,msm-id = <246 0x30000>;
 };
 
+&clock_gcc {
+	compatible = "qcom,gcc-8996-v3";
+};
+
+&clock_debug {
+	compatible = "qcom,cc-debug-8996-v3";
+};
+
+&clock_mmss {
+	compatible = "qcom,mmsscc-8996-v3";
+};
+
+&clock_gpu {
+	compatible = "qcom,gpucc-8996-v3";
+	qcom,gfxfreq-corner-v2 =
+		<	   0  0  0 >,
+		<  133000000  3  4 >,
+		<  210000000  3  4 >,
+		<  300000000  3  4 >,
+		<  401800000  4  5 >,
+		<  510000000  5  5 >,
+		<  549000000  6  7 >,
+		<  624000000  7  7 >;
+};
+
+&gdsc_gpu_gx {
+	clock-names = "bimc_core_clk", "core_clk", "core_root_clk";
+	clocks = <&clock_gcc clk_gcc_mmss_bimc_gfx_clk>,
+		 <&clock_gpu clk_gpu_gx_gfx3d_clk>,
+		 <&clock_gpu clk_gfx3d_clk_src_v2>;
+};
+
 /* GPU overrides */
 &msm_gpu {
 	/* Updated chip ID */
