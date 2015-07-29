@@ -992,19 +992,13 @@ static void arm_smmu_flush_pgtable(void *addr, size_t size, void *cookie)
 		(1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE);
 
 
-	/* Ensure new page tables are visible to the hardware walker */
-	if (!coherent_htw_disable) {
+	/*
+	 * Ensure new page tables are visible to a coherent hardware walker.
+	 * The page table code deals with flushing for the non-coherent case.
+	 */
+	if (!coherent_htw_disable &&
+		smmu_domain->smmu->features & ARM_SMMU_FEAT_COHERENT_WALK)
 		dsb(ishst);
-	} else {
-		/*
-		 * If the SMMU can't walk tables in the CPU caches, treat them
-		 * like non-coherent DMA since we need to flush the new entries
-		 * all the way out to memory. There's no possibility of
-		 * recursion here as the SMMU table walker will not be wired
-		 * through another SMMU.
-		 */
-		dmac_clean_range(addr, addr + size);
-	}
 }
 
 struct arm_smmu_secure_pool_chunk {
@@ -1574,6 +1568,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		.ias		= ias,
 		.oas		= oas,
 		.tlb		= &arm_smmu_gather_ops,
+		.iommu_dev	= smmu->dev,
 	};
 
 	cfg->asid = cfg->cbndx + 1;
