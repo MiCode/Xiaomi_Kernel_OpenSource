@@ -1082,9 +1082,14 @@ static int adreno_init(struct kgsl_device *device)
 
 		adreno_dev->cmdbatch_profile_index = 0;
 
-		if (r == 0)
+		if (r == 0) {
 			set_bit(ADRENO_DEVICE_CMDBATCH_PROFILE,
 				&adreno_dev->priv);
+			kgsl_sharedmem_set(&adreno_dev->dev,
+				&adreno_dev->cmdbatch_profile_buffer, 0, 0,
+				PAGE_SIZE);
+		}
+
 	}
 
 	return ret;
