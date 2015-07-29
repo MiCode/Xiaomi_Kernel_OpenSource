@@ -390,10 +390,14 @@ enum clk_gating_state {
  * @ungate_work: worker to turn on clocks that will be used in case of
  * interrupt context
  * @state: the current clocks state
- * @delay_ms: gating delay in ms
+ * @delay_ms: current gating delay in ms
+ * @delay_ms_pwr_save: gating delay (in ms) in power save mode
+ * @delay_ms_perf: gating delay (in ms) in performance mode
  * @is_suspended: clk gating is suspended when set to 1 which can be used
  * during suspend/resume
- * @delay_attr: sysfs attribute to control delay_attr
+ * @delay_attr: sysfs attribute to control delay_ms if clock scaling is disabled
+ * @delay_pwr_save_attr: sysfs attribute to control delay_ms_pwr_save
+ * @delay_perf_attr: sysfs attribute to control delay_ms_perf
  * @enable_attr: sysfs attribute to enable/disable clock gating
  * @is_enabled: Indicates the current status of clock gating
  * @active_reqs: number of requests that are pending and should be waited for
@@ -404,8 +408,12 @@ struct ufs_clk_gating {
 	struct work_struct ungate_work;
 	enum clk_gating_state state;
 	unsigned long delay_ms;
+	unsigned long delay_ms_pwr_save;
+	unsigned long delay_ms_perf;
 	bool is_suspended;
 	struct device_attribute delay_attr;
+	struct device_attribute delay_pwr_save_attr;
+	struct device_attribute delay_perf_attr;
 	struct device_attribute enable_attr;
 	bool is_enabled;
 	int active_reqs;
@@ -451,14 +459,39 @@ struct ufs_saved_pwr_info {
 	bool is_valid;
 };
 
+/**
+ * struct ufs_clk_scaling - UFS clock scaling related data
+ * @active_reqs: number of requests that are pending. If this is zero when
+ * devfreq ->target() function is called then schedule "suspend_work" to
+ * suspend devfreq.
+ * @tot_busy_t: Total busy time in current polling window
+ * @window_start_t: Start time (in jiffies) of the current polling window
+ * @busy_start_t: Start time of current busy period
+ * @enable_attr: sysfs attribute to enable/disable clock scaling
+ * @saved_pwr_info: UFS power mode may also be changed during scaling and this
+ * one keeps track of previous power mode.
+ * @workq: workqueue to schedule devfreq suspend/resume work
+ * @suspend_work: worker to suspend devfreq
+ * @resume_work: worker to resume devfreq
+ * @is_allowed: tracks if scaling is currently allowed or not
+ * @is_busy_started: tracks if busy period has started or not
+ * @is_suspended: tracks if devfreq is suspended or not
+ * @is_scaled_up: tracks if we are currently scaled up or scaled down
+ */
 struct ufs_clk_scaling {
-	ktime_t  busy_start_t;
-	bool is_busy_started;
-	unsigned long  tot_busy_t;
+	int active_reqs;
+	unsigned long tot_busy_t;
 	unsigned long window_start_t;
+	ktime_t busy_start_t;
 	struct device_attribute enable_attr;
-	bool is_allowed;
 	struct ufs_saved_pwr_info saved_pwr_info;
+	struct workqueue_struct *workq;
+	struct work_struct suspend_work;
+	struct work_struct resume_work;
+	bool is_allowed;
+	bool is_busy_started;
+	bool is_suspended;
+	bool is_scaled_up;
 };
 
 /**
