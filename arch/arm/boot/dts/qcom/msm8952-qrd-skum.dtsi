@@ -40,6 +40,43 @@
 };
 
 &i2c_3 { /* BLSP1 QUP3 */
+	focaltech@38 {
+		compatible = "focaltech,5x06";
+		reg = <0x38>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <65 0x2>;
+		vdd-supply = <&pm8950_l17>;
+		vcc_i2c-supply = <&pm8950_l6>;
+		/* pins used by touchscreen */
+		pinctrl-names = "pmx_ts_active",
+					"pmx_ts_suspend",
+					"pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+		focaltech,name = "ft5446";
+		focaltech,family-id = <0x06>;
+		focaltech,reset-gpio = <&msm_gpio 64 0x0>;
+		focaltech,irq-gpio = <&msm_gpio 65 0x2008>;
+		focaltech,display-coords = <0 0 1079 1919>;
+		focaltech,panel-coords = <0 0 1079 2084>;
+		focaltech,button-map= <139 102 158>;
+		focaltech,no-force-update;
+		focaltech,i2c-pull-up;
+		focaltech,group-id = <1>;
+		focaltech,hard-reset-delay-ms = <20>;
+		focaltech,soft-reset-delay-ms = <200>;
+		focaltech,num-max-touches = <5>;
+		focaltech,fw-delay-aa-ms = <30>;
+		focaltech,fw-delay-55-ms = <30>;
+		focaltech,fw-upgrade-id1 = <0x79>;
+		focaltech,fw-upgrade-id2 = <0x08>;
+		focaltech,fw-delay-readid-ms = <10>;
+		focaltech,fw-delay-era-flsh-ms = <2000>;
+		focaltech,fw-auto-cal;
+		focaltech,ignore-id-check;
+	};
+
 	synaptics@20 {
 		compatible = "synaptics,rmi4";
 		reg = <0x20>;
