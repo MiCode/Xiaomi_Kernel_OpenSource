@@ -706,7 +706,7 @@ exit:
 static int wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 {
 	u16 swap_res;
-	enum wcd_mbhc_plug_type plug_type = mbhc->current_plug;
+	enum wcd_mbhc_plug_type plug_type = MBHC_PLUG_TYPE_NONE;
 	s16 reg1;
 	bool hphl_sch_res, hphr_sch_res;
 
@@ -933,8 +933,10 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
 
 
-	if (mbhc->current_plug == MBHC_PLUG_TYPE_GND_MIC_SWAP)
+	if (mbhc->current_plug == MBHC_PLUG_TYPE_GND_MIC_SWAP) {
+		mbhc->current_plug = MBHC_PLUG_TYPE_NONE;
 		goto correct_plug_type;
+	}
 
 	/* Enable HW FSM */
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 1);
