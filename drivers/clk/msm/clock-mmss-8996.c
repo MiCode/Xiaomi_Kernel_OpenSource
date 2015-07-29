@@ -3491,6 +3491,7 @@ static void msm_mmsscc_8996_v3_fixup(void)
 	video_subcore1_clk_src.c.fmax[VDD_DIG_HIGH] = 533000000;
 }
 
+static int is_v2_gpu, is_v3_gpu;
 static int gpu_pre_set_rate(struct clk *clk, unsigned long new_rate)
 {
 	struct msm_rpm_kvp kvp;
@@ -3499,6 +3500,9 @@ static int gpu_pre_set_rate(struct clk *clk, unsigned long new_rate)
 	int n_regs = vdd->num_regulators;
 	uint32_t value;
 	int ret = 0;
+
+	if (!is_v3_gpu)
+		return ret;
 
 	old_level = find_vdd_level(clk, clk->rate);
 	if (old_level < 0)
@@ -3522,9 +3526,9 @@ static int gpu_pre_set_rate(struct clk *clk, unsigned long new_rate)
 	ret = msm_rpm_send_message(MSM_RPM_CTX_ACTIVE_SET, RPM_MISC_CLK_TYPE,
 					GPU_REQ_ID, &kvp, 1);
 	if (ret)
-		pr_err("%s: Sending the RPM message failed (value - %u)\n",
+		WARN_ONCE(1, "%s: Sending the RPM message failed (value - %u)\n",
 					__func__, value);
-	return ret;
+	return 0;
 }
 
 static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
@@ -3584,14 +3588,13 @@ static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
 	return 0;
 }
 
-static int is_v2_gpu;
 static void print_opp_table(struct device *dev)
 {
 	struct clk *gpu_clk = &gfx3d_clk_src.c;
 	struct dev_pm_opp *opp;
 	int i;
 
-	if (is_v2_gpu)
+	if (is_v2_gpu || is_v3_gpu)
 		gpu_clk = &gfx3d_clk_src_v2.c;
 
 	pr_info("OPP table for GPU core clock:\n");
@@ -3614,7 +3617,7 @@ static void populate_gpu_opp_table(struct platform_device *pdev)
 	int i, ret, uv, corner;
 	unsigned long rate = 0;
 
-	if (is_v2_gpu) {
+	if (is_v2_gpu || is_v3_gpu) {
 		gpu_clk = &gfx3d_clk_src_v2.c;
 		vdd = gpu_clk->vdd_class;
 	}
@@ -3888,10 +3891,10 @@ int msm_gpucc_8996_probe(struct platform_device *pdev)
 	}
 
 	is_v2_gpu = of_device_is_compatible(pdev->dev.of_node,
-						"qcom,gpucc-8996-v2") ||
-		of_device_is_compatible(pdev->dev.of_node,
+						"qcom,gpucc-8996-v2");
+	is_v3_gpu = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,gpucc-8996-v3");
-	if (!is_v2_gpu) {
+	if (!is_v2_gpu && !is_v3_gpu) {
 		rc = of_get_fmax_vdd_class(pdev, &gfx3d_clk_src.c,
 					"qcom,gfxfreq-corner-v0");
 		if (rc) {
