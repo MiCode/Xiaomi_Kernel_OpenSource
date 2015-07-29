@@ -92,6 +92,7 @@ struct swr_mstr_ctrl {
 	struct list_head mport_list;
 	int state;
 	struct platform_device *pdev;
+	bool is_suspend;
 };
 
 #endif /* _SWR_WCD_CTRL_H */
