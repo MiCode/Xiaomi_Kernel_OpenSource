@@ -517,6 +517,7 @@ struct msm_isp_qbuf_info {
 };
 
 struct msm_isp_clk_rates {
+	uint32_t svs_rate;
 	uint32_t nominal_rate;
 	uint32_t high_rate;
 };

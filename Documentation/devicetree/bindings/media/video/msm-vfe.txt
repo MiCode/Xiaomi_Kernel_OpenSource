@@ -42,6 +42,7 @@ Required properties for child node:
   different SoC can have same hardware version and still different QOS, VBIF,
   and DS parameters. In this case they are exported if separate SoC version
   specific dts files.
+- max-svs-clk: svs rate of the VFE clock in Hertz.
 - max-nominal-clk: nominal rate of the VFE clock in Hertz.
 - max-turbo-clk: turbo/high rate of the VFE clock in Hertz.
 
@@ -100,6 +101,7 @@ qcom,vfe {
 			0x44441111 0x44441111 0x44441111
 			0x44441111 0x44441111 0x44441111
 			0x44441111 0x00000103>;
+		max-clk-svs = <300000000>;
 		max-clk-nominal = <465000000>;
 		max-clk-turbo = <600000000>;
 	};
@@ -152,6 +154,7 @@ qcom,vfe {
 			0x44441111 0x44441111 0x44441111
 			0x44441111 0x44441111 0x44441111
 			0x44441111 0x00000103>;
+		max-clk-svs = <300000000>;
 		max-clk-nominal = <465000000>;
 		max-clk-turbo = <600000000>;
 	};
@@ -196,6 +199,7 @@ SoC versions with same VFE HW version:
 			0x44441111
 			0x44441111
 			0x00000103>;
+		max-clk-svs = <300000000>;
 		max-clk-nominal = <465000000>;
 		max-clk-turbo = <600000000>;
 	};

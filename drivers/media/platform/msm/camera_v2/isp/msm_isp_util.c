@@ -494,7 +494,7 @@ static int msm_isp_get_clk_rates(struct vfe_device *vfe_dev,
 {
 	struct device_node *of_node;
 	int32_t  rc = 0;
-	uint32_t nominal = 0, turbo = 0;
+	uint32_t svs = 0, nominal = 0, turbo = 0;
 	if (!vfe_dev || !rates) {
 		pr_err("%s:%d failed: vfe_dev %p rates %p\n", __func__,
 			__LINE__, vfe_dev, rates);
@@ -514,6 +514,16 @@ static int msm_isp_get_clk_rates(struct vfe_device *vfe_dev,
 		 __LINE__, of_node);
 		return -EINVAL;
 	}
+
+	/*
+	 * Many older targets dont define svs.
+	 * return svs=0 for older targets.
+	 */
+	rc = of_property_read_u32(of_node, "max-clk-svs",
+		&svs);
+	if (rc < 0)
+		svs = 0;
+
 	rc = of_property_read_u32(of_node, "max-clk-nominal",
 		&nominal);
 	if (rc < 0 || !nominal) {
@@ -527,6 +537,7 @@ static int msm_isp_get_clk_rates(struct vfe_device *vfe_dev,
 		pr_err("%s: turbo rate error\n", __func__);
 			return -EINVAL;
 	}
+	rates->svs_rate = svs;
 	rates->nominal_rate = nominal;
 	rates->high_rate = turbo;
 	return 0;
@@ -1424,6 +1435,7 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 			pr_err("%s:%d failed: rc %d\n", __func__, __LINE__, rc);
 			return -EINVAL;
 		}
+		user_data->svs_rate = rates.svs_rate;
 		user_data->nominal_rate = rates.nominal_rate;
 		user_data->high_rate = rates.high_rate;
 		break;
