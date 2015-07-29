@@ -1084,6 +1084,16 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.qmenu = mbi_statistics,
 		.step = 1,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_MAX_HIERP_LAYERS,
+		.name = "Set Max Hier P num layers sessions",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 0,
+		.maximum = 3,
+		.default_value = 0,
+		.step = 1,
+		.qmenu = NULL,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
@@ -1857,6 +1867,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_hybrid_hierp hyb_hierp;
 	u32 hier_p_layers = 0, hier_b_layers = 0, mbi_statistics_mode = 0;
 	struct hal_venc_perf_mode venc_mode;
+	int max_hierp_layers;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -2727,6 +2738,18 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			V4L2_CID_MPEG_VIDC_VIDEO_MBI_STATISTICS_MODE,
 			ctrl->val);
 		pdata = &mbi_statistics_mode;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_MAX_HIERP_LAYERS:
+		property_id = HAL_PARAM_VENC_HIER_P_MAX_ENH_LAYERS;
+		max_hierp_layers = ctrl->val;
+		if (max_hierp_layers > inst->capability.hier_p.max) {
+			dprintk(VIDC_ERR,
+				"Error max HP layers(%d)>max supported(%d)\n",
+				max_hierp_layers, inst->capability.hier_p.max);
+			rc = -ENOTSUPP;
+			break;
+		}
+		pdata = &max_hierp_layers;
 		break;
 	default:
 		dprintk(VIDC_ERR, "Unsupported index: %x\n", ctrl->id);
