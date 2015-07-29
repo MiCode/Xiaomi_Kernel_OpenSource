@@ -3780,6 +3780,7 @@ static int msm8996_asoc_machine_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "%s detected %d",
 			"qcom,us-euro-gpios", pdata->us_euro_gpio);
 		mbhc_cfg.swap_gnd_mic = msm8996_swap_gnd_mic;
+		wcd_mbhc_cfg.swap_gnd_mic = msm8996_swap_gnd_mic;
 	}
 
 	ret = msm8996_prepare_us_euro(card);
