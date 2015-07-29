@@ -19,6 +19,7 @@
 #include <linux/compat.h>
 #include <linux/ratelimit.h>
 #include <media/msm_jpeg.h>
+#include <linux/msm-bus.h>
 #include "msm_jpeg_sync.h"
 #include "msm_jpeg_core.h"
 #include "msm_jpeg_platform.h"
@@ -310,6 +311,13 @@ int msm_jpeg_evt_get(struct msm_jpeg_device *pgmn_dev,
 	memset(&ctrl_cmd, 0, sizeof(ctrl_cmd));
 	ctrl_cmd.type = buf_p->vbuf.type;
 	kfree(buf_p);
+
+	if (ctrl_cmd.type == MSM_JPEG_EVT_SESSION_DONE) {
+		msm_bus_scale_client_update_request(
+			pgmn_dev->jpeg_bus_client, 0);
+		JPEG_BUS_UNVOTED(pgmn_dev);
+		JPEG_DBG("%s:%d] Bus unvoted\n", __func__, __LINE__);
+	}
 
 	JPEG_DBG("%s:%d] 0x%08lx %d\n", __func__, __LINE__,
 		(unsigned long) ctrl_cmd.value, ctrl_cmd.len);
@@ -876,6 +884,11 @@ int msm_jpeg_start(struct msm_jpeg_device *pgmn_dev, void * __user arg,
 	int i, rc;
 
 	JPEG_DBG("%s:%d] Enter\n", __func__, __LINE__);
+
+	msm_bus_scale_client_update_request(
+		pgmn_dev->jpeg_bus_client, 1);
+	JPEG_BUS_VOTED(pgmn_dev);
+	JPEG_DBG("%s:%d] Bus Voted\n", __func__, __LINE__);
 
 	pgmn_dev->release_buf = 1;
 	for (i = 0; i < 2; i++) {

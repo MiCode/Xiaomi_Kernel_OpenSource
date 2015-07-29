@@ -73,6 +73,10 @@ struct msm_jpeg_device {
 	char	  open_count;
 	uint8_t       op_mode;
 
+	/* Flag to store the jpeg bus vote state
+	 */
+	int jpeg_bus_vote;
+
 	/* event queue including frame done & err indications
 	 */
 	struct msm_jpeg_q evt_q;
