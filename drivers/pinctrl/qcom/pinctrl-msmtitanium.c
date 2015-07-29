@@ -25,7 +25,7 @@
 		.ngroups = ARRAY_SIZE(fname##_groups),	\
 	}
 
-#define REG_BASE 0x1000
+#define REG_BASE 0x0
 #define REG_SIZE 0x1000
 #define PINGROUP(id, f1, f2, f3, f4, f5, f6, f7, f8, f9)	\
 	{					        \
@@ -235,15 +235,16 @@ static const struct pinctrl_pin_desc msmtitanium_pins[] = {
 	PINCTRL_PIN(142, "SDC1_CLK"),
 	PINCTRL_PIN(143, "SDC1_CMD"),
 	PINCTRL_PIN(144, "SDC1_DATA"),
-	PINCTRL_PIN(145, "SDC2_CLK"),
-	PINCTRL_PIN(146, "SDC2_CMD"),
-	PINCTRL_PIN(147, "SDC2_DATA"),
-	PINCTRL_PIN(148, "QDSD_CLK"),
-	PINCTRL_PIN(149, "QDSD_CMD"),
-	PINCTRL_PIN(150, "QDSD_DATA0"),
-	PINCTRL_PIN(151, "QDSD_DATA1"),
-	PINCTRL_PIN(152, "QDSD_DATA2"),
-	PINCTRL_PIN(153, "QDSD_DATA3"),
+	PINCTRL_PIN(145, "SDC1_RCLK"),
+	PINCTRL_PIN(146, "SDC2_CLK"),
+	PINCTRL_PIN(147, "SDC2_CMD"),
+	PINCTRL_PIN(148, "SDC2_DATA"),
+	PINCTRL_PIN(149, "QDSD_CLK"),
+	PINCTRL_PIN(150, "QDSD_CMD"),
+	PINCTRL_PIN(151, "QDSD_DATA0"),
+	PINCTRL_PIN(152, "QDSD_DATA1"),
+	PINCTRL_PIN(153, "QDSD_DATA2"),
+	PINCTRL_PIN(154, "QDSD_DATA3"),
 };
 
 #define DECLARE_MSM_GPIO_PINS(pin) \
@@ -394,22 +395,22 @@ DECLARE_MSM_GPIO_PINS(141);
 static const unsigned int sdc1_clk_pins[] = { 142 };
 static const unsigned int sdc1_cmd_pins[] = { 143 };
 static const unsigned int sdc1_data_pins[] = { 144 };
-static const unsigned int sdc2_clk_pins[] = { 145 };
-static const unsigned int sdc2_cmd_pins[] = { 146 };
-static const unsigned int sdc2_data_pins[] = { 147 };
-static const unsigned int qdsd_clk_pins[] = { 148 };
-static const unsigned int qdsd_cmd_pins[] = { 149 };
-static const unsigned int qdsd_data0_pins[] = { 150 };
-static const unsigned int qdsd_data1_pins[] = { 151 };
-static const unsigned int qdsd_data2_pins[] = { 152 };
-static const unsigned int qdsd_data3_pins[] = { 153 };
+static const unsigned int sdc1_rclk_pins[] = { 145 };
+static const unsigned int sdc2_clk_pins[] = { 146 };
+static const unsigned int sdc2_cmd_pins[] = { 147 };
+static const unsigned int sdc2_data_pins[] = { 148 };
+static const unsigned int qdsd_clk_pins[] = { 149 };
+static const unsigned int qdsd_cmd_pins[] = { 150 };
+static const unsigned int qdsd_data0_pins[] = { 151 };
+static const unsigned int qdsd_data1_pins[] = { 152 };
+static const unsigned int qdsd_data2_pins[] = { 153 };
+static const unsigned int qdsd_data3_pins[] = { 154 };
 
 enum msmtitanium_functions {
-	msm_mux_mipi_dsi0,
+	msm_mux_gpio,
 	msm_mux_blsp_spi1,
 	msm_mux_smb_int,
 	msm_mux_adsp_ext,
-	msm_mux_gpio,
 	msm_mux_prng_rosc,
 	msm_mux_blsp_i2c1,
 	msm_mux_qdss_cti_trig_out_b0,
@@ -431,7 +432,6 @@ enum msmtitanium_functions {
 	msm_mux_hall_int,
 	msm_mux_blsp_spi4,
 	msm_mux_blsp_uart4,
-	msm_mux_sec_mi2s,
 	msm_mux_pwr_nav_enabled_b,
 	msm_mux_dac_calib1,
 	msm_mux_cap_int,
@@ -476,9 +476,12 @@ enum msmtitanium_functions {
 	msm_mux_cci_timer1,
 	msm_mux_cam_irq,
 	msm_mux_cci_timer2,
+	msm_mux_blsp1_spi,
 	msm_mux_pwr_nav_enabled_a,
 	msm_mux_ois_sync,
+	msm_mux_cci_timer3,
 	msm_mux_cci_timer4,
+	msm_mux_blsp3_spi,
 	msm_mux_qdss_cti_trig_out_a0,
 	msm_mux_dac_calib7,
 	msm_mux_accel_int,
@@ -489,20 +492,20 @@ enum msmtitanium_functions {
 	msm_mux_dac_calib9,
 	msm_mux_mag_int,
 	msm_mux_gcc_gp3_clk_a,
-	msm_mux_dac_calib10,
-	msm_mux_cci_timer3,
 	msm_mux_pwr_crypto_enabled_a,
 	msm_mux_cci_async,
 	msm_mux_cam1_standby,
 	msm_mux_dac_calib5,
 	msm_mux_cam1_rst,
 	msm_mux_dac_calib6,
+	msm_mux_dac_calib10,
 	msm_mux_gyro_int,
 	msm_mux_dac_calib11,
 	msm_mux_pressure_int,
 	msm_mux_dac_calib12,
 	msm_mux_blsp6_spi,
 	msm_mux_dac_calib13,
+	msm_mux_fp_int,
 	msm_mux_qdss_cti_trig_in_b1,
 	msm_mux_dac_calib14,
 	msm_mux_uim_batt,
@@ -516,7 +519,8 @@ enum msmtitanium_functions {
 	msm_mux_uim2_clk,
 	msm_mux_uim2_reset,
 	msm_mux_uim2_present,
-	msm_mux_usbc_irq,
+	msm_mux_ts_xvdd,
+	msm_mux_mipi_dsi0,
 	msm_mux_nfc_dwl,
 	msm_mux_us_euro,
 	msm_mux_atest_char3,
@@ -562,6 +566,7 @@ enum msmtitanium_functions {
 	msm_mux_key_home,
 	msm_mux_pwr_down,
 	msm_mux_dmic0_clk,
+	msm_mux_blsp7_spi,
 	msm_mux_hdmi_int,
 	msm_mux_dmic0_data,
 	msm_mux_qdss_cti_trig_in_a1,
@@ -598,26 +603,14 @@ enum msmtitanium_functions {
 	msm_mux_sdcard_det,
 	msm_mux_dac_calib25,
 	msm_mux_cam1_ldo,
+	msm_mux_sec_mi2s,
 	msm_mux_blsp_spi7,
-	msm_mux_wipwr_int,
-	msm_mux_ss_switch,
 	msm_mux_blsp_i2c7,
-	msm_mux_fp_int,
+	msm_mux_ss_switch,
+	msm_mux_tsens_max,
 	msm_mux_NA,
 };
 
-static const char * const mipi_dsi0_groups[] = {
-	"gpio0",
-};
-static const char * const blsp_spi1_groups[] = {
-	"gpio0", "gpio1", "gpio2", "gpio3",
-};
-static const char * const smb_int_groups[] = {
-	"gpio1",
-};
-static const char * const adsp_ext_groups[] = {
-	"gpio1",
-};
 static const char * const gpio_groups[] = {
 	"gpio0", "gpio1", "gpio2", "gpio3", "gpio4", "gpio5", "gpio6", "gpio7",
 	"gpio8", "gpio9", "gpio10", "gpio11", "gpio12", "gpio13", "gpio14",
@@ -631,15 +624,25 @@ static const char * const gpio_groups[] = {
 	"gpio64", "gpio65", "gpio66", "gpio67", "gpio68", "gpio69", "gpio70",
 	"gpio71", "gpio72", "gpio73", "gpio74", "gpio75", "gpio76", "gpio77",
 	"gpio78", "gpio79", "gpio80", "gpio81", "gpio82", "gpio83", "gpio84",
-	"gpio85", "gpio86", "gpio87", "gpio88", "gpio88", "gpio89", "gpio91",
+	"gpio85", "gpio86", "gpio87", "gpio88", "gpio89", "gpio90", "gpio91",
 	"gpio92", "gpio93", "gpio94", "gpio95", "gpio96", "gpio97", "gpio98",
 	"gpio99", "gpio100", "gpio101", "gpio102", "gpio103", "gpio104",
 	"gpio105", "gpio106", "gpio107", "gpio108", "gpio109", "gpio110",
 	"gpio111", "gpio112", "gpio113", "gpio114", "gpio115", "gpio116",
 	"gpio117", "gpio118", "gpio119", "gpio120", "gpio121", "gpio122",
 	"gpio123", "gpio124", "gpio125", "gpio126", "gpio127", "gpio128",
-	"gpio129", "gpio130", "gpio131", "gpio132", "gpio134", "gpio135",
-	"gpio136", "gpio139", "gpio140", "gpio141",
+	"gpio129", "gpio130", "gpio131", "gpio132", "gpio133", "gpio134",
+	"gpio135", "gpio136", "gpio137", "gpio138", "gpio139", "gpio140",
+	"gpio141",
+};
+static const char * const blsp_spi1_groups[] = {
+	"gpio0", "gpio1", "gpio2", "gpio3",
+};
+static const char * const smb_int_groups[] = {
+	"gpio1",
+};
+static const char * const adsp_ext_groups[] = {
+	"gpio1",
 };
 static const char * const prng_rosc_groups[] = {
 	"gpio2",
@@ -705,9 +708,6 @@ static const char * const blsp_spi4_groups[] = {
 };
 static const char * const blsp_uart4_groups[] = {
 	"gpio12", "gpio13", "gpio14", "gpio15",
-};
-static const char * const sec_mi2s_groups[] = {
-	"gpio12", "gpio13", "gpio135", "gpio136",
 };
 static const char * const pwr_nav_enabled_b_groups[] = {
 	"gpio12",
@@ -843,14 +843,23 @@ static const char * const cam_irq_groups[] = {
 static const char * const cci_timer2_groups[] = {
 	"gpio35",
 };
+static const char * const blsp1_spi_groups[] = {
+	"gpio35", "gpio36",
+};
 static const char * const pwr_nav_enabled_a_groups[] = {
 	"gpio35",
 };
 static const char * const ois_sync_groups[] = {
 	"gpio36",
 };
+static const char * const cci_timer3_groups[] = {
+	"gpio36",
+};
 static const char * const cci_timer4_groups[] = {
 	"gpio41",
+};
+static const char * const blsp3_spi_groups[] = {
+	"gpio41", "gpio50",
 };
 static const char * const qdss_cti_trig_out_a0_groups[] = {
 	"gpio41",
@@ -882,12 +891,6 @@ static const char * const mag_int_groups[] = {
 static const char * const gcc_gp3_clk_a_groups[] = {
 	"gpio44",
 };
-static const char * const dac_calib10_groups[] = {
-	"gpio44",
-};
-static const char * const cci_timer3_groups[] = {
-	"gpio36",
-};
 static const char * const pwr_crypto_enabled_a_groups[] = {
 	"gpio36",
 };
@@ -906,6 +909,9 @@ static const char * const cam1_rst_groups[] = {
 static const char * const dac_calib6_groups[] = {
 	"gpio40",
 };
+static const char * const dac_calib10_groups[] = {
+	"gpio44",
+};
 static const char * const gyro_int_groups[] = {
 	"gpio45",
 };
@@ -923,6 +929,9 @@ static const char * const blsp6_spi_groups[] = {
 };
 static const char * const dac_calib13_groups[] = {
 	"gpio47",
+};
+static const char * const fp_int_groups[] = {
+	"gpio48",
 };
 static const char * const qdss_cti_trig_in_b1_groups[] = {
 	"gpio48",
@@ -963,8 +972,11 @@ static const char * const uim2_reset_groups[] = {
 static const char * const uim2_present_groups[] = {
 	"gpio58",
 };
-static const char * const usbc_irq_groups[] = {
+static const char * const ts_xvdd_groups[] = {
 	"gpio60",
+};
+static const char * const mipi_dsi0_groups[] = {
+	"gpio61",
 };
 static const char * const nfc_dwl_groups[] = {
 	"gpio62",
@@ -1102,6 +1114,9 @@ static const char * const pwr_down_groups[] = {
 static const char * const dmic0_clk_groups[] = {
 	"gpio89",
 };
+static const char * const blsp7_spi_groups[] = {
+	"gpio89", "gpio90",
+};
 static const char * const hdmi_int_groups[] = {
 	"gpio90",
 };
@@ -1210,28 +1225,27 @@ static const char * const dac_calib25_groups[] = {
 static const char * const cam1_ldo_groups[] = {
 	"gpio134",
 };
+static const char * const sec_mi2s_groups[] = {
+	"gpio135", "gpio136", "gpio137", "gpio138",
+};
 static const char * const blsp_spi7_groups[] = {
-	"gpio135", "gpio136", "gpio139", "gpio140",
-};
-static const char * const wipwr_int_groups[] = {
-	"gpio137",
-};
-static const char * const ss_switch_groups[] = {
-	"gpio138",
+	"gpio135", "gpio136", "gpio137", "gpio138",
 };
 static const char * const blsp_i2c7_groups[] = {
-	"gpio139", "gpio140",
+	"gpio135", "gpio136",
 };
-static const char * const fp_int_groups[] = {
-	"gpio141",
+static const char * const ss_switch_groups[] = {
+	"gpio139",
+};
+static const char * const tsens_max_groups[] = {
+	"gpio139",
 };
 
 static const struct msm_function msmtitanium_functions[] = {
-	FUNCTION(mipi_dsi0),
+	FUNCTION(gpio),
 	FUNCTION(blsp_spi1),
 	FUNCTION(smb_int),
 	FUNCTION(adsp_ext),
-	FUNCTION(gpio),
 	FUNCTION(prng_rosc),
 	FUNCTION(blsp_i2c1),
 	FUNCTION(qdss_cti_trig_out_b0),
@@ -1253,7 +1267,6 @@ static const struct msm_function msmtitanium_functions[] = {
 	FUNCTION(hall_int),
 	FUNCTION(blsp_spi4),
 	FUNCTION(blsp_uart4),
-	FUNCTION(sec_mi2s),
 	FUNCTION(pwr_nav_enabled_b),
 	FUNCTION(dac_calib1),
 	FUNCTION(cap_int),
@@ -1298,9 +1311,12 @@ static const struct msm_function msmtitanium_functions[] = {
 	FUNCTION(cci_timer1),
 	FUNCTION(cam_irq),
 	FUNCTION(cci_timer2),
+	FUNCTION(blsp1_spi),
 	FUNCTION(pwr_nav_enabled_a),
 	FUNCTION(ois_sync),
+	FUNCTION(cci_timer3),
 	FUNCTION(cci_timer4),
+	FUNCTION(blsp3_spi),
 	FUNCTION(qdss_cti_trig_out_a0),
 	FUNCTION(dac_calib7),
 	FUNCTION(accel_int),
@@ -1311,20 +1327,20 @@ static const struct msm_function msmtitanium_functions[] = {
 	FUNCTION(dac_calib9),
 	FUNCTION(mag_int),
 	FUNCTION(gcc_gp3_clk_a),
-	FUNCTION(dac_calib10),
-	FUNCTION(cci_timer3),
 	FUNCTION(pwr_crypto_enabled_a),
 	FUNCTION(cci_async),
 	FUNCTION(cam1_standby),
 	FUNCTION(dac_calib5),
 	FUNCTION(cam1_rst),
 	FUNCTION(dac_calib6),
+	FUNCTION(dac_calib10),
 	FUNCTION(gyro_int),
 	FUNCTION(dac_calib11),
 	FUNCTION(pressure_int),
 	FUNCTION(dac_calib12),
 	FUNCTION(blsp6_spi),
 	FUNCTION(dac_calib13),
+	FUNCTION(fp_int),
 	FUNCTION(qdss_cti_trig_in_b1),
 	FUNCTION(dac_calib14),
 	FUNCTION(uim_batt),
@@ -1338,7 +1354,8 @@ static const struct msm_function msmtitanium_functions[] = {
 	FUNCTION(uim2_clk),
 	FUNCTION(uim2_reset),
 	FUNCTION(uim2_present),
-	FUNCTION(usbc_irq),
+	FUNCTION(ts_xvdd),
+	FUNCTION(mipi_dsi0),
 	FUNCTION(nfc_dwl),
 	FUNCTION(us_euro),
 	FUNCTION(atest_char3),
@@ -1384,6 +1401,7 @@ static const struct msm_function msmtitanium_functions[] = {
 	FUNCTION(key_home),
 	FUNCTION(pwr_down),
 	FUNCTION(dmic0_clk),
+	FUNCTION(blsp7_spi),
 	FUNCTION(hdmi_int),
 	FUNCTION(dmic0_data),
 	FUNCTION(qdss_cti_trig_in_a1),
@@ -1420,11 +1438,11 @@ static const struct msm_function msmtitanium_functions[] = {
 	FUNCTION(sdcard_det),
 	FUNCTION(dac_calib25),
 	FUNCTION(cam1_ldo),
+	FUNCTION(sec_mi2s),
 	FUNCTION(blsp_spi7),
-	FUNCTION(wipwr_int),
-	FUNCTION(ss_switch),
 	FUNCTION(blsp_i2c7),
-	FUNCTION(fp_int),
+	FUNCTION(ss_switch),
+	FUNCTION(tsens_max),
 };
 
 static const struct msm_pingroup msmtitanium_groups[] = {
@@ -1439,8 +1457,8 @@ static const struct msm_pingroup msmtitanium_groups[] = {
 	PINGROUP(5, blsp_spi2, blsp_uart2, ldo_en, NA, NA, NA, NA, NA, NA),
 	PINGROUP(6, blsp_spi2, blsp_uart2, blsp_i2c2, gcc_gp1_clk_b, NA, NA,
 		 NA, NA, NA),
-	PINGROUP(7, blsp_spi2, blsp_uart2, blsp_i2c2, NA, NA,
-		 atest_gpsadc_dtest0_native, NA, NA, NA),
+	PINGROUP(7, blsp_spi2, blsp_uart2, blsp_i2c2, NA,
+		 atest_gpsadc_dtest0_native, NA, NA, NA, NA),
 	PINGROUP(8, blsp_spi3, NA, NA, qdss_tracedata_b, NA, NA, NA, NA, NA),
 	PINGROUP(9, blsp_spi3, pwr_modem_enabled_b, NA, NA, qdss_tracedata_b,
 		 NA, NA, NA, NA),
@@ -1448,10 +1466,10 @@ static const struct msm_pingroup msmtitanium_groups[] = {
 		 NA),
 	PINGROUP(11, blsp_spi3, blsp_i2c3, gcc_gp3_clk_b, NA, NA, NA, NA, NA,
 		 NA),
-	PINGROUP(12, blsp_spi4, blsp_uart4, sec_mi2s, pwr_nav_enabled_b, NA,
-		 NA, qdss_tracedata_b, NA, dac_calib1),
-	PINGROUP(13, blsp_spi4, blsp_uart4, sec_mi2s, pwr_crypto_enabled_b, NA,
-		 NA, NA, qdss_tracedata_b, NA),
+	PINGROUP(12, blsp_spi4, blsp_uart4, pwr_nav_enabled_b, NA, NA,
+		 qdss_tracedata_b, NA, dac_calib1, NA),
+	PINGROUP(13, blsp_spi4, blsp_uart4, pwr_crypto_enabled_b, NA, NA, NA,
+		 qdss_tracedata_b, NA, dac_calib2),
 	PINGROUP(14, blsp_spi4, blsp_uart4, blsp_i2c4, NA, NA, NA, NA, NA, NA),
 	PINGROUP(15, blsp_spi4, blsp_uart4, blsp_i2c4, NA, NA, NA, NA, NA, NA),
 	PINGROUP(16, blsp_spi5, blsp_uart5, NA, NA, qdss_traceclk_a, NA,
@@ -1462,8 +1480,8 @@ static const struct msm_pingroup msmtitanium_groups[] = {
 		 atest_gpsadc_dtest1_native, NA, NA, NA),
 	PINGROUP(19, blsp_spi5, blsp_uart5, blsp_i2c5, qdss_tracedata_a, NA,
 		 NA, NA, NA, NA),
-	PINGROUP(20, blsp_spi6, blsp_uart6, NA, NA, NA, NA, qdss_tracectl_b,
-		 NA, dac_calib15),
+	PINGROUP(20, blsp_spi6, blsp_uart6, NA, NA, NA, qdss_tracectl_b, NA,
+		 dac_calib15, NA),
 	PINGROUP(21, blsp_spi6, blsp_uart6, m_voc, NA, NA, NA,
 		 qdss_cti_trig_in_b0, NA, dac_calib16),
 	PINGROUP(22, blsp_spi6, blsp_uart6, blsp_i2c6, qdss_traceclk_b, NA,
@@ -1483,18 +1501,18 @@ static const struct msm_pingroup msmtitanium_groups[] = {
 		 NA, NA),
 	PINGROUP(31, cci_i2c, NA, NA, NA, qdss_tracedata_a, NA, NA, NA, NA),
 	PINGROUP(32, cci_i2c, NA, NA, NA, qdss_tracedata_a, NA, NA, NA, NA),
-	PINGROUP(33, cci_timer0, NA, NA, NA, qdss_tracedata_a, NA, NA, NA, NA),
-	PINGROUP(34, cci_timer1, NA, NA, NA, qdss_tracedata_a, NA, NA, NA, NA),
-	PINGROUP(35, cci_timer2, pwr_nav_enabled_a, NA, NA, NA,
-		 qdss_tracedata_a, NA, NA, NA),
-	PINGROUP(36, cci_timer3, pwr_crypto_enabled_a, NA, NA, NA,
-		 qdss_tracedata_a, NA, NA, NA),
+	PINGROUP(33, cci_timer0, NA, NA, NA, NA, qdss_tracedata_a, NA, NA, NA),
+	PINGROUP(34, cci_timer1, NA, NA, NA, NA, qdss_tracedata_a, NA, NA, NA),
+	PINGROUP(35, cci_timer2, blsp1_spi, pwr_nav_enabled_a, NA, NA, NA,
+		 qdss_tracedata_a, NA, NA),
+	PINGROUP(36, cci_timer3, blsp1_spi, NA, pwr_crypto_enabled_a, NA, NA,
+		 NA, qdss_tracedata_a, NA),
 	PINGROUP(37, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(38, cci_async, NA, qdss_tracedata_a, NA, NA, NA, NA, NA, NA),
 	PINGROUP(39, NA, NA, NA, qdss_tracedata_a, NA, dac_calib5, NA, NA, NA),
 	PINGROUP(40, NA, NA, qdss_tracedata_a, NA, dac_calib6, NA, NA, NA, NA),
-	PINGROUP(41, cci_timer4, NA, NA, qdss_cti_trig_out_a0, NA, dac_calib7,
-		 NA, NA, NA),
+	PINGROUP(41, cci_timer4, blsp3_spi, NA, NA, NA, qdss_cti_trig_out_a0,
+		 NA, dac_calib7, NA),
 	PINGROUP(42, gcc_gp1_clk_a, qdss_tracedata_b, NA, dac_calib8, NA, NA,
 		 NA, NA, NA),
 	PINGROUP(43, gcc_gp2_clk_a, qdss_tracedata_b, NA, dac_calib9, NA, NA,
@@ -1502,13 +1520,14 @@ static const struct msm_pingroup msmtitanium_groups[] = {
 	PINGROUP(44, gcc_gp3_clk_a, qdss_tracedata_b, NA, dac_calib10, NA, NA,
 		 NA, NA, NA),
 	PINGROUP(45, NA, qdss_tracedata_b, NA, dac_calib11, NA, NA, NA, NA, NA),
-	PINGROUP(46, NA, qdss_tracedata_b, NA, dac_calib12, NA, NA, NA, NA, NA),
-	PINGROUP(47, blsp6_spi, NA, qdss_tracedata_b, NA, dac_calib13, NA, NA,
+	PINGROUP(46, qdss_tracedata_b, NA, dac_calib12, NA, NA, NA, NA, NA, NA),
+	PINGROUP(47, blsp6_spi, qdss_tracedata_b, NA, dac_calib13, NA, NA, NA,
 		 NA, NA),
 	PINGROUP(48, blsp6_spi, NA, qdss_cti_trig_in_b1, NA, dac_calib14, NA,
 		 NA, NA, NA),
 	PINGROUP(49, uim_batt, NA, NA, NA, NA, NA, NA, NA, NA),
-	PINGROUP(50, sd_write, NA, NA, NA, qdss_tracedata_a, NA, NA, NA, NA),
+	PINGROUP(50, blsp3_spi, sd_write, NA, NA, NA, qdss_tracedata_a, NA, NA,
+		 NA),
 	PINGROUP(51, uim1_data, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(52, uim1_clk, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(53, uim1_reset, NA, NA, NA, NA, NA, NA, NA, NA),
@@ -1551,8 +1570,8 @@ static const struct msm_pingroup msmtitanium_groups[] = {
 	PINGROUP(87, pbs2, cri_trng, qdss_tracedata_b, gcc_tlmm, NA, NA, NA,
 		 NA, NA),
 	PINGROUP(88, pri_mi2s, NA, NA, NA, qdss_tracedata_b, NA, NA, NA, NA),
-	PINGROUP(89, dmic0_clk, NA, NA, NA, NA, NA, NA, NA, NA),
-	PINGROUP(90, dmic0_data, NA, NA, NA, NA, NA, NA, NA, NA),
+	PINGROUP(89, dmic0_clk, blsp7_spi, NA, NA, NA, NA, NA, NA, NA),
+	PINGROUP(90, dmic0_data, blsp7_spi, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(91, pri_mi2s, NA, NA, NA, qdss_cti_trig_in_a1, NA, NA, NA, NA),
 	PINGROUP(92, pri_mi2s_ws, NA, NA, NA, qdss_tracedata_b, NA, NA, NA, NA),
 	PINGROUP(93, pri_mi2s, NA, NA, NA, NA, NA, NA, NA, NA),
@@ -1598,25 +1617,26 @@ static const struct msm_pingroup msmtitanium_groups[] = {
 	PINGROUP(132, ddr_bist, NA, dac_calib24, NA, NA, NA, NA, NA, NA),
 	PINGROUP(133, NA, dac_calib25, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(134, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	PINGROUP(135, sec_mi2s, blsp_spi7, NA, NA, NA, NA, NA, NA, NA),
-	PINGROUP(136, sec_mi2s, blsp_spi7, NA, NA, NA, NA, NA, NA, NA),
-	PINGROUP(137, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	PINGROUP(138, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	PINGROUP(139, blsp_spi7, blsp_i2c7, NA, NA, NA, NA, NA, NA, NA),
-	PINGROUP(140, blsp_spi7, blsp_i2c7, NA, NA, NA, NA, NA, NA, NA),
+	PINGROUP(135, sec_mi2s, blsp_spi7, blsp_i2c7, NA, NA, NA, NA, NA, NA),
+	PINGROUP(136, sec_mi2s, blsp_spi7, blsp_i2c7, NA, NA, NA, NA, NA, NA),
+	PINGROUP(137, sec_mi2s, blsp_spi7, NA, NA, NA, NA, NA, NA, NA),
+	PINGROUP(138, sec_mi2s, blsp_spi7, NA, NA, NA, NA, NA, NA, NA),
+	PINGROUP(139, tsens_max, NA, NA, NA, NA, NA, NA, NA, NA),
+	PINGROUP(140, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(141, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	SDC_QDSD_PINGROUP(sdc1_clk, 0x110a000, 13, 6),
-	SDC_QDSD_PINGROUP(sdc1_cmd, 0x110a000, 11, 3),
-	SDC_QDSD_PINGROUP(sdc1_data, 0x110a000, 9, 0),
-	SDC_QDSD_PINGROUP(sdc2_clk, 0x1109000, 14, 6),
-	SDC_QDSD_PINGROUP(sdc2_cmd, 0x1109000, 11, 3),
-	SDC_QDSD_PINGROUP(sdc2_data, 0x1109000, 9, 0),
-	SDC_QDSD_PINGROUP(qdsd_clk, 0x119c000, 3, 0),
-	SDC_QDSD_PINGROUP(qdsd_cmd, 0x119c000, 8, 5),
-	SDC_QDSD_PINGROUP(qdsd_data0, 0x119c000, 13, 10),
-	SDC_QDSD_PINGROUP(qdsd_data1, 0x119c000, 18, 15),
-	SDC_QDSD_PINGROUP(qdsd_data2, 0x119c000, 23, 20),
-	SDC_QDSD_PINGROUP(qdsd_data3, 0x119c000, 28, 25),
+	SDC_QDSD_PINGROUP(sdc1_clk, 0x10a000, 13, 6),
+	SDC_QDSD_PINGROUP(sdc1_cmd, 0x10a000, 11, 3),
+	SDC_QDSD_PINGROUP(sdc1_data, 0x10a000, 9, 0),
+	SDC_QDSD_PINGROUP(sdc1_rclk, 0x10a000, 15, 0),
+	SDC_QDSD_PINGROUP(sdc2_clk, 0x109000, 14, 6),
+	SDC_QDSD_PINGROUP(sdc2_cmd, 0x109000, 11, 3),
+	SDC_QDSD_PINGROUP(sdc2_data, 0x109000, 9, 0),
+	SDC_QDSD_PINGROUP(qdsd_clk, 0x19c000, 3, 0),
+	SDC_QDSD_PINGROUP(qdsd_cmd, 0x19c000, 8, 5),
+	SDC_QDSD_PINGROUP(qdsd_data0, 0x19c000, 13, 10),
+	SDC_QDSD_PINGROUP(qdsd_data1, 0x19c000, 18, 15),
+	SDC_QDSD_PINGROUP(qdsd_data2, 0x19c000, 23, 20),
+	SDC_QDSD_PINGROUP(qdsd_data3, 0x19c000, 28, 25),
 };
 
 static const struct msm_pinctrl_soc_data msmtitanium_pinctrl = {
