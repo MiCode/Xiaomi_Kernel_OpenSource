@@ -39,6 +39,7 @@
 #define IPA_PROC_CTX_TLV_TYPE_HDR_ADD 1
 #define IPA_PROC_CTX_TLV_TYPE_PROC_CMD 3
 
+#define IPA_RULE_ID_INVALID 0x3FF
 
 /**
  * struct ipa_flt_rule_hw_hdr - HW header of IPA filter rule
@@ -346,51 +347,52 @@ struct ipa_ip_packet_tag_status {
 	u64 tag:48;
 };
 
-/*! @brief Struct for the IPAv2.0 and IPAv2.5 UL packet status header */
+/*! @brief Struct for the IPAv3.0 UL packet status header */
 struct ipa_hw_pkt_status {
-	u32 status_opcode:8;
-	u32 exception:8;
-	u32 status_mask:16;
-	u32 pkt_len:16;
-	u32 endp_src_idx:5;
-	u32 reserved_1:3;
-	u32 endp_dest_idx:5;
-	u32 reserved_2:3;
-	u32 metadata:32;
-	u32 filt_local:1;
-	u32 filt_global:1;
-	u32 filt_pipe_idx:5;
-	u32 ret_hdr:1;
-	u32 filt_rule_idx:8;
-	u32 tag_f_1:16;
-	u32 tag_f_2:32;
-	u32 time_day_ctr:32;
-	u32 nat_hit:1;
-	u32 nat_tbl_idx:13;
-	u32 nat_type:2;
-	u32 route_local:1;
-	u32 route_tbl_idx:5;
-	u32 route_match:1;
-	u32 ucp:1;
-	u32 route_rule_idx:8;
-	u32 hdr_local:1;
-	u32 hdr_offset:10;
-	u32 frag_hit:1;
-	u32 frag_rule:4;
-	u32 reserved_4:16;
+	u64 status_opcode:8;
+	u64 exception:8;
+	u64 status_mask:16;
+	u64 pkt_len:16;
+	u64 endp_src_idx:5;
+	u64 reserved_1:3;
+	u64 endp_dest_idx:5;
+	u64 reserved_2:3;
+	u64 metadata:32;
+	u64 filt_local:1;
+	u64 filt_hash:1;
+	u64 filt_global:1;
+	u64 ret_hdr:1;
+	u64 filt_rule_id:10;
+	u64 route_local:1;
+	u64 route_hash:1;
+	u64 ucp:1;
+	u64 route_tbl_idx:5;
+	u64 route_rule_id:10;
+	u64 nat_hit:1;
+	u64 nat_tbl_idx:13;
+	u64 nat_type:2;
+	u64 tag:48;
+	u64 seq_num:8;
+	u64 time_day_ctr:24;
+	u64 hdr_local:1;
+	u64 hdr_offset:10;
+	u64 frag_hit:1;
+	u64 frag_rule:4;
+	u64 reserved_4:16;
 };
 
 #define IPA_PKT_STATUS_SIZE 32
 
 /*! @brief Status header opcodes */
 enum ipa_hw_status_opcode {
-	IPA_HW_STATUS_OPCODE_MIN,
-	IPA_HW_STATUS_OPCODE_PACKET = IPA_HW_STATUS_OPCODE_MIN,
-	IPA_HW_STATUS_OPCODE_NEW_FRAG_RULE,
-	IPA_HW_STATUS_OPCODE_DROPPED_PACKET,
-	IPA_HW_STATUS_OPCODE_SUSPENDED_PACKET,
-	IPA_HW_STATUS_OPCODE_XLAT_PACKET = 6,
-	IPA_HW_STATUS_OPCODE_MAX
+	IPA_HW_STATUS_OPCODE_PACKET             = 0x1,
+	IPA_HW_STATUS_OPCODE_NEW_FRAG_RULE      = 0x2,
+	IPA_HW_STATUS_OPCODE_DROPPED_PACKET     = 0x4,
+	IPA_HW_STATUS_OPCODE_SUSPENDED_PACKET   = 0x8,
+	IPA_HW_STATUS_OPCODE_LOG                = 0x10,
+	IPA_HW_STATUS_OPCODE_DCMP               = 0x20,
+	IPA_HW_STATUS_OPCODE_PACKET_2ND_PASS    = 0x40,
+
 };
 
 /*! @brief Possible Masks received in status */
@@ -413,16 +415,16 @@ enum ipa_hw_pkt_status_mask {
 
 /*! @brief Possible Exceptions received in status */
 enum ipa_hw_pkt_status_exception {
-	IPA_HW_PKT_STATUS_EXCEPTION_NONE           = 0x0,
-	IPA_HW_PKT_STATUS_EXCEPTION_DEAGGR         = 0x1,
-	IPA_HW_PKT_STATUS_EXCEPTION_REPL           = 0x2,
-	IPA_HW_PKT_STATUS_EXCEPTION_IPTYPE         = 0x4,
-	IPA_HW_PKT_STATUS_EXCEPTION_IHL            = 0x8,
-	IPA_HW_PKT_STATUS_EXCEPTION_FRAG_RULE_MISS = 0x10,
-	IPA_HW_PKT_STATUS_EXCEPTION_SW_FILT        = 0x20,
-	IPA_HW_PKT_STATUS_EXCEPTION_NAT            = 0x40,
+	IPA_HW_PKT_STATUS_EXCEPTION_NONE             = 0x0,
+	IPA_HW_PKT_STATUS_EXCEPTION_DEAGGR           = 0x1,
+	IPA_HW_PKT_STATUS_EXCEPTION_IPTYPE           = 0x4,
+	IPA_HW_PKT_STATUS_EXCEPTION_PACKET_LENGTH    = 0x8,
+	IPA_HW_PKT_STATUS_EXCEPTION_PACKET_THRESHOLD = 0x9,
+	IPA_HW_PKT_STATUS_EXCEPTION_FRAG_RULE_MISS   = 0x10,
+	IPA_HW_PKT_STATUS_EXCEPTION_SW_FILT          = 0x20,
+	IPA_HW_PKT_STATUS_EXCEPTION_NAT              = 0x40,
 	IPA_HW_PKT_STATUS_EXCEPTION_ACTUAL_MAX,
-	IPA_HW_PKT_STATUS_EXCEPTION_MAX            = 0xFF
+	IPA_HW_PKT_STATUS_EXCEPTION_MAX              = 0xFF
 };
 
 /*! @brief IPA_HW_IMM_CMD_DMA_SHARED_MEM Immediate Command Parameters */
