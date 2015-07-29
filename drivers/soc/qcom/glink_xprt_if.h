@@ -40,7 +40,20 @@ enum xprt_ids {
 #define GCAP_TRACER_PKT	BIT(2)
 
 /**
- * TX PKT info.
+ * struct glink_core_tx_pkt - Transmit Packet information
+ * @list_done:		Index to the channel's transmit queue.
+ * @list_done:		Index to the channel's acknowledgment queue.
+ * @pkt_priv:		Private information specific to the packet.
+ * @data:		Pointer to the buffer containing the data.
+ * @riid:		Remote receive intent used to transmit the packet.
+ * @size:		Total size of the data in the packet.
+ * @tx_len:		Data length to transmit in the current transmit slot.
+ * @size_remaining:	Remaining size of the data in the packet.
+ * @intent_size:	Receive intent size queued by the remote side.
+ * @tracer_pkt:		Flag to indicate if the packet is a tracer packet.
+ * @iovec:		Pointer to the vector buffer packet.
+ * @vprovider:		Packet-specific virtual buffer provider function.
+ * @pprovider:		Packet-specific physical buffer provider function.
  */
 struct glink_core_tx_pkt {
 	struct list_head list_node;
@@ -49,6 +62,7 @@ struct glink_core_tx_pkt {
 	const void *data;
 	uint32_t riid;
 	uint32_t size;
+	uint32_t tx_len;
 	uint32_t size_remaining;
 	size_t intent_size;
 	bool tracer_pkt;
@@ -115,7 +129,10 @@ struct glink_transport_if {
 	int (*wait_link_down)(struct glink_transport_if *if_ptr);
 	int (*tx_cmd_tracer_pkt)(struct glink_transport_if *if_ptr,
 			uint32_t lcid, struct glink_core_tx_pkt *pctx);
-
+	unsigned long (*get_power_vote_ramp_time)(
+			struct glink_transport_if *if_ptr, uint32_t state);
+	int (*power_vote)(struct glink_transport_if *if_ptr, uint32_t state);
+	int (*power_unvote)(struct glink_transport_if *if_ptr);
 	/*
 	 * Keep data pointers at the end of the structure after all function
 	 * pointer to allow for in-place initialization.

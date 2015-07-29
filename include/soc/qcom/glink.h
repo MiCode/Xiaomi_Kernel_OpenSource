@@ -287,6 +287,54 @@ void *glink_register_link_state_cb(struct glink_link_info *link_info,
  */
 void glink_unregister_link_state_cb(void *notif_handle);
 
+/**
+ * glink_qos_latency() - Register the latency QoS requirement
+ * @handle:	Channel handle in which the latency is required.
+ * @latency_us:	Latency requirement in units of micro-seconds.
+ * @pkt_size:	Worst case packet size for which the latency is required.
+ *
+ * This function is used to register the latency requirement for a channel
+ * and ensures that the latency requirement for this channel is met without
+ * impacting the existing latency requirements of other channels.
+ *
+ * Return: 0 if QoS request is achievable, standard Linux error codes on error
+ */
+int glink_qos_latency(void *handle, unsigned long latency_us, size_t pkt_size);
+
+/**
+ * glink_qos_cancel() - Cancel or unregister the QoS request
+ * @handle:	Channel handle for which the QoS request is cancelled.
+ *
+ * This function is used to cancel/unregister the QoS requests for a channel.
+ *
+ * Return: 0 on success, standard Linux error codes on failure
+ */
+int glink_qos_cancel(void *handle);
+
+/**
+ * glink_qos_start() - Start of the transmission requiring QoS
+ * @handle:	Channel handle in which the transmit activity is performed.
+ *
+ * This function is called by the clients to indicate G-Link regarding the
+ * start of the transmission which requires a certain QoS. The clients
+ * must account for the QoS ramp time to ensure meeting the QoS.
+ *
+ * Return: 0 on success, standard Linux error codes on failure
+ */
+int glink_qos_start(void *handle);
+
+/**
+ * glink_qos_get_ramp_time() - Get the QoS ramp time
+ * @handle:	Channel handle for which the QoS ramp time is required.
+ * @pkt_size:	Worst case packet size.
+ *
+ * This function is called by the clients to obtain the ramp time required
+ * to meet the QoS requirements.
+ *
+ * Return: QoS ramp time is returned in units of micro-seconds
+ */
+unsigned long glink_qos_get_ramp_time(void *handle, size_t pkt_size);
+
 #else /* CONFIG_MSM_GLINK */
 static inline void *glink_open(const struct glink_open_config *cfg_ptr)
 {
@@ -352,6 +400,28 @@ static inline void *glink_register_link_state_cb(
 
 static inline void glink_unregister_link_state_cb(void *notif_handle)
 {
+}
+
+static inline int glink_qos_latency(void *handle, unsigned long latency_us,
+				    size_t pkt_size)
+{
+	return -ENODEV;
+}
+
+static inline int glink_qos_cancel(void *handle)
+{
+	return -ENODEV;
+}
+
+static inline int glink_qos_start(void *handle)
+{
+	return -ENODEV;
+}
+
+static inline unsigned long glink_qos_get_ramp_time(void *handle,
+						    size_t pkt_size)
+{
+	return 0;
 }
 #endif /* CONFIG_MSM_GLINK */
 #endif /* _SOC_QCOM_GLINK_H_ */
