@@ -28,6 +28,7 @@
 #include <linux/delay.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
+#include <linux/of_gpio.h>
 #include <linux/list.h>
 #include <linux/uaccess.h>
 #include <linux/usb/ch9.h>
@@ -2024,6 +2025,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	u32 tmp;
 	bool host_mode;
 	int ret = 0;
+	int ext_hub_reset_gpio;
 
 	mdwc = devm_kzalloc(&pdev->dev, sizeof(*mdwc), GFP_KERNEL);
 	if (!mdwc) {
@@ -2290,6 +2292,22 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 				goto disable_aggr_clk;
 			}
 		}
+	}
+
+	ext_hub_reset_gpio = of_get_named_gpio(node,
+					"qcom,ext-hub-reset-gpio", 0);
+
+	if (gpio_is_valid(ext_hub_reset_gpio)
+		&& (!devm_gpio_request(&pdev->dev, ext_hub_reset_gpio,
+			"qcom,ext-hub-reset-gpio"))) {
+		/* reset external hub */
+		gpio_direction_output(ext_hub_reset_gpio, 1);
+		/*
+		 * Hub reset should be asserted for minimum 5microsec
+		 * before deasserting.
+		 */
+		usleep_range(5, 1000);
+		gpio_direction_output(ext_hub_reset_gpio, 0);
 	}
 
 	if (of_property_read_u32(node, "qcom,dwc-usb3-msm-tx-fifo-size",

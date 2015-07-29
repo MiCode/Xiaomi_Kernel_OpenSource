@@ -42,6 +42,7 @@ Optional properties :
   after USB is kept into LPM.
 - qcom,vbus-present: Indicates that there is no VBUS indication from PMIC. Assume VBUS is
   present if this property is defined.
+- qcom,ext-hub-reset-gpio: This corresponds to gpio which is used for HUB reset.
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
   This sub node is required property for device node. The properties of this subnode
