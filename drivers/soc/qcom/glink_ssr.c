@@ -434,11 +434,11 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 
 	list_for_each_entry(ss_leaf_entry, &ss_info->notify_list,
 			notify_list_node) {
-		GLINK_INFO("<SSR> %s: Notifying: %s -> %s:%s:%s\n",
-				__func__, "subsys:edge:xprt",
-				ss_leaf_entry->ssr_name,
-				ss_leaf_entry->edge,
-				ss_leaf_entry->xprt);
+		GLINK_INFO(
+			"<SSR> %s: Notifying: %s:%s of %s restart, seq_num[%d]\n",
+				__func__, ss_leaf_entry->edge,
+				ss_leaf_entry->xprt, ss_info->edge,
+				sequence_number);
 
 		ss_info_channel =
 			get_info_for_subsystem(ss_leaf_entry->ssr_name);
