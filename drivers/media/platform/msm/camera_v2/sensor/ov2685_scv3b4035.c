@@ -370,9 +370,9 @@ static struct msm_camera_i2c_reg_conf
 	{0x3002, 0x00},
 	{0x3823, 0x30},
 	{0x3824, 0x00},
-	{0x3825, 0x20},
+	{0x3825, 0x10},
 	{0x3826, 0x00},
-	{0x3827, 0x04},
+	{0x3827, 0x08},
 };
 
 static struct msm_camera_i2c_reg_conf ov2685_scv3b4035_720p60_settings[] = {
@@ -1364,6 +1364,7 @@ static struct msm_sensor_ctrl_t ov2685_scv3b4035_s_ctrl = {
 	.sensor_v4l2_subdev_info_size =
 		 ARRAY_SIZE(ov2685_scv3b4035_subdev_info),
 	.func_tbl = &ov2685_scv3b4035_sensor_func_tbl,
+	.is_yuv = 1,
 };
 
 module_init(ov2685_scv3b4035_init_module);
