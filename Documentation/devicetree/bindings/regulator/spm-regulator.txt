@@ -23,6 +23,7 @@ Optional properties:
 - qcom,bypass-spm: Boolean flag which indicates that voltage control should not
 		    be managed by an SPM.  Instead, the voltage should be
 		    controlled via SPMI.
+- qcom,max-voltage-step:  Maximum single voltage step size in microvolts.
 
 Optional structure:
 - A child node may be specified within a qcom,spm-regulator node which defines
