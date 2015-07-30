@@ -14,7 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "linux/device.h"
+#include <linux/device.h>
 #include "wil_platform.h"
 #include "msm_11ad.h"
 
