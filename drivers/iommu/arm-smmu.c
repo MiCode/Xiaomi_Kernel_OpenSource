@@ -950,13 +950,30 @@ static void arm_smmu_flush_pgtable(void *addr, size_t size, void *cookie)
 static void arm_smmu_prepare_pgtable(void *addr, void *cookie);
 static void arm_smmu_unprepare_pgtable(void *cookie, void *addr);
 
+static void *arm_smmu_alloc_pages_exact(void *cookie,
+					size_t size, gfp_t gfp_mask)
+{
+	void *ret = alloc_pages_exact(size, gfp_mask);
+
+	if (likely(ret))
+		arm_smmu_prepare_pgtable(ret, cookie);
+
+	return ret;
+}
+
+static void arm_smmu_free_pages_exact(void *cookie, void *virt, size_t size)
+{
+	arm_smmu_unprepare_pgtable(cookie, virt);
+	free_pages_exact(virt, size);
+}
+
 static struct iommu_gather_ops arm_smmu_gather_ops = {
 	.tlb_flush_all	= arm_smmu_tlb_inv_context,
 	.tlb_add_flush	= arm_smmu_tlb_inv_range_nosync,
 	.tlb_sync	= arm_smmu_tlb_sync,
 	.flush_pgtable	= arm_smmu_flush_pgtable,
-	.prepare_pgtable = arm_smmu_prepare_pgtable,
-	.unprepare_pgtable = arm_smmu_unprepare_pgtable,
+	.alloc_pages_exact = arm_smmu_alloc_pages_exact,
+	.free_pages_exact = arm_smmu_free_pages_exact,
 };
 
 static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
