@@ -797,7 +797,7 @@ static void mdss_mdp_cmd_readptr_done(void *arg)
 		return;
 	}
 
-	if (ctx->autorefresh_init) {
+	if (ctx->autorefresh_init || ctx->autorefresh_off_pending) {
 		pr_debug("Completing read pointer done\n");
 		complete_all(&ctx->readptr_done);
 	}
@@ -811,7 +811,8 @@ static void mdss_mdp_cmd_readptr_done(void *arg)
 
 	spin_lock(&ctx->clk_lock);
 	list_for_each_entry(tmp, &ctx->vsync_handlers, list) {
-		if (tmp->enabled && !tmp->cmd_post_flush)
+		if (tmp->enabled && !tmp->cmd_post_flush &&
+				!ctx->autorefresh_pending_frame_cnt)
 			tmp->vsync_handler(ctl, vsync_time);
 	}
 	spin_unlock(&ctx->clk_lock);
@@ -977,6 +978,18 @@ static void clk_ctrl_delayed_off_work(struct work_struct *work)
 
 	mutex_lock(&ctl->rsrc_lock);
 
+	if (ctx->autorefresh_init) {
+		/*
+		 * Driver shouldn't have scheduled this work item if
+		 * autorefresh was enabled, but if any race
+		 * condition happens between this work queue and
+		 * the enable of the feature, make sure we do not
+		 * process this request and mark this error.
+		 */
+		pr_err("cannot disable with autorefresh\n");
+		goto exit;
+	}
+
 	/* Enable clocks if Gate feature is enabled and we are in this state */
 	if (mdata->enable_gate && (mdp5_data->resources_state
 			== MDP_RSRC_CTL_STATE_GATE))
@@ -998,6 +1011,7 @@ static void clk_ctrl_delayed_off_work(struct work_struct *work)
 	/* update state machine that power off transition is done */
 	mdp5_data->resources_state = MDP_RSRC_CTL_STATE_OFF;
 
+exit:
 	mutex_unlock(&ctl->rsrc_lock);
 
 	/* do this at the end, so we can also protect the global power state*/
@@ -1058,6 +1072,18 @@ static void clk_ctrl_gate_work(struct work_struct *work)
 
 	mutex_lock(&ctl->rsrc_lock);
 
+	if (ctx->autorefresh_init) {
+		/*
+		 * Driver shouldn't have scheduled this work item if
+		 * autorefresh was enabled, but if any race
+		 * condition happens between this work queue and
+		 * the enable of the feature, make sure we do not
+		 * process this request and mark this error.
+		 */
+		pr_err("cannot gate clocks with autorefresh\n");
+		goto exit;
+	}
+
 	/* First gate the DSI clocks for the slave controller (if present) */
 	if (sctx)
 		mdss_mdp_ctl_intf_event
@@ -1075,6 +1101,7 @@ static void clk_ctrl_gate_work(struct work_struct *work)
 	/* update state machine that gate transition is done */
 	mdp5_data->resources_state = MDP_RSRC_CTL_STATE_GATE;
 
+exit:
 	mutex_unlock(&ctl->rsrc_lock);
 
 	/* unlock mutex needed for split display */
@@ -1468,16 +1495,15 @@ static int __mdss_mdp_cmd_configure_autorefresh(struct mdss_mdp_ctl *ctl, int
 				 */
 				ctx->autorefresh_init = true;
 			}
+
+			/*
+			 * When autorefresh is enabled, there is no need to
+			 * trigger manual kickoff.
+			 */
 			mdss_mdp_pingpong_write(ctl->mixer_left->pingpong_base,
 					MDSS_MDP_REG_PP_AUTOREFRESH_CONFIG,
 					BIT(31) | frame_cnt);
-			/*
-			 * This manual kickoff is needed to actually start the
-			 * autorefresh feature. The h/w relies on one commit
-			 * before it starts counting the read ptrs to trigger
-			 * the frames.
-			 */
-			mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_START, 1);
+
 			ctl->autorefresh_frame_cnt = frame_cnt;
 			ctl->cmd_autorefresh_en = true;
 		}
@@ -1803,8 +1829,24 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 
 	if (ctl->cmd_autorefresh_en) {
 		int pre_suspend = ctx->autorefresh_pending_frame_cnt;
+		int hz, rc;
+
 		mdss_mdp_cmd_enable_cmd_autorefresh(ctl, 0);
 		ctx->autorefresh_pending_frame_cnt = pre_suspend;
+
+		reinit_completion(&ctx->readptr_done);
+
+		/* enable read pointer to wait for one frame to finish */
+		mdss_mdp_setup_vsync(ctx, true);
+
+		/* wait one read pointer to make sure current frame is done */
+		hz = mdss_panel_get_framerate(&ctl->panel_data->panel_info);
+		rc = wait_for_completion_timeout(&ctx->readptr_done,
+				STOP_TIMEOUT(hz));
+		if (rc == 0)
+			pr_err("Timed out waiting for read ptr!\n");
+
+		mdss_mdp_setup_vsync(ctx, false);
 	}
 
 	mutex_lock(&ctl->offlock);
