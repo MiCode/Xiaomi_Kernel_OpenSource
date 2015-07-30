@@ -203,6 +203,8 @@
 			qcom,parallel-usb-min-current-ma = <1400>;
 			qcom,parallel-usb-9v-min-current-ma = <900>;
 			qcom,parallel-allowed-lowering-ma = <500>;
+			qcom,enable-hvdcp-9v;
+			qcom,pmic-revid = <&pmi8950_revid>;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
