@@ -816,6 +816,8 @@
 
 		system-supply = <&pm8994_s1_corner>;
 
+		qcom,cpr-enable;
+
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
 			qcom,cpr-consecutive-up = <0>;
