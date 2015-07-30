@@ -703,6 +703,18 @@ static struct debug_bus dbg_bus_8994[] = {
 	{ 0x348, 43, 0},
 };
 
+static struct vbif_debug_bus vbif_dbg_bus_8996[] = {
+	{0x214, 0x21c, 16, 2, 16}, /* arb clients */
+	{0x214, 0x21c, 0, 14, 4}, /* xin blocks - axi side */
+	{0x21c, 0x214, 0, 14, 5}, /* xin blocks - clock side */
+};
+
+static struct vbif_debug_bus nrt_vbif_dbg_bus_8996[] = {
+	{0x214, 0x21c, 16, 1, 16}, /* arb clients */
+	{0x214, 0x21c, 0, 12, 4}, /* xin blocks - axi side */
+	{0x21c, 0x214, 0, 12, 5}, /* xin blocks - clock side */
+};
+
 void mdss_mdp_hw_rev_debug_caps_init(struct mdss_data_type *mdata)
 {
 	mdata->dbg_bus = NULL;
@@ -719,6 +731,12 @@ void mdss_mdp_hw_rev_debug_caps_init(struct mdss_data_type *mdata)
 	case MDSS_MDP_HW_REV_107_2:
 		mdata->dbg_bus = dbg_bus_8996;
 		mdata->dbg_bus_size = ARRAY_SIZE(dbg_bus_8996);
+		mdata->vbif_dbg_bus = vbif_dbg_bus_8996;
+		mdata->vbif_dbg_bus_size = ARRAY_SIZE(vbif_dbg_bus_8996);
+		mdata->nrt_vbif_dbg_bus = nrt_vbif_dbg_bus_8996;
+		mdata->nrt_vbif_dbg_bus_size =
+			ARRAY_SIZE(nrt_vbif_dbg_bus_8996);
+		break;
 	default:
 		break;
 	}
