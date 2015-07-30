@@ -3166,8 +3166,15 @@ static void sdhci_msm_notify_pm_status(struct sdhci_host *host,
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
-	unsigned int *table = msm_host->pdata->voting_data->bw_vecs;
 	unsigned int bw;
+	unsigned int *table = NULL;
+
+	if (msm_host->pdata->voting_data) {
+		table = msm_host->pdata->voting_data->bw_vecs;
+	} else {
+		msm_host->mmc_dev_state = state;
+		return;
+	}
 
 	if (state == DEV_RESUMING) {
 		bw = table[msm_host->msm_bus_vote.max_bw_vote - 1];
