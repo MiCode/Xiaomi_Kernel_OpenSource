@@ -502,6 +502,7 @@ struct ipa_wlan_comm_memb {
  *                          descriptors replenish function to be called to
  *                          avoid the RX pipe to run out of descriptors
  *                          and cause HOLB.
+ * @disconnect_in_progress: Indicates client disconnect in progress.
  */
 struct ipa_ep_context {
 	int valid;
@@ -530,6 +531,8 @@ struct ipa_ep_context {
 	struct ipa_wlan_stats wstats;
 	u32 wdi_state;
 	u32 rx_replenish_threshold;
+	bool disconnect_in_progress;
+
 	/* sys MUST be the last element of this struct */
 	struct ipa_sys_context *sys;
 };
@@ -1112,7 +1115,7 @@ struct ipa_sps_pm {
  * @tag_process_before_gating: indicates whether to start tag process before
  *  gating IPA clocks
  * @sps_pm: sps power management related information
- * @lan_rx_clnt_notify_lock: protects LAN_CONS packet recieve notification CB
+ * @disconnect_lock: protects LAN_CONS packet receive notification CB
  * @pipe_mem_pool: pipe memory pool
  * @dma_pool: special purpose DMA pool
  * @ipa_active_clients: structure for reference counting connected IPA clients
@@ -1192,7 +1195,7 @@ struct ipa_context {
 	u32 clnt_hdl_cmd;
 	u32 clnt_hdl_data_in;
 	u32 clnt_hdl_data_out;
-	spinlock_t lan_rx_clnt_notify_lock;
+	spinlock_t disconnect_lock;
 	u8 a5_pipe_index;
 	struct list_head intf_list;
 	struct list_head msg_list;
