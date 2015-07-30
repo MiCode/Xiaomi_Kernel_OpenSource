@@ -69,6 +69,16 @@ First Level Nodes
 	Value type: <u32>
 	Definition: The minimum configurable retention LDO voltage in microvolts.
 
+- qcom,ldo-config-init
+	Usage:      required
+	Value type: <u32>
+	Definition: Initialization value used to configure the Kryo LDO hardware.
+
+- qcom,apm-config-init
+	Usage:      required
+	Value type: <u32>
+	Definition: Initialization value used to configure the Kryo APM hardware.
+
 - qcom,cluster-num
 	Usage:      required
 	Value type: <u32>
@@ -105,6 +115,8 @@ Example
 		qcom,vref-functional-min-voltage = <299000>;
 		qcom,vref-retention-step-voltage = <4554>;
 		qcom,vref-retention-min-voltage = <332000>;
+		qcom,ldo-config-init = <0xf1f0e471>;
+		qcom,apm-config-init = <0x0>;
 		qcom,cluster-num = <0>;
 		kryo0_retention_vreg: regulator {
 			regulator-name = "kryo0-retention";
@@ -128,6 +140,8 @@ Example
 		qcom,vref-functional-min-voltage = <296000>;
 		qcom,vref-retention-step-voltage = <4554>;
 		qcom,vref-retention-min-voltage = <332000>;
+		qcom,ldo-config-init = <0xf1f0e471>;
+		qcom,apm-config-init = <0x0>;
 		qcom,cluster-num = <1>;
 		kryo1_retention_vreg: regulator {
 			regulator-name = "kryo1-retention";

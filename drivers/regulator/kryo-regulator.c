@@ -109,6 +109,8 @@ struct kryo_regulator {
 	int				vref_ret_min_volt;
 	int				vref_ret_max_volt;
 	int				cluster_num;
+	u32				ldo_config_init;
+	u32				apm_config_init;
 	u32				version;
 	bool				vreg_en;
 };
@@ -533,18 +535,16 @@ static void kryo_ldo_voltage_init(struct kryo_regulator *kvreg)
 }
 
 #define APC_PWR_GATE_DLY_INIT		0x00000101
-#define APC_LDO_CFG_INIT		0x31f0e471
-#define APC_APM_CFG_INIT		0x00000000
 static int kryo_hw_init(struct kryo_regulator *kvreg)
 {
 	/* Set up VREF_LDO and VREF_RET */
 	kryo_ldo_voltage_init(kvreg);
 
 	/* Program LDO and APM configuration registers */
-	writel_relaxed(APC_LDO_CFG_INIT, kvreg->reg_base + APC_LDO_CFG);
+	writel_relaxed(kvreg->ldo_config_init, kvreg->reg_base + APC_LDO_CFG);
 
 	kryo_masked_write(kvreg, APC_APM_CFG, APM_CFG_MASK,
-			    APC_APM_CFG_INIT);
+			  kvreg->apm_config_init);
 
 	/* Configure power gate sequencer delay */
 	kryo_masked_write(kvreg, APC_PWR_GATE_DLY, APC_PWR_GATE_DLY_MASK,
@@ -777,6 +777,20 @@ static int kryo_regulator_init_data(struct platform_device *pdev,
 				  &kvreg->headroom_volt);
 	if (rc < 0) {
 		dev_err(dev, "qcom,ldo-headroom-voltage missing rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(dev->of_node, "qcom,ldo-config-init",
+				  &kvreg->ldo_config_init);
+	if (rc < 0) {
+		dev_err(dev, "qcom,ldo-config-init missing rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(dev->of_node, "qcom,apm-config-init",
+				  &kvreg->apm_config_init);
+	if (rc < 0) {
+		dev_err(dev, "qcom,apm-config-init missing rc=%d\n", rc);
 		return rc;
 	}
 

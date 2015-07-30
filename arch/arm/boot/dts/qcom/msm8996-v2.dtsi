@@ -298,6 +298,14 @@
 		<0 130000 40000 85000 85000>;
 };
 
+&kryo0_vreg {
+	qcom,ldo-config-init = <0x31f0e471>;
+};
+
+&kryo1_vreg {
+	qcom,ldo-config-init = <0x31f0e471>;
+};
+
 /* GPU overrides */
 &msm_gpu {
 	/* Updated chip ID */
