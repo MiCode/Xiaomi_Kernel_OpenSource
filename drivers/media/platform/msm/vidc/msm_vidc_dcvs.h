@@ -23,6 +23,8 @@
 #define DCVS_ENC_HIGH_THR 9
 /* extra o/p buffers in case of encoder dcvs */
 #define DCVS_ENC_EXTRA_OUTPUT_BUFFERS 2
+/* extra o/p buffers in case of decoder dcvs */
+#define DCVS_DEC_EXTRA_OUTPUT_BUFFERS 4
 /* Default threshold to reduce the core frequency */
 #define DCVS_NOMINAL_THRESHOLD 8
 /* Default threshold to increase the core frequency */
