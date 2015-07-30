@@ -117,18 +117,16 @@ static bool is_between(int left, int right, int value)
 static void kryo_masked_write(struct kryo_regulator *kvreg,
 			      int reg, u32 mask, u32 val)
 {
-	u32 reg_val, orig_val;
+	u32 reg_val;
 
-	reg_val = orig_val = readl_relaxed(kvreg->reg_base + reg);
+	reg_val = readl_relaxed(kvreg->reg_base + reg);
 	reg_val &= ~mask;
 	reg_val |= (val & mask);
 
-	if (reg_val != orig_val) {
-		writel_relaxed(reg_val, kvreg->reg_base + reg);
+	writel_relaxed(reg_val, kvreg->reg_base + reg);
 
-		/* Ensure write above completes */
-		mb();
-	}
+	/* Ensure write above completes */
+	mb();
 }
 
 static inline void kryo_pm_apcc_masked_write(struct kryo_regulator *kvreg,
@@ -350,6 +348,15 @@ static int kryo_regulator_set_bypass(struct regulator_dev *rdev,
 	int rc;
 
 	mutex_lock(&kvreg->lock);
+
+	/*
+	 * LDO Vref voltage must be programmed before switching
+	 * modes to ensure stable operation.
+	 */
+	rc = kryo_set_ldo_volt(kvreg, kvreg->volt);
+	if (rc)
+		kvreg_err(kvreg, "set voltage failed, rc=%d\n", rc);
+
 	rc = kryo_configure_mode(kvreg, enable);
 	if (rc)
 		kvreg_err(kvreg, "could not configure to %s mode\n",
