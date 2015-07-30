@@ -40,6 +40,10 @@
 	((pipe_ndx >= (1 << MDSS_MDP_SSPP_CURSOR0)) &&\
 	(pipe_ndx <= (1 << MDSS_MDP_SSPP_CURSOR1)))
 
+#define IS_PIPE_TYPE_DMA(pipe_ndx) \
+	((pipe_ndx >= (1 << MDSS_MDP_SSPP_DMA0)) &&\
+	(pipe_ndx <= (1 << MDSS_MDP_SSPP_DMA1)))
+
 enum {
 	MDSS_MDP_RELEASE_FENCE = 0,
 	MDSS_MDP_RETIRE_FENCE,
@@ -400,6 +404,15 @@ static int __validate_single_layer(struct msm_fb_data_type *mfd,
 		pr_err("pipe is non-scalar ndx=%x\n", layer->pipe_ndx);
 		ret = -EINVAL;
 		goto exit_fail;
+	}
+
+	if ((IS_PIPE_TYPE_DMA(layer->pipe_ndx) ||
+		IS_PIPE_TYPE_CURSOR(layer->pipe_ndx)) &&
+		(layer->dst_rect.h != layer->src_rect.h ||
+		 layer->dst_rect.w != layer->src_rect.w)) {
+		pr_err("no scaling supported on dma/cursor pipe, pipe num:%d\n",
+				layer->pipe_ndx);
+		return -EINVAL;
 	}
 
 exit_fail:
