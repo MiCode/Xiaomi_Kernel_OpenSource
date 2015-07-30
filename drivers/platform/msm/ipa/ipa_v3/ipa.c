@@ -1688,13 +1688,29 @@ int _ipa_init_sram_v3_0(void)
 	}
 
 	/* Consult with ipa_ram_mmap.h on the location of the CANARY values */
+	ipa3_sram_set_canary(ipa_sram_mmio,
+		IPA_MEM_PART(v4_flt_hashable_ofst) - 4);
+	ipa3_sram_set_canary(ipa_sram_mmio,
+		IPA_MEM_PART(v4_flt_hashable_ofst));
 	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_flt_ofst) - 4);
 	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_flt_ofst));
+	ipa3_sram_set_canary(ipa_sram_mmio,
+		IPA_MEM_PART(v6_flt_hashable_ofst) - 4);
+	ipa3_sram_set_canary(ipa_sram_mmio,
+		IPA_MEM_PART(v6_flt_hashable_ofst));
 	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_flt_ofst) - 4);
 	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_flt_ofst));
+	ipa3_sram_set_canary(ipa_sram_mmio,
+		IPA_MEM_PART(v4_rt_hashable_ofst) - 4);
+	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_rt_hashable_ofst));
 	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_rt_ofst) - 4);
 	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_rt_ofst));
+	ipa3_sram_set_canary(ipa_sram_mmio,
+		IPA_MEM_PART(v6_rt_hashable_ofst) - 4);
+	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_rt_hashable_ofst));
+	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_rt_ofst) - 4);
 	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_rt_ofst));
+	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(modem_hdr_ofst) - 4);
 	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(modem_hdr_ofst));
 	ipa3_sram_set_canary(ipa_sram_mmio,
 		IPA_MEM_PART(modem_hdr_proc_ctx_ofst) - 4);
