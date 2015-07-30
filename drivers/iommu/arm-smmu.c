@@ -432,7 +432,8 @@ enum arm_smmu_domain_stage {
 };
 
 struct arm_smmu_pte_info {
-	phys_addr_t phys_addr;
+	void *virt_addr;
+	size_t size;
 	struct list_head entry;
 };
 
@@ -447,6 +448,7 @@ struct arm_smmu_domain {
 	u32				attributes;
 	u32				secure_vmid;
 	struct list_head		pte_info_list;
+	struct list_head		unassign_list;
 };
 
 static struct iommu_ops arm_smmu_ops;
@@ -948,7 +950,7 @@ static void arm_smmu_flush_pgtable(void *addr, size_t size, void *cookie)
 }
 
 static void arm_smmu_prepare_pgtable(void *addr, void *cookie);
-static void arm_smmu_unprepare_pgtable(void *cookie, void *addr);
+static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size);
 
 static void *arm_smmu_alloc_pages_exact(void *cookie,
 					size_t size, gfp_t gfp_mask)
@@ -963,8 +965,8 @@ static void *arm_smmu_alloc_pages_exact(void *cookie,
 
 static void arm_smmu_free_pages_exact(void *cookie, void *virt, size_t size)
 {
-	arm_smmu_unprepare_pgtable(cookie, virt);
-	free_pages_exact(virt, size);
+	arm_smmu_unprepare_pgtable(cookie, virt, size);
+	/* unprepare also frees (possibly later), no need to free here */
 }
 
 static struct iommu_gather_ops arm_smmu_gather_ops = {
@@ -1450,6 +1452,8 @@ out:
 	return ret;
 }
 
+static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain);
+
 static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 {
 	struct arm_smmu_domain *smmu_domain = domain->priv;
@@ -1471,8 +1475,11 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 		free_irq(irq, domain);
 	}
 
-	if (smmu_domain->pgtbl_ops)
+	if (smmu_domain->pgtbl_ops) {
 		free_io_pgtable_ops(smmu_domain->pgtbl_ops);
+		/* unassign any freed page table memory */
+		arm_smmu_unassign_table(smmu_domain);
+	}
 
 	arm_smmu_disable_clocks(smmu_domain->smmu);
 
@@ -1497,6 +1504,7 @@ static int arm_smmu_domain_init(struct iommu_domain *domain)
 	/* disable coherent htw by default */
 	smmu_domain->attributes = (1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE);
 	INIT_LIST_HEAD(&smmu_domain->pte_info_list);
+	INIT_LIST_HEAD(&smmu_domain->unassign_list);
 	smmu_domain->cfg.cbndx = INVALID_CBNDX;
 	smmu_domain->cfg.irptndx = INVALID_IRPTNDX;
 	smmu_domain->cfg.asid = INVALID_ASID;
@@ -1916,8 +1924,9 @@ static void arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain)
 
 	list_for_each_entry(pte_info, &smmu_domain->pte_info_list,
 								entry) {
-		ret = hyp_assign_phys(pte_info->phys_addr, PAGE_SIZE,
-				&source_vmid, 1, dest_vmids, dest_perms, 2);
+		ret = hyp_assign_phys(virt_to_phys(pte_info->virt_addr),
+				      PAGE_SIZE, &source_vmid, 1,
+				      dest_vmids, dest_perms, 2);
 		if (WARN_ON(ret))
 			break;
 	}
@@ -1929,20 +1938,50 @@ static void arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain)
 	}
 }
 
-static void arm_smmu_unprepare_pgtable(void *cookie, void *addr)
+static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain)
 {
-	struct arm_smmu_domain *smmu_domain = cookie;
 	int ret;
 	int dest_vmids = VMID_HLOS;
 	int dest_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
 	int source_vmlist[2] = {VMID_HLOS, smmu_domain->secure_vmid};
+	struct arm_smmu_pte_info *pte_info, *temp;
 
 	if (smmu_domain->secure_vmid == VMID_INVAL)
 		return;
 
-	ret = hyp_assign_phys((phys_addr_t)virt_to_phys(addr), PAGE_SIZE,
-			source_vmlist, 2, &dest_vmids, &dest_perms, 1);
-	WARN_ON(ret);
+	list_for_each_entry(pte_info, &smmu_domain->unassign_list, entry) {
+		ret = hyp_assign_phys(virt_to_phys(pte_info->virt_addr),
+				      PAGE_SIZE, source_vmlist, 2,
+				      &dest_vmids, &dest_perms, 1);
+		if (WARN_ON(ret))
+			break;
+		free_pages_exact(pte_info->virt_addr, pte_info->size);
+	}
+
+	list_for_each_entry_safe(pte_info, temp, &smmu_domain->unassign_list,
+				 entry) {
+		list_del(&pte_info->entry);
+		kfree(pte_info);
+	}
+}
+
+static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size)
+{
+	struct arm_smmu_domain *smmu_domain = cookie;
+	struct arm_smmu_pte_info *pte_info;
+
+	if (smmu_domain->secure_vmid == VMID_INVAL) {
+		free_pages_exact(addr, size);
+		return;
+	}
+
+	pte_info = kzalloc(sizeof(struct arm_smmu_pte_info), GFP_ATOMIC);
+	if (!pte_info)
+		return;
+
+	pte_info->virt_addr = addr;
+	pte_info->size = size;
+	list_add_tail(&pte_info->entry, &smmu_domain->unassign_list);
 }
 
 static void arm_smmu_prepare_pgtable(void *addr, void *cookie)
@@ -1956,7 +1995,7 @@ static void arm_smmu_prepare_pgtable(void *addr, void *cookie)
 	pte_info = kzalloc(sizeof(struct arm_smmu_pte_info), GFP_ATOMIC);
 	if (!pte_info)
 		return;
-	pte_info->phys_addr = (phys_addr_t)virt_to_phys(addr);
+	pte_info->virt_addr = addr;
 	list_add_tail(&pte_info->entry, &smmu_domain->pte_info_list);
 }
 
@@ -2043,6 +2082,8 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	 * memory here as well.
 	 */
 	arm_smmu_assign_table(smmu_domain);
+	/* Also unassign any pages that were free'd during unmap */
+	arm_smmu_unassign_table(smmu_domain);
 
 	if (atomic_ctx) {
 		arm_smmu_disable_clocks_atomic(smmu_domain->smmu);
