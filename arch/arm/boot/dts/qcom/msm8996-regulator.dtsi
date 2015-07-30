@@ -903,6 +903,7 @@
 		regulator-max-microvolt = <865000>;
 		qcom,ldo-default-voltage = <750000>;
 		qcom,retention-voltage = <520000>;
+		qcom,ldo-headroom-voltage = <150000>;
 		qcom,vref-functional-step-voltage = <4048>;
 		qcom,vref-functional-min-voltage = <294800>;
 		qcom,vref-retention-step-voltage = <4462>;
@@ -925,6 +926,7 @@
 		regulator-max-microvolt = <865000>;
 		qcom,ldo-default-voltage = <750000>;
 		qcom,retention-voltage = <520000>;
+		qcom,ldo-headroom-voltage = <150000>;
 		qcom,vref-functional-step-voltage = <4048>;
 		qcom,vref-functional-min-voltage = <294800>;
 		qcom,vref-retention-step-voltage = <4462>;
