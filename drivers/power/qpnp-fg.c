@@ -1703,7 +1703,7 @@ static int fg_set_resume_soc(struct fg_chip *chip, u8 threshold)
 	if (rc)
 		pr_err("write failed rc=%d\n", rc);
 	else
-		pr_info("setting resume-soc to %x\n", threshold);
+		pr_debug("setting resume-soc to %x\n", threshold);
 
 	return rc;
 }
@@ -3870,6 +3870,7 @@ done:
 	if (chip->power_supply_registered)
 		power_supply_changed(&chip->bms_psy);
 	fg_relax(&chip->profile_wakeup_source);
+	pr_info("Battery SOC: %d\n", get_prop_capacity(chip));
 	return rc;
 no_profile:
 	if (chip->power_supply_registered)
@@ -5052,7 +5053,7 @@ static int fg_8994_hw_init(struct fg_chip *chip)
 	if (rc)
 		pr_err("failed to write default ESR value rc=%d\n", rc);
 	else
-		pr_info("set default value to esr filter\n");
+		pr_debug("set default value to esr filter\n");
 
 	return 0;
 }
