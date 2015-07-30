@@ -24,6 +24,7 @@
 #include <linux/msm_mhi.h>
 #include <linux/debugfs.h>
 #include <linux/ipc_logging.h>
+#include <linux/device.h>
 
 #define RMNET_MHI_DRIVER_NAME "rmnet_mhi"
 #define RMNET_MHI_DEV_NAME    "rmnet_mhi%d"
@@ -54,11 +55,14 @@ struct __packed mhi_skb_priv {
 
 enum DBG_LVL rmnet_ipc_log_lvl = MSG_VERBOSE;
 enum DBG_LVL rmnet_msg_lvl = MSG_CRITICAL;
+static unsigned int rmnet_log_override;
 
 module_param(rmnet_msg_lvl , uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(rmnet_msg_lvl, "dbg lvl");
 module_param(rmnet_ipc_log_lvl, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(rmnet_ipc_log_lvl, "dbg lvl");
+module_param(rmnet_log_override , uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(rmnet_log_override, "dbg class");
 
 unsigned int mru = MHI_DEFAULT_MRU;
 module_param(mru, uint, S_IRUGO | S_IWUSR);
@@ -67,11 +71,16 @@ MODULE_PARM_DESC(mru, "MRU interface setting");
 void *rmnet_ipc_log;
 
 #define rmnet_log(_msg_lvl, _msg, ...) do { \
-		if ((_msg_lvl) >= rmnet_msg_lvl) \
-			pr_alert("[%s] " _msg, __func__, ##__VA_ARGS__);\
-		if (rmnet_ipc_log && ((_msg_lvl) >= rmnet_ipc_log_lvl))	\
-			ipc_log_string(rmnet_ipc_log,			\
-			       "[%s] " _msg, __func__, ##__VA_ARGS__);	\
+		DEFINE_DYNAMIC_DEBUG_METADATA(descriptor, _msg);	 \
+		if ((rmnet_log_override ||				 \
+		    unlikely(descriptor.flags & _DPRINTK_FLAGS_PRINT)) &&\
+		    (_msg_lvl) >= rmnet_msg_lvl)			 \
+			pr_alert("[%s] " _msg, __func__, ##__VA_ARGS__); \
+		if ((rmnet_log_override ||				      \
+			unlikely(descriptor.flags & _DPRINTK_FLAGS_PRINT)) && \
+			rmnet_ipc_log && ((_msg_lvl) >= rmnet_ipc_log_lvl))   \
+			ipc_log_string(rmnet_ipc_log,			 \
+			       "[%s] " _msg, __func__, ##__VA_ARGS__);	 \
 } while (0)
 
 unsigned long tx_interrupts_count[MHI_RMNET_DEVICE_COUNT];
