@@ -395,6 +395,10 @@ struct mdss_data_type {
 
 	struct debug_bus *dbg_bus;
 	u32 dbg_bus_size;
+	struct vbif_debug_bus *vbif_dbg_bus;
+	u32 vbif_dbg_bus_size;
+	struct vbif_debug_bus *nrt_vbif_dbg_bus;
+	u32 nrt_vbif_dbg_bus_size;
 	struct mdss_debug_inf debug_inf;
 	bool mixer_switched;
 	struct mdss_panel_cfg pan_cfg;
