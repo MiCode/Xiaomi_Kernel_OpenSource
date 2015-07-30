@@ -18,10 +18,9 @@
 
 #include "mhi_sys.h"
 
-enum MHI_DEBUG_LEVEL mhi_msg_lvl = MHI_MSG_ERROR;
+enum MHI_DEBUG_LEVEL mhi_msg_lvl = MHI_MSG_VERBOSE;
 enum MHI_DEBUG_LEVEL mhi_ipc_log_lvl = MHI_MSG_VERBOSE;
-
-enum MHI_DEBUG_CLASS mhi_msg_class = MHI_DBG_DATA | MHI_DBG_POWER;
+unsigned int mhi_log_override;
 
 module_param(mhi_msg_lvl , uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(mhi_msg_lvl, "dbg lvl");
@@ -29,8 +28,8 @@ MODULE_PARM_DESC(mhi_msg_lvl, "dbg lvl");
 module_param(mhi_ipc_log_lvl, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(mhi_ipc_log_lvl, "dbg lvl");
 
-module_param(mhi_msg_class , uint, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(mhi_msg_class, "dbg class");
+module_param(mhi_log_override , uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(mhi_log_override, "dbg class");
 
 static ssize_t mhi_dbgfs_chan_read(struct file *fp, char __user *buf,
 				size_t count, loff_t *offp)
