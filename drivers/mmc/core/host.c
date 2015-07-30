@@ -192,18 +192,19 @@ static int mmc_host_resume(struct device *dev)
 
 	if (!pm_runtime_suspended(dev)) {
 		ret = mmc_resume_host(host);
-		if (ret < 0)
+		if (ret < 0) {
 			pr_err("%s: %s: failed: ret: %d\n", mmc_hostname(host),
 			       __func__, ret);
+		} else if (host->card && mmc_card_cmdq(host->card)) {
+			ret = mmc_cmdq_halt(host, false);
+			if (ret)
+				pr_err("%s: un-halt: failed: %d\n",
+						__func__, ret);
+			else
+				mmc_card_clr_suspended(host->card);
+		}
 	}
 	host->dev_status = DEV_RESUMED;
-	if (host->card && !ret && mmc_card_cmdq(host->card)) {
-		ret = mmc_cmdq_halt(host, false);
-		if (ret)
-			pr_err("%s: un-halt: failed: %d\n", __func__, ret);
-		else
-			mmc_card_clr_suspended(host->card);
-	}
 	return ret;
 }
 #endif
