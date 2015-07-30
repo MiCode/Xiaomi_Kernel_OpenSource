@@ -2966,7 +2966,7 @@
 			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
 			"LDO_H", "MCLK",
-			"AIF4 MAD", "MCLK",
+			"MADINPUT", "MCLK",
 			"AMIC2", "MIC BIAS2 External",
 			"MIC BIAS2 External", "Headset Mic",
 			"AMIC3", "MIC BIAS2 External",
@@ -3030,6 +3030,7 @@
 		qcom,audio-routing =
 			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
+			"MADINPUT", "MCLK",
 			"AMIC2", "MIC BIAS2",
 			"MIC BIAS2", "Headset Mic",
 			"AMIC3", "MIC BIAS2",
