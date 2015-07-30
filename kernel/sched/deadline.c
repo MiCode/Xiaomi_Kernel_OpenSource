@@ -739,12 +739,23 @@ dec_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p)
 	dec_cumulative_runnable_avg(&rq->hmp_stats, p);
 }
 
+#ifdef CONFIG_SCHED_QHMP
 static void
 fixup_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p,
 			 u32 new_task_load)
 {
 	fixup_cumulative_runnable_avg(&rq->hmp_stats, p, new_task_load);
 }
+#else
+static void
+fixup_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p,
+			 u32 new_task_load)
+{
+	s64 task_load_delta = (s64)new_task_load - task_load(p);
+
+	fixup_cumulative_runnable_avg(&rq->hmp_stats, p, task_load_delta);
+}
+#endif
 
 #else	/* CONFIG_SCHED_HMP */
 

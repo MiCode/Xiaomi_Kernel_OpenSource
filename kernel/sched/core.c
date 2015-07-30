@@ -1880,8 +1880,8 @@ static void update_history(struct rq *rq, struct task_struct *p,
 	if (task_on_rq_queued(p) && (!task_has_dl_policy(p) ||
 						!p->dl.dl_throttled))
 		p->sched_class->fixup_hmp_sched_stats(rq, p, demand);
-	else
-		p->ravg.demand = demand;
+
+	p->ravg.demand = demand;
 
 done:
 	trace_sched_update_history(rq, p, runtime, samples, event);
@@ -2264,8 +2264,6 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 		rq->nt_curr_runnable_sum = rq->nt_prev_runnable_sum = 0;
 #endif
 		reset_cpu_hmp_stats(cpu, 1);
-
-		fixup_nr_big_task(cpu, 0);
 	}
 
 	if (sched_window_stats_policy != sysctl_sched_window_stats_policy) {
