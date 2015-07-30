@@ -266,6 +266,9 @@ static void mdss_dump_debug_bus(u32 bus_dump_flag,
 			dump_addr[i*4 + 3] = status;
 		}
 
+		/* Disable debug bus once we are done */
+		writel_relaxed(0, mdss_res->mdp_base + head->wr_addr);
+
 	}
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
