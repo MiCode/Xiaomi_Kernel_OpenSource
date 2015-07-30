@@ -35,7 +35,9 @@ static void
 fixup_hmp_sched_stats_stop(struct rq *rq, struct task_struct *p,
 			   u32 new_task_load)
 {
-	fixup_cumulative_runnable_avg(&rq->hmp_stats, p, new_task_load);
+	s64 task_load_delta = (s64)new_task_load - task_load(p);
+
+	fixup_cumulative_runnable_avg(&rq->hmp_stats, p, task_load_delta);
 }
 
 #else	/* CONFIG_SCHED_HMP */
