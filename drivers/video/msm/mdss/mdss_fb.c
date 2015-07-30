@@ -3253,13 +3253,6 @@ static int mdss_fb_check_var(struct fb_var_screeninfo *var,
 	if ((var->xres_virtual <= 0) || (var->yres_virtual <= 0))
 		return -EINVAL;
 
-	if (info->fix.smem_start) {
-		u32 len = var->xres_virtual * var->yres_virtual *
-			(var->bits_per_pixel / 8);
-		if (len > info->fix.smem_len)
-			return -EINVAL;
-	}
-
 	if ((var->xres == 0) || (var->yres == 0))
 		return -EINVAL;
 
@@ -3426,8 +3419,10 @@ static int mdss_fb_set_par(struct fb_info *info)
 	else
 		mfd->fbi->fix.line_length = var->xres * var->bits_per_pixel / 8;
 
-	mfd->fbi->fix.smem_len = PAGE_ALIGN(mfd->fbi->fix.line_length *
-					mfd->fbi->var.yres) * mfd->fb_page;
+	/* if memory is not allocated yet, change memory size for fb */
+	if (!info->fix.smem_start)
+		mfd->fbi->fix.smem_len = PAGE_ALIGN(mfd->fbi->fix.line_length *
+				mfd->fbi->var.yres) * mfd->fb_page;
 
 	if (mfd->panel_reconfig || (mfd->fb_imgType != old_imgType)) {
 		mdss_fb_blank_sub(FB_BLANK_POWERDOWN, info, mfd->op_enable);
