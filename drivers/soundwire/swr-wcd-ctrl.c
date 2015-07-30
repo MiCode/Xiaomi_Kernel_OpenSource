@@ -456,19 +456,14 @@ static int swrm_read(struct swr_master *master, u8 dev_num, u32 reg_addr,
 		u32 *buf, u32 len)
 {
 	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(master);
+	int ret = 0;
 
 	if (!swrm) {
 		dev_err(&master->dev, "%s: swrm is NULL\n", __func__);
 		return -EINVAL;
 	}
 
-	if (pm_runtime_suspended(&swrm->pdev->dev)) {
-		dev_dbg(swrm->dev, "%s: suspended state, enable pm_runtime\n",
-			__func__);
-		pm_runtime_get_sync(&swrm->pdev->dev);
-		swrm->is_suspend = true;
-	}
-
+	pm_runtime_get_sync(&swrm->pdev->dev);
 	if (dev_num) {
 		swrm_cmd_fifo_rd_cmd(swrm, buf, dev_num, 0, reg_addr,
 					len);
@@ -478,15 +473,13 @@ static int swrm_read(struct swr_master *master, u8 dev_num, u32 reg_addr,
 		else {
 			dev_err(&master->dev, "%s: handle is NULL 0x%x\n",
 				__func__, reg_addr);
-			return -EINVAL;
+			ret = -EINVAL;
 		}
 	}
 	pm_runtime_mark_last_busy(&swrm->pdev->dev);
-	if (swrm->is_suspend) {
-		pm_runtime_put_autosuspend(&swrm->pdev->dev);
-		swrm->is_suspend = false;
-	}
-	return 0;
+	pm_runtime_put_autosuspend(&swrm->pdev->dev);
+
+	return ret;
 }
 
 static int swrm_write(struct swr_master *master, u8 dev_num, u32 reg_addr,
@@ -500,13 +493,7 @@ static int swrm_write(struct swr_master *master, u8 dev_num, u32 reg_addr,
 		return -EINVAL;
 	}
 
-	if (pm_runtime_suspended(&swrm->pdev->dev)) {
-		dev_dbg(swrm->dev, "%s: suspended state, enable pm_runtime\n",
-			__func__);
-		pm_runtime_get_sync(&swrm->pdev->dev);
-		swrm->is_suspend = true;
-	}
-
+	pm_runtime_get_sync(&swrm->pdev->dev);
 	if (dev_num) {
 		ret = swrm_cmd_fifo_wr_cmd(swrm, buf[0], dev_num, 0, reg_addr);
 	} else {
@@ -515,14 +502,12 @@ static int swrm_write(struct swr_master *master, u8 dev_num, u32 reg_addr,
 		} else {
 			dev_err(&master->dev, "%s: handle is NULL 0x%x\n",
 				__func__, reg_addr);
-			return -EINVAL;
+			ret = -EINVAL;
 		}
 	}
 	pm_runtime_mark_last_busy(&swrm->pdev->dev);
-	if (swrm->is_suspend) {
-		pm_runtime_put_autosuspend(&swrm->pdev->dev);
-		swrm->is_suspend = false;
-	}
+	pm_runtime_put_autosuspend(&swrm->pdev->dev);
+
 	return ret;
 }
 
