@@ -25,6 +25,7 @@ static int mhi_ssr_notify_cb(struct notifier_block *nb,
 	struct mhi_device_ctxt *mhi_dev_ctxt =
 		&mhi_devices.device_list[0].mhi_ctxt;
 	struct mhi_pcie_dev_info *mhi_pcie_dev = NULL;
+
 	mhi_pcie_dev = &mhi_devices.device_list[mhi_devices.nr_of_devices];
 	if (NULL != mhi_dev_ctxt)
 		mhi_dev_ctxt->esoc_notif = action;
@@ -81,6 +82,7 @@ static struct notifier_block mhi_ssr_nb = {
 static void esoc_parse_link_type(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	int ret_val;
+
 	ret_val = strcmp(mhi_dev_ctxt->esoc_handle->link, "HSIC+PCIe");
 	mhi_log(MHI_MSG_VERBOSE, "Link type is %s as indicated by ESOC\n",
 					mhi_dev_ctxt->esoc_handle->link);
@@ -97,6 +99,7 @@ int mhi_esoc_register(struct mhi_device_ctxt *mhi_dev_ctxt)
 	struct pci_driver *mhi_driver;
 	struct device *dev = &mhi_dev_ctxt->dev_info->pcie_device->dev;
 
+	mhi_dev_ctxt->base_state = STATE_TRANSITION_BHI;
 	mhi_driver = mhi_dev_ctxt->dev_info->mhi_pcie_driver;
 	np = dev->of_node;
 	mhi_dev_ctxt->esoc_handle = devm_register_esoc_client(dev, "mdm");
@@ -164,6 +167,8 @@ void mhi_link_state_cb(struct msm_pcie_notify *notify)
 	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
 	struct mhi_pcie_dev_info *mhi_pcie_dev = notify->data;
 	struct mhi_device_ctxt *mhi_dev_ctxt = NULL;
+	int r = 0;
+
 	if (NULL == notify || NULL == notify->data) {
 		mhi_log(MHI_MSG_CRITICAL,
 		"Incomplete handle received\n");
@@ -180,7 +185,18 @@ void mhi_link_state_cb(struct msm_pcie_notify *notify)
 		if (0 == mhi_pcie_dev->link_up_cntr) {
 			mhi_log(MHI_MSG_INFO,
 				"Initializing MHI for the first time\n");
-				mhi_ctxt_init(mhi_pcie_dev);
+				r = mhi_ctxt_init(mhi_pcie_dev);
+				if (r) {
+					mhi_log(MHI_MSG_ERROR,
+					"MHI initialization failed, ret %d.\n",
+					r);
+					r = msm_pcie_register_event(
+					&mhi_pcie_dev->mhi_pci_link_event);
+					mhi_log(MHI_MSG_ERROR,
+					"Deregistered from PCIe notif r %d.\n",
+					r);
+					return;
+				}
 				mhi_dev_ctxt = &mhi_pcie_dev->mhi_ctxt;
 				mhi_pcie_dev->mhi_ctxt.flags.link_up = 1;
 				pci_set_master(mhi_pcie_dev->pcie_device);
@@ -213,7 +229,6 @@ void mhi_link_state_cb(struct msm_pcie_notify *notify)
 		mhi_log(MHI_MSG_INFO,
 			"Received bad link event\n");
 		return;
-		break;
 		}
 }
 

@@ -64,6 +64,7 @@ int mhi_runtime_suspend(struct device *dev)
 {
 	int r = 0;
 	struct mhi_device_ctxt *mhi_dev_ctxt = dev->platform_data;
+
 	mhi_log(MHI_MSG_INFO, "Runtime Suspend - Entered\n");
 	r = mhi_initiate_m3(mhi_dev_ctxt);
 	pm_runtime_mark_last_busy(dev);
@@ -75,6 +76,7 @@ int mhi_runtime_resume(struct device *dev)
 {
 	int r = 0;
 	struct mhi_device_ctxt *mhi_dev_ctxt = dev->platform_data;
+
 	mhi_log(MHI_MSG_INFO, "Runtime Resume - Entered\n");
 	r = mhi_initiate_m0(mhi_dev_ctxt);
 	pm_runtime_mark_last_busy(dev);
@@ -86,6 +88,7 @@ int mhi_pci_resume(struct pci_dev *pcie_dev)
 {
 	int r = 0;
 	struct mhi_device_ctxt *mhi_dev_ctxt = pcie_dev->dev.platform_data;
+
 	r = mhi_initiate_m0(mhi_dev_ctxt);
 	if (r)
 		goto exit;
@@ -149,6 +152,7 @@ ssize_t sysfs_init_mhi_reset(struct device *dev, struct device_attribute *attr,
 	struct mhi_device_ctxt *mhi_dev_ctxt =
 		&mhi_devices.device_list[0].mhi_ctxt;
 	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
+
 	mhi_log(MHI_MSG_INFO, "Triggering MHI Reset.\n");
 	ret_val = mhi_trigger_reset(mhi_dev_ctxt);
 	if (ret_val != MHI_STATUS_SUCCESS)
@@ -182,6 +186,7 @@ enum MHI_STATUS mhi_turn_off_pcie_link(struct mhi_device_ctxt *mhi_dev_ctxt)
 	int r;
 	struct pci_dev *pcie_dev;
 	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
+
 	mhi_log(MHI_MSG_INFO, "Entered...\n");
 	pcie_dev = mhi_dev_ctxt->dev_info->pcie_device;
 	mutex_lock(&mhi_dev_ctxt->mhi_link_state);
@@ -223,6 +228,7 @@ enum MHI_STATUS mhi_turn_on_pcie_link(struct mhi_device_ctxt *mhi_dev_ctxt)
 	int r = 0;
 	struct pci_dev *pcie_dev;
 	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
+
 	pcie_dev = mhi_dev_ctxt->dev_info->pcie_device;
 
 	mutex_lock(&mhi_dev_ctxt->mhi_link_state);

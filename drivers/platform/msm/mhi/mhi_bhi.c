@@ -13,6 +13,7 @@
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #include <linux/slab.h>
+#include <linux/platform_device.h>
 
 #include "mhi_sys.h"
 #include "mhi.h"
@@ -73,10 +74,12 @@ static ssize_t bhi_write(struct file *file,
 		goto bhi_copy_error;
 	}
 	amount_copied = count;
+	/* Flush the writes, in anticipation for a device read */
 	wmb();
 	mhi_log(MHI_MSG_INFO,
 		"Copied image from user at addr: %p\n", bhi_ctxt->image_loc);
-	bhi_ctxt->phy_image_loc = dma_map_single(NULL,
+	bhi_ctxt->phy_image_loc = dma_map_single(
+			&mhi_dev_ctxt->dev_info->plat_dev->dev,
 			bhi_ctxt->image_loc,
 			bhi_ctxt->image_size,
 			DMA_TO_DEVICE);
@@ -131,7 +134,8 @@ static ssize_t bhi_write(struct file *file,
 			break;
 		usleep_range(20000, 25000);
 	}
-	dma_unmap_single(NULL, bhi_ctxt->phy_image_loc,
+	dma_unmap_single(&mhi_dev_ctxt->dev_info->plat_dev->dev,
+			bhi_ctxt->phy_image_loc,
 			bhi_ctxt->image_size, DMA_TO_DEVICE);
 
 	kfree(bhi_ctxt->unaligned_image_loc);
@@ -168,7 +172,6 @@ int bhi_probe(struct mhi_pcie_dev_info *mhi_pcie_device)
 	bhi_ctxt->bhi_base = mhi_pcie_device->core.bar0_base;
 	pcie_word_val = mhi_reg_read(bhi_ctxt->bhi_base, BHIOFF);
 	bhi_ctxt->bhi_base += pcie_word_val;
-	wmb();
 
 	mhi_log(MHI_MSG_INFO,
 		"Successfully registered char dev. bhi base is: 0x%p.\n",

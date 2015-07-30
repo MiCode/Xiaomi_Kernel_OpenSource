@@ -46,7 +46,7 @@ static ssize_t mhi_dbgfs_chan_read(struct file *fp, char __user *buf,
 
 	if (NULL == mhi_dev_ctxt)
 		return -EIO;
-	cc_list = mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list;
+	cc_list = mhi_dev_ctxt->dev_space.ring_ctxt.cc_list;
 	*offp = (u32)(*offp) % MHI_MAX_CHANNELS;
 
 	while (!valid_chan) {
@@ -74,7 +74,7 @@ static ssize_t mhi_dbgfs_chan_read(struct file *fp, char __user *buf,
 	amnt_copied =
 	scnprintf(mhi_dev_ctxt->chan_info,
 		MHI_LOG_SIZE,
-		"%s0x%x %s %d %s 0x%x %s 0x%llx %s %p %s %p %s %lu %s %p %s %lu %s %d %s %d\n",
+		"%s0x%x %s %d %s 0x%x %s 0x%llx %s %p %s %p %s %lu %s %p %s %lu %s %d %s %d %s %u\n",
 		"chan:",
 		(unsigned int)*offp,
 		"pkts from dev:",
@@ -97,7 +97,9 @@ static ssize_t mhi_dbgfs_chan_read(struct file *fp, char __user *buf,
 		get_nr_avail_ring_elements(
 		&mhi_dev_ctxt->mhi_local_chan_ctxt[*offp]),
 		"/",
-		client_handle->chan_info.max_desc);
+		client_handle->chan_info.max_desc,
+		"bb_used:",
+		mhi_dev_ctxt->counters.bb_used[*offp]);
 
 	*offp += 1;
 
@@ -129,7 +131,7 @@ static ssize_t mhi_dbgfs_ev_read(struct file *fp, char __user *buf,
 		return -EIO;
 	*offp = (u32)(*offp) % mhi_dev_ctxt->mmio_info.nr_event_rings;
 	event_ring_index = *offp;
-	ev_ctxt = &mhi_dev_ctxt->mhi_ctrl_seg->mhi_ec_list[event_ring_index];
+	ev_ctxt = &mhi_dev_ctxt->dev_space.ring_ctxt.ec_list[event_ring_index];
 	if (*offp == (mhi_dev_ctxt->mmio_info.nr_event_rings - 1))
 		msleep(1000);
 
@@ -196,6 +198,7 @@ static ssize_t mhi_dbgfs_trigger_msi(struct file *fp, const char __user *buf,
 {
 	u32 msi_nr = 0;
 	void *irq_ctxt = &((mhi_devices.device_list[0]).pcie_device->dev);
+
 	if (copy_from_user(&msi_nr, buf, sizeof(msi_nr)))
 		return -ENOMEM;
 	mhi_msi_handlr(msi_nr, irq_ctxt);
@@ -258,57 +261,13 @@ static const struct file_operations mhi_dbgfs_state_fops = {
 	.write = NULL,
 };
 
-inline void *mhi_get_virt_addr(struct mhi_meminfo *meminfo)
-{
-	return (void *)meminfo->va_aligned;
-}
-
-inline u64 mhi_get_memregion_len(struct mhi_meminfo *meminfo)
-{
-	return meminfo->size;
-}
-
-enum MHI_STATUS mhi_mallocmemregion(struct mhi_device_ctxt *mhi_dev_ctxt,
-				    struct mhi_meminfo *meminfo, size_t size)
-{
-	meminfo->va_unaligned = (uintptr_t)dma_alloc_coherent(
-				meminfo->dev,
-				size,
-				(dma_addr_t *)&(meminfo->pa_unaligned),
-				GFP_KERNEL);
-	if (!meminfo->va_unaligned)
-		return MHI_STATUS_ERROR;
-	meminfo->va_aligned = meminfo->va_unaligned;
-	meminfo->pa_aligned = meminfo->pa_unaligned;
-	meminfo->size = size;
-	if ((meminfo->pa_unaligned + size) >= MHI_DATA_SEG_WINDOW_END_ADDR)
-		return MHI_STATUS_ERROR;
-
-	if (0 == meminfo->va_unaligned)
-		return MHI_STATUS_ERROR;
-	mb();
-	return MHI_STATUS_SUCCESS;
-}
-
-void mhi_freememregion(struct mhi_meminfo *meminfo)
-{
-	mb();
-	dma_free_coherent(meminfo->dev,
-			meminfo->size,
-			(dma_addr_t *)&meminfo->pa_unaligned,
-			GFP_KERNEL);
-	meminfo->va_aligned = 0;
-	meminfo->pa_aligned = 0;
-	meminfo->va_unaligned = 0;
-	meminfo->pa_unaligned = 0;
-}
-
 int mhi_init_debugfs(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	struct dentry *mhi_chan_stats;
 	struct dentry *mhi_state_stats;
 	struct dentry *mhi_msi_trigger;
 	struct dentry *mhi_ev_stats;
+
 	mhi_dev_ctxt->mhi_parent_folder =
 					debugfs_create_dir("mhi", NULL);
 	if (mhi_dev_ctxt->mhi_parent_folder == NULL) {
@@ -365,22 +324,22 @@ uintptr_t mhi_p2v_addr(struct mhi_device_ctxt *mhi_dev_ctxt,
 			u32 chan, uintptr_t phy_ptr)
 {
 	uintptr_t virtual_ptr;
-	struct mhi_control_seg *cs;
-	cs = mhi_dev_ctxt->mhi_ctrl_seg;
+	struct mhi_ring_ctxt *cs = &mhi_dev_ctxt->dev_space.ring_ctxt;
+
 	switch (type) {
 	case MHI_RING_TYPE_EVENT_RING:
 		 virtual_ptr = (uintptr_t)((phy_ptr -
-		(uintptr_t)cs->mhi_ec_list[chan].mhi_event_ring_base_addr)
+		(uintptr_t)cs->ec_list[chan].mhi_event_ring_base_addr)
 			+ mhi_dev_ctxt->mhi_local_event_ctxt[chan].base);
 		break;
 	case MHI_RING_TYPE_XFER_RING:
 		virtual_ptr = (uintptr_t)((phy_ptr -
-		(uintptr_t)cs->mhi_cc_list[chan].mhi_trb_ring_base_addr)
+		(uintptr_t)cs->cc_list[chan].mhi_trb_ring_base_addr)
 				+ mhi_dev_ctxt->mhi_local_chan_ctxt[chan].base);
 		 break;
 	case MHI_RING_TYPE_CMD_RING:
 		virtual_ptr = (uintptr_t)((phy_ptr -
-		(uintptr_t)cs->mhi_cmd_ctxt_list[chan].mhi_cmd_ring_base_addr)
+		(uintptr_t)cs->cmd_ctxt[chan].mhi_cmd_ring_base_addr)
 				+ mhi_dev_ctxt->mhi_local_cmd_ctxt[chan].base);
 		break;
 	default:
@@ -389,29 +348,28 @@ uintptr_t mhi_p2v_addr(struct mhi_device_ctxt *mhi_dev_ctxt,
 	return virtual_ptr;
 }
 
-
 dma_addr_t mhi_v2p_addr(struct mhi_device_ctxt *mhi_dev_ctxt,
 			enum MHI_RING_TYPE type,
 			 u32 chan, uintptr_t va_ptr)
 {
 	dma_addr_t phy_ptr;
-	struct mhi_control_seg *cs;
-	cs = mhi_dev_ctxt->mhi_ctrl_seg;
+	struct mhi_ring_ctxt *cs = &mhi_dev_ctxt->dev_space.ring_ctxt;
+
 	switch (type) {
 	case MHI_RING_TYPE_EVENT_RING:
 		phy_ptr = (dma_addr_t)((va_ptr -
 		(uintptr_t)mhi_dev_ctxt->mhi_local_event_ctxt[chan].base) +
-		(uintptr_t)cs->mhi_ec_list[chan].mhi_event_ring_base_addr);
+		(uintptr_t)cs->ec_list[chan].mhi_event_ring_base_addr);
 		break;
 	case MHI_RING_TYPE_XFER_RING:
 		phy_ptr = (dma_addr_t)((va_ptr -
 		(uintptr_t)mhi_dev_ctxt->mhi_local_chan_ctxt[chan].base) +
-		((uintptr_t)cs->mhi_cc_list[chan].mhi_trb_ring_base_addr));
+		((uintptr_t)cs->cc_list[chan].mhi_trb_ring_base_addr));
 		break;
 	case MHI_RING_TYPE_CMD_RING:
 		phy_ptr = (dma_addr_t)((va_ptr -
 	(uintptr_t)mhi_dev_ctxt->mhi_local_cmd_ctxt[chan].base) +
-	((uintptr_t)cs->mhi_cmd_ctxt_list[chan].mhi_cmd_ring_base_addr));
+	((uintptr_t)cs->cmd_ctxt[chan].mhi_cmd_ring_base_addr));
 		break;
 	default:
 		break;
