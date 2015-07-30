@@ -291,9 +291,6 @@ static int ecryptfs_release(struct inode *inode, struct file *file)
 	if (ret)
 		pr_err("failed to sync file ret = %d.\n", ret);
 
-	if (get_events() && get_events()->release_cb)
-		get_events()->release_cb(ecryptfs_inode_to_lower(inode));
-
 	ecryptfs_put_lower_file(inode);
 	kmem_cache_free(ecryptfs_file_info_cache,
 			ecryptfs_file_to_private(file));

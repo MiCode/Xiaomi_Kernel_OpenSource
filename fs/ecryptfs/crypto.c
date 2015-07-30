@@ -470,6 +470,8 @@ out:
 static void init_ecryption_parameters(bool *hw_crypt, bool *cipher_supported,
 				struct ecryptfs_crypt_stat *crypt_stat)
 {
+	unsigned char final[2*ECRYPTFS_MAX_CIPHER_NAME_SIZE+1];
+
 	if (!hw_crypt || !cipher_supported)
 		return;
 
@@ -480,7 +482,7 @@ static void init_ecryption_parameters(bool *hw_crypt, bool *cipher_supported,
 		*cipher_supported =
 			get_events()->is_cipher_supported_cb(
 				ecryptfs_get_full_cipher(crypt_stat->cipher,
-				crypt_stat->cipher_mode));
+				crypt_stat->cipher_mode, final, sizeof(final)));
 		if (*cipher_supported) {
 			/**
 			 * we should apply external algorythm
@@ -805,10 +807,12 @@ static void ecryptfs_generate_new_key(struct ecryptfs_crypt_stat *crypt_stat)
 static int ecryptfs_generate_new_salt(struct ecryptfs_crypt_stat *crypt_stat)
 {
 	size_t salt_size = 0;
+	unsigned char final[2*ECRYPTFS_MAX_CIPHER_NAME_SIZE+1];
 
 	salt_size = ecryptfs_get_salt_size_for_cipher(
 			ecryptfs_get_full_cipher(crypt_stat->cipher,
-						 crypt_stat->cipher_mode));
+						 crypt_stat->cipher_mode,
+						 final, sizeof(final)));
 
 	if (0 == salt_size)
 		return 0;

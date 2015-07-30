@@ -534,16 +534,17 @@ ecryptfs_dentry_to_lower_path(struct dentry *dentry)
  * concatenates them to create a new string of
  * <cipher>_<mode> format.
  */
-static inline char *ecryptfs_get_full_cipher(
-	char *cipher, char *mode)
+static inline unsigned char *ecryptfs_get_full_cipher(
+	unsigned char *cipher, unsigned char *mode,
+	unsigned char *final, size_t final_size)
 {
-	static char final[2*ECRYPTFS_MAX_CIPHER_NAME_SIZE+1];
+	memset(final, 0, final_size);
 
 	if (strlen(mode) > 0) {
-		memset(final, 0, sizeof(final));
-		snprintf(final, sizeof(final), "%s_%s", cipher, mode);
+		snprintf(final, final_size, "%s_%s", cipher, mode);
 		return final;
 	}
+
 	return cipher;
 }
 

@@ -165,7 +165,13 @@ void ecryptfs_put_lower_file(struct inode *inode)
 		fput(inode_info->lower_file);
 		inode_info->lower_file = NULL;
 		mutex_unlock(&inode_info->lower_file_mutex);
+
+		if (get_events() && get_events()->release_cb)
+			get_events()->release_cb(
+			ecryptfs_inode_to_lower(inode));
 	}
+
+
 }
 
 enum { ecryptfs_opt_sig, ecryptfs_opt_ecryptfs_sig,
@@ -281,6 +287,7 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 	char *cipher_key_bytes_src;
 	char *fn_cipher_key_bytes_src;
 	u8 cipher_code;
+	unsigned char final[2*ECRYPTFS_MAX_CIPHER_NAME_SIZE+1];
 
 	*check_ruid = 0;
 
@@ -425,7 +432,8 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 		salt_size = ecryptfs_get_salt_size_for_cipher(
 				ecryptfs_get_full_cipher(
 				mount_crypt_stat->global_default_cipher_name,
-				mount_crypt_stat->global_default_cipher_mode));
+				mount_crypt_stat->global_default_cipher_mode,
+				final, sizeof(final)));
 
 		if (!ecryptfs_check_space_for_salt(
 			mount_crypt_stat->global_default_cipher_key_size,
@@ -445,7 +453,8 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 	cipher_code = ecryptfs_code_for_cipher_string(
 			ecryptfs_get_full_cipher(
 				mount_crypt_stat->global_default_cipher_name,
-				mount_crypt_stat->global_default_cipher_mode),
+				mount_crypt_stat->global_default_cipher_mode,
+				final, sizeof(final)),
 		mount_crypt_stat->global_default_cipher_key_size);
 	if (!cipher_code) {
 		ecryptfs_printk(
@@ -453,7 +462,8 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 			"eCryptfs doesn't support cipher: %s and key size %lu",
 			ecryptfs_get_full_cipher(
 				mount_crypt_stat->global_default_cipher_name,
-				mount_crypt_stat->global_default_cipher_mode),
+				mount_crypt_stat->global_default_cipher_mode,
+				final, sizeof(final)),
 			mount_crypt_stat->global_default_cipher_key_size);
 		rc = -EINVAL;
 		goto out;

@@ -1687,6 +1687,8 @@ static int
 decrypt_passphrase_encrypted_session_key(struct ecryptfs_auth_tok *auth_tok,
 					 struct ecryptfs_crypt_stat *crypt_stat)
 {
+
+	unsigned char final[2*ECRYPTFS_MAX_CIPHER_NAME_SIZE+1];
 	struct scatterlist dst_sg[2];
 	struct scatterlist src_sg[2];
 	struct mutex *tfm_mutex;
@@ -1761,7 +1763,8 @@ decrypt_passphrase_encrypted_session_key(struct ecryptfs_auth_tok *auth_tok,
 				  crypt_stat->key_size);
 		ecryptfs_dump_salt_hex(crypt_stat->key, crypt_stat->key_size,
 				ecryptfs_get_full_cipher(crypt_stat->cipher,
-					crypt_stat->cipher_mode));
+					crypt_stat->cipher_mode,
+					final, sizeof(final)));
 	}
 out:
 	return rc;
@@ -1998,15 +2001,17 @@ pki_encrypt_session_key(struct key *auth_tok_key,
 	size_t payload_len = 0;
 	struct ecryptfs_message *msg;
 	int rc;
+	unsigned char final[2*ECRYPTFS_MAX_CIPHER_NAME_SIZE+1];
 
 	rc = write_tag_66_packet(auth_tok->token.private_key.signature,
 			ecryptfs_code_for_cipher_string(
 					ecryptfs_get_full_cipher(
 						crypt_stat->cipher,
-						crypt_stat->cipher_mode),
+						crypt_stat->cipher_mode,
+						final, sizeof(final)),
 					ecryptfs_get_key_size_to_enc_data(
 						crypt_stat)),
-			crypt_stat, &payload, &payload_len);
+					crypt_stat, &payload, &payload_len);
 	up_write(&(auth_tok_key->sem));
 	key_put(auth_tok_key);
 	if (rc) {
@@ -2218,6 +2223,7 @@ write_tag_3_packet(char *dest, size_t *remaining_bytes,
 	u8 cipher_code;
 	size_t packet_size_length;
 	size_t max_packet_size;
+	unsigned char final[2*ECRYPTFS_MAX_CIPHER_NAME_SIZE+1];
 	struct ecryptfs_mount_crypt_stat *mount_crypt_stat =
 		crypt_stat->mount_crypt_stat;
 	struct blkcipher_desc desc = {
@@ -2328,7 +2334,8 @@ write_tag_3_packet(char *dest, size_t *remaining_bytes,
 	ecryptfs_printk(KERN_DEBUG, "Encrypting [%zd] bytes of the salt key\n",
 		ecryptfs_get_salt_size_for_cipher(
 			ecryptfs_get_full_cipher(crypt_stat->cipher,
-				crypt_stat->cipher_mode)));
+				crypt_stat->cipher_mode,
+				final, sizeof(final))));
 	rc = crypto_blkcipher_encrypt(&desc, dst_sg, src_sg,
 				      (*key_rec).enc_key_size);
 	mutex_unlock(tfm_mutex);
@@ -2379,7 +2386,7 @@ encrypted_session_key_set:
 	 * specified with strings */
 	cipher_code = ecryptfs_code_for_cipher_string(
 			ecryptfs_get_full_cipher(crypt_stat->cipher,
-				crypt_stat->cipher_mode),
+				crypt_stat->cipher_mode, final, sizeof(final)),
 			crypt_stat->key_size);
 	if (cipher_code == 0) {
 		ecryptfs_printk(KERN_WARNING, "Unable to generate code for "
