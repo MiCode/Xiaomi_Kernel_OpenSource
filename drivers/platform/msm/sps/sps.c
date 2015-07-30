@@ -2528,6 +2528,41 @@ int sps_get_bam_addr(unsigned long dev, phys_addr_t *base,
 }
 EXPORT_SYMBOL(sps_get_bam_addr);
 
+/*
+ * Inject a ZLT with EOT for a BAM pipe
+ */
+int sps_pipe_inject_zlt(unsigned long dev, u32 pipe_index)
+{
+	struct sps_bam *bam;
+	int rc;
+
+	if (!dev) {
+		SPS_ERR(sps, "sps:%s:BAM handle is NULL.\n", __func__);
+		return SPS_ERROR;
+	}
+
+	if (pipe_index >= BAM_MAX_PIPES) {
+		SPS_ERR(sps, "sps:%s:pipe index is invalid.\n", __func__);
+		return SPS_ERROR;
+	}
+
+	bam = sps_h2bam(dev);
+	if (bam == NULL) {
+		SPS_ERR(sps, "sps:%s:BAM is not found by handle.\n", __func__);
+		return SPS_ERROR;
+	}
+
+	SPS_DBG(bam, "sps:%s; BAM: %pa; pipe index:%d.\n",
+		__func__, BAM_ID(bam), pipe_index);
+
+	rc = sps_bam_pipe_inject_zlt(bam, pipe_index);
+	if (rc)
+		SPS_ERR(bam, "sps:%s:failed to inject a ZLT.\n", __func__);
+
+	return rc;
+}
+EXPORT_SYMBOL(sps_pipe_inject_zlt);
+
 /**
  * Allocate client state context
  *
