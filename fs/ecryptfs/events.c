@@ -176,6 +176,7 @@ size_t ecryptfs_get_key_size(void *data)
 size_t ecryptfs_get_salt_size(void *data)
 {
 	struct ecryptfs_crypt_stat *stat = NULL;
+	unsigned char final[2*ECRYPTFS_MAX_CIPHER_NAME_SIZE+1];
 
 	if (!data) {
 		ecryptfs_printk(KERN_ERR,
@@ -186,7 +187,8 @@ size_t ecryptfs_get_salt_size(void *data)
 	stat = (struct ecryptfs_crypt_stat *)data;
 	return ecryptfs_get_salt_size_for_cipher(
 			ecryptfs_get_full_cipher(stat->cipher,
-						 stat->cipher_mode));
+						 stat->cipher_mode,
+						 final, sizeof(final)));
 
 }
 
@@ -196,7 +198,7 @@ size_t ecryptfs_get_salt_size(void *data)
  */
 const unsigned char *ecryptfs_get_cipher(void *data)
 {
-
+	unsigned char final[2*ECRYPTFS_MAX_CIPHER_NAME_SIZE+1];
 	struct ecryptfs_crypt_stat *stat = NULL;
 
 	if (!data) {
@@ -205,7 +207,8 @@ const unsigned char *ecryptfs_get_cipher(void *data)
 		return NULL;
 	}
 	stat = (struct ecryptfs_crypt_stat *)data;
-	return ecryptfs_get_full_cipher(stat->cipher, stat->cipher_mode);
+	return ecryptfs_get_full_cipher(stat->cipher, stat->cipher_mode,
+			final, sizeof(final));
 }
 
 /**
