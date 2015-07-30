@@ -45,7 +45,6 @@
 
 void msm_dcvs_init(struct msm_vidc_inst *inst);
 void msm_dcvs_init_load(struct msm_vidc_inst *inst);
-bool msm_dcvs_enc_check(struct msm_vidc_inst *inst);
 void msm_dcvs_monitor_buffer(struct msm_vidc_inst *inst);
 void msm_dcvs_check_and_scale_clocks(struct msm_vidc_inst *inst, bool is_etb);
 int  msm_dcvs_get_extra_buff_count(struct msm_vidc_inst *inst);
