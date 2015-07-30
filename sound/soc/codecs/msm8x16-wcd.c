@@ -3732,6 +3732,8 @@ static int msm8x16_wcd_hph_pa_event(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_RX_HPH_L_TEST, 0x04, 0x00);
 			msm8x16_wcd->mute_mask |= HPHL_PA_DISABLE;
+			msm8x16_notifier_call(codec,
+					WCD_EVENT_PRE_HPHL_PA_OFF);
 		} else if (w->shift == 4) {
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_CDC_RX2_B6_CTL, 0x01, 0x01);
@@ -3739,6 +3741,8 @@ static int msm8x16_wcd_hph_pa_event(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_RX_HPH_R_TEST, 0x04, 0x00);
 			msm8x16_wcd->mute_mask |= HPHR_PA_DISABLE;
+			msm8x16_notifier_call(codec,
+					WCD_EVENT_PRE_HPHR_PA_OFF);
 		}
 		if (get_codec_version(msm8x16_wcd) >= CAJON) {
 			snd_soc_update_bits(codec,
