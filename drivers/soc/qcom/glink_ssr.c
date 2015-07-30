@@ -291,6 +291,8 @@ void close_ch_worker(struct work_struct *work)
 	else
 		ss_info->link_state_handle = link_state_handle;
 
+	BUG_ON(!ss_info->cb_data);
+	kfree(ss_info->cb_data);
 	kfree(close_work);
 }
 
