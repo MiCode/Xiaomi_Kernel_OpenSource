@@ -20,6 +20,14 @@
 
 #define WSA881X_MAX_SWR_PORTS   4
 
+enum {
+	WSA881X_1_X = 0,
+	WSA881X_2_0,
+};
+
+#define WSA881X_IS_2_0(ver) \
+	((ver == WSA881X_2_0) ? 1 : 0)
+
 extern int wsa881x_set_channel_map(struct snd_soc_codec *codec, u8 *port,
 				u8 num_port, unsigned int *ch_mask,
 				unsigned int *ch_rate);
@@ -29,4 +37,6 @@ extern struct regmap_config wsa881x_regmap_config;
 extern int wsa881x_codec_info_create_codec_entry(
 					struct snd_info_entry *codec_root,
 					struct snd_soc_codec *codec);
+void wsa881x_regmap_defaults(struct regmap *regmap, u8 version);
+
 #endif /* _WSA881X_H */
