@@ -16,8 +16,11 @@
 
 /*PLL Sources */
 #define clk_gpll0_clk_src					 0x5933b69f
+#define clk_gpll0_ao_clk_src                                     0x6b2fb034
 #define clk_gpll2_clk_src					 0x7c34503b
 #define clk_gpll1_clk_src					 0x916f8847
+
+#define clk_a7sspll						 0x0b2e5cbd
 
 /*RPM and Voter clocks */
 #define clk_pcnoc_clk						 0xc1296d0f
@@ -140,6 +143,13 @@
 #define clk_gcc_qusb2_phy_clk					 0x996884d5
 /* DEBUG */
 #define clk_gcc_debug_mux					 0x8121ac15
+#define clk_apss_debug_pri_mux					 0xc691ff55
+#define clk_apc0_m_clk						 0xce1e9473
+#define clk_apc1_m_clk						 0x990fbaf7
+#define clk_apc2_m_clk						 0x252cd4ae
+#define clk_apc3_m_clk						 0x78c64486
+#define clk_l2_m_clk						 0x4bedf4d0
+
 #define clk_wcnss_m_clk						 0x709f430b
 
 #endif

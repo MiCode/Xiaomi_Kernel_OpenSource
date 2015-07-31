@@ -39,6 +39,7 @@
 enum {
 	GCC_BASE,
 	DEBUG_BASE,
+	APCS_PLL_BASE,
 	N_BASES,
 };
 
@@ -72,18 +73,85 @@ static DEFINE_CLK_BRANCH_VOTER(xo_lpm_clk, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_otg_clk, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_pil_mss_clk, &xo_clk_src.c);
 
+#define F_APCS_STROMER_PLL(f, l, m, pre_div, post_div, vco) \
+	{ \
+		.freq_hz = (f), \
+		.l_val = (l), \
+		.a_val = (m), \
+		.pre_div_val = BVAL(14, 12, (pre_div)), \
+		.post_div_val = BVAL(11, 8, (post_div)), \
+		.vco_val = BVAL(21, 20, (vco)), \
+	}
+
+static DEFINE_VDD_REGULATORS(vdd_stromer_pll, VDD_DIG_NUM, 1, vdd_corner, NULL);
+
+static struct alpha_pll_masks pll_masks_p = {
+	.lock_mask = BIT(31),
+	.active_mask = BIT(30),
+	.vco_mask = BM(21, 20) >> 20,
+	.vco_shift = 20,
+	.alpha_en_mask = BIT(24),
+	.output_mask = 0xf,
+	.update_mask = BIT(22),
+	.post_div_mask = BM(11, 8),
+};
+
+static struct alpha_pll_vco_tbl p_vco[] = {
+	VCO(0,  700000000, 1400000000),
+};
+
+static struct alpha_pll_clk a7sspll = {
+	.masks = &pll_masks_p,
+	.vco_tbl = p_vco,
+	.num_vco = ARRAY_SIZE(p_vco),
+	.base = &virt_bases[APCS_PLL_BASE],
+	.offset = APCS_MODE,
+	.slew = true,
+	.enable_config = 1,
+	.post_div_config = 0,
+	.c = {
+		.parent = &xo_a_clk_src.c,
+		.dbg_name = "a7sspll",
+		.ops = &clk_ops_dyna_alpha_pll,
+		VDD_STROMER_FMAX_MAP3(LOWER, 400000000, NOMINAL, 800000000,
+					HIGH, 1200000000),
+		CLK_INIT(a7sspll.c),
+	},
+};
+
+static unsigned int soft_vote_gpll0;
+
 static struct pll_vote_clk gpll0_clk_src = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
 	.en_mask = BIT(0),
 	.status_reg = (void __iomem *)GPLL0_MODE,
 	.status_mask = BIT(30),
 	.base = &virt_bases[GCC_BASE],
+	.soft_vote = &soft_vote_gpll0,
+	.soft_vote_mask = PLL_SOFT_VOTE_PRIMARY,
 	.c = {
 		.parent = &xo_clk_src.c,
 		.rate = 800000000,
 		.dbg_name = "gpll0_clk_src",
-		.ops = &clk_ops_pll_vote,
+		.ops = &clk_ops_pll_acpu_vote,
 		CLK_INIT(gpll0_clk_src.c),
+	},
+};
+
+static struct pll_vote_clk gpll0_ao_clk_src = {
+	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
+	.en_mask = BIT(0),
+	.status_reg = (void __iomem *)GPLL0_MODE,
+	.status_mask = BIT(30),
+	.soft_vote = &soft_vote_gpll0,
+	.soft_vote_mask = PLL_SOFT_VOTE_ACPU,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.parent = &xo_clk_src.c,
+		.rate = 800000000,
+		.dbg_name = "gpll0_ao_clk_src",
+		.ops = &clk_ops_pll_acpu_vote,
+		CLK_INIT(gpll0_ao_clk_src.c),
 	},
 };
 
@@ -1403,6 +1471,103 @@ static struct reset_clk gcc_qusb2_phy_clk = {
 	},
 };
 
+static struct measure_clk apc0_m_clk = {
+	.c = {
+		.ops = &clk_ops_empty,
+		.dbg_name = "apc0_m_clk",
+		CLK_INIT(apc0_m_clk.c),
+	},
+};
+
+static struct measure_clk apc1_m_clk = {
+	.c = {
+		.ops = &clk_ops_empty,
+		.dbg_name = "apc1_m_clk",
+		CLK_INIT(apc1_m_clk.c),
+	},
+};
+
+static struct measure_clk apc2_m_clk = {
+	.c = {
+		.ops = &clk_ops_empty,
+		.dbg_name = "apc2_m_clk",
+		CLK_INIT(apc2_m_clk.c),
+	},
+};
+
+static struct measure_clk apc3_m_clk = {
+	.c = {
+		.ops = &clk_ops_empty,
+		.dbg_name = "apc3_m_clk",
+		CLK_INIT(apc3_m_clk.c),
+	},
+};
+
+static struct measure_clk l2_m_clk = {
+	.c = {
+		.ops = &clk_ops_empty,
+		.dbg_name = "l2_m_clk",
+		CLK_INIT(l2_m_clk.c),
+	},
+};
+
+static void __iomem *meas_base;
+
+static struct mux_clk apss_debug_ter_mux = {
+	.ops = &mux_reg_ops,
+	.mask = 0x3,
+	.shift = 8,
+	MUX_SRC_LIST(
+		{&apc0_m_clk.c, 0},
+		{&apc1_m_clk.c, 1},
+		{&apc2_m_clk.c, 2},
+		{&apc3_m_clk.c, 3},
+	),
+	.base = &meas_base,
+	.c = {
+		.dbg_name = "apss_debug_ter_mux",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(apss_debug_ter_mux.c),
+	},
+};
+
+static struct mux_clk apss_debug_sec_mux = {
+	.ops = &mux_reg_ops,
+	.mask = 0x7,
+	.shift = 12,
+	MUX_SRC_LIST(
+		{&apss_debug_ter_mux.c, 0},
+		{&l2_m_clk.c, 1},
+	),
+	MUX_REC_SRC_LIST(
+		&apss_debug_ter_mux.c,
+	),
+	.base = &meas_base,
+	.c = {
+		.dbg_name = "apss_debug_sec_mux",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(apss_debug_sec_mux.c),
+	},
+};
+
+static struct mux_clk apss_debug_pri_mux = {
+	.ops = &mux_reg_ops,
+	.mask = 0x3,
+	.shift = 16,
+	MUX_SRC_LIST(
+		{&apss_debug_sec_mux.c, 0},
+	),
+	MUX_REC_SRC_LIST(
+		&apss_debug_sec_mux.c,
+	),
+	.base = &meas_base,
+	.c = {
+		.dbg_name = "apss_debug_pri_mux",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(apss_debug_pri_mux.c),
+	},
+};
+
 static struct clk_ops clk_ops_debug_mux;
 
 static struct measure_clk_data debug_mux_priv = {
@@ -1491,8 +1656,11 @@ static struct mux_clk gcc_debug_mux = {
 /* Clock lookup */
 static struct clk_lookup msm_clocks_lookup[] = {
 	 CLK_LIST(gpll0_clk_src),
+	 CLK_LIST(gpll0_ao_clk_src),
 	 CLK_LIST(gpll2_clk_src),
 	 CLK_LIST(gpll1_clk_src),
+	 CLK_LIST(a7sspll),
+
 	 CLK_LIST(pcnoc_clk),
 	 CLK_LIST(pcnoc_a_clk),
 	 CLK_LIST(pcnoc_msmbus_clk),
@@ -1631,12 +1799,34 @@ static int msm_gcc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apcs_base");
+	if (!res) {
+		dev_err(&pdev->dev, "APCS PLL Register base not defined\n");
+		return -ENOMEM;
+	}
+
+	virt_bases[APCS_PLL_BASE] = devm_ioremap(&pdev->dev, res->start,
+							resource_size(res));
+	if (!virt_bases[APCS_PLL_BASE]) {
+		dev_err(&pdev->dev, "Failed to ioremap APCS PLL registers\n");
+		return -ENOMEM;
+	}
+
 	vdd_dig.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_dig");
 	if (IS_ERR(vdd_dig.regulator[0])) {
 		if (!(PTR_ERR(vdd_dig.regulator[0]) == -EPROBE_DEFER))
 			dev_err(&pdev->dev,
 					"Unable to get vdd_dig regulator!!!\n");
 		return PTR_ERR(vdd_dig.regulator[0]);
+	}
+
+	vdd_stromer_pll.regulator[0] = devm_regulator_get(&pdev->dev,
+							"vdd_stromer_dig");
+	if (IS_ERR(vdd_stromer_pll.regulator[0])) {
+		if (!(PTR_ERR(vdd_stromer_pll.regulator[0]) == -EPROBE_DEFER))
+			dev_err(&pdev->dev,
+				"Unable to get vdd_stromer_dig regulator!!!\n");
+		return PTR_ERR(vdd_stromer_pll.regulator[0]);
 	}
 
 	 /*Vote for GPLL0 to turn on. Needed by acpuclock. */
@@ -1647,6 +1837,10 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	ret = of_msm_clock_register(pdev->dev.of_node,
 				msm_clocks_lookup,
 				ARRAY_SIZE(msm_clocks_lookup));
+	if (ret)
+		return ret;
+
+	ret = enable_rpm_scaling();
 	if (ret)
 		return ret;
 
@@ -1688,6 +1882,12 @@ arch_initcall(msm_gcc_init);
 
 static struct clk_lookup msm_clocks_measure[] = {
 	CLK_LOOKUP_OF("measure", gcc_debug_mux, "debug"),
+	CLK_LIST(apss_debug_pri_mux),
+	CLK_LIST(apc0_m_clk),
+	CLK_LIST(apc1_m_clk),
+	CLK_LIST(apc2_m_clk),
+	CLK_LIST(apc3_m_clk),
+	CLK_LIST(l2_m_clk),
 };
 
 static int msm_clock_debug_probe(struct platform_device *pdev)
@@ -1708,6 +1908,18 @@ static int msm_clock_debug_probe(struct platform_device *pdev)
 							resource_size(res));
 	if (!virt_bases[DEBUG_BASE]) {
 		dev_err(&pdev->dev, "Failed to ioremap debug cc registers\n");
+		return -ENOMEM;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "meas");
+	if (!res) {
+		dev_err(&pdev->dev, "GLB clock diag base not defined.\n");
+		return -EINVAL;
+	}
+
+	meas_base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	if (!meas_base) {
+		dev_err(&pdev->dev, "Unable to map GLB clock diag base.\n");
 		return -ENOMEM;
 	}
 

@@ -222,6 +222,7 @@
 		reg = <0x1800000 0x80000>;
 		reg-names = "cc_base";
 		vdd_dig-supply = <&mdmfermium_s3_level>;
+		vdd_stromer_dig-supply = <&mdmfermium_s3_level_ao>;
 		#clock-cells = <1>;
 	};
 
