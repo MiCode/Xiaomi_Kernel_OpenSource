@@ -21,6 +21,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include <soc/qcom/secure_buffer.h>
 
 #ifdef CONFIG_IOMMU_DEBUG_TRACKING
 
@@ -40,6 +41,7 @@ static int iommu_debug_attachment_info_show(struct seq_file *s, void *ignored)
 	struct iommu_debug_attachment *attach = s->private;
 	phys_addr_t pt_phys;
 	int coherent_htw_disable;
+	int secure_vmid;
 
 	seq_printf(s, "Domain: 0x%p\n", attach->domain);
 	if (iommu_domain_get_attr(attach->domain, DOMAIN_ATTR_PT_BASE_ADDR,
@@ -59,6 +61,15 @@ static int iommu_debug_attachment_info_show(struct seq_file *s, void *ignored)
 		seq_puts(s, "(Unknown)\n");
 	else
 		seq_printf(s, "%d\n", coherent_htw_disable);
+
+	seq_puts(s, "SECURE_VMID: ");
+	if (iommu_domain_get_attr(attach->domain,
+				  DOMAIN_ATTR_SECURE_VMID,
+				  &secure_vmid))
+		seq_puts(s, "(Unknown)\n");
+	else
+		seq_printf(s, "%s (0x%x)\n",
+			   msm_secure_vmid_to_string(secure_vmid), secure_vmid);
 
 	return 0;
 }
