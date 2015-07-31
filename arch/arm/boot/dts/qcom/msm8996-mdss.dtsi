@@ -363,6 +363,7 @@
 				<0x828000 0x108>;
 			reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
 
+			oled-vdda-supply = <&pm8994_l19>;
 			vddio-supply = <&pm8994_l14>;
 			lab-supply = <&lab_regulator>;
 			ibb-supply = <&ibb_regulator>;
@@ -406,6 +407,7 @@
 				<0x828000 0x108>;
 			reg-names = "dsi_ctrl", "dsi_phy", "mmss_misc_phys";
 
+			oled-vdda-supply = <&pm8994_l19>;
 			vddio-supply = <&pm8994_l14>;
 			lab-supply = <&lab_regulator>;
 			ibb-supply = <&ibb_regulator>;
