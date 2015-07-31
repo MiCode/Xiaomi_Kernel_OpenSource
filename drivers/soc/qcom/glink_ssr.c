@@ -199,8 +199,9 @@ void glink_ssr_notify_rx(void *handle, const void *priv, const void *pkt_priv,
 
 	GLINK_DBG("<SSR> %s: responses remaining after dec[%d]\n",
 			__func__, atomic_read(&responses_remaining));
-	GLINK_INFO("<SSR> %s: %s resp[%d] version[%d] seq_num[%d]\n",
-			__func__, "Response received.", resp->response,
+	GLINK_INFO(
+		"<SSR> %s: Response received from %s resp[%d] version[%d] seq_num[%d]\n",
+			__func__, cb_data->edge, resp->response,
 			resp->version, resp->seq_num);
 
 	wake_up(&waitqueue);
