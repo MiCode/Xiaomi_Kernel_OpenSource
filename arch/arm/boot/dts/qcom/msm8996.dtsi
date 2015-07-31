@@ -806,6 +806,7 @@
 		vdd-cbf-supply = <&apc0_cbf_vreg>;
 		vdd-dig-supply = <&pm8994_s2_corner_ao>;
 		cbf-dev = <&m4m_cache>;
+		/* please look at msm8996-v3.dtsi for the v3 plan */
 		qcom,pwrcl-speedbin0-v0 =
 			<          0  0 >,
 			<  307200000  3 >,
