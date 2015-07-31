@@ -498,6 +498,9 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 			if (strcmp(ss_leaf_entry->ssr_name, "rpm")) {
 				subsystem_restart(ss_leaf_entry->ssr_name);
 				ss_leaf_entry->restarted = true;
+			} else {
+				panic("%s: Could not queue intent for RPM!\n",
+						__func__);
 			}
 			atomic_dec(&responses_remaining);
 			continue;
@@ -514,6 +517,9 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 			if (strcmp(ss_leaf_entry->ssr_name, "rpm")) {
 				subsystem_restart(ss_leaf_entry->ssr_name);
 				ss_leaf_entry->restarted = true;
+			} else {
+				panic("%s: glink_tx() to RPM failed!\n",
+						__func__);
 			}
 			atomic_dec(&responses_remaining);
 			continue;
@@ -537,8 +543,9 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 			notifications_successful = false;
 
 			/* Check for RPM, as it can't be restarted */
-			if (strcmp(ss_leaf_entry->ssr_name, "rpm") &&
-					!ss_leaf_entry->restarted)
+			if (!strcmp(ss_leaf_entry->ssr_name, "rpm"))
+				panic("%s: RPM failed to respond!\n", __func__);
+			else if (!ss_leaf_entry->restarted)
 				subsystem_restart(ss_leaf_entry->ssr_name);
 		}
 		ss_leaf_entry->restarted = false;
