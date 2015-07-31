@@ -22,6 +22,41 @@
 #include "kgsl_cffdump.h"
 #include "kgsl_sync.h"
 
+static int _isdb_set(void *data, u64 val)
+{
+	struct kgsl_device *device = data;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	/* Once ISDB goes enabled it stays enabled */
+	if (test_bit(ADRENO_DEVICE_ISDB_ENABLED, &adreno_dev->priv))
+		return 0;
+
+	mutex_lock(&device->mutex);
+
+	/*
+	 * Bring down the GPU so we can bring it back up with the correct power
+	 * and clock settings
+	 */
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
+	set_bit(ADRENO_DEVICE_ISDB_ENABLED, &adreno_dev->priv);
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
+
+	mutex_unlock(&device->mutex);
+
+	return 0;
+}
+
+static int _isdb_get(void *data, u64 *val)
+{
+	struct kgsl_device *device = data;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	*val = (u64) test_bit(ADRENO_DEVICE_ISDB_ENABLED, &adreno_dev->priv);
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(_isdb_fops, _isdb_get, _isdb_set, "%llu\n");
+
 static int _active_count_get(void *data, u64 *val)
 {
 	struct kgsl_device *device = data;
@@ -278,4 +313,8 @@ void adreno_debugfs_init(struct adreno_device *adreno_dev)
 			    &_active_count_fops);
 	adreno_dev->ctx_d_debugfs = debugfs_create_dir("ctx",
 							device->d_debugfs);
+
+	if (adreno_is_a5xx(adreno_dev))
+		debugfs_create_file("isdb", 0644, device->d_debugfs,
+			device, &_isdb_fops);
 }
