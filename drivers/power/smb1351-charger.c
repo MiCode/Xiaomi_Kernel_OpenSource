@@ -1352,7 +1352,7 @@ static int smb1351_parallel_set_chg_present(struct smb1351_charger *chip,
 						int present)
 {
 	int rc;
-	u8 reg;
+	u8 reg, mask = 0;
 
 	/* Check if SMB1351 is present */
 	rc = smb1351_read_reg(chip, CHG_REVISION_REG, &reg);
@@ -1416,6 +1416,20 @@ static int smb1351_parallel_set_chg_present(struct smb1351_charger *chip,
 						SUSPEND_MODE_CTRL_BY_I2C);
 		if (rc) {
 			pr_err("Couldn't set USB suspend rc=%d\n", rc);
+			return rc;
+		}
+
+		/*
+		 * setup USB 2.0/3.0 detection and USB 500/100
+		 * command polarity
+		 */
+		reg = USB_2_3_MODE_SEL_BY_I2C | USB_CMD_POLARITY_500_1_100_0;
+		mask = USB_2_3_MODE_SEL_BIT | USB_5_1_CMD_POLARITY_BIT;
+		rc = smb1351_masked_write(chip,
+				CHG_OTH_CURRENT_CTRL_REG, mask, reg);
+		if (rc) {
+			pr_err("Couldn't set CHG_OTH_CURRENT_CTRL_REG rc=%d\n",
+					rc);
 			return rc;
 		}
 
