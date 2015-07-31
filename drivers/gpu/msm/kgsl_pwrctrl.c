@@ -2157,7 +2157,7 @@ _deep_nap(struct kgsl_device *device)
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_DEEP_NAP);
 		break;
 	default:
-		BUG_ON(1);
+		kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 		break;
 	}
 	return 0;
