@@ -483,8 +483,7 @@ struct msm_vfe_tasklet_queue_cmd {
 enum msm_vfe_overflow_state {
 	NO_OVERFLOW,
 	OVERFLOW_DETECTED,
-	HALT_REQUESTED,
-	RESTART_REQUESTED,
+	HALT_ENFORCED,
 };
 
 struct msm_vfe_error_info {
@@ -576,6 +575,7 @@ struct msm_vfe_hw_init_parms {
 };
 
 struct dual_vfe_resource {
+	struct vfe_device *vfe_dev[MAX_VFE];
 	void __iomem *vfe_base[MAX_VFE];
 	uint32_t reg_update_mask[MAX_VFE];
 	struct msm_vfe_stats_shared_data *stats_data[MAX_VFE];

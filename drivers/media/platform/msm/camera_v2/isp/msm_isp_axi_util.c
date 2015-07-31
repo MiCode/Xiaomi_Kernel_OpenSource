@@ -407,7 +407,8 @@ int msm_isp_axi_check_stream_state(
 					__func__, stream_info->state);
 				spin_unlock_irqrestore(
 					&stream_info->lock, flags);
-				rc = -EINVAL;
+				if (stream_cfg_cmd->cmd == START_STREAM)
+					rc = -EINVAL;
 				break;
 			}
 		}
@@ -1188,8 +1189,10 @@ void msm_isp_halt_send_error(struct vfe_device *vfe_dev)
 	halt_cmd.overflow_detected = 0;
 	halt_cmd.blocking_halt = 0;
 
-	pr_err("%s: vfe%d fatal scheduling error!\n",
-		__func__, vfe_dev->pdev->id);
+	pr_err("%s: vfe%d fatal error!\n", __func__, vfe_dev->pdev->id);
+
+	atomic_set(&vfe_dev->error_info.overflow_state,
+		HALT_ENFORCED);
 
 	/*heavy spin lock in in axi halt, avoid spin lock outside.*/
 	msm_isp_axi_halt(vfe_dev, &halt_cmd);
@@ -1380,6 +1383,7 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 	uint32_t frame_id;
 	uint32_t buf_src;
 	uint8_t drop_frame = 0;
+	struct msm_isp_bufq *bufq = NULL;
 	memset(&buf_event, 0, sizeof(buf_event));
 
 	frame_id = vfe_dev->axi_data.
@@ -1495,13 +1499,24 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 			stream_info->runtime_output_format;
 		if (stream_info->buf_divert &&
 			buf_src != MSM_ISP_BUFFER_SRC_SCRATCH) {
-			ISP_DBG(
-				"%s: vfe_id %d send buf_divert buf-id %d bufq %x\n",
+			ISP_DBG("%s: VFE%d send buf_divert buf id %d Q %x\n",
 				__func__, vfe_dev->pdev->id, buf->buf_idx,
 				buf->bufq_handle);
 
-			msm_isp_send_event(vfe_dev, ISP_EVENT_BUF_DIVERT,
-					&buf_event);
+			bufq = vfe_dev->buf_mgr->ops->get_bufq(vfe_dev->buf_mgr,
+				buf->bufq_handle);
+			if (!bufq) {
+				pr_err("%s: Invalid bufq buf_handle %x\n",
+					__func__, buf->bufq_handle);
+			}
+
+			if ((bufq != NULL) && bufq->buf_type == ISP_SHARE_BUF)
+				msm_isp_send_event(vfe_dev->dual_vfe_res->
+					vfe_dev[ISP_VFE1],
+					ISP_EVENT_BUF_DIVERT, &buf_event);
+			else
+				msm_isp_send_event(vfe_dev,
+				ISP_EVENT_BUF_DIVERT, &buf_event);
 		} else {
 			ISP_DBG("%s: vfe_id %d send buf done buf-id %d\n",
 				__func__, vfe_dev->pdev->id, buf->buf_idx);
@@ -1812,10 +1827,11 @@ int msm_isp_axi_halt(struct vfe_device *vfe_dev,
 			&vfe_dev->error_info.overflow_recover_irq_mask0,
 			&vfe_dev->error_info.overflow_recover_irq_mask1);
 		}
-		atomic_set(&vfe_dev->error_info.overflow_state,
-			OVERFLOW_DETECTED);
-		pr_err("%s: Bus overflow detected: start recovery!\n",
-			__func__);
+
+		atomic_cmpxchg(&vfe_dev->error_info.overflow_state,
+			NO_OVERFLOW, OVERFLOW_DETECTED);
+		pr_err("%s: VFE%d Bus overflow detected: start recovery!\n",
+			__func__, vfe_dev->pdev->id);
 	}
 
 	rc = vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev,
@@ -1901,6 +1917,12 @@ int msm_isp_axi_restart(struct vfe_device *vfe_dev,
 	uint32_t wm_reload_mask = 0x0;
 
 	vfe_dev->buf_mgr->frameId_mismatch_recovery = 0;
+	if (atomic_read(&vfe_dev->error_info.overflow_state)
+		== HALT_ENFORCED) {
+		pr_err_ratelimited("%s: no restart, halt enforced.\n",
+			__func__);
+		return rc;
+	}
 
 	for (i = 0, j = 0; j < axi_data->num_active_stream &&
 		i < MAX_NUM_STREAM; i++, j++) {
@@ -1967,8 +1989,6 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 		return -EINVAL;
 
 	if (camif_update == ENABLE_CAMIF) {
-		atomic_set(&vfe_dev->error_info.overflow_state,
-				NO_OVERFLOW);
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id = 0;
 		vfe_dev->axi_data.src_info[VFE_PIX_0].camif_sof_frame_id = 0;
 	}
@@ -2226,6 +2246,9 @@ int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	if (axi_data->num_active_stream == 0) {
 		/*Configure UB*/
 		vfe_dev->hw_info->vfe_ops.axi_ops.cfg_ub(vfe_dev);
+		/*when start reset overflow state*/
+		atomic_set(&vfe_dev->error_info.overflow_state,
+			NO_OVERFLOW);
 	}
 	camif_update = msm_isp_get_camif_update_state(vfe_dev, stream_cfg_cmd);
 

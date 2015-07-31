@@ -37,6 +37,7 @@
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 #define BUF_DEBUG_FULL 0
+#define MAX_LIST_COUNT 100
 
 struct msm_isp_bufq *msm_isp_get_bufq(
 	struct msm_isp_buf_mgr *buf_mgr,
@@ -402,6 +403,7 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 {
 	int rc = -1;
 	unsigned long flags;
+	unsigned int list_count = 0;
 	struct msm_isp_buffer *temp_buf_info;
 	struct msm_isp_bufq *bufq = NULL;
 	struct vb2_buffer *vb2_buf = NULL;
@@ -422,6 +424,7 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 	*buf_cnt = 0;
 	spin_lock_irqsave(&bufq->bufq_lock, flags);
 	if (bufq->buf_type == ISP_SHARE_BUF) {
+		list_count = 0;
 		list_for_each_entry(temp_buf_info,
 			&bufq->share_head, share_list) {
 			if (!temp_buf_info->buf_used[id]) {
@@ -441,6 +444,19 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 				spin_unlock_irqrestore(
 					&bufq->bufq_lock, flags);
 				return rc;
+			} else if (temp_buf_info->buf_used[id] &&
+				temp_buf_info->buf_reuse_flag) {
+				spin_unlock_irqrestore(
+					&bufq->bufq_lock, flags);
+				return rc;
+			}
+			list_count++;
+			if (list_count > MAX_LIST_COUNT) {
+				pr_err_ratelimited("%s: %d share_list corruption, list corrupt! count = %d\n",
+					__func__, __LINE__,  list_count);
+				spin_unlock_irqrestore(
+					&bufq->bufq_lock, flags);
+				return -EINVAL;
 			}
 		}
 	}
@@ -481,7 +497,6 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 			bufq->session_id, bufq->stream_id);
 		if (vb2_buf) {
 			if (vb2_buf->v4l2_buf.index < bufq->num_bufs) {
-
 				list_for_each_entry(buf_pending,
 						&buf_mgr->buffer_q, list) {
 					if (!buf_pending)
