@@ -2108,10 +2108,10 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	/* Unregister page fault handler */
 	cam_smmu_reg_client_page_fault_handler(
 		vfe_dev->buf_mgr->img_iommu_hdl,
-		NULL, NULL);
+		NULL, vfe_dev);
 	cam_smmu_reg_client_page_fault_handler(
 		vfe_dev->buf_mgr->stats_iommu_hdl,
-		NULL, NULL);
+		NULL, vfe_dev);
 
 	rc = vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev, 1);
 	if (rc <= 0)

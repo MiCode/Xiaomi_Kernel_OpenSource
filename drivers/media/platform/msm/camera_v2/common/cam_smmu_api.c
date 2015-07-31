@@ -31,6 +31,7 @@
 #define COOKIE_SIZE (BYTE_SIZE*COOKIE_NUM_BYTE)
 #define COOKIE_MASK ((1<<COOKIE_SIZE)-1)
 #define HANDLE_INIT (-1)
+#define CAM_SMMU_CB_MAX 2
 
 #define GET_SMMU_HDL(x, y) (((x) << COOKIE_SIZE) | ((y) & COOKIE_MASK))
 #define GET_SMMU_TABLE_IDX(x) (((x) >> COOKIE_SIZE) & COOKIE_MASK)
@@ -80,10 +81,11 @@ struct cam_context_bank_info {
 	struct mutex lock;
 	int handle;
 	enum cam_smmu_ops_param state;
-	int (*fault_handler)(struct iommu_domain *,
+	int (*handler[CAM_SMMU_CB_MAX])(struct iommu_domain *,
 		struct device *, unsigned long,
 		int, void*);
-	void *token;
+	void *token[CAM_SMMU_CB_MAX];
+	int cb_count;
 };
 
 struct cam_iommu_cb_set {
@@ -200,6 +202,45 @@ static void cam_smmu_print_table(void)
 	mutex_unlock(&iommu_table_lock);
 }
 
+
+int cam_smmu_query_vaddr_in_range(int handle,
+	unsigned long fault_addr, unsigned long *start_addr,
+	unsigned long *end_addr, int *fd)
+{
+	int idx, rc = -EINVAL;
+	struct cam_dma_buff_info *mapping;
+	unsigned long sa, ea;
+
+	if (!start_addr || !end_addr || !fd) {
+		pr_debug("Invalid params\n");
+		return -EINVAL;
+	}
+
+	idx = cam_smmu_find_index_by_handle(handle);
+	if (idx < 0 || idx >= iommu_cb_set.cb_num) {
+		pr_err("Error: index is not valid, index = %d\n", idx);
+		return -EINVAL;
+	}
+
+	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
+	list_for_each_entry(mapping,
+		&iommu_cb_set.cb_info[idx].list_head, list) {
+		sa = (unsigned long)mapping->paddr;
+		ea = (unsigned long)mapping->paddr + mapping->len;
+
+		if (sa <= fault_addr && fault_addr < ea) {
+			*start_addr = sa;
+			*end_addr = ea;
+			*fd = mapping->ion_fd;
+			rc = 0;
+			break;
+		}
+	}
+	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+	return rc;
+}
+EXPORT_SYMBOL(cam_smmu_query_vaddr_in_range);
+
 static void cam_smmu_check_vaddr_in_range(int idx, void *vaddr)
 {
 	struct cam_dma_buff_info *mapping;
@@ -211,13 +252,14 @@ static void cam_smmu_check_vaddr_in_range(int idx, void *vaddr)
 		start_addr = (unsigned long)mapping->paddr;
 		end_addr = (unsigned long)mapping->paddr + mapping->len;
 
-		if (start_addr <= current_addr && current_addr <= end_addr) {
-			pr_err("Error: vaddr %p is valid: range:%p-%p, ion_fd = %d\n",
+		if (start_addr <= current_addr && current_addr < end_addr) {
+			pr_err("Error: va %p is valid: range:%p-%p, fd = %d cb: %s\n",
 				vaddr, (void *)start_addr, (void *)end_addr,
-				mapping->ion_fd);
+				mapping->ion_fd,
+				iommu_cb_set.cb_info[idx].name);
 			return;
 		} else {
-			pr_err("vaddr %p is not in this range: %p-%p, ion_fd = %d\n",
+			CDBG("va %p is not in this range: %p-%p, fd = %d\n",
 				vaddr, (void *)start_addr, (void *)end_addr,
 				mapping->ion_fd);
 		}
@@ -232,7 +274,12 @@ void cam_smmu_reg_client_page_fault_handler(int handle,
 		struct device *, unsigned long,
 		int, void*), void *token)
 {
-	int idx;
+	int idx, i = 0;
+
+	if (!token) {
+		pr_err("Error: token is NULL\n");
+		return;
+	}
 
 	idx = cam_smmu_find_index_by_handle(handle);
 	if (idx < 0 || idx >= iommu_cb_set.cb_num) {
@@ -242,12 +289,33 @@ void cam_smmu_reg_client_page_fault_handler(int handle,
 	}
 
 	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
-	iommu_cb_set.cb_info[idx].token = token;
-	iommu_cb_set.cb_info[idx].fault_handler =
-		client_page_fault_handler;
+	if (client_page_fault_handler) {
+		iommu_cb_set.cb_info[idx].cb_count++;
+		if (iommu_cb_set.cb_info[idx].cb_count > CAM_SMMU_CB_MAX) {
+			mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+			return;
+		}
+
+		for (i = 0; i < iommu_cb_set.cb_info[idx].cb_count; i++) {
+			if (iommu_cb_set.cb_info[idx].token[i] == NULL) {
+				iommu_cb_set.cb_info[idx].token[i] = token;
+				iommu_cb_set.cb_info[idx].handler[i] =
+					client_page_fault_handler;
+				break;
+			}
+		}
+	} else {
+		for (i = 0; i < iommu_cb_set.cb_info[idx].cb_count; i++) {
+			if (iommu_cb_set.cb_info[idx].token[i] == token) {
+				iommu_cb_set.cb_info[idx].token[i] = NULL;
+				iommu_cb_set.cb_info[idx].handler[i] =
+					NULL;
+				break;
+			}
+		}
+	}
 	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
 	return;
-
 }
 
 static int cam_smmu_iommu_fault_handler(struct iommu_domain *domain,
@@ -255,7 +323,7 @@ static int cam_smmu_iommu_fault_handler(struct iommu_domain *domain,
 		int flags, void *token)
 {
 	char *cb_name;
-	int i, rc;
+	int idx, rc = -ENOSYS, j = 0;
 
 	if (!token) {
 		pr_err("Error: token is NULL\n");
@@ -264,27 +332,28 @@ static int cam_smmu_iommu_fault_handler(struct iommu_domain *domain,
 
 	cb_name = (char *)token;
 	/* check wether it is in the table */
-	for (i = 0; i < iommu_cb_set.cb_num; i++) {
-		if (!strcmp(iommu_cb_set.cb_info[i].name, cb_name)) {
-			mutex_lock(&iommu_cb_set.cb_info[i].lock);
-			if (!(iommu_cb_set.cb_info[i].fault_handler)) {
-				pr_err("Error: %s: %p has page fault\n",
-						(char *)token,
-						(void *)iova);
-				cam_smmu_check_vaddr_in_range(i,
-						(void *)iova);
-				rc = -ENOSYS;
-			} else {
-				rc = iommu_cb_set.cb_info[i].fault_handler(
+	for (idx = 0; idx < iommu_cb_set.cb_num; idx++) {
+		if (!strcmp(iommu_cb_set.cb_info[idx].name, cb_name))
+			break;
+	}
+
+	if (idx < 0 || idx >= iommu_cb_set.cb_num) {
+		pr_err("Error: index is not valid, index = %d, token = %s\n",
+			idx, cb_name);
+		return rc;
+	}
+
+	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
+	cam_smmu_check_vaddr_in_range(idx, (void *)iova);
+	for (j = 0; j < iommu_cb_set.cb_info[idx].cb_count; j++) {
+		if ((iommu_cb_set.cb_info[idx].handler[j])) {
+			rc = iommu_cb_set.cb_info[idx].handler[j](
 					domain, dev, iova, flags,
-					iommu_cb_set.cb_info[i].token);
-			}
-			mutex_unlock(&iommu_cb_set.cb_info[i].lock);
-			return rc;
+					iommu_cb_set.cb_info[idx].token[j]);
 		}
 	}
-	pr_err("Error: cb_name %s is not valid.\n", (char *)token);
-	return -ENOSYS;
+	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
+	return rc;
 }
 
 static int cam_smmu_translate_dir_to_iommu_dir(
@@ -323,36 +392,33 @@ static enum dma_data_direction cam_smmu_translate_dir(
 	return DMA_NONE;
 }
 
-void cam_smmu_init_iommu_table(void)
+void cam_smmu_reset_iommu_table(void)
 {
 	unsigned int i;
-	mutex_init(&iommu_table_lock);
+	int j = 0;
 	for (i = 0; i < iommu_cb_set.cb_num; i++) {
 		iommu_cb_set.cb_info[i].handle = HANDLE_INIT;
 		INIT_LIST_HEAD(&iommu_cb_set.cb_info[i].list_head);
 		iommu_cb_set.cb_info[i].state = CAM_SMMU_DETACH;
 		iommu_cb_set.cb_info[i].dev = NULL;
-		iommu_cb_set.cb_info[i].token = NULL;
-		iommu_cb_set.cb_info[i].fault_handler = NULL;
+		iommu_cb_set.cb_info[i].cb_count = 0;
+		for (j = 0; j < CAM_SMMU_CB_MAX; j++) {
+			iommu_cb_set.cb_info[i].token[j] = NULL;
+			iommu_cb_set.cb_info[i].handler[j] = NULL;
+		}
 	}
+}
 
-	return;
+void cam_smmu_init_iommu_table(void)
+{
+	mutex_init(&iommu_table_lock);
+	cam_smmu_reset_iommu_table();
 }
 
 void cam_smmu_deinit_iommu_table(void)
 {
-	unsigned int i;
 	mutex_destroy(&iommu_table_lock);
-	for (i = 0; i < iommu_cb_set.cb_num; i++) {
-		iommu_cb_set.cb_info[i].handle = HANDLE_INIT;
-		INIT_LIST_HEAD(&iommu_cb_set.cb_info[i].list_head);
-		iommu_cb_set.cb_info[i].state = CAM_SMMU_DETACH;
-		iommu_cb_set.cb_info[i].dev = NULL;
-		iommu_cb_set.cb_info[i].token = NULL;
-		iommu_cb_set.cb_info[i].fault_handler = NULL;
-	}
-
-	return;
+	cam_smmu_reset_iommu_table();
 }
 
 static int cam_smmu_check_handle_unique(int hdl)
@@ -420,6 +486,7 @@ static int cam_smmu_create_add_handle_in_table(char *name,
 
 			/* put handle in the table */
 			iommu_cb_set.cb_info[i].handle = handle;
+			iommu_cb_set.cb_info[i].cb_count = 0;
 			mutex_init(&iommu_cb_set.cb_info[i].lock);
 			*hdl = handle;
 			mutex_unlock(&iommu_table_lock);
@@ -1231,6 +1298,7 @@ int cam_smmu_destroy_handle(int handle)
 		cam_smmu_print_list(idx);
 	}
 
+	iommu_cb_set.cb_info[idx].cb_count = 0;
 	mutex_destroy(&iommu_cb_set.cb_info[idx].lock);
 	mutex_unlock(&iommu_table_lock);
 	return 0;
@@ -1406,7 +1474,7 @@ static int cam_populate_smmu_context_banks(struct device *dev,
 
 	/* set up the iommu mapping for the  context bank */
 	ctx = dev;
-	pr_info("getting Arm SMMU ctx : %s\n", cb->name);
+	CDBG("getting Arm SMMU ctx : %s\n", cb->name);
 
 	rc = cam_smmu_setup_cb(cb, ctx);
 	if (rc < 0)
