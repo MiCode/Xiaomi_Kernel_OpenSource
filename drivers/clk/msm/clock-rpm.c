@@ -391,9 +391,21 @@ static struct rpm_clk *rpm_clk_dt_parser_common(struct device *dev,
 	/* Rely on whoever's called last to setup the circular ref */
 	c = msmclk_lookup_phandle(dev, p);
 	if (!IS_ERR(c)) {
+		uint32_t *sleep = devm_kzalloc(dev, sizeof(uint32_t),
+					       GFP_KERNEL);
+		uint32_t *active =
+			devm_kzalloc(dev, sizeof(uint32_t),
+				     GFP_KERNEL);
+
+		if (!sleep || !active)
+			return ERR_PTR(-ENOMEM);
 		peer = to_rpm_clk(c);
 		peer->peer = rpm;
 		rpm->peer = peer;
+		rpm->last_active_set_vote = active;
+		peer->last_active_set_vote = active;
+		rpm->last_sleep_set_vote = sleep;
+		peer->last_sleep_set_vote = sleep;
 	}
 
 	rpm->rpmrs_data = &clk_rpmrs_data_smd;
