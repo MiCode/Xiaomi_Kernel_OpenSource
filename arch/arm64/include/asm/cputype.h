@@ -32,6 +32,10 @@
 #define MPIDR_AFFINITY_LEVEL(mpidr, level) \
 	((mpidr >> MPIDR_LEVEL_SHIFT(level)) & MPIDR_LEVEL_MASK)
 
+#define MMFR0_16KGRAN_SIZE	15
+#define MMFR0_16KGRAN_SHFT	20
+#define MMFR0_EL1_16KGRAN_MASK	(MMFR0_16KGRAN_SIZE << MMFR0_16KGRAN_SHFT)
+
 #define read_cpuid(reg) ({						\
 	u64 __val;							\
 	asm("mrs	%0, " #reg : "=r" (__val));			\
