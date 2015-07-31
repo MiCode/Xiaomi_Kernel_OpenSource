@@ -2828,11 +2828,14 @@ mem_fail:
 	return rc;
 }
 
-static int mdss_dsi_parse_hw_cfg(struct platform_device *pdev)
+static int mdss_dsi_parse_hw_cfg(struct platform_device *pdev, char *pan_cfg)
 {
 	const char *data;
 	struct mdss_dsi_data *dsi_res = platform_get_drvdata(pdev);
 	struct dsi_shared_data *sdata;
+	char dsi_cfg[20];
+	char *cfg_prim = NULL, *cfg_sec = NULL;
+	int i = 0;
 
 	if (!dsi_res) {
 		pr_err("%s: DSI root device drvdata not found\n", __func__);
@@ -2847,7 +2850,22 @@ static int mdss_dsi_parse_hw_cfg(struct platform_device *pdev)
 
 	sdata->hw_config = SINGLE_DSI;
 
-	data = of_get_property(pdev->dev.of_node, "hw-config", NULL);
+	if (pan_cfg)
+		cfg_prim = strnstr(pan_cfg, "cfg:", strlen(pan_cfg));
+	if (cfg_prim) {
+		cfg_prim += 4;
+		cfg_sec = strnchr(cfg_prim, strlen(cfg_prim), ':');
+		if (!cfg_sec)
+			cfg_sec = cfg_prim + strlen(cfg_prim);
+		for (i = 0; (cfg_prim + i) < cfg_sec; i++)
+			dsi_cfg[i] = *(cfg_prim + i);
+		dsi_cfg[i] = '\0';
+		data = dsi_cfg;
+	} else {
+		data = of_get_property(pdev->dev.of_node,
+			"hw-config", NULL);
+	}
+
 	if (data) {
 		if (!strcmp(data, "dual_dsi"))
 			sdata->hw_config = DUAL_DSI;
@@ -2870,13 +2888,30 @@ static int mdss_dsi_parse_hw_cfg(struct platform_device *pdev)
 	return 0;
 }
 
-static void mdss_dsi_parse_pll_src_cfg(struct platform_device *pdev)
+static void mdss_dsi_parse_pll_src_cfg(struct platform_device *pdev,
+	char *pan_cfg)
 {
 	const char *data;
+	char *pll_ptr, pll_cfg[10] = {'\0'};
 	struct dsi_shared_data *sdata = mdss_dsi_res->shared_data;
 
 	sdata->pll_src_config = PLL_SRC_DEFAULT;
-	data = of_get_property(pdev->dev.of_node, "pll-src-config", NULL);
+
+	if (pan_cfg) {
+		pll_ptr = strnstr(pan_cfg, ":pll0", strlen(pan_cfg));
+		if (!pll_ptr) {
+			pll_ptr = strnstr(pan_cfg, ":pll1", strlen(pan_cfg));
+			if (pll_ptr)
+				strlcpy(pll_cfg, "PLL1", strlen(pll_cfg));
+		} else {
+			strlcpy(pll_cfg, "PLL0", strlen(pll_cfg));
+		}
+	}
+	data = pll_cfg;
+
+	if (!data || !strcmp(data, ""))
+		data = of_get_property(pdev->dev.of_node,
+			"pll-src-config", NULL);
 	if (data) {
 		if (!strcmp(data, "PLL0"))
 			sdata->pll_src_config = PLL_SRC_0;
@@ -2892,24 +2927,6 @@ static void mdss_dsi_parse_pll_src_cfg(struct platform_device *pdev)
 	pr_debug("%s: pll_src_config = %d", __func__, sdata->pll_src_config);
 
 	return;
-}
-
-static void mdss_dsi_update_hw_cfg(char *panel_cfg)
-{
-	const char *pan;
-	struct dsi_shared_data *sdata = mdss_dsi_res->shared_data;
-
-	if (!panel_cfg)
-		return;
-
-	if (mdss_dsi_is_hw_config_split(sdata)) {
-		pan = strnstr(panel_cfg, NONE_PANEL, strlen(panel_cfg));
-		if (pan) {
-			pr_debug("moving to single DSI configuraiton\n");
-			sdata->hw_config = SINGLE_DSI;
-			sdata->pll_src_config = PLL_SRC_DEFAULT;
-		}
-	}
 }
 
 static int mdss_dsi_validate_pll_src_config(struct dsi_shared_data *sdata)
@@ -3000,17 +3017,14 @@ static int mdss_dsi_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	rc = mdss_dsi_parse_hw_cfg(pdev);
+	rc = mdss_dsi_parse_hw_cfg(pdev, panel_cfg);
 	if (rc) {
 		pr_err("%s Unable to parse dsi h/w config\n", __func__);
 		mdss_dsi_res_deinit(pdev);
 		return rc;
 	}
 
-	/* support hw config override until full support is not added */
-	mdss_dsi_update_hw_cfg(panel_cfg);
-
-	mdss_dsi_parse_pll_src_cfg(pdev);
+	mdss_dsi_parse_pll_src_cfg(pdev, panel_cfg);
 
 	of_platform_populate(pdev->dev.of_node, mdss_dsi_ctrl_dt_match,
 				NULL, &pdev->dev);
