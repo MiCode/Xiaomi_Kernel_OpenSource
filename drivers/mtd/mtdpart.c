@@ -547,7 +547,7 @@ out_register:
 	return slave;
 }
 
-int mtd_add_partition(struct mtd_info *master, const char *name,
+int mtd_add_partition(struct mtd_info *master, char *name,
 		      long long offset, long long length)
 {
 	struct mtd_partition part;

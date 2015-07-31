@@ -2851,8 +2851,8 @@ int msm_nand_scan(struct mtd_info *mtd)
 			supported_flash->blksize = flashdev->erasesize;
 			supported_flash->oobsize = flashdev->oobsize;
 			supported_flash->ecc_correctability =
-					flashdev->ecc_correctable_bits;
-			if (!flashdev->ecc_correctable_bits)
+					flashdev->ecc.strength_ds;
+			if (!flashdev->ecc.strength_ds)
 				pr_err("num ecc correctable bit not specified and defaults to 4 bit BCH\n");
 		}
 		supported_flash->flash_id = flash_id;
@@ -3320,7 +3320,7 @@ static int msm_nand_probe(struct platform_device *pdev)
 	struct msm_nand_info *info;
 	struct resource *res;
 	int i, err, nr_parts;
-
+	struct device *dev;
 	/*
 	 * The partition information can also be passed from kernel command
 	 * line. Also, the MTD core layer supports adding the whole device as
@@ -3370,6 +3370,12 @@ static int msm_nand_probe(struct platform_device *pdev)
 	info->nand_chip.dev = &pdev->dev;
 	init_waitqueue_head(&info->nand_chip.dma_wait_queue);
 	mutex_init(&info->lock);
+
+	dev = &pdev->dev;
+	if (dma_supported(dev, DMA_BIT_MASK(32))) {
+		info->dma_mask = DMA_BIT_MASK(32);
+		dev->coherent_dma_mask = info->dma_mask;
+	}
 
 	info->nand_chip.dma_virt_addr =
 		dmam_alloc_coherent(&pdev->dev, MSM_NAND_DMA_BUFFER_SIZE,
