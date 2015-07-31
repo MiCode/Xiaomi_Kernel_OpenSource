@@ -517,6 +517,7 @@ static int arm_lpae_split_blk_unmap(struct arm_lpae_io_pgtable *data,
 	blk_start = iova & ~(blk_size - 1);
 	blk_end = blk_start + blk_size;
 	blk_paddr = iopte_to_pfn(*ptep, data) << data->pg_shift;
+	size = ARM_LPAE_BLOCK_SIZE(lvl + 1, data);
 
 	for (; blk_start < blk_end; blk_start += size, blk_paddr += size) {
 		arm_lpae_iopte *tablep;
