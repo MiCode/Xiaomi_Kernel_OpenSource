@@ -2074,7 +2074,7 @@ static int a5xx_microcode_load(struct adreno_device *adreno_dev,
 		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_BOOT, 0xA), &desc);
 		if (ret) {
 			pr_err("SCM resume call failed with error %d\n", ret);
-			BUG();
+			return ret;
 		}
 
 	}
@@ -2083,8 +2083,9 @@ static int a5xx_microcode_load(struct adreno_device *adreno_dev,
 	if (adreno_dev->gpucore->zap_name && !zap_ucode_loaded) {
 		ptr = subsystem_get(adreno_dev->gpucore->zap_name);
 
-		/* Crash the device if the zap shader cannot be loaded */
-		BUG_ON(IS_ERR_OR_NULL(ptr));
+		/* Return error if the zap shader cannot be loaded */
+		if (IS_ERR_OR_NULL(ptr))
+			return (ptr == NULL) ? -ENODEV : PTR_ERR(ptr);
 
 		zap_ucode_loaded = 1;
 	}
