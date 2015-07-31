@@ -67,6 +67,7 @@ struct msm_dai_q6_dai_data {
 	u32 rate;
 	u32 channels;
 	u32 bitwidth;
+	u32 cal_mode;
 	union afe_port_config port_config;
 };
 
@@ -1457,6 +1458,30 @@ static inline void msm_dai_q6_set_dai_id(struct snd_soc_dai *dai)
 	return;
 }
 
+static int msm_dai_q6_sb_cal_info_put(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct msm_dai_q6_dai_data *dai_data = kcontrol->private_data;
+	u16 port_id = ((struct soc_enum *)
+					kcontrol->private_value)->reg;
+
+	dai_data->cal_mode = ucontrol->value.integer.value[0];
+	pr_debug("%s: setting cal_mode to %d\n",
+		__func__, dai_data->cal_mode);
+	afe_set_cal_mode(port_id, dai_data->cal_mode);
+
+	return 0;
+}
+
+static int msm_dai_q6_sb_cal_info_get(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	struct msm_dai_q6_dai_data *dai_data = kcontrol->private_data;
+
+	ucontrol->value.integer.value[0] = dai_data->cal_mode;
+	return 0;
+}
+
 static int msm_dai_q6_sb_format_put(struct snd_kcontrol *kcontrol,
 				    struct snd_ctl_elem_value *ucontrol)
 {
@@ -1483,10 +1508,21 @@ static int msm_dai_q6_sb_format_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static const char * const slim_2_rx_text[] = {
+	"CAL_MODE_DEFAULT", "CAL_MODE_NONE"
+};
+
+static const struct soc_enum slim_2_rx_enum =
+	SOC_ENUM_SINGLE(SLIMBUS_2_RX, 0, ARRAY_SIZE(slim_2_rx_text),
+			slim_2_rx_text);
+
 static const struct snd_kcontrol_new sb_config_controls[] = {
 	SOC_ENUM_EXT("SLIM_4_TX Format", sb_config_enum[0],
 		     msm_dai_q6_sb_format_get,
 		     msm_dai_q6_sb_format_put),
+	SOC_ENUM_EXT("SLIM_2_RX SetCalMode", slim_2_rx_enum,
+		     msm_dai_q6_sb_cal_info_get,
+		     msm_dai_q6_sb_cal_info_put)
 };
 
 static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
@@ -1522,6 +1558,14 @@ static int msm_dai_q6_dai_probe(struct snd_soc_dai *dai)
 			dev_err(dai->dev, "%s: err add TX format ctl DAI = %s\n",
 				__func__, dai->name);
 		}
+	}
+	if (dai->id == SLIMBUS_2_RX) {
+		rc = snd_ctl_add(dai->card->snd_card,
+				  snd_ctl_new1(&sb_config_controls[1],
+				  dai_data));
+		if (IS_ERR_VALUE(rc))
+			dev_err(dai->dev, "%s: err add RX Cal ctl, DAI = %s\n",
+				__func__, dai->name);
 	}
 	rc = msm_dai_q6_dai_add_route(dai);
 	return rc;
