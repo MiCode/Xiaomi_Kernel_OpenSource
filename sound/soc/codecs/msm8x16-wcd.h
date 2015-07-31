@@ -192,7 +192,9 @@ struct msm8916_asoc_mach_data {
 	u8 micbias2_cap_mode;
 	atomic_t mclk_rsc_ref;
 	atomic_t mclk_enabled;
+	atomic_t wsa_mclk_rsc_ref;
 	struct mutex cdc_mclk_mutex;
+	struct mutex wsa_mclk_mutex;
 	struct delayed_work disable_mclk_work;
 	struct afe_digital_clk_cfg digital_cdc_clk;
 	void __iomem *vaddr_gpio_mux_spkr_ctl;

@@ -908,6 +908,48 @@ static int msm8952_wsa_switch_event(struct snd_soc_dapm_widget *w,
 	return ret;
 }
 
+static int msm8952_enable_wsa_mclk(struct snd_soc_card *card, bool enable)
+{
+	int ret = 0;
+	struct msm8916_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+
+	mutex_lock(&pdata->wsa_mclk_mutex);
+	if (enable) {
+		if (!atomic_read(&pdata->wsa_mclk_rsc_ref)) {
+			wsa_ana_clk.clk_val2 =
+					Q6AFE_LPASS_OSR_CLK_9_P600_MHZ;
+			ret = afe_set_lpass_clock(
+					AFE_PORT_ID_PRIMARY_MI2S_RX,
+					&wsa_ana_clk);
+			if (ret < 0) {
+				pr_err("%s: failed to enable mclk %d\n",
+					__func__, ret);
+				goto done;
+			}
+		}
+		atomic_inc(&pdata->wsa_mclk_rsc_ref);
+	} else {
+		if (!atomic_read(&pdata->wsa_mclk_rsc_ref))
+			goto done;
+		if (!atomic_dec_return(&pdata->wsa_mclk_rsc_ref)) {
+			wsa_ana_clk.clk_val2 =
+					Q6AFE_LPASS_OSR_CLK_DISABLE;
+			ret = afe_set_lpass_clock(
+					AFE_PORT_ID_PRIMARY_MI2S_RX,
+					&wsa_ana_clk);
+			if (ret < 0) {
+				pr_err("%s: failed to disable mclk %d\n",
+					__func__, ret);
+				goto done;
+			}
+		}
+	}
+
+done:
+	mutex_unlock(&pdata->wsa_mclk_mutex);
+	return ret;
+}
+
 static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -944,10 +986,7 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	}
 	if (card->aux_dev && substream->stream ==
 			SNDRV_PCM_STREAM_PLAYBACK) {
-		wsa_ana_clk.clk_val2 =
-				Q6AFE_LPASS_OSR_CLK_9_P600_MHZ;
-		ret = afe_set_lpass_clock(AFE_PORT_ID_PRIMARY_MI2S_RX,
-					  &wsa_ana_clk);
+		ret = msm8952_enable_wsa_mclk(card, true);
 		if (ret < 0) {
 			pr_err("%s: failed to enable mclk for wsa %d\n",
 				__func__, ret);
@@ -989,10 +1028,7 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 				ret);
 	if (card->aux_dev && substream->stream ==
 			SNDRV_PCM_STREAM_PLAYBACK) {
-		wsa_ana_clk.clk_val2 =
-				Q6AFE_LPASS_OSR_CLK_DISABLE;
-		ret = afe_set_lpass_clock(AFE_PORT_ID_PRIMARY_MI2S_RX,
-					  &wsa_ana_clk);
+		ret = msm8952_enable_wsa_mclk(card, false);
 		if (ret < 0) {
 			pr_err("%s: failed to disable mclk for wsa %d\n",
 				__func__, ret);
@@ -2654,6 +2690,8 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 						__func__, ret);
 				goto err;
 			}
+
+			wsa881x_set_mclk_callback(msm8952_enable_wsa_mclk);
 		}
 	}
 
@@ -2738,6 +2776,10 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&pdata->disable_mclk_work, msm8952_disable_mclk);
 	mutex_init(&pdata->cdc_mclk_mutex);
 	atomic_set(&pdata->mclk_rsc_ref, 0);
+	if (card->aux_dev) {
+		mutex_init(&pdata->wsa_mclk_mutex);
+		atomic_set(&pdata->wsa_mclk_rsc_ref, 0);
+	}
 	atomic_set(&pdata->mclk_enabled, false);
 	atomic_set(&quat_mi2s_clk_ref, 0);
 	atomic_set(&quin_mi2s_clk_ref, 0);
@@ -2802,6 +2844,7 @@ static int msm8952_asoc_machine_remove(struct platform_device *pdev)
 			kfree(msm8952_codec_conf[i].dev_name);
 			kfree(msm8952_codec_conf[i].name_prefix);
 		}
+		mutex_destroy(&pdata->wsa_mclk_mutex);
 	}
 	snd_soc_unregister_card(card);
 	mutex_destroy(&pdata->cdc_mclk_mutex);
