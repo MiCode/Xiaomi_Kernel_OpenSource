@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -441,8 +441,8 @@ struct mhi_dev_space {
 	dma_addr_t dma_dev_mem_start;
 	size_t dev_mem_len;
 	struct mhi_ring_ctxt ring_ctxt;
-	dma_addr_t start_win_addr;
-	dma_addr_t end_win_addr;
+	u64 start_win_addr;
+	u64 end_win_addr;
 };
 
 struct mhi_device_ctxt {
