@@ -40,13 +40,6 @@
 #define MON_MASK(m)		((m)->base + 0x298)
 #define MON_MATCH(m)		((m)->base + 0x29C)
 
-/*
- * Don't set the threshold lower than this value. This helps avoid
- * threshold IRQs when the traffic is close to zero and even small
- * changes can exceed the threshold percentage.
- */
-#define FLOOR_MBPS	100UL
-
 struct bwmon_spec {
 	bool wrap_on_thres;
 	bool overflow;
@@ -78,6 +71,12 @@ static void mon_disable(struct bwmon *m)
 static void mon_clear(struct bwmon *m)
 {
 	writel_relaxed(0x1, MON_CLEAR(m));
+	/*
+	 * The counter clear and IRQ clear bits are not in the same 4KB
+	 * region. So, we need to make sure the counter clear is completed
+	 * before we try to clear the IRQ or do any other counter operations.
+	 */
+	mb();
 }
 
 static void mon_irq_enable(struct bwmon *m)
@@ -112,12 +111,12 @@ static void mon_irq_disable(struct bwmon *m)
 
 static unsigned int mon_irq_status(struct bwmon *m)
 {
-	u32 mval, gval;
+	u32 mval;
 
-	mval = readl_relaxed(MON_INT_STATUS(m)),
-	gval = readl_relaxed(GLB_INT_STATUS(m));
+	mval = readl_relaxed(MON_INT_STATUS(m));
 
-	dev_dbg(m->dev, "IRQ status p:%x, g:%x\n", mval, gval);
+	dev_dbg(m->dev, "IRQ status p:%x, g:%x\n", mval,
+			readl_relaxed(GLB_INT_STATUS(m)));
 
 	return mval;
 }
@@ -165,14 +164,6 @@ static unsigned long mon_get_count(struct bwmon *m)
 /* ********** CPUBW specific code  ********** */
 
 /* Returns MBps of read/writes for the sampling window. */
-static unsigned int bytes_to_mbps(long long bytes, unsigned int us)
-{
-	bytes *= USEC_PER_SEC;
-	do_div(bytes, us);
-	bytes = DIV_ROUND_UP_ULL(bytes, SZ_1M);
-	return bytes;
-}
-
 static unsigned int mbps_to_bytes(unsigned long mbps, unsigned int ms,
 				  unsigned int tolerance_percent)
 {
@@ -183,48 +174,61 @@ static unsigned int mbps_to_bytes(unsigned long mbps, unsigned int ms,
 	return mbps;
 }
 
-static unsigned long meas_bw_and_set_irq(struct bw_hwmon *hw,
-					 unsigned int tol, unsigned int us)
+static unsigned long get_bytes_and_clear(struct bw_hwmon *hw)
 {
-	unsigned long mbps;
-	u32 limit;
-	unsigned int sample_ms = hw->df->profile->polling_ms;
 	struct bwmon *m = to_bwmon(hw);
+	unsigned long count;
 
 	mon_disable(m);
-
-	mbps = mon_get_count(m);
-	mbps = bytes_to_mbps(mbps, us);
-
-	/*
-	 * If the counter wraps on thres, don't set the thres too low.
-	 * Setting it too low runs the risk of the counter wrapping around
-	 * multiple times before the IRQ is processed.
-	 */
-	if (likely(!m->spec->wrap_on_thres))
-		limit = mbps_to_bytes(max(mbps, FLOOR_MBPS), sample_ms, tol);
-	else
-		limit = mbps_to_bytes(max(mbps, 400UL), sample_ms, tol);
-
-	mon_set_limit(m, limit);
-
+	count = mon_get_count(m);
 	mon_clear(m);
 	mon_irq_clear(m);
 	mon_enable(m);
 
-	dev_dbg(m->dev, "MBps = %lu\n", mbps);
-	return mbps;
+	return count;
+}
+
+static unsigned long set_thres(struct bw_hwmon *hw, unsigned long bytes)
+{
+	unsigned long count;
+	u32 limit;
+	struct bwmon *m = to_bwmon(hw);
+
+	mon_disable(m);
+	count = mon_get_count(m);
+	mon_clear(m);
+	mon_irq_clear(m);
+
+	if (likely(!m->spec->wrap_on_thres))
+		limit = bytes;
+	else
+		limit = max(bytes, 500000UL);
+
+	mon_set_limit(m, limit);
+	mon_enable(m);
+
+	return count;
 }
 
 static irqreturn_t bwmon_intr_handler(int irq, void *dev)
 {
 	struct bwmon *m = dev;
-	if (mon_irq_status(m)) {
-		update_bw_hwmon(&m->hw);
-		return IRQ_HANDLED;
-	}
 
-	return IRQ_NONE;
+	if (!mon_irq_status(m))
+		return IRQ_NONE;
+
+	if (bw_hwmon_sample_end(&m->hw) > 0)
+		return IRQ_WAKE_THREAD;
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t bwmon_intr_thread(int irq, void *dev)
+{
+	struct bwmon *m = dev;
+
+	update_bw_hwmon(&m->hw);
+	return IRQ_HANDLED;
 }
 
 static int start_bw_hwmon(struct bw_hwmon *hw, unsigned long mbps)
@@ -233,7 +237,8 @@ static int start_bw_hwmon(struct bw_hwmon *hw, unsigned long mbps)
 	u32 limit;
 	int ret;
 
-	ret = request_threaded_irq(m->irq, NULL, bwmon_intr_handler,
+	ret = request_threaded_irq(m->irq, bwmon_intr_handler,
+				  bwmon_intr_thread,
 				  IRQF_ONESHOT | IRQF_SHARED,
 				  dev_name(m->dev), m);
 	if (ret) {
@@ -370,11 +375,12 @@ static int bimc_bwmon_driver_probe(struct platform_device *pdev)
 	m->hw.of_node = of_parse_phandle(dev->of_node, "qcom,target-dev", 0);
 	if (!m->hw.of_node)
 		return -EINVAL;
-	m->hw.start_hwmon = &start_bw_hwmon,
-	m->hw.stop_hwmon = &stop_bw_hwmon,
-	m->hw.suspend_hwmon = &suspend_bw_hwmon,
-	m->hw.resume_hwmon = &resume_bw_hwmon,
-	m->hw.meas_bw_and_set_irq = &meas_bw_and_set_irq,
+	m->hw.start_hwmon = &start_bw_hwmon;
+	m->hw.stop_hwmon = &stop_bw_hwmon;
+	m->hw.suspend_hwmon = &suspend_bw_hwmon;
+	m->hw.resume_hwmon = &resume_bw_hwmon;
+	m->hw.get_bytes_and_clear = &get_bytes_and_clear;
+	m->hw.set_thres = &set_thres;
 
 	ret = register_bw_hwmon(dev, &m->hw);
 	if (ret) {
