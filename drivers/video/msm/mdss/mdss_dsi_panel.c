@@ -239,14 +239,6 @@ static int mdss_dsi_request_gpios(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 			goto bklt_en_gpio_err;
 		}
 	}
-	if (gpio_is_valid(ctrl_pdata->mode_gpio)) {
-		rc = gpio_request(ctrl_pdata->mode_gpio, "panel_mode");
-		if (rc) {
-			pr_err("request panel mode gpio failed,rc=%d\n",
-								rc);
-			goto mode_gpio_err;
-		}
-	}
 
 	if (gpio_is_valid(ctrl_pdata->lcd_mode_sel_gpio)) {
 		rc = gpio_request(ctrl_pdata->lcd_mode_sel_gpio, "mode_sel");
@@ -260,9 +252,6 @@ static int mdss_dsi_request_gpios(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	return rc;
 
 lcd_mode_sel_gpio_err:
-	if (gpio_is_valid(ctrl_pdata->mode_gpio))
-		gpio_free(ctrl_pdata->mode_gpio);
-mode_gpio_err:
 	if (gpio_is_valid(ctrl_pdata->bklt_en_gpio))
 		gpio_free(ctrl_pdata->bklt_en_gpio);
 bklt_en_gpio_err:
@@ -331,18 +320,13 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 				gpio_set_value((ctrl_pdata->bklt_en_gpio), 1);
 		}
 
-		if (gpio_is_valid(ctrl_pdata->mode_gpio)) {
-			if (pinfo->mode_gpio_state == MODE_GPIO_HIGH)
-				gpio_set_value((ctrl_pdata->mode_gpio), 1);
-			else if (pinfo->mode_gpio_state == MODE_GPIO_LOW)
-				gpio_set_value((ctrl_pdata->mode_gpio), 0);
-		}
-
 		if (gpio_is_valid(ctrl_pdata->lcd_mode_sel_gpio)) {
-			if (pinfo->mode_sel_state == MODE_SEL_DSC_SINGLE)
+			if ((pinfo->mode_sel_state == MODE_SEL_DSC_SINGLE) ||
+				(pinfo->mode_sel_state == MODE_GPIO_HIGH))
 				gpio_set_value(
 					ctrl_pdata->lcd_mode_sel_gpio, 1);
-			else if (pinfo->mode_sel_state == MODE_SEL_SPLIT)
+			else if ((pinfo->mode_sel_state == MODE_SEL_SPLIT) ||
+				(pinfo->mode_sel_state == MODE_GPIO_LOW))
 				gpio_set_value(
 					ctrl_pdata->lcd_mode_sel_gpio, 0);
 		}
@@ -364,8 +348,6 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 		}
 		gpio_set_value((ctrl_pdata->rst_gpio), 0);
 		gpio_free(ctrl_pdata->rst_gpio);
-		if (gpio_is_valid(ctrl_pdata->mode_gpio))
-			gpio_free(ctrl_pdata->mode_gpio);
 		if (gpio_is_valid(ctrl_pdata->lcd_mode_sel_gpio))
 			gpio_free(ctrl_pdata->lcd_mode_sel_gpio);
 	}
@@ -2029,22 +2011,16 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-stream", &tmp);
 	pinfo->mipi.stream = (!rc ? tmp : 0);
 
-	data = of_get_property(np, "qcom,mdss-dsi-panel-mode-gpio-state", NULL);
-	if (data) {
-		if (!strcmp(data, "high"))
-			pinfo->mode_gpio_state = MODE_GPIO_HIGH;
-		else if (!strcmp(data, "low"))
-			pinfo->mode_gpio_state = MODE_GPIO_LOW;
-	} else {
-		pinfo->mode_gpio_state = MODE_GPIO_NOT_VALID;
-	}
-
 	data = of_get_property(np, "qcom,mdss-dsi-mode-sel-gpio-state", NULL);
 	if (data) {
 		if (!strcmp(data, "dsc_mode"))
 			pinfo->mode_sel_state = MODE_SEL_DSC_SINGLE;
 		else if (!strcmp(data, "dual_mode"))
 			pinfo->mode_sel_state = MODE_SEL_SPLIT;
+		else if (!strcmp(data, "high"))
+			pinfo->mode_sel_state = MODE_GPIO_HIGH;
+		else if (!strcmp(data, "low"))
+			pinfo->mode_sel_state = MODE_GPIO_LOW;
 	} else {
 		/* Set default mode as SPLIT mode */
 		pinfo->mode_sel_state = MODE_SEL_SPLIT;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,7 +38,7 @@
 		qcom,mdss-mdp = <&mdss_mdp>;
 		qcom,platform-reset-gpio = <&msmgpio 41 0>;
 		qcom,platform-te-gpio = <&msmgpio 12 0>;
-		qcom,platform-mode-gpio = <&msmgpio 7 0>;
+		qcom,panel-mode-gpio = <&msmgpio 7 0>;
 		qcom,platform-strength-ctrl = [ff 06];
 		qcom,platform-bist-ctrl = [03 03 00 00 0f 00];
 		qcom,platform-regulator-settings = [02 08 05 00 20 03];
