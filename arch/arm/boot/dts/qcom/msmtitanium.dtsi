@@ -174,6 +174,18 @@
 		qcom,pipe-attr-ee;
 	};
 
+	tsens: tsens@4a8000 {
+		compatible = "qcom,msmtitanium-tsens";
+		reg = <0x4a8000 0x2000>,
+			<0xa4000 0x1000>;
+		reg-names = "tsens_physical", "tsens_eeprom_physical";
+		interrupts = <0 184 0>, <0 314 0>;
+		interrupt-names = "tsens-upper-lower", "tsens-critical";
+		qcom,sensors = <16>;
+		qcom,slope = <3200 3200 3200 3200 3200 3200 3200 3200 3200
+					3200 3200 3200 3200 3200 3200 3200>;
+	};
+
 	blsp1_uart2: serial@78b0000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0x78b0000 0x200>;
