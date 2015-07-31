@@ -159,6 +159,7 @@ struct cci_device {
 	uint8_t ref_count;
 	enum msm_cci_state_t cci_state;
 	uint32_t num_clk;
+	struct mutex mutex;
 	uint32_t num_clk_cases;
 
 	struct clk *cci_clk[CCI_NUM_CLK_MAX];
