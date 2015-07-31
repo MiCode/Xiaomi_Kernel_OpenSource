@@ -89,6 +89,7 @@ struct afe_ctl {
 	void *rx_private_data;
 	uint32_t mmap_handle;
 
+	int	topology[AFE_MAX_PORTS];
 	struct cal_type_data *cal_data[MAX_AFE_CAL_TYPES];
 
 	atomic_t mem_map_cal_handles[MAX_AFE_CAL_TYPES];
@@ -126,6 +127,22 @@ bool afe_close_done[2] = {true, true};
 static int afe_get_cal_hw_delay(int32_t path,
 				struct audio_cal_hw_delay_entry *entry);
 static int remap_cal_data(struct cal_block_data *cal_block, int cal_index);
+
+int afe_get_topology(int port_id)
+{
+	int topology;
+	int port_index = afe_get_port_index(port_id);
+
+	if ((port_index < 0) || (port_index > AFE_MAX_PORTS)) {
+		pr_err("%s: Invalid port index %d\n", __func__, port_index);
+		topology = -EINVAL;
+		goto done;
+	}
+
+	topology = this_afe.topology[port_index];
+done:
+	return topology;
+}
 
 void afe_set_aanc_info(struct aanc_data *q6_aanc_info)
 {
@@ -1067,6 +1084,8 @@ static int afe_send_port_topology_id(u16 port_id)
 			__func__, port_id, ret);
 		goto done;
 	}
+
+	this_afe.topology[index] = topology_id;
 done:
 	pr_debug("%s: AFE set topology id 0x%x  enable for port 0x%x ret %d\n",
 			__func__, topology_id, port_id, ret);
@@ -3895,6 +3914,7 @@ int afe_close(int port_id)
 	port_index = afe_get_port_index(port_id);
 	if ((port_index >= 0) && (port_index < AFE_MAX_PORTS)) {
 		this_afe.afe_sample_rates[port_index] = 0;
+		this_afe.topology[port_index] = 0;
 	} else {
 		pr_err("%s: port %d\n", __func__, port_index);
 		ret = -EINVAL;
