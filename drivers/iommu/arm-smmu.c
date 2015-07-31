@@ -1325,6 +1325,8 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 	writel_relaxed(reg, cb_base + ARM_SMMU_CB_SCTLR);
 }
 
+static void arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain);
+
 static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 					struct arm_smmu_device *smmu)
 {
@@ -1421,6 +1423,11 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		ret = -ENOMEM;
 		goto out_clear_smmu;
 	}
+	/*
+	 * assign any page table memory that might have been allocated
+	 * during alloc_io_pgtable_ops
+	 */
+	arm_smmu_assign_table(smmu_domain);
 
 	/* Update our support page sizes to reflect the page table format */
 	arm_smmu_ops.pgsize_bitmap = smmu_domain->pgtbl_cfg.pgsize_bitmap;
@@ -1711,6 +1718,12 @@ static int arm_smmu_attach_dynamic(struct iommu_domain *domain,
 					 smmu_domain);
 	if (!pgtbl_ops)
 		return -ENOMEM;
+
+	/*
+	 * assign any page table memory that might have been allocated
+	 * during alloc_io_pgtable_ops
+	 */
+	arm_smmu_assign_table(smmu_domain);
 
 	cfg->vmid = cfg->cbndx + 2;
 	smmu_domain->smmu = smmu;
