@@ -262,6 +262,7 @@ module_param(msc_vfs_timer_period_ms, int, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(msc_vfs_timer_period_ms, "Set period for MSC VFS timer");
 
 static int write_error_after_csw_sent;
+static int must_report_residue;
 static int csw_sent;
 
 struct fsg_dev;
@@ -1001,6 +1002,16 @@ write_error:
 			if ((nwritten == amount) && !csw_sent) {
 				if (write_error_after_csw_sent)
 					break;
+
+				/*
+				 * If residue still exists and nothing left to
+				 * write, device must send correct residue to
+				 * host in this case.
+				 */
+				if (!amount_left_to_write && common->residue) {
+					must_report_residue = 1;
+					break;
+				}
 				/*
 				 * Check if any of the buffer is in the
 				 * busy state, if any buffer is in busy state,
@@ -1771,8 +1782,10 @@ static int send_status(struct fsg_common *common)
 	 * writing on to storage media, need to set
 	 * residue to zero,assuming that write will succeed.
 	 */
-	if (write_error_after_csw_sent)
+	if (write_error_after_csw_sent || must_report_residue) {
 		write_error_after_csw_sent = 0;
+		must_report_residue = 0;
+	}
 	else
 		csw->Residue = 0;
 	csw->Status = status;
@@ -2450,6 +2463,8 @@ static int fsg_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	fsg->bulk_out_enabled = 1;
 	common->bulk_out_maxpacket = usb_endpoint_maxp(fsg->bulk_out->desc);
 	clear_bit(IGNORE_BULK_OUT, &fsg->atomic_bitflags);
+	csw_sent = 0;
+	write_error_after_csw_sent = 0;
 
 	fsg->common->new_fsg = fsg;
 	raise_exception(fsg->common, FSG_STATE_CONFIG_CHANGE);
