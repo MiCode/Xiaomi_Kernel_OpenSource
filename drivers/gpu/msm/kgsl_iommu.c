@@ -539,9 +539,11 @@ static int kgsl_iommu_init_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 		if (!mmu->secured)
 			return -EPERM;
 
-		bus = get_secure_bus();
-		if (bus == NULL)
-			return -EPERM;
+		if (!MMU_FEATURE(mmu, KGSL_MMU_HYP_SECURE_ALLOC)) {
+			bus = get_secure_bus();
+			if (bus == NULL)
+				return -EPERM;
+		}
 	}
 
 	iommu_pt = kzalloc(sizeof(struct kgsl_iommu_pt), GFP_KERNEL);
