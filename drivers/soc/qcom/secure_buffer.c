@@ -363,6 +363,38 @@ err1:
 	return ret;
 }
 
+const char *msm_secure_vmid_to_string(int secure_vmid)
+{
+	switch (secure_vmid) {
+	case VMID_HLOS:
+		return "VMID_HLOS";
+	case VMID_CP_TOUCH:
+		return "VMID_CP_TOUCH";
+	case VMID_CP_BITSTREAM:
+		return "VMID_CP_BITSTREAM";
+	case VMID_CP_PIXEL:
+		return "VMID_CP_PIXEL";
+	case VMID_CP_NON_PIXEL:
+		return "VMID_CP_NON_PIXEL";
+	case VMID_CP_CAMERA:
+		return "VMID_CP_CAMERA";
+	case VMID_HLOS_FREE:
+		return "VMID_HLOS_FREE";
+	case VMID_MSS_MSA:
+		return "VMID_MSS_MSA";
+	case VMID_MSS_NONMSA:
+		return "VMID_MSS_NONMSA";
+	case VMID_CP_SEC_DISPLAY:
+		return "VMID_CP_SEC_DISPLAY";
+	case VMID_CP_APP:
+		return "VMID_CP_APP";
+	case VMID_INVAL:
+		return "VMID_INVAL";
+	default:
+		return "Unknown VMID";
+	}
+}
+
 #define MAKE_CP_VERSION(major, minor, patch) \
 	(((major & 0x3FF) << 22) | ((minor & 0x3FF) << 12) | (patch & 0xFFF))
 
