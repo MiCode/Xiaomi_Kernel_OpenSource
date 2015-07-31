@@ -198,6 +198,7 @@
 		clock-names = "clk-c0-4", "clk-c0-5",
 				"clk-c1-4", "clk-c1-5",
 				"clk-cci-4", "clk-cci-5";
+		qcom,cpu-pcnoc-vote;
 		qcom,speed0-bin-v0-c0 =
 			<          0 0>,
 			<  400000000 1>,
