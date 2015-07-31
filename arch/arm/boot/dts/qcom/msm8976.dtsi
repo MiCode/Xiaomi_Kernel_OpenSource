@@ -2567,6 +2567,8 @@
 	clocks = <&clock_gcc clk_gcc_mdss_mdp_clk>,
 		 <&clock_gcc clk_gcc_mdss_axi_clk>;
 	status = "okay";
+	proxy-supply = <&gdsc_mdss>;
+	qcom,proxy-consumer-enable;
 };
 
 &gdsc_jpeg {
