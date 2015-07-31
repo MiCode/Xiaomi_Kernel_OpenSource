@@ -296,7 +296,7 @@
 
 				interrupt-names =	"power-ok",
 							"temp-shutdown",
-							"safety-timeout",
+							"wdog-timeout",
 							"flash-fail",
 							"otst2",
 							"otst3";
