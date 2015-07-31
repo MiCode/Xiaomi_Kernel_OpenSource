@@ -2278,6 +2278,10 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				(1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_SECURE_VMID:
+		*((int *)data) = smmu_domain->secure_vmid;
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_PT_BASE_ADDR:
 		*((phys_addr_t *)data) =
 			smmu_domain->pgtbl_cfg.arm_lpae_s1_cfg.ttbr[0];
