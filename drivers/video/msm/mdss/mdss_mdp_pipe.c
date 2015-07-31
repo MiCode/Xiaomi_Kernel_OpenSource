@@ -1259,6 +1259,33 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_search(struct mdss_data_type *mdata,
 	return NULL;
 }
 
+/*
+ * This API checks if pipe is stagged on mixer or not. If
+ * any pipe is stagged on mixer than it will generate the
+ * panic signal.
+ *
+ * Only pipe_free API can call this API.
+ */
+static void mdss_mdp_pipe_check_stage(struct mdss_mdp_pipe *pipe,
+	struct mdss_mdp_mixer *mixer)
+{
+	int index;
+	u8 right_blend_index;
+
+	if (pipe->mixer_stage == MDSS_MDP_STAGE_UNUSED || !mixer)
+		return;
+
+	right_blend_index = pipe->is_right_blend &&
+		!(pipe->src_split_req && mixer->is_right_mixer);
+	index = (pipe->mixer_stage * MAX_PIPES_PER_STAGE) + right_blend_index;
+	if (index < MAX_PIPES_PER_LM && pipe == mixer->stage_pipe[index]) {
+		pr_err("pipe%d mixer:%d pipe->mixer_stage=%d src_split:%d right blend:%d\n",
+			pipe->num, mixer->num, pipe->mixer_stage,
+			pipe->src_split_req, pipe->is_right_blend);
+		MDSS_XLOG_TOUT_HANDLER("mdp", "panic");
+	}
+}
+
 static void mdss_mdp_pipe_free(struct kref *kref)
 {
 	struct mdss_mdp_pipe *pipe;
@@ -1296,10 +1323,14 @@ static void mdss_mdp_pipe_free(struct kref *kref)
 	pipe->is_right_blend = false;
 	pipe->src_split_req = false;
 
+	mdss_mdp_pipe_check_stage(pipe, pipe->mixer_left);
+	mdss_mdp_pipe_check_stage(pipe, pipe->mixer_right);
+
 	pipe->mfd = NULL;
 	pipe->mixer_left = pipe->mixer_right = NULL;
+	pipe->mixer_stage = MDSS_MDP_STAGE_UNUSED;
 	memset(&pipe->scale, 0, sizeof(struct mdp_scale_data));
-	memset(&pipe->req_data, 0, sizeof(pipe->req_data));
+	memset(&pipe->layer, 0, sizeof(struct mdp_input_layer));
 }
 
 static bool mdss_mdp_check_pipe_in_use(struct mdss_mdp_pipe *pipe)

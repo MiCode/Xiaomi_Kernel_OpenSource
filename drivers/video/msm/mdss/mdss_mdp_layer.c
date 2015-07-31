@@ -1061,7 +1061,7 @@ static void __handle_free_list(struct mdss_overlay_private *mdp5_data,
 static int __validate_layers(struct msm_fb_data_type *mfd,
 	struct file *file, struct mdp_layer_commit_v1 *commit)
 {
-	int ret, i, release_ndx = 0;
+	int ret, i, release_ndx = 0, inputndx = 0;
 	u32 left_lm_layers = 0, right_lm_layers = 0;
 	u32 left_cnt = 0, right_cnt = 0;
 	u32 left_lm_w = left_lm_w_from_mfd(mfd);
@@ -1097,6 +1097,7 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 			ret = -EINVAL;
 			goto end;
 		}
+		inputndx |= layer_list[i].pipe_ndx;
 	}
 
 	for (i = 0; i < layer_count; i++) {
@@ -1249,6 +1250,8 @@ validate_exit:
 	pr_debug("err=%d total_layer:%d left:%d right:%d release_ndx=0x%x processed=%d\n",
 		ret, layer_count, left_lm_layers, right_lm_layers,
 		release_ndx, i);
+	MDSS_XLOG(inputndx, layer_count, left_lm_layers, right_lm_layers,
+		release_ndx, ret);
 	mutex_lock(&mdp5_data->list_lock);
 	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_used, list) {
 		if (IS_ERR_VALUE(ret)) {

@@ -545,7 +545,7 @@ struct mdss_mdp_pipe {
 	/* compression ratio from the source format */
 	struct mult_factor comp_ratio;
 
-	u8 mixer_stage;
+	enum mdss_mdp_stage_index mixer_stage;
 	u8 is_fg;
 	u8 alpha;
 	u8 blend_op;
