@@ -35,7 +35,6 @@
 
 #define NUM_MBPS_ZONES		10
 struct hwmon_node {
-	unsigned int tolerance_percent;
 	unsigned int guard_band_mbps;
 	unsigned int decay_rate;
 	unsigned int io_percent;
@@ -183,11 +182,9 @@ static unsigned int bytes_to_mbps(long long bytes, unsigned int us)
 	return bytes;
 }
 
-static unsigned int mbps_to_bytes(unsigned long mbps, unsigned int ms,
-				  unsigned int tolerance_percent)
+static unsigned int mbps_to_bytes(unsigned long mbps, unsigned int ms)
 {
-	mbps *= (100 + tolerance_percent) * ms;
-	mbps /= 100;
+	mbps *= ms;
 	mbps = DIV_ROUND_UP(mbps, MSEC_PER_SEC);
 	mbps *= SZ_1M;
 	return mbps;
@@ -393,7 +390,7 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 					* (100 + node->up_thres)) / 100;
 		node->down_wake_mbps = 0;
 		thres = mbps_to_bytes(max(MIN_MBPS, req_mbps / 2),
-					node->sample_ms, 0);
+					node->sample_ms);
 	} else {
 		/*
 		 * Up wake vs down wake are intentionally a percentage of
@@ -404,7 +401,7 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 		 */
 		node->up_wake_mbps = (req_mbps * (100 + node->up_thres)) / 100;
 		node->down_wake_mbps = (meas_mbps * node->down_thres) / 100;
-		thres = mbps_to_bytes(meas_mbps, node->sample_ms, 0);
+		thres = mbps_to_bytes(meas_mbps, node->sample_ms);
 	}
 
 	node->bytes = hw->set_thres(hw, thres);
@@ -673,7 +670,6 @@ static int devfreq_bw_hwmon_get_freq(struct devfreq *df,
 	return 0;
 }
 
-gov_attr(tolerance_percent, 0U, 30U);
 gov_attr(guard_band_mbps, 0U, 2000U);
 gov_attr(decay_rate, 0U, 100U);
 gov_attr(io_percent, 1U, 100U);
@@ -693,7 +689,6 @@ gov_attr(low_power_delay, 1U, 60U);
 gov_list_attr(mbps_zones, NUM_MBPS_ZONES, 0U, UINT_MAX);
 
 static struct attribute *dev_attr[] = {
-	&dev_attr_tolerance_percent.attr,
 	&dev_attr_guard_band_mbps.attr,
 	&dev_attr_decay_rate.attr,
 	&dev_attr_io_percent.attr,
@@ -819,24 +814,23 @@ int register_bw_hwmon(struct device *dev, struct bw_hwmon *hwmon)
 		node->attr_grp = &dev_attr_group;
 	}
 
-	node->tolerance_percent = 10;
 	node->guard_band_mbps = 100;
 	node->decay_rate = 90;
-	node->io_percent = 34;
+	node->io_percent = 16;
 	node->low_power_ceil_mbps = 0;
-	node->low_power_io_percent = 34;
-	node->low_power_delay = 20;
+	node->low_power_io_percent = 16;
+	node->low_power_delay = 60;
 	node->bw_step = 190;
-	node->sample_ms = 2;
-	node->up_scale = 250;
+	node->sample_ms = 50;
+	node->up_scale = 0;
 	node->up_thres = 10;
 	node->down_thres = 0;
 	node->down_count = 3;
-	node->hist_memory = 20;
+	node->hist_memory = 0;
 	node->hyst_trigger_count = 3;
-	node->hyst_length = 10;
+	node->hyst_length = 0;
 	node->idle_mbps = 400;
-	node->mbps_zones[0] = 100000;
+	node->mbps_zones[0] = 0;
 	node->hw = hwmon;
 
 	mutex_lock(&list_lock);
