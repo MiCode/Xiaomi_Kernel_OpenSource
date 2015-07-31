@@ -81,4 +81,27 @@ int msm_isp_drop_frame(struct vfe_device *vfe_dev,
 
 void msm_isp_halt_send_error(struct vfe_device *vfe_dev);
 
+static inline void msm_isp_cfg_wm_scratch(struct vfe_device *vfe_dev,
+				int wm,
+				uint32_t pingpong_status)
+{
+	vfe_dev->hw_info->vfe_ops.axi_ops.update_ping_pong_addr(
+		vfe_dev->vfe_base, wm,
+		pingpong_status, vfe_dev->buf_mgr->scratch_buf_addr, 0);
+}
+
+static inline void msm_isp_cfg_stream_scratch(struct vfe_device *vfe_dev,
+				struct msm_vfe_axi_stream *stream_info,
+				uint32_t pingpong_status)
+{
+	int i;
+	uint32_t pingpong_bit;
+
+	for (i = 0; i < stream_info->num_planes; i++)
+		msm_isp_cfg_wm_scratch(vfe_dev, stream_info->wm[i],
+				pingpong_status);
+	pingpong_bit = (~(pingpong_status >> stream_info->wm[0]) & 0x1);
+	stream_info->buf[pingpong_bit] = NULL;
+}
+
 #endif /* __MSM_ISP_AXI_UTIL_H__ */

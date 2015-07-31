@@ -270,6 +270,7 @@ struct msm_vfe_axi_hardware_info {
 	uint8_t num_rdi_master;
 	uint8_t num_comp_mask;
 	uint32_t min_wm_ub;
+	uint32_t scratch_buf_range;
 };
 
 enum msm_vfe_axi_state {

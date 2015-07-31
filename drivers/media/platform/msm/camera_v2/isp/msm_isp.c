@@ -537,7 +537,8 @@ static int vfe_probe(struct platform_device *pdev)
 	v4l2_subdev_notify(&vfe_dev->subdev.sd,
 		MSM_SD_NOTIFY_REQ_CB, &vfe_vb2_ops);
 	rc = msm_isp_create_isp_buf_mgr(vfe_dev->buf_mgr,
-		&vfe_vb2_ops, &pdev->dev);
+		&vfe_vb2_ops, &pdev->dev,
+		vfe_dev->hw_info->axi_hw_info->scratch_buf_range);
 	if (rc < 0) {
 		pr_err("%s: Unable to create buffer manager\n", __func__);
 		rc = -EINVAL;

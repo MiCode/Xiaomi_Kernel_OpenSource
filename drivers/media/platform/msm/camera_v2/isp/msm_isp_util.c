@@ -2073,6 +2073,7 @@ void msm_isp_end_avtimer(void)
 int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	long rc = 0;
+	int wm;
 	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
 	ISP_DBG("%s E open_cnt %u\n", __func__, vfe_dev->vfe_open_cnt);
 	mutex_lock(&vfe_dev->realtime_mutex);
@@ -2111,6 +2112,11 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	/* after regular hw stop, reduce open cnt */
 	vfe_dev->vfe_open_cnt--;
 
+	/* put scratch buf in all the wm */
+	for (wm = 0; wm < vfe_dev->axi_data.hw_info->num_wm; wm++) {
+		msm_isp_cfg_wm_scratch(vfe_dev, wm, VFE_PING_FLAG);
+		msm_isp_cfg_wm_scratch(vfe_dev, wm, VFE_PONG_FLAG);
+	}
 	vfe_dev->hw_info->vfe_ops.core_ops.release_hw(vfe_dev);
 	vfe_dev->buf_mgr->ops->buf_mgr_deinit(vfe_dev->buf_mgr);
 	if (vfe_dev->vt_enable) {
