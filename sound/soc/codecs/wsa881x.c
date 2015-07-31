@@ -92,6 +92,7 @@ struct wsa881x_priv {
 	struct wsa881x_tz_priv tz_pdata;
 	int bg_cnt;
 	int clk_cnt;
+	int version;
 	struct mutex bg_lock;
 	struct mutex res_lock;
 	struct snd_info_entry *entry;
@@ -163,7 +164,12 @@ static ssize_t wsa881x_codec_version_read(struct snd_info_entry *entry,
 		return -EINVAL;
 	}
 
-	len = snprintf(buffer, sizeof(buffer), "WSA881X-SOUNDWIRE_1_0\n");
+	if (WSA881X_IS_2_0(wsa881x->version))
+		len = snprintf(buffer, sizeof(buffer),
+			       "WSA881X-SOUNDWIRE_2_0\n");
+	else
+		len = snprintf(buffer, sizeof(buffer),
+			       "WSA881X-SOUNDWIRE_1_0\n");
 
 	return simple_read_from_buffer(buf, count, &pos, buffer, len);
 }
@@ -809,6 +815,10 @@ EXPORT_SYMBOL(wsa881x_set_channel_map);
 
 static void wsa881x_init(struct snd_soc_codec *codec)
 {
+	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
+
+	wsa881x->version = snd_soc_read(codec, WSA881X_CHIP_ID1);
+	wsa881x_regmap_defaults(wsa881x->regmap, wsa881x->version);
 	/* Bring out of analog reset */
 	snd_soc_update_bits(codec, WSA881X_CDC_RST_CTL, 0x02, 0x02);
 	/* Bring out of digital reset */
