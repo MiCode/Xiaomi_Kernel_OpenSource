@@ -15,6 +15,7 @@
 
 #include <linux/regmap.h>
 #include "wsa881x-registers-analog.h"
+#include <sound/soc.h>
 
 #define WSA881X_I2C_SPK0_SLAVE0_ADDR	0x0E
 #define WSA881X_I2C_SPK0_SLAVE1_ADDR	0x44
@@ -33,5 +34,7 @@ extern struct regmap_config wsa881x_ana_regmap_config[2];
 int wsa881x_get_client_index(void);
 int wsa881x_get_probing_count(void);
 int wsa881x_get_presence_count(void);
+int wsa881x_set_mclk_callback(
+	int (*enable_mclk_callback)(struct snd_soc_card *, bool));
 
 #endif /* _WSA881X_H */
