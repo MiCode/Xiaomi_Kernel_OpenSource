@@ -1772,10 +1772,10 @@ static void *def_tasha_mbhc_cal(void)
 	btn_high[1] = 150;
 	btn_high[2] = 237;
 	btn_high[3] = 450;
-	btn_high[4] = 500;
-	btn_high[5] = 590;
-	btn_high[6] = 675;
-	btn_high[7] = 780;
+	btn_high[4] = 450;
+	btn_high[5] = 450;
+	btn_high[6] = 450;
+	btn_high[7] = 450;
 
 	return tasha_wcd_cal;
 }
