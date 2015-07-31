@@ -267,7 +267,8 @@ static void alpha_pll_disable_hwfsm(struct clk *c)
 	/* Disable HW FSM */
 	mode = readl_relaxed(MODE_REG(pll));
 	mode &= ~PLL_FSM_ENA_BIT;
-	mode &= ~PLL_OFFLINE_REQ_BIT;
+	if (pll->offline_bit_workaround)
+		mode &= ~PLL_OFFLINE_REQ_BIT;
 	writel_relaxed(mode, MODE_REG(pll));
 
 	while (readl_relaxed(MODE_REG(pll)) & PLL_ACTIVE_FLAG)
