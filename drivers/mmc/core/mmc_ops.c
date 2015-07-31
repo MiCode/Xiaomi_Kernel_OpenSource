@@ -518,6 +518,7 @@ int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 	unsigned long timeout;
 	u32 status = 0;
 	bool use_r1b_resp = use_busy_signal;
+	int retries = 5;
 	bool expired = false;
 	bool busy = false;
 
@@ -607,10 +608,17 @@ int __mmc_switch(struct mmc_card *card, u8 set, u8 index, u8 value,
 		/* Timeout if the device never leaves the program state. */
 		if (expired &&
 		    (R1_CURRENT_STATE(status) == R1_STATE_PRG || busy)) {
-			pr_err("%s: Card stuck in programming state! %s\n",
-				mmc_hostname(host), __func__);
-			err = -ETIMEDOUT;
-			goto out;
+			pr_err("%s: Card stuck in programming state! %s, timeout:%ums, retries:%d\n",
+				mmc_hostname(host), __func__,
+				timeout_ms, retries);
+			if (retries)
+				timeout = jiffies +
+						msecs_to_jiffies(timeout_ms);
+			else {
+				err = -ETIMEDOUT;
+				goto out;
+			}
+			retries--;
 		}
 	} while (R1_CURRENT_STATE(status) == R1_STATE_PRG || busy);
 
