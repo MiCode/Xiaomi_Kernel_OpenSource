@@ -2751,12 +2751,6 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 		return -EINVAL;
 	}
 
-	if (dfps == pdata->panel_info.mipi.frame_rate) {
-		pr_debug("%s: FPS is already %d\n",
-			__func__, dfps);
-		return count;
-	}
-
 	mutex_lock(&mdp5_data->dfps_lock);
 	if (dfps < pdata->panel_info.min_fps) {
 		pr_err("Unsupported FPS. min_fps = %d\n",
