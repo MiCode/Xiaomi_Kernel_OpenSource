@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,7 @@
 #include <linux/cpu.h>
 #include <linux/kthread.h>
 #include <linux/slab.h>
+#include <linux/of.h>
 #include <linux/completion.h>
 #include <linux/platform_device.h>
 
@@ -214,15 +215,54 @@ static int enable_bb_ctxt(struct mhi_ring *bb_ctxt, int nr_el)
 	return 0;
 }
 
-static void calculate_mhi_addressing_window(
-			struct mhi_device_ctxt *mhi_dev_ctxt)
+/*
+ * The device can have severe addressing limitations, and in this case
+ * the MHI driver may be restricted on where memory can be allocated.
+ *
+ * The allocation of the MHI control data structures takes place as one
+ * big, physically contiguous allocation.
+ * The device's addressing window, must be placed around that control segment
+ * allocation.
+ * Here we attempt to do this by building an addressing window around the
+ * initial allocated control segment.
+ *
+ * The window size is specified by the device and must be contiguous,
+ * but depending on where the control segment was allocated, it may be
+ * necessary to leave more room, before the ctrl segment start or after
+ * the ctrl segment end.
+ * The following assumptions are made:
+ * Assumption: 1. size of allocated ctrl seg << (device allocation window / 2)
+ *	       2. allocated ctrl seg is physically contiguous
+ */
+static int calculate_mhi_addressing_window(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
-	dma_addr_t dma_dev_mem_start;
-	dma_addr_t dma_seg_size = 0x1FF00000UL;
-	dma_addr_t dma_max_addr = (dma_addr_t)(-1);
+	u64 dma_dev_mem_start = 0;
+	u64 dma_seg_size = 0;
+	u64 dma_max_addr = (dma_addr_t)(-1);
+	u64 dev_address_limit = 0;
+	int r = 0;
+	const struct device_node *np =
+		mhi_dev_ctxt->dev_info->plat_dev->dev.of_node;
 
 	dma_dev_mem_start = mhi_dev_ctxt->dev_space.dma_dev_mem_start;
+	r = of_property_read_u64(np, "mhi-dev-address-win-size",
+				 &dev_address_limit);
+	if (r) {
+		mhi_log(MHI_MSG_ERROR,
+			"Failed to get device addressing limit ret %d",
+			r);
+		return r;
+	}
+	/* Mask off the last 3 bits for address calculation */
+	dev_address_limit &= ~0x7;
+	mhi_log(MHI_MSG_INFO, "Device Addressing limit 0x%llx\n",
+				dev_address_limit);
+	dma_seg_size = dev_address_limit / 2;
 
+	/*
+	 * The region of the allocated control segment is within the
+	 * first half of the device's addressing limit
+	 */
 	if (dma_dev_mem_start < dma_seg_size) {
 		mhi_dev_ctxt->dev_space.start_win_addr = 0;
 		mhi_dev_ctxt->dev_space.end_win_addr =
@@ -230,15 +270,26 @@ static void calculate_mhi_addressing_window(
 				       (dma_seg_size - dma_dev_mem_start);
 	} else if (dma_dev_mem_start >= dma_seg_size &&
 			dma_dev_mem_start <= (dma_max_addr - dma_seg_size)) {
+		/*
+		 * The start of the control segment is located past
+		 * halfway point of the device's addressing limit
+		 * Place the control segment in the middle of the device's
+		 * addressing range
+		 */
 		mhi_dev_ctxt->dev_space.start_win_addr =
 					 dma_dev_mem_start - dma_seg_size;
 		mhi_dev_ctxt->dev_space.end_win_addr =
 					 dma_dev_mem_start + dma_seg_size;
 	} else if (dma_dev_mem_start > (dma_max_addr - dma_seg_size)) {
-		mhi_dev_ctxt->dev_space.start_win_addr =
-				dma_dev_mem_start - (dma_seg_size +
-						(dma_seg_size - (dma_max_addr -
-							dma_dev_mem_start)));
+		/*
+		 * The start of the control segment is located at the tail end
+		 * of the host addressing space. Leave extra addressing space
+		 * at window start
+		 */
+		mhi_dev_ctxt->dev_space.start_win_addr = dma_dev_mem_start;
+		mhi_dev_ctxt->dev_space.start_win_addr -=
+			dma_seg_size + (dma_seg_size -
+					(dma_max_addr - dma_dev_mem_start));
 		mhi_dev_ctxt->dev_space.end_win_addr = dma_max_addr;
 	}
 	mhi_log(MHI_MSG_INFO,
@@ -246,7 +297,7 @@ static void calculate_mhi_addressing_window(
 		(u64)dma_dev_mem_start,
 		(u64)mhi_dev_ctxt->dev_space.start_win_addr,
 		(u64)mhi_dev_ctxt->dev_space.end_win_addr);
-
+	return 0;
 }
 
 int init_mhi_dev_mem(struct mhi_device_ctxt *mhi_dev_ctxt)
@@ -274,7 +325,12 @@ int init_mhi_dev_mem(struct mhi_device_ctxt *mhi_dev_ctxt)
 	dma_dev_mem_start = mhi_dev_ctxt->dev_space.dma_dev_mem_start;
 	memset(dev_mem_start, 0, mhi_dev_ctxt->dev_space.dev_mem_len);
 
-	calculate_mhi_addressing_window(mhi_dev_ctxt);
+	r = calculate_mhi_addressing_window(mhi_dev_ctxt);
+	if (r) {
+		mhi_log(MHI_MSG_ERROR,
+		"Failed to calculate addressing window ret %d", r);
+		return r;
+	}
 
 	mhi_log(MHI_MSG_INFO, "Starting Seg address: virt 0x%p, dma 0x%llx\n",
 					dev_mem_start, (u64)dma_dev_mem_start);
@@ -441,7 +497,7 @@ error_state_change_event_handle:
 	kfree(mhi_dev_ctxt->mhi_ev_wq.state_change_event);
 error_event_handle_alloc:
 	kfree(mhi_dev_ctxt->mhi_ev_wq.mhi_event_wq);
-	return MHI_STATUS_ERROR;
+	return -ENOMEM;
 }
 
 static int mhi_init_state_change_thread_work_queue(
