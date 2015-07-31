@@ -1987,7 +1987,7 @@ static int mdss_mdp_ctl_dsc_enable(int enable,
 {
 	struct mdss_mdp_ctl *ctl;
 	struct dsc_desc *dsc;
-	u32 data;
+	u32 data = 0;
 	u32 *lp;
 	char *cp;
 	int i, bpp, lsb;
