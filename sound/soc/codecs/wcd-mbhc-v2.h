@@ -218,6 +218,7 @@ struct wcd_mbhc_config {
 	bool hs_ext_micbias;
 	int key_code[WCD_MBHC_KEYCODE_NUM];
 	uint32_t linein_th;
+	bool gnd_det_en;
 };
 
 struct wcd_mbhc_intr {
@@ -312,6 +313,7 @@ struct wcd_mbhc_cb {
 	void (*skip_imped_detect)(struct snd_soc_codec *);
 	bool (*extn_use_mb)(struct snd_soc_codec *);
 	int (*mbhc_micb_ctrl_thr_mic)(struct snd_soc_codec *, int, bool);
+	void (*mbhc_gnd_det_ctrl)(struct snd_soc_codec *, bool);
 };
 
 struct wcd_mbhc {
