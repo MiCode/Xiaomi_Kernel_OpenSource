@@ -15,6 +15,7 @@
 #include <linux/slab.h>
 #include <linux/debugfs.h>
 #include <linux/atomic.h>
+#include <linux/uaccess.h>
 #include "diagchar.h"
 #include "diagfwd.h"
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
@@ -30,6 +31,7 @@
 #include "diagfwd_smd.h"
 #include "diagfwd_socket.h"
 #include "diag_debugfs.h"
+#include "diag_ipc_logging.h"
 
 #define DEBUG_BUF_SIZE	4096
 static struct dentry *diag_dbgfs_dent;
@@ -672,6 +674,37 @@ static ssize_t diag_dbgfs_read_socketinfo(struct file *file, char __user *ubuf,
 	return ret;
 }
 
+static ssize_t diag_dbgfs_write_debug(struct file *fp, const char __user *buf,
+				      size_t count, loff_t *ppos)
+{
+	const int size = 10;
+	unsigned char cmd[size];
+	long value = 0;
+	int len = 0;
+
+	if (count < 1)
+		return -EINVAL;
+
+	len = (count < (size - 1)) ? count : size - 1;
+	if (copy_from_user(cmd, buf, len))
+		return -EFAULT;
+
+	cmd[len] = 0;
+	if (cmd[len-1] == '\n') {
+		cmd[len-1] = 0;
+		len--;
+	}
+
+	if (kstrtol(cmd, 10, &value))
+		return -EINVAL;
+
+	if (value < 0)
+		return -EINVAL;
+
+	diag_debug_mask = (uint16_t)value;
+	return count;
+}
+
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 static ssize_t diag_dbgfs_read_hsicinfo(struct file *file, char __user *ubuf,
 					size_t count, loff_t *ppos)
@@ -920,6 +953,10 @@ const struct file_operations diag_dbgfs_power_ops = {
 	.read = diag_dbgfs_read_power,
 };
 
+const struct file_operations diag_dbgfs_debug_ops = {
+	.write = diag_dbgfs_write_debug
+};
+
 int diag_debugfs_init(void)
 {
 	struct dentry *entry = NULL;
@@ -965,6 +1002,11 @@ int diag_debugfs_init(void)
 
 	entry = debugfs_create_file("power", 0444, diag_dbgfs_dent, 0,
 				    &diag_dbgfs_power_ops);
+	if (!entry)
+		goto err;
+
+	entry = debugfs_create_file("debug", 0444, diag_dbgfs_dent, 0,
+				    &diag_dbgfs_debug_ops);
 	if (!entry)
 		goto err;
 
