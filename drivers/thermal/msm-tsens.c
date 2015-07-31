@@ -128,6 +128,11 @@
 #define TSENS_TM_MTC_ZONE0_HISTORY(n)		((n) + 0x1160)
 #define TSENS_RESET_HISTORY_MASK	0x4
 #define TSENS_RESET_HISTORY_SHIFT	2
+#define TSENS_PS_RED_CMD_MASK	0x3ff00000
+#define TSENS_PS_YELLOW_CMD_MASK	0x000ffc00
+#define TSENS_PS_COOL_CMD_MASK	0x000003ff
+#define TSENS_PS_YELLOW_CMD_SHIFT	0xa
+#define TSENS_PS_RED_CMD_SHIFT	0x14
 /* End TSENS_TM registers for 8996 */
 
 #define TSENS_CTRL_ADDR(n)		(n)
@@ -784,6 +789,7 @@ struct tsens_mtc_sysfs {
 	int zone_mtc;
 	int th1;
 	int th2;
+	uint32_t zone_hist;
 };
 
 struct tsens_tm_device {
@@ -1163,9 +1169,56 @@ zonelog_store(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
+static ssize_t
+zonehist_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret, zhist[TSENS_MTC_ZONE_HISTORY_SIZE];
+	struct tsens_tm_device *tmdev = NULL;
+
+	tmdev = tsens_controller_is_present();
+	if (!tmdev) {
+		pr_err("No TSENS controller present\n");
+		return -EPROBE_DEFER;
+	}
+
+	ret = tsens_get_mtc_zone_history(tmdev->mtcsys.zone_hist , zhist);
+	if (ret < 0) {
+		pr_err("Invalid command line arguments\n");
+		return -EINVAL;
+	}
+
+	return snprintf(buf, PAGE_SIZE,
+		"Cool = %d\nYellow = %d\nRed = %d\n",
+			zhist[0], zhist[1], zhist[2]);
+}
+
+static ssize_t
+zonehist_store(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int ret;
+	struct tsens_tm_device *tmdev = NULL;
+
+	tmdev = tsens_controller_is_present();
+	if (!tmdev) {
+		pr_err("No TSENS controller present\n");
+		return -EPROBE_DEFER;
+	}
+
+	ret = kstrtou32(buf, 0, &tmdev->mtcsys.zone_hist);
+	if (ret < 0) {
+		pr_err("Invalid command line arguments\n");
+		return -EINVAL;
+	}
+
+	return count;
+}
+
+
 static struct device_attribute tsens_mtc_dev_attr[] = {
 	__ATTR(zonemask, 0644, zonemask_show, zonemask_store),
 	__ATTR(zonelog, 0644, zonelog_show, zonelog_store),
+	__ATTR(zonehist, 0644, zonehist_show, zonehist_store),
 };
 
 static int create_tsens_mtc_sysfs(struct platform_device *pdev)
@@ -2130,6 +2183,40 @@ int tsens_get_mtc_zone_log(unsigned int zone , void *zone_log)
 	return 0;
 }
 EXPORT_SYMBOL(tsens_get_mtc_zone_log);
+
+int tsens_get_mtc_zone_history(unsigned int zone , void *zone_hist)
+{
+	unsigned int i, reg_cntl, hist[TSENS_MTC_ZONE_HISTORY_SIZE];
+	int *zhist = (int *)zone_hist;
+	void __iomem *sensor_addr;
+	struct tsens_tm_device *tmdev = NULL;
+
+	if (zone > TSENS_NUM_MTC_ZONES_SUPPORT)
+		return -EINVAL;
+
+	tmdev = tsens_controller_is_present();
+	if (!tmdev) {
+		pr_err("No TSENS controller present\n");
+		return -EPROBE_DEFER;
+	}
+
+	sensor_addr = TSENS_TM_MTC_ZONE0_HISTORY(tmdev->tsens_addr);
+	reg_cntl = readl_relaxed((sensor_addr +
+				(zone * TSENS_SN_ADDR_OFFSET)));
+
+	hist[0] = (reg_cntl & TSENS_PS_COOL_CMD_MASK);
+	hist[1] = (reg_cntl & TSENS_PS_YELLOW_CMD_MASK)
+			  >> TSENS_PS_YELLOW_CMD_SHIFT;
+	hist[2] = (reg_cntl & TSENS_PS_RED_CMD_MASK)
+			  >> TSENS_PS_RED_CMD_SHIFT;
+	for (i = 0; i < (TSENS_MTC_ZONE_HISTORY_SIZE); i++) {
+		*(zhist+i) = hist[i];
+		pr_debug("tsens : %d\n", hist[i]);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(tsens_get_mtc_zone_history);
 
 static struct thermal_zone_device_ops tsens_thermal_zone_ops = {
 	.get_temp = tsens_tz_get_temp,
