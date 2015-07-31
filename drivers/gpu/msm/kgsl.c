@@ -3605,6 +3605,13 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 	ret = arch_mmap_check(addr, len, flags);
 	if (ret)
 		goto put;
+
+	/* Do not allow CPU mappings for secure buffers */
+	if (kgsl_memdesc_is_secured(&entry->memdesc)) {
+		ret = -EPERM;
+		goto put;
+	}
+
 	/*
 	 * If we're not going to use CPU map feature, get an ordinary mapping
 	 * with nothing more to be done.
