@@ -138,6 +138,8 @@ static int mdss_pll_resource_parse(struct platform_device *pdev,
 		pll_res->pll_interface_type = MDSS_HDMI_PLL_8996;
 	} else if (!strcmp(compatible_stream, "qcom,mdss_hdmi_pll_8996_v2")) {
 		pll_res->pll_interface_type = MDSS_HDMI_PLL_8996_V2;
+	} else if (!strcmp(compatible_stream, "qcom,mdss_hdmi_pll_8996_v3")) {
+		pll_res->pll_interface_type = MDSS_HDMI_PLL_8996_V3;
 	} else {
 		goto err;
 	}
@@ -169,6 +171,9 @@ static int mdss_pll_clock_register(struct platform_device *pdev,
 		break;
 	case MDSS_HDMI_PLL_8996_V2:
 		rc = hdmi_8996_v2_pll_clock_register(pdev, pll_res);
+		break;
+	case MDSS_HDMI_PLL_8996_V3:
+		rc = hdmi_8996_v3_pll_clock_register(pdev, pll_res);
 		break;
 	case MDSS_UNKNOWN_PLL:
 	default:
@@ -359,6 +364,7 @@ static const struct of_device_id mdss_pll_dt_match[] = {
 	{.compatible = "qcom,mdss_dsi_pll_8996_v2"},
 	{.compatible = "qcom,mdss_hdmi_pll_8996"},
 	{.compatible = "qcom,mdss_hdmi_pll_8996_v2"},
+	{.compatible = "qcom,mdss_hdmi_pll_8996_v3"},
 	{}
 };
 
