@@ -1449,6 +1449,16 @@ static inline int __power_off(struct venus_hfi_device *device)
 		goto err_tzbsp_suspend;
 	}
 
+	if (device->resources.imem.type) {
+		rc = __free_imem(device);
+		if (rc) {
+			dprintk(VIDC_WARN, "Failed to free IMEM for PC: %d\n",
+					rc);
+			/* Free imem is never supposed to fail */
+			WARN_ON(1);
+		}
+	}
+
 	/*
 	* For some regulators, driver might have transfered the control to HW.
 	* So before touching any clocks, driver should get the regulator
@@ -1473,7 +1483,6 @@ static inline int __power_off(struct venus_hfi_device *device)
 	__unvote_buses(device);
 	device->power_enabled = false;
 	dprintk(VIDC_INFO, "Venus power collapsed\n");
-
 	return rc;
 
 err_disable_regulators:
@@ -1482,6 +1491,8 @@ err_disable_regulators:
 	if (__hand_off_regulators(device))
 		dprintk(VIDC_ERR, "Failed hand_off_regulators\n");
 err_acquire_regulators:
+	if (__alloc_imem(device, device->res->imem_size))
+		dprintk(VIDC_ERR, "Failed alloc imem\n");
 	if (__tzbsp_set_video_state(TZBSP_VIDEO_STATE_RESUME))
 		dprintk(VIDC_ERR, "Failed TZBSP_RESUME\n");
 err_tzbsp_suspend:
@@ -1528,6 +1539,13 @@ static inline int __power_on(struct venus_hfi_device *device)
 		goto err_enable_clk;
 	}
 
+	rc = __alloc_imem(device, device->res->imem_size);
+	if (rc) {
+		dprintk(VIDC_WARN, "Failed to allocate IMEM");
+		/* Alloc imem should not fail */
+		WARN_ON(1);
+	}
+
 	/* Reboot the firmware */
 	rc = __tzbsp_set_video_state(TZBSP_VIDEO_STATE_RESUME);
 	if (rc) {
@@ -1565,19 +1583,13 @@ static inline int __power_on(struct venus_hfi_device *device)
 		goto err_reset_core;
 	}
 
-	rc = __alloc_set_imem(device);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to allocate IMEM");
-		goto err_alloc_imem;
-	}
-
 	dprintk(VIDC_INFO, "Resumed from power collapse\n");
 	return rc;
 
-err_alloc_imem:
 err_reset_core:
 	__tzbsp_set_video_state(TZBSP_VIDEO_STATE_SUSPEND);
 err_set_video_state:
+	__free_imem(device);
 	__disable_unprepare_clks(device);
 err_enable_clk:
 	__disable_regulators(device);
@@ -3322,19 +3334,9 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 
 	dprintk(VIDC_DBG, "Prepare for power collapse\n");
 
-	if (device->resources.imem.type) {
-		rc = __unset_free_imem(device);
-		if (rc) {
-			dprintk(VIDC_ERR, "Failed to unset IMEM for PC: %d\n",
-					rc);
-			goto err_unset_imem;
-		}
-	}
-
 	rc = __prepare_pc(device);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to prepare for PC %d\n", rc);
-		__alloc_set_imem(device);
 		mutex_unlock(&device->lock);
 		/*
 		 * __process_fatal_error invokes msm_vidc layer callback
@@ -3392,8 +3394,6 @@ skip_power_off:
 	dprintk(VIDC_WARN, "Power off skipped (last pkt %#x, status: %#x)\n",
 		device->last_packet_type, ctrl_status);
 
-	__alloc_set_imem(device);
-err_unset_imem:
 exit:
 	mutex_unlock(&device->lock);
 	return;
