@@ -54,6 +54,8 @@
  * @cpr_fusing_rev:	CPR fusing revision fuse parameter value
  * @redundant_fusing:	Redundant fusing select fuse parameter value
  * @limitation:		CPR limitation select fuse parameter value
+ * @partial_binning:	Chip partial binning fuse parameter value which defines
+ *			limitations found on a given chip
  *
  * This struct holds the values for all of the fuses read from memory.  The
  * values for ro_sel, init_voltage, target_quot, and quot_offset come from
@@ -69,6 +71,7 @@ struct cpr3_msm8996_hmss_fuses {
 	u64	cpr_fusing_rev;
 	u64	redundant_fusing;
 	u64	limitation;
+	u64	partial_binning;
 };
 
 /**
@@ -315,6 +318,11 @@ static const struct cpr3_fuse_param msm8996_cpr_limitation_param[] = {
 	{},
 };
 
+static const struct cpr3_fuse_param msm8996_cpr_partial_binning_param[] = {
+	{39, 55, 59},
+	{},
+};
+
 /*
  * Some initial msm8996 parts cannot be used in a meaningful way by software.
  * Other parts can only be used when operating with CPR disabled (i.e. at the
@@ -325,6 +333,15 @@ enum msm8996_cpr_limitation {
 	MSM8996_CPR_LIMITATION_NONE = 0,
 	MSM8996_CPR_LIMITATION_UNSUPPORTED = 2,
 	MSM8996_CPR_LIMITATION_NO_CPR_OR_INTERPOLATION = 3,
+};
+
+/*
+ * Some initial msm8996 parts cannot be operated at low voltages.  A fuse
+ * parameter is provided so that software can properly handle these limitations.
+ */
+enum msm8996_cpr_partial_binning {
+	MSM8996_CPR_PARTIAL_BINNING_SVS = 11,
+	MSM8996_CPR_PARTIAL_BINNING_NOM = 12,
 };
 
 /* Additional MSM8996 specific data: */
@@ -421,6 +438,20 @@ static int cpr3_msm8996_hmss_read_fuse_data(struct cpr3_regulator *vreg)
 		? "unsupported chip" : fuse->limitation
 			  == MSM8996_CPR_LIMITATION_NO_CPR_OR_INTERPOLATION
 		? "CPR disabled and no interpolation" : "none");
+
+	rc = cpr3_read_fuse_param(base, msm8996_cpr_partial_binning_param,
+				&fuse->partial_binning);
+	if (rc) {
+		cpr3_err(vreg, "Unable to read partial binning fuse, rc=%d\n",
+			rc);
+		return rc;
+	}
+	cpr3_info(vreg, "CPR partial binning limitation = %s\n",
+		fuse->partial_binning == MSM8996_CPR_PARTIAL_BINNING_SVS
+			? "SVS min voltage"
+		: fuse->partial_binning == MSM8996_CPR_PARTIAL_BINNING_NOM
+			? "NOM min voltage"
+		: "none");
 
 	id = vreg->thread->thread_id;
 
@@ -1106,6 +1137,51 @@ done:
 }
 
 /**
+ * cpr3_msm8996_partial_binning_override() - override the voltage and quotient
+ *		settings for low corners based upon the value of the partial
+ *		binning fuse
+ * @vreg:		Pointer to the CPR3 regulator
+ *
+ * Some parts are not able to operate at low voltages.  The partial binning
+ * fuse specifies if a given part has such limitations.
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_msm8996_partial_binning_override(struct cpr3_regulator *vreg)
+{
+	struct cpr3_msm8996_hmss_fuses *fuse = vreg->platform_fuses;
+	int i, fuse_corner, fmax_corner;
+
+	if (fuse->partial_binning == MSM8996_CPR_PARTIAL_BINNING_SVS)
+		fuse_corner = CPR3_MSM8996_HMSS_FUSE_CORNER_SVS;
+	else if (fuse->partial_binning == MSM8996_CPR_PARTIAL_BINNING_NOM)
+		fuse_corner = CPR3_MSM8996_HMSS_FUSE_CORNER_NOM;
+	else
+		return 0;
+
+	cpr3_info(vreg, "overriding voltages and quotients for all corners below %s Fmax\n",
+		cpr3_msm8996_hmss_fuse_corner_name[fuse_corner]);
+
+	fmax_corner = -1;
+	for (i = vreg->corner_count - 1; i >= 0; i--) {
+		if (vreg->corner[i].cpr_fuse_corner == fuse_corner) {
+			fmax_corner = i;
+			break;
+		}
+	}
+	if (fmax_corner < 0) {
+		cpr3_err(vreg, "could not find %s Fmax corner\n",
+			cpr3_msm8996_hmss_fuse_corner_name[fuse_corner]);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < fmax_corner; i++)
+		vreg->corner[i] = vreg->corner[fmax_corner];
+
+	return 0;
+}
+
+/**
  * cpr3_hmss_print_settings() - print out HMSS CPR configuration settings into
  *		the kernel log for debugging purposes
  * @vreg:		Pointer to the CPR3 regulator
@@ -1229,6 +1305,13 @@ static int cpr3_hmss_init_regulator(struct cpr3_regulator *vreg)
 			combo_offset);
 	if (rc) {
 		cpr3_err(vreg, "unable to calculate target quotients, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = cpr3_msm8996_partial_binning_override(vreg);
+	if (rc) {
+		cpr3_err(vreg, "unable to override voltages and quotients based on partial binning fuse, rc=%d\n",
 			rc);
 		return rc;
 	}
