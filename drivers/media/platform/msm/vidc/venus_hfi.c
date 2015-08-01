@@ -3669,10 +3669,11 @@ static void venus_hfi_core_work_handler(struct work_struct *work)
 	__core_clear_interrupt(device);
 	num_responses = __response_handler(device);
 
+err_no_work:
+	/* We need re-enable the irq which was disabled in ISR handler */
 	if (!(device->intr_status & VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK))
 		enable_irq(device->hal_data->irq);
 
-err_no_work:
 	mutex_unlock(&device->lock);
 
 	/*
