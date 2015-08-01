@@ -449,6 +449,11 @@ struct fg_chip {
 	/* interleaved memory access */
 	u16			*offset;
 	bool			ima_supported;
+	bool			jeita_hysteresis_support;
+	bool			batt_hot;
+	bool			batt_cold;
+	int			cold_hysteresis;
+	int			hot_hysteresis;
 };
 
 /* FG_MEMIF DEBUGFS structures */
@@ -3062,6 +3067,93 @@ static void status_change_work(struct work_struct *work)
 	}
 }
 
+static void fg_hysteresis_config(struct fg_chip *chip)
+{
+	int hard_hot = 0, hard_cold = 0;
+
+	hard_hot = get_prop_jeita_temp(chip, FG_MEM_HARD_HOT);
+	hard_cold = get_prop_jeita_temp(chip, FG_MEM_HARD_COLD);
+	if (chip->health == POWER_SUPPLY_HEALTH_OVERHEAT && !chip->batt_hot) {
+		/* turn down the hard hot threshold */
+		chip->batt_hot = true;
+		set_prop_jeita_temp(chip, FG_MEM_HARD_HOT,
+			hard_hot - chip->hot_hysteresis);
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("hard hot hysteresis: old hot=%d, new hot=%d\n",
+				hard_hot, hard_hot - chip->hot_hysteresis);
+	} else if (chip->health == POWER_SUPPLY_HEALTH_COLD &&
+		!chip->batt_cold) {
+		/* turn up the hard cold threshold */
+		chip->batt_cold = true;
+		set_prop_jeita_temp(chip, FG_MEM_HARD_COLD,
+			hard_cold + chip->cold_hysteresis);
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("hard cold hysteresis: old cold=%d, new cold=%d\n",
+				hard_cold, hard_cold + chip->hot_hysteresis);
+	} else if (chip->health != POWER_SUPPLY_HEALTH_OVERHEAT &&
+		chip->batt_hot) {
+		/* restore the hard hot threshold */
+		set_prop_jeita_temp(chip, FG_MEM_HARD_HOT,
+			hard_hot + chip->hot_hysteresis);
+		chip->batt_hot = !chip->batt_hot;
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("restore hard hot threshold: old hot=%d, new hot=%d\n",
+				hard_hot,
+				hard_hot + chip->hot_hysteresis);
+	} else if (chip->health != POWER_SUPPLY_HEALTH_COLD &&
+		chip->batt_cold) {
+		/* restore the hard cold threshold */
+		set_prop_jeita_temp(chip, FG_MEM_HARD_COLD,
+			hard_cold - chip->cold_hysteresis);
+		chip->batt_cold = !chip->batt_cold;
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("restore hard cold threshold: old cold=%d, new cold=%d\n",
+				hard_cold,
+				hard_cold - chip->cold_hysteresis);
+	}
+}
+
+#define BATT_INFO_STS(base)	(base + 0x09)
+#define JEITA_HARD_HOT_RT_STS	BIT(6)
+#define JEITA_HARD_COLD_RT_STS	BIT(5)
+static int fg_init_batt_temp_state(struct fg_chip *chip)
+{
+	int rc = 0;
+	u8 batt_info_sts;
+	int hard_hot = 0, hard_cold = 0;
+
+	/*
+	 * read the batt_info_sts register to parse battery's
+	 * initial status and do hysteresis config accordingly.
+	 */
+	rc = fg_read(chip, &batt_info_sts,
+		BATT_INFO_STS(chip->batt_base), 1);
+	if (rc) {
+		pr_err("failed to read batt info sts, rc=%d\n", rc);
+		return rc;
+	}
+
+	hard_hot = get_prop_jeita_temp(chip, FG_MEM_HARD_HOT);
+	hard_cold = get_prop_jeita_temp(chip, FG_MEM_HARD_COLD);
+	chip->batt_hot =
+		(batt_info_sts & JEITA_HARD_HOT_RT_STS) ? true : false;
+	chip->batt_cold =
+		(batt_info_sts & JEITA_HARD_COLD_RT_STS) ? true : false;
+	if (chip->batt_hot || chip->batt_cold) {
+		if (chip->batt_hot) {
+			chip->health = POWER_SUPPLY_HEALTH_OVERHEAT;
+			set_prop_jeita_temp(chip, FG_MEM_HARD_HOT,
+				hard_hot - chip->hot_hysteresis);
+		} else {
+			chip->health = POWER_SUPPLY_HEALTH_COLD;
+			set_prop_jeita_temp(chip, FG_MEM_HARD_COLD,
+				hard_cold + chip->cold_hysteresis);
+		}
+	}
+
+	return rc;
+}
+
 static int fg_power_set_property(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  const union power_supply_propval *val)
@@ -3091,6 +3183,9 @@ static int fg_power_set_property(struct power_supply *psy,
 			fg_stay_awake(&chip->resume_soc_wakeup_source);
 			schedule_work(&chip->set_resume_soc_work);
 		}
+
+		if (chip->jeita_hysteresis_support)
+			fg_hysteresis_config(chip);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_DONE:
 		chip->charge_done = val->intval;
@@ -4301,11 +4396,42 @@ static int fg_of_init(struct fg_chip *chip)
 	int rc = 0, sense_type, len = 0;
 	const char *data;
 	struct device_node *node = chip->spmi->dev.of_node;
+	u32 temp[2] = {0};
 
 	OF_READ_SETTING(FG_MEM_SOFT_HOT, "warm-bat-decidegc", rc, 1);
 	OF_READ_SETTING(FG_MEM_SOFT_COLD, "cool-bat-decidegc", rc, 1);
 	OF_READ_SETTING(FG_MEM_HARD_HOT, "hot-bat-decidegc", rc, 1);
 	OF_READ_SETTING(FG_MEM_HARD_COLD, "cold-bat-decidegc", rc, 1);
+
+	if (of_find_property(node, "qcom,cold-hot-jeita-hysteresis", NULL)) {
+		int hard_hot = 0, soft_hot = 0, hard_cold = 0, soft_cold = 0;
+
+		rc = of_property_read_u32_array(node,
+			"qcom,cold-hot-jeita-hysteresis", temp, 2);
+		if (rc) {
+			pr_err("Error reading cold-hot-jeita-hysteresis rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		chip->jeita_hysteresis_support = true;
+		chip->cold_hysteresis = temp[0];
+		chip->hot_hysteresis = temp[1];
+		hard_hot = settings[FG_MEM_HARD_HOT].value;
+		soft_hot = settings[FG_MEM_SOFT_HOT].value;
+		hard_cold = settings[FG_MEM_HARD_COLD].value;
+		soft_cold = settings[FG_MEM_SOFT_COLD].value;
+		if (((hard_hot - chip->hot_hysteresis) < soft_hot) ||
+			((hard_cold + chip->cold_hysteresis) > soft_cold)) {
+			chip->jeita_hysteresis_support = false;
+			pr_err("invalid hysteresis: hot_hysterresis = %d cold_hysteresis = %d\n",
+				chip->hot_hysteresis, chip->cold_hysteresis);
+		} else {
+			pr_debug("cold_hysteresis = %d, hot_hysteresis = %d\n",
+				chip->cold_hysteresis, chip->hot_hysteresis);
+		}
+	}
+
 	OF_READ_SETTING(FG_MEM_BCL_LM_THRESHOLD, "bcl-lm-threshold-ma",
 		rc, 1);
 	OF_READ_SETTING(FG_MEM_BCL_MH_THRESHOLD, "bcl-mh-threshold-ma",
@@ -5518,6 +5644,14 @@ static int fg_probe(struct spmi_device *spmi)
 	if (rc) {
 		pr_err("failed to parse devicetree rc%d\n", rc);
 		goto of_init_fail;
+	}
+
+	if (chip->jeita_hysteresis_support) {
+		rc = fg_init_batt_temp_state(chip);
+		if (rc) {
+			pr_err("failed to get battery status rc%d\n", rc);
+			goto of_init_fail;
+		}
 	}
 
 	reg = 0xFF;
