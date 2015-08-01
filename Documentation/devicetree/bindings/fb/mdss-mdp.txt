@@ -482,7 +482,7 @@ Fudge Factors:			Fudge factors are used to boost demand for
 				the panic independently on each client.
 				First element on the array is for the panic
 				configuration, second element for robust.
-- qcom,mdss-has-dst-split:	Boolean property to indicate if destination
+- qcom,mdss-has-pingpong-split:	Boolean property to indicate if destination
 				split feature is available or not in the target.
 - qcom,mdss-cdm-off:            Array of offset addresses for the available
 				chroma down modules that can convert RGB data
@@ -503,7 +503,7 @@ Fudge Factors:			Fudge factors are used to boost demand for
 - qcom,mdss-slave-pingpong-off:	Offset address for the extra TE block which needs
 				to be programmed when pingpong split feature is enabled.
 				Offset is calculated from the "mdp_phys"
-				register value. Mandatory when qcom,mdss-has-dst-split
+				register value. Mandatory when qcom,mdss-has-pingpong-split
 				is enabled.
 
 Optional subnodes:
@@ -674,7 +674,7 @@ Example:
 		qcom,mdss-traffic-shaper-enabled;
 		qcom,mdss-has-rotator-downscale;
 
-		qcom,mdss-has-dst-split;
+		qcom,mdss-has-pingpong-split;
 		qcom,mdss-pipe-vig-xin-id = <0 4 8>;
 		qcom,mdss-pipe-rgb-xin-id = <1 5 9>;
 		qcom,mdss-pipe-dma-xin-id = <2 10>;
