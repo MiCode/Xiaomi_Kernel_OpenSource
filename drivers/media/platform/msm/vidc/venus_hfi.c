@@ -3645,6 +3645,12 @@ static void venus_hfi_core_work_handler(struct work_struct *work)
 	mutex_lock(&device->lock);
 
 	dprintk(VIDC_INFO, "Handling interrupt\n");
+
+	if (!__core_in_valid_state(device)) {
+		dprintk(VIDC_DBG, "%s - Core not in init state\n", __func__);
+		goto err_no_work;
+	}
+
 	if (!device->callback) {
 		dprintk(VIDC_ERR, "No interrupt callback function: %p\n",
 				device);
