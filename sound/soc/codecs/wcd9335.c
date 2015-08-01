@@ -112,6 +112,13 @@
 #define TASHA_VERSION_ENTRY_SIZE 17
 
 static int cpe_debug_mode;
+
+#define TASHA_MAX_MICBIAS 4
+#define DAPM_MICBIAS1_STANDALONE "MIC BIAS1 Standalone"
+#define DAPM_MICBIAS2_STANDALONE "MIC BIAS2 Standalone"
+#define DAPM_MICBIAS3_STANDALONE "MIC BIAS3 Standalone"
+#define DAPM_MICBIAS4_STANDALONE "MIC BIAS4 Standalone"
+
 module_param(cpe_debug_mode, int,
 	     S_IRUGO | S_IWUSR | S_IWGRP);
 MODULE_PARM_DESC(cpe_debug_mode, "boot cpe in debug mode");
@@ -511,8 +518,8 @@ struct tasha_priv {
 	s32 dmic_2_3_clk_cnt;
 	s32 dmic_4_5_clk_cnt;
 	s32 ldo_h_users;
-	s32 micb_ref;
-	s32 pullup_ref;
+	s32 micb_ref[TASHA_MAX_MICBIAS];
+	s32 pullup_ref[TASHA_MAX_MICBIAS];
 
 	u32 anc_slot;
 	bool anc_func;
@@ -822,63 +829,95 @@ static void tasha_mbhc_hph_l_pull_up_control(struct snd_soc_codec *codec,
 }
 
 static int tasha_micbias_control(struct snd_soc_codec *codec,
+				 int micb_num,
 				 int req, bool is_dapm)
 {
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	int micb_index = micb_num - 1;
+	u16 micb_reg;
+	int pre_off_event = 0, post_off_event = 0;
+	int post_on_event = 0, post_dapm_off = 0;
+	int post_dapm_on = 0;
 
+	if ((micb_index < 0) || (micb_index > TASHA_MAX_MICBIAS - 1)) {
+		dev_err(codec->dev, "%s: Invalid micbias index, micb_ind:%d\n",
+			__func__, micb_index);
+		return -EINVAL;
+	}
+	switch (micb_num) {
+	case MIC_BIAS_1:
+		micb_reg = WCD9335_ANA_MICB1;
+		break;
+	case MIC_BIAS_2:
+		micb_reg = WCD9335_ANA_MICB2;
+		pre_off_event = WCD_EVENT_PRE_MICBIAS_2_OFF;
+		post_off_event = WCD_EVENT_POST_MICBIAS_2_OFF;
+		post_on_event = WCD_EVENT_POST_MICBIAS_2_ON;
+		post_dapm_on = WCD_EVENT_POST_DAPM_MICBIAS_2_ON;
+		post_dapm_off = WCD_EVENT_POST_DAPM_MICBIAS_2_OFF;
+		break;
+	case MIC_BIAS_3:
+		micb_reg = WCD9335_ANA_MICB3;
+		break;
+	case MIC_BIAS_4:
+		micb_reg = WCD9335_ANA_MICB4;
+		break;
+	default:
+		dev_err(codec->dev, "%s: Invalid micbias number: %d\n",
+			__func__, micb_num);
+		return -EINVAL;
+	}
 	mutex_lock(&tasha->micb_lock);
 
 	switch (req) {
 	case MICB_PULLUP_ENABLE:
-		tasha->pullup_ref++;
-		if ((tasha->pullup_ref == 1) && (tasha->micb_ref == 0))
-			snd_soc_update_bits(codec, WCD9335_ANA_MICB2, 0xC0,
-					    0x80);
+		tasha->pullup_ref[micb_index]++;
+		if ((tasha->pullup_ref[micb_index] == 1) &&
+		    (tasha->micb_ref[micb_index] == 0))
+			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x80);
 		break;
 	case MICB_PULLUP_DISABLE:
-		tasha->pullup_ref--;
-		if ((tasha->pullup_ref == 0) && (tasha->micb_ref == 0))
-			snd_soc_update_bits(codec, WCD9335_ANA_MICB2, 0xC0,
-					    0x00);
+		tasha->pullup_ref[micb_index]--;
+		if ((tasha->pullup_ref[micb_index] == 0) &&
+		    (tasha->micb_ref[micb_index] == 0))
+			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x00);
 		break;
 	case MICB_ENABLE:
-		tasha->micb_ref++;
-		if (tasha->micb_ref == 1) {
-			snd_soc_update_bits(codec, WCD9335_ANA_MICB2, 0xC0,
-					    0x40);
-			blocking_notifier_call_chain(&tasha->notifier,
-					WCD_EVENT_POST_MICBIAS_2_ON,
-					&tasha->mbhc);
+		tasha->micb_ref[micb_index]++;
+		if (tasha->micb_ref[micb_index] == 1) {
+			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x40);
+			if (post_on_event)
+				blocking_notifier_call_chain(&tasha->notifier,
+						post_on_event, &tasha->mbhc);
 		}
-		if (is_dapm)
+		if (is_dapm && post_dapm_on)
 			blocking_notifier_call_chain(&tasha->notifier,
-					WCD_EVENT_POST_DAPM_MICBIAS_2_ON,
-					&tasha->mbhc);
+					post_dapm_on, &tasha->mbhc);
 		break;
 	case MICB_DISABLE:
-		tasha->micb_ref--;
-		if ((tasha->micb_ref == 0) && (tasha->pullup_ref > 0))
-			snd_soc_update_bits(codec, WCD9335_ANA_MICB2, 0xC0,
-					    0x80);
-		else if ((tasha->micb_ref == 0) && (tasha->pullup_ref == 0)) {
-			blocking_notifier_call_chain(&tasha->notifier,
-					WCD_EVENT_PRE_MICBIAS_2_OFF,
-					&tasha->mbhc);
-			snd_soc_update_bits(codec, WCD9335_ANA_MICB2, 0xC0,
-					    0x00);
-			blocking_notifier_call_chain(&tasha->notifier,
-					WCD_EVENT_POST_MICBIAS_2_OFF,
-					&tasha->mbhc);
+		tasha->micb_ref[micb_index]--;
+		if ((tasha->micb_ref[micb_index] == 0) &&
+		    (tasha->pullup_ref[micb_index] > 0))
+			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x80);
+		else if ((tasha->micb_ref[micb_index] == 0) &&
+			 (tasha->pullup_ref[micb_index] == 0)) {
+			if (pre_off_event)
+				blocking_notifier_call_chain(&tasha->notifier,
+						pre_off_event, &tasha->mbhc);
+			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x00);
+			if (post_off_event)
+				blocking_notifier_call_chain(&tasha->notifier,
+						post_off_event, &tasha->mbhc);
 		}
-		if (is_dapm)
+		if (is_dapm && post_dapm_off)
 			blocking_notifier_call_chain(&tasha->notifier,
-					WCD_EVENT_POST_DAPM_MICBIAS_2_OFF,
-					&tasha->mbhc);
+					post_dapm_off, &tasha->mbhc);
 		break;
 	};
 
-	dev_dbg(codec->dev, "%s: micb_ref: %d, pullup_ref: %d\n",
-		__func__, tasha->micb_ref, tasha->pullup_ref);
+	dev_dbg(codec->dev, "%s: micb_num:%d, micb_ref: %d, pullup_ref: %d\n",
+		__func__, micb_num, tasha->micb_ref[micb_index],
+		tasha->pullup_ref[micb_index]);
 
 	mutex_unlock(&tasha->micb_lock);
 
@@ -897,7 +936,7 @@ static int tasha_mbhc_request_micbias(struct snd_soc_codec *codec,
 	if (req == MICB_ENABLE)
 		tasha_cdc_mclk_enable(codec, true, false);
 
-	ret = tasha_micbias_control(codec, req, false);
+	ret = tasha_micbias_control(codec, MIC_BIAS_2, req, false);
 
 	/*
 	 * Release vote for mclk while requesting for
@@ -3700,52 +3739,128 @@ static int tasha_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int tasha_codec_enable_micbias(struct snd_soc_dapm_widget *w,
-		struct snd_kcontrol *kcontrol, int event)
+static int __tasha_codec_enable_micbias(struct snd_soc_dapm_widget *w,
+					int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-	u16 micb_reg;
+	int micb_num;
 
 	dev_dbg(codec->dev, "%s: wname: %s, event: %d\n",
 		__func__, w->name, event);
 
-	if (!(strcmp(w->name, "MIC BIAS1")))
-		micb_reg = WCD9335_ANA_MICB1;
-	else if (!(strcmp(w->name, "MIC BIAS2")))
-		micb_reg = WCD9335_ANA_MICB2;
-	else if (!(strcmp(w->name, "MIC BIAS3")))
-		micb_reg = WCD9335_ANA_MICB3;
-	else if (!(strcmp(w->name, "MIC BIAS4")))
-		micb_reg = WCD9335_ANA_MICB4;
+	if (strnstr(w->name, "MIC BIAS1", sizeof("MIC BIAS1")))
+		micb_num = MIC_BIAS_1;
+	else if (strnstr(w->name, "MIC BIAS2", sizeof("MIC BIAS2")))
+		micb_num = MIC_BIAS_2;
+	else if (strnstr(w->name, "MIC BIAS3", sizeof("MIC BIAS3")))
+		micb_num = MIC_BIAS_3;
+	else if (strnstr(w->name, "MIC BIAS4", sizeof("MIC BIAS4")))
+		micb_num = MIC_BIAS_4;
 	else
 		return -EINVAL;
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		/*
-		 * MIC BIAS2 can also be requested by MBHC,
-		 * so use ref count to handle micbias2 pullup
+		 * MIC BIAS can also be requested by MBHC,
+		 * so use ref count to handle micbias pullup
 		 * and enable requests
 		 */
-		if (micb_reg == WCD9335_ANA_MICB2)
-			tasha_micbias_control(codec, MICB_ENABLE, true);
-		else
-			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x40);
+		tasha_micbias_control(codec, micb_num, MICB_ENABLE, true);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		/* wait for cnp time */
 		usleep_range(1000, 1100);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		if (micb_reg == WCD9335_ANA_MICB2)
-			tasha_micbias_control(codec, MICB_DISABLE, true);
-		else
-			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x00);
+		tasha_micbias_control(codec, micb_num, MICB_DISABLE, true);
 		break;
 	};
 
 	return 0;
 }
+
+static int tasha_codec_force_enable_micbias(struct snd_soc_dapm_widget *w,
+					    struct snd_kcontrol *kcontrol,
+					    int event)
+{
+	int ret;
+	struct snd_soc_codec *codec = w->codec;
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		wcd_resmgr_enable_master_bias(tasha->resmgr);
+		tasha_cdc_mclk_enable(w->codec, true, true);
+		ret = __tasha_codec_enable_micbias(w, SND_SOC_DAPM_PRE_PMU);
+		/* Wait for 1ms for better cnp */
+		usleep_range(1000, 1100);
+		tasha_cdc_mclk_enable(w->codec, false, true);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		ret = __tasha_codec_enable_micbias(w, SND_SOC_DAPM_POST_PMD);
+		wcd_resmgr_disable_master_bias(tasha->resmgr);
+		break;
+	}
+
+	return ret;
+}
+
+static int tasha_codec_enable_micbias(struct snd_soc_dapm_widget *w,
+		struct snd_kcontrol *kcontrol, int event)
+{
+	return __tasha_codec_enable_micbias(w, event);
+}
+
+/*
+ * tasha_codec_enable_standalone_micbias - enable micbias standalone
+ * @codec: pointer to codec instance
+ * @micb_num: number of micbias to be enabled
+ * @enable: true to enable micbias or false to disable
+ *
+ * This function is used to enable micbias (1, 2, 3 or 4) during
+ * standalone independent of whether TX use-case is running or not
+ *
+ * Return: error code in case of failure or 0 for success
+ */
+int tasha_codec_enable_standalone_micbias(struct snd_soc_codec *codec,
+					  int micb_num,
+					  bool enable)
+{
+	const char * const micb_names[] = {
+		DAPM_MICBIAS1_STANDALONE, DAPM_MICBIAS2_STANDALONE,
+		DAPM_MICBIAS3_STANDALONE, DAPM_MICBIAS4_STANDALONE
+	};
+	int micb_index = micb_num - 1;
+	int rc;
+
+	if (!codec) {
+		pr_err("%s: Codec memory is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if ((micb_index < 0) || (micb_index > TASHA_MAX_MICBIAS - 1)) {
+		dev_err(codec->dev, "%s: Invalid micbias index, micb_ind:%d\n",
+			__func__, micb_index);
+		return -EINVAL;
+	}
+
+	if (enable)
+		rc = snd_soc_dapm_force_enable_pin(&codec->dapm,
+						   micb_names[micb_index]);
+	else
+		rc = snd_soc_dapm_disable_pin(&codec->dapm,
+					      micb_names[micb_index]);
+
+	if (!rc)
+		snd_soc_dapm_sync(&codec->dapm);
+	else
+		dev_err(codec->dev, "%s: micbias%d force %s pin failed\n",
+			__func__, micb_num, (enable ? "enable" : "disable"));
+
+	return rc;
+}
+EXPORT_SYMBOL(tasha_codec_enable_standalone_micbias);
 
 static const char *const tasha_anc_func_text[] = {"OFF", "ON"};
 static const struct soc_enum tasha_anc_func_enum =
@@ -7447,6 +7562,19 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 			       tasha_codec_enable_micbias,
 			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 			       SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_MICBIAS_E(DAPM_MICBIAS1_STANDALONE, SND_SOC_NOPM, 0, 0,
+			       tasha_codec_force_enable_micbias,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E(DAPM_MICBIAS2_STANDALONE, SND_SOC_NOPM, 0, 0,
+			       tasha_codec_force_enable_micbias,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E(DAPM_MICBIAS3_STANDALONE, SND_SOC_NOPM, 0, 0,
+			       tasha_codec_force_enable_micbias,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MICBIAS_E(DAPM_MICBIAS4_STANDALONE, SND_SOC_NOPM, 0, 0,
+			       tasha_codec_force_enable_micbias,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MUX("ANC0 FB MUX", SND_SOC_NOPM, 0, 0, &anc0_fb_mux),
 	SND_SOC_DAPM_MUX("ANC1 FB MUX", SND_SOC_NOPM, 0, 0, &anc1_fb_mux),
