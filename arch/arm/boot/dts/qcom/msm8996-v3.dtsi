@@ -17,7 +17,6 @@
  */
 
 #include "msm8996.dtsi"
-#include "msm-arm-smmu-8996v3.dtsi"
 #include "msm8996-coresight-v3.dtsi"
 
 / {
