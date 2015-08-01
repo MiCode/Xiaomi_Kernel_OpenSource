@@ -70,5 +70,15 @@
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-reset-sequence = <1 20>, <0 20>, <1 50>;
+
+		qcom,config-select = <&dsi_dual_nt35597_video_config0>;
+
+		dsi_dual_nt35597_video_config0: config0 {
+			qcom,split-mode = "dualctl-split";
+		};
+
+		dsi_dual_nt35597_video_config1: config1 {
+			qcom,split-mode = "pingpong-split";
+		};
 	};
 };
