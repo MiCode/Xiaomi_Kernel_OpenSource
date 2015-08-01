@@ -36,6 +36,11 @@ int ufs_qcom_phy_qmp_14nm_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 	} else if ((major == 0x2) && (minor == 0x001) && (step == 0x0000)) {
 		tbl_A = phy_cal_table_rate_A_2_1_0;
 		tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A_2_1_0);
+	} else if ((major == 0x2) && (minor == 0x002) && (step == 0x0000)) {
+		tbl_A = phy_cal_table_rate_A_2_2_0;
+		tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A_2_2_0);
+		tbl_B = phy_cal_table_rate_B_2_2_0;
+		tbl_size_B = ARRAY_SIZE(phy_cal_table_rate_B_2_2_0);
 	} else {
 		dev_err(ufs_qcom_phy->dev,
 			"%s: Unknown UFS-PHY version (major 0x%x minor 0x%x step 0x%x), no calibration values\n",
