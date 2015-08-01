@@ -94,6 +94,10 @@
 					0x0006C000 0x0006C800>;
 		qcom,mdss-pingpong-off = <0x00071000 0x00071800
 					  0x00072000 0x00072800>;
+		qcom,mdss-slave-pingpong-off = <0x00073000>;
+		qcom,mdss-ppb-off = <0x00000330 0x00000338>;
+		qcom,mdss-has-pingpong-split;
+
 		qcom,mdss-ad-off = <0x0079000 0x00079800 0x0007a000>;
 		qcom,mdss-cdm-off = <0x0007a200>;
 		qcom,mdss-dsc-off = <0x00081000 0x00081400>;
@@ -173,6 +177,7 @@
 				     <0x6c800 0x6ca68>,
 				     <0x71000 0x710d4>,
 				     <0x71800 0x718d4>,
+				     <0x73000 0x730d4>,
 				     <0x81000 0x81140>,
 				     <0x81400 0x81540>;
 
@@ -189,7 +194,7 @@
 			"DSPP_0",  "DSPP_1",
 			"WB_0",    "WB_1",    "WB_2",
 			"INTF_1",  "INTF_2", "INTF_3",
-			"PP_0",    "PP_1",
+			"PP_0",    "PP_1", "PP_4",
 			"DSC_0",    "DSC_1";
 
 		/* buffer parameters to calculate prefill bandwidth */
