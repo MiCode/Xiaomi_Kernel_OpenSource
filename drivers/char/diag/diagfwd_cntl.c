@@ -1246,8 +1246,6 @@ int diag_send_buffering_wm_values(uint8_t peripheral,
 
 int diagfwd_cntl_init(void)
 {
-	uint8_t peripheral;
-
 	reg_dirty = 0;
 	driver->polling_reg_flag = 0;
 	driver->log_on_demand_support = 1;
@@ -1263,12 +1261,17 @@ int diagfwd_cntl_init(void)
 	if (!driver->cntl_wq)
 		return -ENOMEM;
 
+	return 0;
+}
+
+void diagfwd_cntl_channel_init(void)
+{
+	uint8_t peripheral;
+
 	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++) {
 		diagfwd_early_open(peripheral);
 		diagfwd_open(peripheral, TYPE_CNTL);
 	}
-
-	return 0;
 }
 
 void diagfwd_cntl_exit(void)
