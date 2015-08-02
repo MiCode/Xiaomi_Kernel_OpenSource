@@ -1567,8 +1567,10 @@ static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip)
 
 	kt_since_last_disable = ktime_sub(ktime_get_boottime(),
 					chip->parallel.last_disabled);
-	if (chip->parallel.enabled_once && ktime_to_ms(kt_since_last_disable)
-					< PARALLEL_REENABLE_TIMER_MS) {
+	if (chip->parallel.current_max_ma == 0
+		&& chip->parallel.enabled_once
+		&& ktime_to_ms(kt_since_last_disable)
+			< PARALLEL_REENABLE_TIMER_MS) {
 		pr_smb(PR_STATUS, "Only been %lld since disable, skipping\n",
 				ktime_to_ms(kt_since_last_disable));
 		return false;
