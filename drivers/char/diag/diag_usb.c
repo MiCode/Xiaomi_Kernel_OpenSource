@@ -215,6 +215,7 @@ static void diag_usb_write_done(struct diag_usb_info *ch,
 				struct diag_request *req)
 {
 	int ctxt = 0;
+	unsigned long flags;
 
 	if (!ch || !req)
 		return;
@@ -223,7 +224,9 @@ static void diag_usb_write_done(struct diag_usb_info *ch,
 	ctxt = (int)(uintptr_t)req->context;
 	if (ch->ops && ch->ops->write_done)
 		ch->ops->write_done(req->buf, req->actual, ctxt, DIAG_USB_MODE);
+	spin_lock_irqsave(&ch->write_lock, flags);
 	diag_ws_on_copy_complete(DIAG_WS_MUX);
+	spin_unlock_irqrestore(&ch->write_lock, flags);
 	diagmem_free(driver, req, ch->mempool);
 }
 
@@ -285,6 +288,7 @@ int diag_usb_write(int id, unsigned char *buf, int len, int ctxt)
 	int err = 0;
 	struct diag_request *req = NULL;
 	struct diag_usb_info *usb_info = NULL;
+	unsigned long flags;
 
 	if (id < 0 || id >= NUM_DIAG_USB_DEV) {
 		pr_err_ratelimited("diag: In %s, Incorrect id %d\n",
@@ -319,9 +323,12 @@ int diag_usb_write(int id, unsigned char *buf, int len, int ctxt)
 		diagmem_free(driver, req, usb_info->mempool);
 		return -ENODEV;
 	}
+
+	spin_lock_irqsave(&usb_info->write_lock, flags);
 	diag_ws_on_read(DIAG_WS_MUX, len);
 	err = usb_diag_write(usb_info->hdl, req);
 	diag_ws_on_copy(DIAG_WS_MUX);
+	spin_unlock_irqrestore(&usb_info->write_lock, flags);
 	if (err) {
 		pr_err_ratelimited("diag: In %s, error writing to usb channel %s, err: %d\n",
 				   __func__, usb_info->name, err);
@@ -389,6 +396,7 @@ int diag_usb_register(int id, int ctxt, struct diag_mux_ops *ops)
 	ch->ops = ops;
 	ch->ctxt = ctxt;
 	spin_lock_init(&ch->lock);
+	spin_lock_init(&ch->write_lock);
 	ch->read_buf = kzalloc(USB_MAX_OUT_BUF, GFP_KERNEL);
 	if (!ch->read_buf)
 		goto err;
