@@ -573,7 +573,7 @@ void diag_ws_on_copy_fail(int type);
 void diag_ws_on_copy_complete(int type);
 void diag_ws_reset(int type);
 void diag_ws_release(void);
-
+void chk_logging_wakeup(void);
 int diag_cmd_add_reg(struct diag_cmd_reg_entry_t *new_entry, uint8_t proc,
 		     int pid);
 struct diag_cmd_reg_entry_t *diag_cmd_search(
