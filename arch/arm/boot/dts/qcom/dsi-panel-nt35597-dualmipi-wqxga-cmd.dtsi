@@ -13,7 +13,7 @@
 &mdss_mdp {
 	dsi_dual_nt35597_cmd: qcom,mdss_dsi_nt35597_wqxga_cmd{
 		qcom,mdss-dsi-panel-name =
-			"Dual nt35597 cmd mode dsi panel without/o DSC";
+			"Dual nt35597 cmd mode dsi panel without DSC";
 		qcom,mdss-dsi-panel-type = "dsi_cmd_mode";
 		qcom,mdss-dsi-panel-framerate = <60>;
 		qcom,mdss-dsi-virtual-channel-id = <0>;
