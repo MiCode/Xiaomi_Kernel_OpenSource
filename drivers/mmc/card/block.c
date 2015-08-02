@@ -3946,18 +3946,18 @@ static void mmc_blk_remove(struct mmc_card *card)
 #endif
 }
 
-static int _mmc_blk_suspend(struct mmc_card *card)
+static int _mmc_blk_suspend(struct mmc_card *card, bool wait)
 {
 	struct mmc_blk_data *part_md;
 	struct mmc_blk_data *md = mmc_get_drvdata(card);
 	int rc = 0;
 
 	if (md) {
-		rc = mmc_queue_suspend(&md->queue, 0);
+		rc = mmc_queue_suspend(&md->queue, wait);
 		if (rc)
 			goto out;
 		list_for_each_entry(part_md, &md->part, part) {
-			rc = mmc_queue_suspend(&part_md->queue, 0);
+			rc = mmc_queue_suspend(&part_md->queue, wait);
 			if (rc)
 				goto out_resume;
 		}
@@ -3975,7 +3975,7 @@ static int _mmc_blk_suspend(struct mmc_card *card)
 
 static void mmc_blk_shutdown(struct mmc_card *card)
 {
-	_mmc_blk_suspend(card);
+	_mmc_blk_suspend(card, 1);
 
 	/* send power off notification */
 	if (mmc_card_mmc(card))
@@ -3985,7 +3985,7 @@ static void mmc_blk_shutdown(struct mmc_card *card)
 #ifdef CONFIG_PM
 static int mmc_blk_suspend(struct mmc_card *card)
 {
-	return _mmc_blk_suspend(card);
+	return _mmc_blk_suspend(card, 0);
 }
 
 static int mmc_blk_resume(struct mmc_card *card)
