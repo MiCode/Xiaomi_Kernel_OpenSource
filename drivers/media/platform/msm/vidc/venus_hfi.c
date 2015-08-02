@@ -82,8 +82,6 @@ static inline void venus_hfi_disable_unprepare_clks(
 static void venus_hfi_flush_debug_queue(
 	struct venus_hfi_device *device, u8 *packet);
 static void venus_hfi_clock_adjust(struct venus_hfi_device *device);
-static int venus_hfi_reduce_clocks(struct venus_hfi_device *device);
-static int venus_hfi_scale_clocks(void *dev, int load, int codecs_enabled);
 
 static inline void venus_hfi_set_state(struct venus_hfi_device *device,
 		enum venus_hfi_state state)
@@ -838,7 +836,7 @@ static int venus_hfi_get_bus_vector(struct venus_hfi_device *device,
 }
 
 static bool venus_hfi_is_session_supported(unsigned long sessions_supported,
-		enum vidc_bus_vote_data_session session_type)
+		enum vidc_vote_data_session session_type)
 {
 	bool same_codec, same_session_type;
 	int codec_bit, session_type_bit;
@@ -1461,28 +1459,66 @@ static struct clock_info *venus_hfi_get_clock(struct venus_hfi_device *device,
 	return NULL;
 }
 
+static int venus_hfi_set_clock(struct venus_hfi_device *device,
+		unsigned long rate)
+{
+	struct clock_info *cl;
+	int rc = 0;
+
+	venus_hfi_for_each_clock(device, cl) {
+		if (cl->count) {/* has_scaling */
+			rc = clk_set_rate(cl->clk, rate);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"Failed to set clock rate %lu %s: %d\n",
+					rate, cl->name, rc);
+				break;
+			}
+			dprintk(VIDC_DBG, "set clock rate %lu %s\n",
+				rate, cl->name);
+		}
+	}
+	return rc;
+}
+
 static unsigned long venus_hfi_get_clock_rate(struct venus_hfi_device *device,
-	int num_mbs_per_sec, int codecs_enabled)
+	int num_mbs_per_sec, struct vidc_clk_scale_data *data)
 {
 	int num_rows = device->res->load_freq_tbl_size;
 	struct load_freq_table *table = device->res->load_freq_tbl;
-	unsigned long freq = table[0].freq;
-	int i;
+	unsigned long ret = table[0].freq, max_freq = 0;
+	int i = 0, j = 0;
 	bool matches = false;
 
-	if (!num_mbs_per_sec && num_rows > 1)
-		return table[num_rows - 1].freq;
+	if (!data && !num_rows) {
+		ret = 0;
+		goto print_clk;
+	}
+
+	if ((!num_mbs_per_sec || !data) && num_rows) {
+		ret = table[num_rows - 1].freq;
+		goto print_clk;
+	}
 
 	for (i = 0; i < num_rows; i++) {
 		if (num_mbs_per_sec > table[i].load)
 			break;
-		matches = venus_hfi_is_session_supported(
-			table[i].supported_codecs, codecs_enabled);
-		if (matches)
-			freq = table[i].freq;
+		for (j = 0; j < data->num_sessions; j++) {
+			matches = venus_hfi_is_session_supported(
+				table[i].supported_codecs, data->session[j]);
+			if (matches)
+				data->freq[j] = table[i].freq;
+		}
 	}
-	dprintk(VIDC_PROF, "Required clock rate = %lu\n", freq);
-	return freq;
+
+	for (i = 0; i < data->num_sessions; i++)
+		max_freq = max(data->freq[i], max_freq);
+
+	ret = max_freq ? : ret;
+print_clk:
+	dprintk(VIDC_PROF, "Required clock rate = %lu num_mbs_per_sec %d\n",
+			ret, num_mbs_per_sec);
+	return ret;
 }
 
 static unsigned long venus_hfi_get_core_clock_rate(void *dev)
@@ -1684,8 +1720,7 @@ static inline int venus_hfi_power_on(struct venus_hfi_device *device)
 		goto err_enable_clk;
 	}
 
-	rc = venus_hfi_scale_clocks(device,
-			device->clk_load, device->codecs_enabled);
+	rc = venus_hfi_set_clock(device, device->clk_freq);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to scale clocks\n");
 		goto err_scale_clk;
@@ -1820,12 +1855,12 @@ static int venus_hfi_set_cx_regulator_voltage(
 	return 0;
 }
 
-static int venus_hfi_scale_clocks(void *dev, int load, int codecs_enabled)
+static int venus_hfi_scale_clocks(void *dev, int load,
+		struct vidc_clk_scale_data *data)
 {
 	int rc = 0;
 	unsigned long rate = 0;
 	struct venus_hfi_device *device = dev;
-	struct clock_info *cl;
 
 	if (!device) {
 		dprintk(VIDC_ERR, "Invalid args: %p\n", device);
@@ -1833,33 +1868,16 @@ static int venus_hfi_scale_clocks(void *dev, int load, int codecs_enabled)
 	}
 
 	mutex_lock(&device->clock_lock);
-	device->clk_load = load;
-	device->codecs_enabled = codecs_enabled;
 
-	rate = venus_hfi_get_clock_rate(device,
-		device->clk_load, device->codecs_enabled);
+	rate = venus_hfi_get_clock_rate(device, load, data);
+	device->clk_freq = rate;
 
 	rc = venus_hfi_set_cx_regulator_voltage(device, rate);
 	if (rc) {
 		dprintk(VIDC_WARN, "%s: Failed to set regulators voltage\n",
 			__func__);
 	}
-
-	venus_hfi_for_each_clock(device, cl) {
-		if (cl->count) {/* has_scaling */
-			rc = clk_set_rate(cl->clk, rate);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"Failed to set clock rate %lu %s: %d\n",
-					rate, cl->name, rc);
-				break;
-			} else {
-				dprintk(VIDC_DBG,
-					"set clock rate %lu %s\n",
-					rate, cl->name);
-			}
-		}
-	}
+	rc = venus_hfi_set_clock(device, rate);
 	mutex_unlock(&device->clock_lock);
 
 	return rc;
@@ -1911,7 +1929,6 @@ static int venus_hfi_iface_cmdq_write_nolock(struct venus_hfi_device *device,
 			venus_hfi_write_register(
 				device, VIDC_CPU_IC_SOFTINT,
 				1 << VIDC_CPU_IC_SOFTINT_H2A_SHFT);
-
 		result = 0;
 	} else {
 		dprintk(VIDC_ERR, "venus_hfi_iface_cmdq_write:queue_full\n");
@@ -3453,69 +3470,6 @@ static void venus_hfi_flush_debug_queue(
 		kfree(packet);
 }
 
-static int venus_hfi_reduce_clocks(struct venus_hfi_device *device)
-{
-	int rc = 0;
-	struct clock_info *cl;
-
-	if (!device) {
-		dprintk(VIDC_ERR, "%s: Invalid args\n", __func__);
-		return -EINVAL;
-	}
-
-	venus_hfi_for_each_clock(device, cl) {
-		if (cl->count) { /* has_scaling */
-			unsigned long rate = venus_hfi_get_clock_rate(
-					device, 0, device->codecs_enabled);
-			rc = clk_set_rate(cl->clk, rate);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"%s: Failed to set clock rate %lu %s: %d\n",
-					__func__, rate, cl->name, rc);
-				break;
-			} else {
-				dprintk(VIDC_DBG,
-					"%s: set clock rate %lu on %s\n",
-					__func__, rate, cl->name);
-			}
-		}
-	}
-
-	return rc;
-}
-
-static int venus_hfi_increase_clocks(struct venus_hfi_device *device)
-{
-	int rc = 0;
-	struct clock_info *cl;
-
-	if (!device) {
-		dprintk(VIDC_ERR, "%s: Invalid args\n", __func__);
-		return -EINVAL;
-	}
-
-	venus_hfi_for_each_clock(device, cl) {
-		if (cl->count) { /* has_scaling */
-			unsigned long rate = venus_hfi_get_clock_rate(
-					device, device->clk_load,
-					device->codecs_enabled);
-			rc = clk_set_rate(cl->clk, rate);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"%s: Failed to set clock rate %lu %s: %d\n",
-					__func__, rate, cl->name, rc);
-				break;
-			} else {
-				dprintk(VIDC_DBG,
-					"%s: set clock rate %lu on %s\n",
-					__func__, rate, cl->name);
-			}
-		}
-	}
-
-	return rc;
-}
-
 #define HFI_CTRL_STATUS_CLK_DOWN        0x200
 #define HFI_CTRL_INIT_CLK_DOWN          0x2
 #define POLL_TRIALS                     100
@@ -3524,6 +3478,7 @@ static void venus_hfi_clock_adjust(struct venus_hfi_device *device)
 {
 	int rc = 0, i = 0;
 	u32 ctrl_status = 0, ctrl_init = 0;
+	unsigned long rate = 0;
 
 	if (!device) {
 		dprintk(VIDC_ERR, "%s: invalid argsn\n", __func__);
@@ -3543,7 +3498,8 @@ static void venus_hfi_clock_adjust(struct venus_hfi_device *device)
 	mutex_lock(&device->clock_lock);
 
 	/* firmware requested to reduce clock rate */
-	rc = venus_hfi_reduce_clocks(device);
+	rate = venus_hfi_get_clock_rate(device, 0, NULL);
+	rc = venus_hfi_set_clock(device, rate);
 	if (rc) {
 		dprintk(VIDC_ERR, "%s: Clocks reduce failed\n", __func__);
 		goto unlock;
@@ -3578,7 +3534,7 @@ static void venus_hfi_clock_adjust(struct venus_hfi_device *device)
 	venus_hfi_write_register(device, VIDC_CTRL_INIT, ctrl_init);
 
 	/* increase clock rate back to normal */
-	rc = venus_hfi_increase_clocks(device);
+	rc = venus_hfi_set_clock(device, device->clk_freq);
 	if (rc) {
 		dprintk(VIDC_ERR, "%s: Clocks increase failed\n", __func__);
 		goto unlock;
@@ -3818,6 +3774,7 @@ static inline int venus_hfi_init_clocks(struct msm_vidc_platform_resources *res,
 		}
 	}
 
+	device->clk_freq = 0;
 	return 0;
 
 err_clk_get:
@@ -3838,6 +3795,7 @@ static inline void venus_hfi_deinit_clocks(struct venus_hfi_device *device)
 		return;
 	}
 
+	device->clk_freq = 0;
 	venus_hfi_for_each_clock(device, cl)
 		clk_put(cl->clk);
 }
