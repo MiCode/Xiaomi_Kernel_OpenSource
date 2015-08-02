@@ -75,6 +75,22 @@
 			};
 		};
 
+		ext-spk-pa {
+			qcom,pins = <&gp 2>, <&gp 68>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <0>;
+			drive-strength = <2>;
+			label = "ext-spk-pa";
+			ext_spk_pa_act: pa_active {
+				output-high;
+				bias-pull-high;
+			};
+			ext_spk_pa_sus: pa_suspend {
+				bias-pull-down;
+				output-low;
+			};
+		};
+
 		pmx-uartconsole {
 			qcom,pins = <&gp 4>, <&gp 5>;
 			qcom,num-grp-pins = <2>;
