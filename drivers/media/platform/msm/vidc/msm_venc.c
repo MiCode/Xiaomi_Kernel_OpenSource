@@ -1071,6 +1071,16 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.qmenu = NULL,
 	},
 	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_PRIORITY,
+		.name = "Session Priority",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_PRIORITY_REALTIME_ENABLE,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_PRIORITY_REALTIME_DISABLE,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_PRIORITY_REALTIME_DISABLE,
+		.step = 1,
+		.qmenu = NULL,
+	},
+	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_MBI_STATISTICS_MODE,
 		.name = "MBI Statistics Mode",
 		.type = V4L2_CTRL_TYPE_MENU,
@@ -1083,6 +1093,16 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 			(1 << V4L2_CID_MPEG_VIDC_VIDEO_MBI_MODE_2)),
 		.qmenu = mbi_statistics,
 		.step = 1,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE,
+		.name = "Set Encoder Operating rate",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 0,
+		.maximum = 300 << 16,  /* 300 fps in Q16 format*/
+		.default_value = 0,
+		.step = 1,
+		.qmenu = NULL,
 	},
 };
 
@@ -2599,8 +2619,6 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			rc = -ENOTSUPP;
 			break;
 		}
-
-		msm_comm_scale_clocks_and_bus(inst);
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_H264_VUI_BITSTREAM_RESTRICT:
 		property_id = HAL_PARAM_VENC_H264_VUI_BITSTREAM_RESTRC;
@@ -2723,12 +2741,20 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		hyb_hierp.layers = ctrl->val;
 		pdata = &hyb_hierp;
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_PRIORITY:
+		property_id = HAL_CONFIG_REALTIME;
+		enable.enable = ctrl->val;
+		pdata = &enable;
+		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_MBI_STATISTICS_MODE:
 		property_id = HAL_PARAM_VENC_MBI_STATISTICS_MODE;
 		mbi_statistics_mode = venc_v4l2_to_hal(
 			V4L2_CID_MPEG_VIDC_VIDEO_MBI_STATISTICS_MODE,
 			ctrl->val);
 		pdata = &mbi_statistics_mode;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE:
+		property_id = 0;
 		break;
 	default:
 		dprintk(VIDC_ERR, "Unsupported index: %x\n", ctrl->id);

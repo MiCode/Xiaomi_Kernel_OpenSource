@@ -23,6 +23,7 @@ enum load_calc_quirks {
 	LOAD_CALC_NO_QUIRKS = 0,
 	LOAD_CALC_IGNORE_TURBO_LOAD = 1 << 0,
 	LOAD_CALC_IGNORE_THUMBNAIL_LOAD = 1 << 1,
+	LOAD_CALC_IGNORE_NON_REALTIME_LOAD = 1 << 2,
 };
 
 struct msm_vidc_core *get_vidc_core(int core_id);

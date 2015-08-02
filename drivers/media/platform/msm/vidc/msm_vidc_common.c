@@ -87,6 +87,16 @@ int msm_comm_g_ctrl(struct msm_vidc_inst *inst, int id)
 	return rc ?: ctrl.value;
 }
 
+static inline bool is_non_realtime_session(struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+	struct v4l2_control ctrl = {
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_PRIORITY
+	};
+	rc = v4l2_g_ctrl(&inst->ctrl_handler, &ctrl);
+	return (!rc && ctrl.value);
+}
+
 enum multi_stream msm_comm_get_stream_output_mode(struct msm_vidc_inst *inst)
 {
 	if (inst->session_type == MSM_VIDC_DECODER) {
@@ -104,19 +114,30 @@ enum multi_stream msm_comm_get_stream_output_mode(struct msm_vidc_inst *inst)
 static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 {
 	int output_port_mbs, capture_port_mbs;
+	int fps, rc;
+	struct v4l2_control ctrl;
+
 	output_port_mbs = NUM_MBS_PER_FRAME(inst->prop.width[OUTPUT_PORT],
 		inst->prop.height[OUTPUT_PORT]);
 	capture_port_mbs = NUM_MBS_PER_FRAME(inst->prop.width[CAPTURE_PORT],
 		inst->prop.height[CAPTURE_PORT]);
-	return max(output_port_mbs, capture_port_mbs) * inst->prop.fps;
+
+	ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE;
+	rc = v4l2_g_ctrl(&inst->ctrl_handler, &ctrl);
+	if (!rc && ctrl.value) {
+		fps = (ctrl.value >> 16)? ctrl.value >> 16: 1;
+		return max(output_port_mbs, capture_port_mbs) * fps;
+	} else
+		return max(output_port_mbs, capture_port_mbs) * inst->prop.fps;
 }
 
 int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 		enum load_calc_quirks quirks)
 {
 	int load = 0;
+
 	if (!(inst->state >= MSM_VIDC_OPEN_DONE &&
-			inst->state < MSM_VIDC_STOP_DONE))
+		inst->state < MSM_VIDC_STOP_DONE))
 		return 0;
 
 	load = msm_comm_get_mbs_per_sec(inst);
@@ -131,6 +152,9 @@ int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 			load = inst->core->resources.max_load;
 	}
 
+	if (is_non_realtime_session(inst) &&
+		(quirks & LOAD_CALC_IGNORE_NON_REALTIME_LOAD))
+		load = msm_comm_get_mbs_per_sec(inst) / inst->prop.fps;
 	return load;
 }
 
@@ -2329,7 +2353,8 @@ static int msm_vidc_load_resources(int flipped_state,
 	int num_mbs_per_sec = 0;
 	struct msm_vidc_core *core;
 	enum load_calc_quirks quirks = LOAD_CALC_IGNORE_TURBO_LOAD |
-		LOAD_CALC_IGNORE_THUMBNAIL_LOAD;
+		LOAD_CALC_IGNORE_THUMBNAIL_LOAD |
+		LOAD_CALC_IGNORE_NON_REALTIME_LOAD;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -4113,7 +4138,8 @@ static int msm_vidc_load_supported(struct msm_vidc_inst *inst)
 {
 	int num_mbs_per_sec = 0;
 	enum load_calc_quirks quirks = LOAD_CALC_IGNORE_TURBO_LOAD |
-		LOAD_CALC_IGNORE_THUMBNAIL_LOAD;
+		LOAD_CALC_IGNORE_THUMBNAIL_LOAD |
+		LOAD_CALC_IGNORE_NON_REALTIME_LOAD;
 
 	if (inst->state == MSM_VIDC_OPEN_DONE) {
 		num_mbs_per_sec = msm_comm_get_load(inst->core,
