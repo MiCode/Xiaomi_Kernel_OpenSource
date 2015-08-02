@@ -458,6 +458,24 @@ static struct mux_clk perfcl_hf_mux = {
 	},
 };
 
+static struct clk_src clk_src_perfcl_hf_mux_alt[] =  {
+		{ &perfcl_alt_pll.c, 3 },
+		{ &perfcl_lf_mux.c,  0 },
+	};
+
+static struct clk_src clk_src_pwrcl_hf_mux_alt[] =  {
+		{ &pwrcl_alt_pll.c, 3 },
+		{ &pwrcl_lf_mux.c,  0 },
+	};
+
+static struct clk_src clk_src_perfcl_lf_mux_alt[] =  {
+		{ &sys_apcsaux_clk.c, 3 },
+	};
+
+static struct clk_src clk_src_pwrcl_lf_mux_alt[] =  {
+		{ &sys_apcsaux_clk.c, 3 },
+	};
+
 struct cpu_clk_8996 {
 	u32 cpu_reg_mask;
 	struct clk *alt_pll;
@@ -468,6 +486,7 @@ struct cpu_clk_8996 {
 	int pm_qos_latency;
 	cpumask_t cpumask;
 	struct pm_qos_request req;
+	bool do_half_rate;
 };
 
 static inline struct cpu_clk_8996 *to_cpu_clk_8996(struct clk *c)
@@ -560,7 +579,8 @@ static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 	 * to run at 384MHz. Then, we ramp up the PLL to 1.1GHz, allowing the
 	 * CPU frequency to ramp up from 384MHz to 550MHz.
 	 */
-	if (c->rate > 600000000 && rate < 600000000) {
+	if (cpuclk->do_half_rate
+		&& c->rate > 600000000 && rate < 600000000) {
 		if (!cpu_clocks_v3)
 			mutex_lock(&scm_lmh_lock);
 		ret = clk_set_rate(c->parent, c->rate/2);
@@ -591,7 +611,7 @@ static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 
 set_rate_fail:
 	/* Restore parent rate if we halved it */
-	if (c->rate > 600000000 && rate < 600000000) {
+	if (cpuclk->do_half_rate && c->rate > 600000000 && rate < 600000000) {
 		if (!cpu_clocks_v3)
 			mutex_lock(&scm_lmh_lock);
 		err_ret = clk_set_rate(c->parent, c->rate);
@@ -637,6 +657,7 @@ static struct cpu_clk_8996 pwrcl_clk = {
 	.alt_pll_freqs = alt_pll_pwrcl_freqs,
 	.n_alt_pll_freqs = ARRAY_SIZE(alt_pll_pwrcl_freqs),
 	.pm_qos_latency = PWRCL_LATENCY_NO_L2_PC_US,
+	.do_half_rate = true,
 	.c = {
 		.parent = &pwrcl_hf_mux.c,
 		.dbg_name = "pwrcl_clk",
@@ -654,6 +675,7 @@ static struct cpu_clk_8996 perfcl_clk = {
 	.alt_pll_freqs = alt_pll_perfcl_freqs,
 	.n_alt_pll_freqs = ARRAY_SIZE(alt_pll_perfcl_freqs),
 	.pm_qos_latency = PERFCL_LATENCY_NO_L2_PC_US,
+	.do_half_rate = true,
 	.c = {
 		.parent = &perfcl_hf_mux.c,
 		.dbg_name = "perfcl_clk",
@@ -766,6 +788,7 @@ static struct mux_clk cbf_hf_mux = {
 };
 
 static struct cpu_clk_8996 cbf_clk = {
+	.do_half_rate = true,
 	.c = {
 		.parent = &cbf_hf_mux.c,
 		.dbg_name = "cbf_clk",
@@ -1060,7 +1083,7 @@ static int perfclspeedbin;
 unsigned long pwrcl_early_boot_rate = 883200000;
 unsigned long perfcl_early_boot_rate = 883200000;
 unsigned long cbf_early_boot_rate = 614400000;
-unsigned long alt_pll_early_boot_rate = 307200000;
+unsigned long alt_pll_early_boot_rate = 614400000;
 
 static int cpu_clock_8996_driver_probe(struct platform_device *pdev)
 {
@@ -1231,6 +1254,9 @@ module_exit(cpu_clock_8996_exit);
 #define HF_MUX_SEL_EARLY_PLL 0x1
 #define HF_MUX_SEL_LF_MUX 0x1
 #define LF_MUX_SEL_ALT_PLL 0x1
+
+static int use_alt_pll;
+module_param(use_alt_pll, int, 0444);
 
 int __init cpu_clock_8996_early_init(void)
 {
@@ -1429,9 +1455,40 @@ int __init cpu_clock_8996_early_init(void)
 	mb();
 	udelay(5);
 
-	/* Switch the clusters to use the primary PLLs */
-	writel_relaxed(0x31, vbases[APC0_BASE] + MUX_OFFSET);
-	writel_relaxed(0x31, vbases[APC1_BASE] + MUX_OFFSET);
+	if (use_alt_pll) {
+		perfcl_hf_mux.safe_parent = &perfcl_lf_mux.c;
+		pwrcl_hf_mux.safe_parent = &pwrcl_lf_mux.c;
+		pwrcl_clk.alt_pll = NULL;
+		perfcl_clk.alt_pll = NULL;
+		pwrcl_clk.do_half_rate = false;
+		perfcl_clk.do_half_rate = false;
+
+		perfcl_hf_mux.parents = (struct clk_src *)
+					&clk_src_perfcl_hf_mux_alt;
+		perfcl_hf_mux.num_parents =
+					ARRAY_SIZE(clk_src_perfcl_hf_mux_alt);
+		pwrcl_hf_mux.parents =  (struct clk_src *)
+					&clk_src_pwrcl_hf_mux_alt;
+		pwrcl_hf_mux.num_parents =
+					ARRAY_SIZE(clk_src_pwrcl_hf_mux_alt);
+
+		perfcl_lf_mux.parents = (struct clk_src *)
+					&clk_src_perfcl_lf_mux_alt;
+		perfcl_lf_mux.num_parents =
+					ARRAY_SIZE(clk_src_perfcl_lf_mux_alt);
+		pwrcl_lf_mux.parents =  (struct clk_src *)
+					&clk_src_pwrcl_lf_mux_alt;
+		pwrcl_lf_mux.num_parents =
+					ARRAY_SIZE(clk_src_pwrcl_lf_mux_alt);
+
+		/* Switch the clusters to use the alternate PLLs */
+		writel_relaxed(0x33, vbases[APC0_BASE] + MUX_OFFSET);
+		writel_relaxed(0x33, vbases[APC1_BASE] + MUX_OFFSET);
+	} else {
+		/* Switch the clusters to use the primary PLLs */
+		writel_relaxed(0x31, vbases[APC0_BASE] + MUX_OFFSET);
+		writel_relaxed(0x31, vbases[APC1_BASE] + MUX_OFFSET);
+	}
 
 	/* Switch the CBF to use the primary PLL */
 	regval = readl_relaxed(vbases[CBF_BASE] + CBF_MUX_OFFSET);
