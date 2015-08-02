@@ -3250,13 +3250,14 @@ static void mmc_blk_cmdq_shutdown(struct mmc_queue *mq)
 	struct mmc_card *card = mq->card;
 	struct mmc_host *host = card->host;
 
+	mmc_get_card(card);
+	mmc_host_clk_hold(host);
 	err = mmc_cmdq_halt(host, true);
 	if (err) {
 		pr_err("%s: halt: failed: %d\n", __func__, err);
 		return;
 	}
 
-	mmc_get_card(card);
 	/* disable CQ mode in card */
 	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			 EXT_CSD_CMDQ, 0,
@@ -3266,9 +3267,12 @@ static void mmc_blk_cmdq_shutdown(struct mmc_queue *mq)
 		       __func__, err);
 		goto out;
 	} else {
+		mmc_card_clr_cmdq(card);
+		host->cmdq_ops->disable(host, false);
 		host->card->cmdq_init = false;
 	}
 out:
+	mmc_host_clk_release(host);
 	mmc_put_card(card);
 }
 
