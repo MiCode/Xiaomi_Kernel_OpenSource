@@ -240,6 +240,14 @@ config MSM_RPM_STATS_LOG
           the low power modes that RPM enters. The drivers outputs the message
           via a debugfs node.
 
+config MSM_RUN_QUEUE_STATS
+	bool "Enable collection and exporting of MSM Run Queue stats to userspace"
+	help
+	 This option enables the driver to periodically collecting the statistics
+	 of kernel run queue information and calculate the load of the system.
+	 This information is exported to usespace via sysfs entries and userspace
+	 algorithms uses info and decide when to turn on/off the cpu cores.
+
 config MSM_SCM
        bool "Secure Channel Manager (SCM) support"
        default n
