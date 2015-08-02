@@ -1483,6 +1483,15 @@ static int pp_mixer_setup(u32 disp_num,
 	pp_sts = &mdss_pp_res->pp_disp_sts[disp_num];
 	/* GC_LUT is in layer mixer */
 	if (flags & PP_FLAGS_DIRTY_ARGC) {
+		/*
+		 * GC LUT should be disabled before being rewritten. Skip
+		 * GC LUT programming if it is already enabled.
+		 */
+		if (pp_sts->argc_sts & PP_STS_ENABLE) {
+			pr_debug("LM %d GC already enabled, skipping programming\n",
+					mixer->num);
+			return 0;
+		}
 		if (pp_ops[GC].pp_set_config) {
 			if (mdata->pp_block_off.lm_pgc_off == U32_MAX) {
 				pr_err("invalid pgc offset %d\n", U32_MAX);
