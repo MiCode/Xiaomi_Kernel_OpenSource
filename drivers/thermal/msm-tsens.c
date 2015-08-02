@@ -701,10 +701,11 @@
 
 /* debug defines */
 #define TSENS_DBG_BUS_ID_0		0
+#define TSENS_DBG_BUS_ID_1		1
 #define TSENS_DBG_BUS_ID_15		15
+#define TSENS_DEBUG_LOOP_COUNT_ID_0	30
 #define TSENS_DEBUG_LOOP_COUNT		5
-#define TSENS_DEBUG_SROT_OFFSET_RANGE	0x140
-#define TSENS_DEBUG_TM_OFFSET_RANGE	0x80
+#define TSENS_DEBUG_OFFSET_RANGE	20
 #define TSENS_DEBUG_OFFSET_WORD1	0x4
 #define TSENS_DEBUG_OFFSET_WORD2	0x8
 #define TSENS_DEBUG_OFFSET_WORD3	0xc
@@ -1908,13 +1909,29 @@ static void tsens_poll(struct work_struct *work)
 
 		debug_dump = readl_relaxed(controller_id_addr);
 		pr_err("Controller_id: 0x%x\n", debug_dump);
-		for (i = TSENS_DBG_BUS_ID_0; i <= TSENS_DBG_BUS_ID_15; i++) {
+
+		loop = 0;
+		i = 0;
+		while (loop < TSENS_DEBUG_LOOP_COUNT_ID_0) {
+			writel_relaxed((i << 1) | 1,
+				TSENS_DEBUG_CONTROL(tmdev->tsens_addr));
+			debug_dump = readl_relaxed(debug_data_addr);
+			r1 = readl_relaxed(debug_data_addr);
+			r2 = readl_relaxed(debug_data_addr);
+			r3 = readl_relaxed(debug_data_addr);
+			r4 = readl_relaxed(debug_data_addr);
+			pr_err("bus-id:%d value:0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
+				i, debug_dump, r1, r2, r3, r4);
+			loop++;
+		}
+
+		for (i = TSENS_DBG_BUS_ID_1; i <= TSENS_DBG_BUS_ID_15; i++) {
 			loop = 0;
 			while (loop < TSENS_DEBUG_LOOP_COUNT) {
 				writel_relaxed((i << 1) | 1,
 					TSENS_DEBUG_CONTROL(tmdev->tsens_addr));
 				debug_dump = readl_relaxed(debug_data_addr);
-				pr_err("Data dump for debug bus-id:%d with data debug value: 0x%x\n",
+				pr_err("bus-id:%d with value: 0x%x\n",
 					i, debug_dump);
 				loop++;
 			}
@@ -1922,8 +1939,7 @@ static void tsens_poll(struct work_struct *work)
 		}
 
 		pr_err("Start of TSENS TM dump\n");
-		for (i = 0; i < TSENS_DEBUG_SROT_OFFSET_RANGE;
-						i += TSENS_DEBUG_OFFSET_WORD1) {
+		for (i = 0; i < TSENS_DEBUG_OFFSET_RANGE; i++) {
 			r1 = readl_relaxed(controller_id_addr + offset);
 			r2 = readl_relaxed(controller_id_addr + (offset +
 						TSENS_DEBUG_OFFSET_WORD1));
@@ -1939,14 +1955,29 @@ static void tsens_poll(struct work_struct *work)
 
 		offset = 0;
 		pr_err("Start of TSENS SROT dump\n");
-		for (i = 0; i < TSENS_DEBUG_TM_OFFSET_RANGE;
-						i += TSENS_DEBUG_OFFSET_WORD1) {
+		for (i = 0; i < TSENS_DEBUG_OFFSET_RANGE; i++) {
 			r1 = readl_relaxed(srot_addr + offset);
 			r2 = readl_relaxed(srot_addr + (offset +
 						TSENS_DEBUG_OFFSET_WORD1));
 			r3 = readl_relaxed(srot_addr + (offset +
 						TSENS_DEBUG_OFFSET_WORD2));
 			r4 = readl_relaxed(srot_addr + (offset +
+						TSENS_DEBUG_OFFSET_WORD3));
+
+			pr_err("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+				offset, r1, r2, r3, r4);
+			offset += TSENS_DEBUG_OFFSET_ROW;
+		}
+
+		offset = 0;
+		pr_err("Start of TSENS TM dump\n");
+		for (i = 0; i < TSENS_DEBUG_OFFSET_RANGE; i++) {
+			r1 = readl_relaxed(controller_id_addr + offset);
+			r2 = readl_relaxed(controller_id_addr + (offset +
+						TSENS_DEBUG_OFFSET_WORD1));
+			r3 = readl_relaxed(controller_id_addr +	(offset +
+						TSENS_DEBUG_OFFSET_WORD2));
+			r4 = readl_relaxed(controller_id_addr + (offset +
 						TSENS_DEBUG_OFFSET_WORD3));
 
 			pr_err("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
