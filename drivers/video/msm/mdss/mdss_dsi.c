@@ -2060,8 +2060,13 @@ static void mdss_dsi_dba_work(struct work_struct *work)
 
 	pinfo->dba_data = mdss_dba_utils_init(&utils_init_data);
 
-	if (!IS_ERR_OR_NULL(pinfo->dba_data))
+	if (!IS_ERR_OR_NULL(pinfo->dba_data)) {
 		ctrl_pdata->ds_registered = true;
+	} else {
+		pr_debug("%s: dba device not ready, queue again\n", __func__);
+		queue_delayed_work(ctrl_pdata->workq,
+				&ctrl_pdata->dba_work, HZ);
+	}
 }
 
 static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,

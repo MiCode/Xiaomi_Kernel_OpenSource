@@ -587,7 +587,8 @@ void *mdss_dba_utils_init(struct mdss_dba_utils_init_data *uid)
 	if (uid->pinfo) {
 		uid->pinfo->is_cec_supported = true;
 		uid->pinfo->cec_data = udata->cec_abst_data;
-		uid->pinfo->is_pluggable = true;
+		if (!uid->pinfo->is_prim_panel)
+			uid->pinfo->is_pluggable = true;
 	}
 
 	return udata;
