@@ -1280,6 +1280,15 @@ int __init cpu_clock_8996_early_init(void)
 	if (cpu_clocks_v3) {
 		pwrcl_alt_pll.offline_bit_workaround = false;
 		perfcl_alt_pll.offline_bit_workaround = false;
+		pwrcl_pll.vals.config_ctl_val = 0x200d4828;
+		pwrcl_pll.vals.config_ctl_hi_val = 0x006;
+		perfcl_pll.vals.config_ctl_val = 0x200d4828;
+		perfcl_pll.vals.config_ctl_hi_val = 0x006;
+		cbf_pll.vals.config_ctl_val = 0x200d4828;
+		cbf_pll.vals.config_ctl_hi_val = 0x006;
+		pwrcl_pll.vals.test_ctl_lo_val = 0x1C000000;
+		perfcl_pll.vals.test_ctl_lo_val = 0x1C000000;
+		cbf_pll.vals.test_ctl_lo_val = 0x1C000000;
 	}
 
 	/*
