@@ -1362,7 +1362,8 @@ static bool mdss_mdp_check_pipe_in_use(struct mdss_mdp_pipe *pipe)
 			pr_err("IN USE: mixer=%d pipe=%d mcfg:0x%x mask:0x%x\n",
 				mixer->num, pipe->num,
 				mixercfg, stage_off_mask);
-			MDSS_XLOG_TOUT_HANDLER("mdp", "panic");
+			MDSS_XLOG_TOUT_HANDLER("mdp", "vbif", "vbif_nrt",
+				"panic");
 		}
 
 		mixer = ctl->mixer_right;
@@ -1371,7 +1372,8 @@ static bool mdss_mdp_check_pipe_in_use(struct mdss_mdp_pipe *pipe)
 			pr_err("IN USE: mixer=%d pipe=%d mcfg:0x%x mask:0x%x\n",
 				mixer->num, pipe->num,
 				mixercfg, stage_off_mask);
-			MDSS_XLOG_TOUT_HANDLER("mdp", "panic");
+			MDSS_XLOG_TOUT_HANDLER("mdp", "vbif", "vbif_nrt",
+				"panic");
 		}
 	}
 
