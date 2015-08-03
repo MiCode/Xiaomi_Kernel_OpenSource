@@ -56,6 +56,8 @@ enum wcd_mbhc_register_function {
 	WCD_MBHC_HPH_PA_EN,
 	WCD_MBHC_SWCH_LEVEL_REMOVE,
 	WCD_MBHC_MOISTURE_VREF,
+	WCD_MBHC_PULLDOWN_CTRL,
+	WCD_MBHC_REG_FUNC_MAX,
 };
 
 enum wcd_mbhc_plug_type {

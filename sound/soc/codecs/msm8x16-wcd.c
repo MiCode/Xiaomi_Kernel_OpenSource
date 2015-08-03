@@ -182,7 +182,8 @@ enum {
 	MAX_MSM8X16_WCD_DEVICE
 };
 
-static struct wcd_mbhc_register wcd_mbhc_registers[] = {
+static struct wcd_mbhc_register
+	wcd_mbhc_registers[WCD_MBHC_REG_FUNC_MAX] = {
 
 	WCD_MBHC_REGISTER("WCD_MBHC_L_DET_EN",
 			  MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_1, 0x80, 7, 0),
@@ -250,6 +251,8 @@ static struct wcd_mbhc_register wcd_mbhc_registers[] = {
 			  0x10, 4, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_MOISTURE_VREF",
 			  0, 0, 0, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_PULLDOWN_CTRL",
+			  MSM8X16_WCD_A_ANALOG_MICB_2_EN, 0x20, 5, 0),
 };
 
 struct msm8x16_wcd_spmi {
