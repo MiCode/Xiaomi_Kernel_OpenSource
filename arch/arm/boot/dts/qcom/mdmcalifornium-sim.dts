@@ -25,3 +25,7 @@
 &blsp1_uart1 {
 	status = "ok";
 };
+
+&qnand_1 {
+	status = "ok";
+};
