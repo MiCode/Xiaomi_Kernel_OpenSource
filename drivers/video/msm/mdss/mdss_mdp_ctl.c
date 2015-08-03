@@ -1987,7 +1987,7 @@ static int mdss_mdp_ctl_dsc_enable(int enable,
 {
 	struct mdss_mdp_ctl *ctl;
 	struct dsc_desc *dsc;
-	u32 data;
+	u32 data = 0;
 	u32 *lp;
 	char *cp;
 	int i, bpp, lsb;
@@ -3725,18 +3725,24 @@ int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl)
 	int ret = 0;
 	int new_fps;
 
+	mutex_lock(&ctl->offlock);
+
 	pinfo = &ctl->panel_data->panel_info;
-	if (!pinfo)
-		return -ENODEV;
+	if (!pinfo) {
+		ret = -ENODEV;
+		goto exit;
+	}
 
 	if (!pinfo->dynamic_fps || !ctl->ops.config_fps_fnc)
-		return 0;
+		goto exit;
 
 	if (ctl->mfd)
 		mdp5_data = mfd_to_mdp5_data(ctl->mfd);
 
-	if (!mdp5_data)
-		return -ENODEV;
+	if (!mdp5_data) {
+		ret = -ENODEV;
+		goto exit;
+	}
 
 	mutex_lock(&mdp5_data->dfps_lock);
 	new_fps = pinfo->new_fps;
@@ -3745,9 +3751,10 @@ int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl)
 	if (new_fps == pinfo->mipi.frame_rate) {
 		pr_debug("%s: FPS is already %d\n",
 			__func__, new_fps);
-		return 0;
+		goto exit;
 	}
 
+	ATRACE_BEGIN("config_fps");
 	ret = ctl->ops.config_fps_fnc(ctl, new_fps);
 	if (!ret) {
 		pr_debug("%s: configured to '%d' FPS\n", __func__,
@@ -3756,6 +3763,10 @@ int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl)
 		pr_err("Failed to configure '%d' FPS. rc = %d\n",
 				new_fps, ret);
 	}
+	ATRACE_END("config_fps");
+
+exit:
+	mutex_unlock(&ctl->offlock);
 
 	return ret;
 }

@@ -63,7 +63,7 @@ static long audio_ioctl_shared(struct file *file, unsigned int cmd,
 					audio->pcm_cfg.sample_rate,
 					audio->pcm_cfg.channel_count,
 					16, /*bits per sample*/
-					false, channel_mapping);
+					false, false, channel_mapping);
 			if (rc < 0) {
 				pr_err("pcm output block config failed\n");
 				break;

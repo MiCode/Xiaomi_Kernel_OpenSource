@@ -522,6 +522,8 @@ struct usb_gadget_ops {
  * @streaming_enabled: Enable streaming mode with usb core.
  * @xfer_isr_count: UI (transfer complete) interrupts count
  * @bam2bam_func_enabled; Indicates function using bam2bam is enabled or not.
+ * @extra_buf_alloc: Extra allocation size for AXI prefetch so that out of
+ * boundary access is protected.
  *
  * Gadgets have a mostly-portable "gadget driver" implementing device
  * functions, handling all usb configurations and interfaces.  Gadget
@@ -569,6 +571,7 @@ struct usb_gadget {
 	void				*private;
 	u32				xfer_isr_count;
 	bool				bam2bam_func_enabled;
+	u32				extra_buf_alloc;
 };
 #define work_to_gadget(w)	(container_of((w), struct usb_gadget, work))
 

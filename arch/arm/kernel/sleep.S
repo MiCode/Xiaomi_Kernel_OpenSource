@@ -57,7 +57,7 @@
  *  r1 = suspend function
  *  r2 = MPIDR value the resuming CPU will use
  */
-ENTRY(__cpu_suspend)
+ENTRY(__cpu_suspend_enter)
 	stmfd	sp!, {r4 - r11, lr}
 #ifdef MULTI_CPU
 	ldr	r10, =processor
@@ -83,7 +83,7 @@ ENTRY(__cpu_suspend)
 	bl	__cpu_suspend_save
 	adr	lr, BSYM(cpu_suspend_abort)
 	ldmfd	sp!, {r0, pc}		@ call suspend fn
-ENDPROC(__cpu_suspend)
+ENDPROC(__cpu_suspend_enter)
 	.ltorg
 
 cpu_suspend_abort:

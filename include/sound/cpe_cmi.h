@@ -55,6 +55,7 @@
 #define CPE_LSM_SESSION_CMD_SHARED_MEM_ALLOC	(0x2008)
 #define CPE_LSM_SESSION_CMDRSP_SHARED_MEM_ALLOC (0x2009)
 #define CPE_LSM_SESSION_CMD_SHARED_MEM_DEALLOC	(0x200A)
+#define CPE_LSM_SESSION_CMD_TX_BUFF_OUTPUT_CONFIG (0x200f)
 
 /* LSM Service module and param IDs */
 #define CPE_LSM_MODULE_ID_VOICE_WAKEUP		(0x00012C00)
@@ -333,6 +334,13 @@ struct cpe_lsm_conf_level {
 	u8 num_active_models;
 } __packed;
 
+struct cpe_lsm_output_format_cfg {
+	struct cmi_hdr hdr;
+	u8 format;
+	u8 packing;
+	u8 data_path_events;
+} __packed;
+
 struct cpe_lsm_params {
 	struct cmi_hdr hdr;
 	struct cpe_lsm_operation_mode op_mode;
@@ -394,4 +402,7 @@ struct cpe_lsm_lab_latency_config {
 
 #define SHMEM_DEALLOC_CMD_PLD_SIZE (sizeof(struct cpe_cmd_shmem_dealloc) - \
 				      sizeof(struct cmi_hdr))
+#define OUT_FMT_CFG_CMD_PAYLOAD_SIZE ( \
+		sizeof(struct cpe_lsm_output_format_cfg) - \
+		sizeof(struct cmi_hdr))
 #endif /* __CPE_CMI_H__ */

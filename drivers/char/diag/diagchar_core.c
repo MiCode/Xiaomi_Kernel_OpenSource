@@ -263,7 +263,7 @@ void diag_add_client(int i, struct file *file)
 static void diag_mempool_init(void)
 {
 	uint32_t itemsize = DIAG_MAX_REQ_SIZE;
-	uint32_t itemsize_hdlc = DIAG_MAX_HDLC_BUF_SIZE;
+	uint32_t itemsize_hdlc = DIAG_MAX_HDLC_BUF_SIZE + APF_DIAG_PADDING;
 	uint32_t itemsize_dci = IN_BUF_SIZE;
 	uint32_t itemsize_user = DCI_REQ_BUF_SIZE;
 
@@ -699,10 +699,15 @@ struct diag_cmd_reg_entry_t *diag_cmd_search(
 			if ((temp_entry->cmd_code_hi >= entry->cmd_code) &&
 			    (temp_entry->cmd_code_lo <= entry->cmd_code) &&
 			    (proc == item->proc || proc == ALL_PROC)) {
-				if (entry->cmd_code == MODE_CMD &&
-				    entry->subsys_id == RESET_ID &&
-				    item->proc != APPS_DATA) {
-					continue;
+				if (entry->cmd_code == MODE_CMD) {
+					if (entry->subsys_id == RESET_ID &&
+						item->proc != APPS_DATA) {
+						continue;
+					}
+					if (entry->subsys_id != RESET_ID &&
+						item->proc == APPS_DATA) {
+						continue;
+					}
 				}
 				return &item->entry;
 			}
@@ -1850,7 +1855,8 @@ static int diag_process_apps_data_hdlc(unsigned char *buf, int len,
 	send.terminate = 1;
 
 	if (!data->buf)
-		data->buf = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE,
+		data->buf = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE +
+					APF_DIAG_PADDING,
 					  POOL_TYPE_HDLC);
 	if (!data->buf) {
 		ret = PKT_DROP;
@@ -1866,7 +1872,8 @@ static int diag_process_apps_data_hdlc(unsigned char *buf, int len,
 		}
 		data->buf = NULL;
 		data->len = 0;
-		data->buf = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE,
+		data->buf = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE +
+					APF_DIAG_PADDING,
 					  POOL_TYPE_HDLC);
 		if (!data->buf) {
 			ret = PKT_DROP;
@@ -1894,7 +1901,8 @@ static int diag_process_apps_data_hdlc(unsigned char *buf, int len,
 		}
 		data->buf = NULL;
 		data->len = 0;
-		data->buf = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE,
+		data->buf = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE +
+					APF_DIAG_PADDING,
 					 POOL_TYPE_HDLC);
 		if (!data->buf) {
 			ret = PKT_DROP;
@@ -1955,7 +1963,8 @@ static int diag_process_apps_data_non_hdlc(unsigned char *buf, int len,
 	}
 
 	if (!data->buf) {
-		data->buf = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE,
+		data->buf = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE +
+					APF_DIAG_PADDING,
 					  POOL_TYPE_HDLC);
 		if (!data->buf) {
 			ret = PKT_DROP;
@@ -1972,7 +1981,8 @@ static int diag_process_apps_data_non_hdlc(unsigned char *buf, int len,
 		}
 		data->buf = NULL;
 		data->len = 0;
-		data->buf = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE,
+		data->buf = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE +
+					APF_DIAG_PADDING,
 					  POOL_TYPE_HDLC);
 		if (!data->buf) {
 			ret = PKT_DROP;
@@ -2321,7 +2331,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 	int index = -1, i = 0, ret = 0;
 	int data_type;
 	int copy_dci_data = 0;
-	int exit_stat;
+	int exit_stat = 0;
 	int write_len = 0;
 
 	for (i = 0; i < driver->num_clients; i++)
@@ -2349,7 +2359,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		COPY_USER_SPACE_OR_EXIT(buf, data_type, sizeof(int));
 		/* place holder for number of data field */
 		ret += sizeof(int);
-		exit_stat = diag_md_copy_to_user(buf, &ret);
+		exit_stat = diag_md_copy_to_user(buf, &ret, count);
 		goto exit;
 	} else if (driver->data_ready[index] & USER_SPACE_DATA_TYPE) {
 		/* In case, the thread wakes up and the logging mode is

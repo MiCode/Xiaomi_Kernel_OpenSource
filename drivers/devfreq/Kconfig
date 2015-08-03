@@ -97,6 +97,15 @@ config ARMBW_HWMON
 	  capability to raise an IRQ when the counter overflows, which can be
 	  used to get an IRQ when the count exceeds a certain value
 
+config MSMCCI_HWMON
+	tristate "MSM CCI Cache monitor hardware"
+	depends on ARCH_MSM
+	help
+	  MSM CCI has additional PMU counters that can be used to monitor
+	  cache requests. MSM CCI hardware monitor device configures these
+	  registers to monitor cache and inform governor. It can also set an
+	  IRQ when count exceeds a programmable limit.
+
 config DEVFREQ_GOV_MSM_GPUBW_MON
 	tristate "GPU BW voting governor"
 	depends on DEVFREQ_GOV_MSM_ADRENO_TZ

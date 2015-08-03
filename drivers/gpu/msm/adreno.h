@@ -351,6 +351,8 @@ struct adreno_device {
  * @ADRENO_DEVICE_PREEMPTION - Turn on/off preemption
  * @ADRENO_DEVICE_SOFT_FAULT_DETECT - Set if soft fault detect is enabled
  * @ADRENO_DEVICE_GPMU_INITIALIZED - Set if GPMU firmware initialization succeed
+ * @ADRENO_DEVICE_ISDB_ENABLED - Set if the Integrated Shader DeBugger is
+ * attached and enabled
  */
 enum adreno_device_flags {
 	ADRENO_DEVICE_PWRON = 0,
@@ -365,6 +367,7 @@ enum adreno_device_flags {
 	ADRENO_DEVICE_PREEMPTION = 9,
 	ADRENO_DEVICE_SOFT_FAULT_DETECT = 10,
 	ADRENO_DEVICE_GPMU_INITIALIZED = 11,
+	ADRENO_DEVICE_ISDB_ENABLED = 12,
 };
 
 /**
@@ -1338,6 +1341,18 @@ static inline uint _lo_32(uint64_t val)
 static inline uint _hi_32(uint64_t val)
 {
 	return (uint) ((val >> 32) & 0xFFFFFFFF);
+}
+
+static inline bool adreno_soft_fault_detect(struct adreno_device *adreno_dev)
+{
+	return adreno_dev->fast_hang_detect &&
+		!test_bit(ADRENO_DEVICE_ISDB_ENABLED, &adreno_dev->priv);
+}
+
+static inline bool adreno_long_ib_detect(struct adreno_device *adreno_dev)
+{
+	return adreno_dev->long_ib_detect &&
+		!test_bit(ADRENO_DEVICE_ISDB_ENABLED, &adreno_dev->priv);
 }
 
 #endif /*__ADRENO_H */

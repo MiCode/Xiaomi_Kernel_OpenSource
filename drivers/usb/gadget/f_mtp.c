@@ -486,6 +486,7 @@ static int mtp_create_bulk_endpoints(struct mtp_dev *dev,
 	struct usb_composite_dev *cdev = dev->cdev;
 	struct usb_request *req;
 	struct usb_ep *ep;
+	size_t extra_buf_alloc = cdev->gadget->extra_buf_alloc;
 	int i;
 
 	DBG(cdev, "create_bulk_endpoints dev: %p\n", dev);
@@ -523,7 +524,8 @@ retry_tx_alloc:
 
 	/* now allocate requests for our endpoints */
 	for (i = 0; i < mtp_tx_reqs; i++) {
-		req = mtp_request_new(dev->ep_in, mtp_tx_req_len);
+		req = mtp_request_new(dev->ep_in,
+				mtp_tx_req_len + extra_buf_alloc);
 		if (!req) {
 			if (mtp_tx_req_len <= MTP_BULK_BUFFER_SIZE)
 				goto fail;
@@ -561,7 +563,8 @@ retry_rx_alloc:
 		dev->rx_req[i] = req;
 	}
 	for (i = 0; i < INTR_REQ_MAX; i++) {
-		req = mtp_request_new(dev->ep_intr, INTR_BUFFER_SIZE);
+		req = mtp_request_new(dev->ep_intr,
+				INTR_BUFFER_SIZE + extra_buf_alloc);
 		if (!req)
 			goto fail;
 		req->complete = mtp_complete_intr;

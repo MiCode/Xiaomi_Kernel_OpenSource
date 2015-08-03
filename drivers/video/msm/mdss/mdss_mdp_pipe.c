@@ -1386,7 +1386,6 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 	struct mdss_rect dst, src;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	bool rotation = false;
-	u32 panel_orientation = 0;
 
 	pr_debug("ctl: %d pnum=%d wh=%dx%d src={%d,%d,%d,%d} dst={%d,%d,%d,%d}\n",
 			pipe->mixer_left->ctl->num, pipe->num,
@@ -1462,15 +1461,6 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 			src.y = pipe->src.y + (pipe->src.y + pipe->src.h)
 				- (src.y + src.h);
 		}
-	}
-
-	if (!(pipe->mixer_left->rotator_mode)) {
-		panel_orientation = pipe->mixer_left->ctl->mfd->panel_orientation;
-		if (panel_orientation & MDP_FLIP_LR)
-			dst.x =  pipe->mixer_left->ctl->roi.w - dst.x - dst.w;
-
-		if (panel_orientation & MDP_FLIP_UD)
-			dst.y =  pipe->mixer_left->ctl->roi.h - dst.y - dst.h;
 	}
 
 	src_size = (src.h << 16) | src.w;

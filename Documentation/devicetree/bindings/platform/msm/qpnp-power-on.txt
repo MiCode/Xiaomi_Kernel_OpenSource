@@ -81,29 +81,28 @@ Sub-node optional properties:
 				reset functionality.
 				0 = Not supported
 				1 = Supported
-				This property is set to '0' if not specified.
-- qcom,use-bark                        Specify if this pon type needs to handle bark irq
+				If this property is not defined, then do not modify S2 reset
+				values.
+- qcom,use-bark                 Specify if this pon type needs to handle bark irq
+- linux,code                    The input key-code associated with the reset source.
+                                The reset source in its default configuration can be
+                                used to support standard keys.
+
+The below mentioned properties are required only when qcom,support-reset DT property is defined
+and is set to 1.
+
 - qcom,s1-timer			The debounce timer for the BARK interrupt for
 				that reset source. Value is specified in ms.
 				Supported values are -
 				- 0, 32, 56, 80, 128, 184, 272, 408, 608, 904
 				  1352, 2048, 3072, 4480, 6720, 10256
-				This property must be specified only if
-				'support-reset' is set to 1.
 - qcom,s2-timer			The debounce timer for the S2 reset specified
 				in ms. On the expiry of this timer, the PMIC
 				executes the reset sequence. Supported values -
 				- 0, 10, 50, 100, 250, 500, 1000, 2000
-				This property is required only if
-				'support-reset' is set to 1.
 - qcom,s2-type			The type of reset associated with this source.
 				The supported resets are -
 				SOFT(0), WARM(1), SHUTDOWN(4), HARD(7)
-				This property is required only if
-				'support-reset' is set to 1.
-- linux,code			The input key-code associated with the reset source.
-				The reset source in its default configuration can be
-				used to support standard keys.
 
 Example:
 	qcom,power-on@800 {

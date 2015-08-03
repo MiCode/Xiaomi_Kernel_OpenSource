@@ -1704,6 +1704,42 @@ static int mdss_mdp_register_sysfs(struct mdss_data_type *mdata)
 	return rc;
 }
 
+int mdss_panel_get_intf_status(u32 disp_num, u32 intf_type)
+{
+	int rc, intf_status = 0;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if (!mdss_res || !mdss_res->pan_cfg.init_done)
+		return -EPROBE_DEFER;
+
+	if (mdss_res->handoff_pending) {
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+		intf_status = readl_relaxed(mdata->mdp_base +
+			MDSS_MDP_REG_DISP_INTF_SEL);
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+		if (intf_type == MDSS_PANEL_INTF_DSI) {
+			if (disp_num == DISPLAY_1)
+				rc = (intf_status & MDSS_MDP_INTF_DSI0_SEL);
+			else if (disp_num == DISPLAY_2)
+				rc = (intf_status & MDSS_MDP_INTF_DSI1_SEL);
+			else
+				rc = 0;
+		} else if (intf_type == MDSS_PANEL_INTF_EDP) {
+			intf_status &= MDSS_MDP_INTF_EDP_SEL;
+			rc = (intf_status == MDSS_MDP_INTF_EDP_SEL);
+		} else if (intf_type == MDSS_PANEL_INTF_HDMI) {
+			intf_status &= MDSS_MDP_INTF_HDMI_SEL;
+			rc = (intf_status == MDSS_MDP_INTF_HDMI_SEL);
+		} else {
+			rc = 0;
+		}
+	} else {
+		rc = 0;
+	}
+
+	return rc;
+}
+
 static int mdss_mdp_probe(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -1748,6 +1784,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	mdss_res->mdss_util->bus_scale_set_quota = mdss_bus_scale_set_quota;
 	mdss_res->mdss_util->bus_bandwidth_ctrl = mdss_bus_bandwidth_ctrl;
 	mdss_res->mdss_util->panel_intf_type = mdss_panel_intf_type;
+	mdss_res->mdss_util->panel_intf_status = mdss_panel_get_intf_status;
 
 	rc = msm_dss_ioremap_byname(pdev, &mdata->mdss_io, "mdp_phys");
 	if (rc) {
@@ -3423,19 +3460,6 @@ struct irq_info *mdss_intr_line()
 	return mdss_mdp_hw.irq_info;
 }
 EXPORT_SYMBOL(mdss_intr_line);
-
-int mdss_panel_get_boot_cfg(void)
-{
-	int rc;
-
-	if (!mdss_res || !mdss_res->pan_cfg.init_done)
-		return -EPROBE_DEFER;
-	if (mdss_res->handoff_pending)
-		rc = 1;
-	else
-		rc = 0;
-	return rc;
-}
 
 int mdss_mdp_wait_for_xin_halt(u32 xin_id, bool is_vbif_nrt)
 {

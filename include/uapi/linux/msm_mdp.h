@@ -355,6 +355,7 @@ struct msmfb_writeback_data {
 #define MDP_PP_IGC_FLAG_ROM0	0x10
 #define MDP_PP_IGC_FLAG_ROM1	0x20
 
+/* PA Write/Read extension flags */
 #define MDP_PP_PA_HUE_ENABLE		0x10
 #define MDP_PP_PA_SAT_ENABLE		0x20
 #define MDP_PP_PA_VAL_ENABLE		0x40
@@ -363,6 +364,8 @@ struct msmfb_writeback_data {
 #define MDP_PP_PA_SKIN_ENABLE		0x200
 #define MDP_PP_PA_SKY_ENABLE		0x400
 #define MDP_PP_PA_FOL_ENABLE		0x800
+
+/* Masks used in all PAv2 versions */
 #define MDP_PP_PA_HUE_MASK		0x1000
 #define MDP_PP_PA_SAT_MASK		0x2000
 #define MDP_PP_PA_VAL_MASK		0x4000
@@ -373,8 +376,24 @@ struct msmfb_writeback_data {
 #define MDP_PP_PA_MEM_COL_SKIN_MASK	0x80000
 #define MDP_PP_PA_MEM_COL_SKY_MASK	0x100000
 #define MDP_PP_PA_MEM_COL_FOL_MASK	0x200000
-#define MDP_PP_PA_MEM_PROTECT_EN	0x400000
+/*
+ * MDP_PP_PA_MEM_PROTECT_EN is only for PAV2
+ * not used in PA V1.7
+ */
+#define MDP_PP_PA_MEM_PROTECT_EN		0x400000
 #define MDP_PP_PA_SAT_ZERO_EXP_EN	0x800000
+
+/* Masks used in PA v1_7 only */
+#define MDP_PP_PAV1_7_MEM_PROT_HUE_EN	0x1000000
+#define MDP_PP_PAV1_7_MEM_PROT_SAT_EN	0x2000000
+#define MDP_PP_PAV1_7_MEM_PROT_VAL_EN	0x4000000
+#define MDP_PP_PAV1_7_MEM_PROT_CONT_EN	0x8000000
+#define MDP_PP_PAV1_7_MEM_PROT_SIX_EN	0x10000000
+#define MDP_PP_PAV1_7_MEM_PROT_BLEND_EN	0x20000000
+
+/* Flags for setting PA v1_7 saturation and value hold */
+#define MDP_PP_PAV1_7_LEFT_HOLD	0x1
+#define MDP_PP_PAV1_7_RIGHT_HOLD	0x2
 
 #define MDSS_PP_DSPP_CFG	0x000
 #define MDSS_PP_SSPP_CFG	0x100
@@ -455,7 +474,14 @@ struct mdp_pa_mem_col_cfg {
 	uint32_t hue_region;
 	uint32_t sat_region;
 	uint32_t val_region;
+
+	/*New Control Params in PA V1_7 */
+	uint32_t color_adjust_p2;
+	uint32_t blend_gain;
+	uint8_t sat_hold;
+	uint8_t val_hold;
 };
+
 
 #define MDP_SIX_ZONE_LUT_SIZE		384
 
@@ -473,6 +499,12 @@ struct mdp_pa_v2_data {
 	uint32_t six_zone_thresh;
 	uint32_t *six_zone_curve_p0;
 	uint32_t *six_zone_curve_p1;
+
+	/* New Control Params in PA V1_7 */
+	uint32_t six_zone_adj_p0;
+	uint32_t six_zone_adj_p1;
+	uint8_t six_zone_sat_hold;
+	uint8_t six_zone_val_hold;
 };
 
 struct mdp_igc_lut_data {

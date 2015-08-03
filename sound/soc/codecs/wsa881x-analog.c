@@ -57,16 +57,7 @@ struct wsa881x_pdata {
 	bool regmap_flag;
 	bool wsa_active;
 	int index;
-};
-
-static struct afe_clk_cfg mi2s_rx_clk = {
-	AFE_API_VERSION_I2S_CONFIG,
-	0,
-	Q6AFE_LPASS_OSR_CLK_9_P600_MHZ,
-	Q6AFE_LPASS_CLK_SRC_INTERNAL,
-	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
-	Q6AFE_LPASS_MODE_CLK2_VALID,
-	0,
+	int (*enable_mclk)(struct snd_soc_card *, bool);
 };
 
 enum {
@@ -342,7 +333,7 @@ static int wsa881x_boost_ctrl(struct snd_soc_codec *codec, bool enable)
 	if (enable) {
 		snd_soc_update_bits(codec, WSA881X_ANA_CTL, 0x01, 0x01);
 		snd_soc_update_bits(codec, WSA881X_ANA_CTL, 0x04, 0x04);
-		snd_soc_update_bits(codec, WSA881X_BOOST_PS_CTL, 0x80, 0x00);
+		snd_soc_update_bits(codec, WSA881X_BOOST_PS_CTL, 0x40, 0x00);
 		snd_soc_update_bits(codec, WSA881X_BOOST_PRESET_OUT1,
 							0xF0, 0xB0);
 		snd_soc_update_bits(codec, WSA881X_BOOST_ZX_CTL, 0x20, 0x00);
@@ -676,17 +667,19 @@ static const struct snd_soc_dapm_route wsa881x_audio_map[] = {
 static int wsa881x_startup(struct wsa881x_pdata *pdata)
 {
 	int ret = 0;
+	struct snd_soc_codec *codec = pdata->codec;
 
 	pr_debug("%s(): wsa startup\n", __func__);
-	mi2s_rx_clk.clk_val2 =
-			Q6AFE_LPASS_OSR_CLK_9_P600_MHZ;
-	ret = afe_set_lpass_clock(AFE_PORT_ID_PRIMARY_MI2S_RX,
-				  &mi2s_rx_clk);
-	if (ret < 0) {
-		pr_err("%s: clock failed enable %d\n",
-			__func__, ret);
-		return ret;
+
+	if (pdata->enable_mclk) {
+		ret = pdata->enable_mclk(codec->card, true);
+		if (ret < 0) {
+			pr_err("%s: mclk enable failed %d\n",
+				__func__, ret);
+			return ret;
+		}
 	}
+
 	ret = msm_gpioset_activate(CLIENT_WSA_BONGO_1, "wsa_clk");
 	if (ret) {
 		pr_err("%s: gpio set cannot be activated %s\n",
@@ -700,6 +693,7 @@ static int wsa881x_startup(struct wsa881x_pdata *pdata)
 static int wsa881x_shutdown(struct wsa881x_pdata *pdata)
 {
 	int ret = 0, reg;
+	struct snd_soc_codec *codec = pdata->codec;
 
 	pr_debug("%s(): wsa shutdown\n", __func__);
 	ret = wsa881x_reset(pdata, false);
@@ -708,15 +702,16 @@ static int wsa881x_shutdown(struct wsa881x_pdata *pdata)
 			__func__, ret);
 		return ret;
 	}
-	mi2s_rx_clk.clk_val2 =
-			Q6AFE_LPASS_OSR_CLK_DISABLE;
-	ret = afe_set_lpass_clock(AFE_PORT_ID_PRIMARY_MI2S_RX,
-				  &mi2s_rx_clk);
-	if (ret < 0) {
-		pr_err("%s: clock failed disable %d\n",
-			__func__, ret);
-		return ret;
+
+	if (pdata->enable_mclk) {
+		ret = pdata->enable_mclk(codec->card, false);
+		if (ret < 0) {
+			pr_err("%s: mclk disable failed %d\n",
+				__func__, ret);
+			return ret;
+		}
 	}
+
 	ret = msm_gpioset_suspend(CLIENT_WSA_BONGO_1, "wsa_clk");
 	if (ret) {
 		pr_err("%s: gpio set cannot be suspended %s\n",
@@ -865,6 +860,19 @@ int wsa881x_get_presence_count(void)
 	return wsa881x_presence_count;
 }
 EXPORT_SYMBOL(wsa881x_get_presence_count);
+
+int wsa881x_set_mclk_callback(
+	int (*enable_mclk_callback)(struct snd_soc_card *, bool))
+{
+	int i;
+
+	for (i = 0; i < MAX_WSA881X_DEVICE; i++) {
+		if (wsa_pdata[i].status == WSA881X_STATUS_I2C)
+			wsa_pdata[i].enable_mclk = enable_mclk_callback;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(wsa881x_set_mclk_callback);
 
 static int check_wsa881x_presence(struct i2c_client *client)
 {

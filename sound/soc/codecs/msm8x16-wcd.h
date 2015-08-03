@@ -176,6 +176,11 @@ struct msm8x16_wcd_regulator {
 	struct regulator *regulator;
 };
 
+struct on_demand_supply {
+	struct regulator *supply;
+	atomic_t ref;
+};
+
 struct msm8916_asoc_mach_data {
 	int codec_type;
 	int ext_pa;
@@ -187,13 +192,16 @@ struct msm8916_asoc_mach_data {
 	u8 micbias2_cap_mode;
 	atomic_t mclk_rsc_ref;
 	atomic_t mclk_enabled;
+	atomic_t wsa_mclk_rsc_ref;
 	struct mutex cdc_mclk_mutex;
+	struct mutex wsa_mclk_mutex;
 	struct delayed_work disable_mclk_work;
 	struct afe_digital_clk_cfg digital_cdc_clk;
 	void __iomem *vaddr_gpio_mux_spkr_ctl;
 	void __iomem *vaddr_gpio_mux_mic_ctl;
 	void __iomem *vaddr_gpio_mux_quin_ctl;
 	void __iomem *vaddr_gpio_mux_pcm_ctl;
+	struct on_demand_supply wsa_switch_supply;
 };
 
 struct msm8x16_wcd_pdata {
@@ -232,11 +240,6 @@ struct msm8x16_wcd {
 	int num_irqs;
 	u32 mclk_rate;
 	char __iomem *dig_base;
-};
-
-struct on_demand_supply {
-	struct regulator *supply;
-	atomic_t ref;
 };
 
 struct msm8x16_wcd_priv {

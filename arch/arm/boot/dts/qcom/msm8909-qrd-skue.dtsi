@@ -336,7 +336,6 @@
 };
 
 &dsi_hx8379c_fwvga_video {
-	qcom,cont-splash-enabled;
 	qcom,mdss-dsi-pwm-gpio = <&pm8909_mpps 2 0>;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };

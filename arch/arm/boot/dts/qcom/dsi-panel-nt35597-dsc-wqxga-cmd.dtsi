@@ -1,0 +1,116 @@
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&mdss_mdp {
+	dsi_nt35597_dsc_cmd: qcom,mdss_dsi_nt35597_dsc_wqxga_cmd {
+		qcom,mdss-dsi-panel-name = "NT35597 cmd mode dsc dsi panel";
+		qcom,mdss-dsi-panel-type = "dsi_cmd_mode";
+		qcom,mdss-dsi-panel-framerate = <60>;
+		qcom,mdss-dsi-virtual-channel-id = <0>;
+		qcom,mdss-dsi-stream = <0>;
+		qcom,mdss-dsi-panel-width = <1440>;
+		qcom,mdss-dsi-panel-height = <2560>;
+		qcom,mdss-dsi-h-front-porch = <100>;
+		qcom,mdss-dsi-h-back-porch = <32>;
+		qcom,mdss-dsi-h-pulse-width = <16>;
+		qcom,mdss-dsi-h-sync-skew = <0>;
+		qcom,mdss-dsi-v-back-porch = <7>;
+		qcom,mdss-dsi-v-front-porch = <8>;
+		qcom,mdss-dsi-v-pulse-width = <1>;
+		qcom,mdss-tear-check-sync-cfg-height = <2576>;
+		qcom,mdss-dsi-bpp = <24>;
+		qcom,mdss-dsi-border-color = <0>;
+		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+		qcom,mdss-dsi-h-sync-pulse = <0>;
+		qcom,mdss-dsi-traffic-mode = "non_burst_sync_event";
+		qcom,mdss-dsi-bllp-eof-power-mode;
+		qcom,mdss-dsi-bllp-power-mode;
+		qcom,mdss-dsi-lane-0-state;
+		qcom,mdss-dsi-lane-1-state;
+		qcom,mdss-dsi-lane-2-state;
+		qcom,mdss-dsi-lane-3-state;
+		qcom,mdss-dsi-panel-timings = [a4 24 18 00 4c 50 1c 28
+								1c 03 04 00];
+		qcom,mdss-dsi-t-clk-post = <0x4>;
+		qcom,mdss-dsi-t-clk-pre = <0x20>;
+		qcom,mdss-dsi-dma-trigger = "trigger_sw";
+		qcom,mdss-dsi-mdp-trigger = "none";
+		qcom,mdss-dsi-reset-sequence = <1 20>, <0 20>, <1 50>;
+		qcom,mdss-dsi-te-pin-select = <1>;
+		qcom,mdss-dsi-wr-mem-start = <0x2c>;
+		qcom,mdss-dsi-wr-mem-continue = <0x3c>;
+		qcom,mdss-dsi-te-dcs-command = <1>;
+		qcom,mdss-dsi-te-check-enable;
+		qcom,mdss-dsi-te-using-te-pin;
+		qcom,ulps-enabled;
+
+		qcom,mdss-dsi-compression = "dsc";
+		qcom,mdss-dsc-slice-height = <16>;
+		qcom,mdss-dsc-slice-width = <720>;
+		qcom,mdss-dsc-slice-per-pkt = <2>;
+		qcom,mdss-dsc-bit-per-component = <8>;
+		qcom,mdss-dsc-bit-per-pixel = <8>;
+		qcom,mdss-dsc-block-prediction-enable;
+		qcom,mdss-dsc-ich-reset-value = <0>;
+		qcom,mdss-dsc-ich-reset-override = <0>;
+		qcom,mdss-dsc-data-path-mode = "1p1d";
+		qcom,mdss-dsc-config-by-manufacture-cmd;
+
+		qcom,mdss-dsi-on-command = [15 01 00 00 0a 00 02 ff 10
+			15 01 00 00 0a 00 02 fb 01
+			15 01 00 00 0a 00 02 ba 03
+			15 01 00 00 0a 00 02 e5 01
+			15 01 00 00 0a 00 02 b0 03
+			15 01 00 00 0a 00 02 ff 28
+			15 01 00 00 0a 00 02 7a 02
+			15 01 00 00 0a 00 02 fb 01
+			15 01 00 00 0a 00 02 ff 10
+			39 01 00 00 0a 00 11 c1 09 20 00 10 02 00 02 68 01
+							bb 00 0a 06 67 04 c5
+			39 01 00 00 0a 00 03 c2 10 f0
+			15 01 00 00 0a 00 02 fb 01
+			15 01 00 00 0a 00 02 c0 03
+			15 01 00 00 0a 00 02 35 00
+			15 01 00 00 0a 00 02 bb 10
+			15 01 00 00 0a 00 02 ff e0
+			15 01 00 00 0a 00 02 fb 01
+			15 01 00 00 0a 00 02 6b 3d
+			15 01 00 00 0a 00 02 6c 3d
+			15 01 00 00 0a 00 02 6d 3d
+			15 01 00 00 0a 00 02 6e 3d
+			15 01 00 00 0a 00 02 6f 3d
+			15 01 00 00 0a 00 02 35 02
+			15 01 00 00 0a 00 02 36 72
+			15 01 00 00 0a 00 02 37 10
+			15 01 00 00 0a 00 02 08 c0
+			15 01 00 00 0a 00 02 ff 24
+			15 01 00 00 0a 00 02 fb 01
+			15 01 00 00 0a 00 02 c6 06
+			15 01 00 00 0a 00 02 ff 10
+			05 01 00 00 f0 00 01 11
+			07 01 00 00 a0 00 01 01
+			0a 01 00 00 a0 00 80 10 00 00 89 20 08 0a 00 05 a0
+				00 10 02 d0 02 d0 02 00 02 68 00 20 01 bb 00
+				0a 00 0c 06 67 04 c5 18 00 10 f0 03 0c 20 00
+				00 0b 0b 33 0e 1c 2a 38 46 54 62 69 70 77 79
+				7b 7d 7e 01 02 01 00 09 40 09 be 19 fc 19 fa
+				19 f8 1a 38 1a 78 1a b6 2a f6 2b 34 2b 74 3b
+				74 6b f4 00 00 00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+				00 00 00 00 00 00 00 00 00 00 00 00 00
+			05 01 00 00 a0 00 01 29];
+
+		qcom,mdss-dsi-off-command = [05 01 00 00 78 00 02 28 00
+				 05 01 00 00 78 00 02 10 00];
+	};
+};

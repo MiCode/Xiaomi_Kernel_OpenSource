@@ -31,6 +31,8 @@
 
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
+#define CEIL(x, y)	(((x) + ((y)-1)) / (y))
+
 static u32 rc_buf_thresh[] = {0x0e, 0x1c, 0x2a, 0x38, 0x46, 0x54, 0x62,
 	0x69, 0x70, 0x77, 0x79, 0x7b, 0x7d, 0x7e};
 static char rc_range_min_qp[] = {0, 0, 1, 1, 3, 3, 3, 3, 3, 3, 5, 5, 5, 7, 13};
@@ -286,9 +288,11 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
-	if (mdss_dsi_is_right_ctrl(ctrl_pdata) &&
-		mdss_dsi_is_hw_config_split(ctrl_pdata->shared_data)) {
-		pr_debug("%s:%d, right ctrl gpio configuration not needed\n",
+	pinfo = &ctrl_pdata->panel_data.panel_info;
+	if ((mdss_dsi_is_right_ctrl(ctrl_pdata) &&
+		mdss_dsi_is_hw_config_split(ctrl_pdata->shared_data)) ||
+			pinfo->is_dba_panel) {
+		pr_debug("%s:%d, gpio configuration not needed\n",
 			__func__, __LINE__);
 		return rc;
 	}
@@ -305,7 +309,6 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	}
 
 	pr_debug("%s: enable = %d\n", __func__, enable);
-	pinfo = &(ctrl_pdata->panel_data.panel_info);
 
 	if (enable) {
 		rc = mdss_dsi_request_gpios(ctrl_pdata);
@@ -1049,8 +1052,6 @@ void mdss_dsc_parameters_calc(struct mdss_panel_info *pinfo)
 	dsc->max_qp_flatness = 12;
 	dsc->min_qp_flatness = 3;
 
-	dsc->pkt_per_line = 1;
-
 	dsc->edge_factor = 6;
 	dsc->quant_incr_limit0 = 11;
 	dsc->quant_incr_limit1 = 11;
@@ -1086,20 +1087,14 @@ void mdss_dsc_parameters_calc(struct mdss_panel_info *pinfo)
 	if (dsc->pic_width % slice_per_line)
 		bytes_in_slice++;
 
-	data = 0;
-	bytes_in_slice *= dsc->bpp;	/* compressed */
-	if (bytes_in_slice % 8)
-		data++;
+	bytes_in_slice *= dsc->bpp;	/* bytes per compressed pixel */
+	bytes_in_slice = CEIL(bytes_in_slice, 8);
 
-	bytes_in_slice /= 8;
-	if (data)
-		bytes_in_slice++;
+	dsc->bytes_in_slice = bytes_in_slice;
 
 	total_bytes = bytes_in_slice * slice_per_line;
 	dsc->eol_byte_num = total_bytes % 3;
-	dsc->pclk_per_line =  total_bytes / 3;
-	if (dsc->eol_byte_num)
-		dsc->pclk_per_line++;
+	dsc->pclk_per_line =  CEIL(total_bytes, 3);
 
 	dsc->slice_last_group_size = 3 - dsc->eol_byte_num;
 
@@ -1286,6 +1281,7 @@ static int mdss_dsi_parse_compression_params(struct device_node *np,
 	pinfo->fbc.enabled = 0;
 	pinfo->fbc.target_bpp = pinfo->bpp;
 
+	pinfo->compression_mode = COMPRESSION_NONE;
 	data = of_get_property(np, "qcom,mdss-dsi-compression", NULL);
 	if (data) {
 		if (!strcmp(data, "dsc"))
@@ -1586,9 +1582,6 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 	}
 
 	pinfo = &ctrl->panel_data.panel_info;
-
-	pinfo->cont_splash_enabled = of_property_read_bool(np,
-		"qcom,cont-splash-enabled");
 
 	pinfo->partial_update_supported = of_property_read_bool(np,
 		"qcom,partial-update-enabled");
@@ -2118,15 +2111,44 @@ static int mdss_panel_parse_dt(struct device_node *np,
 
 	mdss_dsi_parse_dfps_config(np, ctrl_pdata);
 
+	pinfo->is_dba_panel = of_property_read_bool(np,
+			"qcom,dba-panel");
+
 	return 0;
 
 error:
 	return -EINVAL;
 }
 
+static void mdss_dsi_set_prim_panel(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	struct mdss_dsi_ctrl_pdata *octrl = NULL;
+	struct mdss_panel_info *pinfo;
+
+	pinfo = &ctrl_pdata->panel_data.panel_info;
+
+	/*
+	 * for Split and Single DSI case default is always primary
+	 * and for Dual dsi case below assumptions are made.
+	 *	1. DSI controller with bridge chip is always secondary
+	 *	2. When there is no brigde chip, DSI1 is secondary
+	 */
+	pinfo->is_prim_panel = true;
+	if (mdss_dsi_is_hw_config_dual(ctrl_pdata->shared_data)) {
+		if (pinfo->is_dba_panel) {
+			pinfo->is_prim_panel = false;
+		} else if (mdss_dsi_is_right_ctrl(ctrl_pdata)) {
+			octrl = mdss_dsi_get_other_ctrl(ctrl_pdata);
+			if (octrl && octrl->panel_data.panel_info.is_prim_panel)
+				pinfo->is_prim_panel = false;
+			else
+				pinfo->is_prim_panel = true;
+		}
+	}
+}
+
 int mdss_dsi_panel_init(struct device_node *node,
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata,
-	bool cmd_cfg_cont_splash)
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	int rc = 0;
 	static const char *panel_name;
@@ -2155,11 +2177,7 @@ int mdss_dsi_panel_init(struct device_node *node,
 		return rc;
 	}
 
-	if (!cmd_cfg_cont_splash)
-		pinfo->cont_splash_enabled = false;
-	pr_info("%s: Continuous splash %s\n", __func__,
-		pinfo->cont_splash_enabled ? "enabled" : "disabled");
-
+	mdss_dsi_set_prim_panel(ctrl_pdata);
 	pinfo->dynamic_switch_pending = false;
 	pinfo->is_lpm_mode = false;
 	pinfo->esd_rdy = false;

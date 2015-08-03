@@ -2044,21 +2044,28 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 	spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
 
 	/* disable endpoints */
-	if (gr->out)
+	if (gr->out) {
 		usb_ep_disable(gr->out);
-	spin_lock_irqsave(&port->port_lock_ul, flags_ul);
-	if (d->rx_req) {
-		usb_ep_free_request(gr->out, d->rx_req);
-		d->rx_req = NULL;
+		if (trans == USB_GADGET_XPORT_BAM2BAM ||
+			trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+			spin_lock_irqsave(&port->port_lock_ul, flags_ul);
+			if (d->rx_req) {
+				usb_ep_free_request(gr->out, d->rx_req);
+				d->rx_req = NULL;
+			}
+			spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
+		}
 	}
-	spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
 	usb_ep_disable(gr->in);
-	spin_lock_irqsave(&port->port_lock_dl, flags_dl);
-	if (d->tx_req) {
-		usb_ep_free_request(gr->in, d->tx_req);
-		d->tx_req = NULL;
+	if (trans == USB_GADGET_XPORT_BAM2BAM ||
+		trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		spin_lock_irqsave(&port->port_lock_dl, flags_dl);
+		if (d->tx_req) {
+			usb_ep_free_request(gr->in, d->tx_req);
+			d->tx_req = NULL;
+		}
+		spin_unlock_irqrestore(&port->port_lock_dl, flags_dl);
 	}
-	spin_unlock_irqrestore(&port->port_lock_dl, flags_dl);
 
 	/*
 	 * Set endless flag to false as USB Endpoint is already
@@ -2149,36 +2156,41 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 	port->port_usb = gr;
 	port->gadget = port->port_usb->gadget;
 
-	d->rx_req = usb_ep_alloc_request(port->port_usb->out, GFP_ATOMIC);
-	if (!d->rx_req) {
-		pr_err("%s: out of memory\n", __func__);
-		d->rx_req = NULL;
-		spin_unlock(&port->port_lock_dl);
-		spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
-		spin_unlock_irqrestore(&port->port_lock, flags);
-		return -ENOMEM;
+	if (trans == USB_GADGET_XPORT_BAM2BAM ||
+		trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+		d->rx_req = usb_ep_alloc_request(port->port_usb->out,
+							GFP_ATOMIC);
+			if (!d->rx_req) {
+				pr_err("%s: out of memory\n", __func__);
+			d->rx_req = NULL;
+			spin_unlock(&port->port_lock_dl);
+			spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
+			spin_unlock_irqrestore(&port->port_lock, flags);
+			return -ENOMEM;
+		}
+
+		d->rx_req->context = port;
+		d->rx_req->complete = gbam_endless_rx_complete;
+		d->rx_req->length = 0;
+		d->rx_req->no_interrupt = 1;
+
+		d->tx_req = usb_ep_alloc_request(port->port_usb->in,
+							GFP_ATOMIC);
+		if (!d->tx_req) {
+			pr_err("%s: out of memory\n", __func__);
+			usb_ep_free_request(port->port_usb->out, d->rx_req);
+			d->tx_req = NULL;
+			spin_unlock(&port->port_lock_dl);
+			spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
+			spin_unlock_irqrestore(&port->port_lock, flags);
+			return -ENOMEM;
+		}
+
+		d->tx_req->context = port;
+		d->tx_req->complete = gbam_endless_tx_complete;
+		d->tx_req->length = 0;
+		d->tx_req->no_interrupt = 1;
 	}
-
-	d->rx_req->context = port;
-	d->rx_req->complete = gbam_endless_rx_complete;
-	d->rx_req->length = 0;
-	d->rx_req->no_interrupt = 1;
-
-	d->tx_req = usb_ep_alloc_request(port->port_usb->in, GFP_ATOMIC);
-	if (!d->tx_req) {
-		pr_err("%s: out of memory\n", __func__);
-		usb_ep_free_request(port->port_usb->out, d->rx_req);
-		d->tx_req = NULL;
-		spin_unlock(&port->port_lock_dl);
-		spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
-		spin_unlock_irqrestore(&port->port_lock, flags);
-		return -ENOMEM;
-	}
-
-	d->tx_req->context = port;
-	d->tx_req->complete = gbam_endless_tx_complete;
-	d->tx_req->length = 0;
-	d->tx_req->no_interrupt = 1;
 
 	if (d->trans == USB_GADGET_XPORT_BAM) {
 		d->to_host = 0;

@@ -34,6 +34,7 @@
 
 #define DIAG_MAX_REQ_SIZE	(16 * 1024)
 #define DIAG_MAX_RSP_SIZE	(16 * 1024)
+#define APF_DIAG_PADDING	256
 /*
  * In the worst case, the HDLC buffer can be atmost twice the size of the
  * original packet. Add 3 bytes for 16 bit CRC (2 bytes) and a delimiter
@@ -572,7 +573,7 @@ void diag_ws_on_copy_fail(int type);
 void diag_ws_on_copy_complete(int type);
 void diag_ws_reset(int type);
 void diag_ws_release(void);
-
+void chk_logging_wakeup(void);
 int diag_cmd_add_reg(struct diag_cmd_reg_entry_t *new_entry, uint8_t proc,
 		     int pid);
 struct diag_cmd_reg_entry_t *diag_cmd_search(

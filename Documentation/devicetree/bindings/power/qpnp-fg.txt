@@ -39,6 +39,9 @@ Parent node optional properties:
 - qcom,cool-bat-decidegc:		Cool battery temperature in decidegC.
 - qcom,hot-bat-decidegc:		Hot battery temperature in decidegC.
 - qcom,cold-bat-decidegc:		Cold battery temperature in decidegC.
+- qcom,cold-hot-jeita-hysteresis:	A tuple of 2. Index[0] is cold
+					hysteresis and index[1] is hot
+					hysterisis(in decidegC).
 - qcom,ext-sense-type:			Current sense channel used by the FG.
 					Set this to use external rsense.
 - qcom,thermal-coefficients:		Byte array of thermal coefficients for
@@ -49,6 +52,9 @@ Parent node optional properties:
 - qcom,resume-soc-raw:			soc to resume charging in the scale of
 					[0-255]. This overrides qcom,resume-soc
 					if defined.
+- qcom,hold-soc-while-full:		A boolean property that when defined
+					holds SOC at 100% when the battery is
+					full.
 - qcom,bcl-lm-threshold-ma:		BCL LPM to MPM mode transition threshold
 					in milliAmpere.
 - qcom,bcl-mh-threshold-ma:		BCL MPM to HPM mode transition threshold
@@ -253,5 +259,7 @@ pmi8994_fg: qcom,fg {
 
 		interrupt-names =	"mem-avail",
 					"data-rcvry-sug";
+
+		qcom,cold-hot-jeita-hysteresis = <30 50>;
 	};
 };

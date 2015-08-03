@@ -140,6 +140,10 @@ static int mdss_mdp_writeback_addr_setup(struct mdss_mdp_writeback_ctx *ctx,
 	mdss_mdp_data_calc_offset(&data, ctx->dst_rect.x, ctx->dst_rect.y,
 			&ctx->dst_planes, ctx->dst_fmt);
 
+	if ((ctx->dst_fmt->fetch_planes == MDSS_MDP_PLANE_PLANAR) &&
+			(ctx->dst_fmt->element[0] == C1_B_Cb))
+		swap(data.p[1].addr, data.p[2].addr);
+
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST0_ADDR, data.p[0].addr);
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST1_ADDR, data.p[1].addr);
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST2_ADDR, data.p[2].addr);

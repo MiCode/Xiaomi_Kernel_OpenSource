@@ -302,6 +302,13 @@ static void check_halt_state(struct msm_iommu_drvdata const *drvdata)
 static void check_tlb_sync_state(struct msm_iommu_drvdata const *drvdata,
 				int ctx, struct msm_iommu_priv *priv)
 {
+	char const *name = drvdata->name;
+
+	pr_err("Timed out waiting for TLB SYNC to complete for %s (client: %s)\n",
+		name, priv->client_name);
+
+	atomic_notifier_call_chain(&msm_iommu_notifier_list, TLB_SYNC_TIMEOUT,
+				(void *) priv->client_name);
 	BUG();
 }
 

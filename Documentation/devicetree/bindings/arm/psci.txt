@@ -21,7 +21,7 @@ to #0.
 
 Main node required properties:
 
- - compatible    : Must be "arm,psci"
+ - compatible    : Must be "arm,psci", "arm,psci-0.2", "arm,psci-1.0"
 
  - method        : The method of calling the PSCI firmware. Permitted
                    values are:

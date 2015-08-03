@@ -80,7 +80,6 @@ Example:
 		qcom,hdmi-tx-ddc-clk = <&msmgpio 32 0>;
 		qcom,hdmi-tx-ddc-data = <&msmgpio 33 0>;
 		qcom,hdmi-tx-hpd = <&msmgpio 34 0>;
-		qcom,cont-splash-enabled;
 
 		qcom,hdmi-tx-mux-lpm = <&msmgpio 27 0>;
 		qcom,hdmi-tx-mux-en = <&msmgpio 83 0>;

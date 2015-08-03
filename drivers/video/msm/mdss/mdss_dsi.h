@@ -256,6 +256,10 @@ struct dsi_shared_data {
 
 	/* Shared mutex for DSI PHY regulator */
 	struct mutex phy_reg_lock;
+
+	/* Shared mutex for pm_qos ref count */
+	struct mutex pm_qos_lock;
+	u32 pm_qos_req_cnt;
 };
 
 struct mdss_dsi_data {
@@ -551,8 +555,7 @@ void mdss_dsi_get_hw_revision(struct mdss_dsi_ctrl_pdata *ctrl);
 u32 mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
 		char cmd1, void (*fxn)(int), char *rbuf, int len);
 int mdss_dsi_panel_init(struct device_node *node,
-		struct mdss_dsi_ctrl_pdata *ctrl_pdata,
-		bool cmd_cfg_cont_splash);
+		struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 int mdss_panel_parse_bl_settings(struct device_node *np,
 			struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 int mdss_panel_get_dst_fmt(u32 bpp, char mipi_mode, u32 pixel_packing,
@@ -653,7 +656,7 @@ static inline const char *__mdss_dsi_get_fb_name(
 	struct mdss_panel_info *pinfo = &(ctrl->panel_data.panel_info);
 
 	if (mdss_dsi_is_hw_config_dual(ctrl->shared_data)) {
-		if (pinfo->pdest == DISPLAY_1)
+		if (pinfo->is_prim_panel)
 			return "qcom,mdss-fb-map-prim";
 		else
 			return "qcom,mdss-fb-map-sec";

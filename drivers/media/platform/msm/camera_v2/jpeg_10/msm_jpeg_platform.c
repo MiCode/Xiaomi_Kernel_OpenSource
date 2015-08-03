@@ -363,8 +363,6 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 		pgmn_dev->jpeg_bus_client = 0;
 		return -EINVAL;
 	}
-	msm_bus_scale_client_update_request(
-		pgmn_dev->jpeg_bus_client, 1);
 
 	jpeg_io = request_mem_region(jpeg_mem->start,
 		resource_size(jpeg_mem), pdev->name);
@@ -493,8 +491,12 @@ int msm_jpeg_platform_release(struct resource *mem, void *base, int irq,
 	msm_jpeg_detach_iommu(pgmn_dev);
 
 	if (pgmn_dev->jpeg_bus_client) {
-		msm_bus_scale_client_update_request(
-			pgmn_dev->jpeg_bus_client, 0);
+		if (pgmn_dev->jpeg_bus_vote) {
+			msm_bus_scale_client_update_request(
+				pgmn_dev->jpeg_bus_client, 0);
+			JPEG_BUS_UNVOTED(pgmn_dev);
+			JPEG_DBG("%s:%d] Bus unvoted\n", __func__, __LINE__);
+		}
 		msm_bus_scale_unregister_client(pgmn_dev->jpeg_bus_client);
 	}
 

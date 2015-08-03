@@ -393,6 +393,7 @@ struct fg_chip {
 	struct work_struct	rslow_comp_work;
 	struct work_struct	sysfs_restart_work;
 	struct work_struct	init_work;
+	struct work_struct	charge_full_work;
 	struct power_supply	*batt_psy;
 	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
@@ -414,6 +415,8 @@ struct fg_chip {
 	bool			charge_done;
 	bool			resume_soc_lowered;
 	bool			vbat_low_irq_enabled;
+	bool			charge_full;
+	bool			hold_soc_while_full;
 	struct delayed_work	update_jeita_setting;
 	struct delayed_work	update_sram_data;
 	struct delayed_work	update_temp_work;
@@ -449,6 +452,11 @@ struct fg_chip {
 	/* interleaved memory access */
 	u16			*offset;
 	bool			ima_supported;
+	bool			jeita_hysteresis_support;
+	bool			batt_hot;
+	bool			batt_cold;
+	int			cold_hysteresis;
+	int			hot_hysteresis;
 };
 
 /* FG_MEMIF DEBUGFS structures */
@@ -1636,6 +1644,8 @@ static int get_prop_capacity(struct fg_chip *chip)
 		return MISSING_CAPACITY;
 	if (!chip->profile_loaded && !chip->use_otp_profile)
 		return DEFAULT_CAPACITY;
+	if (chip->charge_full)
+		return FULL_CAPACITY;
 	if (chip->soc_empty) {
 		if (fg_debug_mask & FG_POWER_SUPPLY)
 			pr_info_ratelimited("capacity: %d, EMPTY\n",
@@ -1996,8 +2006,13 @@ out:
 
 #define BATT_TEMP_OFFSET	3
 #define BATT_TEMP_CNTRL_MASK	0x17
-#define BATT_TEMP_ON		0x16
-#define BATT_TEMP_OFF		0x01
+#define DISABLE_THERM_BIT	BIT(0)
+#define TEMP_SENSE_ALWAYS_BIT	BIT(1)
+#define TEMP_SENSE_CHARGE_BIT	BIT(2)
+#define FORCE_RBIAS_ON_BIT	BIT(4)
+#define BATT_TEMP_OFF		DISABLE_THERM_BIT
+#define BATT_TEMP_ON		(FORCE_RBIAS_ON_BIT | TEMP_SENSE_ALWAYS_BIT | \
+				TEMP_SENSE_CHARGE_BIT)
 #define TEMP_PERIOD_UPDATE_MS		10000
 #define TEMP_PERIOD_TIMEOUT_MS		3000
 static void update_temp_data(struct work_struct *work)
@@ -3022,7 +3037,18 @@ static void status_change_work(struct work_struct *work)
 				struct fg_chip,
 				status_change_work);
 	unsigned long current_time = 0;
+	int capacity = get_prop_capacity(chip);
 
+	if (chip->status == POWER_SUPPLY_STATUS_FULL) {
+		if (capacity >= 99 && chip->hold_soc_while_full) {
+			if (fg_debug_mask & FG_STATUS)
+				pr_info("holding soc at 100\n");
+			chip->charge_full = true;
+		} else if (fg_debug_mask & FG_STATUS) {
+			pr_info("terminated charging at %d/0x%02x\n",
+					capacity, get_monotonic_soc_raw(chip));
+		}
+	}
 	if (chip->status == POWER_SUPPLY_STATUS_FULL ||
 			chip->status == POWER_SUPPLY_STATUS_CHARGING) {
 		if (!chip->vbat_low_irq_enabled) {
@@ -3030,7 +3056,7 @@ static void status_change_work(struct work_struct *work)
 			enable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
 			chip->vbat_low_irq_enabled = true;
 		}
-		if (get_prop_capacity(chip) == 100)
+		if (capacity == 100)
 			fg_configure_soc(chip);
 	} else if (chip->status == POWER_SUPPLY_STATUS_DISCHARGING) {
 		if (chip->vbat_low_irq_enabled) {
@@ -3055,6 +3081,93 @@ static void status_change_work(struct work_struct *work)
 		if (chip->cyc_ctr.en)
 			schedule_work(&chip->cycle_count_work);
 	}
+}
+
+static void fg_hysteresis_config(struct fg_chip *chip)
+{
+	int hard_hot = 0, hard_cold = 0;
+
+	hard_hot = get_prop_jeita_temp(chip, FG_MEM_HARD_HOT);
+	hard_cold = get_prop_jeita_temp(chip, FG_MEM_HARD_COLD);
+	if (chip->health == POWER_SUPPLY_HEALTH_OVERHEAT && !chip->batt_hot) {
+		/* turn down the hard hot threshold */
+		chip->batt_hot = true;
+		set_prop_jeita_temp(chip, FG_MEM_HARD_HOT,
+			hard_hot - chip->hot_hysteresis);
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("hard hot hysteresis: old hot=%d, new hot=%d\n",
+				hard_hot, hard_hot - chip->hot_hysteresis);
+	} else if (chip->health == POWER_SUPPLY_HEALTH_COLD &&
+		!chip->batt_cold) {
+		/* turn up the hard cold threshold */
+		chip->batt_cold = true;
+		set_prop_jeita_temp(chip, FG_MEM_HARD_COLD,
+			hard_cold + chip->cold_hysteresis);
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("hard cold hysteresis: old cold=%d, new cold=%d\n",
+				hard_cold, hard_cold + chip->hot_hysteresis);
+	} else if (chip->health != POWER_SUPPLY_HEALTH_OVERHEAT &&
+		chip->batt_hot) {
+		/* restore the hard hot threshold */
+		set_prop_jeita_temp(chip, FG_MEM_HARD_HOT,
+			hard_hot + chip->hot_hysteresis);
+		chip->batt_hot = !chip->batt_hot;
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("restore hard hot threshold: old hot=%d, new hot=%d\n",
+				hard_hot,
+				hard_hot + chip->hot_hysteresis);
+	} else if (chip->health != POWER_SUPPLY_HEALTH_COLD &&
+		chip->batt_cold) {
+		/* restore the hard cold threshold */
+		set_prop_jeita_temp(chip, FG_MEM_HARD_COLD,
+			hard_cold - chip->cold_hysteresis);
+		chip->batt_cold = !chip->batt_cold;
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("restore hard cold threshold: old cold=%d, new cold=%d\n",
+				hard_cold,
+				hard_cold - chip->cold_hysteresis);
+	}
+}
+
+#define BATT_INFO_STS(base)	(base + 0x09)
+#define JEITA_HARD_HOT_RT_STS	BIT(6)
+#define JEITA_HARD_COLD_RT_STS	BIT(5)
+static int fg_init_batt_temp_state(struct fg_chip *chip)
+{
+	int rc = 0;
+	u8 batt_info_sts;
+	int hard_hot = 0, hard_cold = 0;
+
+	/*
+	 * read the batt_info_sts register to parse battery's
+	 * initial status and do hysteresis config accordingly.
+	 */
+	rc = fg_read(chip, &batt_info_sts,
+		BATT_INFO_STS(chip->batt_base), 1);
+	if (rc) {
+		pr_err("failed to read batt info sts, rc=%d\n", rc);
+		return rc;
+	}
+
+	hard_hot = get_prop_jeita_temp(chip, FG_MEM_HARD_HOT);
+	hard_cold = get_prop_jeita_temp(chip, FG_MEM_HARD_COLD);
+	chip->batt_hot =
+		(batt_info_sts & JEITA_HARD_HOT_RT_STS) ? true : false;
+	chip->batt_cold =
+		(batt_info_sts & JEITA_HARD_COLD_RT_STS) ? true : false;
+	if (chip->batt_hot || chip->batt_cold) {
+		if (chip->batt_hot) {
+			chip->health = POWER_SUPPLY_HEALTH_OVERHEAT;
+			set_prop_jeita_temp(chip, FG_MEM_HARD_HOT,
+				hard_hot - chip->hot_hysteresis);
+		} else {
+			chip->health = POWER_SUPPLY_HEALTH_COLD;
+			set_prop_jeita_temp(chip, FG_MEM_HARD_COLD,
+				hard_cold + chip->cold_hysteresis);
+		}
+	}
+
+	return rc;
 }
 
 static int fg_power_set_property(struct power_supply *psy,
@@ -3086,6 +3199,9 @@ static int fg_power_set_property(struct power_supply *psy,
 			fg_stay_awake(&chip->resume_soc_wakeup_source);
 			schedule_work(&chip->set_resume_soc_work);
 		}
+
+		if (chip->jeita_hysteresis_support)
+			fg_hysteresis_config(chip);
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_DONE:
 		chip->charge_done = val->intval;
@@ -3367,6 +3483,8 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 	if (chip->cyc_ctr.en)
 		schedule_work(&chip->cycle_count_work);
 	schedule_work(&chip->update_esr_work);
+	if (chip->charge_full)
+		schedule_work(&chip->charge_full_work);
 	return IRQ_HANDLED;
 }
 
@@ -3426,6 +3544,8 @@ static void fg_external_power_changed(struct power_supply *psy)
 		fg_stay_awake(&chip->resume_soc_wakeup_source);
 		schedule_work(&chip->set_resume_soc_work);
 	}
+	if (!is_input_present(chip) && chip->charge_full)
+		schedule_work(&chip->charge_full_work);
 }
 
 static void set_resume_soc_work(struct work_struct *work)
@@ -4178,6 +4298,74 @@ static void sysfs_restart_work(struct work_struct *work)
 	mutex_unlock(&chip->sysfs_restart_lock);
 }
 
+#define SRAM_MONOTONIC_SOC_REG		0x574
+#define SRAM_MONOTONIC_SOC_OFFSET	2
+#define SRAM_RELEASE_TIMEOUT_MS		500
+static void charge_full_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				charge_full_work);
+	int rc;
+	u8 buffer[3];
+	int bsoc;
+	int resume_soc_raw = FULL_SOC_RAW - settings[FG_MEM_RESUME_SOC].value;
+	bool disable = false;
+	u8 reg;
+
+	if (chip->status != POWER_SUPPLY_STATUS_FULL) {
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("battery not full: %d\n", chip->status);
+		disable = true;
+	}
+
+	fg_mem_lock(chip);
+	rc = fg_mem_read(chip, buffer, BATTERY_SOC_REG, 3, 1, 0);
+	if (rc) {
+		pr_err("Unable to read battery soc: %d\n", rc);
+		goto out;
+	}
+	if (buffer[2] <= resume_soc_raw) {
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("bsoc = 0x%02x <= resume = 0x%02x\n",
+					buffer[2], resume_soc_raw);
+		disable = true;
+	}
+	if (!disable)
+		goto out;
+
+	rc = fg_mem_write(chip, buffer, SOC_FULL_REG, 3,
+			SOC_FULL_OFFSET, 0);
+	if (rc) {
+		pr_err("failed to write SOC_FULL rc=%d\n", rc);
+		goto out;
+	}
+	/* force a full soc value into the monotonic in order to display 100 */
+	buffer[0] = 0xFF;
+	buffer[1] = 0xFF;
+	rc = fg_mem_write(chip, buffer, SRAM_MONOTONIC_SOC_REG, 2,
+			SRAM_MONOTONIC_SOC_OFFSET, 0);
+	if (rc) {
+		pr_err("failed to write SOC_FULL rc=%d\n", rc);
+		goto out;
+	}
+	if (fg_debug_mask & FG_STATUS) {
+		bsoc = buffer[0] | buffer[1] << 8 | buffer[2] << 16;
+		pr_info("wrote %06x into soc full\n", bsoc);
+	}
+	fg_mem_release(chip);
+	/*
+	 * wait one cycle to make sure the soc is updated before clearing
+	 * the soc mask bit
+	 */
+	fg_mem_lock(chip);
+	fg_mem_read(chip, &reg, PROFILE_INTEGRITY_REG, 1, 0, 0);
+out:
+	fg_mem_release(chip);
+	if (disable)
+		chip->charge_full = false;
+}
+
 static void update_bcl_thresholds(struct fg_chip *chip)
 {
 	u8 data[4];
@@ -4296,11 +4484,42 @@ static int fg_of_init(struct fg_chip *chip)
 	int rc = 0, sense_type, len = 0;
 	const char *data;
 	struct device_node *node = chip->spmi->dev.of_node;
+	u32 temp[2] = {0};
 
 	OF_READ_SETTING(FG_MEM_SOFT_HOT, "warm-bat-decidegc", rc, 1);
 	OF_READ_SETTING(FG_MEM_SOFT_COLD, "cool-bat-decidegc", rc, 1);
 	OF_READ_SETTING(FG_MEM_HARD_HOT, "hot-bat-decidegc", rc, 1);
 	OF_READ_SETTING(FG_MEM_HARD_COLD, "cold-bat-decidegc", rc, 1);
+
+	if (of_find_property(node, "qcom,cold-hot-jeita-hysteresis", NULL)) {
+		int hard_hot = 0, soft_hot = 0, hard_cold = 0, soft_cold = 0;
+
+		rc = of_property_read_u32_array(node,
+			"qcom,cold-hot-jeita-hysteresis", temp, 2);
+		if (rc) {
+			pr_err("Error reading cold-hot-jeita-hysteresis rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		chip->jeita_hysteresis_support = true;
+		chip->cold_hysteresis = temp[0];
+		chip->hot_hysteresis = temp[1];
+		hard_hot = settings[FG_MEM_HARD_HOT].value;
+		soft_hot = settings[FG_MEM_SOFT_HOT].value;
+		hard_cold = settings[FG_MEM_HARD_COLD].value;
+		soft_cold = settings[FG_MEM_SOFT_COLD].value;
+		if (((hard_hot - chip->hot_hysteresis) < soft_hot) ||
+			((hard_cold + chip->cold_hysteresis) > soft_cold)) {
+			chip->jeita_hysteresis_support = false;
+			pr_err("invalid hysteresis: hot_hysterresis = %d cold_hysteresis = %d\n",
+				chip->hot_hysteresis, chip->cold_hysteresis);
+		} else {
+			pr_debug("cold_hysteresis = %d, hot_hysteresis = %d\n",
+				chip->cold_hysteresis, chip->hot_hysteresis);
+		}
+	}
+
 	OF_READ_SETTING(FG_MEM_BCL_LM_THRESHOLD, "bcl-lm-threshold-ma",
 		rc, 1);
 	OF_READ_SETTING(FG_MEM_BCL_MH_THRESHOLD, "bcl-mh-threshold-ma",
@@ -4362,6 +4581,9 @@ static int fg_of_init(struct fg_chip *chip)
 	chip->use_otp_profile = of_property_read_bool(
 			chip->spmi->dev.of_node,
 			"qcom,use-otp-profile");
+	chip->hold_soc_while_full = of_property_read_bool(
+			chip->spmi->dev.of_node,
+			"qcom,hold-soc-while-full");
 
 	sense_type = of_property_read_bool(chip->spmi->dev.of_node,
 					"qcom,ext-sense-type");
@@ -4586,6 +4808,7 @@ static void fg_cleanup(struct fg_chip *chip)
 	cancel_work_sync(&chip->update_esr_work);
 	cancel_work_sync(&chip->sysfs_restart_work);
 	cancel_work_sync(&chip->init_work);
+	cancel_work_sync(&chip->charge_full_work);
 	power_supply_unregister(&chip->bms_psy);
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
@@ -5140,6 +5363,17 @@ static int fg_common_hw_init(struct fg_chip *chip)
 			THERMAL_COEFF_OFFSET, 0);
 	}
 
+	if (!chip->sw_rbias_ctrl) {
+		rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
+				BATT_TEMP_CNTRL_MASK,
+				TEMP_SENSE_ALWAYS_BIT,
+				BATT_TEMP_OFFSET);
+		if (rc) {
+			pr_err("failed to write BATT_TEMP_OFFSET rc=%d\n", rc);
+			return rc;
+		}
+	}
+
 	return 0;
 }
 
@@ -5425,6 +5659,7 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_WORK(&chip->set_resume_soc_work, set_resume_soc_work);
 	INIT_WORK(&chip->sysfs_restart_work, sysfs_restart_work);
 	INIT_WORK(&chip->init_work, delayed_init_work);
+	INIT_WORK(&chip->charge_full_work, charge_full_work);
 	alarm_init(&chip->fg_cap_learning_alarm, ALARM_BOOTTIME,
 			fg_cap_learning_alarm_cb);
 	init_completion(&chip->sram_access_granted);
@@ -5504,6 +5739,14 @@ static int fg_probe(struct spmi_device *spmi)
 		goto of_init_fail;
 	}
 
+	if (chip->jeita_hysteresis_support) {
+		rc = fg_init_batt_temp_state(chip);
+		if (rc) {
+			pr_err("failed to get battery status rc%d\n", rc);
+			goto of_init_fail;
+		}
+	}
+
 	reg = 0xFF;
 	rc = fg_write(chip, &reg, INT_EN_CLR(chip->mem_base), 1);
 	if (rc) {
@@ -5577,6 +5820,7 @@ cancel_work:
 	cancel_work_sync(&chip->rslow_comp_work);
 	cancel_work_sync(&chip->sysfs_restart_work);
 	cancel_work_sync(&chip->init_work);
+	cancel_work_sync(&chip->charge_full_work);
 of_init_fail:
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);

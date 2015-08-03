@@ -68,6 +68,7 @@ enum codec_variant {
 	WCD9XXX,
 	WCD9330,
 	WCD9335,
+	WCD9326,
 };
 
 enum {
@@ -223,9 +224,14 @@ enum wcd9xxx_chipid_major {
 };
 
 enum codec_power_states {
-	WCD_DIG_CORE_POWER_COLLAPSE_REMOVE,
-	WCD_DIG_CORE_POWER_COLLAPSE_BEGIN,
-	WCD_DIG_CORE_POWER_DOWN,
+	WCD_REGION_POWER_COLLAPSE_REMOVE,
+	WCD_REGION_POWER_COLLAPSE_BEGIN,
+	WCD_REGION_POWER_DOWN,
+};
+
+enum wcd_power_regions {
+	WCD9XXX_DIG_CORE_REGION_1,
+	WCD9XXX_MAX_PWR_REGIONS,
 };
 
 struct wcd9xxx_codec_type {
@@ -237,6 +243,12 @@ struct wcd9xxx_codec_type {
 	int version; /* -1 to retrive version from chip version register */
 	enum wcd9xxx_slim_slave_addr_type slim_slave_type;
 	u16 i2c_chip_status;
+};
+
+struct wcd9xxx_power_region {
+	enum codec_power_states power_state;
+	u16 pwr_collapse_reg_min;
+	u16 pwr_collapse_reg_max;
 };
 
 struct wcd9xxx {
@@ -280,9 +292,7 @@ struct wcd9xxx {
 	const struct wcd9xxx_codec_type *codec_type;
 	bool prev_pg_valid;
 	u8 prev_pg;
-	enum codec_power_states power_state;
-	u16 pwr_collapse_reg_min;
-	u16 pwr_collapse_reg_max;
+	struct wcd9xxx_power_region *wcd9xxx_pwr[WCD9XXX_MAX_PWR_REGIONS];
 };
 
 struct wcd9xxx_reg_val {
@@ -299,8 +309,10 @@ int wcd9xxx_slim_write_repeat(struct wcd9xxx *wcd9xxx, unsigned short reg,
 			     int bytes, void *src);
 int wcd9xxx_slim_reserve_bw(struct wcd9xxx *wcd9xxx,
 			    u32 bw_ops, bool commit);
-int wcd9xxx_set_power_state(struct wcd9xxx *, int);
-int wcd9xxx_get_current_power_state(struct wcd9xxx *wcd9xxx);
+int wcd9xxx_set_power_state(struct wcd9xxx *, enum codec_power_states,
+			    enum wcd_power_regions);
+int wcd9xxx_get_current_power_state(struct wcd9xxx *,
+				    enum wcd_power_regions);
 
 int wcd9xxx_slim_bulk_write(struct wcd9xxx *wcd9xxx,
 			    struct wcd9xxx_reg_val *bulk_reg,

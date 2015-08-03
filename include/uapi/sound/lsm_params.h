@@ -6,6 +6,18 @@
 
 #define SNDRV_LSM_VERSION SNDRV_PROTOCOL_VERSION(0, 1, 0)
 
+#define LSM_OUT_FORMAT_PCM (0)
+#define LSM_OUT_FORMAT_ADPCM (1 << 0)
+
+#define LSM_OUT_DATA_RAW (0)
+#define LSM_OUT_DATA_PACKED (1)
+
+#define LSM_OUT_DATA_EVENTS_DISABLED (0)
+#define LSM_OUT_DATA_EVENTS_ENABLED (1)
+
+#define LSM_OUT_TRANSFER_MODE_RT (0)
+#define LSM_OUT_TRANSFER_MODE_FTRT (1)
+
 enum lsm_app_id {
 	LSM_VOICE_WAKEUP_APP_ID = 1,
 	LSM_VOICE_WAKEUP_APP_ID_V2 = 2,
@@ -129,6 +141,19 @@ struct snd_lsm_module_params {
 	__u32 data_size;
 };
 
+/*
+ * Data passed to LSM_OUT_FORMAT_CFG IOCTL
+ * @format: The media format enum
+ * @packing: indicates the packing method used for data path
+ * @events: indicates whether data path events need to be enabled
+ * @transfer_mode: indicates whether FTRT mode or RT mode.
+ */
+struct snd_lsm_output_format_cfg {
+	__u8 format;
+	__u8 packing;
+	__u8 events;
+	__u8 mode;
+};
 
 #define SNDRV_LSM_DEREG_SND_MODEL _IOW('U', 0x01, int)
 #define SNDRV_LSM_EVENT_STATUS	_IOW('U', 0x02, struct snd_lsm_event_status)
@@ -144,5 +169,7 @@ struct snd_lsm_module_params {
 					struct snd_lsm_detection_params)
 #define SNDRV_LSM_SET_MODULE_PARAMS	_IOW('U', 0x0B, \
 					struct snd_lsm_module_params)
+#define SNDRV_LSM_OUT_FORMAT_CFG _IOW('U', 0x0C, \
+				      struct snd_lsm_output_format_cfg)
 
 #endif

@@ -1310,6 +1310,7 @@ static struct clk_freq_tbl ftbl_sdcc1_apps_clk_src[] = {
 	F( 100000000,          gpll0,    8,    0,     0),
 	F( 177777778,          gpll0,  4.5,    0,     0),
 	F( 200000000,          gpll0,    4,    0,     0),
+	F( 342850000,      gpll4_out,  3.5,    0,     0),
 	F( 400000000,      gpll4_out,    3,    0,     0),
 	F_END
 };

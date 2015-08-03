@@ -621,13 +621,12 @@ EXPORT_SYMBOL(kgsl_context_init);
  * detached by checking the KGSL_CONTEXT_PRIV_DETACHED bit in
  * context->priv.
  */
-int kgsl_context_detach(struct kgsl_context *context)
+static void kgsl_context_detach(struct kgsl_context *context)
 {
-	int ret;
 	struct kgsl_device *device;
 
 	if (context == NULL)
-		return -EINVAL;
+		return;
 
 	/*
 	 * Mark the context as detached to keep others from using
@@ -635,13 +634,13 @@ int kgsl_context_detach(struct kgsl_context *context)
 	 * we don't try to detach twice.
 	 */
 	if (test_and_set_bit(KGSL_CONTEXT_PRIV_DETACHED, &context->priv))
-		return -EINVAL;
+		return;
 
 	device = context->device;
 
 	trace_kgsl_context_detach(device, context);
 
-	ret = context->device->ftbl->drawctxt_detach(context);
+	context->device->ftbl->drawctxt_detach(context);
 
 	/*
 	 * Cancel all pending events after the device-specific context is
@@ -654,8 +653,6 @@ int kgsl_context_detach(struct kgsl_context *context)
 	kgsl_del_event_group(&context->events);
 
 	kgsl_context_put(context);
-
-	return ret;
 }
 
 void
@@ -1800,14 +1797,15 @@ long kgsl_ioctl_drawctxt_destroy(struct kgsl_device_private *dev_priv,
 {
 	struct kgsl_drawctxt_destroy *param = data;
 	struct kgsl_context *context;
-	long result;
 
 	context = kgsl_context_get_owner(dev_priv, param->drawctxt_id);
+	if (context == NULL)
+		return -EINVAL;
 
-	result = kgsl_context_detach(context);
-
+	kgsl_context_detach(context);
 	kgsl_context_put(context);
-	return result;
+
+	return 0;
 }
 
 static long gpumem_free_entry(struct kgsl_mem_entry *entry)
@@ -2273,7 +2271,8 @@ static long _gpuobj_map_useraddr(struct kgsl_device *device,
 static long _gpuobj_map_dma_buf(struct kgsl_device *device,
 		struct kgsl_pagetable *pagetable,
 		struct kgsl_mem_entry *entry,
-		struct kgsl_gpuobj_import *param)
+		struct kgsl_gpuobj_import *param,
+		int *fd)
 {
 	struct kgsl_gpuobj_import_dma_buf buf;
 	struct dma_buf *dmabuf;
@@ -2301,6 +2300,7 @@ static long _gpuobj_map_dma_buf(struct kgsl_device *device,
 	if (buf.fd == 0)
 		return -EINVAL;
 
+	*fd = buf.fd;
 	dmabuf = dma_buf_get(buf.fd);
 
 	if (IS_ERR_OR_NULL(dmabuf))
@@ -2310,14 +2310,14 @@ static long _gpuobj_map_dma_buf(struct kgsl_device *device,
 	if (ret)
 		dma_buf_put(dmabuf);
 
-	trace_kgsl_mem_map(entry, buf.fd);
 	return ret;
 }
 #else
 static long _gpuobj_map_dma_buf(struct kgsl_device *device,
 		struct kgsl_pagetable *pagetable,
 		struct kgsl_mem_entry *entry,
-		struct kgsl_gpuobj_import *param)
+		struct kgsl_gpuobj_import *param,
+		int *fd)
 {
 	return -EINVAL;
 }
@@ -2329,7 +2329,7 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 	struct kgsl_process_private *private = dev_priv->process_priv;
 	struct kgsl_gpuobj_import *param = data;
 	struct kgsl_mem_entry *entry;
-	int ret;
+	int ret, fd = -1;
 
 	entry = kgsl_mem_entry_create();
 	if (entry == NULL)
@@ -2348,7 +2348,7 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 			entry, param);
 	else if (param->type == KGSL_USER_MEM_TYPE_DMABUF)
 		ret = _gpuobj_map_dma_buf(dev_priv->device, private->pagetable,
-			entry, param);
+			entry, param, &fd);
 	else
 		ret = -ENOTSUPP;
 
@@ -2374,6 +2374,8 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 	kgsl_process_add_stats(private,
 		kgsl_memdesc_usermem_type(&entry->memdesc),
 		entry->memdesc.size);
+
+	trace_kgsl_mem_map(entry, fd);
 
 	return 0;
 
@@ -2633,7 +2635,7 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 		goto error_attach;
 
 	/* Adjust the returned value for a non 4k aligned offset */
-	param->gpuaddr = (unsigned int)
+	param->gpuaddr = (unsigned long)
 		entry->memdesc.gpuaddr + (param->offset & PAGE_MASK);
 
 	KGSL_STATS_ADD(param->len, kgsl_driver.stats.mapped,
@@ -3102,8 +3104,8 @@ long kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
 	if (IS_ERR(entry))
 		return PTR_ERR(entry);
 
-	param->gpuaddr = (unsigned int) entry->memdesc.gpuaddr;
-	param->size = (unsigned int) entry->memdesc.size;
+	param->gpuaddr = (unsigned long) entry->memdesc.gpuaddr;
+	param->size = (size_t) entry->memdesc.size;
 	param->flags = (unsigned int) entry->memdesc.flags;
 
 	return 0;
@@ -3124,10 +3126,10 @@ long kgsl_ioctl_gpumem_alloc_id(struct kgsl_device_private *dev_priv,
 
 	param->id = entry->id;
 	param->flags = (unsigned int) entry->memdesc.flags;
-	param->size = (unsigned int) entry->memdesc.size;
-	param->mmapsize = (unsigned int)
+	param->size = (size_t) entry->memdesc.size;
+	param->mmapsize = (size_t)
 		kgsl_memdesc_mmapsize(&entry->memdesc);
-	param->gpuaddr = (unsigned int) entry->memdesc.gpuaddr;
+	param->gpuaddr = (unsigned long) entry->memdesc.gpuaddr;
 
 	return 0;
 }
@@ -3156,14 +3158,14 @@ long kgsl_ioctl_gpumem_get_info(struct kgsl_device_private *dev_priv,
 	 * truncated, return -ERANGE.  That will signal the user that they
 	 * should use a more modern API
 	 */
-	if (entry->memdesc.gpuaddr > UINT_MAX)
+	if (entry->memdesc.gpuaddr > ULONG_MAX)
 		result = -ERANGE;
 
-	param->gpuaddr = (unsigned int) entry->memdesc.gpuaddr;
+	param->gpuaddr = (unsigned long) entry->memdesc.gpuaddr;
 	param->id = entry->id;
 	param->flags = (unsigned int) entry->memdesc.flags;
-	param->size = (unsigned int) entry->memdesc.size;
-	param->mmapsize = (unsigned int) kgsl_memdesc_mmapsize(&entry->memdesc);
+	param->size = (size_t) entry->memdesc.size;
+	param->mmapsize = (size_t) kgsl_memdesc_mmapsize(&entry->memdesc);
 	param->useraddr = entry->memdesc.useraddr;
 
 	kgsl_mem_entry_put(entry);
@@ -3607,6 +3609,13 @@ kgsl_get_unmapped_area(struct file *file, unsigned long addr,
 	ret = arch_mmap_check(addr, len, flags);
 	if (ret)
 		goto put;
+
+	/* Do not allow CPU mappings for secure buffers */
+	if (kgsl_memdesc_is_secured(&entry->memdesc)) {
+		ret = -EPERM;
+		goto put;
+	}
+
 	/*
 	 * If we're not going to use CPU map feature, get an ordinary mapping
 	 * with nothing more to be done.

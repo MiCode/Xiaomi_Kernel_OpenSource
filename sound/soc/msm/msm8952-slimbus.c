@@ -81,6 +81,7 @@ static int msm_vi_feed_tx_ch = 2;
 static int msm_slim_5_rx_ch = 1;
 static int slim5_rx_sample_rate = SAMPLING_RATE_48KHZ;
 static int slim5_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+static int msm8952_auxpcm_rate = SAMPLING_RATE_8KHZ;
 
 static int msm_btsco_rate = SAMPLING_RATE_8KHZ;
 static int msm_btsco_ch = 1;
@@ -907,6 +908,21 @@ int msm_quin_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+int msm_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
+					struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_RATE);
+
+	struct snd_interval *channels = hw_param_interval(params,
+					SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	rate->min = rate->max = msm8952_auxpcm_rate;
+	channels->min = channels->max = 1;
+
+	return 0;
+}
+
 int msm_btsco_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					struct snd_pcm_hw_params *params)
 {
@@ -1482,6 +1498,54 @@ void msm_quat_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	}
 }
 
+int msm_prim_auxpcm_startup(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct msm8952_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	int ret = 0, val = 0;
+
+	pr_debug("%s(): substream = %s\n",
+			__func__, substream->name);
+
+	/* mux config to route the AUX MI2S */
+	if (pdata->vaddr_gpio_mux_mic_ctl) {
+		val = ioread32(pdata->vaddr_gpio_mux_mic_ctl);
+		val = val | 0x2;
+		iowrite32(val, pdata->vaddr_gpio_mux_mic_ctl);
+	}
+	if (pdata->vaddr_gpio_mux_pcm_ctl) {
+		val = ioread32(pdata->vaddr_gpio_mux_pcm_ctl);
+		val = val | 0x1;
+		iowrite32(val, pdata->vaddr_gpio_mux_pcm_ctl);
+	}
+	atomic_inc(&pdata->clk_ref.auxpcm_mi2s_clk_ref);
+
+	/* enable the gpio's used for the external AUXPCM interface */
+	ret = msm_gpioset_activate(CLIENT_WCD_EXT, "quat_i2s");
+	if (ret < 0)
+		pr_err("%s(): configure gpios failed = %s\n",
+				__func__, "quat_i2s");
+	return ret;
+}
+
+void msm_prim_auxpcm_shutdown(struct snd_pcm_substream *substream)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct msm8952_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	int ret;
+
+	pr_debug("%s(): substream = %s\n",
+			__func__, substream->name);
+	if (atomic_read(&pdata->clk_ref.auxpcm_mi2s_clk_ref) > 0)
+		atomic_dec(&pdata->clk_ref.auxpcm_mi2s_clk_ref);
+	ret = msm_gpioset_suspend(CLIENT_WCD_EXT, "quat_i2s");
+	if (ret < 0)
+		pr_err("%s(): configure gpios failed = %s\n",
+				__func__, "quat_i2s");
+}
+
 int msm_quat_mi2s_snd_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -1874,7 +1938,6 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 			if (err < 0)
 				pr_err("%s: Failed to intialise mbhc %d\n",
 						__func__, err);
-			tasha_enable_efuse_sensing(codec);
 		} else {
 			pr_err("%s: wcd_mbhc_cfg calibration is NULL\n",
 					__func__);
@@ -1979,6 +2042,7 @@ static int is_us_eu_switch_gpio_support(struct platform_device *pdev,
 				return ret;
 			}
 			wcd9xxx_mbhc_cfg.swap_gnd_mic = msm8952_swap_gnd_mic;
+			wcd_mbhc_cfg.swap_gnd_mic = msm8952_swap_gnd_mic;
 		}
 	}
 	return 0;
@@ -2105,6 +2169,22 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 	}
 
 	muxsel = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+			"csr_gp_io_lpaif_pri_pcm_pri_mode_muxsel");
+	if (!muxsel) {
+		dev_err(&pdev->dev, "MUX addr invalid for QUAT I2S\n");
+		ret = -ENODEV;
+		goto err;
+	}
+	pdata->vaddr_gpio_mux_pcm_ctl =
+		ioremap(muxsel->start, resource_size(muxsel));
+	if (pdata->vaddr_gpio_mux_pcm_ctl == NULL) {
+		pr_err("%s ioremap failure for muxsel virt addr\n",
+				__func__);
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	muxsel = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 			"csr_gp_io_mux_spkr_ctl");
 	if (!muxsel) {
 		dev_err(&pdev->dev, "MUX addr invalid for MI2S\n");
@@ -2140,6 +2220,7 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&pdata->hs_detect_dwork, hs_detect_work);
 	atomic_set(&pdata->clk_ref.quat_mi2s_clk_ref, 0);
+	atomic_set(&pdata->clk_ref.auxpcm_mi2s_clk_ref, 0);
 	card = populate_snd_card_dailinks(&pdev->dev);
 	if (!card) {
 		dev_err(&pdev->dev, "%s: Card uninitialized\n", __func__);

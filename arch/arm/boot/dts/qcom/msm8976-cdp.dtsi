@@ -24,6 +24,9 @@
 		interrupts = <65 0x2008>;
 		avdd-supply = <&pm8950_l10>;
 		vdd-supply = <&pm8950_l6>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			<&clock_gcc clk_gcc_blsp1_qup4_i2c_apps_clk>;
 		/* pins used by touchscreen */
 		pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_release";
 		pinctrl-0 = <&ts_int_active &ts_reset_active>;
@@ -172,7 +175,8 @@
 	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on &sdc1_rclk_on>;
 	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_rclk_off>;
 
-	qcom,clk-rates = <400000 25000000 50000000 100000000 177777778 400000000>;
+	qcom,clk-rates = <400000 25000000 50000000 100000000
+				177777778 342850000>;
 	qcom,bus-speed-mode = "HS400_1p8v", "HS200_1p8v", "DDR_1p8v";
 
 	qcom,nonremovable;

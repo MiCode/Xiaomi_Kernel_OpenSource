@@ -498,12 +498,14 @@ struct msm_actuator_params_t {
 	uint8_t reg_tbl_size;
 	uint16_t data_size;
 	uint16_t init_setting_size;
+	uint16_t deinit_setting_size;
 	uint32_t i2c_addr;
 	enum i2c_freq_mode_t i2c_freq_mode;
 	enum msm_actuator_addr_type i2c_addr_type;
 	enum msm_actuator_data_type i2c_data_type;
 	struct msm_actuator_reg_params_t *reg_tbl_params;
 	struct reg_settings_t *init_settings;
+	struct reg_settings_t *deinit_settings;
 	struct park_lens_data_t park_lens;
 };
 
@@ -674,12 +676,14 @@ struct msm_actuator_params_t32 {
 	uint8_t reg_tbl_size;
 	uint16_t data_size;
 	uint16_t init_setting_size;
+	uint16_t deinit_setting_size;
 	uint32_t i2c_addr;
 	enum i2c_freq_mode_t i2c_freq_mode;
 	enum msm_actuator_addr_type i2c_addr_type;
 	enum msm_actuator_data_type i2c_data_type;
 	compat_uptr_t reg_tbl_params;
 	compat_uptr_t init_settings;
+	compat_uptr_t deinit_settings;
 	struct park_lens_data_t park_lens;
 };
 

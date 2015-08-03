@@ -199,7 +199,8 @@ static int check_bufsize_for_encoding(struct diagfwd_buf_t *buf, uint32_t len)
 		}
 
 		if (buf->len < max_size) {
-			temp_buf = krealloc(buf->data, max_size,
+			temp_buf = krealloc(buf->data, max_size +
+						APF_DIAG_PADDING,
 					    GFP_KERNEL);
 			if (!temp_buf)
 				return -ENOMEM;
@@ -976,7 +977,9 @@ void diagfwd_buffers_init(struct diagfwd_info *fwd_info)
 		kmemleak_not_leak(fwd_info->buf_1);
 	}
 	if (!fwd_info->buf_1->data) {
-		fwd_info->buf_1->data = kzalloc(PERIPHERAL_BUF_SZ, GFP_ATOMIC);
+		fwd_info->buf_1->data = kzalloc(PERIPHERAL_BUF_SZ +
+					APF_DIAG_PADDING,
+					GFP_ATOMIC);
 		if (!fwd_info->buf_1->data)
 			goto err;
 		fwd_info->buf_1->len = PERIPHERAL_BUF_SZ;
@@ -995,7 +998,8 @@ void diagfwd_buffers_init(struct diagfwd_info *fwd_info)
 		}
 
 		if (!fwd_info->buf_2->data) {
-			fwd_info->buf_2->data = kzalloc(PERIPHERAL_BUF_SZ,
+			fwd_info->buf_2->data = kzalloc(PERIPHERAL_BUF_SZ +
+							APF_DIAG_PADDING,
 						    GFP_ATOMIC);
 			if (!fwd_info->buf_2->data)
 				goto err;
@@ -1010,7 +1014,9 @@ void diagfwd_buffers_init(struct diagfwd_info *fwd_info)
 			/* In support of hdlc encoding */
 			if (!fwd_info->buf_1->data_raw) {
 				fwd_info->buf_1->data_raw =
-					kzalloc(PERIPHERAL_BUF_SZ, GFP_ATOMIC);
+					kzalloc(PERIPHERAL_BUF_SZ +
+						APF_DIAG_PADDING,
+						GFP_ATOMIC);
 				if (!fwd_info->buf_1->data_raw)
 					goto err;
 				fwd_info->buf_1->len_raw = PERIPHERAL_BUF_SZ;
@@ -1018,7 +1024,9 @@ void diagfwd_buffers_init(struct diagfwd_info *fwd_info)
 			}
 			if (!fwd_info->buf_2->data_raw) {
 				fwd_info->buf_2->data_raw =
-					kzalloc(PERIPHERAL_BUF_SZ, GFP_ATOMIC);
+					kzalloc(PERIPHERAL_BUF_SZ +
+						APF_DIAG_PADDING,
+						GFP_ATOMIC);
 				if (!fwd_info->buf_2->data_raw)
 					goto err;
 				fwd_info->buf_2->len_raw = PERIPHERAL_BUF_SZ;
@@ -1030,7 +1038,8 @@ void diagfwd_buffers_init(struct diagfwd_info *fwd_info)
 	if (fwd_info->type == TYPE_CMD && driver->supports_apps_hdlc_encoding) {
 		/* In support of hdlc encoding */
 		if (!fwd_info->buf_1->data_raw) {
-			fwd_info->buf_1->data_raw = kzalloc(PERIPHERAL_BUF_SZ,
+			fwd_info->buf_1->data_raw = kzalloc(PERIPHERAL_BUF_SZ +
+						APF_DIAG_PADDING,
 							GFP_ATOMIC);
 			if (!fwd_info->buf_1->data_raw)
 				goto err;

@@ -823,7 +823,8 @@ rndis_bind(struct usb_configuration *c, struct usb_function *f)
 	rndis->notify_req = usb_ep_alloc_request(ep, GFP_KERNEL);
 	if (!rndis->notify_req)
 		goto fail;
-	rndis->notify_req->buf = kmalloc(STATUS_BYTECOUNT, GFP_KERNEL);
+	rndis->notify_req->buf = kmalloc(STATUS_BYTECOUNT +
+			cdev->gadget->extra_buf_alloc, GFP_KERNEL);
 	if (!rndis->notify_req->buf)
 		goto fail;
 	rndis->notify_req->length = STATUS_BYTECOUNT;

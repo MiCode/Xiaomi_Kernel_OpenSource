@@ -79,12 +79,12 @@
 			};
 		};
 
-		cti_trigout_a0 {
-			qcom,pins = <&gp 32>;
+		cti_trigout_b0 {
+			qcom,pins = <&gp 22>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <8>;
-			label = "cti-trigout-a0";
-			trigout_a0: trigout_a0 {
+			qcom,pin-func = <11>;
+			label = "cti-trigout-b0";
+			trigout_b0: trigout_b0 {
 				drive-strength = <2>;
 				bias-disable;
 			};
@@ -1357,6 +1357,40 @@
 
 			adv7533_hpd_int_suspend: adv7533_hpd_int_suspend {
 				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		pmx_rd_nfc_int {
+			qcom,pins = <&gp 21>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_nfc_int";
+
+			nfc_int_active: active {
+				drive-strength = <6>;
+				bias-pull-up;
+			};
+
+			nfc_int_suspend: suspend {
+				drive-strength = <6>;
+				bias-pull-up;
+			};
+		};
+
+		pmx_nfc_reset {
+			qcom,pins = <&gp 20>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_nfc_disable";
+
+			nfc_disable_active: active {
+				drive-strength = <6>;
+				bias-pull-up;
+			};
+
+			nfc_disable_suspend: suspend {
+				drive-strength = <6>;
 				bias-disable;
 			};
 		};

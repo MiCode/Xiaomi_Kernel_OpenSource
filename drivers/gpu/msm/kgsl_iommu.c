@@ -539,9 +539,11 @@ static int kgsl_iommu_init_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 		if (!mmu->secured)
 			return -EPERM;
 
-		bus = get_secure_bus();
-		if (bus == NULL)
-			return -EPERM;
+		if (!MMU_FEATURE(mmu, KGSL_MMU_HYP_SECURE_ALLOC)) {
+			bus = get_secure_bus();
+			if (bus == NULL)
+				return -EPERM;
+		}
 	}
 
 	iommu_pt = kzalloc(sizeof(struct kgsl_iommu_pt), GFP_KERNEL);
@@ -994,6 +996,7 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	kgsl_map_global_pt_entries(mmu->defaultpagetable);
 
 	kgsl_iommu_enable_clk(mmu);
+	KGSL_IOMMU_SET_CTX_REG(iommu, 0, TLBIALL, 1);
 
 	/* Get the lsb value of pagetables set in the IOMMU ttbr0 register as
 	 * that value should not change when we change pagetables, so while

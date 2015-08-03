@@ -120,6 +120,10 @@ static uint32_t num_pmic_data;
 static void msm_spm_drv_flush_shadow(struct msm_spm_driver_data *dev,
 		unsigned int reg_index)
 {
+	BUG_ON(!dev);
+
+	BUG_ON(!dev->reg_shadow);
+
 	spm_raw_write(dev->reg_shadow[reg_index],
 		dev->reg_base_addr + dev->reg_offsets[reg_index]);
 }
@@ -519,36 +523,29 @@ int msm_spm_drv_set_pmic_data(struct msm_spm_driver_data *dev,
 	return 0;
 }
 
-void msm_spm_drv_reinit(struct msm_spm_driver_data *dev)
+void msm_spm_drv_reinit(struct msm_spm_driver_data *dev, bool seq_write)
 {
 	int i;
 
-	for (i = 0; i < MSM_SPM_REG_SAW_PMIC_DATA_0 + num_pmic_data; i++)
-		msm_spm_drv_flush_shadow(dev, i);
+	if (seq_write)
+		msm_spm_drv_flush_seq_entry(dev);
 
-	msm_spm_drv_flush_seq_entry(dev);
+	for (i = 0; i < MSM_SPM_REG_SAW_PMIC_DATA_0 + num_pmic_data; i++)
+		msm_spm_drv_load_shadow(dev, i);
+
+	for (i = MSM_SPM_REG_NR_INITIALIZE + 1; i < MSM_SPM_REG_NR; i++)
+		msm_spm_drv_load_shadow(dev, i);
 }
 
-int msm_spm_drv_init(struct msm_spm_driver_data *dev,
+int msm_spm_drv_reg_init(struct msm_spm_driver_data *dev,
 		struct msm_spm_platform_data *data)
 {
 	int i;
-	int num_spm_entry;
 	bool found = false;
 
-	BUG_ON(!dev || !data);
-
-	dev->vctl_port = data->vctl_port;
-	dev->phase_port = data->phase_port;
-	dev->pfm_port = data->pfm_port;
+	dev->ver_reg = data->ver_reg;
 	dev->reg_base_addr = data->reg_base_addr;
-	memcpy(dev->reg_shadow, data->reg_init_values,
-			sizeof(data->reg_init_values));
-
-	dev->vctl_timeout_us = data->vctl_timeout_us;
-
 	msm_spm_drv_get_saw2_ver(dev, &dev->major, &dev->minor);
-
 	for (i = 0; i < ARRAY_SIZE(saw2_info); i++)
 		if (dev->major == saw2_info[i].major &&
 			dev->minor == saw2_info[i].minor) {
@@ -563,18 +560,37 @@ int msm_spm_drv_init(struct msm_spm_driver_data *dev,
 		pr_err("%s: No SAW version found\n", __func__);
 		BUG_ON(!found);
 	}
+	return 0;
+}
+
+void msm_spm_drv_upd_reg_shadow(struct msm_spm_driver_data *dev, int id,
+		int val)
+{
+	dev->reg_shadow[id] = val;
+	msm_spm_drv_flush_shadow(dev, id);
+	/* Complete the above writes before other accesses */
+	mb();
+}
+
+int msm_spm_drv_init(struct msm_spm_driver_data *dev,
+		struct msm_spm_platform_data *data)
+{
+	int num_spm_entry;
+
+	BUG_ON(!dev || !data);
+
+	dev->vctl_port = data->vctl_port;
+	dev->phase_port = data->phase_port;
+	dev->pfm_port = data->pfm_port;
+	dev->reg_base_addr = data->reg_base_addr;
+	memcpy(dev->reg_shadow, data->reg_init_values,
+			sizeof(data->reg_init_values));
+
+	dev->vctl_timeout_us = data->vctl_timeout_us;
+
 
 	if (!num_pmic_data)
 		num_pmic_data = msm_spm_drv_get_num_pmic_data(dev);
-
-	for (i = 0; i < MSM_SPM_REG_SAW_PMIC_DATA_0 + num_pmic_data; i++)
-		msm_spm_drv_flush_shadow(dev, i);
-
-	for (i = 0; i < MSM_SPM_REG_SAW_PMIC_DATA_0 + num_pmic_data; i++)
-		msm_spm_drv_load_shadow(dev, i);
-
-	/* barrier to ensure read completes before we proceed further*/
-	mb();
 
 	num_spm_entry = msm_spm_drv_get_num_spm_entry(dev);
 

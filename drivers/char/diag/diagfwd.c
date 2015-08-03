@@ -1467,7 +1467,8 @@ int diagfwd_init(void)
 	mutex_init(&driver->diag_hdlc_mutex);
 	mutex_init(&driver->diag_cntl_mutex);
 	mutex_init(&driver->mode_lock);
-	driver->encoded_rsp_buf = kzalloc(DIAG_MAX_HDLC_BUF_SIZE, GFP_KERNEL);
+	driver->encoded_rsp_buf = kzalloc(DIAG_MAX_HDLC_BUF_SIZE +
+				APF_DIAG_PADDING, GFP_KERNEL);
 	if (!driver->encoded_rsp_buf)
 		goto err;
 	kmemleak_not_leak(driver->encoded_rsp_buf);

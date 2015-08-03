@@ -252,7 +252,8 @@ static inline struct f_rmnet *port_to_rmnet(struct grmnet *r)
 }
 
 static struct usb_request *
-frmnet_alloc_req(struct usb_ep *ep, unsigned len, gfp_t flags)
+frmnet_alloc_req(struct usb_ep *ep, unsigned len, size_t extra_buf_alloc,
+		gfp_t flags)
 {
 	struct usb_request *req;
 
@@ -260,7 +261,7 @@ frmnet_alloc_req(struct usb_ep *ep, unsigned len, gfp_t flags)
 	if (!req)
 		return ERR_PTR(-ENOMEM);
 
-	req->buf = kmalloc(len, flags);
+	req->buf = kmalloc(len + extra_buf_alloc, flags);
 	if (!req->buf) {
 		usb_ep_free_request(ep, req);
 		return ERR_PTR(-ENOMEM);
@@ -1217,6 +1218,7 @@ static int frmnet_bind(struct usb_configuration *c, struct usb_function *f)
 
 	dev->notify_req = frmnet_alloc_req(ep,
 				sizeof(struct usb_cdc_notification),
+				cdev->gadget->extra_buf_alloc,
 				GFP_KERNEL);
 	if (IS_ERR(dev->notify_req)) {
 		pr_err("%s: unable to allocate memory for notify req\n",

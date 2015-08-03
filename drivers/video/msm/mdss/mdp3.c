@@ -1834,6 +1834,28 @@ int mdp3_iommu_disable(int client)
 	return rc;
 }
 
+int mdp3_panel_get_intf_status(u32 disp_num, u32 intf_type)
+{
+	int rc = 0, status = 0;
+
+	if (intf_type != MDSS_PANEL_INTF_DSI)
+		return 0;
+
+	mdp3_clk_update(MDP3_CLK_AHB, 1);
+	mdp3_clk_update(MDP3_CLK_AXI, 1);
+	mdp3_clk_update(MDP3_CLK_MDP_CORE, 1);
+
+	status = (MDP3_REG_READ(MDP3_REG_DMA_P_CONFIG) & 0x180000);
+	/* DSI video mode or command mode */
+	rc = (status == 0x180000) || (status == 0x080000);
+
+	mdp3_clk_update(MDP3_CLK_AHB, 0);
+	mdp3_clk_update(MDP3_CLK_AXI, 0);
+	mdp3_clk_update(MDP3_CLK_MDP_CORE, 0);
+
+	return rc;
+}
+
 int mdp3_iommu_ctrl(int enable)
 {
 	int rc;
@@ -2558,6 +2580,7 @@ static int mdp3_probe(struct platform_device *pdev)
 	mdp3_res->mdss_util->iommu_ctrl = mdp3_iommu_ctrl;
 	mdp3_res->mdss_util->bus_scale_set_quota = mdp3_bus_scale_set_quota;
 	mdp3_res->mdss_util->panel_intf_type = mdp3_panel_intf_type;
+	mdp3_res->mdss_util->panel_intf_status = mdp3_panel_get_intf_status;
 	mdp3_res->mdss_util->iommu_lock = mdp3_iommu_lock;
 	mdp3_res->mdss_util->iommu_unlock = mdp3_iommu_unlock;
 

@@ -33,8 +33,9 @@
 #define MAX_VSYNC_COUNT 0xFFFFFFF
 
 #define DEFAULT_READ_PANEL_POWER_MODE_REG 0x0A
-#define PANEL_RX_MAX_BUF 128
-#define PANEL_TX_MAX_BUF 64
+#define PANEL_REG_ADDR_LEN 8
+#define PANEL_REG_FORMAT_LEN 5
+#define PANEL_TX_MAX_BUF 256
 #define PANEL_CMD_MIN_TX_COUNT 2
 #define PANEL_DATA_NODE_LEN 80
 
@@ -65,7 +66,7 @@ static ssize_t panel_debug_base_offset_write(struct file *file,
 	struct mdss_debug_base *dbg = file->private_data;
 	u32 off = 0;
 	u32 cnt = DEFAULT_BASE_REG_CNT;
-	char buf[PANEL_RX_MAX_BUF] = {0x0};
+	char buf[PANEL_TX_MAX_BUF] = {0x0};
 
 	if (!dbg)
 		return -ENODEV;
@@ -78,7 +79,7 @@ static ssize_t panel_debug_base_offset_write(struct file *file,
 
 	buf[count] = 0;	/* end of string */
 
-	if (sscanf(buf, "%x %x", &off, &cnt) != 2)
+	if (sscanf(buf, "%x %d", &off, &cnt) != 2)
 		return -EFAULT;
 
 	if (off > dbg->max_offset)
@@ -90,7 +91,7 @@ static ssize_t panel_debug_base_offset_write(struct file *file,
 	dbg->off = off;
 	dbg->cnt = cnt;
 
-	pr_debug("offset=%x cnt=%x\n", off, cnt);
+	pr_debug("offset=%x cnt=%d\n", off, cnt);
 
 	return count;
 }
@@ -100,7 +101,7 @@ static ssize_t panel_debug_base_offset_read(struct file *file,
 {
 	struct mdss_debug_base *dbg = file->private_data;
 	int len = 0;
-	char buf[PANEL_RX_MAX_BUF] = {0x0};
+	char buf[PANEL_TX_MAX_BUF] = {0x0};
 
 	if (!dbg)
 		return -ENODEV;
@@ -108,7 +109,7 @@ static ssize_t panel_debug_base_offset_read(struct file *file,
 	if (*ppos)
 		return 0;	/* the end */
 
-	len = snprintf(buf, sizeof(buf), "0x%02zx %zx\n", dbg->off, dbg->cnt);
+	len = snprintf(buf, sizeof(buf), "0x%02zx %zd\n", dbg->off, dbg->cnt);
 	if (len < 0)
 		return 0;
 
@@ -190,12 +191,8 @@ static ssize_t panel_debug_base_reg_read(struct file *file,
 			char __user *user_buf, size_t count, loff_t *ppos)
 {
 	struct mdss_debug_base *dbg = file->private_data;
-	int len = 0;
-	int rx_len = 0;
-	int i, lx = 0;
-	char to_user_buf[PANEL_RX_MAX_BUF] = {0x0};
-	char panel_reg_buf[PANEL_RX_MAX_BUF] = {0x0};
-	char rx_buf[PANEL_RX_MAX_BUF] = {0x0};
+	u32 i, len = 0, reg_buf_len = 0;
+	char *panel_reg_buf, *rx_buf;
 	struct mdss_data_type *mdata = mdss_res;
 	struct mdss_mdp_ctl *ctl = mdata->ctl_off + 0;
 	struct mdss_panel_data *panel_data = ctl->panel_data;
@@ -205,40 +202,57 @@ static ssize_t panel_debug_base_reg_read(struct file *file,
 	if (!dbg)
 		return -ENODEV;
 
+	if (!dbg->cnt)
+		return 0;
+
 	if (*ppos)
 		return 0;	/* the end */
+
+	/* '0x' + 2 digit + blank = 5 bytes for each number */
+	reg_buf_len = (dbg->cnt * PANEL_REG_FORMAT_LEN)
+		    + PANEL_REG_ADDR_LEN + 1;
+	rx_buf = kzalloc(dbg->cnt, GFP_KERNEL);
+	panel_reg_buf = kzalloc(reg_buf_len, GFP_KERNEL);
+
+	if (!rx_buf || !panel_reg_buf) {
+		pr_err("not enough memory to hold panel reg dump\n");
+		return -ENOMEM;
+	}
 
 	if (mdata->debug_inf.debug_enable_clock)
 		mdata->debug_inf.debug_enable_clock(1);
 
 	panel_reg[0] = dbg->off;
-	mdss_dsi_panel_cmd_read(ctrl_pdata, panel_reg[0],
-		panel_reg[1], NULL, rx_buf, dbg->cnt);
+	mdss_dsi_panel_cmd_read(ctrl_pdata, panel_reg[0], panel_reg[1],
+				NULL, rx_buf, dbg->cnt);
 
-	rx_len = ctrl_pdata->rx_len;
+	len = snprintf(panel_reg_buf, reg_buf_len, "0x%02zx: ", dbg->off);
+	if (len < 0)
+		goto read_reg_fail;
 
-	for (i = 0; i < rx_len; i++) {
-		lx += snprintf(panel_reg_buf + lx, sizeof(panel_reg_buf),
-			 "%s%02x", " 0x", rx_buf[i]);
-	}
+	for (i = 0; (len < reg_buf_len) && (i < ctrl_pdata->rx_len); i++)
+		len += scnprintf(panel_reg_buf + len, reg_buf_len - len,
+				"0x%02x ", rx_buf[i]);
 
-	pr_debug("%s:lx =%d,panel_reg_buf= %s,data[%d]=%x\n",
-		__func__, lx, panel_reg_buf, i, rx_buf[i]);
-
-	len = snprintf(to_user_buf, sizeof(to_user_buf), "0x%02zx:%s\n",
-		dbg->off, panel_reg_buf);
+	panel_reg_buf[len - 1] = '\n';
 
 	if (mdata->debug_inf.debug_enable_clock)
 		mdata->debug_inf.debug_enable_clock(0);
 
-	if (len < 0)
-		return 0;
+	if (copy_to_user(user_buf, panel_reg_buf, len))
+		goto read_reg_fail;
 
-	if (copy_to_user(user_buf, to_user_buf, len))
-		return -EFAULT;
+	kfree(rx_buf);
+	kfree(panel_reg_buf);
 
 	*ppos += len;	/* increase offset */
 	return len;
+
+read_reg_fail:
+	kfree(rx_buf);
+	kfree(panel_reg_buf);
+	return -EFAULT;
+
 }
 
 static const struct file_operations panel_off_fops = {

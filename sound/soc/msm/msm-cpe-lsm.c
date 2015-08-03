@@ -145,6 +145,8 @@ struct cpe_lsm_data {
 	u8 ev_det_status;
 	u8 ev_det_pld_size;
 	u8 *ev_det_payload;
+
+	bool cpe_prepared;
 };
 
 /*
@@ -332,6 +334,16 @@ static int msm_cpe_lsm_lab_stop(struct snd_pcm_substream *substream)
 			__func__);
 		rc = kthread_stop(session->lsm_lab_thread);
 
+		/*
+		 * kthread_stop returns EINTR if the thread_fn
+		 * was not scheduled before calling kthread_stop.
+		 * In this case, we dont need to wait for lab
+		 * thread to complete as lab thread will not be
+		 * scheduled at all.
+		 */
+		if (rc == -EINTR)
+			goto done;
+
 		/* Wait for the lab thread to exit */
 		rc = wait_for_completion_timeout(
 				&lab_d->thread_complete,
@@ -343,11 +355,6 @@ static int msm_cpe_lsm_lab_stop(struct snd_pcm_substream *substream)
 			return -ETIMEDOUT;
 		}
 	}
-
-	lab_d->thread_status = MSM_LSM_LAB_THREAD_STOP;
-	lab_d->buf_idx = 0;
-	atomic_set(&lab_d->in_count, 0);
-	lab_d->dma_write = 0;
 
 	rc = lsm_ops->lab_ch_setup(cpe->core_handle,
 				   session,
@@ -370,6 +377,11 @@ static int msm_cpe_lsm_lab_stop(struct snd_pcm_substream *substream)
 		dev_err(rtd->dev,
 			"%s: POST ch teardown failed, err = %d\n",
 			__func__, rc);
+done:
+	lab_d->buf_idx = 0;
+	atomic_set(&lab_d->in_count, 0);
+	lab_d->dma_write = 0;
+
 	return 0;
 }
 
@@ -472,7 +484,7 @@ static int msm_cpe_lab_buf_dealloc(struct snd_pcm_substream *substream,
 
 	pcm_buf = lab_d->pcm_buf;
 	dma_alloc = bufsz * bufcnt;
-	if (pcm_buf)
+	if (dma_data && pcm_buf)
 		dma_free_coherent(dma_data->sdev->dev.parent, dma_alloc,
 				  pcm_buf->mem, pcm_buf->phys);
 	kfree(pcm_buf);
@@ -741,6 +753,7 @@ static int msm_cpe_lsm_open(struct snd_pcm_substream *substream)
 	lsm_d->lsm_session->started = false;
 	lsm_d->substream = substream;
 	init_waitqueue_head(&lsm_d->lab.period_wait);
+	lsm_d->cpe_prepared = false;
 
 	dev_dbg(rtd->dev, "%s: allocated session with id = %d\n",
 		__func__, lsm_d->lsm_session->id);
@@ -829,6 +842,8 @@ static int msm_cpe_lsm_close(struct snd_pcm_substream *substream)
 				   afe_ops, afe_cfg,
 				   AFE_CMD_PORT_STOP);
 
+	lsm_d->cpe_prepared = false;
+
 	rc = lsm_ops->lsm_close_tx(cpe->core_handle, session);
 	if (rc != 0) {
 		dev_err(rtd->dev,
@@ -875,6 +890,60 @@ static int msm_cpe_lsm_get_conf_levels(
 		kfree(session->conf_levels);
 		session->conf_levels = NULL;
 		rc = -EFAULT;
+		goto done;
+	}
+
+done:
+	return rc;
+}
+
+static int msm_cpe_lsm_validate_out_format(
+	struct snd_pcm_substream *substream,
+	struct snd_lsm_output_format_cfg *cfg)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	int rc = 0;
+
+	if (!cfg) {
+		dev_err(rtd->dev,
+			"%s: Invalid lsm out cfg\n", __func__);
+		rc = -EINVAL;
+		goto done;
+	}
+
+	if (cfg->format != LSM_OUT_FORMAT_PCM &&
+	    cfg->format != LSM_OUT_FORMAT_ADPCM) {
+		dev_err(rtd->dev,
+			"%s: Invalid format %u\n",
+			__func__, cfg->format);
+		rc = -EINVAL;
+		goto done;
+	}
+
+	if (cfg->packing != LSM_OUT_DATA_RAW &&
+	    cfg->packing != LSM_OUT_DATA_PACKED) {
+		dev_err(rtd->dev,
+			"%s: Invalid packing method %u\n",
+			__func__, cfg->packing);
+		rc = -EINVAL;
+		goto done;
+	}
+
+	if (cfg->events != LSM_OUT_DATA_EVENTS_DISABLED &&
+	    cfg->events != LSM_OUT_DATA_EVENTS_ENABLED) {
+		dev_err(rtd->dev,
+			"%s: Invalid events provided %u\n",
+			__func__, cfg->events);
+		rc = -EINVAL;
+		goto done;
+	}
+
+	if (cfg->mode != LSM_OUT_TRANSFER_MODE_RT &&
+	    cfg->mode != LSM_OUT_TRANSFER_MODE_FTRT) {
+		dev_err(rtd->dev,
+			"%s: Invalid transfer mode %u\n",
+			__func__, cfg->mode);
+		rc = -EINVAL;
 		goto done;
 	}
 
@@ -1332,6 +1401,45 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		kfree(session->conf_levels);
 		session->conf_levels = NULL;
 
+		break;
+
+		case SNDRV_LSM_OUT_FORMAT_CFG: {
+			struct snd_lsm_output_format_cfg u_fmt_cfg;
+
+			if (!arg) {
+				dev_err(rtd->dev,
+					"%s: Invalid argument to ioctl %s\n",
+					__func__, "SNDRV_LSM_OUT_FORMAT_CFG");
+				return -EINVAL;
+			}
+
+			if (copy_from_user(&u_fmt_cfg, arg,
+					   sizeof(u_fmt_cfg))) {
+				dev_err(rtd->dev,
+					"%s: copy_from_user failed for out_fmt_cfg\n",
+					__func__);
+				return -EFAULT;
+			}
+
+			if (msm_cpe_lsm_validate_out_format(substream,
+							    &u_fmt_cfg))
+				return -EINVAL;
+
+			session->out_fmt_cfg.format = u_fmt_cfg.format;
+			session->out_fmt_cfg.pack_mode = u_fmt_cfg.packing;
+			session->out_fmt_cfg.data_path_events =
+						u_fmt_cfg.events;
+			session->out_fmt_cfg.transfer_mode = u_fmt_cfg.mode;
+
+			rc = lsm_ops->lsm_set_fmt_cfg(cpe->core_handle,
+						      session);
+			if (rc) {
+				dev_err(rtd->dev,
+					"%s: lsm_set_fmt_cfg failed, err = %d\n",
+					__func__, rc);
+				return rc;
+			}
+		}
 		break;
 
 	default:
@@ -1841,6 +1949,13 @@ static int msm_cpe_lsm_prepare(struct snd_pcm_substream *substream)
 
 	dev_dbg(rtd->dev,
 		"%s: pcm_size 0x%x", __func__, lab_d->pcm_size);
+
+	if (lsm_d->cpe_prepared) {
+		dev_dbg(rtd->dev, "%s: CPE is alredy prepared\n",
+			__func__);
+		return 0;
+	}
+
 	afe_ops = &cpe->afe_ops;
 	afe_cfg = &(lsm_d->lsm_session->afe_port_cfg);
 
@@ -1862,6 +1977,12 @@ static int msm_cpe_lsm_prepare(struct snd_pcm_substream *substream)
 				   cpe->core_handle,
 				   afe_ops, afe_cfg,
 				   AFE_CMD_PORT_START);
+	if (rc)
+		dev_err(rtd->dev,
+			"%s: cpe_afe_port start failed, err = %d\n",
+			__func__, rc);
+	else
+		lsm_d->cpe_prepared = true;
 
 	return rc;
 }

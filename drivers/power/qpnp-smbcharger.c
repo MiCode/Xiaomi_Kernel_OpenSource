@@ -1567,8 +1567,10 @@ static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip)
 
 	kt_since_last_disable = ktime_sub(ktime_get_boottime(),
 					chip->parallel.last_disabled);
-	if (chip->parallel.enabled_once && ktime_to_ms(kt_since_last_disable)
-					< PARALLEL_REENABLE_TIMER_MS) {
+	if (chip->parallel.current_max_ma == 0
+		&& chip->parallel.enabled_once
+		&& ktime_to_ms(kt_since_last_disable)
+			< PARALLEL_REENABLE_TIMER_MS) {
 		pr_smb(PR_STATUS, "Only been %lld since disable, skipping\n",
 				ktime_to_ms(kt_since_last_disable));
 		return false;
@@ -3720,6 +3722,7 @@ static void smbchg_vfloat_adjust_work(struct work_struct *work)
 	int vbat_uv, vbat_mv, ibat_ua, rc, delta_vfloat_mv;
 	bool taper, enable;
 
+	smbchg_stay_awake(chip, PM_REASON_VFLOAT_ADJUST);
 	taper = (get_prop_charge_type(chip)
 		== POWER_SUPPLY_CHARGE_TYPE_TAPER);
 	enable = taper && (chip->parallel.current_max_ma == 0);
@@ -3733,7 +3736,7 @@ static void smbchg_vfloat_adjust_work(struct work_struct *work)
 
 	if (get_prop_batt_health(chip) != POWER_SUPPLY_HEALTH_GOOD) {
 		pr_smb(PR_STATUS, "JEITA active, skipping\n");
-		goto reschedule;
+		goto stop;
 	}
 
 	set_property_on_fg(chip, POWER_SUPPLY_PROP_UPDATE_NOW, 1);
@@ -4415,6 +4418,8 @@ static irqreturn_t batt_cold_handler(int irq, void *_chip)
 		power_supply_changed(&chip->batt_psy);
 	smbchg_charging_status_change(chip);
 	smbchg_wipower_check(chip);
+	set_property_on_fg(chip, POWER_SUPPLY_PROP_HEALTH,
+			get_prop_batt_health(chip));
 	return IRQ_HANDLED;
 }
 

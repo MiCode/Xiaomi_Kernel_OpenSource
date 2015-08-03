@@ -166,7 +166,3 @@
 	qcom,dsi-pref-prim-pan = <&dsi_otm8018b_fwvga_vid>;
 	qcom,lane-map = "lane_map_3012";
 };
-
-&dsi_otm8018b_fwvga_vid {
-	qcom,cont-splash-enabled;
-};

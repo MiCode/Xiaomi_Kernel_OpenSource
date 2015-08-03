@@ -1315,10 +1315,10 @@ static void msm_otg_exit_phy_retention(struct msm_otg *motg)
 		break;
 	case SNPS_FEMTO_PHY:
 		/*
-		 * Femto PHY must be POR reset to bring out
+		 * It is required to do USB block reset to bring Femto PHY out
 		 * of retention.
 		 */
-		msm_usb_phy_reset(motg);
+		msm_otg_reset(&motg->phy);
 		break;
 	default:
 		break;
@@ -1407,7 +1407,7 @@ lpm_start:
 			phy->state == OTG_STATE_B_PERIPHERAL;
 
 	/* Perform block reset to recover from UDC error events on disconnect */
-	if (!host_bus_suspend && !device_bus_suspend)
+	if (motg->err_event_seen)
 		msm_otg_reset(phy);
 
 	/* Enable line state difference wakeup fix for only device and host
@@ -2091,6 +2091,7 @@ static void msm_otg_start_host(struct usb_otg *otg, int on)
 	struct msm_otg *motg = container_of(otg->phy, struct msm_otg, phy);
 	struct msm_otg_platform_data *pdata = motg->pdata;
 	struct usb_hcd *hcd;
+	u32 val;
 
 	if (!otg->host)
 		return;
@@ -2106,6 +2107,11 @@ static void msm_otg_start_host(struct usb_otg *otg, int on)
 			ulpi_write(otg->phy, OTG_COMP_DISABLE,
 				ULPI_SET(ULPI_PWR_CLK_MNG_REG));
 
+		if (pdata->enable_axi_prefetch) {
+			val = readl_relaxed(USB_HS_APF_CTRL);
+			val &= ~APF_CTRL_EN;
+			writel_relaxed(val, USB_HS_APF_CTRL);
+		}
 		usb_add_hcd(hcd, hcd->irq, IRQF_SHARED);
 	} else {
 		dev_dbg(otg->phy->dev, "host off\n");
@@ -2114,6 +2120,11 @@ static void msm_otg_start_host(struct usb_otg *otg, int on)
 
 		wake_up(&motg->host_suspend_wait);
 		usb_remove_hcd(hcd);
+
+		if (pdata->enable_axi_prefetch)
+			writel_relaxed(readl_relaxed(USB_HS_APF_CTRL)
+					| (APF_CTRL_EN), USB_HS_APF_CTRL);
+
 		/* HCD core reset all bits of PORTSC. select ULPI phy */
 		writel_relaxed(0x80000000, USB_PORTSC);
 
@@ -5062,6 +5073,7 @@ static struct platform_device *msm_otg_add_pdev(
 		ci_pdata.system_clk = otg_pdata->system_clk;
 		ci_pdata.pclk = otg_pdata->pclk;
 		ci_pdata.enable_streaming = otg_pdata->enable_streaming;
+		ci_pdata.enable_axi_prefetch = otg_pdata->enable_axi_prefetch;
 		ci_pdata.max_nominal_system_clk_rate =
 					motg->max_nominal_system_clk_rate;
 		ci_pdata.default_system_clk_rate = motg->core_clk_rate;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -377,12 +377,4 @@
 
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_truly_wvga_vid>;
-};
-
-&dsi_truly_wvga_vid {
-	qcom,cont-splash-enabled;
-};
-
-&dsi_truly_wvga_cmd {
-	qcom,cont-splash-enabled;
 };

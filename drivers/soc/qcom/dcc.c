@@ -61,6 +61,9 @@
 #define DCC_REG_DUMP_MAGIC_V2		(0x42445953)
 #define DCC_REG_DUMP_VER		(1)
 
+#define MAX_DCC_OFFSET		(0xFF * 4)
+#define MAX_DCC_LEN		0x7F
+
 enum dcc_func_type {
 	DCC_FUNC_TYPE_CAPTURE,
 	DCC_FUNC_TYPE_CRC,
@@ -608,42 +611,84 @@ static ssize_t dcc_show_config(struct device *dev,
 	return count;
 }
 
-static int dcc_config_add(struct dcc_drvdata *drvdata, unsigned base,
-			  unsigned offset, unsigned len)
+static int dcc_config_add(struct dcc_drvdata *drvdata, unsigned addr,
+			  unsigned len)
 {
 	int ret;
-	struct dcc_config_entry *entry;
+	struct dcc_config_entry *entry, *pentry;
+	unsigned base, offset;
 
 	mutex_lock(&drvdata->mutex);
 
-	/* Validate data */
-	if (!len || len > BM(0, 6)) {
-		dev_err(drvdata->dev,
-			"DCC: Invalid length! Expected range [1, %u] in words.\n",
-			(unsigned int)BM(0, 6));
+	if (!len) {
+		dev_err(drvdata->dev, "DCC: Invalid length!\n");
 		ret = -EINVAL;
 		goto err;
 	}
 
-	if (base & BM(0, 3)) {
-		dev_err(drvdata->dev,
-			"DCC: Invalid base! Expected [31:4] bits of actual address.\n");
-		ret = -EINVAL;
-		goto err;
+	base = addr & BM(4, 31);
+
+	if (!list_empty(&drvdata->config_head)) {
+		pentry = list_entry(drvdata->config_head.prev,
+				    struct dcc_config_entry, list);
+
+		if (addr >= (pentry->base + pentry->offset) &&
+		    addr <= (pentry->base + pentry->offset + MAX_DCC_OFFSET)) {
+
+			/* Re-use base address from last entry */
+			base =  pentry->base;
+
+			/*
+			 * Check if new address is contiguous to last entry's
+			 * addresses. If yes then we can re-use last entry and
+			 * just need to update its length.
+			 */
+			if ((pentry->len * 4 + pentry->base + pentry->offset)
+			    == addr) {
+				len += pentry->len;
+
+				/*
+				 * Check if last entry can hold additional new
+				 * length. If yes then we don't need to create
+				 * a new entry else we need to add a new entry
+				 * with same base but updated offset.
+				 */
+				if (len > MAX_DCC_LEN)
+					pentry->len = MAX_DCC_LEN;
+				else
+					pentry->len = len;
+
+				/*
+				 * Update start addr and len for remaining
+				 * addresses, which will be part of new
+				 * entry.
+				 */
+				addr = pentry->base + pentry->offset +
+					pentry->len * 4;
+				len -= pentry->len;
+			}
+		}
 	}
 
-	entry = devm_kzalloc(drvdata->dev, sizeof(*entry), GFP_KERNEL);
-	if (!entry) {
-		ret = -ENOMEM;
-		goto err;
-	}
+	offset = addr - base;
 
-	entry->base = base;
-	entry->offset = offset;
-	entry->len = len;
-	entry->index = drvdata->nr_config++;
-	INIT_LIST_HEAD(&entry->list);
-	list_add_tail(&entry->list, &drvdata->config_head);
+	while (len) {
+		entry = devm_kzalloc(drvdata->dev, sizeof(*entry), GFP_KERNEL);
+		if (!entry) {
+			ret = -ENOMEM;
+			goto err;
+		}
+
+		entry->base = base;
+		entry->offset = offset;
+		entry->len = min_t(uint32_t, len, MAX_DCC_LEN);
+		entry->index = drvdata->nr_config++;
+		INIT_LIST_HEAD(&entry->list);
+		list_add_tail(&entry->list, &drvdata->config_head);
+
+		len -= entry->len;
+		offset += MAX_DCC_LEN * 4;
+	}
 
 	mutex_unlock(&drvdata->mutex);
 	return 0;
@@ -657,13 +702,18 @@ static ssize_t dcc_store_config(struct device *dev,
 				const char *buf, size_t size)
 {
 	int ret;
-	unsigned base, offset, len;
+	unsigned base, len;
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
+	int nval;
 
-	if (sscanf(buf, "%x %x %u", &base, &offset, &len) != 3)
+	nval = sscanf(buf, "%x %i", &base, &len);
+	if (nval <= 0 || nval > 2)
 		return -EINVAL;
 
-	ret = dcc_config_add(drvdata, base, offset, len);
+	if (nval == 1)
+		len = 1;
+
+	ret = dcc_config_add(drvdata, base, len);
 	if (ret)
 		return ret;
 

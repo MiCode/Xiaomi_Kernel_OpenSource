@@ -79,10 +79,6 @@
 	qcom,lane-map = "lane_map_3012";
 };
 
-&dsi_hx8379a_wvga_vid {
-	qcom,cont-splash-enabled;
-};
-
 &pm8110_gpios {
 	gpio@c000 { /* GPIO 1 */
 		qcom,mode = <0>;		/* QPNP_PIN_MODE_DIG_IN */

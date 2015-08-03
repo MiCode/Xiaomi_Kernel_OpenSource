@@ -27,8 +27,10 @@
 #include <asm/opcodes-virt.h>
 #include <asm/psci.h>
 #include <asm/system_misc.h>
+#include <asm/suspend.h>
 
 struct psci_operations psci_ops;
+#define PSCI_POWER_STATE_BIT	BIT(30)
 
 static int (*invoke_psci_fn)(u32, u32, u32, u32);
 typedef int (*psci_initcall_t)(const struct device_node *);
@@ -113,15 +115,14 @@ static int psci_get_version(void)
 	return err;
 }
 
-static int psci_cpu_suspend(struct psci_power_state state,
+static int psci_cpu_suspend(unsigned long  state_id,
 			    unsigned long entry_point)
 {
 	int err;
-	u32 fn, power_state;
+	u32 fn;
 
 	fn = psci_function_id[PSCI_FN_CPU_SUSPEND];
-	power_state = psci_power_state_pack(state);
-	err = invoke_psci_fn(fn, power_state, entry_point, 0);
+	err = invoke_psci_fn(fn, state_id, entry_point, 0);
 	return psci_to_linux_errno(err);
 }
 
@@ -209,10 +210,86 @@ static void psci_sys_poweroff(void)
 	invoke_psci_fn(PSCI_0_2_FN_SYSTEM_OFF, 0, 0, 0);
 }
 
+static int psci_suspend_finisher(unsigned long state_id)
+{
+	return psci_ops.cpu_suspend(state_id, virt_to_phys(cpu_resume));
+}
+
+/*
+ * The PSCI changes are to support Os initiated low power mode where the
+ * cluster mode aggregation happens in HLOS. In this case, the cpuidle
+ * driver aggregates the cluster low power mode will provide in the
+ * composite stateID to be passed down to the PSCI layer.
+ */
+int cpu_psci_cpu_suspend(unsigned long state_id)
+{
+	if (WARN_ON_ONCE(!state_id))
+		return -EINVAL;
+
+	if (state_id & PSCI_POWER_STATE_BIT)
+		return __cpu_suspend(state_id, psci_suspend_finisher);
+	else
+		return  psci_ops.cpu_suspend(state_id, 0);
+}
+EXPORT_SYMBOL(cpu_psci_cpu_suspend);
+
 /*
  * PSCI Function IDs for v0.2+ are well defined so use
  * standard values.
  */
+
+static int psci_1_0_init(struct device_node *np)
+{
+	int err, ver;
+
+	err = get_set_conduit_method(np);
+
+	if (err)
+		goto out_put_node;
+
+	ver = psci_get_version();
+
+	if (ver == PSCI_RET_NOT_SUPPORTED) {
+		/* PSCI v1.0 mandates implementation of PSCI_ID_VERSION. */
+		pr_err("PSCI firmware does not comply with the v1.0 spec.\n");
+		err = -EOPNOTSUPP;
+		goto out_put_node;
+	} else {
+		pr_info("PSCIv%d.%d detected in firmware.\n",
+				PSCI_VERSION_MAJOR(ver),
+				PSCI_VERSION_MINOR(ver));
+		if (PSCI_VERSION_MAJOR(ver) != 1) {
+			err = -EINVAL;
+			pr_err("Conflicting PSCI version detected.\n");
+			goto out_put_node;
+		}
+	}
+
+	pr_info("Using standard PSCI v0.2 function IDs\n");
+	psci_function_id[PSCI_FN_CPU_SUSPEND] = PSCI_0_2_FN64_CPU_SUSPEND;
+	psci_ops.cpu_suspend = psci_cpu_suspend;
+
+	psci_function_id[PSCI_FN_CPU_OFF] = PSCI_0_2_FN_CPU_OFF;
+	psci_ops.cpu_off = psci_cpu_off;
+
+	psci_function_id[PSCI_FN_CPU_ON] = PSCI_0_2_FN64_CPU_ON;
+	psci_ops.cpu_on = psci_cpu_on;
+
+	psci_function_id[PSCI_FN_MIGRATE] = PSCI_0_2_FN64_MIGRATE;
+	psci_ops.migrate = psci_migrate;
+
+	psci_function_id[PSCI_FN_AFFINITY_INFO] = PSCI_0_2_FN64_AFFINITY_INFO;
+	psci_ops.affinity_info = psci_affinity_info;
+
+	psci_function_id[PSCI_FN_MIGRATE_INFO_TYPE] =
+		PSCI_0_2_FN_MIGRATE_INFO_TYPE;
+	psci_ops.migrate_info_type = psci_migrate_info_type;
+
+out_put_node:
+	of_node_put(np);
+	return err;
+}
+
 static int psci_0_2_init(struct device_node *np)
 {
 	int err, ver;
@@ -314,6 +391,7 @@ out_put_node:
 static const struct of_device_id psci_of_match[] __initconst = {
 	{ .compatible = "arm,psci", .data = psci_0_1_init},
 	{ .compatible = "arm,psci-0.2", .data = psci_0_2_init},
+	{ .compatible = "arm,psci-1.0", .data = psci_1_0_init},
 	{},
 };
 

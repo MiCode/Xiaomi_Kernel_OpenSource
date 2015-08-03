@@ -334,7 +334,7 @@ int msm_isp_get_clk_info(struct vfe_device *vfe_dev,
 	return 0;
 }
 
-static inline void msm_isp_get_timestamp(struct msm_isp_timestamp *time_stamp)
+void msm_isp_get_timestamp(struct msm_isp_timestamp *time_stamp)
 {
 	struct timespec ts;
 	ktime_get_ts(&ts);
@@ -610,15 +610,15 @@ int msm_isp_cfg_input(struct vfe_device *vfe_dev, void *arg)
 	return rc;
 }
 
-static int msm_isp_set_dual_HW_master_slave_mode(struct vfe_device *vfe_dev,
-	void *arg)
+static int msm_isp_set_dual_HW_master_slave_mode(
+	struct vfe_device *vfe_dev, void *arg)
 {
 	/*
 	 * This method assumes no 2 processes are accessing it simultaneously.
 	 * Currently this is guaranteed by mutex lock in ioctl.
 	 * If that changes, need to revisit this
 	 */
-	int rc = 0, j;
+	int rc = 0, i, j;
 	struct msm_isp_set_dual_hw_ms_cmd *dual_hw_ms_cmd = NULL;
 	struct msm_vfe_src_info *src_info = NULL;
 
@@ -631,25 +631,31 @@ static int msm_isp_set_dual_HW_master_slave_mode(struct vfe_device *vfe_dev,
 	dual_hw_ms_cmd = (struct msm_isp_set_dual_hw_ms_cmd *)arg;
 	vfe_dev->common_data->dual_hw_type = DUAL_HW_MASTER_SLAVE;
 
-	if (dual_hw_ms_cmd->input_src >= VFE_SRC_MAX) {
+	if (dual_hw_ms_cmd->primary_intf >= VFE_SRC_MAX) {
 		pr_err("%s: Error! Invalid SRC param %d\n", __func__,
-			dual_hw_ms_cmd->input_src);
+			dual_hw_ms_cmd->primary_intf);
 		return -EINVAL;
 	}
 
-	src_info = &vfe_dev->axi_data.
-		src_info[dual_hw_ms_cmd->input_src];
+	src_info = &vfe_dev->axi_data.src_info[dual_hw_ms_cmd->primary_intf];
 
 	src_info->dual_hw_ms_info.dual_hw_ms_type =
 		dual_hw_ms_cmd->dual_hw_ms_type;
 
+	/* No lock needed here since ioctl lock protects 2 session from race */
 	if (dual_hw_ms_cmd->dual_hw_ms_type == MS_TYPE_MASTER) {
 		src_info->dual_hw_type = DUAL_HW_MASTER_SLAVE;
+		ISP_DBG("%s: Master\n", __func__);
+
 		src_info->dual_hw_ms_info.sof_info =
 			&vfe_dev->common_data->master_sof_info;
+		vfe_dev->common_data->sof_delta_threshold =
+			dual_hw_ms_cmd->sof_delta_threshold;
 	} else {
 		spin_lock(&vfe_dev->common_data->common_dev_data_lock);
 		src_info->dual_hw_type = DUAL_HW_MASTER_SLAVE;
+		ISP_DBG("%s: Slave\n", __func__);
+
 		for (j = 0; j < MS_NUM_SLAVE_MAX; j++) {
 			if (vfe_dev->common_data->reserved_slave_mask &
 				(1 << j))
@@ -660,6 +666,7 @@ static int msm_isp_set_dual_HW_master_slave_mode(struct vfe_device *vfe_dev,
 			src_info->dual_hw_ms_info.sof_info =
 				&vfe_dev->common_data->slave_sof_info[j];
 			src_info->dual_hw_ms_info.slave_id = j;
+			ISP_DBG("%s: Slave id %d\n", __func__, j);
 			break;
 		}
 		spin_unlock(&vfe_dev->common_data->common_dev_data_lock);
@@ -669,6 +676,20 @@ static int msm_isp_set_dual_HW_master_slave_mode(struct vfe_device *vfe_dev,
 				__func__);
 			return -EBUSY;
 		}
+	}
+	ISP_DBG("%s: num_src %d\n", __func__, dual_hw_ms_cmd->num_src);
+	for (i = 0; i < dual_hw_ms_cmd->num_src; i++) {
+		if (dual_hw_ms_cmd->input_src[i] >= VFE_SRC_MAX) {
+			pr_err("%s: Error! Invalid SRC param %d\n", __func__,
+				dual_hw_ms_cmd->input_src[i]);
+			return -EINVAL;
+		}
+		ISP_DBG("%s: src %d\n", __func__, dual_hw_ms_cmd->input_src[i]);
+		src_info = &vfe_dev->axi_data.
+			src_info[dual_hw_ms_cmd->input_src[i]];
+		src_info->dual_hw_type = DUAL_HW_MASTER_SLAVE;
+		src_info->dual_hw_ms_info.dual_hw_ms_type =
+			dual_hw_ms_cmd->dual_hw_ms_type;
 	}
 
 	return rc;
@@ -1670,7 +1691,7 @@ void msm_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 
 	msm_isp_axi_halt(vfe_dev, &halt_cmd);
 
-	pr_err("%s:%d] vfe_dev %p id %d\n", __func__,
+	pr_err_ratelimited("%s:%d] vfe_dev %p id %d\n", __func__,
 		__LINE__, vfe_dev, vfe_dev->pdev->id);
 
 	error_event.frame_id =
@@ -1679,7 +1700,7 @@ void msm_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 	msm_isp_print_ping_pong_address(vfe_dev);
 	vfe_dev->hw_info->vfe_ops.axi_ops.read_wm_ping_pong_addr(vfe_dev);
 
-	for (i = 0; i < MAX_NUM_STREAM; i++)
+	for (i = 0; i < VFE_AXI_SRC_MAX; i++)
 		vfe_dev->axi_data.stream_info[i].state = INACTIVE;
 
 	msm_isp_send_event(vfe_dev, ISP_EVENT_IOMMU_P_FAULT, &error_event);

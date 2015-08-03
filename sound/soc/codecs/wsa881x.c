@@ -962,6 +962,55 @@ static int wsa881x_swr_remove(struct swr_device *pdev)
 	return 0;
 }
 
+static int wsa881x_swr_up(struct swr_device *pdev)
+{
+	int ret;
+	struct wsa881x_priv *wsa881x;
+
+	wsa881x = swr_get_dev_data(pdev);
+	if (!wsa881x) {
+		dev_err(&pdev->dev, "%s: wsa881x is NULL\n", __func__);
+		return -EINVAL;
+	}
+	ret = wsa881x_gpio_ctrl(wsa881x, true);
+	if (ret)
+		dev_err(&pdev->dev, "%s: Failed to enable gpio\n", __func__);
+
+	return ret;
+}
+
+static int wsa881x_swr_down(struct swr_device *pdev)
+{
+	struct wsa881x_priv *wsa881x;
+	int ret;
+
+	wsa881x = swr_get_dev_data(pdev);
+	if (!wsa881x) {
+		dev_err(&pdev->dev, "%s: wsa881x is NULL\n", __func__);
+		return -EINVAL;
+	}
+	regcache_mark_dirty(wsa881x->regmap);
+	ret = wsa881x_gpio_ctrl(wsa881x, false);
+	if (ret)
+		dev_err(&pdev->dev, "%s: Failed to disable gpio\n", __func__);
+
+	return ret;
+}
+
+static int wsa881x_swr_reset(struct swr_device *pdev)
+{
+	struct wsa881x_priv *wsa881x;
+
+	wsa881x = swr_get_dev_data(pdev);
+	if (!wsa881x) {
+		dev_err(&pdev->dev, "%s: wsa881x is NULL\n", __func__);
+		return -EINVAL;
+	}
+	wsa881x->bg_cnt = 0;
+	regcache_sync(wsa881x->regmap);
+	return 0;
+}
+
 #ifdef CONFIG_PM_SLEEP
 static int wsa881x_swr_suspend(struct device *dev)
 {
@@ -1008,6 +1057,9 @@ static struct swr_driver wsa881x_codec_driver = {
 	.probe = wsa881x_swr_probe,
 	.remove = wsa881x_swr_remove,
 	.id_table = wsa881x_swr_id,
+	.device_up = wsa881x_swr_up,
+	.device_down = wsa881x_swr_down,
+	.reset_device = wsa881x_swr_reset,
 };
 
 static int __init wsa881x_codec_init(void)

@@ -831,7 +831,8 @@ static struct snd_soc_dai_driver msm_fe_dais[] = {
 			.stream_name = "CPE Listen Audio capture",
 			.aif_name = "CPE_LSM_UL_HL",
 			.rates = SNDRV_PCM_RATE_16000,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.formats = (SNDRV_PCM_FMTBIT_S16_LE |
+				    SNDRV_PCM_FMTBIT_S24_LE),
 			.channels_min = 1,
 			.channels_max = 1,
 			.rate_min = 16000,

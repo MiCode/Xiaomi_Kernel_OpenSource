@@ -155,11 +155,47 @@ static ssize_t mdss_dba_utils_sysfs_rda_connected(struct device *dev,
 	return ret;
 }
 
+static ssize_t mdss_dba_utils_sysfs_wta_hpd(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct mdss_dba_utils_data *udata = NULL;
+	int rc, hpd;
+
+	udata = mdss_dba_utils_get_data(dev);
+	if (!udata) {
+		pr_debug("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	rc = kstrtoint(buf, 10, &hpd);
+	if (rc) {
+		pr_debug("%s: kstrtoint failed\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!hpd || udata->hpd_state)
+		return count;
+
+	/* power on downstream device */
+	if (udata->ops.power_on)
+		udata->ops.power_on(udata->dba_data, true, 0);
+
+	/* check if cable is connected to bridge chip */
+	if (udata->ops.check_hpd)
+		udata->ops.check_hpd(udata->dba_data, 0);
+
+	return count;
+}
+
 static DEVICE_ATTR(connected, S_IRUGO,
 		mdss_dba_utils_sysfs_rda_connected, NULL);
 
+static DEVICE_ATTR(hpd, S_IRUGO | S_IWUSR, NULL,
+		mdss_dba_utils_sysfs_wta_hpd);
+
 static struct attribute *mdss_dba_utils_fs_attrs[] = {
 	&dev_attr_connected.attr,
+	&dev_attr_hpd.attr,
 	NULL,
 };
 
@@ -341,18 +377,8 @@ static int mdss_dba_utils_init_switch_dev(struct mdss_dba_utils_data *udata,
 		goto end;
 	}
 
-	pr_debug("fb_node %d\n", fb_node);
-
-	ret = snprintf(udata->disp_switch_name,
-		sizeof(udata->disp_switch_name),
-		"fb%d", fb_node);
-	if (!ret) {
-		DEV_ERR("%s: couldn't write display switch node\n", __func__);
-		goto end;
-	}
-
 	/* create switch device to update display modules */
-	udata->sdev_display.name = udata->disp_switch_name;
+	udata->sdev_display.name = "hdmi";
 	rc = switch_dev_register(&udata->sdev_display);
 	if (rc) {
 		pr_err("display switch registration failed\n");
@@ -561,13 +587,8 @@ void *mdss_dba_utils_init(struct mdss_dba_utils_init_data *uid)
 	if (uid->pinfo) {
 		uid->pinfo->is_cec_supported = true;
 		uid->pinfo->cec_data = udata->cec_abst_data;
-	}
-
-	/* power on downstream device */
-	if (udata->ops.power_on) {
-		ret = udata->ops.power_on(udata->dba_data, true, 0);
-		if (ret)
-			goto error;
+		if (!uid->pinfo->is_prim_panel)
+			uid->pinfo->is_pluggable = true;
 	}
 
 	return udata;
