@@ -508,6 +508,7 @@ struct msm_pcie_dev_t {
 	bool				 ep_wakeirq;
 
 	uint32_t			   rc_idx;
+	uint32_t			phy_ver;
 	bool				drv_ready;
 	bool				 enumerated;
 	struct work_struct	     handle_wake_work;
@@ -1143,6 +1144,11 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_CLK_EP_DIV, 0x19);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_CLK_ENABLE1, 0x10);
 
+	if (dev->phy_ver == 0x3) {
+		msm_pcie_write_reg(dev->phy, QSERDES_COM_HSCLK_SEL, 0x00);
+		msm_pcie_write_reg(dev->phy, QSERDES_COM_RESCODE_DIV_NUM, 0x40);
+	}
+
 	if (dev->common_phy) {
 		msm_pcie_write_reg(dev->phy, PCIE_COM_SW_RESET, 0x00);
 		msm_pcie_write_reg(dev->phy, PCIE_COM_START_CONTROL, 0x03);
@@ -1453,6 +1459,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->ext_ref_clk);
 	pr_alert("ep_wakeirq is %d\n",
 		dev->ep_wakeirq);
+	pr_alert("phy_ver is %d\n",
+		dev->phy_ver);
 	pr_alert("drv_ready is %d\n",
 		dev->drv_ready);
 	pr_alert("the link is %s suspending\n",
@@ -5011,6 +5019,20 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	PCIE_DBG(&msm_pcie_dev[rc_idx],
 		"PCIe: EP of RC%d does %s assert wake when it is up.\n",
 		rc_idx, msm_pcie_dev[rc_idx].ep_wakeirq ? "" : "not");
+
+	msm_pcie_dev[rc_idx].phy_ver = 1;
+	ret = of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,pcie-phy-ver",
+				&msm_pcie_dev[rc_idx].phy_ver);
+	if (ret)
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: pcie-phy-ver does not exist.\n",
+			msm_pcie_dev[rc_idx].rc_idx);
+	else
+		PCIE_DBG(&msm_pcie_dev[rc_idx],
+			"RC%d: pcie-phy-ver: %d.\n",
+			msm_pcie_dev[rc_idx].rc_idx,
+			msm_pcie_dev[rc_idx].phy_ver);
 
 	msm_pcie_dev[rc_idx].n_fts = 0;
 	ret = of_property_read_u32((&pdev->dev)->of_node,
