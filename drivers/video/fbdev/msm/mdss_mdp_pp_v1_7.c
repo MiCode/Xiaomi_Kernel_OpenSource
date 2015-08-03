@@ -130,7 +130,8 @@ static u32 dither_depth_map[DITHER_DEPTH_MAP_INDEX] = {
 #define PA_MEM_COL_VAL_REGION_MASK 0xFFFFFF
 #define PA_SIX_ZONE_INDEX_UPDATE BIT(26)
 #define PA_SIX_ZONE_VALUE_UPDATE BIT(25)
-#define PA_SIX_ZONE_CURVE_MASK 0xFFF
+#define PA_SIX_ZONE_CURVE_P0_MASK 0xFFF
+#define PA_SIX_ZONE_CURVE_P1_MASK 0xFFF0FFF
 #define PA_SIX_ZONE_ADJ_P0_MASK 0xFFFF
 #define PA_HOLD_MASK 0x3
 #define PA_HOLD_SAT_SHIFT 0
@@ -1205,47 +1206,48 @@ static void pp_pa_set_six_zone(char __iomem *base_addr,
 	char __iomem *addr = base_addr + PA_SIX_ZONE_LUT_OFF;
 	uint32_t sat_hold = 0, val_hold = 0, mem_col_hold = 0;
 	/* Update six zone memory color registers */
-	if (flags & MDP_PP_PA_SIX_ZONE_ENABLE) {
-		if (!pa_data->six_zone_len || !pa_data->six_zone_curve_p0 ||
-		    !pa_data->six_zone_curve_p1) {
-			pr_err("Invalid six zone data: len %d curve_p0 %p curve_p1 %p\n",
-			       pa_data->six_zone_len,
-			       pa_data->six_zone_curve_p0,
-			       pa_data->six_zone_curve_p1);
-			return;
-		}
+	if (!(flags & MDP_PP_PA_SIX_ZONE_ENABLE))
+		return;
 
-		writel_relaxed((pa_data->six_zone_curve_p1[0] &
-				PA_SIX_ZONE_CURVE_MASK), addr + 4);
-		/* Index Update to trigger auto-incrementing LUT accesses */
-		data = PA_SIX_ZONE_INDEX_UPDATE;
-		writel_relaxed((pa_data->six_zone_curve_p0[0] &
-				PA_SIX_ZONE_CURVE_MASK) | data, addr);
-
-		/* Remove Index Update */
-		for (i = 1; i < MDP_SIX_ZONE_LUT_SIZE; i++) {
-			writel_relaxed((pa_data->six_zone_curve_p1[i] &
-					PA_SIX_ZONE_CURVE_MASK), addr + 4);
-			writel_relaxed((pa_data->six_zone_curve_p0[i] &
-					PA_SIX_ZONE_CURVE_MASK), addr);
-		}
-		addr = base_addr + PA_SIX_ZONE_REGION_OFF;
-		writel_relaxed(pa_data->six_zone_thresh, addr);
-
-		addr = base_addr + PA_SIX_ZONE_ADJ_OFF;
-		writel_relaxed((pa_data->six_zone_adj_p0 &
-				PA_SIX_ZONE_ADJ_P0_MASK), addr);
-		addr += 4;
-		writel_relaxed(pa_data->six_zone_adj_p1, addr);
-
-		sat_hold = (pa_data->six_zone_sat_hold & PA_HOLD_MASK) <<
-			    PA_HOLD_SAT_SHIFT;
-		val_hold = (pa_data->six_zone_val_hold & PA_HOLD_MASK) <<
-			    PA_HOLD_VAL_SHIFT;
-		mem_col_hold = (sat_hold | val_hold) << PA_HOLD_SIX_ZONE_SHIFT;
-		*pa_hold |= mem_col_hold;
-		*pa_hold_mask |= PA_HOLD_SIX_ZONE_MASK;
+	if (!pa_data->six_zone_len || !pa_data->six_zone_curve_p0 ||
+	    !pa_data->six_zone_curve_p1) {
+		pr_err("Invalid six zone data: len %d curve_p0 %p curve_p1 %p\n",
+		       pa_data->six_zone_len,
+		       pa_data->six_zone_curve_p0,
+		       pa_data->six_zone_curve_p1);
+		return;
 	}
+
+	writel_relaxed((pa_data->six_zone_curve_p1[0] &
+			PA_SIX_ZONE_CURVE_P1_MASK), addr + 4);
+	/* Index Update to trigger auto-incrementing LUT accesses */
+	data = PA_SIX_ZONE_INDEX_UPDATE;
+	writel_relaxed((pa_data->six_zone_curve_p0[0] &
+			PA_SIX_ZONE_CURVE_P0_MASK) | data, addr);
+
+	/* Remove Index Update */
+	for (i = 1; i < MDP_SIX_ZONE_LUT_SIZE; i++) {
+		writel_relaxed((pa_data->six_zone_curve_p1[i] &
+				PA_SIX_ZONE_CURVE_P1_MASK), addr + 4);
+		writel_relaxed((pa_data->six_zone_curve_p0[i] &
+				PA_SIX_ZONE_CURVE_P0_MASK), addr);
+	}
+	addr = base_addr + PA_SIX_ZONE_REGION_OFF;
+	writel_relaxed(pa_data->six_zone_thresh, addr);
+
+	addr = base_addr + PA_SIX_ZONE_ADJ_OFF;
+	writel_relaxed((pa_data->six_zone_adj_p0 &
+			PA_SIX_ZONE_ADJ_P0_MASK), addr);
+	addr += 4;
+	writel_relaxed(pa_data->six_zone_adj_p1, addr);
+
+	sat_hold = (pa_data->six_zone_sat_hold & PA_HOLD_MASK) <<
+		    PA_HOLD_SAT_SHIFT;
+	val_hold = (pa_data->six_zone_val_hold & PA_HOLD_MASK) <<
+		    PA_HOLD_VAL_SHIFT;
+	mem_col_hold = (sat_hold | val_hold) << PA_HOLD_SIX_ZONE_SHIFT;
+	*pa_hold |= mem_col_hold;
+	*pa_hold_mask |= PA_HOLD_SIX_ZONE_MASK;
 }
 
 static void pp_pa_set_sts(struct pp_sts_type *pp_sts,
@@ -1552,9 +1554,9 @@ static int pp_pa_get_six_zone(char __iomem *base_addr,
 
 	for (i = 0; i < MDP_SIX_ZONE_LUT_SIZE; i++) {
 		six_zone_p1[i] = readl_relaxed(addr + 4) &
-				 PA_SIX_ZONE_CURVE_MASK;
+				 PA_SIX_ZONE_CURVE_P1_MASK;
 		six_zone_p0[i] = readl_relaxed(addr) &
-				 PA_SIX_ZONE_CURVE_MASK;
+				 PA_SIX_ZONE_CURVE_P0_MASK;
 	}
 
 	addr = base_addr + PA_SIX_ZONE_REGION_OFF;
