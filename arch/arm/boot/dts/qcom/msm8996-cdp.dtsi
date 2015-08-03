@@ -27,6 +27,10 @@
 	};
 };
 
+&spi_eth_vreg {
+	status = "ok";
+};
+
 &uartblsp2dm1 {
 	status = "ok";
 	pinctrl-names = "default";
@@ -675,6 +679,15 @@
 		qcom,src-sel = <0>;		/* Constant */
 		qcom,master-en = <1>;		/* Enable GPIO */
 		qcom,invert = <0>;
+		status = "okay";
+	};
+
+	mpp@a400 { /* MPP 5 */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,vin-sel = <2>;		/* S4 1.8V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;		/* Enable GPIO */
 		status = "okay";
 	};
 };

@@ -938,6 +938,14 @@
 	};
 
 /* Miscellaneous regulators */
+	spi_eth_vreg: spi_eth_phy_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "ethernet_phy";
+		gpio = <&pm8994_mpps 5 0>;
+		enable-active-high;
+		status = "disabled";
+	};
+
 	usb_otg_switch: usb-otg-switch {
 		compatible = "regulator-fixed";
 		regulator-name = "usb_otg_vreg";
