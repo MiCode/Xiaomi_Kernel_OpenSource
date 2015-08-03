@@ -1791,6 +1791,19 @@ static int msm8952_codec_event_cb(struct snd_soc_codec *codec,
 	}
 }
 
+static int msm8976_tasha_codec_event_cb(struct snd_soc_codec *codec,
+					enum wcd9335_codec_event codec_event)
+{
+	switch (codec_event) {
+	case WCD9335_CODEC_EVENT_CODEC_UP:
+		return msm8952_wcd93xx_codec_up(codec);
+	default:
+		pr_err("%s: UnSupported codec event %d\n",
+			__func__, codec_event);
+		return -EINVAL;
+	}
+}
+
 int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int err;
@@ -1960,6 +1973,8 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	if (!strcmp(dev_name(codec_dai->dev), "tomtom_codec"))
 		tomtom_event_register(msm8952_codec_event_cb, rtd->codec);
+	else if (!strcmp(dev_name(codec_dai->dev), "tasha_codec"))
+		tasha_event_register(msm8976_tasha_codec_event_cb, rtd->codec);
 
 	codec_reg_done = true;
 
