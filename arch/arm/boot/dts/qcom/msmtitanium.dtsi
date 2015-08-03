@@ -86,6 +86,7 @@
 #include "msmtitanium-cpu.dtsi"
 #include "msmtitanium-ion.dtsi"
 #include "msmtitanium-smp2p.dtsi"
+#include "msm-arm-smmu-titanium.dtsi"
 
 &soc {
 	#address-cells = <1>;
