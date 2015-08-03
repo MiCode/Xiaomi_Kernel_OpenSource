@@ -318,6 +318,7 @@
 	qcom,cool-bat-decidegc = <(-100)>;
 	qcom,hot-bat-decidegc = <550>;
 	qcom,warm-bat-decidegc = <550>;
+	qcom,bad-battery-detection-enable;
 };
 
 &pmi8950_haptic {
