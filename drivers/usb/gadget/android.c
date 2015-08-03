@@ -1031,10 +1031,6 @@ ncm_function_init(struct android_usb_function *f, struct usb_composite_dev *c)
 
 	f->config = config;
 
-	config->fi = usb_get_function_instance("ncm");
-	if (IS_ERR(config->fi))
-		return PTR_ERR(config->fi);
-
 	return 0;
 }
 
@@ -1066,6 +1062,10 @@ ncm_function_bind_config(struct android_usb_function *f,
 	pr_info("%s MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", __func__,
 		ncm->ethaddr[0], ncm->ethaddr[1], ncm->ethaddr[2],
 		ncm->ethaddr[3], ncm->ethaddr[4], ncm->ethaddr[5]);
+
+	ncm->fi = usb_get_function_instance("ncm");
+	if (IS_ERR(ncm->fi))
+		return PTR_ERR(ncm->fi);
 
 	ncm_opts = container_of(ncm->fi, struct f_ncm_opts, func_inst);
 	strlcpy(ncm_opts->net->name, "ncm%d", sizeof(ncm_opts->net->name));
@@ -1099,8 +1099,8 @@ static void ncm_function_unbind_config(struct android_usb_function *f,
 						struct usb_configuration *c)
 {
 	struct ncm_function_config *ncm = f->config;
-	if (ncm->func)
-		usb_remove_function(c, ncm->func);
+
+	usb_put_function_instance(ncm->fi);
 }
 
 static ssize_t ncm_ethaddr_show(struct device *dev,

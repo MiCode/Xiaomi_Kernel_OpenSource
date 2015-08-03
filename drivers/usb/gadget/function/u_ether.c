@@ -1045,13 +1045,13 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	}
 	spin_unlock_irqrestore(&dev->lock, flags);
 
-	if (skb && !in) {
+	if (!in) {
 		dev_kfree_skb_any(skb);
 		return NETDEV_TX_OK;
 	}
 
 	/* apply outgoing CDC or RNDIS filters only for ETH packets */
-	if (!test_bit(RMNET_MODE_LLP_IP, &dev->flags) && skb &&
+	if (!test_bit(RMNET_MODE_LLP_IP, &dev->flags) &&
 						!is_promisc(cdc_filter)) {
 		u8		*dest = skb->data;
 
@@ -1097,11 +1097,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	spin_unlock_irqrestore(&dev->lock, flags);
 
 	if (!skb) {
-		 /* Multi frame CDC protocols may store the frame for
-		  * later which is not a dropped frame.
-		  */
-		if (!dev->port_usb->supports_multi_frame)
-			dev->net->stats.tx_dropped++;
+		dev->net->stats.tx_dropped++;
 
 		/* no error code for dropped packets */
 		return NETDEV_TX_OK;
@@ -1722,10 +1718,14 @@ struct net_device *gether_setup_name_default(const char *netname)
 	spin_lock_init(&dev->lock);
 	spin_lock_init(&dev->req_lock);
 	INIT_WORK(&dev->work, eth_work);
+	INIT_WORK(&dev->rx_work, process_rx_w);
+	INIT_WORK(&dev->tx_work, process_tx_w);
 	INIT_LIST_HEAD(&dev->tx_reqs);
 	INIT_LIST_HEAD(&dev->rx_reqs);
+	INIT_WORK(&dev->cpu_policy_w, update_cpu_policy_w);
 
 	skb_queue_head_init(&dev->rx_frames);
+	skb_queue_head_init(&dev->tx_skb_q);
 
 	/* network device setup */
 	dev->net = net;
@@ -1740,6 +1740,10 @@ struct net_device *gether_setup_name_default(const char *netname)
 	net->netdev_ops = &eth_netdev_ops;
 
 	net->ethtool_ops = &ops;
+
+	/* set operation mode to eth by default */
+	set_bit(RMNET_MODE_LLP_ETH, &dev->flags);
+
 	SET_NETDEV_DEVTYPE(net, &gadget_type);
 
 	return net;
