@@ -91,6 +91,7 @@ static int mmc_cmdq_thread(void *d)
 	if (card->host->wakeup_on_idle)
 		set_wake_up_idle(true);
 
+	down(&mq->thread_sem);
 	while (1) {
 		int ret = 0;
 
@@ -129,9 +130,12 @@ static int mmc_cmdq_thread(void *d)
 				set_current_state(TASK_RUNNING);
 				break;
 			}
+			up(&mq->thread_sem);
 			schedule();
+			down(&mq->thread_sem);
 		}
 	} /* loop */
+	up(&mq->thread_sem);
 	return 0;
 }
 
@@ -382,11 +386,17 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 			       mmc_hostname(card->host), ret);
 			blk_cleanup_queue(mq->queue);
 		} else {
+			sema_init(&mq->thread_sem, 1);
 			mq->queue->queuedata = mq;
 			mq->thread = kthread_run(mmc_cmdq_thread, mq,
 						 "mmc-cmdqd/%d%s",
 						 host->index,
 						 subname ? subname : "");
+			if (IS_ERR(mq->thread)) {
+				pr_err("%s: %d: cmdq: failed to start mmc-cmdqd thread\n",
+						mmc_hostname(card->host), ret);
+				ret = PTR_ERR(mq->thread);
+			}
 
 			return ret;
 		}
@@ -691,6 +701,7 @@ int mmc_cmdq_init(struct mmc_queue *mq, struct mmc_card *card)
 	blk_queue_softirq_done(mq->queue, mmc_cmdq_softirq_done);
 	INIT_WORK(&mq->cmdq_err_work, mmc_cmdq_error_work);
 	init_completion(&mq->cmdq_shutdown_complete);
+	init_completion(&mq->cmdq_pending_req_done);
 
 	blk_queue_rq_timed_out(mq->queue, mmc_cmdq_rq_timed_out);
 	blk_queue_rq_timeout(mq->queue, 120 * HZ);
@@ -744,23 +755,22 @@ int mmc_queue_suspend(struct mmc_queue *mq, int wait)
 	int rc = 0;
 	struct mmc_card *card = mq->card;
 
-	if (card->cmdq_init) {
+	if (card->cmdq_init && blk_queue_tagged(q) && wait) {
 		struct mmc_host *host = card->host;
-		unsigned long flags;
 
 		spin_lock_irqsave(q->queue_lock, flags);
 		blk_stop_queue(q);
 		spin_unlock_irqrestore(q->queue_lock, flags);
 
-		if (host->cmdq_ctx.active_reqs) {
-			if (!wait)
-				rc = -EBUSY;
-			else
-				mmc_wait_for_pending_reqs(mq);
-		} else {
-			mq->cmdq_shutdown(mq);
-		}
-
+		/*
+		 * Wait for already queued requests to be issued by
+		 * mmc_cmdqd.
+		 */
+		down(&mq->thread_sem);
+		 /* Wait for already issued requests to complete */
+		if (host->cmdq_ctx.active_reqs)
+			mmc_wait_for_pending_reqs(mq);
+		mq->cmdq_shutdown(mq);
 		goto out;
 	}
 
