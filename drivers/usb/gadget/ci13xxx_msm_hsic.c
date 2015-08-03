@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,7 +61,6 @@ struct msm_hsic_per {
 	void __iomem		*regs;
 	int					irq;
 	atomic_t			in_lpm;
-	struct wake_lock	wlock;
 	struct msm_xo_voter	*xo_handle;
 	struct workqueue_struct *wq;
 	struct work_struct	suspend_w;
@@ -85,16 +84,16 @@ static int msm_hsic_init_vddcx(struct msm_hsic_per *mhsic, int init)
 			USB_PHY_VDD_DIG_VOL_MIN,
 			USB_PHY_VDD_DIG_VOL_MAX);
 	if (ret) {
-		dev_err(mhsic->dev, "unable to set the voltage"
-				"for hsic vddcx\n");
+		dev_err(mhsic->dev,
+				"unable to set the voltage for hsic vddcx\n");
 		goto reg_set_voltage_err;
 	}
 
 	ret = regulator_set_optimum_mode(mhsic->hsic_vddcx,
 				USB_PHY_VDD_DIG_LOAD);
 	if (ret < 0) {
-		pr_err("%s: Unable to set optimum mode of the regulator:"
-					"VDDCX\n", __func__);
+		pr_err("%s: optimum mode of the regulator: VDDCX not set\n",
+				__func__);
 		goto reg_optimum_mode_err;
 	}
 
@@ -389,7 +388,7 @@ static int msm_hsic_suspend(struct msm_hsic_per *mhsic)
 
 	atomic_set(&mhsic->in_lpm, 1);
 	enable_irq(mhsic->irq);
-	wake_unlock(&mhsic->wlock);
+	pm_relax(mhsic->dev);
 
 	dev_info(mhsic->dev, "HSIC-USB in low power mode\n");
 
@@ -406,7 +405,7 @@ static int msm_hsic_resume(struct msm_hsic_per *mhsic)
 		return 0;
 	}
 
-	wake_lock(&mhsic->wlock);
+	pm_stay_awake(mhsic->dev);
 	ret = regulator_set_voltage(mhsic->hsic_vddcx,
 				USB_PHY_VDD_DIG_VOL_MIN,
 				USB_PHY_VDD_DIG_VOL_MAX);
@@ -623,15 +622,14 @@ static int msm_hsic_probe(struct platform_device *pdev)
 	if (!pdev->dev.platform_data) {
 		dev_err(&pdev->dev, "No platform data given. Bailing out\n");
 		return -ENODEV;
-	} else {
-		pdata = pdev->dev.platform_data;
 	}
 
+	pdata = pdev->dev.platform_data;
+
 	mhsic = kzalloc(sizeof(struct msm_hsic_per), GFP_KERNEL);
-	if (!mhsic) {
-		dev_err(&pdev->dev, "unable to allocate msm_hsic\n");
+	if (!mhsic)
 		return -ENOMEM;
-	}
+
 	the_mhsic = mhsic;
 	platform_set_drvdata(pdev, mhsic);
 	mhsic->dev = &pdev->dev;
@@ -669,8 +667,9 @@ static int msm_hsic_probe(struct platform_device *pdev)
 
 	mhsic->xo_handle = msm_xo_get(MSM_XO_TCXO_D0, "hsic_peripheral");
 	if (IS_ERR(mhsic->xo_handle)) {
-		dev_err(&pdev->dev, "%s not able to get the handle "
-			"to vote for TCXO\n", __func__);
+		dev_err(&pdev->dev,
+			"%s not able to get the handle to vote for TCXO\n",
+			__func__);
 		ret = PTR_ERR(mhsic->xo_handle);
 		goto unmap;
 	}
@@ -713,8 +712,7 @@ static int msm_hsic_probe(struct platform_device *pdev)
 	msm_hsic_connect_peripheral(&pdev->dev);
 
 	device_init_wakeup(&pdev->dev, 1);
-	wake_lock_init(&mhsic->wlock, WAKE_LOCK_SUSPEND, dev_name(&pdev->dev));
-	wake_lock(&mhsic->wlock);
+	pm_stay_awake(mhsic->dev);
 
 	ret = request_irq(mhsic->irq, msm_udc_hsic_irq,
 					  IRQF_SHARED, pdev->name, mhsic);
@@ -757,7 +755,7 @@ static int hsic_msm_remove(struct platform_device *pdev)
 	msm_hsic_init_vddcx(mhsic, 0);
 	msm_hsic_enable_clocks(pdev, mhsic, 0);
 	msm_xo_put(mhsic->xo_handle);
-	wake_lock_destroy(&mhsic->wlock);
+	device_wakeup_disable(mhsic->dev);
 	destroy_workqueue(mhsic->wq);
 	udc_remove();
 	iounmap(mhsic->regs);
@@ -779,8 +777,7 @@ static struct platform_driver msm_hsic_peripheral_driver = {
 
 static int __init msm_hsic_peripheral_init(void)
 {
-	return platform_driver_probe(&msm_hsic_peripheral_driver,
-								msm_hsic_probe);
+	return platform_driver_register(&msm_hsic_peripheral_driver);
 }
 
 static void __exit msm_hsic_peripheral_exit(void)
