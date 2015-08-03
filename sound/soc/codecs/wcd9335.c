@@ -9684,9 +9684,23 @@ static int tasha_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void tasha_powershutdown(struct platform_device *pdev)
+{
+	struct tasha_priv *tasha;
+	struct wcd9xxx_pdata *pdata = dev_get_platdata(pdev->dev.parent);
+
+	tasha = platform_get_drvdata(pdev);
+	wcd9xxx_disable_static_supplies_to_optimum(tasha->wcd9xxx, pdata);
+	wcd9xxx_disable_supplies(tasha->wcd9xxx, pdata);
+	gpio_direction_output(pdata->reset_gpio, 0);
+	/* sleep for 60msec to follow codec power down sequence */
+	usleep_range(60000, 60100);
+}
+
 static struct platform_driver tasha_codec_driver = {
 	.probe = tasha_probe,
 	.remove = tasha_remove,
+	.shutdown = tasha_powershutdown,
 	.driver = {
 		.name = "tasha_codec",
 		.owner = THIS_MODULE,
