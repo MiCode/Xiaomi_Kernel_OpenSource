@@ -6332,6 +6332,12 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 			return rc;
 		}
 	}
+	/* unsuspend dc path, it could be suspended by the bootloader */
+	rc = smbchg_dc_suspend(chip, 0);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't unspended dc path= %d\n", rc);
+		return rc;
+	}
 
 	if (chip->force_aicl_rerun)
 		rc = smbchg_aicl_config(chip);
