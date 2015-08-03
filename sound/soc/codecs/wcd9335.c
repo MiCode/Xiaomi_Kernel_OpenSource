@@ -469,7 +469,8 @@ struct wcd_swr_ctrl_platform_data {
 			  int action);
 };
 
-static struct wcd_mbhc_register wcd_mbhc_registers[] = {
+static struct wcd_mbhc_register
+	wcd_mbhc_registers[WCD_MBHC_REG_FUNC_MAX] = {
 	WCD_MBHC_REGISTER("WCD_MBHC_L_DET_EN",
 			  WCD9335_ANA_MBHC_MECH, 0x80, 7, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_GND_DET_EN",
@@ -528,6 +529,8 @@ static struct wcd_mbhc_register wcd_mbhc_registers[] = {
 			  WCD9335_ANA_HPH, 0xC0, 6, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_SWCH_LEVEL_REMOVE",
 			  WCD9335_ANA_MBHC_RESULT_3, 0x10, 4, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_PULLDOWN_CTRL",
+			  0, 0, 0, 0),
 };
 
 static const struct wcd_mbhc_intr intr_ids = {
