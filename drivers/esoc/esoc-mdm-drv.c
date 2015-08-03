@@ -14,6 +14,7 @@
 #include <linux/workqueue.h>
 #include <linux/reboot.h>
 #include "esoc.h"
+#include "mdm-dbg.h"
 
 enum {
 	 PWR_OFF = 0x1,
@@ -48,6 +49,8 @@ static int esoc_msm_restart_handler(struct notifier_block *nb,
 	struct esoc_clink *esoc_clink = mdm_drv->esoc_clink;
 	const struct esoc_clink_ops const *clink_ops = esoc_clink->clink_ops;
 	if (action == SYS_RESTART) {
+		if (mdm_dbg_stall_notify(ESOC_PRIMARY_REBOOT))
+			return NOTIFY_OK;
 		dev_dbg(&esoc_clink->dev, "Notifying esoc of cold reboot\n");
 		clink_ops->notify(ESOC_PRIMARY_REBOOT, esoc_clink);
 	}
@@ -100,6 +103,8 @@ static void mdm_crash_shutdown(const struct subsys_desc *mdm_subsys)
 							struct esoc_clink,
 								subsys);
 	const struct esoc_clink_ops const *clink_ops = esoc_clink->clink_ops;
+	if (mdm_dbg_stall_notify(ESOC_PRIMARY_CRASH))
+		return;
 	clink_ops->notify(ESOC_PRIMARY_CRASH, esoc_clink);
 }
 
@@ -113,6 +118,12 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 	const struct esoc_clink_ops const *clink_ops = esoc_clink->clink_ops;
 
 	if (mdm_drv->mode == CRASH || mdm_drv->mode == PEER_CRASH) {
+		if (mdm_dbg_stall_cmd(ESOC_PREPARE_DEBUG))
+			/* We want to mask debug command.
+			 * In this case return success
+			 * to move to next stage
+			 */
+			return 0;
 		ret = clink_ops->cmd_exe(ESOC_PREPARE_DEBUG,
 							esoc_clink);
 		if (ret) {
@@ -124,8 +135,15 @@ static int mdm_subsys_shutdown(const struct subsys_desc *crashed_subsys,
 		if (esoc_clink->subsys.sysmon_shutdown_ret)
 			ret = clink_ops->cmd_exe(ESOC_FORCE_PWR_OFF,
 							esoc_clink);
-		else
+		else {
+			if (mdm_dbg_stall_cmd(ESOC_PWR_OFF))
+				/* Since power off command is masked
+				 * we return success, and leave the state
+				 * of the command engine as is.
+				 */
+				return 0;
 			ret = clink_ops->cmd_exe(ESOC_PWR_OFF, esoc_clink);
+		}
 		if (ret) {
 			dev_err(&esoc_clink->dev, "failed to exe power off\n");
 			return ret;
@@ -149,6 +167,8 @@ static int mdm_subsys_powerup(const struct subsys_desc *crashed_subsys)
 		wait_for_completion(&mdm_drv->req_eng_wait);
 	}
 	if (mdm_drv->mode == PWR_OFF) {
+		if (mdm_dbg_stall_cmd(ESOC_PWR_ON))
+			return -EBUSY;
 		ret = clink_ops->cmd_exe(ESOC_PWR_ON, esoc_clink);
 		if (ret) {
 			dev_err(&esoc_clink->dev, "pwr on fail\n");
@@ -238,6 +258,14 @@ int esoc_ssr_probe(struct esoc_clink *esoc_clink, struct esoc_drv *drv)
 	ret = register_reboot_notifier(&mdm_drv->esoc_restart);
 	if (ret)
 		dev_err(&esoc_clink->dev, "register for reboot failed\n");
+	ret = mdm_dbg_eng_init(drv);
+	if (ret) {
+		debug_init_done = false;
+		dev_err(&esoc_clink->dev, "dbg engine failure\n");
+	} else {
+		dev_dbg(&esoc_clink->dev, "dbg engine initialized\n");
+		debug_init_done = true;
+	}
 	return 0;
 queue_err:
 	esoc_clink_unregister_ssr(esoc_clink);
