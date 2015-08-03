@@ -21,6 +21,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include <soc/qcom/secure_buffer.h>
 
 #ifdef CONFIG_IOMMU_DEBUG_TRACKING
 
@@ -40,6 +41,7 @@ static int iommu_debug_attachment_info_show(struct seq_file *s, void *ignored)
 	struct iommu_debug_attachment *attach = s->private;
 	phys_addr_t pt_phys;
 	int coherent_htw_disable;
+	int secure_vmid;
 
 	seq_printf(s, "Domain: 0x%p\n", attach->domain);
 	if (iommu_domain_get_attr(attach->domain, DOMAIN_ATTR_PT_BASE_ADDR,
@@ -59,6 +61,15 @@ static int iommu_debug_attachment_info_show(struct seq_file *s, void *ignored)
 		seq_puts(s, "(Unknown)\n");
 	else
 		seq_printf(s, "%d\n", coherent_htw_disable);
+
+	seq_puts(s, "SECURE_VMID: ");
+	if (iommu_domain_get_attr(attach->domain,
+				  DOMAIN_ATTR_SECURE_VMID,
+				  &secure_vmid))
+		seq_puts(s, "(Unknown)\n");
+	else
+		seq_printf(s, "%s (0x%x)\n",
+			   msm_secure_vmid_to_string(secure_vmid), secure_vmid);
 
 	return 0;
 }
@@ -422,7 +433,8 @@ static const struct file_operations iommu_debug_profiling_fops = {
 	.release = single_release,
 };
 
-static int iommu_debug_attach_do_attach(struct iommu_debug_device *ddev)
+static int iommu_debug_attach_do_attach(struct iommu_debug_device *ddev,
+					int val, bool is_secure)
 {
 	int htw_disable = 1;
 
@@ -439,6 +451,13 @@ static int iommu_debug_attach_do_attach(struct iommu_debug_device *ddev)
 		goto out_domain_free;
 	}
 
+	if (is_secure && iommu_domain_set_attr(ddev->domain,
+					       DOMAIN_ATTR_SECURE_VMID,
+					       &val)) {
+		pr_err("Couldn't set secure vmid to %d\n", val);
+		goto out_domain_free;
+	}
+
 	if (iommu_attach_device(ddev->domain, ddev->dev)) {
 		pr_err("Couldn't attach new domain to device. Is it already attached?\n");
 		goto out_domain_free;
@@ -452,27 +471,22 @@ out_domain_free:
 	return -EIO;
 }
 
-static ssize_t iommu_debug_attach_write(struct file *file,
-				      const char __user *ubuf,
-				      size_t count, loff_t *offset)
+static ssize_t __iommu_debug_attach_write(struct file *file,
+					  const char __user *ubuf,
+					  size_t count, loff_t *offset,
+					  bool is_secure)
 {
 	struct iommu_debug_device *ddev = file->private_data;
 	ssize_t retval;
-	char val;
+	int val;
 
-	if (count > 2) {
-		pr_err("Invalid value.  Expected 0 or 1.\n");
-		retval = -EINVAL;
-		goto out;
-	}
-
-	if (copy_from_user(&val, ubuf, 1)) {
-		pr_err("Couldn't copy from user\n");
+	if (kstrtoint_from_user(ubuf, count, 0, &val)) {
+		pr_err("Invalid format. Expected a hex or decimal integer");
 		retval = -EFAULT;
 		goto out;
 	}
 
-	if (val == '1') {
+	if (val) {
 		if (ddev->domain) {
 			pr_err("Already attached.\n");
 			retval = -EINVAL;
@@ -483,12 +497,12 @@ static ssize_t iommu_debug_attach_write(struct file *file,
 			retval = -EINVAL;
 			goto out;
 		}
-		if (iommu_debug_attach_do_attach(ddev)) {
+		if (iommu_debug_attach_do_attach(ddev, val, is_secure)) {
 			retval = -EIO;
 			goto out;
 		}
 		pr_err("Attached\n");
-	} else if (val == '0') {
+	} else {
 		if (!ddev->domain) {
 			pr_err("No domain. Did you already attach?\n");
 			retval = -EINVAL;
@@ -498,15 +512,20 @@ static ssize_t iommu_debug_attach_write(struct file *file,
 		iommu_domain_free(ddev->domain);
 		ddev->domain = NULL;
 		pr_err("Detached\n");
-	} else {
-		pr_err("Invalid value.  Expected 0 or 1\n");
-		retval = -EFAULT;
-		goto out;
 	}
 
 	retval = count;
 out:
 	return retval;
+}
+
+static ssize_t iommu_debug_attach_write(struct file *file,
+					  const char __user *ubuf,
+					  size_t count, loff_t *offset)
+{
+	return __iommu_debug_attach_write(file, ubuf, count, offset,
+					  false);
+
 }
 
 static ssize_t iommu_debug_attach_read(struct file *file, char __user *ubuf,
@@ -532,6 +551,21 @@ static ssize_t iommu_debug_attach_read(struct file *file, char __user *ubuf,
 static const struct file_operations iommu_debug_attach_fops = {
 	.open	= simple_open,
 	.write	= iommu_debug_attach_write,
+	.read	= iommu_debug_attach_read,
+};
+
+static ssize_t iommu_debug_attach_write_secure(struct file *file,
+					       const char __user *ubuf,
+					       size_t count, loff_t *offset)
+{
+	return __iommu_debug_attach_write(file, ubuf, count, offset,
+					  true);
+
+}
+
+static const struct file_operations iommu_debug_secure_attach_fops = {
+	.open	= simple_open,
+	.write	= iommu_debug_attach_write_secure,
 	.read	= iommu_debug_attach_read,
 };
 
@@ -775,6 +809,13 @@ static int snarf_iommu_devices(struct device *dev, void *ignored)
 	if (!debugfs_create_file("attach", S_IRUSR, dir, ddev,
 				 &iommu_debug_attach_fops)) {
 		pr_err("Couldn't create iommu/devices/%s/attach debugfs file\n",
+		       dev_name(dev));
+		goto err_rmdir;
+	}
+
+	if (!debugfs_create_file("secure_attach", S_IRUSR, dir, ddev,
+				 &iommu_debug_secure_attach_fops)) {
+		pr_err("Couldn't create iommu/devices/%s/secure_attach debugfs file\n",
 		       dev_name(dev));
 		goto err_rmdir;
 	}
