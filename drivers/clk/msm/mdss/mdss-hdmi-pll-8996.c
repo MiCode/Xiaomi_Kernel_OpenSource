@@ -318,7 +318,7 @@
 #define HDMI_PHY_PHY_REVISION_ID3             (0xC4)
 
 #define HDMI_PLL_POLL_MAX_READS                2500
-#define HDMI_PLL_POLL_TIMEOUT_US               100000
+#define HDMI_PLL_POLL_TIMEOUT_US               150000
 
 enum hdmi_pll_freqs {
 	HDMI_PCLK_25200_KHZ,
@@ -1418,8 +1418,8 @@ static int hdmi_8996_v3_calculate(u32 pix_clk,
 	cfg->phy_mode = (bclk > HDMI_HIGH_FREQ_BIT_CLK_THRESHOLD) ? 0x10 : 0x0;
 	cfg->com_vco_tune_ctrl = 0x0;
 
-	cfg->tx_l0_lane_mode = (pd.half_rate_mode ? 0x7 : 0x3);
-	cfg->tx_l2_lane_mode = (pd.half_rate_mode ? 0x7 : 0x3);
+	cfg->tx_l0_lane_mode = 0x43;
+	cfg->tx_l2_lane_mode = 0x43;
 
 	if (bclk > HDMI_HIGH_FREQ_BIT_CLK_THRESHOLD) {
 		cfg->tx_l0_tx_drv_lvl = 0x25;
