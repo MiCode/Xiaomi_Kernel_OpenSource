@@ -635,82 +635,42 @@ static void print_vmalloc_lowmem_info(void)
 {
 	struct memblock_region *reg, *prev_reg = NULL;
 
+	pr_notice(
+		"	   vmalloc : 0x%08lx - 0x%08lx   (%4ld MB)\n",
+		MLM((unsigned long)high_memory, VMALLOC_END));
+
 	for_each_memblock_rev(memory, reg) {
 		phys_addr_t start_phys = reg->base;
 		phys_addr_t end_phys = reg->base + reg->size;
 
+		if (start_phys > arm_lowmem_limit)
+			continue;
+
+		if (end_phys > arm_lowmem_limit)
+			end_phys = arm_lowmem_limit;
+
 		if (prev_reg == NULL) {
 			prev_reg = reg;
-			if (end_phys > arm_lowmem_limit) {
 
-				if (start_phys < arm_lowmem_limit) {
-					pr_notice(
-					"	   vmalloc : 0x%08lx - 0x%08lx   (%4ld MB)\n",
-					MLM(
-					(unsigned long)__va(arm_lowmem_limit),
-					VMALLOC_END));
-
-					pr_notice(
-					"	   lowmem  : 0x%08lx - 0x%08lx   (%4ld MB)\n",
-					MLM((unsigned long)__va(start_phys),
-					(unsigned long)__va(arm_lowmem_limit)));
-				} else {
-					pr_notice(
-					"	   vmalloc : 0x%08lx - 0x%08lx   (%4ld MB)\n",
-					MLM((unsigned long)__va(start_phys),
-					(unsigned long)__va(end_phys)));
-
-				}
-			} else {
-
-				pr_notice(
-				"	   lowmem  : 0x%08lx - 0x%08lx   (%4ld MB)\n",
-				MLM((unsigned long)__va(start_phys),
-				(unsigned long)__va(end_phys)));
-			}
+			pr_notice(
+			"	   lowmem  : 0x%08lx - 0x%08lx   (%4ld MB)\n",
+			MLM((unsigned long)__va(start_phys),
+			(unsigned long)__va(end_phys)));
 
 			continue;
 		}
 
-		start_phys = reg->base + reg->size;
-		end_phys = prev_reg->base;
-
 		pr_notice(
 		"	   vmalloc : 0x%08lx - 0x%08lx   (%4ld MB)\n",
+		MLM((unsigned long)__va(end_phys),
+		(unsigned long)__va(prev_reg->base)));
+
+
+		pr_notice(
+		"	   lowmem  : 0x%08lx - 0x%08lx   (%4ld MB)\n",
 		MLM((unsigned long)__va(start_phys),
 		(unsigned long)__va(end_phys)));
-
-
-		if (end_phys > arm_lowmem_limit) {
-
-			if (start_phys < arm_lowmem_limit) {
-				pr_notice(
-				"	   vmalloc : 0x%08lx - 0x%08lx   (%4ld MB)\n",
-				MLM((unsigned long)__va(arm_lowmem_limit),
-				VMALLOC_END));
-
-				pr_notice(
-				"	   lowmem  : 0x%08lx - 0x%08lx   (%4ld MB)\n",
-				MLM((unsigned long)__va(start_phys),
-				(unsigned long)__va(arm_lowmem_limit)));
-			} else {
-				pr_notice(
-				"	   vmalloc : 0x%08lx - 0x%08lx   (%4ld MB)\n",
-				MLM((unsigned long)__va(start_phys),
-				(unsigned long)__va(end_phys)));
-
-			}
-		} else {
-				start_phys = reg->base;
-				end_phys = reg->base + reg->size;
-				pr_notice(
-				"	   lowmem  : 0x%08lx - 0x%08lx   (%4ld MB)\n",
-				MLM((unsigned long)__va(start_phys),
-				(unsigned long)__va(end_phys)));
-		}
-				prev_reg = reg;
 	}
-
 }
 #endif
 
