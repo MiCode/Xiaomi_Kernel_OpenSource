@@ -11,7 +11,7 @@
  */
 
 #include "skeleton64.dtsi"
-#include <dt-bindings/clock/msm-clocks-8996.h>
+#include <dt-bindings/clock/msm-clocks-cobalt.h>
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 
 / {
@@ -228,7 +228,17 @@
 		};
 	};
 
-	clock_gcc: qcom,dummycc {
+	clock_gcc: qcom,gcc@100000 {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
+	clock_mmss: qcom,mmsscc@c8c0000 {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
+	clock_debug: qcom,debugcc@162000 {
 		compatible = "qcom,dummycc";
 		#clock-cells = <1>;
 	};
@@ -438,7 +448,7 @@
 		vddp-ref-clk-always-on;
 		clock-names = "ref_clk_src",
 			"ref_clk";
-		clocks = <&clock_gcc clk_ln_bb_clk>,
+		clocks = <&clock_gcc clk_ln_bb_clk1>,
 			<&clock_gcc clk_gcc_ufs_clkref_clk>;
 		status = "disabled";
 	};
@@ -471,7 +481,7 @@
 			<&clock_gcc clk_ufs_ice_core_clk_src>,
 			<&clock_gcc clk_gcc_ufs_unipro_core_clk>,
 			<&clock_gcc clk_gcc_ufs_ice_core_clk>,
-			<&clock_gcc clk_bb_clk1>,
+			<&clock_gcc clk_ln_bb_clk1>,
 			<&clock_gcc clk_gcc_ufs_tx_symbol_0_clk>,
 			<&clock_gcc clk_gcc_ufs_rx_symbol_0_clk>;
 		freq-table-hz =
