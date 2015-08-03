@@ -47,6 +47,8 @@
 #define IPA_ODU_RX_POOL_SZ 32
 #define IPA_SIZE_DL_CSUM_META_TRAILER 8
 
+#define IPA_HEADROOM 128
+
 static struct sk_buff *ipa_get_skb_ipa_rx(unsigned int len, gfp_t flags);
 static void ipa_replenish_wlan_rx_cache(struct ipa_sys_context *sys);
 static void ipa_replenish_rx_cache(struct ipa_sys_context *sys);
@@ -2264,6 +2266,18 @@ static struct sk_buff *ipa_get_skb_ipa_rx(unsigned int len, gfp_t flags)
 	return __dev_alloc_skb(len, flags);
 }
 
+static struct sk_buff *ipa_get_skb_ipa_rx_headroom(unsigned int len,
+		gfp_t flags)
+{
+	struct sk_buff *skb;
+
+	skb = __dev_alloc_skb(len + IPA_HEADROOM, flags);
+	if (skb)
+		skb_reserve(skb, IPA_HEADROOM);
+
+	return skb;
+}
+
 static void ipa_free_skb_rx(struct sk_buff *skb)
 {
 	dev_kfree_skb_any(skb);
@@ -2512,8 +2526,9 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 						replenish_rx_work_func);
 				INIT_WORK(&sys->repl_work, ipa_wq_repl_rx);
 				atomic_set(&sys->curr_polling_state, 0);
-				sys->rx_buff_sz = IPA_GENERIC_RX_BUFF_SZ;
-				sys->get_skb = ipa_get_skb_ipa_rx;
+				sys->rx_buff_sz = IPA_GENERIC_RX_BUFF_SZ -
+					IPA_HEADROOM;
+				sys->get_skb = ipa_get_skb_ipa_rx_headroom;
 				sys->free_skb = ipa_free_skb_rx;
 				in->ipa_ep_cfg.aggr.aggr_en = IPA_ENABLE_AGGR;
 				in->ipa_ep_cfg.aggr.aggr = IPA_GENERIC;
