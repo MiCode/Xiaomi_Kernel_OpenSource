@@ -733,12 +733,6 @@ void mmc_cmdq_clean(struct mmc_queue *mq, struct mmc_card *card)
 	mq->mqrq_cmdq = NULL;
 }
 
-static void mmc_wait_for_pending_reqs(struct mmc_queue *mq)
-{
-	wait_for_completion(&mq->cmdq_shutdown_complete);
-	mq->cmdq_shutdown(mq);
-}
-
 /**
  * mmc_queue_suspend - suspend a MMC request queue
  * @mq: MMC queue to suspend
@@ -755,22 +749,36 @@ int mmc_queue_suspend(struct mmc_queue *mq, int wait)
 	int rc = 0;
 	struct mmc_card *card = mq->card;
 
-	if (card->cmdq_init && blk_queue_tagged(q) && wait) {
+	if (card->cmdq_init && blk_queue_tagged(q)) {
 		struct mmc_host *host = card->host;
 
 		spin_lock_irqsave(q->queue_lock, flags);
 		blk_stop_queue(q);
 		spin_unlock_irqrestore(q->queue_lock, flags);
+		if (wait) {
+			/*
+			 * Wait for already queued requests to be issued by
+			 * mmc_cmdqd.
+			 */
+			down(&mq->thread_sem);
+			/* Wait for already issued requests to complete */
+			if (host->cmdq_ctx.active_reqs)
+				wait_for_completion(
+						&mq->cmdq_shutdown_complete);
 
-		/*
-		 * Wait for already queued requests to be issued by
-		 * mmc_cmdqd.
-		 */
-		down(&mq->thread_sem);
-		 /* Wait for already issued requests to complete */
-		if (host->cmdq_ctx.active_reqs)
-			mmc_wait_for_pending_reqs(mq);
-		mq->cmdq_shutdown(mq);
+			mq->cmdq_shutdown(mq);
+		} else if (!test_and_set_bit(MMC_QUEUE_SUSPENDED, &mq->flags)) {
+
+			rc = down_trylock(&mq->thread_sem);
+			if (rc || host->cmdq_ctx.active_reqs) {
+				clear_bit(MMC_QUEUE_SUSPENDED, &mq->flags);
+				spin_lock_irqsave(q->queue_lock, flags);
+				blk_start_queue(q);
+				spin_unlock_irqrestore(q->queue_lock, flags);
+				rc = -EBUSY;
+			}
+		}
+
 		goto out;
 	}
 
