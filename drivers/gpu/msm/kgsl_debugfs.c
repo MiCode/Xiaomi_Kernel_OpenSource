@@ -52,6 +52,20 @@ KGSL_DEBUGFS_LOG(ctxt_log);
 KGSL_DEBUGFS_LOG(mem_log);
 KGSL_DEBUGFS_LOG(pwr_log);
 
+static int _strict_set(void *data, u64 val)
+{
+	kgsl_sharedmem_set_noretry(val ? true : false);
+	return 0;
+}
+
+static int _strict_get(void *data, u64 *val)
+{
+	*val = kgsl_sharedmem_get_noretry();
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(_strict_fops, _strict_get, _strict_set, "%llu\n");
+
 void kgsl_device_debugfs_init(struct kgsl_device *device)
 {
 	if (kgsl_debugfs_dir && !IS_ERR(kgsl_debugfs_dir))
@@ -240,7 +254,15 @@ void kgsl_process_init_debugfs(struct kgsl_process_private *private)
 
 void kgsl_core_debugfs_init(void)
 {
+	struct dentry *debug_dir;
+
 	kgsl_debugfs_dir = debugfs_create_dir("kgsl", NULL);
+
+	debug_dir = debugfs_create_dir("debug", kgsl_debugfs_dir);
+
+	debugfs_create_file("strict_memory", 0644, debug_dir, NULL,
+		&_strict_fops);
+
 	proc_d_debugfs = debugfs_create_dir("proc", kgsl_debugfs_dir);
 }
 
