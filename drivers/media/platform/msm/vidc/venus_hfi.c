@@ -772,7 +772,14 @@ static int __devfreq_target(struct device *devfreq_dev,
 		goto err_unknown_device;
 	}
 
-	*freq = clamp_t(typeof(*freq), *freq, bus->range[0], bus->range[1]);
+	/*
+	 * Clamp for all non zero frequencies. This clamp is necessary to stop
+	 * devfreq driver from spamming - Couldn't update frequency - logs, if
+	 * the scaled ab value is not part of the frequency table.
+	 */
+	if (*freq)
+		*freq = clamp_t(typeof(*freq), *freq, bus->range[0],
+				bus->range[1]);
 
 	/* we expect governors to provide values in kBps form, convert to Bps */
 	ab = *freq * 1000;
