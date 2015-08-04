@@ -187,6 +187,7 @@ config MSM_CACHE_M4M_ERP64
 
 config MSM_CACHE_M4M_ERP64_PANIC_ON_CE
        bool "Panic on correctable cache/M4M errors"
+       depends on MSM_CACHE_M4M_ERP64
        help
          Say 'Y' here to cause kernel panic when correctable cache/M4M errors
          are detected.  Enabling this is useful when you want to dump memory
@@ -196,6 +197,7 @@ config MSM_CACHE_M4M_ERP64_PANIC_ON_CE
 
 config MSM_CACHE_M4M_ERP64_PANIC_ON_UE
        bool "Panic on uncorrectable cache/M4M errors"
+       depends on MSM_CACHE_M4M_ERP64
        help
          Say 'Y' here to cause kernel panic when uncorrectable cache/M4M errors
          are detected.
