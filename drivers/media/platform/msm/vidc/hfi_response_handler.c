@@ -727,6 +727,27 @@ enum vidc_status hfi_process_sess_init_done_prop_read(
 	return status;
 }
 
+static void hfi_process_sess_get_prop_dec_entropy(
+	struct hfi_msg_session_property_info_packet *prop,
+	enum hal_h264_entropy *entropy)
+{
+	u32 req_bytes, hfi_entropy;
+
+	req_bytes = prop->size - sizeof(
+			struct hfi_msg_session_property_info_packet);
+
+	if (!req_bytes || req_bytes % sizeof(hfi_entropy)) {
+		dprintk(VIDC_ERR, "%s: bad packet: %d\n", __func__, req_bytes);
+		return;
+	}
+
+	hfi_entropy = prop->rg_property_data[1];
+	*entropy =
+		hfi_entropy == HFI_H264_ENTROPY_CAVLC ? HAL_H264_ENTROPY_CAVLC :
+		hfi_entropy == HFI_H264_ENTROPY_CABAC ? HAL_H264_ENTROPY_CABAC :
+							HAL_UNUSED_ENTROPY;
+}
+
 static void hfi_process_sess_get_prop_profile_level(
 	struct hfi_msg_session_property_info_packet *prop,
 	struct hfi_profile_level *profile_level)
@@ -884,6 +905,7 @@ static int hfi_process_session_prop_info(u32 device_id,
 {
 	struct msm_vidc_cb_cmd_done cmd_done = {0};
 	struct hfi_profile_level profile_level = {0};
+	enum hal_h264_entropy entropy;
 	struct buffer_requirements buff_req = { { {0} } };
 
 	dprintk(VIDC_DBG, "Received SESSION_PROPERTY_INFO[%#x]\n",
@@ -925,6 +947,19 @@ static int hfi_process_session_prop_info(u32 device_id,
 				.level = profile_level.level,
 			};
 		cmd_done.size = sizeof(struct hal_profile_level);
+
+		*info = (struct msm_vidc_cb_info) {
+			.response_type =  HAL_SESSION_PROPERTY_INFO,
+			.response.cmd = cmd_done,
+		};
+		return 0;
+	case HFI_PROPERTY_CONFIG_VDEC_ENTROPY:
+		hfi_process_sess_get_prop_dec_entropy(pkt, &entropy);
+		cmd_done.device_id = device_id;
+		cmd_done.session_id = (void *)(uintptr_t)pkt->session_id;
+		cmd_done.status = VIDC_ERR_NONE;
+		cmd_done.data.property.h264_entropy = entropy;
+		cmd_done.size = sizeof(enum hal_h264_entropy);
 
 		*info = (struct msm_vidc_cb_info) {
 			.response_type =  HAL_SESSION_PROPERTY_INFO,
