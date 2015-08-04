@@ -39,7 +39,6 @@
 /* #define DEBUG 1 */
 #define pr_fmt(fmt)	"pfk [%s]: " fmt, __func__
 
-
 #include <linux/module.h>
 #include <linux/fs.h>
 #include <linux/errno.h>
@@ -273,7 +272,7 @@ static int pfk_parse_cipher(const unsigned char *cipher,
 		return -EPERM;
 
 	if (!strcmp(cipher, PFK_SUPPORTED_CIPHER) == 0) {
-		pr_err("not supported alghoritm\n");
+		pr_debug("not supported alghoritm %s\n", cipher);
 		return -EINVAL;
 	}
 
@@ -404,15 +403,17 @@ int pfk_load_key(const struct bio *bio, struct ice_crypto_setting *ice_setting)
 	}
 
 	cipher = ecryptfs_get_cipher(ecryptfs_data);
-	if (!key) {
+	if (!cipher) {
 		pr_err("could not parse key from ecryptfs\n");
 		ret = -EINVAL;
 		goto end;
 	}
 
 	ret = pfk_parse_cipher(cipher, &algo_mode);
-	if (ret != 0)
+	if (ret != 0) {
+		pr_debug("not supported cipher\n");
 		return ret;
+	}
 
 	ret = pfk_key_size_to_key_type(key_size, &key_size_type);
 	if (ret != 0)
@@ -583,8 +584,11 @@ static void pfk_open_cb(struct inode *inode, void *ecryptfs_data)
 		return;
 	}
 
-	if (0 != pfk_parse_cipher(cipher, NULL))
+	if (0 != pfk_parse_cipher(cipher, NULL)) {
+		pr_debug("open_cb: not supported cipher\n");
 		return;
+	}
+
 
 	if (0 != pfk_key_size_to_key_type(key_size, NULL))
 		return;
@@ -618,7 +622,7 @@ static void pfk_release_cb(struct inode *inode)
 
 	data = pfk_get_ecryptfs_data(inode);
 	if (!data) {
-		pr_err("could not get ecryptfs data from inode\n");
+		pr_debug("could not get ecryptfs data from inode\n");
 		return;
 	}
 
