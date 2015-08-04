@@ -28,6 +28,9 @@
 
 #define BAM_HANDLE_INVALID         0
 
+#define to_sps_bam_dev(x) \
+	container_of((x), struct sps_bam, base)
+
 enum bam_irq {
 	BAM_DEV_IRQ_RDY_TO_SLEEP = 0x00000001,
 	BAM_DEV_IRQ_HRESP_ERROR = 0x00000002,
@@ -215,9 +218,14 @@ struct sps_bam {
 	u32 irq_from_disabled_pipe;
 	u32 event_trigger_failures;
 
+	void *ipc_log0;
+	void *ipc_log1;
+	void *ipc_log2;
+	void *ipc_log3;
+	void *ipc_log4;
+
 	/* Desc cache pointers */
 	u8 *desc_cache_pointers[BAM_MAX_PIPES];
-
 };
 
 /**
@@ -592,4 +600,15 @@ int sps_bam_check_irq(struct sps_bam *dev);
  * @return true if there is any desc pending
  */
 bool sps_bam_pipe_pending_desc(struct sps_bam *dev, u32 pipe_index);
+
+/*
+ * sps_bam_pipe_inject_zlt - inject a ZLT with EOT.
+ * @dev:	BAM device handle
+ * @pipe_index:	pipe index
+ *
+ * This function injects a ZLT with EOT for a pipe of a BAM.
+ *
+ * Return: 0 on success, negative value on error
+ */
+int sps_bam_pipe_inject_zlt(struct sps_bam *dev, u32 pipe_index);
 #endif	/* _SPSBAM_H_ */
