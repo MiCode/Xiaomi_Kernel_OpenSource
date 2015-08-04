@@ -60,6 +60,7 @@
 #include "mdmcalifornium-regulator.dtsi"
 #include "mdmcalifornium-smp2p.dtsi"
 #include "msm-gdsc.dtsi"
+#include "mdmcalifornium-blsp.dtsi"
 
 &soc {
 	#address-cells = <1>;
