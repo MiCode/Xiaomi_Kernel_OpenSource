@@ -312,6 +312,7 @@
 			qcom,pmic-revid = <&pmi8950_revid>;
 			qcom,cycle-counter-en;
 			qcom,capacity-learning-on;
+			qcom,fg-cutoff-voltage-mv = <3400>;
 
 			qcom,fg-soc@4000 {
 			status = "okay";
