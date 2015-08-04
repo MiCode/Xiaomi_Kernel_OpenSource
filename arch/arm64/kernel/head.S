@@ -669,6 +669,14 @@ ENDPROC(__enable_mmu)
 __turn_mmu_on:
 	msr	sctlr_el1, x0
 	isb
+	/*
+	 * Invalidate the local I-cache so that any instructions fetched
+	 * speculatively from the PoC are discarded, since they may have
+	 * been dynamically patched at the PoU.
+	 */
+	ic	iallu
+	dsb	nsh
+	isb
 	br	x27
 ENDPROC(__turn_mmu_on)
 
