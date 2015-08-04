@@ -51,3 +51,19 @@
 
 	status = "ok";
 };
+
+&usb3 {
+	reg = <0x07000000 0xfc000>;
+	reg-names = "core_base";
+	dwc3@7000000 {
+		maximum-speed = "high-speed";
+	};
+};
+
+&ssphy {
+	compatible =  "usb-nop-xceiv";
+};
+
+&qusb_phy {
+	compatible =  "usb-nop-xceiv";
+};
