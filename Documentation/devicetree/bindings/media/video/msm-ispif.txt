@@ -11,6 +11,12 @@ Required properties:
 - interrupts : should contain the ispif interrupt.
 - interrupt-names : should specify relevant names to each interrupts
   property defined.
+- vfe0-vdd-supply: phandle to vfe0 regulator.
+- vfe1-vdd-supply: phandle to vfe1 regulator.
+- clocks: list of phandles to the clock controller device and coresponding
+  clock names.
+- clock-names: name of the clocks required for the device used by the consumer.
+- qcom,clock-rates: clock rate in Hz.
 
 Optional properties:
 - qcom,num-isps: The number of ISPs the ISPIF module is connected to. If not set
@@ -18,14 +24,58 @@ Optional properties:
 
 Example:
 
-   qcom,ispif@fda0a000 {
-       cell-index = <0>;
-       compatible = "qcom,ispif";
-       reg = <0xfda0a000 0x300>;
-       reg-names = "ispif";
-       interrupts = <0 55 0>;
-       interrupt-names = "ispif";
-   };
+	qcom,ispif@fda0a000 {
+		cell-index = <0>;
+		compatible = "qcom,ispif";
+		reg = <0xfda0a000 0x300>;
+		reg-names = "ispif";
+		interrupts = <0 55 0>;
+		interrupt-names = "ispif";
+		vfe0-vdd-supply = <&gdsc_vfe>;
+		vfe1-vdd-supply = <&gdsc_vfe1>;
+		clocks = <&clock_mmss clk_camss_ispif_ahb_clk>,
+			<&clock_mmss clk_csi0_clk_src>,
+			<&clock_mmss clk_camss_csi0_clk>,
+			<&clock_mmss clk_camss_csi0rdi_clk>,
+			<&clock_mmss clk_camss_csi0pix_clk>,
+			<&clock_mmss clk_csi1_clk_src>,
+			<&clock_mmss clk_camss_csi1_clk>,
+			<&clock_mmss clk_camss_csi1rdi_clk>,
+			<&clock_mmss clk_camss_csi1pix_clk>,
+			<&clock_mmss clk_csi2_clk_src>,
+			<&clock_mmss clk_camss_csi2_clk>,
+			<&clock_mmss clk_camss_csi2rdi_clk>,
+			<&clock_mmss clk_camss_csi2pix_clk>,
+			<&clock_mmss clk_csi3_clk_src>,
+			<&clock_mmss clk_camss_csi3_clk>,
+			<&clock_mmss clk_camss_csi3rdi_clk>,
+			<&clock_mmss clk_camss_csi3pix_clk>,
+			<&clock_mmss clk_vfe0_clk_src>,
+			<&clock_mmss clk_camss_vfe0_clk>,
+			<&clock_mmss clk_camss_csi_vfe0_clk>,
+			<&clock_mmss clk_vfe1_clk_src>,
+			<&clock_mmss clk_camss_vfe1_clk>,
+			<&clock_mmss clk_camss_csi_vfe1_clk>;
+		clock-names = "ispif_ahb_clk",
+			"csi0_src_clk", "csi0_clk",
+			"csi0_pix_clk", "csi0_rdi_clk",
+			"csi1_src_clk", "csi1_clk",
+			"csi1_pix_clk", "csi1_rdi_clk",
+			"csi2_src_clk", "csi2_clk",
+			"csi2_pix_clk", "csi2_rdi_clk",
+			"csi3_src_clk", "csi3_clk",
+			"csi3_pix_clk", "csi3_rdi_clk",
+			"vfe0_clk_src", "camss_vfe_vfe0_clk", "camss_csi_vfe0_clk",
+			"vfe1_clk_src", "camss_vfe_vfe1_clk", "camss_csi_vfe1_clk";
+		qcom,clock-rates = "0",
+			"200000000", "0", "0", "0",
+			"200000000", "0", "0", "0",
+			"200000000", "0", "0", "0",
+			"200000000", "0", "0", "0",
+			"0", "0", "0",
+			"0", "0", "0";
+	};
+
 
 or
 
