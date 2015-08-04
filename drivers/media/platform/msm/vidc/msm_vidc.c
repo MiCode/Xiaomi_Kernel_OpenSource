@@ -1290,68 +1290,27 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 
 int msm_vidc_destroy(struct msm_vidc_inst *inst)
 {
-	struct msm_vidc_inst *temp, *inst_dummy;
 	struct msm_vidc_core *core;
-	struct buffer_info *bi, *dummy;
-	int rc = 0;
-	int i;
+	int i = 0;
 
 	if (!inst || !inst->core)
 		return -EINVAL;
 
-	v4l2_fh_del(&inst->event_handler);
-
-	mutex_lock(&inst->registeredbufs.lock);
-	list_for_each_entry_safe(bi, dummy, &inst->registeredbufs.list, list) {
-		if (bi->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-			list_del(&bi->list);
-
-			for (i = 0; i < min(bi->num_planes, VIDEO_MAX_PLANES);
-					i++) {
-				if (bi->handle[i])
-					msm_comm_smem_free(inst, bi->handle[i]);
-			}
-
-			kfree(bi);
-		}
-	}
-	mutex_unlock(&inst->registeredbufs.lock);
-
 	core = inst->core;
 
-	mutex_lock(&core->lock);
-	list_for_each_entry_safe(temp, inst_dummy, &core->instances, list) {
-		if (temp == inst)
-			list_del(&inst->list);
-	}
-	mutex_unlock(&core->lock);
-
-	if (inst->session_type == MSM_VIDC_DECODER)
-		msm_vdec_ctrl_deinit(inst);
-	else if (inst->session_type == MSM_VIDC_ENCODER)
-		msm_venc_ctrl_deinit(inst);
+	v4l2_fh_del(&inst->event_handler);
 
 	for (i = 0; i < MAX_PORT_NUM; i++)
 		vb2_queue_release(&inst->bufq[i].vb2_bufq);
 
-	cleanup_instance(inst);
-	if (inst->state != MSM_VIDC_CORE_INVALID &&
-		core->state != VIDC_CORE_INVALID)
-		rc = msm_comm_try_state(inst, MSM_VIDC_CORE_UNINIT);
-	else
-		rc = msm_comm_force_cleanup(inst);
-	if (rc)
-		dprintk(VIDC_ERR,
-			"Failed to move video instance to uninit state\n");
-
-	msm_comm_session_clean(inst);
-
-	msm_smem_delete_client(inst->mem_client);
+	mutex_lock(&core->lock);
+	/* inst->list lives in core->instances */
+	list_del(&inst->list);
+	mutex_unlock(&core->lock);
 
 	pr_info(VIDC_DBG_TAG "Closed video instance: %p\n",
 			VIDC_MSG_PRIO2STRING(VIDC_INFO), inst);
 	kfree(inst);
-
 	return 0;
 }
 
@@ -1366,9 +1325,48 @@ int msm_vidc_close(void *instance)
 	}
 
 	struct msm_vidc_inst *inst = instance;
+	struct buffer_info *bi, *dummy;
+	int rc = 0;
 
-	if (!inst)
+	if (!inst || !inst->core)
 		return -EINVAL;
+
+
+	mutex_lock(&inst->registeredbufs.lock);
+	list_for_each_entry_safe(bi, dummy, &inst->registeredbufs.list, list) {
+		if (bi->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+			int i = 0;
+
+			list_del(&bi->list);
+
+			for (i = 0; i < min(bi->num_planes, VIDEO_MAX_PLANES);
+					i++) {
+				if (bi->handle[i])
+					msm_comm_smem_free(inst, bi->handle[i]);
+			}
+
+			kfree(bi);
+		}
+	}
+	mutex_unlock(&inst->registeredbufs.lock);
+
+	if (inst->session_type == MSM_VIDC_DECODER)
+		msm_vdec_ctrl_deinit(inst);
+	else if (inst->session_type == MSM_VIDC_ENCODER)
+		msm_venc_ctrl_deinit(inst);
+
+	cleanup_instance(inst);
+	if (inst->state != MSM_VIDC_CORE_INVALID &&
+		inst->core->state != VIDC_CORE_INVALID)
+		rc = msm_comm_try_state(inst, MSM_VIDC_CORE_UNINIT);
+	else
+		rc = msm_comm_force_cleanup(inst);
+	if (rc)
+		dprintk(VIDC_ERR,
+			"Failed to move video instance to uninit state\n");
+
+	msm_comm_session_clean(inst);
+	msm_smem_delete_client(inst->mem_client);
 
 	kref_put(&inst->kref, close_helper);
 	return 0;
