@@ -679,7 +679,7 @@ struct adreno_gpudev {
 	int (*preemption_token)(struct adreno_device *,
 				struct adreno_ringbuffer *, unsigned int *,
 				uint64_t gpuaddr);
-	void (*preemption_init)(struct adreno_device *);
+	int (*preemption_init)(struct adreno_device *);
 	void (*preemption_schedule)(struct adreno_device *);
 	void (*enable_64bit)(struct adreno_device *);
 	void (*cp_crash_dumper_init)(struct adreno_device *);
@@ -1339,11 +1339,6 @@ void adreno_writereg64(struct adreno_device *adreno_dev,
 
 unsigned int adreno_iommu_set_apriv(struct adreno_device *adreno_dev,
 				unsigned int *cmds, int set);
-
-static inline void adreno_preemption_disable(struct adreno_device *adreno_dev)
-{
-	clear_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
-}
 
 static inline bool adreno_is_preemption_enabled(
 				struct adreno_device *adreno_dev)

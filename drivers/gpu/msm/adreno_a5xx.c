@@ -160,74 +160,61 @@ static void a5xx_preemption_save(struct adreno_device *adreno_dev,
 		PREEMPT_RECORD(rptr));
 }
 
-/*
- * a5xx_preemption_init() - Init preemption
- */
-static void a5xx_preemption_init(struct adreno_device *adreno_dev)
+static int a5xx_preemption_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct kgsl_iommu *iommu = device->mmu.priv;
 	struct adreno_ringbuffer *rb;
-	uint i, ret;
-	uint64_t gaddr;
+	int ret;
+	unsigned int i;
+	uint64_t addr;
 
-	if (!adreno_is_preemption_enabled(adreno_dev))
-		return;
+	/* We are dependent on IOMMU to make preemption go on the CP side */
+	if (kgsl_mmu_get_mmutype() != KGSL_MMU_TYPE_IOMMU)
+		return -ENODEV;
 
 	/* Allocate mem for storing preemption counters */
 	ret = kgsl_allocate_global(device, &adreno_dev->preemption_counters,
-							   PAGE_SIZE, 0, 0);
+		adreno_dev->num_ringbuffers *
+		A5XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE, 0, 0);
+	if (ret)
+		return ret;
+
+	addr = adreno_dev->preemption_counters.gpuaddr;
 
 	/* Allocate mem for storing preemption switch record */
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
 		ret = kgsl_allocate_global(&adreno_dev->dev,
-			&rb->preemption_desc,
-			A5XX_CP_CTXRECORD_SIZE_IN_BYTES, 0,
-			KGSL_MEMDESC_PRIVILEGED);
-		if (!ret) {
-			/* Initialize the context switch record here */
-			kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
-				PREEMPT_RECORD(magic),
-				A5XX_CP_CTXRECORD_MAGIC_REF);
-			kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
-				PREEMPT_RECORD(info), 0);
-			kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
-				PREEMPT_RECORD(data), 0);
-			kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
-				PREEMPT_RECORD(cntl), 0x0800000C);
-			kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
-				PREEMPT_RECORD(rptr), 0);
-			kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
-				PREEMPT_RECORD(wptr), 0);
-			kgsl_sharedmem_writeq(rb->device, &rb->preemption_desc,
-				PREEMPT_RECORD(rbase),
-				adreno_dev->ringbuffers[i].buffer_desc.gpuaddr);
-			gaddr = (adreno_dev->preemption_counters.gpuaddr +
-			i*A5XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE_IN_DWORDS);
+			&rb->preemption_desc, A5XX_CP_CTXRECORD_SIZE_IN_BYTES,
+			0, KGSL_MEMDESC_PRIVILEGED);
+		if (ret)
+			return ret;
 
-			if ((gaddr - adreno_dev->preemption_counters.gpuaddr)
-				< PAGE_SIZE) {
-				kgsl_sharedmem_writeq(rb->device,
-					&rb->preemption_desc,
-					offsetof(
-					struct a5xx_cp_preemption_record,
-					counter), gaddr);
-			} else
-				KGSL_DRV_ERR(device,
-					"Insufficient memory for preemption counters\n");
-		} else {
-			adreno_preemption_disable(adreno_dev);
-			WARN(1, "gpu preemption: disabled due to low memory");
-		}
+		/* Initialize the context switch record here */
+		kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
+			PREEMPT_RECORD(magic), A5XX_CP_CTXRECORD_MAGIC_REF);
+		kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
+			PREEMPT_RECORD(info), 0);
+		kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
+			PREEMPT_RECORD(data), 0);
+		kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
+			PREEMPT_RECORD(cntl), 0x0800000C);
+		kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
+			PREEMPT_RECORD(rptr), 0);
+		kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
+			PREEMPT_RECORD(wptr), 0);
+		kgsl_sharedmem_writeq(rb->device, &rb->preemption_desc,
+			PREEMPT_RECORD(rbase),
+			adreno_dev->ringbuffers[i].buffer_desc.gpuaddr);
+		kgsl_sharedmem_writeq(rb->device, &rb->preemption_desc,
+			PREEMPT_RECORD(counter), addr);
+
+		addr += A5XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE;
 	}
 
 	/* Allocate mem for storing preemption smmu record */
-	ret = kgsl_allocate_global(device, &iommu->smmu_info, PAGE_SIZE,
-			   KGSL_MEMDESC_PRIVILEGED, 0);
-	if (ret) {
-		adreno_preemption_disable(adreno_dev);
-		WARN(1, "preemption: disabled due to low memory");
-	}
+	return kgsl_allocate_global(device, &iommu->smmu_info, PAGE_SIZE,
+		KGSL_MEMDESC_PRIVILEGED, 0);
 }
 
 /*
