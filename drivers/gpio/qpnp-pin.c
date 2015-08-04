@@ -1616,5 +1616,5 @@ static void __exit qpnp_pin_exit(void)
 MODULE_DESCRIPTION("QPNP PMIC gpio driver");
 MODULE_LICENSE("GPL v2");
 
-module_init(qpnp_pin_init);
+subsys_initcall(qpnp_pin_init);
 module_exit(qpnp_pin_exit);
