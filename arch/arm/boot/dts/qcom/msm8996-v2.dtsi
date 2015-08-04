@@ -571,6 +571,12 @@
 		clock-names = "core_clk";
 		qcom,use-dma-zone;
 	};
+
+	qcom,msm-thermal{
+		qcom,vdd-gfx-rstr{
+			qcom,levels = <4 5 5>; /* Nominal, Turbo, Turbo */
+		};
+	};
 };
 
 &tsens0 {

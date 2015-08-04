@@ -2930,7 +2930,7 @@
 
 		qcom,vdd-gfx-rstr{
 			qcom,vdd-rstr-reg = "vdd-gfx";
-			qcom,levels = <4 5 5>; /* Nominal, Turbo, Turbo */
+			qcom,levels = <4 7 7>; /* Nominal, Turbo, Turbo */
 			qcom,min-level = <1>; /* No Request */
 		};
 
