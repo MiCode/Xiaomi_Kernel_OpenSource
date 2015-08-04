@@ -130,12 +130,17 @@ static int print_mem_entry(int id, void *ptr, void *data)
 
 	kgsl_get_memory_usage(usage, sizeof(usage), m->flags);
 
-	seq_printf(s, "%pK %pK %16llu %5d %8s %10s %16s %5d\n",
+	seq_printf(s, "%pK %pK %16llu %5d %8s %10s %16s %5d",
 			(uint64_t *)(uintptr_t) m->gpuaddr,
 			(unsigned long *) m->useraddr,
 			m->size, entry->id, flags,
 			memtype_str(kgsl_memdesc_usermem_type(m)),
 			usage, m->sgt->nents);
+
+	if (entry->metadata[0] != 0)
+		seq_printf(s, " %s", entry->metadata);
+
+	seq_putc(s, '\n');
 
 	return 0;
 }

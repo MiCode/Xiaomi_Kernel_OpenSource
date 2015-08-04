@@ -29,6 +29,7 @@
 #include <linux/sort.h>
 #include <linux/security.h>
 #include <linux/compat.h>
+#include <linux/ctype.h>
 
 #include "kgsl.h"
 #include "kgsl_debugfs.h"
@@ -2970,6 +2971,28 @@ err:
 	return ERR_PTR(ret);
 }
 
+static void copy_metadata(struct kgsl_mem_entry *entry, uint64_t metadata,
+		unsigned int len)
+{
+	unsigned int i, size;
+
+	if (len == 0)
+		return;
+
+	size = min_t(unsigned int, len, sizeof(entry->metadata) - 1);
+
+	if (copy_from_user(entry->metadata, to_user_ptr(metadata), size)) {
+		memset(entry->metadata, 0, sizeof(entry->metadata));
+		return;
+	}
+
+	/* Clean up non printable characters in the string */
+	for (i = 0; i < size && entry->metadata[i] != 0; i++) {
+		if (!isprint(entry->metadata[i]))
+			entry->metadata[i] = '?';
+	}
+}
+
 long kgsl_ioctl_gpuobj_alloc(struct kgsl_device_private *dev_priv,
 		unsigned int cmd, void *data)
 {
@@ -2981,6 +3004,8 @@ long kgsl_ioctl_gpuobj_alloc(struct kgsl_device_private *dev_priv,
 
 	if (IS_ERR(entry))
 		return PTR_ERR(entry);
+
+	copy_metadata(entry, param->metadata, param->metadata_len);
 
 	param->size = entry->memdesc.size;
 	param->flags = entry->memdesc.flags;
@@ -3097,6 +3122,32 @@ long kgsl_ioctl_gpuobj_info(struct kgsl_device_private *dev_priv,
 	param->size = entry->memdesc.size;
 	param->va_len = kgsl_memdesc_mmapsize(&entry->memdesc);
 	param->va_addr = (uint64_t) entry->memdesc.useraddr;
+
+	kgsl_mem_entry_put(entry);
+	return 0;
+}
+
+long kgsl_ioctl_gpuobj_set_info(struct kgsl_device_private *dev_priv,
+		unsigned int cmd, void *data)
+{
+	struct kgsl_process_private *private = dev_priv->process_priv;
+	struct kgsl_gpuobj_set_info *param = data;
+	struct kgsl_mem_entry *entry;
+
+	if (param->id == 0)
+		return -EINVAL;
+
+	entry = kgsl_sharedmem_find_id(private, param->id);
+	if (entry == NULL)
+		return -EINVAL;
+
+	if (param->flags & KGSL_GPUOBJ_SET_INFO_METADATA)
+		copy_metadata(entry, param->metadata, param->metadata_len);
+
+	if (param->flags & KGSL_GPUOBJ_SET_INFO_TYPE) {
+		entry->memdesc.flags &= ~KGSL_MEMTYPE_MASK;
+		entry->memdesc.flags |= param->type << KGSL_MEMTYPE_SHIFT;
+	}
 
 	kgsl_mem_entry_put(entry);
 	return 0;

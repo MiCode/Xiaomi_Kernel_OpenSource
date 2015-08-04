@@ -189,6 +189,7 @@ struct kgsl_memdesc {
  * @pending_free: if !0, userspace requested that his memory be freed, but there
  *  are still references to it.
  * @dev_priv: back pointer to the device file that created this entry.
+ * @metadata: String containing user specified metadata for the entry
  */
 struct kgsl_mem_entry {
 	struct kref refcount;
@@ -198,6 +199,7 @@ struct kgsl_mem_entry {
 	unsigned int id;
 	struct kgsl_process_private *priv;
 	int pending_free;
+	char metadata[KGSL_GPUOBJ_ALLOC_METADATA_MAX + 1];
 };
 
 struct kgsl_device_private;
@@ -325,6 +327,8 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 long kgsl_ioctl_gpuobj_sync(struct kgsl_device_private *dev_priv,
 					unsigned int cmd, void *data);
 long kgsl_ioctl_gpu_command(struct kgsl_device_private *dev_priv,
+				unsigned int cmd, void *data);
+long kgsl_ioctl_gpuobj_set_info(struct kgsl_device_private *dev_priv,
 				unsigned int cmd, void *data);
 
 void kgsl_mem_entry_destroy(struct kref *kref);
