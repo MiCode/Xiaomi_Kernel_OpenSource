@@ -59,6 +59,7 @@
 &dsi_truly_1080_cmd {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,panel-roi-alignment = <2 2 4 2 1080 2>;
 };
 
 &pmx_mdss {
