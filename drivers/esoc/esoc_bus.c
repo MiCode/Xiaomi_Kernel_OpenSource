@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,7 +60,7 @@ static int esoc_bus_probe(struct device *dev)
 	struct esoc_clink *esoc_clink = to_esoc_clink(dev);
 	struct esoc_drv *esoc_drv = to_esoc_drv(dev->driver);
 
-	ret = esoc_drv->probe(esoc_clink);
+	ret = esoc_drv->probe(esoc_clink, esoc_drv);
 	if (ret) {
 		pr_err("failed to probe %s dev\n", esoc_clink->name);
 		return ret;
