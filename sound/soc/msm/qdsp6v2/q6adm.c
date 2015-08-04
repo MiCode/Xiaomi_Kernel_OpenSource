@@ -4102,7 +4102,7 @@ int adm_get_source_tracking(int port_id, int copp_idx,
 				+ sizeof(struct adm_param_data_v5);
 	admp.reserved = 0;
 
-	atomic_set(&this_adm.copp.stat[p_idx][copp_idx], 0);
+	atomic_set(&this_adm.copp.stat[p_idx][copp_idx], -1);
 
 	ret = apr_send_pkt(this_adm.apr, (uint32_t *)&admp);
 	if (ret < 0) {
@@ -4113,12 +4113,22 @@ int adm_get_source_tracking(int port_id, int copp_idx,
 		goto done;
 	}
 	ret = wait_event_timeout(this_adm.copp.wait[p_idx][copp_idx],
-			atomic_read(&this_adm.copp.stat[p_idx][copp_idx]),
+			atomic_read(&this_adm.copp.stat[p_idx][copp_idx]) >= 0,
 			msecs_to_jiffies(TIMEOUT_MS));
 	if (!ret) {
 		pr_err("%s - get params timed out\n", __func__);
 
 		ret = -EINVAL;
+		goto done;
+	} else if (atomic_read(&this_adm.copp.stat
+				[p_idx][copp_idx]) > 0) {
+		pr_err("%s: DSP returned error[%s]\n",
+			__func__, adsp_err_get_err_str(
+			atomic_read(&this_adm.copp.stat
+			[p_idx][copp_idx])));
+		ret = adsp_err_get_lnx_err_code(
+				atomic_read(&this_adm.copp.stat
+					[p_idx][copp_idx]));
 		goto done;
 	}
 
