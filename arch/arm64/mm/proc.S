@@ -191,7 +191,6 @@ ENDPROC(cpu_do_switch_mm)
  *	value of the SCTLR_EL1 register.
  */
 ENTRY(__cpu_setup)
-	ic	iallu				// I+BTB cache invalidate
 	tlbi	vmalle1is			// invalidate I + D TLBs
 	dsb	ish
 
