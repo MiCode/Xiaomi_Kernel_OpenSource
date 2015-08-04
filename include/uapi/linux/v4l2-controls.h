@@ -1005,6 +1005,15 @@ enum v4l2_mpeg_vidc_video_mbi_statistics_mode {
 #define V4L2_CID_MPEG_VIDC_VIDEO_MAX_HIERP_LAYERS \
 		(V4L2_CID_MPEG_MSM_VIDC_BASE + 75)
 
+#define V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_MODE \
+		(V4L2_CID_MPEG_MSM_VIDC_BASE + 76)
+
+enum v4l2_mpeg_vidc_video_lowlatency_mode {
+	V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_DISABLE     = 0,
+	V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_ENABLE      = 1,
+};
+
+
 /*  Camera class control IDs */
 
 #define V4L2_CID_CAMERA_CLASS_BASE 	(V4L2_CTRL_CLASS_CAMERA | 0x900)
