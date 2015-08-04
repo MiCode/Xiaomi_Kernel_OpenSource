@@ -394,9 +394,9 @@ static int msm8952_enable_codec_mclk(struct snd_soc_codec *codec, int enable,
 	pr_debug("%s: enable = %d\n", __func__, enable);
 
 	if (!strcmp(dev_name(pdata->codec->dev), "tomtom_codec"))
-		tomtom_codec_mclk_enable(codec, 1, dapm);
+		tomtom_codec_mclk_enable(codec, enable, dapm);
 	else if (!strcmp(dev_name(pdata->codec->dev), "tasha_codec"))
-		tasha_cdc_mclk_enable(codec, 1, dapm);
+		tasha_cdc_mclk_enable(codec, enable, dapm);
 
 	return 0;
 }
