@@ -604,6 +604,34 @@
 			};
 		};
 
+		spi_0_cs {
+			spi_0_cs_active: spi_0_cs_active {
+				mux {
+					pins = "gpio24", "gpio90";
+					function = "blsp1_spi";
+				};
+
+				config {
+					pins = "gpio24", "gpio90";
+					drive-strength = <6>;
+					bias-pull-up;
+				};
+			};
+
+			spi_0_cs_sleep: spi_0_cs_sleep {
+				mux {
+					pins = "gpio24", "gpio90";
+					function = "blsp1_spi";
+				};
+
+				config {
+					pins = "gpio24", "gpio90";
+					drive-strength = <6>;
+					bias-pull-up;
+				};
+			};
+		};
+
 		pcie0 {
 			pcie0_clkreq_default: pcie0_clkreq_default {
 				mux {
