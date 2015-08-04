@@ -90,14 +90,15 @@ enum {
 };
 
 enum dig_major {
-	DIG_REV_8994_1 = 0x1,
-	DIG_REV_8994_2 = 0x2,
-	DIG_REV_8950_3 = 0x3,
+	DIG_REV_1 = 0x1,
+	DIG_REV_2 = 0x2,
+	DIG_REV_3 = 0x3,
 };
 
 enum pmic_subtype {
 	PMI8994		= 10,
 	PMI8950		= 17,
+	PMI8996		= 19,
 };
 
 enum wa_flags {
@@ -5473,6 +5474,7 @@ static int fg_hw_init(struct fg_chip *chip)
 	case PMI8994:
 		rc = fg_8994_hw_init(chip);
 		break;
+	case PMI8996:
 	case PMI8950:
 		rc = fg_8950_hw_init(chip);
 		/* Setup workaround flag based on PMIC type */
@@ -5505,11 +5507,11 @@ static int fg_setup_memif_offset(struct fg_chip *chip)
 	}
 
 	switch (chip->revision[DIG_MAJOR]) {
-	case DIG_REV_8994_1:
-	case DIG_REV_8994_2:
+	case DIG_REV_1:
+	case DIG_REV_2:
 		chip->offset = offset[0].address;
 		break;
-	case DIG_REV_8950_3:
+	case DIG_REV_3:
 		chip->offset = offset[1].address;
 		chip->ima_supported = true;
 		break;
@@ -5563,6 +5565,7 @@ static int fg_detect_pmic_type(struct fg_chip *chip)
 	switch (pmic_rev_id->pmic_subtype) {
 	case PMI8994:
 	case PMI8950:
+	case PMI8996:
 		chip->pmic_subtype = pmic_rev_id->pmic_subtype;
 		break;
 	default:
