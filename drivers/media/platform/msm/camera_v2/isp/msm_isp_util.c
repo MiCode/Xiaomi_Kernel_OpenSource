@@ -629,7 +629,7 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 	}
 
 	dual_hw_ms_cmd = (struct msm_isp_set_dual_hw_ms_cmd *)arg;
-	vfe_dev->common_data->dual_hw_type = DUAL_HW_MASTER_SLAVE;
+	vfe_dev->common_data->ms_resource.dual_hw_type = DUAL_HW_MASTER_SLAVE;
 
 	if (dual_hw_ms_cmd->primary_intf >= VFE_SRC_MAX) {
 		pr_err("%s: Error! Invalid SRC param %d\n", __func__,
@@ -648,8 +648,8 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 		ISP_DBG("%s: Master\n", __func__);
 
 		src_info->dual_hw_ms_info.sof_info =
-			&vfe_dev->common_data->master_sof_info;
-		vfe_dev->common_data->sof_delta_threshold =
+			&vfe_dev->common_data->ms_resource.master_sof_info;
+		vfe_dev->common_data->ms_resource.sof_delta_threshold =
 			dual_hw_ms_cmd->sof_delta_threshold;
 	} else {
 		spin_lock(&vfe_dev->common_data->common_dev_data_lock);
@@ -657,14 +657,16 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 		ISP_DBG("%s: Slave\n", __func__);
 
 		for (j = 0; j < MS_NUM_SLAVE_MAX; j++) {
-			if (vfe_dev->common_data->reserved_slave_mask &
-				(1 << j))
+			if (vfe_dev->common_data->ms_resource.
+				reserved_slave_mask & (1 << j))
 				continue;
 
-			vfe_dev->common_data->reserved_slave_mask |= (1 << j);
-			vfe_dev->common_data->num_slave++;
+			vfe_dev->common_data->ms_resource.reserved_slave_mask |=
+				(1 << j);
+			vfe_dev->common_data->ms_resource.num_slave++;
 			src_info->dual_hw_ms_info.sof_info =
-				&vfe_dev->common_data->slave_sof_info[j];
+				&vfe_dev->common_data->ms_resource.
+				slave_sof_info[j];
 			src_info->dual_hw_ms_info.slave_id = j;
 			ISP_DBG("%s: Slave id %d\n", __func__, j);
 			break;
