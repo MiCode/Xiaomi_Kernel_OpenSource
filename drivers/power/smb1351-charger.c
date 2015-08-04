@@ -1354,13 +1354,6 @@ static int smb1351_parallel_set_chg_present(struct smb1351_charger *chip,
 	int rc;
 	u8 reg, mask = 0;
 
-	/* Check if SMB1351 is present */
-	rc = smb1351_read_reg(chip, CHG_REVISION_REG, &reg);
-	if (rc) {
-		pr_debug("Failed to detect smb1351-parallel-charger, may be absent\n");
-		return -ENODEV;
-	}
-
 	if (present == chip->parallel_charger_present) {
 		pr_debug("present %d -> %d, skipping\n",
 				chip->parallel_charger_present, present);
@@ -1368,6 +1361,13 @@ static int smb1351_parallel_set_chg_present(struct smb1351_charger *chip,
 	}
 
 	if (present) {
+		/* Check if SMB1351 is present */
+		rc = smb1351_read_reg(chip, CHG_REVISION_REG, &reg);
+		if (rc) {
+			pr_debug("Failed to detect smb1351-parallel-charger, may be absent\n");
+			return -ENODEV;
+		}
+
 		rc = smb1351_enable_volatile_writes(chip);
 		if (rc) {
 			pr_err("Couldn't configure for volatile rc = %d\n", rc);
