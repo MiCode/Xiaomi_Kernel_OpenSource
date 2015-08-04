@@ -3258,7 +3258,7 @@ static void status_change_work(struct work_struct *work)
 		}
 	}
 
-	if (chip->prev_status != chip->status) {
+	if (chip->prev_status != chip->status && chip->last_sram_update_time) {
 		get_current_time(&current_time);
 		/*
 		 * When charging status changes, update SRAM parameters if it
