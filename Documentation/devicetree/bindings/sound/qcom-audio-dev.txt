@@ -793,11 +793,18 @@ mclk frequency needs to be configured for internal and external PA.
 - asoc-cpu: This is phandle list containing the references to cpu dai device nodes
 	    that are used as part of the sound card dai-links.
 - asoc-cpu-names: This property contains list of cpu dai names. The order of the
-		  cpu dai names should match to that of the phandle order given
+		  cpu dai names should match to that of the phandle order given.
+- asoc-codec: This is phandle list containing the references to codec dai device
+	nodes that are used as part of the sound card dai-links.
+- asoc-codec-names: This property contains list of codec dai names. The order of the
+	codec dai names should match to that of the phandle order given
+	in "asoc-codec".
 - asoc-wsa-codec-names: This property contains list of wsa codec names. The names
 		  should comply with the wsa nodes configurations.
 - asoc-wsa-codec-prefixes: This property contains list of wsa codec prefixes.
-
+- msm-vdd-wsa-switch-supply: WSA codec supply's regulator device tree node.
+- qcom,msm-vdd-wsa-switch-voltage: WSA codec supply's voltage level in mV.
+- qcom,msm-vdd-wsa-switch-current: WSA codec max current level in mA.
 
 Example:
 	 sound {

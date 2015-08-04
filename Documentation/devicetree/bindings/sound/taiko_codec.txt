@@ -372,13 +372,19 @@ Tombak audio CODEC in SPMI mode
  - interrupt-names: Names specificed to above list of interrupts in same
 		    order.
 
+Optional properties:
+
  - cdc-vdda-cp-supply: phandle of cp supply's regulator device tree node.
  - qcom,cdc-vdda-cp-voltage: cp supply's voltage level min and max in mV.
  - qcom,cdc-vdda-cp-current: cp supply's max current in mA.
 
- - cdc-vdda-h-supply: phandle of vdda-h supply's regulator device tree node.
- - qcom,cdc-vdda-h-voltage: vdda-h supply's voltage level min and max in mV.
- - qcom,cdc-vdda-h-current: vdda-h supply's max current in mA.
+ - cdc-vdda-rx-h-supply: phandle of vdda-rx-h supply's regulator device tree node.
+ - qcom,cdc-vdda-rx-h-voltage: vdda-rx-h supply's voltage level min and max in mV.
+ - qcom,cdc-vdda-rx-h-current: vdda-rx-h supply's max current in mA.
+
+ - cdc-vdda-tx-h-supply: phandle of vdda-tx-h supply's regulator device tree node.
+ - qcom,cdc-vdda-tx-h-voltage: vdda-tx-h supply's voltage level min and max in mV.
+ - qcom,cdc-vdda-tx-h-current: vdda-tx-h supply's max current in mA.
 
  - cdc-vdd-px-supply: phandle of vdd-px supply's regulator device tree node.
  - qcom,cdc-vdd-px-voltage: vdd-px supply's voltage level min and max in mV.
@@ -400,8 +406,6 @@ Tombak audio CODEC in SPMI mode
  - qcom,cdc-static-supplies: List of supplies to be enabled prior to codec
 			     hardware probe.  Supplies in this list will be
 			     stay enabled.
-
-Optional properties:
 
  - qcom,cdc-on-demand-supplies: List of supplies which can be enabled
 				dynamically.
@@ -438,9 +442,13 @@ msm8x16_wcd_codec@f000{
 	qcom,cdc-vdda-cp-voltage = <1800000 2200000>;
 	qcom,cdc-vdda-cp-current = <770000>;
 
-	cdc-vdda-h-supply = <&pm8916_l5>;
-	qcom,cdc-vdda-h-voltage = <1800000 1800000>;
-	qcom,cdc-vdda-h-current = <20000>;
+	cdc-vdda-rx-h-supply = <&pm8916_l5>;
+	qcom,cdc-vdda-rx-h-voltage = <1800000 1800000>;
+	qcom,cdc-vdda-rx-h-current = <20000>;
+
+	cdc-vdda-tx-h-supply = <&pm8916_l5>;
+	qcom,cdc-vdda-tx-h-voltage = <1800000 1800000>;
+	qcom,cdc-vdda-tx-h-current = <20000>;
 
 	cdc-vdd-px-supply = <&pm8916_s4>;
 	qcom,cdc-vdd-px-voltage = <1800000 2200000>;
