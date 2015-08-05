@@ -34,7 +34,7 @@
 
 #include <trace/events/sched.h>
 
-#include "sched.h"
+#include "qhmp_sched.h"
 
 /*
  * Targeted preemption latency for CPU-bound tasks:
@@ -2968,7 +2968,7 @@ int power_delta_exceeded(unsigned int cpu_cost, unsigned int base_cost)
 	return abs(delta) > cost_limit;
 }
 
-unsigned int power_cost_at_freq(int cpu, unsigned int freq)
+static unsigned int power_cost_at_freq(int cpu, unsigned int freq)
 {
 	int i = 0;
 	struct cpu_pwr_stats *per_cpu_info = get_cpu_pwr_stats();
@@ -3000,7 +3000,7 @@ unsigned int power_cost_at_freq(int cpu, unsigned int freq)
 /* Return the cost of running task p on CPU cpu. This function
  * currently assumes that task p is the only task which will run on
  * the CPU. */
-static unsigned int power_cost(u64 task_load, int cpu)
+unsigned int power_cost(u64 task_load, int cpu)
 {
 	unsigned int task_freq, cur_freq;
 	struct rq *rq = cpu_rq(cpu);
@@ -3040,13 +3040,14 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 	hmp_capable = !cpumask_full(&temp);
 
 	cpumask_and(&search_cpu, tsk_cpus_allowed(p), cpu_online_mask);
-	if (unlikely(!cpumask_test_cpu(i, &search_cpu)))
+	if (unlikely(!cpumask_test_cpu(i, &search_cpu))) {
 		i = cpumask_first(&search_cpu);
+		if (i >= nr_cpu_ids)
+			return fallback_cpu;
+	}
 
 	do {
 		rq = cpu_rq(i);
-
-		cpumask_clear_cpu(i, &search_cpu);
 
 		trace_sched_cpu_load(rq, idle_cpu(i),
 				     mostly_idle_cpu_sync(i,
@@ -3064,6 +3065,8 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 				       &rq->freq_domain_cpumask);
 			continue;
 		}
+
+		cpumask_clear_cpu(i, &search_cpu);
 
 		if (sched_cpu_high_irqload(i))
 			continue;

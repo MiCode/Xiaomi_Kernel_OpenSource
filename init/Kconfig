@@ -1154,6 +1154,15 @@ config SCHED_HMP
 	  in their instructions per-cycle capability or the maximum
 	  frequency they can attain.
 
+config SCHED_QHMP
+	bool "QHMP scheduler extensions"
+	depends on SCHED_HMP
+	help
+	  This options enables the QHMP scheduler extensions like
+	  small task classification for task packing, mostly_idle
+	  packing knobs and energy-aware task placements and load
+	  balancing.
+
 config CHECKPOINT_RESTORE
 	bool "Checkpoint/restore support" if EXPERT
 	default n

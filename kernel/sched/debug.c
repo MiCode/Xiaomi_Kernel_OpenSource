@@ -237,6 +237,10 @@ void print_cfs_rq(struct seq_file *m, int cpu, struct cfs_rq *cfs_rq)
 #ifdef CONFIG_SCHED_HMP
 	SEQ_printf(m, "  .%-30s: %d\n", "nr_big_tasks",
 			cfs_rq->hmp_stats.nr_big_tasks);
+#ifdef CONFIG_SCHED_QHMP
+	SEQ_printf(m, "  .%-30s: %d\n", "nr_small_tasks",
+			cfs_rq->hmp_stats.nr_small_tasks);
+#endif
 	SEQ_printf(m, "  .%-30s: %llu\n", "cumulative_runnable_avg",
 			cfs_rq->hmp_stats.cumulative_runnable_avg);
 #endif
@@ -316,6 +320,10 @@ do {									\
 	P(cpu_capacity);
 #endif
 #ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_QHMP
+	P(mostly_idle_load);
+	P(mostly_idle_nr_run);
+#endif
 	P(load_scale_factor);
 	P(capacity);
 	P(max_possible_capacity);
@@ -325,6 +333,9 @@ do {									\
 #endif
 #ifdef CONFIG_SCHED_HMP
 	P(hmp_stats.nr_big_tasks);
+#ifdef CONFIG_SCHED_QHMP
+	P(hmp_stats.nr_small_tasks);
+#endif
 	SEQ_printf(m, "  .%-30s: %llu\n", "hmp_stats.cumulative_runnable_avg",
 			rq->hmp_stats.cumulative_runnable_avg);
 #endif
@@ -408,6 +419,9 @@ static void sched_debug_header(struct seq_file *m)
 	P(sysctl_sched_child_runs_first);
 	P(sysctl_sched_features);
 #ifdef CONFIG_SCHED_HMP
+#ifdef CONFIG_SCHED_QHMP
+	P(sched_small_task);
+#endif
 	P(sched_upmigrate);
 	P(sched_downmigrate);
 	P(sched_init_task_load_windows);

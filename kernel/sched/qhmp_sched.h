@@ -1136,7 +1136,7 @@ extern void pre_big_small_task_count_change(const struct cpumask *cpus);
 extern void post_big_small_task_count_change(const struct cpumask *cpus);
 extern void set_hmp_defaults(void);
 extern int power_delta_exceeded(unsigned int cpu_cost, unsigned int base_cost);
-extern unsigned int power_cost_at_freq(int cpu, unsigned int freq);
+extern unsigned int power_cost(u64 load, int cpu);
 extern void reset_all_window_stats(u64 window_start, unsigned int window_size);
 extern void boost_kick(int cpu);
 extern int sched_boost(void);
@@ -1153,7 +1153,7 @@ static inline void set_hmp_defaults(void) { }
 
 static inline void clear_reserved(int cpu) { }
 
-#define power_cost_at_freq(...) 0
+#define power_cost(...) 0
 
 #define trace_sched_cpu_load(...)
 

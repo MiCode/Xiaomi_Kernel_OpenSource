@@ -66,9 +66,15 @@ extern unsigned int sysctl_sched_upmigrate_pct;
 extern unsigned int sysctl_sched_downmigrate_pct;
 extern int sysctl_sched_upmigrate_min_nice;
 extern unsigned int sysctl_sched_powerband_limit_pct;
+extern unsigned int sysctl_sched_boost;
+
+#ifdef CONFIG_SCHED_QHMP
+extern unsigned int sysctl_sched_min_runtime;
+extern unsigned int sysctl_sched_small_task_pct;
+#else
 extern unsigned int sysctl_sched_lowspill_freq;
 extern unsigned int sysctl_sched_pack_freq;
-extern unsigned int sysctl_sched_boost;
+#endif
 
 #else /* CONFIG_SCHED_HMP */
 

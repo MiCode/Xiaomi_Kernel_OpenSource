@@ -1,3 +1,6 @@
+#ifdef CONFIG_SCHED_QHMP
+#include "qhmp_sched.h"
+#else
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM sched
 
@@ -1034,3 +1037,4 @@ TRACE_EVENT(sched_get_nr_running_avg,
 
 /* This part must be outside protection */
 #include <trace/define_trace.h>
+#endif /* CONFIG_SCHED_QHMP */
