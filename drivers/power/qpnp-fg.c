@@ -4108,6 +4108,9 @@ wait:
 		goto no_profile;
 	}
 
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("battery id = %d\n",
+				get_sram_prop_now(chip, FG_DATA_BATT_ID));
 	profile_node = of_batterydata_get_best_profile(batt_node, "bms",
 							fg_batt_type);
 	if (!profile_node) {
