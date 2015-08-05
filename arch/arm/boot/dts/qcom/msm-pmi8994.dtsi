@@ -33,6 +33,11 @@
 			qcom,secondary-pon-reset;
 			qcom,s3-debounce = <32>;
 			qcom,s3-src = "kpdpwr-and-resin";
+			pon_perph_reg: qcom,pon_perph_reg {
+				regulator-name = "pon_spare_reg";
+				qcom,pon-spare-reg-addr = <0x8c>;
+				qcom,pon-spare-reg-bit = <1>;
+			};
 		};
 
 		pmi8994_gpios: gpios {
