@@ -319,10 +319,6 @@ static int msm_comm_vote_bus(struct msm_vidc_core *core)
 		 */
 		vote_data[i].color_formats[0] = get_hal_uncompressed(yuv);
 		vote_data[i].num_formats = 1;
-		WARN(msm_comm_get_stream_output_mode(inst) ==
-				HAL_VIDEO_DECODER_SECONDARY,
-			"Bus voting for sessions with split mode not yet implemented\n");
-
 		i++;
 	}
 	mutex_unlock(&core->lock);
