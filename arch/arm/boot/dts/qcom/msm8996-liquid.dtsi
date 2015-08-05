@@ -346,7 +346,7 @@
 /{
 	mtp_batterydata: qcom,battery-data {
 		qcom,batt-id-range-pct = <15>;
-		#include "batterydata-itech-3000mah.dtsi"
+		#include "batterydata-liquid-7650-sanyo.dtsi"
 	};
 };
 
@@ -363,6 +363,7 @@
 					<5820000 6820000 550 650 650>,
 					<6820000 7820000 550 700 600>,
 					<7820000 8500000 550 700 550>;
+	qcom,skip-usb-notification;
 };
 
 &pmi8994_fg {
