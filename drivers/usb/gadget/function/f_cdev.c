@@ -752,7 +752,8 @@ static void usb_cser_free_requests(struct usb_ep *ep, struct list_head *head)
 }
 
 static struct usb_request *
-usb_cser_alloc_req(struct usb_ep *ep, unsigned int len, gfp_t flags)
+usb_cser_alloc_req(struct usb_ep *ep, unsigned int len, size_t extra_sz,
+			gfp_t flags)
 {
 	struct usb_request *req;
 
@@ -763,7 +764,7 @@ usb_cser_alloc_req(struct usb_ep *ep, unsigned int len, gfp_t flags)
 	}
 
 	req->length = len;
-	req->buf = kmalloc(len, flags);
+	req->buf = kmalloc(len + extra_sz, flags);
 	if (!req->buf) {
 		pr_err("request buf allocation failed\n");
 		usb_ep_free_request(ep, req);
@@ -816,7 +817,8 @@ static int usb_cser_bind(struct usb_configuration *c, struct usb_function *f)
 	ep->driver_data = cdev;
 	/* allocate notification */
 	port->port_usb.notify_req = usb_cser_alloc_req(ep,
-			sizeof(struct usb_cdc_notification) + 2, GFP_KERNEL);
+			sizeof(struct usb_cdc_notification) + 2,
+			cdev->gadget->extra_buf_alloc, GFP_KERNEL);
 	if (!port->port_usb.notify_req)
 		goto fail;
 
@@ -895,7 +897,7 @@ static void usb_cser_unbind(struct usb_configuration *c, struct usb_function *f)
 }
 
 static int usb_cser_alloc_requests(struct usb_ep *ep, struct list_head *head,
-		int num, int size,
+		int num, int size, size_t extra_sz,
 		void (*cb)(struct usb_ep *ep, struct usb_request *))
 {
 	int i;
@@ -905,7 +907,7 @@ static int usb_cser_alloc_requests(struct usb_ep *ep, struct list_head *head,
 				ep, head, num, size, cb);
 
 	for (i = 0; i < num; i++) {
-		req = usb_cser_alloc_req(ep, size, GFP_ATOMIC);
+		req = usb_cser_alloc_req(ep, size, extra_sz, GFP_ATOMIC);
 		if (!req) {
 			pr_debug("req allocated:%d\n", i);
 			return list_empty(head) ? -ENOMEM : 0;
@@ -1025,6 +1027,8 @@ static void usb_cser_write_complete(struct usb_ep *ep, struct usb_request *req)
 
 static void usb_cser_start_io(struct f_cdev *port)
 {
+	struct usb_function *f = &port->port_usb.func;
+	struct usb_composite_dev *cdev = f->config->cdev;
 	int ret = -ENODEV;
 	unsigned long	flags;
 
@@ -1040,7 +1044,7 @@ static void usb_cser_start_io(struct f_cdev *port)
 
 	ret = usb_cser_alloc_requests(port->port_usb.out,
 				&port->read_pool,
-				BRIDGE_RX_QUEUE_SIZE, BRIDGE_RX_BUF_SIZE,
+				BRIDGE_RX_QUEUE_SIZE, BRIDGE_RX_BUF_SIZE, 0,
 				usb_cser_read_complete);
 	if (ret) {
 		pr_err("unable to allocate out requests\n");
@@ -1050,6 +1054,7 @@ static void usb_cser_start_io(struct f_cdev *port)
 	ret = usb_cser_alloc_requests(port->port_usb.in,
 				&port->write_pool,
 				BRIDGE_TX_QUEUE_SIZE, BRIDGE_TX_BUF_SIZE,
+				cdev->gadget->extra_buf_alloc,
 				usb_cser_write_complete);
 	if (ret) {
 		usb_cser_free_requests(port->port_usb.out, &port->read_pool);

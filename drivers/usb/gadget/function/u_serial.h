@@ -50,7 +50,8 @@ struct gserial {
 };
 
 /* utilities to allocate/free request and buffer */
-struct usb_request *gs_alloc_req(struct usb_ep *ep, unsigned len, gfp_t flags);
+struct usb_request *gs_alloc_req(struct usb_ep *ep, unsigned int len,
+					size_t extra_sz, gfp_t flags);
 void gs_free_req(struct usb_ep *, struct usb_request *req);
 
 /* management of individual TTY ports */
