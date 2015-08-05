@@ -259,6 +259,7 @@ static char *version_str[] = {
 enum pmic_subtype {
 	PMI8994		= 10,
 	PMI8950		= 17,
+	PMI8996		= 19,
 };
 
 enum smbchg_wa {
@@ -6649,6 +6650,8 @@ static int smbchg_wa_config(struct smbchg_chip *chip)
 			chip->wa_flags |= SMBCHG_HVDCP_9V_EN_WA
 					| SMBCHG_USB100_WA;
 		}
+		break;
+	case PMI8996:
 		break;
 	default:
 		pr_err("PMIC subtype %d not supported, WA flags not set\n",
