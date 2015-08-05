@@ -674,6 +674,7 @@ enum mdss_mdp_pingpong_index {
 /* Following offsets are with respect to MDP base */
 #define MDSS_MDP_MDP_OUT_CTL_0                          0x410
 /* following offsets are with respect to MDP VBIF base */
+#define MMSS_VBIF_CLKON			0x4
 #define MMSS_VBIF_RD_LIM_CONF			0x0B0
 #define MMSS_VBIF_WR_LIM_CONF			0x0C0
 
@@ -681,6 +682,8 @@ enum mdss_mdp_pingpong_index {
 #define MMSS_VBIF_XIN_HALT_CTRL1	0x204
 #define MMSS_VBIF_AXI_HALT_CTRL0	0x208
 #define MMSS_VBIF_AXI_HALT_CTRL1	0x20C
+#define MMSS_VBIF_TEST_BUS_OUT_CTRL	0x210
+#define MMSS_VBIF_TEST_BUS_OUT		0x230
 
 #define MDSS_VBIF_QOS_REMAP_BASE	0x020
 #define MDSS_VBIF_QOS_REMAP_ENTRIES	0x4

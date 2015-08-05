@@ -50,6 +50,14 @@ struct debug_bus {
 	u32 test_id;
 };
 
+struct vbif_debug_bus {
+	u32 disable_bus_addr;
+	u32 block_bus_addr;
+	u32 bit_offset;
+	u32 block_cnt;
+	u32 test_pnt_cnt;
+};
+
 #define MDSS_XLOG(...) mdss_xlog(__func__, __LINE__, MDSS_XLOG_DEFAULT, \
 		##__VA_ARGS__, DATA_LIMITER)
 
