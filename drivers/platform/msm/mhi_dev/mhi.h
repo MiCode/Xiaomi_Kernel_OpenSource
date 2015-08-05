@@ -480,6 +480,7 @@ struct mhi_dev {
 	/* Scheduler work */
 	struct work_struct		chdb_ctrl_work;
 	struct mutex			mhi_lock;
+	struct mutex			mhi_event_lock;
 
 	/* process a ring element */
 	struct workqueue_struct		*pending_ring_wq;
