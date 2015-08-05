@@ -804,6 +804,8 @@ struct dwc3_scratchpad_array {
  * @usb3_u1u2_disable: if true, disable U1U2 low power modes in Superspeed mode.
  * @in_lpm: indicates if controller is in low power mode (no clocks)
  * @tx_fifo_size: Available RAM size for TX fifo allocation
+ * @irq: irq number
+ * @bh: tasklet which handles the interrupt
  * @irq_cnt: total irq count
  * @bh_completion_time: time taken for taklet completion
  * @bh_handled_evt_cnt: no. of events handled by tasklet per interrupt
@@ -966,6 +968,8 @@ struct dwc3 {
 	int			tx_fifo_size;
 
 	/* IRQ timing statistics */
+	int			irq;
+	struct tasklet_struct	bh;
 	unsigned long		irq_cnt;
 	unsigned                bh_completion_time[MAX_INTR_STATS];
 	unsigned                bh_handled_evt_cnt[MAX_INTR_STATS];
