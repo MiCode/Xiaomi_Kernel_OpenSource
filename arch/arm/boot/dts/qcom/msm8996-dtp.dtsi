@@ -114,3 +114,7 @@
 		};
 	};
 };
+
+&pmi8994_haptics {
+	status = "okay";
+};
