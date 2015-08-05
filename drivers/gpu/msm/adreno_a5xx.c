@@ -49,6 +49,8 @@ static const struct adreno_vbif_platform a5xx_vbif_platforms[] = {
 #define PREEMPT_SMMU_RECORD(_field) \
 		offsetof(struct a5xx_cp_smmu_info, _field)
 static void a5xx_gpmu_reset(struct work_struct *work);
+static int _read_fw2_block_header(uint32_t *header, uint32_t id,
+	uint32_t major, uint32_t minor);
 
 /**
  * Number of times to check if the regulator enabled before
@@ -823,12 +825,13 @@ static int _gpmu_verify_ucode(struct adreno_device *adreno_dev,
  */
 static int _load_gpmu_firmware(struct adreno_device *adreno_dev)
 {
-	uint32_t *data, *header, *block;
+	uint32_t *data, *header;
 	const struct firmware *fw = NULL;
 	struct kgsl_device *device = &adreno_dev->dev;
 	const struct adreno_gpu_core *gpucore = adreno_dev->gpucore;
-	uint32_t fw_size, header_size, block_size;
-	int ret;
+	uint32_t fw_size, header_size;
+	uint32_t *cmds, cmd_size;
+	int ret =  -EINVAL;
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
 		return 0;
@@ -850,27 +853,51 @@ static int _load_gpmu_firmware(struct adreno_device *adreno_dev)
 	data = (uint32_t *)fw->data;
 	fw_size = fw->size / sizeof(uint32_t);
 
-	/* Read header block and verify versioning first */
-	ret = _gpmu_verify_header(adreno_dev, data, fw_size);
-	if (ret)
-		goto err;
+	if (data[0] == 9) {
+		/* Legacy file header */
 
-	/* Now verify the block data */
-	ret = _gpmu_verify_ucode(adreno_dev, data, fw_size);
-	if (ret)
-		goto err;
+		/* Read header block and verify versioning first */
+		ret = _gpmu_verify_header(adreno_dev, data, fw_size);
+		if (ret)
+			goto err;
 
-	header = &data[0];
-	header_size = header[0];
+		/* Now verify the block data */
+		ret = _gpmu_verify_ucode(adreno_dev, data, fw_size);
+		if (ret)
+			goto err;
 
-	block = &data[header_size + 1];
-	block_size = block[0];
+		header = &data[0];
+		header_size = header[0];
+
+		cmds = data + header_size + 1 + 2;
+		cmd_size = data[header_size + 1] - 1;
+	} else {
+		/* New file header */
+
+		if (data[0] >= fw_size || data[0] < 2)
+			goto err;
+
+		if (data[1] != GPMU_FIRMWARE_ID)
+			goto err;
+		ret = _read_fw2_block_header(&data[2],
+			GPMU_FIRMWARE_ID,
+			adreno_dev->gpucore->gpmu_major,
+			adreno_dev->gpucore->gpmu_minor);
+		if (ret)
+			goto err;
+
+		cmds = data + data[2] + 3;
+		cmd_size = data[0] - data[2] - 2;
+	}
+
+	if (cmd_size > GPMU_INST_RAM_SIZE) {
+		KGSL_CORE_ERR(
+			"GPMU firmware block size is larger than RAM size\n");
+		 goto err;
+	}
 
 	/* Everything is cool, so create some commands */
-	ret = _gpmu_create_load_cmds(adreno_dev, &block[2], block_size - 1);
-	if (ret)
-		goto err;
-
+	ret = _gpmu_create_load_cmds(adreno_dev, cmds, cmd_size);
 err:
 	if (fw)
 		release_firmware(fw);
