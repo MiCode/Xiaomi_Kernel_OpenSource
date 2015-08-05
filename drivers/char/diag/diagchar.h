@@ -491,6 +491,7 @@ struct diagchar_dev {
 	struct diagfwd_info *diagfwd_dci_cmd[NUM_PERIPHERALS];
 	struct diag_feature_t feature[NUM_PERIPHERALS];
 	struct diag_buffering_mode_t buffering_mode[NUM_PERIPHERALS];
+	uint8_t buffering_flag[NUM_PERIPHERALS];
 	struct mutex mode_lock;
 	unsigned char *user_space_data_buf;
 	uint8_t user_space_data_busy;

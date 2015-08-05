@@ -954,7 +954,7 @@ void diag_real_time_work_fn(struct work_struct *work)
 }
 #endif
 
-int diag_send_real_time_update(uint8_t peripheral, int real_time)
+static int __diag_send_real_time_update(uint8_t peripheral, int real_time)
 {
 	char buf[sizeof(struct diag_ctrl_msg_diagmode)];
 	int msg_size = sizeof(struct diag_ctrl_msg_diagmode);
@@ -993,6 +993,23 @@ int diag_send_real_time_update(uint8_t peripheral, int real_time)
 	return err;
 }
 
+int diag_send_real_time_update(uint8_t peripheral, int real_time)
+{
+	int i;
+
+	for (i = 0; i < NUM_PERIPHERALS; i++) {
+		if (!driver->buffering_flag[i])
+			continue;
+		/*
+		 * One of the peripherals is in buffering mode. Don't set
+		 * the RT value.
+		 */
+		return -EINVAL;
+	}
+
+	return __diag_send_real_time_update(peripheral, real_time);
+}
+
 int diag_send_peripheral_buffering_mode(struct diag_buffering_mode_t *params)
 {
 	int err = 0;
@@ -1008,6 +1025,9 @@ int diag_send_peripheral_buffering_mode(struct diag_buffering_mode_t *params)
 		       peripheral);
 		return -EINVAL;
 	}
+
+	if (!driver->buffering_flag[peripheral])
+		return -EINVAL;
 
 	switch (params->mode) {
 	case DIAG_BUFFERING_MODE_STREAMING:
@@ -1026,6 +1046,7 @@ int diag_send_peripheral_buffering_mode(struct diag_buffering_mode_t *params)
 	if (!driver->feature[peripheral].peripheral_buffering) {
 		pr_debug("diag: In %s, peripheral %d doesn't support buffering\n",
 			 __func__, peripheral);
+		driver->buffering_flag[peripheral] = 0;
 		return -EIO;
 	}
 
@@ -1057,7 +1078,7 @@ int diag_send_peripheral_buffering_mode(struct diag_buffering_mode_t *params)
 		       __func__, peripheral, err);
 		goto fail;
 	}
-	err = diag_send_real_time_update(peripheral, mode);
+	err = __diag_send_real_time_update(peripheral, mode);
 	if (err) {
 		pr_err("diag: In %s, unable to send mode update to peripheral %d, mode: %d, err: %d\n",
 		       __func__, peripheral, mode, err);
@@ -1067,6 +1088,8 @@ int diag_send_peripheral_buffering_mode(struct diag_buffering_mode_t *params)
 	driver->buffering_mode[peripheral].mode = params->mode;
 	driver->buffering_mode[peripheral].low_wm_val = params->low_wm_val;
 	driver->buffering_mode[peripheral].high_wm_val = params->high_wm_val;
+	if (mode == DIAG_BUFFERING_MODE_STREAMING)
+		driver->buffering_flag[peripheral] = 0;
 fail:
 	mutex_unlock(&driver->mode_lock);
 	return err;
@@ -1248,11 +1271,16 @@ int diag_send_buffering_wm_values(uint8_t peripheral,
 
 int diagfwd_cntl_init(void)
 {
+	uint8_t peripheral = 0;
+
 	reg_dirty = 0;
 	driver->polling_reg_flag = 0;
 	driver->log_on_demand_support = 1;
 	driver->stm_peripheral = 0;
 	driver->close_transport = 0;
+	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++)
+		driver->buffering_flag[peripheral] = 0;
+
 	mutex_init(&driver->cntl_lock);
 	INIT_WORK(&(driver->stm_update_work), diag_stm_update_work_fn);
 	INIT_WORK(&(driver->mask_update_work), diag_mask_update_work_fn);
