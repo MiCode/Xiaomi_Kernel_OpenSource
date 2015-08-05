@@ -1127,6 +1127,15 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.step = 1,
 		.qmenu = NULL,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_VQZIP_SEI,
+		.name = "VQZIP SEI",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_CID_MPEG_VIDC_VIDEO_VQZIP_SEI_DISABLE,
+		.maximum = V4L2_CID_MPEG_VIDC_VIDEO_VQZIP_SEI_ENABLE,
+		.default_value = V4L2_CID_MPEG_VIDC_VIDEO_VQZIP_SEI_DISABLE,
+		.step = 1,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
@@ -2834,6 +2843,11 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		frameqp = ctrl->val;
 		pdata = &frameqp;
 		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_VQZIP_SEI:
+		property_id = HAL_PARAM_VENC_VQZIP_SEI;
+		enable.enable = ctrl->val;
+		pdata = &enable;
+		break;
 	default:
 		dprintk(VIDC_ERR, "Unsupported index: %x\n", ctrl->id);
 		rc = -ENOTSUPP;
@@ -3727,7 +3741,8 @@ int msm_venc_ctrl_init(struct msm_vidc_inst *inst)
 		}
 
 		if (!ctrl) {
-			dprintk(VIDC_ERR, "%s - invalid ctrl\n", __func__);
+			dprintk(VIDC_ERR, "%s - invalid ctrl : %s\n",
+				ctrl_cfg.name, __func__);
 			return -EINVAL;
 		}
 
