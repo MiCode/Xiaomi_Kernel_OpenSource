@@ -332,7 +332,8 @@ error:
 }
 
 static struct usb_request *
-frmnet_alloc_req(struct usb_ep *ep, unsigned int len, gfp_t flags)
+frmnet_alloc_req(struct usb_ep *ep, unsigned int len, size_t extra_buf_alloc,
+		gfp_t flags)
 {
 	struct usb_request *req;
 
@@ -340,7 +341,7 @@ frmnet_alloc_req(struct usb_ep *ep, unsigned int len, gfp_t flags)
 	if (!req)
 		return ERR_PTR(-ENOMEM);
 
-	req->buf = kmalloc(len, flags);
+	req->buf = kmalloc(len + extra_buf_alloc, flags);
 	if (!req->buf) {
 		usb_ep_free_request(ep, req);
 		return ERR_PTR(-ENOMEM);
@@ -1014,6 +1015,7 @@ skip_string_id_alloc:
 		ep->driver_data = cdev;
 		dev->notify_req = frmnet_alloc_req(ep,
 				sizeof(struct usb_cdc_notification),
+				cdev->gadget->extra_buf_alloc,
 				GFP_KERNEL);
 		if (IS_ERR(dev->notify_req)) {
 			pr_err("%s: unable to allocate memory for notify req\n",
