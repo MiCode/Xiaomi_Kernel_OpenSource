@@ -565,13 +565,13 @@ static long qti_ctrl_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 							port->gtype);
 		val = atomic_read(&port->connected);
 		if (!val) {
-			pr_err("EP_LOOKUP failed - not connected");
+			pr_err_ratelimited("EP_LOOKUP failed: not connected\n");
 			ret = -EAGAIN;
 			break;
 		}
 
 		if (port->ipa_prod_idx == -1 && port->ipa_cons_idx == -1) {
-			pr_err("EP_LOOKUP failed - ipa pipes were not updated\n");
+			pr_err_ratelimited("EP_LOOKUP ipa pipes not updated\n");
 			ret = -EAGAIN;
 			break;
 		}
