@@ -56,15 +56,11 @@
 			reg = <0x0 0x0>;
 			qcom,limits-info = <&mitigation_profile0>;
 			enable-method = "psci";
-			qcom,cpuss-pm = <&cpuss_pm>;
-			qcom,cpuss-csr = <&cpuss_csr>;
-			qcom,acc = <&acc0>;
 			qcom,ea = <&ea0>;
 			next-level-cache = <&L2_0>;
 			L2_0: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
-			      power-domain = <&l2ccc_0>;
 			      qcom,dump-size = <0x88000>;
 			};
 			L1_D_0: l1-dcache {
@@ -82,7 +78,6 @@
 			reg = <0x0 0x1>;
 			qcom,limits-info = <&mitigation_profile1>;
 			enable-method = "psci";
-			qcom,acc = <&acc1>;
 			qcom,ea = <&ea1>;
 			next-level-cache = <&L2_0>;
 			L1_D_1: l1-dcache {
@@ -100,13 +95,11 @@
 			reg = <0x0 0x100>;
 			qcom,limits-info = <&mitigation_profile2>;
 			enable-method = "psci";
-			qcom,acc = <&acc2>;
 			qcom,ea = <&ea2>;
 			next-level-cache = <&L2_1>;
 			L2_1: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
-			      power-domain = <&l2ccc_1>;
 			      qcom,dump-size = <0x110000>;
 			};
 			L1_D_100: l1-dcache {
@@ -124,7 +117,6 @@
 			reg = <0x0 0x101>;
 			enable-method = "psci";
 			qcom,limits-info = <&mitigation_profile3>;
-			qcom,acc = <&acc3>;
 			qcom,ea = <&ea3>;
 			next-level-cache = <&L2_1>;
 			L1_D_101: l1-dcache {
@@ -220,50 +212,6 @@
 	#size-cells = <1>;
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
-
-	l2ccc_0: clock-controller@099a1000 {
-		compatible = "qcom,msm8996-l2ccc";
-		reg = <0x099a1000 0x1000>,
-		      <0x06400040 0x4>;
-		qcom,cbf-clock-peer = <&l2ccc_1>;
-	};
-
-	l2ccc_1: clock-controller@099d1000 {
-		compatible = "qcom,msm8996-l2ccc";
-		reg = <0x099d1000 0x1000>,
-		      <0x06480040 0x4>;
-		qcom,cbf-clock-peer = <&l2ccc_0>;
-	};
-
-	acc0: clock-controller@09981000 {
-		compatible = "qcom,msm8996-acc";
-		reg = <0x09981000 0x1000>;
-	};
-
-	acc1: clock-controller@09991000 {
-		compatible = "qcom,msm8996-acc";
-		reg = <0x09991000 0x1000>;
-	};
-
-	acc2: clock-controller@099b1000 {
-		compatible = "qcom,msm8996-acc";
-		reg = <0x099b1000 0x1000>;
-	};
-
-	acc3: clock-controller@099c1000 {
-		compatible = "qcom,msm8996-acc";
-		reg = <0x099c1000 0x1000>;
-	};
-
-	cpuss_pm: cpuss-pm@099e0000 {
-		 compatible = "qcom,msm8996-cpuss-pm";
-		 reg = <0x099e0000 0x1000>;
-	};
-
-	cpuss_csr: cpuss-csr@09820000 {
-		   compatible = "qcom,msm8996-cpuss-csr";
-		   reg = <0x09820000 0x10000>;
-	};
 
 	apc_apm: apm@099e0000 {
 		compatible = "qcom,msm-apm";
