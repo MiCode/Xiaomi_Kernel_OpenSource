@@ -17,7 +17,7 @@
 #ifndef	__LINUX_USB_ANDROID_H
 #define	__LINUX_USB_ANDROID_H
 
-#define MAX_STREAMING_FUNCS 3
+#define MAX_STREAMING_FUNCS 6
 #define FUNC_NAME_LEN 10
 
 enum android_pm_qos_state {
