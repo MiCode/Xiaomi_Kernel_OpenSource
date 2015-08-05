@@ -66,6 +66,18 @@
 		 <&clock_gpu clk_gfx3d_clk_src_v2>;
 };
 
+&pcie0 {
+	qcom,pcie-phy-ver = <3>;
+};
+
+&pcie1 {
+	qcom,pcie-phy-ver = <3>;
+};
+
+&pcie2 {
+	qcom,pcie-phy-ver = <3>;
+};
+
 /* GPU overrides */
 &msm_gpu {
 	/* Updated chip ID */
