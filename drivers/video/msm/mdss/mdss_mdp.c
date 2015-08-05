@@ -154,52 +154,6 @@ static int mdss_mdp_parse_dt_ppb_off(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_cdm(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_dsc(struct platform_device *pdev);
 
-/**
- * mdss_mdp_vbif_axi_halt() - Halt MDSS AXI ports
- * @mdata: pointer to the global mdss data structure.
- *
- * Check if MDSS AXI ports connected to RealTime(RT) VBIF are idle or not. If
- * not send a halt request and wait for it be idle.
- *
- * This function can be called during deep suspend, display off or for
- * debugging purposes. On success it should be assumed that AXI ports connected
- * to RT VBIF are in idle state and would not fetch any more data. This function
- * cannot be called from interrupt context.
- */
-int mdss_mdp_vbif_axi_halt(struct mdss_data_type *mdata)
-{
-	bool is_idle;
-	int rc = 0;
-	u32 reg_val, idle_mask, status;
-
-	idle_mask = BIT(4);
-	if (mdata->axi_port_cnt == 2)
-		idle_mask |= BIT(5);
-
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-	reg_val = MDSS_VBIF_READ(mdata, MMSS_VBIF_AXI_HALT_CTRL1, false);
-
-	is_idle = (reg_val & idle_mask) ? true : false;
-	if (!is_idle) {
-		pr_err("axi is not idle. halt_ctrl1=%d\n", reg_val);
-
-		MDSS_VBIF_WRITE(mdata, MMSS_VBIF_AXI_HALT_CTRL0, 1, false);
-
-		rc = readl_poll_timeout(mdata->vbif_io.base +
-			MMSS_VBIF_AXI_HALT_CTRL1, status, (status & idle_mask),
-			1000, AXI_HALT_TIMEOUT_US);
-		if (rc == -ETIMEDOUT)
-			pr_err("VBIF axi is not halting. TIMEDOUT.\n");
-		else
-			pr_debug("VBIF axi is halted\n");
-
-		MDSS_VBIF_WRITE(mdata, MMSS_VBIF_AXI_HALT_CTRL0, 0, false);
-	}
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
-
-	return rc;
-}
-
 u32 mdss_mdp_fb_stride(u32 fb_index, u32 xres, int bpp)
 {
 	/* The adreno GPU hardware requires that the pitch be aligned to
@@ -731,6 +685,86 @@ unsigned long mdss_mdp_get_clk_rate(u32 clk_idx)
 	return clk_rate;
 }
 
+/**
+ * __mdss_mdp_reg_access_clk_enable - Enable minimum MDSS clocks required
+ * for register access
+ */
+static inline void __mdss_mdp_reg_access_clk_enable(
+		struct mdss_data_type *mdata, bool enable)
+{
+	if (enable) {
+		mdss_update_reg_bus_vote(mdata->reg_bus_clt,
+				VOTE_INDEX_19_MHZ);
+		mdss_mdp_clk_update(MDSS_CLK_AHB, 1);
+		mdss_mdp_clk_update(MDSS_CLK_AXI, 1);
+		mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 1);
+	} else {
+		mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 0);
+		mdss_mdp_clk_update(MDSS_CLK_AXI, 0);
+		mdss_mdp_clk_update(MDSS_CLK_AHB, 0);
+		mdss_update_reg_bus_vote(mdata->reg_bus_clt,
+				VOTE_INDEX_DISABLE);
+	}
+}
+
+int __mdss_mdp_vbif_halt(struct mdss_data_type *mdata, bool is_nrt)
+{
+	int rc = 0;
+	void __iomem *base;
+	u32 halt_ack_mask = BIT(0), status;
+
+	/* if not real time vbif */
+	if (is_nrt)
+		base = mdata->vbif_nrt_io.base;
+	else
+		base = mdata->vbif_io.base;
+
+	if (!base) {
+		/* some targets might not have a nrt port */
+		goto vbif_done;
+	}
+
+	/* force vbif clock on */
+	MDSS_VBIF_WRITE(mdata, MMSS_VBIF_CLKON, 1, is_nrt);
+
+	/* request halt */
+	MDSS_VBIF_WRITE(mdata, MMSS_VBIF_AXI_HALT_CTRL0, 1, is_nrt);
+
+	rc = readl_poll_timeout(base +
+			MMSS_VBIF_AXI_HALT_CTRL1, status, (status &
+				halt_ack_mask),
+			1000, AXI_HALT_TIMEOUT_US);
+	if (rc == -ETIMEDOUT) {
+		pr_err("VBIF axi is not halting. TIMEDOUT.\n");
+		goto vbif_done;
+	}
+
+	pr_debug("VBIF axi is halted\n");
+
+vbif_done:
+	return rc;
+}
+
+/**
+ * mdss_mdp_vbif_axi_halt() - Halt MDSS AXI ports
+ * @mdata: pointer to the global mdss data structure.
+ *
+ * This function can be called during deep suspend, display off or for
+ * debugging purposes. On success it should be assumed that AXI ports connected
+ * to RT VBIF are in idle state and would not fetch any more data.
+ */
+static void mdss_mdp_vbif_axi_halt(struct mdss_data_type *mdata)
+{
+	__mdss_mdp_reg_access_clk_enable(mdata, true);
+
+	/* real time ports */
+	__mdss_mdp_vbif_halt(mdata, false);
+	/* non-real time ports */
+	__mdss_mdp_vbif_halt(mdata, true);
+
+	__mdss_mdp_reg_access_clk_enable(mdata, false);
+}
+
 int mdss_iommu_ctrl(int enable)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
@@ -958,20 +992,14 @@ static void __mdss_restore_sec_cfg(struct mdss_data_type *mdata)
 
 	pr_debug("restoring mdss secure config\n");
 
-	mdss_update_reg_bus_vote(mdata->reg_bus_clt, VOTE_INDEX_19_MHZ);
-	mdss_mdp_clk_update(MDSS_CLK_AHB, 1);
-	mdss_mdp_clk_update(MDSS_CLK_AXI, 1);
-	mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 1);
+	__mdss_mdp_reg_access_clk_enable(mdata, true);
 
 	ret = scm_restore_sec_cfg(SEC_DEVICE_MDSS, 0, &scm_ret);
 	if (ret || scm_ret)
 		pr_warn("scm_restore_sec_cfg failed %d %d\n",
 				ret, scm_ret);
 
-	mdss_mdp_clk_update(MDSS_CLK_AHB, 0);
-	mdss_update_reg_bus_vote(mdata->reg_bus_clt, VOTE_INDEX_DISABLE);
-	mdss_mdp_clk_update(MDSS_CLK_AXI, 0);
-	mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 0);
+	__mdss_mdp_reg_access_clk_enable(mdata, false);
 }
 
 static int mdss_mdp_gdsc_notifier_call(struct notifier_block *self,
@@ -981,8 +1009,13 @@ static int mdss_mdp_gdsc_notifier_call(struct notifier_block *self,
 
 	mdata = container_of(self, struct mdss_data_type, gdsc_cb);
 
-	if (event & REGULATOR_EVENT_ENABLE)
+	if (event & REGULATOR_EVENT_ENABLE) {
 		__mdss_restore_sec_cfg(mdata);
+	} else if (event & REGULATOR_EVENT_PRE_DISABLE) {
+		pr_debug("mdss gdsc is getting disabled\n");
+		/* halt the vbif transactions */
+		mdss_mdp_vbif_axi_halt(mdata);
+	}
 
 	return NOTIFY_OK;
 }
