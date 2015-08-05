@@ -313,5 +313,6 @@
 		qcom,mdss-dsi-bl-min-level = <1>;
 		qcom,mdss-dsi-bl-max-level = <4095>;
 		qcom,mdss-dsi-reset-sequence = <1 1>, <0 1>, <1 5>;
+		qcom,mdss-dsi-post-init-delay = <1>;
 	};
 };
