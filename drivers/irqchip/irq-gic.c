@@ -415,16 +415,16 @@ static void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
 		irqnr = irqstat & GICC_IAR_INT_ID_MASK;
 
 		if (likely(irqnr > 15 && irqnr < 1021)) {
-			handle_domain_irq(gic->domain, irqnr, regs);
 			uncached_logk(LOGK_IRQ, (void *)(uintptr_t)irqnr);
+			handle_domain_irq(gic->domain, irqnr, regs);
 			continue;
 		}
 		if (irqnr < 16) {
 			writel_relaxed_no_log(irqstat, cpu_base + GIC_CPU_EOI);
+			uncached_logk(LOGK_IRQ, (void *)(uintptr_t)irqnr);
 #ifdef CONFIG_SMP
 			handle_IPI(irqnr, regs);
 #endif
-			uncached_logk(LOGK_IRQ, (void *)(uintptr_t)irqnr);
 			continue;
 		}
 		break;
