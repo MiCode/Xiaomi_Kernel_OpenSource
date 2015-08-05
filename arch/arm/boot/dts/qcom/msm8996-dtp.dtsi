@@ -74,3 +74,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,dcs-cmd-by-left;
 };
+
+&sdhc_2 {
+	status = "disabled";
+};
