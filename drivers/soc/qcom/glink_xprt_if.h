@@ -46,6 +46,7 @@ enum xprt_ids {
  * @pkt_priv:		Private information specific to the packet.
  * @data:		Pointer to the buffer containing the data.
  * @riid:		Remote receive intent used to transmit the packet.
+ * @rcid:		Remote channel receiving the packet.
  * @size:		Total size of the data in the packet.
  * @tx_len:		Data length to transmit in the current transmit slot.
  * @size_remaining:	Remaining size of the data in the packet.
@@ -61,6 +62,7 @@ struct glink_core_tx_pkt {
 	const void *pkt_priv;
 	const void *data;
 	uint32_t riid;
+	uint32_t rcid;
 	uint32_t size;
 	uint32_t tx_len;
 	uint32_t size_remaining;
