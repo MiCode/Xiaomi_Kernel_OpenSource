@@ -25,6 +25,7 @@
 #include <sound/lsm_params.h>
 #include <sound/cpe_core.h>
 #include <sound/cpe_cmi.h>
+#include <sound/cpe_err.h>
 #include <soc/qcom/pm.h>
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/core-resource.h>
@@ -1789,7 +1790,7 @@ void wcd_cpe_cmi_lsm_callback(const struct cmi_api_notification *param)
 
 		u8 *payload = ((u8 *)param->message) + (sizeof(struct cmi_hdr));
 		u8 result = payload[0];
-		lsm_session->cmd_err_code |= result;
+		lsm_session->cmd_err_code = result;
 		complete(&lsm_session->cmd_comp);
 
 	} else if (hdr->opcode == CPE_LSM_SESSION_CMDRSP_SHARED_MEM_ALLOC) {
@@ -1880,7 +1881,13 @@ static int wcd_cpe_cmi_send_lsm_msg(
 	if (ret > 0) {
 		pr_debug("%s: command 0x%x, received response 0x%x\n",
 			__func__, hdr->opcode, session->cmd_err_code);
-		ret = session->cmd_err_code;
+		if (session->cmd_err_code == CMI_SHMEM_ALLOC_FAILED)
+			session->cmd_err_code = CPE_ENOMEMORY;
+		if (session->cmd_err_code > 0)
+			pr_err("%s: CPE returned error[%s]\n",
+				__func__, cpe_err_get_err_str(
+				session->cmd_err_code));
+		ret = cpe_err_get_lnx_err_code(session->cmd_err_code);
 		goto rel_bus_vote;
 	} else {
 		pr_err("%s: command (0x%x) send timed out\n",
@@ -3073,7 +3080,13 @@ static int wcd_cpe_cmi_send_afe_msg(
 	if (ret > 0) {
 		pr_debug("%s: command 0x%x, received response 0x%x\n",
 			 __func__, hdr->opcode, port_d->cmd_result);
-		ret = port_d->cmd_result;
+		if (port_d->cmd_result == CMI_SHMEM_ALLOC_FAILED)
+			port_d->cmd_result = CPE_ENOMEMORY;
+		if (port_d->cmd_result > 0)
+			pr_err("%s: CPE returned error[%s]\n",
+				__func__, cpe_err_get_err_str(
+				port_d->cmd_result));
+		ret = cpe_err_get_lnx_err_code(port_d->cmd_result);
 		goto rel_bus_vote;
 	} else {
 		pr_err("%s: command 0x%x send timed out\n",
