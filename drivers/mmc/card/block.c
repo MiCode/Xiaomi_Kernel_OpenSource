@@ -2868,13 +2868,14 @@ static void mmc_blk_cmdq_shutdown(struct mmc_queue *mq)
 	struct mmc_card *card = mq->card;
 	struct mmc_host *host = card->host;
 
+	mmc_get_card(card);
+	mmc_host_clk_hold(host);
 	err = mmc_cmdq_halt(host, true);
 	if (err) {
 		pr_err("%s: halt: failed: %d\n", __func__, err);
 		return;
 	}
 
-	mmc_get_card(card);
 	/* disable CQ mode in card */
 	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			 EXT_CSD_CMDQ, 0,
@@ -2884,9 +2885,12 @@ static void mmc_blk_cmdq_shutdown(struct mmc_queue *mq)
 		       __func__, err);
 		goto out;
 	} else {
+		mmc_card_clr_cmdq(card);
+		host->cmdq_ops->disable(host, false);
 		host->card->cmdq_init = false;
 	}
 out:
+	mmc_host_clk_release(host);
 	mmc_put_card(card);
 }
 
@@ -3946,18 +3950,18 @@ static void mmc_blk_remove(struct mmc_card *card)
 #endif
 }
 
-static int _mmc_blk_suspend(struct mmc_card *card)
+static int _mmc_blk_suspend(struct mmc_card *card, bool wait)
 {
 	struct mmc_blk_data *part_md;
 	struct mmc_blk_data *md = mmc_get_drvdata(card);
 	int rc = 0;
 
 	if (md) {
-		rc = mmc_queue_suspend(&md->queue, 0);
+		rc = mmc_queue_suspend(&md->queue, wait);
 		if (rc)
 			goto out;
 		list_for_each_entry(part_md, &md->part, part) {
-			rc = mmc_queue_suspend(&part_md->queue, 0);
+			rc = mmc_queue_suspend(&part_md->queue, wait);
 			if (rc)
 				goto out_resume;
 		}
@@ -3975,7 +3979,7 @@ static int _mmc_blk_suspend(struct mmc_card *card)
 
 static void mmc_blk_shutdown(struct mmc_card *card)
 {
-	_mmc_blk_suspend(card);
+	_mmc_blk_suspend(card, 1);
 
 	/* send power off notification */
 	if (mmc_card_mmc(card))
@@ -3985,7 +3989,7 @@ static void mmc_blk_shutdown(struct mmc_card *card)
 #ifdef CONFIG_PM
 static int mmc_blk_suspend(struct mmc_card *card)
 {
-	return _mmc_blk_suspend(card);
+	return _mmc_blk_suspend(card, 0);
 }
 
 static int mmc_blk_resume(struct mmc_card *card)
