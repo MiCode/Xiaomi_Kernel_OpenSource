@@ -213,14 +213,10 @@ static const struct qmp_reg_val qmp_settings_rev2[] = {
 	{0x174, 0x30}, /* QSERDES_COM_CLK_SELECT */
 	{0x194, 0x06}, /* QSERDES_COM_CMN_CONFIG */
 	{0x19C, 0x01}, /* QSERDES_COM_SVS_MODE_CLK_SEL */
-	{0x178, 0x01}, /* QSERDES_COM_HSCLK_SEL */
+	{0x178, 0x00}, /* QSERDES_COM_HSCLK_SEL */
 	{0x70, 0x0F}, /* USB3PHY_QSERDES_COM_BG_TRIM */
 	{0x48, 0x0F}, /* USB3PHY_QSERDES_COM_PLL_IVCO */
 	{0x3C, 0x04}, /* QSERDES_COM_SYS_CLK_CTRL */
-
-	/* Res_code settings */
-	{0xC4, 0x15}, /* USB3PHY_QSERDES_COM_RESCODE_DIV_NUM */
-	{0x1B8, 0x1F}, /* QSERDES_COM_CMN_MISC2 */
 
 	/* PLL and Loop filter settings */
 	{0xD0, 0x82}, /* QSERDES_COM_DEC_START_MODE0 */
@@ -279,6 +275,16 @@ static const struct qmp_reg_val qmp_settings_rev2[] = {
 	{0x688, 0x47}, /* USB3_PHY_LOCK_DETECT_CONFIG3 */
 	{0x664, 0x08}, /* USB3_PHY_POWER_STATE_CONFIG2 */
 
+	{-1, -1} /* terminating entry */
+};
+
+/* Override for QMP PHY revision 2 */
+static const struct qmp_reg_val qmp_settings_rev2_misc[] = {
+	{0x178, 0x01}, /* QSERDES_COM_HSCLK_SEL */
+
+	/* Res_code settings */
+	{0xC4, 0x15}, /* USB3PHY_QSERDES_COM_RESCODE_DIV_NUM */
+	{0x1B8, 0x1F}, /* QSERDES_COM_CMN_MISC2 */
 	{-1, -1} /* terminating entry */
 };
 
@@ -536,6 +542,7 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	case 0x20000000:
 	case 0x20000001:
 		reg = qmp_settings_rev2;
+		misc = qmp_settings_rev2_misc;
 		break;
 	default:
 		dev_err(uphy->dev, "Unknown revid 0x%x, cannot initialize PHY\n",
