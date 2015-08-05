@@ -223,6 +223,13 @@
 		status = "disabled";
 	};
 
+	rpm_bus: qcom,rpm-smd {
+		compatible = "qcom,rpm-smd";
+		rpm-channel-name = "rpm_requests";
+		rpm-channel-type = <15>; /* SMD_APPS_RPM */
+		rpm-standalone; /* TODO: remove this after bring up */
+	};
+
 	qcom,wdt@b017000 {
 		compatible = "qcom,msm-watchdog";
 		reg = <0xb017000 0x1000>;
