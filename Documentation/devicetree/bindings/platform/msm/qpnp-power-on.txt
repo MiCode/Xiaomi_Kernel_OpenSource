@@ -64,12 +64,25 @@ Optional properties:
 All the below properties are in the sub-node section (properties of the child
 node).
 
-Sub-node required properties:
+Sub-nodes (if defined) should belong to either a PON configuration or a
+regulator configuration.
+
+Regulator sub-node required properties:
+- regulator-name		Regulator name for the PON regulator that
+				is being configured.
+- qcom,pon-spare-reg-addr	Register offset from the base address of the PON
+				peripheral that needs to be configured for the
+				regulator being controlled.
+- qcom,pon-spare-reg-bit	Bit position in the specified register that
+				needs to be configured for the regulator being
+				controlled.
+
+PON sub-node required properties:
 - qcom,pon-type			The type of PON/RESET source. The driver
 				currently supports KPDPWR(0), RESIN(1) and
 				CBLPWR(2) pon/reset sources.
 
-Sub-node optional properties:
+PON sub-node optional properties:
 - qcom,pull-up			The initial state of the reset pin under
 				consideration.
 				0 = No pull-up
@@ -151,4 +164,10 @@ Example:
 		compatible = "qcom,qpnp-power-on";
 		reg = <0x800 0x100>;
 		qcom,secondary-pon-reset;
+
+		pon_perph_reg: qcom,pon_perph_reg {
+			regulator-name = "pon_spare_reg";
+			qcom,pon-spare-reg-addr = <0x8c>;
+			qcom,pon-spare-reg-bit = <1>;
+		};
 	};
