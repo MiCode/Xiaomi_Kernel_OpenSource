@@ -240,7 +240,7 @@ config DM_CRYPT
 	  If unsure, say N.
 
 config DM_REQ_CRYPT
-	tristate "Crypt target support"
+	tristate "Req Crypt target support"
 	depends on BLK_DEV_DM
 	select XTS
 	select CRYPTO_XTS
