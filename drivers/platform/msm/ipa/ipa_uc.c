@@ -386,6 +386,11 @@ static void ipa_uc_response_hdlr(enum ipa_irq_type interrupt,
 			IPA_HW_2_CPU_RESPONSE_INIT_COMPLETED) {
 		ipa_ctx->uc_ctx.uc_loaded = true;
 		IPAERR("IPA uC loaded\n");
+		/*
+		 * The proxy vote is held until uC is loaded to ensure that
+		 * IPA_HW_2_CPU_RESPONSE_INIT_COMPLETED is received.
+		 */
+		ipa_proxy_clk_unvote();
 		for (i = 0; i < IPA_HW_NUM_FEATURES; i++) {
 			if (uc_hdlrs[i].ipa_uc_loaded_hdlr)
 				uc_hdlrs[i].ipa_uc_loaded_hdlr();

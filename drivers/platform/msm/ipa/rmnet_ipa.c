@@ -2343,9 +2343,22 @@ void ipa_broadcast_quota_reach_ind(u32 mux_id)
  */
 void ipa_q6_handshake_complete(bool ssr_bootup)
 {
-	/* It is required to recover the network stats after SSR recovery */
-	if (ssr_bootup)
+	if (ssr_bootup) {
+		/*
+		 * In case the uC is required to be loaded by the Modem,
+		 * the proxy vote will be removed only when uC loading is
+		 * complete and indication is received by the AP. After SSR,
+		 * uC is already loaded. Therefore, proxy vote can be removed
+		 * once Modem init is complete.
+		 */
+		ipa_proxy_clk_unvote();
+
+		/*
+		 * It is required to recover the network stats after
+		 * SSR recovery
+		 */
 		rmnet_ipa_get_network_stats_and_update();
+	}
 }
 
 static int __init ipa_wwan_init(void)
