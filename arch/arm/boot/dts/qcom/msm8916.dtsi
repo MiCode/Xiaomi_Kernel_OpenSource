@@ -1690,6 +1690,11 @@
 		/* GPIO output to mss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
 		linux,contiguous-region = <&modem_adsp_mem>;
+
+		mba_mss: qcom,mba-mem@0 {
+			compatible = "qcom,pil-mba-mem";
+			linux,contiguous-region = <&mba_mem>;
+		};
 	};
 
 	qcom,vidc@1d00000 {

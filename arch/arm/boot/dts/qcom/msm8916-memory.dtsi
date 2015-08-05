@@ -41,6 +41,12 @@
 			label = "peripheral_mem";
 		};
 
+		mba_mem: mba_region@0 {
+			linux,reserve-contiguous-region;
+			reg = <0 0 0 0x0200000>;
+			label = "mba_mem";
+		};
+
 		secure_mem: secure_region@0 {
 			linux,reserve-contiguous-region;
 			reg = <0 0 0 0x6D00000>;
