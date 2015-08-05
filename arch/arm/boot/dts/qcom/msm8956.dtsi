@@ -840,7 +840,7 @@
 			<78 512 52286 160000>, /* 20 MB/s */
 			<78 512 65360 200000>, /* 25 MB/s */
 			<78 512 130718 400000>, /* 50 MB/s */
-			<78 512 261438 800000>, /* 100 MB/s */
+			<78 512 130718 400000>, /* 100 MB/s */
 			<78 512 261438 800000>, /* 200 MB/s */
 			<78 512 261438 800000>, /* 400 MB/s */
 			<78 512 1338562 4096000>; /* Max. bandwidth */
@@ -852,6 +852,7 @@
 			 <&clock_gcc clk_gcc_sdcc1_ice_core_clk>;
 		clock-names = "iface_clk", "core_clk", "ice_core_clk";
 		qcom,ice-clk-rates = <200000000 100000000>;
+		qcom,scaling-lower-bus-speed-mode = "DDR52";
 
 		status = "disabled";
 	};
