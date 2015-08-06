@@ -1224,12 +1224,10 @@ static int armv8pmu_get_event_idx(struct pmu_hw_events *cpuc,
 	int idx;
 	unsigned long evtype = event->config_base & ARMV8_EVTYPE_EVENT;
 
-	/* Always place a cycle counter into the cycle counter. */
+	/* Place the first cycle counter request into the cycle counter. */
 	if (evtype == ARMV8_PMUV3_PERFCTR_CLOCK_CYCLES) {
-		if (test_and_set_bit(ARMV8_IDX_CYCLE_COUNTER, cpuc->used_mask))
-			return -EAGAIN;
-
-		return ARMV8_IDX_CYCLE_COUNTER;
+		if (!test_and_set_bit(ARMV8_IDX_CYCLE_COUNTER, cpuc->used_mask))
+			return ARMV8_IDX_CYCLE_COUNTER;
 	}
 
 	/*
