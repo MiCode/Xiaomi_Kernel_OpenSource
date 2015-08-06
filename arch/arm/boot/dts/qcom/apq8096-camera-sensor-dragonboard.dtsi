@@ -246,7 +246,7 @@
 					  "CAM_STANDBY2";
 		qcom,sensor-position = <1>;
 		qcom,sensor-mode = <0>;
-		qcom,cci-master = <0>;
+		qcom,cci-master = <1>;
 		status = "ok";
 		clocks = <&clock_mmss clk_mclk2_clk_src>,
 			<&clock_mmss clk_camss_mclk2_clk>;
