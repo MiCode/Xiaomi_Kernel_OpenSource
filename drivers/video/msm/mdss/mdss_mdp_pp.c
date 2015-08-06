@@ -4953,9 +4953,11 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 	int ret = 0;
 	struct mdss_ad_info *ad;
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
+	struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
 	struct msm_fb_data_type *bl_mfd;
 	struct mdss_data_type *mdata;
 	u32 bypass = MDSS_PP_AD_BYPASS_DEF, bl;
+	u32 width;
 
 	ret = mdss_mdp_get_ad(mfd, &ad);
 	if (ret) {
@@ -5031,15 +5033,18 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 		}
 	}
 
+	width = ctl->width;
+	if (sctl)
+		width += sctl->width;
+
 	/* update ad screen size if it has changed since last configuration */
-	if (mfd->panel_info->type == WRITEBACK_PANEL &&
-		(ad->init.frame_w != ctl->width ||
-			ad->init.frame_h != ctl->height)) {
+	if ((ad->init.frame_w != width) ||
+			(ad->init.frame_h != ctl->height)) {
 		pr_debug("changing from %dx%d to %dx%d\n", ad->init.frame_w,
 							ad->init.frame_h,
-							ctl->width,
+							width,
 							ctl->height);
-		ad->init.frame_w = ctl->width;
+		ad->init.frame_w = width;
 		ad->init.frame_h = ctl->height;
 		ad->reg_sts |= PP_AD_STS_DIRTY_INIT;
 	}
