@@ -725,8 +725,8 @@ country JO:
 country JP:  DFS-MKK
 	(2402 - 2482 @ 40), (20)
 	(2474 - 2494 @ 20), (20), NO-OFDM
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
+	(5170 - 5250 @ 80), (20), AUTO-BW, NO-OUTDOOR
+	(5250 - 5330 @ 80), (20), DFS, AUTO-BW, NO-OUTDOOR
 	(5490 - 5710 @ 160), (20), DFS
 
 country KE: DFS-ETSI
