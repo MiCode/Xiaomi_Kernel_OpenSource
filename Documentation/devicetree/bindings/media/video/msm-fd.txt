@@ -41,8 +41,15 @@ Optional properties:
   - ib. Instantaneous bus bandwidth (Bps).
 - mmagic-vdd-supply: phandle to GDSC regulator controlling mmagic.
 - camss-vdd-supply: phandle to GDSC regulator controlling camss.
-- qcom,vbif-reg-settings: relative address offsets and value pairs for
-  VBIF registers.
+- qcom,fd-core-reg-settings: relative address offsets and value pairs for
+  FD CORE registers and bit mask.
+  Format: <reg_addr_offset reg_value reg_mask>
+- qcom,fd-misc-reg-settings: relative address offsets and value pairs for
+  FD MISC registers and bit mask.
+  Format: <reg_addr_offset reg_value reg_mask>
+- qcom,fd-vbif-reg-settings: relative address offsets and value pairs for
+  FD VBIF registers and bit mask.
+  Format: <reg_addr_offset reg_value reg_mask>
 
 Example:
 
@@ -79,10 +86,14 @@ Example:
                         "camss_cpp_axi_clk", "cpp_vbif_ahb_clk",
                          "smmu_cpp_ahb_clk";
         clock-rates = <0 0 0 0 400000000 400000000 400000000 80000000 0 0 0 0 0>;
-	qcom,bus-bandwidth-vectors = <13000000 13000000>,
-		<45000000 45000000>,
-		<90000000 90000000>;
-	qcom,vbif-reg-settings = <0x10 0x40004000>,
-		<0x18 0x10000000>,
-		<0x1c 0x10000000>;
+        qcom,bus-bandwidth-vectors = <13000000 13000000>,
+            <45000000 45000000>,
+            <90000000 90000000>;
+        qcom,fd-vbif-reg-settings = <0x20 0x10000000 0x30000000>,
+            <0x24 0x10000000 0x30000000>,
+            <0x28 0x10000000 0x30000000>,
+            <0x2c 0x10000000 0x30000000>;
+        qcom,fd-misc-reg-settings = <0x20 0x2 0x3>,
+            <0x24 0x2 0x3>;
+        qcom,fd-core-reg-settings = <0x8 0x20 0xffffffff>;
     };
