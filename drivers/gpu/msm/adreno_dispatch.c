@@ -438,7 +438,7 @@ static int dispatcher_context_sendcmds(struct adreno_device *adreno_dev,
 		 * against the burst for the context
 		 */
 
-		if (cmdbatch->flags & KGSL_CONTEXT_SYNC) {
+		if (cmdbatch->flags & KGSL_CMDBATCH_SYNC) {
 			struct kgsl_device *device = cmdbatch->device;
 			kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
 			kgsl_cmdbatch_destroy(cmdbatch);
@@ -609,7 +609,7 @@ static int get_timestamp(struct adreno_context *drawctxt,
 		struct kgsl_cmdbatch *cmdbatch, unsigned int *timestamp)
 {
 	/* Synchronization commands don't get a timestamp */
-	if (cmdbatch->flags & KGSL_CONTEXT_SYNC) {
+	if (cmdbatch->flags & KGSL_CMDBATCH_SYNC) {
 		*timestamp = 0;
 		return 0;
 	}
@@ -667,7 +667,7 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 	 */
 
 	if ((drawctxt->base.flags & KGSL_CONTEXT_CTX_SWITCH) ||
-		(cmdbatch->flags & KGSL_CONTEXT_CTX_SWITCH))
+		(cmdbatch->flags & KGSL_CMDBATCH_CTX_SWITCH))
 		set_bit(CMDBATCH_FLAG_FORCE_PREAMBLE, &cmdbatch->priv);
 
 	/*
@@ -684,7 +684,7 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 		 * for the dispatcher to continue submitting
 		 */
 
-		if (cmdbatch->flags & KGSL_CONTEXT_END_OF_FRAME) {
+		if (cmdbatch->flags & KGSL_CMDBATCH_END_OF_FRAME) {
 			clear_bit(ADRENO_CONTEXT_SKIP_EOF, &drawctxt->priv);
 
 			/*
@@ -903,7 +903,7 @@ static void cmdbatch_skip_frame(struct kgsl_cmdbatch *cmdbatch,
 		if (skip) {
 			set_bit(CMDBATCH_FLAG_SKIP, &replay[i]->priv);
 
-			if (replay[i]->flags & KGSL_CONTEXT_END_OF_FRAME)
+			if (replay[i]->flags & KGSL_CMDBATCH_END_OF_FRAME)
 				skip = 0;
 		} else {
 			set_bit(CMDBATCH_FLAG_FORCE_PREAMBLE, &replay[i]->priv);

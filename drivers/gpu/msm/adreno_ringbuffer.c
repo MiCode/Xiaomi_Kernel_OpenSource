@@ -1178,7 +1178,7 @@ void adreno_ringbuffer_set_constraint(struct kgsl_device *device,
 	 */
 	if (context->pwr_constraint.type &&
 		((context->flags & KGSL_CONTEXT_PWR_CONSTRAINT) ||
-			(cmdbatch->flags & KGSL_CONTEXT_PWR_CONSTRAINT))) {
+			(cmdbatch->flags & KGSL_CMDBATCH_PWR_CONSTRAINT))) {
 
 		constraint = adreno_ringbuffer_get_constraint(device, context);
 

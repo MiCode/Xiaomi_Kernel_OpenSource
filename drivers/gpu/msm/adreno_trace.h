@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,9 +41,7 @@ TRACE_EVENT(adreno_cmdbatch_queued,
 		"ctx=%u ts=%u queued=%u flags=%s",
 			__entry->id, __entry->timestamp, __entry->queued,
 			__entry->flags ? __print_flags(__entry->flags, "|",
-				{ KGSL_CONTEXT_SYNC, "SYNC" },
-				{ KGSL_CONTEXT_END_OF_FRAME, "EOF" })
-				: "none"
+				ADRENO_CMDBATCH_FLAGS) : "none"
 	)
 );
 
