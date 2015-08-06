@@ -145,7 +145,7 @@ static ssize_t store_clock_gating_enabled(struct kobject *kobj,
 	int ret = 0, val = 0;
 
 	ret = kstrtoint(buf, 10, &val);
-	if (ret) {
+	if (ret || !enable_dynamic_clock_gating) {
 		pr_err("Invalid input%s %s. err:%d\n", __func__, buf, ret);
 		return count;
 	}
