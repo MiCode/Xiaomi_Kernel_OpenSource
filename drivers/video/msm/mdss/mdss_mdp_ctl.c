@@ -3072,7 +3072,8 @@ int mdss_mdp_ctl_destroy(struct mdss_mdp_ctl *ctl)
 	struct mdss_mdp_ctl *sctl;
 	int rc;
 
-	rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CLOSE, NULL, false);
+	rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CLOSE, NULL,
+				     CTL_INTF_EVENT_FLAG_DEFAULT);
 	WARN(rc, "unable to close panel for intf=%d\n", ctl->intf_num);
 
 	sctl = mdss_mdp_get_split_ctl(ctl);
@@ -3087,7 +3088,7 @@ int mdss_mdp_ctl_destroy(struct mdss_mdp_ctl *ctl)
 }
 
 int mdss_mdp_ctl_intf_event(struct mdss_mdp_ctl *ctl, int event, void *arg,
-	bool skip_broadcast)
+	u32 flags)
 {
 	struct mdss_panel_data *pdata;
 	int rc = 0;
@@ -3097,13 +3098,23 @@ int mdss_mdp_ctl_intf_event(struct mdss_mdp_ctl *ctl, int event, void *arg,
 
 	pdata = ctl->panel_data;
 
-	pr_debug("sending ctl=%d event=%d\n", ctl->num, event);
+	if (flags & CTL_INTF_EVENT_FLAG_SLAVE_INTF) {
+		pdata = pdata->next;
+		if (!pdata) {
+			pr_err("Error: event=%d flags=0x%x, ctl%d slave intf is not present\n",
+				event, flags, ctl->num);
+			return -EINVAL;
+		}
+	}
+
+	pr_debug("sending ctl=%d event=%d flag=0x%x\n", ctl->num, event, flags);
 
 	do {
 		if (pdata->event_handler)
 			rc = pdata->event_handler(pdata, event, arg);
 		pdata = pdata->next;
-	} while (rc == 0 && pdata && pdata->active && !skip_broadcast);
+	} while (rc == 0 && pdata && pdata->active &&
+		!(flags & CTL_INTF_EVENT_FLAG_SKIP_BROADCAST));
 
 	return rc;
 }
@@ -3277,7 +3288,8 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff)
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
-	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_RESET, NULL, false);
+	ret = mdss_mdp_ctl_intf_event(ctl,
+		MDSS_EVENT_RESET, NULL, CTL_INTF_EVENT_FLAG_DEFAULT);
 	if (ret) {
 		pr_err("panel power on failed ctl=%d\n", ctl->num);
 		goto error;
@@ -4300,8 +4312,8 @@ int mdss_mdp_display_wait4pingpong(struct mdss_mdp_ctl *ctl, bool use_lock)
 		if (sctl)
 			mdss_mdp_ctl_reset(sctl);
 
-		mdss_mdp_ctl_intf_event(ctl,
-				MDSS_EVENT_DSI_RESET_WRITE_PTR, NULL, false);
+		mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_DSI_RESET_WRITE_PTR,
+			NULL, CTL_INTF_EVENT_FLAG_DEFAULT);
 
 		pr_debug("pingpong timeout recovery finished\n");
 	}
