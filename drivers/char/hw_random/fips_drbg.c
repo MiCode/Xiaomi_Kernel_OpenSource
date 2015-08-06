@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,7 +74,7 @@ int get_entropy_callback(void *ctx, void *buf)
 	if (NULL == buf)
 		return FIPS140_PRNG_ERR;
 
-	ret_val = msm_rng_direct_read(msm_rng_dev, buf);
+	ret_val = msm_rng_direct_read(msm_rng_dev, buf, Q_HW_DRBG_BLOCK_BYTES);
 	if ((size_t)ret_val != Q_HW_DRBG_BLOCK_BYTES)
 		return ret_val;
 
@@ -110,6 +110,8 @@ do_fips_drbg_init(struct fips_drbg_ctx_s *ctx,
 	if (reseed_interval == 0 ||
 		reseed_interval > CTR_DRBG_MAX_RESEED_INTERVAL)
 		reseed_interval = CTR_DRBG_MAX_RESEED_INTERVAL;
+
+	mutex_init(&ctx->drbg_lock);
 
 	/* fill in callback related fields in ctx */
 	ctx->get_entropy_callback = callback;
@@ -206,18 +208,18 @@ fips_drbg_reseed(struct fips_drbg_ctx_s *ctx)
 	}
 
 	if (!memcmp(entropy_pool,
-		    ctx->prev_hw_drbg_block,
-		    Q_HW_DRBG_BLOCK_BYTES)) {
+			ctx->prev_hw_drbg_block,
+			Q_HW_DRBG_BLOCK_BYTES)) {
 		memset(entropy_pool, 0, Q_HW_DRBG_BLOCK_BYTES);
 		return FIPS140_PRNG_ERR;
 	} else
 		memcpy(ctx->prev_hw_drbg_block,
-		       entropy_pool,
-		       Q_HW_DRBG_BLOCK_BYTES);
+				entropy_pool,
+				Q_HW_DRBG_BLOCK_BYTES);
 
 	init_rv = ctr_drbg_reseed(&ctx->ctr_drbg_ctx,
-				  entropy_pool,
-				  8 * MSM_ENTROPY_BUFFER_SIZE);
+				entropy_pool,
+				8*MSM_ENTROPY_BUFFER_SIZE);
 
 	/* Zeroize the buffer for security. */
 	memset(entropy_pool, 0, Q_HW_DRBG_BLOCK_BYTES);
@@ -241,12 +243,13 @@ fips_drbg_gen(struct fips_drbg_ctx_s *ctx, void *tgt, size_t len)
 	2^19 bits. */
 
 	enum ctr_drbg_status_t gen_rv;
-	int rv;
+	int rv = FIPS140_PRNG_ERR;
 
 	if (ctx == NULL || ctx->magic != MAGIC)
 		return FIPS140_PRNG_ERR;
 	if (tgt == NULL && len > 0)
 		return FIPS140_PRNG_ERR;
+	mutex_lock(&ctx->drbg_lock);
 	while (len > 0) {
 		size_t req_len;
 
@@ -265,15 +268,17 @@ fips_drbg_gen(struct fips_drbg_ctx_s *ctx, void *tgt, size_t len)
 			break;
 		case CTR_DRBG_NEEDS_RESEED:
 			rv = fips_drbg_reseed(ctx);
-			if (rv != 0)
-				return rv;
+			if (FIPS140_PRNG_OK != rv)
+				goto err;
 			break;
 		default:
-			return FIPS140_PRNG_ERR;
+			goto err;
 		}
 	}
-
-	return 0;
+	rv = FIPS140_PRNG_OK;
+err:
+	mutex_unlock(&ctx->drbg_lock);
+	return rv;
 }
 
 /* free resources and zeroize state */
