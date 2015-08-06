@@ -17,8 +17,12 @@
 #include <linux/regmap.h>
 #include <linux/mfd/wcd9xxx/core.h>
 
+typedef int (*regmap_patch_fptr)(struct regmap *, int);
+
 #ifdef CONFIG_WCD9335_CODEC
 extern struct regmap_config wcd9335_regmap_config;
+extern int wcd9335_regmap_register_patch(struct regmap *regmap,
+					 int version);
 #endif
 
 static inline struct regmap_config *wcd9xxx_get_regmap_config(int type)
@@ -37,6 +41,24 @@ static inline struct regmap_config *wcd9xxx_get_regmap_config(int type)
 	};
 
 	return regmap_config;
+}
+
+static inline regmap_patch_fptr wcd9xxx_get_regmap_reg_patch(int type)
+{
+	regmap_patch_fptr apply_patch;
+
+	switch (type) {
+#ifdef CONFIG_WCD9335_CODEC
+	case WCD9335:
+		apply_patch = wcd9335_regmap_register_patch;
+		break;
+#endif
+	default:
+		apply_patch = NULL;
+		break;
+	}
+
+	return apply_patch;
 }
 
 #endif
