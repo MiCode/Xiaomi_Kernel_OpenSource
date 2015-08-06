@@ -55,14 +55,6 @@ struct snd_msm {
 	struct snd_pcm *pcm;
 };
 
-#define PLAYBACK_MIN_NUM_PERIODS    2
-#define PLAYBACK_MAX_NUM_PERIODS    8
-#define PLAYBACK_MAX_PERIOD_SIZE    12288
-#define PLAYBACK_MIN_PERIOD_SIZE    128
-#define CAPTURE_MIN_NUM_PERIODS     2
-#define CAPTURE_MAX_NUM_PERIODS     8
-#define CAPTURE_MAX_PERIOD_SIZE     16384
-#define CAPTURE_MIN_PERIOD_SIZE     320
 #define CMD_EOS_MIN_TIMEOUT_LENGTH  50
 #define CMD_EOS_TIMEOUT_MULTIPLIER  (HZ * 50)
 
@@ -374,14 +366,9 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 		return -EINVAL;
 	}
 
-	pr_debug("%s\n", __func__);
 	if (prtd->enabled == IDLE) {
-		prtd->in_frame_info = kcalloc(runtime->periods,
-					sizeof(struct msm_audio_in_frame_info),
-					GFP_KERNEL);
-		if (!prtd->in_frame_info)
-			return -ENOMEM;
-
+		pr_debug("%s:perf_mode=%d periods=%d\n", __func__,
+			pdata->perf_mode, runtime->periods);
 		params = &soc_prtd->dpcm[substream->stream].hw_params;
 		if (params_format(params) == SNDRV_PCM_FORMAT_S24_LE)
 			bits_per_sample = 24;
@@ -402,7 +389,6 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 			pr_err("%s: q6asm_open_read failed\n", __func__);
 			q6asm_audio_client_free(prtd->audio_client);
 			prtd->audio_client = NULL;
-			kfree(prtd->in_frame_info);
 			return -ENOMEM;
 		}
 
@@ -797,7 +783,6 @@ static int msm_pcm_capture_close(struct snd_pcm_substream *substream)
 
 	pr_debug("%s\n", __func__);
 	if (prtd->audio_client) {
-		kfree(prtd->in_frame_info);
 		q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 		q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);
