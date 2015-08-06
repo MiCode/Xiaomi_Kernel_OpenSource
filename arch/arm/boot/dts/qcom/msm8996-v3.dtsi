@@ -22,7 +22,7 @@
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8996 v3";
-	qcom,msm-id = <246 0x30000>;
+	qcom,msm-id = <246 0x30001>;
 };
 
 &clock_gcc {
