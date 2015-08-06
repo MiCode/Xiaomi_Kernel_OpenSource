@@ -54,10 +54,13 @@
 
 #define TASHA_VERSION_1_0     0
 #define TASHA_VERSION_1_1     1
+#define TASHA_VERSION_2_0     2
 #define TASHA_IS_1_0(ver) \
 	((ver == TASHA_VERSION_1_0) ? 1 : 0)
 #define TASHA_IS_1_1(ver) \
 	((ver == TASHA_VERSION_1_1) ? 1 : 0)
+#define TASHA_IS_2_0(ver) \
+	((ver == TASHA_VERSION_2_0) ? 1 : 0)
 
 enum wcd9xxx_slim_slave_addr_type {
 	WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TABLA,
@@ -221,6 +224,7 @@ enum wcd9xxx_chipid_major {
 	TAPAN_MAJOR = cpu_to_le16(0x103),
 	TOMTOM_MAJOR = cpu_to_le16(0x105),
 	TASHA_MAJOR = cpu_to_le16(0x0),
+	TASHA2P0_MAJOR = cpu_to_le16(0x107),
 };
 
 enum codec_power_states {
