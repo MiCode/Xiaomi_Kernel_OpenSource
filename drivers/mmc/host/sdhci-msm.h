@@ -106,6 +106,8 @@ struct sdhci_msm_pltfm_data {
 	enum pm_qos_req_type cpu_affinity_type;
 	u32 *sup_ice_clk_table;
 	unsigned char sup_ice_clk_cnt;
+	u32 ice_clk_max;
+	u32 ice_clk_min;
 };
 
 struct sdhci_msm_bus_vote {
