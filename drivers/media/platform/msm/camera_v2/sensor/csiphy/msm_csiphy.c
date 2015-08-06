@@ -46,6 +46,7 @@
 #define MAX_LANES                                   4
 #define CLOCK_OFFSET                              0x700
 #define CLK_MISS_TIMER                            0xA5
+#define GLITCH_ELIMINATION_NUM                    0x12 /* bit [6:4] */
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
@@ -124,23 +125,31 @@ static int msm_csiphy_3phase_lane_config(
 			lane_mask >>= 1;
 			continue;
 		}
+
+		msm_camera_io_w(0x0,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+			mipi_csiphy_3ph_lnn_ctrl21_addr + 0x200*i);
+		msm_camera_io_w(0x33,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+			mipi_csiphy_3ph_lnn_ctrl23_addr + 0x200*i);
+		msm_camera_io_w(0xA0,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+			mipi_csiphy_3ph_lnn_ctrl26_addr + 0x200*i);
+		msm_camera_io_w(0x17,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+			mipi_csiphy_3ph_lnn_ctrl27_addr + 0x200*i);
+		msm_camera_io_w(0x6,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+			mipi_csiphy_3ph_lnn_ctrl1_addr + 0x200*i);
 		msm_camera_io_w(((csiphy_params->settle_cnt >> 8) & 0xff),
 			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 			mipi_csiphy_3ph_lnn_ctrl2_addr + 0x200*i);
 		msm_camera_io_w((csiphy_params->settle_cnt & 0xff),
 			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 			mipi_csiphy_3ph_lnn_ctrl3_addr + 0x200*i);
-
-		msm_camera_io_w(0x0,
+		msm_camera_io_w(0x20,
 			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
-			mipi_csiphy_3ph_lnn_ctrl34_addr + 0x200*i);
-		msm_camera_io_w(0x7F,
-			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
-			mipi_csiphy_3ph_lnn_ctrl35_addr + 0x200*i);
-		msm_camera_io_w(0x7F,
-			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
-			mipi_csiphy_3ph_lnn_ctrl36_addr + 0x200*i);
-
+			mipi_csiphy_3ph_lnn_ctrl5_addr + 0x200*i);
 		msm_camera_io_w(0x3e,
 			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 			mipi_csiphy_3ph_lnn_ctrl6_addr + 0x200*i);
@@ -159,33 +168,74 @@ static int msm_csiphy_3phase_lane_config(
 		msm_camera_io_w(0x0,
 			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 			mipi_csiphy_3ph_lnn_ctrl11_addr + 0x200*i);
-
-		msm_camera_io_w(0x50,
+		msm_camera_io_w(0x1,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+			mipi_csiphy_3ph_lnn_ctrl12_addr + 0x200*i);
+		msm_camera_io_w(0x10,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+			mipi_csiphy_3ph_lnn_ctrl15_addr + 0x200*i);
+		msm_camera_io_w(0x1,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+			mipi_csiphy_3ph_lnn_ctrl16_addr + 0x200*i);
+		msm_camera_io_w(GLITCH_ELIMINATION_NUM,
 			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 			mipi_csiphy_3ph_lnn_ctrl17_addr + 0x200*i);
+		msm_camera_io_w(0xFE,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+			mipi_csiphy_3ph_lnn_ctrl18_addr + 0x200*i);
+		msm_camera_io_w(0x1,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+			mipi_csiphy_3ph_lnn_ctrl19_addr + 0x200*i);
+		msm_camera_io_w(0x33,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+			mipi_csiphy_3ph_lnn_ctrl23_addr + 0x200*i);
 		msm_camera_io_w(ULPM_WAKE_UP_TIMER_MODE,
 			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 			mipi_csiphy_3ph_lnn_ctrl24_addr + 0x200*i);
+		msm_camera_io_w(0x41,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+			mipi_csiphy_3ph_lnn_ctrl28_addr + 0x200*i);
+		msm_camera_io_w(0x41,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+			mipi_csiphy_3ph_lnn_ctrl29_addr + 0x200*i);
+		msm_camera_io_w(0x3E,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+			mipi_csiphy_3ph_lnn_ctrl30_addr + 0x200*i);
+		msm_camera_io_w(0x7F,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+			mipi_csiphy_3ph_lnn_ctrl33_addr + 0x200*i);
+		msm_camera_io_w(0x7F,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+			mipi_csiphy_3ph_lnn_ctrl34_addr + 0x200*i);
+		msm_camera_io_w(0x7F,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+			mipi_csiphy_3ph_lnn_ctrl35_addr + 0x200*i);
+		msm_camera_io_w(0x0,
+			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+			mipi_csiphy_3ph_lnn_ctrl36_addr + 0x200*i);
+
 		if (ULPM_WAKE_UP_TIMER_MODE == 0x22) {
-			msm_camera_io_w(0x41,
+			msm_camera_io_w(0x10,
 				csiphybase + csiphy_dev->ctrl_reg->
 				csiphy_3ph_reg.mipi_csiphy_3ph_lnn_ctrl51_addr +
 				0x200*i);
 		}
-		msm_camera_io_w(0x20,
+		msm_camera_io_w(0x48,
 			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 			mipi_csiphy_3ph_lnn_ctrl25_addr + 0x200*i);
+
 		lane_mask >>= 1;
 		i++;
 	}
-	if (csiphy_params->combo_mode == 1)
+	if (csiphy_params->combo_mode == 1) {
 		msm_camera_io_w(0x2,
 			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 			mipi_csiphy_3ph_cmn_ctrl7_addr);
-	else
+	} else {
 		msm_camera_io_w(0x6,
 			csiphybase + csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 			mipi_csiphy_3ph_cmn_ctrl7_addr);
+	}
 	/* Delay for stabilizing the regulator*/
 	usleep_range(10, 15);
 	msm_csiphy_cphy_irq_config(csiphy_dev, csiphy_params);
@@ -777,6 +827,7 @@ ioremap_fail:
 static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 {
 	int i = 0;
+	int rc = 0;
 	struct msm_camera_csi_lane_params *csi_lane_params;
 	uint16_t csi_lane_mask;
 	csi_lane_params = (struct msm_camera_csi_lane_params *)arg;
@@ -999,6 +1050,7 @@ static int32_t msm_csiphy_cmd(struct csiphy_device *csiphy_dev, void *arg)
 		pr_err("%s: csiphy_dev NULL\n", __func__);
 		return -EINVAL;
 	}
+
 	switch (cdata->cfgtype) {
 	case CSIPHY_INIT:
 		rc = msm_csiphy_init(csiphy_dev);
@@ -1304,7 +1356,7 @@ static int csiphy_probe(struct platform_device *pdev)
 		new_csiphy_dev->hw_dts_version = CSIPHY_VERSION_V35;
 		new_csiphy_dev->csiphy_3phase = CSI_3PHASE_HW;
 	} else {
-		pr_err("%s:%d, invalid hw version : 0x%x", __func__, __LINE__,
+		pr_err("%s:%d, invalid hw version : 0x%x\n", __func__, __LINE__,
 		new_csiphy_dev->hw_dts_version);
 		return -EINVAL;
 	}
