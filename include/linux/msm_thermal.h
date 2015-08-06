@@ -55,6 +55,7 @@ struct msm_thermal_data {
 	int32_t vdd_rstr_temp_degC;
 	int32_t vdd_rstr_temp_hyst_degC;
 	int32_t vdd_mx_min;
+	int32_t vdd_cx_min;
 	int32_t psm_temp_degC;
 	int32_t psm_temp_hyst_degC;
 	int32_t ocr_temp_degC;

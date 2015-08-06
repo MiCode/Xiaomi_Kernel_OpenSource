@@ -199,12 +199,12 @@ Optional child nodes
 			be defined along with the other properties required for CX
 			and GFX phase selection feature.
 - qcom,mx-restriction-temp: Threshold temperature below which the module votes for
-			higher data retention voltage of MX supply. If and only if this
+			higher data retention voltage of MX and CX supply. If and only if this
 			property exists, then the property qcom,mx-restriction-temp-hysteresis,
 			qcom,mx-retention-min should also be present. Also, if this
 			property is defined, will have to define vdd-mx-supply =
 			<&phandle_of_regulator>
-- qcom,mx-restriction-temp-hysteresis: Degree above the threshold to remove MX vote.
+- qcom,mx-restriction-temp-hysteresis: Degree above the threshold to remove MX and CX vote.
 			If this property exists, then the property qcom,mx-restriction-temp,
 			qcom,mx-retention-min should also be present.Also, if this
 			property is defined, will have to define vdd-mx-supply =
@@ -215,6 +215,11 @@ Optional child nodes
 			qcom,mx-restriction-temp-hysteresis should also be present.
 			Also, if this property is defined, will have to define
 			vdd-mx-supply = <&phandle_of_regulator>
+- qcom,cx-retention-min: Minimum data retention voltage to be applied to CX rail if the low
+			threshold is crossed. If this property exists, then the property
+			qcom,mx-restriction-temp and qcom,mx-restriction-temp-hysteresis
+			should also be present. Also, if this property is defined, will
+			have to define vdd-cx-supply = <&phandle_of_regulator>.
 - qcom,therm-reset-temp: Degree above which the KTM will initiate a secure watchdog reset.
 			When this property is defined, KTM will monitor all the tsens from
 			boot time and will initiate a secure watchdog reset if any of the
@@ -261,6 +266,8 @@ Example:
 		qcom,mx-restriction-temp-hysteresis = <10>;
 		qcom,mx-retention-min = <710000>;
 		vdd-mx-supply = <&pma8084_s1>;
+		qcom,cx-retention-min = <RPM_SMD_REGULATOR_LEVEL_RETENTION_PLUS>;
+		vdd-cx-supply = <&pmd9635_s5_level>;
 		qcom,online-hotplug-core;
 		qcom,synchronous-cluster-id = <0 1>; /* Indicates cluster 0 and 1 are synchronous */
 		qcom,synchronous-cluster-map =  <0 2 &CPU0 &CPU1>,
