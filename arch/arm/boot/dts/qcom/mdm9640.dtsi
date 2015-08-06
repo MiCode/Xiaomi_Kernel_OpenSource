@@ -507,6 +507,7 @@
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
 		vdd-dig-supply = <&pmd9635_s5_floor_level>;
+		qcom,cpr-temp-band-enable;
 
 		qcom,vdd-dig-rstr{
 			qcom,vdd-rstr-reg = "vdd-dig";
