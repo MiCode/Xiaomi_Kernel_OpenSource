@@ -390,7 +390,6 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 			pr_err("%s: q6asm_open_read failed\n", __func__);
 			q6asm_audio_client_free(prtd->audio_client);
 			prtd->audio_client = NULL;
-			kfree(prtd->in_frame_info);
 			return -ENOMEM;
 		}
 
@@ -787,7 +786,6 @@ static int msm_pcm_capture_close(struct snd_pcm_substream *substream)
 
 	pr_debug("%s\n", __func__);
 	if (prtd->audio_client) {
-		kfree(prtd->in_frame_info);
 		q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 		q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);
