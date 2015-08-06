@@ -888,7 +888,8 @@ void mdss_bus_bandwidth_ctrl(int enable)
 		}
 	}
 
-	pr_debug("bw_cnt=%d changed=%d enable=%d\n",
+	pr_debug("%pS: task:%s bw_cnt=%d changed=%d enable=%d\n",
+		__builtin_return_address(0), current->group_leader->comm,
 		mdata->bus_ref_cnt, changed, enable);
 
 	if (changed) {
@@ -938,9 +939,9 @@ void mdss_mdp_clk_ctrl(int enable)
 	if (changed)
 		MDSS_XLOG(mdp_clk_cnt, enable, current->pid);
 
-	pr_debug("%pS: clk_cnt=%d changed=%d enable=%d\n",
-			__builtin_return_address(0), mdp_clk_cnt,
-			changed, enable);
+	pr_debug("%pS: task:%s clk_cnt=%d changed=%d enable=%d\n",
+		__builtin_return_address(0), current->group_leader->comm,
+		mdata->bus_ref_cnt, changed, enable);
 
 	if (changed) {
 		if (enable) {

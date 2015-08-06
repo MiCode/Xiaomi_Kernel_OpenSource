@@ -1741,7 +1741,7 @@ int mdss_mode_switch_post(struct msm_fb_data_type *mfd, u32 mode)
 		pr_debug("%s, start\n", __func__);
 		rc = mdss_mdp_ctl_intf_event(ctl,
 			MDSS_EVENT_DSI_DYNAMIC_SWITCH,
-			(void *) MIPI_VIDEO_PANEL, false);
+			(void *) MIPI_VIDEO_PANEL, CTL_INTF_EVENT_FLAG_DEFAULT);
 		pr_debug("%s, end\n", __func__);
 	} else if (mode == MIPI_CMD_PANEL) {
 		/*
@@ -1753,11 +1753,11 @@ int mdss_mode_switch_post(struct msm_fb_data_type *mfd, u32 mode)
 		clk_ctrl.client = DSI_CLK_REQ_DSI_CLIENT;
 		if (sctl)
 			mdss_mdp_ctl_intf_event(sctl,
-				MDSS_EVENT_PANEL_CLK_CTRL,
-				(void *)&clk_ctrl, true);
+				MDSS_EVENT_PANEL_CLK_CTRL, (void *)&clk_ctrl,
+				CTL_INTF_EVENT_FLAG_SKIP_BROADCAST);
 
 		mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_CLK_CTRL,
-			(void *)&clk_ctrl, true);
+			(void *)&clk_ctrl, CTL_INTF_EVENT_FLAG_SKIP_BROADCAST);
 	} else if (mode == SWITCH_RESOLUTION) {
 		if (ctl->ops.reconfigure)
 			rc = ctl->ops.reconfigure(ctl, mode, 0);
@@ -4855,7 +4855,7 @@ static int mdss_mdp_update_panel_info(struct msm_fb_data_type *mfd,
 	}
 
 	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_DSI_UPDATE_PANEL_DATA,
-		(void *)(unsigned long)mode, false);
+		(void *)(unsigned long)mode, CTL_INTF_EVENT_FLAG_DEFAULT);
 	if (ret)
 		pr_err("Dynamic switch to %s mode failed!\n",
 					mode ? "command" : "video");
