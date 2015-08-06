@@ -173,8 +173,13 @@ static ssize_t mdss_dba_utils_sysfs_wta_hpd(struct device *dev,
 		return -EINVAL;
 	}
 
-	if (!hpd || udata->hpd_state)
+	pr_debug("%s: set value: %d hpd state: %d\n", __func__,
+					hpd, udata->hpd_state);
+	if (!hpd) {
+		if (udata->ops.power_on)
+			udata->ops.power_on(udata->dba_data, false, 0);
 		return count;
+	}
 
 	/* power on downstream device */
 	if (udata->ops.power_on)
@@ -253,6 +258,8 @@ static void mdss_dba_utils_dba_cb(void *data, enum msm_dba_callback_event event)
 
 	switch (event) {
 	case MSM_DBA_CB_HPD_CONNECT:
+		if (udata->hpd_state)
+			break;
 		if (udata->ops.get_raw_edid) {
 			ret = udata->ops.get_raw_edid(udata->dba_data,
 				udata->edid_buf_size, udata->edid_buf, 0);
@@ -274,6 +281,8 @@ static void mdss_dba_utils_dba_cb(void *data, enum msm_dba_callback_event event)
 		break;
 
 	case MSM_DBA_CB_HPD_DISCONNECT:
+		if (!udata->hpd_state)
+			break;
 		if (pluggable) {
 			mdss_dba_utils_send_audio_notification(udata, 0);
 			mdss_dba_utils_send_display_notification(udata, 0);

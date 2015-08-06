@@ -986,7 +986,7 @@ static void adv7533_intr_work(struct work_struct *work)
 	}
 
 	/* EDID ready for read */
-	if (int_status & BIT(2)) {
+	if ((int_status & BIT(2)) && pdata->is_power_on) {
 		pr_debug("%s: EDID READY\n", __func__);
 
 		ret = adv7533_read_edid(pdata, sizeof(pdata->edid_buf),
@@ -1170,6 +1170,7 @@ static int adv7533_power_on(void *client, bool on, u32 flags)
 		return ret;
 	}
 
+	pr_debug("%s: %d\n", __func__, on);
 	mutex_lock(&pdata->ops_mutex);
 
 	if (on && !pdata->is_power_on) {
@@ -1182,10 +1183,13 @@ static int adv7533_power_on(void *client, bool on, u32 flags)
 			goto end;
 		}
 		pdata->is_power_on = true;
-	} else {
+	} else if (!on) {
 		/* power down hdmi */
 		ADV7533_WRITE(I2C_ADDR_MAIN, 0x41, 0x50);
 		pdata->is_power_on = false;
+
+		adv7533_notify_clients(&pdata->dev_info,
+			MSM_DBA_CB_HPD_DISCONNECT);
 	}
 end:
 	mutex_unlock(&pdata->ops_mutex);
