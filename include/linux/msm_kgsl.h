@@ -60,6 +60,7 @@
  * omitted here in case we need to share - the other bits are available for
  * cmdbatch only flags as needed
  */
+#define KGSL_CMDBATCH_MEMLIST	0x00000001
 #define KGSL_CMDBATCH_SUBMIT_IB_LIST	KGSL_CONTEXT_SUBMIT_IB_LIST /* 0x004 */
 #define KGSL_CMDBATCH_CTX_SWITCH	KGSL_CONTEXT_CTX_SWITCH     /* 0x008 */
 #define KGSL_CMDBATCH_END_OF_FRAME	KGSL_CONTEXT_END_OF_FRAME   /* 0x100 */
@@ -886,6 +887,9 @@ struct kgsl_cmd_syncpoint {
 	unsigned int size;
 };
 
+/* Flag to indicate that the cmdlist may contain memlists */
+#define KGSL_IBDESC_MEMLIST 0x1
+
 /**
  * struct kgsl_submit_commands - Argument to IOCTL_KGSL_SUBMIT_COMMANDS
  * @context_id: KGSL context ID that owns the commands
@@ -901,7 +905,8 @@ struct kgsl_cmd_syncpoint {
  * similar to kgsl_issueibcmds expect that it doesn't support the legacy way to
  * submit IB lists and it adds sync points to block the IB until the
  * dependencies are satisified.  This entry point is the new and preferred way
- * to submit commands to the GPU.
+ * to submit commands to the GPU. The memory list can be used to specify all
+ * memory that is referrenced in the current set of commands.
  */
 
 struct kgsl_submit_commands {

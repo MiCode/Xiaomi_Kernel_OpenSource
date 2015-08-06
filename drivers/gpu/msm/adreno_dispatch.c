@@ -824,11 +824,11 @@ static void mark_guilty_context(struct kgsl_device *device, unsigned int id)
 static void cmdbatch_skip_ib(struct kgsl_cmdbatch *cmdbatch,
 				unsigned int base)
 {
-	int i;
+	struct kgsl_memobj_node *ib;
 
-	for (i = 0; i < cmdbatch->ibcount; i++) {
-		if (cmdbatch->ibdesc[i].gpuaddr == base) {
-			cmdbatch->ibdesc[i].sizedwords = 0;
+	list_for_each_entry(ib, &cmdbatch->cmdlist, node) {
+		if (ib->gpuaddr == base) {
+			ib->priv |= MEMOBJ_SKIP;
 			if (base)
 				return;
 		}
