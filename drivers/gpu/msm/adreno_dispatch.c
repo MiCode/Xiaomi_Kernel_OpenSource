@@ -654,11 +654,20 @@ int adreno_dispatcher_queue_cmd(struct adreno_device *adreno_dev,
 	}
 
 	/*
-	 * After skipping to the end of the frame we need to force the preamble
-	 * to run (if it exists) regardless of the context state.
+	 * Force the preamble for this submission only - this is usually
+	 * requested by the dispatcher as part of fault recovery
 	 */
 
 	if (test_and_clear_bit(ADRENO_CONTEXT_FORCE_PREAMBLE, &drawctxt->priv))
+		set_bit(CMDBATCH_FLAG_FORCE_PREAMBLE, &cmdbatch->priv);
+
+	/*
+	 * Force the premable if set from userspace in the context or cmdbatch
+	 * flags
+	 */
+
+	if ((drawctxt->base.flags & KGSL_CONTEXT_CTX_SWITCH) ||
+		(cmdbatch->flags & KGSL_CONTEXT_CTX_SWITCH))
 		set_bit(CMDBATCH_FLAG_FORCE_PREAMBLE, &cmdbatch->priv);
 
 	/*
