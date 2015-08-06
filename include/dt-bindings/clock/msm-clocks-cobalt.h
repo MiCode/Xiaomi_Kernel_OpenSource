@@ -198,6 +198,7 @@
 #define clk_gcc_blsp2_uart3_apps_clk		0x382415ab
 #define clk_gcc_boot_rom_ahb_clk		0xde2adeb1
 #define clk_gcc_bimc_gfx_clk			0x3edd69ad
+#define clk_gcc_cfg_noc_usb3_axi_clk		0x9ea4c2d9
 #define clk_gcc_glm_ahb_clk			0x9fa410cc
 #define clk_gcc_glm_clk				0x8170c540
 #define clk_gcc_glm_xo_clk			0x3f1df8b2
