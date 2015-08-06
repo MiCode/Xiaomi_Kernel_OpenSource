@@ -57,6 +57,15 @@ struct msm_audio_in_frame_info {
 	uint32_t offset;
 };
 
+#define PLAYBACK_MIN_NUM_PERIODS    2
+#define PLAYBACK_MAX_NUM_PERIODS    8
+#define PLAYBACK_MAX_PERIOD_SIZE    12288
+#define PLAYBACK_MIN_PERIOD_SIZE    128
+#define CAPTURE_MIN_NUM_PERIODS     2
+#define CAPTURE_MAX_NUM_PERIODS     8
+#define CAPTURE_MAX_PERIOD_SIZE     16384
+#define CAPTURE_MIN_PERIOD_SIZE     320
+
 struct msm_audio {
 	struct snd_pcm_substream *substream;
 	unsigned int pcm_size;
@@ -101,7 +110,8 @@ struct msm_audio {
 	bool meta_data_mode;
 	uint32_t volume;
 	int ch_mixer;
-	struct msm_audio_in_frame_info *in_frame_info; /* array of frame info */
+	/* array of frame info */
+	struct msm_audio_in_frame_info in_frame_info[CAPTURE_MAX_NUM_PERIODS];
 };
 
 struct output_meta_data_st {
