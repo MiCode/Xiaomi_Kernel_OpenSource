@@ -78,7 +78,9 @@ int mdss_mdp_rot_mgr_init(void)
 	mutex_init(&rot_mgr->session_lock);
 	mutex_init(&rot_mgr->pipe_lock);
 	INIT_LIST_HEAD(&rot_mgr->queue);
-	rot_mgr->rot_work_queue = create_workqueue("rot_commit_workq");
+	rot_mgr->rot_work_queue = alloc_workqueue("rot_commit_workq",
+			WQ_UNBOUND | WQ_HIGHPRI | WQ_MEM_RECLAIM,
+						MAX_ROTATOR_PIPE_COUNT);
 	if (!rot_mgr->rot_work_queue) {
 		pr_err("fail to create rot commit work queue\n");
 		kfree(rot_mgr);
