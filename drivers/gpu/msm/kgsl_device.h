@@ -162,6 +162,26 @@ struct kgsl_event {
 	unsigned int created;
 };
 
+/* Flag to mark the memobj_node as a preamble */
+#define MEMOBJ_PREAMBLE BIT(0)
+/* Flag to mark that the memobj_node should not go to the hadrware */
+#define MEMOBJ_SKIP BIT(1)
+
+/**
+ * struct kgsl_memobj_node - Memory object descriptor
+ * @node: Local list node for the cmdbatch
+ * @cmdbatch: Cmdbatch the node belongs to
+ * @addr: memory start address
+ * @sizedwords: size of memory @addr
+ * @flags: any special case flags
+ */
+struct kgsl_memobj_node {
+	struct list_head node;
+	unsigned long gpuaddr;
+	size_t sizedwords;
+	unsigned long priv;
+};
+
 /**
  * struct kgsl_cmdbatch - KGSl command descriptor
  * @device: KGSL GPU device that the command was created for
@@ -172,10 +192,10 @@ struct kgsl_event {
  * @fault_policy: Internal policy describing how to handle this command in case
  * of a fault
  * @fault_recovery: recovery actions actually tried for this batch
- * @ibcount: Number of IBs in the command list
- * @ibdesc: Pointer to the list of IBs
  * @expires: Point in time when the cmdbatch is considered to be hung
  * @refcount: kref structure to maintain the reference count
+ * @cmdlist: List of IBs to issue
+ * @memlist: List of all memory used in this command batch
  * @synclist: List of context/timestamp tuples to wait for before issuing
  * @timer: a timer used to track possible sync timeouts for this cmdbatch
  *
@@ -191,10 +211,10 @@ struct kgsl_cmdbatch {
 	unsigned long priv;
 	unsigned long fault_policy;
 	unsigned long fault_recovery;
-	uint32_t ibcount;
-	struct kgsl_ibdesc *ibdesc;
 	unsigned long expires;
 	struct kref refcount;
+	struct list_head cmdlist;
+	struct list_head memlist;
 	struct list_head synclist;
 	struct timer_list timer;
 };

@@ -659,3 +659,46 @@ int kgsl_cff_dump_enable_get(void *data, u64 *val)
 	return 0;
 }
 EXPORT_SYMBOL(kgsl_cff_dump_enable_get);
+
+/*
+ * kgsl_cffdump_capture_ib_desc() - Capture CFF for a list of IB's
+ * @device: Device for which CFF is to be captured
+ * @context: The context under which the IB list executes on device
+ * @ibdesc: The IB list
+ * @numibs: Number of IB's in ibdesc
+ *
+ * Returns 0 on success else error code
+ */
+int kgsl_cffdump_capture_ib_desc(struct kgsl_device *device,
+				struct kgsl_context *context,
+				struct kgsl_cmdbatch *cmdbatch)
+{
+	int ret = 0;
+	unsigned int ptbase;
+	struct kgsl_ibdesc_node *ibdesc;
+
+	if (!device->cff_dump_enable)
+		return 0;
+	/* Dump CFF for IB and all objects in it */
+	ptbase = kgsl_mmu_get_pt_base_addr(&device->mmu,
+					context->proc_priv->pagetable);
+	if (!ptbase) {
+		ret = -EINVAL;
+		goto done;
+	}
+	list_for_each_entry(ib, &cmdbatch->ibdesclist, node) {
+		ret = kgsl_cffdump_capture_adreno_ib_cff(
+			device, ptbase, ibdesc->gpuaddr,
+			ibdesc->sizedwords);
+		if (ret) {
+			KGSL_DRV_ERR(device,
+			"Fail cff capture, IB %lx, size %zx\n",
+			ibdesc->gpuaddr,
+			ibdesc->sizedwords << 2);
+			break;
+		}
+	}
+done:
+	return ret;
+}
+EXPORT_SYMBOL(kgsl_cffdump_capture_ib_desc);

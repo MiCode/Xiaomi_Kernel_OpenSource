@@ -38,18 +38,18 @@ TRACE_EVENT(kgsl_issueibcmds,
 	TP_PROTO(struct kgsl_device *device,
 			int drawctxt_id,
 			struct kgsl_cmdbatch *cmdbatch,
+			unsigned int numibs,
 			int timestamp,
 			int flags,
 			int result,
 			unsigned int type),
 
-	TP_ARGS(device, drawctxt_id, cmdbatch, timestamp, flags,
-		result, type),
+	TP_ARGS(device, drawctxt_id, cmdbatch, numibs, timestamp,
+		flags, result, type),
 
 	TP_STRUCT__entry(
 		__string(device_name, device->name)
 		__field(unsigned int, drawctxt_id)
-		__field(unsigned int, ibdesc_addr)
 		__field(unsigned int, numibs)
 		__field(unsigned int, timestamp)
 		__field(unsigned int, flags)
@@ -60,8 +60,7 @@ TRACE_EVENT(kgsl_issueibcmds,
 	TP_fast_assign(
 		__assign_str(device_name, device->name);
 		__entry->drawctxt_id = drawctxt_id;
-		__entry->ibdesc_addr = cmdbatch->ibdesc[0].gpuaddr;
-		__entry->numibs = cmdbatch->ibcount;
+		__entry->numibs = numibs;
 		__entry->timestamp = timestamp;
 		__entry->flags = flags;
 		__entry->result = result;
@@ -69,11 +68,10 @@ TRACE_EVENT(kgsl_issueibcmds,
 	),
 
 	TP_printk(
-		"d_name=%s ctx=%u ib=0x%u numibs=%u ts=%u "
+		"d_name=%s ctx=%u ib=0x0 numibs=%u ts=%u "
 		"flags=0x%x(%s) result=%d type=%s",
 		__get_str(device_name),
 		__entry->drawctxt_id,
-		__entry->ibdesc_addr,
 		__entry->numibs,
 		__entry->timestamp,
 		__entry->flags,
@@ -82,7 +80,8 @@ TRACE_EVENT(kgsl_issueibcmds,
 			{ KGSL_CMDBATCH_CTX_SWITCH, "CTX_SWITCH" },
 			{ KGSL_CMDBATCH_SYNC, "SYNC" },
 			{ KGSL_CMDBATCH_END_OF_FRAME, "EOF" },
-			{ KGSL_CMDBATCH_PWR_CONSTRAINT, "PWR_CONSTRAINT" })
+			{ KGSL_CMDBATCH_PWR_CONSTRAINT, "PWR_CONSTRAINT" },
+			{ KGSL_CMDBATCH_MEMLIST, "MEMLIST" })
 			: "None",
 		__entry->result,
 		__print_symbolic(__entry->drawctxt_type,
