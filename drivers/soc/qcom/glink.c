@@ -515,6 +515,7 @@ static bool glink_core_remote_close_common(struct channel_ctx *ctx)
 			"Did not send GLINK_REMOTE_DISCONNECTED",
 			"local state is already CLOSED");
 
+	complete_all(&ctx->int_req_complete);
 	ch_purge_intent_lists(ctx);
 
 	return is_fully_closed;
@@ -2537,6 +2538,8 @@ int glink_close(void *handle)
 	ctx->local_open_state = GLINK_CHANNEL_CLOSING;
 
 	ctx->pending_delete = true;
+	complete_all(&ctx->int_req_complete);
+
 	if (ctx->transport_ptr->local_state != GLINK_XPRT_DOWN) {
 		glink_qos_reset_priority(ctx);
 		ret = ctx->transport_ptr->ops->tx_cmd_ch_close(
@@ -2598,25 +2601,37 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 	struct glink_core_tx_pkt *tx_info;
 	size_t intent_size;
 	bool is_atomic = tx_flags & GLINK_TX_SINGLE_THREADED;
+	enum local_channel_state_e ch_st;
 
 	if (!ctx)
 		return -EINVAL;
 
-	if (!(vbuf_provider || pbuf_provider))
+	rwref_get(&ctx->ch_state_lhc0);
+	if (!(vbuf_provider || pbuf_provider)) {
+		rwref_put(&ctx->ch_state_lhc0);
 		return -EINVAL;
+	}
 
-	if (!ch_is_fully_opened(ctx))
+	if (!ch_is_fully_opened(ctx)) {
+		rwref_put(&ctx->ch_state_lhc0);
 		return -EBUSY;
+	}
 
-	if (size > GLINK_MAX_PKT_SIZE)
+	if (size > GLINK_MAX_PKT_SIZE) {
+		rwref_put(&ctx->ch_state_lhc0);
 		return -EINVAL;
+	}
 
-	if (is_atomic && (tx_flags & GLINK_TX_REQ_INTENT))
+	if (is_atomic && (tx_flags & GLINK_TX_REQ_INTENT)) {
+		rwref_put(&ctx->ch_state_lhc0);
 		return -EINVAL;
+	}
 
 	if (unlikely(tx_flags & GLINK_TX_TRACER_PKT)) {
-		if (!(ctx->transport_ptr->capabilities & GCAP_TRACER_PKT))
+		if (!(ctx->transport_ptr->capabilities & GCAP_TRACER_PKT)) {
+			rwref_put(&ctx->ch_state_lhc0);
 			return -EOPNOTSUPP;
+		}
 		tracer_pkt_log_event(data, GLINK_CORE_TX);
 	}
 
@@ -2627,6 +2642,7 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 			GLINK_ERR_CH(ctx,
 				"%s: R[%u]:%zu Intent not present for lcid\n",
 				__func__, riid, size);
+			rwref_put(&ctx->ch_state_lhc0);
 			return -EAGAIN;
 		} else {
 			/* request intent of correct size */
@@ -2637,6 +2653,7 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 				GLINK_ERR_CH(ctx,
 					"%s: Request intent failed %d\n",
 					__func__, ret);
+				rwref_put(&ctx->ch_state_lhc0);
 				return ret;
 			}
 
@@ -2647,6 +2664,7 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 				    "%s: Intent Request with size: %zu %s",
 				    __func__, size,
 				    "not granted for lcid\n");
+				rwref_put(&ctx->ch_state_lhc0);
 				return -EAGAIN;
 			}
 
@@ -2654,6 +2672,16 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 			do {
 				wait_for_completion(&ctx->int_req_complete);
 				reinit_completion(&ctx->int_req_complete);
+				ch_st = ctx->local_open_state;
+
+				if (ch_st == GLINK_CHANNEL_CLOSING ||
+						ch_st == GLINK_CHANNEL_CLOSED) {
+					GLINK_ERR_CH(ctx,
+						"%s: Channel closed while waiting for intent\n",
+						__func__);
+					rwref_put(&ctx->ch_state_lhc0);
+					return -EBUSY;
+				}
 			} while (ch_pop_remote_rx_intent(ctx, size, &riid,
 								&intent_size));
 		}
@@ -2673,6 +2701,7 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 	if (!tx_info) {
 		GLINK_ERR_CH(ctx, "%s: No memory for allocation\n", __func__);
 		ch_push_remote_rx_intent(ctx, intent_size, riid);
+		rwref_put(&ctx->ch_state_lhc0);
 		return -ENOMEM;
 	}
 	INIT_LIST_HEAD(&tx_info->list_done);
@@ -2690,11 +2719,13 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 	/* schedule packet for transmit */
 	if ((tx_flags & GLINK_TX_SINGLE_THREADED) &&
 	    (ctx->transport_ptr->capabilities & GCAP_INTENTLESS))
-		return xprt_single_threaded_tx(ctx->transport_ptr,
+		ret = xprt_single_threaded_tx(ctx->transport_ptr,
 					       ctx, tx_info);
 	else
 		xprt_schedule_tx(ctx->transport_ptr, ctx, tx_info);
-	return 0;
+
+	rwref_put(&ctx->ch_state_lhc0);
+	return ret;
 }
 
 /**
