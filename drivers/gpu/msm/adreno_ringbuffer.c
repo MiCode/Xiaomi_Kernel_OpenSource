@@ -1264,10 +1264,8 @@ adreno_ringbuffer_pt_switch_cmds(struct adreno_ringbuffer *rb,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(rb->device);
 
 	cmds += adreno_iommu_set_apriv(adreno_dev, cmds, 1);
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_HAS_REG_TO_REG_CMDS))
-		cmds += adreno_iommu_set_pt_ib(rb, cmds, pt);
-	else
-		cmds += adreno_iommu_set_pt_generate_cmds(rb, cmds, pt);
+
+	cmds += adreno_iommu_set_pt_generate_cmds(rb, cmds, pt);
 
 	cmds += adreno_iommu_set_apriv(adreno_dev, cmds, 0);
 

@@ -357,66 +357,24 @@ static unsigned int _adreno_mmu_set_pt_update_condition(
 	*cmds++ = cp_packet(adreno_dev, CP_WAIT_MEM_WRITES, 1);
 	*cmds++ = 0;
 	cmds += cp_wait_for_me(adreno_dev, cmds);
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_HAS_REG_TO_REG_CMDS)) {
-		/* copy current ptid value to register SCRATCH_REG7 */
-		*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_TO_REG, 2, 1);
-		*cmds++ = adreno_getreg(adreno_dev,
-					ADRENO_REG_CP_SCRATCH_REG7);
-		cmds += cp_gpuaddr(adreno_dev, cmds,
-			 (adreno_dev->ringbuffers[0].pagetable_desc.gpuaddr +
-			 offsetof(struct adreno_ringbuffer_pagetable_info,
-			 current_global_ptname)));
-		/* copy the incoming ptid to SCRATCH_REG6 */
-		*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_TO_REG, 2, 1);
-		*cmds++ = adreno_getreg(adreno_dev,
-					ADRENO_REG_CP_SCRATCH_REG6);
-		cmds += cp_gpuaddr(adreno_dev, cmds,
-			   (rb->pagetable_desc.gpuaddr +
-			   offsetof(struct adreno_ringbuffer_pagetable_info,
-			   incoming_ptname)));
-		cmds += cp_wait_for_me(adreno_dev, cmds);
-		/*
-		 * compare the incoming ptid to current ptid and make the
-		 * the pt switch commands optional based on condition
-		 * that current_global_ptname(SCRATCH_REG7) ==
-		 * incoming_ptid(SCRATCH_REG6)
-		 */
-		*cmds++ = cp_packet(adreno_dev, CP_COND_REG_EXEC, 3);
-		*cmds++ = (2 << 28) | adreno_getreg(adreno_dev,
-					ADRENO_REG_CP_SCRATCH_REG6);
-		*cmds++ = adreno_getreg(adreno_dev,
-					ADRENO_REG_CP_SCRATCH_REG7);
-		*cmds++ = 7;
-		/*
-		 * if the incoming and current pt are equal then set the pt
-		 * switch flag to 0 so that the pt switch commands will be
-		 * skipped
-		 */
-		*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
-		cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc.gpuaddr
-			     + offsetof(struct adreno_ringbuffer_pagetable_info,
-			     switch_pt_enable)));
-		*cmds++ = 0;
-	} else {
-		/*
-		 * same as if operation above except the current ptname is
-		 * directly compared to the incoming pt id
-		 */
-		*cmds++ = cp_mem_packet(adreno_dev, CP_COND_WRITE, 6, 2);
-		/* write to mem space, when a mem space is equal to ref val */
-		*cmds++ = (1 << 8) | (1 << 4) | 3;
-		cmds += cp_gpuaddr(adreno_dev, cmds,
-			   (adreno_dev->ringbuffers[0].pagetable_desc.gpuaddr +
-			   offsetof(struct adreno_ringbuffer_pagetable_info,
-			   current_global_ptname)));
-		*cmds++ = ptname;
-		*cmds++ = 0xFFFFFFFF;
-		cmds += cp_gpuaddr(adreno_dev, cmds,
-			   (rb->pagetable_desc.gpuaddr +
-			   offsetof(struct adreno_ringbuffer_pagetable_info,
-			   switch_pt_enable)));
-		*cmds++ = 0;
-	}
+	/*
+	 * The current ptname is
+	 * directly compared to the incoming pt id
+	 */
+	*cmds++ = cp_mem_packet(adreno_dev, CP_COND_WRITE, 6, 2);
+	/* write to mem space, when a mem space is equal to ref val */
+	*cmds++ = (1 << 8) | (1 << 4) | 3;
+	cmds += cp_gpuaddr(adreno_dev, cmds,
+	   (adreno_dev->ringbuffers[0].pagetable_desc.gpuaddr +
+		   offsetof(struct adreno_ringbuffer_pagetable_info,
+		   current_global_ptname)));
+	*cmds++ = ptname;
+	*cmds++ = 0xFFFFFFFF;
+	cmds += cp_gpuaddr(adreno_dev, cmds,
+		   (rb->pagetable_desc.gpuaddr +
+		   offsetof(struct adreno_ringbuffer_pagetable_info,
+		   switch_pt_enable)));
+	*cmds++ = 0;
 	*cmds++ = cp_packet(adreno_dev, CP_WAIT_MEM_WRITES, 1);
 	*cmds++ = 0;
 	cmds += cp_wait_for_me(adreno_dev, cmds);
@@ -439,45 +397,18 @@ static unsigned int _adreno_iommu_pt_update_pid_to_mem(
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int *cmds_orig = cmds;
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_HAS_REG_TO_REG_CMDS)) {
-		/* copy the incoming pt in memory to  SCRATCH_REG6 */
-		*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_TO_REG, 2, 1);
-		*cmds++ = adreno_getreg(adreno_dev,
-			ADRENO_REG_CP_SCRATCH_REG6);
-		cmds += cp_gpuaddr(adreno_dev, cmds,
-			  (rb->pagetable_desc.gpuaddr +
-			  offsetof(struct adreno_ringbuffer_pagetable_info,
-			  incoming_ptname)));
-		/* copy the value in SCRATCH_REG6 to the current pt field */
-		*cmds++ = cp_mem_packet(adreno_dev, CP_REG_TO_MEM, 2, 1);
-		*cmds++ = adreno_getreg(adreno_dev,
-			ADRENO_REG_CP_SCRATCH_REG6);
-		cmds += cp_gpuaddr(adreno_dev, cmds,
-			  (rb->pagetable_desc.gpuaddr +
-			   offsetof(struct adreno_ringbuffer_pagetable_info,
-			  current_rb_ptname)));
-		*cmds++ = cp_mem_packet(adreno_dev, CP_REG_TO_MEM, 2, 1);
-		*cmds++ = adreno_getreg(adreno_dev,
-			ADRENO_REG_CP_SCRATCH_REG6);
-		cmds += cp_gpuaddr(adreno_dev, cmds,
-			  (adreno_dev->ringbuffers[0].pagetable_desc.gpuaddr +
-			  offsetof(struct adreno_ringbuffer_pagetable_info,
-			  current_global_ptname)));
-	} else {
-		*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
-		cmds += cp_gpuaddr(adreno_dev, cmds,
-			  (rb->pagetable_desc.gpuaddr +
-			  offsetof(struct adreno_ringbuffer_pagetable_info,
-			  current_rb_ptname)));
-		*cmds++ = ptname;
-
-		*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
-		cmds += cp_gpuaddr(adreno_dev, cmds,
-			  (adreno_dev->ringbuffers[0].pagetable_desc.gpuaddr +
-			  offsetof(struct adreno_ringbuffer_pagetable_info,
-			  current_global_ptname)));
-		*cmds++ = ptname;
-	}
+	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
+	cmds += cp_gpuaddr(adreno_dev, cmds,
+		  (rb->pagetable_desc.gpuaddr +
+		  offsetof(struct adreno_ringbuffer_pagetable_info,
+		  current_rb_ptname)));
+	*cmds++ = ptname;
+	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
+	cmds += cp_gpuaddr(adreno_dev, cmds,
+		  (adreno_dev->ringbuffers[0].pagetable_desc.gpuaddr +
+		  offsetof(struct adreno_ringbuffer_pagetable_info,
+		  current_global_ptname)));
+	*cmds++ = ptname;
 	/* pagetable switch done, Housekeeping: set the switch_pt_enable to 0 */
 	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
 	cmds += cp_gpuaddr(adreno_dev, cmds,
@@ -519,40 +450,16 @@ static unsigned int _adreno_iommu_set_pt_v1(struct adreno_ringbuffer *rb,
 	cond_exec_ptr = cmds;
 	cmds++;
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_HAS_REG_TO_REG_CMDS)) {
-		/* transfer the ttbr0 and contextidr values to ME_SCRATCH */
-		*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_TO_REG, 2, 1);
-		*cmds++ = 3 << 16 | adreno_getreg(adreno_dev,
-				ADRENO_REG_CP_SCRATCH_REG6);
-		cmds += cp_gpuaddr(adreno_dev, cmds,
-			   (rb->pagetable_desc.gpuaddr +
-			   offsetof(struct adreno_ringbuffer_pagetable_info,
-			   ttbr0)));
-		cmds += cp_wait_for_idle(adreno_dev, cmds);
-		*cmds++ = cp_packet(adreno_dev, CP_REG_TO_SCRATCH, 1);
-		*cmds++ = (3 << 24) | (6 << 16) |
-			adreno_getreg(adreno_dev,
-					ADRENO_REG_CP_SCRATCH_REG6);
-	}
-
 	cmds += cp_wait_for_idle(adreno_dev, cmds);
 
 	cmds += _iommu_lock(adreno_dev, cmds);
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_HAS_REG_TO_REG_CMDS)) {
-		/* ME_SCRATCH_REG to REG copy */
-		*cmds++ = cp_packet(adreno_dev, CP_SCRATCH_TO_REG, 1);
-		*cmds++ = (2 << 24) | (6 << 16) | ttbr0;
-		*cmds++ = cp_packet(adreno_dev, CP_SCRATCH_TO_REG, 1);
-		*cmds++ = (1 << 24) | (8 << 16) | ttbr0;
-	} else {
-		cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TTBR0, 2);
-		*cmds++ = _lo_32(ttbr0);
-		*cmds++ = _hi_32(ttbr0);
-		cmds += _cp_smmu_reg(adreno_dev, cmds,
-				KGSL_IOMMU_CTX_CONTEXTIDR, 1);
-		*cmds++ = contextidr;
-	}
+	cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TTBR0, 2);
+	*cmds++ = _lo_32(ttbr0);
+	*cmds++ = _hi_32(ttbr0);
+	cmds += _cp_smmu_reg(adreno_dev, cmds,
+			KGSL_IOMMU_CTX_CONTEXTIDR, 1);
+	*cmds++ = contextidr;
 
 	/* a3xx doesn't have MEQ space to hold the TLBI commands */
 	if (adreno_is_a3xx(adreno_dev))
@@ -926,10 +833,7 @@ static int _set_pagetable_gpu(struct adreno_ringbuffer *rb,
 	if (adreno_is_a4xx(adreno_dev))
 		cmds += adreno_iommu_set_apriv(adreno_dev, cmds, 1);
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_HAS_REG_TO_REG_CMDS))
-		cmds += adreno_iommu_set_pt_ib(rb, cmds, new_pt);
-	else
-		cmds += adreno_iommu_set_pt_generate_cmds(rb, cmds, new_pt);
+	cmds += adreno_iommu_set_pt_generate_cmds(rb, cmds, new_pt);
 
 	if (adreno_is_a4xx(adreno_dev))
 		cmds += adreno_iommu_set_apriv(adreno_dev, cmds, 0);
@@ -1061,10 +965,7 @@ int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
 void adreno_iommu_set_pt_generate_rb_cmds(struct adreno_ringbuffer *rb,
 						struct kgsl_pagetable *pt)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(rb->device);
-
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_HAS_REG_TO_REG_CMDS) ||
-		rb->pt_update_desc.hostptr)
+	if (rb->pt_update_desc.hostptr)
 		return;
 
 	rb->pt_update_desc.hostptr = rb->pagetable_desc.hostptr +
