@@ -203,8 +203,6 @@ static struct adv7533_reg_cfg adv7533_video_en[] = {
 	{I2C_ADDR_MAIN, 0x41, 0x10},
 	/* hdmi enable */
 	{I2C_ADDR_CEC_DSI, 0x03, 0x89},
-	/* hdmi mode, hdcp */
-	{I2C_ADDR_MAIN, 0xAF, 0x06},
 	/* color depth */
 	{I2C_ADDR_MAIN, 0x4C, 0x04},
 	/* down dither */
@@ -1289,6 +1287,12 @@ static int adv7533_video_on(void *client, bool on,
 	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x1C, lanes);
 
 	adv7533_video_setup(pdata, cfg);
+
+	/* hdmi/dvi mode */
+	if (cfg->hdmi_mode)
+		ADV7533_WRITE(I2C_ADDR_MAIN, 0xAF, 0x06);
+	else
+		ADV7533_WRITE(I2C_ADDR_MAIN, 0xAF, 0x04);
 
 	ADV7533_WRITE_ARRAY(adv7533_video_en);
 end:
