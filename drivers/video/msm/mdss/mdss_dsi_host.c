@@ -1084,8 +1084,7 @@ int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	return ret;
 }
 
-static void mdss_dsi_dsc_config(struct mdss_dsi_ctrl_pdata *ctrl,
-				struct dsc_desc *dsc)
+void mdss_dsi_dsc_config(struct mdss_dsi_ctrl_pdata *ctrl, struct dsc_desc *dsc)
 {
 	u32 data, offset;
 

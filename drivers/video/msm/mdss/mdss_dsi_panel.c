@@ -708,7 +708,7 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 		mdss_dsi_panel_cmds_send(ctrl, on_cmds, CMD_REQ_COMMIT);
 
 	if (pinfo->compression_mode == COMPRESSION_DSC)
-		mdss_dsi_panel_dsc_pps_send(ctrl);
+		mdss_dsi_panel_dsc_pps_send(ctrl, pinfo);
 
 end:
 	pinfo->blank_state = MDSS_PANEL_BLANK_UNBLANK;
@@ -1159,15 +1159,14 @@ static int mdss_dsc_to_buf(struct dsc_desc *dsc, char *buf,
 	return DSC_PPS_LEN;	/* 128 */
 }
 
-void mdss_dsi_panel_dsc_pps_send(struct mdss_dsi_ctrl_pdata *ctrl)
+void mdss_dsi_panel_dsc_pps_send(struct mdss_dsi_ctrl_pdata *ctrl,
+				struct mdss_panel_info *pinfo)
 {
-	struct mdss_panel_info *pinfo;
 	struct dsc_desc *dsc;
 	struct dsi_panel_cmds pcmds;
 	struct dsi_cmd_desc cmd;
 
-	pinfo = &(ctrl->panel_data.panel_info);
-	if (pinfo->compression_mode != COMPRESSION_DSC)
+	if (!pinfo || (pinfo->compression_mode != COMPRESSION_DSC))
 		return;
 
 	memset(&pcmds, 0, sizeof(pcmds));
@@ -1202,7 +1201,7 @@ int mdss_dsc_initial_line_calc(int bpc, int xmit_delay,
 	return CEIL(total_pixels, slice_width);
 }
 
-static void mdss_dsc_parameters_calc(struct mdss_panel_timing *timing)
+void mdss_dsc_parameters_calc(struct dsc_desc *dsc, int width, int height)
 {
 	int bpp, bpc;
 	int mux_words_size;
@@ -1215,7 +1214,20 @@ static void mdss_dsc_parameters_calc(struct mdss_panel_timing *timing)
 	int data;
 	int final_value, final_scale;
 	int slice_per_line, bytes_in_slice, total_bytes;
-	struct dsc_desc *dsc = &timing->dsc;
+
+	if (!dsc || !width || !height)
+		return;
+
+	dsc->pic_width = width;
+	dsc->pic_height = height;
+
+	if ((dsc->pic_width % dsc->slice_width) ||
+	    (dsc->pic_height % dsc->slice_height)) {
+		pr_err("Error: pic_dim=%dx%d has to be multiple of slice_dim=%dx%d\n",
+			dsc->pic_width, dsc->pic_height,
+			dsc->slice_width, dsc->slice_height);
+		return;
+	}
 
 	dsc->rc_model_size = 8192;	/* rate_buffer_size */
 	dsc->first_line_bpg_offset = 12;
@@ -1233,11 +1245,6 @@ static void mdss_dsc_parameters_calc(struct mdss_panel_timing *timing)
 	dsc->range_min_qp = dsc_rc_range_min_qp;
 	dsc->range_max_qp = dsc_rc_range_max_qp;
 	dsc->range_bpg_offset = dsc_rc_range_bpg_offset;
-
-	dsc->initial_lines = 2;
-
-	dsc->pic_width = timing->xres;
-	dsc->pic_height = timing->yres;
 
 	bpp = dsc->bpp;
 	bpc = dsc->bpc;
@@ -1291,7 +1298,6 @@ static void mdss_dsc_parameters_calc(struct mdss_panel_timing *timing)
 	dsc->chunk_size = dsc->slice_width * bpp / 8;
 	if ((dsc->slice_width * bpp) % 8)
 		dsc->chunk_size++;
-
 
 	/* rbs-min */
 	min_rate_buffer_size =  dsc->rc_model_size - dsc->initial_offset +
@@ -1467,7 +1473,7 @@ static int mdss_dsi_parse_dsc_params(struct device_node *np,
 	dsc->config_by_manufacture_cmd = of_property_read_bool(np,
 		"qcom,mdss-dsc-config-by-manufacture-cmd");
 
-	mdss_dsc_parameters_calc(timing);
+	mdss_dsc_parameters_calc(&timing->dsc, timing->xres, timing->yres);
 
 	timing->compression_mode = COMPRESSION_DSC;
 
