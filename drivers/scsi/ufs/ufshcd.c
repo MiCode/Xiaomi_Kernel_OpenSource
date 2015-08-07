@@ -3055,21 +3055,7 @@ static int ufshcd_query_attr_retry(struct ufs_hba *hba,
 	return ret;
 }
 
-/**
- * ufshcd_query_descriptor - API function for sending descriptor requests
- * hba: per-adapter instance
- * opcode: attribute opcode
- * idn: attribute idn to access
- * index: index field
- * selector: selector field
- * desc_buf: the buffer that contains the descriptor
- * buf_len: length parameter passed to the device
- *
- * Returns 0 for success, non-zero in case of failure.
- * The buf_len parameter will contain, on return, the length parameter
- * received on the response.
- */
-int ufshcd_query_descriptor(struct ufs_hba *hba,
+static int __ufshcd_query_descriptor(struct ufs_hba *hba,
 			enum query_opcode opcode, enum desc_idn idn, u8 index,
 			u8 selector, u8 *desc_buf, int *buf_len)
 {
@@ -3130,6 +3116,37 @@ out_unlock:
 	mutex_unlock(&hba->dev_cmd.lock);
 out:
 	ufshcd_release_all(hba);
+	return err;
+}
+
+/**
+ * ufshcd_query_descriptor - API function for sending descriptor requests
+ * hba: per-adapter instance
+ * opcode: attribute opcode
+ * idn: attribute idn to access
+ * index: index field
+ * selector: selector field
+ * desc_buf: the buffer that contains the descriptor
+ * buf_len: length parameter passed to the device
+ *
+ * Returns 0 for success, non-zero in case of failure.
+ * The buf_len parameter will contain, on return, the length parameter
+ * received on the response.
+ */
+int ufshcd_query_descriptor(struct ufs_hba *hba,
+			enum query_opcode opcode, enum desc_idn idn, u8 index,
+			u8 selector, u8 *desc_buf, int *buf_len)
+{
+	int err;
+	int retries;
+
+	for (retries = QUERY_REQ_RETRIES; retries > 0; retries--) {
+		err = __ufshcd_query_descriptor(hba, opcode, idn, index,
+						selector, desc_buf, buf_len);
+		if (!err || err == -EINVAL)
+			break;
+	}
+
 	return err;
 }
 EXPORT_SYMBOL(ufshcd_query_descriptor);
@@ -3236,39 +3253,12 @@ static inline int ufshcd_read_power_desc(struct ufs_hba *hba,
 					 u8 *buf,
 					 u32 size)
 {
-	int err = 0;
-	int retries;
-
-	for (retries = QUERY_REQ_RETRIES; retries > 0; retries--) {
-		/* Read descriptor*/
-		err = ufshcd_read_desc(hba, QUERY_DESC_IDN_POWER, 0, buf, size);
-		if (!err)
-			break;
-		dev_dbg(hba->dev, "%s: error %d retrying\n", __func__, err);
-	}
-
-	return err;
+	return ufshcd_read_desc(hba, QUERY_DESC_IDN_POWER, 0, buf, size);
 }
 
 int ufshcd_read_device_desc(struct ufs_hba *hba, u8 *buf, u32 size)
 {
-	int err = 0;
-	int retries;
-
-	for (retries = QUERY_REQ_RETRIES; retries > 0; retries--) {
-		/* Read descriptor*/
-		err = ufshcd_read_desc(hba,
-				       QUERY_DESC_IDN_DEVICE, 0, buf, size);
-		if (!err)
-			break;
-		dev_dbg(hba->dev, "%s: error %d retrying\n", __func__, err);
-	}
-
-	if (err)
-		dev_err(hba->dev, "%s: reading Device Desc failed. err = %d\n",
-			__func__, err);
-
-	return err;
+	return ufshcd_read_desc(hba, QUERY_DESC_IDN_DEVICE, 0, buf, size);
 }
 
 /**
@@ -3285,16 +3275,9 @@ int ufshcd_read_string_desc(struct ufs_hba *hba, int desc_index, u8 *buf,
 				u32 size, bool ascii)
 {
 	int err = 0;
-	int retries;
 
-	for (retries = 0; retries < QUERY_REQ_RETRIES; retries++) {
-		err = ufshcd_read_desc(hba,
+	err = ufshcd_read_desc(hba,
 				QUERY_DESC_IDN_STRING, desc_index, buf, size);
-		if (!err)
-			break;
-		dev_dbg(hba->dev, "%s: error %d retrying %d\n", __func__, err,
-			retries);
-	}
 
 	if (err) {
 		dev_err(hba->dev, "%s: reading String Desc failed after %d retries. err = %d\n",
@@ -4505,24 +4488,16 @@ static void ufshcd_set_queue_depth(struct scsi_device *sdev)
 {
 	int ret = 0;
 	u8 lun_qdepth;
-	int retries;
 	struct ufs_hba *hba;
 
 	hba = shost_priv(sdev->host);
 
 	lun_qdepth = hba->nutrs;
-	for (retries = QUERY_REQ_RETRIES; retries > 0; retries--) {
-		/* Read descriptor*/
-		ret = ufshcd_read_unit_desc_param(hba,
-				  ufshcd_scsi_to_upiu_lun(sdev->lun),
-				  UNIT_DESC_PARAM_LU_Q_DEPTH,
-				  &lun_qdepth,
-				  sizeof(lun_qdepth));
-		if (!ret || ret == -ENOTSUPP)
-			break;
-
-		dev_dbg(hba->dev, "%s: error %d retrying\n", __func__, ret);
-	}
+	ret = ufshcd_read_unit_desc_param(hba,
+			  ufshcd_scsi_to_upiu_lun(sdev->lun),
+			  UNIT_DESC_PARAM_LU_Q_DEPTH,
+			  &lun_qdepth,
+			  sizeof(lun_qdepth));
 
 	/* Some WLUN doesn't support unit descriptor */
 	if (ret == -EOPNOTSUPP)
