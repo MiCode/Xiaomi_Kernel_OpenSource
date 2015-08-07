@@ -740,6 +740,7 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	if (ret) {
 		pr_err("%s: usb ep#%s enable failed, err#%d\n",
 				__func__, dev->notify->name, ret);
+		dev->notify->desc = NULL;
 		return ret;
 	}
 	dev->notify->driver_data = dev;
@@ -747,24 +748,32 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	if (!dev->port.in->desc || !dev->port.out->desc) {
 		if (config_ep_by_speed(cdev->gadget, f, dev->port.in) ||
 			config_ep_by_speed(cdev->gadget, f, dev->port.out)) {
-				dev->port.in->desc = NULL;
-				dev->port.out->desc = NULL;
-				return -EINVAL;
+				pr_err("%s(): config_ep_by_speed failed.\n",
+								__func__);
+				ret = -EINVAL;
+				goto err_disable_ep;
 		}
 		dev->port.gadget = dev->cdev->gadget;
-		ret = gport_rmnet_connect(dev, intf);
 	}
 
 	if (dxport == USB_GADGET_XPORT_BAM2BAM_IPA &&
-	    gadget_is_dwc3(cdev->gadget)) {
+			gadget_is_dwc3(cdev->gadget)) {
 		if (msm_ep_config(dev->port.in) ||
 		    msm_ep_config(dev->port.out)) {
 			pr_err("%s: msm_ep_config failed\n", __func__);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto err_disable_ep;
 		}
-	} else
+	} else {
 		pr_debug("Rmnet is being used with non DWC3 core\n");
+	}
 
+	ret = gport_rmnet_connect(dev, intf);
+	if (ret) {
+		pr_err("%s(): gport_rmnet_connect fail with err:%d\n",
+							__func__, ret);
+		goto err_unconfig_ep;
+	}
 
 	atomic_set(&dev->online, 1);
 
@@ -772,6 +781,20 @@ frmnet_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	   packets in the response queue, re-add the notifications */
 	list_for_each(cpkt, &dev->cpkt_resp_q)
 		frmnet_ctrl_response_available(dev);
+
+	return ret;
+
+err_unconfig_ep:
+	if (dxport == USB_GADGET_XPORT_BAM2BAM_IPA &&
+		gadget_is_dwc3(cdev->gadget)) {
+		msm_ep_unconfig(dev->port.in);
+		msm_ep_unconfig(dev->port.out);
+	}
+
+err_disable_ep:
+	dev->port.in->desc = NULL;
+	dev->port.out->desc = NULL;
+	usb_ep_disable(dev->notify);
 
 	return ret;
 }
