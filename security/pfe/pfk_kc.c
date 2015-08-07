@@ -210,18 +210,14 @@ static void kc_update_timestamp(struct kc_entry *entry)
  * kc_clear_entry() - clear the key from entry and remove the key from ICE
  *
  * @entry: pointer to entry
- * @clear_qscee: if true, also clear the key from qscee
  *
  * Securely wipe and release the key memory, remove the key from ICE
  * Should be invoked under lock
  */
-static void kc_clear_entry(struct kc_entry *entry, bool clear_qscee)
+static void kc_clear_entry(struct kc_entry *entry)
 {
 	if (!entry)
 		return;
-
-	if (clear_qscee)
-		qti_pfk_ice_invalidate_key(entry->key_index);
 
 	memset(entry->key, 0, entry->key_size);
 	memset(entry->salt, 0, entry->salt_size);
@@ -248,7 +244,7 @@ static int kc_replace_entry(struct kc_entry *entry, const unsigned char *key,
 {
 	int ret = 0;
 
-	kc_clear_entry(entry, false);
+	kc_clear_entry(entry);
 
 	memcpy(entry->key, key, key_size);
 	entry->key_size = key_size;
@@ -269,7 +265,7 @@ static int kc_replace_entry(struct kc_entry *entry, const unsigned char *key,
 
 err:
 
-	kc_clear_entry(entry, true);
+	kc_clear_entry(entry);
 
 	return ret;
 
@@ -411,8 +407,10 @@ int pfk_kc_remove_key_with_salt(const unsigned char *key, size_t key_size,
 		return -EINVAL;
 	}
 
-	kc_clear_entry(entry, true);
+	kc_clear_entry(entry);
 	spin_unlock(&kc_lock);
+
+	qti_pfk_ice_invalidate_key(entry->key_index);
 
 	return 0;
 }
@@ -432,6 +430,8 @@ int pfk_kc_remove_key(const unsigned char *key, size_t key_size)
 {
 	struct kc_entry *entry = NULL;
 	int index = 0;
+	int temp_indexes[PFK_KC_TABLE_SIZE] = {0};
+	int i = 0;
 
 	if (!kc_is_ready())
 		return -ENODEV;
@@ -442,16 +442,19 @@ int pfk_kc_remove_key(const unsigned char *key, size_t key_size)
 	if (key_size != PFK_KC_KEY_SIZE)
 		return -EPERM;
 
+	memset(temp_indexes, -1, sizeof(temp_indexes));
+
 	spin_lock(&kc_lock);
 
 	entry = kc_find_key_at_index(key, key_size, NULL, 0, &index);
 	if (!entry) {
-		pr_err("key does not exist\n");
+		pr_debug("key does not exist\n");
 		spin_unlock(&kc_lock);
 		return -EINVAL;
 	}
 
-	kc_clear_entry(entry, true);
+	temp_indexes[i++] = entry->key_index;
+	kc_clear_entry(entry);
 
 	/* let's clean additional entries with the same key if there are any */
 	do {
@@ -459,10 +462,16 @@ int pfk_kc_remove_key(const unsigned char *key, size_t key_size)
 		if (!entry)
 			break;
 
-		kc_clear_entry(entry, true);
+		temp_indexes[i++] = entry->key_index;
+
+		kc_clear_entry(entry);
+
 	} while (true);
 
 	spin_unlock(&kc_lock);
+
+	for (i--; i >= 0 ; i--)
+		qti_pfk_ice_invalidate_key(temp_indexes[i]);
 
 	return 0;
 }
@@ -482,8 +491,12 @@ void pfk_kc_clear(void)
 	spin_lock(&kc_lock);
 	for (i = 0; i < PFK_KC_TABLE_SIZE; i++) {
 		entry = &(kc_table[i]);
-		kc_clear_entry(entry, true);
+		kc_clear_entry(entry);
 	}
 	spin_unlock(&kc_lock);
+
+	for (i = 0; i < PFK_KC_TABLE_SIZE; i++)
+		qti_pfk_ice_invalidate_key(entry->key_index);
+
 }
 
