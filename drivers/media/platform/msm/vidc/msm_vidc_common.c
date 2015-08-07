@@ -1871,6 +1871,7 @@ int msm_comm_scale_clocks_load(struct msm_vidc_core *core, int num_mbs_per_sec)
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct msm_vidc_inst *inst = NULL;
+	unsigned long instant_bitrate = 0;
 
 	if (!core) {
 		dprintk(VIDC_ERR, "%s Invalid args: %p\n", __func__, core);
@@ -1896,13 +1897,17 @@ int msm_comm_scale_clocks_load(struct msm_vidc_core *core, int num_mbs_per_sec)
 				get_hal_codec(codec),
 				get_hal_domain(inst->session_type));
 
+		if (inst->instant_bitrate > instant_bitrate)
+			instant_bitrate = inst->instant_bitrate;
+
 	}
 	mutex_unlock(&core->lock);
 
 	dprintk(VIDC_INFO, "num_mbs_per_sec = %d codecs_enabled %#x\n",
 			num_mbs_per_sec, codecs_enabled);
 	rc = call_hfi_op(hdev, scale_clocks,
-		hdev->hfi_device_data, num_mbs_per_sec, codecs_enabled);
+		hdev->hfi_device_data, num_mbs_per_sec,
+		codecs_enabled, instant_bitrate);
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to set clock rate: %d\n", rc);
 	return rc;
@@ -3262,6 +3267,11 @@ static void log_frame(struct msm_vidc_inst *inst, struct vidc_frame_data *data,
 				&data->device_addr, data->filled_len,
 				data->timestamp, data->flags);
 		msm_vidc_debugfs_update(inst, MSM_VIDC_DEBUGFS_EVENT_ETB);
+
+		if (msm_vidc_bitrate_clock_scaling &&
+			inst->session_type == MSM_VIDC_DECODER)
+				inst->instant_bitrate =
+					data->filled_len * 8 * inst->prop.fps;
 	} else if (type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		dprintk(VIDC_DBG,
 				"Sending ftb (%pa) to hal: size: %d, ts: %lld, flags = %#x\n",
@@ -3272,6 +3282,13 @@ static void log_frame(struct msm_vidc_inst *inst, struct vidc_frame_data *data,
 
 	msm_dcvs_check_and_scale_clocks(inst,
 			type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
+
+	if (msm_vidc_bitrate_clock_scaling && !inst->dcvs_mode &&
+		type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
+		inst->session_type == MSM_VIDC_DECODER)
+		if (msm_comm_scale_clocks(inst->core))
+			dprintk(VIDC_WARN,
+				"Failed to scale clocks. Performance might be impacted\n");
 }
 
 static int request_seq_header(struct msm_vidc_inst *inst,

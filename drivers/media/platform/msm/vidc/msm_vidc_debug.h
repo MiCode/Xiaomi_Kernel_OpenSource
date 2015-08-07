@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -65,6 +65,7 @@ extern int msm_vidc_enc_dcvs_mode;
 extern int msm_vidc_sys_idle_indicator;
 extern int msm_vidc_firmware_unload_delay;
 extern int msm_vidc_thermal_mitigation_disabled;
+extern int msm_vidc_bitrate_clock_scaling;
 
 #define VIDC_MSG_PRIO2STRING(__level) ({ \
 	char *__str; \

@@ -28,6 +28,7 @@ int msm_vidc_enc_dcvs_mode = 1;
 int msm_vidc_sys_idle_indicator = 0;
 int msm_vidc_firmware_unload_delay = 15000;
 int msm_vidc_thermal_mitigation_disabled = 0;
+int msm_vidc_bitrate_clock_scaling = 1;
 
 #define MAX_DBG_BUF_SIZE 4096
 
@@ -173,7 +174,9 @@ struct dentry *msm_vidc_debugfs_init_drv(void)
 	__debugfs_create(u32, "firmware_unload_delay",
 			&msm_vidc_firmware_unload_delay) &&
 	__debugfs_create(bool, "disable_thermal_mitigation",
-			&msm_vidc_thermal_mitigation_disabled);
+			&msm_vidc_thermal_mitigation_disabled) &&
+	__debugfs_create(bool, "bitrate_clock_scaling",
+			&msm_vidc_bitrate_clock_scaling);
 
 #undef __debugfs_create
 

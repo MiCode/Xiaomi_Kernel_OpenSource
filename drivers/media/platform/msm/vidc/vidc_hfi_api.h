@@ -1437,7 +1437,8 @@ struct hfi_device {
 	int (*session_set_property)(void *sess, enum hal_property ptype,
 			void *pdata);
 	int (*session_get_property)(void *sess, enum hal_property ptype);
-	int (*scale_clocks)(void *dev, int load, int codecs_enabled);
+	int (*scale_clocks)(void *dev, int load, int codecs_enabled,
+						unsigned long instant_bitrate);
 	int (*vote_bus)(void *dev, struct vidc_bus_vote_data *data,
 			int num_data);
 	int (*unvote_bus)(void *dev);
