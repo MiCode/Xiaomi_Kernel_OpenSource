@@ -845,7 +845,7 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,bus-dev = <&fab_a0noc>;
+			qcom,bus-dev = <&fab_snoc>;
 			qcom,connections = <&mas_a0noc_snoc>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_A0NOC_SNOC>;
 			qcom,enable-only-clk;
@@ -858,7 +858,7 @@
 			label = "slv-a1noc-snoc";
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
-			qcom,bus-dev = <&fab_a1noc>;
+			qcom,bus-dev = <&fab_snoc>;
 			qcom,connections = <&mas_a1noc_snoc>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_A1NOC_SNOC>;
 		};
@@ -868,7 +868,7 @@
 			label = "slv-a2noc-snoc";
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
-			qcom,bus-dev = <&fab_a2noc>;
+			qcom,bus-dev = <&fab_snoc>;
 			qcom,connections = <&mas_a2noc_snoc>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_A2NOC_SNOC>;
 		};
