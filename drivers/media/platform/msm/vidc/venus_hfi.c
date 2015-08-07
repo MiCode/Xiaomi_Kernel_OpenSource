@@ -2673,52 +2673,55 @@ static int venus_hfi_session_clean(void *session)
 	return 0;
 }
 
-static void *venus_hfi_session_init(void *device, void *session_id,
-		enum hal_domain session_type, enum hal_video_codec codec_type)
+static int venus_hfi_session_init(void *device, void *session_id,
+		enum hal_domain session_type, enum hal_video_codec codec_type,
+		void **new_session)
 {
 	struct hfi_cmd_sys_session_init_packet pkt;
-	struct hal_session *new_session;
 	struct venus_hfi_device *dev;
+	struct hal_session *s;
 
-	if (!device) {
-		dprintk(VIDC_ERR, "invalid device\n");
-		return NULL;
+	if (!device || !new_session) {
+		dprintk(VIDC_ERR, "%s - invalid input\n", __func__);
+		return -EINVAL;
 	}
 
 	dev = device;
 	mutex_lock(&dev->lock);
 
-	new_session = kzalloc(sizeof(struct hal_session), GFP_KERNEL);
-	if (!new_session) {
+	s = kzalloc(sizeof(struct hal_session), GFP_KERNEL);
+	if (!s) {
 		dprintk(VIDC_ERR, "new session fail: Out of memory\n");
 		goto err_session_init_fail;
 	}
 
-	new_session->session_id = session_id;
-	new_session->is_decoder = (session_type == HAL_VIDEO_DOMAIN_DECODER);
-	new_session->device = dev;
+	s->session_id = session_id;
+	s->is_decoder = (session_type == HAL_VIDEO_DOMAIN_DECODER);
+	s->device = dev;
 
-	list_add_tail(&new_session->list, &dev->sess_head);
+	list_add_tail(&s->list, &dev->sess_head);
 
 	__set_default_sys_properties(device);
 
 	if (call_hfi_pkt_op(dev, session_init, &pkt,
-			new_session, session_type, codec_type)) {
+			s, session_type, codec_type)) {
 		dprintk(VIDC_ERR, "session_init: failed to create packet\n");
 		goto err_session_init_fail;
 	}
 
+	*new_session = s;
 	if (__iface_cmdq_write(dev, &pkt))
 		goto err_session_init_fail;
 
 	mutex_unlock(&dev->lock);
-	return new_session;
+	return 0;
 
 err_session_init_fail:
-	if (new_session)
-		__session_clean(new_session);
+	if (s)
+		__session_clean(s);
+	*new_session = NULL;
 	mutex_unlock(&dev->lock);
-	return NULL;
+	return -EINVAL;
 }
 
 static int __send_session_cmd(struct hal_session *session, int pkt_type)

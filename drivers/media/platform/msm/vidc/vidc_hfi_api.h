@@ -1410,8 +1410,9 @@ struct hfi_device {
 	int (*core_release)(void *device);
 	int (*core_ping)(void *device);
 	int (*core_trigger_ssr)(void *device, enum hal_ssr_trigger_type);
-	void *(*session_init)(void *device, void *session_id,
-		enum hal_domain session_type, enum hal_video_codec codec_type);
+	int (*session_init)(void *device, void *session_id,
+		enum hal_domain session_type, enum hal_video_codec codec_type,
+		void **new_session);
 	int (*session_end)(void *session);
 	int (*session_abort)(void *session);
 	int (*session_set_buffers)(void *sess,

@@ -2297,11 +2297,12 @@ static int msm_comm_session_init(int flipped_state,
 	init_completion(
 		&inst->completions[SESSION_MSG_INDEX(HAL_SESSION_INIT_DONE)]);
 
-	inst->session = call_hfi_op(hdev, session_init, hdev->hfi_device_data,
+	rc = call_hfi_op(hdev, session_init, hdev->hfi_device_data,
 			inst, get_hal_domain(inst->session_type),
-			get_hal_codec(fourcc));
+			get_hal_codec(fourcc),
+			&inst->session);
 
-	if (!inst->session) {
+	if (rc || !inst->session) {
 		dprintk(VIDC_ERR,
 			"Failed to call session init for: %p, %p, %d, %d\n",
 			inst->core->device, inst,
