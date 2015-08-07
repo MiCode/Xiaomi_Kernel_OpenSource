@@ -802,8 +802,9 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
 		snapshot, a5xx_snapshot_cp_pm4, NULL);
 
-	/* Shader memory */
-	a5xx_snapshot_shader(device, snapshot);
+	/* Skip Shader memory dump for A510*/
+	if (!adreno_is_a510(adreno_dev))
+		a5xx_snapshot_shader(device, snapshot);
 
 	/* Debug bus */
 	a5xx_snapshot_debugbus(device, snapshot);
