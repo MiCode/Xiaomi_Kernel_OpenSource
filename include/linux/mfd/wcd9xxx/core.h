@@ -318,6 +318,13 @@ int wcd9xxx_slim_bulk_write(struct wcd9xxx *wcd9xxx,
 			    struct wcd9xxx_reg_val *bulk_reg,
 			    unsigned int size, bool interface);
 
+void wcd9xxx_disable_supplies(struct wcd9xxx *wcd9xxx,
+				     void *pdata);
+
+int wcd9xxx_disable_static_supplies_to_optimum(
+			struct wcd9xxx *wcd9xxx,
+			void *pdata);
+
 #if defined(CONFIG_WCD9310_CODEC) || \
 	defined(CONFIG_WCD9304_CODEC) || \
 	defined(CONFIG_WCD9320_CODEC) || \
