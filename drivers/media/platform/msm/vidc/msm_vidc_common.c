@@ -2237,16 +2237,7 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 
 	mutex_lock(&core->lock);
 
-	/*
-	 * If firmware is configured to be always loaded in memory,
-	 * then unload it only if the core has gone in to bad state.
-	 */
-	if (core->resources.early_fw_load &&
-		core->state != VIDC_CORE_INVALID) {
-			goto core_already_uninited;
-	}
-
-	if (list_empty(&core->instances)) {
+	if (!core->resources.never_unload_fw && list_empty(&core->instances)) {
 		cancel_delayed_work(&core->fw_unload_work);
 
 		/*
