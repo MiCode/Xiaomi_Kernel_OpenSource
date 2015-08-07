@@ -178,7 +178,7 @@
 };
 
 &blsp1_uart2 {
-	status = "disabled";
+	status = "ok";
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart_console_sleep>;
 };
@@ -202,7 +202,7 @@
 &spmi_bus {
 	qcom,pm8950@0 {
 		qcom,leds@a300 {
-			status = "disabled";
+			status = "ok";
 			qcom,led_mpp_4 {
 				label = "mpp";
 				linux,name = "button-backlight";
@@ -226,7 +226,7 @@
 
 		qcom,leds@d300 {
 			compatible = "qcom,qpnp-flash-led";
-			status = "disabled";
+			status = "ok";
 			reg = <0xd300 0x100>;
 			pinctrl-names = "flash_led_enable","flash_led_disable";
 			pinctrl-0 = <&flash_led_enable>;
@@ -275,7 +275,7 @@
 
 	qcom,nonremovable;
 
-	status = "disabled";
+	status = "ok";
 };
 
 &sdhc_2 {
@@ -302,7 +302,7 @@
 	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
 	cd-gpios = <&msm_gpio 67 0x1>;
 
-	status = "disabled";
+	status = "ok";
 };
 
 &mdss_mdp {
@@ -379,7 +379,7 @@
 };
 
 &labibb {
-	status = "disabled";
+	status = "ok";
 	qpnp,qpnp-labibb-mode = "lcd";
 };
 

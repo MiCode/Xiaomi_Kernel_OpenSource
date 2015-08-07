@@ -17,6 +17,7 @@
 	};
 
 	qcom,csiphy@1b0ac00 {
+		status = "disabled";
 		cell-index = <0>;
 		compatible = "qcom,csiphy-v3.1", "qcom,csiphy";
 		reg = <0x1b0ac00 0x200>,
@@ -39,6 +40,7 @@
 	};
 
 	qcom,csiphy@1b0b000 {
+		status = "disabled";
 		cell-index = <1>;
 		compatible = "qcom,csiphy-v3.1", "qcom,csiphy";
 		reg = <0x1b0b000 0x200>,
@@ -61,6 +63,7 @@
 	};
 
 	qcom,csid@1b08000  {
+		status = "disabled";
 		cell-index = <0>;
 		compatible = "qcom,csid-v3.4.1", "qcom,csid";
 		reg = <0x1b08000 0x100>;
@@ -85,6 +88,7 @@
 	};
 
 	qcom,csid@1b08400 {
+		status = "disabled";
 		cell-index = <1>;
 		compatible = "qcom,csid-v3.4.1", "qcom,csid";
 		reg = <0x1b08400 0x100>;
@@ -109,6 +113,7 @@
 	};
 
 	qcom,csid@1b08800 {
+		status = "disabled";
 		cell-index = <2>;
 		compatible = "qcom,csid-v3.4.1", "qcom,csid";
 		reg = <0x1b08800 0x100>;
@@ -133,6 +138,7 @@
 	};
 
 	qcom,ispif@1b0a000 {
+		status = "disabled";
 		cell-index = <0>;
 		compatible = "qcom,ispif-v3.0", "qcom,ispif";
 		reg = <0x1b0a000 0x500>,
@@ -178,6 +184,7 @@
 	};
 
 	vfe0: qcom,vfe@1b10000 {
+		status = "disabled";
 		cell-index = <0>;
 		compatible = "qcom,vfe40";
 		reg = <0x1b10000 0x1000>,
@@ -227,6 +234,7 @@
 	};
 
 	vfe1: qcom,vfe@1b14000 {
+		status = "disabled";
 		cell-index = <1>;
 		compatible = "qcom,vfe40";
 		reg = <0x1b14000 0x1000>,
@@ -276,6 +284,7 @@
 	};
 
 	qcom,cam_smmu {
+		status = "disabled";
 		compatible = "qcom,msm-cam-smmu";
 		msm_cam_smmu_cb1: msm_cam_smmu_cb1 {
 			compatible = "qcom,qsmmu-cam-cb";
@@ -304,6 +313,7 @@
 	};
 
 	qcom,jpeg@1b1c000 {
+		status = "disabled";
 		cell-index = <0>;
 		compatible = "qcom,jpeg";
 		reg = <0x1b1c000 0x400>,
@@ -327,6 +337,7 @@
 	};
 
 	qcom,irqrouter@1b00000 {
+		status = "disabled";
 		cell-index = <0>;
 		compatible = "qcom,irqrouter";
 		reg = <0x1b00000 0x100>;
@@ -334,6 +345,7 @@
 	};
 
 	qcom,cpp@1b04000 {
+		status = "disabled";
 		cell-index = <0>;
 		compatible = "qcom,cpp";
 		reg = <0x1b04000 0x100>,
@@ -367,6 +379,7 @@
 	};
 
 	cci: qcom,cci@1b0c000 {
+		status = "disabled";
 		cell-index = <0>;
 		compatible = "qcom,cci";
 		reg = <0x1b0c000 0x1000>;
@@ -427,7 +440,7 @@
 	qcom,hw-scl-stretch-en = <0>;
 	qcom,hw-trdhld = <6>;
 	qcom,hw-tsp = <1>;
-	status = "ok";
+	status = "disabled";
 };
 
 &i2c_freq_400Khz {
@@ -441,7 +454,7 @@
 	qcom,hw-scl-stretch-en = <0>;
 	qcom,hw-trdhld = <6>;
 	qcom,hw-tsp = <3>;
-	status = "ok";
+	status = "disabled";
 };
 
 &i2c_freq_custom {
@@ -455,7 +468,7 @@
 	qcom,hw-scl-stretch-en = <1>;
 	qcom,hw-trdhld = <6>;
 	qcom,hw-tsp = <3>;
-	status = "ok";
+	status = "disabled";
 };
 
 &i2c_freq_1Mhz {
@@ -470,5 +483,5 @@
 	qcom,hw-trdhld = <3>;
 	qcom,hw-tsp = <3>;
 	qcom,cci-clk-src = <37500000>;
-	status = "ok";
+	status = "disabled";
 };
