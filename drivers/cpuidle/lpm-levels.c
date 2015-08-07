@@ -795,7 +795,9 @@ bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
 	 * idx = 0 is the default LPM state
 	 */
 	if (!idx) {
+		stop_critical_timings();
 		wfi();
+		start_critical_timings();
 		return 1;
 	} else {
 		int affinity_level = 0;
@@ -810,7 +812,9 @@ bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
 
 		update_debug_pc_event(CPU_ENTER, state_id,
 						0xdeaffeed, 0xdeaffeed, true);
+		stop_critical_timings();
 		success = !cpu_suspend(state_id);
+		start_critical_timings();
 		update_debug_pc_event(CPU_EXIT, state_id,
 						success, 0xdeaffeed, true);
 		return success;
