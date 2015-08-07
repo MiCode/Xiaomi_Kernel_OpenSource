@@ -5424,6 +5424,10 @@ static int tomtom_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 	if (reg == TOMTOM_A_QFUSE_STATUS)
 		return 1;
 
+	for (i = 0; i < ARRAY_SIZE(non_cacheable_reg); i++)
+		if (reg == non_cacheable_reg[i])
+			return 1;
+
 	return 0;
 }
 
@@ -8597,7 +8601,7 @@ static int tomtom_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	 * Delay is needed for settling time
 	 * for the register configuration
 	 */
-	msleep(75);
+	msleep(50);
 	snd_soc_card_change_online_state(codec->card, 1);
 	clear_bit(BUS_DOWN, &tomtom->status_mask);
 
