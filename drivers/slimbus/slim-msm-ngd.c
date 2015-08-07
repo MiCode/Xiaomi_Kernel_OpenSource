@@ -266,7 +266,9 @@ static int ngd_get_tid(struct slim_controller *ctrl, struct slim_msg_txn *txn,
 				u8 *tid, struct completion *done)
 {
 	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctrl);
-	spin_lock(&ctrl->txn_lock);
+	unsigned long flags;
+
+	spin_lock_irqsave(&ctrl->txn_lock, flags);
 	if (ctrl->last_tid <= 255) {
 		dev->msg_cnt = ctrl->last_tid;
 		ctrl->last_tid++;
@@ -279,7 +281,7 @@ static int ngd_get_tid(struct slim_controller *ctrl, struct slim_msg_txn *txn,
 		}
 		if (i >= 256) {
 			dev_err(&ctrl->dev, "out of TID");
-			spin_unlock(&ctrl->txn_lock);
+			spin_unlock_irqrestore(&ctrl->txn_lock, flags);
 			return -ENOMEM;
 		}
 	}
@@ -287,7 +289,7 @@ static int ngd_get_tid(struct slim_controller *ctrl, struct slim_msg_txn *txn,
 	txn->tid = dev->msg_cnt;
 	txn->comp = done;
 	*tid = dev->msg_cnt;
-	spin_unlock(&ctrl->txn_lock);
+	spin_unlock_irqrestore(&ctrl->txn_lock, flags);
 	return 0;
 }
 static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
@@ -623,6 +625,8 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 		 txn_mc == SLIM_USR_MC_CONNECT_SINK ||
 		 txn_mc == SLIM_USR_MC_DISCONNECT_PORT)) {
 		int timeout;
+		unsigned long flags;
+
 		mutex_unlock(&dev->tx_lock);
 		msm_slim_put_ctrl(dev);
 		if (!ret) {
@@ -637,9 +641,9 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 			SLIM_ERR(dev,
 				"connect/disconnect:0x%x,tid:%d err:%d\n",
 					txn->mc, txn->tid, ret);
-			spin_lock(&ctrl->txn_lock);
+			spin_lock_irqsave(&ctrl->txn_lock, flags);
 			ctrl->txnt[txn->tid] = NULL;
-			spin_unlock(&ctrl->txn_lock);
+			spin_unlock_irqrestore(&ctrl->txn_lock, flags);
 		}
 		return ret ? ret : dev->err;
 	}
@@ -693,6 +697,8 @@ static int ngd_xferandwait_ack(struct slim_controller *ctrl,
 				struct slim_msg_txn *txn)
 {
 	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctrl);
+	unsigned long flags;
+
 	int ret = ngd_xfer_msg(ctrl, txn);
 	if (!ret) {
 		int timeout;
@@ -707,9 +713,9 @@ static int ngd_xferandwait_ack(struct slim_controller *ctrl,
 		if (ret != -EREMOTEIO || txn->mc != SLIM_USR_MC_CHAN_CTRL)
 			SLIM_ERR(dev, "master msg:0x%x,tid:%d ret:%d\n",
 				txn->mc, txn->tid, ret);
-		spin_lock(&ctrl->txn_lock);
+		spin_lock_irqsave(&ctrl->txn_lock, flags);
 		ctrl->txnt[txn->tid] = NULL;
-		spin_unlock(&ctrl->txn_lock);
+		spin_unlock_irqrestore(&ctrl->txn_lock, flags);
 	}
 
 	return ret;
@@ -921,6 +927,7 @@ setup_tx_msg_path:
 
 static void ngd_slim_rx(struct msm_slim_ctrl *dev, u8 *buf)
 {
+	unsigned long flags;
 	u8 mc, mt, len;
 
 	len = buf[0] & 0x1F;
@@ -942,10 +949,11 @@ static void ngd_slim_rx(struct msm_slim_ctrl *dev, u8 *buf)
 		mt == SLIM_MSG_MT_SRC_REFERRED_USER) {
 		struct slim_msg_txn *txn;
 		u8 failed_ea[6] = {0, 0, 0, 0, 0, 0};
-		spin_lock(&dev->ctrl.txn_lock);
+
+		spin_lock_irqsave(&dev->ctrl.txn_lock, flags);
 		txn = dev->ctrl.txnt[buf[3]];
 		if (!txn) {
-			spin_unlock(&dev->ctrl.txn_lock);
+			spin_unlock_irqrestore(&dev->ctrl.txn_lock, flags);
 			SLIM_WARN(dev,
 				"LADDR response after timeout, tid:0x%x\n",
 					buf[3]);
@@ -955,15 +963,16 @@ static void ngd_slim_rx(struct msm_slim_ctrl *dev, u8 *buf)
 			txn->la = buf[10];
 		dev->ctrl.txnt[buf[3]] = NULL;
 		complete(txn->comp);
-		spin_unlock(&dev->ctrl.txn_lock);
+		spin_unlock_irqrestore(&dev->ctrl.txn_lock, flags);
 	}
 	if (mc == SLIM_USR_MC_GENERIC_ACK &&
 		mt == SLIM_MSG_MT_SRC_REFERRED_USER) {
 		struct slim_msg_txn *txn;
-		spin_lock(&dev->ctrl.txn_lock);
+
+		spin_lock_irqsave(&dev->ctrl.txn_lock, flags);
 		txn = dev->ctrl.txnt[buf[3]];
 		if (!txn) {
-			spin_unlock(&dev->ctrl.txn_lock);
+			spin_unlock_irqrestore(&dev->ctrl.txn_lock, flags);
 			SLIM_WARN(dev, "ACK received after timeout, tid:0x%x\n",
 				buf[3]);
 			return;
@@ -977,7 +986,7 @@ static void ngd_slim_rx(struct msm_slim_ctrl *dev, u8 *buf)
 		}
 		dev->ctrl.txnt[buf[3]] = NULL;
 		complete(txn->comp);
-		spin_unlock(&dev->ctrl.txn_lock);
+		spin_unlock_irqrestore(&dev->ctrl.txn_lock, flags);
 	}
 }
 
@@ -1117,18 +1126,20 @@ static int ngd_slim_enable(struct msm_slim_ctrl *dev, bool enable)
 
 static int ngd_slim_power_down(struct msm_slim_ctrl *dev)
 {
+	unsigned long flags;
 	int i;
 	struct slim_controller *ctrl = &dev->ctrl;
-	spin_lock(&ctrl->txn_lock);
+
+	spin_lock_irqsave(&ctrl->txn_lock, flags);
 	/* Pending response for a message */
 	for (i = 0; i < ctrl->last_tid; i++) {
 		if (ctrl->txnt[i]) {
-			spin_unlock(&ctrl->txn_lock);
+			spin_unlock_irqrestore(&ctrl->txn_lock, flags);
 			SLIM_INFO(dev, "NGD down:txn-rsp for %d pending", i);
 			return -EBUSY;
 		}
 	}
-	spin_unlock(&ctrl->txn_lock);
+	spin_unlock_irqrestore(&ctrl->txn_lock, flags);
 	return msm_slim_qmi_power_request(dev, false);
 }
 
