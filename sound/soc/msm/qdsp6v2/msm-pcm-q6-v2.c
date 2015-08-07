@@ -368,6 +368,7 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 	int ret = 0;
 	int i = 0;
 	uint16_t bits_per_sample = 16;
+	unsigned int be_id = soc_prtd->dai_link->be_id;
 
 	pdata = (struct msm_plat_data *)
 		dev_get_drvdata(soc_prtd->platform->dev);
@@ -451,6 +452,14 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 
 	prtd->enabled = RUNNING;
 
+	if (prtd->ch_mixer) {
+		pr_err("ptrd->ch_mixer = %d\n", prtd->ch_mixer);
+		msm_pcm_routing_channel_mixer(
+			soc_prtd->dai_link->be_id,
+			prtd->audio_client->perf_mode,
+			prtd->session_id, substream->stream, be_id);
+	}
+
 	return ret;
 }
 
@@ -501,6 +510,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct msm_audio *prtd;
+	unsigned int be_id = soc_prtd->dai_link->be_id;
 	int ret = 0;
 
 	prtd = kzalloc(sizeof(struct msm_audio), GFP_KERNEL);
@@ -580,6 +590,8 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	prtd->set_channel_map = false;
 	prtd->reset_event = false;
 	runtime->private_data = prtd;
+	if (be_id == MSM_FRONTEND_DAI_MULTIMEDIA3)
+		prtd->ch_mixer = true;
 
 	return 0;
 }
