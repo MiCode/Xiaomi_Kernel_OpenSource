@@ -30,6 +30,7 @@
 #include "swr-wcd-ctrl.h"
 
 #define SWR_AUTO_SUSPEND_DELAY_MS	3000 /* delay in msec */
+#define SWR_DEV_ID_MASK			0xFFFFFFFF
 
 static u8 mstr_ports[] = {100, 101, 102, 103, 104, 105, 106, 107};
 static u8 mstr_port_type[] = {SWR_DAC_PORT, SWR_COMP_PORT, SWR_BOOST_PORT,
@@ -903,7 +904,7 @@ static int swrm_get_logical_dev_num(struct swr_master *mstr, u64 dev_id,
 			    SWRM_ENUMERATOR_SLAVE_DEV_ID_2(i))) << 32);
 		id |= swrm->read(swrm->handle,
 			    SWRM_ENUMERATOR_SLAVE_DEV_ID_1(i));
-		if (id == dev_id) {
+		if ((id & SWR_DEV_ID_MASK) == dev_id) {
 			if (swrm_get_device_status(swrm, i) == 0x01) {
 				*dev_num = i;
 				ret = 0;
