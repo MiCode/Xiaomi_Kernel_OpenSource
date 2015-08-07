@@ -16,6 +16,7 @@
 #include <linux/spinlock.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/of.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/types.h>
@@ -3330,6 +3331,96 @@ int glink_xprt_name_to_id(const char *name, uint16_t *id)
 	return -ENODEV;
 }
 EXPORT_SYMBOL(glink_xprt_name_to_id);
+
+/**
+ * of_get_glink_core_qos_cfg() - Parse the qos related dt entries
+ * @phandle:	The handle to the qos related node in DT.
+ * @cfg:	The transport configuration to be filled.
+ *
+ * Return: 0 on Success, standard Linux error otherwise.
+ */
+int of_get_glink_core_qos_cfg(struct device_node *phandle,
+				struct glink_core_transport_cfg *cfg)
+{
+	int rc, i;
+	char *key;
+	uint32_t num_flows;
+	uint32_t *arr32;
+
+	if (!phandle) {
+		GLINK_ERR("%s: phandle is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	key = "qcom,mtu-size";
+	rc = of_property_read_u32(phandle, key, (uint32_t *)&cfg->mtu);
+	if (rc) {
+		GLINK_ERR("%s: missing key %s\n", __func__, key);
+		return -ENODEV;
+	}
+
+	key = "qcom,tput-stats-cycle";
+	rc = of_property_read_u32(phandle, key, &cfg->token_count);
+	if (rc) {
+		GLINK_ERR("%s: missing key %s\n", __func__, key);
+		rc = -ENODEV;
+		goto error;
+	}
+
+	key = "qcom,flow-info";
+	if (!of_find_property(phandle, key, &num_flows)) {
+		GLINK_ERR("%s: missing key %s\n", __func__, key);
+		rc = -ENODEV;
+		goto error;
+	}
+
+	num_flows /= sizeof(uint32_t);
+	if (num_flows % 2) {
+		GLINK_ERR("%s: Invalid flow info length\n", __func__);
+		rc = -EINVAL;
+		goto error;
+	}
+
+	num_flows /= 2;
+	cfg->num_flows = num_flows;
+
+	cfg->flow_info = kmalloc_array(num_flows, sizeof(cfg->flow_info),
+					GFP_KERNEL);
+	if (!cfg->flow_info) {
+		GLINK_ERR("%s: Memory allocation for flow info failed\n",
+				__func__);
+		rc = -ENOMEM;
+		goto error;
+	}
+	arr32 = kmalloc_array(num_flows, sizeof(uint32_t), GFP_KERNEL);
+	if (!arr32) {
+		GLINK_ERR("%s: Memory allocation for temporary array failed\n",
+				__func__);
+		rc = -ENOMEM;
+		goto temp_mem_alloc_fail;
+	}
+
+	of_property_read_u32_array(phandle, key, arr32, num_flows * 2);
+
+	for (i = 0; i < num_flows; i++) {
+		cfg->flow_info[i].mtu_tx_time_us = arr32[2 * i];
+		cfg->flow_info[i].power_state = arr32[2 * i + 1];
+	}
+
+	kfree(arr32);
+	of_node_put(phandle);
+	return 0;
+
+temp_mem_alloc_fail:
+	kfree(cfg->flow_info);
+error:
+	cfg->mtu = 0;
+	cfg->token_count = 0;
+	cfg->num_flows = 0;
+	cfg->flow_info = NULL;
+	return rc;
+}
+EXPORT_SYMBOL(of_get_glink_core_qos_cfg);
 
 /**
  * glink_core_init_xprt_qos_cfg() - Initialize a transport's QoS configuration

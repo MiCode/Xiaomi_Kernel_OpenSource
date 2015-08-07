@@ -156,6 +156,9 @@ struct channel_desc {
  *				processing.
  * @deferred_cmds:		List of deferred commands that need to be
  *				processed in process context.
+ * @num_pw_states:		Size of @ramp_time_us.
+ * @ramp_time_us:		Array of ramp times in microseconds where array
+ *				index position represents a power state.
  */
 struct edge_info {
 	struct glink_transport_if xprt_if;
@@ -187,6 +190,8 @@ struct edge_info {
 	bool in_ssr;
 	spinlock_t rx_lock;
 	struct list_head deferred_cmds;
+	uint32_t num_pw_states;
+	unsigned long *ramp_time_us;
 };
 
 /**
@@ -1925,6 +1930,51 @@ static int tx_cmd_tracer_pkt(struct glink_transport_if *if_ptr, uint32_t lcid,
 }
 
 /**
+ * get_power_vote_ramp_time() - Get the ramp time required for the power
+ *				votes to be applied
+ * @if_ptr:	The transport interface on which power voting is requested.
+ * @state:	The power state for which ramp time is required.
+ *
+ * Return: The ramp time specific to the power state, standard error otherwise.
+ */
+static unsigned long get_power_vote_ramp_time(
+				struct glink_transport_if *if_ptr,
+				uint32_t state)
+{
+	struct edge_info *einfo;
+
+	einfo = container_of(if_ptr, struct edge_info, xprt_if);
+
+	if (state >= einfo->num_pw_states || !(einfo->ramp_time_us))
+		return (unsigned long)ERR_PTR(-EINVAL);
+
+	return einfo->ramp_time_us[state];
+}
+
+/**
+ * power_vote() - Update the power votes to meet qos requirement
+ * @if_ptr:	The transport interface on which power voting is requested.
+ * @state:	The power state for which the voting should be done.
+ *
+ * Return: 0 on Success, standard error otherwise.
+ */
+static int power_vote(struct glink_transport_if *if_ptr, uint32_t state)
+{
+	return 0;
+}
+
+/**
+ * power_unvote() - Remove the all the power votes
+ * @if_ptr:	The transport interface on which power voting is requested.
+ *
+ * Return: 0 on Success, standard error otherwise.
+ */
+static int power_unvote(struct glink_transport_if *if_ptr)
+{
+	return 0;
+}
+
+/**
  * negotiate_features_v1() - determine what features of a version can be used
  * @if_ptr:	The transport for which features are negotiated for.
  * @version:	The version negotiated.
@@ -1966,6 +2016,9 @@ static void init_xprt_if(struct edge_info *einfo)
 	einfo->xprt_if.mask_rx_irq = mask_rx_irq;
 	einfo->xprt_if.wait_link_down = wait_link_down;
 	einfo->xprt_if.tx_cmd_tracer_pkt = tx_cmd_tracer_pkt;
+	einfo->xprt_if.get_power_vote_ramp_time = get_power_vote_ramp_time;
+	einfo->xprt_if.power_vote = power_vote;
+	einfo->xprt_if.power_unvote = power_unvote;
 }
 
 /**
@@ -1981,6 +2034,59 @@ static void init_xprt_cfg(struct edge_info *einfo, const char *name)
 	einfo->xprt_cfg.versions_entries = ARRAY_SIZE(versions);
 	einfo->xprt_cfg.max_cid = SZ_64K;
 	einfo->xprt_cfg.max_iid = SZ_2G;
+}
+
+/**
+ * parse_qos_dt_params() - Parse the power states from DT
+ * @dev:	Reference to the platform device for a specific edge.
+ * @einfo:	Edge information for the edge probe function is called.
+ *
+ * Return: 0 on success, standard error code otherwise.
+ */
+static int parse_qos_dt_params(struct device_node *node,
+				struct edge_info *einfo)
+{
+	int rc;
+	int i;
+	char *key;
+	uint32_t *arr32;
+	uint32_t num_states;
+
+	key = "qcom,ramp-time";
+	if (!of_find_property(node, key, &num_states))
+		return -ENODEV;
+
+	num_states /= sizeof(uint32_t);
+
+	einfo->num_pw_states = num_states;
+
+	arr32 = kmalloc_array(num_states, sizeof(uint32_t), GFP_KERNEL);
+	if (!arr32)
+		return -ENOMEM;
+
+	einfo->ramp_time_us = kmalloc_array(num_states, sizeof(unsigned long),
+					GFP_KERNEL);
+	if (!einfo->ramp_time_us) {
+		rc = -ENOMEM;
+		goto mem_alloc_fail;
+	}
+
+	rc = of_property_read_u32_array(node, key, arr32, num_states);
+	if (rc) {
+		rc = -ENODEV;
+		goto invalid_key;
+	}
+	for (i = 0; i < num_states; i++)
+		einfo->ramp_time_us[i] = arr32[i];
+
+	rc = 0;
+	return rc;
+
+invalid_key:
+	kfree(einfo->ramp_time_us);
+mem_alloc_fail:
+	kfree(arr32);
+	return rc;
 }
 
 /**
@@ -2012,6 +2118,7 @@ static int subsys_name_to_id(const char *name)
 static int glink_smem_native_probe(struct platform_device *pdev)
 {
 	struct device_node *node;
+	struct device_node *phandle_node;
 	struct edge_info *einfo;
 	int rc;
 	char *key;
@@ -2132,6 +2239,12 @@ static int glink_smem_native_probe(struct platform_device *pdev)
 		rc = -ENOMEM;
 		goto smem_alloc_fail;
 	}
+
+	key = "qcom,qos-config";
+	phandle_node = of_parse_phandle(node, key, 0);
+	if (phandle_node && !(of_get_glink_core_qos_cfg(phandle_node,
+							&einfo->xprt_cfg)))
+		parse_qos_dt_params(node, einfo);
 
 	rc = glink_core_register_transport(&einfo->xprt_if, &einfo->xprt_cfg);
 	if (rc == -EPROBE_DEFER)
