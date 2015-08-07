@@ -648,22 +648,21 @@ enum ssr_command {
 /**
  * struct ssr_notify_data - Contains private data used for client notifications
  *                          from G-Link.
- * tx_done:	Indicates whether or not the tx_done notification has been
- *		received.
- * event:	The state notification event received.
- * responded:	Indicates whether or not a cleanup_done response was received.
- * version:	G-Link SSR protocol version
- * seq_num:	G-Link SSR protocol sequence number
- * edge:	The G-Link edge name for the channel associated with this
- *		callback data
+ * tx_done:		Indicates whether or not the tx_done notification has
+ *			been received.
+ * event:		The state notification event received.
+ * responded:		Indicates whether or not a cleanup_done response was
+ *			received.
+ * edge:		The G-Link edge name for the channel associated with
+ *			this callback data
+ * do_cleanup_data:	Structure containing the G-Link SSR do_cleanup message.
  */
 struct ssr_notify_data {
 	bool tx_done;
 	unsigned event;
 	bool responded;
-	uint32_t version;
-	uint32_t seq_num;
 	const char *edge;
+	struct do_cleanup_msg *do_cleanup_data;
 };
 
 /**

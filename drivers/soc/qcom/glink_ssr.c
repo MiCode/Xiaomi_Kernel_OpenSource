@@ -183,15 +183,17 @@ void glink_ssr_notify_rx(void *handle, const void *priv, const void *pkt_priv,
 	struct ssr_notify_data *cb_data = (struct ssr_notify_data *)priv;
 	struct cleanup_done_msg *resp = (struct cleanup_done_msg *)ptr;
 
-	if (!cb_data)
+	if (unlikely(!cb_data))
 		goto missing_cb_data;
-	if (!resp)
+	if (unlikely(!cb_data->do_cleanup_data))
+		goto missing_do_cleanup_data;
+	if (unlikely(!resp))
 		goto missing_response;
-	if (resp->version != cb_data->version)
+	if (unlikely(resp->version != cb_data->do_cleanup_data->version))
 		goto version_mismatch;
-	if (resp->seq_num != cb_data->seq_num)
+	if (unlikely(resp->seq_num != cb_data->do_cleanup_data->seq_num))
 		goto invalid_seq_number;
-	if (resp->response != GLINK_SSR_CLEANUP_DONE)
+	if (unlikely(resp->response != GLINK_SSR_CLEANUP_DONE))
 		goto wrong_response;
 
 	cb_data->responded = true;
@@ -200,27 +202,33 @@ void glink_ssr_notify_rx(void *handle, const void *priv, const void *pkt_priv,
 	GLINK_DBG("<SSR> %s: responses remaining after dec[%d]\n",
 			__func__, atomic_read(&responses_remaining));
 	GLINK_INFO(
-		"<SSR> %s: Response received from %s resp[%d] version[%d] seq_num[%d]\n",
+		"<SSR> %s: Response from %s resp[%d] version[%d] seq_num[%d] restarted[%s]\n",
 			__func__, cb_data->edge, resp->response,
-			resp->version, resp->seq_num);
+			resp->version, resp->seq_num,
+			cb_data->do_cleanup_data->name);
 
+	kfree(cb_data->do_cleanup_data);
+	cb_data->do_cleanup_data = NULL;
 	wake_up(&waitqueue);
 	return;
 
 missing_cb_data:
-	GLINK_ERR("<SSR> %s: Missing cb_data\n", __func__);
+	panic("%s: Missing cb_data!\n", __func__);
+	return;
+missing_do_cleanup_data:
+	panic("%s: Missing do_cleanup data!\n", __func__);
 	return;
 missing_response:
 	GLINK_ERR("<SSR> %s: Missing response data\n", __func__);
 	return;
 version_mismatch:
 	GLINK_ERR("<SSR> %s: Version mismatch. %s[%d], %s[%d]\n", __func__,
-			"do_cleanup version", cb_data->version,
+			"do_cleanup version", cb_data->do_cleanup_data->version,
 			"cleanup_done version", resp->version);
 	return;
 invalid_seq_number:
 	GLINK_ERR("<SSR> %s: Invalid seq. number. %s[%d], %s[%d]\n", __func__,
-			"do_cleanup seq num", cb_data->seq_num,
+			"do_cleanup seq num", cb_data->do_cleanup_data->seq_num,
 			"cleanup_done seq_num", resp->seq_num);
 	return;
 wrong_response:
@@ -244,13 +252,15 @@ void glink_ssr_notify_tx_done(void *handle, const void *priv,
 {
 	struct ssr_notify_data *cb_data = (struct ssr_notify_data *)priv;
 
-	if (!cb_data) {
-		GLINK_ERR("<SSR> %s: Could not allocate data for cb_data\n",
-				__func__);
-	} else {
-		GLINK_INFO("<SSR> %s: tx_done notification\n", __func__);
-		cb_data->tx_done = true;
+	if (unlikely(!cb_data)) {
+		panic("%s: cb_data is NULL!\n", __func__);
+		return;
 	}
+
+	GLINK_INFO("<SSR> %s: Notified %s of restart\n",
+		__func__, cb_data->edge);
+
+	cb_data->tx_done = true;
 }
 
 void close_ch_worker(struct work_struct *work)
@@ -281,6 +291,8 @@ void close_ch_worker(struct work_struct *work)
 	else
 		ss_info->link_state_handle = link_state_handle;
 
+	BUG_ON(!ss_info->cb_data);
+	kfree(ss_info->cb_data);
 	kfree(close_work);
 }
 
@@ -484,8 +496,7 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 		do_cleanup_data->name_len = strlen(ss_info->edge);
 		strlcpy(do_cleanup_data->name, ss_info->edge,
 				do_cleanup_data->name_len + 1);
-		ss_leaf_entry->cb_data->version = 0;
-		ss_leaf_entry->cb_data->seq_num = sequence_number;
+		ss_leaf_entry->cb_data->do_cleanup_data = do_cleanup_data;
 
 		ret = glink_queue_rx_intent(handle,
 				(void *)ss_leaf_entry->cb_data,
@@ -496,6 +507,8 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 					"queue_rx_intent failed", ret,
 					atomic_read(&responses_remaining));
 			kfree(do_cleanup_data);
+			ss_leaf_entry->cb_data->do_cleanup_data = NULL;
+
 			if (strcmp(ss_leaf_entry->ssr_name, "rpm")) {
 				subsystem_restart(ss_leaf_entry->ssr_name);
 				ss_leaf_entry->restarted = true;
@@ -515,6 +528,8 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 					__func__, ret, "resp. remaining",
 					atomic_read(&responses_remaining));
 			kfree(do_cleanup_data);
+			ss_leaf_entry->cb_data->do_cleanup_data = NULL;
+
 			if (strcmp(ss_leaf_entry->ssr_name, "rpm")) {
 				subsystem_restart(ss_leaf_entry->ssr_name);
 				ss_leaf_entry->restarted = true;
