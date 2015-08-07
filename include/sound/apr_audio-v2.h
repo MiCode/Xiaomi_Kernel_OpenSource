@@ -7620,6 +7620,12 @@ struct afe_port_cmd_set_aanc_acdb_table {
 #define Q14_GAIN_ZERO_POINT_FIVE	0x2000
 #define Q14_GAIN_UNITY			0x4000
 
+struct default_chmixer_param_id_coeff {
+	uint32_t	index;
+	uint16_t	num_output_channels;
+	uint16_t	num_input_channels;
+};
+
 struct afe_svc_cmd_set_clip_bank_selection {
 	struct apr_hdr hdr;
 	struct afe_svc_cmd_set_param param;
