@@ -296,7 +296,6 @@ static ssize_t ep_pcie_cmd_debug(struct file *file,
 	unsigned int testcase = 0;
 	struct ep_pcie_msi_config msi_cfg;
 	int i;
-	u32 device_id = 0;
 	struct ep_pcie_hw *phandle = NULL;
 	struct ep_pcie_iatu entries[2] = {
 		{0x80000000, 0xbe7fffff, 0, 0},
@@ -305,10 +304,7 @@ static ssize_t ep_pcie_cmd_debug(struct file *file,
 	struct ep_pcie_db_config chdb_cfg = {0x64, 0x6b, 0xfd4fa000};
 	struct ep_pcie_db_config erdb_cfg = {0x64, 0x6b, 0xfd4fa080};
 
-	if (dev->power_on) {
-		device_id = readl_relaxed(dev->dm_core);
-		phandle = ep_pcie_get_phandle(device_id);
-	}
+	phandle = ep_pcie_get_phandle(hw_drv.device_id);
 
 	memset(str, 0, sizeof(str));
 	ret = copy_from_user(str, buf, sizeof(str));

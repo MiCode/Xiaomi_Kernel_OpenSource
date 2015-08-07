@@ -50,8 +50,8 @@ module_param_named(debug_keep_resource, ep_pcie_debug_keep_resource,
 struct ep_pcie_dev_t ep_pcie_dev = {0};
 
 static struct ep_pcie_vreg_info_t ep_pcie_vreg_info[EP_PCIE_MAX_VREG] = {
-	{NULL, "vreg-1.8", 1800000, 1800000, 1000, true},
-	{NULL, "vreg-0.9", 1000000, 1000000, 24000, true}
+	{NULL, "vreg-1.8", 1800000, 1800000, 14000, true},
+	{NULL, "vreg-0.9", 1000000, 1000000, 40000, true}
 };
 
 static struct ep_pcie_gpio_info_t ep_pcie_gpio_info[EP_PCIE_MAX_GPIO] = {
@@ -66,7 +66,8 @@ static struct ep_pcie_clk_info_t
 	{NULL, "pcie_0_mstr_axi_clk", 0, true},
 	{NULL, "pcie_0_slv_axi_clk", 0, true},
 	{NULL, "pcie_0_aux_clk", 1000000, true},
-	{NULL, "pcie_0_ldo", 0, true}
+	{NULL, "pcie_0_ldo", 0, true},
+	{NULL, "pcie_0_phy_reset", 0, false}
 };
 
 static struct ep_pcie_clk_info_t
@@ -286,11 +287,10 @@ static int ep_pcie_clk_init(struct ep_pcie_dev_t *dev)
 		info = &dev->clk[i];
 
 		if (!info->hdl) {
-			EP_PCIE_ERR(dev,
+			EP_PCIE_DBG(dev,
 				"PCIe V%d:  handle of Clock %s is NULL\n",
 				dev->rev, info->name);
-			rc = -EINVAL;
-			break;
+			continue;
 		}
 
 		if (info->freq) {
@@ -439,15 +439,17 @@ static void ep_pcie_bar_init(struct ep_pcie_dev_t *dev)
 	/* Configure BAR mask via CS2 */
 	ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_CS2_ENABLE, 0, BIT(0));
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0, mask);
+	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x4, 0);
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x8, mask);
-	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x10, mask);
+	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0xc, 0);
+	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x10, 0);
+	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x14, 0);
 	ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_CS2_ENABLE, BIT(0), 0);
 
 	/* Configure BAR properties via CS */
 	ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, 0, BIT(0));
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0, properties);
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x8, properties);
-	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x10, properties);
 	ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, BIT(0), 0);
 }
 
@@ -487,6 +489,9 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
 	/* Disable the DBI Wakeup */
 	ep_pcie_write_mask(dev->parf + PCIE20_PARF_SYS_CTRL, BIT(11), 0);
 
+	/* Disable the debouncers */
+	ep_pcie_write_reg(dev->parf, PCIE20_PARF_DB_CTRL, 0x73);
+
 	/* Disable core clock CGC */
 	ep_pcie_write_mask(dev->parf + PCIE20_PARF_SYS_CTRL, 0, BIT(6));
 
@@ -508,9 +513,12 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
 	/* Set header type */
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BIST_HDR_TYPE, 0x10);
 
+	/* Set Subsystem ID and Subsystem Vendor ID */
+	ep_pcie_write_reg(dev->dm_core, PCIE20_SUBSYSTEM, 0xa01f17cb);
+
 	/* Set the PMC Register - to support PME in D0, D3hot and D3cold */
 	ep_pcie_write_mask(dev->dm_core + PCIE20_CAP_ID_NXT_PTR, 0,
-						BIT(4)|BIT(3)|BIT(0));
+						BIT(31)|BIT(30)|BIT(27));
 
 	/* Set the Endpoint L0s Acceptable Latency to 1us (max) */
 	ep_pcie_write_reg_field(dev->dm_core, PCIE20_DEVICE_CAPABILITIES,
@@ -528,8 +536,8 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
 	ep_pcie_write_reg_field(dev->dm_core, PCIE20_LINK_CAPABILITIES,
 		PCIE20_MASK_L0S_EXIT_LATENCY, 0x6);
 
-	/* L1ss is not supported */
-	ep_pcie_write_mask(dev->dm_core + PCIE20_L1SUB_CAPABILITY, 0x1f, 0);
+	/* L1ss is supported */
+	ep_pcie_write_mask(dev->dm_core + PCIE20_L1SUB_CAPABILITY, 0, 0x1f);
 
 	/* Enable Clock Power Management */
 	ep_pcie_write_reg_field(dev->dm_core, PCIE20_LINK_CAPABILITIES,
@@ -961,6 +969,8 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 				dev->rev);
 			goto pipe_clk_fail;
 		}
+
+		dev->power_on = true;
 	}
 
 	if (!(opt & EP_PCIE_OPT_ENUM))
@@ -1026,7 +1036,7 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		if (ep_pcie_phy_is_ready(dev))
 			break;
 		retries++;
-		if (retries % 10 == 0)
+		if (retries % 100 == 0)
 			EP_PCIE_DBG(dev,
 				"PCIe V%d: current number of PHY retries:%d.\n",
 				dev->rev, retries);
@@ -1051,7 +1061,10 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 	ep_pcie_config_inbound_iatu(dev);
 
 	/* enable link training */
-	ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_SYS_CTRL, 0, BIT(0));
+	if (dev->phy_rev >= 3)
+		ep_pcie_write_mask(dev->parf + PCIE20_PARF_LTSSM, 0, BIT(8));
+	else
+		ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_SYS_CTRL, 0, BIT(0));
 
 	EP_PCIE_DBG(dev, "PCIe V%d: check if link is up\n", dev->rev);
 
@@ -1061,7 +1074,7 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		usleep_range(LINK_UP_TIMEOUT_US_MIN, LINK_UP_TIMEOUT_US_MAX);
 		val =  readl_relaxed(dev->elbi + PCIE20_ELBI_SYS_STTS);
 		retries++;
-		if (retries % 5 == 0)
+		if (retries % 100 == 0)
 			EP_PCIE_DBG(dev, "PCIe V%d: LTSSM_STATE:0x%x.\n",
 					dev->rev, (val >> 0xC) & 0x3f);
 	} while ((!(val & XMLH_LINK_UP) ||
@@ -1075,6 +1088,7 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		goto link_fail;
 	} else {
 		dev->link_status = EP_PCIE_LINK_UP;
+		dev->l23_ready = false;
 		EP_PCIE_DBG(dev,
 			"PCIe V%d: link is up after %d checkings (%d ms)\n",
 			dev->rev, retries,
@@ -1112,11 +1126,11 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		}
 	}
 
-	dev->power_on = true;
 	dev->suspending = false;
 	goto out;
 
 link_fail:
+	dev->power_on = false;
 	if (!ep_pcie_debug_keep_resource)
 		ep_pcie_pipe_clk_deinit(dev);
 pipe_clk_fail:
@@ -1250,6 +1264,7 @@ static irqreturn_t ep_pcie_handle_dstate_change_irq(int irq, void *data)
 		ep_pcie_reg_dump(dev, BIT(EP_PCIE_RES_DM_CORE), false);
 
 	if (dstate == 3) {
+		dev->l23_ready = true;
 		dev->d3_counter++;
 		EP_PCIE_DBG(dev,
 			"PCIe V%d: No. %ld change to D3 state.\n",
@@ -1257,6 +1272,7 @@ static irqreturn_t ep_pcie_handle_dstate_change_irq(int irq, void *data)
 		ep_pcie_write_mask(dev->parf + PCIE20_PARF_PM_CTRL, 0, BIT(1));
 		ep_pcie_notify_event(dev, EP_PCIE_EVENT_PM_D3_HOT);
 	} else if (dstate == 0) {
+		dev->l23_ready = false;
 		dev->d0_counter++;
 		EP_PCIE_DBG(dev,
 			"PCIe V%d: No. %ld change to D0 state.\n",
@@ -1629,9 +1645,10 @@ int ep_pcie_core_trigger_msi(u32 idx)
 	data = readl_relaxed(ep_pcie_dev.dm_core + PCIE20_MSI_DATA);
 
 	if (addr && data) {
+		ep_pcie_dev.msi_counter++;
 		EP_PCIE_DUMP(&ep_pcie_dev,
 			"PCIe V%d: No. %ld MSI fired for IRQ %d; index from client:%d\n",
-			ep_pcie_dev.rev, ep_pcie_dev.msi_counter++,
+			ep_pcie_dev.rev, ep_pcie_dev.msi_counter,
 			data + idx, idx);
 		ep_pcie_write_reg(ep_pcie_dev.msi, addr & 0xfff, data + idx);
 		return 0;
@@ -1647,14 +1664,18 @@ int ep_pcie_core_wakeup_host(void)
 {
 	struct ep_pcie_dev_t *dev = &ep_pcie_dev;
 
-	if (dev->perst_deast) {
+	if (dev->perst_deast && !dev->l23_ready) {
 		EP_PCIE_ERR(dev,
-			"PCIe V%d: request to assert WAKE# when PERST is de-asserted.\n",
+			"PCIe V%d: request to assert WAKE# when PERST is de-asserted and D3hot is not received.\n",
 			dev->rev);
 		return EP_PCIE_ERROR;
 	} else {
-		EP_PCIE_DBG(dev, "PCIe V%d: No. %ld to assert PCIe WAKE#.\n",
-			dev->rev, ++dev->wake_counter);
+		dev->wake_counter++;
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: No. %ld to assert PCIe WAKE#; perst is %s de-asserted; D3hot is %s received.\n",
+			dev->rev, dev->wake_counter,
+			dev->perst_deast ? "" : "not",
+			dev->l23_ready ? "" : "not");
 		gpio_set_value(dev->gpio[EP_PCIE_GPIO_WAKE].num,
 				1 - dev->gpio[EP_PCIE_GPIO_WAKE].on);
 		gpio_set_value(dev->gpio[EP_PCIE_GPIO_WAKE].num,
@@ -1685,7 +1706,7 @@ int ep_pcie_core_config_db_routing(struct ep_pcie_db_config chdb_cfg,
 	return 0;
 }
 
-static struct ep_pcie_hw hw_drv = {
+struct ep_pcie_hw hw_drv = {
 	.register_event	= ep_pcie_core_register_event,
 	.deregister_event = ep_pcie_core_deregister_event,
 	.get_linkstatus = ep_pcie_core_get_linkstatus,

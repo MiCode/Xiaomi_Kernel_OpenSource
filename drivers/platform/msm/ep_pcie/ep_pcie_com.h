@@ -24,6 +24,7 @@
 #include <linux/msm_ep_pcie.h>
 
 #define PCIE20_PARF_SYS_CTRL           0x00
+#define PCIE20_PARF_DB_CTRL            0x10
 #define PCIE20_PARF_PM_CTRL            0x20
 #define PCIE20_PARF_PM_STTS            0x24
 #define PCIE20_PARF_PHY_CTRL           0x40
@@ -41,6 +42,7 @@
 #define PCIE20_PARF_AXI_MSTR_RD_HALT_NO_WRITES 0x1A4
 #define PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT      0x1A8
 #define PCIE20_PARF_Q2A_FLUSH          0x1AC
+#define PCIE20_PARF_LTSSM              0x1B0
 #define PCIE20_PARF_DEVICE_TYPE        0x1000
 
 #define PCIE20_ELBI_VERSION            0x00
@@ -53,6 +55,7 @@
 #define PCIE20_CLASS_CODE_REVISION_ID  0x08
 #define PCIE20_BIST_HDR_TYPE           0x0C
 #define PCIE20_BAR0                    0x10
+#define PCIE20_SUBSYSTEM               0x2c
 #define PCIE20_CAP_ID_NXT_PTR          0x40
 #define PCIE20_CON_STATUS              0x44
 #define PCIE20_MSI_CAP_ID_NEXT_CTRL    0x50
@@ -84,20 +87,20 @@
 #define PCIE20_PLR_IATU_LTAR           0x918
 #define PCIE20_PLR_IATU_UTAR           0x91c
 
-#define PERST_TIMEOUT_US_MIN	              5000
-#define PERST_TIMEOUT_US_MAX	              5100
-#define PERST_CHECK_MAX_COUNT		      2000
-#define LINK_UP_TIMEOUT_US_MIN	              5000
-#define LINK_UP_TIMEOUT_US_MAX	              5100
-#define LINK_UP_CHECK_MAX_COUNT		      2000
-#define BME_TIMEOUT_US_MIN	              5000
-#define BME_TIMEOUT_US_MAX	              5100
-#define BME_CHECK_MAX_COUNT		      6000
-#define PHY_STABILIZATION_DELAY_US_MIN	      995
-#define PHY_STABILIZATION_DELAY_US_MAX	      1005
-#define REFCLK_STABILIZATION_DELAY_US_MIN     995
-#define REFCLK_STABILIZATION_DELAY_US_MAX     1005
-#define PHY_READY_TIMEOUT_COUNT               10000
+#define PERST_TIMEOUT_US_MIN	              1000
+#define PERST_TIMEOUT_US_MAX	              1000
+#define PERST_CHECK_MAX_COUNT		      30000
+#define LINK_UP_TIMEOUT_US_MIN	              1000
+#define LINK_UP_TIMEOUT_US_MAX	              1000
+#define LINK_UP_CHECK_MAX_COUNT		      30000
+#define BME_TIMEOUT_US_MIN	              1000
+#define BME_TIMEOUT_US_MAX	              1000
+#define BME_CHECK_MAX_COUNT		      30000
+#define PHY_STABILIZATION_DELAY_US_MIN	      1000
+#define PHY_STABILIZATION_DELAY_US_MAX	      1000
+#define REFCLK_STABILIZATION_DELAY_US_MIN     1000
+#define REFCLK_STABILIZATION_DELAY_US_MAX     1000
+#define PHY_READY_TIMEOUT_COUNT               30000
 #define XMLH_LINK_UP                          0x400
 
 #define MAX_PROP_SIZE 32
@@ -107,7 +110,7 @@
 
 #define EP_PCIE_LOG_PAGES 50
 #define EP_PCIE_MAX_VREG 2
-#define EP_PCIE_MAX_CLK 5
+#define EP_PCIE_MAX_CLK 6
 #define EP_PCIE_MAX_PIPE_CLK 1
 
 #define EP_PCIE_ERROR -30655
@@ -283,6 +286,7 @@ struct ep_pcie_dev_t {
 	bool                         perst_deast;
 	bool                         power_on;
 	bool                         suspending;
+	bool                         l23_ready;
 	bool                         l1ss_enabled;
 	struct ep_pcie_msi_config    msi_cfg;
 
@@ -290,6 +294,7 @@ struct ep_pcie_dev_t {
 };
 
 extern struct ep_pcie_dev_t ep_pcie_dev;
+extern struct ep_pcie_hw hw_drv;
 
 static inline void ep_pcie_write_mask(void __iomem *addr,
 				u32 clear_mask, u32 set_mask)
