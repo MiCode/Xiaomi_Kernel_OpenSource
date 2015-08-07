@@ -1472,7 +1472,7 @@ static void a5xx_lm_enable(struct adreno_device *adreno_dev)
 			0x00050000);
 	kgsl_regwrite(device, A5XX_GPMU_THROTTLE_UNMASK_FORCE_CTRL,
 			0x00030000);
-	if (adreno_is_a530(adreno_dev) && !adreno_is_a530v1(adreno_dev))
+	if (adreno_is_a530v2(adreno_dev))
 		val = 0x00060011;
 	/* v3 value */
 	else
@@ -1779,8 +1779,6 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A5XX_RBBM_AHB_CNTL1, 0xA6FFFFFF);
 		/* enable HWCG */
 		a5xx_hwcg_init(adreno_dev);
-		/* enable DCS */
-		kgsl_regwrite(device, A5XX_GPMU_CLOCK_THROTTLE_CTRL, 0xE0015);
 	}
 
 	kgsl_regwrite(device, A5XX_RBBM_AHB_CNTL2, 0x0000003F);
