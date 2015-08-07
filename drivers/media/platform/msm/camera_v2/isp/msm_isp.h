@@ -65,6 +65,20 @@ struct vfe_device;
 struct msm_vfe_axi_stream;
 struct msm_vfe_stats_stream;
 
+#define VFE_SD_HW_MAX VFE_SD_COMMON
+
+struct msm_vfe_sof_info {
+	uint32_t timestamp_ms;
+	uint32_t mono_timestamp_ms;
+	uint32_t frame_id;
+};
+
+struct msm_vfe_dual_hw_ms_info {
+	enum msm_vfe_dual_hw_ms_type dual_hw_ms_type;
+	struct msm_vfe_sof_info *sof_info;
+	uint8_t slave_id;
+};
+
 struct vfe_subscribe_info {
 	struct v4l2_fh *vfh;
 	uint32_t active;
@@ -259,8 +273,6 @@ struct msm_vfe_hardware_info {
 	struct msm_vfe_ops vfe_ops;
 	struct msm_vfe_axi_hardware_info *axi_hw_info;
 	struct msm_vfe_stats_hardware_info *stats_hw_info;
-	struct v4l2_subdev_internal_ops *subdev_internal_ops;
-	struct v4l2_subdev_ops *subdev_ops;
 	uint32_t dmi_reg_offset;
 };
 
@@ -388,6 +400,8 @@ struct msm_vfe_src_info {
 	uint32_t last_updt_frm_id;
 	uint32_t sof_counter_step;
 	struct timeval time_stamp;
+	enum msm_vfe_dual_hw_type dual_hw_type;
+	struct msm_vfe_dual_hw_ms_info dual_hw_ms_info;
 };
 
 struct msm_vfe_fetch_engine_info {
@@ -495,7 +509,7 @@ struct msm_vfe_error_info {
 	uint32_t error_mask1;
 	uint32_t violation_status;
 	uint32_t camif_status;
-	uint8_t stream_framedrop_count[MAX_NUM_STREAM];
+	uint8_t stream_framedrop_count[VFE_AXI_SRC_MAX];
 	uint8_t stats_framedrop_count[MSM_ISP_STATS_MAX];
 	uint32_t info_dump_frame_count;
 	uint32_t error_count;
@@ -584,8 +598,35 @@ struct dual_vfe_resource {
 	uint32_t wm_reload_mask[MAX_VFE];
 };
 
+struct msm_vfe_common_dev_data {
+	spinlock_t common_dev_data_lock;
+	enum msm_vfe_dual_hw_type dual_hw_type;
+	struct msm_vfe_sof_info master_sof_info;
+	uint8_t master_active;
+	uint32_t sof_delta_threshold; /* Updated by Master */
+	uint32_t num_slave;
+	uint32_t reserved_slave_mask;
+	uint32_t slave_active_mask;
+	struct msm_vfe_sof_info slave_sof_info[MS_NUM_SLAVE_MAX];
+};
+
+struct msm_vfe_common_subdev {
+	/* parent reference */
+	struct vfe_parent_device *parent;
+
+	/* Media Subdevice */
+	struct msm_sd_subdev *subdev;
+
+	/* Buf Mgr */
+	struct msm_isp_buf_mgr *buf_mgr;
+
+	/* Common Data */
+	struct msm_vfe_common_dev_data *common_data;
+};
+
 struct vfe_device {
 	struct platform_device *pdev;
+	struct msm_vfe_common_dev_data *common_data;
 	struct msm_sd_subdev subdev;
 	struct resource *vfe_irq;
 	struct resource *vfe_mem;
@@ -656,5 +697,15 @@ struct vfe_device {
 	uint32_t is_split;
 	unsigned long page_fault_addr;
 };
+
+struct vfe_parent_device {
+	struct platform_device *pdev;
+	uint32_t num_sd;
+	uint32_t num_hw_sd;
+	struct platform_device *child_list[VFE_SD_HW_MAX];
+	struct msm_vfe_common_subdev *common_sd;
+};
+
+int vfe_hw_probe(struct platform_device *pdev);
 
 #endif

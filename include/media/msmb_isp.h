@@ -294,7 +294,7 @@ enum msm_vfe_axi_stream_cmd {
 
 struct msm_vfe_axi_stream_cfg_cmd {
 	uint8_t num_streams;
-	uint32_t stream_handle[MAX_NUM_STREAM];
+	uint32_t stream_handle[VFE_AXI_SRC_MAX];
 	enum msm_vfe_axi_stream_cmd cmd;
 };
 
@@ -439,6 +439,41 @@ struct msm_vfe_reg_cfg_cmd {
 	} u;
 
 	enum msm_vfe_reg_cfg_type cmd_type;
+};
+
+enum vfe_sd_type {
+	VFE_SD_0 = 0,
+	VFE_SD_1,
+	VFE_SD_COMMON,
+	VFE_SD_MAX,
+};
+
+/* Usecases when 2 HW need to be related or synced */
+
+/* When you change the value below, check for the sof event_data size.
+ * V4l2 limits payload to 64 bytes */
+#define MS_NUM_SLAVE_MAX 1
+
+enum msm_vfe_dual_hw_type {
+	DUAL_NONE = 0,
+	DUAL_HW_VFE_SPLIT = 1,
+	DUAL_HW_MASTER_SLAVE = 2,
+};
+
+enum msm_vfe_dual_hw_ms_type {
+	MS_TYPE_NONE,
+	MS_TYPE_MASTER,
+	MS_TYPE_SLAVE,
+};
+
+struct msm_isp_set_dual_hw_ms_cmd {
+	uint8_t num_src;
+	/* Each session can be only one type but multiple intf if YUV cam */
+	enum msm_vfe_dual_hw_ms_type dual_hw_ms_type;
+	/* Primary intf is mostly associated with preview */
+	enum msm_vfe_input_src primary_intf;
+	enum msm_vfe_input_src input_src[VFE_SRC_MAX];
+	uint32_t sof_delta_threshold; /* In milliseconds. Sent for Master */
 };
 
 enum msm_isp_buf_type {
@@ -613,6 +648,11 @@ struct msm_isp_output_info {
 	uint32_t stats_framedrop_mask;
 };
 
+struct msm_isp_ms_delta_info {
+	uint8_t num_delta_info;
+	uint32_t delta[MS_NUM_SLAVE_MAX];
+};
+
 struct msm_isp_event_data {
 	/*Wall clock except for buffer divert events
 	 *which use monotonic clock
@@ -626,6 +666,7 @@ struct msm_isp_event_data {
 		struct msm_isp_buf_event buf_done;
 		struct msm_isp_error_info error_info;
 		struct msm_isp_output_info output_info;
+		struct msm_isp_ms_delta_info ms_delta_info;
 	} u; /* union can have max 52 bytes */
 };
 
@@ -639,6 +680,7 @@ struct msm_isp_event_data32 {
 		struct msm_isp_buf_event buf_done;
 		struct msm_isp_error_info error_info;
 		struct msm_isp_output_info output_info;
+		struct msm_isp_ms_delta_info ms_delta_info;
 	} u;
 };
 #endif
@@ -738,5 +780,9 @@ struct msm_isp_event_data32 {
 
 #define VIDIOC_MSM_ISP_DEQUEUE_BUF \
 	_IOWR('V', BASE_VIDIOC_PRIVATE+21, struct msm_isp_qbuf_info)
+
+#define VIDIOC_MSM_ISP_SET_DUAL_HW_MASTER_SLAVE \
+	_IOWR('V', BASE_VIDIOC_PRIVATE+22, struct msm_isp_set_dual_hw_ms_cmd)
+
 
 #endif /* __MSMB_ISP__ */
