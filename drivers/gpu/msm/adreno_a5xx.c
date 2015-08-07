@@ -104,6 +104,8 @@ static int _read_fw2_block_header(uint32_t *header, uint32_t id,
 #define AGC_POWER_CONFIG_PRODUCTION_ID	1
 
 #define GFX_DEFAULT_LEAKAGE 0x004E001A
+#define LM_DEFAULT_LIMIT    6000
+
 
 /*
  * a5xx_preemption_start() - Setup state to start preemption
@@ -1379,6 +1381,19 @@ static uint32_t gfx_base_leakage(struct adreno_device *adreno_dev)
 	return adreno_dev->lm_leakage;
 }
 
+static uint32_t lm_limit(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+
+	if (adreno_dev->lm_limit)
+		return adreno_dev->lm_limit;
+
+	if (of_property_read_u32(device->pdev->dev.of_node, "qcom,lm-limit",
+		&adreno_dev->lm_limit))
+		adreno_dev->lm_limit = LM_DEFAULT_LIMIT;
+
+	return adreno_dev->lm_limit;
+}
 /*
  * a5xx_lm_init() - Initialize LM/DPM on the GPMU
  * @adreno_dev: The adreno device pointer
@@ -1418,7 +1433,8 @@ static void a5xx_lm_init(struct adreno_device *adreno_dev)
 		gfx_base_leakage(adreno_dev));
 
 	/* Enable the power threshold and set it to 6000m */
-	kgsl_regwrite(device, A5XX_GPMU_GPMU_PWR_THRESHOLD, 0x80000000 | 6000);
+	kgsl_regwrite(device, A5XX_GPMU_GPMU_PWR_THRESHOLD,
+		0x80000000 | lm_limit(adreno_dev));
 
 	kgsl_regwrite(device, A5XX_GPMU_BEC_ENABLE, 0x10001FFF);
 	kgsl_regwrite(device, A5XX_GDPM_CONFIG1, 0x00201FF1);

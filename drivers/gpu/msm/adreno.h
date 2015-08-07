@@ -290,6 +290,7 @@ struct adreno_gpu_core {
  * @lm_fw: The LM firmware handle
  * @lm_sequence: Pointer to the start of the register write sequence for LM
  * @lm_size: The dword size of the LM sequence
+ * @lm_limit: limiting value for LM
  */
 struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
@@ -341,6 +342,7 @@ struct adreno_device {
 	struct kgsl_memdesc preemption_counters;
 	struct work_struct gpmu_work;
 	uint32_t lm_leakage;
+	uint32_t lm_limit;
 
 	struct kgsl_memdesc capturescript;
 	struct kgsl_memdesc snapshot_registers;
