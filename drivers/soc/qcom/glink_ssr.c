@@ -550,6 +550,7 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 				subsystem_restart(ss_leaf_entry->ssr_name);
 		}
 		ss_leaf_entry->restarted = false;
+		ss_leaf_entry->cb_data->responded = false;
 	}
 	complete(&notifications_successful_complete);
 	return 0;
