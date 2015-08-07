@@ -444,6 +444,7 @@ static int parse_cluster_level(struct device_node *node,
 		if (ret)
 			goto failed;
 
+		level->is_reset = of_property_read_bool(node, "qcom,is-reset");
 	} else if (!cluster->no_saw_devices) {
 		key  = "no saw-devices";
 
@@ -648,8 +649,7 @@ static int parse_cpu_levels(struct device_node *node, struct lpm_cluster *c)
 		key = "qcom,use-broadcast-timer";
 		l->use_bc_timer = of_property_read_bool(n, key);
 
-		key = "qcom,cpu-is-reset";
-		l->is_reset = of_property_read_bool(n, key);
+		l->is_reset = of_property_read_bool(n, "qcom,is-reset");
 
 		key = "qcom,jtag-save-restore";
 		l->jtag_save_restore = of_property_read_bool(n, key);

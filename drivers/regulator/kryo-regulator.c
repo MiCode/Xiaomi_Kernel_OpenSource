@@ -13,6 +13,7 @@
 
 #define pr_fmt(fmt) "%s: " fmt, __func__
 
+#include <linux/cpu_pm.h>
 #include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/init.h>
@@ -28,6 +29,8 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/kryo-regulator.h>
+
+#include <soc/qcom/spm.h>
 
 #define KRYO_REGULATOR_DRIVER_NAME	"kryo-regulator"
 
@@ -73,9 +76,14 @@
 #define MSM8996_CPUSS_VER_1P1	0x10010000
 
 #define LDO_N_VOLTAGES		0x80
+#define AFFINITY_LEVEL_M3	2
+#define SHARED_CPU_REG_NUM	0
+#define VDD_SUPPLY_STEP_UV	5000
+#define VDD_SUPPLY_MIN_UV	80000
 
 struct kryo_regulator {
 	struct list_head		link;
+	spinlock_t			slock;
 	struct regulator_desc		desc;
 	struct regulator_dev		*rdev;
 	struct regulator_dev		*retention_rdev;
@@ -83,12 +91,17 @@ struct kryo_regulator {
 	const char			*name;
 	enum kryo_supply_mode		mode;
 	enum kryo_supply_mode		retention_mode;
+	enum kryo_supply_mode		pre_lpm_state_mode;
 	void __iomem			*reg_base;
 	void __iomem			*pm_apcc_base;
 	struct dentry			*debugfs;
-	struct mutex			lock;
+	struct notifier_block		cpu_pm_notifier;
+	unsigned long			lpm_enter_count;
+	unsigned long			lpm_exit_count;
 	int				volt;
 	int				retention_volt;
+	int				headroom_volt;
+	int				pre_lpm_state_volt;
 	int				vref_func_step_volt;
 	int				vref_func_min_volt;
 	int				vref_func_max_volt;
@@ -96,6 +109,8 @@ struct kryo_regulator {
 	int				vref_ret_min_volt;
 	int				vref_ret_max_volt;
 	int				cluster_num;
+	u32				ldo_config_init;
+	u32				apm_config_init;
 	u32				version;
 	bool				vreg_en;
 };
@@ -117,18 +132,16 @@ static bool is_between(int left, int right, int value)
 static void kryo_masked_write(struct kryo_regulator *kvreg,
 			      int reg, u32 mask, u32 val)
 {
-	u32 reg_val, orig_val;
+	u32 reg_val;
 
-	reg_val = orig_val = readl_relaxed(kvreg->reg_base + reg);
+	reg_val = readl_relaxed(kvreg->reg_base + reg);
 	reg_val &= ~mask;
 	reg_val |= (val & mask);
 
-	if (reg_val != orig_val) {
-		writel_relaxed(reg_val, kvreg->reg_base + reg);
+	writel_relaxed(reg_val, kvreg->reg_base + reg);
 
-		/* Ensure write above completes */
-		mb();
-	}
+	/* Ensure write above completes */
+	mb();
 }
 
 static inline void kryo_pm_apcc_masked_write(struct kryo_regulator *kvreg,
@@ -184,6 +197,7 @@ static inline int kryo_encode_functional_volt(struct kryo_regulator *kvreg,
 		return encoded_volt;
 }
 
+/* Locks must be held by the caller */
 static int kryo_set_retention_volt(struct kryo_regulator *kvreg, int volt)
 {
 	int reg_val;
@@ -205,6 +219,7 @@ static int kryo_set_retention_volt(struct kryo_regulator *kvreg, int volt)
 	return 0;
 }
 
+/* Locks must be held by the caller */
 static int kryo_set_ldo_volt(struct kryo_regulator *kvreg, int volt)
 {
 	int reg_val;
@@ -231,6 +246,7 @@ static int kryo_set_ldo_volt(struct kryo_regulator *kvreg, int volt)
 	return 0;
 }
 
+/* Locks must be held by the caller */
 static int kryo_configure_mode(struct kryo_regulator *kvreg,
 				enum kryo_supply_mode mode)
 {
@@ -271,11 +287,12 @@ static int kryo_regulator_enable(struct regulator_dev *rdev)
 {
 	struct kryo_regulator *kvreg = rdev_get_drvdata(rdev);
 	int rc;
+	unsigned long flags;
 
 	if (kvreg->vreg_en == true)
 		return 0;
 
-	mutex_lock(&kvreg->lock);
+	spin_lock_irqsave(&kvreg->slock, flags);
 	rc = kryo_set_ldo_volt(kvreg, kvreg->volt);
 	if (rc) {
 		kvreg_err(kvreg, "set voltage failed, rc=%d\n", rc);
@@ -286,7 +303,7 @@ static int kryo_regulator_enable(struct regulator_dev *rdev)
 	kvreg_debug(kvreg, "enabled\n");
 
 done:
-	mutex_unlock(&kvreg->lock);
+	spin_unlock_irqrestore(&kvreg->slock, flags);
 
 	return rc;
 }
@@ -295,14 +312,15 @@ static int kryo_regulator_disable(struct regulator_dev *rdev)
 {
 	struct kryo_regulator *kvreg = rdev_get_drvdata(rdev);
 	int rc;
+	unsigned long flags;
 
 	if (kvreg->vreg_en == false)
 		return 0;
 
-	mutex_lock(&kvreg->lock);
+	spin_lock_irqsave(&kvreg->slock, flags);
 	kvreg->vreg_en = false;
 	kvreg_debug(kvreg, "disabled\n");
-	mutex_unlock(&kvreg->lock);
+	spin_unlock_irqrestore(&kvreg->slock, flags);
 
 	return rc;
 }
@@ -319,11 +337,13 @@ static int kryo_regulator_set_voltage(struct regulator_dev *rdev,
 {
 	struct kryo_regulator *kvreg = rdev_get_drvdata(rdev);
 	int rc;
+	unsigned long flags;
 
-	mutex_lock(&kvreg->lock);
+	spin_lock_irqsave(&kvreg->slock, flags);
+
 	if (!kvreg->vreg_en) {
 		kvreg->volt = min_volt;
-		mutex_unlock(&kvreg->lock);
+		spin_unlock_irqrestore(&kvreg->slock, flags);
 		return 0;
 	}
 
@@ -331,7 +351,7 @@ static int kryo_regulator_set_voltage(struct regulator_dev *rdev,
 	if (rc)
 		kvreg_err(kvreg, "set voltage failed, rc=%d\n", rc);
 
-	mutex_unlock(&kvreg->lock);
+	spin_unlock_irqrestore(&kvreg->slock, flags);
 
 	return rc;
 }
@@ -348,13 +368,23 @@ static int kryo_regulator_set_bypass(struct regulator_dev *rdev,
 {
 	struct kryo_regulator *kvreg = rdev_get_drvdata(rdev);
 	int rc;
+	unsigned long flags;
 
-	mutex_lock(&kvreg->lock);
+	spin_lock_irqsave(&kvreg->slock, flags);
+
+	/*
+	 * LDO Vref voltage must be programmed before switching
+	 * modes to ensure stable operation.
+	 */
+	rc = kryo_set_ldo_volt(kvreg, kvreg->volt);
+	if (rc)
+		kvreg_err(kvreg, "set voltage failed, rc=%d\n", rc);
+
 	rc = kryo_configure_mode(kvreg, enable);
 	if (rc)
 		kvreg_err(kvreg, "could not configure to %s mode\n",
 			  enable == LDO_MODE ? "LDO" : "BHS");
-	mutex_unlock(&kvreg->lock);
+	spin_unlock_irqrestore(&kvreg->slock, flags);
 
 	return rc;
 }
@@ -385,13 +415,14 @@ static int kryo_regulator_retention_set_voltage(struct regulator_dev *rdev,
 {
 	struct kryo_regulator *kvreg = rdev_get_drvdata(rdev);
 	int rc;
+	unsigned long flags;
 
-	mutex_lock(&kvreg->lock);
+	spin_lock_irqsave(&kvreg->slock, flags);
 	rc = kryo_set_retention_volt(kvreg, min_volt);
 	if (rc)
 		kvreg_err(kvreg, "set voltage failed, rc=%d\n", rc);
 
-	mutex_unlock(&kvreg->lock);
+	spin_unlock_irqrestore(&kvreg->slock, flags);
 
 	return rc;
 }
@@ -410,8 +441,10 @@ static int kryo_regulator_retention_set_bypass(struct regulator_dev *rdev,
 	int timeout = PWR_GATE_SWITCH_TIMEOUT_US;
 	int rc = 0;
 	u32 reg_val;
+	unsigned long flags;
 
-	mutex_lock(&kvreg->lock);
+	spin_lock_irqsave(&kvreg->slock, flags);
+
 	kryo_pm_apcc_masked_write(kvreg,
 				  APCC_PWR_CTL_OVERRIDE,
 				  APCC_PGS_MASK(kvreg->cluster_num),
@@ -450,7 +483,8 @@ static int kryo_regulator_retention_set_bypass(struct regulator_dev *rdev,
 		: BHS_MODE;
 
 done:
-	mutex_unlock(&kvreg->lock);
+	spin_unlock_irqrestore(&kvreg->slock, flags);
+
 	return rc;
 }
 
@@ -501,18 +535,16 @@ static void kryo_ldo_voltage_init(struct kryo_regulator *kvreg)
 }
 
 #define APC_PWR_GATE_DLY_INIT		0x00000101
-#define APC_LDO_CFG_INIT		0x31f0e471
-#define APC_APM_CFG_INIT		0x00000000
 static int kryo_hw_init(struct kryo_regulator *kvreg)
 {
 	/* Set up VREF_LDO and VREF_RET */
 	kryo_ldo_voltage_init(kvreg);
 
 	/* Program LDO and APM configuration registers */
-	writel_relaxed(APC_LDO_CFG_INIT, kvreg->reg_base + APC_LDO_CFG);
+	writel_relaxed(kvreg->ldo_config_init, kvreg->reg_base + APC_LDO_CFG);
 
 	kryo_masked_write(kvreg, APC_APM_CFG, APM_CFG_MASK,
-			    APC_APM_CFG_INIT);
+			  kvreg->apm_config_init);
 
 	/* Configure power gate sequencer delay */
 	kryo_masked_write(kvreg, APC_PWR_GATE_DLY, APC_PWR_GATE_DLY_MASK,
@@ -537,12 +569,13 @@ static ssize_t kryo_dbg_mode_read(struct file *file, char __user *buff,
 	char buf[10];
 	int len = 0;
 	u32 reg_val;
+	unsigned long flags;
 
 	if (!kvreg)
 		return -ENODEV;
 
 	/* Confirm HW state matches Kryo regulator device state */
-	mutex_lock(&kvreg->lock);
+	spin_lock_irqsave(&kvreg->slock, flags);
 	reg_val = readl_relaxed(kvreg->reg_base + APC_PWR_GATE_MODE);
 	if (((reg_val & PWR_GATE_SWITCH_MODE_MASK) == PWR_GATE_SWITCH_MODE_LDO
 	     && kvreg->mode != LDO_MODE) ||
@@ -556,7 +589,7 @@ static ssize_t kryo_dbg_mode_read(struct file *file, char __user *buff,
 			       kvreg->mode == LDO_MODE ?
 			       "LDO" : "BHS");
 	}
-	mutex_unlock(&kvreg->lock);
+	spin_unlock_irqrestore(&kvreg->slock, flags);
 
 	return simple_read_from_buffer(buff, count, ppos, buf, len);
 }
@@ -740,6 +773,27 @@ static int kryo_regulator_init_data(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
+	rc = of_property_read_u32(dev->of_node, "qcom,ldo-headroom-voltage",
+				  &kvreg->headroom_volt);
+	if (rc < 0) {
+		dev_err(dev, "qcom,ldo-headroom-voltage missing rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(dev->of_node, "qcom,ldo-config-init",
+				  &kvreg->ldo_config_init);
+	if (rc < 0) {
+		dev_err(dev, "qcom,ldo-config-init missing rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(dev->of_node, "qcom,apm-config-init",
+				  &kvreg->apm_config_init);
+	if (rc < 0) {
+		dev_err(dev, "qcom,apm-config-init missing rc=%d\n", rc);
+		return rc;
+	}
+
 	rc = of_property_read_u32(dev->of_node, "qcom,cluster-num",
 				  &kvreg->cluster_num);
 	if (rc < 0) {
@@ -795,6 +849,104 @@ static int kryo_regulator_retention_init(struct kryo_regulator *kvreg,
 	return rc;
 }
 
+static int kryo_regulator_lpm_prepare(struct kryo_regulator *kvreg)
+{
+	int vdd_volt_uv, vdd_vlvl = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&kvreg->slock, flags);
+
+	kvreg->pre_lpm_state_mode = kvreg->mode;
+	kvreg->pre_lpm_state_volt = kvreg->volt;
+
+	if (kvreg->mode == LDO_MODE) {
+		if (!vdd_vlvl) {
+			vdd_vlvl = msm_spm_get_vdd(SHARED_CPU_REG_NUM);
+			if (vdd_vlvl < 0) {
+				kvreg_err(kvreg, "could not get vdd supply voltage level, rc=%d\n",
+					  vdd_vlvl);
+				spin_unlock_irqrestore(&kvreg->slock, flags);
+				return NOTIFY_BAD;
+			}
+
+			vdd_volt_uv = vdd_vlvl * VDD_SUPPLY_STEP_UV
+				+ VDD_SUPPLY_MIN_UV;
+		}
+		kvreg_debug(kvreg, "switching to BHS mode, vdd_apcc=%d uV, current LDO Vref=%d, LPM enter count=%lx\n",
+			    vdd_volt_uv, kvreg->volt, kvreg->lpm_enter_count);
+
+		/* Program vdd supply minus LDO headroom as voltage */
+		kryo_set_ldo_volt(kvreg, vdd_volt_uv
+				  - kvreg->headroom_volt);
+
+		/* Switch Power Gate Mode */
+		kryo_configure_mode(kvreg, BHS_MODE);
+	}
+
+	kvreg->lpm_enter_count++;
+	spin_unlock_irqrestore(&kvreg->slock, flags);
+
+	return NOTIFY_OK;
+}
+
+static int kryo_regulator_lpm_resume(struct kryo_regulator *kvreg)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&kvreg->slock, flags);
+
+	if (kvreg->mode == BHS_MODE &&
+	    kvreg->pre_lpm_state_mode == LDO_MODE) {
+		kvreg_debug(kvreg, "switching to LDO mode, cached LDO Vref=%d, LPM exit count=%lx\n",
+			    kvreg->pre_lpm_state_volt, kvreg->lpm_exit_count);
+
+		/*
+		 * Cached voltage value corresponds to vdd supply minus
+		 * LDO headroom, reprogram it.
+		 */
+		kryo_set_ldo_volt(kvreg, kvreg->volt);
+
+		/* Switch Power Gate Mode */
+		kryo_configure_mode(kvreg, LDO_MODE);
+
+		/* Request final LDO output voltage */
+		kryo_set_ldo_volt(kvreg, kvreg->pre_lpm_state_volt);
+	}
+
+	kvreg->lpm_exit_count++;
+	spin_unlock_irqrestore(&kvreg->slock, flags);
+
+	if (kvreg->lpm_exit_count != kvreg->lpm_enter_count) {
+		kvreg_err(kvreg, "LPM entry/exit counter mismatch, this is not expected: enter=%lx exit=%lx\n",
+			  kvreg->lpm_enter_count, kvreg->lpm_exit_count);
+		BUG_ON(1);
+	}
+
+	return NOTIFY_OK;
+}
+
+static int kryo_regulator_cpu_pm_callback(struct notifier_block *self,
+					 unsigned long cmd, void *v)
+{
+	struct kryo_regulator *kvreg = container_of(self, struct kryo_regulator,
+						    cpu_pm_notifier);
+	unsigned long aff_level = (unsigned long) v;
+	int rc;
+
+	switch (cmd) {
+	case CPU_CLUSTER_PM_ENTER:
+		if (aff_level == AFFINITY_LEVEL_M3)
+			rc = kryo_regulator_lpm_prepare(kvreg);
+		break;
+	case CPU_CLUSTER_PM_EXIT:
+		if (aff_level == AFFINITY_LEVEL_M3)
+			rc = kryo_regulator_lpm_resume(kvreg);
+		break;
+	}
+
+	return rc;
+}
+
 static int kryo_regulator_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -831,13 +983,13 @@ static int kryo_regulator_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	mutex_init(&kvreg->lock);
 	rc = kryo_regulator_init_data(pdev, kvreg);
 	if (rc) {
 		dev_err(dev, "could not parse and ioremap all device tree properties\n");
 		return rc;
 	}
 
+	spin_lock_init(&kvreg->slock);
 	kvreg->name		= init_data->constraints.name;
 	kvreg->desc.name	= kvreg->name;
 	kvreg->desc.n_voltages	= LDO_N_VOLTAGES;
@@ -881,6 +1033,10 @@ static int kryo_regulator_probe(struct platform_device *pdev)
 	list_add_tail(&kvreg->link, &kryo_regulator_list);
 	mutex_unlock(&kryo_regulator_list_mutex);
 
+	kvreg->cpu_pm_notifier.notifier_call = kryo_regulator_cpu_pm_callback;
+	cpu_pm_register_notifier(&kvreg->cpu_pm_notifier);
+	kvreg_debug(kvreg, "registered cpu pm notifier\n");
+
 	kvreg_info(kvreg, "default LDO functional volt=%d uV, LDO retention volt=%d uV, Vref func=%d + %d*(val), cluster-num=%d\n",
 		   kvreg->volt, kvreg->retention_volt,
 		   kvreg->vref_func_min_volt,
@@ -898,6 +1054,7 @@ static int kryo_regulator_remove(struct platform_device *pdev)
 	list_del(&kvreg->link);
 	mutex_unlock(&kryo_regulator_list_mutex);
 
+	cpu_pm_unregister_notifier(&kvreg->cpu_pm_notifier);
 	regulator_unregister(kvreg->rdev);
 	platform_set_drvdata(pdev, NULL);
 	kryo_debugfs_deinit(kvreg);

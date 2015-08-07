@@ -41,6 +41,12 @@ First Level Nodes
 	Definition: The value for retention voltage in microvolts. Must be
 		    between 520000 and 865000 uV.
 
+- qcom,ldo-headroom-voltage
+	Usage:      required
+	Value type: <u32>
+	Definition: Voltage in microvolts required between the VDD_APCC voltage supply
+		    and the LDO output in order for the LDO to be operational.
+
 - qcom,vref-functional-step-voltage
 	Usage:      required
 	Value type: <u32>
@@ -62,6 +68,16 @@ First Level Nodes
 	Usage:      required
 	Value type: <u32>
 	Definition: The minimum configurable retention LDO voltage in microvolts.
+
+- qcom,ldo-config-init
+	Usage:      required
+	Value type: <u32>
+	Definition: Initialization value used to configure the Kryo LDO hardware.
+
+- qcom,apm-config-init
+	Usage:      required
+	Value type: <u32>
+	Definition: Initialization value used to configure the Kryo APM hardware.
 
 - qcom,cluster-num
 	Usage:      required
@@ -94,10 +110,13 @@ Example
 		regulator-max-microvolt = <865000>;
 		qcom,ldo-default-voltage = <750000>;
 		qcom,retention-voltage = <520000>;
+		qcom,ldo-headroom-voltage = <150000>;
 		qcom,vref-functional-step-voltage = <4100>;
 		qcom,vref-functional-min-voltage = <299000>;
 		qcom,vref-retention-step-voltage = <4554>;
 		qcom,vref-retention-min-voltage = <332000>;
+		qcom,ldo-config-init = <0xf1f0e471>;
+		qcom,apm-config-init = <0x0>;
 		qcom,cluster-num = <0>;
 		kryo0_retention_vreg: regulator {
 			regulator-name = "kryo0-retention";
@@ -116,10 +135,13 @@ Example
 		regulator-max-microvolt = <865000>;
 		qcom,ldo-default-voltage = <750000>;
 		qcom,retention-voltage = <520000>;
+		qcom,ldo-headroom-voltage = <150000>;
 		qcom,vref-functional-step-voltage = <4063>;
 		qcom,vref-functional-min-voltage = <296000>;
 		qcom,vref-retention-step-voltage = <4554>;
 		qcom,vref-retention-min-voltage = <332000>;
+		qcom,ldo-config-init = <0xf1f0e471>;
+		qcom,apm-config-init = <0x0>;
 		qcom,cluster-num = <1>;
 		kryo1_retention_vreg: regulator {
 			regulator-name = "kryo1-retention";
