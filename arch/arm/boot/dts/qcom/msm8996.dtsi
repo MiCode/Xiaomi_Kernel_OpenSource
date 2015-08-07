@@ -3896,3 +3896,4 @@
 #include "msm8996-camera.dtsi"
 #include "msm8996-gpu.dtsi"
 #include "msm8996-pm.dtsi"
+#include "msm-arm-smmu-8996.dtsi"
