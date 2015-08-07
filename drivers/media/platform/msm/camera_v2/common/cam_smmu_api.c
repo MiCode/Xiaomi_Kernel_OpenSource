@@ -290,11 +290,11 @@ void cam_smmu_reg_client_page_fault_handler(int handle,
 
 	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
 	if (client_page_fault_handler) {
-		iommu_cb_set.cb_info[idx].cb_count++;
-		if (iommu_cb_set.cb_info[idx].cb_count > CAM_SMMU_CB_MAX) {
+		if (iommu_cb_set.cb_info[idx].cb_count == CAM_SMMU_CB_MAX) {
 			mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
 			return;
 		}
+		iommu_cb_set.cb_info[idx].cb_count++;
 
 		for (i = 0; i < iommu_cb_set.cb_info[idx].cb_count; i++) {
 			if (iommu_cb_set.cb_info[idx].token[i] == NULL) {
@@ -305,14 +305,18 @@ void cam_smmu_reg_client_page_fault_handler(int handle,
 			}
 		}
 	} else {
-		for (i = 0; i < iommu_cb_set.cb_info[idx].cb_count; i++) {
+		for (i = 0; i < CAM_SMMU_CB_MAX; i++) {
 			if (iommu_cb_set.cb_info[idx].token[i] == token) {
 				iommu_cb_set.cb_info[idx].token[i] = NULL;
 				iommu_cb_set.cb_info[idx].handler[i] =
 					NULL;
+				iommu_cb_set.cb_info[idx].cb_count--;
 				break;
 			}
 		}
+		if (i == CAM_SMMU_CB_MAX)
+			pr_err("Error: no matching tokens: %s\n",
+				iommu_cb_set.cb_info[idx].name);
 	}
 	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
 	return;
