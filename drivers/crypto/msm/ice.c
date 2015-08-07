@@ -1067,9 +1067,15 @@ static void qcom_ice_finish_init(void *data, async_cookie_t cookie)
 		return;
 	}
 
-	/* if ICE_DISABLE_FUSE is blown, return immediately */
+	/* if ICE_DISABLE_FUSE is blown, return immediately
+	 * Currently, FORCE HW Keys are also disabled, since
+	 * there is no use case for their usage neither in FDE
+	 * nor in PFE
+	 */
 	reg = qcom_ice_readl(ice_dev, QCOM_ICE_REGS_FUSE_SETTING);
-	reg &= ICE_FUSE_SETTING_MASK;
+	reg &= (ICE_FUSE_SETTING_MASK |
+		ICE_FORCE_HW_KEY0_SETTING_MASK |
+		ICE_FORCE_HW_KEY1_SETTING_MASK);
 
 	if (reg) {
 		ice_dev->is_ice_disable_fuse_blown = true;
