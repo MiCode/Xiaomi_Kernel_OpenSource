@@ -1523,6 +1523,9 @@ static inline void msm_spi_set_cs(struct spi_device *spi, bool set_flag)
 	u32 spi_ioc;
 	u32 spi_ioc_orig;
 
+	if (!(spi->mode & SPI_CS_HIGH))
+		set_flag = !set_flag;
+
 	spi_ioc = readl_relaxed(dd->base + SPI_IO_CONTROL);
 	spi_ioc_orig = spi_ioc;
 	if (set_flag)
