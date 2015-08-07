@@ -83,7 +83,7 @@ struct debug_bus {
  * forced to happen during the call, even when xlog is disabled.
  */
 #define MDSS_XLOG_TOUT_HANDLER_FATAL_DUMP(...)	\
-	mdss_xlog_tout_handler_default(true, true, __func__, ##__VA_ARGS__, \
+	mdss_xlog_tout_handler_default(true, false, __func__, ##__VA_ARGS__, \
 		XLOG_TOUT_DATA_LIMITER)
 
 #define MDSS_XLOG_DBG(...) mdss_xlog(__func__, __LINE__, MDSS_XLOG_DBG, \
