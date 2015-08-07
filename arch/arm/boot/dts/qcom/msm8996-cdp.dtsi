@@ -27,6 +27,10 @@
 	};
 };
 
+&spi_eth_vreg {
+	status = "ok";
+};
+
 &uartblsp2dm1 {
 	status = "ok";
 	pinctrl-names = "default";
@@ -678,6 +682,15 @@
 		qcom,invert = <0>;
 		status = "okay";
 	};
+
+	mpp@a400 { /* MPP 5 */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,vin-sel = <2>;		/* S4 1.8V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
+	};
 };
 
 &pmi8994_gpios {
@@ -773,5 +786,17 @@
 			  1 &tlmm 78 1
 		>;
 		interrupt-names = "silabs_fm_int", "silabs_fm_status_int";
+	};
+};
+
+&spi_0 {
+	ethernet@2 {
+		compatible = "micrel,ks8851";
+		reg = <2>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <11 0>;
+		spi-max-frequency = <960000>;
+		vdd-supply = <&spi_eth_vreg>;
+		reset-gpios = <&tlmm 79 0>;
 	};
 };
