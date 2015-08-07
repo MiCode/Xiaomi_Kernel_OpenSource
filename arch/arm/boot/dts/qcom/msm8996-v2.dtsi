@@ -77,7 +77,6 @@
 	qcom,apm-hysteresis-voltage = <5000>;
 
 	qcom,cpr-enable;
-	qcom,cpr-clock-throttling = <0x20>;
 };
 
 &apc0_pwrcl_vreg {
