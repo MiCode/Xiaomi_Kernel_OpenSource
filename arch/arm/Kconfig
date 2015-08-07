@@ -97,6 +97,17 @@ config ARM_DMA_USE_IOMMU
 	select ARM_HAS_SG_CHAIN
 	select NEED_SG_DMA_LENGTH
 
+config EARLY_IOREMAP
+       bool "Provide early_ioremap() support for kernel initialization"
+       depends on MMU
+       select GENERIC_EARLY_IOREMAP
+       help
+         Provide a mechanism for kernel initialisation code to temporarily
+         map, in a highmem-agnostic way, memory pages in before ioremap()
+         and friends are available (before paging_init() has run). It uses
+         the same virtual memory range as kmap so all early mappings must
+         be unmapped before paging_init() is called.
+
 if ARM_DMA_USE_IOMMU
 
 config ARM_DMA_IOMMU_ALIGNMENT

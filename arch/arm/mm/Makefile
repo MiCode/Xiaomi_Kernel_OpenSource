@@ -11,7 +11,7 @@ obj-$(CONFIG_MMU)		+= fault-armv.o flush.o idmap.o ioremap.o \
 ifneq ($(CONFIG_MMU),y)
 obj-y				+= nommu.o
 endif
-
+obj-$(CONFIG_EARLY_IOREMAP)    += early_ioremap.o
 obj-$(CONFIG_ARM_PTDUMP)	+= dump.o
 obj-$(CONFIG_MODULES)		+= proc-syms.o
 

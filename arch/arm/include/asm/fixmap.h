@@ -1,28 +1,45 @@
 #ifndef _ASM_FIXMAP_H
 #define _ASM_FIXMAP_H
 
+#include <linux/kernel.h>
+#include <asm/pgtable.h>
+#include <asm/kmap_types.h>
+
 #define FIXADDR_START		0xffc00000UL
-#define FIXADDR_TOP		0xffe00000UL
-#define FIXADDR_SIZE		(FIXADDR_TOP - FIXADDR_START)
+#define FIXADDR_END		0xfff00000UL
+#define FIXADDR_TOP		(FIXADDR_END - PAGE_SIZE)
 
-#define FIX_KMAP_NR_PTES	(FIXADDR_SIZE >> PAGE_SHIFT)
+/*
+ * 224 temporary boot-time mappings, used by early_ioremap(),
+ * before ioremap() is functional.
+ *
+ * (P)re-using the FIXADDR region, which is used for highmem
+ * later on, and statically aligned to 1MB.
+ */
+#define NR_FIX_BTMAPS          32
+#define FIX_BTMAPS_SLOTS       7
+#define TOTAL_FIX_BTMAPS       (NR_FIX_BTMAPS * FIX_BTMAPS_SLOTS)
 
-#define __fix_to_virt(x)	(FIXADDR_START + ((x) << PAGE_SHIFT))
-#define __virt_to_fix(x)	(((x) - FIXADDR_START) >> PAGE_SHIFT)
+enum fixed_addresses {
+	FIX_EARLYCON_MEM_BASE,
+	__end_of_permanent_fixed_addresses,
+	FIX_BTMAP_END = __end_of_permanent_fixed_addresses,
+	FIX_BTMAP_BEGIN = FIX_BTMAP_END + TOTAL_FIX_BTMAPS - 1,
 
-extern void __this_fixmap_does_not_exist(void);
+	FIX_KMAP_BEGIN = __end_of_permanent_fixed_addresses,
+	FIX_KMAP_END = FIX_KMAP_BEGIN + (KM_TYPE_NR * NR_CPUS) - 1,
+	 __end_of_fixed_addresses = (FIXADDR_END - FIXADDR_START) >> PAGE_SHIFT,
+};
 
-static inline unsigned long fix_to_virt(const unsigned int idx)
-{
-	if (idx >= FIX_KMAP_NR_PTES)
-		__this_fixmap_does_not_exist();
-	return __fix_to_virt(idx);
-}
+#define FIXMAP_PAGE_COMMON (L_PTE_YOUNG | L_PTE_PRESENT | L_PTE_XN)
 
-static inline unsigned int virt_to_fix(const unsigned long vaddr)
-{
-	BUG_ON(vaddr >= FIXADDR_TOP || vaddr < FIXADDR_START);
-	return __virt_to_fix(vaddr);
-}
+#define FIXMAP_PAGE_NORMAL (FIXMAP_PAGE_COMMON | L_PTE_MT_WRITEBACK)
+#define FIXMAP_PAGE_IO    (FIXMAP_PAGE_COMMON | L_PTE_MT_DEV_SHARED | L_PTE_SHARED | L_PTE_DIRTY)
+#define FIXMAP_PAGE_NOCACHE FIXMAP_PAGE_IO
+
+extern void __early_set_fixmap(enum fixed_addresses idx,
+					phys_addr_t phys, pgprot_t flags);
+
+#include <asm-generic/fixmap.h>
 
 #endif
