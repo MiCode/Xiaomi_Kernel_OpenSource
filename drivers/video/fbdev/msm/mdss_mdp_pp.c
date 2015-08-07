@@ -2075,7 +2075,7 @@ int mdss_mdp_pp_resume(struct msm_fb_data_type *mfd)
 	}
 
 	if (!mdss_mdp_mfd_valid_dspp(mfd)) {
-		pr_warn("PP not supported on display num %d hw config\n",
+		pr_debug("PP not supported on display num %d hw config\n",
 			mfd->index);
 		return -EPERM;
 	}
@@ -3103,7 +3103,7 @@ static int mdss_mdp_limited_lut_igc_config(struct msm_fb_data_type *mfd)
 		return -EINVAL;
 
 	if (!mdss_mdp_mfd_valid_dspp(mfd)) {
-		pr_warn("IGC not supported on display num %d hw configuration\n",
+		pr_debug("IGC not supported on display num %d hw configuration\n",
 			mfd->index);
 		return 0;
 	}
@@ -3678,7 +3678,7 @@ static int mdss_mdp_panel_default_dither_config(struct msm_fb_data_type *mfd,
 	struct mdp_dither_data_v1_7 dither_data;
 
 	if (!mdss_mdp_mfd_valid_dspp(mfd)) {
-		pr_warn("dither config not supported on display num %d\n",
+		pr_debug("dither config not supported on display num %d\n",
 			mfd->index);
 		return 0;
 	}
