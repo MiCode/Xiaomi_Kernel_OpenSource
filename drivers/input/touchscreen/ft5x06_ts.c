@@ -18,6 +18,7 @@
 
 #include <linux/i2c.h>
 #include <linux/input.h>
+#include <linux/input/mt.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
@@ -27,6 +28,7 @@
 #include <linux/of_gpio.h>
 #include <linux/regulator/consumer.h>
 #include <linux/firmware.h>
+#include <linux/debugfs.h>
 #include <linux/input/ft5x06_ts.h>
 
 #if defined(CONFIG_FB)
@@ -74,12 +76,14 @@
 #define FT_PMODE_HIBERNATE	0x03
 #define FT_FACTORYMODE_VALUE	0x40
 #define FT_WORKMODE_VALUE	0x00
-#define FT_RST_CMD_REG		0xFC
+#define FT_RST_CMD_REG1		0xFC
+#define FT_RST_CMD_REG2		0xBC
 #define FT_READ_ID_REG		0x90
 #define FT_ERASE_APP_REG	0x61
 #define FT_ERASE_PANEL_REG	0x63
 #define FT_FW_START_REG		0xBF
 
+#define FT_STATUS_NUM_TP_MASK	0x0F
 
 #define FT_VTG_MIN_UV		2600000
 #define FT_VTG_MAX_UV		3300000
@@ -95,6 +99,7 @@
 
 #define FT5316_ID		0x0A
 #define FT5306I_ID		0x55
+#define FT6X06_ID		0x06
 
 #define FT_UPGRADE_AA		0xAA
 #define FT_UPGRADE_55		0x55
@@ -131,6 +136,14 @@
 #define FT6208_UPGRADE_READID_DELAY	10
 #define FT6208_UPGRADE_EARSE_DELAY	2000
 
+/*upgrade config of FT6x06*/
+#define FT6X06_UPGRADE_AA_DELAY		100
+#define FT6X06_UPGRADE_55_DELAY		30
+#define FT6X06_UPGRADE_ID_1		0x79
+#define FT6X06_UPGRADE_ID_2		0x08
+#define FT6X06_UPGRADE_READID_DELAY	10
+#define FT6X06_UPGRADE_EARSE_DELAY	2000
+
 #define FT_UPGRADE_INFO(x, y)	do { \
 		x->delay_55 = y##_UPGRADE_55_DELAY; \
 		x->delay_aa = y##_UPGRADE_AA_DELAY; \
@@ -159,13 +172,23 @@
 #define FT_FW_LAST_PKT		0x6ffa
 #define FT_EARSE_DLY_MS		100
 
-#define FT_UPGRADE_LOOP		3
+#define FT_UPGRADE_LOOP		10
 #define FT_CAL_START		0x04
 #define FT_CAL_FIN		0x00
 #define FT_CAL_STORE		0x05
 #define FT_CAL_RETRY		100
 #define FT_REG_CAL		0x00
 #define FT_CAL_MASK		0x70
+
+#define FT_INFO_MAX_LEN		200
+
+#define FT_STORE_TS_INFO(buf, id, fw_ver) \
+			snprintf(buf, FT_INFO_MAX_LEN, \
+				"controller\t= focaltech\n" \
+				"model\t\t= 0x%x\n" \
+				"fw_ver\t\t= 0x%x\n", id, fw_ver)
+
+#define FT_DEBUG_DIR_NAME	"ts_debug"
 
 struct ts_event {
 	u16 x[CFG_MAX_TOUCH_POINTS];	/* x coordinate */
@@ -196,6 +219,10 @@ struct ft5x06_ts_data {
 	char fw_name[FT_FW_NAME_MAX_LEN];
 	bool loading_fw;
 	u8 family_id;
+	struct dentry *dir;
+	u16 addr;
+	bool suspended;
+	char *ts_info;
 #if defined(CONFIG_FB)
 	struct notifier_block fb_notif;
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
@@ -292,17 +319,18 @@ static void ft5x06_report_value(struct ft5x06_ts_data *data)
 			event->pressure = 0;
 		}
 
-		input_report_abs(data->input_dev, ABS_MT_POSITION_X,
-				 event->x[i]);
-		input_report_abs(data->input_dev, ABS_MT_POSITION_Y,
-				 event->y[i]);
-		input_report_abs(data->input_dev, ABS_MT_PRESSURE,
-				 event->pressure);
-		input_report_abs(data->input_dev, ABS_MT_TRACKING_ID,
-				 event->finger_id[i]);
-		input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR,
-				 event->pressure);
-		input_mt_sync(data->input_dev);
+		input_mt_slot(data->input_dev, event->finger_id[i]);
+		input_mt_report_slot_state(data->input_dev, MT_TOOL_FINGER,
+					!!event->pressure);
+
+		if (event->pressure == FT_PRESS) {
+			input_report_abs(data->input_dev, ABS_MT_POSITION_X,
+					 event->x[i]);
+			input_report_abs(data->input_dev, ABS_MT_POSITION_Y,
+					 event->y[i]);
+			input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR,
+					 event->pressure);
+		}
 	}
 
 	input_report_key(data->input_dev, BTN_TOUCH, !!fingerdown);
@@ -312,6 +340,7 @@ static void ft5x06_report_value(struct ft5x06_ts_data *data)
 static int ft5x06_handle_touchdata(struct ft5x06_ts_data *data)
 {
 	struct ts_event *event = &data->event;
+	int num_points;
 	int ret, i;
 	u8 buf[POINT_READ_BUF] = { 0 };
 	u8 pointid = FT_MAX_ID;
@@ -325,7 +354,9 @@ static int ft5x06_handle_touchdata(struct ft5x06_ts_data *data)
 	memset(event, 0, sizeof(struct ts_event));
 
 	event->touch_point = 0;
-	for (i = 0; i < CFG_MAX_TOUCH_POINTS; i++) {
+	num_points = buf[2] & FT_STATUS_NUM_TP_MASK;
+
+	for (i = 0; i < num_points; i++) {
 		pointid = (buf[FT_TOUCH_ID_POS + FT_TOUCH_STEP * i]) >> 4;
 		if (pointid >= FT_MAX_ID)
 			break;
@@ -473,9 +504,28 @@ pwr_deinit:
 static int ft5x06_ts_suspend(struct device *dev)
 {
 	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
-	char txbuf[2];
+	char txbuf[2], i;
+	int err;
+
+	if (data->loading_fw) {
+		dev_info(dev, "Firmware loading in process...\n");
+		return 0;
+	}
+
+	if (data->suspended) {
+		dev_info(dev, "Already in suspend state\n");
+		return 0;
+	}
 
 	disable_irq(data->client->irq);
+
+	/* release all touches */
+	for (i = 0; i < CFG_MAX_TOUCH_POINTS; i++) {
+		input_mt_slot(data->input_dev, i);
+		input_mt_report_slot_state(data->input_dev, MT_TOOL_FINGER, 0);
+	}
+	input_report_key(data->input_dev, BTN_TOUCH, 0);
+	input_sync(data->input_dev);
 
 	if (gpio_is_valid(data->pdata->reset_gpio)) {
 		txbuf[0] = FT_REG_PMODE;
@@ -483,19 +533,69 @@ static int ft5x06_ts_suspend(struct device *dev)
 		ft5x06_i2c_write(data->client, txbuf, sizeof(txbuf));
 	}
 
+	if (data->pdata->power_on) {
+		err = data->pdata->power_on(false);
+		if (err) {
+			dev_err(dev, "power off failed");
+			goto pwr_off_fail;
+		}
+	} else {
+		err = ft5x06_power_on(data, false);
+		if (err) {
+			dev_err(dev, "power off failed");
+			goto pwr_off_fail;
+		}
+	}
+
+	data->suspended = true;
+
 	return 0;
-}
 
-static int ft5x06_ts_resume(struct device *dev)
-{
-	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
-
+pwr_off_fail:
 	if (gpio_is_valid(data->pdata->reset_gpio)) {
 		gpio_set_value_cansleep(data->pdata->reset_gpio, 0);
 		msleep(FT_RESET_DLY);
 		gpio_set_value_cansleep(data->pdata->reset_gpio, 1);
 	}
 	enable_irq(data->client->irq);
+	return err;
+}
+
+static int ft5x06_ts_resume(struct device *dev)
+{
+	struct ft5x06_ts_data *data = dev_get_drvdata(dev);
+	int err;
+
+	if (!data->suspended) {
+		dev_info(dev, "Already in awake state\n");
+		return 0;
+	}
+
+	if (data->pdata->power_on) {
+		err = data->pdata->power_on(true);
+		if (err) {
+			dev_err(dev, "power on failed");
+			return err;
+		}
+	} else {
+		err = ft5x06_power_on(data, true);
+		if (err) {
+			dev_err(dev, "power on failed");
+			return err;
+		}
+	}
+
+	if (gpio_is_valid(data->pdata->reset_gpio)) {
+		gpio_set_value_cansleep(data->pdata->reset_gpio, 0);
+		msleep(FT_RESET_DLY);
+		gpio_set_value_cansleep(data->pdata->reset_gpio, 1);
+	}
+
+	msleep(FT_STARTUP_DLY);
+
+	enable_irq(data->client->irq);
+
+	data->suspended = false;
 
 	return 0;
 }
@@ -592,6 +692,9 @@ static int ft5x06_get_upgrade_info(u8 family_id, struct upgrade_info *info)
 	case FT5316_ID:
 		FT_UPGRADE_INFO(info, FT5316);
 		break;
+	case FT6X06_ID:
+		FT_UPGRADE_INFO(info, FT6X06);
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -604,6 +707,7 @@ static int ft5x06_fw_upgrade_start(struct i2c_client *client,
 {
 	struct ft5x06_ts_data *ts_data = i2c_get_clientdata(client);
 	struct upgrade_info info;
+	u8 reset_reg;
 	u8 w_buf[FT_MAX_WR_BUF] = {0}, r_buf[FT_MAX_RD_BUF] = {0};
 	u8 pkt_buf[FT_FW_PKT_LEN + FT_FW_PKT_META_LEN];
 	int rc, i, j, temp;
@@ -616,22 +720,27 @@ static int ft5x06_fw_upgrade_start(struct i2c_client *client,
 		return -EINVAL;
 	}
 
-	for (i = 0; i < FT_UPGRADE_LOOP; i++) {
-		/* reset - write 0xaa and 0x55 to register 0xfc */
-		ft5x0x_write_reg(client, FT_RST_CMD_REG, FT_UPGRADE_AA);
+	for (i = 0, j = 0; i < FT_UPGRADE_LOOP; i++) {
+		/* reset - write 0xaa and 0x55 to reset register */
+		if (ts_data->family_id == FT6X06_ID)
+			reset_reg = FT_RST_CMD_REG2;
+		else
+			reset_reg = FT_RST_CMD_REG1;
+
+		ft5x0x_write_reg(client, reset_reg, FT_UPGRADE_AA);
 		msleep(info.delay_aa);
 
-		ft5x0x_write_reg(client, FT_RST_CMD_REG, FT_UPGRADE_55);
+		ft5x0x_write_reg(client, reset_reg, FT_UPGRADE_55);
 		msleep(info.delay_55);
 
 		/* Enter upgrade mode */
 		w_buf[0] = FT_UPGRADE_55;
 		w_buf[1] = FT_UPGRADE_AA;
 		do {
-			i++;
+			j++;
 			rc = ft5x06_i2c_write(client, w_buf, 2);
 			msleep(FT_RETRY_DLY);
-		} while (rc <= 0 && i < FT_MAX_TRIES);
+		} while (rc <= 0 && j < FT_MAX_TRIES);
 
 		/* check READ_ID */
 		msleep(info.delay_readid);
@@ -734,6 +843,8 @@ static int ft5x06_fw_upgrade_start(struct i2c_client *client,
 	ft5x06_i2c_write(client, w_buf, 1);
 	msleep(FT_STARTUP_DLY);
 
+	dev_info(&client->dev, "Firmware upgrade successful\n");
+
 	return 0;
 }
 
@@ -785,6 +896,7 @@ static int ft5x06_fw_upgrade(struct device *dev, bool force)
 		rc = -EIO;
 	}
 
+	FT_STORE_TS_INFO(data->ts_info, data->family_id, FT_FW_FILE_VER(fw));
 rel_fw:
 	release_firmware(fw);
 	return rc;
@@ -881,6 +993,138 @@ static ssize_t ft5x06_fw_name_store(struct device *dev,
 }
 
 static DEVICE_ATTR(fw_name, 0664, ft5x06_fw_name_show, ft5x06_fw_name_store);
+
+static bool ft5x06_debug_addr_is_valid(int addr)
+{
+	if (addr < 0 || addr > 0xFF) {
+		pr_err("FT reg address is invalid: 0x%x\n", addr);
+		return false;
+	}
+
+	return true;
+}
+
+static int ft5x06_debug_data_set(void *_data, u64 val)
+{
+	struct ft5x06_ts_data *data = _data;
+
+	mutex_lock(&data->input_dev->mutex);
+
+	if (ft5x06_debug_addr_is_valid(data->addr))
+		dev_info(&data->client->dev,
+			"Writing into FT registers not supported\n");
+
+	mutex_unlock(&data->input_dev->mutex);
+
+	return 0;
+}
+
+static int ft5x06_debug_data_get(void *_data, u64 *val)
+{
+	struct ft5x06_ts_data *data = _data;
+	int rc;
+	u8 reg;
+
+	mutex_lock(&data->input_dev->mutex);
+
+	if (ft5x06_debug_addr_is_valid(data->addr)) {
+		rc = ft5x0x_read_reg(data->client, data->addr, &reg);
+		if (rc < 0)
+			dev_err(&data->client->dev,
+				"FT read register 0x%x failed (%d)\n",
+				data->addr, rc);
+		else
+			*val = reg;
+	}
+
+	mutex_unlock(&data->input_dev->mutex);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(debug_data_fops, ft5x06_debug_data_get,
+			ft5x06_debug_data_set, "0x%02llX\n");
+
+static int ft5x06_debug_addr_set(void *_data, u64 val)
+{
+	struct ft5x06_ts_data *data = _data;
+
+	if (ft5x06_debug_addr_is_valid(val)) {
+		mutex_lock(&data->input_dev->mutex);
+		data->addr = val;
+		mutex_unlock(&data->input_dev->mutex);
+	}
+
+	return 0;
+}
+
+static int ft5x06_debug_addr_get(void *_data, u64 *val)
+{
+	struct ft5x06_ts_data *data = _data;
+
+	mutex_lock(&data->input_dev->mutex);
+
+	if (ft5x06_debug_addr_is_valid(data->addr))
+		*val = data->addr;
+
+	mutex_unlock(&data->input_dev->mutex);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(debug_addr_fops, ft5x06_debug_addr_get,
+			ft5x06_debug_addr_set, "0x%02llX\n");
+
+static int ft5x06_debug_suspend_set(void *_data, u64 val)
+{
+	struct ft5x06_ts_data *data = _data;
+
+	mutex_lock(&data->input_dev->mutex);
+
+	if (val)
+		ft5x06_ts_suspend(&data->client->dev);
+	else
+		ft5x06_ts_resume(&data->client->dev);
+
+	mutex_unlock(&data->input_dev->mutex);
+
+	return 0;
+}
+
+static int ft5x06_debug_suspend_get(void *_data, u64 *val)
+{
+	struct ft5x06_ts_data *data = _data;
+
+	mutex_lock(&data->input_dev->mutex);
+	*val = data->suspended;
+	mutex_unlock(&data->input_dev->mutex);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(debug_suspend_fops, ft5x06_debug_suspend_get,
+			ft5x06_debug_suspend_set, "%lld\n");
+
+static int ft5x06_debug_dump_info(struct seq_file *m, void *v)
+{
+	struct ft5x06_ts_data *data = m->private;
+
+	seq_printf(m, "%s\n", data->ts_info);
+
+	return 0;
+}
+
+static int debugfs_dump_info_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ft5x06_debug_dump_info, inode->i_private);
+}
+
+static const struct file_operations debug_dump_info_fops = {
+	.owner		= THIS_MODULE,
+	.open		= debugfs_dump_info_open,
+	.read		= seq_read,
+	.release	= single_release,
+};
 
 #ifdef CONFIG_OF
 static int ft5x06_get_dt_coords(struct device *dev, char *name,
@@ -997,6 +1241,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	struct ft5x06_ts_platform_data *pdata;
 	struct ft5x06_ts_data *data;
 	struct input_dev *input_dev;
+	struct dentry *temp;
 	u8 reg_value;
 	u8 reg_addr;
 	int err;
@@ -1050,14 +1295,12 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	__set_bit(BTN_TOUCH, input_dev->keybit);
 	__set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
 
+	input_mt_init_slots(input_dev, CFG_MAX_TOUCH_POINTS);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X, pdata->x_min,
 			     pdata->x_max, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, pdata->y_min,
 			     pdata->y_max, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_TRACKING_ID, 0,
-			     CFG_MAX_TOUCH_POINTS, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR, 0, FT_PRESS, 0, 0);
-	input_set_abs_params(input_dev, ABS_MT_PRESSURE, 0, FT_PRESS, 0, 0);
 
 	err = input_register_device(input_dev);
 	if (err) {
@@ -1132,7 +1375,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	err = ft5x06_i2c_read(client, &reg_addr, 1, &reg_value, 1);
 	if (err < 0) {
 		dev_err(&client->dev, "version read failed");
-		return err;
+		goto free_reset_gpio;
 	}
 
 	dev_info(&client->dev, "Device ID = 0x%x\n", reg_value);
@@ -1143,28 +1386,6 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	}
 
 	data->family_id = reg_value;
-
-	/* get some register information */
-	reg_addr = FT_REG_FW_VER;
-	err = ft5x06_i2c_read(client, &reg_addr, 1, &reg_value, 1);
-	if (err < 0)
-		dev_err(&client->dev, "version read failed");
-
-	dev_info(&client->dev, "Firmware version = 0x%x\n", reg_value);
-
-	reg_addr = FT_REG_POINT_RATE;
-	ft5x06_i2c_read(client, &reg_addr, 1, &reg_value, 1);
-	if (err < 0)
-		dev_err(&client->dev, "report rate read failed");
-
-	dev_dbg(&client->dev, "report rate = %dHz\n", reg_value * 10);
-
-	reg_addr = FT_REG_THGROUP;
-	err = ft5x06_i2c_read(client, &reg_addr, 1, &reg_value, 1);
-	if (err < 0)
-		dev_err(&client->dev, "threshold read failed");
-
-	dev_dbg(&client->dev, "touch threshold = %d\n", reg_value * 4);
 
 	err = request_threaded_irq(client->irq, NULL,
 				   ft5x06_ts_interrupt, pdata->irqflags,
@@ -1192,6 +1413,72 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 		goto free_update_fw_sys;
 	}
 
+	data->dir = debugfs_create_dir(FT_DEBUG_DIR_NAME, NULL);
+	if (data->dir == NULL || IS_ERR(data->dir)) {
+		pr_err("debugfs_create_dir failed(%ld)\n", PTR_ERR(data->dir));
+		err = PTR_ERR(data->dir);
+		goto free_force_update_fw_sys;
+	}
+
+	temp = debugfs_create_file("addr", S_IRUSR | S_IWUSR, data->dir, data,
+				   &debug_addr_fops);
+	if (temp == NULL || IS_ERR(temp)) {
+		pr_err("debugfs_create_file failed: rc=%ld\n", PTR_ERR(temp));
+		err = PTR_ERR(temp);
+		goto free_debug_dir;
+	}
+
+	temp = debugfs_create_file("data", S_IRUSR | S_IWUSR, data->dir, data,
+				   &debug_data_fops);
+	if (temp == NULL || IS_ERR(temp)) {
+		pr_err("debugfs_create_file failed: rc=%ld\n", PTR_ERR(temp));
+		err = PTR_ERR(temp);
+		goto free_debug_dir;
+	}
+
+	temp = debugfs_create_file("suspend", S_IRUSR | S_IWUSR, data->dir,
+					data, &debug_suspend_fops);
+	if (temp == NULL || IS_ERR(temp)) {
+		pr_err("debugfs_create_file failed: rc=%ld\n", PTR_ERR(temp));
+		err = PTR_ERR(temp);
+		goto free_debug_dir;
+	}
+
+	temp = debugfs_create_file("dump_info", S_IRUSR | S_IWUSR, data->dir,
+					data, &debug_dump_info_fops);
+	if (temp == NULL || IS_ERR(temp)) {
+		pr_err("debugfs_create_file failed: rc=%ld\n", PTR_ERR(temp));
+		err = PTR_ERR(temp);
+		goto free_debug_dir;
+	}
+
+	data->ts_info = kzalloc(FT_INFO_MAX_LEN, GFP_KERNEL);
+	if (!data->ts_info)
+		goto free_debug_dir;
+
+	/*get some register information */
+	reg_addr = FT_REG_POINT_RATE;
+	ft5x06_i2c_read(client, &reg_addr, 1, &reg_value, 1);
+	if (err < 0)
+		dev_err(&client->dev, "report rate read failed");
+
+	dev_info(&client->dev, "report rate = %dHz\n", reg_value * 10);
+
+	reg_addr = FT_REG_THGROUP;
+	err = ft5x06_i2c_read(client, &reg_addr, 1, &reg_value, 1);
+	if (err < 0)
+		dev_err(&client->dev, "threshold read failed");
+
+	dev_dbg(&client->dev, "touch threshold = %d\n", reg_value * 4);
+
+	reg_addr = FT_REG_FW_VER;
+	err = ft5x06_i2c_read(client, &reg_addr, 1, &reg_value, 1);
+	if (err < 0)
+		dev_err(&client->dev, "version read failed");
+
+	dev_info(&client->dev, "Firmware version = 0x%x\n", reg_value);
+
+	FT_STORE_TS_INFO(data->ts_info, data->family_id, reg_value);
 
 #if defined(CONFIG_FB)
 	data->fb_notif.notifier_call = fb_notifier_callback;
@@ -1211,6 +1498,10 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 
 	return 0;
 
+free_debug_dir:
+	debugfs_remove_recursive(data->dir);
+free_force_update_fw_sys:
+	device_remove_file(&client->dev, &dev_attr_force_update_fw);
 free_update_fw_sys:
 	device_remove_file(&client->dev, &dev_attr_update_fw);
 free_fw_name_sys:
@@ -1247,6 +1538,7 @@ static int ft5x06_ts_remove(struct i2c_client *client)
 {
 	struct ft5x06_ts_data *data = i2c_get_clientdata(client);
 
+	debugfs_remove_recursive(data->dir);
 	device_remove_file(&client->dev, &dev_attr_force_update_fw);
 	device_remove_file(&client->dev, &dev_attr_update_fw);
 	device_remove_file(&client->dev, &dev_attr_fw_name);
@@ -1276,6 +1568,7 @@ static int ft5x06_ts_remove(struct i2c_client *client)
 		ft5x06_power_init(data, false);
 
 	input_unregister_device(data->input_dev);
+	kfree(data->ts_info);
 	kfree(data);
 
 	return 0;
