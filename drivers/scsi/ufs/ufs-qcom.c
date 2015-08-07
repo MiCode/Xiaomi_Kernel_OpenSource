@@ -1297,7 +1297,14 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 		if (vote == host->bus_vote.min_bw_vote)
 			ufs_qcom_update_bus_bw_vote(host);
 
+		err = ufs_qcom_ice_resume(host);
+		if (err)
+			goto out;
 	} else if (!on && (status == PRE_CHANGE)) {
+		err = ufs_qcom_ice_suspend(host);
+		if (err)
+			goto out;
+
 		if (!ufs_qcom_is_link_active(hba)) {
 			/* disable device ref_clk */
 			ufs_qcom_dev_ref_clk_ctrl(host, false);
@@ -1313,7 +1320,7 @@ static int ufs_qcom_setup_clocks(struct ufs_hba *hba, bool on,
 	if (err)
 		dev_err(hba->dev, "%s: set bus vote failed %d\n",
 				__func__, err);
-
+out:
 	return err;
 }
 
