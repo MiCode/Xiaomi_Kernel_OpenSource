@@ -133,8 +133,6 @@
 		<0 0 0 0 0>,
 		<0 0 0 0 0>,
 		<0 0 0 0 0>;
-
-	/delete-property/ qcom,ldo-disable;
 };
 
 &apc0_cbf_vreg {
@@ -239,8 +237,6 @@
 		<0 0 0 20000 0>,
 		<0 0 0 0 0>,
 		<0 0 0 0 0>;
-
-	/delete-property/ qcom,ldo-disable;
 };
 
 &gfx_cpr {
@@ -300,11 +296,31 @@
 };
 
 &kryo0_vreg {
+	regulator-max-microvolt = <865000>;
+	qcom,vref-functional-step-voltage = <4048>;
+	qcom,vref-functional-min-voltage = <294800>;
+	qcom,vref-retention-step-voltage = <4462>;
+	qcom,vref-retention-min-voltage = <324950>;
 	qcom,ldo-config-init = <0x31f0e471>;
 };
 
+&kryo0_retention_vreg {
+	regulator-min-microvolt = <324950>;
+	regulator-max-microvolt = <865000>;
+};
+
 &kryo1_vreg {
+	regulator-max-microvolt = <865000>;
+	qcom,vref-functional-step-voltage = <4048>;
+	qcom,vref-functional-min-voltage = <294800>;
+	qcom,vref-retention-step-voltage = <4462>;
+	qcom,vref-retention-min-voltage = <324950>;
 	qcom,ldo-config-init = <0x31f0e471>;
+};
+
+&kryo1_retention_vreg {
+	regulator-min-microvolt = <324950>;
+	regulator-max-microvolt = <865000>;
 };
 
 /* GPU overrides */
