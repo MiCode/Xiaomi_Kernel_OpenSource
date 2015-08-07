@@ -65,8 +65,15 @@
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
 			      power-domain = <&l2ccc_0>;
+			      qcom,dump-size = <0x88000>;
 			};
-
+			L1_D_0: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x7800>;
+			};
+			L1_TLB_0: l1-tlb {
+				qcom,dump-size = <0x2800>;
+			};
 		};
 
 		CPU1: cpu@1 {
@@ -78,6 +85,13 @@
 			qcom,acc = <&acc1>;
 			qcom,ea = <&ea1>;
 			next-level-cache = <&L2_0>;
+			L1_D_1: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x7800>;
+			};
+			L1_TLB_1: l1-tlb {
+				qcom,dump-size = <0x2800>;
+			};
 		};
 
 		CPU2: cpu@100 {
@@ -93,6 +107,14 @@
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
 			      power-domain = <&l2ccc_1>;
+			      qcom,dump-size = <0x110000>;
+			};
+			L1_D_100: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x7800>;
+			};
+			L1_TLB_100: l1-tlb {
+				qcom,dump-size = <0x2800>;
 			};
 		};
 
@@ -105,6 +127,13 @@
 			qcom,acc = <&acc3>;
 			qcom,ea = <&ea3>;
 			next-level-cache = <&L2_1>;
+			L1_D_101: l1-dcache {
+				compatible = "arm,arch-cache";
+				qcom,dump-size = <0x7800>;
+			};
+			L1_TLB_101: l1-tlb {
+				qcom,dump-size = <0x2800>;
+			};
 		};
 
 		cpu-map {
@@ -2981,6 +3010,50 @@
 
 		ea3: ea3 {
 			sensor = <&sensor_information11>;
+		};
+	};
+
+	cpuss_dump {
+		compatible = "qcom,cpuss-dump";
+		qcom,l2_dump0 {
+			qcom,dump-node = <&L2_0>;
+			qcom,dump-id = <0xC0>;
+		};
+		qcom,l2_dump1 {
+			qcom,dump-node = <&L2_1>;
+			qcom,dump-id = <0xC1>;
+		};
+		qcom,l1_d_dump0 {
+			qcom,dump-node = <&L1_D_0>;
+			qcom,dump-id = <0x80>;
+		};
+		qcom,l1_d_dump1 {
+			qcom,dump-node = <&L1_D_1>;
+			qcom,dump-id = <0x81>;
+		};
+		qcom,l1_d_dump100 {
+			qcom,dump-node = <&L1_D_100>;
+			qcom,dump-id = <0x82>;
+		};
+		qcom,l1_d_dump101 {
+			qcom,dump-node = <&L1_D_101>;
+			qcom,dump-id = <0x83>;
+		};
+		qcom,l1_tlb_dump0 {
+			qcom,dump-node = <&L1_TLB_0>;
+			qcom,dump-id = <0x20>;
+		};
+		qcom,l1_tlb_dump1 {
+			qcom,dump-node = <&L1_TLB_1>;
+			qcom,dump-id = <0x21>;
+		};
+		qcom,l1_tlb_dump100 {
+			qcom,dump-node = <&L1_TLB_100>;
+			qcom,dump-id = <0x22>;
+		};
+		qcom,l1_tlb_dump101 {
+			qcom,dump-node = <&L1_TLB_101>;
+			qcom,dump-id = <0x23>;
 		};
 	};
 
