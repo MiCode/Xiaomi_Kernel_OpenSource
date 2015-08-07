@@ -46,6 +46,8 @@
 #define RCU_TREE_NONCORE
 #include "tree.h"
 
+#define ulong2long(a) (*(long *)(&(a)))
+
 static int r_open(struct inode *inode, struct file *file,
 					const struct seq_operations *op)
 {
