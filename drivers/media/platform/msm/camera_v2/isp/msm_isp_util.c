@@ -607,7 +607,7 @@ void msm_isp_fetch_engine_done_notify(struct vfe_device *vfe_dev,
 	msm_isp_send_event(vfe_dev, ISP_EVENT_FE_READ_DONE, &fe_rd_done_event);
 }
 
-int msm_isp_cfg_pix(struct vfe_device *vfe_dev,
+static int msm_isp_cfg_pix(struct vfe_device *vfe_dev,
 	struct msm_vfe_input_cfg *input_cfg)
 {
 	int rc = 0;
@@ -631,12 +631,6 @@ int msm_isp_cfg_pix(struct vfe_device *vfe_dev,
 	vfe_dev->axi_data.src_info[VFE_PIX_0].input_format =
 		input_cfg->d.pix_cfg.input_format;
 	vfe_dev->axi_data.src_info[VFE_PIX_0].sof_counter_step = 1;
-	rc = msm_isp_set_clk_rate(vfe_dev,
-		&vfe_dev->axi_data.src_info[VFE_PIX_0].pixel_clock);
-	if (rc < 0) {
-		pr_err("%s: clock set rate failed\n", __func__);
-		return rc;
-	}
 
 	/*
 	 * Fill pixel_clock into input_pix_clk so that user space
@@ -669,7 +663,7 @@ int msm_isp_cfg_pix(struct vfe_device *vfe_dev,
 	return rc;
 }
 
-int msm_isp_cfg_rdi(struct vfe_device *vfe_dev,
+static int msm_isp_cfg_rdi(struct vfe_device *vfe_dev,
 	struct msm_vfe_input_cfg *input_cfg)
 {
 	int rc = 0;
@@ -690,6 +684,7 @@ int msm_isp_cfg_input(struct vfe_device *vfe_dev, void *arg)
 {
 	int rc = 0;
 	struct msm_vfe_input_cfg *input_cfg = arg;
+	long pixel_clock = 0;
 
 	switch (input_cfg->input_src) {
 	case VFE_PIX_0:
@@ -703,6 +698,14 @@ int msm_isp_cfg_input(struct vfe_device *vfe_dev, void *arg)
 	default:
 		pr_err("%s: Invalid input source\n", __func__);
 		rc = -EINVAL;
+	}
+
+	pixel_clock = input_cfg->input_pix_clk;
+	rc = msm_isp_set_clk_rate(vfe_dev,
+		&pixel_clock);
+	if (rc < 0) {
+		pr_err("%s: clock set rate failed\n", __func__);
+		return rc;
 	}
 	return rc;
 }
