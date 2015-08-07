@@ -2157,11 +2157,8 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 				irq, ret);
 		goto err0;
 	}
-	dwc->irq = irq;
 
-	pm_runtime_get_sync(dwc->dev);
-	dbg_event(0xFF, "GdgStrt Begin",
-		atomic_read(&dwc->dev->power.usage_count));
+	dwc->irq = irq;
 	spin_lock_irqsave(&dwc->lock, flags);
 
 	if (dwc->gadget_driver) {
@@ -2181,16 +2178,20 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 	 * In that case dwc3_gadget_restart() will handle it.
 	 */
 	if (!dwc->is_drd) {
+		spin_unlock_irqrestore(&dwc->lock, flags);
+		pm_runtime_get_sync(dwc->dev);
+		dbg_event(0xFF, "GdgStrt Begin",
+			atomic_read(&dwc->dev->power.usage_count));
+		spin_lock_irqsave(&dwc->lock, flags);
 		ret = __dwc3_gadget_start(dwc);
+		pm_runtime_put(dwc->dev);
+		dbg_event(0xFF, "GdgStrt End",
+			atomic_read(&dwc->dev->power.usage_count));
 		if (ret)
 			goto err2;
 	}
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
-	pm_runtime_put(dwc->dev);
-	dbg_event(0xFF, "GdgStrt End",
-		atomic_read(&dwc->dev->power.usage_count));
-
 	return 0;
 
 err2:
@@ -2198,9 +2199,6 @@ err2:
 
 err1:
 	spin_unlock_irqrestore(&dwc->lock, flags);
-	pm_runtime_put(dwc->dev);
-	dbg_event(0xFF, "GdgStrt Err",
-		atomic_read(&dwc->dev->power.usage_count));
 	free_irq(irq, dwc);
 
 err0:
