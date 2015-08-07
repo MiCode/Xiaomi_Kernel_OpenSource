@@ -5,6 +5,7 @@
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -96,6 +97,7 @@ struct synaptics_dsx_board_data {
 	u32 disp_miny;
 	u32 disp_maxx;
 	u32 disp_maxy;
+	u32 config_id;
 	bool disable_gpios;
 	bool detect_device;
 	const char *fw_name;
