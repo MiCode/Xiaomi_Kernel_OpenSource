@@ -77,6 +77,8 @@ struct sysmon_qmi_data {
 	struct list_head list;
 };
 
+static struct workqueue_struct *sysmon_wq;
+
 static LIST_HEAD(sysmon_list);
 static DEFINE_MUTEX(sysmon_list_lock);
 static DEFINE_MUTEX(sysmon_lock);
@@ -119,10 +121,10 @@ static int sysmon_svc_event_notify(struct notifier_block *this,
 
 	switch (code) {
 	case QMI_SERVER_ARRIVE:
-		schedule_work(&data->svc_arrive);
+		queue_work(sysmon_wq, &data->svc_arrive);
 		break;
 	case QMI_SERVER_EXIT:
-		schedule_work(&data->svc_exit);
+		queue_work(sysmon_wq, &data->svc_exit);
 		break;
 	default:
 		break;
@@ -651,6 +653,19 @@ int sysmon_notifier_register(struct subsys_desc *desc)
 		goto add_list;
 	}
 
+	mutex_lock(&sysmon_list_lock);
+	if (sysmon_wq)
+		goto notif_register;
+
+	sysmon_wq = create_singlethread_workqueue("sysmon_wq");
+	if (!sysmon_wq) {
+		mutex_unlock(&sysmon_list_lock);
+		pr_err("Could not create workqueue\n");
+		kfree(data);
+		return -ENOMEM;
+	}
+
+notif_register:
 	data->notifier.notifier_call = sysmon_svc_event_notify;
 	init_completion(&data->ind_recv);
 
@@ -663,7 +678,6 @@ int sysmon_notifier_register(struct subsys_desc *desc)
 	if (rc < 0)
 		pr_err("Notifier register failed for %s\n", data->name);
 add_list:
-	mutex_lock(&sysmon_list_lock);
 	INIT_LIST_HEAD(&data->list);
 	list_add_tail(&data->list, &sysmon_list);
 	mutex_unlock(&sysmon_list_lock);
@@ -690,14 +704,18 @@ void sysmon_notifier_unregister(struct subsys_desc *desc)
 			data = sysmon_data;
 			list_del(&data->list);
 		}
-	mutex_unlock(&sysmon_list_lock);
 
 	if (data == NULL)
-		return;
+		goto exit;
 
 	if (data->instance_id > 0)
 		qmi_svc_event_notifier_unregister(SSCTL_SERVICE_ID,
 			SSCTL_VER_2, data->instance_id, &data->notifier);
+
+	if (sysmon_wq && list_empty(&sysmon_list))
+		destroy_workqueue(sysmon_wq);
+exit:
+	mutex_unlock(&sysmon_list_lock);
 	kfree(data);
 }
 EXPORT_SYMBOL(sysmon_notifier_unregister);
