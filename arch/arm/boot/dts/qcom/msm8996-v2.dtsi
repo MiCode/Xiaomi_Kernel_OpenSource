@@ -240,6 +240,7 @@
 };
 
 &gfx_cpr {
+	system-supply = <&pm8994_s1_corner>;
 	qcom,cpr-enable;
 };
 

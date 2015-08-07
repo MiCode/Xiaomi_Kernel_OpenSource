@@ -20,3 +20,88 @@
 	model = "Qualcomm Technologies, Inc. MSM 8996 v3.0";
 	qcom,msm-id = <246 0x30000>;
 };
+
+&gfx_cpr {
+	system-supply = <&pm8994_s1_corner>;
+	qcom,cpr-enable;
+};
+
+&gfx_vreg {
+	regulator-min-microvolt = <1>;
+	regulator-max-microvolt = <7>;
+
+	qcom,cpr-fuse-corners = <4>;
+	qcom,cpr-fuse-combos = <2>;
+	qcom,cpr-corners = <7>;
+
+	qcom,cpr-corner-fmax-map = <2 3 5 7>;
+
+	qcom,cpr-voltage-ceiling =
+		<400000  670000  745000  825000  905000
+		 960000 1015000>;
+	qcom,cpr-voltage-floor =
+		<400000  520000  520000  520000  520000
+		 520000  520000>;
+
+	qcom,system-voltage = <2 2 2 2 2 4 4>;
+
+	qcom,corner-frequencies =
+		<0 210000000 300000000 401800000
+		 510000000 549000000 624000000>;
+
+	qcom,cpr-target-quotients =
+	      <   0    0    0    0    0    0    0    0
+		  0    0    0    0    0    0    0    0>,
+	      <   0    0    0    0    0    0  287  273
+		425  426  443  453    0    0    0    0>,
+	      <   0    0    0    0    0    0  414  392
+		584  576  608  612    0    0    0    0>,
+	      <   0    0    0    0    0    0  459  431
+		684  644  692  679    0    0    0    0>,
+	      <   0    0    0    0    0    0  577  543
+		798  768  823  810    0    0    0    0>,
+	      <   0    0    0    0    0    0  669  629
+		886  864  924  911    0    0    0    0>,
+	      <   0    0    0    0    0    0  771  725
+		984  970 1036 1024    0    0    0    0>;
+
+	qcom,cpr-ro-scaling-factor =
+	      <   0    0    0    0    0    0 2035 1917
+	       1959 2131 2246 2253    0    0    0    0>,
+	      <   0    0    0    0    0    0 2035 1917
+	       1959 2131 2246 2253    0    0    0    0>,
+	      <   0    0    0    0    0    0 2035 1917
+	       1959 2131 2246 2253    0    0    0    0>,
+	      <   0    0    0    0    0    0 2035 1917
+	       1959 2131 2246 2253    0    0    0    0>,
+	      <   0    0    0    0    0    0 2035 1917
+	       1959 2131 2246 2253    0    0    0    0>,
+	      <   0    0    0    0    0    0 2035 1917
+	       1959 2131 2246 2253    0    0    0    0>,
+	      <   0    0    0    0    0    0 2035 1917
+	       1959 2131 2246 2253    0    0    0    0>;
+
+	qcom,cpr-open-loop-voltage-fuse-adjustment =
+		<30000 30000 30000 0>,
+		<0 0 0 0>;
+	qcom,cpr-closed-loop-voltage-adjustment =
+		<0 30000 30000 30000 30000 0 0>,
+		<0 30000 30000 30000 30000 0 0>;
+	qcom,cpr-floor-to-ceiling-max-range =
+	       <0 70000 75000 80000 90000 95000 100000>;
+
+	qcom,allow-voltage-interpolation;
+	qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+};
+
+&clock_gpu {
+	qcom,gfxfreq-corner-v2 =
+		<	   0  0  0 >,
+		<  133000000  3  4 >,
+		<  210000000  3  4 >,
+		<  300000000  3  4 >,
+		<  401800000  4  5 >,
+		<  510000000  5  5 >,
+		<  549000000  6  7 >,
+		<  624000000  7  7 >;
+};
