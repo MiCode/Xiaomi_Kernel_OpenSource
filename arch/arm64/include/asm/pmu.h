@@ -83,6 +83,17 @@ struct arm_pmu {
 
 #define to_arm_pmu(p) (container_of(p, struct arm_pmu, pmu))
 
+extern const unsigned armv8_pmuv3_perf_map[PERF_COUNT_HW_MAX];
+extern const unsigned armv8_pmuv3_perf_cache_map[PERF_COUNT_HW_CACHE_MAX]
+					     [PERF_COUNT_HW_CACHE_OP_MAX]
+					     [PERF_COUNT_HW_CACHE_RESULT_MAX];
+int map_cpu_event(struct perf_event *event,
+		  const unsigned (*event_map)[PERF_COUNT_HW_MAX],
+		  const unsigned (*cache_map)[PERF_COUNT_HW_CACHE_MAX]
+					     [PERF_COUNT_HW_CACHE_OP_MAX]
+					     [PERF_COUNT_HW_CACHE_RESULT_MAX],
+		  u32 raw_event_mask);
+
 int __init armpmu_register(struct arm_pmu *armpmu, char *name, int type);
 
 u64 armpmu_event_update(struct perf_event *event,
@@ -92,6 +103,16 @@ u64 armpmu_event_update(struct perf_event *event,
 int armpmu_event_set_period(struct perf_event *event,
 			    struct hw_perf_event *hwc,
 			    int idx);
+
+int armv8pmu_enable_intens(int idx);
+int armv8pmu_disable_intens(int idx);
+int armv8pmu_enable_counter(int idx);
+int armv8pmu_disable_counter(int idx);
+u32 armv8pmu_getreset_flags(void);
+void armv8pmu_pmcr_write(u32 val);
+void armv8pmu_write_evtype(int idx, u32 val);
+
+int kryo_pmu_init(struct arm_pmu *cpu_pmu);
 
 #endif /* CONFIG_HW_PERF_EVENTS */
 #endif /* __ASM_PMU_H */

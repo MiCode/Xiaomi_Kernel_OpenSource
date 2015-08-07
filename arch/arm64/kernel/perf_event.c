@@ -159,13 +159,13 @@ armpmu_map_raw_event(u32 raw_event_mask, u64 config)
 	return (int)(config & raw_event_mask);
 }
 
-static int map_cpu_event(struct perf_event *event,
-			 const unsigned (*event_map)[PERF_COUNT_HW_MAX],
-			 const unsigned (*cache_map)
+int map_cpu_event(struct perf_event *event,
+		  const unsigned (*event_map)[PERF_COUNT_HW_MAX],
+		  const unsigned (*cache_map)
 					[PERF_COUNT_HW_CACHE_MAX]
 					[PERF_COUNT_HW_CACHE_OP_MAX]
 					[PERF_COUNT_HW_CACHE_RESULT_MAX],
-			 u32 raw_event_mask)
+		  u32 raw_event_mask)
 {
 	u64 config = event->attr.config;
 
@@ -658,7 +658,7 @@ enum armv8_pmuv3_perf_types {
 };
 
 /* PMUv3 HW events mapping. */
-static const unsigned armv8_pmuv3_perf_map[PERF_COUNT_HW_MAX] = {
+const unsigned armv8_pmuv3_perf_map[PERF_COUNT_HW_MAX] = {
 	[PERF_COUNT_HW_CPU_CYCLES]		= ARMV8_PMUV3_PERFCTR_CLOCK_CYCLES,
 	[PERF_COUNT_HW_INSTRUCTIONS]		= ARMV8_PMUV3_PERFCTR_INSTR_EXECUTED,
 	[PERF_COUNT_HW_CACHE_REFERENCES]	= ARMV8_PMUV3_PERFCTR_L1_DCACHE_ACCESS,
@@ -670,9 +670,9 @@ static const unsigned armv8_pmuv3_perf_map[PERF_COUNT_HW_MAX] = {
 	[PERF_COUNT_HW_STALLED_CYCLES_BACKEND]	= HW_OP_UNSUPPORTED,
 };
 
-static const unsigned armv8_pmuv3_perf_cache_map[PERF_COUNT_HW_CACHE_MAX]
-						[PERF_COUNT_HW_CACHE_OP_MAX]
-						[PERF_COUNT_HW_CACHE_RESULT_MAX] = {
+const unsigned armv8_pmuv3_perf_cache_map[PERF_COUNT_HW_CACHE_MAX]
+					 [PERF_COUNT_HW_CACHE_OP_MAX]
+					 [PERF_COUNT_HW_CACHE_RESULT_MAX] = {
 	[C(L1D)] = {
 		[C(OP_READ)] = {
 			[C(RESULT_ACCESS)]	= ARMV8_PMUV3_PERFCTR_L1_DCACHE_ACCESS,
@@ -832,7 +832,7 @@ static inline u32 armv8pmu_pmcr_read(void)
 	return val;
 }
 
-static inline void armv8pmu_pmcr_write(u32 val)
+inline void armv8pmu_pmcr_write(u32 val)
 {
 	val &= ARMV8_PMCR_MASK;
 	isb();
@@ -908,7 +908,7 @@ static inline void armv8pmu_write_counter(int idx, u32 value)
 		asm volatile("msr pmxevcntr_el0, %0" :: "r" (value));
 }
 
-static inline void armv8pmu_write_evtype(int idx, u32 val)
+inline void armv8pmu_write_evtype(int idx, u32 val)
 {
 	if (armv8pmu_select_counter(idx) == idx) {
 		val &= ARMV8_EVTYPE_MASK;
@@ -916,7 +916,7 @@ static inline void armv8pmu_write_evtype(int idx, u32 val)
 	}
 }
 
-static inline int armv8pmu_enable_counter(int idx)
+inline int armv8pmu_enable_counter(int idx)
 {
 	u32 counter;
 
@@ -931,7 +931,7 @@ static inline int armv8pmu_enable_counter(int idx)
 	return idx;
 }
 
-static inline int armv8pmu_disable_counter(int idx)
+inline int armv8pmu_disable_counter(int idx)
 {
 	u32 counter;
 
@@ -946,7 +946,7 @@ static inline int armv8pmu_disable_counter(int idx)
 	return idx;
 }
 
-static inline int armv8pmu_enable_intens(int idx)
+inline int armv8pmu_enable_intens(int idx)
 {
 	u32 counter;
 
@@ -961,7 +961,7 @@ static inline int armv8pmu_enable_intens(int idx)
 	return idx;
 }
 
-static inline int armv8pmu_disable_intens(int idx)
+inline int armv8pmu_disable_intens(int idx)
 {
 	u32 counter;
 
@@ -980,7 +980,7 @@ static inline int armv8pmu_disable_intens(int idx)
 	return idx;
 }
 
-static inline u32 armv8pmu_getreset_flags(void)
+inline u32 armv8pmu_getreset_flags(void)
 {
 	u32 value;
 
