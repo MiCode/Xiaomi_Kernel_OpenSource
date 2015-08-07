@@ -391,6 +391,39 @@ static int __pil_q6v55_reset(struct pil_desc *pil)
 			 */
 			udelay(1);
 		}
+	} else if (drv->qdsp6v56_1_8_inrush_current) {
+		/* Deassert QDSP6 compiler memory clamp */
+		val = readl_relaxed(drv->reg_base + QDSP6SS_PWR_CTL);
+		val &= ~QDSP6v55_CLAMP_QMC_MEM;
+		writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
+
+		/* Deassert memory peripheral sleep and L2 memory standby */
+		val |= (Q6SS_L2DATA_STBY_N | Q6SS_SLP_RET_N);
+		writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
+
+		/* Turn on L1, L2, ETB and JU memories 1 at a time */
+		val = readl_relaxed(drv->reg_base + QDSP6SS_MEM_PWR_CTL);
+		for (i = 19; i >= 6; i--) {
+			val |= BIT(i);
+			writel_relaxed(val, drv->reg_base +
+						QDSP6SS_MEM_PWR_CTL);
+			/*
+			 * Wait for 1us for both memory peripheral and
+			 * data array to turn on.
+			 */
+			udelay(1);
+		}
+
+		for (i = 0 ; i <= 5 ; i++) {
+			val |= BIT(i);
+			writel_relaxed(val, drv->reg_base +
+						QDSP6SS_MEM_PWR_CTL);
+			/*
+			 * Wait for 1us for both memory peripheral and
+			 * data array to turn on.
+			 */
+			udelay(1);
+		}
 	} else {
 		/* Turn on memories. */
 		val = readl_relaxed(drv->reg_base + QDSP6SS_PWR_CTL);
@@ -530,6 +563,10 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 
 	drv->qdsp6v56_1_8 = of_property_read_bool(pdev->dev.of_node,
 						"qcom,qdsp6v56-1-8");
+
+	drv->qdsp6v56_1_8_inrush_current = of_property_read_bool(
+						pdev->dev.of_node,
+						"qcom,qdsp6v56-1-8-inrush-current");
 
 	drv->non_elf_image = of_property_read_bool(pdev->dev.of_node,
 						"qcom,mba-image-is-not-elf");
