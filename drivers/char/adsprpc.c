@@ -157,6 +157,7 @@ struct fastrpc_apps {
 	int compat;
 	struct hlist_head drivers;
 	spinlock_t hlock;
+	struct ion_client *client;
 };
 
 struct fastrpc_mmap {
@@ -173,6 +174,7 @@ struct fastrpc_mmap {
 	ssize_t len;
 	int refs;
 	uintptr_t raddr;
+	int uncached;
 };
 
 struct fastrpc_file {
@@ -327,6 +329,8 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, uintptr_t va,
 	struct fastrpc_session_ctx *sess = fl->sctx;
 	struct fastrpc_mmap *map = 0;
 	struct dma_attrs attrs;
+	struct ion_handle *handle = 0;
+	unsigned long flags;
 	int err = 0;
 	if (!fastrpc_mmap_find(fl, fd, va, len, ppmap))
 		return 0;
@@ -354,6 +358,14 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, uintptr_t va,
 				DMA_BIDIRECTIONAL, map->buf, &attrs));
 	if (err)
 		goto bail;
+	VERIFY(err, !IS_ERR_OR_NULL(handle =
+				ion_import_dma_buf(fl->apps->client, fd)));
+	if (err)
+		goto bail;
+	VERIFY(err, !ion_handle_get_flags(fl->apps->client, handle, &flags));
+	if (err)
+		goto bail;
+	map->uncached = !ION_IS_CACHED(flags);
 	map->phys = sg_dma_address(map->table->sgl);
 #ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
 	if (sess->smmu.cb)
@@ -373,6 +385,8 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, uintptr_t va,
 bail:
 	if (err && map)
 		fastrpc_mmap_free(map);
+	if (handle)
+		ion_free(fl->apps->client, handle);
 	return err;
 }
 
@@ -724,7 +738,10 @@ static int clear_user_outbufs(struct smq_invoke_ctx *ctx)
 
 	for (oix = 0; oix < inbufs + outbufs; ++oix) {
 		int i = ctx->overps[oix]->raix;
+		struct fastrpc_mmap *map = ctx->maps[i];
 
+		if (map && map->uncached)
+			continue;
 		if ((i < inbufs) || (pra[i].buf.pv != rpra[i].buf.pv) ||
 			is_overlapped_outbuf(ctx, oix))
 			continue;
@@ -881,7 +898,10 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 	}
 	for (oix = 0; oix < inbufs + outbufs; ++oix) {
 		int i = ctx->overps[oix]->raix;
+		struct fastrpc_mmap *map = ctx->maps[i];
 
+		if (map && map->uncached)
+			continue;
 		if (rpra[i].buf.len && ctx->overps[oix]->mstart)
 			dmac_flush_range(rpra[i].buf.pv,
 				  (char *)rpra[i].buf.pv + rpra[i].buf.len);
@@ -954,14 +974,21 @@ static void inv_args_pre(uint32_t sc, remote_arg_t *rpra)
 	}
 }
 
-static void inv_args(uint32_t sc, remote_arg_t *rpra, int used)
+static void inv_args(struct smq_invoke_ctx *ctx)
 {
 	int i, inbufs, outbufs;
+	uint32_t sc = ctx->sc;
+	remote_arg_t *rpra = ctx->rpra;
+	int used = ctx->used;
 	int inv = 0;
 
 	inbufs = REMOTE_SCALARS_INBUFS(sc);
 	outbufs = REMOTE_SCALARS_OUTBUFS(sc);
 	for (i = inbufs; i < inbufs + outbufs; ++i) {
+		struct fastrpc_mmap *map = ctx->maps[i];
+
+		if (map && map->uncached)
+			continue;
 		if (buf_page_start(rpra) == buf_page_start(rpra[i].buf.pv))
 			inv = 1;
 		else if (rpra[i].buf.len)
@@ -1043,6 +1070,7 @@ static void fastrpc_init(struct fastrpc_apps *me)
 	for (i = 0; i < NUM_CHANNELS; i++) {
 		init_completion(&me->channel[i].work);
 		me->channel[i].bitmap = 0;
+		me->channel[i].sesscount = 0;
 	}
 }
 
@@ -1079,12 +1107,12 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 
 	inv_args_pre(ctx->sc, ctx->rpra);
 	if (FASTRPC_MODE_SERIAL == mode)
-		inv_args(ctx->sc, ctx->rpra, ctx->used);
+		inv_args(ctx);
 	VERIFY(err, 0 == fastrpc_invoke_send(ctx, kernel, invoke->handle));
 	if (err)
 		goto bail;
 	if (FASTRPC_MODE_PARALLEL == mode)
-		inv_args(ctx->sc, ctx->rpra, ctx->used);
+		inv_args(ctx);
  wait:
 	if (kernel)
 		wait_for_completion(&ctx->work);
@@ -1784,6 +1812,7 @@ static void __exit fastrpc_device_exit(void)
 	class_destroy(me->class);
 	cdev_del(&me->cdev);
 	unregister_chrdev_region(me->dev_no, NUM_CHANNELS);
+	ion_client_destroy(me->client);
 }
 
 late_initcall(fastrpc_device_init);
