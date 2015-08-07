@@ -4318,6 +4318,9 @@ enum hal_extradata_id msm_comm_get_hal_extradata_index(
 	case V4L2_MPEG_VIDC_EXTRADATA_VQZIP_SEI:
 		ret = HAL_EXTRADATA_VQZIP_SEI;
 		break;
+	case V4L2_MPEG_VIDC_EXTRADATA_YUV_STATS:
+		ret = HAL_EXTRADATA_YUV_STATS;
+		break;
 	default:
 		dprintk(VIDC_WARN, "Extradata not found: %d\n", index);
 		break;

@@ -174,6 +174,7 @@ static const char *const mpeg_video_vidc_extradata[] = {
 	"Extradata digital zoom",
 	"Extradata aspect ratio",
 	"Extradata macroblock metadata",
+	"Extradata YUV Stats"
 };
 
 static const char *const perf_level[] = {
@@ -716,7 +717,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "Extradata Type",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDC_EXTRADATA_NONE,
-		.maximum = V4L2_MPEG_VIDC_EXTRADATA_METADATA_MBI,
+		.maximum = V4L2_MPEG_VIDC_EXTRADATA_YUV_STATS,
 		.default_value = V4L2_MPEG_VIDC_EXTRADATA_NONE,
 		.menu_skip_mask = ~(
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_NONE) |
@@ -736,7 +737,8 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_DIGITAL_ZOOM) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_ASPECT_RATIO) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_LTR) |
-			(1 << V4L2_MPEG_VIDC_EXTRADATA_METADATA_MBI)
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_METADATA_MBI) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_YUV_STATS)
 			),
 		.qmenu = mpeg_video_vidc_extradata,
 	},
@@ -1321,8 +1323,16 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 				V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA);
 		if (ctrl)
 			extradata = v4l2_ctrl_g_ctrl(ctrl);
-		if (extradata != V4L2_MPEG_VIDC_EXTRADATA_NONE)
+		switch (extradata) {
+		case V4L2_MPEG_VIDC_EXTRADATA_MULTISLICE_INFO:
+		case V4L2_MPEG_VIDC_EXTRADATA_NUM_CONCEALED_MB:
+		case V4L2_MPEG_VIDC_EXTRADATA_METADATA_FILLER:
+		case V4L2_MPEG_VIDC_EXTRADATA_LTR:
+		case V4L2_MPEG_VIDC_EXTRADATA_METADATA_MBI:
 			*num_planes = *num_planes + 1;
+		default:
+			break;
+		}
 		inst->fmts[CAPTURE_PORT]->num_planes = *num_planes;
 
 		for (i = 0; i < *num_planes; i++) {
@@ -1378,8 +1388,17 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 			V4L2_CID_MPEG_VIDC_VIDEO_EXTRADATA);
 		if (ctrl)
 			extradata = v4l2_ctrl_g_ctrl(ctrl);
-		if (extradata == V4L2_MPEG_VIDC_EXTRADATA_INPUT_CROP)
-			*num_planes = *num_planes + 1;
+			switch (extradata) {
+			case V4L2_MPEG_VIDC_EXTRADATA_INPUT_CROP:
+			case V4L2_MPEG_VIDC_EXTRADATA_DIGITAL_ZOOM:
+			case V4L2_MPEG_VIDC_EXTRADATA_ASPECT_RATIO:
+			case V4L2_MPEG_VIDC_EXTRADATA_YUV_STATS:
+				*num_planes = *num_planes + 1;
+				break;
+			default:
+				break;
+			}
+
 		inst->fmts[OUTPUT_PORT]->num_planes = *num_planes;
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
 					property_id, &new_buf_count);

@@ -115,6 +115,7 @@ enum hal_extradata_id {
 	HAL_EXTRADATA_LTR_INFO,
 	HAL_EXTRADATA_METADATA_MBI,
 	HAL_EXTRADATA_VQZIP_SEI,
+	HAL_EXTRADATA_YUV_STATS,
 };
 
 enum hal_property {
