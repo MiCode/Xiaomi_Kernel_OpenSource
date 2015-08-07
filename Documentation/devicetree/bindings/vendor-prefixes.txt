@@ -60,6 +60,7 @@ fairchild	Fairchild Semiconductor International, Inc.
 focaltech	Focaltech systems
 fsl	Freescale Semiconductor
 GEFanuc	GE Fanuc Intelligent Platforms Embedded Systems, Inc.
+goodix	Goodix. Ltd.
 gef	GE Fanuc Intelligent Platforms Embedded Systems, Inc.
 geniatech	Geniatech, Inc.
 globalscale	Globalscale Technologies, Inc.
