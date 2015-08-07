@@ -1058,7 +1058,7 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 	struct regulator_init_data *init_data;
 	struct regulator_desc *rdesc;
 	struct regulator_config cfg = {};
-	u8 ibb_en_rdy_val, val;
+	u8 val;
 	const char *current_sense_str;
 	bool config_current_sense = false;
 
@@ -1122,15 +1122,22 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 	labibb->lab_vreg.soft_start = lab_soft_start_plan
 				[val & LAB_SOFT_START_CTL_MASK];
 
-	rc = qpnp_labibb_read(labibb, &ibb_en_rdy_val,
-				labibb->lab_base + REG_LAB_IBB_EN_RDY, 1);
+	rc = qpnp_labibb_read(labibb, &val,
+				labibb->ibb_base + REG_IBB_ENABLE_CTL, 1);
 	if (rc) {
-		pr_err("qpnp_lab_read register %x failed rc = %d\n",
-			REG_LAB_IBB_EN_RDY, rc);
+		pr_err("qpnp_labibb_read register %x failed rc = %d\n",
+			REG_IBB_ENABLE_CTL, rc);
 		return rc;
 	}
 
-	if (ibb_en_rdy_val == LAB_IBB_EN_RDY_EN) {
+	if (!(val & IBB_ENABLE_CTL_EN)) {
+		rc = qpnp_lab_dt_init(labibb, of_node);
+		if (rc) {
+			pr_err("qpnp-lab: wrong DT parameter specified: rc = %d\n",
+				rc);
+			return rc;
+		}
+	} else {
 		rc = qpnp_labibb_read(labibb, &val,
 			labibb->lab_base + REG_LAB_LCD_AMOLED_SEL, 1);
 		if (rc) {
@@ -1219,13 +1226,6 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 		}
 
 		labibb->lab_vreg.vreg_enabled = 1;
-	} else {
-		rc = qpnp_lab_dt_init(labibb, of_node);
-		if (rc) {
-			pr_err("qpnp-lab: wrong DT parameter specified: rc = %d\n",
-				rc);
-			return rc;
-		}
 	}
 
 	rc = qpnp_labibb_read(labibb, &val,
@@ -1601,7 +1601,8 @@ static int qpnp_ibb_dt_init(struct qpnp_labibb *labibb,
 		val |= PWRUP_PWRDN_CTL_1_DISCHARGE_EN;
 
 	if (labibb->mode != QPNP_LABIBB_STANDALONE_MODE)
-		val |= (IBB_PWRUP_PWRDN_CTL_1_EN_DLY1 | IBB_ENABLE_CTL_EN);
+		val |= (IBB_PWRUP_PWRDN_CTL_1_EN_DLY1 |
+				IBB_PWRUP_PWRDN_CTL_1_LAB_VREG_OK);
 
 	rc = qpnp_ibb_unlock_sec_access(labibb);
 
