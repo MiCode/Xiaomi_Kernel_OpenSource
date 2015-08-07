@@ -4032,6 +4032,7 @@ static void msm_comm_flush_in_invalid_state(struct msm_vidc_inst *inst)
 
 		dprintk(VIDC_DBG, "Flushing buffers of type %d in bad state\n",
 				port);
+		mutex_lock(&inst->bufq[port].lock);
 		list_for_each_safe(ptr, next, &inst->bufq[port].
 				vb2_bufq.queued_list) {
 			struct vb2_buffer *vb = container_of(ptr,
@@ -4040,10 +4041,9 @@ static void msm_comm_flush_in_invalid_state(struct msm_vidc_inst *inst)
 			vb->v4l2_planes[0].bytesused = 0;
 			vb->v4l2_planes[0].data_offset = 0;
 
-			mutex_lock(&inst->bufq[port].lock);
 			vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
-			mutex_unlock(&inst->bufq[port].lock);
 		}
+		mutex_unlock(&inst->bufq[port].lock);
 	}
 
 	msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_FLUSH_DONE);
