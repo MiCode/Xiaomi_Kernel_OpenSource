@@ -316,7 +316,7 @@ static void qcom_ice_optimization_enable(struct ice_device *ice_dev)
 
 	regval = qcom_ice_readl(ice_dev, QCOM_ICE_REGS_ADVANCED_CONTROL);
 	if (ICE_REV(ice_dev->ice_hw_version, MAJOR) >= 2)
-		regval |= 0x8D800100;
+		regval |= 0xD807100;
 	else if (ICE_REV(ice_dev->ice_hw_version, MAJOR) == 1)
 		regval |= 0x3F007100;
 
