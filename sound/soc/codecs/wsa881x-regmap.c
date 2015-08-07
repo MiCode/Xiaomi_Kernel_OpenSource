@@ -176,8 +176,20 @@ static bool wsa881x_readable_register(struct device *dev, unsigned int reg)
 static bool wsa881x_volatile_register(struct device *dev, unsigned int reg)
 {
 	switch (reg) {
+	case WSA881X_CHIP_ID0:
+	case WSA881X_CHIP_ID1:
+	case WSA881X_CHIP_ID2:
+	case WSA881X_CHIP_ID3:
+	case WSA881X_BUS_ID:
+	case WSA881X_TEMP_MSB:
+	case WSA881X_TEMP_LSB:
+	case WSA881X_SDM_PDM9_LSB:
+	case WSA881X_SDM_PDM9_MSB:
 	case WSA881X_OTP_CTRL1:
 	case WSA881X_INTR_STATUS:
+	case WSA881X_ATE_TEST_MODE:
+	case WSA881X_PIN_STATUS:
+	case WSA881X_SWR_HM_TEST2:
 	case WSA881X_SPKR_STATUS1:
 	case WSA881X_SPKR_STATUS2:
 	case WSA881X_SPKR_STATUS3:
@@ -187,9 +199,11 @@ static bool wsa881x_volatile_register(struct device *dev, unsigned int reg)
 	case WSA881X_OTP_REG_3:
 	case WSA881X_OTP_REG_4:
 	case WSA881X_OTP_REG_5:
+	case WSA881X_OTP_REG_31:
 	case WSA881X_TEMP_DOUT_MSB:
 	case WSA881X_TEMP_DOUT_LSB:
 	case WSA881X_TEMP_OP:
+	case WSA881X_SPKR_PROT_SAR:
 		return true;
 	default:
 		return false;
