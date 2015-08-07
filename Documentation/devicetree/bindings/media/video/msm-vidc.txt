@@ -129,7 +129,7 @@ Required properties:
 Optional properties:
 - qcom,bus-governor : governor to use when scaling bus, generally any commonly
   found devfreq governor might be used.  In addition to those governors, the
-  custom Venus govenors, "msm-vidc-bw-ddr" or "msm-vidc-bw-vmem" are also
+  custom Venus governors, "msm-vidc-ddr" or "msm-vidc-vmem" are also
   acceptable values.
   In the absence of this property the "performance" governor is used.
 - qcom,bus-rage-kbps : an array of two items (<min max>) that indicate the
@@ -204,7 +204,7 @@ Example:
 			label = "venus-ddr";
 			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
-			qcom,bus-governor = "msm-vidc-bw-ddr";
+			qcom,bus-governor = "msm-vidc-ddr";
 			qcom,bus-range-kbps = <1000 3388000>;
 		};
 	};

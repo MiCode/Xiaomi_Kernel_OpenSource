@@ -1010,7 +1010,7 @@ static struct governor governors[] = {
 	{
 		.mode = GOVERNOR_DDR,
 		.devfreq_gov = {
-			.name = "msm-vidc-bw-ddr",
+			.name = "msm-vidc-ddr",
 			.get_target_freq = __get_target_freq,
 			.event_handler = __event_handler,
 		},
@@ -1018,7 +1018,7 @@ static struct governor governors[] = {
 	{
 		.mode = GOVERNOR_VMEM,
 		.devfreq_gov = {
-			.name = "msm-vidc-bw-vmem",
+			.name = "msm-vidc-vmem",
 			.get_target_freq = __get_target_freq,
 			.event_handler = __event_handler,
 		},
