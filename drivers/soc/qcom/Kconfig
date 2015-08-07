@@ -604,6 +604,12 @@ config MSM_SERVICE_NOTIFIER
 	  like audio, the identifier for which is provided by the service
 	  locator.
 
+config MSM_QBT1000
+	bool "QBT1000 Ultrasonic Fingerprint Sensor"
+	help
+	  This driver is used to enable clocks and marshal buffers for trusted
+	  applications running in the trusted execution environment.
+
 source "drivers/soc/qcom/memshare/Kconfig"
 
 endif # ARCH_MSM

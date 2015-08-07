@@ -1,0 +1,18 @@
+* QBT1000 (Qualcomm Technologies Inc Ultra-Sonic Fingerprint Sensor)
+
+Required properties:
+- compatible : Should be "qcom,qbt1000"
+- clock-names : List of clock names that need to be voted on/off
+- clocks : Property pair that represents the clock controller and the clock
+           id. This in combimination with the clock-name is used to obtain
+           the handle for the clock that needs to be voted on/off
+- clock-frequency : Frequency of clock in Hz
+
+Example:
+        qcom,qbt1000 {
+                compatible = "qcom,qbt1000";
+                clock-names = "spi_clk", "ahb_clk";
+                clocks = <&clock_gcc clk_gcc_blsp1_qup5_spi_apps_clk>,
+                         <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+                clock-frequency = <15000000>;
+        };

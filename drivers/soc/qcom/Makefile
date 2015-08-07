@@ -1,5 +1,7 @@
 CFLAGS_scm.o :=$(call as-instr,.arch_extension sec,-DREQUIRES_SEC=1)
 
+ccflags-$(CONFIG_MSM_QBT1000) += -Idrivers/misc/
+
 obj-$(CONFIG_ARM64) += idle-v8.o cpu_ops.o
 obj-$(CONFIG_MSM_BOOT_STATS) += boot_stats.o
 obj-$(CONFIG_MSM_RUN_QUEUE_STATS) += msm_rq_stats.o
@@ -76,3 +78,4 @@ obj-$(CONFIG_TRACER_PKT) += tracer_pkt.o
 obj-$(CONFIG_ICNSS) += icnss.o
 obj-$(CONFIG_MSM_BAM_DMUX) += bam_dmux.o
 obj-$(CONFIG_MSM_SERVICE_LOCATOR) += service-locator.o
+obj-$(CONFIG_MSM_QBT1000) += qbt1000.o
