@@ -8473,7 +8473,8 @@ static int tasha_dig_core_remove_power_collapse(struct snd_soc_codec *codec)
 			WCD_REGION_POWER_COLLAPSE_REMOVE,
 			WCD9XXX_DIG_CORE_REGION_1);
 	regcache_mark_dirty(codec->component.regmap);
-	regcache_sync(codec->component.regmap);
+	regcache_sync_region(codec->component.regmap,
+			     TASHA_DIG_CORE_REG_MIN, TASHA_DIG_CORE_REG_MAX);
 
 	return 0;
 }
