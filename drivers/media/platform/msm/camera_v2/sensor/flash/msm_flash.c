@@ -475,12 +475,14 @@ static int32_t msm_flash_init(
 			flash_data->cfg.flash_init_info->flash_driver_type);
 	}
 
-	rc = flash_ctrl->func_tbl->camera_flash_init(
-			flash_ctrl, flash_data);
-	if (rc < 0) {
-		pr_err("%s:%d camera_flash_init failed rc = %d",
-			__func__, __LINE__, rc);
-		return rc;
+	if (flash_ctrl->func_tbl->camera_flash_init) {
+		rc = flash_ctrl->func_tbl->camera_flash_init(
+				flash_ctrl, flash_data);
+		if (rc < 0) {
+			pr_err("%s:%d camera_flash_init failed rc = %d",
+				__func__, __LINE__, rc);
+			return rc;
+		}
 	}
 
 	flash_ctrl->flash_state = MSM_CAMERA_FLASH_INIT;
@@ -1180,7 +1182,7 @@ static void __exit msm_flash_exit_module(void)
 static struct msm_flash_table msm_pmic_flash_table = {
 	.flash_driver_type = FLASH_DRIVER_PMIC,
 	.func_tbl = {
-		.camera_flash_init = msm_flash_off,
+		.camera_flash_init = NULL,
 		.camera_flash_release = msm_flash_release,
 		.camera_flash_off = msm_flash_off,
 		.camera_flash_low = msm_flash_low,
