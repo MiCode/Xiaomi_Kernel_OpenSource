@@ -39,6 +39,13 @@
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
+#undef CCI_DBG
+#ifdef MSM_CCI_DEBUG
+#define CCI_DBG(fmt, args...) pr_err(fmt, ##args)
+#else
+#define CCI_DBG(fmt, args...) pr_debug(fmt, ##args)
+#endif
+
 /* Max bytes that can be read per CCI read transaction */
 #define CCI_READ_MAX 12
 #define CCI_I2C_READ_MAX_RETRIES 3
@@ -48,10 +55,59 @@
 #define PRIORITY_QUEUE (QUEUE_0)
 #define SYNC_QUEUE (QUEUE_1)
 
-
 static struct v4l2_subdev *g_cci_subdev;
 
 static struct msm_cam_clk_info cci_clk_info[CCI_NUM_CLK_CASES][CCI_NUM_CLK_MAX];
+
+static void msm_cci_dump_registers(struct cci_device *cci_dev,
+	enum cci_i2c_master_t master, enum cci_i2c_queue_t queue)
+{
+	uint32_t read_val = 0;
+	uint32_t i = 0;
+	uint32_t reg_offset = 0;
+
+	/* CCI Top Registers */
+	CCI_DBG(" **** %s : %d CCI TOP Registers ****\n", __func__, __LINE__);
+	for (i = 0; i < DEBUG_TOP_REG_COUNT; i++) {
+		reg_offset = DEBUG_TOP_REG_START + i * 4;
+		read_val = msm_camera_io_r_mb(cci_dev->base + reg_offset);
+		CCI_DBG("%s : %d offset = 0x%X value = 0x%X\n",
+			__func__, __LINE__, reg_offset, read_val);
+	}
+
+	/* CCI Master registers */
+	CCI_DBG(" **** %s : %d CCI MASTER%d Registers ****\n",
+		__func__, __LINE__, master);
+	for (i = 0; i < DEBUG_MASTER_REG_COUNT; i++) {
+		if (i == 6)
+			continue;
+		reg_offset = DEBUG_MASTER_REG_START + master*0x100 + i * 4;
+		read_val = msm_camera_io_r_mb(cci_dev->base + reg_offset);
+		CCI_DBG("%s : %d offset = 0x%X value = 0x%X\n",
+			__func__, __LINE__, reg_offset, read_val);
+	}
+
+	/* CCI Master Queue registers */
+	CCI_DBG(" **** %s : %d CCI MASTER%d QUEUE%d Registers ****\n",
+		__func__, __LINE__, master, queue);
+	for (i = 0; i < DEBUG_MASTER_QUEUE_REG_COUNT; i++) {
+		reg_offset = DEBUG_MASTER_QUEUE_REG_START +  master*0x200 +
+			queue*0x100 + i * 4;
+		read_val = msm_camera_io_r_mb(cci_dev->base + reg_offset);
+		CCI_DBG("%s : %d offset = 0x%X value = 0x%X\n",
+			__func__, __LINE__, reg_offset, read_val);
+	}
+
+	/* CCI Interrupt registers */
+	CCI_DBG(" **** %s : %d CCI Interrupt Registers ****\n",
+		__func__, __LINE__);
+	for (i = 0; i < DEBUG_INTR_REG_COUNT; i++) {
+		reg_offset = DEBUG_INTR_REG_START + i * 4;
+		read_val = msm_camera_io_r_mb(cci_dev->base + reg_offset);
+		CCI_DBG("%s : %d offset = 0x%X value = 0x%X\n",
+			__func__, __LINE__, reg_offset, read_val);
+	}
+}
 
 static int32_t msm_cci_set_clk_param(struct cci_device *cci_dev,
 	struct msm_camera_cci_ctrl *c_ctrl)
@@ -235,6 +291,7 @@ static uint32_t msm_cci_wait(struct cci_device *cci_dev,
 		__func__, __LINE__);
 
 	if (rc <= 0) {
+		msm_cci_dump_registers(cci_dev, master, queue);
 		pr_err("%s: %d wait for queue: %d\n",
 			 __func__, __LINE__, queue);
 		if (rc == 0)
@@ -819,20 +876,20 @@ static int32_t msm_cci_i2c_read(struct v4l2_subdev *sd,
 	msm_camera_io_w_mb(val, cci_dev->base + CCI_QUEUE_START_ADDR);
 	CDBG("%s:%d E wait_for_completion_timeout\n", __func__,
 		__LINE__);
+
 	rc = wait_for_completion_timeout(&cci_dev->
 		cci_master_info[master].reset_complete, CCI_TIMEOUT);
 	if (rc <= 0) {
-		pr_err("%s: wait_for_completion_timeout %d\n",
-			 __func__, __LINE__);
+		msm_cci_dump_registers(cci_dev, master, queue);
 		if (rc == 0)
 			rc = -ETIMEDOUT;
+		pr_err("%s: %d wait_for_completion_timeout rc = %d\n",
+			 __func__, __LINE__, rc);
 		msm_cci_flush_queue(cci_dev, master);
 		goto ERROR;
 	} else {
 		rc = 0;
 	}
-	CDBG("%s:%d E wait_for_completion_timeout\n", __func__,
-		__LINE__);
 
 	read_words = msm_camera_io_r_mb(cci_dev->base +
 		CCI_I2C_M0_READ_BUF_LEVEL_ADDR + master * 0x100);

@@ -57,4 +57,13 @@
 #define CCI_IRQ_STATUS_0_I2C_M1_ERROR_BMSK                          0x60EE6000
 #define CCI_IRQ_STATUS_0_I2C_M0_RD_DONE_BMSK                               0x1
 #define CCI_IRQ_GLOBAL_CLEAR_CMD_ADDR                               0x00000c00
+
+#define DEBUG_TOP_REG_START                                                0x0
+#define DEBUG_TOP_REG_COUNT                                                 14
+#define DEBUG_MASTER_REG_START                                           0x100
+#define DEBUG_MASTER_REG_COUNT                                               8
+#define DEBUG_MASTER_QUEUE_REG_START                                     0x300
+#define DEBUG_MASTER_QUEUE_REG_COUNT                                         6
+#define DEBUG_INTR_REG_START                                             0xC00
+#define DEBUG_INTR_REG_COUNT                                                 7
 #endif /* __MSM_CAM_CCI_HWREG__ */
