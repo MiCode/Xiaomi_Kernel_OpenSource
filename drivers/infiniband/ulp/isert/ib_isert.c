@@ -61,6 +61,8 @@ static int
 isert_rdma_accept(struct isert_conn *isert_conn);
 struct rdma_cm_id *isert_setup_id(struct isert_np *isert_np);
 
+static void isert_release_work(struct work_struct *work);
+
 static inline bool
 isert_prot_cmd(struct isert_conn *conn, struct se_cmd *cmd)
 {
@@ -624,6 +626,7 @@ isert_connect_request(struct rdma_cm_id *cma_id, struct rdma_cm_event *event)
 	mutex_init(&isert_conn->conn_mutex);
 	spin_lock_init(&isert_conn->conn_lock);
 	INIT_LIST_HEAD(&isert_conn->conn_fr_pool);
+	INIT_WORK(&isert_conn->release_work, isert_release_work);
 
 	isert_conn->conn_cm_id = cma_id;
 
@@ -891,6 +894,7 @@ isert_disconnected_handler(struct rdma_cm_id *cma_id,
 {
 	struct isert_np *isert_np = cma_id->context;
 	struct isert_conn *isert_conn;
+	bool terminating = false;
 
 	if (isert_np->np_cm_id == cma_id)
 		return isert_np_cma_handler(cma_id->context, event);
@@ -898,12 +902,25 @@ isert_disconnected_handler(struct rdma_cm_id *cma_id,
 	isert_conn = cma_id->qp->qp_context;
 
 	mutex_lock(&isert_conn->conn_mutex);
+	terminating = (isert_conn->state == ISER_CONN_TERMINATING);
 	isert_conn_terminate(isert_conn);
 	mutex_unlock(&isert_conn->conn_mutex);
 
 	pr_info("conn %p completing conn_wait\n", isert_conn);
 	complete(&isert_conn->conn_wait);
 
+	if (terminating)
+		goto out;
+
+	mutex_lock(&isert_np->np_accept_mutex);
+	if (!list_empty(&isert_conn->conn_accept_node)) {
+		list_del_init(&isert_conn->conn_accept_node);
+		isert_put_conn(isert_conn);
+		queue_work(isert_release_wq, &isert_conn->release_work);
+	}
+	mutex_unlock(&isert_np->np_accept_mutex);
+
+out:
 	return 0;
 }
 
@@ -2485,7 +2502,6 @@ isert_build_rdma_wr(struct isert_conn *isert_conn, struct isert_cmd *isert_cmd,
 	page_off = offset % PAGE_SIZE;
 
 	send_wr->sg_list = ib_sge;
-	send_wr->num_sge = sg_nents;
 	send_wr->wr_id = (unsigned long)&isert_cmd->tx_desc;
 	/*
 	 * Perform mapping of TCM scatterlist memory ib_sge dma_addr.
@@ -2504,14 +2520,17 @@ isert_build_rdma_wr(struct isert_conn *isert_conn, struct isert_cmd *isert_cmd,
 			 ib_sge->addr, ib_sge->length, ib_sge->lkey);
 		page_off = 0;
 		data_left -= ib_sge->length;
+		if (!data_left)
+			break;
 		ib_sge++;
 		pr_debug("Incrementing ib_sge pointer to %p\n", ib_sge);
 	}
 
+	send_wr->num_sge = ++i;
 	pr_debug("Set outgoing sg_list: %p num_sg: %u from TCM SGLs\n",
 		 send_wr->sg_list, send_wr->num_sge);
 
-	return sg_nents;
+	return send_wr->num_sge;
 }
 
 static int
@@ -3417,7 +3436,6 @@ static void isert_wait_conn(struct iscsi_conn *conn)
 
 	wait_for_completion(&isert_conn->conn_wait_comp_err);
 
-	INIT_WORK(&isert_conn->release_work, isert_release_work);
 	queue_work(isert_release_wq, &isert_conn->release_work);
 }
 
