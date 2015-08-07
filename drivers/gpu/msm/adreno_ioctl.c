@@ -87,8 +87,7 @@ static long adreno_ioctl_preemption_counters_query(
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(dev_priv->device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_preemption_counters_query *read = data;
-	int size_level = A5XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE_IN_DWORDS *
-					 sizeof(unsigned int);
+	int size_level = A5XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE;
 	int levels_to_copy;
 
 	if (!adreno_is_a5xx(adreno_dev) ||

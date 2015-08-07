@@ -468,8 +468,7 @@ static size_t snapshot_capture_mem_list(struct kgsl_device *device,
 	if (num_mem == 0)
 		goto out;
 
-	if (remain < ((num_mem * 3 * sizeof(unsigned int)) +
-			sizeof(*header))) {
+	if (remain < ((num_mem * sizeof(struct mem_entry)) + sizeof(*header))) {
 		KGSL_CORE_ERR("snapshot: Not enough memory for the mem list");
 		goto out;
 	}
@@ -483,7 +482,7 @@ static size_t snapshot_capture_mem_list(struct kgsl_device *device,
 
 	idr_for_each(&process->mem_idr, _save_mem_entries, data);
 
-	ret = sizeof(*header) + (num_mem * 3 * sizeof(unsigned int));
+	ret = sizeof(*header) + (num_mem * sizeof(struct mem_entry));
 out:
 	spin_unlock(&process->mem_lock);
 	return ret;
