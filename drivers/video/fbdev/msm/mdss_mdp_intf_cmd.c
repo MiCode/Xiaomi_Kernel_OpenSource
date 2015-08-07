@@ -1510,11 +1510,40 @@ static void mdss_mdp_cmd_set_sync_ctx(
 	}
 }
 
+/* only master ctl is valid and pingpong split with DSC is pending */
+static void mdss_mdp_cmd_dsc_reconfig(struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_panel_info *pinfo, *spinfo;
+	struct mdss_mdp_ctl *sctl = NULL;
+	bool changed = false;
+
+	if (!ctl || !ctl->is_master)
+		return;
+
+	pinfo = &ctl->panel_data->panel_info;
+	if (pinfo->compression_mode != COMPRESSION_DSC)
+		return;
+
+	sctl = mdss_mdp_get_split_ctl(ctl);
+
+	changed = ctl->mixer_left->roi_changed;
+	if (ctl->mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY)
+		changed |= ctl->mixer_right->roi_changed;
+
+	if (changed)
+		mdss_mdp_ctl_dsc_setup(ctl, pinfo);
+
+	if (sctl && sctl->mixer_left->roi_changed) {
+		spinfo = &sctl->panel_data->panel_info;
+		mdss_mdp_ctl_dsc_setup(sctl, spinfo);
+	}
+}
+
 static int mdss_mdp_cmd_set_partial_roi(struct mdss_mdp_ctl *ctl)
 {
-	int rc = 0;
+	int rc = -EINVAL;
 
-	if (!ctl->panel_data->panel_info.partial_update_supported)
+	if (!ctl->panel_data->panel_info.partial_update_enabled)
 		return rc;
 
 	/* set panel col and page addr */
@@ -1525,9 +1554,9 @@ static int mdss_mdp_cmd_set_partial_roi(struct mdss_mdp_ctl *ctl)
 
 static int mdss_mdp_cmd_set_stream_size(struct mdss_mdp_ctl *ctl)
 {
-	int rc = 0;
+	int rc = -EINVAL;
 
-	if (!ctl->panel_data->panel_info.partial_update_supported)
+	if (!ctl->panel_data->panel_info.partial_update_enabled)
 		return rc;
 
 	/* set dsi controller stream size */
@@ -1759,6 +1788,8 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 	 */
 	mdss_mdp_resource_control(ctl, MDP_RSRC_CTL_EVENT_KICKOFF);
 
+	mdss_mdp_cmd_dsc_reconfig(ctl);
+
 	mdss_mdp_cmd_set_partial_roi(ctl);
 
 	/*
@@ -1814,11 +1845,21 @@ int mdss_mdp_cmd_restore(struct mdss_mdp_ctl *ctl, bool locked)
 {
 	struct mdss_mdp_cmd_ctx *ctx, *sctx = NULL;
 
+	if (!ctl)
+		return -EINVAL;
+
 	pr_debug("%s: called for ctl%d\n", __func__, ctl->num);
 
 	ctx = (struct mdss_mdp_cmd_ctx *)ctl->intf_ctx[MASTER_CTX];
-	if (is_pingpong_split(ctl->mfd))
+	if (is_pingpong_split(ctl->mfd)) {
 		sctx = (struct mdss_mdp_cmd_ctx *)ctl->intf_ctx[SLAVE_CTX];
+	} else if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
+		struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
+
+		if (sctl)
+			sctx = (struct mdss_mdp_cmd_ctx *)
+					sctl->intf_ctx[MASTER_CTX];
+	}
 
 	if (mdss_mdp_cmd_tearcheck_setup(ctx, locked)) {
 		pr_warn("%s: ctx%d tearcheck setup failed\n", __func__,
@@ -2308,6 +2349,8 @@ void mdss_mdp_switch_roi_reset(struct mdss_mdp_ctl *ctl)
 	ctl->panel_data->panel_info.roi = ctl->roi;
 	if (sctl && sctl->panel_data)
 		sctl->panel_data->panel_info.roi = sctl->roi;
+
+	mdss_mdp_cmd_dsc_reconfig(ctl);
 
 	mdss_mdp_cmd_set_partial_roi(ctl);
 }

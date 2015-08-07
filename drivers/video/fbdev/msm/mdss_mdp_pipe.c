@@ -1812,36 +1812,47 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 	if (!pipe->mixer_left->ctl->is_video_mode &&
 	    (pipe->mixer_left->type != MDSS_MDP_MIXER_TYPE_WRITEBACK)) {
 
-		struct mdss_rect ctl_roi = pipe->mixer_left->ctl->roi;
+		struct mdss_rect roi = pipe->mixer_left->roi;
 		bool is_right_mixer = pipe->mixer_left->is_right_mixer;
-		/* main_ctl can be NULL, check validity before use */
-		struct mdss_mdp_ctl *main_ctl =
-			mdss_mdp_get_main_ctl(pipe->mixer_left->ctl);
+		struct mdss_mdp_ctl *main_ctl;
 
-		/* adjust roi or dst_x before crop is applied */
-		if (pipe->src_split_req) {
-			int r_roi_w = ctl_roi.w;
-			struct mdss_mdp_ctl *sctl;
+		if (pipe->mixer_left->ctl->is_master)
+			main_ctl = pipe->mixer_left->ctl;
+		else
+			main_ctl = mdss_mdp_get_main_ctl(pipe->mixer_left->ctl);
 
-			if (pipe->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
-				sctl = mdss_mdp_get_split_ctl(
-						pipe->mixer_left->ctl);
-				if (sctl)
-					r_roi_w = sctl->roi.w;
-			}
-
-			ctl_roi.w += r_roi_w;
-		} else if (mdata->has_src_split && is_right_mixer && main_ctl) {
-			dst.x -= main_ctl->mixer_left->width;
+		if (!main_ctl) {
+			pr_err("Error: couldn't find main_ctl for pipe%d\n",
+				pipe->num);
+			return -EINVAL;
 		}
 
-		mdss_mdp_crop_rect(&src, &dst, &ctl_roi);
+		if (pipe->src_split_req && main_ctl->mixer_right->valid_roi) {
+			/*
+			 * pipe is staged on both mixers, expand roi to span
+			 * both mixers before cropping pipe's dimensions.
+			 */
+			roi.w += main_ctl->mixer_right->roi.w;
+		} else if (mdata->has_src_split && is_right_mixer) {
+			/*
+			 * pipe is only on right mixer but since source-split
+			 * is enabled, its dst_x is full panel coordinate
+			 * aligned where as ROI is mixer coordinate aligned.
+			 * Modify dst_x before applying ROI crop.
+			 */
+			dst.x -= left_lm_w_from_mfd(pipe->mfd);
+		}
 
-		/* re-adjust dst_x */
-		if (mdata->has_src_split && is_right_mixer && main_ctl) {
-			/* update valid on left + right */
-			if (main_ctl->valid_roi)
-				dst.x += main_ctl->roi.w;
+		mdss_mdp_crop_rect(&src, &dst, &roi);
+
+		if (mdata->has_src_split && is_right_mixer) {
+			/*
+			 * re-adjust dst_x only if both mixers are active,
+			 * meaning right mixer will be working in source
+			 * split mode.
+			 */
+			if (mdss_mdp_is_both_lm_valid(main_ctl))
+				dst.x += main_ctl->mixer_left->roi.w;
 		}
 
 		if (pipe->flags & MDP_FLIP_LR) {
@@ -2150,6 +2161,7 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 	u32 params_changed;
 	u32 opmode = 0;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	bool roi_changed = false;
 
 	if (!pipe) {
 		pr_err("pipe not setup properly for queue\n");
@@ -2173,6 +2185,15 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	ctl = pipe->mixer_left->ctl;
+	roi_changed = pipe->mixer_left->roi_changed;
+
+	/*
+	 * if pipe is staged on 2 mixers then it is possible that only
+	 * right mixer roi has changed.
+	 */
+	if (pipe->mixer_right)
+		roi_changed |= pipe->mixer_right->roi_changed;
+
 	/*
 	 * Reprogram the pipe when there is no dedicated wfd blk and
 	 * virtual mixer is allocated for the DMA pipe during concurrent
@@ -2181,7 +2202,7 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 	params_changed = (pipe->params_changed) ||
 		((pipe->type == MDSS_MDP_PIPE_TYPE_DMA) &&
 		 (pipe->mixer_left->type == MDSS_MDP_MIXER_TYPE_WRITEBACK) &&
-		 (ctl->mdata->mixer_switched)) || ctl->roi_changed;
+		 (ctl->mdata->mixer_switched)) || roi_changed;
 
 	if (params_changed) {
 		bool is_realtime = !((ctl->intf_num == MDSS_MDP_NO_INTF)

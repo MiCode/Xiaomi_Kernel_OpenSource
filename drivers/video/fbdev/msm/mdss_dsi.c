@@ -1952,9 +1952,14 @@ static int mdss_dsi_set_stream_size(struct mdss_panel_data *pdata)
 
 	/* DSI_COMMAND_MODE_MDP_STREAM_CTRL */
 	if (dsc) {
-		stream_ctrl = ((dsc->bytes_in_slice + 1) << 16) |
-			(pdata->panel_info.mipi.vc << 8) | DTYPE_DCS_LWRITE;
-		stream_total = roi->h << 16 | dsc->pclk_per_line;
+		u16 byte_num =  dsc->bytes_per_pkt;
+
+		if (pinfo->mipi.insert_dcs_cmd)
+			byte_num++;
+
+		stream_ctrl = (byte_num << 16) | (pinfo->mipi.vc << 8) |
+				DTYPE_DCS_LWRITE;
+		stream_total = dsc->pic_height << 16 | dsc->pclk_per_line;
 	} else  {
 
 		stream_ctrl = (((roi->w * 3) + 1) << 16) |
@@ -1986,6 +1991,9 @@ static int mdss_dsi_set_stream_size(struct mdss_panel_data *pdata)
 		idle |= BIT(12);	/* enable */
 
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x194, idle);
+
+	if (dsc)
+		mdss_dsi_dsc_config(ctrl_pdata, dsc);
 
 	return 0;
 }
@@ -2058,11 +2066,13 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	int power_state;
 	u32 mode;
+	struct mdss_panel_info *pinfo;
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
 	}
+	pinfo = &pdata->panel_info;
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 	pr_debug("%s+: ctrl=%d event=%d\n", __func__, ctrl_pdata->ndx, event);
@@ -2134,6 +2144,10 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 			/* Panel is Enabled in Bootloader */
 			rc = mdss_dsi_blank(pdata, MDSS_PANEL_POWER_OFF);
 		}
+		break;
+	case MDSS_EVENT_DSC_PPS_SEND:
+		if (pinfo->compression_mode == COMPRESSION_DSC)
+			mdss_dsi_panel_dsc_pps_send(ctrl_pdata, pinfo);
 		break;
 	case MDSS_EVENT_ENABLE_PARTIAL_ROI:
 		rc = mdss_dsi_ctl_partial_roi(pdata);
