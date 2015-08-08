@@ -470,6 +470,24 @@
 			clocks = <&clock_rpm clk_bb_clk2_pin>;
 			clock-names = "ref_clk";
 		};
+
+		nq@2b {
+			compatible = "qcom,nq-nci";
+			reg = <0x2b>;
+			qcom,nq-irq = <&msm_gpio 29 0x00>;
+			qcom,nq-ven = <&msm_gpio 30 0x00>;
+			qcom,nq-clkreq = <&pm8994_gpios 10 0x00>;
+			qcom,clk-src = "BBCLK2";
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <29 0>;
+			interrupt-names = "nfc_irq";
+			pinctrl-names = "nfc_active","nfc_suspend";
+			pinctrl-0 = <&nfc_int_active &nfc_disable_active>;
+			pinctrl-1 = <&nfc_int_suspend &nfc_disable_suspend>;
+			qcom,nq-firm = <&pm8994_gpios 7 0>;
+			clocks = <&clock_rpm clk_bb_clk2_pin>;
+			clock-names = "ref_clk";
+		};
 	};
 
 	gpio_keys {
