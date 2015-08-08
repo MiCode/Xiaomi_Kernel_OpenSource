@@ -415,7 +415,7 @@ static int capture_default_hw_params(struct gaudio_snd_dev *snd)
 	return 0;
 }
 
-static int gaudio_open_streams(struct gaudio *the_card)
+static int gaudio_open_playback_streams(struct gaudio *the_card)
 {
 	struct gaudio_snd_dev *snd;
 	int res = 0;
@@ -437,6 +437,21 @@ static int gaudio_open_streams(struct gaudio *the_card)
 
 	pr_debug("Initialized playback params");
 
+	return 0;
+}
+
+static int gaudio_open_capture_streams(struct gaudio *the_card)
+{
+	struct gaudio_snd_dev *snd;
+	int res = 0;
+
+	if (!the_card) {
+		pr_err("%s: Card is NULL", __func__);
+		return -ENODEV;
+	}
+
+	pr_debug("Initialize hw params");
+
 	/* Open PCM capture device and setup substream */
 	snd = &the_card->capture;
 	res = capture_prepare_params(snd);
@@ -452,7 +467,8 @@ static int gaudio_open_streams(struct gaudio *the_card)
 
 void u_audio_clear(struct gaudio *card)
 {
-	card->audio_reinit = false;
+	card->audio_reinit_playback = false;
+	card->audio_reinit_capture = false;
 }
 
 /**
@@ -473,13 +489,13 @@ size_t u_audio_playback(struct gaudio *card, void *buf, size_t count)
 		return 0;
 	}
 
-	if (!card->audio_reinit) {
-		err = gaudio_open_streams(card);
+	if (!card->audio_reinit_playback) {
+		err = gaudio_open_playback_streams(card);
 		if (err) {
 			pr_err("Failed to init audio streams");
 			return 0;
 		}
-		card->audio_reinit = 1;
+		card->audio_reinit_playback = 1;
 	}
 
 try_again:
@@ -530,13 +546,13 @@ size_t u_audio_capture(struct gaudio *card, void *buf, size_t count)
 	struct snd_pcm_substream *substream = snd->substream;
 	struct snd_pcm_runtime   *runtime = substream->runtime;
 
-	if (!card->audio_reinit) {
-		err = gaudio_open_streams(card);
+	if (!card->audio_reinit_capture) {
+		err = gaudio_open_capture_streams(card);
 		if (err) {
 			pr_err("Failed to init audio streams: err %d", err);
 			return 0;
 		}
-		card->audio_reinit = 1;
+		card->audio_reinit_capture = 1;
 	}
 
 try_again:
