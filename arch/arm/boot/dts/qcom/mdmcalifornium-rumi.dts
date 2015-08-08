@@ -27,3 +27,25 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart3_console_active>;
 };
+
+&clock_gcc {
+	compatible = "qcom,dummycc";
+	#clock-cells = <1>;
+};
+
+&clock_cpu {
+	compatible = "qcom,dummycc";
+	#clock-cells = <1>;
+};
+
+&clock_debug {
+	status = "disabled";
+};
+
+&gdsc_usb30 {
+	compatible = "regulator-fixed";
+};
+
+&gdsc_pcie {
+	compatible = "regulator-fixed";
+};
