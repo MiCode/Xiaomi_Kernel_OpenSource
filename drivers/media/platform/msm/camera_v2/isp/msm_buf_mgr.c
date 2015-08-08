@@ -140,7 +140,7 @@ static void msm_isp_copy_planes_from_v4l2_buffer(
 	}
 }
 
-static int msm_isp_prepare_isp_buf(struct msm_isp_buf_mgr *buf_mgr,
+static int msm_isp_prepare_v4l2_buf(struct msm_isp_buf_mgr *buf_mgr,
 	struct msm_isp_buffer *buf_info,
 	struct msm_isp_qbuf_buffer *qbuf_buf,
 	uint32_t stream_id)
@@ -161,7 +161,7 @@ static int msm_isp_prepare_isp_buf(struct msm_isp_buf_mgr *buf_mgr,
 		mapped_info = &buf_info->mapped_info[i];
 		mapped_info->buf_fd = qbuf_buf->planes[i].addr;
 		ret = cam_smmu_get_phy_addr(iommu_hdl,
-					qbuf_buf->planes[i].addr,
+					mapped_info->buf_fd,
 					CAM_SMMU_MAP_RW,
 					&(mapped_info->paddr),
 					&(mapped_info->len));
@@ -207,7 +207,21 @@ static void msm_isp_unprepare_v4l2_buf(
 	int i;
 	struct msm_isp_buffer_mapped_info *mapped_info;
 	struct buffer_cmd *buf_pending = NULL;
+	struct msm_isp_bufq *bufq = NULL;
 	int iommu_hdl;
+
+	if (!buf_mgr || !buf_info) {
+		pr_err("%s: NULL ptr %p %p\n", __func__,
+			buf_mgr, buf_info);
+		return;
+	}
+
+	bufq = msm_isp_get_bufq(buf_mgr, buf_info->bufq_handle);
+	if (!bufq) {
+		pr_err("%s: Invalid bufq, stream id %x\n",
+			__func__, stream_id);
+		return;
+	}
 
 	if (stream_id & ISP_STATS_STREAM_BIT)
 		iommu_hdl = buf_mgr->stats_iommu_hdl;
@@ -217,18 +231,21 @@ static void msm_isp_unprepare_v4l2_buf(
 	for (i = 0; i < buf_info->num_planes; i++) {
 		mapped_info = &buf_info->mapped_info[i];
 
+		cam_smmu_put_phy_addr(iommu_hdl, mapped_info->buf_fd);
+
+		/*protect buffer_q list access*/
+		spin_lock(&bufq->bufq_lock);
 		list_for_each_entry(buf_pending, &buf_mgr->buffer_q, list) {
 			if (!buf_pending)
 				break;
 
 			if (buf_pending->mapped_info == mapped_info) {
-				cam_smmu_put_phy_addr(iommu_hdl,
-							mapped_info->buf_fd);
 				list_del(&buf_pending->list);
 				kfree(buf_pending);
 				break;
 			}
 		}
+		spin_unlock(&bufq->bufq_lock);
 	}
 	return;
 }
@@ -279,7 +296,7 @@ static int msm_isp_buf_prepare(struct msm_isp_buf_mgr *buf_mgr,
 		buf = info->buffer;
 	}
 
-	rc = msm_isp_prepare_isp_buf(buf_mgr, buf_info, &buf, bufq->stream_id);
+	rc = msm_isp_prepare_v4l2_buf(buf_mgr, buf_info, &buf, bufq->stream_id);
 	if (rc < 0) {
 		pr_err_ratelimited("%s: Prepare buffer error\n", __func__);
 		return rc;
