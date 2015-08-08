@@ -14,7 +14,7 @@
 	dsi_truly_wvga_cmd: qcom,mdss_dsi_truly_wvga_cmd {
 		qcom,mdss-dsi-panel-name = "Truly WVGA command mode dsi panel";
 		qcom,mdss-dsi-panel-type = "dsi_cmd_mode";
-		qcom,mdss-dsi-panel-mode-gpio-state = "low";
+		qcom,mdss-dsi-mode-sel-gpio-state = "low";
 		qcom,mdss-dsi-panel-framerate = <60>;
 		qcom,mdss-dsi-virtual-channel-id = <0>;
 		qcom,mdss-dsi-stream = <0>;
