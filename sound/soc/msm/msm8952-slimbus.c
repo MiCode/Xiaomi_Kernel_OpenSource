@@ -25,6 +25,7 @@
 #include <sound/q6afe-v2.h>
 #include <sound/q6core.h>
 #include <sound/pcm_params.h>
+#include <sound/info.h>
 #include <soc/qcom/socinfo.h>
 #include <linux/input.h>
 #include "qdsp6v2/msm-pcm-routing-v2.h"
@@ -286,6 +287,7 @@ struct msm8952_asoc_mach_data {
 	struct snd_soc_codec *codec;
 	struct msm8952_codec msm8952_codec_fn;
 	struct ext_intf_cfg clk_ref;
+	struct snd_info_entry *codec_root;
 	void __iomem *vaddr_gpio_mux_spkr_ctl;
 	void __iomem *vaddr_gpio_mux_mic_ctl;
 	void __iomem *vaddr_gpio_mux_pcm_ctl;
@@ -309,6 +311,8 @@ int msm895x_wsa881x_init(struct snd_soc_dapm_context *dapm)
 	u8 spkright_ports[WSA881X_MAX_SWR_PORTS] = {103, 104, 105, 107};
 	unsigned int ch_rate[WSA881X_MAX_SWR_PORTS] = {2400, 600, 300, 1200};
 	unsigned int ch_mask[WSA881X_MAX_SWR_PORTS] = {0x1, 0xF, 0x3, 0x3};
+	struct snd_soc_card *card = dapm->codec->card;
+	struct msm8952_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 
 	if (!dapm->codec->name) {
 		pr_err("%s codec_name is NULL\n", __func__);
@@ -329,6 +333,10 @@ int msm895x_wsa881x_init(struct snd_soc_dapm_context *dapm)
 			dapm->codec->name);
 		return -EINVAL;
 	}
+	pdata = snd_soc_card_get_drvdata(card);
+	if (pdata && pdata->codec_root)
+		wsa881x_codec_info_create_codec_entry(pdata->codec_root,
+						      dapm->codec);
 	return 0;
 }
 
@@ -1786,12 +1794,13 @@ static int msm8952_codec_event_cb(struct snd_soc_codec *codec,
 int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int err;
+	struct snd_card *card;
+	struct snd_info_entry *entry;
+	struct msm8952_asoc_mach_data *pdata;
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
-	struct snd_soc_card *card = codec->card;
-	struct msm8952_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 
 	/* Codec SLIMBUS configuration
 	 * RX1, RX2, RX3, RX4, RX5, RX6, RX7, RX8, RX9, RX10, RX11, RX12, RX13
@@ -1805,6 +1814,8 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 					     140, 141, 142, 143};
 
 	pr_debug("%s: dev_name%s\n", __func__, dev_name(cpu_dai->dev));
+
+	pdata = snd_soc_card_get_drvdata(codec->card);
 
 	rtd->pmdown_time = 0;
 
@@ -1951,6 +1962,22 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		tomtom_event_register(msm8952_codec_event_cb, rtd->codec);
 
 	codec_reg_done = true;
+
+	if (!strcmp(dev_name(codec_dai->dev), "tasha_codec")) {
+		card = rtd->card->snd_card;
+		entry = snd_register_module_info(card->module,
+						 "codecs",
+						 card->proc_root);
+		if (!entry) {
+			pr_debug("%s: Cannot create codecs module entry\n",
+				 __func__);
+			err = 0;
+			goto out;
+		}
+		pdata->codec_root = entry;
+		tasha_codec_info_create_codec_entry(pdata->codec_root,
+						    codec);
+	}
 	return 0;
 out:
 	return err;
