@@ -1103,22 +1103,27 @@ static int usb_bam_disconnect_ipa_cons(
 	struct usb_bam_pipe_connect *pipe_connect;
 	struct sps_pipe *pipe;
 	u32 timeout = 10, pipe_empty;
+	struct usb_bam_sps_type usb_bam_sps = ctx.usb_bam_sps;
+	struct sps_connect *sps_connection;
+	bool inject_zlt = true;
 
 	idx = ipa_params->src_idx;
 	pipe = ctx.usb_bam_sps.sps_pipes[idx];
 	pipe_connect = &usb_bam_connections[idx];
+	sps_connection = &usb_bam_sps.sps_connections[idx];
 
 	pipe_connect->activity_notify = NULL;
 	pipe_connect->inactivity_notify = NULL;
 	pipe_connect->priv = NULL;
 
+retry:
 	/* Make sure pipe is empty before disconnecting it */
 	while (1) {
 		ret = sps_is_pipe_empty(pipe, &pipe_empty);
 		if (ret) {
 			pr_err("%s: sps_is_pipe_empty failed with %d\n",
 			       __func__, ret);
-			break;
+			return ret;
 		}
 		if (pipe_empty || !--timeout)
 			break;
@@ -1126,9 +1131,22 @@ static int usb_bam_disconnect_ipa_cons(
 		/* Check again */
 		usleep_range(1000, 2000);
 	}
-	if (!pipe_empty)
+	if (!pipe_empty) {
+		if (inject_zlt) {
+			pr_debug("%s: Inject ZLT\n", __func__);
+			inject_zlt = false;
+			sps_pipe_inject_zlt(sps_connection->destination,
+					sps_connection->dest_pipe_index);
+			timeout = 10;
+			goto retry;
+		}
 		pr_err("%s: src pipe(USB) not empty, wait timed out!\n",
-				__func__);
+								__func__);
+		sps_get_bam_debug_info(ctx.h_bam[pipe_connect->bam_type], 93,
+				(SPS_BAM_PIPE(0) | SPS_BAM_PIPE(1)), 0, 2);
+		ipa_bam_reg_dump();
+		panic("%s:SPS pipe not empty for USB->IPA\n", __func__);
+	}
 
 	/* close USB -> IPA pipe */
 	if (pipe_connect->pipe_type == USB_BAM_PIPE_BAM2BAM) {
