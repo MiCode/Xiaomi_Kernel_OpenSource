@@ -154,6 +154,8 @@ struct msm_isp_buf_ops {
 	int (*update_put_buf_cnt)(struct msm_isp_buf_mgr *buf_mgr,
 		uint32_t bufq_handle, uint32_t buf_index,
 		uint32_t frame_id);
+	int (*reset_put_buf_cnt)(struct msm_isp_buf_mgr *buf_mgr,
+		uint32_t bufq_handle, uint32_t buf_index);
 };
 
 struct msm_isp_buf_mgr {

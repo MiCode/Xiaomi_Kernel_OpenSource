@@ -614,6 +614,31 @@ static int msm_isp_put_buf_unsafe(struct msm_isp_buf_mgr *buf_mgr,
 	return rc;
 }
 
+static int msm_isp_reset_put_buf_cnt(struct msm_isp_buf_mgr *buf_mgr,
+	uint32_t bufq_handle, uint32_t buf_index)
+{
+	struct msm_isp_bufq *bufq = NULL;
+	struct msm_isp_buffer *buf_info = NULL;
+	unsigned long flags;
+
+	bufq = msm_isp_get_bufq(buf_mgr, bufq_handle);
+	if (!bufq) {
+		pr_err("Invalid bufq\n");
+		return -EINVAL;
+	}
+
+	buf_info = msm_isp_get_buf_ptr(buf_mgr, bufq_handle, buf_index);
+	if (!buf_info) {
+		pr_err("%s: buf not found\n", __func__);
+		return -EINVAL;
+	}
+	spin_lock_irqsave(&bufq->bufq_lock, flags);
+	if (bufq->buf_type == ISP_SHARE_BUF)
+		buf_info->buf_put_count = 0;
+	spin_unlock_irqrestore(&bufq->bufq_lock, flags);
+	return 0;
+}
+
 static int msm_isp_update_put_buf_cnt(struct msm_isp_buf_mgr *buf_mgr,
 	uint32_t bufq_handle, uint32_t buf_index, uint32_t frame_id)
 {
@@ -791,6 +816,7 @@ static int msm_isp_buf_divert(struct msm_isp_buf_mgr *buf_mgr,
 		buf_info->buf_put_count++;
 		if (buf_info->buf_put_count != ISP_SHARE_BUF_CLIENT) {
 			rc = buf_info->buf_put_count;
+
 			spin_unlock_irqrestore(&bufq->bufq_lock, flags);
 			return rc;
 		}
@@ -1249,6 +1275,7 @@ static struct msm_isp_buf_ops isp_buf_ops = {
 	.buf_mgr_debug = msm_isp_buf_mgr_debug,
 	.get_bufq = msm_isp_get_bufq,
 	.update_put_buf_cnt = msm_isp_update_put_buf_cnt,
+	.reset_put_buf_cnt = msm_isp_reset_put_buf_cnt,
 };
 
 int msm_isp_create_isp_buf_mgr(
