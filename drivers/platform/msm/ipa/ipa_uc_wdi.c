@@ -491,7 +491,7 @@ static int ipa_create_uc_smmu_mapping_pa(phys_addr_t pa, size_t len,
 			true_len,
 			device ? (prot | IOMMU_DEVICE) : prot);
 	if (ret) {
-		IPAERR("iommu map failed for pa=%pa len=%lu\n", &pa, true_len);
+		IPAERR("iommu map failed for pa=%pa len=%zu\n", &pa, true_len);
 		return -EINVAL;
 	}
 
@@ -526,7 +526,7 @@ static int ipa_create_uc_smmu_mapping_sgt(struct sg_table *sgt,
 
 		ret = iommu_map(cb->mapping->domain, va, phys, len, prot);
 		if (ret) {
-			IPAERR("iommu map failed for pa=%pa len=%lu\n",
+			IPAERR("iommu map failed for pa=%pa len=%zu\n",
 					&phys, len);
 			goto bad_mapping;
 		}
