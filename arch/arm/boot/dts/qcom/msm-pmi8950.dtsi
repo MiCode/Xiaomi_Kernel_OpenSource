@@ -519,7 +519,7 @@
 			qcom,cons-sync-write-delay-us = <1000>;
 		};
 
-		qcom,leds@d300 {
+		flash_led: qcom,leds@d300 {
 			compatible = "qcom,qpnp-flash-led";
 			status = "okay";
 			reg = <0xd300 0x100>;
@@ -540,7 +540,6 @@
 			qcom,vph-pwr-droop-debounce-time = <10>;
 			qcom,headroom-sense-ch0-enabled;
 			qcom,headroom-sense-ch1-enabled;
-			qcom,otst2-module-enabled;
 			qcom,duration = <1280>;
 
 			pmi8950_flash0: qcom,flash_0 {

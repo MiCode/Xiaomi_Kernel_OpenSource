@@ -319,6 +319,7 @@
 			pinctrl-names = "flash_led_enable","flash_led_disable";
 			pinctrl-0 = <&flash_led_enable>;
 			pinctrl-1 = <&flash_led_disable>;
+			qcom,follow-otst2-rb-disabled;
 		};
 	};
 };
