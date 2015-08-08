@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -190,6 +190,13 @@ void mdss_mdp_release_splash_pipe(struct msm_fb_data_type *mfd)
 	if (sinfo->pipe_ndx[1] != INVALID_PIPE_INDEX)
 		mdss_mdp_overlay_release(mfd, sinfo->pipe_ndx[1]);
 	sinfo->splash_pipe_allocated = false;
+
+	/*
+	 * Once the splash pipe is released, reset the splash flag which
+	 * is being stored in var.reserved[3].
+	 */
+	mfd->fbi->var.reserved[3] = mfd->panel_info->cont_splash_enabled |
+					mfd->splash_info.splash_pipe_allocated;
 }
 
 /*
@@ -265,6 +272,13 @@ int mdss_mdp_splash_cleanup(struct msm_fb_data_type *mfd,
 	}
 
 	mdss_mdp_ctl_splash_finish(ctl, mdp5_data->handoff);
+
+	/*
+	 * Once the splash cleanup is done, reset the splash flag which
+	 * is being stored in var.reserved[3].
+	 */
+	mfd->fbi->var.reserved[3] = mfd->panel_info->cont_splash_enabled |
+					mfd->splash_info.splash_pipe_allocated;
 
 	if (mdp5_data->splash_mem_addr) {
 		/* Give back the reserved memory to the system */
