@@ -2730,6 +2730,14 @@
 		qcom,qsee-reentrancy-support = <2>;
 	};
 
+	qcom,qbt1000 {
+		compatible = "qcom,qbt1000";
+		clock-names = "spi_clk", "ahb_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_qup5_spi_apps_clk>,
+			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		clock-frequency = <15000000>;
+	};
+
 	qcom,sensor-information {
 		compatible = "qcom,sensor-information";
 		sensor_information0: qcom,sensor-information-0 {
