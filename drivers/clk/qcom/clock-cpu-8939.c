@@ -505,6 +505,11 @@ arch_initcall(clock_a53_init);
 
 static int __init cpu_clock_init_vote(void)
 {
+	struct device_node *ofnode = of_find_compatible_node(NULL, NULL,
+			"qcom,cpu-clock-8939");
+	if (!ofnode)
+		return 0;
+
 	if (of_property_read_bool(cpu_clock_8939_dev->dev.of_node,
 			"qcom,cpu-pcnoc-vote"))
 		return cpu_pcnoc_vote();
