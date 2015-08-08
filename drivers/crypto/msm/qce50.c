@@ -2023,8 +2023,9 @@ static int _qce_unlock_other_pipes(struct qce_device *pce_dev, int req_info)
 		return rc;
 
 	rc = sps_transfer_one(pce_dev->ce_bam_info.consumer.pipe,
-	GET_PHYS_ADDR(pce_sps_data->cmdlistptr.unlock_all_pipes.cmdlist),
-	0, NULL, (SPS_IOVEC_FLAG_CMD | SPS_IOVEC_FLAG_UNLOCK));
+		GET_PHYS_ADDR(pce_sps_data->
+				cmdlistptr.unlock_all_pipes.cmdlist),
+		0, NULL, (SPS_IOVEC_FLAG_CMD | SPS_IOVEC_FLAG_UNLOCK));
 	if (rc) {
 		pr_err("sps_xfr_one() fail rc=%d", rc);
 		rc = -EINVAL;
@@ -2382,7 +2383,7 @@ static void _qce_set_flag(struct sps_transfer *sps_bam_pipe, uint32_t flag)
 	iovec->flags |= flag;
 }
 
-static int _qce_sps_add_data(uint32_t addr, uint32_t len,
+static int _qce_sps_add_data(dma_addr_t paddr, uint32_t len,
 		struct sps_transfer *sps_bam_pipe)
 {
 	struct sps_iovec *iovec = sps_bam_pipe->iovec +
@@ -2401,11 +2402,11 @@ static int _qce_sps_add_data(uint32_t addr, uint32_t len,
 		else
 			data_cnt = len;
 		iovec->size = data_cnt;
-		iovec->addr = addr;
-		iovec->flags = 0;
+		iovec->addr = SPS_GET_LOWER_ADDR(paddr);
+		iovec->flags = SPS_GET_UPPER_ADDR(paddr);
 		sps_bam_pipe->iovec_count++;
 		iovec++;
-		addr += data_cnt;
+		paddr += data_cnt;
 		len -= data_cnt;
 	}
 	return 0;
@@ -2415,7 +2416,8 @@ static int _qce_sps_add_sg_data(struct qce_device *pce_dev,
 		struct scatterlist *sg_src, uint32_t nbytes,
 		struct sps_transfer *sps_bam_pipe)
 {
-	uint32_t addr, data_cnt, len;
+	uint32_t data_cnt, len;
+	dma_addr_t addr;
 	struct sps_iovec *iovec = sps_bam_pipe->iovec +
 						sps_bam_pipe->iovec_count;
 
@@ -2435,13 +2437,13 @@ static int _qce_sps_add_sg_data(struct qce_device *pce_dev,
 			if (len > SPS_MAX_PKT_SIZE) {
 				data_cnt = SPS_MAX_PKT_SIZE;
 				iovec->size = data_cnt;
-				iovec->addr = addr;
-				iovec->flags = 0;
+				iovec->addr = SPS_GET_LOWER_ADDR(addr);
+				iovec->flags = SPS_GET_UPPER_ADDR(addr);
 			} else {
 				data_cnt = len;
 				iovec->size = data_cnt;
-				iovec->addr = addr;
-				iovec->flags = 0;
+				iovec->addr = SPS_GET_LOWER_ADDR(addr);
+				iovec->flags = SPS_GET_UPPER_ADDR(addr);
 			}
 			iovec++;
 			sps_bam_pipe->iovec_count++;
@@ -2457,11 +2459,12 @@ static int _qce_sps_add_cmd(struct qce_device *pce_dev, uint32_t flag,
 				struct qce_cmdlist_info *cmdptr,
 				struct sps_transfer *sps_bam_pipe)
 {
+	dma_addr_t  paddr = GET_PHYS_ADDR(cmdptr->cmdlist);
 	struct sps_iovec *iovec = sps_bam_pipe->iovec +
 					sps_bam_pipe->iovec_count;
 	iovec->size = cmdptr->size;
-	iovec->addr = GET_PHYS_ADDR(cmdptr->cmdlist);
-	iovec->flags = SPS_IOVEC_FLAG_CMD | flag;
+	iovec->addr = SPS_GET_LOWER_ADDR(paddr);
+	iovec->flags = SPS_GET_UPPER_ADDR(paddr) | SPS_IOVEC_FLAG_CMD | flag;
 	sps_bam_pipe->iovec_count++;
 	if (sps_bam_pipe->iovec_count >= QCE_MAX_NUM_DSCR) {
 		pr_err("Num of descrptor %d exceed max (%d)",
