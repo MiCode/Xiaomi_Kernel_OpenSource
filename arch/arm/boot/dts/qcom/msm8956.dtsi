@@ -828,8 +828,8 @@
 
 	sdhc_1: sdhci@7824900 {
 		compatible = "qcom,sdhci-msm";
-		reg = <0x7824900 0x500>, <0x7824000 0x800>;
-		reg-names = "hc_mem", "core_mem";
+		reg = <0x7824900 0x500>, <0x7824000 0x800>, <0x7824e00 0x200>;
+		reg-names = "hc_mem", "core_mem", "cmdq_mem";
 
 		sdhc-msm-crypto = <&sdcc1_ice>;
 		interrupts = <0 123 0>, <0 138 0>;
