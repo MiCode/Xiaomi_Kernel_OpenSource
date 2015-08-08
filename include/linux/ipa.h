@@ -790,6 +790,12 @@ struct IpaHwRingStats_t {
  * @num_bam_int_handled : Number of Bam Interrupts handled by FW
  * @num_db : Number of times the doorbell was rung
  * @num_unexpected_db : Number of unexpected doorbells
+ * @num_pkts_in_dis_uninit_state : number of completions we
+ *		received in disabled or uninitialized state
+ * @num_ic_inj_vdev_change : Number of times the Imm Cmd is
+ *		injected due to vdev_id change
+ * @num_ic_inj_fw_desc_change : Number of times the Imm Cmd is
+ *		injected due to fw_desc change
 */
 struct IpaHwStatsWDIRxInfoData_t {
 	u32 max_outstanding_pkts;
@@ -801,6 +807,8 @@ struct IpaHwStatsWDIRxInfoData_t {
 	u32 num_db;
 	u32 num_unexpected_db;
 	u32 num_pkts_in_dis_uninit_state;
+	u32 num_ic_inj_vdev_change;
+	u32 num_ic_inj_fw_desc_change;
 	u32 reserved1;
 	u32 reserved2;
 } __packed;
