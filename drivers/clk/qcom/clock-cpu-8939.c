@@ -20,6 +20,8 @@
 #include <linux/clk.h>
 #include <linux/cpu.h>
 #include <linux/mutex.h>
+#include <linux/msm-bus-board.h>
+#include <linux/msm-bus.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
@@ -33,6 +35,7 @@
 DEFINE_VDD_REGS_INIT(vdd_cpu_bc, 1);
 DEFINE_VDD_REGS_INIT(vdd_cpu_lc, 1);
 DEFINE_VDD_REGS_INIT(vdd_cpu_cci, 1);
+struct platform_device *cpu_clock_8939_dev;
 
 enum {
 	A53SS_MUX_BC,
@@ -165,6 +168,57 @@ static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
 	vdd->use_max_uV = true;
 	c->num_fmax = prop_len;
 	return 0;
+}
+
+static struct msm_bus_paths bw_tbl[] = {
+	{
+		.vectors = (struct msm_bus_vectors[]){
+			{
+				.src = MSM_BUS_PNOC_INT_2,
+				.dst = MSM_BUS_SLAVE_MESSAGE_RAM,
+				.ib  = 0,
+				.ab  = 0,
+			},
+		},
+		.num_paths = 1,
+	},
+	{
+		.vectors = (struct msm_bus_vectors[]){
+			{
+				.src = MSM_BUS_PNOC_INT_2,
+				.dst = MSM_BUS_SLAVE_MESSAGE_RAM,
+				.ib  =  50 * 4 * 1000000UL,
+				.ab  = 0,
+			},
+		},
+		.num_paths = 1,
+	},
+};
+
+static struct msm_bus_scale_pdata bus_pdata = {
+	.usecase = bw_tbl,
+	.active_only = 1,
+	.num_usecases = ARRAY_SIZE(bw_tbl),
+	.name = "cpu_pcnoc",
+};
+
+static uint32_t cpu_client;
+static int cpu_pcnoc_vote(void)
+{
+	int ret = 0;
+
+	cpu_client = msm_bus_scale_register_client(&bus_pdata);
+	if (!cpu_client) {
+		pr_warn("Unable to register bus client\n");
+		return -EINVAL;
+	}
+
+	ret = msm_bus_scale_client_update_request(cpu_client, 1);
+	if (ret) {
+		pr_err("Bandwidth request failed (%d)\n", ret);
+		msm_bus_scale_client_update_request(cpu_client, 0);
+	}
+	return ret;
 }
 
 static void get_speed_bin(struct platform_device *pdev, int *bin,
@@ -423,6 +477,9 @@ static int clock_a53_probe(struct platform_device *pdev)
 	}
 	put_online_cpus();
 	register_pm_notifier(&clock_8939_pm_notifier);
+
+	cpu_clock_8939_dev = pdev;
+
 	return 0;
 }
 
@@ -445,6 +502,15 @@ static int __init clock_a53_init(void)
 	return platform_driver_register(&clock_a53_driver);
 }
 arch_initcall(clock_a53_init);
+
+static int __init cpu_clock_init_vote(void)
+{
+	if (of_property_read_bool(cpu_clock_8939_dev->dev.of_node,
+			"qcom,cpu-pcnoc-vote"))
+		return cpu_pcnoc_vote();
+	return 0;
+}
+module_init(cpu_clock_init_vote);
 
 #define APCS_C0_PLL			0xb116000
 #define C0_PLL_MODE			0x0

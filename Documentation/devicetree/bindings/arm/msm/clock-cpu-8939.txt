@@ -30,6 +30,9 @@ Required properties:
 			the right table is picked from multiple possible tables.
 			'ZZZ' can be c1, c0 or cci depending on whether the table
 			is for the big cluster, little cluster or cci.
+Optional properties:
+- qcom,cpu-pcnoc-vote:  Boolean to indicate cpu clocks would need to keep
+			active pcnoc vote.
 Example:
 	clock_cpu: qcom,cpu-clock-8939@f9015000 {
 		compatible = "qcom,cpu-clock-8939";
