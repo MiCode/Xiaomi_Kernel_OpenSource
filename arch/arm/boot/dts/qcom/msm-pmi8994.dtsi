@@ -175,6 +175,18 @@
 			qcom,adc-vdd-reference = <1800>;
 			qcom,vadc-poll-eoc;
 			qcom,vadc-meas-int-mode;
+			qcom,pmic-revid = <&pmi8994_revid>;
+
+			chan@d {
+				label = "chg_temp";
+				reg = <0xd>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <16>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
 		};
 
 		pmi8994_charger: qcom,qpnp-smbcharger {
