@@ -23,6 +23,7 @@
 #define TSENS_NUM_MTC_ZONES_SUPPORT	3
 #define TSENS_ZONEMASK_PARAMS		3
 #define TSENS_ZONELOG_PARAMS		1
+#define TSENS_MTC_ZONE_HISTORY_SIZE	3
 
 struct tsens_device {
 	uint32_t			sensor_num;
@@ -62,10 +63,41 @@ int tsens_get_hw_id_mapping(int sensor_sw_id, int *sensor_hw_num);
  * @tsens_num_sensors: Total number of sensor result to be stored.
  */
 int tsens_get_max_sensor_num(uint32_t *tsens_num_sensors);
+/**
+ * tsens_set_mtc_zone_sw_mask() - Mask the MTC threshold level of a zone.
+ *		SW can force the MTC to stop issuing throttling commands that
+ *		correspond to each MTC threshold level by writing the
+ *		corresponding bit in register at any time.
+ * @zone: Zone ID.
+ * @th1_enable : Value corresponding to the threshold level.
+ * @th2_enable : Value corresponding to the threshold level.
+ */
 int tsens_set_mtc_zone_sw_mask(unsigned int zone , unsigned int th1_enable,
 				unsigned int th2_enable);
+/**
+ * tsens_get_mtc_zone_log() - Get the log of last 6 commands sent to pulse
+ *		swallower of a zone.
+ * zone: Zone ID
+ * @zone_log: Log commands result to be stored.
+ */
 int tsens_get_mtc_zone_log(unsigned int zone , void *zone_log);
+/**
+ * tsens_mtc_reset_history_counter() - Reset history of throttling commands
+ *		sent to pulse swallower. Tsens controller issues clock
+ *		throttling commands to Pulse swallower to perform HW
+ *		based clock throttling. Reset the history counter of a zone.
+ * @zone: Zone ID.
+ */
 int tsens_mtc_reset_history_counter(unsigned int zone);
+/**
+ * tsens_get_mtc_zone_history() - Get the history of throttling commands sent
+ *		to pulse swallower. Tsens controller issues clock throttling
+ *		commands to Pulse swallower to perform HW based clock
+ *		throttling.
+ * @zone: Zone ID
+ * @zone_hist: Commands history result to be stored.
+ */
+int tsens_get_mtc_zone_history(unsigned int zone , void *zone_hist);
 /**
  * tsens_get_temp() - Obtain the TSENS temperature for the respective sensor.
  *
@@ -99,6 +131,8 @@ static inline int tsens_mtc_reset_history_counter(unsigned int zone)
 { return -ENXIO; }
 static inline int tsens_get_temp(struct tsens_device *dev,
 						unsigned long *temp)
+{ return -ENXIO; }
+static inline int tsens_get_mtc_zone_history(unsigned int zone, void *zone_hist)
 { return -ENXIO; }
 #endif
 
