@@ -307,15 +307,18 @@
 &soc {
 	mem_acc_vreg_corner: regulator@01942130 {
 		compatible = "qcom,mem-acc-regulator";
-		reg = <0x1942130 0x4>;
-		reg-names = "acc-sel-l1";
+		reg = <0x1942130 0x4>, <0x5c000 0x1000>;
+		reg-names = "acc-sel-l1", "efuse_addr";
 		regulator-name = "mem_acc_corner";
 		regulator-min-microvolt = <1>;
-		regulator-max-microvolt = <3>;
+		regulator-max-microvolt = <4>;
 
 		qcom,acc-sel-l1-bit-pos = <0>;
 		qcom,acc-sel-l1-bit-size = <16>;
-		qcom,corner-acc-map = <0x0 0x5555 0xFFFF>;
+		qcom,corner-acc-map = <0x0 0x5454 0x5555 0xFFFF>;
+
+		qcom,override-acc-fuse-sel = <29 43 1 1 0>;
+		qcom,override-corner-acc-map = <0x0 0x0 0x5555 0xFFFF>;
 	};
 
 	apc_vreg_corner: regulator@b018000 {
@@ -355,6 +358,7 @@
 					 < RPM_SMD_REGULATOR_LEVEL_TURBO >;	/* 8: TUR  */
 
 		mem-acc-supply = <&mem_acc_vreg_corner>;
+		qcom,mem-acc-corner-map = <1 2 2 2 3 4 4 4>;
 
 		qcom,cpr-ref-clk = <19200>;
 		qcom,cpr-timer-delay = <5000>;
