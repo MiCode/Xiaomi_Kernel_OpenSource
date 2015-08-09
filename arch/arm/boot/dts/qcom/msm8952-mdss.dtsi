@@ -33,8 +33,8 @@
 		qcom,mdss-ib-factor = <1 1>;		/* no fudge  */
 		qcom,mdss-ib-factor-cmd = <1 1>;	/* no fudge */
 		qcom,mdss-clk-factor = <105 100>;	/* 1.05 times */
-		qcom,max-bandwidth-low-kbps = <2000000>;
-		qcom,max-bandwidth-high-kbps = <2000000>;
+		qcom,max-bandwidth-low-kbps = <2300000>;
+		qcom,max-bandwidth-high-kbps = <2300000>;
 		qcom,max-bandwidth-per-pipe-kbps = <1500000>;
 
 		/* Bandwidth limit settings */
