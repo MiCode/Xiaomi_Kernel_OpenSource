@@ -236,6 +236,14 @@
 			< 244800  75000000 0xffffffff>; /* 1080p @ 30 */
 };
 
+&gdsc_venus_core0 {
+	qcom,support-hw-trigger;
+};
+
+&gdsc_venus_core1 {
+	qcom,support-hw-trigger;
+};
+
 &soc {
 	ipa_hw: qcom,ipa@680000 {
 		compatible = "qcom,ipa";
