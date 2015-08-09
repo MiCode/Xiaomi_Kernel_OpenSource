@@ -414,6 +414,7 @@ struct smb135x_chg {
 	struct pinctrl			*smb_pinctrl;
 
 	bool				apsd_rerun;
+	bool				id_line_not_connected;
 };
 
 #define RETRY_COUNT 5
@@ -606,6 +607,9 @@ static bool is_usb_slave_present(struct smb135x_chg *chip)
 	bool usb_slave_present;
 	u8 reg;
 	int rc;
+
+	if (chip->id_line_not_connected)
+		return false;
 
 	rc = smb135x_read(chip, STATUS_6_REG, &reg);
 	if (rc < 0) {
@@ -3432,7 +3436,7 @@ static int determine_initial_status(struct smb135x_chg *chip)
 	}
 
 	chip->usb_slave_present = is_usb_slave_present(chip);
-	if (chip->usb_psy) {
+	if (chip->usb_psy && !chip->id_line_not_connected) {
 		pr_debug("setting usb psy usb_otg = %d\n",
 				chip->usb_slave_present);
 		power_supply_set_usb_otg(chip->usb_psy,
@@ -3970,6 +3974,8 @@ static int smb_parse_dt(struct smb135x_chg *chip)
 
 	chip->pinctrl_state_name = of_get_property(node, "pinctrl-names", NULL);
 
+	chip->id_line_not_connected = of_property_read_bool(node,
+						"qcom,id-line-not-connected");
 	return 0;
 }
 
