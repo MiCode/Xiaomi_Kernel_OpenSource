@@ -613,8 +613,6 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			mbhc->hph_status &= ~SND_JACK_HEADSET;
 
 		/* Report insertion */
-		mbhc->hph_status |= jack_type;
-
 		if (jack_type == SND_JACK_HEADPHONE)
 			mbhc->current_plug = MBHC_PLUG_TYPE_HEADPHONE;
 		else if (jack_type == SND_JACK_UNSUPPORTED)
@@ -625,9 +623,22 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		} else if (jack_type == SND_JACK_LINEOUT)
 			mbhc->current_plug = MBHC_PLUG_TYPE_HIGH_HPH;
 
-		if (mbhc->impedance_detect && mbhc->mbhc_cb->compute_impedance)
-			mbhc->mbhc_cb->compute_impedance(mbhc,
-					&mbhc->zl, &mbhc->zr);
+		if (mbhc->impedance_detect &&
+			mbhc->mbhc_cb->compute_impedance &&
+			(mbhc->mbhc_cfg->linein_th != 0)) {
+				mbhc->mbhc_cb->compute_impedance(mbhc,
+						&mbhc->zl, &mbhc->zr);
+			if ((mbhc->zl > mbhc->mbhc_cfg->linein_th) &&
+				(mbhc->zr > mbhc->mbhc_cfg->linein_th)) {
+				jack_type = SND_JACK_LINEOUT;
+				mbhc->current_plug = MBHC_PLUG_TYPE_HIGH_HPH;
+				pr_debug("%s: Marking jack type as SND_JACK_LINEOUT\n",
+				__func__);
+			}
+		}
+
+		mbhc->hph_status |= jack_type;
+
 		pr_debug("%s: Reporting insertion %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
 		wcd_mbhc_jack_report(mbhc, &mbhc->headset_jack,
@@ -1902,6 +1913,65 @@ static void wcd_mbhc_fw_read(struct work_struct *work)
 	(void) wcd_mbhc_initialise(mbhc);
 }
 
+int wcd_mbhc_set_keycode(struct wcd_mbhc *mbhc)
+{
+	enum snd_jack_types type;
+	int i, ret, result = 0;
+	int *btn_key_code;
+
+	btn_key_code = mbhc->mbhc_cfg->key_code;
+
+	for (i = 0 ; i < WCD_MBHC_KEYCODE_NUM ; i++) {
+		if (btn_key_code[i] != 0) {
+			switch (i) {
+			case 0:
+				type = SND_JACK_BTN_0;
+				break;
+			case 1:
+				type = SND_JACK_BTN_1;
+				break;
+			case 2:
+				type = SND_JACK_BTN_2;
+				break;
+			case 3:
+				type = SND_JACK_BTN_3;
+				break;
+			case 4:
+				type = SND_JACK_BTN_4;
+				break;
+			case 5:
+				type = SND_JACK_BTN_5;
+				break;
+			case 6:
+				type = SND_JACK_BTN_6;
+				break;
+			case 7:
+				type = SND_JACK_BTN_7;
+				break;
+			default:
+				WARN_ONCE(1, "Wrong button number:%d\n", i);
+				result = -1;
+				return result;
+			}
+			ret = snd_jack_set_key(mbhc->button_jack.jack,
+							type,
+							btn_key_code[i]);
+			if (ret) {
+				pr_err("%s: Failed to set code for %d\n",
+					__func__, btn_key_code[i]);
+				result = -1;
+				return result;
+			}
+			input_set_capability(
+				mbhc->button_jack.jack->input_dev,
+				EV_KEY, btn_key_code[i]);
+			pr_debug("%s: set btn%d key code:%d\n", __func__,
+				i, btn_key_code[i]);
+		}
+	}
+	return result;
+}
+
 int wcd_mbhc_start(struct wcd_mbhc *mbhc,
 		       struct wcd_mbhc_config *mbhc_cfg)
 {
@@ -1910,6 +1980,10 @@ int wcd_mbhc_start(struct wcd_mbhc *mbhc,
 	pr_debug("%s: enter\n", __func__);
 	/* update the mbhc config */
 	mbhc->mbhc_cfg = mbhc_cfg;
+
+	/* Set btn key code */
+	if (wcd_mbhc_set_keycode(mbhc))
+		pr_err("Set btn key code error!!!\n");
 
 	if (!mbhc->mbhc_cfg->read_fw_bin ||
 	    (mbhc->mbhc_cfg->read_fw_bin && mbhc->mbhc_fw) ||
