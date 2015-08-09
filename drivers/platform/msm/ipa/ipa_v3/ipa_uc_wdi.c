@@ -25,12 +25,14 @@
 #define IPA_WDI_RESUMED BIT(2)
 #define IPA_UC_POLL_SLEEP_USEC 100
 
-#define IPA_WDI_RX_RING_RES	0
-#define IPA_WDI_RX_RING_RP_RES	1
-#define IPA_WDI_TX_RING_RES	2
-#define IPA_WDI_CE_RING_RES	3
-#define IPA_WDI_CE_DB_RES	4
-#define IPA_WDI_MAX_RES		5
+#define IPA_WDI_RX_RING_RES			0
+#define IPA_WDI_RX_RING_RP_RES		1
+#define IPA_WDI_RX_COMP_RING_RES	2
+#define IPA_WDI_RX_COMP_RING_WP_RES	3
+#define IPA_WDI_TX_RING_RES			4
+#define IPA_WDI_CE_RING_RES			5
+#define IPA_WDI_CE_DB_RES			6
+#define IPA_WDI_MAX_RES				7
 
 struct ipa_wdi_res {
 	struct ipa_wdi_buffer_info *res;
@@ -232,6 +234,21 @@ struct IpaHwWdiTxSetUpCmdData_t {
 	u8  reserved;
 } __packed;
 
+struct IpaHwWdi2TxSetUpCmdData_t {
+	u32 comp_ring_base_pa;
+	u32 comp_ring_base_pa_hi;
+	u16 comp_ring_size;
+	u16 reserved_comp_ring;
+	u32 ce_ring_base_pa;
+	u32 ce_ring_base_pa_hi;
+	u16 ce_ring_size;
+	u16 reserved_ce_ring;
+	u32 ce_ring_doorbell_pa;
+	u32 ce_ring_doorbell_pa_hi;
+	u16 num_tx_buffers;
+	u8  ipa_pipe_number;
+	u8  reserved;
+} __packed;
 /**
  * struct IpaHwWdiRxSetUpCmdData_t -  Structure holding the parameters for
  * IPA_CPU_2_HW_CMD_WDI_RX_SET_UP command.
@@ -253,6 +270,19 @@ struct IpaHwWdiRxSetUpCmdData_t {
 	u8  ipa_pipe_number;
 } __packed;
 
+struct IpaHwWdi2RxSetUpCmdData_t {
+	u32 rx_ring_base_pa;
+	u32 rx_ring_base_pa_hi;
+	u32 rx_ring_size;
+	u32 rx_ring_rp_pa;
+	u32 rx_ring_rp_pa_hi;
+	u32 rx_comp_ring_base_pa;
+	u32 rx_comp_ring_base_pa_hi;
+	u32 rx_comp_ring_size;
+	u32 rx_comp_ring_wp_pa;
+	u32 rx_comp_ring_wp_pa_hi;
+	u8  ipa_pipe_number;
+} __packed;
 /**
  * union IpaHwWdiRxExtCfgCmdData_t - Structure holding the parameters for
  * IPA_CPU_2_HW_CMD_WDI_RX_EXT_CFG command.
@@ -554,7 +584,10 @@ static void ipa_release_uc_smmu_mappings(enum ipa_client_type client)
 		end = IPA_WDI_CE_DB_RES;
 	} else {
 		start = IPA_WDI_RX_RING_RES;
-		end = IPA_WDI_RX_RING_RP_RES;
+		if (ipa3_ctx->ipa_wdi2)
+			end = IPA_WDI_RX_COMP_RING_WP_RES;
+		else
+			end = IPA_WDI_RX_RING_RP_RES;
 	}
 
 	for (i = start; i <= end; i++) {
@@ -656,6 +689,7 @@ static int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 	if (wlan_smmu_en && ipa3_ctx->smmu_present) {
 		switch (res_idx) {
 		case IPA_WDI_RX_RING_RP_RES:
+		case IPA_WDI_RX_COMP_RING_WP_RES:
 		case IPA_WDI_CE_DB_RES:
 			if (ipa_create_uc_smmu_mapping_pa(pa, len,
 				(res_idx == IPA_WDI_CE_DB_RES) ? true : false,
@@ -667,6 +701,7 @@ static int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 			ipa_save_uc_smmu_mapping_pa(res_idx, pa, *iova, len);
 			break;
 		case IPA_WDI_RX_RING_RES:
+		case IPA_WDI_RX_COMP_RING_RES:
 		case IPA_WDI_TX_RING_RES:
 		case IPA_WDI_CE_RING_RES:
 			if (ipa_create_uc_smmu_mapping_sgt(sgt, iova)) {
@@ -702,6 +737,9 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	struct ipa3_mem_buffer cmd;
 	struct IpaHwWdiTxSetUpCmdData_t *tx;
 	struct IpaHwWdiRxSetUpCmdData_t *rx;
+	struct IpaHwWdi2TxSetUpCmdData_t *tx_2;
+	struct IpaHwWdi2RxSetUpCmdData_t *rx_2;
+
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 	unsigned long va;
 	phys_addr_t pa;
@@ -749,7 +787,10 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 
 	IPADBG("client=%d ep=%d\n", in->sys.client, ipa_ep_idx);
 	if (IPA_CLIENT_IS_CONS(in->sys.client)) {
-		cmd.size = sizeof(*tx);
+		if (ipa3_ctx->ipa_wdi2)
+			cmd.size = sizeof(*tx_2);
+		else
+			cmd.size = sizeof(*tx);
 		IPADBG("comp_ring_base_pa=0x%pa\n",
 				&in->u.dl.comp_ring_base_pa);
 		IPADBG("comp_ring_size=%d\n", in->u.dl.comp_ring_size);
@@ -759,7 +800,10 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 				&in->u.dl.ce_door_bell_pa);
 		IPADBG("num_tx_buffers=%d\n", in->u.dl.num_tx_buffers);
 	} else {
-		cmd.size = sizeof(*rx);
+		if (ipa3_ctx->ipa_wdi2)
+			cmd.size = sizeof(*rx_2);
+		else
+			cmd.size = sizeof(*rx);
 		IPADBG("rx_ring_base_pa=0x%pa\n", &in->u.ul.rdy_ring_base_pa);
 		IPADBG("rx_ring_size=%d\n", in->u.ul.rdy_ring_size);
 		IPADBG("rx_ring_rp_pa=0x%pa\n", &in->u.ul.rdy_ring_rp_pa);
@@ -774,14 +818,16 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	}
 
 	if (IPA_CLIENT_IS_CONS(in->sys.client)) {
-		tx = (struct IpaHwWdiTxSetUpCmdData_t *)cmd.base;
+		if (ipa3_ctx->ipa_wdi2) {
+			tx_2 = (struct IpaHwWdi2TxSetUpCmdData_t *)cmd.base;
 
-		len = in->smmu_enabled ? in->u.dl_smmu.comp_ring_size :
-			in->u.dl.comp_ring_size;
-		IPADBG("TX ring smmu_en=%d ring_size=%d %d\n", in->smmu_enabled,
+			len = in->smmu_enabled ? in->u.dl_smmu.comp_ring_size :
+				in->u.dl.comp_ring_size;
+			IPADBG("TX_2 ring smmu_en=%d ring_size=%d %d\n",
+				in->smmu_enabled,
 				in->u.dl_smmu.comp_ring_size,
 				in->u.dl.comp_ring_size);
-		if (ipa_create_uc_smmu_mapping(IPA_WDI_TX_RING_RES,
+			if (ipa_create_uc_smmu_mapping(IPA_WDI_TX_RING_RES,
 					in->smmu_enabled,
 					in->u.dl.comp_ring_base_pa,
 					&in->u.dl_smmu.comp_ring,
@@ -791,90 +837,260 @@ int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 				IPAERR("fail to create uc mapping TX ring.\n");
 				result = -ENOMEM;
 				goto uc_timeout;
-		}
-		tx->comp_ring_base_pa = va;
-		tx->comp_ring_size = len;
+			}
+			tx_2->comp_ring_base_pa_hi =
+				(u32) ((va & 0xFFFFFFFF00000000) >> 32);
+			tx_2->comp_ring_base_pa = (u32) (va & 0xFFFFFFFF);
+			tx_2->comp_ring_size = len;
+			IPADBG("TX_2 comp_ring_base_pa_hi=0x%08x :0x%08x\n",
+					tx_2->comp_ring_base_pa_hi,
+					tx_2->comp_ring_base_pa);
 
-		len = in->smmu_enabled ? in->u.dl_smmu.ce_ring_size :
-			in->u.dl.ce_ring_size;
-		IPADBG("TX CE ring smmu_en=%d ring_size=%d %d\n",
-				in->smmu_enabled,
-				in->u.dl_smmu.ce_ring_size,
-				in->u.dl.ce_ring_size);
-		if (ipa_create_uc_smmu_mapping(IPA_WDI_CE_RING_RES,
+			len = in->smmu_enabled ? in->u.dl_smmu.ce_ring_size :
+				in->u.dl.ce_ring_size;
+			IPADBG("TX_2 CE ring smmu_en=%d ring_size=%d %d\n",
 					in->smmu_enabled,
-					in->u.dl.ce_ring_base_pa,
-					&in->u.dl_smmu.ce_ring,
-					len,
-					false,
-					&va)) {
+					in->u.dl_smmu.ce_ring_size,
+					in->u.dl.ce_ring_size);
+			if (ipa_create_uc_smmu_mapping(IPA_WDI_CE_RING_RES,
+						in->smmu_enabled,
+						in->u.dl.ce_ring_base_pa,
+						&in->u.dl_smmu.ce_ring,
+						len,
+						false,
+						&va)) {
 				IPAERR("fail to create uc mapping CE ring.\n");
 				result = -ENOMEM;
 				goto uc_timeout;
-		}
-		tx->ce_ring_base_pa = va;
-		tx->ce_ring_size = len;
+			}
+			tx_2->ce_ring_base_pa_hi =
+				(u32) ((va & 0xFFFFFFFF00000000) >> 32);
+			tx_2->ce_ring_base_pa = (u32) (va & 0xFFFFFFFF);
+			tx_2->ce_ring_size = len;
+			IPADBG("TX_2 ce_ring_base_pa_hi=0x%08x :0x%08x\n",
+					tx_2->ce_ring_base_pa_hi,
+					tx_2->ce_ring_base_pa);
 
-		pa = in->smmu_enabled ? in->u.dl_smmu.ce_door_bell_pa :
-			in->u.dl.ce_door_bell_pa;
-		if (ipa_create_uc_smmu_mapping(IPA_WDI_CE_DB_RES,
-					in->smmu_enabled,
-					pa,
-					NULL,
-					4,
-					true,
-					&va)) {
+			pa = in->smmu_enabled ? in->u.dl_smmu.ce_door_bell_pa :
+				in->u.dl.ce_door_bell_pa;
+			if (ipa_create_uc_smmu_mapping(IPA_WDI_CE_DB_RES,
+						in->smmu_enabled,
+						pa,
+						NULL,
+						4,
+						true,
+						&va)) {
 				IPAERR("fail to create uc mapping CE DB.\n");
 				result = -ENOMEM;
 				goto uc_timeout;
-		}
-		tx->ce_ring_doorbell_pa = va;
+			}
+			tx_2->ce_ring_doorbell_pa_hi =
+				(u32) ((va & 0xFFFFFFFF00000000) >> 32);
+			tx_2->ce_ring_doorbell_pa = (u32) (va & 0xFFFFFFFF);
+			IPADBG("TX_2 ce_ring_doorbell_pa_hi=0x%08x :0x%08x\n",
+					tx_2->ce_ring_doorbell_pa_hi,
+					tx_2->ce_ring_doorbell_pa);
 
-		tx->num_tx_buffers = in->u.dl.num_tx_buffers;
-		tx->ipa_pipe_number = ipa_ep_idx;
+			tx_2->num_tx_buffers = in->u.dl.num_tx_buffers;
+			tx_2->ipa_pipe_number = ipa_ep_idx;
+		} else {
+			tx = (struct IpaHwWdiTxSetUpCmdData_t *)cmd.base;
+
+			len = in->smmu_enabled ? in->u.dl_smmu.comp_ring_size :
+				in->u.dl.comp_ring_size;
+			IPADBG("TX ring smmu_en=%d ring_size=%d %d\n",
+					in->smmu_enabled,
+					in->u.dl_smmu.comp_ring_size,
+					in->u.dl.comp_ring_size);
+			if (ipa_create_uc_smmu_mapping(IPA_WDI_TX_RING_RES,
+						in->smmu_enabled,
+						in->u.dl.comp_ring_base_pa,
+						&in->u.dl_smmu.comp_ring,
+						len,
+						false,
+						&va)) {
+				IPAERR("fail to create uc mapping TX ring.\n");
+				result = -ENOMEM;
+				goto uc_timeout;
+			}
+			tx->comp_ring_base_pa = va;
+			tx->comp_ring_size = len;
+			len = in->smmu_enabled ? in->u.dl_smmu.ce_ring_size :
+				in->u.dl.ce_ring_size;
+			IPADBG("TX CE ring smmu_en=%d ring_size=%d %d\n",
+					in->smmu_enabled,
+					in->u.dl_smmu.ce_ring_size,
+					in->u.dl.ce_ring_size);
+			if (ipa_create_uc_smmu_mapping(IPA_WDI_CE_RING_RES,
+						in->smmu_enabled,
+						in->u.dl.ce_ring_base_pa,
+						&in->u.dl_smmu.ce_ring,
+						len,
+						false,
+						&va)) {
+				IPAERR("fail to create uc mapping CE ring.\n");
+				result = -ENOMEM;
+				goto uc_timeout;
+			}
+			tx->ce_ring_base_pa = va;
+			tx->ce_ring_size = len;
+			pa = in->smmu_enabled ? in->u.dl_smmu.ce_door_bell_pa :
+				in->u.dl.ce_door_bell_pa;
+			if (ipa_create_uc_smmu_mapping(IPA_WDI_CE_DB_RES,
+						in->smmu_enabled,
+						pa,
+						NULL,
+						4,
+						true,
+						&va)) {
+				IPAERR("fail to create uc mapping CE DB.\n");
+				result = -ENOMEM;
+				goto uc_timeout;
+			}
+			tx->ce_ring_doorbell_pa = va;
+			tx->num_tx_buffers = in->u.dl.num_tx_buffers;
+			tx->ipa_pipe_number = ipa_ep_idx;
+		}
 		out->uc_door_bell_pa = ipa3_ctx->ipa_wrapper_base +
 				ipahal_get_reg_base() +
 				ipahal_get_reg_mn_ofst(IPA_UC_MAILBOX_m_n,
 				IPA_HW_WDI_TX_MBOX_START_INDEX/32,
 				IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
 	} else {
-		rx = (struct IpaHwWdiRxSetUpCmdData_t *)cmd.base;
+		if (ipa3_ctx->ipa_wdi2) {
+			rx_2 = (struct IpaHwWdi2RxSetUpCmdData_t *)cmd.base;
 
-		len = in->smmu_enabled ? in->u.ul_smmu.rdy_ring_size :
-			in->u.ul.rdy_ring_size;
-		IPADBG("RX ring smmu_en=%d ring_size=%d %d\n", in->smmu_enabled,
+			len = in->smmu_enabled ? in->u.ul_smmu.rdy_ring_size :
+				in->u.ul.rdy_ring_size;
+			IPADBG("RX_2 ring smmu_en=%d ring_size=%d %d\n",
+				in->smmu_enabled,
 				in->u.ul_smmu.rdy_ring_size,
 				in->u.ul.rdy_ring_size);
-		if (ipa_create_uc_smmu_mapping(IPA_WDI_RX_RING_RES,
+			if (ipa_create_uc_smmu_mapping(IPA_WDI_RX_RING_RES,
+						in->smmu_enabled,
+						in->u.ul.rdy_ring_base_pa,
+						&in->u.ul_smmu.rdy_ring,
+						len,
+						false,
+						&va)) {
+				IPAERR("fail to create uc RX_2 ring.\n");
+				result = -ENOMEM;
+				goto uc_timeout;
+			}
+			rx_2->rx_ring_base_pa_hi =
+				(u32) ((va & 0xFFFFFFFF00000000) >> 32);
+			rx_2->rx_ring_base_pa = (u32) (va & 0xFFFFFFFF);
+			rx_2->rx_ring_size = len;
+			IPADBG("RX_2 rx_ring_base_pa_hi=0x%08x:0x%08x\n",
+					rx_2->rx_ring_base_pa_hi,
+					rx_2->rx_ring_base_pa);
+
+			pa = in->smmu_enabled ? in->u.ul_smmu.rdy_ring_rp_pa :
+				in->u.ul.rdy_ring_rp_pa;
+			if (ipa_create_uc_smmu_mapping(IPA_WDI_RX_RING_RP_RES,
+						in->smmu_enabled,
+						pa,
+						NULL,
+						4,
+						false,
+						&va)) {
+				IPAERR("fail to create uc RX_2 rng RP\n");
+				result = -ENOMEM;
+				goto uc_timeout;
+			}
+			rx_2->rx_ring_rp_pa_hi =
+				(u32) ((va & 0xFFFFFFFF00000000) >> 32);
+			rx_2->rx_ring_rp_pa = (u32) (va & 0xFFFFFFFF);
+			IPADBG("RX_2 rx_ring_rp_pa_hi=0x%08x :0x%08x\n",
+					rx_2->rx_ring_rp_pa_hi,
+					rx_2->rx_ring_rp_pa);
+			len = in->smmu_enabled ?
+				in->u.ul_smmu.rdy_comp_ring_size :
+				in->u.ul.rdy_comp_ring_size;
+			IPADBG("RX_2 ring smmu_en=%d comp_ring_size=%d %d\n",
 					in->smmu_enabled,
-					in->u.ul.rdy_ring_base_pa,
-					&in->u.ul_smmu.rdy_ring,
-					len,
-					false,
-					&va)) {
+					in->u.ul_smmu.rdy_comp_ring_size,
+					in->u.ul.rdy_comp_ring_size);
+			if (ipa_create_uc_smmu_mapping(IPA_WDI_RX_COMP_RING_RES,
+						in->smmu_enabled,
+						in->u.ul.rdy_comp_ring_base_pa,
+						&in->u.ul_smmu.rdy_comp_ring,
+						len,
+						false,
+						&va)) {
+				IPAERR("fail to create uc RX_2 comp_ring.\n");
+				result = -ENOMEM;
+				goto uc_timeout;
+			}
+			rx_2->rx_comp_ring_base_pa_hi =
+				(u32) ((va & 0xFFFFFFFF00000000) >> 32);
+			rx_2->rx_comp_ring_base_pa = (u32) (va & 0xFFFFFFFF);
+			rx_2->rx_comp_ring_size = len;
+			IPADBG("RX_2 rx_comp_ring_base_pa_hi=0x%08x:0x%08x\n",
+					rx_2->rx_comp_ring_base_pa_hi,
+					rx_2->rx_comp_ring_base_pa);
+
+			pa = in->smmu_enabled ?
+				in->u.ul_smmu.rdy_comp_ring_wp_pa :
+				in->u.ul.rdy_comp_ring_wp_pa;
+			if (ipa_create_uc_smmu_mapping(
+						IPA_WDI_RX_COMP_RING_WP_RES,
+						in->smmu_enabled,
+						pa,
+						NULL,
+						4,
+						false,
+						&va)) {
+				IPAERR("fail to create uc RX_2 comp_rng WP\n");
+				result = -ENOMEM;
+				goto uc_timeout;
+			}
+			rx_2->rx_comp_ring_wp_pa_hi =
+				(u32) ((va & 0xFFFFFFFF00000000) >> 32);
+			rx_2->rx_comp_ring_wp_pa = (u32) (va & 0xFFFFFFFF);
+			IPADBG("RX_2 rx_comp_ring_wp_pa_hi=0x%08x:0x%08x\n",
+					rx_2->rx_comp_ring_wp_pa_hi,
+					rx_2->rx_comp_ring_wp_pa);
+			rx_2->ipa_pipe_number = ipa_ep_idx;
+		} else {
+			rx = (struct IpaHwWdiRxSetUpCmdData_t *)cmd.base;
+
+			len = in->smmu_enabled ? in->u.ul_smmu.rdy_ring_size :
+				in->u.ul.rdy_ring_size;
+			IPADBG("RX ring smmu_en=%d ring_size=%d %d\n",
+					in->smmu_enabled,
+					in->u.ul_smmu.rdy_ring_size,
+					in->u.ul.rdy_ring_size);
+			if (ipa_create_uc_smmu_mapping(IPA_WDI_RX_RING_RES,
+						in->smmu_enabled,
+						in->u.ul.rdy_ring_base_pa,
+						&in->u.ul_smmu.rdy_ring,
+						len,
+						false,
+						&va)) {
 				IPAERR("fail to create uc mapping RX ring.\n");
 				result = -ENOMEM;
 				goto uc_timeout;
-		}
-		rx->rx_ring_base_pa = va;
-		rx->rx_ring_size = len;
+			}
+			rx->rx_ring_base_pa = va;
+			rx->rx_ring_size = len;
 
-		pa = in->smmu_enabled ? in->u.ul_smmu.rdy_ring_rp_pa :
-			in->u.ul.rdy_ring_rp_pa;
-		if (ipa_create_uc_smmu_mapping(IPA_WDI_RX_RING_RP_RES,
-					in->smmu_enabled,
-					pa,
-					NULL,
-					4,
-					false,
-					&va)) {
+			pa = in->smmu_enabled ? in->u.ul_smmu.rdy_ring_rp_pa :
+				in->u.ul.rdy_ring_rp_pa;
+			if (ipa_create_uc_smmu_mapping(IPA_WDI_RX_RING_RP_RES,
+						in->smmu_enabled,
+						pa,
+						NULL,
+						4,
+						false,
+						&va)) {
 				IPAERR("fail to create uc mapping RX rng RP\n");
 				result = -ENOMEM;
 				goto uc_timeout;
+			}
+			rx->rx_ring_rp_pa = va;
+			rx->ipa_pipe_number = ipa_ep_idx;
 		}
-		rx->rx_ring_rp_pa = va;
-
-		rx->ipa_pipe_number = ipa_ep_idx;
 		out->uc_door_bell_pa = ipa3_ctx->ipa_wrapper_base +
 				ipahal_get_reg_base() +
 				ipahal_get_reg_mn_ofst(IPA_UC_MAILBOX_m_n,

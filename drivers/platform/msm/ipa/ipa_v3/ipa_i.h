@@ -1415,6 +1415,7 @@ struct ipa3_ready_cb_info {
  * @modem_cfg_emb_pipe_flt: modem configure embedded pipe filtering rules
  * @logbuf: ipc log buffer for high priority messages
  * @logbuf_low: ipc log buffer for low priority messages
+ * @ipa_wdi2: using wdi-2.0
  * @ipa_bus_hdl: msm driver handle for the data path bus
  * @ctrl: holds the core specific operations based on
  *  core version (vtable like)
@@ -1511,6 +1512,7 @@ struct ipa3_context {
 	bool use_ipa_teth_bridge;
 	bool ipa_bam_remote_mode;
 	bool modem_cfg_emb_pipe_flt;
+	bool ipa_wdi2;
 	/* featurize if memory footprint becomes a concern */
 	struct ipa3_stats stats;
 	void *smem_pipe_mem;
@@ -1586,6 +1588,7 @@ struct ipa3_plat_drv_res {
 	u32 ee;
 	bool ipa_bam_remote_mode;
 	bool modem_cfg_emb_pipe_flt;
+	bool ipa_wdi2;
 	u32 wan_rx_ring_size;
 	bool skip_uc_pipe_reset;
 	enum ipa_transport_type transport_prototype;
