@@ -907,12 +907,21 @@ struct IpaHwStatsWDIInfoData_t {
  * Rx buffers)
  * @rdy_ring_size: size of the Rx ring in bytes
  * @rdy_ring_rp_pa: physical address of the location through which IPA uc is
+ * reading (WDI-1.0)
+ * @rdy_comp_ring_base_pa: physical address of the base of the Rx completion
+ * ring (WDI-2.0)
+ * @rdy_comp_ring_wp_pa: physical address of the location through which IPA
+ * uc is writing (WDI-2.0)
+ * @rdy_comp_ring_size: size of the Rx_completion ring in bytes
  * expected to communicate about the Read pointer into the Rx Ring
  */
 struct ipa_wdi_ul_params {
 	phys_addr_t rdy_ring_base_pa;
 	u32 rdy_ring_size;
 	phys_addr_t rdy_ring_rp_pa;
+	phys_addr_t rdy_comp_ring_base_pa;
+	phys_addr_t rdy_comp_ring_wp_pa;
+	u32 rdy_comp_ring_size;
 };
 
 /**
@@ -926,6 +935,9 @@ struct ipa_wdi_ul_params_smmu {
 	struct sg_table rdy_ring;
 	u32 rdy_ring_size;
 	phys_addr_t rdy_ring_rp_pa;
+	struct sg_table rdy_comp_ring;
+	phys_addr_t rdy_comp_ring_wp_pa;
+	u32 rdy_comp_ring_size;
 };
 
 /**
