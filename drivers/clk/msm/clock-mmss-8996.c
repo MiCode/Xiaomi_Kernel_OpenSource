@@ -66,7 +66,7 @@ static void __iomem *virt_base_gpu;
 			| BVAL(10, 8, s##_mm_source_val), \
 	}
 
-#define GFX_MIN_SVS_LEVEL	3
+#define GFX_MIN_SVS_LEVEL	2
 #define GPU_REQ_ID		0x3
 static struct clk_ops clk_ops_gpu;
 
@@ -3500,7 +3500,7 @@ static void msm_mmsscc_8996_v3_fixup(void)
 	video_subcore1_clk_src.c.fmax[VDD_DIG_HIGH] = 533000000;
 }
 
-static int is_v2_gpu, is_v3_gpu;
+static int is_v2_gpu, is_v3_gpu, is_v3_0_gpu;
 static int gpu_pre_set_rate(struct clk *clk, unsigned long new_rate)
 {
 	struct msm_rpm_kvp kvp;
@@ -3603,7 +3603,7 @@ static void print_opp_table(struct device *dev)
 	struct dev_pm_opp *opp;
 	int i;
 
-	if (is_v2_gpu || is_v3_gpu)
+	if (is_v2_gpu || is_v3_gpu || is_v3_0_gpu)
 		gpu_clk = &gfx3d_clk_src_v2.c;
 
 	pr_info("OPP table for GPU core clock:\n");
@@ -3626,7 +3626,7 @@ static void populate_gpu_opp_table(struct platform_device *pdev)
 	int i, ret, uv, corner;
 	unsigned long rate = 0;
 
-	if (is_v2_gpu || is_v3_gpu) {
+	if (is_v2_gpu || is_v3_gpu || is_v3_0_gpu) {
 		gpu_clk = &gfx3d_clk_src_v2.c;
 		vdd = gpu_clk->vdd_class;
 	}
@@ -3907,7 +3907,9 @@ int msm_gpucc_8996_probe(struct platform_device *pdev)
 						"qcom,gpucc-8996-v2");
 	is_v3_gpu = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,gpucc-8996-v3");
-	if (!is_v2_gpu && !is_v3_gpu) {
+	is_v3_0_gpu = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,gpucc-8996-v3.0");
+	if (!is_v2_gpu && !is_v3_gpu && !is_v3_0_gpu) {
 		rc = of_get_fmax_vdd_class(pdev, &gfx3d_clk_src.c,
 					"qcom,gfxfreq-corner-v0");
 		if (rc) {
@@ -3966,6 +3968,7 @@ static struct of_device_id msm_clock_gpu_match_table[] = {
 	{ .compatible = "qcom,gpucc-8996" },
 	{ .compatible = "qcom,gpucc-8996-v2" },
 	{ .compatible = "qcom,gpucc-8996-v3" },
+	{ .compatible = "qcom,gpucc-8996-v3.0" },
 	{},
 };
 

@@ -49,6 +49,7 @@ Required properties:
 			"qcom,gpucc-8996"
 			"qcom,gpucc-8996-v2"
 			"qcom,gpucc-8996-v3"
+			"qcom,gpucc-8996-v3.0"
 			"qcom,gcc-californium"
 			"qcom,cc-debug-californium"
 
