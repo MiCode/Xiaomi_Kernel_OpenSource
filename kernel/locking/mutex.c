@@ -28,6 +28,7 @@
 #include <linux/interrupt.h>
 #include <linux/debug_locks.h>
 #include <linux/osq_lock.h>
+#include <linux/delay.h>
 
 #ifdef CONFIG_DEBUG_MUTEXES
 # include "mutex-debug.h"
@@ -554,6 +555,17 @@ mutex_optimistic_spin(struct mutex *lock, struct ww_acquire_ctx *ww_ctx,
 		 * values at the cost of a few extra spins.
 		 */
 		cpu_relax();
+
+		/*
+		 * On arm systems, we must slow down the waiter's repeated
+		 * aquisition of spin_mlock and atomics on the lock count, or
+		 * we risk starving out a thread attempting to release the
+		 * mutex. The mutex slowpath release must take spin lock
+		 * wait_lock. This spin lock can share a monitor with the
+		 * other waiter atomics in the mutex data structure, so must
+		 * take care to rate limit the waiters.
+		 */
+		udelay(1);
 	}
 
 	if (!waiter)
