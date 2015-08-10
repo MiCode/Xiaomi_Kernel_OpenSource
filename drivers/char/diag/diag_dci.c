@@ -2518,7 +2518,6 @@ err:
 int diag_dci_init(void)
 {
 	int ret = 0;
-	uint8_t peripheral;
 
 	driver->dci_tag = 0;
 	driver->dci_client_id = 0;
@@ -2531,11 +2530,6 @@ int diag_dci_init(void)
 	ret = diag_dci_init_ops_tbl();
 	if (ret)
 		goto err;
-
-	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++) {
-		diagfwd_open(peripheral, TYPE_DCI);
-		diagfwd_open(peripheral, TYPE_DCI_CMD);
-	}
 
 	if (driver->apps_dci_buf == NULL) {
 		driver->apps_dci_buf = kzalloc(DCI_BUF_SIZE, GFP_KERNEL);
@@ -2564,6 +2558,16 @@ err:
 	mutex_destroy(&dci_log_mask_mutex);
 	mutex_destroy(&dci_event_mask_mutex);
 	return DIAG_DCI_NO_REG;
+}
+
+void diag_dci_channel_init(void)
+{
+	uint8_t peripheral;
+
+	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++) {
+		diagfwd_open(peripheral, TYPE_DCI);
+		diagfwd_open(peripheral, TYPE_DCI_CMD);
+	}
 }
 
 void diag_dci_exit(void)

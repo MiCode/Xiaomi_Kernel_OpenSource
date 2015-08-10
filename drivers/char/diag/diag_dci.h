@@ -262,6 +262,7 @@ extern struct mutex dci_stat_mutex;
 #endif
 
 int diag_dci_init(void);
+void diag_dci_channel_init(void);
 void diag_dci_exit(void);
 int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry);
 int diag_dci_deinit_client(struct diag_dci_client_tbl *entry);

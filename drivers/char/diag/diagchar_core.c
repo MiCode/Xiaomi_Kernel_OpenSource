@@ -2968,13 +2968,16 @@ static int __init diagchar_init(void)
 	ret = diagfwd_bridge_init();
 	if (ret)
 		goto fail;
-	ret = diagfwd_peripheral_init();
-	if (ret)
-		goto fail;
 	ret = diagfwd_cntl_init();
 	if (ret)
 		goto fail;
 	driver->dci_state = diag_dci_init();
+	ret = diagfwd_peripheral_init();
+	if (ret)
+		goto fail;
+	diagfwd_cntl_channel_init();
+	if (driver->dci_state == DIAG_DCI_NO_ERROR)
+		diag_dci_channel_init();
 	pr_debug("diagchar initializing ..\n");
 	driver->num = 1;
 	driver->name = ((void *)driver) + sizeof(struct diagchar_dev);
