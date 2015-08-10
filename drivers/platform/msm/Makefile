@@ -15,6 +15,7 @@ obj-$(CONFIG_SPS) += sps/
 obj-$(CONFIG_EP_PCIE) += ep_pcie/
 obj-$(CONFIG_I2C_MSM_PROF_DBG) += i2c-msm-prof-dbg.o
 obj-$(CONFIG_IPA) += ipa/
+obj-$(CONFIG_IPA3) += ipa/
 obj-$(CONFIG_SEEMP_CORE) += seemp_core/
 obj-$(CONFIG_QPNP_HAPTIC) += qpnp-haptic.o
 obj-$(CONFIG_GPIO_USB_DETECT) += gpio-usbdetect.o

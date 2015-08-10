@@ -817,7 +817,7 @@ struct IpaHwStatsWDIRxInfoData_t {
  * @num_db : Number of times the doorbell was rung
  * @num_unexpected_db : Number of unexpected doorbells
  * @num_bam_int_handled : Number of Bam Interrupts handled by FW
- * @num_bam_int_in_non_runnning_state : Number of Bam interrupts while not in
+ * @num_bam_int_in_non_running_state : Number of Bam interrupts while not in
  * Running state
  * @num_qmb_int_handled : Number of QMB interrupts handled
 */
@@ -1081,7 +1081,7 @@ struct ipa_mhi_connect_params {
 	u8 channel_id;
 };
 
-#ifdef CONFIG_IPA
+#if defined CONFIG_IPA || defined CONFIG_IPA3
 
 /*
  * Connect / Disconnect
@@ -1414,7 +1414,7 @@ struct iommu_domain *ipa_get_smmu_domain(void);
 
 int ipa_disable_apps_wan_cons_deaggr(uint32_t agg_size, uint32_t agg_count);
 
-#else /* CONFIG_IPA */
+#else /* (CONFIG_IPA || CONFIG_IPA3) */
 
 /*
  * Connect / Disconnect
@@ -2147,6 +2147,7 @@ static inline int ipa_disable_apps_wan_cons_deaggr(void)
 {
 	return -EINVAL;
 }
-#endif /* CONFIG_IPA*/
+
+#endif /* (CONFIG_IPA || CONFIG_IPA3) */
 
 #endif /* _IPA_H_ */
