@@ -576,6 +576,62 @@
 			};
 		};
 
+		pmx_rd_nfc_int {
+			nfc_int_active: active {
+				mux {
+					pins = "gpio9";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio9";
+					drive-strength = <6>;
+					bias-pull-up;
+				};
+			};
+
+			nfc_int_suspend: suspend {
+				mux {
+					pins = "gpio9";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio9";
+					drive-strength = <6>;
+					bias-pull-up;
+				};
+			};
+		};
+
+		pmx_nfc_reset {
+			nfc_disable_active: active {
+				mux {
+					pins = "gpio12";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio12";
+					drive-strength = <6>;
+					bias-pull-up;
+				};
+			};
+
+			nfc_disable_suspend: suspend {
+				mux {
+					pins = "gpio12";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio12";
+					drive-strength = <6>;
+					bias-disable;
+				};
+			};
+		};
+
 		spi_0 {
 			spi_0_active: spi_0_active {
 				mux {
