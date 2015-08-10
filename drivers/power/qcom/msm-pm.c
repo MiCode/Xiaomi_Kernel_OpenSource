@@ -39,7 +39,6 @@
 #ifdef CONFIG_VFP
 #include <asm/vfp.h>
 #endif
-#include <soc/qcom/jtag.h>
 #include "idle.h"
 #include "pm-boot.h"
 #include "../../../arch/arm/mach-msm/clock.h"
@@ -266,12 +265,8 @@ static bool __ref msm_pm_spm_power_collapse(
 		pr_info("CPU%u: %s: program vector to %p\n",
 			cpu, __func__, entry);
 
-	msm_jtag_save_state();
-
 	collapsed = save_cpu_regs ?
 		!__cpu_suspend(0, msm_pm_collapse) : msm_pm_pc_hotplug();
-
-	msm_jtag_restore_state();
 
 	if (collapsed)
 		local_fiq_enable();
