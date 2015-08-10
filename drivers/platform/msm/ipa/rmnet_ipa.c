@@ -2158,11 +2158,11 @@ static int ssr_notifier_cb(struct notifier_block *this,
 			pr_info("IPA received MPSS BEFORE_SHUTDOWN\n");
 			atomic_set(&is_ssr, 1);
 			ipa_q6_cleanup();
-			netif_stop_queue(ipa_netdevs[0]);
+			if (ipa_netdevs[0])
+				netif_stop_queue(ipa_netdevs[0]);
 			ipa_qmi_stop_workqueues();
 			wan_ioctl_stop_qmi_messages();
 			ipa_stop_polling_stats();
-			atomic_set(&is_ssr, 1);
 			if (atomic_read(&is_initialized))
 				platform_driver_unregister(&rmnet_ipa_driver);
 			pr_info("IPA BEFORE_SHUTDOWN handling is complete\n");
