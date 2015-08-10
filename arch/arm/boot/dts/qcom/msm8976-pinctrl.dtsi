@@ -1334,6 +1334,23 @@
 			};
 		};
 
+		/* WSA VI sense */
+		wsa-vi-sense {
+			qcom,pins = <&gp 108>, <&gp 109>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <1>;
+			label = "wsa_vi";
+			wsa_vi_act: vi_sense_on {
+				drive-strength = <8>;
+				bias-disable; /* NO pull */
+			};
+
+			wsa_vi_sus: vi_sense_off {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
 		pri-tlmm-lines {
 			qcom,pins = <&gp 123>, <&gp 124>, <&gp 125>;
 			qcom,num-grp-pins = <3>;
