@@ -1231,6 +1231,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_BEGIN);
 		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_READY);
 		mutex_lock(ctl->shared_lock);
+		mutex_lock(ctl->wb_lock);
 	}
 
 	mutex_lock(&mdp5_data->ov_lock);
@@ -1334,8 +1335,10 @@ commit_fail:
 		wake_up_all(&mfd->kickoff_wait_q);
 	}
 	mutex_unlock(&mdp5_data->ov_lock);
-	if (ctl->shared_lock)
+	if (ctl->shared_lock) {
+		mutex_unlock(ctl->wb_lock);
 		mutex_unlock(ctl->shared_lock);
+	}
 	ATRACE_END(__func__);
 	return ret;
 }
