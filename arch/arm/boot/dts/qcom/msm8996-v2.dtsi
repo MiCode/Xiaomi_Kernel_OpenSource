@@ -248,7 +248,7 @@
 	regulator-max-microvolt = <5>;
 
 	qcom,cpr-fuse-corners = <4>;
-	qcom,cpr-fuse-combos = <1>;
+	qcom,cpr-fuse-combos = <8>;
 	qcom,cpr-corners = <5>;
 
 	qcom,cpr-corner-fmax-map = <2 3 4 5>;

@@ -69,7 +69,8 @@ MMSS specific properties:
 		    the device.  This value is utilized by several other
 		    properties.  Supported values are 1 up to the maximum
 		    possible for a given regulator type.  For MMSS the maximum
-		    supported value is 1.
+		    supported value is 8.  These combos correspond to CPR
+		    revision fuse values from 0 to 7 in order.
 
 - qcom,cpr-target-quotients
 	Usage:      required
