@@ -127,6 +127,10 @@
 #define IT_I2C_VTG_MIN_UV	2600000
 #define IT_I2C_VTG_MAX_UV	3300000
 
+#define PINCTRL_STATE_ACTIVE	"pmx_ts_active"
+#define PINCTRL_STATE_SUSPEND	"pmx_ts_suspend"
+#define PINCTRL_STATE_RELEASE	"pmx_ts_release"
+
 struct FingerData {
 	uint8_t xLo;
 	uint8_t hi;
@@ -184,6 +188,10 @@ struct IT7260_ts_data {
 	struct notifier_block fb_notif;
 #endif
 	struct dentry *dir;
+	struct pinctrl *ts_pinctrl;
+	struct pinctrl_state *pinctrl_state_active;
+	struct pinctrl_state *pinctrl_state_suspend;
+	struct pinctrl_state *pinctrl_state_release;
 };
 
 /* Function declarations */
@@ -1269,6 +1277,60 @@ static inline int IT7260_ts_parse_dt(struct device *dev,
 }
 #endif
 
+static int IT7260_ts_pinctrl_init(struct IT7260_ts_data *ts_data)
+{
+	int retval;
+
+	/* Get pinctrl if target uses pinctrl */
+	ts_data->ts_pinctrl = devm_pinctrl_get(&(ts_data->client->dev));
+	if (IS_ERR_OR_NULL(ts_data->ts_pinctrl)) {
+		retval = PTR_ERR(ts_data->ts_pinctrl);
+		dev_dbg(&ts_data->client->dev,
+			"Target does not use pinctrl %d\n", retval);
+		goto err_pinctrl_get;
+	}
+
+	ts_data->pinctrl_state_active
+		= pinctrl_lookup_state(ts_data->ts_pinctrl,
+				PINCTRL_STATE_ACTIVE);
+	if (IS_ERR_OR_NULL(ts_data->pinctrl_state_active)) {
+		retval = PTR_ERR(ts_data->pinctrl_state_active);
+		dev_err(&ts_data->client->dev,
+			"Can not lookup %s pinstate %d\n",
+			PINCTRL_STATE_ACTIVE, retval);
+		goto err_pinctrl_lookup;
+	}
+
+	ts_data->pinctrl_state_suspend
+		= pinctrl_lookup_state(ts_data->ts_pinctrl,
+			PINCTRL_STATE_SUSPEND);
+	if (IS_ERR_OR_NULL(ts_data->pinctrl_state_suspend)) {
+		retval = PTR_ERR(ts_data->pinctrl_state_suspend);
+		dev_err(&ts_data->client->dev,
+			"Can not lookup %s pinstate %d\n",
+			PINCTRL_STATE_SUSPEND, retval);
+		goto err_pinctrl_lookup;
+	}
+
+	ts_data->pinctrl_state_release
+		= pinctrl_lookup_state(ts_data->ts_pinctrl,
+			PINCTRL_STATE_RELEASE);
+	if (IS_ERR_OR_NULL(ts_data->pinctrl_state_release)) {
+		retval = PTR_ERR(ts_data->pinctrl_state_release);
+		dev_dbg(&ts_data->client->dev,
+			"Can not lookup %s pinstate %d\n",
+			PINCTRL_STATE_RELEASE, retval);
+	}
+
+	return 0;
+
+err_pinctrl_lookup:
+	devm_pinctrl_put(ts_data->ts_pinctrl);
+err_pinctrl_get:
+	ts_data->ts_pinctrl = NULL;
+	return retval;
+}
+
 static int IT7260_ts_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
@@ -1355,6 +1417,22 @@ static int IT7260_ts_probe(struct i2c_client *client,
 			dev_err(&gl_ts->client->dev,
 				"Regulator avdd enable failed ret=%d\n", ret);
 			return ret;
+		}
+	}
+
+	ret = IT7260_ts_pinctrl_init(gl_ts);
+	if (!ret && gl_ts->ts_pinctrl) {
+		/*
+		 * Pinctrl handle is optional. If pinctrl handle is found
+		 * let pins to be configured in active state. If not
+		 * found continue further without error.
+		 */
+		ret = pinctrl_select_state(gl_ts->ts_pinctrl,
+					gl_ts->pinctrl_state_active);
+		if (ret < 0) {
+			dev_err(&gl_ts->client->dev,
+				"failed to select pin to active state %d",
+				ret);
 		}
 	}
 
@@ -1511,6 +1589,19 @@ err_identification_fail:
 	if (gpio_is_valid(pdata->irq_gpio))
 		gpio_free(pdata->irq_gpio);
 
+	if (gl_ts->ts_pinctrl) {
+		if (IS_ERR_OR_NULL(gl_ts->pinctrl_state_release)) {
+			devm_pinctrl_put(gl_ts->ts_pinctrl);
+			gl_ts->ts_pinctrl = NULL;
+		} else {
+			ret = pinctrl_select_state(gl_ts->ts_pinctrl,
+					gl_ts->pinctrl_state_release);
+			if (ret)
+				dev_err(&gl_ts->client->dev,
+					"failed to select relase pinctrl state %d\n",
+					ret);
+		}
+	}
 	regulator_disable(gl_ts->vdd);
 	regulator_disable(gl_ts->avdd);
 	regulator_put(gl_ts->vdd);
@@ -1521,6 +1612,8 @@ err_identification_fail:
 
 static int IT7260_ts_remove(struct i2c_client *client)
 {
+	int ret;
+
 	debugfs_remove_recursive(gl_ts->dir);
 #if defined(CONFIG_FB)
 	if (fb_unregister_client(&gl_ts->fb_notif))
@@ -1540,6 +1633,19 @@ static int IT7260_ts_remove(struct i2c_client *client)
 		gpio_free(gl_ts->pdata->reset_gpio);
 	if (gpio_is_valid(gl_ts->pdata->irq_gpio))
 		gpio_free(gl_ts->pdata->irq_gpio);
+	if (gl_ts->ts_pinctrl) {
+		if (IS_ERR_OR_NULL(gl_ts->pinctrl_state_release)) {
+			devm_pinctrl_put(gl_ts->ts_pinctrl);
+			gl_ts->ts_pinctrl = NULL;
+		} else {
+			ret = pinctrl_select_state(gl_ts->ts_pinctrl,
+					gl_ts->pinctrl_state_release);
+			if (ret)
+				dev_err(&gl_ts->client->dev,
+					"failed to select relase pinctrl state %d\n",
+					ret);
+		}
+	}
 	regulator_disable(gl_ts->vdd);
 	regulator_disable(gl_ts->avdd);
 	regulator_put(gl_ts->vdd);
@@ -1572,6 +1678,8 @@ static int fb_notifier_callback(struct notifier_block *self,
 #ifdef CONFIG_PM
 static int IT7260_ts_resume(struct device *dev)
 {
+	int retval;
+
 	if (device_may_wakeup(dev)) {
 		if (gl_ts->device_needs_wakeup) {
 			gl_ts->device_needs_wakeup = false;
@@ -1580,13 +1688,28 @@ static int IT7260_ts_resume(struct device *dev)
 		return 0;
 	}
 
+	if (gl_ts->ts_pinctrl) {
+		retval = pinctrl_select_state(gl_ts->ts_pinctrl,
+				gl_ts->pinctrl_state_active);
+		if (retval < 0) {
+			dev_err(dev, "Cannot get default pinctrl state %d\n",
+				retval);
+			goto err_pinctrl_select_suspend;
+		}
+	}
+
 	enable_irq(gl_ts->client->irq);
 	gl_ts->suspended = false;
 	return 0;
+
+err_pinctrl_select_suspend:
+	return retval;
 }
 
 static int IT7260_ts_suspend(struct device *dev)
 {
+	int retval;
+
 	if (gl_ts->fw_cfg_uploading) {
 		dev_dbg(dev, "Fw/cfg uploading. Can't go to suspend.\n");
 		return -EBUSY;
@@ -1606,9 +1729,23 @@ static int IT7260_ts_suspend(struct device *dev)
 	disable_irq(gl_ts->client->irq);
 
 	IT7260_ts_release_all();
+
+	if (gl_ts->ts_pinctrl) {
+		retval = pinctrl_select_state(gl_ts->ts_pinctrl,
+				gl_ts->pinctrl_state_suspend);
+		if (retval < 0) {
+			dev_err(dev, "Cannot get idle pinctrl state %d\n",
+				retval);
+			goto err_pinctrl_select_suspend;
+		}
+	}
+
 	gl_ts->suspended = true;
 
 	return 0;
+
+err_pinctrl_select_suspend:
+	return retval;
 }
 
 static const struct dev_pm_ops IT7260_ts_dev_pm_ops = {
