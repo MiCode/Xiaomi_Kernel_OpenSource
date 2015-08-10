@@ -699,10 +699,15 @@ struct diag_cmd_reg_entry_t *diag_cmd_search(
 			if ((temp_entry->cmd_code_hi >= entry->cmd_code) &&
 			    (temp_entry->cmd_code_lo <= entry->cmd_code) &&
 			    (proc == item->proc || proc == ALL_PROC)) {
-				if (entry->cmd_code == MODE_CMD &&
-				    entry->subsys_id == RESET_ID &&
-				    item->proc != APPS_DATA) {
-					continue;
+				if (entry->cmd_code == MODE_CMD) {
+					if (entry->subsys_id == RESET_ID &&
+						item->proc != APPS_DATA) {
+						continue;
+					}
+					if (entry->subsys_id != RESET_ID &&
+						item->proc == APPS_DATA) {
+						continue;
+					}
 				}
 				return &item->entry;
 			}
