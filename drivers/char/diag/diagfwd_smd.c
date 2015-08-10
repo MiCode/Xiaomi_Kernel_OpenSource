@@ -183,7 +183,7 @@ static void diag_state_close_smd(void *ctxt)
 	atomic_set(&smd_info->diag_state, 0);
 	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 		 "%s setting diag state to 0", smd_info->name);
-	wake_up(&smd_info->read_wait_q);
+	wake_up_interruptible(&smd_info->read_wait_q);
 	flush_workqueue(smd_info->wq);
 }
 
@@ -385,7 +385,7 @@ static void smd_close_work_fn(struct work_struct *work)
 		return;
 
 	diagfwd_channel_close(smd_info->fwd_ctxt);
-	wake_up(&smd_info->read_wait_q);
+	wake_up_interruptible(&smd_info->read_wait_q);
 	DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "%s exiting\n",
 		 smd_info->name);
 }
@@ -413,7 +413,7 @@ static void diag_smd_queue_read(void *ctxt)
 	smd_info = (struct diag_smd_info *)ctxt;
 	if (smd_info->inited && atomic_read(&smd_info->opened) &&
 	    smd_info->hdl) {
-		wake_up(&smd_info->read_wait_q);
+		wake_up_interruptible(&smd_info->read_wait_q);
 		queue_work(smd_info->wq, &(smd_info->read_work));
 	}
 }
@@ -718,10 +718,13 @@ static int diag_smd_read(void *ctxt, unsigned char *buf, int buf_len)
 	    !atomic_read(&smd_info->opened))
 		return -EIO;
 
-	wait_event(smd_info->read_wait_q, (smd_info->hdl == NULL) ||
-				(atomic_read(&smd_info->opened) == 0) ||
-				(smd_cur_packet_size(smd_info->hdl)) ||
-				(atomic_read(&smd_info->diag_state) == 0));
+	err = wait_event_interruptible(smd_info->read_wait_q,
+				       (smd_info->hdl == NULL) ||
+				       (atomic_read(&smd_info->opened) == 0) ||
+				       (smd_cur_packet_size(smd_info->hdl)) ||
+				       (!atomic_read(&smd_info->diag_state)));
+	if (err)
+		return -ERESTARTSYS;
 
 	/*
 	 * In this case don't reset the buffers as there is no need to further
@@ -828,6 +831,6 @@ static void smd_notify(void *ctxt, unsigned event)
 		break;
 	}
 
-	wake_up(&smd_info->read_wait_q);
+	wake_up_interruptible(&smd_info->read_wait_q);
 }
 
