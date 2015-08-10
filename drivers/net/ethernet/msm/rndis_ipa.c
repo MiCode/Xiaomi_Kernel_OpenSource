@@ -1120,9 +1120,9 @@ static void rndis_ipa_packet_receive_notify(void *private,
 		return;
 	}
 
-	result = netif_rx(skb);
+	result = netif_rx_ni(skb);
 	if (result)
-		RNDIS_IPA_ERROR("fail on netif_rx\n");
+		RNDIS_IPA_ERROR("fail on netif_rx_ni\n");
 	rndis_ipa_ctx->net->stats.rx_packets++;
 	rndis_ipa_ctx->net->stats.rx_bytes += packet_len;
 
