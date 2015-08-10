@@ -166,6 +166,10 @@ Parent node optional properties:
 					if "qcom,autoadjust-vfloat" property is
 					specified in the charger driver to
 					ensure a proper operation.
+- qcom,bad-battery-detection-enable:	A boolean property to enable the fuel
+					gauge driver to detect the damaged battery
+					when the safety-timer expires by using the
+					coulomb count.
 
 qcom,fg-soc node required properties:
 - reg : offset and length of the PMIC peripheral register map.
