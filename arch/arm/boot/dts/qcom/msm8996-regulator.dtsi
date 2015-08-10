@@ -843,7 +843,7 @@
 					<400000  520000  520000  520000  520000
 					 520000  520000>;
 
-				qcom,system-voltage = <2 2 2 2 2 2 4>;
+				qcom,system-voltage = <2 2 2 2 2 4 4>;
 
 				qcom,corner-frequencies =
 					<0 210000000 300000000 401800000
