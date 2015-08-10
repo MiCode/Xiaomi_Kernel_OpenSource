@@ -312,6 +312,7 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 	meas_mbps_zone = (meas_mbps * 100) / io_percent;
 	meas_mbps_zone = to_mbps_zone(node, meas_mbps_zone);
 	meas_mbps_zone = (meas_mbps_zone * io_percent) / 100;
+	meas_mbps_zone = max(meas_mbps, meas_mbps_zone);
 
 	/*
 	 * If this is a wake up due to BW increase, vote much higher BW than
