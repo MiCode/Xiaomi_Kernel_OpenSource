@@ -110,6 +110,7 @@
 #include "msmtitanium-bus.dtsi"
 #include "msmtitanium-iommu-domains.dtsi"
 #include "msmtitanium-vidc.dtsi"
+#include "msmtitanium-pm.dtsi"
 
 &soc {
 	#address-cells = <1>;
