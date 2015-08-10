@@ -6167,7 +6167,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 	 * pull-down during suspend without any additional
 	 * hardware re-work.
 	 */
-	if (motg->pdata->phy_dvdd_always_on)
+	if (motg->pdata->phy_type == SNPS_FEMTO_PHY)
 		motg->caps |= ALLOW_BUS_SUSPEND_WITHOUT_REWORK;
 
 	wake_lock(&motg->wlock);
