@@ -614,8 +614,9 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		cq_host->mrq_slot[DCMD_SLOT] = mrq;
 		if (cq_host->ops->pm_qos_update)
 			cq_host->ops->pm_qos_update(mmc, NULL, true);
-		cmdq_writel(cq_host, 1 << DCMD_SLOT, CQTDBR);
-		return 0;
+		/* DCMD's are always issued on a fixed slot */
+		tag = DCMD_SLOT;
+		goto ring_doorbell;
 	}
 
 	if (cq_host->ops->crypto_cfg) {
@@ -649,7 +650,12 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	if (cq_host->ops->set_tranfer_params)
 		cq_host->ops->set_tranfer_params(mmc);
 
+ring_doorbell:
+	/* Ensure the task descriptor list is flushed before ringing doorbell */
+	wmb();
 	cmdq_writel(cq_host, 1 << tag, CQTDBR);
+	/* Commit the doorbell write immediately */
+	wmb();
 
 out:
 	return err;
