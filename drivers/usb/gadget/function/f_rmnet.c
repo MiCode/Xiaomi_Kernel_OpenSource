@@ -1078,6 +1078,7 @@ frmnet_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 					" req%02x.%02x v%04x i%04x l%d\n",
 					ctrl->bRequestType, ctrl->bRequest,
 					w_value, w_index, w_length);
+				ret = 0;
 				spin_unlock(&dev->lock);
 				goto invalid;
 			}
