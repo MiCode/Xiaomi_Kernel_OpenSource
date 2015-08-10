@@ -34,8 +34,14 @@ static irqreturn_t gpio_usbdetect_vbus_irq(int irq, void *data)
 	int vbus;
 
 	vbus = !!irq_read_line(irq);
-	power_supply_set_present(usb->usb_psy, vbus);
+	if (vbus)
+		power_supply_set_supply_type(usb->usb_psy,
+				POWER_SUPPLY_TYPE_USB);
+	else
+		power_supply_set_supply_type(usb->usb_psy,
+				POWER_SUPPLY_TYPE_UNKNOWN);
 
+	power_supply_set_present(usb->usb_psy, vbus);
 	return IRQ_HANDLED;
 }
 
@@ -43,7 +49,7 @@ static int gpio_usbdetect_probe(struct platform_device *pdev)
 {
 	struct gpio_usbdetect *usb;
 	struct power_supply *usb_psy;
-	int rc, vbus;
+	int rc;
 	unsigned long flags;
 
 	usb_psy = power_supply_get_by_name("usb");
@@ -101,10 +107,8 @@ static int gpio_usbdetect_probe(struct platform_device *pdev)
 
 	/* Read and report initial VBUS state */
 	local_irq_save(flags);
-	vbus = !!irq_read_line(usb->vbus_det_irq);
+	gpio_usbdetect_vbus_irq(usb->vbus_det_irq, usb);
 	local_irq_restore(flags);
-
-	power_supply_set_present(usb->usb_psy, vbus);
 
 	return 0;
 }
