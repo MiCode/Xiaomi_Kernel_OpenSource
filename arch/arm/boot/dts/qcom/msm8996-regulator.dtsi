@@ -882,9 +882,11 @@
 				       1959 2131 2246 2253    0    0    0    0>;
 
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
+					<30000 30000 30000 0>,
 					<0 0 0 0>;
 				qcom,cpr-closed-loop-voltage-adjustment =
-					<0 0 0 0 0 0 0>;
+					<0 30000 30000 30000 30000 0 0>,
+					<0 30000 30000 30000 30000 0 0>;
 				qcom,cpr-floor-to-ceiling-max-range =
 				       <0 70000 75000 80000 90000 95000 100000>;
 
