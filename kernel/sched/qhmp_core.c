@@ -1171,6 +1171,32 @@ static inline void clear_hmp_request(int cpu)
 	}
 }
 
+int sched_set_static_cpu_pwr_cost(int cpu, unsigned int cost)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	rq->static_cpu_pwr_cost = cost;
+	return 0;
+}
+
+unsigned int sched_get_static_cpu_pwr_cost(int cpu)
+{
+	return cpu_rq(cpu)->static_cpu_pwr_cost;
+}
+
+int sched_set_static_cluster_pwr_cost(int cpu, unsigned int cost)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	rq->static_cluster_pwr_cost = cost;
+	return 0;
+}
+
+unsigned int sched_get_static_cluster_pwr_cost(int cpu)
+{
+	return cpu_rq(cpu)->static_cluster_pwr_cost;
+}
+
 #else
 
 static inline int got_boost_kick(void)
@@ -8966,6 +8992,8 @@ void __init sched_init(void)
 		rq->avg_irqload = 0;
 		rq->irqload_ts = 0;
 		rq->prefer_idle = 1;
+		rq->static_cpu_pwr_cost = 0;
+		rq->static_cluster_pwr_cost = 0;
 #ifdef CONFIG_SCHED_FREQ_INPUT
 		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
 		rq->old_busy_time = 0;

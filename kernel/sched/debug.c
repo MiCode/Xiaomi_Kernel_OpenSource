@@ -330,6 +330,8 @@ do {									\
 	P(efficiency);
 	P(cur_freq);
 	P(max_freq);
+	P(static_cpu_pwr_cost);
+	P(static_cluster_pwr_cost);
 #endif
 #ifdef CONFIG_SCHED_HMP
 	P(hmp_stats.nr_big_tasks);

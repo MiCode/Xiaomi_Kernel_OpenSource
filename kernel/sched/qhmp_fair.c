@@ -3005,6 +3005,7 @@ unsigned int power_cost(u64 task_load, int cpu)
 	unsigned int task_freq, cur_freq;
 	struct rq *rq = cpu_rq(cpu);
 	u64 demand;
+	int total_static_pwr_cost = 0;
 
 	if (!sysctl_sched_enable_power_aware)
 		return rq->max_possible_capacity;
@@ -3019,7 +3020,13 @@ unsigned int power_cost(u64 task_load, int cpu)
 	cur_freq = rq->cur_freq;
 	task_freq = max(cur_freq, task_freq);
 
-	return power_cost_at_freq(cpu, task_freq);
+	if (idle_cpu(cpu) && rq->cstate) {
+		total_static_pwr_cost += rq->static_cpu_pwr_cost;
+		if (rq->dstate)
+			total_static_pwr_cost += rq->static_cluster_pwr_cost;
+	}
+
+	return power_cost_at_freq(cpu, task_freq) + total_static_pwr_cost;
 }
 
 static int best_small_task_cpu(struct task_struct *p, int sync)

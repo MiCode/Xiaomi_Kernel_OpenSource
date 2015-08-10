@@ -177,6 +177,7 @@ TRACE_EVENT(sched_cpu_load,
 		__field(unsigned int, max_freq			)
 		__field(unsigned int, power_cost		)
 		__field(	 int, cstate			)
+		__field(	 int, dstate			)
 		__field(	 int, temp			)
 	),
 
@@ -195,16 +196,17 @@ TRACE_EVENT(sched_cpu_load,
 		__entry->max_freq		= rq->max_freq;
 		__entry->power_cost		= power_cost;
 		__entry->cstate			= rq->cstate;
+		__entry->dstate			= rq->dstate;
 		__entry->temp			= temp;
 	),
 
-	TP_printk("cpu %u idle %d mostly_idle %d nr_run %u nr_big %u nr_small %u lsf %u capacity %u cr_avg %llu irqload %llu fcur %u fmax %u power_cost %u cstate %d temp %d",
+	TP_printk("cpu %u idle %d mostly_idle %d nr_run %u nr_big %u nr_small %u lsf %u capacity %u cr_avg %llu irqload %llu fcur %u fmax %u power_cost %u cstate %d dstate %d temp %d",
 	__entry->cpu, __entry->idle, __entry->mostly_idle, __entry->nr_running,
 	__entry->nr_big_tasks, __entry->nr_small_tasks,
 	__entry->load_scale_factor, __entry->capacity,
 	__entry->cumulative_runnable_avg, __entry->irqload,
 	__entry->cur_freq, __entry->max_freq,
-	__entry->power_cost, __entry->cstate, __entry->temp)
+	__entry->power_cost, __entry->cstate, __entry->dstate, __entry->temp)
 );
 
 TRACE_EVENT(sched_set_boost,
