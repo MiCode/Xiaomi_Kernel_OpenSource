@@ -110,20 +110,6 @@ Required properties:
 - coresight-id : unique integer identifier for the component
 - coresight-name : unique descriptive name of the component
 - coresight-nr-inports : number of input ports on the component
-- qcom,inst-id : QMI instance id for remote ETMs
-- coresight-cti-cpu : cpu phandle for cpu cti, required when qcom,cti-save is true
-- coresight-etm-cpu : specifies phandle for the cpu associated with the ETM device
-- qcom,dbgui-addr-offset : indicates the offset of dbgui address registers
-- qcom,dbgui-data-offset : indicates the offset of dbgui data registers
-- qcom,dbgui-size : indicates the size of dbgui address and data registers
-
-coresight-outports, coresight-child-list and coresight-child-ports lists will
-be of the same length and will have a one to one correspondence among the
-elements at the same list index.
-
-coresight-default-sink must be specified for one of the sink devices that is
-intended to be made the default sink. Other sink devices must not have this
-specified. Not specifying this property on any of the sinks is invalid.
 
 Optional properties:
 
@@ -190,12 +176,12 @@ Optional properties:
 		  cti-trigout-pctrl. Used for cti component
 - pinctrl-<n>: list of pinctrl phandles for the different pinctrl states. Refer
 	       to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt".
--qcom,funnel-save-restore : boolean, indicating funnel port needs to be disabled
-			    for the ETM whose CPU is being powered down. The port
-			    state is restored when CPU is powered up. Used for
-			    funnel component.
--qcom,tmc-flush-powerdown : boolean, indicating trace data needs to be flushed before
-			    powering down CPU. Used for TMC component.
+- qcom,funnel-save-restore : boolean, indicating funnel port needs to be disabled
+			     for the ETM whose CPU is being powered down. The port
+			     state is restored when CPU is powered up. Used for
+			     funnel component.
+- qcom,tmc-flush-powerdown : boolean, indicating trace data needs to be flushed before
+			     powering down CPU. Used for TMC component.
 - qcom,bc-elem-size : specifies the BC element size supported by each monitor
 		      connected to the aggregator on each port. Should be specified
 		      in pairs (port, bc element size).
@@ -214,6 +200,19 @@ Optional properties:
 - qcom,inst-id : QMI instance id for remote ETMs.
 - qcom,noovrflw-enable : boolean, indicating whether no overflow bit needs to be
 			 set in ETM stall control register.
+- coresight-cti-cpu : cpu phandle for cpu cti, required when qcom,cti-save is true
+- coresight-etm-cpu : specifies phandle for the cpu associated with the ETM device
+- qcom,dbgui-addr-offset : indicates the offset of dbgui address registers
+- qcom,dbgui-data-offset : indicates the offset of dbgui data registers
+- qcom,dbgui-size : indicates the size of dbgui address and data registers
+
+coresight-outports, coresight-child-list and coresight-child-ports lists will
+be of the same length and will have a one to one correspondence among the
+elements at the same list index.
+
+coresight-default-sink must be specified for one of the sink devices that is
+intended to be made the default sink. Other sink devices must not have this
+specified. Not specifying this property on any of the sinks is invalid.
 
 Examples:
 
