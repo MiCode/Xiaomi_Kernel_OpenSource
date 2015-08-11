@@ -844,7 +844,7 @@ static irqreturn_t swr_mstr_interrupt(int irq, void *dev)
 			}
 			break;
 		case SWRM_INTERRUPT_STATUS_MASTER_CLASH_DET:
-			dev_err(swrm->dev, "SWR bus clash detected\n");
+			dev_err_ratelimited(swrm->dev, "SWR bus clash detected\n");
 			break;
 		case SWRM_INTERRUPT_STATUS_RD_FIFO_OVERFLOW:
 			dev_dbg(swrm->dev, "SWR read FIFO overflow\n");
@@ -857,9 +857,9 @@ static irqreturn_t swr_mstr_interrupt(int irq, void *dev)
 			break;
 		case SWRM_INTERRUPT_STATUS_CMD_ERROR:
 			value = swrm->read(swrm->handle, SWRM_CMD_FIFO_STATUS);
-			dev_err(swrm->dev,
-			"SWR CMD error, CMD fifo status 0x%x, flushing fifo\n",
-			value);
+			dev_err_ratelimited(swrm->dev,
+			"SWR CMD error, fifo status 0x%x, flushing fifo\n",
+					    value);
 			swrm->write(swrm->handle, SWRM_CMD_FIFO_CMD, 0x1);
 			break;
 		case SWRM_INTERRUPT_STATUS_DOUT_PORT_COLLISION:
@@ -884,7 +884,7 @@ static irqreturn_t swr_mstr_interrupt(int irq, void *dev)
 		case SWRM_INTERRUPT_STATUS_CLK_STOP_FINISHED:
 			break;
 		default:
-			dev_err(swrm->dev, "SWR unkown interrupt\n");
+			dev_err_ratelimited(swrm->dev, "SWR unknown interrupt\n");
 			ret = IRQ_NONE;
 			break;
 		}
