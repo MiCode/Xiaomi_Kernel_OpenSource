@@ -133,6 +133,8 @@
 		<0 0 0 0 0>,
 		<0 0 0 0 0>,
 		<0 0 0 0 0>;
+
+	/delete-property/ qcom,ldo-disable;
 };
 
 &apc0_cbf_vreg {
@@ -237,6 +239,8 @@
 		<0 0 0 20000 0>,
 		<0 0 0 0 0>,
 		<0 0 0 0 0>;
+
+	/delete-property/ qcom,ldo-disable;
 };
 
 &gfx_cpr {
