@@ -1360,7 +1360,6 @@ static const struct mmc_bus_ops mmc_sd_ops = {
 	.resume = mmc_sd_resume,
 	.power_restore = mmc_sd_power_restore,
 	.alive = mmc_sd_alive,
-	.shutdown = mmc_sd_suspend,
 	.change_bus_speed = mmc_sd_change_bus_speed,
 };
 
