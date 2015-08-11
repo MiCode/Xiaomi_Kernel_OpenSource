@@ -2948,12 +2948,22 @@ int wcd9xxx_disable_static_supplies_to_optimum(struct wcd9xxx *wcd9xxx,
 }
 EXPORT_SYMBOL(wcd9xxx_disable_static_supplies_to_optimum);
 
-static int wcd9xxx_enable_static_supplies_to_optimum(
-			struct wcd9xxx *wcd9xxx,
-			struct wcd9xxx_pdata *pdata)
+/*
+ * wcd9xxx_enable_static_supplies_to_optimum(): to set supplies to optimum mode
+ * @wcd9xxx: Handle to the wcd9xxx core
+ * @pdata: Handle for pdata
+ *
+ * To set all the static supplied to optimum mode so as to save power
+ *
+ * Return: returns 0 if success or error information to the caller in case
+ *	    of failure.
+ */
+int wcd9xxx_enable_static_supplies_to_optimum(
+			struct wcd9xxx *wcd9xxx, void *data)
 {
 	int i;
 	int ret = 0;
+	struct wcd9xxx_pdata *pdata = (struct wcd9xxx_pdata *)data;
 
 	for (i = 0; i < wcd9xxx->num_of_supplies; i++) {
 		if (pdata->regulator[i].ondemand)
@@ -2978,13 +2988,12 @@ static int wcd9xxx_enable_static_supplies_to_optimum(
 	}
 	return ret;
 }
+EXPORT_SYMBOL(wcd9xxx_enable_static_supplies_to_optimum);
 
 static int wcd9xxx_slim_resume(struct slim_device *sldev)
 {
 	struct wcd9xxx *wcd9xxx = slim_get_devicedata(sldev);
-	struct wcd9xxx_pdata *pdata = sldev->dev.platform_data;
 
-	wcd9xxx_enable_static_supplies_to_optimum(wcd9xxx, pdata);
 	return wcd9xxx_core_res_resume(&wcd9xxx->core_res);
 }
 
@@ -3000,9 +3009,7 @@ static int wcd9xxx_i2c_resume(struct i2c_client *i2cdev)
 static int wcd9xxx_slim_suspend(struct slim_device *sldev, pm_message_t pmesg)
 {
 	struct wcd9xxx *wcd9xxx = slim_get_devicedata(sldev);
-	struct wcd9xxx_pdata *pdata = sldev->dev.platform_data;
 
-	wcd9xxx_disable_static_supplies_to_optimum(wcd9xxx, pdata);
 	return wcd9xxx_core_res_suspend(&wcd9xxx->core_res, pmesg);
 }
 
