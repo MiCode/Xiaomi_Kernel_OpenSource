@@ -438,7 +438,8 @@ static uint32_t q6asm_get_next_buf(struct audio_client *ac,
 	return (curr_buf >= max_buf_cnt) ? 0 : curr_buf;
 }
 
-static int q6asm_map_cal_memory(struct cal_block_data *cal_block)
+static int q6asm_map_cal_memory(int32_t cal_type,
+	struct cal_block_data *cal_block)
 {
 	int			result = 0;
 	struct asm_buffer_node	*buf_node = NULL;
@@ -506,14 +507,14 @@ done:
 	return result;
 }
 
-static int remap_cal_data(struct cal_block_data *cal_block)
+static int remap_cal_data(int32_t cal_type, struct cal_block_data *cal_block)
 {
 	int ret = 0;
 
 	if ((cal_block->map_data.map_size > 0) &&
 		(cal_block->map_data.q6map_handle == 0)) {
 
-		ret = q6asm_map_cal_memory(cal_block);
+		ret = q6asm_map_cal_memory(cal_type, cal_block);
 		if (ret < 0) {
 			pr_err("%s: mmap did not work! size = %zd ret %d\n",
 				__func__, cal_block->map_data.map_size, ret);
@@ -524,7 +525,8 @@ done:
 	return ret;
 }
 
-static int q6asm_unmap_cal_memory(struct cal_block_data *cal_block)
+static int q6asm_unmap_cal_memory(int32_t cal_type,
+	struct cal_block_data *cal_block)
 {
 	int			result = 0;
 	int			result2 = 0;
@@ -565,14 +567,14 @@ done:
 	return result;
 }
 
-void q6asm_unmap_cal_data(int cal_type, struct cal_block_data *cal_block)
+int q6asm_unmap_cal_data(int cal_type, struct cal_block_data *cal_block)
 {
 	int ret = 0;
 
 	if ((cal_block->map_data.map_size > 0) &&
 		(cal_block->map_data.q6map_handle != 0)) {
 
-		ret = q6asm_unmap_cal_memory(cal_block);
+		ret = q6asm_unmap_cal_memory(cal_type, cal_block);
 		if (ret < 0) {
 			pr_err("%s: unmap did not work! size = %zd ret %d\n",
 				__func__, cal_block->map_data.map_size, ret);
@@ -580,7 +582,7 @@ void q6asm_unmap_cal_data(int cal_type, struct cal_block_data *cal_block)
 		}
 	}
 done:
-	return;
+	return ret;
 }
 
 int send_asm_custom_topology(struct audio_client *ac)
@@ -609,7 +611,7 @@ int send_asm_custom_topology(struct audio_client *ac)
 
 	pr_debug("%s: Sending cal_index %d\n", __func__, ASM_CUSTOM_TOP_CAL);
 
-	result = remap_cal_data(cal_block);
+	result = remap_cal_data(ASM_CUST_TOPOLOGY_CAL_TYPE, cal_block);
 	if (result) {
 		pr_err("%s: Remap_cal_data failed for cal %d!\n",
 			__func__, ASM_CUSTOM_TOP_CAL);
@@ -657,7 +659,8 @@ int send_asm_custom_topology(struct audio_client *ac)
 	}
 
 unmap:
-	result1 = q6asm_unmap_cal_memory(cal_block);
+	result1 = q6asm_unmap_cal_memory(ASM_CUST_TOPOLOGY_CAL_TYPE,
+		cal_block);
 	if (result1 < 0) {
 		result = result1;
 		pr_debug("%s: unmap cal failed! %d\n", __func__, result);
@@ -6630,7 +6633,7 @@ static int q6asm_map_asm_cal(struct audio_client *ac)
 		goto unlock;
 	}
 
-	rc = remap_cal_data(cal_block);
+	rc = remap_cal_data(ASM_AUDSTRM_CAL_TYPE, cal_block);
 	if (rc) {
 		pr_err("%s: Remap_cal_data failed for cal %d!\n",
 			__func__, ASM_AUDSTRM_CAL);
@@ -6692,7 +6695,7 @@ static int q6asm_send_asm_cal(struct audio_client *ac)
 		goto unlock;
 	}
 
-	rc = remap_cal_data(cal_block);
+	rc = remap_cal_data(ASM_AUDSTRM_CAL_TYPE, cal_block);
 	if (rc) {
 		pr_err("%s: Remap_cal_data failed for cal %d!\n",
 			__func__, ASM_AUDSTRM_CAL);
@@ -6963,12 +6966,12 @@ static int q6asm_init_cal_data(void)
 		{{ASM_CUST_TOPOLOGY_CAL_TYPE,
 		{q6asm_alloc_cal, q6asm_dealloc_cal, NULL,
 		q6asm_set_cal, NULL, NULL} },
-		{NULL, NULL, cal_utils_match_buf_num} },
+		{NULL, q6asm_unmap_cal_memory, cal_utils_match_buf_num} },
 
 		{{ASM_AUDSTRM_CAL_TYPE,
 		{q6asm_alloc_cal, q6asm_dealloc_cal, NULL,
 		q6asm_set_cal, NULL, NULL} },
-		{NULL, NULL, cal_utils_match_buf_num} },
+		{NULL, q6asm_unmap_cal_memory, cal_utils_match_buf_num} },
 
 		{{ASM_RTAC_APR_CAL_TYPE,
 		{NULL, NULL, NULL, NULL, NULL, NULL} },
