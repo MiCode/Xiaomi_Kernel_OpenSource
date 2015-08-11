@@ -22,6 +22,7 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <soc/qcom/secure_buffer.h>
+#include <linux/qcom_iommu.h>
 
 #ifdef CONFIG_IOMMU_DEBUG_TRACKING
 
@@ -307,11 +308,16 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev)
 				  SZ_1M * 20, 0 };
 	unsigned long *sz;
 	struct iommu_domain *domain;
+	struct bus_type *bus;
 	unsigned long iova = 0x10000;
 	phys_addr_t paddr = 0xa000;
 	int htw_disable = 1;
 
-	domain = iommu_domain_alloc(&platform_bus_type);
+	bus = msm_iommu_get_bus(dev);
+	if (!bus)
+		return;
+
+	domain = iommu_domain_alloc(bus);
 	if (!domain) {
 		seq_puts(s, "Couldn't allocate domain\n");
 		return;
@@ -437,8 +443,13 @@ static int iommu_debug_attach_do_attach(struct iommu_debug_device *ddev,
 					int val, bool is_secure)
 {
 	int htw_disable = 1;
+	struct bus_type *bus;
 
-	ddev->domain = iommu_domain_alloc(&platform_bus_type);
+	bus = msm_iommu_get_bus(ddev->dev);
+	if (!bus)
+		return -EINVAL;
+
+	ddev->domain = iommu_domain_alloc(bus);
 	if (!ddev->domain) {
 		pr_err("Couldn't allocate domain\n");
 		return -ENOMEM;
@@ -780,64 +791,64 @@ static const struct file_operations iommu_debug_unmap_fops = {
  * device tree bindings described in
  * Documentation/devicetree/bindings/iommu/iommu.txt
  */
-static int snarf_iommu_devices(struct device *dev, void *ignored)
+static int snarf_iommu_devices(struct device *dev, const char *name)
 {
 	struct iommu_debug_device *ddev;
 	struct dentry *dir;
 
-	if (!of_find_property(dev->of_node, "iommus", NULL))
-		return 0;
+	if (IS_ERR_OR_NULL(dev))
+		return -EINVAL;
 
 	ddev = kzalloc(sizeof(*ddev), GFP_KERNEL);
 	if (!ddev)
 		return -ENODEV;
 	ddev->dev = dev;
-	dir = debugfs_create_dir(dev_name(dev), debugfs_tests_dir);
+	dir = debugfs_create_dir(name, debugfs_tests_dir);
 	if (!dir) {
 		pr_err("Couldn't create iommu/devices/%s debugfs dir\n",
-		       dev_name(dev));
+		       name);
 		goto err;
 	}
 
 	if (!debugfs_create_file("profiling", S_IRUSR, dir, ddev,
 				 &iommu_debug_profiling_fops)) {
 		pr_err("Couldn't create iommu/devices/%s/profiling debugfs file\n",
-		       dev_name(dev));
+		       name);
 		goto err_rmdir;
 	}
 
 	if (!debugfs_create_file("attach", S_IRUSR, dir, ddev,
 				 &iommu_debug_attach_fops)) {
 		pr_err("Couldn't create iommu/devices/%s/attach debugfs file\n",
-		       dev_name(dev));
+		       name);
 		goto err_rmdir;
 	}
 
 	if (!debugfs_create_file("secure_attach", S_IRUSR, dir, ddev,
 				 &iommu_debug_secure_attach_fops)) {
 		pr_err("Couldn't create iommu/devices/%s/secure_attach debugfs file\n",
-		       dev_name(dev));
+		       name);
 		goto err_rmdir;
 	}
 
 	if (!debugfs_create_file("atos", S_IWUSR, dir, ddev,
 				 &iommu_debug_atos_fops)) {
 		pr_err("Couldn't create iommu/devices/%s/atos debugfs file\n",
-		       dev_name(dev));
+		       name);
 		goto err_rmdir;
 	}
 
 	if (!debugfs_create_file("map", S_IWUSR, dir, ddev,
 				 &iommu_debug_map_fops)) {
 		pr_err("Couldn't create iommu/devices/%s/map debugfs file\n",
-		       dev_name(dev));
+		       name);
 		goto err_rmdir;
 	}
 
 	if (!debugfs_create_file("unmap", S_IWUSR, dir, ddev,
 				 &iommu_debug_unmap_fops)) {
 		pr_err("Couldn't create iommu/devices/%s/unmap debugfs file\n",
-		       dev_name(dev));
+		       name);
 		goto err_rmdir;
 	}
 
@@ -851,6 +862,34 @@ err:
 	return 0;
 }
 
+static int pass_iommu_devices(struct device *dev, void *ignored)
+{
+	if (!of_find_property(dev->of_node, "iommus", NULL))
+		return 0;
+
+	return snarf_iommu_devices(dev, dev_name(dev));
+}
+
+static int iommu_debug_populate_devices(void)
+{
+	int ret;
+	struct device_node *np;
+	const char *cb_name;
+
+	for_each_compatible_node(np, NULL, "qcom,msm-smmu-v2-ctx") {
+		ret = of_property_read_string(np, "label", &cb_name);
+		if (ret)
+			return ret;
+
+		ret = snarf_iommu_devices(msm_iommu_get_ctx(cb_name), cb_name);
+		if (ret)
+			return ret;
+	}
+
+	return bus_for_each_dev(&platform_bus_type, NULL, NULL,
+			pass_iommu_devices);
+}
+
 static int iommu_debug_init_tests(void)
 {
 	debugfs_tests_dir = debugfs_create_dir("tests",
@@ -860,8 +899,7 @@ static int iommu_debug_init_tests(void)
 		return -ENODEV;
 	}
 
-	return bus_for_each_dev(&platform_bus_type, NULL, NULL,
-				snarf_iommu_devices);
+	return iommu_debug_populate_devices();
 }
 
 static void iommu_debug_destroy_tests(void)
