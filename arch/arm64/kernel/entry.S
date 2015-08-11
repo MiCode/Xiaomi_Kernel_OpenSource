@@ -601,31 +601,31 @@ ENTRY(cpu_switch_to)
 	ldp	x29, x9, [x8], #16
 	ldr	lr, [x8]
 #ifdef CONFIG_ARM64_REG_REBALANCE_ON_CTX_SW
-           ORR        x13, x13, x13
-           ORR        x14, x14, x14
-           ORR        x15, x15, x15
-           ORR        x16, x16, x16
-           ORR        x17, x17, x17
-           ORR        x18, x18, x18
-           ORR        x19, x19, x19
-           ORR        x20, x20, x20
-           ORR        x21, x21, x21
-           MOV        V0.16B, V0.16B
-           MOV        V1.16B, V1.16B
-           MOV        V2.16B, V2.16B
-           MOV        V3.16B, V3.16B
-           MOV        V4.16B, V4.16B
-           MOV        V5.16B, V5.16B
-           MOV        V6.16B, V6.16B
-           MOV        V7.16B, V7.16B
-           MOV        V8.16B, V8.16B
-           MOV        V9.16B, V9.16B
-           MOV        V10.16B, V10.16B
-           MOV        V11.16B, V11.16B
-           MOV        V12.16B, V12.16B
-           MOV        V13.16B, V13.16B
-           MOV        V14.16B, V14.16B
-           MOV        V15.16B, V15.16B
+	orr	x13, x13, x13
+	orr	x14, x14, x14
+	orr	x15, x15, x15
+	orr	x16, x16, x16
+	orr	x17, x17, x17
+	orr	x18, x18, x18
+	orr	x19, x19, x19
+	orr	x20, x20, x20
+	orr	x21, x21, x21
+	mov	v0.16b, v0.16b
+	mov	v1.16b, v1.16b
+	mov	v2.16b, v2.16b
+	mov	v3.16b, v3.16b
+	mov	v4.16b, v4.16b
+	mov	v5.16b, v5.16b
+	mov	v6.16b, v6.16b
+	mov	v7.16b, v7.16b
+	mov	v8.16b, v8.16b
+	mov	v9.16b, v9.16b
+	mov	v10.16b, v10.16b
+	mov	v11.16b, v11.16b
+	mov	v12.16b, v12.16b
+	mov	v13.16b, v13.16b
+	mov	v14.16b, v14.16b
+	mov	v15.16b, v15.16b
 #endif
 	mov	sp, x9
 	ret
