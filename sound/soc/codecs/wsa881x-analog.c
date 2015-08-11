@@ -927,6 +927,39 @@ static int32_t wsa881x_resource_acquire(struct snd_soc_codec *codec,
 	return ret;
 }
 
+static int32_t wsa881x_temp_reg_read(struct snd_soc_codec *codec,
+				     struct wsa_temp_register *wsa_temp_reg)
+{
+	struct wsa881x_pdata *wsa881x = snd_soc_codec_get_drvdata(codec);
+
+	if (!wsa881x) {
+		dev_err(codec->dev, "%s: wsa881x is NULL\n", __func__);
+		return -EINVAL;
+	}
+	wsa881x_resource_acquire(codec, true);
+
+	snd_soc_update_bits(codec, WSA881X_TEMP_OP, 0x04, 0x04);
+	if (WSA881X_IS_2_0(wsa881x->version)) {
+		snd_soc_update_bits(codec, WSA881X_TADC_VALUE_CTL, 0x01, 0x00);
+		wsa_temp_reg->dmeas_msb = snd_soc_read(codec, WSA881X_TEMP_MSB);
+		wsa_temp_reg->dmeas_lsb = snd_soc_read(codec, WSA881X_TEMP_LSB);
+		snd_soc_update_bits(codec, WSA881X_TADC_VALUE_CTL, 0x01, 0x01);
+	} else {
+		wsa_temp_reg->dmeas_msb = snd_soc_read(codec,
+						   WSA881X_TEMP_DOUT_MSB);
+		wsa_temp_reg->dmeas_lsb = snd_soc_read(codec,
+						   WSA881X_TEMP_DOUT_LSB);
+	}
+	wsa_temp_reg->d1_msb = snd_soc_read(codec, WSA881X_OTP_REG_1);
+	wsa_temp_reg->d1_lsb = snd_soc_read(codec, WSA881X_OTP_REG_2);
+	wsa_temp_reg->d2_msb = snd_soc_read(codec, WSA881X_OTP_REG_3);
+	wsa_temp_reg->d2_lsb = snd_soc_read(codec, WSA881X_OTP_REG_4);
+
+	wsa881x_resource_acquire(codec, false);
+
+	return 0;
+}
+
 static int wsa881x_probe(struct snd_soc_codec *codec)
 {
 	struct i2c_client *client;
@@ -950,10 +983,8 @@ static int wsa881x_probe(struct snd_soc_codec *codec)
 	wsa_pdata[wsa881x_index].spk_pa_gain = SPK_GAIN_12DB;
 	wsa_pdata[wsa881x_index].codec = codec;
 	wsa_pdata[wsa881x_index].tz_pdata.codec = codec;
-	wsa_pdata[wsa881x_index].tz_pdata.dig_base = WSA881X_DIGITAL_BASE;
-	wsa_pdata[wsa881x_index].tz_pdata.ana_base = WSA881X_ANALOG_BASE;
-	wsa_pdata[wsa881x_index].tz_pdata.wsa_resource_acquire =
-						wsa881x_resource_acquire;
+	wsa_pdata[wsa881x_index].tz_pdata.wsa_temp_reg_read =
+						wsa881x_temp_reg_read;
 	snd_soc_codec_set_drvdata(codec, &wsa_pdata[wsa881x_index]);
 	wsa881x_init_thermal(&wsa_pdata[wsa881x_index].tz_pdata);
 
