@@ -1239,11 +1239,6 @@ static void msm_comm_clean_notify_client(struct msm_vidc_core *core)
 	mutex_unlock(&core->lock);
 }
 
-struct sys_err_handler_data {
-	struct msm_vidc_core *core;
-	struct delayed_work work;
-};
-
 static void handle_sys_error(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
