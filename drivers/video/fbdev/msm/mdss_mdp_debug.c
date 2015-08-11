@@ -704,15 +704,15 @@ static struct debug_bus dbg_bus_8994[] = {
 };
 
 static struct vbif_debug_bus vbif_dbg_bus_8996[] = {
-	{0x214, 0x21c, 16, 2, 16}, /* arb clients */
-	{0x214, 0x21c, 0, 14, 4}, /* xin blocks - axi side */
-	{0x21c, 0x214, 0, 14, 5}, /* xin blocks - clock side */
+	{0x214, 0x21c, 16, 2, 0x10}, /* arb clients */
+	{0x214, 0x21c, 0, 14, 0x13}, /* xin blocks - axi side */
+	{0x21c, 0x214, 0, 14, 0xc}, /* xin blocks - clock side */
 };
 
 static struct vbif_debug_bus nrt_vbif_dbg_bus_8996[] = {
-	{0x214, 0x21c, 16, 1, 16}, /* arb clients */
-	{0x214, 0x21c, 0, 12, 4}, /* xin blocks - axi side */
-	{0x21c, 0x214, 0, 12, 5}, /* xin blocks - clock side */
+	{0x214, 0x21c, 16, 1, 0x10}, /* arb clients */
+	{0x214, 0x21c, 0, 12, 0x13}, /* xin blocks - axi side */
+	{0x21c, 0x214, 0, 12, 0xc}, /* xin blocks - clock side */
 };
 
 void mdss_mdp_hw_rev_debug_caps_init(struct mdss_data_type *mdata)
