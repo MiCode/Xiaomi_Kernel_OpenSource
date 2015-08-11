@@ -1,0 +1,215 @@
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	msm_vidc: qcom,vidc@c00000 {
+		compatible = "qcom,msm-vidc";
+		status = "ok";
+		reg = <0xC00000 0xff000>;
+		interrupts = <0 287 0>;
+		qcom,hfi = "venus";
+		qcom,hfi-version = "3xx";
+		qcom,reg-presets = <0x80010 0xffffffff>,
+			<0x80018 0x00001556>,
+			<0x8001C 0x00001556>;
+		qcom,qdss-presets = <0x08180000 0x2000>,
+			<0x08182000 0x2000>,
+			<0x08184000 0x2000>,
+			<0x08186000 0x2000>,
+			<0x08188000 0x2000>,
+			<0x0818A000 0x2000>,
+			<0x0818C000 0x2000>,
+			<0x0818E000 0x2000>;
+		qcom,max-hw-load = <2563200>; /* Full 4k @ 60 + 1080p @ 60 */
+		qcom,firmware-name = "venus";
+		qcom,imem-size = <524288>; /* 512 kB */
+		qcom,never-unload-fw;
+		qcom,sw-power-collapse;
+		qcom,load-freq-tbl =
+			/* Encoders */
+			<972000 490000000 0x55555555>, /* 4k UHD @ 30 */
+			<489600 320000000 0x55555555>, /* 1080p @ 60 */
+			<244800 150000000 0x55555555>, /* 1080p @ 30 */
+			<108000  75000000 0x55555555>, /* 720p @ 30 */
+
+			/* Decoders */
+			<1944000 490000000 0xffffffff>, /* 4k UHD @ 60 */
+			< 972000 320000000 0xffffffff>, /* 4k UHD @ 30 */
+			< 489600 150000000 0xffffffff>, /* 1080p @ 60 */
+			< 244800  75000000 0xffffffff>; /* 1080p @ 30 */
+
+		/* Regulators */
+		/* Note: don't change the order of the regulators below as they
+		 * correspond to the order in which the driver enables them.
+		 */
+		mmagic-venus-supply = <&gdsc_mmagic_video>;
+		venus-supply = <&gdsc_venus>;
+		venus-core0-supply = <&gdsc_venus_core0>;
+		venus-core1-supply = <&gdsc_venus_core1>;
+
+		/* Clocks */
+		clock-names = "smmu_ahb_clk", "smmu_axi_clk",
+			"mmagic_video_axi", "core_clk", "iface_clk",
+			"bus_clk", "maxi_clk", "core0_clk", "core1_clk";
+		clocks = <&clock_mmss clk_smmu_video_ahb_clk>,
+		       <&clock_mmss clk_smmu_video_axi_clk>,
+		       <&clock_mmss clk_mmagic_video_axi_clk>,
+		       <&clock_mmss clk_video_core_clk>,
+		       <&clock_mmss clk_video_ahb_clk>,
+		       <&clock_mmss clk_video_axi_clk>,
+		       <&clock_mmss clk_video_maxi_clk>,
+		       <&clock_mmss clk_video_subcore0_clk>,
+		       <&clock_mmss clk_video_subcore1_clk>;
+		qcom,clock-configs = <0x0 0x0 0x0 0x1 0x0 0x0 0x0 0x1 0x1>;
+
+		/* Buses */
+		bus_cnoc {
+			compatible = "qcom,msm-vidc,bus";
+			label = "cnoc";
+			qcom,bus-master = <MSM_BUS_MASTER_AMPSS_M0>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_VENUS_CFG>;
+			qcom,bus-governor = "performance";
+			qcom,bus-range-kbps = <1 1>;
+		};
+
+		venus_bus_ddr {
+			compatible = "qcom,msm-vidc,bus";
+			label = "venus-ddr";
+			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
+			qcom,bus-governor = "msm-vidc-ddr";
+			qcom,bus-range-kbps = <1000 3388000>;
+		};
+
+		venus_bus_vmem {
+			compatible = "qcom,msm-vidc,bus";
+			label = "venus-vmem";
+			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0_OCMEM>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_VMEM>;
+			qcom,bus-governor = "msm-vidc-vmem";
+			qcom,bus-range-kbps = <1000 6776000>;
+		};
+
+		arm9_bus_ddr {
+			compatible = "qcom,msm-vidc,bus";
+			label = "venus-arm9-ddr";
+			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
+			qcom,bus-governor = "performance";
+			qcom,bus-range-kbps = <1 1>;
+		};
+
+		/* MMUs */
+		non_secure_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_ns";
+			iommus = <&venus_smmu 0x00>,
+				<&venus_smmu 0x01>,
+				<&venus_smmu 0x0a>,
+				<&venus_smmu 0x07>,
+				<&venus_smmu 0x0e>,
+				<&venus_smmu 0x0f>,
+				<&venus_smmu 0x08>,
+				<&venus_smmu 0x09>,
+				<&venus_smmu 0x0b>,
+				<&venus_smmu 0x0c>,
+				<&venus_smmu 0x0d>,
+				<&venus_smmu 0x10>,
+				<&venus_smmu 0x11>,
+				<&venus_smmu 0x21>,
+				<&venus_smmu 0x28>,
+				<&venus_smmu 0x29>,
+				<&venus_smmu 0x2b>,
+				<&venus_smmu 0x2c>,
+				<&venus_smmu 0x2d>,
+				<&venus_smmu 0x31>;
+			buffer-types = <0xfff>;
+			virtual-addr-pool = <0x5dc00000 0x80000000>;
+		};
+
+		firmware_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			qcom,fw-context-bank;
+			iommus = <&venus_smmu 0x180>,
+				<&venus_smmu 0x186>;
+		};
+
+		secure_bitstream_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_sec_bitstream";
+			iommus = <&venus_smmu 0x100>,
+				<&venus_smmu 0x102>,
+				<&venus_smmu 0x109>,
+				<&venus_smmu 0x10a>,
+				<&venus_smmu 0x10b>,
+				<&venus_smmu 0x10e>,
+				<&venus_smmu 0x126>,
+				<&venus_smmu 0x129>,
+				<&venus_smmu 0x12b>;
+			buffer-types = <0x241>;
+			virtual-addr-pool = <0x4b000000 0x12c00000>;
+			qcom,secure-context-bank;
+		};
+
+		venus_secure_pixel_cb: secure_pixel_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_sec_pixel";
+			iommus = <&venus_smmu 0x104>,
+				<&venus_smmu 0x10c>,
+				<&venus_smmu 0x110>,
+				<&venus_smmu 0x12c>;
+			buffer-types = <0x106>;
+			virtual-addr-pool = <0x25800000 0x25800000>;
+			qcom,secure-context-bank;
+		};
+
+		venus_secure_non_pixel_cb: secure_non_pixel_cb {
+			compatible = "qcom,msm-vidc,context-bank";
+			label = "venus_sec_non_pixel";
+			iommus = <&venus_smmu 0x105>,
+				<&venus_smmu 0x107>,
+				<&venus_smmu 0x108>,
+				<&venus_smmu 0x10d>,
+				<&venus_smmu 0x10f>,
+				<&venus_smmu 0x125>,
+				<&venus_smmu 0x128>,
+				<&venus_smmu 0x12d>,
+				<&venus_smmu 0x140>;
+			buffer-types = <0x480>;
+			virtual-addr-pool = <0x1000000 0x24800000>;
+			qcom,secure-context-bank;
+		};
+	};
+
+	vmem: qcom,vmem@880000 {
+		compatible = "qcom,msm-vmem";
+		interrupts = <0 429 0>;
+
+		reg = <0x880000 0x800>,
+		    <0x6800000 0x80000>;
+		reg-names = "reg-base", "mem-base";
+
+		vdd-supply = <&gdsc_mmagic_video>;
+		clocks = <&clock_mmss clk_vmem_ahb_clk>,
+		       <&clock_mmss clk_vmem_maxi_clk>;
+		clock-names = "ahb", "maxi";
+
+		qcom,msm-bus,name = "vmem";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VMEM_CFG   0   0>,
+		<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VMEM_CFG 500 800>;
+
+		qcom,bank-size = <131072>; /* 128 kB */
+	};
+};
