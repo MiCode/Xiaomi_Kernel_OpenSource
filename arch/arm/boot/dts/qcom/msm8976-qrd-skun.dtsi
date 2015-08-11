@@ -105,6 +105,7 @@
 
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
+			"MADINPUT", "MCLK",
 			"AMIC1", "MIC BIAS1",
 			"MIC BIAS1", "Handset Mic",
 			"AMIC2", "MIC BIAS2",
