@@ -1531,6 +1531,8 @@ static int adreno_stop(struct kgsl_device *device)
 	/* Save physical performance counter values before GPU power down*/
 	adreno_perfcounter_save(adreno_dev);
 
+	adreno_vbif_clear_pending_transactions(device);
+
 	kgsl_mmu_stop(&device->mmu);
 	kgsl_cffdump_close(device);
 
