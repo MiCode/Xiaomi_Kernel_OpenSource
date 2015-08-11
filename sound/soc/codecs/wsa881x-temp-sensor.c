@@ -22,65 +22,19 @@
 #define T2_TEMP 150
 #define LOW_TEMP_THRESHOLD 5
 #define HIGH_TEMP_THRESHOLD 45
-#define WSA881X_OTP_REG_1	0x0081
-#define WSA881X_OTP_REG_2	0x0082
-#define WSA881X_OTP_REG_3	0x0083
-#define WSA881X_OTP_REG_4	0x0084
-#define WSA881X_TEMP_DOUT_MSB	0x000A
-#define WSA881X_TEMP_DOUT_LSB	0x000B
 #define TEMP_INVALID	0xFFFF
-#define WSA881X_THERMAL_TEMP_OP 0x0003
-
-static void calculate_temp(long *temp_val, int dmeas,
-			struct snd_soc_codec *codec,
-			int dig_base_addr)
-{
-	/* Tmeas = T1 + ((Dmeas - D1)/(D2 - D1))(T2 - T1) */
-	int t1 = T1_TEMP;
-	int t2 = T2_TEMP;
-	int d1_lsb, d1_msb, d2_lsb, d2_msb;
-	int d1, d2;
-
-	d1_msb = snd_soc_read(codec, dig_base_addr + WSA881X_OTP_REG_1);
-	d1_lsb = snd_soc_read(codec, dig_base_addr + WSA881X_OTP_REG_2);
-	d2_msb = snd_soc_read(codec, dig_base_addr + WSA881X_OTP_REG_3);
-	d2_lsb = snd_soc_read(codec, dig_base_addr + WSA881X_OTP_REG_4);
-
-	/*
-	 * Temperature register values are expected to be in the
-	 * following range.
-	 * d1_msb  = 68 - 92 and d1_lsb  = 0, 64, 128, 192
-	 * d2_msb  = 185 -218 and  d2_lsb  = 0, 64, 128, 192
-	 */
-	if ((d1_msb < 68 || d1_msb > 92) ||
-	    (!(d1_lsb == 0 || d1_lsb == 64 || d1_lsb == 128 ||
-		d1_lsb == 192)) ||
-	    (d2_msb < 185 || d2_msb > 218) ||
-	    (!(d2_lsb == 0 || d2_lsb == 64 || d2_lsb == 128 ||
-		d2_lsb == 192))){
-		printk_ratelimited("%s: Temperature registers[%d %d %d %d] are out of range\n",
-				   __func__, d1_msb, d1_lsb, d2_msb, d2_lsb);
-	}
-
-	d1 = ((d1_msb << 0x8) | d1_lsb) >> 0x6;
-	d2 = ((d2_msb << 0x8) | d2_lsb) >> 0x6;
-
-	if (d1 == d2) {
-		*temp_val = TEMP_INVALID;
-		return;
-	}
-	*temp_val = t1 + (((dmeas - d1) * (t2 - t1))/(d2 - d1));
-}
 
 static int wsa881x_get_temp(struct thermal_zone_device *thermal,
 			unsigned long *temp)
 {
 	struct wsa881x_tz_priv *pdata;
 	struct snd_soc_codec *codec;
-	int dmeas_cur_msb, dmeas_cur_lsb;
-	int dmeas;
+	struct wsa_temp_register reg;
+	int dmeas, d1, d2;
 	int ret = 0;
 	long temp_val;
+	int t1 = T1_TEMP;
+	int t2 = T2_TEMP;
 
 	if (thermal->devdata) {
 		pdata = thermal->devdata;
@@ -94,37 +48,51 @@ static int wsa881x_get_temp(struct thermal_zone_device *thermal,
 		pr_err("%s: pdata is NULL\n", __func__);
 		return -EINVAL;
 	}
-	ret = pdata->wsa_resource_acquire(codec, true);
-	if (ret) {
-		pr_err("%s: wsa acquire failed: %d\n", __func__, ret);
-		return ret;
+	if (pdata->wsa_temp_reg_read) {
+		ret = pdata->wsa_temp_reg_read(codec, &reg);
+		if (ret) {
+			pr_err("%s: temperature register read failed: %d\n",
+				__func__, ret);
+			return ret;
+		}
+	} else {
+		pr_err("%s: wsa_temp_reg_read is NULL\n", __func__);
+		return -EINVAL;
 	}
-	snd_soc_update_bits(codec,
-			    pdata->ana_base + WSA881X_THERMAL_TEMP_OP,
-			    0x04, 0x04);
-	dmeas_cur_msb =
-		snd_soc_read(codec,
-			pdata->ana_base + WSA881X_TEMP_DOUT_MSB);
-	dmeas_cur_lsb =
-		snd_soc_read(codec,
-			pdata->ana_base + WSA881X_TEMP_DOUT_LSB);
-	dmeas = ((dmeas_cur_msb << 0x8) | dmeas_cur_lsb) >> 0x6;
-	pr_debug("%s: dmeas: %d\n", __func__, dmeas);
-	calculate_temp(&temp_val, dmeas, codec, pdata->dig_base);
-	*temp = temp_val;
+	/*
+	 * Temperature register values are expected to be in the
+	 * following range.
+	 * d1_msb  = 68 - 92 and d1_lsb  = 0, 64, 128, 192
+	 * d2_msb  = 185 -218 and  d2_lsb  = 0, 64, 128, 192
+	 */
+	if ((reg.d1_msb < 68 || reg.d1_msb > 92) ||
+	    (!(reg.d1_lsb == 0 || reg.d1_lsb == 64 || reg.d1_lsb == 128 ||
+		reg.d1_lsb == 192)) ||
+	    (reg.d2_msb < 185 || reg.d2_msb > 218) ||
+	    (!(reg.d2_lsb == 0 || reg.d2_lsb == 64 || reg.d2_lsb == 128 ||
+		reg.d2_lsb == 192))) {
+		printk_ratelimited("%s: Temperature registers[%d %d %d %d] are out of range\n",
+				   __func__, reg.d1_msb, reg.d1_lsb, reg.d2_msb,
+				   reg.d2_lsb);
+	}
+	dmeas = ((reg.dmeas_msb << 0x8) | reg.dmeas_lsb) >> 0x6;
+	d1 = ((reg.d1_msb << 0x8) | reg.d1_lsb) >> 0x6;
+	d2 = ((reg.d2_msb << 0x8) | reg.d2_lsb) >> 0x6;
+
+	if (d1 == d2)
+		temp_val = TEMP_INVALID;
+	else
+		temp_val = t1 + (((dmeas - d1) * (t2 - t1))/(d2 - d1));
+
 	if (temp_val <= LOW_TEMP_THRESHOLD ||
-			temp_val >= HIGH_TEMP_THRESHOLD) {
-		printk_ratelimited("%s: T0: %ld is out of range [%d, %d]\n",
+		temp_val >= HIGH_TEMP_THRESHOLD) {
+		printk_ratelimited("%s: T0: %ld is out of range[%d, %d]\n",
 				   __func__, temp_val, LOW_TEMP_THRESHOLD,
 				   HIGH_TEMP_THRESHOLD);
-		ret = -EAGAIN;
-		goto rel;
 	}
-	pr_debug("%s: t0 measured: %ld\n", __func__, temp_val);
-rel:
-	ret = pdata->wsa_resource_acquire(codec, false);
-	if (ret)
-		pr_err("%s: wsa release failed: %d\n", __func__, ret);
+	*temp = temp_val;
+	pr_debug("%s: t0 measured: %ld dmeas = %d, d1 = %d, d2 = %d\n",
+		  __func__, temp_val, dmeas, d1, d2);
 	return ret;
 }
 
