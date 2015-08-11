@@ -163,7 +163,7 @@ static int exynos_bind(struct thermal_zone_device *thermal,
 		case MONITOR_ZONE:
 		case WARN_ZONE:
 			if (thermal_zone_bind_cooling_device(thermal, i, cdev,
-								level, 0)) {
+							     level, 0, THERMAL_WEIGHT_DEFAULT)) {
 				dev_err(data->dev,
 					"error unbinding cdev inst=%d\n", i);
 				ret = -EINVAL;
@@ -371,9 +371,11 @@ int exynos_register_thermal(struct thermal_sensor_conf *sensor_conf)
 		th_zone->cool_dev[th_zone->cool_dev_size] =
 					cpufreq_cooling_register(&mask_val);
 		if (IS_ERR(th_zone->cool_dev[th_zone->cool_dev_size])) {
-			dev_err(sensor_conf->dev,
-				"Failed to register cpufreq cooling device\n");
-			ret = -EINVAL;
+			ret = PTR_ERR(th_zone->cool_dev[th_zone->cool_dev_size]);
+			if (ret != -EPROBE_DEFER)
+				dev_err(sensor_conf->dev,
+					"Failed to register cpufreq cooling device: %d\n",
+					ret);
 			goto err_unregister;
 		}
 		th_zone->cool_dev_size++;
