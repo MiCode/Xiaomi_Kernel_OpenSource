@@ -2949,9 +2949,9 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 			   int sync)
 {
 	int i, best_cpu = -1, best_idle_cpu = -1, best_capacity_cpu = -1;
-	int prev_cpu = task_cpu(p);
-	int cpu_cost, min_cost = INT_MAX;
-	u64 tload, cpu_load;
+	int prev_cpu = task_cpu(p), best_sibling_cpu = -1;
+	int cpu_cost, min_cost = INT_MAX, best_sibling_cpu_cost = INT_MAX;
+	u64 tload, cpu_load, best_sibling_cpu_load = ULLONG_MAX;
 	u64 min_load = ULLONG_MAX;
 	s64 spare_capacity, highest_spare_capacity = 0;
 	int boost = sched_boost();
@@ -3005,21 +3005,32 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 
 		cpu_cost = power_cost(tload + cpu_load, i);
 
+		if (cpu_cost > min_cost)
+			continue;
+
 		/*
 		 * If the task fits in a CPU in a lower power band, that
 		 * overrides all other considerations.
 		 */
 		if (power_delta_exceeded(cpu_cost, min_cost)) {
-			if (cpu_cost > min_cost)
-				continue;
-
 			min_cost = cpu_cost;
 			min_load = ULLONG_MAX;
 			best_cpu = -1;
 		}
 
-		if (cpu_cost < min_cost ||
-		    (cpu_cost == min_cost && cpu_load < min_load)) {
+		if (i != prev_cpu && cpus_share_cache(prev_cpu, i)) {
+			if (best_sibling_cpu_cost > cpu_cost ||
+			    (best_sibling_cpu_cost == cpu_cost &&
+			     best_sibling_cpu_load > cpu_load)) {
+				best_sibling_cpu_cost = cpu_cost;
+				best_sibling_cpu_load = cpu_load;
+				best_sibling_cpu = i;
+			}
+		}
+
+		if ((cpu_cost < min_cost) ||
+		    ((best_cpu != prev_cpu && min_load > cpu_load) ||
+		     i == prev_cpu)) {
 			if (need_idle) {
 				if (idle_cpu(i)) {
 					min_cost = cpu_cost;
@@ -3041,6 +3052,9 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 			best_cpu = prev_cpu;
 		else
 			best_cpu = best_capacity_cpu;
+	} else {
+		if (best_cpu != prev_cpu && min_cost == best_sibling_cpu_cost)
+			best_cpu = best_sibling_cpu;
 	}
 
 	trace_sched_task_load(p, boost, reason, sync, need_idle);
