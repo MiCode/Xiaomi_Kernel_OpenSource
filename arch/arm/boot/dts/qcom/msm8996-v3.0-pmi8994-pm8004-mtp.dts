@@ -10,27 +10,24 @@
  * GNU General Public License for more details.
  */
 
-
 /dts-v1/;
 
-#include "msm8996-v2.dtsi"
+#include "msm8996-v3.0.dtsi"
+#include "msm8996-pm8994-pmi8994-pm8004.dtsi"
 #include "msm8996-mtp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM 8996 v2.0 + PMI8994 MTP";
+	model = "Qualcomm Technologies, Inc. MSM 8996 v3.0 + PMI8994 + PM8004 MTP";
 	compatible = "qcom,msm8996-mtp", "qcom,msm8996", "qcom,mtp";
-	qcom,msm-id = <246 0x20000>;
 	qcom,board-id = <8 0>;
 };
 
-&l2ccc_0 {
-	qcom,clamped-reset-seq;
-};
-
-&l2ccc_1 {
-	qcom,clamped-reset-seq;
-};
-
-&apcc_cpr {
-	/delete-property/ qcom,cpr-hw-closed-loop;
+&i2c_7 {
+	smb1351-charger@1d {
+		compatible = "qcom,smb1351-charger";
+		reg = <0x1d>;
+		qcom,parallel-charger;
+		qcom,float-voltage-mv = <4400>;
+		qcom,recharge-mv = <100>;
+	};
 };

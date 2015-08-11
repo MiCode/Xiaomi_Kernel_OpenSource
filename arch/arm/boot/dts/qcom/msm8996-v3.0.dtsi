@@ -10,14 +10,13 @@
  * GNU General Public License for more details.
  */
 
-
-/dts-v1/;
-
+/*
+ * This file includes msm8996-v3.dtsi and therefore should only contain
+ * overrides on top of that which are specific to 8996v3.0.
+ */
 #include "msm8996-v3.dtsi"
-#include "msm8996-sim.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM 8996 v3 SIM";
-	compatible = "qcom,msm8996-sim", "qcom,msm8996", "qcom,sim";
-	qcom,board-id = <16 0>;
+	model = "Qualcomm Technologies, Inc. MSM 8996 v3.0";
+	qcom,msm-id = <246 0x30000>;
 };

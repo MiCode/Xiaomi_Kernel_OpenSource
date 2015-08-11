@@ -13,24 +13,11 @@
 
 /dts-v1/;
 
-#include "msm8996-v2.dtsi"
-#include "msm8996-cdp.dtsi"
+#include "msm8996-v3.0.dtsi"
+#include "msm8996-liquid.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM 8996 v2.0 + PMI8994 CDP";
-	compatible = "qcom,msm8996-cdp", "qcom,msm8996", "qcom,cdp";
-	qcom,msm-id = <246 0x20000>;
-	qcom,board-id = <1 0>, <0x01000001 0>;
-};
-
-&l2ccc_0 {
-	qcom,clamped-reset-seq;
-};
-
-&l2ccc_1 {
-	qcom,clamped-reset-seq;
-};
-
-&apcc_cpr {
-	/delete-property/ qcom,cpr-hw-closed-loop;
+	model = "Qualcomm Technologies, Inc. MSM 8996 v3.0 FLUID";
+	compatible = "qcom,msm8996-fluid", "qcom,msm8996", "qcom,fluid";
+	qcom,board-id = <3 0>;
 };
