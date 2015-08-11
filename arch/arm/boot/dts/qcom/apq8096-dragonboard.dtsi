@@ -389,6 +389,10 @@
 	status = "disabled";
 };
 
+&pmi8994_charger {
+	status = "disabled";
+};
+
 &usb_otg_switch {
 	gpio = <&pm8994_gpios 11 0>;
 	enable-active-high;
