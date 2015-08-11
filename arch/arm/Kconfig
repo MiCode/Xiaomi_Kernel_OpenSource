@@ -108,6 +108,9 @@ config EARLY_IOREMAP
          the same virtual memory range as kmap so all early mappings must
          be unmapped before paging_init() is called.
 
+config FIX_EARLYCON_MEM
+	def_bool EARLY_IOREMAP
+
 if ARM_DMA_USE_IOMMU
 
 config ARM_DMA_IOMMU_ALIGNMENT

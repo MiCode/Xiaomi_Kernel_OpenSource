@@ -86,5 +86,26 @@ void __init __early_set_fixmap(enum fixed_addresses idx,
 
 void __init early_ioremap_shutdown(void)
 {
+	int i;
 	pmd_clear(early_ioremap_pmd(fix_to_virt(FIX_BTMAP_BEGIN)));
+
+	 /* Create new entries for permanent mappings */
+	for (i = 0; i < __end_of_permanent_fixed_addresses; i++) {
+		pte_t *pte;
+		struct map_desc map;
+
+		map.virtual = fix_to_virt(i);
+		pte = early_ioremap_pte(map.virtual);
+
+		/* Only i/o device mappings are supported ATM */
+		if (pte_none(*pte) ||
+		   (pte_val(*pte) & L_PTE_MT_MASK) != L_PTE_MT_DEV_SHARED)
+			continue;
+
+		map.pfn = pte_pfn(*pte);
+		map.type = MT_DEVICE;
+		map.length = PAGE_SIZE;
+
+		create_mapping(&map);
+	}
 }

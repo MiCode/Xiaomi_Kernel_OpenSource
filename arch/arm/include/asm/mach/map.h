@@ -39,6 +39,7 @@ enum {
 };
 
 #ifdef CONFIG_MMU
+extern void create_mapping(struct map_desc *);
 extern void iotable_init(struct map_desc *, int);
 extern void vm_reserve_area_early(unsigned long addr, unsigned long size,
 				  void *caller);
