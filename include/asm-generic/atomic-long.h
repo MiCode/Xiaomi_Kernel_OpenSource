@@ -9,6 +9,9 @@
  */
 
 #include <asm/types.h>
+#ifdef CONFIG_GENERIC_ATOMIC64
+#include <asm-generic/atomic64.h>
+#endif
 
 /*
  * Suppport for atomic_long_t
