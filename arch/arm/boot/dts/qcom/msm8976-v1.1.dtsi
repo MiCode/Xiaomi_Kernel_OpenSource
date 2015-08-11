@@ -35,6 +35,7 @@
 		/delete-property/ qcom,cpr-fuse-version-map;
 		/delete-property/ qcom,cpr-quotient-adjustment;
 
+		qcom,cpr-de-aging-allowed = <1>;
 		qcom,cpr-speed-bin-max-corners =
 				<0 0 2 4 8>;
 	};
@@ -44,6 +45,7 @@
 		/delete-property/ qcom,cpr-fuse-version-map;
 		/delete-property/ qcom,cpr-quotient-adjustment;
 
+		qcom,cpr-de-aging-allowed = <1>;
 		qcom,cpr-speed-bin-max-corners =
 				<0 0 2 4 7>;
 	};
