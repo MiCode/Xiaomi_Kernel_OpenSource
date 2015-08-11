@@ -1163,6 +1163,7 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 				else
 					pipe->params_changed++;
 			}
+			pipe->dirty = false;
 			continue;
 		}
 
