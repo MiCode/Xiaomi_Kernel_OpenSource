@@ -209,7 +209,7 @@ static void diag_state_close_socket(void *ctxt)
 	atomic_set(&info->diag_state, 0);
 	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 		 "%s setting diag state to 0", info->name);
-	wake_up(&info->read_wait_q);
+	wake_up_interruptible(&info->read_wait_q);
 	flush_workqueue(info->wq);
 }
 
@@ -242,7 +242,7 @@ static void socket_data_ready(struct sock *sk_ptr)
 		diagfwd_buffers_init(info->fwd_ctxt);
 
 	queue_work(info->wq, &(info->read_work));
-	wake_up(&info->read_wait_q);
+	wake_up_interruptible(&info->read_wait_q);
 	return;
 }
 
@@ -255,7 +255,7 @@ static void cntl_socket_data_ready(struct sock *sk_ptr)
 	}
 
 	atomic_inc(&cntl_socket->data_ready);
-	wake_up(&cntl_socket->read_wait_q);
+	wake_up_interruptible(&cntl_socket->read_wait_q);
 	queue_work(cntl_socket->wq, &(cntl_socket->read_work));
 }
 
@@ -459,7 +459,7 @@ static void __socket_close_channel(struct diag_socket_info *info)
 		write_unlock_bh(&info->hdl->sk->sk_callback_lock);
 		sock_release(info->hdl);
 		info->hdl = NULL;
-		wake_up(&info->read_wait_q);
+		wake_up_interruptible(&info->read_wait_q);
 	}
 	DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "%s exiting\n", info->name);
 
@@ -584,8 +584,10 @@ static void cntl_socket_read_work_fn(struct work_struct *work)
 	if (!cntl_socket)
 		return;
 
-	wait_event(cntl_socket->read_wait_q,
-		   (atomic_read(&cntl_socket->data_ready) > 0));
+	ret = wait_event_interruptible(cntl_socket->read_wait_q,
+				(atomic_read(&cntl_socket->data_ready) > 0));
+	if (ret)
+		return;
 
 	do {
 		iov.iov_base = &msg;
@@ -912,8 +914,11 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 	temp = buf;
 	bytes_remaining = buf_len;
 
-	wait_event(info->read_wait_q, (info->data_ready > 0) || (!info->hdl) ||
-		   (atomic_read(&info->diag_state) == 0));
+	err = wait_event_interruptible(info->read_wait_q,
+				      (info->data_ready > 0) || (!info->hdl) ||
+				      (atomic_read(&info->diag_state) == 0));
+	if (err)
+		return -ERESTARTSYS;
 
 	/*
 	 * There is no need to continue reading over peripheral in this case.
