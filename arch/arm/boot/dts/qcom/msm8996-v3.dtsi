@@ -177,6 +177,27 @@
 			< 244800  75000000 0xffffffff>; /* 1080p @ 30 */
 };
 
+&soc {
+	ipa_hw: qcom,ipa@680000 {
+		compatible = "qcom,ipa";
+		reg = <0x680000 0x4effc>,
+			<0x684000 0x26934>;
+		reg-names = "ipa-base", "bam-base";
+		interrupts = <0 333 0>,
+					<0 432 0>;
+		interrupt-names = "ipa-irq", "bam-irq";
+		qcom,ipa-hw-ver = <5>; /* IPA core version = IPAv2.5 */
+		qcom,ipa-hw-mode = <0>;
+		qcom,ee = <0>;
+		qcom,use-ipa-tethering-bridge;
+		qcom,ipa-bam-remote-mode;
+		qcom,modem-cfg-emb-pipe-flt;
+		clocks = <&clock_gcc clk_ipa_clk>;
+		clock-names = "core_clk";
+		qcom,use-dma-zone;
+	};
+};
+
 &clock_cpu {
 		qcom,compatible = "cpu-clock-8996-v3";
 		/* Nominal FMAXes only until characterization completes. */
