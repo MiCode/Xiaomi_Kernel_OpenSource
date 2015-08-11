@@ -205,6 +205,8 @@ int __ipa_commit_hdr_v3_0(void)
 				IPA_MEM_PART(apps_hdr_size));
 			goto end;
 		} else {
+			dma_cmd_hdr.skip_pipeline_clear = 0;
+			dma_cmd_hdr.pipeline_clear_options = IPA_HPS_CLEAR;
 			dma_cmd_hdr.system_addr = hdr_mem.phys_base;
 			dma_cmd_hdr.size = hdr_mem.size;
 			dma_cmd_hdr.local_addr =
@@ -239,6 +241,8 @@ int __ipa_commit_hdr_v3_0(void)
 				proc_ctx_size);
 			goto end;
 		} else {
+			dma_cmd_ctx.skip_pipeline_clear = 0;
+			dma_cmd_ctx.pipeline_clear_options = IPA_HPS_CLEAR;
 			dma_cmd_ctx.system_addr = aligned_ctx_mem.phys_base;
 			dma_cmd_ctx.size = aligned_ctx_mem.size;
 			dma_cmd_ctx.local_addr =
@@ -257,6 +261,8 @@ int __ipa_commit_hdr_v3_0(void)
 				proc_ctx_size_ddr);
 			goto end;
 		} else {
+			reg_write_cmd.skip_pipeline_clear = 0;
+			reg_write_cmd.pipeline_clear_options = IPA_HPS_CLEAR;
 			reg_write_cmd.offset = IPA_SYS_PKT_PROC_CNTXT_BASE_OFST;
 			reg_write_cmd.value = aligned_ctx_mem.phys_base;
 			reg_write_cmd.value_mask =

@@ -724,6 +724,8 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 		goto fail_send_cmd;
 	}
 
+	cmd[num_desc].skip_pipeline_clear = 0;
+	cmd[num_desc].pipeline_clear_options = IPA_HPS_CLEAR;
 	cmd[num_desc].size = 4;
 	cmd[num_desc].system_addr = head1.phys_base;
 	cmd[num_desc].local_addr = local_addrh;
@@ -757,6 +759,8 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 				IPA_MEM_PART(v6_flt_ofst) +
 				8 + i * 4;
 		}
+		cmd[num_desc].skip_pipeline_clear = 0;
+		cmd[num_desc].pipeline_clear_options = IPA_HPS_CLEAR;
 		cmd[num_desc].size = 4;
 		cmd[num_desc].system_addr = head1.phys_base + 4 + i * 4;
 		cmd[num_desc].local_addr = local_addrh;
@@ -787,6 +791,8 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 				IPA_MEM_PART(v6_flt_ofst) +
 				13 * 4 + (i - 11) * 4;
 		}
+		cmd[num_desc].skip_pipeline_clear = 0;
+		cmd[num_desc].pipeline_clear_options = IPA_HPS_CLEAR;
 		cmd[num_desc].size = 4;
 		cmd[num_desc].system_addr = head2.phys_base + (i - 11) * 4;
 		cmd[num_desc].local_addr = local_addrh;
@@ -799,6 +805,8 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 	}
 
 	if (lcl) {
+		cmd[num_desc].skip_pipeline_clear = 0;
+		cmd[num_desc].pipeline_clear_options = IPA_HPS_CLEAR;
 		cmd[num_desc].size = body.size;
 		cmd[num_desc].system_addr = body.phys_base;
 		cmd[num_desc].local_addr = local_addrb;

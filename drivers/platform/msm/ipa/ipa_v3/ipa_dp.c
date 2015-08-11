@@ -1353,8 +1353,6 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		}
 
 		cmd->destination_pipe_index = dst_ep_idx;
-		if (meta && meta->mbim_stream_id_valid)
-			cmd->metadata = meta->mbim_stream_id;
 		desc[0].opcode = IPA_IP_PACKET_INIT;
 		desc[0].pyld = cmd;
 		desc[0].len = sizeof(struct ipa_ip_packet_init);

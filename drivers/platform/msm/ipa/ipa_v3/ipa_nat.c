@@ -404,6 +404,7 @@ int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 	}
 
 	reg_write_nop->skip_pipeline_clear = 0;
+	reg_write_nop->pipeline_clear_options = IPA_HPS_CLEAR;
 	reg_write_nop->value_mask = 0x0;
 
 	desc[0].opcode = IPA_REGISTER_WRITE;
@@ -593,6 +594,7 @@ int ipa_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 	}
 
 	reg_write_nop->skip_pipeline_clear = 0;
+	reg_write_nop->pipeline_clear_options = IPA_HPS_CLEAR;
 	reg_write_nop->value_mask = 0x0;
 
 	desc[0].type = IPA_IMM_CMD_DESC;
@@ -703,6 +705,7 @@ int ipa_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
 	}
 
 	reg_write_nop->skip_pipeline_clear = 0;
+	reg_write_nop->pipeline_clear_options = IPA_HPS_CLEAR;
 	reg_write_nop->value_mask = 0x0;
 
 	desc[0].opcode = IPA_REGISTER_WRITE;

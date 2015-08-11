@@ -1177,6 +1177,8 @@ static int ipa_init_smem_region(int memory_region_size,
 	}
 
 	memset(mem.base, 0, mem.size);
+	cmd.skip_pipeline_clear = 0;
+	cmd.pipeline_clear_options = IPA_HPS_CLEAR;
 	cmd.size = mem.size;
 	cmd.system_addr = mem.phys_base;
 	cmd.local_addr = ipa_ctx->smem_restricted_bytes +
@@ -1398,6 +1400,9 @@ static int ipa_q6_clean_q6_tables(void)
 			 * Need to point v4 and v6 fltr tables to an empty
 			 * table
 			 */
+			cmd[num_cmds].skip_pipeline_clear = 0;
+			cmd[num_cmds].pipeline_clear_options =
+				IPA_FULL_PIPELINE_CLEAR;
 			cmd[num_cmds].size = mem.size;
 			cmd[num_cmds].system_addr = mem.phys_base;
 			cmd[num_cmds].local_addr =
@@ -1410,6 +1415,9 @@ static int ipa_q6_clean_q6_tables(void)
 			desc[num_cmds].type = IPA_IMM_CMD_DESC;
 			num_cmds++;
 
+			cmd[num_cmds].skip_pipeline_clear = 0;
+			cmd[num_cmds].pipeline_clear_options =
+				IPA_FULL_PIPELINE_CLEAR;
 			cmd[num_cmds].size = mem.size;
 			cmd[num_cmds].system_addr =  mem.phys_base;
 			cmd[num_cmds].local_addr =
@@ -1428,6 +1436,9 @@ static int ipa_q6_clean_q6_tables(void)
 	for (index = IPA_MEM_PART(v4_modem_rt_index_lo);
 		 index <= IPA_MEM_PART(v4_modem_rt_index_hi);
 		 index++) {
+		cmd[num_cmds].skip_pipeline_clear = 0;
+		cmd[num_cmds].pipeline_clear_options =
+			IPA_FULL_PIPELINE_CLEAR;
 		cmd[num_cmds].size = mem.size;
 		cmd[num_cmds].system_addr =  mem.phys_base;
 		cmd[num_cmds].local_addr = ipa_ctx->smem_restricted_bytes +
@@ -1443,6 +1454,9 @@ static int ipa_q6_clean_q6_tables(void)
 	for (index = IPA_MEM_PART(v6_modem_rt_index_lo);
 		 index <= IPA_MEM_PART(v6_modem_rt_index_hi);
 		 index++) {
+		cmd[num_cmds].skip_pipeline_clear = 0;
+		cmd[num_cmds].pipeline_clear_options =
+			IPA_FULL_PIPELINE_CLEAR;
 		cmd[num_cmds].size = mem.size;
 		cmd[num_cmds].system_addr =  mem.phys_base;
 		cmd[num_cmds].local_addr = ipa_ctx->smem_restricted_bytes +
@@ -1476,6 +1490,7 @@ static void ipa_q6_disable_agg_reg(struct ipa_register_write *reg_write,
 				   int ep_idx)
 {
 	reg_write->skip_pipeline_clear = 0;
+	reg_write->pipeline_clear_options = IPA_FULL_PIPELINE_CLEAR;
 
 	reg_write->offset = IPA_ENDP_INIT_AGGR_N_OFST_v3_0(ep_idx);
 	reg_write->value =
@@ -1526,6 +1541,8 @@ static int ipa_q6_set_ex_path_dis_agg(void)
 				BUG();
 			}
 			reg_write->skip_pipeline_clear = 0;
+			reg_write->pipeline_clear_options =
+				IPA_FULL_PIPELINE_CLEAR;
 			reg_write->offset = IPA_ENDP_STATUS_n_OFST(ep_idx);
 			reg_write->value =
 				(ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS) &
@@ -1750,6 +1767,8 @@ int _ipa_init_hdr_v3_0(void)
 	memset(mem.base, 0, mem.size);
 	memset(&desc, 0, sizeof(desc));
 
+	dma_cmd.skip_pipeline_clear = 0;
+	dma_cmd.pipeline_clear_options = IPA_FULL_PIPELINE_CLEAR;
 	dma_cmd.system_addr = mem.phys_base;
 	dma_cmd.local_addr = ipa_ctx->smem_restricted_bytes +
 		IPA_MEM_PART(modem_hdr_proc_ctx_ofst);

@@ -561,6 +561,8 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 		goto fail_send_cmd;
 	}
 
+	cmd1.skip_pipeline_clear = 0;
+	cmd1.pipeline_clear_options = IPA_HPS_CLEAR;
 	cmd1.size = head.size;
 	cmd1.system_addr = head.phys_base;
 	cmd1.local_addr = local_addr1;
@@ -570,6 +572,8 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 	desc[0].type = IPA_IMM_CMD_DESC;
 
 	if (lcl) {
+		cmd2.skip_pipeline_clear = 0;
+		cmd2.pipeline_clear_options = IPA_HPS_CLEAR;
 		cmd2.size = body.size;
 		cmd2.system_addr = body.phys_base;
 		cmd2.local_addr = local_addr2;

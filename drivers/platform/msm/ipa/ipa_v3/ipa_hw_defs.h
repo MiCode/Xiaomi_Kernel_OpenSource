@@ -30,7 +30,6 @@
 #define IPA_DECIPH_SETUP         (11)
 #define IPA_REGISTER_WRITE       (12)
 #define IPA_NAT_DMA              (14)
-#define IPA_IP_PACKET_TAG        (15)
 #define IPA_IP_PACKET_INIT       (16)
 #define IPA_DMA_SHARED_MEM       (19)
 #define IPA_IP_PACKET_TAG_STATUS (20)
@@ -155,7 +154,7 @@ struct ipa_ip_v6_routing_init {
  * @rsvd: reserved
  */
 struct ipa_hdr_init_local {
-	u64 hdr_table_src_addr:32;
+	u64 hdr_table_src_addr:64;
 	u64 size_hdr_table:12;
 	u64 hdr_table_dst_addr:16;
 	u64 rsvd:4;
@@ -168,8 +167,7 @@ struct ipa_hdr_init_local {
  * @rsvd: reserved
  */
 struct ipa_hdr_init_system {
-	u64 hdr_table_addr:32;
-	u64 rsvd:32;
+	u64 hdr_table_addr:64;
 };
 
 /**
@@ -231,19 +229,44 @@ struct ipa_a5_mux_hdr {
 };
 
 /**
+ * enum ipa_pipeline_clear_option - Values for pipeline_clear_options
+ * @IPA_HPS_CLEAR: Wait for HPS clear. All queues except high priority queue
+ * shall not be serviced until HPS is clear of packets or immediate commands.
+ * The high priority Rx queue / Q6ZIP group shall still be serviced normally.
+ *
+ * @IPA_SRC_GRP_CLEAR: Wait for originating source group to be clear
+ * (for no packet contexts allocated to the originating source group).
+ * The source group / Rx queue shall not be serviced until all previously
+ * allocated packet contexts are released. All other source groups/queues shall
+ * be serviced normally.
+ *
+ * @IPA_FULL_PIPELINE_CLEAR: Wait for full pipeline to be clear.
+ * All groups / Rx queues shall not be serviced until IPA pipeline is fully
+ * clear. This should be used for debug only.
+ */
+enum ipa_pipeline_clear_option {
+	IPA_HPS_CLEAR,
+	IPA_SRC_GRP_CLEAR,
+	IPA_FULL_PIPELINE_CLEAR
+};
+
+/**
  * struct ipa_register_write - IPA_REGISTER_WRITE command payload
  * @rsvd: reserved
  * @skip_pipeline_clear: 0 to wait until IPA pipeline is clear
  * @offset: offset from IPA base address
  * @value: value to write to register
  * @value_mask: mask specifying which value bits to write to the register
+ * @pipeline_clear_options: options for pipeline to clear
  */
 struct ipa_register_write {
-	u32 rsvd:15;
-	u32 skip_pipeline_clear:1;
-	u32 offset:16;
-	u32 value:32;
-	u32 value_mask:32;
+	u64 rsvd:15;
+	u64 skip_pipeline_clear:1;
+	u64 offset:16;
+	u64 value:32;
+	u64 value_mask:32;
+	u64 pipeline_clear_options:2;
+	u64 rsvd2:30;
 };
 
 /**
@@ -267,7 +290,7 @@ struct ipa_nat_dma {
 };
 
 /**
- * struct ipa_nat_dma - IPA_IP_PACKET_INIT command payload
+ * struct ipa_ip_packet_init - IPA_IP_PACKET_INIT command payload
  * @destination_pipe_index: destination pipe index
  * @rsvd1: reserved
  * @metadata: metadata
@@ -276,8 +299,8 @@ struct ipa_nat_dma {
 struct ipa_ip_packet_init {
 	u64 destination_pipe_index:5;
 	u64 rsvd1:3;
-	u64 metadata:32;
-	u64 rsvd2:24;
+	u64 rsvd2:32;
+	u64 rsvd3:24;
 };
 
 /**
@@ -297,10 +320,10 @@ struct ipa_ip_packet_init {
  * @public_ip_addr: public IP address
  */
 struct ipa_ip_v4_nat_init {
-	u64 ipv4_rules_addr:32;
-	u64 ipv4_expansion_rules_addr:32;
-	u64 index_table_addr:32;
-	u64 index_table_expansion_addr:32;
+	u64 ipv4_rules_addr:64;
+	u64 ipv4_expansion_rules_addr:64;
+	u64 index_table_addr:64;
+	u64 index_table_expansion_addr:64;
 	u64 table_index:3;
 	u64 rsvd1:1;
 	u64 ipv4_rules_addr_type:1;
@@ -314,23 +337,13 @@ struct ipa_ip_v4_nat_init {
 };
 
 /**
- * struct ipa_ip_packet_tag - IPA_IP_PACKET_TAG command payload
- * @tag: tag value returned with response
- */
-struct ipa_ip_packet_tag {
-	u32 tag;
-};
-
-/**
  * struct ipa_ip_packet_tag_status - IPA_IP_PACKET_TAG_STATUS command payload
  * @rsvd: reserved
- * @tag_f_1: tag value returned within status
- * @tag_f_2: tag value returned within status
+ * @tag: tag value returned within status
  */
 struct ipa_ip_packet_tag_status {
-	u32 rsvd:16;
-	u32 tag_f_1:16;
-	u32 tag_f_2:32;
+	u64 rsvd:16;
+	u64 tag:48;
 };
 
 /*! @brief Struct for the IPAv2.0 and IPAv2.5 UL packet status header */
@@ -414,14 +427,14 @@ enum ipa_hw_pkt_status_exception {
 
 /*! @brief IPA_HW_IMM_CMD_DMA_SHARED_MEM Immediate Command Parameters */
 struct ipa_hw_imm_cmd_dma_shared_mem {
-	u32 reserved_1:16;
-	u32 size:16;
-	u32 system_addr:32;
-	u32 local_addr:16;
-	u32 direction:1;
-	u32 skip_pipeline_clear:1;
-	u32 reserved_2:14;
-	u32 padding:32;
+	u64 reserved_1:16;
+	u64 size:16;
+	u64 local_addr:16;
+	u64 direction:1;
+	u64 skip_pipeline_clear:1;
+	u64 pipeline_clear_options:2;
+	u64 reserved_2:12;
+	u64 system_addr:64;
 };
 
 #endif /* _IPA_HW_DEFS_H */

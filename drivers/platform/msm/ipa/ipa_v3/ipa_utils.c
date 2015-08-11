@@ -3756,6 +3756,7 @@ int ipa_tag_process(struct ipa_desc desc[],
 	}
 
 	reg_write_nop->skip_pipeline_clear = 0;
+	reg_write_nop->pipeline_clear_options = IPA_FULL_PIPELINE_CLEAR;
 	reg_write_nop->value_mask = 0x0;
 
 	tag_desc[desc_idx].opcode = IPA_REGISTER_WRITE;
@@ -3774,7 +3775,7 @@ int ipa_tag_process(struct ipa_desc desc[],
 		goto fail_free_desc;
 	}
 
-	status->tag_f_2 = IPA_COOKIE;
+	status->tag = IPA_COOKIE;
 
 	tag_desc[desc_idx].opcode = IPA_IP_PACKET_TAG_STATUS;
 	tag_desc[desc_idx].pyld = status;
@@ -3914,6 +3915,8 @@ static int ipa_tag_generate_force_close_desc(struct ipa_desc desc[],
 		}
 
 		reg_write_agg_close->skip_pipeline_clear = 0;
+		reg_write_agg_close->pipeline_clear_options =
+			IPA_FULL_PIPELINE_CLEAR;
 		reg_write_agg_close->offset = IPA_ENDP_INIT_AGGR_N_OFST_v3_0(i);
 		reg_write_agg_close->value =
 			(1 & IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_BMSK) <<
