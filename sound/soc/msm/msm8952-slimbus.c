@@ -310,6 +310,7 @@ int msm895x_wsa881x_init(struct snd_soc_component *component)
 	struct snd_soc_codec *codec = snd_soc_component_to_codec(component);
 	struct snd_soc_card *card = codec->component.card;
 	struct msm8952_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct msm895x_auxcodec_prefix_map codec_prefix_map[MAX_AUX_CODECS] = {
 	{ "wsa881x.20170211", "SpkrRight" },
 	{ "wsa881x.20170212", "SpkrLeft" },
@@ -347,6 +348,14 @@ int msm895x_wsa881x_init(struct snd_soc_component *component)
 	if (pdata && pdata->codec_root)
 		wsa881x_codec_info_create_codec_entry(pdata->codec_root,
 						      codec);
+	if (!strcmp(codec_prefix_map[i].codec_prefix, "SpkrLeft")) {
+		snd_soc_dapm_ignore_suspend(dapm, "SpkrLeft IN");
+		snd_soc_dapm_ignore_suspend(dapm, "SpkrLeft SPKR");
+	} else if (!strcmp(codec_prefix_map[i].codec_prefix, "SpkrRight")) {
+		snd_soc_dapm_ignore_suspend(dapm, "SpkrRight IN");
+		snd_soc_dapm_ignore_suspend(dapm, "SpkrRight SPKR");
+	}
+
 	return 0;
 }
 
@@ -1876,11 +1885,14 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic3");
 	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic4");
 	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic5");
+	snd_soc_dapm_ignore_suspend(dapm, "Analog Mic4");
+	snd_soc_dapm_ignore_suspend(dapm, "Analog Mic6");
+	snd_soc_dapm_ignore_suspend(dapm, "Analog Mic7");
+	snd_soc_dapm_ignore_suspend(dapm, "Analog Mic8");
 	snd_soc_dapm_ignore_suspend(dapm, "MADINPUT");
 	snd_soc_dapm_ignore_suspend(dapm, "MAD_CPE_INPUT");
 
 	snd_soc_dapm_ignore_suspend(dapm, "EAR");
-	snd_soc_dapm_ignore_suspend(dapm, "HEADPHONE");
 	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT1");
 	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT2");
 	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT3");
@@ -1896,25 +1908,31 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC3");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC4");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC5");
+	snd_soc_dapm_ignore_suspend(dapm, "DMIC6");
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic6");
 	snd_soc_dapm_ignore_suspend(dapm, "ANC EAR");
 	snd_soc_dapm_ignore_suspend(dapm, "ANC HEADPHONE");
 	if (!strcmp(dev_name(codec_dai->dev), "tomtom_codec")) {
 		snd_soc_dapm_ignore_suspend(dapm, "DMIC6");
 		snd_soc_dapm_ignore_suspend(dapm, "Digital Mic6");
 		snd_soc_dapm_ignore_suspend(dapm, "SPK_OUT");
+		snd_soc_dapm_ignore_suspend(dapm, "HEADPHONE");
 	} else if (!strcmp(dev_name(codec_dai->dev), "tasha_codec")) {
 		snd_soc_dapm_ignore_suspend(dapm, "Digital Mic0");
 		snd_soc_dapm_ignore_suspend(dapm, "DMIC0");
 		snd_soc_dapm_ignore_suspend(dapm, "SPK1 OUT");
 		snd_soc_dapm_ignore_suspend(dapm, "SPK2 OUT");
+		snd_soc_dapm_ignore_suspend(dapm, "HPHL");
+		snd_soc_dapm_ignore_suspend(dapm, "HPHR");
+		snd_soc_dapm_ignore_suspend(dapm, "ANC HPHL");
+		snd_soc_dapm_ignore_suspend(dapm, "ANC HPHR");
+		snd_soc_dapm_ignore_suspend(dapm, "ANC LINEOUT1");
+		snd_soc_dapm_ignore_suspend(dapm, "ANC LINEOUT2");
 	}
 
-
 	snd_soc_dapm_sync(dapm);
-
 	snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
 				    tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
-
 
 	err = msm_afe_set_config(codec);
 	if (err) {
