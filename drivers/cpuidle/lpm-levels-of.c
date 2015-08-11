@@ -560,7 +560,6 @@ static int get_cpumask_for_node(struct device_node *node, struct cpumask *mask)
 	struct device_node *cpu_node;
 	int cpu;
 	int idx = 0;
-	bool found = false;
 
 	cpu_node = of_parse_phandle(node, "qcom,cpu", idx++);
 	if (!cpu_node) {
@@ -576,24 +575,16 @@ static int get_cpumask_for_node(struct device_node *node, struct cpumask *mask)
 	}
 
 	while (cpu_node) {
-		found = false;
 		for_each_possible_cpu(cpu) {
 			if (of_get_cpu_node(cpu, NULL) == cpu_node) {
 				cpumask_set_cpu(cpu, mask);
-				found = true;
 				break;
 			}
 		}
-		if (!found)
-			pr_crit("Unable to find CPU node for %s\n",
-					cpu_node->full_name);
-
 		cpu_node = of_parse_phandle(node, "qcom,cpu", idx++);
 	}
 
-	if (!cpumask_empty(mask))
-		return 0;
-	return -EINVAL;
+	return 0;
 }
 
 static int parse_cpu_levels(struct device_node *node, struct lpm_cluster *c)
