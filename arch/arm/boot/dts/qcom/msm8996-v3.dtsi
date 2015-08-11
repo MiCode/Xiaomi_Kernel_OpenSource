@@ -391,3 +391,8 @@
 	qcom,slope = <2901 2846 3200 3200 3200 3200 3200 3200 3200
 						3200 3200 3200 3200>;
 };
+
+/* cpu pmu override */
+&cpu_pmu {
+	compatible = "qcom,kryo-pmuv3";
+};

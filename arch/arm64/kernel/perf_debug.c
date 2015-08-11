@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +36,7 @@ static char *descriptions =
 	"14 Perf: arm64: stop counters when going into hotplug\n"
 	"15 Perf: arm64: make debug dir handle exportable\n"
 	"16 Perf: arm64: add perf trace user\n"
+	"17 Perf: arm64: add support for kryo pmu\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
