@@ -112,6 +112,7 @@ enum {
 enum {
 	AIF1_PB = 0,
 	AIF1_CAP,
+	AIF2_VIFEED,
 	NUM_CODEC_DAIS,
 };
 
@@ -2394,6 +2395,14 @@ static const char * const dec_mux_text[] = {
 	"ZERO", "ADC1", "ADC2", "ADC3", "DMIC1", "DMIC2"
 };
 
+static const char * const dec3_mux_text[] = {
+	"ZERO", "DMIC3"
+};
+
+static const char * const dec4_mux_text[] = {
+	"ZERO", "DMIC4"
+};
+
 static const char * const adc2_mux_text[] = {
 	"ZERO", "INP2", "INP3"
 };
@@ -2480,6 +2489,14 @@ static const struct soc_enum dec1_mux_enum =
 static const struct soc_enum dec2_mux_enum =
 	SOC_ENUM_SINGLE(MSM8X16_WCD_A_CDC_CONN_TX_B1_CTL,
 		3, 6, dec_mux_text);
+
+static const struct soc_enum dec3_mux_enum =
+	SOC_ENUM_SINGLE(MSM8X16_WCD_A_CDC_TX3_MUX_CTL, 0,
+				ARRAY_SIZE(dec3_mux_text), dec3_mux_text);
+
+static const struct soc_enum dec4_mux_enum =
+	SOC_ENUM_SINGLE(MSM8X16_WCD_A_CDC_TX4_MUX_CTL, 0,
+				ARRAY_SIZE(dec4_mux_text), dec4_mux_text);
 
 static const struct soc_enum rdac2_mux_enum =
 	SOC_ENUM_SINGLE(MSM8X16_WCD_A_DIGITAL_CDC_CONN_HPHR_DAC_CTL,
@@ -2629,6 +2646,12 @@ static const struct snd_kcontrol_new dec1_mux =
 
 static const struct snd_kcontrol_new dec2_mux =
 	MSM8X16_WCD_DEC_ENUM("DEC2 MUX Mux", dec2_mux_enum);
+
+static const struct snd_kcontrol_new dec3_mux =
+	SOC_DAPM_ENUM("DEC3 MUX Mux", dec3_mux_enum);
+
+static const struct snd_kcontrol_new dec4_mux =
+	SOC_DAPM_ENUM("DEC4 MUX Mux", dec4_mux_enum);
 
 static const struct snd_kcontrol_new rdac2_mux =
 	SOC_DAPM_ENUM("RDAC2 MUX Mux", rdac2_mux_enum);
@@ -3267,7 +3290,7 @@ static int msm8x16_wcd_codec_enable_dec(struct snd_soc_dapm_widget *w,
 		goto out;
 	}
 
-	dec_num = strpbrk(dec_name, "12");
+	dec_num = strpbrk(dec_name, "1234");
 	if (dec_num == NULL) {
 		dev_err(codec->dev, "%s: Invalid Decimator\n", __func__);
 		ret = -EINVAL;
@@ -3302,6 +3325,17 @@ static int msm8x16_wcd_codec_enable_dec(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		if (decimator == 3 || decimator == 4) {
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_CDC_CLK_WSA_VI_B1_CTL,
+				0xFF, 0x5);
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_CDC_TX1_DMIC_CTL +
+					(decimator - 1) * 0x20, 0x7, 0x2);
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_CDC_TX1_DMIC_CTL +
+					(decimator - 1) * 0x20, 0x7, 0x2);
+		}
 		/* Enableable TX digital mute */
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x01, 0x01);
 		for (i = 0; i < NUM_DECIMATORS; i++) {
@@ -3367,6 +3401,17 @@ static int msm8x16_wcd_codec_enable_dec(struct snd_soc_dapm_widget *w,
 		for (i = 0; i < NUM_DECIMATORS; i++) {
 			if (decimator == i + 1)
 				msm8x16_wcd->dec_active[i] = false;
+		}
+		if (decimator == 3 || decimator == 4) {
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_CDC_CLK_WSA_VI_B1_CTL,
+				0xFF, 0x0);
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_CDC_TX1_DMIC_CTL +
+					(decimator - 1) * 0x20, 0x7, 0x0);
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_CDC_TX1_DMIC_CTL +
+					(decimator - 1) * 0x20, 0x7, 0x0);
 		}
 		break;
 	}
@@ -3780,9 +3825,12 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	{"I2S TX1", NULL, "TX_I2S_CLK"},
 	{"I2S TX2", NULL, "TX_I2S_CLK"},
+	{"AIF2 VI", NULL, "TX_I2S_CLK"},
 
 	{"I2S TX1", NULL, "DEC1 MUX"},
 	{"I2S TX2", NULL, "DEC2 MUX"},
+	{"AIF2 VI", NULL, "DEC3 MUX"},
+	{"AIF2 VI", NULL, "DEC4 MUX"},
 
 	/* RDAC Connections */
 	{"HPHR DAC", NULL, "RDAC2 MUX"},
@@ -3900,6 +3948,10 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"DEC2 MUX", "ADC3", "ADC3"},
 	{"DEC2 MUX", NULL, "CDC_CONN"},
 
+	{"DEC3 MUX", "DMIC3", "DMIC3"},
+	{"DEC4 MUX", "DMIC4", "DMIC4"},
+	{"DEC3 MUX", NULL, "CDC_CONN"},
+	{"DEC4 MUX", NULL, "CDC_CONN"},
 	/* ADC Connections */
 	{"ADC2", NULL, "ADC2 MUX"},
 	{"ADC3", NULL, "ADC2 MUX"},
@@ -4158,7 +4210,7 @@ int msm8x16_wcd_digital_mute(struct snd_soc_dai *dai, int mute)
 	codec = dai->codec;
 	msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
 
-	if (dai->id != AIF1_CAP) {
+	if ((dai->id != AIF1_CAP) && (dai->id != AIF2_VIFEED)) {
 		dev_dbg(codec->dev, "%s: Not capture use case skip\n",
 		__func__);
 		return 0;
@@ -4226,6 +4278,20 @@ static struct snd_soc_dai_driver msm8x16_wcd_i2s_dai[] = {
 			.rate_min = 8000,
 			.channels_min = 1,
 			.channels_max = 4,
+		},
+		.ops = &msm8x16_wcd_dai_ops,
+	},
+	{
+		.name = "cajon_vifeedback",
+		.id = AIF2_VIFEED,
+		.capture = {
+			.stream_name = "VIfeed",
+			.rates = MSM8X16_WCD_RATES,
+			.formats = MSM8X16_WCD_FORMATS,
+			.rate_max = 48000,
+			.rate_min = 48000,
+			.channels_min = 2,
+			.channels_max = 2,
 		},
 		.ops = &msm8x16_wcd_dai_ops,
 	},
@@ -4558,6 +4624,18 @@ static const struct snd_soc_dapm_widget msm8x16_wcd_dapm_widgets[] = {
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 		SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 
+	SND_SOC_DAPM_MUX_E("DEC3 MUX",
+		MSM8X16_WCD_A_CDC_CLK_TX_CLK_EN_B1_CTL, 2, 0,
+		&dec3_mux, msm8x16_wcd_codec_enable_dec,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_MUX_E("DEC4 MUX",
+		MSM8X16_WCD_A_CDC_CLK_TX_CLK_EN_B1_CTL, 3, 0,
+		&dec4_mux, msm8x16_wcd_codec_enable_dec,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
+
 	SND_SOC_DAPM_MUX("RDAC2 MUX", SND_SOC_NOPM, 0, 0, &rdac2_mux),
 
 	SND_SOC_DAPM_INPUT("AMIC2"),
@@ -4569,6 +4647,8 @@ static const struct snd_soc_dapm_widget msm8x16_wcd_dapm_widgets[] = {
 	SND_SOC_DAPM_AIF_OUT("I2S TX3", "AIF1 Capture", 0, SND_SOC_NOPM,
 		0, 0),
 
+	SND_SOC_DAPM_AIF_OUT("AIF2 VI", "VIfeed", 0, SND_SOC_NOPM,
+		0, 0),
 	/* Digital Mic Inputs */
 	SND_SOC_DAPM_ADC_E("DMIC1", NULL, SND_SOC_NOPM, 0, 0,
 		msm8x16_wcd_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
@@ -4577,6 +4657,10 @@ static const struct snd_soc_dapm_widget msm8x16_wcd_dapm_widgets[] = {
 	SND_SOC_DAPM_ADC_E("DMIC2", NULL, SND_SOC_NOPM, 0, 0,
 		msm8x16_wcd_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_INPUT("DMIC3"),
+
+	SND_SOC_DAPM_INPUT("DMIC4"),
 
 	/* Sidetone */
 	SND_SOC_DAPM_MUX("IIR1 INP1 MUX", SND_SOC_NOPM, 0, 0, &iir1_inp1_mux),
