@@ -1035,6 +1035,65 @@ static int mdss_debugfs_buffers_show(struct seq_file *s, void *v)
 }
 DEFINE_MDSS_DEBUGFS_SEQ_FOPS(mdss_debugfs_buffers);
 
+static int __danger_safe_signal_status(struct seq_file *s, bool danger_status)
+{
+	struct mdss_data_type *mdata = (struct mdss_data_type *)s->private;
+	u32 status;
+	int i, j;
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+	if (danger_status) {
+		seq_puts(s, "\nDanger signal status:\n");
+		status = readl_relaxed(mdata->mdp_base +
+			MDSS_MDP_DANGER_STATUS);
+	} else {
+		seq_puts(s, "\nSafe signal status:\n");
+		status = readl_relaxed(mdata->mdp_base +
+			MDSS_MDP_SAFE_STATUS);
+	}
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+
+	seq_printf(s, "MDP     :  0x%lx\n",
+		DANGER_SAFE_STATUS(status, MDP_DANGER_SAFE_BIT_OFFSET));
+
+	for (i = 0, j = VIG_DANGER_SAFE_BIT_OFFSET; i < mdata->nvig_pipes;
+			i++, j += 2)
+		seq_printf(s, "VIG%d    :  0x%lx  \t", i,
+			DANGER_SAFE_STATUS(status, j));
+	seq_puts(s, "\n");
+
+	for (i = 0, j = RGB_DANGER_SAFE_BIT_OFFSET; i < mdata->nrgb_pipes;
+			i++, j += 2)
+		seq_printf(s, "RGB%d    :  0x%lx  \t", i,
+			DANGER_SAFE_STATUS(status, j));
+	seq_puts(s, "\n");
+	for (i = 0, j = DMA_DANGER_SAFE_BIT_OFFSET; i < mdata->ndma_pipes;
+			i++, j += 2)
+		seq_printf(s, "DMA%d    :  0x%lx  \t", i,
+			DANGER_SAFE_STATUS(status, j));
+	seq_puts(s, "\n");
+
+	for (i = 0, j = CURSOR_DANGER_SAFE_BIT_OFFSET; i < mdata->ncursor_pipes;
+			i++, j += 2)
+		seq_printf(s, "CURSOR%d :  0x%lx  \t", i,
+			DANGER_SAFE_STATUS(status, j));
+	seq_puts(s, "\n");
+
+	return 0;
+}
+
+static int mdss_debugfs_danger_stats_show(struct seq_file *s, void *v)
+{
+	return __danger_safe_signal_status(s, true);
+}
+DEFINE_MDSS_DEBUGFS_SEQ_FOPS(mdss_debugfs_danger_stats);
+
+static int mdss_debugfs_safe_stats_show(struct seq_file *s, void *v)
+{
+	return __danger_safe_signal_status(s, false);
+}
+DEFINE_MDSS_DEBUGFS_SEQ_FOPS(mdss_debugfs_safe_stats);
+
 static void __stats_ctl_dump(struct mdss_mdp_ctl *ctl, struct seq_file *s)
 {
 	if (!ctl->ref_cnt)
@@ -1106,6 +1165,10 @@ int mdss_mdp_debugfs_init(struct mdss_data_type *mdata)
 			&mdss_debugfs_buffers_fops);
 	debugfs_create_file("stat", 0644, mdd->root, mdata,
 			&mdss_debugfs_stats_fops);
+	debugfs_create_file("danger_stat", 0644, mdd->root, mdata,
+			&mdss_debugfs_danger_stats_fops);
+	debugfs_create_file("safe_stat", 0644, mdd->root, mdata,
+			&mdss_debugfs_safe_stats_fops);
 	debugfs_create_bool("serialize_wait4pp", 0644, mdd->root,
 		(u32 *)&mdata->serialize_wait4pp);
 	debugfs_create_bool("enable_gate", 0644, mdd->root,
