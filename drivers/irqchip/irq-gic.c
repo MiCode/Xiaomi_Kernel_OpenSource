@@ -76,6 +76,7 @@ struct gic_chip_data {
 	unsigned int wakeup_irqs[32];
 	unsigned int enabled_irqs[32];
 #endif
+	u32 saved_regs[0x400];
 };
 
 static DEFINE_RAW_SPINLOCK(irq_controller_lock);
@@ -179,6 +180,22 @@ static void gic_disable_irq(struct irq_data *d)
 	if (gic_arch_extn.irq_disable)
 		gic_arch_extn.irq_disable(d);
 }
+
+static int gic_panic_handler(struct notifier_block *this,
+			unsigned long event, void *ptr)
+{
+	int i;
+	void __iomem *base;
+
+	base = gic_data_dist_base(&gic_data[0]);
+	for (i = 0; i < 0x400; i += 1)
+		gic_data[0].saved_regs[i] = readl_relaxed(base + 4 * i);
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block gic_panic_blk = {
+	.notifier_call = gic_panic_handler,
+};
 
 #ifdef CONFIG_PM
 static int gic_suspend_one(struct gic_chip_data *gic)
@@ -415,16 +432,16 @@ static void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
 		irqnr = irqstat & GICC_IAR_INT_ID_MASK;
 
 		if (likely(irqnr > 15 && irqnr < 1021)) {
-			handle_domain_irq(gic->domain, irqnr, regs);
 			uncached_logk(LOGK_IRQ, (void *)(uintptr_t)irqnr);
+			handle_domain_irq(gic->domain, irqnr, regs);
 			continue;
 		}
 		if (irqnr < 16) {
 			writel_relaxed_no_log(irqstat, cpu_base + GIC_CPU_EOI);
+			uncached_logk(LOGK_IRQ, (void *)(uintptr_t)irqnr);
 #ifdef CONFIG_SMP
 			handle_IPI(irqnr, regs);
 #endif
-			uncached_logk(LOGK_IRQ, (void *)(uintptr_t)irqnr);
 			continue;
 		}
 		break;
@@ -1202,6 +1219,7 @@ gic_of_init(struct device_node *node, struct device_node *parent)
 		gic_cascade_irq(gic_cnt, irq);
 	}
 	gic_cnt++;
+	atomic_notifier_chain_register(&panic_notifier_list, &gic_panic_blk);
 	return 0;
 }
 IRQCHIP_DECLARE(gic_400, "arm,gic-400", gic_of_init);
