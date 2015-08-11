@@ -199,6 +199,14 @@
 		status = "disabled";
 	};
 
+	dma_blsp1: qcom,sps-dma@7884000 { /* BLSP1 */
+		#dma-cells = <4>;
+		compatible = "qcom,sps-dma";
+		reg = <0x7884000 0x2b000>;
+		interrupts = <0 238 0>;
+		qcom,summing-threshold = <10>;
+	};
+
 	usb_otg: usb@78d9000 {
 		compatible = "qcom,hsusb-otg";
 		reg = <0x78d9000 0x400>, <0x6c000 0x200>;
