@@ -309,7 +309,12 @@ void *dma_common_contiguous_remap(struct page *page, size_t size,
 	void *ptr;
 	unsigned long pfn;
 
-	pages = kmalloc(sizeof(struct page *) << get_order(size), GFP_KERNEL);
+	pages = kmalloc(sizeof(struct page *) << get_order(size),
+			GFP_KERNEL | __GFP_NOWARN);
+
+	if (!pages)
+		pages = vmalloc(sizeof(struct page *) << get_order(size));
+
 	if (!pages)
 		return NULL;
 
@@ -318,7 +323,7 @@ void *dma_common_contiguous_remap(struct page *page, size_t size,
 
 	ptr = dma_common_pages_remap(pages, size, vm_flags, prot, caller);
 
-	kfree(pages);
+	kvfree(pages);
 
 	return ptr;
 }
