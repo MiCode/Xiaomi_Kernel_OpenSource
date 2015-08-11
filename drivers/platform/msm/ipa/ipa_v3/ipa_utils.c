@@ -635,19 +635,12 @@ int ipa3_init_hw(void)
 {
 	u32 ipa_version = 0;
 
-	/* do soft reset of IPA */
-	ipa_write_reg(ipa3_ctx->mmio, IPA_COMP_SW_RESET_OFST, 1);
-	ipa_write_reg(ipa3_ctx->mmio, IPA_COMP_SW_RESET_OFST, 0);
-
-	/* enable IPA */
-	ipa_write_reg(ipa3_ctx->mmio, IPA_COMP_CFG_OFST, 1);
-
 	/* Read IPA version and make sure we have access to the registers */
 	ipa_version = ipa_read_reg(ipa3_ctx->mmio, IPA_VERSION_OFST);
 	if (ipa_version == 0)
 		return -EFAULT;
 
-	/* set ipa_bcr to 0xFFFFFFFF for using new IPA behavior */
+	/* using old BCR configuration(IPAv2.6)*/
 	ipa_write_reg(ipa3_ctx->mmio, IPA_BCR_OFST, IPA_BCR_REG_VAL);
 	return 0;
 }
