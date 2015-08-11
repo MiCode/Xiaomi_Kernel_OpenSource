@@ -2122,7 +2122,7 @@ static uint32_t msm_vfe47_stats_get_wm_mask(
 	for (i = 0; i < VFE47_NUM_STATS_TYPE; i++)
 		if ((irq_status0 >> stats_irq_map_comp_mask[i]) & 0x1)
 			comp_mapped_irq_mask |= (1 << i);
-	if (irq_status1 >> 26)
+	if ((irq_status1 >> 26) & 0x1)
 		comp_mapped_irq_mask |= (1 << STATS_COMP_IDX_BF);
 
 	return comp_mapped_irq_mask;
