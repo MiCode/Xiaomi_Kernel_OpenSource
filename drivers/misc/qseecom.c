@@ -199,6 +199,7 @@ struct qseecom_control {
 	bool no_clock_support;
 	unsigned int ce_opp_freq_hz;
 	bool appsbl_qseecom_support;
+	bool appsbl_loaded_keymaster;
 };
 
 struct qseecom_sec_buf_fd_info {
@@ -2352,6 +2353,25 @@ int __boundary_checks_offset(struct qseecom_send_modfd_cmd_req *req,
 	return 0;
 }
 
+static unsigned int __get_qsee_app_arch(char *appname)
+{
+	const struct firmware *fw_entry = NULL;
+	char fw_name[MAX_APP_NAME_SIZE];
+	unsigned char app_arch = 0;
+	int ret = -1;
+
+	snprintf(fw_name, sizeof(fw_name), "%s.mdt", appname);
+	ret = request_firmware(&fw_entry, fw_name,  qseecom.pdev);
+	if (ret) {
+		pr_err("firmware request failed ret %d\n", ret);
+		return 0;
+	}
+
+	app_arch = *(unsigned char *)(fw_entry->data + EI_CLASS);
+	release_firmware(fw_entry);
+	return app_arch;
+}
+
 static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 			struct qseecom_dev_handle *data)
 {
@@ -2364,6 +2384,9 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 	struct qseecom_send_modfd_cmd_req *req = NULL;
 	struct qseecom_send_modfd_listener_resp *lstnr_resp = NULL;
 	struct qseecom_registered_listener_list *this_lstnr = NULL;
+
+	if (qseecom.appsbl_loaded_keymaster)
+		data->client.app_arch = __get_qsee_app_arch("keymaste");
 
 	if ((data->type != QSEECOM_LISTENER_SERVICE) &&
 			(data->type != QSEECOM_CLIENT_APP))
@@ -6492,6 +6515,12 @@ static int qseecom_probe(struct platform_device *pdev)
 						"qcom,appsbl-qseecom-support");
 		pr_info("qseecom.appsbl_qseecom_support = 0x%x",
 				qseecom.appsbl_qseecom_support);
+
+		qseecom.appsbl_loaded_keymaster =
+				of_property_read_bool((&pdev->dev)->of_node,
+					"qcom,appsbl-loaded-keymaster");
+		pr_info("qseecom.appsbl_loaded_keymaster = 0x%x",
+				qseecom.appsbl_loaded_keymaster);
 
 		qseecom.no_clock_support =
 				of_property_read_bool((&pdev->dev)->of_node,
