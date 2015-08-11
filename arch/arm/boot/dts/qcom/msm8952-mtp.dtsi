@@ -176,7 +176,7 @@
 				"msm-voice-svc";
 		asoc-cpu = <&dai_pri_auxpcm>, <&dai_hdmi>,
 				<&dai_mi2s0>, <&dai_mi2s1>, <&dai_mi2s2>, <&dai_mi2s3>,
-				<&dai_mi2s5>,
+				<&dai_mi2s5>, <&dai_mi2s6>,
 				<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
 				<&sb_3_rx>, <&sb_3_tx>, <&sb_4_rx>, <&sb_4_tx>,
 				<&bt_sco_rx>, <&bt_sco_tx>, <&int_fm_rx>, <&int_fm_tx>,
@@ -186,7 +186,7 @@
 		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-hdmi.8",
 				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
 				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
-				"msm-dai-q6-mi2s.5",
+				"msm-dai-q6-mi2s.5", "msm-dai-q6-mi2s.6",
 				"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
 				"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
 				"msm-dai-q6-dev.16390", "msm-dai-q6-dev.16391",
@@ -212,19 +212,32 @@
 			compatible = "qcom,wsa881x-i2c-codec";
 			reg = <0x0e>;
 			qcom,msm-gpios = "wsa_clk",
-					"wsa_reset";
+					"wsa_reset",
+					"wsa_vi";
 			qcom,pinctrl-names = "all_off",
 					"wsa_clk",
 					"wsa_active",
-					"wsa_clk_active";
+					"wsa_clk_active",
+					"wsa_vi",
+					"wsa_clk_vi",
+					"wsa_active_vi",
+					"wsa_all";
 			pinctrl-names = "all_off",
 					"wsa_clk",
 					"wsa_active",
-					"wsa_clk_active";
-			pinctrl-0 = <&wsa_clk_off &wsa_suspend>;
-			pinctrl-1 = <&wsa_clk_on &wsa_suspend>;
-			pinctrl-2 = <&wsa_clk_off &wsa_active>;
-			pinctrl-3 = <&wsa_clk_on &wsa_active>;
+					"wsa_clk_active",
+					"wsa_vi",
+					"wsa_clk_vi",
+					"wsa_active_vi",
+					"wsa_all";
+			pinctrl-0 = <&wsa_clk_off &wsa_suspend &wsa_vi_sus>;
+			pinctrl-1 = <&wsa_clk_on &wsa_suspend &wsa_vi_sus>;
+			pinctrl-2 = <&wsa_clk_off &wsa_active &wsa_vi_sus>;
+			pinctrl-3 = <&wsa_clk_on &wsa_active &wsa_vi_sus>;
+			pinctrl-4 = <&wsa_clk_off &wsa_suspend &wsa_vi_act>;
+			pinctrl-5 = <&wsa_clk_on &wsa_suspend &wsa_vi_act>;
+			pinctrl-6 = <&wsa_clk_off &wsa_active &wsa_vi_act>;
+			pinctrl-7 = <&wsa_clk_on &wsa_active &wsa_vi_act>;
 		};
 		wsa881x-i2c-codec@44 {
 			compatible = "qcom,wsa881x-i2c-codec";
@@ -234,19 +247,32 @@
 			compatible = "qcom,wsa881x-i2c-codec";
 			reg = <0x0f>;
 			qcom,msm-gpios = "wsa_clk",
-					"wsa_reset";
+					"wsa_reset",
+					"wsa_vi";
 			qcom,pinctrl-names = "all_off",
 					"wsa_clk",
 					"wsa_active",
-					"wsa_clk_active";
+					"wsa_clk_active",
+					"wsa_vi",
+					"wsa_clk_vi",
+					"wsa_active_vi",
+					"wsa_all";
 			pinctrl-names = "all_off",
 					"wsa_clk",
 					"wsa_active",
-					"wsa_clk_active";
-			pinctrl-0 = <&wsa_clk_off &wsa_suspend>;
-			pinctrl-1 = <&wsa_clk_on &wsa_suspend>;
-			pinctrl-2 = <&wsa_clk_off &wsa_active>;
-			pinctrl-3 = <&wsa_clk_on &wsa_active>;
+					"wsa_clk_active",
+					"wsa_vi",
+					"wsa_clk_vi",
+					"wsa_active_vi",
+					"wsa_all";
+			pinctrl-0 = <&wsa_clk_off &wsa_suspend &wsa_vi_sus>;
+			pinctrl-1 = <&wsa_clk_on &wsa_suspend &wsa_vi_sus>;
+			pinctrl-2 = <&wsa_clk_off &wsa_active &wsa_vi_sus>;
+			pinctrl-3 = <&wsa_clk_on &wsa_active &wsa_vi_sus>;
+			pinctrl-4 = <&wsa_clk_off &wsa_suspend &wsa_vi_act>;
+			pinctrl-5 = <&wsa_clk_on &wsa_suspend &wsa_vi_act>;
+			pinctrl-6 = <&wsa_clk_off &wsa_active &wsa_vi_act>;
+			pinctrl-7 = <&wsa_clk_on &wsa_active &wsa_vi_act>;
 		};
 		wsa881x-i2c-codec@45 {
 			compatible = "qcom,wsa881x-i2c-codec";
