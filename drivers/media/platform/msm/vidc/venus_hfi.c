@@ -88,6 +88,8 @@ static struct hal_session *__get_session(struct venus_hfi_device *device,
 		u32 session_id);
 static int __iface_cmdq_write(struct venus_hfi_device *device,
 					void *pkt);
+static int __load_fw(struct venus_hfi_device *device);
+static void __unload_fw(struct venus_hfi_device *device);
 
 
 /**
@@ -2247,6 +2249,12 @@ static int venus_hfi_core_init(void *device)
 	dev = device;
 	mutex_lock(&dev->lock);
 
+	rc = __load_fw(dev);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to load Venus FW\n");
+		goto err_load_fw;
+	}
+
 	__set_state(dev, VENUS_STATE_INIT);
 
 	dev->intr_status = 0;
@@ -2265,6 +2273,7 @@ static int venus_hfi_core_init(void *device)
 
 	__set_registers(dev);
 
+	enable_irq(dev->hal_data->irq);
 	if (!dev->hal_client) {
 		dev->hal_client = msm_smem_new_client(
 				SMEM_ION, dev->res, MSM_VIDC_UNKNOWN);
@@ -2290,7 +2299,6 @@ static int venus_hfi_core_init(void *device)
 		goto err_core_init;
 	}
 
-	enable_irq(dev->hal_data->irq);
 	__write_register(dev, VIDC_CTRL_INIT, 0x1);
 	rc = __core_start_cpu(dev);
 	if (rc) {
@@ -2319,6 +2327,8 @@ static int venus_hfi_core_init(void *device)
 err_core_init:
 	__set_state(dev, VENUS_STATE_DEINIT);
 	disable_irq_nosync(dev->hal_data->irq);
+	__unload_fw(dev);
+err_load_fw:
 	mutex_unlock(&dev->lock);
 	return rc;
 }
@@ -2362,6 +2372,7 @@ static int venus_hfi_core_release(void *dev)
 
 	mutex_lock(&device->lock);
 	rc = __core_release(device);
+	__unload_fw(device);
 	mutex_unlock(&device->lock);
 
 	return rc;
@@ -4352,24 +4363,6 @@ fail_init_res:
 	return rc;
 }
 
-static int venus_hfi_load_fw(void *dev)
-{
-	int rc = 0;
-	struct venus_hfi_device *device = dev;
-
-	if (!device) {
-		dprintk(VIDC_ERR, "%s Invalid paramter: %p\n",
-			__func__, device);
-		return -EINVAL;
-	}
-
-	mutex_lock(&device->lock);
-	rc = __load_fw(device);
-	mutex_unlock(&device->lock);
-
-	return rc;
-}
-
 static void __unload_fw(struct venus_hfi_device *device)
 {
 	if (!device->resources.fw.cookie)
@@ -4392,20 +4385,6 @@ static void __unload_fw(struct venus_hfi_device *device)
 	device->power_enabled = false;
 	device->resources.fw.cookie = NULL;
 	__deinit_resources(device);
-}
-
-static void venus_hfi_unload_fw(void *dev)
-{
-	struct venus_hfi_device *device = dev;
-	if (!device) {
-		dprintk(VIDC_ERR, "%s Invalid paramter: %p\n",
-			__func__, device);
-		return;
-	}
-
-	mutex_lock(&device->lock);
-	__unload_fw(device);
-	mutex_unlock(&device->lock);
 }
 
 static int venus_hfi_get_fw_info(void *dev, enum fw_info info)
@@ -4638,8 +4617,6 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->scale_clocks = venus_hfi_scale_clocks;
 	hdev->vote_bus = venus_hfi_vote_buses;
 	hdev->unvote_bus = venus_hfi_unvote_buses;
-	hdev->load_fw = venus_hfi_load_fw;
-	hdev->unload_fw = venus_hfi_unload_fw;
 	hdev->get_fw_info = venus_hfi_get_fw_info;
 	hdev->get_core_capabilities = venus_hfi_get_core_capabilities;
 	hdev->suspend = venus_hfi_suspend;
