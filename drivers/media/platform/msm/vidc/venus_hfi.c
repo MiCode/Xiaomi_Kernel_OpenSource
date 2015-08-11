@@ -77,7 +77,8 @@ const int max_packets = 250;
 
 static void venus_hfi_pm_handler(struct work_struct *work);
 static DECLARE_DELAYED_WORK(venus_hfi_pm_work, venus_hfi_pm_handler);
-static inline int __power_on(struct venus_hfi_device *device);
+static inline int __resume(struct venus_hfi_device *device);
+static inline int __suspend(struct venus_hfi_device *device);
 static int __disable_regulators(struct venus_hfi_device *device);
 static int __enable_regulators(struct venus_hfi_device *device);
 static inline int __prepare_enable_clks(struct venus_hfi_device *device);
@@ -1473,185 +1474,6 @@ static int __halt_axi(struct venus_hfi_device *device)
 	return rc;
 }
 
-static inline int __power_off(struct venus_hfi_device *device)
-{
-	int rc = 0;
-
-	if (!device) {
-		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
-		return -EINVAL;
-	}
-
-	if (!device->power_enabled) {
-		dprintk(VIDC_DBG, "Power already disabled\n");
-		return 0;
-	}
-
-	rc = __halt_axi(device);
-	if (rc) {
-		dprintk(VIDC_WARN, "Failed to halt AXI\n");
-		return 0;
-	}
-
-	dprintk(VIDC_DBG, "Entering power collapse\n");
-	rc = __tzbsp_set_video_state(TZBSP_VIDEO_STATE_SUSPEND);
-	if (rc) {
-		dprintk(VIDC_WARN, "Failed to suspend video core %d\n", rc);
-		goto err_tzbsp_suspend;
-	}
-
-	if (device->resources.imem.type) {
-		rc = __free_imem(device);
-		if (rc) {
-			dprintk(VIDC_WARN, "Failed to free IMEM for PC: %d\n",
-					rc);
-			/* Free imem is never supposed to fail */
-			WARN_ON(1);
-		}
-	}
-
-	/*
-	* For some regulators, driver might have transfered the control to HW.
-	* So before touching any clocks, driver should get the regulator
-	* control back. Acquire regulators also makes sure that the regulators
-	* are turned ON. So driver can touch the clocks safely.
-	*/
-
-	rc = __acquire_regulators(device);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to enable gdsc in %s Err code = %d\n",
-			__func__, rc);
-		goto err_acquire_regulators;
-	}
-
-	__disable_unprepare_clks(device);
-	rc = __disable_regulators(device);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to disable gdsc\n");
-		goto err_disable_regulators;
-	}
-
-	__unvote_buses(device);
-	device->power_enabled = false;
-	dprintk(VIDC_INFO, "Venus power collapsed\n");
-	return rc;
-
-err_disable_regulators:
-	if (__prepare_enable_clks(device))
-		dprintk(VIDC_ERR, "Failed prepare_enable_clks\n");
-	if (__hand_off_regulators(device))
-		dprintk(VIDC_ERR, "Failed hand_off_regulators\n");
-err_acquire_regulators:
-	if (__alloc_imem(device, device->res->imem_size))
-		dprintk(VIDC_ERR, "Failed alloc imem\n");
-	if (__tzbsp_set_video_state(TZBSP_VIDEO_STATE_RESUME))
-		dprintk(VIDC_ERR, "Failed TZBSP_RESUME\n");
-err_tzbsp_suspend:
-	return rc;
-}
-
-static inline int __power_on(struct venus_hfi_device *device)
-{
-	int rc = 0;
-
-	if (!device) {
-		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
-		return -EINVAL;
-	}
-
-	if (device->power_enabled)
-		return 0;
-
-	/*
-	 * Set the flag here to skip __power_on() which is
-	 * being called again via *_alloc_set_imem() if imem is enabled
-	 */
-	device->power_enabled = true;
-
-	dprintk(VIDC_DBG, "Resuming from power collapse\n");
-	rc = __vote_buses(device, device->bus_vote.data,
-			device->bus_vote.data_count);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to scale buses\n");
-		goto err_vote_buses;
-	}
-
-	/* At this point driver has the control for all regulators */
-	rc = __enable_regulators(device);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to enable GDSC in %s Err code = %d\n",
-			__func__, rc);
-		goto err_enable_gdsc;
-	}
-
-	rc = __prepare_enable_clks(device);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to enable clocks\n");
-		goto err_enable_clk;
-	}
-
-	rc = __alloc_imem(device, device->res->imem_size);
-	if (rc) {
-		dprintk(VIDC_WARN, "Failed to allocate IMEM");
-		/* Alloc imem should not fail */
-		WARN_ON(1);
-	}
-
-	/* Reboot the firmware */
-	rc = __tzbsp_set_video_state(TZBSP_VIDEO_STATE_RESUME);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to resume video core %d\n", rc);
-		goto err_set_video_state;
-	}
-
-	rc = __hand_off_regulators(device);
-	if (rc)
-		dprintk(VIDC_WARN, "Failed to handoff control to HW %d\n", rc);
-
-	/*
-	 * Re-program all of the registers that get reset as a result of
-	 * regulator_disable() and _enable()
-	 */
-	__set_registers(device);
-
-	__write_register(device, VIDC_UC_REGION_ADDR,
-			(u32)device->iface_q_table.align_device_addr);
-	__write_register(device, VIDC_UC_REGION_SIZE, SHARED_QSIZE);
-	__write_register(device, VIDC_CPU_CS_SCIACMDARG2,
-		(u32)device->iface_q_table.align_device_addr);
-
-	if (device->sfr.align_device_addr)
-		__write_register(device, VIDC_SFR_ADDR,
-				(u32)device->sfr.align_device_addr);
-	if (device->qdss.align_device_addr)
-		__write_register(device, VIDC_MMAP_ADDR,
-				(u32)device->qdss.align_device_addr);
-
-	/* Wait for boot completion */
-	rc = __reset_core(device);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to reset venus core\n");
-		goto err_reset_core;
-	}
-
-	dprintk(VIDC_INFO, "Resumed from power collapse\n");
-	return rc;
-
-err_reset_core:
-	__tzbsp_set_video_state(TZBSP_VIDEO_STATE_SUSPEND);
-err_set_video_state:
-	__free_imem(device);
-	__disable_unprepare_clks(device);
-err_enable_clk:
-	__disable_regulators(device);
-err_enable_gdsc:
-	__unvote_buses(device);
-err_vote_buses:
-	device->power_enabled = false;
-	dprintk(VIDC_ERR, "Failed to resume from power collapse\n");
-	return rc;
-}
-
 static int __scale_clocks(struct venus_hfi_device *device, int load,
 		int codecs_enabled, unsigned long instant_bitrate)
 {
@@ -1744,7 +1566,7 @@ static int __iface_cmdq_write_relaxed(struct venus_hfi_device *device,
 
 	__sim_modify_cmd_packet((u8 *)pkt, device);
 	if (!__write_queue(q_info, (u8 *)pkt, requires_interrupt)) {
-		if (__power_on(device)) {
+		if (__resume(device)) {
 			dprintk(VIDC_ERR, "%s: Power on failed\n", __func__);
 			goto err_q_write;
 		}
@@ -2392,7 +2214,7 @@ static int __core_release(struct venus_hfi_device *device)
 	if (!device->hal_client)
 		return -EINVAL;
 
-	if (__power_on(device)) {
+	if (__resume(device)) {
 		dprintk(VIDC_ERR, "%s: Power enable failed\n", __func__);
 		return -EIO;
 	}
@@ -3430,7 +3252,7 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 		goto skip_power_off;
 	}
 
-	rc = __power_off(device);
+	rc = __suspend(device);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed venus power off\n");
 		goto err_power_off;
@@ -3720,7 +3542,7 @@ static void venus_hfi_core_work_handler(struct work_struct *work)
 		goto err_no_work;
 	}
 
-	if (__power_on(device)) {
+	if (__resume(device)) {
 		dprintk(VIDC_ERR, "%s: Power enable failed\n", __func__);
 		goto err_no_work;
 	}
@@ -4324,10 +4146,184 @@ static int __disable_regulators(struct venus_hfi_device *device)
 	return rc;
 }
 
-static int __load_fw(struct venus_hfi_device *device)
+static int __venus_power_on(struct venus_hfi_device *device)
+{
+	int rc = 0;
+	device->power_enabled = true;
+	/* Vote for all hardware resources */
+	rc = __vote_buses(device, device->bus_vote.data,
+			device->bus_vote.data_count);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to vote buses, err: %d\n", rc);
+		goto fail_vote_buses;
+	}
+
+	rc = __enable_regulators(device);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to enable GDSC, err = %d\n", rc);
+		goto fail_enable_gdsc;
+	}
+
+	rc = __prepare_enable_clks(device);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to enable clocks: %d\n", rc);
+		goto fail_enable_clks;
+	}
+
+	/* Hand off control of regulators to h/w _after_ enabling clocks */
+	if (__enable_hw_power_collapse(device))
+		dprintk(VIDC_ERR, "Failed to enabled inter-frame PC\n");
+
+	return rc;
+fail_enable_clks:
+	__disable_regulators(device);
+fail_enable_gdsc:
+	__unvote_buses(device);
+fail_vote_buses:
+	device->power_enabled = false;
+	return rc;
+}
+
+static void __venus_power_off(struct venus_hfi_device *device)
+{
+	/* Halt the AXI to make sure there are no pending transactions.
+	 * Clocks should be unprepared after making sure axi is halted.
+	 */
+	if (__halt_axi(device))
+		dprintk(VIDC_WARN, "Failed to halt AXI\n");
+
+	__disable_unprepare_clks(device);
+	if (__disable_regulators(device))
+		dprintk(VIDC_WARN, "Failed to disable regulators\n");
+
+	if (__unvote_buses(device))
+		dprintk(VIDC_WARN, "Failed to unvote for buses\n");
+	device->power_enabled = false;
+}
+
+static inline int __suspend(struct venus_hfi_device *device)
 {
 	int rc = 0;
 
+	if (!device) {
+		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
+		return -EINVAL;
+	} else if (!device->power_enabled) {
+		dprintk(VIDC_DBG, "Power already disabled\n");
+		return 0;
+	}
+
+	dprintk(VIDC_DBG, "Entering power collapse\n");
+	rc = __tzbsp_set_video_state(TZBSP_VIDEO_STATE_SUSPEND);
+	if (rc) {
+		dprintk(VIDC_WARN, "Failed to suspend video core %d\n", rc);
+		goto err_tzbsp_suspend;
+	}
+
+	if (device->resources.imem.type) {
+		rc = __free_imem(device);
+		if (rc) {
+			dprintk(VIDC_WARN, "Failed to free IMEM for PC: %d\n",
+					rc);
+			/* Free imem is never supposed to fail */
+			WARN_ON(1);
+		}
+	}
+
+	/*
+	* For some regulators, driver might have transferred the control to HW.
+	* So before touching any clocks, driver should get the regulator
+	* control back. Acquire regulators also makes sure that the regulators
+	* are turned ON. So driver can touch the clocks safely.
+	*/
+
+	rc = __acquire_regulators(device);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to enable gdsc in %s Err code = %d\n",
+			__func__, rc);
+		goto err_acquire_regulators;
+	}
+
+	__venus_power_off(device);
+	dprintk(VIDC_INFO, "Venus power collapsed\n");
+	return rc;
+err_acquire_regulators:
+	if (__tzbsp_set_video_state(TZBSP_VIDEO_STATE_RESUME))
+		dprintk(VIDC_ERR, "Failed TZBSP_RESUME\n");
+err_tzbsp_suspend:
+	return rc;
+}
+
+static inline int __resume(struct venus_hfi_device *device)
+{
+	int rc = 0;
+
+	if (!device) {
+		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
+		return -EINVAL;
+	} else if (device->power_enabled) {
+		dprintk(VIDC_DBG, "Power is already enabled\n");
+		return 0;
+	}
+
+	dprintk(VIDC_DBG, "Resuming from power collapse\n");
+	rc = __venus_power_on(device);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to power on venus\n");
+		goto err_venus_power_on;
+	}
+
+	rc = __alloc_imem(device, device->res->imem_size);
+	if (rc) {
+		dprintk(VIDC_WARN, "Failed to allocate IMEM");
+		/* Alloc imem should not fail */
+		WARN_ON(1);
+	}
+
+	/* Reboot the firmware */
+	rc = __tzbsp_set_video_state(TZBSP_VIDEO_STATE_RESUME);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to resume video core %d\n", rc);
+		goto err_set_video_state;
+	}
+
+	/*
+	 * Re-program all of the registers that get reset as a result of
+	 * regulator_disable() and _enable()
+	 */
+	__set_registers(device);
+	__write_register(device, VIDC_UC_REGION_ADDR,
+			(u32)device->iface_q_table.align_device_addr);
+	__write_register(device, VIDC_UC_REGION_SIZE, SHARED_QSIZE);
+	__write_register(device, VIDC_CPU_CS_SCIACMDARG2,
+		(u32)device->iface_q_table.align_device_addr);
+	if (device->sfr.align_device_addr)
+		__write_register(device, VIDC_SFR_ADDR,
+				(u32)device->sfr.align_device_addr);
+	if (device->qdss.align_device_addr)
+		__write_register(device, VIDC_MMAP_ADDR,
+				(u32)device->qdss.align_device_addr);
+	/* Wait for boot completion */
+	rc = __reset_core(device);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to reset venus core\n");
+		goto err_reset_core;
+	}
+
+	dprintk(VIDC_INFO, "Resumed from power collapse\n");
+	return rc;
+err_reset_core:
+	__tzbsp_set_video_state(TZBSP_VIDEO_STATE_SUSPEND);
+err_set_video_state:
+	__venus_power_off(device);
+err_venus_power_on:
+	dprintk(VIDC_ERR, "Failed to resume from power collapse\n");
+	return rc;
+}
+
+static int __load_fw(struct venus_hfi_device *device)
+{
+	int rc = 0;
 	/* Initialize resources */
 	rc = __init_resources(device, device->res);
 	if (rc) {
@@ -4340,35 +4336,12 @@ static int __load_fw(struct venus_hfi_device *device)
 		dprintk(VIDC_ERR, "Failed to initialize packetization\n");
 		goto fail_init_pkt;
 	}
-
 	trace_msm_v4l2_vidc_fw_load_start("msm_v4l2_vidc venus_fw load start");
 
-	device->power_enabled = true;
-
-	/* Vote for all hardware resources */
-	rc = __vote_buses(device, device->bus_vote.data,
-			device->bus_vote.data_count);
+	rc = __venus_power_on(device);
 	if (rc) {
-		dprintk(VIDC_ERR,
-				"Failed to vote buses when loading firmware: %d\n",
-				rc);
-		goto fail_vote_buses;
-	}
-
-	rc = __enable_regulators(device);
-	if (rc) {
-		dprintk(VIDC_ERR, "%s : Failed to enable GDSC, Err = %d\n",
-			__func__, rc);
-		goto fail_enable_gdsc;
-	}
-
-	/* iommu_attach makes call to TZ for restore_sec_cfg. With this call
-	 * TZ accesses the VMIDMT block which needs all the Venus clocks.
-	 */
-	rc = __prepare_enable_clks(device);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to enable clocks: %d\n", rc);
-		goto fail_enable_clks;
+		dprintk(VIDC_ERR, "Failed to power on venus in in load_fw\n");
+		goto fail_venus_power_on;
 	}
 
 	if ((!device->res->use_non_secure_pil && !device->res->firmware_base)
@@ -4385,9 +4358,6 @@ static int __load_fw(struct venus_hfi_device *device)
 		}
 	}
 
-	/* Hand off control of regulators to h/w _after_ enabling clocks */
-	__enable_hw_power_collapse(device);
-
 	if (!device->res->use_non_secure_pil && !device->res->firmware_base) {
 		rc = __protect_cp_mem(device);
 		if (rc) {
@@ -4395,7 +4365,6 @@ static int __load_fw(struct venus_hfi_device *device)
 			goto fail_protect_mem;
 		}
 	}
-
 	trace_msm_v4l2_vidc_fw_load_end("msm_v4l2_vidc venus_fw load end");
 	return rc;
 fail_protect_mem:
@@ -4403,16 +4372,11 @@ fail_protect_mem:
 		subsystem_put(device->resources.fw.cookie);
 	device->resources.fw.cookie = NULL;
 fail_load_fw:
-	__disable_unprepare_clks(device);
-fail_enable_clks:
-	__disable_regulators(device);
-fail_enable_gdsc:
-	__unvote_buses(device);
-fail_vote_buses:
+	__venus_power_off(device);
+fail_venus_power_on:
 fail_init_pkt:
 	__deinit_resources(device);
 fail_init_res:
-	device->power_enabled = false;
 	trace_msm_v4l2_vidc_fw_load_end("msm_v4l2_vidc venus_fw load end");
 	return rc;
 }
@@ -4445,16 +4409,7 @@ static void __unload_fw(struct venus_hfi_device *device)
 		flush_workqueue(device->venus_pm_workq);
 	subsystem_put(device->resources.fw.cookie);
 	__interface_queues_release(device);
-
-	/* Halt the AXI to make sure there are no pending transactions.
-	 * Clocks should be unprepared after making sure axi is halted.
-	 */
-	if (__halt_axi(device))
-		dprintk(VIDC_WARN, "Failed to halt AXI\n");
-	__disable_unprepare_clks(device);
-	__disable_regulators(device);
-	__unvote_buses(device);
-	device->power_enabled = false;
+	__venus_power_off(device);
 	device->resources.fw.cookie = NULL;
 	__deinit_resources(device);
 }
