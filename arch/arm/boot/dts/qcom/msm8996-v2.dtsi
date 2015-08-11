@@ -593,6 +593,7 @@
 
 		qcom,coresight-jtagmm-cpu = <&CPU0>;
 		qcom,si-enable;
+		qcom,save-restore-disable;
 	};
 
 	jtag_mm1: jtagmm@3940000 {
@@ -606,6 +607,7 @@
 
 		qcom,coresight-jtagmm-cpu = <&CPU1>;
 		qcom,si-enable;
+		qcom,save-restore-disable;
 	};
 
 	jtag_mm2: jtagmm@3a40000 {
@@ -619,6 +621,7 @@
 
 		qcom,coresight-jtagmm-cpu = <&CPU2>;
 		qcom,si-enable;
+		qcom,save-restore-disable;
 	};
 
 	jtag_mm3: jtagmm@3b40000 {
@@ -632,6 +635,7 @@
 
 		qcom,coresight-jtagmm-cpu = <&CPU3>;
 		qcom,si-enable;
+		qcom,save-restore-disable;
 	};
 };
 

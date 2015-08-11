@@ -220,6 +220,7 @@ struct etm_ctx {
 	uint8_t			nr_resource;
 	uint8_t			nr_ss_cmp;
 	bool			si_enable;
+	bool			save_restore_disabled;
 	bool			save_restore_enabled;
 	bool			os_lock_present;
 	bool			init;
@@ -1413,6 +1414,9 @@ void msm_jtag_etm_save_state(void)
 
 	cpu = raw_smp_processor_id();
 
+	if (etm[cpu]->save_restore_disabled)
+		return;
+
 	if (etm[cpu] && etm[cpu]->save_restore_enabled) {
 		if (etm[cpu]->si_enable)
 			etm_si_save_state(etm[cpu]);
@@ -1427,6 +1431,9 @@ void msm_jtag_etm_restore_state(void)
 	int cpu;
 
 	cpu = raw_smp_processor_id();
+
+	if (etm[cpu]->save_restore_disabled)
+		return;
 
 	/*
 	 * Check to ensure we attempt to restore only when save
@@ -1561,6 +1568,9 @@ static int jtag_mm_etm_probe(struct platform_device *pdev, uint32_t cpu)
 
 	etmdata->si_enable = of_property_read_bool(pdev->dev.of_node,
 						   "qcom,si-enable");
+	etmdata->save_restore_disabled = of_property_read_bool(
+					 pdev->dev.of_node,
+					 "qcom,save-restore-disable");
 
 	/* Allocate etm state save space per core */
 	etmdata->state = devm_kzalloc(dev,
