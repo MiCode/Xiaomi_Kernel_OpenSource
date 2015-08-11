@@ -54,6 +54,9 @@
 #define DWC3_IDEV_CHG_MAX 1500
 #define DWC3_HVDCP_CHG_MAX 1800
 
+/* time out to wait for USB cable status notification (in ms)*/
+#define SM_INIT_TIMEOUT 30000
+
 /* cpu to fix usb interrupt */
 static int cpu_to_affin;
 module_param(cpu_to_affin, int, S_IRUGO|S_IWUSR);
@@ -937,17 +940,10 @@ EXPORT_SYMBOL(msm_dwc3_reset_ep_after_lpm);
  */
 static int dwc3_msm_config_gdsc(struct dwc3_msm *mdwc, int on)
 {
-	int ret = 0;
+	int ret;
 
-	if (IS_ERR(mdwc->dwc3_gdsc))
-		return 0;
-
-	if (!mdwc->dwc3_gdsc) {
-		mdwc->dwc3_gdsc = devm_regulator_get(mdwc->dev,
-			"USB3_GDSC");
-		if (IS_ERR(mdwc->dwc3_gdsc))
-			return 0;
-	}
+	if (IS_ERR_OR_NULL(mdwc->dwc3_gdsc))
+		return -EPERM;
 
 	if (on) {
 		ret = regulator_enable(mdwc->dwc3_gdsc);
@@ -956,10 +952,14 @@ static int dwc3_msm_config_gdsc(struct dwc3_msm *mdwc, int on)
 			return ret;
 		}
 	} else {
-		regulator_disable(mdwc->dwc3_gdsc);
+		ret = regulator_disable(mdwc->dwc3_gdsc);
+		if (ret) {
+			dev_err(mdwc->dev, "unable to disable usb3 gdsc\n");
+			return ret;
+		}
 	}
 
-	return 0;
+	return ret;
 }
 
 static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
@@ -1637,13 +1637,6 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc)
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	u32 irq_stat, irq_clear = 0;
 
-	/*
-	 * Increment the PM count to prevent suspend from happening
-	 * during this routine. noresume is fine, since this function
-	 * should only be called when not in LPM.
-	 */
-	pm_runtime_get_noresume(mdwc->dev);
-
 	irq_stat = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG);
 	dev_dbg(mdwc->dev, "%s irq_stat=%X\n", __func__, irq_stat);
 
@@ -1693,7 +1686,6 @@ static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc)
 			__func__, irq_stat);
 
 	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG, irq_clear);
-	pm_runtime_put(mdwc->dev);
 }
 
 static irqreturn_t msm_dwc3_pwr_irq_thread(int irq, void *_mdwc)
@@ -1801,9 +1793,23 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 		break;
 	/* Process PMIC notification in PRESENT prop */
 	case POWER_SUPPLY_PROP_PRESENT:
-		dev_dbg(mdwc->dev, "%s: notify xceiv event\n", __func__);
+		dev_dbg(mdwc->dev, "%s: notify xceiv event with val:%d\n",
+							__func__, val->intval);
+		/*
+		 * Now otg_sm_work() state machine waits for USB cable status.
+		 * Hence here it makes sure that schedule resume work only if
+		 * there is change in USB cable also if there is no USB cable
+		 * notification.
+		 */
+		if (mdwc->otg_state == OTG_STATE_UNDEFINED) {
+			mdwc->vbus_active = val->intval;
+			dwc3_ext_event_notify(mdwc);
+			break;
+		}
+
 		if (mdwc->vbus_active == val->intval)
 			break;
+
 		mdwc->vbus_active = val->intval;
 		if (dwc->is_drd && !mdwc->ext_inuse && !mdwc->in_restart) {
 			/*
@@ -2013,6 +2019,80 @@ static int dwc3_cpu_notifier_cb(struct notifier_block *nfb,
 
 static void dwc3_otg_sm_work(struct work_struct *w);
 
+static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
+{
+	int ret;
+
+	mdwc->dwc3_gdsc = devm_regulator_get(mdwc->dev, "USB3_GDSC");
+	if (IS_ERR(mdwc->dwc3_gdsc))
+		mdwc->dwc3_gdsc = NULL;
+
+	mdwc->xo_clk = devm_clk_get(mdwc->dev, "xo");
+	if (IS_ERR(mdwc->xo_clk)) {
+		dev_err(mdwc->dev, "%s unable to get TCXO buffer handle\n",
+								__func__);
+		ret = PTR_ERR(mdwc->xo_clk);
+		return ret;
+	}
+	clk_set_rate(mdwc->xo_clk, 19200000);
+
+	mdwc->iface_clk = devm_clk_get(mdwc->dev, "iface_clk");
+	if (IS_ERR(mdwc->iface_clk)) {
+		dev_err(mdwc->dev, "failed to get iface_clk\n");
+		ret = PTR_ERR(mdwc->iface_clk);
+		return ret;
+	}
+
+	/*
+	 * DWC3 Core requires its CORE CLK (aka master / bus clk) to
+	 * run at 125Mhz in SSUSB mode and >60MHZ for HSUSB mode.
+	 * On newer platform it can run at 150MHz as well.
+	 */
+	mdwc->core_clk = devm_clk_get(mdwc->dev, "core_clk");
+	if (IS_ERR(mdwc->core_clk)) {
+		dev_err(mdwc->dev, "failed to get core_clk\n");
+		ret = PTR_ERR(mdwc->core_clk);
+		return ret;
+	}
+
+	/*
+	 * Get Max supported clk frequency for USB Core CLK and request
+	 * to set the same.
+	 */
+	mdwc->core_clk_rate = clk_round_rate(mdwc->core_clk, LONG_MAX);
+	if (IS_ERR_VALUE(mdwc->core_clk_rate)) {
+		dev_err(mdwc->dev, "fail to get core clk max freq.\n");
+	} else {
+		ret = clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
+		if (ret)
+			dev_err(mdwc->dev, "fail to set core_clk freq:%d\n",
+									ret);
+	}
+
+	mdwc->sleep_clk = devm_clk_get(mdwc->dev, "sleep_clk");
+	if (IS_ERR(mdwc->sleep_clk)) {
+		dev_err(mdwc->dev, "failed to get sleep_clk\n");
+		ret = PTR_ERR(mdwc->sleep_clk);
+		return ret;
+	}
+
+	clk_set_rate(mdwc->sleep_clk, 32000);
+	mdwc->utmi_clk_rate = 19200000;
+	mdwc->utmi_clk = devm_clk_get(mdwc->dev, "utmi_clk");
+	if (IS_ERR(mdwc->utmi_clk)) {
+		dev_err(mdwc->dev, "failed to get utmi_clk\n");
+		ret = PTR_ERR(mdwc->utmi_clk);
+		return ret;
+	}
+
+	clk_set_rate(mdwc->utmi_clk, mdwc->utmi_clk_rate);
+	mdwc->bus_aggr_clk = devm_clk_get(mdwc->dev, "bus_aggr_clk");
+	if (IS_ERR(mdwc->bus_aggr_clk))
+		mdwc->bus_aggr_clk = NULL;
+
+	return 0;
+}
+
 static int dwc3_msm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node, *dwc3_node;
@@ -2022,16 +2102,13 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	struct resource *res;
 	void __iomem *tcsr;
 	unsigned long flags;
-	u32 tmp;
 	bool host_mode;
 	int ret = 0;
 	int ext_hub_reset_gpio;
 
 	mdwc = devm_kzalloc(&pdev->dev, sizeof(*mdwc), GFP_KERNEL);
-	if (!mdwc) {
-		dev_err(&pdev->dev, "not enough memory\n");
+	if (!mdwc)
 		return -ENOMEM;
-	}
 
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
 		dev_err(&pdev->dev, "setting DMA mask to 64 failed.\n");
@@ -2052,109 +2129,12 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	init_completion(&mdwc->dwc3_xcvr_vbus_init);
 	INIT_DELAYED_WORK(&mdwc->sm_work, dwc3_otg_sm_work);
 
-	ret = dwc3_msm_config_gdsc(mdwc, 1);
+	/* Get all clks and gdsc reference */
+	ret = dwc3_msm_get_clk_gdsc(mdwc);
 	if (ret) {
-		dev_err(&pdev->dev, "unable to configure usb3 gdsc\n");
+		dev_err(&pdev->dev, "error getting clock or gdsc.\n");
 		return ret;
 	}
-
-	mdwc->xo_clk = clk_get(&pdev->dev, "xo");
-	if (IS_ERR(mdwc->xo_clk)) {
-		dev_err(&pdev->dev, "%s unable to get TCXO buffer handle\n",
-								__func__);
-		ret = PTR_ERR(mdwc->xo_clk);
-		goto disable_dwc3_gdsc;
-	}
-
-	clk_set_rate(mdwc->xo_clk, 19200000);
-	ret = clk_prepare_enable(mdwc->xo_clk);
-	if (ret) {
-		dev_err(&pdev->dev, "%s failed to vote for TCXO buffer%d\n",
-						__func__, ret);
-		goto put_xo;
-	}
-
-	mdwc->iface_clk = devm_clk_get(&pdev->dev, "iface_clk");
-	if (IS_ERR(mdwc->iface_clk)) {
-		dev_err(&pdev->dev, "failed to get iface_clk\n");
-		ret = PTR_ERR(mdwc->iface_clk);
-		goto disable_xo;
-	}
-	clk_prepare_enable(mdwc->iface_clk);
-
-	/*
-	 * DWC3 Core requires its CORE CLK (aka master / bus clk) to
-	 * run at 125Mhz in SSUSB mode and >60MHZ for HSUSB mode.
-	 * On newer platform it can run at 150MHz as well.
-	 */
-	mdwc->core_clk = devm_clk_get(&pdev->dev, "core_clk");
-	if (IS_ERR(mdwc->core_clk)) {
-		dev_err(&pdev->dev, "failed to get core_clk\n");
-		ret = PTR_ERR(mdwc->core_clk);
-		goto disable_iface_clk;
-	}
-
-	/*
-	 * Get Max supported clk frequency for USB Core CLK and request
-	 * to set the same.
-	 */
-	mdwc->core_clk_rate = clk_round_rate(mdwc->core_clk, LONG_MAX);
-	if (IS_ERR_VALUE(mdwc->core_clk_rate)) {
-		dev_err(&pdev->dev, "fail to get core clk max freq.\n");
-	} else {
-		ret = clk_set_rate(mdwc->core_clk, mdwc->core_clk_rate);
-		if (ret)
-			dev_err(&pdev->dev, "fail to set core_clk freq:%d\n",
-								ret);
-	}
-	clk_prepare_enable(mdwc->core_clk);
-
-	mdwc->sleep_clk = devm_clk_get(&pdev->dev, "sleep_clk");
-	if (IS_ERR(mdwc->sleep_clk)) {
-		dev_err(&pdev->dev, "failed to get sleep_clk\n");
-		ret = PTR_ERR(mdwc->sleep_clk);
-		goto disable_core_clk;
-	}
-	clk_set_rate(mdwc->sleep_clk, 32000);
-	clk_prepare_enable(mdwc->sleep_clk);
-
-	ret = of_property_read_u32(node, "qcom,utmi-clk-rate",
-				   (u32 *)&mdwc->utmi_clk_rate);
-	if (ret)
-		mdwc->utmi_clk_rate = 19200000;
-
-	mdwc->utmi_clk = devm_clk_get(&pdev->dev, "utmi_clk");
-	if (IS_ERR(mdwc->utmi_clk)) {
-		dev_err(&pdev->dev, "failed to get utmi_clk\n");
-		ret = PTR_ERR(mdwc->utmi_clk);
-		goto disable_sleep_clk;
-	}
-
-	if (mdwc->utmi_clk_rate == 24000000) {
-		/*
-		 * For setting utmi clock to 24MHz, first set 48MHz on parent
-		 * clock "utmi_clk_src" and then set divider 2 on child branch
-		 * "utmi_clk".
-		 */
-		mdwc->utmi_clk_src = devm_clk_get(&pdev->dev, "utmi_clk_src");
-		if (IS_ERR(mdwc->utmi_clk_src)) {
-			dev_err(&pdev->dev, "failed to get utmi_clk_src\n");
-			ret = PTR_ERR(mdwc->utmi_clk_src);
-			goto disable_sleep_clk;
-		}
-		clk_set_rate(mdwc->utmi_clk_src, 48000000);
-		/* 1 means divide utmi_clk_src by 2 */
-		clk_set_rate(mdwc->utmi_clk, 1);
-	} else {
-		clk_set_rate(mdwc->utmi_clk, mdwc->utmi_clk_rate);
-	}
-	clk_prepare_enable(mdwc->utmi_clk);
-
-	mdwc->bus_aggr_clk = devm_clk_get(&pdev->dev, "bus_aggr_clk");
-	if (IS_ERR(mdwc->bus_aggr_clk))
-		mdwc->bus_aggr_clk = NULL;
-	else
-		clk_prepare_enable(mdwc->bus_aggr_clk);
 
 	mdwc->id_state = DWC3_ID_FLOAT;
 	mdwc->charging_disabled = of_property_read_bool(node,
@@ -2183,7 +2163,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mdwc->hs_phy_irq = platform_get_irq_byname(pdev, "hs_phy_irq");
 	if (mdwc->hs_phy_irq < 0) {
 		dev_err(&pdev->dev, "pget_irq for hs_phy_irq failed\n");
-		goto disable_aggr_clk;
+		ret = -EINVAL;
+		goto err;
 	} else {
 		irq_set_status_flags(mdwc->hs_phy_irq, IRQ_NOAUTOEN);
 		ret = devm_request_irq(&pdev->dev, mdwc->hs_phy_irq,
@@ -2191,7 +2172,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			       "msm_hs_phy_irq", mdwc);
 		if (ret) {
 			dev_err(&pdev->dev, "irqreq HSPHYINT failed\n");
-			goto disable_aggr_clk;
+			goto err;
 		}
 	}
 
@@ -2202,7 +2183,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mdwc->pwr_event_irq = platform_get_irq_byname(pdev, "pwr_event_irq");
 	if (mdwc->pwr_event_irq < 0) {
 		dev_err(&pdev->dev, "pget_irq for pwr_event_irq failed\n");
-		goto disable_aggr_clk;
+		ret = -EINVAL;
+		goto err;
 	} else {
 		/*
 		 * enable pwr event irq early during PM resume to meet bus
@@ -2216,7 +2198,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		if (ret) {
 			dev_err(&pdev->dev, "irqreq pwr_event_irq failed: %d\n",
 					ret);
-			goto disable_aggr_clk;
+			goto err;
 		}
 	}
 
@@ -2232,7 +2214,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 				       mdwc);
 		if (ret) {
 			dev_err(&pdev->dev, "irqreq IDINT failed\n");
-			goto disable_aggr_clk;
+			goto err;
 		}
 	}
 
@@ -2259,7 +2241,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (!res) {
 		dev_err(&pdev->dev, "missing memory base resource\n");
 		ret = -ENODEV;
-		goto disable_aggr_clk;
+		goto err;
 	}
 
 	mdwc->base = devm_ioremap_nocache(&pdev->dev, res->start,
@@ -2267,7 +2249,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (!mdwc->base) {
 		dev_err(&pdev->dev, "ioremap failed\n");
 		ret = -ENODEV;
-		goto disable_aggr_clk;
+		goto err;
 	}
 
 	mdwc->io_res = res; /* used to calculate chg block offset */
@@ -2278,7 +2260,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		if (IS_ERR(mdwc->dbm)) {
 			dev_err(&pdev->dev, "unable to get dbm device\n");
 			ret = -EPROBE_DEFER;
-			goto disable_aggr_clk;
+			goto err;
 		}
 		/*
 		 * Add power event if the dbm indicates coming out of L1
@@ -2289,7 +2271,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 				dev_err(&pdev->dev,
 					"need pwr_event_irq exiting L1\n");
 				ret = -EINVAL;
-				goto disable_aggr_clk;
+				goto err;
 			}
 		}
 	}
@@ -2321,7 +2303,8 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	dwc3_node = of_get_next_available_child(node, NULL);
 	if (!dwc3_node) {
 		dev_err(&pdev->dev, "failed to find dwc3 child\n");
-		goto put_psupply;
+		ret = -ENODEV;
+		goto err;
 	}
 
 	host_mode = of_usb_get_dr_mode(dwc3_node) == USB_DR_MODE_HOST;
@@ -2332,14 +2315,14 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Failed to get vbus regulator\n");
 			ret = PTR_ERR(mdwc->vbus_reg);
 			of_node_put(dwc3_node);
-			goto put_psupply;
+			goto err;
 		}
 		ret = regulator_enable(mdwc->vbus_reg);
 		if (ret) {
 			mdwc->vbus_reg = 0;
 			dev_err(&pdev->dev, "Failed to enable vbus_reg\n");
 			of_node_put(dwc3_node);
-			goto put_psupply;
+			goto err;
 		}
 	}
 
@@ -2365,21 +2348,16 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 					"%s:power_supply_register usb failed\n",
 						__func__);
-			goto disable_aggr_clk;
+			goto err;
 		}
 	}
-
-	/* Perform controller GCC reset */
-	dwc3_msm_link_clk_reset(mdwc, 1);
-	msleep(20);
-	dwc3_msm_link_clk_reset(mdwc, 0);
 
 	ret = of_platform_populate(node, NULL, NULL, &pdev->dev);
 	if (ret) {
 		dev_err(&pdev->dev,
 			"failed to add create dwc3 core\n");
 		of_node_put(dwc3_node);
-		goto disable_vbus;
+		goto put_psupply;
 	}
 
 	mdwc->dwc3 = of_find_device_by_node(dwc3_node);
@@ -2444,17 +2422,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	device_init_wakeup(mdwc->dev, 1);
 	pm_stay_awake(mdwc->dev);
 
-	pm_runtime_set_active(mdwc->dev);
-	pm_runtime_enable(mdwc->dev);
-
-	/* Get initial P3 status and enable IN_P3 event */
-	tmp = dwc3_msm_read_reg_field(mdwc->base,
-			DWC3_GDBGLTSSM, DWC3_GDBGLTSSM_LINKSTATE_MASK);
-	atomic_set(&mdwc->in_p3, tmp == DWC3_LINK_STATE_U3);
-	dwc3_msm_write_reg_field(mdwc->base, PWR_EVNT_IRQ_MASK_REG,
-				PWR_EVNT_POWERDOWN_IN_P3_MASK, 1);
-
-	enable_irq(mdwc->hs_phy_irq);
+	schedule_delayed_work(&mdwc->sm_work, 0);
 
 	/* Update initial ID state */
 	if (mdwc->pmic_id_irq) {
@@ -2466,38 +2434,16 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		local_irq_restore(flags);
 		enable_irq_wake(mdwc->pmic_id_irq);
 	}
-
 	return 0;
 
 put_dwc3:
 	platform_device_put(mdwc->dwc3);
 	if (mdwc->bus_perf_client)
 		msm_bus_scale_unregister_client(mdwc->bus_perf_client);
-disable_vbus:
-	if (!IS_ERR_OR_NULL(mdwc->vbus_reg))
-		regulator_disable(mdwc->vbus_reg);
 put_psupply:
 	if (mdwc->usb_psy.dev)
 		power_supply_unregister(&mdwc->usb_psy);
-disable_aggr_clk:
-	if (mdwc->bus_aggr_clk)
-		clk_disable_unprepare(mdwc->bus_aggr_clk);
-
-	clk_disable_unprepare(mdwc->utmi_clk);
-disable_sleep_clk:
-	clk_disable_unprepare(mdwc->sleep_clk);
-disable_core_clk:
-	clk_set_rate(mdwc->core_clk, 19200000);
-	clk_disable_unprepare(mdwc->core_clk);
-disable_iface_clk:
-	clk_disable_unprepare(mdwc->iface_clk);
-disable_xo:
-	clk_disable_unprepare(mdwc->xo_clk);
-put_xo:
-	clk_put(mdwc->xo_clk);
-disable_dwc3_gdsc:
-	dwc3_msm_config_gdsc(mdwc, 0);
-
+err:
 	return ret;
 }
 
@@ -2795,20 +2741,82 @@ psy_error:
 	return -ENXIO;
 }
 
-void dwc3_otg_init_sm(struct dwc3_msm *mdwc)
+
+void dwc3_init_sm(struct dwc3_msm *mdwc)
 {
 	int ret;
+	static bool sm_initialized;
+
+	/*
+	 * dwc3_init_sm() can be called multiple times in undefined state.
+	 * example: QC charger connected during boot up sequeunce, and
+	 * performing charger disconnect.
+	 */
+	if (sm_initialized) {
+		pr_debug("%s(): Already sm_initialized.\n", __func__);
+		return;
+	}
 
 	/*
 	 * VBUS initial state is reported after PMIC
 	 * driver initialization. Wait for it.
 	 */
-	ret = wait_for_completion_timeout(&mdwc->dwc3_xcvr_vbus_init, HZ * 5);
+	ret = wait_for_completion_timeout(&mdwc->dwc3_xcvr_vbus_init,
+					msecs_to_jiffies(SM_INIT_TIMEOUT));
 	if (!ret) {
 		dev_err(mdwc->dev, "%s: completion timeout\n", __func__);
 		/* We can safely assume no cable connected */
 		set_bit(ID, &mdwc->inputs);
 	}
+
+	sm_initialized = true;
+}
+
+static void dwc3_initialize(struct dwc3_msm *mdwc)
+{
+	u32 tmp;
+	int ret;
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+
+	dbg_event(0xFF, "Initialized Start",
+			atomic_read(&mdwc->dev->power.usage_count));
+
+	if (mdwc->bus_perf_client) {
+		mdwc->bus_vote = 1;
+		schedule_work(&mdwc->bus_vote_w);
+	}
+
+	/* enable USB GDSC */
+	dwc3_msm_config_gdsc(mdwc, 1);
+
+	/* enable all clocks */
+	ret = clk_prepare_enable(mdwc->xo_clk);
+	clk_prepare_enable(mdwc->iface_clk);
+	clk_prepare_enable(mdwc->core_clk);
+	clk_prepare_enable(mdwc->sleep_clk);
+	clk_prepare_enable(mdwc->utmi_clk);
+	if (mdwc->bus_aggr_clk)
+		clk_prepare_enable(mdwc->bus_aggr_clk);
+
+	/* Perform controller GCC reset */
+	dwc3_msm_link_clk_reset(mdwc, 1);
+	msleep(20);
+	dwc3_msm_link_clk_reset(mdwc, 0);
+
+	/*
+	 * Get core configuration and initialized
+	 * Set Event buffers
+	 * Reset both USB PHYs and initialized
+	 */
+	dwc3_core_pre_init(dwc);
+
+	/* Get initial P3 status and enable IN_P3 event */
+	tmp = dwc3_msm_read_reg_field(mdwc->base,
+		DWC3_GDBGLTSSM, DWC3_GDBGLTSSM_LINKSTATE_MASK);
+	atomic_set(&mdwc->in_p3, tmp == DWC3_LINK_STATE_U3);
+	dwc3_msm_write_reg_field(mdwc->base, PWR_EVNT_IRQ_MASK_REG,
+			PWR_EVNT_POWERDOWN_IN_P3_MASK, 1);
+	enable_irq(mdwc->hs_phy_irq);
 }
 
 /**
@@ -2825,28 +2833,64 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	bool work = 0;
 	int ret = 0;
 	unsigned long delay = 0;
+	const char *state;
 
 	if (mdwc->dwc3)
 		dwc = platform_get_drvdata(mdwc->dwc3);
 
-	dev_dbg(mdwc->dev, "%s state\n", usb_otg_state_string(mdwc->otg_state));
+	if (!dwc) {
+		dev_err(mdwc->dev, "dwc is NULL.\n");
+		return;
+	}
+
+	state = usb_otg_state_string(mdwc->otg_state);
+	dev_dbg(mdwc->dev, "%s state\n", state);
+	dbg_event(0xFF, state, 0);
 
 	/* Check OTG state */
 	switch (mdwc->otg_state) {
 	case OTG_STATE_UNDEFINED:
-		dwc3_otg_init_sm(mdwc);
-
-		/* Switch to A or B-Device according to ID / BSV */
-		if (!test_bit(ID, &mdwc->inputs)) {
-			dev_dbg(mdwc->dev, "!id\n");
-			mdwc->otg_state = OTG_STATE_A_IDLE;
-			work = 1;
-		} else {
-			mdwc->otg_state = OTG_STATE_B_IDLE;
-			if (test_bit(B_SESS_VLD, &mdwc->inputs)) {
-				dev_dbg(mdwc->dev, "b_sess_vld\n");
-				work = 1;
+		dwc3_init_sm(mdwc);
+		if (test_bit(B_SESS_VLD, &mdwc->inputs)) {
+			dev_dbg(mdwc->dev, "b_sess_vld\n");
+			switch (mdwc->chg_type) {
+			case DWC3_DCP_CHARGER:
+			case DWC3_PROPRIETARY_CHARGER:
+				dev_dbg(mdwc->dev, "DCP charger\n");
+				dwc3_msm_gadget_vbus_draw(mdwc,
+						dcp_max_current);
+				atomic_set(&dwc->in_lpm, 1);
+				pm_relax(mdwc->dev);
+				break;
+			case DWC3_CDP_CHARGER:
+			case DWC3_SDP_CHARGER:
+				atomic_set(&dwc->in_lpm, 0);
+				pm_runtime_set_active(mdwc->dev);
+				pm_runtime_enable(mdwc->dev);
+				pm_runtime_get_noresume(mdwc->dev);
+				dwc3_initialize(mdwc);
+				dwc3_otg_start_peripheral(mdwc, 1);
+				mdwc->otg_state = OTG_STATE_B_PERIPHERAL;
+				dbg_event(0xFF, "Undef SDP",
+					atomic_read(
+					&mdwc->dev->power.usage_count));
+				break;
+			default:
+				WARN_ON(1);
+				break;
 			}
+		}
+
+		if (!test_bit(B_SESS_VLD, &mdwc->inputs)) {
+			atomic_set(&dwc->in_lpm, 0);
+			pm_runtime_set_active(mdwc->dev);
+			pm_runtime_enable(mdwc->dev);
+			pm_runtime_get_noresume(mdwc->dev);
+			dwc3_initialize(mdwc);
+			pm_runtime_put_sync(mdwc->dev);
+			dbg_event(0xFF, "Undef NoUSB",
+				atomic_read(&mdwc->dev->power.usage_count));
+			mdwc->otg_state = OTG_STATE_B_IDLE;
 		}
 		break;
 
@@ -3056,6 +3100,14 @@ static int dwc3_msm_pm_resume(struct device *dev)
 #endif
 
 #ifdef CONFIG_PM_RUNTIME
+static int dwc3_msm_runtime_idle(struct device *dev)
+{
+	dev_dbg(dev, "DWC3-msm runtime idle\n");
+	dbg_event(0xFF, "RT Idle", 0);
+
+	return 0;
+}
+
 static int dwc3_msm_runtime_suspend(struct device *dev)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
@@ -3080,7 +3132,7 @@ static int dwc3_msm_runtime_resume(struct device *dev)
 static const struct dev_pm_ops dwc3_msm_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(dwc3_msm_pm_suspend, dwc3_msm_pm_resume)
 	SET_RUNTIME_PM_OPS(dwc3_msm_runtime_suspend, dwc3_msm_runtime_resume,
-				NULL)
+				dwc3_msm_runtime_idle)
 };
 
 static const struct of_device_id of_dwc3_matach[] = {
