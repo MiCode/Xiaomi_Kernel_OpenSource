@@ -3363,6 +3363,7 @@ static int __prepare_pc(struct venus_hfi_device *device)
 				"Wait interrupted or timeout for PC_PREP_DONE: %d\n",
 				rc);
 		__flush_debug_queue(device, NULL);
+		BUG_ON(msm_vidc_debug_timeout);
 		rc = -EIO;
 		goto err_pc_prep;
 	}
