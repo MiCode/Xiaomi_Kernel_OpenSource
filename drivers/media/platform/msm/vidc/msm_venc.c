@@ -3140,53 +3140,6 @@ int msm_venc_querycap(struct msm_vidc_inst *inst, struct v4l2_capability *cap)
 	return 0;
 }
 
-int msm_venc_s_crop(struct msm_vidc_inst *inst, const struct v4l2_crop *c)
-{
-	int rc = 0, property_id = 0;
-	struct hfi_device *hdev;
-	struct hal_index_extradata_input_crop_payload payload;
-
-	if (!inst || !c || !inst->core || !inst->core->device) {
-		dprintk(VIDC_ERR,
-			"Invalid input, inst = %p, f = %p\n", inst, c);
-		return -EINVAL;
-	}
-
-	hdev = inst->core->device;
-
-	switch (c->type) {
-	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
-	{
-		payload.port_index = HAL_BUFFER_INPUT;
-		payload.top = c->c.top;
-		payload.left = c->c.left;
-		payload.width = c->c.width;
-		payload.height = c->c.height;
-		property_id = HAL_PARAM_EXTRADATA_INPUT_CROP;
-		dprintk(VIDC_ERR, "Setting rectangle data\n");
-
-		rc = call_hfi_op(hdev, session_set_property,
-				(void *)inst->session, property_id, &payload);
-
-		if (rc) {
-			dprintk(VIDC_WARN,
-				"Failed to set rectangle info%d\n", rc);
-		}
-		break;
-	}
-	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
-		dprintk(VIDC_WARN,
-			"Rectangle info not supported in CAPTURE_PLANE\n");
-		break;
-	default:
-		dprintk(VIDC_ERR,
-				"%s Unknown buffer type %d\n",
-				__func__, c->type);
-		break;
-	}
-	return rc;
-}
-
 int msm_venc_enum_fmt(struct msm_vidc_inst *inst, struct v4l2_fmtdesc *f)
 {
 	const struct msm_vidc_format *fmt = NULL;

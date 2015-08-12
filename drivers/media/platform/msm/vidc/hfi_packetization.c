@@ -1944,23 +1944,6 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) * 2;
 		break;
 	}
-	case HAL_PARAM_EXTRADATA_INPUT_CROP:
-	{
-		struct hfi_index_extradata_input_crop_payload *hfi = NULL;
-		struct hal_index_extradata_input_crop_payload *hal = pdata;
-
-		pkt->rg_property_data[0] =
-			HFI_INDEX_EXTRADATA_INPUT_CROP;
-		hfi = (struct hfi_index_extradata_input_crop_payload *)
-			&pkt->rg_property_data[1];
-		memcpy(hfi, hal,
-			sizeof(struct
-				hfi_index_extradata_input_crop_payload));
-		pkt->size += sizeof(u32) +
-				sizeof(struct
-				hfi_index_extradata_input_crop_payload);
-		break;
-	}
 	case HAL_PROPERTY_PARAM_VENC_ASPECT_RATIO:
 	{
 		struct hfi_aspect_ratio *hfi = NULL;
