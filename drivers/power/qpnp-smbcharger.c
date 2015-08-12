@@ -3889,6 +3889,9 @@ static int force_9v_hvdcp(struct smbchg_chip *chip)
 		return rc;
 	}
 
+	/* Delay to switch into HVDCP 2.0 and avoid UV */
+	msleep(500);
+
 	/* Force 9V HVDCP */
 	rc = smbchg_sec_masked_write(chip,
 			chip->usb_chgpth_base + CHGPTH_CFG,
