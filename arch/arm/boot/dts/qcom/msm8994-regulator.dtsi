@@ -693,6 +693,12 @@
 				<0 0 0 (-25000)>,
 				<0 (-25000) (-25000) 20000>,
 				<0 (-25000) (-25000) 0>;
+		qcom,cpr-fuse-min-quot-diff = <0 0 0 0>;
+		qcom,cpr-min-quot-diff-adjustment =
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>;
 
 		qcom,cpr-scaled-init-voltage-as-ceiling;
 		qcom,cpr-voltage-scaling-factor-max = <0 0 2000 2000>;
@@ -830,6 +836,15 @@
 				<0 0 (-25000) (-35000)>,
 				<0 0 (-25000) (-35000)>,
 				<0 0 (-25000) (-35000)>;
+		qcom,cpr-fuse-min-quot-diff = <0 0 0 0>;
+		qcom,cpr-min-quot-diff-adjustment =
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>;
 		qcom,cpr-cpus = <&CPU4 &CPU5 &CPU6 &CPU7>;
 		qcom,cpr-online-cpu-virtual-corner-init-voltage-adjustment =
 			/* 1st fuse version tuple matched */
