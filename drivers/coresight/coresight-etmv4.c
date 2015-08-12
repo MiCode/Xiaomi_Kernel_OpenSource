@@ -552,7 +552,7 @@ static void etm_reset_data(struct etm_drvdata *drvdata)
 	 * each trace run.
 	 */
 	drvdata->vinst_ctrl |= BIT(0);
-	if (drvdata->nr_addr_cmp == true) {
+	if (drvdata->nr_addr_cmp) {
 		drvdata->mode |= ETM_MODE_VIEWINST_STARTSTOP;
 		drvdata->vinst_ctrl |= BIT(9);
 	}
