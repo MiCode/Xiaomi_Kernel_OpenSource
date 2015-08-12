@@ -4647,10 +4647,173 @@ out:
 	return rc;
 }
 
+#define USB_CMD_APSD		0x41
+#define APSD_RERUN		BIT(0)
+static int rerun_apsd(struct smbchg_chip *chip)
+{
+	int rc;
+
+	reinit_completion(&chip->src_det_raised);
+	reinit_completion(&chip->usbin_uv_lowered);
+	reinit_completion(&chip->src_det_lowered);
+	reinit_completion(&chip->usbin_uv_raised);
+
+	/* re-run APSD */
+	rc = smbchg_masked_write(chip, chip->usb_chgpth_base + USB_CMD_APSD,
+					APSD_RERUN, APSD_RERUN);
+	if (rc) {
+		pr_err("Couldn't re-run APSD rc=%d\n", rc);
+		return rc;
+	}
+
+	pr_smb(PR_MISC, "Waiting on rising usbin uv\n");
+	rc = wait_for_usbin_uv(chip, true);
+	if (rc < 0) {
+		pr_err("wait for usbin uv failed rc = %d\n", rc);
+		return rc;
+	}
+
+	pr_smb(PR_MISC, "Waiting on falling src det\n");
+	rc = wait_for_src_detect(chip, false);
+	if (rc < 0) {
+		pr_err("wait for src detect failed rc = %d\n", rc);
+		return rc;
+	}
+
+	pr_smb(PR_MISC, "Waiting on falling usbin uv\n");
+	rc = wait_for_usbin_uv(chip, false);
+	if (rc < 0) {
+		pr_err("wait for usbin uv failed rc = %d\n", rc);
+		return rc;
+	}
+
+	pr_smb(PR_MISC, "Waiting on rising src det\n");
+	rc = wait_for_src_detect(chip, true);
+	if (rc < 0) {
+		pr_err("wait for src detect failed rc = %d\n", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
+#define SCHG_LITE_USBIN_HVDCP_5_9V		0x8
+#define SCHG_LITE_USBIN_HVDCP_5_9V_SEL_MASK	0x38
+#define SCHG_LITE_USBIN_HVDCP_SEL_IDLE		BIT(3)
+static bool is_hvdcp_5v_cont_mode(struct smbchg_chip *chip)
+{
+	int rc;
+	u8 reg = 0;
+
+	rc = smbchg_read(chip, &reg,
+		chip->usb_chgpth_base + USBIN_HVDCP_STS, 1);
+	if (rc) {
+		pr_err("Unable to read HVDCP status rc=%d\n", rc);
+		return false;
+	}
+
+	pr_smb(PR_STATUS, "HVDCP status = %x\n", reg);
+
+	if (reg & SCHG_LITE_USBIN_HVDCP_SEL_IDLE) {
+		rc = smbchg_read(chip, &reg,
+			chip->usb_chgpth_base + INPUT_STS, 1);
+		if (rc) {
+			pr_err("Unable to read INPUT status rc=%d\n", rc);
+			return false;
+		}
+		pr_smb(PR_STATUS, "INPUT status = %x\n", reg);
+		if ((reg & SCHG_LITE_USBIN_HVDCP_5_9V_SEL_MASK) ==
+					SCHG_LITE_USBIN_HVDCP_5_9V)
+			return true;
+	}
+	return false;
+}
+
 static int smbchg_prepare_for_pulsing_lite(struct smbchg_chip *chip)
 {
 	int rc = 0;
 
+	/* check if HVDCP is already in 5V continuous mode */
+	if (is_hvdcp_5v_cont_mode(chip)) {
+		pr_smb(PR_MISC, "HVDCP by default is in 5V continuous mode\n");
+		return 0;
+	}
+
+	/* switch to 5V HVDCP */
+	pr_smb(PR_MISC, "Switch to 5V HVDCP\n");
+	rc = smbchg_sec_masked_write(chip, chip->usb_chgpth_base + CHGPTH_CFG,
+				HVDCP_ADAPTER_SEL_MASK, HVDCP_5V);
+	if (rc < 0) {
+		pr_err("Couldn't configure HVDCP 5V rc=%d\n", rc);
+		goto out;
+	}
+
+	/* wait for HVDCP to lower to 5V */
+	msleep(500);
+	/*
+	 * Check if the same hvdcp session is in progress. src_det should be
+	 * high and that we are still in 5V hvdcp
+	 */
+	if (!is_src_detect_high(chip)) {
+		pr_smb(PR_MISC, "src det low after 500mS sleep\n");
+		goto out;
+	}
+
+	/* reduce input current limit to 300mA */
+	pr_smb(PR_MISC, "Reduce mA = 300\n");
+	mutex_lock(&chip->current_change_lock);
+	chip->target_fastchg_current_ma = 300;
+	rc = smbchg_set_thermal_limited_usb_current_max(chip,
+			chip->target_fastchg_current_ma);
+	mutex_unlock(&chip->current_change_lock);
+	if (rc < 0) {
+		pr_err("Couldn't set usb current rc=%d continuing\n", rc);
+		goto out;
+	}
+
+	pr_smb(PR_MISC, "Disable AICL\n");
+	smbchg_sec_masked_write(chip, chip->usb_chgpth_base + USB_AICL_CFG,
+			AICL_EN_BIT, 0);
+
+	chip->hvdcp_3_det_ignore_uv = true;
+
+	/* re-run APSD */
+	rc = rerun_apsd(chip);
+	if (rc) {
+		pr_err("APSD rerun failed\n");
+		goto out;
+	}
+
+	chip->hvdcp_3_det_ignore_uv = false;
+
+	pr_smb(PR_MISC, "Enable AICL\n");
+	smbchg_sec_masked_write(chip, chip->usb_chgpth_base + USB_AICL_CFG,
+			AICL_EN_BIT, AICL_EN_BIT);
+	/*
+	 * DCP will switch to HVDCP in this time by removing the short
+	 * between DP DM
+	 */
+	msleep(HVDCP_NOTIFY_MS);
+	/*
+	 * Check if the same hvdcp session is in progress. src_det should be
+	 * high and the usb type should be none since APSD was disabled
+	 */
+	if (!is_src_detect_high(chip)) {
+		pr_smb(PR_MISC, "src det low after 2s sleep\n");
+		rc = -EINVAL;
+		goto out;
+	}
+
+	/* We are set if HVDCP in 5V continuous mode */
+	if (!is_hvdcp_5v_cont_mode(chip)) {
+		pr_err("HVDCP could not be set in 5V continuous mode\n");
+		goto out;
+	}
+
+	return 0;
+out:
+	chip->hvdcp_3_det_ignore_uv = false;
+	restore_from_hvdcp_detection(chip);
 	return rc;
 }
 
@@ -4658,12 +4821,38 @@ static int smbchg_unprepare_for_pulsing_lite(struct smbchg_chip *chip)
 {
 	int rc = 0;
 
+	pr_smb(PR_MISC, "Forcing 9V HVDCP 2.0\n");
+	rc = force_9v_hvdcp(chip);
+	if (rc) {
+		pr_err("Failed to force 9V HVDCP=%d\n",	rc);
+		return rc;
+	}
+
+	/* Reset the input current limit */
+	pr_smb(PR_MISC, "Reset ICL\n");
+	mutex_lock(&chip->current_change_lock);
+	chip->usb_target_current_ma = DEFAULT_WALL_CHG_MA;
+	rc = smbchg_set_thermal_limited_usb_current_max(chip,
+			chip->usb_target_current_ma);
+	mutex_unlock(&chip->current_change_lock);
+	if (rc < 0)
+		pr_err("Couldn't set usb current rc=%d continuing\n", rc);
+
 	return rc;
 }
 
+#define CMD_HVDCP_2		0x43
+#define SINGLE_INCREMENT	BIT(0)
+#define SINGLE_DECREMENT	BIT(1)
 static int smbchg_dp_pulse_lite(struct smbchg_chip *chip)
 {
 	int rc = 0;
+
+	pr_smb(PR_MISC, "Increment DP\n");
+	rc = smbchg_masked_write(chip, chip->usb_chgpth_base + CMD_HVDCP_2,
+				SINGLE_INCREMENT, SINGLE_INCREMENT);
+	if (rc)
+		pr_err("Single-increment failed rc=%d\n", rc);
 
 	return rc;
 }
@@ -4671,6 +4860,12 @@ static int smbchg_dp_pulse_lite(struct smbchg_chip *chip)
 static int smbchg_dm_pulse_lite(struct smbchg_chip *chip)
 {
 	int rc = 0;
+
+	pr_smb(PR_MISC, "Decrement DM\n");
+	rc = smbchg_masked_write(chip, chip->usb_chgpth_base + CMD_HVDCP_2,
+				SINGLE_DECREMENT, SINGLE_DECREMENT);
+	if (rc)
+		pr_err("Single-decrement failed rc=%d\n", rc);
 
 	return rc;
 }
