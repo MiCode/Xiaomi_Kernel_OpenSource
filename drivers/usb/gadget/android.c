@@ -678,11 +678,14 @@ static void functionfs_closed_callback(struct ffs_data *ffs)
 	config->opened = false;
 	config->data = NULL;
 
+	if (config->func) {
+		usb_put_function(config->func);
+		config->func = NULL;
+	}
+
 	if (dev)
 		mutex_unlock(&dev->mutex);
 
-	if (config->func)
-		usb_put_function(config->func);
 }
 
 /* ACM */
