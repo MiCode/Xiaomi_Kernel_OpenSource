@@ -3518,7 +3518,7 @@ static unsigned long _get_svm_area(struct kgsl_process_private *private,
 		 * it as the start point for searching.
 		 */
 		addr = clamp_t(unsigned long, hint & ~(align - 1),
-				start, end);
+				start, (end - len) & ~(align - 1));
 
 		vma = find_vma(current->mm, addr);
 
