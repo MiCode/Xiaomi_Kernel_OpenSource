@@ -76,7 +76,9 @@ struct gic_chip_data {
 	unsigned int wakeup_irqs[32];
 	unsigned int enabled_irqs[32];
 #endif
+#ifdef CONFIG_ARM_GIC_PANIC_HANDLER
 	u32 saved_regs[0x400];
+#endif
 };
 
 static DEFINE_RAW_SPINLOCK(irq_controller_lock);
@@ -181,6 +183,7 @@ static void gic_disable_irq(struct irq_data *d)
 		gic_arch_extn.irq_disable(d);
 }
 
+#ifdef CONFIG_ARM_GIC_PANIC_HANDLER
 static int gic_panic_handler(struct notifier_block *this,
 			unsigned long event, void *ptr)
 {
@@ -196,6 +199,7 @@ static int gic_panic_handler(struct notifier_block *this,
 static struct notifier_block gic_panic_blk = {
 	.notifier_call = gic_panic_handler,
 };
+#endif
 
 #ifdef CONFIG_PM
 static int gic_suspend_one(struct gic_chip_data *gic)
@@ -1219,7 +1223,10 @@ gic_of_init(struct device_node *node, struct device_node *parent)
 		gic_cascade_irq(gic_cnt, irq);
 	}
 	gic_cnt++;
+
+#ifdef CONFIG_ARM_GIC_PANIC_HANDLER
 	atomic_notifier_chain_register(&panic_notifier_list, &gic_panic_blk);
+#endif
 	return 0;
 }
 IRQCHIP_DECLARE(gic_400, "arm,gic-400", gic_of_init);

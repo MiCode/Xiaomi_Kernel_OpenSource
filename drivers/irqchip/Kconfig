@@ -16,6 +16,16 @@ config ARM_GIC_V3
 	select IRQ_DOMAIN
 	select MULTI_IRQ_HANDLER
 
+config ARM_GIC_PANIC_HANDLER
+	bool "GIC Panic Handler"
+	depends on ARM_GIC_V3 || ARM_GIC
+	help
+	  Save GIC distributor registers to RAM buffer on kernel panic.
+	  gic-v3 will have an additional buffer for router registers.
+	  Mainly for debugging purposes.
+
+	  For production kernels, you should say 'N' here.
+
 config ARM_NVIC
 	bool
 	select IRQ_DOMAIN
