@@ -524,7 +524,7 @@ static int swrm_read(struct swr_master *master, u8 dev_num, u16 reg_addr,
 {
 	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(master);
 	int ret = 0;
-	int val = 0;
+	int val;
 	u8 *reg_val = (u8 *)buf;
 
 	if (!swrm) {
@@ -538,7 +538,9 @@ static int swrm_read(struct swr_master *master, u8 dev_num, u16 reg_addr,
 	else
 		val = swrm->read(swrm->handle, reg_addr);
 
-	*reg_val = (u8)val;
+	if (!ret)
+		*reg_val = (u8)val;
+
 	pm_runtime_mark_last_busy(&swrm->pdev->dev);
 
 	return ret;
