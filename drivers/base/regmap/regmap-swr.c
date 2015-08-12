@@ -23,15 +23,15 @@
 
 static int regmap_swr_gather_write(void *context,
 				const void *reg, size_t reg_size,
-				const void *val, size_t val_size)
+				const void *val, size_t val_len)
 {
 	struct device *dev = context;
 	struct swr_device *swr = to_swr_device(dev);
 	struct regmap *map = dev_get_regmap(dev, NULL);
 	size_t addr_bytes = map->format.reg_bytes;
-	int ret = 0;
-	int i;
-	u32 reg_addr = 0;
+	size_t val_bytes;
+	int i, ret = 0;
+	u16 reg_addr = 0;
 
 	if (swr == NULL) {
 		dev_err(dev, "%s: swr device is NULL\n", __func__);
@@ -43,12 +43,15 @@ static int regmap_swr_gather_write(void *context,
 		return -EINVAL;
 	}
 	reg_addr = *(u16 *)reg;
-	for (i = 0; i < val_size; i++) {
-		ret = swr_write(swr, swr->dev_num, (reg_addr+i),
-				(u32 *)(val+i));
+	val_bytes = map->format.val_bytes;
+	/* val_len = val_bytes * val_count */
+	for (i = 0; i < (val_len / val_bytes); i++) {
+		reg_addr = reg_addr + i;
+		val = (u8 *)val + (val_bytes * i);
+		ret = swr_write(swr, swr->dev_num, reg_addr, val);
 		if (ret < 0) {
 			dev_err(dev, "%s: write reg 0x%x failed, err %d\n",
-				__func__, (reg_addr+i), ret);
+				__func__, reg_addr, ret);
 			break;
 		}
 	}
@@ -153,7 +156,7 @@ static int regmap_swr_read(void *context,
 	struct regmap *map = dev_get_regmap(dev, NULL);
 	size_t addr_bytes = map->format.reg_bytes;
 	int ret = 0;
-	u32 reg_addr = 0;
+	u16 reg_addr = 0;
 
 	if (swr == NULL) {
 		dev_err(dev, "%s: swr is NULL\n", __func__);
@@ -164,7 +167,7 @@ static int regmap_swr_read(void *context,
 			__func__, reg_size);
 		return -EINVAL;
 	}
-	reg_addr = *(u32 *)reg;
+	reg_addr = *(u16 *)reg;
 	ret = swr_read(swr, swr->dev_num, reg_addr, val, val_size);
 	if (ret < 0)
 		dev_err(dev, "%s: codec reg 0x%x read failed %d\n",
