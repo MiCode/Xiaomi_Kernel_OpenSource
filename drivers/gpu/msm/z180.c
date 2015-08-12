@@ -219,7 +219,7 @@ static irqreturn_t z180_irq_handler(struct kgsl_device *device)
 			count &= 255;
 			z180_dev->timestamp += count;
 
-			queue_work(device->work_queue, &device->ts_expired_ws);
+			queue_work(device->work_queue, &device->event_work);
 			wake_up_interruptible(&device->wait_queue);
 		}
 	}

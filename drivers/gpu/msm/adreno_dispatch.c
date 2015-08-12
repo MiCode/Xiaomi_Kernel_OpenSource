@@ -946,8 +946,8 @@ static void remove_invalidated_cmdbatches(struct kgsl_device *device,
 			drawctxt->state == ADRENO_CONTEXT_STATE_INVALID) {
 			replay[i] = NULL;
 
-			kgsl_cancel_events_timestamp(device, cmd->context,
-				cmd->timestamp);
+			kgsl_cancel_events_timestamp(device,
+				&cmd->context->events, cmd->timestamp);
 			kgsl_cmdbatch_destroy(cmd);
 		}
 	}
@@ -1551,7 +1551,7 @@ static void adreno_dispatcher_work(struct work_struct *work)
 	 */
 	if (dispatcher->inflight == 0 && count) {
 		kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
-		queue_work(device->work_queue, &device->ts_expired_ws);
+		queue_work(device->work_queue, &device->event_work);
 		kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 	}
 
