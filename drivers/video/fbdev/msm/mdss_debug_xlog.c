@@ -31,6 +31,7 @@
 #define XLOG_DEFAULT_PANIC 1
 #define XLOG_DEFAULT_REGDUMP 0x2 /* dump in RAM */
 #define XLOG_DEFAULT_DBGBUSDUMP 0x3 /* dump in LOG & RAM */
+#define XLOG_DEFAULT_VBIF_DBGBUSDUMP 0x2 /* dump in RAM */
 
 #define MDSS_XLOG_ENTRY	256
 #define MDSS_XLOG_MAX_DATA 6
@@ -57,6 +58,7 @@ struct mdss_dbg_xlog {
 	u32 panic_on_err;
 	u32 enable_reg_dump;
 	u32 enable_dbgbus_dump;
+	u32 enable_vbif_dbgbus_dump;
 	struct work_struct xlog_dump_work;
 	struct mdss_debug_base *blk_arr[MDSS_DEBUG_BASE_MAX];
 	bool work_panic;
@@ -565,10 +567,10 @@ static void mdss_xlog_dump_array(struct mdss_debug_base *blk_arr[],
 			&mdss_dbg_xlog.dbgbus_dump);
 
 	if (dump_vbif_dbgbus) {
-		mdss_dump_vbif_debug_bus(mdss_dbg_xlog.enable_dbgbus_dump,
+		mdss_dump_vbif_debug_bus(mdss_dbg_xlog.enable_vbif_dbgbus_dump,
 			&mdss_dbg_xlog.vbif_dbgbus_dump, true);
 
-		mdss_dump_vbif_debug_bus(mdss_dbg_xlog.enable_dbgbus_dump,
+		mdss_dump_vbif_debug_bus(mdss_dbg_xlog.enable_vbif_dbgbus_dump,
 			&mdss_dbg_xlog.nrt_vbif_dbgbus_dump, false);
 	}
 
@@ -710,11 +712,14 @@ int mdss_create_xlog_debug(struct mdss_debug_data *mdd)
 			    &mdss_dbg_xlog.enable_reg_dump);
 	debugfs_create_u32("dbgbus_dump", 0644, mdss_dbg_xlog.xlog,
 			    &mdss_dbg_xlog.enable_dbgbus_dump);
+	debugfs_create_u32("vbif_dbgbus_dump", 0644, mdss_dbg_xlog.xlog,
+			    &mdss_dbg_xlog.enable_vbif_dbgbus_dump);
 
 	mdss_dbg_xlog.xlog_enable = XLOG_DEFAULT_ENABLE;
 	mdss_dbg_xlog.panic_on_err = XLOG_DEFAULT_PANIC;
 	mdss_dbg_xlog.enable_reg_dump = XLOG_DEFAULT_REGDUMP;
 	mdss_dbg_xlog.enable_dbgbus_dump = XLOG_DEFAULT_DBGBUSDUMP;
+	mdss_dbg_xlog.enable_vbif_dbgbus_dump = XLOG_DEFAULT_VBIF_DBGBUSDUMP;
 
 	pr_info("xlog_status: enable:%d, panic:%d, dump:%d\n",
 		mdss_dbg_xlog.xlog_enable, mdss_dbg_xlog.panic_on_err,
