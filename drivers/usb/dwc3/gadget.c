@@ -1394,21 +1394,25 @@ int __dwc3_gadget_ep_set_halt(struct dwc3_ep *dep, int value)
 	if (value) {
 		ret = dwc3_send_gadget_ep_cmd(dwc, dep->number,
 			DWC3_DEPCMD_SETSTALL, &params);
-		if (ret)
-			dev_err(dwc->dev, "failed to %s STALL on %s\n",
+		if (ret) {
+			dbg_event(dep->number, "SETSTAL", ret);
+			dev_dbg(dwc->dev, "failed to %s STALL on %s\n",
 					value ? "set" : "clear",
 					dep->name);
-		else
+		} else {
 			dep->flags |= DWC3_EP_STALL;
+		}
 	} else {
 		ret = dwc3_send_gadget_ep_cmd(dwc, dep->number,
 			DWC3_DEPCMD_CLEARSTALL, &params);
-		if (ret)
-			dev_err(dwc->dev, "failed to %s STALL on %s\n",
+		if (ret) {
+			dbg_event(dep->number, "CLRSTAL", ret);
+			dev_dbg(dwc->dev, "failed to %s STALL on %s\n",
 					value ? "set" : "clear",
 					dep->name);
-		else
+		} else {
 			dep->flags &= ~(DWC3_EP_STALL | DWC3_EP_WEDGE);
+		}
 	}
 
 	return ret;

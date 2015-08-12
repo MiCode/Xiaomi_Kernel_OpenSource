@@ -33,6 +33,7 @@
 
 		adsp_mem: adsp_region {
 			linux,contiguous-region;
+			linux,memory-limit = <0x0>;
 			reg = <0 0x2a00000>;
 			label = "adsp_mem";
 		};
