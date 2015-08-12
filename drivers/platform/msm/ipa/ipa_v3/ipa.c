@@ -42,8 +42,6 @@
 #define IPA_CNOC_CLK_RATE (75 * 1000 * 1000UL)
 #define IPA_A5_MUX_HEADER_LENGTH (8)
 #define IPA_ROUTING_RULE_BYTE_SIZE (4)
-#define IPA_BAM_CNFG_BITS_VALv1_1 (0x7FFFE004)
-#define IPA_BAM_CNFG_BITS_VALv2_0 (0xFFFFE004)
 #define IPA_STATUS_CLEAR_OFST (0x3f28)
 #define IPA_STATUS_CLEAR_SIZE (32)
 
@@ -185,12 +183,8 @@ static struct of_device_id ipa_plat_drv_match[] = {
 };
 struct msm_bus_scale_pdata *bus_scale_table;
 
-static struct clk *ipa_clk_src;
 static struct clk *ipa_clk;
 static struct clk *smmu_clk;
-static struct clk *sys_noc_ipa_axi_clk;
-static struct clk *ipa_cnoc_clk;
-static struct clk *ipa_inactivity_clk;
 
 struct ipa_context *ipa_ctx;
 static struct device *master_dev;
@@ -1124,18 +1118,8 @@ static int ipa_setup_exception_path(void)
 	hdr->commit = 1;
 	hdr_entry = &hdr->hdr[0];
 
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_1) {
-		strlcpy(hdr_entry->name, IPA_A5_MUX_HDR_NAME,
-				IPA_RESOURCE_NAME_MAX);
-		/* set template for the A5_MUX hdr in header addition block */
-		hdr_entry->hdr_len = IPA_A5_MUX_HEADER_LENGTH;
-	} else if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_0) {
-		strlcpy(hdr_entry->name, IPA_LAN_RX_HDR_NAME,
-				IPA_RESOURCE_NAME_MAX);
-		hdr_entry->hdr_len = IPA_LAN_RX_HEADER_LENGTH;
-	} else {
-		WARN_ON(1);
-	}
+	strlcpy(hdr_entry->name, IPA_LAN_RX_HDR_NAME, IPA_RESOURCE_NAME_MAX);
+	hdr_entry->hdr_len = IPA_LAN_RX_HEADER_LENGTH;
 
 	if (ipa_add_hdr(hdr)) {
 		IPAERR("fail to add exception hdr\n");
@@ -1329,7 +1313,7 @@ static int ipa_q6_avoid_holb(void)
 				IPA_ENDP_INIT_HOL_BLOCK_TIMER_N_TIMER_BMSK);
 
 			ipa_write_reg(ipa_ctx->mmio,
-			IPA_ENDP_INIT_HOL_BLOCK_TIMER_N_OFST_v2_0(ep_idx),
+			IPA_ENDP_INIT_HOL_BLOCK_TIMER_N_OFST_v3_0(ep_idx),
 				reg_val);
 
 			reg_val = 0;
@@ -1338,7 +1322,7 @@ static int ipa_q6_avoid_holb(void)
 				IPA_ENDP_INIT_HOL_BLOCK_EN_N_EN_BMSK);
 
 			ipa_write_reg(ipa_ctx->mmio,
-				IPA_ENDP_INIT_HOL_BLOCK_EN_N_OFST_v2_0(ep_idx),
+				IPA_ENDP_INIT_HOL_BLOCK_EN_N_OFST_v3_0(ep_idx),
 				reg_val);
 
 			ipa_cfg_ep_ctrl(ep_idx, &avoid_holb);
@@ -1493,7 +1477,7 @@ static void ipa_q6_disable_agg_reg(struct ipa_register_write *reg_write,
 {
 	reg_write->skip_pipeline_clear = 0;
 
-	reg_write->offset = IPA_ENDP_INIT_AGGR_N_OFST_v2_0(ep_idx);
+	reg_write->offset = IPA_ENDP_INIT_AGGR_N_OFST_v3_0(ep_idx);
 	reg_write->value =
 		(1 & IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_BMSK) <<
 		IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_SHFT;
@@ -1665,118 +1649,25 @@ int ipa_q6_cleanup(void)
 	return 0;
 }
 
-int _ipa_init_sram_v2(void)
-{
-	u32 *ipa_sram_mmio;
-	unsigned long phys_addr;
-	struct ipa_hw_imm_cmd_dma_shared_mem cmd = {0};
-	struct ipa_desc desc = {0};
-	struct ipa_mem_buffer mem;
-	int rc = 0;
-
-	phys_addr = ipa_ctx->ipa_wrapper_base +
-		ipa_ctx->ctrl->ipa_reg_base_ofst +
-		IPA_SRAM_DIRECT_ACCESS_N_OFST_v2_0(
-			ipa_ctx->smem_restricted_bytes / 4);
-
-	ipa_sram_mmio = ioremap(phys_addr,
-			ipa_ctx->smem_sz - ipa_ctx->smem_restricted_bytes);
-	if (!ipa_sram_mmio) {
-		IPAERR("fail to ioremap IPA SRAM\n");
-		return -ENOMEM;
-	}
-
-#define IPA_SRAM_SET(ofst, val) (ipa_sram_mmio[(ofst - 4) / 4] = val)
-
-	IPA_SRAM_SET(IPA_MEM_PART(v6_flt_ofst) - 4, IPA_MEM_CANARY_VAL);
-	IPA_SRAM_SET(IPA_MEM_PART(v6_flt_ofst), IPA_MEM_CANARY_VAL);
-	IPA_SRAM_SET(IPA_MEM_PART(v4_rt_ofst) - 4, IPA_MEM_CANARY_VAL);
-	IPA_SRAM_SET(IPA_MEM_PART(v4_rt_ofst), IPA_MEM_CANARY_VAL);
-	IPA_SRAM_SET(IPA_MEM_PART(v6_rt_ofst), IPA_MEM_CANARY_VAL);
-	IPA_SRAM_SET(IPA_MEM_PART(modem_hdr_ofst), IPA_MEM_CANARY_VAL);
-	IPA_SRAM_SET(IPA_MEM_PART(modem_ofst), IPA_MEM_CANARY_VAL);
-	IPA_SRAM_SET(IPA_MEM_PART(apps_v4_flt_ofst), IPA_MEM_CANARY_VAL);
-	IPA_SRAM_SET(IPA_MEM_PART(uc_info_ofst), IPA_MEM_CANARY_VAL);
-
-	iounmap(ipa_sram_mmio);
-
-	mem.size = IPA_STATUS_CLEAR_SIZE;
-	mem.base = dma_alloc_coherent(ipa_ctx->pdev, mem.size, &mem.phys_base,
-			GFP_KERNEL);
-	if (!mem.base) {
-		IPAERR("fail to alloc DMA buff of size %d\n", mem.size);
-		return -ENOMEM;
-	}
-	memset(mem.base, 0, mem.size);
-
-	cmd.size = mem.size;
-	cmd.system_addr = mem.phys_base;
-	cmd.local_addr = IPA_STATUS_CLEAR_OFST;
-	desc.opcode = IPA_DMA_SHARED_MEM;
-	desc.pyld = &cmd;
-	desc.len = sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
-	desc.type = IPA_IMM_CMD_DESC;
-
-	if (ipa_send_cmd(1, &desc)) {
-		IPAERR("fail to send immediate command\n");
-		rc = -EFAULT;
-	}
-
-	dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base, mem.phys_base);
-	return rc;
-}
-
-int _ipa_init_sram_v2_5(void)
-{
-	u32 *ipa_sram_mmio;
-	unsigned long phys_addr;
-
-	phys_addr = ipa_ctx->ipa_wrapper_base +
-			ipa_ctx->ctrl->ipa_reg_base_ofst +
-			IPA_SRAM_SW_FIRST_v2_5;
-
-	ipa_sram_mmio = ioremap(phys_addr,
-		ipa_ctx->smem_sz - ipa_ctx->smem_restricted_bytes);
-	if (!ipa_sram_mmio) {
-		IPAERR("fail to ioremap IPA SRAM\n");
-		return -ENOMEM;
-	}
-
-#define IPA_SRAM_SET(ofst, val) (ipa_sram_mmio[(ofst - 4) / 4] = val)
-
-	IPA_SRAM_SET(IPA_MEM_PART(v4_flt_ofst) - 4, IPA_MEM_CANARY_VAL);
-	IPA_SRAM_SET(IPA_MEM_PART(v4_flt_ofst), IPA_MEM_CANARY_VAL);
-	IPA_SRAM_SET(IPA_MEM_PART(v6_flt_ofst) - 4, IPA_MEM_CANARY_VAL);
-	IPA_SRAM_SET(IPA_MEM_PART(v6_flt_ofst), IPA_MEM_CANARY_VAL);
-	IPA_SRAM_SET(IPA_MEM_PART(v4_rt_ofst) - 4, IPA_MEM_CANARY_VAL);
-	IPA_SRAM_SET(IPA_MEM_PART(v4_rt_ofst), IPA_MEM_CANARY_VAL);
-	IPA_SRAM_SET(IPA_MEM_PART(v6_rt_ofst), IPA_MEM_CANARY_VAL);
-	IPA_SRAM_SET(IPA_MEM_PART(modem_hdr_ofst), IPA_MEM_CANARY_VAL);
-	IPA_SRAM_SET(IPA_MEM_PART(modem_hdr_proc_ctx_ofst) - 4,
-							IPA_MEM_CANARY_VAL);
-	IPA_SRAM_SET(IPA_MEM_PART(modem_hdr_proc_ctx_ofst), IPA_MEM_CANARY_VAL);
-	IPA_SRAM_SET(IPA_MEM_PART(modem_ofst), IPA_MEM_CANARY_VAL);
-	IPA_SRAM_SET(IPA_MEM_PART(end_ofst), IPA_MEM_CANARY_VAL);
-
-	iounmap(ipa_sram_mmio);
-
-	return 0;
-}
-
 static inline void ipa_sram_set_canary(u32 *sram_mmio, int offset)
 {
 	/* Set 4 bytes of CANARY before the offset */
 	sram_mmio[(offset - 4) / 4] = IPA_MEM_CANARY_VAL;
 }
 
-int _ipa_init_sram_v2_6L(void)
+/**
+ * _ipa_init_sram_v3_0() - Initialize IPA local SRAM.
+ *
+ * Return codes: 0 for success, negative value for failure
+ */
+int _ipa_init_sram_v3_0(void)
 {
 	u32 *ipa_sram_mmio;
 	unsigned long phys_addr;
 
 	phys_addr = ipa_ctx->ipa_wrapper_base +
 		ipa_ctx->ctrl->ipa_reg_base_ofst +
-		IPA_SRAM_SW_FIRST_v2_5;
+		IPA_SRAM_SW_FIRST_v3_0;
 
 	ipa_sram_mmio = ioremap(phys_addr,
 		ipa_ctx->smem_sz - ipa_ctx->smem_restricted_bytes);
@@ -1795,9 +1686,9 @@ int _ipa_init_sram_v2_6L(void)
 	ipa_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_rt_ofst));
 	ipa_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(modem_hdr_ofst));
 	ipa_sram_set_canary(ipa_sram_mmio,
-			    IPA_MEM_PART(modem_comp_decomp_ofst) - 4);
+		IPA_MEM_PART(modem_hdr_proc_ctx_ofst) - 4);
 	ipa_sram_set_canary(ipa_sram_mmio,
-			    IPA_MEM_PART(modem_comp_decomp_ofst));
+		IPA_MEM_PART(modem_hdr_proc_ctx_ofst));
 	ipa_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(modem_ofst));
 	ipa_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(end_ofst));
 
@@ -1806,43 +1697,12 @@ int _ipa_init_sram_v2_6L(void)
 	return 0;
 }
 
-int _ipa_init_hdr_v2(void)
-{
-	struct ipa_desc desc = { 0 };
-	struct ipa_mem_buffer mem;
-	struct ipa_hdr_init_local cmd;
-	int rc = 0;
-
-	mem.size = IPA_MEM_PART(modem_hdr_size) + IPA_MEM_PART(apps_hdr_size);
-	mem.base = dma_alloc_coherent(ipa_ctx->pdev, mem.size, &mem.phys_base,
-			GFP_KERNEL);
-	if (!mem.base) {
-		IPAERR("fail to alloc DMA buff of size %d\n", mem.size);
-		return -ENOMEM;
-	}
-	memset(mem.base, 0, mem.size);
-
-	cmd.hdr_table_src_addr = mem.phys_base;
-	cmd.size_hdr_table = mem.size;
-	cmd.hdr_table_dst_addr = ipa_ctx->smem_restricted_bytes +
-		IPA_MEM_PART(modem_hdr_ofst);
-
-	desc.opcode = IPA_HDR_INIT_LOCAL;
-	desc.pyld = &cmd;
-	desc.len = sizeof(struct ipa_hdr_init_local);
-	desc.type = IPA_IMM_CMD_DESC;
-	IPA_DUMP_BUFF(mem.base, mem.phys_base, mem.size);
-
-	if (ipa_send_cmd(1, &desc)) {
-		IPAERR("fail to send immediate command\n");
-		rc = -EFAULT;
-	}
-
-	dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base, mem.phys_base);
-	return rc;
-}
-
-int _ipa_init_hdr_v2_5(void)
+/**
+ * _ipa_init_hdr_v3_0() - Initialize IPA header block.
+ *
+ * Return codes: 0 for success, negative value for failure
+ */
+int _ipa_init_hdr_v3_0(void)
 {
 	struct ipa_desc desc = { 0 };
 	struct ipa_mem_buffer mem;
@@ -1918,13 +1778,12 @@ int _ipa_init_hdr_v2_5(void)
 	return 0;
 }
 
-int _ipa_init_hdr_v2_6L(void)
-{
-	/* Same implementation as IPAv2 */
-	return _ipa_init_hdr_v2();
-}
-
-int _ipa_init_rt4_v2(void)
+/**
+ * _ipa_init_rt4_v3() - Initialize IPA routing block for IPv4.
+ *
+ * Return codes: 0 for success, negative value for failure
+ */
+int _ipa_init_rt4_v3(void)
 {
 	struct ipa_desc desc = { 0 };
 	struct ipa_mem_buffer mem;
@@ -1975,7 +1834,12 @@ int _ipa_init_rt4_v2(void)
 	return rc;
 }
 
-int _ipa_init_rt6_v2(void)
+/**
+ * _ipa_init_rt6_v3() - Initialize IPA routing block for IPv6.
+ *
+ * Return codes: 0 for success, negative value for failure
+ */
+int _ipa_init_rt6_v3(void)
 {
 	struct ipa_desc desc = { 0 };
 	struct ipa_mem_buffer mem;
@@ -2026,7 +1890,12 @@ int _ipa_init_rt6_v2(void)
 	return rc;
 }
 
-int _ipa_init_flt4_v2(void)
+/**
+ * _ipa_init_flt4_v3() - Initialize IPA filtering block for IPv4.
+ *
+ * Return codes: 0 for success, negative value for failure
+ */
+int _ipa_init_flt4_v3(void)
 {
 	struct ipa_desc desc = { 0 };
 	struct ipa_mem_buffer mem;
@@ -2075,7 +1944,12 @@ int _ipa_init_flt4_v2(void)
 	return rc;
 }
 
-int _ipa_init_flt6_v2(void)
+/**
+ * _ipa_init_flt6_v3() - Initialize IPA filtering block for IPv6.
+ *
+ * Return codes: 0 for success, negative value for failure
+ */
+int _ipa_init_flt6_v3(void)
 {
 	struct ipa_desc desc = { 0 };
 	struct ipa_mem_buffer mem;
@@ -2179,23 +2053,16 @@ static int ipa_setup_apps_pipes(void)
 	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
 	sys_in.client = IPA_CLIENT_APPS_LAN_CONS;
 	sys_in.desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_1) {
-		sys_in.ipa_ep_cfg.hdr.hdr_a5_mux = 1;
-		sys_in.ipa_ep_cfg.hdr.hdr_len = IPA_A5_MUX_HEADER_LENGTH;
-	} else if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_0) {
-		sys_in.notify = ipa_lan_rx_cb;
-		sys_in.priv = NULL;
-		sys_in.ipa_ep_cfg.hdr.hdr_len = IPA_LAN_RX_HEADER_LENGTH;
-		sys_in.ipa_ep_cfg.hdr_ext.hdr_little_endian = false;
-		sys_in.ipa_ep_cfg.hdr_ext.hdr_total_len_or_pad_valid = true;
-		sys_in.ipa_ep_cfg.hdr_ext.hdr_total_len_or_pad = IPA_HDR_PAD;
-		sys_in.ipa_ep_cfg.hdr_ext.hdr_payload_len_inc_padding = false;
-		sys_in.ipa_ep_cfg.hdr_ext.hdr_total_len_or_pad_offset = 0;
-		sys_in.ipa_ep_cfg.hdr_ext.hdr_pad_to_alignment = 2;
-		sys_in.ipa_ep_cfg.cfg.cs_offload_en = IPA_ENABLE_CS_OFFLOAD_DL;
-	} else {
-		WARN_ON(1);
-	}
+	sys_in.notify = ipa_lan_rx_cb;
+	sys_in.priv = NULL;
+	sys_in.ipa_ep_cfg.hdr.hdr_len = IPA_LAN_RX_HEADER_LENGTH;
+	sys_in.ipa_ep_cfg.hdr_ext.hdr_little_endian = false;
+	sys_in.ipa_ep_cfg.hdr_ext.hdr_total_len_or_pad_valid = true;
+	sys_in.ipa_ep_cfg.hdr_ext.hdr_total_len_or_pad = IPA_HDR_PAD;
+	sys_in.ipa_ep_cfg.hdr_ext.hdr_payload_len_inc_padding = false;
+	sys_in.ipa_ep_cfg.hdr_ext.hdr_total_len_or_pad_offset = 0;
+	sys_in.ipa_ep_cfg.hdr_ext.hdr_pad_to_alignment = 2;
+	sys_in.ipa_ep_cfg.cfg.cs_offload_en = IPA_ENABLE_CS_OFFLOAD_DL;
 
 	/**
 	 * ipa_lan_rx_cb() intended to notify the source EP about packet
@@ -2418,40 +2285,13 @@ static int ipa_get_clks(struct device *dev)
 		}
 	}
 
-	if (ipa_ctx->ipa_hw_type < IPA_HW_v2_0) {
-		ipa_cnoc_clk = clk_get(dev, "iface_clk");
-		if (IS_ERR(ipa_cnoc_clk)) {
-			ipa_cnoc_clk = NULL;
-			IPAERR("fail to get cnoc clk\n");
-			return -ENODEV;
-		}
-
-		ipa_clk_src = clk_get(dev, "core_src_clk");
-		if (IS_ERR(ipa_clk_src)) {
-			ipa_clk_src = NULL;
-			IPAERR("fail to get ipa clk src\n");
-			return -ENODEV;
-		}
-
-		sys_noc_ipa_axi_clk = clk_get(dev, "bus_clk");
-		if (IS_ERR(sys_noc_ipa_axi_clk)) {
-			sys_noc_ipa_axi_clk = NULL;
-			IPAERR("fail to get sys_noc_ipa_axi clk\n");
-			return -ENODEV;
-		}
-
-		ipa_inactivity_clk = clk_get(dev, "inactivity_clk");
-		if (IS_ERR(ipa_inactivity_clk)) {
-			ipa_inactivity_clk = NULL;
-			IPAERR("fail to get inactivity clk\n");
-			return -ENODEV;
-		}
-	}
-
 	return 0;
 }
 
-void _ipa_enable_clks_v2_0(void)
+/**
+ * _ipa_enable_clks_v3_0() - Enable IPA clocks.
+ */
+void _ipa_enable_clks_v3_0(void)
 {
 	IPADBG("enabling gcc_ipa_clk\n");
 	if (ipa_clk) {
@@ -2466,55 +2306,6 @@ void _ipa_enable_clks_v2_0(void)
 
 	if (smmu_clk)
 		clk_prepare_enable(smmu_clk);
-}
-
-void _ipa_enable_clks_v1_1(void)
-{
-
-	if (ipa_cnoc_clk) {
-		clk_prepare(ipa_cnoc_clk);
-		clk_enable(ipa_cnoc_clk);
-		clk_set_rate(ipa_cnoc_clk, IPA_CNOC_CLK_RATE);
-	} else {
-		WARN_ON(1);
-	}
-
-	if (ipa_clk_src)
-		clk_set_rate(ipa_clk_src,
-				ipa_ctx->curr_ipa_clk_rate);
-	else
-		WARN_ON(1);
-
-	if (ipa_clk)
-		clk_prepare(ipa_clk);
-	else
-		WARN_ON(1);
-
-	if (sys_noc_ipa_axi_clk)
-		clk_prepare(sys_noc_ipa_axi_clk);
-	else
-		WARN_ON(1);
-
-	if (ipa_inactivity_clk)
-		clk_prepare(ipa_inactivity_clk);
-	else
-		WARN_ON(1);
-
-	if (ipa_clk)
-		clk_enable(ipa_clk);
-	else
-		WARN_ON(1);
-
-	if (sys_noc_ipa_axi_clk)
-		clk_enable(sys_noc_ipa_axi_clk);
-	else
-		WARN_ON(1);
-
-	if (ipa_inactivity_clk)
-		clk_enable(ipa_inactivity_clk);
-	else
-		WARN_ON(1);
-
 }
 
 static unsigned int ipa_get_bus_vote(void)
@@ -2584,7 +2375,10 @@ void _ipa_disable_clks_v1_1(void)
 
 }
 
-void _ipa_disable_clks_v2_0(void)
+/**
+ * _ipa_disable_clks_v3_0() - Disable IPA clocks.
+ */
+void _ipa_disable_clks_v3_0(void)
 {
 	IPADBG("disabling gcc_ipa_clk\n");
 	ipa_uc_notify_clk_state(false);
@@ -2719,37 +2513,6 @@ void ipa_dec_client_disable_clks(void)
 	ipa_active_clients_unlock();
 }
 
-static int ipa_setup_bam_cfg(const struct ipa_plat_drv_res *res)
-{
-	void *ipa_bam_mmio;
-	int reg_val;
-	int retval = 0;
-
-	ipa_bam_mmio = ioremap(res->ipa_mem_base + IPA_BAM_REG_BASE_OFST,
-			IPA_BAM_REMAP_SIZE);
-	if (!ipa_bam_mmio)
-		return -ENOMEM;
-	switch (ipa_ctx->ipa_hw_type) {
-	case IPA_HW_v1_1:
-		reg_val = IPA_BAM_CNFG_BITS_VALv1_1;
-		break;
-	case IPA_HW_v2_0:
-	case IPA_HW_v2_5:
-	case IPA_HW_v2_6L:
-		reg_val = IPA_BAM_CNFG_BITS_VALv2_0;
-		break;
-	default:
-		retval = -EPERM;
-		goto fail;
-	}
-	if (ipa_ctx->ipa_hw_type < IPA_HW_v2_5)
-		ipa_write_reg(ipa_bam_mmio, IPA_BAM_CNFG_BITS_OFST, reg_val);
-fail:
-	iounmap(ipa_bam_mmio);
-
-	return retval;
-}
-
 int ipa_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 				  u32 bandwidth_mbps)
 {
@@ -2833,70 +2596,67 @@ static int ipa_init_flt_block(void)
 	struct ipa_ioc_get_rt_tbl rt_lookup;
 	enum ipa_ip_type ip;
 
-	if (ipa_ctx->ipa_hw_type >= IPA_HW_v1_1) {
-		size_t sz = sizeof(struct ipa_ioc_add_flt_rule) +
+	size_t sz = sizeof(struct ipa_ioc_add_flt_rule) +
 		   sizeof(struct ipa_flt_rule_add);
 
-		rules = kmalloc(sz, GFP_KERNEL);
-		if (rules == NULL) {
-			IPAERR("fail to alloc mem for dummy filter rule\n");
-			return -ENOMEM;
-		}
-
-		IPADBG("Adding global rules for IPv4 and IPv6");
-		for (ip = IPA_IP_v4; ip < IPA_IP_MAX; ip++) {
-			memset(&rt_lookup, 0,
-					sizeof(struct ipa_ioc_get_rt_tbl));
-			rt_lookup.ip = ip;
-			strlcpy(rt_lookup.name, IPA_DFLT_RT_TBL_NAME,
-					IPA_RESOURCE_NAME_MAX);
-			ipa_get_rt_tbl(&rt_lookup);
-			ipa_put_rt_tbl(rt_lookup.hdl);
-
-			memset(rules, 0, sz);
-			rule = &rules->rules[0];
-			rules->commit = 1;
-			rules->ip = ip;
-			rules->global = 1;
-			rules->num_rules = 1;
-			rule->at_rear = 1;
-			if (ip == IPA_IP_v4) {
-				rule->rule.attrib.attrib_mask =
-					IPA_FLT_PROTOCOL | IPA_FLT_DST_ADDR;
-				rule->rule.attrib.u.v4.protocol =
-				   IPA_INVALID_L4_PROTOCOL;
-				rule->rule.attrib.u.v4.dst_addr_mask = ~0;
-				rule->rule.attrib.u.v4.dst_addr = ~0;
-			} else if (ip == IPA_IP_v6) {
-				rule->rule.attrib.attrib_mask =
-					IPA_FLT_NEXT_HDR | IPA_FLT_DST_ADDR;
-				rule->rule.attrib.u.v6.next_hdr =
-					IPA_INVALID_L4_PROTOCOL;
-				rule->rule.attrib.u.v6.dst_addr_mask[0] = ~0;
-				rule->rule.attrib.u.v6.dst_addr_mask[1] = ~0;
-				rule->rule.attrib.u.v6.dst_addr_mask[2] = ~0;
-				rule->rule.attrib.u.v6.dst_addr_mask[3] = ~0;
-				rule->rule.attrib.u.v6.dst_addr[0] = ~0;
-				rule->rule.attrib.u.v6.dst_addr[1] = ~0;
-				rule->rule.attrib.u.v6.dst_addr[2] = ~0;
-				rule->rule.attrib.u.v6.dst_addr[3] = ~0;
-			} else {
-				result = -EINVAL;
-				WARN_ON(1);
-				break;
-			}
-			rule->rule.action = IPA_PASS_TO_ROUTING;
-			rule->rule.rt_tbl_hdl = rt_lookup.hdl;
-			rule->rule.retain_hdr = true;
-
-			if (ipa_add_flt_rule(rules) || rules->rules[0].status) {
-				result = -EINVAL;
-				WARN_ON(1);
-				break;
-			}
-		}
-		kfree(rules);
+	rules = kmalloc(sz, GFP_KERNEL);
+	if (rules == NULL) {
+		IPAERR("fail to alloc mem for dummy filter rule\n");
+		return -ENOMEM;
 	}
+
+	IPADBG("Adding global rules for IPv4 and IPv6");
+	for (ip = IPA_IP_v4; ip < IPA_IP_MAX; ip++) {
+		memset(&rt_lookup, 0,
+				sizeof(struct ipa_ioc_get_rt_tbl));
+		rt_lookup.ip = ip;
+		strlcpy(rt_lookup.name, IPA_DFLT_RT_TBL_NAME,
+				IPA_RESOURCE_NAME_MAX);
+		ipa_get_rt_tbl(&rt_lookup);
+		ipa_put_rt_tbl(rt_lookup.hdl);
+		memset(rules, 0, sz);
+		rule = &rules->rules[0];
+		rules->commit = 1;
+		rules->ip = ip;
+		rules->global = 1;
+		rules->num_rules = 1;
+		rule->at_rear = 1;
+		if (ip == IPA_IP_v4) {
+			rule->rule.attrib.attrib_mask =
+				IPA_FLT_PROTOCOL | IPA_FLT_DST_ADDR;
+			rule->rule.attrib.u.v4.protocol =
+			   IPA_INVALID_L4_PROTOCOL;
+			rule->rule.attrib.u.v4.dst_addr_mask = ~0;
+			rule->rule.attrib.u.v4.dst_addr = ~0;
+		} else if (ip == IPA_IP_v6) {
+			rule->rule.attrib.attrib_mask =
+				IPA_FLT_NEXT_HDR | IPA_FLT_DST_ADDR;
+			rule->rule.attrib.u.v6.next_hdr =
+				IPA_INVALID_L4_PROTOCOL;
+			rule->rule.attrib.u.v6.dst_addr_mask[0] = ~0;
+			rule->rule.attrib.u.v6.dst_addr_mask[1] = ~0;
+			rule->rule.attrib.u.v6.dst_addr_mask[2] = ~0;
+			rule->rule.attrib.u.v6.dst_addr_mask[3] = ~0;
+			rule->rule.attrib.u.v6.dst_addr[0] = ~0;
+			rule->rule.attrib.u.v6.dst_addr[1] = ~0;
+			rule->rule.attrib.u.v6.dst_addr[2] = ~0;
+			rule->rule.attrib.u.v6.dst_addr[3] = ~0;
+		} else {
+			result = -EINVAL;
+			WARN_ON(1);
+			break;
+		}
+		rule->rule.action = IPA_PASS_TO_ROUTING;
+		rule->rule.rt_tbl_hdl = rt_lookup.hdl;
+		rule->rule.retain_hdr = true;
+
+		if (ipa_add_flt_rule(rules) || rules->rules[0].status) {
+			result = -EINVAL;
+			WARN_ON(1);
+			break;
+		}
+	}
+	kfree(rules);
 	return result;
 }
 
@@ -3189,6 +2949,8 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	ipa_enable_clks();
 
 	/* setup IPA register access */
+	IPADBG("Mapping 0x%x\n", resource_p->ipa_mem_base +
+		ipa_ctx->ctrl->ipa_reg_base_ofst);
 	ipa_ctx->mmio = ioremap(resource_p->ipa_mem_base +
 			ipa_ctx->ctrl->ipa_reg_base_ofst,
 			resource_p->ipa_mem_size);
@@ -3270,12 +3032,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		goto fail_register_bam_device;
 	}
 	IPADBG("IPA BAM is registered\n");
-
-	if (ipa_setup_bam_cfg(resource_p)) {
-		IPAERR(":bam cfg err.\n");
-		result = -ENODEV;
-		goto fail_flt_rule_cache;
-	}
 
 	/* init the lookaside cache */
 	ipa_ctx->flt_rule_cache = kmem_cache_create("IPA FLT",
@@ -3655,6 +3411,11 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 		return -ENODEV;
 	}
 	IPADBG(": ipa_hw_type = %d", ipa_drv_res->ipa_hw_type);
+
+	if (ipa_drv_res->ipa_hw_type < IPA_HW_v3_0) {
+		IPAERR(":IPA version below 3.0 not supported!\n");
+		return -ENODEV;
+	}
 
 	/* Get IPA HW mode */
 	result = of_property_read_u32(pdev->dev.of_node, "qcom,ipa-hw-mode",

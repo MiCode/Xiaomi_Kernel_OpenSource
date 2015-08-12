@@ -219,7 +219,7 @@ static void ipa_log_evt_hdlr(void)
 		if (ipa_ctx->uc_ctx.uc_event_top_ofst +
 			sizeof(struct IpaHwEventLogInfoData_t) >=
 			ipa_ctx->ctrl->ipa_reg_base_ofst +
-			IPA_SRAM_DIRECT_ACCESS_N_OFST_v2_0(0) +
+			IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0) +
 			ipa_ctx->smem_sz) {
 				IPAERR("uc_top 0x%x outside SRAM\n",
 					ipa_ctx->uc_ctx.uc_event_top_ofst);
@@ -464,17 +464,8 @@ int ipa_uc_interface_init(void)
 
 	mutex_init(&ipa_ctx->uc_ctx.uc_lock);
 
-	if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_5) {
-		phys_addr = ipa_ctx->ipa_wrapper_base +
-			ipa_ctx->ctrl->ipa_reg_base_ofst +
-			IPA_SRAM_SW_FIRST_v2_5;
-	} else {
-		phys_addr = ipa_ctx->ipa_wrapper_base +
-			ipa_ctx->ctrl->ipa_reg_base_ofst +
-			IPA_SRAM_DIRECT_ACCESS_N_OFST_v2_0(
-			ipa_ctx->smem_restricted_bytes / 4);
-	}
-
+	phys_addr = ipa_ctx->ipa_wrapper_base +
+		ipa_ctx->ctrl->ipa_reg_base_ofst + IPA_SRAM_SW_FIRST_v3_0;
 	ipa_ctx->uc_ctx.uc_sram_mmio = ioremap(phys_addr,
 					       IPA_RAM_UC_SMEM_SIZE);
 	if (!ipa_ctx->uc_ctx.uc_sram_mmio) {

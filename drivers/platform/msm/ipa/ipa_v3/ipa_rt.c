@@ -106,7 +106,7 @@ int __ipa_generate_rt_hw_rule_v2(enum ipa_ip_type ip,
 }
 
 /**
- * __ipa_generate_rt_hw_rule_v2_5() - generates the routing hardware rule
+ * __ipa_generate_rt_hw_rule_v3_0() - generates the routing hardware rule
  * @ip: the ip address family type
  * @entry: routing entry
  * @buf: output buffer, buf == NULL means
@@ -123,7 +123,7 @@ int __ipa_generate_rt_hw_rule_v2(enum ipa_ip_type ip,
  * caller needs to hold any needed locks to ensure integrity
  *
  */
-int __ipa_generate_rt_hw_rule_v2_5(enum ipa_ip_type ip,
+int __ipa_generate_rt_hw_rule_v3_0(enum ipa_ip_type ip,
 		struct ipa_rt_entry *entry, u8 *buf)
 {
 	struct ipa_rt_rule_hw_hdr *rule_hdr;
@@ -154,26 +154,26 @@ int __ipa_generate_rt_hw_rule_v2_5(enum ipa_ip_type ip,
 		WARN_ON(1);
 		return -EPERM;
 	}
-	rule_hdr->u.hdr_v2_5.pipe_dest_idx = pipe_idx;
+	rule_hdr->u.hdr.pipe_dest_idx = pipe_idx;
 	if (entry->proc_ctx || (entry->hdr && entry->hdr->is_hdr_proc_ctx)) {
 		struct ipa_hdr_proc_ctx_entry *proc_ctx;
 
 		proc_ctx = (entry->proc_ctx) ? : entry->hdr->proc_ctx;
-		rule_hdr->u.hdr_v2_5.system = !ipa_ctx->hdr_proc_ctx_tbl_lcl;
+		rule_hdr->u.hdr.system = !ipa_ctx->hdr_proc_ctx_tbl_lcl;
 		BUG_ON(proc_ctx->offset_entry->offset & 31);
-		rule_hdr->u.hdr_v2_5.proc_ctx = 1;
-		rule_hdr->u.hdr_v2_5.hdr_offset =
+		rule_hdr->u.hdr.proc_ctx = 1;
+		rule_hdr->u.hdr.hdr_offset =
 			(proc_ctx->offset_entry->offset +
 			ipa_ctx->hdr_proc_ctx_tbl.start_offset) >> 5;
 	} else if (entry->hdr) {
-		rule_hdr->u.hdr_v2_5.system = !ipa_ctx->hdr_tbl_lcl;
+		rule_hdr->u.hdr.system = !ipa_ctx->hdr_tbl_lcl;
 		BUG_ON(entry->hdr->offset_entry->offset & 3);
-		rule_hdr->u.hdr_v2_5.proc_ctx = 0;
-		rule_hdr->u.hdr_v2_5.hdr_offset =
+		rule_hdr->u.hdr.proc_ctx = 0;
+		rule_hdr->u.hdr.hdr_offset =
 				entry->hdr->offset_entry->offset >> 2;
 	} else {
-		rule_hdr->u.hdr_v2_5.proc_ctx = 0;
-		rule_hdr->u.hdr_v2_5.hdr_offset = 0;
+		rule_hdr->u.hdr.proc_ctx = 0;
+		rule_hdr->u.hdr.hdr_offset = 0;
 	}
 	buf += sizeof(struct ipa_rt_rule_hw_hdr);
 
@@ -184,7 +184,7 @@ int __ipa_generate_rt_hw_rule_v2_5(enum ipa_ip_type ip,
 
 	IPADBG("en_rule 0x%x\n", en_rule);
 
-	rule_hdr->u.hdr_v2_5.en_rule = en_rule;
+	rule_hdr->u.hdr.en_rule = en_rule;
 	ipa_write_32(rule_hdr->u.word, (u8 *)rule_hdr);
 
 	if (entry->hw_len == 0) {
@@ -196,29 +196,6 @@ int __ipa_generate_rt_hw_rule_v2_5(enum ipa_ip_type ip,
 	}
 
 	return 0;
-}
-
-/**
- * __ipa_generate_rt_hw_rule_v2_6L() - generates the routing hardware rule
- * @ip: the ip address family type
- * @entry: routing entry
- * @buf: output buffer, buf == NULL means that the caller wants to know the size
- *       of the rule as seen by HW so they did not pass a valid buffer, we will
- *       use a scratch buffer instead.
- *       With this scheme we are going to generate the rule twice, once to know
- *       size using scratch buffer and second to write the rule to the actual
- *       caller supplied buffer which is of required size.
- *
- * Returns:	0 on success, negative on failure
- *
- * caller needs to hold any needed locks to ensure integrity
- *
- */
-int __ipa_generate_rt_hw_rule_v2_6L(enum ipa_ip_type ip,
-		struct ipa_rt_entry *entry, u8 *buf)
-{
-	/* Same implementation as IPAv2 */
-	return __ipa_generate_rt_hw_rule_v2(ip, entry, buf);
 }
 
 /**
@@ -413,63 +390,6 @@ proc_err:
 }
 
 
-/**
- * ipa_generate_rt_hw_tbl() - generates the routing hardware table
- * @ip:	[in] the ip address family type
- * @mem:	[out] buffer to put the filtering table
- *
- * Returns:	0 on success, negative on failure
- */
-static int ipa_generate_rt_hw_tbl_v1_1(enum ipa_ip_type ip,
-		struct ipa_mem_buffer *mem)
-{
-	u32 hdr_sz;
-	u8 *hdr;
-	u8 *body;
-	u8 *base;
-	int max_rt_idx;
-	int i;
-
-	mem->size = ipa_get_rt_hw_tbl_size(ip, &hdr_sz, &max_rt_idx);
-	mem->size = (mem->size + IPA_RT_TABLE_MEMORY_ALLIGNMENT) &
-				~IPA_RT_TABLE_MEMORY_ALLIGNMENT;
-
-	if (mem->size == 0) {
-		IPAERR("rt tbl empty ip=%d\n", ip);
-		goto error;
-	}
-	mem->base = dma_alloc_coherent(ipa_ctx->pdev, mem->size,
-			&mem->phys_base, GFP_KERNEL);
-	if (!mem->base) {
-		IPAERR("fail to alloc DMA buff of size %d\n", mem->size);
-		goto error;
-	}
-
-	memset(mem->base, 0, mem->size);
-
-	/* build the rt tbl in the DMA buffer to submit to IPA HW */
-	base = hdr = (u8 *)mem->base;
-	body = base + hdr_sz;
-
-	/* setup all indices to point to the empty sys rt tbl */
-	for (i = 0; i <= max_rt_idx; i++)
-		ipa_write_32(ipa_ctx->empty_rt_tbl_mem.phys_base,
-				hdr + (i * IPA_RT_TABLE_WORD_SIZE));
-
-	if (ipa_generate_rt_hw_tbl_common(ip, base, hdr, 0, 0)) {
-		IPAERR("fail to generate RT tbl\n");
-		goto proc_err;
-	}
-
-	return 0;
-
-proc_err:
-	dma_free_coherent(ipa_ctx->pdev, mem->size, mem->base, mem->phys_base);
-	mem->base = NULL;
-error:
-	return -EPERM;
-}
-
 static void __ipa_reap_sys_rt_tbls(enum ipa_ip_type ip)
 {
 	struct ipa_rt_tbl *tbl;
@@ -500,94 +420,6 @@ static void __ipa_reap_sys_rt_tbls(enum ipa_ip_type ip)
 			kmem_cache_free(ipa_ctx->rt_tbl_cache, tbl);
 		}
 	}
-}
-
-int __ipa_commit_rt_v1_1(enum ipa_ip_type ip)
-{
-	struct ipa_desc desc = { 0 };
-	struct ipa_mem_buffer *mem;
-	void *cmd;
-	struct ipa_ip_v4_routing_init *v4;
-	struct ipa_ip_v6_routing_init *v6;
-	u16 avail;
-	u16 size;
-
-	mem = kmalloc(sizeof(struct ipa_mem_buffer), GFP_KERNEL);
-	if (!mem) {
-		IPAERR("failed to alloc memory object\n");
-		goto fail_alloc_mem;
-	}
-
-	if (ip == IPA_IP_v4) {
-		avail = ipa_ctx->ip4_rt_tbl_lcl ? IPA_MEM_v1_RAM_V4_RT_SIZE :
-			IPA_MEM_PART(v4_rt_size_ddr);
-		size = sizeof(struct ipa_ip_v4_routing_init);
-	} else {
-		avail = ipa_ctx->ip6_rt_tbl_lcl ? IPA_MEM_v1_RAM_V6_RT_SIZE :
-			IPA_MEM_PART(v6_rt_size_ddr);
-		size = sizeof(struct ipa_ip_v6_routing_init);
-	}
-	cmd = kmalloc(size, GFP_KERNEL);
-	if (!cmd) {
-		IPAERR("failed to alloc immediate command object\n");
-		goto fail_alloc_cmd;
-	}
-
-	if (ipa_generate_rt_hw_tbl_v1_1(ip, mem)) {
-		IPAERR("fail to generate RT HW TBL ip %d\n", ip);
-		goto fail_hw_tbl_gen;
-	}
-
-	if (mem->size > avail) {
-		IPAERR("tbl too big, needed %d avail %d\n", mem->size, avail);
-		goto fail_send_cmd;
-	}
-
-	if (ip == IPA_IP_v4) {
-		v4 = (struct ipa_ip_v4_routing_init *)cmd;
-		desc.opcode = IPA_IP_V4_ROUTING_INIT;
-		v4->ipv4_rules_addr = mem->phys_base;
-		v4->size_ipv4_rules = mem->size;
-		v4->ipv4_addr = IPA_MEM_v1_RAM_V4_RT_OFST;
-		IPADBG("putting Routing IPv4 rules to phys 0x%x",
-				v4->ipv4_addr);
-	} else {
-		v6 = (struct ipa_ip_v6_routing_init *)cmd;
-		desc.opcode = IPA_IP_V6_ROUTING_INIT;
-		v6->ipv6_rules_addr = mem->phys_base;
-		v6->size_ipv6_rules = mem->size;
-		v6->ipv6_addr = IPA_MEM_v1_RAM_V6_RT_OFST;
-		IPADBG("putting Routing IPv6 rules to phys 0x%x",
-				v6->ipv6_addr);
-	}
-
-	desc.pyld = cmd;
-	desc.len = size;
-	desc.type = IPA_IMM_CMD_DESC;
-	IPA_DUMP_BUFF(mem->base, mem->phys_base, mem->size);
-
-	if (ipa_send_cmd(1, &desc)) {
-		IPAERR("fail to send immediate command\n");
-		goto fail_send_cmd;
-	}
-
-	__ipa_reap_sys_rt_tbls(ip);
-	dma_free_coherent(ipa_ctx->pdev, mem->size, mem->base, mem->phys_base);
-	kfree(cmd);
-	kfree(mem);
-
-	return 0;
-
-fail_send_cmd:
-	if (mem->base)
-		dma_free_coherent(ipa_ctx->pdev, mem->size, mem->base,
-				mem->phys_base);
-fail_hw_tbl_gen:
-	kfree(cmd);
-fail_alloc_cmd:
-	kfree(mem);
-fail_alloc_mem:
-	return -EPERM;
 }
 
 static int ipa_generate_rt_hw_tbl_v2(enum ipa_ip_type ip,
@@ -668,7 +500,12 @@ err:
 	return -EPERM;
 }
 
-int __ipa_commit_rt_v2(enum ipa_ip_type ip)
+/**
+ * __ipa_commit_rt_v3() - Commits the routing table from memory to HW
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 {
 	struct ipa_desc desc[2];
 	struct ipa_mem_buffer body;
@@ -1206,14 +1043,10 @@ int ipa_reset_rt(enum ipa_ip_type ip)
 		return -EINVAL;
 	}
 
-	if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_0) {
 		if (ip == IPA_IP_v4)
 			apps_start_idx = IPA_MEM_PART(v4_apps_rt_index_lo);
 		else
 			apps_start_idx = IPA_MEM_PART(v6_apps_rt_index_lo);
-	} else {
-		apps_start_idx = 0;
-	}
 
 	/*
 	 * issue a reset on the filtering module of same IP type since

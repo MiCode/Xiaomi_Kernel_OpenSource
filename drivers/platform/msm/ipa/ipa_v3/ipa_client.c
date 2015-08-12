@@ -32,9 +32,7 @@ int ipa_enable_data_path(u32 clnt_hdl)
 	int res = 0;
 
 	IPADBG("Enabling data path\n");
-	/* From IPA 2.0, disable HOLB */
-	if ((ipa_ctx->ipa_hw_type >= IPA_HW_v2_0) &&
-		IPA_CLIENT_IS_CONS(ep->client)) {
+	if (IPA_CLIENT_IS_CONS(ep->client)) {
 		memset(&holb_cfg, 0 , sizeof(holb_cfg));
 		holb_cfg.en = IPA_HOLB_TMR_DIS;
 		holb_cfg.tmr_val = 0;
@@ -63,9 +61,7 @@ int ipa_disable_data_path(u32 clnt_hdl)
 	int res = 0;
 
 	IPADBG("Disabling data path\n");
-	/* On IPA 2.0, enable HOLB in order to prevent IPA from stalling */
-	if ((ipa_ctx->ipa_hw_type >= IPA_HW_v2_0) &&
-		IPA_CLIENT_IS_CONS(ep->client)) {
+	if (IPA_CLIENT_IS_CONS(ep->client)) {
 		memset(&holb_cfg, 0, sizeof(holb_cfg));
 		holb_cfg.en = IPA_HOLB_TMR_EN;
 		holb_cfg.tmr_val = 0;
@@ -81,7 +77,7 @@ int ipa_disable_data_path(u32 clnt_hdl)
 
 	udelay(IPA_PKT_FLUSH_TO_US);
 	aggr_init = ipa_read_reg(ipa_ctx->mmio,
-			IPA_ENDP_INIT_AGGR_N_OFST_v2_0(clnt_hdl));
+			IPA_ENDP_INIT_AGGR_N_OFST_v3_0(clnt_hdl));
 	if (((aggr_init & IPA_ENDP_INIT_AGGR_N_AGGR_EN_BMSK) >>
 	    IPA_ENDP_INIT_AGGR_N_AGGR_EN_SHFT) == IPA_ENABLE_AGGR)
 		ipa_tag_aggr_force_close(clnt_hdl);
@@ -346,9 +342,7 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 		}
 	}
 
-	if ((ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
-		ipa_ctx->ipa_hw_type == IPA_HW_v2_5) &&
-		IPA_CLIENT_IS_USB_CONS(in->client))
+	if (IPA_CLIENT_IS_USB_CONS(in->client))
 		ep->connect.event_thresh = IPA_USB_EVENT_THRESHOLD;
 	else
 		ep->connect.event_thresh = IPA_EVENT_THRESHOLD;

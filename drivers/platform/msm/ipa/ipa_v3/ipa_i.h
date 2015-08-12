@@ -1434,18 +1434,12 @@ int __ipa_del_rt_rule(u32 rule_hdl);
 int __ipa_del_hdr(u32 hdr_hdl);
 int __ipa_release_hdr(u32 hdr_hdl);
 int __ipa_release_hdr_proc_ctx(u32 proc_ctx_hdl);
-int _ipa_read_gen_reg_v1_1(char *buff, int max_len);
-int _ipa_read_gen_reg_v2_0(char *buff, int max_len);
-int _ipa_read_ep_reg_v1_1(char *buf, int max_len, int pipe);
-int _ipa_read_ep_reg_v2_0(char *buf, int max_len, int pipe);
-void _ipa_write_dbg_cnt_v1_1(int option);
-void _ipa_write_dbg_cnt_v2_0(int option);
-int _ipa_read_dbg_cnt_v1_1(char *buf, int max_len);
-int _ipa_read_dbg_cnt_v2_0(char *buf, int max_len);
-void _ipa_enable_clks_v1_1(void);
-void _ipa_enable_clks_v2_0(void);
-void _ipa_disable_clks_v1_1(void);
-void _ipa_disable_clks_v2_0(void);
+int _ipa_read_gen_reg_v3_0(char *buff, int max_len);
+int _ipa_read_ep_reg_v3_0(char *buf, int max_len, int pipe);
+void _ipa_write_dbg_cnt_v3_0(int option);
+int _ipa_read_dbg_cnt_v3_0(char *buf, int max_len);
+void _ipa_enable_clks_v3_0(void);
+void _ipa_disable_clks_v3_0(void);
 
 static inline u32 ipa_read_reg(void *base, u32 offset)
 {
@@ -1479,32 +1473,19 @@ void wwan_cleanup(void);
 int teth_bridge_driver_init(void);
 void ipa_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data);
 
-int _ipa_init_sram_v2(void);
-int _ipa_init_sram_v2_5(void);
-int _ipa_init_sram_v2_6L(void);
-int _ipa_init_hdr_v2(void);
-int _ipa_init_hdr_v2_5(void);
-int _ipa_init_hdr_v2_6L(void);
-int _ipa_init_rt4_v2(void);
-int _ipa_init_rt6_v2(void);
-int _ipa_init_flt4_v2(void);
-int _ipa_init_flt6_v2(void);
+int _ipa_init_sram_v3_0(void);
+int _ipa_init_hdr_v3_0(void);
+int _ipa_init_rt4_v3(void);
+int _ipa_init_rt6_v3(void);
+int _ipa_init_flt4_v3(void);
+int _ipa_init_flt6_v3(void);
 
-int __ipa_commit_flt_v1_1(enum ipa_ip_type ip);
-int __ipa_commit_flt_v2(enum ipa_ip_type ip);
-int __ipa_commit_rt_v1_1(enum ipa_ip_type ip);
-int __ipa_commit_rt_v2(enum ipa_ip_type ip);
-int __ipa_generate_rt_hw_rule_v2(enum ipa_ip_type ip,
-	struct ipa_rt_entry *entry, u8 *buf);
-int __ipa_generate_rt_hw_rule_v2_5(enum ipa_ip_type ip,
-	struct ipa_rt_entry *entry, u8 *buf);
-int __ipa_generate_rt_hw_rule_v2_6L(enum ipa_ip_type ip,
+int __ipa_commit_flt_v3(enum ipa_ip_type ip);
+int __ipa_commit_rt_v3(enum ipa_ip_type ip);
+int __ipa_generate_rt_hw_rule_v3_0(enum ipa_ip_type ip,
 	struct ipa_rt_entry *entry, u8 *buf);
 
-int __ipa_commit_hdr_v1_1(void);
-int __ipa_commit_hdr_v2(void);
-int __ipa_commit_hdr_v2_5(void);
-int __ipa_commit_hdr_v2_6L(void);
+int __ipa_commit_hdr_v3_0(void);
 int ipa_generate_flt_eq(enum ipa_ip_type ip,
 		const struct ipa_rule_attrib *attrib,
 		struct ipa_ipfltri_rule_eq *eq_attrib);

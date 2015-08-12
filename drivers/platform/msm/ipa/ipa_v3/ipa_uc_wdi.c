@@ -339,7 +339,7 @@ struct IpaHwEventLogInfoData_t *uc_event_top_mmio)
 	if (ipa_ctx->uc_wdi_ctx.wdi_uc_stats_ofst +
 		sizeof(struct IpaHwStatsWDIInfoData_t) >=
 		ipa_ctx->ctrl->ipa_reg_base_ofst +
-		IPA_SRAM_DIRECT_ACCESS_N_OFST_v2_0(0) +
+		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0) +
 		ipa_ctx->smem_sz) {
 			IPAERR("uc_wdi_stats 0x%x outside SRAM\n",
 				ipa_ctx->uc_wdi_ctx.wdi_uc_stats_ofst);
@@ -825,21 +825,11 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 
 		tx->num_tx_buffers = in->u.dl.num_tx_buffers;
 		tx->ipa_pipe_number = ipa_ep_idx;
-		if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_5) {
-				out->uc_door_bell_pa =
-				 ipa_ctx->ipa_wrapper_base +
-				   IPA_REG_BASE_OFST_v2_5 +
-				   IPA_UC_MAILBOX_m_n_OFFS_v2_5(
-				    IPA_HW_WDI_TX_MBOX_START_INDEX/32,
-				    IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
-		} else {
-				out->uc_door_bell_pa =
-				 ipa_ctx->ipa_wrapper_base +
-				   IPA_REG_BASE_OFST_v2_0 +
-				   IPA_UC_MAILBOX_m_n_OFFS(
-				    IPA_HW_WDI_TX_MBOX_START_INDEX/32,
-				    IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
-		}
+		out->uc_door_bell_pa = ipa_ctx->ipa_wrapper_base +
+				IPA_REG_BASE_OFST_v3_0 +
+				IPA_UC_MAILBOX_m_n_OFFS_v3_0(
+					IPA_HW_WDI_TX_MBOX_START_INDEX/32,
+					IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
 	} else {
 		rx = (struct IpaHwWdiRxSetUpCmdData_t *)cmd.base;
 
@@ -878,21 +868,11 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		rx->rx_ring_rp_pa = va;
 
 		rx->ipa_pipe_number = ipa_ep_idx;
-		if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_5) {
-				out->uc_door_bell_pa =
-				 ipa_ctx->ipa_wrapper_base +
-				   IPA_REG_BASE_OFST_v2_5 +
-				   IPA_UC_MAILBOX_m_n_OFFS_v2_5(
-				    IPA_HW_WDI_RX_MBOX_START_INDEX/32,
-				    IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
-		} else {
-				out->uc_door_bell_pa =
-				 ipa_ctx->ipa_wrapper_base +
-				   IPA_REG_BASE_OFST_v2_0 +
-				   IPA_UC_MAILBOX_m_n_OFFS(
-				    IPA_HW_WDI_RX_MBOX_START_INDEX/32,
-				    IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
-		}
+		out->uc_door_bell_pa = ipa_ctx->ipa_wrapper_base +
+				IPA_REG_BASE_OFST_v3_0 +
+				IPA_UC_MAILBOX_m_n_OFFS_v3_0(
+					IPA_HW_WDI_RX_MBOX_START_INDEX/32,
+					IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
 	}
 
 	ep->valid = 1;
@@ -1439,37 +1419,17 @@ int ipa_uc_wdi_get_dbpa(
 	}
 
 	if (IPA_CLIENT_IS_CONS(param->client)) {
-		if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_5) {
-				param->uc_door_bell_pa =
-				 ipa_ctx->ipa_wrapper_base +
-					IPA_REG_BASE_OFST_v2_5 +
-				   IPA_UC_MAILBOX_m_n_OFFS_v2_5(
-				    IPA_HW_WDI_TX_MBOX_START_INDEX/32,
-				    IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
-		} else {
-				param->uc_door_bell_pa =
-				 ipa_ctx->ipa_wrapper_base +
-					IPA_REG_BASE_OFST_v2_0 +
-				   IPA_UC_MAILBOX_m_n_OFFS(
-				    IPA_HW_WDI_TX_MBOX_START_INDEX/32,
-				    IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
-		}
+		param->uc_door_bell_pa = ipa_ctx->ipa_wrapper_base +
+				IPA_REG_BASE_OFST_v3_0 +
+				IPA_UC_MAILBOX_m_n_OFFS_v3_0(
+					IPA_HW_WDI_TX_MBOX_START_INDEX/32,
+					IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
 	} else {
-		if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_5) {
-				param->uc_door_bell_pa =
-				 ipa_ctx->ipa_wrapper_base +
-					IPA_REG_BASE_OFST_v2_5 +
-				   IPA_UC_MAILBOX_m_n_OFFS_v2_5(
-				    IPA_HW_WDI_RX_MBOX_START_INDEX/32,
-				    IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
-		} else {
-				param->uc_door_bell_pa =
-				 ipa_ctx->ipa_wrapper_base +
-					IPA_REG_BASE_OFST_v2_0 +
-				   IPA_UC_MAILBOX_m_n_OFFS(
-				    IPA_HW_WDI_RX_MBOX_START_INDEX/32,
-				    IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
-		}
+		param->uc_door_bell_pa = ipa_ctx->ipa_wrapper_base +
+				IPA_REG_BASE_OFST_v3_0 +
+				IPA_UC_MAILBOX_m_n_OFFS_v3_0(
+					IPA_HW_WDI_RX_MBOX_START_INDEX/32,
+					IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
 	}
 
 	return 0;

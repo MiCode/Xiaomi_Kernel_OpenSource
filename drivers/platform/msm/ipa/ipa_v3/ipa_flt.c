@@ -519,64 +519,6 @@ proc_err:
 }
 
 
-/**
- * ipa_generate_flt_hw_tbl() - generates the filtering hardware table
- * @ip:	[in] the ip address family type
- * @mem:	[out] buffer to put the filtering table
- *
- * Returns:	0 on success, negative on failure
- */
-static int ipa_generate_flt_hw_tbl_v1_1(enum ipa_ip_type ip,
-		struct ipa_mem_buffer *mem)
-{
-	u32 hdr_top = 0;
-	u32 hdr_sz;
-	u8 *hdr;
-	u8 *body;
-	u8 *base;
-
-	mem->size = ipa_get_flt_hw_tbl_size(ip, &hdr_sz);
-	mem->size = IPA_HW_TABLE_ALIGNMENT(mem->size);
-
-	if (mem->size == 0) {
-		IPAERR("flt tbl empty ip=%d\n", ip);
-		goto error;
-	}
-	mem->base = dma_alloc_coherent(ipa_ctx->pdev, mem->size,
-			&mem->phys_base, GFP_KERNEL);
-	if (!mem->base) {
-		IPAERR("fail to alloc DMA buff of size %d\n", mem->size);
-		goto error;
-	}
-
-	memset(mem->base, 0, mem->size);
-
-	/* build the flt tbl in the DMA buffer to submit to IPA HW */
-	base = hdr = (u8 *)mem->base;
-	body = base + hdr_sz;
-
-	/* write a dummy header to move cursor */
-	hdr = ipa_write_32(hdr_top, hdr);
-
-	if (ipa_generate_flt_hw_tbl_common(ip, body, hdr, hdr_sz, 0,
-				&hdr_top)) {
-		IPAERR("fail to generate FLT HW table\n");
-		goto proc_err;
-	}
-
-	/* now write the hdr_top */
-	ipa_write_32(hdr_top, base);
-
-	IPA_DUMP_BUFF(mem->base, mem->phys_base, mem->size);
-
-	return 0;
-
-proc_err:
-	dma_free_coherent(ipa_ctx->pdev, mem->size, mem->base, mem->phys_base);
-error:
-	return -EPERM;
-}
-
 static void __ipa_reap_sys_flt_tbls(enum ipa_ip_type ip)
 {
 	struct ipa_flt_tbl *tbl;
@@ -623,91 +565,6 @@ static void __ipa_reap_sys_flt_tbls(enum ipa_ip_type ip)
 			}
 		}
 	}
-}
-
-int __ipa_commit_flt_v1_1(enum ipa_ip_type ip)
-{
-	struct ipa_desc desc = { 0 };
-	struct ipa_mem_buffer *mem;
-	void *cmd;
-	struct ipa_ip_v4_filter_init *v4;
-	struct ipa_ip_v6_filter_init *v6;
-	u16 avail;
-	u16 size;
-
-	mem = kmalloc(sizeof(struct ipa_mem_buffer), GFP_KERNEL);
-	if (!mem) {
-		IPAERR("failed to alloc memory object\n");
-		goto fail_alloc_mem;
-	}
-
-	if (ip == IPA_IP_v4) {
-		avail = ipa_ctx->ip4_flt_tbl_lcl ? IPA_MEM_v1_RAM_V4_FLT_SIZE :
-			IPA_MEM_PART(v4_flt_size_ddr);
-		size = sizeof(struct ipa_ip_v4_filter_init);
-	} else {
-		avail = ipa_ctx->ip6_flt_tbl_lcl ? IPA_MEM_v1_RAM_V6_FLT_SIZE :
-			IPA_MEM_PART(v6_flt_size_ddr);
-		size = sizeof(struct ipa_ip_v6_filter_init);
-	}
-	cmd = kmalloc(size, GFP_KERNEL);
-	if (!cmd) {
-		IPAERR("failed to alloc immediate command object\n");
-		goto fail_alloc_cmd;
-	}
-
-	if (ipa_generate_flt_hw_tbl_v1_1(ip, mem)) {
-		IPAERR("fail to generate FLT HW TBL ip %d\n", ip);
-		goto fail_hw_tbl_gen;
-	}
-
-	if (mem->size > avail) {
-		IPAERR("tbl too big, needed %d avail %d\n", mem->size, avail);
-		goto fail_send_cmd;
-	}
-
-	if (ip == IPA_IP_v4) {
-		v4 = (struct ipa_ip_v4_filter_init *)cmd;
-		desc.opcode = IPA_IP_V4_FILTER_INIT;
-		v4->ipv4_rules_addr = mem->phys_base;
-		v4->size_ipv4_rules = mem->size;
-		v4->ipv4_addr = IPA_MEM_v1_RAM_V4_FLT_OFST;
-	} else {
-		v6 = (struct ipa_ip_v6_filter_init *)cmd;
-		desc.opcode = IPA_IP_V6_FILTER_INIT;
-		v6->ipv6_rules_addr = mem->phys_base;
-		v6->size_ipv6_rules = mem->size;
-		v6->ipv6_addr = IPA_MEM_v1_RAM_V6_FLT_OFST;
-	}
-
-	desc.pyld = cmd;
-	desc.len = size;
-	desc.type = IPA_IMM_CMD_DESC;
-	IPA_DUMP_BUFF(mem->base, mem->phys_base, mem->size);
-
-	if (ipa_send_cmd(1, &desc)) {
-		IPAERR("fail to send immediate command\n");
-		goto fail_send_cmd;
-	}
-
-	__ipa_reap_sys_flt_tbls(ip);
-	dma_free_coherent(ipa_ctx->pdev, mem->size, mem->base, mem->phys_base);
-	kfree(cmd);
-	kfree(mem);
-
-	return 0;
-
-fail_send_cmd:
-	if (mem->phys_base)
-		dma_free_coherent(ipa_ctx->pdev, mem->size, mem->base,
-				mem->phys_base);
-fail_hw_tbl_gen:
-	kfree(cmd);
-fail_alloc_cmd:
-	kfree(mem);
-fail_alloc_mem:
-
-	return -EPERM;
 }
 
 static int ipa_generate_flt_hw_tbl_v2(enum ipa_ip_type ip,
@@ -802,7 +659,12 @@ err:
 	return -EPERM;
 }
 
-int __ipa_commit_flt_v2(enum ipa_ip_type ip)
+/**
+ * __ipa_commit_flt_v3() - Commits the filtering table from memory to HW
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 {
 	struct ipa_desc *desc;
 	struct ipa_hw_imm_cmd_dma_shared_mem *cmd;

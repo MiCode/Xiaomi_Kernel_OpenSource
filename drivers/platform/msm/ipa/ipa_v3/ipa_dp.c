@@ -249,7 +249,7 @@ static void ipa_handle_tx(struct ipa_sys_context *sys)
 	ipa_dec_client_disable_clks();
 }
 
-static void ipa_wq_handle_tx(struct work_struct *work)
+static inline void ipa_wq_handle_tx(struct work_struct *work)
 {
 	struct ipa_sys_context *sys;
 
@@ -630,7 +630,7 @@ bail:
  *
  * This function defer the work for this event to the tx workqueue.
  */
-static void ipa_sps_irq_tx_notify(struct sps_event_notify *notify)
+void ipa_sps_irq_tx_notify(struct sps_event_notify *notify)
 {
 	struct ipa_sys_context *sys = (struct ipa_sys_context *)notify->user;
 	int ret;
@@ -820,7 +820,12 @@ static void ipa_sps_irq_rx_notify(struct sps_event_notify *notify)
 	}
 }
 
-static void switch_to_intr_tx_work_func(struct work_struct *work)
+/**
+ * switch_to_intr_tx_work_func() - Wrapper function to move from polling
+ *	to interrupt mode
+ * @work: work struct
+ */
+void switch_to_intr_tx_work_func(struct work_struct *work)
 {
 	struct delayed_work *dwork;
 	struct ipa_sys_context *sys;
@@ -2245,64 +2250,6 @@ bail:
 	return rc;
 }
 
-static int ipa_rx_pyld_hdlr(struct sk_buff *rx_skb, struct ipa_sys_context *sys)
-{
-	struct ipa_a5_mux_hdr *mux_hdr;
-	unsigned int pull_len;
-	unsigned int padding;
-	struct ipa_ep_context *ep;
-	unsigned int src_pipe;
-
-	mux_hdr = (struct ipa_a5_mux_hdr *)rx_skb->data;
-
-	src_pipe = mux_hdr->src_pipe_index;
-
-	IPADBG("RX pkt len=%d IID=0x%x src=%d, flags=0x%x, meta=0x%x\n",
-		rx_skb->len, ntohs(mux_hdr->interface_id),
-		src_pipe, mux_hdr->flags, ntohl(mux_hdr->metadata));
-
-	IPA_DUMP_BUFF(rx_skb->data, 0, rx_skb->len);
-
-	IPA_STATS_INC_CNT(ipa_ctx->stats.rx_pkts);
-	IPA_STATS_EXCP_CNT(mux_hdr->flags, ipa_ctx->stats.rx_excp_pkts);
-
-	/*
-	 * Any packets arriving over AMPDU_TX should be dispatched
-	 * to the regular WLAN RX data-path.
-	 */
-	if (unlikely(src_pipe == WLAN_AMPDU_TX_EP))
-		src_pipe = WLAN_PROD_TX_EP;
-
-	ep = &ipa_ctx->ep[src_pipe];
-	spin_lock(&ipa_ctx->lan_rx_clnt_notify_lock);
-	if (unlikely(src_pipe >= ipa_ctx->ipa_num_pipes ||
-		!ep->valid || !ep->client_notify)) {
-		IPAERR("drop pipe=%d ep_valid=%d client_notify=%p\n",
-		  src_pipe, ep->valid, ep->client_notify);
-		dev_kfree_skb_any(rx_skb);
-		spin_unlock(&ipa_ctx->lan_rx_clnt_notify_lock);
-		return 0;
-	}
-
-	pull_len = sizeof(struct ipa_a5_mux_hdr);
-
-	/*
-	 * IP packet starts on word boundary
-	 * remove the MUX header and any padding and pass the frame to
-	 * the client which registered a rx callback on the "src pipe"
-	 */
-	padding = ep->cfg.hdr.hdr_len & 0x3;
-	if (padding)
-		pull_len += 4 - padding;
-
-	IPADBG("pulling %d bytes from skb\n", pull_len);
-	skb_pull(rx_skb, pull_len);
-	ep->client_notify(ep->priv, IPA_RECEIVE,
-			(unsigned long)(rx_skb));
-	spin_unlock(&ipa_ctx->lan_rx_clnt_notify_lock);
-	return 0;
-}
-
 static struct sk_buff *ipa_get_skb_ipa_rx(unsigned int len, gfp_t flags)
 {
 	return __dev_alloc_skb(len, flags);
@@ -2497,43 +2444,6 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 		return 0;
 	}
 
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_1) {
-		if (in->client == IPA_CLIENT_APPS_LAN_WAN_PROD) {
-			sys->policy = IPA_POLICY_INTR_POLL_MODE;
-			sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT |
-					SPS_O_ACK_TRANSFERS);
-			sys->sps_callback = ipa_sps_irq_tx_notify;
-			INIT_WORK(&sys->work, ipa_wq_handle_tx);
-			INIT_DELAYED_WORK(&sys->switch_to_intr_work,
-				switch_to_intr_tx_work_func);
-			atomic_set(&sys->curr_polling_state, 0);
-		} else if (in->client == IPA_CLIENT_APPS_LAN_CONS) {
-			sys->policy = IPA_POLICY_INTR_POLL_MODE;
-			sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT |
-					SPS_O_ACK_TRANSFERS);
-			sys->sps_callback = ipa_sps_irq_rx_notify;
-			INIT_WORK(&sys->work, ipa_wq_handle_rx);
-			INIT_DELAYED_WORK(&sys->switch_to_intr_work,
-				switch_to_intr_rx_work_func);
-			INIT_DELAYED_WORK(&sys->replenish_rx_work,
-					replenish_rx_work_func);
-			atomic_set(&sys->curr_polling_state, 0);
-			sys->rx_buff_sz = IPA_RX_SKB_SIZE;
-			sys->rx_pool_sz = IPA_RX_POOL_CEIL;
-			sys->pyld_hdlr = ipa_rx_pyld_hdlr;
-			sys->get_skb = ipa_get_skb_ipa_rx;
-			sys->free_skb = ipa_free_skb_rx;
-			sys->repl_hdlr = ipa_replenish_rx_cache;
-		} else if (IPA_CLIENT_IS_PROD(in->client)) {
-			sys->policy = IPA_POLICY_INTR_MODE;
-			sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT);
-			sys->sps_callback = ipa_sps_irq_tx_no_aggr_notify;
-		} else {
-			IPAERR("Need to install a RX pipe hdlr\n");
-			WARN_ON(1);
-			return -EINVAL;
-		}
-	} else if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_0) {
 		sys->ep->status.status_en = true;
 		if (IPA_CLIENT_IS_PROD(in->client)) {
 			if (!sys->ep->skip_ep_cfg) {
@@ -2665,12 +2575,6 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 				return -EINVAL;
 			}
 		}
-	} else {
-		IPAERR("Unsupported HW type %d\n", ipa_ctx->ipa_hw_type);
-		WARN_ON(1);
-		return -EINVAL;
-
-	}
 
 	return 0;
 }

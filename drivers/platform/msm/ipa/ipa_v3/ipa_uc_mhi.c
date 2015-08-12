@@ -554,7 +554,7 @@ static void ipa_uc_mhi_event_log_info_hdlr(
 	if (ipa_uc_mhi_ctx->mhi_uc_stats_ofst +
 		sizeof(struct IpaHwStatsMhiInfoData_t) >=
 		ipa_ctx->ctrl->ipa_reg_base_ofst +
-		IPA_SRAM_DIRECT_ACCESS_N_OFST_v2_0(0) +
+		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0) +
 		ipa_ctx->smem_sz) {
 		IPAERR("uc_mhi_stats 0x%x outside SRAM\n",
 			ipa_uc_mhi_ctx->mhi_uc_stats_ofst);

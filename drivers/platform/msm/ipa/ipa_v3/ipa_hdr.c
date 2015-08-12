@@ -166,170 +166,12 @@ static int ipa_generate_hdr_proc_ctx_hw_tbl(u32 hdr_sys_addr,
 	return 0;
 }
 
-/*
- * __ipa_commit_hdr() commits hdr to hardware
- * This function needs to be called with a locked mutex.
+/**
+ * __ipa_commit_hdr_v3_0() - Commits the header table from memory to HW
+ *
+ * Returns:	0 on success, negative on failure
  */
-int __ipa_commit_hdr_v1_1(void)
-{
-	struct ipa_desc desc = { 0 };
-	struct ipa_mem_buffer *mem;
-	struct ipa_hdr_init_local *cmd;
-	u16 len;
-
-	mem = kmalloc(sizeof(struct ipa_mem_buffer), GFP_KERNEL);
-	if (!mem) {
-		IPAERR("failed to alloc memory object\n");
-		goto fail_alloc_mem;
-	}
-
-	/* the immediate command param size is same for both local and system */
-	len = sizeof(struct ipa_hdr_init_local);
-
-	/*
-	 * we can use init_local ptr for init_system due to layout of the
-	 * struct
-	 */
-	cmd = kmalloc(len, GFP_KERNEL);
-	if (!cmd) {
-		IPAERR("failed to alloc immediate command object\n");
-		goto fail_alloc_cmd;
-	}
-
-	if (ipa_generate_hdr_hw_tbl(mem)) {
-		IPAERR("fail to generate HDR HW TBL\n");
-		goto fail_hw_tbl_gen;
-	}
-
-	if (ipa_ctx->hdr_tbl_lcl) {
-		if (mem->size > IPA_MEM_v1_RAM_HDR_SIZE) {
-			IPAERR("tbl too big, needed %d avail %d\n", mem->size,
-				IPA_MEM_v1_RAM_HDR_SIZE);
-			goto fail_send_cmd;
-		}
-	} else {
-		if (mem->size > IPA_MEM_PART(apps_hdr_size_ddr)) {
-			IPAERR("tbl too big, needed %d avail %d\n", mem->size,
-				IPA_MEM_PART(apps_hdr_size_ddr));
-			goto fail_send_cmd;
-		}
-	}
-
-	cmd->hdr_table_src_addr = mem->phys_base;
-	if (ipa_ctx->hdr_tbl_lcl) {
-		cmd->size_hdr_table = mem->size;
-		cmd->hdr_table_dst_addr = IPA_MEM_v1_RAM_HDR_OFST;
-		desc.opcode = IPA_HDR_INIT_LOCAL;
-	} else {
-		desc.opcode = IPA_HDR_INIT_SYSTEM;
-	}
-	desc.pyld = cmd;
-	desc.len = sizeof(struct ipa_hdr_init_local);
-	desc.type = IPA_IMM_CMD_DESC;
-	IPA_DUMP_BUFF(mem->base, mem->phys_base, mem->size);
-
-	if (ipa_send_cmd(1, &desc)) {
-		IPAERR("fail to send immediate command\n");
-		goto fail_send_cmd;
-	}
-
-	if (ipa_ctx->hdr_tbl_lcl) {
-		dma_free_coherent(ipa_ctx->pdev, mem->size, mem->base,
-				mem->phys_base);
-	} else {
-		if (ipa_ctx->hdr_mem.phys_base) {
-			dma_free_coherent(ipa_ctx->pdev, ipa_ctx->hdr_mem.size,
-					  ipa_ctx->hdr_mem.base,
-					  ipa_ctx->hdr_mem.phys_base);
-		}
-		ipa_ctx->hdr_mem = *mem;
-	}
-	kfree(cmd);
-	kfree(mem);
-
-	return 0;
-
-fail_send_cmd:
-	if (mem->base)
-		dma_free_coherent(ipa_ctx->pdev, mem->size, mem->base,
-				mem->phys_base);
-fail_hw_tbl_gen:
-	kfree(cmd);
-fail_alloc_cmd:
-	kfree(mem);
-fail_alloc_mem:
-
-	return -EPERM;
-}
-
-int __ipa_commit_hdr_v2(void)
-{
-	struct ipa_desc desc = { 0 };
-	struct ipa_mem_buffer mem;
-	struct ipa_hdr_init_system cmd;
-	struct ipa_hw_imm_cmd_dma_shared_mem dma_cmd;
-	int rc = -EFAULT;
-
-	if (ipa_generate_hdr_hw_tbl(&mem)) {
-		IPAERR("fail to generate HDR HW TBL\n");
-		goto end;
-	}
-
-	if (ipa_ctx->hdr_tbl_lcl) {
-		if (mem.size > IPA_MEM_PART(apps_hdr_size)) {
-			IPAERR("tbl too big, needed %d avail %d\n", mem.size,
-				IPA_MEM_PART(apps_hdr_size));
-			goto end;
-		} else {
-			dma_cmd.system_addr = mem.phys_base;
-			dma_cmd.size = mem.size;
-			dma_cmd.local_addr = ipa_ctx->smem_restricted_bytes +
-				IPA_MEM_PART(apps_hdr_ofst);
-			desc.opcode = IPA_DMA_SHARED_MEM;
-			desc.pyld = &dma_cmd;
-			desc.len =
-				sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
-		}
-	} else {
-		if (mem.size > IPA_MEM_PART(apps_hdr_size_ddr)) {
-			IPAERR("tbl too big, needed %d avail %d\n", mem.size,
-				IPA_MEM_PART(apps_hdr_size_ddr));
-			goto end;
-		} else {
-			cmd.hdr_table_addr = mem.phys_base;
-			desc.opcode = IPA_HDR_INIT_SYSTEM;
-			desc.pyld = &cmd;
-			desc.len = sizeof(struct ipa_hdr_init_system);
-		}
-	}
-
-	desc.type = IPA_IMM_CMD_DESC;
-	IPA_DUMP_BUFF(mem.base, mem.phys_base, mem.size);
-
-	if (ipa_send_cmd(1, &desc))
-		IPAERR("fail to send immediate command\n");
-	else
-		rc = 0;
-
-	if (ipa_ctx->hdr_tbl_lcl) {
-		dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base,
-				mem.phys_base);
-	} else {
-		if (!rc) {
-			if (ipa_ctx->hdr_mem.phys_base)
-				dma_free_coherent(ipa_ctx->pdev,
-						ipa_ctx->hdr_mem.size,
-						ipa_ctx->hdr_mem.base,
-						ipa_ctx->hdr_mem.phys_base);
-			ipa_ctx->hdr_mem = mem;
-		}
-	}
-
-end:
-	return rc;
-}
-
-int __ipa_commit_hdr_v2_5(void)
+int __ipa_commit_hdr_v3_0(void)
 {
 	struct ipa_desc desc[2];
 	struct ipa_mem_buffer hdr_mem;
@@ -462,17 +304,6 @@ int __ipa_commit_hdr_v2_5(void)
 
 end:
 	return rc;
-}
-
-/**
- * __ipa_commit_hdr_v2_6L() - Commits a header to the IPA HW.
- *
- * This function needs to be called with a locked mutex.
- */
-int __ipa_commit_hdr_v2_6L(void)
-{
-	/* Same implementation as IPAv2 */
-	return __ipa_commit_hdr_v2();
 }
 
 static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
@@ -633,22 +464,13 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr)
 	mem_size = (ipa_ctx->hdr_tbl_lcl) ? IPA_MEM_PART(apps_hdr_size) :
 		IPA_MEM_PART(apps_hdr_size_ddr);
 
-	/*
-	 * if header does not fit to table, place it in DDR
-	 * This is valid for IPA 2.5 and on,
-	 * with the exception of IPA2.6L.
-	 */
+	/* if header does not fit to table, place it in DDR */
 	if (htbl->end + ipa_hdr_bin_sz[bin] > mem_size) {
-		if (ipa_ctx->ipa_hw_type != IPA_HW_v2_5) {
-			IPAERR("not enough room for header\n");
-			goto bad_hdr_len;
-		} else {
-			entry->is_hdr_proc_ctx = true;
-			entry->phys_base = dma_map_single(ipa_ctx->pdev,
-				entry->hdr,
-				entry->hdr_len,
-				DMA_TO_DEVICE);
-		}
+		entry->is_hdr_proc_ctx = true;
+		entry->phys_base = dma_map_single(ipa_ctx->pdev,
+			entry->hdr,
+			entry->hdr_len,
+			DMA_TO_DEVICE);
 	} else {
 		entry->is_hdr_proc_ctx = false;
 		if (list_empty(&htbl->head_free_offset_list[bin])) {
@@ -916,13 +738,6 @@ int ipa_add_hdr_proc_ctx(struct ipa_ioc_add_hdr_proc_ctx *proc_ctxs)
 	int i;
 	int result = -EFAULT;
 
-	if (ipa_ctx->ipa_hw_type <= IPA_HW_v2_0 ||
-	    ipa_ctx->ipa_hw_type == IPA_HW_v2_6L) {
-		IPAERR("Processing context not supported on IPA HW %d\n",
-			ipa_ctx->ipa_hw_type);
-		return -EFAULT;
-	}
-
 	if (proc_ctxs == NULL || proc_ctxs->num_proc_ctxs == 0) {
 		IPAERR("bad parm\n");
 		return -EINVAL;
@@ -968,13 +783,6 @@ int ipa_del_hdr_proc_ctx(struct ipa_ioc_del_hdr_proc_ctx *hdls)
 {
 	int i;
 	int result;
-
-	if (ipa_ctx->ipa_hw_type <= IPA_HW_v2_0 ||
-	    ipa_ctx->ipa_hw_type == IPA_HW_v2_6L) {
-		IPAERR("Processing context not supported on IPA HW %d\n",
-			ipa_ctx->ipa_hw_type);
-		return -EFAULT;
-	}
 
 	if (hdls == NULL || hdls->num_hdls == 0) {
 		IPAERR("bad parm\n");

@@ -88,15 +88,9 @@ struct ipa_rt_rule_hw_hdr {
 			u32 en_rule:16;
 			u32 pipe_dest_idx:5;
 			u32 system:1;
-			u32 hdr_offset:10;
-		} hdr;
-		struct {
-			u32 en_rule:16;
-			u32 pipe_dest_idx:5;
-			u32 system:1;
 			u32 hdr_offset:9;
 			u32 proc_ctx:1;
-		} hdr_v2_5;
+		} hdr;
 	} u;
 };
 
@@ -350,29 +344,12 @@ struct ipa_hw_pkt_status {
 	u32 endp_dest_idx:5;
 	u32 reserved_2:3;
 	u32 metadata:32;
-	union {
-		struct {
-			u32 filt_local:1;
-			u32 filt_global:1;
-			u32 filt_pipe_idx:5;
-			u32 filt_match:1;
-			u32 filt_rule_idx:6;
-			u32 ret_hdr:1;
-			u32 reserved_3:1;
-			u32 tag_f_1:16;
-
-		} ipa_hw_v2_0_pkt_status;
-		struct {
-			u32 filt_local:1;
-			u32 filt_global:1;
-			u32 filt_pipe_idx:5;
-			u32 ret_hdr:1;
-			u32 filt_rule_idx:8;
-			u32 tag_f_1:16;
-
-		} ipa_hw_v2_5_pkt_status;
-	};
-
+	u32 filt_local:1;
+	u32 filt_global:1;
+	u32 filt_pipe_idx:5;
+	u32 ret_hdr:1;
+	u32 filt_rule_idx:8;
+	u32 tag_f_1:16;
 	u32 tag_f_2:32;
 	u32 time_day_ctr:32;
 	u32 nat_hit:1;
