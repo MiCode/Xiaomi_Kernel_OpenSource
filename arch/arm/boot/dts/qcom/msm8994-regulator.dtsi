@@ -634,7 +634,7 @@
 		qcom,cpr-apc-volt-step = <5000>;
 
 		qcom,cpr-fuse-row = <137 0>;
-		qcom,cpr-fuse-target-quot = <39 39 47 55>;
+		qcom,cpr-fuse-target-quot = <31 39 47 55>;
 		qcom,cpr-fuse-target-quot-size = <8 8 8 8>;
 		qcom,cpr-fuse-target-quot-scale =
 					<0 10>,
@@ -655,7 +655,7 @@
 					<57 55 4 0>;
 		qcom,cpr-fuse-redun-sel = <140 61 3 1 0>;
 		qcom,cpr-fuse-redun-row = <1000 0>;
-		qcom,cpr-fuse-redun-target-quot = <8 8 16 24>;
+		qcom,cpr-fuse-redun-target-quot = <0 8 16 24>;
 		qcom,cpr-fuse-redun-ro-sel = <44 44 44 44>;
 		qcom,cpr-fuse-redun-init-voltage =
 					<1000 32 6 0>,
