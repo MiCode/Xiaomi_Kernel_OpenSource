@@ -2969,6 +2969,13 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	IPADBG("IPA HW initialization sequence completed");
 
 	ipa_ctx->ipa_num_pipes = ipa_get_num_pipes();
+	if (ipa_ctx->ipa_num_pipes > IPA_MAX_NUM_PIPES) {
+		IPAERR("IPA has more pipes then supported! has %d, max %d\n",
+			ipa_ctx->ipa_num_pipes, IPA_MAX_NUM_PIPES);
+		result = -ENODEV;
+		goto fail_init_hw;
+	}
+
 	ipa_ctx->ctrl->ipa_sram_read_settings();
 	IPADBG("SRAM, size: 0x%x, restricted bytes: 0x%x\n",
 		ipa_ctx->smem_sz, ipa_ctx->smem_restricted_bytes);
