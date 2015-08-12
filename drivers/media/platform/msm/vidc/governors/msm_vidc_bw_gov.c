@@ -49,6 +49,15 @@ const struct {
 	.height = 720,
 };
 
+/*
+ * These are hardcoded AB values that the governor votes for in certain
+ * situations, where a certain bus frequency is desired.  It isn't exactly
+ * scalable since different platforms have different bus widths, but we'll
+ * deal with that in the future.
+ */
+const unsigned long NOMINAL_BW_MBPS = 6000 /* ideally 320 Mhz */,
+	SVS_BW_MBPS = 2000 /* ideally 100 Mhz */;
+
 /* converts Mbps to bps (the "b" part can be bits or bytes based on context) */
 #define kbps(__mbps) ((__mbps) * U64_C(1000))
 #define bps(__mbps) (kbps(__mbps) * U64_C(1000))
@@ -434,6 +443,14 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 		vmem.recon_read + vmem.recon_write +
 		vmem.opb_read + vmem.opb_write +
 		vmem.dpb_read + vmem.dpb_write;
+
+	/*
+	 * Attempt to force VMEM to a certain frequency for 4K
+	 */
+	if (width * height * fps >= 3840 * 2160 * 60)
+		vmem.total = FP_INT(NOMINAL_BW_MBPS);
+	else if (width * height * fps >= 3840 * 2160 * 30)
+		vmem.total = FP_INT(SVS_BW_MBPS);
 
 	/* ........................................ for DDR */
 	ddr.vsp_read = fp_div(fp_mult(FP_INT(bitrate),
@@ -850,6 +867,13 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 		vmem.original_read + vmem.original_write +
 		vmem.dpb_read + vmem.dpb_write;
 
+	/*
+	 * When in low power mode, attempt to force the VMEM clocks a certain
+	 * frequency that DCVS would prefer
+	 */
+	if (width * height >= 3840 * 2160 && low_power)
+		vmem.total = FP_INT(NOMINAL_BW_MBPS);
+
 	if (debug) {
 		struct dump dump[] = {
 		{"ENCODER PARAMETERS", "", DUMP_HEADER_MAGIC},
@@ -981,7 +1005,7 @@ static int __get_target_freq(struct devfreq *dev, unsigned long *freq,
 	for (c = 0; c < vidc_data->data_count; ++c)
 		ab_kbps += __calculate(&vidc_data->data[c], gov->mode);
 
-	*freq = ab_kbps;
+	*freq = clamp(ab_kbps, dev->min_freq, dev->max_freq ?: UINT_MAX);
 exit:
 	return 0;
 }
