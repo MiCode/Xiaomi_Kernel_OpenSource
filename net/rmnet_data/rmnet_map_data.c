@@ -161,7 +161,7 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 
 	/* Sanity check */
 	ip_byte = (skbn->data[4]) & 0xF0;
-	if (ip_byte != 0x40 && ip_byte != 0x60) {
+	if (!RMNET_MAP_GET_CD_BIT(skbn) && ip_byte != 0x40 && ip_byte != 0x60) {
 		LOGM("Unknown IP type: 0x%02X", ip_byte);
 		rmnet_kfree_skb(skbn, RMNET_STATS_SKBFREE_DEAGG_UNKOWN_IP_TYP);
 		return 0;
