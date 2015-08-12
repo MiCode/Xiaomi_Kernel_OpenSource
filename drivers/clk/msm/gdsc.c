@@ -90,6 +90,7 @@ struct gdsc {
 	bool			force_root_en;
 	int			root_clk_idx;
 	bool			no_status_check_on_disable;
+	bool			is_gdsc_enabled;
 	void __iomem		*domain_addr;
 };
 
@@ -184,7 +185,7 @@ static int gdsc_enable(struct regulator_dev *rdev)
 
 	if (sc->force_root_en)
 		clk_disable_unprepare(sc->clocks[sc->root_clk_idx]);
-
+	sc->is_gdsc_enabled = true;
 	return 0;
 }
 
@@ -249,9 +250,13 @@ static int gdsc_disable(struct regulator_dev *rdev)
 		sc->resets_asserted = true;
 	}
 
-	if (sc->root_en || sc->force_root_en)
+	/*
+	 * Check if gdsc_enable was called for this GDSC. If not, the root
+	 * clock will not have been enabled prior to this.
+	 */
+	if ((sc->is_gdsc_enabled && sc->root_en) || sc->force_root_en)
 		clk_disable_unprepare(sc->clocks[sc->root_clk_idx]);
-
+	sc->is_gdsc_enabled = false;
 	return ret;
 }
 
