@@ -55,6 +55,7 @@
 #define WCD9XXX_MBHC_DEF_RLOADS     5
 #define CODEC_EXT_CLK_RATE         9600000
 #define ADSP_STATE_READY_TIMEOUT_MS    3000
+#define DEV_NAME_STR_LEN            32
 
 static int slim0_rx_sample_rate = SAMPLING_RATE_48KHZ;
 static int slim0_tx_sample_rate = SAMPLING_RATE_48KHZ;
@@ -3346,29 +3347,9 @@ static struct snd_soc_dai_link msm8996_tasha_dai_links[
 			 ARRAY_SIZE(msm8996_tasha_be_dai_links) +
 			 ARRAY_SIZE(msm8996_hdmi_dai_link)];
 
-static struct snd_soc_aux_dev msm8996_aux_dev[] = {
-	{
-		.name = "wsa881x.0",
-		.codec_name = "wsa881x.20170212",
-		.init = msm8996_wsa881x_init,
-	},
-	{
-		.name = "wsa881x.1",
-		.codec_name = "wsa881x.20170211",
-		.init = msm8996_wsa881x_init,
-	},
-};
-
-static struct snd_soc_codec_conf msm8996_codec_conf[] = {
-	{
-		.dev_name = "wsa881x.20170212",
-		.name_prefix = "SpkrLeft",
-	},
-	{
-		.dev_name = "wsa881x.20170211",
-		.name_prefix = "SpkrRight",
-	},
-};
+static struct snd_soc_aux_dev *msm8996_aux_dev;
+static struct snd_soc_codec_conf *msm8996_codec_conf;
+static const char * const spkr_amp_prefix[] = {"SpkrLeft", "SpkrRight"};
 
 static int msm8996_wsa881x_init(struct snd_soc_component *component)
 {
@@ -3429,10 +3410,6 @@ struct snd_soc_card snd_soc_card_tomtom_msm8996 = {
 
 struct snd_soc_card snd_soc_card_tasha_msm8996 = {
 	.name		= "msm8996-tasha-snd-card",
-	.aux_dev	= msm8996_aux_dev,
-	.num_aux_devs	= ARRAY_SIZE(msm8996_aux_dev),
-	.codec_conf	= msm8996_codec_conf,
-	.num_configs	= ARRAY_SIZE(msm8996_codec_conf),
 };
 
 static int msm8996_populate_dai_link_component_of_node(
@@ -3654,6 +3631,67 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 	return card;
 }
 
+static int msm8996_init_auxdev(struct platform_device *pdev,
+				struct snd_soc_card *card)
+{
+	struct device_node *dai_node;
+	u32 aux_dev_count;
+	char *dev_name_str = NULL;
+	int i;
+
+	aux_dev_count = of_count_phandle_with_args(pdev->dev.of_node,
+						   "qcom,aux-codec", NULL);
+	if (aux_dev_count == -ENOENT) {
+		dev_warn(&pdev->dev, "%s: No aux codec defined in DT.\n",
+			__func__);
+		return 0;
+	} else if (aux_dev_count <= 0) {
+		dev_err(&pdev->dev, "%s: Error reading aux codec from DT. aux_dev_count = %d\n",
+			__func__, aux_dev_count);
+		return -EINVAL;
+	}
+
+	card->num_aux_devs = aux_dev_count;
+	card->num_configs = aux_dev_count;
+
+	msm8996_aux_dev = devm_kcalloc(&pdev->dev, card->num_aux_devs,
+				  sizeof(struct snd_soc_aux_dev), GFP_KERNEL);
+	if (!msm8996_aux_dev)
+		return -ENOMEM;
+
+	msm8996_codec_conf = devm_kcalloc(&pdev->dev, card->num_aux_devs,
+				     sizeof(struct snd_soc_codec_conf),
+				     GFP_KERNEL);
+	if (!msm8996_codec_conf)
+		return -ENOMEM;
+
+	for (i = 0; i < card->num_aux_devs; i++) {
+		dai_node = of_parse_phandle(pdev->dev.of_node,
+					   "qcom,aux-codec", i);
+		if (!dai_node) {
+			dev_err(&pdev->dev, "Aux Codec node is not present\n");
+			return -EINVAL;
+		}
+		dev_name_str = devm_kzalloc(&pdev->dev, DEV_NAME_STR_LEN,
+					    GFP_KERNEL);
+		if (!dev_name_str)
+			return -ENOMEM;
+
+		snprintf(dev_name_str, strlen("wsa881x.%d"), "wsa881x.%d", i);
+		msm8996_aux_dev[i].name = dev_name_str;
+		msm8996_aux_dev[i].codec_name = NULL;
+		msm8996_aux_dev[i].codec_of_node = dai_node;
+		msm8996_aux_dev[i].init = msm8996_wsa881x_init;
+		msm8996_codec_conf[i].dev_name = NULL;
+		msm8996_codec_conf[i].name_prefix = spkr_amp_prefix[i];
+		msm8996_codec_conf[i].of_node = dai_node;
+	}
+	card->codec_conf = msm8996_codec_conf;
+	card->aux_dev = msm8996_aux_dev;
+
+	return 0;
+}
+
 static int msm8996_asoc_machine_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card;
@@ -3661,8 +3699,7 @@ static int msm8996_asoc_machine_probe(struct platform_device *pdev)
 	const char *mbhc_audio_jack_type = NULL;
 	char *mclk_freq_prop_name;
 	const struct of_device_id *match;
-	int ret, i;
-	struct device_node *dai_node;
+	int ret;
 
 	if (!pdev->dev.of_node) {
 		dev_err(&pdev->dev, "No platform supplied from device tree\n");
@@ -3738,18 +3775,10 @@ static int msm8996_asoc_machine_probe(struct platform_device *pdev)
 		ret = -EPROBE_DEFER;
 		goto err;
 	}
-	for (i = 0; i < card->num_aux_devs; i++) {
-		dai_node = of_parse_phandle(pdev->dev.of_node,
-					   "qcom,aux-codec", i);
-		if (!dai_node) {
-			dev_err(&pdev->dev, "Aux Codec node is not present\n");
-			return -EINVAL;
-		}
-		msm8996_aux_dev[i].codec_name = NULL;
-		msm8996_aux_dev[i].codec_of_node = dai_node;
-		msm8996_codec_conf[i].dev_name = NULL;
-		msm8996_codec_conf[i].of_node = dai_node;
-	}
+
+	ret = msm8996_init_auxdev(pdev, card);
+	if (ret)
+		goto err;
 
 	pdata->hph_en1_gpio = of_get_named_gpio(pdev->dev.of_node,
 						"qcom,hph-en1-gpio", 0);
