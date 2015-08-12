@@ -504,6 +504,9 @@
 		qcom,mx-restriction-temp-hysteresis = <5>;
 		qcom,mx-retention-min = <3>;
 		vdd-mx-supply = <&pmd9635_l9_level>;
+		qcom,cx-retention-min =
+			<RPM_SMD_REGULATOR_LEVEL_RETENTION_PLUS>;
+		vdd-cx-supply = <&pmd9635_s5_level>;
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
 		vdd-dig-supply = <&pmd9635_s5_floor_level>;
