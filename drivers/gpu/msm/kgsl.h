@@ -211,16 +211,6 @@ struct kgsl_mem_entry *kgsl_sharedmem_find_region(
 
 void kgsl_get_memory_usage(char *str, size_t len, unsigned int memflags);
 
-void kgsl_signal_event(struct kgsl_device *device,
-		struct kgsl_context *context, unsigned int timestamp,
-		unsigned int type);
-
-void kgsl_signal_events(struct kgsl_device *device,
-		struct kgsl_context *context, unsigned int type);
-
-void kgsl_cancel_events(struct kgsl_device *device,
-	void *owner);
-
 extern const struct dev_pm_ops kgsl_pm_ops;
 
 int kgsl_suspend_driver(struct platform_device *pdev, pm_message_t state);
