@@ -1378,6 +1378,9 @@ static bool wcd9335_is_volatile_register(struct device *dev, unsigned int reg)
 	case WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT10:
 	case WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT11:
 	case WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT12:
+	case WCD9335_VBADC_ADC_DOUTMSB:
+	case WCD9335_VBADC_ADC_DOUTLSB:
+	case WCD9335_CDC_VBAT_VBAT_GAIN_MON_VAL:
 		return true;
 	default:
 		return false;
