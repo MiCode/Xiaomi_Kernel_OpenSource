@@ -171,7 +171,7 @@ struct qpnp_pon {
 };
 
 static struct qpnp_pon *sys_reset_dev;
-static DEFINE_MUTEX(spon_list_mutex);
+static DEFINE_SPINLOCK(spon_list_slock);
 static LIST_HEAD(spon_dev_list);
 
 static u32 s1_delay[PON_S1_COUNT_MAX + 1] = {
@@ -426,13 +426,16 @@ static int qpnp_pon_reset_config(struct qpnp_pon *pon,
  * This function will support configuring for multiple PMICs. In some cases, the
  * PON of secondary PMICs also needs to be configured. So this supports that
  * requirement. Once the system-reset and secondary PMIC is configured properly,
- * the MSM can drop PS_HOLD to activate the specified configuration.
+ * the MSM can drop PS_HOLD to activate the specified configuration. Note that
+ * this function may be called from atomic context as in the case of the panic
+ * notifier path and thus it should not rely on function calls that may sleep.
  */
 int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 {
 	int rc = 0;
 	struct qpnp_pon *pon = sys_reset_dev;
 	struct qpnp_pon *tmp;
+	unsigned long flags;
 
 	if (!pon)
 		return -ENODEV;
@@ -449,7 +452,7 @@ int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 	 * is available, configure that also as per the requested power off
 	 * type
 	 */
-	mutex_lock(&spon_list_mutex);
+	spin_lock_irqsave(&spon_list_slock, flags);
 	if (list_empty(&spon_dev_list))
 		goto out;
 
@@ -465,7 +468,7 @@ int qpnp_pon_system_pwr_off(enum pon_power_off_type type)
 		}
 	}
 out:
-	mutex_unlock(&spon_list_mutex);
+	spin_unlock_irqrestore(&spon_list_slock, flags);
 	return rc;
 }
 EXPORT_SYMBOL(qpnp_pon_system_pwr_off);
@@ -1576,6 +1579,7 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 	u16 poff_sts = 0;
 	const char *s3_src;
 	u8 s3_src_reg;
+	unsigned long flags;
 
 	pon = devm_kzalloc(&spmi->dev, sizeof(struct qpnp_pon),
 							GFP_KERNEL);
@@ -1782,9 +1786,9 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 			dev_err(&spmi->dev, "qcom,system-reset property shouldn't be used along with qcom,secondary-pon-reset property\n");
 			return -EINVAL;
 		}
-		mutex_lock(&spon_list_mutex);
+		spin_lock_irqsave(&spon_list_slock, flags);
 		list_add(&pon->list, &spon_dev_list);
-		mutex_unlock(&spon_list_mutex);
+		spin_unlock_irqrestore(&spon_list_slock, flags);
 		pon->is_spon = true;
 	} else {
 		boot_reason = ffs(pon_sts);
@@ -1802,6 +1806,7 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 static int qpnp_pon_remove(struct spmi_device *spmi)
 {
 	struct qpnp_pon *pon = dev_get_drvdata(&spmi->dev);
+	unsigned long flags;
 
 	device_remove_file(&spmi->dev, &dev_attr_debounce_us);
 
@@ -1811,9 +1816,9 @@ static int qpnp_pon_remove(struct spmi_device *spmi)
 		input_unregister_device(pon->pon_input);
 	qpnp_pon_debugfs_remove(spmi);
 	if (pon->is_spon) {
-		mutex_lock(&spon_list_mutex);
+		spin_lock_irqsave(&spon_list_slock, flags);
 		list_del(&pon->list);
-		mutex_unlock(&spon_list_mutex);
+		spin_unlock_irqrestore(&spon_list_slock, flags);
 	}
 	return 0;
 }
