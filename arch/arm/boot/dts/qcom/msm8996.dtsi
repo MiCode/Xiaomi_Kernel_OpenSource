@@ -2800,6 +2800,31 @@
 			qcom,sensor-type =  "llm";
 			qcom,sensor-name = "LLM_l20-";
 		};
+		sensor_information31: qcom,sensor-information-31 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor16";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information32: qcom,sensor-information-32 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor17";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information33: qcom,sensor-information-33 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor18";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information34: qcom,sensor-information-34 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor19";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information35: qcom,sensor-information-35 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor20";
+			qcom,scaling-factor = <10>;
+		};
 	};
 
 	mitigation_profile0: qcom,limit_info-0 {
