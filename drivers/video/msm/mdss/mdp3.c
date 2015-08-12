@@ -903,9 +903,11 @@ static int mdp3_hw_init(void)
 		mdp3_res->dma[i].capability = MDP3_DMA_CAP_ALL;
 		mdp3_res->dma[i].in_use = 0;
 		mdp3_res->dma[i].available = 1;
+		mdp3_res->dma[i].cc_vect_sel = 0;
 		mdp3_res->dma[i].lut_sts = 0;
 		mdp3_res->dma[i].hist_cmap = NULL;
 		mdp3_res->dma[i].gc_cmap = NULL;
+		mutex_init(&mdp3_res->dma[i].pp_lock);
 	}
 	mdp3_res->dma[MDP3_DMA_S].capability = MDP3_DMA_CAP_DITHER;
 	mdp3_res->dma[MDP3_DMA_E].available = 0;
@@ -2293,10 +2295,17 @@ static void mdp3_debug_deinit(struct platform_device *pdev)
 
 static void mdp3_dma_underrun_intr_handler(int type, void *arg)
 {
+	struct mdp3_dma *dma = &mdp3_res->dma[MDP3_DMA_P];
+
 	mdp3_res->underrun_cnt++;
-	pr_err("display underrun detected count=%d\n",
+	pr_err_ratelimited("display underrun detected count=%d\n",
 			mdp3_res->underrun_cnt);
 	ATRACE_INT("mdp3_dma_underrun_intr_handler", mdp3_res->underrun_cnt);
+
+	if (dma->ccs_config.ccs_enable && !dma->ccs_config.ccs_dirty) {
+		dma->ccs_config.ccs_dirty = true;
+		schedule_work(&dma->underrun_work);
+	}
 }
 
 static ssize_t mdp3_show_capabilities(struct device *dev,
