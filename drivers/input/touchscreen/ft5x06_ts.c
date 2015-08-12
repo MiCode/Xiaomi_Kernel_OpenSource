@@ -405,7 +405,11 @@ power_off:
 	if (rc) {
 		dev_err(&data->client->dev,
 			"Regulator vcc_i2c disable failed rc=%d\n", rc);
-		regulator_enable(data->vdd);
+		rc = regulator_enable(data->vdd);
+		if (rc) {
+			dev_err(&data->client->dev,
+				"Regulator vdd enable failed rc=%d\n", rc);
+		}
 	}
 
 	return rc;
@@ -714,7 +718,7 @@ static int ft5x06_fw_upgrade_start(struct i2c_client *client,
 		/* Enter upgrade mode */
 		w_buf[0] = FT_UPGRADE_55;
 		ft5x06_i2c_write(client, w_buf, 1);
-		usleep(FT_55_AA_DLY_NS);
+		usleep_range(FT_55_AA_DLY_NS, FT_55_AA_DLY_NS + 1);
 		w_buf[0] = FT_UPGRADE_AA;
 		ft5x06_i2c_write(client, w_buf, 1);
 
@@ -1462,7 +1466,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 	__set_bit(BTN_TOUCH, input_dev->keybit);
 	__set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
 
-	input_mt_init_slots(input_dev, pdata->num_max_touches);
+	input_mt_init_slots(input_dev, pdata->num_max_touches, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X, pdata->x_min,
 			     pdata->x_max, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, pdata->y_min,
@@ -1755,7 +1759,7 @@ static const struct of_device_id ft5x06_match_table[] = {
 
 static struct i2c_driver ft5x06_ts_driver = {
 	.probe = ft5x06_ts_probe,
-	.remove = __devexit_p(ft5x06_ts_remove),
+	.remove = ft5x06_ts_remove,
 	.driver = {
 		   .name = "ft5x06_ts",
 		   .owner = THIS_MODULE,
