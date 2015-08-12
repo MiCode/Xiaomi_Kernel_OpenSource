@@ -46,6 +46,22 @@ static void calculate_temp(long *temp_val, int dmeas,
 	d2_msb = snd_soc_read(codec, dig_base_addr + WSA881X_OTP_REG_3);
 	d2_lsb = snd_soc_read(codec, dig_base_addr + WSA881X_OTP_REG_4);
 
+	/*
+	 * Temperature register values are expected to be in the
+	 * following range.
+	 * d1_msb  = 68 - 92 and d1_lsb  = 0, 64, 128, 192
+	 * d2_msb  = 185 -218 and  d2_lsb  = 0, 64, 128, 192
+	 */
+	if ((d1_msb < 68 || d1_msb > 92) ||
+	    (!(d1_lsb == 0 || d1_lsb == 64 || d1_lsb == 128 ||
+		d1_lsb == 192)) ||
+	    (d2_msb < 185 || d2_msb > 218) ||
+	    (!(d2_lsb == 0 || d2_lsb == 64 || d2_lsb == 128 ||
+		d2_lsb == 192))){
+		printk_ratelimited("%s: Temperature registers[%d %d %d %d] are out of range\n",
+				   __func__, d1_msb, d1_lsb, d2_msb, d2_lsb);
+	}
+
 	d1 = ((d1_msb << 0x8) | d1_lsb) >> 0x6;
 	d2 = ((d2_msb << 0x8) | d2_lsb) >> 0x6;
 
@@ -98,8 +114,9 @@ static int wsa881x_get_temp(struct thermal_zone_device *thermal,
 	*temp = temp_val;
 	if (temp_val <= LOW_TEMP_THRESHOLD ||
 			temp_val >= HIGH_TEMP_THRESHOLD) {
-		pr_err("%s: T0: %ld is out of range [%d, %d]\n", __func__,
-			temp_val, LOW_TEMP_THRESHOLD, HIGH_TEMP_THRESHOLD);
+		printk_ratelimited("%s: T0: %ld is out of range [%d, %d]\n",
+				   __func__, temp_val, LOW_TEMP_THRESHOLD,
+				   HIGH_TEMP_THRESHOLD);
 		ret = -EAGAIN;
 		goto rel;
 	}
