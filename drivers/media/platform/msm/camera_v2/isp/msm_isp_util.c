@@ -374,6 +374,9 @@ static inline u32 msm_isp_evt_mask_to_isp_event(u32 evt_mask)
 	case ISP_EVENT_MASK_INDEX_BUF_DIVERT:
 		evt_id = ISP_EVENT_BUF_DIVERT;
 		break;
+	case ISP_EVENT_MASK_INDEX_BUF_DONE:
+		evt_id = ISP_EVENT_BUF_DONE;
+		break;
 	case ISP_EVENT_MASK_INDEX_COMP_STATS_NOTIFY:
 		evt_id = ISP_EVENT_COMP_STATS_NOTIFY;
 		break;
