@@ -144,6 +144,7 @@ enum ipa_client_type {
 	IPA_CLIENT_ODU_PROD,
 	IPA_CLIENT_MHI_PROD,
 	IPA_CLIENT_Q6_LAN_PROD,
+	IPA_CLIENT_Q6_WAN_PROD,
 	IPA_CLIENT_Q6_CMD_PROD,
 	IPA_CLIENT_MEMCPY_DMA_SYNC_PROD,
 	IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD,
@@ -223,6 +224,7 @@ enum ipa_client_type {
 
 #define IPA_CLIENT_IS_Q6_PROD(client) \
 	((client) == IPA_CLIENT_Q6_LAN_PROD || \
+	(client) == IPA_CLIENT_Q6_WAN_PROD || \
 	(client) == IPA_CLIENT_Q6_CMD_PROD || \
 	(client) == IPA_CLIENT_Q6_DECOMP_PROD || \
 	(client) == IPA_CLIENT_Q6_DECOMP2_PROD)
