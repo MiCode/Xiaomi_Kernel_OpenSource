@@ -3311,6 +3311,9 @@ static int sd_resume(struct device *dev)
 {
 	struct scsi_disk *sdkp = dev_get_drvdata(dev);
 
+	if (!sdkp)
+		return 0;	/* this can happen */
+
 	if (!sdkp->device->manage_start_stop)
 		return 0;
 
