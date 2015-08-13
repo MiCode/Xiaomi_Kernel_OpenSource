@@ -50,6 +50,9 @@
 #define CYC_CNTR_IDX		0
 #define WASTED_CYC_CNTR_IDX	1
 
+/* counter is 28-bit */
+#define CNT_MAX 0x0FFFFFFFU
+
 struct m4m_counter {
 	int idx;
 	u32 event_mask;
@@ -144,7 +147,7 @@ static unsigned long _mon_get_count(struct m4m_hwmon *m,
 	}
 
 	if (ov)
-		cnt = U32_MAX - start + cur_cnt;
+		cnt = CNT_MAX - start + cur_cnt;
 	else
 		cnt = cur_cnt - start;
 
@@ -160,7 +163,11 @@ static unsigned long mon_get_count(struct m4m_hwmon *m,
 static inline void mon_set_limit(struct m4m_hwmon *m, enum request_group grp,
 			  unsigned int limit)
 {
-	u32 start = U32_MAX - limit;
+	u32 start;
+
+	if (limit >= CNT_MAX)
+		limit = CNT_MAX;
+	start = CNT_MAX - limit;
 
 	writel_relaxed(start, EVCNTR(m, m->cntr[grp].idx));
 	m->cntr[grp].last_start = start;
