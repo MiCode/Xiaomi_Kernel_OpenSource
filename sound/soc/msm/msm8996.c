@@ -57,6 +57,12 @@
 #define ADSP_STATE_READY_TIMEOUT_MS    3000
 #define DEV_NAME_STR_LEN            32
 
+enum {
+	AUX_DEV_NONE = 0,
+	WSA8810,
+	WSA8815,
+};
+
 static int slim0_rx_sample_rate = SAMPLING_RATE_48KHZ;
 static int slim0_tx_sample_rate = SAMPLING_RATE_48KHZ;
 static int slim0_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
@@ -79,6 +85,8 @@ static int msm_hdmi_rx_ch = 2;
 static int msm_proxy_rx_ch = 2;
 static int hdmi_rx_sample_rate = SAMPLING_RATE_48KHZ;
 static int msm_tert_mi2s_tx_ch = 2;
+
+static int aux_dev_type;
 
 static bool codec_reg_done;
 
@@ -1744,6 +1752,8 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	} else {
 		tasha_event_register(msm8996_tasha_codec_event_cb, rtd->codec);
 		tasha_enable_efuse_sensing(rtd->codec);
+		if (aux_dev_type == WSA8810)
+			tasha_set_spkr_mode(rtd->codec, SPKR_MODE_1);
 	}
 
 	codec_reg_done = true;
