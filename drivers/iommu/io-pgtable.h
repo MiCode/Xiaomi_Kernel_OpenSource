@@ -179,4 +179,9 @@ void *io_pgtable_alloc_pages_exact(struct io_pgtable_cfg *cfg, void *cookie,
 void io_pgtable_free_pages_exact(struct io_pgtable_cfg *cfg, void *cookie,
 				 void *virt, size_t size);
 
+extern struct io_pgtable_init_fns io_pgtable_arm_32_lpae_s1_init_fns;
+extern struct io_pgtable_init_fns io_pgtable_arm_32_lpae_s2_init_fns;
+extern struct io_pgtable_init_fns io_pgtable_arm_64_lpae_s1_init_fns;
+extern struct io_pgtable_init_fns io_pgtable_arm_64_lpae_s2_init_fns;
+
 #endif /* __IO_PGTABLE_H */
