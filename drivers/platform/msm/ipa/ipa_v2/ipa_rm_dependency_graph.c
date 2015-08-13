@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -159,7 +159,7 @@ int ipa_rm_dep_graph_add_dependency(struct ipa_rm_dep_graph *graph,
 				    enum ipa_rm_resource_name resource_name,
 				    enum ipa_rm_resource_name depends_on_name)
 {
-	struct ipa_rm_resource *dependant = NULL;
+	struct ipa_rm_resource *dependent = NULL;
 	struct ipa_rm_resource *dependency = NULL;
 	int result;
 
@@ -172,7 +172,7 @@ int ipa_rm_dep_graph_add_dependency(struct ipa_rm_dep_graph *graph,
 	}
 	if (ipa_rm_dep_graph_get_resource(graph,
 					  resource_name,
-					  &dependant)) {
+					  &dependent)) {
 		IPA_RM_ERR("%s does not exist\n",
 					ipa_rm_resource_str(resource_name));
 		result = -EINVAL;
@@ -186,7 +186,7 @@ int ipa_rm_dep_graph_add_dependency(struct ipa_rm_dep_graph *graph,
 		result = -EINVAL;
 		goto bail;
 	}
-	result = ipa_rm_resource_add_dependency(dependant, dependency);
+	result = ipa_rm_resource_add_dependency(dependent, dependency);
 bail:
 	IPA_RM_DBG("EXIT with %d\n", result);
 
@@ -207,7 +207,7 @@ int ipa_rm_dep_graph_delete_dependency(struct ipa_rm_dep_graph *graph,
 				enum ipa_rm_resource_name resource_name,
 				enum ipa_rm_resource_name depends_on_name)
 {
-	struct ipa_rm_resource *dependant = NULL;
+	struct ipa_rm_resource *dependent = NULL;
 	struct ipa_rm_resource *dependency = NULL;
 	int result;
 
@@ -221,7 +221,7 @@ int ipa_rm_dep_graph_delete_dependency(struct ipa_rm_dep_graph *graph,
 
 	if (ipa_rm_dep_graph_get_resource(graph,
 					  resource_name,
-					  &dependant)) {
+					  &dependent)) {
 		IPA_RM_ERR("%s does not exist\n",
 					ipa_rm_resource_str(resource_name));
 		result = -EINVAL;
@@ -237,7 +237,7 @@ int ipa_rm_dep_graph_delete_dependency(struct ipa_rm_dep_graph *graph,
 		goto bail;
 	}
 
-	result = ipa_rm_resource_delete_dependency(dependant, dependency);
+	result = ipa_rm_resource_delete_dependency(dependent, dependency);
 bail:
 	IPA_RM_DBG("EXIT with %d\n", result);
 

@@ -43,34 +43,6 @@
 #define IPADMA_FUNC_EXIT() \
 	IPADMA_DBG("EXIT\n")
 
-#define IS_INIT(msg) \
-	do { \
-		if (ipa_dma_ctx == NULL) { \
-			IPADMA_ERR("IPADMA isn't initialized "msg"\n"); \
-			return -EPERM; \
-		} \
-	} \
-	while (0)
-
-#define OVERLAPPING_CHECK(addr1, addr2, len)\
-	do { \
-		if ((max(addr1, addr2) - min(addr1, addr2)) < len) { \
-			IPADMA_ERR("invalid addresses - " \
-			"overlapping buffers\n"); \
-			return -EINVAL; \
-		} \
-	} \
-	while (0)
-
-#define LEN_CHECK(len) \
-	do { \
-		if (len > IPA_DMA_MAX_PKT_SZ || len <= 0) {\
-			IPADMA_ERR("invalid len, %d\n", len);\
-			return	-EINVAL;\
-		} \
-	} \
-	while (0)
-
 #ifdef CONFIG_DEBUG_FS
 #define IPADMA_MAX_MSG_LEN 1024
 static char dbg_buff[IPADMA_MAX_MSG_LEN];
@@ -292,7 +264,10 @@ EXPORT_SYMBOL(ipa_dma_init);
 int ipa_dma_enable(void)
 {
 	IPADMA_FUNC_ENTRY();
-	IS_INIT("can't enable");
+	if (ipa_dma_ctx == NULL) {
+		IPADMA_ERR("IPADMA isn't initialized, can't enable\n");
+		return -EPERM;
+	}
 	mutex_lock(&ipa_dma_ctx->enable_lock);
 	if (ipa_dma_ctx->is_enabled) {
 		IPADMA_DBG("Already enabled.\n");
@@ -341,9 +316,12 @@ static bool ipa_dma_work_pending(void)
 int ipa_dma_disable(void)
 {
 	unsigned long flags;
-	IPADMA_FUNC_ENTRY();
 
-	IS_INIT("can't disable");
+	IPADMA_FUNC_ENTRY();
+	if (ipa_dma_ctx == NULL) {
+		IPADMA_ERR("IPADMA isn't initialized, can't disable\n");
+		return -EPERM;
+	}
 	mutex_lock(&ipa_dma_ctx->enable_lock);
 	spin_lock_irqsave(&ipa_dma_ctx->pending_lock, flags);
 	if (!ipa_dma_ctx->is_enabled) {
@@ -395,9 +373,18 @@ int ipa_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src, int len)
 
 	IPADMA_FUNC_ENTRY();
 
-	IS_INIT("can't memcpy");
-	OVERLAPPING_CHECK(src, dest, len);
-	LEN_CHECK(len);
+	if (ipa_dma_ctx == NULL) {
+		IPADMA_ERR("IPADMA isn't initialized, can't memcpy\n");
+		return -EPERM;
+	}
+	if ((max(src, dest) - min(src, dest)) < len) {
+		IPADMA_ERR("invalid addresses - overlapping buffers\n");
+		return -EINVAL;
+	}
+	if (len > IPA_DMA_MAX_PKT_SZ || len <= 0) {
+		IPADMA_ERR("invalid len, %d\n", len);
+		return	-EINVAL;
+	}
 	spin_lock_irqsave(&ipa_dma_ctx->pending_lock, flags);
 	if (!ipa_dma_ctx->is_enabled) {
 		IPADMA_ERR("can't memcpy, IPADMA isn't enabled\n");
@@ -543,9 +530,18 @@ int ipa_dma_async_memcpy(phys_addr_t dest, phys_addr_t src, int len,
 	unsigned long flags;
 
 	IPADMA_FUNC_ENTRY();
-	IS_INIT("can't memcpy");
-	OVERLAPPING_CHECK(src, dest, len);
-	LEN_CHECK(len);
+	if (ipa_dma_ctx == NULL) {
+		IPADMA_ERR("IPADMA isn't initialized, can't memcpy\n");
+		return -EPERM;
+	}
+	if ((max(src, dest) - min(src, dest)) < len) {
+		IPADMA_ERR("invalid addresses - overlapping buffers\n");
+		return -EINVAL;
+	}
+	if (len > IPA_DMA_MAX_PKT_SZ || len <= 0) {
+		IPADMA_ERR("invalid len, %d\n", len);
+		return	-EINVAL;
+	}
 	if (!user_cb) {
 		IPADMA_ERR("null pointer: user_cb\n");
 		return -EINVAL;
@@ -643,10 +639,18 @@ int ipa_dma_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len)
 	unsigned long flags;
 
 	IPADMA_FUNC_ENTRY();
-
-	IS_INIT("can't memcpy");
-	OVERLAPPING_CHECK(src, dest, len);
-	LEN_CHECK(len);
+	if (ipa_dma_ctx == NULL) {
+		IPADMA_ERR("IPADMA isn't initialized, can't memcpy\n");
+		return -EPERM;
+	}
+	if ((max(src, dest) - min(src, dest)) < len) {
+		IPADMA_ERR("invalid addresses - overlapping buffers\n");
+		return -EINVAL;
+	}
+	if (len > IPA_DMA_MAX_PKT_SZ || len <= 0) {
+		IPADMA_ERR("invalid len, %d\n", len);
+		return	-EINVAL;
+	}
 
 	spin_lock_irqsave(&ipa_dma_ctx->pending_lock, flags);
 	if (!ipa_dma_ctx->is_enabled) {
@@ -682,8 +686,8 @@ EXPORT_SYMBOL(ipa_dma_uc_memcpy);
 void ipa_dma_destroy(void)
 {
 	int res = 0;
-	IPADMA_FUNC_ENTRY();
 
+	IPADMA_FUNC_ENTRY();
 	if (!ipa_dma_ctx) {
 		IPADMA_DBG("IPADMA isn't initialized\n");
 		return;
@@ -718,7 +722,6 @@ void ipa_dma_destroy(void)
 	ipa_dma_ctx = NULL;
 
 	IPADMA_FUNC_EXIT();
-	return;
 }
 EXPORT_SYMBOL(ipa_dma_destroy);
 
@@ -766,7 +769,6 @@ void ipa_dma_async_memcpy_notify_cb(void *priv
 			complete(&ipa_dma_ctx->done);
 
 	IPADMA_FUNC_EXIT();
-	return;
 }
 
 #ifdef CONFIG_DEBUG_FS

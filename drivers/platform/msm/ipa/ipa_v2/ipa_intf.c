@@ -256,7 +256,7 @@ int ipa_query_intf(struct ipa_ioc_query_intf *lookup)
  * ipa_query_intf_tx_props() - qeury TX props of an interface
  * @tx:  [inout] interface tx attributes
  *
- * Obtain the tx properties for the specifed interface
+ * Obtain the tx properties for the specified interface
  *
  * Returns:	0 on success, negative on failure
  *
@@ -289,7 +289,7 @@ int ipa_query_intf_tx_props(struct ipa_ioc_query_intf_tx_props *tx)
  * ipa_query_intf_rx_props() - qeury RX props of an interface
  * @rx:  [inout] interface rx attributes
  *
- * Obtain the rx properties for the specifed interface
+ * Obtain the rx properties for the specified interface
  *
  * Returns:	0 on success, negative on failure
  *
@@ -322,7 +322,7 @@ int ipa_query_intf_rx_props(struct ipa_ioc_query_intf_rx_props *rx)
  * ipa_query_intf_ext_props() - qeury EXT props of an interface
  * @ext:  [inout] interface ext attributes
  *
- * Obtain the ext properties for the specifed interface
+ * Obtain the ext properties for the specified interface
  *
  * Returns:	0 on success, negative on failure
  *

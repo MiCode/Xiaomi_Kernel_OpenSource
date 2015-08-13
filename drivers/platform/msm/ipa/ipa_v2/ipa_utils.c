@@ -2767,7 +2767,7 @@ static int _ipa_cfg_ep_hdr_ext_v1_1(u32 clnt_hdl,
 static int _ipa_cfg_ep_hdr_ext(u32 clnt_hdl,
 		const struct ipa_ep_cfg_hdr_ext *ep_hdr_ext, u32 reg_val)
 {
-	u8 hdr_endianess = ep_hdr_ext->hdr_little_endian ? 0 : 1;
+	u8 hdr_endianness = ep_hdr_ext->hdr_little_endian ? 0 : 1;
 
 	IPA_SETFIELD_IN_REG(reg_val, ep_hdr_ext->hdr_total_len_or_pad_offset,
 		IPA_ENDP_INIT_HDR_EXT_n_HDR_TOTAL_LEN_OR_PAD_OFFSET_SHFT,
@@ -2785,9 +2785,9 @@ static int _ipa_cfg_ep_hdr_ext(u32 clnt_hdl,
 		IPA_ENDP_INIT_HDR_EXT_n_HDR_TOTAL_LEN_OR_PAD_VALID_SHFT,
 		IPA_ENDP_INIT_HDR_EXT_n_HDR_TOTAL_LEN_OR_PAD_VALID_BMSK);
 
-	IPA_SETFIELD_IN_REG(reg_val, hdr_endianess,
-		IPA_ENDP_INIT_HDR_EXT_n_HDR_ENDIANESS_SHFT,
-		IPA_ENDP_INIT_HDR_EXT_n_HDR_ENDIANESS_BMSK);
+	IPA_SETFIELD_IN_REG(reg_val, hdr_endianness,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_ENDIANNESS_SHFT,
+		IPA_ENDP_INIT_HDR_EXT_n_HDR_ENDIANNESS_BMSK);
 
 	ipa_write_reg(ipa_ctx->mmio,
 		IPA_ENDP_INIT_HDR_EXT_n_OFST_v2_0(clnt_hdl), reg_val);
@@ -3625,6 +3625,7 @@ void ipa_dump_buff_internal(void *base, dma_addr_t phy_base, u32 size)
 	int i;
 	u32 *cur = (u32 *)base;
 	u8 *byt;
+
 	IPADBG("system phys addr=%pa len=%u\n", &phy_base, size);
 	for (i = 0; i < size / 4; i++) {
 		byt = (u8 *)(cur + i);
@@ -3813,6 +3814,7 @@ EXPORT_SYMBOL(ipa_set_single_ndp_per_mbim);
 int ipa_set_hw_timer_fix_for_mbim_aggr(bool enable)
 {
 	u32 reg_val;
+
 	ipa_inc_client_enable_clks();
 	reg_val = ipa_read_reg(ipa_ctx->mmio, IPA_AGGREGATION_SPARE_REG_1_OFST);
 	ipa_write_reg(ipa_ctx->mmio, IPA_AGGREGATION_SPARE_REG_1_OFST,
@@ -3860,6 +3862,7 @@ int ipa_straddle_boundary(u32 start, u32 end, u32 boundary)
 void ipa_bam_reg_dump(void)
 {
 	static DEFINE_RATELIMIT_STATE(_rs, 500*HZ, 1);
+
 	if (__ratelimit(&_rs)) {
 		ipa_inc_client_enable_clks();
 		pr_err("IPA BAM START\n");
@@ -4708,7 +4711,7 @@ int ipa_tag_aggr_force_close(int pipe_num)
 
 	num_descs = end_pipe - start_pipe;
 
-	desc = kzalloc(sizeof(*desc) * num_descs, GFP_KERNEL);
+	desc = kcalloc(num_descs, sizeof(*desc), GFP_KERNEL);
 	if (!desc) {
 		IPAERR("no mem\n");
 		return -ENOMEM;
@@ -4811,12 +4814,12 @@ EXPORT_SYMBOL(ipa_get_hw_type);
  */
 u16 ipa_get_smem_restr_bytes(void)
 {
-	if (ipa_ctx) {
+	if (ipa_ctx)
 		return ipa_ctx->smem_restricted_bytes;
-	} else {
-		IPAERR("IPA driver was not initialized\n");
-		return 0;
-	}
+
+	IPAERR("IPA Driver not initialized\n");
+
+	return 0;
 }
 EXPORT_SYMBOL(ipa_get_smem_restr_bytes);
 
@@ -4827,12 +4830,12 @@ EXPORT_SYMBOL(ipa_get_smem_restr_bytes);
  */
 bool ipa_get_modem_cfg_emb_pipe_flt(void)
 {
-	if (ipa_ctx) {
+	if (ipa_ctx)
 		return ipa_ctx->modem_cfg_emb_pipe_flt;
-	} else {
-		IPAERR("IPA driver has not been initialized\n");
-		return false;
-	}
+
+	IPAERR("IPA driver has not been initialized\n");
+
+	return false;
 }
 EXPORT_SYMBOL(ipa_get_modem_cfg_emb_pipe_flt);
 

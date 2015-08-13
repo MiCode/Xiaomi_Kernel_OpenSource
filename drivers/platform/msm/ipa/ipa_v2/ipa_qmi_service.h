@@ -158,10 +158,7 @@ static inline int ipa_qmi_service_init(bool load_uc, uint32_t wan_platform_type)
 	return -EPERM;
 }
 
-static inline void ipa_qmi_service_exit(void)
-{
-	return;
-}
+static inline void ipa_qmi_service_exit(void) { }
 
 /* sending filter-install-request to modem*/
 static inline int qmi_filter_request_send(
@@ -205,25 +202,13 @@ static inline int wan_ioctl_init(void)
 	return -EPERM;
 }
 
-static inline void wan_ioctl_stop_qmi_messages(void)
-{
-	return;
-}
+static inline void wan_ioctl_stop_qmi_messages(void) { }
 
-static inline void wan_ioctl_enable_qmi_messages(void)
-{
-	return;
-}
+static inline void wan_ioctl_enable_qmi_messages(void) { }
 
-static inline void wan_ioctl_deinit(void)
-{
-	return;
-}
+static inline void wan_ioctl_deinit(void) { }
 
-static inline void ipa_qmi_stop_workqueues(void)
-{
-	return;
-}
+static inline void ipa_qmi_stop_workqueues(void) { }
 
 static inline int vote_for_bus_bw(uint32_t *bw_mbps)
 {
@@ -242,10 +227,7 @@ static inline int rmnet_ipa_set_data_quota(
 	return -EPERM;
 }
 
-static inline void ipa_broadcast_quota_reach_ind(uint32_t mux_id)
-{
-	return;
-}
+static inline void ipa_broadcast_quota_reach_ind(uint32_t mux_id) { }
 
 static inline int ipa_qmi_get_data_stats(
 	struct ipa_get_data_stats_req_msg_v01 *req,
@@ -272,10 +254,8 @@ static inline int ipa_qmi_stop_data_qouta(void)
 	return -EPERM;
 }
 
-static inline void ipa_q6_handshake_complete(bool ssr_bootup)
-{
-	return;
-}
+static inline void ipa_q6_handshake_complete(bool ssr_bootup) { }
+
 #endif /* CONFIG_RMNET_IPA */
 
 #endif /* IPA_QMI_SERVICE_H */

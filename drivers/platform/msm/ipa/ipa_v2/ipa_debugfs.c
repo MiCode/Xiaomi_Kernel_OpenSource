@@ -1453,6 +1453,7 @@ static ssize_t ipa_rm_read_stats(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
 	int result, nbytes, cnt = 0;
+
 	result = ipa_rm_stat(dbg_buff, IPA_MAX_MSG_LEN);
 	if (result < 0) {
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
@@ -1460,6 +1461,7 @@ static ssize_t ipa_rm_read_stats(struct file *file, char __user *ubuf,
 		cnt += nbytes;
 	} else
 		cnt += result;
+
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
 

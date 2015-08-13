@@ -2369,30 +2369,6 @@ void ipa_enable_clks(void)
 			WARN_ON(1);
 }
 
-void _ipa_disable_clks_v1_1(void)
-{
-
-	if (ipa_inactivity_clk)
-		clk_disable_unprepare(ipa_inactivity_clk);
-	else
-		WARN_ON(1);
-
-	if (sys_noc_ipa_axi_clk)
-		clk_disable_unprepare(sys_noc_ipa_axi_clk);
-	else
-		WARN_ON(1);
-
-	if (ipa_clk)
-		clk_disable_unprepare(ipa_clk);
-	else
-		WARN_ON(1);
-
-	if (ipa_cnoc_clk)
-		clk_disable_unprepare(ipa_cnoc_clk);
-	else
-		WARN_ON(1);
-
-}
 
 /**
  * _ipa_disable_clks_v3_0() - Disable IPA clocks.

@@ -284,8 +284,6 @@ void ipa_rm_resource_producer_notify_clients(
 					       0);
 		IPA_RM_DBG("back from client CB\n");
 	}
-
-	return;
 }
 
 static int ipa_rm_resource_producer_create(struct ipa_rm_resource **resource,
@@ -622,6 +620,7 @@ int ipa_rm_resource_add_dependency(struct ipa_rm_resource *resource,
 	case IPA_RM_REQUEST_IN_PROGRESS:
 	{
 		enum ipa_rm_resource_state prev_state = resource->state;
+
 		resource->state = IPA_RM_REQUEST_IN_PROGRESS;
 		((struct ipa_rm_resource_prod *)
 					resource)->pending_request++;
@@ -1007,8 +1006,6 @@ bail:
 	IPA_RM_DBG("%s new state: %d\n",
 		ipa_rm_resource_str(consumer->resource.name),
 		consumer->resource.state);
-
-	return;
 }
 
 /*

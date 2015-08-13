@@ -276,7 +276,6 @@ static void ipa_log_evt_hdlr(void)
 
 bad_uc_top_ofst:
 	ipa_ctx->uc_ctx.uc_event_top_ofst = 0;
-	return;
 }
 
 /**

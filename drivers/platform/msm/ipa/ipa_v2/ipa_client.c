@@ -626,7 +626,7 @@ EXPORT_SYMBOL(ipa_reset_endpoint);
  *
  * This function connects a BAM pipe using SPS driver sps_connect() API
  * and by requesting uC interface to reset the pipe, avoids an IPA HW
- * limitation that does not allow reseting a BAM pipe during traffic in
+ * limitation that does not allow resetting a BAM pipe during traffic in
  * IPA TX command queue.
  *
  * Returns:	0 on success, negative on failure

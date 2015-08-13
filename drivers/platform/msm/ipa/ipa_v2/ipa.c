@@ -231,12 +231,12 @@ void arm_iommu_detach_device(struct device *dev) { }
 
 struct iommu_domain *ipa_get_smmu_domain(void)
 {
-	if (smmu_cb[IPA_SMMU_CB_AP].valid) {
+	if (smmu_cb[IPA_SMMU_CB_AP].valid)
 		return smmu_cb[IPA_SMMU_CB_AP].mapping->domain;
-	} else {
-		IPAERR("CB not valid\n");
-		return NULL;
-	}
+
+	IPAERR("CB not valid\n");
+
+	return NULL;
 }
 EXPORT_SYMBOL(ipa_get_smmu_domain);
 
@@ -899,6 +899,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case IPA_IOC_GENERATE_FLT_EQ:
 		{
 			struct ipa_ioc_generate_flt_eq flt_eq;
+
 			if (copy_from_user(&flt_eq, (u8 *)arg,
 				sizeof(struct ipa_ioc_generate_flt_eq))) {
 				retval = -EFAULT;
@@ -1388,14 +1389,14 @@ static int ipa_q6_clean_q6_tables(void)
 	entry = mem.base;
 	*entry = ipa_ctx->empty_rt_tbl_mem.phys_base;
 
-	desc = kzalloc(sizeof(struct ipa_desc) * max_cmds, GFP_KERNEL);
+	desc = kcalloc(max_cmds, sizeof(struct ipa_desc), GFP_KERNEL);
 	if (!desc) {
 		IPAERR("failed to allocate memory\n");
 		retval = -ENOMEM;
 		goto bail_dma;
 	}
 
-	cmd = kzalloc(sizeof(struct ipa_hw_imm_cmd_dma_shared_mem) * max_cmds,
+	cmd = kcalloc(max_cmds, sizeof(struct ipa_hw_imm_cmd_dma_shared_mem),
 		GFP_KERNEL);
 	if (!cmd) {
 		IPAERR("failed to allocate memory\n");
@@ -1519,8 +1520,8 @@ static int ipa_q6_set_ex_path_dis_agg(void)
 	struct ipa_register_write *reg_write;
 	int retval;
 
-	desc = kzalloc(sizeof(struct ipa_desc) * ipa_ctx->ipa_num_pipes,
-		GFP_KERNEL);
+	desc = kcalloc(ipa_ctx->ipa_num_pipes, sizeof(struct ipa_desc),
+			GFP_KERNEL);
 	if (!desc) {
 		IPAERR("failed to allocate memory\n");
 		return -ENOMEM;
@@ -2413,6 +2414,7 @@ static int ipa_get_clks(struct device *dev)
 
 		if (clk_get_rate(smmu_clk) == 0) {
 			long rate = clk_round_rate(smmu_clk, 1000);
+
 			clk_set_rate(smmu_clk, rate);
 		}
 	}
@@ -2638,7 +2640,6 @@ static void ipa_start_tag_process(struct work_struct *work)
 	ipa_dec_client_disable_clks();
 
 	IPADBG("TAG process done\n");
-	return;
 }
 
 /**
@@ -3732,13 +3733,12 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	if (!resource) {
 		IPAERR(":get resource failed for ipa-base!\n");
 		return -ENODEV;
-	} else {
-		ipa_drv_res->ipa_mem_base = resource->start;
-		ipa_drv_res->ipa_mem_size = resource_size(resource);
-		IPADBG(": ipa-base = 0x%x, size = 0x%x\n",
-				ipa_drv_res->ipa_mem_base,
-				ipa_drv_res->ipa_mem_size);
 	}
+	ipa_drv_res->ipa_mem_base = resource->start;
+	ipa_drv_res->ipa_mem_size = resource_size(resource);
+	IPADBG(": ipa-base = 0x%x, size = 0x%x\n",
+			ipa_drv_res->ipa_mem_base,
+			ipa_drv_res->ipa_mem_size);
 
 	/* Get IPA BAM address */
 	resource = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -3746,13 +3746,12 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	if (!resource) {
 		IPAERR(":get resource failed for bam-base!\n");
 		return -ENODEV;
-	} else {
-		ipa_drv_res->bam_mem_base = resource->start;
-		ipa_drv_res->bam_mem_size = resource_size(resource);
-		IPADBG(": bam-base = 0x%x, size = 0x%x\n",
-				ipa_drv_res->bam_mem_base,
-				ipa_drv_res->bam_mem_size);
 	}
+	ipa_drv_res->bam_mem_base = resource->start;
+	ipa_drv_res->bam_mem_size = resource_size(resource);
+	IPADBG(": bam-base = 0x%x, size = 0x%x\n",
+			ipa_drv_res->bam_mem_base,
+			ipa_drv_res->bam_mem_size);
 
 	/* Get IPA pipe mem start ofst */
 	resource = platform_get_resource_byname(pdev, IORESOURCE_MEM,
@@ -3773,10 +3772,9 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	if (!resource) {
 		IPAERR(":get resource failed for ipa-irq!\n");
 		return -ENODEV;
-	} else {
-		ipa_drv_res->ipa_irq = resource->start;
-		IPADBG(":ipa-irq = %d\n", ipa_drv_res->ipa_irq);
 	}
+	ipa_drv_res->ipa_irq = resource->start;
+	IPADBG(":ipa-irq = %d\n", ipa_drv_res->ipa_irq);
 
 	/* Get IPA BAM IRQ number */
 	resource = platform_get_resource_byname(pdev, IORESOURCE_IRQ,
@@ -3784,10 +3782,9 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	if (!resource) {
 		IPAERR(":get resource failed for bam-irq!\n");
 		return -ENODEV;
-	} else {
-		ipa_drv_res->bam_irq = resource->start;
-		IPADBG(":ibam-irq = %d\n", ipa_drv_res->bam_irq);
 	}
+	ipa_drv_res->bam_irq = resource->start;
+	IPADBG(":ibam-irq = %d\n", ipa_drv_res->bam_irq);
 
 	result = of_property_read_u32(pdev->dev.of_node, "qcom,ee",
 			&ipa_drv_res->ee);

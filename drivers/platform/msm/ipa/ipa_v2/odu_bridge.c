@@ -48,16 +48,6 @@
 
 #define IPA_ODU_SYS_DESC_FIFO_SZ 0x800
 
-#define NULL_CHECK(ptr) \
-	do { \
-		if (!(ptr)) { \
-			ODU_BRIDGE_ERR("null pointer %s\n", #ptr); \
-			return -EINVAL; \
-		} \
-	} \
-	while (0)
-
-
 #ifdef CONFIG_COMPAT
 #define ODU_BRIDGE_IOC_SET_LLV6_ADDR32 _IOW(ODU_BRIDGE_IOC_MAGIC, \
 				ODU_BRIDGE_IOCTL_SET_LLV6_ADDR, \
@@ -963,6 +953,7 @@ static void odu_bridge_del_hdrs(void)
 	struct ipa_hdr_del *ipv4;
 	struct ipa_hdr_del *ipv6;
 	int result;
+
 	del_hdr = kzalloc(sizeof(*del_hdr) + sizeof(*ipv4) +
 			sizeof(*ipv6), GFP_KERNEL);
 	if (!del_hdr)
@@ -1052,7 +1043,6 @@ static void odu_bridge_deregister_properties(void)
 	if (res)
 		ODU_BRIDGE_ERR("Fail on Tx prop deregister %d\n", res);
 	ODU_BRIDGE_FUNC_EXIT();
-	return;
 }
 
 /**
@@ -1073,11 +1063,22 @@ int odu_bridge_init(struct odu_bridge_params *params)
 
 	ODU_BRIDGE_FUNC_ENTRY();
 
-	NULL_CHECK(params);
-	NULL_CHECK(params->netdev_name);
-	NULL_CHECK(params->tx_dp_notify);
-	NULL_CHECK(params->send_dl_skb);
-
+	if (!params) {
+		ODU_BRIDGE_ERR("null pointer params\n");
+		return -EINVAL;
+	}
+	if (!params->netdev_name) {
+		ODU_BRIDGE_ERR("null pointer params->netdev_name\n");
+		return -EINVAL;
+	}
+	if (!params->tx_dp_notify) {
+		ODU_BRIDGE_ERR("null pointer params->tx_dp_notify\n");
+		return -EINVAL;
+	}
+	if (!params->send_dl_skb) {
+		ODU_BRIDGE_ERR("null pointer params->send_dl_skb\n");
+		return -EINVAL;
+	}
 	if (odu_bridge_ctx) {
 		ODU_BRIDGE_ERR("Already initialized\n");
 		return -EFAULT;

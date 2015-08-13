@@ -42,10 +42,12 @@ static struct vm_operations_struct ipa_nat_remap_vm_ops = {
 static int ipa_nat_open(struct inode *inode, struct file *filp)
 {
 	struct ipa_nat_mem *nat_ctx;
+
 	IPADBG("\n");
 	nat_ctx = container_of(inode->i_cdev, struct ipa_nat_mem, cdev);
 	filp->private_data = nat_ctx;
 	IPADBG("return\n");
+
 	return 0;
 }
 
@@ -136,7 +138,6 @@ void allocate_temp_nat_memory(void)
 
 	nat_ctx->is_tmp_mem = true;
 	IPADBG("IPA NAT allocated temp memory successfully\n");
-	return;
 }
 
 /**
@@ -150,6 +151,7 @@ int create_nat_device(void)
 {
 	struct ipa_nat_mem *nat_ctx = &(ipa_ctx->nat_mem);
 	int result;
+
 	IPADBG("\n");
 
 	mutex_lock(&nat_ctx->lock);
@@ -658,7 +660,6 @@ void ipa_nat_free_mem_and_device(struct ipa_nat_mem *nat_ctx)
 
 	mutex_unlock(&nat_ctx->lock);
 	IPADBG("return\n");
-	return;
 }
 
 /**

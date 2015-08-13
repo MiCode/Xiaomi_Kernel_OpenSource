@@ -422,7 +422,7 @@ struct ipa_rt_tbl_set {
  *	indication to STATUS_ENDP only if bit is set. Valid for Input
  *	and Output Pipes (IPA Consumer and Producer)
  * @status_ep: Statuses generated for this endpoint will be forwarded to the
- *	specifed Status End Point. Status endpoint needs to be
+ *	specified Status End Point. Status endpoint needs to be
  *	configured with STATUS_EN=1 Valid only for Input Pipes (IPA
  *	Consumer)
  */
@@ -613,7 +613,7 @@ enum ipa_desc_type {
  * @mult: valid only for first of a "multiple" transfer,
  * holds info for the "sps_transfer" buffer
  * @cnt: 1 for single transfers,
- * >1 and <0xFFFF for first of a "multiple" tranfer,
+ * >1 and <0xFFFF for first of a "multiple" transfer,
  * 0xFFFF for last desc, 0 for rest of "multiple' transfer
  * @bounce: va of bounce buffer
  * @unmap_dma: in case this is true, the buffer will not be dma unmapped
@@ -912,6 +912,7 @@ struct IpaHwEventLogInfoData_t {
  */
 struct ipa_uc_hdlrs {
 	void (*ipa_uc_loaded_hdlr)(void);
+
 	void (*ipa_uc_event_hdlr)
 		(struct IpaHwSharedMemCommonMapping_t *uc_sram_mmio);
 	int (*ipa_uc_response_hdlr)
