@@ -1260,6 +1260,7 @@ start:
 out:
 	return rc;
 }
+EXPORT_SYMBOL(ufshcd_hold);
 
 static void ufshcd_gate_work(struct work_struct *work)
 {
@@ -1362,6 +1363,7 @@ void ufshcd_release(struct ufs_hba *hba, bool no_sched)
 	__ufshcd_release(hba, no_sched);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 }
+EXPORT_SYMBOL(ufshcd_release);
 
 static ssize_t ufshcd_clkgate_delay_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
