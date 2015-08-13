@@ -1325,7 +1325,7 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 	writel_relaxed(reg, cb_base + ARM_SMMU_CB_SCTLR);
 }
 
-static void arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain);
+static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain);
 
 static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 					struct arm_smmu_device *smmu)
@@ -1924,31 +1924,47 @@ unlock:
 	mutex_unlock(&smmu_domain->init_mutex);
 }
 
-static void arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain)
+static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain)
 {
-	int ret;
+	int ret = 0;
 	int dest_vmids[2] = {VMID_HLOS, smmu_domain->secure_vmid};
 	int dest_perms[2] = {PERM_READ | PERM_WRITE, PERM_READ};
 	int source_vmid = VMID_HLOS;
 	struct arm_smmu_pte_info *pte_info, *temp;
+	unsigned long flags;
+	void *addr;
 
 	if (smmu_domain->secure_vmid == VMID_INVAL)
-		return;
-
-	list_for_each_entry(pte_info, &smmu_domain->pte_info_list,
-								entry) {
-		ret = hyp_assign_phys(virt_to_phys(pte_info->virt_addr),
-				      PAGE_SIZE, &source_vmid, 1,
-				      dest_vmids, dest_perms, 2);
-		if (WARN_ON(ret))
+		return ret;
+	while (1) {
+		spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
+		if (list_empty(&smmu_domain->pte_info_list)) {
+			spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
 			break;
-	}
+		}
 
-	list_for_each_entry_safe(pte_info, temp, &smmu_domain->pte_info_list,
-								entry) {
+		pte_info = list_first_entry(&smmu_domain->pte_info_list,
+			struct arm_smmu_pte_info, entry);
+		addr = pte_info->virt_addr;
 		list_del(&pte_info->entry);
 		kfree(pte_info);
+		spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
+
+		ret = hyp_assign_phys(virt_to_phys(addr),
+				      PAGE_SIZE, &source_vmid, 1,
+				      dest_vmids, dest_perms, 2);
+		if (WARN_ON(ret)) {
+			spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
+			list_for_each_entry_safe(pte_info, temp,
+					&smmu_domain->pte_info_list, entry) {
+				list_del(&pte_info->entry);
+				kfree(pte_info);
+			}
+			spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
+			break;
+		}
 	}
+	return ret;
 }
 
 static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain)
@@ -1958,24 +1974,41 @@ static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain)
 	int dest_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
 	int source_vmlist[2] = {VMID_HLOS, smmu_domain->secure_vmid};
 	struct arm_smmu_pte_info *pte_info, *temp;
+	unsigned long flags;
+	void *addr;
 
 	if (smmu_domain->secure_vmid == VMID_INVAL)
 		return;
 
-	list_for_each_entry(pte_info, &smmu_domain->unassign_list, entry) {
-		ret = hyp_assign_phys(virt_to_phys(pte_info->virt_addr),
-				      PAGE_SIZE, source_vmlist, 2,
-				      &dest_vmids, &dest_perms, 1);
-		if (WARN_ON(ret))
+	while (1) {
+		spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
+		if (list_empty(&smmu_domain->unassign_list)) {
+			spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
 			break;
-		free_pages_exact(pte_info->virt_addr, pte_info->size);
-	}
-
-	list_for_each_entry_safe(pte_info, temp, &smmu_domain->unassign_list,
-				 entry) {
+		}
+		pte_info = list_first_entry(&smmu_domain->unassign_list,
+			struct arm_smmu_pte_info, entry);
+		addr = pte_info->virt_addr;
 		list_del(&pte_info->entry);
 		kfree(pte_info);
+		spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
+
+		ret = hyp_assign_phys(virt_to_phys(addr),
+				      PAGE_SIZE, source_vmlist, 2,
+				      &dest_vmids, &dest_perms, 1);
+		if (WARN_ON(ret)) {
+			spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
+			list_for_each_entry_safe(pte_info, temp,
+					&smmu_domain->unassign_list, entry) {
+				list_del(&pte_info->entry);
+				kfree(pte_info);
+			}
+			spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
+			break;
+		}
+		free_pages_exact(addr, PAGE_SIZE);
 	}
+	return;
 }
 
 static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size)
@@ -2027,7 +2060,8 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 	ret = ops->map(ops, iova, paddr, size, prot);
 	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
 
-	arm_smmu_assign_table(smmu_domain);
+	if (!ret)
+		ret = arm_smmu_assign_table(smmu_domain);
 
 	return ret;
 }
@@ -2047,7 +2081,9 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	ret = ops->map_sg(ops, iova, sg, nents, prot);
 	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
 
-	arm_smmu_assign_table(smmu_domain);
+	if (ret)
+		if (arm_smmu_assign_table(smmu_domain))
+			return 0;
 
 	return ret;
 }
@@ -2094,7 +2130,11 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	 * memory during unmap, so the vmids needs to be assigned to the
 	 * memory here as well.
 	 */
-	arm_smmu_assign_table(smmu_domain);
+	if (arm_smmu_assign_table(smmu_domain)) {
+		arm_smmu_unassign_table(smmu_domain);
+		return 0;
+	}
+
 	/* Also unassign any pages that were free'd during unmap */
 	arm_smmu_unassign_table(smmu_domain);
 
