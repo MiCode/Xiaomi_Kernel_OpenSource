@@ -4988,14 +4988,14 @@ error:
 			INIT_COMPLETION(ad->comp);
 			mutex_unlock(&ad->lock);
 		}
-		if (wait) {
+		if ((wait) && (ad->last_bl)) {
 			ret = wait_for_completion_timeout(
 					&ad->comp, HIST_WAIT_TIMEOUT(1));
 			if (ret == 0)
 				ret = -ETIMEDOUT;
-			else if (ret > 0)
-				input->output = ad->last_str;
 		}
+		if (ret >= 0)
+			input->output = ad->last_str;
 	}
 	return ret;
 }
@@ -5266,16 +5266,20 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 		 * Assertive Display is up and running as long as there are
 		 * no updates to AD init or cfg
 		 */
-		ad->sts &= ~PP_AD_STS_DIRTY_DATA;
-		ad->state |= PP_AD_STATE_DATA;
 		pr_debug("dirty data, last_bl = %d\n", ad->last_bl);
 		bl = bl_mfd->ad_bl_level;
+		if (bl) {
+			ad->sts &= ~PP_AD_STS_DIRTY_DATA;
+			ad->state |= PP_AD_STATE_DATA;
+		}
 
 		if ((ad->cfg.mode == MDSS_AD_MODE_AUTO_STR) &&
 							(ad->last_bl != bl)) {
 			ad->last_bl = bl;
-			ad->calc_itr = ad->cfg.stab_itr;
-			ad->sts |= PP_AD_STS_DIRTY_VSYNC;
+			if (bl) {
+				ad->calc_itr = ad->cfg.stab_itr;
+				ad->sts |= PP_AD_STS_DIRTY_VSYNC;
+			}
 			linear_map(bl, &ad->bl_data,
 				bl_mfd->panel_info->bl_max,
 				MDSS_MDP_AD_BL_SCALE);
