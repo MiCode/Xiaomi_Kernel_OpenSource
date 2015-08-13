@@ -2303,7 +2303,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 					ft5x06_psensor_enable_set;
 		psensor_pdata->data = data;
 
-		err = sensors_classdev_register(&client->dev,
+		err = sensors_classdev_register(&psensor_input_dev->dev,
 						&psensor_pdata->ps_cdev);
 		if (err)
 			goto unregister_psensor_input_device;
