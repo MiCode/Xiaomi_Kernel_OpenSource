@@ -351,6 +351,7 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 		} else {
 			sema_init(&mq->thread_sem, 1);
 			mq->queue->queuedata = mq;
+			card->host->cmdq_ctx.q = mq->queue;
 			mq->thread = kthread_run(mmc_cmdq_thread, mq,
 						 "mmc-cmdqd/%d%s",
 						 host->index,
