@@ -6,19 +6,44 @@ sleep status device before CPU_DEAD notifications are sent out. Some hardware
 devices require that the offlined core is power collapsed before turning off
 the resources that are used by the offlined core.
 
-The required properties of sleep status device are:
-
+The required properties of core sleep status node are:
 - compatible: qcom,cpu-sleep-status
-- reg: physical address of the sleep status register for Core 0
-- qcom,cpu-alias-addr - On MSM chipset, the each cores registers are at a
-	fixed offset each other.
+
+The required properties of sleep status node are:
+- reg: physical address of the sleep status register for the cpus
 - qcom,cpu-sleep-status-mask - The bit mask within the status register that
 	indicates the Core's sleep state.
 
 Example:
-	qcom,cpu-sleep-status@f9088008 {
+	qcom,cpu-sleep-status {
 		compatible = "qcom,cpu-sleep-status";
-		reg = <0xf9088008 0x4>;
-		qcom,cpu-alias-addr = <0x10000>;
-		qcom,sleep-status-mask= <0x80000>;
 	};
+
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		CPU0: cpu@0 {
+			device_type = "cpu";
+			compatible = "qcom,kryo";
+
+			qcom,sleep-status = <&cpu0_slp_sts>;
+		};
+
+		CPU1: cpu@1 {
+			device_type = "cpu";
+			compatible = "qcom,kryo";
+
+			qcom,sleep-status = <&cpu1_slp_sts>;
+		};
+	};
+
+	cpu0_slp_sts: cpu-sleep-status@9981058 {
+		reg = <0x9981058 0x100>;
+		qcom,sleep-status-mask = <0xc00000>;
+	};
+
+	cpu1_slp_sts: cpu-sleep-status@9991058 {
+		reg = <0x9991058 0x100>;
+		qcom,sleep-status-mask = <0xc00000>;
+	}
