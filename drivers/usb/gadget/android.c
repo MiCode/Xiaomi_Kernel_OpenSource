@@ -2752,20 +2752,11 @@ static int audio_source_function_bind_config(struct android_usb_function *f,
 	return usb_add_function(c, config->f_aud);
 }
 
-static void audio_source_function_unbind_config(struct android_usb_function *f,
-						struct usb_configuration *c)
-{
-	struct audio_source_function_config *config = f->config;
-
-	usb_remove_function(c, config->f_aud);
-}
-
 static struct android_usb_function audio_source_function = {
 	.name		= "audio_source",
 	.init		= audio_source_function_init,
 	.cleanup	= audio_source_function_cleanup,
 	.bind_config	= audio_source_function_bind_config,
-	.unbind_config	= audio_source_function_unbind_config,
 };
 
 static struct android_usb_function *supported_functions[] = {

@@ -659,18 +659,15 @@ audio_bind(struct usb_configuration *c, struct usb_function *f)
 	int status;
 	struct usb_ep *ep;
 	struct usb_request *req;
+	struct audio_source_instance *fi_audio = to_fi_audio_source(f->fi);
+	struct audio_source_config *config = fi_audio->config;
 	int i;
 	int err;
 
-	if (IS_ENABLED(CONFIG_USB_CONFIGFS)) {
-		struct audio_source_instance *fi_audio =
-				to_fi_audio_source(f->fi);
-		struct audio_source_config *config =
-				fi_audio->config;
-
-		err = snd_card_setup(c, config);
-		if (err)
-			return err;
+	err = snd_card_setup(c, config);
+	if (err) {
+		pr_err("snd_card_setup failed with %d\n", err);
+		return err;
 	}
 
 	audio_build_desc(audio);
@@ -728,6 +725,8 @@ audio_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct audio_dev *audio = func_to_audio(f);
 	struct usb_request *req;
+	struct audio_source_instance *fi_audio = to_fi_audio_source(f->fi);
+	struct audio_source_config *config = fi_audio->config;
 
 	while ((req = audio_req_get(audio)))
 		audio_request_free(req, audio->in_ep);
@@ -737,16 +736,8 @@ audio_unbind(struct usb_configuration *c, struct usb_function *f)
 	audio->pcm = NULL;
 	audio->substream = NULL;
 	audio->in_ep = NULL;
-
-	if (IS_ENABLED(CONFIG_USB_CONFIGFS)) {
-		struct audio_source_instance *fi_audio =
-				to_fi_audio_source(f->fi);
-		struct audio_source_config *config =
-				fi_audio->config;
-
-		config->card = -1;
-		config->device = -1;
-	}
+	config->card = -1;
+	config->device = -1;
 }
 
 static void audio_pcm_playback_start(struct audio_dev *audio)
@@ -921,32 +912,6 @@ static struct snd_pcm_ops audio_playback_ops = {
 	.pointer	= audio_pcm_pointer,
 	.mmap		= audio_pcm_mmap,
 };
-
-int audio_source_bind_config(struct usb_configuration *c,
-		struct audio_source_config *config)
-{
-	struct audio_dev *audio;
-	int err;
-
-	config->card = -1;
-	config->device = -1;
-
-	audio = &_audio_dev;
-
-	err = snd_card_setup(c, config);
-	if (err)
-		return err;
-
-	err = usb_add_function(c, &audio->func);
-	if (err)
-		goto add_fail;
-
-	return 0;
-
-add_fail:
-	snd_card_free(audio->card);
-	return err;
-}
 
 static int snd_card_setup(struct usb_configuration *c,
 		struct audio_source_config *config)
