@@ -8,24 +8,6 @@ config ANDROID
 
 if ANDROID
 
-config ANDROID_BINDER_IPC
-	bool "Android Binder IPC Driver"
-	default n
-	---help---
-	  Binder is used in Android for both communication between processes,
-	  and remote method invocation.
-
-	  This means one Android process can call a method/routine in another
-	  Android process, using Binder to identify, invoke and pass arguments
-	  between said processes.
-
-config ANDROID_BINDER_IPC_32BIT
-	bool "Use old 32-bit binder api"
-	default y if !64BIT
-	---help---
-	  Enable to support an old 32-bit Android user-space. Breaks the new
-	  Android user-space.
-
 config ASHMEM
 	bool "Enable the Anonymous Shared Memory Subsystem"
 	default n
@@ -37,31 +19,6 @@ config ASHMEM
 
 	  It is, in theory, a good memory allocator for low-memory devices,
 	  because it can discard shared memory units when under memory pressure.
-
-config ANDROID_LOGGER
-	tristate "Android log driver"
-	default n
-	---help---
-	  This adds support for system-wide logging using four log buffers.
-
-	  These are:
-
-	      1: main
-	      2: events
-	      3: radio
-	      4: system
-
-	  Log reading and writing is performed via normal Linux reads and
-	  optimized writes. This optimization avoids logging having too
-	  much overhead in the system.
-
-config LOGCAT_SIZE
-	int "Adjust android log buffer sizes"
-	default 256
-	depends on ANDROID_LOGGER
-	help
-	  Set logger buffer size. Enter a number greater than zero.
-	  Any value less than 256 is recommended. Reduce value to save kernel static memory size.
 
 config ANDROID_TIMED_OUTPUT
 	bool "Timed output class driver"
@@ -86,15 +43,6 @@ config ANDROID_LOW_MEMORY_KILLER_AUTODETECT_OOM_ADJ_VALUES
 	  Detect oom_adj values written to
 	  /sys/module/lowmemorykiller/parameters/adj and convert them
 	  to oom_score_adj values.
-
-config ANDROID_INTF_ALARM_DEV
-	bool "Android alarm driver"
-	depends on RTC_CLASS
-	default n
-	---help---
-	  Provides non-wakeup and rtc backed wakeup alarms based on rtc or
-	  elapsed realtime, and a non-wakeup alarm on the monotonic clock.
-	  Also exports the alarm interface to user-space.
 
 config SYNC
 	bool "Synchronization framework"
