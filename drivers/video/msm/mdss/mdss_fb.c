@@ -807,7 +807,7 @@ static void mdss_fb_input_event_handler(struct input_handle *handle,
 	struct msm_fb_data_type *mfd = handle->handler->private;
 	int rc;
 
-	if (type != EV_ABS)
+	if ((type != EV_ABS) || !mdss_fb_is_power_on(mfd))
 		return;
 
 	if (mfd->mdp.input_event_handler) {

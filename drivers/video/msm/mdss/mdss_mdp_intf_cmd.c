@@ -690,6 +690,12 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 		 * 3. If the current state is POWER-OFF, Schedule a work item to
 		 *    POWER-ON.
 		 */
+
+		/* if panels are off, do not process early wake up */
+		if ((ctx && __mdss_mdp_cmd_is_panel_power_off(ctx)) ||
+			(sctx && __mdss_mdp_cmd_is_panel_power_off(sctx)))
+			break;
+
 		mutex_lock(&ctl->rsrc_lock);
 		if (mdp5_data->resources_state != MDP_RSRC_CTL_STATE_OFF) {
 			if (cancel_work_sync(&ctx->gate_clk_work))
@@ -740,9 +746,6 @@ exit:
 static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
-	if (__mdss_mdp_cmd_is_panel_power_off(ctx))
-		return;
 
 	mutex_lock(&ctx->clk_mtx);
 	MDSS_XLOG(ctx->pp_num, atomic_read(&ctx->koff_cnt));
@@ -2005,7 +2008,8 @@ static int mdss_mdp_cmd_early_wake_up(struct mdss_mdp_ctl *ctl)
 	 * involves cancelling queued work items. So this will be
 	 * scheduled in a work item.
 	 */
-	schedule_work(&ctx->early_wakeup_clk_work);
+	if (ctx)
+		schedule_work(&ctx->early_wakeup_clk_work);
 	return 0;
 }
 
