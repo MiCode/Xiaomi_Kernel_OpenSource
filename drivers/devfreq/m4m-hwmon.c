@@ -283,6 +283,7 @@ static int m4m_start_hwmon(struct cache_hwmon *hw, struct mrps_stats *mrps)
 
 	mon_init(m);
 	mon_disable(m);
+	mon_disable_cycle_cntr(m);
 	for (i = 0; i < m->num_cntr; i++) {
 		mon_ov_clear(m, i);
 		limit = mrps_to_count(mrps->mrps[i], sample_ms, 0);
@@ -290,6 +291,7 @@ static int m4m_start_hwmon(struct cache_hwmon *hw, struct mrps_stats *mrps)
 	}
 	mon_clear_cycle_cntr(m);
 	mon_enable(m);
+	mon_enable_cycle_cntr(m);
 
 	return 0;
 }
