@@ -23,7 +23,8 @@ Required properties
 - qcom,freq-step: Number of frequency steps to take on each CPU mitigation.
 
 Optional properties
-
+- qcom,mitigation-profile-enable: Mitigation profile feature will be enabled only
+			if this property is defined in DT.
 - qcom,freq-control-list: List of phandles to the cores that will be used to
 			determine if a core can be frequency controlled for
 			thermal condition.
@@ -348,7 +349,10 @@ Following are the required and optional properties of a child node.
 - qcom,alias-name: Alias name for a sensor. The alias name corresponds
 			to a device such as cpu/gpu/pop-mem whose temperature
 			is relative to the sensor temperature defined in the
-			child node.
+			child node. This node can not be used for providing
+			alias name for cpu devices if mitigation profile feature
+			is enabled. Thermal driver assigns the cpu device alias,
+			based on the sensor defined in the cpu mitigation profile.
 - qcom,scaling-factor: The unit that needs to be multiplied to the
 			sensor temperature to get temperature unit in
 			degree centigrade. If this property is not
@@ -401,4 +405,48 @@ Example:
 			qcom,scaling-factor = <1000>;
                 };
 
+	};
+
+===============================================================================
+Mitigation Profile:
+===============================================================================
+Thermal driver allows users to specify various mitigation profiles and
+associate a profile to a device. The device should have a phandle, to associate
+itself with a mitigation profile, using a "qcom,limits-info" property.
+This profile can specify whether to mitigate the device during various
+limiting conditions. This feature will be enabled only if
+'qcom,mitigation-profile-enable' DT node is defined in msm_thermal node.
+
+Required Node:
+- qcom,limit_info-#: This is a mitigation profile node. A profile should
+			normally have a sensor(s) to monitor and a list
+			of properties enabling or disabling a mitigation.
+
+Required properties:
+
+- qcom,temperature-sensor: Array of phandle(s) to the temperature sensor(s) that
+			need(s) to be used for monitoring the device associated
+			with this mitigation profile. Right now the first
+			sensor will be used for KTM CPU monitoring. Alias
+			name of multiple sensors monitoring a same device will
+			be differentiated by appending an index like, "cpu0_0"
+			and "cpu0_1". A single sensor monitoring multiple
+			devices will have an alias name like "cpu0-cpu1-cpu2".
+
+Optional properties:
+
+- qcom,boot-frequency-mitigate: Enable thermal frequency mitigation
+			during boot.
+- qcom,emergency-frequency-mitigate: Enable emergency frequency mitigation.
+- qcom,hotplug-mitigation-enable: Enable hotplug mitigation. This enables
+			hotplug mitigation both during boot and emergency
+			condition.
+
+Example:
+	mitigation_profile7: qcom,limit_info-7 {
+		qcom,temperature-sensor =
+			<&sensor_information6 &sensor_information8>;
+		qcom,boot-frequency-mitigate;
+		qcom,emergency-frequency-mitigate;
+		qcom,hotplug-mitigation-enable;
 	};
