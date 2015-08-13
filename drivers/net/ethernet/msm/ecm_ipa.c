@@ -1235,6 +1235,7 @@ static void ecm_ipa_tx_complete_notify(void *priv,
 
 	atomic_dec(&ecm_ipa_ctx->outstanding_pkts);
 	if (netif_queue_stopped(ecm_ipa_ctx->net) &&
+		netif_carrier_ok(ecm_ipa_ctx->net) &&
 		atomic_read(&ecm_ipa_ctx->outstanding_pkts) <
 					(ecm_ipa_ctx->outstanding_low)) {
 		ECM_IPA_DEBUG("outstanding low (%d) - waking up queue\n",
