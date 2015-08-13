@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1185,6 +1185,7 @@ static void wcd9xxx_clsh_state_hph_l(struct snd_soc_codec *codec,
 		wcd9xxx_chargepump_request(codec, true);
 		wcd9xxx_enable_anc_delay(codec, true);
 		wcd9xxx_clsh_comp_req(codec, clsh_d, CLSH_COMPUTE_HPH_L, true);
+		wcd9xxx_clsh_comp_req(codec, clsh_d, CLSH_COMPUTE_HPH_R, true);
 		wcd9xxx_set_buck_mode(codec, BUCK_VREF_0P494V);
 		wcd9xxx_enable_buck(codec, clsh_d, true);
 		wcd9xxx_set_fclk_get_ncp(codec, clsh_d, NCP_FCLK_LEVEL_8);
@@ -1194,8 +1195,9 @@ static void wcd9xxx_clsh_state_hph_l(struct snd_soc_codec *codec,
 		wcd9xxx_set_fclk_put_ncp(codec, clsh_d, NCP_FCLK_LEVEL_8);
 		wcd9xxx_enable_buck(codec, clsh_d, false);
 		wcd9xxx_clsh_comp_req(codec, clsh_d, CLSH_COMPUTE_HPH_L, false);
-		wcd9xxx_chargepump_request(codec, false);
+		wcd9xxx_clsh_comp_req(codec, clsh_d, CLSH_COMPUTE_HPH_R, false);
 		wcd9xxx_enable_clsh_block(codec, clsh_d, false);
+		wcd9xxx_chargepump_request(codec, false);
 	}
 }
 
@@ -1211,6 +1213,7 @@ static void wcd9xxx_clsh_state_hph_r(struct snd_soc_codec *codec,
 		wcd9xxx_enable_clsh_block(codec, clsh_d, true);
 		wcd9xxx_chargepump_request(codec, true);
 		wcd9xxx_enable_anc_delay(codec, true);
+		wcd9xxx_clsh_comp_req(codec, clsh_d, CLSH_COMPUTE_HPH_L, true);
 		wcd9xxx_clsh_comp_req(codec, clsh_d, CLSH_COMPUTE_HPH_R, true);
 		wcd9xxx_set_buck_mode(codec, BUCK_VREF_0P494V);
 		wcd9xxx_enable_buck(codec, clsh_d, true);
@@ -1220,9 +1223,10 @@ static void wcd9xxx_clsh_state_hph_r(struct snd_soc_codec *codec,
 	} else {
 		wcd9xxx_set_fclk_put_ncp(codec, clsh_d, NCP_FCLK_LEVEL_8);
 		wcd9xxx_enable_buck(codec, clsh_d, false);
+		wcd9xxx_clsh_comp_req(codec, clsh_d, CLSH_COMPUTE_HPH_L, false);
 		wcd9xxx_clsh_comp_req(codec, clsh_d, CLSH_COMPUTE_HPH_R, false);
-		wcd9xxx_chargepump_request(codec, false);
 		wcd9xxx_enable_clsh_block(codec, clsh_d, false);
+		wcd9xxx_chargepump_request(codec, false);
 	}
 }
 
@@ -1231,23 +1235,6 @@ static void wcd9xxx_clsh_state_hph_st(struct snd_soc_codec *codec,
 		u8 req_state, bool is_enable)
 {
 	pr_debug("%s: enter %s\n", __func__, is_enable ? "enable" : "disable");
-
-	if (is_enable) {
-		if (req_state == WCD9XXX_CLSH_STATE_HPHL)
-			wcd9xxx_clsh_comp_req(codec, clsh_d,
-						CLSH_COMPUTE_HPH_L, true);
-		if (req_state == WCD9XXX_CLSH_STATE_HPHR)
-			wcd9xxx_clsh_comp_req(codec, clsh_d,
-						CLSH_COMPUTE_HPH_R, true);
-	} else {
-		dev_dbg(codec->dev, "%s: stub fallback to hph_st\n", __func__);
-		if (req_state == WCD9XXX_CLSH_STATE_HPHL)
-			wcd9xxx_clsh_comp_req(codec, clsh_d,
-						CLSH_COMPUTE_HPH_L, false);
-		if (req_state == WCD9XXX_CLSH_STATE_HPHR)
-			wcd9xxx_clsh_comp_req(codec, clsh_d,
-						CLSH_COMPUTE_HPH_R, false);
-	}
 }
 
 static void wcd9xxx_clsh_state_lo(struct snd_soc_codec *codec,
