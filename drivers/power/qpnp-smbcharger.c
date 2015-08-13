@@ -4353,6 +4353,18 @@ static irqreturn_t otg_oc_handler(int irq, void *_chip)
 		smbchg_masked_write(chip, chip->bat_if_base + CMD_CHG_REG,
 							OTG_EN_BIT, 0);
 		msleep(20);
+
+		/*
+		 * There is a possibility that an USBID interrupt might have
+		 * occurred notifying USB power supply to disable OTG. We
+		 * should not enabled OTG in such cases.
+		 */
+		if (!is_otg_present(chip)) {
+			pr_smb(PR_STATUS,
+				"OTG is not present, not enabling OTG_EN\n");
+			return IRQ_HANDLED;
+		}
+
 		smbchg_masked_write(chip, chip->bat_if_base + CMD_CHG_REG,
 							OTG_EN_BIT, OTG_EN_BIT);
 		chip->otg_enable_time = ktime_get();
