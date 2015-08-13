@@ -265,7 +265,7 @@ static int mdss_smmu_map_dma_buf_v2(struct dma_buf *dma_buf,
 	ATRACE_BEGIN("map_buffer");
 	rc = msm_dma_map_sg_lazy(mdss_smmu->dev, table->sgl, table->nents, dir,
 		dma_buf);
-	if (!rc) {
+	if (rc != table->nents) {
 		pr_err("dma map sg failed\n");
 		return -ENOMEM;
 	}
