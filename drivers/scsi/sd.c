@@ -3230,6 +3230,9 @@ static int sd_resume(struct device *dev)
 	struct scsi_disk *sdkp = scsi_disk_get_from_dev(dev);
 	int ret = 0;
 
+	if (!sdkp)
+		return 0;	/* this can happen */
+
 	if (!sdkp->device->manage_start_stop)
 		goto done;
 
