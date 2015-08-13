@@ -608,7 +608,64 @@ struct tasha_priv {
 
 	int (*machine_codec_event_cb)(struct snd_soc_codec *codec,
 				      enum wcd9335_codec_event);
+	int spkr_mode;
 };
+
+static const struct tasha_reg_mask_val tasha_spkr_default[] = {
+	{WCD9335_CDC_COMPANDER7_CTL3, 0x80, 0x80},
+	{WCD9335_CDC_COMPANDER8_CTL3, 0x80, 0x80},
+	{WCD9335_CDC_COMPANDER7_CTL7, 0x01, 0x01},
+	{WCD9335_CDC_COMPANDER8_CTL7, 0x01, 0x01},
+	{WCD9335_CDC_BOOST0_BOOST_CTL, 0x7C, 0x50},
+	{WCD9335_CDC_BOOST1_BOOST_CTL, 0x7C, 0x50},
+};
+
+static const struct tasha_reg_mask_val tasha_spkr_mode1[] = {
+	{WCD9335_CDC_COMPANDER7_CTL3, 0x80, 0x00},
+	{WCD9335_CDC_COMPANDER8_CTL3, 0x80, 0x00},
+	{WCD9335_CDC_COMPANDER7_CTL7, 0x01, 0x00},
+	{WCD9335_CDC_COMPANDER8_CTL7, 0x01, 0x00},
+	{WCD9335_CDC_BOOST0_BOOST_CTL, 0x7C, 0x34},
+	{WCD9335_CDC_BOOST1_BOOST_CTL, 0x7C, 0x34},
+};
+
+/**
+ * tasha_set_spkr_mode - Configures speaker compander and smartboost
+ * settings based on speaker mode.
+ *
+ * @codec: codec instance
+ * @mode: Indicates speaker configuration mode.
+ *
+ * Returns 0 on success or -EINVAL on error.
+ */
+int tasha_set_spkr_mode(struct snd_soc_codec *codec, int mode)
+{
+	struct tasha_priv *priv = snd_soc_codec_get_drvdata(codec);
+	int i;
+	const struct tasha_reg_mask_val *regs;
+	int size;
+
+	if (!priv)
+		return -EINVAL;
+
+	switch (mode) {
+	case SPKR_MODE_1:
+		regs = tasha_spkr_mode1;
+		size = ARRAY_SIZE(tasha_spkr_mode1);
+		break;
+	default:
+		regs = tasha_spkr_default;
+		size = ARRAY_SIZE(tasha_spkr_default);
+		break;
+	}
+
+	priv->spkr_mode = mode;
+	for (i = 0; i < size; i++)
+		snd_soc_update_bits(codec, regs[i].reg,
+				    regs[i].mask, regs[i].val);
+	return 0;
+}
+EXPORT_SYMBOL(tasha_set_spkr_mode);
 
 int tasha_enable_efuse_sensing(struct snd_soc_codec *codec)
 {
@@ -8867,8 +8924,8 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_common_val[] = {
 	{WCD9335_CDC_CLSH_K2_MSB, 0x0F, 0x00},
 	{WCD9335_CDC_CLSH_K2_LSB, 0xFF, 0x60},
 	{WCD9335_CPE_SS_DMIC_CFG, 0x80, 0x00},
-	{WCD9335_CDC_BOOST0_BOOST_CTL, 0x70, 0x40},
-	{WCD9335_CDC_BOOST1_BOOST_CTL, 0x70, 0x40},
+	{WCD9335_CDC_BOOST0_BOOST_CTL, 0x70, 0x50},
+	{WCD9335_CDC_BOOST1_BOOST_CTL, 0x70, 0x50},
 	{WCD9335_CDC_RX7_RX_PATH_CFG1, 0x08, 0x08},
 	{WCD9335_CDC_RX8_RX_PATH_CFG1, 0x08, 0x08},
 	{WCD9335_ANA_LO_1_2, 0x3C, 0X3C},
@@ -8882,6 +8939,10 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_common_val[] = {
 	{WCD9335_CDC_TX10_SPKR_PROT_PATH_CFG0, 0x01, 0x01},
 	{WCD9335_CDC_TX11_SPKR_PROT_PATH_CFG0, 0x01, 0x01},
 	{WCD9335_CDC_TX12_SPKR_PROT_PATH_CFG0, 0x01, 0x01},
+	{WCD9335_CDC_COMPANDER7_CTL3, 0x80, 0x80},
+	{WCD9335_CDC_COMPANDER8_CTL3, 0x80, 0x80},
+	{WCD9335_CDC_COMPANDER7_CTL7, 0x01, 0x01},
+	{WCD9335_CDC_COMPANDER8_CTL7, 0x01, 0x01},
 };
 
 static const struct tasha_reg_mask_val tasha_codec_reg_init_1_x_val[] = {
@@ -9691,6 +9752,7 @@ static int tasha_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	}
 
 	tasha_enable_efuse_sensing(codec);
+	tasha_set_spkr_mode(codec, tasha->spkr_mode);
 	wcd_cpe_ssr_event(tasha->cpe_core, WCD_CPE_BUS_UP_EVENT);
 
 err:
