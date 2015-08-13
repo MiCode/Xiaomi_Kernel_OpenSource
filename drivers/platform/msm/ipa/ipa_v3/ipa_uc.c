@@ -465,7 +465,8 @@ int ipa_uc_interface_init(void)
 	mutex_init(&ipa_ctx->uc_ctx.uc_lock);
 
 	phys_addr = ipa_ctx->ipa_wrapper_base +
-		ipa_ctx->ctrl->ipa_reg_base_ofst + IPA_SRAM_SW_FIRST_v3_0;
+		ipa_ctx->ctrl->ipa_reg_base_ofst +
+		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0);
 	ipa_ctx->uc_ctx.uc_sram_mmio = ioremap(phys_addr,
 					       IPA_RAM_UC_SMEM_SIZE);
 	if (!ipa_ctx->uc_ctx.uc_sram_mmio) {
