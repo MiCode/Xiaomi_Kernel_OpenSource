@@ -30,6 +30,7 @@ int ipa_enable_data_path(u32 clnt_hdl)
 	struct ipa_ep_cfg_holb holb_cfg;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 	int res = 0;
+	u32 reg_val = 0;
 
 	IPADBG("Enabling data path\n");
 	if (IPA_CLIENT_IS_CONS(ep->client)) {
@@ -48,6 +49,21 @@ int ipa_enable_data_path(u32 clnt_hdl)
 		ep_cfg_ctrl.ipa_ep_suspend = false;
 		ipa_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 	}
+
+	/* Assign the resource group for pipe*/
+	if (ipa_get_ep_group(ep->client) == -1) {
+		IPAERR("invalid group for client %d\n", ep->client);
+		WARN_ON(1);
+		return -EFAULT;
+	}
+
+	IPADBG("Setting group %d for pipe %d\n",
+		ipa_get_ep_group(ep->client), clnt_hdl);
+	IPA_SETFIELD_IN_REG(reg_val, ipa_get_ep_group(ep->client),
+		IPA_ENDP_INIT_RSRC_GRP_n_RSRC_GRP_SHFT,
+		IPA_ENDP_INIT_RSRC_GRP_n_RSRC_GRP_BMSK);
+	ipa_write_reg(ipa_ctx->mmio,
+		IPA_ENDP_INIT_RSRC_GRP_n(clnt_hdl), reg_val);
 
 	return res;
 }
