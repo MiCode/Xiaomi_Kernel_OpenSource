@@ -9745,9 +9745,18 @@ static int tasha_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	wcd9xxx_set_power_state(tasha->wcd9xxx,
 				WCD_REGION_POWER_COLLAPSE_REMOVE,
 				WCD9XXX_DIG_CORE_REGION_1);
-	snd_soc_card_change_online_state(codec->component.card, 1);
 
 	mutex_lock(&codec->mutex);
+
+	tasha_slimbus_slave_port_cfg.slave_dev_intfdev_la =
+		control->slim_slave->laddr;
+	tasha_slimbus_slave_port_cfg.slave_dev_pgd_la =
+		control->slim->laddr;
+	tasha_init_slim_slave_cfg(codec);
+	if (tasha->machine_codec_event_cb)
+		tasha->machine_codec_event_cb(codec,
+				WCD9335_CODEC_EVENT_CODEC_UP);
+	snd_soc_card_change_online_state(codec->component.card, 1);
 
 	/* Class-H Init*/
 	wcd_clsh_init(&tasha->clsh_d);
@@ -9779,12 +9788,6 @@ static int tasha_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	if (IS_ERR_VALUE(ret))
 		dev_err(codec->dev, "%s: invalid pdata\n", __func__);
 
-	tasha_slimbus_slave_port_cfg.slave_dev_intfdev_la =
-		control->slim_slave->laddr;
-	tasha_slimbus_slave_port_cfg.slave_dev_pgd_la =
-		control->slim->laddr;
-	tasha_init_slim_slave_cfg(codec);
-
 	wcd_resmgr_post_ssr_v2(tasha->resmgr);
 
 	/* MBHC Init */
@@ -9799,10 +9802,6 @@ static int tasha_post_reset_cb(struct wcd9xxx *wcd9xxx)
 			__func__);
 	else
 		tasha_mbhc_hs_detect(codec, tasha->mbhc.mbhc_cfg);
-
-	if (tasha->machine_codec_event_cb)
-		tasha->machine_codec_event_cb(codec,
-				       WCD9335_CODEC_EVENT_CODEC_UP);
 
 	tasha_cleanup_irqs(tasha);
 	ret = tasha_setup_irqs(tasha);
