@@ -300,6 +300,7 @@ static void mdss_dba_utils_dba_cb(void *data, enum msm_dba_callback_event event)
 	bool operands_present = false;
 	u32 no_of_operands, size, i;
 	u32 operands_offset = MAX_CEC_FRAME_SIZE - MAX_OPERAND_SIZE;
+	struct msm_hdmi_audio_edid_blk blk;
 
 	if (!udata) {
 		pr_err("Invalid data\n");
@@ -319,10 +320,14 @@ static void mdss_dba_utils_dba_cb(void *data, enum msm_dba_callback_event event)
 			ret = udata->ops.get_raw_edid(udata->dba_data,
 				udata->edid_buf_size, udata->edid_buf, 0);
 
-			if (!ret)
+			if (!ret) {
 				hdmi_edid_parser(udata->edid_data);
-			else
+				hdmi_edid_get_audio_blk(udata->edid_data, &blk);
+				udata->ops.set_audio_block(udata->dba_data,
+							sizeof(blk), &blk);
+			} else {
 				pr_err("failed to get edid%d\n", ret);
+			}
 		}
 
 		if (pluggable) {
