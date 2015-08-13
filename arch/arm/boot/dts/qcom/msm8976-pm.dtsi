@@ -302,11 +302,13 @@
 			<0xff 18>,  /* APC_qgicQTmrSecPhysIrptReq */
 			<0xff 19>,  /* APC_qgicQTmrNonSecPhysIrptReq */
 			<0xff 20>,  /* qgicQTmrVirtIrptReq */
+			<0xff 23>,  /* APC0_qgicPerfMonIrptReq */
 			<0xff 35>,  /* WDT_barkInt */
 			<0xff 39>,  /* arch_mem_timer */
 			<0xff 40>,  /* qtmr_phy_irq[0] */
 			<0xff 47>,  /* rbif_irq[0] */
 			<0xff 51>,  /* rbif_Irq[3] */
+			<0xff 54>,  /* nERRORIRQ */
 			<0xff 56>,  /* q6_wdog_expired_irq */
 			<0xff 57>,  /* mss_to_apps_irq(0) */
 			<0xff 58>,  /* mss_to_apps_irq(1) */
@@ -401,6 +403,11 @@
 			<0xff 277>, /* smmu_intr_bus[20] */
 			<0xff 286>, /* app_cxt_irpt_0 */
 			<0xff 287>, /* app_cxt_irpt_1 */
+			<0xff 296>, /* lmh_interrupt */
+			<0xff 305>, /* nEXTERRIRQ_C0 */
+			<0xff 306>, /* nEXTERRIRQ_C1 */
+			<0xff 307>, /* nINTERRIRQ_C0 */
+			<0xff 308>, /* nINTERRIRQ_C1 */
 			<0xff 321>, /* q6ss_irq_out(4) */
 			<0xff 322>, /* q6ss_irq_out(5) */
 			<0xff 323>, /* q6ss_irq_out(6) */
