@@ -133,6 +133,7 @@
 #include "msm8976-gpu.dtsi"
 #include "msm8976-mdss-pll.dtsi"
 #include "msm8976-cpu.dtsi"
+#include "msm-rdbg.dtsi"
 
 &soc {
 	#address-cells = <1>;
