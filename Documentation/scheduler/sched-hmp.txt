@@ -1101,7 +1101,7 @@ tasks - they may be woken up on busy CPUs.
 
 Appears at: /proc/sys/kernel/sched_init_task_load
 
-Default value: 15
+Default value: 100
 
 This tunable is a percentage. When a task is first created it has no
 history, so the task load tracking mechanism cannot determine a
