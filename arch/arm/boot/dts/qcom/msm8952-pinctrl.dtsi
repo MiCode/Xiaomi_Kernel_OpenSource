@@ -1718,11 +1718,21 @@
 		wcnss_pmux_5wire {
 			/* Active configuration of bus pins */
 			wcnss_default: wcnss_default {
-				mux {
-					pins = "gpio76", "gpio77",
-						"gpio78", "gpio79",
-						"gpio80";
+				wcss_wlan2 {
+					pins = "gpio76";
 					function = "wcss_wlan2";
+				};
+				wcss_wlan1 {
+					pins = "gpio77";
+					function = "wcss_wlan1";
+				};
+				wcss_wlan0 {
+					pins = "gpio78";
+					function = "wcss_wlan0";
+				};
+				wcss_wlan {
+					pins = "gpio79", "gpio80";
+					function = "wcss_wlan";
 				};
 
 				config {
@@ -1735,11 +1745,21 @@
 			};
 
 			wcnss_sleep: wcnss_sleep {
-				mux {
-					pins = "gpio76", "gpio77",
-						"gpio78", "gpio79",
-						"gpio80";
+				wcss_wlan2 {
+					pins = "gpio76";
 					function = "wcss_wlan2";
+				};
+				wcss_wlan1 {
+					pins = "gpio77";
+					function = "wcss_wlan1";
+				};
+				wcss_wlan0 {
+					pins = "gpio78";
+					function = "wcss_wlan0";
+				};
+				wcss_wlan {
+					pins = "gpio79", "gpio80";
+					function = "wcss_wlan";
 				};
 
 				config {
