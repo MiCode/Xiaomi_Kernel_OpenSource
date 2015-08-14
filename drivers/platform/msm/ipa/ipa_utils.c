@@ -3863,8 +3863,18 @@ void ipa_bam_reg_dump(void)
 	if (__ratelimit(&_rs)) {
 		ipa_inc_client_enable_clks();
 		pr_err("IPA BAM START\n");
-		sps_get_bam_debug_info(ipa_ctx->bam_handle, 5, 511950, 0, 0);
-		sps_get_bam_debug_info(ipa_ctx->bam_handle, 93, 0, 0, 0);
+		if (ipa_ctx->ipa_hw_type < IPA_HW_v2_0) {
+			sps_get_bam_debug_info(ipa_ctx->bam_handle, 5,
+			511950, 0, 0);
+			sps_get_bam_debug_info(ipa_ctx->bam_handle, 93, 0,
+			0, 0);
+		} else {
+			sps_get_bam_debug_info(ipa_ctx->bam_handle, 93,
+			(SPS_BAM_PIPE(ipa_get_ep_mapping(IPA_CLIENT_USB_CONS))
+			|
+			SPS_BAM_PIPE(ipa_get_ep_mapping(IPA_CLIENT_USB_PROD))),
+			0, 2);
+		}
 		ipa_dec_client_disable_clks();
 	}
 }
