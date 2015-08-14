@@ -325,7 +325,8 @@ static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 	/* Grab a pointer to the next level */
 	pte = *ptep;
 	if (!pte) {
-		cptep = io_pgtable_alloc_pages_exact(1UL << data->pg_shift,
+		cptep = io_pgtable_alloc_pages_exact(&data->iop.cfg, cookie,
+						     1UL << data->pg_shift,
 						     GFP_ATOMIC | __GFP_ZERO);
 		if (!cptep)
 			return -ENOMEM;
@@ -337,7 +338,6 @@ static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 			pte |= ARM_LPAE_PTE_NSTABLE;
 		*ptep = pte;
 		data->iop.cfg.tlb->flush_pgtable(ptep, sizeof(*ptep), cookie);
-		data->iop.cfg.tlb->prepare_pgtable(cptep, cookie);
 	} else {
 		cptep = iopte_deref(pte, data);
 	}
@@ -490,8 +490,8 @@ static void __arm_lpae_free_pgtable(struct arm_lpae_io_pgtable *data, int lvl,
 		__arm_lpae_free_pgtable(data, lvl + 1, iopte_deref(pte, data));
 	}
 
-	data->iop.cfg.tlb->unprepare_pgtable(data->iop.cookie, start);
-	io_pgtable_free_pages_exact(start, table_size);
+	io_pgtable_free_pages_exact(&data->iop.cfg, data->iop.cookie,
+				    start, table_size);
 }
 
 static void arm_lpae_free_pgtable(struct io_pgtable *iop)
@@ -517,6 +517,7 @@ static int arm_lpae_split_blk_unmap(struct arm_lpae_io_pgtable *data,
 	blk_start = iova & ~(blk_size - 1);
 	blk_end = blk_start + blk_size;
 	blk_paddr = iopte_to_pfn(*ptep, data) << data->pg_shift;
+	size = ARM_LPAE_BLOCK_SIZE(lvl + 1, data);
 
 	for (; blk_start < blk_end; blk_start += size, blk_paddr += size) {
 		arm_lpae_iopte *tablep;
@@ -599,7 +600,8 @@ static int __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 			*ptep = 0;
 			tlb->flush_pgtable(ptep, sizeof(*ptep), cookie);
 			io_pgtable_free_pages_exact(
-				table_base, max_entries * sizeof(*table_base));
+				&data->iop.cfg, cookie, table_base,
+				max_entries * sizeof(*table_base));
 		}
 
 		return entries * entry_size;
@@ -824,13 +826,12 @@ arm_64_lpae_alloc_pgtable_s1(struct io_pgtable_cfg *cfg, void *cookie)
 	cfg->arm_lpae_s1_cfg.mair[1] = 0;
 
 	/* Looking good; allocate a pgd */
-	data->pgd = io_pgtable_alloc_pages_exact(data->pgd_size,
+	data->pgd = io_pgtable_alloc_pages_exact(cfg, cookie, data->pgd_size,
 						 GFP_KERNEL | __GFP_ZERO);
 	if (!data->pgd)
 		goto out_free_data;
 
 	cfg->tlb->flush_pgtable(data->pgd, data->pgd_size, cookie);
-	cfg->tlb->prepare_pgtable(data->pgd, cookie);
 	/* TTBRs */
 	cfg->arm_lpae_s1_cfg.ttbr[0] = virt_to_phys(data->pgd);
 	cfg->arm_lpae_s1_cfg.ttbr[1] = 0;
@@ -913,13 +914,12 @@ arm_64_lpae_alloc_pgtable_s2(struct io_pgtable_cfg *cfg, void *cookie)
 	cfg->arm_lpae_s2_cfg.vtcr = reg;
 
 	/* Allocate pgd pages */
-	data->pgd = io_pgtable_alloc_pages_exact(data->pgd_size,
+	data->pgd = io_pgtable_alloc_pages_exact(cfg, cookie, data->pgd_size,
 						 GFP_KERNEL | __GFP_ZERO);
 	if (!data->pgd)
 		goto out_free_data;
 
 	cfg->tlb->flush_pgtable(data->pgd, data->pgd_size, cookie);
-	cfg->tlb->prepare_pgtable(data->pgd, cookie);
 	/* VTTBR */
 	cfg->arm_lpae_s2_cfg.vttbr = virt_to_phys(data->pgd);
 	return &data->iop;

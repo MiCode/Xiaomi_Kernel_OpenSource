@@ -90,18 +90,30 @@ void free_io_pgtable_ops(struct io_pgtable_ops *ops)
 
 static atomic_t pages_allocated;
 
-void *io_pgtable_alloc_pages_exact(size_t size, gfp_t gfp_mask)
+void *io_pgtable_alloc_pages_exact(struct io_pgtable_cfg *cfg, void *cookie,
+				   size_t size, gfp_t gfp_mask)
 {
-	void *ret = alloc_pages_exact(size, gfp_mask);
+	void *ret;
+
+	if (cfg->tlb->alloc_pages_exact)
+		ret = cfg->tlb->alloc_pages_exact(cookie, size, gfp_mask);
+	else
+		ret = alloc_pages_exact(size, gfp_mask);
 
 	if (likely(ret))
 		atomic_add(1 << get_order(size), &pages_allocated);
+
 	return ret;
 }
 
-void io_pgtable_free_pages_exact(void *virt, size_t size)
+void io_pgtable_free_pages_exact(struct io_pgtable_cfg *cfg, void *cookie,
+				 void *virt, size_t size)
 {
-	free_pages_exact(virt, size);
+	if (cfg->tlb->free_pages_exact)
+		cfg->tlb->free_pages_exact(cookie, virt, size);
+	else
+		free_pages_exact(virt, size);
+
 	atomic_sub(1 << get_order(size), &pages_allocated);
 }
 
