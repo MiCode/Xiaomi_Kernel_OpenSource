@@ -3845,12 +3845,21 @@ int ipa_straddle_boundary(u32 start, u32 end, u32 boundary)
 void ipa2_bam_reg_dump(void)
 {
 	static DEFINE_RATELIMIT_STATE(_rs, 500*HZ, 1);
-
 	if (__ratelimit(&_rs)) {
 		ipa_inc_client_enable_clks();
 		pr_err("IPA BAM START\n");
-		sps_get_bam_debug_info(ipa_ctx->bam_handle, 5, 511950, 0, 0);
-		sps_get_bam_debug_info(ipa_ctx->bam_handle, 93, 0, 0, 0);
+		if (ipa_ctx->ipa_hw_type < IPA_HW_v2_0) {
+			sps_get_bam_debug_info(ipa_ctx->bam_handle, 5,
+			511950, 0, 0);
+			sps_get_bam_debug_info(ipa_ctx->bam_handle, 93, 0,
+			0, 0);
+		} else {
+			sps_get_bam_debug_info(ipa_ctx->bam_handle, 93,
+			(SPS_BAM_PIPE(ipa_get_ep_mapping(IPA_CLIENT_USB_CONS))
+			|
+			SPS_BAM_PIPE(ipa_get_ep_mapping(IPA_CLIENT_USB_PROD))),
+			0, 2);
+		}
 		ipa_dec_client_disable_clks();
 	}
 }
