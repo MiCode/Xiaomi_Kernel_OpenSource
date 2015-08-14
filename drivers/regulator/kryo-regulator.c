@@ -916,6 +916,12 @@ static int kryo_regulator_lpm_resume(struct kryo_regulator *kvreg)
 	kvreg->lpm_exit_count++;
 	spin_unlock_irqrestore(&kvreg->slock, flags);
 
+	if (kvreg->lpm_exit_count != kvreg->lpm_enter_count) {
+		kvreg_err(kvreg, "LPM entry/exit counter mismatch, this is not expected: enter=%lx exit=%lx\n",
+			  kvreg->lpm_enter_count, kvreg->lpm_exit_count);
+		BUG_ON(1);
+	}
+
 	return NOTIFY_OK;
 }
 
