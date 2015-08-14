@@ -24,6 +24,7 @@
 /* standard cec buf size + 1 byte specific to driver */
 #define CEC_BUF_SIZE    (MAX_CEC_FRAME_SIZE + 1)
 #define MAX_SWITCH_NAME_SIZE        5
+#define MSM_DBA_MAX_PCLK 148500
 
 struct mdss_dba_utils_data {
 	struct msm_dba_ops ops;
@@ -550,6 +551,8 @@ void *mdss_dba_utils_init(struct mdss_dba_utils_init_data *uid)
 
 	/* Initialize EDID feature */
 	edid_init_data.kobj = uid->kobj;
+	edid_init_data.ds_data.ds_registered = true;
+	edid_init_data.ds_data.ds_max_clk = MSM_DBA_MAX_PCLK;
 
 	/* register with edid module for parsing edid buffer */
 	udata->edid_data = hdmi_edid_init(&edid_init_data);
