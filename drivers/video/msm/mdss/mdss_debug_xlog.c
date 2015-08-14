@@ -30,11 +30,11 @@
 
 #define XLOG_DEFAULT_PANIC 1
 #define XLOG_DEFAULT_REGDUMP 0x2 /* dump in RAM */
-#define XLOG_DEFAULT_DBGBUSDUMP 0x3 /* dump in LOG & RAM */
+#define XLOG_DEFAULT_DBGBUSDUMP 0x2 /* dump in RAM */
 #define XLOG_DEFAULT_VBIF_DBGBUSDUMP 0x2 /* dump in RAM */
 
-#define MDSS_XLOG_ENTRY	256
-#define MDSS_XLOG_MAX_DATA 6
+#define MDSS_XLOG_ENTRY	1024
+#define MDSS_XLOG_MAX_DATA 15
 #define MDSS_XLOG_BUF_MAX 512
 #define MDSS_XLOG_BUF_ALIGN 32
 
@@ -233,6 +233,8 @@ static void mdss_dump_debug_bus(u32 bus_dump_flag,
 	in_log = (bus_dump_flag & MDSS_DBG_DUMP_IN_LOG);
 	in_mem = (bus_dump_flag & MDSS_DBG_DUMP_IN_MEM);
 
+	pr_info("======== Debug bus DUMP =========\n");
+
 	if (in_mem) {
 		if (!(*dump_mem))
 			*dump_mem = dma_alloc_coherent(&mdata->pdev->dev,
@@ -240,15 +242,13 @@ static void mdss_dump_debug_bus(u32 bus_dump_flag,
 
 		if (*dump_mem) {
 			dump_addr = *dump_mem;
-			pr_info("bus dump_addr:%p size:%d\n",
-				dump_addr, list_size);
+			pr_info("%s: start_addr:0x%p end_addr:0x%p\n",
+				__func__, dump_addr, dump_addr + list_size);
 		} else {
 			in_mem = false;
 			pr_err("dump_mem: allocation fails\n");
 		}
 	}
-
-	pr_info("======== Debug bus DUMP =========\n");
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	for (i = 0; i < mdata->dbg_bus_size; i++) {
@@ -356,8 +356,8 @@ static void mdss_dump_vbif_debug_bus(u32 bus_dump_flag,
 
 		if (*dump_mem) {
 			dump_addr = *dump_mem;
-			pr_info("bus dump_addr:%p size:%d\n",
-				dump_addr, list_size);
+			pr_info("%s: start_addr:0x%p end_addr:0x%p\n",
+				__func__, dump_addr, dump_addr + list_size);
 		} else {
 			in_mem = false;
 			pr_err("dump_mem: allocation fails\n");
@@ -389,7 +389,7 @@ static void mdss_dump_vbif_debug_bus(u32 bus_dump_flag,
 	pr_info("========End VBIF Debug bus=========\n");
 }
 
-static void mdss_dump_reg(u32 reg_dump_flag,
+static void mdss_dump_reg(const char *dump_name, u32 reg_dump_flag,
 	char *addr, int len, u32 **dump_mem)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
@@ -401,8 +401,8 @@ static void mdss_dump_reg(u32 reg_dump_flag,
 	in_log = (reg_dump_flag & MDSS_DBG_DUMP_IN_LOG);
 	in_mem = (reg_dump_flag & MDSS_DBG_DUMP_IN_MEM);
 
-	pr_info("reg_dump_flag=%d in_log=%d in_mem=%d\n", reg_dump_flag, in_log,
-		in_mem);
+	pr_debug("reg_dump_flag=%d in_log=%d in_mem=%d\n",
+		reg_dump_flag, in_log, in_mem);
 
 	if (len % 16)
 		len += 16;
@@ -415,8 +415,8 @@ static void mdss_dump_reg(u32 reg_dump_flag,
 
 		if (*dump_mem) {
 			dump_addr = *dump_mem;
-			pr_info("start_addr:%p end_addr:%p reg_addr=%p\n",
-				dump_addr, dump_addr + (u32)len * 16,
+			pr_info("%s: start_addr:0x%p end_addr:0x%p reg_addr=0x%p\n",
+				dump_name, dump_addr, dump_addr + (u32)len * 16,
 				addr);
 		} else {
 			in_mem = false;
@@ -470,12 +470,12 @@ static void mdss_dump_reg_by_ranges(struct mdss_debug_base *dbg,
 			len = get_dump_range(&xlog_node->offset,
 				dbg->max_offset);
 			addr = dbg->base + xlog_node->offset.start;
-			pr_info("%s: range_base=0x%p start=0x%x end=0x%x\n",
+			pr_debug("%s: range_base=0x%p start=0x%x end=0x%x\n",
 				xlog_node->range_name,
 				addr, xlog_node->offset.start,
 				xlog_node->offset.end);
-			mdss_dump_reg(reg_dump_flag, addr, len,
-				&xlog_node->reg_dump);
+			mdss_dump_reg((const char *)xlog_node->range_name,
+				reg_dump_flag, addr, len, &xlog_node->reg_dump);
 		}
 	} else {
 		/* If there is no list to dump ranges, dump all registers */
@@ -483,7 +483,8 @@ static void mdss_dump_reg_by_ranges(struct mdss_debug_base *dbg,
 		pr_info("base:0x%p len:0x%zu\n", dbg->base, dbg->max_offset);
 		addr = dbg->base;
 		len = dbg->max_offset;
-		mdss_dump_reg(reg_dump_flag, addr, len, &dbg->reg_dump);
+		mdss_dump_reg((const char *)dbg->name, reg_dump_flag, addr,
+			len, &dbg->reg_dump);
 	}
 }
 
