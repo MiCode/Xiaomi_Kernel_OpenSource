@@ -13,8 +13,6 @@
 
 /dts-v1/;
 
-/memreserve/ 0x90000000 0x00000200;
-
 #include "msmtitanium.dtsi"
 
 / {
