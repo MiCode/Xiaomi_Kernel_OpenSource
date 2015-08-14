@@ -598,8 +598,7 @@
 				qcom,cpr-corners = <16>;
 
 				qcom,ldo-headroom-voltage = <150000>;
-				qcom,ldo-max-voltage = <805000>;
-				qcom,ldo-disable;
+				qcom,ldo-max-voltage = <915000>;
 
 				qcom,cpr-corner-fmax-map = <1 2 7 12 16>;
 
@@ -731,8 +730,7 @@
 				qcom,cpr-corners = <25>;
 
 				qcom,ldo-headroom-voltage = <150000>;
-				qcom,ldo-max-voltage = <805000>;
-				qcom,ldo-disable;
+				qcom,ldo-max-voltage = <915000>;
 
 				qcom,cpr-corner-fmax-map = <1 4 9 13 25>;
 
@@ -902,21 +900,21 @@
 		      <0x9820000 0x1000>;
 		reg-names = "pm-apc", "pm-apcc", "apcs-csr";
 		regulator-min-microvolt = <520000>;
-		regulator-max-microvolt = <865000>;
+		regulator-max-microvolt = <915000>;
 		qcom,ldo-default-voltage = <750000>;
 		qcom,retention-voltage = <520000>;
 		qcom,ldo-headroom-voltage = <150000>;
-		qcom,vref-functional-step-voltage = <4048>;
-		qcom,vref-functional-min-voltage = <294800>;
-		qcom,vref-retention-step-voltage = <4462>;
-		qcom,vref-retention-min-voltage = <324950>;
+		qcom,vref-functional-step-voltage = <4600>;
+		qcom,vref-functional-min-voltage = <335000>;
+		qcom,vref-retention-step-voltage = <4600>;
+		qcom,vref-retention-min-voltage = <335000>;
 		qcom,ldo-config-init = <0xf1f0e471>;
 		qcom,apm-config-init = <0x0>;
 		qcom,cluster-num = <0>;
 		kryo0_retention_vreg: regulator {
 			regulator-name = "kryo0-retention";
-			regulator-min-microvolt = <324950>;
-			regulator-max-microvolt = <865000>;
+			regulator-min-microvolt = <335000>;
+			regulator-max-microvolt = <915000>;
 		};
 	};
 
@@ -927,21 +925,21 @@
 		      <0x9820000 0x1000>;
 		reg-names = "pm-apc", "pm-apcc", "apcs-csr";
 		regulator-min-microvolt = <520000>;
-		regulator-max-microvolt = <865000>;
+		regulator-max-microvolt = <915000>;
 		qcom,ldo-default-voltage = <750000>;
 		qcom,retention-voltage = <520000>;
 		qcom,ldo-headroom-voltage = <150000>;
-		qcom,vref-functional-step-voltage = <4048>;
-		qcom,vref-functional-min-voltage = <294800>;
-		qcom,vref-retention-step-voltage = <4462>;
-		qcom,vref-retention-min-voltage = <324950>;
+		qcom,vref-functional-step-voltage = <4600>;
+		qcom,vref-functional-min-voltage = <335000>;
+		qcom,vref-retention-step-voltage = <4600>;
+		qcom,vref-retention-min-voltage = <335000>;
 		qcom,cluster-num = <1>;
 		qcom,ldo-config-init = <0xf1f0e471>;
 		qcom,apm-config-init = <0x0>;
 		kryo1_retention_vreg: regulator {
 			regulator-name = "kryo1-retention";
-			regulator-min-microvolt = <324950>;
-			regulator-max-microvolt = <865000>;
+			regulator-min-microvolt = <335000>;
+			regulator-max-microvolt = <915000>;
 		};
 	};
 
