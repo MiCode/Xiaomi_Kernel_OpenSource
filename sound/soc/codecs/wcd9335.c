@@ -9235,10 +9235,14 @@ static int tasha_device_down(struct wcd9xxx *wcd9xxx)
 	struct snd_soc_codec *codec;
 	struct tasha_priv *priv;
 	int count;
+	int i = 0;
 
 	codec = (struct snd_soc_codec *)(wcd9xxx->ssr_priv);
 	priv = snd_soc_codec_get_drvdata(codec);
 	wcd_cpe_ssr_event(priv->cpe_core, WCD_CPE_BUS_DOWN_EVENT);
+	for (i = 0; i < priv->nr; i++)
+		swrm_wcd_notify(priv->swr_ctrl_data[i].swr_pdev,
+				SWR_DEVICE_DOWN, NULL);
 	snd_soc_card_change_online_state(codec->card, 0);
 	for (count = 0; count < NUM_CODEC_DAIS; count++)
 		priv->dai[count].bus_down_in_recovery = true;
