@@ -32,4 +32,7 @@
 
 #define USB_QUIRK_OTG_PET		0x00000080
 
+/* device generates spurious wakeup, ignore remote wakeup capability */
+#define USB_QUIRK_IGNORE_REMOTE_WAKEUP	0x00000200
+
 #endif /* __LINUX_USB_QUIRKS_H */
