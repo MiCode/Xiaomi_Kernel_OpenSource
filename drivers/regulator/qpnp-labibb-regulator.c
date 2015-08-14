@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt)	"%s: " fmt, __func__
+
 #include <linux/init.h>
 #include <linux/delay.h>
 #include <linux/err.h>
@@ -33,6 +35,7 @@
 /* Common register value for LAB/IBB */
 #define REG_LAB_IBB_LCD_MODE		0x0
 #define REG_LAB_IBB_AMOLED_MODE		BIT(7)
+#define REG_LAB_IBB_SEC_ACCESS		0xD0
 #define REG_LAB_IBB_SEC_UNLOCK_CODE	0xA5
 
 /* LAB register offset definitions */
@@ -51,7 +54,6 @@
 #define REG_LAB_RDSON_MNGMNT		0x53
 #define REG_LAB_PRECHARGE_CTL		0x5E
 #define REG_LAB_SOFT_START_CTL		0x5F
-#define REG_LAB_SEC_ACCESS		0xD0
 
 /* LAB register bits definitions */
 
@@ -129,7 +131,6 @@
 #define REG_IBB_PWRUP_PWRDN_CTL_1	0x58
 #define REG_IBB_SOFT_START_CTL		0x5F
 #define REG_IBB_NLIMIT_DAC		0x61
-#define REG_IBB_SEC_ACCESS		0xD0
 
 /* IBB register bits definition */
 
@@ -468,30 +469,47 @@ qpnp_labibb_masked_write(struct qpnp_labibb *labibb, u16 base,
 	return 0;
 }
 
-static int qpnp_lab_unlock_sec_access(struct qpnp_labibb *labibb)
+static int qpnp_labibb_sec_write(struct qpnp_labibb *labibb, u16 base,
+					u8 offset, u8 *val, int count)
 {
 	int rc;
-	u8 val = REG_LAB_IBB_SEC_UNLOCK_CODE;
+	u8 sec_val = REG_LAB_IBB_SEC_UNLOCK_CODE;
 
-	rc = qpnp_labibb_write(labibb, labibb->lab_base + REG_LAB_SEC_ACCESS,
-		&val, 1);
+	rc = qpnp_labibb_write(labibb, base + REG_LAB_IBB_SEC_ACCESS, &sec_val,
+				1);
+	if (rc) {
+		pr_err("qpnp_lab_write register %x failed rc = %d\n",
+			base + REG_LAB_IBB_SEC_ACCESS, rc);
+		return rc;
+	}
+
+	rc = qpnp_labibb_write(labibb, base + offset, val, count);
 	if (rc)
-		pr_err("qpnp_lab_unlock_sec_access write register %x failed rc = %d\n",
-			REG_LAB_SEC_ACCESS, rc);
+		pr_err("qpnp_labibb_write failed: addr=%03X, rc=%d\n",
+			base + offset, rc);
 
 	return rc;
 }
 
-static int qpnp_ibb_unlock_sec_access(struct qpnp_labibb *labibb)
+static int qpnp_labibb_sec_masked_write(struct qpnp_labibb *labibb, u16 base,
+					u8 offset, u8 mask, u8 val, int count)
 {
 	int rc;
-	u8 val = REG_LAB_IBB_SEC_UNLOCK_CODE;
+	u8 sec_val = REG_LAB_IBB_SEC_UNLOCK_CODE;
 
-	rc = qpnp_labibb_write(labibb,
-			labibb->ibb_base + REG_IBB_SEC_ACCESS, &val, 1);
+	rc = qpnp_labibb_write(labibb, base + REG_LAB_IBB_SEC_ACCESS, &sec_val,
+				1);
+	if (rc) {
+		pr_err("qpnp_lab_write register %x failed rc = %d\n",
+			base + REG_LAB_IBB_SEC_ACCESS, rc);
+		return rc;
+	}
+
+	rc = qpnp_labibb_masked_write(labibb, base + offset, mask, val, count);
 	if (rc)
-		pr_err("qpnp_ibb_unlock_sec_access write register %x failed rc = %d\n",
-			REG_IBB_SEC_ACCESS, rc);
+		pr_err("qpnp_lab_write register %x failed rc = %d\n",
+			base + offset, rc);
+
 	return rc;
 }
 
@@ -514,42 +532,26 @@ static int qpnp_lab_dt_init(struct qpnp_labibb *labibb,
 	u32 tmp;
 
 	if (labibb->mode != QPNP_LABIBB_STANDALONE_MODE) {
-		rc = qpnp_lab_unlock_sec_access(labibb);
-
-		if (rc) {
-			pr_err("unlock lab secure register failed rc = %d\n",
-				rc);
-			return rc;
-		}
-
 		if (labibb->mode == QPNP_LABIBB_LCD_MODE)
 			val = REG_LAB_IBB_LCD_MODE;
 		else
 			val = REG_LAB_IBB_AMOLED_MODE;
 
-		rc = qpnp_labibb_write(labibb, labibb->lab_base +
+		rc = qpnp_labibb_sec_write(labibb, labibb->lab_base,
 				REG_LAB_LCD_AMOLED_SEL, &val, 1);
 
 		if (rc) {
-			pr_err("qpnp_lab_dt_init write register %x failed rc = %d\n",
+			pr_err("qpnp_lab_sec_write register %x failed rc = %d\n",
 				REG_LAB_LCD_AMOLED_SEL, rc);
 			return rc;
 		}
 
-		rc = qpnp_lab_unlock_sec_access(labibb);
-
-		if (rc) {
-			pr_err("unlock lab secure register failed rc = %d\n",
-				rc);
-			return rc;
-		}
-
 		val = LAB_IBB_EN_RDY_EN;
-		rc = qpnp_labibb_write(labibb, labibb->lab_base +
+		rc = qpnp_labibb_sec_write(labibb, labibb->lab_base,
 				REG_LAB_IBB_EN_RDY, &val, 1);
 
 		if (rc) {
-			pr_err("qpnp_lab_dt_init write register %x failed rc = %d\n",
+			pr_err("qpnp_lab_sec_write register %x failed rc = %d\n",
 				REG_LAB_IBB_EN_RDY, rc);
 			return rc;
 		}
@@ -807,8 +809,8 @@ static int qpnp_labibb_regulator_enable(struct qpnp_labibb *labibb)
 		&val, 1);
 
 	if (rc) {
-		pr_err("%s: write register %x failed rc = %d\n",
-				__func__, REG_IBB_ENABLE_CTL, rc);
+		pr_err("write register %x failed rc = %d\n",
+			REG_IBB_ENABLE_CTL, rc);
 		return rc;
 	}
 
@@ -821,17 +823,17 @@ static int qpnp_labibb_regulator_enable(struct qpnp_labibb *labibb)
 	rc = qpnp_labibb_read(labibb, &val,
 			labibb->lab_base + REG_LAB_STATUS1, 1);
 	if (rc) {
-		pr_err("%s: read register %x failed rc = %d\n",
-				__func__, REG_LAB_STATUS1, rc);
+		pr_err("read register %x failed rc = %d\n",
+			REG_LAB_STATUS1, rc);
 		goto err_out;
 	}
 
-	pr_debug("%s: soft=%d %d up=%d dly=%d\n", __func__,
+	pr_debug("soft=%d %d up=%d dly=%d\n",
 		labibb->lab_vreg.soft_start, labibb->ibb_vreg.soft_start,
 				labibb->ibb_vreg.pwrup_dly, dly);
 
 	if (!(val & LAB_STATUS1_VREG_OK)) {
-		pr_err("%s:  failed for LAB %x\n", __func__, val);
+		pr_err("failed for LAB %x\n", val);
 		goto err_out;
 	}
 
@@ -842,8 +844,8 @@ static int qpnp_labibb_regulator_enable(struct qpnp_labibb *labibb)
 		rc = qpnp_labibb_read(labibb, &val,
 				labibb->ibb_base + REG_IBB_STATUS1, 1);
 		if (rc) {
-			pr_err("%s: read register %x failed rc = %d\n",
-				__func__, REG_IBB_STATUS1, rc);
+			pr_err("read register %x failed rc = %d\n",
+				REG_IBB_STATUS1, rc);
 			goto err_out;
 		}
 
@@ -855,7 +857,7 @@ static int qpnp_labibb_regulator_enable(struct qpnp_labibb *labibb)
 	}
 
 	if (!enabled) {
-		pr_err("%s:  failed for IBB %x\n", __func__, val);
+		pr_err("failed for IBB %x\n", val);
 		goto err_out;
 	}
 
@@ -868,8 +870,8 @@ err_out:
 	rc = qpnp_labibb_write(labibb, labibb->ibb_base + REG_IBB_ENABLE_CTL,
 		&val, 1);
 	if (rc)
-		pr_err("%s: write register %x failed rc = %d\n",
-				__func__, REG_IBB_ENABLE_CTL, rc);
+		pr_err("write register %x failed rc = %d\n",
+				REG_IBB_ENABLE_CTL, rc);
 	return -EINVAL;
 }
 
@@ -885,8 +887,8 @@ static int qpnp_labibb_regulator_disable(struct qpnp_labibb *labibb)
 	rc = qpnp_labibb_write(labibb,
 			labibb->ibb_base + REG_IBB_ENABLE_CTL, &val, 1);
 	if (rc) {
-		pr_err("%s: write register %x failed rc = %d\n",
-			__func__, REG_IBB_ENABLE_CTL, rc);
+		pr_err("write register %x failed rc = %d\n",
+			REG_IBB_ENABLE_CTL, rc);
 		return rc;
 	}
 
@@ -898,8 +900,8 @@ static int qpnp_labibb_regulator_disable(struct qpnp_labibb *labibb)
 		rc = qpnp_labibb_read(labibb, &val,
 				labibb->ibb_base + REG_IBB_STATUS1, 1);
 		if (rc) {
-			pr_err("%s: read register %x failed rc = %d\n",
-				__func__, REG_IBB_STATUS1, rc);
+			pr_err("read register %x failed rc = %d\n",
+				REG_IBB_STATUS1, rc);
 			return rc;
 		}
 
@@ -910,7 +912,7 @@ static int qpnp_labibb_regulator_disable(struct qpnp_labibb *labibb)
 	}
 
 	if (!disabled) {
-		pr_err("%s:  failed for IBB %x\n", __func__, val);
+		pr_err("failed for IBB %x\n", val);
 		return -EINVAL;
 	}
 
@@ -1446,13 +1448,7 @@ int qpnp_ibb_set_pwrup_dly(struct regulator *regulator, u32 val)
 		goto _exit;
 	}
 
-	rc = qpnp_ibb_unlock_sec_access(labibb);
-	if (rc) {
-		pr_err("unlock ibb secure register failed rc = %d\n", rc);
-		goto _exit;
-	}
-
-	rc = qpnp_labibb_masked_write(labibb, labibb->ibb_base +
+	rc = qpnp_labibb_sec_masked_write(labibb, labibb->ibb_base,
 				REG_IBB_PWRUP_PWRDN_CTL_1,
 				IBB_PWRUP_PWRDN_CTL_1_DLY1_MASK <<
 				IBB_PWRUP_PWRDN_CTL_1_DLY1_SHIFT,
@@ -1460,7 +1456,7 @@ int qpnp_ibb_set_pwrup_dly(struct regulator *regulator, u32 val)
 				1);
 
 	if (rc) {
-		pr_err("qpnp_ibb_set_pwrup write register %x failed rc = %d\n",
+		pr_err("qpnp_ibb_sec_masked_write register %x failed rc = %d\n",
 			REG_IBB_PWRUP_PWRDN_CTL_1, rc);
 		goto _exit;
 	}
@@ -1498,20 +1494,14 @@ int qpnp_ibb_set_pwrdn_dly(struct regulator *regulator, u32 val)
 		goto _exit;
 	}
 
-	rc = qpnp_ibb_unlock_sec_access(labibb);
-	if (rc) {
-		pr_err("unlock ibb secure register failed rc = %d\n", rc);
-		goto _exit;
-	}
-
-	rc = qpnp_labibb_masked_write(labibb, labibb->ibb_base +
+	rc = qpnp_labibb_sec_masked_write(labibb, labibb->ibb_base,
 				REG_IBB_PWRUP_PWRDN_CTL_1,
 				IBB_PWRUP_PWRDN_CTL_1_DLY2_MASK,
 				reg,
 				1);
 
 	if (rc) {
-		pr_err("qpnp_ibb_set_pwrdn write register %x failed rc = %d\n",
+		pr_err("qpnp_labibb_sec_masked_write register %x failed rc = %d\n",
 			REG_IBB_PWRUP_PWRDN_CTL_1, rc);
 		goto _exit;
 	}
@@ -1532,24 +1522,16 @@ static int qpnp_ibb_dt_init(struct qpnp_labibb *labibb,
 	u8 val;
 
 	if (labibb->mode != QPNP_LABIBB_STANDALONE_MODE) {
-		rc = qpnp_ibb_unlock_sec_access(labibb);
-
-		if (rc) {
-			pr_err("unlock ibb secure register failed rc = %d\n",
-				rc);
-			return rc;
-		}
-
 		if (labibb->mode == QPNP_LABIBB_LCD_MODE)
 			val = REG_LAB_IBB_LCD_MODE;
 		else
 			val = REG_LAB_IBB_AMOLED_MODE;
 
-		rc = qpnp_labibb_write(labibb, labibb->ibb_base +
+		rc = qpnp_labibb_sec_write(labibb, labibb->ibb_base,
 				REG_LAB_LCD_AMOLED_SEL, &val, 1);
 
 		if (rc) {
-			pr_err("qpnp_ibb_dt_init write register %x failed rc = %d\n",
+			pr_err("qpnp_labibb_sec_write register %x failed rc = %d\n",
 				REG_IBB_LCD_AMOLED_SEL, rc);
 			return rc;
 		}
@@ -1604,19 +1586,12 @@ static int qpnp_ibb_dt_init(struct qpnp_labibb *labibb,
 		val |= (IBB_PWRUP_PWRDN_CTL_1_EN_DLY1 |
 				IBB_PWRUP_PWRDN_CTL_1_LAB_VREG_OK);
 
-	rc = qpnp_ibb_unlock_sec_access(labibb);
-
-	if (rc) {
-		pr_err("unlock ibb secure register failed rc = %d\n", rc);
-		return rc;
-	}
-
-	rc = qpnp_labibb_write(labibb, labibb->ibb_base +
+	rc = qpnp_labibb_sec_write(labibb, labibb->ibb_base,
 				REG_IBB_PWRUP_PWRDN_CTL_1,
 				&val,
 				1);
 	if (rc) {
-		pr_err("qpnp_ibb_set_pwrdn write register %x failed rc = %d\n",
+		pr_err("qpnp_labibb_sec_write register %x failed rc = %d\n",
 			REG_IBB_PWRUP_PWRDN_CTL_1, rc);
 		return rc;
 	}
@@ -1705,18 +1680,12 @@ static int qpnp_ibb_dt_init(struct qpnp_labibb *labibb,
 		"qcom,qpnp-ibb-limit-max-current-enable"))
 		val |= IBB_CURRENT_LIMIT_EN;
 
-	rc = qpnp_ibb_unlock_sec_access(labibb);
-	if (rc) {
-		pr_err("unlock ibb secure register failed rc = %d\n", rc);
-		return rc;
-	}
-
-	rc = qpnp_labibb_write(labibb, labibb->ibb_base +
+	rc = qpnp_labibb_sec_write(labibb, labibb->ibb_base,
 					REG_IBB_CURRENT_LIMIT,
 					&val,
 					1);
 	if (rc) {
-		pr_err("qpnp_ibb_dt_init write register %x failed rc = %d\n",
+		pr_err("qpnp_labibb_sec_write register %x failed rc = %d\n",
 				REG_IBB_CURRENT_LIMIT, rc);
 		return rc;
 	}
