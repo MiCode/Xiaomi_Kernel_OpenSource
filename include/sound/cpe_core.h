@@ -146,6 +146,9 @@ struct wcd_cpe_lsm_ops {
 			bool detect_failure);
 	int (*lsm_set_fmt_cfg)(void *core_handle,
 			struct cpe_lsm_session *session);
+
+	int (*lsm_set_port)(void *core_handle,
+			struct cpe_lsm_session *session);
 };
 
 int wcd_cpe_get_lsm_ops(struct wcd_cpe_lsm_ops *);
