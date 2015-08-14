@@ -443,20 +443,28 @@ static void diag_close_logging_process(int pid)
 
 }
 
-static int diagchar_close(struct inode *inode, struct file *file)
+static int diag_remove_client_entry(struct file *file)
 {
 	int i = -1;
-	struct diagchar_priv *diagpriv_data = file->private_data;
+	struct diagchar_priv *diagpriv_data = NULL;
 	struct diag_dci_client_tbl *dci_entry = NULL;
-
-	pr_debug("diag: process exit %s\n", current->comm);
-	if (!(file->private_data)) {
-		pr_alert("diag: Invalid file pointer");
-		return -ENOMEM;
-	}
 
 	if (!driver)
 		return -ENOMEM;
+
+	mutex_lock(&driver->diag_file_mutex);
+	if (!file) {
+		DIAG_LOG(DIAG_DEBUG_USERSPACE, "Invalid file pointer\n");
+		mutex_unlock(&driver->diag_file_mutex);
+		return -ENOENT;
+	}
+	if (!(file->private_data)) {
+		DIAG_LOG(DIAG_DEBUG_USERSPACE, "Invalid private data\n");
+		mutex_unlock(&driver->diag_file_mutex);
+		return -EINVAL;
+	}
+
+	diagpriv_data = file->private_data;
 
 	/* clean up any DCI registrations, if this is a DCI client
 	* This will specially help in case of ungraceful exit of any DCI client
@@ -482,11 +490,19 @@ static int diagchar_close(struct inode *inode, struct file *file)
 			driver->client_map[i].pid = 0;
 			kfree(diagpriv_data);
 			diagpriv_data = NULL;
+			file->private_data = 0;
 			break;
 		}
 	}
 	mutex_unlock(&driver->diagchar_mutex);
+	mutex_unlock(&driver->diag_file_mutex);
 	return 0;
+}
+static int diagchar_close(struct inode *inode, struct file *file)
+{
+	DIAG_LOG(DIAG_DEBUG_USERSPACE, "diag: process exit %s\n",
+		current->comm);
+	return diag_remove_client_entry(file);
 }
 
 void diag_record_stats(int type, int flag)
@@ -2392,7 +2408,9 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		data_type = driver->data_ready[index] & DEINIT_TYPE;
 		COPY_USER_SPACE_OR_EXIT(buf, data_type, 4);
 		driver->data_ready[index] ^= DEINIT_TYPE;
-		goto exit;
+		mutex_unlock(&driver->diagchar_mutex);
+		diag_remove_client_entry(file);
+		return ret;
 	}
 
 	if (driver->data_ready[index] & MSG_MASKS_TYPE) {
@@ -2938,6 +2956,7 @@ static int __init diagchar_init(void)
 	non_hdlc_data.len = 0;
 	mutex_init(&driver->hdlc_disable_mutex);
 	mutex_init(&driver->diagchar_mutex);
+	mutex_init(&driver->diag_file_mutex);
 	mutex_init(&driver->delayed_rsp_mutex);
 	mutex_init(&apps_data_mutex);
 	init_waitqueue_head(&driver->wait_q);
