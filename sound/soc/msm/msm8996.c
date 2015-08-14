@@ -75,7 +75,6 @@ static int msm_slim_5_rx_ch = 1;
 static int msm_hifi_control;
 static int msm_vi_feed_tx_ch = 2;
 
-static int msm_btsco_rate = SAMPLING_RATE_8KHZ;
 static int msm_hdmi_rx_ch = 2;
 static int msm_proxy_rx_ch = 2;
 static int hdmi_rx_sample_rate = SAMPLING_RATE_48KHZ;
@@ -105,10 +104,6 @@ static const char *const proxy_rx_ch_text[] = {"One", "Two", "Three", "Four",
 
 static char const *hdmi_rx_sample_rate_text[] = {"KHZ_48", "KHZ_96",
 					"KHZ_192"};
-static const char *const btsco_rate_text[] = {"8000", "16000"};
-static const struct soc_enum msm_btsco_enum[] = {
-	SOC_ENUM_SINGLE_EXT(2, btsco_rate_text),
-};
 
 static const char *const auxpcm_rate_text[] = {"8000", "16000"};
 static const struct soc_enum msm8996_auxpcm_enum[] = {
@@ -924,32 +919,6 @@ static int msm_vi_feed_tx_ch_put(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
-static int msm_btsco_rate_get(struct snd_kcontrol *kcontrol,
-			      struct snd_ctl_elem_value *ucontrol)
-{
-	pr_debug("%s: msm_btsco_rate  = %d", __func__, msm_btsco_rate);
-	ucontrol->value.integer.value[0] = msm_btsco_rate;
-	return 0;
-}
-
-static int msm_btsco_rate_put(struct snd_kcontrol *kcontrol,
-			      struct snd_ctl_elem_value *ucontrol)
-{
-	switch (ucontrol->value.integer.value[0]) {
-	case SAMPLING_RATE_8KHZ:
-		msm_btsco_rate = SAMPLING_RATE_8KHZ;
-		break;
-	case SAMPLING_RATE_16KHZ:
-		msm_btsco_rate = SAMPLING_RATE_16KHZ;
-		break;
-	default:
-		msm_btsco_rate = SAMPLING_RATE_8KHZ;
-		break;
-	}
-	pr_debug("%s: msm_btsco_rate = %d\n", __func__, msm_btsco_rate);
-	return 0;
-}
-
 static int hdmi_rx_bit_format_get(struct snd_kcontrol *kcontrol,
 				  struct snd_ctl_elem_value *ucontrol)
 {
@@ -1381,8 +1350,6 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			hdmi_rx_bit_format_get, hdmi_rx_bit_format_put),
 	SOC_ENUM_EXT("PROXY_RX Channels", msm_snd_enum[6],
 			msm_proxy_rx_ch_get, msm_proxy_rx_ch_put),
-	SOC_ENUM_EXT("Internal BTSCO SampleRate", msm_btsco_enum[0],
-		     msm_btsco_rate_get, msm_btsco_rate_put),
 	SOC_ENUM_EXT("HDMI_RX SampleRate", msm_snd_enum[7],
 			hdmi_rx_sample_rate_get, hdmi_rx_sample_rate_put),
 	SOC_ENUM_EXT("SLIM_0_TX SampleRate", msm_snd_enum[5],
