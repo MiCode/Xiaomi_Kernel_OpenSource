@@ -166,6 +166,9 @@
 #define PCIE20_PARF_MHI_CLOCK_RESET_CTRL	0x174
 #define PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT   0x1A8
 #define PCIE20_PARF_LTSSM              0x1B0
+#define PCIE20_PARF_INT_ALL_STATUS	0x224
+#define PCIE20_PARF_INT_ALL_CLEAR	0x228
+#define PCIE20_PARF_INT_ALL_MASK	0x22C
 #define PCIE20_PARF_SID_OFFSET		0x234
 #define PCIE20_PARF_BDF_TRANSLATE_CFG	0x24C
 #define PCIE20_PARF_BDF_TRANSLATE_N	0x250
@@ -374,7 +377,27 @@ enum msm_pcie_irq {
 	MSM_PCIE_INT_LINK_UP,
 	MSM_PCIE_INT_LINK_DOWN,
 	MSM_PCIE_INT_BRIDGE_FLUSH_N,
+	MSM_PCIE_INT_GLOBAL_INT,
 	MSM_PCIE_MAX_IRQ,
+};
+
+enum msm_pcie_irq_event {
+	MSM_PCIE_INT_EVT_LINK_DOWN = 1,
+	MSM_PCIE_INT_EVT_BME,
+	MSM_PCIE_INT_EVT_PM_TURNOFF,
+	MSM_PCIE_INT_EVT_DEBUG,
+	MSM_PCIE_INT_EVT_LTR,
+	MSM_PCIE_INT_EVT_MHI_Q6,
+	MSM_PCIE_INT_EVT_MHI_A7,
+	MSM_PCIE_INT_EVT_DSTATE_CHANGE,
+	MSM_PCIE_INT_EVT_L1SUB_TIMEOUT,
+	MSM_PCIE_INT_EVT_MMIO_WRITE,
+	MSM_PCIE_INT_EVT_CFG_WRITE,
+	MSM_PCIE_INT_EVT_BRIDGE_FLUSH_N,
+	MSM_PCIE_INT_EVT_LINK_UP,
+	MSM_PCIE_INT_EVT_AER_LEGACY,
+	MSM_PCIE_INT_EVT_AER_ERR,
+	MSM_PCIE_INT_EVT_MAX = 15,
 };
 
 enum msm_pcie_gpio {
@@ -522,6 +545,7 @@ struct msm_pcie_dev_t {
 	struct mutex		     recovery_lock;
 	spinlock_t                   linkdown_lock;
 	spinlock_t                   wakeup_lock;
+	spinlock_t			global_irq_lock;
 	spinlock_t			aer_lock;
 	ulong				linkdown_counter;
 	ulong				link_turned_on_counter;
@@ -690,7 +714,8 @@ static const struct msm_pcie_irq_info_t msm_pcie_irq_info[MSM_PCIE_MAX_IRQ] = {
 	{"int_aer_legacy",	0},
 	{"int_pls_link_up",	0},
 	{"int_pls_link_down",	0},
-	{"int_bridge_flush_n",	0}
+	{"int_bridge_flush_n",	0},
+	{"int_global_int",	0}
 };
 
 /* MSIs */
@@ -3529,15 +3554,8 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 							   irq_info->name);
 
 		if (!res) {
-			int j;
-			for (j = 0; j < MSM_PCIE_MAX_RES; j++) {
-				iounmap(dev->res[j].base);
-				dev->res[j].base = NULL;
-			}
-			PCIE_ERR(dev, "PCIe: RC%d can't find IRQ # for %s.\n",
+			PCIE_DBG(dev, "PCIe: RC%d can't find IRQ # for %s.\n",
 				dev->rc_idx, irq_info->name);
-			ret = -ENODEV;
-			goto out;
 		} else {
 			irq_info->num = res->start;
 			PCIE_DBG(dev, "IRQ # for %s is %d.\n", irq_info->name,
@@ -3552,15 +3570,8 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 							   msi_info->name);
 
 		if (!res) {
-			int j;
-			for (j = 0; j < MSM_PCIE_MAX_RES; j++) {
-				iounmap(dev->res[j].base);
-				dev->res[j].base = NULL;
-			}
-			PCIE_ERR(dev, "PCIe: RC%d can't find IRQ # for %s.\n",
+			PCIE_DBG(dev, "PCIe: RC%d can't find IRQ # for %s.\n",
 				dev->rc_idx, msi_info->name);
-			ret = -ENODEV;
-			goto out;
 		} else {
 			msi_info->num = res->start;
 			PCIE_DBG(dev, "IRQ # for %s is %d.\n", msi_info->name,
@@ -3661,6 +3672,20 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 
 	msm_pcie_write_mask(dev->parf + PCIE20_PARF_MHI_CLOCK_RESET_CTRL,
 				0, BIT(4));
+
+	/* enable selected IRQ */
+	if (dev->irq[MSM_PCIE_INT_GLOBAL_INT].num) {
+		msm_pcie_write_reg(dev->parf, PCIE20_PARF_INT_ALL_MASK, 0);
+
+		msm_pcie_write_mask(dev->parf + PCIE20_PARF_INT_ALL_MASK, 0,
+					MSM_PCIE_INT_EVT_LINK_DOWN |
+					MSM_PCIE_INT_EVT_AER_LEGACY |
+					MSM_PCIE_INT_EVT_AER_ERR);
+
+		PCIE_DBG(dev, "PCIe: RC%d: PCIE20_PARF_INT_ALL_MASK: 0x%x\n",
+			dev->rc_idx,
+			readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_MASK));
+	}
 
 	if (dev->dev_mem_res->end - dev->dev_mem_res->start > SZ_16M)
 		writel_relaxed(SZ_32M, dev->parf +
@@ -4606,6 +4631,55 @@ static irqreturn_t handle_msi_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t handle_global_irq(int irq, void *data)
+{
+	int i;
+	struct msm_pcie_dev_t *dev = data;
+	unsigned long irqsave_flags;
+	u32 status;
+
+	PCIE_DBG2(dev, "RC%d: Global IRQ %d received: 0x%x\n",
+		dev->rc_idx, irq, status);
+
+	spin_lock_irqsave(&dev->global_irq_lock, irqsave_flags);
+
+	status = readl_relaxed(dev->parf + PCIE20_PARF_INT_ALL_STATUS);
+	msm_pcie_write_mask(dev->parf + PCIE20_PARF_INT_ALL_CLEAR, 0, status);
+
+	for (i = 0; i <= MSM_PCIE_INT_EVT_MAX; i++) {
+		if (status & BIT(i)) {
+			switch (i) {
+			case MSM_PCIE_INT_EVT_LINK_DOWN:
+				PCIE_DBG(dev,
+					"PCIe: RC%d: handle linkdown event.\n",
+					dev->rc_idx);
+				handle_linkdown_irq(irq, data);
+				break;
+			case MSM_PCIE_INT_EVT_AER_LEGACY:
+				PCIE_DBG(dev,
+					"PCIe: RC%d: AER legacy event.\n",
+					dev->rc_idx);
+				handle_aer_irq(irq, data);
+				break;
+			case MSM_PCIE_INT_EVT_AER_ERR:
+				PCIE_DBG(dev,
+					"PCIe: RC%d: AER event.\n",
+					dev->rc_idx);
+				handle_aer_irq(irq, data);
+				break;
+			default:
+				PCIE_ERR(dev,
+					"PCIe: RC%d: Unexpected event %d is caught!\n",
+					dev->rc_idx, i);
+			}
+		}
+	}
+
+	spin_unlock_irqrestore(&dev->global_irq_lock, irqsave_flags);
+
+	return IRQ_HANDLED;
+}
+
 void msm_pcie_destroy_irq(unsigned int irq, struct msm_pcie_dev_t *pcie_dev)
 {
 	int pos, i;
@@ -4901,54 +4975,85 @@ int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 		wakeup_source_init(&dev->ws, "RC0 pcie_wakeup_source");
 
 	/* register handler for linkdown interrupt */
-	rc = devm_request_irq(pdev,
-		dev->irq[MSM_PCIE_INT_LINK_DOWN].num, handle_linkdown_irq,
-		IRQF_TRIGGER_RISING, dev->irq[MSM_PCIE_INT_LINK_DOWN].name,
-		dev);
-	if (rc) {
-		PCIE_ERR(dev, "PCIe: Unable to request linkdown interrupt:%d\n",
-			dev->irq[MSM_PCIE_INT_LINK_DOWN].num);
-		return rc;
+	if (dev->irq[MSM_PCIE_INT_LINK_DOWN].num) {
+		rc = devm_request_irq(pdev,
+			dev->irq[MSM_PCIE_INT_LINK_DOWN].num,
+			handle_linkdown_irq,
+			IRQF_TRIGGER_RISING,
+			dev->irq[MSM_PCIE_INT_LINK_DOWN].name,
+			dev);
+		if (rc) {
+			PCIE_ERR(dev,
+				"PCIe: Unable to request linkdown interrupt:%d\n",
+				dev->irq[MSM_PCIE_INT_LINK_DOWN].num);
+			return rc;
+		}
 	}
 
 	/* register handler for physical MSI interrupt line */
-	rc = devm_request_irq(pdev,
-		dev->irq[MSM_PCIE_INT_MSI].num, handle_msi_irq,
-		IRQF_TRIGGER_RISING, dev->irq[MSM_PCIE_INT_MSI].name, dev);
-	if (rc) {
-		PCIE_ERR(dev, "PCIe: RC%d: Unable to request MSI interrupt\n",
-			dev->rc_idx);
-		return rc;
+	if (dev->irq[MSM_PCIE_INT_MSI].num) {
+		rc = devm_request_irq(pdev,
+			dev->irq[MSM_PCIE_INT_MSI].num,
+			handle_msi_irq,
+			IRQF_TRIGGER_RISING,
+			dev->irq[MSM_PCIE_INT_MSI].name,
+			dev);
+		if (rc) {
+			PCIE_ERR(dev,
+				"PCIe: RC%d: Unable to request MSI interrupt\n",
+				dev->rc_idx);
+			return rc;
+		}
 	}
 
 	/* register handler for AER interrupt */
-	rc = devm_request_irq(pdev,
-			dev->irq[MSM_PCIE_INT_PLS_ERR].num,
-			handle_aer_irq,
-			IRQF_TRIGGER_RISING,
-			dev->irq[MSM_PCIE_INT_PLS_ERR].name,
-			dev);
-	if (rc) {
-		PCIE_ERR(dev,
-			"PCIe: RC%d: Unable to request aer pls_err interrupt: %d\n",
-			dev->rc_idx,
-			dev->irq[MSM_PCIE_INT_PLS_ERR].num);
-		return rc;
+	if (dev->irq[MSM_PCIE_INT_PLS_ERR].num) {
+		rc = devm_request_irq(pdev,
+				dev->irq[MSM_PCIE_INT_PLS_ERR].num,
+				handle_aer_irq,
+				IRQF_TRIGGER_RISING,
+				dev->irq[MSM_PCIE_INT_PLS_ERR].name,
+				dev);
+		if (rc) {
+			PCIE_ERR(dev,
+				"PCIe: RC%d: Unable to request aer pls_err interrupt: %d\n",
+				dev->rc_idx,
+				dev->irq[MSM_PCIE_INT_PLS_ERR].num);
+			return rc;
+		}
 	}
 
 	/* register handler for AER legacy interrupt */
-	rc = devm_request_irq(pdev,
-			dev->irq[MSM_PCIE_INT_AER_LEGACY].num,
-			handle_aer_irq,
-			IRQF_TRIGGER_RISING,
-			dev->irq[MSM_PCIE_INT_AER_LEGACY].name,
-			dev);
-	if (rc) {
-		PCIE_ERR(dev,
-			"PCIe: RC%d: Unable to request aer aer_legacy interrupt: %d\n",
-			dev->rc_idx,
-			dev->irq[MSM_PCIE_INT_AER_LEGACY].num);
-		return rc;
+	if (dev->irq[MSM_PCIE_INT_AER_LEGACY].num) {
+		rc = devm_request_irq(pdev,
+				dev->irq[MSM_PCIE_INT_AER_LEGACY].num,
+				handle_aer_irq,
+				IRQF_TRIGGER_RISING,
+				dev->irq[MSM_PCIE_INT_AER_LEGACY].name,
+				dev);
+		if (rc) {
+			PCIE_ERR(dev,
+				"PCIe: RC%d: Unable to request aer aer_legacy interrupt: %d\n",
+				dev->rc_idx,
+				dev->irq[MSM_PCIE_INT_AER_LEGACY].num);
+			return rc;
+		}
+	}
+
+	if (dev->irq[MSM_PCIE_INT_GLOBAL_INT].num) {
+		rc = devm_request_irq(pdev,
+				dev->irq[MSM_PCIE_INT_GLOBAL_INT].num,
+				handle_global_irq,
+				IRQF_TRIGGER_RISING,
+				dev->irq[MSM_PCIE_INT_GLOBAL_INT].name,
+				dev);
+		if (rc) {
+			PCIE_ERR(dev,
+				"PCIe: RC%d: Unable to request global_int interrupt: %d\n",
+				dev->rc_idx,
+				dev->irq[MSM_PCIE_INT_GLOBAL_INT].num);
+			return rc;
+		}
 	}
 
 	/* register handler for PCIE_WAKE_N interrupt line */
@@ -5427,6 +5532,7 @@ int __init pcie_init(void)
 		mutex_init(&msm_pcie_dev[i].recovery_lock);
 		spin_lock_init(&msm_pcie_dev[i].linkdown_lock);
 		spin_lock_init(&msm_pcie_dev[i].wakeup_lock);
+		spin_lock_init(&msm_pcie_dev[i].global_irq_lock);
 		spin_lock_init(&msm_pcie_dev[i].aer_lock);
 		msm_pcie_dev[i].drv_ready = false;
 	}
