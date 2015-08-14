@@ -162,11 +162,16 @@ struct lsm_cmd_set_params_conf {
 	struct lsm_param_min_confidence_levels	conf_payload;
 } __packed;
 
-struct lsm_cmd_set_opmode_connectport {
+struct lsm_cmd_set_params_opmode {
 	struct apr_hdr  msg_hdr;
 	struct lsm_set_params_hdr params_hdr;
-	struct lsm_param_connect_to_port	connect_to_port;
-	struct lsm_param_op_mode		op_mode;
+	struct lsm_param_op_mode op_mode;
+} __packed;
+
+struct lsm_cmd_set_connectport {
+	struct apr_hdr  msg_hdr;
+	struct lsm_set_params_hdr params_hdr;
+	struct lsm_param_connect_to_port connect_to_port;
 } __packed;
 
 struct lsm_param_epd_thres {
@@ -277,4 +282,5 @@ int q6lsm_set_one_param(struct lsm_client *client,
 void q6lsm_sm_set_param_data(struct lsm_client *client,
 		struct lsm_params_info *p_info,
 		size_t *offset);
+int q6lsm_set_port_connected(struct lsm_client *client);
 #endif /* __Q6LSM_H__ */

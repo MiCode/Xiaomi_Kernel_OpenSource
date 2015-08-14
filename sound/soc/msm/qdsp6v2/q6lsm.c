@@ -699,29 +699,26 @@ static int q6lsm_send_confidence_levels(
 	return rc;
 }
 
-static int q6lsm_send_params(struct lsm_client *client,
+static int q6lsm_send_param_opmode(struct lsm_client *client,
 		struct lsm_module_param_ids *opmode_ids,
-		struct lsm_module_param_ids *connectport_ids,
 		u32 set_param_opcode)
 {
 	int rc;
-	struct lsm_cmd_set_opmode_connectport opmode_connectport;
+	struct lsm_cmd_set_params_opmode opmode_params;
 	struct apr_hdr  *msg_hdr;
-	struct lsm_param_connect_to_port *connect_to_port;
 	struct lsm_param_op_mode *op_mode;
 	u32 data_payload_size, param_size;
 
-	msg_hdr = &opmode_connectport.msg_hdr;
+	msg_hdr = &opmode_params.msg_hdr;
 	q6lsm_add_hdr(client, msg_hdr,
-		      sizeof(opmode_connectport), true);
+		      sizeof(opmode_params), true);
 	msg_hdr->opcode = set_param_opcode;
-	data_payload_size = sizeof(opmode_connectport) -
+	data_payload_size = sizeof(opmode_params) -
 			    sizeof(*msg_hdr) -
-			    sizeof(opmode_connectport.params_hdr);
-	q6lsm_set_param_hdr_info(&opmode_connectport.params_hdr,
+			    sizeof(opmode_params.params_hdr);
+	q6lsm_set_param_hdr_info(&opmode_params.params_hdr,
 				 data_payload_size, 0, 0, 0);
-	connect_to_port = &opmode_connectport.connect_to_port;
-	op_mode = &opmode_connectport.op_mode;
+	op_mode = &opmode_params.op_mode;
 
 	param_size = sizeof(struct lsm_param_op_mode) -
 		     sizeof(op_mode->common);
@@ -733,18 +730,8 @@ static int q6lsm_send_params(struct lsm_client *client,
 	op_mode->reserved = 0;
 	pr_debug("%s: mode = 0x%x", __func__, op_mode->mode);
 
-	param_size = (sizeof(struct lsm_param_connect_to_port) -
-		      sizeof(connect_to_port->common));
-	q6lsm_set_param_common(&connect_to_port->common,
-			       connectport_ids, param_size,
-			       set_param_opcode);
-	connect_to_port->minor_version = QLSM_PARAM_ID_MINOR_VERSION;
-	connect_to_port->port_id = client->connect_to_port;
-	connect_to_port->reserved = 0;
-	pr_debug("%s: port= %d", __func__, connect_to_port->port_id);
-
 	rc = q6lsm_apr_send_pkt(client, client->apr,
-				&opmode_connectport, true, NULL);
+				&opmode_params, true, NULL);
 	if (rc)
 		pr_err("%s: Failed set_params opcode 0x%x, rc %d\n",
 		       __func__, msg_hdr->opcode, rc);
@@ -763,12 +750,61 @@ int get_lsm_port()
 	return lsm_afe_port;
 }
 
+int q6lsm_set_port_connected(struct lsm_client *client)
+{
+	int rc;
+	struct lsm_cmd_set_connectport connectport;
+	struct lsm_module_param_ids connectport_ids;
+	struct apr_hdr  *msg_hdr;
+	struct lsm_param_connect_to_port *connect_to_port;
+	u32 data_payload_size, param_size, set_param_opcode;
+
+	if (client->use_topology) {
+		set_param_opcode = LSM_SESSION_CMD_SET_PARAMS_V2;
+		connectport_ids.module_id = LSM_MODULE_ID_FRAMEWORK;
+		connectport_ids.param_id = LSM_PARAM_ID_CONNECT_TO_PORT;
+	} else {
+		set_param_opcode = LSM_SESSION_CMD_SET_PARAMS;
+		connectport_ids.module_id = LSM_MODULE_ID_VOICE_WAKEUP;
+		connectport_ids.param_id = LSM_PARAM_ID_CONNECT_TO_PORT;
+	}
+	client->connect_to_port = get_lsm_port();
+
+	msg_hdr = &connectport.msg_hdr;
+	q6lsm_add_hdr(client, msg_hdr,
+		      sizeof(connectport), true);
+	msg_hdr->opcode = set_param_opcode;
+	data_payload_size = sizeof(connectport) -
+			    sizeof(*msg_hdr) -
+			    sizeof(connectport.params_hdr);
+	q6lsm_set_param_hdr_info(&connectport.params_hdr,
+				 data_payload_size, 0, 0, 0);
+	connect_to_port = &connectport.connect_to_port;
+
+	param_size = (sizeof(struct lsm_param_connect_to_port) -
+		      sizeof(connect_to_port->common));
+	q6lsm_set_param_common(&connect_to_port->common,
+			       &connectport_ids, param_size,
+			       set_param_opcode);
+	connect_to_port->minor_version = QLSM_PARAM_ID_MINOR_VERSION;
+	connect_to_port->port_id = client->connect_to_port;
+	connect_to_port->reserved = 0;
+	pr_debug("%s: port= %d", __func__, connect_to_port->port_id);
+
+	rc = q6lsm_apr_send_pkt(client, client->apr,
+				&connectport, true, NULL);
+	if (rc)
+		pr_err("%s: Failed set_params opcode 0x%x, rc %d\n",
+		       __func__, msg_hdr->opcode, rc);
+
+	return rc;
+}
 int q6lsm_set_data(struct lsm_client *client,
 			   enum lsm_detection_mode mode,
 			   bool detectfailure)
 {
 	int rc = 0;
-	struct lsm_module_param_ids opmode_ids, connectport_ids;
+	struct lsm_module_param_ids opmode_ids;
 	struct lsm_module_param_ids conf_levels_ids;
 
 	if (!client->confidence_levels) {
@@ -792,16 +828,12 @@ int q6lsm_set_data(struct lsm_client *client,
 		goto err_ret;
 	}
 	client->mode |= detectfailure << 2;
-	client->connect_to_port = get_lsm_port();
 
 	opmode_ids.module_id = LSM_MODULE_ID_VOICE_WAKEUP;
 	opmode_ids.param_id = LSM_PARAM_ID_OPERATION_MODE;
 
-	connectport_ids.module_id = LSM_MODULE_ID_VOICE_WAKEUP;
-	connectport_ids.param_id = LSM_PARAM_ID_CONNECT_TO_PORT;
-
-	rc = q6lsm_send_params(client, &opmode_ids, &connectport_ids,
-			      LSM_SESSION_CMD_SET_PARAMS);
+	rc = q6lsm_send_param_opmode(client, &opmode_ids,
+					LSM_SESSION_CMD_SET_PARAMS);
 	if (rc) {
 		pr_err("%s: Failed to set lsm config params %d\n",
 			__func__, rc);
@@ -1403,7 +1435,6 @@ int q6lsm_set_one_param(struct lsm_client *client,
 	case LSM_OPERATION_MODE: {
 		struct snd_lsm_detect_mode *det_mode = data;
 		struct lsm_module_param_ids opmode_ids;
-		struct lsm_module_param_ids connectport_ids;
 
 		if (det_mode->mode == LSM_MODE_KEYWORD_ONLY_DETECTION) {
 			client->mode = 0x01;
@@ -1416,16 +1447,12 @@ int q6lsm_set_one_param(struct lsm_client *client,
 		}
 
 		client->mode |= det_mode->detect_failure << 2;
-		client->connect_to_port = get_lsm_port();
 
 		opmode_ids.module_id = p_info->module_id;
 		opmode_ids.param_id = p_info->param_id;
 
-		connectport_ids.module_id = LSM_MODULE_ID_FRAMEWORK;
-		connectport_ids.param_id = LSM_PARAM_ID_CONNECT_TO_PORT;
-
-		rc = q6lsm_send_params(client, &opmode_ids, &connectport_ids,
-				       LSM_SESSION_CMD_SET_PARAMS_V2);
+		rc = q6lsm_send_param_opmode(client, &opmode_ids,
+					LSM_SESSION_CMD_SET_PARAMS_V2);
 		if (rc)
 			pr_err("%s: OPERATION_MODE failed, rc %d\n",
 				__func__, rc);
