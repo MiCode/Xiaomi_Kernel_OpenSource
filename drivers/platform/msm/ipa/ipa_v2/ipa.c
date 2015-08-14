@@ -3526,6 +3526,9 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		goto fail_init_hw;
 	}
 
+	/* Create a wakeup source. */
+	ipa_ctx->pdev->power.wakeup = wakeup_source_register("IPA_WS");
+
 	/* Initialize IPA RM (resource manager) */
 	result = ipa_rm_initialize();
 	if (result) {
