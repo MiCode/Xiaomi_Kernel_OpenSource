@@ -28,6 +28,7 @@
 #include <linux/kmemleak.h>
 #include <linux/dma-mapping.h>
 #include <soc/qcom/scm.h>
+#include <soc/qcom/secure_buffer.h>
 
 #include <asm/cacheflush.h>
 #include <linux/sizes.h>
@@ -1009,6 +1010,28 @@ static int msm_iommu_dma_supported(struct iommu_domain *domain,
 	return ((1ULL << 32) - 1) < mask ? 0 : 1;
 }
 
+static int msm_iommu_domain_set_attr(struct iommu_domain *domain,
+				enum iommu_attr attr, void *data)
+{
+	switch (attr) {
+	case DOMAIN_ATTR_COHERENT_HTW_DISABLE:
+		/*
+		 * Just quietly bail out as L2-redirect feature
+		 * cannot be enabled for Secure context banks.
+		 */
+		break;
+	case DOMAIN_ATTR_SECURE_VMID:
+		/*
+		 * MSM iommu driver doesn't set the VMID for
+		 * any domain.
+		 */
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
 static int msm_iommu_domain_get_attr(struct iommu_domain *domain,
 				enum iommu_attr attr, void *data)
 {
@@ -1016,6 +1039,16 @@ static int msm_iommu_domain_get_attr(struct iommu_domain *domain,
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
 
 	switch (attr) {
+	case DOMAIN_ATTR_COHERENT_HTW_DISABLE:
+		/*
+		 * This is the case always for secure
+		 * context banks
+		 */
+		*((unsigned int *) data) = 1;
+		break;
+	case DOMAIN_ATTR_SECURE_VMID:
+		*((int *) data) = -VMID_INVAL;
+		break;
 	case DOMAIN_ATTR_CONTEXT_BANK:
 		if (list_empty(&priv->list_attached))
 			return -ENODEV;
@@ -1043,6 +1076,7 @@ static struct iommu_ops msm_iommu_ops = {
 	.iova_to_phys = msm_iommu_iova_to_phys,
 	.capable = msm_iommu_capable,
 	.pgsize_bitmap = MSM_IOMMU_PGSIZES,
+	.domain_set_attr = msm_iommu_domain_set_attr,
 	.domain_get_attr = msm_iommu_domain_get_attr,
 	.dma_supported = msm_iommu_dma_supported,
 };
