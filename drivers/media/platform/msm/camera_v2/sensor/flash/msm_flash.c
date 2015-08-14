@@ -726,19 +726,13 @@ static int32_t msm_flash_get_gpio_dt_data(struct device_node *of_node,
 			goto free_gpio_array;
 		}
 
-		rc = msm_camera_get_dt_gpio_set_tbl(of_node, gconf,
+		rc = msm_camera_init_gpio_pin_tbl(of_node, gconf,
 			gpio_array, gpio_array_size);
 		if (rc < 0) {
 			pr_err("%s failed %d\n", __func__, __LINE__);
 			goto free_cam_gpio_req_tbl;
 		}
 
-		rc = msm_camera_init_gpio_pin_tbl(of_node, gconf,
-			gpio_array, gpio_array_size);
-		if (rc < 0) {
-			pr_err("%s failed %d\n", __func__, __LINE__);
-			goto free_cam_gpio_set_tbl;
-		}
 		if (fctrl->flash_driver_type == FLASH_DRIVER_DEFAULT)
 			fctrl->flash_driver_type = FLASH_DRIVER_GPIO;
 		CDBG("%s:%d fctrl->flash_driver_type = %d", __func__, __LINE__,
@@ -747,8 +741,6 @@ static int32_t msm_flash_get_gpio_dt_data(struct device_node *of_node,
 
 	return 0;
 
-free_cam_gpio_set_tbl:
-	kfree(gconf->cam_gpio_set_tbl);
 free_cam_gpio_req_tbl:
 	kfree(gconf->cam_gpio_req_tbl);
 free_gpio_array:
