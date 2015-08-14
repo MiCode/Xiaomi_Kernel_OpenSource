@@ -150,7 +150,7 @@ struct msm_isp_buf_ops {
 		struct device **iommu_ctx1, struct device **iommu_ctx2,
 		int num_iommu_ctx1, int num_iommu_ctx2);
 	int (*buf_mgr_init)(struct msm_isp_buf_mgr *buf_mgr,
-		const char *ctx_name, uint16_t num_buf_q);
+		const char *ctx_name);
 	int (*buf_mgr_deinit)(struct msm_isp_buf_mgr *buf_mgr);
 	int (*buf_mgr_debug)(struct msm_isp_buf_mgr *buf_mgr,
 		unsigned long fault_addr);
@@ -167,7 +167,7 @@ struct msm_isp_buf_mgr {
 	uint32_t pagefault_debug_disable;
 	uint32_t frameId_mismatch_recovery;
 	uint16_t num_buf_q;
-	struct msm_isp_bufq *bufq;
+	struct msm_isp_bufq bufq[BUF_MGR_NUM_BUF_Q];
 
 	struct ion_client *client;
 	struct msm_isp_buf_ops *ops;

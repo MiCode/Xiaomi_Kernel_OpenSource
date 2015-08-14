@@ -963,12 +963,24 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		/* fallthrough */
 	case VIDIOC_MSM_ISP_ENQUEUE_BUF:
 		/* fallthrough */
-	case VIDIOC_MSM_ISP_DEQUEUE_BUF:
+	case VIDIOC_MSM_ISP_DEQUEUE_BUF: {
 		/* fallthrough */
-	case VIDIOC_MSM_ISP_RELEASE_BUF: {
 		mutex_lock(&vfe_dev->buf_mgr_mutex);
 		rc = msm_isp_proc_buf_cmd(vfe_dev->buf_mgr, cmd, arg);
 		mutex_unlock(&vfe_dev->buf_mgr_mutex);
+		break;
+	}
+	case VIDIOC_MSM_ISP_RELEASE_BUF: {
+		if (vfe_dev->buf_mgr == NULL) {
+			pr_err("%s: buf mgr NULL! rc = -1\n", __func__);
+			rc = -EINVAL;
+			return rc;
+		}
+		mutex_lock(&vfe_dev->buf_mgr->lock);
+		mutex_lock(&vfe_dev->buf_mgr_mutex);
+		rc = msm_isp_proc_buf_cmd(vfe_dev->buf_mgr, cmd, arg);
+		mutex_unlock(&vfe_dev->buf_mgr_mutex);
+		mutex_unlock(&vfe_dev->buf_mgr->lock);
 		break;
 	}
 	case VIDIOC_MSM_ISP_REQUEST_STREAM:
@@ -2128,7 +2140,7 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	vfe_dev->hw_info->vfe_ops.core_ops.init_hw_reg(vfe_dev);
 
 	vfe_dev->buf_mgr->ops->buf_mgr_init(vfe_dev->buf_mgr,
-		"msm_isp", BUF_MGR_NUM_BUF_Q);
+		"msm_isp");
 
 	memset(&vfe_dev->axi_data, 0, sizeof(struct msm_vfe_axi_shared_data));
 	memset(&vfe_dev->stats_data, 0,
