@@ -87,58 +87,58 @@
 		regulator-max-microvolt = <800000>;
 	};
 
+	/* PMCOBALT S9 = VDD_MX supply */
+	pmcobalt_s9_level: regulator-pmcobalt-s9-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmcobalt_s9_level";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+	};
+
+	pmcobalt_s9_floor_level: regulator-pmcobalt-s9-floor-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmcobalt_s9_floor_level";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+	};
+
+	pmcobalt_s9_level_ao: regulator-pmcobalt-s9-level-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmcobalt_s9_level_ao";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+	};
+
+	/* PMCOBALT S10 = APC_0 supply */
+	pmcobalt_s10: regulator-pmcobalt-s10 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmcobalt_s10";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <352000>;
+		regulator-max-microvolt = <952000>;
+	};
+
 	/*
-	 * PMCOBALT S9 + S10 + S11 = 3 phase APC_1 supply
-	 * S11 is the gang leader
+	 * PMCOBALT S11 + S12 + S13 = 3 phase APC_1 supply
+	 * S13 is the gang leader
 	 */
-	pmcobalt_s11: regulator-pmcobalt-s11 {
+	pmcobalt_s13: regulator-pmcobalt-s13 {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pmcobalt_s11";
+		regulator-name = "pmcobalt_s13";
 		qcom,hpm-min-load = <100000>;
 		regulator-min-microvolt = <352000>;
 		regulator-max-microvolt = <952000>;
-	};
-
-	/* PMCOBALT S12 = APC_0 supply */
-	pmcobalt_s12: regulator-pmcobalt-s12 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmcobalt_s12";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <352000>;
-		regulator-max-microvolt = <952000>;
-	};
-
-	/* PMCOBALT S13 = VDD_MX supply */
-	pmcobalt_s13_level: regulator-pmcobalt-s13-level {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmcobalt_s13_level";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
-		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
-	};
-
-	pmcobalt_s13_floor_level: regulator-pmcobalt-s13-floor-level {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmcobalt_s13_floor_level";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
-		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
-	};
-
-	pmcobalt_s13_level_ao: regulator-pmcobalt-s13-level-ao {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmcobalt_s13_level_ao";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
-		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 	};
 
 	pmcobalt_l1: regulator-pmcobalt-l1 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmcobalt_l1";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <800000>;
-		regulator-max-microvolt = <800000>;
+		regulator-min-microvolt = <880000>;
+		regulator-max-microvolt = <880000>;
 	};
 
 	pmcobalt_l2: regulator-pmcobalt-l2 {
@@ -371,21 +371,13 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmcobalt_l28";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <880000>;
-		regulator-max-microvolt = <880000>;
+		regulator-min-microvolt = <2864000>;
+		regulator-max-microvolt = <2864000>;
 	};
 
 	pmcobalt_l29: regulator-pmcobalt-l29 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmcobalt_l29";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <2864000>;
-		regulator-max-microvolt = <2864000>;
-	};
-
-	pmcobalt_l30: regulator-pmcobalt-l30 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmcobalt_l30";
 		qcom,hpm-min-load = <10000>;
 		regulator-min-microvolt = <704000>;
 		regulator-max-microvolt = <704000>;
@@ -408,31 +400,22 @@
 		regulator-max-microvolt = <5000000>;
 	};
 
-	/* PM8005 S1 = VDD_MODEM supply */
+	/* PM8005 S1 + S4 = 2 phase VDD_GFX supply */
 	pm8005_s1: regulator-pm8005-s1 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm8005_s1";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <752000>;
-		regulator-max-microvolt = <752000>;
-	};
-
-	/* PM8005 S2 + S3 = 2 phase VDD_GFX supply */
-	pm8005_s2: regulator-pm8005-s2 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8005_s2";
 		qcom,hpm-min-load = <100000>;
 		regulator-min-microvolt = <352000>;
 		regulator-max-microvolt = <952000>;
 	};
 
-	/* PM8005 S4 = VDD_PX supply */
-	pm8005_s4: regulator-pm8005-s4 {
+	/* PM8005 S3 = VDD_MODEM supply */
+	pm8005_s3: regulator-pm8005-s3 {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pm8005_s4";
+		regulator-name = "pm8005_s3";
 		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <600000>;
-		regulator-max-microvolt = <600000>;
+		regulator-min-microvolt = <752000>;
+		regulator-max-microvolt = <752000>;
 	};
 };
 
