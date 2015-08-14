@@ -84,7 +84,7 @@ static void msm_dcvs_dec_check_and_scale_clocks(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
 
-	if (inst->session_type != MSM_VIDC_DECODER)
+	if (inst->session_type != MSM_VIDC_DECODER || !msm_vidc_dec_dcvs_mode)
 		return;
 
 	rc = msm_dcvs_check_supported(inst);
