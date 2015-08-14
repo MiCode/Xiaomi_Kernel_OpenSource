@@ -107,6 +107,8 @@ Optional Properties:
 - qcom,pm-qos-wakeup-latency:
 				Similar to the above. Driver votes against deep low
 				power modes right before GPU wakes up from sleep.
+- qcom,popp-enable:
+				Boolean. Enables the POPP feature in the gpu kernel driver.
 
 The following properties are optional as collecting data via coresight might
 not be supported for every chipset. The documentation for coresight
