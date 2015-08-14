@@ -125,7 +125,7 @@ static int ion_system_secure_heap_allocate(struct ion_heap *heap,
 	return ret;
 
 err:
-	ion_system_secure_heap_free(buffer);
+	secure_heap->sys_heap->ops->free(buffer);
 	return ret;
 }
 
