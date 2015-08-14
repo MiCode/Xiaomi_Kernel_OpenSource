@@ -3176,7 +3176,7 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_mdss_vsync_clk.c, 0x01fb },
 		{ &gcc_mdss_byte0_clk.c, 0x01fc },
 		{ &gcc_mdss_esc0_clk.c, 0x01fd },
-		{ &wcnss_m_clk.c, 0x0198 },
+		{ &wcnss_m_clk.c, 0x0ec },
 	),
 	.c = {
 		.dbg_name = "gcc_debug_mux",
