@@ -3266,9 +3266,12 @@ static void log_frame(struct msm_vidc_inst *inst, struct vidc_frame_data *data,
 		msm_vidc_debugfs_update(inst, MSM_VIDC_DEBUGFS_EVENT_ETB);
 
 		if (msm_vidc_bitrate_clock_scaling &&
-			inst->session_type == MSM_VIDC_DECODER)
+			inst->session_type == MSM_VIDC_DECODER &&
+			!inst->dcvs_mode)
 				inst->instant_bitrate =
 					data->filled_len * 8 * inst->prop.fps;
+		else
+			inst->instant_bitrate = 0;
 	} else if (type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		dprintk(VIDC_DBG,
 				"Sending ftb (%pa) to hal: size: %d, ts: %lld, flags = %#x\n",
