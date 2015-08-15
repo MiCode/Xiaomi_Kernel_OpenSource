@@ -2034,7 +2034,7 @@ static int hdmi_8996_v2_perform_sw_calibration(struct clk *c)
 		(io->pll_base + QSERDES_COM_C_READY_STATUS),
 		ready_poll, ((ready_poll & BIT(0)) == 1),
 		HDMI_PLL_POLL_MAX_READS,
-		HDMI_PLL_POLL_TIMEOUT_US)) {
+		HDMI_PLL_POLL_TIMEOUT_US << 1)) {
 		DEV_DBG("%s: C READY\n", __func__);
 		ready_poll = 1;
 	} else {
