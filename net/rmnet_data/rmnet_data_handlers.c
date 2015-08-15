@@ -20,6 +20,8 @@
 #include <linux/rmnet_data.h>
 #include <linux/net_map.h>
 #include <linux/netdev_features.h>
+#include <linux/ip.h>
+#include <linux/ipv6.h>
 #include "rmnet_data_private.h"
 #include "rmnet_data_config.h"
 #include "rmnet_data_vnd.h"
@@ -43,6 +45,12 @@ module_param(dump_pkt_tx, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(dump_pkt_tx, "Dump packets exiting egress handler");
 #endif /* CONFIG_RMNET_DATA_DEBUG_PKT */
 
+#define RMNET_DATA_IP_VERSION_4 0x40
+#define RMNET_DATA_IP_VERSION_6 0x60
+
+#define RMNET_DATA_GRO_RCV_FAIL 0
+#define RMNET_DATA_GRO_RCV_PASS 1
+
 /* ***************** Helper Functions *************************************** */
 
 /**
@@ -57,10 +65,10 @@ MODULE_PARM_DESC(dump_pkt_tx, "Dump packets exiting egress handler");
 static inline void __rmnet_data_set_skb_proto(struct sk_buff *skb)
 {
 	switch (skb->data[0] & 0xF0) {
-	case 0x40: /* IPv4 */
+	case RMNET_DATA_IP_VERSION_4:
 		skb->protocol = htons(ETH_P_IP);
 		break;
-	case 0x60: /* IPv6 */
+	case RMNET_DATA_IP_VERSION_6:
 		skb->protocol = htons(ETH_P_IPV6);
 		break;
 	default:
@@ -178,6 +186,37 @@ static void rmnet_reset_mac_header(struct sk_buff *skb)
 #endif /*NET_SKBUFF_DATA_USES_OFFSET*/
 
 /**
+ * rmnet_check_skb_can_gro() - Check is skb can be passed through GRO handler
+ *
+ * Determines whether to pass the skb to the GRO handler napi_gro_receive() or
+ * handle normally by passing to netif_receive_skb().
+ *
+ * Warning:
+ * This assumes that only TCP packets can be coalesced by the GRO handler which
+ * is not true in general. We lose the ability to use GRO for cases like UDP
+ * encapsulation protocols.
+ *
+ * Return:
+ *      - RMNET_DATA_GRO_RCV_FAIL if packet is sent to netif_receive_skb()
+ *      - RMNET_DATA_GRO_RCV_PASS if packet is sent to napi_gro_receive()
+ */
+static int rmnet_check_skb_can_gro(struct sk_buff *skb)
+{
+	switch (skb->data[0] & 0xF0) {
+	case RMNET_DATA_IP_VERSION_4:
+		if (ip_hdr(skb)->protocol == IPPROTO_TCP)
+			return RMNET_DATA_GRO_RCV_PASS;
+		break;
+	case RMNET_DATA_IP_VERSION_6:
+		if (ipv6_hdr(skb)->nexthdr == IPPROTO_TCP)
+			return RMNET_DATA_GRO_RCV_PASS;
+		/* Fall through */
+	}
+
+	return RMNET_DATA_GRO_RCV_FAIL;
+}
+
+/**
  * __rmnet_deliver_skb() - Deliver skb
  *
  * Determines where to deliver skb. Options are: consume by network stack,
@@ -211,11 +250,16 @@ static rx_handler_result_t __rmnet_deliver_skb(struct sk_buff *skb,
 		case RX_HANDLER_PASS:
 			skb->pkt_type = PACKET_HOST;
 			rmnet_reset_mac_header(skb);
-			if (skb->dev->features & NETIF_F_GRO) {
-				napi = rmnet_vnd_get_napi(skb->dev);
-				napi_schedule(napi);
-				gro_res = napi_gro_receive(napi, skb);
-				trace_rmnet_gro_downlink(gro_res);
+
+			if (rmnet_check_skb_can_gro(skb)) {
+				if (skb->dev->features & NETIF_F_GRO) {
+					napi = rmnet_vnd_get_napi(skb->dev);
+					napi_schedule(napi);
+					gro_res = napi_gro_receive(napi, skb);
+					trace_rmnet_gro_downlink(gro_res);
+				} else {
+					netif_receive_skb(skb);
+				}
 			} else {
 				netif_receive_skb(skb);
 			}
