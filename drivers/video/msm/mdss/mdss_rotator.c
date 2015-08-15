@@ -826,8 +826,8 @@ static int mdss_rotator_init_queue(struct mdss_rot_mgr *mgr)
 	for (i = 0; i < mgr->queue_count; i++) {
 		snprintf(name, sizeof(name), "rot_workq_%d", i);
 		pr_debug("work queue name=%s\n", name);
-		mgr->queues[i].rot_work_queue =
-			create_singlethread_workqueue(name);
+		mgr->queues[i].rot_work_queue = alloc_ordered_workqueue("%s",
+				WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_HIGHPRI, name);
 		if (!mgr->queues[i].rot_work_queue) {
 			ret = -EPERM;
 			break;
