@@ -7,7 +7,7 @@ Required properties:
  - interrupt-parent	: Parent of interrupt.
  - interrupts		: Configuration of touch panel controller interrupt
 				GPIO.
- - goodix,family-id	: Family identification of the controller.
+ - goodix,product-id	: Product identification of the controller.
  - interrupt-gpios	: Interrupt gpio which is to provide interrupts to
 				host, same as "interrupts" node.
  - reset-gpios		: Reset gpio to control the reset of chip.
@@ -49,7 +49,7 @@ i2c@f9927000 {
 			goodix,panel-coords = <0 0 720 1200>;
 			goodix,display-coords = <0 0 720 1080>;
 			goodix,button-map= <158 102 139>;
-			goodix,family-id = <0x0>;
+			goodix,product-id = "915";
 			goodix,cfg-data = [
 		41 D0 02 00 05 0A 05 01 01 08
 		12 58 50 41 03 05 00 00 00 00
