@@ -2144,11 +2144,23 @@ static void venus_hfi_core_clear_interrupt(struct venus_hfi_device *device)
 	u32 intr_status = 0;
 	int rc = 0;
 
+	if (!device) {
+		dprintk(VIDC_ERR, "%s Invalid paramter: %p\n",
+			__func__, device);
+		return;
+	}
+
 	if (!device->callback)
 		return;
 
 	mutex_lock(&device->write_lock);
 	mutex_lock(&device->clk_pwr_lock);
+	if (device->state == VENUS_STATE_DEINIT) {
+		dprintk(VIDC_DBG, "SPURIOUS_INTR for device: 0x%x: "
+			"times: %d interrupt_status: %d",
+			(u32) device, ++device->spur_count, intr_status);
+		goto err_clk_gating_off;
+	}
 	rc = venus_hfi_clk_gating_off(device);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -3749,6 +3761,7 @@ static void venus_hfi_unload_fw(void *dev)
 		return;
 	}
 	if (device->resources.fw.cookie) {
+		flush_workqueue(device->vidc_workq);
 		flush_workqueue(device->venus_pm_workq);
 		subsystem_put(device->resources.fw.cookie);
 		venus_hfi_interface_queues_release(dev);

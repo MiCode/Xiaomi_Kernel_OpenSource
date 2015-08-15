@@ -368,6 +368,9 @@ static void msm_vfe40_process_reset_irq(struct vfe_device *vfe_dev,
 static void msm_vfe40_process_halt_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1)
 {
+    if (irq_status1 & (1 << 8)) {
+        msm_camera_io_w(0x0, vfe_dev->vfe_base + 0x2C0);
+    }
 }
 
 static void msm_vfe40_process_camif_irq(struct vfe_device *vfe_dev,
@@ -1201,7 +1204,6 @@ static long msm_vfe40_axi_halt(struct vfe_device *vfe_dev,
 	msm_camera_io_w(0xFEFFFEFF, vfe_dev->vfe_base + 0x34);
 	msm_camera_io_w(0x1, vfe_dev->vfe_base + 0x24);
 	if (blocking) {
-		init_completion(&vfe_dev->halt_complete);
 		/* Halt AXI Bus Bridge */
 		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x2C0);
 		atomic_set(&vfe_dev->error_info.overflow_state, NO_OVERFLOW);
@@ -1211,7 +1213,9 @@ static long msm_vfe40_axi_halt(struct vfe_device *vfe_dev,
 				axi_busy_flag = false;
 		}
 	}
-	msm_camera_io_w_mb(0x0, vfe_dev->vfe_base + 0x2C0);
+        else {
+	        msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x2C0);
+        }
 	return rc;
 }
 
