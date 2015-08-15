@@ -144,6 +144,7 @@ enum ipa_client_type {
 	IPA_CLIENT_ODU_PROD,
 	IPA_CLIENT_MHI_PROD,
 	IPA_CLIENT_Q6_LAN_PROD,
+	IPA_CLIENT_Q6_WAN_PROD,
 	IPA_CLIENT_Q6_CMD_PROD,
 	IPA_CLIENT_MEMCPY_DMA_SYNC_PROD,
 	IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD,
@@ -223,6 +224,7 @@ enum ipa_client_type {
 
 #define IPA_CLIENT_IS_Q6_PROD(client) \
 	((client) == IPA_CLIENT_Q6_LAN_PROD || \
+	(client) == IPA_CLIENT_Q6_WAN_PROD || \
 	(client) == IPA_CLIENT_Q6_CMD_PROD || \
 	(client) == IPA_CLIENT_Q6_DECOMP_PROD || \
 	(client) == IPA_CLIENT_Q6_DECOMP2_PROD)
@@ -370,6 +372,7 @@ enum ipa_rm_resource_name {
  * @IPA_HW_v2_5: IPA hardware version 2.5
  * @IPA_HW_v2_6: IPA hardware version 2.6
  * @IPA_HW_v2_6L: IPA hardware version 2.6L
+ * @IPA_HW_v3_0: IPA hardware version 3.0
  */
 enum ipa_hw_type {
 	IPA_HW_None = 0,
@@ -380,6 +383,7 @@ enum ipa_hw_type {
 	IPA_HW_v2_5 = 5,
 	IPA_HW_v2_6 = IPA_HW_v2_5,
 	IPA_HW_v2_6L = 6,
+	IPA_HW_v3_0 = 10,
 	IPA_HW_MAX
 };
 

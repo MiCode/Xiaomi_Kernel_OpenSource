@@ -25,24 +25,16 @@
 #define POLLING_MIN_SLEEP_TX 400
 #define POLLING_MAX_SLEEP_TX 500
 /* 8K less 1 nominal MTU (1500 bytes) rounded to units of KB */
-#define IPA_MTU 1500
 #define IPA_GENERIC_AGGR_BYTE_LIMIT 6
 #define IPA_GENERIC_AGGR_TIME_LIMIT 1
 #define IPA_GENERIC_AGGR_PKT_LIMIT 0
 
 #define IPA_GENERIC_RX_BUFF_BASE_SZ 8192
-#define IPA_REAL_GENERIC_RX_BUFF_SZ(X) (SKB_DATA_ALIGN(\
-		(X) + NET_SKB_PAD) +\
+#define IPA_REAL_GENERIC_RX_BUFF_SZ (SKB_DATA_ALIGN(\
+		IPA_GENERIC_RX_BUFF_BASE_SZ + NET_SKB_PAD) +\
 		SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
-#define IPA_GENERIC_RX_BUFF_SZ(X) ((X) -\
-		(IPA_REAL_GENERIC_RX_BUFF_SZ(X) - (X)))
-#define IPA_GENERIC_RX_BUFF_LIMIT (\
-		IPA_REAL_GENERIC_RX_BUFF_SZ(\
-		IPA_GENERIC_RX_BUFF_BASE_SZ) -\
-		IPA_GENERIC_RX_BUFF_BASE_SZ)
-
-/* less 1 nominal MTU (1500 bytes) rounded to units of KB */
-#define IPA_ADJUST_AGGR_BYTE_LIMIT(X) (((X) - IPA_MTU)/1000)
+#define IPA_GENERIC_RX_BUFF_SZ (IPA_GENERIC_RX_BUFF_BASE_SZ -\
+		(IPA_REAL_GENERIC_RX_BUFF_SZ - IPA_GENERIC_RX_BUFF_BASE_SZ))
 
 #define IPA_WLAN_RX_POOL_SZ 100
 #define IPA_WLAN_RX_POOL_SZ_LOW_WM 5
@@ -72,8 +64,6 @@ static void ipa_cleanup_wlan_rx_common_cache(void);
 static void ipa_wq_repl_rx(struct work_struct *work);
 static void ipa_dma_memcpy_notify(struct ipa_sys_context *sys,
 		struct sps_iovec *iovec);
-
-static u32 ipa_adjust_ra_buff_base_sz(u32 aggr_byte_limit);
 
 static void ipa_wq_write_done_common(struct ipa_sys_context *sys, u32 cnt)
 {
@@ -236,7 +226,6 @@ static void ipa_tx_switch_to_intr_mode(struct ipa_sys_context *sys)
 fail:
 	queue_delayed_work(sys->wq, &sys->switch_to_intr_work,
 			msecs_to_jiffies(1));
-	return;
 }
 
 static void ipa_handle_tx(struct ipa_sys_context *sys)
@@ -260,10 +249,12 @@ static void ipa_handle_tx(struct ipa_sys_context *sys)
 	ipa_dec_client_disable_clks();
 }
 
-static void ipa_wq_handle_tx(struct work_struct *work)
+static inline void ipa_wq_handle_tx(struct work_struct *work)
 {
 	struct ipa_sys_context *sys;
+
 	sys = container_of(work, struct ipa_sys_context, work);
+
 	ipa_handle_tx(sys);
 }
 
@@ -639,7 +630,7 @@ bail:
  *
  * This function defer the work for this event to the tx workqueue.
  */
-static void ipa_sps_irq_tx_notify(struct sps_event_notify *notify)
+void ipa_sps_irq_tx_notify(struct sps_event_notify *notify)
 {
 	struct ipa_sys_context *sys = (struct ipa_sys_context *)notify->user;
 	int ret;
@@ -668,7 +659,7 @@ static void ipa_sps_irq_tx_notify(struct sps_event_notify *notify)
 		}
 		break;
 	default:
-		IPAERR("recieved unexpected event id %d\n", notify->event_id);
+		IPAERR("received unexpected event id %d\n", notify->event_id);
 	}
 }
 
@@ -693,7 +684,7 @@ static void ipa_sps_irq_tx_no_aggr_notify(struct sps_event_notify *notify)
 		queue_work(tx_pkt->sys->wq, &tx_pkt->work);
 		break;
 	default:
-		IPAERR("recieved unexpected event id %d\n", notify->event_id);
+		IPAERR("received unexpected event id %d\n", notify->event_id);
 	}
 }
 
@@ -825,14 +816,20 @@ static void ipa_sps_irq_rx_notify(struct sps_event_notify *notify)
 		}
 		break;
 	default:
-		IPAERR("recieved unexpected event id %d\n", notify->event_id);
+		IPAERR("received unexpected event id %d\n", notify->event_id);
 	}
 }
 
-static void switch_to_intr_tx_work_func(struct work_struct *work)
+/**
+ * switch_to_intr_tx_work_func() - Wrapper function to move from polling
+ *	to interrupt mode
+ * @work: work struct
+ */
+void switch_to_intr_tx_work_func(struct work_struct *work)
 {
 	struct delayed_work *dwork;
 	struct ipa_sys_context *sys;
+
 	dwork = container_of(work, struct delayed_work, work);
 	sys = container_of(dwork, struct ipa_sys_context, switch_to_intr_work);
 	ipa_handle_tx(sys);
@@ -861,14 +858,6 @@ static void ipa_handle_rx(struct ipa_sys_context *sys)
 		} else {
 			inactive_cycles = 0;
 		}
-
-		/* if pipe is out of buffers there is no point polling for
-		 * completed descs; release the worker so delayed work can
-		 * run in a timely manner
-		 */
-		if (sys->len == 0)
-			break;
-
 	} while (inactive_cycles <= POLLING_INACTIVITY_RX);
 
 	ipa_rx_switch_to_intr_mode(sys);
@@ -879,6 +868,7 @@ static void switch_to_intr_rx_work_func(struct work_struct *work)
 {
 	struct delayed_work *dwork;
 	struct ipa_sys_context *sys;
+
 	dwork = container_of(work, struct delayed_work, work);
 	sys = container_of(dwork, struct ipa_sys_context, switch_to_intr_work);
 	ipa_handle_rx(sys);
@@ -908,11 +898,6 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	dma_addr_t dma_addr;
 	char buff[IPA_RESOURCE_NAME_MAX];
 	struct iommu_domain *smmu_domain;
-
-	if (unlikely(!ipa_ctx)) {
-		IPAERR("IPA driver was not initialized\n");
-		return -EINVAL;
-	}
 
 	if (sys_in == NULL || clnt_hdl == NULL) {
 		IPAERR("NULL args\n");
@@ -979,7 +964,7 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		snprintf(buff, IPA_RESOURCE_NAME_MAX, "ipawq%d",
 				sys_in->client);
 		ep->sys->wq = alloc_workqueue(buff,
-				WQ_HIGHPRI | WQ_MEM_RECLAIM | WQ_UNBOUND, 1);
+				WQ_MEM_RECLAIM | WQ_UNBOUND, 1);
 		if (!ep->sys->wq) {
 			IPAERR("failed to create wq for client %d\n",
 					sys_in->client);
@@ -990,7 +975,7 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		snprintf(buff, IPA_RESOURCE_NAME_MAX, "iparepwq%d",
 				sys_in->client);
 		ep->sys->repl_wq = alloc_workqueue(buff,
-				WQ_HIGHPRI | WQ_MEM_RECLAIM | WQ_UNBOUND, 1);
+				WQ_MEM_RECLAIM | WQ_UNBOUND, 1);
 		if (!ep->sys->repl_wq) {
 			IPAERR("failed to create rep wq for client %d\n",
 					sys_in->client);
@@ -1060,12 +1045,6 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		ep->connect.source = ipa_ctx->bam_handle;
 		ep->connect.dest_pipe_index = ipa_ctx->a5_pipe_index++;
 		ep->connect.src_pipe_index = ipa_ep_idx;
-		/*
-		 * Determine how many buffers/descriptors remaining will
-		 * cause to drop below the yellow WM bar.
-		 */
-		ep->rx_replenish_threshold = ipa_get_sys_yellow_wm()
-						/ ep->sys->rx_buff_sz;
 	} else {
 		ep->connect.mode = SPS_MODE_DEST;
 		ep->connect.source = SPS_DEV_HANDLE_MEM;
@@ -1084,7 +1063,7 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	ep->connect.options = ep->sys->sps_option;
 	ep->connect.desc.size = sys_in->desc_fifo_sz;
 	ep->connect.desc.base = dma_alloc_coherent(ipa_ctx->pdev,
-			ep->connect.desc.size, &dma_addr, GFP_KERNEL);
+			ep->connect.desc.size, &dma_addr, 0);
 	if (!ipa_ctx->smmu_present) {
 		ep->connect.desc.phys_base = dma_addr;
 	} else {
@@ -1196,11 +1175,6 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl)
 	struct ipa_ep_context *ep;
 	int empty;
 
-	if (unlikely(!ipa_ctx)) {
-		IPAERR("IPA driver was not initialized\n");
-		return -EINVAL;
-	}
-
 	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
 	    ipa_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("bad parm.\n");
@@ -1221,7 +1195,7 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl)
 			empty = list_empty(&ep->sys->head_desc_list);
 			spin_unlock_bh(&ep->sys->spinlock);
 			if (!empty)
-				usleep_range(100, 100);
+				usleep_range(95, 105);
 			else
 				break;
 		} while (1);
@@ -1238,13 +1212,11 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl)
 	if (IPA_CLIENT_IS_CONS(ep->client))
 		ipa_cleanup_rx(ep->sys);
 
-	if (!ep->skip_ep_cfg && IPA_CLIENT_IS_PROD(ep->client)) {
-		if (ipa_ctx->modem_cfg_emb_pipe_flt &&
-			ep->client == IPA_CLIENT_APPS_LAN_WAN_PROD)
-			IPADBG("modem cfg emb pipe flt\n");
-		else
-			ipa_delete_dflt_flt_rules(clnt_hdl);
-	}
+	if (ipa_ctx->modem_cfg_emb_pipe_flt &&
+		ep->client == IPA_CLIENT_APPS_LAN_WAN_PROD)
+		IPADBG("modem cfg emb pipe flt\n");
+	else
+		ipa_delete_dflt_flt_rules(clnt_hdl);
 
 	if (IPA_CLIENT_IS_WLAN_CONS(ep->client))
 		atomic_dec(&ipa_ctx->wc_memb.active_clnt_cnt);
@@ -1328,11 +1300,6 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	struct ipa_ip_packet_init *cmd;
 	struct ipa_sys_context *sys;
 	int src_ep_idx;
-
-	if (unlikely(!ipa_ctx)) {
-		IPAERR("IPA driver was not initialized\n");
-		return -EINVAL;
-	}
 
 	memset(desc, 0, 2 * sizeof(struct ipa_desc));
 
@@ -1444,6 +1411,7 @@ EXPORT_SYMBOL(ipa_tx_dp);
 static void ipa_wq_handle_rx(struct work_struct *work)
 {
 	struct ipa_sys_context *sys;
+
 	sys = container_of(work, struct ipa_sys_context, work);
 	ipa_handle_rx(sys);
 }
@@ -1453,7 +1421,7 @@ static void ipa_wq_repl_rx(struct work_struct *work)
 	struct ipa_sys_context *sys;
 	void *ptr;
 	struct ipa_rx_pkt_wrapper *rx_pkt;
-	gfp_t flag = GFP_KERNEL | (ipa_ctx->use_dma_zone ? GFP_DMA : 0);
+	gfp_t flag = GFP_KERNEL;
 	u32 next;
 	u32 curr;
 
@@ -1538,8 +1506,7 @@ static void ipa_replenish_wlan_rx_cache(struct ipa_sys_context *sys)
 
 	if (rx_len_cached < sys->rx_pool_sz) {
 		list_for_each_entry_safe(rx_pkt, tmp,
-			&ipa_ctx->wc_memb.wlan_comm_desc_list, link)
-		{
+			&ipa_ctx->wc_memb.wlan_comm_desc_list, link) {
 			list_del(&rx_pkt->link);
 
 			if (ipa_ctx->wc_memb.wlan_comm_free_cnt > 0)
@@ -1582,8 +1549,6 @@ static void ipa_replenish_wlan_rx_cache(struct ipa_sys_context *sys)
 fail_sps_transfer:
 	list_del(&rx_pkt->link);
 	spin_unlock_bh(&ipa_ctx->wc_memb.wlan_spinlock);
-
-	return;
 }
 
 static void ipa_cleanup_wlan_rx_common_cache(void)
@@ -1618,8 +1583,7 @@ static void ipa_alloc_wlan_rx_common_cache(u32 size)
 	void *ptr;
 	struct ipa_rx_pkt_wrapper *rx_pkt;
 	int rx_len_cached = 0;
-	gfp_t flag = GFP_NOWAIT | __GFP_NOWARN |
-		(ipa_ctx->use_dma_zone ? GFP_DMA : 0);
+	gfp_t flag = GFP_NOWAIT | __GFP_NOWARN;
 
 	rx_len_cached = ipa_ctx->wc_memb.wlan_comm_total_cnt;
 	while (rx_len_cached < size) {
@@ -1641,7 +1605,7 @@ static void ipa_alloc_wlan_rx_common_cache(u32 size)
 			goto fail_skb_alloc;
 		}
 		ptr = skb_put(rx_pkt->data.skb, IPA_WLAN_RX_BUFF_SZ);
-		rx_pkt->data.dma_addr = dma_map_single(ipa_ctx->pdev, ptr,
+		rx_pkt->data.dma_addr = dma_map_single(NULL, ptr,
 				IPA_WLAN_RX_BUFF_SZ, DMA_FROM_DEVICE);
 		if (rx_pkt->data.dma_addr == 0 ||
 				rx_pkt->data.dma_addr == ~0) {
@@ -1689,8 +1653,7 @@ static void ipa_replenish_rx_cache(struct ipa_sys_context *sys)
 	struct ipa_rx_pkt_wrapper *rx_pkt;
 	int ret;
 	int rx_len_cached = 0;
-	gfp_t flag = GFP_NOWAIT | __GFP_NOWARN |
-		(ipa_ctx->use_dma_zone ? GFP_DMA : 0);
+	gfp_t flag = GFP_NOWAIT | __GFP_NOWARN;
 
 	rx_len_cached = sys->len;
 
@@ -1785,26 +1748,23 @@ static void ipa_fast_replenish_rx_cache(struct ipa_sys_context *sys)
 
 	queue_work(sys->repl_wq, &sys->repl_work);
 
-	if (rx_len_cached <= sys->ep->rx_replenish_threshold) {
-		if (rx_len_cached == 0) {
-			if (sys->ep->client == IPA_CLIENT_APPS_WAN_CONS)
-				IPA_STATS_INC_CNT(ipa_ctx->stats.wan_rx_empty);
-			else if (sys->ep->client == IPA_CLIENT_APPS_LAN_CONS)
-				IPA_STATS_INC_CNT(ipa_ctx->stats.lan_rx_empty);
-			else
-				WARN_ON(1);
-		}
+	if (rx_len_cached == 0) {
+		if (sys->ep->client == IPA_CLIENT_APPS_WAN_CONS)
+			IPA_STATS_INC_CNT(ipa_ctx->stats.wan_rx_empty);
+		else if (sys->ep->client == IPA_CLIENT_APPS_LAN_CONS)
+			IPA_STATS_INC_CNT(ipa_ctx->stats.lan_rx_empty);
+		else
+			WARN_ON(1);
 		queue_delayed_work(sys->wq, &sys->replenish_rx_work,
-			msecs_to_jiffies(1));
+				msecs_to_jiffies(1));
 	}
-
-	return;
 }
 
 static void replenish_rx_work_func(struct work_struct *work)
 {
 	struct delayed_work *dwork;
 	struct ipa_sys_context *sys;
+
 	dwork = container_of(work, struct delayed_work, work);
 	sys = container_of(dwork, struct ipa_sys_context, replenish_rx_work);
 	ipa_inc_client_enable_clks();
@@ -1969,6 +1929,7 @@ begin:
 		}
 		if (status->status_mask & IPA_HW_PKT_STATUS_MASK_TAG_VALID) {
 			struct ipa_tag_completion *comp;
+
 			IPADBG("TAG packet arrived\n");
 			if (status->tag_f_2 == IPA_COOKIE) {
 				skb_pull(skb, IPA_PKT_STATUS_SIZE);
@@ -2166,19 +2127,12 @@ static int ipa_wan_rx_pyld_hdlr(struct sk_buff *skb,
 		IPAERR("ZLT\n");
 		goto bail;
 	}
-
-	if (ipa_ctx->ipa_client_apps_wan_cons_agg_gro) {
-		sys->ep->client_notify(sys->ep->priv,
-					IPA_RECEIVE, (unsigned long)(skb));
-		return rc;
-	}
 	/*
 	 * payload splits across 2 buff or more,
 	 * take the start of the payload from prev_skb
 	 */
 	if (sys->len_rem)
 		wan_rx_handle_splt_pyld(skb, sys);
-
 
 	while (skb->len) {
 		IPADBG("LEN_REM %d\n", skb->len);
@@ -2292,64 +2246,6 @@ static int ipa_wan_rx_pyld_hdlr(struct sk_buff *skb,
 bail:
 	sys->free_skb(skb);
 	return rc;
-}
-
-static int ipa_rx_pyld_hdlr(struct sk_buff *rx_skb, struct ipa_sys_context *sys)
-{
-	struct ipa_a5_mux_hdr *mux_hdr;
-	unsigned int pull_len;
-	unsigned int padding;
-	struct ipa_ep_context *ep;
-	unsigned int src_pipe;
-
-	mux_hdr = (struct ipa_a5_mux_hdr *)rx_skb->data;
-
-	src_pipe = mux_hdr->src_pipe_index;
-
-	IPADBG("RX pkt len=%d IID=0x%x src=%d, flags=0x%x, meta=0x%x\n",
-		rx_skb->len, ntohs(mux_hdr->interface_id),
-		src_pipe, mux_hdr->flags, ntohl(mux_hdr->metadata));
-
-	IPA_DUMP_BUFF(rx_skb->data, 0, rx_skb->len);
-
-	IPA_STATS_INC_CNT(ipa_ctx->stats.rx_pkts);
-	IPA_STATS_EXCP_CNT(mux_hdr->flags, ipa_ctx->stats.rx_excp_pkts);
-
-	/*
-	 * Any packets arriving over AMPDU_TX should be dispatched
-	 * to the regular WLAN RX data-path.
-	 */
-	if (unlikely(src_pipe == WLAN_AMPDU_TX_EP))
-		src_pipe = WLAN_PROD_TX_EP;
-
-	ep = &ipa_ctx->ep[src_pipe];
-	spin_lock(&ipa_ctx->lan_rx_clnt_notify_lock);
-	if (unlikely(src_pipe >= ipa_ctx->ipa_num_pipes ||
-		!ep->valid || !ep->client_notify)) {
-		IPAERR("drop pipe=%d ep_valid=%d client_notify=%p\n",
-		  src_pipe, ep->valid, ep->client_notify);
-		dev_kfree_skb_any(rx_skb);
-		spin_unlock(&ipa_ctx->lan_rx_clnt_notify_lock);
-		return 0;
-	}
-
-	pull_len = sizeof(struct ipa_a5_mux_hdr);
-
-	/*
-	 * IP packet starts on word boundary
-	 * remove the MUX header and any padding and pass the frame to
-	 * the client which registered a rx callback on the "src pipe"
-	 */
-	padding = ep->cfg.hdr.hdr_len & 0x3;
-	if (padding)
-		pull_len += 4 - padding;
-
-	IPADBG("pulling %d bytes from skb\n", pull_len);
-	skb_pull(rx_skb, pull_len);
-	ep->client_notify(ep->priv, IPA_RECEIVE,
-			(unsigned long)(rx_skb));
-	spin_unlock(&ipa_ctx->lan_rx_clnt_notify_lock);
-	return 0;
 }
 
 static struct sk_buff *ipa_get_skb_ipa_rx(unsigned int len, gfp_t flags)
@@ -2474,7 +2370,7 @@ static void ipa_dma_memcpy_notify(struct ipa_sys_context *sys,
 		return;
 	}
 	if (!(iovec->flags & SPS_IOVEC_FLAG_EOT)) {
-		IPAERR("recieved unexpected event. sps flag is 0x%x\n"
+		IPAERR("received unexpected event. sps flag is 0x%x\n"
 			, iovec->flags);
 		WARN_ON(1);
 		return;
@@ -2517,7 +2413,7 @@ void ipa_sps_irq_rx_no_aggr_notify(struct sps_event_notify *notify)
 		queue_work(rx_pkt->sys->wq, &rx_pkt->work);
 		break;
 	default:
-		IPAERR("recieved unexpected event id %d sys=%p\n",
+		IPAERR("received unexpected event id %d sys=%p\n",
 				notify->event_id, notify->user);
 	}
 }
@@ -2546,43 +2442,6 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 		return 0;
 	}
 
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_1) {
-		if (in->client == IPA_CLIENT_APPS_LAN_WAN_PROD) {
-			sys->policy = IPA_POLICY_INTR_POLL_MODE;
-			sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT |
-					SPS_O_ACK_TRANSFERS);
-			sys->sps_callback = ipa_sps_irq_tx_notify;
-			INIT_WORK(&sys->work, ipa_wq_handle_tx);
-			INIT_DELAYED_WORK(&sys->switch_to_intr_work,
-				switch_to_intr_tx_work_func);
-			atomic_set(&sys->curr_polling_state, 0);
-		} else if (in->client == IPA_CLIENT_APPS_LAN_CONS) {
-			sys->policy = IPA_POLICY_INTR_POLL_MODE;
-			sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT |
-					SPS_O_ACK_TRANSFERS);
-			sys->sps_callback = ipa_sps_irq_rx_notify;
-			INIT_WORK(&sys->work, ipa_wq_handle_rx);
-			INIT_DELAYED_WORK(&sys->switch_to_intr_work,
-				switch_to_intr_rx_work_func);
-			INIT_DELAYED_WORK(&sys->replenish_rx_work,
-					replenish_rx_work_func);
-			atomic_set(&sys->curr_polling_state, 0);
-			sys->rx_buff_sz = IPA_RX_SKB_SIZE;
-			sys->rx_pool_sz = IPA_RX_POOL_CEIL;
-			sys->pyld_hdlr = ipa_rx_pyld_hdlr;
-			sys->get_skb = ipa_get_skb_ipa_rx;
-			sys->free_skb = ipa_free_skb_rx;
-			sys->repl_hdlr = ipa_replenish_rx_cache;
-		} else if (IPA_CLIENT_IS_PROD(in->client)) {
-			sys->policy = IPA_POLICY_INTR_MODE;
-			sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT);
-			sys->sps_callback = ipa_sps_irq_tx_no_aggr_notify;
-		} else {
-			IPAERR("Need to install a RX pipe hdlr\n");
-			WARN_ON(1);
-			return -EINVAL;
-		}
-	} else if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_0) {
 		sys->ep->status.status_en = true;
 		if (IPA_CLIENT_IS_PROD(in->client)) {
 			if (!sys->ep->skip_ep_cfg) {
@@ -2614,69 +2473,26 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 						replenish_rx_work_func);
 				INIT_WORK(&sys->repl_work, ipa_wq_repl_rx);
 				atomic_set(&sys->curr_polling_state, 0);
-				sys->rx_buff_sz = IPA_GENERIC_RX_BUFF_SZ(
-					IPA_GENERIC_RX_BUFF_BASE_SZ);
+				sys->rx_buff_sz = IPA_GENERIC_RX_BUFF_SZ;
 				sys->get_skb = ipa_get_skb_ipa_rx;
 				sys->free_skb = ipa_free_skb_rx;
 				in->ipa_ep_cfg.aggr.aggr_en = IPA_ENABLE_AGGR;
 				in->ipa_ep_cfg.aggr.aggr = IPA_GENERIC;
+				in->ipa_ep_cfg.aggr.aggr_byte_limit =
+					IPA_GENERIC_AGGR_BYTE_LIMIT;
 				in->ipa_ep_cfg.aggr.aggr_time_limit =
 					IPA_GENERIC_AGGR_TIME_LIMIT;
+				in->ipa_ep_cfg.aggr.aggr_pkt_limit =
+					IPA_GENERIC_AGGR_PKT_LIMIT;
 				if (in->client == IPA_CLIENT_APPS_LAN_CONS) {
 					sys->pyld_hdlr = ipa_lan_rx_pyld_hdlr;
 					sys->rx_pool_sz =
 						IPA_GENERIC_RX_POOL_SZ;
-					in->ipa_ep_cfg.aggr.aggr_byte_limit =
-					IPA_GENERIC_AGGR_BYTE_LIMIT;
-					in->ipa_ep_cfg.aggr.aggr_pkt_limit =
-					IPA_GENERIC_AGGR_PKT_LIMIT;
 				} else if (in->client ==
 						IPA_CLIENT_APPS_WAN_CONS) {
 					sys->pyld_hdlr = ipa_wan_rx_pyld_hdlr;
 					sys->rx_pool_sz =
 						ipa_ctx->wan_rx_ring_size;
-					if (ipa_ctx->
-					ipa_client_apps_wan_cons_agg_gro) {
-						IPAERR("get close-by %u\n",
-						ipa_adjust_ra_buff_base_sz(
-						in->ipa_ep_cfg.aggr.
-						aggr_byte_limit));
-						IPAERR("set rx_buff_sz %lu\n",
-						(unsigned long int)
-						IPA_GENERIC_RX_BUFF_SZ(
-						ipa_adjust_ra_buff_base_sz(
-						in->ipa_ep_cfg.
-							aggr.aggr_byte_limit)));
-						/* disable ipa_status */
-						sys->ep->status.
-							status_en = false;
-						sys->rx_buff_sz =
-						IPA_GENERIC_RX_BUFF_SZ(
-						ipa_adjust_ra_buff_base_sz(
-						in->ipa_ep_cfg.aggr.
-							aggr_byte_limit));
-						in->ipa_ep_cfg.aggr.
-							aggr_byte_limit =
-						sys->rx_buff_sz < in->
-						ipa_ep_cfg.aggr.
-						aggr_byte_limit ?
-						IPA_ADJUST_AGGR_BYTE_LIMIT(
-						sys->rx_buff_sz) :
-						IPA_ADJUST_AGGR_BYTE_LIMIT(
-						in->ipa_ep_cfg.
-						aggr.aggr_byte_limit);
-						IPAERR("set aggr_limit %lu\n",
-						(unsigned long int)
-						in->ipa_ep_cfg.aggr.
-						aggr_byte_limit);
-					} else {
-						in->ipa_ep_cfg.aggr.
-							aggr_byte_limit =
-						IPA_GENERIC_AGGR_BYTE_LIMIT;
-						in->ipa_ep_cfg.aggr.
-							aggr_pkt_limit =
-						IPA_GENERIC_AGGR_PKT_LIMIT;
-					}
 				}
 				if (nr_cpu_ids > 1)
 					sys->repl_hdlr =
@@ -2757,12 +2573,6 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 				return -EINVAL;
 			}
 		}
-	} else {
-		IPAERR("Unsupported HW type %d\n", ipa_ctx->ipa_hw_type);
-		WARN_ON(1);
-		return -EINVAL;
-
-	}
 
 	return 0;
 }
@@ -2851,11 +2661,6 @@ int ipa_tx_dp_mul(enum ipa_client_type src,
 	u32 num_desc, cnt;
 	int ep_idx;
 
-	if (unlikely(!ipa_ctx)) {
-		IPAERR("IPA driver was not initialized\n");
-		return -EINVAL;
-	}
-
 	IPADBG("Received data desc anchor:%p\n", data_desc);
 
 	spin_lock_bh(&ipa_ctx->wc_memb.ipa_tx_mul_spinlock);
@@ -2939,11 +2744,6 @@ EXPORT_SYMBOL(ipa_tx_dp_mul);
 void ipa_free_skb(struct ipa_rx_data *data)
 {
 	struct ipa_rx_pkt_wrapper *rx_pkt;
-
-	if (unlikely(!ipa_ctx)) {
-		IPAERR("IPA driver was not initialized\n");
-		return;
-	}
 
 	spin_lock_bh(&ipa_ctx->wc_memb.wlan_spinlock);
 
@@ -3102,23 +2902,3 @@ int ipa_sys_teardown(u32 clnt_hdl)
 	return 0;
 }
 EXPORT_SYMBOL(ipa_sys_teardown);
-
-/**
- * ipa_adjust_ra_buff_base_sz()
- *
- * Return value: the largest power of two which is smaller
- * than the input value
- */
-static u32 ipa_adjust_ra_buff_base_sz(u32 aggr_byte_limit)
-{
-	aggr_byte_limit += IPA_MTU;
-	aggr_byte_limit += IPA_GENERIC_RX_BUFF_LIMIT;
-	aggr_byte_limit--;
-	aggr_byte_limit |= aggr_byte_limit >> 1;
-	aggr_byte_limit |= aggr_byte_limit >> 2;
-	aggr_byte_limit |= aggr_byte_limit >> 4;
-	aggr_byte_limit |= aggr_byte_limit >> 8;
-	aggr_byte_limit |= aggr_byte_limit >> 16;
-	aggr_byte_limit++;
-	return aggr_byte_limit >> 1;
-}

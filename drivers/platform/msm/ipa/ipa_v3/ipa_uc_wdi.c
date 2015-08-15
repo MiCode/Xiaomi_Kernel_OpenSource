@@ -339,7 +339,7 @@ struct IpaHwEventLogInfoData_t *uc_event_top_mmio)
 	if (ipa_ctx->uc_wdi_ctx.wdi_uc_stats_ofst +
 		sizeof(struct IpaHwStatsWDIInfoData_t) >=
 		ipa_ctx->ctrl->ipa_reg_base_ofst +
-		IPA_SRAM_DIRECT_ACCESS_N_OFST_v2_0(0) +
+		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0) +
 		ipa_ctx->smem_sz) {
 			IPAERR("uc_wdi_stats 0x%x outside SRAM\n",
 				ipa_ctx->uc_wdi_ctx.wdi_uc_stats_ofst);
@@ -354,8 +354,6 @@ struct IpaHwEventLogInfoData_t *uc_event_top_mmio)
 		IPAERR("fail to ioremap uc wdi stats\n");
 		return;
 	}
-
-	return;
 }
 
 static void ipa_uc_wdi_event_handler(struct IpaHwSharedMemCommonMapping_t
@@ -396,11 +394,6 @@ int ipa_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
 	ipa_ctx->uc_wdi_ctx.wdi_uc_stats_mmio->tx_ch_stats.y
 #define RX_STATS(y) stats->rx_ch_stats.y = \
 	ipa_ctx->uc_wdi_ctx.wdi_uc_stats_mmio->rx_ch_stats.y
-
-	if (unlikely(!ipa_ctx)) {
-		IPAERR("IPA driver was not initialized\n");
-		return -EINVAL;
-	}
 
 	if (!stats || !ipa_ctx->uc_wdi_ctx.wdi_uc_stats_mmio) {
 		IPAERR("bad parms stats=%p wdi_stats=%p\n",
@@ -707,11 +700,6 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	phys_addr_t pa;
 	u32 len;
 
-	if (unlikely(!ipa_ctx)) {
-		IPAERR("IPA driver was not initialized\n");
-		return -EINVAL;
-	}
-
 	if (in == NULL || out == NULL || in->sys.client >= IPA_CLIENT_MAX) {
 		IPAERR("bad parm. in=%p out=%p\n", in, out);
 		if (in)
@@ -837,21 +825,11 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 
 		tx->num_tx_buffers = in->u.dl.num_tx_buffers;
 		tx->ipa_pipe_number = ipa_ep_idx;
-		if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_5) {
-				out->uc_door_bell_pa =
-				 ipa_ctx->ipa_wrapper_base +
-				   IPA_REG_BASE_OFST_v2_5 +
-				   IPA_UC_MAILBOX_m_n_OFFS_v2_5(
-				    IPA_HW_WDI_TX_MBOX_START_INDEX/32,
-				    IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
-		} else {
-				out->uc_door_bell_pa =
-				 ipa_ctx->ipa_wrapper_base +
-				   IPA_REG_BASE_OFST_v2_0 +
-				   IPA_UC_MAILBOX_m_n_OFFS(
-				    IPA_HW_WDI_TX_MBOX_START_INDEX/32,
-				    IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
-		}
+		out->uc_door_bell_pa = ipa_ctx->ipa_wrapper_base +
+				IPA_REG_BASE_OFST_v3_0 +
+				IPA_UC_MAILBOX_m_n_OFFS_v3_0(
+					IPA_HW_WDI_TX_MBOX_START_INDEX/32,
+					IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
 	} else {
 		rx = (struct IpaHwWdiRxSetUpCmdData_t *)cmd.base;
 
@@ -890,21 +868,11 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		rx->rx_ring_rp_pa = va;
 
 		rx->ipa_pipe_number = ipa_ep_idx;
-		if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_5) {
-				out->uc_door_bell_pa =
-				 ipa_ctx->ipa_wrapper_base +
-				   IPA_REG_BASE_OFST_v2_5 +
-				   IPA_UC_MAILBOX_m_n_OFFS_v2_5(
-				    IPA_HW_WDI_RX_MBOX_START_INDEX/32,
-				    IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
-		} else {
-				out->uc_door_bell_pa =
-				 ipa_ctx->ipa_wrapper_base +
-				   IPA_REG_BASE_OFST_v2_0 +
-				   IPA_UC_MAILBOX_m_n_OFFS(
-				    IPA_HW_WDI_RX_MBOX_START_INDEX/32,
-				    IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
-		}
+		out->uc_door_bell_pa = ipa_ctx->ipa_wrapper_base +
+				IPA_REG_BASE_OFST_v3_0 +
+				IPA_UC_MAILBOX_m_n_OFFS_v3_0(
+					IPA_HW_WDI_RX_MBOX_START_INDEX/32,
+					IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
 	}
 
 	ep->valid = 1;
@@ -989,11 +957,6 @@ int ipa_disconnect_wdi_pipe(u32 clnt_hdl)
 	struct ipa_ep_context *ep;
 	union IpaHwWdiCommonChCmdData_t tear;
 
-	if (unlikely(!ipa_ctx)) {
-		IPAERR("IPA driver was not initialized\n");
-		return -EINVAL;
-	}
-
 	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
 	    ipa_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("bad parm.\n");
@@ -1055,11 +1018,6 @@ int ipa_enable_wdi_pipe(u32 clnt_hdl)
 	struct ipa_ep_context *ep;
 	union IpaHwWdiCommonChCmdData_t enable;
 	struct ipa_ep_cfg_holb holb_cfg;
-
-	if (unlikely(!ipa_ctx)) {
-		IPAERR("IPA driver was not initialized\n");
-		return -EINVAL;
-	}
 
 	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
 	    ipa_ctx->ep[clnt_hdl].valid == 0) {
@@ -1124,11 +1082,6 @@ int ipa_disable_wdi_pipe(u32 clnt_hdl)
 	union IpaHwWdiCommonChCmdData_t disable;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 	u32 prod_hdl;
-
-	if (unlikely(!ipa_ctx)) {
-		IPAERR("IPA driver was not initialized\n");
-		return -EINVAL;
-	}
 
 	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
 	    ipa_ctx->ep[clnt_hdl].valid == 0) {
@@ -1226,11 +1179,6 @@ int ipa_resume_wdi_pipe(u32 clnt_hdl)
 	union IpaHwWdiCommonChCmdData_t resume;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 
-	if (unlikely(!ipa_ctx)) {
-		IPAERR("IPA driver was not initialized\n");
-		return -EINVAL;
-	}
-
 	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
 	    ipa_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("bad parm.\n");
@@ -1293,11 +1241,6 @@ int ipa_suspend_wdi_pipe(u32 clnt_hdl)
 	struct ipa_ep_context *ep;
 	union IpaHwWdiCommonChCmdData_t suspend;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
-
-	if (unlikely(!ipa_ctx)) {
-		IPAERR("IPA driver was not initialized\n");
-		return -EINVAL;
-	}
 
 	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
 	    ipa_ctx->ep[clnt_hdl].valid == 0) {
@@ -1437,11 +1380,6 @@ int ipa_uc_reg_rdyCB(
 {
 	int result = 0;
 
-	if (unlikely(!ipa_ctx)) {
-		IPAERR("IPA driver was not initialized\n");
-		return -EINVAL;
-	}
-
 	if (inout == NULL) {
 		IPAERR("bad parm. inout=%p ", inout);
 		return -EINVAL;
@@ -1473,11 +1411,6 @@ EXPORT_SYMBOL(ipa_uc_reg_rdyCB);
 int ipa_uc_wdi_get_dbpa(
 	struct ipa_wdi_db_params *param)
 {
-	if (unlikely(!ipa_ctx)) {
-		IPAERR("IPA driver was not initialized\n");
-		return -EINVAL;
-	}
-
 	if (param == NULL || param->client >= IPA_CLIENT_MAX) {
 		IPAERR("bad parm. param=%p ", param);
 		if (param)
@@ -1486,37 +1419,17 @@ int ipa_uc_wdi_get_dbpa(
 	}
 
 	if (IPA_CLIENT_IS_CONS(param->client)) {
-		if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_5) {
-				param->uc_door_bell_pa =
-				 ipa_ctx->ipa_wrapper_base +
-					IPA_REG_BASE_OFST_v2_5 +
-				   IPA_UC_MAILBOX_m_n_OFFS_v2_5(
-				    IPA_HW_WDI_TX_MBOX_START_INDEX/32,
-				    IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
-		} else {
-				param->uc_door_bell_pa =
-				 ipa_ctx->ipa_wrapper_base +
-					IPA_REG_BASE_OFST_v2_0 +
-				   IPA_UC_MAILBOX_m_n_OFFS(
-				    IPA_HW_WDI_TX_MBOX_START_INDEX/32,
-				    IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
-		}
+		param->uc_door_bell_pa = ipa_ctx->ipa_wrapper_base +
+				IPA_REG_BASE_OFST_v3_0 +
+				IPA_UC_MAILBOX_m_n_OFFS_v3_0(
+					IPA_HW_WDI_TX_MBOX_START_INDEX/32,
+					IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
 	} else {
-		if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_5) {
-				param->uc_door_bell_pa =
-				 ipa_ctx->ipa_wrapper_base +
-					IPA_REG_BASE_OFST_v2_5 +
-				   IPA_UC_MAILBOX_m_n_OFFS_v2_5(
-				    IPA_HW_WDI_RX_MBOX_START_INDEX/32,
-				    IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
-		} else {
-				param->uc_door_bell_pa =
-				 ipa_ctx->ipa_wrapper_base +
-					IPA_REG_BASE_OFST_v2_0 +
-				   IPA_UC_MAILBOX_m_n_OFFS(
-				    IPA_HW_WDI_RX_MBOX_START_INDEX/32,
-				    IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
-		}
+		param->uc_door_bell_pa = ipa_ctx->ipa_wrapper_base +
+				IPA_REG_BASE_OFST_v3_0 +
+				IPA_UC_MAILBOX_m_n_OFFS_v3_0(
+					IPA_HW_WDI_RX_MBOX_START_INDEX/32,
+					IPA_HW_WDI_RX_MBOX_START_INDEX % 32);
 	}
 
 	return 0;
