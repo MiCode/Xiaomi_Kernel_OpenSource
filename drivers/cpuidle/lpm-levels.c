@@ -810,10 +810,28 @@ bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
 		return success;
 	}
 }
+#elif defined(CONFIG_ARM_PSCI)
+bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
+{
+	int affinity_level = 0;
+	int state_id = get_cluster_id(cluster, &affinity_level);
+	int power_state = PSCI_POWER_STATE(cluster->cpu->levels[idx].is_reset);
+
+	affinity_level = PSCI_AFFINITY_LEVEL(affinity_level);
+	if (!idx) {
+		wfi();
+		return 1;
+	}
+
+	state_id |= (power_state | affinity_level
+				| cluster->cpu->levels[idx].psci_id);
+
+	return !cpu_suspend(state_id);
+}
 #else
 bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
 {
-	WARN_ONCE(true, "PSCI cpu_suspend ops not supported on V7\n");
+	WARN_ONCE(true, "PSCI cpu_suspend ops not supported\n");
 	return false;
 }
 #endif
