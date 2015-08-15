@@ -1359,7 +1359,7 @@ static unsigned long __get_clock_rate_with_bitrate(struct clock_info *clock,
 			continue;
 
 		freq = table[i].freq;
-		supported_bitrate = table[i].freq * 40/100;
+		supported_bitrate = freq * 40/100;
 
 		if (table[i].freq >= base_freq &&
 			supported_bitrate >= instant_bitrate)
