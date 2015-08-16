@@ -599,8 +599,7 @@ static int q6core_memory_unmap_regions(uint32_t mem_map_handle)
 	memset(&unmap_regions, 0, sizeof(unmap_regions));
 	unmap_regions.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 		APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-	unmap_regions.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
-		sizeof(unmap_regions));
+	unmap_regions.hdr.pkt_size = sizeof(unmap_regions);
 	unmap_regions.hdr.src_svc = APR_SVC_ADSP_CORE;
 	unmap_regions.hdr.src_domain = APR_DOMAIN_APPS;
 	unmap_regions.hdr.src_port = 0;
@@ -646,7 +645,7 @@ static int q6core_dereg_all_custom_topologies(void)
 	memset(&dereg_top, 0, sizeof(dereg_top));
 	dereg_top.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 		APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-	dereg_top.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE, sizeof(dereg_top));
+	dereg_top.hdr.pkt_size = sizeof(dereg_top);
 	dereg_top.hdr.src_svc = APR_SVC_ADSP_CORE;
 	dereg_top.hdr.src_domain = APR_DOMAIN_APPS;
 	dereg_top.hdr.src_port = 0;
@@ -726,7 +725,7 @@ static int q6core_send_custom_topologies(void)
 
 	reg_top.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 		APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-	reg_top.hdr.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE, sizeof(reg_top));
+	reg_top.hdr.pkt_size = sizeof(reg_top);
 	reg_top.hdr.src_svc = APR_SVC_ADSP_CORE;
 	reg_top.hdr.src_domain = APR_DOMAIN_APPS;
 	reg_top.hdr.src_port = 0;
