@@ -639,8 +639,8 @@
 				       2519 2257 2668 2372    0    0    0    0>;
 
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
-					<0 0 0 0 0>,
-					<0 0 0 0 0>;
+					<0 0 (-10000) (-25000) (-25000)>,
+					<0 0 (-10000) (-25000) (-25000)>;
 				qcom,cpr-closed-loop-voltage-fuse-adjustment =
 					<0 0 0 0 0>,
 					<0 0 0 0 0>;
@@ -700,8 +700,8 @@
 				       2519 2257 2668 2372    0    0    0    0>;
 
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
-					<0 0 0 0 0>,
-					<0 0 0 0 0>;
+					<0 0 (-45000) (-20000) (-45000)>,
+					<0 0 (-45000) (-20000) (-45000)>;
 				qcom,cpr-closed-loop-voltage-fuse-adjustment =
 					<0 0 0 0 0>,
 					<0 0 0 0 0>;
@@ -777,8 +777,8 @@
 				       2519 2257 2668 2372    0    0    0    0>;
 
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
-					<0 0 0 0 0>,
-					<0 0 0 0 0>;
+					<0 0 0 (-65000) (-20000)>,
+					<0 0 0 (-65000) (-20000)>;
 				qcom,cpr-closed-loop-voltage-fuse-adjustment =
 					<0 0 0 0 0>,
 					<0 0 0 0 0>;
