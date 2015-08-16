@@ -514,6 +514,8 @@ struct mmc_host {
 		struct delayed_work work;
 		enum mmc_load	state;
 		spinlock_t	lock;
+		u32		lower_bus_speed_mode;
+#define MMC_SCALING_LOWER_DDR52_MODE	(1 << 0)
 	} clk_scaling;
 	enum dev_state dev_status;
 	/*
