@@ -5747,12 +5747,14 @@ static int __qce_init_clk(struct qce_device *pce_dev)
 	return rc;
 
 exit_put_iface_clk:
-	clk_put(pce_dev->ce_clk);
+	if (pce_dev->ce_clk)
+		clk_put(pce_dev->ce_clk);
 exit_put_core_clk:
 	if (pce_dev->ce_core_clk)
 		clk_put(pce_dev->ce_core_clk);
 exit_put_core_src_clk:
-	clk_put(pce_dev->ce_core_src_clk);
+	if (pce_dev->ce_core_src_clk)
+		clk_put(pce_dev->ce_core_src_clk);
 	pr_err("Unable to init CE clks, rc = %d\n", rc);
 	return rc;
 }
@@ -5774,16 +5776,23 @@ int qce_enable_clk(void *handle)
 	struct qce_device *pce_dev = (struct qce_device *)handle;
 	int rc = 0;
 
-	if (pce_dev->support_only_core_src_clk) {
-		if (pce_dev->ce_core_src_clk)
-			rc = clk_prepare_enable(pce_dev->ce_core_src_clk);
-	} else {
-		if (pce_dev->ce_core_clk)
-			rc = clk_prepare_enable(pce_dev->ce_core_clk);
+	if (pce_dev->ce_core_src_clk) {
+		rc = clk_prepare_enable(pce_dev->ce_core_src_clk);
+		if (rc) {
+			pr_err("Unable to enable/prepare CE core src clk\n");
+			return rc;
+		}
 	}
-	if (rc) {
-		pr_err("Unable to enable/prepare CE core clk\n");
+
+	if (pce_dev->support_only_core_src_clk)
 		return rc;
+
+	if (pce_dev->ce_core_clk) {
+		rc = clk_prepare_enable(pce_dev->ce_core_clk);
+		if (rc) {
+			pr_err("Unable to enable/prepare CE core clk\n");
+			goto exit_disable_core_src_clk;
+		}
 	}
 
 	if (pce_dev->ce_clk) {
@@ -5804,12 +5813,14 @@ int qce_enable_clk(void *handle)
 	return rc;
 
 exit_disable_ce_clk:
-	clk_disable_unprepare(pce_dev->ce_clk);
+	if (pce_dev->ce_clk)
+		clk_disable_unprepare(pce_dev->ce_clk);
 exit_disable_core_clk:
-	if (pce_dev->support_only_core_src_clk)
-		clk_disable_unprepare(pce_dev->ce_core_src_clk);
-	else
+	if (pce_dev->ce_core_clk)
 		clk_disable_unprepare(pce_dev->ce_core_clk);
+exit_disable_core_src_clk:
+	if (pce_dev->ce_core_src_clk)
+		clk_disable_unprepare(pce_dev->ce_core_src_clk);
 	return rc;
 }
 EXPORT_SYMBOL(qce_enable_clk);
@@ -5823,13 +5834,10 @@ int qce_disable_clk(void *handle)
 		clk_disable_unprepare(pce_dev->ce_bus_clk);
 	if (pce_dev->ce_clk)
 		clk_disable_unprepare(pce_dev->ce_clk);
-	if (pce_dev->support_only_core_src_clk) {
-		if (pce_dev->ce_core_src_clk)
-			clk_disable_unprepare(pce_dev->ce_core_src_clk);
-	} else {
-		if (pce_dev->ce_core_clk)
-			clk_disable_unprepare(pce_dev->ce_core_clk);
-	}
+	if (pce_dev->ce_core_clk)
+		clk_disable_unprepare(pce_dev->ce_core_clk);
+	if (pce_dev->ce_core_src_clk)
+		clk_disable_unprepare(pce_dev->ce_core_src_clk);
 
 	return rc;
 }
