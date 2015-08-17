@@ -231,6 +231,8 @@ void adreno_drawctxt_invalidate(struct kgsl_device *device,
 		struct kgsl_context *context)
 {
 	struct adreno_context *drawctxt = ADRENO_CONTEXT(context);
+	struct kgsl_cmdbatch *inv_cmdbatchs[ADRENO_CONTEXT_CMDQUEUE_SIZE];
+	int i, cmd_num = 0;
 
 	trace_adreno_drawctxt_invalidate(drawctxt);
 
@@ -260,10 +262,13 @@ void adreno_drawctxt_invalidate(struct kgsl_device *device,
 		kgsl_cancel_events_timestamp(device, &context->events,
 			cmdbatch->timestamp);
 
-		kgsl_cmdbatch_destroy(cmdbatch);
+		inv_cmdbatchs[cmd_num++] = cmdbatch;
 	}
 
 	spin_unlock(&drawctxt->lock);
+
+	for (; cmd_num > 0; cmd_num--)
+		kgsl_cmdbatch_destroy(inv_cmdbatchs[i]);
 
 	/* Make sure all pending events are processed or cancelled */
 	kgsl_flush_event_group(device, &context->events);
