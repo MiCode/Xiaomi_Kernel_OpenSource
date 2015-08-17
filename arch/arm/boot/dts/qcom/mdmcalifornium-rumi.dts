@@ -49,3 +49,7 @@
 &gdsc_pcie {
 	compatible = "regulator-fixed";
 };
+
+&qnand_1 {
+	status = "ok";
+};
