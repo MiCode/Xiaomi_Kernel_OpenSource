@@ -1266,14 +1266,15 @@ int __init cpu_clock_8996_early_init(void)
 	struct device_node *ofnode;
 
 	ofnode = of_find_compatible_node(NULL, NULL,
-					 "qcom,cpu-clock-8996");
-	if (!ofnode)
-		return 0;
-
-	ofnode = of_find_compatible_node(NULL, NULL,
 					 "qcom,cpu-clock-8996-v3");
 	if (ofnode)
 		cpu_clocks_v3 = true;
+	else {
+		ofnode = of_find_compatible_node(NULL, NULL,
+					 "qcom,cpu-clock-8996");
+		if (!ofnode)
+			return 0;
+	}
 
 	pr_info("clock-cpu-8996: configuring clocks for the perf cluster\n");
 
