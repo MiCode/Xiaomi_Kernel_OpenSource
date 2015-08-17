@@ -633,6 +633,7 @@ static int wait_for_sess_signal_receipt(struct msm_vidc_inst *inst,
 		dprintk(VIDC_ERR, "Wait interrupted or timed out: %d\n",
 				SESSION_MSG_INDEX(cmd));
 		msm_comm_kill_session(inst);
+		BUG_ON(msm_vidc_debug_timeout);
 		rc = -EIO;
 	} else {
 		rc = 0;
@@ -2024,6 +2025,7 @@ static int msm_comm_session_abort(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR,
 				"%s: Wait interrupted or timed out [%p]: %d\n",
 				__func__, inst, abort_completion);
+		BUG_ON(msm_vidc_debug_timeout);
 		rc = -EBUSY;
 	} else {
 		rc = 0;
@@ -2107,6 +2109,7 @@ int msm_comm_check_core_init(struct msm_vidc_core *core)
 	if (!rc) {
 		dprintk(VIDC_ERR, "%s: Wait interrupted or timed out: %d\n",
 				__func__, SYS_MSG_INDEX(HAL_SYS_INIT_DONE));
+		BUG_ON(msm_vidc_debug_timeout);
 		rc = -EIO;
 		goto exit;
 	} else {
@@ -3582,6 +3585,7 @@ int msm_comm_try_get_prop(struct msm_vidc_inst *inst, enum hal_property ptype,
 			SESSION_MSG_INDEX(HAL_SESSION_PROPERTY_INFO));
 		inst->state = MSM_VIDC_CORE_INVALID;
 		msm_comm_kill_session(inst);
+		BUG_ON(msm_vidc_debug_timeout);
 		rc = -ETIMEDOUT;
 		goto exit;
 	} else {

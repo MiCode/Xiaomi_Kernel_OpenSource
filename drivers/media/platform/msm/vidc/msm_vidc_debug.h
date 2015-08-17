@@ -66,6 +66,7 @@ extern int msm_vidc_sys_idle_indicator;
 extern int msm_vidc_firmware_unload_delay;
 extern int msm_vidc_thermal_mitigation_disabled;
 extern int msm_vidc_bitrate_clock_scaling;
+extern int msm_vidc_debug_timeout;
 
 #define VIDC_MSG_PRIO2STRING(__level) ({ \
 	char *__str; \
