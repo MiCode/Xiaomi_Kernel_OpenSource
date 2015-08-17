@@ -1561,7 +1561,8 @@ static int msm_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 		return -EINVAL;
 	}
 	inst = q->drv_priv;
-	dprintk(VIDC_DBG, "Streamon called on: %d capability\n", q->type);
+	dprintk(VIDC_DBG, "Streamon called on: %d capability for inst: %p\n",
+		q->type, inst);
 	switch (q->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		if (inst->bufq[CAPTURE_PORT].vb2_bufq.streaming)
@@ -1574,6 +1575,12 @@ static int msm_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 	default:
 		dprintk(VIDC_ERR, "Queue type is not supported: %d\n", q->type);
 		rc = -EINVAL;
+		goto stream_start_failed;
+	}
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Streamon failed on: %d capability for inst: %p\n",
+			q->type, inst);
 		goto stream_start_failed;
 	}
 
