@@ -38,6 +38,7 @@
 
 &clock_gpu {
 	compatible = "qcom,gpucc-8996-v2";
+	qcom,gfx3d_clk_src_v2-opp-handle = <&msm_gpu>;
 	qcom,gfxfreq-corner-v2 =
 		<	   0  0  0 >,
 		<  125000000  3  4 >,
@@ -240,6 +241,7 @@
 };
 
 &gfx_cpr {
+	system-supply = <&pm8994_s1_corner>;
 	qcom,cpr-enable;
 };
 
@@ -248,7 +250,7 @@
 	regulator-max-microvolt = <5>;
 
 	qcom,cpr-fuse-corners = <4>;
-	qcom,cpr-fuse-combos = <1>;
+	qcom,cpr-fuse-combos = <8>;
 	qcom,cpr-corners = <5>;
 
 	qcom,cpr-corner-fmax-map = <2 3 4 5>;

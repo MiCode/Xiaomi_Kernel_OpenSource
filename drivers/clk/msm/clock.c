@@ -26,6 +26,9 @@
 #include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/clk/msm-clk-provider.h>
+#include <linux/of_platform.h>
+#include <linux/pm_opp.h>
+
 #include <trace/events/power.h>
 #include "clock.h"
 
@@ -1048,6 +1051,235 @@ static struct clk *of_clk_src_get(struct of_phandle_args *clkspec,
 	return ERR_PTR(-ENOENT);
 }
 
+#define MAX_LEN_OPP_HANDLE	50
+#define LEN_OPP_HANDLE		16
+#define LEN_OPP_VCORNER_HANDLE	22
+
+static struct device **derive_device_list(struct clk *clk,
+					struct device_node *np,
+					char *clk_handle_name, int len)
+{
+	int j, count, cpu;
+	struct platform_device *pdev;
+	struct device_node *dev_node;
+	struct device **device_list;
+
+	count = len/sizeof(u32);
+	device_list = kmalloc_array(count, sizeof(struct device *),
+							GFP_KERNEL);
+	if (!device_list)
+		return ERR_PTR(-ENOMEM);
+
+	for (j = 0; j < count; j++) {
+		dev_node = of_parse_phandle(np, clk_handle_name, j);
+		if (!dev_node) {
+			pr_err("Unable to get device_node pointer for %s opp-handle (%s)\n",
+					clk->dbg_name, clk_handle_name);
+			goto err_parse_phandle;
+		}
+
+		for_each_possible_cpu(cpu) {
+			if (of_get_cpu_node(cpu, NULL) == dev_node) {
+				device_list[j] = get_cpu_device(cpu);
+				continue;
+			}
+		}
+
+		pdev = of_find_device_by_node(dev_node);
+		if (!pdev) {
+			pr_err("Unable to find platform_device node for %s opp-handle\n",
+						clk->dbg_name);
+			goto err_parse_phandle;
+		}
+		device_list[j] = &pdev->dev;
+	}
+	return device_list;
+err_parse_phandle:
+	kfree(device_list);
+	return ERR_PTR(-EINVAL);
+}
+
+static int get_voltage(struct clk *clk, unsigned long rate,
+				int store_vcorner, int n)
+{
+	struct clk_vdd_class *vdd;
+	int uv, level, corner;
+
+	/*
+	 * Use the first regulator in the vdd class
+	 * for the OPP table.
+	 */
+	vdd = clk->vdd_class;
+	if (vdd->num_regulators > 1) {
+		corner = vdd->vdd_uv[vdd->num_regulators * n];
+	} else {
+		level = find_vdd_level(clk, rate);
+		if (level < 0) {
+			pr_err("Could not find vdd level\n");
+			return -EINVAL;
+		}
+		corner = vdd->vdd_uv[level];
+	}
+
+	if (!corner) {
+		pr_err("%s: Unable to find vdd level for rate %lu\n",
+					clk->dbg_name, rate);
+		return -EINVAL;
+	}
+
+	if (store_vcorner) {
+		uv = corner;
+		return uv;
+	}
+
+	uv = regulator_list_corner_voltage(vdd->regulator[0], corner);
+	if (uv < 0) {
+		pr_err("%s: no uv for corner %d - err: %d\n",
+				clk->dbg_name, corner, uv);
+		return uv;
+	}
+	return uv;
+}
+
+static int add_and_print_opp(struct clk *clk, struct device **device_list,
+				int count, unsigned long rate, int uv, int n)
+{
+	int j, ret = 0;
+
+	for (j = 0; j < count; j++) {
+		ret = dev_pm_opp_add(device_list[j], rate, uv);
+		if (ret) {
+			pr_err("%s: couldn't add OPP for %lu - err: %d\n",
+						clk->dbg_name, rate, ret);
+			return ret;
+		}
+		if (n == 1 || n == clk->num_fmax - 1 ||
+					rate == clk_round_rate(clk, INT_MAX))
+			pr_info("%s: set OPP pair(%lu Hz: %u uV) on %s\n",
+						clk->dbg_name, rate, uv,
+						dev_name(device_list[j]));
+	}
+	return ret;
+}
+
+static void populate_clock_opp_table(struct device_node *np,
+			struct clk_lookup *table, size_t size)
+{
+	struct device **device_list;
+	struct clk *clk;
+	char clk_handle_name[MAX_LEN_OPP_HANDLE];
+	char clk_store_volt_corner[MAX_LEN_OPP_HANDLE];
+	size_t i;
+	int n, len, count, uv;
+	unsigned long rate, ret = 0;
+	bool store_vcorner;
+
+	/* Iterate across all clocks in the clock controller */
+	for (i = 0; i < size; i++) {
+		n = 1;
+		rate = 0;
+
+		store_vcorner = false;
+		clk = table[i].clk;
+		if (!clk || !clk->num_fmax)
+			continue;
+
+		if (strlen(clk->dbg_name) + LEN_OPP_HANDLE
+					< MAX_LEN_OPP_HANDLE) {
+			ret = snprintf(clk_handle_name,
+					ARRAY_SIZE(clk_handle_name),
+					"qcom,%s-opp-handle", clk->dbg_name);
+			if (ret < strlen(clk->dbg_name) + LEN_OPP_HANDLE) {
+				pr_err("Failed to hold clk_handle_name\n");
+				continue;
+			}
+		} else {
+			pr_err("clk name (%s) too large to fit in clk_handle_name\n",
+							clk->dbg_name);
+			continue;
+		}
+
+		if (strlen(clk->dbg_name) + LEN_OPP_VCORNER_HANDLE
+					< MAX_LEN_OPP_HANDLE) {
+			ret = snprintf(clk_store_volt_corner,
+				ARRAY_SIZE(clk_store_volt_corner),
+				"qcom,%s-opp-store-vcorner", clk->dbg_name);
+			if (ret < strlen(clk->dbg_name) +
+						LEN_OPP_VCORNER_HANDLE) {
+				pr_err("Failed to hold clk_store_volt_corner\n");
+				continue;
+			}
+		} else {
+			pr_err("clk name (%s) too large to fit in clk_store_volt_corner\n",
+							clk->dbg_name);
+			continue;
+		}
+
+		if (!of_find_property(np, clk_handle_name, &len)) {
+			pr_debug("Unable to find %s\n", clk_handle_name);
+			if (!of_find_property(np, clk_store_volt_corner,
+								&len)) {
+				pr_debug("Unable to find %s\n",
+						clk_store_volt_corner);
+				continue;
+			} else {
+				store_vcorner = true;
+				device_list = derive_device_list(clk, np,
+						clk_store_volt_corner, len);
+			}
+		} else
+			device_list = derive_device_list(clk, np,
+						clk_handle_name, len);
+		if (IS_ERR_OR_NULL(device_list)) {
+			pr_err("Failed to fill device_list\n");
+			continue;
+		}
+
+		count = len/sizeof(u32);
+		while (1) {
+			/*
+			 * Calling clk_round_rate will not work for all clocks
+			 * (eg. mux_div). Use their fmax values instead to get
+			 *  list of all available frequencies.
+			 */
+			if (clk->ops->list_rate) {
+				ret = clk_round_rate(clk, rate + 1);
+				if (ret < 0) {
+					pr_err("clk_round_rate failed for %s\n",
+							clk->dbg_name);
+					goto err_round_rate;
+				}
+				/*
+				 * If clk_round_rate give the same value on
+				 * consecutive iterations, exit loop since
+				 * we're at the maximum clock frequency.
+				 */
+				if (rate == ret)
+					break;
+				rate = ret;
+			} else {
+				if (n < clk->num_fmax)
+					rate = clk->fmax[n];
+				else
+					break;
+			}
+
+			uv = get_voltage(clk, rate, store_vcorner, n);
+			if (uv < 0)
+				goto err_round_rate;
+
+			ret = add_and_print_opp(clk, device_list, count,
+							rate, uv , n);
+			if (ret)
+				goto err_round_rate;
+
+			n++;
+		}
+err_round_rate:
+		kfree(device_list);
+	}
+}
+
 /**
  * of_msm_clock_register() - Register clock tables with clkdev and with the
  *			     clock DT framework
@@ -1077,6 +1309,7 @@ int of_msm_clock_register(struct device_node *np, struct clk_lookup *table,
 		return -ENOMEM;
 	}
 
+	populate_clock_opp_table(np, table, size);
 	return msm_clock_register(table, size);
 }
 EXPORT_SYMBOL(of_msm_clock_register);

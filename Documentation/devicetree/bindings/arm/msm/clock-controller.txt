@@ -49,6 +49,7 @@ Required properties:
 			"qcom,gpucc-8996"
 			"qcom,gpucc-8996-v2"
 			"qcom,gpucc-8996-v3"
+			"qcom,gpucc-8996-v3.0"
 			"qcom,gcc-californium"
 			"qcom,cc-debug-californium"
 
@@ -77,7 +78,12 @@ Optional properties:
 			    operate at. Drivers can use the OPP library API to
 			    operate on the list of OPPs registered using these
 			    values.
-
+- qcom,<clock-name>-opp-handle: phandle references to the devices for which OPP
+			table is filled with the clock frequency and voltage
+			values.
+- qcom,<clock-name>-opp-store-vcorner: phandle references to the devices for
+			which OPP table is filled with the clock frequency
+			 and voltage corner/level.
 
 Example:
 	clock_rpm: qcom,rpmcc@fc4000000 {
