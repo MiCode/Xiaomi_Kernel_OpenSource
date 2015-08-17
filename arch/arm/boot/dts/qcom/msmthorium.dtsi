@@ -85,6 +85,7 @@
 #include "msmthorium-cpu.dtsi"
 #include "msmthorium-ion.dtsi"
 #include "msmthorium-coresight.dtsi"
+#include "msmthorium-smp2p.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -359,5 +360,47 @@
 			qcom,smdpkt-port-name = "LOOPBACK";
 			qcom,smdpkt-dev-name = "smd_pkt_loopback";
 		};
+	};
+
+	qcom,ipc_router {
+		compatible = "qcom,ipc_router";
+		qcom,node-id = <1>;
+		qcom,default-peripheral = "modem";
+	};
+
+	qcom,ipc_router_modem_xprt {
+		compatible = "qcom,ipc_router_smd_xprt";
+		qcom,ch-name = "IPCRTR";
+		qcom,xprt-remote = "modem";
+		qcom,xprt-linkid = <1>;
+		qcom,xprt-version = <1>;
+		qcom,fragmented-data;
+	};
+
+	qcom,ipc_router_q6_xprt {
+		compatible = "qcom,ipc_router_smd_xprt";
+		qcom,ch-name = "IPCRTR";
+		qcom,xprt-remote = "adsp";
+		qcom,xprt-linkid = <1>;
+		qcom,xprt-version = <1>;
+		qcom,fragmented-data;
+	};
+
+	qcom,ipc_router_wcnss_xprt {
+		compatible = "qcom,ipc_router_smd_xprt";
+		qcom,ch-name = "IPCRTR";
+		qcom,xprt-remote = "wcnss";
+		qcom,xprt-linkid = <1>;
+		qcom,xprt-version = <1>;
+		qcom,fragmented-data;
+	};
+
+	qcom,bam_dmux@4044000 {
+		compatible = "qcom,bam_dmux";
+		reg = <0x4044000 0x19000>;
+		interrupts = <0 29 1>;
+		qcom,rx-ring-size = <32>;
+		qcom,max-rx-mtu = <4096>;
+		qcom,fast-shutdown;
 	};
 };
