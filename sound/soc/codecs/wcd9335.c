@@ -495,6 +495,13 @@ static struct wcd_mbhc_register wcd_mbhc_registers[] = {
 			  WCD9335_ANA_HPH, 0xC0, 6, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_SWCH_LEVEL_REMOVE",
 			  WCD9335_ANA_MBHC_RESULT_3, 0x10, 4, 0),
+	/*
+	 * Initialize moisture register as "0" and based on codec
+	 * version, the register, mask fields get populated.
+	 * Register "0" is not a valid register for MBHC.
+	 */
+	WCD_MBHC_REGISTER("WCD_MBHC_MOISTURE_VREF",
+			  0, 0, 0, 0),
 };
 
 static const struct wcd_mbhc_intr intr_ids = {
@@ -882,9 +889,26 @@ static bool tasha_mbhc_hph_pa_on_status(struct snd_soc_codec *codec)
 }
 
 static void tasha_mbhc_hph_l_pull_up_control(struct snd_soc_codec *codec,
-					     bool is_insert)
+					enum mbhc_hs_pullup_iref pull_up_cur)
 {
-	snd_soc_update_bits(codec, WCD9335_MBHC_PLUG_DETECT_CTL,
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	if (!tasha)
+		return;
+
+	/* Default pull up current to 2uA */
+	if (pull_up_cur < I_OFF || pull_up_cur > I_3P0_UA ||
+	    pull_up_cur == I_DEFAULT)
+		pull_up_cur = I_2P0_UA;
+
+	dev_dbg(codec->dev, "%s: HS pull up current:%d\n",
+		__func__, pull_up_cur);
+
+	if (TASHA_IS_2_0(tasha->wcd9xxx->version))
+		snd_soc_update_bits(codec, WCD9335_MBHC_PLUG_DETECT_CTL,
+			    0xC0, pull_up_cur << 6);
+	else
+		snd_soc_update_bits(codec, WCD9335_MBHC_PLUG_DETECT_CTL,
 			    0xC0, 0x40);
 }
 
@@ -9834,6 +9858,14 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 	}
 
 	/* Initialize MBHC module */
+	if (TASHA_IS_2_0(tasha->wcd9xxx->version)) {
+		wcd_mbhc_registers[WCD_MBHC_MOISTURE_VREF].reg =
+			WCD9335_MBHC_CTL_2;
+		wcd_mbhc_registers[WCD_MBHC_MOISTURE_VREF].mask =
+			0x0C;
+		wcd_mbhc_registers[WCD_MBHC_MOISTURE_VREF].offset =
+			2;
+	}
 	ret = wcd_mbhc_init(&tasha->mbhc, codec, &mbhc_cb, &intr_ids,
 		      wcd_mbhc_registers, TASHA_ZDET_SUPPORTED);
 	if (ret) {

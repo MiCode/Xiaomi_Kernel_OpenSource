@@ -249,6 +249,8 @@ static struct wcd_mbhc_register wcd_mbhc_registers[] = {
 	WCD_MBHC_REGISTER("WCD_MBHC_SWCH_LEVEL_REMOVE",
 			  MSM8X16_WCD_A_ANALOG_MBHC_ZDET_ELECT_RESULT,
 			  0x10, 4, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_MOISTURE_VREF",
+			  0, 0, 0, 0),
 };
 
 struct msm8x16_wcd_spmi {
