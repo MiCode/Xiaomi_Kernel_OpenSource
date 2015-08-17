@@ -14,7 +14,7 @@
 	dsi_truly_wvga_vid: qcom,mdss_dsi_truly_wvga_video {
 		qcom,mdss-dsi-panel-name = "Truly WVGA video mode dsi panel";
 		qcom,mdss-dsi-panel-type = "dsi_video_mode";
-		qcom,mdss-dsi-panel-mode-gpio-state = "high";
+		qcom,mdss-dsi-mode-sel-gpio-state = "high";
 		qcom,mdss-dsi-panel-framerate = <60>;
 		qcom,mdss-dsi-virtual-channel-id = <0>;
 		qcom,mdss-dsi-stream = <0>;

@@ -143,6 +143,8 @@
 		interrupts = <0 55 0>;
 		interrupt-names = "ispif";
 		qcom,num-isps = <0x2>;
+		vfe0-vdd-supply = <&gdsc_vfe>;
+		vfe1-vdd-supply = <&gdsc_vfe1>;
 		clocks = <&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
 			<&clock_gcc clk_csi0_clk_src>,
 			<&clock_gcc clk_gcc_camss_csi0_clk>,
@@ -333,6 +335,8 @@
 		qcom,clock-rates = <266670000 0 0 0 0>;
 		qos-reg-settings = <0x28 0x0000000e>,
 			<0xc8 0x00000000>;
+		vbif-reg-settings = <0xc0 0x10101000>,
+			<0xb0 0x10100010>;
 	};
 
 	qcom,irqrouter@1b00000 {

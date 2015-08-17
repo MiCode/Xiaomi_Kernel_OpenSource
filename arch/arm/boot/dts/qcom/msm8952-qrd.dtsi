@@ -58,6 +58,10 @@
 	};
 };
 
+&flash_led {
+	qcom,follow-otst2-rb-disabled;
+};
+
 &sdhc_1 {
 	vdd-supply = <&pm8950_l8>;
 	qcom,vdd-voltage-level = <2900000 2900000>;

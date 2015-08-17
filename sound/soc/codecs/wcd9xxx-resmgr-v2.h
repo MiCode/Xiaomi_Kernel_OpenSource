@@ -22,6 +22,10 @@ enum wcd_clock_type {
 	WCD_CLK_MCLK,
 };
 
+struct wcd_resmgr_cb {
+	int (*cdc_rco_ctrl)(struct snd_soc_codec *, bool);
+};
+
 struct wcd9xxx_resmgr_v2 {
 	struct snd_soc_codec *codec;
 	struct wcd9xxx_core_resource *core_res;
@@ -34,6 +38,8 @@ struct wcd9xxx_resmgr_v2 {
 	struct mutex master_bias_lock;
 
 	enum wcd_clock_type clk_type;
+
+	const struct wcd_resmgr_cb *resmgr_cb;
 };
 
 #define WCD9XXX_V2_BG_CLK_LOCK(resmgr)			\
@@ -64,10 +70,12 @@ struct wcd9xxx_resmgr_v2 *wcd_resmgr_init(
 		struct snd_soc_codec *codec);
 void wcd_resmgr_remove(struct wcd9xxx_resmgr_v2 *resmgr);
 int wcd_resmgr_post_init(struct wcd9xxx_resmgr_v2 *resmgr,
+			 const struct wcd_resmgr_cb *resmgr_cb,
 			 struct snd_soc_codec *codec);
 int wcd_resmgr_enable_clk_block(struct wcd9xxx_resmgr_v2 *resmgr,
 				enum wcd_clock_type type);
 int wcd_resmgr_disable_clk_block(struct wcd9xxx_resmgr_v2 *resmgr,
 				enum wcd_clock_type type);
 int wcd_resmgr_get_clk_type(struct wcd9xxx_resmgr_v2 *resmgr);
+void wcd_resmgr_post_ssr_v2(struct wcd9xxx_resmgr_v2 *resmgr);
 #endif

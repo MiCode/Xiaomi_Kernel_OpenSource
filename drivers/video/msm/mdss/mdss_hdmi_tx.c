@@ -1479,7 +1479,7 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl,
 
 	/* Initialize EDID feature */
 	edid_init_data.kobj = hdmi_ctrl->kobj;
-	edid_init_data.ds_data = &hdmi_ctrl->ds_data;
+	edid_init_data.ds_data = hdmi_ctrl->ds_data;
 	edid_init_data.id = fbi->node;
 
 	hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID] =

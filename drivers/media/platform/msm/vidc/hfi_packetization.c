@@ -2187,6 +2187,17 @@ static int create_3x_pkt_cmd_session_set_property(
 				hfi_buffer_count_actual);
 		break;
 	}
+	case HAL_PARAM_VENC_LOW_LATENCY:
+	{
+		struct hfi_enable *hfi;
+
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VENC_LOW_LATENCY_MODE;
+		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
+		hfi->enable = ((struct hfi_enable *) pdata)->enable;
+		pkt->size += sizeof(u32) * 2;
+		break;
+	}
 	/* Deprecated param on Venus 3xx */
 	case HAL_PARAM_VDEC_CONTINUE_DATA_TRANSFER:
 	{

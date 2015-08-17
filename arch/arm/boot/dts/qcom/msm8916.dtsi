@@ -63,6 +63,7 @@
 			enable-method = "qcom,arm-cortex-acc";
 			qcom,acc = <&acc0>;
 			next-level-cache = <&L2_0>;
+			qcom,sleep-status = <&cpu0_slp_sts>;
 			L2_0: l2-cache {
 			      compatible = "arm,arch-cache";
 			      cache-level = <2>;
@@ -77,6 +78,7 @@
 			enable-method = "qcom,arm-cortex-acc";
 			qcom,acc = <&acc1>;
 			next-level-cache = <&L2_0>;
+			qcom,sleep-status = <&cpu1_slp_sts>;
 		};
 
 		CPU2: cpu@2 {
@@ -86,6 +88,7 @@
 			enable-method = "qcom,arm-cortex-acc";
 			qcom,acc = <&acc2>;
 			next-level-cache = <&L2_0>;
+			qcom,sleep-status = <&cpu2_slp_sts>;
 		};
 
 		CPU3: cpu@3 {
@@ -95,6 +98,7 @@
 			enable-method = "qcom,arm-cortex-acc";
 			qcom,acc = <&acc3>;
 			next-level-cache = <&L2_0>;
+			qcom,sleep-status = <&cpu3_slp_sts>;
 		};
 	};
 
@@ -1900,6 +1904,26 @@
 		clock-names = "core_clk_src", "core_clk",
 				"iface_clk", "bus_clk";
 		qcom,ce-opp-freq = <100000000>;
+	};
+
+	cpu0_slp_sts: cpu-sleep-status@b088008 {
+		reg = <0xb088008 0x100>;
+		com,sleep-status-mask= <0x40000>;
+	};
+
+	cpu1_slp_sts: cpu-sleep-status@b098008 {
+		reg = <0xb098008 0x100>;
+		com,sleep-status-mask= <0x40000>;
+	};
+
+	cpu2_slp_sts: cpu-sleep-status@b0a8008 {
+		reg = <0xb0a8008 0x100>;
+		com,sleep-status-mask= <0x40000>;
+	};
+
+	cpu3_slp_sts: cpu-sleep-status@b0b8008 {
+		reg = <0xb0b8008 0x100>;
+		com,sleep-status-mask= <0x40000>;
 	};
 };
 

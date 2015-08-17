@@ -743,6 +743,7 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 {
 	struct kgsl_device *device;
 	struct kgsl_pwrscale *pwrscale;
+	struct kgsl_device_platform_data *pdata;
 	struct kgsl_pwrctrl *pwr;
 	struct devfreq *devfreq;
 	struct devfreq *bus_devfreq;
@@ -756,6 +757,7 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 	if (device == NULL)
 		return -ENODEV;
 
+	pdata = dev_get_platdata(&device->pdev->dev);
 	pwrscale = &device->pwrscale;
 	pwr = &device->pwrctrl;
 	gpu_profile = &pwrscale->gpu_profile;
@@ -845,7 +847,12 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 				sizeof(struct kgsl_pwr_event), GFP_KERNEL);
 		pwrscale->history[i].type = i;
 	}
-	set_bit(POPP_ON, &pwrscale->popp_state);
+	/*
+	 * Enable POPP feature if target supports it, by default
+	 * it is disabled.
+	 */
+	if (pdata->popp_enable)
+		set_bit(POPP_ON, &pwrscale->popp_state);
 
 	return 0;
 }

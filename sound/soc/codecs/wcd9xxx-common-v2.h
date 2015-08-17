@@ -20,7 +20,7 @@
 
 #define WCD_CLSH_EVENT_PRE_DAC 0x01
 #define WCD_CLSH_EVENT_POST_PA 0x02
-
+#define MAX_VBAT_MONITOR_WRITES 17
 /*
  * Basic states for Class H state machine.
  * represented as a bit mask within a u8 data type
@@ -35,7 +35,7 @@
 #define	WCD_CLSH_STATE_HPHR (0x01 << 2)
 #define	WCD_CLSH_STATE_LO (0x01 << 3)
 #define WCD_CLSH_STATE_MAX 4
-#define NUM_CLSH_STATES (0x01 << WCD_CLSH_STATE_MAX)
+#define NUM_CLSH_STATES_V2 (0x01 << WCD_CLSH_STATE_MAX)
 
 
 /* Derived State: Bits 1 and 2 should be set for Headphone stereo */
@@ -130,6 +130,11 @@ struct wcd9xxx_anc_header {
 	u32 num_anc_slots;
 };
 
+struct vbat_monitor_reg {
+	u32 size;
+	u32 writes[MAX_VBAT_MONITOR_WRITES];
+} __packed;
+
 extern void wcd_clsh_fsm(struct snd_soc_codec *codec,
 		struct wcd_clsh_cdc_data *cdc_clsh_d,
 		u8 clsh_event, u8 req_state,
@@ -155,22 +160,22 @@ enum {
 	MAD_ULT_INT_DEST_SELECT_REG,
 	MAD_BEACON_INT_DEST_SELECT_REG,
 	MAD_CLIP_INT_DEST_SELECT_REG,
-	MAD_VBAT_INT_DEST_SELECT_REG,
+	VBAT_INT_DEST_SELECT_REG,
 	MAD_AUDIO_INT_MASK_REG,
 	MAD_ULT_INT_MASK_REG,
 	MAD_BEACON_INT_MASK_REG,
 	MAD_CLIP_INT_MASK_REG,
-	MAD_VBAT_INT_MASK_REG,
+	VBAT_INT_MASK_REG,
 	MAD_AUDIO_INT_STATUS_REG,
 	MAD_ULT_INT_STATUS_REG,
 	MAD_BEACON_INT_STATUS_REG,
 	MAD_CLIP_INT_STATUS_REG,
-	MAD_VBAT_INT_STATUS_REG,
+	VBAT_INT_STATUS_REG,
 	MAD_AUDIO_INT_CLEAR_REG,
 	MAD_ULT_INT_CLEAR_REG,
 	MAD_BEACON_INT_CLEAR_REG,
 	MAD_CLIP_INT_CLEAR_REG,
-	MAD_VBAT_INT_CLEAR_REG,
+	VBAT_INT_CLEAR_REG,
 	SB_PGD_PORT_TX_WATERMARK_N,
 	SB_PGD_PORT_TX_ENABLE_N,
 	SB_PGD_PORT_RX_WATERMARK_N,

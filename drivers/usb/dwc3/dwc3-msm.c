@@ -2257,6 +2257,36 @@ get_prop_usbin_voltage_now(struct dwc3_msm *mdwc)
 	}
 }
 
+static int dwc3_msm_pmic_dp_dm(struct dwc3_msm *mdwc, int value)
+{
+	int ret = 0;
+
+	switch (value) {
+	case POWER_SUPPLY_DP_DM_DPF_DMF:
+		if (!mdwc->rm_pulldown) {
+			ret = dwc3_msm_remove_pulldown(mdwc, true);
+			if (!ret) {
+				mdwc->rm_pulldown = true;
+				dbg_event(0xFF, "RM PuDwn", mdwc->rm_pulldown);
+			}
+		}
+		break;
+	case POWER_SUPPLY_DP_DM_DPR_DMR:
+		if (mdwc->rm_pulldown) {
+			ret = dwc3_msm_remove_pulldown(mdwc, false);
+			if (!ret) {
+				mdwc->rm_pulldown = false;
+				dbg_event(0xFF, "RM PuDwn", mdwc->rm_pulldown);
+			}
+		}
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+	return ret;
+}
+
 static int dwc3_msm_power_get_property_usb(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  union power_supply_propval *val)
@@ -2325,14 +2355,9 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 			mdwc->ss_phy->flags &= ~PHY_HOST_MODE;
 		}
 		break;
-	/* PMIC notification to remove pull down on Dp and Dm */
-	case POWER_SUPPLY_PROP_ALLOW_DETECTION:
-		if (mdwc->rm_pulldown == val->intval)
-			break;
-
-		mdwc->rm_pulldown = val->intval;
-		dbg_event(0xFF, "RM PuDwn", val->intval);
-		dwc3_msm_remove_pulldown(mdwc, mdwc->rm_pulldown);
+	/* PMIC notification for DP_DM state */
+	case POWER_SUPPLY_PROP_DP_DM:
+		dwc3_msm_pmic_dp_dm(mdwc, val->intval);
 		break;
 	/* Process PMIC notification in PRESENT prop */
 	case POWER_SUPPLY_PROP_PRESENT:

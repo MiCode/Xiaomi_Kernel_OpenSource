@@ -1114,6 +1114,15 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.step = 1,
 		.qmenu = NULL,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_MODE,
+		.name = "Low Latency Mode",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_DISABLE,
+		.maximum = V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_ENABLE,
+		.default_value = V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_DISABLE,
+		.step = 1,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
@@ -2776,6 +2785,15 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			break;
 		}
 		pdata = &max_hierp_layers;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_MODE:
+		property_id = HAL_PARAM_VENC_LOW_LATENCY;
+		if (ctrl->val ==
+			V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_ENABLE)
+			enable.enable = 1;
+		else
+			enable.enable = 0;
+		pdata = &enable;
 		break;
 	default:
 		dprintk(VIDC_ERR, "Unsupported index: %x\n", ctrl->id);

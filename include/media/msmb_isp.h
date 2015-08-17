@@ -447,18 +447,18 @@ enum vfe_sd_type {
 	VFE_SD_MAX,
 };
 
-/* Usecases when 2 HW need to be related or synced */
-
 /* When you change the value below, check for the sof event_data size.
  * V4l2 limits payload to 64 bytes */
 #define MS_NUM_SLAVE_MAX 1
 
+/* Usecases when 2 HW need to be related or synced */
 enum msm_vfe_dual_hw_type {
 	DUAL_NONE = 0,
 	DUAL_HW_VFE_SPLIT = 1,
 	DUAL_HW_MASTER_SLAVE = 2,
 };
 
+/* Type for 2 INTF when used in Master-Slave mode */
 enum msm_vfe_dual_hw_ms_type {
 	MS_TYPE_NONE,
 	MS_TYPE_MASTER,
@@ -469,8 +469,14 @@ struct msm_isp_set_dual_hw_ms_cmd {
 	uint8_t num_src;
 	/* Each session can be only one type but multiple intf if YUV cam */
 	enum msm_vfe_dual_hw_ms_type dual_hw_ms_type;
-	/* Primary intf is mostly associated with preview */
+	/* Primary intf is mostly associated with preview.
+	 * This primary intf SOF frame_id and timestamp is tracked
+	 * and used to calculate delta */
 	enum msm_vfe_input_src primary_intf;
+	/* input_src array indicates other input INTF that may be Master/Slave.
+	 * For these additional intf, frame_id and timestamp are not saved.
+	 * However, if these are slaves then they will still get their
+	 * frame_id from Master */
 	enum msm_vfe_input_src input_src[VFE_SRC_MAX];
 	uint32_t sof_delta_threshold; /* In milliseconds. Sent for Master */
 };
@@ -594,18 +600,38 @@ struct msm_isp_error_info {
 	enum msm_vfe_error_type err_type;
 	uint32_t session_id;
 	uint32_t stream_id;
+	uint8_t stream_id_mask;
 };
 
-struct msm_isp_output_info {
-	uint32_t regs_not_updated;
-	uint32_t output_err_mask;
-	uint16_t stream_framedrop_mask;
-	uint32_t stats_framedrop_mask;
-};
-
+/* This structure reports delta between master and slave */
 struct msm_isp_ms_delta_info {
 	uint8_t num_delta_info;
 	uint32_t delta[MS_NUM_SLAVE_MAX];
+};
+
+/* This is sent in EPOCH irq */
+struct msm_isp_output_info {
+	uint8_t regs_not_updated;
+	/* mask with bufq_handle for regs not updated or return empty */
+	uint16_t output_err_mask;
+	/* mask with stream_idx for get_buf failed */
+	uint8_t stream_framedrop_mask;
+	/* mask with stats stream_idx for get_buf failed */
+	uint16_t stats_framedrop_mask;
+	/* delta between master and slave */
+};
+
+/* This structure is piggybacked with SOF event */
+struct msm_isp_sof_info {
+	uint8_t regs_not_updated;
+	/* mask with bufq_handle for regs not updated or return empty */
+	uint16_t output_err_mask;
+	/* mask with stream_idx for get_buf failed */
+	uint8_t stream_framedrop_mask;
+	/* mask with stats stream_idx for get_buf failed */
+	uint16_t stats_framedrop_mask;
+	/* delta between master and slave */
+	struct msm_isp_ms_delta_info ms_delta_info;
 };
 
 struct msm_isp_event_data {
@@ -617,11 +643,15 @@ struct msm_isp_event_data {
 	struct timeval mono_timestamp;
 	uint32_t frame_id;
 	union {
+		/* Sent for Stats_Done event */
 		struct msm_isp_stats_event stats;
+		/* Sent for Buf_Divert event */
 		struct msm_isp_buf_event buf_done;
+		/* Sent for Error_Event */
 		struct msm_isp_error_info error_info;
 		struct msm_isp_output_info output_info;
-		struct msm_isp_ms_delta_info ms_delta_info;
+		/* Sent for SOF event */
+		struct msm_isp_sof_info sof_info;
 	} u; /* union can have max 52 bytes */
 };
 
@@ -635,7 +665,7 @@ struct msm_isp_event_data32 {
 		struct msm_isp_buf_event buf_done;
 		struct msm_isp_error_info error_info;
 		struct msm_isp_output_info output_info;
-		struct msm_isp_ms_delta_info ms_delta_info;
+		struct msm_isp_sof_info sof_info;
 	} u;
 };
 #endif

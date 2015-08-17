@@ -3087,8 +3087,6 @@ static int mdss_dsi_parse_ctrl_params(struct platform_device *ctrl_pdev,
 static int mdss_dsi_parse_gpio_params(struct platform_device *ctrl_pdev,
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
-	struct mdss_panel_info *pinfo = &(ctrl_pdata->panel_data.panel_info);
-
 	/*
 	 * If disp_en_gpio has been set previously (disp_en_gpio > 0)
 	 *  while parsing the panel node, then do not override it
@@ -3121,22 +3119,10 @@ static int mdss_dsi_parse_gpio_params(struct platform_device *ctrl_pdev,
 		pr_err("%s:%d, reset gpio not specified\n",
 						__func__, __LINE__);
 
-	if (pinfo->mode_gpio_state != MODE_GPIO_NOT_VALID) {
-
-		ctrl_pdata->mode_gpio = of_get_named_gpio(
-					ctrl_pdev->dev.of_node,
-					"qcom,platform-mode-gpio", 0);
-		if (!gpio_is_valid(ctrl_pdata->mode_gpio))
-			pr_info("%s:%d, mode gpio not specified\n",
-							__func__, __LINE__);
-	} else {
-		ctrl_pdata->mode_gpio = -EINVAL;
-	}
-
 	ctrl_pdata->lcd_mode_sel_gpio = of_get_named_gpio(
 			ctrl_pdev->dev.of_node, "qcom,panel-mode-gpio", 0);
 	if (!gpio_is_valid(ctrl_pdata->lcd_mode_sel_gpio)) {
-			pr_info("%s:%d, dsc/dual mode gpio not specified\n",
+			pr_info("%s:%d, mode gpio not specified\n",
 							__func__, __LINE__);
 		ctrl_pdata->lcd_mode_sel_gpio = -EINVAL;
 	}
@@ -3148,7 +3134,7 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 	struct device_node *pan_node, struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	struct mipi_panel_info *mipi;
-	int rc;
+	int rc, data;
 	struct dsi_shared_data *sdata;
 	struct mdss_panel_info *pinfo = &(ctrl_pdata->panel_data.panel_info);
 	struct resource *res;
@@ -3298,6 +3284,13 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 		pinfo->blank_state = MDSS_PANEL_BLANK_UNBLANK;
 		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
 		ctrl_pdata->is_phyreg_enabled = 1;
+		mdss_dsi_get_hw_revision(ctrl_pdata);
+		if ((ctrl_pdata->shared_data->hw_rev >= MDSS_DSI_HW_REV_103)
+			&& (pinfo->type == MIPI_CMD_PANEL)) {
+			data = MIPI_INP(ctrl_pdata->ctrl_base + 0x1b8);
+			if (data & BIT(16))
+				ctrl_pdata->burst_mode_enabled = true;
+		}
 		ctrl_pdata->ctrl_state |=
 			(CTRL_STATE_PANEL_INIT | CTRL_STATE_MDP_ACTIVE);
 	} else {

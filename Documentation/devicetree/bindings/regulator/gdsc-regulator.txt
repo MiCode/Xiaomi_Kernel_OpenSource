@@ -30,6 +30,8 @@ Optional properties:
 			and root clk is active without sw being aware of its
 			state. The clock-name which denotes the root clock
 			should be named as "core_root_clk".
+ - qcom,clk-dis-wait-val: Input value for CLK_DIS_WAIT controls state transition
+			 delay after halting clock in the collapsible core.
  - reg-names:		Names of the bases for the above "reg" registers.
 			Ex. "base", "domain_addr".
 

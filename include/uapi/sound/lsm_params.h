@@ -171,5 +171,6 @@ struct snd_lsm_output_format_cfg {
 					struct snd_lsm_module_params)
 #define SNDRV_LSM_OUT_FORMAT_CFG _IOW('U', 0x0C, \
 				      struct snd_lsm_output_format_cfg)
+#define SNDRV_LSM_SET_PORT	_IO('U', 0x0D)
 
 #endif

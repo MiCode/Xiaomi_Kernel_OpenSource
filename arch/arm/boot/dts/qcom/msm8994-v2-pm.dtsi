@@ -649,11 +649,8 @@
 
 	};
 
-	qcom,cpu-sleep-status@f908b008{
+	qcom,cpu-sleep-status {
 		compatible = "qcom,cpu-sleep-status";
-		reg = <0xf908b008 0x100>;
-		qcom,cpu-alias-addr = <0x10000>;
-		qcom,sleep-status-mask= <0x80000>;
 	};
 
 	qcom,rpm-log@fc000000 {

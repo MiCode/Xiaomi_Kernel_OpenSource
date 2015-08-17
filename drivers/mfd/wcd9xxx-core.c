@@ -131,8 +131,6 @@ static int wcd9xxx_slim_device_up(struct slim_device *sldev);
 static int wcd9xxx_slim_device_down(struct slim_device *sldev);
 static int wcd9xxx_enable_static_supplies(struct wcd9xxx *wcd9xxx,
 					  struct wcd9xxx_pdata *pdata);
-static void wcd9xxx_disable_supplies(struct wcd9xxx *wcd9xxx,
-				     struct wcd9xxx_pdata *pdata);
 
 struct wcd9xxx_i2c wcd9xxx_modules[MAX_WCD9XXX_DEVICE];
 
@@ -1796,11 +1794,17 @@ static int wcd9xxx_enable_static_supplies(struct wcd9xxx *wcd9xxx,
 	return ret;
 }
 
-static void wcd9xxx_disable_supplies(struct wcd9xxx *wcd9xxx,
-				     struct wcd9xxx_pdata *pdata)
+/*
+ * wcd9xxx_disable_supplies: to disable static regulators
+ * @wcd9xxx: Handle to the wcd9xxx core
+ * @pdata: Handle for pdata
+ * @return: void
+ */
+void wcd9xxx_disable_supplies(struct wcd9xxx *wcd9xxx, void *data)
 {
 	int i;
 	int rc;
+	struct wcd9xxx_pdata *pdata = (struct wcd9xxx_pdata *)data;
 
 	for (i = 0; i < wcd9xxx->num_of_supplies; i++) {
 		if (pdata->regulator[i].ondemand)
@@ -1815,9 +1819,10 @@ static void wcd9xxx_disable_supplies(struct wcd9xxx *wcd9xxx,
 		}
 	}
 }
+EXPORT_SYMBOL(wcd9xxx_disable_supplies);
 
 static void wcd9xxx_release_supplies(struct wcd9xxx *wcd9xxx,
-				     struct wcd9xxx_pdata *pdata)
+					struct wcd9xxx_pdata *pdata)
 {
 	int i;
 
@@ -2913,12 +2918,19 @@ static int wcd9xxx_slim_device_down(struct slim_device *sldev)
 	return 0;
 }
 
-static int wcd9xxx_disable_static_supplies_to_optimum(
-			struct wcd9xxx *wcd9xxx,
-			struct wcd9xxx_pdata *pdata)
+/*
+ * wcd9xxx_disable_static_supplies_to_optimum: to set supplies to optimum mode
+ * @wcd9xxx: Handle to the wcd9xxx core
+ * @pdata: Handle for pdata
+ * @return: returns 0 if success or error information to the caller in case
+ *	    of failure.
+ */
+int wcd9xxx_disable_static_supplies_to_optimum(struct wcd9xxx *wcd9xxx,
+						void *data)
 {
 	int i;
 	int ret = 0;
+	struct wcd9xxx_pdata *pdata = (struct wcd9xxx_pdata *)data;
 
 	for (i = 0; i < wcd9xxx->num_of_supplies; i++) {
 		if (pdata->regulator[i].ondemand)
@@ -2934,6 +2946,7 @@ static int wcd9xxx_disable_static_supplies_to_optimum(
 	}
 	return ret;
 }
+EXPORT_SYMBOL(wcd9xxx_disable_static_supplies_to_optimum);
 
 static int wcd9xxx_enable_static_supplies_to_optimum(
 			struct wcd9xxx *wcd9xxx,

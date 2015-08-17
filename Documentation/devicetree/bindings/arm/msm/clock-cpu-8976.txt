@@ -9,7 +9,9 @@ Ramp control will allow programming the sequence ID for pulse swallowing,
 enable sequence and for linking sequence IDs.
 
 Required properties:
-- compatible:		Must be one of "qcom,clock-cpu-8976"
+- compatible:		Must be one of "qcom,clock-cpu-8976" and in case it
+			support SPM event  "qcom,cpu-spm-8976" needs to be
+			defined.
 
 - reg:			Pairs of physical base addresses and region sizes of
 			memory mapped registers.

@@ -5372,6 +5372,9 @@ static int tomtom_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 	if ((reg >= TOMTOM_A_CDC_MBHC_EN_CTL) || (reg < 0x100))
 		return 1;
 
+	if (reg == TOMTOM_A_CDC_CLK_RX_RESET_CTL)
+		return 1;
+
 	/* IIR Coeff registers are not cacheable */
 	if ((reg >= TOMTOM_A_CDC_IIR1_COEF_B1_CTL) &&
 		(reg <= TOMTOM_A_CDC_IIR2_COEF_B2_CTL))
@@ -5417,6 +5420,13 @@ static int tomtom_volatile(struct snd_soc_codec *ssc, unsigned int reg)
 
 	if (reg == TOMTOM_A_SVASS_SPE_INBOX_TRG)
 		return 1;
+
+	if (reg == TOMTOM_A_QFUSE_STATUS)
+		return 1;
+
+	for (i = 0; i < ARRAY_SIZE(non_cacheable_reg); i++)
+		if (reg == non_cacheable_reg[i])
+			return 1;
 
 	return 0;
 }
@@ -8587,6 +8597,11 @@ static int tomtom_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	codec = (struct snd_soc_codec *)(wcd9xxx->ssr_priv);
 	tomtom = snd_soc_codec_get_drvdata(codec);
 
+	/*
+	 * Delay is needed for settling time
+	 * for the register configuration
+	 */
+	msleep(50);
 	snd_soc_card_change_online_state(codec->card, 1);
 	clear_bit(BUS_DOWN, &tomtom->status_mask);
 

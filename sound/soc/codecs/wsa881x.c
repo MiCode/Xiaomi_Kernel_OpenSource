@@ -96,7 +96,11 @@ struct wsa881x_priv {
 	int pd_gpio;
 	struct wsa881x_tz_priv tz_pdata;
 	int bg_cnt;
+	int clk_cnt;
 	struct mutex bg_lock;
+	struct mutex res_lock;
+	struct snd_info_entry *entry;
+	struct snd_info_entry *version_entry;
 };
 
 #define SWR_SLV_MAX_REG_ADDR	0x390
@@ -107,6 +111,8 @@ struct wsa881x_priv {
 #define SWR_SLV_WR_BUF_LEN	32
 #define SWR_SLV_MAX_DEVICES	2
 
+#define WSA881X_VERSION_ENTRY_SIZE 27
+
 static struct wsa881x_priv *dbgwsa881x;
 static struct dentry *debugfs_wsa881x_dent;
 static struct dentry *debugfs_peek;
@@ -114,6 +120,9 @@ static struct dentry *debugfs_poke;
 static struct dentry *debugfs_reg_dump;
 static unsigned int read_data;
 static unsigned int devnum;
+
+static int32_t wsa881x_resource_acquire(struct snd_soc_codec *codec,
+						bool enable);
 
 static int codec_debug_open(struct inode *inode, struct file *file)
 {
@@ -143,6 +152,88 @@ static int get_parameters(char *buf, u32 *param1, int num_of_par)
 	}
 	return 0;
 }
+
+static ssize_t wsa881x_codec_version_read(struct snd_info_entry *entry,
+			       void *file_private_data, struct file *file,
+			       char __user *buf, size_t count, loff_t pos)
+{
+	struct wsa881x_priv *wsa881x;
+	char buffer[WSA881X_VERSION_ENTRY_SIZE];
+	int len;
+
+	wsa881x = (struct wsa881x_priv *) entry->private_data;
+	if (!wsa881x) {
+		pr_err("%s: wsa881x priv is null\n", __func__);
+		return -EINVAL;
+	}
+
+	len = snprintf(buffer, sizeof(buffer), "WSA881X-SOUNDWIRE_1_0\n");
+
+	return simple_read_from_buffer(buf, count, &pos, buffer, len);
+}
+
+static struct snd_info_entry_ops wsa881x_codec_info_ops = {
+	.read = wsa881x_codec_version_read,
+};
+
+/*
+ * wsa881x_codec_info_create_codec_entry - creates wsa881x module
+ * @codec_root: The parent directory
+ * @codec: Codec instance
+ *
+ * Creates wsa881x module and version entry under the given
+ * parent directory.
+ *
+ * Return: 0 on success or negative error code on failure.
+ */
+int wsa881x_codec_info_create_codec_entry(struct snd_info_entry *codec_root,
+					  struct snd_soc_codec *codec)
+{
+	struct snd_info_entry *version_entry;
+	struct wsa881x_priv *wsa881x;
+	struct snd_soc_card *card;
+	char name[80];
+
+	if (!codec_root || !codec)
+		return -EINVAL;
+
+	wsa881x = snd_soc_codec_get_drvdata(codec);
+	card = codec->card;
+	snprintf(name, sizeof(name), "%s.%x", "wsa881x",
+		 (u32)wsa881x->swr_slave->addr);
+
+	wsa881x->entry = snd_register_module_info(codec_root->module,
+						  (const char *)name,
+						  codec_root);
+	if (!wsa881x->entry) {
+		dev_dbg(codec->dev, "%s: failed to create wsa881x entry\n",
+			__func__);
+		return -ENOMEM;
+	}
+
+	version_entry = snd_info_create_card_entry(card->snd_card,
+						   "version",
+						   wsa881x->entry);
+	if (!version_entry) {
+		dev_dbg(codec->dev, "%s: failed to create wsa881x version entry\n",
+			__func__);
+		return -ENOMEM;
+	}
+
+	version_entry->private_data = wsa881x;
+	version_entry->size = WSA881X_VERSION_ENTRY_SIZE;
+	version_entry->content = SNDRV_INFO_CONTENT_DATA;
+	version_entry->c.ops = &wsa881x_codec_info_ops;
+
+	if (snd_info_register(version_entry) < 0) {
+		snd_info_free_entry(version_entry);
+		return -ENOMEM;
+	}
+	wsa881x->version_entry = version_entry;
+
+	return 0;
+}
+EXPORT_SYMBOL(wsa881x_codec_info_create_codec_entry);
 
 static bool is_swr_slv_reg_readable(int reg)
 {
@@ -350,7 +441,7 @@ static int wsa881x_visense_adc_ctrl(struct snd_soc_codec *codec, bool enable)
 	return 0;
 }
 
-static int wsa881x_bandgap_ctrl(struct snd_soc_codec *codec, bool enable)
+static void wsa881x_bandgap_ctrl(struct snd_soc_codec *codec, bool enable)
 {
 	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
 
@@ -374,7 +465,31 @@ static int wsa881x_bandgap_ctrl(struct snd_soc_codec *codec, bool enable)
 		}
 	}
 	mutex_unlock(&wsa881x->bg_lock);
-	return 0;
+}
+
+static void wsa881x_clk_ctrl(struct snd_soc_codec *codec, bool enable)
+{
+	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
+
+	dev_dbg(codec->dev, "%s: enable:%d, clk_count:%d\n", __func__,
+		enable, wsa881x->clk_cnt);
+	mutex_lock(&wsa881x->res_lock);
+	if (enable) {
+		++wsa881x->clk_cnt;
+		if (wsa881x->clk_cnt == 1) {
+			snd_soc_write(codec, WSA881X_CDC_DIG_CLK_CTL, 0x01);
+			snd_soc_write(codec, WSA881X_CDC_ANA_CLK_CTL, 0x01);
+		}
+	} else {
+		--wsa881x->clk_cnt;
+		if (wsa881x->clk_cnt <= 0) {
+			WARN_ON(wsa881x->clk_cnt < 0);
+			wsa881x->clk_cnt = 0;
+			snd_soc_write(codec, WSA881X_CDC_DIG_CLK_CTL, 0x00);
+			snd_soc_write(codec, WSA881X_CDC_ANA_CLK_CTL, 0x00);
+		}
+	}
+	mutex_unlock(&wsa881x->res_lock);
 }
 
 static int wsa881x_get_compander(struct snd_kcontrol *kcontrol,
@@ -562,18 +677,14 @@ static int wsa881x_rdac_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		snd_soc_write(codec, WSA881X_CDC_DIG_CLK_CTL, 0x01);
-		snd_soc_write(codec, WSA881X_CDC_ANA_CLK_CTL, 0x01);
-		wsa881x_bandgap_ctrl(codec, ENABLE);
+		wsa881x_resource_acquire(codec, ENABLE);
 		if (wsa881x->boost_enable)
 			wsa881x_boost_ctrl(codec, ENABLE);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if (wsa881x->boost_enable)
 			wsa881x_boost_ctrl(codec, DISABLE);
-		snd_soc_write(codec, WSA881X_CDC_ANA_CLK_CTL, 0x00);
-		snd_soc_write(codec, WSA881X_CDC_DIG_CLK_CTL, 0x00);
-		wsa881x_bandgap_ctrl(codec, DISABLE);
+		wsa881x_resource_acquire(codec, DISABLE);
 		break;
 	}
 	return 0;
@@ -727,7 +838,9 @@ static void wsa881x_init(struct snd_soc_codec *codec)
 static int32_t wsa881x_resource_acquire(struct snd_soc_codec *codec,
 						bool enable)
 {
-	return wsa881x_bandgap_ctrl(codec, enable);
+	wsa881x_clk_ctrl(codec, enable);
+	wsa881x_bandgap_ctrl(codec, enable);
+	return 0;
 }
 
 static int wsa881x_probe(struct snd_soc_codec *codec)
@@ -763,16 +876,17 @@ static int wsa881x_probe(struct snd_soc_codec *codec)
 			__func__, ret);
 	}
 	mutex_init(&wsa881x->bg_lock);
+	mutex_init(&wsa881x->res_lock);
+	wsa881x_init(codec);
 	snprintf(wsa881x->tz_pdata.name, sizeof(wsa881x->tz_pdata.name),
 		"%s.%x", "wsatz", (u8)dev->addr);
 	wsa881x->bg_cnt = 0;
+	wsa881x->clk_cnt = 0;
 	wsa881x->tz_pdata.codec = codec;
 	wsa881x->tz_pdata.dig_base = WSA881X_DIGITAL_BASE;
 	wsa881x->tz_pdata.ana_base = WSA881X_ANALOG_BASE;
 	wsa881x->tz_pdata.wsa_resource_acquire = wsa881x_resource_acquire;
 	wsa881x_init_thermal(&wsa881x->tz_pdata);
-	wsa881x_init(codec);
-
 	return ret;
 }
 
@@ -783,6 +897,7 @@ static int wsa881x_remove(struct snd_soc_codec *codec)
 	if (wsa881x->tz_pdata.tz_dev)
 		wsa881x_deinit_thermal(wsa881x->tz_pdata.tz_dev);
 	mutex_destroy(&wsa881x->bg_lock);
+	mutex_destroy(&wsa881x->res_lock);
 
 	return 0;
 }

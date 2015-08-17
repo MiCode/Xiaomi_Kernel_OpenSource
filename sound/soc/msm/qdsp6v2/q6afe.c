@@ -1399,6 +1399,18 @@ static int afe_aanc_port_cfg(void *apr, uint16_t tx_port, uint16_t rx_port)
 		pr_err("%s: port id: 0x%x ret %d\n", __func__, tx_port, ret);
 		return -EINVAL;
 	}
+	pr_debug("%s: AANC sample rate tx rate: %d rx rate %d\n",
+		__func__, this_afe.aanc_info.aanc_tx_port_sample_rate,
+	       this_afe.aanc_info.aanc_rx_port_sample_rate);
+	/*
+	 * If aanc tx sample rate or rx sample rate is zero, skip aanc
+	 * configuration as AFE resampler will fail for invalid sample
+	 * rates.
+	 */
+	if (!this_afe.aanc_info.aanc_tx_port_sample_rate ||
+	    !this_afe.aanc_info.aanc_rx_port_sample_rate) {
+		return -EINVAL;
+	}
 
 	cfg.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 			APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
@@ -2151,6 +2163,23 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	port_index = afe_get_port_index(port_id);
 	if ((port_index >= 0) && (port_index < AFE_MAX_PORTS)) {
 		this_afe.afe_sample_rates[port_index] = rate;
+		/*
+		 * If afe_port_start() for tx port called before
+		 * rx port, then aanc rx sample rate is zero. So,
+		 * AANC state machine in AFE will not get triggered.
+		 * Make sure to check whether aanc is active during
+		 * afe_port_start() for rx port and if aanc rx
+		 * sample rate is zero, call afe_aanc_start to configure
+		 * aanc with valid sample rates.
+		 */
+		if (this_afe.aanc_info.aanc_active &&
+		    !this_afe.aanc_info.aanc_rx_port_sample_rate) {
+			this_afe.aanc_info.aanc_rx_port_sample_rate =
+				this_afe.afe_sample_rates[port_index];
+			ret = afe_aanc_start(this_afe.aanc_info.aanc_tx_port,
+					this_afe.aanc_info.aanc_rx_port);
+			pr_debug("%s: afe_aanc_start ret %d\n", __func__, ret);
+		}
 	} else {
 		pr_err("%s: Invalid port index %d\n", __func__, port_index);
 		ret = -EINVAL;

@@ -1352,14 +1352,7 @@ static int smb1351_parallel_set_chg_present(struct smb1351_charger *chip,
 						int present)
 {
 	int rc;
-	u8 reg;
-
-	/* Check if SMB1351 is present */
-	rc = smb1351_read_reg(chip, CHG_REVISION_REG, &reg);
-	if (rc) {
-		pr_debug("Failed to detect smb1351-parallel-charger, may be absent\n");
-		return -ENODEV;
-	}
+	u8 reg, mask = 0;
 
 	if (present == chip->parallel_charger_present) {
 		pr_debug("present %d -> %d, skipping\n",
@@ -1368,6 +1361,13 @@ static int smb1351_parallel_set_chg_present(struct smb1351_charger *chip,
 	}
 
 	if (present) {
+		/* Check if SMB1351 is present */
+		rc = smb1351_read_reg(chip, CHG_REVISION_REG, &reg);
+		if (rc) {
+			pr_debug("Failed to detect smb1351-parallel-charger, may be absent\n");
+			return -ENODEV;
+		}
+
 		rc = smb1351_enable_volatile_writes(chip);
 		if (rc) {
 			pr_err("Couldn't configure for volatile rc = %d\n", rc);
@@ -1416,6 +1416,20 @@ static int smb1351_parallel_set_chg_present(struct smb1351_charger *chip,
 						SUSPEND_MODE_CTRL_BY_I2C);
 		if (rc) {
 			pr_err("Couldn't set USB suspend rc=%d\n", rc);
+			return rc;
+		}
+
+		/*
+		 * setup USB 2.0/3.0 detection and USB 500/100
+		 * command polarity
+		 */
+		reg = USB_2_3_MODE_SEL_BY_I2C | USB_CMD_POLARITY_500_1_100_0;
+		mask = USB_2_3_MODE_SEL_BIT | USB_5_1_CMD_POLARITY_BIT;
+		rc = smb1351_masked_write(chip,
+				CHG_OTH_CURRENT_CTRL_REG, mask, reg);
+		if (rc) {
+			pr_err("Couldn't set CHG_OTH_CURRENT_CTRL_REG rc=%d\n",
+					rc);
 			return rc;
 		}
 
@@ -1850,17 +1864,16 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 		if (!chip->battery_missing && !chip->apsd_rerun
 						&& chip->usb_psy) {
 			if (type == POWER_SUPPLY_TYPE_USB) {
-				pr_debug("Setting usb psy allow detection 1 SDP and rerun\n");
-				power_supply_set_allow_detection(
-							chip->usb_psy, 1);
+				pr_debug("Setting usb psy dp=f dm=f SDP and rerun\n");
+				power_supply_set_dp_dm(chip->usb_psy,
+						POWER_SUPPLY_DP_DM_DPF_DMF);
 				chip->apsd_rerun = true;
 				rerun_apsd(chip);
 				return 0;
-			} else {
-				pr_debug("Setting usb psy allow detection 1 DCP and no rerun\n");
-				power_supply_set_allow_detection(
-							chip->usb_psy, 1);
 			}
+			pr_debug("Set usb psy dp=f dm=f DCP and no rerun\n");
+			power_supply_set_dp_dm(chip->usb_psy,
+					POWER_SUPPLY_DP_DM_DPF_DMF);
 		}
 		/*
 		 * If defined force hvdcp 2p0 property,
@@ -1892,8 +1905,9 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 						POWER_SUPPLY_TYPE_UNKNOWN);
 		power_supply_set_present(chip->usb_psy,
 						chip->chg_present);
-		pr_debug("Setting usb psy allow detection 0\n");
-		power_supply_set_allow_detection(chip->usb_psy, 0);
+		pr_debug("Set usb psy dm=r df=r\n");
+		power_supply_set_dp_dm(chip->usb_psy,
+				POWER_SUPPLY_DP_DM_DPR_DMR);
 	}
 
 	return 0;

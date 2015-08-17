@@ -1,0 +1,124 @@
+/*
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	jtag_fuse: jtagfuse@a601c {
+		compatible = "qcom,jtag-fuse-v2";
+		reg = <0xa601c 0x8>;
+		reg-names = "fuse-base";
+	};
+
+	jtag_mm0: jtagmm@6840000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x6840000 0x1000>,
+		      <0x6810000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+		         <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU0>;
+	};
+
+	jtag_mm1: jtagmm@6940000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x6940000 0x1000>,
+		      <0x6910000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+		         <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU1>;
+	};
+
+	jtag_mm2: jtagmm@6a40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x6a40000 0x1000>,
+		      <0x6a10000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+		         <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU2>;
+	};
+
+	jtag_mm3: jtagmm@6b40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x6b40000 0x1000>,
+		      <0x6b10000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+		         <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU3>;
+	};
+
+	jtag_mm4: jtagmm@6c40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x6c40000 0x1000>,
+		      <0x6c10000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+		         <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU4>;
+	};
+
+	jtag_mm5: jtagmm@6d40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x6d40000 0x1000>,
+		      <0x6d10000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+		         <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU5>;
+	};
+
+	jtag_mm6: jtagmm@6e40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x6e40000 0x1000>,
+		      <0x6e10000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+		         <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU6>;
+	};
+
+	jtag_mm7: jtagmm@6f40000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x6f40000 0x1000>,
+		      <0x6f10000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+		         <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU7>;
+	};
+};

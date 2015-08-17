@@ -363,10 +363,16 @@ static int parse_cluster_params(struct device_node *node,
 		key = "qcom,psci-mode-mask";
 		ret = of_property_read_u32(node, key,
 				&c->psci_mode_mask);
-		if (ret)
+		if (ret) {
 			pr_err("%s(): Failed to read param: %s\n",
 							__func__, key);
-		return ret;
+			return ret;
+		}
+
+		/* Set ndevice to 1 as default */
+		c->ndevices = 1;
+
+		return 0;
 	} else
 		return parse_legacy_cluster_params(node, c);
 }
@@ -438,6 +444,7 @@ static int parse_cluster_level(struct device_node *node,
 		if (ret)
 			goto failed;
 
+		level->is_reset = of_property_read_bool(node, "qcom,is-reset");
 	} else if (!cluster->no_saw_devices) {
 		key  = "no saw-devices";
 
@@ -459,8 +466,12 @@ static int parse_cluster_level(struct device_node *node,
 				goto failed;
 
 			level->mode[i] = parse_lpm_mode(spm_mode);
+
 			if (level->mode[i] < 0)
 				goto failed;
+
+			if (level->mode[i] == MSM_SPM_MODE_POWER_COLLAPSE)
+				level->is_reset |= true;
 		}
 	}
 
@@ -560,7 +571,6 @@ static int get_cpumask_for_node(struct device_node *node, struct cpumask *mask)
 	struct device_node *cpu_node;
 	int cpu;
 	int idx = 0;
-	bool found = false;
 
 	cpu_node = of_parse_phandle(node, "qcom,cpu", idx++);
 	if (!cpu_node) {
@@ -576,24 +586,16 @@ static int get_cpumask_for_node(struct device_node *node, struct cpumask *mask)
 	}
 
 	while (cpu_node) {
-		found = false;
 		for_each_possible_cpu(cpu) {
 			if (of_get_cpu_node(cpu, NULL) == cpu_node) {
 				cpumask_set_cpu(cpu, mask);
-				found = true;
 				break;
 			}
 		}
-		if (!found)
-			pr_crit("Unable to find CPU node for %s\n",
-					cpu_node->full_name);
-
 		cpu_node = of_parse_phandle(node, "qcom,cpu", idx++);
 	}
 
-	if (!cpumask_empty(mask))
-		return 0;
-	return -EINVAL;
+	return 0;
 }
 
 static int parse_cpu_levels(struct device_node *node, struct lpm_cluster *c)
@@ -645,8 +647,7 @@ static int parse_cpu_levels(struct device_node *node, struct lpm_cluster *c)
 		key = "qcom,use-broadcast-timer";
 		l->use_bc_timer = of_property_read_bool(n, key);
 
-		key = "qcom,cpu-is-reset";
-		l->is_reset = of_property_read_bool(n, key);
+		l->is_reset = of_property_read_bool(n, "qcom,is-reset");
 	}
 	return 0;
 failed:
