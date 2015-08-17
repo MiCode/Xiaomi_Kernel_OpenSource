@@ -66,6 +66,16 @@ static inline bool is_turbo_session(struct msm_vidc_inst *inst)
 	return !!(inst->flags & VIDC_TURBO);
 }
 
+static inline bool is_low_power_session(struct msm_vidc_inst *inst)
+{
+	return !!(inst->flags & VIDC_POWER_SAVE);
+}
+
+static inline bool is_low_latency_session(struct msm_vidc_inst *inst)
+{
+	return !!(inst->flags & VIDC_LOW_LATENCY);
+}
+
 static inline bool is_thumbnail_session(struct msm_vidc_inst *inst)
 {
 	return !!(inst->flags & VIDC_THUMBNAIL);
@@ -268,7 +278,16 @@ static int msm_comm_vote_bus(struct msm_vidc_core *core)
 				get_hal_domain(inst->session_type));
 		vote_data[i].load = msm_comm_get_inst_load(inst,
 				LOAD_CALC_NO_QUIRKS);
-		vote_data[i].low_power = !!(inst->flags & VIDC_POWER_SAVE);
+
+		if (is_turbo_session(inst))
+			vote_data[i].power_mode = VIDC_POWER_TURBO;
+		else if (is_low_power_session(inst))
+			vote_data[i].power_mode = VIDC_POWER_LOW;
+		else if (is_low_latency_session(inst))
+			vote_data[i].power_mode = VIDC_POWER_LOW_LATENCY;
+		else
+			vote_data[i].power_mode = VIDC_POWER_NORMAL;
+
 		i++;
 	}
 	mutex_unlock(&core->lock);

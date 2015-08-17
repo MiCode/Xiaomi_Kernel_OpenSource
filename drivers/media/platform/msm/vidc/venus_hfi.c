@@ -965,14 +965,21 @@ static int venus_hfi_vote_active_buses(void *dev,
 					aggregate_load_table[j].bus->
 						sessions_supported,
 					data[i].session);
-
-			/* Check the session and low_power mode matches*/
-			  matches &= aggregate_load_table[j].bus->low_power ==
-				 data[i].low_power;
+			/*
+			 * VIDC_POWER_NORMAL will be default power mode.
+			 * Amend matches variable only if client supplied
+			 * power mode is available in the dtsi, if not
+			 * avaialable then default power mode (NORMAL)
+			 * bus vectors will be picked up.
+			 */
+			if (device->res->power_modes & data[i].power_mode) {
+				matches &= aggregate_load_table[j].bus->
+					power_mode == data[i].power_mode;
+			}
 			if (matches) {
 				aggregate_load_table[j].load +=
 					data[i].load;
-				if (data[i].low_power) {
+				if (data[i].power_mode & VIDC_POWER_LOW) {
 					aggregate_load_table[3].load +=
 					data[i].load;
 				}
