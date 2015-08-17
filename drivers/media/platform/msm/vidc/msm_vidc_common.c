@@ -28,9 +28,6 @@
 	__rc; \
 })
 
-#define IS_VALID_DCVS_SESSION(__cur_mbpf, __min_mbpf) \
-		((__cur_mbpf) >= (__min_mbpf))
-
 #define SUM_ARRAY(__arr, __start, __end) ({\
 		int __index;\
 		typeof((__arr)[0]) __sum = 0;\

@@ -1652,7 +1652,15 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 			break;
 		}
 
-		*num_buffers = max(*num_buffers, bufreq->buffer_count_min);
+		/* Pretend as if FW itself is asking for
+		 * additional buffers.
+		 * *num_buffers += MSM_VIDC_ADDITIONAL_BUFS_FOR_DCVS
+		 * is wrong since it will end up increasing the count
+		 * on every call to reqbufs if *num_bufs is larger
+		 * than min requirement.
+		 */
+		*num_buffers = max(*num_buffers, bufreq->buffer_count_min
+			+ msm_dcvs_get_extra_buff_count(inst));
 
 		min_buff_count = (!!(inst->flags & VIDC_THUMBNAIL)) ?
 			MIN_NUM_THUMBNAIL_MODE_CAPTURE_BUFFERS :
