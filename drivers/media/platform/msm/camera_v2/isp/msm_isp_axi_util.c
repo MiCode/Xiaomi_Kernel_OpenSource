@@ -2289,7 +2289,8 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 			wait_for_complete = 1;
 		} else {
 			if (vfe_dev->dump_reg)
-				msm_camera_io_dump_2(vfe_dev->vfe_base, 0x900);
+				msm_camera_io_dump(vfe_dev->vfe_base,
+					0x900, 1);
 
 			/*Configure AXI start bits to start immediately*/
 			msm_isp_axi_stream_enable_cfg(vfe_dev, stream_info);

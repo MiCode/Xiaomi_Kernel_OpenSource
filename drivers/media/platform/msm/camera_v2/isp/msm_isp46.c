@@ -1431,8 +1431,8 @@ static void msm_vfe46_cfg_axi_ub(struct vfe_device *vfe_dev)
 static void msm_vfe46_read_wm_ping_pong_addr(
 	struct vfe_device *vfe_dev)
 {
-	msm_camera_io_dump_2(vfe_dev->vfe_base +
-		(VFE46_WM_BASE(0) & 0xFFFFFFF0), 0x200);
+	msm_camera_io_dump(vfe_dev->vfe_base +
+		(VFE46_WM_BASE(0) & 0xFFFFFFF0), 0x200, 1);
 }
 
 static void msm_vfe46_update_ping_pong_addr(

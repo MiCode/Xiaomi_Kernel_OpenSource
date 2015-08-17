@@ -14,6 +14,7 @@
 #include <linux/delay.h>
 #include "msm_jpeg_hw.h"
 #include "msm_jpeg_common.h"
+#include "msm_camera_io_util.h"
 
 #include <linux/io.h>
 
@@ -306,15 +307,15 @@ struct msm_jpeg_hw_cmd hw_cmd_we_ping_update[] = {
 void msm_jpeg_decode_status(void *base)
 {
 	uint32_t data;
-	data = readl_relaxed(base + JPEG_DECODE_MCUS_DECODED_STATUS);
+	data = msm_camera_io_r(base + JPEG_DECODE_MCUS_DECODED_STATUS);
 	JPEG_DBG_HIGH("Decode MCUs decode status %u", data);
-	data = readl_relaxed(base + JPEG_DECODE_BITS_CONSUMED_STATUS);
+	data = msm_camera_io_r(base + JPEG_DECODE_BITS_CONSUMED_STATUS);
 	JPEG_DBG_HIGH("Decode bits consumed status %u", data);
-	data = readl_relaxed(base + JPEG_DECODE_PRED_Y_STATE);
+	data = msm_camera_io_r(base + JPEG_DECODE_PRED_Y_STATE);
 	JPEG_DBG_HIGH("Decode prediction Y state %u", data);
-	data = readl_relaxed(base + JPEG_DECODE_PRED_C_STATE);
+	data = msm_camera_io_r(base + JPEG_DECODE_PRED_C_STATE);
 	JPEG_DBG_HIGH("Decode prediction C state %u", data);
-	data = readl_relaxed(base + JPEG_DECODE_RSM_STATE);
+	data = msm_camera_io_r(base + JPEG_DECODE_RSM_STATE);
 	JPEG_DBG_HIGH("Decode prediction RSM state %u", data);
 }
 
@@ -781,7 +782,7 @@ uint32_t msm_jpeg_hw_read(struct msm_jpeg_hw_cmd *hw_cmd_p,
 
 	paddr = jpeg_region_base + hw_cmd_p->offset;
 
-	data = readl_relaxed(paddr);
+	data = msm_camera_io_r(paddr);
 	data &= hw_cmd_p->mask;
 
 	return data;
@@ -798,7 +799,7 @@ void msm_jpeg_hw_write(struct msm_jpeg_hw_cmd *hw_cmd_p,
 	if (hw_cmd_p->mask == 0xffffffff) {
 		old_data = 0;
 	} else {
-		old_data = readl_relaxed(paddr);
+		old_data = msm_camera_io_r(paddr);
 		old_data &= ~hw_cmd_p->mask;
 	}
 
@@ -806,7 +807,7 @@ void msm_jpeg_hw_write(struct msm_jpeg_hw_cmd *hw_cmd_p,
 	new_data |= old_data;
 	JPEG_DBG("%s:%d] %p %08x\n", __func__, __LINE__,
 		paddr, new_data);
-	writel_relaxed(new_data, paddr);
+	msm_camera_io_w(new_data, paddr);
 }
 
 int msm_jpeg_hw_wait(struct msm_jpeg_hw_cmd *hw_cmd_p, int m_us,
@@ -915,7 +916,7 @@ void msm_jpeg_io_dump(void *base, int size)
 			snprintf(p_str, 12, "%08lx: ", (unsigned long)p);
 			p_str += 10;
 		}
-		data = readl_relaxed(p++);
+		data = msm_camera_io_r(p++);
 		snprintf(p_str, 12, "%08x ", data);
 		p_str += 9;
 		if ((i + 1) % 4 == 0) {

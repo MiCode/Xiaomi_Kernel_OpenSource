@@ -994,12 +994,12 @@ static int vpe_start(struct vpe_device *vpe_dev)
 {
 	/*  enable the frame irq, bit 0 = Display list 0 ROI done */
 	msm_camera_io_w_mb(1, vpe_dev->base + VPE_INTR_ENABLE_OFFSET);
-	msm_camera_io_dump(vpe_dev->base, 0x120);
-	msm_camera_io_dump(vpe_dev->base + 0x00400, 0x18);
-	msm_camera_io_dump(vpe_dev->base + 0x10000, 0x250);
-	msm_camera_io_dump(vpe_dev->base + 0x30000, 0x20);
-	msm_camera_io_dump(vpe_dev->base + 0x50000, 0x30);
-	msm_camera_io_dump(vpe_dev->base + 0x50400, 0x10);
+	msm_camera_io_dump(vpe_dev->base, 0x120, CONFIG_MSM_VPE_DBG);
+	msm_camera_io_dump(vpe_dev->base + 0x00400, 0x18, CONFIG_MSM_VPE_DBG);
+	msm_camera_io_dump(vpe_dev->base + 0x10000, 0x250, CONFIG_MSM_VPE_DBG);
+	msm_camera_io_dump(vpe_dev->base + 0x30000, 0x20, CONFIG_MSM_VPE_DBG);
+	msm_camera_io_dump(vpe_dev->base + 0x50000, 0x30, CONFIG_MSM_VPE_DBG);
+	msm_camera_io_dump(vpe_dev->base + 0x50400, 0x10, CONFIG_MSM_VPE_DBG);
 
 	/*
 	 * This triggers the operation. When the VPE is done,

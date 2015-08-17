@@ -326,7 +326,7 @@ static int msm_cpp_enable_debugfs(struct cpp_device *cpp_dev);
 
 static void msm_cpp_write(u32 data, void __iomem *cpp_base)
 {
-	writel_relaxed((data), cpp_base + MSM_CPP_MICRO_FIFO_RX_DATA);
+	msm_camera_io_w((data), cpp_base + MSM_CPP_MICRO_FIFO_RX_DATA);
 }
 
 static void msm_cpp_clear_timer(struct cpp_device *cpp_dev)

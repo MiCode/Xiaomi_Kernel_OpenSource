@@ -29,6 +29,7 @@
 #include "msm_fd_hw.h"
 #include "msm_fd_regs.h"
 #include "cam_smmu_api.h"
+#include "msm_camera_io_util.h"
 
 /* After which revision misc irq for engine is needed */
 #define MSM_FD_MISC_IRQ_FROM_REV 0x10010000
@@ -52,7 +53,7 @@
 static inline u32 msm_fd_hw_read_reg(struct msm_fd_device *fd,
 	enum msm_fd_mem_resources base_idx, u32 reg)
 {
-	return readl_relaxed(fd->iomem_base[base_idx] + reg);
+	return msm_camera_io_r(fd->iomem_base[base_idx] + reg);
 }
 
 /*
@@ -65,7 +66,7 @@ static inline u32 msm_fd_hw_read_reg(struct msm_fd_device *fd,
 static inline void msm_fd_hw_write_reg(struct msm_fd_device *fd,
 	enum msm_fd_mem_resources base_idx, u32 reg, u32 value)
 {
-	writel_relaxed(value, fd->iomem_base[base_idx] + reg);
+	msm_camera_io_w(value, fd->iomem_base[base_idx] + reg);
 }
 
 /*
