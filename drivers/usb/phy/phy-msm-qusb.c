@@ -93,6 +93,10 @@
 
 #define HS_PHY_CTRL_REG			0x10
 
+unsigned int tune2;
+module_param(tune2, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(tune2, "QUSB PHY TUNE2");
+
 struct qusb_phy {
 	struct usb_phy		phy;
 	void __iomem		*base;
@@ -573,6 +577,15 @@ static int qusb_phy_init(struct usb_phy *phy)
 			writel_relaxed(qphy->tune2_val,
 					qphy->base + QUSB2PHY_PORT_TUNE2);
 		}
+
+		/* If tune2 modparam set, override tune2 value */
+		if (tune2) {
+			pr_debug("%s(): (modparam) TUNE2 val:0x%02x\n",
+							__func__, tune2);
+			writel_relaxed(tune2,
+					qphy->base + QUSB2PHY_PORT_TUNE2);
+		}
+
 		/* ensure above writes are completed before re-enabling PHY */
 		wmb();
 
