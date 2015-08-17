@@ -47,6 +47,7 @@
 		venus_mem: venus_region@0 {
 			compatible = "shared-dma-pool";
 			reusable;
+			alloc-ranges = <0x0 0x80000000 0x0 0x10000000>;
 			size = <0 0x0800000>;
 		};
 
