@@ -1976,6 +1976,30 @@ error_byte:
 	return rc;
 }
 
+static int mdss_dsi_check_params(struct mdss_dsi_ctrl_pdata *ctrl, void *arg)
+{
+	struct mdss_panel_info *reconf_pinfo, *pinfo;
+	int rc = 0;
+
+	if (!ctrl || !arg)
+		return 0;
+
+	pinfo = &ctrl->panel_data.panel_info;
+	if (!pinfo->is_pluggable)
+		return 0;
+
+	reconf_pinfo = (struct mdss_panel_info *)arg;
+
+	pr_debug("%s: reconfig xres: %d yres: %d, current xres: %d yres: %d\n",
+			__func__, reconf_pinfo->xres, reconf_pinfo->yres,
+					pinfo->xres, pinfo->yres);
+	if ((reconf_pinfo->xres != pinfo->xres) ||
+			(reconf_pinfo->yres != pinfo->yres))
+		rc = 1;
+
+	return rc;
+}
+
 static int mdss_dsi_dfps_config(struct mdss_panel_data *pdata, int new_fps)
 {
 	int rc = 0;
@@ -2236,6 +2260,8 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 	switch (event) {
 	case MDSS_EVENT_CHECK_PARAMS:
 		pr_debug("%s:Entered Case MDSS_EVENT_CHECK_PARAMS\n", __func__);
+		if (mdss_dsi_check_params(ctrl_pdata, arg))
+			rc = 1;
 		ctrl_pdata->refresh_clk_rate = true;
 		break;
 	case MDSS_EVENT_LINK_READY:
