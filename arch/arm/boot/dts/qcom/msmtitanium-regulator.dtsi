@@ -50,16 +50,17 @@
 	pmtitanium_s3: regulator-s3 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmtitanium_s3";
-		regulator-min-microvolt = <1350000>;
-		regulator-max-microvolt = <1350000>;
+		regulator-min-microvolt = <1225000>;
+		regulator-max-microvolt = <1225000>;
+		qcom,init-voltage = <1225000>;
 	};
 
 	pmtitanium_s4: regulator-s4 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmtitanium_s4";
-		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <1900000>;
+		regulator-min-microvolt = <2050000>;
 		regulator-max-microvolt = <2050000>;
+		qcom,init-voltage = <2050000>;
 	};
 
 	/* MX Supply */
@@ -99,8 +100,16 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmtitanium_l2";
 		parent-supply = <&pmtitanium_s3>;
-		regulator-min-microvolt = <1225000>;
-		regulator-max-microvolt = <1225000>;
+		regulator-min-microvolt = <1100000>;
+		regulator-max-microvolt = <1100000>;
+	};
+
+	pmtitanium_l3: regulator-l3 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmtitanium_l3";
+		parent-supply = <&pmtitanium_s3>;
+		regulator-min-microvolt = <900000>;
+		regulator-max-microvolt = <925000>;
 	};
 
 	pmtitanium_l5: regulator-l5 {
@@ -166,8 +175,8 @@
 	pmtitanium_l13: regulator-l13 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmtitanium_l13";
-		regulator-min-microvolt = <3075000>;
-		regulator-max-microvolt = <3075000>;
+		regulator-min-microvolt = <3100000>;
+		regulator-max-microvolt = <3125000>;
 	};
 
 	pmtitanium_l16: regulator-l16 {
@@ -189,7 +198,7 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmtitanium_l19";
 		parent-supply = <&pmtitanium_s3>;
-		regulator-min-microvolt = <1350000>;
+		regulator-min-microvolt = <1300000>;
 		regulator-max-microvolt = <1350000>;
 	};
 
@@ -204,8 +213,8 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmtitanium_l23";
 		parent-supply = <&pmtitanium_s3>;
-		regulator-min-microvolt = <1200000>;
-		regulator-max-microvolt = <1200000>;
+		regulator-min-microvolt = <1000000>;
+		regulator-max-microvolt = <1000000>;
 	};
 
 	/* APC Supply */
@@ -214,5 +223,10 @@
 		regulator-name = "apc_corner";
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <3>;
+	};
+
+	smbcharger_charger_otg: qcom,smbcharger-boost-otg {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "smbcharger_charger_otg";
 	};
 };
