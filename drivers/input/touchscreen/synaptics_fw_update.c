@@ -135,6 +135,9 @@ static ssize_t fwu_sysfs_bl_config_block_count_show(struct device *dev,
 static ssize_t fwu_sysfs_disp_config_block_count_show(struct device *dev,
 		struct device_attribute *attr, char *buf);
 
+static ssize_t fwu_sysfs_config_id_show(struct device *dev,
+		struct device_attribute *attr, char *buf);
+
 static int fwu_wait_for_idle(int timeout_ms);
 
 struct image_header {
@@ -288,6 +291,9 @@ static struct device_attribute attrs[] = {
 			synaptics_rmi4_store_error),
 	__ATTR(dispconfigblockcount, S_IRUGO,
 			fwu_sysfs_disp_config_block_count_show,
+			synaptics_rmi4_store_error),
+	__ATTR(config_id, S_IRUGO,
+			fwu_sysfs_config_id_show,
 			synaptics_rmi4_store_error),
 };
 
@@ -1519,6 +1525,20 @@ static ssize_t fwu_sysfs_disp_config_block_count_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%u\n", fwu->disp_config_block_count);
 }
 
+static ssize_t fwu_sysfs_config_id_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	unsigned char config_id[4];
+	/* device config id */
+	fwu->fn_ptr->read(fwu->rmi4_data,
+				fwu->f34_fd.ctrl_base_addr,
+				config_id,
+				sizeof(config_id));
+
+	return snprintf(buf, PAGE_SIZE, "%d.%d.%d.%d\n",
+		config_id[0], config_id[1], config_id[2], config_id[3]);
+}
+
 static void synaptics_rmi4_fwu_attn(struct synaptics_rmi4_data *rmi4_data,
 		unsigned char intr_mask)
 {
@@ -1681,4 +1701,4 @@ module_exit(rmi4_fw_update_module_exit);
 
 MODULE_AUTHOR("Synaptics, Inc.");
 MODULE_DESCRIPTION("RMI4 FW Update Module");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");

@@ -5,6 +5,7 @@
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
+ * Copyright (c) 2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,10 +21,10 @@
 #ifndef _SYNAPTICS_DSX_RMI4_H_
 #define _SYNAPTICS_DSX_RMI4_H_
 
-#define SYNAPTICS_RMI4_DS4 0x0001
-#define SYNAPTICS_RMI4_DS5 0x0002
-#define SYNAPTICS_RMI4_DRIVER_PRODUCT SYNAPTICS_RMI4_DS4
-#define SYNAPTICS_RMI4_DRIVER_VERSION 0x1001
+#define SYNAPTICS_DS4 (1 << 0)
+#define SYNAPTICS_DS5 (1 << 1)
+#define SYNAPTICS_DSX_DRIVER_PRODUCT SYNAPTICS_DS4
+#define SYNAPTICS_DSX_DRIVER_VERSION 0x1002
 
 #include <linux/version.h>
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -187,7 +188,8 @@ struct synaptics_rmi4_data {
 	struct input_dev *input_dev;
 	const struct synaptics_rmi4_platform_data *board;
 	struct synaptics_rmi4_device_info rmi4_mod_info;
-	struct regulator *regulator;
+	struct regulator *vdd;
+	struct regulator *vcc_i2c;
 	struct mutex rmi4_io_ctrl_mutex;
 	struct delayed_work det_work;
 	struct workqueue_struct *det_workqueue;
