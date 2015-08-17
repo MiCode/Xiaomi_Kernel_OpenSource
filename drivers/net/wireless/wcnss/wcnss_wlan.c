@@ -619,6 +619,10 @@ void wcnss_pronto_log_debug_regs(void)
 	void __iomem *reg_addr, *tst_addr, *tst_ctrl_addr;
 	u32 reg = 0, reg2 = 0, reg3 = 0, reg4 = 0;
 
+	if (!penv || !penv->triggered || !penv->msm_wcnss_base) {
+		pr_info(DEVICE " WCNSS driver is not triggered by userspace\n");
+		return;
+	}
 
 	reg_addr = penv->msm_wcnss_base + PRONTO_PMU_SPARE_OFFSET;
 	reg = readl_relaxed(reg_addr);
@@ -1057,7 +1061,7 @@ int wcnss_get_mux_control(void)
 	void __iomem *pmu_conf_reg;
 	u32 reg = 0;
 
-	if (NULL == penv)
+	if (!penv || !penv->triggered || !penv->msm_wcnss_base)
 		return 0;
 
 	pmu_conf_reg = penv->msm_wcnss_base + PRONTO_PMU_OFFSET;
@@ -1092,7 +1096,7 @@ void wcnss_log_debug_regs_on_bite(void)
 		}
 
 		clk_rate = clk_get_rate(measure);
-		pr_debug("wcnss: clock frequency is: %luHz\n", clk_rate);
+		pr_info("wcnss: clock frequency is: %luHz\n", clk_rate);
 
 		if (clk_rate) {
 			wcnss_pronto_log_debug_regs();
