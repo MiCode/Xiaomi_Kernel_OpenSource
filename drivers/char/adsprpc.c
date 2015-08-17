@@ -1781,6 +1781,10 @@ static int __init fastrpc_device_init(void)
 							&me->channel[i].nb);
 	}
 
+	me->client = msm_ion_client_create(DEVICE_NAME);
+	VERIFY(err, !IS_ERR_OR_NULL(me->client));
+	if (err)
+		goto device_create_bail;
 	return 0;
 
 device_create_bail:
