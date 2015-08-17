@@ -85,11 +85,6 @@ static const int err_inject_pwr_change_err_codes[] = {
 	PWR_FATAL_ERROR,
 };
 
-static const int err_inject_link_startup_err_codes[] = {
-	-EIO,
-	-ETIMEDOUT,
-};
-
 static const int err_inject_uic_err_codes[] = {
 	-EIO,
 	-ETIMEDOUT,
@@ -127,11 +122,6 @@ static struct ufsdbg_err_scenario err_scen_arr[] = {
 		ARRAY_SIZE(err_inject_pwr_change_err_codes),
 	},
 	{
-		"ERR_INJECT_LINK_STARTUP",
-		err_inject_link_startup_err_codes,
-		ARRAY_SIZE(err_inject_link_startup_err_codes),
-	},
-	{
 		"ERR_INJECT_UIC",
 		err_inject_uic_err_codes,
 		ARRAY_SIZE(err_inject_uic_err_codes),
@@ -145,26 +135,6 @@ static struct ufsdbg_err_scenario err_scen_arr[] = {
 		"ERR_INJECT_QUERY",
 		err_inject_query_err_codes,
 		ARRAY_SIZE(err_inject_query_err_codes),
-	},
-	{
-		"ERR_INJECT_RUNTIME_PM",
-		NULL,
-		0,
-	},
-	{
-		"ERR_INJECT_SYSTEM_PM",
-		NULL,
-		0,
-	},
-	{
-		"ERR_INJECT_CLOCK_GATING_SCALING",
-		NULL,
-		0,
-	},
-	{
-		"ERR_INJECT_PHY_POWER_UP_SEQ",
-		NULL,
-		0,
 	},
 };
 
@@ -320,14 +290,9 @@ void ufsdbg_error_inject_dispatcher(struct ufs_hba *hba,
 	case ERR_INJECT_HIBERN8_ENTER:
 	case ERR_INJECT_HIBERN8_EXIT:
 	case ERR_INJECT_PWR_CHANGE:
-	case ERR_INJECT_LINK_STARTUP:
 	case ERR_INJECT_UIC:
 	case ERR_INJECT_DME_ATTR:
 	case ERR_INJECT_QUERY:
-	case ERR_INJECT_RUNTIME_PM:
-	case ERR_INJECT_SYSTEM_PM:
-	case ERR_INJECT_CLOCK_GATING_SCALING:
-	case ERR_INJECT_PHY_POWER_UP_SEQ:
 		goto should_fail;
 	default:
 		dev_err(hba->dev, "%s: unsupported error scenario\n",
