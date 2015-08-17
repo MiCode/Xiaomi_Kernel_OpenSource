@@ -97,6 +97,21 @@ static int _lm_limit_get(void *data, u64 *val)
 
 DEFINE_SIMPLE_ATTRIBUTE(_lm_limit_fops, _lm_limit_get, _lm_limit_set, "%llu\n");
 
+static int _lm_threshold_count_get(void *data, u64 *val)
+{
+	struct kgsl_device *device = data;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+		*val = 0;
+	else
+		*val = (u64) adreno_dev->lm_threshold_cross;
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(_lm_threshold_fops, _lm_threshold_count_get,
+	NULL, "%llu\n");
+
 static int _active_count_get(void *data, u64 *val)
 {
 	struct kgsl_device *device = data;
@@ -348,9 +363,12 @@ void adreno_debugfs_init(struct adreno_device *adreno_dev)
 	adreno_dev->ctx_d_debugfs = debugfs_create_dir("ctx",
 							device->d_debugfs);
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM))
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM)) {
 		debugfs_create_file("lm_limit", 0644, device->d_debugfs, device,
 			&_lm_limit_fops);
+		debugfs_create_file("lm_threshold_count", 0444,
+			device->d_debugfs, device, &_lm_threshold_fops);
+	}
 
 	if (adreno_is_a5xx(adreno_dev))
 		debugfs_create_file("isdb", 0644, device->d_debugfs,

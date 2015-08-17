@@ -1397,6 +1397,19 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	adreno_dev->busy_data.vbif_ram_cycles = 0;
 	adreno_dev->busy_data.vbif_starved_ram = 0;
 
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_LM)
+		&& adreno_dev->lm_threshold_count == 0) {
+		int ret;
+
+		ret = adreno_perfcounter_get(adreno_dev,
+			KGSL_PERFCOUNTER_GROUP_GPMU_PWR, 27,
+			&adreno_dev->lm_threshold_count, NULL,
+			PERFCOUNTER_FLAG_KERNEL);
+		/* Ignore noncritical ret - used for debugfs */
+		if (ret)
+			adreno_dev->lm_threshold_count = 0;
+	}
+
 	/* Restore performance counter registers with saved values */
 	adreno_perfcounter_restore(adreno_dev);
 
@@ -2500,6 +2513,9 @@ static void adreno_power_stats(struct kgsl_device *device,
 		stats->ram_time = ram_cycles;
 		stats->ram_wait = starved_ram;
 	}
+	if (adreno_dev->lm_threshold_count)
+		kgsl_regread(&adreno_dev->dev, adreno_dev->lm_threshold_count,
+			&adreno_dev->lm_threshold_cross);
 }
 
 static unsigned int adreno_gpuid(struct kgsl_device *device,
