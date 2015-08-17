@@ -50,7 +50,8 @@ struct synaptics_rmi4_platform_data {
 	bool regulator_en;
 	bool i2c_pull_up;
 	unsigned irq_gpio;
-	unsigned long irq_flags;
+	u32 irq_flags;
+	u32 reset_flags;
 	unsigned reset_gpio;
 	unsigned panel_x;
 	unsigned panel_y;
