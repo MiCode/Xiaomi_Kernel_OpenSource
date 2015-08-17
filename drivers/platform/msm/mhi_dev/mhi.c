@@ -1262,6 +1262,9 @@ static int mhi_dev_ring_init(struct mhi_dev *dev)
 			pr_err("%s: env setting failed\n", __func__);
 			return rc;
 		}
+	} else {
+		pr_err("MHI device failed to enter M0\n");
+		return -EINVAL;
 	}
 
 	rc = mhi_hwc_init(dev);
