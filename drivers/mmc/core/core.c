@@ -1058,9 +1058,10 @@ static int mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 	mmc_host_clk_hold(host);
 	led_trigger_event(host->led, LED_FULL);
 
-	mmc_deferred_scaling(host);
-	if (mmc_is_data_request(mrq))
+	if (mmc_is_data_request(mrq)) {
+		mmc_deferred_scaling(host);
 		mmc_clk_scaling_start_busy(host, true);
+	}
 
 	__mmc_start_request(host, mrq);
 
