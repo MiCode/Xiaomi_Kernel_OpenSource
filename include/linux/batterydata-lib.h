@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -119,6 +119,8 @@ enum battery_type {
  * @iterm_ua:		termination current of the battery when charging
  *			to 100%
  * @batt_id_kohm:	the best matched battery id resistor value
+ * @fastchg_current_ma: maximum fast charge current
+ * @fg_cc_cv_threshold_mv: CC to CV threashold voltage
  */
 
 struct bms_battery_data {
@@ -137,6 +139,8 @@ struct bms_battery_data {
 	int			cutoff_uv;
 	int			iterm_ua;
 	int			batt_id_kohm;
+	int			fastchg_current_ma;
+	int			fg_cc_cv_threshold_mv;
 	const char		*battery_type;
 };
 
