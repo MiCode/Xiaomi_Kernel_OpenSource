@@ -14,10 +14,13 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 #include <linux/module.h>
+#include <linux/of_gpio.h>
 #include <linux/interrupt.h>
 #include <linux/power_supply.h>
+#include <linux/regulator/consumer.h>
 
 #define PERICOM_I2C_NAME	"usb-type-c-pericom"
+#define PERICOM_I2C_DELAY_MS	30
 
 #define CCD_DEFAULT		0x1
 #define CCD_MEDIUM		0x2
@@ -26,6 +29,8 @@
 #define MAX_CURRENT_BC1P2	500
 #define MAX_CURRENT_MEDIUM     1500
 #define MAX_CURRENT_HIGH       3000
+
+#define PIUSB_1P8_VOL_MAX	1800000 /* uV */
 
 struct piusb_regs {
 	u8		dev_id;
@@ -48,6 +53,9 @@ struct pi_usb_type_c {
 	struct power_supply	*usb_psy;
 	int			max_current;
 	bool			attach_state;
+	int			enb_gpio;
+	int			enb_gpio_polarity;
+	struct regulator	*i2c_1p8;
 };
 static struct pi_usb_type_c *pi_usb;
 
@@ -68,10 +76,10 @@ static int piusb_read_regdata(struct i2c_client *i2c)
 
 	rc = i2c_transfer(i2c->adapter, msgs, 1);
 	if (rc < 0) {
-		/* i2c read may fail if type-c plug removed, treat as detach */
+		/* i2c read may fail if device not enabled or not present */
 		dev_dbg(&i2c->dev, "i2c read from 0x%x failed %d\n", saddr, rc);
 		pi_usb->attach_state = false;
-		return 0;
+		return -ENXIO;
 	}
 
 	dev_dbg(&i2c->dev, "i2c read from 0x%x-[%x %x %x %x]\n", saddr,
@@ -141,7 +149,7 @@ static irqreturn_t piusb_irq(int irq, void *data)
 	struct pi_usb_type_c *pi_usb = (struct pi_usb_type_c *)data;
 
 	/* i2c register update takes time, 30msec sleep required as per HPG */
-	msleep(30);
+	msleep(PERICOM_I2C_DELAY_MS);
 
 	ret = piusb_read_regdata(pi_usb->client);
 	if (ret < 0)
@@ -157,10 +165,122 @@ out:
 	return IRQ_HANDLED;
 }
 
+static int piusb_i2c_write(struct pi_usb_type_c *pi, u8 *data, int len)
+{
+	int ret;
+	struct i2c_msg msgs[] = {
+		{
+			.addr  = pi->client->addr,
+			.flags = 0,
+			.len   = len,
+			.buf   = data,
+		}
+	};
+
+	ret = i2c_transfer(pi->client->adapter, msgs, 1);
+	if (ret != 1) {
+		dev_err(&pi->client->dev, "i2c write to [%x] failed %d\n",
+				pi->client->addr, ret);
+		return -EIO;
+	}
+	return 0;
+}
+
+static int piusb_i2c_enable(struct pi_usb_type_c *pi, bool enable)
+{
+	u8 rst_assert[] = {0, 0x1};
+	u8 rst_deassert[] = {0, 0x4};
+	u8 pi_disable[] = {0, 0x80};
+
+	if (!enable) {
+		if (piusb_i2c_write(pi, pi_disable, sizeof(pi_disable)))
+			return -EIO;
+		return 0;
+	}
+
+	if (piusb_i2c_write(pi, rst_assert, sizeof(rst_assert)))
+		return -EIO;
+
+	msleep(PERICOM_I2C_DELAY_MS);
+	if (piusb_i2c_write(pi, rst_deassert, sizeof(rst_deassert)))
+		return -EIO;
+
+	return 0;
+}
+
+static int piusb_gpio_config(struct pi_usb_type_c *pi, bool enable)
+{
+	int ret = 0;
+
+	if (!enable) {
+		gpio_set_value(pi_usb->enb_gpio, !pi_usb->enb_gpio_polarity);
+		return 0;
+	}
+
+	ret = devm_gpio_request(&pi->client->dev, pi->enb_gpio,
+					"pi_typec_enb_gpio");
+	if (ret) {
+		pr_err("unable to request gpio [%d]\n", pi->enb_gpio);
+		return ret;
+	}
+
+	ret = gpio_direction_output(pi->enb_gpio, pi->enb_gpio_polarity);
+	if (ret) {
+		dev_err(&pi->client->dev, "set dir[%d] failed for gpio[%d]\n",
+			pi->enb_gpio_polarity, pi->enb_gpio);
+		return ret;
+	}
+	dev_dbg(&pi->client->dev, "set dir[%d] for gpio[%d]\n",
+			pi->enb_gpio_polarity, pi->enb_gpio);
+
+	gpio_set_value(pi->enb_gpio, pi->enb_gpio_polarity);
+	msleep(PERICOM_I2C_DELAY_MS);
+
+	return ret;
+}
+
+static int piusb_ldo_init(struct pi_usb_type_c *pi, bool init)
+{
+	int rc = 0;
+
+	if (!init) {
+		regulator_set_voltage(pi->i2c_1p8, 0, PIUSB_1P8_VOL_MAX);
+		rc = regulator_disable(pi->i2c_1p8);
+		return rc;
+	}
+
+	pi->i2c_1p8 = devm_regulator_get(&pi->client->dev, "vdd_io");
+	if (IS_ERR(pi->i2c_1p8)) {
+		rc = PTR_ERR(pi->i2c_1p8);
+		dev_err(&pi->client->dev, "unable to get 1p8(%d)\n", rc);
+		return rc;
+	}
+	rc = regulator_set_voltage(pi->i2c_1p8, PIUSB_1P8_VOL_MAX,
+					PIUSB_1P8_VOL_MAX);
+	if (rc) {
+		dev_err(&pi->client->dev, "unable to set voltage(%d)\n", rc);
+		goto put_1p8;
+	}
+
+	rc = regulator_enable(pi->i2c_1p8);
+	if (rc) {
+		dev_err(&pi->client->dev, "unable to enable 1p8-reg(%d)\n", rc);
+		return rc;
+	}
+
+	return 0;
+
+put_1p8:
+	regulator_set_voltage(pi->i2c_1p8, 0, PIUSB_1P8_VOL_MAX);
+	return rc;
+}
+
 static int piusb_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 {
 	int ret;
 	struct power_supply *usb_psy;
+	struct device_node *np = i2c->dev.of_node;
+	enum of_gpio_flags flags;
 
 	usb_psy = power_supply_get_by_name("usb");
 	if (!usb_psy) {
@@ -183,6 +303,30 @@ static int piusb_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 		goto out;
 	}
 
+	pi_usb->enb_gpio = of_get_named_gpio_flags(np, "pericom,enb-gpio", 0,
+							&flags);
+	if (!gpio_is_valid(pi_usb->enb_gpio)) {
+		dev_dbg(&i2c->dev, "enb gpio_get fail:%d\n", pi_usb->enb_gpio);
+	} else {
+		pi_usb->enb_gpio_polarity = !(flags & OF_GPIO_ACTIVE_LOW);
+		ret = piusb_gpio_config(pi_usb, true);
+		if (ret)
+			goto out;
+	}
+
+	ret = piusb_ldo_init(pi_usb, true);
+	if (ret) {
+		dev_err(&pi_usb->client->dev, "i2c ldo init failed\n");
+		goto gpio_disable;
+	}
+
+	ret = piusb_i2c_enable(pi_usb, true);
+	if (ret) {
+		dev_err(&pi_usb->client->dev, "i2c access failed\n");
+		ret = -EPROBE_DEFER;
+		goto ldo_disable;
+	}
+
 	/* Update initial state to USB */
 	piusb_irq(i2c->irq, pi_usb);
 
@@ -191,13 +335,20 @@ static int piusb_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 					PERICOM_I2C_NAME, pi_usb);
 	if (ret) {
 		dev_err(&i2c->dev, "irq(%d) req failed-%d\n", i2c->irq, ret);
-		goto out;
+		goto i2c_disable;
 	}
 
 	dev_dbg(&i2c->dev, "%s finished, addr:%d\n", __func__, i2c->addr);
 
 	return 0;
 
+i2c_disable:
+	piusb_i2c_enable(pi_usb, false);
+ldo_disable:
+	piusb_ldo_init(pi_usb, false);
+gpio_disable:
+	if (gpio_is_valid(pi_usb->enb_gpio))
+		piusb_gpio_config(pi_usb, false);
 out:
 	return ret;
 }
@@ -206,6 +357,10 @@ static int piusb_remove(struct i2c_client *i2c)
 {
 	struct pi_usb_type_c *pi_usb = i2c_get_clientdata(i2c);
 
+	piusb_i2c_enable(pi_usb, false);
+	piusb_ldo_init(pi_usb, false);
+	if (gpio_is_valid(pi_usb->enb_gpio))
+		piusb_gpio_config(pi_usb, false);
 	devm_kfree(&i2c->dev, pi_usb);
 
 	return 0;
