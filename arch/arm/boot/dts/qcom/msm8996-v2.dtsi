@@ -296,7 +296,8 @@
 };
 
 &kryo0_vreg {
-	regulator-max-microvolt = <865000>;
+	regulator-min-microvolt = <468864>;
+	regulator-max-microvolt = <808896>;
 	qcom,vref-functional-step-voltage = <4048>;
 	qcom,vref-functional-min-voltage = <294800>;
 	qcom,vref-retention-step-voltage = <4462>;
@@ -305,12 +306,13 @@
 };
 
 &kryo0_retention_vreg {
-	regulator-min-microvolt = <324950>;
-	regulator-max-microvolt = <865000>;
+	regulator-min-microvolt = <467734>;
+	regulator-max-microvolt = <891624>;
 };
 
 &kryo1_vreg {
-	regulator-max-microvolt = <865000>;
+	regulator-min-microvolt = <468864>;
+	regulator-max-microvolt = <808896>;
 	qcom,vref-functional-step-voltage = <4048>;
 	qcom,vref-functional-min-voltage = <294800>;
 	qcom,vref-retention-step-voltage = <4462>;
@@ -319,8 +321,8 @@
 };
 
 &kryo1_retention_vreg {
-	regulator-min-microvolt = <324950>;
-	regulator-max-microvolt = <865000>;
+	regulator-min-microvolt = <467734>;
+	regulator-max-microvolt = <891624>;
 };
 
 /* GPU overrides */

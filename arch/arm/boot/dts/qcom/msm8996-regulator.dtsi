@@ -899,8 +899,8 @@
 		reg = <0x99a2000 0x1000>, <0x99e0000 0x1000>,
 		      <0x9820000 0x1000>;
 		reg-names = "pm-apc", "pm-apcc", "apcs-csr";
-		regulator-min-microvolt = <520000>;
-		regulator-max-microvolt = <915000>;
+		regulator-min-microvolt = <468400>;
+		regulator-max-microvolt = <919200>;
 		qcom,ldo-default-voltage = <750000>;
 		qcom,retention-voltage = <520000>;
 		qcom,ldo-headroom-voltage = <150000>;
@@ -913,8 +913,8 @@
 		qcom,cluster-num = <0>;
 		kryo0_retention_vreg: regulator {
 			regulator-name = "kryo0-retention";
-			regulator-min-microvolt = <335000>;
-			regulator-max-microvolt = <915000>;
+			regulator-min-microvolt = <468400>;
+			regulator-max-microvolt = <919200>;
 		};
 	};
 
@@ -924,8 +924,8 @@
 		reg = <0x99d2000 0x1000>, <0x99e0000 0x1000>,
 		      <0x9820000 0x1000>;
 		reg-names = "pm-apc", "pm-apcc", "apcs-csr";
-		regulator-min-microvolt = <520000>;
-		regulator-max-microvolt = <915000>;
+		regulator-min-microvolt = <468400>;
+		regulator-max-microvolt = <919200>;
 		qcom,ldo-default-voltage = <750000>;
 		qcom,retention-voltage = <520000>;
 		qcom,ldo-headroom-voltage = <150000>;
@@ -938,8 +938,8 @@
 		qcom,apm-config-init = <0x0>;
 		kryo1_retention_vreg: regulator {
 			regulator-name = "kryo1-retention";
-			regulator-min-microvolt = <335000>;
-			regulator-max-microvolt = <915000>;
+			regulator-min-microvolt = <468400>;
+			regulator-max-microvolt = <919200>;
 		};
 	};
 
