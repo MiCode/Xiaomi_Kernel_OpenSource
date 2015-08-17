@@ -153,6 +153,9 @@
 #define ARM_LPAE_TCR_PS_44_BIT		0x4ULL
 #define ARM_LPAE_TCR_PS_48_BIT		0x5ULL
 
+#define ARM_LPAE_TCR_EPD1_SHIFT		23
+#define ARM_LPAE_TCR_EPD1_FAULT		1
+
 #define ARM_LPAE_MAIR_ATTR_SHIFT(n)	((n) << 3)
 #define ARM_LPAE_MAIR_ATTR_MASK		0xff
 #define ARM_LPAE_MAIR_ATTR_DEVICE	0x04
@@ -812,6 +815,7 @@ arm_64_lpae_alloc_pgtable_s1(struct io_pgtable_cfg *cfg, void *cookie)
 	}
 
 	reg |= (64ULL - cfg->ias) << ARM_LPAE_TCR_T0SZ_SHIFT;
+	reg |= ARM_LPAE_TCR_EPD1_FAULT << ARM_LPAE_TCR_EPD1_SHIFT;
 	cfg->arm_lpae_s1_cfg.tcr = reg;
 
 	/* MAIRs */
