@@ -401,7 +401,7 @@ static struct spmi_driver qpnp_vibrator_driver = {
 		.pm	= &qpnp_vibrator_pm_ops,
 	},
 	.probe		= qpnp_vibrator_probe,
-	.remove		= __devexit_p(qpnp_vibrator_remove),
+	.remove		= qpnp_vibrator_remove,
 };
 
 static int __init qpnp_vibrator_init(void)
