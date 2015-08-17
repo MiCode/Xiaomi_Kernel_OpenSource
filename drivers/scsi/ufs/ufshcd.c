@@ -5471,10 +5471,10 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 			update_req_stats(hba, lrbp);
 			/* Mark completed command as NULL in LRB */
 			lrbp->cmd = NULL;
-			/* Do not touch lrbp after scsi done */
-			cmd->scsi_done(cmd);
 			__ufshcd_release(hba, false);
 			__ufshcd_hibern8_release(hba, false);
+			/* Do not touch lrbp after scsi done */
+			cmd->scsi_done(cmd);
 		} else if (lrbp->command_type == UTP_CMD_TYPE_DEV_MANAGE ||
 			lrbp->command_type == UTP_CMD_TYPE_UFS_STORAGE) {
 			if (hba->dev_cmd.complete) {
@@ -5527,9 +5527,9 @@ void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba, int result)
 			update_req_stats(hba, lrbp);
 			/* Mark completed command as NULL in LRB */
 			lrbp->cmd = NULL;
+			ufshcd_release_all(hba);
 			/* Do not touch lrbp after scsi done */
 			cmd->scsi_done(cmd);
-			ufshcd_release_all(hba);
 		} else if (lrbp->command_type == UTP_CMD_TYPE_DEV_MANAGE) {
 			if (hba->dev_cmd.complete) {
 				ufshcd_add_command_trace(hba, index,
