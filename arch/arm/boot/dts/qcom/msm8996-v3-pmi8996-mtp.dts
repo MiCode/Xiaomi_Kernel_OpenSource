@@ -13,11 +13,12 @@
 
 /dts-v1/;
 
-#include "msm8996-v3.0.dtsi"
+#include "msm8996-v3.dtsi"
+#include "msm-pmi8996.dtsi"
 #include "msm8996-mtp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM 8996 v3.0 + PMI8994 MTP";
+	model = "Qualcomm Technologies, Inc. MSM 8996 v3 + PMI8996 MTP";
 	compatible = "qcom,msm8996-mtp", "qcom,msm8996", "qcom,mtp";
 	qcom,board-id = <8 0>;
 };

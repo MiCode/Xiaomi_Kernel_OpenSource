@@ -465,6 +465,16 @@
 					<7820000 8500000 550 700 550>;
 };
 
+&i2c_7 {
+	smb1351-charger@1d {
+		compatible = "qcom,smb1351-charger";
+		reg = <0x1d>;
+		qcom,parallel-charger;
+		qcom,float-voltage-mv = <4400>;
+		qcom,recharge-mv = <100>;
+	};
+};
+
 &pmi8994_fg {
 	qcom,battery-data = <&mtp_batterydata>;
 	qcom,ext-sense-type;
