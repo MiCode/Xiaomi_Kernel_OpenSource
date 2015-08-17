@@ -1595,6 +1595,12 @@ static int diag_ioctl_cmd_reg(unsigned long ioarg)
 	return diag_cmd_register_tbl(&reg_tbl);
 }
 
+static int diag_ioctl_cmd_dereg(void)
+{
+	diag_cmd_remove_reg_by_pid(current->tgid);
+	return 0;
+}
+
 #ifdef CONFIG_COMPAT
 /*
  * @sync_obj_name: name of the synchronization object associated with this proc
@@ -1639,6 +1645,9 @@ long diagchar_compat_ioctl(struct file *filp,
 	switch (iocmd) {
 	case DIAG_IOCTL_COMMAND_REG:
 		result = diag_ioctl_cmd_reg_compat(ioarg);
+		break;
+	case DIAG_IOCTL_COMMAND_DEREG:
+		result = diag_ioctl_cmd_dereg();
 		break;
 	case DIAG_IOCTL_GET_DELAYED_RSP_ID:
 		delayed_rsp_id = diag_get_next_delayed_rsp_id();
@@ -1737,6 +1746,9 @@ long diagchar_ioctl(struct file *filp,
 	switch (iocmd) {
 	case DIAG_IOCTL_COMMAND_REG:
 		result = diag_ioctl_cmd_reg(ioarg);
+		break;
+	case DIAG_IOCTL_COMMAND_DEREG:
+		result = diag_ioctl_cmd_dereg();
 		break;
 	case DIAG_IOCTL_GET_DELAYED_RSP_ID:
 		delayed_rsp_id = diag_get_next_delayed_rsp_id();
