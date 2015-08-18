@@ -2444,137 +2444,144 @@ static int ipa3_assign_policy(struct ipa_sys_connect_params *in,
 		return 0;
 	}
 
-		sys->ep->status.status_en = true;
-		if (IPA_CLIENT_IS_PROD(in->client)) {
-			if (!sys->ep->skip_ep_cfg) {
-				sys->policy = IPA_POLICY_NOINTR_MODE;
-				sys->sps_option = SPS_O_AUTO_ENABLE;
-				sys->sps_callback = NULL;
-				sys->ep->status.status_ep = ipa_get_ep_mapping(
-						IPA_CLIENT_APPS_LAN_CONS);
-				if (IPA_CLIENT_IS_MEMCPY_DMA_PROD(in->client))
-					sys->ep->status.status_en = false;
-			} else {
-				sys->policy = IPA_POLICY_INTR_MODE;
-				sys->sps_option = (SPS_O_AUTO_ENABLE |
-						SPS_O_EOT);
-				sys->sps_callback =
-					ipa_sps_irq_tx_no_aggr_notify;
-			}
+	if (IPA_CLIENT_IS_MEMCPY_DMA_PROD(in->client)) {
+		sys->policy = IPA_POLICY_NOINTR_MODE;
+		sys->sps_option = SPS_O_AUTO_ENABLE;
+		sys->sps_callback = NULL;
+		return 0;
+	}
+
+	if (IPA_CLIENT_IS_PROD(in->client)) {
+		if (sys->ep->skip_ep_cfg) {
+			sys->policy = IPA_POLICY_INTR_POLL_MODE;
+			sys->sps_option = (SPS_O_AUTO_ENABLE|
+				SPS_O_EOT | SPS_O_ACK_TRANSFERS);
+			sys->sps_callback = ipa3_sps_irq_tx_notify;
+			INIT_WORK(&sys->work, ipa3_wq_handle_tx);
+			INIT_DELAYED_WORK(&sys->switch_to_intr_work,
+				ipa3_switch_to_intr_tx_work_func);
+			atomic_set(&sys->curr_polling_state, 0);
 		} else {
-			if (in->client == IPA_CLIENT_APPS_LAN_CONS ||
-			    in->client == IPA_CLIENT_APPS_WAN_CONS) {
-				sys->policy = IPA_POLICY_INTR_POLL_MODE;
-				sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT
-						| SPS_O_ACK_TRANSFERS);
-				sys->sps_callback = ipa_sps_irq_rx_notify;
-				INIT_WORK(&sys->work, ipa_wq_handle_rx);
-				INIT_DELAYED_WORK(&sys->switch_to_intr_work,
-					switch_to_intr_rx_work_func);
-				INIT_DELAYED_WORK(&sys->replenish_rx_work,
-						replenish_rx_work_func);
-				INIT_WORK(&sys->repl_work, ipa_wq_repl_rx);
-				atomic_set(&sys->curr_polling_state, 0);
-				sys->rx_buff_sz = IPA_GENERIC_RX_BUFF_SZ;
-				sys->get_skb = ipa_get_skb_ipa_rx;
-				sys->free_skb = ipa_free_skb_rx;
-				in->ipa_ep_cfg.aggr.aggr_en = IPA_ENABLE_AGGR;
-				in->ipa_ep_cfg.aggr.aggr = IPA_GENERIC;
-				in->ipa_ep_cfg.aggr.aggr_byte_limit =
-					IPA_GENERIC_AGGR_BYTE_LIMIT;
-				in->ipa_ep_cfg.aggr.aggr_time_limit =
-					IPA_GENERIC_AGGR_TIME_LIMIT;
-				in->ipa_ep_cfg.aggr.aggr_pkt_limit =
-					IPA_GENERIC_AGGR_PKT_LIMIT;
-				if (in->client == IPA_CLIENT_APPS_LAN_CONS) {
-					sys->pyld_hdlr = ipa_lan_rx_pyld_hdlr;
-					sys->rx_pool_sz =
-						IPA_GENERIC_RX_POOL_SZ;
-				} else if (in->client ==
-						IPA_CLIENT_APPS_WAN_CONS) {
-					sys->pyld_hdlr = ipa_wan_rx_pyld_hdlr;
-					sys->rx_pool_sz =
-						ipa_ctx->wan_rx_ring_size;
-				}
-				if (nr_cpu_ids > 1)
-					sys->repl_hdlr =
-						ipa_fast_replenish_rx_cache;
-				else
-					sys->repl_hdlr = ipa_replenish_rx_cache;
-			} else if (IPA_CLIENT_IS_WLAN_CONS(in->client)) {
-				IPADBG("assigning policy to client:%d",
-					in->client);
-
-				sys->ep->status.status_en = false;
-				sys->policy = IPA_POLICY_INTR_POLL_MODE;
-				sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT
-						| SPS_O_ACK_TRANSFERS);
-				sys->sps_callback = ipa_sps_irq_rx_notify;
-				INIT_WORK(&sys->work, ipa_wq_handle_rx);
-				INIT_DELAYED_WORK(&sys->switch_to_intr_work,
-					switch_to_intr_rx_work_func);
-				INIT_DELAYED_WORK(&sys->replenish_rx_work,
-					replenish_rx_work_func);
-				atomic_set(&sys->curr_polling_state, 0);
-				sys->rx_buff_sz = IPA_WLAN_RX_BUFF_SZ;
-				sys->rx_pool_sz = in->desc_fifo_sz/
-					sizeof(struct sps_iovec) - 1;
-				if (sys->rx_pool_sz > IPA_WLAN_RX_POOL_SZ)
-					sys->rx_pool_sz = IPA_WLAN_RX_POOL_SZ;
-				sys->pyld_hdlr = NULL;
-				sys->get_skb = ipa_get_skb_ipa_rx;
-				sys->free_skb = ipa_free_skb_rx;
-				in->ipa_ep_cfg.aggr.aggr_en = IPA_BYPASS_AGGR;
-			} else if (IPA_CLIENT_IS_ODU_CONS(in->client)) {
-				IPADBG("assigning policy to client:%d",
-					in->client);
-
-				sys->ep->status.status_en = false;
-				sys->policy = IPA_POLICY_INTR_POLL_MODE;
-				sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT
-					| SPS_O_ACK_TRANSFERS);
-				sys->sps_callback = ipa_sps_irq_rx_notify;
-				INIT_WORK(&sys->work, ipa_wq_handle_rx);
-				INIT_DELAYED_WORK(&sys->switch_to_intr_work,
-					switch_to_intr_rx_work_func);
-				INIT_DELAYED_WORK(&sys->replenish_rx_work,
-					replenish_rx_work_func);
-				atomic_set(&sys->curr_polling_state, 0);
-				sys->rx_buff_sz = IPA_ODU_RX_BUFF_SZ;
-				sys->rx_pool_sz = in->desc_fifo_sz /
-					sizeof(struct sps_iovec) - 1;
-				if (sys->rx_pool_sz > IPA_ODU_RX_POOL_SZ)
-					sys->rx_pool_sz = IPA_ODU_RX_POOL_SZ;
-				sys->pyld_hdlr = ipa_odu_rx_pyld_hdlr;
-				sys->get_skb = ipa_get_skb_ipa_rx;
-				sys->free_skb = ipa_free_skb_rx;
-				sys->repl_hdlr = ipa_replenish_rx_cache;
-			} else if (in->client ==
-					IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS) {
-				IPADBG("assigning policy to client:%d",
-					in->client);
-				sys->ep->status.status_en = false;
-				sys->policy = IPA_POLICY_INTR_POLL_MODE;
-				sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT
-					| SPS_O_ACK_TRANSFERS);
-				sys->sps_callback = ipa_sps_irq_rx_notify;
-				INIT_WORK(&sys->work, ipa_wq_handle_rx);
-				INIT_DELAYED_WORK(&sys->switch_to_intr_work,
-					switch_to_intr_rx_work_func);
-			} else if (in->client ==
-					IPA_CLIENT_MEMCPY_DMA_SYNC_CONS) {
-				IPADBG("assigning policy to client:%d",
-					in->client);
-				sys->ep->status.status_en = false;
-				sys->policy = IPA_POLICY_NOINTR_MODE;
-				sys->sps_option = SPS_O_AUTO_ENABLE |
-				SPS_O_ACK_TRANSFERS | SPS_O_POLL;
-			} else {
-				IPAERR("Need to install a RX pipe hdlr\n");
-				WARN_ON(1);
-				return -EINVAL;
-			}
+			sys->policy = IPA_POLICY_NOINTR_MODE;
+			sys->sps_option = SPS_O_AUTO_ENABLE;
+			sys->sps_callback = NULL;
+			sys->ep->status.status_en = true;
+			sys->ep->status.status_ep = ipa3_get_ep_mapping(
+					IPA_CLIENT_APPS_LAN_CONS);
 		}
+	} else {
+		if (in->client == IPA_CLIENT_APPS_LAN_CONS ||
+		    in->client == IPA_CLIENT_APPS_WAN_CONS) {
+			sys->ep->status.status_en = true;
+			sys->policy = IPA_POLICY_INTR_POLL_MODE;
+			sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT
+					| SPS_O_ACK_TRANSFERS);
+			sys->sps_callback = ipa3_sps_irq_rx_notify;
+			INIT_WORK(&sys->work, ipa3_wq_handle_rx);
+			INIT_DELAYED_WORK(&sys->switch_to_intr_work,
+				ipa3_switch_to_intr_rx_work_func);
+			INIT_DELAYED_WORK(&sys->replenish_rx_work,
+					ipa3_replenish_rx_work_func);
+			INIT_WORK(&sys->repl_work, ipa3_wq_repl_rx);
+			atomic_set(&sys->curr_polling_state, 0);
+			sys->rx_buff_sz = IPA_GENERIC_RX_BUFF_SZ;
+			sys->get_skb = ipa3_get_skb_ipa_rx;
+			sys->free_skb = ipa3_free_skb_rx;
+			in->ipa_ep_cfg.aggr.aggr_en = IPA_ENABLE_AGGR;
+			in->ipa_ep_cfg.aggr.aggr = IPA_GENERIC;
+			in->ipa_ep_cfg.aggr.aggr_byte_limit =
+				IPA_GENERIC_AGGR_BYTE_LIMIT;
+			in->ipa_ep_cfg.aggr.aggr_time_limit =
+				IPA_GENERIC_AGGR_TIME_LIMIT;
+			in->ipa_ep_cfg.aggr.aggr_pkt_limit =
+				IPA_GENERIC_AGGR_PKT_LIMIT;
+			if (in->client == IPA_CLIENT_APPS_LAN_CONS) {
+				sys->pyld_hdlr = ipa3_lan_rx_pyld_hdlr;
+				sys->rx_pool_sz =
+					IPA_GENERIC_RX_POOL_SZ;
+			} else if (in->client ==
+					IPA_CLIENT_APPS_WAN_CONS) {
+				sys->pyld_hdlr = ipa3_wan_rx_pyld_hdlr;
+				sys->rx_pool_sz =
+					ipa3_ctx->wan_rx_ring_size;
+			}
+			if (nr_cpu_ids > 1)
+				sys->repl_hdlr =
+					ipa3_fast_replenish_rx_cache;
+			else
+				sys->repl_hdlr = ipa3_replenish_rx_cache;
+		} else if (IPA_CLIENT_IS_WLAN_CONS(in->client)) {
+			IPADBG("assigning policy to client:%d",
+				in->client);
+
+			sys->policy = IPA_POLICY_INTR_POLL_MODE;
+			sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT
+				| SPS_O_ACK_TRANSFERS);
+			sys->sps_callback = ipa3_sps_irq_rx_notify;
+			INIT_WORK(&sys->work, ipa3_wq_handle_rx);
+			INIT_DELAYED_WORK(&sys->switch_to_intr_work,
+				ipa3_switch_to_intr_rx_work_func);
+			INIT_DELAYED_WORK(&sys->replenish_rx_work,
+				ipa3_replenish_rx_work_func);
+			atomic_set(&sys->curr_polling_state, 0);
+			sys->rx_buff_sz = IPA_WLAN_RX_BUFF_SZ;
+			sys->rx_pool_sz = in->desc_fifo_sz/
+				sizeof(struct sps_iovec) - 1;
+			if (sys->rx_pool_sz > IPA_WLAN_RX_POOL_SZ)
+				sys->rx_pool_sz = IPA_WLAN_RX_POOL_SZ;
+			sys->pyld_hdlr = NULL;
+			sys->get_skb = ipa3_get_skb_ipa_rx;
+			sys->free_skb = ipa3_free_skb_rx;
+			in->ipa_ep_cfg.aggr.aggr_en = IPA_BYPASS_AGGR;
+		} else if (IPA_CLIENT_IS_ODU_CONS(in->client)) {
+			IPADBG("assigning policy to client:%d",
+				in->client);
+
+			sys->policy = IPA_POLICY_INTR_POLL_MODE;
+			sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT
+				| SPS_O_ACK_TRANSFERS);
+			sys->sps_callback = ipa3_sps_irq_rx_notify;
+			INIT_WORK(&sys->work, ipa3_wq_handle_rx);
+			INIT_DELAYED_WORK(&sys->switch_to_intr_work,
+			ipa3_switch_to_intr_rx_work_func);
+			INIT_DELAYED_WORK(&sys->replenish_rx_work,
+				ipa3_replenish_rx_work_func);
+			atomic_set(&sys->curr_polling_state, 0);
+			sys->rx_buff_sz = IPA_ODU_RX_BUFF_SZ;
+			sys->rx_pool_sz = in->desc_fifo_sz /
+				sizeof(struct sps_iovec) - 1;
+			if (sys->rx_pool_sz > IPA_ODU_RX_POOL_SZ)
+				sys->rx_pool_sz = IPA_ODU_RX_POOL_SZ;
+			sys->pyld_hdlr = ipa3_odu_rx_pyld_hdlr;
+			sys->get_skb = ipa3_get_skb_ipa_rx;
+			sys->free_skb = ipa3_free_skb_rx;
+			sys->repl_hdlr = ipa3_replenish_rx_cache;
+		} else if (in->client ==
+				IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS) {
+			IPADBG("assigning policy to client:%d",
+				in->client);
+
+			sys->policy = IPA_POLICY_INTR_POLL_MODE;
+			sys->sps_option = (SPS_O_AUTO_ENABLE | SPS_O_EOT
+					| SPS_O_ACK_TRANSFERS);
+			sys->sps_callback = ipa3_sps_irq_rx_notify;
+			INIT_WORK(&sys->work, ipa3_wq_handle_rx);
+			INIT_DELAYED_WORK(&sys->switch_to_intr_work,
+				ipa3_switch_to_intr_rx_work_func);
+		} else if (in->client ==
+				IPA_CLIENT_MEMCPY_DMA_SYNC_CONS) {
+			IPADBG("assigning policy to client:%d",
+				in->client);
+
+			sys->policy = IPA_POLICY_NOINTR_MODE;
+			sys->sps_option = SPS_O_AUTO_ENABLE |
+			SPS_O_ACK_TRANSFERS | SPS_O_POLL;
+		} else {
+			IPAERR("Need to install a RX pipe hdlr\n");
+			WARN_ON(1);
+			return -EINVAL;
+		}
+	}
 
 	return 0;
 }
