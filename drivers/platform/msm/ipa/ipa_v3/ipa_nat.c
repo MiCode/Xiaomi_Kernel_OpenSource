@@ -25,7 +25,7 @@
 #define IPA_NAT_SHARED_MEMORY  1
 #define IPA_NAT_TEMP_MEM_SIZE 128
 
-static int ipa_nat_vma_fault_remap(
+static int ipa3_nat_vma_fault_remap(
 	 struct vm_area_struct *vma, struct vm_fault *vmf)
 {
 	IPADBG("\n");
@@ -35,26 +35,27 @@ static int ipa_nat_vma_fault_remap(
 }
 
 /* VMA related file operations functions */
-static struct vm_operations_struct ipa_nat_remap_vm_ops = {
-	.fault = ipa_nat_vma_fault_remap,
+static struct vm_operations_struct ipa3_nat_remap_vm_ops = {
+	.fault = ipa3_nat_vma_fault_remap,
 };
 
-static int ipa_nat_open(struct inode *inode, struct file *filp)
+static int ipa3_nat_open(struct inode *inode, struct file *filp)
 {
-	struct ipa_nat_mem *nat_ctx;
+	struct ipa3_nat_mem *nat_ctx;
 
 	IPADBG("\n");
-	nat_ctx = container_of(inode->i_cdev, struct ipa_nat_mem, cdev);
+	nat_ctx = container_of(inode->i_cdev, struct ipa3_nat_mem, cdev);
 	filp->private_data = nat_ctx;
 	IPADBG("return\n");
 
 	return 0;
 }
 
-static int ipa_nat_mmap(struct file *filp, struct vm_area_struct *vma)
+static int ipa3_nat_mmap(struct file *filp, struct vm_area_struct *vma)
 {
 	unsigned long vsize = vma->vm_end - vma->vm_start;
-	struct ipa_nat_mem *nat_ctx = (struct ipa_nat_mem *)filp->private_data;
+	struct ipa3_nat_mem *nat_ctx =
+		(struct ipa3_nat_mem *)filp->private_data;
 	unsigned long phys_addr;
 	int result;
 
@@ -70,7 +71,7 @@ static int ipa_nat_mmap(struct file *filp, struct vm_area_struct *vma)
 		IPADBG("map sz=0x%zx\n", nat_ctx->size);
 		result =
 			dma_mmap_coherent(
-				 ipa_ctx->pdev, vma,
+				 ipa3_ctx->pdev, vma,
 				 nat_ctx->vaddr, nat_ctx->dma_handle,
 				 nat_ctx->size);
 
@@ -78,7 +79,7 @@ static int ipa_nat_mmap(struct file *filp, struct vm_area_struct *vma)
 			IPAERR("unable to map memory. Err:%d\n", result);
 			goto bail;
 		}
-		ipa_ctx->nat_mem.nat_base_address = nat_ctx->vaddr;
+		ipa3_ctx->nat_mem.nat_base_address = nat_ctx->vaddr;
 	} else {
 		IPADBG("Mapping shared(local) memory\n");
 		IPADBG("map sz=0x%lx\n", vsize);
@@ -88,8 +89,8 @@ static int ipa_nat_mmap(struct file *filp, struct vm_area_struct *vma)
 			result = -EINVAL;
 			goto bail;
 		}
-		phys_addr = ipa_ctx->ipa_wrapper_base +
-			ipa_ctx->ctrl->ipa_reg_base_ofst +
+		phys_addr = ipa3_ctx->ipa_wrapper_base +
+			ipa3_ctx->ctrl->ipa_reg_base_ofst +
 			IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(
 				IPA_NAT_PHYS_MEM_OFFSET);
 
@@ -100,10 +101,10 @@ static int ipa_nat_mmap(struct file *filp, struct vm_area_struct *vma)
 			result = -EAGAIN;
 			goto bail;
 		}
-		ipa_ctx->nat_mem.nat_base_address = (void *)vma->vm_start;
+		ipa3_ctx->nat_mem.nat_base_address = (void *)vma->vm_start;
 	}
 	nat_ctx->is_mapped = true;
-	vma->vm_ops = &ipa_nat_remap_vm_ops;
+	vma->vm_ops = &ipa3_nat_remap_vm_ops;
 	IPADBG("return\n");
 	result = 0;
 bail:
@@ -111,24 +112,24 @@ bail:
 	return result;
 }
 
-static const struct file_operations ipa_nat_fops = {
+static const struct file_operations ipa3_nat_fops = {
 	.owner = THIS_MODULE,
-	.open = ipa_nat_open,
-	.mmap = ipa_nat_mmap
+	.open = ipa3_nat_open,
+	.mmap = ipa3_nat_mmap
 };
 
 /**
- * allocate_temp_nat_memory() - Allocates temp nat memory
+ * ipa3_allocate_temp_nat_memory() - Allocates temp nat memory
  *
  * Called during nat table delete
  */
-void allocate_temp_nat_memory(void)
+void ipa3_allocate_temp_nat_memory(void)
 {
-	struct ipa_nat_mem *nat_ctx = &(ipa_ctx->nat_mem);
+	struct ipa3_nat_mem *nat_ctx = &(ipa3_ctx->nat_mem);
 	int gfp_flags = GFP_KERNEL | __GFP_ZERO;
 
 	nat_ctx->tmp_vaddr =
-		dma_alloc_coherent(ipa_ctx->pdev, IPA_NAT_TEMP_MEM_SIZE,
+		dma_alloc_coherent(ipa3_ctx->pdev, IPA_NAT_TEMP_MEM_SIZE,
 				&nat_ctx->tmp_dma_handle, gfp_flags);
 
 	if (nat_ctx->tmp_vaddr == NULL) {
@@ -142,15 +143,15 @@ void allocate_temp_nat_memory(void)
 }
 
 /**
- * create_nat_device() - Create the NAT device
+ * ipa3_create_nat_device() - Create the NAT device
  *
  * Called during ipa init to create nat device
  *
  * Returns:	0 on success, negative on failure
  */
-int create_nat_device(void)
+int ipa3_create_nat_device(void)
 {
-	struct ipa_nat_mem *nat_ctx = &(ipa_ctx->nat_mem);
+	struct ipa3_nat_mem *nat_ctx = &(ipa3_ctx->nat_mem);
 	int result;
 
 	IPADBG("\n");
@@ -182,9 +183,9 @@ int create_nat_device(void)
 		goto device_create_fail;
 	}
 
-	cdev_init(&nat_ctx->cdev, &ipa_nat_fops);
+	cdev_init(&nat_ctx->cdev, &ipa3_nat_fops);
 	nat_ctx->cdev.owner = THIS_MODULE;
-	nat_ctx->cdev.ops = &ipa_nat_fops;
+	nat_ctx->cdev.ops = &ipa3_nat_fops;
 
 	result = cdev_add(&nat_ctx->cdev, nat_ctx->dev_num, 1);
 	if (result) {
@@ -196,7 +197,7 @@ int create_nat_device(void)
 			MINOR(nat_ctx->dev_num));
 
 	nat_ctx->is_dev = true;
-	allocate_temp_nat_memory();
+	ipa3_allocate_temp_nat_memory();
 	IPADBG("IPA NAT device created successfully\n");
 	result = 0;
 	goto bail;
@@ -211,7 +212,7 @@ vaddr_alloc_fail:
 	if (nat_ctx->vaddr) {
 		IPADBG("Releasing system memory\n");
 		dma_free_coherent(
-			 ipa_ctx->pdev, nat_ctx->size,
+			 ipa3_ctx->pdev, nat_ctx->size,
 			 nat_ctx->vaddr, nat_ctx->dma_handle);
 		nat_ctx->vaddr = NULL;
 		nat_ctx->dma_handle = 0;
@@ -225,7 +226,7 @@ bail:
 }
 
 /**
- * allocate_nat_device() - Allocates memory for the NAT device
+ * ipa3_allocate_nat_device() - Allocates memory for the NAT device
  * @mem:	[in/out] memory parameters
  *
  * Called by NAT client driver to allocate memory for the NAT entries. Based on
@@ -233,9 +234,9 @@ bail:
  *
  * Returns:	0 on success, negative on failure
  */
-int allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
+int ipa3_allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
 {
-	struct ipa_nat_mem *nat_ctx = &(ipa_ctx->nat_mem);
+	struct ipa3_nat_mem *nat_ctx = &(ipa3_ctx->nat_mem);
 	int gfp_flags = GFP_KERNEL | __GFP_ZERO;
 	int result;
 
@@ -272,7 +273,7 @@ int allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem)
 		IPADBG("Allocating system memory\n");
 		nat_ctx->is_sys_mem = true;
 		nat_ctx->vaddr =
-		   dma_alloc_coherent(ipa_ctx->pdev, mem->size,
+		   dma_alloc_coherent(ipa3_ctx->pdev, mem->size,
 				   &nat_ctx->dma_handle, gfp_flags);
 		if (nat_ctx->vaddr == NULL) {
 			IPAERR("memory alloc failed\n");
@@ -297,22 +298,22 @@ bail:
 
 /* IOCTL function handlers */
 /**
- * ipa_nat_init_cmd() - Post IP_V4_NAT_INIT command to IPA HW
+ * ipa3_nat_init_cmd() - Post IP_V4_NAT_INIT command to IPA HW
  * @init:	[in] initialization command attributes
  *
  * Called by NAT client driver to post IP_V4_NAT_INIT command to IPA HW
  *
  * Returns:	0 on success, negative on failure
  */
-int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
+int ipa3_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 {
 #define TBL_ENTRY_SIZE 32
 #define INDX_TBL_ENTRY_SIZE 4
 
-	struct ipa_register_write *reg_write_nop;
-	struct ipa_desc desc[2];
-	struct ipa_ip_v4_nat_init *cmd;
-	u16 size = sizeof(struct ipa_ip_v4_nat_init);
+	struct ipa3_register_write *reg_write_nop;
+	struct ipa3_desc desc[2];
+	struct ipa3_ip_v4_nat_init *cmd;
+	u16 size = sizeof(struct ipa3_ip_v4_nat_init);
 	int result;
 	u32 offset = 0;
 	size_t tmp;
@@ -333,11 +334,11 @@ int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 	   beyond allocated size */
 	tmp = init->ipv4_rules_offset +
 		(TBL_ENTRY_SIZE * (init->table_entries + 1));
-	if (tmp > ipa_ctx->nat_mem.size) {
+	if (tmp > ipa3_ctx->nat_mem.size) {
 		IPAERR("Table rules offset not valid\n");
 		IPAERR("offset:%d entrys:%d size:%zu mem_size:%zu\n",
 			init->ipv4_rules_offset, (init->table_entries + 1),
-			tmp, ipa_ctx->nat_mem.size);
+			tmp, ipa3_ctx->nat_mem.size);
 		return -EPERM;
 	}
 
@@ -351,11 +352,11 @@ int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 	   beyond allocated size */
 	tmp = init->expn_rules_offset +
 		(TBL_ENTRY_SIZE * init->expn_table_entries);
-	if (tmp > ipa_ctx->nat_mem.size) {
+	if (tmp > ipa3_ctx->nat_mem.size) {
 		IPAERR("Expn Table rules offset not valid\n");
 		IPAERR("offset:%d entrys:%d size:%zu mem_size:%zu\n",
 			init->expn_rules_offset, init->expn_table_entries,
-			tmp, ipa_ctx->nat_mem.size);
+			tmp, ipa3_ctx->nat_mem.size);
 		return -EPERM;
 	}
 
@@ -369,11 +370,11 @@ int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 	   beyond allocated size */
 	tmp = init->index_offset +
 		(INDX_TBL_ENTRY_SIZE * (init->table_entries + 1));
-	if (tmp > ipa_ctx->nat_mem.size) {
+	if (tmp > ipa3_ctx->nat_mem.size) {
 		IPAERR("Indx Table rules offset not valid\n");
 		IPAERR("offset:%d entrys:%d size:%zu mem_size:%zu\n",
 			init->index_offset, (init->table_entries + 1),
-			tmp, ipa_ctx->nat_mem.size);
+			tmp, ipa3_ctx->nat_mem.size);
 		return -EPERM;
 	}
 
@@ -387,11 +388,11 @@ int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 	   beyond allocated size */
 	tmp = init->index_expn_offset +
 		(INDX_TBL_ENTRY_SIZE * init->expn_table_entries);
-	if (tmp > ipa_ctx->nat_mem.size) {
+	if (tmp > ipa3_ctx->nat_mem.size) {
 		IPAERR("Indx Expn Table rules offset not valid\n");
 		IPAERR("offset:%d entrys:%d size:%zu mem_size:%zu\n",
 			init->index_expn_offset, init->expn_table_entries,
-			tmp, ipa_ctx->nat_mem.size);
+			tmp, ipa3_ctx->nat_mem.size);
 		return -EPERM;
 	}
 
@@ -422,14 +423,14 @@ int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 		result = -ENOMEM;
 		goto free_nop;
 	}
-	if (ipa_ctx->nat_mem.vaddr) {
+	if (ipa3_ctx->nat_mem.vaddr) {
 		IPADBG("using system memory for nat table\n");
 		cmd->ipv4_rules_addr_type = IPA_NAT_SYSTEM_MEMORY;
 		cmd->ipv4_expansion_rules_addr_type = IPA_NAT_SYSTEM_MEMORY;
 		cmd->index_table_addr_type = IPA_NAT_SYSTEM_MEMORY;
 		cmd->index_table_expansion_addr_type = IPA_NAT_SYSTEM_MEMORY;
 
-		offset = UINT_MAX - ipa_ctx->nat_mem.dma_handle;
+		offset = UINT_MAX - ipa3_ctx->nat_mem.dma_handle;
 
 		if ((init->ipv4_rules_offset > offset) ||
 				(init->expn_rules_offset > offset) ||
@@ -437,7 +438,7 @@ int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 				(init->index_expn_offset > offset)) {
 			IPAERR("Failed due to integer overflow\n");
 			IPAERR("nat.mem.dma_handle: 0x%pa\n",
-				&ipa_ctx->nat_mem.dma_handle);
+				&ipa3_ctx->nat_mem.dma_handle);
 			IPAERR("ipv4_rules_offset: 0x%x\n",
 				init->ipv4_rules_offset);
 			IPAERR("expn_rules_offset: 0x%x\n",
@@ -450,19 +451,19 @@ int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 			goto free_mem;
 		}
 		cmd->ipv4_rules_addr =
-			ipa_ctx->nat_mem.dma_handle + init->ipv4_rules_offset;
+			ipa3_ctx->nat_mem.dma_handle + init->ipv4_rules_offset;
 		IPADBG("ipv4_rules_offset:0x%x\n", init->ipv4_rules_offset);
 
 		cmd->ipv4_expansion_rules_addr =
-		   ipa_ctx->nat_mem.dma_handle + init->expn_rules_offset;
+		   ipa3_ctx->nat_mem.dma_handle + init->expn_rules_offset;
 		IPADBG("expn_rules_offset:0x%x\n", init->expn_rules_offset);
 
 		cmd->index_table_addr =
-			ipa_ctx->nat_mem.dma_handle + init->index_offset;
+			ipa3_ctx->nat_mem.dma_handle + init->index_offset;
 		IPADBG("index_offset:0x%x\n", init->index_offset);
 
 		cmd->index_table_expansion_addr =
-		   ipa_ctx->nat_mem.dma_handle + init->index_expn_offset;
+		   ipa3_ctx->nat_mem.dma_handle + init->index_expn_offset;
 		IPADBG("index_expn_offset:0x%x\n", init->index_expn_offset);
 	} else {
 		IPADBG("using shared(local) memory for nat table\n");
@@ -499,40 +500,41 @@ int ipa_nat_init_cmd(struct ipa_ioc_v4_nat_init *init)
 	desc[1].pyld = (void *)cmd;
 	desc[1].len = size;
 	IPADBG("posting v4 init command\n");
-	if (ipa_send_cmd(2, desc)) {
+	if (ipa3_send_cmd(2, desc)) {
 		IPAERR("Fail to send immediate command\n");
 		result = -EPERM;
 		goto free_mem;
 	}
 
-	ipa_ctx->nat_mem.public_ip_addr = init->ip_addr;
-	IPADBG("Table ip address:0x%x", ipa_ctx->nat_mem.public_ip_addr);
+	ipa3_ctx->nat_mem.public_ip_addr = init->ip_addr;
+	IPADBG("Table ip address:0x%x", ipa3_ctx->nat_mem.public_ip_addr);
 
-	ipa_ctx->nat_mem.ipv4_rules_addr =
-	 (char *)ipa_ctx->nat_mem.nat_base_address + init->ipv4_rules_offset;
+	ipa3_ctx->nat_mem.ipv4_rules_addr =
+	 (char *)ipa3_ctx->nat_mem.nat_base_address + init->ipv4_rules_offset;
 	IPADBG("ipv4_rules_addr: 0x%p\n",
-				 ipa_ctx->nat_mem.ipv4_rules_addr);
+				 ipa3_ctx->nat_mem.ipv4_rules_addr);
 
-	ipa_ctx->nat_mem.ipv4_expansion_rules_addr =
-	 (char *)ipa_ctx->nat_mem.nat_base_address + init->expn_rules_offset;
+	ipa3_ctx->nat_mem.ipv4_expansion_rules_addr =
+	 (char *)ipa3_ctx->nat_mem.nat_base_address + init->expn_rules_offset;
 	IPADBG("ipv4_expansion_rules_addr: 0x%p\n",
-				 ipa_ctx->nat_mem.ipv4_expansion_rules_addr);
+				 ipa3_ctx->nat_mem.ipv4_expansion_rules_addr);
 
-	ipa_ctx->nat_mem.index_table_addr =
-		 (char *)ipa_ctx->nat_mem.nat_base_address + init->index_offset;
+	ipa3_ctx->nat_mem.index_table_addr =
+		 (char *)ipa3_ctx->nat_mem.nat_base_address +
+		 init->index_offset;
 	IPADBG("index_table_addr: 0x%p\n",
-				 ipa_ctx->nat_mem.index_table_addr);
+				 ipa3_ctx->nat_mem.index_table_addr);
 
-	ipa_ctx->nat_mem.index_table_expansion_addr =
-	 (char *)ipa_ctx->nat_mem.nat_base_address + init->index_expn_offset;
+	ipa3_ctx->nat_mem.index_table_expansion_addr =
+	 (char *)ipa3_ctx->nat_mem.nat_base_address + init->index_expn_offset;
 	IPADBG("index_table_expansion_addr: 0x%p\n",
-				 ipa_ctx->nat_mem.index_table_expansion_addr);
+				 ipa3_ctx->nat_mem.index_table_expansion_addr);
 
 	IPADBG("size_base_tables: %d\n", init->table_entries);
-	ipa_ctx->nat_mem.size_base_tables  = init->table_entries;
+	ipa3_ctx->nat_mem.size_base_tables  = init->table_entries;
 
 	IPADBG("size_expansion_tables: %d\n", init->expn_table_entries);
-	ipa_ctx->nat_mem.size_expansion_tables = init->expn_table_entries;
+	ipa3_ctx->nat_mem.size_expansion_tables = init->expn_table_entries;
 
 	IPADBG("return\n");
 	result = 0;
@@ -545,20 +547,20 @@ bail:
 }
 
 /**
- * ipa_nat_dma_cmd() - Post NAT_DMA command to IPA HW
+ * ipa3_nat_dma_cmd() - Post NAT_DMA command to IPA HW
  * @dma:	[in] initialization command attributes
  *
  * Called by NAT client driver to post NAT_DMA command to IPA HW
  *
  * Returns:	0 on success, negative on failure
  */
-int ipa_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
+int ipa3_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 {
 #define NUM_OF_DESC 2
 
-	struct ipa_register_write *reg_write_nop = NULL;
-	struct ipa_nat_dma *cmd = NULL;
-	struct ipa_desc *desc = NULL;
+	struct ipa3_register_write *reg_write_nop = NULL;
+	struct ipa3_nat_dma *cmd = NULL;
+	struct ipa3_desc *desc = NULL;
 	u16 size = 0, cnt = 0;
 	int ret = 0;
 
@@ -570,7 +572,7 @@ int ipa_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 		goto bail;
 	}
 
-	size = sizeof(struct ipa_desc) * NUM_OF_DESC;
+	size = sizeof(struct ipa3_desc) * NUM_OF_DESC;
 	desc = kzalloc(size, GFP_KERNEL);
 	if (desc == NULL) {
 		IPAERR("Failed to alloc memory\n");
@@ -578,7 +580,7 @@ int ipa_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 		goto bail;
 	}
 
-	size = sizeof(struct ipa_nat_dma);
+	size = sizeof(struct ipa3_nat_dma);
 	cmd = kzalloc(size, GFP_KERNEL);
 	if (cmd == NULL) {
 		IPAERR("Failed to alloc memory\n");
@@ -617,10 +619,10 @@ int ipa_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 		desc[1].callback = NULL;
 		desc[1].user1 = NULL;
 		desc[1].user2 = 0;
-		desc[1].len = sizeof(struct ipa_nat_dma);
+		desc[1].len = sizeof(struct ipa3_nat_dma);
 		desc[1].pyld = (void *)cmd;
 
-		ret = ipa_send_cmd(NUM_OF_DESC, desc);
+		ret = ipa3_send_cmd(NUM_OF_DESC, desc);
 		if (ret == -EPERM)
 			IPAERR("Fail to send immediate command %d\n", cnt);
 	}
@@ -639,12 +641,12 @@ bail:
 }
 
 /**
- * ipa_nat_free_mem_and_device() - free the NAT memory and remove the device
+ * ipa3_nat_free_mem_and_device() - free the NAT memory and remove the device
  * @nat_ctx:	[in] the IPA NAT memory to free
  *
  * Called by NAT client driver to free the NAT memory and remove the device
  */
-void ipa_nat_free_mem_and_device(struct ipa_nat_mem *nat_ctx)
+void ipa3_nat_free_mem_and_device(struct ipa3_nat_mem *nat_ctx)
 {
 	IPADBG("\n");
 	mutex_lock(&nat_ctx->lock);
@@ -652,7 +654,7 @@ void ipa_nat_free_mem_and_device(struct ipa_nat_mem *nat_ctx)
 	if (nat_ctx->is_sys_mem) {
 		IPADBG("freeing the dma memory\n");
 		dma_free_coherent(
-			 ipa_ctx->pdev, nat_ctx->size,
+			 ipa3_ctx->pdev, nat_ctx->size,
 			 nat_ctx->vaddr, nat_ctx->dma_handle);
 		nat_ctx->size = 0;
 		nat_ctx->vaddr = NULL;
@@ -666,28 +668,28 @@ void ipa_nat_free_mem_and_device(struct ipa_nat_mem *nat_ctx)
 }
 
 /**
- * ipa_nat_del_cmd() - Delete a NAT table
+ * ipa3_nat_del_cmd() - Delete a NAT table
  * @del:	[in] delete table table table parameters
  *
  * Called by NAT client driver to delete the nat table
  *
  * Returns:	0 on success, negative on failure
  */
-int ipa_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
+int ipa3_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
 {
-	struct ipa_register_write *reg_write_nop;
-	struct ipa_desc desc[2];
-	struct ipa_ip_v4_nat_init *cmd;
-	u16 size = sizeof(struct ipa_ip_v4_nat_init);
+	struct ipa3_register_write *reg_write_nop;
+	struct ipa3_desc desc[2];
+	struct ipa3_ip_v4_nat_init *cmd;
+	u16 size = sizeof(struct ipa3_ip_v4_nat_init);
 	u8 mem_type = IPA_NAT_SHARED_MEMORY;
 	u32 base_addr = IPA_NAT_PHYS_MEM_OFFSET;
 	int result;
 
 	IPADBG("\n");
-	if (ipa_ctx->nat_mem.is_tmp_mem) {
+	if (ipa3_ctx->nat_mem.is_tmp_mem) {
 		IPAERR("using temp memory during nat del\n");
 		mem_type = IPA_NAT_SYSTEM_MEMORY;
-		base_addr = ipa_ctx->nat_mem.tmp_dma_handle;
+		base_addr = ipa3_ctx->nat_mem.tmp_dma_handle;
 	}
 
 	if (del->public_ip_addr == 0) {
@@ -743,21 +745,21 @@ int ipa_nat_del_cmd(struct ipa_ioc_v4_nat_del *del)
 	desc[1].user2 = 0;
 	desc[1].pyld = (void *)cmd;
 	desc[1].len = size;
-	if (ipa_send_cmd(2, desc)) {
+	if (ipa3_send_cmd(2, desc)) {
 		IPAERR("Fail to send immediate command\n");
 		result = -EPERM;
 		goto free_mem;
 	}
 
-	ipa_ctx->nat_mem.size_base_tables = 0;
-	ipa_ctx->nat_mem.size_expansion_tables = 0;
-	ipa_ctx->nat_mem.public_ip_addr = 0;
-	ipa_ctx->nat_mem.ipv4_rules_addr = 0;
-	ipa_ctx->nat_mem.ipv4_expansion_rules_addr = 0;
-	ipa_ctx->nat_mem.index_table_addr = 0;
-	ipa_ctx->nat_mem.index_table_expansion_addr = 0;
+	ipa3_ctx->nat_mem.size_base_tables = 0;
+	ipa3_ctx->nat_mem.size_expansion_tables = 0;
+	ipa3_ctx->nat_mem.public_ip_addr = 0;
+	ipa3_ctx->nat_mem.ipv4_rules_addr = 0;
+	ipa3_ctx->nat_mem.ipv4_expansion_rules_addr = 0;
+	ipa3_ctx->nat_mem.index_table_addr = 0;
+	ipa3_ctx->nat_mem.index_table_expansion_addr = 0;
 
-	ipa_nat_free_mem_and_device(&ipa_ctx->nat_mem);
+	ipa3_nat_free_mem_and_device(&ipa3_ctx->nat_mem);
 	IPADBG("return\n");
 	result = 0;
 free_mem:

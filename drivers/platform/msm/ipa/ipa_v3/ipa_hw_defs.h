@@ -42,7 +42,7 @@
 #define IPA_RULE_ID_INVALID 0x3FF
 
 /**
- * struct ipa_flt_rule_hw_hdr - HW header of IPA filter rule
+ * struct ipa3_flt_rule_hw_hdr - HW header of IPA filter rule
  * @word: filtering rule properties
  * @en_rule: enable rule
  * @action: post routing action
@@ -57,7 +57,7 @@
  *  together with the packet as part of the HW packet TX commands
  * @rsvd: reserved bits
  */
-struct ipa_flt_rule_hw_hdr {
+struct ipa3_flt_rule_hw_hdr {
 	union {
 		u32 word;
 		struct {
@@ -72,7 +72,7 @@ struct ipa_flt_rule_hw_hdr {
 };
 
 /**
- * struct ipa_rt_rule_hw_hdr - HW header of IPA routing rule
+ * struct ipa3_rt_rule_hw_hdr - HW header of IPA routing rule
  * @word: filtering rule properties
  * @en_rule: enable rule
  * @pipe_dest_idx: destination pipe index
@@ -81,7 +81,7 @@ struct ipa_flt_rule_hw_hdr {
  * @proc_ctx: whether hdr_offset points to header table or to
  *	header processing context table
  */
-struct ipa_rt_rule_hw_hdr {
+struct ipa3_rt_rule_hw_hdr {
 	union {
 		u32 word;
 		struct {
@@ -95,13 +95,13 @@ struct ipa_rt_rule_hw_hdr {
 };
 
 /**
- * struct ipa_ip_v4_filter_init - IPA_IP_V4_FILTER_INIT command payload
+ * struct ipa3_ip_v4_filter_init - IPA_IP_V4_FILTER_INIT command payload
  * @ipv4_rules_addr: address of ipv4 rules
  * @size_ipv4_rules: size of the above
  * @ipv4_addr: ipv4 address
  * @rsvd: reserved
  */
-struct ipa_ip_v4_filter_init {
+struct ipa3_ip_v4_filter_init {
 	u64 ipv4_rules_addr:32;
 	u64 size_ipv4_rules:12;
 	u64 ipv4_addr:16;
@@ -109,25 +109,25 @@ struct ipa_ip_v4_filter_init {
 };
 
 /**
- * struct ipa_ip_v6_filter_init - IPA_IP_V6_FILTER_INIT command payload
+ * struct ipa3_ip_v6_filter_init - IPA_IP_V6_FILTER_INIT command payload
  * @ipv6_rules_addr: address of ipv6 rules
  * @size_ipv6_rules: size of the above
  * @ipv6_addr: ipv6 address
  */
-struct ipa_ip_v6_filter_init {
+struct ipa3_ip_v6_filter_init {
 	u64 ipv6_rules_addr:32;
 	u64 size_ipv6_rules:16;
 	u64 ipv6_addr:16;
 };
 
 /**
- * struct ipa_ip_v4_routing_init - IPA_IP_V4_ROUTING_INIT command payload
+ * struct ipa3_ip_v4_routing_init - IPA_IP_V4_ROUTING_INIT command payload
  * @ipv4_rules_addr: address of ipv4 rules
  * @size_ipv4_rules: size of the above
  * @ipv4_addr: ipv4 address
  * @rsvd: reserved
  */
-struct ipa_ip_v4_routing_init {
+struct ipa3_ip_v4_routing_init {
 	u64 ipv4_rules_addr:32;
 	u64 size_ipv4_rules:12;
 	u64 ipv4_addr:16;
@@ -135,26 +135,26 @@ struct ipa_ip_v4_routing_init {
 };
 
 /**
- * struct ipa_ip_v6_routing_init - IPA_IP_V6_ROUTING_INIT command payload
+ * struct ipa3_ip_v6_routing_init - IPA_IP_V6_ROUTING_INIT command payload
  * @ipv6_rules_addr: address of ipv6 rules
  * @size_ipv6_rules: size of the above
  * @ipv6_addr: ipv6 address
  */
-struct ipa_ip_v6_routing_init {
+struct ipa3_ip_v6_routing_init {
 	u64 ipv6_rules_addr:32;
 	u64 size_ipv6_rules:16;
 	u64 ipv6_addr:16;
 };
 
 /**
- * struct ipa_hdr_init_local - IPA_HDR_INIT_LOCAL command payload
+ * struct ipa3_hdr_init_local - IPA_HDR_INIT_LOCAL command payload
  * @hdr_table_src_addr: word address of header table in system memory where the
  *  table starts (use as source for memory copying)
  * @size_hdr_table: size of the above (in bytes)
  * @hdr_table_dst_addr: header address in IPA sram (used as dst for memory copy)
  * @rsvd: reserved
  */
-struct ipa_hdr_init_local {
+struct ipa3_hdr_init_local {
 	u64 hdr_table_src_addr:64;
 	u64 size_hdr_table:12;
 	u64 hdr_table_dst_addr:16;
@@ -162,17 +162,17 @@ struct ipa_hdr_init_local {
 };
 
 /**
- * struct ipa_hdr_init_system - IPA_HDR_INIT_SYSTEM command payload
+ * struct ipa3_hdr_init_system - IPA_HDR_INIT_SYSTEM command payload
  * @hdr_table_addr: word address of header table in system memory where the
  *  table starts (use as source for memory copying)
  * @rsvd: reserved
  */
-struct ipa_hdr_init_system {
+struct ipa3_hdr_init_system {
 	u64 hdr_table_addr:64;
 };
 
 /**
- * struct ipa_hdr_proc_ctx_tlv -
+ * struct ipa3_hdr_proc_ctx_tlv -
  * HW structure of IPA processing context header - TLV part
  * @type: 0 - end type
  *        1 - header addition type
@@ -188,20 +188,20 @@ struct ipa_hdr_init_system {
  *        1 - header length
  *        3 - command ID (see IPA_HDR_UCP_* definitions)
  */
-struct ipa_hdr_proc_ctx_tlv {
+struct ipa3_hdr_proc_ctx_tlv {
 	u32 type:8;
 	u32 length:8;
 	u32 value:16;
 };
 
 /**
- * struct ipa_hdr_proc_ctx_hdr_add -
+ * struct ipa3_hdr_proc_ctx_hdr_add -
  * HW structure of IPA processing context - add header tlv
  * @tlv: IPA processing context TLV
  * @hdr_addr: processing context header address
  */
-struct ipa_hdr_proc_ctx_hdr_add {
-	struct ipa_hdr_proc_ctx_tlv tlv;
+struct ipa3_hdr_proc_ctx_hdr_add {
+	struct ipa3_hdr_proc_ctx_tlv tlv;
 	u32 hdr_addr;
 };
 
@@ -213,7 +213,7 @@ struct ipa_hdr_proc_ctx_hdr_add {
 #define IPA_A5_MUX_HDR_EXCP_FLAG_IHL		BIT(2)
 
 /**
- * struct ipa_a5_mux_hdr - A5 MUX header definition
+ * struct ipa3_a5_mux_hdr - A5 MUX header definition
  * @interface_id: interface ID
  * @src_pipe_index: source pipe index
  * @flags: flags
@@ -222,7 +222,7 @@ struct ipa_hdr_proc_ctx_hdr_add {
  * A5 MUX header is in BE, A5 runs in LE. This struct definition
  * allows A5 SW to correctly parse the header
  */
-struct ipa_a5_mux_hdr {
+struct ipa3_a5_mux_hdr {
 	u16 interface_id;
 	u8 src_pipe_index;
 	u8 flags;
@@ -252,7 +252,7 @@ enum ipa_pipeline_clear_option {
 };
 
 /**
- * struct ipa_register_write - IPA_REGISTER_WRITE command payload
+ * struct ipa3_register_write - IPA_REGISTER_WRITE command payload
  * @rsvd: reserved
  * @skip_pipeline_clear: 0 to wait until IPA pipeline is clear
  * @offset: offset from IPA base address
@@ -260,7 +260,7 @@ enum ipa_pipeline_clear_option {
  * @value_mask: mask specifying which value bits to write to the register
  * @pipeline_clear_options: options for pipeline to clear
  */
-struct ipa_register_write {
+struct ipa3_register_write {
 	u64 rsvd:15;
 	u64 skip_pipeline_clear:1;
 	u64 offset:16;
@@ -271,7 +271,7 @@ struct ipa_register_write {
 };
 
 /**
- * struct ipa_nat_dma - IPA_NAT_DMA command payload
+ * struct ipa3_nat_dma - IPA_NAT_DMA command payload
  * @table_index: NAT table index
  * @rsvd1: reserved
  * @base_addr: base address
@@ -280,7 +280,7 @@ struct ipa_register_write {
  * @data: metadata
  * @rsvd3: reserved
  */
-struct ipa_nat_dma {
+struct ipa3_nat_dma {
 	u64 table_index:3;
 	u64 rsvd1:1;
 	u64 base_addr:2;
@@ -291,13 +291,13 @@ struct ipa_nat_dma {
 };
 
 /**
- * struct ipa_ip_packet_init - IPA_IP_PACKET_INIT command payload
+ * struct ipa3_ip_packet_init - IPA_IP_PACKET_INIT command payload
  * @destination_pipe_index: destination pipe index
  * @rsvd1: reserved
  * @metadata: metadata
  * @rsvd2: reserved
  */
-struct ipa_ip_packet_init {
+struct ipa3_ip_packet_init {
 	u64 destination_pipe_index:5;
 	u64 rsvd1:3;
 	u64 rsvd2:32;
@@ -305,7 +305,7 @@ struct ipa_ip_packet_init {
 };
 
 /**
- * struct ipa_nat_dma - IPA_IP_V4_NAT_INIT command payload
+ * struct ipa3_nat_dma - IPA_IP_V4_NAT_INIT command payload
  * @ipv4_rules_addr: ipv4 rules address
  * @ipv4_expansion_rules_addr: ipv4 expansion rules address
  * @index_table_addr: index tables address
@@ -320,7 +320,7 @@ struct ipa_ip_packet_init {
  * @rsvd2: reserved
  * @public_ip_addr: public IP address
  */
-struct ipa_ip_v4_nat_init {
+struct ipa3_ip_v4_nat_init {
 	u64 ipv4_rules_addr:64;
 	u64 ipv4_expansion_rules_addr:64;
 	u64 index_table_addr:64;
@@ -338,17 +338,17 @@ struct ipa_ip_v4_nat_init {
 };
 
 /**
- * struct ipa_ip_packet_tag_status - IPA_IP_PACKET_TAG_STATUS command payload
+ * struct ipa3_ip_packet_tag_status - IPA_IP_PACKET_TAG_STATUS command payload
  * @rsvd: reserved
  * @tag: tag value returned within status
  */
-struct ipa_ip_packet_tag_status {
+struct ipa3_ip_packet_tag_status {
 	u64 rsvd:16;
 	u64 tag:48;
 };
 
 /*! @brief Struct for the IPAv3.0 UL packet status header */
-struct ipa_hw_pkt_status {
+struct ipa3_hw_pkt_status {
 	u64 status_opcode:8;
 	u64 exception:8;
 	u64 status_mask:16;
@@ -384,7 +384,7 @@ struct ipa_hw_pkt_status {
 #define IPA_PKT_STATUS_SIZE 32
 
 /*! @brief Status header opcodes */
-enum ipa_hw_status_opcode {
+enum ipa3_hw_status_opcode {
 	IPA_HW_STATUS_OPCODE_PACKET             = 0x1,
 	IPA_HW_STATUS_OPCODE_NEW_FRAG_RULE      = 0x2,
 	IPA_HW_STATUS_OPCODE_DROPPED_PACKET     = 0x4,
@@ -396,7 +396,7 @@ enum ipa_hw_status_opcode {
 };
 
 /*! @brief Possible Masks received in status */
-enum ipa_hw_pkt_status_mask {
+enum ipa3_hw_pkt_status_mask {
 	IPA_HW_PKT_STATUS_MASK_FRAG_PROCESS      = 0x1,
 	IPA_HW_PKT_STATUS_MASK_FILT_PROCESS      = 0x2,
 	IPA_HW_PKT_STATUS_MASK_NAT_PROCESS       = 0x4,
@@ -414,7 +414,7 @@ enum ipa_hw_pkt_status_mask {
 };
 
 /*! @brief Possible Exceptions received in status */
-enum ipa_hw_pkt_status_exception {
+enum ipa3_hw_pkt_status_exception {
 	IPA_HW_PKT_STATUS_EXCEPTION_NONE             = 0x0,
 	IPA_HW_PKT_STATUS_EXCEPTION_DEAGGR           = 0x1,
 	IPA_HW_PKT_STATUS_EXCEPTION_IPTYPE           = 0x4,
@@ -428,7 +428,7 @@ enum ipa_hw_pkt_status_exception {
 };
 
 /*! @brief IPA_HW_IMM_CMD_DMA_SHARED_MEM Immediate Command Parameters */
-struct ipa_hw_imm_cmd_dma_shared_mem {
+struct ipa3_hw_imm_cmd_dma_shared_mem {
 	u64 reserved_1:16;
 	u64 size:16;
 	u64 local_addr:16;

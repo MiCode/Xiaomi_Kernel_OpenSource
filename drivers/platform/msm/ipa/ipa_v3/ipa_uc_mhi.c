@@ -472,7 +472,7 @@ struct IpaHwConfigMhiInfoData_t {
 };
 
 
-struct ipa_uc_mhi_ctx {
+struct ipa3_uc_mhi_ctx {
 	u8 expected_responseOp;
 	u32 expected_responseParams;
 	void (*ready_cb)(void);
@@ -483,31 +483,31 @@ struct ipa_uc_mhi_ctx {
 
 #define PRINT_COMMON_STATS(x) \
 	(nBytes += scnprintf(&dbg_buff[nBytes], size - nBytes, \
-	#x "=0x%x\n", ipa_uc_mhi_ctx->mhi_uc_stats_mmio->mhiCmnStats.x))
+	#x "=0x%x\n", ipa3_uc_mhi_ctx->mhi_uc_stats_mmio->mhiCmnStats.x))
 
 #define PRINT_CHANNEL_STATS(ch, x) \
 	(nBytes += scnprintf(&dbg_buff[nBytes], size - nBytes, \
-	#x "=0x%x\n", ipa_uc_mhi_ctx->mhi_uc_stats_mmio->mhiCnlStats[ch].x))
+	#x "=0x%x\n", ipa3_uc_mhi_ctx->mhi_uc_stats_mmio->mhiCnlStats[ch].x))
 
-struct ipa_uc_mhi_ctx *ipa_uc_mhi_ctx;
+struct ipa3_uc_mhi_ctx *ipa3_uc_mhi_ctx;
 
-static int ipa_uc_mhi_response_hdlr(struct IpaHwSharedMemCommonMapping_t
+static int ipa3_uc_mhi_response_hdlr(struct IpaHwSharedMemCommonMapping_t
 	*uc_sram_mmio, u32 *uc_status)
 {
 	IPADBG("responseOp=%d\n", uc_sram_mmio->responseOp);
-	if (uc_sram_mmio->responseOp == ipa_uc_mhi_ctx->expected_responseOp &&
+	if (uc_sram_mmio->responseOp == ipa3_uc_mhi_ctx->expected_responseOp &&
 	    uc_sram_mmio->responseParams ==
-	    ipa_uc_mhi_ctx->expected_responseParams) {
+	    ipa3_uc_mhi_ctx->expected_responseParams) {
 		*uc_status = 0;
 		return 0;
 	}
 	return -EINVAL;
 }
 
-static void ipa_uc_mhi_event_hdlr(struct IpaHwSharedMemCommonMapping_t
+static void ipa3_uc_mhi_event_hdlr(struct IpaHwSharedMemCommonMapping_t
 	*uc_sram_mmio)
 {
-	if (ipa_ctx->uc_ctx.uc_sram_mmio->eventOp ==
+	if (ipa3_ctx->uc_ctx.uc_sram_mmio->eventOp ==
 	    IPA_HW_2_CPU_EVENT_MHI_CHANNEL_ERROR) {
 		union IpaHwMhiChannelErrorEventData_t evt;
 
@@ -516,7 +516,7 @@ static void ipa_uc_mhi_event_hdlr(struct IpaHwSharedMemCommonMapping_t
 		IPAERR("errorType=%d channelHandle=%d reserved=%d\n",
 			evt.params.errorType, evt.params.channelHandle,
 			evt.params.reserved);
-	} else if (ipa_ctx->uc_ctx.uc_sram_mmio->eventOp ==
+	} else if (ipa3_ctx->uc_ctx.uc_sram_mmio->eventOp ==
 		   IPA_HW_2_CPU_EVENT_MHI_CHANNEL_WAKE_UP_REQUEST) {
 		union IpaHwMhiChannelWakeupEventData_t evt;
 
@@ -524,11 +524,11 @@ static void ipa_uc_mhi_event_hdlr(struct IpaHwSharedMemCommonMapping_t
 		evt.raw32b = uc_sram_mmio->eventParams;
 		IPADBG("channelHandle=%d reserved=%d\n",
 			evt.params.channelHandle, evt.params.reserved);
-		ipa_uc_mhi_ctx->wakeup_request_cb();
+		ipa3_uc_mhi_ctx->wakeup_request_cb();
 	}
 }
 
-static void ipa_uc_mhi_event_log_info_hdlr(
+static void ipa3_uc_mhi_event_log_info_hdlr(
 	struct IpaHwEventLogInfoData_t *uc_event_top_mmio)
 
 {
@@ -547,83 +547,83 @@ static void ipa_uc_mhi_event_log_info_hdlr(
 		return;
 	}
 
-	ipa_uc_mhi_ctx->mhi_uc_stats_ofst = uc_event_top_mmio->
+	ipa3_uc_mhi_ctx->mhi_uc_stats_ofst = uc_event_top_mmio->
 		statsInfo.baseAddrOffset + uc_event_top_mmio->statsInfo.
 		featureInfo[IPA_HW_FEATURE_MHI].params.offset;
-	IPAERR("MHI stats ofst=0x%x\n", ipa_uc_mhi_ctx->mhi_uc_stats_ofst);
-	if (ipa_uc_mhi_ctx->mhi_uc_stats_ofst +
+	IPAERR("MHI stats ofst=0x%x\n", ipa3_uc_mhi_ctx->mhi_uc_stats_ofst);
+	if (ipa3_uc_mhi_ctx->mhi_uc_stats_ofst +
 		sizeof(struct IpaHwStatsMhiInfoData_t) >=
-		ipa_ctx->ctrl->ipa_reg_base_ofst +
+		ipa3_ctx->ctrl->ipa_reg_base_ofst +
 		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0) +
-		ipa_ctx->smem_sz) {
+		ipa3_ctx->smem_sz) {
 		IPAERR("uc_mhi_stats 0x%x outside SRAM\n",
-			ipa_uc_mhi_ctx->mhi_uc_stats_ofst);
+			ipa3_uc_mhi_ctx->mhi_uc_stats_ofst);
 		return;
 	}
 
-	ipa_uc_mhi_ctx->mhi_uc_stats_mmio =
-		ioremap(ipa_ctx->ipa_wrapper_base +
-		ipa_uc_mhi_ctx->mhi_uc_stats_ofst,
+	ipa3_uc_mhi_ctx->mhi_uc_stats_mmio =
+		ioremap(ipa3_ctx->ipa_wrapper_base +
+		ipa3_uc_mhi_ctx->mhi_uc_stats_ofst,
 		sizeof(struct IpaHwStatsMhiInfoData_t));
-	if (!ipa_uc_mhi_ctx->mhi_uc_stats_mmio) {
+	if (!ipa3_uc_mhi_ctx->mhi_uc_stats_mmio) {
 		IPAERR("fail to ioremap uc mhi stats\n");
 		return;
 	}
 }
 
-int ipa_uc_mhi_init(void (*ready_cb)(void), void (*wakeup_request_cb)(void))
+int ipa3_uc_mhi_init(void (*ready_cb)(void), void (*wakeup_request_cb)(void))
 {
-	struct ipa_uc_hdlrs hdlrs;
+	struct ipa3_uc_hdlrs hdlrs;
 
-	if (ipa_uc_mhi_ctx) {
+	if (ipa3_uc_mhi_ctx) {
 		IPAERR("Already initialized\n");
 		return -EFAULT;
 	}
 
-	ipa_uc_mhi_ctx = kzalloc(sizeof(*ipa_uc_mhi_ctx), GFP_KERNEL);
-	if (!ipa_uc_mhi_ctx) {
+	ipa3_uc_mhi_ctx = kzalloc(sizeof(*ipa3_uc_mhi_ctx), GFP_KERNEL);
+	if (!ipa3_uc_mhi_ctx) {
 		IPAERR("no mem\n");
 		return -ENOMEM;
 	}
 
-	ipa_uc_mhi_ctx->ready_cb = ready_cb;
-	ipa_uc_mhi_ctx->wakeup_request_cb = wakeup_request_cb;
+	ipa3_uc_mhi_ctx->ready_cb = ready_cb;
+	ipa3_uc_mhi_ctx->wakeup_request_cb = wakeup_request_cb;
 
 	memset(&hdlrs, 0, sizeof(hdlrs));
-	hdlrs.ipa_uc_loaded_hdlr = ipa_uc_mhi_ctx->ready_cb;
-	hdlrs.ipa_uc_response_hdlr = ipa_uc_mhi_response_hdlr;
-	hdlrs.ipa_uc_event_hdlr = ipa_uc_mhi_event_hdlr;
-	hdlrs.ipa_uc_event_log_info_hdlr = ipa_uc_mhi_event_log_info_hdlr;
-	ipa_uc_register_handlers(IPA_HW_FEATURE_MHI, &hdlrs);
+	hdlrs.ipa_uc_loaded_hdlr = ipa3_uc_mhi_ctx->ready_cb;
+	hdlrs.ipa3_uc_response_hdlr = ipa3_uc_mhi_response_hdlr;
+	hdlrs.ipa_uc_event_hdlr = ipa3_uc_mhi_event_hdlr;
+	hdlrs.ipa_uc_event_log_info_hdlr = ipa3_uc_mhi_event_log_info_hdlr;
+	ipa3_uc_register_handlers(IPA_HW_FEATURE_MHI, &hdlrs);
 
 	IPADBG("Done\n");
 	return 0;
 }
 
-int ipa_uc_mhi_init_engine(struct ipa_mhi_msi_info *msi, u32 mmio_addr,
+int ipa3_uc_mhi_init_engine(struct ipa_mhi_msi_info *msi, u32 mmio_addr,
 	u32 host_ctrl_addr, u32 host_data_addr, u32 first_ch_idx,
 	u32 first_evt_idx)
 {
 	int res;
-	struct ipa_mem_buffer mem;
+	struct ipa3_mem_buffer mem;
 	struct IpaHwMhiInitCmdData_t *init_cmd_data;
 	struct IpaHwMhiMsiCmdData_t *msi_cmd;
 
-	if (!ipa_uc_mhi_ctx) {
+	if (!ipa3_uc_mhi_ctx) {
 		IPAERR("Not initialized\n");
 		return -EFAULT;
 	}
 
-	ipa_inc_client_enable_clks();
+	ipa3_inc_client_enable_clks();
 
-	res = ipa_uc_update_hw_flags(0);
+	res = ipa3_uc_update_hw_flags(0);
 	if (res) {
-		IPAERR("ipa_uc_update_hw_flags failed %d\n", res);
+		IPAERR("ipa3_uc_update_hw_flags failed %d\n", res);
 		goto disable_clks;
 	}
 
 	mem.size = sizeof(*init_cmd_data);
-	mem.base = dma_alloc_coherent(ipa_ctx->pdev, mem.size, &mem.phys_base,
+	mem.base = dma_alloc_coherent(ipa3_ctx->pdev, mem.size, &mem.phys_base,
 		GFP_KERNEL);
 	if (!mem.base) {
 		IPAERR("fail to alloc DMA buff of size %d\n", mem.size);
@@ -638,19 +638,19 @@ int ipa_uc_mhi_init_engine(struct ipa_mhi_msi_info *msi, u32 mmio_addr,
 	init_cmd_data->deviceMhiDataBaseAddress = host_data_addr;
 	init_cmd_data->firstChannelIndex = first_ch_idx;
 	init_cmd_data->firstEventRingIndex = first_evt_idx;
-	res = ipa_uc_send_cmd((u32)mem.phys_base, IPA_CPU_2_HW_CMD_MHI_INIT, 0,
+	res = ipa3_uc_send_cmd((u32)mem.phys_base, IPA_CPU_2_HW_CMD_MHI_INIT, 0,
 		false, HZ);
 	if (res) {
-		IPAERR("ipa_uc_send_cmd failed %d\n", res);
-		dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base,
+		IPAERR("ipa3_uc_send_cmd failed %d\n", res);
+		dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base,
 			mem.phys_base);
 		goto disable_clks;
 	}
 
-	dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base, mem.phys_base);
+	dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base, mem.phys_base);
 
 	mem.size = sizeof(*msi_cmd);
-	mem.base = dma_alloc_coherent(ipa_ctx->pdev, mem.size, &mem.phys_base,
+	mem.base = dma_alloc_coherent(ipa3_ctx->pdev, mem.size, &mem.phys_base,
 		GFP_KERNEL);
 	if (!mem.base) {
 		IPAERR("fail to alloc DMA buff of size %d\n", mem.size);
@@ -663,26 +663,26 @@ int ipa_uc_mhi_init_engine(struct ipa_mhi_msi_info *msi, u32 mmio_addr,
 	msi_cmd->msiAddress_low = msi->addr_low;
 	msi_cmd->msiData = msi->data;
 	msi_cmd->msiMask = msi->mask;
-	res = ipa_uc_send_cmd((u32)mem.phys_base,
+	res = ipa3_uc_send_cmd((u32)mem.phys_base,
 		IPA_CPU_2_HW_CMD_MHI_UPDATE_MSI, 0, false, HZ);
 	if (res) {
-		IPAERR("ipa_uc_send_cmd failed %d\n", res);
-		dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base,
+		IPAERR("ipa3_uc_send_cmd failed %d\n", res);
+		dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base,
 			mem.phys_base);
 		goto disable_clks;
 	}
 
-	dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base, mem.phys_base);
+	dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base, mem.phys_base);
 
 	res = 0;
 
 disable_clks:
-	ipa_dec_client_disable_clks();
+	ipa3_dec_client_disable_clks();
 	return res;
 
 }
 
-int ipa_uc_mhi_init_channel(int ipa_ep_idx, int channelHandle,
+int ipa3_uc_mhi_init_channel(int ipa_ep_idx, int channelHandle,
 	int contexArrayIndex, int channelDirection)
 
 {
@@ -690,24 +690,24 @@ int ipa_uc_mhi_init_channel(int ipa_ep_idx, int channelHandle,
 	union IpaHwMhiInitChannelCmdData_t init_cmd;
 	union IpaHwMhiChangeChannelStateResponseData_t uc_rsp;
 
-	if (!ipa_uc_mhi_ctx) {
+	if (!ipa3_uc_mhi_ctx) {
 		IPAERR("Not initialized\n");
 		return -EFAULT;
 	}
 
-	if (ipa_ep_idx < 0  || ipa_ep_idx >= ipa_ctx->ipa_num_pipes) {
+	if (ipa_ep_idx < 0  || ipa_ep_idx >= ipa3_ctx->ipa_num_pipes) {
 		IPAERR("Invalid ipa_ep_idx.\n");
 		return -EINVAL;
 	}
 
-	ipa_inc_client_enable_clks();
+	ipa3_inc_client_enable_clks();
 
 	memset(&uc_rsp, 0, sizeof(uc_rsp));
 	uc_rsp.params.state = IPA_HW_MHI_CHANNEL_STATE_RUN;
 	uc_rsp.params.channelHandle = channelHandle;
-	ipa_uc_mhi_ctx->expected_responseOp =
+	ipa3_uc_mhi_ctx->expected_responseOp =
 		IPA_HW_2_CPU_RESPONSE_MHI_CHANGE_CHANNEL_STATE;
-	ipa_uc_mhi_ctx->expected_responseParams = uc_rsp.raw32b;
+	ipa3_uc_mhi_ctx->expected_responseParams = uc_rsp.raw32b;
 
 	memset(&init_cmd, 0, sizeof(init_cmd));
 	init_cmd.params.channelHandle = channelHandle;
@@ -715,170 +715,170 @@ int ipa_uc_mhi_init_channel(int ipa_ep_idx, int channelHandle,
 	init_cmd.params.bamPipeId = ipa_ep_idx;
 	init_cmd.params.channelDirection = channelDirection;
 
-	res = ipa_uc_send_cmd(init_cmd.raw32b,
+	res = ipa3_uc_send_cmd(init_cmd.raw32b,
 		IPA_CPU_2_HW_CMD_MHI_INIT_CHANNEL, 0, false, HZ);
 	if (res) {
-		IPAERR("ipa_uc_send_cmd failed %d\n", res);
+		IPAERR("ipa3_uc_send_cmd failed %d\n", res);
 		goto disable_clks;
 	}
 
 	res = 0;
 
 disable_clks:
-	ipa_dec_client_disable_clks();
+	ipa3_dec_client_disable_clks();
 	return res;
 }
 
 
-int ipa_uc_mhi_reset_channel(int channelHandle)
+int ipa3_uc_mhi_reset_channel(int channelHandle)
 {
 	union IpaHwMhiChangeChannelStateCmdData_t cmd;
 	union IpaHwMhiChangeChannelStateResponseData_t uc_rsp;
 	int res;
 
-	if (!ipa_uc_mhi_ctx) {
+	if (!ipa3_uc_mhi_ctx) {
 		IPAERR("Not initialized\n");
 		return -EFAULT;
 	}
 
-	ipa_inc_client_enable_clks();
+	ipa3_inc_client_enable_clks();
 
 	memset(&uc_rsp, 0, sizeof(uc_rsp));
 	uc_rsp.params.state = IPA_HW_MHI_CHANNEL_STATE_DISABLE;
 	uc_rsp.params.channelHandle = channelHandle;
-	ipa_uc_mhi_ctx->expected_responseOp =
+	ipa3_uc_mhi_ctx->expected_responseOp =
 		IPA_HW_2_CPU_RESPONSE_MHI_CHANGE_CHANNEL_STATE;
-	ipa_uc_mhi_ctx->expected_responseParams = uc_rsp.raw32b;
+	ipa3_uc_mhi_ctx->expected_responseParams = uc_rsp.raw32b;
 
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.params.requestedState = IPA_HW_MHI_CHANNEL_STATE_DISABLE;
 	cmd.params.channelHandle = channelHandle;
-	res = ipa_uc_send_cmd(cmd.raw32b,
+	res = ipa3_uc_send_cmd(cmd.raw32b,
 		IPA_CPU_2_HW_CMD_MHI_CHANGE_CHANNEL_STATE, 0, false, HZ);
 	if (res) {
-		IPAERR("ipa_uc_send_cmd failed %d\n", res);
+		IPAERR("ipa3_uc_send_cmd failed %d\n", res);
 		goto disable_clks;
 	}
 
 	res = 0;
 
 disable_clks:
-	ipa_dec_client_disable_clks();
+	ipa3_dec_client_disable_clks();
 	return res;
 }
 
-int ipa_uc_mhi_suspend_channel(int channelHandle)
+int ipa3_uc_mhi_suspend_channel(int channelHandle)
 {
 	union IpaHwMhiChangeChannelStateCmdData_t cmd;
 	union IpaHwMhiChangeChannelStateResponseData_t uc_rsp;
 	int res;
 
-	if (!ipa_uc_mhi_ctx) {
+	if (!ipa3_uc_mhi_ctx) {
 		IPAERR("Not initialized\n");
 		return -EFAULT;
 	}
 
-	ipa_inc_client_enable_clks();
+	ipa3_inc_client_enable_clks();
 
 	memset(&uc_rsp, 0, sizeof(uc_rsp));
 	uc_rsp.params.state = IPA_HW_MHI_CHANNEL_STATE_SUSPEND;
 	uc_rsp.params.channelHandle = channelHandle;
-	ipa_uc_mhi_ctx->expected_responseOp =
+	ipa3_uc_mhi_ctx->expected_responseOp =
 		IPA_HW_2_CPU_RESPONSE_MHI_CHANGE_CHANNEL_STATE;
-	ipa_uc_mhi_ctx->expected_responseParams = uc_rsp.raw32b;
+	ipa3_uc_mhi_ctx->expected_responseParams = uc_rsp.raw32b;
 
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.params.requestedState = IPA_HW_MHI_CHANNEL_STATE_SUSPEND;
 	cmd.params.channelHandle = channelHandle;
-	res = ipa_uc_send_cmd(cmd.raw32b,
+	res = ipa3_uc_send_cmd(cmd.raw32b,
 		IPA_CPU_2_HW_CMD_MHI_CHANGE_CHANNEL_STATE, 0, false, HZ);
 	if (res) {
-		IPAERR("ipa_uc_send_cmd failed %d\n", res);
+		IPAERR("ipa3_uc_send_cmd failed %d\n", res);
 		goto disable_clks;
 	}
 
 	res = 0;
 
 disable_clks:
-	ipa_dec_client_disable_clks();
+	ipa3_dec_client_disable_clks();
 	return res;
 }
 
-int ipa_uc_mhi_resume_channel(int channelHandle, bool LPTransitionRejected)
+int ipa3_uc_mhi_resume_channel(int channelHandle, bool LPTransitionRejected)
 {
 	union IpaHwMhiChangeChannelStateCmdData_t cmd;
 	union IpaHwMhiChangeChannelStateResponseData_t uc_rsp;
 	int res;
 
-	if (!ipa_uc_mhi_ctx) {
+	if (!ipa3_uc_mhi_ctx) {
 		IPAERR("Not initialized\n");
 		return -EFAULT;
 	}
 
-	ipa_inc_client_enable_clks();
+	ipa3_inc_client_enable_clks();
 
 	memset(&uc_rsp, 0, sizeof(uc_rsp));
 	uc_rsp.params.state = IPA_HW_MHI_CHANNEL_STATE_RUN;
 	uc_rsp.params.channelHandle = channelHandle;
-	ipa_uc_mhi_ctx->expected_responseOp =
+	ipa3_uc_mhi_ctx->expected_responseOp =
 		IPA_HW_2_CPU_RESPONSE_MHI_CHANGE_CHANNEL_STATE;
-	ipa_uc_mhi_ctx->expected_responseParams = uc_rsp.raw32b;
+	ipa3_uc_mhi_ctx->expected_responseParams = uc_rsp.raw32b;
 
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.params.requestedState = IPA_HW_MHI_CHANNEL_STATE_RUN;
 	cmd.params.channelHandle = channelHandle;
 	cmd.params.LPTransitionRejected = LPTransitionRejected;
-	res = ipa_uc_send_cmd(cmd.raw32b,
+	res = ipa3_uc_send_cmd(cmd.raw32b,
 		IPA_CPU_2_HW_CMD_MHI_CHANGE_CHANNEL_STATE, 0, false, HZ);
 	if (res) {
-		IPAERR("ipa_uc_send_cmd failed %d\n", res);
+		IPAERR("ipa3_uc_send_cmd failed %d\n", res);
 		goto disable_clks;
 	}
 
 	res = 0;
 
 disable_clks:
-	ipa_dec_client_disable_clks();
+	ipa3_dec_client_disable_clks();
 	return res;
 }
 
-int ipa_uc_mhi_stop_event_update_channel(int channelHandle)
+int ipa3_uc_mhi_stop_event_update_channel(int channelHandle)
 {
 	union IpaHwMhiStopEventUpdateData_t cmd;
 	int res;
 
-	if (!ipa_uc_mhi_ctx) {
+	if (!ipa3_uc_mhi_ctx) {
 		IPAERR("Not initialized\n");
 		return -EFAULT;
 	}
 
-	ipa_inc_client_enable_clks();
+	ipa3_inc_client_enable_clks();
 
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.params.channelHandle = channelHandle;
 
-	ipa_uc_mhi_ctx->expected_responseOp =
+	ipa3_uc_mhi_ctx->expected_responseOp =
 		IPA_CPU_2_HW_CMD_MHI_STOP_EVENT_UPDATE;
-	ipa_uc_mhi_ctx->expected_responseParams = cmd.raw32b;
+	ipa3_uc_mhi_ctx->expected_responseParams = cmd.raw32b;
 
-	res = ipa_uc_send_cmd(cmd.raw32b,
+	res = ipa3_uc_send_cmd(cmd.raw32b,
 		IPA_CPU_2_HW_CMD_MHI_STOP_EVENT_UPDATE, 0, false, HZ);
 	if (res) {
-		IPAERR("ipa_uc_send_cmd failed %d\n", res);
+		IPAERR("ipa3_uc_send_cmd failed %d\n", res);
 		goto disable_clks;
 	}
 
 	res = 0;
 disable_clks:
-	ipa_dec_client_disable_clks();
+	ipa3_dec_client_disable_clks();
 	return res;
 }
 
-int ipa_uc_mhi_send_dl_ul_sync_info(union IpaHwMhiDlUlSyncCmdData_t cmd)
+int ipa3_uc_mhi_send_dl_ul_sync_info(union IpaHwMhiDlUlSyncCmdData_t cmd)
 {
 	int res;
 
-	if (!ipa_uc_mhi_ctx) {
+	if (!ipa3_uc_mhi_ctx) {
 		IPAERR("Not initialized\n");
 		return -EFAULT;
 	}
@@ -888,27 +888,27 @@ int ipa_uc_mhi_send_dl_ul_sync_info(union IpaHwMhiDlUlSyncCmdData_t cmd)
 	IPADBG("ulMsiEventThreshold=0x%x dlMsiEventThreshold=0x%x\n",
 		cmd.params.ulMsiEventThreshold, cmd.params.dlMsiEventThreshold);
 
-	ipa_inc_client_enable_clks();
+	ipa3_inc_client_enable_clks();
 
-	res = ipa_uc_send_cmd(cmd.raw32b,
+	res = ipa3_uc_send_cmd(cmd.raw32b,
 		IPA_CPU_2_HW_CMD_MHI_DL_UL_SYNC_INFO, 0, false, HZ);
 	if (res) {
-		IPAERR("ipa_uc_send_cmd failed %d\n", res);
+		IPAERR("ipa3_uc_send_cmd failed %d\n", res);
 		goto disable_clks;
 	}
 
 	res = 0;
 disable_clks:
-	ipa_dec_client_disable_clks();
+	ipa3_dec_client_disable_clks();
 	return res;
 }
 
-int ipa_uc_mhi_print_stats(char *dbg_buff, int size)
+int ipa3_uc_mhi_print_stats(char *dbg_buff, int size)
 {
 	int nBytes = 0;
 	int i;
 
-	if (!ipa_uc_mhi_ctx->mhi_uc_stats_mmio) {
+	if (!ipa3_uc_mhi_ctx->mhi_uc_stats_mmio) {
 		IPAERR("MHI uc stats is not valid\n");
 		return 0;
 	}
