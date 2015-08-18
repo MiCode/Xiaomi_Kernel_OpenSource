@@ -124,7 +124,7 @@ struct smbchg_chip {
 	bool				cfg_chg_led_sw_ctrl;
 	bool				vbat_above_headroom;
 	bool				force_aicl_rerun;
-	bool				enable_hvdcp_9v;
+	bool				hvdcp3_supported;
 	u8				original_usbin_allowance;
 	struct parallel_usb_cfg		parallel;
 	struct delayed_work		parallel_en_work;
@@ -3910,8 +3910,8 @@ static void smbchg_hvdcp_det_work(struct work_struct *work)
 	int rc;
 
 	if (is_hvdcp_present(chip)) {
-		if (chip->enable_hvdcp_9v
-				&& (chip->wa_flags & SMBCHG_HVDCP_9V_EN_WA)) {
+		if (!chip->hvdcp3_supported &&
+			(chip->wa_flags & SMBCHG_HVDCP_9V_EN_WA)) {
 			/* force HVDCP 2.0 */
 			rc = force_9v_hvdcp(chip);
 			if (rc)
@@ -4936,6 +4936,10 @@ static int smbchg_dp_dm(struct smbchg_chip *chip, int val)
 		if (!rc && chip->pulse_cnt)
 			chip->pulse_cnt--;
 		pr_smb(PR_MISC, "pulse_cnt = %d\n", chip->pulse_cnt);
+		break;
+	case POWER_SUPPLY_DP_DM_HVDCP3_SUPPORTED:
+		chip->hvdcp3_supported = true;
+		pr_smb(PR_MISC, "HVDCP3 supported\n");
 		break;
 	default:
 		break;
@@ -6468,8 +6472,6 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 					"qcom,low-volt-dcin");
 	chip->force_aicl_rerun = of_property_read_bool(node,
 					"qcom,force-aicl-rerun");
-	chip->enable_hvdcp_9v = of_property_read_bool(node,
-					"qcom,enable-hvdcp-9v");
 
 	/* parse the battery missing detection pin source */
 	rc = of_property_read_string(chip->spmi->dev.of_node,
