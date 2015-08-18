@@ -1365,14 +1365,18 @@ static int mdss_dsi_parse_reset_seq(struct device_node *np,
 
 static int mdss_dsi_gen_read_status(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
-	if (!mdss_dsi_cmp_panel_reg(ctrl_pdata->status_buf,
-		ctrl_pdata->status_value, 0)) {
-		pr_err("%s: Read back value from panel is incorrect\n",
-							__func__);
-		return -EINVAL;
-	} else {
-		return 1;
+	int i;
+
+	for (i = 0; i < ctrl_pdata->status_cmds_rlen; i++) {
+		if (!mdss_dsi_cmp_panel_reg(ctrl_pdata->status_buf,
+					ctrl_pdata->status_value, i)) {
+			pr_err("%s: Read back value from panel is incorrect\n",
+					__func__);
+			return -EINVAL;
+		}
 	}
+
+	return 1;
 }
 
 static int mdss_dsi_nt35596_read_status(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
