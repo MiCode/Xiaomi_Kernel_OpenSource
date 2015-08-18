@@ -1521,6 +1521,8 @@ int ipa3_disconnect(u32 clnt_hdl);
 
 int ipa3_stop_gsi_channel(u32 clnt_hdl);
 
+int ipa3_reset_gsi_channel(u32 clnt_hdl);
+
 /*
  * Resume / Suspend
  */
