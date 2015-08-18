@@ -1071,6 +1071,8 @@ int ipa3_add_flt_rule(struct ipa_ioc_add_flt_rule *rules)
 	int i;
 	int result;
 
+	return 0;
+
 	if (rules == NULL || rules->num_rules == 0 ||
 			rules->ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
@@ -1124,6 +1126,8 @@ int ipa3_del_flt_rule(struct ipa_ioc_del_flt_rule *hdls)
 	int i;
 	int result;
 
+	return 0;
+
 	if (hdls == NULL || hdls->num_hdls == 0 || hdls->ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
 		return -EINVAL;
@@ -1164,6 +1168,8 @@ int ipa3_mdfy_flt_rule(struct ipa_ioc_mdfy_flt_rule *hdls)
 {
 	int i;
 	int result;
+
+	return 0;
 
 	if (hdls == NULL || hdls->num_rules == 0 || hdls->ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
@@ -1207,6 +1213,8 @@ int ipa3_commit_flt(enum ipa_ip_type ip)
 {
 	int result;
 
+	return 0;
+
 	if (ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
 		return -EINVAL;
@@ -1243,6 +1251,8 @@ int ipa3_reset_flt(enum ipa_ip_type ip)
 	struct ipa3_flt_entry *next;
 	int i;
 	int id;
+
+	return 0;
 
 	if (ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
@@ -1314,6 +1324,8 @@ void ipa3_install_dflt_flt_rules(u32 ipa_ep_idx)
 	struct ipa3_ep_context *ep = &ipa3_ctx->ep[ipa_ep_idx];
 	struct ipa_flt_rule rule;
 
+	return;
+
 	memset(&rule, 0, sizeof(rule));
 
 	mutex_lock(&ipa3_ctx->lock);
@@ -1336,6 +1348,8 @@ void ipa3_install_dflt_flt_rules(u32 ipa_ep_idx)
 void ipa3_delete_dflt_flt_rules(u32 ipa_ep_idx)
 {
 	struct ipa3_ep_context *ep = &ipa3_ctx->ep[ipa_ep_idx];
+
+	return;
 
 	mutex_lock(&ipa3_ctx->lock);
 	if (ep->dflt_flt4_rule_hdl) {

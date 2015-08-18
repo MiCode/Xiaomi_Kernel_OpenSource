@@ -877,6 +877,8 @@ int ipa3_add_rt_rule(struct ipa_ioc_add_rt_rule *rules)
 	int i;
 	int ret;
 
+	return 0;
+
 	if (rules == NULL || rules->num_rules == 0 || rules->ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
 		return -EINVAL;
@@ -961,6 +963,8 @@ int ipa3_del_rt_rule(struct ipa_ioc_del_rt_rule *hdls)
 	int i;
 	int ret;
 
+	return 0;
+
 	if (hdls == NULL || hdls->num_hdls == 0 || hdls->ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
 		return -EINVAL;
@@ -1001,6 +1005,8 @@ EXPORT_SYMBOL(ipa3_del_rt_rule);
 int ipa3_commit_rt(enum ipa_ip_type ip)
 {
 	int ret;
+
+	return 0;
 
 	if (ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
@@ -1046,6 +1052,8 @@ int ipa3_reset_rt(enum ipa_ip_type ip)
 	struct ipa3_rt_tbl_set *rset;
 	u32 apps_start_idx;
 	int id;
+
+	return 0;
 
 	if (ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
@@ -1148,6 +1156,8 @@ int ipa3_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup)
 	struct ipa3_rt_tbl *entry;
 	int result = -EFAULT;
 
+	return 0;
+
 	if (lookup == NULL || lookup->ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
 		return -EINVAL;
@@ -1183,6 +1193,8 @@ int ipa3_put_rt_tbl(u32 rt_tbl_hdl)
 	struct ipa3_rt_tbl *entry;
 	enum ipa_ip_type ip = IPA_IP_MAX;
 	int result;
+
+	return 0;
 
 	mutex_lock(&ipa3_ctx->lock);
 	entry = ipa3_id_find(rt_tbl_hdl);
@@ -1275,6 +1287,8 @@ int ipa3_mdfy_rt_rule(struct ipa_ioc_mdfy_rt_rule *hdls)
 {
 	int i;
 	int result;
+
+	return 0;
 
 	if (hdls == NULL || hdls->num_rules == 0 || hdls->ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
