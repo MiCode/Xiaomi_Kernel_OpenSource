@@ -693,29 +693,6 @@ static void __set_registers(struct venus_hfi_device *device)
 	}
 }
 
-static int __core_start_cpu(struct venus_hfi_device *device)
-{
-	u32 ctrl_status = 0, count = 0, rc = 0;
-	int max_tries = 100;
-	__write_register(device, VIDC_WRAPPER_INTR_MASK,
-			VIDC_WRAPPER_INTR_MASK_A2HVCODEC_BMSK);
-
-	while (!ctrl_status && count < max_tries) {
-		ctrl_status = __read_register(device, VIDC_CPU_CS_SCIACMDARG0);
-		if ((ctrl_status & 0xFE) == 0x4) {
-			dprintk(VIDC_ERR, "invalid setting for UC_REGION\n");
-			break;
-		}
-
-		usleep_range(500, 1000);
-		count++;
-	}
-
-	if (count >= max_tries)
-		rc = -ETIME;
-	return rc;
-}
-
 static void __iommu_detach(struct venus_hfi_device *device)
 {
 	struct context_bank_info *cb;
@@ -1267,13 +1244,27 @@ static inline int __tzbsp_set_video_state(enum tzbsp_video_state state)
 	return 0;
 }
 
-static inline int __reset_core(struct venus_hfi_device *device)
+static inline int __boot_firmware(struct venus_hfi_device *device)
 {
 	int rc = 0;
+	u32 ctrl_status = 0, count = 0, max_tries = 100;
+
 	__write_register(device, VIDC_CTRL_INIT, 0x1);
-	rc = __core_start_cpu(device);
-	if (rc)
-		dprintk(VIDC_ERR, "Failed to start core\n");
+	while (!ctrl_status && count < max_tries) {
+		ctrl_status = __read_register(device, VIDC_CPU_CS_SCIACMDARG0);
+		if ((ctrl_status & 0xFE) == 0x4) {
+			dprintk(VIDC_ERR, "invalid setting for UC_REGION\n");
+			break;
+		}
+
+		usleep_range(500, 1000);
+		count++;
+	}
+
+	if (count >= max_tries) {
+		dprintk(VIDC_ERR, "Error booting up vidc firmware\n");
+		rc = -ETIME;
+	}
 	return rc;
 }
 
@@ -2137,8 +2128,6 @@ static int venus_hfi_core_init(void *device)
 
 	__set_state(dev, VENUS_STATE_INIT);
 
-	dev->intr_status = 0;
-
 	list_for_each_safe(ptr, next, &dev->sess_head) {
 		/* This means that session list is not empty. Kick stale
 		 * sessions out of our valid instance list, but keep the
@@ -2153,7 +2142,6 @@ static int venus_hfi_core_init(void *device)
 
 	__set_registers(dev);
 
-	enable_irq(dev->hal_data->irq);
 	if (!dev->hal_client) {
 		dev->hal_client = msm_smem_new_client(
 				SMEM_ION, dev->res, MSM_VIDC_UNKNOWN);
@@ -2179,8 +2167,7 @@ static int venus_hfi_core_init(void *device)
 		goto err_core_init;
 	}
 
-	__write_register(dev, VIDC_CTRL_INIT, 0x1);
-	rc = __core_start_cpu(dev);
+	rc = __boot_firmware(dev);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to start core\n");
 		rc = -ENODEV;
@@ -2206,7 +2193,6 @@ static int venus_hfi_core_init(void *device)
 	return rc;
 err_core_init:
 	__set_state(dev, VENUS_STATE_DEINIT);
-	disable_irq_nosync(dev->hal_data->irq);
 	__unload_fw(dev);
 err_load_fw:
 	mutex_unlock(&dev->lock);
@@ -2231,10 +2217,6 @@ static int __core_release(struct venus_hfi_device *device)
 			"Failed to unset and free imem in core release: %d\n",
 			rc);
 
-	if (!(device->intr_status & VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK))
-		disable_irq_nosync(device->hal_data->irq);
-
-	device->intr_status = 0;
 	__set_state(device, VENUS_STATE_DEINIT);
 
 	return rc;
@@ -4190,6 +4172,10 @@ static int __venus_power_on(struct venus_hfi_device *device)
 				"Failed to scale clocks, performance might be affected\n");
 		rc = 0;
 	}
+	__write_register(device, VIDC_WRAPPER_INTR_MASK,
+			VIDC_WRAPPER_INTR_MASK_A2HVCODEC_BMSK);
+	device->intr_status = 0;
+	enable_irq(device->hal_data->irq);
 
 	/* Hand off control of regulators to h/w _after_ enabling clocks */
 	if (__enable_hw_power_collapse(device))
@@ -4207,6 +4193,10 @@ fail_vote_buses:
 
 static void __venus_power_off(struct venus_hfi_device *device)
 {
+	if (!(device->intr_status & VIDC_WRAPPER_INTR_STATUS_A2HWD_BMSK))
+		disable_irq_nosync(device->hal_data->irq);
+	device->intr_status = 0;
+
 	/* Halt the AXI to make sure there are no pending transactions.
 	 * Clocks should be unprepared after making sure axi is halted.
 	 */
@@ -4325,7 +4315,7 @@ static inline int __resume(struct venus_hfi_device *device)
 		__write_register(device, VIDC_MMAP_ADDR,
 				(u32)device->qdss.align_device_addr);
 	/* Wait for boot completion */
-	rc = __reset_core(device);
+	rc = __boot_firmware(device);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to reset venus core\n");
 		goto err_reset_core;
