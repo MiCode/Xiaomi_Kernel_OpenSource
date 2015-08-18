@@ -1806,7 +1806,7 @@ void ms_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 	pr_err("%s:%d] VFE%d Handle Page fault! vfe_dev %p\n", __func__,
 		__LINE__,  vfe_dev->pdev->id, vfe_dev);
 
-	msm_isp_halt_send_error(vfe_dev);
+	msm_isp_halt_send_error(vfe_dev, ISP_EVENT_IOMMU_P_FAULT);
 
 	if (vfe_dev->buf_mgr->pagefault_debug_disable == 0) {
 		vfe_dev->buf_mgr->pagefault_debug_disable = 1;
