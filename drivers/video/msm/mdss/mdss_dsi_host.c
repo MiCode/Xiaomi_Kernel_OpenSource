@@ -401,6 +401,10 @@ void mdss_dsi_host_init(struct mdss_panel_data *pdata)
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x11c,
 					0x23f); /* DSI_CLK_CTRL */
 
+	/* Reset DSI_LANE_CTRL */
+	if (!ctrl_pdata->mmss_clamp)
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x00ac, 0x0);
+
 	dsi_ctrl |= BIT(0);	/* enable dsi */
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004, dsi_ctrl);
 
