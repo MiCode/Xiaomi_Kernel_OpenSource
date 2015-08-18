@@ -1281,6 +1281,8 @@ int __init cpu_clock_8996_early_init(void)
 	if (cpu_clocks_v3) {
 		pwrcl_alt_pll.offline_bit_workaround = false;
 		perfcl_alt_pll.offline_bit_workaround = false;
+		pwrcl_pll.pgm_test_ctl_enable = false;
+		perfcl_pll.pgm_test_ctl_enable = false;
 		pwrcl_pll.vals.config_ctl_val = 0x200d4828;
 		pwrcl_pll.vals.config_ctl_hi_val = 0x006;
 		perfcl_pll.vals.config_ctl_val = 0x200d4828;
