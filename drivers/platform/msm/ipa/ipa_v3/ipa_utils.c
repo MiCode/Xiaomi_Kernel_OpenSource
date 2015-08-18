@@ -581,6 +581,11 @@ int ipa3_cfg_route(struct ipa3_route *route)
 		route->route_def_hdr_ofst,
 		route->route_frag_def_pipe);
 
+	if (route->route_dis) {
+		IPAERR("Route disable is not supported!\n");
+		return -EPERM;
+	}
+
 	ipa3_inc_client_enable_clks();
 
 	ipa3_ctx->ctrl->ipa3_cfg_route(route);
@@ -599,16 +604,8 @@ int ipa3_cfg_route(struct ipa3_route *route)
  */
 int ipa3_cfg_filter(u32 disable)
 {
-	u32 ipa_filter_ofst = IPA_FILTER_OFST_v3_0;
-
-	ipa3_inc_client_enable_clks();
-	ipa_write_reg(ipa3_ctx->mmio, ipa_filter_ofst,
-			IPA_SETFIELD(!disable,
-					IPA_FILTER_FILTER_EN_SHFT,
-					IPA_FILTER_FILTER_EN_BMSK));
-	ipa3_dec_client_disable_clks();
-
-	return 0;
+	IPAERR("Filter disable is not supported!\n");
+	return -EPERM;
 }
 
 /**
