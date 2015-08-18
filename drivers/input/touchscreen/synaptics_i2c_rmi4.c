@@ -5,7 +5,7 @@
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
- * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1964,7 +1964,7 @@ static int synaptics_rmi4_probe(struct i2c_client *client,
 		}
 
 		gpio_set_value(platform_data->reset_gpio, 0);
-		usleep(RMI4_GPIO_SLEEP_LOW_US);
+		usleep_range(RMI4_GPIO_SLEEP_LOW_US, RMI4_GPIO_SLEEP_LOW_US+1);
 		gpio_set_value(platform_data->reset_gpio, 1);
 		msleep(RMI4_GPIO_WAIT_HIGH_MS);
 	}
@@ -1995,7 +1995,7 @@ static int synaptics_rmi4_probe(struct i2c_client *client,
 
 #ifdef TYPE_B_PROTOCOL
 	input_mt_init_slots(rmi4_data->input_dev,
-			rmi4_data->num_of_fingers);
+			rmi4_data->num_of_fingers, 0);
 #endif
 
 	i2c_set_clientdata(client, rmi4_data);
