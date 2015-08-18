@@ -166,6 +166,10 @@ config ARCH_MMAP_RND_COMPAT_BITS_MAX
 config NO_IOPORT_MAP
 	def_bool y if !PCI
 
+config ILLEGAL_POINTER_VALUE
+	hex
+	default 0xdead000000000000
+
 config STACKTRACE_SUPPORT
 	def_bool y
 
