@@ -36,9 +36,6 @@ static inline bool cpu_have_feature(unsigned int num)
 	return elf_hwcap & (1UL << num);
 }
 
-bool cpu_supports_mixed_endian_el0(void);
-bool system_supports_mixed_endian_el0(void);
-
 static inline bool cpus_have_cap(unsigned int num)
 {
 	if (num >= ARM64_NCAPS)
@@ -56,6 +53,9 @@ static inline void cpus_set_cap(unsigned int num)
 }
 
 void check_local_cpu_errata(void);
+
+bool cpu_supports_mixed_endian_el0(void);
+bool system_supports_mixed_endian_el0(void);
 
 #endif /* __ASSEMBLY__ */
 
