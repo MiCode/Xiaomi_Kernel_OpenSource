@@ -237,9 +237,6 @@ static int __bw_hwmon_sample_end(struct bw_hwmon *hwmon)
 				us,
 				wake);
 
-	dev_dbg(df->dev.parent, "MB/s: %5lu, us:%6d, wake: %d\n",
-		mbps, us, wake);
-
 	return wake;
 }
 
