@@ -1905,14 +1905,11 @@ begin:
 				status->status_opcode, status->endp_src_idx,
 				status->endp_dest_idx, status->pkt_len);
 
-		if (status->status_opcode !=
-			IPA_HW_STATUS_OPCODE_DROPPED_PACKET &&
-			status->status_opcode !=
-			IPA_HW_STATUS_OPCODE_PACKET &&
-			status->status_opcode !=
-			IPA_HW_STATUS_OPCODE_SUSPENDED_PACKET &&
-			status->status_opcode !=
-			IPA_HW_STATUS_OPCODE_XLAT_PACKET) {
+		if ((status->status_opcode &
+		    (IPA_HW_STATUS_OPCODE_DROPPED_PACKET |
+		    IPA_HW_STATUS_OPCODE_PACKET |
+		    IPA_HW_STATUS_OPCODE_SUSPENDED_PACKET |
+		    IPA_HW_STATUS_OPCODE_PACKET_2ND_PASS)) == 0) {
 			IPAERR("unsupported opcode(%d)\n",
 				status->status_opcode);
 			skb_pull(skb, IPA_PKT_STATUS_SIZE);
@@ -1931,7 +1928,7 @@ begin:
 			struct ipa_tag_completion *comp;
 
 			IPADBG("TAG packet arrived\n");
-			if (status->tag_f_2 == IPA_COOKIE) {
+			if (status->tag == IPA_COOKIE) {
 				skb_pull(skb, IPA_PKT_STATUS_SIZE);
 				if (skb->len < sizeof(comp)) {
 					IPAERR("TAG arrived without packet\n");
@@ -1964,7 +1961,8 @@ begin:
 			 * A packet which is received back to the AP after
 			 * there was no route match.
 			 */
-			if (!status->exception && !status->route_match)
+			if (!status->exception &&
+			    status->route_rule_id == IPA_RULE_ID_INVALID)
 				drop_packet = true;
 
 			if (skb->len == IPA_PKT_STATUS_SIZE &&
@@ -2145,12 +2143,10 @@ static int ipa_wan_rx_pyld_hdlr(struct sk_buff *skb,
 		IPADBG("STATUS opcode=%d src=%d dst=%d len=%d\n",
 				status->status_opcode, status->endp_src_idx,
 				status->endp_dest_idx, status->pkt_len);
-		if (status->status_opcode !=
-			IPA_HW_STATUS_OPCODE_DROPPED_PACKET &&
-			status->status_opcode !=
-			IPA_HW_STATUS_OPCODE_PACKET &&
-			status->status_opcode !=
-			IPA_HW_STATUS_OPCODE_XLAT_PACKET) {
+		if ((status->status_opcode &
+		    (IPA_HW_STATUS_OPCODE_DROPPED_PACKET |
+		    IPA_HW_STATUS_OPCODE_PACKET |
+		    IPA_HW_STATUS_OPCODE_PACKET_2ND_PASS)) == 0) {
 			IPAERR("unsupported opcode\n");
 			skb_pull(skb, IPA_PKT_STATUS_SIZE);
 			continue;
