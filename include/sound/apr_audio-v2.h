@@ -864,6 +864,12 @@ struct adm_cmd_connect_afe_port_v5 {
 #define AFE_PORT_ID_SECONDARY_PCM_TX        0x100D
 #define AFE_PORT_ID_MULTICHAN_HDMI_RX       0x100E
 #define AFE_PORT_ID_SECONDARY_MI2S_RX_SD1	0x1010
+#define AFE_PORT_ID_QUINARY_MI2S_RX		0x1016
+#define AFE_PORT_ID_QUINARY_MI2S_TX		0x1017
+/* ID of the senary MI2S Rx port. */
+#define AFE_PORT_ID_SENARY_MI2S_RX		0x1018
+/* ID of the senary MI2S Tx port. */
+#define AFE_PORT_ID_SENARY_MI2S_TX		0x1019
 #define AFE_PORT_ID_SPDIF_RX                0x5000
 #define  AFE_PORT_ID_RT_PROXY_PORT_001_RX   0x2000
 #define  AFE_PORT_ID_RT_PROXY_PORT_001_TX   0x2001
@@ -7412,6 +7418,7 @@ struct afe_param_id_clip_bank_sel {
 
 /* Supported OSR clock values */
 #define Q6AFE_LPASS_OSR_CLK_12_P288_MHZ		0xBB8000
+#define Q6AFE_LPASS_OSR_CLK_9_P600_MHZ		0x927C00
 #define Q6AFE_LPASS_OSR_CLK_8_P192_MHZ		0x7D0000
 #define Q6AFE_LPASS_OSR_CLK_6_P144_MHZ		0x5DC000
 #define Q6AFE_LPASS_OSR_CLK_4_P096_MHZ		0x3E8000
@@ -7473,6 +7480,15 @@ enum afe_lpass_clk_mode {
 #define Q6AFE_LPASS_CLK_ID_SPEAKER_I2S_EBIT                       0x109
 /* Clock ID for Speaker I2S OSR */
 #define Q6AFE_LPASS_CLK_ID_SPEAKER_I2S_OSR                        0x10A
+
+/* Clock ID for QUINARY  I2S IBIT */
+#define Q6AFE_LPASS_CLK_ID_QUI_MI2S_IBIT			0x10B
+/* Clock ID for QUINARY  I2S EBIT */
+#define Q6AFE_LPASS_CLK_ID_QUI_MI2S_EBIT			0x10C
+/* Clock ID for SENARY  I2S IBIT */
+#define Q6AFE_LPASS_CLK_ID_SEN_MI2S_IBIT			0x10D
+/* Clock ID for SENARY  I2S EBIT */
+#define Q6AFE_LPASS_CLK_ID_SEN_MI2S_EBIT			0x10E
 
 /* Clock ID for Primary PCM IBIT */
 #define Q6AFE_LPASS_CLK_ID_PRI_PCM_IBIT                           0x200
