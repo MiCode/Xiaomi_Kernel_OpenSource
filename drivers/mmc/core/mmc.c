@@ -1212,6 +1212,7 @@ out:
 int mmc_set_clock_bus_speed(struct mmc_card *card, unsigned long freq)
 {
 	int err;
+	struct mmc_host *host = card->host;
 
 	if (freq < MMC_HS400_MAX_DTR) {
 		/*
@@ -1221,8 +1222,16 @@ int mmc_set_clock_bus_speed(struct mmc_card *card, unsigned long freq)
 		mmc_set_timing(card->host, MMC_TIMING_LEGACY);
 		mmc_set_clock(card->host, MMC_HIGH_26_MAX_DTR);
 
-		err = mmc_select_hs(card, card->cached_ext_csd);
+		if (host->clk_scaling.lower_bus_speed_mode &
+				MMC_SCALING_LOWER_DDR52_MODE)
+			err = mmc_select_hsddr(card, card->cached_ext_csd);
+		else
+			err = mmc_select_hs(card, card->cached_ext_csd);
 	} else {
+		if (mmc_card_ddr_mode(card)) {
+			mmc_set_timing(card->host, MMC_TIMING_LEGACY);
+			mmc_set_clock(card->host, MMC_HIGH_26_MAX_DTR);
+		}
 		err = mmc_select_hs400(card, card->cached_ext_csd);
 	}
 
