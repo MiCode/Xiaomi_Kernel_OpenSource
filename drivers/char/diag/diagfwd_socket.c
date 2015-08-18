@@ -917,8 +917,10 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 	err = wait_event_interruptible(info->read_wait_q,
 				      (info->data_ready > 0) || (!info->hdl) ||
 				      (atomic_read(&info->diag_state) == 0));
-	if (err)
+	if (err) {
+		diagfwd_channel_read_done(info->fwd_ctxt, buf, 0);
 		return -ERESTARTSYS;
+	}
 
 	/*
 	 * There is no need to continue reading over peripheral in this case.
