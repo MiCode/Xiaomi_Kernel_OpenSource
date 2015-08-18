@@ -354,8 +354,6 @@ struct IpaHwEventLogInfoData_t *uc_event_top_mmio)
 		IPAERR("fail to ioremap uc wdi stats\n");
 		return;
 	}
-
-	return;
 }
 
 static void ipa_uc_wdi_event_handler(struct IpaHwSharedMemCommonMapping_t

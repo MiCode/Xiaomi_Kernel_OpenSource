@@ -226,7 +226,9 @@ static ssize_t ipa_mhi_debugfs_uc_stats(struct file *file,
 	loff_t *ppos)
 {
 	int nbytes = 0;
+
 	nbytes += ipa_uc_mhi_print_stats(dbg_buff, IPA_MHI_MAX_MSG_LEN);
+
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
 
@@ -762,7 +764,7 @@ static int ipa_mhi_disable_force_clear(u32 request_id)
  * @msecs: timeout to wait
  *
  * This function will poll until there are no packets pending in uplink channels
- * or timeout occured.
+ * or timeout occurred.
  *
  * Return code: true - no pending packets in uplink channels
  *		false - timeout occurred

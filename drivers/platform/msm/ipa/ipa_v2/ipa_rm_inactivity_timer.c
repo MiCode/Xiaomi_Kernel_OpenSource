@@ -191,6 +191,7 @@ int ipa_rm_inactivity_timer_request_resource(
 {
 	int ret;
 	unsigned long flags;
+
 	IPADBG("%s: resource %d\n", __func__, resource_name);
 
 	if (resource_name < 0 ||
@@ -209,6 +210,7 @@ int ipa_rm_inactivity_timer_request_resource(
 	spin_unlock_irqrestore(&ipa_rm_it_handles[resource_name].lock, flags);
 	ret = ipa_rm_request_resource(resource_name);
 	IPADBG("%s: resource %d: returning %d\n", __func__, resource_name, ret);
+
 	return ret;
 }
 EXPORT_SYMBOL(ipa_rm_inactivity_timer_request_resource);
@@ -232,6 +234,7 @@ int ipa_rm_inactivity_timer_release_resource(
 				enum ipa_rm_resource_name resource_name)
 {
 	unsigned long flags;
+
 	IPADBG("%s: resource %d\n", __func__, resource_name);
 
 	if (resource_name < 0 ||

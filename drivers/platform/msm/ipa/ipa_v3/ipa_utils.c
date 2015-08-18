@@ -3592,6 +3592,7 @@ void ipa_controller_shared_static_bind(struct ipa_controller *ctrl)
 	ctrl->ipa_init_flt4 = _ipa_init_flt4_v3;
 	ctrl->ipa_init_flt6 = _ipa_init_flt6_v3;
 	ctrl->ipa_cfg_ep_hdr = _ipa_cfg_ep_hdr_v3_0;
+	ctrl->ipa_cfg_ep_hdr_ext = _ipa_cfg_ep_hdr_ext_v3_0;
 	ctrl->ipa_cfg_ep_nat = _ipa_cfg_ep_nat_v3_0;
 	ctrl->ipa_cfg_ep_aggr = _ipa_cfg_ep_aggr_v3_0;
 	ctrl->ipa_cfg_ep_deaggr = _ipa_cfg_ep_deaggr_v3_0;
@@ -3600,7 +3601,7 @@ void ipa_controller_shared_static_bind(struct ipa_controller *ctrl)
 	ctrl->ipa_cfg_route = _ipa_cfg_route_v3_0;
 	ctrl->ipa_cfg_ep_status = _ipa_cfg_ep_status_v3_0;
 	ctrl->ipa_cfg_ep_cfg = _ipa_cfg_ep_cfg_v3_0;
-	ctrl->ipa_cfg_ep_metadata_mask = _ipa_cfg_ep_metadata_mask_v2_0;
+	ctrl->ipa_cfg_ep_metadata_mask = _ipa_cfg_ep_metadata_mask_v3_0;
 	ctrl->ipa_clk_rate_turbo = IPA_V3_0_CLK_RATE_TURBO;
 	ctrl->ipa_clk_rate_nominal = IPA_V3_0_CLK_RATE_NOMINAL;
 	ctrl->ipa_clk_rate_svs = IPA_V3_0_CLK_RATE_SVS;
@@ -3610,7 +3611,7 @@ void ipa_controller_shared_static_bind(struct ipa_controller *ctrl)
 	ctrl->ipa_read_dbg_cnt = _ipa_read_dbg_cnt_v3_0;
 	ctrl->ipa_commit_flt = __ipa_commit_flt_v3;
 	ctrl->ipa_commit_rt = __ipa_commit_rt_v3;
-	ctrl->ipa_commit_hdr = __ipa_commit_hdr_v3;
+	ctrl->ipa_commit_hdr = __ipa_commit_hdr_v3_0;
 	ctrl->ipa_enable_clks = _ipa_enable_clks_v3_0;
 	ctrl->ipa_disable_clks = _ipa_disable_clks_v3_0;
 	ctrl->msm_bus_data_ptr = &ipa_bus_client_pdata_v3_0;

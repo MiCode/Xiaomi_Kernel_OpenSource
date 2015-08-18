@@ -510,6 +510,7 @@ static void ipa_uc_mhi_event_hdlr(struct IpaHwSharedMemCommonMapping_t
 	if (ipa_ctx->uc_ctx.uc_sram_mmio->eventOp ==
 	    IPA_HW_2_CPU_EVENT_MHI_CHANNEL_ERROR) {
 		union IpaHwMhiChannelErrorEventData_t evt;
+
 		IPAERR("Channel error\n");
 		evt.raw32b = uc_sram_mmio->eventParams;
 		IPAERR("errorType=%d channelHandle=%d reserved=%d\n",
@@ -518,6 +519,7 @@ static void ipa_uc_mhi_event_hdlr(struct IpaHwSharedMemCommonMapping_t
 	} else if (ipa_ctx->uc_ctx.uc_sram_mmio->eventOp ==
 		   IPA_HW_2_CPU_EVENT_MHI_CHANNEL_WAKE_UP_REQUEST) {
 		union IpaHwMhiChannelWakeupEventData_t evt;
+
 		IPADBG("WakeUp channel request\n");
 		evt.raw32b = uc_sram_mmio->eventParams;
 		IPADBG("channelHandle=%d reserved=%d\n",
@@ -567,8 +569,6 @@ static void ipa_uc_mhi_event_log_info_hdlr(
 		IPAERR("fail to ioremap uc mhi stats\n");
 		return;
 	}
-
-	return;
 }
 
 int ipa_uc_mhi_init(void (*ready_cb)(void), void (*wakeup_request_cb)(void))
