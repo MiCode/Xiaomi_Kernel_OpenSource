@@ -488,6 +488,15 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 	pipe->blend_op = layer->blend_op;
 	pipe->async_update = (layer->flags & MDP_LAYER_ASYNC) ? true : false;
 
+	if (mixer->ctl) {
+		pipe->dst.x += mixer->ctl->border_x_off;
+		pipe->dst.y += mixer->ctl->border_y_off;
+	}
+	pr_debug("src{%d,%d,%d,%d}, dst{%d,%d,%d,%d}, border{%d,%d}\n",
+		pipe->src.x, pipe->src.y, pipe->src.w, pipe->src.h,
+		pipe->dst.x, pipe->dst.y, pipe->dst.w, pipe->dst.h,
+		mixer->ctl->border_x_off, mixer->ctl->border_y_off);
+
 	flags = pipe->flags;
 	if (is_single_layer)
 		flags |= PERF_CALC_PIPE_SINGLE_LAYER;
