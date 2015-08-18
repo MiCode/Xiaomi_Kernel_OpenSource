@@ -315,6 +315,71 @@ out:
 	return;
 }
 
+static int ufsdbg_err_inj_scenario_read(struct seq_file *file, void *data)
+{
+	struct ufs_hba *hba = (struct ufs_hba *)file->private;
+	enum ufsdbg_err_inject_scenario err_case;
+
+	if (!hba)
+		return -EINVAL;
+
+	seq_printf(file, "%-40s %-17s %-15s\n",
+		   "Error Scenario:", "Bit[#]", "STATUS");
+
+	for (err_case = ERR_INJECT_INTR;
+		err_case < ERR_INJECT_MAX_ERR_SCENARIOS; err_case++) {
+		seq_printf(file, "%-40s 0x%-15lx %-15s\n",
+			   err_scen_arr[err_case].name,
+			   UFS_BIT(err_case),
+			   hba->debugfs_files.err_inj_scenario_mask &
+				UFS_BIT(err_case) ? "ENABLE" : "DISABLE");
+	}
+
+	seq_printf(file, "bitwise of error scenario is 0x%x\n\n",
+		   hba->debugfs_files.err_inj_scenario_mask);
+
+	seq_puts(file, "usage example:\n");
+	seq_puts(file, "echo 0x4 > /sys/kernel/debug/.../err_inj_scenario\n");
+	seq_puts(file, "in order to enable ERR_INJECT_INTR\n");
+
+	return 0;
+}
+
+static
+int ufsdbg_err_inj_scenario_open(struct inode *inode, struct file *file)
+{
+	return single_open(file,
+			ufsdbg_err_inj_scenario_read, inode->i_private);
+}
+
+static ssize_t ufsdbg_err_inj_scenario_write(struct file *file,
+				     const char __user *ubuf, size_t cnt,
+				     loff_t *ppos)
+{
+	struct ufs_hba *hba = file->f_mapping->host->i_private;
+	int ret;
+	int err_scen = 0;
+
+	if (!hba)
+		return -EINVAL;
+
+	ret = kstrtoint_from_user(ubuf, cnt, 0, &err_scen);
+	if (ret) {
+		dev_err(hba->dev, "%s: Invalid argument\n", __func__);
+		return ret;
+	}
+
+	hba->debugfs_files.err_inj_scenario_mask |= err_scen;
+
+	return cnt;
+}
+
+static const struct file_operations ufsdbg_err_inj_scenario_ops = {
+	.open		= ufsdbg_err_inj_scenario_open,
+	.read		= seq_read,
+	.write		= ufsdbg_err_inj_scenario_write,
+};
+
 static int ufsdbg_err_inj_stats_read(struct seq_file *file, void *data)
 {
 	enum ufsdbg_err_inject_scenario err;
@@ -379,10 +444,10 @@ static void ufsdbg_setup_fault_injection(struct ufs_hba *hba)
 	}
 
 	hba->debugfs_files.err_inj_scenario =
-		debugfs_create_u32("err_inj_scenario",
+		debugfs_create_file("err_inj_scenario",
 				   S_IRUGO | S_IWUGO,
-				   hba->debugfs_files.debugfs_root,
-				   &hba->debugfs_files.err_inj_scenario_mask);
+				   hba->debugfs_files.debugfs_root, hba,
+				   &ufsdbg_err_inj_scenario_ops);
 
 	if (!hba->debugfs_files.err_inj_scenario) {
 		dev_err(hba->dev,
