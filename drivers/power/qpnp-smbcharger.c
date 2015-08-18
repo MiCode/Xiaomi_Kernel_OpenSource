@@ -77,6 +77,18 @@ struct ilim_map {
 	struct ilim_entry	*entries;
 };
 
+struct smbchg_version_tables {
+	const int			*dc_ilim_ma_table;
+	int				dc_ilim_ma_len;
+	const int			*usb_ilim_ma_table;
+	int				usb_ilim_ma_len;
+	const int			*iterm_ma_table;
+	int				iterm_ma_len;
+	const int			*fcc_comp_table;
+	int				fcc_comp_len;
+	int				rchg_thr_mv;
+};
+
 struct smbchg_chip {
 	struct device			*dev;
 	struct spmi_device		*spmi;
@@ -129,6 +141,7 @@ struct smbchg_chip {
 	struct parallel_usb_cfg		parallel;
 	struct delayed_work		parallel_en_work;
 	struct dentry			*debug_root;
+	struct smbchg_version_tables	tables;
 
 	/* wipower params */
 	struct ilim_map			wipower_default;
@@ -958,7 +971,46 @@ static int get_prop_batt_health(struct smbchg_chip *chip)
 		return POWER_SUPPLY_HEALTH_GOOD;
 }
 
-static const int usb_current_table[] = {
+/*
+ * finds the index of the closest value in the array. If there are two that
+ * are equally close, the lower index will be returned
+ */
+static int find_closest_in_array(const int *arr, int len, int val)
+{
+	int i, closest = 0;
+
+	if (len == 0)
+		return closest;
+	for (i = 0; i < len; i++)
+		if (abs(val - arr[i]) < abs(val - closest))
+			closest = i;
+
+	return closest;
+}
+
+static const int iterm_ma_table_8994[] = {
+	300,
+	50,
+	100,
+	150,
+	200,
+	250,
+	500,
+	600
+};
+
+static const int iterm_ma_table_8996[] = {
+	300,
+	50,
+	100,
+	150,
+	200,
+	250,
+	400,
+	500
+};
+
+static const int usb_ilim_ma_table_8994[] = {
 	300,
 	400,
 	450,
@@ -993,7 +1045,42 @@ static const int usb_current_table[] = {
 	3000
 };
 
-static const int dc_current_table[] = {
+static const int usb_ilim_ma_table_8996[] = {
+	300,
+	400,
+	500,
+	600,
+	700,
+	800,
+	900,
+	1000,
+	1100,
+	1200,
+	1300,
+	1400,
+	1450,
+	1500,
+	1550,
+	1600,
+	1700,
+	1800,
+	1900,
+	1950,
+	2000,
+	2050,
+	2100,
+	2200,
+	2300,
+	2400,
+	2500,
+	2600,
+	2700,
+	2800,
+	2900,
+	3000
+};
+
+static int dc_ilim_ma_table_8994[] = {
 	300,
 	400,
 	450,
@@ -1022,12 +1109,74 @@ static const int dc_current_table[] = {
 	2000,
 };
 
-static const int fcc_comp_table[] = {
+static int dc_ilim_ma_table_8996[] = {
+	300,
+	400,
+	500,
+	600,
+	700,
+	800,
+	900,
+	1000,
+	1100,
+	1200,
+	1300,
+	1400,
+	1450,
+	1500,
+	1550,
+	1600,
+	1700,
+	1800,
+	1900,
+	1950,
+	2000,
+	2050,
+	2100,
+	2200,
+	2300,
+	2400,
+};
+
+static const int fcc_comp_table_8994[] = {
 	250,
 	700,
 	900,
 	1200,
 };
+
+static const int fcc_comp_table_8996[] = {
+	250,
+	1100,
+	1200,
+	1500,
+};
+
+static void use_pmi8994_tables(struct smbchg_chip *chip)
+{
+	chip->tables.usb_ilim_ma_table = usb_ilim_ma_table_8994;
+	chip->tables.usb_ilim_ma_len = ARRAY_SIZE(usb_ilim_ma_table_8994);
+	chip->tables.dc_ilim_ma_table = dc_ilim_ma_table_8994;
+	chip->tables.dc_ilim_ma_len = ARRAY_SIZE(dc_ilim_ma_table_8994);
+	chip->tables.iterm_ma_table = iterm_ma_table_8994;
+	chip->tables.iterm_ma_len = ARRAY_SIZE(iterm_ma_table_8994);
+	chip->tables.fcc_comp_table = fcc_comp_table_8994;
+	chip->tables.fcc_comp_len = ARRAY_SIZE(fcc_comp_table_8994);
+	chip->tables.rchg_thr_mv = 200;
+}
+
+static void use_pmi8996_tables(struct smbchg_chip *chip)
+{
+	chip->tables.usb_ilim_ma_table = usb_ilim_ma_table_8996;
+	chip->tables.usb_ilim_ma_len = ARRAY_SIZE(usb_ilim_ma_table_8996);
+	chip->tables.dc_ilim_ma_table = dc_ilim_ma_table_8996;
+	chip->tables.dc_ilim_ma_len = ARRAY_SIZE(dc_ilim_ma_table_8996);
+	chip->tables.iterm_ma_table = iterm_ma_table_8996;
+	chip->tables.iterm_ma_len = ARRAY_SIZE(iterm_ma_table_8996);
+	chip->tables.fcc_comp_table = fcc_comp_table_8996;
+	chip->tables.fcc_comp_len = ARRAY_SIZE(fcc_comp_table_8996);
+	chip->tables.rchg_thr_mv = 150;
+}
 
 static int calc_thermal_limited_current(struct smbchg_chip *chip,
 						int current_ma)
@@ -1100,8 +1249,8 @@ static int smbchg_set_dc_current_max(struct smbchg_chip *chip, int current_ma)
 	int i;
 	u8 dc_cur_val;
 
-	for (i = ARRAY_SIZE(dc_current_table) - 1; i >= 0; i--) {
-		if (current_ma >= dc_current_table[i])
+	for (i = chip->tables.dc_ilim_ma_len - 1; i >= 0; i--) {
+		if (current_ma >= chip->tables.dc_ilim_ma_table[i])
 			break;
 	}
 
@@ -1111,7 +1260,7 @@ static int smbchg_set_dc_current_max(struct smbchg_chip *chip, int current_ma)
 		return -EINVAL;
 	}
 
-	chip->dc_max_current_ma = dc_current_table[i];
+	chip->dc_max_current_ma = chip->tables.dc_ilim_ma_table[i];
 	dc_cur_val = i & DCIN_INPUT_MASK;
 
 	pr_smb(PR_STATUS, "dc current set to %d mA\n",
@@ -1347,8 +1496,8 @@ static int smbchg_set_high_usb_chg_current(struct smbchg_chip *chip,
 	int i, rc;
 	u8 usb_cur_val;
 
-	for (i = ARRAY_SIZE(usb_current_table) - 1; i >= 0; i--) {
-		if (current_ma >= usb_current_table[i])
+	for (i = chip->tables.usb_ilim_ma_len - 1; i >= 0; i--) {
+		if (current_ma >= chip->tables.usb_ilim_ma_table[i])
 			break;
 	}
 	if (i < 0) {
@@ -1382,7 +1531,7 @@ static int smbchg_set_high_usb_chg_current(struct smbchg_chip *chip,
 				USBIN_MODE_CHG_BIT, USBIN_HC_MODE);
 	if (rc < 0)
 		dev_err(chip->dev, "Couldn't write cfg 5 rc = %d\n", rc);
-	chip->usb_max_current_ma = usb_current_table[i];
+	chip->usb_max_current_ma = chip->tables.usb_ilim_ma_table[i];
 	return rc;
 }
 
@@ -1652,8 +1801,8 @@ static int smbchg_set_fastchg_current_raw(struct smbchg_chip *chip,
 	u8 cur_val;
 
 	/* the fcc enumerations are the same as the usb currents */
-	for (i = ARRAY_SIZE(usb_current_table) - 1; i >= 0; i--) {
-		if (current_ma >= usb_current_table[i])
+	for (i = chip->tables.usb_ilim_ma_len - 1; i >= 0; i--) {
+		if (current_ma >= chip->tables.usb_ilim_ma_table[i])
 			break;
 	}
 	if (i < 0) {
@@ -1680,9 +1829,9 @@ static int smbchg_set_fastchg_current_raw(struct smbchg_chip *chip,
 		return rc;
 	}
 	pr_smb(PR_STATUS, "fastcharge current requested %d, set to %d\n",
-			current_ma, usb_current_table[cur_val]);
+			current_ma, chip->tables.usb_ilim_ma_table[cur_val]);
 
-	chip->fastchg_current_ma = usb_current_table[cur_val];
+	chip->fastchg_current_ma = chip->tables.usb_ilim_ma_table[cur_val];
 	return rc;
 }
 
@@ -1874,11 +2023,11 @@ static int smbchg_get_aicl_level_ma(struct smbchg_chip *chip)
 		return 0;
 	}
 	reg &= ICL_STS_MASK;
-	if (reg >= ARRAY_SIZE(usb_current_table)) {
+	if (reg >= chip->tables.usb_ilim_ma_len) {
 		pr_warn("invalid AICL value: %02x\n", reg);
 		return 0;
 	}
-	return usb_current_table[reg];
+	return chip->tables.usb_ilim_ma_table[reg];
 }
 
 #define PARALLEL_CHG_THRESHOLD_CURRENT	1800
@@ -2092,35 +2241,6 @@ static struct ilim_entry *smbchg_wipower_find_entry(struct smbchg_chip *chip,
 	return ret;
 }
 
-static int ilim_ma_table[] = {
-	300,
-	400,
-	450,
-	475,
-	500,
-	550,
-	600,
-	650,
-	700,
-	900,
-	950,
-	1000,
-	1100,
-	1200,
-	1400,
-	1450,
-	1500,
-	1600,
-	1800,
-	1850,
-	1880,
-	1910,
-	1930,
-	1950,
-	1970,
-	2000,
-};
-
 #define ZIN_ICL_PT	0xFC
 #define ZIN_ICL_LV	0xFD
 #define ZIN_ICL_HV	0xFE
@@ -2129,8 +2249,8 @@ static int smbchg_dcin_ilim_config(struct smbchg_chip *chip, int offset, int ma)
 {
 	int i, rc;
 
-	for (i = ARRAY_SIZE(ilim_ma_table) - 1; i >= 0; i--) {
-		if (ma >= ilim_ma_table[i])
+	for (i = chip->tables.dc_ilim_ma_len - 1; i >= 0; i--) {
+		if (ma >= chip->tables.dc_ilim_ma_table[i])
 			break;
 	}
 
@@ -2554,11 +2674,11 @@ static int smbchg_fastchg_current_comp_set(struct smbchg_chip *chip,
 	int rc;
 	u8 i;
 
-	for (i = 0; i < ARRAY_SIZE(fcc_comp_table); i++)
-		if (comp_current == fcc_comp_table[i])
+	for (i = 0; i < chip->tables.fcc_comp_len; i++)
+		if (comp_current == chip->tables.fcc_comp_table[i])
 			break;
 
-	if (i >= ARRAY_SIZE(fcc_comp_table))
+	if (i >= chip->tables.fcc_comp_len)
 		return -EINVAL;
 
 	rc = smbchg_sec_masked_write(chip, chip->chgr_base + FCC_CMP_CFG,
@@ -5379,7 +5499,7 @@ static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 			if (rc)
 				pr_err("could not disable charger: %d", rc);
 		} else if ((chip->aicl_deglitch_short || chip->force_aicl_rerun)
-			&& aicl_level == usb_current_table[0]) {
+			&& aicl_level == chip->tables.usb_ilim_ma_table[0]) {
 			rc = smbchg_hw_aicl_rerun_en(chip, false);
 			if (rc)
 				pr_err("could not enable aicl reruns: %d", rc);
@@ -5841,22 +5961,10 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 			dev_err(chip->dev, "Error: Both iterm_disabled and iterm_ma set\n");
 			return -EINVAL;
 		} else {
-			if (chip->iterm_ma <= 50)
-				reg = CHG_ITERM_50MA;
-			else if (chip->iterm_ma <= 100)
-				reg = CHG_ITERM_100MA;
-			else if (chip->iterm_ma <= 150)
-				reg = CHG_ITERM_150MA;
-			else if (chip->iterm_ma <= 200)
-				reg = CHG_ITERM_200MA;
-			else if (chip->iterm_ma <= 250)
-				reg = CHG_ITERM_250MA;
-			else if (chip->iterm_ma <= 300)
-				reg = CHG_ITERM_300MA;
-			else if (chip->iterm_ma <= 500)
-				reg = CHG_ITERM_500MA;
-			else
-				reg = CHG_ITERM_600MA;
+			reg = find_closest_in_array(
+					chip->tables.iterm_ma_table,
+					chip->tables.iterm_ma_len,
+					chip->iterm_ma);
 
 			rc = smbchg_sec_masked_write(chip,
 					chip->chgr_base + CFG_TCC_REG,
@@ -5983,7 +6091,9 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 
 		rc = smbchg_sec_masked_write(chip,
 				chip->chgr_base + CHGR_CFG,
-				RCHG_LVL_BIT, (chip->resume_delta_mv < 200)
+				RCHG_LVL_BIT,
+				(chip->resume_delta_mv
+				 < chip->tables.rchg_thr_mv)
 				? 0 : RCHG_LVL_BIT);
 		if (rc < 0) {
 			dev_err(chip->dev, "Couldn't set recharge rc = %d\n",
@@ -6065,7 +6175,6 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 static struct of_device_id smbchg_match_table[] = {
 	{
 		.compatible     = "qcom,qpnp-smbcharger",
-		.data           = (void *)ARRAY_SIZE(usb_current_table),
 	},
 	{ },
 };
@@ -6692,7 +6801,7 @@ static int create_debugfs_entries(struct smbchg_chip *chip)
 	return 0;
 }
 
-static int smbchg_wa_config(struct smbchg_chip *chip)
+static int smbchg_check_chg_version(struct smbchg_chip *chip)
 {
 	struct pmic_revid_data *pmic_rev_id;
 	struct device_node *revid_dev_node;
@@ -6716,6 +6825,8 @@ static int smbchg_wa_config(struct smbchg_chip *chip)
 	switch (pmic_rev_id->pmic_subtype) {
 	case PMI8994:
 		chip->wa_flags |= SMBCHG_AICL_DEGLITCH_WA;
+		use_pmi8994_tables(chip);
+		chip->schg_version = QPNP_SCHG;
 		break;
 	case PMI8950:
 		if (pmic_rev_id->rev4 < 2) /* PMI8950 1.0 */ {
@@ -6724,52 +6835,22 @@ static int smbchg_wa_config(struct smbchg_chip *chip)
 			chip->wa_flags |= SMBCHG_HVDCP_9V_EN_WA
 					| SMBCHG_USB100_WA;
 		}
+		use_pmi8994_tables(chip);
+		chip->schg_version = QPNP_SCHG_LITE;
 		break;
 	case PMI8996:
+		use_pmi8996_tables(chip);
+		chip->schg_version = QPNP_SCHG;
 		break;
 	default:
 		pr_err("PMIC subtype %d not supported, WA flags not set\n",
 				pmic_rev_id->pmic_subtype);
 	}
 
-	pr_debug("wa_flags=0x%x\n", chip->wa_flags);
+	pr_smb(PR_STATUS, "pmic=%s, wa_flags=0x%x\n",
+			pmic_rev_id->pmic_name, chip->wa_flags);
 
 	return 0;
-}
-
-static int smbchg_check_chg_version(struct smbchg_chip *chip)
-{
-	int rc;
-	u8 val = 0;
-
-	if (!chip->chgr_base) {
-		pr_err("CHG base not specifed, unable to detect chg\n");
-		return -EINVAL;
-	}
-
-	rc = smbchg_read(chip, &val, chip->chgr_base + SUBTYPE_REG, 1);
-	if (rc) {
-		pr_err("unable to read subtype reg rc=%d\n", rc);
-		return rc;
-	}
-
-	switch (val) {
-	case SMBCHG_CHGR_SUBTYPE:
-		chip->schg_version = QPNP_SCHG;
-		break;
-	case SMBCHG_LITE_CHGR_SUBTYPE:
-		chip->schg_version = QPNP_SCHG_LITE;
-		break;
-	default:
-		pr_err("Invalid charger subtype=%x\n", val);
-		break;
-	}
-
-	rc = smbchg_wa_config(chip);
-	if (rc != -EPROBE_DEFER)
-		pr_err("Charger WA flags not configured rc=%d\n", rc);
-
-	return rc;
 }
 
 static int smbchg_probe(struct spmi_device *spmi)
