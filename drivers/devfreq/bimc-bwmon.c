@@ -305,7 +305,8 @@ static int resume_bw_hwmon(struct bw_hwmon *hw)
 	int ret;
 
 	mon_clear(m);
-	ret = request_threaded_irq(m->irq, NULL, bwmon_intr_handler,
+	ret = request_threaded_irq(m->irq, bwmon_intr_handler,
+				  bwmon_intr_thread,
 				  IRQF_ONESHOT | IRQF_SHARED,
 				  dev_name(m->dev), m);
 	if (ret) {
