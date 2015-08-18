@@ -121,6 +121,11 @@
 		qcom,mdss-dsi-panel-timings = [e7 36 24 00 66 6a 2a 3a 2d 03 04 00];
 		qcom,mdss-dsi-t-clk-post = <0x03>;
 		qcom,mdss-dsi-t-clk-pre = <0x2b>;
+		qcom,mdss-dsi-panel-status-check-mode = "reg_read";
+		qcom,mdss-dsi-panel-status-command = [06 01 00 01 05 00 02 09 00];
+		qcom,mdss-dsi-panel-status-command-state = "dsi_lp_mode";
+		qcom,mdss-dsi-panel-status-read-length = <3>;
+		qcom,mdss-dsi-panel-status-value = <0xe0 0x73 0x04>;
 		qcom,mdss-dsi-bl-min-level = <1>;
 		qcom,mdss-dsi-bl-max-level = <4095>;
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";

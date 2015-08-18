@@ -208,6 +208,7 @@
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,esd-check-enabled;
 };
 
 &pmx_mdss {
