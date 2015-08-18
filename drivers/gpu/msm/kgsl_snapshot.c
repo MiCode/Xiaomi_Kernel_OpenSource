@@ -313,6 +313,13 @@ int kgsl_snapshot_get_object(struct kgsl_snapshot *snapshot,
 		goto err_put;
 	}
 
+	/* Do not save sparse memory */
+	if (entry->memdesc.flags & KGSL_MEMFLAGS_SPARSE_VIRT ||
+			entry->memdesc.flags & KGSL_MEMFLAGS_SPARSE_PHYS) {
+		ret = 0;
+		goto err_put;
+	}
+
 	/*
 	 * size indicates the number of bytes in the region to save. This might
 	 * not always be the entire size of the region because some buffers are

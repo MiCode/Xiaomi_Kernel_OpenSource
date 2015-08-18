@@ -78,6 +78,16 @@ struct kgsl_dma_buf_meta {
 	struct sg_table *table;
 };
 
+static inline struct kgsl_pagetable *_get_memdesc_pagetable(
+		struct kgsl_pagetable *pt, struct kgsl_mem_entry *entry)
+{
+	/* if a secured buffer, map it to secure global pagetable */
+	if (kgsl_memdesc_is_secured(&entry->memdesc))
+		return pt->mmu->securepagetable;
+
+	return pt;
+}
+
 static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry);
 
 static const struct file_operations kgsl_fops;
@@ -445,14 +455,17 @@ kgsl_mem_entry_attach_process(struct kgsl_mem_entry *entry,
 
 	/* map the memory after unlocking if gpuaddr has been assigned */
 	if (entry->memdesc.gpuaddr) {
-		/* if a secured buffer map it to secure global pagetable */
+		pagetable = process->pagetable;
 		if (kgsl_memdesc_is_secured(&entry->memdesc))
-			pagetable = process->pagetable->mmu->securepagetable;
-		else
-			pagetable = process->pagetable;
+			pagetable = pagetable->mmu->securepagetable;
 
 		entry->memdesc.pagetable = pagetable;
-		ret = kgsl_mmu_map(pagetable, &entry->memdesc);
+
+		if (entry->memdesc.flags & KGSL_MEMFLAGS_SPARSE_VIRT)
+			ret = kgsl_mmu_sparse_dummy_map(pagetable,
+				&entry->memdesc, 0, entry->memdesc.size);
+		else if (entry->memdesc.gpuaddr)
+			ret = kgsl_mmu_map(pagetable, &entry->memdesc);
 		if (ret)
 			kgsl_mem_entry_detach_process(entry);
 	}
@@ -1270,6 +1283,24 @@ kgsl_sharedmem_find(struct kgsl_process_private *private, uint64_t gpuaddr)
 }
 EXPORT_SYMBOL(kgsl_sharedmem_find);
 
+struct kgsl_mem_entry * __must_check
+kgsl_sharedmem_find_id_flags(struct kgsl_process_private *process,
+		unsigned int id, uint64_t flags)
+{
+	int count = 0;
+	struct kgsl_mem_entry *entry;
+
+	spin_lock(&process->mem_lock);
+	entry = idr_find(&process->mem_idr, id);
+	if (entry)
+		if (!entry->pending_free &&
+				(flags & entry->memdesc.flags) == flags)
+			count = kgsl_mem_entry_get(entry);
+	spin_unlock(&process->mem_lock);
+
+	return (count == 0) ? NULL : entry;
+}
+
 /**
  * kgsl_sharedmem_find_id() - find a memory entry by id
  * @process: the owning process
@@ -1283,19 +1314,7 @@ EXPORT_SYMBOL(kgsl_sharedmem_find);
 struct kgsl_mem_entry * __must_check
 kgsl_sharedmem_find_id(struct kgsl_process_private *process, unsigned int id)
 {
-	int result;
-	struct kgsl_mem_entry *entry;
-
-	drain_workqueue(kgsl_driver.mem_workqueue);
-
-	spin_lock(&process->mem_lock);
-	entry = idr_find(&process->mem_idr, id);
-	result = kgsl_mem_entry_get(entry);
-	spin_unlock(&process->mem_lock);
-
-	if (result == 0)
-		return NULL;
-	return entry;
+	return kgsl_sharedmem_find_id_flags(process, id, 0);
 }
 
 /**
@@ -3121,6 +3140,546 @@ long kgsl_ioctl_gpumem_get_info(struct kgsl_device_private *dev_priv,
 	return result;
 }
 
+static inline int _sparse_alloc_param_sanity_check(uint64_t size,
+		uint64_t pagesize)
+{
+	if (size == 0 || pagesize == 0)
+		return -EINVAL;
+
+	if (pagesize != PAGE_SIZE && pagesize != SZ_64K)
+		return -EINVAL;
+
+	if (pagesize > size || !IS_ALIGNED(size, pagesize))
+		return -EINVAL;
+
+	return 0;
+}
+
+long kgsl_ioctl_sparse_phys_alloc(struct kgsl_device_private *dev_priv,
+	unsigned int cmd, void *data)
+{
+	struct kgsl_process_private *process = dev_priv->process_priv;
+	struct kgsl_sparse_phys_alloc *param = data;
+	struct kgsl_mem_entry *entry;
+	int ret;
+	int id;
+
+	ret = _sparse_alloc_param_sanity_check(param->size, param->pagesize);
+	if (ret)
+		return ret;
+
+	entry = kgsl_mem_entry_create();
+	if (entry == NULL)
+		return -ENOMEM;
+
+	ret = kgsl_process_private_get(process);
+	if (!ret) {
+		ret = -EBADF;
+		goto err_free_entry;
+	}
+
+	idr_preload(GFP_KERNEL);
+	spin_lock(&process->mem_lock);
+	/* Allocate the ID but don't attach the pointer just yet */
+	id = idr_alloc(&process->mem_idr, NULL, 1, 0, GFP_NOWAIT);
+	spin_unlock(&process->mem_lock);
+	idr_preload_end();
+
+	if (id < 0) {
+		ret = id;
+		goto err_put_proc_priv;
+	}
+
+	entry->id = id;
+	entry->priv = process;
+
+	entry->memdesc.flags = KGSL_MEMFLAGS_SPARSE_PHYS;
+	kgsl_memdesc_set_align(&entry->memdesc, ilog2(param->pagesize));
+
+	ret = kgsl_allocate_user(dev_priv->device, &entry->memdesc,
+			process->pagetable, param->size, entry->memdesc.flags);
+	if (ret)
+		goto err_remove_idr;
+
+	/* Sanity check to verify we got correct pagesize */
+	if (param->pagesize != PAGE_SIZE && entry->memdesc.sgt != NULL) {
+		struct scatterlist *s;
+		int i;
+
+		for_each_sg(entry->memdesc.sgt->sgl, s,
+				entry->memdesc.sgt->nents, i) {
+			if (!IS_ALIGNED(s->length, param->pagesize))
+				goto err_invalid_pages;
+		}
+	}
+
+	param->id = entry->id;
+	param->flags = entry->memdesc.flags;
+
+	trace_sparse_phys_alloc(entry->id, param->size, param->pagesize);
+	kgsl_mem_entry_commit_process(entry);
+
+	return 0;
+
+err_invalid_pages:
+	kgsl_sharedmem_free(&entry->memdesc);
+err_remove_idr:
+	spin_lock(&process->mem_lock);
+	idr_remove(&process->mem_idr, entry->id);
+	spin_unlock(&process->mem_lock);
+err_put_proc_priv:
+	kgsl_process_private_put(process);
+err_free_entry:
+	kfree(entry);
+
+	return ret;
+}
+
+long kgsl_ioctl_sparse_phys_free(struct kgsl_device_private *dev_priv,
+	unsigned int cmd, void *data)
+{
+	struct kgsl_process_private *process = dev_priv->process_priv;
+	struct kgsl_sparse_phys_free *param = data;
+	struct kgsl_mem_entry *entry;
+
+	entry = kgsl_sharedmem_find_id_flags(process, param->id,
+			KGSL_MEMFLAGS_SPARSE_PHYS);
+	if (entry == NULL)
+		return -EINVAL;
+
+	if (entry->memdesc.cur_bindings != 0) {
+		kgsl_mem_entry_put(entry);
+		return -EINVAL;
+	}
+
+	trace_sparse_phys_free(entry->id);
+
+	/* One put for find_id(), one put for the kgsl_mem_entry_create() */
+	kgsl_mem_entry_put(entry);
+	kgsl_mem_entry_put(entry);
+
+	return 0;
+}
+
+long kgsl_ioctl_sparse_virt_alloc(struct kgsl_device_private *dev_priv,
+	unsigned int cmd, void *data)
+{
+	struct kgsl_sparse_virt_alloc *param = data;
+	struct kgsl_mem_entry *entry;
+	int ret;
+
+	ret = _sparse_alloc_param_sanity_check(param->size, param->pagesize);
+	if (ret)
+		return ret;
+
+	entry = kgsl_mem_entry_create();
+	if (entry == NULL)
+		return -ENOMEM;
+
+	entry->memdesc.flags = KGSL_MEMFLAGS_SPARSE_VIRT;
+	entry->memdesc.size = param->size;
+	entry->memdesc.cur_bindings = 0;
+	kgsl_memdesc_set_align(&entry->memdesc, ilog2(param->pagesize));
+
+	spin_lock_init(&entry->bind_lock);
+	entry->bind_tree = RB_ROOT;
+
+	ret = kgsl_mem_entry_attach_process(entry, dev_priv);
+	if (ret) {
+		kfree(entry);
+		return ret;
+	}
+
+	param->id = entry->id;
+	param->gpuaddr = entry->memdesc.gpuaddr;
+	param->flags = entry->memdesc.flags;
+
+	trace_sparse_virt_alloc(entry->id, param->size, param->pagesize);
+	kgsl_mem_entry_commit_process(entry);
+
+	return 0;
+}
+
+long kgsl_ioctl_sparse_virt_free(struct kgsl_device_private *dev_priv,
+	unsigned int cmd, void *data)
+{
+	struct kgsl_process_private *process = dev_priv->process_priv;
+	struct kgsl_sparse_virt_free *param = data;
+	struct kgsl_mem_entry *entry = NULL;
+
+	entry = kgsl_sharedmem_find_id_flags(process, param->id,
+			KGSL_MEMFLAGS_SPARSE_VIRT);
+	if (entry == NULL)
+		return -EINVAL;
+
+	if (entry->bind_tree.rb_node != NULL) {
+		kgsl_mem_entry_put(entry);
+		return -EINVAL;
+	}
+
+	trace_sparse_virt_free(entry->id);
+
+	/* One put for find_id(), one put for the kgsl_mem_entry_create() */
+	kgsl_mem_entry_put(entry);
+	kgsl_mem_entry_put(entry);
+
+	return 0;
+}
+
+static int _sparse_add_to_bind_tree(struct kgsl_mem_entry *entry,
+		uint64_t v_offset,
+		struct kgsl_memdesc *memdesc,
+		uint64_t p_offset,
+		uint64_t size,
+		uint64_t flags)
+{
+	struct sparse_bind_object *new;
+	struct rb_node **node, *parent = NULL;
+
+	new = kzalloc(sizeof(*new), GFP_KERNEL);
+	if (new == NULL)
+		return -ENOMEM;
+
+	new->v_off = v_offset;
+	new->p_off = p_offset;
+	new->p_memdesc = memdesc;
+	new->size = size;
+	new->flags = flags;
+
+	node = &entry->bind_tree.rb_node;
+
+	while (*node != NULL) {
+		struct sparse_bind_object *this;
+
+		parent = *node;
+		this = rb_entry(parent, struct sparse_bind_object, node);
+
+		if (new->v_off < this->v_off)
+			node = &parent->rb_left;
+		else if (new->v_off > this->v_off)
+			node = &parent->rb_right;
+	}
+
+	rb_link_node(&new->node, parent, node);
+	rb_insert_color(&new->node, &entry->bind_tree);
+
+	return 0;
+}
+
+static int _sparse_rm_from_bind_tree(struct kgsl_mem_entry *entry,
+		struct sparse_bind_object *obj,
+		uint64_t v_offset, uint64_t size)
+{
+	spin_lock(&entry->bind_lock);
+	if (v_offset == obj->v_off && size >= obj->size) {
+		/*
+		 * We are all encompassing, remove the entry and free
+		 * things up
+		 */
+		rb_erase(&obj->node, &entry->bind_tree);
+		kfree(obj);
+	} else if (v_offset == obj->v_off) {
+		/*
+		 * We are the front of the node, adjust the front of
+		 * the node
+		 */
+		obj->v_off += size;
+		obj->p_off += size;
+		obj->size -= size;
+	} else if ((v_offset + size) == (obj->v_off + obj->size)) {
+		/*
+		 * We are at the end of the obj, adjust the beginning
+		 * points
+		 */
+		obj->size -= size;
+	} else {
+		/*
+		 * We are in the middle of a node, split it up and
+		 * create a new mini node. Adjust this node's bounds
+		 * and add the new node to the list.
+		 */
+		uint64_t tmp_size = obj->size;
+		int ret;
+
+		obj->size = v_offset - obj->v_off;
+
+		spin_unlock(&entry->bind_lock);
+		ret = _sparse_add_to_bind_tree(entry, v_offset + size,
+				obj->p_memdesc,
+				obj->p_off + (v_offset - obj->v_off) + size,
+				tmp_size - (v_offset - obj->v_off) - size,
+				obj->flags);
+
+		return ret;
+	}
+
+	spin_unlock(&entry->bind_lock);
+
+	return 0;
+}
+
+static struct sparse_bind_object *_find_containing_bind_obj(
+		struct kgsl_mem_entry *entry,
+		uint64_t offset, uint64_t size)
+{
+	struct sparse_bind_object *obj = NULL;
+	struct rb_node *node = entry->bind_tree.rb_node;
+
+	spin_lock(&entry->bind_lock);
+
+	while (node != NULL) {
+		obj = rb_entry(node, struct sparse_bind_object, node);
+
+		if (offset == obj->v_off) {
+			break;
+		} else if (offset < obj->v_off) {
+			if (offset + size > obj->v_off)
+				break;
+			node = node->rb_left;
+			obj = NULL;
+		} else if (offset > obj->v_off) {
+			if (offset < obj->v_off + obj->size)
+				break;
+			node = node->rb_right;
+			obj = NULL;
+		}
+	}
+
+	spin_unlock(&entry->bind_lock);
+
+	return obj;
+}
+
+static int _sparse_unbind(struct kgsl_mem_entry *entry,
+		struct sparse_bind_object *bind_obj,
+		uint64_t offset, uint64_t size)
+{
+	struct kgsl_memdesc *memdesc = bind_obj->p_memdesc;
+	struct kgsl_pagetable *pt = memdesc->pagetable;
+	int ret;
+
+	if (memdesc->cur_bindings < (size / PAGE_SIZE))
+		return -EINVAL;
+
+	memdesc->cur_bindings -= size / PAGE_SIZE;
+
+	ret = kgsl_mmu_unmap_offset(pt, memdesc,
+			entry->memdesc.gpuaddr, offset, size);
+	if (ret)
+		return ret;
+
+	ret = kgsl_mmu_sparse_dummy_map(pt, &entry->memdesc, offset, size);
+	if (ret)
+		return ret;
+
+	ret = _sparse_rm_from_bind_tree(entry, bind_obj, offset, size);
+	if (ret == 0) {
+		atomic_long_sub(size, &kgsl_driver.stats.mapped);
+		trace_sparse_unbind(entry->id, offset, size);
+	}
+
+	return ret;
+}
+
+static long sparse_unbind_range(struct kgsl_sparse_binding_object *obj,
+	struct kgsl_mem_entry *virt_entry)
+{
+	struct sparse_bind_object *bind_obj;
+	int ret = 0;
+	uint64_t size = obj->size;
+	uint64_t tmp_size = obj->size;
+	uint64_t offset = obj->virtoffset;
+
+	while (size > 0 && ret == 0) {
+		tmp_size = size;
+		bind_obj = _find_containing_bind_obj(virt_entry, offset, size);
+		if (bind_obj == NULL)
+			return 0;
+
+		if (bind_obj->v_off > offset) {
+			tmp_size = size - bind_obj->v_off - offset;
+			if (tmp_size > bind_obj->size)
+				tmp_size = bind_obj->size;
+			offset = bind_obj->v_off;
+		} else if (bind_obj->v_off < offset) {
+			uint64_t diff = offset - bind_obj->v_off;
+
+			if (diff + size > bind_obj->size)
+				tmp_size = bind_obj->size - diff;
+		} else {
+			if (tmp_size > bind_obj->size)
+				tmp_size = bind_obj->size;
+		}
+
+		ret = _sparse_unbind(virt_entry, bind_obj, offset, tmp_size);
+		if (ret == 0) {
+			offset += tmp_size;
+			size -= tmp_size;
+		}
+	}
+
+	return ret;
+}
+
+static inline bool _is_phys_bindable(struct kgsl_mem_entry *phys_entry,
+		uint64_t offset, uint64_t size, uint64_t flags)
+{
+	struct kgsl_memdesc *memdesc = &phys_entry->memdesc;
+
+	if (!IS_ALIGNED(offset | size, kgsl_memdesc_get_pagesize(memdesc)))
+		return false;
+
+	if (!(flags & KGSL_SPARSE_BIND_MULTIPLE_TO_PHYS) &&
+			offset + size > memdesc->size)
+		return false;
+
+	return true;
+}
+
+static int _sparse_bind(struct kgsl_process_private *process,
+		struct kgsl_mem_entry *virt_entry, uint64_t v_offset,
+		struct kgsl_mem_entry *phys_entry, uint64_t p_offset,
+		uint64_t size, uint64_t flags)
+{
+	int ret;
+	struct kgsl_pagetable *pagetable;
+	struct kgsl_memdesc *memdesc = &phys_entry->memdesc;
+
+	/* map the memory after unlocking if gpuaddr has been assigned */
+	if (memdesc->gpuaddr)
+		return -EINVAL;
+
+	if (memdesc->useraddr != 0)
+		return -EINVAL;
+
+	pagetable = memdesc->pagetable;
+
+	/* Clear out any mappings */
+	ret = kgsl_mmu_unmap_offset(pagetable, &virt_entry->memdesc,
+			virt_entry->memdesc.gpuaddr, v_offset, size);
+	if (ret)
+		return ret;
+
+	ret = kgsl_mmu_map_offset(pagetable, virt_entry->memdesc.gpuaddr,
+			v_offset, memdesc, p_offset, size, flags);
+	if (ret) {
+		/* Try to clean up, but not the end of the world */
+		kgsl_mmu_sparse_dummy_map(pagetable, &virt_entry->memdesc,
+				v_offset, size);
+		return ret;
+	}
+
+	ret = _sparse_add_to_bind_tree(virt_entry, v_offset, memdesc,
+			p_offset, size, flags);
+	if (ret == 0)
+		memdesc->cur_bindings += size / PAGE_SIZE;
+
+	return ret;
+}
+
+static long sparse_bind_range(struct kgsl_process_private *private,
+		struct kgsl_sparse_binding_object *obj,
+		struct kgsl_mem_entry *virt_entry)
+{
+	struct kgsl_mem_entry *phys_entry;
+	int ret;
+
+	phys_entry = kgsl_sharedmem_find_id_flags(private, obj->id,
+			KGSL_MEMFLAGS_SPARSE_PHYS);
+	if (phys_entry == NULL)
+		return -EINVAL;
+
+	if (!_is_phys_bindable(phys_entry, obj->physoffset, obj->size,
+				obj->flags)) {
+		kgsl_mem_entry_put(phys_entry);
+		return -EINVAL;
+	}
+
+	if (kgsl_memdesc_get_align(&virt_entry->memdesc) !=
+			kgsl_memdesc_get_align(&phys_entry->memdesc)) {
+		kgsl_mem_entry_put(phys_entry);
+		return -EINVAL;
+	}
+
+	ret = sparse_unbind_range(obj, virt_entry);
+	if (ret) {
+		kgsl_mem_entry_put(phys_entry);
+		return -EINVAL;
+	}
+
+	ret = _sparse_bind(private, virt_entry, obj->virtoffset,
+			phys_entry, obj->physoffset, obj->size,
+			obj->flags & KGSL_SPARSE_BIND_MULTIPLE_TO_PHYS);
+	if (ret == 0) {
+		KGSL_STATS_ADD(obj->size, &kgsl_driver.stats.mapped,
+				&kgsl_driver.stats.mapped_max);
+
+		trace_sparse_bind(virt_entry->id, obj->virtoffset,
+				phys_entry->id, obj->physoffset,
+				obj->size, obj->flags);
+	}
+
+	kgsl_mem_entry_put(phys_entry);
+
+	return ret;
+}
+
+long kgsl_ioctl_sparse_bind(struct kgsl_device_private *dev_priv,
+		unsigned int cmd, void *data)
+{
+	struct kgsl_process_private *private = dev_priv->process_priv;
+	struct kgsl_sparse_bind *param = data;
+	struct kgsl_sparse_binding_object obj;
+	struct kgsl_mem_entry *virt_entry;
+	int pg_sz;
+	void __user *ptr;
+	int ret = 0;
+	int i = 0;
+
+	ptr = (void __user *) (uintptr_t) param->list;
+
+	if (param->size > sizeof(struct kgsl_sparse_binding_object) ||
+		param->count == 0 || ptr == NULL)
+		return -EINVAL;
+
+	virt_entry = kgsl_sharedmem_find_id_flags(private, param->id,
+			KGSL_MEMFLAGS_SPARSE_VIRT);
+	if (virt_entry == NULL)
+		return -EINVAL;
+
+	pg_sz = kgsl_memdesc_get_pagesize(&virt_entry->memdesc);
+
+	for (i = 0; i < param->count; i++) {
+		memset(&obj, 0, sizeof(obj));
+		ret = _copy_from_user(&obj, ptr, sizeof(obj), param->size);
+		if (ret)
+			break;
+
+		/* Sanity check initial range */
+		if (obj.size == 0 ||
+			obj.virtoffset + obj.size > virt_entry->memdesc.size ||
+			!(IS_ALIGNED(obj.virtoffset | obj.size, pg_sz))) {
+			ret = -EINVAL;
+			break;
+		}
+
+		if (obj.flags & KGSL_SPARSE_BIND)
+			ret = sparse_bind_range(private, &obj, virt_entry);
+		else if (obj.flags & KGSL_SPARSE_UNBIND)
+			ret = sparse_unbind_range(&obj, virt_entry);
+		else
+			ret = -EINVAL;
+		if (ret)
+			break;
+
+		ptr += sizeof(obj);
+	}
+
+	kgsl_mem_entry_put(virt_entry);
+
+	return ret;
+}
+
 long kgsl_ioctl_gpuobj_info(struct kgsl_device_private *dev_priv,
 		unsigned int cmd, void *data)
 {
@@ -3354,6 +3913,13 @@ get_mmap_entry(struct kgsl_process_private *private,
 		!entry->memdesc.ops->vmfault) {
 		ret = -EINVAL;
 		goto err_put;
+	}
+
+	if (entry->memdesc.flags & KGSL_MEMFLAGS_SPARSE_PHYS) {
+		if (len != entry->memdesc.size) {
+			ret = -EINVAL;
+			goto err_put;
+		}
 	}
 
 	if (entry->memdesc.useraddr != 0) {

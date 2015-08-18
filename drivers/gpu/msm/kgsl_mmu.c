@@ -386,29 +386,24 @@ int
 kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 				struct kgsl_memdesc *memdesc)
 {
-	int ret = 0;
 	int size;
 
 	if (!memdesc->gpuaddr)
 		return -EINVAL;
-	/* Only global mappings should be mapped multiple times */
-	if (!kgsl_memdesc_is_global(memdesc) &&
-		(KGSL_MEMDESC_MAPPED & memdesc->priv))
-		return -EINVAL;
 
 	size = kgsl_memdesc_footprint(memdesc);
 
-	if (PT_OP_VALID(pagetable, mmu_map))
+	if (PT_OP_VALID(pagetable, mmu_map)) {
+		int ret;
+
 		ret = pagetable->pt_ops->mmu_map(pagetable, memdesc);
+		if (ret)
+			return ret;
 
-	if (ret)
-		return ret;
-
-	atomic_inc(&pagetable->stats.entries);
-	KGSL_STATS_ADD(size, &pagetable->stats.mapped,
-		&pagetable->stats.max_mapped);
-
-	memdesc->priv |= KGSL_MEMDESC_MAPPED;
+		atomic_inc(&pagetable->stats.entries);
+		KGSL_STATS_ADD(size, &pagetable->stats.mapped,
+				&pagetable->stats.max_mapped);
+	}
 
 	return 0;
 }
@@ -455,22 +450,22 @@ int
 kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 		struct kgsl_memdesc *memdesc)
 {
-	uint64_t size;
-
-	if (memdesc->size == 0 || memdesc->gpuaddr == 0 ||
-		!(KGSL_MEMDESC_MAPPED & memdesc->priv))
+	if (memdesc->size == 0)
 		return -EINVAL;
 
-	size = kgsl_memdesc_footprint(memdesc);
+	if (PT_OP_VALID(pagetable, mmu_unmap)) {
+		int ret;
+		uint64_t size;
 
-	if (PT_OP_VALID(pagetable, mmu_unmap))
-		pagetable->pt_ops->mmu_unmap(pagetable, memdesc);
+		size = kgsl_memdesc_footprint(memdesc);
 
-	atomic_dec(&pagetable->stats.entries);
-	atomic_long_sub(size, &pagetable->stats.mapped);
+		ret = pagetable->pt_ops->mmu_unmap(pagetable, memdesc);
+		if (ret)
+			return ret;
 
-	if (!kgsl_memdesc_is_global(memdesc))
-		memdesc->priv &= ~KGSL_MEMDESC_MAPPED;
+		atomic_dec(&pagetable->stats.entries);
+		atomic_long_sub(size, &pagetable->stats.mapped);
+	}
 
 	return 0;
 }
@@ -481,11 +476,20 @@ int kgsl_mmu_map_offset(struct kgsl_pagetable *pagetable,
 			struct kgsl_memdesc *memdesc, uint64_t physoffset,
 			uint64_t size, uint64_t flags)
 {
-	if (PT_OP_VALID(pagetable, mmu_map_offset))
-		return pagetable->pt_ops->mmu_map_offset(pagetable, virtaddr,
-				virtoffset, memdesc, physoffset, size, flags);
+	if (PT_OP_VALID(pagetable, mmu_map_offset)) {
+		int ret;
 
-	return -EINVAL;
+		ret = pagetable->pt_ops->mmu_map_offset(pagetable, virtaddr,
+				virtoffset, memdesc, physoffset, size, flags);
+		if (ret)
+			return ret;
+
+		atomic_inc(&pagetable->stats.entries);
+		KGSL_STATS_ADD(size, &pagetable->stats.mapped,
+				&pagetable->stats.max_mapped);
+	}
+
+	return 0;
 }
 EXPORT_SYMBOL(kgsl_mmu_map_offset);
 
@@ -493,13 +497,40 @@ int kgsl_mmu_unmap_offset(struct kgsl_pagetable *pagetable,
 		struct kgsl_memdesc *memdesc, uint64_t addr, uint64_t offset,
 		uint64_t size)
 {
-	if (PT_OP_VALID(pagetable, mmu_unmap_offset))
-		return pagetable->pt_ops->mmu_unmap_offset(pagetable, memdesc,
-				addr, offset, size);
+	if (PT_OP_VALID(pagetable, mmu_unmap_offset)) {
+		int ret;
 
-	return -EINVAL;
+		ret = pagetable->pt_ops->mmu_unmap_offset(pagetable, memdesc,
+				addr, offset, size);
+		if (ret)
+			return ret;
+
+		atomic_dec(&pagetable->stats.entries);
+		atomic_long_sub(size, &pagetable->stats.mapped);
+	}
+
+	return 0;
 }
 EXPORT_SYMBOL(kgsl_mmu_unmap_offset);
+
+int kgsl_mmu_sparse_dummy_map(struct kgsl_pagetable *pagetable,
+		struct kgsl_memdesc *memdesc, uint64_t offset, uint64_t size)
+{
+	if (PT_OP_VALID(pagetable, mmu_sparse_dummy_map)) {
+		int ret;
+
+		ret = pagetable->pt_ops->mmu_sparse_dummy_map(pagetable,
+				memdesc, offset, size);
+		if (ret)
+			return ret;
+
+		atomic_dec(&pagetable->stats.entries);
+		atomic_long_sub(size, &pagetable->stats.mapped);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(kgsl_mmu_sparse_dummy_map);
 
 void kgsl_mmu_remove_global(struct kgsl_device *device,
 		struct kgsl_memdesc *memdesc)

@@ -92,6 +92,18 @@ kgsl_memdesc_get_align(const struct kgsl_memdesc *memdesc)
 }
 
 /*
+ * kgsl_memdesc_get_pagesize - Get pagesize based on alignment
+ * @memdesc - the memdesc
+ *
+ * Returns the pagesize based on memdesc alignment
+ */
+static inline int
+kgsl_memdesc_get_pagesize(const struct kgsl_memdesc *memdesc)
+{
+	return (1 << kgsl_memdesc_get_align(memdesc));
+}
+
+/*
  * kgsl_memdesc_get_cachemode - Get cache mode of a memdesc
  * @memdesc: the memdesc
  *
@@ -211,12 +223,19 @@ kgsl_memdesc_has_guard_page(const struct kgsl_memdesc *memdesc)
  *
  * Returns guard page size
  */
-static inline int
-kgsl_memdesc_guard_page_size(const struct kgsl_mmu *mmu,
-				const struct kgsl_memdesc *memdesc)
+static inline uint64_t
+kgsl_memdesc_guard_page_size(const struct kgsl_memdesc *memdesc)
 {
-	return kgsl_memdesc_is_secured(memdesc) ? mmu->secure_align_mask + 1 :
-								PAGE_SIZE;
+	if (!kgsl_memdesc_has_guard_page(memdesc))
+		return 0;
+
+	if (kgsl_memdesc_is_secured(memdesc)) {
+		if (memdesc->pagetable != NULL &&
+				memdesc->pagetable->mmu != NULL)
+			return memdesc->pagetable->mmu->secure_align_mask + 1;
+	}
+
+	return PAGE_SIZE;
 }
 
 /*
@@ -241,10 +260,7 @@ kgsl_memdesc_use_cpu_map(const struct kgsl_memdesc *memdesc)
 static inline uint64_t
 kgsl_memdesc_footprint(const struct kgsl_memdesc *memdesc)
 {
-	uint64_t size = memdesc->size;
-	if (kgsl_memdesc_has_guard_page(memdesc))
-		size += SZ_4K;
-	return size;
+	return  memdesc->size + kgsl_memdesc_guard_page_size(memdesc);
 }
 
 /*

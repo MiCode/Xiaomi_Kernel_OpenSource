@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -372,6 +372,16 @@ static const struct kgsl_ioctl kgsl_compat_ioctl_funcs[] = {
 			kgsl_ioctl_gpu_command),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPUOBJ_SET_INFO,
 			kgsl_ioctl_gpuobj_set_info),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_SPARSE_PHYS_ALLOC,
+			kgsl_ioctl_sparse_phys_alloc),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_SPARSE_PHYS_FREE,
+			kgsl_ioctl_sparse_phys_free),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_SPARSE_VIRT_ALLOC,
+			kgsl_ioctl_sparse_virt_alloc),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_SPARSE_VIRT_FREE,
+			kgsl_ioctl_sparse_virt_free),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_SPARSE_BIND,
+			kgsl_ioctl_sparse_bind),
 };
 
 long kgsl_compat_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
