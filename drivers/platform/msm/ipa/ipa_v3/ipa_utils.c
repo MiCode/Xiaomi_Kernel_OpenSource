@@ -2829,8 +2829,8 @@ void _ipa_cfg_ep_aggr_v3_0(u32 pipe_number,
 			IPA_ENDP_INIT_AGGR_N_AGGR_TIME_LIMIT_BMSK);
 
 	IPA_SETFIELD_IN_REG(reg_val, ep_aggr->aggr_pkt_limit,
-			IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_SHFT,
-			IPA_ENDP_INIT_AGGR_n_AGGR_PKT_LIMIT_BMSK);
+			IPA_ENDP_INIT_AGGR_N_AGGR_PKT_LIMIT_SHFT,
+			IPA_ENDP_INIT_AGGR_N_AGGR_PKT_LIMIT_BMSK);
 
 	ipa_write_reg(ipa_ctx->mmio,
 			IPA_ENDP_INIT_AGGR_N_OFST_v3_0(pipe_number), reg_val);
@@ -3403,27 +3403,6 @@ int ipa_set_single_ndp_per_mbim(bool enable)
 EXPORT_SYMBOL(ipa_set_single_ndp_per_mbim);
 
 /**
- * ipa_set_hw_timer_fix_for_mbim_aggr() - Enable/disable HW timer fix
- * for MBIM aggregation.
- * @enable:	[in] true for enable HW fix; false otherwise
- *
- * Returns:	0 on success
- */
-int ipa_set_hw_timer_fix_for_mbim_aggr(bool enable)
-{
-	u32 reg_val;
-
-	ipa_inc_client_enable_clks();
-	reg_val = ipa_read_reg(ipa_ctx->mmio, IPA_AGGREGATION_SPARE_REG_1_OFST);
-	ipa_write_reg(ipa_ctx->mmio, IPA_AGGREGATION_SPARE_REG_1_OFST,
-		(enable << IPA_AGGREGATION_HW_TIMER_FIX_MBIM_AGGR_SHFT) |
-		(reg_val & ~IPA_AGGREGATION_HW_TIMER_FIX_MBIM_AGGR_BMSK));
-	ipa_dec_client_disable_clks();
-	return 0;
-}
-EXPORT_SYMBOL(ipa_set_hw_timer_fix_for_mbim_aggr);
-
-/**
  * ipa_straddle_boundary() - Checks whether a memory buffer straddles a boundary
  * @start: start address of the memory buffer
  * @end: end address of the memory buffer
@@ -3965,13 +3944,14 @@ static int ipa_tag_generate_force_close_desc(struct ipa_desc desc[],
 		reg_write_agg_close->skip_pipeline_clear = 0;
 		reg_write_agg_close->pipeline_clear_options =
 			IPA_FULL_PIPELINE_CLEAR;
-		reg_write_agg_close->offset = IPA_ENDP_INIT_AGGR_N_OFST_v3_0(i);
-		reg_write_agg_close->value =
-			(1 & IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_BMSK) <<
-			IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_SHFT;
+
+		reg_write_agg_close->offset = IPA_AGGR_FORCE_CLOSE_OFST;
+		IPA_SETFIELD_IN_REG(reg_write_agg_close->value, 1 << i,
+		   IPA_AGGR_FORCE_CLOSE_OFST_AGGR_FORCE_CLOSE_PIPE_BITMAP_SHFT,
+		   IPA_AGGR_FORCE_CLOSE_OFST_AGGR_FORCE_CLOSE_PIPE_BITMAP_BMSK);
 		reg_write_agg_close->value_mask =
-			IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_BMSK <<
-			IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_SHFT;
+		IPA_AGGR_FORCE_CLOSE_OFST_AGGR_FORCE_CLOSE_PIPE_BITMAP_BMSK <<
+		IPA_AGGR_FORCE_CLOSE_OFST_AGGR_FORCE_CLOSE_PIPE_BITMAP_SHFT;
 
 		desc[desc_idx].opcode = IPA_REGISTER_WRITE;
 		desc[desc_idx].pyld = reg_write_agg_close;

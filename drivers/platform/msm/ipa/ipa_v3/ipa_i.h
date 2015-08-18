@@ -1404,7 +1404,6 @@ u8 *ipa_pad_to_32(u8 *dest);
 int ipa_init_hw(void);
 struct ipa_rt_tbl *__ipa_find_rt_tbl(enum ipa_ip_type ip, const char *name);
 int ipa_set_single_ndp_per_mbim(bool);
-int ipa_set_hw_timer_fix_for_mbim_aggr(bool);
 void ipa_debugfs_init(void);
 void ipa_debugfs_remove(void);
 

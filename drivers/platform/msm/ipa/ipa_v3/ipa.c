@@ -1494,11 +1494,11 @@ static void ipa_q6_disable_agg_reg(struct ipa_register_write *reg_write,
 
 	reg_write->offset = IPA_ENDP_INIT_AGGR_N_OFST_v3_0(ep_idx);
 	reg_write->value =
-		(1 & IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_BMSK) <<
-		IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_SHFT;
+		(1 & IPA_ENDP_INIT_AGGR_N_AGGR_FORCE_CLOSE_BMSK) <<
+		IPA_ENDP_INIT_AGGR_N_AGGR_FORCE_CLOSE_SHFT;
 	reg_write->value_mask =
-		IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_BMSK <<
-		IPA_ENDP_INIT_AGGR_n_AGGR_FORCE_CLOSE_SHFT;
+		IPA_ENDP_INIT_AGGR_N_AGGR_FORCE_CLOSE_BMSK <<
+		IPA_ENDP_INIT_AGGR_N_AGGR_FORCE_CLOSE_SHFT;
 
 	reg_write->value |=
 		((0 & IPA_ENDP_INIT_AGGR_N_AGGR_EN_BMSK) <<
@@ -1684,7 +1684,7 @@ int _ipa_init_sram_v3_0(void)
 
 	phys_addr = ipa_ctx->ipa_wrapper_base +
 		ipa_ctx->ctrl->ipa_reg_base_ofst +
-		IPA_SRAM_SW_FIRST_v3_0;
+		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0);
 
 	ipa_sram_mmio = ioremap(phys_addr,
 		ipa_ctx->smem_sz - ipa_ctx->smem_restricted_bytes);
