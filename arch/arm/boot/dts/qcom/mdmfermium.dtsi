@@ -76,7 +76,7 @@
 
 #include "mdmfermium-ion.dtsi"
 #include "mdmfermium-smp2p.dtsi"
-
+#include "mdmfermium-bus.dtsi"
 #include "mdmfermium-coresight.dtsi"
 
 &soc {
