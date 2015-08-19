@@ -1087,6 +1087,8 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 		flags |= IOMMU_FAULT_TRANSLATION;
 	if (fsr & FSR_PF)
 		flags |= IOMMU_FAULT_PERMISSION;
+	if (fsr & FSR_EF)
+		flags |= IOMMU_FAULT_EXTERNAL;
 	if (fsr & FSR_SS)
 		flags |= IOMMU_FAULT_TRANSACTION_STALLED;
 
