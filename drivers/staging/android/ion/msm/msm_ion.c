@@ -13,6 +13,7 @@
 
 #include <linux/export.h>
 #include <linux/err.h>
+#include <linux/io.h>
 #include <linux/msm_ion.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
@@ -231,6 +232,44 @@ static int ion_no_pages_cache_ops(struct ion_client *client,
 	return 0;
 }
 
+static void __do_cache_ops(struct page *page, unsigned int offset,
+		unsigned int length, void (*op)(const void *, const void *))
+{
+	unsigned int left = length;
+	unsigned long pfn;
+	void *vaddr;
+
+	pfn = page_to_pfn(page) + offset / PAGE_SIZE;
+	page = pfn_to_page(pfn);
+	offset &= ~PAGE_MASK;
+
+	if (!PageHighMem(page)) {
+		vaddr = page_address(page) + offset;
+		op(vaddr, vaddr + length);
+		goto out;
+	}
+
+	do {
+		unsigned int len;
+
+		len = left;
+		if (len + offset > PAGE_SIZE)
+			len = PAGE_SIZE - offset;
+
+		page = pfn_to_page(pfn);
+		vaddr = kmap_atomic(page);
+		op(vaddr + offset, vaddr + offset + len);
+		kunmap_atomic(vaddr);
+
+		offset = 0;
+		pfn++;
+		left -= len;
+	} while (left);
+
+out:
+	return;
+}
+
 static int ion_pages_cache_ops(struct ion_client *client,
 			struct ion_handle *handle,
 			void *vaddr, unsigned int offset, unsigned int length,
@@ -238,36 +277,38 @@ static int ion_pages_cache_ops(struct ion_client *client,
 {
 	struct sg_table *table = NULL;
 	struct scatterlist *sg;
-	struct page *page;
 	int i;
-	void *ptr;
+	unsigned int len = 0;
+	void (*op)(const void *, const void *);
+
 
 	table = ion_sg_table(client, handle);
 	if (IS_ERR_OR_NULL(table))
 		return PTR_ERR(table);
 
-	for_each_sg(table->sgl, sg, table->nents, i) {
-		page = sg_page(sg);
-		if (PageHighMem(page))
-			ptr = kmap_atomic(page);
-		else
-			ptr = page_address(page);
-
-		switch (cmd) {
+	switch (cmd) {
 		case ION_IOC_CLEAN_CACHES:
-			dmac_clean_range(ptr, ptr + sg->length);
+			op = dmac_clean_range;
 			break;
 		case ION_IOC_INV_CACHES:
-			dmac_inv_range(ptr, ptr + sg->length);
+			op = dmac_inv_range;
 			break;
 		case ION_IOC_CLEAN_INV_CACHES:
-			dmac_flush_range(ptr, ptr + sg->length);
+			op = dmac_flush_range;
 			break;
 		default:
 			return -EINVAL;
-		}
-		if (PageHighMem(page))
-			kunmap_atomic(ptr);
+	};
+
+	for_each_sg(table->sgl, sg, table->nents, i) {
+		len += sg->length;
+		if (len < offset)
+			continue;
+
+		__do_cache_ops(sg_page(sg), sg->offset, sg->length, op);
+
+		if (len > length + offset)
+			break;
 	}
 	return 0;
 }
