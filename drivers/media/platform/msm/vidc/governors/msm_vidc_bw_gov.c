@@ -168,8 +168,7 @@ static struct lut const *__lut(int width, int height)
 			return &LUT[c];
 	} while (++c < ARRAY_SIZE(LUT));
 
-	WARN(true, "Shouldn't be here, LUT possibly corrupted?\n");
-	return NULL; /* impossible */
+	return &LUT[ARRAY_SIZE(LUT) - 1];
 }
 
 static fp_t __compression_ratio(struct lut const *entry, int bpp,
