@@ -1333,14 +1333,17 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 	}
 
 	if (rc <= 0) {
+		pr_err("%s: wait4pingpong timed out. ctl=%d rc=%d cnt=%d\n",
+				__func__,
+				ctl->num, rc, ctx->pp_timeout_report_cnt);
 		if (ctx->pp_timeout_report_cnt == 0) {
 			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
-				"dsi1_ctrl", "dsi1_phy");
+				"dsi1_ctrl", "dsi1_phy", "vbif", "dbg_bus",
+				"vbif_dbg_bus", "panic");
 		} else if (ctx->pp_timeout_report_cnt == MAX_RECOVERY_TRIALS) {
-			WARN(1, "cmd kickoff timed out (%d) ctl=%d\n",
-					rc, ctl->num);
 			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
-				"dsi1_ctrl", "dsi1_phy", "panic");
+				"dsi1_ctrl", "dsi1_phy", "vbif", "dbg_bus",
+				"vbif_dbg_bus", "panic");
 			mdss_fb_report_panel_dead(ctl->mfd);
 		}
 		ctx->pp_timeout_report_cnt++;
