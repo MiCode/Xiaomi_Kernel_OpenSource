@@ -927,10 +927,10 @@ EXPORT_SYMBOL_GPL(iommu_set_fault_handler);
  * This function should only be used for debugging purposes, for obvious
  * reasons.
  */
-void iommu_trigger_fault(struct iommu_domain *domain)
+void iommu_trigger_fault(struct iommu_domain *domain, unsigned long flags)
 {
 	if (domain->ops->trigger_fault)
-		domain->ops->trigger_fault(domain);
+		domain->ops->trigger_fault(domain, flags);
 }
 
 struct iommu_domain *iommu_domain_alloc(struct bus_type *bus)
