@@ -804,6 +804,7 @@ static const u32 venus_hfi_bus_table[] = {
 	BUS_LOAD(1280, 736, 30),
 	BUS_LOAD(1280, 736, 60),
 	BUS_LOAD(1920, 1088, 30),
+	BUS_LOAD(2560, 1440, 30),
 	BUS_LOAD(1920, 1088, 60),
 	BUS_LOAD(3840, 2176, 24),
 	BUS_LOAD(4096, 2176, 24),

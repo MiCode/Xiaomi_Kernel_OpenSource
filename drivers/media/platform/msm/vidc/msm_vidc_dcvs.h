@@ -27,12 +27,19 @@
 #define DCVS_NOMINAL_THRESHOLD 8
 /* Default threshold to increase the core frequency */
 #define DCVS_TURBO_THRESHOLD 4
-/* Instance max load above which DCVS kicks in */
+
+#define DCVS_SVS_LOAD NUM_MBS_PER_SEC(1088, 1920, 30)
 #define DCVS_NOMINAL_LOAD NUM_MBS_PER_SEC(1088, 1920, 60)
+
+#define DIM_1080P30 NUM_MBS_PER_SEC(1088, 1920, 30)
+#define DIM_2K30 NUM_MBS_PER_SEC(1440, 2560, 30)
+#define DIM_1080P60 NUM_MBS_PER_SEC(1088, 1920, 60)
+
 /* Considering one safeguard buffer */
 #define DCVS_BUFFER_SAFEGUARD 1
 /* Supported DCVS MBs per frame */
 #define DCVS_MIN_SUPPORTED_MBPERFRAME NUM_MBS_PER_FRAME(2160, 3840)
+#define DCVS_2K_MBPERFRAME NUM_MBS_PER_FRAME(1440, 2560)
 
 void msm_dcvs_init(struct msm_vidc_inst *inst);
 void msm_dcvs_init_load(struct msm_vidc_inst *inst);
