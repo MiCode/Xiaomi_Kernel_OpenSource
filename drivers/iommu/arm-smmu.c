@@ -1203,7 +1203,8 @@ static irqreturn_t arm_smmu_global_fault(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
-static void arm_smmu_trigger_fault(struct iommu_domain *domain)
+static void arm_smmu_trigger_fault(struct iommu_domain *domain,
+				   unsigned long flags)
 {
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
