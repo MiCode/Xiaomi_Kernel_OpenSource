@@ -1220,10 +1220,9 @@ static void arm_smmu_trigger_fault(struct iommu_domain *domain,
 
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 	arm_smmu_enable_clocks(smmu);
-	/* trigger a translation fault */
-	dev_err(smmu->dev, "Triggering translation fault on cb %d\n",
-		cfg->cbndx);
-	writel_relaxed(FSR_TF, cb_base + ARM_SMMU_CB_FSRRESTORE);
+	dev_err(smmu->dev, "Writing 0x%lx to FSRRESTORE on cb %d\n",
+		flags, cfg->cbndx);
+	writel_relaxed(flags, cb_base + ARM_SMMU_CB_FSRRESTORE);
 	arm_smmu_disable_clocks(smmu);
 }
 
