@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,15 +10,17 @@
  * GNU General Public License for more details.
  */
 
-/*
- * As a general rule, only version-specific property overrides should be placed
- * inside this file. Common device definitions should be placed inside the
- * msm8996.dtsi file.
- */
 
-#include "msm8996-v3.dtsi"
+/dts-v1/;
+
+#include "apq8096-v3.0.dtsi"
+#include "apq8096-dragonboard.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. APQ 8096 v3";
-	qcom,msm-id = <291 0x30001>;
+	model = "Qualcomm Technologies, Inc. APQ8096v3.0 + PMI8994 DragonBoard";
+	compatible = "qcom,apq8096-dragonboard", "qcom,msm8996",
+			"qcom,apq8096", "qcom,dragonboard";
+	qcom,msm-id = <246 0x30000>, <291 0x30000>;
+	qcom,board-id = <10 0>;
 };
+
