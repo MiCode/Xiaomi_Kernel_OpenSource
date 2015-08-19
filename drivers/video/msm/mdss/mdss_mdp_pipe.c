@@ -1282,7 +1282,7 @@ static void mdss_mdp_pipe_check_stage(struct mdss_mdp_pipe *pipe,
 		pr_err("pipe%d mixer:%d pipe->mixer_stage=%d src_split:%d right blend:%d\n",
 			pipe->num, mixer->num, pipe->mixer_stage,
 			pipe->src_split_req, pipe->is_right_blend);
-		MDSS_XLOG_TOUT_HANDLER("mdp", "panic");
+		MDSS_XLOG_TOUT_HANDLER("mdp", "dbg_bus", "panic");
 	}
 }
 
@@ -1363,7 +1363,7 @@ static bool mdss_mdp_check_pipe_in_use(struct mdss_mdp_pipe *pipe)
 				mixer->num, pipe->num,
 				mixercfg, stage_off_mask);
 			MDSS_XLOG_TOUT_HANDLER("mdp", "vbif", "vbif_nrt",
-				"panic");
+				"dbg_bus", "vbif_dbg_bus", "panic");
 		}
 
 		mixer = ctl->mixer_right;
@@ -1373,7 +1373,7 @@ static bool mdss_mdp_check_pipe_in_use(struct mdss_mdp_pipe *pipe)
 				mixer->num, pipe->num,
 				mixercfg, stage_off_mask);
 			MDSS_XLOG_TOUT_HANDLER("mdp", "vbif", "vbif_nrt",
-				"panic");
+				"dbg_bus", "vbif_dbg_bus", "panic");
 		}
 	}
 
