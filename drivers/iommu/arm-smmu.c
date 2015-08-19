@@ -2073,10 +2073,13 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 	return ret;
 }
 
+static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
+			     size_t size);
 static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 			   struct scatterlist *sg, unsigned int nents, int prot)
 {
 	int ret;
+	size_t size;
 	unsigned long flags;
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
@@ -2085,12 +2088,15 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 		return -ENODEV;
 
 	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
-	ret = ops->map_sg(ops, iova, sg, nents, prot);
+	ret = ops->map_sg(ops, iova, sg, nents, prot, &size);
 	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
 
-	if (ret)
+	if (ret) {
 		if (arm_smmu_assign_table(smmu_domain))
 			return 0;
+	} else {
+		arm_smmu_unmap(domain, iova, size);
+	}
 
 	return ret;
 }
