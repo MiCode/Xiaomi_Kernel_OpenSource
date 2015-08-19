@@ -95,6 +95,7 @@ EXPORT_SYMBOL(boot_tvec_bases);
 static DEFINE_PER_CPU(struct tvec_base *, tvec_bases) = &boot_tvec_bases;
 #ifdef CONFIG_SMP
 static struct tvec_base *tvec_base_deferral = &boot_tvec_bases;
+static atomic_t deferrable_pending;
 #endif
 
 /* Functions below help us manage 'deferrable' flag */
@@ -1330,6 +1331,30 @@ static unsigned long cmp_next_hrtimer_event(unsigned long now,
 	return expires;
 }
 
+#ifdef CONFIG_SMP
+/*
+ * check_pending_deferrable_timers - Check for unbound deferrable timer expiry.
+ * @cpu - Current CPU
+ *
+ * The function checks whether any global deferrable pending timers
+ * are exipired or not. This function does not check cpu bounded
+ * diferrable pending timers expiry.
+ *
+ * The function returns true when a cpu unbounded deferrable timer is expired.
+ */
+bool check_pending_deferrable_timers(int cpu)
+{
+	if (cpu == tick_do_timer_cpu ||
+		tick_do_timer_cpu == TICK_DO_TIMER_NONE) {
+		if (time_after_eq(jiffies, tvec_base_deferral->timer_jiffies)
+			&& !atomic_cmpxchg(&deferrable_pending, 0, 1)) {
+				return true;
+		}
+	}
+	return false;
+}
+#endif
+
 /**
  * get_next_timer_interrupt - return the jiffy of the next pending timer
  * @now: current time (in jiffies)
@@ -1392,9 +1417,13 @@ static void run_timer_softirq(struct softirq_action *h)
 	hrtimer_run_pending();
 
 #ifdef CONFIG_SMP
-	if (smp_processor_id() == tick_do_timer_cpu &&
-	    time_after_eq(jiffies, tvec_base_deferral->timer_jiffies))
-		__run_timers(tvec_base_deferral);
+	if (time_after_eq(jiffies, tvec_base_deferral->timer_jiffies)) {
+		if ((atomic_cmpxchg(&deferrable_pending, 1, 0) &&
+			tick_do_timer_cpu == TICK_DO_TIMER_NONE) ||
+			tick_do_timer_cpu == smp_processor_id())
+				__run_timers(tvec_base_deferral);
+
+	}
 #endif
 
 	if (time_after_eq(jiffies, base->timer_jiffies))
