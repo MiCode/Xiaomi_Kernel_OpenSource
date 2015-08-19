@@ -41,10 +41,15 @@
 
 #define PMIC8941_V1_REV4	0x01
 #define PMIC8941_V2_REV4	0x02
-#define PON_REV2_VALUE		0x00
+#define PON_PRIMARY		0x01
+#define PON_GEN2_PRIMARY	0x04
+
+#define PON_OFFSET(subtype, offset_gen1, offset_gen2) \
+	(subtype == PON_PRIMARY ? offset_gen1 : offset_gen2)
 
 /* Common PNP defines */
 #define QPNP_PON_REVISION2(pon)			((pon)->base + 0x01)
+#define QPNP_PON_PERPH_SUBTYPE(pon)		((pon)->base + 0x05)
 
 /* PON common register addresses */
 #define QPNP_PON_RT_STS(pon)			((pon)->base + 0x10)
@@ -52,10 +57,16 @@
 #define QPNP_PON_DBC_CTL(pon)			((pon)->base + 0x71)
 
 /* PON/RESET sources register addresses */
-#define QPNP_PON_REASON1(pon)			((pon)->base + 0x8)
-#define QPNP_PON_WARM_RESET_REASON1(pon)	((pon)->base + 0xA)
+#define QPNP_PON_REASON1(pon) \
+	((pon)->base + PON_OFFSET((pon)->subtype, 0x8, 0xC0))
+#define QPNP_PON_WARM_RESET_REASON1(pon) \
+	((pon)->base + PON_OFFSET((pon)->subtype, 0xA, 0xC2))
+#define QPNP_POFF_REASON1(pon) \
+	((pon)->base + PON_OFFSET((pon)->subtype, 0xC, 0xC5))
 #define QPNP_PON_WARM_RESET_REASON2(pon)	((pon)->base + 0xB)
-#define QPNP_POFF_REASON1(pon)			((pon)->base + 0xC)
+#define QPNP_PON_OFF_REASON(pon)		((pon)->base + 0xC7)
+#define QPNP_FAULT_REASON1(pon)			((pon)->base + 0xC8)
+#define QPNP_S3_RESET_REASON(pon)		((pon)->base + 0xCA)
 #define QPNP_PON_KPDPWR_S1_TIMER(pon)		((pon)->base + 0x40)
 #define QPNP_PON_KPDPWR_S2_TIMER(pon)		((pon)->base + 0x41)
 #define QPNP_PON_KPDPWR_S2_CNTL(pon)		((pon)->base + 0x42)
@@ -74,6 +85,7 @@
 #define QPNP_PON_WD_RST_S2_CTL2(pon)		((pon)->base + 0x57)
 #define QPNP_PON_S3_SRC(pon)			((pon)->base + 0x74)
 #define QPNP_PON_S3_DBC_CTL(pon)		((pon)->base + 0x75)
+#define QPNP_PON_SMPL_CTL(pon)			((pon)->base + 0x7F)
 #define QPNP_PON_TRIGGER_EN(pon)		((pon)->base + 0x80)
 #define QPNP_PON_XVDD_RB_SPARE(pon)		((pon)->base + 0x8E)
 #define QPNP_PON_SOFT_RB_SPARE(pon)		((pon)->base + 0x8F)
@@ -86,6 +98,7 @@
 #define QPNP_PON_RESIN_PULL_UP			BIT(0)
 #define QPNP_PON_KPDPWR_PULL_UP			BIT(1)
 #define QPNP_PON_CBLPWR_PULL_UP			BIT(2)
+#define QPNP_PON_FAULT_PULL_UP			BIT(4)
 #define QPNP_PON_S2_CNTL_EN			BIT(7)
 #define QPNP_PON_S2_RESET_ENABLE		BIT(7)
 #define QPNP_PON_DELAY_BIT_SHIFT		6
@@ -94,16 +107,21 @@
 #define QPNP_PON_S2_TIMER_MASK			(0x7)
 #define QPNP_PON_S2_CNTL_TYPE_MASK		(0xF)
 
-#define QPNP_PON_DBC_DELAY_MASK			(0x7)
+#define QPNP_PON_DBC_DELAY_MASK(pon) \
+		PON_OFFSET((pon)->subtype, 0x7, 0xF)
+
 #define QPNP_PON_KPDPWR_N_SET			BIT(0)
 #define QPNP_PON_RESIN_N_SET			BIT(1)
 #define QPNP_PON_CBLPWR_N_SET			BIT(2)
 #define QPNP_PON_RESIN_BARK_N_SET		BIT(4)
 #define QPNP_PON_KPDPWR_RESIN_BARK_N_SET	BIT(5)
 
-#define QPNP_PON_WD_EN			BIT(7)
+#define QPNP_PON_WD_EN				BIT(7)
 #define QPNP_PON_RESET_EN			BIT(7)
 #define QPNP_PON_POWER_OFF_MASK			0xF
+#define QPNP_GEN2_POFF_SEQ			BIT(7)
+#define QPNP_GEN2_FAULT_SEQ			BIT(6)
+#define QPNP_GEN2_S3_RESET_SEQ			BIT(5)
 
 #define QPNP_PON_S3_SRC_KPDPWR			0
 #define QPNP_PON_S3_SRC_RESIN			1
@@ -112,7 +130,8 @@
 #define QPNP_PON_S3_SRC_MASK			0x3
 #define QPNP_PON_HARD_RESET_MASK		PON_MASK(7, 5)
 
-#define QPNP_PON_UVLO_DLOAD_EN		BIT(7)
+#define QPNP_PON_UVLO_DLOAD_EN			BIT(7)
+#define QPNP_PON_SMPL_EN			BIT(7)
 
 /* Ranges */
 #define QPNP_PON_S1_TIMER_MAX			10256
@@ -129,6 +148,12 @@
 #define QPNP_PON_BUFFER_SIZE			9
 
 #define QPNP_POFF_REASON_UVLO			13
+
+enum qpnp_pon_version {
+	QPNP_PON_GEN1_V1,
+	QPNP_PON_GEN1_V2,
+	QPNP_PON_GEN2,
+};
 
 enum pon_type {
 	PON_KPDPWR,
@@ -179,6 +204,8 @@ struct qpnp_pon {
 	u32			dbc;
 	u32			uvlo;
 	u16			base;
+	u8			subtype;
+	u8			pon_ver;
 	u8			warm_reset_reason1;
 	u8			warm_reset_reason2;
 	bool			is_spon;
@@ -205,14 +232,16 @@ static const char * const qpnp_pon_reason[] = {
 	[7] = "Triggered from KPD (power key press)",
 };
 
+#define POFF_REASON_FAULT_OFFSET	16
+#define POFF_REASON_S3_RESET_OFFSET	32
 static const char * const qpnp_poff_reason[] = {
+	/* QPNP_PON_PRIMARY POFF reasons */
 	[0] = "Triggered from SOFT (Software)",
 	[1] = "Triggered from PS_HOLD (PS_HOLD/MSM controlled shutdown)",
 	[2] = "Triggered from PMIC_WD (PMIC watchdog)",
 	[3] = "Triggered from GP1 (Keypad_Reset1)",
 	[4] = "Triggered from GP2 (Keypad_Reset2)",
-	[5] = "Triggered from KPDPWR_AND_RESIN"
-		"(Simultaneous power key and reset line)",
+	[5] = "Triggered from KPDPWR_AND_RESIN (Simultaneous power key and reset line)",
 	[6] = "Triggered from RESIN_N (Reset line/Volume Down Key)",
 	[7] = "Triggered from KPDPWR_N (Long Power Key hold)",
 	[8] = "N/A",
@@ -223,6 +252,34 @@ static const char * const qpnp_poff_reason[] = {
 	[13] = "Triggered from UVLO (Under Voltage Lock Out)",
 	[14] = "Triggered from OTST3 (Overtemp)",
 	[15] = "Triggered from STAGE3 (Stage 3 reset)",
+
+	/* QPNP_PON_GEN2 FAULT reasons */
+	[16] = "Triggered from GP_FAULT0",
+	[17] = "Triggered from GP_FAULT1",
+	[18] = "Triggered from GP_FAULT2",
+	[19] = "Triggered from GP_FAULT3",
+	[20] = "Triggered from MBG_FAULT",
+	[21] = "Triggered from OVLO (Over Voltage Lock Out)",
+	[22] = "Triggered from UVLO (Under Voltage Lock Out)",
+	[23] = "Triggered from AVDD_RB",
+	[24] = "N/A",
+	[25] = "N/A",
+	[26] = "N/A",
+	[27] = "Triggered from FAULT_FAULT_N",
+	[28] = "Triggered from FAULT_PBS_WATCHDOG_TO",
+	[29] = "Triggered from FAULT_PBS_NACK",
+	[30] = "Triggered from FAULT_RESTART_PON",
+	[31] = "Triggered from OTST3 (Overtemp)",
+
+	/* QPNP_PON_GEN2 S3_RESET reasons */
+	[32] = "N/A",
+	[33] = "N/A",
+	[34] = "N/A",
+	[35] = "N/A",
+	[36] = "Triggered from S3_RESET_FAULT_N",
+	[37] = "Triggered from S3_RESET_PBS_WATCHDOG_TO",
+	[38] = "Triggered from S3_RESET_PBS_NACK",
+	[39] = "Triggered from S3_RESET_KPDPWR_ANDOR_RESIN (power key and/or reset line)",
 };
 
 /*
@@ -326,7 +383,8 @@ static int qpnp_pon_set_dbc(struct qpnp_pon *pon, u32 delay)
 	delay_reg = (delay << QPNP_PON_DELAY_BIT_SHIFT) / USEC_PER_SEC;
 	delay_reg = ilog2(delay_reg);
 	rc = qpnp_pon_masked_write(pon, QPNP_PON_DBC_CTL(pon),
-					QPNP_PON_DBC_DELAY_MASK, delay_reg);
+					QPNP_PON_DBC_DELAY_MASK(pon),
+					delay_reg);
 	if (rc) {
 		dev_err(&pon->spmi->dev, "Unable to set PON debounce\n");
 		goto unlock;
@@ -377,19 +435,9 @@ static int qpnp_pon_reset_config(struct qpnp_pon *pon,
 		enum pon_power_off_type type)
 {
 	int rc;
-	u8 reg;
 	u16 rst_en_reg;
 
-	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
-			QPNP_PON_REVISION2(pon), &reg, 1);
-	if (rc) {
-		dev_err(&pon->spmi->dev,
-			"Unable to read addr=%x, rc(%d)\n",
-			QPNP_PON_REVISION2(pon), rc);
-		return rc;
-	}
-
-	if (reg == PON_REV2_VALUE)
+	if (pon->pon_ver == QPNP_PON_GEN1_V1)
 		rst_en_reg = QPNP_PON_PS_HOLD_RST_CTL(pon);
 	else
 		rst_en_reg = QPNP_PON_PS_HOLD_RST_CTL2(pon);
@@ -503,8 +551,11 @@ int qpnp_pon_is_warm_reset(void)
 	if (!pon)
 		return -EPROBE_DEFER;
 
-	return pon->warm_reset_reason1
-		|| (pon->warm_reset_reason2 & QPNP_PON_WARM_RESET_TFT);
+	if (pon->subtype == PON_PRIMARY)
+		return pon->warm_reset_reason1
+			|| (pon->warm_reset_reason2 & QPNP_PON_WARM_RESET_TFT);
+	else
+		return pon->warm_reset_reason1;
 }
 EXPORT_SYMBOL(qpnp_pon_is_warm_reset);
 
@@ -557,11 +608,19 @@ int qpnp_pon_trigger_config(enum pon_trigger_source pon_src, bool enable)
 		return -EINVAL;
 	}
 
-	rc = qpnp_pon_masked_write(pon, QPNP_PON_TRIGGER_EN(pon),
+	if (pon->subtype == PON_GEN2_PRIMARY && pon_src == PON_SMPL) {
+		rc = qpnp_pon_masked_write(pon, QPNP_PON_SMPL_CTL(pon),
+			QPNP_PON_SMPL_EN, enable ? QPNP_PON_SMPL_EN : 0);
+		if (rc)
+			dev_err(&pon->spmi->dev, "Unable to write to addr=%x, rc(%d)\n",
+				QPNP_PON_SMPL_CTL(pon), rc);
+	} else {
+		rc = qpnp_pon_masked_write(pon, QPNP_PON_TRIGGER_EN(pon),
 				BIT(pon_src), enable ? BIT(pon_src) : 0);
-	if (rc)
-		dev_err(&pon->spmi->dev, "Unable to write to addr=%x, rc(%d)\n",
-					QPNP_PON_TRIGGER_EN(pon), rc);
+		if (rc)
+			dev_err(&pon->spmi->dev, "Unable to write to addr=%x, rc(%d)\n",
+				QPNP_PON_TRIGGER_EN(pon), rc);
+	}
 
 	return rc;
 }
@@ -581,20 +640,21 @@ static int qpnp_pon_store_and_clear_warm_reset(struct qpnp_pon *pon)
 			QPNP_PON_WARM_RESET_REASON1(pon),
 			&pon->warm_reset_reason1, 1);
 	if (rc) {
-		dev_err(&pon->spmi->dev,
-			"Unable to read addr=%x, rc(%d)\n",
+		dev_err(&pon->spmi->dev, "Unable to read addr=%x, rc(%d)\n",
 			QPNP_PON_WARM_RESET_REASON1(pon), rc);
 		return rc;
 	}
 
-	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
-			QPNP_PON_WARM_RESET_REASON2(pon),
-			&pon->warm_reset_reason2, 1);
-	if (rc) {
-		dev_err(&pon->spmi->dev,
-			"Unable to read addr=%x, rc(%d)\n",
-			QPNP_PON_WARM_RESET_REASON2(pon), rc);
-		return rc;
+	if (pon->subtype == PON_PRIMARY) {
+		rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+				QPNP_PON_WARM_RESET_REASON2(pon),
+				&pon->warm_reset_reason2, 1);
+		if (rc) {
+			dev_err(&pon->spmi->dev,
+				"Unable to read addr=%x, rc(%d)\n",
+				QPNP_PON_WARM_RESET_REASON2(pon), rc);
+			return rc;
+		}
 	}
 
 	if (of_property_read_bool(pon->spmi->dev.of_node,
@@ -746,14 +806,16 @@ static void print_pon_reg(struct qpnp_pon *pon, u16 offset)
 }
 
 #define PON_PBL_STATUS			0x7
-#define PON_PON_REASON1			0x8
+#define PON_PON_REASON1(subtype)	PON_OFFSET(subtype, 0x8, 0xC0)
 #define PON_PON_REASON2			0x9
-#define PON_WARM_RESET_REASON1		0xA
+#define PON_WARM_RESET_REASON1(subtype)	PON_OFFSET(subtype, 0xA, 0xC2)
 #define PON_WARM_RESET_REASON2		0xB
-#define PON_POFF_REASON1		0xC
+#define PON_POFF_REASON1(subtype)	PON_OFFSET(subtype, 0xC, 0xC5)
 #define PON_POFF_REASON2		0xD
-#define PON_SOFT_RESET_REASON1		0xE
+#define PON_SOFT_RESET_REASON1(subtype)	PON_OFFSET(subtype, 0xE, 0xCB)
 #define PON_SOFT_RESET_REASON2		0xF
+#define PON_FAULT_REASON1		0xC8
+#define PON_FAULT_REASON2		0xC9
 #define PON_PMIC_WD_RESET_S1_TIMER	0x54
 #define PON_PMIC_WD_RESET_S2_TIMER	0x55
 static irqreturn_t qpnp_pmic_wd_bark_irq(int irq, void *_pon)
@@ -761,15 +823,19 @@ static irqreturn_t qpnp_pmic_wd_bark_irq(int irq, void *_pon)
 	struct qpnp_pon *pon = _pon;
 
 	print_pon_reg(pon, PON_PBL_STATUS);
-	print_pon_reg(pon, PON_PBL_STATUS);
-	print_pon_reg(pon, PON_PON_REASON1);
-	print_pon_reg(pon, PON_PON_REASON2);
-	print_pon_reg(pon, PON_WARM_RESET_REASON1);
-	print_pon_reg(pon, PON_WARM_RESET_REASON2);
-	print_pon_reg(pon, PON_POFF_REASON1);
-	print_pon_reg(pon, PON_POFF_REASON2);
-	print_pon_reg(pon, PON_SOFT_RESET_REASON1);
-	print_pon_reg(pon, PON_SOFT_RESET_REASON2);
+	print_pon_reg(pon, PON_PON_REASON1(pon->subtype));
+	print_pon_reg(pon, PON_WARM_RESET_REASON1(pon->subtype));
+	print_pon_reg(pon, PON_SOFT_RESET_REASON1(pon->subtype));
+	print_pon_reg(pon, PON_POFF_REASON1(pon->subtype));
+	if (pon->subtype == PON_PRIMARY) {
+		print_pon_reg(pon, PON_PON_REASON2);
+		print_pon_reg(pon, PON_WARM_RESET_REASON2);
+		print_pon_reg(pon, PON_POFF_REASON2);
+		print_pon_reg(pon, PON_SOFT_RESET_REASON2);
+	} else {
+		print_pon_reg(pon, PON_FAULT_REASON1);
+		print_pon_reg(pon, PON_FAULT_REASON2);
+	}
 	print_pon_reg(pon, PON_PMIC_WD_RESET_S1_TIMER);
 	print_pon_reg(pon, PON_PMIC_WD_RESET_S2_TIMER);
 	panic("PMIC Watch dog triggered");
@@ -1087,7 +1153,6 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon)
 	int rc = 0, i = 0, pmic_wd_bark_irq;
 	struct device_node *pp = NULL;
 	struct qpnp_pon_config *cfg;
-	u8 pon_ver;
 	u8 pmic_type;
 	u8 revid_rev4;
 
@@ -1095,16 +1160,6 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon)
 		dev_dbg(&pon->spmi->dev, "num_pon_config: %d\n",
 			pon->num_pon_config);
 		return 0;
-	}
-
-	/* Check if it is rev B */
-	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
-			QPNP_PON_REVISION2(pon), &pon_ver, 1);
-	if (rc) {
-		dev_err(&pon->spmi->dev,
-			"Unable to read addr=%x, rc(%d)\n",
-			QPNP_PON_REVISION2(pon), rc);
-		return rc;
 	}
 
 	/* iterate through the list of pon configs */
@@ -1162,7 +1217,7 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon)
 			   then there is a single register to control s2 reset.
 			   Otherwise there are separate registers for s2 reset
 			   type and s2 reset enable */
-			if (pon_ver == PON_REV2_VALUE) {
+			if (pon->pon_ver == QPNP_PON_GEN1_V1) {
 				cfg->s2_cntl_addr = cfg->s2_cntl2_addr =
 					QPNP_PON_KPDPWR_S2_CNTL(pon);
 			} else {
@@ -1242,7 +1297,7 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon)
 				}
 			}
 
-			if (pon_ver == PON_REV2_VALUE) {
+			if (pon->pon_ver == QPNP_PON_GEN1_V1) {
 				cfg->s2_cntl_addr = cfg->s2_cntl2_addr =
 					QPNP_PON_RESIN_S2_CNTL(pon);
 			} else {
@@ -1291,7 +1346,7 @@ static int qpnp_pon_config_init(struct qpnp_pon *pon)
 				}
 			}
 
-			if (pon_ver == PON_REV2_VALUE) {
+			if (pon->pon_ver == QPNP_PON_GEN1_V1) {
 				cfg->s2_cntl_addr = cfg->s2_cntl2_addr =
 				QPNP_PON_KPDPWR_RESIN_S2_CNTL(pon);
 			} else {
@@ -1716,6 +1771,59 @@ static void qpnp_pon_debugfs_remove(struct spmi_device *spmi)
 {}
 #endif
 
+static int read_gen2_pon_off_reason(struct qpnp_pon *pon, u16 *reason,
+					int *reason_index_offset)
+{
+	int rc;
+	u8 buf[2], reg;
+
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+				QPNP_PON_OFF_REASON(pon),
+				&reg, 1);
+	if (rc) {
+		dev_err(&pon->spmi->dev, "Unable to read PON_OFF_REASON reg rc:%d\n",
+			rc);
+		return rc;
+	}
+
+	if (reg & QPNP_GEN2_POFF_SEQ) {
+		rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+						QPNP_POFF_REASON1(pon),
+						buf, 1);
+		if (rc) {
+			dev_err(&pon->spmi->dev, "Unable to read POFF_REASON1 reg rc:%d\n",
+				rc);
+			return rc;
+		}
+		*reason = buf[0];
+		*reason_index_offset = 0;
+	} else if (reg & QPNP_GEN2_FAULT_SEQ) {
+		rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+						QPNP_FAULT_REASON1(pon),
+						buf, 2);
+		if (rc) {
+			dev_err(&pon->spmi->dev, "Unable to read FAULT_REASON regs rc:%d\n",
+				rc);
+			return rc;
+		}
+		*reason = buf[0] | (buf[1] << 8);
+		*reason_index_offset = POFF_REASON_FAULT_OFFSET;
+	} else if (reg & QPNP_GEN2_S3_RESET_SEQ) {
+		rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+						QPNP_S3_RESET_REASON(pon),
+						buf, 1);
+		if (rc) {
+			dev_err(&pon->spmi->dev, "Unable to read S3_RESET_REASON reg rc:%d\n",
+				rc);
+			return rc;
+		}
+		*reason = buf[0];
+		*reason_index_offset = POFF_REASON_S3_RESET_OFFSET;
+	}
+
+	return 0;
+}
+
 static int qpnp_pon_probe(struct spmi_device *spmi)
 {
 	struct qpnp_pon *pon;
@@ -1723,6 +1831,7 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 	struct device_node *node = NULL;
 	u32 delay = 0, s3_debounce = 0;
 	int rc, sys_reset, index;
+	int reason_index_offset = 0;
 	u8 pon_sts = 0, buf[2];
 	u16 poff_sts = 0;
 	const char *s3_src;
@@ -1784,6 +1893,43 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 				sizeof(struct qpnp_pon_config) *
 				pon->num_pon_config, GFP_KERNEL);
 
+	/* Read PON_PERPH_SUBTYPE register to get PON type */
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+				QPNP_PON_PERPH_SUBTYPE(pon),
+				&pon->subtype, 1);
+	if (rc) {
+		dev_err(&pon->spmi->dev,
+			"Unable to read PON_PERPH_SUBTYPE register rc: %d\n",
+			rc);
+		return rc;
+	}
+
+	/* Check if it is rev B */
+	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+			QPNP_PON_REVISION2(pon), &pon->pon_ver, 1);
+	if (rc) {
+		dev_err(&pon->spmi->dev,
+			"Unable to read addr=%x, rc(%d)\n",
+			QPNP_PON_REVISION2(pon), rc);
+		return rc;
+	}
+	if (pon->subtype == PON_PRIMARY) {
+		if (pon->pon_ver == 0)
+			pon->pon_ver = QPNP_PON_GEN1_V1;
+		else
+			pon->pon_ver = QPNP_PON_GEN1_V2;
+	} else if (pon->subtype == PON_GEN2_PRIMARY) {
+		pon->pon_ver = QPNP_PON_GEN2;
+	} else {
+		dev_err(&pon->spmi->dev,
+			"Invalid PON_PERPH_SUBTYPE value %x\n",
+			pon->subtype);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: pon_subtype=%x, pon_version=%x\n", __func__,
+			pon->subtype, pon->pon_ver);
+
 	rc = qpnp_pon_store_and_clear_warm_reset(pon);
 	if (rc) {
 		dev_err(&pon->spmi->dev,
@@ -1796,11 +1942,10 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
 				QPNP_PON_REASON1(pon), &pon_sts, 1);
 	if (rc) {
-		dev_err(&pon->spmi->dev, "Unable to read PON_RESASON1 reg rc: %d\n",
+		dev_err(&pon->spmi->dev, "Unable to read PON_REASON1 reg rc: %d\n",
 			rc);
 		return rc;
 	}
-
 
 	index = ffs(pon_sts) - 1;
 	cold_boot = !qpnp_pon_is_warm_reset();
@@ -1817,16 +1962,23 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 	}
 
 	/* POFF reason */
-	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+	if (pon->subtype != PON_PRIMARY) {
+		rc = read_gen2_pon_off_reason(pon, &poff_sts,
+						&reason_index_offset);
+		if (rc)
+			return rc;
+	} else {
+		rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
 				QPNP_POFF_REASON1(pon),
 				buf, 2);
-	if (rc) {
-		dev_err(&pon->spmi->dev, "Unable to read POFF_RESASON regs rc:%d\n",
-			rc);
-		return rc;
+		if (rc) {
+			dev_err(&pon->spmi->dev, "Unable to read POFF_REASON regs rc:%d\n",
+				rc);
+			return rc;
+		}
+		poff_sts = buf[0] | (buf[1] << 8);
 	}
-	poff_sts = buf[0] | (buf[1] << 8);
-	index = ffs(poff_sts) - 1;
+	index = ffs(poff_sts) - 1 + reason_index_offset;
 	if (index >= ARRAY_SIZE(qpnp_poff_reason) || index < 0) {
 		dev_info(&pon->spmi->dev,
 				"PMIC@SID%d: Unknown power-off reason\n",
