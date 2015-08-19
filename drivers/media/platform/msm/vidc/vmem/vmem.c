@@ -335,19 +335,6 @@ int vmem_allocate(size_t size, phys_addr_t *addr)
 
 	BUG_ON(vmem->num_banks != DIV_ROUND_UP(size, vmem->bank_size));
 
-	/* Make sure all the banks are sleeping (default) */
-	for (c = 0; c < vmem->num_banks; ++c) {
-		enum bank_state curr_bank_state = __bank_get_state(vmem, c);
-
-		if (curr_bank_state != BANK_STATE_SLEEP_NO_RET) {
-			pr_err("Found bank %d in a wrong state, expected %d, was %d\n",
-					c, BANK_STATE_SLEEP_NO_RET,
-					curr_bank_state);
-			rc = -EIO;
-			goto disable_clocks;
-		}
-	}
-
 	/* Turn on the necessary banks */
 	for (c = 0; c < vmem->num_banks; ++c) {
 		__bank_set_state(vmem, c, BANK_STATE_NORM_FORCE_CORE_ON);
@@ -360,9 +347,6 @@ int vmem_allocate(size_t size, phys_addr_t *addr)
 	atomic_inc(&vmem->alloc_count);
 	*addr = (phys_addr_t)vmem->mem.resource->start;
 	return 0;
-
-disable_clocks:
-	__power_off(vmem);
 exit:
 	return rc;
 }
