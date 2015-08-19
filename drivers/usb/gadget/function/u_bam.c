@@ -1172,6 +1172,11 @@ static void gbam_disconnect_work(struct work_struct *w)
 
 	msm_bam_dmux_close(d->id);
 	clear_bit(BAM_CH_OPENED, &d->flags);
+	/*
+	 * Decrement usage count which was incremented upon cable connect
+	 * or cable disconnect in suspended state
+	 */
+	usb_gadget_autopm_put_async(port->gadget);
 }
 
 static void gbam2bam_disconnect_work(struct work_struct *w)
