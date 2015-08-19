@@ -1660,14 +1660,19 @@ static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
 	arm_smmu_disable_clocks(smmu);
 }
 
+static int arm_smmu_halt(struct arm_smmu_device *smmu);
+static void arm_smmu_resume(struct arm_smmu_device *smmu);
+
 static void arm_smmu_impl_def_programming(struct arm_smmu_device *smmu)
 {
 	int i;
 	struct arm_smmu_impl_def_reg *regs = smmu->impl_def_attach_registers;
 
+	arm_smmu_halt(smmu);
 	for (i = 0; i < smmu->num_impl_def_attach_registers; ++i)
 		writel_relaxed(regs[i].value,
 			ARM_SMMU_GR0(smmu) + regs[i].offset);
+	arm_smmu_resume(smmu);
 }
 
 static void arm_smmu_device_reset(struct arm_smmu_device *smmu);
