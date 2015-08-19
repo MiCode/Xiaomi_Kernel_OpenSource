@@ -710,12 +710,15 @@
 #define TSENS_DBG_BUS_ID_15		15
 #define TSENS_DEBUG_LOOP_COUNT_ID_0	30
 #define TSENS_DEBUG_LOOP_COUNT		5
-#define TSENS_DEBUG_OFFSET_RANGE	20
+#define TSENS_DEBUG_STATUS_REG_START	10
+#define TSENS_DEBUG_OFFSET_RANGE	16
 #define TSENS_DEBUG_OFFSET_WORD1	0x4
 #define TSENS_DEBUG_OFFSET_WORD2	0x8
 #define TSENS_DEBUG_OFFSET_WORD3	0xc
 #define TSENS_DEBUG_OFFSET_ROW		0x10
 #define TSENS_DEBUG_DECIDEGC		-400
+#define TSENS_DEBUG_MIN_CYCLE		63000
+#define TSENS_DEBUG_MAX_CYCLE		64000
 
 static uint32_t tsens_sec_to_msec_value = 3000;
 static uint32_t tsens_completion_timeout_hz = 2 * HZ;
@@ -824,6 +827,9 @@ struct tsens_tm_device {
 	spinlock_t			tsens_crit_lock;
 	spinlock_t			tsens_upp_low_lock;
 	bool				crit_set;
+	unsigned long long		crit_timestamp_last_run;
+	unsigned long long		crit_timestamp_last_interrupt_handled;
+	unsigned long long		crit_timestamp_last_poll_request;
 	struct tsens_tm_device_sensor	sensor[0];
 };
 
@@ -1910,6 +1916,8 @@ static void tsens_poll(struct work_struct *work)
 			(TSENS_TM_SN_CRITICAL_THRESHOLD(tmdev->tsens_addr) +
 			(mask * TSENS_SN_ADDR_OFFSET)));
 
+	tmdev->crit_timestamp_last_run = sched_clock();
+
 	spin_lock_irqsave(&tmdev->tsens_crit_lock, flags);
 	tmdev->crit_set = true;
 	reg_cntl = readl_relaxed(TSENS_TM_CRITICAL_INT_MASK(tmdev->tsens_addr));
@@ -1940,6 +1948,7 @@ static void tsens_poll(struct work_struct *work)
 		tmdev->crit_set = false;
 		spin_unlock_irqrestore(&tmdev->tsens_crit_lock, flags);
 
+		tmdev->crit_timestamp_last_poll_request = sched_clock();
 		if (status & TSENS_TM_SN_STATUS_CRITICAL_STATUS) {
 
 			spin_lock_irqsave(&tmdev->tsens_crit_lock, flags);
@@ -2022,20 +2031,28 @@ static void tsens_poll(struct work_struct *work)
 			offset += TSENS_DEBUG_OFFSET_ROW;
 		}
 
-		offset = 0;
-		pr_err("Start of TSENS TM dump\n");
-		for (i = 0; i < TSENS_DEBUG_OFFSET_RANGE; i++) {
-			r1 = readl_relaxed(controller_id_addr + offset);
-			r2 = readl_relaxed(controller_id_addr + (offset +
-						TSENS_DEBUG_OFFSET_WORD1));
-			r3 = readl_relaxed(controller_id_addr +	(offset +
-						TSENS_DEBUG_OFFSET_WORD2));
-			r4 = readl_relaxed(controller_id_addr + (offset +
-						TSENS_DEBUG_OFFSET_WORD3));
+		loop = 0;
+		while (loop < TSENS_DEBUG_LOOP_COUNT) {
+			offset = TSENS_DEBUG_OFFSET_ROW *
+					TSENS_DEBUG_STATUS_REG_START;
+			pr_err("Start of TSENS TM dump %d\n", loop);
+			/* Limited dump of the registers for the temperature */
+			for (i = 0; i < TSENS_DEBUG_LOOP_COUNT; i++) {
+				r1 = readl_relaxed(controller_id_addr + offset);
+				r2 = readl_relaxed(controller_id_addr +
+					(offset + TSENS_DEBUG_OFFSET_WORD1));
+				r3 = readl_relaxed(controller_id_addr +
+					(offset + TSENS_DEBUG_OFFSET_WORD2));
+				r4 = readl_relaxed(controller_id_addr +
+					(offset + TSENS_DEBUG_OFFSET_WORD3));
 
-			pr_err("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
-				offset, r1, r2, r3, r4);
-			offset += TSENS_DEBUG_OFFSET_ROW;
+				pr_err("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+					offset, r1, r2, r3, r4);
+				offset += TSENS_DEBUG_OFFSET_ROW;
+			}
+			loop++;
+			usleep_range(TSENS_DEBUG_MIN_CYCLE,
+				TSENS_DEBUG_MAX_CYCLE);
 		}
 
 		BUG();
@@ -2301,6 +2318,7 @@ static irqreturn_t tsens_tm_critical_irq_thread(int irq, void *data)
 		}
 	}
 
+	tm->crit_timestamp_last_interrupt_handled = sched_clock();
 	complete(&tm->tsens_rslt_completion);
 	/* Mask critical interrupt */
 	mb();
