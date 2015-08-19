@@ -28,13 +28,23 @@
 #define WSA881X_DIGITAL_SLAVE 0
 #define WSA881X_ANALOG_SLAVE 1
 
+enum {
+	WSA881X_1_X = 0,
+	WSA881X_2_0,
+};
+
+#define WSA881X_IS_2_0(ver) \
+	((ver == WSA881X_2_0) ? 1 : 0)
+
 extern const u8 wsa881x_ana_reg_readable[WSA881X_CACHE_SIZE];
-extern const struct reg_default wsa881x_ana_reg_defaults[WSA881X_CACHE_SIZE];
+extern struct reg_default wsa881x_ana_reg_defaults[WSA881X_CACHE_SIZE];
 extern struct regmap_config wsa881x_ana_regmap_config[2];
 int wsa881x_get_client_index(void);
 int wsa881x_get_probing_count(void);
 int wsa881x_get_presence_count(void);
 int wsa881x_set_mclk_callback(
 	int (*enable_mclk_callback)(struct snd_soc_card *, bool));
+void wsa881x_update_reg_defaults_2_0(void);
+void wsa881x_update_regmap_2_0(struct regmap *regmap, int flag);
 
 #endif /* _WSA881X_H */
