@@ -942,31 +942,6 @@ err_create_pkt:
 	return rc;
 }
 
-static int __core_release_resource(struct venus_hfi_device *device,
-			struct vidc_resource_hdr *resource_hdr)
-{
-	struct hfi_cmd_sys_release_resource_packet pkt;
-	int rc = 0;
-
-	if (!device || !resource_hdr) {
-		dprintk(VIDC_ERR, "Inv-Params in rel_res\n");
-		return -EINVAL;
-	}
-
-	rc = call_hfi_pkt_op(device, sys_release_resource,
-			&pkt, resource_hdr);
-	if (rc) {
-		dprintk(VIDC_ERR, "release_res: failed to create packet\n");
-		goto err_create_pkt;
-	}
-
-	if (__iface_cmdq_write(device, &pkt))
-		rc = -ENOTEMPTY;
-
-err_create_pkt:
-	return rc;
-}
-
 static DECLARE_COMPLETION(pc_prep_done);
 static DECLARE_COMPLETION(release_resources_done);
 
@@ -992,6 +967,11 @@ static int __alloc_imem(struct venus_hfi_device *device, unsigned long size)
 
 		rc = vmem_allocate(size, &vmem_buffer);
 		if (rc) {
+			if (rc == -ENOTSUPP) {
+				dprintk(VIDC_DBG,
+					"Target does not support vmem\n");
+				rc = 0;
+			}
 			goto imem_alloc_failed;
 		} else if (!vmem_buffer) {
 			rc = -ENOMEM;
@@ -1022,7 +1002,6 @@ static int __free_imem(struct venus_hfi_device *device)
 
 	if (!device)
 		return -EINVAL;
-
 
 	imem = &device->resources.imem;
 	switch (imem->type) {
@@ -1092,119 +1071,6 @@ static int __set_imem(struct venus_hfi_device *device, struct imem *imem)
 	}
 
 imem_set_failed:
-	return rc;
-}
-
-static int __unset_imem(struct venus_hfi_device *device)
-{
-	struct vidc_resource_hdr rhdr;
-	struct imem *imem = NULL;
-	int rc = 0;
-	phys_addr_t addr = 0;
-
-	if (!device) {
-		dprintk(VIDC_ERR, "%s Invalid params, device: %p\n",
-			__func__, device);
-		rc = -EINVAL;
-		goto imem_unset_failed;
-	}
-
-	rc = __core_in_valid_state(device);
-	if (!rc) {
-		dprintk(VIDC_WARN, "Core is in bad state, won't unset imem\n");
-		rc = -EINVAL;
-		goto imem_unset_failed;
-	}
-
-	imem = &device->resources.imem;
-	switch (imem->type) {
-	case IMEM_VMEM:
-		rhdr.resource_id = VIDC_RESOURCE_VMEM;
-		addr = imem->vmem;
-		break;
-	default:
-		dprintk(VIDC_ERR, "IMEM of type %d unsupported\n", imem->type);
-		rc = -ENOTSUPP;
-		goto imem_unset_failed;
-	}
-
-	if (!addr) {
-		dprintk(VIDC_INFO, "Trying to unset IMEM which is not set\n");
-		rc = -EINVAL;
-		goto imem_unset_failed;
-	}
-
-	rhdr.resource_handle = imem; /* cookie */
-	rhdr.size = device->res->imem_size;
-
-	init_completion(&release_resources_done);
-
-	rc = __core_release_resource(device, &rhdr);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to unset imem on driver\n");
-		goto imem_unset_failed;
-	}
-
-	WARN_ON(!mutex_is_locked(&device->lock));
-	mutex_unlock(&device->lock);
-	rc = wait_for_completion_timeout(&release_resources_done,
-			msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
-	mutex_lock(&device->lock);
-	if (!rc) {
-		dprintk(VIDC_ERR, "Wait timedout in releasing IMEM\n");
-		rc = -EIO;
-		goto imem_unset_failed;
-	}
-	rc = 0;
-
-imem_unset_failed:
-	return rc;
-}
-
-static int __alloc_set_imem(struct venus_hfi_device *device)
-{
-	int rc = 0;
-
-	if (!device->res->imem_size)
-		return 0;
-
-	rc = __alloc_imem(device, device->res->imem_size);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to allocate imem: %d\n", rc);
-		goto alloc_failed;
-	}
-
-	rc = __set_imem(device, &device->resources.imem);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to set imem to core: %d\n", rc);
-		goto set_failed;
-	}
-
-	return 0;
-set_failed:
-	__free_imem(device);
-alloc_failed:
-	return rc;
-}
-
-static int __unset_free_imem(struct venus_hfi_device *device)
-{
-	int rc = 0;
-
-	if (!device->res->imem_size)
-		return 0;
-
-	rc = __unset_imem(device);
-	if (rc)
-		dprintk(VIDC_WARN, "Failed to unset imem: %d\n", rc);
-
-	rc = __free_imem(device);
-	if (rc) {
-		dprintk(VIDC_WARN, "Failed to free imem: %d\n", rc);
-		goto free_failed;
-	}
-
-free_failed:
 	return rc;
 }
 
@@ -2120,6 +1986,8 @@ static int venus_hfi_core_init(void *device)
 	dev = device;
 	mutex_lock(&dev->lock);
 
+	init_completion(&release_resources_done);
+
 	rc = __load_fw(dev);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to load Venus FW\n");
@@ -2199,29 +2067,6 @@ err_load_fw:
 	return rc;
 }
 
-static int __core_release(struct venus_hfi_device *device)
-{
-	int rc = 0;
-
-	if (!device->hal_client)
-		return -EINVAL;
-
-	if (__resume(device)) {
-		dprintk(VIDC_ERR, "%s: Power enable failed\n", __func__);
-		return -EIO;
-	}
-
-	rc = __unset_free_imem(device);
-	if (rc)
-		dprintk(VIDC_ERR,
-			"Failed to unset and free imem in core release: %d\n",
-			rc);
-
-	__set_state(device, VENUS_STATE_DEINIT);
-
-	return rc;
-}
-
 static int venus_hfi_core_release(void *dev)
 {
 	struct venus_hfi_device *device = dev;
@@ -2233,7 +2078,7 @@ static int venus_hfi_core_release(void *dev)
 	}
 
 	mutex_lock(&device->lock);
-	rc = __core_release(device);
+	__set_state(device, VENUS_STATE_DEINIT);
 	__unload_fw(device);
 	mutex_unlock(&device->lock);
 
@@ -3419,9 +3264,12 @@ static int __response_handler(struct venus_hfi_device *device)
 			break;
 		case HAL_SYS_INIT_DONE:
 			dprintk(VIDC_DBG, "Received SYS_INIT_DONE\n");
-			if (__alloc_set_imem(device))
+			/* Video driver intentionally does not unset
+			 * IMEM on venus to simplify power collapse.
+			 */
+			if (__set_imem(device, &device->resources.imem))
 				dprintk(VIDC_WARN,
-						"Failed to allocate IMEM. Performance will be impacted\n");
+				"Failed to set IMEM. Performance will be impacted\n");
 			break;
 		case HAL_SYS_PC_PREP_DONE:
 			dprintk(VIDC_DBG, "Received SYS_PC_PREP_DONE\n");
@@ -4153,6 +4001,12 @@ static int __venus_power_on(struct venus_hfi_device *device)
 		goto fail_vote_buses;
 	}
 
+	rc = __alloc_imem(device, device->res->imem_size);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to allocate IMEM\n");
+		goto fail_alloc_imem;
+	}
+
 	rc = __enable_regulators(device);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to enable GDSC, err = %d\n", rc);
@@ -4182,9 +4036,12 @@ static int __venus_power_on(struct venus_hfi_device *device)
 		dprintk(VIDC_ERR, "Failed to enabled inter-frame PC\n");
 
 	return rc;
+
 fail_enable_clks:
 	__disable_regulators(device);
 fail_enable_gdsc:
+	__free_imem(device);
+fail_alloc_imem:
 	__unvote_buses(device);
 fail_vote_buses:
 	device->power_enabled = false;
@@ -4206,6 +4063,8 @@ static void __venus_power_off(struct venus_hfi_device *device)
 	__disable_unprepare_clks(device);
 	if (__disable_regulators(device))
 		dprintk(VIDC_WARN, "Failed to disable regulators\n");
+
+	__free_imem(device);
 
 	if (__unvote_buses(device))
 		dprintk(VIDC_WARN, "Failed to unvote for buses\n");
@@ -4229,16 +4088,6 @@ static inline int __suspend(struct venus_hfi_device *device)
 	if (rc) {
 		dprintk(VIDC_WARN, "Failed to suspend video core %d\n", rc);
 		goto err_tzbsp_suspend;
-	}
-
-	if (device->resources.imem.type) {
-		rc = __free_imem(device);
-		if (rc) {
-			dprintk(VIDC_WARN, "Failed to free IMEM for PC: %d\n",
-					rc);
-			/* Free imem is never supposed to fail */
-			WARN_ON(1);
-		}
 	}
 
 	/*
@@ -4282,13 +4131,6 @@ static inline int __resume(struct venus_hfi_device *device)
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to power on venus\n");
 		goto err_venus_power_on;
-	}
-
-	rc = __alloc_imem(device, device->res->imem_size);
-	if (rc) {
-		dprintk(VIDC_WARN, "Failed to allocate IMEM");
-		/* Alloc imem should not fail */
-		WARN_ON(1);
 	}
 
 	/* Reboot the firmware */
