@@ -826,6 +826,30 @@
 		clock-names = "core_clk", "core_a_clk";
 	};
 
+	hwevent: hwevent@6101000 {
+		compatible = "qcom,coresight-hwevent";
+		reg = <0x6101000 0x148>,
+		      <0x6101fb0 0x4>,
+		      <0x6121000 0x148>,
+		      <0x6121fb0 0x4>,
+		      <0x6131000 0x148>,
+		      <0x6131fb0 0x4>,
+		      <0x78c5010 0x4>,
+		      <0x7885010 0x4>;
+		reg-names = "center-wrapper-mux", "center-wrapper-lockaccess",
+			    "right-wrapper-mux", "right-wrapper-lockaccess",
+			    "mm-wrapper-mux", "mm-wrapper-lockaccess",
+			    "usbbam-mux", "blsp-mux";
+
+		coresight-id = <52>;
+		coresight-name = "coresight-hwevent";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
 	fuse: fuse@a601c {
 		compatible = "arm,coresight-fuse-v2";
 		reg = <0xa601c 0x8>,
@@ -833,7 +857,7 @@
 		      <0xa600c 0x4>;
 		reg-names = "fuse-base", "nidnt-fuse-base", "qpdi-fuse-base";
 
-		coresight-id = <52>;
+		coresight-id = <53>;
 		coresight-name = "coresight-fuse";
 		coresight-nr-inports = <0>;
 	};
