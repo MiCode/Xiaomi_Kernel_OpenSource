@@ -631,16 +631,21 @@ static int mdss_mdp_clk_update(u32 clk_idx, u32 enable)
 	return ret;
 }
 
-int mdss_mdp_vsync_clk_enable(int enable)
+int mdss_mdp_vsync_clk_enable(int enable, bool locked)
 {
 	int ret = 0;
 	pr_debug("clk enable=%d\n", enable);
-	mutex_lock(&mdp_clk_lock);
+
+	if (!locked)
+		mutex_lock(&mdp_clk_lock);
+
 	if (mdss_res->vsync_ena != enable) {
 		mdss_res->vsync_ena = enable;
 		ret = mdss_mdp_clk_update(MDSS_CLK_MDP_VSYNC, enable);
 	}
-	mutex_unlock(&mdp_clk_lock);
+
+	if (!locked)
+		mutex_unlock(&mdp_clk_lock);
 	return ret;
 }
 
@@ -673,14 +678,20 @@ void mdss_mdp_set_clk_rate(unsigned long rate)
 	}
 }
 
-unsigned long mdss_mdp_get_clk_rate(u32 clk_idx)
+unsigned long mdss_mdp_get_clk_rate(u32 clk_idx, bool locked)
 {
 	unsigned long clk_rate = 0;
 	struct clk *clk = mdss_mdp_get_clk(clk_idx);
-	mutex_lock(&mdp_clk_lock);
-	if (clk)
+
+	if (clk) {
+		if (!locked)
+			mutex_lock(&mdp_clk_lock);
+
 		clk_rate = clk_get_rate(clk);
-	mutex_unlock(&mdp_clk_lock);
+
+		if (!locked)
+			mutex_unlock(&mdp_clk_lock);
+	}
 
 	return clk_rate;
 }
@@ -827,7 +838,7 @@ static int mdss_mdp_idle_pc_restore(void)
 	}
 	mdss_hw_init(mdata);
 	mdss_iommu_ctrl(0);
-	mdss_mdp_ctl_restore();
+	mdss_mdp_ctl_restore(true);
 	mdata->idle_pc = false;
 
 end:
@@ -956,10 +967,10 @@ void mdss_mdp_clk_ctrl(int enable)
 		}
 	}
 
-	mutex_unlock(&mdp_clk_lock);
-
 	if (enable && changed)
 		mdss_mdp_idle_pc_restore();
+
+	mutex_unlock(&mdp_clk_lock);
 }
 
 static inline int mdss_mdp_irq_clk_register(struct mdss_data_type *mdata,
@@ -1093,7 +1104,7 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 	/* Setting the default clock rate to the max supported.*/
 	mdss_mdp_set_clk_rate(mdata->max_mdp_clk_rate);
 	pr_debug("mdp clk rate=%ld\n",
-		mdss_mdp_get_clk_rate(MDSS_CLK_MDP_CORE));
+		mdss_mdp_get_clk_rate(MDSS_CLK_MDP_CORE, false));
 
 	return 0;
 }
@@ -1226,10 +1237,8 @@ static void mdss_hw_rev_init(struct mdss_data_type *mdata)
 	if (mdata->mdp_rev)
 		return;
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	mdata->mdp_rev = MDSS_REG_READ(mdata, MDSS_REG_HW_VERSION);
 	mdss_mdp_hw_rev_caps_init(mdata);
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 }
 
 /**
@@ -1502,7 +1511,9 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 #define SPRINT(fmt, ...) \
 		(cnt += scnprintf(buf + cnt, len - cnt, fmt, ##__VA_ARGS__))
 
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	mdss_hw_rev_init(mdata);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
 	SPRINT("mdp_version=5\n");
 	SPRINT("hw_rev=%d\n", mdata->mdp_rev);

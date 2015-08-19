@@ -179,7 +179,7 @@ static int mdss_mdp_tearcheck_enable(struct mdss_mdp_ctl *ctl, bool enable)
 }
 
 static int mdss_mdp_cmd_tearcheck_cfg(struct mdss_mdp_mixer *mixer,
-		struct mdss_mdp_cmd_ctx *ctx)
+		struct mdss_mdp_cmd_ctx *ctx, bool locked)
 {
 	struct mdss_mdp_pp_tear_check *te = NULL;
 	struct mdss_panel_info *pinfo;
@@ -196,10 +196,10 @@ static int mdss_mdp_cmd_tearcheck_cfg(struct mdss_mdp_mixer *mixer,
 	pinfo = &ctl->panel_data->panel_info;
 	te = &ctl->panel_data->panel_info.te;
 
-	mdss_mdp_vsync_clk_enable(1);
+	mdss_mdp_vsync_clk_enable(1, locked);
 
 	vsync_clk_speed_hz =
-		mdss_mdp_get_clk_rate(MDSS_CLK_MDP_VSYNC);
+		mdss_mdp_get_clk_rate(MDSS_CLK_MDP_VSYNC, locked);
 
 	total_lines = mdss_panel_get_vtotal(pinfo);
 
@@ -258,7 +258,8 @@ static int mdss_mdp_cmd_tearcheck_cfg(struct mdss_mdp_mixer *mixer,
 	return 0;
 }
 
-static int mdss_mdp_cmd_tearcheck_setup(struct mdss_mdp_cmd_ctx *ctx)
+static int mdss_mdp_cmd_tearcheck_setup(struct mdss_mdp_cmd_ctx *ctx,
+		bool locked)
 {
 	int rc = 0;
 	struct mdss_mdp_mixer *mixer;
@@ -267,7 +268,7 @@ static int mdss_mdp_cmd_tearcheck_setup(struct mdss_mdp_cmd_ctx *ctx)
 
 	mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_LEFT);
 	if (mixer) {
-		rc = mdss_mdp_cmd_tearcheck_cfg(mixer, ctx);
+		rc = mdss_mdp_cmd_tearcheck_cfg(mixer, ctx, locked);
 		if (rc)
 			goto err;
 	}
@@ -276,7 +277,7 @@ static int mdss_mdp_cmd_tearcheck_setup(struct mdss_mdp_cmd_ctx *ctx)
 	    !is_dsc_compression(pinfo)) {
 		mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_RIGHT);
 		if (mixer)
-			rc = mdss_mdp_cmd_tearcheck_cfg(mixer, ctx);
+			rc = mdss_mdp_cmd_tearcheck_cfg(mixer, ctx, locked);
 	}
 err:
 	return rc;
@@ -1692,16 +1693,13 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 	return 0;
 }
 
-int mdss_mdp_cmd_restore(struct mdss_mdp_ctl *ctl)
+int mdss_mdp_cmd_restore(struct mdss_mdp_ctl *ctl, bool locked)
 {
 	pr_debug("%s: called for ctl%d\n", __func__, ctl->num);
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-	if (mdss_mdp_cmd_tearcheck_setup(ctl->intf_ctx[MASTER_CTX]))
+	if (mdss_mdp_cmd_tearcheck_setup(ctl->intf_ctx[MASTER_CTX], locked))
 		pr_warn("%s: tearcheck setup failed\n", __func__);
 	else
 		mdss_mdp_tearcheck_enable(ctl, true);
-
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
 	return 0;
 }
@@ -2060,7 +2058,7 @@ static int mdss_mdp_cmd_ctx_setup(struct mdss_mdp_ctl *ctl,
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num,
 				   mdss_mdp_cmd_pingpong_done, ctl);
 
-	ret = mdss_mdp_cmd_tearcheck_setup(ctx);
+	ret = mdss_mdp_cmd_tearcheck_setup(ctx, false);
 	if (ret)
 		pr_err("tearcheck setup failed\n");
 
@@ -2092,7 +2090,9 @@ static int mdss_mdp_cmd_intfs_setup(struct mdss_mdp_ctl *ctl,
 			 * explictly call the restore function to enable
 			 * tearcheck logic.
 			 */
-			mdss_mdp_cmd_restore(ctl);
+			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+			mdss_mdp_cmd_restore(ctl, false);
+			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
 			/* Turn on panel so that it can exit low power mode */
 			return mdss_mdp_cmd_panel_on(ctl, sctl);
@@ -2132,7 +2132,9 @@ static int mdss_mdp_cmd_intfs_setup(struct mdss_mdp_ctl *ctl,
 			if (mdss_panel_is_power_on(ctx->panel_power_state)) {
 				pr_debug("%s: cmd_start with panel always on\n",
 						__func__);
-				mdss_mdp_cmd_restore(ctl);
+				mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+				mdss_mdp_cmd_restore(ctl, false);
+				mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 				return mdss_mdp_cmd_panel_on(ctl, sctl);
 			} else {
 				pr_err("Intf %d already in use\n", session);
