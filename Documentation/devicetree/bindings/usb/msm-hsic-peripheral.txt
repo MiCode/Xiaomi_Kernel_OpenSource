@@ -1,0 +1,27 @@
+USB HSIC Peripheral:
+
+This describes device tree node for the USB HSIC Peripheral. This works with
+usage of USB Device controller to enable USB HSIC Device mode functionality.
+
+Required properties:
+- compatible: should be "qcom,hsic-peripheral"
+- regs : offset and length of the register set in the memory map
+- interrupts: IRQ lines used by this controller
+- <supply-name>-supply: handle to the regulator device tree node
+  Required "supply-name" is "vdd" and optional "GDSC".
+- qcom,vdd-voltage-level: This property must be a list of three integer
+  values (no, min, max) where each value represents either a voltage in
+  microvolts or a value corresponding to voltage corner.
+
+Optional properties :
+- qcom,usb-id-core: USB Core Index to be used to bind with gadget driver.
+Example USB HSIC device node :
+	hsic: hsic@f9a15000 {
+		compatible = "qcom,hsic-peripheral";
+		reg = <0xf9a15000 0x352>;
+		interrupts = <0 136 0>;
+		qcom,usb-id-core = <1>;
+		vdd-supply = <&pmd9635_l2>;
+		GDSC-supply = <&gdsc_usb_hsic>;
+		qcom,vdd-voltage-level = <0 1200000 1200000>;
+	};
