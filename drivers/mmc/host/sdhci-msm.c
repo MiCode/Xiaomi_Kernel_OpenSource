@@ -3169,13 +3169,12 @@ static void sdhci_msm_notify_pm_status(struct sdhci_host *host,
 	unsigned int bw;
 	unsigned int *table = NULL;
 
-	if (msm_host->pdata->voting_data) {
-		table = msm_host->pdata->voting_data->bw_vecs;
-	} else {
+	if (msm_host->pdata->voting_data == NULL) {
 		msm_host->mmc_dev_state = state;
 		return;
 	}
 
+	table = msm_host->pdata->voting_data->bw_vecs;
 	if (state == DEV_RESUMING) {
 		bw = table[msm_host->msm_bus_vote.max_bw_vote - 1];
 		if (msm_host->pdata->mmc_bus_width == MMC_CAP_4_BIT_DATA)
