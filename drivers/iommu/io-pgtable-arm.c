@@ -407,7 +407,7 @@ static int arm_lpae_map(struct io_pgtable_ops *ops, unsigned long iova,
 
 static int arm_lpae_map_sg(struct io_pgtable_ops *ops, unsigned long iova,
 			   struct scatterlist *sg, unsigned int nents,
-			   int iommu_prot)
+			   int iommu_prot, size_t *size)
 {
 	struct arm_lpae_io_pgtable *data = io_pgtable_ops_to_data(ops);
 	arm_lpae_iopte *ptep = data->pgd;
@@ -420,7 +420,7 @@ static int arm_lpae_map_sg(struct io_pgtable_ops *ops, unsigned long iova,
 
 	/* If no access, then nothing to do */
 	if (!(iommu_prot & (IOMMU_READ | IOMMU_WRITE)))
-		return 0;
+		goto out_err;
 
 	prot = arm_lpae_prot_to_pte(data, iommu_prot);
 
@@ -457,10 +457,8 @@ static int arm_lpae_map_sg(struct io_pgtable_ops *ops, unsigned long iova,
 	return mapped;
 
 out_err:
-	/* undo mappings already done */
-	if (mapped)
-		ops->unmap(ops, iova, mapped);
-
+	/* Return the size of the partial mapping so that they can be undone */
+	*size = mapped;
 	return 0;
 }
 
