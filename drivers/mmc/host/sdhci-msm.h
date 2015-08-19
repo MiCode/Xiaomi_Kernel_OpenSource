@@ -162,6 +162,7 @@ struct sdhci_msm_host {
 	bool use_cdclp533;
 	bool use_updated_dll_reset;
 	u32 caps_0;
+	enum dev_state mmc_dev_state;
 	struct sdhci_msm_ice_data ice;
 	u32 ice_clk_rate;
 };
