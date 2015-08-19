@@ -853,6 +853,12 @@ static void subsystem_restart_wq_func(struct work_struct *work)
 	mutex_lock(&track->lock);
 	do_epoch_check(dev);
 
+	if (dev->track.state == SUBSYS_OFFLINE) {
+		mutex_unlock(&track->lock);
+		WARN(1, "SSR aborted: %s subsystem not online\n", desc->name);
+		return;
+	}
+
 	/*
 	 * It's necessary to take the registration lock because the subsystem
 	 * list in the SoC restart order will be traversed and it shouldn't be
