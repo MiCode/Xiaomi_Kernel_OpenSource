@@ -28,6 +28,15 @@
 #include "kgsl_log.h"
 #include "adreno.h"
 
+/*
+ * The user can set this from debugfs to force failed memory allocations to
+ * fail without trying OOM first.  This is a debug setting useful for
+ * stress applications that want to test failure cases without pushing the
+ * system into unrecoverable OOM panics
+ */
+
+static bool sharedmem_noretry_flag;
+
 static DEFINE_MUTEX(kernel_map_global_lock);
 
 struct cp2_mem_chunks {
@@ -739,6 +748,9 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 		else
 			gfp_mask |= GFP_KERNEL;
 
+		if (sharedmem_noretry_flag == true)
+			gfp_mask |= __GFP_NORETRY | __GFP_NOWARN;
+
 		page = alloc_pages(gfp_mask, get_order(page_size));
 
 		if (page == NULL) {
@@ -754,9 +766,10 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 			 */
 			memdesc->size = (size - len);
 
-			KGSL_CORE_ERR(
-				"Out of memory: only allocated %llXKB of %llXKB requested\n",
-				(size - len) >> 10, size >> 10);
+			if (sharedmem_noretry_flag != true)
+				KGSL_CORE_ERR(
+					"Out of memory: only allocated %lldKB of %lldKB requested\n",
+					(size - len) >> 10, size >> 10);
 
 			ret = -ENOMEM;
 			goto done;
@@ -1233,4 +1246,14 @@ static void kgsl_cma_unlock_secure(struct kgsl_memdesc *memdesc)
 
 	if (!scm_lock_chunk(memdesc, 0))
 		ClearPagePrivate(sg_page(memdesc->sgt->sgl));
+}
+
+void kgsl_sharedmem_set_noretry(bool val)
+{
+	sharedmem_noretry_flag = val;
+}
+
+bool kgsl_sharedmem_get_noretry(void)
+{
+	return sharedmem_noretry_flag;
 }

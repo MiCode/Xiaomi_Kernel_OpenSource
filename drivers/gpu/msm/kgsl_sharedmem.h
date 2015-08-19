@@ -325,4 +325,7 @@ static inline void kgsl_free_global(struct kgsl_memdesc *memdesc)
 	kgsl_sharedmem_free(memdesc);
 }
 
+void kgsl_sharedmem_set_noretry(bool val);
+bool kgsl_sharedmem_get_noretry(void);
+
 #endif /* __KGSL_SHAREDMEM_H */

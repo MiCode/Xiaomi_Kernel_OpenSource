@@ -1181,6 +1181,8 @@ struct kgsl_cff_sync_gpuobj {
  * @va_len: Size in bytes of the virtual region to allocate
  * @mmapsize: Returns the mmap() size of the object
  * @id: Returns the GPU object ID of the new object
+ * @metadata_len: Length of the metdata to copy from the user
+ * @metadata: Pointer to the user specified metadata to store for the object
  */
 struct kgsl_gpuobj_alloc {
 	uint64_t size;
@@ -1188,7 +1190,12 @@ struct kgsl_gpuobj_alloc {
 	uint64_t va_len;
 	uint64_t mmapsize;
 	unsigned int id;
+	unsigned int metadata_len;
+	uint64_t metadata;
 };
+
+/* Let the user know that this header supports the gpuobj metadata */
+#define KGSL_GPUOBJ_ALLOC_METADATA_MAX 64
 
 #define IOCTL_KGSL_GPUOBJ_ALLOC \
 	_IOWR(KGSL_IOC_TYPE, 0x45, struct kgsl_gpuobj_alloc)
@@ -1412,5 +1419,30 @@ struct kgsl_preemption_counters_query {
 
 #define IOCTL_KGSL_PREEMPTIONCOUNTER_QUERY \
 	_IOWR(KGSL_IOC_TYPE, 0x4B, struct kgsl_preemption_counters_query)
+
+/**
+ * struct kgsl_gpuobj_set_info - argument for IOCTL_KGSL_GPUOBJ_SET_INFO
+ * @flags: Flags to indicate which paramaters to change
+ * @metadata:  If KGSL_GPUOBJ_SET_INFO_METADATA is set, a pointer to the new
+ * metadata
+ * @id: GPU memory object ID to change
+ * @metadata_len:  If KGSL_GPUOBJ_SET_INFO_METADATA is set, the length of the
+ * new metadata string
+ * @type: If KGSL_GPUOBJ_SET_INFO_TYPE is set, the new type of the memory object
+ */
+
+#define KGSL_GPUOBJ_SET_INFO_METADATA (1 << 0)
+#define KGSL_GPUOBJ_SET_INFO_TYPE (1 << 1)
+
+struct kgsl_gpuobj_set_info {
+	uint64_t flags;
+	uint64_t metadata;
+	unsigned int id;
+	unsigned int metadata_len;
+	unsigned int type;
+};
+
+#define IOCTL_KGSL_GPUOBJ_SET_INFO \
+	_IOW(KGSL_IOC_TYPE, 0x4C, struct kgsl_gpuobj_set_info)
 
 #endif /* _UAPI_MSM_KGSL_H */
