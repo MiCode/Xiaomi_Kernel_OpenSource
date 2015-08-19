@@ -1230,6 +1230,10 @@ static int tomtom_config_compander(struct snd_soc_dapm_widget *w,
 
 		/* Set gain source to register */
 		tomtom_config_gain_compander(codec, comp, false);
+		if (comp == COMPANDER_1)
+			snd_soc_update_bits(codec,
+				TOMTOM_A_CDC_COMP0_B4_CTL + (comp * 8),
+				0x80, 0x00);
 		break;
 	}
 	return 0;
