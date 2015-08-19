@@ -255,6 +255,14 @@
 #define ACTLR_QCOM_NSH_SHIFT		30
 #define ACTLR_QCOM_NSH			1
 
+#define ARM_SMMU_IMPL_DEF0(smmu) \
+	((smmu)->base + (2 * (1 << (smmu)->pgshift)))
+#define ARM_SMMU_IMPL_DEF1(smmu) \
+	((smmu)->base + (6 * (1 << (smmu)->pgshift)))
+#define IMPL_DEF1_MICRO_MMU_CTRL	0
+#define MICRO_MMU_CTRL_LOCAL_HALT_REQ	(1 << 2)
+#define MICRO_MMU_CTRL_IDLE		(1 << 3)
+
 #define CB_PAR_F			(1 << 0)
 
 #define ATSR_ACTIVE			(1 << 0)
@@ -1546,14 +1554,44 @@ static struct iommu_ops arm_smmu_ops = {
 	.pgsize_bitmap		= -1UL, /* Restricted during device attach */
 };
 
+static int arm_smmu_halt(struct arm_smmu_device *smmu)
+{
+	void __iomem *impl_def1_base = ARM_SMMU_IMPL_DEF1(smmu);
+	u32 tmp;
+
+	writel_relaxed(MICRO_MMU_CTRL_LOCAL_HALT_REQ,
+		impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+
+	if (readl_poll_timeout_atomic(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL,
+					tmp, (tmp & MICRO_MMU_CTRL_IDLE),
+					0, 30000)) {
+		dev_err(smmu->dev, "Couldn't halt SMMU!\n");
+		return -EBUSY;
+	}
+
+	return 0;
+}
+
+static void arm_smmu_resume(struct arm_smmu_device *smmu)
+{
+	void __iomem *impl_def1_base = ARM_SMMU_IMPL_DEF1(smmu);
+	u32 reg;
+
+	reg = readl_relaxed(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+	reg &= ~MICRO_MMU_CTRL_LOCAL_HALT_REQ;
+	writel_relaxed(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+}
+
 static void arm_smmu_impl_def_programming(struct arm_smmu_device *smmu)
 {
 	int i;
 	struct arm_smmu_impl_def_reg *regs = smmu->impl_def_attach_registers;
 
+	arm_smmu_halt(smmu);
 	for (i = 0; i < smmu->num_impl_def_attach_registers; ++i)
 		writel_relaxed(regs[i].value,
 			ARM_SMMU_GR0(smmu) + regs[i].offset);
+	arm_smmu_resume(smmu);
 }
 
 static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
