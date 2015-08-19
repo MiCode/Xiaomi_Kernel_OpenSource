@@ -687,7 +687,7 @@ static enum power_supply_type usb_type_enum[] = {
 	POWER_SUPPLY_TYPE_USB_DCP,	/* bit 1 */
 	POWER_SUPPLY_TYPE_USB_DCP,	/* bit 2 */
 	POWER_SUPPLY_TYPE_USB_CDP,	/* bit 3 */
-	POWER_SUPPLY_TYPE_USB,		/* bit 4 error case, report SDP */
+	POWER_SUPPLY_TYPE_USB_DCP,	/* bit 4 error case, report DCP */
 };
 
 /* helper to return enum power_supply_type of USB type */
@@ -1502,8 +1502,8 @@ static int smbchg_set_usb_current_max(struct smbchg_chip *chip,
 	}
 
 out:
-	pr_smb(PR_STATUS, "usb current set to %d mA\n",
-			chip->usb_max_current_ma);
+	pr_smb(PR_STATUS, "usb type = %s current set to %d mA\n",
+			usb_type_name, chip->usb_max_current_ma);
 	return rc;
 }
 
@@ -3108,6 +3108,8 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 				struct smbchg_chip, batt_psy);
 	union power_supply_propval prop = {0,};
 	int rc, current_limit = 0, soc;
+	enum power_supply_type usb_supply_type;
+	char *usb_type_name = "null";
 
 	if (chip->bms_psy_name)
 		chip->bms_psy =
@@ -3145,7 +3147,12 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 	else
 		current_limit = prop.intval / 1000;
 
-	pr_smb(PR_MISC, "current_limit = %d\n", current_limit);
+	read_usb_type(chip, &usb_type_name, &usb_supply_type);
+	if (usb_supply_type != POWER_SUPPLY_TYPE_USB)
+		goto  skip_current_for_non_sdp;
+
+	pr_smb(PR_MISC, "usb type = %s current_limit = %d\n",
+			usb_type_name, current_limit);
 	mutex_lock(&chip->current_change_lock);
 	if (current_limit != chip->usb_target_current_ma) {
 		pr_smb(PR_STATUS, "changed current_limit = %d\n",
@@ -3159,6 +3166,7 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 	}
 	mutex_unlock(&chip->current_change_lock);
 
+skip_current_for_non_sdp:
 	smbchg_vfloat_adjust_check(chip);
 
 	power_supply_changed(&chip->batt_psy);
@@ -3560,6 +3568,7 @@ static void smbchg_vfloat_adjust_work(struct work_struct *work)
 	int vbat_uv, vbat_mv, ibat_ua, rc, delta_vfloat_mv;
 	bool taper, enable;
 
+	smbchg_stay_awake(chip, PM_REASON_VFLOAT_ADJUST);
 	taper = (get_prop_charge_type(chip)
 		== POWER_SUPPLY_CHARGE_TYPE_TAPER);
 	enable = taper && (chip->parallel.current_max_ma == 0);
@@ -3573,7 +3582,7 @@ static void smbchg_vfloat_adjust_work(struct work_struct *work)
 
 	if (get_prop_batt_health(chip) != POWER_SUPPLY_HEALTH_GOOD) {
 		pr_smb(PR_STATUS, "JEITA active, skipping\n");
-		goto reschedule;
+		goto stop;
 	}
 
 	set_property_on_fg(chip, POWER_SUPPLY_PROP_UPDATE_NOW, 1);
@@ -3757,6 +3766,9 @@ static bool is_src_detect_high(struct smbchg_chip *chip)
 }
 
 #define HVDCP_NOTIFY_MS		2500
+#define DEFAULT_WALL_CHG_MA	1800
+#define DEFAULT_SDP_MA		100
+#define DEFAULT_CDP_MA		1500
 static void handle_usb_insertion(struct smbchg_chip *chip)
 {
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
@@ -3800,6 +3812,21 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 	if (usb_supply_type == POWER_SUPPLY_TYPE_USB_DCP)
 		schedule_delayed_work(&chip->hvdcp_det_work,
 					msecs_to_jiffies(HVDCP_NOTIFY_MS));
+
+	mutex_lock(&chip->current_change_lock);
+	if (usb_supply_type == POWER_SUPPLY_TYPE_USB)
+		chip->usb_target_current_ma = DEFAULT_SDP_MA;
+	else if (usb_supply_type == POWER_SUPPLY_TYPE_USB_CDP)
+		chip->usb_target_current_ma = DEFAULT_CDP_MA;
+	else
+		chip->usb_target_current_ma = DEFAULT_WALL_CHG_MA;
+
+	pr_smb(PR_STATUS, "%s detected setting mA = %d\n",
+		usb_type_name, chip->usb_target_current_ma);
+	rc = smbchg_set_thermal_limited_usb_current_max(chip,
+				chip->usb_target_current_ma);
+	mutex_unlock(&chip->current_change_lock);
+
 	if (parallel_psy) {
 		rc = power_supply_set_present(parallel_psy, true);
 		chip->parallel_charger_detected = rc ? false : true;
@@ -3830,6 +3857,10 @@ void update_usb_status(struct smbchg_chip *chip, bool usb_present, bool force)
 		chip->usb_present = usb_present;
 		handle_usb_removal(chip);
 	}
+
+	/* update FG */
+	set_property_on_fg(chip, POWER_SUPPLY_PROP_STATUS,
+			get_prop_batt_status(chip));
 unlock:
 	mutex_unlock(&chip->usb_status_lock);
 }
@@ -4251,6 +4282,8 @@ static irqreturn_t batt_cold_handler(int irq, void *_chip)
 		power_supply_changed(&chip->batt_psy);
 	smbchg_charging_status_change(chip);
 	smbchg_wipower_check(chip);
+	set_property_on_fg(chip, POWER_SUPPLY_PROP_HEALTH,
+			get_prop_batt_health(chip));
 	return IRQ_HANDLED;
 }
 
@@ -4697,6 +4730,10 @@ static irqreturn_t usbid_change_handler(int irq, void *_chip)
 		power_supply_set_usb_otg(chip->usb_psy, otg_present ? 1 : 0);
 	if (otg_present)
 		pr_smb(PR_STATUS, "OTG detected\n");
+
+	/* update FG */
+	set_property_on_fg(chip, POWER_SUPPLY_PROP_STATUS,
+			get_prop_batt_status(chip));
 
 	return IRQ_HANDLED;
 }
@@ -5204,6 +5241,12 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 				rc);
 			return rc;
 		}
+	}
+	/* unsuspend dc path, it could be suspended by the bootloader */
+	rc = smbchg_dc_suspend(chip, 0);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't unspended dc path= %d\n", rc);
+		return rc;
 	}
 
 	if (chip->force_aicl_rerun)
