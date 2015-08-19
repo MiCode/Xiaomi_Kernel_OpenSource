@@ -77,6 +77,8 @@ struct io_pgtable_cfg {
  * struct io_pgtable_ops - Page table manipulation API for IOMMU drivers.
  *
  * @map:          Map a physically contiguous memory region.
+ * @map_sg:	  Map a scatterlist. The size parameter contains the size
+ *		  of the partial mapping in case of failure.
  * @unmap:        Unmap a physically contiguous memory region.
  * @iova_to_phys: Translate iova to physical address.
  *
@@ -87,7 +89,8 @@ struct io_pgtable_ops {
 	int (*map)(struct io_pgtable_ops *ops, unsigned long iova,
 		   phys_addr_t paddr, size_t size, int prot);
 	int (*map_sg)(struct io_pgtable_ops *ops, unsigned long iova,
-			 struct scatterlist *sg, unsigned int nents, int prot);
+			 struct scatterlist *sg, unsigned int nents,
+			 int prot, size_t *size);
 	size_t (*unmap)(struct io_pgtable_ops *ops, unsigned long iova,
 			size_t size);
 	phys_addr_t (*iova_to_phys)(struct io_pgtable_ops *ops,
