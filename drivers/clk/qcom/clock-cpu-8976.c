@@ -144,7 +144,7 @@ static struct pll_clk a72ss_hf_pll = {
 	},
 	.base = &virt_bases[APCS_C1_PLL_BASE],
 	.max_rate = 1843200000,
-	.min_rate = 1190400000,
+	.min_rate = 940800000,
 	.c = {
 		.parent = &xo_a_clk.c,
 		.dbg_name = "a72ss_hf_pll",
