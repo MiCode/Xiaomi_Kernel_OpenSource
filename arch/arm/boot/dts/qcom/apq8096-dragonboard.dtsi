@@ -409,6 +409,7 @@
 	pinctrl-0 = <&usb_hub_reset_active>;
 	pinctrl-1 = <&usb_hub_reset_suspend>;
 	qcom,ext-hub-reset-gpio =  <&tlmm 103 0>;
+	qcom,disable-host-mode-pm;
 	dwc3@7600000 {
 		dr_mode = "host";
 	};
