@@ -75,6 +75,19 @@
 	};
 };
 
+&i2c_2 {
+	pericom-type-c@3d {
+		compatible = "pericom,usb-type-c";
+		reg = <0x3d>;
+		vdd_io-supply = <&pm8950_l5>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <102 2>;    /* MSM GPIO 102, TRIGGER_FALLING */
+		pericom,enb-gpio = <&msm_gpio 101 0x1>;	/* active low ENB */
+		pinctrl-names = "default";
+		pinctrl-0 = <&usbc_int_default>;
+	};
+};
+
 &soc {
 	gpio_keys {
 		compatible = "gpio-keys";
