@@ -1112,6 +1112,9 @@ Optional properties:
 - clocks : external clock defined for codec clock.
 - qcom,hph-en1-gpio : GPIO to enable HiFi amplifiers.
 - qcom,hph-en0-gpio : GPIO to enable HiFi audio route to headset.
+- qcom,wsa-max-devs : Maximum number of WSA881x devices present in the target
+- qcom,wsa-devs : List of phandles for all possible WSA881x devices supported for the target
+- qcom,wsa-aux-dev-prefix : Name prefix with Left/Right configuration for WSA881x device
 
 Example:
 
@@ -1178,6 +1181,11 @@ Example:
 				"msm-dai-q6-dev.32770";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
+		qcom,wsa-max-devs = <2>;
+		qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_212>,
+				<&wsa881x_213>, <&wsa881x_214>;
+		qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrLeft",
+					  "SpkrRight", "SpkrLeft";
 	};
 
 * MSM8952 ASoC Machine driver

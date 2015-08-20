@@ -127,6 +127,14 @@ static struct afe_clk_set mi2s_tx_clk = {
 	0,
 };
 
+struct msm8996_wsa881x_dev_info {
+	struct device_node *of_node;
+	u32 index;
+};
+
+static struct snd_soc_aux_dev *msm8996_aux_dev;
+static struct snd_soc_codec_conf *msm8996_codec_conf;
+
 struct msm8996_asoc_mach_data {
 	u32 mclk_freq;
 	int us_euro_gpio;
@@ -3324,10 +3332,6 @@ static struct snd_soc_dai_link msm8996_tasha_dai_links[
 			 ARRAY_SIZE(msm8996_tasha_be_dai_links) +
 			 ARRAY_SIZE(msm8996_hdmi_dai_link)];
 
-static struct snd_soc_aux_dev *msm8996_aux_dev;
-static struct snd_soc_codec_conf *msm8996_codec_conf;
-static const char * const spkr_amp_prefix[] = {"SpkrLeft", "SpkrRight"};
-
 static int msm8996_wsa881x_init(struct snd_soc_component *component)
 {
 	u8 spkleft_ports[WSA881X_MAX_SWR_PORTS] = {100, 101, 102, 106};
@@ -3345,19 +3349,26 @@ static int msm8996_wsa881x_init(struct snd_soc_component *component)
 
 	dapm = &codec->dapm;
 
-	if (component->dev->of_node == msm8996_aux_dev[0].codec_of_node) {
+	if (!strcmp(component->name_prefix, "SpkrLeft")) {
 		dev_dbg(codec->dev, "%s: setting left ch map to codec %s\n",
 			__func__, codec->component.name);
 		wsa881x_set_channel_map(codec, &spkleft_ports[0],
 				WSA881X_MAX_SWR_PORTS, &ch_mask[0],
 				&ch_rate[0]);
-	} else if (component->dev->of_node ==
-		   msm8996_aux_dev[1].codec_of_node) {
+		if (dapm->component) {
+			snd_soc_dapm_ignore_suspend(dapm, "SpkrLeft IN");
+			snd_soc_dapm_ignore_suspend(dapm, "SpkrLeft SPKR");
+		}
+	} else if (!strcmp(component->name_prefix, "SpkrRight")) {
 		dev_dbg(codec->dev, "%s: setting right ch map to codec %s\n",
 			__func__, codec->component.name);
 		wsa881x_set_channel_map(codec, &spkright_ports[0],
 				WSA881X_MAX_SWR_PORTS, &ch_mask[0],
 				&ch_rate[0]);
+		if (dapm->component) {
+			snd_soc_dapm_ignore_suspend(dapm, "SpkrRight IN");
+			snd_soc_dapm_ignore_suspend(dapm, "SpkrRight SPKR");
+		}
 	} else {
 		dev_err(codec->dev, "%s: wrong codec name %s\n", __func__,
 			codec->component.name);
@@ -3367,16 +3378,6 @@ static int msm8996_wsa881x_init(struct snd_soc_component *component)
 	if (pdata && pdata->codec_root)
 		wsa881x_codec_info_create_codec_entry(pdata->codec_root,
 						      codec);
-
-	if (dapm->component) {
-		if (!strcmp(dapm->component->name_prefix, "SpkrLeft")) {
-			snd_soc_dapm_ignore_suspend(dapm, "SpkrLeft IN");
-			snd_soc_dapm_ignore_suspend(dapm, "SpkrLeft SPKR");
-		} else if (!strcmp(dapm->component->name_prefix, "SpkrRight")) {
-			snd_soc_dapm_ignore_suspend(dapm, "SpkrRight IN");
-			snd_soc_dapm_ignore_suspend(dapm, "SpkrRight SPKR");
-		}
-	}
 
 	return 0;
 }
@@ -3608,60 +3609,161 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 	return card;
 }
 
-static int msm8996_init_auxdev(struct platform_device *pdev,
+static int msm8996_init_wsa_dev(struct platform_device *pdev,
 				struct snd_soc_card *card)
 {
-	struct device_node *dai_node;
-	u32 aux_dev_count;
+	struct device_node *wsa_of_node;
+	u32 wsa_max_devs;
+	u32 wsa_dev_cnt;
 	char *dev_name_str = NULL;
+	struct msm8996_wsa881x_dev_info *wsa881x_dev_info;
+	const char *wsa_auxdev_name_prefix[1];
+	int found = 0;
 	int i;
+	int ret;
 
-	aux_dev_count = of_count_phandle_with_args(pdev->dev.of_node,
-						   "qcom,aux-codec", NULL);
-	if (aux_dev_count == -ENOENT) {
-		dev_warn(&pdev->dev, "%s: No aux codec defined in DT.\n",
-			__func__);
+	/* Get maximum WSA device count for this platform */
+	ret = of_property_read_u32(pdev->dev.of_node,
+				   "qcom,wsa-max-devs", &wsa_max_devs);
+	if (ret) {
+		dev_dbg(&pdev->dev,
+			 "%s: wsa-max-devs property missing in DT %s, ret = %d\n",
+			 __func__, pdev->dev.of_node->full_name, ret);
 		return 0;
-	} else if (aux_dev_count <= 0) {
-		dev_err(&pdev->dev, "%s: Error reading aux codec from DT. aux_dev_count = %d\n",
-			__func__, aux_dev_count);
+	}
+	if (wsa_max_devs == 0) {
+		dev_warn(&pdev->dev,
+			 "%s: Max WSA devices is 0 for this target?\n",
+			 __func__);
+		return 0;
+	}
+
+	/* Get count of WSA device phandles for this platform */
+	wsa_dev_cnt = of_count_phandle_with_args(pdev->dev.of_node,
+						 "qcom,wsa-devs", NULL);
+	if (wsa_dev_cnt == -ENOENT) {
+		dev_warn(&pdev->dev, "%s: No wsa device defined in DT.\n",
+			 __func__);
+		return 0;
+	} else if (wsa_dev_cnt <= 0) {
+		dev_err(&pdev->dev,
+			"%s: Error reading wsa device from DT. wsa_dev_cnt = %d\n",
+			__func__, wsa_dev_cnt);
 		return -EINVAL;
 	}
 
-	card->num_aux_devs = aux_dev_count;
-	card->num_configs = aux_dev_count;
+	/*
+	 * Expect total phandles count to be NOT less than maximum possible
+	 * WSA count. However, if it is less, then assign same value to
+	 * max count as well.
+	 */
+	if (wsa_dev_cnt < wsa_max_devs) {
+		dev_dbg(&pdev->dev,
+			"%s: wsa_max_devs = %d cannot exceed wsa_dev_cnt = %d\n",
+			__func__, wsa_max_devs, wsa_dev_cnt);
+		wsa_max_devs = wsa_dev_cnt;
+	}
 
+	/* Make sure prefix string passed for each WSA device */
+	ret = of_property_count_strings(pdev->dev.of_node,
+					"qcom,wsa-aux-dev-prefix");
+	if (ret != wsa_dev_cnt) {
+		dev_err(&pdev->dev,
+			"%s: expecting %d wsa prefix. Defined only %d in DT\n",
+			__func__, wsa_dev_cnt, ret);
+		return -EINVAL;
+	}
+
+	/*
+	 * Alloc mem to store phandle and index info of WSA device, if already
+	 * registered with ALSA core
+	 */
+	wsa881x_dev_info = devm_kcalloc(&pdev->dev, wsa_max_devs,
+					sizeof(struct msm8996_wsa881x_dev_info),
+					GFP_KERNEL);
+	if (!wsa881x_dev_info)
+		return -ENOMEM;
+
+	/*
+	 * search and check whether all WSA devices are already
+	 * registered with ALSA core or not. If found a node, store
+	 * the node and the index in a local array of struct for later
+	 * use.
+	 */
+	for (i = 0; i < wsa_dev_cnt; i++) {
+		wsa_of_node = of_parse_phandle(pdev->dev.of_node,
+					    "qcom,wsa-devs", i);
+		if (unlikely(!wsa_of_node)) {
+			/* we should not be here */
+			dev_err(&pdev->dev,
+				"%s: wsa dev node is not present\n",
+				__func__);
+			return -EINVAL;
+		}
+		if (soc_find_component(wsa_of_node, NULL)) {
+			/* WSA device registered with ALSA core */
+			wsa881x_dev_info[found].of_node = wsa_of_node;
+			wsa881x_dev_info[found].index = i;
+			found++;
+			if (found == wsa_max_devs)
+				break;
+		}
+	}
+
+	if (found < wsa_max_devs) {
+		dev_dbg(&pdev->dev,
+			"%s: failed to find %d components. Found only %d\n",
+			__func__, wsa_max_devs, found);
+		return -EPROBE_DEFER;
+	}
+	dev_info(&pdev->dev,
+		"%s: found %d wsa881x devices registered with ALSA core\n",
+		__func__, found);
+
+	card->num_aux_devs = wsa_max_devs;
+	card->num_configs = wsa_max_devs;
+
+	/* Alloc array of AUX devs struct */
 	msm8996_aux_dev = devm_kcalloc(&pdev->dev, card->num_aux_devs,
-				  sizeof(struct snd_soc_aux_dev), GFP_KERNEL);
+				       sizeof(struct snd_soc_aux_dev),
+				       GFP_KERNEL);
 	if (!msm8996_aux_dev)
 		return -ENOMEM;
 
+	/* Alloc array of codec conf struct */
 	msm8996_codec_conf = devm_kcalloc(&pdev->dev, card->num_aux_devs,
-				     sizeof(struct snd_soc_codec_conf),
-				     GFP_KERNEL);
+					  sizeof(struct snd_soc_codec_conf),
+					  GFP_KERNEL);
 	if (!msm8996_codec_conf)
 		return -ENOMEM;
 
 	for (i = 0; i < card->num_aux_devs; i++) {
-		dai_node = of_parse_phandle(pdev->dev.of_node,
-					   "qcom,aux-codec", i);
-		if (!dai_node) {
-			dev_err(&pdev->dev, "Aux Codec node is not present\n");
-			return -EINVAL;
-		}
 		dev_name_str = devm_kzalloc(&pdev->dev, DEV_NAME_STR_LEN,
 					    GFP_KERNEL);
 		if (!dev_name_str)
 			return -ENOMEM;
 
+		ret = of_property_read_string_index(pdev->dev.of_node,
+						    "qcom,wsa-aux-dev-prefix",
+						    wsa881x_dev_info[i].index,
+						    wsa_auxdev_name_prefix);
+		if (ret) {
+			dev_err(&pdev->dev,
+				"%s: failed to read wsa aux dev prefix, ret = %d\n",
+				__func__, ret);
+			return -EINVAL;
+		}
+
 		snprintf(dev_name_str, strlen("wsa881x.%d"), "wsa881x.%d", i);
 		msm8996_aux_dev[i].name = dev_name_str;
 		msm8996_aux_dev[i].codec_name = NULL;
-		msm8996_aux_dev[i].codec_of_node = dai_node;
+		msm8996_aux_dev[i].codec_of_node =
+					wsa881x_dev_info[i].of_node;
 		msm8996_aux_dev[i].init = msm8996_wsa881x_init;
 		msm8996_codec_conf[i].dev_name = NULL;
-		msm8996_codec_conf[i].name_prefix = spkr_amp_prefix[i];
-		msm8996_codec_conf[i].of_node = dai_node;
+		msm8996_codec_conf[i].name_prefix = wsa_auxdev_name_prefix[0];
+		msm8996_codec_conf[i].of_node =
+					wsa881x_dev_info[i].of_node;
 	}
 	card->codec_conf = msm8996_codec_conf;
 	card->aux_dev = msm8996_aux_dev;
@@ -3753,7 +3855,7 @@ static int msm8996_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	ret = msm8996_init_auxdev(pdev, card);
+	ret = msm8996_init_wsa_dev(pdev, card);
 	if (ret)
 		goto err;
 
