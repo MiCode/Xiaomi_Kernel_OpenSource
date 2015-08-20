@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,6 +87,24 @@
 
 #define WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED 0
 
+#define WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_0P0_A	0
+#define WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_0P375_A 375
+#define WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_0P750_A 750
+#define WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_1P125_A 1125
+#define WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_1P500_A 1500
+#define WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_1P875_A 1875
+#define WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_2P250_A 2250
+#define WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_2P625_A 2625
+#define WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_3P000_A 3000
+#define WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_3P375_A 3375
+#define WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_3P750_A 3750
+#define WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_4P125_A 4125
+#define WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_4P500_A 4500
+#define WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_4P875_A 4875
+#define WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_5P250_A 5250
+#define WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_5P625_A 5625
+#define WCD9XXX_SPKDRV_OCP_CURR_LIMIT_UNDEFINED (-1)
+
 struct wcd9xxx_amic {
 	/*legacy mode, txfe_enable and txfe_buff take 7 input
 	 * each bit represent the channel / TXFE number
@@ -143,6 +161,7 @@ struct wcd9xxx_ocp_setting {
 	unsigned int	run_time:4; /* in duty cycle */
 	unsigned int	wait_time:4; /* in duty cycle */
 	unsigned int	hph_ocp_limit:3; /* Headphone OCP current limit */
+	unsigned int	spkdrv_ocp_curr_limit;
 };
 
 #define WCD9XXX_MAX_REGULATOR	9
