@@ -74,3 +74,9 @@ config DRM_MSM_MDP4
 	help
 	  Choose this option if MSM MDP4 revision support is needed in DRM/KMS.
 
+config DRM_MSM_HDCP
+	tristate "HDCP for MSM DRM"
+	depends on DRM_MSM
+	default n
+	help
+	  Chose this option if HDCP supported is needed in DRM/KMS driver.
