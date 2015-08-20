@@ -90,12 +90,6 @@ static inline void msm_vidc_free_platform_version_table(
 	res->pf_ver_tbl = NULL;
 }
 
-static inline void msm_vidc_free_freq_table(
-		struct msm_vidc_platform_resources *res)
-{
-	res->load_freq_tbl = NULL;
-}
-
 static inline void msm_vidc_free_dcvs_table(
 		struct msm_vidc_platform_resources *res)
 {
@@ -168,7 +162,6 @@ void msm_vidc_free_platform_resources(
 {
 	msm_vidc_free_clock_table(res);
 	msm_vidc_free_regulator_table(res);
-	msm_vidc_free_freq_table(res);
 	msm_vidc_free_platform_version_table(res);
 	msm_vidc_free_dcvs_table(res);
 	msm_vidc_free_dcvs_limit(res);
@@ -411,6 +404,14 @@ static int msm_vidc_load_allowed_clocks_table(
 	int rc = 0;
 	struct platform_device *pdev = res->pdev;
 
+	/* A comparator to compare loads (needed later on) */
+	int cmp(const void *a, const void *b)
+	{
+		/* want to sort in reverse so flip the comparison */
+		return ((struct allowed_clock_rates_table *)b)->clock_rate -
+			((struct allowed_clock_rates_table *)a)->clock_rate;
+	}
+
 	if (!of_find_property(pdev->dev.of_node,
 			"qcom,allowed-clock-rates", NULL)) {
 		dprintk(VIDC_DBG, "qcom,allowed-clock-rates not found\n");
@@ -427,6 +428,9 @@ static int msm_vidc_load_allowed_clocks_table(
 			"%s: failed to read allowed clocks table\n", __func__);
 		return rc;
 	}
+
+	sort(res->allowed_clks_tbl, res->allowed_clks_tbl_size,
+		 sizeof(*res->allowed_clks_tbl), cmp, NULL);
 
 	return 0;
 }
@@ -490,98 +494,56 @@ static int msm_vidc_load_cycles_per_mb_table(
 		}
 		dprintk(VIDC_DBG, "codec_mask %#x\n", entry->codec_mask);
 
-		if (of_find_property(child_node, "qcom,cycles-per-mb", NULL)) {
+		if (of_find_property(child_node,
+				"qcom,vsp-cycles-per-mb", NULL)) {
 			rc = of_property_read_u32(child_node,
-					"qcom,cycles-per-mb", &entry->cycles);
+					"qcom,vsp-cycles-per-mb",
+					&entry->vsp_cycles);
 			if (rc) {
 				dprintk(VIDC_ERR,
-					"qcom,cycles-per-mb not found\n");
+					"qcom,vsp-cycles-per-mb not found\n");
 				goto error;
 			}
 		} else {
-			entry->cycles = 0;
+			entry->vsp_cycles = 0;
 		}
-		dprintk(VIDC_DBG, "cycles_per_mb %d\n", entry->cycles);
+		dprintk(VIDC_DBG, "vsp cycles_per_mb %d\n", entry->vsp_cycles);
 
 		if (of_find_property(child_node,
-				"qcom,low-power-mode-factor", NULL)) {
+				"qcom,vpp-cycles-per-mb", NULL)) {
 			rc = of_property_read_u32(child_node,
-					"qcom,low-power-mode-factor",
-					&entry->low_power_factor);
+					"qcom,vpp-cycles-per-mb",
+					&entry->vsp_cycles);
 			if (rc) {
 				dprintk(VIDC_ERR,
-					"qcom,low-power-mode-factor not found\n");
+					"qcom,vpp-cycles-per-mb not found\n");
 				goto error;
 			}
 		} else {
-			entry->low_power_factor = 0;
+			entry->vpp_cycles = 0;
+		}
+		dprintk(VIDC_DBG, "vpp cycles_per_mb %d\n", entry->vpp_cycles);
+
+		if (of_find_property(child_node,
+				"qcom,low-power-cycles-per-mb", NULL)) {
+			rc = of_property_read_u32(child_node,
+					"qcom,low-power-cycles-per-mb",
+					&entry->low_power_cycles);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"qcom,low-power-cycles-per-mb not found\n");
+				goto error;
+			}
+		} else {
+			entry->low_power_cycles = 0;
 		}
 		dprintk(VIDC_DBG, "low_power_factor %d\n",
-				entry->low_power_factor);
+				entry->low_power_cycles);
 
 		i++;
 	}
 
 error:
-	return rc;
-}
-
-static int msm_vidc_load_freq_table(struct msm_vidc_platform_resources *res)
-{
-	int rc = 0;
-	int num_elements = 0;
-	struct platform_device *pdev = res->pdev;
-
-	/* A comparator to compare loads (needed later on) */
-	int cmp(const void *a, const void *b)
-	{
-		/* want to sort in reverse so flip the comparison */
-		return ((struct load_freq_table *)b)->load -
-			((struct load_freq_table *)a)->load;
-	}
-
-	if (!of_find_property(pdev->dev.of_node, "qcom,load-freq-tbl", NULL)) {
-		/*
-		 * qcom,load-freq-tbl is an optional property.  It likely won't
-		 * be present on cores that we can't clock scale on.
-		 */
-		dprintk(VIDC_DBG, "qcom,load-freq-tbl not found\n");
-		return 0;
-	}
-
-	num_elements = get_u32_array_num_elements(pdev->dev.of_node,
-			"qcom,load-freq-tbl");
-	num_elements /= sizeof(*res->load_freq_tbl) / sizeof(u32);
-	if (!num_elements) {
-		dprintk(VIDC_ERR, "no elements in frequency table\n");
-		return rc;
-	}
-
-	res->load_freq_tbl = devm_kzalloc(&pdev->dev, num_elements *
-			sizeof(*res->load_freq_tbl), GFP_KERNEL);
-	if (!res->load_freq_tbl) {
-		dprintk(VIDC_ERR,
-				"%s Failed to alloc load_freq_tbl\n",
-				__func__);
-		return -ENOMEM;
-	}
-
-	if (of_property_read_u32_array(pdev->dev.of_node,
-		"qcom,load-freq-tbl", (u32 *)res->load_freq_tbl,
-		num_elements * sizeof(*res->load_freq_tbl) / sizeof(u32))) {
-		dprintk(VIDC_ERR, "Failed to read frequency table\n");
-		msm_vidc_free_freq_table(res);
-		return -EINVAL;
-	}
-
-	res->load_freq_tbl_size = num_elements;
-
-	/* The entries in the DT might not be sorted (for aesthetic purposes).
-	 * Given that we expect the loads in descending order for our scaling
-	 * logic to work, just sort it ourselves
-	 */
-	sort(res->load_freq_tbl, res->load_freq_tbl_size,
-			sizeof(*res->load_freq_tbl), cmp, NULL);
 	return rc;
 }
 
@@ -670,10 +632,8 @@ static int msm_vidc_load_dcvs_limit(struct msm_vidc_platform_resources *res)
 		msm_vidc_free_dcvs_limit(res);
 		return -EINVAL;
 	}
-
 	return rc;
 }
-
 
 static int msm_vidc_populate_bus(struct device *dev,
 		struct msm_vidc_platform_resources *res)
@@ -952,11 +912,8 @@ static int msm_vidc_load_clock_table(
 
 		if (clock_props[c] & CLOCK_PROP_HAS_SCALING) {
 			vc->has_scaling = true;
-			vc->count = res->load_freq_tbl_size;
-			vc->load_freq_tbl = res->load_freq_tbl;
 		} else {
 			vc->count = 0;
-			vc->load_freq_tbl = NULL;
 			vc->has_scaling = false;
 		}
 
@@ -1016,7 +973,7 @@ int read_platform_resources_from_dt(
 			&res->fw_name);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to read firmware name: %d\n", rc);
-		goto err_load_freq_table;
+		goto err_load_reg_table;
 	}
 	dprintk(VIDC_DBG, "Firmware filename: %s\n", res->fw_name);
 
@@ -1028,12 +985,6 @@ int read_platform_resources_from_dt(
 	rc = msm_vidc_load_platform_version_table(res);
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to load pf version table: %d\n", rc);
-
-	rc = msm_vidc_load_freq_table(res);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to load freq table: %d\n", rc);
-		goto err_load_freq_table;
-	}
 
 	rc = msm_vidc_load_dcvs_table(res);
 	if (rc)
@@ -1157,8 +1108,6 @@ err_load_regulator_table:
 err_load_buffer_usage_table:
 	msm_vidc_free_reg_table(res);
 err_load_reg_table:
-	msm_vidc_free_freq_table(res);
-err_load_freq_table:
 	return rc;
 }
 

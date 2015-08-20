@@ -1911,6 +1911,7 @@ void *msm_vidc_open(int core_id, int session_type)
 
 	INIT_MSM_VIDC_LIST(&inst->pendingq);
 	INIT_MSM_VIDC_LIST(&inst->scratchbufs);
+	INIT_MSM_VIDC_LIST(&inst->freqs);
 	INIT_MSM_VIDC_LIST(&inst->persistbufs);
 	INIT_MSM_VIDC_LIST(&inst->pending_getpropq);
 	INIT_MSM_VIDC_LIST(&inst->outputbufs);
@@ -1921,8 +1922,9 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->session_type = session_type;
 	inst->state = MSM_VIDC_CORE_UNINIT_DONE;
 	inst->core = core;
+	inst->freq = 0;
 	inst->bit_depth = MSM_VIDC_BIT_DEPTH_8;
-	inst->instant_bitrate = 0;
+	inst->bitrate = 0;
 	inst->pic_struct = MSM_VIDC_PIC_STRUCT_PROGRESSIVE;
 	inst->colour_space = MSM_VIDC_BT601_6_525;
 	inst->profile = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE;
@@ -2036,6 +2038,8 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 			kfree(entry);
 		}
 		mutex_unlock(&inst->pendingq.lock);
+
+		msm_comm_free_freq_table(inst);
 
 		if (msm_comm_release_scratch_buffers(inst, false)) {
 			dprintk(VIDC_ERR,

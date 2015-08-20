@@ -16,25 +16,6 @@ Optional properties:
 - interrupts : should contain the vidc interrupt.
 - qcom,platform-version : mask and shift of the platform version bits
     in efuse register.
-- qcom,load-freq-tbl : load (in macroblocks/sec) and corresponding vcodec
-  clock required along with codec's config, which is a bitmap that describes
-  what the clock is used for. The bitmaps are as follows:
-    supports mvc encoder = 0x00000001
-    supports mvc decoder = 0x00000003
-    supports h264 encoder = 0x00000004
-    supports h264 decoder = 0x0000000c
-    supports mpeg1 encoder = 0x00000040
-    supports mpeg1 decoder = 0x000000c0
-    supports mpeg2 encoder = 0x00000100
-    supports mpeg2 decoder = 0x00000300
-    supports vp6 encoder = 0x00100000
-    supports vp6 decoder = 0x00300000
-    supports vp7 encoder = 0x00400000
-    supports vp7 decoder = 0x00c00000
-    supports vp8 encoder = 0x01000000
-    supports vp8 decoder = 0x03000000
-    supports hevc encoder = 0x04000000
-    supports hevc decoder = 0x0c000000
 - qcom,reg-presets : list of offset-value pairs for registers to be written.
   The offsets are from the base offset specified in 'reg'. This is mainly
   used for QoS, VBIF, etc. presets for video.
@@ -57,9 +38,26 @@ Optional properties:
 - qcom,clock-freq-tbl = node containing individual domain nodes, each with:
      - qcom,codec-mask: a bitmap of supported codec types, every two bits
        represents a codec type.
+         supports mvc encoder = 0x00000001
+         supports mvc decoder = 0x00000003
+         supports h264 encoder = 0x00000004
+         supports h264 decoder = 0x0000000c
+         supports mpeg1 encoder = 0x00000040
+         supports mpeg1 decoder = 0x000000c0
+         supports mpeg2 encoder = 0x00000100
+         supports mpeg2 decoder = 0x00000300
+         supports vp6 encoder = 0x00100000
+         supports vp6 decoder = 0x00300000
+         supports vp7 encoder = 0x00400000
+         supports vp7 decoder = 0x00c00000
+         supports vp8 encoder = 0x01000000
+         supports vp8 decoder = 0x03000000
+         supports hevc encoder = 0x04000000
+         supports hevc decoder = 0x0c000000
      - qcom,cycles-per-mb: number of cycles required to process each macro
        block.
-     - qcom,low-power-mode-factor: the factor which needs to be multiple with
+     - qcom,low-power-cycles-per-mb: number of cycles required to process each
+       macro block in low power mode.
        the required frequency to get the final frequency, the factor is
        represented in Q16 format.
 - qcom,sw-power-collapse = A bool indicating if video hardware core can be
@@ -167,13 +165,6 @@ Example:
 		venus-supply = <&gdsc>;
 		venus-core0-supply = <&gdsc1>;
 		venus-core1-supply = <&gdsc2>;
-		qcom,load-freq-tbl =
-			<489600 266670000 0x030fcfff>, /* Legacy decoder 1080p 60fps  */
-			<108000 133330000 0x030fcfff>, /* Legacy decoder 720p 30fps   */
-			<108000 200000000 0x01000414>, /* Legacy encoder 720p 30fps   */
-			<72000 133330000 0x0c000000>, /* HEVC decoder VGA 60fps   */
-			<36000 133330000 0x0c000000>, /* HEVC VGA 30 fps  */
-			<36000 133330000 0x01000414>; /* Legacy encoder VGA 30 fps   */
 		qcom,hfi-version = "3xx";
 		qcom,reg-presets = <0x80004 0x1>,
 			<0x80178 0x00001FFF>;
@@ -190,6 +181,7 @@ Example:
 		qcom,use-non-secure-pil;
 		qcom,use_dynamic_bw_update;
 		qcom,fw-bias = <0xe000000>;
+		qcom,allowed-clock-rates = <200000000 300000000 400000000>;
 		msm_vidc_cb1: msm_vidc_cb1 {
 			compatible = "qcom,msm-vidc,context-bank";
 			label = "venus_ns";

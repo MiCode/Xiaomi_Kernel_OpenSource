@@ -773,103 +773,6 @@ static enum hal_uncompressed_format get_hal_uncompressed(int fourcc)
 	return format;
 }
 
-static int msm_comm_vote_bus(struct msm_vidc_core *core)
-{
-	int rc = 0, vote_data_count = 0, i = 0;
-	struct hfi_device *hdev;
-	struct msm_vidc_inst *inst = NULL;
-	struct vidc_bus_vote_data *vote_data = NULL;
-	unsigned long core_freq = 0;
-
-	if (!core) {
-		dprintk(VIDC_ERR, "%s Invalid args: %pK\n", __func__, core);
-		return -EINVAL;
-	}
-
-	hdev = core->device;
-	if (!hdev) {
-		dprintk(VIDC_ERR, "%s Invalid device handle: %pK\n",
-			__func__, hdev);
-		return -EINVAL;
-	}
-
-	mutex_lock(&core->lock);
-	list_for_each_entry(inst, &core->instances, list)
-		++vote_data_count;
-
-	vote_data = kcalloc(vote_data_count, sizeof(*vote_data),
-			GFP_TEMPORARY);
-	if (!vote_data) {
-		dprintk(VIDC_ERR, "%s: failed to allocate memory\n", __func__);
-		rc = -ENOMEM;
-		goto fail_alloc;
-	}
-
-	core_freq = call_hfi_op(hdev, get_core_clock_rate,
-			hdev->hfi_device_data, 0);
-
-	list_for_each_entry(inst, &core->instances, list) {
-		int codec = 0, yuv = 0;
-
-		codec = inst->session_type == MSM_VIDC_DECODER ?
-			inst->fmts[OUTPUT_PORT].fourcc :
-			inst->fmts[CAPTURE_PORT].fourcc;
-
-		yuv = inst->session_type == MSM_VIDC_DECODER ?
-			inst->fmts[CAPTURE_PORT].fourcc :
-			inst->fmts[OUTPUT_PORT].fourcc;
-
-		vote_data[i].domain = get_hal_domain(inst->session_type);
-		vote_data[i].codec = get_hal_codec(codec);
-		vote_data[i].width =  max(inst->prop.width[CAPTURE_PORT],
-			inst->prop.width[OUTPUT_PORT]);
-		vote_data[i].height = max(inst->prop.height[CAPTURE_PORT],
-			inst->prop.height[OUTPUT_PORT]);
-
-		if (inst->operating_rate)
-			vote_data[i].fps = (inst->operating_rate >> 16) ?
-				inst->operating_rate >> 16 : 1;
-		else
-			vote_data[i].fps = inst->prop.fps;
-
-		if (msm_comm_turbo_session(inst))
-			vote_data[i].power_mode = VIDC_POWER_TURBO;
-		else if (is_low_power_session(inst))
-			vote_data[i].power_mode = VIDC_POWER_LOW;
-		else
-			vote_data[i].power_mode = VIDC_POWER_NORMAL;
-		if (i == 0) {
-			vote_data[i].imem_ab_tbl = core->resources.imem_ab_tbl;
-			vote_data[i].imem_ab_tbl_size =
-				core->resources.imem_ab_tbl_size;
-			vote_data[i].core_freq = core_freq;
-		}
-
-		/*
-		 * TODO: support for OBP-DBP split mode hasn't been yet
-		 * implemented, once it is, this part of code needs to be
-		 * revisited since passing in accurate information to the bus
-		 * governor will drastically reduce bandwidth
-		 */
-		vote_data[i].color_formats[0] = get_hal_uncompressed(yuv);
-		vote_data[i].num_formats = 1;
-		i++;
-	}
-	mutex_unlock(&core->lock);
-
-	rc = call_hfi_op(hdev, vote_bus, hdev->hfi_device_data, vote_data,
-			vote_data_count);
-	if (rc)
-		dprintk(VIDC_ERR, "Failed to scale bus: %d\n", rc);
-
-	kfree(vote_data);
-	return rc;
-
-fail_alloc:
-	mutex_unlock(&core->lock);
-	return rc;
-}
-
 struct msm_vidc_core *get_vidc_core(int core_id)
 {
 	struct msm_vidc_core *core;
@@ -2261,6 +2164,8 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 			empty_buf_done->alloc_len, empty_buf_done->status,
 			empty_buf_done->picture_type, empty_buf_done->flags);
 
+		msm_vidc_clear_freq_entry(inst, empty_buf_done->packet_buffer);
+
 		mutex_lock(&inst->bufq[OUTPUT_PORT].lock);
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
 		mutex_unlock(&inst->bufq[OUTPUT_PORT].lock);
@@ -2640,127 +2545,6 @@ void handle_cmd_response(enum hal_command_response cmd, void *data)
 	}
 }
 
-int msm_comm_scale_clocks(struct msm_vidc_core *core)
-{
-	int num_mbs_per_sec, enc_mbs_per_sec, dec_mbs_per_sec;
-
-	enc_mbs_per_sec =
-		msm_comm_get_load(core, MSM_VIDC_ENCODER, LOAD_CALC_NO_QUIRKS);
-	dec_mbs_per_sec	=
-		msm_comm_get_load(core, MSM_VIDC_DECODER, LOAD_CALC_NO_QUIRKS);
-
-	if (enc_mbs_per_sec >= dec_mbs_per_sec) {
-	/*
-	 * If Encoder load is higher, use that load. Encoder votes for higher
-	 * clock. Since Encoder and Deocder run on parallel cores, this clock
-	 * should suffice decoder usecases.
-	 */
-		num_mbs_per_sec = enc_mbs_per_sec;
-	} else {
-	/*
-	 * If Decoder load is higher, it's tricky to decide clock. Decoder
-	 * higher load might results less clocks than Encoder smaller load.
-	 * At this point driver doesn't know which clock to vote. Hence use
-	 * total load.
-	 */
-		num_mbs_per_sec = enc_mbs_per_sec + dec_mbs_per_sec;
-	}
-
-	return msm_comm_scale_clocks_load(core, num_mbs_per_sec,
-			LOAD_CALC_NO_QUIRKS);
-}
-
-int msm_comm_scale_clocks_load(struct msm_vidc_core *core,
-		int num_mbs_per_sec, enum load_calc_quirks quirks)
-{
-	int rc = 0;
-	struct hfi_device *hdev;
-	struct msm_vidc_inst *inst = NULL;
-	unsigned long instant_bitrate = 0;
-	int num_sessions = 0;
-	struct vidc_clk_scale_data clk_scale_data = { {0} };
-	int codec = 0;
-
-	if (!core) {
-		dprintk(VIDC_ERR, "%s Invalid args: %pK\n", __func__, core);
-		return -EINVAL;
-	}
-
-	hdev = core->device;
-	if (!hdev) {
-		dprintk(VIDC_ERR, "%s Invalid device handle: %pK\n",
-			__func__, hdev);
-		return -EINVAL;
-	}
-
-	mutex_lock(&core->lock);
-	list_for_each_entry(inst, &core->instances, list) {
-
-		codec = inst->session_type == MSM_VIDC_DECODER ?
-			inst->fmts[OUTPUT_PORT].fourcc :
-			inst->fmts[CAPTURE_PORT].fourcc;
-
-		if (msm_comm_turbo_session(inst))
-			clk_scale_data.power_mode[num_sessions] =
-				VIDC_POWER_TURBO;
-		else if (is_low_power_session(inst))
-			clk_scale_data.power_mode[num_sessions] =
-				VIDC_POWER_LOW;
-		else
-			clk_scale_data.power_mode[num_sessions] =
-				VIDC_POWER_NORMAL;
-
-		if (inst->dcvs_mode)
-			clk_scale_data.load[num_sessions] = inst->dcvs.load;
-		else
-			clk_scale_data.load[num_sessions] =
-				msm_comm_get_inst_load(inst, quirks);
-
-		clk_scale_data.session[num_sessions] =
-				VIDC_VOTE_DATA_SESSION_VAL(
-				get_hal_codec(codec),
-				get_hal_domain(inst->session_type));
-		num_sessions++;
-
-		if (inst->instant_bitrate > instant_bitrate)
-			instant_bitrate = inst->instant_bitrate;
-
-	}
-	clk_scale_data.num_sessions = num_sessions;
-	mutex_unlock(&core->lock);
-
-
-	rc = call_hfi_op(hdev, scale_clocks,
-		hdev->hfi_device_data, num_mbs_per_sec,
-		&clk_scale_data, instant_bitrate);
-	if (rc)
-		dprintk(VIDC_ERR, "Failed to set clock rate: %d\n", rc);
-
-	return rc;
-}
-
-void msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst)
-{
-	struct msm_vidc_core *core;
-	struct hfi_device *hdev;
-
-	if (!inst || !inst->core || !inst->core->device) {
-		dprintk(VIDC_ERR, "%s Invalid params\n", __func__);
-		return;
-	}
-	core = inst->core;
-	hdev = core->device;
-
-	if (msm_comm_scale_clocks(core)) {
-		dprintk(VIDC_WARN,
-				"Failed to scale clocks. Performance might be impacted\n");
-	}
-	if (msm_comm_vote_bus(core)) {
-		dprintk(VIDC_WARN,
-				"Failed to scale DDR bus. Performance might be impacted\n");
-	}
-}
-
 static inline enum msm_vidc_thermal_level msm_comm_vidc_thermal_level(int level)
 {
 	switch (level) {
@@ -2775,33 +2559,16 @@ static inline enum msm_vidc_thermal_level msm_comm_vidc_thermal_level(int level)
 	}
 }
 
-static unsigned long msm_comm_get_clock_rate(struct msm_vidc_core *core)
-{
-	struct hfi_device *hdev;
-	unsigned long freq = 0;
-
-	if (!core || !core->device) {
-		dprintk(VIDC_ERR, "%s Invalid params\n", __func__);
-		return -EINVAL;
-	}
-	hdev = core->device;
-
-	freq = call_hfi_op(hdev, get_core_clock_rate, hdev->hfi_device_data, 1);
-	dprintk(VIDC_DBG, "clock freq %ld\n", freq);
-
-	return freq;
-}
-
 static bool is_core_turbo(struct msm_vidc_core *core, unsigned long freq)
 {
 	int i = 0;
-	struct msm_vidc_platform_resources *res = &core->resources;
-	struct load_freq_table *table = res->load_freq_tbl;
+	struct allowed_clock_rates_table *allowed_clks_tbl = NULL;
 	u32 max_freq = 0;
 
-	for (i = 0; i < res->load_freq_tbl_size; i++) {
-		if (max_freq < table[i].freq)
-			max_freq = table[i].freq;
+	allowed_clks_tbl = core->resources.allowed_clks_tbl;
+	for (i = 0; i < core->resources.allowed_clks_tbl_size; i++) {
+		if (max_freq < allowed_clks_tbl[i].clock_rate)
+			max_freq = allowed_clks_tbl[i].clock_rate;
 	}
 	return freq >= max_freq;
 }
@@ -2823,7 +2590,7 @@ static bool is_thermal_permissible(struct msm_vidc_core *core)
 	}
 
 	tl = msm_comm_vidc_thermal_level(vidc_driver->thermal_level);
-	freq = msm_comm_get_clock_rate(core);
+	freq = core->freq;
 
 	is_turbo = is_core_turbo(core, freq);
 	dprintk(VIDC_DBG,
@@ -3041,6 +2808,8 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 core_already_inited:
 	change_inst_state(inst, MSM_VIDC_CORE_INIT);
 	mutex_unlock(&core->lock);
+
+	rc = msm_comm_scale_clocks_and_bus(inst);
 	return rc;
 
 fail_core_init:
@@ -3133,6 +2902,8 @@ static int msm_comm_session_init(int flipped_state,
 		dprintk(VIDC_ERR, "Invalid session\n");
 		return -EINVAL;
 	}
+
+	msm_comm_init_clocks_and_bus_data(inst);
 
 	rc = call_hfi_op(hdev, session_init, hdev->hfi_device_data,
 			inst, get_hal_domain(inst->session_type),
@@ -4064,6 +3835,7 @@ static unsigned int count_buffers(struct msm_vidc_list *list,
 static void log_frame(struct msm_vidc_inst *inst, struct vidc_frame_data *data,
 		enum v4l2_buf_type type)
 {
+
 	if (type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 		dprintk(VIDC_DBG,
 			"Sending etb (%pa) to hal: filled: %d, ts: %lld, flags = %#x\n",
@@ -4071,13 +3843,6 @@ static void log_frame(struct msm_vidc_inst *inst, struct vidc_frame_data *data,
 			data->timestamp, data->flags);
 		msm_vidc_debugfs_update(inst, MSM_VIDC_DEBUGFS_EVENT_ETB);
 
-		if (msm_vidc_bitrate_clock_scaling &&
-			inst->session_type == MSM_VIDC_DECODER &&
-			!inst->dcvs_mode)
-			inst->instant_bitrate =
-				data->filled_len * 8 * inst->prop.fps;
-		else
-			inst->instant_bitrate = 0;
 	} else if (type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		dprintk(VIDC_DBG,
 			"Sending ftb (%pa) to hal: size: %d, ts: %lld, flags = %#x\n",
@@ -4086,19 +3851,6 @@ static void log_frame(struct msm_vidc_inst *inst, struct vidc_frame_data *data,
 		msm_vidc_debugfs_update(inst, MSM_VIDC_DEBUGFS_EVENT_FTB);
 	}
 
-	msm_dcvs_check_and_scale_clocks(inst,
-			type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
-
-	if (msm_vidc_bitrate_clock_scaling && !inst->dcvs_mode &&
-		type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
-		inst->session_type == MSM_VIDC_DECODER)
-		if (msm_comm_scale_clocks(inst->core))
-			dprintk(VIDC_WARN,
-				"Failed to scale clocks. Performance might be impacted\n");
-
-	if (msm_comm_vote_bus(inst->core))
-		dprintk(VIDC_WARN,
-			"Failed to scale bus. Performance might be impacted\n");
 }
 
 /*
@@ -4180,6 +3932,8 @@ int msm_comm_qbuf(struct msm_vidc_inst *inst, struct vb2_buffer *vb)
 		dprintk(VIDC_DBG, "Deferring queue of %pK\n", vb);
 		return 0;
 	}
+
+	rc = msm_comm_scale_clocks_and_bus(inst);
 
 	dprintk(VIDC_DBG, "%sing %d etbs and %d ftbs\n",
 			batch_mode ? "Batch" : "Process",
@@ -5626,7 +5380,6 @@ int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
 		} else {
 			msm_dcvs_init_load(inst);
 		}
-		msm_comm_scale_clocks_and_bus(inst);
 		msm_dcvs_try_enable(inst);
 	}
 exit:
@@ -5711,8 +5464,7 @@ static void msm_comm_print_debug_info(struct msm_vidc_inst *inst)
 	}
 	core = inst->core;
 
-	dprintk(VIDC_ERR, "Venus core frequency = %lu",
-		msm_comm_get_clock_rate(core));
+	dprintk(VIDC_ERR, "Venus core frequency = %lu", core->freq);
 	mutex_lock(&core->lock);
 	dprintk(VIDC_ERR, "Printing instance info that caused Error\n");
 	msm_comm_print_inst_info(inst);

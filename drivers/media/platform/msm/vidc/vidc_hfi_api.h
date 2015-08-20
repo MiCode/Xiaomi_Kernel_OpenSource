@@ -1529,9 +1529,7 @@ struct hfi_device {
 	int (*session_set_property)(void *sess, enum hal_property ptype,
 			void *pdata);
 	int (*session_get_property)(void *sess, enum hal_property ptype);
-	int (*scale_clocks)(void *dev, int load,
-			struct vidc_clk_scale_data *data,
-			unsigned long instant_bitrate);
+	int (*scale_clocks)(void *dev, u32 freq);
 	int (*vote_bus)(void *dev, struct vidc_bus_vote_data *data,
 			int num_data);
 	int (*get_fw_info)(void *dev, struct hal_fw_info *fw_info);
@@ -1539,7 +1537,6 @@ struct hfi_device {
 	int (*get_core_capabilities)(void *dev);
 	int (*suspend)(void *dev);
 	int (*flush_debug_queue)(void *dev);
-	unsigned long (*get_core_clock_rate)(void *dev, bool actual_rate);
 	enum hal_default_properties (*get_default_properties)(void *dev);
 };
 

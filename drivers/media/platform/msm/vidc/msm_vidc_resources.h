@@ -24,12 +24,6 @@ struct platform_version_table {
 	u32 version_shift;
 };
 
-struct load_freq_table {
-	u32 load;
-	u32 freq;
-	u32 supported_codecs;
-};
-
 struct dcvs_table {
 	u32 load;
 	u32 load_low;
@@ -101,7 +95,6 @@ struct regulator_set {
 struct clock_info {
 	const char *name;
 	struct clk *clk;
-	struct load_freq_table *load_freq_tbl;
 	u32 count;
 	bool has_scaling;
 	bool has_mem_retention;
@@ -142,8 +135,9 @@ struct allowed_clock_rates_table {
 
 struct clock_profile_entry {
 	u32 codec_mask;
-	u32 cycles;
-	u32 low_power_factor;
+	u32 vpp_cycles;
+	u32 vsp_cycles;
+	u32 low_power_cycles;
 };
 
 struct clock_freq_table {
@@ -160,8 +154,6 @@ struct msm_vidc_platform_resources {
 	struct allowed_clock_rates_table *allowed_clks_tbl;
 	u32 allowed_clks_tbl_size;
 	struct clock_freq_table clock_freq_tbl;
-	struct load_freq_table *load_freq_tbl;
-	uint32_t load_freq_tbl_size;
 	struct dcvs_table *dcvs_tbl;
 	uint32_t dcvs_tbl_size;
 	struct dcvs_limit *dcvs_limit;

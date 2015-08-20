@@ -1447,6 +1447,7 @@ int msm_venc_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		bitrate.bit_rate = ctrl->val;
 		bitrate.layer_id = 0;
 		pdata = &bitrate;
+		inst->bitrate = ctrl->val;
 		break;
 	}
 	case V4L2_CID_MPEG_VIDEO_BITRATE_PEAK:
