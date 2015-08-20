@@ -10391,11 +10391,13 @@ static void tasha_powershutdown(struct platform_device *pdev)
 	struct wcd9xxx_pdata *pdata = dev_get_platdata(pdev->dev.parent);
 
 	tasha = platform_get_drvdata(pdev);
+	gpio_direction_output(pdata->reset_gpio, 0);
+	/* sleep for 500msec to follow codec power down sequence */
+	msleep(500);
 	wcd9xxx_disable_static_supplies_to_optimum(tasha->wcd9xxx, pdata);
 	wcd9xxx_disable_supplies(tasha->wcd9xxx, pdata);
-	gpio_direction_output(pdata->reset_gpio, 0);
-	/* sleep for 60msec to follow codec power down sequence */
-	usleep_range(60000, 60100);
+	/* sleep for 500msec for the regulator to ramp down */
+	msleep(500);
 }
 
 static struct platform_driver tasha_codec_driver = {
