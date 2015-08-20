@@ -1614,9 +1614,6 @@ static int ipa_q6_set_ex_path_dis_agg(void)
 */
 int ipa_q6_cleanup(void)
 {
-	int client_idx;
-	int res;
-
 	/* If uC has notified the APPS upon a ZIP engine error,
 	 * APPS need to assert (This is a non recoverable error).
 	 */
@@ -1642,6 +1639,23 @@ int ipa_q6_cleanup(void)
 		BUG();
 	}
 
+	ipa_ctx->q6_proxy_clk_vote_valid = true;
+	return 0;
+}
+
+/**
+* ipa_q6_pipe_reset() - A cleanup for the Q6 pipes
+*                    in IPA HW. This is performed in case of SSR.
+*
+* Return codes:
+* 0: success
+* This is a mandatory procedure, in case one of the steps fails, the
+* AP needs to restart.
+*/
+int ipa_q6_pipe_reset(void)
+{
+	int client_idx;
+	int res;
 	/*
 	 * Q6 relies on the AP to reset all Q6 IPA pipes.
 	 * In case the uC is not loaded, or upon any failure in the
@@ -1654,13 +1668,11 @@ int ipa_q6_cleanup(void)
 
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++)
 		if (IPA_CLIENT_IS_Q6_CONS(client_idx) ||
-		    IPA_CLIENT_IS_Q6_PROD(client_idx)) {
+			IPA_CLIENT_IS_Q6_PROD(client_idx)) {
 			res = ipa_uc_reset_pipe(client_idx);
 			if (res)
 				BUG();
 		}
-
-	ipa_ctx->q6_proxy_clk_vote_valid = true;
 	return 0;
 }
 

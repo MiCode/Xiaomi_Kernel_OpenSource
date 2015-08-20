@@ -1552,6 +1552,7 @@ int ipa_tag_process(struct ipa_desc *desc, int num_descs,
 		    unsigned long timeout);
 
 int ipa_q6_cleanup(void);
+int ipa_q6_pipe_reset(void);
 int ipa_init_q6_smem(void);
 
 int ipa_sps_connect_safe(struct sps_pipe *h, struct sps_connect *connect,
