@@ -2350,7 +2350,7 @@ static void cpr3_regulator_debugfs_thread_add(struct cpr3_thread *thread)
 	}
 
 	temp = debugfs_create_int("floor_volt", S_IRUGO, aggr_dir,
-				  &ctrl->aggr_corner.floor_volt);
+				  &thread->aggr_corner.floor_volt);
 	if (IS_ERR_OR_NULL(temp)) {
 		cpr3_err(ctrl, "thread %u aggr floor_volt debugfs file creation failed\n",
 			thread->thread_id);
@@ -2358,7 +2358,7 @@ static void cpr3_regulator_debugfs_thread_add(struct cpr3_thread *thread)
 	}
 
 	temp = debugfs_create_int("ceiling_volt", S_IRUGO, aggr_dir,
-				  &ctrl->aggr_corner.ceiling_volt);
+				  &thread->aggr_corner.ceiling_volt);
 	if (IS_ERR_OR_NULL(temp)) {
 		cpr3_err(ctrl, "thread %u aggr ceiling_volt debugfs file creation failed\n",
 			thread->thread_id);
@@ -2366,7 +2366,7 @@ static void cpr3_regulator_debugfs_thread_add(struct cpr3_thread *thread)
 	}
 
 	temp = debugfs_create_int("open_loop_volt", S_IRUGO, aggr_dir,
-				  &ctrl->aggr_corner.open_loop_volt);
+				  &thread->aggr_corner.open_loop_volt);
 	if (IS_ERR_OR_NULL(temp)) {
 		cpr3_err(ctrl, "thread %u aggr open_loop_volt debugfs file creation failed\n",
 			thread->thread_id);
@@ -2374,7 +2374,7 @@ static void cpr3_regulator_debugfs_thread_add(struct cpr3_thread *thread)
 	}
 
 	temp = debugfs_create_int("last_volt", S_IRUGO, aggr_dir,
-				  &ctrl->aggr_corner.last_volt);
+				  &thread->aggr_corner.last_volt);
 	if (IS_ERR_OR_NULL(temp)) {
 		cpr3_err(ctrl, "thread %u aggr last_volt debugfs file creation failed\n",
 			thread->thread_id);
