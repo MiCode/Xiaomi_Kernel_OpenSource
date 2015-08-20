@@ -259,7 +259,7 @@
 };
 
 &clock_cpu {
-		qcom,compatible = "cpu-clock-8996-v3";
+		compatible = "qcom,cpu-clock-8996-v3";
 		/* Nominal FMAXes only until characterization completes. */
 		qcom,pwrcl-speedbin0-v0 =
 			<          0  0 >,
