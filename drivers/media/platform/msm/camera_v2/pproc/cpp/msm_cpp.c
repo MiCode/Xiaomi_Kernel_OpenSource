@@ -3533,9 +3533,10 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 	{
 		struct msm_cpp_clock_settings32_t *clock_settings32 =
 			(struct msm_cpp_clock_settings32_t *)kp_ioctl.ioctl_ptr;
-		clock_settings.clock_rate = clock_settings32->clock_rate;
-		clock_settings.avg = clock_settings32->avg;
-		clock_settings.inst = clock_settings32->inst;
+		get_user(clock_settings.clock_rate,
+			&clock_settings32->clock_rate);
+		get_user(clock_settings.avg, &clock_settings32->avg);
+		get_user(clock_settings.inst, &clock_settings32->inst);
 		kp_ioctl.ioctl_ptr = (void *)&clock_settings;
 		if (is_compat_task()) {
 			if (kp_ioctl.len != sizeof(
@@ -3553,25 +3554,27 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 		struct msm_pproc_queue_buf_info32_t *u32_queue_buf =
 		  (struct msm_pproc_queue_buf_info32_t *)kp_ioctl.ioctl_ptr;
 
-		k_queue_buf.is_buf_dirty = u32_queue_buf->is_buf_dirty;
-		k_queue_buf.buff_mgr_info.session_id =
-			u32_queue_buf->buff_mgr_info.session_id;
-		k_queue_buf.buff_mgr_info.stream_id =
-			u32_queue_buf->buff_mgr_info.stream_id;
-		k_queue_buf.buff_mgr_info.frame_id =
-			u32_queue_buf->buff_mgr_info.frame_id;
-		k_queue_buf.buff_mgr_info.index =
-			u32_queue_buf->buff_mgr_info.index;
-		k_queue_buf.buff_mgr_info.timestamp.tv_sec =
-			u32_queue_buf->buff_mgr_info.timestamp.tv_sec;
-		k_queue_buf.buff_mgr_info.timestamp.tv_usec =
-			u32_queue_buf->buff_mgr_info.timestamp.tv_usec;
+		get_user(k_queue_buf.is_buf_dirty,
+			&u32_queue_buf->is_buf_dirty);
+		get_user(k_queue_buf.buff_mgr_info.session_id,
+			&u32_queue_buf->buff_mgr_info.session_id);
+		get_user(k_queue_buf.buff_mgr_info.stream_id,
+			&u32_queue_buf->buff_mgr_info.stream_id);
+		get_user(k_queue_buf.buff_mgr_info.frame_id,
+			&u32_queue_buf->buff_mgr_info.frame_id);
+		get_user(k_queue_buf.buff_mgr_info.index,
+			&u32_queue_buf->buff_mgr_info.index);
+		get_user(k_queue_buf.buff_mgr_info.timestamp.tv_sec,
+			&u32_queue_buf->buff_mgr_info.timestamp.tv_sec);
+		get_user(k_queue_buf.buff_mgr_info.timestamp.tv_usec,
+			&u32_queue_buf->buff_mgr_info.timestamp.tv_usec);
+
 		/*
 		 * Update the reserved field (cds information) to buffer
 		 * manager structure so that it is propogated back to HAL
 		 */
-		k_queue_buf.buff_mgr_info.reserved =
-			u32_queue_buf->buff_mgr_info.reserved;
+		get_user(k_queue_buf.buff_mgr_info.reserved,
+			&u32_queue_buf->buff_mgr_info.reserved);
 
 		kp_ioctl.ioctl_ptr = (void *)&k_queue_buf;
 		kp_ioctl.len = sizeof(struct msm_pproc_queue_buf_info);
