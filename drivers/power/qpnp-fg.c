@@ -1035,6 +1035,7 @@ out:
 	return rc;
 }
 
+#define MEM_INTF_IMA_CFG		0x52
 #define MEM_INTF_IMA_OPR_STS		0x54
 #define MEM_INTF_IMA_ERR_STS		0x5F
 #define MEM_INTF_IMA_EXP_STS		0x55
@@ -1069,15 +1070,15 @@ static int fg_check_ima_exception(struct fg_chip *chip)
 		rc = err_sts;
 
 		/* clear the error */
-		ret |= fg_masked_write(chip, MEM_INTF_CFG(chip), IMA_IACS_CLR,
-							IMA_IACS_CLR, 1);
+		ret |= fg_masked_write(chip, chip->mem_base + MEM_INTF_IMA_CFG,
+					IMA_IACS_CLR, IMA_IACS_CLR, 1);
 		temp = 0x4;
 		ret |= fg_write(chip, &temp, MEM_INTF_ADDR_LSB(chip) + 1, 1);
 		temp = 0x0;
 		ret |= fg_write(chip, &temp, MEM_INTF_WR_DATA0(chip) + 3, 1);
 		ret |= fg_read(chip, &temp, MEM_INTF_RD_DATA0(chip) + 3, 1);
-		ret |= fg_masked_write(chip, MEM_INTF_CFG(chip),
-						IMA_IACS_CLR, 0, 1);
+		ret |= fg_masked_write(chip, chip->mem_base + MEM_INTF_IMA_CFG,
+					IMA_IACS_CLR, 0, 1);
 		if (!ret)
 			return -EAGAIN;
 		else
@@ -1113,6 +1114,8 @@ static int fg_check_iacs_ready(struct fg_chip *chip)
 
 	if (!timeout || rc) {
 		pr_err("IACS_RDY not set\n");
+		/* perform IACS_CLR sequence */
+		fg_check_ima_exception(chip);
 		return -EBUSY;
 	}
 
@@ -1364,7 +1367,8 @@ retry:
 		pr_info("Start beat_count = %x End beat_count = %x\n",
 				start_beat_count, end_beat_count);
 	if (start_beat_count != end_beat_count) {
-		pr_err("Beat count do not match - retry transaction\n");
+		if (fg_debug_mask & FG_MEM_DEBUG_READS)
+			pr_info("Beat count do not match - retry transaction\n");
 		goto retry;
 	}
 out:
