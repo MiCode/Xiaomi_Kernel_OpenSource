@@ -18,6 +18,8 @@ Optional properties:
       "usbc_int_default" : Default configuration of pins.
 - pericom,enb-gpio : This corresponds to GPIO that is used to drive ENB pin.
   GPIO flag represents whether ENB pin is active-high(0) or active-low(1).
+- pericom,disable-on-suspend : If present then disable chip on suspend if
+  state is not attached.
 
 Example :
 	pericom-type-c@3d {
