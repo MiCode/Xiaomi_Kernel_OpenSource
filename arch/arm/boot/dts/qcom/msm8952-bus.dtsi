@@ -1070,11 +1070,13 @@
 		/* pl1 low, pl1 high, pl2 low, pl2 high, pl3 low, pl3 high */
 		qcom,cci-response-time-us = <3000 3000 3000 3000 1000 1000>;
 		qcom,max-cci-freq = <500000>;
+		status = "disabled";
 	};
 
 	devfreq_spdm_gov {
 		compatible = "qcom,gov_spdm_hyp";
 		interrupt-names = "spdm-irq";
 		interrupts = <0 192 0>;
+		status = "disabled";
 	};
 };
