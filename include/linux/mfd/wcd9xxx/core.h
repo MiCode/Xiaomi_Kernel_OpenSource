@@ -321,7 +321,9 @@ int wcd9xxx_slim_bulk_write(struct wcd9xxx *wcd9xxx,
 void wcd9xxx_disable_supplies(struct wcd9xxx *wcd9xxx,
 				     void *pdata);
 
-int wcd9xxx_disable_static_supplies_to_optimum(
+int wcd9xxx_disable_static_supplies_to_optimum(struct wcd9xxx *wcd9xxx,
+						void *data);
+int wcd9xxx_enable_static_supplies_to_optimum(
 			struct wcd9xxx *wcd9xxx,
 			void *pdata);
 

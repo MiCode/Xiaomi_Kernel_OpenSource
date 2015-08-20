@@ -9930,9 +9930,33 @@ static int tasha_codec_remove(struct snd_soc_codec *codec)
 	return 0;
 }
 
+static int tasha_codec_suspend(struct snd_soc_codec *codec)
+{
+
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx_pdata *pdata = dev_get_platdata(codec->dev->parent);
+
+	pr_debug("%s:suspend of tasha codec\n", __func__);
+	wcd9xxx_disable_static_supplies_to_optimum(tasha->wcd9xxx, pdata);
+	return 0;
+}
+
+static int tasha_codec_resume(struct snd_soc_codec *codec)
+{
+
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx_pdata *pdata = dev_get_platdata(codec->dev->parent);
+
+	pr_debug("%s:resume of tasha codec\n", __func__);
+	wcd9xxx_enable_static_supplies_to_optimum(tasha->wcd9xxx, pdata);
+	return 0;
+}
+
 static struct snd_soc_codec_driver soc_codec_dev_tasha = {
 	.probe = tasha_codec_probe,
 	.remove = tasha_codec_remove,
+	.suspend = tasha_codec_suspend,
+	.resume = tasha_codec_resume,
 	.controls = tasha_snd_controls,
 	.num_controls = ARRAY_SIZE(tasha_snd_controls),
 	.dapm_widgets = tasha_dapm_widgets,
