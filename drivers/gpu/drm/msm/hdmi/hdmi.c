@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014, 2016 The Linux Foundation. All rights reserved.
  * Copyright (C) 2013 Red Hat
  * Author: Rob Clark <robdclark@gmail.com>
  *
@@ -56,7 +56,7 @@ static irqreturn_t hdmi_irq(int irq, void *dev_id)
 
 	/* Process HDCP: */
 	if (hdmi->hdcp_ctrl)
-		hdmi_hdcp_irq(hdmi->hdcp_ctrl);
+		hdmi_hdcp_ctrl_irq(hdmi->hdcp_ctrl);
 
 	/* TODO audio.. */
 
@@ -75,7 +75,8 @@ static void hdmi_destroy(struct hdmi *hdmi)
 		flush_workqueue(hdmi->workq);
 		destroy_workqueue(hdmi->workq);
 	}
-	hdmi_hdcp_destroy(hdmi);
+
+	hdmi_hdcp_ctrl_destroy(hdmi);
 	if (phy)
 		phy->funcs->destroy(phy);
 
@@ -228,7 +229,7 @@ static struct hdmi *hdmi_init(struct platform_device *pdev)
 		goto fail;
 	}
 
-	hdmi->hdcp_ctrl = hdmi_hdcp_init(hdmi);
+	hdmi->hdcp_ctrl = hdmi_hdcp_ctrl_init(hdmi);
 	if (IS_ERR(hdmi->hdcp_ctrl)) {
 		dev_warn(&pdev->dev, "failed to init hdcp: disabled\n");
 		hdmi->hdcp_ctrl = NULL;

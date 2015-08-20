@@ -187,10 +187,10 @@ struct i2c_adapter *hdmi_i2c_init(struct hdmi *hdmi);
 /*
  * hdcp
  */
-struct hdmi_hdcp_ctrl *hdmi_hdcp_init(struct hdmi *hdmi);
-void hdmi_hdcp_destroy(struct hdmi *hdmi);
-void hdmi_hdcp_on(struct hdmi_hdcp_ctrl *hdcp_ctrl);
-void hdmi_hdcp_off(struct hdmi_hdcp_ctrl *hdcp_ctrl);
-void hdmi_hdcp_irq(struct hdmi_hdcp_ctrl *hdcp_ctrl);
+struct hdmi_hdcp_ctrl *hdmi_hdcp_ctrl_init(struct hdmi *hdmi);
+void hdmi_hdcp_ctrl_destroy(struct hdmi *hdmi);
+void hdmi_hdcp_ctrl_on(struct hdmi_hdcp_ctrl *hdcp_ctrl);
+void hdmi_hdcp_ctrl_off(struct hdmi_hdcp_ctrl *hdcp_ctrl);
+void hdmi_hdcp_ctrl_irq(struct hdmi_hdcp_ctrl *hdcp_ctrl);
 
 #endif /* __HDMI_CONNECTOR_H__ */
