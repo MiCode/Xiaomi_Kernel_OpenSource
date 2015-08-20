@@ -32,6 +32,11 @@
 
 #define PIUSB_1P8_VOL_MAX	1800000 /* uV */
 
+static bool disable_on_suspend;
+module_param(disable_on_suspend , bool, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(disable_on_suspend,
+	"Whether to disable chip on suspend if state is not attached");
+
 struct piusb_regs {
 	u8		dev_id;
 	u8		control;
@@ -303,6 +308,10 @@ static int piusb_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 		goto out;
 	}
 
+	/* override with module-param */
+	if (!disable_on_suspend)
+		disable_on_suspend = of_property_read_bool(np,
+						"pericom,disable-on-suspend");
 	pi_usb->enb_gpio = of_get_named_gpio_flags(np, "pericom,enb-gpio", 0,
 							&flags);
 	if (!gpio_is_valid(pi_usb->enb_gpio)) {
@@ -366,6 +375,69 @@ static int piusb_remove(struct i2c_client *i2c)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int piusb_i2c_suspend(struct device *dev)
+{
+	struct i2c_client *i2c = to_i2c_client(dev);
+	struct pi_usb_type_c *pi = i2c_get_clientdata(i2c);
+
+	dev_dbg(dev, "pi_usb PM suspend.. attach(%d) disable(%d)\n",
+			pi->attach_state, disable_on_suspend);
+	disable_irq(pi->client->irq);
+	/* Keep type-c chip enabled during session */
+	if (pi->attach_state)
+		return 0;
+
+	if (disable_on_suspend)
+		piusb_i2c_enable(pi, false);
+
+	regulator_set_voltage(pi->i2c_1p8, 0, PIUSB_1P8_VOL_MAX);
+	regulator_disable(pi->i2c_1p8);
+
+	if (disable_on_suspend)
+		gpio_set_value(pi->enb_gpio, !pi->enb_gpio_polarity);
+
+	return 0;
+}
+
+static int piusb_i2c_resume(struct device *dev)
+{
+	int rc;
+	struct i2c_client *i2c = to_i2c_client(dev);
+	struct pi_usb_type_c *pi = i2c_get_clientdata(i2c);
+
+	dev_dbg(dev, "pi_usb PM resume\n");
+	/* suspend was no-op, just re-enable interrupt */
+	if (pi->attach_state) {
+		enable_irq(pi->client->irq);
+		return 0;
+	}
+
+	if (disable_on_suspend) {
+		gpio_set_value(pi->enb_gpio, pi->enb_gpio_polarity);
+		msleep(PERICOM_I2C_DELAY_MS);
+	}
+
+	rc = regulator_set_voltage(pi->i2c_1p8, PIUSB_1P8_VOL_MAX,
+					PIUSB_1P8_VOL_MAX);
+	if (rc)
+		dev_err(&pi->client->dev, "unable to set voltage(%d)\n", rc);
+
+	rc = regulator_enable(pi->i2c_1p8);
+	if (rc)
+		dev_err(&pi->client->dev, "unable to enable 1p8-reg(%d)\n", rc);
+
+	if (disable_on_suspend)
+		rc = piusb_i2c_enable(pi, true);
+	enable_irq(pi->client->irq);
+
+	return rc;
+}
+#endif
+
+static SIMPLE_DEV_PM_OPS(piusb_i2c_pm_ops, piusb_i2c_suspend,
+			  piusb_i2c_resume);
+
 static const struct i2c_device_id piusb_id[] = {
 	{ PERICOM_I2C_NAME, 0 },
 	{ }
@@ -384,6 +456,7 @@ static struct i2c_driver piusb_driver = {
 	.driver = {
 		.name = PERICOM_I2C_NAME,
 		.of_match_table = of_match_ptr(piusb_of_match),
+		.pm	= &piusb_i2c_pm_ops,
 	},
 	.probe		= piusb_probe,
 	.remove		= piusb_remove,
