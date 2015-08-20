@@ -105,6 +105,11 @@ enum afe_mad_type {
 	MAD_SW_AUDIO = 0x05,
 };
 
+enum afe_cal_mode {
+	AFE_CAL_MODE_DEFAULT = 0x00,
+	AFE_CAL_MODE_NONE,
+};
+
 struct afe_audio_buffer {
 	dma_addr_t phys;
 	void       *data;
@@ -178,6 +183,7 @@ int afe_rt_proxy_port_write(phys_addr_t buf_addr_p,
 			u32 mem_map_handle, int bytes);
 int afe_rt_proxy_port_read(phys_addr_t buf_addr_p,
 			u32 mem_map_handle, int bytes);
+void afe_set_cal_mode(u16 port_id, enum afe_cal_mode afe_cal_mode);
 int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	u32 rate);
 int afe_spk_prot_feed_back_cfg(int src_port, int dst_port,
