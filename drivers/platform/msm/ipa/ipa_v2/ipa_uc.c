@@ -715,7 +715,7 @@ int ipa_uc_reset_pipe(enum ipa_client_type ipa_client)
 	       IPA_CLIENT_IS_PROD(ipa_client) ? "CONS" : "PROD", ep_idx);
 
 	ret = ipa_uc_send_cmd(cmd.raw32b, IPA_CPU_2_HW_CMD_RESET_PIPE, 0,
-			      false, 10*HZ);
+			      true, 10*HZ);
 
 	return ret;
 }

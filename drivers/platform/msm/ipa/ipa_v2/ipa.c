@@ -1642,26 +1642,24 @@ int ipa_q6_cleanup(void)
 		BUG();
 	}
 
-	/* This workaround is required for pre IPA2.6HW MSMs */
-	if (ipa_ctx->ipa_hw_type < IPA_HW_v2_5) {
-		/*
-		 * Q6 relies on the AP to reset all Q6 IPA pipes.
-		 * In case the uC is not loaded, or upon any failure in the
-		 * pipe reset sequence, we have to assert.
-		 */
-		if (!ipa_ctx->uc_ctx.uc_loaded) {
-			IPAERR("uC is not loaded, can't reset Q6 pipes\n");
-			BUG();
+	/*
+	 * Q6 relies on the AP to reset all Q6 IPA pipes.
+	 * In case the uC is not loaded, or upon any failure in the
+	 * pipe reset sequence, we have to assert.
+	 */
+	if (!ipa_ctx->uc_ctx.uc_loaded) {
+		IPAERR("uC is not loaded, can't reset Q6 pipes\n");
+		BUG();
+	}
+
+	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++)
+		if (IPA_CLIENT_IS_Q6_CONS(client_idx) ||
+		    IPA_CLIENT_IS_Q6_PROD(client_idx)) {
+			res = ipa_uc_reset_pipe(client_idx);
+			if (res)
+				BUG();
 		}
 
-		for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++)
-			if (IPA_CLIENT_IS_Q6_CONS(client_idx) ||
-			    IPA_CLIENT_IS_Q6_PROD(client_idx)) {
-				res = ipa_uc_reset_pipe(client_idx);
-				if (res)
-					BUG();
-			}
-	}
 	ipa_ctx->q6_proxy_clk_vote_valid = true;
 	return 0;
 }
