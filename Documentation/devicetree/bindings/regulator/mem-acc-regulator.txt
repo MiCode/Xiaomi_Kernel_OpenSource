@@ -78,39 +78,50 @@ Optional properties:
 				while switching between APC corners. The custom register address
 				is specified by "acc-l2-custom" reg-property. The length of the array
 				should be equal to number of APC corners.
-- qcom,override-acc-fuse-sel:	Array of 5 elements to indicate where to read the bits, what value to
-				compare with in order to decide whether to
-				apply override acc-map and custom data or not
-				and method to read fuse row, using SCM to read or read register directly.
-				The 5 elements with index [0..4] are:
+- qcom,override-acc-fuse-sel:	Array of 4 elements which specify the way to read the override fuse.
+				The override fuse value is used by the qcom,override-fuse-version-map
+				to identify the correct set of override properties.
+				The 4 elements with index [0..4] are:
 				  [0] => the fuse row number of the selector
 				  [1] => LSB bit position of the bits
 				  [2] => number of bits
-				  [3] => the value to select override ACC configuration
-				  [4] => fuse reading method, 0 for direct reading or 1 for SCM reading
-				When the value of the fuse bits specified by first 3 elements equals to the value
-				in 4th element, overridden accelerator configuration logic is applied.
-				Otherwise, the original configuration should be applied. If the 5th element is 0,
-				read the fuse row from register directly. Otherwise, read it through SCM.
-- qcom,override-corner-acc-map:	Array which overrides the existing acc-corner map (specified by qcom,corner-acc-map)
-				with corner values specified in this property.
-				[0] maps APC SVS corner (1) to accelerator SVS corner
-				[1] maps APC NOMINAL corner (2) to accelerator NOMINAL corner
-				[2] maps APC TURBO corner (3) to accelerator TURBO corner
-- qcom,override-l1-acc-custom-data:	Array which overrides the existing l1-acc-custom data
+				  [3] => fuse reading method, 0 for direct reading or 1 for SCM reading
+- qcom,override-fuse-version-map: Array of integers which each match to a override fuse value.
+				Any element in a tuple may use the value 0xffffffff as a wildcard.
+				The index of the first value (in the array) which matches the override fuse
+				is used to select the right tuples from the other override properties.
+- qcom,override-corner-acc-map:	Array of tuples which overrides the existing acc-corner map
+				(specified by qcom,corner-acc-map) with corner values selected
+				from this property. "qcom,override-corner-acc-map" must contain the
+				same number of tuples as "qcom,override-fuse-version-map". These tuples
+				are then mapped one-to-one in the order specified. If the
+				"qcom,override-fuse-version-map" property is not specified, then
+				"qcom,override-corner-acc-map" must contain a single tuple which is then
+				applied unconditionally.
+- qcom,override-l1-acc-custom-data:	Array of tuples of which overrides the existing l1-acc-custom data
 				(specified by qcom,l1-acc-custom-data), with values specified in this property.
-				The corresponding custom data is written into the custom register
-				while switching between APC corners. The custom register address
-				is specified by "acc-11-custom" reg-property. The length of the array
-				should be equal to number of APC corners.
-				This property can only be specified if the "qcom,l1-acc-custom-data" is already defined.
-- qcom,override-l2-acc-custom-data:	Array which overrides the existing l2-acc-custom data
-				(specified by qcom,l2-acc-custom-data) with values specified in this property.
-				The corresponding custom data is written into the custom register
-				while switching between APC corners. The custom register address
-				is specified by "acc-l2-custom" reg-property. The length of the array
-				should be equal to number of APC corners.
-				This property can only be specified if the " qcom,l2-acc-custom-data" is already defined.
+				The corresponding custom data is written into the custom register while
+				switching between APC corners. The custom register address is specified by
+				"acc-11-custom" reg-property. This property can only be specified if the
+				"qcom,l1-acc-custom-data" is already defined. If the
+				"qcom,override-fuse-version-map" property is specified, then
+				qcom,override-l1-acc-custom-data must contain the same number of tuples
+				as "qcom,override-fuse-version-map". These tuples are then mapped one-to-one
+				in the order specified. If the qcom,override-fuse-version-map property is
+				not specified, then "qcom,override-l1-acc-custom-data" must contain a single
+				tuple which is then applied unconditionally.
+- qcom,override-l2-acc-custom-data:	Array of tuples of which overrides the existing l1-acc-custom data
+				(specified by qcom,l2-acc-custom-data), with values specified in this property.
+				The corresponding custom data is written into the custom register while
+				switching between APC corners. The custom register address is specified by
+				"acc-12-custom" reg-property. This property can only be specified if the
+				"qcom,l2-acc-custom-data" is already defined. If the
+				"qcom,override-fuse-version-map" property is specified, then
+				"qcom,override-l2-acc-custom-data" must contain the same number of tuples
+				as "qcom,override-fuse-version-map". These tuples are then mapped one-to-one
+				in the order specified. If the qcom,override-fuse-version-map property is
+				not specified, then "qcom,override-l2-acc-custom-data" must contain a single
+				tuple which is then applied unconditionally.
 - qcom,mem-acc-type1:		Array which specifies the value to be written to the mem acc type1 register for each fuse
 				corner, from the lowest fuse corner to the highest fuse corner. The length of the array
 				must be equal to the number of APC fuse corners. This property must be present if reg names
@@ -141,9 +152,17 @@ mem_acc_vreg_corner: regulator@fd4aa044 {
 	qcom,corner-acc-map = <0 1 3>;
 	qcom,l1-config-skip-fuse-sel = <0 52 1 1 0>;
 	qcom,l2-acc-custom-data = <0x0 0x3000 0x3000>;
-	qcom,override-acc-fuse-sel = <0 52 1 1 0>;
-	qcom,override-corner-acc-map = <0 0 1>;
-	qcom,overide-l2-acc-custom-data = <0x0 0x0 0x3000>;
+
+	qcom,override-acc-fuse-sel = <0 52 2 0>;
+	qcom,override-fuse-version-map = <0>,
+					 <2>,
+					 <(-1)>;
+	qcom,override-corner-acc-map =	<0 0 1>,
+					<0 1 2>,
+					<0 1 1>;
+	qcom,overide-l2-acc-custom-data = <0x0	0x0	0x3000>,
+					  <0x0	0x3000	0x3000>,
+					  <0x0	0x0	0x0>;
 	qcom,mem-acc-type1 = <0x02 0x02 0x00>;
 	qcom,mem-acc-type2 = <0x02 0x02 0x00>;
 	qcom,mem-acc-type3 = <0x02 0x02 0x00>;
