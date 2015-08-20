@@ -127,7 +127,8 @@ int ipa3_rm_resource_producer_release(struct ipa3_rm_resource_prod *producer);
 
 int ipa3_rm_resource_consumer_request(struct ipa3_rm_resource_cons *consumer,
 				u32 needed_bw,
-				bool inc_usage_count);
+				bool inc_usage_count,
+				bool wake_client);
 
 int ipa3_rm_resource_consumer_release(struct ipa3_rm_resource_cons *consumer,
 				u32 needed_bw,

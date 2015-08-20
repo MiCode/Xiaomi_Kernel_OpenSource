@@ -144,7 +144,8 @@ int ipa3_rm_resource_consumer_request_work(struct ipa3_rm_resource_cons
 int ipa3_rm_resource_consumer_request(
 		struct ipa3_rm_resource_cons *consumer,
 		u32 prod_needed_bw,
-		bool inc_usage_count)
+		bool inc_usage_count,
+		bool wake_client)
 {
 	int result = 0;
 	enum ipa3_rm_resource_state prev_state;
@@ -176,6 +177,11 @@ int ipa3_rm_resource_consumer_request(
 						false);
 		break;
 	case IPA_RM_GRANTED:
+		if (wake_client) {
+			result = ipa3_rm_resource_consumer_request_work(
+				consumer, prev_state, prod_needed_bw, false);
+			break;
+		}
 		ipa3_rm_perf_profile_change(consumer->resource.name);
 		break;
 	case IPA_RM_REQUEST_IN_PROGRESS:
@@ -631,7 +637,7 @@ int ipa3_rm_resource_add_dependency(struct ipa_rm_resource *resource,
 		consumer_result = ipa3_rm_resource_consumer_request(
 				(struct ipa3_rm_resource_cons *)depends_on,
 				resource->max_bw,
-				true);
+				true, false);
 		if (consumer_result != -EINPROGRESS) {
 			resource->state = prev_state;
 			((struct ipa3_rm_resource_prod *)
@@ -793,7 +799,7 @@ int ipa3_rm_resource_producer_request(struct ipa3_rm_resource_prod *producer)
 			consumer_result = ipa3_rm_resource_consumer_request(
 				(struct ipa3_rm_resource_cons *)consumer,
 				producer->resource.max_bw,
-				true);
+				true, false);
 			if (consumer_result == -EINPROGRESS) {
 				result = -EINPROGRESS;
 			} else {
