@@ -1279,15 +1279,8 @@ static int adv7533_video_on(void *client, bool on,
 
 	mutex_lock(&pdata->ops_mutex);
 
-	/* configure lanes wrt resolution */
-	if (cfg->v_active == 1080)
-		lanes = 0x40;
-	else if (cfg->v_active == 720)
-		lanes = 0x30;
-	else
-		lanes = 0x10;
-
-	/* lane configuration, 4 lanes */
+	/* DSI lane configuration */
+	lanes = (cfg->num_of_input_lanes << 4);
 	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x1C, lanes);
 
 	adv7533_video_setup(pdata, cfg);
