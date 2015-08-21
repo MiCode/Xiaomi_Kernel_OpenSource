@@ -48,6 +48,9 @@ Optional properties:
     supports hevc decoder = 0x0c000000
     supports hevc_hybrid encoder = 0x10000000
     supports hevc_hybrid decoder = 0x30000000
+- qcom,imem-ab-tbl : video core frequency in Hz and corresponding imem ab value
+  in kbps. The imem ab value corresponds to the clock frequency at which imem
+  should operate for a particular video core frequency.
 - qcom,reg-presets : list of offset-value pairs for registers to be written.
   The offsets are from the base offset specified in 'reg'. This is mainly
   used for QoS, VBIF, etc. presets for video.
@@ -153,6 +156,13 @@ Example:
 			<72000 133330000 0x0c000000>, /* HEVC decoder VGA 60fps   */
 			<36000 133330000 0x0c000000>, /* HEVC VGA 30 fps  */
 			<36000 133330000 0x01000414>; /* Legacy encoder VGA 30 fps   */
+
+		qcom,imem-ab-tbl =
+			<75000000  1500000>, /* imem clk @ 75 Mhz  */
+			<150000000 1500000>, /* imem clk @ 75 Mhz  */
+			<355333333 2500000>, /* imem clk @ 170 Mhz */
+			<533000000 6000000>; /* imem clk @ 320 Mhz */
+
 		qcom,imem-size = <4096>;
 		qcom,firmware-name = "venus";
 		qcom,hfi-version = "3xx";

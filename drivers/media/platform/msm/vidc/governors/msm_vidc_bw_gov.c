@@ -23,6 +23,7 @@ module_param(debug, bool, 0644);
 enum governor_mode {
 	GOVERNOR_DDR,
 	GOVERNOR_VMEM,
+	GOVERNOR_VMEM_PLUS,
 };
 
 struct governor {
@@ -274,6 +275,36 @@ static int __bpp(enum hal_uncompressed_format f)
 	}
 }
 
+static unsigned long __calculate_vmem_plus_ab(struct vidc_bus_vote_data *d)
+{
+	unsigned long i = 0, vmem_plus = 0;
+
+	if (!d->imem_ab_tbl || !d->imem_ab_tbl_size) {
+		vmem_plus = 1; /* Vote for the min ab value */
+		goto exit;
+	}
+
+	/* Pick up vmem frequency based on venus core frequency */
+	for (i = 0; i < d->imem_ab_tbl_size; i++) {
+		if (d->imem_ab_tbl[i].core_freq == d->core_freq) {
+			vmem_plus = d->imem_ab_tbl[i].imem_ab;
+			break;
+		}
+	}
+
+	/* Incase we get an unsupported freq throw a warning
+	 * and set ab to the minimum value. */
+	if (!vmem_plus) {
+		vmem_plus = 1;
+		dprintk(VIDC_WARN,
+			"could not calculate vmem ab value due to core freq mismatch\n");
+		WARN_ON(1);
+	}
+
+exit:
+	return vmem_plus;
+}
+
 static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 		enum governor_mode gm) {
 	/*
@@ -307,6 +338,8 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 			recon_write, opb_read, opb_write, dpb_read, dpb_write,
 			total;
 	} ddr, vmem;
+
+	unsigned long ret = 0;
 
 	/* Decoder parameters setup */
 	scenario = SCENARIO_WORST;
@@ -573,7 +606,21 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 		__dump(dump, ARRAY_SIZE(dump));
 	}
 
-	return kbps(fp_round((gm == GOVERNOR_DDR ? &ddr : &vmem)->total));
+	switch (gm) {
+	case GOVERNOR_DDR:
+		ret = kbps(fp_round(ddr.total));
+		break;
+	case GOVERNOR_VMEM:
+		ret = kbps(fp_round(vmem.total));
+		break;
+	case GOVERNOR_VMEM_PLUS:
+		ret = __calculate_vmem_plus_ab(d);
+		break;
+	default:
+		dprintk(VIDC_ERR, "%s - Unknown governor\n", __func__);
+	}
+
+	return ret;
 }
 
 static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
@@ -619,6 +666,8 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 			line_buffer_read, line_buffer_write, original_read,
 			original_write, dpb_read, dpb_write, total;
 	} ddr, vmem;
+
+	unsigned long ret = 0;
 
 	/* Encoder Parameters setup */
 	scenario = SCENARIO_WORST;
@@ -961,7 +1010,21 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 		__dump(dump, ARRAY_SIZE(dump));
 	}
 
-	return kbps(fp_round((gm == GOVERNOR_DDR ? &ddr : &vmem)->total));
+	switch (gm) {
+	case GOVERNOR_DDR:
+		ret = kbps(fp_round(ddr.total));
+		break;
+	case GOVERNOR_VMEM:
+		ret = kbps(fp_round(vmem.total));
+		break;
+	case GOVERNOR_VMEM_PLUS:
+		ret = __calculate_vmem_plus_ab(d);
+		break;
+	default:
+		dprintk(VIDC_ERR, "%s - Unknown governor\n", __func__);
+	}
+
+	return ret;
 }
 
 static unsigned long __calculate(struct vidc_bus_vote_data *d,
@@ -1046,7 +1109,14 @@ static struct governor governors[] = {
 			.event_handler = __event_handler,
 		},
 	},
-
+	{
+		.mode = GOVERNOR_VMEM_PLUS,
+		.devfreq_gov = {
+			.name = "msm-vidc-vmem+",
+			.get_target_freq = __get_target_freq,
+			.event_handler = __event_handler,
+		},
+	},
 };
 
 static int __init msm_vidc_bw_gov_init(void)

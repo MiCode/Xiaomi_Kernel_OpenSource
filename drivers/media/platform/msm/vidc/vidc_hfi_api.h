@@ -1381,6 +1381,9 @@ struct vidc_bus_vote_data {
 	int num_formats; /* 1 = DPB-OPB unified; 2 = split */
 	int height, width, fps;
 	enum msm_vidc_power_mode power_mode;
+	struct imem_ab_table *imem_ab_tbl;
+	u32 imem_ab_tbl_size;
+	unsigned long core_freq;
 };
 
 struct hal_index_extradata_input_crop_payload {
@@ -1447,7 +1450,7 @@ struct hfi_device {
 	int (*session_clean)(void *sess);
 	int (*get_core_capabilities)(void *dev);
 	int (*suspend)(void *dev);
-	unsigned long (*get_core_clock_rate)(void *dev);
+	unsigned long (*get_core_clock_rate)(void *dev, bool actual_rate);
 	enum hal_default_properties (*get_default_properties)(void *dev);
 };
 

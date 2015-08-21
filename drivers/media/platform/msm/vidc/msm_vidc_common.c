@@ -297,6 +297,7 @@ static int msm_comm_vote_bus(struct msm_vidc_core *core)
 	struct hfi_device *hdev;
 	struct msm_vidc_inst *inst = NULL;
 	struct vidc_bus_vote_data *vote_data = NULL;
+	unsigned long core_freq = 0;
 
 	if (!core) {
 		dprintk(VIDC_ERR, "%s Invalid args: %p\n", __func__, core);
@@ -322,6 +323,9 @@ static int msm_comm_vote_bus(struct msm_vidc_core *core)
 		goto fail_alloc;
 	}
 
+	core_freq = call_hfi_op(hdev, get_core_clock_rate,
+			hdev->hfi_device_data, 0);
+
 	list_for_each_entry(inst, &core->instances, list) {
 		int codec = 0, yuv = 0;
 
@@ -344,6 +348,12 @@ static int msm_comm_vote_bus(struct msm_vidc_core *core)
 			vote_data[i].power_mode = VIDC_POWER_LOW;
 		else
 			vote_data[i].power_mode = VIDC_POWER_NORMAL;
+		if (i == 0) {
+			vote_data[i].imem_ab_tbl = core->resources.imem_ab_tbl;
+			vote_data[i].imem_ab_tbl_size =
+				core->resources.imem_ab_tbl_size;
+			vote_data[i].core_freq = core_freq;
+		}
 
 		/*
 		 * TODO: support for OBP-DBP split mode hasn't been yet
@@ -1984,7 +1994,7 @@ static unsigned long msm_comm_get_clock_rate(struct msm_vidc_core *core)
 	}
 	hdev = core->device;
 
-	freq = call_hfi_op(hdev, get_core_clock_rate, hdev->hfi_device_data);
+	freq = call_hfi_op(hdev, get_core_clock_rate, hdev->hfi_device_data, 1);
 	dprintk(VIDC_DBG, "clock freq %ld\n", freq);
 
 	return freq;
