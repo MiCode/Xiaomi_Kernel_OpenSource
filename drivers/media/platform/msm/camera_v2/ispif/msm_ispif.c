@@ -277,21 +277,16 @@ static int msm_ispif_reset_hw(struct ispif_device *ispif)
 		ispif->clk_idx = 1;
 	}
 
-	init_completion(&ispif->reset_complete[VFE0]);
-	if (ispif->hw_num_isps > 1)
-		init_completion(&ispif->reset_complete[VFE1]);
-
+	atomic_set(&ispif->reset_trig[VFE0], 1);
 	/* initiate reset of ISPIF */
 	msm_camera_io_w(ISPIF_RST_CMD_MASK,
 				ispif->base + ISPIF_RST_CMD_ADDR);
-
 
 	timeout = wait_for_completion_timeout(
 			&ispif->reset_complete[VFE0], msecs_to_jiffies(500));
 	CDBG("%s: VFE0 done\n", __func__);
 
 	if (timeout <= 0) {
-		pr_err("%s: VFE0 reset wait timeout\n", __func__);
 		rc = msm_cam_clk_enable(&ispif->pdev->dev,
 			ispif_clk_info, ispif->clk,
 			ispif->num_clk, 0);
@@ -309,6 +304,7 @@ static int msm_ispif_reset_hw(struct ispif_device *ispif)
 	}
 
 	if (ispif->hw_num_isps > 1) {
+		atomic_set(&ispif->reset_trig[VFE1], 1);
 		msm_camera_io_w(ISPIF_RST_CMD_1_MASK,
 					ispif->base + ISPIF_RST_CMD_1_ADDR);
 		timeout = wait_for_completion_timeout(
@@ -1006,18 +1002,10 @@ static int msm_ispif_restart_frame_boundary(struct ispif_device *ispif,
 	}
 
 	if (vfe_mask & (1 << VFE0)) {
-		init_completion(&ispif->reset_complete[VFE0]);
+		atomic_set(&ispif->reset_trig[VFE0], 1);
 		/* initiate reset of ISPIF */
 		msm_camera_io_w(ISPIF_RST_CMD_MASK_RESTART,
 				ispif->base + ISPIF_RST_CMD_ADDR);
-	}
-	if (ispif->hw_num_isps > 1 && (vfe_mask & (1 << VFE1))) {
-		init_completion(&ispif->reset_complete[VFE1]);
-		msm_camera_io_w(ISPIF_RST_CMD_1_MASK_RESTART,
-			ispif->base + ISPIF_RST_CMD_1_ADDR);
-	}
-
-	if (vfe_mask & (1 << VFE0)) {
 		timeout = wait_for_completion_timeout(
 			&ispif->reset_complete[VFE0], msecs_to_jiffies(500));
 		if (timeout <= 0) {
@@ -1028,6 +1016,9 @@ static int msm_ispif_restart_frame_boundary(struct ispif_device *ispif,
 	}
 
 	if (ispif->hw_num_isps > 1  && (vfe_mask & (1 << VFE1))) {
+		atomic_set(&ispif->reset_trig[VFE1], 1);
+		msm_camera_io_w(ISPIF_RST_CMD_1_MASK_RESTART,
+			ispif->base + ISPIF_RST_CMD_1_ADDR);
 		timeout = wait_for_completion_timeout(
 				&ispif->reset_complete[VFE1],
 				msecs_to_jiffies(500));
@@ -1279,8 +1270,10 @@ static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out,
 	ISPIF_IRQ_GLOBAL_CLEAR_CMD_ADDR);
 
 	if (out[VFE0].ispifIrqStatus0 & ISPIF_IRQ_STATUS_MASK) {
-		if (out[VFE0].ispifIrqStatus0 & RESET_DONE_IRQ)
-			complete(&ispif->reset_complete[VFE0]);
+		if (out[VFE0].ispifIrqStatus0 & RESET_DONE_IRQ) {
+			if (atomic_dec_and_test(&ispif->reset_trig[VFE0]))
+				complete(&ispif->reset_complete[VFE0]);
+		}
 
 		if (out[VFE0].ispifIrqStatus0 & PIX_INTF_0_OVERFLOW_IRQ) {
 			pr_err_ratelimited("%s: VFE0 pix0 overflow.\n",
@@ -1309,8 +1302,10 @@ static inline void msm_ispif_read_irq_status(struct ispif_irq_status *out,
 		ispif_process_irq(ispif, out, VFE0);
 	}
 	if (ispif->hw_num_isps > 1) {
-		if (out[VFE1].ispifIrqStatus0 & RESET_DONE_IRQ)
-			complete(&ispif->reset_complete[VFE1]);
+		if (out[VFE1].ispifIrqStatus0 & RESET_DONE_IRQ) {
+			if (atomic_dec_and_test(&ispif->reset_trig[VFE1]))
+				complete(&ispif->reset_complete[VFE1]);
+		}
 
 		if (out[VFE1].ispifIrqStatus0 & PIX_INTF_0_OVERFLOW_IRQ) {
 			pr_err_ratelimited("%s: VFE1 pix0 overflow.\n",
@@ -1736,6 +1731,10 @@ static int ispif_probe(struct platform_device *pdev)
 	ispif->pdev = pdev;
 	ispif->ispif_state = ISPIF_POWER_DOWN;
 	ispif->open_cnt = 0;
+	init_completion(&ispif->reset_complete[VFE0]);
+	init_completion(&ispif->reset_complete[VFE1]);
+	atomic_set(&ispif->reset_trig[VFE0], 0);
+	atomic_set(&ispif->reset_trig[VFE1], 0);
 	return 0;
 
 error:
