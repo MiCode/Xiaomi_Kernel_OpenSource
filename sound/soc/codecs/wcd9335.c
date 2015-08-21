@@ -9975,6 +9975,11 @@ static int tasha_swrm_clock(void *handle, bool enable)
 	if (enable) {
 		tasha->swr_clk_users++;
 		if (tasha->swr_clk_users == 1) {
+			if (TASHA_IS_2_0(tasha->wcd9xxx->version))
+				wcd9xxx_reg_update_bits(
+					&tasha->wcd9xxx->core_res,
+					WCD9335_TEST_DEBUG_NPL_DLY_TEST_1,
+					0x10, 0x00);
 			__tasha_cdc_mclk_enable(tasha, true);
 			wcd9xxx_reg_update_bits(&tasha->wcd9xxx->core_res,
 				WCD9335_CDC_CLK_RST_CTRL_SWR_CONTROL,
@@ -9987,6 +9992,11 @@ static int tasha_swrm_clock(void *handle, bool enable)
 				WCD9335_CDC_CLK_RST_CTRL_SWR_CONTROL,
 				0x01, 0x00);
 			__tasha_cdc_mclk_enable(tasha, false);
+			if (TASHA_IS_2_0(tasha->wcd9xxx->version))
+				wcd9xxx_reg_update_bits(
+					&tasha->wcd9xxx->core_res,
+					WCD9335_TEST_DEBUG_NPL_DLY_TEST_1,
+					0x10, 0x10);
 		}
 	}
 	dev_dbg(tasha->dev, "%s: swrm clock users %d\n",
