@@ -107,6 +107,7 @@ EXPORT_SYMBOL(get_revid_data);
 
 #define PM8941_PERIPHERAL_SUBTYPE	0x01
 #define PM8226_PERIPHERAL_SUBTYPE	0x04
+#define PMD9655_PERIPHERAL_SUBTYPE	0x0F
 static size_t build_pmic_string(char *buf, size_t n, int sid,
 		u8 subtype, u8 rev1, u8 rev2, u8 rev3, u8 rev4)
 {
@@ -164,7 +165,11 @@ static int qpnp_revid_probe(struct spmi_device *spmi)
 	rev4 = qpnp_read_byte(spmi, resource->start + REVID_REVISION4);
 
 	pmic_subtype = qpnp_read_byte(spmi, resource->start + REVID_SUBTYPE);
-	pmic_status = qpnp_read_byte(spmi, resource->start + REVID_STATUS1);
+	if (pmic_subtype != PMD9655_PERIPHERAL_SUBTYPE)
+		pmic_status = qpnp_read_byte(spmi,
+					     resource->start + REVID_STATUS1);
+	else
+		pmic_status = 0;
 
 	revid_chip = devm_kzalloc(&spmi->dev, sizeof(struct revid_chip),
 						GFP_KERNEL);
