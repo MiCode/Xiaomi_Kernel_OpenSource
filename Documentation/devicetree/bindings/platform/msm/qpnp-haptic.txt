@@ -44,6 +44,7 @@ Required properties for pwm play mode:
  - qcom,pwm-channel: pwm channel the led will operate on
  - qcom,period-us: pwm period in us
  - qcom,duty-us: pwm duty cycle in us
+ - qcom,ext-pwm-dtest-line: dtest line to used with pwm
 
 Optional properties for pwm play mode:
  - qcom,ext-pwm-freq-khz : frequency for external pwm in kilo HZ
