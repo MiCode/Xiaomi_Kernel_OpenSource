@@ -86,8 +86,8 @@
 		reg = <0x78B7000 0x600>;
 		interrupt-names = "qup_irq";
 		interrupts = <0 97 0>;
-		dmas = <&dma_blsp1 10 64 0x20000020 0x20>,
-			<&dma_blsp1 11 32 0x20000020 0x20>;
+		dmas = <&dma_blsp1 12 64 0x20000020 0x20>,
+			<&dma_blsp1 13 32 0x20000020 0x20>;
 		dma-names = "tx", "rx";
 		qcom,master-id = <86>;
 		qcom,clk-freq-out = <400000>;
