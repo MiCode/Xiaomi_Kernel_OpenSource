@@ -1693,8 +1693,7 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 	for_each_cpu(i, lowest_mask) {
 		cpu_load = scale_load_to_cpu(
 			cpu_rq(i)->hmp_stats.cumulative_runnable_avg, i);
-		cpu_cost = power_cost(cpu_load, i);
-
+		cpu_cost = power_cost(i, cpu_cravg_sync(i, 0));
 		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i), sched_irqload(i),
 						cpu_cost, cpu_temp(i));
 
