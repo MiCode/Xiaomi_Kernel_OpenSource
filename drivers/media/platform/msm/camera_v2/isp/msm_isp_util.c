@@ -993,14 +993,26 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		break;
 	case VIDIOC_MSM_ISP_AXI_RESET:
 		mutex_lock(&vfe_dev->core_mutex);
-		rc = msm_isp_stats_reset(vfe_dev);
-		rc |= msm_isp_axi_reset(vfe_dev, arg);
+		if (atomic_read(&vfe_dev->error_info.overflow_state)
+			!= HALT_ENFORCED) {
+			rc = msm_isp_stats_reset(vfe_dev);
+			rc |= msm_isp_axi_reset(vfe_dev, arg);
+		} else {
+			pr_err_ratelimited("%s: no HW reset, halt enforced.\n",
+				__func__);
+		}
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_AXI_RESTART:
 		mutex_lock(&vfe_dev->core_mutex);
-		rc = msm_isp_stats_restart(vfe_dev);
-		rc |= msm_isp_axi_restart(vfe_dev, arg);
+		if (atomic_read(&vfe_dev->error_info.overflow_state)
+			!= HALT_ENFORCED) {
+			rc = msm_isp_stats_restart(vfe_dev);
+			rc |= msm_isp_axi_restart(vfe_dev, arg);
+		} else {
+			pr_err_ratelimited("%s: no AXI restart, halt enforced.\n",
+				__func__);
+		}
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_INPUT_CFG:
@@ -2062,7 +2074,16 @@ static int msm_vfe_iommu_fault_handler(struct iommu_domain *domain,
 			goto end;
 		}
 
-		msm_isp_enqueue_tasklet_cmd(vfe_dev, 0, 0, 1);
+		mutex_lock(&vfe_dev->core_mutex);
+		if (vfe_dev->vfe_open_cnt > 0) {
+			atomic_set(&vfe_dev->error_info.overflow_state,
+				HALT_ENFORCED);
+			msm_isp_enqueue_tasklet_cmd(vfe_dev, 0, 0, 1);
+		} else {
+			pr_err("%s: no handling, vfe open cnt = %d\n",
+				__func__, vfe_dev->vfe_open_cnt);
+		}
+		mutex_unlock(&vfe_dev->core_mutex);
 	} else {
 		ISP_DBG("%s:%d] no token received: %p\n",
 			__func__, __LINE__, token);

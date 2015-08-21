@@ -2046,13 +2046,6 @@ int msm_isp_axi_restart(struct vfe_device *vfe_dev,
 	unsigned long flags;
 
 	vfe_dev->buf_mgr->frameId_mismatch_recovery = 0;
-	if (atomic_read(&vfe_dev->error_info.overflow_state)
-		== HALT_ENFORCED) {
-		pr_err_ratelimited("%s: no restart, halt enforced.\n",
-			__func__);
-		return rc;
-	}
-
 	for (i = 0, j = 0; j < axi_data->num_active_stream &&
 		i < VFE_AXI_SRC_MAX; i++, j++) {
 		stream_info = &axi_data->stream_info[i];
