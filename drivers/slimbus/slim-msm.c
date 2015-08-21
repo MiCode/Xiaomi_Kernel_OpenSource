@@ -446,13 +446,15 @@ void msm_slim_tx_msg_return(struct msm_slim_ctrl *dev, int err)
 				pr_err("SLIM TX get IOVEC failed:%d", ret);
 			return;
 		}
-		if (addr == dev->bulk.phys) {
+		if (addr == dev->bulk.wr_dma) {
 			SLIM_INFO(dev, "BULK WR complete");
-			dev->bulk.in_progress = false;
+			dma_unmap_single(dev->dev, dev->bulk.wr_dma,
+					 dev->bulk.size, DMA_TO_DEVICE);
 			if (!dev->bulk.cb)
 				SLIM_WARN(dev, "no callback for bulk WR?");
 			else
 				dev->bulk.cb(dev->bulk.ctx, err);
+			dev->bulk.in_progress = false;
 			pm_runtime_mark_last_busy(dev->dev);
 			return;
 		}
