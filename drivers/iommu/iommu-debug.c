@@ -35,6 +35,7 @@ struct iommu_debug_attachment {
 	struct device *dev;
 	struct dentry *dentry;
 	struct list_head list;
+	unsigned long reg_offset;
 };
 
 static int iommu_debug_attachment_info_show(struct seq_file *s, void *ignored)
@@ -112,6 +113,84 @@ iommu_debug_attachment_trigger_fault_fops = {
 	.write	= iommu_debug_attachment_trigger_fault_write,
 };
 
+static ssize_t iommu_debug_attachment_reg_offset_write(
+	struct file *file, const char __user *ubuf, size_t count,
+	loff_t *offset)
+{
+	struct iommu_debug_attachment *attach = file->private_data;
+	unsigned long reg_offset;
+
+	if (kstrtoul_from_user(ubuf, count, 0, &reg_offset)) {
+		pr_err("Invalid reg_offset format\n");
+		return -EFAULT;
+	}
+
+	attach->reg_offset = reg_offset;
+
+	return count;
+}
+
+static const struct file_operations iommu_debug_attachment_reg_offset_fops = {
+	.open	= simple_open,
+	.write	= iommu_debug_attachment_reg_offset_write,
+};
+
+static ssize_t iommu_debug_attachment_reg_read_read(
+	struct file *file, char __user *ubuf, size_t count, loff_t *offset)
+{
+	struct iommu_debug_attachment *attach = file->private_data;
+	unsigned long val;
+	char *val_str;
+	ssize_t val_str_len;
+
+	if (*offset)
+		return 0;
+
+	val = iommu_reg_read(attach->domain, attach->reg_offset);
+	val_str = kasprintf(GFP_KERNEL, "0x%lx\n", val);
+	if (!val_str)
+		return -ENOMEM;
+	val_str_len = strlen(val_str);
+
+	if (copy_to_user(ubuf, val_str, val_str_len)) {
+		pr_err("copy_to_user failed\n");
+		val_str_len = -EFAULT;
+		goto out;
+	}
+	*offset = 1;		/* non-zero means we're done */
+
+out:
+	kfree(val_str);
+	return val_str_len;
+}
+
+static const struct file_operations iommu_debug_attachment_reg_read_fops = {
+	.open	= simple_open,
+	.read	= iommu_debug_attachment_reg_read_read,
+};
+
+static ssize_t iommu_debug_attachment_reg_write_write(
+	struct file *file, const char __user *ubuf, size_t count,
+	loff_t *offset)
+{
+	struct iommu_debug_attachment *attach = file->private_data;
+	unsigned long val;
+
+	if (kstrtoul_from_user(ubuf, count, 0, &val)) {
+		pr_err("Invalid val format\n");
+		return -EFAULT;
+	}
+
+	iommu_reg_write(attach->domain, attach->reg_offset, val);
+
+	return count;
+}
+
+static const struct file_operations iommu_debug_attachment_reg_write_fops = {
+	.open	= simple_open,
+	.write	= iommu_debug_attachment_reg_write_write,
+};
+
 /* should be called with iommu_debug_attachments_lock locked */
 static int iommu_debug_attach_add_debugfs(
 	struct iommu_debug_attachment *attach)
@@ -148,6 +227,30 @@ static int iommu_debug_attach_add_debugfs(
 		    "trigger_fault", S_IRUSR, attach->dentry, attach,
 		    &iommu_debug_attachment_trigger_fault_fops)) {
 		pr_err("Couldn't create iommu/attachments/%s/trigger_fault debugfs file for domain 0x%p\n",
+		       dev_name(dev), domain);
+		goto err_rmdir;
+	}
+
+	if (!debugfs_create_file(
+		    "reg_offset", S_IRUSR, attach->dentry, attach,
+		    &iommu_debug_attachment_reg_offset_fops)) {
+		pr_err("Couldn't create iommu/attachments/%s/reg_offset debugfs file for domain 0x%p\n",
+		       dev_name(dev), domain);
+		goto err_rmdir;
+	}
+
+	if (!debugfs_create_file(
+		    "reg_read", S_IRUSR, attach->dentry, attach,
+		    &iommu_debug_attachment_reg_read_fops)) {
+		pr_err("Couldn't create iommu/attachments/%s/reg_read debugfs file for domain 0x%p\n",
+		       dev_name(dev), domain);
+		goto err_rmdir;
+	}
+
+	if (!debugfs_create_file(
+		    "reg_write", S_IRUSR, attach->dentry, attach,
+		    &iommu_debug_attachment_reg_write_fops)) {
+		pr_err("Couldn't create iommu/attachments/%s/reg_write debugfs file for domain 0x%p\n",
 		       dev_name(dev), domain);
 		goto err_rmdir;
 	}
