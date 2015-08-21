@@ -1092,6 +1092,9 @@ enum v4l2_mpeg_vidc_video_vqzip_sei_enable {
 	V4L2_CID_MPEG_VIDC_VIDEO_VQZIP_SEI_ENABLE	= 1
 };
 
+#define V4L2_CID_MPEG_VIDC_VENC_PARAM_LAYER_BITRATE \
+		(V4L2_CID_MPEG_MSM_VIDC_BASE + 82)
+
 /*  Camera class control IDs */
 
 #define V4L2_CID_CAMERA_CLASS_BASE 	(V4L2_CTRL_CLASS_CAMERA | 0x900)
