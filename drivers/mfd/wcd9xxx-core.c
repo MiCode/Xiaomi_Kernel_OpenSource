@@ -328,6 +328,57 @@ static int wcd9xxx_write(struct wcd9xxx *wcd9xxx, unsigned short reg,
 	return wcd9xxx->write_dev(wcd9xxx, reg, bytes, src, interface_reg);
 }
 
+static int regmap_slim_multi_reg_write(void *context,
+				const void *data, size_t count)
+{
+	struct device *dev = context;
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(dev);
+	unsigned int reg;
+	u8 val[WCD9335_PAGE_SIZE];
+	int ret = 0;
+	int i = 0;
+	size_t num_regs = (count / (REG_BYTES + VAL_BYTES));
+	struct wcd9xxx_reg_val *bulk_reg;
+	u8 *buf;
+
+	if (!wcd9xxx) {
+		dev_err(dev, "%s: wcd9xxx is NULL\n", __func__);
+		return -EINVAL;
+	}
+	if (!data) {
+		dev_err(dev, "%s: data is NULL\n", __func__);
+		return -EINVAL;
+	}
+	if ((num_regs == 0) || (num_regs > WCD9335_PAGE_SIZE)) {
+		dev_err(dev, "%s: num_regs = %zd\n", __func__, num_regs);
+		return -EINVAL;
+	}
+
+	bulk_reg = kzalloc(num_regs * (sizeof(struct wcd9xxx_reg_val)),
+			   GFP_KERNEL);
+	if (!bulk_reg)
+		return -ENOMEM;
+
+	buf = ((u8 *)data);
+	for (i = 0; i < num_regs; i++) {
+		reg = *(u16 *)buf;
+		buf += REG_BYTES;
+		val[i] = *buf;
+		buf += VAL_BYTES;
+		bulk_reg[i].reg = reg;
+		bulk_reg[i].buf = &val[i];
+		bulk_reg[i].bytes = 1;
+	}
+	ret = wcd9xxx_slim_bulk_write(wcd9xxx, bulk_reg,
+				      num_regs, false);
+	if (ret)
+		dev_err(dev, "%s: error writing bulk regs\n",
+			__func__);
+
+	kfree(bulk_reg);
+	return ret;
+}
+
 static int regmap_slim_gather_write(void *context,
 				const void *reg, size_t reg_size,
 				const void *val, size_t val_size)
@@ -380,7 +431,10 @@ static int regmap_slim_write(void *context, const void *data, size_t count)
 {
 	WARN_ON(count < REG_BYTES);
 
-	return regmap_slim_gather_write(context, data, REG_BYTES,
+	if (count > (REG_BYTES + VAL_BYTES))
+		return regmap_slim_multi_reg_write(context, data, count);
+	else
+		return regmap_slim_gather_write(context, data, REG_BYTES,
 					data + REG_BYTES,
 					count - REG_BYTES);
 }
@@ -831,8 +885,8 @@ int wcd9xxx_slim_bulk_write(struct wcd9xxx *wcd9xxx,
 	if (ret)
 		pr_err("%s: Error, Codec bulk write failed (%d)\n",
 			__func__, ret);
-	/* 700 usec sleep is needed as per HW requirement */
-	usleep_range(700, 710);
+	/* 100 usec sleep is needed as per HW requirement */
+	usleep_range(100, 110);
 err:
 	mutex_unlock(&wcd9xxx->io_lock);
 	kfree(msgs);
