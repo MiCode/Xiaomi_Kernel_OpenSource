@@ -3566,9 +3566,8 @@
 };
 
 &gdsc_gpu_gx {
-	clock-names = "bimc_core_clk", "core_clk", "core_root_clk";
-	clocks = <&clock_gcc clk_gcc_mmss_bimc_gfx_clk>,
-		 <&clock_gpu clk_gpu_gx_gfx3d_clk>,
+	clock-names = "core_clk", "core_root_clk";
+	clocks = <&clock_gpu clk_gpu_gx_gfx3d_clk>,
 		 <&clock_gpu clk_gfx3d_clk_src>;
 	qcom,force-enable-root-clk;
 	parent-supply = <&gfx_vreg>;

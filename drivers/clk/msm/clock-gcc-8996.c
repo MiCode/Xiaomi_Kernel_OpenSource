@@ -3712,6 +3712,12 @@ static int msm_gcc_8996_probe(struct platform_device *pdev)
 	/* Keep an active vote on CXO in case no other driver votes for it */
 	clk_prepare_enable(&cxo_clk_src_ao.c);
 
+	/*
+	 * Keep the core memory settings enabled at all times for
+	 * gcc_mmss_bimc_gfx_clk.
+	 */
+	clk_set_flags(&gcc_mmss_bimc_gfx_clk.c, CLKFLAG_RETAIN_MEM);
+
 	dev_info(&pdev->dev, "Registered GCC clocks.\n");
 	return 0;
 }
