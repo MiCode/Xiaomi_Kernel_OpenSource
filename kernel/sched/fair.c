@@ -2654,24 +2654,7 @@ static inline u64 cpu_load(int cpu)
 
 static inline u64 cpu_load_sync(int cpu, int sync)
 {
-	struct rq *rq = cpu_rq(cpu);
-	u64 load;
-
-	load = rq->hmp_stats.cumulative_runnable_avg;
-
-	/*
-	 * If load is being checked in a sync wakeup environment,
-	 * we may want to discount the load of the currently running
-	 * task.
-	 */
-	if (sync && cpu == smp_processor_id()) {
-		if (load > rq->curr->ravg.demand)
-			load -= rq->curr->ravg.demand;
-		else
-			load = 0;
-	}
-
-	return scale_load_to_cpu(load, cpu);
+	return scale_load_to_cpu(cpu_cravg_sync(cpu, sync), cpu);
 }
 
 static int
@@ -2819,12 +2802,20 @@ int power_delta_exceeded(unsigned int cpu_cost, unsigned int base_cost)
 	return abs(delta) > cost_limit;
 }
 
-static unsigned int power_cost_at_freq(int cpu, unsigned int freq)
+/*
+ * Return the cost of running task p on CPU cpu. This function
+ * currently assumes that task p is the only task which will run on
+ * the CPU.
+ */
+unsigned int power_cost(int cpu, u64 demand)
 {
-	int i = 0;
+	int first, mid, last;
 	struct cpu_pwr_stats *per_cpu_info = get_cpu_pwr_stats();
 	struct cpu_pstate_pwr *costs;
 	struct freq_max_load *max_load;
+	int total_static_pwr_cost = 0;
+	struct rq *rq = cpu_rq(cpu);
+	unsigned int pc;
 
 	if (!per_cpu_info || !per_cpu_info[cpu].ptable ||
 	    !sysctl_sched_enable_power_aware)
@@ -2833,49 +2824,52 @@ static unsigned int power_cost_at_freq(int cpu, unsigned int freq)
 		 * capacity as a rough stand-in for real CPU power
 		 * numbers, assuming bigger CPUs are more power
 		 * hungry. */
-		return cpu_rq(cpu)->max_possible_capacity;
-
-	costs = per_cpu_info[cpu].ptable;
+		return rq->max_possible_capacity;
 
 	rcu_read_lock();
 	max_load = rcu_dereference(per_cpu(freq_max_load, cpu));
-	while (costs[i].freq != 0) {
-		if (costs[i+1].freq == 0 ||
-		    (costs[i].freq >= freq &&
-		     (!max_load || max_load->freqs[i] >= freq))) {
-			rcu_read_unlock();
-			return costs[i].power;
-		}
-		i++;
+	if (!max_load) {
+		pc = rq->max_possible_capacity;
+		goto unlock;
 	}
+
+	costs = per_cpu_info[cpu].ptable;
+
+	if (demand <= max_load->freqs[0].hdemand) {
+		pc = costs[0].power;
+		goto unlock;
+	} else if (demand > max_load->freqs[max_load->length - 1].hdemand) {
+		pc = costs[max_load->length - 1].power;
+		goto unlock;
+	}
+
+	first = 0;
+	last = max_load->length - 1;
+	mid = (last - first) >> 1;
+	while (1) {
+		if (demand <= max_load->freqs[mid].hdemand)
+			last = mid;
+		else
+			first = mid;
+
+		if (last - first == 1)
+			break;
+		mid = first + ((last - first) >> 1);
+	}
+
+	pc = costs[last].power;
+
+unlock:
 	rcu_read_unlock();
-	BUG();
-}
-
-/* Return the cost of running the total task load total_load on CPU cpu. */
-unsigned int power_cost(u64 total_load, int cpu)
-{
-	unsigned int task_freq;
-	struct rq *rq = cpu_rq(cpu);
-	u64 demand;
-	int total_static_pwr_cost = 0;
-
-	if (!sysctl_sched_enable_power_aware)
-		return rq->max_possible_capacity;
-
-	/* calculate % of max freq needed */
-	demand = total_load * 100;
-	demand = div64_u64(demand, max_task_load());
-
-	task_freq = demand * rq->max_possible_freq;
-	task_freq /= 100; /* khz needed */
 
 	if (idle_cpu(cpu) && rq->cstate) {
 		total_static_pwr_cost += rq->static_cpu_pwr_cost;
 		if (rq->dstate)
 			total_static_pwr_cost += rq->static_cluster_pwr_cost;
 	}
-	return power_cost_at_freq(cpu, task_freq) + total_static_pwr_cost;
+
+	return pc + total_static_pwr_cost;
+
 }
 
 #define UP_MIGRATION		1
@@ -2908,8 +2902,7 @@ static int skip_freq_domain(struct rq *task_rq, struct rq *rq, int reason)
 	return skip;
 }
 
-static int skip_cpu(struct rq *task_rq, struct rq *rq, int cpu,
-		    u64 task_load, int reason)
+static int skip_cpu(struct rq *task_rq, struct rq *rq, int cpu, int reason)
 {
 	int skip;
 
@@ -2970,8 +2963,9 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		struct rq *rq = cpu_rq(i);
 
 		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i), sched_irqload(i),
-		 power_cost(scale_load_to_cpu(task_load(p) +
-		 cpu_load_sync(i, sync), i), i), cpu_temp(i));
+				    power_cost(i, task_load(p) +
+					       cpu_cravg_sync(i, sync)),
+				    cpu_temp(i));
 
 		if (skip_freq_domain(trq, rq, reason)) {
 			cpumask_andnot(&search_cpus, &search_cpus,
@@ -2979,8 +2973,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 			continue;
 		}
 
-		tload =  scale_load_to_cpu(task_load(p), i);
-		if (skip_cpu(trq, rq, i, tload, reason))
+		if (skip_cpu(trq, rq, i, reason))
 			continue;
 
 		cpu_load = cpu_load_sync(i, sync);
@@ -2999,6 +2992,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		if (boost)
 			continue;
 
+		tload = scale_load_to_cpu(task_load(p), i);
 		if (!eligible_cpu(tload, cpu_load, i, sync) ||
 					!task_load_will_fit(p, tload, i))
 			continue;
@@ -3008,7 +3002,8 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		 * under spill.
 		 */
 
-		cpu_cost = power_cost(tload + cpu_load, i);
+		cpu_cost = power_cost(i, task_load(p) +
+					 cpu_cravg_sync(i, sync));
 
 		if (cpu_cost > min_cost)
 			continue;
@@ -3646,7 +3641,7 @@ static inline int select_best_cpu(struct task_struct *p, int target,
 	return 0;
 }
 
-static inline int power_cost(u64 total_load, int cpu)
+unsigned int power_cost(int cpu, u64 demand)
 {
 	return SCHED_CAPACITY_SCALE;
 }
@@ -5069,7 +5064,7 @@ static void throttle_cfs_rq(struct cfs_rq *cfs_rq)
 	/* Log effect on hmp stats after throttling */
 	trace_sched_cpu_load(rq, idle_cpu(cpu_of(rq)),
 			     sched_irqload(cpu_of(rq)),
-			     power_cost_at_freq(cpu_of(rq), 0),
+			     power_cost(cpu_of(rq), 0),
 			     cpu_temp(cpu_of(rq)));
 }
 
@@ -5126,7 +5121,7 @@ void unthrottle_cfs_rq(struct cfs_rq *cfs_rq)
 	/* Log effect on hmp stats after un-throttling */
 	trace_sched_cpu_load(rq, idle_cpu(cpu_of(rq)),
 			     sched_irqload(cpu_of(rq)),
-			     power_cost_at_freq(cpu_of(rq), 0),
+			     power_cost(cpu_of(rq), 0),
 			     cpu_temp(cpu_of(rq)));
 }
 
@@ -7788,7 +7783,7 @@ static inline void update_sg_lb_stats(struct lb_env *env,
 
 		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i),
 				     sched_irqload(i),
-				     power_cost_at_freq(i, 0),
+				     power_cost(i, 0),
 				     cpu_temp(i));
 
 		/* Bias balancing toward cpus of our domain */

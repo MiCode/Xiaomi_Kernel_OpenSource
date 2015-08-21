@@ -1732,19 +1732,26 @@ u32 __weak get_freq_max_load(int cpu, u32 freq)
 }
 
 DEFINE_PER_CPU(struct freq_max_load *, freq_max_load);
+static DEFINE_SPINLOCK(freq_max_load_lock);
 
 int sched_update_freq_max_load(const cpumask_t *cpumask)
 {
 	int i, cpu, ret;
-	unsigned int freq, max;
+	unsigned int freq;
 	struct cpu_pstate_pwr *costs;
 	struct cpu_pwr_stats *per_cpu_info = get_cpu_pwr_stats();
 	struct freq_max_load *max_load, *old_max_load;
+	struct freq_max_load_entry *entry;
+	u64 max_demand_capacity, max_demand;
+	unsigned long flags;
+	u32 hfreq;
+	int hpct;
 
 	if (!per_cpu_info || !sysctl_sched_enable_power_aware)
 		return 0;
 
-	mutex_lock(&policy_mutex);
+	spin_lock_irqsave(&freq_max_load_lock, flags);
+	max_demand_capacity = div64_u64(max_task_load(), max_possible_capacity);
 	for_each_cpu(cpu, cpumask) {
 		if (!per_cpu_info[cpu].ptable) {
 			ret = -EINVAL;
@@ -1755,24 +1762,35 @@ int sched_update_freq_max_load(const cpumask_t *cpumask)
 
 		/*
 		 * allocate len + 1 and leave the last power cost as 0 for
-		 * power_cost_at_freq() can stop iterating index when
+		 * power_cost() can stop iterating index when
 		 * per_cpu_info[cpu].len > len of max_load due to race between
 		 * cpu power stats update and get_cpu_pwr_stats().
 		 */
 		max_load = kzalloc(sizeof(struct freq_max_load) +
-				   sizeof(u32) * (per_cpu_info[cpu].len + 1),
-				   GFP_ATOMIC);
+				   sizeof(struct freq_max_load_entry) *
+				   (per_cpu_info[cpu].len + 1), GFP_ATOMIC);
 		if (unlikely(!max_load)) {
 			ret = -ENOMEM;
 			goto fail;
 		}
 
+		max_load->length = per_cpu_info[cpu].len;
+
+		max_demand = max_demand_capacity *
+			     cpu_rq(cpu)->max_possible_capacity;
+
 		i = 0;
 		costs = per_cpu_info[cpu].ptable;
 		while (costs[i].freq) {
+			entry = &max_load->freqs[i];
 			freq = costs[i].freq;
-			max = get_freq_max_load(cpu, freq);
-			max_load->freqs[i] = div64_u64((u64)freq * max, 100);
+			hpct = get_freq_max_load(cpu, freq);
+			if (hpct <= 0 && hpct > 100)
+				hpct = 100;
+			hfreq = div64_u64((u64)freq * hpct , 100);
+			entry->hdemand =
+			    div64_u64(max_demand * hfreq,
+				      cpu_rq(cpu)->max_possible_freq);
 			i++;
 		}
 
@@ -1781,7 +1799,7 @@ int sched_update_freq_max_load(const cpumask_t *cpumask)
 			kfree_rcu(old_max_load, rcu);
 	}
 
-	mutex_unlock(&policy_mutex);
+	spin_unlock_irqrestore(&freq_max_load_lock, flags);
 	return 0;
 
 fail:
@@ -1793,7 +1811,7 @@ fail:
 		}
 	}
 
-	mutex_unlock(&policy_mutex);
+	spin_unlock_irqrestore(&freq_max_load_lock, flags);
 	return ret;
 }
 #else	/* CONFIG_SCHED_FREQ_INPUT */
@@ -2451,6 +2469,8 @@ int sched_set_window(u64 window_start, unsigned int window_size)
 
 	reset_all_window_stats(ws, window_size);
 
+	sched_update_freq_max_load(cpu_possible_mask);
+
 	mutex_unlock(&policy_mutex);
 
 	return 0;
@@ -2757,6 +2777,8 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 	if (update_max) {
 		max_possible_capacity = highest_mpc;
 		max_load_scale_factor = highest_mplsf;
+
+		sched_update_freq_max_load(cpu_possible_mask);
 	}
 
 	__update_min_max_capacity();
