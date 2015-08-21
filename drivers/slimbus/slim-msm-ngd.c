@@ -93,8 +93,6 @@ static irqreturn_t ngd_slim_interrupt(int irq, void *d)
 	u32 stat = readl_relaxed(ngd + NGD_INT_STAT);
 	u32 pstat;
 
-	if (dev->bulk.in_progress)
-		SLIM_INFO(dev, "Interrupt in bulk:stat:0x%x", stat);
 	if ((stat & NGD_INT_MSG_BUF_CONTE) ||
 		(stat & NGD_INT_MSG_TX_INVAL) || (stat & NGD_INT_DEV_ERR) ||
 		(stat & NGD_INT_TX_NACKED_2)) {
@@ -737,18 +735,14 @@ static int ngd_bulk_wr(struct slim_controller *ctrl, u8 la, u8 mt, u8 mc,
 	if (dev->use_tx_msgqs != MSM_MSGQ_ENABLED) {
 		SLIM_WARN(dev, "bulk wr not supported");
 		ret = -EPROTONOSUPPORT;
-		goto ret_async;
+		goto retpath;
 	}
 	if (dev->bulk.in_progress) {
 		SLIM_WARN(dev, "bulk wr in progress:");
 		ret = -EAGAIN;
-		goto ret_async;
+		goto retpath;
 	}
-	if (dev->bulk.size) {
-		dma_free_coherent(dev->dev, dev->bulk.size, dev->bulk.base,
-					dev->bulk.phys);
-		memset(&dev->bulk, 0, sizeof(dev->bulk));
-	}
+	dev->bulk.in_progress = true;
 	/* every txn has 5 bytes of overhead: la, mc, mt, ec, len */
 	dev->bulk.size = n * 5;
 	for (i = 0; i < n; i++) {
@@ -759,17 +753,20 @@ static int ngd_bulk_wr(struct slim_controller *ctrl, u8 la, u8 mt, u8 mc,
 	if (dev->bulk.size > 0xffff) {
 		SLIM_WARN(dev, "len exceeds limit, split bulk and retry");
 		ret = -EDQUOT;
-		goto ret_async;
+		goto retpath;
 	}
-	header = dma_alloc_coherent(dev->dev, dev->bulk.size, &dev->bulk.phys,
-					GFP_KERNEL);
-	if (!header) {
-		ret = -ENOMEM;
-		goto ret_async;
+	if (dev->bulk.size > dev->bulk.buf_sz) {
+		void *temp = krealloc(dev->bulk.base, dev->bulk.size,
+				      GFP_KERNEL);
+		if (!temp) {
+			ret = -ENOMEM;
+			goto retpath;
+		}
+		dev->bulk.base = temp;
+		dev->bulk.buf_sz = dev->bulk.size;
 	}
 
-	dev->bulk.base = header;
-	dev->bulk.in_progress = true;
+	header = dev->bulk.base;
 	for (i = 0; i < n; i++) {
 		u8 *buf = (u8 *)header;
 		int rl = msgs[i].num_bytes + 5;
@@ -792,7 +789,7 @@ static int ngd_bulk_wr(struct slim_controller *ctrl, u8 la, u8 mt, u8 mc,
 	}
 	header = dev->bulk.base;
 	/* SLIM_INFO only prints to internal buffer log, does not do pr_info */
-	for (i = 0; i < (dev->bulk.size); i += 4, header += 4)
+	for (i = 0; i < (dev->bulk.size); i += 16, header += 4)
 		SLIM_INFO(dev, "bulk sz:%d:0x%x, 0x%x, 0x%x, 0x%x",
 			  dev->bulk.size, *header, *(header+1), *(header+2),
 			  *(header+3));
@@ -803,7 +800,14 @@ static int ngd_bulk_wr(struct slim_controller *ctrl, u8 la, u8 mt, u8 mc,
 		dev->bulk.cb = ngd_bulk_cb;
 		dev->bulk.ctx = &done;
 	}
-	ret = sps_transfer_one(pipe, dev->bulk.phys, dev->bulk.size, NULL,
+	dev->bulk.wr_dma = dma_map_single(dev->dev, dev->bulk.base,
+					  dev->bulk.size, DMA_TO_DEVICE);
+	if (dma_mapping_error(dev->dev, dev->bulk.wr_dma)) {
+		ret = -ENOMEM;
+		goto retpath;
+	}
+
+	ret = sps_transfer_one(pipe, dev->bulk.wr_dma, dev->bulk.size, NULL,
 				SPS_IOVEC_FLAG_EOT);
 	if (ret) {
 		SLIM_WARN(dev, "sps transfer one returned error:%d", ret);
@@ -814,16 +818,14 @@ static int ngd_bulk_wr(struct slim_controller *ctrl, u8 la, u8 mt, u8 mc,
 
 		if (!timeout) {
 			SLIM_WARN(dev, "timeout for bulk wr");
+			dma_unmap_single(dev->dev, dev->bulk.wr_dma,
+					 dev->bulk.size, DMA_TO_DEVICE);
 			ret = -ETIMEDOUT;
 		}
-	} else {
-		goto ret_async;
 	}
 retpath:
-	dma_free_coherent(dev->dev, dev->bulk.size, dev->bulk.base,
-				dev->bulk.phys);
-	memset(&dev->bulk, 0, sizeof(dev->bulk));
-ret_async:
+	if (ret)
+		dev->bulk.in_progress = false;
 	mutex_unlock(&dev->tx_lock);
 	msm_slim_put_ctrl(dev);
 	return ret;
@@ -1489,6 +1491,15 @@ static int ngd_slim_probe(struct platform_device *pdev)
 				GFP_KERNEL);
 	if (!dev->wr_comp)
 		return -ENOMEM;
+
+	/* typical txn numbers and size used in bulk operation */
+	dev->bulk.buf_sz = SLIM_MAX_TXNS * 8;
+	dev->bulk.base = kzalloc(dev->bulk.buf_sz, GFP_KERNEL);
+	if (!dev->bulk.base) {
+		ret = -ENOMEM;
+		goto err_nobulk;
+	}
+
 	dev->dev = &pdev->dev;
 	platform_set_drvdata(pdev, dev);
 	slim_set_ctrldata(&dev->ctrl, dev);
@@ -1682,6 +1693,8 @@ err_ioremap_failed:
 	if (dev->sysfs_created)
 		sysfs_remove_file(&dev->dev->kobj,
 				&dev_attr_debug_mask.attr);
+	kfree(dev->bulk.base);
+err_nobulk:
 	kfree(dev->wr_comp);
 	kfree(dev);
 	return ret;
@@ -1704,10 +1717,7 @@ static int ngd_slim_remove(struct platform_device *pdev)
 	if (!IS_ERR_OR_NULL(dev->ext_mdm.ssr))
 		subsys_notif_unregister_notifier(dev->ext_mdm.ssr,
 						&dev->ext_mdm.nb);
-	if (dev->bulk.size)
-		dma_free_coherent(dev->dev, dev->bulk.size, dev->bulk.base,
-					dev->bulk.phys);
-
+	kfree(dev->bulk.base);
 	free_irq(dev->irq, dev);
 	slim_del_controller(&dev->ctrl);
 	kthread_stop(dev->rx_msgq_thread);
