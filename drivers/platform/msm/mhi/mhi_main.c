@@ -29,6 +29,19 @@
 #include "mhi_macros.h"
 #include "mhi_trace.h"
 
+static int enable_bb_ctxt(struct mhi_ring *bb_ctxt, int nr_el)
+{
+	bb_ctxt->el_size = sizeof(struct mhi_buf_info);
+	bb_ctxt->len     = bb_ctxt->el_size * nr_el;
+	bb_ctxt->base    = kzalloc(bb_ctxt->len, GFP_KERNEL);
+	bb_ctxt->wp	 = bb_ctxt->base;
+	bb_ctxt->rp	 = bb_ctxt->base;
+	bb_ctxt->ack_rp  = bb_ctxt->base;
+	if (!bb_ctxt->base)
+		return -ENOMEM;
+	return 0;
+}
+
 static void mhi_write_db(struct mhi_device_ctxt *mhi_dev_ctxt,
 		  void __iomem *io_addr_lower,
 		  uintptr_t chan, u64 val)
@@ -188,6 +201,69 @@ int get_chan_props(struct mhi_device_ctxt *mhi_dev_ctxt, int chan,
 	return r;
 }
 
+int mhi_release_chan_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt,
+			  struct mhi_chan_ctxt *cc_list,
+			  struct mhi_ring *ring)
+{
+	if (cc_list == NULL || ring == NULL)
+		return -EINVAL;
+
+	dma_free_coherent(&mhi_dev_ctxt->dev_info->pcie_device->dev,
+			ring->len, ring->base,
+			 cc_list->mhi_trb_ring_base_addr);
+	mhi_init_chan_ctxt(cc_list, 0, 0, 0, 0, 0, ring,
+				MHI_CHAN_STATE_DISABLED);
+	return 0;
+}
+
+void free_tre_ring(struct mhi_client_handle *client_handle)
+{
+	struct mhi_chan_ctxt *chan_ctxt;
+	struct mhi_device_ctxt *mhi_dev_ctxt = client_handle->mhi_dev_ctxt;
+	int chan = client_handle->chan_info.chan_nr;
+	int r;
+
+	chan_ctxt = &mhi_dev_ctxt->dev_space.ring_ctxt.cc_list[chan];
+	r = mhi_release_chan_ctxt(mhi_dev_ctxt, chan_ctxt,
+				&mhi_dev_ctxt->mhi_local_chan_ctxt[chan]);
+	if (r)
+		mhi_log(MHI_MSG_ERROR,
+		"Failed to release chan %d ret %d\n", chan, r);
+}
+
+static int populate_tre_ring(struct mhi_client_handle *client_handle)
+{
+	dma_addr_t ring_dma_addr;
+	void *ring_local_addr;
+	struct mhi_chan_ctxt *chan_ctxt;
+	struct mhi_device_ctxt *mhi_dev_ctxt = client_handle->mhi_dev_ctxt;
+	u32 chan = client_handle->chan_info.chan_nr;
+	u32 nr_desc = client_handle->chan_info.max_desc;
+
+	mhi_log(MHI_MSG_INFO,
+		"Entered chan %d requested desc %d\n", chan, nr_desc);
+
+	chan_ctxt = &mhi_dev_ctxt->dev_space.ring_ctxt.cc_list[chan];
+	ring_local_addr = dma_alloc_coherent(
+				&mhi_dev_ctxt->dev_info->pcie_device->dev,
+				 nr_desc * sizeof(union mhi_xfer_pkt),
+				 &ring_dma_addr, GFP_KERNEL);
+
+	if (ring_local_addr == NULL)
+		return -ENOMEM;
+
+	mhi_init_chan_ctxt(chan_ctxt, ring_dma_addr,
+			   (uintptr_t)ring_local_addr,
+			   nr_desc,
+			   GET_CHAN_PROPS(CHAN_DIR,
+				client_handle->chan_info.flags),
+			   client_handle->chan_info.ev_ring,
+			   &mhi_dev_ctxt->mhi_local_chan_ctxt[chan],
+			   MHI_CHAN_STATE_ENABLED);
+	mhi_log(MHI_MSG_INFO, "Exited\n");
+	return 0;
+}
+
 enum MHI_STATUS mhi_open_channel(struct mhi_client_handle *client_handle)
 {
 	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
@@ -217,10 +293,24 @@ enum MHI_STATUS mhi_open_channel(struct mhi_client_handle *client_handle)
 			chan, mhi_dev_ctxt->dev_exec_env);
 		return MHI_STATUS_DEVICE_NOT_READY;
 	}
-
 	client_handle->event_ring_index =
 		mhi_dev_ctxt->dev_space.ring_ctxt.
 				cc_list[chan].mhi_event_ring_index;
+	r = enable_bb_ctxt(&mhi_dev_ctxt->chan_bb_list[chan],
+			client_handle->chan_info.max_desc);
+	if (r) {
+		mhi_log(MHI_MSG_ERROR,
+			"Failed to initialize bb ctxt chan %d ret %d\n",
+			chan, r);
+		return r;
+	}
+	r = populate_tre_ring(client_handle);
+	if (r) {
+		mhi_log(MHI_MSG_ERROR,
+			"Failed to initialize tre ring chan %d ret %d\n",
+			chan, r);
+		return r;
+	}
 
 	client_handle->msi_vec =
 		mhi_dev_ctxt->dev_space.ring_ctxt.ec_list[
@@ -480,7 +570,7 @@ static int create_bb(struct mhi_device_ctxt *mhi_dev_ctxt,
 				bb_info->dir);
 		mhi_log(MHI_MSG_RAW, "Allocating BB, chan %d\n", chan);
 		bb_info->bb_v_addr = dma_alloc_coherent(
-				&mhi_dev_ctxt->dev_info->plat_dev->dev,
+				&mhi_dev_ctxt->dev_info->pcie_device->dev,
 				bb_info->buf_len,
 				&bb_info->bb_p_addr,
 				GFP_ATOMIC);
@@ -510,7 +600,7 @@ static void free_bounce_buffer(struct mhi_device_ctxt *mhi_dev_ctxt,
 				 bb->bb_p_addr, bb->buf_len, bb->dir);
 	else
 		/* This buffer was bounced */
-		dma_free_coherent(&mhi_dev_ctxt->dev_info->plat_dev->dev,
+		dma_free_coherent(&mhi_dev_ctxt->dev_info->pcie_device->dev,
 				  bb->buf_len,
 				  bb->bb_v_addr,
 				  bb->bb_p_addr);
@@ -1013,7 +1103,7 @@ enum MHI_STATUS parse_xfer_event(struct mhi_device_ctxt *ctxt,
 
 		/* Get the TRB this event points to */
 		local_ev_trb_loc = (void *)mhi_p2v_addr(mhi_dev_ctxt,
-					MHI_RING_TYPE_EVENT_RING, event_id,
+					MHI_RING_TYPE_XFER_RING, chan,
 					phy_ev_trb_loc);
 		local_trb_loc = (union mhi_xfer_pkt *)local_chan_ctxt->rp;
 

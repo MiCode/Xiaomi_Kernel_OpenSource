@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -619,6 +619,7 @@ static enum MHI_STATUS process_amss_transition(
 		}
 		ring_all_chan_dbs(mhi_dev_ctxt);
 	}
+	ring_all_ev_dbs(mhi_dev_ctxt);
 	atomic_dec(&mhi_dev_ctxt->flags.data_pending);
 	if (!mhi_dev_ctxt->flags.pending_M3 &&
 	     mhi_dev_ctxt->flags.link_up)
