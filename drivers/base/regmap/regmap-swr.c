@@ -25,7 +25,7 @@ static int regmap_swr_gather_write(void *context,
 	struct device *dev = context;
 	struct swr_device *swr = to_swr_device(dev);
 	struct regmap *map = dev_get_regmap(dev, NULL);
-	size_t addr_bytes = map->format.reg_bytes;
+	size_t addr_bytes;
 	int ret = 0;
 	int i;
 	u32 reg_addr = 0;
@@ -34,6 +34,11 @@ static int regmap_swr_gather_write(void *context,
 		dev_err(dev, "%s: swr device is NULL\n", __func__);
 		return -EINVAL;
 	}
+	if (map == NULL) {
+		dev_err(dev, "%s: regmap is NULL\n", __func__);
+		return -EINVAL;
+	}
+	addr_bytes = map->format.reg_bytes;
 	if (reg_size != addr_bytes) {
 		dev_err(dev, "%s: reg size %zd bytes not supported\n",
 			__func__, reg_size);
@@ -56,8 +61,13 @@ static int regmap_swr_write(void *context, const void *data, size_t count)
 {
 	struct device *dev = context;
 	struct regmap *map = dev_get_regmap(dev, NULL);
-	size_t addr_bytes = map->format.reg_bytes;
+	size_t addr_bytes;
 
+	if (map == NULL) {
+		dev_err(dev, "%s: regmap is NULL\n", __func__);
+		return -EINVAL;
+	}
+	addr_bytes = map->format.reg_bytes;
 	WARN_ON(count < addr_bytes);
 
 	return regmap_swr_gather_write(context, data, addr_bytes,
@@ -72,7 +82,7 @@ static int regmap_swr_read(void *context,
 	struct device *dev = context;
 	struct swr_device *swr = to_swr_device(dev);
 	struct regmap *map = dev_get_regmap(dev, NULL);
-	size_t addr_bytes = map->format.reg_bytes;
+	size_t addr_bytes;
 	int ret = 0;
 	u32 reg_addr = 0;
 
@@ -80,6 +90,11 @@ static int regmap_swr_read(void *context,
 		dev_err(dev, "%s: swr is NULL\n", __func__);
 		return -EINVAL;
 	}
+	if (map == NULL) {
+		dev_err(dev, "%s: regmap is NULL\n", __func__);
+		return -EINVAL;
+	}
+	addr_bytes = map->format.reg_bytes;
 	if (reg_size != addr_bytes) {
 		dev_err(dev, "%s: register size %zd bytes not supported\n",
 			__func__, reg_size);

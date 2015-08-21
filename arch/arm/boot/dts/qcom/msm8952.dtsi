@@ -118,7 +118,7 @@
 #include "msm8952-ion.dtsi"
 #include "msm8952-iommu.dtsi"
 #include "msm8952-iommu-domains.dtsi"
-#include "msm8939-cpu.dtsi"
+#include "msm8952-cpu.dtsi"
 #include "msm8952-mdss.dtsi"
 #include "msm8952-pinctrl.dtsi"
 #include "msm8952-smp2p.dtsi"
@@ -198,6 +198,7 @@
 		clock-names = "clk-c0-4", "clk-c0-5",
 				"clk-c1-4", "clk-c1-5",
 				"clk-cci-4", "clk-cci-5";
+		qcom,cpu-pcnoc-vote;
 		qcom,speed0-bin-v0-c0 =
 			<          0 0>,
 			<  400000000 1>,
@@ -2119,6 +2120,13 @@
 			qcom,msm-mi2s-rx-lines = <0>;
 			qcom,msm-mi2s-tx-lines = <3>;
 		};
+
+		dai_mi2s6: qcom,msm-dai-q6-mi2s-senary {
+			compatible = "qcom,msm-dai-q6-mi2s";
+			qcom,msm-dai-q6-mi2s-dev-id = <6>;
+			qcom,msm-mi2s-rx-lines = <0>;
+			qcom,msm-mi2s-tx-lines = <3>;
+		};
 	};
 
 	dai_hdmi: qcom,msm-dai-q6-hdmi {
@@ -2296,16 +2304,6 @@
 				"iface_clk", "bus_clk";
 		qcom,ce-opp-freq = <100000000>;
 	};
-};
-
-&l2ccc_0 {
-	qcom,vctl-node = <&cluster0_spm>;
-	qcom,use-acinactm;
-};
-
-&l2ccc_1 {
-	qcom,vctl-node = <&cluster1_spm>;
-	qcom,use-acinactm;
 };
 
 &gdsc_venus {

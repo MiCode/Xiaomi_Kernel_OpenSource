@@ -1049,14 +1049,20 @@ static int32_t msm_actuator_power_down(struct msm_actuator_ctrl_t *a_ctrl)
 					__func__, __LINE__);
 		}
 
-		if (a_ctrl->func_tbl && a_ctrl->func_tbl->actuator_init_focus) {
-			rc = a_ctrl->func_tbl->actuator_init_focus(a_ctrl,
-				a_ctrl->deinit_setting_size,
-				a_ctrl->deinit_settings);
-			kfree(a_ctrl->deinit_settings);
-			a_ctrl->deinit_settings = NULL;
-			if (rc < 0)
-				pr_debug("Failed to write actuator deinit_settings\n");
+		if (a_ctrl->deinit_setting_size > 0) {
+			if (a_ctrl->func_tbl && a_ctrl->
+				func_tbl->actuator_init_focus) {
+				rc = a_ctrl->func_tbl->
+					actuator_init_focus(a_ctrl,
+					a_ctrl->deinit_setting_size,
+					a_ctrl->deinit_settings);
+				kfree(a_ctrl->deinit_settings);
+				a_ctrl->deinit_settings = NULL;
+				a_ctrl->deinit_setting_size = 0;
+				if (rc < 0)
+					pr_debug("%s %d Failed deinit write\n",
+						__func__, __LINE__);
+			}
 		}
 
 		rc = msm_actuator_vreg_control(a_ctrl, 0);

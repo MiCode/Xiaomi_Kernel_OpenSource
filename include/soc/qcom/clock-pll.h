@@ -76,6 +76,12 @@ struct pll_vco_data {
 	u32 config_ctl_val;
 };
 
+struct pll_spm_ctrl {
+	u32 offset;
+	u32 event_bit;
+	void __iomem *spm_base;
+};
+
 #define PLL_FREQ_END	(UINT_MAX-1)
 #define PLL_F_END { .freq_hz = PLL_FREQ_END }
 
@@ -164,6 +170,7 @@ struct pll_clk {
 
 	struct pll_vco_data data;
 
+	struct pll_spm_ctrl spm_ctrl;
 	struct clk c;
 	void *const __iomem *base;
 };

@@ -23,6 +23,7 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/pm_opp.h>
+#include <linux/pm_qos.h>
 #include <linux/regulator/consumer.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
@@ -123,6 +124,10 @@ static struct pll_clk a72ss_hf_pll = {
 	.config_reg = (void __iomem *)APCS_PLL_USER_CTL,
 	.config_ctl_reg = (void __iomem *)APCS_PLL_CONFIG_CTL,
 	.status_reg = (void __iomem *)APCS_PLL_STATUS,
+	.spm_ctrl = {
+		.offset = 0x50,
+		.event_bit = 0x4,
+	},
 	.masks = {
 		.vco_mask = BM(29, 28),
 		.pre_div_mask = BIT(12),
@@ -161,6 +166,10 @@ static struct pll_clk a53ss_sr_pll = {
 	.config_reg = (void __iomem *)APCS_PLL_USER_CTL,
 	.config_ctl_reg = (void __iomem *)APCS_PLL_CONFIG_CTL,
 	.status_reg = (void __iomem *)APCS_PLL_STATUS,
+	.spm_ctrl = {
+		.offset = 0x50,
+		.event_bit = 0x4,
+	},
 	.masks = {
 		.vco_mask = BM(21, 20),
 		.pre_div_mask = BM(14, 12),
@@ -204,6 +213,10 @@ static struct pll_clk cci_sr_pll = {
 	.config_reg = (void __iomem *)APCS_PLL_USER_CTL,
 	.config_ctl_reg = (void __iomem *)APCS_PLL_CONFIG_CTL,
 	.status_reg = (void __iomem *)APCS_PLL_STATUS,
+	.spm_ctrl = {
+		.offset = 0x40,
+		.event_bit = 0x0,
+	},
 	.masks = {
 		.vco_mask = BM(21, 20),
 		.pre_div_mask = BM(14, 12),
@@ -318,8 +331,19 @@ static struct mux_div_clk ccissmux = {
 
 struct cpu_clk_8976 {
 	u32 cpu_reg_mask;
+	cpumask_t cpumask;
+	bool hw_low_power_ctrl;
+	struct pm_qos_request req;
 	struct clk c;
 };
+
+static void do_nothing(void *unused) { }
+#define CPU_LATENCY_NO_L2_PC_US (500)
+
+static inline struct cpu_clk_8976 *to_cpu_clk_8976(struct clk *c)
+{
+	return container_of(c, struct cpu_clk_8976, c);
+}
 
 static enum handoff cpu_clk_8976_handoff(struct clk *c)
 {
@@ -334,7 +358,34 @@ static long cpu_clk_8976_round_rate(struct clk *c, unsigned long rate)
 
 static int cpu_clk_8976_set_rate(struct clk *c, unsigned long rate)
 {
-	return clk_set_rate(c->parent, rate);
+	int ret = 0;
+	struct cpu_clk_8976 *cpuclk = to_cpu_clk_8976(c);
+	bool hw_low_power_ctrl = cpuclk->hw_low_power_ctrl;
+
+	/*
+	 * If hardware control of the clock tree is enabled during power
+	 * collapse, setup a PM QOS request to prevent power collapse and
+	 * wake up one of the CPUs in this clock domain, to ensure software
+	 * control while the clock rate is being switched.
+	 */
+	if (hw_low_power_ctrl) {
+		memset(&cpuclk->req, 0, sizeof(cpuclk->req));
+		cpumask_copy(&cpuclk->req.cpus_affine,
+				(const struct cpumask *)&cpuclk->cpumask);
+		cpuclk->req.type = PM_QOS_REQ_AFFINE_CORES;
+		pm_qos_add_request(&cpuclk->req, PM_QOS_CPU_DMA_LATENCY,
+				CPU_LATENCY_NO_L2_PC_US);
+		smp_call_function_any(&cpuclk->cpumask, do_nothing,
+				NULL, 1);
+	}
+
+	ret = clk_set_rate(c->parent, rate);
+
+	/* Remove PM QOS request */
+	if (hw_low_power_ctrl)
+		pm_qos_remove_request(&cpuclk->req);
+
+	return ret;
 }
 
 static struct clk_ops clk_ops_cpu = {
@@ -1011,6 +1062,20 @@ static int clock_cpu_probe(struct platform_device *pdev)
 
 	populate_opp_table(pdev);
 
+	rc = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
+	if (rc)
+		return rc;
+
+	for_each_possible_cpu(cpu) {
+		if (logical_cpu_to_clk(cpu) == &a53_clk.c)
+			cpumask_set_cpu(cpu, &a53_clk.cpumask);
+		if (logical_cpu_to_clk(cpu) == &a72_clk.c)
+			cpumask_set_cpu(cpu, &a72_clk.cpumask);
+	}
+
+	a53_clk.hw_low_power_ctrl = true;
+	a72_clk.hw_low_power_ctrl = true;
+
 	return 0;
 }
 
@@ -1028,9 +1093,77 @@ static struct platform_driver clock_cpu_driver = {
 	},
 };
 
+static int msm_cpu_spm_probe(struct platform_device *pdev)
+{
+	struct resource *res = NULL;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "spm_c0_base");
+	if (!res) {
+		dev_err(&pdev->dev, "Register base not defined for c0\n");
+		return -ENOMEM;
+	}
+
+	a53ss_sr_pll.spm_ctrl.spm_base = devm_ioremap(&pdev->dev, res->start,
+							resource_size(res));
+	if (!a53ss_sr_pll.spm_ctrl.spm_base) {
+		dev_err(&pdev->dev, "Failed to ioremap c0 spm registers\n");
+		return -ENOMEM;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "spm_c1_base");
+	if (!res) {
+		dev_err(&pdev->dev, "Register base not defined for c1\n");
+		return -ENOMEM;
+	}
+
+	a72ss_hf_pll.spm_ctrl.spm_base = devm_ioremap(&pdev->dev, res->start,
+							resource_size(res));
+	if (!a72ss_hf_pll.spm_ctrl.spm_base) {
+		dev_err(&pdev->dev, "Failed to ioremap c1 spm registers\n");
+		return -ENOMEM;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+							"spm_cci_base");
+	if (!res) {
+		dev_err(&pdev->dev, "Register base not defined for cci\n");
+		return -ENOMEM;
+	}
+
+	cci_sr_pll.spm_ctrl.spm_base = devm_ioremap(&pdev->dev, res->start,
+							resource_size(res));
+	if (!cci_sr_pll.spm_ctrl.spm_base) {
+		dev_err(&pdev->dev, "Failed to ioremap cci spm registers\n");
+		return -ENOMEM;
+	}
+
+	dev_info(&pdev->dev, "Registered CPU SPM clocks\n");
+
+	return 0;
+}
+
+static struct of_device_id msm_clock_spm_match_table[] = {
+	{ .compatible = "qcom,cpu-spm-8976" },
+	{}
+};
+
+static struct platform_driver msm_clock_spm_driver = {
+	.probe = msm_cpu_spm_probe,
+	.driver = {
+		.name = "qcom,cpu-spm-8976",
+		.of_match_table = msm_clock_spm_match_table,
+		.owner = THIS_MODULE,
+	},
+};
+
 static int __init clock_cpu_init(void)
 {
-	return platform_driver_register(&clock_cpu_driver);
+	int ret = 0;
+
+	ret = platform_driver_register(&clock_cpu_driver);
+	if (!ret)
+		ret = platform_driver_register(&msm_clock_spm_driver);
+	return ret;
 }
 arch_initcall(clock_cpu_init);
 

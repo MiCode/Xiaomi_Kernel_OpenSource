@@ -387,11 +387,8 @@
 		qcom,tz-flushes-cache;
 	};
 
-	qcom,cpu-sleep-status@b088008{
+	qcom,cpu-sleep-status{
 		compatible = "qcom,cpu-sleep-status";
-		reg = <0xb088008 0x100>;
-		qcom,cpu-alias-addr = <0x10000>;
-		qcom,sleep-status-mask= <0x80000>;
 	};
 
 	qcom,rpm-log@29dc00 {

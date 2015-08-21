@@ -25,6 +25,7 @@
 #include <sound/q6afe-v2.h>
 #include <sound/q6core.h>
 #include <sound/pcm_params.h>
+#include <sound/info.h>
 #include <soc/qcom/socinfo.h>
 #include <linux/input.h>
 #include "qdsp6v2/msm-pcm-routing-v2.h"
@@ -73,10 +74,13 @@ enum btsco_rates {
 
 static int slim0_rx_sample_rate = SAMPLING_RATE_48KHZ;
 static int slim0_tx_sample_rate = SAMPLING_RATE_48KHZ;
+static int slim1_tx_sample_rate = SAMPLING_RATE_48KHZ;
 static int slim0_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int slim0_tx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+static int slim1_tx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int msm_slim_0_rx_ch = 1;
 static int msm_slim_0_tx_ch = 1;
+static int msm_slim_1_tx_ch = 1;
 static int msm_vi_feed_tx_ch = 2;
 static int msm_slim_5_rx_ch = 1;
 static int slim5_rx_sample_rate = SAMPLING_RATE_48KHZ;
@@ -97,6 +101,11 @@ static void *adsp_state_notifier;
 static int msm8952_enable_codec_mclk(struct snd_soc_codec *codec, int enable,
 					bool dapm);
 
+/*
+ * Android L spec
+ * Need to report LINEIN
+ * if R/L channel impedance is larger than 5K ohm
+ */
 static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.read_fw_bin = false,
 	.calibration = NULL,
@@ -104,6 +113,15 @@ static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.mono_stero_detection = false,
 	.swap_gnd_mic = NULL,
 	.hs_ext_micbias = true,
+	.key_code[0] = KEY_MEDIA,
+	.key_code[1] = KEY_VOICECOMMAND,
+	.key_code[2] = KEY_VOLUMEUP,
+	.key_code[3] = KEY_VOLUMEDOWN,
+	.key_code[4] = 0,
+	.key_code[5] = 0,
+	.key_code[6] = 0,
+	.key_code[7] = 0,
+	.linein_th = 5000,
 };
 
 static struct wcd9xxx_mbhc_config wcd9xxx_mbhc_cfg = {
@@ -286,6 +304,7 @@ struct msm8952_asoc_mach_data {
 	struct snd_soc_codec *codec;
 	struct msm8952_codec msm8952_codec_fn;
 	struct ext_intf_cfg clk_ref;
+	struct snd_info_entry *codec_root;
 	void __iomem *vaddr_gpio_mux_spkr_ctl;
 	void __iomem *vaddr_gpio_mux_mic_ctl;
 	void __iomem *vaddr_gpio_mux_pcm_ctl;
@@ -309,6 +328,8 @@ int msm895x_wsa881x_init(struct snd_soc_dapm_context *dapm)
 	u8 spkright_ports[WSA881X_MAX_SWR_PORTS] = {103, 104, 105, 107};
 	unsigned int ch_rate[WSA881X_MAX_SWR_PORTS] = {2400, 600, 300, 1200};
 	unsigned int ch_mask[WSA881X_MAX_SWR_PORTS] = {0x1, 0xF, 0x3, 0x3};
+	struct snd_soc_card *card = dapm->codec->card;
+	struct msm8952_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 
 	if (!dapm->codec->name) {
 		pr_err("%s codec_name is NULL\n", __func__);
@@ -329,6 +350,10 @@ int msm895x_wsa881x_init(struct snd_soc_dapm_context *dapm)
 			dapm->codec->name);
 		return -EINVAL;
 	}
+	pdata = snd_soc_card_get_drvdata(card);
+	if (pdata && pdata->codec_root)
+		wsa881x_codec_info_create_codec_entry(pdata->codec_root,
+						      dapm->codec);
 	return 0;
 }
 
@@ -394,9 +419,9 @@ static int msm8952_enable_codec_mclk(struct snd_soc_codec *codec, int enable,
 	pr_debug("%s: enable = %d\n", __func__, enable);
 
 	if (!strcmp(dev_name(pdata->codec->dev), "tomtom_codec"))
-		tomtom_codec_mclk_enable(codec, 1, dapm);
+		tomtom_codec_mclk_enable(codec, enable, dapm);
 	else if (!strcmp(dev_name(pdata->codec->dev), "tasha_codec"))
-		tasha_cdc_mclk_enable(codec, 1, dapm);
+		tasha_cdc_mclk_enable(codec, enable, dapm);
 
 	return 0;
 }
@@ -735,6 +760,24 @@ static int msm_slim_0_tx_ch_put(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
+static int msm_slim_1_tx_ch_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm_slim_1_tx_ch  = %d\n", __func__,
+		 msm_slim_1_tx_ch);
+	ucontrol->value.integer.value[0] = msm_slim_1_tx_ch - 1;
+	return 0;
+}
+
+static int msm_slim_1_tx_ch_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	msm_slim_1_tx_ch = ucontrol->value.integer.value[0] + 1;
+
+	pr_debug("%s: msm_slim_1_tx_ch = %d\n", __func__, msm_slim_1_tx_ch);
+	return 1;
+}
+
 static int slim0_tx_sample_rate_get(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol)
 {
@@ -856,6 +899,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			msm_slim_5_rx_ch_get, msm_slim_5_rx_ch_put),
 	SOC_ENUM_EXT("SLIM_0_TX Channels", msm_snd_enum[2],
 			msm_slim_0_tx_ch_get, msm_slim_0_tx_ch_put),
+	SOC_ENUM_EXT("SLIM_1_TX Channels", msm_snd_enum[2],
+			msm_slim_1_tx_ch_get, msm_slim_1_tx_ch_put),
 	SOC_ENUM_EXT("MI2S_RX Format", msm_snd_enum[3],
 			mi2s_rx_bit_format_get, mi2s_rx_bit_format_put),
 	SOC_ENUM_EXT("SLIM_0_RX Format", msm_snd_enum[3],
@@ -1028,13 +1073,15 @@ int msm_snd_hw_params(struct snd_pcm_substream *substream,
 			user_set_tx_ch = msm_slim_0_tx_ch;
 		/* For <codec>_tx2 case */
 		else if (dai_link->be_id == MSM_BACKEND_DAI_SLIMBUS_1_TX)
-			user_set_tx_ch = params_channels(params);
+			user_set_tx_ch = msm_slim_1_tx_ch;
 		else if (dai_link->be_id == MSM_BACKEND_DAI_SLIMBUS_3_TX)
 			/* DAI 5 is used for external EC reference from codec.
 			 * Since Rx is fed as reference for EC, the config of
 			 * this DAI is based on that of the Rx path.
 			 */
 			user_set_tx_ch = msm_slim_0_rx_ch;
+		else if (dai_link->be_id == MSM_BACKEND_DAI_SLIMBUS_4_TX)
+			user_set_tx_ch = msm_vi_feed_tx_ch;
 		else
 			user_set_tx_ch = tx_ch_cnt;
 
@@ -1147,6 +1194,24 @@ int msm_slim_0_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
+int msm_slim_1_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+					    struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+	SNDRV_PCM_HW_PARAM_RATE);
+
+	struct snd_interval *channels = hw_param_interval(params,
+			SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	pr_debug("%s()\n", __func__);
+	param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+				   slim1_tx_bit_format);
+	rate->min = rate->max = slim1_tx_sample_rate;
+	channels->min = channels->max = msm_slim_1_tx_ch;
+
+	return 0;
+}
+
 int msm_slim_4_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					    struct snd_pcm_hw_params *params)
 {
@@ -1156,8 +1221,30 @@ int msm_slim_4_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	struct snd_interval *channels = hw_param_interval(params,
 			SNDRV_PCM_HW_PARAM_CHANNELS);
 
-	rate->min = rate->max = SAMPLING_RATE_48KHZ;
-	channels->min = channels->max = msm_vi_feed_tx_ch;
+	struct snd_soc_codec *codec = rtd->codec;
+	struct snd_soc_card *card = codec->card;
+	struct msm8952_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+
+	pr_debug("%s: codec name: %s", __func__, dev_name(pdata->codec->dev));
+	if (!strcmp(dev_name(pdata->codec->dev), "tomtom_codec")) {
+		rate->min = rate->max = SAMPLING_RATE_48KHZ;
+		channels->min = channels->max = msm_vi_feed_tx_ch;
+		pr_debug("%s: tomtom vi sample rate = %d\n",
+				__func__, rate->min);
+	} else if (!strcmp(dev_name(pdata->codec->dev), "tasha_codec")) {
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			SNDRV_PCM_FORMAT_S32_LE);
+		rate->min = rate->max = SAMPLING_RATE_8KHZ;
+		channels->min = channels->max = msm_vi_feed_tx_ch/2;
+		pr_debug("%s: tasha vi sample rate = %d\n",
+				__func__, rate->min);
+	} else {
+		rate->min = rate->max = SAMPLING_RATE_48KHZ;
+		channels->min = channels->max = msm_vi_feed_tx_ch;
+		pr_debug("%s: default sample rate = %d\n",
+				__func__, rate->min);
+	}
+
 	pr_debug("%s: %d\n", __func__, msm_vi_feed_tx_ch);
 	return 0;
 }
@@ -1783,15 +1870,29 @@ static int msm8952_codec_event_cb(struct snd_soc_codec *codec,
 	}
 }
 
+static int msm8976_tasha_codec_event_cb(struct snd_soc_codec *codec,
+					enum wcd9335_codec_event codec_event)
+{
+	switch (codec_event) {
+	case WCD9335_CODEC_EVENT_CODEC_UP:
+		return msm8952_wcd93xx_codec_up(codec);
+	default:
+		pr_err("%s: UnSupported codec event %d\n",
+			__func__, codec_event);
+		return -EINVAL;
+	}
+}
+
 int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int err;
+	struct snd_card *card;
+	struct snd_info_entry *entry;
+	struct msm8952_asoc_mach_data *pdata;
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
-	struct snd_soc_card *card = codec->card;
-	struct msm8952_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 
 	/* Codec SLIMBUS configuration
 	 * RX1, RX2, RX3, RX4, RX5, RX6, RX7, RX8, RX9, RX10, RX11, RX12, RX13
@@ -1805,6 +1906,8 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 					     140, 141, 142, 143};
 
 	pr_debug("%s: dev_name%s\n", __func__, dev_name(cpu_dai->dev));
+
+	pdata = snd_soc_card_get_drvdata(codec->card);
 
 	rtd->pmdown_time = 0;
 
@@ -1888,6 +1991,8 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		snd_soc_dapm_ignore_suspend(dapm, "SPK2 OUT");
 	}
 
+	snd_soc_dapm_ignore_suspend(dapm, "AIF4 VI");
+	snd_soc_dapm_ignore_suspend(dapm, "VIINPUT");
 
 	snd_soc_dapm_sync(dapm);
 
@@ -1949,8 +2054,26 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	if (!strcmp(dev_name(codec_dai->dev), "tomtom_codec"))
 		tomtom_event_register(msm8952_codec_event_cb, rtd->codec);
+	else if (!strcmp(dev_name(codec_dai->dev), "tasha_codec"))
+		tasha_event_register(msm8976_tasha_codec_event_cb, rtd->codec);
 
 	codec_reg_done = true;
+
+	if (!strcmp(dev_name(codec_dai->dev), "tasha_codec")) {
+		card = rtd->card->snd_card;
+		entry = snd_register_module_info(card->module,
+						 "codecs",
+						 card->proc_root);
+		if (!entry) {
+			pr_debug("%s: Cannot create codecs module entry\n",
+				 __func__);
+			err = 0;
+			goto out;
+		}
+		pdata->codec_root = entry;
+		tasha_codec_info_create_codec_entry(pdata->codec_root,
+						    codec);
+	}
 	return 0;
 out:
 	return err;

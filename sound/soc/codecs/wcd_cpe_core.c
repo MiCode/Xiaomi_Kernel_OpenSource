@@ -35,9 +35,10 @@
 
 #define CMI_CMD_TIMEOUT (10 * HZ)
 #define WCD_CPE_LSM_MAX_SESSIONS 1
-#define WCD_CPE_AFE_MAX_PORTS 1
+#define WCD_CPE_AFE_MAX_PORTS 2
 #define WCD_CPE_DRAM_SIZE 0x30000
 #define WCD_CPE_DRAM_OFFSET 0x50000
+#define AFE_SVC_EXPLICIT_PORT_START 1
 
 #define ELF_FLAG_EXECUTE (1 << 0)
 #define ELF_FLAG_WRITE (1 << 1)
@@ -67,6 +68,15 @@
 #define CPE_ERR_IRQ_CB(core) \
 	(core->cpe_cdc_cb->cpe_err_irq_control)
 
+#define AFE_OUT_BUF_SAMPLES 8
+
+/*
+ * AFE output buffer size is always
+ * AFE_OUT_BUF_SAMPLES * number of bytes per sample
+ */
+#define AFE_OUT_BUF_SIZE(bit_width) \
+	(AFE_OUT_BUF_SAMPLES * (bit_width / BITS_PER_BYTE))
+
 enum afe_port_state {
 	AFE_PORT_STATE_DEINIT = 0,
 	AFE_PORT_STATE_INIT,
@@ -93,6 +103,9 @@ static void wcd_cpe_svc_event_cb(const struct cpe_svc_notification *param);
 static int wcd_cpe_setup_irqs(struct wcd_cpe_core *core);
 static void wcd_cpe_cleanup_irqs(struct wcd_cpe_core *core);
 static u32 ramdump_enable;
+
+static int wcd_cpe_afe_svc_cmd_mode(void *core_handle,
+				    u8 mode);
 
 /* wcd_cpe_lsm_session_active: check if any session is active
  * return true if any session is active.
@@ -1156,9 +1169,9 @@ void wcd_cpe_cmi_afe_cb(const struct cmi_api_notification *param)
 static void wcd_cpe_initialize_afe_port_data(void)
 {
 	struct wcd_cmi_afe_port_data *afe_port_d;
-	int i = 0;
+	int i;
 
-	for (i = 1; i <= WCD_CPE_AFE_MAX_PORTS; i++) {
+	for (i = 0; i <= WCD_CPE_AFE_MAX_PORTS; i++) {
 		afe_port_d = &afe_ports[i];
 		afe_port_d->port_id = i;
 		init_completion(&afe_port_d->afe_cmd_complete);
@@ -1176,9 +1189,9 @@ static void wcd_cpe_initialize_afe_port_data(void)
 static void wcd_cpe_deinitialize_afe_port_data(void)
 {
 	struct wcd_cmi_afe_port_data *afe_port_d;
-	int i = 0;
+	int i;
 
-	for (i = 1; i <= WCD_CPE_AFE_MAX_PORTS; i++) {
+	for (i = 0; i <= WCD_CPE_AFE_MAX_PORTS; i++) {
 		afe_port_d = &afe_ports[i];
 		afe_port_d->port_state = AFE_PORT_STATE_DEINIT;
 		mutex_destroy(&afe_port_d->afe_lock);
@@ -2228,36 +2241,38 @@ unlock_cal_mutex:
 }
 
 /*
- * wcd_cpe_lsm_set_params: set the parameters for lsm service
+ * wcd_cpe_lsm_set_opmode: set operation mode for listen
  * @core: handle to cpe core
  * @session: session for which the parameters are to be set
  * @detect_mode: mode for detection
  * @detect_failure: flag indicating failure detection enabled/disabled
  *
  */
-static int wcd_cpe_lsm_set_params(
+static int wcd_cpe_lsm_set_opmode(
 				 struct wcd_cpe_core *core,
 				 struct cpe_lsm_session *session,
 				 enum lsm_detection_mode detect_mode,
 				 bool detect_failure)
 {
-	struct cpe_lsm_params lsm_params;
-	struct cpe_lsm_operation_mode *op_mode = &lsm_params.op_mode;
-	struct cpe_lsm_connect_to_port *connect_port =
-					&lsm_params.connect_port;
+	struct cpe_lsm_operation_mode op_mode;
+	struct cmi_hdr *hdr = &op_mode.hdr;
+	struct cpe_param_data *param_d = &op_mode.param;
 	int ret = 0;
-	u8 pld_size = CPE_PARAM_PAYLOAD_SIZE;
+	u8 pld_size = 0;
 
 	ret = wcd_cpe_send_lsm_cal(core, session);
 	if (ret) {
-		pr_err("%s: fail to sent acdb cal, err = %d",
+		pr_err("%s: fail to sent acdb cal, err = %d\n",
 			__func__, ret);
 		return ret;
 	}
 
-	memset(&lsm_params, 0, sizeof(lsm_params));
+	memset(&op_mode, 0, sizeof(struct cpe_lsm_operation_mode));
 
-	if (fill_lsm_cmd_header_v0_inband(&lsm_params.hdr,
+	pld_size = (sizeof(struct cpe_lsm_operation_mode) -
+				sizeof(struct cmi_hdr));
+
+	if (fill_lsm_cmd_header_v0_inband(hdr,
 				session->id,
 				pld_size,
 				CPE_LSM_SESSION_CMD_SET_PARAMS)) {
@@ -2265,36 +2280,83 @@ static int wcd_cpe_lsm_set_params(
 		goto err_ret;
 	}
 
-	op_mode->param.module_id = CPE_LSM_MODULE_ID_VOICE_WAKEUP;
-	op_mode->param.param_id = CPE_LSM_PARAM_ID_OPERATION_MODE;
-	op_mode->param.param_size = PARAM_SIZE_LSM_OP_MODE;
-	op_mode->param.reserved = 0;
-	op_mode->minor_version = 1;
+	param_d->module_id = CPE_LSM_MODULE_ID_VOICE_WAKEUP;
+	param_d->param_id = CPE_LSM_PARAM_ID_OPERATION_MODE;
+	param_d->param_size = PARAM_SIZE_LSM_OP_MODE;
+	param_d->reserved = 0;
+
+	op_mode.minor_version = 1;
 	if (detect_mode == LSM_MODE_KEYWORD_ONLY_DETECTION)
-		op_mode->mode = 1;
+		op_mode.mode = 1;
 	else
-		op_mode->mode = 3;
+		op_mode.mode = 3;
 
 	if (detect_failure)
-		op_mode->mode |= 0x04;
+		op_mode.mode |= 0x04;
 
-	op_mode->reserved = 0;
+	op_mode.reserved = 0;
 
-	connect_port->param.module_id = CPE_LSM_MODULE_ID_VOICE_WAKEUP;
-	connect_port->param.param_id = CPE_LSM_PARAM_ID_CONNECT_TO_PORT;
-	connect_port->param.param_size = PARAM_SIZE_LSM_CONNECT_PORT;
-	connect_port->param.reserved = 0;
-	connect_port->minor_version = 1;
-	connect_port->afe_port_id = CPE_AFE_PORT_1_TX;
-	connect_port->reserved = 0;
-
-	ret = wcd_cpe_cmi_send_lsm_msg(core, session, &lsm_params);
+	ret = wcd_cpe_cmi_send_lsm_msg(core, session, &op_mode);
 	if (ret)
-		pr_err("%s: lsm_set_params failed, rc %dn",
+		pr_err("%s:  lsm_set_opmode failed, rc %d\n",
 			__func__, ret);
 err_ret:
 	return ret;
 }
+
+/*
+ * wcd_cpe_lsm_set_port: send the afe port connected
+ * @core: handle to cpe core
+ * @session: session for which the parameters are to be set
+ */
+static int wcd_cpe_lsm_set_port(void *core_handle,
+				struct cpe_lsm_session *session)
+{
+	struct cpe_lsm_connect_to_port connect_port;
+	struct cmi_hdr *hdr = &connect_port.hdr;
+	struct cpe_param_data *param_d = &connect_port.param;
+	struct wcd_cpe_core *core = core_handle;
+	int ret = 0;
+	u8 pld_size = 0;
+
+	ret = wcd_cpe_is_valid_lsm_session(core, session,
+					   __func__);
+	if (ret)
+		return ret;
+
+	WCD_CPE_GRAB_LOCK(&session->lsm_lock, "lsm");
+
+	memset(&connect_port, 0, sizeof(struct cpe_lsm_connect_to_port));
+
+	pld_size = (sizeof(struct cpe_lsm_connect_to_port) -
+				sizeof(struct cmi_hdr));
+
+	if (fill_lsm_cmd_header_v0_inband(hdr,
+				session->id,
+				pld_size,
+				CPE_LSM_SESSION_CMD_SET_PARAMS)) {
+		ret = -EINVAL;
+		goto err_ret;
+	}
+
+	param_d->module_id = CPE_LSM_MODULE_ID_VOICE_WAKEUP;
+	param_d->param_id = CPE_LSM_PARAM_ID_CONNECT_TO_PORT;
+	param_d->param_size = PARAM_SIZE_LSM_CONNECT_PORT;
+	param_d->reserved = 0;
+
+	connect_port.minor_version = 1;
+	connect_port.afe_port_id = CPE_AFE_PORT_1_TX;
+	connect_port.reserved = 0;
+
+	ret = wcd_cpe_cmi_send_lsm_msg(core, session, &connect_port);
+	if (ret)
+		pr_err("%s:  lsm_set_port failed, rc %d\n",
+			__func__, ret);
+err_ret:
+	WCD_CPE_REL_LOCK(&session->lsm_lock, "lsm");
+	return ret;
+}
+
 
 /*
  * wcd_cpe_lsm_set_conf_levels: send the confidence levels for listen
@@ -2365,7 +2427,7 @@ int wcd_cpe_lsm_set_data(void *core_handle,
 
 	WCD_CPE_GRAB_LOCK(&session->lsm_lock, "lsm");
 	if (session->num_confidence_levels > 0) {
-		ret = wcd_cpe_lsm_set_params(core, session, detect_mode,
+		ret = wcd_cpe_lsm_set_opmode(core, session, detect_mode,
 				       detect_failure);
 		if (ret) {
 			dev_err(core->dev,
@@ -2639,6 +2701,12 @@ static struct cpe_lsm_session *wcd_cpe_alloc_lsm_session(
 				__func__);
 			goto err_afe_svc_reg;
 		}
+
+		/* Once AFE service is registered, send the mode command */
+		ret = wcd_cpe_afe_svc_cmd_mode(core,
+				AFE_SVC_EXPLICIT_PORT_START);
+		if (ret)
+			goto err_afe_mode_cmd;
 	}
 
 	session->lsm_mem_handle = 0;
@@ -2646,6 +2714,9 @@ static struct cpe_lsm_session *wcd_cpe_alloc_lsm_session(
 
 	lsm_sessions[session_id] = session;
 	return session;
+
+err_afe_mode_cmd:
+	cmi_deregister(core->cmi_afe_handle);
 
 err_afe_svc_reg:
 	cmi_deregister(session->cmi_reg_handle);
@@ -2987,10 +3058,10 @@ int wcd_cpe_get_lsm_ops(struct wcd_cpe_lsm_ops *lsm_ops)
 	lsm_ops->lab_ch_setup = wcd_cpe_lab_ch_setup;
 	lsm_ops->lsm_set_data = wcd_cpe_lsm_set_data;
 	lsm_ops->lsm_set_fmt_cfg = wcd_cpe_lsm_set_fmt_cfg;
+	lsm_ops->lsm_set_port = wcd_cpe_lsm_set_port;
 	return 0;
 }
 EXPORT_SYMBOL(wcd_cpe_get_lsm_ops);
-
 
 static int fill_afe_cmd_header(struct cmi_hdr *hdr, u8 port_id,
 				u16 opcode, u8 pld_size,
@@ -3314,6 +3385,88 @@ static int wcd_cpe_is_valid_port(struct wcd_cpe_core *core,
 	return 0;
 }
 
+static int wcd_cpe_afe_svc_cmd_mode(void *core_handle,
+				    u8 mode)
+{
+	struct cpe_afe_svc_cmd_mode afe_mode;
+	struct wcd_cpe_core *core = core_handle;
+	struct wcd_cmi_afe_port_data *afe_port_d;
+	int ret;
+
+	afe_port_d = &afe_ports[0];
+	/*
+	 * AFE SVC mode command is for the service and not port
+	 * specific, hence use AFE port as 0 so the command will
+	 * be applied to all AFE ports on CPE.
+	 */
+	afe_port_d->port_id = 0;
+
+	WCD_CPE_GRAB_LOCK(&afe_port_d->afe_lock, "afe");
+	memset(&afe_mode, 0, sizeof(afe_mode));
+	if (fill_afe_cmd_header(&afe_mode.hdr, afe_port_d->port_id,
+				CPE_AFE_SVC_CMD_LAB_MODE,
+				CPE_AFE_CMD_MODE_PAYLOAD_SIZE,
+				false)) {
+		ret = -EINVAL;
+		goto err_ret;
+	}
+
+	afe_mode.mode = mode;
+
+	ret = wcd_cpe_cmi_send_afe_msg(core, afe_port_d, &afe_mode);
+	if (ret)
+		dev_err(core->dev,
+			"%s: afe_svc_mode cmd failed, err = %d\n",
+			__func__, ret);
+
+err_ret:
+	WCD_CPE_REL_LOCK(&afe_port_d->afe_lock, "afe");
+	return ret;
+}
+
+static int wcd_cpe_afe_cmd_port_cfg(void *core_handle,
+		struct wcd_cpe_afe_port_cfg *afe_cfg)
+{
+	struct cpe_afe_cmd_port_cfg port_cfg_cmd;
+	struct wcd_cpe_core *core = core_handle;
+	struct wcd_cmi_afe_port_data *afe_port_d;
+	int ret;
+
+	ret = wcd_cpe_is_valid_port(core, afe_cfg, __func__);
+	if (ret)
+		goto done;
+
+	afe_port_d = &afe_ports[afe_cfg->port_id];
+	afe_port_d->port_id = afe_cfg->port_id;
+
+	WCD_CPE_GRAB_LOCK(&afe_port_d->afe_lock, "afe");
+	memset(&port_cfg_cmd, 0, sizeof(port_cfg_cmd));
+	if (fill_afe_cmd_header(&port_cfg_cmd.hdr,
+			afe_cfg->port_id,
+			CPE_AFE_PORT_CMD_GENERIC_CONFIG,
+			CPE_AFE_CMD_PORT_CFG_PAYLOAD_SIZE,
+			false)) {
+		ret = -EINVAL;
+		goto err_ret;
+	}
+
+	port_cfg_cmd.bit_width = afe_cfg->bit_width;
+	port_cfg_cmd.num_channels = afe_cfg->num_channels;
+	port_cfg_cmd.sample_rate = afe_cfg->sample_rate;
+	port_cfg_cmd.buffer_size = AFE_OUT_BUF_SIZE(afe_cfg->bit_width);
+
+	ret = wcd_cpe_cmi_send_afe_msg(core, afe_port_d, &port_cfg_cmd);
+	if (ret)
+		dev_err(core->dev,
+			"%s: afe_port_config failed, err = %d\n",
+			__func__, ret);
+
+err_ret:
+	WCD_CPE_REL_LOCK(&afe_port_d->afe_lock, "afe");
+done:
+	return ret;
+}
+
 /*
  * wcd_cpe_afe_set_params: set the parameters for afe port
  * @afe_cfg: configuration data for the port for which the
@@ -3543,6 +3696,7 @@ int wcd_cpe_get_afe_ops(struct wcd_cpe_afe_ops *afe_ops)
 	afe_ops->afe_port_stop = wcd_cpe_afe_port_stop;
 	afe_ops->afe_port_suspend = wcd_cpe_afe_port_suspend;
 	afe_ops->afe_port_resume = wcd_cpe_afe_port_resume;
+	afe_ops->afe_port_cmd_cfg = wcd_cpe_afe_cmd_port_cfg;
 
 	return 0;
 }

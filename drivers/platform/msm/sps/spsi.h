@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +22,7 @@
 #include <linux/kernel.h>	/* pr_info() */
 #include <linux/compiler.h>
 #include <linux/ratelimit.h>
+#include <linux/ipc_logging.h>
 
 #include <linux/msm-sps.h>
 
@@ -49,7 +50,57 @@
 	((sizeof(int) == sizeof(long)) ? 0 : (SPSRM_CLEAR << 32))
 
 #define MAX_MSG_LEN 80
+#define SPS_IPC_LOGPAGES 10
 
+/* Connection mapping control struct */
+struct sps_rm {
+	struct list_head connections_q;
+	struct mutex lock;
+};
+
+/* SPS driver state struct */
+struct sps_drv {
+	struct class *dev_class;
+	dev_t dev_num;
+	struct device *dev;
+	struct clk *pmem_clk;
+	struct clk *bamdma_clk;
+	struct clk *dfab_clk;
+
+	int is_ready;
+
+	/* Platform data */
+	phys_addr_t pipemem_phys_base;
+	u32 pipemem_size;
+	phys_addr_t bamdma_bam_phys_base;
+	u32 bamdma_bam_size;
+	phys_addr_t bamdma_dma_phys_base;
+	u32 bamdma_dma_size;
+	u32 bamdma_irq;
+	u32 bamdma_restricted_pipes;
+
+	/* Driver options bitflags (see SPS_OPT_*) */
+	u32 options;
+
+	/* Mutex to protect BAM and connection queues */
+	struct mutex lock;
+
+	/* BAM devices */
+	struct list_head bams_q;
+
+	char *hal_bam_version;
+
+	/* Connection control state */
+	struct sps_rm connection_ctrl;
+
+	void *ipc_log0;
+	void *ipc_log1;
+	void *ipc_log2;
+	void *ipc_log3;
+	void *ipc_log4;
+};
+
+extern struct sps_drv *sps;
 extern u32 d_type;
 extern bool enhd_pipe;
 extern bool imem;
@@ -61,12 +112,37 @@ extern u8 logging_option;
 extern u8 debug_level_option;
 extern u8 print_limit_option;
 
+#define SPS_IPC(idx, dev, msg, args...) do { \
+		if (dev) { \
+			if ((idx == 0) && (dev)->ipc_log0) \
+				ipc_log_string((dev)->ipc_log0, \
+					"%s: " msg, __func__, args); \
+			else if ((idx == 1) && (dev)->ipc_log1) \
+				ipc_log_string((dev)->ipc_log1, \
+					"%s: " msg, __func__, args); \
+			else if ((idx == 2) && (dev)->ipc_log2) \
+				ipc_log_string((dev)->ipc_log2, \
+					"%s: " msg, __func__, args); \
+			else if ((idx == 3) && (dev)->ipc_log3) \
+				ipc_log_string((dev)->ipc_log3, \
+					"%s: " msg, __func__, args); \
+			else if ((idx == 4) && (dev)->ipc_log4) \
+				ipc_log_string((dev)->ipc_log4, \
+					"%s: " msg, __func__, args); \
+			else \
+				pr_err("sps: no such IPC logging index!\n"); \
+		} \
+	} while (0)
+#define SPS_DUMP(msg, args...) do {					\
+		SPS_IPC(4, sps, msg, args); \
+		pr_info(msg, ##args);	\
+	} while (0)
 #define SPS_DEBUGFS(msg, args...) do {					\
 		char buf[MAX_MSG_LEN];		\
 		snprintf(buf, MAX_MSG_LEN, msg"\n", ##args);	\
 		sps_debugfs_record(buf);	\
 	} while (0)
-#define SPS_ERR(msg, args...) do {					\
+#define SPS_ERR(dev, msg, args...) do {					\
 		if (logging_option != 1) {	\
 			if (unlikely(print_limit_option > 2))	\
 				pr_err_ratelimited(msg, ##args);	\
@@ -75,8 +151,9 @@ extern u8 print_limit_option;
 		}	\
 		if (unlikely(debugfs_record_enabled))	\
 			SPS_DEBUGFS(msg, ##args);	\
+		SPS_IPC(3, dev, msg, args); \
 	} while (0)
-#define SPS_INFO(msg, args...) do {					\
+#define SPS_INFO(dev, msg, args...) do {				\
 		if (logging_option != 1) {	\
 			if (unlikely(print_limit_option > 1))	\
 				pr_info_ratelimited(msg, ##args);	\
@@ -85,8 +162,9 @@ extern u8 print_limit_option;
 		}	\
 		if (unlikely(debugfs_record_enabled))	\
 			SPS_DEBUGFS(msg, ##args);	\
+		SPS_IPC(3, dev, msg, args); \
 	} while (0)
-#define SPS_DBG(msg, args...) do {					\
+#define SPS_DBG(dev, msg, args...) do {					\
 		if ((unlikely(logging_option > 1))	\
 			&& (unlikely(debug_level_option > 3))) {\
 			if (unlikely(print_limit_option > 0))	\
@@ -97,8 +175,9 @@ extern u8 print_limit_option;
 			pr_debug(msg, ##args);	\
 		if (unlikely(debugfs_record_enabled))	\
 			SPS_DEBUGFS(msg, ##args);	\
+		SPS_IPC(0, dev, msg, args); \
 	} while (0)
-#define SPS_DBG1(msg, args...) do {					\
+#define SPS_DBG1(dev, msg, args...) do {				\
 		if ((unlikely(logging_option > 1))	\
 			&& (unlikely(debug_level_option > 2))) {\
 			if (unlikely(print_limit_option > 0))	\
@@ -109,8 +188,9 @@ extern u8 print_limit_option;
 			pr_debug(msg, ##args);	\
 		if (unlikely(debugfs_record_enabled))	\
 			SPS_DEBUGFS(msg, ##args);	\
+		SPS_IPC(1, dev, msg, args);	\
 	} while (0)
-#define SPS_DBG2(msg, args...) do {					\
+#define SPS_DBG2(dev, msg, args...) do {				\
 		if ((unlikely(logging_option > 1))	\
 			&& (unlikely(debug_level_option > 1))) {\
 			if (unlikely(print_limit_option > 0))	\
@@ -121,8 +201,9 @@ extern u8 print_limit_option;
 			pr_debug(msg, ##args);	\
 		if (unlikely(debugfs_record_enabled))	\
 			SPS_DEBUGFS(msg, ##args);	\
+		SPS_IPC(2, dev, msg, args); \
 	} while (0)
-#define SPS_DBG3(msg, args...) do {					\
+#define SPS_DBG3(dev, msg, args...) do {				\
 		if ((unlikely(logging_option > 1))	\
 			&& (unlikely(debug_level_option > 0))) {\
 			if (unlikely(print_limit_option > 0))	\
@@ -133,6 +214,7 @@ extern u8 print_limit_option;
 			pr_debug(msg, ##args);	\
 		if (unlikely(debugfs_record_enabled))	\
 			SPS_DEBUGFS(msg, ##args);	\
+		SPS_IPC(3, dev, msg, args); \
 	} while (0)
 #else
 #define	SPS_DBG3(x...)		pr_debug(x)
@@ -141,6 +223,7 @@ extern u8 print_limit_option;
 #define	SPS_DBG(x...)		pr_debug(x)
 #define	SPS_INFO(x...)		pr_info(x)
 #define	SPS_ERR(x...)		pr_err(x)
+#define	SPS_DUMP(x...)		pr_info(x)
 #endif
 
 /* End point parameters */

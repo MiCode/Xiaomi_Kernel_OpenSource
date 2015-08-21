@@ -312,6 +312,7 @@
 			qcom,pmic-revid = <&pmi8950_revid>;
 			qcom,cycle-counter-en;
 			qcom,capacity-learning-on;
+			qcom,fg-cutoff-voltage-mv = <3400>;
 
 			qcom,fg-soc@4000 {
 			status = "okay";
@@ -447,7 +448,7 @@
 				qcom,qpnp-lab-ps-enable;
 				qcom,qpnp-lab-nfet-size = <100>;
 				qcom,qpnp-lab-pfet-size = <100>;
-				qcom,qpnp-lab-max-precharge-time = <200>;
+				qcom,qpnp-lab-max-precharge-time = <300>;
 			};
 
 			ibb_regulator: qcom,ibb@dc00 {
@@ -469,8 +470,8 @@
 				qcom,qpnp-ibb-soft-start = <1000>;
 
 				qcom,qpnp-ibb-discharge-resistor = <300>;
-				qcom,qpnp-ibb-lab-pwrup-delay = <4000>;
-				qcom,qpnp-ibb-lab-pwrdn-delay = <4000>;
+				qcom,qpnp-ibb-lab-pwrup-delay = <8000>;
+				qcom,qpnp-ibb-lab-pwrdn-delay = <8000>;
 				qcom,qpnp-ibb-en-discharge;
 
 				qcom,qpnp-ibb-full-pull-down;
@@ -518,7 +519,7 @@
 			qcom,cons-sync-write-delay-us = <1000>;
 		};
 
-		qcom,leds@d300 {
+		flash_led: qcom,leds@d300 {
 			compatible = "qcom,qpnp-flash-led";
 			status = "okay";
 			reg = <0xd300 0x100>;
@@ -539,8 +540,6 @@
 			qcom,vph-pwr-droop-debounce-time = <10>;
 			qcom,headroom-sense-ch0-enabled;
 			qcom,headroom-sense-ch1-enabled;
-			qcom,otst2-module-enabled;
-			qcom,duration = <1280>;
 
 			pmi8950_flash0: qcom,flash_0 {
 				label = "flash";
@@ -590,6 +589,7 @@
 				qcom,default-led-trigger =
 						"switch_trigger";
 				qcom,max-current = <1000>;
+				qcom,duration = <1280>;
 				qcom,id = <2>;
 				qcom,current = <625>;
 			};

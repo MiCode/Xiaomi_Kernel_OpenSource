@@ -307,7 +307,8 @@ static int msm_vfe40_init_hardware(struct vfe_device *vfe_dev)
 		pr_err("%s: vfe ioremap failed\n", __func__);
 		goto vfe_remap_failed;
 	}
-	vfe_dev->dual_vfe_res->vfe_base[vfe_dev->pdev->id] = vfe_dev->vfe_base;
+	vfe_dev->common_data->dual_vfe_res->vfe_base[vfe_dev->pdev->id] =
+		vfe_dev->vfe_base;
 
 	vfe_dev->vfe_vbif_base = ioremap(vfe_dev->vfe_vbif_mem->start,
 		resource_size(vfe_dev->vfe_vbif_mem));
@@ -351,7 +352,7 @@ static void msm_vfe40_release_hardware(struct vfe_device *vfe_dev)
 	vfe_dev->vfe_vbif_base = NULL;
 	msm_cam_clk_enable(&vfe_dev->pdev->dev, msm_vfe40_clk_info,
 		vfe_dev->vfe_clk, vfe_dev->num_clk, 0);
-	vfe_dev->dual_vfe_res->vfe_base[vfe_dev->pdev->id] = NULL;
+	vfe_dev->common_data->dual_vfe_res->vfe_base[vfe_dev->pdev->id] = NULL;
 	iounmap(vfe_dev->vfe_base);
 	vfe_dev->vfe_base = NULL;
 	kfree(vfe_dev->vfe_clk);
@@ -752,12 +753,13 @@ static void msm_vfe40_reg_update(struct vfe_device *vfe_dev,
 	vfe_dev->axi_data.src_info[VFE_PIX_0].reg_update_frame_id =
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
 	vfe_dev->reg_update_requested |= update_mask;
-	vfe_dev->dual_vfe_res->reg_update_mask[vfe_dev->pdev->id] =
+	vfe_dev->common_data->dual_vfe_res->reg_update_mask[vfe_dev->pdev->id] =
 		vfe_dev->reg_update_requested;
 	if ((vfe_dev->is_split && vfe_dev->pdev->id == ISP_VFE1) &&
 		((frame_src == VFE_PIX_0) || (frame_src == VFE_SRC_MAX))) {
 		msm_camera_io_w_mb(update_mask,
-			vfe_dev->dual_vfe_res->vfe_base[ISP_VFE0] + 0x378);
+			vfe_dev->common_data->dual_vfe_res->vfe_base[ISP_VFE0]
+			+ 0x378);
 		msm_camera_io_w_mb(update_mask,
 			vfe_dev->vfe_base + 0x378);
 	} else if (!vfe_dev->is_split ||
@@ -1688,7 +1690,7 @@ static void msm_vfe40_cfg_axi_ub(struct vfe_device *vfe_dev)
 	axi_data->wm_ub_cfg_policy =
 		(enum msm_wm_ub_cfg_type)vfe_dev->vfe_ub_policy;
 	ISP_DBG("%s: ub_policy %d\n", __func__, axi_data->wm_ub_cfg_policy);
-	axi_data->wm_ub_cfg_policy = MSM_WM_UB_EQUAL_SLICING;
+
 	if (axi_data->wm_ub_cfg_policy == MSM_WM_UB_EQUAL_SLICING) {
 		vfe_dev->ub_info->policy = MSM_WM_UB_EQUAL_SLICING;
 		msm_vfe40_cfg_axi_ub_equal_slicing(vfe_dev);

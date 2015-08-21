@@ -38,6 +38,7 @@
 #include "diag_masks.h"
 #include "diagfwd_bridge.h"
 #include "diagfwd_peripheral.h"
+#include "diag_ipc_logging.h"
 
 static struct timer_list dci_drain_timer;
 static int dci_timer_in_progress;
@@ -1862,7 +1863,9 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 		ret = diag_send_dci_pkt(reg_item, req_buf, req_len,
 					req_entry->tag);
 	} else {
-		pr_err("diag: In %s, command not found\n", __func__);
+		DIAG_LOG(DIAG_DEBUG_DCI, "Command not found: %02x %02x %02x\n",
+				reg_entry.cmd_code, reg_entry.subsys_id,
+				reg_entry.cmd_code_hi);
 	}
 
 	return ret;
@@ -2928,9 +2931,11 @@ int diag_dci_write_proc(uint8_t peripheral, int pkt_type, char *buf, int len)
 	int err = 0;
 
 	if (!buf || peripheral >= NUM_PERIPHERALS || len < 0 ||
-	    !(driver->feature[PERIPHERAL_MODEM].rcvd_feature_mask)) {
-		pr_err("diag: In %s, invalid data 0x%p, peripheral: %d, len: %d\n",
-				__func__, buf, peripheral, len);
+	    !(driver->feature[peripheral].rcvd_feature_mask)) {
+		DIAG_LOG(DIAG_DEBUG_DCI,
+			"buf: 0x%p, p: %d, len: %d, f_mask: %d\n",
+				buf, peripheral, len,
+				driver->feature[peripheral].rcvd_feature_mask);
 		return -EINVAL;
 	}
 

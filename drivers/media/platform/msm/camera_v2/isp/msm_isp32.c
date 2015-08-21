@@ -281,7 +281,8 @@ static int msm_vfe32_init_hardware(struct vfe_device *vfe_dev)
 		pr_err("%s: vfe ioremap failed\n", __func__);
 		goto vfe_remap_failed;
 	}
-	vfe_dev->dual_vfe_res->vfe_base[vfe_dev->pdev->id] = vfe_dev->vfe_base;
+	vfe_dev->common_data->dual_vfe_res->vfe_base[vfe_dev->pdev->id] =
+		vfe_dev->vfe_base;
 
 	vfe_dev->vfe_vbif_base = ioremap(vfe_dev->vfe_vbif_mem->start,
 		resource_size(vfe_dev->vfe_vbif_mem));
@@ -338,7 +339,7 @@ static void msm_vfe32_release_hardware(struct vfe_device *vfe_dev)
 		msm_cam_clk_enable(&vfe_dev->pdev->dev,
 				msm_vfe32_2_clk_info, vfe_dev->vfe_clk,
 				ARRAY_SIZE(msm_vfe32_2_clk_info), 0);
-	vfe_dev->dual_vfe_res->vfe_base[vfe_dev->pdev->id] = NULL;
+	vfe_dev->common_data->dual_vfe_res->vfe_base[vfe_dev->pdev->id] = NULL;
 	iounmap(vfe_dev->vfe_base);
 	vfe_dev->vfe_base = NULL;
 	kfree(vfe_dev->vfe_clk);
@@ -643,7 +644,8 @@ static void msm_vfe32_reg_update(struct vfe_device *vfe_dev,
 {
 	if (vfe_dev->is_split && vfe_dev->pdev->id == ISP_VFE1) {
 		msm_camera_io_w_mb(0xF,
-			vfe_dev->dual_vfe_res->vfe_base[ISP_VFE0] + 0x260);
+			vfe_dev->common_data->dual_vfe_res->vfe_base[ISP_VFE0]
+			+ 0x260);
 		msm_camera_io_w_mb(0xF, vfe_dev->vfe_base + 0x260);
 	} else if (!vfe_dev->is_split) {
 		msm_camera_io_w_mb(0xF, vfe_dev->vfe_base + 0x260);

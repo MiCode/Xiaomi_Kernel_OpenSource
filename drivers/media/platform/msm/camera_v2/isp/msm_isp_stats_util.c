@@ -54,7 +54,7 @@ static int msm_isp_stats_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 		goto buf_error;
 	}
 	if (vfe_dev->is_split && buf_cnt == MAX_VFE) {
-		dual_vfe_res = vfe_dev->dual_vfe_res;
+		dual_vfe_res = vfe_dev->common_data->dual_vfe_res;
 		if (!dual_vfe_res->vfe_base[ISP_VFE0] ||
 			!dual_vfe_res->stats_data[ISP_VFE0] ||
 			!dual_vfe_res->vfe_base[ISP_VFE1] ||

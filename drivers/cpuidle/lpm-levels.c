@@ -279,12 +279,18 @@ int set_system_mode(struct low_power_ops *ops, int mode, bool notify_rpm)
 	return msm_spm_config_low_power_mode(ops->spm, mode, notify_rpm);
 }
 
-static int set_device_mode(struct low_power_ops *ops, int mode, bool notify_rpm)
+static int set_device_mode(struct lpm_cluster *cluster, int ndevice,
+		struct lpm_cluster_level *level)
 {
+	struct low_power_ops *ops;
+
 	if (use_psci)
 		return 0;
-	else if (ops && ops->set_mode)
-		return ops->set_mode(ops, mode, notify_rpm);
+
+	ops = &cluster->lpm_dev[ndevice];
+	if (ops && ops->set_mode)
+		return ops->set_mode(ops, level->mode[ndevice],
+				level->notify_rpm);
 	else
 		return -EINVAL;
 }
@@ -501,6 +507,15 @@ static int cluster_select(struct lpm_cluster *cluster, bool from_idle)
 	return best_level;
 }
 
+static void cluster_notify(struct lpm_cluster *cluster,
+		struct lpm_cluster_level *level, bool enter)
+{
+	if (level->is_reset && enter)
+		cpu_cluster_pm_enter(cluster->aff_level);
+	else if (level->is_reset && !enter)
+		cpu_cluster_pm_exit(cluster->aff_level);
+}
+
 static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		bool from_idle)
 {
@@ -526,21 +541,11 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 	}
 
 	for (i = 0; i < cluster->ndevices; i++) {
-		ret = set_device_mode(&cluster->lpm_dev[i],
-				level->mode[i],
-				level->notify_rpm);
-
+		ret = set_device_mode(cluster, i, level);
 		if (ret)
 			goto failed_set_mode;
-
-		/*
-		 * Notify that the cluster is entering a low power mode
-		 */
-		if ((level->mode[i] == MSM_SPM_MODE_POWER_COLLAPSE) ||
-				level->is_reset) {
-			cpu_cluster_pm_enter(cluster->aff_level);
-		}
 	}
+
 	if (level->notify_rpm) {
 		struct cpumask nextcpu, *cpumask;
 		uint32_t us;
@@ -557,17 +562,20 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		do_div(us, USEC_PER_SEC/SCLK_HZ);
 		msm_mpm_enter_sleep((uint32_t)us, from_idle, cpumask);
 	}
+
+	/* Notify cluster enter event after successfully config completion */
+	cluster_notify(cluster, level, true);
+
 	cluster->last_level = idx;
 	spin_unlock(&cluster->sync_lock);
 	return 0;
 
 failed_set_mode:
+
 	for (i = 0; i < cluster->ndevices; i++) {
 		int rc = 0;
 		level = &cluster->levels[cluster->default_level];
-		rc = set_device_mode(&cluster->lpm_dev[i],
-				level->mode[i],
-				level->notify_rpm);
+		rc = set_device_mode(cluster, i, level);
 		BUG_ON(rc);
 	}
 	spin_unlock(&cluster->sync_lock);
@@ -674,18 +682,12 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 
 	for (i = 0; i < cluster->ndevices; i++) {
 		level = &cluster->levels[cluster->default_level];
-		ret = set_device_mode(&cluster->lpm_dev[i],
-				level->mode[i],
-				level->notify_rpm);
+		ret = set_device_mode(cluster, i, level);
 
 		BUG_ON(ret);
 
-		if ((cluster->levels[last_level].mode[i] ==
-				MSM_SPM_MODE_POWER_COLLAPSE) ||
-				cluster->levels[last_level].is_reset) {
-			cpu_cluster_pm_exit(cluster->aff_level);
-		}
 	}
+	cluster_notify(cluster, &cluster->levels[last_level], false);
 unlock_return:
 	spin_unlock(&cluster->sync_lock);
 	cluster_unprepare(cluster->parent, &cluster->child_cpus,

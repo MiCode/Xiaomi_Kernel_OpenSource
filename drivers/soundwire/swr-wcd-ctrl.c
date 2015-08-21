@@ -898,6 +898,9 @@ static int swrm_get_logical_dev_num(struct swr_master *mstr, u64 dev_id,
 	u64 id;
 	int ret = -EINVAL;
 	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(mstr);
+	static int i_back = 0;
+	u64 id_0;
+	static int count = 0;
 
 	pm_runtime_get_sync(&swrm->pdev->dev);
 	for (i = 1; i < (mstr->num_dev + 1); i++) {
@@ -905,6 +908,9 @@ static int swrm_get_logical_dev_num(struct swr_master *mstr, u64 dev_id,
 			    SWRM_ENUMERATOR_SLAVE_DEV_ID_2(i))) << 32);
 		id |= swrm->read(swrm->handle,
 			    SWRM_ENUMERATOR_SLAVE_DEV_ID_1(i));
+		if (i == 1)
+			id_0 = id;
+
 		if (id == dev_id) {
 			if (swrm_get_device_status(swrm, i) == 0x01) {
 				*dev_num = i;
@@ -913,9 +919,71 @@ static int swrm_get_logical_dev_num(struct swr_master *mstr, u64 dev_id,
 				dev_err(swrm->dev, "%s: device is not ready\n",
 					 __func__);
 			}
+			i_back = i;
 			goto found;
 		}
 	}
+	if (i_back == 0) {
+		i = 1;
+		i_back = i;
+	} else if (i_back == 1) {
+		i = 2;
+	} else if (i_back == 2) {
+		i = 1;
+	}
+
+	 if ((id == 0x21170213)) {
+		 count++;
+		 if (count > 1 && id_0 == 0x21170214) {
+			dev_err(swrm->dev, "%s: device id 0x%llx expected to  match with 0x%llx\n",
+				__func__, id_0, dev_id);
+
+			if (swrm_get_device_status(swrm, i) == 0x01)
+				pr_err("device id is 214\n");
+			*dev_num = i;
+			ret = 0;
+			goto found;
+		 } else {
+			dev_err(swrm->dev, "%s: device id 0x%llx expected to  match with 0x%llx\n",
+				__func__, id, dev_id);
+			if (swrm_get_device_status(swrm, i) == 0x01) {
+				pr_err("device id is 213\n");
+			}
+			*dev_num = i;
+			ret = 0;
+			goto found;
+		 }
+	} else if ((id = 0x21170214)) {
+			dev_err(swrm->dev, "%s: device id 0x%llx expected to  match with 0x%llx\n",
+				__func__, id, dev_id);
+
+			if (swrm_get_device_status(swrm, i) == 0x01)
+				pr_err("device id is 214\n");
+			*dev_num = i;
+			ret = 0;
+			goto found;
+	} else if ((id == 0x20170211)) {
+			dev_err(swrm->dev, "%s: device id 0x%llx expected to  match with 0x%llx\n",
+				__func__, id, dev_id);
+
+			if (swrm_get_device_status(swrm, i) == 0x01) {
+				pr_err("device id is 211\n");
+			}
+			*dev_num = i;
+			ret = 0;
+			goto found;
+	} else if ((id == 0x20170212)) {
+			dev_err(swrm->dev, "%s: device id 0x%llx expected to  match with 0x%llx\n",
+				__func__, id, dev_id);
+
+			if (swrm_get_device_status(swrm, i) == 0x01) {
+				pr_err("device id is 212\n");
+			}
+			*dev_num = i;
+			ret = 0;
+			goto found;
+	}
+
 	dev_err(swrm->dev, "%s: device id 0x%llx does not match with 0x%llx\n",
 		__func__, id, dev_id);
 found:
@@ -1211,6 +1279,33 @@ exit:
 }
 #endif /* CONFIG_PM_RUNTIME */
 
+static int swrm_device_down(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct swr_mstr_ctrl *swrm = platform_get_drvdata(pdev);
+	int ret = 0;
+	struct swr_master *mstr = &swrm->master;
+	struct swr_device *swr_dev;
+
+	dev_dbg(dev, "%s: swrm state: %d\n", __func__, swrm->state);
+	mutex_lock(&swrm->reslock);
+	if ((swrm->state == SWR_MSTR_RESUME) ||
+	    (swrm->state == SWR_MSTR_UP)) {
+		list_for_each_entry(swr_dev, &mstr->devices, dev_list) {
+			ret = swr_device_down(swr_dev);
+			if (ret)
+				dev_err(dev,
+					"%s: failed to shutdown swr dev %d\n",
+					__func__, swr_dev->dev_num);
+		}
+		dev_dbg(dev, "%s: Shutting down SWRM\n", __func__);
+		pm_runtime_set_suspended(dev);
+		swrm_clk_request(swrm, false);
+	}
+	mutex_unlock(&swrm->reslock);
+	return ret;
+}
+
 /**
  * swrm_wcd_notify - parent device can notify to soundwire master through
  * this function
@@ -1253,7 +1348,7 @@ int swrm_wcd_notify(struct platform_device *pdev, u32 id, void *data)
 			dev_dbg(swrm->dev, "%s: SWR master is already Down: %d\n",
 				__func__, swrm->state);
 		else
-			swrm_runtime_suspend(&pdev->dev);
+			swrm_device_down(&pdev->dev);
 		mutex_unlock(&swrm->mlock);
 		break;
 	case SWR_DEVICE_UP:

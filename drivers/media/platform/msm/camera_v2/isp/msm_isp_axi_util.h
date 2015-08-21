@@ -78,6 +78,6 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 
 int msm_isp_drop_frame(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info, struct msm_isp_timestamp *ts,
-	struct msm_isp_output_info *output_info);
+	struct msm_isp_sof_info *sof_info);
 
 #endif /* __MSM_ISP_AXI_UTIL_H__ */

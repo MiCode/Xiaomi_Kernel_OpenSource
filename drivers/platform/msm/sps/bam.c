@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -697,10 +697,18 @@ enum bam_nonsecure_reset {
 	BAM_NONSECURE_RESET_DISABLE = 1,
 };
 
-static inline u32 bam_get_register_offset(enum bam_regs reg, u32 param)
+static inline u32 bam_get_register_offset(void *base, enum bam_regs reg,
+								u32 param)
 {
 	u32 index = BAM_ERROR, offset = 0;
 	u32 *ptr_reg = bam_regmap[bam_type];
+	struct sps_bam *dev = to_sps_bam_dev(base);
+
+	if ((dev == NULL) || (&dev->base != base)) {
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+				__func__, base);
+		return SPS_ERROR;
+	}
 
 	if (reg >= CTRL && reg < IRQ_SRCS_EE)
 		index = 0;
@@ -721,16 +729,15 @@ static inline u32 bam_get_register_offset(enum bam_regs reg, u32 param)
 			index = (bam_type == SPS_BAM_NDP_4K) ? 0x4 : 0x1000;
 	}
 	if (index < 0) {
-		SPS_ERR("Failed to find register offset index\n");
+		SPS_ERR(dev, "%s:Failed to find register offset index\n",
+			__func__);
 		return index;
 	}
 
 	offset = *(ptr_reg + reg) + (index * param);
-
-	SPS_DBG("sps:offset_index:0x%x;offset:0x%x\n", index, offset);
-
 	return offset;
 }
+
 
 /**
  *
@@ -744,15 +751,22 @@ static inline u32 bam_get_register_offset(enum bam_regs reg, u32 param)
 static inline u32 bam_read_reg(void *base, enum bam_regs reg, u32 param)
 {
 	u32 val, offset = 0;
+	struct sps_bam *dev = to_sps_bam_dev(base);
 
-	offset = bam_get_register_offset(reg, param);
+	if ((dev == NULL) || (&dev->base != base)) {
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+				__func__, base);
+		return SPS_ERROR;
+	}
+	offset = bam_get_register_offset(base, reg, param);
 	if (offset < 0) {
-		SPS_ERR("Failed to get the register offset\n");
+		SPS_ERR(dev, "%s:Failed to get the register offset\n",
+			__func__);
 		return offset;
 	}
-	val = ioread32(base + offset);
-	SPS_DBG("sps:bam 0x%p(va) offset 0x%x reg 0x%x r_val 0x%x.\n",
-			base, offset, reg, val);
+	val = ioread32(dev->base + offset);
+	SPS_DBG(dev, "sps:bam 0x%p(va) offset 0x%x reg 0x%x r_val 0x%x.\n",
+			dev->base, offset, reg, val);
 	return val;
 }
 
@@ -768,18 +782,26 @@ static inline u32 bam_read_reg(void *base, enum bam_regs reg, u32 param)
 static inline u32 bam_read_reg_field(void *base, enum bam_regs reg, u32 param,
 								const u32 mask)
 {
-	u32 val;
-	u32 shift = find_first_bit((void *)&mask, 32);
-	u32 offset = bam_get_register_offset(reg, param);
+	u32 val, shift, offset = 0;
+	struct sps_bam *dev = to_sps_bam_dev(base);
+
+	if ((dev == NULL) || (&dev->base != base)) {
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+				__func__, base);
+		return SPS_ERROR;
+	}
+	shift = find_first_bit((void *)&mask, 32);
+	offset = bam_get_register_offset(base, reg, param);
 	if (offset < 0) {
-		SPS_ERR("Failed to get the register offset\n");
+		SPS_ERR(dev, "%s:Failed to get the register offset\n",
+			__func__);
 		return offset;
 	}
-	val = ioread32(base + offset);
+	val = ioread32(dev->base + offset);
 	val &= mask;		/* clear other bits */
 	val >>= shift;
-	SPS_DBG("sps:bam 0x%p(va) read reg 0x%x mask 0x%x r_val 0x%x.\n",
-			base, offset, mask, val);
+	SPS_DBG(dev, "sps:bam 0x%p(va) read reg 0x%x mask 0x%x r_val 0x%x.\n",
+			dev->base, offset, mask, val);
 	return val;
 }
 
@@ -795,14 +817,23 @@ static inline u32 bam_read_reg_field(void *base, enum bam_regs reg, u32 param,
 static inline void bam_write_reg(void *base, enum bam_regs reg,
 						u32 param, u32 val)
 {
-	u32 offset = bam_get_register_offset(reg, param);
-	if (offset < 0) {
-		SPS_ERR("Failed to get the register offset\n");
+	u32 offset = 0;
+	struct sps_bam *dev = to_sps_bam_dev(base);
+
+	if ((dev == NULL) || (&dev->base != base)) {
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+				__func__, base);
 		return;
 	}
-	iowrite32(val, base + offset);
-	SPS_DBG("sps:bam 0x%p(va) write reg 0x%x w_val 0x%x.\n",
-			base, offset, val);
+	offset = bam_get_register_offset(base, reg, param);
+	if (offset < 0) {
+		SPS_ERR(dev, "%s:Failed to get the register offset\n",
+			__func__);
+		return;
+	}
+	iowrite32(val, dev->base + offset);
+	SPS_DBG(dev, "sps:bam 0x%p(va) write reg 0x%x w_val 0x%x.\n",
+			dev->base, offset, val);
 }
 
 /**
@@ -817,20 +848,28 @@ static inline void bam_write_reg(void *base, enum bam_regs reg,
 static inline void bam_write_reg_field(void *base, enum bam_regs reg,
 					u32 param, const u32 mask, u32 val)
 {
-	u32 tmp;
-	u32 shift = find_first_bit((void *)&mask, 32);
-	u32 offset = bam_get_register_offset(reg, param);
-	if (offset < 0) {
-		SPS_ERR("Failed to get the register offset\n");
+	u32 tmp, shift, offset = 0;
+	struct sps_bam *dev = to_sps_bam_dev(base);
+
+	if ((dev == NULL) || (&dev->base != base)) {
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+				__func__, base);
 		return;
 	}
-	tmp = ioread32(base + offset);
+	shift = find_first_bit((void *)&mask, 32);
+	offset = bam_get_register_offset(base, reg, param);
+	if (offset < 0) {
+		SPS_ERR(dev, "%s:Failed to get the register offset\n",
+			__func__);
+		return;
+	}
+	tmp = ioread32(dev->base + offset);
 
 	tmp &= ~mask;		/* clear written bits */
 	val = tmp | (val << shift);
-	iowrite32(val, base + offset);
-	SPS_DBG("sps:bam 0x%p(va) write reg 0x%x w_val 0x%x.\n",
-			base, offset, val);
+	iowrite32(val, dev->base + offset);
+	SPS_DBG(dev, "sps:bam 0x%p(va) write reg 0x%x w_val 0x%x.\n",
+			dev->base, offset, val);
 }
 
 /**
@@ -844,24 +883,32 @@ int bam_init(void *base, u32 ee,
 {
 	u32 cfg_bits;
 	u32 ver = 0;
+	struct sps_bam *dev = to_sps_bam_dev(base);
 
-	SPS_DBG2("sps:%s:bam=0x%p(va).ee=%d.", __func__, base, ee);
+	if ((dev == NULL) || (&dev->base != base)) {
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+				__func__, base);
+		return SPS_ERROR;
+	}
+
+	SPS_DBG3(dev, "sps:%s:bam=%pa 0x%p(va).ee=%d.", __func__,
+			BAM_ID(dev), dev->base, ee);
 
 	ver = bam_read_reg_field(base, REVISION, 0, BAM_REVISION);
 
 	if ((ver < BAM_MIN_VERSION) || (ver > BAM_MAX_VERSION)) {
-		SPS_ERR("sps:bam 0x%p(va) Invalid BAM REVISION 0x%x.\n",
-				base, ver);
+		SPS_ERR(dev, "sps:bam 0x%p(va) Invalid BAM REVISION 0x%x.\n",
+				dev->base, ver);
 		return -ENODEV;
 	} else
-		SPS_DBG("sps:REVISION of BAM 0x%p is 0x%x.\n",
-				base, ver);
+		SPS_DBG(dev, "sps:REVISION of BAM 0x%p is 0x%x.\n",
+				dev->base, ver);
 
 	if (summing_threshold == 0) {
 		summing_threshold = 4;
-		SPS_ERR(
-			"sps:bam 0x%p(va) summing_threshold is zero, "
-				"use default 4.\n", base);
+		SPS_ERR(dev,
+			"sps:bam 0x%p(va) summing_threshold is zero,use default 4.\n",
+			dev->base);
 	}
 
 	if (options & SPS_BAM_NO_EXT_P_RST)
@@ -957,8 +1004,16 @@ int bam_security_init(void *base, u32 ee, u32 vmid, u32 pipe_mask)
 	u32 num_pipes;
 	u32 mask;
 	u32 pipe;
+	struct sps_bam *dev = to_sps_bam_dev(base);
 
-	SPS_DBG2("sps:%s:bam=0x%p(va).", __func__, base);
+	if ((dev == NULL) || (&dev->base != base)) {
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+				__func__, base);
+		return SPS_ERROR;
+	}
+
+	SPS_DBG3(dev, "sps:%s:bam=%pa 0x%p(va).", __func__,
+			BAM_ID(dev), dev->base);
 
 	/*
 	 * Discover the hardware version number and the number of pipes
@@ -967,16 +1022,16 @@ int bam_security_init(void *base, u32 ee, u32 vmid, u32 pipe_mask)
 	version = bam_read_reg_field(base, REVISION, 0, BAM_REVISION);
 	num_pipes = bam_read_reg_field(base, NUM_PIPES, 0, BAM_NUM_PIPES);
 	if (version < 3 || version > 0x1F) {
-		SPS_ERR(
-			"sps:bam 0x%p(va) security is not supported for this "
-				"BAM version 0x%x.\n", base, version);
+		SPS_ERR(dev,
+			"sps:bam 0x%p(va) security is not supported for this BAM version 0x%x.\n",
+			dev->base, version);
 		return -ENODEV;
 	}
 
 	if (num_pipes > BAM_MAX_PIPES) {
-		SPS_ERR(
-			"sps:bam 0x%p(va) the number of pipes is more than "
-				"the maximum number allowed.\n", base);
+		SPS_ERR(dev,
+		"sps:bam 0x%p(va) the number of pipes is more than the maximum number allowed.\n",
+			dev->base);
 		return -ENODEV;
 	}
 
@@ -1020,8 +1075,16 @@ int bam_check(void *base, u32 *version, u32 ee, u32 *num_pipes)
 {
 	u32 ver = 0;
 	u32 enabled = 0;
+	struct sps_bam *dev = to_sps_bam_dev(base);
 
-	SPS_DBG2("sps:%s:bam=0x%p(va).", __func__, base);
+	if ((dev == NULL) || (&dev->base != base)) {
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+				__func__, base);
+		return SPS_ERROR;
+	}
+
+	SPS_DBG3(dev, "sps:%s:bam=%pa 0x%p(va).",
+			__func__, BAM_ID(dev), dev->base);
 
 	if (!enhd_pipe)
 		enabled = bam_read_reg_field(base, CTRL, 0, BAM_EN);
@@ -1029,8 +1092,8 @@ int bam_check(void *base, u32 *version, u32 ee, u32 *num_pipes)
 		enabled = bam_get_pipe_attr(base, ee, true);
 
 	if (!enabled) {
-		SPS_ERR("sps:%s:bam 0x%p(va) is not enabled.\n",
-				__func__, base);
+		SPS_ERR(dev, "sps:%s:bam 0x%p(va) is not enabled.\n",
+				__func__, dev->base);
 		return -ENODEV;
 	}
 
@@ -1045,8 +1108,8 @@ int bam_check(void *base, u32 *version, u32 ee, u32 *num_pipes)
 
 	/* Check BAM version */
 	if ((ver < BAM_MIN_VERSION) || (ver > BAM_MAX_VERSION)) {
-		SPS_ERR("sps:%s:bam 0x%p(va) Invalid BAM version 0x%x.\n",
-				__func__, base, ver);
+		SPS_ERR(dev, "sps:%s:bam 0x%p(va) Invalid BAM version 0x%x.\n",
+				__func__, dev->base, ver);
 		return -ENODEV;
 	}
 
@@ -1059,7 +1122,15 @@ int bam_check(void *base, u32 *version, u32 ee, u32 *num_pipes)
  */
 void bam_exit(void *base, u32 ee)
 {
-	SPS_DBG2("sps:%s:bam=0x%p(va).ee=%d.", __func__, base, ee);
+	struct sps_bam *dev = to_sps_bam_dev(base);
+
+	if ((dev == NULL) || (&dev->base != base)) {
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+				__func__, base);
+		return;
+	}
+	SPS_DBG3(dev, "sps:%s:bam=%pa 0x%p(va).ee=%d.",
+			__func__, BAM_ID(dev), dev->base, ee);
 
 	bam_write_reg_field(base, IRQ_SRCS_MSK_EE, ee, BAM_IRQ, 0);
 
@@ -1079,26 +1150,33 @@ void bam_output_register_content(void *base, u32 ee)
 	u32 num_pipes;
 	u32 i;
 	u32 pipe_attr = 0;
+	struct sps_bam *dev = to_sps_bam_dev(base);
+
+	if ((dev == NULL) || (&dev->base != base)) {
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+				__func__, base);
+		return;
+	}
 
 	print_bam_test_bus_reg(base, 0);
 
-	print_bam_selected_reg(base, BAM_MAX_EES);
+	print_bam_selected_reg(dev->base, BAM_MAX_EES);
 
 	num_pipes = bam_read_reg_field(base, NUM_PIPES, 0,
 					BAM_NUM_PIPES);
-	SPS_INFO("sps:bam 0x%p(va) has %d pipes.",
-			base, num_pipes);
+	SPS_INFO(dev, "sps:bam %pa 0x%p(va) has %d pipes.",
+			BAM_ID(dev), dev->base, num_pipes);
 
 	pipe_attr = enhd_pipe ?
 		bam_get_pipe_attr(base, ee, false) : 0x0;
 
 	if (!enhd_pipe || !pipe_attr)
 		for (i = 0; i < num_pipes; i++)
-			print_bam_pipe_selected_reg(base, i);
+			print_bam_pipe_selected_reg(dev->base, i);
 	else {
 		for (i = 0; i < num_pipes; i++) {
 			if (pipe_attr & (1UL << i))
-				print_bam_pipe_selected_reg(base, i);
+				print_bam_pipe_selected_reg(dev->base, i);
 		}
 	}
 }
@@ -1109,34 +1187,44 @@ void bam_output_register_content(void *base, u32 ee)
 u32 bam_check_irq_source(void *base, u32 ee, u32 mask,
 				enum sps_callback_case *cb_case)
 {
-	u32 source = bam_read_reg(base, IRQ_SRCS_EE, ee);
-	u32 clr = source & (1UL << 31);
+	u32 source = 0, clr = 0;
+	struct sps_bam *dev = to_sps_bam_dev(base);
+
+	if ((dev == NULL) || (&dev->base != base)) {
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+				__func__, base);
+		return SPS_ERROR;
+	}
+	source = bam_read_reg(base, IRQ_SRCS_EE, ee);
+	clr = source & (1UL << 31);
 
 	if (clr) {
 		u32 status = 0;
 		status = bam_read_reg(base, IRQ_STTS, 0);
 
 		if (status & IRQ_STTS_BAM_ERROR_IRQ) {
-			SPS_ERR("sps:bam 0x%p(va);bam irq status="
+			SPS_ERR(dev, "sps:bam %pa 0x%p(va);bam irq status="
 				"0x%x.\nsps: BAM_ERROR_IRQ\n",
-				base, status);
+				BAM_ID(dev), dev->base, status);
 			bam_output_register_content(base, ee);
 			*cb_case = SPS_CALLBACK_BAM_ERROR_IRQ;
 		} else if (status & IRQ_STTS_BAM_HRESP_ERR_IRQ) {
-			SPS_ERR("sps:bam 0x%p(va);bam irq status="
+			SPS_ERR(dev, "sps:bam %pa 0x%p(va);bam irq status="
 				"0x%x.\nsps: BAM_HRESP_ERR_IRQ\n",
-				base, status);
+				BAM_ID(dev), dev->base, status);
 			bam_output_register_content(base, ee);
 			*cb_case = SPS_CALLBACK_BAM_HRESP_ERR_IRQ;
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
 		} else if (status & IRQ_STTS_BAM_TIMER_IRQ) {
-			SPS_DBG1("sps:bam 0x%p(va);receive BAM_TIMER_IRQ\n",
-					base);
+			SPS_DBG1(dev,
+				"sps:bam 0x%p(va);receive BAM_TIMER_IRQ\n",
+					dev->base);
 			*cb_case = SPS_CALLBACK_BAM_TIMER_IRQ;
 #endif
 		} else
-			SPS_INFO("sps:bam 0x%p(va);bam irq status=0x%x.\n",
-					base, status);
+			SPS_INFO(dev,
+				"sps:bam %pa 0x%p(va);bam irq status=0x%x.\n",
+				BAM_ID(dev), dev->base, status);
 
 		bam_write_reg(base, IRQ_CLR, 0, status);
 	}
@@ -1150,7 +1238,15 @@ u32 bam_check_irq_source(void *base, u32 ee, u32 mask,
  */
 void bam_pipe_reset(void *base, u32 pipe)
 {
-	SPS_DBG2("sps:%s:bam=0x%p(va).pipe=%d.", __func__, base, pipe);
+	struct sps_bam *dev = to_sps_bam_dev(base);
+
+	if ((dev == NULL) || (&dev->base != base)) {
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+				__func__, base);
+		return;
+	}
+	SPS_DBG2(dev, "sps:%s:bam=%pa 0x%p(va).pipe=%d.",
+			__func__, BAM_ID(dev), dev->base, pipe);
 
 	bam_write_reg(base, P_RST, pipe, 1);
 	wmb(); /* ensure pipe is reset */
@@ -1163,7 +1259,14 @@ void bam_pipe_reset(void *base, u32 pipe)
  */
 void bam_disable_pipe(void *base, u32 pipe)
 {
-	SPS_DBG("sps:%s:bam=0x%p(va).pipe=%d.", __func__, base, pipe);
+	struct sps_bam *dev = to_sps_bam_dev(base);
+
+	if ((dev == NULL) || (&dev->base != base)) {
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+				__func__, base);
+		return;
+	}
+	SPS_DBG2(dev, "sps:%s:bam=0x%p(va).pipe=%d.", __func__, base, pipe);
 	bam_write_reg_field(base, P_CTRL, pipe, P_EN, 0);
 	wmb(); /* ensure pipe is disabled */
 }
@@ -1174,7 +1277,15 @@ void bam_disable_pipe(void *base, u32 pipe)
 int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
 					u32 ee)
 {
-	SPS_DBG2("sps:%s:bam=0x%p(va).pipe=%d.", __func__, base, pipe);
+	struct sps_bam *dev = to_sps_bam_dev(base);
+
+	if ((dev == NULL) || (&dev->base != base)) {
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+				__func__, base);
+		return SPS_ERROR;
+	}
+	SPS_DBG2(dev, "sps:%s:bam=%pa 0x%p(va).pipe=%d.",
+			__func__, BAM_ID(dev), dev->base, pipe);
 
 	/* Reset the BAM pipe */
 	bam_write_reg(base, P_RST, pipe, 1);
@@ -1207,13 +1318,13 @@ int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
 	bam_write_reg_field(base, P_CTRL, pipe, P_LOCK_GROUP,
 				param->lock_group);
 
-	SPS_DBG("sps:bam=0x%p(va).pipe=%d.lock_group=%d.\n",
-			base, pipe, param->lock_group);
+	SPS_DBG(dev, "sps:bam=0x%p(va).pipe=%d.lock_group=%d.\n",
+			dev->base, pipe, param->lock_group);
 #endif
 
 	if (param->mode == BAM_PIPE_MODE_BAM2BAM) {
 		u32 peer_dest_addr = param->peer_phys_addr +
-				      bam_get_register_offset(P_EVNT_REG,
+				      bam_get_register_offset(base, P_EVNT_REG,
 						      param->peer_pipe);
 
 		bam_write_reg(base, P_DATA_FIFO_ADDR, pipe,
@@ -1223,9 +1334,9 @@ int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
 
 		bam_write_reg(base, P_EVNT_DEST_ADDR, pipe, peer_dest_addr);
 
-		SPS_DBG2("sps:bam=0x%p(va).pipe=%d.peer_bam=0x%x."
+		SPS_DBG2(dev, "sps:bam=0x%p(va).pipe=%d.peer_bam=0x%x."
 			"peer_pipe=%d.\n",
-			base, pipe,
+			dev->base, pipe,
 			(u32) param->peer_phys_addr,
 			param->peer_pipe);
 
@@ -1239,7 +1350,7 @@ int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
 		bam_write_reg_field(base, P_CTRL, pipe, P_WRITE_NWD,
 					param->write_nwd);
 
-		SPS_DBG("sps:%s WRITE_NWD bit for this bam2bam pipe.",
+		SPS_DBG(dev, "sps:%s WRITE_NWD bit for this bam2bam pipe.",
 			param->write_nwd ? "Set" : "Do not set");
 #endif
 	}
@@ -1256,7 +1367,15 @@ int bam_pipe_init(void *base, u32 pipe,	struct bam_pipe_parameters *param,
  */
 void bam_pipe_exit(void *base, u32 pipe, u32 ee)
 {
-	SPS_DBG2("sps:%s:bam=0x%p(va).pipe=%d.", __func__, base, pipe);
+	struct sps_bam *dev = to_sps_bam_dev(base);
+
+	if ((dev == NULL) || (&dev->base != base)) {
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+				__func__, base);
+		return;
+	}
+	SPS_DBG2(dev, "sps:%s:bam=%pa 0x%p(va).pipe=%d.",
+			__func__, BAM_ID(dev), dev->base, pipe);
 
 	bam_write_reg(base, P_IRQ_EN, pipe, 0);
 
@@ -1273,11 +1392,19 @@ void bam_pipe_exit(void *base, u32 pipe, u32 ee)
  */
 void bam_pipe_enable(void *base, u32 pipe)
 {
-	SPS_DBG2("sps:%s:bam=0x%p(va).pipe=%d.", __func__, base, pipe);
+	struct sps_bam *dev = to_sps_bam_dev(base);
+
+	if ((dev == NULL) || (&dev->base != base)) {
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+				__func__, base);
+		return;
+	}
+	SPS_DBG2(dev, "sps:%s:bam=%pa 0x%p(va).pipe=%d.",
+			__func__, BAM_ID(dev), dev->base, pipe);
 
 	if (bam_read_reg_field(base, P_CTRL, pipe, P_EN))
-		SPS_DBG2("sps:bam=0x%p(va).pipe=%d is already enabled.\n",
-				base, pipe);
+		SPS_DBG2(dev, "sps:bam=0x%p(va).pipe=%d is already enabled.\n",
+				dev->base, pipe);
 	else
 		bam_write_reg_field(base, P_CTRL, pipe, P_EN, 1);
 }
@@ -1288,7 +1415,15 @@ void bam_pipe_enable(void *base, u32 pipe)
  */
 void bam_pipe_disable(void *base, u32 pipe)
 {
-	SPS_DBG2("sps:%s:bam=0x%p(va).pipe=%d.", __func__, base, pipe);
+	struct sps_bam *dev = to_sps_bam_dev(base);
+
+	if ((dev == NULL) || (&dev->base != base)) {
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+				__func__, base);
+		return;
+	}
+	SPS_DBG2(dev, "sps:%s:bam=%pa 0x%p(va).pipe=%d.",
+			__func__, BAM_ID(dev), dev->base, pipe);
 
 	bam_write_reg_field(base, P_CTRL, pipe, P_EN, 0);
 }
@@ -1309,14 +1444,24 @@ int bam_pipe_is_enabled(void *base, u32 pipe)
 void bam_pipe_set_irq(void *base, u32 pipe, enum bam_enable irq_en,
 		      u32 src_mask, u32 ee)
 {
-	SPS_DBG2("sps:%s:bam=0x%p(va).pipe=%d.", __func__, base, pipe);
+	struct sps_bam *dev = to_sps_bam_dev(base);
+
+	if ((dev == NULL) || (&dev->base != base)) {
+		SPS_ERR(sps, "%s:Failed to get dev for base addr 0x%p\n",
+				__func__, base);
+		return;
+	}
+	SPS_DBG2(dev, "sps:%s:bam=%pa 0x%p(va).pipe=%d.",
+			__func__, BAM_ID(dev), dev->base, pipe);
 	if (src_mask & BAM_PIPE_IRQ_RST_ERROR) {
 		if (enhd_pipe)
 			bam_write_reg_field(base, IRQ_EN, 0,
 					IRQ_EN_BAM_ERROR_EN, 0);
 		else {
 			src_mask &= ~BAM_PIPE_IRQ_RST_ERROR;
-			SPS_DBG2("sps: SPS_O_RST_ERROR is not supported\n");
+			SPS_DBG2(dev,
+				"sps:%s:SPS_O_RST_ERROR is not supported\n",
+				__func__);
 		}
 	}
 	if (src_mask & BAM_PIPE_IRQ_HRESP_ERROR) {
@@ -1325,7 +1470,9 @@ void bam_pipe_set_irq(void *base, u32 pipe, enum bam_enable irq_en,
 					IRQ_EN_BAM_HRESP_ERR_EN, 0);
 		else {
 			src_mask &= ~BAM_PIPE_IRQ_HRESP_ERROR;
-			SPS_DBG2("sps: SPS_O_HRESP_ERROR is not supported\n");
+			SPS_DBG2(dev,
+				"sps:%s:SPS_O_HRESP_ERROR is not supported\n",
+				__func__);
 		}
 	}
 
@@ -1523,11 +1670,12 @@ void print_bam_reg(void *virt_addr)
 	pipes = bam[0xfbc / 4];
 #endif
 
-	SPS_INFO("\nsps:<bam-begin> --- Content of BAM-level registers---\n");
+	SPS_DUMP("%s",
+		"\nsps:<bam-begin> --- Content of BAM-level registers---\n");
 
-	SPS_INFO("BAM_CTRL: 0x%x.\n", ctrl);
-	SPS_INFO("BAM_REVISION: 0x%x.\n", ver);
-	SPS_INFO("NUM_PIPES: 0x%x.\n", pipes);
+	SPS_DUMP("BAM_CTRL: 0x%x.\n", ctrl);
+	SPS_DUMP("BAM_REVISION: 0x%x.\n", ver);
+	SPS_DUMP("NUM_PIPES: 0x%x.\n", pipes);
 
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
 	if (bam_type == SPS_BAM_NDP_4K)
@@ -1539,7 +1687,7 @@ void print_bam_reg(void *virt_addr)
 #else
 	for (i = 0xf80; i < 0x1000; i += 0x10)
 #endif
-		SPS_INFO("bam addr 0x%x: 0x%x,0x%x,0x%x,0x%x.\n", i,
+		SPS_DUMP("bam addr 0x%x: 0x%x,0x%x,0x%x,0x%x.\n", i,
 			bam[i / 4], bam[(i / 4) + 1],
 			bam[(i / 4) + 2], bam[(i / 4) + 3]);
 
@@ -1555,11 +1703,12 @@ void print_bam_reg(void *virt_addr)
 #else
 	for (i = 0x1800, n = 0; n++ < 4; i += 0x80)
 #endif
-		SPS_INFO("bam addr 0x%x: 0x%x,0x%x,0x%x,0x%x.\n", i,
+		SPS_DUMP("bam addr 0x%x: 0x%x,0x%x,0x%x,0x%x.\n", i,
 			bam[i / 4], bam[(i / 4) + 1],
 			bam[(i / 4) + 2], bam[(i / 4) + 3]);
 
-	SPS_INFO("\nsps:<bam-begin> --- Content of BAM-level registers ---\n");
+	SPS_DUMP("%s",
+		"\nsps:<bam-begin> --- Content of BAM-level registers ---\n");
 }
 
 /* output the content of BAM pipe registers */
@@ -1573,10 +1722,10 @@ void print_bam_pipe_reg(void *virt_addr, u32 pipe_index)
 	if (bam == NULL)
 		return;
 
-	SPS_INFO("\nsps:<pipe-begin> --- Content of Pipe %d registers ---\n",
+	SPS_DUMP("\nsps:<pipe-begin> --- Content of Pipe %d registers ---\n",
 			pipe);
 
-	SPS_INFO("-- Pipe Management Registers --\n");
+	SPS_DUMP("%s", "-- Pipe Management Registers --\n");
 
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
 	if (bam_type == SPS_BAM_NDP_4K)
@@ -1589,11 +1738,12 @@ void print_bam_pipe_reg(void *virt_addr, u32 pipe_index)
 	for (i = 0x0000 + 0x80 * pipe; i < 0x0000 + 0x80 * (pipe + 1);
 	    i += 0x10)
 #endif
-		SPS_INFO("bam addr 0x%x: 0x%x,0x%x,0x%x,0x%x.\n", i,
+		SPS_DUMP("bam addr 0x%x: 0x%x,0x%x,0x%x,0x%x.\n", i,
 			bam[i / 4], bam[(i / 4) + 1],
 			bam[(i / 4) + 2], bam[(i / 4) + 3]);
 
-	SPS_INFO("-- Pipe Configuration and Internal State Registers --\n");
+	SPS_DUMP("%s",
+		"-- Pipe Configuration and Internal State Registers --\n");
 
 #ifdef CONFIG_SPS_SUPPORT_NDP_BAM
 	if (bam_type == SPS_BAM_NDP_4K)
@@ -1606,11 +1756,11 @@ void print_bam_pipe_reg(void *virt_addr, u32 pipe_index)
 	for (i = 0x1000 + 0x40 * pipe; i < 0x1000 + 0x40 * (pipe + 1);
 	    i += 0x10)
 #endif
-		SPS_INFO("bam addr 0x%x: 0x%x,0x%x,0x%x,0x%x.\n", i,
+		SPS_DUMP("bam addr 0x%x: 0x%x,0x%x,0x%x,0x%x.\n", i,
 			bam[i / 4], bam[(i / 4) + 1],
 			bam[(i / 4) + 2], bam[(i / 4) + 3]);
 
-	SPS_INFO("\nsps:<pipe-end> --- Content of Pipe %d registers ---\n",
+	SPS_DUMP("\nsps:<pipe-end> --- Content of Pipe %d registers ---\n",
 			pipe);
 }
 
@@ -1692,42 +1842,42 @@ void print_bam_selected_reg(void *virt_addr, u32 ee)
 #endif
 
 
-	SPS_INFO("\nsps:<bam-begin> --- BAM-level registers ---\n\n");
+	SPS_DUMP("%s", "\nsps:<bam-begin> --- BAM-level registers ---\n\n");
 
-	SPS_INFO("BAM_CTRL: 0x%x\n", bam_ctrl);
-	SPS_INFO("BAM_REVISION: 0x%x\n", bam_revision);
-	SPS_INFO("    REVISION: 0x%x\n", bam_rev_num);
-	SPS_INFO("    NUM_EES: %d\n", bam_rev_ee_num);
-	SPS_INFO("BAM_SW_REVISION: 0x%x\n", bam_sw_rev);
-	SPS_INFO("BAM_NUM_PIPES: %d\n", bam_num_pipes);
-	SPS_INFO("BAM_DATA_ADDR_BUS_WIDTH: %d\n",
+	SPS_DUMP("BAM_CTRL: 0x%x\n", bam_ctrl);
+	SPS_DUMP("BAM_REVISION: 0x%x\n", bam_revision);
+	SPS_DUMP("    REVISION: 0x%x\n", bam_rev_num);
+	SPS_DUMP("    NUM_EES: %d\n", bam_rev_ee_num);
+	SPS_DUMP("BAM_SW_REVISION: 0x%x\n", bam_sw_rev);
+	SPS_DUMP("BAM_NUM_PIPES: %d\n", bam_num_pipes);
+	SPS_DUMP("BAM_DATA_ADDR_BUS_WIDTH: %d\n",
 			((bam_data_addr_bus_width == 0x0) ? 32 : 36));
-	SPS_INFO("    NUM_PIPES: %d\n", bam_pipe_num);
-	SPS_INFO("BAM_DESC_CNT_TRSHLD: 0x%x\n", bam_desc_cnt_trshld);
-	SPS_INFO("    DESC_CNT_TRSHLD: 0x%x (%d)\n", bam_desc_cnt_trd_val,
+	SPS_DUMP("    NUM_PIPES: %d\n", bam_pipe_num);
+	SPS_DUMP("BAM_DESC_CNT_TRSHLD: 0x%x\n", bam_desc_cnt_trshld);
+	SPS_DUMP("    DESC_CNT_TRSHLD: 0x%x (%d)\n", bam_desc_cnt_trd_val,
 			bam_desc_cnt_trd_val);
 
-	SPS_INFO("BAM_IRQ_EN: 0x%x\n", bam_irq_en);
-	SPS_INFO("BAM_IRQ_STTS: 0x%x\n", bam_irq_stts);
+	SPS_DUMP("BAM_IRQ_EN: 0x%x\n", bam_irq_en);
+	SPS_DUMP("BAM_IRQ_STTS: 0x%x\n", bam_irq_stts);
 
 	if (ee < BAM_MAX_EES) {
-		SPS_INFO("BAM_IRQ_SRCS_EE(%d): 0x%x\n", ee, bam_irq_src_ee);
-		SPS_INFO("BAM_IRQ_SRCS_MSK_EE(%d): 0x%x\n", ee, bam_irq_msk_ee);
-		SPS_INFO("BAM_IRQ_SRCS_UNMASKED_EE(%d): 0x%x\n", ee,
+		SPS_DUMP("BAM_IRQ_SRCS_EE(%d): 0x%x\n", ee, bam_irq_src_ee);
+		SPS_DUMP("BAM_IRQ_SRCS_MSK_EE(%d): 0x%x\n", ee, bam_irq_msk_ee);
+		SPS_DUMP("BAM_IRQ_SRCS_UNMASKED_EE(%d): 0x%x\n", ee,
 				bam_irq_unmsk_ee);
-		SPS_INFO("BAM_PIPE_ATTR_EE(%d): 0x%x\n", ee, bam_pipe_attr_ee);
+		SPS_DUMP("BAM_PIPE_ATTR_EE(%d): 0x%x\n", ee, bam_pipe_attr_ee);
 	}
 
-	SPS_INFO("BAM_AHB_MASTER_ERR_CTRLS: 0x%x\n", bam_ahb_err_ctrl);
-	SPS_INFO("BAM_AHB_MASTER_ERR_ADDR: 0x%x\n", bam_ahb_err_addr);
-	SPS_INFO("BAM_AHB_MASTER_ERR_ADDR_MSB: 0x%x\n", bam_ahb_err_addr_msb);
-	SPS_INFO("BAM_AHB_MASTER_ERR_DATA: 0x%x\n", bam_ahb_err_data);
+	SPS_DUMP("BAM_AHB_MASTER_ERR_CTRLS: 0x%x\n", bam_ahb_err_ctrl);
+	SPS_DUMP("BAM_AHB_MASTER_ERR_ADDR: 0x%x\n", bam_ahb_err_addr);
+	SPS_DUMP("BAM_AHB_MASTER_ERR_ADDR_MSB: 0x%x\n", bam_ahb_err_addr_msb);
+	SPS_DUMP("BAM_AHB_MASTER_ERR_DATA: 0x%x\n", bam_ahb_err_data);
 
-	SPS_INFO("BAM_CNFG_BITS: 0x%x\n", bam_cnfg_bits);
-	SPS_INFO("BAM_TIMER: 0x%x\n", bam_timer);
-	SPS_INFO("BAM_TIMER_CTRL: 0x%x\n", bam_timer_ctrl);
+	SPS_DUMP("BAM_CNFG_BITS: 0x%x\n", bam_cnfg_bits);
+	SPS_DUMP("BAM_TIMER: 0x%x\n", bam_timer);
+	SPS_DUMP("BAM_TIMER_CTRL: 0x%x\n", bam_timer_ctrl);
 
-	SPS_INFO("\nsps:<bam-end> --- BAM-level registers ---\n\n");
+	SPS_DUMP("%s", "\nsps:<bam-end> --- BAM-level registers ---\n\n");
 }
 
 /* output the content of selected BAM pipe registers */
@@ -1885,73 +2035,73 @@ void print_bam_pipe_selected_reg(void *virt_addr, u32 pipe_index)
 					P_DF_CNTXT_DF_DESC_OFST);
 #endif
 
-	SPS_INFO("\nsps:<pipe-begin> --- Registers of Pipe %d ---\n\n", pipe);
+	SPS_DUMP("\nsps:<pipe-begin> --- Registers of Pipe %d ---\n\n", pipe);
 
-	SPS_INFO("BAM_P_CTRL: 0x%x\n", p_ctrl);
-	SPS_INFO("    SYS_MODE: %d\n", p_sys_mode);
+	SPS_DUMP("BAM_P_CTRL: 0x%x\n", p_ctrl);
+	SPS_DUMP("    SYS_MODE: %d\n", p_sys_mode);
 	if (p_direction)
-		SPS_INFO("    DIRECTION:%d->Producer\n", p_direction);
+		SPS_DUMP("    DIRECTION:%d->Producer\n", p_direction);
 	else
-		SPS_INFO("    DIRECTION:%d->Consumer\n", p_direction);
-	SPS_INFO("    LOCK_GROUP: 0x%x (%d)\n", p_lock_group, p_lock_group);
+		SPS_DUMP("    DIRECTION:%d->Consumer\n", p_direction);
+	SPS_DUMP("    LOCK_GROUP: 0x%x (%d)\n", p_lock_group, p_lock_group);
 
-	SPS_INFO("BAM_P_IRQ_EN: 0x%x\n", p_irq_en);
-	SPS_INFO("BAM_P_IRQ_STTS: 0x%x\n", p_irq_stts);
-	SPS_INFO("    TRNSFR_END_IRQ(EOT): 0x%x\n", p_irq_stts_eot);
-	SPS_INFO("    PRCSD_DESC_IRQ(INT): 0x%x\n", p_irq_stts_int);
+	SPS_DUMP("BAM_P_IRQ_EN: 0x%x\n", p_irq_en);
+	SPS_DUMP("BAM_P_IRQ_STTS: 0x%x\n", p_irq_stts);
+	SPS_DUMP("    TRNSFR_END_IRQ(EOT): 0x%x\n", p_irq_stts_eot);
+	SPS_DUMP("    PRCSD_DESC_IRQ(INT): 0x%x\n", p_irq_stts_int);
 
-	SPS_INFO("BAM_P_PRDCR_SDBND: 0x%x\n", p_prd_sdbd);
-	SPS_INFO("    BYTES_FREE: 0x%x (%d)\n", p_bytes_free, p_bytes_free);
-	SPS_INFO("    CTRL: 0x%x\n", p_prd_ctrl);
-	SPS_INFO("    TOGGLE: %d\n", p_prd_toggle);
-	SPS_INFO("    SB_UPDATED: %d\n", p_prd_sb_updated);
-	SPS_INFO("BAM_P_CNSMR_SDBND: 0x%x\n", p_con_sdbd);
-	SPS_INFO("    WAIT_4_ACK: %d\n", p_con_wait_4_ack);
-	SPS_INFO("    BYTES_AVAIL: 0x%x (%d)\n", p_bytes_avail, p_bytes_avail);
-	SPS_INFO("    CTRL: 0x%x\n", p_con_ctrl);
-	SPS_INFO("    TOGGLE: %d\n", p_con_toggle);
-	SPS_INFO("    ACK_TOGGLE: %d\n", p_con_ack_toggle);
-	SPS_INFO("    ACK_TOGGLE_R: %d\n", p_con_ack_toggle_r);
-	SPS_INFO("    SB_UPDATED: %d\n", p_con_sb_updated);
+	SPS_DUMP("BAM_P_PRDCR_SDBND: 0x%x\n", p_prd_sdbd);
+	SPS_DUMP("    BYTES_FREE: 0x%x (%d)\n", p_bytes_free, p_bytes_free);
+	SPS_DUMP("    CTRL: 0x%x\n", p_prd_ctrl);
+	SPS_DUMP("    TOGGLE: %d\n", p_prd_toggle);
+	SPS_DUMP("    SB_UPDATED: %d\n", p_prd_sb_updated);
+	SPS_DUMP("BAM_P_CNSMR_SDBND: 0x%x\n", p_con_sdbd);
+	SPS_DUMP("    WAIT_4_ACK: %d\n", p_con_wait_4_ack);
+	SPS_DUMP("    BYTES_AVAIL: 0x%x (%d)\n", p_bytes_avail, p_bytes_avail);
+	SPS_DUMP("    CTRL: 0x%x\n", p_con_ctrl);
+	SPS_DUMP("    TOGGLE: %d\n", p_con_toggle);
+	SPS_DUMP("    ACK_TOGGLE: %d\n", p_con_ack_toggle);
+	SPS_DUMP("    ACK_TOGGLE_R: %d\n", p_con_ack_toggle_r);
+	SPS_DUMP("    SB_UPDATED: %d\n", p_con_sb_updated);
 
-	SPS_INFO("BAM_P_SW_DESC_OFST: 0x%x\n", p_sw_offset);
-	SPS_INFO("    SW_DESC_OFST: 0x%x\n", p_read_pointer);
-	SPS_INFO("BAM_P_EVNT_REG: 0x%x\n", p_evnt_reg);
-	SPS_INFO("    DESC_FIFO_PEER_OFST: 0x%x\n", p_write_pointer);
+	SPS_DUMP("BAM_P_SW_DESC_OFST: 0x%x\n", p_sw_offset);
+	SPS_DUMP("    SW_DESC_OFST: 0x%x\n", p_read_pointer);
+	SPS_DUMP("BAM_P_EVNT_REG: 0x%x\n", p_evnt_reg);
+	SPS_DUMP("    DESC_FIFO_PEER_OFST: 0x%x\n", p_write_pointer);
 
-	SPS_INFO("BAM_P_RETR_CNTXT: 0x%x\n", p_retr_ct);
-	SPS_INFO("    RETR_OFFSET: 0x%x\n", p_retr_offset);
-	SPS_INFO("BAM_P_SI_CNTXT: 0x%x\n", p_si_ct);
-	SPS_INFO("    SI_OFFSET: 0x%x\n", p_si_offset);
-	SPS_INFO("BAM_P_DF_CNTXT: 0x%x\n", p_df_ct);
-	SPS_INFO("    DF_OFFSET: 0x%x\n", p_df_offset);
+	SPS_DUMP("BAM_P_RETR_CNTXT: 0x%x\n", p_retr_ct);
+	SPS_DUMP("    RETR_OFFSET: 0x%x\n", p_retr_offset);
+	SPS_DUMP("BAM_P_SI_CNTXT: 0x%x\n", p_si_ct);
+	SPS_DUMP("    SI_OFFSET: 0x%x\n", p_si_offset);
+	SPS_DUMP("BAM_P_DF_CNTXT: 0x%x\n", p_df_ct);
+	SPS_DUMP("    DF_OFFSET: 0x%x\n", p_df_offset);
 
-	SPS_INFO("BAM_P_DESC_FIFO_ADDR: 0x%x\n", p_desc_fifo_addr);
-	SPS_INFO("BAM_P_DESC_FIFO_ADDR_MSB: 0x%x\n", p_desc_fifo_addr_msb);
-	SPS_INFO("BAM_P_DATA_FIFO_ADDR: 0x%x\n", p_data_fifo_addr);
-	SPS_INFO("BAM_P_DATA_FIFO_ADDR_MSB: 0x%x\n", p_data_fifo_addr_msb);
-	SPS_INFO("BAM_P_FIFO_SIZES: 0x%x\n", p_fifo_sizes);
-	SPS_INFO("    DESC_FIFO_SIZE: 0x%x (%d)\n", p_desc_fifo_size,
+	SPS_DUMP("BAM_P_DESC_FIFO_ADDR: 0x%x\n", p_desc_fifo_addr);
+	SPS_DUMP("BAM_P_DESC_FIFO_ADDR_MSB: 0x%x\n", p_desc_fifo_addr_msb);
+	SPS_DUMP("BAM_P_DATA_FIFO_ADDR: 0x%x\n", p_data_fifo_addr);
+	SPS_DUMP("BAM_P_DATA_FIFO_ADDR_MSB: 0x%x\n", p_data_fifo_addr_msb);
+	SPS_DUMP("BAM_P_FIFO_SIZES: 0x%x\n", p_fifo_sizes);
+	SPS_DUMP("    DESC_FIFO_SIZE: 0x%x (%d)\n", p_desc_fifo_size,
 							p_desc_fifo_size);
-	SPS_INFO("    DATA_FIFO_SIZE: 0x%x (%d)\n", p_data_fifo_size,
+	SPS_DUMP("    DATA_FIFO_SIZE: 0x%x (%d)\n", p_data_fifo_size,
 							p_data_fifo_size);
 
-	SPS_INFO("BAM_P_EVNT_DEST_ADDR: 0x%x\n", p_evnt_dest);
-	SPS_INFO("BAM_P_EVNT_DEST_ADDR_MSB: 0x%x\n", p_evnt_dest_msb);
-	SPS_INFO("BAM_P_EVNT_GEN_TRSHLD: 0x%x\n", p_evnt_trd);
-	SPS_INFO("    EVNT_GEN_TRSHLD: 0x%x (%d)\n", p_evnt_trd_val,
+	SPS_DUMP("BAM_P_EVNT_DEST_ADDR: 0x%x\n", p_evnt_dest);
+	SPS_DUMP("BAM_P_EVNT_DEST_ADDR_MSB: 0x%x\n", p_evnt_dest_msb);
+	SPS_DUMP("BAM_P_EVNT_GEN_TRSHLD: 0x%x\n", p_evnt_trd);
+	SPS_DUMP("    EVNT_GEN_TRSHLD: 0x%x (%d)\n", p_evnt_trd_val,
 							p_evnt_trd_val);
 
-	SPS_INFO("BAM_P_AU_PSM_CNTXT_1: 0x%x\n", p_au_ct1);
-	SPS_INFO("BAM_P_PSM_CNTXT_2: 0x%x\n", p_psm_ct2);
-	SPS_INFO("BAM_P_PSM_CNTXT_3: 0x%x\n", p_psm_ct3);
-	SPS_INFO("BAM_P_PSM_CNTXT_3_MSB: 0x%x\n", p_psm_ct3_msb);
-	SPS_INFO("BAM_P_PSM_CNTXT_4: 0x%x\n", p_psm_ct4);
-	SPS_INFO("BAM_P_PSM_CNTXT_5: 0x%x\n", p_psm_ct5);
-	SPS_INFO("BAM_P_TIMER: 0x%x\n", p_timer);
-	SPS_INFO("BAM_P_TIMER_CTRL: 0x%x\n", p_timer_ctrl);
+	SPS_DUMP("BAM_P_AU_PSM_CNTXT_1: 0x%x\n", p_au_ct1);
+	SPS_DUMP("BAM_P_PSM_CNTXT_2: 0x%x\n", p_psm_ct2);
+	SPS_DUMP("BAM_P_PSM_CNTXT_3: 0x%x\n", p_psm_ct3);
+	SPS_DUMP("BAM_P_PSM_CNTXT_3_MSB: 0x%x\n", p_psm_ct3_msb);
+	SPS_DUMP("BAM_P_PSM_CNTXT_4: 0x%x\n", p_psm_ct4);
+	SPS_DUMP("BAM_P_PSM_CNTXT_5: 0x%x\n", p_psm_ct5);
+	SPS_DUMP("BAM_P_TIMER: 0x%x\n", p_timer);
+	SPS_DUMP("BAM_P_TIMER_CTRL: 0x%x\n", p_timer_ctrl);
 
-	SPS_INFO("\nsps:<pipe-end> --- Registers of Pipe %d ---\n\n", pipe);
+	SPS_DUMP("\nsps:<pipe-end> --- Registers of Pipe %d ---\n\n", pipe);
 }
 
 /* output descriptor FIFO of a pipe */
@@ -1973,26 +2123,27 @@ void print_bam_pipe_desc_fifo(void *virt_addr, u32 pipe_index, u32 option)
 						P_DESC_FIFO_SIZE);
 
 	if (desc_fifo_addr == 0) {
-		SPS_ERR("sps:%s:desc FIFO address of Pipe %d is NULL.\n",
+		SPS_ERR(sps, "sps:%s:desc FIFO address of Pipe %d is NULL.\n",
 			__func__, pipe);
 		return;
 	} else if (desc_fifo_size == 0) {
-		SPS_ERR("sps:%s:desc FIFO size of Pipe %d is 0.\n",
+		SPS_ERR(sps, "sps:%s:desc FIFO size of Pipe %d is 0.\n",
 			__func__, pipe);
 		return;
 	}
 
-	SPS_INFO("\nsps:<desc-begin> --- descriptor FIFO of Pipe %d -----\n\n",
+	SPS_DUMP("\nsps:<desc-begin> --- descriptor FIFO of Pipe %d -----\n\n",
 			pipe);
 
-	SPS_INFO("BAM_P_DESC_FIFO_ADDR: 0x%x\n"
+	SPS_DUMP("BAM_P_DESC_FIFO_ADDR: 0x%x\n"
 		"BAM_P_DESC_FIFO_SIZE: 0x%x (%d)\n\n",
 		desc_fifo_addr, desc_fifo_size, desc_fifo_size);
 
 	desc_fifo = (u32 *) phys_to_virt(desc_fifo_addr);
 
 	if (option == 100) {
-		SPS_INFO("----- start of data blocks -----\n");
+		SPS_DUMP("%s",
+			"----- start of data blocks -----\n");
 		for (i = 0; i < desc_fifo_size; i += 8) {
 			u32 *data_block_vir;
 			u32 data_block_phy = desc_fifo[i / 4];
@@ -2001,23 +2152,24 @@ void print_bam_pipe_desc_fifo(void *virt_addr, u32 pipe_index, u32 option)
 				data_block_vir =
 					(u32 *) phys_to_virt(data_block_phy);
 
-				SPS_INFO("desc addr:0x%x; data addr:0x%x:\n",
+				SPS_DUMP("desc addr:0x%x; data addr:0x%x:\n",
 					desc_fifo_addr + i, data_block_phy);
-				SPS_INFO("0x%x, 0x%x, 0x%x, 0x%x\n",
+				SPS_DUMP("0x%x, 0x%x, 0x%x, 0x%x\n",
 					data_block_vir[0], data_block_vir[1],
 					data_block_vir[2], data_block_vir[3]);
-				SPS_INFO("0x%x, 0x%x, 0x%x, 0x%x\n",
+				SPS_DUMP("0x%x, 0x%x, 0x%x, 0x%x\n",
 					data_block_vir[4], data_block_vir[5],
 					data_block_vir[6], data_block_vir[7]);
-				SPS_INFO("0x%x, 0x%x, 0x%x, 0x%x\n",
+				SPS_DUMP("0x%x, 0x%x, 0x%x, 0x%x\n",
 					data_block_vir[8], data_block_vir[9],
 					data_block_vir[10], data_block_vir[11]);
-				SPS_INFO("0x%x, 0x%x, 0x%x, 0x%x\n\n",
+				SPS_DUMP("0x%x, 0x%x, 0x%x, 0x%x\n\n",
 					data_block_vir[12], data_block_vir[13],
 					data_block_vir[14], data_block_vir[15]);
 			}
 		}
-		SPS_INFO("----- end of data blocks -----\n");
+		SPS_DUMP("%s",
+			"----- end of data blocks -----\n");
 	} else if (option) {
 		u32 size = option * 128;
 		u32 current_desc = bam_pipe_get_desc_read_offset(base,
@@ -2031,9 +2183,11 @@ void print_bam_pipe_desc_fifo(void *virt_addr, u32 pipe_index, u32 option)
 		if (desc_fifo_size > current_desc + size / 2)
 			end = current_desc + size / 2;
 
-		SPS_INFO("------------ begin of partial FIFO ------------\n\n");
+		SPS_DUMP("%s",
+			"------------ begin of partial FIFO ------------\n\n");
 
-		SPS_INFO("desc addr; desc content; desc flags\n");
+		SPS_DUMP("%s",
+			"desc addr; desc content; desc flags\n");
 		for (i = begin; i < end; i += 0x8) {
 			u32 offset;
 			u32 flags = desc_fifo[(i / 4) + 1] >> 16;
@@ -2068,23 +2222,26 @@ void print_bam_pipe_desc_fifo(void *virt_addr, u32 pipe_index, u32 option)
 				offset += scnprintf(desc_info + offset, 5,
 							"IMM ");
 
-			SPS_INFO("%s\n", desc_info);
+			SPS_DUMP("%s\n", desc_info);
 		}
 
-		SPS_INFO("\n------------  end of partial FIFO  ------------\n");
+		SPS_DUMP("%s",
+			"\n------------  end of partial FIFO  ------------\n");
 	} else {
-		SPS_INFO("---------------- begin of FIFO ----------------\n\n");
+		SPS_DUMP("%s",
+			"---------------- begin of FIFO ----------------\n\n");
 
 		for (i = 0; i < desc_fifo_size; i += 0x10)
-			SPS_INFO("addr 0x%x: 0x%x, 0x%x, 0x%x, 0x%x.\n",
+			SPS_DUMP("addr 0x%x: 0x%x, 0x%x, 0x%x, 0x%x.\n",
 				desc_fifo_addr + i,
 				desc_fifo[i / 4], desc_fifo[(i / 4) + 1],
 				desc_fifo[(i / 4) + 2], desc_fifo[(i / 4) + 3]);
 
-		SPS_INFO("\n----------------  end of FIFO  ----------------\n");
+		SPS_DUMP("%s",
+			"\n----------------  end of FIFO  ----------------\n");
 	}
 
-	SPS_INFO("\nsps:<desc-end> --- descriptor FIFO of Pipe %d -----\n\n",
+	SPS_DUMP("\nsps:<desc-end> --- descriptor FIFO of Pipe %d -----\n\n",
 			pipe);
 }
 
@@ -2100,32 +2257,32 @@ void print_bam_test_bus_reg(void *base, u32 tb_sel)
 	u32 size = sizeof(test_bus_selection) / sizeof(u32);
 
 	if (base == NULL) {
-		SPS_ERR("sps:%s:BAM is NULL.\n", __func__);
+		SPS_ERR(sps, "sps:%s:BAM is NULL.\n", __func__);
 		return;
 	}
 
 	if (tb_sel) {
-		SPS_INFO("\nsps:Specified TEST_BUS_SEL value: 0x%x\n", tb_sel);
+		SPS_DUMP("\nsps:Specified TEST_BUS_SEL value: 0x%x\n", tb_sel);
 		bam_write_reg_field(base, TEST_BUS_SEL, 0, BAM_TESTBUS_SEL,
 					tb_sel);
-		SPS_INFO("sps:BAM_TEST_BUS_REG:0x%x for TEST_BUS_SEL:0x%x\n\n",
+		SPS_DUMP("sps:BAM_TEST_BUS_REG:0x%x for TEST_BUS_SEL:0x%x\n\n",
 			bam_read_reg(base, TEST_BUS_REG, 0),
 			bam_read_reg_field(base, TEST_BUS_SEL, 0,
 						BAM_TESTBUS_SEL));
 	}
 
-	SPS_INFO("\nsps:<testbus-begin> --- BAM TEST_BUS dump -----\n\n");
+	SPS_DUMP("%s", "\nsps:<testbus-begin> --- BAM TEST_BUS dump -----\n\n");
 
 	/* output other selections */
 	for (i = 0; i < size; i++) {
 		bam_write_reg_field(base, TEST_BUS_SEL, 0, BAM_TESTBUS_SEL,
 					test_bus_selection[i]);
 
-		SPS_INFO("sps:TEST_BUS_REG:0x%x\t  TEST_BUS_SEL:0x%x\n",
+		SPS_DUMP("sps:TEST_BUS_REG:0x%x\t  TEST_BUS_SEL:0x%x\n",
 			bam_read_reg(base, TEST_BUS_REG, 0),
 			bam_read_reg_field(base, TEST_BUS_SEL, 0,
 					BAM_TESTBUS_SEL));
 	}
 
-	SPS_INFO("\nsps:<testbus-end> --- BAM TEST_BUS dump -----\n\n");
+	SPS_DUMP("%s", "\nsps:<testbus-end> --- BAM TEST_BUS dump -----\n\n");
 }

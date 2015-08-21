@@ -216,11 +216,6 @@ static void lsm_event_handler(uint32_t opcode, uint32_t token,
 				token, read_done);
 			return;
 		}
-		if (atomic_read(&prtd->read_abort)) {
-			dev_dbg(rtd->dev,
-				"%s: read abort set skip data\n", __func__);
-			return;
-		}
 		if (!lsm_lab_buffer_sanity(prtd, read_done, &buf_index)) {
 			dev_dbg(rtd->dev,
 				"%s: process read done index %d\n",
@@ -233,10 +228,16 @@ static void lsm_event_handler(uint32_t opcode, uint32_t token,
 				prtd->lsm_client->hw_params.period_count);
 				return;
 			}
-			prtd->dma_write += read_done->total_size;
+			prtd->dma_write += snd_pcm_lib_period_bytes(substream);
 			atomic_inc(&prtd->buf_count);
 			snd_pcm_period_elapsed(substream);
 			wake_up(&prtd->period_wait);
+			if (atomic_read(&prtd->read_abort)) {
+				dev_dbg(rtd->dev,
+					"%s: read abort set, skip queueing buffer\n",
+					__func__);
+				return;
+			}
 			/* queue the next period buffer */
 			buf_index = (buf_index + 1) %
 			prtd->lsm_client->hw_params.period_count;
@@ -1035,7 +1036,13 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 					prtd->lsm_client->session, rc);
 			prtd->lsm_client->lab_started = false;
 		}
-	break;
+		break;
+
+	case SNDRV_LSM_SET_PORT:
+		dev_dbg(rtd->dev, "%s: set LSM port\n", __func__);
+		rc = q6lsm_set_port_connected(prtd->lsm_client);
+		break;
+
 	default:
 		dev_dbg(rtd->dev,
 			"%s: Falling into default snd_lib_ioctl cmd 0x%x\n",
@@ -1876,7 +1883,7 @@ static int msm_lsm_pcm_copy(struct snd_pcm_substream *substream, int ch,
 	if (atomic_read(&prtd->read_abort)) {
 		dev_err(rtd->dev,
 			"%s: Read abort recieved\n", __func__);
-		return -EIO;
+		return 0;
 	}
 	prtd->appl_cnt = prtd->appl_cnt %
 		prtd->lsm_client->hw_params.period_count;
