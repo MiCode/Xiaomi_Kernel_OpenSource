@@ -1,0 +1,29 @@
+* RPM Master Stats
+
+RPM maintains each master data in RPM message RAM at a specific
+offset. It tells about the individual masters information at
+any given time like "number of active cores in sub system",
+"number of shutdowns" and "wakeup reason for SS" etc. These stats
+can be show to the user using the debugfs interface of the kernel.
+To achieve this device tree node has been added and it will hold
+the address of the RPM RAM from where master stats are read.
+Added version number to distinguish the type of data structure
+being read from the RAM for different targets.
+
+The required properties for rpm-master-stats are:
+
+- compatible: "qcom,rpm-master-stats".
+- reg: The address on the RPM RAM from where stats are read.
+- qcom,masters: Each master name.
+- qcom,master-offset: Offset required to access each master stats area.
+- qcom,master-stats-version: Version number.
+
+Example:
+
+qcom,rpm-stats@fc428150 {
+		compatible = "qcom,rpm-stats";
+		reg = <0xfc428150 0x1000>;
+		qcom,masters = "APSS", "MPSS", "LPSS", "PRONTO";
+		qcom,master-offset = <2560>;
+		qcom,master-stats-version = <2>;
+};
