@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/smd_tty.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2015, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -929,6 +929,13 @@ static void smd_tty_device_init(int idx)
 	port->ops = &smd_tty_port_ops;
 	smd_tty[idx].device_ptr = tty_port_register_device(port, smd_tty_driver,
 							   idx, NULL);
+	if (IS_ERR_OR_NULL(smd_tty[idx].device_ptr)) {
+		SMD_TTY_ERR("%s: Unable to register tty port %s reason %d\n",
+				__func__,
+				smd_tty[idx].ch_name,
+				PTR_ERR_OR_ZERO(smd_tty[idx].device_ptr));
+		return;
+	}
 	init_completion(&smd_tty[idx].ch_allocated);
 	mutex_init(&smd_tty[idx].open_lock_lha1);
 	spin_lock_init(&smd_tty[idx].reset_lock_lha2);
