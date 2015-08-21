@@ -2383,16 +2383,16 @@ static int pp_ad_calc_bl(struct msm_fb_data_type *mfd, int bl_in, int *bl_out,
 	mutex_lock(&ad->lock);
 	if (!mfd->ad_bl_level)
 		mfd->ad_bl_level = bl_in;
-	if (!(ad->state & PP_AD_STATE_RUN)) {
-		pr_debug("AD is not running.\n");
+	/* return if AD is not running or turned OFF */
+	if (!(ad->state & PP_AD_STATE_RUN) || !(ad->bl_mfd)) {
+		pr_debug("AD is not running/turned off.\n");
 		mutex_unlock(&ad->lock);
 		return -EPERM;
 	}
 
-	if (!ad->bl_mfd || !ad->bl_mfd->panel_info) {
-		pr_err("Invalid ad info: bl_mfd = 0x%p, ad->bl_mfd->panel_info = 0x%p\n",
-			ad->bl_mfd,
-			(!ad->bl_mfd) ? NULL : ad->bl_mfd->panel_info);
+	if (!ad->bl_mfd->panel_info) {
+		pr_err("Invalid ad panel info: ad->bl_mfd->panel_info = 0x%p\n",
+			ad->bl_mfd->panel_info);
 		mutex_unlock(&ad->lock);
 		return -EINVAL;
 	}
