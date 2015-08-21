@@ -33,6 +33,7 @@
 #include <linux/workqueue.h>
 #include <linux/slab.h>
 #include <media/v4l2-common.h>
+#include <media/v4l2-device.h>
 #include <media/v4l2-ioctl.h>
 #include <media/radio-iris.h>
 #include <asm/unaligned.h>
@@ -79,6 +80,7 @@ struct iris_device {
 	__u8 prev_trans_rds;
 	__u8 af_jump_bit;
 	struct video_device *videodev;
+	struct v4l2_device v4l2_dev;
 
 	struct mutex lock;
 	spinlock_t buf_lock[IRIS_BUF_MAX];
@@ -5411,6 +5413,12 @@ static int iris_probe(struct platform_device *pdev)
 
 	memcpy(radio->videodev, &iris_viddev_template,
 	  sizeof(iris_viddev_template));
+	strlcpy(radio->v4l2_dev.name, DRIVER_NAME,
+			sizeof(radio->v4l2_dev.name));
+	retval = v4l2_device_register(NULL, &radio->v4l2_dev);
+	if (retval)
+		return -EINVAL;
+	radio->videodev->v4l2_dev = &radio->v4l2_dev;
 
 	for (i = 0; i < IRIS_BUF_MAX; i++) {
 		int kfifo_alloc_rc = 0;
