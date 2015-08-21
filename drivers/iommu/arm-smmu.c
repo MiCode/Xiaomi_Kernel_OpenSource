@@ -1997,6 +1997,56 @@ static void arm_smmu_trigger_fault(struct iommu_domain *domain,
 	msleep(1000);
 }
 
+static unsigned long arm_smmu_reg_read(struct iommu_domain *domain,
+				       unsigned long offset)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct arm_smmu_device *smmu;
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+	void __iomem *cb_base;
+	unsigned long val;
+
+	if (offset >= SZ_4K) {
+		pr_err("Invalid offset: 0x%lx\n", offset);
+		return 0;
+	}
+
+	smmu = smmu_domain->smmu;
+	if (!smmu) {
+		WARN(1, "Can't read registers of a detached domain\n");
+		val = 0;
+		return val;
+	}
+
+	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+	val = readl_relaxed(cb_base + offset);
+
+	return val;
+}
+
+static void arm_smmu_reg_write(struct iommu_domain *domain,
+			       unsigned long offset, unsigned long val)
+{
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct arm_smmu_device *smmu;
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+	void __iomem *cb_base;
+
+	if (offset >= SZ_4K) {
+		pr_err("Invalid offset: 0x%lx\n", offset);
+		return;
+	}
+
+	smmu = smmu_domain->smmu;
+	if (!smmu) {
+		WARN(1, "Can't read registers of a detached domain\n");
+		return;
+	}
+
+	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+	writel_relaxed(val, cb_base + offset);
+}
+
 static struct iommu_ops arm_smmu_ops = {
 	.capable		= arm_smmu_capable,
 	.domain_alloc		= arm_smmu_domain_alloc,
@@ -2015,6 +2065,8 @@ static struct iommu_ops arm_smmu_ops = {
 	.domain_set_attr	= arm_smmu_domain_set_attr,
 	.pgsize_bitmap		= -1UL, /* Restricted during device attach */
 	.trigger_fault		= arm_smmu_trigger_fault,
+	.reg_read		= arm_smmu_reg_read,
+	.reg_write		= arm_smmu_reg_write,
 };
 
 static int arm_smmu_wait_for_halt(struct arm_smmu_device *smmu)
