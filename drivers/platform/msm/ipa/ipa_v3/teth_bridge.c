@@ -135,7 +135,6 @@ bail:
 	TETH_DBG_FUNC_EXIT();
 	return res;
 }
-EXPORT_SYMBOL(ipa3_teth_bridge_init);
 
 /**
 * ipa3_teth_bridge_disconnect() - Disconnect tethering bridge module
@@ -151,7 +150,6 @@ int ipa3_teth_bridge_disconnect(enum ipa_client_type client)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_teth_bridge_disconnect);
 
 /**
 * ipa3_teth_bridge_connect() - Connect bridge for a tethered Rmnet / MBIM call
@@ -166,7 +164,6 @@ int ipa3_teth_bridge_connect(struct teth_bridge_connect_params *connect_params)
 {
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_teth_bridge_connect);
 
 static long ipa3_teth_bridge_ioctl(struct file *filp,
 			      unsigned int cmd,
@@ -240,7 +237,6 @@ fail_alloc_chrdev_region:
 
 	return res;
 }
-EXPORT_SYMBOL(ipa3_teth_bridge_driver_init);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Tethering bridge driver");

@@ -59,7 +59,7 @@ int __ipa_generate_rt_hw_rule_v2(enum ipa_ip_type ip,
 
 	start = buf;
 	rule_hdr = (struct ipa_rt_rule_hw_hdr *)buf;
-	pipe_idx = ipa_get_ep_mapping(entry->rule.dst);
+	pipe_idx = ipa2_get_ep_mapping(entry->rule.dst);
 	if (pipe_idx == -1) {
 		IPAERR("Wrong destination pipe specified in RT rule\n");
 		WARN_ON(1);
@@ -141,7 +141,7 @@ int __ipa_generate_rt_hw_rule_v2_5(enum ipa_ip_type ip,
 
 	start = buf;
 	rule_hdr = (struct ipa_rt_rule_hw_hdr *)buf;
-	pipe_idx = ipa_get_ep_mapping(entry->rule.dst);
+	pipe_idx = ipa2_get_ep_mapping(entry->rule.dst);
 	if (pipe_idx == -1) {
 		IPAERR("Wrong destination pipe specified in RT rule\n");
 		WARN_ON(1);
@@ -795,14 +795,14 @@ struct ipa_rt_tbl *__ipa_find_rt_tbl(enum ipa_ip_type ip, const char *name)
 }
 
 /**
- * ipa_query_rt_index() - find the routing table index
+ * ipa2_query_rt_index() - find the routing table index
  *			which name and ip type are given as parameters
  * @in:	[out] the index of the wanted routing table
  *
  * Returns: the routing table which name is given as parameter, or NULL if it
  * doesn't exist
  */
-int ipa_query_rt_index(struct ipa_ioc_get_rt_tbl_indx *in)
+int ipa2_query_rt_index(struct ipa_ioc_get_rt_tbl_indx *in)
 {
 	struct ipa_rt_tbl *entry;
 
@@ -1013,7 +1013,7 @@ error:
 }
 
 /**
- * ipa_add_rt_rule() - Add the specified routing rules to SW and optionally
+ * ipa2_add_rt_rule() - Add the specified routing rules to SW and optionally
  * commit to IPA HW
  * @rules:	[inout] set of routing rules to add
  *
@@ -1021,7 +1021,7 @@ error:
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_add_rt_rule(struct ipa_ioc_add_rt_rule *rules)
+int ipa2_add_rt_rule(struct ipa_ioc_add_rt_rule *rules)
 {
 	int i;
 	int ret;
@@ -1055,7 +1055,6 @@ bail:
 	mutex_unlock(&ipa_ctx->lock);
 	return ret;
 }
-EXPORT_SYMBOL(ipa_add_rt_rule);
 
 int __ipa_del_rt_rule(u32 rule_hdl)
 {
@@ -1097,7 +1096,7 @@ int __ipa_del_rt_rule(u32 rule_hdl)
 }
 
 /**
- * ipa_del_rt_rule() - Remove the specified routing rules to SW and optionally
+ * ipa2_del_rt_rule() - Remove the specified routing rules to SW and optionally
  * commit to IPA HW
  * @hdls:	[inout] set of routing rules to delete
  *
@@ -1105,7 +1104,7 @@ int __ipa_del_rt_rule(u32 rule_hdl)
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_del_rt_rule(struct ipa_ioc_del_rt_rule *hdls)
+int ipa2_del_rt_rule(struct ipa_ioc_del_rt_rule *hdls)
 {
 	int i;
 	int ret;
@@ -1136,10 +1135,9 @@ bail:
 	mutex_unlock(&ipa_ctx->lock);
 	return ret;
 }
-EXPORT_SYMBOL(ipa_del_rt_rule);
 
 /**
- * ipa_commit_rt_rule() - Commit the current SW routing table of specified type
+ * ipa2_commit_rt_rule() - Commit the current SW routing table of specified type
  * to IPA HW
  * @ip:	The family of routing tables
  *
@@ -1147,7 +1145,7 @@ EXPORT_SYMBOL(ipa_del_rt_rule);
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_commit_rt(enum ipa_ip_type ip)
+int ipa2_commit_rt(enum ipa_ip_type ip)
 {
 	int ret;
 
@@ -1160,7 +1158,7 @@ int ipa_commit_rt(enum ipa_ip_type ip)
 	 * issue a commit on the filtering module of same IP type since
 	 * filtering rules point to routing tables
 	 */
-	if (ipa_commit_flt(ip))
+	if (ipa2_commit_flt(ip))
 		return -EPERM;
 
 	mutex_lock(&ipa_ctx->lock);
@@ -1174,10 +1172,9 @@ bail:
 	mutex_unlock(&ipa_ctx->lock);
 	return ret;
 }
-EXPORT_SYMBOL(ipa_commit_rt);
 
 /**
- * ipa_reset_rt() - reset the current SW routing table of specified type
+ * ipa2_reset_rt() - reset the current SW routing table of specified type
  * (does not commit to HW)
  * @ip:	The family of routing tables
  *
@@ -1185,7 +1182,7 @@ EXPORT_SYMBOL(ipa_commit_rt);
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_reset_rt(enum ipa_ip_type ip)
+int ipa2_reset_rt(enum ipa_ip_type ip)
 {
 	struct ipa_rt_tbl *tbl;
 	struct ipa_rt_tbl *tbl_next;
@@ -1214,7 +1211,7 @@ int ipa_reset_rt(enum ipa_ip_type ip)
 	 * issue a reset on the filtering module of same IP type since
 	 * filtering rules point to routing tables
 	 */
-	if (ipa_reset_flt(ip))
+	if (ipa2_reset_flt(ip))
 		IPAERR("fail to reset flt ip=%d\n", ip);
 
 	set = &ipa_ctx->rt_tbl_set[ip];
@@ -1284,10 +1281,9 @@ int ipa_reset_rt(enum ipa_ip_type ip)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_reset_rt);
 
 /**
- * ipa_get_rt_tbl() - lookup the specified routing table and return handle if it
+ * ipa2_get_rt_tbl() - lookup the specified routing table and return handle if it
  * exists, if lookup succeeds the routing table ref cnt is increased
  * @lookup:	[inout] routing table to lookup and its handle
  *
@@ -1296,7 +1292,7 @@ EXPORT_SYMBOL(ipa_reset_rt);
  * Note:	Should not be called from atomic context
  *	Caller should call ipa_put_rt_tbl later if this function succeeds
  */
-int ipa_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup)
+int ipa2_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup)
 {
 	struct ipa_rt_tbl *entry;
 	int result = -EFAULT;
@@ -1321,17 +1317,16 @@ int ipa_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup)
 
 	return result;
 }
-EXPORT_SYMBOL(ipa_get_rt_tbl);
 
 /**
- * ipa_put_rt_tbl() - Release the specified routing table handle
+ * ipa2_put_rt_tbl() - Release the specified routing table handle
  * @rt_tbl_hdl:	[in] the routing table handle to release
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_put_rt_tbl(u32 rt_tbl_hdl)
+int ipa2_put_rt_tbl(u32 rt_tbl_hdl)
 {
 	struct ipa_rt_tbl *entry;
 	enum ipa_ip_type ip = IPA_IP_MAX;
@@ -1374,7 +1369,6 @@ ret:
 
 	return result;
 }
-EXPORT_SYMBOL(ipa_put_rt_tbl);
 
 
 static int __ipa_mdfy_rt_rule(struct ipa_rt_rule_mdfy *rtrule)
@@ -1417,14 +1411,14 @@ error:
 }
 
 /**
- * ipa_mdfy_rt_rule() - Modify the specified routing rules in SW and optionally
+ * ipa2_mdfy_rt_rule() - Modify the specified routing rules in SW and optionally
  * commit to IPA HW
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_mdfy_rt_rule(struct ipa_ioc_mdfy_rt_rule *hdls)
+int ipa2_mdfy_rt_rule(struct ipa_ioc_mdfy_rt_rule *hdls)
 {
 	int i;
 	int result;
@@ -1455,4 +1449,3 @@ bail:
 
 	return result;
 }
-EXPORT_SYMBOL(ipa_mdfy_rt_rule);

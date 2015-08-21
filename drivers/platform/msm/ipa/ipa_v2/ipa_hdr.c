@@ -816,7 +816,7 @@ int __ipa_del_hdr(u32 hdr_hdl)
 }
 
 /**
- * ipa_add_hdr() - add the specified headers to SW and optionally commit them to
+ * ipa2_add_hdr() - add the specified headers to SW and optionally commit them to
  * IPA HW
  * @hdrs:	[inout] set of headers to add
  *
@@ -824,7 +824,7 @@ int __ipa_del_hdr(u32 hdr_hdl)
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_add_hdr(struct ipa_ioc_add_hdr *hdrs)
+int ipa2_add_hdr(struct ipa_ioc_add_hdr *hdrs)
 {
 	int i;
 	int result = -EFAULT;
@@ -863,10 +863,9 @@ bail:
 	mutex_unlock(&ipa_ctx->lock);
 	return result;
 }
-EXPORT_SYMBOL(ipa_add_hdr);
 
 /**
- * ipa_del_hdr() - Remove the specified headers from SW and optionally commit them
+ * ipa2_del_hdr() - Remove the specified headers from SW and optionally commit them
  * to IPA HW
  * @hdls:	[inout] set of headers to delete
  *
@@ -874,7 +873,7 @@ EXPORT_SYMBOL(ipa_add_hdr);
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_del_hdr(struct ipa_ioc_del_hdr *hdls)
+int ipa2_del_hdr(struct ipa_ioc_del_hdr *hdls)
 {
 	int i;
 	int result = -EFAULT;
@@ -910,10 +909,9 @@ bail:
 	mutex_unlock(&ipa_ctx->lock);
 	return result;
 }
-EXPORT_SYMBOL(ipa_del_hdr);
 
 /**
- * ipa_add_hdr_proc_ctx() - add the specified headers to SW
+ * ipa2_add_hdr_proc_ctx() - add the specified headers to SW
  * and optionally commit them to IPA HW
  * @proc_ctxs:	[inout] set of processing context headers to add
  *
@@ -921,7 +919,7 @@ EXPORT_SYMBOL(ipa_del_hdr);
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_add_hdr_proc_ctx(struct ipa_ioc_add_hdr_proc_ctx *proc_ctxs)
+int ipa2_add_hdr_proc_ctx(struct ipa_ioc_add_hdr_proc_ctx *proc_ctxs)
 {
 	int i;
 	int result = -EFAULT;
@@ -962,10 +960,9 @@ bail:
 	mutex_unlock(&ipa_ctx->lock);
 	return result;
 }
-EXPORT_SYMBOL(ipa_add_hdr_proc_ctx);
 
 /**
- * ipa_del_hdr_proc_ctx() -
+ * ipa2_del_hdr_proc_ctx() -
  * Remove the specified processing context headers from SW and
  * optionally commit them to IPA HW.
  * @hdls:	[inout] set of processing context headers to delete
@@ -974,7 +971,7 @@ EXPORT_SYMBOL(ipa_add_hdr_proc_ctx);
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_del_hdr_proc_ctx(struct ipa_ioc_del_hdr_proc_ctx *hdls)
+int ipa2_del_hdr_proc_ctx(struct ipa_ioc_del_hdr_proc_ctx *hdls)
 {
 	int i;
 	int result;
@@ -1012,16 +1009,15 @@ bail:
 	mutex_unlock(&ipa_ctx->lock);
 	return result;
 }
-EXPORT_SYMBOL(ipa_del_hdr_proc_ctx);
 
 /**
- * ipa_commit_hdr() - commit to IPA HW the current header table in SW
+ * ipa2_commit_hdr() - commit to IPA HW the current header table in SW
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_commit_hdr(void)
+int ipa2_commit_hdr(void)
 {
 	int result = -EFAULT;
 
@@ -1029,9 +1025,9 @@ int ipa_commit_hdr(void)
 	 * issue a commit on the routing module since routing rules point to
 	 * header table entries
 	 */
-	if (ipa_commit_rt(IPA_IP_v4))
+	if (ipa2_commit_rt(IPA_IP_v4))
 		return -EPERM;
-	if (ipa_commit_rt(IPA_IP_v6))
+	if (ipa2_commit_rt(IPA_IP_v6))
 		return -EPERM;
 
 	mutex_lock(&ipa_ctx->lock);
@@ -1044,17 +1040,16 @@ bail:
 	mutex_unlock(&ipa_ctx->lock);
 	return result;
 }
-EXPORT_SYMBOL(ipa_commit_hdr);
 
 /**
- * ipa_reset_hdr() - reset the current header table in SW (does not commit to
+ * ipa2_reset_hdr() - reset the current header table in SW (does not commit to
  * HW)
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_reset_hdr(void)
+int ipa2_reset_hdr(void)
 {
 	struct ipa_hdr_entry *entry;
 	struct ipa_hdr_entry *next;
@@ -1070,9 +1065,9 @@ int ipa_reset_hdr(void)
 	 * issue a reset on the routing module since routing rules point to
 	 * header table entries
 	 */
-	if (ipa_reset_rt(IPA_IP_v4))
+	if (ipa2_reset_rt(IPA_IP_v4))
 		IPAERR("fail to reset v4 rt\n");
-	if (ipa_reset_rt(IPA_IP_v6))
+	if (ipa2_reset_rt(IPA_IP_v6))
 		IPAERR("fail to reset v4 rt\n");
 
 	mutex_lock(&ipa_ctx->lock);
@@ -1175,7 +1170,6 @@ int ipa_reset_hdr(void)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_reset_hdr);
 
 static struct ipa_hdr_entry *__ipa_find_hdr(const char *name)
 {
@@ -1191,7 +1185,7 @@ static struct ipa_hdr_entry *__ipa_find_hdr(const char *name)
 }
 
 /**
- * ipa_get_hdr() - Lookup the specified header resource
+ * ipa2_get_hdr() - Lookup the specified header resource
  * @lookup:	[inout] header to lookup and its handle
  *
  * lookup the specified header resource and return handle if it exists
@@ -1201,7 +1195,7 @@ static struct ipa_hdr_entry *__ipa_find_hdr(const char *name)
  * Note:	Should not be called from atomic context
  *		Caller should call ipa_put_hdr later if this function succeeds
  */
-int ipa_get_hdr(struct ipa_ioc_get_hdr *lookup)
+int ipa2_get_hdr(struct ipa_ioc_get_hdr *lookup)
 {
 	struct ipa_hdr_entry *entry;
 	int result = -1;
@@ -1225,7 +1219,6 @@ int ipa_get_hdr(struct ipa_ioc_get_hdr *lookup)
 
 	return result;
 }
-EXPORT_SYMBOL(ipa_get_hdr);
 
 /**
  * __ipa_release_hdr() - drop reference to header and cause
@@ -1284,14 +1277,14 @@ bail:
 }
 
 /**
- * ipa_put_hdr() - Release the specified header handle
+ * ipa2_put_hdr() - Release the specified header handle
  * @hdr_hdl:	[in] the header handle to release
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_put_hdr(u32 hdr_hdl)
+int ipa2_put_hdr(u32 hdr_hdl)
 {
 	struct ipa_hdr_entry *entry;
 	int result = -EFAULT;
@@ -1316,10 +1309,9 @@ bail:
 	mutex_unlock(&ipa_ctx->lock);
 	return result;
 }
-EXPORT_SYMBOL(ipa_put_hdr);
 
 /**
- * ipa_copy_hdr() - Lookup the specified header resource and return a copy of it
+ * ipa2_copy_hdr() - Lookup the specified header resource and return a copy of it
  * @copy:	[inout] header to lookup and its copy
  *
  * lookup the specified header resource and return a copy of it (along with its
@@ -1329,7 +1321,7 @@ EXPORT_SYMBOL(ipa_put_hdr);
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_copy_hdr(struct ipa_ioc_copy_hdr *copy)
+int ipa2_copy_hdr(struct ipa_ioc_copy_hdr *copy)
 {
 	struct ipa_hdr_entry *entry;
 	int result = -EFAULT;
@@ -1353,4 +1345,3 @@ int ipa_copy_hdr(struct ipa_ioc_copy_hdr *copy)
 
 	return result;
 }
-EXPORT_SYMBOL(ipa_copy_hdr);

@@ -283,7 +283,6 @@ int ipa3_uc_state_check(void)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_uc_state_check);
 
 static void ipa3_uc_event_handler(enum ipa_irq_type interrupt,
 				 void *private_data,
@@ -505,7 +504,6 @@ irq_fail0:
 remap_fail:
 	return result;
 }
-EXPORT_SYMBOL(ipa3_uc_interface_init);
 
 /**
  * ipa3_uc_send_cmd() - Send a command to the uC
@@ -605,7 +603,6 @@ int ipa3_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_uc_send_cmd);
 
 /**
  * ipa3_uc_register_handlers() - Registers event, response and log event
@@ -631,7 +628,6 @@ void ipa3_uc_register_handlers(enum ipa3_hw_features feature,
 
 	IPADBG("uC handlers registered for feature %u\n", feature);
 }
-EXPORT_SYMBOL(ipa3_uc_register_handlers);
 
 /**
  * ipa3_uc_reset_pipe() - reset a BAM pipe using the uC interface
@@ -684,7 +680,6 @@ int ipa3_uc_reset_pipe(enum ipa_client_type ipa_client)
 
 	return ret;
 }
-EXPORT_SYMBOL(ipa3_uc_reset_pipe);
 
 /**
  * ipa3_uc_notify_clk_state() - notify to uC of clock enable / disable
@@ -716,7 +711,6 @@ int ipa3_uc_notify_clk_state(bool enabled)
 
 	return ipa3_uc_send_cmd(0, opcode, 0, true, 0);
 }
-EXPORT_SYMBOL(ipa3_uc_notify_clk_state);
 
 /**
  * ipa3_uc_update_hw_flags() - send uC the HW flags to be used
@@ -733,7 +727,6 @@ int ipa3_uc_update_hw_flags(u32 flags)
 	return ipa3_uc_send_cmd(cmd.raw32b, IPA_CPU_2_HW_CMD_UPDATE_FLAGS, 0,
 		false, HZ);
 }
-EXPORT_SYMBOL(ipa3_uc_update_hw_flags);
 
 /**
  * ipa3_uc_memcpy() - Perform a memcpy action using IPA uC

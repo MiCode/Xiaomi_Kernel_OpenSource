@@ -53,9 +53,9 @@ static struct ipa_rm_it_private ipa_rm_it_handles[IPA_RM_RESOURCE_MAX];
  * ipa_rm_inactivity_timer_func() - called when timer expired in
  * the context of the shared workqueue. Checks internally if
  * reschedule_work flag is set. In case it is not set this function calls to
- * ipa_rm_release_resource(). In case reschedule_work is set this function
+ * ipa2_rm_release_resource(). In case reschedule_work is set this function
  * reschedule the work. This flag is cleared cleared when
- * calling to ipa_rm_inactivity_timer_release_resource().
+ * calling to ipa2_rm_inactivity_timer_release_resource().
  *
  * @work: work object provided by the work queue
  *
@@ -87,7 +87,7 @@ static void ipa_rm_inactivity_timer_func(struct work_struct *work)
 	} else {
 		IPADBG("%s: calling release_resource on resource %d!\n",
 			__func__, me->resource_name);
-		ipa_rm_release_resource(me->resource_name);
+		ipa2_rm_release_resource(me->resource_name);
 		ipa_rm_it_handles[me->resource_name].work_in_progress = false;
 	}
 	spin_unlock_irqrestore(
@@ -95,19 +95,19 @@ static void ipa_rm_inactivity_timer_func(struct work_struct *work)
 }
 
 /**
-* ipa_rm_inactivity_timer_init() - Init function for IPA RM
+* ipa2_rm_inactivity_timer_init() - Init function for IPA RM
 * inactivity timer. This function shall be called prior calling
 * any other API of IPA RM inactivity timer.
 *
 * @resource_name: Resource name. @see ipa_rm.h
 * @msecs: time in miliseccond, that IPA RM inactivity timer
-* shall wait prior calling to ipa_rm_release_resource().
+* shall wait prior calling to ipa2_rm_release_resource().
 *
 * Return codes:
 * 0: success
 * -EINVAL: invalid parameters
 */
-int ipa_rm_inactivity_timer_init(enum ipa_rm_resource_name resource_name,
+int ipa2_rm_inactivity_timer_init(enum ipa_rm_resource_name resource_name,
 				 unsigned long msecs)
 {
 	IPADBG("%s: resource %d\n", __func__, resource_name);
@@ -137,10 +137,9 @@ int ipa_rm_inactivity_timer_init(enum ipa_rm_resource_name resource_name,
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_rm_inactivity_timer_init);
 
 /**
-* ipa_rm_inactivity_timer_destroy() - De-Init function for IPA
+* ipa2_rm_inactivity_timer_destroy() - De-Init function for IPA
 * RM inactivity timer.
 *
 * @resource_name: Resource name. @see ipa_rm.h
@@ -149,7 +148,7 @@ EXPORT_SYMBOL(ipa_rm_inactivity_timer_init);
 * 0: success
 * -EINVAL: invalid parameters
 */
-int ipa_rm_inactivity_timer_destroy(enum ipa_rm_resource_name resource_name)
+int ipa2_rm_inactivity_timer_destroy(enum ipa_rm_resource_name resource_name)
 {
 	IPADBG("%s: resource %d\n", __func__, resource_name);
 
@@ -172,13 +171,13 @@ int ipa_rm_inactivity_timer_destroy(enum ipa_rm_resource_name resource_name)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_rm_inactivity_timer_destroy);
+
 
 /**
-* ipa_rm_inactivity_timer_request_resource() - Same as
-* ipa_rm_request_resource(), with a difference that calling to
+* ipa2_rm_inactivity_timer_request_resource() - Same as
+* ipa2_rm_request_resource(), with a difference that calling to
 * this function will also cancel the inactivity timer, if
-* ipa_rm_inactivity_timer_release_resource() was called earlier.
+* ipa2_rm_inactivity_timer_release_resource() was called earlier.
 *
 * @resource_name: Resource name. @see ipa_rm.h
 *
@@ -186,7 +185,7 @@ EXPORT_SYMBOL(ipa_rm_inactivity_timer_destroy);
 * 0: success
 * -EINVAL: invalid parameters
 */
-int ipa_rm_inactivity_timer_request_resource(
+int ipa2_rm_inactivity_timer_request_resource(
 				enum ipa_rm_resource_name resource_name)
 {
 	int ret;
@@ -208,19 +207,18 @@ int ipa_rm_inactivity_timer_request_resource(
 	spin_lock_irqsave(&ipa_rm_it_handles[resource_name].lock, flags);
 	ipa_rm_it_handles[resource_name].resource_requested = true;
 	spin_unlock_irqrestore(&ipa_rm_it_handles[resource_name].lock, flags);
-	ret = ipa_rm_request_resource(resource_name);
+	ret = ipa2_rm_request_resource(resource_name);
 	IPADBG("%s: resource %d: returning %d\n", __func__, resource_name, ret);
 
 	return ret;
 }
-EXPORT_SYMBOL(ipa_rm_inactivity_timer_request_resource);
 
 /**
-* ipa_rm_inactivity_timer_release_resource() - Sets the
+* ipa2_rm_inactivity_timer_release_resource() - Sets the
 * inactivity timer to the timeout set by
-* ipa_rm_inactivity_timer_init(). When the timeout expires, IPA
-* RM inactivity timer will call to ipa_rm_release_resource().
-* If a call to ipa_rm_inactivity_timer_request_resource() was
+* ipa2_rm_inactivity_timer_init(). When the timeout expires, IPA
+* RM inactivity timer will call to ipa2_rm_release_resource().
+* If a call to ipa2_rm_inactivity_timer_request_resource() was
 * made BEFORE the timout has expired, rge timer will be
 * cancelled.
 *
@@ -230,7 +228,7 @@ EXPORT_SYMBOL(ipa_rm_inactivity_timer_request_resource);
 * 0: success
 * -EINVAL: invalid parameters
 */
-int ipa_rm_inactivity_timer_release_resource(
+int ipa2_rm_inactivity_timer_release_resource(
 				enum ipa_rm_resource_name resource_name)
 {
 	unsigned long flags;
@@ -267,5 +265,4 @@ int ipa_rm_inactivity_timer_release_resource(
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_rm_inactivity_timer_release_resource);
 

@@ -57,7 +57,6 @@ int ipa3_register_intf(const char *name, const struct ipa_tx_intf *tx,
 {
 	return ipa3_register_intf_ext(name, tx, rx, NULL);
 }
-EXPORT_SYMBOL(ipa3_register_intf);
 
 /**
  * ipa3_register_intf_ext() - register "logical" interface which has only
@@ -164,7 +163,6 @@ int ipa3_register_intf_ext(const char *name, const struct ipa_tx_intf *tx,
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_register_intf_ext);
 
 /**
  * ipa3_deregister_intf() - de-register previously registered logical interface
@@ -204,7 +202,6 @@ int ipa3_deregister_intf(const char *name)
 
 	return result;
 }
-EXPORT_SYMBOL(ipa3_deregister_intf);
 
 /**
  * ipa3_query_intf() - query logical interface properties
@@ -412,7 +409,6 @@ int ipa3_send_msg(struct ipa_msg_meta *meta, void *buff,
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_send_msg);
 
 /**
  * ipa3_register_pull_msg() - register pull message type
@@ -450,7 +446,6 @@ int ipa3_register_pull_msg(struct ipa_msg_meta *meta, ipa_msg_pull_fn callback)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_register_pull_msg);
 
 /**
  * ipa3_deregister_pull_msg() - De-register pull message type
@@ -486,7 +481,6 @@ int ipa3_deregister_pull_msg(struct ipa_msg_meta *meta)
 	mutex_unlock(&ipa3_ctx->msg_lock);
 	return result;
 }
-EXPORT_SYMBOL(ipa3_deregister_pull_msg);
 
 /**
  * ipa3_read() - read message from IPA device

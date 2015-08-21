@@ -181,7 +181,7 @@ bail:
 	return IRQ_HANDLED;
 }
 /**
-* ipa_add_interrupt_handler() - Adds handler to an interrupt type
+* ipa2_add_interrupt_handler() - Adds handler to an interrupt type
 * @interrupt:		Interrupt type
 * @handler:		The handler to be added
 * @deferred_flag:	whether the handler processing should be deferred in
@@ -191,7 +191,7 @@ bail:
 * Adds handler to an interrupt type and enable the specific bit
 * in IRQ_EN register, associated interrupt in IRQ_STTS register will be enabled
 */
-int ipa_add_interrupt_handler(enum ipa_irq_type interrupt,
+int ipa2_add_interrupt_handler(enum ipa_irq_type interrupt,
 		ipa_irq_handler_t handler,
 		bool deferred_flag,
 		void *private_data)
@@ -199,7 +199,7 @@ int ipa_add_interrupt_handler(enum ipa_irq_type interrupt,
 	u32 val;
 	u32 bmsk;
 
-	IPADBG("in ipa_add_interrupt_handler\n");
+	IPADBG("in ipa2_add_interrupt_handler\n");
 	if (interrupt < IPA_BAD_SNOC_ACCESS_IRQ || interrupt >= IPA_IRQ_MAX) {
 		IPAERR("invalid interrupt number %d\n", interrupt);
 		return -EINVAL;
@@ -216,15 +216,14 @@ int ipa_add_interrupt_handler(enum ipa_irq_type interrupt,
 	IPADBG("wrote IPA_IRQ_EN_EE_n_ADDR register. reg = %d\n", val);
 	return 0;
 }
-EXPORT_SYMBOL(ipa_add_interrupt_handler);
 
 /**
-* ipa_remove_interrupt_handler() - Removes handler to an interrupt type
+* ipa2_remove_interrupt_handler() - Removes handler to an interrupt type
 * @interrupt:		Interrupt type
 *
 * Removes the handler and disable the specific bit in IRQ_EN register
 */
-int ipa_remove_interrupt_handler(enum ipa_irq_type interrupt)
+int ipa2_remove_interrupt_handler(enum ipa_irq_type interrupt)
 {
 	u32 val;
 	u32 bmsk;
@@ -243,7 +242,6 @@ int ipa_remove_interrupt_handler(enum ipa_irq_type interrupt)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_remove_interrupt_handler);
 
 /**
 * ipa_interrupts_init() - Initialize the IPA interrupts framework

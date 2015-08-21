@@ -112,7 +112,7 @@ int ipa3_qmi_filter_notify_send(struct ipa_fltr_installed_notif_req_msg_v01
 		*req);
 
 /* voting for bus BW to ipa_rm*/
-int vote_for_bus_bw(uint32_t *bw_mbps);
+int ipa3_vote_for_bus_bw(uint32_t *bw_mbps);
 
 int ipa3_qmi_enable_force_clear_datapath_send(
 	struct ipa_enable_force_clear_datapath_req_msg_v01 *req);

@@ -409,7 +409,7 @@ static int ipa_mhi_set_state(enum ipa_mhi_state new_state)
 			ipa_mhi_ctx->wakeup_notified = false;
 			if (ipa_mhi_ctx->rm_cons_state ==
 				IPA_MHI_RM_STATE_REQUESTED) {
-				ipa_rm_notify_completion(
+				ipa2_rm_notify_completion(
 					IPA_RM_RESOURCE_GRANTED,
 					IPA_RM_RESOURCE_MHI_CONS);
 				ipa_mhi_ctx->rm_cons_state =
@@ -435,7 +435,7 @@ static int ipa_mhi_set_state(enum ipa_mhi_state new_state)
 			ipa_mhi_ctx->wakeup_notified = false;
 			if (ipa_mhi_ctx->rm_cons_state ==
 				IPA_MHI_RM_STATE_REQUESTED) {
-				ipa_rm_notify_completion(
+				ipa2_rm_notify_completion(
 					IPA_RM_RESOURCE_GRANTED,
 					IPA_RM_RESOURCE_MHI_CONS);
 				ipa_mhi_ctx->rm_cons_state =
@@ -592,7 +592,7 @@ static int ipa_mhi_request_prod(void)
 
 	reinit_completion(&ipa_mhi_ctx->rm_prod_granted_comp);
 	IPA_MHI_DBG("requesting mhi prod\n");
-	res = ipa_rm_request_resource(IPA_RM_RESOURCE_MHI_PROD);
+	res = ipa2_rm_request_resource(IPA_RM_RESOURCE_MHI_PROD);
 	if (res) {
 		if (res != -EINPROGRESS) {
 			IPA_MHI_ERR("failed to request mhi prod %d\n", res);
@@ -619,7 +619,7 @@ static int ipa_mhi_release_prod(void)
 
 	IPA_MHI_FUNC_ENTRY();
 
-	res = ipa_rm_release_resource(IPA_RM_RESOURCE_MHI_PROD);
+	res = ipa2_rm_release_resource(IPA_RM_RESOURCE_MHI_PROD);
 
 	IPA_MHI_FUNC_EXIT();
 	return res;
@@ -678,7 +678,7 @@ static struct ipa_mhi_channel_ctx *ipa_mhi_get_channel_context(
 
 /**
  * ipa_mhi_get_channel_context_by_clnt_hdl() - Get corresponding channel context
- * @clnt_hdl: client handle as provided in ipa_mhi_connect_pipe()
+ * @clnt_hdl: client handle as provided in ipa2_mhi_connect_pipe()
  *
  * This function will return the corresponding channel context or NULL in case
  * that channel does not exist.
@@ -690,14 +690,14 @@ static struct ipa_mhi_channel_ctx *ipa_mhi_get_channel_context_by_clnt_hdl(
 
 	for (ch_idx = 0; ch_idx < IPA_MHI_MAX_UL_CHANNELS; ch_idx++) {
 		if (ipa_mhi_ctx->ul_channels[ch_idx].valid &&
-		    ipa_get_ep_mapping(
+		    ipa2_get_ep_mapping(
 		    ipa_mhi_ctx->ul_channels[ch_idx].client) == clnt_hdl)
 			return &ipa_mhi_ctx->ul_channels[ch_idx];
 	}
 
 	for (ch_idx = 0; ch_idx < IPA_MHI_MAX_DL_CHANNELS; ch_idx++) {
 		if (ipa_mhi_ctx->dl_channels[ch_idx].valid &&
-		    ipa_get_ep_mapping(
+		    ipa2_get_ep_mapping(
 		    ipa_mhi_ctx->dl_channels[ch_idx].client) == clnt_hdl)
 			return &ipa_mhi_ctx->dl_channels[ch_idx];
 	}
@@ -718,7 +718,7 @@ static int ipa_mhi_enable_force_clear(u32 request_id, bool throttle_source)
 	for (i = 0; i < IPA_MHI_MAX_UL_CHANNELS; i++) {
 		if (!ipa_mhi_ctx->ul_channels[i].valid)
 			continue;
-		req.source_pipe_bitmask |= 1 << ipa_get_ep_mapping(
+		req.source_pipe_bitmask |= 1 << ipa2_get_ep_mapping(
 					ipa_mhi_ctx->ul_channels[i].client);
 	}
 	if (throttle_source) {
@@ -784,7 +784,7 @@ static bool ipa_mhi_wait_for_bam_empty_timeout(unsigned int msecs)
 		for (i = 0; i < IPA_MHI_MAX_UL_CHANNELS; i++) {
 			if (!ipa_mhi_ctx->ul_channels[i].valid)
 				continue;
-			pipe_idx = ipa_get_ep_mapping(
+			pipe_idx = ipa2_get_ep_mapping(
 				ipa_mhi_ctx->ul_channels[i].client);
 			if (sps_pipe_pending_desc(ipa_ctx->bam_handle,
 						pipe_idx, &pending)) {
@@ -840,7 +840,7 @@ static int ipa_mhi_reset_ul_channel(struct ipa_mhi_channel_ctx *channel)
 			if (ipa_mhi_ctx->dl_channels[i].state ==
 			    IPA_HW_MHI_CHANNEL_STATE_INVALID)
 				continue;
-			ep_idx = ipa_get_ep_mapping(
+			ep_idx = ipa2_get_ep_mapping(
 				ipa_mhi_ctx->dl_channels[i].client);
 			if (-1 == ep_idx) {
 				IPA_MHI_ERR("Client %u is not mapped\n",
@@ -852,9 +852,10 @@ static int ipa_mhi_reset_ul_channel(struct ipa_mhi_channel_ctx *channel)
 			ep_holb.en = 1;
 			ep_holb.tmr_val = 0;
 			old_ep_holb[i] = ipa_ctx->ep[ep_idx].holb;
-			res = ipa_cfg_ep_holb(ep_idx, &ep_holb);
+			res = ipa2_cfg_ep_holb(ep_idx, &ep_holb);
 			if (res) {
-				IPA_MHI_ERR("ipa_cfg_ep_holb failed %d\n", res);
+				IPA_MHI_ERR("ipa2_cfg_ep_holb failed %d\n",
+						res);
 				BUG();
 				return res;
 			}
@@ -871,18 +872,19 @@ static int ipa_mhi_reset_ul_channel(struct ipa_mhi_channel_ctx *channel)
 			if (ipa_mhi_ctx->dl_channels[i].state ==
 				IPA_HW_MHI_CHANNEL_STATE_INVALID)
 				continue;
-			ep_idx = ipa_get_ep_mapping(
+			ep_idx = ipa2_get_ep_mapping(
 				ipa_mhi_ctx->dl_channels[i].client);
-			res = ipa_cfg_ep_holb(ep_idx, &old_ep_holb[i]);
+			res = ipa2_cfg_ep_holb(ep_idx, &old_ep_holb[i]);
 			if (res) {
-				IPA_MHI_ERR("ipa_cfg_ep_holb failed %d\n", res);
+				IPA_MHI_ERR("ipa2_cfg_ep_holb failed %d\n",
+						res);
 				BUG();
 				return res;
 			}
 		}
 
 		res = sps_pipe_disable(ipa_ctx->bam_handle,
-			ipa_get_ep_mapping(channel->client));
+			ipa2_get_ep_mapping(channel->client));
 		if (res) {
 			IPA_MHI_ERR("sps_pipe_disable failed %d\n", res);
 			BUG();
@@ -899,7 +901,7 @@ static int ipa_mhi_reset_ul_channel(struct ipa_mhi_channel_ctx *channel)
 		ipa_mhi_ctx->qmi_req_id++;
 	}
 
-	res = ipa_disable_data_path(ipa_get_ep_mapping(channel->client));
+	res = ipa_disable_data_path(ipa2_get_ep_mapping(channel->client));
 	if (res) {
 		IPA_MHI_ERR("ipa_disable_data_path failed %d\n", res);
 		return res;
@@ -914,7 +916,7 @@ static int ipa_mhi_reset_dl_channel(struct ipa_mhi_channel_ctx *channel)
 	int res;
 
 	IPA_MHI_FUNC_ENTRY();
-	res = ipa_disable_data_path(ipa_get_ep_mapping(channel->client));
+	res = ipa_disable_data_path(ipa2_get_ep_mapping(channel->client));
 	if (res) {
 		IPA_MHI_ERR("ipa_disable_data_path failed %d\n", res);
 		return res;
@@ -930,7 +932,7 @@ static int ipa_mhi_reset_dl_channel(struct ipa_mhi_channel_ctx *channel)
 	return 0;
 
 fail_reset_channel:
-	ipa_enable_data_path(ipa_get_ep_mapping(channel->client));
+	ipa_enable_data_path(ipa2_get_ep_mapping(channel->client));
 	return res;
 }
 
@@ -954,7 +956,7 @@ static int ipa_mhi_reset_channel(struct ipa_mhi_channel_ctx *channel)
 }
 
 /**
- * ipa_mhi_init() - Initialize IPA MHI driver
+ * ipa2_mhi_init() - Initialize IPA MHI driver
  * @params: initialization params
  *
  * This function is called by MHI client driver on boot to initialize IPA MHI
@@ -967,7 +969,7 @@ static int ipa_mhi_reset_channel(struct ipa_mhi_channel_ctx *channel)
  * Return codes: 0	  : success
  *		 negative : error
  */
-int ipa_mhi_init(struct ipa_mhi_init_params *params)
+int ipa2_mhi_init(struct ipa_mhi_init_params *params)
 {
 	int res;
 	struct ipa_rm_create_params mhi_prod_params;
@@ -1035,7 +1037,7 @@ int ipa_mhi_init(struct ipa_mhi_init_params *params)
 	mhi_prod_params.name = IPA_RM_RESOURCE_MHI_PROD;
 	mhi_prod_params.floor_voltage = IPA_VOLTAGE_SVS;
 	mhi_prod_params.reg_params.notify_cb = ipa_mhi_rm_prod_notify;
-	res = ipa_rm_create_resource(&mhi_prod_params);
+	res = ipa2_rm_create_resource(&mhi_prod_params);
 	if (res) {
 		IPA_MHI_ERR("fail to create IPA_RM_RESOURCE_MHI_PROD\n");
 		goto fail_create_rm_prod;
@@ -1047,7 +1049,7 @@ int ipa_mhi_init(struct ipa_mhi_init_params *params)
 	mhi_cons_params.floor_voltage = IPA_VOLTAGE_SVS;
 	mhi_cons_params.request_resource = ipa_mhi_rm_cons_request;
 	mhi_cons_params.release_resource = ipa_mhi_rm_cons_release;
-	res = ipa_rm_create_resource(&mhi_cons_params);
+	res = ipa2_rm_create_resource(&mhi_cons_params);
 	if (res) {
 		IPA_MHI_ERR("fail to create IPA_RM_RESOURCE_MHI_CONS\n");
 		goto fail_create_rm_cons;
@@ -1063,7 +1065,7 @@ int ipa_mhi_init(struct ipa_mhi_init_params *params)
 	return 0;
 
 fail_create_rm_cons:
-	ipa_rm_delete_resource(IPA_RM_RESOURCE_MHI_PROD);
+	ipa2_rm_delete_resource(IPA_RM_RESOURCE_MHI_PROD);
 fail_create_rm_prod:
 	destroy_workqueue(ipa_mhi_ctx->wq);
 fail_create_wq:
@@ -1072,15 +1074,14 @@ fail_create_wq:
 fail_alloc_ctx:
 	return res;
 }
-EXPORT_SYMBOL(ipa_mhi_init);
 
 /**
- * ipa_mhi_start() - Start IPA MHI engine
+ * ipa2_mhi_start() - Start IPA MHI engine
  * @params: pcie addresses for MHI
  *
  * This function is called by MHI client driver on MHI engine start for
  * handling MHI accelerated channels. This function is called after
- * ipa_mhi_init() was called and can be called after MHI reset to restart MHI
+ * ipa2_mhi_init() was called and can be called after MHI reset to restart MHI
  * engine. When this function returns device can move to M0 state.
  * This function is doing the following:
  *	- Send command to uC for initialization of MHI engine
@@ -1090,7 +1091,7 @@ EXPORT_SYMBOL(ipa_mhi_init);
  * Return codes: 0	  : success
  *		 negative : error
  */
-int ipa_mhi_start(struct ipa_mhi_start_params *params)
+int ipa2_mhi_start(struct ipa_mhi_start_params *params)
 {
 	int res;
 
@@ -1121,14 +1122,14 @@ int ipa_mhi_start(struct ipa_mhi_start_params *params)
 	ipa_mhi_ctx->host_data_addr = params->host_data_addr;
 
 	/* Add MHI <-> Q6 dependencies to IPA RM */
-	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_MHI_PROD,
+	res = ipa2_rm_add_dependency(IPA_RM_RESOURCE_MHI_PROD,
 		IPA_RM_RESOURCE_Q6_CONS);
 	if (res && res != -EINPROGRESS) {
 		IPA_MHI_ERR("failed to add dependency %d\n", res);
 		goto fail_add_mhi_q6_dep;
 	}
 
-	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_Q6_PROD,
+	res = ipa2_rm_add_dependency(IPA_RM_RESOURCE_Q6_PROD,
 		IPA_RM_RESOURCE_MHI_CONS);
 	if (res && res != -EINPROGRESS) {
 		IPA_MHI_ERR("failed to add dependency %d\n", res);
@@ -1163,19 +1164,18 @@ int ipa_mhi_start(struct ipa_mhi_start_params *params)
 fail_init_engine:
 	ipa_mhi_release_prod();
 fail_request_prod:
-	ipa_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
+	ipa2_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
 		IPA_RM_RESOURCE_MHI_CONS);
 fail_add_q6_mhi_dep:
-	ipa_rm_delete_dependency(IPA_RM_RESOURCE_MHI_PROD,
+	ipa2_rm_delete_dependency(IPA_RM_RESOURCE_MHI_PROD,
 		IPA_RM_RESOURCE_Q6_CONS);
 fail_add_mhi_q6_dep:
 	ipa_mhi_set_state(IPA_MHI_STATE_INITIALIZED);
 	return res;
 }
-EXPORT_SYMBOL(ipa_mhi_start);
 
 /**
- * ipa_mhi_connect_pipe() - Connect pipe to IPA and start corresponding
+ * ipa2_mhi_connect_pipe() - Connect pipe to IPA and start corresponding
  * MHI channel
  * @in: connect parameters
  * @clnt_hdl: [out] client handle for this pipe
@@ -1189,7 +1189,7 @@ EXPORT_SYMBOL(ipa_mhi_start);
  * Return codes: 0	  : success
  *		 negative : error
  */
-int ipa_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
+int ipa2_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
 {
 	struct ipa_ep_context *ep;
 	int ipa_ep_idx;
@@ -1222,7 +1222,7 @@ int ipa_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
 	}
 	spin_unlock_irqrestore(&ipa_mhi_ctx->state_lock, flags);
 
-	ipa_ep_idx = ipa_get_ep_mapping(in->sys.client);
+	ipa_ep_idx = ipa2_get_ep_mapping(in->sys.client);
 	if (ipa_ep_idx == -1) {
 		IPA_MHI_ERR("Invalid client.\n");
 		return -EINVAL;
@@ -1291,11 +1291,11 @@ int ipa_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl)
 	}
 
 	if (!ep->skip_ep_cfg) {
-		if (ipa_cfg_ep(ipa_ep_idx, &in->sys.ipa_ep_cfg)) {
+		if (ipa2_cfg_ep(ipa_ep_idx, &in->sys.ipa_ep_cfg)) {
 			IPAERR("fail to configure EP.\n");
 			goto fail_ep_cfg;
 		}
-		if (ipa_cfg_ep_status(ipa_ep_idx, &ep->status)) {
+		if (ipa2_cfg_ep_status(ipa_ep_idx, &ep->status)) {
 			IPAERR("fail to configure status of EP.\n");
 			goto fail_ep_cfg;
 		}
@@ -1331,10 +1331,9 @@ fail_ep_exists:
 	ipa_dec_client_disable_clks();
 	return -EPERM;
 }
-EXPORT_SYMBOL(ipa_mhi_connect_pipe);
 
 /**
- * ipa_mhi_disconnect_pipe() - Disconnect pipe from IPA and reset corresponding
+ * ipa2_mhi_disconnect_pipe() - Disconnect pipe from IPA and reset corresponding
  * MHI channel
  * @in: connect parameters
  * @clnt_hdl: [out] client handle for this pipe
@@ -1348,7 +1347,7 @@ EXPORT_SYMBOL(ipa_mhi_connect_pipe);
  * Return codes: 0	  : success
  *		 negative : error
  */
-int ipa_mhi_disconnect_pipe(u32 clnt_hdl)
+int ipa2_mhi_disconnect_pipe(u32 clnt_hdl)
 {
 	struct ipa_ep_context *ep;
 	static struct ipa_mhi_channel_ctx *channel;
@@ -1402,7 +1401,6 @@ fail_reset_channel:
 		ipa_dec_client_disable_clks();
 	return res;
 }
-EXPORT_SYMBOL(ipa_mhi_disconnect_pipe);
 
 static int ipa_mhi_suspend_ul_channels(void)
 {
@@ -1575,7 +1573,7 @@ static int ipa_mhi_stop_event_update_dl_channels(void)
 }
 
 /**
- * ipa_mhi_suspend() - Suspend MHI accelerated channels
+ * ipa2_mhi_suspend() - Suspend MHI accelerated channels
  * @force:
  *	false: in case of data pending in IPA, MHI channels will not be
  *		suspended and function will fail.
@@ -1593,7 +1591,7 @@ static int ipa_mhi_stop_event_update_dl_channels(void)
  * Return codes: 0	  : success
  *		 negative : error
  */
-int ipa_mhi_suspend(bool force)
+int ipa2_mhi_suspend(bool force)
 {
 	int res;
 	bool bam_empty;
@@ -1721,10 +1719,9 @@ fail_suspend_ul_channel:
 	ipa_mhi_set_state(IPA_MHI_STATE_STARTED);
 	return res;
 }
-EXPORT_SYMBOL(ipa_mhi_suspend);
 
 /**
- * ipa_mhi_resume() - Resume MHI accelerated channels
+ * ipa2_mhi_resume() - Resume MHI accelerated channels
  *
  * This function is called by MHI client driver on MHI resume.
  * This function is called after MHI channel was suspended.
@@ -1737,7 +1734,7 @@ EXPORT_SYMBOL(ipa_mhi_suspend);
  * Return codes: 0	  : success
  *		 negative : error
  */
-int ipa_mhi_resume(void)
+int ipa2_mhi_resume(void)
 {
 	int res;
 	bool dl_channel_resumed = false;
@@ -1765,7 +1762,7 @@ int ipa_mhi_resume(void)
 		}
 		dl_channel_resumed = true;
 
-		ipa_rm_notify_completion(IPA_RM_RESOURCE_GRANTED,
+		ipa2_rm_notify_completion(IPA_RM_RESOURCE_GRANTED,
 			IPA_RM_RESOURCE_MHI_CONS);
 		ipa_mhi_ctx->rm_cons_state = IPA_MHI_RM_STATE_GRANTED;
 	}
@@ -1813,10 +1810,10 @@ fail_resume_dl_channels:
 	ipa_mhi_set_state(IPA_MHI_STATE_SUSPENDED);
 	return res;
 }
-EXPORT_SYMBOL(ipa_mhi_resume);
+
 
 /**
- * ipa_mhi_destroy() - Destroy MHI IPA
+ * ipa2_mhi_destroy() - Destroy MHI IPA
  *
  * This function is called by MHI client driver on MHI reset to destroy all IPA
  * MHI resources.
@@ -1824,7 +1821,7 @@ EXPORT_SYMBOL(ipa_mhi_resume);
  * Return codes: 0	  : success
  *		 negative : error
  */
-int ipa_mhi_destroy(void)
+int ipa2_mhi_destroy(void)
 {
 	IPA_MHI_FUNC_ENTRY();
 
@@ -1839,7 +1836,6 @@ int ipa_mhi_destroy(void)
 	IPA_MHI_FUNC_EXIT();
 	return -EPERM;
 }
-EXPORT_SYMBOL(ipa_mhi_destroy);
 
 /**
  * ipa_mhi_handle_ipa_config_req() - hanle IPA CONFIG QMI message

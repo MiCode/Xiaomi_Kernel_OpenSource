@@ -424,7 +424,6 @@ out:
 	ODU_BRIDGE_FUNC_EXIT();
 	return res;
 }
-EXPORT_SYMBOL(ipa3_odu_bridge_disconnect);
 
 /**
  * ipa3_odu_bridge_connect() - Connect odu bridge.
@@ -475,7 +474,6 @@ bail:
 	ODU_BRIDGE_FUNC_EXIT();
 	return res;
 }
-EXPORT_SYMBOL(ipa3_odu_bridge_connect);
 
 /**
  * ipa3_odu_bridge_set_mode() - Set bridge mode to Router/Bridge
@@ -886,7 +884,6 @@ out:
 	ODU_BRIDGE_FUNC_EXIT();
 	return res;
 }
-EXPORT_SYMBOL(ipa3_odu_bridge_tx_dp);
 
 static int ipa3_odu_bridge_add_hdrs(void)
 {
@@ -1190,7 +1187,6 @@ fail_class_create:
 	ipa3_odu_bridge_ctx = NULL;
 	return res;
 }
-EXPORT_SYMBOL(ipa3_odu_bridge_init);
 
 /**
  * ipa3_odu_bridge_cleanup() - De-Initialize the ODU bridge driver
@@ -1227,7 +1223,6 @@ int ipa3_odu_bridge_cleanup(void)
 	ODU_BRIDGE_FUNC_EXIT();
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_odu_bridge_cleanup);
 
 
 MODULE_LICENSE("GPL v2");

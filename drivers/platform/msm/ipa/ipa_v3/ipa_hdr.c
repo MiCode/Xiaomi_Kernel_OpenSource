@@ -686,7 +686,6 @@ bail:
 	mutex_unlock(&ipa3_ctx->lock);
 	return result;
 }
-EXPORT_SYMBOL(ipa3_add_hdr);
 
 /**
  * ipa3_del_hdr() - Remove the specified headers from SW and optionally commit them
@@ -728,7 +727,6 @@ bail:
 	mutex_unlock(&ipa3_ctx->lock);
 	return result;
 }
-EXPORT_SYMBOL(ipa3_del_hdr);
 
 /**
  * ipa3_add_hdr_proc_ctx() - add the specified headers to SW
@@ -773,7 +771,6 @@ bail:
 	mutex_unlock(&ipa3_ctx->lock);
 	return result;
 }
-EXPORT_SYMBOL(ipa3_add_hdr_proc_ctx);
 
 /**
  * ipa3_del_hdr_proc_ctx() -
@@ -816,7 +813,6 @@ bail:
 	mutex_unlock(&ipa3_ctx->lock);
 	return result;
 }
-EXPORT_SYMBOL(ipa3_del_hdr_proc_ctx);
 
 /**
  * ipa3_commit_hdr() - commit to IPA HW the current header table in SW
@@ -848,7 +844,6 @@ bail:
 	mutex_unlock(&ipa3_ctx->lock);
 	return result;
 }
-EXPORT_SYMBOL(ipa3_commit_hdr);
 
 /**
  * ipa3_reset_hdr() - reset the current header table in SW (does not commit to
@@ -979,7 +974,6 @@ int ipa3_reset_hdr(void)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_reset_hdr);
 
 static struct ipa3_hdr_entry *__ipa_find_hdr(const char *name)
 {
@@ -1029,7 +1023,6 @@ int ipa3_get_hdr(struct ipa_ioc_get_hdr *lookup)
 
 	return result;
 }
-EXPORT_SYMBOL(ipa3_get_hdr);
 
 /**
  * __ipa3_release_hdr() - drop reference to header and cause
@@ -1120,7 +1113,6 @@ bail:
 	mutex_unlock(&ipa3_ctx->lock);
 	return result;
 }
-EXPORT_SYMBOL(ipa3_put_hdr);
 
 /**
  * ipa3_copy_hdr() - Lookup the specified header resource and return a copy of it
@@ -1157,4 +1149,3 @@ int ipa3_copy_hdr(struct ipa_ioc_copy_hdr *copy)
 
 	return result;
 }
-EXPORT_SYMBOL(ipa3_copy_hdr);

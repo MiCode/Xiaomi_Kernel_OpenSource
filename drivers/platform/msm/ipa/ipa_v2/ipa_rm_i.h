@@ -71,7 +71,7 @@ enum ipa_rm_wq_cmd {
  * @dep_graph: data structure to search for resource if exists
  * @event: event to notify
  * @notify_registered_only: notify only clients registered by
- *	ipa_rm_register()
+ *	ipa2_rm_register()
  */
 struct ipa_rm_wq_work_type {
 	struct work_struct		work;

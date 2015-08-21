@@ -123,7 +123,7 @@ static long ipa3_wan_ioctl(struct file *filp,
 			retval = -EFAULT;
 			break;
 		}
-		if (vote_for_bus_bw((uint32_t *)param)) {
+		if (ipa3_vote_for_bus_bw((uint32_t *)param)) {
 			IPAWANERR("Failed to vote for bus BW\n");
 			retval = -EFAULT;
 			break;

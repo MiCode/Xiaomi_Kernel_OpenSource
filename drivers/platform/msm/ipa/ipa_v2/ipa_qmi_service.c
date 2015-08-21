@@ -391,7 +391,7 @@ static int qmi_init_modem_send_sync_msg(void)
 	struct ipa_init_modem_driver_resp_msg_v01 resp;
 	struct msg_desc req_desc, resp_desc;
 	int rc;
-	u16 smem_restr_bytes = ipa_get_smem_restr_bytes();
+	u16 smem_restr_bytes = ipa2_get_smem_restr_bytes();
 
 	memset(&req, 0, sizeof(struct ipa_init_modem_driver_req_msg_v01));
 	memset(&resp, 0, sizeof(struct ipa_init_modem_driver_resp_msg_v01));
@@ -430,7 +430,7 @@ static int qmi_init_modem_send_sync_msg(void)
 
 	req.ctrl_comm_dest_end_pt_valid = true;
 	req.ctrl_comm_dest_end_pt =
-		ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+		ipa2_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
 
 	req.hdr_proc_ctx_tbl_info_valid =
 		(IPA_MEM_PART(modem_hdr_proc_ctx_size) != 0);
@@ -643,7 +643,7 @@ int qmi_filter_notify_send(struct ipa_fltr_installed_notif_req_msg_v01 *req)
 		return -EINVAL;
 	} else if (req->filter_index_list[0].filter_index == 0 &&
 		req->source_pipe_index !=
-		ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_WAN_PROD)) {
+		ipa2_get_ep_mapping(IPA_CLIENT_APPS_LAN_WAN_PROD)) {
 		IPAWANERR(" get index wrong for pipe %d\n",
 			req->source_pipe_index);
 		for (i = 0; i < req->filter_index_list_len; i++)
@@ -790,7 +790,7 @@ static void ipa_q6_clnt_svc_arrive(struct work_struct *work)
 		return;
 	}
 	qmi_modem_init_fin = true;
-	ipa_proxy_clk_unvote();
+	ipa2_proxy_clk_unvote();
 	/* is_load_uc=FALSE indicates that SSR has occurred */
 	ipa_q6_handshake_complete(!is_load_uc);
 	IPAWANDBG("complete, qmi_modem_init_fin : %d\n",
@@ -864,7 +864,7 @@ static void ipa_qmi_service_init_worker(struct work_struct *work)
 		return;
 	}
 	ipa_qmi_ctx->modem_cfg_emb_pipe_flt =
-		ipa_get_modem_cfg_emb_pipe_flt();
+		ipa2_get_modem_cfg_emb_pipe_flt();
 
 	ipa_svc_workqueue = create_singlethread_workqueue("ipa_A7_svc");
 	if (!ipa_svc_workqueue) {
@@ -1040,7 +1040,7 @@ int vote_for_bus_bw(uint32_t *bw_mbps)
 
 	memset(&profile, 0, sizeof(profile));
 	profile.max_supported_bandwidth_mbps = *bw_mbps;
-	ret = ipa_rm_set_perf_profile(IPA_RM_RESOURCE_Q6_PROD,
+	ret = ipa2_rm_set_perf_profile(IPA_RM_RESOURCE_Q6_PROD,
 			&profile);
 	if (ret)
 		IPAWANERR("Failed to set perf profile to BW %u\n",

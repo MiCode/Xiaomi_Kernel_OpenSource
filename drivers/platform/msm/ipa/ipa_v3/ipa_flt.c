@@ -1111,7 +1111,6 @@ bail:
 
 	return result;
 }
-EXPORT_SYMBOL(ipa3_add_flt_rule);
 
 /**
  * ipa3_del_flt_rule() - Remove the specified filtering rules from SW and
@@ -1154,7 +1153,6 @@ bail:
 
 	return result;
 }
-EXPORT_SYMBOL(ipa3_del_flt_rule);
 
 /**
  * ipa3_mdfy_flt_rule() - Modify the specified filtering rules in SW and optionally
@@ -1197,7 +1195,6 @@ bail:
 
 	return result;
 }
-EXPORT_SYMBOL(ipa3_mdfy_flt_rule);
 
 
 /**
@@ -1233,7 +1230,6 @@ bail:
 
 	return result;
 }
-EXPORT_SYMBOL(ipa3_commit_flt);
 
 /**
  * ipa3_reset_flt() - Reset the current SW filtering table of specified type
@@ -1316,7 +1312,6 @@ int ipa3_reset_flt(enum ipa_ip_type ip)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_reset_flt);
 
 void ipa3_install_dflt_flt_rules(u32 ipa_ep_idx)
 {

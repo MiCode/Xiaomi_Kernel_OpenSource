@@ -118,7 +118,7 @@ struct ipa_dma_ctx {
 static struct ipa_dma_ctx *ipa_dma_ctx;
 
 /**
- * ipa_dma_init() -Initialize IPADMA.
+ * ipa2_dma_init() -Initialize IPADMA.
  *
  * This function initialize all IPADMA internal data and connect in dma:
  *	MEMCPY_DMA_SYNC_PROD ->MEMCPY_DMA_SYNC_CONS
@@ -129,7 +129,7 @@ static struct ipa_dma_ctx *ipa_dma_ctx;
  *		-ENOMEM: allocating memory error
  *		-EPERM: pipe connection failed
  */
-int ipa_dma_init(void)
+int ipa2_dma_init(void)
 {
 	struct ipa_dma_ctx *ipa_dma_ctx_t;
 	struct ipa_sys_connect_params sys_in;
@@ -178,7 +178,7 @@ int ipa_dma_init(void)
 	sys_in.ipa_ep_cfg.mode.mode = IPA_DMA;
 	sys_in.ipa_ep_cfg.mode.dst = IPA_CLIENT_MEMCPY_DMA_SYNC_CONS;
 	sys_in.skip_ep_cfg = false;
-	if (ipa_setup_sys_pipe(&sys_in,
+	if (ipa2_setup_sys_pipe(&sys_in,
 		&ipa_dma_ctx_t->ipa_dma_sync_prod_hdl)) {
 		IPADMA_ERR(":setup sync prod pipe failed\n");
 		res = -EPERM;
@@ -193,7 +193,7 @@ int ipa_dma_init(void)
 	sys_in.ipa_ep_cfg.mode.mode = IPA_BASIC;
 	sys_in.notify = NULL;
 	sys_in.priv = NULL;
-	if (ipa_setup_sys_pipe(&sys_in,
+	if (ipa2_setup_sys_pipe(&sys_in,
 		&ipa_dma_ctx_t->ipa_dma_sync_cons_hdl)) {
 		IPADMA_ERR(":setup sync cons pipe failed.\n");
 		res = -EPERM;
@@ -210,7 +210,7 @@ int ipa_dma_init(void)
 	sys_in.ipa_ep_cfg.mode.dst = IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS;
 	sys_in.skip_ep_cfg = false;
 	sys_in.notify = NULL;
-	if (ipa_setup_sys_pipe(&sys_in,
+	if (ipa2_setup_sys_pipe(&sys_in,
 		&ipa_dma_ctx_t->ipa_dma_async_prod_hdl)) {
 		IPADMA_ERR(":setup async prod pipe failed.\n");
 		res = -EPERM;
@@ -225,7 +225,7 @@ int ipa_dma_init(void)
 	sys_in.ipa_ep_cfg.mode.mode = IPA_BASIC;
 	sys_in.notify = ipa_dma_async_memcpy_notify_cb;
 	sys_in.priv = NULL;
-	if (ipa_setup_sys_pipe(&sys_in,
+	if (ipa2_setup_sys_pipe(&sys_in,
 		&ipa_dma_ctx_t->ipa_dma_async_cons_hdl)) {
 		IPADMA_ERR(":setup async cons pipe failed.\n");
 		res = -EPERM;
@@ -238,11 +238,11 @@ int ipa_dma_init(void)
 	IPADMA_FUNC_EXIT();
 	return res;
 fail_async_cons:
-	ipa_teardown_sys_pipe(ipa_dma_ctx_t->ipa_dma_async_prod_hdl);
+	ipa2_teardown_sys_pipe(ipa_dma_ctx_t->ipa_dma_async_prod_hdl);
 fail_async_prod:
-	ipa_teardown_sys_pipe(ipa_dma_ctx_t->ipa_dma_sync_cons_hdl);
+	ipa2_teardown_sys_pipe(ipa_dma_ctx_t->ipa_dma_sync_cons_hdl);
 fail_sync_cons:
-	ipa_teardown_sys_pipe(ipa_dma_ctx_t->ipa_dma_sync_prod_hdl);
+	ipa2_teardown_sys_pipe(ipa_dma_ctx_t->ipa_dma_sync_prod_hdl);
 fail_sync_prod:
 	kmem_cache_destroy(ipa_dma_ctx_t->ipa_dma_xfer_wrapper_cache);
 fail_mem_ctrl:
@@ -251,17 +251,17 @@ fail_mem_ctrl:
 	return res;
 
 }
-EXPORT_SYMBOL(ipa_dma_init);
+
 
 /**
- * ipa_dma_enable() -Vote for IPA clocks.
+ * ipa2_dma_enable() -Vote for IPA clocks.
  *
  *Return codes: 0: success
  *		-EINVAL: IPADMA is not initialized
  *		-EPERM: Operation not permitted as ipa_dma is already
  *		 enabled
  */
-int ipa_dma_enable(void)
+int ipa2_dma_enable(void)
 {
 	IPADMA_FUNC_ENTRY();
 	if (ipa_dma_ctx == NULL) {
@@ -281,7 +281,6 @@ int ipa_dma_enable(void)
 	IPADMA_FUNC_EXIT();
 	return 0;
 }
-EXPORT_SYMBOL(ipa_dma_enable);
 
 static bool ipa_dma_work_pending(void)
 {
@@ -302,7 +301,7 @@ static bool ipa_dma_work_pending(void)
 }
 
 /**
- * ipa_dma_disable()- Unvote for IPA clocks.
+ * ipa2_dma_disable()- Unvote for IPA clocks.
  *
  * enter to power save mode.
  *
@@ -313,7 +312,7 @@ static bool ipa_dma_work_pending(void)
  *		-EFAULT: can not disable ipa_dma as there are pending
  *			memcopy works
  */
-int ipa_dma_disable(void)
+int ipa2_dma_disable(void)
 {
 	unsigned long flags;
 
@@ -343,10 +342,9 @@ int ipa_dma_disable(void)
 	IPADMA_FUNC_EXIT();
 	return 0;
 }
-EXPORT_SYMBOL(ipa_dma_disable);
 
 /**
- * ipa_dma_sync_memcpy()- Perform synchronous memcpy using IPA.
+ * ipa2_dma_sync_memcpy()- Perform synchronous memcpy using IPA.
  *
  * @dest: physical address to store the copied data.
  * @src: physical address of the source data to copy.
@@ -359,7 +357,7 @@ EXPORT_SYMBOL(ipa_dma_disable);
  *		-SPS_ERROR: on sps faliures
  *		-EFAULT: other
  */
-int ipa_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src, int len)
+int ipa2_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src, int len)
 {
 	int ep_idx;
 	int res;
@@ -400,7 +398,7 @@ int ipa_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src, int len)
 		return -EFAULT;
 	}
 
-	ep_idx = ipa_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_SYNC_CONS);
+	ep_idx = ipa2_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_SYNC_CONS);
 	if (-1 == ep_idx) {
 		IPADMA_ERR("Client %u is not mapped\n",
 			IPA_CLIENT_MEMCPY_DMA_SYNC_CONS);
@@ -408,7 +406,7 @@ int ipa_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src, int len)
 	}
 	cons_sys = ipa_ctx->ep[ep_idx].sys;
 
-	ep_idx = ipa_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_SYNC_PROD);
+	ep_idx = ipa2_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_SYNC_PROD);
 	if (-1 == ep_idx) {
 		IPADMA_ERR("Client %u is not mapped\n",
 			IPA_CLIENT_MEMCPY_DMA_SYNC_PROD);
@@ -501,10 +499,9 @@ fail_mem_alloc:
 			complete(&ipa_dma_ctx->done);
 	return res;
 }
-EXPORT_SYMBOL(ipa_dma_sync_memcpy);
 
 /**
- * ipa_dma_async_memcpy()- Perform asynchronous memcpy using IPA.
+ * ipa2_dma_async_memcpy()- Perform asynchronous memcpy using IPA.
  *
  * @dest: physical address to store the copied data.
  * @src: physical address of the source data to copy.
@@ -519,7 +516,7 @@ EXPORT_SYMBOL(ipa_dma_sync_memcpy);
  *		-SPS_ERROR: on sps faliures
  *		-EFAULT: descr fifo is full.
  */
-int ipa_dma_async_memcpy(phys_addr_t dest, phys_addr_t src, int len,
+int ipa2_dma_async_memcpy(phys_addr_t dest, phys_addr_t src, int len,
 		void (*user_cb)(void *user1), void *user_param)
 {
 	int ep_idx;
@@ -561,7 +558,7 @@ int ipa_dma_async_memcpy(phys_addr_t dest, phys_addr_t src, int len,
 		return -EFAULT;
 	}
 
-	ep_idx = ipa_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS);
+	ep_idx = ipa2_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS);
 	if (-1 == ep_idx) {
 		IPADMA_ERR("Client %u is not mapped\n",
 			IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS);
@@ -569,7 +566,7 @@ int ipa_dma_async_memcpy(phys_addr_t dest, phys_addr_t src, int len,
 	}
 	cons_sys = ipa_ctx->ep[ep_idx].sys;
 
-	ep_idx = ipa_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD);
+	ep_idx = ipa2_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD);
 	if (-1 == ep_idx) {
 		IPADMA_ERR("Client %u is not mapped\n",
 			IPA_CLIENT_MEMCPY_DMA_SYNC_PROD);
@@ -619,10 +616,9 @@ fail_mem_alloc:
 			complete(&ipa_dma_ctx->done);
 	return res;
 }
-EXPORT_SYMBOL(ipa_dma_async_memcpy);
 
 /**
- * ipa_dma_uc_memcpy() - Perform a memcpy action using IPA uC
+ * ipa2_dma_uc_memcpy() - Perform a memcpy action using IPA uC
  * @dest: physical address to store the copied data.
  * @src: physical address of the source data to copy.
  * @len: number of bytes to copy.
@@ -633,7 +629,7 @@ EXPORT_SYMBOL(ipa_dma_async_memcpy);
  *			initialized
  *		-EBADF: IPA uC is not loaded
  */
-int ipa_dma_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len)
+int ipa2_dma_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len)
 {
 	int res;
 	unsigned long flags;
@@ -676,14 +672,13 @@ dec_and_exit:
 	IPADMA_FUNC_EXIT();
 	return res;
 }
-EXPORT_SYMBOL(ipa_dma_uc_memcpy);
 
 /**
- * ipa_dma_destroy() -teardown IPADMA pipes and release ipadma.
+ * ipa2_dma_destroy() -teardown IPADMA pipes and release ipadma.
  *
  * this is a blocking function, returns just after destroying IPADMA.
  */
-void ipa_dma_destroy(void)
+void ipa2_dma_destroy(void)
 {
 	int res = 0;
 
@@ -699,19 +694,19 @@ void ipa_dma_destroy(void)
 		wait_for_completion(&ipa_dma_ctx->done);
 	}
 
-	res = ipa_teardown_sys_pipe(ipa_dma_ctx->ipa_dma_async_cons_hdl);
+	res = ipa2_teardown_sys_pipe(ipa_dma_ctx->ipa_dma_async_cons_hdl);
 	if (res)
 		IPADMA_ERR("teardown IPADMA ASYNC CONS failed\n");
 	ipa_dma_ctx->ipa_dma_async_cons_hdl = 0;
-	res = ipa_teardown_sys_pipe(ipa_dma_ctx->ipa_dma_sync_cons_hdl);
+	res = ipa2_teardown_sys_pipe(ipa_dma_ctx->ipa_dma_sync_cons_hdl);
 	if (res)
 		IPADMA_ERR("teardown IPADMA SYNC CONS failed\n");
 	ipa_dma_ctx->ipa_dma_sync_cons_hdl = 0;
-	res = ipa_teardown_sys_pipe(ipa_dma_ctx->ipa_dma_async_prod_hdl);
+	res = ipa2_teardown_sys_pipe(ipa_dma_ctx->ipa_dma_async_prod_hdl);
 	if (res)
 		IPADMA_ERR("teardown IPADMA ASYNC PROD failed\n");
 	ipa_dma_ctx->ipa_dma_async_prod_hdl = 0;
-	res = ipa_teardown_sys_pipe(ipa_dma_ctx->ipa_dma_sync_prod_hdl);
+	res = ipa2_teardown_sys_pipe(ipa_dma_ctx->ipa_dma_sync_prod_hdl);
 	if (res)
 		IPADMA_ERR("teardown IPADMA SYNC PROD failed\n");
 	ipa_dma_ctx->ipa_dma_sync_prod_hdl = 0;
@@ -723,7 +718,6 @@ void ipa_dma_destroy(void)
 
 	IPADMA_FUNC_EXIT();
 }
-EXPORT_SYMBOL(ipa_dma_destroy);
 
 /**
  * ipa_dma_async_memcpy_notify_cb() -Callback function which will be called by
@@ -745,7 +739,7 @@ void ipa_dma_async_memcpy_notify_cb(void *priv
 
 	IPADMA_FUNC_ENTRY();
 
-	ep_idx = ipa_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS);
+	ep_idx = ipa2_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS);
 	sys = ipa_ctx->ep[ep_idx].sys;
 
 	spin_lock_irqsave(&ipa_dma_ctx->async_lock, flags);

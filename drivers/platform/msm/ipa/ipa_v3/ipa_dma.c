@@ -251,7 +251,6 @@ fail_mem_ctrl:
 	return res;
 
 }
-EXPORT_SYMBOL(ipa3_dma_init);
 
 /**
  * ipa3_dma_enable() -Vote for IPA clocks.
@@ -281,7 +280,6 @@ int ipa3_dma_enable(void)
 	IPADMA_FUNC_EXIT();
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_dma_enable);
 
 static bool ipa3_dma_work_pending(void)
 {
@@ -343,7 +341,6 @@ int ipa3_dma_disable(void)
 	IPADMA_FUNC_EXIT();
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_dma_disable);
 
 /**
  * ipa3_dma_sync_memcpy()- Perform synchronous memcpy using IPA.
@@ -500,7 +497,6 @@ fail_mem_alloc:
 			complete(&ipa3_dma_ctx->done);
 	return res;
 }
-EXPORT_SYMBOL(ipa3_dma_sync_memcpy);
 
 /**
  * ipa3_dma_async_memcpy()- Perform asynchronous memcpy using IPA.
@@ -618,7 +614,6 @@ fail_mem_alloc:
 			complete(&ipa3_dma_ctx->done);
 	return res;
 }
-EXPORT_SYMBOL(ipa3_dma_async_memcpy);
 
 /**
  * ipa3_dma_uc_memcpy() - Perform a memcpy action using IPA uC
@@ -675,7 +670,6 @@ dec_and_exit:
 	IPADMA_FUNC_EXIT();
 	return res;
 }
-EXPORT_SYMBOL(ipa3_dma_uc_memcpy);
 
 /**
  * ipa3_dma_destroy() -teardown IPADMA pipes and release ipadma.
@@ -722,7 +716,6 @@ void ipa3_dma_destroy(void)
 
 	IPADMA_FUNC_EXIT();
 }
-EXPORT_SYMBOL(ipa3_dma_destroy);
 
 /**
  * ipa3_dma_async_memcpy_notify_cb() -Callback function which will be called by

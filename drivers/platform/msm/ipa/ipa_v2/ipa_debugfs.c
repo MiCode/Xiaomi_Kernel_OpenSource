@@ -198,7 +198,7 @@ static ssize_t ipa_write_ep_holb(struct file *file,
 	holb.en = en;
 	holb.tmr_val = tmr_val;
 
-	ipa_cfg_ep_holb(ep_idx, &holb);
+	ipa2_cfg_ep_holb(ep_idx, &holb);
 
 	return count;
 }
@@ -680,7 +680,7 @@ static ssize_t ipa_read_rt(struct file *file, char __user *ubuf, size_t count,
 					entry->tbl->ref_cnt);
 				pr_err("rule_idx:%d dst:%d ep:%d S:%u ",
 					i, entry->rule.dst,
-					ipa_get_ep_mapping(entry->rule.dst),
+					ipa2_get_ep_mapping(entry->rule.dst),
 					!ipa_ctx->hdr_tbl_lcl);
 				pr_err("proc_ctx[32B]:%u attrib_mask:%08x ",
 					ofst_words,
@@ -696,7 +696,7 @@ static ssize_t ipa_read_rt(struct file *file, char __user *ubuf, size_t count,
 					entry->tbl->ref_cnt);
 				pr_err("rule_idx:%d dst:%d ep:%d S:%u ",
 					i, entry->rule.dst,
-					ipa_get_ep_mapping(entry->rule.dst),
+					ipa2_get_ep_mapping(entry->rule.dst),
 					!ipa_ctx->hdr_tbl_lcl);
 				pr_err("hdr_ofst[words]:%u attrib_mask:%08x ",
 					ofst >> 2,
@@ -940,7 +940,7 @@ static ssize_t ipa_read_wstats(struct file *file, char __user *ubuf,
 			HEAD_FRMT_STR, "Client IPA_CLIENT_WLAN1_PROD Stats:");
 		cnt += nbytes;
 
-		ipa_ep_idx = ipa_get_ep_mapping(client);
+		ipa_ep_idx = ipa2_get_ep_mapping(client);
 		if (ipa_ep_idx == -1) {
 			nbytes = scnprintf(dbg_buff + cnt,
 				IPA_MAX_MSG_LEN - cnt, HEAD_FRMT_STR, "Not up");
@@ -998,7 +998,7 @@ static ssize_t ipa_read_wstats(struct file *file, char __user *ubuf,
 		"Client IPA_CLIENT_WLAN1_CONS Stats:");
 	cnt += nbytes;
 	while (1) {
-		ipa_ep_idx = ipa_get_ep_mapping(client);
+		ipa_ep_idx = ipa2_get_ep_mapping(client);
 		if (ipa_ep_idx == -1) {
 			nbytes = scnprintf(dbg_buff + cnt,
 				IPA_MAX_MSG_LEN - cnt, HEAD_FRMT_STR, "Not up");
@@ -1084,7 +1084,7 @@ static ssize_t ipa_read_wdi(struct file *file, char __user *ubuf,
 	int nbytes;
 	int cnt = 0;
 
-	if (!ipa_get_wdi_stats(&stats)) {
+	if (!ipa2_get_wdi_stats(&stats)) {
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 			"TX num_pkts_processed=%u\n"
 			"TX copy_engine_doorbell_value=%u\n"

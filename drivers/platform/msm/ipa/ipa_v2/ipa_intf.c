@@ -40,7 +40,7 @@ struct ipa_pull_msg {
 };
 
 /**
- * ipa_register_intf() - register "logical" interface
+ * ipa2_register_intf() - register "logical" interface
  * @name: [in] interface name
  * @tx:	[in] TX properties of the interface
  * @rx:	[in] RX properties of the interface
@@ -52,7 +52,7 @@ struct ipa_pull_msg {
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_register_intf(const char *name, const struct ipa_tx_intf *tx,
+int ipa2_register_intf(const char *name, const struct ipa_tx_intf *tx,
 		       const struct ipa_rx_intf *rx)
 {
 	if (unlikely(!ipa_ctx)) {
@@ -60,12 +60,11 @@ int ipa_register_intf(const char *name, const struct ipa_tx_intf *tx,
 		return -EINVAL;
 	}
 
-	return ipa_register_intf_ext(name, tx, rx, NULL);
+	return ipa2_register_intf_ext(name, tx, rx, NULL);
 }
-EXPORT_SYMBOL(ipa_register_intf);
 
 /**
- * ipa_register_intf_ext() - register "logical" interface which has only
+ * ipa2_register_intf_ext() - register "logical" interface which has only
  * extended properties
  * @name: [in] interface name
  * @tx:	[in] TX properties of the interface
@@ -79,7 +78,7 @@ EXPORT_SYMBOL(ipa_register_intf);
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_register_intf_ext(const char *name, const struct ipa_tx_intf *tx,
+int ipa2_register_intf_ext(const char *name, const struct ipa_tx_intf *tx,
 		       const struct ipa_rx_intf *rx,
 		       const struct ipa_ext_intf *ext)
 {
@@ -169,10 +168,9 @@ int ipa_register_intf_ext(const char *name, const struct ipa_tx_intf *tx,
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_register_intf_ext);
 
 /**
- * ipa_deregister_intf() - de-register previously registered logical interface
+ * ipa2_deregister_intf() - de-register previously registered logical interface
  * @name: [in] interface name
  *
  * De-register a previously registered interface
@@ -181,7 +179,7 @@ EXPORT_SYMBOL(ipa_register_intf_ext);
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_deregister_intf(const char *name)
+int ipa2_deregister_intf(const char *name)
 {
 	struct ipa_intf *entry;
 	struct ipa_intf *next;
@@ -212,7 +210,6 @@ int ipa_deregister_intf(const char *name)
 	mutex_unlock(&ipa_ctx->lock);
 	return result;
 }
-EXPORT_SYMBOL(ipa_deregister_intf);
 
 /**
  * ipa_query_intf() - query logical interface properties
@@ -352,7 +349,7 @@ int ipa_query_intf_ext_props(struct ipa_ioc_query_intf_ext_props *ext)
 }
 
 /**
- * ipa_send_msg() - Send "message" from kernel client to IPA driver
+ * ipa2_send_msg() - Send "message" from kernel client to IPA driver
  * @meta: [in] message meta-data
  * @buff: [in] the payload for message
  * @callback: [in] free callback
@@ -366,7 +363,7 @@ int ipa_query_intf_ext_props(struct ipa_ioc_query_intf_ext_props *ext)
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_send_msg(struct ipa_msg_meta *meta, void *buff,
+int ipa2_send_msg(struct ipa_msg_meta *meta, void *buff,
 		  ipa_msg_free_fn callback)
 {
 	struct ipa_push_msg *msg;
@@ -407,10 +404,9 @@ int ipa_send_msg(struct ipa_msg_meta *meta, void *buff,
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_send_msg);
 
 /**
- * ipa_register_pull_msg() - register pull message type
+ * ipa2_register_pull_msg() - register pull message type
  * @meta: [in] message meta-data
  * @callback: [in] pull callback
  *
@@ -421,7 +417,7 @@ EXPORT_SYMBOL(ipa_send_msg);
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_register_pull_msg(struct ipa_msg_meta *meta, ipa_msg_pull_fn callback)
+int ipa2_register_pull_msg(struct ipa_msg_meta *meta, ipa_msg_pull_fn callback)
 {
 	struct ipa_pull_msg *msg;
 
@@ -445,10 +441,9 @@ int ipa_register_pull_msg(struct ipa_msg_meta *meta, ipa_msg_pull_fn callback)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_register_pull_msg);
 
 /**
- * ipa_deregister_pull_msg() - De-register pull message type
+ * ipa2_deregister_pull_msg() - De-register pull message type
  * @meta: [in] message meta-data
  *
  * De-register "message" by kernel client from IPA driver
@@ -457,7 +452,7 @@ EXPORT_SYMBOL(ipa_register_pull_msg);
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_deregister_pull_msg(struct ipa_msg_meta *meta)
+int ipa2_deregister_pull_msg(struct ipa_msg_meta *meta)
 {
 	struct ipa_pull_msg *entry;
 	struct ipa_pull_msg *next;
@@ -481,7 +476,6 @@ int ipa_deregister_pull_msg(struct ipa_msg_meta *meta)
 	mutex_unlock(&ipa_ctx->msg_lock);
 	return result;
 }
-EXPORT_SYMBOL(ipa_deregister_pull_msg);
 
 /**
  * ipa_read() - read message from IPA device

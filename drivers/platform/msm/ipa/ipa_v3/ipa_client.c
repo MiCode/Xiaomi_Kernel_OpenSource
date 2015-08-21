@@ -101,6 +101,48 @@ int ipa3_disable_data_path(u32 clnt_hdl)
 	return res;
 }
 
+static int ipa3_smmu_map_peer_bam(unsigned long dev)
+{
+	phys_addr_t base;
+	u32 size;
+	struct iommu_domain *smmu_domain;
+
+	if (ipa3_ctx->smmu_present) {
+		if (ipa3_ctx->peer_bam_map_cnt == 0) {
+			if (sps_get_bam_addr(dev, &base, &size)) {
+				IPAERR("Fail to get addr\n");
+				return -EINVAL;
+			}
+			smmu_domain = ipa3_get_smmu_domain();
+			if (smmu_domain != NULL) {
+				if (iommu_map(smmu_domain,
+					IPA_SMMU_AP_VA_END,
+					rounddown(base, PAGE_SIZE),
+					roundup(size + base -
+					rounddown(base, PAGE_SIZE), PAGE_SIZE),
+					IOMMU_READ | IOMMU_WRITE |
+					IOMMU_DEVICE)) {
+					IPAERR("Fail to iommu_map\n");
+					return -EINVAL;
+				}
+			}
+
+			ipa3_ctx->peer_bam_iova = IPA_SMMU_AP_VA_END;
+			ipa3_ctx->peer_bam_pa = base;
+			ipa3_ctx->peer_bam_map_size = size;
+			ipa3_ctx->peer_bam_dev = dev;
+
+			IPADBG("Peer bam %lu mapped\n", dev);
+		} else {
+			WARN_ON(dev != ipa3_ctx->peer_bam_dev);
+		}
+
+		ipa3_ctx->peer_bam_map_cnt++;
+	}
+
+	return 0;
+}
+
 static int ipa3_connect_configure_sps(const struct ipa_connect_params *in,
 				     struct ipa3_ep_context *ep, int ipa_ep_idx)
 {
@@ -109,7 +151,7 @@ static int ipa3_connect_configure_sps(const struct ipa_connect_params *in,
 	/* Default Config */
 	ep->ep_hdl = sps_alloc_endpoint();
 
-	if (ipa_smmu_map_peer_bam(in->client_bam_hdl)) {
+	if (ipa3_smmu_map_peer_bam(in->client_bam_hdl)) {
 		IPAERR("fail to iommu map peer BAM.\n");
 		return -EFAULT;
 	}
@@ -440,7 +482,34 @@ ipa_cfg_ep_fail:
 fail:
 	return result;
 }
-EXPORT_SYMBOL(ipa3_connect);
+
+static int ipa3_smmu_unmap_peer_bam(unsigned long dev)
+{
+	size_t len;
+	struct iommu_domain *smmu_domain;
+
+	if (ipa3_ctx->smmu_present) {
+		WARN_ON(dev != ipa3_ctx->peer_bam_dev);
+		ipa3_ctx->peer_bam_map_cnt--;
+		if (ipa3_ctx->peer_bam_map_cnt == 0) {
+			len = roundup(ipa3_ctx->peer_bam_map_size +
+					ipa3_ctx->peer_bam_pa -
+					rounddown(ipa3_ctx->peer_bam_pa,
+						PAGE_SIZE), PAGE_SIZE);
+			smmu_domain = ipa3_get_smmu_domain();
+			if (smmu_domain != NULL) {
+				if (iommu_unmap(smmu_domain,
+					IPA_SMMU_AP_VA_END, len) != len) {
+					IPAERR("Fail to iommu_unmap\n");
+					return -EINVAL;
+				}
+				IPADBG("Peer bam %lu unmapped\n", dev);
+			}
+		}
+	}
+
+	return 0;
+}
 
 /**
  * ipa3_disconnect() - low-level IPA client disconnect
@@ -491,7 +560,7 @@ int ipa3_disconnect(u32 clnt_hdl)
 	else
 		peer_bam = ep->connect.source;
 
-	if (ipa_smmu_unmap_peer_bam(peer_bam)) {
+	if (ipa3_smmu_unmap_peer_bam(peer_bam)) {
 		IPAERR("fail to iommu unmap peer BAM.\n");
 		return -EPERM;
 	}
@@ -560,7 +629,6 @@ int ipa3_disconnect(u32 clnt_hdl)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_disconnect);
 
 /**
 * ipa3_reset_endpoint() - reset an endpoint from BAM perspective
@@ -600,7 +668,6 @@ bail:
 
 	return res;
 }
-EXPORT_SYMBOL(ipa3_reset_endpoint);
 
 /**
  * ipa3_sps_connect_safe() - connect endpoint from BAM prespective
@@ -630,4 +697,3 @@ int ipa3_sps_connect_safe(struct sps_pipe *h, struct sps_connect *connect,
 	}
 	return sps_connect(h, connect);
 }
-EXPORT_SYMBOL(ipa3_sps_connect_safe);

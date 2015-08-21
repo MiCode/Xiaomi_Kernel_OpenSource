@@ -125,7 +125,6 @@ int ipa3_rm_inactivity_timer_init(enum ipa_rm_resource_name resource_name,
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_rm_inactivity_timer_init);
 
 /**
 * ipa3_rm_inactivity_timer_destroy() - De-Init function for IPA
@@ -160,7 +159,6 @@ int ipa3_rm_inactivity_timer_destroy(enum ipa_rm_resource_name resource_name)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_rm_inactivity_timer_destroy);
 
 /**
 * ipa3_rm_inactivity_timer_request_resource() - Same as
@@ -202,7 +200,6 @@ int ipa3_rm_inactivity_timer_request_resource(
 
 	return ret;
 }
-EXPORT_SYMBOL(ipa3_rm_inactivity_timer_request_resource);
 
 /**
 * ipa3_rm_inactivity_timer_release_resource() - Sets the
@@ -254,5 +251,4 @@ int ipa3_rm_inactivity_timer_release_resource(
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_rm_inactivity_timer_release_resource);
 
