@@ -65,7 +65,6 @@
 	soc: soc { };
 };
 
-#include "mdmcalifornium-regulator.dtsi"
 #include "mdmcalifornium-smp2p.dtsi"
 #include "msm-gdsc.dtsi"
 #include "mdmcalifornium-blsp.dtsi"
@@ -720,3 +719,7 @@
 	reg = <0x0185d044 0x4>;
 	status = "ok";
 };
+
+#include "msm-pmdcalifornium-rpm-regulator.dtsi"
+#include "msm-pmdcalifornium.dtsi"
+#include "mdmcalifornium-regulator.dtsi"
