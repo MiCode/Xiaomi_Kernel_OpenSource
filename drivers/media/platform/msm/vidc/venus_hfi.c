@@ -4089,13 +4089,18 @@ static int __core_clk_reset(struct venus_hfi_device *device,
 	 * causes subsequent video sessions to fail. By resetting
 	 * core_clk we are forcing a hard reset and ensure each
 	 * firmware load starts on a clean slate.
+	 * For targets which do not need to reset the core_clk, clock
+	 * driver returns -EPERM. Do not consider such cases as erroneous.
 	 */
 	dprintk(VIDC_DBG, "%s core-clk\n",
 		action == CLK_RESET_DEASSERT ? "de-assert" : "assert");
 	vc = __get_clock(device, "core_clk");
 	if (vc) {
 		rc = clk_reset(vc->clk, action);
-		if (rc) {
+		if (rc == -EPERM) {
+			rc = 0;
+			dprintk(VIDC_DBG, "%s No need to reset\n", __func__);
+		} else if (rc) {
 			dprintk(VIDC_ERR,
 				"clk_reset action - %d failed: %d\n",
 				action, rc);
