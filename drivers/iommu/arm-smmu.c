@@ -2294,6 +2294,66 @@ static phys_addr_t arm_smmu_iova_to_phys_hard_no_halt(
 	return __arm_smmu_iova_to_phys_hard(domain, iova, false);
 }
 
+static unsigned long arm_smmu_reg_read(struct iommu_domain *domain,
+				       unsigned long offset)
+{
+	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_device *smmu;
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+	void __iomem *cb_base;
+	unsigned long val;
+
+	if (offset >= SZ_4K) {
+		pr_err("Invalid offset: 0x%lx\n", offset);
+		return 0;
+	}
+
+	mutex_lock(&smmu_domain->init_mutex);
+	smmu = smmu_domain->smmu;
+	if (!smmu) {
+		WARN(1, "Can't read registers of a detached domain\n");
+		val = 0;
+		goto unlock;
+	}
+
+	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+	arm_smmu_enable_clocks(smmu);
+	val = readl_relaxed(cb_base + offset);
+	arm_smmu_disable_clocks(smmu);
+
+unlock:
+	mutex_unlock(&smmu_domain->init_mutex);
+	return val;
+}
+
+static void arm_smmu_reg_write(struct iommu_domain *domain,
+			       unsigned long offset, unsigned long val)
+{
+	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_device *smmu;
+	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+	void __iomem *cb_base;
+
+	if (offset >= SZ_4K) {
+		pr_err("Invalid offset: 0x%lx\n", offset);
+		return;
+	}
+
+	mutex_lock(&smmu_domain->init_mutex);
+	smmu = smmu_domain->smmu;
+	if (!smmu) {
+		WARN(1, "Can't read registers of a detached domain\n");
+		goto unlock;
+	}
+
+	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
+	arm_smmu_enable_clocks(smmu);
+	writel_relaxed(val, cb_base + offset);
+	arm_smmu_disable_clocks(smmu);
+unlock:
+	mutex_unlock(&smmu_domain->init_mutex);
+}
+
 static bool arm_smmu_capable(enum iommu_cap cap)
 {
 	switch (cap) {
@@ -2599,6 +2659,8 @@ static struct iommu_ops arm_smmu_ops = {
 	.pgsize_bitmap		= -1UL, /* Restricted during device attach */
 	.dma_supported		= arm_smmu_dma_supported,
 	.trigger_fault		= arm_smmu_trigger_fault,
+	.reg_read		= arm_smmu_reg_read,
+	.reg_write		= arm_smmu_reg_write,
 };
 
 static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
