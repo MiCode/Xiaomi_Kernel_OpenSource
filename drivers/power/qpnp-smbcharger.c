@@ -4182,11 +4182,24 @@ static int otg_oc_reset(struct smbchg_chip *chip)
 		pr_err("Failed to disable OTG rc=%d\n", rc);
 
 	msleep(20);
+
+	/*
+	 * There is a possibility that an USBID interrupt might have
+	 * occurred notifying USB power supply to disable OTG. We
+	 * should not enable OTG in such cases.
+	 */
+	if (!is_otg_present(chip)) {
+		pr_smb(PR_STATUS,
+			"OTG is not present, not enabling OTG_EN_BIT\n");
+		goto out;
+	}
+
 	rc = smbchg_masked_write(chip, chip->bat_if_base + CMD_CHG_REG,
 						OTG_EN_BIT, OTG_EN_BIT);
 	if (rc)
 		pr_err("Failed to re-enable OTG rc=%d\n", rc);
 
+out:
 	return rc;
 }
 
