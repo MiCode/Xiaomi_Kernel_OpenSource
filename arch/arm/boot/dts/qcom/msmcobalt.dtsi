@@ -29,7 +29,7 @@
 
 		CPU0: cpu@0 {
 			device_type = "cpu";
-			compatible = "qcom,kryo";
+			compatible = "arm,armv8";
 			reg = <0x0 0x0>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x90000000>;
@@ -43,16 +43,34 @@
 
 		CPU1: cpu@1 {
 			device_type = "cpu";
-			compatible = "qcom,kryo";
+			compatible = "arm,armv8";
 			reg = <0x0 0x1>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_0>;
 		};
 
-		CPU2: cpu@100 {
+		CPU2: cpu@2 {
 			device_type = "cpu";
-			compatible = "qcom,kryo";
+			compatible = "arm,armv8";
+			reg = <0x0 0x2>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_0>;
+		};
+
+		CPU3: cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x3>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_0>;
+		};
+
+		CPU4: cpu@100 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
 			reg = <0x0 0x100>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x90000000>;
@@ -63,12 +81,31 @@
 			};
 		};
 
-		CPU3: cpu@101 {
+		CPU5: cpu@101 {
 			device_type = "cpu";
-			compatible = "qcom,kryo";
+			compatible = "arm,armv8";
 			reg = <0x0 0x101>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_1>;
+		};
+
+		CPU6: cpu@102 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x102>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_1>;
+		};
+
+		CPU7: cpu@103 {
+			device_type = "cpu";
+			compatible = "arm,armv8";
+			reg = <0x0 0x103>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_1>;
 		};
 
 		cpu-map {
@@ -80,15 +117,31 @@
 				core1 {
 					cpu = <&CPU1>;
 				};
+
+				core2 {
+					cpu = <&CPU2>;
+				};
+
+				core3 {
+					cpu = <&CPU3>;
+				};
 			};
 
 			cluster1 {
 				core0 {
-					cpu = <&CPU2>;
+					cpu = <&CPU4>;
 				};
 
 				core1 {
-					cpu = <&CPU3>;
+					cpu = <&CPU5>;
+				};
+
+				core2 {
+					cpu = <&CPU6>;
+				};
+
+				core3 {
+					cpu = <&CPU7>;
 				};
 			};
 		};
