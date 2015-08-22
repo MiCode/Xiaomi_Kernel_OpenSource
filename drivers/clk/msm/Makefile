@@ -19,6 +19,9 @@ obj-$(CONFIG_ARCH_MSM8996)	+= clock-cpu-8996.o
 # MDMCALIFORNIUM
 obj-$(CONFIG_ARCH_MDMCALIFORNIUM)	+= clock-gcc-californium.o
 
+# MDMFERMIUM
+obj-$(CONFIG_ARCH_MDMFERMIUM)	+=clock-gcc-mdmfermium.o
+
 # ACPU clock
 obj-$(CONFIG_ARCH_MDM9640)      += clock-a7.o
 obj-$(CONFIG_ARCH_MDMCALIFORNIUM)	+= clock-a7.o
