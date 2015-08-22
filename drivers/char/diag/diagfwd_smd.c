@@ -723,8 +723,10 @@ static int diag_smd_read(void *ctxt, unsigned char *buf, int buf_len)
 				       (atomic_read(&smd_info->opened) == 0) ||
 				       (smd_cur_packet_size(smd_info->hdl)) ||
 				       (!atomic_read(&smd_info->diag_state)));
-	if (err)
+	if (err) {
+		diagfwd_channel_read_done(smd_info->fwd_ctxt, buf, 0);
 		return -ERESTARTSYS;
+	}
 
 	/*
 	 * In this case don't reset the buffers as there is no need to further
@@ -761,7 +763,7 @@ static int diag_smd_read(void *ctxt, unsigned char *buf, int buf_len)
 		while (total_recd_partial < pkt_len) {
 			read_len = smd_read_avail(smd_info->hdl);
 			if (!read_len) {
-				wait_event(smd_info->read_wait_q,
+				wait_event_interruptible(smd_info->read_wait_q,
 					   ((atomic_read(&smd_info->opened)) &&
 					    smd_read_avail(smd_info->hdl)));
 
