@@ -1419,6 +1419,7 @@ int msm_vidc_close(void *instance)
 		return -EINVAL;
 
 	v4l2_fh_del(&inst->event_handler);
+	v4l2_fh_exit(&inst->event_handler);
 
 	mutex_lock(&inst->registeredbufs.lock);
 	list_for_each_entry_safe(bi, dummy, &inst->registeredbufs.list, list) {
