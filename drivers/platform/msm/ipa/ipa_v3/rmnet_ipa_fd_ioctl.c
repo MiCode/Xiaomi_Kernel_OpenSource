@@ -38,12 +38,14 @@
 #endif
 
 static unsigned int dev_num = 1;
-static struct cdev wan_ioctl_cdev;
-static unsigned int process_ioctl = 1;
+static struct cdev ipa3_wan_ioctl_cdev;
+static unsigned int ipa3_process_ioctl = 1;
 static struct class *class;
 static dev_t device;
 
-static long wan_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+static long ipa3_wan_ioctl(struct file *filp,
+		unsigned int cmd,
+		unsigned long arg)
 {
 	int retval = 0;
 	u32 pyld_sz;
@@ -52,7 +54,7 @@ static long wan_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	IPAWANDBG("device %s got ioctl events :>>>\n",
 		DRIVER_NAME);
 
-	if (!process_ioctl) {
+	if (!ipa3_process_ioctl) {
 		IPAWANDBG("modem is in SSR, ignoring ioctl\n");
 		return -EAGAIN;
 	}
@@ -71,7 +73,7 @@ static long wan_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (qmi_filter_request_send(
+		if (ipa3_qmi_filter_request_send(
 			(struct ipa_install_fltr_rule_req_msg_v01 *)param)) {
 			IPAWANDBG("IPACM->Q6 add filter rule failed\n");
 			retval = -EFAULT;
@@ -96,7 +98,7 @@ static long wan_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (qmi_filter_notify_send(
+		if (ipa3_qmi_filter_notify_send(
 		(struct ipa_fltr_installed_notif_req_msg_v01 *)param)) {
 			IPAWANDBG("IPACM->Q6 rule index fail\n");
 			retval = -EFAULT;
@@ -145,7 +147,7 @@ static long wan_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (rmnet_ipa_poll_tethering_stats(
+		if (rmnet_ipa3_poll_tethering_stats(
 		(struct wan_ioctl_poll_tethering_stats *)param)) {
 			IPAWANERR("WAN_IOCTL_POLL_TETHERING_STATS failed\n");
 			retval = -EFAULT;
@@ -170,7 +172,7 @@ static long wan_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (rmnet_ipa_set_data_quota(
+		if (rmnet_ipa3_set_data_quota(
 		(struct wan_ioctl_set_data_quota *)param)) {
 			IPAWANERR("WAN_IOC_SET_DATA_QUOTA failed\n");
 			retval = -EFAULT;
@@ -190,7 +192,9 @@ static long wan_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 }
 
 #ifdef CONFIG_COMPAT
-long compat_wan_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+long ipa3_compat_wan_ioctl(struct file *file,
+		unsigned int cmd,
+		unsigned long arg)
 {
 	switch (cmd) {
 	case WAN_IOC_ADD_FLT_RULE32:
@@ -208,27 +212,27 @@ long compat_wan_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	default:
 		return -ENOIOCTLCMD;
 	}
-	return wan_ioctl(file, cmd, (unsigned long) compat_ptr(arg));
+	return ipa3_wan_ioctl(file, cmd, (unsigned long) compat_ptr(arg));
 }
 #endif
 
-static int wan_ioctl_open(struct inode *inode, struct file *filp)
+static int ipa3_wan_ioctl_open(struct inode *inode, struct file *filp)
 {
-	IPAWANDBG("\n IPA A7 wan_ioctl open OK :>>>> ");
+	IPAWANDBG("\n IPA A7 ipa3_wan_ioctl open OK :>>>> ");
 	return 0;
 }
 
-const struct file_operations fops = {
+const struct file_operations rmnet_ipa3_fops = {
 	.owner = THIS_MODULE,
-	.open = wan_ioctl_open,
+	.open = ipa3_wan_ioctl_open,
 	.read = NULL,
-	.unlocked_ioctl = wan_ioctl,
+	.unlocked_ioctl = ipa3_wan_ioctl,
 #ifdef CONFIG_COMPAT
-	.compat_ioctl = compat_wan_ioctl,
+	.compat_ioctl = ipa3_compat_wan_ioctl,
 #endif
 };
 
-int wan_ioctl_init(void)
+int ipa3_wan_ioctl_init(void)
 {
 	unsigned int wan_ioctl_major = 0;
 	int ret;
@@ -256,14 +260,14 @@ int wan_ioctl_init(void)
 		goto device_err;
 	}
 
-	cdev_init(&wan_ioctl_cdev, &fops);
-	ret = cdev_add(&wan_ioctl_cdev, device, dev_num);
+	cdev_init(&ipa3_wan_ioctl_cdev, &rmnet_ipa3_fops);
+	ret = cdev_add(&ipa3_wan_ioctl_cdev, device, dev_num);
 	if (ret) {
 		IPAWANERR(":cdev_add err.\n");
 		goto cdev_add_err;
 	}
 
-	process_ioctl = 1;
+	ipa3_process_ioctl = 1;
 
 	IPAWANDBG("IPA %s major(%d) initial ok :>>>>\n",
 	DRIVER_NAME, wan_ioctl_major);
@@ -279,19 +283,19 @@ dev_alloc_err:
 	return -ENODEV;
 }
 
-void wan_ioctl_stop_qmi_messages(void)
+void ipa3_wan_ioctl_stop_qmi_messages(void)
 {
-	process_ioctl = 0;
+	ipa3_process_ioctl = 0;
 }
 
-void wan_ioctl_enable_qmi_messages(void)
+void ipa3_wan_ioctl_enable_qmi_messages(void)
 {
-	process_ioctl = 1;
+	ipa3_process_ioctl = 1;
 }
 
-void wan_ioctl_deinit(void)
+void ipa3_wan_ioctl_deinit(void)
 {
-	cdev_del(&wan_ioctl_cdev);
+	cdev_del(&ipa3_wan_ioctl_cdev);
 	device_destroy(class, device);
 	class_destroy(class);
 	unregister_chrdev_region(device, dev_num);

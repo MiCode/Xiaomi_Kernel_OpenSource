@@ -24,9 +24,9 @@
 
 #define IPA_PKT_FLUSH_TO_US 100
 
-int ipa_enable_data_path(u32 clnt_hdl)
+int ipa3_enable_data_path(u32 clnt_hdl)
 {
-	struct ipa_ep_context *ep = &ipa_ctx->ep[clnt_hdl];
+	struct ipa3_ep_context *ep = &ipa3_ctx->ep[clnt_hdl];
 	struct ipa_ep_cfg_holb holb_cfg;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 	int res = 0;
@@ -37,17 +37,17 @@ int ipa_enable_data_path(u32 clnt_hdl)
 		memset(&holb_cfg, 0 , sizeof(holb_cfg));
 		holb_cfg.en = IPA_HOLB_TMR_DIS;
 		holb_cfg.tmr_val = 0;
-		res = ipa_cfg_ep_holb(clnt_hdl, &holb_cfg);
+		res = ipa3_cfg_ep_holb(clnt_hdl, &holb_cfg);
 	}
 
 	/* Enable the pipe */
 	if (IPA_CLIENT_IS_CONS(ep->client) &&
 	    (ep->keep_ipa_awake ||
-	     ipa_ctx->resume_on_connect[ep->client] ||
-	     !ipa_should_pipe_be_suspended(ep->client))) {
+	     ipa3_ctx->resume_on_connect[ep->client] ||
+	     !ipa3_should_pipe_be_suspended(ep->client))) {
 		memset(&ep_cfg_ctrl, 0 , sizeof(ep_cfg_ctrl));
 		ep_cfg_ctrl.ipa_ep_suspend = false;
-		ipa_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
+		ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 	}
 
 	/* Assign the resource group for pipe*/
@@ -62,15 +62,15 @@ int ipa_enable_data_path(u32 clnt_hdl)
 	IPA_SETFIELD_IN_REG(reg_val, ipa_get_ep_group(ep->client),
 		IPA_ENDP_INIT_RSRC_GRP_n_RSRC_GRP_SHFT,
 		IPA_ENDP_INIT_RSRC_GRP_n_RSRC_GRP_BMSK);
-	ipa_write_reg(ipa_ctx->mmio,
+	ipa_write_reg(ipa3_ctx->mmio,
 		IPA_ENDP_INIT_RSRC_GRP_n(clnt_hdl), reg_val);
 
 	return res;
 }
 
-int ipa_disable_data_path(u32 clnt_hdl)
+int ipa3_disable_data_path(u32 clnt_hdl)
 {
-	struct ipa_ep_context *ep = &ipa_ctx->ep[clnt_hdl];
+	struct ipa3_ep_context *ep = &ipa3_ctx->ep[clnt_hdl];
 	struct ipa_ep_cfg_holb holb_cfg;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 	u32 aggr_init;
@@ -81,28 +81,28 @@ int ipa_disable_data_path(u32 clnt_hdl)
 		memset(&holb_cfg, 0, sizeof(holb_cfg));
 		holb_cfg.en = IPA_HOLB_TMR_EN;
 		holb_cfg.tmr_val = 0;
-		res = ipa_cfg_ep_holb(clnt_hdl, &holb_cfg);
+		res = ipa3_cfg_ep_holb(clnt_hdl, &holb_cfg);
 	}
 
 	/* Suspend the pipe */
 	if (IPA_CLIENT_IS_CONS(ep->client)) {
 		memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
 		ep_cfg_ctrl.ipa_ep_suspend = true;
-		ipa_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
+		ipa3_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 	}
 
 	udelay(IPA_PKT_FLUSH_TO_US);
-	aggr_init = ipa_read_reg(ipa_ctx->mmio,
+	aggr_init = ipa_read_reg(ipa3_ctx->mmio,
 			IPA_ENDP_INIT_AGGR_N_OFST_v3_0(clnt_hdl));
 	if (((aggr_init & IPA_ENDP_INIT_AGGR_N_AGGR_EN_BMSK) >>
 	    IPA_ENDP_INIT_AGGR_N_AGGR_EN_SHFT) == IPA_ENABLE_AGGR)
-		ipa_tag_aggr_force_close(clnt_hdl);
+		ipa3_tag_aggr_force_close(clnt_hdl);
 
 	return res;
 }
 
-static int ipa_connect_configure_sps(const struct ipa_connect_params *in,
-				     struct ipa_ep_context *ep, int ipa_ep_idx)
+static int ipa3_connect_configure_sps(const struct ipa_connect_params *in,
+				     struct ipa3_ep_context *ep, int ipa_ep_idx)
 {
 	int result = -EFAULT;
 
@@ -131,16 +131,16 @@ static int ipa_connect_configure_sps(const struct ipa_connect_params *in,
 		ep->connect.mode = SPS_MODE_SRC;
 		ep->connect.destination =
 			in->client_bam_hdl;
-		ep->connect.dest_iova = ipa_ctx->peer_bam_iova;
-		ep->connect.source = ipa_ctx->bam_handle;
+		ep->connect.dest_iova = ipa3_ctx->peer_bam_iova;
+		ep->connect.source = ipa3_ctx->bam_handle;
 		ep->connect.dest_pipe_index =
 			in->client_ep_idx;
 		ep->connect.src_pipe_index = ipa_ep_idx;
 	} else {
 		ep->connect.mode = SPS_MODE_DEST;
 		ep->connect.source = in->client_bam_hdl;
-		ep->connect.source_iova = ipa_ctx->peer_bam_iova;
-		ep->connect.destination = ipa_ctx->bam_handle;
+		ep->connect.source_iova = ipa3_ctx->peer_bam_iova;
+		ep->connect.destination = ipa3_ctx->bam_handle;
 		ep->connect.src_pipe_index = in->client_ep_idx;
 		ep->connect.dest_pipe_index = ipa_ep_idx;
 	}
@@ -148,7 +148,7 @@ static int ipa_connect_configure_sps(const struct ipa_connect_params *in,
 	return 0;
 }
 
-static int ipa_connect_allocate_fifo(const struct ipa_connect_params *in,
+static int ipa3_connect_allocate_fifo(const struct ipa_connect_params *in,
 				     struct sps_mem_buffer *mem_buff_ptr,
 				     bool *fifo_in_pipe_mem_ptr,
 				     u32 *fifo_pipe_mem_ofst_ptr,
@@ -161,11 +161,11 @@ static int ipa_connect_allocate_fifo(const struct ipa_connect_params *in,
 
 	mem_buff_ptr->size = fifo_size;
 	if (in->pipe_mem_preferred) {
-		if (ipa_pipe_mem_alloc(&ofst, fifo_size)) {
+		if (ipa3_pipe_mem_alloc(&ofst, fifo_size)) {
 			IPAERR("FIFO pipe mem alloc fail ep %u\n",
 				ipa_ep_idx);
 			mem_buff_ptr->base =
-				dma_alloc_coherent(ipa_ctx->pdev,
+				dma_alloc_coherent(ipa3_ctx->pdev,
 				mem_buff_ptr->size,
 				&dma_addr, GFP_KERNEL);
 		} else {
@@ -179,10 +179,10 @@ static int ipa_connect_allocate_fifo(const struct ipa_connect_params *in,
 		}
 	} else {
 		mem_buff_ptr->base =
-			dma_alloc_coherent(ipa_ctx->pdev, mem_buff_ptr->size,
+			dma_alloc_coherent(ipa3_ctx->pdev, mem_buff_ptr->size,
 			&dma_addr, GFP_KERNEL);
 	}
-	if (!ipa_ctx->smmu_present) {
+	if (!ipa3_ctx->smmu_present) {
 		mem_buff_ptr->phys_base = dma_addr;
 	} else {
 		mem_buff_ptr->iova = dma_addr;
@@ -201,7 +201,7 @@ static int ipa_connect_allocate_fifo(const struct ipa_connect_params *in,
 }
 
 /**
- * ipa_connect() - low-level IPA client connect
+ * ipa3_connect() - low-level IPA client connect
  * @in:	[in] input parameters from client
  * @sps:	[out] sps output from IPA needed by client for sps_connect
  * @clnt_hdl:	[out] opaque client handle assigned by IPA to client
@@ -215,13 +215,14 @@ static int ipa_connect_allocate_fifo(const struct ipa_connect_params *in,
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
+int ipa3_connect(const struct ipa_connect_params *in,
+		struct ipa_sps_params *sps,
 		u32 *clnt_hdl)
 {
 	int ipa_ep_idx;
 	int result = -EFAULT;
-	struct ipa_ep_context *ep;
-	struct ipa_ep_cfg_status ep_status;
+	struct ipa3_ep_context *ep;
+	struct ipa3_ep_cfg_status ep_status;
 	unsigned long base;
 	struct iommu_domain *smmu_domain;
 
@@ -234,21 +235,21 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 		return -EINVAL;
 	}
 
-	ipa_ep_idx = ipa_get_ep_mapping(in->client);
+	ipa_ep_idx = ipa3_get_ep_mapping(in->client);
 	if (ipa_ep_idx == -1) {
 		IPAERR("fail to alloc EP.\n");
 		goto fail;
 	}
 
-	ep = &ipa_ctx->ep[ipa_ep_idx];
+	ep = &ipa3_ctx->ep[ipa_ep_idx];
 
 	if (ep->valid) {
 		IPAERR("EP already allocated.\n");
 		goto fail;
 	}
 
-	memset(&ipa_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa_ep_context));
-	ipa_inc_client_enable_clks();
+	memset(&ipa3_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa3_ep_context));
+	ipa3_inc_client_enable_clks();
 
 	ep->skip_ep_cfg = in->skip_ep_cfg;
 	ep->valid = 1;
@@ -257,7 +258,7 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	ep->priv = in->priv;
 	ep->keep_ipa_awake = in->keep_ipa_awake;
 
-	result = ipa_enable_data_path(ipa_ep_idx);
+	result = ipa3_enable_data_path(ipa_ep_idx);
 	if (result) {
 		IPAERR("enable data path failed res=%d clnt=%d.\n", result,
 				ipa_ep_idx);
@@ -265,13 +266,13 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	}
 
 	if (!ep->skip_ep_cfg) {
-		if (ipa_cfg_ep(ipa_ep_idx, &in->ipa_ep_cfg)) {
+		if (ipa3_cfg_ep(ipa_ep_idx, &in->ipa_ep_cfg)) {
 			IPAERR("fail to configure EP.\n");
 			goto ipa_cfg_ep_fail;
 		}
 		/* Setting EP status 0 */
 		memset(&ep_status, 0, sizeof(ep_status));
-		if (ipa_cfg_ep_status(ipa_ep_idx, &ep_status)) {
+		if (ipa3_cfg_ep_status(ipa_ep_idx, &ep_status)) {
 			IPAERR("fail to configure status of EP.\n");
 			goto ipa_cfg_ep_fail;
 		}
@@ -280,13 +281,13 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 		IPADBG("Skipping endpoint configuration.\n");
 	}
 
-	result = ipa_connect_configure_sps(in, ep, ipa_ep_idx);
+	result = ipa3_connect_configure_sps(in, ep, ipa_ep_idx);
 	if (result) {
 		IPAERR("fail to configure SPS.\n");
 		goto ipa_cfg_ep_fail;
 	}
 
-	if (ipa_ctx->smmu_present &&
+	if (ipa3_ctx->smmu_present &&
 			(in->desc.base == NULL ||
 			 in->data.base == NULL)) {
 		IPAERR(" allocate FIFOs data_fifo=0x%p desc_fifo=0x%p.\n",
@@ -295,7 +296,7 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	}
 
 	if (in->desc.base == NULL) {
-		result = ipa_connect_allocate_fifo(in, &ep->connect.desc,
+		result = ipa3_connect_allocate_fifo(in, &ep->connect.desc,
 						  &ep->desc_fifo_in_pipe_mem,
 						  &ep->desc_fifo_pipe_mem_ofst,
 						  in->desc_fifo_sz, ipa_ep_idx);
@@ -312,7 +313,7 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	       ep->connect.desc.size);
 
 	if (in->data.base == NULL) {
-		result = ipa_connect_allocate_fifo(in, &ep->connect.data,
+		result = ipa3_connect_allocate_fifo(in, &ep->connect.data,
 						&ep->data_fifo_in_pipe_mem,
 						&ep->data_fifo_pipe_mem_ofst,
 						in->data_fifo_sz, ipa_ep_idx);
@@ -328,7 +329,7 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	IPADBG("Data FIFO pa=%pa, size=%d\n", &ep->connect.data.phys_base,
 	       ep->connect.data.size);
 
-	if (ipa_ctx->smmu_present) {
+	if (ipa3_ctx->smmu_present) {
 		ep->connect.data.iova = ep->connect.data.phys_base;
 		base = ep->connect.data.iova;
 		smmu_domain = ipa_get_smmu_domain();
@@ -364,31 +365,31 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 		ep->connect.event_thresh = IPA_EVENT_THRESHOLD;
 	ep->connect.options = SPS_O_AUTO_ENABLE;    /* BAM-to-BAM */
 
-	result = ipa_sps_connect_safe(ep->ep_hdl, &ep->connect, in->client);
+	result = ipa3_sps_connect_safe(ep->ep_hdl, &ep->connect, in->client);
 	if (result) {
 		IPAERR("sps_connect fails.\n");
 		goto sps_connect_fail;
 	}
 
-	sps->ipa_bam_hdl = ipa_ctx->bam_handle;
+	sps->ipa_bam_hdl = ipa3_ctx->bam_handle;
 	sps->ipa_ep_idx = ipa_ep_idx;
 	*clnt_hdl = ipa_ep_idx;
 	memcpy(&sps->desc, &ep->connect.desc, sizeof(struct sps_mem_buffer));
 	memcpy(&sps->data, &ep->connect.data, sizeof(struct sps_mem_buffer));
 
-	ipa_ctx->skip_ep_cfg_shadow[ipa_ep_idx] = ep->skip_ep_cfg;
+	ipa3_ctx->skip_ep_cfg_shadow[ipa_ep_idx] = ep->skip_ep_cfg;
 	if (!ep->skip_ep_cfg && IPA_CLIENT_IS_PROD(in->client))
-		ipa_install_dflt_flt_rules(ipa_ep_idx);
+		ipa3_install_dflt_flt_rules(ipa_ep_idx);
 
 	if (!ep->keep_ipa_awake)
-		ipa_dec_client_disable_clks();
+		ipa3_dec_client_disable_clks();
 
 	IPADBG("client %d (ep: %d) connected\n", in->client, ipa_ep_idx);
 
 	return 0;
 
 sps_connect_fail:
-	if (ipa_ctx->smmu_present) {
+	if (ipa3_ctx->smmu_present) {
 		base = ep->connect.desc.iova;
 		smmu_domain = ipa_get_smmu_domain();
 		if (smmu_domain != NULL) {
@@ -399,7 +400,7 @@ sps_connect_fail:
 		}
 	}
 iommu_map_desc_fail:
-	if (ipa_ctx->smmu_present) {
+	if (ipa3_ctx->smmu_present) {
 		base = ep->connect.data.iova;
 		smmu_domain = ipa_get_smmu_domain();
 		if (smmu_domain != NULL) {
@@ -412,37 +413,37 @@ iommu_map_desc_fail:
 iommu_map_data_fail:
 	if (!ep->data_fifo_client_allocated) {
 		if (!ep->data_fifo_in_pipe_mem)
-			dma_free_coherent(ipa_ctx->pdev,
+			dma_free_coherent(ipa3_ctx->pdev,
 				  ep->connect.data.size,
 				  ep->connect.data.base,
 				  ep->connect.data.phys_base);
 		else
-			ipa_pipe_mem_free(ep->data_fifo_pipe_mem_ofst,
+			ipa3_pipe_mem_free(ep->data_fifo_pipe_mem_ofst,
 				  ep->connect.data.size);
 	}
 data_mem_alloc_fail:
 	if (!ep->desc_fifo_client_allocated) {
 		if (!ep->desc_fifo_in_pipe_mem)
-			dma_free_coherent(ipa_ctx->pdev,
+			dma_free_coherent(ipa3_ctx->pdev,
 				  ep->connect.desc.size,
 				  ep->connect.desc.base,
 				  ep->connect.desc.phys_base);
 		else
-			ipa_pipe_mem_free(ep->desc_fifo_pipe_mem_ofst,
+			ipa3_pipe_mem_free(ep->desc_fifo_pipe_mem_ofst,
 				  ep->connect.desc.size);
 	}
 desc_mem_alloc_fail:
 	sps_free_endpoint(ep->ep_hdl);
 ipa_cfg_ep_fail:
-	memset(&ipa_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa_ep_context));
-	ipa_dec_client_disable_clks();
+	memset(&ipa3_ctx->ep[ipa_ep_idx], 0, sizeof(struct ipa3_ep_context));
+	ipa3_dec_client_disable_clks();
 fail:
 	return result;
 }
-EXPORT_SYMBOL(ipa_connect);
+EXPORT_SYMBOL(ipa3_connect);
 
 /**
- * ipa_disconnect() - low-level IPA client disconnect
+ * ipa3_disconnect() - low-level IPA client disconnect
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
  *
  * Should be called by the driver of the peripheral that wants to disconnect
@@ -453,26 +454,26 @@ EXPORT_SYMBOL(ipa_connect);
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_disconnect(u32 clnt_hdl)
+int ipa3_disconnect(u32 clnt_hdl)
 {
 	int result;
-	struct ipa_ep_context *ep;
+	struct ipa3_ep_context *ep;
 	unsigned long peer_bam;
 	unsigned long base;
 	struct iommu_domain *smmu_domain;
 
-	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
-		ipa_ctx->ep[clnt_hdl].valid == 0) {
+	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
+		ipa3_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("bad parm.\n");
 		return -EINVAL;
 	}
 
-	ep = &ipa_ctx->ep[clnt_hdl];
+	ep = &ipa3_ctx->ep[clnt_hdl];
 
 	if (!ep->keep_ipa_awake)
-		ipa_inc_client_enable_clks();
+		ipa3_inc_client_enable_clks();
 
-	result = ipa_disable_data_path(clnt_hdl);
+	result = ipa3_disable_data_path(clnt_hdl);
 	if (result) {
 		IPAERR("disable data path failed res=%d clnt=%d.\n", result,
 				clnt_hdl);
@@ -498,28 +499,28 @@ int ipa_disconnect(u32 clnt_hdl)
 	if (!ep->desc_fifo_client_allocated &&
 	     ep->connect.desc.base) {
 		if (!ep->desc_fifo_in_pipe_mem)
-			dma_free_coherent(ipa_ctx->pdev,
+			dma_free_coherent(ipa3_ctx->pdev,
 					  ep->connect.desc.size,
 					  ep->connect.desc.base,
 					  ep->connect.desc.phys_base);
 		else
-			ipa_pipe_mem_free(ep->desc_fifo_pipe_mem_ofst,
+			ipa3_pipe_mem_free(ep->desc_fifo_pipe_mem_ofst,
 					  ep->connect.desc.size);
 	}
 
 	if (!ep->data_fifo_client_allocated &&
 	     ep->connect.data.base) {
 		if (!ep->data_fifo_in_pipe_mem)
-			dma_free_coherent(ipa_ctx->pdev,
+			dma_free_coherent(ipa3_ctx->pdev,
 					  ep->connect.data.size,
 					  ep->connect.data.base,
 					  ep->connect.data.phys_base);
 		else
-			ipa_pipe_mem_free(ep->data_fifo_pipe_mem_ofst,
+			ipa3_pipe_mem_free(ep->data_fifo_pipe_mem_ofst,
 					  ep->connect.data.size);
 	}
 
-	if (ipa_ctx->smmu_present) {
+	if (ipa3_ctx->smmu_present) {
 		base = ep->connect.desc.iova;
 		smmu_domain = ipa_get_smmu_domain();
 		if (smmu_domain != NULL) {
@@ -530,7 +531,7 @@ int ipa_disconnect(u32 clnt_hdl)
 		}
 	}
 
-	if (ipa_ctx->smmu_present) {
+	if (ipa3_ctx->smmu_present) {
 		base = ep->connect.data.iova;
 		smmu_domain = ipa_get_smmu_domain();
 		if (smmu_domain != NULL) {
@@ -547,46 +548,46 @@ int ipa_disconnect(u32 clnt_hdl)
 		return -EPERM;
 	}
 
-	ipa_delete_dflt_flt_rules(clnt_hdl);
+	ipa3_delete_dflt_flt_rules(clnt_hdl);
 
-	spin_lock(&ipa_ctx->lan_rx_clnt_notify_lock);
-	memset(&ipa_ctx->ep[clnt_hdl], 0, sizeof(struct ipa_ep_context));
-	spin_unlock(&ipa_ctx->lan_rx_clnt_notify_lock);
+	spin_lock(&ipa3_ctx->lan_rx_clnt_notify_lock);
+	memset(&ipa3_ctx->ep[clnt_hdl], 0, sizeof(struct ipa3_ep_context));
+	spin_unlock(&ipa3_ctx->lan_rx_clnt_notify_lock);
 
-	ipa_dec_client_disable_clks();
+	ipa3_dec_client_disable_clks();
 
 	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_disconnect);
+EXPORT_SYMBOL(ipa3_disconnect);
 
 /**
-* ipa_reset_endpoint() - reset an endpoint from BAM perspective
+* ipa3_reset_endpoint() - reset an endpoint from BAM perspective
 * @clnt_hdl: [in] IPA client handle
 *
 * Returns:	0 on success, negative on failure
 *
 * Note:	Should not be called from atomic context
 */
-int ipa_reset_endpoint(u32 clnt_hdl)
+int ipa3_reset_endpoint(u32 clnt_hdl)
 {
 	int res;
-	struct ipa_ep_context *ep;
+	struct ipa3_ep_context *ep;
 
-	if (clnt_hdl >= ipa_ctx->ipa_num_pipes) {
+	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes) {
 		IPAERR("Bad parameters.\n");
 		return -EFAULT;
 	}
-	ep = &ipa_ctx->ep[clnt_hdl];
+	ep = &ipa3_ctx->ep[clnt_hdl];
 
-	ipa_inc_client_enable_clks();
+	ipa3_inc_client_enable_clks();
 	res = sps_disconnect(ep->ep_hdl);
 	if (res) {
 		IPAERR("sps_disconnect() failed, res=%d.\n", res);
 		goto bail;
 	} else {
-		res = ipa_sps_connect_safe(ep->ep_hdl, &ep->connect,
+		res = ipa3_sps_connect_safe(ep->ep_hdl, &ep->connect,
 			ep->client);
 		if (res) {
 			IPAERR("sps_connect() failed, res=%d.\n", res);
@@ -595,14 +596,14 @@ int ipa_reset_endpoint(u32 clnt_hdl)
 	}
 
 bail:
-	ipa_dec_client_disable_clks();
+	ipa3_dec_client_disable_clks();
 
 	return res;
 }
-EXPORT_SYMBOL(ipa_reset_endpoint);
+EXPORT_SYMBOL(ipa3_reset_endpoint);
 
 /**
- * ipa_sps_connect_safe() - connect endpoint from BAM prespective
+ * ipa3_sps_connect_safe() - connect endpoint from BAM prespective
  * @h: [in] sps pipe handle
  * @connect: [in] sps connect parameters
  * @ipa_client: [in] ipa client handle representing the pipe
@@ -614,18 +615,19 @@ EXPORT_SYMBOL(ipa_reset_endpoint);
  *
  * Returns:	0 on success, negative on failure
  */
-int ipa_sps_connect_safe(struct sps_pipe *h, struct sps_connect *connect,
+int ipa3_sps_connect_safe(struct sps_pipe *h, struct sps_connect *connect,
 			 enum ipa_client_type ipa_client)
 {
 	int res;
 
-	if (ipa_ctx->ipa_hw_type > IPA_HW_v2_5 || ipa_ctx->skip_uc_pipe_reset) {
+	if (ipa3_ctx->ipa_hw_type > IPA_HW_v2_5 ||
+			ipa3_ctx->skip_uc_pipe_reset) {
 		IPADBG("uC pipe reset is not required\n");
 	} else {
-		res = ipa_uc_reset_pipe(ipa_client);
+		res = ipa3_uc_reset_pipe(ipa_client);
 		if (res)
 			return res;
 	}
 	return sps_connect(h, connect);
 }
-EXPORT_SYMBOL(ipa_sps_connect_safe);
+EXPORT_SYMBOL(ipa3_sps_connect_safe);

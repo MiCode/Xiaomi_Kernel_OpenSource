@@ -17,7 +17,7 @@
 #include <soc/qcom/msm_qmi_interface.h>
 
 /* Type Definitions  */
-static struct elem_info ipa_hdr_tbl_info_type_data_v01_ei[] = {
+static struct elem_info ipa3_hdr_tbl_info_type_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_4_BYTE,
 		.elem_len	= 1,
@@ -43,7 +43,7 @@ static struct elem_info ipa_hdr_tbl_info_type_data_v01_ei[] = {
 	},
 };
 
-static struct elem_info ipa_route_tbl_info_type_data_v01_ei[] = {
+static struct elem_info ipa3_route_tbl_info_type_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_4_BYTE,
 		.elem_len	= 1,
@@ -69,7 +69,7 @@ static struct elem_info ipa_route_tbl_info_type_data_v01_ei[] = {
 	},
 };
 
-static struct elem_info ipa_modem_mem_info_type_data_v01_ei[] = {
+static struct elem_info ipa3_modem_mem_info_type_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_4_BYTE,
 		.elem_len	= 1,
@@ -95,7 +95,7 @@ static struct elem_info ipa_modem_mem_info_type_data_v01_ei[] = {
 	},
 };
 
-static struct elem_info ipa_hdr_proc_ctx_tbl_info_type_data_v01_ei[] = {
+static struct elem_info ipa3_hdr_proc_ctx_tbl_info_type_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_4_BYTE,
 		.elem_len	= 1,
@@ -123,7 +123,7 @@ static struct elem_info ipa_hdr_proc_ctx_tbl_info_type_data_v01_ei[] = {
 	},
 };
 
-static struct elem_info ipa_zip_tbl_info_type_data_v01_ei[] = {
+static struct elem_info ipa3_zip_tbl_info_type_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_4_BYTE,
 		.elem_len	= 1,
@@ -149,7 +149,7 @@ static struct elem_info ipa_zip_tbl_info_type_data_v01_ei[] = {
 	},
 };
 
-static struct elem_info ipa_ipfltr_range_eq_16_type_data_v01_ei[] = {
+static struct elem_info ipa3_ipfltr_range_eq_16_type_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_1_BYTE,
 		.elem_len	= 1,
@@ -187,7 +187,7 @@ static struct elem_info ipa_ipfltr_range_eq_16_type_data_v01_ei[] = {
 	},
 };
 
-static struct elem_info ipa_ipfltr_mask_eq_32_type_data_v01_ei[] = {
+static struct elem_info ipa3_ipfltr_mask_eq_32_type_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_1_BYTE,
 		.elem_len	= 1,
@@ -225,7 +225,7 @@ static struct elem_info ipa_ipfltr_mask_eq_32_type_data_v01_ei[] = {
 	},
 };
 
-static struct elem_info ipa_ipfltr_eq_16_type_data_v01_ei[] = {
+static struct elem_info ipa3_ipfltr_eq_16_type_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_1_BYTE,
 		.elem_len	= 1,
@@ -252,7 +252,7 @@ static struct elem_info ipa_ipfltr_eq_16_type_data_v01_ei[] = {
 	},
 };
 
-static struct elem_info ipa_ipfltr_eq_32_type_data_v01_ei[] = {
+static struct elem_info ipa3_ipfltr_eq_32_type_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_1_BYTE,
 		.elem_len	= 1,
@@ -278,7 +278,7 @@ static struct elem_info ipa_ipfltr_eq_32_type_data_v01_ei[] = {
 	},
 };
 
-static struct elem_info ipa_ipfltr_mask_eq_128_type_data_v01_ei[] = {
+static struct elem_info ipa3_ipfltr_mask_eq_128_type_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_1_BYTE,
 		.elem_len	= 1,
@@ -316,7 +316,7 @@ static struct elem_info ipa_ipfltr_mask_eq_128_type_data_v01_ei[] = {
 	},
 };
 
-static struct elem_info ipa_filter_rule_type_data_v01_ei[] = {
+static struct elem_info ipa3_filter_rule_type_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_2_BYTE,
 		.elem_len	= 1,
@@ -382,7 +382,7 @@ static struct elem_info ipa_filter_rule_type_data_v01_ei[] = {
 		.tlv_type	= QMI_COMMON_TLV_TYPE,
 		.offset		= offsetof(struct ipa_filter_rule_type_v01,
 					ihl_offset_range_16),
-		.ei_array	= ipa_ipfltr_range_eq_16_type_data_v01_ei,
+		.ei_array	= ipa3_ipfltr_range_eq_16_type_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_UNSIGNED_1_BYTE,
@@ -401,7 +401,7 @@ static struct elem_info ipa_filter_rule_type_data_v01_ei[] = {
 		.tlv_type	= QMI_COMMON_TLV_TYPE,
 		.offset		= offsetof(struct ipa_filter_rule_type_v01,
 					offset_meq_32),
-		.ei_array	= ipa_ipfltr_mask_eq_32_type_data_v01_ei,
+		.ei_array	= ipa3_ipfltr_mask_eq_32_type_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_UNSIGNED_1_BYTE,
@@ -456,7 +456,7 @@ static struct elem_info ipa_filter_rule_type_data_v01_ei[] = {
 		.tlv_type	= QMI_COMMON_TLV_TYPE,
 		.offset		= offsetof(struct ipa_filter_rule_type_v01,
 					ihl_offset_eq_16),
-		.ei_array	= ipa_ipfltr_eq_16_type_data_v01_ei,
+		.ei_array	= ipa3_ipfltr_eq_16_type_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_UNSIGNED_1_BYTE,
@@ -475,7 +475,7 @@ static struct elem_info ipa_filter_rule_type_data_v01_ei[] = {
 		.tlv_type	= QMI_COMMON_TLV_TYPE,
 		.offset		= offsetof(struct ipa_filter_rule_type_v01,
 					ihl_offset_eq_32),
-		.ei_array	= ipa_ipfltr_eq_32_type_data_v01_ei,
+		.ei_array	= ipa3_ipfltr_eq_32_type_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_UNSIGNED_1_BYTE,
@@ -494,7 +494,7 @@ static struct elem_info ipa_filter_rule_type_data_v01_ei[] = {
 		.tlv_type	= QMI_COMMON_TLV_TYPE,
 		.offset		= offsetof(struct ipa_filter_rule_type_v01,
 					ihl_offset_meq_32),
-		.ei_array	= ipa_ipfltr_mask_eq_32_type_data_v01_ei,
+		.ei_array	= ipa3_ipfltr_mask_eq_32_type_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_UNSIGNED_1_BYTE,
@@ -516,7 +516,7 @@ static struct elem_info ipa_filter_rule_type_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_filter_rule_type_v01,
 			offset_meq_128),
-		.ei_array	= ipa_ipfltr_mask_eq_128_type_data_v01_ei,
+		.ei_array	= ipa3_ipfltr_mask_eq_128_type_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_UNSIGNED_1_BYTE,
@@ -535,7 +535,7 @@ static struct elem_info ipa_filter_rule_type_data_v01_ei[] = {
 		.tlv_type	= QMI_COMMON_TLV_TYPE,
 		.offset		= offsetof(struct ipa_filter_rule_type_v01,
 					metadata_meq32),
-		.ei_array	= ipa_ipfltr_mask_eq_32_type_data_v01_ei,
+		.ei_array	= ipa3_ipfltr_mask_eq_32_type_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_UNSIGNED_1_BYTE,
@@ -553,7 +553,7 @@ static struct elem_info ipa_filter_rule_type_data_v01_ei[] = {
 	},
 };
 
-static struct elem_info ipa_filter_spec_type_data_v01_ei[] = {
+static struct elem_info ipa3_filter_spec_type_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_4_BYTE,
 		.elem_len	= 1,
@@ -580,7 +580,7 @@ static struct elem_info ipa_filter_spec_type_data_v01_ei[] = {
 		.tlv_type	= QMI_COMMON_TLV_TYPE,
 		.offset		= offsetof(struct ipa_filter_spec_type_v01,
 					filter_rule),
-		.ei_array	= ipa_filter_rule_type_data_v01_ei,
+		.ei_array	= ipa3_filter_rule_type_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_SIGNED_4_BYTE_ENUM,
@@ -634,8 +634,8 @@ static struct elem_info ipa_filter_spec_type_data_v01_ei[] = {
 	},
 };
 
-static struct elem_info
-	ipa_filter_rule_identifier_to_handle_map_data_v01_ei[] = {
+static struct
+elem_info ipa3_filter_rule_identifier_to_handle_map_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_4_BYTE,
 		.elem_len	= 1,
@@ -663,7 +663,7 @@ static struct elem_info
 	},
 };
 
-static struct elem_info ipa_filter_handle_to_index_map_data_v01_ei[] = {
+static struct elem_info ipa3_filter_handle_to_index_map_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_4_BYTE,
 		.elem_len	= 1,
@@ -691,7 +691,7 @@ static struct elem_info ipa_filter_handle_to_index_map_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_init_modem_driver_req_msg_data_v01_ei[] = {
+struct elem_info ipa3_init_modem_driver_req_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_OPT_FLAG,
 		.elem_len	= 1,
@@ -731,7 +731,7 @@ struct elem_info ipa_init_modem_driver_req_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_init_modem_driver_req_msg_v01,
 			hdr_tbl_info),
-		.ei_array	= ipa_hdr_tbl_info_type_data_v01_ei,
+		.ei_array	= ipa3_hdr_tbl_info_type_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_OPT_FLAG,
@@ -752,7 +752,7 @@ struct elem_info ipa_init_modem_driver_req_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_init_modem_driver_req_msg_v01,
 			v4_route_tbl_info),
-		.ei_array	= ipa_route_tbl_info_type_data_v01_ei,
+		.ei_array	= ipa3_route_tbl_info_type_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_OPT_FLAG,
@@ -773,7 +773,7 @@ struct elem_info ipa_init_modem_driver_req_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_init_modem_driver_req_msg_v01,
 			v6_route_tbl_info),
-		.ei_array	= ipa_route_tbl_info_type_data_v01_ei,
+		.ei_array	= ipa3_route_tbl_info_type_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_OPT_FLAG,
@@ -834,7 +834,7 @@ struct elem_info ipa_init_modem_driver_req_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_init_modem_driver_req_msg_v01,
 			modem_mem_info),
-		.ei_array	= ipa_modem_mem_info_type_data_v01_ei,
+		.ei_array	= ipa3_modem_mem_info_type_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_OPT_FLAG,
@@ -896,7 +896,7 @@ struct elem_info ipa_init_modem_driver_req_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_init_modem_driver_req_msg_v01,
 			hdr_proc_ctx_tbl_info),
-		.ei_array	= ipa_hdr_proc_ctx_tbl_info_type_data_v01_ei,
+		.ei_array	= ipa3_hdr_proc_ctx_tbl_info_type_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_OPT_FLAG,
@@ -917,7 +917,7 @@ struct elem_info ipa_init_modem_driver_req_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_init_modem_driver_req_msg_v01,
 			zip_tbl_info),
-		.ei_array	= ipa_zip_tbl_info_type_data_v01_ei,
+		.ei_array	= ipa3_zip_tbl_info_type_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_EOTI,
@@ -926,7 +926,7 @@ struct elem_info ipa_init_modem_driver_req_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_init_modem_driver_resp_msg_data_v01_ei[] = {
+struct elem_info ipa3_init_modem_driver_resp_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_STRUCT,
 		.elem_len	= 1,
@@ -985,7 +985,7 @@ struct elem_info ipa_init_modem_driver_resp_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_indication_reg_req_msg_data_v01_ei[] = {
+struct elem_info ipa3_indication_reg_req_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_OPT_FLAG,
 		.elem_len	= 1,
@@ -1033,7 +1033,7 @@ struct elem_info ipa_indication_reg_req_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_indication_reg_resp_msg_data_v01_ei[] = {
+struct elem_info ipa3_indication_reg_resp_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_STRUCT,
 		.elem_len	= 1,
@@ -1052,7 +1052,7 @@ struct elem_info ipa_indication_reg_resp_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_master_driver_init_complt_ind_msg_data_v01_ei[] = {
+struct elem_info ipa3_master_driver_init_complt_ind_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_STRUCT,
 		.elem_len	= 1,
@@ -1071,7 +1071,7 @@ struct elem_info ipa_master_driver_init_complt_ind_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_install_fltr_rule_req_msg_data_v01_ei[] = {
+struct elem_info ipa3_install_fltr_rule_req_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_OPT_FLAG,
 		.elem_len	= 1,
@@ -1101,7 +1101,7 @@ struct elem_info ipa_install_fltr_rule_req_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_install_fltr_rule_req_msg_v01,
 			filter_spec_list),
-		.ei_array	= ipa_filter_spec_type_data_v01_ei,
+		.ei_array	= ipa3_filter_spec_type_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_OPT_FLAG,
@@ -1200,7 +1200,7 @@ struct elem_info ipa_install_fltr_rule_req_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_install_fltr_rule_resp_msg_data_v01_ei[] = {
+struct elem_info ipa3_install_fltr_rule_resp_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_STRUCT,
 		.elem_len	= 1,
@@ -1243,7 +1243,7 @@ struct elem_info ipa_install_fltr_rule_resp_msg_data_v01_ei[] = {
 			struct ipa_install_fltr_rule_resp_msg_v01,
 			filter_handle_list),
 		.ei_array	=
-			ipa_filter_rule_identifier_to_handle_map_data_v01_ei,
+			ipa3_filter_rule_identifier_to_handle_map_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_EOTI,
@@ -1252,7 +1252,7 @@ struct elem_info ipa_install_fltr_rule_resp_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_fltr_installed_notif_req_msg_data_v01_ei[] = {
+struct elem_info ipa3_fltr_installed_notif_req_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_4_BYTE,
 		.elem_len	= 1,
@@ -1293,7 +1293,7 @@ struct elem_info ipa_fltr_installed_notif_req_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_fltr_installed_notif_req_msg_v01,
 			filter_index_list),
-		.ei_array	= ipa_filter_handle_to_index_map_data_v01_ei,
+		.ei_array	= ipa3_filter_handle_to_index_map_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_OPT_FLAG,
@@ -1442,7 +1442,7 @@ struct elem_info ipa_fltr_installed_notif_req_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_fltr_installed_notif_resp_msg_data_v01_ei[] = {
+struct elem_info ipa3_fltr_installed_notif_resp_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_STRUCT,
 		.elem_len	= 1,
@@ -1461,7 +1461,7 @@ struct elem_info ipa_fltr_installed_notif_resp_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_enable_force_clear_datapath_req_msg_data_v01_ei[] = {
+struct elem_info ipa3_enable_force_clear_datapath_req_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_4_BYTE,
 		.elem_len	= 1,
@@ -1509,7 +1509,7 @@ struct elem_info ipa_enable_force_clear_datapath_req_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_enable_force_clear_datapath_resp_msg_data_v01_ei[] = {
+struct elem_info ipa3_enable_force_clear_datapath_resp_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_STRUCT,
 		.elem_len	= 1,
@@ -1528,7 +1528,7 @@ struct elem_info ipa_enable_force_clear_datapath_resp_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_disable_force_clear_datapath_req_msg_data_v01_ei[] = {
+struct elem_info ipa3_disable_force_clear_datapath_req_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_4_BYTE,
 		.elem_len	= 1,
@@ -1546,7 +1546,7 @@ struct elem_info ipa_disable_force_clear_datapath_req_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_disable_force_clear_datapath_resp_msg_data_v01_ei[] = {
+struct elem_info ipa3_disable_force_clear_datapath_resp_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_STRUCT,
 		.elem_len	= 1,
@@ -1565,7 +1565,7 @@ struct elem_info ipa_disable_force_clear_datapath_resp_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_config_req_msg_data_v01_ei[] = {
+struct elem_info ipa3_config_req_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_OPT_FLAG,
 		.elem_len	= 1,
@@ -1813,7 +1813,7 @@ struct elem_info ipa_config_req_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_config_resp_msg_data_v01_ei[] = {
+struct elem_info ipa3_config_resp_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_STRUCT,
 		.elem_len	= 1,
@@ -1832,7 +1832,7 @@ struct elem_info ipa_config_resp_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_get_data_stats_req_msg_data_v01_ei[] = {
+struct elem_info ipa3_get_data_stats_req_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_SIGNED_4_BYTE_ENUM,
 		.elem_len	= 1,
@@ -1870,7 +1870,7 @@ struct elem_info ipa_get_data_stats_req_msg_data_v01_ei[] = {
 	},
 };
 
-static struct elem_info ipa_pipe_stats_info_type_data_v01_ei[] = {
+static struct elem_info ipa3_pipe_stats_info_type_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_4_BYTE,
 		.elem_len	= 1,
@@ -1923,7 +1923,7 @@ static struct elem_info ipa_pipe_stats_info_type_data_v01_ei[] = {
 	},
 };
 
-static struct elem_info ipa_stats_type_filter_rule_data_v01_ei[] = {
+static struct elem_info ipa3_stats_type_filter_rule_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_4_BYTE,
 		.elem_len	= 1,
@@ -1951,7 +1951,7 @@ static struct elem_info ipa_stats_type_filter_rule_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_get_data_stats_resp_msg_data_v01_ei[] = {
+struct elem_info ipa3_get_data_stats_resp_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_STRUCT,
 		.elem_len	= 1,
@@ -2012,7 +2012,7 @@ struct elem_info ipa_get_data_stats_resp_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_get_data_stats_resp_msg_v01,
 			ul_src_pipe_stats_list),
-		.ei_array	= ipa_pipe_stats_info_type_data_v01_ei,
+		.ei_array	= ipa3_pipe_stats_info_type_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_OPT_FLAG,
@@ -2043,7 +2043,7 @@ struct elem_info ipa_get_data_stats_resp_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_get_data_stats_resp_msg_v01,
 			dl_dst_pipe_stats_list),
-		.ei_array	= ipa_pipe_stats_info_type_data_v01_ei,
+		.ei_array	= ipa3_pipe_stats_info_type_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_OPT_FLAG,
@@ -2074,7 +2074,7 @@ struct elem_info ipa_get_data_stats_resp_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_get_data_stats_resp_msg_v01,
 			dl_filter_rule_stats_list),
-		.ei_array	= ipa_stats_type_filter_rule_data_v01_ei,
+		.ei_array	= ipa3_stats_type_filter_rule_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_EOTI,
@@ -2083,7 +2083,7 @@ struct elem_info ipa_get_data_stats_resp_msg_data_v01_ei[] = {
 	},
 };
 
-static struct elem_info ipa_apn_data_stats_info_type_data_v01_ei[] = {
+static struct elem_info ipa3_apn_data_stats_info_type_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_4_BYTE,
 		.elem_len	= 1,
@@ -2141,7 +2141,7 @@ static struct elem_info ipa_apn_data_stats_info_type_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_get_apn_data_stats_req_msg_data_v01_ei[] = {
+struct elem_info ipa3_get_apn_data_stats_req_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_OPT_FLAG,
 		.elem_len	= 1,
@@ -2179,7 +2179,7 @@ struct elem_info ipa_get_apn_data_stats_req_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_get_apn_data_stats_resp_msg_data_v01_ei[] = {
+struct elem_info ipa3_get_apn_data_stats_resp_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_STRUCT,
 		.elem_len	= 1,
@@ -2221,7 +2221,7 @@ struct elem_info ipa_get_apn_data_stats_resp_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_get_apn_data_stats_resp_msg_v01,
 			apn_data_stats_list),
-		.ei_array	= ipa_apn_data_stats_info_type_data_v01_ei,
+		.ei_array	= ipa3_apn_data_stats_info_type_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_EOTI,
@@ -2230,7 +2230,7 @@ struct elem_info ipa_get_apn_data_stats_resp_msg_data_v01_ei[] = {
 	},
 };
 
-static struct elem_info ipa_data_usage_quota_info_type_data_v01_ei[] = {
+static struct elem_info ipa3_data_usage_quota_info_type_data_v01_ei[] = {
 	{
 		.data_type	= QMI_UNSIGNED_4_BYTE,
 		.elem_len	= 1,
@@ -2258,7 +2258,7 @@ static struct elem_info ipa_data_usage_quota_info_type_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_set_data_usage_quota_req_msg_data_v01_ei[] = {
+struct elem_info ipa3_set_data_usage_quota_req_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_OPT_FLAG,
 		.elem_len	= 1,
@@ -2289,7 +2289,7 @@ struct elem_info ipa_set_data_usage_quota_req_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_set_data_usage_quota_req_msg_v01,
 			apn_quota_list),
-		.ei_array	= ipa_data_usage_quota_info_type_data_v01_ei,
+		.ei_array	= ipa3_data_usage_quota_info_type_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_EOTI,
@@ -2298,7 +2298,7 @@ struct elem_info ipa_set_data_usage_quota_req_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_set_data_usage_quota_resp_msg_data_v01_ei[] = {
+struct elem_info ipa3_set_data_usage_quota_resp_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_STRUCT,
 		.elem_len	= 1,
@@ -2317,7 +2317,7 @@ struct elem_info ipa_set_data_usage_quota_resp_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_data_usage_quota_reached_ind_msg_data_v01_ei[] = {
+struct elem_info ipa3_data_usage_quota_reached_ind_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_STRUCT,
 		.elem_len	= 1,
@@ -2328,7 +2328,7 @@ struct elem_info ipa_data_usage_quota_reached_ind_msg_data_v01_ei[] = {
 		.offset		= offsetof(
 			struct ipa_data_usage_quota_reached_ind_msg_v01,
 			apn),
-		.ei_array	= ipa_data_usage_quota_info_type_data_v01_ei,
+		.ei_array	= ipa3_data_usage_quota_info_type_data_v01_ei,
 	},
 	{
 		.data_type	= QMI_EOTI,
@@ -2337,7 +2337,7 @@ struct elem_info ipa_data_usage_quota_reached_ind_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_stop_data_usage_quota_req_msg_data_v01_ei[] = {
+struct elem_info ipa3_stop_data_usage_quota_req_msg_data_v01_ei[] = {
 	/* ipa_stop_data_usage_quota_req_msg is empty */
 	{
 		.data_type	= QMI_EOTI,
@@ -2346,7 +2346,7 @@ struct elem_info ipa_stop_data_usage_quota_req_msg_data_v01_ei[] = {
 	},
 };
 
-struct elem_info ipa_stop_data_usage_quota_resp_msg_data_v01_ei[] = {
+struct elem_info ipa3_stop_data_usage_quota_resp_msg_data_v01_ei[] = {
 	{
 		.data_type	= QMI_STRUCT,
 		.elem_len	= 1,

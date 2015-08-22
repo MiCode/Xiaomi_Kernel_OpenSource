@@ -24,7 +24,7 @@
 #define IPA_RT_STATUS_OF_MDFY_FAILED (-1)
 
 /**
- * __ipa_generate_rt_hw_rule_v2() - generates the routing hardware rule
+ * __ipa3_generate_rt_hw_rule_v2() - generates the routing hardware rule
  * @ip: the ip address family type
  * @entry: routing entry
  * @buf: output buffer, buf == NULL means
@@ -41,10 +41,10 @@
  * caller needs to hold any needed locks to ensure integrity
  *
  */
-int __ipa_generate_rt_hw_rule_v2(enum ipa_ip_type ip,
-		struct ipa_rt_entry *entry, u8 *buf)
+int __ipa3_generate_rt_hw_rule_v2(enum ipa_ip_type ip,
+		struct ipa3_rt_entry *entry, u8 *buf)
 {
-	struct ipa_rt_rule_hw_hdr *rule_hdr;
+	struct ipa3_rt_rule_hw_hdr *rule_hdr;
 	const struct ipa_rt_rule *rule =
 		(const struct ipa_rt_rule *)&entry->rule;
 	u16 en_rule = 0;
@@ -58,8 +58,8 @@ int __ipa_generate_rt_hw_rule_v2(enum ipa_ip_type ip,
 	}
 
 	start = buf;
-	rule_hdr = (struct ipa_rt_rule_hw_hdr *)buf;
-	pipe_idx = ipa_get_ep_mapping(entry->rule.dst);
+	rule_hdr = (struct ipa3_rt_rule_hw_hdr *)buf;
+	pipe_idx = ipa3_get_ep_mapping(entry->rule.dst);
 	if (pipe_idx == -1) {
 		IPAERR("Wrong destination pipe specified in RT rule\n");
 		WARN_ON(1);
@@ -73,16 +73,16 @@ int __ipa_generate_rt_hw_rule_v2(enum ipa_ip_type ip,
 		return -EPERM;
 	}
 	rule_hdr->u.hdr.pipe_dest_idx = pipe_idx;
-	rule_hdr->u.hdr.system = !ipa_ctx->hdr_tbl_lcl;
+	rule_hdr->u.hdr.system = !ipa3_ctx->hdr_tbl_lcl;
 	if (entry->hdr) {
 		rule_hdr->u.hdr.hdr_offset =
 			entry->hdr->offset_entry->offset >> 2;
 	} else {
 		rule_hdr->u.hdr.hdr_offset = 0;
 	}
-	buf += sizeof(struct ipa_rt_rule_hw_hdr);
+	buf += sizeof(struct ipa3_rt_rule_hw_hdr);
 
-	if (ipa_generate_hw_rule(ip, &rule->attrib, &buf, &en_rule)) {
+	if (ipa3_generate_hw_rule(ip, &rule->attrib, &buf, &en_rule)) {
 		IPAERR("fail to generate hw rule\n");
 		return -EPERM;
 	}
@@ -90,7 +90,7 @@ int __ipa_generate_rt_hw_rule_v2(enum ipa_ip_type ip,
 	IPADBG("en_rule 0x%x\n", en_rule);
 
 	rule_hdr->u.hdr.en_rule = en_rule;
-	ipa_write_32(rule_hdr->u.word, (u8 *)rule_hdr);
+	ipa3_write_32(rule_hdr->u.word, (u8 *)rule_hdr);
 
 	if (entry->hw_len == 0) {
 		entry->hw_len = buf - start;
@@ -124,9 +124,9 @@ int __ipa_generate_rt_hw_rule_v2(enum ipa_ip_type ip,
  *
  */
 int __ipa_generate_rt_hw_rule_v3_0(enum ipa_ip_type ip,
-		struct ipa_rt_entry *entry, u8 *buf)
+		struct ipa3_rt_entry *entry, u8 *buf)
 {
-	struct ipa_rt_rule_hw_hdr *rule_hdr;
+	struct ipa3_rt_rule_hw_hdr *rule_hdr;
 	const struct ipa_rt_rule *rule =
 		(const struct ipa_rt_rule *)&entry->rule;
 	u16 en_rule = 0;
@@ -140,8 +140,8 @@ int __ipa_generate_rt_hw_rule_v3_0(enum ipa_ip_type ip,
 	}
 
 	start = buf;
-	rule_hdr = (struct ipa_rt_rule_hw_hdr *)buf;
-	pipe_idx = ipa_get_ep_mapping(entry->rule.dst);
+	rule_hdr = (struct ipa3_rt_rule_hw_hdr *)buf;
+	pipe_idx = ipa3_get_ep_mapping(entry->rule.dst);
 	if (pipe_idx == -1) {
 		IPAERR("Wrong destination pipe specified in RT rule\n");
 		WARN_ON(1);
@@ -156,17 +156,17 @@ int __ipa_generate_rt_hw_rule_v3_0(enum ipa_ip_type ip,
 	}
 	rule_hdr->u.hdr.pipe_dest_idx = pipe_idx;
 	if (entry->proc_ctx || (entry->hdr && entry->hdr->is_hdr_proc_ctx)) {
-		struct ipa_hdr_proc_ctx_entry *proc_ctx;
+		struct ipa3_hdr_proc_ctx_entry *proc_ctx;
 
 		proc_ctx = (entry->proc_ctx) ? : entry->hdr->proc_ctx;
-		rule_hdr->u.hdr.system = !ipa_ctx->hdr_proc_ctx_tbl_lcl;
+		rule_hdr->u.hdr.system = !ipa3_ctx->hdr_proc_ctx_tbl_lcl;
 		BUG_ON(proc_ctx->offset_entry->offset & 31);
 		rule_hdr->u.hdr.proc_ctx = 1;
 		rule_hdr->u.hdr.hdr_offset =
 			(proc_ctx->offset_entry->offset +
-			ipa_ctx->hdr_proc_ctx_tbl.start_offset) >> 5;
+			ipa3_ctx->hdr_proc_ctx_tbl.start_offset) >> 5;
 	} else if (entry->hdr) {
-		rule_hdr->u.hdr.system = !ipa_ctx->hdr_tbl_lcl;
+		rule_hdr->u.hdr.system = !ipa3_ctx->hdr_tbl_lcl;
 		BUG_ON(entry->hdr->offset_entry->offset & 3);
 		rule_hdr->u.hdr.proc_ctx = 0;
 		rule_hdr->u.hdr.hdr_offset =
@@ -175,9 +175,9 @@ int __ipa_generate_rt_hw_rule_v3_0(enum ipa_ip_type ip,
 		rule_hdr->u.hdr.proc_ctx = 0;
 		rule_hdr->u.hdr.hdr_offset = 0;
 	}
-	buf += sizeof(struct ipa_rt_rule_hw_hdr);
+	buf += sizeof(struct ipa3_rt_rule_hw_hdr);
 
-	if (ipa_generate_hw_rule(ip, &rule->attrib, &buf, &en_rule)) {
+	if (ipa3_generate_hw_rule(ip, &rule->attrib, &buf, &en_rule)) {
 		IPAERR("fail to generate hw rule\n");
 		return -EPERM;
 	}
@@ -185,7 +185,7 @@ int __ipa_generate_rt_hw_rule_v3_0(enum ipa_ip_type ip,
 	IPADBG("en_rule 0x%x\n", en_rule);
 
 	rule_hdr->u.hdr.en_rule = en_rule;
-	ipa_write_32(rule_hdr->u.word, (u8 *)rule_hdr);
+	ipa3_write_32(rule_hdr->u.word, (u8 *)rule_hdr);
 
 	if (entry->hw_len == 0) {
 		entry->hw_len = buf - start;
@@ -199,7 +199,7 @@ int __ipa_generate_rt_hw_rule_v3_0(enum ipa_ip_type ip,
 }
 
 /**
- * ipa_get_rt_hw_tbl_size() - returns the size of HW routing table
+ * ipa3_get_rt_hw_tbl_size() - returns the size of HW routing table
  * @ip: the ip address family type
  * @hdr_sz: header size
  * @max_rt_idx: maximal index
@@ -210,21 +210,21 @@ int __ipa_generate_rt_hw_rule_v3_0(enum ipa_ip_type ip,
  *
  * the MSB set in rt_idx_bitmap indicates the size of hdr of routing tbl
  */
-static int ipa_get_rt_hw_tbl_size(enum ipa_ip_type ip, u32 *hdr_sz,
+static int ipa3_get_rt_hw_tbl_size(enum ipa_ip_type ip, u32 *hdr_sz,
 		int *max_rt_idx)
 {
-	struct ipa_rt_tbl_set *set;
-	struct ipa_rt_tbl *tbl;
-	struct ipa_rt_entry *entry;
+	struct ipa3_rt_tbl_set *set;
+	struct ipa3_rt_tbl *tbl;
+	struct ipa3_rt_entry *entry;
 	u32 total_sz = 0;
 	u32 tbl_sz;
-	u32 bitmap = ipa_ctx->rt_idx_bitmap[ip];
+	u32 bitmap = ipa3_ctx->rt_idx_bitmap[ip];
 	int highest_bit_set = IPA_RT_TABLE_INDEX_NOT_FOUND;
 	int i;
 	int res;
 
 	*hdr_sz = 0;
-	set = &ipa_ctx->rt_tbl_set[ip];
+	set = &ipa3_ctx->rt_tbl_set[ip];
 
 	for (i = 0; i < IPA_RT_INDEX_BITMAP_SIZE; i++) {
 		if (bitmap & IPA_RT_BIT_MASK)
@@ -245,7 +245,7 @@ static int ipa_get_rt_hw_tbl_size(enum ipa_ip_type ip, u32 *hdr_sz,
 	list_for_each_entry(tbl, &set->head_rt_tbl_list, link) {
 		tbl_sz = 0;
 		list_for_each_entry(entry, &tbl->head_rt_rule_list, link) {
-			res = ipa_ctx->ctrl->ipa_generate_rt_hw_rule(
+			res = ipa3_ctx->ctrl->ipa_generate_rt_hw_rule(
 				ip,
 				entry,
 				NULL);
@@ -276,22 +276,25 @@ static int ipa_get_rt_hw_tbl_size(enum ipa_ip_type ip, u32 *hdr_sz,
 	return total_sz;
 }
 
-static int ipa_generate_rt_hw_tbl_common(enum ipa_ip_type ip, u8 *base, u8 *hdr,
-		u32 body_ofst, u32 apps_start_idx)
+static int ipa3_generate_rt_hw_tbl_common(enum ipa_ip_type ip,
+		u8 *base,
+		u8 *hdr,
+		u32 body_ofst,
+		u32 apps_start_idx)
 {
-	struct ipa_rt_tbl *tbl;
-	struct ipa_rt_entry *entry;
-	struct ipa_rt_tbl_set *set;
+	struct ipa3_rt_tbl *tbl;
+	struct ipa3_rt_entry *entry;
+	struct ipa3_rt_tbl_set *set;
 	u32 offset;
 	u8 *body;
-	struct ipa_mem_buffer rt_tbl_mem;
+	struct ipa3_mem_buffer rt_tbl_mem;
 	u8 *rt_tbl_mem_body;
 	int res;
 
 	/* build the rt tbl in the DMA buffer to submit to IPA HW */
 	body = base;
 
-	set = &ipa_ctx->rt_tbl_set[ip];
+	set = &ipa3_ctx->rt_tbl_set[ip];
 	list_for_each_entry(tbl, &set->head_rt_tbl_list, link) {
 		if (!tbl->in_sys) {
 			offset = body - base + body_ofst;
@@ -307,14 +310,14 @@ static int ipa_generate_rt_hw_tbl_common(enum ipa_ip_type ip, u8 *base, u8 *hdr,
 			offset |= IPA_RT_BIT_MASK;
 
 			/* update the hdr at the right index */
-			ipa_write_32(offset, hdr +
+			ipa3_write_32(offset, hdr +
 					((tbl->idx - apps_start_idx) *
 					 IPA_RT_TABLE_WORD_SIZE));
 
 			/* generate the rule-set */
 			list_for_each_entry(entry, &tbl->head_rt_rule_list,
 					link) {
-				res = ipa_ctx->ctrl->ipa_generate_rt_hw_rule(
+				res = ipa3_ctx->ctrl->ipa_generate_rt_hw_rule(
 					ip,
 					entry,
 					body);
@@ -326,7 +329,7 @@ static int ipa_generate_rt_hw_tbl_common(enum ipa_ip_type ip, u8 *base, u8 *hdr,
 			}
 
 			/* write the rule-set terminator */
-			body = ipa_write_32(0, body);
+			body = ipa3_write_32(0, body);
 			if ((long)body & IPA_RT_ENTRY_MEMORY_ALLIGNMENT)
 				/* advance body to next word boundary */
 				body = body + (IPA_RT_TABLE_WORD_SIZE -
@@ -337,7 +340,7 @@ static int ipa_generate_rt_hw_tbl_common(enum ipa_ip_type ip, u8 *base, u8 *hdr,
 			/* allocate memory for the RT tbl */
 			rt_tbl_mem.size = tbl->sz;
 			rt_tbl_mem.base =
-			   dma_alloc_coherent(ipa_ctx->pdev, rt_tbl_mem.size,
+			   dma_alloc_coherent(ipa3_ctx->pdev, rt_tbl_mem.size,
 					   &rt_tbl_mem.phys_base, GFP_KERNEL);
 			if (!rt_tbl_mem.base) {
 				IPAERR("fail to alloc DMA buff of size %d\n",
@@ -351,13 +354,13 @@ static int ipa_generate_rt_hw_tbl_common(enum ipa_ip_type ip, u8 *base, u8 *hdr,
 			rt_tbl_mem_body = rt_tbl_mem.base;
 			memset(rt_tbl_mem.base, 0, rt_tbl_mem.size);
 			/* update the hdr at the right index */
-			ipa_write_32(rt_tbl_mem.phys_base,
+			ipa3_write_32(rt_tbl_mem.phys_base,
 					hdr + ((tbl->idx - apps_start_idx) *
 					IPA_RT_TABLE_WORD_SIZE));
 			/* generate the rule-set */
 			list_for_each_entry(entry, &tbl->head_rt_rule_list,
 					link) {
-				res = ipa_ctx->ctrl->ipa_generate_rt_hw_rule(
+				res = ipa3_ctx->ctrl->ipa_generate_rt_hw_rule(
 					ip,
 					entry,
 					rt_tbl_mem_body);
@@ -370,7 +373,7 @@ static int ipa_generate_rt_hw_tbl_common(enum ipa_ip_type ip, u8 *base, u8 *hdr,
 			}
 
 			/* write the rule-set terminator */
-			rt_tbl_mem_body = ipa_write_32(0, rt_tbl_mem_body);
+			rt_tbl_mem_body = ipa3_write_32(0, rt_tbl_mem_body);
 
 			if (tbl->curr_mem.phys_base) {
 				WARN_ON(tbl->prev_mem.phys_base);
@@ -383,7 +386,7 @@ static int ipa_generate_rt_hw_tbl_common(enum ipa_ip_type ip, u8 *base, u8 *hdr,
 	return 0;
 
 rt_table_mem_alloc_failed:
-	dma_free_coherent(ipa_ctx->pdev, rt_tbl_mem.size,
+	dma_free_coherent(ipa3_ctx->pdev, rt_tbl_mem.size,
 			  rt_tbl_mem.base, rt_tbl_mem.phys_base);
 proc_err:
 	return -EPERM;
@@ -392,38 +395,38 @@ proc_err:
 
 static void __ipa_reap_sys_rt_tbls(enum ipa_ip_type ip)
 {
-	struct ipa_rt_tbl *tbl;
-	struct ipa_rt_tbl *next;
-	struct ipa_rt_tbl_set *set;
+	struct ipa3_rt_tbl *tbl;
+	struct ipa3_rt_tbl *next;
+	struct ipa3_rt_tbl_set *set;
 
-	set = &ipa_ctx->rt_tbl_set[ip];
+	set = &ipa3_ctx->rt_tbl_set[ip];
 	list_for_each_entry(tbl, &set->head_rt_tbl_list, link) {
 		if (tbl->prev_mem.phys_base) {
 			IPADBG("reaping rt tbl name=%s ip=%d\n", tbl->name, ip);
-			dma_free_coherent(ipa_ctx->pdev, tbl->prev_mem.size,
+			dma_free_coherent(ipa3_ctx->pdev, tbl->prev_mem.size,
 					tbl->prev_mem.base,
 					tbl->prev_mem.phys_base);
 			memset(&tbl->prev_mem, 0, sizeof(tbl->prev_mem));
 		}
 	}
 
-	set = &ipa_ctx->reap_rt_tbl_set[ip];
+	set = &ipa3_ctx->reap_rt_tbl_set[ip];
 	list_for_each_entry_safe(tbl, next, &set->head_rt_tbl_list, link) {
 		list_del(&tbl->link);
 		WARN_ON(tbl->prev_mem.phys_base != 0);
 		if (tbl->curr_mem.phys_base) {
 			IPADBG("reaping sys rt tbl name=%s ip=%d\n", tbl->name,
 					ip);
-			dma_free_coherent(ipa_ctx->pdev, tbl->curr_mem.size,
+			dma_free_coherent(ipa3_ctx->pdev, tbl->curr_mem.size,
 					tbl->curr_mem.base,
 					tbl->curr_mem.phys_base);
-			kmem_cache_free(ipa_ctx->rt_tbl_cache, tbl);
+			kmem_cache_free(ipa3_ctx->rt_tbl_cache, tbl);
 		}
 	}
 }
 
-static int ipa_generate_rt_hw_tbl_v2(enum ipa_ip_type ip,
-		struct ipa_mem_buffer *mem, struct ipa_mem_buffer *head)
+static int ipa3_generate_rt_hw_tbl_v2(enum ipa_ip_type ip,
+		struct ipa3_mem_buffer *mem, struct ipa3_mem_buffer *head)
 {
 	u32 hdr_sz;
 	u8 *hdr;
@@ -451,7 +454,7 @@ static int ipa_generate_rt_hw_tbl_v2(enum ipa_ip_type ip,
 	}
 
 	head->size = num_index * 4;
-	head->base = dma_alloc_coherent(ipa_ctx->pdev, head->size,
+	head->base = dma_alloc_coherent(ipa3_ctx->pdev, head->size,
 			&head->phys_base, GFP_KERNEL);
 	if (!head->base) {
 		IPAERR("fail to alloc DMA buff of size %d\n", head->size);
@@ -460,17 +463,17 @@ static int ipa_generate_rt_hw_tbl_v2(enum ipa_ip_type ip,
 	entr = (u32 *)head->base;
 	hdr = (u8 *)head->base;
 	for (i = 1; i <= num_index; i++) {
-		*entr = ipa_ctx->empty_rt_tbl_mem.phys_base;
+		*entr = ipa3_ctx->empty_rt_tbl_mem.phys_base;
 		entr++;
 	}
 
-	mem->size = ipa_get_rt_hw_tbl_size(ip, &hdr_sz, &max_rt_idx);
+	mem->size = ipa3_get_rt_hw_tbl_size(ip, &hdr_sz, &max_rt_idx);
 	mem->size -= hdr_sz;
 	mem->size = (mem->size + IPA_RT_TABLE_MEMORY_ALLIGNMENT) &
 				~IPA_RT_TABLE_MEMORY_ALLIGNMENT;
 
 	if (mem->size > 0) {
-		mem->base = dma_alloc_coherent(ipa_ctx->pdev, mem->size,
+		mem->base = dma_alloc_coherent(ipa3_ctx->pdev, mem->size,
 				&mem->phys_base, GFP_KERNEL);
 		if (!mem->base) {
 			IPAERR("fail to alloc DMA buff of size %d\n",
@@ -483,7 +486,7 @@ static int ipa_generate_rt_hw_tbl_v2(enum ipa_ip_type ip,
 	/* build the rt tbl in the DMA buffer to submit to IPA HW */
 	body = base = (u8 *)mem->base;
 
-	if (ipa_generate_rt_hw_tbl_common(ip, base, hdr, body_start_offset,
+	if (ipa3_generate_rt_hw_tbl_common(ip, base, hdr, body_start_offset,
 				apps_start_idx)) {
 		IPAERR("fail to generate RT tbl\n");
 		goto proc_err;
@@ -492,9 +495,9 @@ static int ipa_generate_rt_hw_tbl_v2(enum ipa_ip_type ip,
 	return 0;
 
 proc_err:
-	dma_free_coherent(ipa_ctx->pdev, mem->size, mem->base, mem->phys_base);
+	dma_free_coherent(ipa3_ctx->pdev, mem->size, mem->base, mem->phys_base);
 base_err:
-	dma_free_coherent(ipa_ctx->pdev, head->size, head->base,
+	dma_free_coherent(ipa3_ctx->pdev, head->size, head->base,
 			head->phys_base);
 err:
 	return -EPERM;
@@ -507,11 +510,11 @@ err:
  */
 int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 {
-	struct ipa_desc desc[2];
-	struct ipa_mem_buffer body;
-	struct ipa_mem_buffer head;
-	struct ipa_hw_imm_cmd_dma_shared_mem cmd1 = {0};
-	struct ipa_hw_imm_cmd_dma_shared_mem cmd2 = {0};
+	struct ipa3_desc desc[2];
+	struct ipa3_mem_buffer body;
+	struct ipa3_mem_buffer head;
+	struct ipa3_hw_imm_cmd_dma_shared_mem cmd1 = {0};
+	struct ipa3_hw_imm_cmd_dma_shared_mem cmd2 = {0};
 	u16 avail;
 	u32 num_modem_rt_index;
 	int rc = 0;
@@ -519,37 +522,37 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 	u32 local_addr2;
 	bool lcl;
 
-	memset(desc, 0, 2 * sizeof(struct ipa_desc));
+	memset(desc, 0, 2 * sizeof(struct ipa3_desc));
 
 	if (ip == IPA_IP_v4) {
-		avail = ipa_ctx->ip4_rt_tbl_lcl ?
+		avail = ipa3_ctx->ip4_rt_tbl_lcl ?
 			IPA_MEM_PART(apps_v4_rt_size) :
 			IPA_MEM_PART(v4_rt_size_ddr);
 		num_modem_rt_index =
 			IPA_MEM_PART(v4_modem_rt_index_hi) -
 			IPA_MEM_PART(v4_modem_rt_index_lo) + 1;
-		local_addr1 = ipa_ctx->smem_restricted_bytes +
+		local_addr1 = ipa3_ctx->smem_restricted_bytes +
 			IPA_MEM_PART(v4_rt_ofst) +
 			num_modem_rt_index * 4;
-		local_addr2 = ipa_ctx->smem_restricted_bytes +
+		local_addr2 = ipa3_ctx->smem_restricted_bytes +
 			IPA_MEM_PART(apps_v4_rt_ofst);
-		lcl = ipa_ctx->ip4_rt_tbl_lcl;
+		lcl = ipa3_ctx->ip4_rt_tbl_lcl;
 	} else {
-		avail = ipa_ctx->ip6_rt_tbl_lcl ?
+		avail = ipa3_ctx->ip6_rt_tbl_lcl ?
 			IPA_MEM_PART(apps_v6_rt_size) :
 			IPA_MEM_PART(v6_rt_size_ddr);
 		num_modem_rt_index =
 			IPA_MEM_PART(v6_modem_rt_index_hi) -
 			IPA_MEM_PART(v6_modem_rt_index_lo) + 1;
-		local_addr1 = ipa_ctx->smem_restricted_bytes +
+		local_addr1 = ipa3_ctx->smem_restricted_bytes +
 			IPA_MEM_PART(v6_rt_ofst) +
 			num_modem_rt_index * 4;
-		local_addr2 = ipa_ctx->smem_restricted_bytes +
+		local_addr2 = ipa3_ctx->smem_restricted_bytes +
 			IPA_MEM_PART(apps_v6_rt_ofst);
-		lcl = ipa_ctx->ip6_rt_tbl_lcl;
+		lcl = ipa3_ctx->ip6_rt_tbl_lcl;
 	}
 
-	if (ipa_generate_rt_hw_tbl_v2(ip, &body, &head)) {
+	if (ipa3_generate_rt_hw_tbl_v2(ip, &body, &head)) {
 		IPAERR("fail to generate RT HW TBL ip %d\n", ip);
 		rc = -EFAULT;
 		goto fail_gen;
@@ -568,7 +571,7 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 	cmd1.local_addr = local_addr1;
 	desc[0].opcode = IPA_DMA_SHARED_MEM;
 	desc[0].pyld = &cmd1;
-	desc[0].len = sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
+	desc[0].len = sizeof(struct ipa3_hw_imm_cmd_dma_shared_mem);
 	desc[0].type = IPA_IMM_CMD_DESC;
 
 	if (lcl) {
@@ -580,16 +583,16 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 
 		desc[1].opcode = IPA_DMA_SHARED_MEM;
 		desc[1].pyld = &cmd2;
-		desc[1].len = sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
+		desc[1].len = sizeof(struct ipa3_hw_imm_cmd_dma_shared_mem);
 		desc[1].type = IPA_IMM_CMD_DESC;
 
-		if (ipa_send_cmd(2, desc)) {
+		if (ipa3_send_cmd(2, desc)) {
 			IPAERR("fail to send immediate command\n");
 			rc = -EFAULT;
 			goto fail_send_cmd;
 		}
 	} else {
-		if (ipa_send_cmd(1, desc)) {
+		if (ipa3_send_cmd(1, desc)) {
 			IPAERR("fail to send immediate command\n");
 			rc = -EFAULT;
 			goto fail_send_cmd;
@@ -604,16 +607,16 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 	}
 	__ipa_reap_sys_rt_tbls(ip);
 fail_send_cmd:
-	dma_free_coherent(ipa_ctx->pdev, head.size, head.base, head.phys_base);
+	dma_free_coherent(ipa3_ctx->pdev, head.size, head.base, head.phys_base);
 	if (body.size)
-		dma_free_coherent(ipa_ctx->pdev, body.size, body.base,
+		dma_free_coherent(ipa3_ctx->pdev, body.size, body.base,
 				body.phys_base);
 fail_gen:
 	return rc;
 }
 
 /**
- * __ipa_find_rt_tbl() - find the routing table
+ * __ipa3_find_rt_tbl() - find the routing table
  *			which name is given as parameter
  * @ip:	[in] the ip address family type of the wanted routing table
  * @name:	[in] the name of the wanted routing table
@@ -621,17 +624,17 @@ fail_gen:
  * Returns: the routing table which name is given as parameter, or NULL if it
  * doesn't exist
  */
-struct ipa_rt_tbl *__ipa_find_rt_tbl(enum ipa_ip_type ip, const char *name)
+struct ipa3_rt_tbl *__ipa3_find_rt_tbl(enum ipa_ip_type ip, const char *name)
 {
-	struct ipa_rt_tbl *entry;
-	struct ipa_rt_tbl_set *set;
+	struct ipa3_rt_tbl *entry;
+	struct ipa3_rt_tbl_set *set;
 
 	if (strnlen(name, IPA_RESOURCE_NAME_MAX) == IPA_RESOURCE_NAME_MAX) {
 		IPAERR("Name too long: %s\n", name);
 		return NULL;
 	}
 
-	set = &ipa_ctx->rt_tbl_set[ip];
+	set = &ipa3_ctx->rt_tbl_set[ip];
 	list_for_each_entry(entry, &set->head_rt_tbl_list, link) {
 		if (!strcmp(name, entry->name))
 			return entry;
@@ -641,16 +644,18 @@ struct ipa_rt_tbl *__ipa_find_rt_tbl(enum ipa_ip_type ip, const char *name)
 }
 
 /**
- * ipa_query_rt_index() - find the routing table index
+ * ipa3_query_rt_index() - find the routing table index
  *			which name and ip type are given as parameters
  * @in:	[out] the index of the wanted routing table
  *
  * Returns: the routing table which name is given as parameter, or NULL if it
  * doesn't exist
  */
-int ipa_query_rt_index(struct ipa_ioc_get_rt_tbl_indx *in)
+int ipa3_query_rt_index(struct ipa_ioc_get_rt_tbl_indx *in)
 {
-	struct ipa_rt_tbl *entry;
+	struct ipa3_rt_tbl *entry;
+
+	return 0;
 
 	if (in->ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
@@ -658,7 +663,7 @@ int ipa_query_rt_index(struct ipa_ioc_get_rt_tbl_indx *in)
 	}
 
 	/* check if this table exists */
-	entry = __ipa_find_rt_tbl(in->ip, in->name);
+	entry = __ipa3_find_rt_tbl(in->ip, in->name);
 	if (!entry)
 		return -EFAULT;
 
@@ -666,11 +671,11 @@ int ipa_query_rt_index(struct ipa_ioc_get_rt_tbl_indx *in)
 	return 0;
 }
 
-static struct ipa_rt_tbl *__ipa_add_rt_tbl(enum ipa_ip_type ip,
+static struct ipa3_rt_tbl *__ipa_add_rt_tbl(enum ipa_ip_type ip,
 		const char *name)
 {
-	struct ipa_rt_tbl *entry;
-	struct ipa_rt_tbl_set *set;
+	struct ipa3_rt_tbl *entry;
+	struct ipa3_rt_tbl_set *set;
 	int i;
 	int id;
 
@@ -679,20 +684,20 @@ static struct ipa_rt_tbl *__ipa_add_rt_tbl(enum ipa_ip_type ip,
 		goto error;
 	}
 
-	set = &ipa_ctx->rt_tbl_set[ip];
+	set = &ipa3_ctx->rt_tbl_set[ip];
 	/* check if this table exists */
-	entry = __ipa_find_rt_tbl(ip, name);
+	entry = __ipa3_find_rt_tbl(ip, name);
 	if (!entry) {
-		entry = kmem_cache_zalloc(ipa_ctx->rt_tbl_cache, GFP_KERNEL);
+		entry = kmem_cache_zalloc(ipa3_ctx->rt_tbl_cache, GFP_KERNEL);
 		if (!entry) {
 			IPAERR("failed to alloc RT tbl object\n");
 			goto error;
 		}
 		/* find a routing tbl index */
 		for (i = 0; i < IPA_RT_INDEX_BITMAP_SIZE; i++) {
-			if (!test_bit(i, &ipa_ctx->rt_idx_bitmap[ip])) {
+			if (!test_bit(i, &ipa3_ctx->rt_idx_bitmap[ip])) {
 				entry->idx = i;
-				set_bit(i, &ipa_ctx->rt_idx_bitmap[ip]);
+				set_bit(i, &ipa3_ctx->rt_idx_bitmap[ip]);
 				break;
 			}
 		}
@@ -707,14 +712,14 @@ static struct ipa_rt_tbl *__ipa_add_rt_tbl(enum ipa_ip_type ip,
 		entry->set = set;
 		entry->cookie = IPA_COOKIE;
 		entry->in_sys = (ip == IPA_IP_v4) ?
-			!ipa_ctx->ip4_rt_tbl_lcl : !ipa_ctx->ip6_rt_tbl_lcl;
+			!ipa3_ctx->ip4_rt_tbl_lcl : !ipa3_ctx->ip6_rt_tbl_lcl;
 		set->tbl_cnt++;
 		list_add(&entry->link, &set->head_rt_tbl_list);
 
 		IPADBG("add rt tbl idx=%d tbl_cnt=%d ip=%d\n", entry->idx,
 				set->tbl_cnt, ip);
 
-		id = ipa_id_alloc(entry);
+		id = ipa3_id_alloc(entry);
 		if (id < 0) {
 			IPAERR("failed to add to tree\n");
 			WARN_ON(1);
@@ -726,12 +731,12 @@ static struct ipa_rt_tbl *__ipa_add_rt_tbl(enum ipa_ip_type ip,
 
 fail_rt_idx_alloc:
 	entry->cookie = 0;
-	kmem_cache_free(ipa_ctx->rt_tbl_cache, entry);
+	kmem_cache_free(ipa3_ctx->rt_tbl_cache, entry);
 error:
 	return NULL;
 }
 
-static int __ipa_del_rt_tbl(struct ipa_rt_tbl *entry)
+static int __ipa_del_rt_tbl(struct ipa3_rt_tbl *entry)
 {
 	enum ipa_ip_type ip = IPA_IP_MAX;
 	u32 id;
@@ -741,46 +746,46 @@ static int __ipa_del_rt_tbl(struct ipa_rt_tbl *entry)
 		return -EINVAL;
 	}
 	id = entry->id;
-	if (ipa_id_find(id) == NULL) {
+	if (ipa3_id_find(id) == NULL) {
 		IPAERR("lookup failed\n");
 		return -EPERM;
 	}
 
-	if (entry->set == &ipa_ctx->rt_tbl_set[IPA_IP_v4])
+	if (entry->set == &ipa3_ctx->rt_tbl_set[IPA_IP_v4])
 		ip = IPA_IP_v4;
-	else if (entry->set == &ipa_ctx->rt_tbl_set[IPA_IP_v6])
+	else if (entry->set == &ipa3_ctx->rt_tbl_set[IPA_IP_v6])
 		ip = IPA_IP_v6;
 	else
 		WARN_ON(1);
 
 	if (!entry->in_sys) {
 		list_del(&entry->link);
-		clear_bit(entry->idx, &ipa_ctx->rt_idx_bitmap[ip]);
+		clear_bit(entry->idx, &ipa3_ctx->rt_idx_bitmap[ip]);
 		entry->set->tbl_cnt--;
 		IPADBG("del rt tbl_idx=%d tbl_cnt=%d\n", entry->idx,
 				entry->set->tbl_cnt);
-		kmem_cache_free(ipa_ctx->rt_tbl_cache, entry);
+		kmem_cache_free(ipa3_ctx->rt_tbl_cache, entry);
 	} else {
-		list_move(&entry->link,
-				&ipa_ctx->reap_rt_tbl_set[ip].head_rt_tbl_list);
-		clear_bit(entry->idx, &ipa_ctx->rt_idx_bitmap[ip]);
+		list_move(&entry->link, &ipa3_ctx->
+				reap_rt_tbl_set[ip].head_rt_tbl_list);
+		clear_bit(entry->idx, &ipa3_ctx->rt_idx_bitmap[ip]);
 		entry->set->tbl_cnt--;
 		IPADBG("del sys rt tbl_idx=%d tbl_cnt=%d\n", entry->idx,
 				entry->set->tbl_cnt);
 	}
 
 	/* remove the handle from the database */
-	ipa_id_remove(id);
+	ipa3_id_remove(id);
 	return 0;
 }
 
 static int __ipa_add_rt_rule(enum ipa_ip_type ip, const char *name,
 		const struct ipa_rt_rule *rule, u8 at_rear, u32 *rule_hdl)
 {
-	struct ipa_rt_tbl *tbl;
-	struct ipa_rt_entry *entry;
-	struct ipa_hdr_entry *hdr = NULL;
-	struct ipa_hdr_proc_ctx_entry *proc_ctx = NULL;
+	struct ipa3_rt_tbl *tbl;
+	struct ipa3_rt_entry *entry;
+	struct ipa3_hdr_entry *hdr = NULL;
+	struct ipa3_hdr_proc_ctx_entry *proc_ctx = NULL;
 	int id;
 
 	if (rule->hdr_hdl && rule->hdr_proc_ctx_hdl) {
@@ -789,13 +794,13 @@ static int __ipa_add_rt_rule(enum ipa_ip_type ip, const char *name,
 	}
 
 	if (rule->hdr_hdl) {
-		hdr = ipa_id_find(rule->hdr_hdl);
+		hdr = ipa3_id_find(rule->hdr_hdl);
 		if ((hdr == NULL) || (hdr->cookie != IPA_COOKIE)) {
 			IPAERR("rt rule does not point to valid hdr\n");
 			goto error;
 		}
 	} else if (rule->hdr_proc_ctx_hdl) {
-		proc_ctx = ipa_id_find(rule->hdr_proc_ctx_hdl);
+		proc_ctx = ipa3_id_find(rule->hdr_proc_ctx_hdl);
 		if ((proc_ctx == NULL) || (proc_ctx->cookie != IPA_COOKIE)) {
 			IPAERR("rt rule does not point to valid proc ctx\n");
 			goto error;
@@ -819,7 +824,7 @@ static int __ipa_add_rt_rule(enum ipa_ip_type ip, const char *name,
 		goto error;
 	}
 
-	entry = kmem_cache_zalloc(ipa_ctx->rt_rule_cache, GFP_KERNEL);
+	entry = kmem_cache_zalloc(ipa3_ctx->rt_rule_cache, GFP_KERNEL);
 	if (!entry) {
 		IPAERR("failed to alloc RT rule object\n");
 		goto error;
@@ -839,7 +844,7 @@ static int __ipa_add_rt_rule(enum ipa_ip_type ip, const char *name,
 		entry->hdr->ref_cnt++;
 	else if (entry->proc_ctx)
 		entry->proc_ctx->ref_cnt++;
-	id = ipa_id_alloc(entry);
+	id = ipa3_id_alloc(entry);
 	if (id < 0) {
 		IPAERR("failed to add to tree\n");
 		WARN_ON(1);
@@ -853,13 +858,13 @@ static int __ipa_add_rt_rule(enum ipa_ip_type ip, const char *name,
 
 ipa_insert_failed:
 	list_del(&entry->link);
-	kmem_cache_free(ipa_ctx->rt_rule_cache, entry);
+	kmem_cache_free(ipa3_ctx->rt_rule_cache, entry);
 error:
 	return -EPERM;
 }
 
 /**
- * ipa_add_rt_rule() - Add the specified routing rules to SW and optionally
+ * ipa3_add_rt_rule() - Add the specified routing rules to SW and optionally
  * commit to IPA HW
  * @rules:	[inout] set of routing rules to add
  *
@@ -867,7 +872,7 @@ error:
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_add_rt_rule(struct ipa_ioc_add_rt_rule *rules)
+int ipa3_add_rt_rule(struct ipa_ioc_add_rt_rule *rules)
 {
 	int i;
 	int ret;
@@ -877,7 +882,7 @@ int ipa_add_rt_rule(struct ipa_ioc_add_rt_rule *rules)
 		return -EINVAL;
 	}
 
-	mutex_lock(&ipa_ctx->lock);
+	mutex_lock(&ipa3_ctx->lock);
 	for (i = 0; i < rules->num_rules; i++) {
 		if (__ipa_add_rt_rule(rules->ip, rules->rt_tbl_name,
 					&rules->rules[i].rule,
@@ -891,24 +896,24 @@ int ipa_add_rt_rule(struct ipa_ioc_add_rt_rule *rules)
 	}
 
 	if (rules->commit)
-		if (ipa_ctx->ctrl->ipa_commit_rt(rules->ip)) {
+		if (ipa3_ctx->ctrl->ipa3_commit_rt(rules->ip)) {
 			ret = -EPERM;
 			goto bail;
 		}
 
 	ret = 0;
 bail:
-	mutex_unlock(&ipa_ctx->lock);
+	mutex_unlock(&ipa3_ctx->lock);
 	return ret;
 }
-EXPORT_SYMBOL(ipa_add_rt_rule);
+EXPORT_SYMBOL(ipa3_add_rt_rule);
 
-int __ipa_del_rt_rule(u32 rule_hdl)
+int __ipa3_del_rt_rule(u32 rule_hdl)
 {
-	struct ipa_rt_entry *entry;
+	struct ipa3_rt_entry *entry;
 	int id;
 
-	entry = ipa_id_find(rule_hdl);
+	entry = ipa3_id_find(rule_hdl);
 
 	if (entry == NULL) {
 		IPAERR("lookup failed\n");
@@ -921,9 +926,9 @@ int __ipa_del_rt_rule(u32 rule_hdl)
 	}
 
 	if (entry->hdr)
-		__ipa_release_hdr(entry->hdr->id);
+		__ipa3_release_hdr(entry->hdr->id);
 	else if (entry->proc_ctx)
-		__ipa_release_hdr_proc_ctx(entry->proc_ctx->id);
+		__ipa3_release_hdr_proc_ctx(entry->proc_ctx->id);
 	list_del(&entry->link);
 	entry->tbl->rule_cnt--;
 	IPADBG("del rt rule tbl_idx=%d rule_cnt=%d\n", entry->tbl->idx,
@@ -934,16 +939,16 @@ int __ipa_del_rt_rule(u32 rule_hdl)
 	}
 	entry->cookie = 0;
 	id = entry->id;
-	kmem_cache_free(ipa_ctx->rt_rule_cache, entry);
+	kmem_cache_free(ipa3_ctx->rt_rule_cache, entry);
 
 	/* remove the handle from the database */
-	ipa_id_remove(id);
+	ipa3_id_remove(id);
 
 	return 0;
 }
 
 /**
- * ipa_del_rt_rule() - Remove the specified routing rules to SW and optionally
+ * ipa3_del_rt_rule() - Remove the specified routing rules to SW and optionally
  * commit to IPA HW
  * @hdls:	[inout] set of routing rules to delete
  *
@@ -951,7 +956,7 @@ int __ipa_del_rt_rule(u32 rule_hdl)
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_del_rt_rule(struct ipa_ioc_del_rt_rule *hdls)
+int ipa3_del_rt_rule(struct ipa_ioc_del_rt_rule *hdls)
 {
 	int i;
 	int ret;
@@ -961,9 +966,9 @@ int ipa_del_rt_rule(struct ipa_ioc_del_rt_rule *hdls)
 		return -EINVAL;
 	}
 
-	mutex_lock(&ipa_ctx->lock);
+	mutex_lock(&ipa3_ctx->lock);
 	for (i = 0; i < hdls->num_hdls; i++) {
-		if (__ipa_del_rt_rule(hdls->hdl[i].hdl)) {
+		if (__ipa3_del_rt_rule(hdls->hdl[i].hdl)) {
 			IPAERR("failed to del rt rule %i\n", i);
 			hdls->hdl[i].status = IPA_RT_STATUS_OF_DEL_FAILED;
 		} else {
@@ -972,17 +977,17 @@ int ipa_del_rt_rule(struct ipa_ioc_del_rt_rule *hdls)
 	}
 
 	if (hdls->commit)
-		if (ipa_ctx->ctrl->ipa_commit_rt(hdls->ip)) {
+		if (ipa3_ctx->ctrl->ipa3_commit_rt(hdls->ip)) {
 			ret = -EPERM;
 			goto bail;
 		}
 
 	ret = 0;
 bail:
-	mutex_unlock(&ipa_ctx->lock);
+	mutex_unlock(&ipa3_ctx->lock);
 	return ret;
 }
-EXPORT_SYMBOL(ipa_del_rt_rule);
+EXPORT_SYMBOL(ipa3_del_rt_rule);
 
 /**
  * ipa_commit_rt_rule() - Commit the current SW routing table of specified type
@@ -993,7 +998,7 @@ EXPORT_SYMBOL(ipa_del_rt_rule);
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_commit_rt(enum ipa_ip_type ip)
+int ipa3_commit_rt(enum ipa_ip_type ip)
 {
 	int ret;
 
@@ -1006,24 +1011,24 @@ int ipa_commit_rt(enum ipa_ip_type ip)
 	 * issue a commit on the filtering module of same IP type since
 	 * filtering rules point to routing tables
 	 */
-	if (ipa_commit_flt(ip))
+	if (ipa3_commit_flt(ip))
 		return -EPERM;
 
-	mutex_lock(&ipa_ctx->lock);
-	if (ipa_ctx->ctrl->ipa_commit_rt(ip)) {
+	mutex_lock(&ipa3_ctx->lock);
+	if (ipa3_ctx->ctrl->ipa3_commit_rt(ip)) {
 		ret = -EPERM;
 		goto bail;
 	}
 
 	ret = 0;
 bail:
-	mutex_unlock(&ipa_ctx->lock);
+	mutex_unlock(&ipa3_ctx->lock);
 	return ret;
 }
-EXPORT_SYMBOL(ipa_commit_rt);
+EXPORT_SYMBOL(ipa3_commit_rt);
 
 /**
- * ipa_reset_rt() - reset the current SW routing table of specified type
+ * ipa3_reset_rt() - reset the current SW routing table of specified type
  * (does not commit to HW)
  * @ip:	The family of routing tables
  *
@@ -1031,14 +1036,14 @@ EXPORT_SYMBOL(ipa_commit_rt);
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_reset_rt(enum ipa_ip_type ip)
+int ipa3_reset_rt(enum ipa_ip_type ip)
 {
-	struct ipa_rt_tbl *tbl;
-	struct ipa_rt_tbl *tbl_next;
-	struct ipa_rt_tbl_set *set;
-	struct ipa_rt_entry *rule;
-	struct ipa_rt_entry *rule_next;
-	struct ipa_rt_tbl_set *rset;
+	struct ipa3_rt_tbl *tbl;
+	struct ipa3_rt_tbl *tbl_next;
+	struct ipa3_rt_tbl_set *set;
+	struct ipa3_rt_entry *rule;
+	struct ipa3_rt_entry *rule_next;
+	struct ipa3_rt_tbl_set *rset;
 	u32 apps_start_idx;
 	int id;
 
@@ -1056,19 +1061,19 @@ int ipa_reset_rt(enum ipa_ip_type ip)
 	 * issue a reset on the filtering module of same IP type since
 	 * filtering rules point to routing tables
 	 */
-	if (ipa_reset_flt(ip))
+	if (ipa3_reset_flt(ip))
 		IPAERR("fail to reset flt ip=%d\n", ip);
 
-	set = &ipa_ctx->rt_tbl_set[ip];
-	rset = &ipa_ctx->reap_rt_tbl_set[ip];
-	mutex_lock(&ipa_ctx->lock);
+	set = &ipa3_ctx->rt_tbl_set[ip];
+	rset = &ipa3_ctx->reap_rt_tbl_set[ip];
+	mutex_lock(&ipa3_ctx->lock);
 	IPADBG("reset rt ip=%d\n", ip);
 	list_for_each_entry_safe(tbl, tbl_next, &set->head_rt_tbl_list, link) {
 		list_for_each_entry_safe(rule, rule_next,
 					 &tbl->head_rt_rule_list, link) {
-			if (ipa_id_find(rule->id) == NULL) {
+			if (ipa3_id_find(rule->id) == NULL) {
 				WARN_ON(1);
-				mutex_unlock(&ipa_ctx->lock);
+				mutex_unlock(&ipa3_ctx->lock);
 				return -EFAULT;
 			}
 
@@ -1082,20 +1087,20 @@ int ipa_reset_rt(enum ipa_ip_type ip)
 			list_del(&rule->link);
 			tbl->rule_cnt--;
 			if (rule->hdr)
-				__ipa_release_hdr(rule->hdr->id);
+				__ipa3_release_hdr(rule->hdr->id);
 			else if (rule->proc_ctx)
-				__ipa_release_hdr_proc_ctx(rule->proc_ctx->id);
+				__ipa3_release_hdr_proc_ctx(rule->proc_ctx->id);
 			rule->cookie = 0;
 			id = rule->id;
-			kmem_cache_free(ipa_ctx->rt_rule_cache, rule);
+			kmem_cache_free(ipa3_ctx->rt_rule_cache, rule);
 
 			/* remove the handle from the database */
-			ipa_id_remove(id);
+			ipa3_id_remove(id);
 		}
 
-		if (ipa_id_find(tbl->id) == NULL) {
+		if (ipa3_id_find(tbl->id) == NULL) {
 			WARN_ON(1);
-			mutex_unlock(&ipa_ctx->lock);
+			mutex_unlock(&ipa3_ctx->lock);
 			return -EFAULT;
 		}
 		id = tbl->id;
@@ -1106,81 +1111,81 @@ int ipa_reset_rt(enum ipa_ip_type ip)
 				list_del(&tbl->link);
 				set->tbl_cnt--;
 				clear_bit(tbl->idx,
-					  &ipa_ctx->rt_idx_bitmap[ip]);
+					  &ipa3_ctx->rt_idx_bitmap[ip]);
 				IPADBG("rst rt tbl_idx=%d tbl_cnt=%d\n",
 						tbl->idx, set->tbl_cnt);
-				kmem_cache_free(ipa_ctx->rt_tbl_cache, tbl);
+				kmem_cache_free(ipa3_ctx->rt_tbl_cache, tbl);
 			} else {
 				list_move(&tbl->link, &rset->head_rt_tbl_list);
 				clear_bit(tbl->idx,
-					  &ipa_ctx->rt_idx_bitmap[ip]);
+					  &ipa3_ctx->rt_idx_bitmap[ip]);
 				set->tbl_cnt--;
 				IPADBG("rst sys rt tbl_idx=%d tbl_cnt=%d\n",
 						tbl->idx, set->tbl_cnt);
 			}
 			/* remove the handle from the database */
-			ipa_id_remove(id);
+			ipa3_id_remove(id);
 		}
 	}
-	mutex_unlock(&ipa_ctx->lock);
+	mutex_unlock(&ipa3_ctx->lock);
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_reset_rt);
+EXPORT_SYMBOL(ipa3_reset_rt);
 
 /**
- * ipa_get_rt_tbl() - lookup the specified routing table and return handle if it
+ * ipa3_get_rt_tbl() - lookup the specified routing table and return handle if it
  * exists, if lookup succeeds the routing table ref cnt is increased
  * @lookup:	[inout] routing table to lookup and its handle
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
- *	Caller should call ipa_put_rt_tbl later if this function succeeds
+ *	Caller should call ipa3_put_rt_tbl later if this function succeeds
  */
-int ipa_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup)
+int ipa3_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup)
 {
-	struct ipa_rt_tbl *entry;
+	struct ipa3_rt_tbl *entry;
 	int result = -EFAULT;
 
 	if (lookup == NULL || lookup->ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
 		return -EINVAL;
 	}
-	mutex_lock(&ipa_ctx->lock);
-	entry = __ipa_find_rt_tbl(lookup->ip, lookup->name);
+	mutex_lock(&ipa3_ctx->lock);
+	entry = __ipa3_find_rt_tbl(lookup->ip, lookup->name);
 	if (entry && entry->cookie == IPA_COOKIE) {
 		entry->ref_cnt++;
 		lookup->hdl = entry->id;
 
 		/* commit for get */
-		if (ipa_ctx->ctrl->ipa_commit_rt(lookup->ip))
+		if (ipa3_ctx->ctrl->ipa3_commit_rt(lookup->ip))
 			IPAERR("fail to commit RT tbl\n");
 
 		result = 0;
 	}
-	mutex_unlock(&ipa_ctx->lock);
+	mutex_unlock(&ipa3_ctx->lock);
 
 	return result;
 }
-EXPORT_SYMBOL(ipa_get_rt_tbl);
+EXPORT_SYMBOL(ipa3_get_rt_tbl);
 
 /**
- * ipa_put_rt_tbl() - Release the specified routing table handle
+ * ipa3_put_rt_tbl() - Release the specified routing table handle
  * @rt_tbl_hdl:	[in] the routing table handle to release
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_put_rt_tbl(u32 rt_tbl_hdl)
+int ipa3_put_rt_tbl(u32 rt_tbl_hdl)
 {
-	struct ipa_rt_tbl *entry;
+	struct ipa3_rt_tbl *entry;
 	enum ipa_ip_type ip = IPA_IP_MAX;
 	int result;
 
-	mutex_lock(&ipa_ctx->lock);
-	entry = ipa_id_find(rt_tbl_hdl);
+	mutex_lock(&ipa3_ctx->lock);
+	entry = ipa3_id_find(rt_tbl_hdl);
 	if (entry == NULL) {
 		IPAERR("lookup failed\n");
 		result = -EINVAL;
@@ -1193,9 +1198,9 @@ int ipa_put_rt_tbl(u32 rt_tbl_hdl)
 		goto ret;
 	}
 
-	if (entry->set == &ipa_ctx->rt_tbl_set[IPA_IP_v4])
+	if (entry->set == &ipa3_ctx->rt_tbl_set[IPA_IP_v4])
 		ip = IPA_IP_v4;
-	else if (entry->set == &ipa_ctx->rt_tbl_set[IPA_IP_v6])
+	else if (entry->set == &ipa3_ctx->rt_tbl_set[IPA_IP_v6])
 		ip = IPA_IP_v6;
 	else
 		WARN_ON(1);
@@ -1205,34 +1210,34 @@ int ipa_put_rt_tbl(u32 rt_tbl_hdl)
 		if (__ipa_del_rt_tbl(entry))
 			IPAERR("fail to del RT tbl\n");
 		/* commit for put */
-		if (ipa_ctx->ctrl->ipa_commit_rt(ip))
+		if (ipa3_ctx->ctrl->ipa3_commit_rt(ip))
 			IPAERR("fail to commit RT tbl\n");
 	}
 
 	result = 0;
 
 ret:
-	mutex_unlock(&ipa_ctx->lock);
+	mutex_unlock(&ipa3_ctx->lock);
 
 	return result;
 }
-EXPORT_SYMBOL(ipa_put_rt_tbl);
+EXPORT_SYMBOL(ipa3_put_rt_tbl);
 
 
 static int __ipa_mdfy_rt_rule(struct ipa_rt_rule_mdfy *rtrule)
 {
-	struct ipa_rt_entry *entry;
-	struct ipa_hdr_entry *hdr = NULL;
+	struct ipa3_rt_entry *entry;
+	struct ipa3_hdr_entry *hdr = NULL;
 
 	if (rtrule->rule.hdr_hdl) {
-		hdr = ipa_id_find(rtrule->rule.hdr_hdl);
+		hdr = ipa3_id_find(rtrule->rule.hdr_hdl);
 		if ((hdr == NULL) || (hdr->cookie != IPA_COOKIE)) {
 			IPAERR("rt rule does not point to valid hdr\n");
 			goto error;
 		}
 	}
 
-	entry = ipa_id_find(rtrule->rt_rule_hdl);
+	entry = ipa3_id_find(rtrule->rt_rule_hdl);
 	if (entry == NULL) {
 		IPAERR("lookup failed\n");
 		goto error;
@@ -1259,14 +1264,14 @@ error:
 }
 
 /**
- * ipa_mdfy_rt_rule() - Modify the specified routing rules in SW and optionally
+ * ipa3_mdfy_rt_rule() - Modify the specified routing rules in SW and optionally
  * commit to IPA HW
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_mdfy_rt_rule(struct ipa_ioc_mdfy_rt_rule *hdls)
+int ipa3_mdfy_rt_rule(struct ipa_ioc_mdfy_rt_rule *hdls)
 {
 	int i;
 	int result;
@@ -1276,7 +1281,7 @@ int ipa_mdfy_rt_rule(struct ipa_ioc_mdfy_rt_rule *hdls)
 		return -EINVAL;
 	}
 
-	mutex_lock(&ipa_ctx->lock);
+	mutex_lock(&ipa3_ctx->lock);
 	for (i = 0; i < hdls->num_rules; i++) {
 		if (__ipa_mdfy_rt_rule(&hdls->rules[i])) {
 			IPAERR("failed to mdfy rt rule %i\n", i);
@@ -1287,14 +1292,14 @@ int ipa_mdfy_rt_rule(struct ipa_ioc_mdfy_rt_rule *hdls)
 	}
 
 	if (hdls->commit)
-		if (ipa_ctx->ctrl->ipa_commit_rt(hdls->ip)) {
+		if (ipa3_ctx->ctrl->ipa3_commit_rt(hdls->ip)) {
 			result = -EPERM;
 			goto bail;
 		}
 	result = 0;
 bail:
-	mutex_unlock(&ipa_ctx->lock);
+	mutex_unlock(&ipa3_ctx->lock);
 
 	return result;
 }
-EXPORT_SYMBOL(ipa_mdfy_rt_rule);
+EXPORT_SYMBOL(ipa3_mdfy_rt_rule);

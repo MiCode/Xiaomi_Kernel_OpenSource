@@ -14,7 +14,7 @@
 #include <linux/sched.h>
 #include "ipa_i.h"
 
-struct ipa_intf {
+struct ipa3_intf {
 	char name[IPA_RESOURCE_NAME_MAX];
 	struct list_head link;
 	u32 num_tx_props;
@@ -26,21 +26,21 @@ struct ipa_intf {
 	enum ipa_client_type excp_pipe;
 };
 
-struct ipa_push_msg {
+struct ipa3_push_msg {
 	struct ipa_msg_meta meta;
 	ipa_msg_free_fn callback;
 	void *buff;
 	struct list_head link;
 };
 
-struct ipa_pull_msg {
+struct ipa3_pull_msg {
 	struct ipa_msg_meta meta;
 	ipa_msg_pull_fn callback;
 	struct list_head link;
 };
 
 /**
- * ipa_register_intf() - register "logical" interface
+ * ipa3_register_intf() - register "logical" interface
  * @name: [in] interface name
  * @tx:	[in] TX properties of the interface
  * @rx:	[in] RX properties of the interface
@@ -52,15 +52,15 @@ struct ipa_pull_msg {
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_register_intf(const char *name, const struct ipa_tx_intf *tx,
+int ipa3_register_intf(const char *name, const struct ipa_tx_intf *tx,
 		       const struct ipa_rx_intf *rx)
 {
-	return ipa_register_intf_ext(name, tx, rx, NULL);
+	return ipa3_register_intf_ext(name, tx, rx, NULL);
 }
-EXPORT_SYMBOL(ipa_register_intf);
+EXPORT_SYMBOL(ipa3_register_intf);
 
 /**
- * ipa_register_intf_ext() - register "logical" interface which has only
+ * ipa3_register_intf_ext() - register "logical" interface which has only
  * extended properties
  * @name: [in] interface name
  * @tx:	[in] TX properties of the interface
@@ -74,11 +74,11 @@ EXPORT_SYMBOL(ipa_register_intf);
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_register_intf_ext(const char *name, const struct ipa_tx_intf *tx,
+int ipa3_register_intf_ext(const char *name, const struct ipa_tx_intf *tx,
 		       const struct ipa_rx_intf *rx,
 		       const struct ipa_ext_intf *ext)
 {
-	struct ipa_intf *intf;
+	struct ipa3_intf *intf;
 	u32 len;
 
 	if (name == NULL || (tx == NULL && rx == NULL && ext == NULL)) {
@@ -105,7 +105,7 @@ int ipa_register_intf_ext(const char *name, const struct ipa_tx_intf *tx,
 		return -EINVAL;
 	}
 
-	len = sizeof(struct ipa_intf);
+	len = sizeof(struct ipa3_intf);
 	intf = kzalloc(len, GFP_KERNEL);
 	if (intf == NULL) {
 		IPAERR("fail to alloc 0x%x bytes\n", len);
@@ -158,16 +158,16 @@ int ipa_register_intf_ext(const char *name, const struct ipa_tx_intf *tx,
 	else
 		intf->excp_pipe = IPA_CLIENT_APPS_LAN_CONS;
 
-	mutex_lock(&ipa_ctx->lock);
-	list_add_tail(&intf->link, &ipa_ctx->intf_list);
-	mutex_unlock(&ipa_ctx->lock);
+	mutex_lock(&ipa3_ctx->lock);
+	list_add_tail(&intf->link, &ipa3_ctx->intf_list);
+	mutex_unlock(&ipa3_ctx->lock);
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_register_intf_ext);
+EXPORT_SYMBOL(ipa3_register_intf_ext);
 
 /**
- * ipa_deregister_intf() - de-register previously registered logical interface
+ * ipa3_deregister_intf() - de-register previously registered logical interface
  * @name: [in] interface name
  *
  * De-register a previously registered interface
@@ -176,10 +176,10 @@ EXPORT_SYMBOL(ipa_register_intf_ext);
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_deregister_intf(const char *name)
+int ipa3_deregister_intf(const char *name)
 {
-	struct ipa_intf *entry;
-	struct ipa_intf *next;
+	struct ipa3_intf *entry;
+	struct ipa3_intf *next;
 	int result = -EINVAL;
 
 	if ((name == NULL) ||
@@ -188,8 +188,8 @@ int ipa_deregister_intf(const char *name)
 		return result;
 	}
 
-	mutex_lock(&ipa_ctx->lock);
-	list_for_each_entry_safe(entry, next, &ipa_ctx->intf_list, link) {
+	mutex_lock(&ipa3_ctx->lock);
+	list_for_each_entry_safe(entry, next, &ipa3_ctx->intf_list, link) {
 		if (!strcmp(entry->name, name)) {
 			list_del(&entry->link);
 			kfree(entry->ext);
@@ -200,14 +200,14 @@ int ipa_deregister_intf(const char *name)
 			break;
 		}
 	}
-	mutex_unlock(&ipa_ctx->lock);
+	mutex_unlock(&ipa3_ctx->lock);
 
 	return result;
 }
-EXPORT_SYMBOL(ipa_deregister_intf);
+EXPORT_SYMBOL(ipa3_deregister_intf);
 
 /**
- * ipa_query_intf() - query logical interface properties
+ * ipa3_query_intf() - query logical interface properties
  * @lookup:	[inout] interface name and number of properties
  *
  * Obtain the handle and number of tx and rx properties for the named
@@ -218,9 +218,9 @@ EXPORT_SYMBOL(ipa_deregister_intf);
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_query_intf(struct ipa_ioc_query_intf *lookup)
+int ipa3_query_intf(struct ipa_ioc_query_intf *lookup)
 {
-	struct ipa_intf *entry;
+	struct ipa3_intf *entry;
 	int result = -EINVAL;
 
 	if (lookup == NULL) {
@@ -234,8 +234,8 @@ int ipa_query_intf(struct ipa_ioc_query_intf *lookup)
 		return result;
 	}
 
-	mutex_lock(&ipa_ctx->lock);
-	list_for_each_entry(entry, &ipa_ctx->intf_list, link) {
+	mutex_lock(&ipa3_ctx->lock);
+	list_for_each_entry(entry, &ipa3_ctx->intf_list, link) {
 		if (!strcmp(entry->name, lookup->name)) {
 			lookup->num_tx_props = entry->num_tx_props;
 			lookup->num_rx_props = entry->num_rx_props;
@@ -245,13 +245,13 @@ int ipa_query_intf(struct ipa_ioc_query_intf *lookup)
 			break;
 		}
 	}
-	mutex_unlock(&ipa_ctx->lock);
+	mutex_unlock(&ipa3_ctx->lock);
 
 	return result;
 }
 
 /**
- * ipa_query_intf_tx_props() - qeury TX props of an interface
+ * ipa3_query_intf_tx_props() - qeury TX props of an interface
  * @tx:  [inout] interface tx attributes
  *
  * Obtain the tx properties for the specified interface
@@ -260,9 +260,9 @@ int ipa_query_intf(struct ipa_ioc_query_intf *lookup)
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_query_intf_tx_props(struct ipa_ioc_query_intf_tx_props *tx)
+int ipa3_query_intf_tx_props(struct ipa_ioc_query_intf_tx_props *tx)
 {
-	struct ipa_intf *entry;
+	struct ipa3_intf *entry;
 	int result = -EINVAL;
 
 	if (tx == NULL) {
@@ -275,8 +275,8 @@ int ipa_query_intf_tx_props(struct ipa_ioc_query_intf_tx_props *tx)
 		return result;
 	}
 
-	mutex_lock(&ipa_ctx->lock);
-	list_for_each_entry(entry, &ipa_ctx->intf_list, link) {
+	mutex_lock(&ipa3_ctx->lock);
+	list_for_each_entry(entry, &ipa3_ctx->intf_list, link) {
 		if (!strcmp(entry->name, tx->name)) {
 			memcpy(tx->tx, entry->tx, entry->num_tx_props *
 			       sizeof(struct ipa_ioc_tx_intf_prop));
@@ -284,13 +284,13 @@ int ipa_query_intf_tx_props(struct ipa_ioc_query_intf_tx_props *tx)
 			break;
 		}
 	}
-	mutex_unlock(&ipa_ctx->lock);
+	mutex_unlock(&ipa3_ctx->lock);
 
 	return result;
 }
 
 /**
- * ipa_query_intf_rx_props() - qeury RX props of an interface
+ * ipa3_query_intf_rx_props() - qeury RX props of an interface
  * @rx:  [inout] interface rx attributes
  *
  * Obtain the rx properties for the specified interface
@@ -299,9 +299,9 @@ int ipa_query_intf_tx_props(struct ipa_ioc_query_intf_tx_props *tx)
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_query_intf_rx_props(struct ipa_ioc_query_intf_rx_props *rx)
+int ipa3_query_intf_rx_props(struct ipa_ioc_query_intf_rx_props *rx)
 {
-	struct ipa_intf *entry;
+	struct ipa3_intf *entry;
 	int result = -EINVAL;
 
 	if (rx == NULL) {
@@ -314,8 +314,8 @@ int ipa_query_intf_rx_props(struct ipa_ioc_query_intf_rx_props *rx)
 		return result;
 	}
 
-	mutex_lock(&ipa_ctx->lock);
-	list_for_each_entry(entry, &ipa_ctx->intf_list, link) {
+	mutex_lock(&ipa3_ctx->lock);
+	list_for_each_entry(entry, &ipa3_ctx->intf_list, link) {
 		if (!strcmp(entry->name, rx->name)) {
 			memcpy(rx->rx, entry->rx, entry->num_rx_props *
 					sizeof(struct ipa_ioc_rx_intf_prop));
@@ -323,12 +323,13 @@ int ipa_query_intf_rx_props(struct ipa_ioc_query_intf_rx_props *rx)
 			break;
 		}
 	}
-	mutex_unlock(&ipa_ctx->lock);
+	mutex_unlock(&ipa3_ctx->lock);
+
 	return result;
 }
 
 /**
- * ipa_query_intf_ext_props() - qeury EXT props of an interface
+ * ipa3_query_intf_ext_props() - qeury EXT props of an interface
  * @ext:  [inout] interface ext attributes
  *
  * Obtain the ext properties for the specified interface
@@ -337,9 +338,9 @@ int ipa_query_intf_rx_props(struct ipa_ioc_query_intf_rx_props *rx)
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_query_intf_ext_props(struct ipa_ioc_query_intf_ext_props *ext)
+int ipa3_query_intf_ext_props(struct ipa_ioc_query_intf_ext_props *ext)
 {
-	struct ipa_intf *entry;
+	struct ipa3_intf *entry;
 	int result = -EINVAL;
 
 	if (ext == NULL) {
@@ -347,8 +348,8 @@ int ipa_query_intf_ext_props(struct ipa_ioc_query_intf_ext_props *ext)
 		return result;
 	}
 
-	mutex_lock(&ipa_ctx->lock);
-	list_for_each_entry(entry, &ipa_ctx->intf_list, link) {
+	mutex_lock(&ipa3_ctx->lock);
+	list_for_each_entry(entry, &ipa3_ctx->intf_list, link) {
 		if (!strcmp(entry->name, ext->name)) {
 			memcpy(ext->ext, entry->ext, entry->num_ext_props *
 					sizeof(struct ipa_ioc_ext_intf_prop));
@@ -356,12 +357,12 @@ int ipa_query_intf_ext_props(struct ipa_ioc_query_intf_ext_props *ext)
 			break;
 		}
 	}
-	mutex_unlock(&ipa_ctx->lock);
+	mutex_unlock(&ipa3_ctx->lock);
 	return result;
 }
 
 /**
- * ipa_send_msg() - Send "message" from kernel client to IPA driver
+ * ipa3_send_msg() - Send "message" from kernel client to IPA driver
  * @meta: [in] message meta-data
  * @buff: [in] the payload for message
  * @callback: [in] free callback
@@ -375,10 +376,10 @@ int ipa_query_intf_ext_props(struct ipa_ioc_query_intf_ext_props *ext)
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_send_msg(struct ipa_msg_meta *meta, void *buff,
+int ipa3_send_msg(struct ipa_msg_meta *meta, void *buff,
 		  ipa_msg_free_fn callback)
 {
-	struct ipa_push_msg *msg;
+	struct ipa3_push_msg *msg;
 
 	if (meta == NULL || (buff == NULL && callback != NULL) ||
 	    (buff != NULL && callback == NULL)) {
@@ -392,7 +393,7 @@ int ipa_send_msg(struct ipa_msg_meta *meta, void *buff,
 		return -EINVAL;
 	}
 
-	msg = kzalloc(sizeof(struct ipa_push_msg), GFP_KERNEL);
+	msg = kzalloc(sizeof(struct ipa3_push_msg), GFP_KERNEL);
 	if (msg == NULL) {
 		IPAERR("fail to alloc ipa_msg container\n");
 		return -ENOMEM;
@@ -402,19 +403,19 @@ int ipa_send_msg(struct ipa_msg_meta *meta, void *buff,
 	msg->buff = buff;
 	msg->callback = callback;
 
-	mutex_lock(&ipa_ctx->msg_lock);
-	list_add_tail(&msg->link, &ipa_ctx->msg_list);
-	mutex_unlock(&ipa_ctx->msg_lock);
-	IPA_STATS_INC_CNT(ipa_ctx->stats.msg_w[meta->msg_type]);
+	mutex_lock(&ipa3_ctx->msg_lock);
+	list_add_tail(&msg->link, &ipa3_ctx->msg_list);
+	mutex_unlock(&ipa3_ctx->msg_lock);
+	IPA_STATS_INC_CNT(ipa3_ctx->stats.msg_w[meta->msg_type]);
 
-	wake_up(&ipa_ctx->msg_waitq);
+	wake_up(&ipa3_ctx->msg_waitq);
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_send_msg);
+EXPORT_SYMBOL(ipa3_send_msg);
 
 /**
- * ipa_register_pull_msg() - register pull message type
+ * ipa3_register_pull_msg() - register pull message type
  * @meta: [in] message meta-data
  * @callback: [in] pull callback
  *
@@ -425,16 +426,16 @@ EXPORT_SYMBOL(ipa_send_msg);
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_register_pull_msg(struct ipa_msg_meta *meta, ipa_msg_pull_fn callback)
+int ipa3_register_pull_msg(struct ipa_msg_meta *meta, ipa_msg_pull_fn callback)
 {
-	struct ipa_pull_msg *msg;
+	struct ipa3_pull_msg *msg;
 
 	if (meta == NULL || callback == NULL) {
 		IPAERR("invalid param meta=%p callback=%p\n", meta, callback);
 		return -EINVAL;
 	}
 
-	msg = kzalloc(sizeof(struct ipa_pull_msg), GFP_KERNEL);
+	msg = kzalloc(sizeof(struct ipa3_pull_msg), GFP_KERNEL);
 	if (msg == NULL) {
 		IPAERR("fail to alloc ipa_msg container\n");
 		return -ENOMEM;
@@ -443,16 +444,16 @@ int ipa_register_pull_msg(struct ipa_msg_meta *meta, ipa_msg_pull_fn callback)
 	msg->meta = *meta;
 	msg->callback = callback;
 
-	mutex_lock(&ipa_ctx->msg_lock);
-	list_add_tail(&msg->link, &ipa_ctx->pull_msg_list);
-	mutex_unlock(&ipa_ctx->msg_lock);
+	mutex_lock(&ipa3_ctx->msg_lock);
+	list_add_tail(&msg->link, &ipa3_ctx->pull_msg_list);
+	mutex_unlock(&ipa3_ctx->msg_lock);
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_register_pull_msg);
+EXPORT_SYMBOL(ipa3_register_pull_msg);
 
 /**
- * ipa_deregister_pull_msg() - De-register pull message type
+ * ipa3_deregister_pull_msg() - De-register pull message type
  * @meta: [in] message meta-data
  *
  * De-register "message" by kernel client from IPA driver
@@ -461,10 +462,10 @@ EXPORT_SYMBOL(ipa_register_pull_msg);
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_deregister_pull_msg(struct ipa_msg_meta *meta)
+int ipa3_deregister_pull_msg(struct ipa_msg_meta *meta)
 {
-	struct ipa_pull_msg *entry;
-	struct ipa_pull_msg *next;
+	struct ipa3_pull_msg *entry;
+	struct ipa3_pull_msg *next;
 	int result = -EINVAL;
 
 	if (meta == NULL) {
@@ -472,8 +473,8 @@ int ipa_deregister_pull_msg(struct ipa_msg_meta *meta)
 		return result;
 	}
 
-	mutex_lock(&ipa_ctx->msg_lock);
-	list_for_each_entry_safe(entry, next, &ipa_ctx->pull_msg_list, link) {
+	mutex_lock(&ipa3_ctx->msg_lock);
+	list_for_each_entry_safe(entry, next, &ipa3_ctx->pull_msg_list, link) {
 		if (entry->meta.msg_len == meta->msg_len &&
 		    entry->meta.msg_type == meta->msg_type) {
 			list_del(&entry->link);
@@ -482,13 +483,13 @@ int ipa_deregister_pull_msg(struct ipa_msg_meta *meta)
 			break;
 		}
 	}
-	mutex_unlock(&ipa_ctx->msg_lock);
+	mutex_unlock(&ipa3_ctx->msg_lock);
 	return result;
 }
-EXPORT_SYMBOL(ipa_deregister_pull_msg);
+EXPORT_SYMBOL(ipa3_deregister_pull_msg);
 
 /**
- * ipa_read() - read message from IPA device
+ * ipa3_read() - read message from IPA device
  * @filp:	[in] file pointer
  * @buf:	[out] buffer to read into
  * @count:	[in] size of above buffer
@@ -504,11 +505,11 @@ EXPORT_SYMBOL(ipa_deregister_pull_msg);
  *
  * Note:	Should not be called from atomic context
  */
-ssize_t ipa_read(struct file *filp, char __user *buf, size_t count,
+ssize_t ipa3_read(struct file *filp, char __user *buf, size_t count,
 		  loff_t *f_pos)
 {
 	char __user *start;
-	struct ipa_push_msg *msg = NULL;
+	struct ipa3_push_msg *msg = NULL;
 	int ret;
 	DEFINE_WAIT(wait);
 	int locked;
@@ -516,13 +517,15 @@ ssize_t ipa_read(struct file *filp, char __user *buf, size_t count,
 	start = buf;
 
 	while (1) {
-		prepare_to_wait(&ipa_ctx->msg_waitq, &wait, TASK_INTERRUPTIBLE);
+		prepare_to_wait(&ipa3_ctx->msg_waitq,
+				&wait,
+				TASK_INTERRUPTIBLE);
 
-		mutex_lock(&ipa_ctx->msg_lock);
+		mutex_lock(&ipa3_ctx->msg_lock);
 		locked = 1;
-		if (!list_empty(&ipa_ctx->msg_list)) {
-			msg = list_first_entry(&ipa_ctx->msg_list,
-					struct ipa_push_msg, link);
+		if (!list_empty(&ipa3_ctx->msg_list)) {
+			msg = list_first_entry(&ipa3_ctx->msg_list,
+					struct ipa3_push_msg, link);
 			list_del(&msg->link);
 		}
 
@@ -530,7 +533,7 @@ ssize_t ipa_read(struct file *filp, char __user *buf, size_t count,
 
 		if (msg) {
 			locked = 0;
-			mutex_unlock(&ipa_ctx->msg_lock);
+			mutex_unlock(&ipa3_ctx->msg_lock);
 			if (copy_to_user(buf, &msg->meta,
 					  sizeof(struct ipa_msg_meta))) {
 				ret = -EFAULT;
@@ -550,7 +553,7 @@ ssize_t ipa_read(struct file *filp, char __user *buf, size_t count,
 					       msg->meta.msg_type);
 			}
 			IPA_STATS_INC_CNT(
-				ipa_ctx->stats.msg_r[msg->meta.msg_type]);
+				ipa3_ctx->stats.msg_r[msg->meta.msg_type]);
 			kfree(msg);
 		}
 
@@ -566,22 +569,22 @@ ssize_t ipa_read(struct file *filp, char __user *buf, size_t count,
 			break;
 
 		locked = 0;
-		mutex_unlock(&ipa_ctx->msg_lock);
+		mutex_unlock(&ipa3_ctx->msg_lock);
 		schedule();
 	}
 
-	finish_wait(&ipa_ctx->msg_waitq, &wait);
+	finish_wait(&ipa3_ctx->msg_waitq, &wait);
 	if (start != buf && ret != -EFAULT)
 		ret = buf - start;
 
 	if (locked)
-		mutex_unlock(&ipa_ctx->msg_lock);
+		mutex_unlock(&ipa3_ctx->msg_lock);
 
 	return ret;
 }
 
 /**
- * ipa_pull_msg() - pull the specified message from client
+ * ipa3_pull_msg() - pull the specified message from client
  * @meta: [in] message meta-data
  * @buf:  [out] buffer to read into
  * @count: [in] size of above buffer
@@ -594,9 +597,9 @@ ssize_t ipa_read(struct file *filp, char __user *buf, size_t count,
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_pull_msg(struct ipa_msg_meta *meta, char *buff, size_t count)
+int ipa3_pull_msg(struct ipa_msg_meta *meta, char *buff, size_t count)
 {
-	struct ipa_pull_msg *entry;
+	struct ipa3_pull_msg *entry;
 	int result = -EINVAL;
 
 	if (meta == NULL || buff == NULL || !count) {
@@ -605,14 +608,14 @@ int ipa_pull_msg(struct ipa_msg_meta *meta, char *buff, size_t count)
 		return result;
 	}
 
-	mutex_lock(&ipa_ctx->msg_lock);
-	list_for_each_entry(entry, &ipa_ctx->pull_msg_list, link) {
+	mutex_lock(&ipa3_ctx->msg_lock);
+	list_for_each_entry(entry, &ipa3_ctx->pull_msg_list, link) {
 		if (entry->meta.msg_len == meta->msg_len &&
 		    entry->meta.msg_type == meta->msg_type) {
 			result = entry->callback(buff, count, meta->msg_type);
 			break;
 		}
 	}
-	mutex_unlock(&ipa_ctx->msg_lock);
+	mutex_unlock(&ipa3_ctx->msg_lock);
 	return result;
 }
