@@ -827,7 +827,7 @@
 				regulator-max-microvolt = <8>;
 
 				qcom,cpr-fuse-corners = <4>;
-				qcom,cpr-fuse-combos = <2>;
+				qcom,cpr-fuse-combos = <8>;
 				qcom,cpr-corners = <8>;
 
 				qcom,cpr-corner-fmax-map = <2 4 6 8>;
@@ -882,8 +882,20 @@
 
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
 					<30000 30000 30000 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
 					<0 0 0 0>;
 				qcom,cpr-closed-loop-voltage-adjustment =
+					<0 30000 30000 30000 30000 30000 0 0>,
+					<0 30000 30000 30000 30000 30000 0 0>,
+					<0 30000 30000 30000 30000 30000 0 0>,
+					<0 30000 30000 30000 30000 30000 0 0>,
+					<0 30000 30000 30000 30000 30000 0 0>,
+					<0 30000 30000 30000 30000 30000 0 0>,
 					<0 30000 30000 30000 30000 30000 0 0>,
 					<0 30000 30000 30000 30000 30000 0 0>;
 				qcom,cpr-floor-to-ceiling-max-range =
