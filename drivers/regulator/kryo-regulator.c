@@ -851,7 +851,7 @@ static int kryo_regulator_retention_init(struct kryo_regulator *kvreg,
 
 static int kryo_regulator_lpm_prepare(struct kryo_regulator *kvreg)
 {
-	int vdd_volt_uv, vdd_vlvl = 0;
+	int vdd_volt_uv, bhs_volt, vdd_vlvl = 0;
 	unsigned long flags;
 
 	spin_lock_irqsave(&kvreg->slock, flags);
@@ -875,9 +875,19 @@ static int kryo_regulator_lpm_prepare(struct kryo_regulator *kvreg)
 		kvreg_debug(kvreg, "switching to BHS mode, vdd_apcc=%d uV, current LDO Vref=%d, LPM enter count=%lx\n",
 			    vdd_volt_uv, kvreg->volt, kvreg->lpm_enter_count);
 
-		/* Program vdd supply minus LDO headroom as voltage */
-		kryo_set_ldo_volt(kvreg, vdd_volt_uv
-				  - kvreg->headroom_volt);
+		/*
+		 * Program vdd supply minus LDO headroom as voltage.
+		 * Cap this value to the maximum physically supported
+		 * LDO voltage, if necessary.
+		 */
+		bhs_volt = vdd_volt_uv - kvreg->headroom_volt;
+		if (bhs_volt > kvreg->vref_func_max_volt) {
+			kvreg_debug(kvreg, "limited to LDO output of %d uV when switching to BHS mode\n",
+				    kvreg->vref_func_max_volt);
+			bhs_volt = kvreg->vref_func_max_volt;
+		}
+
+		kryo_set_ldo_volt(kvreg, bhs_volt);
 
 		/* Switch Power Gate Mode */
 		kryo_configure_mode(kvreg, BHS_MODE);
