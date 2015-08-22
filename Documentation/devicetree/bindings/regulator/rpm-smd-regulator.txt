@@ -36,6 +36,10 @@ Optional properties:
 			consumers on the application processor. If this flag
 			is specified, then voltage and current updates are
 			only sent to the RPM if the regulator is enabled.
+- qcom,always-wait-for-ack:   Flag which indicates that the application
+			processor must wait for an ACK or a NACK from the RPM
+			for every request sent for this regulator including
+			those which are for a strictly lower power state.
 
 [Second Level Nodes]
 
