@@ -118,8 +118,8 @@ Example:
 			qcom,we-mmu-pf-ptr-off = <12>;
 			qcom,dup-we-mmu-pf-ptr-off = <17>;
 			qcom,ref-we-mmu-pf-ptr-off = <22>;
-			qcom,set-group-buffer-len = <91>;
-			qcom,dup-frame-indicator-off = <48>;
+			qcom,set-group-buffer-len = <135>;
+			qcom,dup-frame-indicator-off = <70>;
 
 		};
 	};

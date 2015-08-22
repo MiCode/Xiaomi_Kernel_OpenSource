@@ -2035,7 +2035,7 @@ static int32_t msm_cpp_set_group_buffer(struct cpp_device *cpp_dev,
 	unsigned long out_phyaddr0, out_phyaddr1, distance;
 	int32_t rc = 0;
 	uint32_t set_group_buffer_len, set_group_buffer_len_bytes,
-		dup_frame_off, ubwc_enabled, i = 0;
+		dup_frame_off, ubwc_enabled, j, i = 0;
 
 	do {
 		if (new_frame->batch_info.batch_mode != BATCH_MODE_VIDEO) {
@@ -2111,11 +2111,13 @@ static int32_t msm_cpp_set_group_buffer(struct cpp_device *cpp_dev,
 			}
 			distance = out_phyaddr1 - out_phyaddr0;
 			out_phyaddr0 = out_phyaddr1;
-			*ptr++ = distance;
-			*ptr++ = distance;
-			*ptr++ = distance;
-			if (ubwc_enabled)
+			for (j = 0; j < PAYLOAD_NUM_PLANES; j++)
 				*ptr++ = distance;
+
+			if (ubwc_enabled) {
+				for (j = 0; j < PAYLOAD_NUM_PLANES; j++)
+					*ptr++ = distance;
+			}
 		}
 		if (rc)
 			break;
