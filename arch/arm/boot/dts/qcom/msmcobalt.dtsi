@@ -183,14 +183,14 @@
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
 
-	intc: interrupt-controller@17bc0000 {
+	intc: interrupt-controller@17a00000 {
 		compatible = "arm,gic-v3";
 		#interrupt-cells = <3>;
 		interrupt-controller;
 		#redistributor-regions = <1>;
-		redistributor-stride = <0x0 0x40000>;
-		reg = <0x17bc0000 0x10000>,       /* GICD */
-		      <0x17c00000 0x200000>;      /* GICR * 8 */
+		redistributor-stride = <0x0 0x20000>;
+		reg = <0x17a00000 0x10000>,       /* GICD */
+		      <0x17b00000 0x100000>;      /* GICR * 8 */
 		interrupts = <1 9 4>;
 	};
 
