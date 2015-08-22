@@ -190,16 +190,16 @@
 		#redistributor-regions = <1>;
 		redistributor-stride = <0x0 0x40000>;
 		reg = <0x17bc0000 0x10000>,       /* GICD */
-		      <0x17c00000 0x100000>;      /* GICR * 4 */
+		      <0x17c00000 0x200000>;      /* GICR * 8 */
 		interrupts = <1 9 4>;
 	};
 
 	timer {
 		compatible = "arm,armv8-timer";
-		interrupts = <1 13 0xf08>,
-			     <1 14 0xf08>,
-			     <1 11 0xf08>,
-			     <1 10 0xf08>;
+		interrupts = <1 2 0xf08>,
+			     <1 3 0xf08>,
+			     <1 4 0xf08>,
+			     <1 1 0xf08>;
 		clock-frequency = <19200000>;
 	};
 
@@ -223,61 +223,61 @@
 		clock-names = "core_clk", "iface_clk";
 	};
 
-	timer@17840000 {
+	timer@17920000 {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
 		compatible = "arm,armv7-timer-mem";
-		reg = <0x17840000 0x1000>;
+		reg = <0x17920000 0x1000>;
 		clock-frequency = <19200000>;
 
-		frame@17850000 {
+		frame@17921000 {
 			frame-number = <0>;
 			interrupts = <0 31 0x4>,
 				     <0 30 0x4>;
-			reg = <0x17850000 0x1000>,
-			      <0x17860000 0x1000>;
+			reg = <0x17921000 0x1000>,
+			      <0x17922000 0x1000>;
 		};
 
-		frame@17870000 {
+		frame@17923000 {
 			frame-number = <1>;
 			interrupts = <0 32 0x4>;
-			reg = <0x17870000 0x1000>;
+			reg = <0x17923000 0x1000>;
 			status = "disabled";
 		};
 
-		frame@17880000 {
+		frame@17924000 {
 			frame-number = <2>;
 			interrupts = <0 33 0x4>;
-			reg = <0x17880000 0x1000>;
+			reg = <0x17924000 0x1000>;
 			status = "disabled";
 		};
 
-		frame@17890000 {
+		frame@17925000 {
 			frame-number = <3>;
 			interrupts = <0 34 0x4>;
-			reg = <0x17890000 0x1000>;
+			reg = <0x17925000 0x1000>;
 			status = "disabled";
 		};
 
-		frame@178a0000 {
+		frame@17926000 {
 			frame-number = <4>;
 			interrupts = <0 35 0x4>;
-			reg = <0x178a0000 0x1000>;
+			reg = <0x17926000 0x1000>;
 			status = "disabled";
 		};
 
-		frame@178b0000 {
+		frame@17927000 {
 			frame-number = <5>;
 			interrupts = <0 36 0x4>;
-			reg = <0x178b0000 0x1000>;
+			reg = <0x17927000 0x1000>;
 			status = "disabled";
 		};
 
-		frame@178c0000 {
+		frame@17928000 {
 			frame-number = <6>;
 			interrupts = <0 37 0x4>;
-			reg = <0x178c0000 0x1000>;
+			reg = <0x17928000 0x1000>;
 			status = "disabled";
 		};
 	};
