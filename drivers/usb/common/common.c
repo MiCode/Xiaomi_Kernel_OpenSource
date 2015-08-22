@@ -21,6 +21,7 @@
 const char *usb_otg_state_string(enum usb_otg_state state)
 {
 	static const char *const names[] = {
+		[OTG_STATE_UNDEFINED] = "undefined",
 		[OTG_STATE_A_IDLE] = "a_idle",
 		[OTG_STATE_A_WAIT_VRISE] = "a_wait_vrise",
 		[OTG_STATE_A_WAIT_BCON] = "a_wait_bcon",

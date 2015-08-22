@@ -31,8 +31,6 @@ Optional properties :
   regulator node to the USB controller.
 - qcom,dwc-usb3-msm-tx-fifo-size: If present, represents RAM size available for
 		TX fifo allocation in bytes
-- qcom,utmi-clk-rate: Indicates refclk frequency (in Hz) to the core. If not
-  specified, default of 19.2MHz is assumed.
 - qcom,usb-dbm : phandle for the DBM device
 - qcom,power-collapse-on-cable-disconnect: If present, USB core will perform
 	power collapse when cable is disconencted.
