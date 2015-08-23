@@ -35,6 +35,7 @@
 #define IPA_Q6_SERVICE_SVC_ID 0x31
 #define IPA_Q6_SERVICE_INS_ID 2
 
+#define QMI_SEND_STATS_REQ_TIMEOUT_MS 5000
 #define QMI_SEND_REQ_TIMEOUT_MS 60000
 
 static struct qmi_handle *ipa_svc_handle;
@@ -1025,7 +1026,7 @@ int ipa_qmi_get_data_stats(struct ipa_get_data_stats_req_msg_v01 *req,
 			sizeof(struct ipa_get_data_stats_req_msg_v01),
 			&resp_desc, resp,
 			sizeof(struct ipa_get_data_stats_resp_msg_v01),
-			0);
+			QMI_SEND_STATS_REQ_TIMEOUT_MS);
 
 	IPAWANDBG("QMI_IPA_GET_DATA_STATS_RESP_V01 received\n");
 
@@ -1054,7 +1055,7 @@ int ipa_qmi_get_network_stats(struct ipa_get_apn_data_stats_req_msg_v01 *req,
 			sizeof(struct ipa_get_apn_data_stats_req_msg_v01),
 			&resp_desc, resp,
 			sizeof(struct ipa_get_apn_data_stats_resp_msg_v01),
-			0);
+			QMI_SEND_STATS_REQ_TIMEOUT_MS);
 
 	IPAWANDBG("QMI_IPA_GET_APN_DATA_STATS_RESP_V01 received\n");
 
@@ -1084,7 +1085,8 @@ int ipa_qmi_set_data_quota(struct ipa_set_data_usage_quota_req_msg_v01 *req)
 
 	rc = qmi_send_req_wait(ipa_q6_clnt, &req_desc, req,
 			sizeof(struct ipa_set_data_usage_quota_req_msg_v01),
-			&resp_desc, &resp, sizeof(resp), 0);
+			&resp_desc, &resp, sizeof(resp),
+			QMI_SEND_STATS_REQ_TIMEOUT_MS);
 
 	IPAWANDBG("QMI_IPA_SET_DATA_USAGE_QUOTA_RESP_V01 received\n");
 
@@ -1116,7 +1118,8 @@ int ipa_qmi_stop_data_qouta(void)
 	IPAWANDBG("Sending QMI_IPA_STOP_DATA_USAGE_QUOTA_REQ_V01\n");
 
 	rc = qmi_send_req_wait(ipa_q6_clnt, &req_desc, &req, sizeof(req),
-		&resp_desc, &resp, sizeof(resp), 0);
+		&resp_desc, &resp, sizeof(resp),
+		QMI_SEND_STATS_REQ_TIMEOUT_MS);
 
 	IPAWANDBG("QMI_IPA_STOP_DATA_USAGE_QUOTA_RESP_V01 received\n");
 
