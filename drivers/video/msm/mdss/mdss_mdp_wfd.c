@@ -198,6 +198,8 @@ int mdss_mdp_wfd_setup(struct mdss_mdp_wfd *wfd,
 	ctl->height = layer->buffer.height;
 	ctl->roi =  (struct mdss_rect) {0, 0, ctl->width, ctl->height};
 
+	ctl->is_secure = (layer->flags & MDP_LAYER_SECURE_SESSION);
+
 	mixer->width = layer->buffer.width;
 	mixer->height = layer->buffer.height;
 	mixer->roi = (struct mdss_rect) {0, 0, mixer->width, mixer->height};
