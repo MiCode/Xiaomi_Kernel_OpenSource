@@ -21,7 +21,8 @@
 #define MDSS_PLL_REG_R(base, offset)	readl_relaxed((base) + (offset))
 
 #define PLL_CALC_DATA(addr0, addr1, data0, data1)      \
-	(((data1) << 24) | (((addr1)/4) << 16) | ((data0) << 8) | ((addr0)/4))
+	(((data1) << 24) | ((((addr1) / 4) & 0xFF) << 16) | \
+	 ((data0) << 8) | (((addr0) / 4) & 0xFF))
 
 #define MDSS_DYN_PLL_REG_W(base, offset, addr0, addr1, data0, data1)   \
 		writel_relaxed(PLL_CALC_DATA(addr0, addr1, data0, data1), \
