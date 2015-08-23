@@ -1953,7 +1953,7 @@ static int ufs_qcom_clk_scale_down_post_change(struct ufs_hba *hba)
 }
 
 static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
-				      bool scale_up, bool status)
+		bool scale_up, enum ufs_notify_change_status status)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct ufs_pa_layer_attr *dev_req_params = &host->dev_req_params;
