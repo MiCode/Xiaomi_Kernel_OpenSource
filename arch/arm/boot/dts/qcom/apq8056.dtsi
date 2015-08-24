@@ -11,15 +11,10 @@
  * GNU General Public License for more details.
  */
 
-
-/dts-v1/;
-
-#include "apq8056.dtsi"
-#include "msm8956-cdp.dtsi"
+#include "msm8956.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. APQ8056 CDP";
-	compatible = "qcom,apq8056-cdp", "qcom,apq8056", "qcom,cdp";
+	model = "Qualcomm Technologies, Inc. APQ 8056";
+	compatible = "qcom,apq8056";
 	qcom,msm-id = <274 0>;
-	qcom,board-id = <1 0>;
 };
