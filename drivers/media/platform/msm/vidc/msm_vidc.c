@@ -763,7 +763,7 @@ EXPORT_SYMBOL(msm_vidc_prepare_buf);
 int msm_vidc_release_buffers(void *instance, int buffer_type)
 {
 	struct msm_vidc_inst *inst = instance;
-	struct buffer_info *bi, *dummy;
+	struct buffer_info *bi;
 	struct v4l2_buffer buffer_info;
 	struct v4l2_plane plane[VIDEO_MAX_PLANES];
 	int i, rc = 0;
@@ -804,10 +804,12 @@ int msm_vidc_release_buffers(void *instance, int buffer_type)
 				plane[i].m.userptr = bi->device_addr[i];
 				buffer_info.m.planes = plane;
 				dprintk(VIDC_DBG,
-					"Releasing buffer: %d, %d, %d\n",
+					"Releasing buffer: device_addr %pa, fd %d, offset %d, size %d, buffer_type 0x%x\n",
+					&bi->device_addr[i],
 					buffer_info.m.planes[i].reserved[0],
 					buffer_info.m.planes[i].reserved[1],
-					buffer_info.m.planes[i].length);
+					buffer_info.m.planes[i].length,
+					buffer_info.type);
 			}
 			buffer_info.length = bi->num_planes;
 			release_buf = true;
@@ -823,14 +825,31 @@ int msm_vidc_release_buffers(void *instance, int buffer_type)
 				&buffer_info);
 		if (rc)
 			dprintk(VIDC_ERR,
-				"Failed Release buffer: %d, %d, %d\n",
+				"Failed Release buffer: device_addr %pa, fd %d, offset %d, size %d, buffer_type 0x%x\n",
+				&bi->device_addr[0],
 				buffer_info.m.planes[0].reserved[0],
 				buffer_info.m.planes[0].reserved[1],
-				buffer_info.m.planes[0].length);
+				buffer_info.m.planes[0].length,
+				buffer_info.type);
 	}
 	mutex_unlock(&inst->registeredbufs.lock);
 
 free_and_unmap:
+	return rc;
+}
+EXPORT_SYMBOL(msm_vidc_release_buffers);
+
+int msm_vidc_free_buffers(void *instance, int buffer_type)
+{
+	struct msm_vidc_inst *inst = instance;
+	struct buffer_info *bi, *dummy;
+	int i, rc = 0;
+
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s: invalid instance\n", __func__);
+		return -EINVAL;
+	}
+
 	mutex_lock(&inst->registeredbufs.lock);
 	list_for_each_entry_safe(bi, dummy, &inst->registeredbufs.list, list) {
 		if (bi->type == buffer_type) {
@@ -838,10 +857,11 @@ free_and_unmap:
 			for (i = 0; i < bi->num_planes; i++) {
 				if (bi->handle[i] && bi->mapped[i]) {
 					dprintk(VIDC_DBG,
-						"%s: [UNMAP] binfo = 0x%p, handle[%d] = %p, device_addr = 0x%pa, fd = %d, offset = %d, mapped = %d\n",
+						"%s: binfo = 0x%p, handle[%d] = %p, device_addr = %pa, fd = %d, offset = %d, buffer_type 0x%x, mapped = %d\n",
 						__func__, bi, i, bi->handle[i],
 						&bi->device_addr[i], bi->fd[i],
-						bi->buff_off[i], bi->mapped[i]);
+						bi->buff_off[i], bi->type,
+						bi->mapped[i]);
 					msm_comm_smem_free(inst,
 							bi->handle[i]);
 				}
@@ -852,7 +872,7 @@ free_and_unmap:
 	mutex_unlock(&inst->registeredbufs.lock);
 	return rc;
 }
-EXPORT_SYMBOL(msm_vidc_release_buffers);
+EXPORT_SYMBOL(msm_vidc_free_buffers);
 
 int msm_vidc_encoder_cmd(void *instance, struct v4l2_encoder_cmd *enc)
 {
