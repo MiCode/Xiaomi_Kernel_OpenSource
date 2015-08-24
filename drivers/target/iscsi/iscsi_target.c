@@ -343,7 +343,6 @@ static struct iscsi_np *iscsit_get_np(
 
 struct iscsi_np *iscsit_add_np(
 	struct __kernel_sockaddr_storage *sockaddr,
-	char *ip_str,
 	int network_transport)
 {
 	struct sockaddr_in *sock_in;
@@ -372,11 +371,9 @@ struct iscsi_np *iscsit_add_np(
 	np->np_flags |= NPF_IP_NETWORK;
 	if (sockaddr->ss_family == AF_INET6) {
 		sock_in6 = (struct sockaddr_in6 *)sockaddr;
-		snprintf(np->np_ip, IPV6_ADDRESS_SPACE, "%s", ip_str);
 		np->np_port = ntohs(sock_in6->sin6_port);
 	} else {
 		sock_in = (struct sockaddr_in *)sockaddr;
-		sprintf(np->np_ip, "%s", ip_str);
 		np->np_port = ntohs(sock_in->sin_port);
 	}
 
@@ -413,8 +410,8 @@ struct iscsi_np *iscsit_add_np(
 	list_add_tail(&np->np_list, &g_np_list);
 	mutex_unlock(&np_lock);
 
-	pr_debug("CORE[0] - Added Network Portal: %s:%hu on %s\n",
-		np->np_ip, np->np_port, np->np_transport->name);
+	pr_debug("CORE[0] - Added Network Portal: %pISc:%hu on %s\n",
+		&np->np_sockaddr, np->np_port, np->np_transport->name);
 
 	return np;
 }
@@ -483,8 +480,8 @@ int iscsit_del_np(struct iscsi_np *np)
 	list_del(&np->np_list);
 	mutex_unlock(&np_lock);
 
-	pr_debug("CORE[0] - Removed Network Portal: %s:%hu on %s\n",
-		np->np_ip, np->np_port, np->np_transport->name);
+	pr_debug("CORE[0] - Removed Network Portal: %pISc:%hu on %s\n",
+		&np->np_sockaddr, np->np_port, np->np_transport->name);
 
 	iscsit_put_transport(np->np_transport);
 	kfree(np);
@@ -3482,11 +3479,18 @@ iscsit_build_sendtargets_response(struct iscsi_cmd *cmd,
 					target_name_printed = 1;
 				}
 
-				len = sprintf(buf, "TargetAddress="
-					"%s:%hu,%hu",
-					inaddr_any ? conn->local_ip : np->np_ip,
-					np->np_port,
-					tpg->tpgt);
+				if (inaddr_any) {
+					len = sprintf(buf, "TargetAddress="
+						      "%s:%hu,%hu",
+						      conn->local_ip,
+						      np->np_port,
+						      tpg->tpgt);
+				} else {
+					len = sprintf(buf, "TargetAddress="
+						      "%pISpc,%hu",
+						      &np->np_sockaddr,
+						      tpg->tpgt);
+				}
 				len += 1;
 
 				if ((len + payload_len) > buffer_len) {
