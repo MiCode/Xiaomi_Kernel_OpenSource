@@ -44,21 +44,21 @@
 		qcom,mdss-dsi-lane-3-state;
 		qcom,mdss-dsi-panel-timings = [3e 38 26 00 68 6e 2a 3c 2c 03
 									04 00];
-		qcom,mdss-dsi-t-clk-post = <0x0d>;
-		qcom,mdss-dsi-t-clk-pre = <0x3e>;
+		qcom,mdss-dsi-t-clk-post = <0x12>;
+		qcom,mdss-dsi-t-clk-pre = <0x34>;
 		qcom,mdss-dsi-bl-max-level = <4095>;
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
-		qcom,mdss-dsi-on-command = [23 01 00 00 0a 00 02 b0 04
-				29 01 00 00 0a 00 08 b3 14 08 00 00 00 00 00
-				23 01 00 00 0a 00 02 d6 01];
 
-		qcom,mdss-dsi-post-panel-on-command = [15 01 00 00 0a 00 02 51 FF
-					15 01 00 00 0a 00 02 53 24
-					05 01 00 00 c9 00 01 11
-					05 01 00 00 50 00 01 29];
-					/* Set display on, wait 16ms */
+		qcom,mdss-dsi-on-command = [15 01 00 00 0a 00 02 51 FF
+				15 01 00 00 0a 00 02 53 24
+				05 01 00 00 c9 00 01 11
+				23 01 00 00 0a 00 02 b0 04
+				29 01 00 00 0a 00 08 b3 14 08 00 00 00 00 00
+				23 01 00 00 0a 00 02 d6 01
+				05 01 00 00 50 00 01 29];
+
 		qcom,mdss-dsi-on-command-state = "dsi_hs_mode";
 		qcom,mdss-dsi-off-command = [05 01 00 00 32 00 02 28 00
 					05 01 00 00 78 00 02 10 00];
