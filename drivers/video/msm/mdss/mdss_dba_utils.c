@@ -410,6 +410,45 @@ end:
 	return rc;
 }
 
+static int mdss_dba_get_vic_panel_info(struct mdss_dba_utils_data *udata,
+					struct mdss_panel_info *pinfo)
+{
+	struct msm_hdmi_mode_timing_info timing;
+	struct hdmi_util_ds_data ds_data;
+	u32 h_total, v_total, vic = 0;
+
+	if (!udata || !pinfo) {
+		pr_err("%s: invalid input\n", __func__);
+		return 0;
+	}
+
+	timing.active_h = pinfo->xres;
+	timing.back_porch_h = pinfo->lcdc.h_back_porch;
+	timing.front_porch_h = pinfo->lcdc.h_front_porch;
+	timing.pulse_width_h = pinfo->lcdc.h_pulse_width;
+	h_total = (timing.active_h + timing.back_porch_h +
+		timing.front_porch_h + timing.pulse_width_h);
+
+	timing.active_v = pinfo->yres;
+	timing.back_porch_v = pinfo->lcdc.v_back_porch;
+	timing.front_porch_v = pinfo->lcdc.v_front_porch;
+	timing.pulse_width_v = pinfo->lcdc.v_pulse_width;
+	v_total = (timing.active_v + timing.back_porch_v +
+		timing.front_porch_v + timing.pulse_width_v);
+
+	timing.refresh_rate = pinfo->mipi.frame_rate * 1000;
+	timing.pixel_freq = (h_total * v_total *
+				pinfo->mipi.frame_rate) / 1000;
+
+	ds_data.ds_registered = true;
+	ds_data.ds_max_clk = MSM_DBA_MAX_PCLK;
+
+	vic = hdmi_get_video_id_code(&timing, &ds_data);
+	pr_debug("%s: current vic code is %d\n", __func__, vic);
+
+	return vic;
+}
+
 /**
  * mdss_dba_utils_video_on() - Allow clients to switch on the video
  * @data: DBA utils instance which was allocated during registration
@@ -455,6 +494,10 @@ int mdss_dba_utils_video_on(void *data, struct mdss_panel_info *pinfo)
 	if (pinfo->mipi.data_lane3)
 		video_cfg.num_of_input_lanes++;
 
+	/* Get scan information from EDID */
+	video_cfg.vic = mdss_dba_get_vic_panel_info(ud, pinfo);
+	video_cfg.scaninfo = hdmi_edid_get_sink_scaninfo(ud->edid_data,
+							video_cfg.vic);
 	if (ud->ops.video_on)
 		ret = ud->ops.video_on(ud->dba_data, true, &video_cfg, 0);
 
