@@ -54,7 +54,8 @@ static bool single_bit_flip(unsigned char a, unsigned char b)
 	return error && !(error & (error - 1));
 }
 
-static void check_poison_mem(unsigned char *mem, size_t bytes)
+static void check_poison_mem(struct page *page,
+			     unsigned char *mem, size_t bytes)
 {
 	static DEFINE_RATELIMIT_STATE(ratelimit, 5 * HZ, 10);
 	unsigned char *start;
@@ -72,10 +73,11 @@ static void check_poison_mem(unsigned char *mem, size_t bytes)
 	if (!__ratelimit(&ratelimit))
 		return;
 	else if (start == end && single_bit_flip(*start, PAGE_POISON))
-		printk(KERN_ERR "pagealloc: single bit error\n");
+		printk(KERN_ERR "pagealloc: single bit error on page with phys start 0x%lx\n",
+			(unsigned long)page_to_phys(page));
 	else
-		printk(KERN_ERR "pagealloc: memory corruption\n");
-
+		printk(KERN_ERR "pagealloc: memory corruption on page with phys start 0x%lx\n",
+			(unsigned long)page_to_phys(page));
 	print_hex_dump(KERN_ERR, "", DUMP_PREFIX_ADDRESS, 16, 1, start,
 			end - start + 1, 1);
 	BUG_ON(PANIC_CORRUPTION);
@@ -90,7 +92,7 @@ static void unpoison_page(struct page *page)
 		return;
 
 	addr = kmap_atomic(page);
-	check_poison_mem(addr, PAGE_SIZE);
+	check_poison_mem(page, addr, PAGE_SIZE);
 	mark_addr_rdwrite(addr);
 	clear_page_poison(page);
 	kunmap_atomic(addr);
