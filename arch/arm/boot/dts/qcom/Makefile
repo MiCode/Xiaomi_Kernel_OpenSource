@@ -44,8 +44,12 @@ dtb-$(CONFIG_ARCH_MDM9640) += mdm9640-sim.dtb \
 	mdm9640-emmc-cdp.dtb \
 	mdm9640-nand-cdp.dtb \
 	mdm9640-mtp.dtb
+
 dtb-$(CONFIG_ARCH_MDMCALIFORNIUM) += mdmcalifornium-sim.dtb \
-	mdmcalifornium-rumi.dtb
+	mdmcalifornium-rumi.dtb \
+	mdmcalifornium-emmc-cdp.dtb \
+	mdmcalifornium-nand-cdp.dtb \
+	mdmcalifornium-mtp.dtb
 
 dtb-$(CONFIG_ARCH_MSMTHORIUM) += msmthorium-rumi.dtb
 
