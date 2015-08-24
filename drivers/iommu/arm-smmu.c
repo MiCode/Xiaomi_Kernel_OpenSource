@@ -853,6 +853,10 @@ static void arm_smmu_tlb_sync_cb(struct arm_smmu_device *smmu,
 static void arm_smmu_tlb_sync(void *cookie)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
+
+	if (smmu_domain->smmu == NULL)
+		return;
+
 	arm_smmu_tlb_sync_cb(smmu_domain->smmu, smmu_domain->cfg.cbndx);
 }
 
@@ -1479,15 +1483,11 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 	writel_relaxed(0, cb_base + ARM_SMMU_CB_SCTLR);
 
+	arm_smmu_tlb_inv_context(smmu_domain);
+
 	if (cfg->irptndx != INVALID_IRPTNDX) {
 		irq = smmu->irqs[smmu->num_global_irqs + cfg->irptndx];
 		free_irq(irq, domain);
-	}
-
-	if (smmu_domain->pgtbl_ops) {
-		free_io_pgtable_ops(smmu_domain->pgtbl_ops);
-		/* unassign any freed page table memory */
-		arm_smmu_unassign_table(smmu_domain);
 	}
 
 	arm_smmu_disable_clocks(smmu_domain->smmu);
@@ -1533,6 +1533,13 @@ static void arm_smmu_domain_destroy(struct iommu_domain *domain)
 	 * Free the domain resources. We assume that all devices have
 	 * already been detached.
 	 */
+	if (smmu_domain->pgtbl_ops) {
+		free_io_pgtable_ops(smmu_domain->pgtbl_ops);
+		/* unassign any freed page table memory */
+		arm_smmu_unassign_table(smmu_domain);
+		smmu_domain->pgtbl_ops = NULL;
+	}
+
 	kfree(smmu_domain);
 }
 
