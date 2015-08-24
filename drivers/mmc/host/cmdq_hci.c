@@ -301,7 +301,7 @@ static int cmdq_enable(struct mmc_host *mmc)
 		pr_info("%s: %s: cq_host is already enabled\n",
 				mmc_hostname(mmc), __func__);
 		WARN_ON(1);
-		goto out;
+		goto pm_ref_count;
 	}
 
 	if (cq_host->quirks & CMDQ_QUIRK_NO_DCMD)
@@ -321,7 +321,7 @@ static int cmdq_enable(struct mmc_host *mmc)
 			!cq_host->trans_desc_base) {
 		err = cmdq_host_alloc_tdl(cq_host);
 		if (err)
-			goto out;
+			goto pm_ref_count;
 	}
 
 	cmdq_writel(cq_host, lower_32_bits(cq_host->desc_dma_base), CQTDLBA);
@@ -366,8 +366,10 @@ static int cmdq_enable(struct mmc_host *mmc)
 
 	if (cq_host->ops->enhanced_strobe_mask)
 		cq_host->ops->enhanced_strobe_mask(mmc, true);
-out:
+
+pm_ref_count:
 	cmdq_runtime_pm_put(cq_host);
+out:
 	return err;
 }
 
