@@ -19,6 +19,7 @@
 
 #include "mdss_dsi.h"
 #include "mdss_edp.h"
+#include "mdss_dsi_phy.h"
 
 #define MDSS_DSI_DSIPHY_REGULATOR_CTRL_0	0x00
 #define MDSS_DSI_DSIPHY_REGULATOR_CTRL_1	0x04
@@ -1076,10 +1077,27 @@ void mdss_dsi_core_clk_deinit(struct device *dev, struct dsi_shared_data *sdata)
 int mdss_dsi_clk_refresh(struct mdss_panel_data *pdata)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	struct mdss_panel_info *pinfo = NULL;
 	int rc = 0;
+
+	if (!pdata) {
+		pr_err("%s: invalid panel data\n", __func__);
+		return -EINVAL;
+	}
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 							panel_data);
+	pinfo = &pdata->panel_info;
+
+	if (!ctrl_pdata || !pinfo) {
+		pr_err("%s: invalid ctrl data\n", __func__);
+		return -EINVAL;
+	}
+
+	/* Re-calculate frame rate before clk config */
+	pinfo->mipi.frame_rate = mdss_panel_calc_frame_rate(pinfo);
+	pr_debug("%s: new frame rate %d\n", __func__, pinfo->mipi.frame_rate);
+
 	rc = mdss_dsi_clk_div_config(&pdata->panel_info,
 			pdata->panel_info.mipi.frame_rate);
 	if (rc) {
@@ -1110,6 +1128,15 @@ int mdss_dsi_clk_refresh(struct mdss_panel_data *pdata)
 				__func__);
 		return rc;
 	}
+
+	/* phy panel timing calaculation */
+	rc = mdss_dsi_phy_calc_timing_param(pinfo,
+		ctrl_pdata->shared_data->phy_rev, pinfo->mipi.frame_rate);
+	if (rc) {
+		pr_err("%s: unable to calculate phy timings\n", __func__);
+		return rc;
+	}
+
 	return rc;
 }
 

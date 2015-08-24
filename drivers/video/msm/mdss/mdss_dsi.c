@@ -1978,7 +1978,7 @@ error_byte:
 
 static int mdss_dsi_check_params(struct mdss_dsi_ctrl_pdata *ctrl, void *arg)
 {
-	struct mdss_panel_info *reconf_pinfo, *pinfo;
+	struct mdss_panel_info *var_pinfo, *pinfo;
 	int rc = 0;
 
 	if (!ctrl || !arg)
@@ -1988,13 +1988,20 @@ static int mdss_dsi_check_params(struct mdss_dsi_ctrl_pdata *ctrl, void *arg)
 	if (!pinfo->is_pluggable)
 		return 0;
 
-	reconf_pinfo = (struct mdss_panel_info *)arg;
+	var_pinfo = (struct mdss_panel_info *)arg;
 
 	pr_debug("%s: reconfig xres: %d yres: %d, current xres: %d yres: %d\n",
-			__func__, reconf_pinfo->xres, reconf_pinfo->yres,
+			__func__, var_pinfo->xres, var_pinfo->yres,
 					pinfo->xres, pinfo->yres);
-	if ((reconf_pinfo->xres != pinfo->xres) ||
-			(reconf_pinfo->yres != pinfo->yres))
+	if ((var_pinfo->xres != pinfo->xres) ||
+		(var_pinfo->yres != pinfo->yres) ||
+		(var_pinfo->lcdc.h_back_porch != pinfo->lcdc.h_back_porch) ||
+		(var_pinfo->lcdc.h_front_porch != pinfo->lcdc.h_front_porch) ||
+		(var_pinfo->lcdc.h_pulse_width != pinfo->lcdc.h_pulse_width) ||
+		(var_pinfo->lcdc.v_back_porch != pinfo->lcdc.v_back_porch) ||
+		(var_pinfo->lcdc.v_front_porch != pinfo->lcdc.v_front_porch) ||
+		(var_pinfo->lcdc.v_pulse_width != pinfo->lcdc.v_pulse_width)
+		)
 		rc = 1;
 
 	return rc;
@@ -2260,15 +2267,17 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 	switch (event) {
 	case MDSS_EVENT_CHECK_PARAMS:
 		pr_debug("%s:Entered Case MDSS_EVENT_CHECK_PARAMS\n", __func__);
-		if (mdss_dsi_check_params(ctrl_pdata, arg))
+		if (mdss_dsi_check_params(ctrl_pdata, arg)) {
+			ctrl_pdata->refresh_clk_rate = true;
 			rc = 1;
-		ctrl_pdata->refresh_clk_rate = true;
+		}
 		break;
 	case MDSS_EVENT_LINK_READY:
 		if (ctrl_pdata->refresh_clk_rate)
 			rc = mdss_dsi_clk_refresh(pdata);
 
 		mdss_dsi_get_hw_revision(ctrl_pdata);
+		mdss_dsi_get_phy_revision(ctrl_pdata);
 		rc = mdss_dsi_on(pdata);
 		mdss_dsi_op_mode_config(pdata->panel_info.mipi.mode,
 							pdata);
