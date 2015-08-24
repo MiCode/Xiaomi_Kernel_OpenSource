@@ -120,7 +120,6 @@ struct kgsl_iommu_context {
 
 /*
  * struct kgsl_iommu - Structure holding iommu data for kgsl driver
- * @device: Pointer to KGSL device struct
  * @ctx: Array of kgsl_iommu_context structs
  * @regbase: Virtual address of the IOMMU register base
  * @regstart: Physical address of the iommu registers
@@ -132,7 +131,6 @@ struct kgsl_iommu_context {
  * @protect: register protection settings for the iommu.
  */
 struct kgsl_iommu {
-	struct kgsl_device *device;
 	struct kgsl_iommu_context ctx[KGSL_IOMMU_CONTEXT_MAX];
 	void __iomem *regbase;
 	unsigned long regstart;
@@ -148,7 +146,6 @@ struct kgsl_iommu {
 /*
  * struct kgsl_iommu_pt - Iommu pagetable structure private to kgsl driver
  * @domain: Pointer to the iommu domain that contains the iommu pagetable
- * @iommu: Pointer to iommu structure
  * @ttbr0: register value to set when using this pagetable
  * @contextidr: register value to set when using this pagetable
  * @attached: is the pagetable attached?
@@ -163,7 +160,6 @@ struct kgsl_iommu {
  */
 struct kgsl_iommu_pt {
 	struct iommu_domain *domain;
-	struct kgsl_iommu *iommu;
 	u64 ttbr0;
 	u32 contextidr;
 	bool attached;
