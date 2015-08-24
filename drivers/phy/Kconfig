@@ -263,33 +263,4 @@ config PHY_QCOM_UFS
 	help
 	  Support for UFS PHY on QCOM chipsets.
 
-choice
-	prompt "Qualcomm UFS PHY type"
-	depends on PHY_QCOM_UFS
-	default PHY_QCOM_UFS_14NM
-	---help---
-	  This select the type of UFS PHY to be used.
-	  It must match the actual hardware found on your platform.
-
-	config PHY_QCOM_UFS_QRBTC_V2
-	bool "UFS QCOM QRBTC V2 PHY"
-	help
-	  Select this if your platform has a QRBTC-V2 UFS PHY.
-
-	config PHY_QCOM_UFS_V3
-	bool "UFS QCOM v3 PHY"
-	help
-	  Select this if your platform has a v3 UFS PHY.
-
-	config PHY_QCOM_UFS_14NM
-	bool "UFS QCOM 14nm PHY"
-	help
-	  Select this if your platform has a 14nm UFS PHY.
-
-	config PHY_QCOM_UFS_20NM
-	bool "UFS QCOM 20nm PHY"
-	help
-	  Select this if your platform has a 20nm UFS PHY.
-endchoice
-
 endmenu
