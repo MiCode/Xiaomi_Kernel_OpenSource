@@ -643,7 +643,7 @@ static ssize_t sysfsSleepStore(struct device *dev,
 {
 	int go_to_sleep, ret;
 
-	ret = kstrtoint(buf, 10, &goToSleepVal);
+	ret = kstrtoint(buf, 10, &go_to_sleep);
 
 	/* (gl_ts->suspended == true && goToSleepVal > 0) means
 	 * device is already suspended and you want it to be in sleep,
