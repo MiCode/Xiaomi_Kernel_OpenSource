@@ -3057,7 +3057,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 			best_cpu = best_sibling_cpu;
 	}
 
-	trace_sched_task_load(p, boost, reason, sync, need_idle);
+	trace_sched_task_load(p, boost, reason, sync, need_idle, best_cpu);
 
 	return best_cpu;
 }
