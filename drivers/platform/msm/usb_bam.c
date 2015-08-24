@@ -3305,6 +3305,41 @@ static DEVICE_ATTR(inactivity_timer, S_IWUSR | S_IRUSR,
 		   usb_bam_show_inactivity_timer,
 		   usb_bam_store_inactivity_timer);
 
+static bool msm_bam_device_lpm_ok(enum usb_ctrl bam_type);
+static int usb_bam_panic_notifier(struct notifier_block *this,
+		unsigned long event, void *ptr)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(bam_enable_strings); i++) {
+		if (ctx.h_bam[i])
+			break;
+	}
+
+	if (i == ARRAY_SIZE(bam_enable_strings))
+		goto fail;
+
+	if (msm_bam_device_lpm_ok(i))
+		goto fail;
+
+	pr_err("%s: dump usb bam registers here in call back!\n",
+								__func__);
+	sps_get_bam_debug_info(ctx.h_bam[i], 93,
+			(SPS_BAM_PIPE(0) | SPS_BAM_PIPE(1)), 0, 2);
+
+fail:
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block usb_bam_panic_blk = {
+	.notifier_call  = usb_bam_panic_notifier,
+};
+
+void usb_bam_register_panic_hdlr(void)
+{
+	atomic_notifier_chain_register(&panic_notifier_list,
+			&usb_bam_panic_blk);
+}
 
 static int usb_bam_probe(struct platform_device *pdev)
 {
@@ -3394,6 +3429,7 @@ static int usb_bam_probe(struct platform_device *pdev)
 	spin_lock_init(&usb_bam_lock);
 	probe_finished = true;
 
+	usb_bam_register_panic_hdlr();
 	return ret;
 }
 
