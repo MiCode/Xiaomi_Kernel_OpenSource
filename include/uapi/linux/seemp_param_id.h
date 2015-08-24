@@ -9,7 +9,10 @@
 #define PARAM_ID_SENSOR 5
 #define PARAM_ID_SIZE 6
 #define PARAM_ID_FD 7
-#define NUM_PARAM_IDS 8
+#define PARAM_ID_APP_UID 8
+#define PARAM_ID_WINDOW_TYPE 9
+#define PARAM_ID_WINDOW_FLAG 10
+#define NUM_PARAM_IDS 11
 
 #ifndef PROVIDE_PARAM_ID
 int param_id_index(const char *param, const char *end);
@@ -36,6 +39,12 @@ int param_id_index(const char *param, const char *end)
 		id = 6;
 	else if ((len == 2) && !memcmp(param, "fd", 2))
 		id = 7;
+	else if ((len == 2) && !memcmp(param, "app_uid", 7))
+		id = 8;
+	else if ((len == 2) && !memcmp(param, "window_type", 11))
+		id = 9;
+	else if ((len == 2) && !memcmp(param, "window_flag", 11))
+		id = 10;
 
 	return id;
 }
@@ -61,6 +70,12 @@ const char *get_param_id_name(int id)
 		name = "size"; break;
 	case 7:
 		name = "fd"; break;
+	case 8:
+		name = "app_uid"; break;
+	case 9:
+		name = "window_type"; break;
+	case 10:
+		name = "window_flag"; break;
 	}
 
 	return name;
