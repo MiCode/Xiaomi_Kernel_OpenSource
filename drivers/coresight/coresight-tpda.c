@@ -714,7 +714,7 @@ static int tpda_probe(struct platform_device *pdev)
 	if (IS_ERR(drvdata->csdev))
 		return PTR_ERR(drvdata->csdev);
 
-	dev_info(drvdata->dev, "TPDA initialized\n");
+	dev_dbg(drvdata->dev, "TPDA initialized\n");
 	return 0;
 }
 
