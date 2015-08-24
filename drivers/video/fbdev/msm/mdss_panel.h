@@ -895,6 +895,35 @@ static inline bool mdss_panel_is_power_on_ulp(int panel_power_state)
 }
 
 /**
+ * mdss_panel_calc_frame_rate() - calculate panel frame rate based on panel timing
+ *				information.
+ * @panel_info:	Pointer to panel info containing all panel information
+ */
+static inline u8 mdss_panel_calc_frame_rate(struct mdss_panel_info *pinfo)
+{
+		u32 pixel_total = 0;
+		u8 frame_rate = 0;
+		unsigned long pclk_rate = pinfo->clk_rate;
+
+		pixel_total = (pinfo->lcdc.h_back_porch +
+			  pinfo->lcdc.h_front_porch +
+			  pinfo->lcdc.h_pulse_width +
+			  pinfo->xres) *
+			 (pinfo->lcdc.v_back_porch +
+			  pinfo->lcdc.v_front_porch +
+			  pinfo->lcdc.v_pulse_width +
+			  pinfo->yres);
+
+		if (pclk_rate && pixel_total)
+			frame_rate =
+				DIV_ROUND_CLOSEST(pclk_rate, pixel_total);
+		else
+			frame_rate = DEFAULT_FRAME_RATE;
+
+		return frame_rate;
+}
+
+/**
  * mdss_panel_intf_type: - checks if a given intf type is primary
  * @intf_val: panel interface type of the individual controller
  *
