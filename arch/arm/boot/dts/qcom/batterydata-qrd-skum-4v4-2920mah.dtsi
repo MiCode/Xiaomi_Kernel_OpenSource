@@ -13,7 +13,7 @@
 qcom,qrd_msm8952_skum_2920mah {
 	qcom,max-voltage-uv = <4400000>;
 	qcom,nom-batt-capacity-mah = <2920>;
-	qcom,batt-id-kohm = <90>;
+	qcom,batt-id-kohm = <50 90>;
 	qcom,battery-beta = <0>;
 	qcom,battery-type = "qrd_msm8952_skum_2920mah";
 	qcom,chg-rslow-comp-c1 = <4847657>;
