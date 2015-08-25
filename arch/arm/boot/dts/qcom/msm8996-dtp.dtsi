@@ -24,6 +24,10 @@
 	pinctrl-0 = <&uart_console_active>;
 };
 
+&blsp1_uart2 {
+	status = "ok";
+};
+
 &i2c_7 {
 	smb1351-charger@1d {
 		compatible = "qcom,smb1351-charger";
