@@ -983,6 +983,9 @@ static void wcd9335_bring_up(struct wcd9xxx *wcd9xxx)
 		dev_info(wcd9xxx->dev, "%s: wcd9335 codec version is v2.0\n",
 			 __func__);
 		__wcd9xxx_reg_write(wcd9xxx, WCD9335_CODEC_RPM_RST_CTL, 0x01);
+		__wcd9xxx_reg_write(wcd9xxx, WCD9335_SIDO_SIDO_TEST_2, 0x00);
+		__wcd9xxx_reg_write(wcd9xxx, WCD9335_SIDO_SIDO_CCL_8, 0x6F);
+		__wcd9xxx_reg_write(wcd9xxx, WCD9335_BIAS_VBG_FINE_ADJ, 0x65);
 		__wcd9xxx_reg_write(wcd9xxx,
 				    WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x5);
 		__wcd9xxx_reg_write(wcd9xxx,
