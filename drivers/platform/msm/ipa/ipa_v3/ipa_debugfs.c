@@ -654,7 +654,7 @@ static ssize_t ipa3_read_rt(struct file *file, char __user *ubuf, size_t count,
 				pr_err("rule_idx:%d dst:%d ep:%d S:%u ",
 					i, entry->rule.dst,
 					ipa3_get_ep_mapping(entry->rule.dst),
-					!ipa3_ctx->hdr_tbl_lcl);
+					!ipa3_ctx->hdr_proc_ctx_tbl_lcl);
 				pr_err("proc_ctx[32B]:%u attrib_mask:%08x ",
 					ofst_words,
 					entry->rule.attrib.attrib_mask);
@@ -771,9 +771,8 @@ static ssize_t ipa3_read_flt(struct file *file, char __user *ubuf, size_t count,
 			}
 			pr_err("ep_idx:%d rule_idx:%d act:%d rt_tbl_idx:%d ",
 				j, i, entry->rule.action, rt_tbl_idx);
-			pr_err("attrib_mask:%08x to_uc:%d, retain_hdr:%d ",
-				bitmap, entry->rule.to_uc,
-				entry->rule.retain_hdr);
+			pr_err("attrib_mask:%08x retain_hdr:%d ",
+				bitmap, entry->rule.retain_hdr);
 			pr_err("eq:%d ", eq);
 			if (eq)
 				ipa3_attrib_dump_eq(
