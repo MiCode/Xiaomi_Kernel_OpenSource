@@ -251,29 +251,6 @@ static int ipa3_get_flt_hw_tbl_size(enum ipa_ip_type ip, u32 *hdr_sz)
 	int i;
 
 	*hdr_sz = 0;
-	tbl = &ipa3_ctx->glob_flt_tbl[ip];
-	rule_set_sz = 0;
-	list_for_each_entry(entry, &tbl->head_flt_rule_list, link) {
-		if (ipa3_generate_flt_hw_rule(ip, entry, NULL)) {
-			IPAERR("failed to find HW FLT rule size\n");
-			return -EPERM;
-		}
-		IPADBG("glob ip %d len %d\n", ip, entry->hw_len);
-		rule_set_sz += entry->hw_len;
-	}
-
-	if (rule_set_sz) {
-		tbl->sz = rule_set_sz + IPA_FLT_TABLE_WORD_SIZE;
-		/* this rule-set uses a word in header block */
-		*hdr_sz += IPA_FLT_TABLE_WORD_SIZE;
-		if (!tbl->in_sys) {
-			/* add the terminator */
-			total_sz += (rule_set_sz + IPA_FLT_TABLE_WORD_SIZE);
-			total_sz = (total_sz +
-					IPA_FLT_ENTRY_MEMORY_ALLIGNMENT) &
-					~IPA_FLT_ENTRY_MEMORY_ALLIGNMENT;
-		}
-	}
 
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
 		tbl = &ipa3_ctx->flt_tbl[i][ip];
@@ -334,92 +311,6 @@ static int ipa3_generate_flt_hw_tbl_common(enum ipa_ip_type ip, u8 *base,
 		WARN_ON(1);				\
 	}						\
 }
-
-	tbl = &ipa3_ctx->glob_flt_tbl[ip];
-
-	if (!list_empty(&tbl->head_flt_rule_list)) {
-		*hdr_top |= IPA_FLT_BIT_MASK;
-
-		if (!tbl->in_sys) {
-			offset = body - base + body_start_offset;
-			if (offset & IPA_FLT_ENTRY_MEMORY_ALLIGNMENT) {
-				IPAERR("offset is not word multiple %d\n",
-						offset);
-				goto proc_err;
-			}
-
-			offset &= ~IPA_FLT_ENTRY_MEMORY_ALLIGNMENT;
-			/* rule is at an offset from base */
-			offset |= IPA_FLT_BIT_MASK;
-
-			if (hdr2)
-				*(u32 *)hdr = offset;
-			else
-				hdr = ipa3_write_32(offset, hdr);
-
-			/* generate the rule-set */
-			list_for_each_entry(entry, &tbl->head_flt_rule_list,
-					link) {
-				if (ipa3_generate_flt_hw_rule(ip,
-							entry,
-							body)) {
-					IPAERR("failed to gen HW FLT rule\n");
-					goto proc_err;
-				}
-				body += entry->hw_len;
-			}
-
-			/* write the rule-set terminator */
-			body = ipa3_write_32(0, body);
-			if ((long)body & IPA_FLT_ENTRY_MEMORY_ALLIGNMENT)
-				/* advance body to next word boundary */
-				body = body + (IPA_FLT_TABLE_WORD_SIZE -
-					((long)body &
-					IPA_FLT_ENTRY_MEMORY_ALLIGNMENT));
-		} else {
-			WARN_ON(tbl->sz == 0);
-			/* allocate memory for the flt tbl */
-			flt_tbl_mem.size = tbl->sz;
-			flt_tbl_mem.base =
-			   dma_alloc_coherent(ipa3_ctx->pdev, flt_tbl_mem.size,
-					   &flt_tbl_mem.phys_base, GFP_KERNEL);
-			if (!flt_tbl_mem.base) {
-				IPAERR("fail to alloc DMA buff of size %d\n",
-						flt_tbl_mem.size);
-				WARN_ON(1);
-				goto proc_err;
-			}
-
-			WARN_ON(flt_tbl_mem.phys_base &
-				IPA_FLT_ENTRY_MEMORY_ALLIGNMENT);
-			ftbl_membody = flt_tbl_mem.base;
-			memset(flt_tbl_mem.base, 0, flt_tbl_mem.size);
-
-			if (hdr2)
-				*(u32 *)hdr = flt_tbl_mem.phys_base;
-			else
-				hdr = ipa3_write_32(flt_tbl_mem.phys_base, hdr);
-
-			/* generate the rule-set */
-			list_for_each_entry(entry, &tbl->head_flt_rule_list,
-					link) {
-				if (ipa3_generate_flt_hw_rule(ip, entry,
-							ftbl_membody)) {
-					IPAERR("failed to gen HW FLT rule\n");
-					WARN_ON(1);
-				}
-				ftbl_membody += entry->hw_len;
-			}
-
-			/* write the rule-set terminator */
-			ftbl_membody = ipa3_write_32(0, ftbl_membody);
-			if (tbl->curr_mem.phys_base) {
-				WARN_ON(tbl->prev_mem.phys_base);
-				tbl->prev_mem = tbl->curr_mem;
-			}
-			tbl->curr_mem = flt_tbl_mem;
-		}
-	}
 
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
 		tbl = &ipa3_ctx->flt_tbl[i][ip];
@@ -527,24 +418,6 @@ static void __ipa_reap_sys_flt_tbls(enum ipa_ip_type ip)
 {
 	struct ipa3_flt_tbl *tbl;
 	int i;
-
-	tbl = &ipa3_ctx->glob_flt_tbl[ip];
-	if (tbl->prev_mem.phys_base) {
-		IPADBG("reaping glob flt tbl (prev) ip=%d\n", ip);
-		dma_free_coherent(ipa3_ctx->pdev, tbl->prev_mem.size,
-				tbl->prev_mem.base, tbl->prev_mem.phys_base);
-		memset(&tbl->prev_mem, 0, sizeof(tbl->prev_mem));
-	}
-
-	if (list_empty(&tbl->head_flt_rule_list)) {
-		if (tbl->curr_mem.phys_base) {
-			IPADBG("reaping glob flt tbl (curr) ip=%d\n", ip);
-			dma_free_coherent(ipa3_ctx->pdev, tbl->curr_mem.size,
-					tbl->curr_mem.base,
-					tbl->curr_mem.phys_base);
-			memset(&tbl->curr_mem, 0, sizeof(tbl->curr_mem));
-		}
-	}
 
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
 		tbl = &ipa3_ctx->flt_tbl[i][ip];
@@ -1014,23 +887,6 @@ error:
 	return -EPERM;
 }
 
-static int __ipa_add_global_flt_rule(enum ipa_ip_type ip,
-		const struct ipa_flt_rule *rule, u8 add_rear, u32 *rule_hdl)
-{
-	struct ipa3_flt_tbl *tbl;
-
-	if (rule == NULL || rule_hdl == NULL) {
-		IPAERR("bad parms rule=%p rule_hdl=%p\n", rule, rule_hdl);
-
-		return -EINVAL;
-	}
-
-	tbl = &ipa3_ctx->glob_flt_tbl[ip];
-	IPADBG("add global flt rule ip=%d\n", ip);
-
-	return __ipa_add_flt_rule(tbl, ip, rule, add_rear, rule_hdl);
-}
-
 static int __ipa_add_ep_flt_rule(enum ipa_ip_type ip, enum ipa_client_type ep,
 				 const struct ipa_flt_rule *rule, u8 add_rear,
 				 u32 *rule_hdl)
@@ -1082,16 +938,15 @@ int ipa3_add_flt_rule(struct ipa_ioc_add_flt_rule *rules)
 
 	mutex_lock(&ipa3_ctx->lock);
 	for (i = 0; i < rules->num_rules; i++) {
-		if (rules->global)
-			result = __ipa_add_global_flt_rule(rules->ip,
-					&rules->rules[i].rule,
-					rules->rules[i].at_rear,
-					&rules->rules[i].flt_rule_hdl);
-		else
+		if (rules->global) {
+			IPAERR("no support for global filter rules %d\n", i);
+			result = -EPERM;
+		} else
 			result = __ipa_add_ep_flt_rule(rules->ip, rules->ep,
 					&rules->rules[i].rule,
 					rules->rules[i].at_rear,
 					&rules->rules[i].flt_rule_hdl);
+
 		if (result) {
 			IPAERR("failed to add flt rule %d\n", i);
 			rules->rules[i].status = IPA_FLT_STATUS_OF_ADD_FAILED;
@@ -1255,38 +1110,7 @@ int ipa3_reset_flt(enum ipa_ip_type ip)
 		return -EINVAL;
 	}
 
-	tbl = &ipa3_ctx->glob_flt_tbl[ip];
 	mutex_lock(&ipa3_ctx->lock);
-	IPADBG("reset flt ip=%d\n", ip);
-	list_for_each_entry_safe(entry, next, &tbl->head_flt_rule_list, link) {
-		if (ipa3_id_find(entry->id) == NULL) {
-			WARN_ON(1);
-			mutex_unlock(&ipa3_ctx->lock);
-			return -EFAULT;
-		}
-
-		if ((ip == IPA_IP_v4 &&
-		     entry->rule.attrib.attrib_mask == IPA_FLT_PROTOCOL &&
-		     entry->rule.attrib.u.v4.protocol ==
-		      IPA_INVALID_L4_PROTOCOL) ||
-		    (ip == IPA_IP_v6 &&
-		     entry->rule.attrib.attrib_mask == IPA_FLT_NEXT_HDR &&
-		     entry->rule.attrib.u.v6.next_hdr ==
-		      IPA_INVALID_L4_PROTOCOL))
-			continue;
-
-		list_del(&entry->link);
-		entry->tbl->rule_cnt--;
-		if (entry->rt_tbl)
-			entry->rt_tbl->ref_cnt--;
-		entry->cookie = 0;
-		id = entry->id;
-		kmem_cache_free(ipa3_ctx->flt_rule_cache, entry);
-
-		/* remove the handle from the database */
-		ipa3_id_remove(id);
-	}
-
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
 		tbl = &ipa3_ctx->flt_tbl[i][ip];
 		list_for_each_entry_safe(entry, next, &tbl->head_flt_rule_list,

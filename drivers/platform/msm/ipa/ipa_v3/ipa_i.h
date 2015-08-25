@@ -1074,7 +1074,6 @@ struct ipa3_sps_pm {
  * @mode: IPA operating mode
  * @mmio: iomem
  * @ipa_wrapper_base: IPA wrapper base address
- * @glob_flt_tbl: global filter table
  * @hdr_tbl: IPA header table
  * @hdr_proc_ctx_tbl: IPA processing context table
  * @rt_tbl_set: list of routing tables each of which is a list of rules
@@ -1150,7 +1149,6 @@ struct ipa3_context {
 	struct ipa3_flt_tbl flt_tbl[IPA3_MAX_NUM_PIPES][IPA_IP_MAX];
 	void __iomem *mmio;
 	u32 ipa_wrapper_base;
-	struct ipa3_flt_tbl glob_flt_tbl[IPA_IP_MAX];
 	struct ipa3_hdr_tbl hdr_tbl;
 	struct ipa3_hdr_proc_ctx_tbl hdr_proc_ctx_tbl;
 	struct ipa3_rt_tbl_set rt_tbl_set[IPA_IP_MAX];

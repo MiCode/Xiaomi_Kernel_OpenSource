@@ -2651,84 +2651,6 @@ int ipa3_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 	return 0;
 }
 
-static int ipa3_init_flt_block(void)
-{
-	int result = 0;
-
-	/*
-	 * SW workaround for Improper Filter Behavior when neither Global nor
-	 * Pipe Rules are present => configure dummy global filter rule
-	 * always which results in a miss
-	 */
-	struct ipa_ioc_add_flt_rule *rules;
-	struct ipa_flt_rule_add *rule;
-	struct ipa_ioc_get_rt_tbl rt_lookup;
-	enum ipa_ip_type ip;
-
-	size_t sz = sizeof(struct ipa_ioc_add_flt_rule) +
-		   sizeof(struct ipa_flt_rule_add);
-
-	rules = kmalloc(sz, GFP_KERNEL);
-	if (rules == NULL) {
-		IPAERR("fail to alloc mem for dummy filter rule\n");
-		return -ENOMEM;
-	}
-
-	IPADBG("Adding global rules for IPv4 and IPv6");
-	for (ip = IPA_IP_v4; ip < IPA_IP_MAX; ip++) {
-		memset(&rt_lookup, 0,
-				sizeof(struct ipa_ioc_get_rt_tbl));
-		rt_lookup.ip = ip;
-		strlcpy(rt_lookup.name, IPA_DFLT_RT_TBL_NAME,
-				IPA_RESOURCE_NAME_MAX);
-		ipa3_get_rt_tbl(&rt_lookup);
-		ipa3_put_rt_tbl(rt_lookup.hdl);
-		memset(rules, 0, sz);
-		rule = &rules->rules[0];
-		rules->commit = 1;
-		rules->ip = ip;
-		rules->global = 1;
-		rules->num_rules = 1;
-		rule->at_rear = 1;
-		if (ip == IPA_IP_v4) {
-			rule->rule.attrib.attrib_mask =
-				IPA_FLT_PROTOCOL | IPA_FLT_DST_ADDR;
-			rule->rule.attrib.u.v4.protocol =
-			   IPA_INVALID_L4_PROTOCOL;
-			rule->rule.attrib.u.v4.dst_addr_mask = ~0;
-			rule->rule.attrib.u.v4.dst_addr = ~0;
-		} else if (ip == IPA_IP_v6) {
-			rule->rule.attrib.attrib_mask =
-				IPA_FLT_NEXT_HDR | IPA_FLT_DST_ADDR;
-			rule->rule.attrib.u.v6.next_hdr =
-				IPA_INVALID_L4_PROTOCOL;
-			rule->rule.attrib.u.v6.dst_addr_mask[0] = ~0;
-			rule->rule.attrib.u.v6.dst_addr_mask[1] = ~0;
-			rule->rule.attrib.u.v6.dst_addr_mask[2] = ~0;
-			rule->rule.attrib.u.v6.dst_addr_mask[3] = ~0;
-			rule->rule.attrib.u.v6.dst_addr[0] = ~0;
-			rule->rule.attrib.u.v6.dst_addr[1] = ~0;
-			rule->rule.attrib.u.v6.dst_addr[2] = ~0;
-			rule->rule.attrib.u.v6.dst_addr[3] = ~0;
-		} else {
-			result = -EINVAL;
-			WARN_ON(1);
-			break;
-		}
-		rule->rule.action = IPA_PASS_TO_ROUTING;
-		rule->rule.rt_tbl_hdl = rt_lookup.hdl;
-		rule->rule.retain_hdr = true;
-
-		if (ipa3_add_flt_rule(rules) || rules->rules[0].status) {
-			result = -EINVAL;
-			WARN_ON(1);
-			break;
-		}
-	}
-	kfree(rules);
-	return result;
-}
-
 /**
 * ipa3_suspend_handler() - Handles the suspend interrupt:
 * wakes up the suspended peripheral by requesting its consumer
@@ -3205,14 +3127,7 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_dma_pool;
 	}
 
-	ipa3_ctx->glob_flt_tbl[IPA_IP_v4].in_sys =
-		!ipa3_ctx->ip4_flt_tbl_nhash_lcl;
-	ipa3_ctx->glob_flt_tbl[IPA_IP_v6].in_sys =
-		!ipa3_ctx->ip6_flt_tbl_nhash_lcl;
-
 	/* init the various list heads */
-	INIT_LIST_HEAD(&ipa3_ctx->glob_flt_tbl[IPA_IP_v4].head_flt_rule_list);
-	INIT_LIST_HEAD(&ipa3_ctx->glob_flt_tbl[IPA_IP_v6].head_flt_rule_list);
 	INIT_LIST_HEAD(&ipa3_ctx->hdr_tbl.head_hdr_entry_list);
 	for (i = 0; i < IPA_HDR_BIN_MAX; i++) {
 		INIT_LIST_HEAD(&ipa3_ctx->hdr_tbl.head_offset_list[i]);
@@ -3296,13 +3211,6 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_empty_rt_tbl;
 	}
 	IPADBG("IPA System2Bam pipes were connected\n");
-
-	if (ipa3_init_flt_block()) {
-		IPAERR("fail to setup dummy filter rules\n");
-		result = -ENODEV;
-		goto fail_empty_rt_tbl;
-	}
-	IPADBG("filter block was set with dummy filter rules");
 
 	/* setup the IPA pipe mem pool */
 	if (resource_p->ipa_pipe_mem_size)
