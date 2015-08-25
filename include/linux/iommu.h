@@ -43,7 +43,8 @@ struct notifier_block;
 #define IOMMU_FAULT_WRITE               (1 << 1)
 #define IOMMU_FAULT_TRANSLATION         (1 << 2)
 #define IOMMU_FAULT_PERMISSION          (1 << 3)
-#define IOMMU_FAULT_TRANSACTION_STALLED (1 << 4)
+#define IOMMU_FAULT_EXTERNAL            (1 << 4)
+#define IOMMU_FAULT_TRANSACTION_STALLED (1 << 5)
 
 typedef int (*iommu_fault_handler_t)(struct iommu_domain *,
 			struct device *, unsigned long, int, void *);
