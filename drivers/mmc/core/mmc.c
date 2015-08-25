@@ -1198,7 +1198,7 @@ static int mmc_select_hs400(struct mmc_card *card)
 	mmc_set_timing(host, MMC_TIMING_MMC_HS400);
 	mmc_set_bus_speed(card);
 
-	if (host->ops->enhanced_strobe) {
+	if (card->ext_csd.strobe_support && host->ops->enhanced_strobe) {
 		mmc_host_clk_hold(host);
 		err = host->ops->enhanced_strobe(host);
 		mmc_host_clk_release(host);
