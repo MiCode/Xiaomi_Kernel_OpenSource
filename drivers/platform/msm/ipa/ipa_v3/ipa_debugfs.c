@@ -619,15 +619,23 @@ static ssize_t ipa3_read_rt(struct file *file, char __user *ubuf, size_t count,
 	mutex_lock(&ipa3_ctx->lock);
 
 	if (ip ==  IPA_IP_v6) {
-		if (ipa3_ctx->ip6_rt_tbl_lcl)
-			pr_err("Table resides on local memory\n");
+		if (ipa3_ctx->ip6_rt_tbl_hash_lcl)
+			pr_err("Hashable table resides on local memory\n");
 		else
-			pr_err("Table resides on system (ddr) memory\n");
+			pr_err("Hashable table resides on system (ddr) memory\n");
+		if (ipa3_ctx->ip6_rt_tbl_nhash_lcl)
+			pr_err("Non-Hashable table resides on local memory\n");
+		else
+			pr_err("Non-Hashable table resides on system (ddr) memory\n");
 	} else if (ip == IPA_IP_v4) {
-		if (ipa3_ctx->ip4_rt_tbl_lcl)
-			pr_err("Table resides on local memory\n");
+		if (ipa3_ctx->ip4_rt_tbl_hash_lcl)
+			pr_err("Hashable table resides on local memory\n");
 		else
-			pr_err("Table resides on system (ddr) memory\n");
+			pr_err("Hashable table resides on system (ddr) memory\n");
+		if (ipa3_ctx->ip4_rt_tbl_nhash_lcl)
+			pr_err("Non-Hashable table resides on local memory\n");
+		else
+			pr_err("Non-Hashable table resides on system (ddr) memory\n");
 	}
 
 	list_for_each_entry(tbl, &set->head_rt_tbl_list, link) {

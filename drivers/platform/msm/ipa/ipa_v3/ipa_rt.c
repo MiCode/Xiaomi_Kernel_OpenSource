@@ -442,14 +442,14 @@ static int ipa3_generate_rt_hw_tbl_v2(enum ipa_ip_type ip,
 	if (ip == IPA_IP_v4) {
 		num_index = IPA_MEM_PART(v4_apps_rt_index_hi) -
 			IPA_MEM_PART(v4_apps_rt_index_lo) + 1;
-		body_start_offset = IPA_MEM_PART(apps_v4_rt_ofst) -
-			IPA_MEM_PART(v4_rt_ofst);
+		body_start_offset = IPA_MEM_PART(apps_v4_rt_nhash_ofst) -
+			IPA_MEM_PART(v4_rt_nhash_ofst);
 		apps_start_idx = IPA_MEM_PART(v4_apps_rt_index_lo);
 	} else {
 		num_index = IPA_MEM_PART(v6_apps_rt_index_hi) -
 			IPA_MEM_PART(v6_apps_rt_index_lo) + 1;
-		body_start_offset = IPA_MEM_PART(apps_v6_rt_ofst) -
-			IPA_MEM_PART(v6_rt_ofst);
+		body_start_offset = IPA_MEM_PART(apps_v6_rt_nhash_ofst) -
+			IPA_MEM_PART(v6_rt_nhash_ofst);
 		apps_start_idx = IPA_MEM_PART(v6_apps_rt_index_lo);
 	}
 
@@ -525,31 +525,31 @@ int __ipa_commit_rt_v3(enum ipa_ip_type ip)
 	memset(desc, 0, 2 * sizeof(struct ipa3_desc));
 
 	if (ip == IPA_IP_v4) {
-		avail = ipa3_ctx->ip4_rt_tbl_lcl ?
-			IPA_MEM_PART(apps_v4_rt_size) :
-			IPA_MEM_PART(v4_rt_size_ddr);
+		avail = ipa3_ctx->ip4_rt_tbl_nhash_lcl ?
+			IPA_MEM_PART(apps_v4_rt_nhash_size) :
+			IPA_MEM_PART(v4_rt_nhash_size_ddr);
 		num_modem_rt_index =
 			IPA_MEM_PART(v4_modem_rt_index_hi) -
 			IPA_MEM_PART(v4_modem_rt_index_lo) + 1;
 		local_addr1 = ipa3_ctx->smem_restricted_bytes +
-			IPA_MEM_PART(v4_rt_ofst) +
+			IPA_MEM_PART(v4_rt_nhash_ofst) +
 			num_modem_rt_index * 4;
 		local_addr2 = ipa3_ctx->smem_restricted_bytes +
-			IPA_MEM_PART(apps_v4_rt_ofst);
-		lcl = ipa3_ctx->ip4_rt_tbl_lcl;
+			IPA_MEM_PART(apps_v4_rt_nhash_ofst);
+		lcl = ipa3_ctx->ip4_rt_tbl_nhash_lcl;
 	} else {
-		avail = ipa3_ctx->ip6_rt_tbl_lcl ?
-			IPA_MEM_PART(apps_v6_rt_size) :
-			IPA_MEM_PART(v6_rt_size_ddr);
+		avail = ipa3_ctx->ip6_rt_tbl_nhash_lcl ?
+			IPA_MEM_PART(apps_v6_rt_nhash_size) :
+			IPA_MEM_PART(v6_rt_nhash_size_ddr);
 		num_modem_rt_index =
 			IPA_MEM_PART(v6_modem_rt_index_hi) -
 			IPA_MEM_PART(v6_modem_rt_index_lo) + 1;
 		local_addr1 = ipa3_ctx->smem_restricted_bytes +
-			IPA_MEM_PART(v6_rt_ofst) +
+			IPA_MEM_PART(v6_rt_nhash_ofst) +
 			num_modem_rt_index * 4;
 		local_addr2 = ipa3_ctx->smem_restricted_bytes +
-			IPA_MEM_PART(apps_v6_rt_ofst);
-		lcl = ipa3_ctx->ip6_rt_tbl_lcl;
+			IPA_MEM_PART(apps_v6_rt_nhash_ofst);
+		lcl = ipa3_ctx->ip6_rt_tbl_nhash_lcl;
 	}
 
 	if (ipa3_generate_rt_hw_tbl_v2(ip, &body, &head)) {
@@ -712,7 +712,8 @@ static struct ipa3_rt_tbl *__ipa_add_rt_tbl(enum ipa_ip_type ip,
 		entry->set = set;
 		entry->cookie = IPA_COOKIE;
 		entry->in_sys = (ip == IPA_IP_v4) ?
-			!ipa3_ctx->ip4_rt_tbl_lcl : !ipa3_ctx->ip6_rt_tbl_lcl;
+			!ipa3_ctx->ip4_rt_tbl_nhash_lcl :
+			!ipa3_ctx->ip6_rt_tbl_nhash_lcl;
 		set->tbl_cnt++;
 		list_add(&entry->link, &set->head_rt_tbl_list);
 
@@ -1058,9 +1059,11 @@ int ipa3_reset_rt(enum ipa_ip_type ip)
 	}
 
 		if (ip == IPA_IP_v4)
-			apps_start_idx = IPA_MEM_PART(v4_apps_rt_index_lo);
+			apps_start_idx =
+				IPA_MEM_PART(v4_apps_rt_index_lo);
 		else
-			apps_start_idx = IPA_MEM_PART(v6_apps_rt_index_lo);
+			apps_start_idx =
+				IPA_MEM_PART(v6_apps_rt_index_lo);
 
 	/*
 	 * issue a reset on the filtering module of same IP type since

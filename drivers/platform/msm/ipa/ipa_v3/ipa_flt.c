@@ -583,11 +583,11 @@ static int ipa3_generate_flt_hw_tbl_v2(enum ipa_ip_type ip,
 	u32 hdr_top;
 
 	if (ip == IPA_IP_v4)
-		body_start_offset = IPA_MEM_PART(apps_v4_flt_ofst) -
-			IPA_MEM_PART(v4_flt_ofst);
+		body_start_offset = IPA_MEM_PART(apps_v4_flt_nhash_ofst) -
+			IPA_MEM_PART(v4_flt_nhash_ofst);
 	else
-		body_start_offset = IPA_MEM_PART(apps_v6_flt_ofst) -
-			IPA_MEM_PART(v6_flt_ofst);
+		body_start_offset = IPA_MEM_PART(apps_v6_flt_nhash_ofst) -
+			IPA_MEM_PART(v6_flt_nhash_ofst);
 
 	num_words = 7;
 	head1->size = num_words * 4;
@@ -698,23 +698,23 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 	}
 
 	if (ip == IPA_IP_v4) {
-		avail = ipa3_ctx->ip4_flt_tbl_lcl ?
-			IPA_MEM_PART(apps_v4_flt_size) :
-			IPA_MEM_PART(v4_flt_size_ddr);
+		avail = ipa3_ctx->ip4_flt_tbl_nhash_lcl ?
+			IPA_MEM_PART(apps_v4_flt_nhash_size) :
+			IPA_MEM_PART(v4_flt_nhash_size_ddr);
 		local_addrh = ipa3_ctx->smem_restricted_bytes +
-			IPA_MEM_PART(v4_flt_ofst) + 4;
+			IPA_MEM_PART(v4_flt_nhash_ofst) + 4;
 		local_addrb = ipa3_ctx->smem_restricted_bytes +
-			IPA_MEM_PART(apps_v4_flt_ofst);
-		lcl = ipa3_ctx->ip4_flt_tbl_lcl;
+			IPA_MEM_PART(apps_v4_flt_nhash_ofst);
+		lcl = ipa3_ctx->ip4_flt_tbl_nhash_lcl;
 	} else {
-		avail = ipa3_ctx->ip6_flt_tbl_lcl ?
-			IPA_MEM_PART(apps_v6_flt_size) :
-			IPA_MEM_PART(v6_flt_size_ddr);
+		avail = ipa3_ctx->ip6_flt_tbl_nhash_lcl ?
+			IPA_MEM_PART(apps_v6_flt_nhash_size) :
+			IPA_MEM_PART(v6_flt_nhash_size_ddr);
 		local_addrh = ipa3_ctx->smem_restricted_bytes +
-			IPA_MEM_PART(v6_flt_ofst) + 4;
+			IPA_MEM_PART(v6_flt_nhash_ofst) + 4;
 		local_addrb = ipa3_ctx->smem_restricted_bytes +
-			IPA_MEM_PART(apps_v6_flt_ofst);
-		lcl = ipa3_ctx->ip6_flt_tbl_lcl;
+			IPA_MEM_PART(apps_v6_flt_nhash_ofst);
+		lcl = ipa3_ctx->ip6_flt_tbl_nhash_lcl;
 	}
 
 	if (ipa3_generate_flt_hw_tbl_v2(ip, &body, &head1, &head2)) {
@@ -754,15 +754,15 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 			continue;
 		}
 
-		if (ip == IPA_IP_v4) {
+		if (ip == IPA_IP_v4)
 			local_addrh = ipa3_ctx->smem_restricted_bytes +
-				IPA_MEM_PART(v4_flt_ofst) +
+				IPA_MEM_PART(v4_flt_nhash_ofst) +
 				8 + i * 4;
-		} else {
+		else
 			local_addrh = ipa3_ctx->smem_restricted_bytes +
-				IPA_MEM_PART(v6_flt_ofst) +
+				IPA_MEM_PART(v6_flt_nhash_ofst) +
 				8 + i * 4;
-		}
+
 		cmd[num_desc].skip_pipeline_clear = 0;
 		cmd[num_desc].pipeline_clear_options = IPA_HPS_CLEAR;
 		cmd[num_desc].size = 4;
@@ -786,15 +786,15 @@ int __ipa_commit_flt_v3(enum ipa_ip_type ip)
 			IPADBG("skip %d\n", i);
 			continue;
 		}
-		if (ip == IPA_IP_v4) {
+		if (ip == IPA_IP_v4)
 			local_addrh = ipa3_ctx->smem_restricted_bytes +
-				IPA_MEM_PART(v4_flt_ofst) +
+				IPA_MEM_PART(v4_flt_nhash_ofst) +
 				13 * 4 + (i - 11) * 4;
-		} else {
+		else
 			local_addrh = ipa3_ctx->smem_restricted_bytes +
-				IPA_MEM_PART(v6_flt_ofst) +
+				IPA_MEM_PART(v6_flt_nhash_ofst) +
 				13 * 4 + (i - 11) * 4;
-		}
+
 		cmd[num_desc].skip_pipeline_clear = 0;
 		cmd[num_desc].pipeline_clear_options = IPA_HPS_CLEAR;
 		cmd[num_desc].size = 4;

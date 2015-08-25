@@ -1402,7 +1402,8 @@ static int ipa3_q6_clean_q6_tables(void)
 			cmd[num_cmds].system_addr = mem.phys_base;
 			cmd[num_cmds].local_addr =
 				ipa3_ctx->smem_restricted_bytes +
-				IPA_MEM_PART(v4_flt_ofst) + 8 + pipe_idx * 4;
+				IPA_MEM_PART(v4_flt_nhash_ofst) +
+				8 + pipe_idx * 4;
 
 			desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
 			desc[num_cmds].pyld = &cmd[num_cmds];
@@ -1417,7 +1418,8 @@ static int ipa3_q6_clean_q6_tables(void)
 			cmd[num_cmds].system_addr =  mem.phys_base;
 			cmd[num_cmds].local_addr =
 				ipa3_ctx->smem_restricted_bytes +
-				IPA_MEM_PART(v6_flt_ofst) + 8 + pipe_idx * 4;
+				IPA_MEM_PART(v6_flt_nhash_ofst) +
+				8 + pipe_idx * 4;
 
 			desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
 			desc[num_cmds].pyld = &cmd[num_cmds];
@@ -1437,7 +1439,7 @@ static int ipa3_q6_clean_q6_tables(void)
 		cmd[num_cmds].size = mem.size;
 		cmd[num_cmds].system_addr =  mem.phys_base;
 		cmd[num_cmds].local_addr = ipa3_ctx->smem_restricted_bytes +
-			IPA_MEM_PART(v4_rt_ofst) + index * 4;
+			IPA_MEM_PART(v4_rt_nhash_ofst) + index * 4;
 
 		desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
 		desc[num_cmds].pyld = &cmd[num_cmds];
@@ -1455,7 +1457,7 @@ static int ipa3_q6_clean_q6_tables(void)
 		cmd[num_cmds].size = mem.size;
 		cmd[num_cmds].system_addr =  mem.phys_base;
 		cmd[num_cmds].local_addr = ipa3_ctx->smem_restricted_bytes +
-			IPA_MEM_PART(v6_rt_ofst) + index * 4;
+			IPA_MEM_PART(v6_rt_nhash_ofst) + index * 4;
 
 		desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
 		desc[num_cmds].pyld = &cmd[num_cmds];
@@ -1678,7 +1680,7 @@ int _ipa_init_sram_v3_0(void)
 
 	phys_addr = ipa3_ctx->ipa_wrapper_base +
 		ipa3_ctx->ctrl->ipa_reg_base_ofst +
-		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0);
+		IPA_SRAM_SW_FIRST_v3;
 
 	ipa_sram_mmio = ioremap(phys_addr,
 		ipa3_ctx->smem_sz - ipa3_ctx->smem_restricted_bytes);
@@ -1688,28 +1690,24 @@ int _ipa_init_sram_v3_0(void)
 	}
 
 	/* Consult with ipa_ram_mmap.h on the location of the CANARY values */
+	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_flt_hash_ofst) - 4);
+	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_flt_hash_ofst));
 	ipa3_sram_set_canary(ipa_sram_mmio,
-		IPA_MEM_PART(v4_flt_hashable_ofst) - 4);
+		IPA_MEM_PART(v4_flt_nhash_ofst) - 4);
+	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_flt_nhash_ofst));
+	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_flt_hash_ofst) - 4);
+	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_flt_nhash_ofst));
 	ipa3_sram_set_canary(ipa_sram_mmio,
-		IPA_MEM_PART(v4_flt_hashable_ofst));
-	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_flt_ofst) - 4);
-	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_flt_ofst));
-	ipa3_sram_set_canary(ipa_sram_mmio,
-		IPA_MEM_PART(v6_flt_hashable_ofst) - 4);
-	ipa3_sram_set_canary(ipa_sram_mmio,
-		IPA_MEM_PART(v6_flt_hashable_ofst));
-	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_flt_ofst) - 4);
-	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_flt_ofst));
-	ipa3_sram_set_canary(ipa_sram_mmio,
-		IPA_MEM_PART(v4_rt_hashable_ofst) - 4);
-	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_rt_hashable_ofst));
-	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_rt_ofst) - 4);
-	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_rt_ofst));
-	ipa3_sram_set_canary(ipa_sram_mmio,
-		IPA_MEM_PART(v6_rt_hashable_ofst) - 4);
-	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_rt_hashable_ofst));
-	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_rt_ofst) - 4);
-	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_rt_ofst));
+		IPA_MEM_PART(v6_flt_nhash_ofst) - 4);
+	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_flt_nhash_ofst));
+	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_rt_hash_ofst) - 4);
+	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_rt_hash_ofst));
+	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_rt_nhash_ofst) - 4);
+	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_rt_nhash_ofst));
+	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_rt_hash_ofst) - 4);
+	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_rt_hash_ofst));
+	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_rt_nhash_ofst) - 4);
+	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_rt_nhash_ofst));
 	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(modem_hdr_ofst) - 4);
 	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(modem_hdr_ofst));
 	ipa3_sram_set_canary(ipa_sram_mmio,
@@ -1827,7 +1825,7 @@ int _ipa_init_rt4_v3(void)
 		ipa3_ctx->rt_idx_bitmap[IPA_IP_v4] |= (1 << i);
 	IPADBG("v4 rt bitmap 0x%lx\n", ipa3_ctx->rt_idx_bitmap[IPA_IP_v4]);
 
-	mem.size = IPA_MEM_PART(v4_rt_size);
+	mem.size = IPA_MEM_PART(v4_rt_nhash_size);
 	mem.base = dma_alloc_coherent(ipa3_ctx->pdev, mem.size, &mem.phys_base,
 			GFP_KERNEL);
 	if (!mem.base) {
@@ -1836,7 +1834,7 @@ int _ipa_init_rt4_v3(void)
 	}
 
 	entry = mem.base;
-	for (i = 0; i < IPA_MEM_PART(v4_num_index); i++) {
+	for (i = 0; i < IPA_MEM_PART(v4_rt_num_index); i++) {
 		*entry = ipa3_ctx->empty_rt_tbl_mem.phys_base;
 		entry++;
 	}
@@ -1845,7 +1843,7 @@ int _ipa_init_rt4_v3(void)
 	v4_cmd.ipv4_rules_addr = mem.phys_base;
 	v4_cmd.size_ipv4_rules = mem.size;
 	v4_cmd.ipv4_addr = ipa3_ctx->smem_restricted_bytes +
-		IPA_MEM_PART(v4_rt_ofst);
+		IPA_MEM_PART(v4_rt_nhash_ofst);
 	IPADBG("putting Routing IPv4 rules to phys 0x%x",
 				v4_cmd.ipv4_addr);
 
@@ -1883,7 +1881,7 @@ int _ipa_init_rt6_v3(void)
 		ipa3_ctx->rt_idx_bitmap[IPA_IP_v6] |= (1 << i);
 	IPADBG("v6 rt bitmap 0x%lx\n", ipa3_ctx->rt_idx_bitmap[IPA_IP_v6]);
 
-	mem.size = IPA_MEM_PART(v6_rt_size);
+	mem.size = IPA_MEM_PART(v6_rt_nhash_size);
 	mem.base = dma_alloc_coherent(ipa3_ctx->pdev, mem.size, &mem.phys_base,
 			GFP_KERNEL);
 	if (!mem.base) {
@@ -1892,7 +1890,7 @@ int _ipa_init_rt6_v3(void)
 	}
 
 	entry = mem.base;
-	for (i = 0; i < IPA_MEM_PART(v6_num_index); i++) {
+	for (i = 0; i < IPA_MEM_PART(v6_rt_num_index); i++) {
 		*entry = ipa3_ctx->empty_rt_tbl_mem.phys_base;
 		entry++;
 	}
@@ -1901,7 +1899,7 @@ int _ipa_init_rt6_v3(void)
 	v6_cmd.ipv6_rules_addr = mem.phys_base;
 	v6_cmd.size_ipv6_rules = mem.size;
 	v6_cmd.ipv6_addr = ipa3_ctx->smem_restricted_bytes +
-		IPA_MEM_PART(v6_rt_ofst);
+		IPA_MEM_PART(v6_rt_nhash_ofst);
 	IPADBG("putting Routing IPv6 rules to phys 0x%x",
 				v6_cmd.ipv6_addr);
 
@@ -1933,7 +1931,7 @@ int _ipa_init_flt4_v3(void)
 	int i;
 	int rc = 0;
 
-	mem.size = IPA_MEM_PART(v4_flt_size);
+	mem.size = IPA_MEM_PART(v4_flt_nhash_size);
 	mem.base = dma_alloc_coherent(ipa3_ctx->pdev, mem.size, &mem.phys_base,
 			GFP_KERNEL);
 	if (!mem.base) {
@@ -1955,7 +1953,7 @@ int _ipa_init_flt4_v3(void)
 	v4_cmd.ipv4_rules_addr = mem.phys_base;
 	v4_cmd.size_ipv4_rules = mem.size;
 	v4_cmd.ipv4_addr = ipa3_ctx->smem_restricted_bytes +
-		IPA_MEM_PART(v4_flt_ofst);
+		IPA_MEM_PART(v4_flt_nhash_ofst);
 	IPADBG("putting Filtering IPv4 rules to phys 0x%x",
 				v4_cmd.ipv4_addr);
 
@@ -1987,7 +1985,7 @@ int _ipa_init_flt6_v3(void)
 	int i;
 	int rc = 0;
 
-	mem.size = IPA_MEM_PART(v6_flt_size);
+	mem.size = IPA_MEM_PART(v6_flt_nhash_size);
 	mem.base = dma_alloc_coherent(ipa3_ctx->pdev, mem.size, &mem.phys_base,
 			GFP_KERNEL);
 	if (!mem.base) {
@@ -2009,7 +2007,7 @@ int _ipa_init_flt6_v3(void)
 	v6_cmd.ipv6_rules_addr = mem.phys_base;
 	v6_cmd.size_ipv6_rules = mem.size;
 	v6_cmd.ipv6_addr = ipa3_ctx->smem_restricted_bytes +
-		IPA_MEM_PART(v6_flt_ofst);
+		IPA_MEM_PART(v6_flt_nhash_ofst);
 	IPADBG("putting Filtering IPv6 rules to phys 0x%x",
 				v6_cmd.ipv6_addr);
 
@@ -2919,11 +2917,6 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_bind;
 	}
 
-	IPADBG("hdr_lcl=%u ip4_rt=%u ip6_rt=%u ip4_flt=%u ip6_flt=%u\n",
-	       ipa3_ctx->hdr_tbl_lcl, ipa3_ctx->ip4_rt_tbl_lcl,
-	       ipa3_ctx->ip6_rt_tbl_lcl, ipa3_ctx->ip4_flt_tbl_lcl,
-	       ipa3_ctx->ip6_flt_tbl_lcl);
-
 	if (ipa3_bus_scale_table) {
 		IPADBG("Use bus scaling info from device tree\n");
 		ipa3_ctx->ctrl->msm_bus_data_ptr = ipa3_bus_scale_table;
@@ -2986,6 +2979,21 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->ctrl->ipa_sram_read_settings();
 	IPADBG("SRAM, size: 0x%x, restricted bytes: 0x%x\n",
 		ipa3_ctx->smem_sz, ipa3_ctx->smem_restricted_bytes);
+
+	IPADBG("hdr_lcl=%u ip4_rt_hash=%u ip4_rt_nonhash=%u\n",
+		ipa3_ctx->hdr_tbl_lcl, ipa3_ctx->ip4_rt_tbl_hash_lcl,
+		ipa3_ctx->ip4_rt_tbl_nhash_lcl);
+
+	IPADBG("ip6_rt_hash=%u ip6_rt_nonhash=%u\n",
+		ipa3_ctx->ip6_rt_tbl_hash_lcl, ipa3_ctx->ip6_rt_tbl_nhash_lcl);
+
+	IPADBG("ip4_flt_hash=%u ip4_flt_nonhash=%u\n",
+		ipa3_ctx->ip4_flt_tbl_hash_lcl,
+		ipa3_ctx->ip4_flt_tbl_nhash_lcl);
+
+	IPADBG("ip6_flt_hash=%u ip6_flt_nonhash=%u\n",
+		ipa3_ctx->ip6_flt_tbl_hash_lcl,
+		ipa3_ctx->ip6_flt_tbl_nhash_lcl);
 
 	if (ipa3_ctx->smem_reqd_sz >
 		ipa3_ctx->smem_sz - ipa3_ctx->smem_restricted_bytes) {
@@ -3127,8 +3135,10 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_dma_pool;
 	}
 
-	ipa3_ctx->glob_flt_tbl[IPA_IP_v4].in_sys = !ipa3_ctx->ip4_flt_tbl_lcl;
-	ipa3_ctx->glob_flt_tbl[IPA_IP_v6].in_sys = !ipa3_ctx->ip6_flt_tbl_lcl;
+	ipa3_ctx->glob_flt_tbl[IPA_IP_v4].in_sys =
+		!ipa3_ctx->ip4_flt_tbl_nhash_lcl;
+	ipa3_ctx->glob_flt_tbl[IPA_IP_v6].in_sys =
+		!ipa3_ctx->ip6_flt_tbl_nhash_lcl;
 
 	/* init the various list heads */
 	INIT_LIST_HEAD(&ipa3_ctx->glob_flt_tbl[IPA_IP_v4].head_flt_rule_list);
@@ -3149,11 +3159,11 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
 		flt_tbl = &ipa3_ctx->flt_tbl[i][IPA_IP_v4];
 		INIT_LIST_HEAD(&flt_tbl->head_flt_rule_list);
-		flt_tbl->in_sys = !ipa3_ctx->ip4_flt_tbl_lcl;
+		flt_tbl->in_sys = !ipa3_ctx->ip4_flt_tbl_nhash_lcl;
 
 		flt_tbl = &ipa3_ctx->flt_tbl[i][IPA_IP_v6];
 		INIT_LIST_HEAD(&flt_tbl->head_flt_rule_list);
-		flt_tbl->in_sys = !ipa3_ctx->ip6_flt_tbl_lcl;
+		flt_tbl->in_sys = !ipa3_ctx->ip6_flt_tbl_nhash_lcl;
 	}
 
 	rset = &ipa3_ctx->reap_rt_tbl_set[IPA_IP_v4];

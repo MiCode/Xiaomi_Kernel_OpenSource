@@ -406,22 +406,24 @@ static int ipa3_qmi_init_modem_send_sync_msg(void)
 		smem_restr_bytes + IPA_MEM_PART(modem_hdr_size) - 1;
 
 	req.v4_route_tbl_info_valid = true;
-	req.v4_route_tbl_info.route_tbl_start_addr = IPA_MEM_PART(v4_rt_ofst) +
-		smem_restr_bytes;
-	req.v4_route_tbl_info.num_indices = IPA_MEM_PART(v4_modem_rt_index_hi);
+	req.v4_route_tbl_info.route_tbl_start_addr =
+		IPA_MEM_PART(v4_rt_nhash_ofst) + smem_restr_bytes;
+	req.v4_route_tbl_info.num_indices =
+		IPA_MEM_PART(v4_modem_rt_index_hi);
 	req.v6_route_tbl_info_valid = true;
 
-	req.v6_route_tbl_info.route_tbl_start_addr = IPA_MEM_PART(v6_rt_ofst) +
-		smem_restr_bytes;
-	req.v6_route_tbl_info.num_indices = IPA_MEM_PART(v6_modem_rt_index_hi);
+	req.v6_route_tbl_info.route_tbl_start_addr =
+		IPA_MEM_PART(v6_rt_nhash_ofst) + smem_restr_bytes;
+	req.v6_route_tbl_info.num_indices =
+		IPA_MEM_PART(v6_modem_rt_index_hi);
 
 	req.v4_filter_tbl_start_addr_valid = true;
 	req.v4_filter_tbl_start_addr =
-		IPA_MEM_PART(v4_flt_ofst) + smem_restr_bytes;
+		IPA_MEM_PART(v4_flt_nhash_ofst) + smem_restr_bytes;
 
 	req.v6_filter_tbl_start_addr_valid = true;
 	req.v6_filter_tbl_start_addr =
-		IPA_MEM_PART(v6_flt_ofst) + smem_restr_bytes;
+		IPA_MEM_PART(v6_flt_nhash_ofst) + smem_restr_bytes;
 
 	req.modem_mem_info_valid = (IPA_MEM_PART(modem_size) != 0);
 	req.modem_mem_info.block_start_addr =

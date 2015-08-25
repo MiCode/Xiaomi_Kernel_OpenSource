@@ -524,10 +524,14 @@ void _ipa_sram_settings_read_v3_0(void)
 		ipa3_ctx->hdr_proc_ctx_tbl.start_offset =
 			IPA_MEM_PART(modem_hdr_proc_ctx_size);
 	}
-	ipa3_ctx->ip4_rt_tbl_lcl = 0;
-	ipa3_ctx->ip6_rt_tbl_lcl = 0;
-	ipa3_ctx->ip4_flt_tbl_lcl = 0;
-	ipa3_ctx->ip6_flt_tbl_lcl = 0;
+	ipa3_ctx->ip4_rt_tbl_hash_lcl = 0;
+	ipa3_ctx->ip4_rt_tbl_nhash_lcl = 0;
+	ipa3_ctx->ip6_rt_tbl_hash_lcl = 0;
+	ipa3_ctx->ip6_rt_tbl_nhash_lcl = 0;
+	ipa3_ctx->ip4_flt_tbl_hash_lcl = 0;
+	ipa3_ctx->ip4_flt_tbl_nhash_lcl = 0;
+	ipa3_ctx->ip6_flt_tbl_hash_lcl = 0;
+	ipa3_ctx->ip6_flt_tbl_nhash_lcl = 0;
 }
 
 /**
@@ -2933,7 +2937,8 @@ int ipa3_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ep_route)
 			ep_route->rt_tbl_hdl);
 
 	/* always use "default" routing table when programming EP ROUTE reg */
-	ipa3_ctx->ep[clnt_hdl].rt_tbl_idx = IPA_MEM_PART(v4_apps_rt_index_lo);
+	ipa3_ctx->ep[clnt_hdl].rt_tbl_idx =
+		IPA_MEM_PART(v4_apps_rt_index_lo);
 
 	ipa3_inc_client_enable_clks();
 
@@ -3451,155 +3456,112 @@ static void ipa_init_mem_partition_v3_0(void)
 	IPA_MEM_PART(ofst_start) = IPA_MEM_v3_0_RAM_OFST_START;
 	IPADBG("RAM OFST 0x%x\n", IPA_MEM_PART(ofst_start));
 
-	IPA_MEM_PART(v4_flt_hashable_ofst) =
-		IPA_MEM_v3_0_RAM_V4_FLT_HASHABLE_OFST;
-	IPA_MEM_PART(v4_flt_hashable_size) =
-		IPA_MEM_v3_0_RAM_V4_FLT_HASHABLE_SIZE;
-	IPA_MEM_PART(v4_flt_hashable_size_ddr) = IPA_MEM_RAM_V4_FLT_SIZE_DDR;
+	IPA_MEM_PART(v4_flt_hash_ofst) = IPA_MEM_v3_0_RAM_V4_FLT_HASH_OFST;
+	IPA_MEM_PART(v4_flt_hash_size) = IPA_MEM_v3_0_RAM_V4_FLT_HASH_SIZE;
+	IPA_MEM_PART(v4_flt_hash_size_ddr) = IPA_MEM_RAM_V4_FLT_HASH_SIZE_DDR;
 	IPADBG("V4 FLT HASHABLE OFST 0x%x SIZE 0x%x DDR SIZE 0x%x\n",
-		IPA_MEM_PART(v4_flt_hashable_ofst),
-		IPA_MEM_PART(v4_flt_hashable_size),
-		IPA_MEM_PART(v4_flt_hashable_size_ddr));
+		IPA_MEM_PART(v4_flt_hash_ofst),
+		IPA_MEM_PART(v4_flt_hash_size),
+		IPA_MEM_PART(v4_flt_hash_size_ddr));
 
-	IPA_MEM_PART(v4_flt_ofst) = IPA_MEM_v3_0_RAM_V4_FLT_OFST;
-	IPA_MEM_PART(v4_flt_size) = IPA_MEM_v3_0_RAM_V4_FLT_SIZE;
-	IPA_MEM_PART(v4_flt_size_ddr) = IPA_MEM_RAM_V4_FLT_SIZE_DDR;
+	IPA_MEM_PART(v4_flt_nhash_ofst) = IPA_MEM_v3_0_RAM_V4_FLT_NHASH_OFST;
+	IPA_MEM_PART(v4_flt_nhash_size) = IPA_MEM_v3_0_RAM_V4_FLT_NHASH_SIZE;
+	IPA_MEM_PART(v4_flt_nhash_size_ddr) = IPA_MEM_RAM_V4_FLT_NHASH_SIZE_DDR;
 	IPADBG("V4 FLT NON-HASHABLE OFST 0x%x SIZE 0x%x DDR SIZE 0x%x\n",
-		IPA_MEM_PART(v4_flt_ofst), IPA_MEM_PART(v4_flt_size),
-		IPA_MEM_PART(v4_flt_size_ddr));
+		IPA_MEM_PART(v4_flt_nhash_ofst),
+		IPA_MEM_PART(v4_flt_nhash_size),
+		IPA_MEM_PART(v4_flt_nhash_size_ddr));
 
-	IPA_MEM_PART(v6_flt_hashable_ofst) =
-		IPA_MEM_v3_0_RAM_V6_FLT_HASHABLE_OFST;
-	IPA_MEM_PART(v6_flt_hashable_size) =
-		IPA_MEM_v3_0_RAM_V6_FLT_HASHABLE_SIZE;
-	IPA_MEM_PART(v6_flt_hashable_size_ddr) = IPA_MEM_RAM_V6_FLT_SIZE_DDR;
+	IPA_MEM_PART(v6_flt_hash_ofst) = IPA_MEM_v3_0_RAM_V6_FLT_HASH_OFST;
+	IPA_MEM_PART(v6_flt_hash_size) = IPA_MEM_v3_0_RAM_V6_FLT_HASH_SIZE;
+	IPA_MEM_PART(v6_flt_hash_size_ddr) = IPA_MEM_RAM_V6_FLT_HASH_SIZE_DDR;
 	IPADBG("V6 FLT HASHABLE OFST 0x%x SIZE 0x%x DDR SIZE 0x%x\n",
-		IPA_MEM_PART(v6_flt_hashable_ofst),
-		IPA_MEM_PART(v6_flt_hashable_size),
-		IPA_MEM_PART(v6_flt_hashable_size_ddr));
+		IPA_MEM_PART(v6_flt_hash_ofst), IPA_MEM_PART(v6_flt_hash_size),
+		IPA_MEM_PART(v6_flt_hash_size_ddr));
 
-	IPA_MEM_PART(v6_flt_ofst) = IPA_MEM_v3_0_RAM_V6_FLT_OFST;
-	IPA_MEM_PART(v6_flt_size) = IPA_MEM_v3_0_RAM_V6_FLT_SIZE;
-	IPA_MEM_PART(v6_flt_size_ddr) = IPA_MEM_RAM_V6_FLT_SIZE_DDR;
+	IPA_MEM_PART(v6_flt_nhash_ofst) = IPA_MEM_v3_0_RAM_V6_FLT_NHASH_OFST;
+	IPA_MEM_PART(v6_flt_nhash_size) = IPA_MEM_v3_0_RAM_V6_FLT_NHASH_SIZE;
+	IPA_MEM_PART(v6_flt_nhash_size_ddr) = IPA_MEM_RAM_V6_FLT_NHASH_SIZE_DDR;
 	IPADBG("V6 FLT NON-HASHABLE OFST 0x%x SIZE 0x%x DDR SIZE 0x%x\n",
-		IPA_MEM_PART(v6_flt_ofst), IPA_MEM_PART(v6_flt_size),
-		IPA_MEM_PART(v6_flt_size_ddr));
+		IPA_MEM_PART(v6_flt_nhash_ofst),
+		IPA_MEM_PART(v6_flt_nhash_size),
+		IPA_MEM_PART(v6_flt_nhash_size_ddr));
 
-	IPA_MEM_PART(v4_rt_hashable_ofst) =
-		IPA_MEM_v3_0_RAM_V4_RT_HASHABLE_OFST;
-	IPADBG("V4 RT HASHABLE OFST 0x%x\n",
-		IPA_MEM_PART(v4_rt_hashable_ofst));
+	IPA_MEM_PART(v4_rt_num_index) = IPA_MEM_v3_0_RAM_V4_RT_NUM_INDEX;
+	IPADBG("V4 RT NUM INDEX 0x%x\n", IPA_MEM_PART(v4_rt_num_index));
 
-	IPA_MEM_PART(v4_hashable_num_index) =
-		IPA_MEM_v3_0_RAM_V4_HASHABLE_NUM_INDEX;
-	IPADBG("V4 RT HASHABLE NUM INDEX 0x%x\n",
-		IPA_MEM_PART(v4_hashable_num_index));
-
-	IPA_MEM_PART(v4_modem_rt_hashable_index_lo) =
-		IPA_MEM_v3_0_V4_MODEM_RT_HASHABLE_INDEX_LO;
-	IPA_MEM_PART(v4_modem_rt_hashable_index_hi) =
-		IPA_MEM_v3_0_V4_MODEM_RT_HASHABLE_INDEX_HI;
-	IPADBG("V4 RT MODEM HASHABLE INDEXES 0x%x - 0x%x\n",
-		IPA_MEM_PART(v4_modem_rt_hashable_index_lo),
-		IPA_MEM_PART(v4_modem_rt_hashable_index_hi));
-
-	IPA_MEM_PART(v4_apps_rt_hashable_index_lo) =
-		IPA_MEM_v3_0_V4_APPS_RT_HASHABLE_INDEX_LO;
-	IPA_MEM_PART(v4_apps_rt_hashable_index_hi) =
-		IPA_MEM_v3_0_V4_APPS_RT_HASHABLE_INDEX_HI;
-	IPADBG("V4 RT APPS HASHABLE INDEXES 0x%x - 0x%x\n",
-		IPA_MEM_PART(v4_apps_rt_hashable_index_lo),
-		IPA_MEM_PART(v4_apps_rt_hashable_index_hi));
-
-	IPA_MEM_PART(v4_rt_hashable_size) =
-		IPA_MEM_v3_0_RAM_V4_RT_HASHABLE_SIZE;
-	IPA_MEM_PART(v4_rt_hashable_size_ddr) = IPA_MEM_RAM_V4_RT_SIZE_DDR;
-	IPADBG("V4 RT HASHABLE SIZE 0x%x DDR SIZE 0x%x\n",
-		IPA_MEM_PART(v4_rt_hashable_size),
-		IPA_MEM_PART(v4_rt_hashable_size_ddr));
-
-	IPA_MEM_PART(v4_rt_ofst) = IPA_MEM_v3_0_RAM_V4_RT_OFST;
-	IPADBG("V4 RT NON-HASHABLE OFST 0x%x\n", IPA_MEM_PART(v4_rt_ofst));
-
-	IPA_MEM_PART(v4_num_index) = IPA_MEM_v3_0_RAM_V4_NUM_INDEX;
-	IPADBG("V4 RT NON-HASHABLE NUM INDEX 0x%x\n",
-		IPA_MEM_PART(v4_num_index));
-
-	IPA_MEM_PART(v4_modem_rt_index_lo) = IPA_MEM_v3_0_V4_MODEM_RT_INDEX_LO;
-	IPA_MEM_PART(v4_modem_rt_index_hi) = IPA_MEM_v3_0_V4_MODEM_RT_INDEX_HI;
-	IPADBG("V4 RT MODEM NON-HASHABLE INDEXES 0x%x - 0x%x\n",
+	IPA_MEM_PART(v4_modem_rt_index_lo) =
+		IPA_MEM_v3_0_V4_MODEM_RT_INDEX_LO;
+	IPA_MEM_PART(v4_modem_rt_index_hi) =
+		IPA_MEM_v3_0_V4_MODEM_RT_INDEX_HI;
+	IPADBG("V4 RT MODEM INDEXES 0x%x - 0x%x\n",
 		IPA_MEM_PART(v4_modem_rt_index_lo),
 		IPA_MEM_PART(v4_modem_rt_index_hi));
 
-	IPA_MEM_PART(v4_apps_rt_index_lo) = IPA_MEM_v3_0_V4_APPS_RT_INDEX_LO;
-	IPA_MEM_PART(v4_apps_rt_index_hi) = IPA_MEM_v3_0_V4_APPS_RT_INDEX_HI;
-	IPADBG("V4 RT APPS NON-HASHABLE INDEXES 0x%x - 0x%x\n",
+	IPA_MEM_PART(v4_apps_rt_index_lo) =
+		IPA_MEM_v3_0_V4_APPS_RT_INDEX_LO;
+	IPA_MEM_PART(v4_apps_rt_index_hi) =
+		IPA_MEM_v3_0_V4_APPS_RT_INDEX_HI;
+	IPADBG("V4 RT APPS INDEXES 0x%x - 0x%x\n",
 		IPA_MEM_PART(v4_apps_rt_index_lo),
 		IPA_MEM_PART(v4_apps_rt_index_hi));
 
-	IPA_MEM_PART(v4_rt_size) = IPA_MEM_v3_0_RAM_V4_RT_SIZE;
-	IPA_MEM_PART(v4_rt_size_ddr) = IPA_MEM_RAM_V4_RT_SIZE_DDR;
+	IPA_MEM_PART(v4_rt_hash_ofst) = IPA_MEM_v3_0_RAM_V4_RT_HASH_OFST;
+	IPADBG("V4 RT HASHABLE OFST 0x%x\n", IPA_MEM_PART(v4_rt_hash_ofst));
+
+	IPA_MEM_PART(v4_rt_hash_size) = IPA_MEM_v3_0_RAM_V4_RT_HASH_SIZE;
+	IPA_MEM_PART(v4_rt_hash_size_ddr) = IPA_MEM_RAM_V4_RT_HASH_SIZE_DDR;
 	IPADBG("V4 RT HASHABLE SIZE 0x%x DDR SIZE 0x%x\n",
-		IPA_MEM_PART(v4_rt_size),
-		IPA_MEM_PART(v4_rt_size_ddr));
+		IPA_MEM_PART(v4_rt_hash_size),
+		IPA_MEM_PART(v4_rt_hash_size_ddr));
 
-	IPA_MEM_PART(v6_rt_hashable_ofst) =
-		IPA_MEM_v3_0_RAM_V6_RT_HASHABLE_OFST;
-	IPADBG("V6 RT HASHABLE OFST 0x%x\n",
-		IPA_MEM_PART(v6_rt_hashable_ofst));
+	IPA_MEM_PART(v4_rt_nhash_ofst) = IPA_MEM_v3_0_RAM_V4_RT_NHASH_OFST;
+	IPADBG("V4 RT NON-HASHABLE OFST 0x%x\n",
+		IPA_MEM_PART(v4_rt_nhash_ofst));
 
-	IPA_MEM_PART(v6_hashable_num_index) =
-		IPA_MEM_v3_0_RAM_V6_HASHABLE_NUM_INDEX;
-	IPADBG("V6 RT HASHABLE NUM INDEX 0x%x\n",
-		IPA_MEM_PART(v6_hashable_num_index));
+	IPA_MEM_PART(v4_rt_nhash_size) = IPA_MEM_v3_0_RAM_V4_RT_NHASH_SIZE;
+	IPA_MEM_PART(v4_rt_nhash_size_ddr) = IPA_MEM_RAM_V4_RT_NHASH_SIZE_DDR;
+	IPADBG("V4 RT HASHABLE SIZE 0x%x DDR SIZE 0x%x\n",
+		IPA_MEM_PART(v4_rt_nhash_size),
+		IPA_MEM_PART(v4_rt_nhash_size_ddr));
 
-	IPA_MEM_PART(v6_modem_rt_hashable_index_lo) =
-		IPA_MEM_v3_0_V6_MODEM_RT_HASHABLE_INDEX_LO;
-	IPA_MEM_PART(v6_modem_rt_hashable_index_hi) =
-		IPA_MEM_v3_0_V6_MODEM_RT_HASHABLE_INDEX_HI;
-	IPADBG("V6 RT MODEM HASHABLE INDEXES 0x%x - 0x%x\n",
-		IPA_MEM_PART(v6_modem_rt_hashable_index_lo),
-		IPA_MEM_PART(v6_modem_rt_hashable_index_hi));
+	IPA_MEM_PART(v6_rt_num_index) = IPA_MEM_v3_0_RAM_V6_RT_NUM_INDEX;
+	IPADBG("V6 RT NUM INDEX 0x%x\n", IPA_MEM_PART(v6_rt_num_index));
 
-	IPA_MEM_PART(v6_apps_rt_hashable_index_lo) =
-		IPA_MEM_v3_0_V6_APPS_RT_HASHABLE_INDEX_LO;
-	IPA_MEM_PART(v6_apps_rt_hashable_index_hi) =
-		IPA_MEM_v3_0_V6_APPS_RT_HASHABLE_INDEX_HI;
-	IPADBG("V6 RT APPS HASHABLE INDEXES 0x%x - 0x%x\n",
-		IPA_MEM_PART(v6_apps_rt_hashable_index_lo),
-		IPA_MEM_PART(v6_apps_rt_hashable_index_hi));
-
-	IPA_MEM_PART(v6_rt_hashable_size) =
-		IPA_MEM_v3_0_RAM_V6_RT_HASHABLE_SIZE;
-	IPA_MEM_PART(v6_rt_hashable_size_ddr) = IPA_MEM_RAM_V6_RT_SIZE_DDR;
-	IPADBG("V6 RT HASHABLE SIZE 0x%x DDR SIZE 0x%x\n",
-		IPA_MEM_PART(v6_rt_hashable_size),
-		IPA_MEM_PART(v6_rt_hashable_size_ddr));
-
-	IPA_MEM_PART(v6_rt_ofst) = IPA_MEM_v3_0_RAM_V6_RT_OFST;
-	IPADBG("V6 RT NON-HASHABLE OFST 0x%x\n", IPA_MEM_PART(v6_rt_ofst));
-
-	IPA_MEM_PART(v6_num_index) = IPA_MEM_v3_0_RAM_V6_NUM_INDEX;
-	IPADBG("V6 RT NON-HASHABLE NUM INDEX 0x%x\n",
-		IPA_MEM_PART(v6_num_index));
-
-	IPA_MEM_PART(v6_modem_rt_index_lo) = IPA_MEM_v3_0_V6_MODEM_RT_INDEX_LO;
-	IPA_MEM_PART(v6_modem_rt_index_hi) = IPA_MEM_v3_0_V6_MODEM_RT_INDEX_HI;
-	IPADBG("V6 RT MODEM NON-HASHABLE INDEXES 0x%x - 0x%x\n",
+	IPA_MEM_PART(v6_modem_rt_index_lo) =
+		IPA_MEM_v3_0_V6_MODEM_RT_INDEX_LO;
+	IPA_MEM_PART(v6_modem_rt_index_hi) =
+		IPA_MEM_v3_0_V6_MODEM_RT_INDEX_HI;
+	IPADBG("V6 RT MODEM INDEXES 0x%x - 0x%x\n",
 		IPA_MEM_PART(v6_modem_rt_index_lo),
 		IPA_MEM_PART(v6_modem_rt_index_hi));
 
-	IPA_MEM_PART(v6_apps_rt_index_lo) = IPA_MEM_v3_0_V6_APPS_RT_INDEX_LO;
-	IPA_MEM_PART(v6_apps_rt_index_hi) = IPA_MEM_v3_0_V6_APPS_RT_INDEX_HI;
-	IPADBG("V6 RT APPS NON-HASHABLE INDEXES 0x%x - 0x%x\n",
+	IPA_MEM_PART(v6_apps_rt_index_lo) =
+		IPA_MEM_v3_0_V6_APPS_RT_INDEX_LO;
+	IPA_MEM_PART(v6_apps_rt_index_hi) =
+		IPA_MEM_v3_0_V6_APPS_RT_INDEX_HI;
+	IPADBG("V6 RT APPS INDEXES 0x%x - 0x%x\n",
 		IPA_MEM_PART(v6_apps_rt_index_lo),
 		IPA_MEM_PART(v6_apps_rt_index_hi));
 
-	IPA_MEM_PART(v6_rt_size) = IPA_MEM_v3_0_RAM_V6_RT_SIZE;
-	IPA_MEM_PART(v6_rt_size_ddr) = IPA_MEM_RAM_V6_RT_SIZE_DDR;
+	IPA_MEM_PART(v6_rt_hash_ofst) = IPA_MEM_v3_0_RAM_V6_RT_HASH_OFST;
+	IPADBG("V6 RT HASHABLE OFST 0x%x\n", IPA_MEM_PART(v6_rt_hash_ofst));
+
+	IPA_MEM_PART(v6_rt_hash_size) = IPA_MEM_v3_0_RAM_V6_RT_HASH_SIZE;
+	IPA_MEM_PART(v6_rt_hash_size_ddr) = IPA_MEM_RAM_V6_RT_HASH_SIZE_DDR;
+	IPADBG("V6 RT HASHABLE SIZE 0x%x DDR SIZE 0x%x\n",
+		IPA_MEM_PART(v6_rt_hash_size),
+		IPA_MEM_PART(v6_rt_hash_size_ddr));
+
+	IPA_MEM_PART(v6_rt_nhash_ofst) = IPA_MEM_v3_0_RAM_V6_RT_NHASH_OFST;
+	IPADBG("V6 RT NON-HASHABLE OFST 0x%x\n",
+		IPA_MEM_PART(v6_rt_nhash_ofst));
+
+	IPA_MEM_PART(v6_rt_nhash_size) = IPA_MEM_v3_0_RAM_V6_RT_NHASH_SIZE;
+	IPA_MEM_PART(v6_rt_nhash_size_ddr) = IPA_MEM_RAM_V6_RT_NHASH_SIZE_DDR;
 	IPADBG("V6 RT NON-HASHABLE SIZE 0x%x DDR SIZE 0x%x\n",
-		IPA_MEM_PART(v6_rt_size),
-		IPA_MEM_PART(v6_rt_size_ddr));
+		IPA_MEM_PART(v6_rt_nhash_size),
+		IPA_MEM_PART(v6_rt_nhash_size_ddr));
 
 	IPA_MEM_PART(modem_hdr_ofst) = IPA_MEM_v3_0_RAM_MODEM_HDR_OFST;
 	IPA_MEM_PART(modem_hdr_size) = IPA_MEM_v3_0_RAM_MODEM_HDR_SIZE;
@@ -3637,23 +3599,55 @@ static void ipa_init_mem_partition_v3_0(void)
 	IPADBG("MODEM OFST 0x%x SIZE 0x%x\n", IPA_MEM_PART(modem_ofst),
 		IPA_MEM_PART(modem_size));
 
-	IPA_MEM_PART(apps_v4_flt_ofst) = IPA_MEM_v3_0_RAM_APPS_V4_FLT_OFST;
-	IPA_MEM_PART(apps_v4_flt_size) = IPA_MEM_v3_0_RAM_APPS_V4_FLT_SIZE;
-	IPADBG("V4 APPS FLT OFST 0x%x SIZE 0x%x\n",
-		IPA_MEM_PART(apps_v4_flt_ofst),
-		IPA_MEM_PART(apps_v4_flt_size));
+	IPA_MEM_PART(apps_v4_flt_hash_ofst) =
+		IPA_MEM_v3_0_RAM_APPS_V4_FLT_HASH_OFST;
+	IPA_MEM_PART(apps_v4_flt_hash_size) =
+		IPA_MEM_v3_0_RAM_APPS_V4_FLT_HASH_SIZE;
+	IPADBG("V4 APPS HASHABLE FLT OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(apps_v4_flt_hash_ofst),
+		IPA_MEM_PART(apps_v4_flt_hash_size));
 
-	IPA_MEM_PART(apps_v6_flt_ofst) = IPA_MEM_v3_0_RAM_APPS_V6_FLT_OFST;
-	IPA_MEM_PART(apps_v6_flt_size) = IPA_MEM_v3_0_RAM_APPS_V6_FLT_SIZE;
-	IPADBG("V6 APPS FLT OFST 0x%x SIZE 0x%x\n",
-		IPA_MEM_PART(apps_v6_flt_ofst),
-		IPA_MEM_PART(apps_v6_flt_size));
+	IPA_MEM_PART(apps_v4_flt_nhash_ofst) =
+		IPA_MEM_v3_0_RAM_APPS_V4_FLT_NHASH_OFST;
+	IPA_MEM_PART(apps_v4_flt_nhash_size) =
+		IPA_MEM_v3_0_RAM_APPS_V4_FLT_NHASH_SIZE;
+	IPADBG("V4 APPS NON-HASHABLE FLT OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(apps_v4_flt_nhash_ofst),
+		IPA_MEM_PART(apps_v4_flt_nhash_size));
+
+	IPA_MEM_PART(apps_v6_flt_hash_ofst) =
+		IPA_MEM_v3_0_RAM_APPS_V6_FLT_HASH_OFST;
+	IPA_MEM_PART(apps_v6_flt_hash_size) =
+		IPA_MEM_v3_0_RAM_APPS_V6_FLT_HASH_SIZE;
+	IPADBG("V6 APPS HASHABLE FLT OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(apps_v6_flt_hash_ofst),
+		IPA_MEM_PART(apps_v6_flt_hash_size));
+
+	IPA_MEM_PART(apps_v6_flt_nhash_ofst) =
+		IPA_MEM_v3_0_RAM_APPS_V6_FLT_NHASH_OFST;
+	IPA_MEM_PART(apps_v6_flt_nhash_size) =
+		IPA_MEM_v3_0_RAM_APPS_V6_FLT_NHASH_SIZE;
+	IPADBG("V6 APPS NON-HASHABLE FLT OFST 0x%x SIZE 0x%x\n",
+		IPA_MEM_PART(apps_v6_flt_nhash_ofst),
+		IPA_MEM_PART(apps_v6_flt_nhash_size));
 
 	IPA_MEM_PART(end_ofst) = IPA_MEM_v3_0_RAM_END_OFST;
-	IPA_MEM_PART(apps_v4_rt_ofst) = IPA_MEM_v3_0_RAM_APPS_V4_RT_OFST;
-	IPA_MEM_PART(apps_v4_rt_size) = IPA_MEM_v3_0_RAM_APPS_V4_RT_SIZE;
-	IPA_MEM_PART(apps_v6_rt_ofst) = IPA_MEM_v3_0_RAM_APPS_V6_RT_OFST;
-	IPA_MEM_PART(apps_v6_rt_size) = IPA_MEM_v3_0_RAM_APPS_V6_RT_SIZE;
+	IPA_MEM_PART(apps_v4_rt_hash_ofst) =
+		IPA_MEM_v3_0_RAM_APPS_V4_RT_HASH_OFST;
+	IPA_MEM_PART(apps_v4_rt_hash_size) =
+		IPA_MEM_v3_0_RAM_APPS_V4_RT_HASH_SIZE;
+	IPA_MEM_PART(apps_v4_rt_nhash_ofst) =
+		IPA_MEM_v3_0_RAM_APPS_V4_RT_NHASH_OFST;
+	IPA_MEM_PART(apps_v4_rt_nhash_size) =
+		IPA_MEM_v3_0_RAM_APPS_V4_RT_NHASH_SIZE;
+	IPA_MEM_PART(apps_v6_rt_hash_ofst) =
+		IPA_MEM_v3_0_RAM_APPS_V6_RT_HASH_OFST;
+	IPA_MEM_PART(apps_v6_rt_hash_size) =
+		IPA_MEM_v3_0_RAM_APPS_V6_RT_HASH_SIZE;
+	IPA_MEM_PART(apps_v6_rt_nhash_ofst) =
+		IPA_MEM_v3_0_RAM_APPS_V6_RT_NHASH_OFST;
+	IPA_MEM_PART(apps_v6_rt_nhash_size) =
+		IPA_MEM_v3_0_RAM_APPS_V6_RT_NHASH_SIZE;
 }
 
 /**
