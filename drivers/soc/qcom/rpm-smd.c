@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,7 @@
 #include <linux/irq.h>
 #include <linux/list.h>
 #include <linux/mutex.h>
+#include <linux/rtmutex.h>
 #include <linux/spinlock.h>
 #include <linux/string.h>
 #include <linux/device.h>
@@ -1202,6 +1203,7 @@ EXPORT_SYMBOL(msm_rpm_send_request_noirq);
 
 int msm_rpm_wait_for_ack(uint32_t msg_id)
 {
+	static DEFINE_RT_MUTEX(msm_rpm_smd_lock);
 	struct msm_rpm_wait_data *elem;
 	int rc = 0;
 
@@ -1220,7 +1222,9 @@ int msm_rpm_wait_for_ack(uint32_t msg_id)
 	if (!elem)
 		return rc;
 
+	rt_mutex_lock(&msm_rpm_smd_lock);
 	wait_for_completion(&elem->ack);
+	rt_mutex_unlock(&msm_rpm_smd_lock);
 	trace_rpm_ack_recd(0, msg_id);
 
 	rc = elem->errno;
