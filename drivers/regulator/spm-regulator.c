@@ -633,7 +633,15 @@ static int qpnp_smps_init_voltage(struct spm_vreg *vreg)
 	vreg->vlevel = vreg->last_set_vlevel;
 	vreg->uV = vreg->last_set_uV;
 
-	return rc;
+	/* Initialize SAW voltage control register */
+	if (!vreg->bypass_spm) {
+		rc = msm_spm_set_vdd(vreg->cpu_num, vreg->vlevel);
+		if (rc)
+			pr_err("%s: msm_spm_set_vdd failed, rc=%d\n",
+			       vreg->rdesc.name, rc);
+	}
+
+	return 0;
 }
 
 static int qpnp_smps_init_mode(struct spm_vreg *vreg)
