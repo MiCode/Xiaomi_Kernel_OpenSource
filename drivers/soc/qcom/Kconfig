@@ -54,7 +54,26 @@ config QCOM_SCM
        bool "Secure Channel Manager (SCM) support"
        default n
 
+menuconfig QCOM_SCM_XPU
+	bool "Qualcomm XPU configuration driver"
+	depends on QCOM_SCM
+
+if QCOM_SCM_XPU
+
+choice
+	prompt "XPU Violation Behavior"
+	default QCOM_XPU_ERR_FATAL
+
 config QCOM_XPU_ERR_FATAL
 	bool "Configure XPU violations as fatal errors"
 	help
 	 Select if XPU violations have to be configured as fatal errors.
+
+config QCOM_XPU_ERR_NONFATAL
+	bool "Configure XPU violations as non-fatal errors"
+	help
+	 Select if XPU violations have to be configured as non-fatal errors.
+
+endchoice
+
+endif
