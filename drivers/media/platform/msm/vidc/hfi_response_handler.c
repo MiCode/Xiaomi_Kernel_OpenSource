@@ -321,6 +321,12 @@ static void hfi_process_sys_init_done(
 	sys_init_done.capabilities =
 		kzalloc(sizeof(struct msm_vidc_capability) *
 			VIDC_MAX_SESSIONS, GFP_TEMPORARY);
+	if (!sys_init_done.capabilities) {
+		status = VIDC_ERR_FAIL;
+		dprintk(VIDC_ERR,
+			"%s: failed to allocate capabilities\n", __func__);
+		goto err_no_prop;
+	}
 
 	status = hfi_process_sys_init_done_prop_read(
 				pkt, &sys_init_done);

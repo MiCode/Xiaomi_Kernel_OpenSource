@@ -417,13 +417,18 @@ static void handle_sys_init_done(enum command_response cmd, void *data)
 			"Failed to get valid response for sys init\n");
 		return;
 	}
+	if (response->status) {
+		dprintk(VIDC_ERR, "%s: status 0x%x\n", __func__,
+			response->status);
+		return;
+	}
 	core = get_vidc_core(response->device_id);
 	if (!core) {
 		dprintk(VIDC_ERR, "Wrong device_id received\n");
 		return;
 	}
 	sys_init_msg = response->data;
-	if (!sys_init_msg) {
+	if (!sys_init_msg || !sys_init_msg->capabilities) {
 		dprintk(VIDC_ERR, "sys_init_done message not proper\n");
 		return;
 	}
@@ -642,6 +647,16 @@ static void handle_session_init_done(enum command_response cmd, void *data)
 				"Failed to get valid response for session init\n");
 		return;
 	}
+
+	inst = response->session_id;
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR,
+			"%s: invalid parameters, inst %p\n", __func__, inst);
+		return;
+	}
+	core = inst->core;
+	hdev = inst->core->device;
+
 	if (response->status) {
 		dprintk(VIDC_ERR,
 			"Session init response from FW : 0x%x\n",
@@ -652,13 +667,6 @@ static void handle_session_init_done(enum command_response cmd, void *data)
 			msm_comm_generate_session_error(inst);
 	}
 
-	inst = response->session_id;
-	if (!inst) {
-		dprintk(VIDC_WARN, "Got a response for an inactive session\n");
-		return;
-	}
-	core = inst->core;
-	hdev = inst->core->device;
 	codec = inst->session_type == MSM_VIDC_DECODER ?
 			inst->fmts[OUTPUT_PORT]->fourcc :
 			inst->fmts[CAPTURE_PORT]->fourcc;
