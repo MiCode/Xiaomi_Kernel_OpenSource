@@ -1,0 +1,395 @@
+Qualcomm Technologies, Inc. CPR regulator for Graphics
+
+GFX CPR controller monitors the voltage of the graphics processor(GPU)
+power rail. The CPR open-loop voltages are stored in hardware fuses
+for GFX CPR controller. However, the CPR target quotients must be defined
+in device tree. This driver supports CPR version 2 controller.
+
+This document describes the bindings that apply for GFX CPR controller.
+
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: should be "qcom,cpr2-gfx-regulator"
+
+- reg
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Addresses and sizes for the memory of the CPR
+		    controller and the first fuse row.
+
+- reg-names
+	Usage:      required
+	Value type: <stringlist>
+	Definition: Address names. Must be "rbcpr" and "efuse_addr". Must be
+		    specified in the same order as the corresponding addresses
+		    are specified in the reg property.
+
+- regulator-name
+	Usage:      required
+	Value type: <string>
+	Definition: A string used to describe the regulator.
+
+- clocks
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Array of clock tuples in which each tuple consists of a
+		    phandle to a clock device and a clock ID number.  The
+		    following clocks must be specified: GFX RBCPR, GFX RBCPR
+		    AHB.
+
+- clock-names
+	Usage:      required
+	Value type: <stringlist>
+	Definition: Clock names.  This list must match up 1-to-1 with the clocks
+		    specified in the 'clocks' property. "core_clk" and "iface_clk"
+		    must be specified.
+
+- interrupts
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: CPR interrupt specifier.
+
+- vdd-gfx-supply
+	Usage:      required
+	Value type: <phandle>
+	Definition: phandle of the underlying regulator device that is managed
+		    by this CPR controller.
+
+- qcom,cpr-corners
+	Usage:      required
+	Value type: <u32>
+	Definition: Number of voltage corners present. Many other
+		    properties are sized based upon this value.
+
+- regulator-min-microvolt
+	Usage:      required
+	Value type: <u32>
+	Definition: Minimum corner value which should be 1 to represent the
+		    lowest supported corner.
+
+- regulator-max-microvolt
+	Usage:      required
+	Value type: <u32>
+	Definition: Maximum corner value which should be equal to largest value
+		    listed in qcom,cpr-corners.
+
+- qcom,cpr-voltage-ceiling
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Array of ceiling voltages in microvolts for voltage corners
+		    ordered from lowest voltage corner to highest voltage corner.
+		    This property must be of length defined by qcom,cpr-corners.
+
+- qcom,cpr-voltage-floor
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Array of floor voltages in microvolts for voltage corners
+		    ordered from lowest voltage corner to highest voltage corner.
+		    This property must be of length defined by qcom,cpr-corners.
+
+- qcom,vdd-gfx-step-up-limit
+	Usage:      required
+	Value type: <u32>
+	Definition: Limit of vdd-gfx-supply steps for scaling up.
+
+- qcom,vdd-gfx-step-down-limit
+	Usage:      required
+	Value type: <u32>
+	Definition: Limit of vdd-gfx-supply steps for scaling down.
+
+- qcom,cpr-ref-clk
+	Usage:      required
+	Value type: <u32>
+	Definition: The reference clock rate in kHz.
+
+- qcom,cpr-timer-delay
+	Usage:      required
+	Value type: <u32>
+	Definition: The delay in microseconds for the timer interval.
+
+- qcom,cpr-timer-cons-up
+	Usage:      required
+	Value type: <u32>
+	Definition: The number of consecutive CPR step up events needed to
+		    to trigger a up interrupt.  Supported values: 0 - 15.
+
+- qcom,cpr-timer-cons-down
+	Usage:      required
+	Value type: <u32>
+	Definition: The number of consecutive CPR step down events needed to
+		    to trigger a down interrupt.  Supported values: 0 - 15.
+
+- qcom,cpr-irq-line
+	Usage:      required
+	Value type: <u32>
+	Definition: Internal interrupt route signal of RBCPR, one of 0, 1 or 2.
+
+- qcom,cpr-step-quotient
+	Usage:      required
+	Value type: <u32>
+	Definition: Defines the number of CPR quotient (i.e. Ring Oscillator(RO)
+		    count) per vdd-gfx-supply output voltage step.  A single
+		    integer value to be used for all RO's.
+
+- qcom,cpr-gfx-volt-step
+	Usage:      required
+	Value type: <u32>
+	Definition: The voltage in microvolts of a single step of the VDD supply
+		    regulator being controlled by CPR.
+
+- qcom,cpr-up-threshold
+	Usage:      required
+	Value type: <u32>
+	Definition: The number CPR error steps required to generate an up event.
+		    Supported values: 0 - 31.
+
+- qcom,cpr-down-threshold
+	Usage:      required
+	Value type: <u32>
+	Definition: The number CPR error steps required to generate a down
+		    event. Supported values: 0 - 31.
+
+- qcom,cpr-idle-clocks
+	Usage:      required
+	Value type: <u32>
+	Definition: The number of CPR core clock cycles for the CPR controller
+		    to wait in transitional states. Supported values: 0 - 31.
+
+- qcom,cpr-gcnt-time
+	Usage:      required
+	Value type: <u32>
+	Definition: The time for gate count in microseconds.
+
+- qcom,cpr-fuse-init-voltage
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Array of quadruples in which each quadruple specifies a fuse
+		    location to read in order to get an initial voltage for a
+		    voltage corner. The fuse values are encoded as voltage steps
+		    higher or lower than the voltages defined in
+		    qcom,cpr-init-voltage-ref. Each step corresponds to the
+		    voltage defined by the qcom,cpr-init-voltage-step property.
+		    The 3 elements in one quadruple are:
+		    [0] => fuse row number
+		    [1] => bit offset within the row
+		    [2] => number of bits in the fuse parameter
+		    The quadruples are ordered from the lowest voltage corner to
+		    the highest voltage corner. The number for quadruples must be
+		    equal to the value specified in qcom,cpr-corners property.
+
+- qcom,cpr-init-voltage-ref
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Array of reference voltages in microvolts used when decoding
+		    the initial voltage fuse values.  The elements in the array
+		    are ordered from lowest voltage corner to highest voltage
+		    corner. This property must be of length defined by
+		    qcom,cpr-corners.
+
+- qcom,cpr-init-voltage-step
+	Usage:      required if qcom,cpr-fuse-init-voltage is specified.
+	Value type: <u32>
+	Definition: The voltage step size in microvolts of the CPR initial
+		    voltage fuses described by the qcom,cpr-fuse-init-voltage
+		    property.
+
+- qcom,cpr-ro-count
+	Usage:      required
+	Value type: <u32>
+	Definition: Defines the number of Ring Oscillator(RO)s present.
+
+- qcom,cpr-target-quotients
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: A grouping of integer tuple lists. Each tuple defines the CPR
+		    target quotient for each ring oscillator (RO) for a given corner.
+		    Each tuple must be of the length defined by qcom,cpr-ro-count.
+		    If a given RO is unused for a corner, then its target quotient
+		    should be specified as 0. Each tuple list must contain the
+		    number of tuples defined by the qcom,cpr-corners property.
+		    The tuples in a given list are ordered from the lowest corner
+		    to the highest corner. The tuple list grouping must contain
+		    exactly 1 list if qcom,cpr-fuse-version-map is not specified or
+		    the number of tuple lists must be equal to the number of tuples
+		    in qcom,cpr-fuse-version-map.
+
+- vdd-mx-supply
+	Usage:      optional
+	Value type: <phandle>
+	Definition: Regulator to supply memory power as dependency of VDD_GFX.
+
+- qcom,vdd-mx-corner-map
+	Usage:      required if vdd-mx-supply is specified.
+	Value type: <prop-encoded-array>
+	Definition: Array of integers which define the mapping of the VDD_MX corner
+		    to the corresponding GFX voltage corner. The elements in
+		    the array are ordered from lowest voltage corner to highest
+		    voltage corner.  The length of this property must be equal to
+		    the value defined by qcom,cpr-corners.
+
+- mem-acc-supply
+	Usage:      optional
+	Value type: <phandle>
+	Definition: Regulator to vote for the memory accelerator configuration.
+		    Not Present: memory accelerator configuration not supported.
+
+- qcom,cpr-fuse-revision
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Array of 3 integer elements which define the location of the
+		    bits for the CPR fusing revision fuse parameter.
+		    The 3 elements are:
+		    [0] => fuse row number
+		    [1] => bit offset within the row
+		    [2] => number of bits in the fuse parameter
+		    The fusing revision value is used to determine specific
+		    adjustments that maybe required on some chips.
+
+- qcom,process-id-fuse
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Array of 3 integer elements which define the location of the
+		    bits for the process node id fuse parameter.
+		    The 3 elements are:
+		    [0] => fuse row number
+		    [1] => bit offset within the row
+		    [2] => number of bits in the fuse parameter
+		    This value is used to determine the specific adjustments that
+		    may be required on some chips.
+
+- qcom,foundry-id-fuse
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Array of 3 integer elements which define the location of the
+		    bits for the foundry identification fuse parameter.
+		    The 3 elements are:
+		    [0] => fuse row number
+		    [1] => bit offset within the row
+		    [2] => number of bits in the fuse parameter
+		    This value is used to determine the specific adjustments that
+		    may be required on some chips.
+
+- qcom,cpr-fuse-version-map
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Array of integer tuples which each match to a given
+		    combination of CPR fuse parameter values.  Each tuple
+		    consists of 3 elements. The elements in one tuple are:
+		    [0] => the foundry identification
+		    [1] => the CPR fuse revision
+		    [2] => the process node id
+		    Any element in a tuple may use the value 0xffffffff as a
+		    wild card which will match against any fuse parameter value.
+		    The first tuple that matches against the fuse values read
+		    from hardware will be used. This property is used by several
+		    properties to provide an index into their lists.
+
+- qcom,cpr-init-voltage-adjustment
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Array of integer tuples of initial voltage adjustments in
+		    microvolts to add to the fused initial voltage values of
+		    each fuse corner. The elements in a tuple are ordered from
+		    lowest voltage corner to highest voltage corner. Each tuple
+		    must be of the length defined by qcom,cpr-corners.
+		    If the qcom,cpr-fuse-version-map property is specified, then
+		    qcom,cpr-init-voltage-adjustment must contain the same
+		    number of tuples as qcom,cpr-fuse-version-map. These tuples
+		    are then mapped one-to-one in the order specified.  E.g. if
+		    the second qcom,cpr-fuse-version-map tuple matches for a
+		    given device, then the initial voltage adjustments defined
+		    in the second qcom,cpr-init-voltage-adjustment tuple will be
+		    applied. If the qcom,cpr-fuse-version-map property is not
+		    specified, then qcom,cpr-init-voltage-adjustment must contain
+		    a single tuple which is then applied unconditionally.  This
+		    property can be used to add or subtract static initial voltage
+		    margin from the regulator managed by the CPR controller.
+
+- qcom,cpr-init-voltage-as-ceiling
+	Usage:      optional
+	Value type: <empty>
+	Definition: Boolean which indicates that the ceiling voltage used for
+		    a given virtual corner may be reduced to the initial voltage
+		    value.
+
+ - qcom,cpr-enable
+	Usage:      optional
+	Value type: <empty>
+	Definition: Boolean flag which indicates that the CPR controller
+		    should operate in closed-loop mode (i.e. CPR sensing loop
+		    enabled) as opposed to open-loop mode (i.e. CPR sensing loop
+		    disabled) by default.
+=======
+Example
+=======
+gfx_vreg_corner: regulator@98000 {
+	compatible = "qcom,cpr2-gfx-regulator";
+	reg = <0x98000 0x1000>, <0xa4000 0x1000>;
+	reg-names = "rbcpr", "efuse_addr";
+	clocks = <&clock_gcc clk_gcc_rbcpr_gfx_clk>,
+		<&clock_gcc clk_gcc_rbcpr_gfx_ahb_clk>;
+	clock-names = "core_clk", "iface_clk";
+	interrupts = <0 150 0>;
+
+	regulator-name = "gfx_corner";
+	qcom,cpr-corners = <8>;
+	regulator-min-microvolt = <1>;
+	regulator-max-microvolt = <8>;
+
+	qcom,cpr-voltage-ceiling = <810000 865000 900000 950000 1010000 1050000 1110000 1165000>;
+	qcom,cpr-voltage-floor =   <755000 755000 755000 795000  835000  855000  920000  945000>;
+	vdd-gfx-supply = <&pm8004_s5>;
+
+	vdd-mx-supply = <&pm8950_s6_level_ao>;
+	qcom,vdd-mx-vmax = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+	qcom,vdd-mx-corner-map = <RPM_SMD_REGULATOR_LEVEL_SVS>,
+				 <RPM_SMD_REGULATOR_LEVEL_SVS>,
+				 <RPM_SMD_REGULATOR_LEVEL_SVS>,
+				 <RPM_SMD_REGULATOR_LEVEL_SVS>,
+				 <RPM_SMD_REGULATOR_LEVEL_SVS_PLUS>,
+				 <RPM_SMD_REGULATOR_LEVEL_NOM>,
+				 <RPM_SMD_REGULATOR_LEVEL_NOM_PLUS>,
+				 <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+
+	mem-acc-supply = <&mem_acc_gfx_vreg_corner>;
+
+	qcom,cpr-ref-clk = <19200>;
+	qcom,cpr-timer-delay = <5000>;
+	qcom,cpr-timer-cons-up = <0>;
+	qcom,cpr-timer-cons-down = <2>;
+	qcom,cpr-irq-line = <0>;
+	qcom,cpr-step-quotient = <16>;
+	qcom,cpr-up-threshold = <2>;
+	qcom,cpr-down-threshold = <4>;
+	qcom,cpr-idle-clocks = <15>;
+	qcom,cpr-gcnt-time = <1>;
+	qcom,vdd-gfx-step-up-limit = <1>;
+	qcom,vdd-gfx-step-down-limit = <1>;
+	qcom,cpr-gfx-volt-step = <5000>;
+
+	qcom,cpr-init-voltage-ref = <865000 865000 950000 950000 950000 1050000 1050000 1165000>;
+	qcom,cpr-fuse-init-voltage =
+				<72 50 5>,
+				<72 50 5>,
+				<72 45 5>,
+				<72 45 5>,
+				<72 45 5>,
+				<72 40 5>,
+				<72 40 5>,
+				<72 35 5>;
+	qcom,cpr-init-voltage-step = <12500>;
+	qcom,cpr-ro-count = <8>;
+	qcom,cpr-init-voltage-as-ceiling;
+	qcom,cpr-init-voltage-adjustment =
+			<(-55000) 0 (-60000) 0 (60000) 0 (65000) 0>;
+	qcom,cpr-target-quotients =
+			<513  489  620  574  237 272 144 177>,
+			<562  536  675  627  264 303 163 199>,
+			<631  606  744  699  315 356 205 245>,
+			<780  752  902  854  412 459 283 330>,
+			<879  847  1001 949  490 535 351 400>,
+			<1010 971  1138 1080 579 626 428 479>,
+			<1086 1039 1210 1146 643 684 489 538>,
+			<1238 1179 1367 1290 752 789 586 633>;
+};
