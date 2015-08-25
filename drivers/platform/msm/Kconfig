@@ -164,6 +164,17 @@ config IPA3
 	  Kernel and user-space processes can call the IPA driver
 	  to configure IPA core.
 
+config GSI
+	bool "GSI support"
+	help
+	  This driver provides the transport needed to talk to the
+	  IPA core. It replaces the BAM transport used previously.
+
+	  The GSI connects to a peripheral component via uniform TLV
+	  interface, and allows it to interface with other peripherals
+	  and CPUs over various types of interfaces such as MHI, xDCI,
+	  xHCI, GPI, WDI, Ethernet, etc.
+
 config RMNET_IPA
 	tristate "IPA RMNET WWAN Network Device"
 	depends on IPA && MSM_QMI_INTERFACE
