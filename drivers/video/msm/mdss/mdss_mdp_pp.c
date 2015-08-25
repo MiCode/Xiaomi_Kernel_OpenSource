@@ -5654,54 +5654,23 @@ End:
 static int is_valid_calib_dspp_addr(char __iomem *ptr)
 {
 	char __iomem *base;
+	char __iomem *dspp0_base;
+	char __iomem *wb0_base;
 	int ret = 0, counter = 0;
-	struct mdss_mdp_mixer *mixer;
+	struct mdss_mdp_ctl *ctl;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
-	for (counter = 0; counter < mdss_res->nmixers_intf; counter++) {
-		mixer = mdss_res->mixer_intf + counter;
-		base = mixer->dspp_base;
+	dspp0_base = mdata->mixer_intf->dspp_base;
+	wb0_base = mdata->ctl_off->wb_base;
 
-		if (ptr == base) {
-			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
-			break;
-		/* PA range */
-		} else if ((ptr >= base + MDSS_MDP_REG_DSPP_PA_BASE) &&
-				(ptr <= base + MDSS_MDP_REG_DSPP_PA_BASE +
-						MDSS_MDP_PA_SIZE)) {
-			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
-			break;
-		/* PCC range */
-		} else if ((ptr >= base + MDSS_MDP_REG_DSPP_PCC_BASE) &&
-				(ptr <= base + MDSS_MDP_REG_DSPP_PCC_BASE +
-						MDSS_MDP_PCC_SIZE)) {
-			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
-			break;
-		/* Gamut range */
-		} else if ((ptr >= base + MDSS_MDP_REG_DSPP_GAMUT_BASE) &&
-				(ptr <= base + MDSS_MDP_REG_DSPP_GAMUT_BASE +
-						MDSS_MDP_GAMUT_SIZE)) {
-			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
-			break;
-		/* GC range */
-		} else if ((ptr >= base + MDSS_MDP_REG_DSPP_GC_BASE) &&
-				(ptr <= base + MDSS_MDP_REG_DSPP_GC_BASE +
-						MDSS_MDP_GC_SIZE)) {
-			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
-			break;
-		/* Dither enable/disable */
-		} else if ((ptr == base + MDSS_MDP_REG_DSPP_DITHER_DEPTH)) {
-			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
-			break;
-		/* Six zone and mem color */
-		} else if (mdss_res->mdp_rev >= MDSS_MDP_HW_REV_103 &&
-			(ptr >= base + MDSS_MDP_REG_DSPP_SIX_ZONE_BASE) &&
-			(ptr <= base + MDSS_MDP_REG_DSPP_SIX_ZONE_BASE +
-					MDSS_MDP_SIX_ZONE_SIZE +
-					MDSS_MDP_MEM_COL_SIZE)) {
-			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
-			break;
-		}
+	for (counter = 0; counter < mdata->nctl; counter++) {
+		ctl = mdata->ctl_off + counter;
+		base = ctl->wb_base;
+		wb0_base = base < wb0_base ? base : wb0_base;
 	}
+
+	if ((ptr >= dspp0_base) && (ptr < wb0_base))
+		ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
 
 	return ret;
 }
