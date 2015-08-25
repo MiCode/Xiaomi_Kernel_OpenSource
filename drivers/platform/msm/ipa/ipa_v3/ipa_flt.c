@@ -1094,7 +1094,7 @@ static int __ipa_add_flt_rule(struct ipa3_flt_tbl *tbl, enum ipa_ip_type ip,
 	if (id < 0) {
 		IPAERR("failed to allocate rule id\n");
 		WARN_ON(1);
-		goto error;
+		goto rule_id_fail;
 	}
 	entry->rule_id = id;
 	if (add_rear) {
@@ -1120,6 +1120,8 @@ static int __ipa_add_flt_rule(struct ipa3_flt_tbl *tbl, enum ipa_ip_type ip,
 
 	return 0;
 
+rule_id_fail:
+	kmem_cache_free(ipa3_ctx->flt_rule_cache, entry);
 error:
 	return -EPERM;
 }
@@ -1209,6 +1211,7 @@ static int __ipa_mdfy_flt_rule(struct ipa_flt_rule_mdfy *frule,
 	if (entry->rt_tbl)
 		entry->rt_tbl->ref_cnt++;
 	entry->hw_len = 0;
+	entry->prio = 0;
 
 	return 0;
 
@@ -1237,6 +1240,11 @@ static int __ipa_add_ep_flt_rule(enum ipa_ip_type ip, enum ipa_client_type ep,
 	if (ipa3_ctx->ep[ipa_ep_idx].valid == 0)
 		IPADBG("ep not connected ep_idx=%d\n", ipa_ep_idx);
 
+	if (!ipa_is_ep_support_flt(ipa_ep_idx)) {
+		IPAERR("ep do not support filtering ep=%d\n", ep);
+		return -EINVAL;
+	}
+
 	tbl = &ipa3_ctx->flt_tbl[ipa_ep_idx][ip];
 	IPADBG("add ep flt rule ip=%d ep=%d\n", ip, ep);
 
@@ -1256,8 +1264,6 @@ int ipa3_add_flt_rule(struct ipa_ioc_add_flt_rule *rules)
 	int i;
 	int result;
 
-	return 0;
-
 	if (rules == NULL || rules->num_rules == 0 ||
 			rules->ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
@@ -1267,14 +1273,13 @@ int ipa3_add_flt_rule(struct ipa_ioc_add_flt_rule *rules)
 
 	mutex_lock(&ipa3_ctx->lock);
 	for (i = 0; i < rules->num_rules; i++) {
-		if (rules->global) {
-			IPAERR("no support for global filter rules %d\n", i);
-			result = -EPERM;
-		} else
+		if (!rules->global)
 			result = __ipa_add_ep_flt_rule(rules->ip, rules->ep,
 					&rules->rules[i].rule,
 					rules->rules[i].at_rear,
 					&rules->rules[i].flt_rule_hdl);
+		else
+			result = -1;
 
 		if (result) {
 			IPAERR("failed to add flt rule %d\n", i);
@@ -1282,6 +1287,12 @@ int ipa3_add_flt_rule(struct ipa_ioc_add_flt_rule *rules)
 		} else {
 			rules->rules[i].status = 0;
 		}
+	}
+
+	if (rules->global) {
+		IPAERR("no support for global filter rules\n");
+		result = -EPERM;
+		goto bail;
 	}
 
 	if (rules->commit)
@@ -1309,8 +1320,6 @@ int ipa3_del_flt_rule(struct ipa_ioc_del_flt_rule *hdls)
 	int i;
 	int result;
 
-	return 0;
-
 	if (hdls == NULL || hdls->num_hdls == 0 || hdls->ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
 		return -EINVAL;
@@ -1319,7 +1328,7 @@ int ipa3_del_flt_rule(struct ipa_ioc_del_flt_rule *hdls)
 	mutex_lock(&ipa3_ctx->lock);
 	for (i = 0; i < hdls->num_hdls; i++) {
 		if (__ipa_del_flt_rule(hdls->hdl[i].hdl)) {
-			IPAERR("failed to del rt rule %i\n", i);
+			IPAERR("failed to del flt rule %i\n", i);
 			hdls->hdl[i].status = IPA_FLT_STATUS_OF_DEL_FAILED;
 		} else {
 			hdls->hdl[i].status = 0;
@@ -1351,8 +1360,6 @@ int ipa3_mdfy_flt_rule(struct ipa_ioc_mdfy_flt_rule *hdls)
 	int i;
 	int result;
 
-	return 0;
-
 	if (hdls == NULL || hdls->num_rules == 0 || hdls->ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
 		return -EINVAL;
@@ -1361,7 +1368,7 @@ int ipa3_mdfy_flt_rule(struct ipa_ioc_mdfy_flt_rule *hdls)
 	mutex_lock(&ipa3_ctx->lock);
 	for (i = 0; i < hdls->num_rules; i++) {
 		if (__ipa_mdfy_flt_rule(&hdls->rules[i], hdls->ip)) {
-			IPAERR("failed to mdfy rt rule %i\n", i);
+			IPAERR("failed to mdfy flt rule %i\n", i);
 			hdls->rules[i].status = IPA_FLT_STATUS_OF_MDFY_FAILED;
 		} else {
 			hdls->rules[i].status = 0;
@@ -1429,8 +1436,6 @@ int ipa3_reset_flt(enum ipa_ip_type ip)
 	struct ipa3_flt_entry *next;
 	int i;
 	int id;
-
-	return 0;
 
 	if (ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
