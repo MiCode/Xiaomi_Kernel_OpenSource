@@ -3858,12 +3858,63 @@ static bool is_hvdcp_present(struct  smbchg_chip *chip)
 	return false;
 }
 
+#define HVDCP_ADAPTER_SEL_MASK	SMB_MASK(5, 4)
+#define HVDCP_5V		0x00
+#define HVDCP_9V		0x10
+#define USB_CMD_HVDCP_1		0x42
+#define FORCE_HVDCP_2p0		BIT(3)
+
+static int force_9v_hvdcp(struct smbchg_chip *chip)
+{
+	int rc;
+
+	/* Force 5V HVDCP */
+	rc = smbchg_sec_masked_write(chip,
+			chip->usb_chgpth_base + CHGPTH_CFG,
+			HVDCP_ADAPTER_SEL_MASK, HVDCP_5V);
+	if (rc) {
+		pr_err("Couldn't set hvdcp config in chgpath_chg rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Force QC2.0 */
+	rc = smbchg_masked_write(chip,
+			chip->usb_chgpth_base + USB_CMD_HVDCP_1,
+			FORCE_HVDCP_2p0, FORCE_HVDCP_2p0);
+	rc |= smbchg_masked_write(chip,
+			chip->usb_chgpth_base + USB_CMD_HVDCP_1,
+			FORCE_HVDCP_2p0, 0);
+	if (rc < 0) {
+		pr_err("Couldn't force QC2.0 rc=%d\n", rc);
+		return rc;
+	}
+
+	/* Force 9V HVDCP */
+	rc = smbchg_sec_masked_write(chip,
+			chip->usb_chgpth_base + CHGPTH_CFG,
+			HVDCP_ADAPTER_SEL_MASK, HVDCP_9V);
+	if (rc)
+		pr_err("Couldn't set hvdcp config in chgpath_chg rc=%d\n", rc);
+
+	return rc;
+}
+
 static void smbchg_hvdcp_det_work(struct work_struct *work)
 {
 	struct smbchg_chip *chip = container_of(work,
 				struct smbchg_chip,
 				hvdcp_det_work.work);
+	int rc;
+
 	if (is_hvdcp_present(chip)) {
+		if (chip->enable_hvdcp_9v
+				&& (chip->wa_flags & SMBCHG_HVDCP_9V_EN_WA)) {
+			/* force HVDCP 2.0 */
+			rc = force_9v_hvdcp(chip);
+			if (rc)
+				pr_err("could not force 9V HVDCP continuing rc=%d\n",
+						rc);
+		}
 		if (!chip->skip_usb_notification) {
 			pr_smb(PR_MISC, "setting usb psy type = %d\n",
 					POWER_SUPPLY_TYPE_USB_HVDCP);
@@ -3895,10 +3946,6 @@ static int set_usb_psy_dp_dm(struct smbchg_chip *chip, int state)
 	pr_smb(PR_MISC, "setting usb psy dp dm = %d\n", state);
 	return power_supply_set_dp_dm(chip->usb_psy, state);
 }
-
-#define HVDCP_ADAPTER_SEL_MASK	SMB_MASK(5, 4)
-#define HVDCP_5V		0x00
-#define HVDCP_9V		0x10
 
 #define APSD_CFG		0xF5
 #define AUTO_SRC_DETECT_EN_BIT	BIT(0)
@@ -5661,33 +5708,6 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 		return rc;
 	}
 
-	if (chip->enable_hvdcp_9v && (chip->wa_flags & SMBCHG_HVDCP_9V_EN_WA)) {
-		/* enable the 9V HVDCP configuration */
-		rc = smbchg_sec_masked_write(chip,
-			chip->usb_chgpth_base + TR_RID_REG,
-			HVDCP_AUTH_ALG_EN_BIT, HVDCP_AUTH_ALG_EN_BIT);
-		if (rc) {
-			dev_err(chip->dev, "Couldn't enable hvdcp_alg rc=%d\n",
-					rc);
-			return rc;
-		}
-
-		rc = smbchg_sec_masked_write(chip,
-			chip->usb_chgpth_base + CHGPTH_CFG,
-			HVDCP_ADAPTER_SEL_MASK, HVDCP_ADAPTER_SEL_9V_BIT);
-		if (rc) {
-			dev_err(chip->dev, "Couldn't set hvdcp config in chgpath_chg rc=%d\n",
-						rc);
-			return rc;
-		}
-		if (is_usb_present(chip)) {
-			rc = smbchg_masked_write(chip,
-				chip->usb_chgpth_base + CMD_APSD,
-				APSD_RERUN_BIT, APSD_RERUN_BIT);
-			if (rc)
-				pr_err("Unable to re-run APSD rc=%d\n", rc);
-		}
-	}
 	/*
 	 * set chg en by cmd register, set chg en by writing bit 1,
 	 * enable auto pre to fast, enable auto recharge by default.
