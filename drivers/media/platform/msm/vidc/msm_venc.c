@@ -186,7 +186,8 @@ static const char *const perf_level[] = {
 static const char *const mbi_statistics[] = {
 	"Camcorder Default",
 	"Mode 1",
-	"Mode 2"
+	"Mode 2",
+	"Mode 3"
 };
 
 static const char *const intra_refresh_modes[] = {
@@ -1062,12 +1063,13 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "MBI Statistics Mode",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_CID_MPEG_VIDC_VIDEO_MBI_MODE_DEFAULT,
-		.maximum = V4L2_CID_MPEG_VIDC_VIDEO_MBI_MODE_2,
+		.maximum = V4L2_CID_MPEG_VIDC_VIDEO_MBI_MODE_3,
 		.default_value = V4L2_CID_MPEG_VIDC_VIDEO_MBI_MODE_DEFAULT,
 		.menu_skip_mask = ~(
 			(1 << V4L2_CID_MPEG_VIDC_VIDEO_MBI_MODE_DEFAULT) |
 			(1 << V4L2_CID_MPEG_VIDC_VIDEO_MBI_MODE_1) |
-			(1 << V4L2_CID_MPEG_VIDC_VIDEO_MBI_MODE_2)),
+			(1 << V4L2_CID_MPEG_VIDC_VIDEO_MBI_MODE_2) |
+			(1 << V4L2_CID_MPEG_VIDC_VIDEO_MBI_MODE_3)),
 		.qmenu = mbi_statistics,
 	},
 	{
@@ -1924,6 +1926,8 @@ static inline int venc_v4l2_to_hal(int id, int value)
 			return HAL_STATISTICS_MODE_1;
 		case V4L2_CID_MPEG_VIDC_VIDEO_MBI_MODE_2:
 			return HAL_STATISTICS_MODE_2;
+		case V4L2_CID_MPEG_VIDC_VIDEO_MBI_MODE_3:
+			return HAL_STATISTICS_MODE_3;
 		default:
 			goto unknown_value;
 		}

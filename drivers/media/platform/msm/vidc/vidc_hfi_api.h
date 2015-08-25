@@ -533,6 +533,7 @@ enum hal_statistics_mode_type {
 	HAL_STATISTICS_MODE_DEFAULT	= 0x00000001,
 	HAL_STATISTICS_MODE_1		= 0x00000002,
 	HAL_STATISTICS_MODE_2		= 0x00000004,
+	HAL_STATISTICS_MODE_3		= 0x00000008,
 };
 
 enum hal_ssr_trigger_type {

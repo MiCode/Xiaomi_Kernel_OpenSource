@@ -51,6 +51,7 @@ static int statistics_mode[] = {
 	[ilog2(HAL_STATISTICS_MODE_DEFAULT)] = HFI_STATISTICS_MODE_DEFAULT,
 	[ilog2(HAL_STATISTICS_MODE_1)] = HFI_STATISTICS_MODE_1,
 	[ilog2(HAL_STATISTICS_MODE_2)] = HFI_STATISTICS_MODE_2,
+	[ilog2(HAL_STATISTICS_MODE_3)] = HFI_STATISTICS_MODE_3,
 };
 
 static int color_format[] = {
