@@ -31,7 +31,6 @@ struct diag_buf_tbl_t {
 	unsigned char *buf;
 	int len;
 	int ctx;
-	spinlock_t lock;
 };
 
 struct diag_md_info {
@@ -39,6 +38,7 @@ struct diag_md_info {
 	int ctx;
 	int mempool;
 	int num_tbl_entries;
+	spinlock_t lock;
 	struct diag_buf_tbl_t *tbl;
 	struct diag_mux_ops *ops;
 };
