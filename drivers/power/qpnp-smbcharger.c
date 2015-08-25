@@ -7593,7 +7593,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 	if (rc) {
 		dev_err(&spmi->dev,
 			"Couldn't initialize regulator rc=%d\n", rc);
-		return rc;
+		goto free_regulator;
 	}
 
 	rc = smbchg_hw_init(chip);
