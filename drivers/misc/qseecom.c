@@ -2221,18 +2221,10 @@ static int qseecom_send_service_cmd(struct qseecom_dev_handle *data,
 				send_req_ptr))
 			return -EINVAL;
 		break;
-	case QSEOS_FSM_LTE_INIT_DB:
-	case QSEOS_FSM_LTE_STORE_KENB:
-	case QSEOS_FSM_LTE_GEN_KEYS:
-	case QSEOS_FSM_LTE_GET_KEY_OFFSETS:
-	case QSEOS_FSM_LTE_GEN_KENB_STAR:
-	case QSEOS_FSM_LTE_GET_KENB_STAR:
-	case QSEOS_FSM_LTE_STORE_NH:
-	case QSEOS_FSM_LTE_DELETE_NH:
-	case QSEOS_FSM_LTE_DELETE_KEYS:
-	case QSEOS_FSM_IKE_CMD_SIGN:
-	case QSEOS_FSM_IKE_CMD_PROV_KEY:
-	case QSEOS_FSM_IKE_CMD_ENCRYPT_PRIVATE_KEY:
+	case QSEOS_FSM_LTEOTA_REQ_CMD:
+	case QSEOS_FSM_LTEOTA_REQ_RSP_CMD:
+	case QSEOS_FSM_IKE_REQ_CMD:
+	case QSEOS_FSM_IKE_REQ_RSP_CMD:
 	case QSEOS_FSM_OEM_FUSE_WRITE_ROW:
 	case QSEOS_FSM_OEM_FUSE_READ_ROW:
 		send_req_ptr = &send_fsm_key_svc_ireq;
