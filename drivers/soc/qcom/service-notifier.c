@@ -334,7 +334,6 @@ static int send_notif_listener_msg_req(struct service_notif_info *service_notif,
 		pr_err("Invalid notif info 0x%x\n", resp.curr_state);
 		rc = -EINVAL;
 	}
-	service_notif->curr_state = resp.curr_state;
 	*curr_state = resp.curr_state;
 	return rc;
 }
@@ -528,6 +527,7 @@ static void *add_service_notif(const char *service_path, int instance_id,
 					kfree(service_notif);
 					return ERR_PTR(rc);
 				}
+				service_notif->curr_state = *curr_state;
 			}
 			mutex_unlock(&qmi_list_lock);
 			goto add_service_list;
