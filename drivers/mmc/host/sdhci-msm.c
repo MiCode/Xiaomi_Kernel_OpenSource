@@ -787,7 +787,7 @@ static int sdhci_msm_cm_dll_sdc4_calibration(struct sdhci_host *host)
 		writel_relaxed(ddr_config, host->ioaddr + CORE_DDR_CONFIG);
 	}
 
-	if (msm_host->enhanced_strobe)
+	if (msm_host->enhanced_strobe && mmc_card_strobe(msm_host->mmc->card))
 		writel_relaxed((readl_relaxed(host->ioaddr + CORE_DDR_200_CFG)
 				| CORE_CMDIN_RCLK_EN),
 				host->ioaddr + CORE_DDR_200_CFG);
@@ -835,8 +835,8 @@ static int sdhci_msm_enhanced_strobe(struct sdhci_host *host)
 
 	pr_debug("%s: Enter %s\n", mmc_hostname(host->mmc), __func__);
 
-	if (!msm_host->enhanced_strobe) {
-		pr_debug("%s: host does not support hs400 enhanced strobe\n",
+	if (!msm_host->enhanced_strobe || !mmc_card_strobe(mmc->card)) {
+		pr_debug("%s: host/card does not support hs400 enhanced strobe\n",
 				mmc_hostname(mmc));
 		return -EINVAL;
 	}
@@ -2670,8 +2670,10 @@ static void sdhci_msm_set_clock(struct sdhci_host *host, unsigned int clock)
 		 * Select HS400 mode using the HC_SELECT_IN from VENDOR SPEC
 		 * register
 		 */
-		if ((msm_host->tuning_done || msm_host->enhanced_strobe) &&
-			!msm_host->calibration_done) {
+		if ((msm_host->tuning_done ||
+				(mmc_card_strobe(msm_host->mmc->card) &&
+				 msm_host->enhanced_strobe)) &&
+				!msm_host->calibration_done) {
 			/*
 			 * Write 0x6 to HC_SELECT_IN and 1 to HC_SELECT_IN_EN
 			 * field in VENDOR_SPEC_FUNC
@@ -2892,8 +2894,9 @@ static void sdhci_msm_enhanced_strobe_mask(struct sdhci_host *host, bool set)
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 
-	if (!msm_host->enhanced_strobe) {
-		pr_debug("%s: host does not support hs400 enhanced strobe\n",
+	if (!msm_host->enhanced_strobe ||
+			!mmc_card_strobe(msm_host->mmc->card)) {
+		pr_debug("%s: host/card does not support hs400 enhanced strobe\n",
 				mmc_hostname(host->mmc));
 		return;
 	}
