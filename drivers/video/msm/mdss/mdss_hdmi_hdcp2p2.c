@@ -541,6 +541,10 @@ static void hdcp2p2_reset(struct hdcp2p2_ctrl *hdcp2p2_ctrl)
 				hdcp2p2_ctrl->hdcp_lib_handle);
 		hdcp2p2_ctrl->hdcp_txmtr_init = false;
 	}
+	if (hdcp2p2_ctrl->hdcp_library_init) {
+		hdcp_library_deinit(hdcp2p2_ctrl->hdcp_lib_handle);
+		hdcp2p2_ctrl->hdcp_library_init = false;
+	}
 	mutex_unlock(&hdcp2p2_ctrl->mutex);
 }
 
