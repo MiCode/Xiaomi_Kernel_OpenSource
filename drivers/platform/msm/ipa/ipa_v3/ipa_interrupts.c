@@ -217,7 +217,6 @@ int ipa3_add_interrupt_handler(enum ipa_irq_type interrupt,
 	IPADBG("wrote IPA_IRQ_EN_EE_n_ADDR register. reg = %d\n", val);
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_add_interrupt_handler);
 
 /**
 * ipa3_remove_interrupt_handler() - Removes handler to an interrupt type
@@ -244,7 +243,6 @@ int ipa3_remove_interrupt_handler(enum ipa_irq_type interrupt)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_remove_interrupt_handler);
 
 /**
 * ipa3_interrupts_init() - Initialize the IPA interrupts framework

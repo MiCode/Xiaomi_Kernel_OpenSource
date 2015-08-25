@@ -39,7 +39,7 @@ enum ipa_rm_resource_type {
  * struct ipa_rm_notification_info - notification information
  *				of IPA RM client
  * @reg_params: registration parameters
- * @explicit: registered explicitly by ipa_rm_register()
+ * @explicit: registered explicitly by ipa2_rm_register()
  * @link: link to the list of all registered clients information
  */
 struct ipa_rm_notification_info {

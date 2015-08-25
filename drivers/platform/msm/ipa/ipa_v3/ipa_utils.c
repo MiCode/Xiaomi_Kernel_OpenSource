@@ -38,6 +38,13 @@
 #define IPA_EOT_COAL_GRAN_MIN (1)
 #define IPA_EOT_COAL_GRAN_MAX (16)
 
+#define IPA_AGGR_BYTE_LIMIT (\
+		IPA_ENDP_INIT_AGGR_N_AGGR_BYTE_LIMIT_BMSK >> \
+		IPA_ENDP_INIT_AGGR_N_AGGR_BYTE_LIMIT_SHFT)
+#define IPA_AGGR_PKT_LIMIT (\
+		IPA_ENDP_INIT_AGGR_N_AGGR_PKT_LIMIT_BMSK >> \
+		IPA_ENDP_INIT_AGGR_N_AGGR_PKT_LIMIT_SHFT)
+
 #define IPA_GROUP_UL      (0)
 #define IPA_GROUP_DL      (1)
 #define IPA_GROUP_Q6ZIP   (2)
@@ -658,7 +665,6 @@ int ipa3_get_ep_mapping(enum ipa_client_type client)
 
 	return ipa3_ep_mapping[hw_type_index][client].pipe_num;
 }
-EXPORT_SYMBOL(ipa3_get_ep_mapping);
 
 /**
  * ipa_get_ep_group() - provide endpoint group by client
@@ -687,7 +693,6 @@ int ipa_get_ep_group(enum ipa_client_type client)
 
 	return ipa3_ep_mapping[hw_type_index][client].group_num;
 }
-EXPORT_SYMBOL(ipa_get_ep_group);
 
 /**
  * ipa3_get_rm_resource_from_ep() - get the IPA_RM resource which is related to
@@ -2134,7 +2139,6 @@ int ipa3_cfg_ep(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_cfg_ep);
 
 const char *ipa3_get_nat_en_str(enum ipa_nat_en_type nat_en)
 {
@@ -2204,7 +2208,6 @@ int ipa3_cfg_ep_nat(u32 clnt_hdl, const struct ipa_ep_cfg_nat *ep_nat)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_cfg_ep_nat);
 
 static void _ipa_cfg_ep_status_v3_0(u32 clnt_hdl,
 		const struct ipa3_ep_cfg_status *ep_status)
@@ -2315,7 +2318,6 @@ int ipa3_cfg_ep_cfg(u32 clnt_hdl, const struct ipa_ep_cfg_cfg *cfg)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_cfg_ep_cfg);
 
 static void _ipa_cfg_ep_metadata_mask_v3_0(u32 clnt_hdl,
 		const struct ipa_ep_cfg_metadata_mask *metadata_mask)
@@ -2367,7 +2369,6 @@ int ipa3_cfg_ep_metadata_mask(u32 clnt_hdl,
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_cfg_ep_metadata_mask);
 
 /**
  * ipa_cfg_ep_hdr_v3_0() -  IPA end-point header configuration
@@ -2470,7 +2471,6 @@ int ipa3_cfg_ep_hdr(u32 clnt_hdl, const struct ipa_ep_cfg_hdr *ep_hdr)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_cfg_ep_hdr);
 
 static int _ipa_cfg_ep_hdr_ext(u32 clnt_hdl,
 		const struct ipa_ep_cfg_hdr_ext *ep_hdr_ext, u32 reg_val)
@@ -2564,7 +2564,6 @@ int ipa3_cfg_ep_hdr_ext(u32 clnt_hdl,
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_cfg_ep_hdr_ext);
 
 /**
  * ipa3_cfg_ep_hdr() -  IPA end-point Control configuration
@@ -2601,7 +2600,6 @@ int ipa3_cfg_ep_ctrl(u32 clnt_hdl, const struct ipa_ep_cfg_ctrl *ep_ctrl)
 	return 0;
 
 }
-EXPORT_SYMBOL(ipa3_cfg_ep_ctrl);
 
 /**
  * ipa3_cfg_aggr_cntr_granularity() - granularity of the AGGR timer configuration
@@ -2635,7 +2633,6 @@ int ipa3_cfg_aggr_cntr_granularity(u8 aggr_granularity)
 	return 0;
 
 }
-EXPORT_SYMBOL(ipa3_cfg_aggr_cntr_granularity);
 
 /**
  * ipa3_cfg_eot_coal_cntr_granularity() - granularity of EOT_COAL timer
@@ -2670,7 +2667,6 @@ int ipa3_cfg_eot_coal_cntr_granularity(u8 eot_coal_granularity)
 	return 0;
 
 }
-EXPORT_SYMBOL(ipa3_cfg_eot_coal_cntr_granularity);
 
 const char *ipa3_get_mode_type_str(enum ipa_mode_type mode)
 {
@@ -2747,7 +2743,7 @@ int ipa3_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ep_mode)
 	WARN_ON(ep_mode->mode == IPA_DMA && IPA_CLIENT_IS_PROD(ep_mode->dst));
 
 	if (!IPA_CLIENT_IS_CONS(ep_mode->dst))
-		ep = ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
+		ep = ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
 
 	IPADBG("pipe=%d mode=%d(%s), dst_client_number=%d",
 			clnt_hdl,
@@ -2769,7 +2765,6 @@ int ipa3_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ep_mode)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_cfg_ep_mode);
 
 const char *ipa3_get_aggr_enable_str(enum ipa_aggr_en_type aggr_en)
 {
@@ -2876,7 +2871,6 @@ int ipa3_cfg_ep_aggr(u32 clnt_hdl, const struct ipa_ep_cfg_aggr *ep_aggr)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_cfg_ep_aggr);
 
 /**
  * _ipa_cfg_ep_route_v3_0() - IPA end-point routing configuration
@@ -2953,7 +2947,6 @@ int ipa3_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ep_route)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_cfg_ep_route);
 
 /**
  * _ipa_cfg_ep_holb_v3_0() - IPA end-point holb configuration
@@ -3028,7 +3021,6 @@ int ipa3_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ep_holb)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_cfg_ep_holb);
 
 /**
  * ipa3_cfg_ep_holb_by_client() - IPA end-point holb configuration
@@ -3047,7 +3039,6 @@ int ipa3_cfg_ep_holb_by_client(enum ipa_client_type client,
 {
 	return ipa3_cfg_ep_holb(ipa3_get_ep_mapping(client), ep_holb);
 }
-EXPORT_SYMBOL(ipa3_cfg_ep_holb_by_client);
 
 static int _ipa_cfg_ep_deaggr_v3_0(u32 clnt_hdl,
 				   const struct ipa_ep_cfg_deaggr *ep_deaggr)
@@ -3121,7 +3112,6 @@ int ipa3_cfg_ep_deaggr(u32 clnt_hdl,
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_cfg_ep_deaggr);
 
 static void _ipa_cfg_ep_metadata_v3_0(u32 pipe_number,
 					const struct ipa_ep_cfg_metadata *meta)
@@ -3171,7 +3161,6 @@ int ipa3_cfg_ep_metadata(u32 clnt_hdl, const struct ipa_ep_cfg_metadata *ep_md)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_cfg_ep_metadata);
 
 int ipa3_write_qmap_id(struct ipa_ioc_write_qmapid *param_in)
 {
@@ -3352,7 +3341,6 @@ int ipa3_set_aggr_mode(enum ipa_aggr_mode mode)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_set_aggr_mode);
 
 /**
  * ipa3_set_qcncm_ndp_sig() - Set the NDP signature used for QCNCM aggregation
@@ -3382,7 +3370,6 @@ int ipa3_set_qcncm_ndp_sig(char sig[3])
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_set_qcncm_ndp_sig);
 
 /**
  * ipa3_set_single_ndp_per_mbim() - Enable/disable single NDP per MBIM frame
@@ -3403,7 +3390,6 @@ int ipa3_set_single_ndp_per_mbim(bool enable)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_set_single_ndp_per_mbim);
 
 /**
  * ipa3_straddle_boundary() - Checks whether a memory buffer straddles a boundary
@@ -3451,7 +3437,6 @@ void ipa3_bam_reg_dump(void)
 		ipa3_dec_client_disable_clks();
 	}
 }
-EXPORT_SYMBOL(ipa3_bam_reg_dump);
 
 static void ipa_init_mem_partition_v3_0(void)
 {
@@ -4026,7 +4011,6 @@ bool ipa3_is_ready(void)
 {
 	return (ipa3_ctx != NULL) ? true : false;
 }
-EXPORT_SYMBOL(ipa3_is_ready);
 
 /**
  * ipa3_is_client_handle_valid() - check if IPA client handle is valid handle
@@ -4039,7 +4023,6 @@ bool ipa3_is_client_handle_valid(u32 clnt_hdl)
 		return true;
 	return false;
 }
-EXPORT_SYMBOL(ipa3_is_client_handle_valid);
 
 /**
  * ipa3_proxy_clk_unvote() - called to remove IPA clock proxy vote
@@ -4053,7 +4036,6 @@ void ipa3_proxy_clk_unvote(void)
 		ipa3_ctx->q6_proxy_clk_vote_valid = false;
 	}
 }
-EXPORT_SYMBOL(ipa3_proxy_clk_unvote);
 
 /**
  * ipa3_proxy_clk_vote() - called to add IPA clock proxy vote
@@ -4067,21 +4049,6 @@ void ipa3_proxy_clk_vote(void)
 		ipa3_ctx->q6_proxy_clk_vote_valid = true;
 	}
 }
-EXPORT_SYMBOL(ipa3_proxy_clk_vote);
-
-/**
- * ipa3_get_hw_type() - Return IPA HW version
- *
- * Return value: enum ipa_hw_type
- */
-enum ipa_hw_type ipa3_get_hw_type(void)
-{
-	if (ipa3_ctx)
-		return ipa3_ctx->ipa_hw_type;
-	else
-		return IPA_HW_None;
-}
-EXPORT_SYMBOL(ipa3_get_hw_type);
 
 /**
  * ipa3_get_smem_restr_bytes()- Return IPA smem restricted bytes
@@ -4097,7 +4064,6 @@ u16 ipa3_get_smem_restr_bytes(void)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_get_smem_restr_bytes);
 
 /**
  * ipa3_get_modem_cfg_emb_pipe_flt()- Return ipa3_ctx->modem_cfg_emb_pipe_flt
@@ -4113,10 +4079,184 @@ bool ipa3_get_modem_cfg_emb_pipe_flt(void)
 
 	return false;
 }
-EXPORT_SYMBOL(ipa3_get_modem_cfg_emb_pipe_flt);
 
 u32 ipa3_get_num_pipes(void)
 {
 	return ipa_read_reg(ipa3_ctx->mmio, IPA_ENABLED_PIPES_OFST);
 }
-EXPORT_SYMBOL(ipa3_get_num_pipes);
+
+/**
+ * ipa3_disable_apps_wan_cons_deaggr()- set ipa_ctx->ipa_client_apps_wan_cons_agg_gro
+ *
+ * Return value: 0 or negative in case of failure
+ */
+int ipa3_disable_apps_wan_cons_deaggr(uint32_t agg_size, uint32_t agg_count)
+{
+	int res = -1;
+
+	/* checking if IPA-HW can support */
+	if ((agg_size >> 10) >
+		IPA_AGGR_BYTE_LIMIT) {
+		IPAERR("IPA-AGG byte limit %d\n",
+		IPA_AGGR_BYTE_LIMIT);
+		IPAERR("exceed aggr_byte_limit\n");
+		return res;
+		}
+	if (agg_count >
+		IPA_AGGR_PKT_LIMIT) {
+		IPAERR("IPA-AGG pkt limit %d\n",
+		IPA_AGGR_PKT_LIMIT);
+		IPAERR("exceed aggr_pkt_limit\n");
+		return res;
+	}
+
+	if (ipa3_ctx) {
+		ipa3_ctx->ipa_client_apps_wan_cons_agg_gro = true;
+		return 0;
+	}
+	return res;
+}
+
+
+int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
+	struct ipa_api_controller *api_ctrl)
+{
+	if (ipa_hw_type < IPA_HW_v3_0) {
+		IPAERR("Unsupported IPA HW version %d\n", ipa_hw_type);
+		WARN_ON(1);
+		return -EPERM;
+	}
+
+	api_ctrl->ipa_connect = ipa3_connect;
+	api_ctrl->ipa_disconnect = ipa3_disconnect;
+	api_ctrl->ipa_reset_endpoint = ipa3_reset_endpoint;
+	api_ctrl->ipa_cfg_ep = ipa3_cfg_ep;
+	api_ctrl->ipa_cfg_ep_nat = ipa3_cfg_ep_nat;
+	api_ctrl->ipa_cfg_ep_hdr = ipa3_cfg_ep_hdr;
+	api_ctrl->ipa_cfg_ep_hdr_ext = ipa3_cfg_ep_hdr_ext;
+	api_ctrl->ipa_cfg_ep_mode = ipa3_cfg_ep_mode;
+	api_ctrl->ipa_cfg_ep_aggr = ipa3_cfg_ep_aggr;
+	api_ctrl->ipa_cfg_ep_deaggr = ipa3_cfg_ep_deaggr;
+	api_ctrl->ipa_cfg_ep_route = ipa3_cfg_ep_route;
+	api_ctrl->ipa_cfg_ep_holb = ipa3_cfg_ep_holb;
+	api_ctrl->ipa_cfg_ep_cfg = ipa3_cfg_ep_cfg;
+	api_ctrl->ipa_cfg_ep_metadata_mask = ipa3_cfg_ep_metadata_mask;
+	api_ctrl->ipa_cfg_ep_holb_by_client = ipa3_cfg_ep_holb_by_client;
+	api_ctrl->ipa_cfg_ep_ctrl = ipa3_cfg_ep_ctrl;
+	api_ctrl->ipa_add_hdr = ipa3_add_hdr;
+	api_ctrl->ipa_del_hdr = ipa3_del_hdr;
+	api_ctrl->ipa_commit_hdr = ipa3_commit_hdr;
+	api_ctrl->ipa_reset_hdr = ipa3_reset_hdr;
+	api_ctrl->ipa_get_hdr = ipa3_get_hdr;
+	api_ctrl->ipa_put_hdr = ipa3_put_hdr;
+	api_ctrl->ipa_copy_hdr = ipa3_copy_hdr;
+	api_ctrl->ipa_add_hdr_proc_ctx = ipa3_add_hdr_proc_ctx;
+	api_ctrl->ipa_del_hdr_proc_ctx = ipa3_del_hdr_proc_ctx;
+	api_ctrl->ipa_add_rt_rule = ipa3_add_rt_rule;
+	api_ctrl->ipa_del_rt_rule = ipa3_del_rt_rule;
+	api_ctrl->ipa_commit_rt = ipa3_commit_rt;
+	api_ctrl->ipa_reset_rt = ipa3_reset_rt;
+	api_ctrl->ipa_get_rt_tbl = ipa3_get_rt_tbl;
+	api_ctrl->ipa_put_rt_tbl = ipa3_put_rt_tbl;
+	api_ctrl->ipa_query_rt_index = ipa3_query_rt_index;
+	api_ctrl->ipa_mdfy_rt_rule = ipa3_mdfy_rt_rule;
+	api_ctrl->ipa_add_flt_rule = ipa3_add_flt_rule;
+	api_ctrl->ipa_del_flt_rule = ipa3_del_flt_rule;
+	api_ctrl->ipa_mdfy_flt_rule = ipa3_mdfy_flt_rule;
+	api_ctrl->ipa_commit_flt = ipa3_commit_flt;
+	api_ctrl->ipa_reset_flt = ipa3_reset_flt;
+	api_ctrl->allocate_nat_device = ipa3_allocate_nat_device;
+	api_ctrl->ipa_nat_init_cmd = ipa3_nat_init_cmd;
+	api_ctrl->ipa_nat_dma_cmd = ipa3_nat_dma_cmd;
+	api_ctrl->ipa_nat_del_cmd = ipa3_nat_del_cmd;
+	api_ctrl->ipa_send_msg = ipa3_send_msg;
+	api_ctrl->ipa_register_pull_msg = ipa3_register_pull_msg;
+	api_ctrl->ipa_deregister_pull_msg = ipa3_deregister_pull_msg;
+	api_ctrl->ipa_register_intf = ipa3_register_intf;
+	api_ctrl->ipa_register_intf_ext = ipa3_register_intf_ext;
+	api_ctrl->ipa_deregister_intf = ipa3_deregister_intf;
+	api_ctrl->ipa_set_aggr_mode = ipa3_set_aggr_mode;
+	api_ctrl->ipa_set_qcncm_ndp_sig = ipa3_set_qcncm_ndp_sig;
+	api_ctrl->ipa_set_single_ndp_per_mbim = ipa3_set_single_ndp_per_mbim;
+	api_ctrl->ipa_tx_dp = ipa3_tx_dp;
+	api_ctrl->ipa_tx_dp_mul = ipa3_tx_dp_mul;
+	api_ctrl->ipa_free_skb = ipa3_free_skb;
+	api_ctrl->ipa_setup_sys_pipe = ipa3_setup_sys_pipe;
+	api_ctrl->ipa_teardown_sys_pipe = ipa3_teardown_sys_pipe;
+	api_ctrl->ipa_sys_setup = ipa3_sys_setup;
+	api_ctrl->ipa_sys_teardown = ipa3_sys_teardown;
+	api_ctrl->ipa_connect_wdi_pipe = ipa3_connect_wdi_pipe;
+	api_ctrl->ipa_disconnect_wdi_pipe = ipa3_disconnect_wdi_pipe;
+	api_ctrl->ipa_enable_wdi_pipe = ipa3_enable_wdi_pipe;
+	api_ctrl->ipa_disable_wdi_pipe = ipa3_disable_wdi_pipe;
+	api_ctrl->ipa_resume_wdi_pipe = ipa3_resume_wdi_pipe;
+	api_ctrl->ipa_suspend_wdi_pipe = ipa3_suspend_wdi_pipe;
+	api_ctrl->ipa_get_wdi_stats = ipa3_get_wdi_stats;
+	api_ctrl->ipa_get_smem_restr_bytes = ipa3_get_smem_restr_bytes;
+	api_ctrl->ipa_uc_wdi_get_dbpa = ipa3_uc_wdi_get_dbpa;
+	api_ctrl->ipa_uc_reg_rdyCB = ipa3_uc_reg_rdyCB;
+	api_ctrl->ipa_rm_create_resource = ipa3_rm_create_resource;
+	api_ctrl->ipa_rm_delete_resource = ipa3_rm_delete_resource;
+	api_ctrl->ipa_rm_register = ipa3_rm_register;
+	api_ctrl->ipa_rm_deregister = ipa3_rm_deregister;
+	api_ctrl->ipa_rm_set_perf_profile = ipa3_rm_set_perf_profile;
+	api_ctrl->ipa_rm_add_dependency = ipa3_rm_add_dependency;
+	api_ctrl->ipa_rm_delete_dependency = ipa3_rm_delete_dependency;
+	api_ctrl->ipa_rm_request_resource = ipa3_rm_request_resource;
+	api_ctrl->ipa_rm_release_resource = ipa3_rm_release_resource;
+	api_ctrl->ipa_rm_notify_completion = ipa3_rm_notify_completion;
+	api_ctrl->ipa_rm_inactivity_timer_init =
+		ipa3_rm_inactivity_timer_init;
+	api_ctrl->ipa_rm_inactivity_timer_destroy =
+		ipa3_rm_inactivity_timer_destroy;
+	api_ctrl->ipa_rm_inactivity_timer_request_resource =
+		ipa3_rm_inactivity_timer_request_resource;
+	api_ctrl->ipa_rm_inactivity_timer_release_resource =
+		ipa3_rm_inactivity_timer_release_resource;
+	api_ctrl->teth_bridge_init = ipa3_teth_bridge_init;
+	api_ctrl->teth_bridge_disconnect = ipa3_teth_bridge_disconnect;
+	api_ctrl->teth_bridge_connect = ipa3_teth_bridge_connect;
+	api_ctrl->odu_bridge_init = ipa3_odu_bridge_init;
+	api_ctrl->odu_bridge_connect = ipa3_odu_bridge_connect;
+	api_ctrl->odu_bridge_disconnect = ipa3_odu_bridge_disconnect;
+	api_ctrl->odu_bridge_tx_dp = ipa3_odu_bridge_tx_dp;
+	api_ctrl->odu_bridge_cleanup = ipa3_odu_bridge_cleanup;
+	api_ctrl->ipa_dma_init = ipa3_dma_init;
+	api_ctrl->ipa_dma_enable = ipa3_dma_enable;
+	api_ctrl->ipa_dma_disable = ipa3_dma_disable;
+	api_ctrl->ipa_dma_sync_memcpy = ipa3_dma_sync_memcpy;
+	api_ctrl->ipa_dma_async_memcpy = ipa3_dma_async_memcpy;
+	api_ctrl->ipa_dma_uc_memcpy = ipa3_dma_uc_memcpy;
+	api_ctrl->ipa_dma_destroy = ipa3_dma_destroy;
+	api_ctrl->ipa_mhi_init = ipa3_mhi_init;
+	api_ctrl->ipa_mhi_start = ipa3_mhi_start;
+	api_ctrl->ipa_mhi_connect_pipe = ipa3_mhi_connect_pipe;
+	api_ctrl->ipa_mhi_disconnect_pipe = ipa3_mhi_disconnect_pipe;
+	api_ctrl->ipa_mhi_suspend = ipa3_mhi_suspend;
+	api_ctrl->ipa_mhi_resume = ipa3_mhi_resume;
+	api_ctrl->ipa_mhi_destroy = ipa3_mhi_destroy;
+	api_ctrl->ipa_write_qmap_id = ipa3_write_qmap_id;
+	api_ctrl->ipa_add_interrupt_handler = ipa3_add_interrupt_handler;
+	api_ctrl->ipa_remove_interrupt_handler = ipa3_remove_interrupt_handler;
+	api_ctrl->ipa_bam_reg_dump = ipa3_bam_reg_dump;
+	api_ctrl->ipa_get_ep_mapping = ipa3_get_ep_mapping;
+	api_ctrl->ipa_is_ready = ipa3_is_ready;
+	api_ctrl->ipa_proxy_clk_vote = ipa3_proxy_clk_vote;
+	api_ctrl->ipa_proxy_clk_unvote = ipa3_proxy_clk_unvote;
+	api_ctrl->ipa_is_client_handle_valid = ipa3_is_client_handle_valid;
+	api_ctrl->ipa_get_client_mapping = ipa3_get_client_mapping;
+	api_ctrl->ipa_get_rm_resource_from_ep = ipa3_get_rm_resource_from_ep;
+	api_ctrl->ipa_get_modem_cfg_emb_pipe_flt =
+		ipa3_get_modem_cfg_emb_pipe_flt;
+	api_ctrl->ipa_ap_suspend = ipa3_ap_suspend;
+	api_ctrl->ipa_ap_resume = ipa3_ap_resume;
+	api_ctrl->ipa_get_smmu_domain = ipa3_get_smmu_domain;
+	api_ctrl->ipa_disable_apps_wan_cons_deaggr =
+		ipa3_disable_apps_wan_cons_deaggr;
+	api_ctrl->ipa_rm_add_dependency_sync = ipa3_rm_add_dependency_sync;
+	api_ctrl->ipa_get_dma_dev = ipa3_get_dma_dev;
+	api_ctrl->ipa_release_wdi_mapping = ipa3_release_wdi_mapping;
+	api_ctrl->ipa_create_wdi_mapping = ipa3_create_wdi_mapping;
+
+	return 0;
+}

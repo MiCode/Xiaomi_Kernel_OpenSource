@@ -448,7 +448,6 @@ int ipa3_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_get_wdi_stats);
 
 int ipa3_wdi_init(void)
 {
@@ -468,7 +467,7 @@ int ipa3_wdi_init(void)
 static int ipa_create_uc_smmu_mapping_pa(phys_addr_t pa, size_t len,
 		bool device, unsigned long *iova)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa_get_uc_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_uc_smmu_ctx();
 	unsigned long va = roundup(cb->next_addr, PAGE_SIZE);
 	int prot = IOMMU_READ | IOMMU_WRITE;
 	size_t true_len = roundup(len + pa - rounddown(pa, PAGE_SIZE),
@@ -497,7 +496,7 @@ static int ipa_create_uc_smmu_mapping_pa(phys_addr_t pa, size_t len,
 static int ipa_create_uc_smmu_mapping_sgt(struct sg_table *sgt,
 		unsigned long *iova)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa_get_uc_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_uc_smmu_ctx();
 	unsigned long va = roundup(cb->next_addr, PAGE_SIZE);
 	int prot = IOMMU_READ | IOMMU_WRITE;
 	int ret;
@@ -541,7 +540,7 @@ bad_mapping:
 
 static void ipa_release_uc_smmu_mappings(enum ipa_client_type client)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa_get_uc_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_uc_smmu_ctx();
 	int i;
 	int j;
 	int start;
@@ -940,7 +939,6 @@ dma_alloc_fail:
 fail:
 	return result;
 }
-EXPORT_SYMBOL(ipa3_connect_wdi_pipe);
 
 /**
  * ipa3_disconnect_wdi_pipe() - WDI client disconnect
@@ -1001,7 +999,6 @@ int ipa3_disconnect_wdi_pipe(u32 clnt_hdl)
 uc_timeout:
 	return result;
 }
-EXPORT_SYMBOL(ipa3_disconnect_wdi_pipe);
 
 /**
  * ipa3_enable_wdi_pipe() - WDI client enable
@@ -1064,7 +1061,6 @@ int ipa3_enable_wdi_pipe(u32 clnt_hdl)
 uc_timeout:
 	return result;
 }
-EXPORT_SYMBOL(ipa3_enable_wdi_pipe);
 
 /**
  * ipa3_disable_wdi_pipe() - WDI client disable
@@ -1161,7 +1157,6 @@ int ipa3_disable_wdi_pipe(u32 clnt_hdl)
 uc_timeout:
 	return result;
 }
-EXPORT_SYMBOL(ipa3_disable_wdi_pipe);
 
 /**
  * ipa3_resume_wdi_pipe() - WDI client resume
@@ -1224,7 +1219,6 @@ int ipa3_resume_wdi_pipe(u32 clnt_hdl)
 uc_timeout:
 	return result;
 }
-EXPORT_SYMBOL(ipa3_resume_wdi_pipe);
 
 /**
  * ipa3_suspend_wdi_pipe() - WDI client suspend
@@ -1316,7 +1310,6 @@ int ipa3_suspend_wdi_pipe(u32 clnt_hdl)
 uc_timeout:
 	return result;
 }
-EXPORT_SYMBOL(ipa3_suspend_wdi_pipe);
 
 int ipa3_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 {
@@ -1395,7 +1388,6 @@ int ipa3_uc_reg_rdyCB(
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_uc_reg_rdyCB);
 
 
 /**
@@ -1433,7 +1425,6 @@ int ipa3_uc_wdi_get_dbpa(
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_uc_wdi_get_dbpa);
 
 static void ipa3_uc_wdi_loaded_handler(void)
 {
@@ -1449,7 +1440,7 @@ static void ipa3_uc_wdi_loaded_handler(void)
 
 int ipa3_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa_get_wlan_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_wlan_smmu_ctx();
 	int i;
 	int ret = 0;
 	int prot = IOMMU_READ | IOMMU_WRITE;
@@ -1477,11 +1468,10 @@ int ipa3_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
 
 	return ret;
 }
-EXPORT_SYMBOL(ipa3_create_wdi_mapping);
 
 int ipa3_release_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa_get_wlan_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa3_get_wlan_smmu_ctx();
 	int i;
 	int ret = 0;
 
@@ -1506,4 +1496,3 @@ int ipa3_release_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
 
 	return ret;
 }
-EXPORT_SYMBOL(ipa3_release_wdi_mapping);

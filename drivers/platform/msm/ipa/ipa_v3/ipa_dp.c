@@ -1071,7 +1071,7 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		ep->connect.desc.phys_base = dma_addr;
 	} else {
 		ep->connect.desc.iova = dma_addr;
-		smmu_domain = ipa_get_smmu_domain();
+		smmu_domain = ipa3_get_smmu_domain();
 		if (smmu_domain != NULL) {
 			ep->connect.desc.phys_base =
 				iommu_iova_to_phys(smmu_domain, dma_addr);
@@ -1167,7 +1167,6 @@ fail_and_disable_clocks:
 fail_gen:
 	return result;
 }
-EXPORT_SYMBOL(ipa3_setup_sys_pipe);
 
 /**
  * ipa3_teardown_sys_pipe() - Teardown the system-BAM pipe and cleanup IPA EP
@@ -1237,7 +1236,6 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_teardown_sys_pipe);
 
 /**
  * ipa3_tx_comp_usr_notify_release() - Callback function which will call the
@@ -1411,7 +1409,6 @@ fail_send:
 fail_gen:
 	return -EFAULT;
 }
-EXPORT_SYMBOL(ipa3_tx_dp);
 
 static void ipa3_wq_handle_rx(struct work_struct *work)
 {
@@ -2748,7 +2745,6 @@ fail_send:
 	return -EFAULT;
 
 }
-EXPORT_SYMBOL(ipa3_tx_dp_mul);
 
 void ipa3_free_skb(struct ipa_rx_data *data)
 {
@@ -2768,7 +2764,6 @@ void ipa3_free_skb(struct ipa_rx_data *data)
 
 	spin_unlock_bh(&ipa3_ctx->wc_memb.wlan_spinlock);
 }
-EXPORT_SYMBOL(ipa3_free_skb);
 
 /* Functions added to support kernel tests */
 
@@ -2884,7 +2879,6 @@ fail_and_disable_clocks:
 fail_gen:
 	return result;
 }
-EXPORT_SYMBOL(ipa3_sys_setup);
 
 int ipa3_sys_teardown(u32 clnt_hdl)
 {
@@ -2910,4 +2904,3 @@ int ipa3_sys_teardown(u32 clnt_hdl)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_sys_teardown);

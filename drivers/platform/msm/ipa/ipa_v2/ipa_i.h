@@ -23,12 +23,14 @@
 #include <linux/slab.h>
 #include <linux/ipa.h>
 #include <linux/msm-sps.h>
+#include <linux/platform_device.h>
 #include <asm/dma-iommu.h>
 #include <linux/iommu.h>
 #include "ipa_hw_defs.h"
 #include "ipa_ram_mmap.h"
 #include "ipa_reg.h"
 #include "ipa_qmi_service.h"
+#include "../ipa_api.h"
 
 #define DRV_NAME "ipa"
 #define NAT_DEV_NAME "ipaNatTable"
@@ -579,6 +581,8 @@ struct ipa_sys_context {
 	struct work_struct repl_work;
 	void (*repl_hdlr)(struct ipa_sys_context *sys);
 	struct ipa_repl_ctx repl;
+	unsigned int repl_trig_cnt;
+	unsigned int repl_trig_thresh;
 
 	/* ordering is important - mutable fields go above */
 	struct ipa_ep_context *ep;
@@ -1397,11 +1401,340 @@ struct ipa_controller {
 
 extern struct ipa_context *ipa_ctx;
 
+/* public APIs */
+/*
+ * Connect / Disconnect
+ */
+int ipa2_connect(const struct ipa_connect_params *in,
+		struct ipa_sps_params *sps, u32 *clnt_hdl);
+int ipa2_disconnect(u32 clnt_hdl);
+
+/*
+ * Resume / Suspend
+ */
+int ipa2_reset_endpoint(u32 clnt_hdl);
+
+/*
+ * Configuration
+ */
+int ipa2_cfg_ep(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg);
+
+int ipa2_cfg_ep_nat(u32 clnt_hdl, const struct ipa_ep_cfg_nat *ipa_ep_cfg);
+
+int ipa2_cfg_ep_hdr(u32 clnt_hdl, const struct ipa_ep_cfg_hdr *ipa_ep_cfg);
+
+int ipa2_cfg_ep_hdr_ext(u32 clnt_hdl,
+			const struct ipa_ep_cfg_hdr_ext *ipa_ep_cfg);
+
+int ipa2_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ipa_ep_cfg);
+
+int ipa2_cfg_ep_aggr(u32 clnt_hdl, const struct ipa_ep_cfg_aggr *ipa_ep_cfg);
+
+int ipa2_cfg_ep_deaggr(u32 clnt_hdl,
+		      const struct ipa_ep_cfg_deaggr *ipa_ep_cfg);
+
+int ipa2_cfg_ep_route(u32 clnt_hdl, const struct ipa_ep_cfg_route *ipa_ep_cfg);
+
+int ipa2_cfg_ep_holb(u32 clnt_hdl, const struct ipa_ep_cfg_holb *ipa_ep_cfg);
+
+int ipa2_cfg_ep_cfg(u32 clnt_hdl, const struct ipa_ep_cfg_cfg *ipa_ep_cfg);
+
+int ipa2_cfg_ep_metadata_mask(u32 clnt_hdl,
+	const struct ipa_ep_cfg_metadata_mask *ipa_ep_cfg);
+
+int ipa2_cfg_ep_holb_by_client(enum ipa_client_type client,
+				const struct ipa_ep_cfg_holb *ipa_ep_cfg);
+
+int ipa2_cfg_ep_ctrl(u32 clnt_hdl, const struct ipa_ep_cfg_ctrl *ep_ctrl);
+
+/*
+ * Header removal / addition
+ */
+int ipa2_add_hdr(struct ipa_ioc_add_hdr *hdrs);
+
+int ipa2_del_hdr(struct ipa_ioc_del_hdr *hdls);
+
+int ipa2_commit_hdr(void);
+
+int ipa2_reset_hdr(void);
+
+int ipa2_get_hdr(struct ipa_ioc_get_hdr *lookup);
+
+int ipa2_put_hdr(u32 hdr_hdl);
+
+int ipa2_copy_hdr(struct ipa_ioc_copy_hdr *copy);
+
+/*
+ * Header Processing Context
+ */
+int ipa2_add_hdr_proc_ctx(struct ipa_ioc_add_hdr_proc_ctx *proc_ctxs);
+
+int ipa2_del_hdr_proc_ctx(struct ipa_ioc_del_hdr_proc_ctx *hdls);
+
+/*
+ * Routing
+ */
+int ipa2_add_rt_rule(struct ipa_ioc_add_rt_rule *rules);
+
+int ipa2_del_rt_rule(struct ipa_ioc_del_rt_rule *hdls);
+
+int ipa2_commit_rt(enum ipa_ip_type ip);
+
+int ipa2_reset_rt(enum ipa_ip_type ip);
+
+int ipa2_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup);
+
+int ipa2_put_rt_tbl(u32 rt_tbl_hdl);
+
+int ipa2_query_rt_index(struct ipa_ioc_get_rt_tbl_indx *in);
+
+int ipa2_mdfy_rt_rule(struct ipa_ioc_mdfy_rt_rule *rules);
+
+/*
+ * Filtering
+ */
+int ipa2_add_flt_rule(struct ipa_ioc_add_flt_rule *rules);
+
+int ipa2_del_flt_rule(struct ipa_ioc_del_flt_rule *hdls);
+
+int ipa2_mdfy_flt_rule(struct ipa_ioc_mdfy_flt_rule *rules);
+
+int ipa2_commit_flt(enum ipa_ip_type ip);
+
+int ipa2_reset_flt(enum ipa_ip_type ip);
+
+/*
+ * NAT
+ */
+int ipa2_allocate_nat_device(struct ipa_ioc_nat_alloc_mem *mem);
+
+int ipa2_nat_init_cmd(struct ipa_ioc_v4_nat_init *init);
+
+int ipa2_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma);
+
+int ipa2_nat_del_cmd(struct ipa_ioc_v4_nat_del *del);
+
+/*
+ * Messaging
+ */
+int ipa2_send_msg(struct ipa_msg_meta *meta, void *buff,
+		  ipa_msg_free_fn callback);
+int ipa2_register_pull_msg(struct ipa_msg_meta *meta, ipa_msg_pull_fn callback);
+int ipa2_deregister_pull_msg(struct ipa_msg_meta *meta);
+
+/*
+ * Interface
+ */
+int ipa2_register_intf(const char *name, const struct ipa_tx_intf *tx,
+		       const struct ipa_rx_intf *rx);
+int ipa2_register_intf_ext(const char *name, const struct ipa_tx_intf *tx,
+		       const struct ipa_rx_intf *rx,
+		       const struct ipa_ext_intf *ext);
+int ipa2_deregister_intf(const char *name);
+
+/*
+ * Aggregation
+ */
+int ipa2_set_aggr_mode(enum ipa_aggr_mode mode);
+
+int ipa2_set_qcncm_ndp_sig(char sig[3]);
+
+int ipa2_set_single_ndp_per_mbim(bool enable);
+
+/*
+ * Data path
+ */
+int ipa2_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
+		struct ipa_tx_meta *metadata);
+
+/*
+ * To transfer multiple data packets
+ * While passing the data descriptor list, the anchor node
+ * should be of type struct ipa_tx_data_desc not list_head
+*/
+int ipa2_tx_dp_mul(enum ipa_client_type dst,
+			struct ipa_tx_data_desc *data_desc);
+
+void ipa2_free_skb(struct ipa_rx_data *);
+
+/*
+ * System pipes
+ */
+int ipa2_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl);
+
+int ipa2_teardown_sys_pipe(u32 clnt_hdl);
+
+int ipa2_sys_setup(struct ipa_sys_connect_params *sys_in,
+	unsigned long *ipa_bam_hdl,
+	u32 *ipa_pipe_num, u32 *clnt_hdl);
+
+int ipa2_sys_teardown(u32 clnt_hdl);
+
+int ipa2_connect_wdi_pipe(struct ipa_wdi_in_params *in,
+		struct ipa_wdi_out_params *out);
+int ipa2_disconnect_wdi_pipe(u32 clnt_hdl);
+int ipa2_enable_wdi_pipe(u32 clnt_hdl);
+int ipa2_disable_wdi_pipe(u32 clnt_hdl);
+int ipa2_resume_wdi_pipe(u32 clnt_hdl);
+int ipa2_suspend_wdi_pipe(u32 clnt_hdl);
+int ipa2_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats);
+u16 ipa2_get_smem_restr_bytes(void);
+/*
+ * To retrieve doorbell physical address of
+ * wlan pipes
+ */
+int ipa2_uc_wdi_get_dbpa(struct ipa_wdi_db_params *out);
+
+/*
+ * To register uC ready callback if uC not ready
+ * and also check uC readiness
+ * if uC not ready only, register callback
+ */
+int ipa2_uc_reg_rdyCB(struct ipa_wdi_uc_ready_params *param);
+
+/*
+ * Resource manager
+ */
+int ipa2_rm_create_resource(struct ipa_rm_create_params *create_params);
+
+int ipa2_rm_delete_resource(enum ipa_rm_resource_name resource_name);
+
+int ipa2_rm_register(enum ipa_rm_resource_name resource_name,
+			struct ipa_rm_register_params *reg_params);
+
+int ipa2_rm_deregister(enum ipa_rm_resource_name resource_name,
+			struct ipa_rm_register_params *reg_params);
+
+int ipa2_rm_set_perf_profile(enum ipa_rm_resource_name resource_name,
+			struct ipa_rm_perf_profile *profile);
+
+int ipa2_rm_add_dependency(enum ipa_rm_resource_name resource_name,
+			enum ipa_rm_resource_name depends_on_name);
+
+int ipa2_rm_delete_dependency(enum ipa_rm_resource_name resource_name,
+			enum ipa_rm_resource_name depends_on_name);
+
+int ipa2_rm_request_resource(enum ipa_rm_resource_name resource_name);
+
+int ipa2_rm_release_resource(enum ipa_rm_resource_name resource_name);
+
+int ipa2_rm_notify_completion(enum ipa_rm_event event,
+		enum ipa_rm_resource_name resource_name);
+
+int ipa2_rm_inactivity_timer_init(enum ipa_rm_resource_name resource_name,
+				 unsigned long msecs);
+
+int ipa2_rm_inactivity_timer_destroy(enum ipa_rm_resource_name resource_name);
+
+int ipa2_rm_inactivity_timer_request_resource(
+				enum ipa_rm_resource_name resource_name);
+
+int ipa2_rm_inactivity_timer_release_resource(
+				enum ipa_rm_resource_name resource_name);
+
+/*
+ * Tethering bridge (Rmnet / MBIM)
+ */
+int ipa2_teth_bridge_init(struct teth_bridge_init_params *params);
+
+int ipa2_teth_bridge_disconnect(enum ipa_client_type client);
+
+int ipa2_teth_bridge_connect(struct teth_bridge_connect_params *connect_params);
+
+/*
+ * ODU bridge
+ */
+
+int ipa2_odu_bridge_init(struct odu_bridge_params *params);
+
+int ipa2_odu_bridge_connect(void);
+
+int ipa2_odu_bridge_disconnect(void);
+
+int ipa2_odu_bridge_tx_dp(struct sk_buff *skb, struct ipa_tx_meta *metadata);
+
+int ipa2_odu_bridge_cleanup(void);
+
+/*
+ * IPADMA
+ */
+int ipa2_dma_init(void);
+
+int ipa2_dma_enable(void);
+
+int ipa2_dma_disable(void);
+
+int ipa2_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src, int len);
+
+int ipa2_dma_async_memcpy(phys_addr_t dest, phys_addr_t src, int len,
+			void (*user_cb)(void *user1), void *user_param);
+
+int ipa2_dma_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);
+
+void ipa2_dma_destroy(void);
+
+/*
+ * MHI
+ */
+int ipa2_mhi_init(struct ipa_mhi_init_params *params);
+
+int ipa2_mhi_start(struct ipa_mhi_start_params *params);
+
+int ipa2_mhi_connect_pipe(struct ipa_mhi_connect_params *in, u32 *clnt_hdl);
+
+int ipa2_mhi_disconnect_pipe(u32 clnt_hdl);
+
+int ipa2_mhi_suspend(bool force);
+
+int ipa2_mhi_resume(void);
+
+int ipa2_mhi_destroy(void);
+
+/*
+ * mux id
+ */
+int ipa2_write_qmap_id(struct ipa_ioc_write_qmapid *param_in);
+
+/*
+ * interrupts
+ */
+int ipa2_add_interrupt_handler(enum ipa_irq_type interrupt,
+		ipa_irq_handler_t handler,
+		bool deferred_flag,
+		void *private_data);
+
+int ipa2_remove_interrupt_handler(enum ipa_irq_type interrupt);
+
+/*
+ * Miscellaneous
+ */
+void ipa2_bam_reg_dump(void);
+
+int ipa2_get_ep_mapping(enum ipa_client_type client);
+
+bool ipa2_is_ready(void);
+
+void ipa2_proxy_clk_vote(void);
+void ipa2_proxy_clk_unvote(void);
+
+bool ipa2_is_client_handle_valid(u32 clnt_hdl);
+
+enum ipa_client_type ipa2_get_client_mapping(int pipe_idx);
+
+enum ipa_rm_resource_name ipa2_get_rm_resource_from_ep(int pipe_idx);
+
+bool ipa2_get_modem_cfg_emb_pipe_flt(void);
+
+/* internal functions */
+
+int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
+	struct ipa_api_controller *api_ctrl);
+
 int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 		bool in_atomic);
 int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 		bool in_atomic);
-int ipa_get_ep_mapping(enum ipa_client_type client);
+int ipa2_get_ep_mapping(enum ipa_client_type client);
 
 int ipa_generate_hw_rule(enum ipa_ip_type ip,
 			 const struct ipa_rule_attrib *attrib,
@@ -1532,7 +1865,8 @@ void ipa_id_remove(u32 id);
 int ipa_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 				  u32 bandwidth_mbps);
 
-int ipa_cfg_ep_status(u32 clnt_hdl, const struct ipa_ep_cfg_status *ipa_ep_cfg);
+int ipa2_cfg_ep_status(u32 clnt_hdl,
+			const struct ipa_ep_cfg_status *ipa_ep_cfg);
 int ipa_cfg_aggr_cntr_granularity(u8 aggr_granularity);
 int ipa_cfg_eot_coal_cntr_granularity(u8 eot_coal_granularity);
 
@@ -1552,6 +1886,7 @@ int ipa_tag_process(struct ipa_desc *desc, int num_descs,
 		    unsigned long timeout);
 
 int ipa_q6_cleanup(void);
+int ipa_q6_pipe_reset(void);
 int ipa_init_q6_smem(void);
 
 int ipa_sps_connect_safe(struct sps_pipe *h, struct sps_connect *connect,
@@ -1590,9 +1925,19 @@ int ipa_uc_mhi_print_stats(char *dbg_buff, int size);
 int ipa_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);
 u32 ipa_get_num_pipes(void);
 u32 ipa_get_sys_yellow_wm(void);
-int ipa_smmu_map_peer_bam(unsigned long dev);
-int ipa_smmu_unmap_peer_bam(unsigned long dev);
-struct ipa_smmu_cb_ctx *ipa_get_wlan_smmu_ctx(void);
-struct ipa_smmu_cb_ctx *ipa_get_uc_smmu_ctx(void);
+struct ipa_smmu_cb_ctx *ipa2_get_wlan_smmu_ctx(void);
+struct ipa_smmu_cb_ctx *ipa2_get_uc_smmu_ctx(void);
 struct iommu_domain *ipa_get_uc_smmu_domain(void);
+int ipa2_ap_suspend(struct device *dev);
+int ipa2_ap_resume(struct device *dev);
+struct iommu_domain *ipa2_get_smmu_domain(void);
+int ipa2_rm_add_dependency_sync(enum ipa_rm_resource_name resource_name,
+		enum ipa_rm_resource_name depends_on_name);
+struct device *ipa2_get_dma_dev(void);
+int ipa2_release_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
+int ipa2_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
+
+
+
+
 #endif /* _IPA_I_H_ */

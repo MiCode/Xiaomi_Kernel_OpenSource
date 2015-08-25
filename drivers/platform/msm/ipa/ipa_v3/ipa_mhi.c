@@ -1076,7 +1076,6 @@ fail_create_wq:
 fail_alloc_ctx:
 	return res;
 }
-EXPORT_SYMBOL(ipa3_mhi_init);
 
 /**
  * ipa3_mhi_start() - Start IPA MHI engine
@@ -1179,7 +1178,6 @@ fail_add_mhi_q6_dep:
 	ipa3_mhi_set_state(IPA_MHI_STATE_INITIALIZED);
 	return res;
 }
-EXPORT_SYMBOL(ipa3_mhi_start);
 
 /**
  * ipa3_mhi_connect_pipe() - Connect pipe to IPA and start corresponding
@@ -1333,7 +1331,6 @@ fail_ep_exists:
 	ipa3_dec_client_disable_clks();
 	return -EPERM;
 }
-EXPORT_SYMBOL(ipa3_mhi_connect_pipe);
 
 /**
  * ipa3_mhi_disconnect_pipe() - Disconnect pipe from IPA and reset corresponding
@@ -1404,7 +1401,6 @@ fail_reset_channel:
 		ipa3_dec_client_disable_clks();
 	return res;
 }
-EXPORT_SYMBOL(ipa3_mhi_disconnect_pipe);
 
 static int ipa3_mhi_suspend_ul_channels(void)
 {
@@ -1721,7 +1717,6 @@ fail_suspend_ul_channel:
 	ipa3_mhi_set_state(IPA_MHI_STATE_STARTED);
 	return res;
 }
-EXPORT_SYMBOL(ipa3_mhi_suspend);
 
 /**
  * ipa3_mhi_resume() - Resume MHI accelerated channels
@@ -1808,7 +1803,6 @@ fail_resume_dl_channels:
 	ipa3_mhi_set_state(IPA_MHI_STATE_SUSPENDED);
 	return res;
 }
-EXPORT_SYMBOL(ipa3_mhi_resume);
 
 /**
  * ipa3_mhi_destroy() - Destroy MHI IPA
@@ -1829,7 +1823,6 @@ int ipa3_mhi_destroy(void)
 	IPA_MHI_FUNC_EXIT();
 	return -EPERM;
 }
-EXPORT_SYMBOL(ipa3_mhi_destroy);
 
 /**
  * ipa3_mhi_handle_ipa_config_req() - hanle IPA CONFIG QMI message

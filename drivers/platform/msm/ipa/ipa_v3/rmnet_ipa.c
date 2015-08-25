@@ -1825,10 +1825,10 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 	struct ipa_rm_create_params ipa_rm_params;	/* IPA_RM */
 	struct ipa_rm_perf_profile profile;			/* IPA_RM */
 
-	pr_info("rmnet_ipa started initialization\n");
+	pr_info("rmnet_ipa3 started initialization\n");
 
-	if (!ipa3_is_ready()) {
-		IPAWANERR("IPA driver not loaded\n");
+	if (!ipa_is_ready()) {
+		IPAWANERR("IPA3 driver not loaded\n");
 		return -ENODEV;
 	}
 
@@ -2124,7 +2124,7 @@ static void ipa_stop_polling_stats(void)
 }
 
 static const struct of_device_id rmnet_ipa_dt_match[] = {
-	{.compatible = "qcom,rmnet-ipa"},
+	{.compatible = "qcom,rmnet-ipa3"},
 	{},
 };
 MODULE_DEVICE_TABLE(of, rmnet_ipa_dt_match);
@@ -2136,7 +2136,7 @@ static const struct dev_pm_ops rmnet_ipa_pm_ops = {
 
 static struct platform_driver rmnet_ipa_driver = {
 	.driver = {
-		.name = "rmnet_ipa",
+		.name = "rmnet_ipa3",
 		.owner = THIS_MODULE,
 		.pm = &rmnet_ipa_pm_ops,
 		.of_match_table = rmnet_ipa_dt_match,

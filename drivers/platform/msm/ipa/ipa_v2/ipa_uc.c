@@ -140,7 +140,7 @@ union IpaHwResetPipeCmdData_t {
 /**
  * union IpaHwmonitorHolbCmdData_t - Structure holding the parameters
  * for IPA_CPU_2_HW_CMD_UPDATE_HOLB_MONITORING command.
- * @monitorPipe : Indication whether to monitor the pipe. 0 – Do not Monitor Pipe, 1 – Monitor Pipe
+ * @monitorPipe : Indication whether to monitor the pipe. 0 Â– Do not Monitor Pipe, 1 Â– Monitor Pipe
  * @pipeNum : Pipe to be monitored/not monitored
  * @reserved_02_03 : Reserved
  *
@@ -506,7 +506,7 @@ int ipa_uc_interface_init(void)
 		goto remap_fail;
 	}
 
-	result = ipa_add_interrupt_handler(IPA_UC_IRQ_0,
+	result = ipa2_add_interrupt_handler(IPA_UC_IRQ_0,
 		ipa_uc_event_handler, true,
 		ipa_ctx);
 	if (result) {
@@ -515,7 +515,7 @@ int ipa_uc_interface_init(void)
 		goto irq_fail0;
 	}
 
-	result = ipa_add_interrupt_handler(IPA_UC_IRQ_1,
+	result = ipa2_add_interrupt_handler(IPA_UC_IRQ_1,
 		ipa_uc_response_hdlr, true,
 		ipa_ctx);
 	if (result) {
@@ -530,7 +530,7 @@ int ipa_uc_interface_init(void)
 	return 0;
 
 irq_fail1:
-	ipa_remove_interrupt_handler(IPA_UC_IRQ_0);
+	ipa2_remove_interrupt_handler(IPA_UC_IRQ_0);
 irq_fail0:
 	iounmap(ipa_ctx->uc_ctx.uc_sram_mmio);
 remap_fail:
@@ -684,7 +684,7 @@ int ipa_uc_reset_pipe(enum ipa_client_type ipa_client)
 	int ep_idx;
 	int ret;
 
-	ep_idx = ipa_get_ep_mapping(ipa_client);
+	ep_idx = ipa2_get_ep_mapping(ipa_client);
 	if (ep_idx == -1) {
 		IPAERR("Invalid IPA client\n");
 		return 0;
@@ -715,7 +715,7 @@ int ipa_uc_reset_pipe(enum ipa_client_type ipa_client)
 	       IPA_CLIENT_IS_PROD(ipa_client) ? "CONS" : "PROD", ep_idx);
 
 	ret = ipa_uc_send_cmd(cmd.raw32b, IPA_CPU_2_HW_CMD_RESET_PIPE, 0,
-			      false, 10*HZ);
+			      true, 10*HZ);
 
 	return ret;
 }
@@ -743,7 +743,7 @@ int ipa_uc_monitor_holb(enum ipa_client_type ipa_client, bool enable)
 		return 0;
 	}
 
-	ep_idx = ipa_get_ep_mapping(ipa_client);
+	ep_idx = ipa2_get_ep_mapping(ipa_client);
 	if (ep_idx == -1) {
 		IPAERR("Invalid IPA client\n");
 		return 0;

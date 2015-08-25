@@ -877,10 +877,10 @@ int __ipa_commit_flt_v2(enum ipa_ip_type ip)
 			continue;
 		}
 
-		if (ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS) == i ||
-			ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS) == i ||
-			ipa_get_ep_mapping(IPA_CLIENT_APPS_CMD_PROD) == i ||
-			(ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_WAN_PROD) == i
+		if (ipa2_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS) == i ||
+			ipa2_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS) == i ||
+			ipa2_get_ep_mapping(IPA_CLIENT_APPS_CMD_PROD) == i ||
+			(ipa2_get_ep_mapping(IPA_CLIENT_APPS_LAN_WAN_PROD) == i
 			&& ipa_ctx->modem_cfg_emb_pipe_flt)) {
 			IPADBG("skip %d\n", i);
 			continue;
@@ -911,7 +911,7 @@ int __ipa_commit_flt_v2(enum ipa_ip_type ip)
 			IPADBG("skip %d\n", i);
 			continue;
 		}
-		if (ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_WAN_PROD) == i &&
+		if (ipa2_get_ep_mapping(IPA_CLIENT_APPS_LAN_WAN_PROD) == i &&
 			ipa_ctx->modem_cfg_emb_pipe_flt) {
 			IPADBG("skip %d\n", i);
 			continue;
@@ -1170,7 +1170,7 @@ static int __ipa_add_ep_flt_rule(enum ipa_ip_type ip, enum ipa_client_type ep,
 
 		return -EINVAL;
 	}
-	ipa_ep_idx = ipa_get_ep_mapping(ep);
+	ipa_ep_idx = ipa2_get_ep_mapping(ep);
 	if (ipa_ep_idx == IPA_FLT_TABLE_INDEX_NOT_FOUND) {
 		IPAERR("ep not valid ep=%d\n", ep);
 		return -EINVAL;
@@ -1185,14 +1185,14 @@ static int __ipa_add_ep_flt_rule(enum ipa_ip_type ip, enum ipa_client_type ep,
 }
 
 /**
- * ipa_add_flt_rule() - Add the specified filtering rules to SW and optionally
+ * ipa2_add_flt_rule() - Add the specified filtering rules to SW and optionally
  * commit to IPA HW
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_add_flt_rule(struct ipa_ioc_add_flt_rule *rules)
+int ipa2_add_flt_rule(struct ipa_ioc_add_flt_rule *rules)
 {
 	int i;
 	int result;
@@ -1235,17 +1235,16 @@ bail:
 
 	return result;
 }
-EXPORT_SYMBOL(ipa_add_flt_rule);
 
 /**
- * ipa_del_flt_rule() - Remove the specified filtering rules from SW and
+ * ipa2_del_flt_rule() - Remove the specified filtering rules from SW and
  * optionally commit to IPA HW
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_del_flt_rule(struct ipa_ioc_del_flt_rule *hdls)
+int ipa2_del_flt_rule(struct ipa_ioc_del_flt_rule *hdls)
 {
 	int i;
 	int result;
@@ -1276,17 +1275,16 @@ bail:
 
 	return result;
 }
-EXPORT_SYMBOL(ipa_del_flt_rule);
 
 /**
- * ipa_mdfy_flt_rule() - Modify the specified filtering rules in SW and optionally
+ * ipa2_mdfy_flt_rule() - Modify the specified filtering rules in SW and optionally
  * commit to IPA HW
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_mdfy_flt_rule(struct ipa_ioc_mdfy_flt_rule *hdls)
+int ipa2_mdfy_flt_rule(struct ipa_ioc_mdfy_flt_rule *hdls)
 {
 	int i;
 	int result;
@@ -1317,11 +1315,10 @@ bail:
 
 	return result;
 }
-EXPORT_SYMBOL(ipa_mdfy_flt_rule);
 
 
 /**
- * ipa_commit_flt() - Commit the current SW filtering table of specified type to
+ * ipa2_commit_flt() - Commit the current SW filtering table of specified type to
  * IPA HW
  * @ip:	[in] the family of routing tables
  *
@@ -1329,7 +1326,7 @@ EXPORT_SYMBOL(ipa_mdfy_flt_rule);
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_commit_flt(enum ipa_ip_type ip)
+int ipa2_commit_flt(enum ipa_ip_type ip)
 {
 	int result;
 
@@ -1351,10 +1348,9 @@ bail:
 
 	return result;
 }
-EXPORT_SYMBOL(ipa_commit_flt);
 
 /**
- * ipa_reset_flt() - Reset the current SW filtering table of specified type
+ * ipa2_reset_flt() - Reset the current SW filtering table of specified type
  * (does not commit to HW)
  * @ip:	[in] the family of routing tables
  *
@@ -1362,7 +1358,7 @@ EXPORT_SYMBOL(ipa_commit_flt);
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_reset_flt(enum ipa_ip_type ip)
+int ipa2_reset_flt(enum ipa_ip_type ip)
 {
 	struct ipa_flt_tbl *tbl;
 	struct ipa_flt_entry *entry;
@@ -1432,7 +1428,6 @@ int ipa_reset_flt(enum ipa_ip_type ip)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_reset_flt);
 
 void ipa_install_dflt_flt_rules(u32 ipa_ep_idx)
 {

@@ -82,7 +82,7 @@ static void teth_bridge_ipa_cb(void *priv, enum ipa_dp_evt_type evt,
 }
 
 /**
-* teth_bridge_init() - Initialize the Tethering bridge driver
+* ipa2_teth_bridge_init() - Initialize the Tethering bridge driver
 * @params - in/out params for USB initialization API (please look at struct
 *  definition for more info)
 *
@@ -96,7 +96,7 @@ static void teth_bridge_ipa_cb(void *priv, enum ipa_dp_evt_type evt,
 *		-EINVAL - Bad parameter
 *		Other negative value - Failure
 */
-int teth_bridge_init(struct teth_bridge_init_params *params)
+int ipa2_teth_bridge_init(struct teth_bridge_init_params *params)
 {
 	int res = 0;
 
@@ -113,18 +113,18 @@ int teth_bridge_init(struct teth_bridge_init_params *params)
 	params->skip_ep_cfg = true;
 
 	/* Build dependency graph */
-	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_USB_PROD,
+	res = ipa2_rm_add_dependency(IPA_RM_RESOURCE_USB_PROD,
 				    IPA_RM_RESOURCE_Q6_CONS);
 	if (res < 0 && res != -EINPROGRESS) {
-		TETH_ERR("ipa_rm_add_dependency() failed.\n");
+		TETH_ERR("ipa2_rm_add_dependency() failed.\n");
 		goto bail;
 	}
-	res = ipa_rm_add_dependency(IPA_RM_RESOURCE_Q6_PROD,
+	res = ipa2_rm_add_dependency(IPA_RM_RESOURCE_Q6_PROD,
 				    IPA_RM_RESOURCE_USB_CONS);
 	if (res < 0 && res != -EINPROGRESS) {
-		ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
+		ipa2_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
 					IPA_RM_RESOURCE_Q6_CONS);
-		TETH_ERR("ipa_rm_add_dependency() failed.\n");
+		TETH_ERR("ipa2_rm_add_dependency() failed.\n");
 		goto bail;
 	}
 
@@ -135,26 +135,24 @@ bail:
 	TETH_DBG_FUNC_EXIT();
 	return res;
 }
-EXPORT_SYMBOL(teth_bridge_init);
 
 /**
-* teth_bridge_disconnect() - Disconnect tethering bridge module
+* ipa2_teth_bridge_disconnect() - Disconnect tethering bridge module
 */
-int teth_bridge_disconnect(enum ipa_client_type client)
+int ipa2_teth_bridge_disconnect(enum ipa_client_type client)
 {
 	TETH_DBG_FUNC_ENTRY();
-	ipa_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
+	ipa2_rm_delete_dependency(IPA_RM_RESOURCE_USB_PROD,
 				 IPA_RM_RESOURCE_Q6_CONS);
-	ipa_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
+	ipa2_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
 				 IPA_RM_RESOURCE_USB_CONS);
 	TETH_DBG_FUNC_EXIT();
 
 	return 0;
 }
-EXPORT_SYMBOL(teth_bridge_disconnect);
 
 /**
-* teth_bridge_connect() - Connect bridge for a tethered Rmnet / MBIM call
+* ipa2_teth_bridge_connect() - Connect bridge for a tethered Rmnet / MBIM call
 * @connect_params:	Connection info
 *
 * Return codes: 0: success
@@ -162,11 +160,10 @@ EXPORT_SYMBOL(teth_bridge_disconnect);
 *		-EPERM: Operation not permitted as the bridge is already
 *		connected
 */
-int teth_bridge_connect(struct teth_bridge_connect_params *connect_params)
+int ipa2_teth_bridge_connect(struct teth_bridge_connect_params *connect_params)
 {
 	return 0;
 }
-EXPORT_SYMBOL(teth_bridge_connect);
 
 static long teth_bridge_ioctl(struct file *filp,
 			      unsigned int cmd,

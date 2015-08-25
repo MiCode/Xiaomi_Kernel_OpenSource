@@ -1395,8 +1395,6 @@ int ipa_remove_interrupt_handler(enum ipa_irq_type interrupt);
  */
 void ipa_bam_reg_dump(void);
 
-bool ipa_emb_ul_pipes_empty(void);
-
 int ipa_get_ep_mapping(enum ipa_client_type client);
 
 bool ipa_is_ready(void);
@@ -2069,11 +2067,6 @@ static inline int ipa_remove_interrupt_handler(enum ipa_irq_type interrupt)
 static inline void ipa_bam_reg_dump(void)
 {
 	return;
-}
-
-static inline bool ipa_emb_ul_pipes_empty(void)
-{
-	return false;
 }
 
 static inline int ipa_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)

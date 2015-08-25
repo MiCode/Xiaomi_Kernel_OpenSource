@@ -115,7 +115,6 @@ bail:
 
 	return result;
 }
-EXPORT_SYMBOL(ipa3_rm_create_resource);
 
 /**
  * ipa3_rm_delete_resource() - delete resource
@@ -158,7 +157,6 @@ bail:
 
 	return result;
 }
-EXPORT_SYMBOL(ipa3_rm_delete_resource);
 
 /**
  * ipa3_rm_add_dependency() - create dependency
@@ -189,7 +187,6 @@ int ipa3_rm_add_dependency(enum ipa_rm_resource_name resource_name,
 
 	return result;
 }
-EXPORT_SYMBOL(ipa3_rm_add_dependency);
 
 /**
  * ipa_rm_add_dependency_sync() - Create a dependency between 2 resources
@@ -246,7 +243,6 @@ int ipa3_rm_add_dependency_sync(enum ipa_rm_resource_name resource_name,
 
 	return result;
 }
-EXPORT_SYMBOL(ipa3_rm_add_dependency_sync);
 
 /**
  * ipa3_rm_delete_dependency() - create dependency
@@ -277,7 +273,6 @@ int ipa3_rm_delete_dependency(enum ipa_rm_resource_name resource_name,
 
 	return result;
 }
-EXPORT_SYMBOL(ipa3_rm_delete_dependency);
 
 /**
  * ipa3_rm_request_resource() - request resource
@@ -314,7 +309,6 @@ bail:
 
 	return result;
 }
-EXPORT_SYMBOL(ipa3_rm_request_resource);
 
 void ipa3_delayed_release_work_func(struct work_struct *work)
 {
@@ -435,7 +429,6 @@ bail:
 
 	return result;
 }
-EXPORT_SYMBOL(ipa3_rm_release_resource);
 
 /**
  * ipa3_rm_register() - register for event
@@ -478,7 +471,6 @@ bail:
 
 	return result;
 }
-EXPORT_SYMBOL(ipa3_rm_register);
 
 /**
  * ipa3_rm_deregister() - cancel the registration
@@ -520,7 +512,6 @@ bail:
 
 	return result;
 }
-EXPORT_SYMBOL(ipa3_rm_deregister);
 
 /**
  * ipa3_rm_set_perf_profile() - set performance profile
@@ -563,7 +554,6 @@ bail:
 
 	return result;
 }
-EXPORT_SYMBOL(ipa3_rm_set_perf_profile);
 
 /**
  * ipa3_rm_notify_completion() -
@@ -597,7 +587,6 @@ bail:
 
 	return result;
 }
-EXPORT_SYMBOL(ipa3_rm_notify_completion);
 
 static void ipa3_rm_wq_handler(struct work_struct *work)
 {

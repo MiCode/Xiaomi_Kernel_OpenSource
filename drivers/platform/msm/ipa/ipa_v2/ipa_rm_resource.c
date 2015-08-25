@@ -259,7 +259,7 @@ bail:
  * @producer: producer
  * @event: event to notify
  * @notify_registered_only: notify only clients registered by
- *	ipa_rm_register()
+ *	ipa2_rm_register()
  */
 void ipa_rm_resource_producer_notify_clients(
 				struct ipa_rm_resource_prod *producer,
@@ -489,7 +489,7 @@ int ipa_rm_resource_delete(struct ipa_rm_resource *resource)
  * ipa_rm_resource_register() - register resource
  * @resource: [in] resource
  * @reg_params: [in] registration parameters
- * @explicit: [in] registered explicitly by ipa_rm_register()
+ * @explicit: [in] registered explicitly by ipa2_rm_register()
  *
  * Returns: 0 on success, negative on failure
  *

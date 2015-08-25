@@ -380,7 +380,7 @@ static void ipa_uc_wdi_event_handler(struct IpaHwSharedMemCommonMapping_t
 }
 
 /**
- * ipa_get_wdi_stats() - Query WDI statistics from uc
+ * ipa2_get_wdi_stats() - Query WDI statistics from uc
  * @stats:	[inout] stats blob from client populated by driver
  *
  * Returns:	0 on success, negative on failure
@@ -388,7 +388,7 @@ static void ipa_uc_wdi_event_handler(struct IpaHwSharedMemCommonMapping_t
  * @note Cannot be called from atomic context
  *
  */
-int ipa_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
+int ipa2_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
 {
 #define TX_STATS(y) stats->tx_ch_stats.y = \
 	ipa_ctx->uc_wdi_ctx.wdi_uc_stats_mmio->tx_ch_stats.y
@@ -453,7 +453,6 @@ int ipa_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_get_wdi_stats);
 
 int ipa_wdi_init(void)
 {
@@ -473,7 +472,7 @@ int ipa_wdi_init(void)
 static int ipa_create_uc_smmu_mapping_pa(phys_addr_t pa, size_t len,
 		bool device, unsigned long *iova)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa_get_uc_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa2_get_uc_smmu_ctx();
 	unsigned long va = roundup(cb->next_addr, PAGE_SIZE);
 	int prot = IOMMU_READ | IOMMU_WRITE;
 	size_t true_len = roundup(len + pa - rounddown(pa, PAGE_SIZE),
@@ -502,7 +501,7 @@ static int ipa_create_uc_smmu_mapping_pa(phys_addr_t pa, size_t len,
 static int ipa_create_uc_smmu_mapping_sgt(struct sg_table *sgt,
 		unsigned long *iova)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa_get_uc_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa2_get_uc_smmu_ctx();
 	unsigned long va = roundup(cb->next_addr, PAGE_SIZE);
 	int prot = IOMMU_READ | IOMMU_WRITE;
 	int ret;
@@ -546,7 +545,7 @@ bad_mapping:
 
 static void ipa_release_uc_smmu_mappings(enum ipa_client_type client)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa_get_uc_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa2_get_uc_smmu_ctx();
 	int i;
 	int j;
 	int start;
@@ -683,7 +682,7 @@ static int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
 }
 
 /**
- * ipa_connect_wdi_pipe() - WDI client connect
+ * ipa2_connect_wdi_pipe() - WDI client connect
  * @in:	[in] input parameters from client
  * @out: [out] output params to client
  *
@@ -691,7 +690,7 @@ static int ipa_create_uc_smmu_mapping(int res_idx, bool wlan_smmu_en,
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
+int ipa2_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		struct ipa_wdi_out_params *out)
 {
 	int ipa_ep_idx;
@@ -734,7 +733,7 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	if (result)
 		return result;
 
-	ipa_ep_idx = ipa_get_ep_mapping(in->sys.client);
+	ipa_ep_idx = ipa2_get_ep_mapping(in->sys.client);
 	if (ipa_ep_idx == -1) {
 		IPAERR("fail to alloc EP.\n");
 		goto fail;
@@ -917,7 +916,7 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	if (IPA_CLIENT_IS_PROD(in->sys.client)) {
 		memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
 		ep_cfg_ctrl.ipa_ep_delay = true;
-		ipa_cfg_ep_ctrl(ipa_ep_idx, &ep_cfg_ctrl);
+		ipa2_cfg_ep_ctrl(ipa_ep_idx, &ep_cfg_ctrl);
 	}
 
 	result = ipa_uc_send_cmd((u32)(cmd.phys_base),
@@ -937,7 +936,7 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	ep->priv = in->sys.priv;
 
 	if (!ep->skip_ep_cfg) {
-		if (ipa_cfg_ep(ipa_ep_idx, &in->sys.ipa_ep_cfg)) {
+		if (ipa2_cfg_ep(ipa_ep_idx, &in->sys.ipa_ep_cfg)) {
 			IPAERR("fail to configure EP.\n");
 			goto ipa_cfg_ep_fail;
 		}
@@ -970,18 +969,17 @@ dma_alloc_fail:
 fail:
 	return result;
 }
-EXPORT_SYMBOL(ipa_connect_wdi_pipe);
 
 
 /**
- * ipa_disconnect_wdi_pipe() - WDI client disconnect
+ * ipa2_disconnect_wdi_pipe() - WDI client disconnect
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_disconnect_wdi_pipe(u32 clnt_hdl)
+int ipa2_disconnect_wdi_pipe(u32 clnt_hdl)
 {
 	int result = 0;
 	struct ipa_ep_context *ep;
@@ -1037,17 +1035,16 @@ int ipa_disconnect_wdi_pipe(u32 clnt_hdl)
 uc_timeout:
 	return result;
 }
-EXPORT_SYMBOL(ipa_disconnect_wdi_pipe);
 
 /**
- * ipa_enable_wdi_pipe() - WDI client enable
+ * ipa2_enable_wdi_pipe() - WDI client enable
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_enable_wdi_pipe(u32 clnt_hdl)
+int ipa2_enable_wdi_pipe(u32 clnt_hdl)
 {
 	int result = 0;
 	struct ipa_ep_context *ep;
@@ -1095,7 +1092,7 @@ int ipa_enable_wdi_pipe(u32 clnt_hdl)
 		memset(&holb_cfg, 0 , sizeof(holb_cfg));
 		holb_cfg.en = IPA_HOLB_TMR_DIS;
 		holb_cfg.tmr_val = 0;
-		result = ipa_cfg_ep_holb(clnt_hdl, &holb_cfg);
+		result = ipa2_cfg_ep_holb(clnt_hdl, &holb_cfg);
 	}
 
 	ipa_dec_client_disable_clks();
@@ -1105,17 +1102,16 @@ int ipa_enable_wdi_pipe(u32 clnt_hdl)
 uc_timeout:
 	return result;
 }
-EXPORT_SYMBOL(ipa_enable_wdi_pipe);
 
 /**
- * ipa_disable_wdi_pipe() - WDI client disable
+ * ipa2_disable_wdi_pipe() - WDI client disable
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_disable_wdi_pipe(u32 clnt_hdl)
+int ipa2_disable_wdi_pipe(u32 clnt_hdl)
 {
 	int result = 0;
 	struct ipa_ep_context *ep;
@@ -1164,9 +1160,9 @@ int ipa_disable_wdi_pipe(u32 clnt_hdl)
 	 */
 	if (IPA_CLIENT_IS_PROD(ep->client)) {
 		memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
-		ipa_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
+		ipa2_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 
-		prod_hdl = ipa_get_ep_mapping(IPA_CLIENT_WLAN1_CONS);
+		prod_hdl = ipa2_get_ep_mapping(IPA_CLIENT_WLAN1_CONS);
 		if (ipa_ctx->ep[prod_hdl].valid == 1) {
 			result = ipa_disable_data_path(prod_hdl);
 			if (result) {
@@ -1197,7 +1193,7 @@ int ipa_disable_wdi_pipe(u32 clnt_hdl)
 	if (IPA_CLIENT_IS_PROD(ep->client)) {
 		memset(&ep_cfg_ctrl, 0, sizeof(struct ipa_ep_cfg_ctrl));
 		ep_cfg_ctrl.ipa_ep_delay = true;
-		ipa_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
+		ipa2_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 	}
 
 	ipa_dec_client_disable_clks();
@@ -1207,17 +1203,16 @@ int ipa_disable_wdi_pipe(u32 clnt_hdl)
 uc_timeout:
 	return result;
 }
-EXPORT_SYMBOL(ipa_disable_wdi_pipe);
 
 /**
- * ipa_resume_wdi_pipe() - WDI client resume
+ * ipa2_resume_wdi_pipe() - WDI client resume
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_resume_wdi_pipe(u32 clnt_hdl)
+int ipa2_resume_wdi_pipe(u32 clnt_hdl)
 {
 	int result = 0;
 	struct ipa_ep_context *ep;
@@ -1262,7 +1257,7 @@ int ipa_resume_wdi_pipe(u32 clnt_hdl)
 	}
 
 	memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
-	result = ipa_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
+	result = ipa2_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 	if (result)
 		IPAERR("client (ep: %d) fail un-susp/delay result=%d\n",
 				clnt_hdl, result);
@@ -1275,17 +1270,16 @@ int ipa_resume_wdi_pipe(u32 clnt_hdl)
 uc_timeout:
 	return result;
 }
-EXPORT_SYMBOL(ipa_resume_wdi_pipe);
 
 /**
- * ipa_suspend_wdi_pipe() - WDI client suspend
+ * ipa2_suspend_wdi_pipe() - WDI client suspend
  * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
  *
  * Returns:	0 on success, negative on failure
  *
  * Note:	Should not be called from atomic context
  */
-int ipa_suspend_wdi_pipe(u32 clnt_hdl)
+int ipa2_suspend_wdi_pipe(u32 clnt_hdl)
 {
 	int result = 0;
 	struct ipa_ep_context *ep;
@@ -1336,7 +1330,7 @@ int ipa_suspend_wdi_pipe(u32 clnt_hdl)
 	memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
 	if (IPA_CLIENT_IS_CONS(ep->client)) {
 		ep_cfg_ctrl.ipa_ep_suspend = true;
-		result = ipa_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
+		result = ipa2_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 		if (result)
 			IPAERR("client (ep: %d) failed to suspend result=%d\n",
 					clnt_hdl, result);
@@ -1344,7 +1338,7 @@ int ipa_suspend_wdi_pipe(u32 clnt_hdl)
 			IPADBG("client (ep: %d) suspended\n", clnt_hdl);
 	} else {
 		ep_cfg_ctrl.ipa_ep_delay = true;
-		result = ipa_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
+		result = ipa2_cfg_ep_ctrl(clnt_hdl, &ep_cfg_ctrl);
 		if (result)
 			IPAERR("client (ep: %d) failed to delay result=%d\n",
 					clnt_hdl, result);
@@ -1372,7 +1366,6 @@ int ipa_suspend_wdi_pipe(u32 clnt_hdl)
 uc_timeout:
 	return result;
 }
-EXPORT_SYMBOL(ipa_suspend_wdi_pipe);
 
 int ipa_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 {
@@ -1422,7 +1415,7 @@ uc_timeout:
 }
 
 /**
- * ipa_uc_reg_rdyCB() - To register uC
+ * ipa2_uc_reg_rdyCB() - To register uC
  * ready CB if uC not ready
  * @inout:	[in/out] input/output parameters
  * from/to client
@@ -1430,7 +1423,7 @@ uc_timeout:
  * Returns:	0 on success, negative on failure
  *
  */
-int ipa_uc_reg_rdyCB(
+int ipa2_uc_reg_rdyCB(
 	struct ipa_wdi_uc_ready_params *inout)
 {
 	int result = 0;
@@ -1456,11 +1449,10 @@ int ipa_uc_reg_rdyCB(
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_uc_reg_rdyCB);
 
 
 /**
- * ipa_uc_wdi_get_dbpa() - To retrieve
+ * ipa2_uc_wdi_get_dbpa() - To retrieve
  * doorbell physical address of wlan pipes
  * @param:  [in/out] input/output parameters
  *          from/to client
@@ -1468,7 +1460,7 @@ EXPORT_SYMBOL(ipa_uc_reg_rdyCB);
  * Returns:	0 on success, negative on failure
  *
  */
-int ipa_uc_wdi_get_dbpa(
+int ipa2_uc_wdi_get_dbpa(
 	struct ipa_wdi_db_params *param)
 {
 	if (unlikely(!ipa_ctx)) {
@@ -1519,7 +1511,6 @@ int ipa_uc_wdi_get_dbpa(
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_uc_wdi_get_dbpa);
 
 static void ipa_uc_wdi_loaded_handler(void)
 {
@@ -1533,9 +1524,9 @@ static void ipa_uc_wdi_loaded_handler(void)
 			ipa_ctx->uc_wdi_ctx.priv);
 }
 
-int ipa_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
+int ipa2_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa_get_wlan_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa2_get_wlan_smmu_ctx();
 	int i;
 	int ret = 0;
 	int prot = IOMMU_READ | IOMMU_WRITE;
@@ -1563,11 +1554,10 @@ int ipa_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
 
 	return ret;
 }
-EXPORT_SYMBOL(ipa_create_wdi_mapping);
 
-int ipa_release_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
+int ipa2_release_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
 {
-	struct ipa_smmu_cb_ctx *cb = ipa_get_wlan_smmu_ctx();
+	struct ipa_smmu_cb_ctx *cb = ipa2_get_wlan_smmu_ctx();
 	int i;
 	int ret = 0;
 
@@ -1592,4 +1582,3 @@ int ipa_release_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
 
 	return ret;
 }
-EXPORT_SYMBOL(ipa_release_wdi_mapping);

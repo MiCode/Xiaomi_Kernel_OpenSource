@@ -176,13 +176,7 @@ static DECLARE_DELAYED_WORK(ipa_sps_release_resource_work,
 	ipa_sps_release_resource);
 
 static struct ipa_plat_drv_res ipa_res = {0, };
-static struct of_device_id ipa_plat_drv_match[] = {
-	{ .compatible = "qcom,ipa", },
-	{ .compatible = "qcom,ipa-smmu-ap-cb", },
-	{ .compatible = "qcom,ipa-smmu-wlan-cb", },
-	{ .compatible = "qcom,ipa-smmu-uc-cb", },
-	{}
-};
+
 struct msm_bus_scale_pdata *bus_scale_table;
 
 static struct clk *ipa_clk_src;
@@ -229,7 +223,7 @@ void arm_iommu_detach_device(struct device *dev) { }
 #endif
 
 
-struct iommu_domain *ipa_get_smmu_domain(void)
+struct iommu_domain *ipa2_get_smmu_domain(void)
 {
 	if (smmu_cb[IPA_SMMU_CB_AP].valid)
 		return smmu_cb[IPA_SMMU_CB_AP].mapping->domain;
@@ -238,7 +232,6 @@ struct iommu_domain *ipa_get_smmu_domain(void)
 
 	return NULL;
 }
-EXPORT_SYMBOL(ipa_get_smmu_domain);
 
 struct iommu_domain *ipa_get_uc_smmu_domain(void)
 {
@@ -252,18 +245,27 @@ struct iommu_domain *ipa_get_uc_smmu_domain(void)
 	return domain;
 }
 
-struct device *ipa_get_dma_dev(void)
+struct device *ipa2_get_dma_dev(void)
 {
 	return ipa_ctx->pdev;
 }
-EXPORT_SYMBOL(ipa_get_dma_dev);
 
-struct ipa_smmu_cb_ctx *ipa_get_wlan_smmu_ctx(void)
+/**
+ * ipa2_get_wlan_smmu_ctx()- Return the wlan smmu context
+ *
+ * Return value: pointer to smmu context address
+ */
+struct ipa_smmu_cb_ctx *ipa2_get_wlan_smmu_ctx(void)
 {
 	return &smmu_cb[IPA_SMMU_CB_WLAN];
 }
 
-struct ipa_smmu_cb_ctx *ipa_get_uc_smmu_ctx(void)
+/**
+ * ipa2_get_uc_smmu_ctx()- Return the uc smmu context
+ *
+ * Return value: pointer to smmu context address
+ */
+struct ipa_smmu_cb_ctx *ipa2_get_uc_smmu_ctx(void)
 {
 	return &smmu_cb[IPA_SMMU_CB_UC];
 }
@@ -317,9 +319,9 @@ static int ipa_send_wan_msg(unsigned long usr_param, uint8_t msg_type)
 	memset(&msg_meta, 0, sizeof(struct ipa_msg_meta));
 	msg_meta.msg_type = msg_type;
 	msg_meta.msg_len = sizeof(struct ipa_wan_msg);
-	retval = ipa_send_msg(&msg_meta, wan_msg, ipa_wan_msg_free_cb);
+	retval = ipa2_send_msg(&msg_meta, wan_msg, ipa_wan_msg_free_cb);
 	if (retval) {
-		IPAERR("ipa_send_msg failed: %d\n", retval);
+		IPAERR("ipa2_send_msg failed: %d\n", retval);
 		kfree(wan_msg);
 		return retval;
 	}
@@ -359,7 +361,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		/* null terminate the string */
 		nat_mem.dev_name[IPA_RESOURCE_NAME_MAX - 1] = '\0';
 
-		if (allocate_nat_device(&nat_mem)) {
+		if (ipa2_allocate_nat_device(&nat_mem)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -375,7 +377,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa_nat_init_cmd(&nat_init)) {
+		if (ipa2_nat_init_cmd(&nat_init)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -403,7 +405,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 		}
 
-		if (ipa_nat_dma_cmd((struct ipa_ioc_nat_dma_cmd *)param)) {
+		if (ipa2_nat_dma_cmd((struct ipa_ioc_nat_dma_cmd *)param)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -415,7 +417,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa_nat_del_cmd(&nat_del)) {
+		if (ipa2_nat_del_cmd(&nat_del)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -440,7 +442,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa_add_hdr((struct ipa_ioc_add_hdr *)param)) {
+		if (ipa2_add_hdr((struct ipa_ioc_add_hdr *)param)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -469,7 +471,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa_del_hdr((struct ipa_ioc_del_hdr *)param)) {
+		if (ipa2_del_hdr((struct ipa_ioc_del_hdr *)param)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -498,7 +500,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa_add_rt_rule((struct ipa_ioc_add_rt_rule *)param)) {
+		if (ipa2_add_rt_rule((struct ipa_ioc_add_rt_rule *)param)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -527,7 +529,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa_mdfy_rt_rule((struct ipa_ioc_mdfy_rt_rule *)param)) {
+		if (ipa2_mdfy_rt_rule((struct ipa_ioc_mdfy_rt_rule *)param)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -556,7 +558,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa_del_rt_rule((struct ipa_ioc_del_rt_rule *)param)) {
+		if (ipa2_del_rt_rule((struct ipa_ioc_del_rt_rule *)param)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -585,7 +587,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa_add_flt_rule((struct ipa_ioc_add_flt_rule *)param)) {
+		if (ipa2_add_flt_rule((struct ipa_ioc_add_flt_rule *)param)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -614,7 +616,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa_del_flt_rule((struct ipa_ioc_del_flt_rule *)param)) {
+		if (ipa2_del_flt_rule((struct ipa_ioc_del_flt_rule *)param)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -643,7 +645,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa_mdfy_flt_rule((struct ipa_ioc_mdfy_flt_rule *)param)) {
+		if (ipa2_mdfy_flt_rule((struct ipa_ioc_mdfy_flt_rule *)param)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -654,22 +656,22 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 
 	case IPA_IOC_COMMIT_HDR:
-		retval = ipa_commit_hdr();
+		retval = ipa2_commit_hdr();
 		break;
 	case IPA_IOC_RESET_HDR:
-		retval = ipa_reset_hdr();
+		retval = ipa2_reset_hdr();
 		break;
 	case IPA_IOC_COMMIT_RT:
-		retval = ipa_commit_rt(arg);
+		retval = ipa2_commit_rt(arg);
 		break;
 	case IPA_IOC_RESET_RT:
-		retval = ipa_reset_rt(arg);
+		retval = ipa2_reset_rt(arg);
 		break;
 	case IPA_IOC_COMMIT_FLT:
-		retval = ipa_commit_flt(arg);
+		retval = ipa2_commit_flt(arg);
 		break;
 	case IPA_IOC_RESET_FLT:
-		retval = ipa_reset_flt(arg);
+		retval = ipa2_reset_flt(arg);
 		break;
 	case IPA_IOC_GET_RT_TBL:
 		if (copy_from_user(header, (u8 *)arg,
@@ -677,7 +679,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa_get_rt_tbl((struct ipa_ioc_get_rt_tbl *)header)) {
+		if (ipa2_get_rt_tbl((struct ipa_ioc_get_rt_tbl *)header)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -688,7 +690,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	case IPA_IOC_PUT_RT_TBL:
-		retval = ipa_put_rt_tbl(arg);
+		retval = ipa2_put_rt_tbl(arg);
 		break;
 	case IPA_IOC_GET_HDR:
 		if (copy_from_user(header, (u8 *)arg,
@@ -696,7 +698,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa_get_hdr((struct ipa_ioc_get_hdr *)header)) {
+		if (ipa2_get_hdr((struct ipa_ioc_get_hdr *)header)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -707,7 +709,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 		break;
 	case IPA_IOC_PUT_HDR:
-		retval = ipa_put_hdr(arg);
+		retval = ipa2_put_hdr(arg);
 		break;
 	case IPA_IOC_SET_FLT:
 		retval = ipa_cfg_filter(arg);
@@ -718,7 +720,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa_copy_hdr((struct ipa_ioc_copy_hdr *)header)) {
+		if (ipa2_copy_hdr((struct ipa_ioc_copy_hdr *)header)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -884,7 +886,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		retval = ipa_rm_add_dependency(rm_depend.resource_name,
+		retval = ipa2_rm_add_dependency(rm_depend.resource_name,
 						rm_depend.depends_on_name);
 		break;
 	case IPA_IOC_RM_DEL_DEPENDENCY:
@@ -893,7 +895,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		retval = ipa_rm_delete_dependency(rm_depend.resource_name,
+		retval = ipa2_rm_delete_dependency(rm_depend.resource_name,
 						rm_depend.depends_on_name);
 		break;
 	case IPA_IOC_GENERATE_FLT_EQ:
@@ -919,7 +921,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		}
 	case IPA_IOC_QUERY_EP_MAPPING:
 		{
-			retval = ipa_get_ep_mapping(arg);
+			retval = ipa2_get_ep_mapping(arg);
 			break;
 		}
 	case IPA_IOC_QUERY_RT_TBL_INDEX:
@@ -928,7 +930,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa_query_rt_index(
+		if (ipa2_query_rt_index(
 			 (struct ipa_ioc_get_rt_tbl_indx *)header)) {
 			retval = -EFAULT;
 			break;
@@ -945,7 +947,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa_write_qmap_id((struct ipa_ioc_write_qmapid *)header)) {
+		if (ipa2_write_qmap_id((struct ipa_ioc_write_qmapid *)header)) {
 			retval = -EFAULT;
 			break;
 		}
@@ -995,7 +997,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa_add_hdr_proc_ctx(
+		if (ipa2_add_hdr_proc_ctx(
 			(struct ipa_ioc_add_hdr_proc_ctx *)param)) {
 			retval = -EFAULT;
 			break;
@@ -1024,7 +1026,7 @@ static long ipa_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			retval = -EFAULT;
 			break;
 		}
-		if (ipa_del_hdr_proc_ctx(
+		if (ipa2_del_hdr_proc_ctx(
 			(struct ipa_ioc_del_hdr_proc_ctx *)param)) {
 			retval = -EFAULT;
 			break;
@@ -1078,7 +1080,7 @@ int ipa_setup_dflt_rt_tables(void)
 	rt_rule_entry->rule.dst = IPA_CLIENT_APPS_LAN_CONS;
 	rt_rule_entry->rule.hdr_hdl = ipa_ctx->excp_hdr_hdl;
 
-	if (ipa_add_rt_rule(rt_rule)) {
+	if (ipa2_add_rt_rule(rt_rule)) {
 		IPAERR("fail to add dflt v4 rule\n");
 		kfree(rt_rule);
 		return -EPERM;
@@ -1088,7 +1090,7 @@ int ipa_setup_dflt_rt_tables(void)
 
 	/* setup a default v6 route to point to A5 */
 	rt_rule->ip = IPA_IP_v6;
-	if (ipa_add_rt_rule(rt_rule)) {
+	if (ipa2_add_rt_rule(rt_rule)) {
 		IPAERR("fail to add dflt v6 rule\n");
 		kfree(rt_rule);
 		return -EPERM;
@@ -1138,7 +1140,7 @@ static int ipa_setup_exception_path(void)
 		WARN_ON(1);
 	}
 
-	if (ipa_add_hdr(hdr)) {
+	if (ipa2_add_hdr(hdr)) {
 		IPAERR("fail to add exception hdr\n");
 		ret = -EPERM;
 		goto bail;
@@ -1153,8 +1155,8 @@ static int ipa_setup_exception_path(void)
 	ipa_ctx->excp_hdr_hdl = hdr_entry->hdr_hdl;
 
 	/* set the route register to pass exception packets to Apps */
-	route.route_def_pipe = ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
-	route.route_frag_def_pipe = ipa_get_ep_mapping(
+	route.route_def_pipe = ipa2_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
+	route.route_frag_def_pipe = ipa2_get_ep_mapping(
 		IPA_CLIENT_APPS_LAN_CONS);
 	route.route_def_hdr_table = !ipa_ctx->hdr_tbl_lcl;
 
@@ -1286,7 +1288,7 @@ static int ipa_q6_pipe_delay(void)
 
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
 		if (IPA_CLIENT_IS_Q6_PROD(client_idx)) {
-			ep_idx = ipa_get_ep_mapping(client_idx);
+			ep_idx = ipa2_get_ep_mapping(client_idx);
 			if (ep_idx == -1)
 				continue;
 
@@ -1314,12 +1316,12 @@ static int ipa_q6_avoid_holb(void)
 
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
 		if (IPA_CLIENT_IS_Q6_CONS(client_idx)) {
-			ep_idx = ipa_get_ep_mapping(client_idx);
+			ep_idx = ipa2_get_ep_mapping(client_idx);
 			if (ep_idx == -1)
 				continue;
 
 			/*
-			 * ipa_cfg_ep_holb is not used here because we are
+			 * ipa2_cfg_ep_holb is not used here because we are
 			 * setting HOLB on Q6 pipes, and from APPS perspective
 			 * they are not valid, therefore, the above function
 			 * will fail.
@@ -1342,7 +1344,7 @@ static int ipa_q6_avoid_holb(void)
 				IPA_ENDP_INIT_HOL_BLOCK_EN_N_OFST_v2_0(ep_idx),
 				reg_val);
 
-			ipa_cfg_ep_ctrl(ep_idx, &avoid_holb);
+			ipa2_cfg_ep_ctrl(ep_idx, &avoid_holb);
 		}
 	}
 
@@ -1529,7 +1531,7 @@ static int ipa_q6_set_ex_path_dis_agg(void)
 
 	/* Set the exception path to AP */
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
-		ep_idx = ipa_get_ep_mapping(client_idx);
+		ep_idx = ipa2_get_ep_mapping(client_idx);
 		if (ep_idx == -1)
 			continue;
 
@@ -1545,7 +1547,7 @@ static int ipa_q6_set_ex_path_dis_agg(void)
 			reg_write->skip_pipeline_clear = 0;
 			reg_write->offset = IPA_ENDP_STATUS_n_OFST(ep_idx);
 			reg_write->value =
-				(ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS) &
+				(ipa2_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS) &
 				IPA_ENDP_STATUS_n_STATUS_ENDP_BMSK) <<
 				IPA_ENDP_STATUS_n_STATUS_ENDP_SHFT;
 			reg_write->value_mask =
@@ -1573,7 +1575,7 @@ static int ipa_q6_set_ex_path_dis_agg(void)
 			}
 
 			ipa_q6_disable_agg_reg(reg_write,
-					       ipa_get_ep_mapping(client_idx));
+					       ipa2_get_ep_mapping(client_idx));
 
 			desc[num_descs].opcode = IPA_REGISTER_WRITE;
 			desc[num_descs].pyld = reg_write;
@@ -1614,9 +1616,6 @@ static int ipa_q6_set_ex_path_dis_agg(void)
 */
 int ipa_q6_cleanup(void)
 {
-	int client_idx;
-	int res;
-
 	/* If uC has notified the APPS upon a ZIP engine error,
 	 * APPS need to assert (This is a non recoverable error).
 	 */
@@ -1642,27 +1641,40 @@ int ipa_q6_cleanup(void)
 		BUG();
 	}
 
-	/* This workaround is required for pre IPA2.6HW MSMs */
-	if (ipa_ctx->ipa_hw_type < IPA_HW_v2_5) {
-		/*
-		 * Q6 relies on the AP to reset all Q6 IPA pipes.
-		 * In case the uC is not loaded, or upon any failure in the
-		 * pipe reset sequence, we have to assert.
-		 */
-		if (!ipa_ctx->uc_ctx.uc_loaded) {
-			IPAERR("uC is not loaded, can't reset Q6 pipes\n");
-			BUG();
-		}
-
-		for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++)
-			if (IPA_CLIENT_IS_Q6_CONS(client_idx) ||
-			    IPA_CLIENT_IS_Q6_PROD(client_idx)) {
-				res = ipa_uc_reset_pipe(client_idx);
-				if (res)
-					BUG();
-			}
-	}
 	ipa_ctx->q6_proxy_clk_vote_valid = true;
+	return 0;
+}
+
+/**
+* ipa_q6_pipe_reset() - A cleanup for the Q6 pipes
+*                    in IPA HW. This is performed in case of SSR.
+*
+* Return codes:
+* 0: success
+* This is a mandatory procedure, in case one of the steps fails, the
+* AP needs to restart.
+*/
+int ipa_q6_pipe_reset(void)
+{
+	int client_idx;
+	int res;
+	/*
+	 * Q6 relies on the AP to reset all Q6 IPA pipes.
+	 * In case the uC is not loaded, or upon any failure in the
+	 * pipe reset sequence, we have to assert.
+	 */
+	if (!ipa_ctx->uc_ctx.uc_loaded) {
+		IPAERR("uC is not loaded, can't reset Q6 pipes\n");
+		BUG();
+	}
+
+	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++)
+		if (IPA_CLIENT_IS_Q6_CONS(client_idx) ||
+			IPA_CLIENT_IS_Q6_PROD(client_idx)) {
+			res = ipa_uc_reset_pipe(client_idx);
+			if (res)
+				BUG();
+		}
 	return 0;
 }
 
@@ -2137,7 +2149,7 @@ static int ipa_setup_apps_pipes(void)
 	sys_in.ipa_ep_cfg.mode.mode = IPA_DMA;
 	sys_in.ipa_ep_cfg.mode.dst = IPA_CLIENT_APPS_LAN_CONS;
 	sys_in.skip_ep_cfg = true;
-	if (ipa_setup_sys_pipe(&sys_in, &ipa_ctx->clnt_hdl_cmd)) {
+	if (ipa2_setup_sys_pipe(&sys_in, &ipa_ctx->clnt_hdl_cmd)) {
 		IPAERR(":setup sys pipe failed.\n");
 		result = -EPERM;
 		goto fail_cmd;
@@ -2206,7 +2218,7 @@ static int ipa_setup_apps_pipes(void)
 	 * This lock intended to protect the access to the source EP call-back
 	 */
 	spin_lock_init(&ipa_ctx->lan_rx_clnt_notify_lock);
-	if (ipa_setup_sys_pipe(&sys_in, &ipa_ctx->clnt_hdl_data_in)) {
+	if (ipa2_setup_sys_pipe(&sys_in, &ipa_ctx->clnt_hdl_data_in)) {
 		IPAERR(":setup sys pipe failed.\n");
 		result = -EPERM;
 		goto fail_schedule_delayed_work;
@@ -2217,7 +2229,7 @@ static int ipa_setup_apps_pipes(void)
 	sys_in.client = IPA_CLIENT_APPS_LAN_WAN_PROD;
 	sys_in.desc_fifo_sz = IPA_SYS_TX_DATA_DESC_FIFO_SZ;
 	sys_in.ipa_ep_cfg.mode.mode = IPA_BASIC;
-	if (ipa_setup_sys_pipe(&sys_in, &ipa_ctx->clnt_hdl_data_out)) {
+	if (ipa2_setup_sys_pipe(&sys_in, &ipa_ctx->clnt_hdl_data_out)) {
 		IPAERR(":setup sys pipe failed.\n");
 		result = -EPERM;
 		goto fail_data_out;
@@ -2226,7 +2238,7 @@ static int ipa_setup_apps_pipes(void)
 	return 0;
 
 fail_data_out:
-	ipa_teardown_sys_pipe(ipa_ctx->clnt_hdl_data_in);
+	ipa2_teardown_sys_pipe(ipa_ctx->clnt_hdl_data_in);
 fail_schedule_delayed_work:
 	if (ipa_ctx->dflt_v6_rt_rule_hdl)
 		__ipa_del_rt_rule(ipa_ctx->dflt_v6_rt_rule_hdl);
@@ -2234,19 +2246,19 @@ fail_schedule_delayed_work:
 		__ipa_del_rt_rule(ipa_ctx->dflt_v4_rt_rule_hdl);
 	if (ipa_ctx->excp_hdr_hdl)
 		__ipa_del_hdr(ipa_ctx->excp_hdr_hdl);
-	ipa_teardown_sys_pipe(ipa_ctx->clnt_hdl_cmd);
+	ipa2_teardown_sys_pipe(ipa_ctx->clnt_hdl_cmd);
 fail_cmd:
 	return result;
 }
 
 static void ipa_teardown_apps_pipes(void)
 {
-	ipa_teardown_sys_pipe(ipa_ctx->clnt_hdl_data_out);
-	ipa_teardown_sys_pipe(ipa_ctx->clnt_hdl_data_in);
+	ipa2_teardown_sys_pipe(ipa_ctx->clnt_hdl_data_out);
+	ipa2_teardown_sys_pipe(ipa_ctx->clnt_hdl_data_in);
 	__ipa_del_rt_rule(ipa_ctx->dflt_v6_rt_rule_hdl);
 	__ipa_del_rt_rule(ipa_ctx->dflt_v4_rt_rule_hdl);
 	__ipa_del_hdr(ipa_ctx->excp_hdr_hdl);
-	ipa_teardown_sys_pipe(ipa_ctx->clnt_hdl_cmd);
+	ipa2_teardown_sys_pipe(ipa_ctx->clnt_hdl_cmd);
 }
 
 #ifdef CONFIG_COMPAT
@@ -2310,7 +2322,7 @@ long compat_ipa_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		/* null terminate the string */
 		nat_mem.dev_name[IPA_RESOURCE_NAME_MAX - 1] = '\0';
 
-		if (allocate_nat_device(&nat_mem)) {
+		if (ipa2_allocate_nat_device(&nat_mem)) {
 			retval = -EFAULT;
 			goto ret;
 		}
@@ -2851,8 +2863,8 @@ static int ipa_init_flt_block(void)
 			rt_lookup.ip = ip;
 			strlcpy(rt_lookup.name, IPA_DFLT_RT_TBL_NAME,
 					IPA_RESOURCE_NAME_MAX);
-			ipa_get_rt_tbl(&rt_lookup);
-			ipa_put_rt_tbl(rt_lookup.hdl);
+			ipa2_get_rt_tbl(&rt_lookup);
+			ipa2_put_rt_tbl(rt_lookup.hdl);
 
 			memset(rules, 0, sz);
 			rule = &rules->rules[0];
@@ -2890,7 +2902,9 @@ static int ipa_init_flt_block(void)
 			rule->rule.rt_tbl_hdl = rt_lookup.hdl;
 			rule->rule.retain_hdr = true;
 
-			if (ipa_add_flt_rule(rules) || rules->rules[0].status) {
+			if (ipa2_add_flt_rule(rules) ||
+			rules->rules[0].status) {
+
 				result = -EINVAL;
 				WARN_ON(1);
 				break;
@@ -2926,12 +2940,12 @@ void ipa_suspend_handler(enum ipa_irq_type interrupt,
 
 	for (i = 0; i < ipa_ctx->ipa_num_pipes; i++) {
 		if ((suspend_data & bmsk) && (ipa_ctx->ep[i].valid)) {
-			resource = ipa_get_rm_resource_from_ep(i);
+			resource = ipa2_get_rm_resource_from_ep(i);
 			res = ipa_rm_request_resource_with_timer(resource);
 			if (res == EPERM &&
 				IPA_CLIENT_IS_CONS(ipa_ctx->ep[i].client)) {
 				holb_cfg.en = 1;
-				res = ipa_cfg_ep_holb_by_client(
+				res = ipa2_cfg_ep_holb_by_client(
 				   ipa_ctx->ep[i].client, &holb_cfg);
 				if (res) {
 					IPAERR("holb en fail,IPAHW stall\n");
@@ -3012,14 +3026,14 @@ int ipa_create_apps_resource(void)
 	apps_cons_create_params.name = IPA_RM_RESOURCE_APPS_CONS;
 	apps_cons_create_params.request_resource = apps_cons_request_resource;
 	apps_cons_create_params.release_resource = apps_cons_release_resource;
-	result = ipa_rm_create_resource(&apps_cons_create_params);
+	result = ipa2_rm_create_resource(&apps_cons_create_params);
 	if (result) {
-		IPAERR("ipa_rm_create_resource failed\n");
+		IPAERR("ipa2_rm_create_resource failed\n");
 		return result;
 	}
 
 	profile.max_supported_bandwidth_mbps = IPA_APPS_MAX_BW_IN_MBPS;
-	ipa_rm_set_perf_profile(IPA_RM_RESOURCE_APPS_CONS, &profile);
+	ipa2_rm_set_perf_profile(IPA_RM_RESOURCE_APPS_CONS, &profile);
 
 	return result;
 }
@@ -3279,6 +3293,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		bam_props.options |= SPS_BAM_SMMU_EN;
 	bam_props.ee = resource_p->ee;
 	bam_props.callback = sps_event_cb;
+	bam_props.ipc_loglevel = 2;
 
 	result = sps_register_bam_device(&bam_props, &ipa_ctx->bam_handle);
 	if (result) {
@@ -3537,7 +3552,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	}
 
 	/*add handler for suspend interrupt*/
-	result = ipa_add_interrupt_handler(IPA_TX_SUSPEND_IRQ,
+	result = ipa2_add_interrupt_handler(IPA_TX_SUSPEND_IRQ,
 			ipa_suspend_handler, true, NULL);
 	if (result) {
 		IPAERR("register handler for suspend interrupt failed\n");
@@ -3581,7 +3596,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 fail_add_interrupt_handler:
 	free_irq(resource_p->ipa_irq, master_dev);
 fail_ipa_interrupts_init:
-	ipa_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
+	ipa2_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
 fail_create_apps_resource:
 	ipa_rm_exit();
 fail_ipa_rm_init:
@@ -3794,76 +3809,6 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	return 0;
 }
 
-int ipa_smmu_map_peer_bam(unsigned long dev)
-{
-	phys_addr_t base;
-	u32 size;
-	struct iommu_domain *smmu_domain;
-
-	if (ipa_ctx->smmu_present) {
-		if (ipa_ctx->peer_bam_map_cnt == 0) {
-			if (sps_get_bam_addr(dev, &base, &size)) {
-				IPAERR("Fail to get addr\n");
-				return -EINVAL;
-			}
-			smmu_domain = ipa_get_smmu_domain();
-			if (smmu_domain != NULL) {
-				if (iommu_map(smmu_domain,
-					IPA_SMMU_AP_VA_END,
-					rounddown(base, PAGE_SIZE),
-					roundup(size + base -
-					rounddown(base, PAGE_SIZE), PAGE_SIZE),
-					IOMMU_READ | IOMMU_WRITE |
-					IOMMU_DEVICE)) {
-					IPAERR("Fail to iommu_map\n");
-					return -EINVAL;
-				}
-			}
-
-			ipa_ctx->peer_bam_iova = IPA_SMMU_AP_VA_END;
-			ipa_ctx->peer_bam_pa = base;
-			ipa_ctx->peer_bam_map_size = size;
-			ipa_ctx->peer_bam_dev = dev;
-
-			IPADBG("Peer bam %lu mapped\n", dev);
-		} else {
-			WARN_ON(dev != ipa_ctx->peer_bam_dev);
-		}
-
-		ipa_ctx->peer_bam_map_cnt++;
-	}
-
-	return 0;
-}
-
-int ipa_smmu_unmap_peer_bam(unsigned long dev)
-{
-	size_t len;
-	struct iommu_domain *smmu_domain;
-
-	if (ipa_ctx->smmu_present) {
-		WARN_ON(dev != ipa_ctx->peer_bam_dev);
-		ipa_ctx->peer_bam_map_cnt--;
-		if (ipa_ctx->peer_bam_map_cnt == 0) {
-			len = roundup(ipa_ctx->peer_bam_map_size +
-					ipa_ctx->peer_bam_pa -
-					rounddown(ipa_ctx->peer_bam_pa,
-						PAGE_SIZE), PAGE_SIZE);
-			smmu_domain = ipa_get_smmu_domain();
-			if (smmu_domain != NULL) {
-				if (iommu_unmap(smmu_domain,
-					IPA_SMMU_AP_VA_END, len) != len) {
-					IPAERR("Fail to iommu_unmap\n");
-					return -EINVAL;
-				}
-				IPADBG("Peer bam %lu unmapped\n", dev);
-			}
-		}
-	}
-
-	return 0;
-}
-
 static int ipa_smmu_wlan_cb_probe(struct device *dev)
 {
 	struct ipa_smmu_cb_ctx *cb = &smmu_cb[IPA_SMMU_CB_WLAN];
@@ -4041,7 +3986,8 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	return result;
 }
 
-static int ipa_plat_drv_probe(struct platform_device *pdev_p)
+int ipa_plat_drv_probe(struct platform_device *pdev_p,
+	struct ipa_api_controller *api_ctrl, struct of_device_id *pdrv_match)
 {
 	int result;
 	struct device *dev = &pdev_p->dev;
@@ -4067,10 +4013,16 @@ static int ipa_plat_drv_probe(struct platform_device *pdev_p)
 		return result;
 	}
 
+	result = ipa2_bind_api_controller(ipa_res.ipa_hw_type, api_ctrl);
+	if (result) {
+		IPAERR("IPA API binding failed\n");
+		return result;
+	}
+
 	if (of_property_read_bool(pdev_p->dev.of_node, "qcom,arm-smmu")) {
 		arm_smmu = true;
 		result = of_platform_populate(pdev_p->dev.of_node,
-				ipa_plat_drv_match, NULL, &pdev_p->dev);
+				pdrv_match, NULL, &pdev_p->dev);
 	} else if (of_property_read_bool(pdev_p->dev.of_node,
 				"qcom,msm-smmu")) {
 		IPAERR("Legacy IOMMU not supported\n");
@@ -4098,7 +4050,7 @@ static int ipa_plat_drv_probe(struct platform_device *pdev_p)
 }
 
 /**
- * ipa_ap_suspend() - suspend callback for runtime_pm
+ * ipa2_ap_suspend() - suspend callback for runtime_pm
  * @dev: pointer to device
  *
  * This callback will be invoked by the runtime_pm framework when an AP suspend
@@ -4107,7 +4059,7 @@ static int ipa_plat_drv_probe(struct platform_device *pdev_p)
  * Returns -EAGAIN to runtime_pm framework in case IPA is in use by AP.
  * This will postpone the suspend operation until IPA is no longer used by AP.
 */
-static int ipa_ap_suspend(struct device *dev)
+int ipa2_ap_suspend(struct device *dev)
 {
 	int i;
 
@@ -4140,7 +4092,7 @@ static int ipa_ap_suspend(struct device *dev)
 }
 
 /**
-* ipa_ap_resume() - resume callback for runtime_pm
+* ipa2_ap_resume() - resume callback for runtime_pm
 * @dev: pointer to device
 *
 * This callback will be invoked by the runtime_pm framework when an AP resume
@@ -4148,39 +4100,15 @@ static int ipa_ap_suspend(struct device *dev)
 *
 * Always returns 0 since resume should always succeed.
 */
-static int ipa_ap_resume(struct device *dev)
+int ipa2_ap_resume(struct device *dev)
 {
 	return 0;
 }
-
-static const struct dev_pm_ops ipa_pm_ops = {
-	.suspend_noirq = ipa_ap_suspend,
-	.resume_noirq = ipa_ap_resume,
-};
-
-static struct platform_driver ipa_plat_drv = {
-	.probe = ipa_plat_drv_probe,
-	.driver = {
-		.name = DRV_NAME,
-		.owner = THIS_MODULE,
-		.pm = &ipa_pm_ops,
-		.of_match_table = ipa_plat_drv_match,
-	},
-};
 
 struct ipa_context *ipa_get_ctx(void)
 {
 	return ipa_ctx;
 }
-
-static int __init ipa_module_init(void)
-{
-	IPADBG("IPA module init\n");
-
-	/* Register as a platform device driver */
-	return platform_driver_register(&ipa_plat_drv);
-}
-subsys_initcall(ipa_module_init);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("IPA HW device driver");

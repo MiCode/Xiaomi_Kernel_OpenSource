@@ -174,13 +174,6 @@ static DECLARE_DELAYED_WORK(ipa3_sps_release_resource_work,
 	ipa3_sps_release_resource);
 
 static struct ipa3_plat_drv_res ipa3_res = {0, };
-static struct of_device_id ipa3_plat_drv_match[] = {
-	{ .compatible = "qcom,ipa", },
-	{ .compatible = "qcom,ipa-smmu-ap-cb", },
-	{ .compatible = "qcom,ipa-smmu-wlan-cb", },
-	{ .compatible = "qcom,ipa-smmu-uc-cb", },
-	{}
-};
 struct msm_bus_scale_pdata *ipa3_bus_scale_table;
 
 static struct clk *ipa3_clk;
@@ -231,7 +224,6 @@ struct iommu_domain *ipa3_get_smmu_domain(void)
 
 	return NULL;
 }
-EXPORT_SYMBOL(ipa3_get_smmu_domain);
 
 struct iommu_domain *ipa3_get_uc_smmu_domain(void)
 {
@@ -249,13 +241,22 @@ struct device *ipa3_get_dma_dev(void)
 {
 	return ipa3_ctx->pdev;
 }
-EXPORT_SYMBOL(ipa3_get_dma_dev);
 
+/**
+ * ipa3_get_wlan_smmu_ctx()- Return the wlan smmu context
+ *
+ * Return value: pointer to smmu context address
+ */
 struct ipa_smmu_cb_ctx *ipa3_get_wlan_smmu_ctx(void)
 {
 	return &smmu_cb[IPA_SMMU_CB_WLAN];
 }
 
+/**
+ * ipa3_get_uc_smmu_ctx()- Return the uc smmu context
+ *
+ * Return value: pointer to smmu context address
+ */
 struct ipa_smmu_cb_ctx *ipa3_get_uc_smmu_ctx(void)
 {
 	return &smmu_cb[IPA_SMMU_CB_UC];
@@ -3021,6 +3022,7 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 		bam_props.options |= SPS_BAM_SMMU_EN;
 	bam_props.ee = resource_p->ee;
 	bam_props.callback = ipa3_sps_event_cb;
+	bam_props.ipc_loglevel = 2;
 
 	result = sps_register_bam_device(&bam_props, &ipa3_ctx->bam_handle);
 	if (result) {
@@ -3528,76 +3530,6 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	return 0;
 }
 
-int ipa3_smmu_map_peer_bam(unsigned long dev)
-{
-	phys_addr_t base;
-	u32 size;
-	struct iommu_domain *smmu_domain;
-
-	if (ipa3_ctx->smmu_present) {
-		if (ipa3_ctx->peer_bam_map_cnt == 0) {
-			if (sps_get_bam_addr(dev, &base, &size)) {
-				IPAERR("Fail to get addr\n");
-				return -EINVAL;
-			}
-			smmu_domain = ipa3_get_smmu_domain();
-			if (smmu_domain != NULL) {
-				if (iommu_map(smmu_domain,
-					IPA_SMMU_AP_VA_END,
-					rounddown(base, PAGE_SIZE),
-					roundup(size + base -
-					rounddown(base, PAGE_SIZE), PAGE_SIZE),
-					IOMMU_READ | IOMMU_WRITE |
-					IOMMU_DEVICE)) {
-					IPAERR("Fail to iommu_map\n");
-					return -EINVAL;
-				}
-			}
-
-			ipa3_ctx->peer_bam_iova = IPA_SMMU_AP_VA_END;
-			ipa3_ctx->peer_bam_pa = base;
-			ipa3_ctx->peer_bam_map_size = size;
-			ipa3_ctx->peer_bam_dev = dev;
-
-			IPADBG("Peer bam %lu mapped\n", dev);
-		} else {
-			WARN_ON(dev != ipa3_ctx->peer_bam_dev);
-		}
-
-		ipa3_ctx->peer_bam_map_cnt++;
-	}
-
-	return 0;
-}
-
-int ipa3_smmu_unmap_peer_bam(unsigned long dev)
-{
-	size_t len;
-	struct iommu_domain *smmu_domain;
-
-	if (ipa3_ctx->smmu_present) {
-		WARN_ON(dev != ipa3_ctx->peer_bam_dev);
-		ipa3_ctx->peer_bam_map_cnt--;
-		if (ipa3_ctx->peer_bam_map_cnt == 0) {
-			len = roundup(ipa3_ctx->peer_bam_map_size +
-					ipa3_ctx->peer_bam_pa -
-					rounddown(ipa3_ctx->peer_bam_pa,
-						PAGE_SIZE), PAGE_SIZE);
-			smmu_domain = ipa3_get_smmu_domain();
-			if (smmu_domain != NULL) {
-				if (iommu_unmap(smmu_domain,
-					IPA_SMMU_AP_VA_END, len) != len) {
-					IPAERR("Fail to iommu_unmap\n");
-					return -EINVAL;
-				}
-				IPADBG("Peer bam %lu unmapped\n", dev);
-			}
-		}
-	}
-
-	return 0;
-}
-
 static int ipa_smmu_wlan_cb_probe(struct device *dev)
 {
 	struct ipa_smmu_cb_ctx *cb = &smmu_cb[IPA_SMMU_CB_WLAN];
@@ -3658,7 +3590,7 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 	}
 
 	cb->dev = dev;
-	cb->mapping = arm_iommu_create_mapping(&platform_bus_type,
+	cb->mapping = ipa3_arm_iommu_create_mapping(&platform_bus_type,
 			IPA_SMMU_UC_VA_START, IPA_SMMU_UC_VA_SIZE);
 	if (IS_ERR(cb->mapping)) {
 		IPADBG("Fail to create mapping\n");
@@ -3666,7 +3598,7 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 		return -EPROBE_DEFER;
 	}
 
-	ret = arm_iommu_attach_device(cb->dev, cb->mapping);
+	ret = ipa3_arm_iommu_attach_device(cb->dev, cb->mapping);
 	if (ret) {
 		IPAERR("could not attach device ret=%d\n", ret);
 		return ret;
@@ -3677,7 +3609,7 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 				DOMAIN_ATTR_COHERENT_HTW_DISABLE,
 				 &disable_htw)) {
 			IPAERR("couldn't disable coherent HTW\n");
-			arm_iommu_detach_device(cb->dev);
+			ipa3_arm_iommu_detach_device(cb->dev);
 			return -EIO;
 		}
 	}
@@ -3705,7 +3637,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	}
 
 	cb->dev = dev;
-	cb->mapping = arm_iommu_create_mapping(&platform_bus_type,
+	cb->mapping = ipa3_arm_iommu_create_mapping(&platform_bus_type,
 			IPA_SMMU_AP_VA_START, IPA_SMMU_AP_VA_SIZE);
 	if (IS_ERR(cb->mapping)) {
 		IPADBG("Fail to create mapping\n");
@@ -3718,7 +3650,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 				DOMAIN_ATTR_COHERENT_HTW_DISABLE,
 				 &disable_htw)) {
 			IPAERR("couldn't disable coherent HTW\n");
-			arm_iommu_detach_device(cb->dev);
+			ipa3_arm_iommu_detach_device(cb->dev);
 			return -EIO;
 		}
 	}
@@ -3727,11 +3659,11 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 				  DOMAIN_ATTR_ATOMIC,
 				  &atomic_ctx)) {
 		IPAERR("couldn't set domain as atomic\n");
-		arm_iommu_detach_device(cb->dev);
+		ipa3_arm_iommu_detach_device(cb->dev);
 		return -EIO;
 	}
 
-	result = arm_iommu_attach_device(cb->dev, cb->mapping);
+	result = ipa3_arm_iommu_attach_device(cb->dev, cb->mapping);
 	if (result) {
 		IPAERR("couldn't attach to IOMMU ret=%d\n", result);
 		return result;
@@ -3747,7 +3679,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	result = ipa3_init(&ipa3_res, dev);
 	if (result) {
 		IPAERR("ipa_init failed\n");
-		arm_iommu_detach_device(cb->dev);
+		ipa3_arm_iommu_detach_device(cb->dev);
 		arm_iommu_release_mapping(cb->mapping);
 		return result;
 	}
@@ -3755,7 +3687,8 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	return result;
 }
 
-int ipa3_plat_drv_probe(struct platform_device *pdev_p)
+int ipa3_plat_drv_probe(struct platform_device *pdev_p,
+	struct ipa_api_controller *api_ctrl, struct of_device_id *pdrv_match)
 {
 	int result;
 	struct device *dev = &pdev_p->dev;
@@ -3781,10 +3714,16 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p)
 		return result;
 	}
 
+	result = ipa3_bind_api_controller(ipa3_res.ipa_hw_type, api_ctrl);
+	if (result) {
+		IPAERR("IPA API binding failed\n");
+		return result;
+	}
+
 	if (of_property_read_bool(pdev_p->dev.of_node, "qcom,arm-smmu")) {
 		arm_smmu = true;
 		result = of_platform_populate(pdev_p->dev.of_node,
-				ipa3_plat_drv_match, NULL, &pdev_p->dev);
+				pdrv_match, NULL, &pdev_p->dev);
 	} else if (of_property_read_bool(pdev_p->dev.of_node,
 				"qcom,msm-smmu")) {
 		IPAERR("Legacy IOMMU not supported\n");
@@ -3821,7 +3760,7 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p)
  * Returns -EAGAIN to runtime_pm framework in case IPA is in use by AP.
  * This will postpone the suspend operation until IPA is no longer used by AP.
 */
-static int ipa3_ap_suspend(struct device *dev)
+int ipa3_ap_suspend(struct device *dev)
 {
 	int i;
 
@@ -3862,39 +3801,15 @@ static int ipa3_ap_suspend(struct device *dev)
 *
 * Always returns 0 since resume should always succeed.
 */
-static int ipa3_ap_resume(struct device *dev)
+int ipa3_ap_resume(struct device *dev)
 {
 	return 0;
 }
-
-static const struct dev_pm_ops ipa3_pm_ops = {
-	.suspend_noirq = ipa3_ap_suspend,
-	.resume_noirq = ipa3_ap_resume,
-};
-
-static struct platform_driver ipa3_plat_drv = {
-	.probe = ipa3_plat_drv_probe,
-	.driver = {
-		.name = DRV_NAME,
-		.owner = THIS_MODULE,
-		.pm = &ipa3_pm_ops,
-		.of_match_table = ipa3_plat_drv_match,
-	},
-};
 
 struct ipa3_context *ipa3_get_ctx(void)
 {
 	return ipa3_ctx;
 }
-
-static int __init ipa3_module_init(void)
-{
-	IPADBG("IPA module init\n");
-
-	/* Register as a platform device driver */
-	return platform_driver_register(&ipa3_plat_drv);
-}
-subsys_initcall(ipa3_module_init);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("IPA HW device driver");

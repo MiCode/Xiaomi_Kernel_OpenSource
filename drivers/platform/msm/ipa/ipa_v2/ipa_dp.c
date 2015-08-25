@@ -586,7 +586,7 @@ int ipa_send_cmd(u16 num_desc, struct ipa_desc *descr)
 
 	IPADBG("sending command\n");
 
-	ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_CMD_PROD);
+	ep_idx = ipa2_get_ep_mapping(IPA_CLIENT_APPS_CMD_PROD);
 	if (-1 == ep_idx) {
 		IPAERR("Client %u is not mapped\n",
 			IPA_CLIENT_APPS_CMD_PROD);
@@ -888,7 +888,7 @@ static void switch_to_intr_rx_work_func(struct work_struct *work)
 }
 
 /**
- * ipa_setup_sys_pipe() - Setup an IPA end-point in system-BAM mode and perform
+ * ipa2_setup_sys_pipe() - Setup an IPA end-point in system-BAM mode and perform
  * IPA EP configuration
  * @sys_in:	[in] input needed to setup BAM pipe and configure EP
  * @clnt_hdl:	[out] client handle
@@ -903,7 +903,7 @@ static void switch_to_intr_rx_work_func(struct work_struct *work)
  *
  * Returns:	0 on success, negative on failure
  */
-int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
+int ipa2_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 {
 	struct ipa_ep_context *ep;
 	int ipa_ep_idx;
@@ -928,7 +928,7 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		goto fail_gen;
 	}
 
-	ipa_ep_idx = ipa_get_ep_mapping(sys_in->client);
+	ipa_ep_idx = ipa2_get_ep_mapping(sys_in->client);
 	if (ipa_ep_idx == -1) {
 		IPAERR("Invalid client.\n");
 		goto fail_gen;
@@ -943,13 +943,13 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 			IPAERR("EP already allocated.\n");
 			goto fail_and_disable_clocks;
 		} else {
-			if (ipa_cfg_ep_hdr(ipa_ep_idx,
+			if (ipa2_cfg_ep_hdr(ipa_ep_idx,
 						&sys_in->ipa_ep_cfg.hdr)) {
 				IPAERR("fail to configure hdr prop of EP.\n");
 				result = -EFAULT;
 				goto fail_and_disable_clocks;
 			}
-			if (ipa_cfg_ep_cfg(ipa_ep_idx,
+			if (ipa2_cfg_ep_cfg(ipa_ep_idx,
 						&sys_in->ipa_ep_cfg.cfg)) {
 				IPAERR("fail to configure cfg prop of EP.\n");
 				result = -EFAULT;
@@ -1030,11 +1030,11 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	}
 
 	if (!ep->skip_ep_cfg) {
-		if (ipa_cfg_ep(ipa_ep_idx, &sys_in->ipa_ep_cfg)) {
+		if (ipa2_cfg_ep(ipa_ep_idx, &sys_in->ipa_ep_cfg)) {
 			IPAERR("fail to configure EP.\n");
 			goto fail_gen2;
 		}
-		if (ipa_cfg_ep_status(ipa_ep_idx, &ep->status)) {
+		if (ipa2_cfg_ep_status(ipa_ep_idx, &ep->status)) {
 			IPAERR("fail to configure status of EP.\n");
 			goto fail_gen2;
 		}
@@ -1092,7 +1092,7 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		ep->connect.desc.phys_base = dma_addr;
 	} else {
 		ep->connect.desc.iova = dma_addr;
-		smmu_domain = ipa_get_smmu_domain();
+		smmu_domain = ipa2_get_smmu_domain();
 		if (smmu_domain != NULL) {
 			ep->connect.desc.phys_base =
 				iommu_iova_to_phys(smmu_domain, dma_addr);
@@ -1186,15 +1186,14 @@ fail_and_disable_clocks:
 fail_gen:
 	return result;
 }
-EXPORT_SYMBOL(ipa_setup_sys_pipe);
 
 /**
- * ipa_teardown_sys_pipe() - Teardown the system-BAM pipe and cleanup IPA EP
- * @clnt_hdl:	[in] the handle obtained from ipa_setup_sys_pipe
+ * ipa2_teardown_sys_pipe() - Teardown the system-BAM pipe and cleanup IPA EP
+ * @clnt_hdl:	[in] the handle obtained from ipa2_setup_sys_pipe
  *
  * Returns:	0 on success, negative on failure
  */
-int ipa_teardown_sys_pipe(u32 clnt_hdl)
+int ipa2_teardown_sys_pipe(u32 clnt_hdl)
 {
 	struct ipa_ep_context *ep;
 	int empty;
@@ -1263,7 +1262,6 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_teardown_sys_pipe);
 
 /**
  * ipa_tx_comp_usr_notify_release() - Callback function which will call the
@@ -1297,7 +1295,7 @@ static void ipa_tx_cmd_comp(void *user1, int user2)
 }
 
 /**
- * ipa_tx_dp() - Data-path tx handler
+ * ipa2_tx_dp() - Data-path tx handler
  * @dst:	[in] which IPA destination to route tx packets to
  * @skb:	[in] the packet to send
  * @metadata:	[in] TX packet meta-data
@@ -1323,7 +1321,7 @@ static void ipa_tx_cmd_comp(void *user1, int user2)
  *
  * Returns:	0 on success, negative on failure
  */
-int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
+int ipa2_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 		struct ipa_tx_meta *meta)
 {
 	struct ipa_desc desc[2];
@@ -1354,15 +1352,15 @@ int ipa_tx_dp(enum ipa_client_type dst, struct sk_buff *skb,
 	 *
 	 */
 	if (IPA_CLIENT_IS_CONS(dst)) {
-		src_ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_WAN_PROD);
+		src_ep_idx = ipa2_get_ep_mapping(IPA_CLIENT_APPS_LAN_WAN_PROD);
 		if (-1 == src_ep_idx) {
 			IPAERR("Client %u is not mapped\n",
 				IPA_CLIENT_APPS_LAN_WAN_PROD);
 			return -EFAULT;
 		}
-		dst_ep_idx = ipa_get_ep_mapping(dst);
+		dst_ep_idx = ipa2_get_ep_mapping(dst);
 	} else {
-		src_ep_idx = ipa_get_ep_mapping(dst);
+		src_ep_idx = ipa2_get_ep_mapping(dst);
 		if (-1 == src_ep_idx) {
 			IPAERR("Client %u is not mapped\n", dst);
 			return -EFAULT;
@@ -1442,7 +1440,6 @@ fail_send:
 fail_gen:
 	return -EFAULT;
 }
-EXPORT_SYMBOL(ipa_tx_dp);
 
 static void ipa_wq_handle_rx(struct work_struct *work)
 {
@@ -1778,13 +1775,15 @@ static void ipa_fast_replenish_rx_cache(struct ipa_sys_context *sys)
 			break;
 		}
 		rx_len_cached = ++sys->len;
+		sys->repl_trig_cnt++;
 		curr = (curr + 1) % sys->repl.capacity;
 		/* ensure write is done before setting head index */
 		mb();
 		atomic_set(&sys->repl.head_idx, curr);
 	}
 
-	queue_work(sys->repl_wq, &sys->repl_work);
+	if (sys->repl_trig_cnt % sys->repl_trig_thresh == 0)
+		queue_work(sys->repl_wq, &sys->repl_work);
 
 	if (rx_len_cached <= sys->ep->rx_replenish_threshold) {
 		if (rx_len_cached == 0) {
@@ -2217,7 +2216,7 @@ static int ipa_wan_rx_pyld_hdlr(struct sk_buff *skb,
 			IPA_STATS_INC_CNT(ipa_ctx->stats.wan_aggr_close);
 			continue;
 		}
-		ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+		ep_idx = ipa2_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
 		if (status->endp_dest_idx != ep_idx) {
 			IPAERR("expected endp_dest_idx %d received %d\n",
 					ep_idx, status->endp_dest_idx);
@@ -2455,7 +2454,7 @@ static void ipa_wlan_wq_rx_common(struct ipa_sys_context *sys, u32 size)
 	rx_skb->truesize = rx_pkt_expected->len + sizeof(struct sk_buff);
 	sys->ep->wstats.tx_pkts_rcvd++;
 	if (sys->len <= IPA_WLAN_RX_POOL_SZ_LOW_WM) {
-		ipa_free_skb(&rx_pkt_expected->data);
+		ipa2_free_skb(&rx_pkt_expected->data);
 		sys->ep->wstats.tx_pkts_dropped++;
 	} else {
 		sys->ep->wstats.tx_pkts_sent++;
@@ -2590,7 +2589,7 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 				sys->policy = IPA_POLICY_NOINTR_MODE;
 				sys->sps_option = SPS_O_AUTO_ENABLE;
 				sys->sps_callback = NULL;
-				sys->ep->status.status_ep = ipa_get_ep_mapping(
+				sys->ep->status.status_ep = ipa2_get_ep_mapping(
 						IPA_CLIENT_APPS_LAN_CONS);
 				if (IPA_CLIENT_IS_MEMCPY_DMA_PROD(in->client))
 					sys->ep->status.status_en = false;
@@ -2679,6 +2678,7 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 						IPA_GENERIC_AGGR_PKT_LIMIT;
 					}
 				}
+				sys->repl_trig_thresh = sys->rx_pool_sz / 4;
 				if (nr_cpu_ids > 1)
 					sys->repl_hdlr =
 						ipa_fast_replenish_rx_cache;
@@ -2823,7 +2823,7 @@ static void ipa_tx_client_rx_pkt_status(void *user1, int user2)
 
 
 /**
- * ipa_tx_dp_mul() - Data-path tx handler for multiple packets
+ * ipa2_tx_dp_mul() - Data-path tx handler for multiple packets
  * @src: [in] - Client that is sending data
  * @ipa_tx_data_desc:	[in] data descriptors from wlan
  *
@@ -2841,7 +2841,7 @@ static void ipa_tx_client_rx_pkt_status(void *user1, int user2)
  *
  * Returns:	0 on success, negative on failure
  */
-int ipa_tx_dp_mul(enum ipa_client_type src,
+int ipa2_tx_dp_mul(enum ipa_client_type src,
 			struct ipa_tx_data_desc *data_desc)
 {
 	/* The second byte in wlan header holds qmap id */
@@ -2861,7 +2861,7 @@ int ipa_tx_dp_mul(enum ipa_client_type src,
 
 	spin_lock_bh(&ipa_ctx->wc_memb.ipa_tx_mul_spinlock);
 
-	ep_idx = ipa_get_ep_mapping(src);
+	ep_idx = ipa2_get_ep_mapping(src);
 	if (unlikely(ep_idx == -1)) {
 		IPAERR("dest EP does not exist.\n");
 		goto fail_send;
@@ -2935,9 +2935,8 @@ fail_send:
 	return -EFAULT;
 
 }
-EXPORT_SYMBOL(ipa_tx_dp_mul);
 
-void ipa_free_skb(struct ipa_rx_data *data)
+void ipa2_free_skb(struct ipa_rx_data *data)
 {
 	struct ipa_rx_pkt_wrapper *rx_pkt;
 
@@ -2960,11 +2959,11 @@ void ipa_free_skb(struct ipa_rx_data *data)
 
 	spin_unlock_bh(&ipa_ctx->wc_memb.wlan_spinlock);
 }
-EXPORT_SYMBOL(ipa_free_skb);
+
 
 /* Functions added to support kernel tests */
 
-int ipa_sys_setup(struct ipa_sys_connect_params *sys_in,
+int ipa2_sys_setup(struct ipa_sys_connect_params *sys_in,
 			unsigned long *ipa_bam_hdl,
 			u32 *ipa_pipe_num, u32 *clnt_hdl)
 {
@@ -2986,7 +2985,7 @@ int ipa_sys_setup(struct ipa_sys_connect_params *sys_in,
 		goto fail_gen;
 	}
 
-	ipa_ep_idx = ipa_get_ep_mapping(sys_in->client);
+	ipa_ep_idx = ipa2_get_ep_mapping(sys_in->client);
 	if (ipa_ep_idx == -1) {
 		IPAERR("Invalid client :%d\n", sys_in->client);
 		goto fail_gen;
@@ -3001,14 +3000,14 @@ int ipa_sys_setup(struct ipa_sys_connect_params *sys_in,
 			IPAERR("EP %d already allocated\n", ipa_ep_idx);
 			goto fail_and_disable_clocks;
 		} else {
-			if (ipa_cfg_ep_hdr(ipa_ep_idx,
+			if (ipa2_cfg_ep_hdr(ipa_ep_idx,
 						&sys_in->ipa_ep_cfg.hdr)) {
 				IPAERR("fail to configure hdr prop of EP %d\n",
 						ipa_ep_idx);
 				result = -EFAULT;
 				goto fail_and_disable_clocks;
 			}
-			if (ipa_cfg_ep_cfg(ipa_ep_idx,
+			if (ipa2_cfg_ep_cfg(ipa_ep_idx,
 						&sys_in->ipa_ep_cfg.cfg)) {
 				IPAERR("fail to configure cfg prop of EP %d\n",
 						ipa_ep_idx);
@@ -3043,11 +3042,11 @@ int ipa_sys_setup(struct ipa_sys_connect_params *sys_in,
 	}
 
 	if (!ep->skip_ep_cfg) {
-		if (ipa_cfg_ep(ipa_ep_idx, &sys_in->ipa_ep_cfg)) {
+		if (ipa2_cfg_ep(ipa_ep_idx, &sys_in->ipa_ep_cfg)) {
 			IPAERR("fail to configure EP.\n");
 			goto fail_gen2;
 		}
-		if (ipa_cfg_ep_status(ipa_ep_idx, &ep->status)) {
+		if (ipa2_cfg_ep_status(ipa_ep_idx, &ep->status)) {
 			IPAERR("fail to configure status of EP.\n");
 			goto fail_gen2;
 		}
@@ -3076,9 +3075,8 @@ fail_and_disable_clocks:
 fail_gen:
 	return result;
 }
-EXPORT_SYMBOL(ipa_sys_setup);
 
-int ipa_sys_teardown(u32 clnt_hdl)
+int ipa2_sys_teardown(u32 clnt_hdl)
 {
 	struct ipa_ep_context *ep;
 
@@ -3102,7 +3100,7 @@ int ipa_sys_teardown(u32 clnt_hdl)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa_sys_teardown);
+
 
 /**
  * ipa_adjust_ra_buff_base_sz()

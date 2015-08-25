@@ -908,7 +908,6 @@ bail:
 	mutex_unlock(&ipa3_ctx->lock);
 	return ret;
 }
-EXPORT_SYMBOL(ipa3_add_rt_rule);
 
 int __ipa3_del_rt_rule(u32 rule_hdl)
 {
@@ -991,7 +990,6 @@ bail:
 	mutex_unlock(&ipa3_ctx->lock);
 	return ret;
 }
-EXPORT_SYMBOL(ipa3_del_rt_rule);
 
 /**
  * ipa_commit_rt_rule() - Commit the current SW routing table of specified type
@@ -1031,7 +1029,6 @@ bail:
 	mutex_unlock(&ipa3_ctx->lock);
 	return ret;
 }
-EXPORT_SYMBOL(ipa3_commit_rt);
 
 /**
  * ipa3_reset_rt() - reset the current SW routing table of specified type
@@ -1139,7 +1136,6 @@ int ipa3_reset_rt(enum ipa_ip_type ip)
 
 	return 0;
 }
-EXPORT_SYMBOL(ipa3_reset_rt);
 
 /**
  * ipa3_get_rt_tbl() - lookup the specified routing table and return handle if it
@@ -1178,7 +1174,6 @@ int ipa3_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup)
 
 	return result;
 }
-EXPORT_SYMBOL(ipa3_get_rt_tbl);
 
 /**
  * ipa3_put_rt_tbl() - Release the specified routing table handle
@@ -1233,7 +1228,6 @@ ret:
 
 	return result;
 }
-EXPORT_SYMBOL(ipa3_put_rt_tbl);
 
 
 static int __ipa_mdfy_rt_rule(struct ipa_rt_rule_mdfy *rtrule)
@@ -1316,4 +1310,3 @@ bail:
 
 	return result;
 }
-EXPORT_SYMBOL(ipa3_mdfy_rt_rule);
