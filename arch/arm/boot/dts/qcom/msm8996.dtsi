@@ -456,14 +456,6 @@
 		qcom,target-dev = <&cpubw>;
 	};
 
-	qcom,m4m-hwmon {
-		compatible = "qcom,m4m-hwmon";
-		reg = <0x6530000 0x160>;
-		interrupts = <0 19 4>;
-		qcom,counter-event-sel = <4 0x100>;
-		qcom,target-dev = <&m4m_cache>;
-	};
-
 	mincpubw: qcom,mincpubw {
 		compatible = "qcom,devbw";
 		governor = "powersave";

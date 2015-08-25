@@ -256,6 +256,16 @@
 		clock-names = "core_clk";
 		qcom,use-dma-zone;
 	};
+
+	qcom,m4m-hwmon@6530000 {
+		compatible = "qcom,m4m-hwmon";
+		reg = <0x6530000 0x160>;
+		interrupts = <0 19 4>;
+		qcom,counter-event-sel = <4 0x8000>,
+					 <5 0x4000>;
+		qcom,target-dev = <&m4m_cache>;
+	};
+
 };
 
 &clock_cpu {
