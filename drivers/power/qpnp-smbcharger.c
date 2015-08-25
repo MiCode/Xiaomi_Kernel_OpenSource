@@ -57,6 +57,7 @@ struct parallel_usb_cfg {
 	int				min_9v_current_thr_ma;
 	int				allowed_lowering_ma;
 	int				current_max_ma;
+	int				main_chg_fcc_percent;
 	bool				avail;
 	struct mutex			lock;
 	int				initial_aicl_ma;
@@ -990,6 +991,19 @@ static int find_closest_in_array(const int *arr, int len, int val)
 	return closest;
 }
 
+/* finds the index of the closest smaller value in the array. */
+static int find_smaller_in_array(const int *table, int val, int len)
+{
+	int i;
+
+	for (i = len - 1; i >= 0; i--) {
+		if (val >= table[i])
+			break;
+	}
+
+	return i;
+}
+
 static const int iterm_ma_table_8994[] = {
 	300,
 	50,
@@ -1251,10 +1265,8 @@ static int smbchg_set_dc_current_max(struct smbchg_chip *chip, int current_ma)
 	int i;
 	u8 dc_cur_val;
 
-	for (i = chip->tables.dc_ilim_ma_len - 1; i >= 0; i--) {
-		if (current_ma >= chip->tables.dc_ilim_ma_table[i])
-			break;
-	}
+	i = find_smaller_in_array(chip->tables.dc_ilim_ma_table,
+			current_ma, chip->tables.dc_ilim_ma_len);
 
 	if (i < 0) {
 		dev_err(chip->dev, "Cannot find %dma current_table\n",
@@ -1498,10 +1510,8 @@ static int smbchg_set_high_usb_chg_current(struct smbchg_chip *chip,
 	int i, rc;
 	u8 usb_cur_val;
 
-	for (i = chip->tables.usb_ilim_ma_len - 1; i >= 0; i--) {
-		if (current_ma >= chip->tables.usb_ilim_ma_table[i])
-			break;
-	}
+	i = find_smaller_in_array(chip->tables.usb_ilim_ma_table,
+			current_ma, chip->tables.usb_ilim_ma_len);
 	if (i < 0) {
 		dev_err(chip->dev,
 			"Cannot find %dma current_table using %d\n",
@@ -1803,10 +1813,8 @@ static int smbchg_set_fastchg_current_raw(struct smbchg_chip *chip,
 	u8 cur_val;
 
 	/* the fcc enumerations are the same as the usb currents */
-	for (i = chip->tables.usb_ilim_ma_len - 1; i >= 0; i--) {
-		if (current_ma >= chip->tables.usb_ilim_ma_table[i])
-			break;
-	}
+	i = find_smaller_in_array(chip->tables.usb_ilim_ma_table,
+			current_ma, chip->tables.usb_ilim_ma_len);
 	if (i < 0) {
 		dev_err(chip->dev,
 			"Cannot find %dma current_table using %d\n",
@@ -2041,6 +2049,7 @@ static void smbchg_parallel_usb_enable(struct smbchg_chip *chip)
 	union power_supply_propval pval = {0, };
 	int current_limit_ma, parallel_cl_ma, total_current_ma;
 	int new_parallel_cl_ma, min_current_thr_ma, rc;
+	int current_table_index;
 
 	if (!parallel_psy || !chip->parallel_charger_detected)
 		return;
@@ -2103,9 +2112,27 @@ static void smbchg_parallel_usb_enable(struct smbchg_chip *chip)
 			rc);
 		goto disable_parallel;
 	}
-	chip->target_fastchg_current_ma = chip->cfg_fastchg_current_ma / 2;
+	/*
+	 * set the primary charger to the set point closest to 40% of the fcc
+	 * while remaining below it
+	 */
+	current_table_index = find_smaller_in_array(
+			chip->tables.usb_ilim_ma_table,
+			chip->cfg_fastchg_current_ma
+				* chip->parallel.main_chg_fcc_percent / 100,
+			chip->tables.usb_ilim_ma_len);
+	chip->target_fastchg_current_ma =
+		chip->tables.usb_ilim_ma_table[current_table_index];
 	smbchg_set_fastchg_current(chip, chip->target_fastchg_current_ma);
-	pval.intval = chip->target_fastchg_current_ma * 1000;
+	pr_smb(PR_STATUS, "main chg %%=%d, requested=%d, found=%d\n",
+			chip->parallel.main_chg_fcc_percent,
+			chip->cfg_fastchg_current_ma
+				* chip->parallel.main_chg_fcc_percent / 100,
+			chip->target_fastchg_current_ma);
+
+	/* allow the parallel charger to use the remaining available fcc */
+	pval.intval = (chip->cfg_fastchg_current_ma
+			- chip->target_fastchg_current_ma) * 1000;
 	parallel_psy->set_property(parallel_psy,
 			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
 
@@ -2253,10 +2280,8 @@ static int smbchg_dcin_ilim_config(struct smbchg_chip *chip, int offset, int ma)
 {
 	int i, rc;
 
-	for (i = chip->tables.dc_ilim_ma_len - 1; i >= 0; i--) {
-		if (ma >= chip->tables.dc_ilim_ma_table[i])
-			break;
-	}
+	i = find_smaller_in_array(chip->tables.dc_ilim_ma_table,
+			ma, chip->tables.dc_ilim_ma_len);
 
 	if (i < 0)
 		i = 0;
@@ -6541,6 +6566,7 @@ err:
 
 #define DEFAULT_VLED_MAX_UV		3500000
 #define DEFAULT_FCC_MA			2000
+#define DEFAULT_MAIN_CHG_PERCENT	40
 static int smb_parse_dt(struct smbchg_chip *chip)
 {
 	int rc = 0, ocp_thresh = -EINVAL;
@@ -6596,6 +6622,10 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 			"parallel-usb-9v-min-current-ma", rc, 1);
 	OF_PROP_READ(chip, chip->parallel.allowed_lowering_ma,
 			"parallel-allowed-lowering-ma", rc, 1);
+	OF_PROP_READ(chip, chip->parallel.main_chg_fcc_percent,
+			"parallel-main-chg-fcc-percent", rc, 1);
+	if (chip->parallel.main_chg_fcc_percent == -EINVAL)
+		chip->parallel.main_chg_fcc_percent = DEFAULT_MAIN_CHG_PERCENT;
 	chip->cfg_fastchg_current_ma = chip->target_fastchg_current_ma;
 	if (chip->parallel.min_current_thr_ma != -EINVAL
 			&& chip->parallel.min_9v_current_thr_ma != -EINVAL)
