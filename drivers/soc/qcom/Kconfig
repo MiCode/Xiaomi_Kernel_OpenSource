@@ -53,3 +53,8 @@ config QCOM_SMD_RPM
 config QCOM_SCM
        bool "Secure Channel Manager (SCM) support"
        default n
+
+config QCOM_XPU_ERR_FATAL
+	bool "Configure XPU violations as fatal errors"
+	help
+	 Select if XPU violations have to be configured as fatal errors.
