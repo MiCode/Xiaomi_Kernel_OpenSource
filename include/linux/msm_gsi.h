@@ -158,6 +158,10 @@ enum gsi_evt_ring_elem_size {
  *                   (GSI_CHAN_MODE_POLL) is supported on any of those channels
  * @err_cb:          error notification callback
  * @user_data:       cookie used for error notifications
+ * @evchid_valid:    is evchid valid?
+ * @evchid:          the event ID that is being specifically requested (this is
+ *                   relevant for MHI where doorbell routing requires ERs to be
+ *                   physically contiguous)
  */
 struct gsi_evt_ring_props {
 	enum gsi_evt_chtype intf;
@@ -174,6 +178,8 @@ struct gsi_evt_ring_props {
 	bool exclusive;
 	void (*err_cb)(struct gsi_evt_err_notify *notify);
 	void *user_data;
+	bool evchid_valid;
+	uint8_t evchid;
 };
 
 enum gsi_chan_mode {
@@ -589,7 +595,7 @@ int gsi_register_device(struct gsi_per_props *props, unsigned long *dev_hdl);
  * be granted synchronously. GSI will release the clock resource using
  * the rel_clk_cb when appropriate
  *
- * @dev_hdl:	   Pointer to client handle previously obtained from
+ * @dev_hdl:	   Client handle previously obtained from
  *	   gsi_register_device
  *
  * @Return gsi_status
@@ -600,7 +606,7 @@ int gsi_complete_clk_grant(unsigned long dev_hdl);
  * gsi_write_device_scratch - Peripheral should call this function to
  * write to the EE scratch area
  *
- * @dev_hdl:  Pointer to client handle previously obtained from
+ * @dev_hdl:  Client handle previously obtained from
  *            gsi_register_device
  * @val:      Value to write
  *
@@ -613,7 +619,7 @@ int gsi_write_device_scratch(unsigned long dev_hdl,
  * gsi_deregister_device - Peripheral should call this function to
  * de-register itself with GSI
  *
- * @dev_hdl:  Pointer to client handle previously obtained from
+ * @dev_hdl:  Client handle previously obtained from
  *            gsi_register_device
  * @force:    When set to true, cleanup is performed even if there
  *            are in use resources like channels, event rings, etc.
@@ -631,7 +637,7 @@ int gsi_deregister_device(unsigned long dev_hdl, bool force);
  * allocate an event ring
  *
  * @props:	   Event ring properties
- * @dev_hdl:	   Pointer to client handle previously obtained from
+ * @dev_hdl:	   Client handle previously obtained from
  *	   gsi_register_device
  * @evt_ring_hdl:  Handle populated by GSI, opaque to client
  *
@@ -646,7 +652,7 @@ int gsi_alloc_evt_ring(struct gsi_evt_ring_props *props, unsigned long dev_hdl,
  * gsi_write_evt_ring_scratch - Peripheral should call this function to
  * write to the scratch area of the event ring context
  *
- * @evt_ring_hdl:  Pointer to client handle previously obtained from
+ * @evt_ring_hdl:  Client handle previously obtained from
  *	   gsi_alloc_evt_ring
  * @val:           Value to write
  *
@@ -660,7 +666,7 @@ int gsi_write_evt_ring_scratch(unsigned long evt_ring_hdl,
  * de-allocate an event ring. There should not exist any active
  * channels using this event ring
  *
- * @evt_ring_hdl:  Pointer to client handle previously obtained from
+ * @evt_ring_hdl:  Client handle previously obtained from
  *	   gsi_alloc_evt_ring
  *
  * This function can sleep
@@ -673,7 +679,7 @@ int gsi_dealloc_evt_ring(unsigned long evt_ring_hdl);
  * gsi_query_evt_ring_db_addr - Peripheral should call this function to
  * query the physical addresses of the event ring doorbell registers
  *
- * @evt_ring_hdl:    Pointer to client handle previously obtained from
+ * @evt_ring_hdl:    Client handle previously obtained from
  *	     gsi_alloc_evt_ring
  * @db_addr_wp_lsb:  Physical address of doorbell register where the 32
  *                   LSBs of the doorbell value should be written
@@ -689,7 +695,7 @@ int gsi_query_evt_ring_db_addr(unsigned long evt_ring_hdl,
  * gsi_reset_evt_ring - Peripheral should call this function to
  * reset an event ring to recover from error state
  *
- * @chan_hdl:  Pointer to client handle previously obtained from
+ * @evt_ring_hdl:  Client handle previously obtained from
  *             gsi_alloc_evt_ring
  *
  * This function can sleep
@@ -699,11 +705,42 @@ int gsi_query_evt_ring_db_addr(unsigned long evt_ring_hdl,
 int gsi_reset_evt_ring(unsigned long evt_ring_hdl);
 
 /**
+ * gsi_get_evt_ring_cfg - This function returns the current config
+ * of the specified event ring
+ *
+ * @evt_ring_hdl:  Client handle previously obtained from
+ *             gsi_alloc_evt_ring
+ * @props:         where to copy properties to
+ * @scr:           where to copy scratch info to
+ *
+ * @Return gsi_status
+ */
+int gsi_get_evt_ring_cfg(unsigned long evt_ring_hdl,
+		struct gsi_evt_ring_props *props, union gsi_evt_scratch *scr);
+
+/**
+ * gsi_set_evt_ring_cfg - This function applies the supplied config
+ * to the specified event ring.
+ *
+ * exclusive property of the event ring cannot be changed after
+ * gsi_alloc_evt_ring
+ *
+ * @evt_ring_hdl:  Client handle previously obtained from
+ *             gsi_alloc_evt_ring
+ * @props:         the properties to apply
+ * @scr:           the scratch info to apply
+ *
+ * @Return gsi_status
+ */
+int gsi_set_evt_ring_cfg(unsigned long evt_ring_hdl,
+		struct gsi_evt_ring_props *props, union gsi_evt_scratch *scr);
+
+/**
  * gsi_alloc_channel - Peripheral should call this function to
  * allocate a channel
  *
  * @props:     Channel properties
- * @dev_hdl:   Pointer to client handle previously obtained from
+ * @dev_hdl:   Client handle previously obtained from
  *             gsi_register_device
  * @chan_hdl:  Handle populated by GSI, opaque to client
  *
@@ -718,7 +755,7 @@ int gsi_alloc_channel(struct gsi_chan_props *props, unsigned long dev_hdl,
  * gsi_write_channel_scratch - Peripheral should call this function to
  * write to the scratch area of the channel context
  *
- * @chan_hdl:  Pointer to client handle previously obtained from
+ * @chan_hdl:  Client handle previously obtained from
  *             gsi_alloc_channel
  * @val:       Value to write
  *
@@ -731,7 +768,7 @@ int gsi_write_channel_scratch(unsigned long chan_hdl,
  * gsi_start_channel - Peripheral should call this function to
  * start a channel i.e put into running state
  *
- * @chan_hdl:  Pointer to client handle previously obtained from
+ * @chan_hdl:  Client handle previously obtained from
  *             gsi_alloc_channel
  *
  * This function can sleep
@@ -744,7 +781,7 @@ int gsi_start_channel(unsigned long chan_hdl);
  * gsi_stop_channel - Peripheral should call this function to
  * stop a channel. Stop will happen on a packet boundary
  *
- * @chan_hdl:  Pointer to client handle previously obtained from
+ * @chan_hdl:  Client handle previously obtained from
  *             gsi_alloc_channel
  *
  * This function can sleep
@@ -758,7 +795,7 @@ int gsi_stop_channel(unsigned long chan_hdl);
  * gsi_reset_channel - Peripheral should call this function to
  * reset a channel to recover from error state
  *
- * @chan_hdl:  Pointer to client handle previously obtained from
+ * @chan_hdl:  Client handle previously obtained from
  *             gsi_alloc_channel
  *
  * This function can sleep
@@ -771,7 +808,7 @@ int gsi_reset_channel(unsigned long chan_hdl);
  * gsi_dealloc_channel - Peripheral should call this function to
  * de-allocate a channel
  *
- * @chan_hdl:  Pointer to client handle previously obtained from
+ * @chan_hdl:  Client handle previously obtained from
  *             gsi_alloc_channel
  *
  * This function can sleep
@@ -785,7 +822,7 @@ int gsi_dealloc_channel(unsigned long chan_hdl);
  * stop a channel when all transfer elements till the doorbell
  * have been processed
  *
- * @chan_hdl:  Pointer to client handle previously obtained from
+ * @chan_hdl:  Client handle previously obtained from
  *             gsi_alloc_channel
  *
  * This function can sleep
@@ -799,7 +836,7 @@ int gsi_stop_db_channel(unsigned long chan_hdl);
  * gsi_query_channel_db_addr - Peripheral should call this function to
  * query the physical addresses of the channel doorbell registers
  *
- * @chan_hdl:        Pointer to client handle previously obtained from
+ * @chan_hdl:        Client handle previously obtained from
  *	     gsi_alloc_channel
  * @db_addr_wp_lsb:  Physical address of doorbell register where the 32
  *                   LSBs of the doorbell value should be written
@@ -815,7 +852,7 @@ int gsi_query_channel_db_addr(unsigned long chan_hdl,
  * gsi_query_channel_info - Peripheral can call this function to query the
  * channel and associated event ring (if any) status.
  *
- * @chan_hdl:  Pointer to client handle previously obtained from
+ * @chan_hdl:  Client handle previously obtained from
  *             gsi_alloc_channel
  * @info:      Where to read the values into
  *
@@ -825,10 +862,41 @@ int gsi_query_channel_info(unsigned long chan_hdl,
 		struct gsi_chan_info *info);
 
 /**
+ * gsi_get_channel_cfg - This function returns the current config
+ * of the specified channel
+ *
+ * @chan_hdl:  Client handle previously obtained from
+ *             gsi_alloc_channel
+ * @props:     where to copy properties to
+ * @scr:       where to copy scratch info to
+ *
+ * @Return gsi_status
+ */
+int gsi_get_channel_cfg(unsigned long chan_hdl, struct gsi_chan_props *props,
+		union gsi_channel_scratch *scr);
+
+/**
+ * gsi_set_channel_cfg - This function applies the supplied config
+ * to the specified channel
+ *
+ * ch_id and evt_ring_hdl of the channel cannot be changed after
+ * gsi_alloc_channel
+ *
+ * @chan_hdl:  Client handle previously obtained from
+ *             gsi_alloc_channel
+ * @props:     the properties to apply
+ * @scr:       the scratch info to apply
+ *
+ * @Return gsi_status
+ */
+int gsi_set_channel_cfg(unsigned long chan_hdl, struct gsi_chan_props *props,
+		union gsi_channel_scratch *scr);
+
+/**
  * gsi_poll_channel - Peripheral should call this function to query for
  * completed transfer descriptors.
  *
- * @chan_hdl:  Pointer to client handle previously obtained from
+ * @chan_hdl:  Client handle previously obtained from
  *             gsi_alloc_channel
  * @notify:    Information about the completed transfer if any
  *
@@ -842,7 +910,7 @@ int gsi_poll_channel(unsigned long chan_hdl,
  * gsi_config_channel_mode - Peripheral should call this function
  * to configure the channel mode.
  *
- * @chan_hdl:  Pointer to client handle previously obtained from
+ * @chan_hdl:  Client handle previously obtained from
  *             gsi_alloc_channel
  * @mode:      Mode to move the channel into
  *
@@ -854,7 +922,7 @@ int gsi_config_channel_mode(unsigned long chan_hdl, enum gsi_chan_mode mode);
  * gsi_queue_xfer - Peripheral should call this function
  * to queue transfers on the given channel
  *
- * @chan_hdl:  Pointer to client handle previously obtained from
+ * @chan_hdl:  Client handle previously obtained from
  *             gsi_alloc_channel
  * @num_xfers: Number of transfer in the array @ xfer
  * @xfer:      Array of num_xfers transfer descriptors
@@ -870,7 +938,7 @@ int gsi_queue_xfer(unsigned long chan_hdl, uint16_t num_xfers,
  * gsi_start_xfer - Peripheral should call this function to
  * inform HW about queued xfers
  *
- * @chan_hdl:  Pointer to client handle previously obtained from
+ * @chan_hdl:  Client handle previously obtained from
  *             gsi_alloc_channel
  *
  * @Return gsi_status
@@ -927,7 +995,8 @@ static inline int gsi_deregister_device(unsigned long dev_hdl, bool force)
 }
 
 static inline int gsi_alloc_evt_ring(struct gsi_evt_ring_props *props,
-		unsigned long dev_hdl, unsigned long *evt_ring_hdl)
+		unsigned long dev_hdl,
+		unsigned long *evt_ring_hdl)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }
@@ -955,7 +1024,8 @@ static inline int gsi_reset_evt_ring(unsigned long evt_ring_hdl)
 }
 
 static inline int gsi_alloc_channel(struct gsi_chan_props *props,
-		unsigned long dev_hdl, unsigned long *chan_hdl)
+		unsigned long dev_hdl,
+		unsigned long *chan_hdl)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }
@@ -1022,6 +1092,32 @@ static inline int gsi_queue_xfer(unsigned long chan_hdl, uint16_t num_xfers,
 }
 
 static inline int gsi_start_xfer(unsigned long chan_hdl)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+static inline int gsi_get_channel_cfg(unsigned long chan_hdl,
+		struct gsi_chan_props *props,
+		union gsi_channel_scratch *scr)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+static inline int gsi_set_channel_cfg(unsigned long chan_hdl,
+		struct gsi_chan_props *props,
+		union gsi_channel_scratch *scr)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+static inline int gsi_get_evt_ring_cfg(unsigned long evt_ring_hdl,
+		struct gsi_evt_ring_props *props, union gsi_evt_scratch *scr)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+static inline int gsi_set_evt_ring_cfg(unsigned long evt_ring_hdl,
+		struct gsi_evt_ring_props *props, union gsi_evt_scratch *scr)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }
