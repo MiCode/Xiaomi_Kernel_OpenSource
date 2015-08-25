@@ -163,7 +163,7 @@ struct iommu_ops {
 	u32 (*domain_get_windows)(struct iommu_domain *domain);
 	int (*dma_supported)(struct iommu_domain *domain, struct device *dev,
 			     u64 mask);
-	void (*trigger_fault)(struct iommu_domain *domain);
+	void (*trigger_fault)(struct iommu_domain *domain, unsigned long flags);
 
 	unsigned long pgsize_bitmap;
 };
@@ -203,7 +203,8 @@ extern phys_addr_t iommu_iova_to_phys_hard(struct iommu_domain *domain,
 					   dma_addr_t iova);
 extern void iommu_set_fault_handler(struct iommu_domain *domain,
 			iommu_fault_handler_t handler, void *token);
-extern void iommu_trigger_fault(struct iommu_domain *domain);
+extern void iommu_trigger_fault(struct iommu_domain *domain,
+				unsigned long flags);
 
 extern int iommu_attach_group(struct iommu_domain *domain,
 			      struct iommu_group *group);
@@ -407,7 +408,8 @@ static inline void iommu_set_fault_handler(struct iommu_domain *domain,
 {
 }
 
-static inline void iommu_trigger_fault(struct iommu_domain *domain)
+static inline void iommu_trigger_fault(struct iommu_domain *domain,
+				       unsigned long flags)
 {
 }
 

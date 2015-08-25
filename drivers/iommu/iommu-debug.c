@@ -95,7 +95,7 @@ static ssize_t iommu_debug_attachment_trigger_fault_write(
 {
 	struct iommu_debug_attachment *attach = file->private_data;
 
-	iommu_trigger_fault(attach->domain);
+	iommu_trigger_fault(attach->domain, 0);
 
 	return count;
 }
