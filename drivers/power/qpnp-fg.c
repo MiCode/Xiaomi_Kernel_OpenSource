@@ -169,6 +169,13 @@ struct fg_iadc_comp_data {
 	int64_t			dfl_gain;
 };
 
+struct fg_cc_soc_data {
+	int	init_sys_soc;
+	int	init_cc_soc;
+	int	full_capacity;
+	int	delta_soc;
+};
+
 /* FG_MEMIF setting index */
 enum fg_mem_setting_index {
 	FG_MEM_SOFT_COLD = 0,
@@ -444,6 +451,8 @@ struct fg_chip {
 	bool			hold_soc_while_full;
 	bool			input_present;
 	bool			otg_present;
+	bool			safety_timer_expired;
+	bool			bad_batt_detection_en;
 	struct delayed_work	update_jeita_setting;
 	struct delayed_work	update_sram_data;
 	struct delayed_work	update_temp_work;
@@ -472,6 +481,7 @@ struct fg_chip {
 	struct fg_learning_data	learning_data;
 	struct alarm		fg_cap_learning_alarm;
 	struct work_struct	fg_cap_learning_work;
+	struct fg_cc_soc_data	sw_cc_soc_data;
 	/* rslow compensation */
 	struct fg_rslow_data	rslow_comp;
 	/* cycle counter */
@@ -3202,13 +3212,33 @@ static bool is_otg_present(struct fg_chip *chip)
 	return prop.intval != 0;
 }
 
+static int set_prop_enable_charging(struct fg_chip *chip, bool enable)
+{
+	int rc = 0;
+	union power_supply_propval ret = {enable, };
+
+	if (!chip->batt_psy)
+		chip->batt_psy = power_supply_get_by_name("battery");
+
+	if (chip->batt_psy) {
+		rc = chip->batt_psy->set_property(chip->batt_psy,
+				POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED,
+				&ret);
+		if (rc)
+			pr_err("couldn't configure batt chg %d\n", rc);
+	}
+
+	return rc;
+}
+
+#define MAX_BATTERY_CC_SOC_CAPACITY		150
 static void status_change_work(struct work_struct *work)
 {
 	struct fg_chip *chip = container_of(work,
 				struct fg_chip,
 				status_change_work);
 	unsigned long current_time = 0;
-	int capacity = get_prop_capacity(chip);
+	int cc_soc, rc, capacity = get_prop_capacity(chip);
 
 	if (chip->status == POWER_SUPPLY_STATUS_FULL) {
 		if (capacity >= 99 && chip->hold_soc_while_full) {
@@ -3238,7 +3268,15 @@ static void status_change_work(struct work_struct *work)
 	}
 	fg_cap_learning_check(chip);
 	schedule_work(&chip->update_esr_work);
-	if (chip->prev_status != chip->status) {
+
+	if (chip->wa_flag & USE_CC_SOC_REG) {
+		if (fg_get_cc_soc(chip, &cc_soc)) {
+			pr_err("failed to get CC_SOC\n");
+			return;
+		}
+	}
+
+	if (chip->prev_status != chip->status && chip->last_sram_update_time) {
 		get_current_time(&current_time);
 		/*
 		 * When charging status changes, update SRAM parameters if it
@@ -3251,6 +3289,55 @@ static void status_change_work(struct work_struct *work)
 		}
 		if (chip->cyc_ctr.en)
 			schedule_work(&chip->cycle_count_work);
+		if ((chip->wa_flag & USE_CC_SOC_REG) &&
+				chip->bad_batt_detection_en &&
+				chip->status == POWER_SUPPLY_STATUS_CHARGING) {
+			chip->sw_cc_soc_data.init_sys_soc = capacity;
+			chip->sw_cc_soc_data.init_cc_soc = cc_soc;
+			if (fg_debug_mask & FG_STATUS)
+				pr_info(" Init_sys_soc %d init_cc_soc %d\n",
+					chip->sw_cc_soc_data.init_sys_soc,
+					chip->sw_cc_soc_data.init_cc_soc);
+		}
+	}
+	if ((chip->wa_flag & USE_CC_SOC_REG) && chip->bad_batt_detection_en
+			&& chip->safety_timer_expired) {
+		chip->sw_cc_soc_data.delta_soc =
+			DIV_ROUND_CLOSEST(abs(cc_soc -
+					chip->sw_cc_soc_data.init_cc_soc)
+					* 100, FULL_PERCENT_28BIT);
+		chip->sw_cc_soc_data.full_capacity =
+			chip->sw_cc_soc_data.delta_soc +
+			chip->sw_cc_soc_data.init_sys_soc;
+		pr_info("Init_sys_soc %d init_cc_soc %d cc_soc %d delta_soc %d full_capacity %d\n",
+				chip->sw_cc_soc_data.init_sys_soc,
+				chip->sw_cc_soc_data.init_cc_soc, cc_soc,
+				chip->sw_cc_soc_data.delta_soc,
+				chip->sw_cc_soc_data.full_capacity);
+		/*
+		 * If sw_cc_soc capacity greater than 150, then it's a bad
+		 * battery. else, reset timer and restart charging.
+		 */
+		if (chip->sw_cc_soc_data.full_capacity >
+				MAX_BATTERY_CC_SOC_CAPACITY) {
+			pr_info("Battery possibly damaged, do not restart charging\n");
+		} else {
+			pr_info("Reset safety-timer and restart charging\n");
+			rc = set_prop_enable_charging(chip, false);
+			if (rc) {
+				pr_err("failed to disable charging %d\n", rc);
+				return;
+			}
+
+			chip->safety_timer_expired = false;
+			msleep(200);
+
+			rc = set_prop_enable_charging(chip, true);
+			if (rc) {
+				pr_err("failed to enable charging %d\n", rc);
+				return;
+			}
+		}
 	}
 }
 
@@ -3410,6 +3497,10 @@ static int fg_power_set_property(struct power_supply *psy,
 								val->intval);
 			rc = -EINVAL;
 		}
+		break;
+	case POWER_SUPPLY_PROP_SAFETY_TIMER_EXPIRED:
+		chip->safety_timer_expired = val->intval;
+		schedule_work(&chip->status_change_work);
 		break;
 	default:
 		return -EINVAL;
@@ -4927,6 +5018,9 @@ static int fg_of_init(struct fg_chip *chip)
 	} else {
 		rc = 0;
 	}
+
+	chip->bad_batt_detection_en = of_property_read_bool(node,
+				"qcom,bad-battery-detection-enable");
 
 	chip->sw_rbias_ctrl = of_property_read_bool(node,
 				"qcom,sw-rbias-control");
