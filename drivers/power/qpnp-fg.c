@@ -4652,7 +4652,8 @@ done:
 	if (chip->power_supply_registered)
 		power_supply_changed(&chip->bms_psy);
 	fg_relax(&chip->profile_wakeup_source);
-	pr_info("Battery SOC: %d\n", get_prop_capacity(chip));
+	pr_info("Battery SOC: %d, V: %duV\n", get_prop_capacity(chip),
+		fg_data[FG_DATA_VOLTAGE].value);
 	return rc;
 no_profile:
 	if (chip->power_supply_registered)
