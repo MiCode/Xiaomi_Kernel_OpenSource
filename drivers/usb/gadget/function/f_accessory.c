@@ -1169,7 +1169,7 @@ static void acc_function_disable(struct usb_function *f)
 	VDBG(cdev, "%s disabled\n", dev->function.name);
 }
 
-static int acc_bind_config(struct usb_configuration *c)
+static int __maybe_unused acc_bind_config(struct usb_configuration *c)
 {
 	struct acc_dev *dev = _acc_dev;
 	int ret;
