@@ -47,7 +47,6 @@ struct desc_field_offset {
 #ifdef CONFIG_UFS_FAULT_INJECTION
 
 #define INJECT_COMMAND_HANG (0x0)
-#define ERR_CODES_ALL_ENABLED	0xFFFFFFFF
 
 static DECLARE_FAULT_ATTR(fail_default_attr);
 static char *fail_request;
@@ -56,13 +55,11 @@ module_param(fail_request, charp, 0);
 /**
  * struct ufsdbg_err_scenario - error scenario use case
  * @name: the name of the error scenario
- * @err_code_mask: enabled error codes for this scenario
  * @err_code_arr: error codes array for this error scenario
  * @num_err_codes: number of error codes in err_code_arr
  */
 struct ufsdbg_err_scenario {
 	const char *name;
-	u32 err_code_mask;
 	const int *err_code_arr;
 	u32 num_err_codes;
 	u32 num_err_injected;
@@ -88,11 +85,6 @@ static const int err_inject_pwr_change_err_codes[] = {
 	PWR_FATAL_ERROR,
 };
 
-static const int err_inject_link_startup_err_codes[] = {
-	-EIO,
-	-ETIMEDOUT,
-};
-
 static const int err_inject_uic_err_codes[] = {
 	-EIO,
 	-ETIMEDOUT,
@@ -111,75 +103,38 @@ static const int err_inject_query_err_codes[] = {
 static struct ufsdbg_err_scenario err_scen_arr[] = {
 	{
 		"ERR_INJECT_INTR",
-		ERR_CODES_ALL_ENABLED,
 		err_inject_intr_err_codes,
 		ARRAY_SIZE(err_inject_intr_err_codes),
 	},
 	{
 		"ERR_INJECT_HIBERN8_ENTER",
-		ERR_CODES_ALL_ENABLED,
 		NULL,
 		0,
 	},
 	{
 		"ERR_INJECT_HIBERN8_EXIT",
-		ERR_CODES_ALL_ENABLED,
 		NULL,
 		0,
 	},
 	{
 		"ERR_INJECT_PWR_CHANGE",
-		ERR_CODES_ALL_ENABLED,
 		err_inject_pwr_change_err_codes,
 		ARRAY_SIZE(err_inject_pwr_change_err_codes),
 	},
 	{
-		"ERR_INJECT_LINK_STARTUP",
-		ERR_CODES_ALL_ENABLED,
-		err_inject_link_startup_err_codes,
-		ARRAY_SIZE(err_inject_link_startup_err_codes),
-	},
-	{
 		"ERR_INJECT_UIC",
-		ERR_CODES_ALL_ENABLED,
 		err_inject_uic_err_codes,
 		ARRAY_SIZE(err_inject_uic_err_codes),
 	},
 	{
 		"ERR_INJECT_DME_ATTR",
-		ERR_CODES_ALL_ENABLED,
 		err_inject_dme_attr_err_codes,
 		ARRAY_SIZE(err_inject_dme_attr_err_codes),
 	},
 	{
 		"ERR_INJECT_QUERY",
-		ERR_CODES_ALL_ENABLED,
 		err_inject_query_err_codes,
 		ARRAY_SIZE(err_inject_query_err_codes),
-	},
-	{
-		"ERR_INJECT_RUNTIME_PM",
-		ERR_CODES_ALL_ENABLED,
-		NULL,
-		0,
-	},
-	{
-		"ERR_INJECT_SYSTEM_PM",
-		ERR_CODES_ALL_ENABLED,
-		NULL,
-		0,
-	},
-	{
-		"ERR_INJECT_CLOCK_GATING_SCALING",
-		ERR_CODES_ALL_ENABLED,
-		NULL,
-		0,
-	},
-	{
-		"ERR_INJECT_PHY_POWER_UP_SEQ",
-		ERR_CODES_ALL_ENABLED,
-		NULL,
-		0,
 	},
 };
 
@@ -290,10 +245,6 @@ ufsdbg_find_err_code(enum ufsdbg_err_inject_scenario usecase,
 
 	err_code_index = prandom_u32() % err_scen->num_err_codes;
 
-	/* if the randomly chosen error code is not an enabled error code */
-	if (!(err_scen->err_code_mask & (1 << err_code_index)))
-		return false;
-
 	*index = err_code_index;
 	*ret = err_scen->err_code_arr[err_code_index];
 	return true;
@@ -339,14 +290,9 @@ void ufsdbg_error_inject_dispatcher(struct ufs_hba *hba,
 	case ERR_INJECT_HIBERN8_ENTER:
 	case ERR_INJECT_HIBERN8_EXIT:
 	case ERR_INJECT_PWR_CHANGE:
-	case ERR_INJECT_LINK_STARTUP:
 	case ERR_INJECT_UIC:
 	case ERR_INJECT_DME_ATTR:
 	case ERR_INJECT_QUERY:
-	case ERR_INJECT_RUNTIME_PM:
-	case ERR_INJECT_SYSTEM_PM:
-	case ERR_INJECT_CLOCK_GATING_SCALING:
-	case ERR_INJECT_PHY_POWER_UP_SEQ:
 		goto should_fail;
 	default:
 		dev_err(hba->dev, "%s: unsupported error scenario\n",
@@ -369,75 +315,69 @@ out:
 	return;
 }
 
-static int ufsdbg_error_injection_mask_read(struct seq_file *file, void *data)
+static int ufsdbg_err_inj_scenario_read(struct seq_file *file, void *data)
 {
 	struct ufs_hba *hba = (struct ufs_hba *)file->private;
 	enum ufsdbg_err_inject_scenario err_case;
 
-	seq_puts(file, "echo \"x,y\" > /sys/kernel/debug/.../err_inj_codes\n");
-	seq_puts(file, "for error scenario x (decimal), enable error codes bitwise y (hexadecimal)\n\n");
-	seq_puts(file, "example: echo \"2,0x6\" > /sys/kernel/debug/.../err_inj_codes\n");
-	seq_puts(file, "for error scenario ERR_INJECT_HIBERN8_EXIT_ERR (error scenario#2)\n");
-	seq_puts(file, "enable error codes 0100b and 0010b (0110b)\n\n");
-	seq_printf(file, "%-40s %-20s %-17s %-15s %-15s\n",
-		   "Error Scenario:", "Error-Scenario#",
-		   "Bit[#]", "STATUS", "Enabled Err Codes");
+	if (!hba)
+		return -EINVAL;
 
-	for (err_case = 0; err_case < ERR_INJECT_MAX_ERR_SCENARIOS;
-								++err_case) {
-		seq_printf(file, "%-40s %-20d 0x%-15x %-15s 0x%-15x\n",
+	seq_printf(file, "%-40s %-17s %-15s\n",
+		   "Error Scenario:", "Bit[#]", "STATUS");
+
+	for (err_case = ERR_INJECT_INTR;
+		err_case < ERR_INJECT_MAX_ERR_SCENARIOS; err_case++) {
+		seq_printf(file, "%-40s 0x%-15lx %-15s\n",
 			   err_scen_arr[err_case].name,
-			   err_case,
-			   (1 << err_case),
+			   UFS_BIT(err_case),
 			   hba->debugfs_files.err_inj_scenario_mask &
-				(1 << err_case) ? "ENABLE" : "DISABLE",
-			   err_scen_arr[err_case].err_code_mask);
+				UFS_BIT(err_case) ? "ENABLE" : "DISABLE");
 	}
+
+	seq_printf(file, "bitwise of error scenario is 0x%x\n\n",
+		   hba->debugfs_files.err_inj_scenario_mask);
+
+	seq_puts(file, "usage example:\n");
+	seq_puts(file, "echo 0x4 > /sys/kernel/debug/.../err_inj_scenario\n");
+	seq_puts(file, "in order to enable ERR_INJECT_INTR\n");
 
 	return 0;
 }
 
 static
-int ufsdbg_err_code_open(struct inode *inode, struct file *file)
+int ufsdbg_err_inj_scenario_open(struct inode *inode, struct file *file)
 {
 	return single_open(file,
-			ufsdbg_error_injection_mask_read, inode->i_private);
+			ufsdbg_err_inj_scenario_read, inode->i_private);
 }
 
-static ssize_t ufsdbg_err_code_write(struct file *file,
+static ssize_t ufsdbg_err_inj_scenario_write(struct file *file,
 				     const char __user *ubuf, size_t cnt,
 				     loff_t *ppos)
 {
-#define ERROR_CODE_CONTROL_BUF	20
 	struct ufs_hba *hba = file->f_mapping->host->i_private;
-	char buf[ERROR_CODE_CONTROL_BUF] = {0};
 	int ret;
-	int err_code_mask = 0;
 	int err_scen = 0;
 
-	ret = simple_write_to_buffer(buf, ERROR_CODE_CONTROL_BUF,
-				     ppos, ubuf, cnt);
-
-	if (sscanf(buf, "%d,0x%x", &err_scen, &err_code_mask) != 2) {
-		dev_err(hba->dev, "%s: invalid number of arguments or format\n",
-			__func__);
+	if (!hba)
 		return -EINVAL;
+
+	ret = kstrtoint_from_user(ubuf, cnt, 0, &err_scen);
+	if (ret) {
+		dev_err(hba->dev, "%s: Invalid argument\n", __func__);
+		return ret;
 	}
 
-	if (err_scen >= ERR_INJECT_MAX_ERR_SCENARIOS) {
-		dev_err(hba->dev, "%s: invalid number error scenario\n",
-			__func__);
-		return -EINVAL;
-	}
+	hba->debugfs_files.err_inj_scenario_mask |= err_scen;
 
-	err_scen_arr[err_scen].err_code_mask = err_code_mask;
 	return cnt;
 }
 
-static const struct file_operations ufsdbg_err_code_ops = {
-	.open		= ufsdbg_err_code_open,
+static const struct file_operations ufsdbg_err_inj_scenario_ops = {
+	.open		= ufsdbg_err_inj_scenario_open,
 	.read		= seq_read,
-	.write		= ufsdbg_err_code_write,
+	.write		= ufsdbg_err_inj_scenario_write,
 };
 
 static int ufsdbg_err_inj_stats_read(struct seq_file *file, void *data)
@@ -504,27 +444,16 @@ static void ufsdbg_setup_fault_injection(struct ufs_hba *hba)
 	}
 
 	hba->debugfs_files.err_inj_scenario =
-		debugfs_create_u32("err_inj_scenario",
+		debugfs_create_file("err_inj_scenario",
 				   S_IRUGO | S_IWUGO,
-				   hba->debugfs_files.debugfs_root,
-				   &hba->debugfs_files.err_inj_scenario_mask);
+				   hba->debugfs_files.debugfs_root, hba,
+				   &ufsdbg_err_inj_scenario_ops);
 
 	if (!hba->debugfs_files.err_inj_scenario) {
 		dev_err(hba->dev,
 			"%s: Could not create debugfs entry for err_scenario",
 				__func__);
 		goto fail_err_inj_scenario;
-	}
-
-	hba->debugfs_files.err_inj_codes =
-		debugfs_create_file("err_inj_codes", S_IRUSR | S_IWUSR,
-				    hba->debugfs_files.debugfs_root, hba,
-				    &ufsdbg_err_code_ops);
-	if (!hba->debugfs_files.err_inj_codes) {
-		dev_err(hba->dev,
-			"%s:  failed create error_codes debugfs entry\n",
-			__func__);
-		goto fail_err_inj_codes;
 	}
 
 	hba->debugfs_files.err_inj_stats =
@@ -541,8 +470,6 @@ static void ufsdbg_setup_fault_injection(struct ufs_hba *hba)
 	return;
 
 fail_err_inj_stats:
-	debugfs_remove(hba->debugfs_files.err_inj_codes);
-fail_err_inj_codes:
 	debugfs_remove(hba->debugfs_files.err_inj_scenario);
 fail_err_inj_scenario:
 	debugfs_remove_recursive(fault_dir);

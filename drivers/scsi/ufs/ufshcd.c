@@ -4435,9 +4435,6 @@ static int ufshcd_link_startup(struct ufs_hba *hba)
 
 	ret = ufshcd_make_hba_operational(hba);
 out:
-	ufsdbg_error_inject_dispatcher(hba,
-		ERR_INJECT_LINK_STARTUP, 0, &ret);
-
 	if (ret)
 		dev_err(hba->dev, "link startup failed %d\n", ret);
 	return ret;

@@ -535,7 +535,6 @@ struct debugfs_files {
 	u32 dme_peer_attr_id;
 	struct dentry *reset_controller;
 #ifdef CONFIG_UFS_FAULT_INJECTION
-	struct dentry *err_inj_codes;
 	struct dentry *err_inj_scenario;
 	struct dentry *err_inj_stats;
 	u32 err_inj_scenario_mask;
