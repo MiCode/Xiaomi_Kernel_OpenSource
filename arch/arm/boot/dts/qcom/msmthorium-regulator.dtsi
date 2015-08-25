@@ -40,7 +40,7 @@
 	};
 
 	pmthorium_s2_floor_level: regulator-s2-floor-level {
-		compatible = "qcom,stub-regulator;
+		compatible = "qcom,stub-regulator";
 		regulator-name = "pmthorium_s2_floor_level";
 		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
@@ -245,5 +245,10 @@
 		regulator-name = "apc_corner";
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <3>;
+	};
+
+	smbcharger_charger_otg: qcom,smbcharger-boost-otg {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "smbcharger_charger_otg";
 	};
 };

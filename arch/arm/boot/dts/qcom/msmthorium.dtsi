@@ -13,6 +13,7 @@
 
 #include "skeleton64.dtsi"
 #include <dt-bindings/clock/msm-clocks-8952.h>
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM Thorium";
@@ -455,3 +456,5 @@
 		qcom,fast-shutdown;
 	};
 };
+
+#include "msmthorium-regulator.dtsi"
