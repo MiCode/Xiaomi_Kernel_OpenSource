@@ -1813,7 +1813,10 @@
 
 	usb3: ssusb@6a00000{
 		compatible = "qcom,dwc-usb3-msm";
-		reg = <0x06a00000 0xfc000>;
+		reg = <0x06a00000 0xfc000>,
+			<0x7416000 0x400>;
+		reg-names = "core_base",
+			"ahb2phy_base";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -1923,7 +1926,10 @@
 
 	usb2s: hsusb@7600000 {
 		compatible = "qcom,dwc-usb3-msm";
-		reg = <0x07600000 0xfc000>;
+		reg = <0x07600000 0xfc000>,
+			<0x7416000 0x400>;
+		reg-names = "core_base",
+			"ahb2phy_base";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -2035,10 +2041,8 @@
 	ssphy: ssphy@7410000 {
 		compatible = "qcom,usb-ssphy-qmp-v2";
 		reg = <0x7410000 0x45C>,
-		      <0x7416000 0x400>,
 		      <0x007AB244 0x4>;
 		reg-names = "qmp_phy_base",
-			    "qmp_ahb2phy_base",
 			    "vls_clamp_reg";
 		vdd-supply = <&pm8994_l28>;
 		vdda18-supply = <&pm8994_l12>;

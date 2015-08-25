@@ -57,6 +57,12 @@
 /* time out to wait for USB cable status notification (in ms)*/
 #define SM_INIT_TIMEOUT 30000
 
+/* AHB2PHY register offsets */
+#define PERIPH_SS_AHB2PHY_TOP_CFG 0x10
+
+/* AHB2PHY read/write waite value */
+#define ONE_READ_WRITE_WAIT 0x11
+
 /* cpu to fix usb interrupt */
 static int cpu_to_affin;
 module_param(cpu_to_affin, int, S_IRUGO|S_IWUSR);
@@ -147,7 +153,7 @@ enum dwc3_chg_type {
 struct dwc3_msm {
 	struct device *dev;
 	void __iomem *base;
-	struct resource *io_res;
+	void __iomem *ahb2phy_base;
 	struct platform_device	*dwc3;
 	const struct usb_ep_ops *original_ep_ops[DWC3_ENDPOINTS_NUM];
 	struct list_head req_complete_list;
@@ -1193,6 +1199,20 @@ static const char *chg_to_string(enum dwc3_chg_type chg_type)
 static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 {
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
+	u32 val;
+
+	/* Configure AHB2PHY for one wait state read/write */
+	if (mdwc->ahb2phy_base) {
+		val = readl_relaxed(mdwc->ahb2phy_base +
+				PERIPH_SS_AHB2PHY_TOP_CFG);
+		if (val != ONE_READ_WRITE_WAIT) {
+			writel_relaxed(ONE_READ_WRITE_WAIT,
+				mdwc->ahb2phy_base + PERIPH_SS_AHB2PHY_TOP_CFG);
+			/* complete above write before configuring USB PHY. */
+			mb();
+		}
+	}
+
 	dwc3_core_init(dwc);
 	/* Re-configure event buffers */
 	dwc3_event_buffers_setup(dwc);
@@ -2105,6 +2125,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	bool host_mode;
 	int ret = 0;
 	int ext_hub_reset_gpio;
+	u32 val;
 
 	mdwc = devm_kzalloc(&pdev->dev, sizeof(*mdwc), GFP_KERNEL);
 	if (!mdwc)
@@ -2218,13 +2239,13 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		}
 	}
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "tcsr_base");
 	if (!res) {
 		dev_dbg(&pdev->dev, "missing TCSR memory resource\n");
 	} else {
 		tcsr = devm_ioremap_nocache(&pdev->dev, res->start,
 			resource_size(res));
-		if (!tcsr) {
+		if (IS_ERR_OR_NULL(tcsr)) {
 			dev_dbg(&pdev->dev, "tcsr ioremap failed\n");
 		} else {
 			/* Enable USB3 on the primary USB port. */
@@ -2237,7 +2258,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		}
 	}
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "core_base");
 	if (!res) {
 		dev_err(&pdev->dev, "missing memory base resource\n");
 		ret = -ENODEV;
@@ -2245,14 +2266,34 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	}
 
 	mdwc->base = devm_ioremap_nocache(&pdev->dev, res->start,
-		resource_size(res));
+			resource_size(res));
 	if (!mdwc->base) {
 		dev_err(&pdev->dev, "ioremap failed\n");
 		ret = -ENODEV;
 		goto err;
 	}
 
-	mdwc->io_res = res; /* used to calculate chg block offset */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+							"ahb2phy_base");
+	if (res) {
+		mdwc->ahb2phy_base = devm_ioremap_nocache(&pdev->dev,
+					res->start, resource_size(res));
+		if (IS_ERR_OR_NULL(mdwc->ahb2phy_base)) {
+			dev_err(dev, "couldn't find ahb2phy_base addr.\n");
+			mdwc->ahb2phy_base = NULL;
+		} else {
+			/* Configure AHB2PHY for one wait state read/write*/
+			val = readl_relaxed(mdwc->ahb2phy_base +
+					PERIPH_SS_AHB2PHY_TOP_CFG);
+			if (val != ONE_READ_WRITE_WAIT) {
+				writel_relaxed(ONE_READ_WRITE_WAIT,
+					mdwc->ahb2phy_base +
+					PERIPH_SS_AHB2PHY_TOP_CFG);
+				/* complete above write before using USB PHY */
+				mb();
+			}
+		}
+	}
 
 	if (of_get_property(pdev->dev.of_node, "qcom,usb-dbm", NULL)) {
 		mdwc->dbm = usb_get_dbm_by_phandle(&pdev->dev, "qcom,usb-dbm",
