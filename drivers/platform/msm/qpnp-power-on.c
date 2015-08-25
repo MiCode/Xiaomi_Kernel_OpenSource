@@ -2241,7 +2241,7 @@ static int __init qpnp_pon_init(void)
 {
 	return spmi_driver_register(&qpnp_pon_driver);
 }
-module_init(qpnp_pon_init);
+subsys_initcall(qpnp_pon_init);
 
 static void __exit qpnp_pon_exit(void)
 {
