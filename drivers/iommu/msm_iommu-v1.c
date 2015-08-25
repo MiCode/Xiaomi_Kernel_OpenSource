@@ -1718,8 +1718,14 @@ static struct iommu_ops msm_iommu_ops = {
 
 static int __init msm_iommu_init(void)
 {
+	int ret;
+
 	msm_iommu_pagetable_init();
-	bus_set_iommu(&platform_bus_type, &msm_iommu_ops);
+	ret = msm_iommu_bus_register();
+	if (ret)
+		return ret;
+
+	bus_set_iommu(msm_iommu_non_sec_bus_type, &msm_iommu_ops);
 	msm_iommu_build_dump_regs_table();
 
 	return 0;

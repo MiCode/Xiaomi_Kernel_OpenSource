@@ -21,6 +21,7 @@
 
 extern pgprot_t     pgprot_kernel;
 extern struct bus_type msm_iommu_sec_bus_type;
+extern struct bus_type *msm_iommu_non_sec_bus_type;
 extern struct iommu_access_ops iommu_access_ops_v0;
 extern struct iommu_access_ops iommu_access_ops_v1;
 
@@ -330,10 +331,17 @@ void msm_iommu_remote_p0_spin_unlock(unsigned int need_lock);
  * their platform devices.
  */
 struct device *msm_iommu_get_ctx(const char *ctx_name);
+struct bus_type *msm_iommu_get_bus(struct device *dev);
+int msm_iommu_bus_register(void);
 #else
 static inline struct device *msm_iommu_get_ctx(const char *ctx_name)
 {
 	return NULL;
+}
+
+static inline struct bus_type *msm_iommu_get_bus(struct device *dev)
+{
+	return &platform_bus_type;
 }
 #endif
 

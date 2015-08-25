@@ -48,6 +48,45 @@ struct bus_type msm_iommu_sec_bus_type = {
 	.name = "msm_iommu_sec_bus",
 };
 
+struct bus_type iommu_non_sec_bus_type = {
+	.name = "msm_iommu_non_sec_bus",
+};
+
+struct bus_type *msm_iommu_non_sec_bus_type;
+
+#ifndef CONFIG_ARM_SMMU
+int msm_iommu_bus_register(void)
+{
+	msm_iommu_non_sec_bus_type = &platform_bus_type;
+	return 0;
+}
+#else
+int msm_iommu_bus_register(void)
+{
+	msm_iommu_non_sec_bus_type = &iommu_non_sec_bus_type;
+	return bus_register(msm_iommu_non_sec_bus_type);
+}
+#endif
+
+/**
+ * Pass the context bank device here. Based on the context bank
+ * device, the bus is chosen and hence the respective IOMMU ops.
+ */
+struct bus_type *msm_iommu_get_bus(struct device *dev)
+{
+	if (!dev)
+		return NULL;
+
+	if (of_device_is_compatible(dev->of_node, "qcom,msm-smmu-v2-ctx")) {
+		if (of_property_read_bool(dev->of_node, "qcom,secure-context"))
+			return &msm_iommu_sec_bus_type;
+		else
+			return msm_iommu_non_sec_bus_type;
+	} else
+		return &platform_bus_type;
+}
+EXPORT_SYMBOL(msm_iommu_get_bus);
+
 void msm_set_iommu_access_ops(struct iommu_access_ops *ops)
 {
 	iommu_access_ops = ops;
