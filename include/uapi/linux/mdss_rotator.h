@@ -41,6 +41,9 @@ Rotation request flag
 /* rotate 270 degree */
 #define MDP_ROTATION_270	(MDP_ROTATION_90 | MDP_ROTATION_180)
 
+/* format is interlaced */
+#define MDP_ROTATION_DEINTERLACE 0x10
+
 /* enable bwc */
 #define MDP_ROTATION_BWC_EN	0x40
 
