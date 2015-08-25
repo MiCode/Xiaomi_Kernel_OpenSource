@@ -181,7 +181,7 @@ struct msm_vfe_axi_ops {
 	void (*read_wm_ping_pong_addr)(struct vfe_device *vfe_dev);
 
 	void (*update_ping_pong_addr)(void __iomem *vfe_base,
-		uint8_t wm_idx, uint32_t pingpong_status, dma_addr_t paddr,
+		uint8_t wm_idx, uint32_t pingpong_bit, dma_addr_t paddr,
 		int32_t buf_size);
 
 	uint32_t (*get_wm_mask)(uint32_t irq_status0, uint32_t irq_status1);
@@ -516,7 +516,7 @@ struct msm_vfe_error_info {
 	uint32_t error_mask1;
 	uint32_t violation_status;
 	uint32_t camif_status;
-	uint8_t stream_framedrop_count[VFE_AXI_SRC_MAX];
+	uint8_t stream_framedrop_count[BUF_MGR_NUM_BUF_Q];
 	uint8_t stats_framedrop_count[MSM_ISP_STATS_MAX];
 	uint32_t info_dump_frame_count;
 	uint32_t error_count;

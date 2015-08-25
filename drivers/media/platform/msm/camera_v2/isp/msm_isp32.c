@@ -36,7 +36,7 @@ static const struct platform_device_id msm_vfe32_dev_id[] = {
 #define VFE32_XBAR_BASE(idx) (0x40 + 0x4 * (idx / 4))
 #define VFE32_XBAR_SHIFT(idx) ((idx % 4) * 8)
 #define VFE32_PING_PONG_BASE(wm, ping_pong) \
-	(VFE32_WM_BASE(wm) + 0x4 * (1 + (~(ping_pong >> wm) & 0x1)))
+	(VFE32_WM_BASE(wm) + 0x4 * (1 + ((~ping_pong) & 0x1)))
 
 static uint8_t stats_pingpong_offset_map[] = {
 	7, 8, 9, 10, 11, 12, 13};
@@ -1164,12 +1164,12 @@ static void msm_vfe32_cfg_axi_ub(struct vfe_device *vfe_dev)
 }
 
 static void msm_vfe32_update_ping_pong_addr(void __iomem *vfe_base,
-	uint8_t wm_idx, uint32_t pingpong_status, dma_addr_t paddr,
+	uint8_t wm_idx, uint32_t pingpong_bit, dma_addr_t paddr,
 	int32_t buf_size)
 {
 	uint32_t paddr32 = (paddr & 0xFFFFFFFF);
 	msm_camera_io_w(paddr32, vfe_base +
-		VFE32_PING_PONG_BASE(wm_idx, pingpong_status));
+		VFE32_PING_PONG_BASE(wm_idx, pingpong_bit));
 }
 
 static int msm_vfe32_axi_halt(struct vfe_device *vfe_dev, uint32_t blocking)
