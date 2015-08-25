@@ -474,7 +474,7 @@
 		mincpubw-cpufreq {
 			target-dev = <&mincpubw>;
 			cpu-to-dev-map-0 =
-				<  902400 2929 >,
+				< 1017600 2929 >,
 				< 1401600 4101 >;
 			cpu-to-dev-map-4 =
 				< 1382400 2929 >,
