@@ -3591,7 +3591,7 @@ static void iadc_gain_comp_work(struct work_struct *work)
 	} else {
 		/* reset gain register */
 		rc = fg_mem_write(chip, chip->iadc_comp_data.dfl_gain_reg,
-						GAIN_REG, GAIN_OFFSET, 2, 0);
+						GAIN_REG, 2, GAIN_OFFSET, 0);
 		if (rc) {
 			pr_err("unable to write gain comp: %d\n", rc);
 			goto done;
