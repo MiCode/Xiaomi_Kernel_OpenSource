@@ -24,7 +24,7 @@
 #define SYNAPTICS_DS4 (1 << 0)
 #define SYNAPTICS_DS5 (1 << 1)
 #define SYNAPTICS_DSX_DRIVER_PRODUCT SYNAPTICS_DS4
-#define SYNAPTICS_DSX_DRIVER_VERSION 0x1002
+#define SYNAPTICS_DSX_DRIVER_VERSION 0x1004
 
 #include <linux/version.h>
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -177,6 +177,8 @@ struct synaptics_rmi4_device_info {
  * @irq_enabled: flag for indicating interrupt enable status
  * @touch_stopped: flag to stop interrupt thread processing
  * @fingers_on_2d: flag to indicate presence of fingers in 2d area
+ * @flip_x: set to TRUE if desired to flip direction on x-axis
+ * @flip_y: set to TRUE if desired to flip direction on y-axis
  * @sensor_sleep: flag to indicate sleep state of sensor
  * @wait: wait queue for touch data polling in interrupt thread
  * @i2c_read: pointer to i2c read function
@@ -196,6 +198,7 @@ struct synaptics_rmi4_data {
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
 #endif
+	const char *fw_image_name;
 	unsigned char current_page;
 	unsigned char button_0d_enabled;
 	unsigned char full_pm_cycle;
@@ -215,6 +218,8 @@ struct synaptics_rmi4_data {
 	bool touch_stopped;
 	bool fingers_on_2d;
 	bool sensor_sleep;
+	bool flip_x;
+	bool flip_y;
 	wait_queue_head_t wait;
 	int (*i2c_read)(struct synaptics_rmi4_data *pdata, unsigned short addr,
 			unsigned char *data, unsigned short length);

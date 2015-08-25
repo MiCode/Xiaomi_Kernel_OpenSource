@@ -30,7 +30,6 @@
 
 #define DEBUG_FW_UPDATE
 #define SHOW_PROGRESS
-#define FW_IMAGE_NAME "PR1063486-s7301_00000000.img"
 #define MAX_FIRMWARE_ID_LEN 10
 #define FORCE_UPDATE false
 #define INSIDE_FIRMWARE_UPDATE
@@ -563,12 +562,6 @@ static enum flash_area fwu_go_nogo(void)
 		goto exit;
 	}
 
-	imagePR = kzalloc(sizeof(MAX_FIRMWARE_ID_LEN), GFP_KERNEL);
-	if (!imagePR) {
-		flash_area = NONE;
-		return flash_area;
-	}
-
 	/* Force update firmware when device is in bootloader mode */
 	if (f01_device_status.flash_prog) {
 		dev_info(&i2c_client->dev,
@@ -593,7 +586,8 @@ static enum flash_area fwu_go_nogo(void)
 	deviceFirmwareID = extract_uint(firmware_id);
 
 	/* .img firmware id */
-	strptr = strnstr(FW_IMAGE_NAME, "PR", sizeof(FW_IMAGE_NAME));
+	strptr = strnstr(fwu->rmi4_data->fw_image_name, "PR",
+			sizeof(fwu->rmi4_data->fw_image_name));
 	if (!strptr) {
 		dev_err(&i2c_client->dev,
 			"No valid PR number (PRxxxxxxx) found in image file name...\n");
@@ -620,6 +614,11 @@ static enum flash_area fwu_go_nogo(void)
 			(unsigned int)imageFirmwareID);
 	if (imageFirmwareID > deviceFirmwareID) {
 		flash_area = UI_FIRMWARE;
+		goto exit;
+	} else if (imageFirmwareID < deviceFirmwareID) {
+		flash_area = NONE;
+		dev_info(&i2c_client->dev,
+			"Img fw is older than device fw.  Skip fw update.\n");
 		goto exit;
 	}
 
@@ -1221,19 +1220,28 @@ static int fwu_start_reflash(void)
 
 	pr_notice("%s: Start of reflash process\n", __func__);
 
+	if (!fwu->rmi4_data->fw_image_name) {
+		retval = 0;
+		dev_err(&fwu->rmi4_data->i2c_client->dev,
+			"Firmware image name not given, skipping update\n");
+		goto exit;
+	}
+
 	if (fwu->ext_data_source)
 		fw_image = fwu->ext_data_source;
 	else {
 		dev_dbg(&fwu->rmi4_data->i2c_client->dev,
 				"%s: Requesting firmware image %s\n",
-				__func__, FW_IMAGE_NAME);
+				__func__, fwu->rmi4_data->fw_image_name);
 
-		retval = request_firmware(&fw_entry, FW_IMAGE_NAME,
+		retval = request_firmware(&fw_entry,
+				fwu->rmi4_data->fw_image_name,
 				&fwu->rmi4_data->i2c_client->dev);
 		if (retval != 0) {
 			dev_err(&fwu->rmi4_data->i2c_client->dev,
 					"%s: Firmware image %s not available\n",
-					__func__, FW_IMAGE_NAME);
+					__func__,
+					fwu->rmi4_data->fw_image_name);
 			retval = -EINVAL;
 			goto exit;
 		}
@@ -1640,6 +1648,9 @@ static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 			&fwu->fwu_work,
 			msecs_to_jiffies(1000));
 #endif
+
+	init_completion(&remove_complete);
+
 	return 0;
 
 exit_remove_attrs:
@@ -1688,7 +1699,6 @@ static int __init rmi4_fw_update_module_init(void)
 
 static void __exit rmi4_fw_update_module_exit(void)
 {
-	init_completion(&remove_complete);
 	synaptics_rmi4_new_function(RMI_FW_UPDATER, false,
 			synaptics_rmi4_fwu_init,
 			synaptics_rmi4_fwu_remove,
