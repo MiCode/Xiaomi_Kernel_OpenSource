@@ -1848,6 +1848,7 @@ static int smbchg_set_fastchg_current_raw(struct smbchg_chip *chip,
 	return rc;
 }
 
+#define ESR_PULSE_CURRENT_DELTA_MA	200
 static int smbchg_set_fastchg_current(struct smbchg_chip *chip,
 							int current_ma)
 {
@@ -1855,7 +1856,7 @@ static int smbchg_set_fastchg_current(struct smbchg_chip *chip,
 
 	mutex_lock(&chip->fcc_lock);
 	if (chip->sw_esr_pulse_en)
-		current_ma = 300;
+		current_ma -= ESR_PULSE_CURRENT_DELTA_MA;
 	/* If the requested FCC is same, do not configure it again */
 	if (current_ma == chip->fastchg_current_ma) {
 		pr_smb(PR_STATUS, "not configuring FCC current: %d FCC: %d\n",
