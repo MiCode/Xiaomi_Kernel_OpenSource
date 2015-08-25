@@ -2143,7 +2143,7 @@
 				<63 512 0 0>,
 				<63 512 0 304000>;
 		qcom,pas-id = <9>;
-		qcom,proxy-timeout-ms = <5000>;
+		qcom,proxy-timeout-ms = <100>;
 		qcom,firmware-name = "venus";
 		memory-region = <&peripheral_mem>;
 	};
