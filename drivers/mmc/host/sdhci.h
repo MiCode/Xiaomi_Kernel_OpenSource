@@ -501,6 +501,8 @@ struct sdhci_host {
 
 /* Controller has nonstandard clock management */
 #define SDHCI_QUIRK_NONSTANDARD_CLOCK			(1<<25)
+/* Use reset workaround in case sdhci reset timeouts */
+#define SDHCI_QUIRK2_USE_RESET_WORKAROUND		(1<<26)
 
 	int irq;		/* Device IRQ */
 	void __iomem *ioaddr;	/* Mapped address */
@@ -616,6 +618,9 @@ struct sdhci_host {
 	u32 auto_cmd_err_sts;
 	struct ratelimit_state dbg_dump_rs;
 	struct cmdq_host *cq_host;
+	int reset_wa_applied; /* reset workaround status */
+	ktime_t reset_wa_t; /* time when the reset workaround is applied */
+	int reset_wa_cnt; /* total number of times workaround is used */
 
 	unsigned long private[0] ____cacheline_aligned;
 };
@@ -676,6 +681,7 @@ struct sdhci_ops {
 					 unsigned int max_dtr, int host_drv,
 					 int card_drv, int *drv_type);
 	int	(*notify_load)(struct sdhci_host *host, enum mmc_load state);
+	void	(*reset_workaround)(struct sdhci_host *host, u32 enable);
 };
 
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS
