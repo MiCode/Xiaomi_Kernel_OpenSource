@@ -1168,7 +1168,7 @@
 					RPM_SMD_REGULATOR_LEVEL_TURBO>;
 
 		qcom,hsusb-otg-phy-init-seq =
-			<0x38 0x81 0x1b 0x82 0xffffffff>;
+			<0x73 0x80 0x38 0x81 0x1b 0x82 0xffffffff>;
 		qcom,hsusb-otg-phy-type = <3>; /* SNPS Femto PHY */
 		qcom,hsusb-otg-mode = <3>; /* OTG */
 		qcom,hsusb-otg-otg-control = <2>; /* PMIC */
