@@ -262,19 +262,19 @@ void radio_hci_event_packet(struct radio_hci_dev *hdev, struct sk_buff *skb);
 #define HCI_OGF_FM_DIAGNOSTIC_CMD_REQ           0x003F
 
 /* Command opcode pack/unpack */
-#define hci_opcode_pack(ogf, ocf)	(__u16) ((ocf & 0x03ff)|(ogf << 10))
+#define hci_opcode_pack(ogf, ocf)  ((__u16) ((ocf & 0x03ff)|(ogf << 10)))
 #define hci_opcode_ogf(op)		(op >> 10)
 #define hci_opcode_ocf(op)		(op & 0x03ff)
 #define hci_recv_ctrl_cmd_op_pack(ocf) \
-	(__u16) hci_opcode_pack(HCI_OGF_FM_RECV_CTRL_CMD_REQ, ocf)
+	((__u16) hci_opcode_pack(HCI_OGF_FM_RECV_CTRL_CMD_REQ, ocf))
 #define hci_trans_ctrl_cmd_op_pack(ocf) \
-	(__u16) hci_opcode_pack(HCI_OGF_FM_TRANS_CTRL_CMD_REQ, ocf)
+	((__u16) hci_opcode_pack(HCI_OGF_FM_TRANS_CTRL_CMD_REQ, ocf))
 #define hci_common_cmd_op_pack(ocf)	\
-	(__u16) hci_opcode_pack(HCI_OGF_FM_COMMON_CTRL_CMD_REQ, ocf)
+	((__u16) hci_opcode_pack(HCI_OGF_FM_COMMON_CTRL_CMD_REQ, ocf))
 #define hci_status_param_op_pack(ocf)	\
-	(__u16) hci_opcode_pack(HCI_OGF_FM_STATUS_PARAMETERS_CMD_REQ, ocf)
+	((__u16) hci_opcode_pack(HCI_OGF_FM_STATUS_PARAMETERS_CMD_REQ, ocf))
 #define hci_diagnostic_cmd_op_pack(ocf)	\
-	(__u16) hci_opcode_pack(HCI_OGF_FM_DIAGNOSTIC_CMD_REQ, ocf)
+	((__u16) hci_opcode_pack(HCI_OGF_FM_DIAGNOSTIC_CMD_REQ, ocf))
 
 
 /* HCI commands with no arguments*/
