@@ -94,8 +94,14 @@ static ssize_t iommu_debug_attachment_trigger_fault_write(
 	loff_t *offset)
 {
 	struct iommu_debug_attachment *attach = file->private_data;
+	unsigned long flags;
 
-	iommu_trigger_fault(attach->domain, 0);
+	if (kstrtoul_from_user(ubuf, count, 0, &flags)) {
+		pr_err("Invalid flags format\n");
+		return -EFAULT;
+	}
+
+	iommu_trigger_fault(attach->domain, flags);
 
 	return count;
 }
