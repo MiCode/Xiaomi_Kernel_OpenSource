@@ -388,6 +388,16 @@
 	status = "disabled";
 };
 
+&pm8994_gpios {
+	gpio@c100 { /* GPIO 2 */
+		qcom,mode = <0>;
+		qcom,pull = <0>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+		status = "okay";
+	};
+};
+
 &soc {
 	i2c@75ba000 {
 		synaptics@20 {
