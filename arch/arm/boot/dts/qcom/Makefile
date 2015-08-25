@@ -53,7 +53,9 @@ dtb-$(CONFIG_ARCH_MSMTHORIUM) += msmthorium-rumi.dtb
 dtb-$(CONFIG_ARCH_MSMTITANIUM) += msmtitanium-sim.dtb \
 	msmtitanium-rumi.dtb
 
-dtb-$(CONFIG_ARCH_MDMFERMIUM) += mdmfermium-rumi.dtb
+dtb-$(CONFIG_ARCH_MDMFERMIUM) += mdmfermium-rumi.dtb \
+	mdmfermium-cdp.dtb \
+	mdmfermium-mtp.dtb
 
 dtb-$(CONFIG_ARCH_MSM8916) += msm8952-qrd-skum.dtb \
        msm8952-cdp.dtb \
