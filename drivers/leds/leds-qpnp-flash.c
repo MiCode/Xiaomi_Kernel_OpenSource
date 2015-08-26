@@ -96,7 +96,7 @@
 #define	FLASH_MAX_LEVEL						0x4F
 #define	FLASH_LED_FLASH_HW_VREG_OK				0x40
 #define	FLASH_LED_FLASH_SW_VREG_OK				0x80
-#define FLASH_LED_STROBE_TYPE_HW				0x40
+#define FLASH_LED_STROBE_TYPE_HW				0x04
 #define	FLASH_DURATION_DIVIDER					10
 #define	FLASH_LED_HEADROOM_DIVIDER				100
 #define	FLASH_LED_HEADROOM_OFFSET				2
@@ -987,7 +987,7 @@ static int qpnp_flash_led_module_disable(struct qpnp_flash_led *led,
 	}
 
 	if (flash_node->id == FLASH_LED_SWITCH)
-		flash_node->trigger = 0;
+		flash_node->trigger &= FLASH_LED_STROBE_TYPE_HW;
 
 	return 0;
 }
@@ -1226,7 +1226,9 @@ static void qpnp_flash_led_work(struct work_struct *work)
 		rc = qpnp_led_masked_write(led->spmi_dev,
 			FLASH_LED_STROBE_CTRL(led->base),
 			(flash_node->id == FLASH_LED_SWITCH ? FLASH_STROBE_MASK
-							: flash_node->trigger),
+						| FLASH_LED_STROBE_TYPE_HW
+							: flash_node->trigger |
+						FLASH_LED_STROBE_TYPE_HW),
 							flash_node->trigger);
 		if (rc) {
 			dev_err(&led->spmi_dev->dev,
@@ -1435,7 +1437,9 @@ static void qpnp_flash_led_work(struct work_struct *work)
 		rc = qpnp_led_masked_write(led->spmi_dev,
 			FLASH_LED_STROBE_CTRL(led->base),
 			(flash_node->id == FLASH_LED_SWITCH ? FLASH_STROBE_MASK
-							: flash_node->trigger),
+						| FLASH_LED_STROBE_TYPE_HW
+							: flash_node->trigger |
+						FLASH_LED_STROBE_TYPE_HW),
 							flash_node->trigger);
 		if (rc) {
 			dev_err(&led->spmi_dev->dev,
@@ -1472,8 +1476,10 @@ static void qpnp_flash_led_work(struct work_struct *work)
 turn_off:
 	rc = qpnp_led_masked_write(led->spmi_dev,
 			FLASH_LED_STROBE_CTRL(led->base),
-			flash_node->id == FLASH_LED_SWITCH ? FLASH_STROBE_MASK
-						: flash_node->trigger,
+			(flash_node->id == FLASH_LED_SWITCH ? FLASH_STROBE_MASK
+						| FLASH_LED_STROBE_TYPE_HW
+						: flash_node->trigger
+						| FLASH_LED_STROBE_TYPE_HW),
 						FLASH_LED_DISABLE);
 	if (rc) {
 		dev_err(&led->spmi_dev->dev, "Strobe disable failed\n");
