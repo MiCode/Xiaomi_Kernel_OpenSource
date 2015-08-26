@@ -1108,6 +1108,7 @@ static void handle_session_error(enum command_response cmd, void *data)
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct hfi_device *hdev = NULL;
 	struct msm_vidc_inst *inst = NULL;
+	int event = V4L2_EVENT_MSM_VIDC_SYS_ERROR;
 
 	if (!response) {
 		dprintk(VIDC_ERR,
@@ -1129,18 +1130,17 @@ static void handle_session_error(enum command_response cmd, void *data)
 	change_inst_state(inst, MSM_VIDC_CORE_INVALID);
 
 	if (response->status == VIDC_ERR_MAX_CLIENTS) {
-		dprintk(VIDC_WARN,
-			"send max clients reached error to client: %p\n",
-			inst);
-		msm_vidc_queue_v4l2_event(inst,
-			V4L2_EVENT_MSM_VIDC_MAX_CLIENTS);
+		dprintk(VIDC_WARN, "Too many clients, rejecting %p", inst);
+		event = V4L2_EVENT_MSM_VIDC_MAX_CLIENTS;
+	} else if (response->status == VIDC_ERR_NOT_SUPPORTED) {
+		dprintk(VIDC_WARN, "Unsupported error for %p", inst);
+		event = V4L2_EVENT_MSM_VIDC_HW_UNSUPPORTED;
 	} else {
-		dprintk(VIDC_ERR,
-			"send session error to client: %p\n",
-			inst);
-		msm_vidc_queue_v4l2_event(inst,
-			V4L2_EVENT_MSM_VIDC_SYS_ERROR);
+		dprintk(VIDC_WARN, "Unknown session error (%d) for %p\n",
+				response->status, inst);
+		event = V4L2_EVENT_MSM_VIDC_SYS_ERROR;
 	}
+	msm_vidc_queue_v4l2_event(inst, event);
 }
 
 static void msm_comm_clean_notify_client(struct msm_vidc_core *core)
