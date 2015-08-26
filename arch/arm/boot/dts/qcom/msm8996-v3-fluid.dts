@@ -14,7 +14,7 @@
 /dts-v1/;
 
 #include "msm8996-v3.dtsi"
-#include "msm8996-liquid.dtsi"
+#include "msm8996-fluid.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8996 v3 FLUID";
