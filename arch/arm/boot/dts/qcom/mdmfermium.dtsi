@@ -161,6 +161,11 @@
 		qcom,pet-time = <10000>;
 	};
 
+	qcom,msm-rtb {
+		compatible = "qcom,msm-rtb";
+		qcom,rtb-size = <0x10000>; /* 64K EBI1 buffer */
+	};
+
 	clock_gcc: qcom,gcc@1800000 {
 		compatible = "qcom,dummycc";
 		#clock-cells = <1>;
