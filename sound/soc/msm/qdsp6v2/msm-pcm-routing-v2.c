@@ -52,6 +52,7 @@ static int get_cal_path(int path_type);
 #define EC_PORT_ID_SECONDARY_MI2S_TX  2
 #define EC_PORT_ID_TERTIARY_MI2S_TX   3
 #define EC_PORT_ID_QUATERNARY_MI2S_TX 4
+#define EC_PORT_ID_SLIMBUS_1_TX       5
 
 static struct mutex routing_lock;
 
@@ -1716,6 +1717,10 @@ static int msm_routing_ext_ec_put(struct snd_kcontrol *kcontrol,
 		msm_route_ext_ec_ref = AFE_PORT_ID_QUATERNARY_MI2S_TX;
 		state = true;
 		break;
+	case EC_PORT_ID_SLIMBUS_1_TX:
+		msm_route_ext_ec_ref = SLIMBUS_1_TX;
+		state = true;
+		break;
 	default:
 		msm_route_ext_ec_ref = AFE_PORT_INVALID;
 		break;
@@ -1732,10 +1737,10 @@ static int msm_routing_ext_ec_put(struct snd_kcontrol *kcontrol,
 
 static const char * const ext_ec_ref_rx[] = {"NONE", "PRI_MI2S_TX",
 					     "SEC_MI2S_TX", "TERT_MI2S_TX",
-					     "QUAT_MI2S_TX"};
+					     "QUAT_MI2S_TX", "SLIM_1_TX"};
 
 static const struct soc_enum msm_route_ext_ec_ref_rx_enum[] = {
-	SOC_ENUM_SINGLE_EXT(5, ext_ec_ref_rx),
+	SOC_ENUM_SINGLE_EXT(6, ext_ec_ref_rx),
 };
 
 static const struct snd_kcontrol_new voc_ext_ec_mux =
