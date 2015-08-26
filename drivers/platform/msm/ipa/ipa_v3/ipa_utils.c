@@ -817,6 +817,27 @@ bool ipa_is_ep_support_flt(int pipe_idx)
 }
 
 /**
+ * ipa3_write_64() - convert 64 bit value to byte array
+ * @w: 64 bit integer
+ * @dest: byte array
+ *
+ * Return value: converted value
+ */
+u8 *ipa3_write_64(u64 w, u8 *dest)
+{
+	*dest++ = (u8)((w) & 0xFF);
+	*dest++ = (u8)((w >> 8) & 0xFF);
+	*dest++ = (u8)((w >> 16) & 0xFF);
+	*dest++ = (u8)((w >> 24) & 0xFF);
+	*dest++ = (u8)((w >> 32) & 0xFF);
+	*dest++ = (u8)((w >> 40) & 0xFF);
+	*dest++ = (u8)((w >> 48) & 0xFF);
+	*dest++ = (u8)((w >> 56) & 0xFF);
+
+	return dest;
+}
+
+/**
  * ipa3_write_32() - convert 32 bit value to byte array
  * @w: 32 bit integer
  * @dest: byte array
@@ -3782,6 +3803,13 @@ void ipa3_skb_recycle(struct sk_buff *skb)
 	memset(skb, 0, offsetof(struct sk_buff, tail));
 	skb->data = skb->head + NET_SKB_PAD;
 	skb_reset_tail_pointer(skb);
+}
+
+int ipa3_alloc_rule_id(struct idr *rule_ids)
+{
+	return idr_alloc(rule_ids, NULL,
+		IPA_RULE_ID_MIN_VAL, IPA_RULE_ID_MAX_VAL + 1,
+		GFP_KERNEL);
 }
 
 int ipa3_id_alloc(void *ptr)

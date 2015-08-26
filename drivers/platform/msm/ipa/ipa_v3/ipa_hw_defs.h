@@ -73,23 +73,37 @@ struct ipa3_flt_rule_hw_hdr {
 
 /**
  * struct ipa3_rt_rule_hw_hdr - HW header of IPA routing rule
- * @word: filtering rule properties
+ * @word: routing rule properties
  * @en_rule: enable rule
  * @pipe_dest_idx: destination pipe index
  * @system: changed from local to system due to HW change
  * @hdr_offset: header offset
  * @proc_ctx: whether hdr_offset points to header table or to
  *	header processing context table
+ * @priority: Rule priority. Added to distinguish rules order
+ *  at the integrated table consisting from hashable and
+ *  non-hashable parts
+ * @rsvd1: reserved bits
+ * @retain_hdr: added to add back to the packet the header removed
+ *  as part of header removal. This will be done as part of
+ *  header insertion block.
+ * @rule_id: rule ID that will be returned in the packet status
+ * @rsvd2: reserved bits
  */
 struct ipa3_rt_rule_hw_hdr {
 	union {
-		u32 word;
+		u64 word;
 		struct {
-			u32 en_rule:16;
-			u32 pipe_dest_idx:5;
-			u32 system:1;
-			u32 hdr_offset:9;
-			u32 proc_ctx:1;
+			u64 en_rule:16;
+			u64 pipe_dest_idx:5;
+			u64 system:1;
+			u64 hdr_offset:9;
+			u64 proc_ctx:1;
+			u64 priority:10;
+			u64 rsvd1:5;
+			u64 retain_hdr:1;
+			u64 rule_id:10;
+			u64 rsvd2:6;
 		} hdr;
 	} u;
 };

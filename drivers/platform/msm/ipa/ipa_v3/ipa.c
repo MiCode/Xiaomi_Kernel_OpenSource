@@ -3142,7 +3142,7 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 	INIT_LIST_HEAD(&ipa3_ctx->rt_tbl_set[IPA_IP_v4].head_rt_tbl_list);
 	INIT_LIST_HEAD(&ipa3_ctx->rt_tbl_set[IPA_IP_v6].head_rt_tbl_list);
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
-		if (ipa_is_ep_support_flt(i))
+		if (!ipa_is_ep_support_flt(i))
 			continue;
 
 		flt_tbl = &ipa3_ctx->flt_tbl[i][IPA_IP_v4];
@@ -3204,7 +3204,7 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 			ipa3_ctx->empty_rt_tbl_mem.size);
 	IPADBG("empty routing table was allocated in system memory");
 
-	/* setup the A5-IPA pipes */
+	/* setup the AP-IPA pipes */
 	if (ipa3_setup_apps_pipes()) {
 		IPAERR(":failed to setup IPA-Apps pipes.\n");
 		result = -ENODEV;
@@ -3827,4 +3827,3 @@ struct ipa3_context *ipa3_get_ctx(void)
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("IPA HW device driver");
-

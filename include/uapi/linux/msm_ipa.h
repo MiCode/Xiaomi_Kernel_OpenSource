@@ -253,6 +253,17 @@ enum ipa_ip_type {
 };
 
 /**
+ * enum ipa_rule_type - Type of routing or filtering rule
+ * Hashable: Rule will be located at the hashable tables
+ * Non_Hashable: Rule will be located at the non-hashable tables
+ */
+enum ipa_rule_type {
+	IPA_RULE_HASHABLE,
+	IPA_RULE_NON_HASHABLE,
+	IPA_RULE_TYPE_MAX
+};
+
+/**
  * enum ipa_flt_action - action field of filtering rule
  *
  * Pass to routing: 5'd0
@@ -629,12 +640,22 @@ enum ipa_hdr_proc_type {
  * @hdr_proc_ctx_hdl: handle to header processing context. if it is provided
 	hdr_hdl shall be 0
  * @attrib: attributes of the rule
+ * @max_prio: bool switch. is this rule with Max priority? meaning on rule hit,
+ *  IPA will use the rule and will not look for other rules that may has
+ *  higher priority
+ * @hashable: bool switch. is this rule hashable or not?
+ * ipa uses hashable rules to cache their hit results for consequetive packets
+ * @retain_hdr: bool switch to instruct IPA core to add back to the packet
+ *  the header removed as part of header removal
  */
 struct ipa_rt_rule {
 	enum ipa_client_type dst;
 	uint32_t hdr_hdl;
 	uint32_t hdr_proc_ctx_hdl;
 	struct ipa_rule_attrib attrib;
+	uint8_t max_prio;
+	uint8_t hashable;
+	uint8_t retain_hdr;
 };
 
 /**
