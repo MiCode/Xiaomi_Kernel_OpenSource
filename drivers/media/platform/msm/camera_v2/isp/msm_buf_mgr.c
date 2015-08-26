@@ -209,6 +209,7 @@ static void msm_isp_unprepare_v4l2_buf(
 	struct buffer_cmd *buf_pending = NULL;
 	struct msm_isp_bufq *bufq = NULL;
 	int iommu_hdl;
+	unsigned long flags;
 
 	if (!buf_mgr || !buf_info) {
 		pr_err("%s: NULL ptr %p %p\n", __func__,
@@ -234,7 +235,7 @@ static void msm_isp_unprepare_v4l2_buf(
 		cam_smmu_put_phy_addr(iommu_hdl, mapped_info->buf_fd);
 
 		/*protect buffer_q list access*/
-		spin_lock(&bufq->bufq_lock);
+		spin_lock_irqsave(&bufq->bufq_lock, flags);
 		list_for_each_entry(buf_pending, &buf_mgr->buffer_q, list) {
 			if (!buf_pending)
 				break;
@@ -245,7 +246,7 @@ static void msm_isp_unprepare_v4l2_buf(
 				break;
 			}
 		}
-		spin_unlock(&bufq->bufq_lock);
+		spin_unlock_irqrestore(&bufq->bufq_lock, flags);
 	}
 	return;
 }
@@ -815,6 +816,7 @@ static int msm_isp_flush_buf(struct msm_isp_buf_mgr *buf_mgr,
 	int rc = -1, i;
 	struct msm_isp_bufq *bufq = NULL;
 	struct msm_isp_buffer *buf_info = NULL;
+	unsigned long flags;
 
 	bufq = msm_isp_get_bufq(buf_mgr, bufq_handle);
 	if (!bufq) {
@@ -822,8 +824,7 @@ static int msm_isp_flush_buf(struct msm_isp_buf_mgr *buf_mgr,
 		return rc;
 	}
 
-	spin_lock(&bufq->bufq_lock);
-
+	spin_lock_irqsave(&bufq->bufq_lock, flags);
 	for (i = 0; i < bufq->num_bufs; i++) {
 		buf_info = msm_isp_get_buf_ptr(buf_mgr, bufq_handle, i);
 		if (!buf_info) {
@@ -854,7 +855,7 @@ static int msm_isp_flush_buf(struct msm_isp_buf_mgr *buf_mgr,
 				kfree(buf_info);
 		 }
 	}
-	spin_unlock(&bufq->bufq_lock);
+	spin_unlock_irqrestore(&bufq->bufq_lock, flags);
 	return 0;
 }
 
