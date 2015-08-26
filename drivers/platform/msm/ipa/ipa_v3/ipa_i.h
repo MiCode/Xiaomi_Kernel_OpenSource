@@ -469,10 +469,15 @@ struct ipa3_rt_tbl_set {
  *	specified Status End Point. Status endpoint needs to be
  *	configured with STATUS_EN=1 Valid only for Input Pipes (IPA
  *	Consumer)
+ * @status_location: Location of PKT-STATUS on destination pipe.
+ *	If set to 0 (default), PKT-STATUS will be appended before the packet
+ *	for this endpoint. If set to 1, PKT-STATUS will be appended after the
+ *	packet for this endpoint. Valid only for Output Pipes (IPA Producer)
  */
 struct ipa3_ep_cfg_status {
 	bool status_en;
 	u8 status_ep;
+	bool status_location;
 };
 
 /**
@@ -1311,6 +1316,8 @@ struct ipa3_context {
  * @route_frag_def_pipe: Default pipe to route fragmented exception
  *    packets and frag new rule statues, if source pipe does not have
  *    a notification status pipe defined.
+ * @route_def_retain_hdr: default value of retain header. It is used
+ *    when no rule was hit
  */
 struct ipa3_route {
 	u32 route_dis;
@@ -1318,6 +1325,7 @@ struct ipa3_route {
 	u32 route_def_hdr_table;
 	u32 route_def_hdr_ofst;
 	u8  route_frag_def_pipe;
+	u32 route_def_retain_hdr;
 };
 
 /**

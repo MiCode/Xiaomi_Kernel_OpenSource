@@ -1139,6 +1139,7 @@ static int ipa3_setup_exception_path(void)
 	route.route_frag_def_pipe = ipa3_get_ep_mapping(
 		IPA_CLIENT_APPS_LAN_CONS);
 	route.route_def_hdr_table = !ipa3_ctx->hdr_tbl_lcl;
+	route.route_def_retain_hdr = 1;
 
 	if (ipa3_cfg_route(&route)) {
 		IPAERR("fail to add exception hdr\n");

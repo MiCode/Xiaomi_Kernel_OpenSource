@@ -573,6 +573,10 @@ void _ipa_cfg_route_v3_0(struct ipa3_route *route)
 			IPA_ROUTE_ROUTE_FRAG_DEF_PIPE_SHFT,
 			IPA_ROUTE_ROUTE_FRAG_DEF_PIPE_BMSK);
 
+	IPA_SETFIELD_IN_REG(reg_val, route->route_def_retain_hdr,
+			IPA_ROUTE_ROUTE_DEF_RETAIN_HDR_SHFT,
+			IPA_ROUTE_ROUTE_DEF_RETAIN_HDR_BMSK);
+
 	ipa_write_reg(ipa3_ctx->mmio, IPA_ROUTE_OFST_v3_0, reg_val);
 }
 
@@ -2422,6 +2426,10 @@ static void _ipa_cfg_ep_status_v3_0(u32 clnt_hdl,
 			IPA_ENDP_STATUS_n_STATUS_ENDP_SHFT,
 			IPA_ENDP_STATUS_n_STATUS_ENDP_BMSK);
 
+	IPA_SETFIELD_IN_REG(reg_val, ep_status->status_location,
+			IPA_ENDP_STATUS_n_STATUS_LOCATION_SHFT,
+			IPA_ENDP_STATUS_n_STATUS_LOCATION_BMSK);
+
 	ipa_write_reg(ipa3_ctx->mmio,
 			IPA_ENDP_STATUS_n_OFST(clnt_hdl),
 			reg_val);
@@ -2446,10 +2454,11 @@ int ipa3_cfg_ep_status(u32 clnt_hdl, const struct ipa3_ep_cfg_status *ep_status)
 		return -EINVAL;
 	}
 
-	IPADBG("pipe=%d, status_en=%d status_ep=%d\n",
+	IPADBG("pipe=%d, status_en=%d status_ep=%d status_location=%d\n",
 			clnt_hdl,
 			ep_status->status_en,
-			ep_status->status_ep);
+			ep_status->status_ep,
+			ep_status->status_location);
 
 	/* copy over EP cfg */
 	ipa3_ctx->ep[clnt_hdl].status = *ep_status;
