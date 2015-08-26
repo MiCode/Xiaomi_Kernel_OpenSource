@@ -228,6 +228,7 @@
 			<87 358>,   /* ee0_krait_hlos_spmi_periph_irq */
 			<0xff 16>,  /* APCj_qgicdrCpu0HwFaultIrptReq */
 			<0xff 27>,  /* APCj_qgicdrCpu0QTmrVirtIrptReq */
+			<0xff 32>,  /* APCj_qgicdrL2PerfMonIrptReq */
 			<0xff 33>,  /* APCC_qgicL2PerfMonIrptReq */
 			<0xff 34>,  /* APCC_qgicL2ErrorIrptReq */
 			<0xff 35>,  /* WDT_barkInt */
@@ -270,7 +271,9 @@
 			<0xff 112>, /* csiphy_2_irq */
 			<0xff 115>, /* mdss_irq */
 			<0xff 126>, /* bam_irq[0] */
+			<0xff 127>, /* blsp1_qup_irq(0) */
 			<0xff 133>, /* blsp2_qup_irq(0) */
+			<0xff 134>, /* blsp2_qup_irq(1) */
 			<0xff 138>, /* blsp2_qup_irq(5) */
 			<0xff 140>, /* blsp1_uart_irq(1) */
 			<0xff 146>, /* blsp2_uart_irq(1) */
@@ -348,6 +351,7 @@
 			<0xff 352>, /* mdss_mmu_cirpt[0] */
 			<0xff 353>, /* mdss_mmu_cirpt[1] */
 			<0xff 361>, /* ogpu_mmu_cirpt[0] */
+			<0xff 362>, /* ogpu_mmu_cirpt[1] */
 			<0xff 365>, /* ipa_irq[0] */
 			<0xff 366>, /* ogpu_mmu_pmirpt */
 			<0xff 367>, /* venus0_mmu_cirpt[0] */
