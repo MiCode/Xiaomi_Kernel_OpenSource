@@ -36,8 +36,9 @@ struct handle_type {
 };
 
 static struct handle_type handle_list;
-struct list_head input_list;
-struct list_head apply_list;
+static LIST_HEAD(input_list);
+static LIST_HEAD(apply_list);
+static LIST_HEAD(commit_list);
 
 DEFINE_RT_MUTEX(msm_bus_adhoc_lock);
 
@@ -97,7 +98,7 @@ uint64_t msm_bus_div64(unsigned int w, uint64_t bw)
 int msm_bus_device_match_adhoc(struct device *dev, void *id)
 {
 	int ret = 0;
-	struct msm_bus_node_device_type *bnode = dev->platform_data;
+	struct msm_bus_node_device_type *bnode = to_msm_bus_node(dev);
 
 	if (bnode)
 		ret = (bnode->node_info->id == *(unsigned int *)id);
@@ -108,7 +109,7 @@ int msm_bus_device_match_adhoc(struct device *dev, void *id)
 }
 
 static int gen_lnode(struct device *dev,
-			int next_hop, int prev_idx)
+			int next_hop, int prev_idx, const char *cl_name)
 {
 	struct link_node *lnode;
 	struct msm_bus_node_device_type *cur_dev = NULL;
@@ -117,7 +118,7 @@ static int gen_lnode(struct device *dev,
 	if (!dev)
 		goto exit_gen_lnode;
 
-	cur_dev = dev->platform_data;
+	cur_dev = to_msm_bus_node(dev);
 	if (!cur_dev) {
 		MSM_BUS_ERR("%s: Null device ptr", __func__);
 		goto exit_gen_lnode;
@@ -166,6 +167,7 @@ static int gen_lnode(struct device *dev,
 	}
 
 	lnode->in_use = 1;
+	lnode->cl_name = cl_name;
 	if (next_hop == cur_dev->node_info->id) {
 		lnode->next = -1;
 		lnode->next_dev = NULL;
@@ -206,6 +208,7 @@ static int remove_lnode(struct msm_bus_node_device_type *cur_dev,
 		cur_dev->lnode_list[lnode_idx].next = -1;
 		cur_dev->lnode_list[lnode_idx].next_dev = NULL;
 		cur_dev->lnode_list[lnode_idx].in_use = 0;
+		cur_dev->lnode_list[lnode_idx].cl_name = NULL;
 	}
 
 exit_remove_lnode:
@@ -213,7 +216,8 @@ exit_remove_lnode:
 }
 
 static int prune_path(struct list_head *route_list, int dest, int src,
-				struct list_head *black_list, int found)
+				struct list_head *black_list, int found,
+				const char *cl_name)
 {
 	struct bus_search_type *search_node, *temp_search_node;
 	struct msm_bus_node_device_type *bus_node;
@@ -233,7 +237,7 @@ static int prune_path(struct list_head *route_list, int dest, int src,
 		goto exit_prune_path;
 	}
 
-	lnode_hop = gen_lnode(dest_dev, search_dev_id, lnode_hop);
+	lnode_hop = gen_lnode(dest_dev, search_dev_id, lnode_hop, cl_name);
 
 	list_for_each_entry_reverse(search_node, route_list, link) {
 		list_for_each_entry(bus_node, &search_node->node_list, link) {
@@ -257,7 +261,7 @@ static int prune_path(struct list_head *route_list, int dest, int src,
 
 					lnode_hop = gen_lnode(dest_dev,
 							search_dev_id,
-							lnode_hop);
+							lnode_hop, cl_name);
 					search_dev_id =
 						bus_node->node_info->id;
 					break;
@@ -290,25 +294,23 @@ static void setup_bl_list(struct msm_bus_node_device_type *node,
 
 	for (i = 0; i < node->node_info->num_blist; i++) {
 		struct msm_bus_node_device_type *bdev;
-		bdev = node->node_info->black_connections[i]->platform_data;
+		bdev = to_msm_bus_node(node->node_info->black_connections[i]);
 		list_add_tail(&bdev->link, black_list);
 	}
 }
 
-static int getpath(int src, int dest)
+static int getpath(struct device *src_dev, int dest, const char *cl_name)
 {
 	struct list_head traverse_list;
 	struct list_head edge_list;
 	struct list_head route_list;
 	struct list_head black_list;
-	struct device *src_dev = bus_find_device(&msm_bus_type, NULL,
-					(void *) &src,
-					msm_bus_device_match_adhoc);
 	struct msm_bus_node_device_type *src_node;
 	struct bus_search_type *search_node;
 	int found = 0;
 	int depth_index = 0;
 	int first_hop = -1;
+	int src;
 
 	INIT_LIST_HEAD(&traverse_list);
 	INIT_LIST_HEAD(&edge_list);
@@ -316,15 +318,16 @@ static int getpath(int src, int dest)
 	INIT_LIST_HEAD(&black_list);
 
 	if (!src_dev) {
-		MSM_BUS_ERR("%s: Cannot locate src dev %d", __func__, src);
+		MSM_BUS_ERR("%s: Cannot locate src dev ", __func__);
 		goto exit_getpath;
 	}
 
-	src_node = src_dev->platform_data;
+	src_node = to_msm_bus_node(src_dev);
 	if (!src_node) {
-		MSM_BUS_ERR("%s:Fatal, Source dev %d not found", __func__, src);
+		MSM_BUS_ERR("%s:Fatal, Source node not found", __func__);
 		goto exit_getpath;
 	}
+	src = src_node->node_info->id;
 	list_add_tail(&src_node->link, &traverse_list);
 
 	while ((!found && !list_empty(&traverse_list))) {
@@ -349,9 +352,9 @@ static int getpath(int src, int dest)
 					bool skip;
 					struct msm_bus_node_device_type
 							*node_conn;
-					node_conn = bus_node->node_info->
-						dev_connections[i]->
-						platform_data;
+					node_conn =
+					to_msm_bus_node(bus_node->node_info->
+						dev_connections[i]);
 					if (node_conn->node_info->
 							is_traversed) {
 						MSM_BUS_ERR("Circ Path %d\n",
@@ -385,77 +388,213 @@ static int getpath(int src, int dest)
 	}
 reset_traversed:
 	copy_remaining_nodes(&edge_list, &traverse_list, &route_list);
-	first_hop = prune_path(&route_list, dest, src, &black_list, found);
+	first_hop = prune_path(&route_list, dest, src, &black_list, found,
+								cl_name);
 
 exit_getpath:
 	return first_hop;
 }
 
-static uint64_t arbitrate_bus_req(struct msm_bus_node_device_type *bus_dev,
-								int ctx)
+static uint64_t scheme1_agg_scheme(struct msm_bus_node_device_type *bus_dev,
+			struct msm_bus_node_device_type *fab_dev, int ctx)
 {
-	int i;
-	uint64_t max_ib = 0;
-	uint64_t sum_ab = 0;
+	uint64_t max_ib;
+	uint64_t sum_ab;
 	uint64_t bw_max_hz;
-	struct msm_bus_node_device_type *fab_dev = NULL;
 	uint32_t util_fact = 0;
 	uint32_t vrail_comp = 0;
+	struct node_util_levels_type *utils;
+	int i;
+	int num_util_levels;
 
-	/* Find max ib */
-	for (i = 0; i < bus_dev->num_lnodes; i++) {
-		max_ib = max(max_ib, bus_dev->lnode_list[i].lnode_ib[ctx]);
-		sum_ab += bus_dev->lnode_list[i].lnode_ab[ctx];
-	}
 	/*
-	 *  Account for Util factor and vrail comp. The new aggregation
-	 *  formula is:
+	 *  Account for Util factor and vrail comp.
+	 *  Util factor is picked according to the current sum(AB) for this
+	 *  node and for this context.
+	 *  Vrail comp is fixed for the entire performance range.
+	 *  They default to 100 if absent.
+	 *
+	 *  The aggregated clock is computed as:
 	 *  Freq_hz = max((sum(ab) * util_fact)/num_chan, max(ib)/vrail_comp)
 	 *				/ bus-width
-	 *  util_fact and vrail comp are obtained from fabric/Node's dts
-	 *  properties.
-	 *  They default to 100 if absent.
 	 */
-	fab_dev = bus_dev->node_info->bus_device->platform_data;
-	/* Don't do this for virtual fabrics */
-	if (fab_dev && fab_dev->fabdev) {
-		util_fact = bus_dev->node_info->util_fact ?
-			bus_dev->node_info->util_fact :
-			fab_dev->fabdev->util_fact;
-		vrail_comp = bus_dev->node_info->vrail_comp ?
-			bus_dev->node_info->vrail_comp :
-			fab_dev->fabdev->vrail_comp;
+	if (bus_dev->node_info->agg_params.num_util_levels) {
+		utils = bus_dev->node_info->agg_params.util_levels;
+		num_util_levels =
+			bus_dev->node_info->agg_params.num_util_levels;
+	} else {
+		utils = fab_dev->node_info->agg_params.util_levels;
+		num_util_levels =
+			fab_dev->node_info->agg_params.num_util_levels;
+	}
+
+	sum_ab = bus_dev->node_bw[ctx].sum_ab;
+	max_ib = bus_dev->node_bw[ctx].max_ib;
+
+	for (i = 0; i < num_util_levels; i++) {
+		if (sum_ab < utils[i].threshold) {
+			util_fact = utils[i].util_fact;
+			break;
+		}
+	}
+	if (i == num_util_levels)
+		util_fact = utils[(num_util_levels - 1)].util_fact;
+
+	vrail_comp = bus_dev->node_info->agg_params.vrail_comp ?
+			bus_dev->node_info->agg_params.vrail_comp :
+			fab_dev->node_info->agg_params.vrail_comp;
+
+	bus_dev->node_bw[ctx].vrail_used = vrail_comp;
+	bus_dev->node_bw[ctx].util_used = util_fact;
+
+	if (util_fact && (util_fact != 100)) {
 		sum_ab *= util_fact;
 		sum_ab = msm_bus_div64(100, sum_ab);
+	}
+
+	if (vrail_comp && (vrail_comp != 100)) {
 		max_ib *= 100;
 		max_ib = msm_bus_div64(vrail_comp, max_ib);
 	}
 
 	/* Account for multiple channels if any */
-	if (bus_dev->node_info->num_aggports > 1)
-		sum_ab = msm_bus_div64(bus_dev->node_info->num_aggports,
+	if (bus_dev->node_info->agg_params.num_aggports > 1)
+		sum_ab = msm_bus_div64(
+				bus_dev->node_info->agg_params.num_aggports,
 					sum_ab);
 
-	if (!bus_dev->node_info->buswidth) {
+	if (!bus_dev->node_info->agg_params.buswidth) {
 		MSM_BUS_WARN("No bus width found for %d. Using default\n",
 					bus_dev->node_info->id);
-		bus_dev->node_info->buswidth = 8;
+		bus_dev->node_info->agg_params.buswidth = 8;
 	}
 
 	bw_max_hz = max(max_ib, sum_ab);
-	bw_max_hz = msm_bus_div64(bus_dev->node_info->buswidth,
+	bw_max_hz = msm_bus_div64(bus_dev->node_info->agg_params.buswidth,
 					bw_max_hz);
 
 	return bw_max_hz;
 }
+
+static uint64_t legacy_agg_scheme(struct msm_bus_node_device_type *bus_dev,
+			struct msm_bus_node_device_type *fab_dev, int ctx)
+{
+	uint64_t max_ib;
+	uint64_t sum_ab;
+	uint64_t bw_max_hz;
+	uint32_t util_fact = 0;
+	uint32_t vrail_comp = 0;
+
+	/*
+	 *  Util_fact and vrail comp are obtained from fabric/Node's dts
+	 *  properties and are fixed for the entire performance range.
+	 *  They default to 100 if absent.
+	 *
+	 *  The clock frequency is computed as:
+	 *  Freq_hz = max((sum(ab) * util_fact)/num_chan, max(ib)/vrail_comp)
+	 *				/ bus-width
+	 */
+	util_fact = fab_dev->node_info->agg_params.util_levels[0].util_fact;
+	vrail_comp = fab_dev->node_info->agg_params.vrail_comp;
+
+	if (bus_dev->node_info->agg_params.num_util_levels)
+		util_fact =
+		bus_dev->node_info->agg_params.util_levels[0].util_fact ?
+		bus_dev->node_info->agg_params.util_levels[0].util_fact :
+		util_fact;
+
+	vrail_comp = bus_dev->node_info->agg_params.vrail_comp ?
+			bus_dev->node_info->agg_params.vrail_comp :
+			vrail_comp;
+
+	bus_dev->node_bw[ctx].vrail_used = vrail_comp;
+	bus_dev->node_bw[ctx].util_used = util_fact;
+	sum_ab = bus_dev->node_bw[ctx].sum_ab;
+	max_ib = bus_dev->node_bw[ctx].max_ib;
+
+	if (util_fact && (util_fact != 100)) {
+		sum_ab *= util_fact;
+		sum_ab = msm_bus_div64(100, sum_ab);
+	}
+
+	if (vrail_comp && (vrail_comp != 100)) {
+		max_ib *= 100;
+		max_ib = msm_bus_div64(vrail_comp, max_ib);
+	}
+
+	/* Account for multiple channels if any */
+	if (bus_dev->node_info->agg_params.num_aggports > 1)
+		sum_ab = msm_bus_div64(
+				bus_dev->node_info->agg_params.num_aggports,
+					sum_ab);
+
+	if (!bus_dev->node_info->agg_params.buswidth) {
+		MSM_BUS_WARN("No bus width found for %d. Using default\n",
+					bus_dev->node_info->id);
+		bus_dev->node_info->agg_params.buswidth = 8;
+	}
+
+	bw_max_hz = max(max_ib, sum_ab);
+	bw_max_hz = msm_bus_div64(bus_dev->node_info->agg_params.buswidth,
+					bw_max_hz);
+
+	return bw_max_hz;
+}
+
+static uint64_t aggregate_bus_req(struct msm_bus_node_device_type *bus_dev,
+									int ctx)
+{
+	uint64_t bw_hz = 0;
+	int i;
+	struct msm_bus_node_device_type *fab_dev = NULL;
+	uint32_t agg_scheme;
+	uint64_t max_ib = 0;
+	uint64_t sum_ab = 0;
+
+	if (!bus_dev || !to_msm_bus_node(bus_dev->node_info->bus_device)) {
+		MSM_BUS_ERR("Bus node pointer is Invalid");
+		goto exit_agg_bus_req;
+	}
+
+	fab_dev = to_msm_bus_node(bus_dev->node_info->bus_device);
+	for (i = 0; i < bus_dev->num_lnodes; i++) {
+		max_ib = max(max_ib, bus_dev->lnode_list[i].lnode_ib[ctx]);
+		sum_ab += bus_dev->lnode_list[i].lnode_ab[ctx];
+	}
+
+	bus_dev->node_bw[ctx].sum_ab = sum_ab;
+	bus_dev->node_bw[ctx].max_ib = max_ib;
+
+	if (bus_dev->node_info->agg_params.agg_scheme != AGG_SCHEME_NONE)
+		agg_scheme = bus_dev->node_info->agg_params.agg_scheme;
+	else
+		agg_scheme = fab_dev->node_info->agg_params.agg_scheme;
+
+	switch (agg_scheme) {
+	case AGG_SCHEME_1:
+		bw_hz = scheme1_agg_scheme(bus_dev, fab_dev, ctx);
+		break;
+	case AGG_SCHEME_LEG:
+		bw_hz = legacy_agg_scheme(bus_dev, fab_dev, ctx);
+		break;
+	default:
+		panic("Invalid Bus aggregation scheme");
+	}
+
+exit_agg_bus_req:
+	return bw_hz;
+}
+
 
 static void del_inp_list(struct list_head *list)
 {
 	struct rule_update_path_info *rule_node;
 	struct rule_update_path_info *rule_node_tmp;
 
-	list_for_each_entry_safe(rule_node, rule_node_tmp, list, link)
+	list_for_each_entry_safe(rule_node, rule_node_tmp, list, link) {
 		list_del(&rule_node->link);
+		rule_node->added = false;
+	}
 }
 
 static void del_op_list(struct list_head *list)
@@ -489,7 +628,7 @@ static int msm_bus_apply_rules(struct list_head *list, bool after_clk_commit)
 			MSM_BUS_ERR("Can't find dev node for %d", rule->id);
 			continue;
 		}
-		dev_info = dev->platform_data;
+		dev_info = to_msm_bus_node(dev);
 
 		ret = msm_bus_enable_limiter(dev_info, rule->throttle,
 							rule->lim_bw);
@@ -500,61 +639,58 @@ static int msm_bus_apply_rules(struct list_head *list, bool after_clk_commit)
 	return ret;
 }
 
-static uint64_t get_node_aggab(struct msm_bus_node_device_type *bus_dev)
+static void commit_data(void)
 {
-	int i;
-	int ctx;
-	uint64_t max_agg_ab = 0;
-	uint64_t agg_ab = 0;
+	bool rules_registered = msm_rule_are_rules_registered();
 
-	for (ctx = 0; ctx < NUM_CTX; ctx++) {
-		for (i = 0; i < bus_dev->num_lnodes; i++)
-			agg_ab += bus_dev->lnode_list[i].lnode_ab[ctx];
-
-		if (bus_dev->node_info->num_aggports > 1)
-			agg_ab = msm_bus_div64(bus_dev->node_info->num_aggports,
-						agg_ab);
-
-		max_agg_ab = max(max_agg_ab, agg_ab);
+	if (rules_registered) {
+		msm_rules_update_path(&input_list, &apply_list);
+		msm_bus_apply_rules(&apply_list, false);
 	}
 
-	return max_agg_ab;
-}
+	msm_bus_commit_data(&commit_list);
 
-static uint64_t get_node_ib(struct msm_bus_node_device_type *bus_dev)
-{
-	int i;
-	int ctx;
-	uint64_t max_ib = 0;
-
-	for (ctx = 0; ctx < NUM_CTX; ctx++) {
-		for (i = 0; i < bus_dev->num_lnodes; i++)
-			max_ib = max(max_ib,
-				bus_dev->lnode_list[i].lnode_ib[ctx]);
+	if (rules_registered) {
+		msm_bus_apply_rules(&apply_list, true);
+		del_inp_list(&input_list);
+		del_op_list(&apply_list);
 	}
-	return max_ib;
+	INIT_LIST_HEAD(&input_list);
+	INIT_LIST_HEAD(&apply_list);
+	INIT_LIST_HEAD(&commit_list);
 }
 
-static int update_path(int src, int dest, uint64_t req_ib, uint64_t req_bw,
-			uint64_t cur_ib, uint64_t cur_bw, int src_idx, int ctx)
+static void add_node_to_clist(struct msm_bus_node_device_type *node)
 {
-	struct device *src_dev = NULL;
+	struct msm_bus_node_device_type *node_parent =
+			to_msm_bus_node(node->node_info->bus_device);
+
+	if (!node->dirty) {
+		list_add_tail(&node->link, &commit_list);
+		node->dirty = true;
+	}
+
+	if (!node_parent->dirty) {
+		list_add_tail(&node_parent->link, &commit_list);
+		node_parent->dirty = true;
+	}
+}
+
+static int update_path(struct device *src_dev, int dest, uint64_t act_req_ib,
+			uint64_t act_req_bw, uint64_t slp_req_ib,
+			uint64_t slp_req_bw, uint64_t cur_ib, uint64_t cur_bw,
+			int src_idx, int ctx)
+{
 	struct device *next_dev = NULL;
 	struct link_node *lnode = NULL;
 	struct msm_bus_node_device_type *dev_info = NULL;
 	int curr_idx;
 	int ret = 0;
-	int *dirty_nodes = NULL;
-	int num_dirty = 0;
 	struct rule_update_path_info *rule_node;
 	bool rules_registered = msm_rule_are_rules_registered();
 
-	src_dev = bus_find_device(&msm_bus_type, NULL,
-				(void *) &src,
-				msm_bus_device_match_adhoc);
-
-	if (!src_dev) {
-		MSM_BUS_ERR("%s: Can't find source device %d", __func__, src);
+	if (IS_ERR_OR_NULL(src_dev)) {
+		MSM_BUS_ERR("%s: No source device", __func__);
 		ret = -ENODEV;
 		goto exit_update_path;
 	}
@@ -568,11 +704,10 @@ static int update_path(int src, int dest, uint64_t req_ib, uint64_t req_bw,
 	}
 	curr_idx = src_idx;
 
-	INIT_LIST_HEAD(&input_list);
-	INIT_LIST_HEAD(&apply_list);
-
 	while (next_dev) {
-		dev_info = next_dev->platform_data;
+		int i;
+
+		dev_info = to_msm_bus_node(next_dev);
 
 		if (curr_idx >= dev_info->num_lnodes) {
 			MSM_BUS_ERR("%s: Invalid lnode Idx %d num lnodes %d",
@@ -582,67 +717,47 @@ static int update_path(int src, int dest, uint64_t req_ib, uint64_t req_bw,
 		}
 
 		lnode = &dev_info->lnode_list[curr_idx];
-		lnode->lnode_ib[ctx] = req_ib;
-		lnode->lnode_ab[ctx] = req_bw;
-
-		dev_info->cur_clk_hz[ctx] = arbitrate_bus_req(dev_info, ctx);
-
-		/* Start updating the clocks at the first hop.
-		 * Its ok to figure out the aggregated
-		 * request at this node.
-		 */
-		if (src_dev != next_dev) {
-			ret = msm_bus_update_clks(dev_info, ctx, &dirty_nodes,
-								&num_dirty);
-			if (ret) {
-				MSM_BUS_ERR("%s: Failed to update clks dev %d",
-					__func__, dev_info->node_info->id);
-				goto exit_update_path;
-			}
-		}
-
-		ret = msm_bus_update_bw(dev_info, ctx, req_bw, &dirty_nodes,
-								&num_dirty);
-		if (ret) {
-			MSM_BUS_ERR("%s: Failed to update bw dev %d",
-				__func__, dev_info->node_info->id);
+		if (!lnode) {
+			MSM_BUS_ERR("%s: Invalid lnode ptr lnode %d",
+				 __func__, curr_idx);
+			ret = -ENXIO;
 			goto exit_update_path;
 		}
+		lnode->lnode_ib[ACTIVE_CTX] = act_req_ib;
+		lnode->lnode_ab[ACTIVE_CTX] = act_req_bw;
+		lnode->lnode_ib[DUAL_CTX] = slp_req_ib;
+		lnode->lnode_ab[DUAL_CTX] = slp_req_bw;
+
+		for (i = 0; i < NUM_CTX; i++)
+			dev_info->node_bw[i].cur_clk_hz =
+					aggregate_bus_req(dev_info, i);
+
+		add_node_to_clist(dev_info);
 
 		if (rules_registered) {
 			rule_node = &dev_info->node_info->rule;
 			rule_node->id = dev_info->node_info->id;
-			rule_node->ib = get_node_ib(dev_info);
-			rule_node->ab = get_node_aggab(dev_info);
-			rule_node->clk = max(dev_info->cur_clk_hz[ACTIVE_CTX],
-						dev_info->cur_clk_hz[DUAL_CTX]);
-			list_add_tail(&rule_node->link, &input_list);
+			rule_node->ib = dev_info->node_bw[ACTIVE_CTX].max_ib;
+			rule_node->ab = dev_info->node_bw[ACTIVE_CTX].sum_ab;
+			rule_node->clk =
+				dev_info->node_bw[ACTIVE_CTX].cur_clk_hz;
+			if (!rule_node->added) {
+				list_add_tail(&rule_node->link, &input_list);
+				rule_node->added = true;
+			}
 		}
 
 		next_dev = lnode->next_dev;
 		curr_idx = lnode->next;
 	}
 
-	if (rules_registered) {
-		msm_rules_update_path(&input_list, &apply_list);
-		msm_bus_apply_rules(&apply_list, false);
-	}
-
-	msm_bus_commit_data(dirty_nodes, ctx, num_dirty);
-
-	if (rules_registered) {
-		msm_bus_apply_rules(&apply_list, true);
-		del_inp_list(&input_list);
-		del_op_list(&apply_list);
-	}
 exit_update_path:
 	return ret;
 }
 
-static int remove_path(int src, int dst, uint64_t cur_ib, uint64_t cur_ab,
-				int src_idx, int active_only)
+static int remove_path(struct device *src_dev, int dst, uint64_t cur_ib,
+			uint64_t cur_ab, int src_idx, int active_only)
 {
-	struct device *src_dev = NULL;
 	struct device *next_dev = NULL;
 	struct link_node *lnode = NULL;
 	struct msm_bus_node_device_type *dev_info = NULL;
@@ -653,8 +768,13 @@ static int remove_path(int src, int dst, uint64_t cur_ib, uint64_t cur_ab,
 	/* Update the current path to zero out all request from
 	 * this cient on all paths
 	 */
+	if (!src_dev) {
+		MSM_BUS_ERR("%s: Can't find source device", __func__);
+		ret = -ENODEV;
+		goto exit_remove_path;
+	}
 
-	ret = update_path(src, dst, 0, 0, cur_ib, cur_ab, src_idx,
+	ret = update_path(src_dev, dst, 0, 0, 0, 0, cur_ib, cur_ab, src_idx,
 							active_only);
 	if (ret) {
 		MSM_BUS_ERR("%s: Error zeroing out path ctx %d",
@@ -662,19 +782,10 @@ static int remove_path(int src, int dst, uint64_t cur_ib, uint64_t cur_ab,
 		goto exit_remove_path;
 	}
 
-	src_dev = bus_find_device(&msm_bus_type, NULL,
-				(void *) &src,
-				msm_bus_device_match_adhoc);
-	if (!src_dev) {
-		MSM_BUS_ERR("%s: Can't find source device %d", __func__, src);
-		ret = -ENODEV;
-		goto exit_remove_path;
-	}
-
 	next_dev = src_dev;
 
 	while (next_dev) {
-		dev_info = next_dev->platform_data;
+		dev_info = to_msm_bus_node(next_dev);
 		lnode = &dev_info->lnode_list[cur_idx];
 		next_idx = lnode->next;
 		next_dev = lnode->next_dev;
@@ -705,28 +816,28 @@ static void getpath_debug(int src, int curr, int active_only)
 	}
 
 	idx = curr;
-	devinfo = dev_node->platform_data;
+	devinfo = to_msm_bus_node(dev_node);
 	dev_it = dev_node;
 
 	MSM_BUS_ERR("Route list Src %d", src);
 	while (dev_it) {
 		struct msm_bus_node_device_type *busdev =
-			devinfo->node_info->bus_device->platform_data;
+			to_msm_bus_node(devinfo->node_info->bus_device);
 
 		MSM_BUS_ERR("Hop[%d] at Device %d ctx %d", hop,
 					devinfo->node_info->id, active_only);
 
 		for (i = 0; i < NUM_CTX; i++) {
 			MSM_BUS_ERR("dev info sel ib %llu",
-						devinfo->cur_clk_hz[i]);
+						devinfo->node_bw[i].cur_clk_hz);
 			MSM_BUS_ERR("dev info sel ab %llu",
-						devinfo->node_ab.ab[i]);
+						devinfo->node_bw[i].sum_ab);
 		}
 
 		dev_it = devinfo->lnode_list[idx].next_dev;
 		idx = devinfo->lnode_list[idx].next;
 		if (dev_it)
-			devinfo = dev_it->platform_data;
+			devinfo = to_msm_bus_node(dev_it);
 
 		MSM_BUS_ERR("Bus Device %d", busdev->node_info->id);
 		MSM_BUS_ERR("Bus Clock %llu", busdev->clk[active_only].rate);
@@ -744,6 +855,7 @@ static void unregister_client_adhoc(uint32_t cl)
 	int lnode, src, curr, dest;
 	uint64_t  cur_clk, cur_bw;
 	struct msm_bus_client *client;
+	struct device *src_dev;
 
 	rt_mutex_lock(&msm_bus_adhoc_lock);
 	if (!cl) {
@@ -772,11 +884,13 @@ static void unregister_client_adhoc(uint32_t cl)
 		dest = client->pdata->usecase[curr].vectors[i].dst;
 
 		lnode = client->src_pnode[i];
+		src_dev = client->src_devs[i];
 		cur_clk = client->pdata->usecase[curr].vectors[i].ib;
 		cur_bw = client->pdata->usecase[curr].vectors[i].ab;
-		remove_path(src, dest, cur_clk, cur_bw, lnode,
+		remove_path(src_dev, dest, cur_clk, cur_bw, lnode,
 						pdata->active_only);
 	}
+	commit_data();
 	msm_bus_dbg_client_data(client->pdata, MSM_BUS_DBG_UNREGISTER, cl);
 	kfree(client->src_pnode);
 	kfree(client);
@@ -857,6 +971,7 @@ static uint32_t register_client_adhoc(struct msm_bus_scale_pdata *pdata)
 	int i;
 	struct msm_bus_client *client = NULL;
 	int *lnode;
+	struct device *dev;
 	uint32_t handle = 0;
 
 	rt_mutex_lock(&msm_bus_adhoc_lock);
@@ -874,6 +989,14 @@ static uint32_t register_client_adhoc(struct msm_bus_scale_pdata *pdata)
 	}
 	client->src_pnode = lnode;
 
+	client->src_devs = kzalloc(pdata->usecase->num_paths *
+					sizeof(struct device *), GFP_KERNEL);
+	if (IS_ERR_OR_NULL(client->src_devs)) {
+		MSM_BUS_ERR("%s: Error allocating pathnode ptr!", __func__);
+		goto exit_register_client;
+	}
+	client->curr = -1;
+
 	for (i = 0; i < pdata->usecase->num_paths; i++) {
 		src = pdata->usecase->vectors[i].src;
 		dest = pdata->usecase->vectors[i].dst;
@@ -883,8 +1006,17 @@ static uint32_t register_client_adhoc(struct msm_bus_scale_pdata *pdata)
 				__func__, src, dest);
 			goto exit_register_client;
 		}
+		dev = bus_find_device(&msm_bus_type, NULL,
+				(void *) &src,
+				msm_bus_device_match_adhoc);
+		if (IS_ERR_OR_NULL(dev)) {
+			MSM_BUS_ERR("%s:Failed to find path.src %d dest %d",
+				__func__, src, dest);
+			goto exit_register_client;
+		}
+		client->src_devs[i] = dev;
 
-		lnode[i] = getpath(src, dest);
+		lnode[i] = getpath(dev, dest, client->pdata->name);
 		if (lnode[i] < 0) {
 			MSM_BUS_ERR("%s:Failed to find path.src %d dest %d",
 				__func__, src, dest);
@@ -902,12 +1034,133 @@ exit_register_client:
 	return handle;
 }
 
-static int update_request_adhoc(uint32_t cl, unsigned int index)
+static int update_client_paths(struct msm_bus_client *client, bool log_trns,
+							unsigned int idx)
 {
+	int lnode, src, dest, cur_idx;
+	uint64_t req_clk, req_bw, curr_clk, curr_bw, slp_clk, slp_bw;
 	int i, ret = 0;
 	struct msm_bus_scale_pdata *pdata;
-	int lnode, src, curr, dest;
-	uint64_t req_clk, req_bw, curr_clk, curr_bw;
+	struct device *src_dev;
+
+	if (!client) {
+		MSM_BUS_ERR("Client handle  Null");
+		ret = -ENXIO;
+		goto exit_update_client_paths;
+	}
+
+	pdata = client->pdata;
+	if (!pdata) {
+		MSM_BUS_ERR("Client pdata Null");
+		ret = -ENXIO;
+		goto exit_update_client_paths;
+	}
+
+	cur_idx = client->curr;
+	client->curr = idx;
+	for (i = 0; i < pdata->usecase->num_paths; i++) {
+		src = pdata->usecase[idx].vectors[i].src;
+		dest = pdata->usecase[idx].vectors[i].dst;
+
+		lnode = client->src_pnode[i];
+		src_dev = client->src_devs[i];
+		req_clk = client->pdata->usecase[idx].vectors[i].ib;
+		req_bw = client->pdata->usecase[idx].vectors[i].ab;
+		if (cur_idx < 0) {
+			curr_clk = 0;
+			curr_bw = 0;
+		} else {
+			curr_clk =
+				client->pdata->usecase[cur_idx].vectors[i].ib;
+			curr_bw = client->pdata->usecase[cur_idx].vectors[i].ab;
+			MSM_BUS_DBG("%s:ab: %llu ib: %llu\n", __func__,
+					curr_bw, curr_clk);
+		}
+
+		if (pdata->active_only) {
+			slp_clk = 0;
+			slp_bw = 0;
+		} else {
+			slp_clk = req_clk;
+			slp_bw = req_bw;
+		}
+
+		ret = update_path(src_dev, dest, req_clk, req_bw, slp_clk,
+			slp_bw, curr_clk, curr_bw, lnode, pdata->active_only);
+
+		if (ret) {
+			MSM_BUS_ERR("%s: Update path failed! %d ctx %d\n",
+					__func__, ret, pdata->active_only);
+			goto exit_update_client_paths;
+		}
+
+		if (log_trns)
+			getpath_debug(src, lnode, pdata->active_only);
+	}
+	commit_data();
+exit_update_client_paths:
+	return ret;
+}
+
+static int update_context(uint32_t cl, bool active_only,
+					unsigned int ctx_idx)
+{
+	int ret = 0;
+	struct msm_bus_scale_pdata *pdata;
+	struct msm_bus_client *client;
+
+	rt_mutex_lock(&msm_bus_adhoc_lock);
+	if (!cl) {
+		MSM_BUS_ERR("%s: Invalid client handle %d", __func__, cl);
+		ret = -ENXIO;
+		goto exit_update_context;
+	}
+
+	client = handle_list.cl_list[cl];
+	if (!client) {
+		ret = -ENXIO;
+		goto exit_update_context;
+	}
+
+	pdata = client->pdata;
+	if (!pdata) {
+		ret = -ENXIO;
+		goto exit_update_context;
+	}
+	if (pdata->active_only == active_only) {
+		MSM_BUS_ERR("No change in context(%d==%d), skip\n",
+					pdata->active_only, active_only);
+		ret = -ENXIO;
+		goto exit_update_context;
+	}
+
+	if (ctx_idx >= pdata->num_usecases) {
+		MSM_BUS_ERR("Client %u passed invalid index: %d\n",
+			cl, ctx_idx);
+		ret = -ENXIO;
+		goto exit_update_context;
+	}
+
+	pdata->active_only = active_only;
+
+	msm_bus_dbg_client_data(client->pdata, ctx_idx , cl);
+	ret = update_client_paths(client, false, ctx_idx);
+	if (ret) {
+		pr_err("%s: Err updating path\n", __func__);
+		goto exit_update_context;
+	}
+
+	trace_bus_update_request_end(pdata->name);
+
+exit_update_context:
+	rt_mutex_unlock(&msm_bus_adhoc_lock);
+	return ret;
+}
+
+static int update_request_adhoc(uint32_t cl, unsigned int index)
+{
+	int ret = 0;
+	struct msm_bus_scale_pdata *pdata;
 	struct msm_bus_client *client;
 	const char *test_cl = "Null";
 	bool log_transaction = false;
@@ -921,6 +1174,12 @@ static int update_request_adhoc(uint32_t cl, unsigned int index)
 	}
 
 	client = handle_list.cl_list[cl];
+	if (!client) {
+		MSM_BUS_ERR("%s: Invalid client pointer ", __func__);
+		ret = -ENXIO;
+		goto exit_update_request;
+	}
+
 	pdata = client->pdata;
 	if (!pdata) {
 		MSM_BUS_ERR("%s: Client data Null.[client didn't register]",
@@ -942,46 +1201,20 @@ static int update_request_adhoc(uint32_t cl, unsigned int index)
 		goto exit_update_request;
 	}
 
-	curr = client->curr;
-	client->curr = index;
-
 	if (!strcmp(test_cl, pdata->name))
 		log_transaction = true;
 
 	MSM_BUS_DBG("%s: cl: %u index: %d curr: %d num_paths: %d\n", __func__,
 		cl, index, client->curr, client->pdata->usecase->num_paths);
-
 	msm_bus_dbg_client_data(client->pdata, index , cl);
-	for (i = 0; i < pdata->usecase->num_paths; i++) {
-		src = client->pdata->usecase[index].vectors[i].src;
-		dest = client->pdata->usecase[index].vectors[i].dst;
-
-		lnode = client->src_pnode[i];
-		req_clk = client->pdata->usecase[index].vectors[i].ib;
-		req_bw = client->pdata->usecase[index].vectors[i].ab;
-		if (curr < 0) {
-			curr_clk = 0;
-			curr_bw = 0;
-		} else {
-			curr_clk = client->pdata->usecase[curr].vectors[i].ib;
-			curr_bw = client->pdata->usecase[curr].vectors[i].ab;
-			MSM_BUS_DBG("%s:ab: %llu ib: %llu\n", __func__,
-					curr_bw, curr_clk);
-		}
-
-		ret = update_path(src, dest, req_clk, req_bw,
-				curr_clk, curr_bw, lnode, pdata->active_only);
-
-		if (ret) {
-			MSM_BUS_ERR("%s: Update path failed! %d ctx %d\n",
-					__func__, ret, ACTIVE_CTX);
-			goto exit_update_request;
-		}
-
-		if (log_transaction)
-			getpath_debug(src, lnode, pdata->active_only);
+	ret = update_client_paths(client, log_transaction, index);
+	if (ret) {
+		pr_err("%s: Err updating path\n", __func__);
+		goto exit_update_request;
 	}
+
 	trace_bus_update_request_end(pdata->name);
+
 exit_update_request:
 	rt_mutex_unlock(&msm_bus_adhoc_lock);
 	return ret;
@@ -1001,6 +1234,7 @@ static int update_bw_adhoc(struct msm_bus_client_handle *cl, u64 ab, u64 ib)
 	int ret = 0;
 	char *test_cl = "test-client";
 	bool log_transaction = false;
+	u64 slp_ib, slp_ab;
 
 	rt_mutex_lock(&msm_bus_adhoc_lock);
 
@@ -1015,13 +1249,21 @@ static int update_bw_adhoc(struct msm_bus_client_handle *cl, u64 ab, u64 ib)
 
 	msm_bus_dbg_rec_transaction(cl, ab, ib);
 
-	if ((cl->cur_ib == ib) && (cl->cur_ab == ab)) {
+	if ((cl->cur_act_ib == ib) && (cl->cur_act_ab == ab)) {
 		MSM_BUS_DBG("%s:no change in request", cl->name);
 		goto exit_update_request;
 	}
 
-	ret = update_path(cl->mas, cl->slv, ib, ab, cl->cur_ib, cl->cur_ab,
-						cl->first_hop, cl->active_only);
+	if (cl->active_only) {
+		slp_ib = 0;
+		slp_ab = 0;
+	} else {
+		slp_ib = ib;
+		slp_ab = ab;
+	}
+
+	ret = update_path(cl->mas_dev, cl->slv, ib, ab, slp_ib, slp_ab,
+		cl->cur_act_ib, cl->cur_act_ab, cl->first_hop, cl->active_only);
 
 	if (ret) {
 		MSM_BUS_ERR("%s: Update path failed! %d active_only %d\n",
@@ -1029,8 +1271,11 @@ static int update_bw_adhoc(struct msm_bus_client_handle *cl, u64 ab, u64 ib)
 		goto exit_update_request;
 	}
 
-	cl->cur_ib = ib;
-	cl->cur_ab = ab;
+	commit_data();
+	cl->cur_act_ib = ib;
+	cl->cur_act_ab = ab;
+	cl->cur_slp_ib = slp_ib;
+	cl->cur_slp_ab = slp_ab;
 
 	if (log_transaction)
 		getpath_debug(cl->mas, cl->first_hop, cl->active_only);
@@ -1038,6 +1283,48 @@ static int update_bw_adhoc(struct msm_bus_client_handle *cl, u64 ab, u64 ib)
 exit_update_request:
 	rt_mutex_unlock(&msm_bus_adhoc_lock);
 
+	return ret;
+}
+
+static int update_bw_context(struct msm_bus_client_handle *cl, u64 act_ab,
+				u64 act_ib, u64 slp_ib, u64 slp_ab)
+{
+	int ret = 0;
+
+	rt_mutex_lock(&msm_bus_adhoc_lock);
+	if (!cl) {
+		MSM_BUS_ERR("Invalid client handle %p", cl);
+		ret = -ENXIO;
+		goto exit_change_context;
+	}
+
+	if ((cl->cur_act_ib == act_ib) &&
+		(cl->cur_act_ab == act_ab) &&
+		(cl->cur_slp_ib == slp_ib) &&
+		(cl->cur_slp_ab == slp_ab)) {
+		MSM_BUS_ERR("No change in vote");
+		goto exit_change_context;
+	}
+
+	if (!slp_ab && !slp_ib)
+		cl->active_only = true;
+	msm_bus_dbg_rec_transaction(cl, cl->cur_act_ab, cl->cur_slp_ib);
+	ret = update_path(cl->mas_dev, cl->slv, act_ib, act_ab, slp_ib, slp_ab,
+				cl->cur_act_ab, cl->cur_act_ab,  cl->first_hop,
+				cl->active_only);
+	if (ret) {
+		MSM_BUS_ERR("%s: Update path failed! %d active_only %d\n",
+				__func__, ret, cl->active_only);
+		goto exit_change_context;
+	}
+	commit_data();
+	cl->cur_act_ib = act_ib;
+	cl->cur_act_ab = act_ab;
+	cl->cur_slp_ib = slp_ib;
+	cl->cur_slp_ab = slp_ab;
+	trace_bus_update_request_end(cl->name);
+exit_change_context:
+	rt_mutex_unlock(&msm_bus_adhoc_lock);
 	return ret;
 }
 
@@ -1052,16 +1339,15 @@ static void unregister_adhoc(struct msm_bus_client_handle *cl)
 
 	MSM_BUS_DBG("%s: Unregistering client %p", __func__, cl);
 
-	remove_path(cl->mas, cl->slv, cl->cur_ib, cl->cur_ab,
+	remove_path(cl->mas_dev, cl->slv, cl->cur_act_ib, cl->cur_act_ab,
 				cl->first_hop, cl->active_only);
-
+	commit_data();
 	msm_bus_dbg_remove_client(cl);
 	kfree(cl);
 exit_unregister_client:
 	rt_mutex_unlock(&msm_bus_adhoc_lock);
 	return;
 }
-
 
 static struct msm_bus_client_handle*
 register_adhoc(uint32_t mas, uint32_t slv, char *name, bool active_only)
@@ -1084,7 +1370,7 @@ register_adhoc(uint32_t mas, uint32_t slv, char *name, bool active_only)
 	}
 
 	len = strnlen(name, MAX_STR_CL);
-	client->name = kzalloc(len, GFP_KERNEL);
+	client->name = kzalloc((len + 1), GFP_KERNEL);
 	if (!client->name) {
 		MSM_BUS_ERR("%s: Error allocating client name buf", __func__);
 		free_cl_mem(client);
@@ -1095,7 +1381,18 @@ register_adhoc(uint32_t mas, uint32_t slv, char *name, bool active_only)
 
 	client->mas = mas;
 	client->slv = slv;
-	client->first_hop = getpath(client->mas, client->slv);
+
+	client->mas_dev = bus_find_device(&msm_bus_type, NULL,
+					(void *) &mas,
+					msm_bus_device_match_adhoc);
+	if (IS_ERR_OR_NULL(client->mas_dev)) {
+		MSM_BUS_ERR("%s:Failed to find path.src %d dest %d",
+			__func__, client->mas, client->slv);
+		free_cl_mem(client);
+		goto exit_register;
+	}
+
+	client->first_hop = getpath(client->mas_dev, client->slv, client->name);
 	if (client->first_hop < 0) {
 		MSM_BUS_ERR("%s:Failed to find path.src %d dest %d",
 			__func__, client->mas, client->slv);
@@ -1119,8 +1416,10 @@ void msm_bus_arb_setops_adhoc(struct msm_bus_arb_ops *arb_ops)
 	arb_ops->register_client = register_client_adhoc;
 	arb_ops->update_request = update_request_adhoc;
 	arb_ops->unregister_client = unregister_client_adhoc;
+	arb_ops->update_context = update_context;
 
 	arb_ops->register_cl = register_adhoc;
 	arb_ops->unregister = unregister_adhoc;
 	arb_ops->update_bw = update_bw_adhoc;
+	arb_ops->update_bw_context = update_bw_context;
 }

@@ -71,8 +71,11 @@ struct msm_bus_client_handle {
 	int mas;
 	int slv;
 	int first_hop;
-	u64 cur_ib;
-	u64 cur_ab;
+	struct device *mas_dev;
+	u64 cur_act_ib;
+	u64 cur_act_ab;
+	u64 cur_slp_ib;
+	u64 cur_slp_ab;
 	bool active_only;
 };
 
@@ -89,12 +92,16 @@ int __init msm_bus_fabric_init_driver(void);
 uint32_t msm_bus_scale_register_client(struct msm_bus_scale_pdata *pdata);
 int msm_bus_scale_client_update_request(uint32_t cl, unsigned int index);
 void msm_bus_scale_unregister_client(uint32_t cl);
+int msm_bus_scale_client_update_context(uint32_t cl, bool active_only,
+							unsigned int ctx_idx);
 
 struct msm_bus_client_handle*
 msm_bus_scale_register(uint32_t mas, uint32_t slv, char *name,
 							bool active_only);
 void msm_bus_scale_unregister(struct msm_bus_client_handle *cl);
 int msm_bus_scale_update_bw(struct msm_bus_client_handle *cl, u64 ab, u64 ib);
+int msm_bus_scale_update_bw_context(struct msm_bus_client_handle *cl,
+		u64 act_ab, u64 act_ib, u64 slp_ib, u64 slp_ab);
 /* AXI Port configuration APIs */
 int msm_bus_axi_porthalt(int master_port);
 int msm_bus_axi_portunhalt(int master_port);
@@ -111,6 +118,13 @@ msm_bus_scale_register_client(struct msm_bus_scale_pdata *pdata)
 
 static inline int
 msm_bus_scale_client_update_request(uint32_t cl, unsigned int index)
+{
+	return 0;
+}
+
+static inline int
+msm_bus_scale_client_update_context(uint32_t cl, bool active_only,
+							unsigned int ctx_idx)
 {
 	return 0;
 }
@@ -143,6 +157,14 @@ static inline void msm_bus_scale_unregister(struct msm_bus_client_handle *cl)
 
 static inline int
 msm_bus_scale_update_bw(struct msm_bus_client_handle *cl, u64 ab, u64 ib)
+{
+	return 0;
+}
+
+static inline int
+msm_bus_scale_update_bw_context(struct msm_bus_client_handle *cl, u64 act_ab,
+				u64 act_ib, u64 slp_ib, u64 slp_ab)
+
 {
 	return 0;
 }

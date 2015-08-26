@@ -25,6 +25,7 @@ struct rule_update_path_info {
 	u64 ab;
 	u64 ib;
 	u64 clk;
+	bool added;
 	struct list_head link;
 };
 
