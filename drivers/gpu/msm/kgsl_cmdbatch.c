@@ -132,29 +132,16 @@ static void _kgsl_cmdbatch_timer(unsigned long data)
 	dev_err(device->dev, "--gpu syncpoint deadlock print end--\n");
 }
 
-/**
- * kgsl_cmdbatch_sync_event_destroy() - Destroy a sync event object
- * @kref: Pointer to the kref structure for this object
- *
- * Actually destroy a sync event object.  Called from
- * kgsl_cmdbatch_sync_event_put.
- */
 static void kgsl_cmdbatch_sync_event_destroy(struct kref *kref)
 {
 	struct kgsl_cmdbatch_sync_event *event = container_of(kref,
 		struct kgsl_cmdbatch_sync_event, refcount);
 
 	kgsl_cmdbatch_put(event->cmdbatch);
-	kfree(event);
+	kfree_rcu(event, rcu);
 }
 
-/**
- * kgsl_cmdbatch_sync_event_put() - Decrement the refcount for a
- *                                  sync event object
- * @event: Pointer to the sync event object
- */
-static inline void kgsl_cmdbatch_sync_event_put(
-	struct kgsl_cmdbatch_sync_event *event)
+static void kgsl_cmdbatch_sync_event_put(struct kgsl_cmdbatch_sync_event *event)
 {
 	kref_put(&event->refcount, kgsl_cmdbatch_sync_event_destroy);
 }
@@ -384,7 +371,6 @@ static int kgsl_cmdbatch_add_sync_fence(struct kgsl_device *device,
 
 	kref_get(&event->refcount);
 
-	/* non-bh because, we haven't started cmdbatch timer yet */
 	spin_lock(&cmdbatch->lock);
 	list_add_rcu(&event->node, &cmdbatch->synclist);
 	spin_unlock(&cmdbatch->lock);
