@@ -1437,8 +1437,10 @@ phcd_retry:
 	}
 
 	if (device_may_wakeup(phy->dev)) {
-		enable_irq_wake(motg->async_irq);
-		enable_irq_wake(motg->irq);
+		if (host_bus_suspend || device_bus_suspend) {
+			enable_irq_wake(motg->async_irq);
+			enable_irq_wake(motg->irq);
+		}
 
 		if (motg->phy_irq)
 			enable_irq_wake(motg->phy_irq);
@@ -1637,8 +1639,10 @@ skip_phy_resume:
 	}
 
 	if (device_may_wakeup(phy->dev)) {
-		disable_irq_wake(motg->async_irq);
-		disable_irq_wake(motg->irq);
+		if (motg->host_bus_suspend || motg->device_bus_suspend) {
+			disable_irq_wake(motg->async_irq);
+			disable_irq_wake(motg->irq);
+		}
 
 		if (motg->phy_irq)
 			disable_irq_wake(motg->phy_irq);
