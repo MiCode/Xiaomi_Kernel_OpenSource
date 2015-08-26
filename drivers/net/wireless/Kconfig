@@ -285,11 +285,6 @@ config WCNSS_CORE_PRONTO
 	---help---
 	  Pronto Support for the Qualcomm WCNSS triple play connectivity subsystem
 
-config WCNSS_MEM_PRE_ALLOC
-	tristate "WCNSS pre-alloc memory support"
-	---help---
-	  Pre-allocate memory for the WLAN driver module
-
 config WCNSS_REGISTER_DUMP_ON_BITE
 	bool "Enable/disable WCNSS register dump when there is a WCNSS bite"
 	depends on WCNSS_CORE_PRONTO
@@ -334,6 +329,28 @@ config CNSS_SECURE_FW
 	  binaries which is used for sha crypto computation.
 	  The Memory Allocation is done only if this Config Parameter is
 	  enabled
+
+config BUS_AUTO_SUSPEND
+	bool "Enable/Disable Runtime PM support for PCIe based WLAN Drivers"
+	depends on CNSS
+	depends on PCI
+	---help---
+	  Runtime Power Management is supported for PCIe based WLAN Drivers.
+	  The features enable cld wlan driver to suspend pcie bus when APPS
+	  is awake based on the driver inactivity with the Firmware.
+	  The Feature uses runtime power management framework from kernel to
+	  track bus access clients and to synchronize the driver activity
+	  during system pm.
+	  This config flag controls the feature per target based. The feature
+	  requires CNSS driver support.
+
+config WCNSS_MEM_PRE_ALLOC
+	tristate "WCNSS pre-alloc memory support"
+	---help---
+	  Pre-allocate memory for the WLAN driver module.
+	  This feature enable cld wlan driver to use pre allocated memory
+	  for it's internal usage and release it to back to pre allocated pool.
+	  This memory is allocated at the cold boot time.
 
 config CNSS_MAC_BUG
 	bool "Enable/disable 0-4K memory initialization for QCA6174"
