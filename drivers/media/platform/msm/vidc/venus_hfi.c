@@ -1828,6 +1828,22 @@ static int __get_qdss_iommu_virtual_addr(struct venus_hfi_device *dev,
 	return rc;
 }
 
+static void __setup_ucregion_memory_map(struct venus_hfi_device *device)
+{
+	__write_register(device, VIDC_UC_REGION_ADDR,
+			(u32)device->iface_q_table.align_device_addr);
+	__write_register(device, VIDC_UC_REGION_SIZE, SHARED_QSIZE);
+	__write_register(device, VIDC_CPU_CS_SCIACMDARG2,
+			(u32)device->iface_q_table.align_device_addr);
+	__write_register(device, VIDC_CPU_CS_SCIACMDARG1, 0x01);
+	if (device->sfr.align_device_addr)
+		__write_register(device, VIDC_SFR_ADDR,
+				(u32)device->sfr.align_device_addr);
+	if (device->qdss.align_device_addr)
+		__write_register(device, VIDC_MMAP_ADDR,
+				(u32)device->qdss.align_device_addr);
+}
+
 static int __interface_queues_init(struct venus_hfi_device *dev)
 {
 	struct hfi_queue_table_header *q_tbl_hdr;
@@ -1963,10 +1979,6 @@ static int __interface_queues_init(struct venus_hfi_device *dev)
 			&dev->iface_q_table.align_device_addr);
 	}
 
-	__write_register(dev, VIDC_UC_REGION_ADDR, value);
-	__write_register(dev, VIDC_UC_REGION_SIZE, SHARED_QSIZE);
-	__write_register(dev, VIDC_CPU_CS_SCIACMDARG2, value);
-	__write_register(dev, VIDC_CPU_CS_SCIACMDARG1, 0x01);
 	if (dev->qdss.mem_data) {
 		qdss = (struct hfi_mem_map_table *)dev->qdss.align_virtual_addr;
 		qdss->mem_map_num_entries = num_entries;
@@ -2007,9 +2019,6 @@ static int __interface_queues_init(struct venus_hfi_device *dev)
 			dprintk(VIDC_ERR, "Invalid qdss device address (%pa)",
 					&dev->qdss.align_device_addr);
 		}
-
-		if (dev->qdss.align_device_addr)
-			__write_register(dev, VIDC_MMAP_ADDR, value);
 	}
 
 	vsfr = (struct hfi_sfr_struct *) dev->sfr.align_virtual_addr;
@@ -2021,8 +2030,7 @@ static int __interface_queues_init(struct venus_hfi_device *dev)
 			&dev->sfr.align_device_addr);
 	}
 
-	if (dev->sfr.align_device_addr)
-		__write_register(dev, VIDC_SFR_ADDR, value);
+	__setup_ucregion_memory_map(dev);
 	return 0;
 fail_alloc_queue:
 	return -ENOMEM;
@@ -4313,17 +4321,7 @@ static inline int __resume(struct venus_hfi_device *device)
 	 * regulator_disable() and _enable()
 	 */
 	__set_registers(device);
-	__write_register(device, VIDC_UC_REGION_ADDR,
-			(u32)device->iface_q_table.align_device_addr);
-	__write_register(device, VIDC_UC_REGION_SIZE, SHARED_QSIZE);
-	__write_register(device, VIDC_CPU_CS_SCIACMDARG2,
-		(u32)device->iface_q_table.align_device_addr);
-	if (device->sfr.align_device_addr)
-		__write_register(device, VIDC_SFR_ADDR,
-				(u32)device->sfr.align_device_addr);
-	if (device->qdss.align_device_addr)
-		__write_register(device, VIDC_MMAP_ADDR,
-				(u32)device->qdss.align_device_addr);
+	__setup_ucregion_memory_map(device);
 	/* Wait for boot completion */
 	rc = __reset_core(device);
 	if (rc) {
