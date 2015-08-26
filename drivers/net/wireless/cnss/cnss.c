@@ -3146,6 +3146,7 @@ EXPORT_SYMBOL(cnss_runtime_init);
 void cnss_runtime_exit(struct device *dev)
 {
 	pm_runtime_get_noresume(dev);
+	pm_runtime_set_active(dev);
 }
 EXPORT_SYMBOL(cnss_runtime_exit);
 module_init(cnss_initialize);
