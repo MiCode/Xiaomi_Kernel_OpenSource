@@ -260,7 +260,12 @@ static int __acquire_regulator(struct regulator_info *rinfo)
 		}
 	}
 
-	WARN_ON(!regulator_is_enabled(rinfo->regulator));
+	if (!regulator_is_enabled(rinfo->regulator)) {
+		dprintk(VIDC_WARN, "Regulator is not enabled %s\n",
+			rinfo->name);
+		WARN_ON(1);
+	}
+
 	return rc;
 }
 
@@ -4213,12 +4218,12 @@ fail_vote_buses:
 	return rc;
 }
 
-static void __venus_power_off(struct venus_hfi_device *device)
+static void __venus_power_off(struct venus_hfi_device *device, bool halt_axi)
 {
 	/* Halt the AXI to make sure there are no pending transactions.
 	 * Clocks should be unprepared after making sure axi is halted.
 	 */
-	if (__halt_axi(device))
+	if (halt_axi && __halt_axi(device))
 		dprintk(VIDC_WARN, "Failed to halt AXI\n");
 
 	__disable_unprepare_clks(device);
@@ -4273,7 +4278,7 @@ static inline int __suspend(struct venus_hfi_device *device)
 		goto err_acquire_regulators;
 	}
 
-	__venus_power_off(device);
+	__venus_power_off(device, true);
 	dprintk(VIDC_INFO, "Venus power collapsed\n");
 	return rc;
 err_acquire_regulators:
@@ -4334,7 +4339,7 @@ static inline int __resume(struct venus_hfi_device *device)
 err_reset_core:
 	__tzbsp_set_video_state(TZBSP_VIDEO_STATE_SUSPEND);
 err_set_video_state:
-	__venus_power_off(device);
+	__venus_power_off(device, true);
 err_venus_power_on:
 	dprintk(VIDC_ERR, "Failed to resume from power collapse\n");
 	return rc;
@@ -4391,7 +4396,7 @@ fail_protect_mem:
 		subsystem_put(device->resources.fw.cookie);
 	device->resources.fw.cookie = NULL;
 fail_load_fw:
-	__venus_power_off(device);
+	__venus_power_off(device, true);
 fail_venus_power_on:
 fail_init_pkt:
 	__deinit_resources(device);
@@ -4408,9 +4413,10 @@ static void __unload_fw(struct venus_hfi_device *device)
 	cancel_delayed_work(&venus_hfi_pm_work);
 	if (device->state != VENUS_STATE_DEINIT)
 		flush_workqueue(device->venus_pm_workq);
+	__halt_axi(device);
 	subsystem_put(device->resources.fw.cookie);
 	__interface_queues_release(device);
-	__venus_power_off(device);
+	__venus_power_off(device, false);
 	device->resources.fw.cookie = NULL;
 	__deinit_resources(device);
 }
