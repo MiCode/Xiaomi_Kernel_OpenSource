@@ -39,7 +39,6 @@ config ARCH_MDMFERMIUM
        select PINCTRL_MSM_TLMM
        select USE_PINCTRL_IRQ
        select MSM_IRQ
-       select MSM_CLK_CONTROLLER_V2
        select MSM_PM if PM
 
 config ARCH_MDMCALIFORNIUM
