@@ -178,6 +178,9 @@ static int msm_hsic_phy_clk_reset(struct msm_hsic_per *mhsic)
 	if (ret)
 		dev_err(mhsic->dev, "usb phy clk deassert failed\n");
 
+	usleep_range(10000, 12000);
+	clk_enable(mhsic->alt_core_clk);
+
 	return ret;
 }
 
@@ -642,6 +645,17 @@ static void msm_hsic_connect_peripheral(struct device *msm_udc_dev)
 	usb_gadget_vbus_connect(gadget);
 }
 
+static void msm_hsic_disconnect_peripheral(struct device *msm_udc_dev)
+{
+	struct device *dev;
+	struct usb_gadget *gadget;
+
+	dev = device_find_child(msm_udc_dev, NULL, __match);
+	gadget = dev_to_usb_gadget(dev);
+	usb_gadget_vbus_disconnect(gadget);
+}
+
+
 static irqreturn_t msm_udc_hsic_irq(int irq, void *data)
 {
 	struct msm_hsic_per *mhsic = data;
@@ -656,6 +670,52 @@ static irqreturn_t msm_udc_hsic_irq(int irq, void *data)
 
 	return udc_irq();
 }
+
+/**
+ * store_hsic_init: initialize hsic interface to state passed
+ */
+static ssize_t store_hsic_init(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf, size_t count)
+{
+	struct msm_hsic_per *mhsic = the_mhsic;
+	int init_state, ret;
+
+	if (attr == NULL || buf == NULL) {
+		dev_err(dev, "[%s] EINVAL\n", __func__);
+		goto done;
+	}
+
+	if (kstrtoint(buf, 10, &init_state) < 0) {
+		dev_err(dev, "scan init_state failed\n");
+		goto done;
+	}
+
+	dev_dbg(dev, "Value for init_state = %d\n", init_state);
+
+	if (init_state == 1) {
+		pm_runtime_resume(mhsic->dev);
+		ret = msm_hsic_reset(mhsic);
+		if (ret)
+			pr_err("msm_hsic_reset failed\n");
+		msm_hsic_start();
+		usleep_range(10000, 10010);
+		msm_hsic_connect_peripheral(mhsic->dev);
+		the_mhsic->connected = true;
+	} else if (init_state == 0) {
+		msm_hsic_disconnect_peripheral(mhsic->dev);
+		mhsic->connected = false;
+		pm_runtime_put_noidle(mhsic->dev);
+		pm_runtime_suspend(mhsic->dev);
+	} else {
+		pr_err("Invalid value : no action taken\n");
+	}
+
+done:
+	return count;
+}
+
+static DEVICE_ATTR(hsic_init, S_IWUSR, NULL, store_hsic_init);
 
 static void ci13xxx_msm_hsic_notify_event(struct ci13xxx *udc, unsigned event)
 {
@@ -859,6 +919,9 @@ static int msm_hsic_probe(struct platform_device *pdev)
 		goto deinit_vddcx;
 	}
 
+	ret = device_create_file(mhsic->dev, &dev_attr_hsic_init);
+	if (ret)
+		goto udc_remove;
 	msm_hsic_connect_peripheral(&pdev->dev);
 
 	device_init_wakeup(&pdev->dev, 1);
@@ -869,7 +932,7 @@ static int msm_hsic_probe(struct platform_device *pdev)
 	if (ret < 0) {
 		dev_err(&pdev->dev, "request_irq failed\n");
 		ret = -ENODEV;
-		goto udc_remove;
+		goto remove_sysfs;
 	}
 
 	ret = request_irq(mhsic->async_irq_no, msm_udc_hsic_irq,
@@ -889,6 +952,8 @@ static int msm_hsic_probe(struct platform_device *pdev)
 	return 0;
 free_core_irq:
 	free_irq(mhsic->irq, mhsic);
+remove_sysfs:
+	device_remove_file(mhsic->dev, &dev_attr_hsic_init);
 udc_remove:
 	udc_remove();
 	if (mhsic->bus_perf_client)
@@ -925,6 +990,7 @@ static int hsic_msm_remove(struct platform_device *pdev)
 	destroy_workqueue(mhsic->wq);
 	if (mhsic->bus_perf_client)
 		msm_bus_scale_unregister_client(mhsic->bus_perf_client);
+	device_remove_file(mhsic->dev, &dev_attr_hsic_init);
 	udc_remove();
 	iounmap(mhsic->regs);
 	kfree(mhsic);
