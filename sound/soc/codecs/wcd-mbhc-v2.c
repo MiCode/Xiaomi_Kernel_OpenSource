@@ -1160,6 +1160,10 @@ exit:
 	}
 	if (mbhc->mbhc_cb->set_cap_mode)
 		mbhc->mbhc_cb->set_cap_mode(codec, micbias1, micbias2);
+
+	if (mbhc->mbhc_cb->hph_pull_down_ctrl)
+		mbhc->mbhc_cb->hph_pull_down_ctrl(codec, true);
+
 	mbhc->mbhc_cb->lock_sleep(mbhc, false);
 	pr_debug("%s: leave\n", __func__);
 }
@@ -1175,6 +1179,10 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 
 	pr_debug("%s: enter\n", __func__);
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
+
+	if (mbhc->mbhc_cb->hph_pull_down_ctrl)
+		mbhc->mbhc_cb->hph_pull_down_ctrl(codec, false);
+
 	if (mbhc->mbhc_cb->micbias_enable_status)
 		micbias1 = mbhc->mbhc_cb->micbias_enable_status(mbhc,
 								MIC_BIAS_1);
