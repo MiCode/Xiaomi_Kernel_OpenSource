@@ -94,6 +94,7 @@ struct afe_ctl {
 
 	atomic_t mem_map_cal_handles[MAX_AFE_CAL_TYPES];
 	atomic_t mem_map_cal_index;
+	u32 afe_cal_mode[AFE_MAX_PORTS];
 
 	u16 dtmf_gen_rx_portid;
 	struct audio_cal_info_spk_prot_cfg	prot_cfg;
@@ -1963,6 +1964,14 @@ fail_cmd:
 	return ret;
 }
 
+void afe_set_cal_mode(u16 port_id, enum afe_cal_mode afe_cal_mode)
+{
+	uint16_t port_index;
+
+	port_index = afe_get_port_index(port_id);
+	this_afe.afe_cal_mode[port_index] = afe_cal_mode;
+}
+
 int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	u32 rate) /* This function is no blocking */
 {
@@ -2022,10 +2031,14 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 
 	mutex_lock(&this_afe.afe_cmd_lock);
 	/* Also send the topology id here: */
-	afe_send_custom_topology(); /* One time call: only for first time */
-	afe_send_port_topology_id(port_id);
+	port_index = afe_get_port_index(port_id);
+	if (!(this_afe.afe_cal_mode[port_index] == AFE_CAL_MODE_NONE)) {
+		/* One time call: only for first time */
+		afe_send_custom_topology();
+		afe_send_port_topology_id(port_id);
 
-	afe_send_cal(port_id);
+		afe_send_cal(port_id);
+	}
 	afe_send_hw_delay(port_id, rate);
 
 	/* Start SW MAD module */
@@ -4947,9 +4960,10 @@ static int __init afe_init(void)
 	this_afe.vi_rx_port = -1;
 	this_afe.prot_cfg.mode = MSM_SPKR_PROT_DISABLED;
 	mutex_init(&this_afe.afe_cmd_lock);
-	for (i = 0; i < AFE_MAX_PORTS; i++)
+	for (i = 0; i < AFE_MAX_PORTS; i++) {
+		this_afe.afe_cal_mode[i] = AFE_CAL_MODE_DEFAULT;
 		init_waitqueue_head(&this_afe.wait[i]);
-
+	}
 	wakeup_source_init(&wl.ws, "spkr-prot");
 	ret = afe_init_cal_data();
 	if (ret)
