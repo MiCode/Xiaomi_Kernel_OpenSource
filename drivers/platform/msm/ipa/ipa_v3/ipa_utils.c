@@ -518,6 +518,9 @@ void _ipa_sram_settings_read_v3_0(void)
 		IPA_SHARED_MEM_SIZE_OFST_v3_0,
 		IPA_SHARED_MEM_SIZE_SHARED_MEM_SIZE_BMSK_v3_0,
 		IPA_SHARED_MEM_SIZE_SHARED_MEM_SIZE_SHFT_v3_0);
+	/* reg fields are in 8B units */
+	ipa3_ctx->smem_restricted_bytes *= 8;
+	ipa3_ctx->smem_sz *= 8;
 	ipa3_ctx->smem_reqd_sz = IPA_MEM_PART(end_ofst);
 	ipa3_ctx->hdr_tbl_lcl = 0;
 	ipa3_ctx->hdr_proc_ctx_tbl_lcl = 1;
