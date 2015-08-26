@@ -166,4 +166,10 @@
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <2848000>;
 	};
+
+	codec_buck_vreg: codec_buck_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "codec_1.8v";
+		regulator-always-on;
+	};
 };
