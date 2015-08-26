@@ -614,18 +614,6 @@
 	qcom,no-cpu-affinity;
 };
 
-&clock_gcc {
-	compatible = "qcom,gcc-8936-v3";
-};
-
-&gdsc_oxili_gx {
-	clock-names = "core_root_clk", "gmem_clk";
-	clocks = <&clock_gcc clk_gfx3d_clk_src>,
-	         <&clock_gcc  clk_gcc_oxili_gmem_gate_clk>;
-	qcom,enable-root-clk;
-	status = "okay";
-};
-
 &mdss_dsi0 {
 	qcom,platform-regulator-settings = [03 08 07 00 20 07 01];
 	/delete-property/ qcom,regulator-ldo-mode;
