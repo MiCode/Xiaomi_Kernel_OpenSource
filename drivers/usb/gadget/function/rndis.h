@@ -194,6 +194,8 @@ typedef struct rndis_params
 	u8			pkt_alignment_factor;
 	const char		*vendorDescr;
 	void			(*resp_avail)(void *v);
+	void			(*flow_ctrl_enable)(bool enable);
+
 	void			*v;
 	struct list_head	resp_queue;
 	spinlock_t		lock;
@@ -205,7 +207,8 @@ typedef struct rndis_params
 
 /* RNDIS Message parser and other useless functions */
 int  rndis_msg_parser (u8 configNr, u8 *buf);
-int  rndis_register(void (*resp_avail)(void *v), void *v);
+int  rndis_register(void (*resp_avail)(void *v), void *v,
+	void (*flow_ctrl_enable)(bool enable));
 void rndis_deregister (int configNr);
 int  rndis_set_param_dev (u8 configNr, struct net_device *dev,
 			 u16 *cdc_filter);
@@ -226,7 +229,6 @@ int  rndis_signal_connect (int configNr);
 int  rndis_signal_disconnect (int configNr);
 int  rndis_state (int configNr);
 extern void rndis_set_host_mac (int configNr, const u8 *addr);
-extern bool is_rndis_ipa_supported(void);
 void rndis_flow_control(u8 confignr, bool enable_flow_control);
 
 #endif  /* _LINUX_RNDIS_H */

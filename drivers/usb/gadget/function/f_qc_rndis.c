@@ -984,7 +984,8 @@ rndis_qc_bind(struct usb_configuration *c, struct usb_function *f)
 	rndis->port.open = rndis_qc_open;
 	rndis->port.close = rndis_qc_close;
 
-	status = rndis_register(rndis_qc_response_available, rndis);
+	status = rndis_register(rndis_qc_response_available, rndis,
+			bam_data_flow_control_enable);
 	if (status < 0)
 		goto fail;
 	rndis->config = status;
@@ -1080,11 +1081,6 @@ rndis_qc_unbind(struct usb_configuration *c, struct usb_function *f)
 	kfree(rndis);
 	_rndis_qc = NULL;
 	spin_unlock_irqrestore(&rndis_lock, flags);
-}
-
-bool is_rndis_ipa_supported(void)
-{
-	return rndis_ipa_supported;
 }
 
 void rndis_ipa_reset_trigger(void)

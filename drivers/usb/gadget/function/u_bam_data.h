@@ -53,6 +53,8 @@ void bam_data_suspend(struct data_port *port_usb, u8 dev_port_num,
 void bam_data_resume(struct data_port *port_usb, u8 dev_port_num,
 		enum function_type func, bool remote_wakeup_enabled);
 
+void bam_data_flow_control_enable(bool enable);
+
 void u_bam_data_set_dl_max_xfer_size(u32 dl_max_transfer_size);
 
 void u_bam_data_set_ul_max_pkt_num(u8 ul_max_packets_number);
@@ -66,5 +68,4 @@ void u_bam_data_stop_rndis_ipa(void);
 void bam_data_start_rx_tx(u8 port_num);
 
 int u_bam_data_func_to_port(enum function_type func, u8 func_port);
-
 #endif /* __U_BAM_DATA_H */

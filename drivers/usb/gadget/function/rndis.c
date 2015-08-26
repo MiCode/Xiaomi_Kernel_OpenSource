@@ -859,16 +859,17 @@ int rndis_msg_parser(u8 configNr, u8 *buf)
 		pr_debug("%s: RNDIS_MSG_HALT\n",
 			__func__);
 
-		if (!is_rndis_ipa_supported()) {
-			if (params->dev) {
-				netif_carrier_off(params->dev);
-				netif_stop_queue(params->dev);
+		if (params->state == RNDIS_DATA_INITIALIZED) {
+			if (params->flow_ctrl_enable) {
+				params->flow_ctrl_enable(true);
+			} else {
+				if (params->dev) {
+					netif_carrier_off(params->dev);
+					netif_stop_queue(params->dev);
+				}
 			}
-		} else {
-			if (params->state == RNDIS_DATA_INITIALIZED)
-				u_bam_data_stop_rndis_ipa();
+			params->state = RNDIS_UNINITIALIZED;
 		}
-		params->state = RNDIS_UNINITIALIZED;
 		return 0;
 
 	case RNDIS_MSG_QUERY:
@@ -910,7 +911,8 @@ int rndis_msg_parser(u8 configNr, u8 *buf)
 }
 EXPORT_SYMBOL_GPL(rndis_msg_parser);
 
-int rndis_register(void (*resp_avail)(void *v), void *v)
+int rndis_register(void (*resp_avail)(void *v), void *v,
+	void (*flow_ctrl_enable)(bool enable))
 {
 	u8 i;
 
@@ -921,6 +923,8 @@ int rndis_register(void (*resp_avail)(void *v), void *v)
 		if (!rndis_per_dev_params[i].used) {
 			rndis_per_dev_params[i].used = 1;
 			rndis_per_dev_params[i].resp_avail = resp_avail;
+			rndis_per_dev_params[i].flow_ctrl_enable =
+				flow_ctrl_enable;
 			rndis_per_dev_params[i].v = v;
 			rndis_per_dev_params[i].max_pkt_per_xfer = 1;
 			rndis_per_dev_params[i].pkt_alignment_factor = 0;
@@ -940,6 +944,7 @@ void rndis_deregister(int configNr)
 
 	if (configNr >= RNDIS_MAX_CONFIGS) return;
 	rndis_per_dev_params[configNr].used = 0;
+	rndis_per_dev_params[configNr].flow_ctrl_enable = NULL;
 }
 EXPORT_SYMBOL_GPL(rndis_deregister);
 
@@ -1027,22 +1032,24 @@ void rndis_flow_control(u8 confignr, bool enable_flow_control)
 	params = &rndis_per_dev_params[confignr];
 	pr_debug("%s(): params->state:%x\n", __func__, params->state);
 	if (enable_flow_control) {
-		if (is_rndis_ipa_supported()) {
-			if (params->state == RNDIS_DATA_INITIALIZED)
-				u_bam_data_stop_rndis_ipa();
-		} else {
-			netif_carrier_off(params->dev);
-			netif_stop_queue(params->dev);
+		if (params->state == RNDIS_DATA_INITIALIZED) {
+			if (params->flow_ctrl_enable) {
+				params->flow_ctrl_enable(enable_flow_control);
+			} else {
+				netif_carrier_off(params->dev);
+				netif_stop_queue(params->dev);
+			}
 		}
 		params->state = RNDIS_INITIALIZED;
 	} else {
-		if (is_rndis_ipa_supported()) {
-			if (params->state != RNDIS_DATA_INITIALIZED)
-				u_bam_data_start_rndis_ipa();
-		} else {
-			netif_carrier_on(params->dev);
-			if (netif_running(params->dev))
-				netif_wake_queue(params->dev);
+		if (params->state != RNDIS_DATA_INITIALIZED) {
+			if (params->flow_ctrl_enable) {
+				params->flow_ctrl_enable(enable_flow_control);
+			} else {
+				netif_carrier_on(params->dev);
+				if (netif_running(params->dev))
+					netif_wake_queue(params->dev);
+			}
 		}
 		params->state = RNDIS_DATA_INITIALIZED;
 	}
