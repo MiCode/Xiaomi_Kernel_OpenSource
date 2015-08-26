@@ -496,7 +496,7 @@ static int ipa3_attrib_dump(struct ipa_rule_attrib *attrib,
 
 	if (attrib->attrib_mask & IPA_FLT_META_DATA) {
 		pr_err(
-				   "metadata:%x metadata_mask:%x",
+				   "metadata:%x metadata_mask:%x ",
 				   attrib->meta_data, attrib->meta_data_mask);
 	}
 
@@ -658,6 +658,12 @@ static ssize_t ipa3_read_rt(struct file *file, char __user *ubuf, size_t count,
 				pr_err("proc_ctx[32B]:%u attrib_mask:%08x ",
 					ofst_words,
 					entry->rule.attrib.attrib_mask);
+				pr_err("rule_id:%u max_prio:%u prio:%u ",
+					entry->rule_id, entry->rule.max_prio,
+					entry->prio);
+				pr_err("hashable:%u retain_hdr:%u ",
+					entry->rule.hashable,
+					entry->rule.retain_hdr);
 			} else {
 				if (entry->hdr)
 					ofst = entry->hdr->offset_entry->offset;
@@ -674,6 +680,12 @@ static ssize_t ipa3_read_rt(struct file *file, char __user *ubuf, size_t count,
 				pr_err("hdr_ofst[words]:%u attrib_mask:%08x ",
 					ofst >> 2,
 					entry->rule.attrib.attrib_mask);
+				pr_err("rule_id:%u max_prio:%u prio:%u ",
+					entry->rule_id, entry->rule.max_prio,
+					entry->prio);
+				pr_err("hashable:%u retain_hdr:%u ",
+					entry->rule.hashable,
+					entry->rule.retain_hdr);
 			}
 
 			ipa3_attrib_dump(&entry->rule.attrib, ip);
@@ -771,9 +783,11 @@ static ssize_t ipa3_read_flt(struct file *file, char __user *ubuf, size_t count,
 			}
 			pr_err("ep_idx:%d rule_idx:%d act:%d rt_tbl_idx:%d ",
 				j, i, entry->rule.action, rt_tbl_idx);
-			pr_err("attrib_mask:%08x retain_hdr:%d ",
-				bitmap, entry->rule.retain_hdr);
-			pr_err("eq:%d ", eq);
+			pr_err("attrib_mask:%08x retain_hdr:%d eq:%d ",
+				bitmap, entry->rule.retain_hdr, eq);
+			pr_err("hashable:%u rule_id:%u max_prio:%u prio:%u ",
+				entry->rule.hashable, entry->rule_id,
+				entry->rule.max_prio, entry->prio);
 			if (eq)
 				ipa3_attrib_dump_eq(
 					&entry->rule.eq_attrib);
