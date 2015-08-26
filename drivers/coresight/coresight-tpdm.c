@@ -3491,7 +3491,7 @@ static int tpdm_probe(struct platform_device *pdev)
 	if (IS_ERR(drvdata->csdev))
 		return PTR_ERR(drvdata->csdev);
 
-	dev_info(drvdata->dev, "TPDM initialized\n");
+	dev_dbg(drvdata->dev, "TPDM initialized\n");
 
 	if (boot_enable)
 		coresight_enable(drvdata->csdev);

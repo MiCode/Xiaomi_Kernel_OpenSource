@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1501,7 +1501,7 @@ static int cti_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	dev_info(dev, "CTI initialized\n");
+	dev_dbg(dev, "CTI initialized\n");
 	return 0;
 err:
 	if (drvdata->cti_save && !drvdata->cti_hwclk)
