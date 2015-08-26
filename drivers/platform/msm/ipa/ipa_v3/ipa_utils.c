@@ -901,34 +901,641 @@ u8 *ipa3_pad_to_32(u8 *dest)
 	return dest;
 }
 
-void ipa3_generate_mac_addr_hw_rule(u8 **buf, u8 hdr_mac_addr_offset,
+/**
+ * ipa3_pad_to_64() - pad byte array to 64 bit value
+ * @dest: byte array
+ *
+ * Return value: padded value
+ */
+u8 *ipa3_pad_to_64(u8 *dest)
+{
+	int i = (long)dest & 0x7;
+	int j;
+
+	if (i)
+		for (j = 0; j < (8 - i); j++)
+			*dest++ = 0;
+
+	return dest;
+}
+
+void ipa3_generate_mac_addr_hw_rule(u8 **extra, u8 **rest,
+	u8 hdr_mac_addr_offset,
 	const uint8_t mac_addr_mask[ETH_ALEN],
 	const uint8_t mac_addr[ETH_ALEN])
 {
-	*buf = ipa3_write_8(hdr_mac_addr_offset, *buf);
+	int i;
 
-	/* MAC addr mask copied as little endian each 4 bytes */
-	*buf = ipa3_write_8(mac_addr_mask[3], *buf);
-	*buf = ipa3_write_8(mac_addr_mask[2], *buf);
-	*buf = ipa3_write_8(mac_addr_mask[1], *buf);
-	*buf = ipa3_write_8(mac_addr_mask[0], *buf);
-	*buf = ipa3_write_16(0, *buf);
-	*buf = ipa3_write_8(mac_addr_mask[5], *buf);
-	*buf = ipa3_write_8(mac_addr_mask[4], *buf);
-	*buf = ipa3_write_32(0, *buf);
-	*buf = ipa3_write_32(0, *buf);
+	*extra = ipa3_write_8(hdr_mac_addr_offset, *extra);
 
-	/* MAC addr copied as little endian each 4 bytes */
-	*buf = ipa3_write_8(mac_addr[3], *buf);
-	*buf = ipa3_write_8(mac_addr[2], *buf);
-	*buf = ipa3_write_8(mac_addr[1], *buf);
-	*buf = ipa3_write_8(mac_addr[0], *buf);
-	*buf = ipa3_write_16(0, *buf);
-	*buf = ipa3_write_8(mac_addr[5], *buf);
-	*buf = ipa3_write_8(mac_addr[4], *buf);
-	*buf = ipa3_write_32(0, *buf);
-	*buf = ipa3_write_32(0, *buf);
-	*buf = ipa3_pad_to_32(*buf);
+	/* LSB MASK and ADDR */
+	*rest = ipa3_write_64(0, *rest);
+	*rest = ipa3_write_64(0, *rest);
+
+	/* MSB MASK and ADDR */
+	*rest = ipa3_write_16(0, *rest);
+	for (i = 5; i >= 0; i--)
+		*rest = ipa3_write_8(mac_addr_mask[i], *rest);
+	*rest = ipa3_write_16(0, *rest);
+	for (i = 5; i >= 0; i--)
+		*rest = ipa3_write_8(mac_addr[i], *rest);
+}
+
+/**
+ * ipa_rule_generation_err_check() - check basic validity on the rule
+ *  attribs before starting building it
+ *  checks if not not using ipv4 attribs on ipv6 and vice-versa
+ * @ip: IP address type
+ * @attrib: IPA rule attribute
+ *
+ * Return: 0 on success, negative on failure
+ */
+static int ipa_rule_generation_err_check(
+	enum ipa_ip_type ip, const struct ipa_rule_attrib *attrib)
+{
+	if (ip == IPA_IP_v4) {
+		if (attrib->attrib_mask & IPA_FLT_NEXT_HDR ||
+		    attrib->attrib_mask & IPA_FLT_TC ||
+		    attrib->attrib_mask & IPA_FLT_FLOW_LABEL) {
+			IPAERR("v6 attrib's specified for v4 rule\n");
+			return -EPERM;
+		}
+	} else if (ip == IPA_IP_v6) {
+		if (attrib->attrib_mask & IPA_FLT_TOS ||
+		    attrib->attrib_mask & IPA_FLT_PROTOCOL) {
+			IPAERR("v4 attrib's specified for v6 rule\n");
+			return -EPERM;
+		}
+	} else {
+		IPAERR("unsupported ip %d\n", ip);
+		return -EPERM;
+	}
+
+	return 0;
+}
+
+static int ipa3_generate_hw_rule_ip4(u16 *en_rule,
+	const struct ipa_rule_attrib *attrib,
+	u8 **extra_wrds, u8 **rest_wrds)
+{
+	u8 *extra = *extra_wrds;
+	u8 *rest = *rest_wrds;
+	u8 ofst_meq32 = 0;
+	u8 ihl_ofst_rng16 = 0;
+	u8 ihl_ofst_meq32 = 0;
+	u8 ofst_meq128 = 0;
+	int rc = 0;
+
+	if (attrib->attrib_mask & IPA_FLT_TOS) {
+		*en_rule |= IPA_TOS_EQ;
+		extra = ipa3_write_8(attrib->u.v4.tos, extra);
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_PROTOCOL) {
+		*en_rule |= IPA_PROTOCOL_EQ;
+		extra = ipa3_write_8(attrib->u.v4.protocol, extra);
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_ETHER_II) {
+		if (ipa_ofst_meq128[ofst_meq128] == -1) {
+			IPAERR("ran out of meq128 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+		/* -14 => offset of dst mac addr in Ethernet II hdr */
+		ipa3_generate_mac_addr_hw_rule(
+			&extra,
+			&rest,
+			-14,
+			attrib->dst_mac_addr_mask,
+			attrib->dst_mac_addr);
+
+		ofst_meq128++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_ETHER_II) {
+		if (ipa_ofst_meq128[ofst_meq128] == -1) {
+			IPAERR("ran out of meq128 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+		/* -8 => offset of src mac addr in Ethernet II hdr */
+		ipa3_generate_mac_addr_hw_rule(
+			&extra,
+			&rest,
+			-8,
+			attrib->src_mac_addr_mask,
+			attrib->src_mac_addr);
+
+		ofst_meq128++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_802_3) {
+		if (ipa_ofst_meq128[ofst_meq128] == -1) {
+			IPAERR("ran out of meq128 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+		/* -22 => offset of dst mac addr in 802.3 hdr */
+		ipa3_generate_mac_addr_hw_rule(
+			&extra,
+			&rest,
+			-22,
+			attrib->dst_mac_addr_mask,
+			attrib->dst_mac_addr);
+
+		ofst_meq128++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_802_3) {
+		if (ipa_ofst_meq128[ofst_meq128] == -1) {
+			IPAERR("ran out of meq128 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+		/* -16 => offset of src mac addr in 802.3 hdr */
+		ipa3_generate_mac_addr_hw_rule(
+			&extra,
+			&rest,
+			-16,
+			attrib->src_mac_addr_mask,
+			attrib->src_mac_addr);
+
+		ofst_meq128++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_TOS_MASKED) {
+		if (ipa_ofst_meq32[ofst_meq32] == -1) {
+			IPAERR("ran out of meq32 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ofst_meq32[ofst_meq32];
+		/* 0 => offset of TOS in v4 header */
+		extra = ipa3_write_8(0, extra);
+		rest = ipa3_write_32((attrib->tos_mask << 16), rest);
+		rest = ipa3_write_32((attrib->tos_value << 16), rest);
+		ofst_meq32++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_SRC_ADDR) {
+		if (ipa_ofst_meq32[ofst_meq32] == -1) {
+			IPAERR("ran out of meq32 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ofst_meq32[ofst_meq32];
+		/* 12 => offset of src ip in v4 header */
+		extra = ipa3_write_8(12, extra);
+		rest = ipa3_write_32(attrib->u.v4.src_addr_mask, rest);
+		rest = ipa3_write_32(attrib->u.v4.src_addr, rest);
+		ofst_meq32++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_DST_ADDR) {
+		if (ipa_ofst_meq32[ofst_meq32] == -1) {
+			IPAERR("ran out of meq32 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ofst_meq32[ofst_meq32];
+		/* 16 => offset of dst ip in v4 header */
+		extra = ipa3_write_8(16, extra);
+		rest = ipa3_write_32(attrib->u.v4.dst_addr_mask, rest);
+		rest = ipa3_write_32(attrib->u.v4.dst_addr, rest);
+		ofst_meq32++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_MAC_ETHER_TYPE) {
+		if (ipa_ofst_meq32[ofst_meq32] == -1) {
+			IPAERR("ran out of meq32 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ofst_meq32[ofst_meq32];
+		/* -2 => offset of ether type in L2 hdr */
+		extra = ipa3_write_8((u8)-2, extra);
+		rest = ipa3_write_16(0, rest);
+		rest = ipa3_write_16(htons(attrib->ether_type), rest);
+		rest = ipa3_write_16(0, rest);
+		rest = ipa3_write_16(htons(attrib->ether_type), rest);
+		ofst_meq32++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_TYPE) {
+		if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
+			IPAERR("ran out of ihl_meq32 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
+		/* 0  => offset of type after v4 header */
+		extra = ipa3_write_8(0, extra);
+		rest = ipa3_write_32(0xFF, rest);
+		rest = ipa3_write_32(attrib->type, rest);
+		ihl_ofst_meq32++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_CODE) {
+		if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
+			IPAERR("ran out of ihl_meq32 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
+		/* 1  => offset of code after v4 header */
+		extra = ipa3_write_8(1, extra);
+		rest = ipa3_write_32(0xFF, rest);
+		rest = ipa3_write_32(attrib->code, rest);
+		ihl_ofst_meq32++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_SPI) {
+		if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
+			IPAERR("ran out of ihl_meq32 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
+		/* 0  => offset of SPI after v4 header */
+		extra = ipa3_write_8(0, extra);
+		rest = ipa3_write_32(0xFFFFFFFF, rest);
+		rest = ipa3_write_32(attrib->spi, rest);
+		ihl_ofst_meq32++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_META_DATA) {
+		*en_rule |= IPA_METADATA_COMPARE;
+		rest = ipa3_write_32(attrib->meta_data_mask, rest);
+		rest = ipa3_write_32(attrib->meta_data, rest);
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_SRC_PORT_RANGE) {
+		if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
+			IPAERR("ran out of ihl_rng16 eq\n");
+			goto err;
+		}
+		if (attrib->src_port_hi < attrib->src_port_lo) {
+			IPAERR("bad src port range param\n");
+			goto err;
+		}
+		*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
+		/* 0  => offset of src port after v4 header */
+		extra = ipa3_write_8(0, extra);
+		rest = ipa3_write_16(attrib->src_port_hi, rest);
+		rest = ipa3_write_16(attrib->src_port_lo, rest);
+		ihl_ofst_rng16++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_DST_PORT_RANGE) {
+		if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
+			IPAERR("ran out of ihl_rng16 eq\n");
+			goto err;
+		}
+		if (attrib->dst_port_hi < attrib->dst_port_lo) {
+			IPAERR("bad dst port range param\n");
+			goto err;
+		}
+		*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
+		/* 2  => offset of dst port after v4 header */
+		extra = ipa3_write_8(2, extra);
+		rest = ipa3_write_16(attrib->dst_port_hi, rest);
+		rest = ipa3_write_16(attrib->dst_port_lo, rest);
+		ihl_ofst_rng16++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_SRC_PORT) {
+		if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
+			IPAERR("ran out of ihl_rng16 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
+		/* 0  => offset of src port after v4 header */
+		extra = ipa3_write_8(0, extra);
+		rest = ipa3_write_16(attrib->src_port, rest);
+		rest = ipa3_write_16(attrib->src_port, rest);
+		ihl_ofst_rng16++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_DST_PORT) {
+		if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
+			IPAERR("ran out of ihl_rng16 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
+		/* 2  => offset of dst port after v4 header */
+		extra = ipa3_write_8(2, extra);
+		rest = ipa3_write_16(attrib->dst_port, rest);
+		rest = ipa3_write_16(attrib->dst_port, rest);
+		ihl_ofst_rng16++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_FRAGMENT)
+		*en_rule |= IPA_IS_FRAG;
+
+	goto done;
+
+err:
+	rc = -EPERM;
+done:
+	*extra_wrds = extra;
+	*rest_wrds = rest;
+	return rc;
+}
+
+static int ipa3_generate_hw_rule_ip6(u16 *en_rule,
+	const struct ipa_rule_attrib *attrib,
+	u8 **extra_wrds, u8 **rest_wrds)
+{
+	u8 *extra = *extra_wrds;
+	u8 *rest = *rest_wrds;
+	u8 ofst_meq32 = 0;
+	u8 ihl_ofst_rng16 = 0;
+	u8 ihl_ofst_meq32 = 0;
+	u8 ofst_meq128 = 0;
+	int rc = 0;
+
+	/* v6 code below assumes no extension headers TODO: fix this */
+
+	if (attrib->attrib_mask & IPA_FLT_NEXT_HDR) {
+		*en_rule |= IPA_PROTOCOL_EQ;
+		extra = ipa3_write_8(attrib->u.v6.next_hdr, extra);
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_TC) {
+		*en_rule |= IPA_TC_EQ;
+		extra = ipa3_write_8(attrib->u.v6.tc, extra);
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_SRC_ADDR) {
+		if (ipa_ofst_meq128[ofst_meq128] == -1) {
+			IPAERR("ran out of meq128 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ofst_meq128[ofst_meq128];
+		/* 8 => offset of src ip in v6 header */
+		extra = ipa3_write_8(8, extra);
+		rest = ipa3_write_32(attrib->u.v6.src_addr_mask[3], rest);
+		rest = ipa3_write_32(attrib->u.v6.src_addr_mask[2], rest);
+		rest = ipa3_write_32(attrib->u.v6.src_addr[3], rest);
+		rest = ipa3_write_32(attrib->u.v6.src_addr[2], rest);
+		rest = ipa3_write_32(attrib->u.v6.src_addr_mask[1], rest);
+		rest = ipa3_write_32(attrib->u.v6.src_addr_mask[0], rest);
+		rest = ipa3_write_32(attrib->u.v6.src_addr[1], rest);
+		rest = ipa3_write_32(attrib->u.v6.src_addr[0], rest);
+		ofst_meq128++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_DST_ADDR) {
+		if (ipa_ofst_meq128[ofst_meq128] == -1) {
+			IPAERR("ran out of meq128 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ofst_meq128[ofst_meq128];
+		/* 24 => offset of dst ip in v6 header */
+		extra = ipa3_write_8(24, extra);
+		rest = ipa3_write_32(attrib->u.v6.dst_addr_mask[3], rest);
+		rest = ipa3_write_32(attrib->u.v6.dst_addr_mask[2], rest);
+		rest = ipa3_write_32(attrib->u.v6.dst_addr[3], rest);
+		rest = ipa3_write_32(attrib->u.v6.dst_addr[2], rest);
+		rest = ipa3_write_32(attrib->u.v6.dst_addr_mask[1], rest);
+		rest = ipa3_write_32(attrib->u.v6.dst_addr_mask[0], rest);
+		rest = ipa3_write_32(attrib->u.v6.dst_addr[1], rest);
+		rest = ipa3_write_32(attrib->u.v6.dst_addr[0], rest);
+		ofst_meq128++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_TOS_MASKED) {
+		if (ipa_ofst_meq128[ofst_meq128] == -1) {
+			IPAERR("ran out of meq128 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ofst_meq128[ofst_meq128];
+		/* 0 => offset of TOS in v6 header */
+		extra = ipa3_write_8(0, extra);
+		rest = ipa3_write_64(0, rest);
+		rest = ipa3_write_64(0, rest);
+		rest = ipa3_write_32(0, rest);
+		rest = ipa3_write_32((attrib->tos_mask << 20), rest);
+		rest = ipa3_write_32(0, rest);
+		rest = ipa3_write_32((attrib->tos_value << 20), rest);
+		ofst_meq128++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_ETHER_II) {
+		if (ipa_ofst_meq128[ofst_meq128] == -1) {
+			IPAERR("ran out of meq128 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+		/* -14 => offset of dst mac addr in Ethernet II hdr */
+		ipa3_generate_mac_addr_hw_rule(
+			&extra,
+			&rest,
+			-14,
+			attrib->dst_mac_addr_mask,
+			attrib->dst_mac_addr);
+
+		ofst_meq128++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_ETHER_II) {
+		if (ipa_ofst_meq128[ofst_meq128] == -1) {
+			IPAERR("ran out of meq128 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+		/* -8 => offset of src mac addr in Ethernet II hdr */
+		ipa3_generate_mac_addr_hw_rule(
+			&extra,
+			&rest,
+			-8,
+			attrib->src_mac_addr_mask,
+			attrib->src_mac_addr);
+
+		ofst_meq128++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_802_3) {
+		if (ipa_ofst_meq128[ofst_meq128] == -1) {
+			IPAERR("ran out of meq128 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+		/* -22 => offset of dst mac addr in 802.3 hdr */
+		ipa3_generate_mac_addr_hw_rule(
+			&extra,
+			&rest,
+			-22,
+			attrib->dst_mac_addr_mask,
+			attrib->dst_mac_addr);
+
+		ofst_meq128++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_802_3) {
+		if (ipa_ofst_meq128[ofst_meq128] == -1) {
+			IPAERR("ran out of meq128 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ofst_meq128[ofst_meq128];
+
+		/* -16 => offset of src mac addr in 802.3 hdr */
+		ipa3_generate_mac_addr_hw_rule(
+			&extra,
+			&rest,
+			-16,
+			attrib->src_mac_addr_mask,
+			attrib->src_mac_addr);
+
+		ofst_meq128++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_MAC_ETHER_TYPE) {
+		if (ipa_ofst_meq32[ofst_meq32] == -1) {
+			IPAERR("ran out of meq32 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ofst_meq32[ofst_meq32];
+		/* -2 => offset of ether type in L2 hdr */
+		extra = ipa3_write_8((u8)-2, extra);
+		rest = ipa3_write_16(0, rest);
+		rest = ipa3_write_16(htons(attrib->ether_type), rest);
+		rest = ipa3_write_16(0, rest);
+		rest = ipa3_write_16(htons(attrib->ether_type), rest);
+		ofst_meq32++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_TYPE) {
+		if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
+			IPAERR("ran out of ihl_meq32 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
+		/* 0  => offset of type after v6 header */
+		extra = ipa3_write_8(0, extra);
+		rest = ipa3_write_32(0xFF, rest);
+		rest = ipa3_write_32(attrib->type, rest);
+		ihl_ofst_meq32++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_CODE) {
+		if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
+			IPAERR("ran out of ihl_meq32 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
+		/* 1  => offset of code after v6 header */
+		extra = ipa3_write_8(1, extra);
+		rest = ipa3_write_32(0xFF, rest);
+		rest = ipa3_write_32(attrib->code, rest);
+		ihl_ofst_meq32++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_SPI) {
+		if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
+			IPAERR("ran out of ihl_meq32 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
+		/* 0  => offset of SPI after v6 header FIXME */
+		extra = ipa3_write_8(0, extra);
+		rest = ipa3_write_32(0xFFFFFFFF, rest);
+		rest = ipa3_write_32(attrib->spi, rest);
+		ihl_ofst_meq32++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_META_DATA) {
+		*en_rule |= IPA_METADATA_COMPARE;
+		rest = ipa3_write_32(attrib->meta_data_mask, rest);
+		rest = ipa3_write_32(attrib->meta_data, rest);
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_SRC_PORT) {
+		if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
+			IPAERR("ran out of ihl_rng16 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
+		/* 0  => offset of src port after v6 header */
+		extra = ipa3_write_8(0, extra);
+		rest = ipa3_write_16(attrib->src_port, rest);
+		rest = ipa3_write_16(attrib->src_port, rest);
+		ihl_ofst_rng16++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_DST_PORT) {
+		if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
+			IPAERR("ran out of ihl_rng16 eq\n");
+			goto err;
+		}
+		*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
+		/* 2  => offset of dst port after v6 header */
+		extra = ipa3_write_8(2, extra);
+		rest = ipa3_write_16(attrib->dst_port, rest);
+		rest = ipa3_write_16(attrib->dst_port, rest);
+		ihl_ofst_rng16++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_SRC_PORT_RANGE) {
+		if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
+			IPAERR("ran out of ihl_rng16 eq\n");
+			goto err;
+		}
+		if (attrib->src_port_hi < attrib->src_port_lo) {
+			IPAERR("bad src port range param\n");
+			goto err;
+		}
+		*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
+		/* 0  => offset of src port after v6 header */
+		extra = ipa3_write_8(0, extra);
+		rest = ipa3_write_16(attrib->src_port_hi, rest);
+		rest = ipa3_write_16(attrib->src_port_lo, rest);
+		ihl_ofst_rng16++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_DST_PORT_RANGE) {
+		if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
+			IPAERR("ran out of ihl_rng16 eq\n");
+			goto err;
+		}
+		if (attrib->dst_port_hi < attrib->dst_port_lo) {
+			IPAERR("bad dst port range param\n");
+			goto err;
+		}
+		*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
+		/* 2  => offset of dst port after v6 header */
+		extra = ipa3_write_8(2, extra);
+		rest = ipa3_write_16(attrib->dst_port_hi, rest);
+		rest = ipa3_write_16(attrib->dst_port_lo, rest);
+		ihl_ofst_rng16++;
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_FLOW_LABEL) {
+		*en_rule |= IPA_FL_EQ;
+		rest = ipa3_write_32(attrib->u.v6.flow_label & 0xFFFFF,
+			rest);
+	}
+
+	if (attrib->attrib_mask & IPA_FLT_FRAGMENT)
+		*en_rule |= IPA_IS_FRAG;
+
+	goto done;
+
+err:
+	rc = -EPERM;
+done:
+	*extra_wrds = extra;
+	*rest_wrds = rest;
+	return rc;
+}
+
+static u8 *ipa3_copy_mem(u8 *src, u8 *dst, int cnt)
+{
+	while (cnt--)
+		*dst++ = *src++;
+
+	return dst;
 }
 
 /**
@@ -936,7 +1543,7 @@ void ipa3_generate_mac_addr_hw_rule(u8 **buf, u8 hdr_mac_addr_offset,
  * @ip: IP address type
  * @attrib: IPA rule attribute
  * @buf: output buffer
- * @en_rule: rule
+ * @en_rule: enable rule
  *
  * Return codes:
  * 0: success
@@ -945,581 +1552,67 @@ void ipa3_generate_mac_addr_hw_rule(u8 **buf, u8 hdr_mac_addr_offset,
 int ipa3_generate_hw_rule(enum ipa_ip_type ip,
 	const struct ipa_rule_attrib *attrib, u8 **buf, u16 *en_rule)
 {
-	u8 ofst_meq32 = 0;
-	u8 ihl_ofst_rng16 = 0;
-	u8 ihl_ofst_meq32 = 0;
-	u8 ofst_meq128 = 0;
+	int sz;
+	int rc = 0;
+	u8 *extra_wrd_buf;
+	u8 *rest_wrd_buf;
+	u8 *extra_wrd_start;
+	u8 *rest_wrd_start;
+	u8 *extra_wrd_i;
+	u8 *rest_wrd_i;
+
+	sz = IPA_HW_TBL_WIDTH * 2 + IPA_HW_RULE_START_ALIGNMENT;
+	extra_wrd_buf = kzalloc(sz, GFP_KERNEL);
+	if (!extra_wrd_buf) {
+		IPAERR("failed to allocate %d bytes\n", sz);
+		rc = -ENOMEM;
+		goto fail_extra_alloc;
+	}
+
+	sz = IPA_RT_FLT_HW_RULE_BUF_SIZE + IPA_HW_RULE_START_ALIGNMENT;
+	rest_wrd_buf = kzalloc(sz, GFP_KERNEL);
+	if (!rest_wrd_buf) {
+		IPAERR("failed to allocate %d bytes\n", sz);
+		rc = -ENOMEM;
+		goto fail_rest_alloc;
+	}
+
+	extra_wrd_start = extra_wrd_buf + IPA_HW_RULE_START_ALIGNMENT;
+	extra_wrd_start = (u8 *)((long)extra_wrd_start &
+		~IPA_HW_RULE_START_ALIGNMENT);
+
+	rest_wrd_start = rest_wrd_buf + IPA_HW_RULE_START_ALIGNMENT;
+	rest_wrd_start = (u8 *)((long)rest_wrd_start &
+		~IPA_HW_RULE_START_ALIGNMENT);
+
+	extra_wrd_i = extra_wrd_start;
+	rest_wrd_i = rest_wrd_start;
+
+	rc = ipa_rule_generation_err_check(ip, attrib);
+	if (rc) {
+		IPAERR("ipa_rule_generation_err_check() failed\n");
+		goto fail_err_check;
+	}
 
 	if (ip == IPA_IP_v4) {
-
-		/* error check */
-		if (attrib->attrib_mask & IPA_FLT_NEXT_HDR ||
-		    attrib->attrib_mask & IPA_FLT_TC || attrib->attrib_mask &
-		    IPA_FLT_FLOW_LABEL) {
-			IPAERR("v6 attrib's specified for v4 rule\n");
-			return -EPERM;
+		if (ipa3_generate_hw_rule_ip4(en_rule, attrib,
+			&extra_wrd_i, &rest_wrd_i)) {
+			IPAERR("failed to build ipv4 hw rule\n");
+			rc = -EPERM;
+			goto fail_err_check;
 		}
 
-		if (attrib->attrib_mask & IPA_FLT_TOS) {
-			*en_rule |= IPA_TOS_EQ;
-			*buf = ipa3_write_8(attrib->u.v4.tos, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_TOS_MASKED) {
-			if (ipa_ofst_meq32[ofst_meq32] == -1) {
-				IPAERR("ran out of meq32 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ofst_meq32[ofst_meq32];
-			/* 0 => offset of TOS in v4 header */
-			*buf = ipa3_write_8(0, *buf);
-			*buf = ipa3_write_32((attrib->tos_mask << 16), *buf);
-			*buf = ipa3_write_32((attrib->tos_value << 16), *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ofst_meq32++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_PROTOCOL) {
-			*en_rule |= IPA_PROTOCOL_EQ;
-			*buf = ipa3_write_8(attrib->u.v4.protocol, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_SRC_ADDR) {
-			if (ipa_ofst_meq32[ofst_meq32] == -1) {
-				IPAERR("ran out of meq32 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ofst_meq32[ofst_meq32];
-			/* 12 => offset of src ip in v4 header */
-			*buf = ipa3_write_8(12, *buf);
-			*buf = ipa3_write_32(attrib->u.v4.src_addr_mask, *buf);
-			*buf = ipa3_write_32(attrib->u.v4.src_addr, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ofst_meq32++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_DST_ADDR) {
-			if (ipa_ofst_meq32[ofst_meq32] == -1) {
-				IPAERR("ran out of meq32 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ofst_meq32[ofst_meq32];
-			/* 16 => offset of dst ip in v4 header */
-			*buf = ipa3_write_8(16, *buf);
-			*buf = ipa3_write_32(attrib->u.v4.dst_addr_mask, *buf);
-			*buf = ipa3_write_32(attrib->u.v4.dst_addr, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ofst_meq32++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_MAC_ETHER_TYPE) {
-			if (ipa_ofst_meq32[ofst_meq32] == -1) {
-				IPAERR("ran out of meq32 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ofst_meq32[ofst_meq32];
-			/* -2 => offset of ether type in L2 hdr */
-			*buf = ipa3_write_8((u8)-2, *buf);
-			*buf = ipa3_write_16(0, *buf);
-			*buf = ipa3_write_16(htons(attrib->ether_type), *buf);
-			*buf = ipa3_write_16(0, *buf);
-			*buf = ipa3_write_16(htons(attrib->ether_type), *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ofst_meq32++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_SRC_PORT_RANGE) {
-			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
-				IPAERR("ran out of ihl_rng16 eq\n");
-				return -EPERM;
-			}
-			if (attrib->src_port_hi < attrib->src_port_lo) {
-				IPAERR("bad src port range param\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			/* 0  => offset of src port after v4 header */
-			*buf = ipa3_write_8(0, *buf);
-			*buf = ipa3_write_16(attrib->src_port_hi, *buf);
-			*buf = ipa3_write_16(attrib->src_port_lo, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ihl_ofst_rng16++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_DST_PORT_RANGE) {
-			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
-				IPAERR("ran out of ihl_rng16 eq\n");
-				return -EPERM;
-			}
-			if (attrib->dst_port_hi < attrib->dst_port_lo) {
-				IPAERR("bad dst port range param\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			/* 2  => offset of dst port after v4 header */
-			*buf = ipa3_write_8(2, *buf);
-			*buf = ipa3_write_16(attrib->dst_port_hi, *buf);
-			*buf = ipa3_write_16(attrib->dst_port_lo, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ihl_ofst_rng16++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_TYPE) {
-			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
-				IPAERR("ran out of ihl_meq32 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
-			/* 0  => offset of type after v4 header */
-			*buf = ipa3_write_8(0, *buf);
-			*buf = ipa3_write_32(0xFF, *buf);
-			*buf = ipa3_write_32(attrib->type, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ihl_ofst_meq32++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_CODE) {
-			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
-				IPAERR("ran out of ihl_meq32 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
-			/* 1  => offset of code after v4 header */
-			*buf = ipa3_write_8(1, *buf);
-			*buf = ipa3_write_32(0xFF, *buf);
-			*buf = ipa3_write_32(attrib->code, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ihl_ofst_meq32++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_SPI) {
-			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
-				IPAERR("ran out of ihl_meq32 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
-			/* 0  => offset of SPI after v4 header FIXME */
-			*buf = ipa3_write_8(0, *buf);
-			*buf = ipa3_write_32(0xFFFFFFFF, *buf);
-			*buf = ipa3_write_32(attrib->spi, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ihl_ofst_meq32++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_SRC_PORT) {
-			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
-				IPAERR("ran out of ihl_rng16 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			/* 0  => offset of src port after v4 header */
-			*buf = ipa3_write_8(0, *buf);
-			*buf = ipa3_write_16(attrib->src_port, *buf);
-			*buf = ipa3_write_16(attrib->src_port, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ihl_ofst_rng16++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_DST_PORT) {
-			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
-				IPAERR("ran out of ihl_rng16 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			/* 2  => offset of dst port after v4 header */
-			*buf = ipa3_write_8(2, *buf);
-			*buf = ipa3_write_16(attrib->dst_port, *buf);
-			*buf = ipa3_write_16(attrib->dst_port, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ihl_ofst_rng16++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_ETHER_II) {
-			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ofst_meq128[ofst_meq128];
-
-			/* -14 => offset of dst mac addr in Ethernet II hdr */
-			ipa3_generate_mac_addr_hw_rule(
-				buf,
-				-14,
-				attrib->dst_mac_addr_mask,
-				attrib->dst_mac_addr);
-
-			ofst_meq128++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_ETHER_II) {
-			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ofst_meq128[ofst_meq128];
-
-			/* -8 => offset of src mac addr in Ethernet II hdr */
-			ipa3_generate_mac_addr_hw_rule(
-				buf,
-				-8,
-				attrib->src_mac_addr_mask,
-				attrib->src_mac_addr);
-
-			ofst_meq128++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_802_3) {
-			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ofst_meq128[ofst_meq128];
-
-			/* -22 => offset of dst mac addr in 802.3 hdr */
-			ipa3_generate_mac_addr_hw_rule(
-				buf,
-				-22,
-				attrib->dst_mac_addr_mask,
-				attrib->dst_mac_addr);
-
-			ofst_meq128++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_802_3) {
-			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ofst_meq128[ofst_meq128];
-
-			/* -16 => offset of src mac addr in 802.3 hdr */
-			ipa3_generate_mac_addr_hw_rule(
-				buf,
-				-16,
-				attrib->src_mac_addr_mask,
-				attrib->src_mac_addr);
-
-			ofst_meq128++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_META_DATA) {
-			*en_rule |= IPA_METADATA_COMPARE;
-			*buf = ipa3_write_8(0, *buf);    /* offset, reserved */
-			*buf = ipa3_write_32(attrib->meta_data_mask, *buf);
-			*buf = ipa3_write_32(attrib->meta_data, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_FRAGMENT) {
-			*en_rule |= IPA_IS_FRAG;
-			*buf = ipa3_pad_to_32(*buf);
-		}
 	} else if (ip == IPA_IP_v6) {
+		if (ipa3_generate_hw_rule_ip6(en_rule, attrib,
+			&extra_wrd_i, &rest_wrd_i)) {
 
-		/* v6 code below assumes no extension headers TODO: fix this */
-
-		/* error check */
-		if (attrib->attrib_mask & IPA_FLT_TOS ||
-		    attrib->attrib_mask & IPA_FLT_PROTOCOL) {
-			IPAERR("v4 attrib's specified for v6 rule\n");
-			return -EPERM;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_NEXT_HDR) {
-			*en_rule |= IPA_PROTOCOL_EQ;
-			*buf = ipa3_write_8(attrib->u.v6.next_hdr, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_MAC_ETHER_TYPE) {
-			if (ipa_ofst_meq32[ofst_meq32] == -1) {
-				IPAERR("ran out of meq32 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ofst_meq32[ofst_meq32];
-			/* -2 => offset of ether type in L2 hdr */
-			*buf = ipa3_write_8((u8)-2, *buf);
-			*buf = ipa3_write_16(0, *buf);
-			*buf = ipa3_write_16(htons(attrib->ether_type), *buf);
-			*buf = ipa3_write_16(0, *buf);
-			*buf = ipa3_write_16(htons(attrib->ether_type), *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ofst_meq32++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_TYPE) {
-			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
-				IPAERR("ran out of ihl_meq32 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
-			/* 0  => offset of type after v6 header */
-			*buf = ipa3_write_8(0, *buf);
-			*buf = ipa3_write_32(0xFF, *buf);
-			*buf = ipa3_write_32(attrib->type, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ihl_ofst_meq32++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_CODE) {
-			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
-				IPAERR("ran out of ihl_meq32 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
-			/* 1  => offset of code after v6 header */
-			*buf = ipa3_write_8(1, *buf);
-			*buf = ipa3_write_32(0xFF, *buf);
-			*buf = ipa3_write_32(attrib->code, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ihl_ofst_meq32++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_SPI) {
-			if (ipa_ihl_ofst_meq32[ihl_ofst_meq32] == -1) {
-				IPAERR("ran out of ihl_meq32 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ihl_ofst_meq32[ihl_ofst_meq32];
-			/* 0  => offset of SPI after v6 header FIXME */
-			*buf = ipa3_write_8(0, *buf);
-			*buf = ipa3_write_32(0xFFFFFFFF, *buf);
-			*buf = ipa3_write_32(attrib->spi, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ihl_ofst_meq32++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_SRC_PORT) {
-			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
-				IPAERR("ran out of ihl_rng16 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			/* 0  => offset of src port after v6 header */
-			*buf = ipa3_write_8(0, *buf);
-			*buf = ipa3_write_16(attrib->src_port, *buf);
-			*buf = ipa3_write_16(attrib->src_port, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ihl_ofst_rng16++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_DST_PORT) {
-			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
-				IPAERR("ran out of ihl_rng16 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			/* 2  => offset of dst port after v6 header */
-			*buf = ipa3_write_8(2, *buf);
-			*buf = ipa3_write_16(attrib->dst_port, *buf);
-			*buf = ipa3_write_16(attrib->dst_port, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ihl_ofst_rng16++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_SRC_PORT_RANGE) {
-			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
-				IPAERR("ran out of ihl_rng16 eq\n");
-				return -EPERM;
-			}
-			if (attrib->src_port_hi < attrib->src_port_lo) {
-				IPAERR("bad src port range param\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			/* 0  => offset of src port after v6 header */
-			*buf = ipa3_write_8(0, *buf);
-			*buf = ipa3_write_16(attrib->src_port_hi, *buf);
-			*buf = ipa3_write_16(attrib->src_port_lo, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ihl_ofst_rng16++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_DST_PORT_RANGE) {
-			if (ipa_ihl_ofst_rng16[ihl_ofst_rng16] == -1) {
-				IPAERR("ran out of ihl_rng16 eq\n");
-				return -EPERM;
-			}
-			if (attrib->dst_port_hi < attrib->dst_port_lo) {
-				IPAERR("bad dst port range param\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ihl_ofst_rng16[ihl_ofst_rng16];
-			/* 2  => offset of dst port after v6 header */
-			*buf = ipa3_write_8(2, *buf);
-			*buf = ipa3_write_16(attrib->dst_port_hi, *buf);
-			*buf = ipa3_write_16(attrib->dst_port_lo, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ihl_ofst_rng16++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_SRC_ADDR) {
-			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ofst_meq128[ofst_meq128];
-			/* 8 => offset of src ip in v6 header */
-			*buf = ipa3_write_8(8, *buf);
-			*buf = ipa3_write_32(attrib->u.v6.src_addr_mask[0],
-					*buf);
-			*buf = ipa3_write_32(attrib->u.v6.src_addr_mask[1],
-					*buf);
-			*buf = ipa3_write_32(attrib->u.v6.src_addr_mask[2],
-					*buf);
-			*buf = ipa3_write_32(attrib->u.v6.src_addr_mask[3],
-					*buf);
-			*buf = ipa3_write_32(attrib->u.v6.src_addr[0], *buf);
-			*buf = ipa3_write_32(attrib->u.v6.src_addr[1], *buf);
-			*buf = ipa3_write_32(attrib->u.v6.src_addr[2], *buf);
-			*buf = ipa3_write_32(attrib->u.v6.src_addr[3], *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ofst_meq128++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_DST_ADDR) {
-			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ofst_meq128[ofst_meq128];
-			/* 24 => offset of dst ip in v6 header */
-			*buf = ipa3_write_8(24, *buf);
-			*buf = ipa3_write_32(attrib->u.v6.dst_addr_mask[0],
-					*buf);
-			*buf = ipa3_write_32(attrib->u.v6.dst_addr_mask[1],
-					*buf);
-			*buf = ipa3_write_32(attrib->u.v6.dst_addr_mask[2],
-					*buf);
-			*buf = ipa3_write_32(attrib->u.v6.dst_addr_mask[3],
-					*buf);
-			*buf = ipa3_write_32(attrib->u.v6.dst_addr[0], *buf);
-			*buf = ipa3_write_32(attrib->u.v6.dst_addr[1], *buf);
-			*buf = ipa3_write_32(attrib->u.v6.dst_addr[2], *buf);
-			*buf = ipa3_write_32(attrib->u.v6.dst_addr[3], *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ofst_meq128++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_TC) {
-			*en_rule |= IPA_FLT_TC;
-			*buf = ipa3_write_8(attrib->u.v6.tc, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_TOS_MASKED) {
-			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ofst_meq128[ofst_meq128];
-			/* 0 => offset of TOS in v6 header */
-			*buf = ipa3_write_8(0, *buf);
-			*buf = ipa3_write_32((attrib->tos_mask << 20), *buf);
-			*buf = ipa3_write_32(0, *buf);
-			*buf = ipa3_write_32(0, *buf);
-			*buf = ipa3_write_32(0, *buf);
-
-			*buf = ipa3_write_32((attrib->tos_value << 20), *buf);
-			*buf = ipa3_write_32(0, *buf);
-			*buf = ipa3_write_32(0, *buf);
-			*buf = ipa3_write_32(0, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-			ofst_meq128++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_ETHER_II) {
-			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ofst_meq128[ofst_meq128];
-
-			/* -14 => offset of dst mac addr in Ethernet II hdr */
-			ipa3_generate_mac_addr_hw_rule(
-				buf,
-				-14,
-				attrib->dst_mac_addr_mask,
-				attrib->dst_mac_addr);
-
-			ofst_meq128++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_ETHER_II) {
-			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ofst_meq128[ofst_meq128];
-
-			/* -8 => offset of src mac addr in Ethernet II hdr */
-			ipa3_generate_mac_addr_hw_rule(
-				buf,
-				-8,
-				attrib->src_mac_addr_mask,
-				attrib->src_mac_addr);
-
-			ofst_meq128++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_MAC_DST_ADDR_802_3) {
-			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ofst_meq128[ofst_meq128];
-
-			/* -22 => offset of dst mac addr in 802.3 hdr */
-			ipa3_generate_mac_addr_hw_rule(
-				buf,
-				-22,
-				attrib->dst_mac_addr_mask,
-				attrib->dst_mac_addr);
-
-			ofst_meq128++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_MAC_SRC_ADDR_802_3) {
-			if (ipa_ofst_meq128[ofst_meq128] == -1) {
-				IPAERR("ran out of meq128 eq\n");
-				return -EPERM;
-			}
-			*en_rule |= ipa_ofst_meq128[ofst_meq128];
-
-			/* -16 => offset of src mac addr in 802.3 hdr */
-			ipa3_generate_mac_addr_hw_rule(
-				buf,
-				-16,
-				attrib->src_mac_addr_mask,
-				attrib->src_mac_addr);
-
-			ofst_meq128++;
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_FLOW_LABEL) {
-			*en_rule |= IPA_FLT_FLOW_LABEL;
-			 /* FIXME FL is only 20 bits */
-			*buf = ipa3_write_32(attrib->u.v6.flow_label, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_META_DATA) {
-			*en_rule |= IPA_METADATA_COMPARE;
-			*buf = ipa3_write_8(0, *buf);    /* offset, reserved */
-			*buf = ipa3_write_32(attrib->meta_data_mask, *buf);
-			*buf = ipa3_write_32(attrib->meta_data, *buf);
-			*buf = ipa3_pad_to_32(*buf);
-		}
-
-		if (attrib->attrib_mask & IPA_FLT_FRAGMENT) {
-			*en_rule |= IPA_IS_FRAG;
-			*buf = ipa3_pad_to_32(*buf);
+			IPAERR("failed to build ipv6 hw rule\n");
+			rc = -EPERM;
+			goto fail_err_check;
 		}
 	} else {
 		IPAERR("unsupported ip %d\n", ip);
-		return -EPERM;
+		goto fail_err_check;
 	}
 
 	/*
@@ -1527,19 +1620,33 @@ int ipa3_generate_hw_rule(enum ipa_ip_type ip,
 	 * OFFSET_MEQ32_0 with mask of 0 and val of 0 and offset 0
 	 */
 	if (attrib->attrib_mask == 0) {
-		if (ipa_ofst_meq32[ofst_meq32] == -1) {
-			IPAERR("ran out of meq32 eq\n");
-			return -EPERM;
-		}
-		*en_rule |= ipa_ofst_meq32[ofst_meq32];
-		*buf = ipa3_write_8(0, *buf);    /* offset */
-		*buf = ipa3_write_32(0, *buf);   /* mask */
-		*buf = ipa3_write_32(0, *buf);   /* val */
-		*buf = ipa3_pad_to_32(*buf);
-		ofst_meq32++;
+		IPADBG("building default rule\n");
+		*en_rule |= ipa_ofst_meq32[0];
+		extra_wrd_i = ipa3_write_8(0, extra_wrd_i);  /* offset */
+		rest_wrd_i = ipa3_write_32(0, rest_wrd_i);   /* mask */
+		rest_wrd_i = ipa3_write_32(0, rest_wrd_i);   /* val */
 	}
 
-	return 0;
+	IPADBG("extra_word_1 0x%llx\n", *(u64 *)extra_wrd_start);
+	IPADBG("extra_word_2 0x%llx\n",
+		*(u64 *)(extra_wrd_start + IPA_HW_TBL_WIDTH));
+
+	extra_wrd_i = ipa3_pad_to_64(extra_wrd_i);
+	sz = extra_wrd_i - extra_wrd_start;
+	IPADBG("extra words params sz %d\n", sz);
+	*buf = ipa3_copy_mem(extra_wrd_start, *buf, sz);
+
+	rest_wrd_i = ipa3_pad_to_64(rest_wrd_i);
+	sz = rest_wrd_i - rest_wrd_start;
+	IPADBG("non extra words params sz %d\n", sz);
+	*buf = ipa3_copy_mem(rest_wrd_start, *buf, sz);
+
+fail_err_check:
+	kfree(rest_wrd_buf);
+fail_rest_alloc:
+	kfree(extra_wrd_buf);
+fail_extra_alloc:
+	return rc;
 }
 
 void ipa3_generate_flt_mac_addr_eq(struct ipa_ipfltri_rule_eq *eq_atrb,

@@ -81,19 +81,19 @@
 
 #define IPA_TOS_EQ			BIT(0)
 #define IPA_PROTOCOL_EQ			BIT(1)
-#define IPA_OFFSET_MEQ32_0		BIT(2)
-#define IPA_OFFSET_MEQ32_1		BIT(3)
-#define IPA_IHL_OFFSET_RANGE16_0	BIT(4)
-#define IPA_IHL_OFFSET_RANGE16_1	BIT(5)
-#define IPA_IHL_OFFSET_EQ_16		BIT(6)
-#define IPA_IHL_OFFSET_EQ_32		BIT(7)
-#define IPA_IHL_OFFSET_MEQ32_0		BIT(8)
-#define IPA_OFFSET_MEQ128_0		BIT(9)
-#define IPA_OFFSET_MEQ128_1		BIT(10)
-#define IPA_TC_EQ			BIT(11)
-#define IPA_FL_EQ			BIT(12)
-#define IPA_IHL_OFFSET_MEQ32_1		BIT(13)
-#define IPA_METADATA_COMPARE		BIT(14)
+#define IPA_TC_EQ			BIT(2)
+#define IPA_OFFSET_MEQ128_0		BIT(3)
+#define IPA_OFFSET_MEQ128_1		BIT(4)
+#define IPA_OFFSET_MEQ32_0		BIT(5)
+#define IPA_OFFSET_MEQ32_1		BIT(6)
+#define IPA_IHL_OFFSET_MEQ32_0		BIT(7)
+#define IPA_IHL_OFFSET_MEQ32_1		BIT(8)
+#define IPA_METADATA_COMPARE		BIT(9)
+#define IPA_IHL_OFFSET_RANGE16_0	BIT(10)
+#define IPA_IHL_OFFSET_RANGE16_1	BIT(11)
+#define IPA_IHL_OFFSET_EQ_32		BIT(12)
+#define IPA_IHL_OFFSET_EQ_16		BIT(13)
+#define IPA_FL_EQ			BIT(14)
 #define IPA_IS_FRAG			BIT(15)
 
 #define IPA_HDR_BIN0 0
@@ -1810,6 +1810,7 @@ u8 *ipa3_write_32(u32 w, u8 *dest);
 u8 *ipa3_write_16(u16 hw, u8 *dest);
 u8 *ipa3_write_8(u8 b, u8 *dest);
 u8 *ipa3_pad_to_32(u8 *dest);
+u8 *ipa3_pad_to_64(u8 *dest);
 int ipa3_init_hw(void);
 struct ipa3_rt_tbl *__ipa3_find_rt_tbl(enum ipa_ip_type ip, const char *name);
 int ipa3_set_single_ndp_per_mbim(bool);

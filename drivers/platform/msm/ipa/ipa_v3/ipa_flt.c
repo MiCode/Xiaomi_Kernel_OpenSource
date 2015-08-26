@@ -23,6 +23,31 @@
 	(IPA_RULE_HASHABLE):(IPA_RULE_NON_HASHABLE) \
 	)
 
+static int ipa3_calc_extra_wrd_bytes(
+	const struct ipa_ipfltri_rule_eq *attrib)
+{
+	int num = 0;
+
+	if (attrib->tos_eq_present)
+		num++;
+	if (attrib->protocol_eq_present)
+		num++;
+	if (attrib->tc_eq_present)
+		num++;
+	num += attrib->num_offset_meq_128;
+	num += attrib->num_offset_meq_32;
+	num += attrib->num_ihl_offset_meq_32;
+	num += attrib->num_ihl_offset_range_16;
+	if (attrib->ihl_offset_eq_32_present)
+		num++;
+	if (attrib->ihl_offset_eq_16_present)
+		num++;
+
+	IPADBG("extra bytes number %d\n", num);
+
+	return num;
+}
+
 static int ipa3_generate_hw_rule_from_eq(
 		const struct ipa_ipfltri_rule_eq *attrib, u8 **buf)
 {
@@ -31,127 +56,149 @@ static int ipa3_generate_hw_rule_from_eq(
 	int num_ihl_offset_meq_32 = attrib->num_ihl_offset_meq_32;
 	int num_offset_meq_128 = attrib->num_offset_meq_128;
 	int i;
+	int extra_bytes;
+	u8 *extra;
+	u8 *rest;
 
-	if (attrib->tos_eq_present) {
-		*buf = ipa3_write_8(attrib->tos_eq, *buf);
-		*buf = ipa3_pad_to_32(*buf);
+	extra_bytes = ipa3_calc_extra_wrd_bytes(attrib);
+	/* only 3 eq does not have extra word param, 13 out of 16 is the number
+	 * of equations that needs extra word param*/
+	if (extra_bytes > 13) {
+		IPAERR("too much extra bytes\n");
+		return -EPERM;
+	} else if (extra_bytes > IPA_HW_TBL_HDR_WIDTH) {
+		/* two extra words */
+		extra = *buf;
+		rest = *buf + IPA_HW_TBL_HDR_WIDTH * 2;
+	} else if (extra_bytes > 0) {
+		/* single exra word */
+		extra = *buf;
+		rest = *buf + IPA_HW_TBL_HDR_WIDTH;
+	} else {
+		/* no extra words */
+		extra = NULL;
+		rest = *buf;
 	}
 
-	if (attrib->protocol_eq_present) {
-		*buf = ipa3_write_8(attrib->protocol_eq, *buf);
-		*buf = ipa3_pad_to_32(*buf);
+	if (attrib->tos_eq_present)
+		extra = ipa3_write_8(attrib->tos_eq, extra);
+
+	if (attrib->protocol_eq_present)
+		extra = ipa3_write_8(attrib->protocol_eq, extra);
+
+	if (attrib->tc_eq_present)
+		extra = ipa3_write_8(attrib->tc_eq, extra);
+
+	if (num_offset_meq_128) {
+		extra = ipa3_write_8(attrib->offset_meq_128[0].offset, extra);
+		for (i = 0; i < 8; i++)
+			rest = ipa3_write_8(attrib->offset_meq_128[0].mask[i],
+				rest);
+		for (i = 0; i < 8; i++)
+			rest = ipa3_write_8(attrib->offset_meq_128[0].value[i],
+				rest);
+		for (i = 8; i < 16; i++)
+			rest = ipa3_write_8(attrib->offset_meq_128[0].mask[i],
+				rest);
+		for (i = 8; i < 16; i++)
+			rest = ipa3_write_8(attrib->offset_meq_128[0].value[i],
+				rest);
+		num_offset_meq_128--;
+	}
+
+	if (num_offset_meq_128) {
+		extra = ipa3_write_8(attrib->offset_meq_128[1].offset, extra);
+		for (i = 0; i < 8; i++)
+			rest = ipa3_write_8(attrib->offset_meq_128[1].mask[i],
+				rest);
+		for (i = 0; i < 8; i++)
+			rest = ipa3_write_8(attrib->offset_meq_128[1].value[i],
+				rest);
+		for (i = 8; i < 16; i++)
+			rest = ipa3_write_8(attrib->offset_meq_128[1].mask[i],
+				rest);
+		for (i = 8; i < 16; i++)
+			rest = ipa3_write_8(attrib->offset_meq_128[1].value[i],
+				rest);
+		num_offset_meq_128--;
 	}
 
 	if (num_offset_meq_32) {
-		*buf = ipa3_write_8(attrib->offset_meq_32[0].offset, *buf);
-		*buf = ipa3_write_32(attrib->offset_meq_32[0].mask, *buf);
-		*buf = ipa3_write_32(attrib->offset_meq_32[0].value, *buf);
-		*buf = ipa3_pad_to_32(*buf);
+		extra = ipa3_write_8(attrib->offset_meq_32[0].offset, extra);
+		rest = ipa3_write_32(attrib->offset_meq_32[0].mask, rest);
+		rest = ipa3_write_32(attrib->offset_meq_32[0].value, rest);
 		num_offset_meq_32--;
 	}
 
 	if (num_offset_meq_32) {
-		*buf = ipa3_write_8(attrib->offset_meq_32[1].offset, *buf);
-		*buf = ipa3_write_32(attrib->offset_meq_32[1].mask, *buf);
-		*buf = ipa3_write_32(attrib->offset_meq_32[1].value, *buf);
-		*buf = ipa3_pad_to_32(*buf);
+		extra = ipa3_write_8(attrib->offset_meq_32[1].offset, extra);
+		rest = ipa3_write_32(attrib->offset_meq_32[1].mask, rest);
+		rest = ipa3_write_32(attrib->offset_meq_32[1].value, rest);
 		num_offset_meq_32--;
-	}
-
-	if (num_ihl_offset_range_16) {
-		*buf = ipa3_write_8(attrib->ihl_offset_range_16[0].offset,
-				*buf);
-		*buf = ipa3_write_16(attrib->ihl_offset_range_16[0].range_high,
-				*buf);
-		*buf = ipa3_write_16(attrib->ihl_offset_range_16[0].range_low,
-				*buf);
-		*buf = ipa3_pad_to_32(*buf);
-		num_ihl_offset_range_16--;
-	}
-
-	if (num_ihl_offset_range_16) {
-		*buf = ipa3_write_8(attrib->ihl_offset_range_16[1].offset,
-				*buf);
-		*buf = ipa3_write_16(attrib->ihl_offset_range_16[1].range_high,
-				*buf);
-		*buf = ipa3_write_16(attrib->ihl_offset_range_16[1].range_low,
-				*buf);
-		*buf = ipa3_pad_to_32(*buf);
-		num_ihl_offset_range_16--;
-	}
-
-	if (attrib->ihl_offset_eq_16_present) {
-		*buf = ipa3_write_8(attrib->ihl_offset_eq_16.offset, *buf);
-		*buf = ipa3_write_16(attrib->ihl_offset_eq_16.value, *buf);
-		*buf = ipa3_pad_to_32(*buf);
-	}
-
-	if (attrib->ihl_offset_eq_32_present) {
-		*buf = ipa3_write_8(attrib->ihl_offset_eq_32.offset, *buf);
-		*buf = ipa3_write_32(attrib->ihl_offset_eq_32.value, *buf);
-		*buf = ipa3_pad_to_32(*buf);
 	}
 
 	if (num_ihl_offset_meq_32) {
-		*buf = ipa3_write_8(attrib->ihl_offset_meq_32[0].offset, *buf);
-		*buf = ipa3_write_32(attrib->ihl_offset_meq_32[0].mask, *buf);
-		*buf = ipa3_write_32(attrib->ihl_offset_meq_32[0].value, *buf);
-		*buf = ipa3_pad_to_32(*buf);
+		extra = ipa3_write_8(attrib->ihl_offset_meq_32[0].offset,
+		extra);
+
+		rest = ipa3_write_32(attrib->ihl_offset_meq_32[0].mask, rest);
+		rest = ipa3_write_32(attrib->ihl_offset_meq_32[0].value, rest);
 		num_ihl_offset_meq_32--;
 	}
 
-	/* TODO check layout of 16 byte mask and value */
-	if (num_offset_meq_128) {
-		*buf = ipa3_write_8(attrib->offset_meq_128[0].offset, *buf);
-		for (i = 0; i < 16; i++)
-			*buf = ipa3_write_8(attrib->offset_meq_128[0].mask[i],
-					*buf);
-		for (i = 0; i < 16; i++)
-			*buf = ipa3_write_8(attrib->offset_meq_128[0].value[i],
-					*buf);
-		*buf = ipa3_pad_to_32(*buf);
-		num_offset_meq_128--;
-	}
-
-	if (num_offset_meq_128) {
-		*buf = ipa3_write_8(attrib->offset_meq_128[1].offset, *buf);
-		for (i = 0; i < 16; i++)
-			*buf = ipa3_write_8(attrib->offset_meq_128[1].mask[i],
-					*buf);
-		for (i = 0; i < 16; i++)
-			*buf = ipa3_write_8(attrib->offset_meq_128[1].value[i],
-					*buf);
-		*buf = ipa3_pad_to_32(*buf);
-		num_offset_meq_128--;
-	}
-
-	if (attrib->tc_eq_present) {
-		*buf = ipa3_write_8(attrib->tc_eq, *buf);
-		*buf = ipa3_pad_to_32(*buf);
-	}
-
-	if (attrib->fl_eq_present) {
-		*buf = ipa3_write_32(attrib->fl_eq, *buf);
-		*buf = ipa3_pad_to_32(*buf);
-	}
-
 	if (num_ihl_offset_meq_32) {
-		*buf = ipa3_write_8(attrib->ihl_offset_meq_32[1].offset, *buf);
-		*buf = ipa3_write_32(attrib->ihl_offset_meq_32[1].mask, *buf);
-		*buf = ipa3_write_32(attrib->ihl_offset_meq_32[1].value, *buf);
-		*buf = ipa3_pad_to_32(*buf);
+		extra = ipa3_write_8(attrib->ihl_offset_meq_32[1].offset,
+		extra);
+
+		rest = ipa3_write_32(attrib->ihl_offset_meq_32[1].mask, rest);
+		rest = ipa3_write_32(attrib->ihl_offset_meq_32[1].value, rest);
 		num_ihl_offset_meq_32--;
 	}
 
 	if (attrib->metadata_meq32_present) {
-		*buf = ipa3_write_8(attrib->metadata_meq32.offset, *buf);
-		*buf = ipa3_write_32(attrib->metadata_meq32.mask, *buf);
-		*buf = ipa3_write_32(attrib->metadata_meq32.value, *buf);
-		*buf = ipa3_pad_to_32(*buf);
+		rest = ipa3_write_32(attrib->metadata_meq32.mask, rest);
+		rest = ipa3_write_32(attrib->metadata_meq32.value, rest);
 	}
 
-	if (attrib->ipv4_frag_eq_present)
-		*buf = ipa3_pad_to_32(*buf);
+	if (num_ihl_offset_range_16) {
+		extra = ipa3_write_8(attrib->ihl_offset_range_16[0].offset,
+		extra);
+
+		rest = ipa3_write_16(attrib->ihl_offset_range_16[0].range_high,
+				rest);
+		rest = ipa3_write_16(attrib->ihl_offset_range_16[0].range_low,
+				rest);
+		num_ihl_offset_range_16--;
+	}
+
+	if (num_ihl_offset_range_16) {
+		extra = ipa3_write_8(attrib->ihl_offset_range_16[1].offset,
+		extra);
+
+		rest = ipa3_write_16(attrib->ihl_offset_range_16[1].range_high,
+				rest);
+		rest = ipa3_write_16(attrib->ihl_offset_range_16[1].range_low,
+				rest);
+		num_ihl_offset_range_16--;
+	}
+
+	if (attrib->ihl_offset_eq_32_present) {
+		extra = ipa3_write_8(attrib->ihl_offset_eq_32.offset, extra);
+		rest = ipa3_write_32(attrib->ihl_offset_eq_32.value, rest);
+	}
+
+	if (attrib->ihl_offset_eq_16_present) {
+		extra = ipa3_write_8(attrib->ihl_offset_eq_16.offset, extra);
+		rest = ipa3_write_16(attrib->ihl_offset_eq_16.value, rest);
+		rest = ipa3_write_16(0, rest);
+	}
+
+	if (attrib->fl_eq_present)
+		rest = ipa3_write_32(attrib->fl_eq & 0xFFFFF, rest);
+
+	extra = ipa3_pad_to_64(extra);
+	rest = ipa3_pad_to_64(rest);
+	*buf = rest;
 
 	return 0;
 }
@@ -1427,7 +1474,10 @@ void ipa3_install_dflt_flt_rules(u32 ipa_ep_idx)
 	struct ipa3_ep_context *ep = &ipa3_ctx->ep[ipa_ep_idx];
 	struct ipa_flt_rule rule;
 
-	return;
+	if (!ipa_is_ep_support_flt(ipa_ep_idx)) {
+		IPAERR("cannot add flt rules to non filtering pipe");
+		return;
+	}
 
 	memset(&rule, 0, sizeof(rule));
 
@@ -1451,8 +1501,6 @@ void ipa3_install_dflt_flt_rules(u32 ipa_ep_idx)
 void ipa3_delete_dflt_flt_rules(u32 ipa_ep_idx)
 {
 	struct ipa3_ep_context *ep = &ipa3_ctx->ep[ipa_ep_idx];
-
-	return;
 
 	mutex_lock(&ipa3_ctx->lock);
 	if (ep->dflt_flt4_rule_hdl) {

@@ -1068,6 +1068,7 @@ int ipa3_setup_dflt_rt_tables(void)
 	rt_rule_entry->at_rear = 1;
 	rt_rule_entry->rule.dst = IPA_CLIENT_APPS_LAN_CONS;
 	rt_rule_entry->rule.hdr_hdl = ipa3_ctx->excp_hdr_hdl;
+	rt_rule_entry->rule.retain_hdr = 1;
 
 	if (ipa3_add_rt_rule(rt_rule)) {
 		IPAERR("fail to add dflt v4 rule\n");
