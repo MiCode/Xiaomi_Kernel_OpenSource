@@ -2767,7 +2767,7 @@ static void a5xx_gpmu_int_callback(struct adreno_device *adreno_dev, int bit)
 			/* Stop GPMU */
 			kgsl_regwrite(device, A5XX_GPMU_CM3_SYSRESET, 1);
 
-			queue_work(device->work_queue, &adreno_dev->gpmu_work);
+			kgsl_schedule_work(&adreno_dev->gpmu_work);
 
 			KGSL_DRV_CRIT_RATELIMIT(device,
 						"GPMU: Watchdog bite\n");

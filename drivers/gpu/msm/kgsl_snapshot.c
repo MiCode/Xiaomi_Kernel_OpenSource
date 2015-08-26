@@ -726,7 +726,7 @@ void kgsl_device_snapshot(struct kgsl_device *device,
 	 * memory.
 	 *
 	 */
-	queue_work(device->work_queue, &snapshot->work);
+	kgsl_schedule_work(&snapshot->work);
 }
 EXPORT_SYMBOL(kgsl_device_snapshot);
 
