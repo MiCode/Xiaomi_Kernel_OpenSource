@@ -53,40 +53,9 @@ static DEFINE_PER_CPU(u32, armv8_pm_pmuserenr);
 static DEFINE_PER_CPU(u32, hotplug_down);
 
 #define to_arm_pmu(p) (container_of(p, struct arm_pmu, pmu))
-static struct pmu_hw_events *armpmu_get_cpu_events(void);
 
 /* Set at runtime when we know what CPU type we are. */
 static struct arm_pmu *cpu_pmu;
-static int msm_pmu_use_irq = 1;
-
-void arm64_pmu_irq_handled_externally(void)
-{
-	msm_pmu_use_irq = 0;
-}
-
-void arm64_pmu_lock(raw_spinlock_t *lock, unsigned long *flags)
-{
-	struct pmu_hw_events *events_cpu;
-
-	if (lock) {
-		raw_spin_lock_irqsave(lock, *flags);
-	} else  {
-		events_cpu = armpmu_get_cpu_events();
-		raw_spin_lock_irqsave(&events_cpu->pmu_lock, *flags);
-	}
-}
-
-void arm64_pmu_unlock(raw_spinlock_t *lock, unsigned long *flags)
-{
-	struct pmu_hw_events *events_cpu;
-
-	if (lock) {
-		raw_spin_unlock_irqrestore(lock, *flags);
-	} else  {
-		events_cpu = armpmu_get_cpu_events();
-		raw_spin_unlock_irqrestore(&events_cpu->pmu_lock, *flags);
-	}
-}
 
 int
 armpmu_get_max_events(void)
@@ -1013,7 +982,7 @@ static void armv8pmu_enable_event(struct hw_perf_event *hwc, int idx)
 	 * Enable counter and interrupt, and set the counter to count
 	 * the event that we're interested in.
 	 */
-	arm64_pmu_lock(&events->pmu_lock, &flags);
+	raw_spin_lock_irqsave(&events->pmu_lock, flags);
 
 	/*
 	 * Disable counter
@@ -1040,7 +1009,7 @@ static void armv8pmu_enable_event(struct hw_perf_event *hwc, int idx)
 	 */
 	armv8pmu_enable_counter(idx);
 
-	arm64_pmu_unlock(&events->pmu_lock, &flags);
+	raw_spin_unlock_irqrestore(&events->pmu_lock, flags);
 }
 
 static void armv8pmu_disable_event(struct hw_perf_event *hwc, int idx)
@@ -1051,7 +1020,7 @@ static void armv8pmu_disable_event(struct hw_perf_event *hwc, int idx)
 	/*
 	 * Disable counter and interrupt
 	 */
-	arm64_pmu_lock(&events->pmu_lock, &flags);
+	raw_spin_lock_irqsave(&events->pmu_lock, flags);
 
 	/*
 	 * Disable counter
@@ -1063,7 +1032,7 @@ static void armv8pmu_disable_event(struct hw_perf_event *hwc, int idx)
 	 */
 	armv8pmu_disable_intens(idx);
 
-	arm64_pmu_unlock(&events->pmu_lock, &flags);
+	raw_spin_unlock_irqrestore(&events->pmu_lock, flags);
 }
 
 static int armv8pmu_request_irq(struct arm_pmu *cpu_pmu, irq_handler_t handler)
@@ -1082,11 +1051,6 @@ static int armv8pmu_request_irq(struct arm_pmu *cpu_pmu, irq_handler_t handler)
 	if (irq <= 0) {
 		pr_err("failed to get valid irq for PMU device\n");
 		return -ENODEV;
-	}
-
-	if (!msm_pmu_use_irq) {
-		pr_info("EDAC driver requests for the PMU interrupt\n");
-		goto out;
 	}
 
 	if (irq_is_percpu(irq)) {
@@ -1131,7 +1095,6 @@ static int armv8pmu_request_irq(struct arm_pmu *cpu_pmu, irq_handler_t handler)
 		}
 	}
 
-out:
 	return 0;
 }
 
@@ -1156,10 +1119,8 @@ static void armv8pmu_free_irq(struct arm_pmu *cpu_pmu)
 	cpu_pmu->pmu_state = ARM_PMU_STATE_GOING_DOWN;
 
 	if (irq_is_percpu(irq)) {
-		if (msm_pmu_use_irq) {
-			on_each_cpu(armpmu_disable_percpu_irq, &irq, 1);
-			free_percpu_irq(irq, &cpu_hw_events);
-		}
+		on_each_cpu(armpmu_disable_percpu_irq, &irq, 1);
+		free_percpu_irq(irq, &cpu_hw_events);
 	} else {
 		for (i = 0; i < irqs; ++i) {
 			if (!cpumask_test_and_clear_cpu(i,
@@ -1173,7 +1134,7 @@ static void armv8pmu_free_irq(struct arm_pmu *cpu_pmu)
 	cpu_pmu->pmu_state = ARM_PMU_STATE_OFF;
 }
 
-irqreturn_t armv8pmu_handle_irq(int irq_num, void *dev)
+static irqreturn_t armv8pmu_handle_irq(int irq_num, void *dev)
 {
 	u32 pmovsr;
 	struct perf_sample_data data;
@@ -1240,10 +1201,10 @@ static void armv8pmu_start(void)
 	unsigned long flags;
 	struct pmu_hw_events *events = cpu_pmu->get_hw_events();
 
-	arm64_pmu_lock(&events->pmu_lock, &flags);
+	raw_spin_lock_irqsave(&events->pmu_lock, flags);
 	/* Enable all counters */
 	armv8pmu_pmcr_write(armv8pmu_pmcr_read() | ARMV8_PMCR_E);
-	arm64_pmu_unlock(&events->pmu_lock, &flags);
+	raw_spin_unlock_irqrestore(&events->pmu_lock, flags);
 }
 
 static void armv8pmu_stop(void)
@@ -1251,10 +1212,10 @@ static void armv8pmu_stop(void)
 	unsigned long flags;
 	struct pmu_hw_events *events = cpu_pmu->get_hw_events();
 
-	arm64_pmu_lock(&events->pmu_lock, &flags);
+	raw_spin_lock_irqsave(&events->pmu_lock, flags);
 	/* Disable all counters */
 	armv8pmu_pmcr_write(armv8pmu_pmcr_read() & ~ARMV8_PMCR_E);
-	arm64_pmu_unlock(&events->pmu_lock, &flags);
+	raw_spin_unlock_irqrestore(&events->pmu_lock, flags);
 }
 
 static int armv8pmu_get_event_idx(struct pmu_hw_events *cpuc,
@@ -1392,9 +1353,6 @@ static u32 __init armv8pmu_read_num_pmnc_events(void)
 	/* Read the nb of CNTx counters supported from PMNC */
 	nb_cnt = (armv8pmu_pmcr_read() >> ARMV8_PMCR_N_SHIFT) & ARMV8_PMCR_N_MASK;
 
-#ifdef CONFIG_EDAC_CORTEX_ARM64
-	nb_cnt -= 1;
-#endif
 	/* Add the CPU cycles counter and return */
 	return nb_cnt + 1;
 }
@@ -1537,8 +1495,8 @@ static int __cpuinit cpu_pmu_notify(struct notifier_block *b,
 				smp_call_function_single(cpu,
 					armpmu_hotplug_disable, cpu_pmu, 1);
 			/* Disarm the PMU IRQ before disappearing. */
-			if (msm_pmu_use_irq && cpu_pmu->percpu_irq) {
-				irq = cpu_pmu->percpu_irq;
+			if (cpu_pmu->plat_device) {
+				irq = platform_get_irq(cpu_pmu->plat_device, 0);
 				smp_call_function_single(cpu,
 					    armpmu_disable_percpu_irq, &irq, 1);
 			}
@@ -1554,8 +1512,8 @@ static int __cpuinit cpu_pmu_notify(struct notifier_block *b,
 			cpu_pmu->restore_pm_registers(hcpu);
 		if (cpu_pmu->pmu_state == ARM_PMU_STATE_RUNNING) {
 			/* Arm the PMU IRQ before appearing. */
-			if (msm_pmu_use_irq && cpu_pmu->percpu_irq) {
-				irq = cpu_pmu->percpu_irq;
+			if (cpu_pmu->plat_device) {
+				irq = platform_get_irq(cpu_pmu->plat_device, 0);
 				armpmu_enable_percpu_irq(&irq);
 			}
 			if (cpu_has_active_perf(cpu)) {
