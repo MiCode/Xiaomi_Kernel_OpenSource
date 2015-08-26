@@ -1360,6 +1360,13 @@ void *msm_vidc_open(int core_id, int session_type)
 	list_add_tail(&inst->list, &core->instances);
 	mutex_unlock(&core->lock);
 
+	rc = setup_event_queue(inst, &core->vdev[session_type].vdev);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"%s Failed to set up event queue\n", __func__);
+		goto fail_setup;
+	}
+
 	rc = msm_comm_try_state(inst, MSM_VIDC_CORE_INIT);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -1368,13 +1375,6 @@ void *msm_vidc_open(int core_id, int session_type)
 	}
 	inst->debugfs_root =
 		msm_vidc_debugfs_init_inst(inst, core->debugfs_root);
-
-	rc = setup_event_queue(inst, &core->vdev[session_type].vdev);
-	if (rc) {
-		dprintk(VIDC_ERR,
-			"%s Failed to set up event queue\n", __func__);
-		goto fail_setup;
-	}
 
 	return inst;
 
