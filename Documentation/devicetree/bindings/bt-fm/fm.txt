@@ -1,0 +1,28 @@
+Qti radio iris device
+
+-FM RX playback with no RDS
+
+   FM samples is filtered by external RF chips at baseband, then send to Riva-FM core through serial link.
+   FM signal is demodulated then audio L/R samples are stored inside memory.
+   FM Rx received samples data is connected to external audio codec.
+
+-Audio playback to FM TX
+
+  Used to play audio source  to FM TX.
+  FM TX module will read the audio samples from memory then modulated samples will be send through serial interface to external RF chip.
+
+-RX playback with RDS
+
+  FM Rx receive audio data along with RDS.
+
+-FM TX with RDS
+
+  Used to send RDS messages to external FM receiver.
+
+Required Properties:
+- compatible: "qcom,iris_fm"
+
+Example:
+	qcom,iris-fm {
+		compatible = "qcom,iris_fm";
+	};
