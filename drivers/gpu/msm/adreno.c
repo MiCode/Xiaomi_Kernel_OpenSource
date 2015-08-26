@@ -1315,24 +1315,13 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 		adreno_writereg(adreno_dev,
 				ADRENO_REG_RBBM_SECVID_TSB_CONTROL, 0x0);
 
-		if (ADRENO_FEATURE(adreno_dev, ADRENO_64BIT) &&
-			MMU_FEATURE(&device->mmu, KGSL_MMU_64BIT)) {
-			adreno_writereg64(adreno_dev,
-				ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,
-				ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
-				KGSL_IOMMU_SECURE_BASE64);
-			adreno_writereg(adreno_dev,
-				ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_SIZE,
-				KGSL_IOMMU_SECURE_SIZE64);
-		} else {
-			adreno_writereg64(adreno_dev,
-				ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,
-				ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
-				KGSL_IOMMU_SECURE_BASE32);
-			adreno_writereg(adreno_dev,
-				ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_SIZE,
-				KGSL_IOMMU_SECURE_SIZE32);
-		}
+		adreno_writereg64(adreno_dev,
+			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,
+			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE_HI,
+			KGSL_IOMMU_SECURE_BASE);
+		adreno_writereg(adreno_dev,
+			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_SIZE,
+			KGSL_IOMMU_SECURE_SIZE);
 	}
 
 	status = adreno_ocmem_malloc(adreno_dev);
