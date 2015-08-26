@@ -1762,8 +1762,7 @@ int _ipa_init_sram_v3_0(void)
 		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(
 			ipa3_ctx->smem_restricted_bytes / 4);
 
-	ipa_sram_mmio = ioremap(phys_addr,
-		ipa3_ctx->smem_sz - ipa3_ctx->smem_restricted_bytes);
+	ipa_sram_mmio = ioremap(phys_addr, ipa3_ctx->smem_sz);
 	if (!ipa_sram_mmio) {
 		IPAERR("fail to ioremap IPA SRAM\n");
 		return -ENOMEM;
@@ -3157,11 +3156,9 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 		ipa3_ctx->ip6_flt_tbl_hash_lcl,
 		ipa3_ctx->ip6_flt_tbl_nhash_lcl);
 
-	if (ipa3_ctx->smem_reqd_sz >
-		ipa3_ctx->smem_sz - ipa3_ctx->smem_restricted_bytes) {
+	if (ipa3_ctx->smem_reqd_sz > ipa3_ctx->smem_sz) {
 		IPAERR("SW expect more core memory, needed %d, avail %d\n",
-			ipa3_ctx->smem_reqd_sz, ipa3_ctx->smem_sz -
-			ipa3_ctx->smem_restricted_bytes);
+			ipa3_ctx->smem_reqd_sz, ipa3_ctx->smem_sz);
 		result = -ENOMEM;
 		goto fail_init_hw;
 	}
