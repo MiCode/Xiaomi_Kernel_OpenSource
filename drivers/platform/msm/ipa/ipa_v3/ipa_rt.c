@@ -840,8 +840,6 @@ int ipa3_query_rt_index(struct ipa_ioc_get_rt_tbl_indx *in)
 {
 	struct ipa3_rt_tbl *entry;
 
-	return 0;
-
 	if (in->ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
 		return -EINVAL;
@@ -863,9 +861,23 @@ static struct ipa3_rt_tbl *__ipa_add_rt_tbl(enum ipa_ip_type ip,
 	struct ipa3_rt_tbl_set *set;
 	int i;
 	int id;
+	int max_tbl_indx;
 
-	if (ip >= IPA_IP_MAX || name == NULL) {
-		IPAERR("bad parm\n");
+	if (name == NULL) {
+		IPAERR("no tbl name\n");
+		goto error;
+	}
+
+	if (ip == IPA_IP_v4) {
+		max_tbl_indx =
+			max(IPA_MEM_PART(v4_modem_rt_index_hi),
+			IPA_MEM_PART(v4_apps_rt_index_hi));
+	} else if (ip == IPA_IP_v6) {
+		max_tbl_indx =
+			max(IPA_MEM_PART(v6_modem_rt_index_hi),
+			IPA_MEM_PART(v6_apps_rt_index_hi));
+	} else {
+		IPAERR("bad ip family type\n");
 		goto error;
 	}
 
@@ -888,6 +900,10 @@ static struct ipa3_rt_tbl *__ipa_add_rt_tbl(enum ipa_ip_type ip,
 		}
 		if (i == IPA_RT_INDEX_BITMAP_SIZE) {
 			IPAERR("not free RT tbl indices left\n");
+			goto fail_rt_idx_alloc;
+		}
+		if (i > max_tbl_indx) {
+			IPAERR("rt tbl index is above max\n");
 			goto fail_rt_idx_alloc;
 		}
 
@@ -1004,7 +1020,7 @@ static int __ipa_add_rt_rule(enum ipa_ip_type ip, const char *name,
 
 	tbl = __ipa_add_rt_tbl(ip, name);
 	if (tbl == NULL || (tbl->cookie != IPA_COOKIE)) {
-		IPAERR("bad params\n");
+		IPAERR("failed adding rt tbl name=%s\n", name ? name : "");
 		goto error;
 	}
 	/*
@@ -1059,6 +1075,7 @@ static int __ipa_add_rt_rule(enum ipa_ip_type ip, const char *name,
 	return 0;
 
 ipa_insert_failed:
+	idr_remove(&tbl->rule_ids, entry->rule_id);
 	list_del(&entry->link);
 alloc_rule_id_fail:
 	kmem_cache_free(ipa3_ctx->rt_rule_cache, entry);
@@ -1079,8 +1096,6 @@ int ipa3_add_rt_rule(struct ipa_ioc_add_rt_rule *rules)
 {
 	int i;
 	int ret;
-
-	return 0;
 
 	if (rules == NULL || rules->num_rules == 0 || rules->ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
@@ -1166,8 +1181,6 @@ int ipa3_del_rt_rule(struct ipa_ioc_del_rt_rule *hdls)
 	int i;
 	int ret;
 
-	return 0;
-
 	if (hdls == NULL || hdls->num_hdls == 0 || hdls->ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
 		return -EINVAL;
@@ -1251,8 +1264,6 @@ int ipa3_reset_rt(enum ipa_ip_type ip)
 	struct ipa3_rt_tbl_set *rset;
 	u32 apps_start_idx;
 	int id;
-
-	return 0;
 
 	if (ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
@@ -1359,8 +1370,6 @@ int ipa3_get_rt_tbl(struct ipa_ioc_get_rt_tbl *lookup)
 	struct ipa3_rt_tbl *entry;
 	int result = -EFAULT;
 
-	return 0;
-
 	if (lookup == NULL || lookup->ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
 		return -EINVAL;
@@ -1395,8 +1404,6 @@ int ipa3_put_rt_tbl(u32 rt_tbl_hdl)
 	struct ipa3_rt_tbl *entry;
 	enum ipa_ip_type ip = IPA_IP_MAX;
 	int result;
-
-	return 0;
 
 	mutex_lock(&ipa3_ctx->lock);
 	entry = ipa3_id_find(rt_tbl_hdl);
@@ -1441,11 +1448,18 @@ static int __ipa_mdfy_rt_rule(struct ipa_rt_rule_mdfy *rtrule)
 {
 	struct ipa3_rt_entry *entry;
 	struct ipa3_hdr_entry *hdr = NULL;
+	struct ipa3_hdr_proc_ctx_entry *proc_ctx = NULL;
 
 	if (rtrule->rule.hdr_hdl) {
 		hdr = ipa3_id_find(rtrule->rule.hdr_hdl);
 		if ((hdr == NULL) || (hdr->cookie != IPA_COOKIE)) {
 			IPAERR("rt rule does not point to valid hdr\n");
+			goto error;
+		}
+	} else if (rtrule->rule.hdr_proc_ctx_hdl) {
+		proc_ctx = ipa3_id_find(rtrule->rule.hdr_proc_ctx_hdl);
+		if ((proc_ctx == NULL) || (proc_ctx->cookie != IPA_COOKIE)) {
+			IPAERR("rt rule does not point to valid proc ctx\n");
 			goto error;
 		}
 	}
@@ -1463,12 +1477,20 @@ static int __ipa_mdfy_rt_rule(struct ipa_rt_rule_mdfy *rtrule)
 
 	if (entry->hdr)
 		entry->hdr->ref_cnt--;
+	if (entry->proc_ctx)
+		entry->proc_ctx->ref_cnt--;
 
 	entry->rule = rtrule->rule;
 	entry->hdr = hdr;
+	entry->proc_ctx = proc_ctx;
 
 	if (entry->hdr)
 		entry->hdr->ref_cnt++;
+	if (entry->proc_ctx)
+		entry->proc_ctx->ref_cnt++;
+
+	entry->hw_len = 0;
+	entry->prio = 0;
 
 	return 0;
 
@@ -1488,8 +1510,6 @@ int ipa3_mdfy_rt_rule(struct ipa_ioc_mdfy_rt_rule *hdls)
 {
 	int i;
 	int result;
-
-	return 0;
 
 	if (hdls == NULL || hdls->num_rules == 0 || hdls->ip >= IPA_IP_MAX) {
 		IPAERR("bad parm\n");
