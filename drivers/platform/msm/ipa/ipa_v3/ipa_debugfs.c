@@ -751,6 +751,8 @@ static ssize_t ipa3_read_flt(struct file *file, char __user *ubuf, size_t count,
 	mutex_lock(&ipa3_ctx->lock);
 
 	for (j = 0; j < ipa3_ctx->ipa_num_pipes; j++) {
+		if (!ipa_is_ep_support_flt(j))
+			continue;
 		tbl = &ipa3_ctx->flt_tbl[j][ip];
 		i = 0;
 		list_for_each_entry(entry, &tbl->head_flt_rule_list, link) {

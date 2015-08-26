@@ -139,6 +139,7 @@
 #define IPA_HW_TBL_ADDR_MASK (127)
 #define IPA_HW_TBL_BLK_SIZE_ALIGNMENT (127)
 #define IPA_HW_TBL_HDR_WIDTH (8)
+#define IPA_HW_RULE_START_ALIGNMENT (7)
 
 /*
  * for local tables (at sram) offsets is used as tables addresses
@@ -207,6 +208,10 @@ struct ipa3_mem_buffer {
  * @tbl: filter table
  * @rt_tbl: routing table
  * @hw_len: entry's size
+ * @id: rule handle - globaly unique
+ * @prio: rule 10bit priority which defines the order of the rule
+ *  among other rules at the same integrated table
+ * @rule_id: rule 10bit ID to be returned in packet status
  */
 struct ipa3_flt_entry {
 	struct list_head link;
@@ -216,6 +221,8 @@ struct ipa3_flt_entry {
 	struct ipa3_rt_tbl *rt_tbl;
 	u32 hw_len;
 	int id;
+	u16 prio;
+	u16 rule_id;
 };
 
 /**
@@ -397,19 +404,21 @@ struct ipa3_hdr_proc_ctx_tbl {
  * @head_flt_rule_list: filter rules list
  * @rule_cnt: number of filter rules
  * @in_sys: flag indicating if filter table is located in system memory
- * @sz: the size of the filter table
+ * @sz: the size of the filter tables
  * @end: the last header index
  * @curr_mem: current filter tables block in sys memory
  * @prev_mem: previous filter table block in sys memory
+ * @rule_ids: idr structure that holds the rule_id for each rule
  */
 struct ipa3_flt_tbl {
 	struct list_head head_flt_rule_list;
 	u32 rule_cnt;
-	bool in_sys;
-	u32 sz;
-	struct ipa3_mem_buffer curr_mem;
-	struct ipa3_mem_buffer prev_mem;
+	bool in_sys[IPA_RULE_TYPE_MAX];
+	u32 sz[IPA_RULE_TYPE_MAX];
+	struct ipa3_mem_buffer curr_mem[IPA_RULE_TYPE_MAX];
+	struct ipa3_mem_buffer prev_mem[IPA_RULE_TYPE_MAX];
 	bool sticky_rear;
+	struct idr rule_ids;
 };
 
 /**
@@ -423,7 +432,7 @@ struct ipa3_flt_tbl {
  * @hw_len: the length of the table
  * @id: rule handle - globaly unique
  * @prio: rule 10bit priority which defines the order of the rule
- *  among other rules at the same table
+ *  among other rules at the integrated same table
  * @rule_id: rule 10bit ID to be returned in packet status
  */
 struct ipa3_rt_entry {

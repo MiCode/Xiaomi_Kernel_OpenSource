@@ -2817,6 +2817,28 @@ static void ipa3_sps_event_cb(enum sps_callback_case event, void *param)
 
 	spin_unlock_irqrestore(&ipa3_ctx->sps_pm.lock, flags);
 }
+
+/**
+ * ipa3_destroy_flt_tbl_idrs() - destroy the idr structure for flt tables
+ *  The idr strcuture per filtering table is intended for rule id generation
+ *  per filtering rule.
+ */
+static void ipa3_destroy_flt_tbl_idrs(void)
+{
+	int i;
+	struct ipa3_flt_tbl *flt_tbl;
+
+	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
+		if (!ipa_is_ep_support_flt(i))
+			continue;
+
+		flt_tbl = &ipa3_ctx->flt_tbl[i][IPA_IP_v4];
+		idr_destroy(&flt_tbl->rule_ids);
+		flt_tbl = &ipa3_ctx->flt_tbl[i][IPA_IP_v6];
+		idr_destroy(&flt_tbl->rule_ids);
+	}
+}
+
 /**
 * ipa3_init() - Initialize the IPA Driver
 * @resource_p:	contain platform specific values from DST file
@@ -3147,11 +3169,19 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 
 		flt_tbl = &ipa3_ctx->flt_tbl[i][IPA_IP_v4];
 		INIT_LIST_HEAD(&flt_tbl->head_flt_rule_list);
-		flt_tbl->in_sys = !ipa3_ctx->ip4_flt_tbl_nhash_lcl;
+		flt_tbl->in_sys[IPA_RULE_HASHABLE] =
+			!ipa3_ctx->ip4_flt_tbl_hash_lcl;
+		flt_tbl->in_sys[IPA_RULE_NON_HASHABLE] =
+			!ipa3_ctx->ip4_flt_tbl_nhash_lcl;
+		idr_init(&flt_tbl->rule_ids);
 
 		flt_tbl = &ipa3_ctx->flt_tbl[i][IPA_IP_v6];
 		INIT_LIST_HEAD(&flt_tbl->head_flt_rule_list);
-		flt_tbl->in_sys = !ipa3_ctx->ip6_flt_tbl_nhash_lcl;
+		flt_tbl->in_sys[IPA_RULE_HASHABLE] =
+			!ipa3_ctx->ip6_flt_tbl_hash_lcl;
+		flt_tbl->in_sys[IPA_RULE_NON_HASHABLE] =
+			!ipa3_ctx->ip6_flt_tbl_nhash_lcl;
+		idr_init(&flt_tbl->rule_ids);
 	}
 
 	rset = &ipa3_ctx->reap_rt_tbl_set[IPA_IP_v4];
@@ -3353,6 +3383,7 @@ fail_empty_rt_tbl:
 			  ipa3_ctx->empty_rt_tbl_mem.base,
 			  ipa3_ctx->empty_rt_tbl_mem.phys_base);
 fail_apps_pipes:
+	ipa3_destroy_flt_tbl_idrs();
 	idr_destroy(&ipa3_ctx->ipa_idr);
 fail_dma_pool:
 	kmem_cache_destroy(ipa3_ctx->rx_pkt_wrapper_cache);

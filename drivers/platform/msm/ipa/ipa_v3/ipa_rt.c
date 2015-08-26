@@ -57,7 +57,11 @@ int __ipa_generate_rt_hw_rule_v3_0(enum ipa_ip_type ip,
 	if (buf == NULL) {
 		memset(tmp, 0, IPA_RT_FLT_HW_RULE_BUF_SIZE);
 		buf = (u8 *)tmp;
-	}
+	} else
+		if ((long)buf & IPA_HW_RULE_START_ALIGNMENT) {
+			IPAERR("buff is not rule start aligned\n");
+			return -EPERM;
+		}
 
 	start = buf;
 	rule_hdr = (struct ipa3_rt_rule_hw_hdr *)buf;
@@ -232,18 +236,18 @@ static int ipa_translate_rt_tbl_to_hw_fmt(enum ipa_ip_type ip,
 					goto err;
 				}
 				body_i += entry->hw_len;
-
-				/* write the rule-set terminator */
-				body_i = ipa3_write_64(0, body_i);
-
-				/**
-				 * advance body_i to next table alignment as local tables
-				 * are order back-to-back
-				 */
-				body_i += IPA_HW_TBL_LCLADDR_ALIGNMENT;
-				body_i = (u8 *)((long)body_i &
-					~IPA_HW_TBL_LCLADDR_ALIGNMENT);
 			}
+
+			/* write the rule-set terminator */
+			body_i = ipa3_write_64(0, body_i);
+
+			/**
+			 * advance body_i to next table alignment as local tables
+			 * are order back-to-back
+			 */
+			body_i += IPA_HW_TBL_LCLADDR_ALIGNMENT;
+			body_i = (u8 *)((long)body_i &
+				~IPA_HW_TBL_LCLADDR_ALIGNMENT);
 		}
 	}
 
@@ -353,7 +357,7 @@ err:
 
 /**
  * ipa_prep_rt_tbl_for_cmt() - preparing the rt table for commit
- *  assign priorities to the rules, calculate these sizes and calculate
+ *  assign priorities to the rules, calculate their sizes and calculate
  *  the overall table size
  * @ip: the ip address family type
  * @tbl: the rt tbl to be prepared
@@ -375,7 +379,7 @@ static int ipa_prep_rt_tbl_for_cmt(enum ipa_ip_type ip,
 		entry->prio = entry->rule.max_prio ?
 			IPA_RULE_MAX_PRIORITY : prio_i++;
 
-		if (prio_i > IPA_RULE_MIN_PRIORITY) {
+		if (entry->prio > IPA_RULE_MIN_PRIORITY) {
 			IPAERR("cannot allocate new priority for rule\n");
 			return -EPERM;
 		}

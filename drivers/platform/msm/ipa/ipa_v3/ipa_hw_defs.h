@@ -50,23 +50,27 @@
  * @retain_hdr: added to add back to the packet the header removed
  *  as part of header removal. This will be done as part of
  *  header insertion block.
- * @to_uc: direct IPA to sent the packet to uc instead of
- *  the intended destination. This will be performed just after
- *  routing block processing, so routing will have determined
- *  destination end point and uc will receive this information
- *  together with the packet as part of the HW packet TX commands
- * @rsvd: reserved bits
+ * @rsvd1: reserved bits
+ * @priority: Rule priority. Added to distinguish rules order
+ *  at the integrated table consisting from hashable and
+ *  non-hashable parts
+ * @rsvd2: reserved bits
+ * @rule_id: rule ID that will be returned in the packet status
+ * @rsvd3: reserved bits
  */
 struct ipa3_flt_rule_hw_hdr {
 	union {
-		u32 word;
+		u64 word;
 		struct {
-			u32 en_rule:16;
-			u32 action:5;
-			u32 rt_tbl_idx:5;
-			u32 retain_hdr:1;
-			u32 to_uc:1;
-			u32 rsvd:4;
+			u64 en_rule:16;
+			u64 action:5;
+			u64 rt_tbl_idx:5;
+			u64 retain_hdr:1;
+			u64 rsvd1:5;
+			u64 priority:10;
+			u64 rsvd2:6;
+			u64 rule_id:10;
+			u64 rsvd3:6;
 		} hdr;
 	} u;
 };

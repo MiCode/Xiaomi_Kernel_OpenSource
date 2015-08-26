@@ -590,6 +590,12 @@ struct ipa_ipfltri_rule_eq {
  * @rt_tbl_idx: index of RT table referred to by filter rule (valid when
  * eq_attrib_type is true and non-exception action)
  * @eq_attrib_type: true if equation level form used to specify attributes
+ * @max_prio: bool switch. is this rule with Max priority? meaning on rule hit,
+ *  IPA will use the rule and will not look for other rules that may have
+ *  higher priority
+ * @hashable: bool switch. is this rule hashable or not?
+ *  ipa uses hashable rules to cache their hit results to be used in
+ *  consecutive packets
  */
 struct ipa_flt_rule {
 	uint8_t retain_hdr;
@@ -600,6 +606,8 @@ struct ipa_flt_rule {
 	struct ipa_ipfltri_rule_eq eq_attrib;
 	uint32_t rt_tbl_idx;
 	uint8_t eq_attrib_type;
+	uint8_t max_prio;
+	uint8_t hashable;
 };
 
 /**
@@ -641,10 +649,11 @@ enum ipa_hdr_proc_type {
 	hdr_hdl shall be 0
  * @attrib: attributes of the rule
  * @max_prio: bool switch. is this rule with Max priority? meaning on rule hit,
- *  IPA will use the rule and will not look for other rules that may has
+ *  IPA will use the rule and will not look for other rules that may have
  *  higher priority
  * @hashable: bool switch. is this rule hashable or not?
- * ipa uses hashable rules to cache their hit results for consequetive packets
+ *  ipa uses hashable rules to cache their hit results to be used in
+ *  consecutive packets
  * @retain_hdr: bool switch to instruct IPA core to add back to the packet
  *  the header removed as part of header removal
  */
