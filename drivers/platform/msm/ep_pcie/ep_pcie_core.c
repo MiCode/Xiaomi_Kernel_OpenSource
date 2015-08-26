@@ -1562,7 +1562,7 @@ int ep_pcie_core_config_outbound_iatu(struct ep_pcie_iatu entries[],
 
 int ep_pcie_core_get_msi_config(struct ep_pcie_msi_config *cfg)
 {
-	u32 cap, lower, upper, data;
+	u32 cap, lower, upper, data, ctrl_reg;
 	static u32 changes;
 
 	if (ep_pcie_dev.link_status == EP_PCIE_LINK_DISABLED) {
@@ -1586,12 +1586,14 @@ int ep_pcie_core_get_msi_config(struct ep_pcie_msi_config *cfg)
 	lower = readl_relaxed(ep_pcie_dev.dm_core + PCIE20_MSI_LOWER);
 	upper = readl_relaxed(ep_pcie_dev.dm_core + PCIE20_MSI_UPPER);
 	data = readl_relaxed(ep_pcie_dev.dm_core + PCIE20_MSI_DATA);
+	ctrl_reg = readl_relaxed(ep_pcie_dev.dm_core +
+					PCIE20_MSI_CAP_ID_NEXT_CTRL);
 
 	EP_PCIE_DBG(&ep_pcie_dev,
 		"PCIe V%d: MSI info: lower:0x%x; upper:0x%x; data:0x%x.\n",
 		ep_pcie_dev.rev, lower, upper, data);
 
-	if (lower && data) {
+	if (ctrl_reg & BIT(16)) {
 		struct resource *msi =
 				ep_pcie_dev.res[EP_PCIE_RES_MSI].resource;
 		ep_pcie_config_outbound_iatu_entry(&ep_pcie_dev,
@@ -1632,7 +1634,7 @@ int ep_pcie_core_get_msi_config(struct ep_pcie_msi_config *cfg)
 
 int ep_pcie_core_trigger_msi(u32 idx)
 {
-	u32 addr, data;
+	u32 addr, data, ctrl_reg;
 
 	if (ep_pcie_dev.link_status == EP_PCIE_LINK_DISABLED) {
 		EP_PCIE_ERR(&ep_pcie_dev,
@@ -1643,8 +1645,10 @@ int ep_pcie_core_trigger_msi(u32 idx)
 
 	addr = readl_relaxed(ep_pcie_dev.dm_core + PCIE20_MSI_LOWER);
 	data = readl_relaxed(ep_pcie_dev.dm_core + PCIE20_MSI_DATA);
+	ctrl_reg = readl_relaxed(ep_pcie_dev.dm_core +
+					PCIE20_MSI_CAP_ID_NEXT_CTRL);
 
-	if (addr && data) {
+	if (ctrl_reg & BIT(16)) {
 		ep_pcie_dev.msi_counter++;
 		EP_PCIE_DUMP(&ep_pcie_dev,
 			"PCIe V%d: No. %ld MSI fired for IRQ %d; index from client:%d\n",
