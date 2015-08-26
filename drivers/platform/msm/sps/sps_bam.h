@@ -224,6 +224,8 @@ struct sps_bam {
 	void *ipc_log3;
 	void *ipc_log4;
 
+	u32 ipc_loglevel;
+
 	/* Desc cache pointers */
 	u8 *desc_cache_pointers[BAM_MAX_PIPES];
 };
