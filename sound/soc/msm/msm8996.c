@@ -161,7 +161,6 @@ struct msm8996_liquid_dock_dev {
 static struct msm8996_liquid_dock_dev *msm8996_liquid_dock_dev;
 
 static void *adsp_state_notifier;
-static void *def_codec_mbhc_cal(void);
 static void *def_tasha_mbhc_cal(void);
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec,
 					int enable, bool dapm);
@@ -188,36 +187,6 @@ static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.key_code[7] = 0,
 	.linein_th = 5000,
 	.moist_cfg = { V_45_MV, I_3P0_UA },
-};
-
-static struct wcd9xxx_mbhc_config mbhc_cfg = {
-	.read_fw_bin = false,
-	.calibration = NULL,
-	.micbias = MBHC_MICBIAS2,
-	.anc_micbias = MBHC_MICBIAS2,
-	.mclk_cb_fn = msm_snd_enable_codec_ext_clk,
-	.mclk_rate = CODEC_EXT_CLK_RATE,
-	.gpio_level_insert = 1,
-	.detect_extn_cable = true,
-	.micbias_enable_flags = 1 << MBHC_MICBIAS_ENABLE_THRESHOLD_HEADSET,
-	.insert_detect = true,
-	.swap_gnd_mic = NULL,
-	.cs_enable_flags = (1 << MBHC_CS_ENABLE_POLLING |
-			    1 << MBHC_CS_ENABLE_INSERTION |
-			    1 << MBHC_CS_ENABLE_REMOVAL |
-			    1 << MBHC_CS_ENABLE_DET_ANC),
-	.do_recalibration = true,
-	.use_vddio_meas = true,
-	.enable_anc_mic_detect = false,
-	.hw_jack_type = SIX_POLE_JACK,
-	.key_code[0] = KEY_MEDIA,
-	.key_code[1] = KEY_VOICECOMMAND,
-	.key_code[2] = KEY_VOLUMEUP,
-	.key_code[3] = KEY_VOLUMEDOWN,
-	.key_code[4] = 0,
-	.key_code[5] = 0,
-	.key_code[6] = 0,
-	.key_code[7] = 0,
 };
 
 static inline int param_is_mask(int p)
@@ -489,9 +458,7 @@ static int msm_ext_ultrasound_event(struct snd_soc_dapm_widget *w,
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec,
 					int enable, bool dapm)
 {
-	if (!strcmp(dev_name(codec->dev), "tomtom_codec"))
-		return tomtom_codec_mclk_enable(codec, enable, dapm);
-	else if (!strcmp(dev_name(codec->dev), "tasha_codec"))
+	if (!strcmp(dev_name(codec->dev), "tasha_codec"))
 		return tasha_cdc_mclk_enable(codec, enable, dapm);
 	else {
 		dev_err(codec->dev, "%s: unknown codec to enable ext clk\n",
@@ -1495,19 +1462,6 @@ static int msm8996_wcd93xx_codec_up(struct snd_soc_codec *codec)
 	return err;
 }
 
-static int msm8996_codec_event_cb(struct snd_soc_codec *codec,
-				     enum wcd9xxx_codec_event codec_event)
-{
-	switch (codec_event) {
-	case WCD9XXX_CODEC_EVENT_CODEC_UP:
-		return msm8996_wcd93xx_codec_up(codec);
-	default:
-		pr_err("%s: UnSupported codec event %d\n",
-			__func__, codec_event);
-		return -EINVAL;
-	}
-}
-
 static int msm8996_tasha_codec_event_cb(struct snd_soc_codec *codec,
 					enum wcd9335_codec_event codec_event)
 {
@@ -1551,7 +1505,6 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
-	bool cdc_type = 0;
 	void *mbhc_calibration;
 	struct snd_card *card;
 	struct snd_info_entry *entry;
@@ -1563,16 +1516,13 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	 * TX1, TX2, TX3, TX4, TX5, TX6, TX7, TX8, TX9, TX10, TX11, TX12, TX13
 	 * TX14, TX15, TX16
 	 */
-	unsigned int rx_ch[TOMTOM_RX_MAX] = {144, 145, 146, 147, 148, 149, 150,
-					     151, 152, 153, 154, 155, 156};
-	unsigned int tx_ch[TOMTOM_TX_MAX]  = {128, 129, 130, 131, 132, 133,
-					      134, 135, 136, 137, 138, 139,
-					      140, 141, 142, 143};
+	unsigned int rx_ch[TASHA_RX_MAX] = {144, 145, 146, 147, 148, 149, 150,
+					    151, 152, 153, 154, 155, 156};
+	unsigned int tx_ch[TASHA_TX_MAX] = {128, 129, 130, 131, 132, 133,
+					    134, 135, 136, 137, 138, 139,
+					    140, 141, 142, 143};
 
 	pr_info("%s: dev_name%s\n", __func__, dev_name(cpu_dai->dev));
-
-	if (!strcmp(dev_name(codec_dai->dev), "tasha_codec"))
-		cdc_type = 1;
 
 	rtd->pmdown_time = 0;
 
@@ -1601,9 +1551,8 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_new_controls(dapm, msm8996_dapm_widgets,
 				ARRAY_SIZE(msm8996_dapm_widgets));
 
-	if (cdc_type)
-		snd_soc_dapm_add_routes(dapm, wcd9335_audio_paths,
-					ARRAY_SIZE(wcd9335_audio_paths));
+	snd_soc_dapm_add_routes(dapm, wcd9335_audio_paths,
+				ARRAY_SIZE(wcd9335_audio_paths));
 	snd_soc_dapm_enable_pin(dapm, "Lineout_1 amp");
 	snd_soc_dapm_enable_pin(dapm, "Lineout_3 amp");
 	snd_soc_dapm_enable_pin(dapm, "Lineout_2 amp");
@@ -1646,24 +1595,16 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC3");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC4");
 	snd_soc_dapm_ignore_suspend(dapm, "DMIC5");
-	if (cdc_type) { /* Tasha */
-		snd_soc_dapm_ignore_suspend(dapm, "Digital Mic0");
-		snd_soc_dapm_ignore_suspend(dapm, "DMIC0");
-		snd_soc_dapm_ignore_suspend(dapm, "SPK1 OUT");
-		snd_soc_dapm_ignore_suspend(dapm, "SPK2 OUT");
-		snd_soc_dapm_ignore_suspend(dapm, "HPHL");
-		snd_soc_dapm_ignore_suspend(dapm, "HPHR");
-		snd_soc_dapm_ignore_suspend(dapm, "ANC HPHL");
-		snd_soc_dapm_ignore_suspend(dapm, "ANC HPHR");
-		snd_soc_dapm_ignore_suspend(dapm, "ANC LINEOUT1");
-		snd_soc_dapm_ignore_suspend(dapm, "ANC LINEOUT2");
-	} else {
-		snd_soc_dapm_ignore_suspend(dapm, "DMIC6");
-		snd_soc_dapm_ignore_suspend(dapm, "Digital Mic6");
-		snd_soc_dapm_ignore_suspend(dapm, "SPK_OUT");
-		snd_soc_dapm_ignore_suspend(dapm, "HEADPHONE");
-		snd_soc_dapm_ignore_suspend(dapm, "ANC HEADPHONE");
-	}
+	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic0");
+	snd_soc_dapm_ignore_suspend(dapm, "DMIC0");
+	snd_soc_dapm_ignore_suspend(dapm, "SPK1 OUT");
+	snd_soc_dapm_ignore_suspend(dapm, "SPK2 OUT");
+	snd_soc_dapm_ignore_suspend(dapm, "HPHL");
+	snd_soc_dapm_ignore_suspend(dapm, "HPHR");
+	snd_soc_dapm_ignore_suspend(dapm, "ANC HPHL");
+	snd_soc_dapm_ignore_suspend(dapm, "ANC HPHR");
+	snd_soc_dapm_ignore_suspend(dapm, "ANC LINEOUT1");
+	snd_soc_dapm_ignore_suspend(dapm, "ANC LINEOUT2");
 	snd_soc_dapm_ignore_suspend(dapm, "AIF4 VI");
 	snd_soc_dapm_ignore_suspend(dapm, "VIINPUT");
 
@@ -1672,14 +1613,9 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
 				    tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
 
-	if (cdc_type) {
-		msm8996_codec_fn.get_afe_config_fn = tasha_get_afe_config;
-		msm8996_codec_fn.mbhc_hs_detect_exit =
-						tasha_mbhc_hs_detect_exit;
-	} else {
-		msm8996_codec_fn.get_afe_config_fn = tomtom_get_afe_config;
-		msm8996_codec_fn.mbhc_hs_detect_exit = tomtom_hs_detect_exit;
-	}
+	msm8996_codec_fn.get_afe_config_fn = tasha_get_afe_config;
+	msm8996_codec_fn.mbhc_hs_detect_exit = tasha_mbhc_hs_detect_exit;
+
 	err = msm_afe_set_config(codec);
 	if (err) {
 		pr_err("%s: Failed to set AFE config %d\n", __func__, err);
@@ -1718,22 +1654,11 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		}
 	}
 	/* Start mbhc */
-	if (cdc_type) {
-		tasha_mbhc_zdet_gpio_ctrl(msm8996_config_hph_en0_gpio,
-					  rtd->codec);
-		mbhc_calibration = def_tasha_mbhc_cal();
-	} else
-		mbhc_calibration = def_codec_mbhc_cal();
+	tasha_mbhc_zdet_gpio_ctrl(msm8996_config_hph_en0_gpio, rtd->codec);
+	mbhc_calibration = def_tasha_mbhc_cal();
 	if (mbhc_calibration) {
-		if (cdc_type) {
-			wcd_mbhc_cfg.calibration = mbhc_calibration;
-			err = tasha_mbhc_hs_detect(codec,
-					&wcd_mbhc_cfg);
-		} else {
-			mbhc_cfg.calibration = mbhc_calibration;
-			err = tomtom_hs_detect(codec,
-					&mbhc_cfg);
-		}
+		wcd_mbhc_cfg.calibration = mbhc_calibration;
+		err = tasha_mbhc_hs_detect(codec, &wcd_mbhc_cfg);
 		if (err) {
 			pr_err("%s: mbhc hs detect failed, err:%d\n",
 				__func__, err);
@@ -1750,37 +1675,28 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		pr_err("%s: Failed to register adsp state notifier\n",
 		       __func__);
 		err = -EFAULT;
-		if (cdc_type == 0)
-			msm8996_codec_fn.mbhc_hs_detect_exit(codec);
+		msm8996_codec_fn.mbhc_hs_detect_exit(codec);
 		goto out;
 	}
 
-	if (cdc_type == 0) {
-		tomtom_event_register(msm8996_codec_event_cb, rtd->codec);
-		tomtom_enable_qfuse_sensing(rtd->codec);
-	} else {
-		tasha_event_register(msm8996_tasha_codec_event_cb, rtd->codec);
-		if (aux_dev_type == WSA8810)
-			tasha_set_spkr_mode(rtd->codec, SPKR_MODE_1);
-	}
+	tasha_event_register(msm8996_tasha_codec_event_cb, rtd->codec);
+	if (aux_dev_type == WSA8810)
+		tasha_set_spkr_mode(rtd->codec, SPKR_MODE_1);
 
 	codec_reg_done = true;
 
-	if (cdc_type) {
-		card = rtd->card->snd_card;
-		entry = snd_register_module_info(card->module,
-						 "codecs",
-						 card->proc_root);
-		if (!entry) {
-			pr_debug("%s: Cannot create codecs module entry\n",
-				 __func__);
-			err = 0;
-			goto out;
-		}
-		pdata->codec_root = entry;
-		tasha_codec_info_create_codec_entry(pdata->codec_root,
-						    codec);
+	card = rtd->card->snd_card;
+	entry = snd_register_module_info(card->module, "codecs",
+					 card->proc_root);
+	if (!entry) {
+		pr_debug("%s: Cannot create codecs module entry\n",
+			 __func__);
+		err = 0;
+		goto out;
 	}
+	pdata->codec_root = entry;
+	tasha_codec_info_create_codec_entry(pdata->codec_root, codec);
+
 	return 0;
 out:
 	return err;
@@ -1820,84 +1736,6 @@ static void *def_tasha_mbhc_cal(void)
 	btn_high[7] = 780;
 
 	return tasha_wcd_cal;
-}
-
-static void *def_codec_mbhc_cal(void)
-{
-	void *codec_cal;
-	struct wcd9xxx_mbhc_btn_detect_cfg *btn_cfg;
-	u16 *btn_low, *btn_high;
-	u8 *n_ready, *n_cic, *gain;
-
-	codec_cal = kzalloc(WCD9XXX_MBHC_CAL_SIZE(WCD_MBHC_DEF_BUTTONS,
-						WCD9XXX_MBHC_DEF_RLOADS),
-			    GFP_KERNEL);
-	if (!codec_cal) {
-		pr_err("%s: out of memory\n", __func__);
-		return NULL;
-	}
-
-#define S(X, Y) ((WCD9XXX_MBHC_CAL_GENERAL_PTR(codec_cal)->X) = (Y))
-	S(t_ldoh, 100);
-	S(t_bg_fast_settle, 100);
-	S(t_shutdown_plug_rem, 255);
-	S(mbhc_nsa, 4);
-	S(mbhc_navg, 4);
-#undef S
-#define S(X, Y) ((WCD9XXX_MBHC_CAL_PLUG_DET_PTR(codec_cal)->X) = (Y))
-	S(mic_current, TOMTOM_PID_MIC_5_UA);
-	S(hph_current, TOMTOM_PID_MIC_5_UA);
-	S(t_mic_pid, 100);
-	S(t_ins_complete, 250);
-	S(t_ins_retry, 200);
-#undef S
-#define S(X, Y) ((WCD9XXX_MBHC_CAL_PLUG_TYPE_PTR(codec_cal)->X) = (Y))
-	S(v_no_mic, 30);
-	S(v_hs_max, 2400);
-#undef S
-#define S(X, Y) ((WCD9XXX_MBHC_CAL_BTN_DET_PTR(codec_cal)->X) = (Y))
-	S(c[0], 62);
-	S(c[1], 124);
-	S(nc, 1);
-	S(n_meas, 3);
-	S(mbhc_nsc, 11);
-	S(n_btn_meas, 1);
-	S(n_btn_con, 2);
-	S(num_btn, WCD9XXX_MBHC_DEF_BUTTONS);
-	S(v_btn_press_delta_sta, 100);
-	S(v_btn_press_delta_cic, 50);
-#undef S
-	btn_cfg = WCD9XXX_MBHC_CAL_BTN_DET_PTR(codec_cal);
-	btn_low = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_V_BTN_LOW);
-	btn_high = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg,
-					       MBHC_BTN_DET_V_BTN_HIGH);
-	btn_low[0] = -50;
-	btn_high[0] = 90;
-	btn_low[1] = 130;
-	btn_high[1] = 220;
-	btn_low[2] = 235;
-	btn_high[2] = 335;
-	btn_low[3] = 375;
-	btn_high[3] = 655;
-	btn_low[4] = 656;
-	btn_high[4] = 660;
-	btn_low[5] = 661;
-	btn_high[5] = 670;
-	btn_low[6] = 671;
-	btn_high[6] = 680;
-	btn_low[7] = 681;
-	btn_high[7] = 690;
-	n_ready = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_N_READY);
-	n_ready[0] = 80;
-	n_ready[1] = 68;
-	n_cic = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_N_CIC);
-	n_cic[0] = 60;
-	n_cic[1] = 47;
-	gain = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_GAIN);
-	gain[0] = 11;
-	gain[1] = 9;
-
-	return codec_cal;
 }
 
 static int msm_snd_hw_params(struct snd_pcm_substream *substream,
@@ -2788,61 +2626,6 @@ static struct snd_soc_dai_link msm8996_common_dai_links[] = {
 	},
 };
 
-static struct snd_soc_dai_link msm8996_tomtom_fe_dai_links[] = {
-	{
-		.name = LPASS_BE_SLIMBUS_4_TX,
-		.stream_name = "Slimbus4 Capture",
-		.cpu_dai_name = "msm-dai-q6-dev.16393",
-		.platform_name = "msm-pcm-hostless",
-		.codec_name = "tomtom_codec",
-		.codec_dai_name = "tomtom_vifeedback",
-		.be_id = MSM_BACKEND_DAI_SLIMBUS_4_TX,
-		.be_hw_params_fixup = msm_slim_4_tx_be_hw_params_fixup,
-		.ops = &msm8996_be_ops,
-		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
-		.ignore_suspend = 1,
-	},
-	/* Ultrasound RX DAI Link */
-	{
-		.name = "SLIMBUS_2 Hostless Playback",
-		.stream_name = "SLIMBUS_2 Hostless Playback",
-		.cpu_dai_name = "msm-dai-q6-dev.16388",
-		.platform_name = "msm-pcm-hostless",
-		.codec_name = "tomtom_codec",
-		.codec_dai_name = "tomtom_rx2",
-		.ignore_suspend = 1,
-		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
-		.ops = &msm8996_slimbus_2_be_ops,
-	},
-	/* Ultrasound TX DAI Link */
-	{
-		.name = "SLIMBUS_2 Hostless Capture",
-		.stream_name = "SLIMBUS_2 Hostless Capture",
-		.cpu_dai_name = "msm-dai-q6-dev.16389",
-		.platform_name = "msm-pcm-hostless",
-		.codec_name = "tomtom_codec",
-		.codec_dai_name = "tomtom_tx2",
-		.ignore_suspend = 1,
-		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
-		.ops = &msm8996_slimbus_2_be_ops,
-	},
-	/* CPE LSM direct dai-link */
-	{
-		.name = "CPE Listen service",
-		.stream_name = "CPE Listen Audio Service",
-		.cpu_dai_name = "msm-dai-slim",
-		.platform_name = "msm-cpe-lsm",
-		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
-			    SND_SOC_DPCM_TRIGGER_POST},
-		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
-		.ignore_suspend = 1,
-		.ignore_pmdown_time = 1,
-		.codec_dai_name = "tomtom_mad1",
-		.codec_name = "tomtom_codec",
-		.ops = &msm8996_cpe_ops,
-	},
-};
-
 static struct snd_soc_dai_link msm8996_tasha_fe_dai_links[] = {
 	{
 		.name = LPASS_BE_SLIMBUS_4_TX,
@@ -3029,135 +2812,6 @@ static struct snd_soc_dai_link msm8996_common_be_dai_links[] = {
 	}
 };
 
-static struct snd_soc_dai_link msm8996_tomtom_be_dai_links[] = {
-	/* Backend DAI Links */
-	{
-		.name = LPASS_BE_SLIMBUS_0_RX,
-		.stream_name = "Slimbus Playback",
-		.cpu_dai_name = "msm-dai-q6-dev.16384",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "tomtom_codec",
-		.codec_dai_name = "tomtom_rx1",
-		.no_pcm = 1,
-		.async_ops = ASYNC_DPCM_SND_SOC_PREPARE |
-			ASYNC_DPCM_SND_SOC_HW_PARAMS,
-		.dpcm_playback = 1,
-		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_RX,
-		.init = &msm_audrx_init,
-		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
-		/* this dainlink has playback support */
-		.ignore_pmdown_time = 1,
-		.ignore_suspend = 1,
-		.ops = &msm8996_be_ops,
-	},
-	{
-		.name = LPASS_BE_SLIMBUS_0_TX,
-		.stream_name = "Slimbus Capture",
-		.cpu_dai_name = "msm-dai-q6-dev.16385",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "tomtom_codec",
-		.codec_dai_name = "tomtom_tx1",
-		.no_pcm = 1,
-		.async_ops = ASYNC_DPCM_SND_SOC_PREPARE |
-			ASYNC_DPCM_SND_SOC_HW_PARAMS,
-		.dpcm_capture = 1,
-		.be_id = MSM_BACKEND_DAI_SLIMBUS_0_TX,
-		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
-		.ignore_suspend = 1,
-		.ops = &msm8996_be_ops,
-	},
-	{
-		.name = LPASS_BE_SLIMBUS_1_RX,
-		.stream_name = "Slimbus1 Playback",
-		.cpu_dai_name = "msm-dai-q6-dev.16386",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "tomtom_codec",
-		.codec_dai_name = "tomtom_rx1",
-		.no_pcm = 1,
-		.dpcm_playback = 1,
-		.be_id = MSM_BACKEND_DAI_SLIMBUS_1_RX,
-		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
-		.ops = &msm8996_be_ops,
-		/* dai link has playback support */
-		.ignore_pmdown_time = 1,
-		.ignore_suspend = 1,
-	},
-	{
-		.name = LPASS_BE_SLIMBUS_1_TX,
-		.stream_name = "Slimbus1 Capture",
-		.cpu_dai_name = "msm-dai-q6-dev.16387",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "tomtom_codec",
-		.codec_dai_name = "tomtom_tx1",
-		.no_pcm = 1,
-		.dpcm_capture = 1,
-		.be_id = MSM_BACKEND_DAI_SLIMBUS_1_TX,
-		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
-		.ops = &msm8996_be_ops,
-		.ignore_suspend = 1,
-	},
-	{
-		.name = LPASS_BE_SLIMBUS_3_RX,
-		.stream_name = "Slimbus3 Playback",
-		.cpu_dai_name = "msm-dai-q6-dev.16390",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "tomtom_codec",
-		.codec_dai_name = "tomtom_rx1",
-		.no_pcm = 1,
-		.dpcm_playback = 1,
-		.be_id = MSM_BACKEND_DAI_SLIMBUS_3_RX,
-		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
-		.ops = &msm8996_be_ops,
-		/* dai link has playback support */
-		.ignore_pmdown_time = 1,
-		.ignore_suspend = 1,
-	},
-	{
-		.name = LPASS_BE_SLIMBUS_3_TX,
-		.stream_name = "Slimbus3 Capture",
-		.cpu_dai_name = "msm-dai-q6-dev.16391",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "tomtom_codec",
-		.codec_dai_name = "tomtom_tx1",
-		.no_pcm = 1,
-		.dpcm_capture = 1,
-		.be_id = MSM_BACKEND_DAI_SLIMBUS_3_TX,
-		.be_hw_params_fixup = msm_slim_0_tx_be_hw_params_fixup,
-		.ops = &msm8996_be_ops,
-		.ignore_suspend = 1,
-	},
-	{
-		.name = LPASS_BE_SLIMBUS_4_RX,
-		.stream_name = "Slimbus4 Playback",
-		.cpu_dai_name = "msm-dai-q6-dev.16392",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "tomtom_codec",
-		.codec_dai_name	= "tomtom_rx1",
-		.no_pcm = 1,
-		.dpcm_playback = 1,
-		.be_id = MSM_BACKEND_DAI_SLIMBUS_4_RX,
-		.be_hw_params_fixup = msm_slim_0_rx_be_hw_params_fixup,
-		.ops = &msm8996_be_ops,
-		/* dai link has playback support */
-		.ignore_pmdown_time = 1,
-		.ignore_suspend = 1,
-	},
-	/* MAD BE */
-	{
-		.name = LPASS_BE_SLIMBUS_5_TX,
-		.stream_name = "Slimbus5 Capture",
-		.cpu_dai_name = "msm-dai-q6-dev.16395",
-		.platform_name = "msm-pcm-routing",
-		.codec_name = "tomtom_codec",
-		.codec_dai_name = "tomtom_mad1",
-		.no_pcm = 1,
-		.dpcm_capture = 1,
-		.be_id = MSM_BACKEND_DAI_SLIMBUS_5_TX,
-		.be_hw_params_fixup = msm_slim_5_tx_be_hw_params_fixup,
-		.ops = &msm8996_be_ops,
-	},
-};
-
 static struct snd_soc_dai_link msm8996_tasha_be_dai_links[] = {
 	/* Backend DAI Links */
 	{
@@ -3318,13 +2972,6 @@ static struct snd_soc_dai_link msm8996_hdmi_dai_link[] = {
 	},
 };
 
-static struct snd_soc_dai_link msm8996_tomtom_dai_links[
-			 ARRAY_SIZE(msm8996_common_dai_links) +
-			 ARRAY_SIZE(msm8996_tomtom_fe_dai_links) +
-			 ARRAY_SIZE(msm8996_common_be_dai_links) +
-			 ARRAY_SIZE(msm8996_tomtom_be_dai_links) +
-			 ARRAY_SIZE(msm8996_hdmi_dai_link)];
-
 static struct snd_soc_dai_link msm8996_tasha_dai_links[
 			 ARRAY_SIZE(msm8996_common_dai_links) +
 			 ARRAY_SIZE(msm8996_tasha_fe_dai_links) +
@@ -3381,10 +3028,6 @@ static int msm8996_wsa881x_init(struct snd_soc_component *component)
 
 	return 0;
 }
-
-struct snd_soc_card snd_soc_card_tomtom_msm8996 = {
-	.name		= "msm8996-tomtom-snd-card",
-};
 
 struct snd_soc_card snd_soc_card_tasha_msm8996 = {
 	.name		= "msm8996-tasha-snd-card",
@@ -3484,7 +3127,7 @@ static int msm8996_prepare_us_euro(struct snd_soc_card *card)
 	if (pdata->us_euro_gpio >= 0) {
 		dev_dbg(card->dev, "%s: us_euro gpio request %d", __func__,
 			pdata->us_euro_gpio);
-		ret = gpio_request(pdata->us_euro_gpio, "TOMTOM_CODEC_US_EURO");
+		ret = gpio_request(pdata->us_euro_gpio, "TASHA_CODEC_US_EURO");
 		if (ret) {
 			dev_err(card->dev,
 				"%s: Failed to request codec US/EURO gpio %d error %d\n",
@@ -3528,8 +3171,6 @@ static int msm8996_prepare_hifi(struct snd_soc_card *card)
 }
 
 static const struct of_device_id msm8996_asoc_machine_of_match[]  = {
-	{ .compatible = "qcom,msm8996-asoc-snd-tomtom",
-	  .data = "tomtom_codec"},
 	{ .compatible = "qcom,msm8996-asoc-snd-tasha",
 	  .data = "tasha_codec"},
 	{},
@@ -3549,28 +3190,7 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		return NULL;
 	}
 
-	if (!strcmp(match->data, "tomtom_codec")) {
-		card = &snd_soc_card_tomtom_msm8996;
-		len_1 = ARRAY_SIZE(msm8996_common_dai_links);
-		len_2 = len_1 + ARRAY_SIZE(msm8996_tomtom_fe_dai_links);
-		len_3 = len_2 + ARRAY_SIZE(msm8996_common_be_dai_links);
-
-		memcpy(msm8996_tomtom_dai_links,
-		       msm8996_common_dai_links,
-		       sizeof(msm8996_common_dai_links));
-		memcpy(msm8996_tomtom_dai_links + len_1,
-		       msm8996_tomtom_fe_dai_links,
-		       sizeof(msm8996_tomtom_fe_dai_links));
-		memcpy(msm8996_tomtom_dai_links + len_2,
-		       msm8996_common_be_dai_links,
-		       sizeof(msm8996_common_be_dai_links));
-		memcpy(msm8996_tomtom_dai_links + len_3,
-		       msm8996_tomtom_be_dai_links,
-		       sizeof(msm8996_tomtom_be_dai_links));
-
-		dailink = msm8996_tomtom_dai_links;
-		len_4 = len_3 + ARRAY_SIZE(msm8996_tomtom_be_dai_links);
-	} else {
+	if (!strcmp(match->data, "tasha_codec")) {
 		card = &snd_soc_card_tasha_msm8996;
 		len_1 = ARRAY_SIZE(msm8996_common_dai_links);
 		len_2 = len_1 + ARRAY_SIZE(msm8996_tasha_fe_dai_links);
@@ -3603,8 +3223,10 @@ static struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		dev_dbg(dev, "%s(): No hdmi audio support\n", __func__);
 	}
 
-	card->dai_link = dailink;
-	card->num_links = len_4;
+	if (card) {
+		card->dai_link = dailink;
+		card->num_links = len_4;
+	}
 
 	return card;
 }
@@ -3824,10 +3446,7 @@ static int msm8996_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	if (!strcmp(match->data, "tomtom_codec"))
-		mclk_freq_prop_name = "qcom,tomtom-mclk-clk-freq";
-	else
-		mclk_freq_prop_name = "qcom,tasha-mclk-clk-freq";
+	mclk_freq_prop_name = "qcom,tasha-mclk-clk-freq";
 
 	ret = of_property_read_u32(pdev->dev.of_node,
 			mclk_freq_prop_name, &pdata->mclk_freq);
@@ -3846,7 +3465,6 @@ static int msm8996_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	mbhc_cfg.mclk_rate = pdata->mclk_freq;
 	spdev = pdev;
 
 	ret = msm8996_populate_dai_link_component_of_node(card);
@@ -3893,25 +3511,15 @@ static int msm8996_asoc_machine_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "Looking up %s property in node %s failed",
 			"qcom,mbhc-audio-jack-type",
 			pdev->dev.of_node->full_name);
-		mbhc_cfg.hw_jack_type = FOUR_POLE_JACK;
-		mbhc_cfg.enable_anc_mic_detect = false;
 		dev_dbg(&pdev->dev, "Jack type properties set to default");
 	} else {
 		if (!strcmp(mbhc_audio_jack_type, "4-pole-jack")) {
-			mbhc_cfg.hw_jack_type = FOUR_POLE_JACK;
-			mbhc_cfg.enable_anc_mic_detect = false;
 			dev_dbg(&pdev->dev, "This hardware has 4 pole jack");
 		} else if (!strcmp(mbhc_audio_jack_type, "5-pole-jack")) {
-			mbhc_cfg.hw_jack_type = FIVE_POLE_JACK;
-			mbhc_cfg.enable_anc_mic_detect = true;
 			dev_dbg(&pdev->dev, "This hardware has 5 pole jack");
 		} else if (!strcmp(mbhc_audio_jack_type, "6-pole-jack")) {
-			mbhc_cfg.hw_jack_type = SIX_POLE_JACK;
-			mbhc_cfg.enable_anc_mic_detect = true;
 			dev_dbg(&pdev->dev, "This hardware has 6 pole jack");
 		} else {
-			mbhc_cfg.hw_jack_type = FOUR_POLE_JACK;
-			mbhc_cfg.enable_anc_mic_detect = false;
 			dev_dbg(&pdev->dev, "Unknown value, set to default");
 		}
 	}
@@ -3929,7 +3537,6 @@ static int msm8996_asoc_machine_probe(struct platform_device *pdev)
 	} else {
 		dev_dbg(&pdev->dev, "%s detected %d",
 			"qcom,us-euro-gpios", pdata->us_euro_gpio);
-		mbhc_cfg.swap_gnd_mic = msm8996_swap_gnd_mic;
 		wcd_mbhc_cfg.swap_gnd_mic = msm8996_swap_gnd_mic;
 	}
 
