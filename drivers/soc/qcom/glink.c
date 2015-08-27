@@ -2708,6 +2708,7 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 	tx_info->pkt_priv = pkt_priv;
 	tx_info->data = data;
 	tx_info->riid = riid;
+	tx_info->rcid = ctx->rcid;
 	tx_info->size = size;
 	tx_info->size_remaining = size;
 	tx_info->tracer_pkt = tx_flags & GLINK_TX_TRACER_PKT ? true : false;

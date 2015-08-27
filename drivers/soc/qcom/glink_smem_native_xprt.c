@@ -1897,6 +1897,15 @@ static int tx_data(struct glink_transport_if *if_ptr, uint16_t cmd_id,
 		cmd.size_left);
 	spin_unlock_irqrestore(&einfo->write_lock, flags);
 
+	/* Fake tx_done for intentless since its not supported over the wire */
+	if (einfo->intentless) {
+		spin_lock_irqsave(&einfo->rx_lock, flags);
+		cmd.id = RX_DONE_CMD;
+		cmd.lcid = pctx->rcid;
+		queue_cmd(einfo, &cmd, NULL);
+		spin_unlock_irqrestore(&einfo->rx_lock, flags);
+	}
+
 	srcu_read_unlock(&einfo->use_ref, rcu_id);
 	return cmd.size;
 }
