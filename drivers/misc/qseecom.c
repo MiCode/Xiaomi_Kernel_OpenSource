@@ -6351,7 +6351,7 @@ long qseecom_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			ret = -EINVAL;
 			break;
 		}
-		if (qseecom.qsee_version < QSEE_VERSION_20) {
+		if (qseecom.qsee_version < QSEE_VERSION_40) {
 			pr_err("GP feature unsupported: qsee ver %u\n",
 				qseecom.qsee_version);
 			return -EINVAL;
@@ -6375,7 +6375,7 @@ long qseecom_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			ret = -EINVAL;
 			break;
 		}
-		if (qseecom.qsee_version < QSEE_VERSION_20) {
+		if (qseecom.qsee_version < QSEE_VERSION_40) {
 			pr_err("GP feature unsupported: qsee ver %u\n",
 				qseecom.qsee_version);
 			return -EINVAL;
@@ -6399,7 +6399,7 @@ long qseecom_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			ret = -EINVAL;
 			break;
 		}
-		if (qseecom.qsee_version < QSEE_VERSION_20) {
+		if (qseecom.qsee_version < QSEE_VERSION_40) {
 			pr_err("GP feature unsupported: qsee ver %u\n",
 				qseecom.qsee_version);
 			return -EINVAL;
@@ -6423,7 +6423,7 @@ long qseecom_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			ret = -EINVAL;
 			break;
 		}
-		if (qseecom.qsee_version < QSEE_VERSION_20) {
+		if (qseecom.qsee_version < QSEE_VERSION_40) {
 			pr_err("GP feature unsupported: qsee ver %u\n",
 				qseecom.qsee_version);
 			return -EINVAL;
