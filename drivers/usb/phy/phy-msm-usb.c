@@ -1156,7 +1156,12 @@ lpm_start:
 	device_bus_suspend = phy->otg->gadget && test_bit(ID, &motg->inputs) &&
 		test_bit(A_BUS_SUSPEND, &motg->inputs) &&
 		motg->caps & ALLOW_LPM_ON_DEV_SUSPEND;
-	dcp = motg->chg_type == USB_DCP_CHARGER;
+
+	/*
+	 * Allow putting PHY into SIDDQ with wall charger connected in
+	 * case of external charger detection.
+	 */
+	dcp = (motg->chg_type == USB_DCP_CHARGER) && !motg->is_ext_chg_dcp;
 	prop_charger = motg->chg_type == USB_PROPRIETARY_CHARGER;
 	floated_charger = motg->chg_type == USB_FLOATED_CHARGER;
 
@@ -1184,11 +1189,12 @@ lpm_start:
 	 * 1. charging detection in progress due to cable plug-in
 	 * 2. host mode activation in progress due to Micro-A cable insertion
 	 * 3. !BSV, but its handling is in progress by otg sm_work
+	 * Don't abort suspend in case of dcp detected by PMIC
 	 */
 
 	if ((test_bit(B_SESS_VLD, &motg->inputs) && !device_bus_suspend &&
-		!dcp && !prop_charger && !floated_charger) ||
-			sm_work_busy) {
+		!dcp && !motg->is_ext_chg_dcp && !prop_charger &&
+			!floated_charger) || sm_work_busy) {
 		msm_otg_dbg_log_event(phy, "LPM ENTER ABORTED",
 				motg->inputs, motg->chg_type);
 		enable_irq(motg->irq);
