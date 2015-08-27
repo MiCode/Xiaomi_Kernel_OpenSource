@@ -141,7 +141,7 @@ static int acdcr_val_pwrcl = 0x002D5FFD;
 module_param(acdcr_val_pwrcl, int, 0444);
 static int acdcr_val_perfcl = 0x002D5FFD;
 module_param(acdcr_val_perfcl, int, 0444);
-int enable_acd;
+int enable_acd = 1;
 module_param(enable_acd, int, 0444);
 
 #define WRITE_L2ACDCR(val) \
