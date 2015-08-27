@@ -335,6 +335,10 @@ enum {
 
 };
 
+#define IS_VALID_NATIVE_FIFO_PORT(inp) \
+	((inp >= INTn_1_MIX_INP_SEL_RX0) && \
+	 (inp <= INTn_1_MIX_INP_SEL_RX3))
+
 enum {
 	INTn_2_INP_SEL_ZERO = 0,
 	INTn_2_INP_SEL_RX0,
@@ -690,6 +694,7 @@ struct tasha_priv {
 	struct mutex swr_write_lock;
 	struct mutex swr_clk_lock;
 	int swr_clk_users;
+	int native_clk_users;
 	int (*zdet_gpio_cb)(struct snd_soc_codec *codec, bool high);
 
 	struct snd_info_entry *entry;
@@ -2043,19 +2048,23 @@ static const struct snd_kcontrol_new aif3_cap_mixer[] = {
 };
 
 static const struct snd_kcontrol_new rx_int1_spline_mix_switch[] = {
-	SOC_DAPM_SINGLE("HPHL Switch", SND_SOC_NOPM, 0, 1, 0)
+	SOC_DAPM_SINGLE("HPHL Switch", SND_SOC_NOPM, 0, 1, 0),
+	SOC_DAPM_SINGLE("HPHL Native Switch", SND_SOC_NOPM, 0, 1, 0)
 };
 
 static const struct snd_kcontrol_new rx_int2_spline_mix_switch[] = {
-	SOC_DAPM_SINGLE("HPHR Switch", SND_SOC_NOPM, 0, 1, 0)
+	SOC_DAPM_SINGLE("HPHR Switch", SND_SOC_NOPM, 0, 1, 0),
+	SOC_DAPM_SINGLE("HPHR Native Switch", SND_SOC_NOPM, 0, 1, 0)
 };
 
 static const struct snd_kcontrol_new rx_int3_spline_mix_switch[] = {
-	SOC_DAPM_SINGLE("LO1 Switch", SND_SOC_NOPM, 0, 1, 0)
+	SOC_DAPM_SINGLE("LO1 Switch", SND_SOC_NOPM, 0, 1, 0),
+	SOC_DAPM_SINGLE("LO1 Native Switch", SND_SOC_NOPM, 0, 1, 0)
 };
 
 static const struct snd_kcontrol_new rx_int4_spline_mix_switch[] = {
-	SOC_DAPM_SINGLE("LO2 Switch", SND_SOC_NOPM, 0, 1, 0)
+	SOC_DAPM_SINGLE("LO2 Switch", SND_SOC_NOPM, 0, 1, 0),
+	SOC_DAPM_SINGLE("LO2 Native Switch", SND_SOC_NOPM, 0, 1, 0)
 };
 
 static const struct snd_kcontrol_new rx_int5_spline_mix_switch[] = {
@@ -3686,6 +3695,128 @@ static int tasha_codec_enable_mix_path(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int __tasha_cdc_native_clk_enable(struct tasha_priv *tasha,
+					 bool enable)
+{
+	int ret = 0;
+	struct snd_soc_codec *codec = tasha->codec;
+
+	if (!tasha->wcd_native_clk) {
+		dev_err(tasha->dev, "%s: wcd native clock is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	dev_dbg(tasha->dev, "%s: native_clk_enable = %u\n", __func__, enable);
+
+	if (enable) {
+		ret = clk_prepare_enable(tasha->wcd_native_clk);
+		if (ret) {
+			dev_err(tasha->dev, "%s: native clk enable failed\n",
+				__func__);
+			goto err;
+		}
+		if (++tasha->native_clk_users == 1) {
+			snd_soc_update_bits(codec, WCD9335_CLOCK_TEST_CTL,
+					    0x10, 0x10);
+			snd_soc_update_bits(codec, WCD9335_CLOCK_TEST_CTL,
+					    0x80, 0x80);
+			snd_soc_update_bits(codec, WCD9335_CODEC_RPM_CLK_GATE,
+					    0x04, 0x00);
+			snd_soc_update_bits(codec,
+					WCD9335_CDC_CLK_RST_CTRL_MCLK_CONTROL,
+					0x02, 0x02);
+		}
+	} else {
+		if (tasha->native_clk_users &&
+		    (--tasha->native_clk_users == 0)) {
+			snd_soc_update_bits(codec,
+					WCD9335_CDC_CLK_RST_CTRL_MCLK_CONTROL,
+					0x02, 0x00);
+			snd_soc_update_bits(codec, WCD9335_CODEC_RPM_CLK_GATE,
+					    0x04, 0x04);
+			snd_soc_update_bits(codec, WCD9335_CLOCK_TEST_CTL,
+					    0x80, 0x00);
+			snd_soc_update_bits(codec, WCD9335_CLOCK_TEST_CTL,
+					    0x10, 0x00);
+		}
+		clk_disable_unprepare(tasha->wcd_native_clk);
+	}
+
+	dev_dbg(codec->dev, "%s: native_clk_users: %d\n", __func__,
+		tasha->native_clk_users);
+err:
+	return ret;
+}
+
+static int tasha_codec_get_native_fifo_sync_mask(struct snd_soc_codec *codec,
+						 int interp_n)
+{
+	int mask = 0;
+	u16 reg;
+	u8 val1, val2, inp0 = 0;
+	u8 inp1 = 0, inp2 = 0;
+
+	reg = WCD9335_CDC_RX_INP_MUX_RX_INT1_CFG0 + (2 * interp_n) - 2;
+
+	val1 = snd_soc_read(codec, reg);
+	val2 = snd_soc_read(codec, reg + 1);
+
+	inp0 = val1 & 0x0F;
+	inp1 = (val1 >> 4) & 0x0F;
+	inp2 = (val2 >> 4) & 0x0F;
+
+	if (IS_VALID_NATIVE_FIFO_PORT(inp0))
+		mask |= (1 << (inp0 - 5));
+	if (IS_VALID_NATIVE_FIFO_PORT(inp1))
+		mask |= (1 << (inp1 - 5));
+	if (IS_VALID_NATIVE_FIFO_PORT(inp2))
+		mask |= (1 << (inp2 - 5));
+
+	dev_dbg(codec->dev, "%s: native fifo mask: 0x%x\n", __func__, mask);
+	if (!mask)
+		dev_err(codec->dev, "native fifo err,int:%d,inp0:%d,inp1:%d,inp2:%d\n",
+			interp_n, inp0, inp1, inp2);
+	return mask;
+}
+
+static int tasha_enable_native_supply(struct snd_soc_dapm_widget *w,
+				      struct snd_kcontrol *kcontrol, int event)
+{
+	int mask;
+	struct snd_soc_codec *codec = w->codec;
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	u16 interp_reg;
+
+	dev_dbg(codec->dev, "%s: event: %d, shift:%d\n", __func__, event,
+		w->shift);
+
+	if (w->shift < INTERP_HPHL || w->shift > INTERP_LO2)
+		return -EINVAL;
+
+	/* Adjust interpolator rate to 44P1_NATIVE */
+	interp_reg = WCD9335_CDC_RX1_RX_PATH_CTL + 20 * (w->shift - 1);
+	snd_soc_update_bits(codec, interp_reg, 0x0F, 0x09);
+
+	mask = tasha_codec_get_native_fifo_sync_mask(codec, w->shift);
+	if (!mask)
+		return -EINVAL;
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		__tasha_cdc_native_clk_enable(tasha, true);
+		snd_soc_update_bits(codec, WCD9335_DATA_HUB_NATIVE_FIFO_SYNC,
+				    mask, mask);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		snd_soc_update_bits(codec, WCD9335_DATA_HUB_NATIVE_FIFO_SYNC,
+				    mask, 0x0);
+		__tasha_cdc_native_clk_enable(tasha, false);
+		break;
+	}
+
+	return 0;
+}
+
 static int tasha_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
@@ -4905,6 +5036,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SPL SRC0 MUX", "SRC_IN_HPHL", "RX INT1_1 MIX1"},
 	{"RX INT1 SPLINE MIX", NULL, "RX INT1_1 MIX1"},
 	{"RX INT1 SPLINE MIX", "HPHL Switch", "SPL SRC0 MUX"},
+	{"RX INT1 SPLINE MIX", "HPHL Native Switch", "RX INT1 NATIVE SUPPLY"},
 	{"RX INT1 SEC MIX", NULL, "RX INT1 SPLINE MIX"},
 	{"RX INT1 MIX2", NULL, "RX INT1 SEC MIX"},
 	{"RX INT1 MIX2", NULL, "RX INT1 MIX2 INP"},
@@ -4918,6 +5050,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SPL SRC1 MUX", "SRC_IN_HPHR", "RX INT2_1 MIX1"},
 	{"RX INT2 SPLINE MIX", NULL, "RX INT2_1 MIX1"},
 	{"RX INT2 SPLINE MIX", "HPHR Switch", "SPL SRC1 MUX"},
+	{"RX INT2 SPLINE MIX", "HPHR Native Switch", "RX INT2 NATIVE SUPPLY"},
 	{"RX INT2 SEC MIX", NULL, "RX INT2 SPLINE MIX"},
 	{"RX INT2 MIX2", NULL, "RX INT2 SEC MIX"},
 	{"RX INT2 MIX2", NULL, "RX INT2 MIX2 INP"},
@@ -4931,6 +5064,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SPL SRC0 MUX", "SRC_IN_LO1", "RX INT3_1 MIX1"},
 	{"RX INT3 SPLINE MIX", NULL, "RX INT3_1 MIX1"},
 	{"RX INT3 SPLINE MIX", "LO1 Switch", "SPL SRC0 MUX"},
+	{"RX INT3 SPLINE MIX", "LO1 Native Switch", "RX INT3 NATIVE SUPPLY"},
 	{"RX INT3 SEC MIX", NULL, "RX INT3 SPLINE MIX"},
 	{"RX INT3 MIX2", NULL, "RX INT3 SEC MIX"},
 	{"RX INT3 MIX2", NULL, "RX INT3 MIX2 INP"},
@@ -4943,6 +5077,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SPL SRC1 MUX", "SRC_IN_LO2", "RX INT4_1 MIX1"},
 	{"RX INT4 SPLINE MIX", NULL, "RX INT4_1 MIX1"},
 	{"RX INT4 SPLINE MIX", "LO2 Switch", "SPL SRC1 MUX"},
+	{"RX INT4 SPLINE MIX", "LO2 Native Switch", "RX INT4 NATIVE SUPPLY"},
 	{"RX INT4 SEC MIX", NULL, "RX INT4 SPLINE MIX"},
 	{"RX INT4 MIX2", NULL, "RX INT4 SEC MIX"},
 	{"RX INT4 MIX2", NULL, "RX INT4 MIX2 INP"},
@@ -8443,6 +8578,22 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 			   tasha_codec_enable_adc, SND_SOC_DAPM_PRE_PMU),
 	SND_SOC_DAPM_ADC_E("ADC6", NULL, WCD9335_ANA_AMIC6, 7, 0,
 			   tasha_codec_enable_adc, SND_SOC_DAPM_PRE_PMU),
+
+	SND_SOC_DAPM_SUPPLY("RX INT1 NATIVE SUPPLY", SND_SOC_NOPM,
+			    INTERP_HPHL, 0, tasha_enable_native_supply,
+			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+
+	SND_SOC_DAPM_SUPPLY("RX INT2 NATIVE SUPPLY", SND_SOC_NOPM,
+			    INTERP_HPHR, 0, tasha_enable_native_supply,
+			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+
+	SND_SOC_DAPM_SUPPLY("RX INT3 NATIVE SUPPLY", SND_SOC_NOPM,
+			    INTERP_LO1, 0, tasha_enable_native_supply,
+			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+
+	SND_SOC_DAPM_SUPPLY("RX INT4 NATIVE SUPPLY", SND_SOC_NOPM,
+			    INTERP_LO2, 0, tasha_enable_native_supply,
+			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
 
 	SND_SOC_DAPM_INPUT("AMIC1"),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1", SND_SOC_NOPM, 0, 0,
