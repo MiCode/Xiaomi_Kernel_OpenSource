@@ -3918,8 +3918,8 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 
 	if (layer_count) {
 		for (j = 0; j < layer_count; j++) {
-			rc = copy_to_user(&input_layer_list[i].error_code,
-					&layer_list[i].error_code, sizeof(int));
+			rc = copy_to_user(&input_layer_list[j].error_code,
+					&layer_list[j].error_code, sizeof(int));
 			if (rc)
 				pr_err("layer error code copy to user failed\n");
 		}
