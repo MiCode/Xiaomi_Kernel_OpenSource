@@ -367,7 +367,7 @@ int msm_bus_dbg_rec_transaction(const struct msm_bus_client_handle *pdata,
 			MSM_BUS_DBG("Client doesn't have a name\n");
 			return -EINVAL;
 		}
-		pr_err("\n%s setting up debugfs %s", __func__, pdata->name);
+		pr_debug("\n%s setting up debugfs %s", __func__, pdata->name);
 		cldata->file = debugfs_create_file(pdata->name, S_IRUGO,
 				clients, (void *)pdata, &client_data_fops);
 	}
@@ -725,6 +725,47 @@ static const struct file_operations msm_bus_dbg_update_request_fops = {
 	.write = msm_bus_dbg_update_request_write,
 };
 
+static int msm_bus_dbg_dump_clients_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+static ssize_t msm_bus_dbg_dump_clients_read(struct file *file,
+	char __user *buf, size_t count, loff_t *ppos)
+{
+	int j, cnt;
+	char msg[50];
+	struct msm_bus_cldata *cldata = NULL;
+
+	cnt = scnprintf(msg, 50,
+		"\nDumping curent client votes to trace log\n");
+	if (*ppos)
+		goto exit_dump_clients_read;
+	list_for_each_entry(cldata, &cl_list, list) {
+		if (IS_ERR_OR_NULL(cldata->pdata))
+			continue;
+		for (j = 0; j < cldata->pdata->usecase->num_paths; j++) {
+			if (cldata->index == -1)
+				continue;
+			trace_bus_client_status(
+			cldata->pdata->name,
+			cldata->pdata->usecase[cldata->index].vectors[j].src,
+			cldata->pdata->usecase[cldata->index].vectors[j].dst,
+			cldata->pdata->usecase[cldata->index].vectors[j].ab,
+			cldata->pdata->usecase[cldata->index].vectors[j].ib,
+			cldata->pdata->active_only);
+		}
+	}
+exit_dump_clients_read:
+	return simple_read_from_buffer(buf, count, ppos, msg, cnt);
+}
+
+static const struct file_operations msm_bus_dbg_dump_clients_fops = {
+	.open		= msm_bus_dbg_dump_clients_open,
+	.read		= msm_bus_dbg_dump_clients_read,
+};
+
 /**
  * msm_bus_dbg_client_data() - Add debug data for clients
  * @pdata: Platform data of the client
@@ -859,6 +900,10 @@ static int __init msm_bus_debugfs_init(void)
 							&client_data_fops);
 		}
 	}
+
+	if (debugfs_create_file("dump_clients", S_IRUGO | S_IWUSR,
+		clients, NULL, &msm_bus_dbg_dump_clients_fops) == NULL)
+		goto err;
 
 	mutex_lock(&msm_bus_dbg_fablist_lock);
 	list_for_each_entry(fablist, &fabdata_list, list) {

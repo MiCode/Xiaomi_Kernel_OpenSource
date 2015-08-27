@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is Mree software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -154,36 +154,36 @@ static DEVICE_ATTR(floor_vote_api, S_IRUGO | S_IWUSR,
 static DEVICE_ATTR(floor_active_only, S_IRUGO | S_IWUSR,
 		bus_floor_active_only_show, bus_floor_active_only_store);
 
-static int msm_bus_floor_init_dev(struct device *fab_dev,
-				struct device *dev, bool is_master)
+static struct msm_bus_node_device_type *msm_bus_floor_init_dev(
+				struct device *fab_dev, bool is_master)
 {
 	struct msm_bus_node_device_type *bus_node = NULL;
 	struct msm_bus_node_device_type *fab_node = NULL;
 	struct msm_bus_node_info_type *node_info = NULL;
+	struct device *dev = NULL;
 	int ret = 0;
 
-	if (!(fab_dev && dev)) {
-		ret = -ENXIO;
+	if (!fab_dev) {
+		bus_node = ERR_PTR(-ENXIO);
 		goto exit_init_bus_dev;
 	}
 
-	fab_node = fab_dev->platform_data;
+	fab_node = to_msm_bus_node(fab_dev);
 
 	if (!fab_node) {
 		pr_info("\n%s: Can't create device", __func__);
-		ret = -ENXIO;
+		bus_node = ERR_PTR(-ENXIO);
 		goto exit_init_bus_dev;
 	}
 
-	device_initialize(dev);
-	bus_node = devm_kzalloc(dev,
-		sizeof(struct msm_bus_node_device_type), GFP_KERNEL);
-
+	bus_node = kzalloc(sizeof(struct msm_bus_node_device_type), GFP_KERNEL);
 	if (!bus_node) {
 		pr_err("%s:Bus node alloc failed\n", __func__);
-		ret = -ENOMEM;
+		bus_node = ERR_PTR(-ENOMEM);
 		goto exit_init_bus_dev;
 	}
+	dev = &bus_node->dev;
+	device_initialize(dev);
 
 	node_info = devm_kzalloc(dev,
 		sizeof(struct msm_bus_node_info_type), GFP_KERNEL);
@@ -191,22 +191,22 @@ static int msm_bus_floor_init_dev(struct device *fab_dev,
 	if (!node_info) {
 		pr_err("%s:Bus node info alloc failed\n", __func__);
 		devm_kfree(dev, bus_node);
-		ret = -ENOMEM;
+		bus_node = ERR_PTR(-ENOMEM);
 		goto exit_init_bus_dev;
 	}
 
 	bus_node->node_info = node_info;
 	bus_node->ap_owned = true;
 	bus_node->node_info->bus_device = fab_dev;
-	bus_node->node_info->buswidth = 8;
-	dev->platform_data = bus_node;
+	bus_node->node_info->agg_params.buswidth = 8;
 	dev->bus = &msm_bus_type;
+	list_add_tail(&bus_node->dev_link, &fab_node->devlist);
 
 	bus_node->node_info->id = get_id();
 	if (bus_node->node_info->id < 0) {
 		pr_err("%s: Failed to get id for dev. Bus:%s is_master:%d",
 			__func__, fab_node->node_info->name, is_master);
-		ret = -ENXIO;
+		bus_node = ERR_PTR(-ENXIO);
 		goto exit_init_bus_dev;
 	}
 
@@ -216,11 +216,12 @@ static int msm_bus_floor_init_dev(struct device *fab_dev,
 	ret = device_add(dev);
 	if (ret < 0) {
 		pr_err("%s: Failed to add %s", __func__, dev_name(dev));
+		bus_node = ERR_PTR(ret);
 		goto exit_init_bus_dev;
 	}
 
 exit_init_bus_dev:
-	return ret;
+	return bus_node;
 }
 
 static int msm_bus_floor_show_info(struct device *dev, void *data)
@@ -371,30 +372,22 @@ exit_bus_floor_vote_context:
 }
 EXPORT_SYMBOL(msm_bus_floor_vote_context);
 
-static int msm_bus_floor_setup_dev_conn(struct device *mas, struct device *slv)
+static int msm_bus_floor_setup_dev_conn(
+		struct msm_bus_node_device_type *mas_node,
+		struct msm_bus_node_device_type *slv_node)
 {
 	int ret = 0;
 	int slv_id = 0;
-	struct msm_bus_node_device_type *mas_node = NULL;
-	struct msm_bus_node_device_type *slv_node = NULL;
-
-	if (!(mas && slv)) {
-		pr_err("\n%s: Invalid master/slave device", __func__);
-		ret = -ENXIO;
-		goto exit_setup_dev_conn;
-	}
-
-	mas_node = mas->platform_data;
-	slv_node = slv->platform_data;
 
 	if (!(mas_node && slv_node)) {
+		pr_err("\n%s: Invalid master/slave device", __func__);
 		ret = -ENXIO;
 		goto exit_setup_dev_conn;
 	}
 
 	slv_id = slv_node->node_info->id;
 	mas_node->node_info->num_connections = 1;
-	mas_node->node_info->connections = devm_kzalloc(mas,
+	mas_node->node_info->connections = devm_kzalloc(&mas_node->dev,
 			(sizeof(int) * mas_node->node_info->num_connections),
 			GFP_KERNEL);
 
@@ -404,7 +397,7 @@ static int msm_bus_floor_setup_dev_conn(struct device *mas, struct device *slv)
 		goto exit_setup_dev_conn;
 	}
 
-	mas_node->node_info->dev_connections = devm_kzalloc(mas,
+	mas_node->node_info->dev_connections = devm_kzalloc(&mas_node->dev,
 			(sizeof(struct device *) *
 				mas_node->node_info->num_connections),
 			GFP_KERNEL);
@@ -416,7 +409,7 @@ static int msm_bus_floor_setup_dev_conn(struct device *mas, struct device *slv)
 		goto exit_setup_dev_conn;
 	}
 	mas_node->node_info->connections[0] = slv_id;
-	mas_node->node_info->dev_connections[0] = slv;
+	mas_node->node_info->dev_connections[0] = &slv_node->dev;
 
 exit_setup_dev_conn:
 	return ret;
@@ -499,8 +492,6 @@ err_setup_floor_dev:
 
 int msm_bus_floor_init(struct device *dev)
 {
-	struct device *m_dev = NULL;
-	struct device *s_dev = NULL;
 	struct msm_bus_node_device_type *mas_node = NULL;
 	struct msm_bus_node_device_type *slv_node = NULL;
 	struct msm_bus_node_device_type *bus_node = NULL;
@@ -512,7 +503,7 @@ int msm_bus_floor_init(struct device *dev)
 		goto exit_floor_init;
 	}
 
-	bus_node = dev->platform_data;
+	bus_node = to_msm_bus_node(dev);
 	if (!(bus_node && bus_node->node_info->is_fab_dev)) {
 		pr_info("\n%s: Can't create voting client, not a fab device",
 								__func__);
@@ -520,53 +511,23 @@ int msm_bus_floor_init(struct device *dev)
 		goto exit_floor_init;
 	}
 
-	m_dev = kzalloc(sizeof(struct device), GFP_KERNEL);
-	if (!m_dev) {
-		pr_err("%s:Master Device alloc failed\n", __func__);
-		m_dev = NULL;
-		ret = -ENOMEM;
-		goto exit_floor_init;
-	}
-
-	s_dev = kzalloc(sizeof(struct device), GFP_KERNEL);
-	if (!m_dev) {
-		pr_err("%s:Slave Device alloc failed\n", __func__);
-		s_dev = NULL;
-		kfree(m_dev);
-		ret = -ENOMEM;
-		m_dev = NULL;
-		goto exit_floor_init;
-	}
-
-	ret = msm_bus_floor_init_dev(dev, m_dev, true);
-	if (ret) {
+	mas_node = msm_bus_floor_init_dev(dev, true);
+	if (IS_ERR_OR_NULL(mas_node)) {
 		pr_err("\n%s: Error setting up master dev, bus %d",
 					__func__, bus_node->node_info->id);
-		kfree(m_dev);
-		kfree(s_dev);
 		goto exit_floor_init;
 	}
 
-	ret = msm_bus_floor_init_dev(dev, s_dev, false);
-	if (ret) {
+	slv_node = msm_bus_floor_init_dev(dev, false);
+	if (IS_ERR_OR_NULL(slv_node)) {
 		pr_err("\n%s: Error setting up slave dev, bus %d",
 					__func__, bus_node->node_info->id);
-		kfree(m_dev);
-		kfree(s_dev);
 		goto exit_floor_init;
 	}
 
-	ret = msm_bus_floor_setup_dev_conn(m_dev, s_dev);
+	ret = msm_bus_floor_setup_dev_conn(mas_node, slv_node);
 	if (ret) {
 		pr_err("\n%s: Error setting up connections bus %d",
-					__func__, bus_node->node_info->id);
-		goto err_floor_init;
-	}
-
-	mas_node = m_dev->platform_data;
-	slv_node = s_dev->platform_data;
-	if ((!(mas_node && slv_node))) {
-		pr_err("\n%s: Error getting mas/slv nodes bus %d",
 					__func__, bus_node->node_info->id);
 		goto err_floor_init;
 	}
@@ -581,9 +542,7 @@ int msm_bus_floor_init(struct device *dev)
 exit_floor_init:
 	return ret;
 err_floor_init:
-	device_unregister(m_dev);
-	device_unregister(s_dev);
-	kfree(m_dev);
-	kfree(s_dev);
+	kfree(mas_node);
+	kfree(slv_node);
 	return ret;
 }
