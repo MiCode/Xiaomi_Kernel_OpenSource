@@ -1096,6 +1096,29 @@ struct ipa3_sps_pm {
 };
 
 /**
+ * struct ipa3_hash_tuple - Hash tuple members for flt and rt
+ *  the fields tells if to be masked or not
+ * @src_id: pipe number for flt, table index for rt
+ * @src_ip_addr: IP source address
+ * @dst_ip_addr: IP destination address
+ * @src_port: L4 source port
+ * @dst_port: L4 destination port
+ * @protocol: IP protocol field
+ * @meta_data: packet meta-data
+ *
+ */
+struct ipa3_hash_tuple {
+	/* src_id: pipe in flt, tbl index in rt */
+	bool src_id;
+	bool src_ip_addr;
+	bool dst_ip_addr;
+	bool src_port;
+	bool dst_port;
+	bool protocol;
+	bool meta_data;
+};
+
+/**
  * struct ipa3_context - IPA context
  * @class: pointer to the struct class
  * @dev_num: device number
@@ -1792,6 +1815,8 @@ bool ipa3_get_modem_cfg_emb_pipe_flt(void);
 int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	struct ipa_api_controller *api_ctrl);
 
+bool ipa_is_modem_pipe(int pipe_idx);
+
 int ipa3_send_one(struct ipa3_sys_context *sys, struct ipa3_desc *desc,
 		bool in_atomic);
 int ipa3_send(struct ipa3_sys_context *sys,
@@ -1982,5 +2007,7 @@ int ipa3_rm_add_dependency_sync(enum ipa_rm_resource_name resource_name,
 		enum ipa_rm_resource_name depends_on_name);
 int ipa3_release_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
 int ipa3_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
+int ipa3_set_flt_tuple_mask(int pipe_idx, struct ipa3_hash_tuple *tuple);
+int ipa3_set_rt_tuple_mask(int tbl_idx, struct ipa3_hash_tuple *tuple);
 
 #endif /* _IPA3_I_H_ */

@@ -4549,3 +4549,29 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 
 	return 0;
 }
+
+/**
+ * ipa_is_modem_pipe()- Checks if pipe is owned by the modem
+ *
+ * @pipe_idx: pipe number
+ * Return value: true if owned by modem, false otherwize
+ */
+bool ipa_is_modem_pipe(int pipe_idx)
+{
+	int client_idx;
+
+	if (pipe_idx >= ipa3_ctx->ipa_num_pipes || pipe_idx < 0) {
+		IPAERR("Bad pipe index!\n");
+		return false;
+	}
+
+	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
+		if (!IPA_CLIENT_IS_Q6_CONS(client_idx) &&
+			!IPA_CLIENT_IS_Q6_PROD(client_idx))
+			continue;
+		if (ipa3_get_ep_mapping(client_idx) == pipe_idx)
+			return true;
+	}
+
+	return false;
+}

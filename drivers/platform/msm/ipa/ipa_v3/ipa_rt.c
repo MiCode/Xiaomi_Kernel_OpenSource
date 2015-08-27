@@ -1537,3 +1537,102 @@ bail:
 
 	return result;
 }
+
+static u32 ipa3_build_rt_tuple_mask(struct ipa3_hash_tuple *tpl)
+{
+	u32 msk = 0;
+
+	IPA_SETFIELD_IN_REG(msk, tpl->src_id,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_ROUTER_HASH_MSK_SRC_ID_SHFT,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_ROUTER_HASH_MSK_SRC_ID_BMSK
+		);
+
+	IPA_SETFIELD_IN_REG(msk, tpl->src_ip_addr,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_ROUTER_HASH_MSK_SRC_IP_SHFT,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_ROUTER_HASH_MSK_SRC_IP_BMSK
+		);
+
+	IPA_SETFIELD_IN_REG(msk, tpl->dst_ip_addr,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_ROUTER_HASH_MSK_DST_IP_SHFT,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_ROUTER_HASH_MSK_DST_IP_BMSK
+		);
+
+	IPA_SETFIELD_IN_REG(msk, tpl->src_port,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_ROUTER_HASH_MSK_SRC_PORT_SHFT,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_ROUTER_HASH_MSK_SRC_PORT_BMSK
+		);
+
+	IPA_SETFIELD_IN_REG(msk, tpl->dst_port,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_ROUTER_HASH_MSK_DST_PORT_SHFT,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_ROUTER_HASH_MSK_DST_PORT_BMSK
+		);
+
+	IPA_SETFIELD_IN_REG(msk, tpl->protocol,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_ROUTER_HASH_MSK_PROTOCOL_SHFT,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_ROUTER_HASH_MSK_PROTOCOL_BMSK
+		);
+
+	IPA_SETFIELD_IN_REG(msk, tpl->meta_data,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_ROUTER_HASH_MSK_METADATA_SHFT,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_ROUTER_HASH_MSK_METADATA_BMSK
+		);
+
+	return msk;
+}
+
+/**
+ * ipa3_set_rt_tuple_mask() - Sets the rt tuple masking for the given tbl
+ *  table index must be for AP EP (not modem)
+ *  updates the the routing masking values without changing the flt ones.
+ *
+ * @tbl_idx: routing table index to configure the tuple masking
+ * @tuple: the tuple members masking
+ * Returns:	0 on success, negative on failure
+ *
+ */
+int ipa3_set_rt_tuple_mask(int tbl_idx, struct ipa3_hash_tuple *tuple)
+{
+	u32 val;
+	u32 mask;
+
+	if (!tuple) {
+		IPAERR("bad tuple\n");
+		return -EINVAL;
+	}
+
+	if (tbl_idx >=
+		max(IPA_MEM_PART(v6_rt_num_index),
+		IPA_MEM_PART(v4_rt_num_index)) ||
+		tbl_idx < 0) {
+		IPAERR("bad table index\n");
+		return -EINVAL;
+	}
+
+	if (tbl_idx >= IPA_MEM_PART(v4_modem_rt_index_lo) &&
+		tbl_idx <= IPA_MEM_PART(v4_modem_rt_index_hi)) {
+		IPAERR("cannot configure modem v4 rt tuple by AP\n");
+		return -EINVAL;
+	}
+
+	if (tbl_idx >= IPA_MEM_PART(v6_modem_rt_index_lo) &&
+		tbl_idx <= IPA_MEM_PART(v6_modem_rt_index_hi)) {
+		IPAERR("cannot configure modem v6 rt tuple by AP\n");
+		return -EINVAL;
+	}
+
+	val = ipa_read_reg(ipa3_ctx->mmio,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_OFST(tbl_idx));
+
+	val &= 0x0000FFFF; /* clear 16 MSBs - rt bits */
+
+	mask = ipa3_build_rt_tuple_mask(tuple);
+	mask &= 0xFFFF0000;
+
+	val |= mask;
+
+	ipa_write_reg(ipa3_ctx->mmio,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_OFST(tbl_idx),
+		val);
+
+	return 0;
+}

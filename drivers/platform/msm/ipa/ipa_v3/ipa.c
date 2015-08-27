@@ -2173,6 +2173,58 @@ int _ipa_init_flt6_v3(void)
 	return rc;
 }
 
+static int ipa3_setup_flt_hash_tuple(void)
+{
+	int pipe_idx;
+	struct ipa3_hash_tuple tuple;
+
+	memset(&tuple, 0, sizeof(struct ipa3_hash_tuple));
+
+	for (pipe_idx = 0; pipe_idx < ipa3_ctx->ipa_num_pipes ; pipe_idx++) {
+		if (!ipa_is_ep_support_flt(pipe_idx))
+			continue;
+
+		if (ipa_is_modem_pipe(pipe_idx))
+			continue;
+
+		if (ipa3_set_flt_tuple_mask(pipe_idx, &tuple)) {
+			IPAERR("failed to setup pipe %d flt tuple\n", pipe_idx);
+			return -EFAULT;
+		}
+	}
+
+	return 0;
+}
+
+static int ipa3_setup_rt_hash_tuple(void)
+{
+	int tbl_idx;
+	struct ipa3_hash_tuple tuple;
+
+	memset(&tuple, 0, sizeof(struct ipa3_hash_tuple));
+
+	for (tbl_idx = 0;
+		tbl_idx < max(IPA_MEM_PART(v6_rt_num_index),
+		IPA_MEM_PART(v4_rt_num_index));
+		tbl_idx++) {
+
+		if (tbl_idx >= IPA_MEM_PART(v4_modem_rt_index_lo) &&
+			tbl_idx <= IPA_MEM_PART(v4_modem_rt_index_hi))
+			continue;
+
+		if (tbl_idx >= IPA_MEM_PART(v6_modem_rt_index_lo) &&
+			tbl_idx <= IPA_MEM_PART(v6_modem_rt_index_hi))
+			continue;
+
+		if (ipa3_set_rt_tuple_mask(tbl_idx, &tuple)) {
+			IPAERR("failed to setup tbl %d rt tuple\n", tbl_idx);
+			return -EFAULT;
+		}
+	}
+
+	return 0;
+}
+
 static int ipa3_setup_apps_pipes(void)
 {
 	struct ipa_sys_connect_params sys_in;
@@ -2209,6 +2261,20 @@ static int ipa3_setup_apps_pipes(void)
 
 	ipa3_ctx->ctrl->ipa_init_flt6();
 	IPADBG("V6 FLT initialized\n");
+
+	if (ipa3_setup_flt_hash_tuple()) {
+		IPAERR(":fail to configure flt hash tuple\n");
+		result = -EPERM;
+		goto fail_schedule_delayed_work;
+	}
+	IPADBG("flt hash tuple is configured\n");
+
+	if (ipa3_setup_rt_hash_tuple()) {
+		IPAERR(":fail to configure rt hash tuple\n");
+		result = -EPERM;
+		goto fail_schedule_delayed_work;
+	}
+	IPADBG("rt hash tuple is configured\n");
 
 	if (ipa3_setup_exception_path()) {
 		IPAERR(":fail to setup excp path\n");

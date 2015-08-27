@@ -815,16 +815,9 @@ fail_desc_alloc:
  */
 static bool ipa_flt_skip_pipe_config(int pipe)
 {
-	int client_idx;
-
-	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
-		if (!IPA_CLIENT_IS_Q6_CONS(client_idx) &&
-			!IPA_CLIENT_IS_Q6_PROD(client_idx))
-			continue;
-		if (ipa3_get_ep_mapping(client_idx) == pipe) {
-			IPADBG("skip %d - modem owned pipe\n", pipe);
-			return true;
-		}
+	if (ipa_is_modem_pipe(pipe)) {
+		IPADBG("skip %d - modem owned pipe\n", pipe);
+		return true;
 	}
 
 	if (ipa3_ctx->skip_ep_cfg_shadow[pipe]) {
@@ -1519,4 +1512,98 @@ void ipa3_delete_dflt_flt_rules(u32 ipa_ep_idx)
 		ep->dflt_flt6_rule_hdl = 0;
 	}
 	mutex_unlock(&ipa3_ctx->lock);
+}
+
+static u32 ipa3_build_flt_tuple_mask(struct ipa3_hash_tuple *tpl)
+{
+	u32 msk = 0;
+
+	IPA_SETFIELD_IN_REG(msk, tpl->src_id,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_SRC_ID_SHFT,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_SRC_ID_BMSK
+		);
+
+	IPA_SETFIELD_IN_REG(msk, tpl->src_ip_addr,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_SRC_IP_SHFT,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_SRC_IP_BMSK
+		);
+
+	IPA_SETFIELD_IN_REG(msk, tpl->dst_ip_addr,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_DST_IP_SHFT,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_DST_IP_BMSK
+		);
+
+	IPA_SETFIELD_IN_REG(msk, tpl->src_port,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_SRC_PORT_SHFT,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_SRC_PORT_BMSK
+		);
+
+	IPA_SETFIELD_IN_REG(msk, tpl->dst_port,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_DST_PORT_SHFT,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_DST_PORT_BMSK
+		);
+
+	IPA_SETFIELD_IN_REG(msk, tpl->protocol,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_PROTOCOL_SHFT,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_PROTOCOL_BMSK
+		);
+
+	IPA_SETFIELD_IN_REG(msk, tpl->meta_data,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_METADATA_SHFT,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_FILTER_HASH_MSK_METADATA_BMSK
+		);
+
+	return msk;
+}
+
+/**
+ * ipa3_set_flt_tuple_mask() - Sets the flt tuple masking for the given pipe
+ *  Pipe must be for AP EP (not modem) and support filtering
+ *  updates the the filtering masking values without changing the rt ones.
+ *
+ * @pipe_idx: filter pipe index to configure the tuple masking
+ * @tuple: the tuple members masking
+ * Returns:	0 on success, negative on failure
+ *
+ */
+int ipa3_set_flt_tuple_mask(int pipe_idx, struct ipa3_hash_tuple *tuple)
+{
+	u32 val;
+	u32 mask;
+
+	if (!tuple) {
+		IPAERR("bad tuple\n");
+		return -EINVAL;
+	}
+
+	if (pipe_idx >= ipa3_ctx->ipa_num_pipes || pipe_idx < 0) {
+		IPAERR("bad pipe index!\n");
+		return -EINVAL;
+	}
+
+	if (!ipa_is_ep_support_flt(pipe_idx)) {
+		IPAERR("pipe %d not filtering pipe\n", pipe_idx);
+		return -EINVAL;
+	}
+
+	if (ipa_is_modem_pipe(pipe_idx)) {
+		IPAERR("modem pipe tuple is not configured by AP\n");
+		return -EINVAL;
+	}
+
+	val = ipa_read_reg(ipa3_ctx->mmio,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_OFST(pipe_idx));
+
+	val &= 0xFFFF0000; /* clear 16 LSBs - flt bits */
+
+	mask = ipa3_build_flt_tuple_mask(tuple);
+	mask &= 0x0000FFFF;
+
+	val |= mask;
+
+	ipa_write_reg(ipa3_ctx->mmio,
+		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_OFST(pipe_idx),
+		val);
+
+	return 0;
 }
