@@ -1952,7 +1952,7 @@ static int ufs_qcom_clk_scale_down_post_change(struct ufs_hba *hba)
 }
 
 static int ufs_qcom_clk_scale_notify(struct ufs_hba *hba,
-				      bool scale_up, bool status)
+		bool scale_up, enum ufs_notify_change_status status)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 	struct ufs_pa_layer_attr *dev_req_params = &host->dev_req_params;
@@ -2138,7 +2138,7 @@ static bool ufs_qcom_testbus_cfg_is_ok(struct ufs_qcom_host *host)
 	 * mappings of select_minor, since there is no harm in
 	 * configuring a non-existent select_minor
 	 */
-	if (host->testbus.select_major > 0x1F) {
+	if (host->testbus.select_minor > 0x1F) {
 		dev_err(host->hba->dev,
 			"%s: 0x%05X is not a legal testbus option\n",
 			__func__, host->testbus.select_minor);
