@@ -1794,6 +1794,7 @@ static void ipa_fast_replenish_rx_cache(struct ipa_sys_context *sys)
 			else
 				WARN_ON(1);
 		}
+		sys->repl_trig_cnt = 0;
 		queue_delayed_work(sys->wq, &sys->replenish_rx_work,
 			msecs_to_jiffies(1));
 	}
@@ -2678,7 +2679,7 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 						IPA_GENERIC_AGGR_PKT_LIMIT;
 					}
 				}
-				sys->repl_trig_thresh = sys->rx_pool_sz / 4;
+				sys->repl_trig_thresh = sys->rx_pool_sz / 8;
 				if (nr_cpu_ids > 1)
 					sys->repl_hdlr =
 						ipa_fast_replenish_rx_cache;
