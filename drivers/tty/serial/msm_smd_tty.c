@@ -43,7 +43,6 @@
 #define TTY_PUSH_WS_DELAY 500
 #define TTY_PUSH_WS_POST_SUSPEND_DELAY 100
 #define MAX_RA_WAKE_LOCK_NAME_LEN 32
-#define SMD_TTY_PROBE_WAIT_TIMEOUT 3000
 #define SMD_TTY_LOG_PAGES 2
 
 #define SMD_TTY_INFO(buf...) \
@@ -61,10 +60,6 @@ do { \
 } while (0)
 
 static void *smd_tty_log_ctx;
-
-static struct delayed_work smd_tty_probe_work;
-static int smd_tty_probe_done;
-
 static bool smd_tty_in_suspend;
 static bool smd_tty_read_in_suspend;
 static struct wakeup_source read_in_suspend_ws;
@@ -137,43 +132,6 @@ struct smd_tty_pfdriver {
 	struct platform_driver driver;
 };
 
-/**
- * SMD port configuration.
- *
- * @tty_dev_index   Index into smd_tty[]
- * @port_name       Name of the SMD port
- * @dev_name        Name of the TTY Device (if NULL, @port_name is used)
- * @edge            SMD edge
- */
-struct smd_config {
-	uint32_t tty_dev_index;
-	const char *port_name;
-	const char *dev_name;
-	uint32_t edge;
-};
-
-/**
- * struct smd_config smd_configs[]: Legacy configuration
- *
- * An array of all SMD tty channel supported in legacy targets.
- * Future targets use either platform device or device tree configuration.
- */
-static struct smd_config smd_configs[] = {
-	{0, "DS", NULL, SMD_APPS_MODEM},
-	{1, "APPS_FM", NULL, SMD_APPS_WCNSS},
-	{2, "APPS_RIVA_BT_ACL", NULL, SMD_APPS_WCNSS},
-	{3, "APPS_RIVA_BT_CMD", NULL, SMD_APPS_WCNSS},
-	{4, "MBALBRIDGE", NULL, SMD_APPS_MODEM},
-	{5, "APPS_RIVA_ANT_CMD", NULL, SMD_APPS_WCNSS},
-	{6, "APPS_RIVA_ANT_DATA", NULL, SMD_APPS_WCNSS},
-	{7, "DATA1", NULL, SMD_APPS_MODEM},
-	{8, "DATA4", NULL, SMD_APPS_MODEM},
-	{11, "DATA11", NULL, SMD_APPS_MODEM},
-	{21, "DATA21", NULL, SMD_APPS_MODEM},
-	{27, "GPSNMEA", NULL, SMD_APPS_MODEM},
-	{36, "LOOPBACK", "LOOPBACK_TTY", SMD_APPS_MODEM},
-};
-#define DS_IDX 0
 #define LOOPBACK_IDX 36
 
 static struct delayed_work loopback_work;
@@ -947,44 +905,7 @@ static void smd_tty_device_init(int idx)
 
 	if (device_create_file(smd_tty[idx].device_ptr, &dev_attr_open_timeout))
 		SMD_TTY_ERR("%s: Unable to create device attributes for %s",
-			__func__, smd_configs[idx].port_name);
-}
-
-static int smd_tty_core_init(void)
-{
-	int ret;
-	int n;
-	int idx;
-
-	ret = smd_tty_register_driver();
-	if (ret) {
-		pr_err("%s: driver registration failed %d\n", __func__, ret);
-		return ret;
-	}
-
-	for (n = 0; n < ARRAY_SIZE(smd_configs); ++n) {
-		idx = smd_configs[n].tty_dev_index;
-		smd_tty[idx].edge = smd_configs[n].edge;
-
-		strlcpy(smd_tty[idx].ch_name, smd_configs[n].port_name,
-							SMD_MAX_CH_NAME_LEN);
-		if (smd_configs[n].dev_name == NULL) {
-			strlcpy(smd_tty[idx].dev_name, smd_tty[idx].ch_name,
-							SMD_MAX_CH_NAME_LEN);
-		} else {
-			strlcpy(smd_tty[idx].dev_name, smd_configs[n].dev_name,
-							SMD_MAX_CH_NAME_LEN);
-		}
-
-		smd_tty_device_init(idx);
-	}
-	INIT_DELAYED_WORK(&loopback_work, loopback_probe_worker);
-
-	ret = register_pm_notifier(&smd_tty_pm_nb);
-	if (ret)
-		pr_err("%s: power state notif error %d\n", __func__, ret);
-
-	return 0;
+			__func__, smd_tty[idx].ch_name);
 }
 
 static int smd_tty_devicetree_init(struct platform_device *pdev)
@@ -1090,19 +1011,7 @@ static int msm_smd_tty_probe(struct platform_device *pdev)
 		}
 	}
 
-	smd_tty_probe_done = 1;
 	return 0;
-}
-
-static void smd_tty_probe_worker(struct work_struct *work)
-{
-	int ret;
-	if (!smd_tty_probe_done) {
-		ret = smd_tty_core_init();
-		if (ret < 0)
-			SMD_TTY_ERR("smd_tty_core_init failed ret = %d\n", ret);
-	}
-
 }
 
 static struct of_device_id msm_smd_tty_match_table[] = {
@@ -1131,10 +1040,6 @@ static int __init smd_tty_init(void)
 								__func__, rc);
 		return rc;
 	}
-
-	INIT_DELAYED_WORK(&smd_tty_probe_work, smd_tty_probe_worker);
-	schedule_delayed_work(&smd_tty_probe_work,
-				msecs_to_jiffies(SMD_TTY_PROBE_WAIT_TIMEOUT));
 
 	wakeup_source_init(&read_in_suspend_ws, "SMDTTY_READ_IN_SUSPEND");
 	return 0;
