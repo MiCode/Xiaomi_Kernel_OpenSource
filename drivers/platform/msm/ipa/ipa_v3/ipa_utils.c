@@ -45,6 +45,11 @@
 		IPA_ENDP_INIT_AGGR_N_AGGR_PKT_LIMIT_BMSK >> \
 		IPA_ENDP_INIT_AGGR_N_AGGR_PKT_LIMIT_SHFT)
 
+/* configure IPA spare register 1 in order to have correct IPA version
+ * set bits 0,2,3 and 4. see SpareBits documentation.xlsx
+ */
+#define IPA_SPARE_REG_1_VAL (0x0000001D)
+
 #define IPA_GROUP_UL      (0)
 #define IPA_GROUP_DL      (1)
 #define IPA_GROUP_Q6ZIP   (2)
@@ -642,6 +647,10 @@ int ipa3_init_hw(void)
 
 	/* using old BCR configuration(IPAv2.6)*/
 	ipa_write_reg(ipa3_ctx->mmio, IPA_BCR_OFST, IPA_BCR_REG_VAL);
+
+	ipa_write_reg(ipa3_ctx->mmio,
+			IPA_SPARE_REG_1_OFST,
+			IPA_SPARE_REG_1_VAL);
 	return 0;
 }
 
