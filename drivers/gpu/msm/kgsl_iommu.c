@@ -1200,8 +1200,7 @@ static int _iommu_map_guard_page(struct kgsl_pagetable *pt,
 		if (!kgsl_secure_guard_page_memdesc.sgt) {
 			if (kgsl_allocate_user(KGSL_MMU_DEVICE(pt->mmu),
 					&kgsl_secure_guard_page_memdesc, pt,
-					sgp_size, sgp_size,
-					KGSL_MEMFLAGS_SECURE)) {
+					sgp_size, KGSL_MEMFLAGS_SECURE)) {
 				KGSL_CORE_ERR(
 					"Secure guard page alloc failed\n");
 				return -ENOMEM;
