@@ -36,6 +36,7 @@
 #include <linux/dma-contiguous.h>
 #include <linux/cma.h>
 #include <linux/iommu.h>
+#include <linux/qcom_iommu.h>
 #include <linux/kref.h>
 #include <linux/sort.h>
 #include <linux/msm_dma_iommu_mapping.h>
@@ -1635,6 +1636,7 @@ static const struct file_operations fops = {
 static struct of_device_id fastrpc_match_table[] = {
 	{ .compatible = "qcom,msm-fastrpc-adsp", },
 	{ .compatible = "qcom,msm-fastrpc-compute-cb", },
+	{ .compatible = "qcom,msm-fastrpc-legacy-compute-cb", },
 	{}
 };
 
@@ -1687,6 +1689,90 @@ bail:
 	return err;
 }
 
+static int fastrpc_cb_legacy_probe(struct device *dev)
+{
+	struct device_node *domains_child_node = NULL;
+	struct device_node *ctx_node = NULL;
+	struct fastrpc_channel_ctx *chan;
+	struct fastrpc_session_ctx *first_sess, *sess;
+	const char *name;
+	unsigned int *range = 0, range_size = 0;
+	unsigned int *sids = 0, sids_size = 0;
+	int err = 0, ret = 0, i;
+	int disable_htw = 1;
+
+	VERIFY(err, 0 != (domains_child_node = of_get_child_by_name(
+			dev->of_node,
+			"qcom,msm_fastrpc_compute_cb")));
+	if (err)
+		goto bail;
+	VERIFY(err, 0 != (ctx_node = of_parse_phandle(
+			domains_child_node,
+			"qcom,adsp-shared-domain-phandle", 0)));
+	if (err)
+		goto bail;
+	VERIFY(err, 0 != of_get_property(domains_child_node,
+				"qcom,adsp-shared-sids", &sids_size));
+	if (err)
+		goto bail;
+	VERIFY(err, sids = kzalloc(sids_size, GFP_KERNEL));
+	if (err)
+		goto bail;
+	ret = of_property_read_u32_array(domains_child_node,
+					"qcom,adsp-shared-sids",
+					sids,
+					sids_size/sizeof(unsigned int));
+	if (ret)
+		goto bail;
+	VERIFY(err, 0 != (name = of_get_property(ctx_node, "label", NULL)));
+	if (err)
+		goto bail;
+	VERIFY(err, 0 != of_get_property(ctx_node,
+					"qcom,virtual-addr-pool", &range_size));
+	if (err)
+		goto bail;
+	VERIFY(err, range = kzalloc(range_size, GFP_KERNEL));
+	if (err)
+		goto bail;
+	ret = of_property_read_u32_array(ctx_node,
+					"qcom,virtual-addr-pool",
+					range,
+					range_size/sizeof(unsigned int));
+	if (ret)
+		goto bail;
+
+	chan = &gcinfo[0];
+	VERIFY(err, chan->sesscount < NUM_SESSIONS);
+	if (err)
+		goto bail;
+	first_sess = &chan->session[chan->sesscount];
+	first_sess->smmu.dev = msm_iommu_get_ctx(name);
+	VERIFY(err, !IS_ERR_OR_NULL(first_sess->smmu.mapping =
+			arm_iommu_create_mapping(&platform_bus_type,
+					range[0], range[1])));
+	if (err)
+		goto bail;
+	iommu_domain_set_attr(first_sess->smmu.mapping->domain,
+			DOMAIN_ATTR_COHERENT_HTW_DISABLE,
+			&disable_htw);
+	VERIFY(err, !arm_iommu_attach_device(first_sess->smmu.dev,
+					first_sess->smmu.mapping));
+	if (err)
+		goto bail;
+	for (i = 0; i < sids_size/sizeof(unsigned int); i++) {
+		sess = &chan->session[chan->sesscount];
+		sess->smmu.cb = sids[i];
+		sess->smmu.dev = first_sess->smmu.dev;
+		sess->smmu.enabled = 1;
+		sess->smmu.mapping = first_sess->smmu.mapping;
+		chan->sesscount++;
+	}
+bail:
+	kfree(sids);
+	kfree(range);
+	return err;
+}
+
 static int fastrpc_probe(struct platform_device *pdev)
 {
 	int err = 0;
@@ -1695,6 +1781,10 @@ static int fastrpc_probe(struct platform_device *pdev)
 	if (of_device_is_compatible(dev->of_node,
 					"qcom,msm-fastrpc-compute-cb"))
 		return fastrpc_cb_probe(dev);
+
+	if (of_device_is_compatible(dev->of_node,
+					"qcom,msm-fastrpc-legacy-compute-cb"))
+		return fastrpc_cb_legacy_probe(dev);
 
 	VERIFY(err, !of_platform_populate(pdev->dev.of_node,
 					  fastrpc_match_table,

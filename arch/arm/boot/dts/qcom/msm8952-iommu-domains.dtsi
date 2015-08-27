@@ -58,5 +58,14 @@
 			qcom,virtual-addr-pool = <0x1000000 0x24800000>;
 			qcom,secure-domain;
 		};
+
+		/*
+		 * non-secure addr pool from 2048MB to 4096MB
+		 */
+		adsp_shared_domain: qcom,iommu-domain6 {
+			label = "adsp_shared";
+			qcom,iommu-contexts = <&adsp_shared>;
+			qcom,virtual-addr-pool = <0x80000000 0x7FFFFFFF>;
+		};
 	};
 };
