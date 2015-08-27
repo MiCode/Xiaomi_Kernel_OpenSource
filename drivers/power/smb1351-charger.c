@@ -541,13 +541,16 @@ static int smb1351_read_reg(struct smb1351_charger *chip, int reg, u8 *val)
 {
 	s32 ret;
 
+	pm_stay_awake(chip->dev);
 	ret = i2c_smbus_read_byte_data(chip->client, reg);
 	if (ret < 0) {
 		pr_err("i2c read fail: can't read from %02x: %d\n", reg, ret);
+		pm_relax(chip->dev);
 		return ret;
 	} else {
 		*val = ret;
 	}
+	pm_relax(chip->dev);
 	pr_debug("Reading 0x%02x=0x%02x\n", reg, *val);
 	return 0;
 }
@@ -556,12 +559,15 @@ static int smb1351_write_reg(struct smb1351_charger *chip, int reg, u8 val)
 {
 	s32 ret;
 
+	pm_stay_awake(chip->dev);
 	ret = i2c_smbus_write_byte_data(chip->client, reg, val);
 	if (ret < 0) {
 		pr_err("i2c write fail: can't write %02x to %02x: %d\n",
 			val, reg, ret);
+		pm_relax(chip->dev);
 		return ret;
 	}
+	pm_relax(chip->dev);
 	pr_debug("Writing 0x%02x=0x%02x\n", reg, val);
 	return 0;
 }
@@ -2791,6 +2797,7 @@ static int smb1351_main_charger_probe(struct i2c_client *client,
 	chip->usb_psy = usb_psy;
 	chip->fake_battery_soc = -EINVAL;
 	INIT_DELAYED_WORK(&chip->chg_remove_work, smb1351_chg_remove_work);
+	device_init_wakeup(chip->dev, true);
 
 	/* probe the device to check if its actually connected */
 	rc = smb1351_read_reg(chip, CHG_REVISION_REG, &reg);
