@@ -338,7 +338,7 @@ struct cpu_clk_8976 {
 };
 
 static void do_nothing(void *unused) { }
-#define CPU_LATENCY_NO_L2_PC_US (500)
+#define CPU_LATENCY_NO_L2_PC_US (280)
 
 static inline struct cpu_clk_8976 *to_cpu_clk_8976(struct clk *c)
 {
