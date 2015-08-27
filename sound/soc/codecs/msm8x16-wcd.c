@@ -524,13 +524,13 @@ static void msm8x16_wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 	reg3 = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MICB_2_EN);
 	reg4 = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL);
 
-	/* disable FSM and micbias*/
+	/* disable FSM and micbias and enable pullup*/
 	snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
 			0x80, 0x00);
 	snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_MICB_2_EN,
-			0x80, 0x00);
+			0xA5, 0x25);
 	/*
 	 * Enable legacy electrical detection current sources
 	 * and disable fast ramp and enable manual switching

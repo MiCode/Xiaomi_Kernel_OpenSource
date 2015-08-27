@@ -263,7 +263,6 @@ Optional Properties:
 - qcom,chg-led-support		A bool property to support the charger led feature.
 - qcom,chg-led-sw-controls		A bool property to allow the software to control
 					the charger led without a valid charger.
-- qcom,enable-hvdcp-9v			A bool property to enable 9V HVDCP 2.0 detection.
 
 Example:
 	qcom,qpnp-smbcharger {

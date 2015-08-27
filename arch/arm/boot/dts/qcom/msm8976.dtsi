@@ -444,6 +444,16 @@
 		qcom,target-dev = <&cpubw>;
 	};
 
+	qcom,msmcci-ccimon {
+		compatible = "qcom,msmcci-hwmon";
+		reg = <0xb1dc000 0xb0>,
+			<0xb1dc004 0xb0>;
+		interrupts = <0 272 4>;
+		qcom,counter-event-sel = <1 2>;
+		qcom,target-dev = <&cci_cache>;
+		qcom,shared-irq;
+	};
+
 	devfreq-cpufreq {
 		cpubw-cpufreq {
 			target-dev = <&cpubw>;

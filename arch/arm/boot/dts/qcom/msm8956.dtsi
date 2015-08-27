@@ -246,6 +246,8 @@
 	};
 
 	clock_cpu: qcom,cpu-clock-8976@b016000 {
+		#address-cells = <1>;
+		#size-cells = <1>;
 		compatible = "qcom,cpu-clock-8976";
 		reg =   <0xb114000  0x68>,
 			<0xb014000  0x68>,
@@ -378,6 +380,15 @@
 			<  556800000 5>,
 			<  614400000 6>;
 		#clock-cells = <1>;
+		ranges;
+		qcom,spm@0 {
+			compatible = "qcom,cpu-spm-8976";
+			reg = <0x0b111200 0x100>,
+			      <0x0b011200 0x100>,
+			      <0x0b1d4000 0x100>;
+			reg-names = "spm_c0_base", "spm_c1_base",
+				     "spm_cci_base";
+		};
 	};
 
 	cci_cache: qcom,cci {

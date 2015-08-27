@@ -2012,6 +2012,8 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		snd_soc_dapm_ignore_suspend(dapm, "DMIC0");
 		snd_soc_dapm_ignore_suspend(dapm, "SPK1 OUT");
 		snd_soc_dapm_ignore_suspend(dapm, "SPK2 OUT");
+		snd_soc_dapm_ignore_suspend(dapm, "HPHL");
+		snd_soc_dapm_ignore_suspend(dapm, "HPHR");
 	}
 
 	snd_soc_dapm_ignore_suspend(dapm, "AIF4 VI");

@@ -1947,7 +1947,16 @@ static void sdhci_msm_bus_voting(struct sdhci_host *host, u32 enable)
 
 	if (!msm_host->msm_bus_vote.client_handle)
 		return;
-
+	/*
+	 * If mmc_host is starting resume we set the highest msm_bus
+	 * vote(which corresponding sdhci DT node can support) at the
+	 * start of resume itself, instead of putting multiple
+	 * msm_bus vote at each card initlization state/freq.
+	 * Since mmc_dev_state here has started resume process,
+	 * we simply return.
+	 */
+	if (msm_host->mmc_dev_state == DEV_RESUMING)
+		return;
 	bw = sdhci_get_bw_required(host, ios);
 	if (enable) {
 		sdhci_msm_bus_cancel_work_and_set_vote(host, bw);
@@ -3140,6 +3149,45 @@ void sdhci_msm_reset_enter(struct sdhci_host *host, u8 mask)
 	if (msm_host->ice.pdev)
 		writel_relaxed(1, host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL);
 }
+/*
+ * sdhci_msm_notify_pm_status - notification from mmc_host
+ * layer to msm platform about PM state of mmc_host device.
+ *
+ * enum dev_state state - PM state of mmc_host device.
+ *
+ * If mmc_host is starting resume we set the highest msm_bus
+ * vote(which corresponding sdhci DT node can support) at the
+ * start of resume itself, instead of putting multiple
+ * msm_bus vote at each card initlization state/freq.
+ *
+ */
+static void sdhci_msm_notify_pm_status(struct sdhci_host *host,
+					enum dev_state state)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	unsigned int bw;
+	unsigned int *table = NULL;
+
+	if (msm_host->pdata->voting_data == NULL) {
+		msm_host->mmc_dev_state = state;
+		return;
+	}
+
+	table = msm_host->pdata->voting_data->bw_vecs;
+	if (state == DEV_RESUMING) {
+		bw = table[msm_host->msm_bus_vote.max_bw_vote - 1];
+		if (msm_host->pdata->mmc_bus_width == MMC_CAP_4_BIT_DATA)
+			bw /= 2;
+		sdhci_msm_bus_cancel_work_and_set_vote(host, bw);
+	} else if (state == DEV_RESUMED) {
+		/* Do Nothing
+		 * We assume that mmc_host layer will remove
+		 * the msm_bus vote once clk gets gated.
+		 */
+	}
+	msm_host->mmc_dev_state = state;
+}
 
 static void sdhci_msm_clear_set_dumpregs(struct sdhci_host *host, bool set)
 {
@@ -3202,6 +3250,7 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.reset_workaround = sdhci_msm_reset_workaround,
 	.clear_set_dumpregs = sdhci_msm_clear_set_dumpregs,
 	.notify_load = sdhci_msm_notify_load,
+	.notify_pm_status = sdhci_msm_notify_pm_status,
 };
 
 static int sdhci_msm_cfg_mpm_pin_wakeup(struct sdhci_host *host, unsigned mode)
