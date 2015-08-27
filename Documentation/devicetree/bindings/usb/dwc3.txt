@@ -53,6 +53,9 @@ Optional properties:
  - snps,disable-clk-gating: If present, disable controller's internal clock gating. Default it is enabled.
  - snps,bus-suspend-enable: If present then controller supports low power mode
 	during bus suspend.
+ - snps,num-normal-evt-buffs: If present, specifies number of normal event buffers. Default is 1.
+ - snps,num-gsi-evt-buffs: If present, specifies number of GSI based hardware accelerated event buffers.
+	1 event buffer is needed per h/w accelerated endpoint.
 
 This is usually a subnode to DWC3 glue to which it is connected.
 
@@ -63,4 +66,5 @@ dwc3@4a030000 {
 	usb-phy = <&usb2_phy>, <&usb3,phy>;
 	tx-fifo-resize;
 	snps,usb3-u1u2-disable;
+	snps,num-gsi-evt-buffs = <0x2>;
 };
