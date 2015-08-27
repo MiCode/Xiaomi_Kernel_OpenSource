@@ -80,6 +80,7 @@
 		smd11 = &smdtty_data11;
 		smd21 = &smdtty_data21;
 		smd36 = &smdtty_loopback;
+		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 	};
 
 	soc: soc { };
@@ -410,6 +411,42 @@
 		qcom,xprt-linkid = <1>;
 		qcom,xprt-version = <1>;
 		qcom,fragmented-data;
+	};
+
+	sdhc_1: sdhci@7824900 {
+		compatible = "qcom,sdhci-msm";
+		reg = <0x7824900 0x500>, <0x7824000 0x800>;
+		reg-names = "hc_mem", "core_mem";
+
+		interrupts = <0 123 0>, <0 138 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		qcom,bus-width = <8>;
+
+		qcom,devfreq,freq-table = <52000000 200000000>;
+
+		qcom,cpu-dma-latency-us = <60 340 900>;
+
+		qcom,msm-bus,name = "sdhc1";
+		qcom,msm-bus,num-cases = <9>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <78 512 0 0>, /* No vote */
+			<78 512 1046 3200>,    /* 400 KB/s*/
+			<78 512 52286 160000>, /* 20 MB/s */
+			<78 512 65360 200000>, /* 25 MB/s */
+			<78 512 130718 400000>, /* 50 MB/s */
+			<78 512 130718 400000>, /* 100 MB/s */
+			<78 512 261438 800000>, /* 200 MB/s */
+			<78 512 261438 800000>, /* 400 MB/s */
+			<78 512 1338562 4096000>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+			100000000 200000000 400000000 4294967295>;
+
+		clocks = <&clock_gcc clk_gcc_sdcc1_ahb_clk>,
+			 <&clock_gcc clk_gcc_sdcc1_apps_clk>;
+		clock-names = "iface_clk", "core_clk";
+
+		status = "disabled";
 	};
 };
 
