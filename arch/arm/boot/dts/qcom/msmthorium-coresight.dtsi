@@ -677,12 +677,125 @@
 		clock-names = "core_clk", "core_a_clk";
 	};
 
+	cti_modem_cpu0: cti@6124000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6124000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <42>;
+		coresight-name = "coresight-cti-modem-cpu0";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	/* Proto CTI */
+	cti_wcn_cpu0: cti@6139000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6139000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <43>;
+		coresight-name = "coresight-cti-wcn-cpu0";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	/* Venus CTI */
+	cti_video_cpu0: cti@6134000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6134000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <44>;
+		coresight-name = "coresight-cti-video-cpu0";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	/* LPASS CTI */
+	cti_audio_cpu0: cti@613c000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x613c000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <45>;
+		coresight-name = "coresight-cti-audio-cpu0";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	/* Proto ETM */
+	wcn_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <46>;
+		coresight-name = "coresight-wcn-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_mm>;
+		coresight-child-ports = <0>;
+
+		qcom,inst-id = <3>;
+	};
+
+	rpm_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <47>;
+		coresight-name = "coresight-rpm-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_center>;
+		coresight-child-ports = <0>;
+
+		qcom,inst-id = <4>;
+	};
+
+	/* LPASS ETM */
+	audio_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <48>;
+		coresight-name = "coresight-audio-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_mm>;
+		coresight-child-ports = <5>;
+
+		qcom,inst-id = <5>;
+	};
+
+	modem_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <49>;
+		coresight-name = "coresight-modem-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_right>;
+		coresight-child-ports = <1>;
+
+		qcom,inst-id = <2>;
+	};
+
 	csr: csr@6001000 {
 		compatible = "qcom,coresight-csr";
 		reg = <0x6001000 0x1000>;
 		reg-names = "csr-base";
 
-		coresight-id = <42>;
+		coresight-id = <50>;
 		coresight-name = "coresight-csr";
 		coresight-nr-inports = <0>;
 		qcom,blk-size = <1>;
@@ -697,7 +810,7 @@
 		reg = <0x6108000 0x1000>;
 		reg-names = "dbgui-base";
 
-		coresight-id = <43>;
+		coresight-id = <51>;
 		coresight-name = "coresight-dbgui";
 		coresight-nr-inports = <0>;
 		coresight-outports = <0>;
@@ -711,5 +824,17 @@
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
+	};
+
+	fuse: fuse@a601c {
+		compatible = "arm,coresight-fuse-v2";
+		reg = <0xa601c 0x8>,
+		      <0xa6004 0x4>,
+		      <0xa600c 0x4>;
+		reg-names = "fuse-base", "nidnt-fuse-base", "qpdi-fuse-base";
+
+		coresight-id = <52>;
+		coresight-name = "coresight-fuse";
+		coresight-nr-inports = <0>;
 	};
 };
