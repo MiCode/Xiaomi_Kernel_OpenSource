@@ -952,7 +952,7 @@
 		qcom,bus-width = <8>;
 		qcom,cpu-dma-latency-us = <701>;
 
-		qcom,devfreq,freq-table = <52000000 200000000>;
+		qcom,devfreq,freq-table = <20000000 200000000>;
 
 		qcom,msm-bus,name = "sdhc1";
 		qcom,msm-bus,num-cases = <9>;
@@ -989,7 +989,7 @@
 		qcom,bus-width = <4>;
 		qcom,cpu-dma-latency-us = <701>;
 
-		qcom,devfreq,freq-table = <52000000 200000000>;
+		qcom,devfreq,freq-table = <20000000 200000000>;
 
 		qcom,msm-bus,name = "sdhc2";
 		qcom,msm-bus,num-cases = <8>;
