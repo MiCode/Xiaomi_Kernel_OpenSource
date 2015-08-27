@@ -3326,6 +3326,12 @@ static int ep_queue(struct usb_ep *ep, struct usb_request *req,
 		}
 	}
 
+	if (ep->endless && udc->gadget.speed == USB_SPEED_FULL) {
+		err("Queueing endless req is not supported for FS");
+		retval = -EINVAL;
+		goto done;
+	}
+
 	/* first nuke then test link, e.g. previous status has not sent */
 	if (!list_empty(&mReq->queue)) {
 		retval = -EBUSY;

@@ -16,7 +16,7 @@
 #include "wsa881x-registers-analog.h"
 #include "wsa881x-analog.h"
 
-const struct reg_default wsa881x_ana_reg_defaults[] = {
+struct reg_default wsa881x_ana_reg_defaults[] = {
 	{WSA881X_CHIP_ID0, 0x00},
 	{WSA881X_CHIP_ID1, 0x00},
 	{WSA881X_CHIP_ID2, 0x00},
@@ -168,7 +168,7 @@ const struct reg_default wsa881x_ana_reg_defaults[] = {
 	{WSA881X_SPKR_STATUS3, 0x00},
 };
 
-const struct reg_default wsa881x_ana_reg_defaults_0[] = {
+struct reg_default wsa881x_ana_reg_defaults_0[] = {
 	{WSA881X_CHIP_ID0, 0x00},
 	{WSA881X_CHIP_ID1, 0x00},
 	{WSA881X_CHIP_ID2, 0x00},
@@ -257,7 +257,7 @@ const struct reg_default wsa881x_ana_reg_defaults_0[] = {
 	{WSA881X_OTP_REG_63, 0x40},
 };
 
-const struct reg_default wsa881x_ana_reg_defaults_1[] = {
+struct reg_default wsa881x_ana_reg_defaults_1[] = {
 	{WSA881X_BIAS_REF_CTRL - WSA881X_ANALOG_BASE, 0x6C},
 	{WSA881X_BIAS_TEST - WSA881X_ANALOG_BASE, 0x16},
 	{WSA881X_BIAS_BIAS - WSA881X_ANALOG_BASE, 0xF0},
@@ -322,6 +322,113 @@ const struct reg_default wsa881x_ana_reg_defaults_1[] = {
 	{WSA881X_SPKR_STATUS3 - WSA881X_ANALOG_BASE, 0x00},
 };
 
+struct reg_default wsa881x_rev_2_0_dig[] = {
+	{WSA881X_RESET_CTL, 0x00},
+	{WSA881X_TADC_VALUE_CTL, 0x01},
+	{WSA881X_INTR_MASK, 0x1B},
+	{WSA881X_IOPAD_CTL, 0x00},
+	{WSA881X_OTP_REG_28, 0x3F},
+	{WSA881X_OTP_REG_29, 0x3F},
+	{WSA881X_OTP_REG_30, 0x01},
+	{WSA881X_OTP_REG_31, 0x01},
+};
+
+struct reg_default wsa881x_rev_2_0_ana[] = {
+	{WSA881X_TEMP_ADC_CTRL, 0x03},
+	{WSA881X_ADC_SEL_IBIAS, 0x45},
+	{WSA881X_SPKR_DRV_GAIN, 0xC1},
+	{WSA881X_SPKR_DAC_CTL, 0x42},
+	{WSA881X_SPKR_BBM_CTL, 0x02},
+	{WSA881X_SPKR_MISC_CTL1, 0x40},
+	{WSA881X_SPKR_MISC_CTL2, 0x07},
+	{WSA881X_SPKR_BIAS_INT, 0x5F},
+	{WSA881X_SPKR_BIAS_PSRR, 0x44},
+	{WSA881X_BOOST_PS_CTL, 0xA0},
+	{WSA881X_BOOST_PRESET_OUT1, 0xB7},
+	{WSA881X_BOOST_LOOP_STABILITY, 0x8D},
+	{WSA881X_SPKR_PROT_ATEST2, 0x02},
+	{WSA881X_BONGO_RESRV_REG1, 0x5E},
+	{WSA881X_BONGO_RESRV_REG2, 0x07},
+};
+
+struct reg_default wsa881x_rev_2_0_regmap_ana[] = {
+	{WSA881X_TEMP_ADC_CTRL - WSA881X_ANALOG_BASE, 0x03},
+	{WSA881X_ADC_SEL_IBIAS - WSA881X_ANALOG_BASE, 0x45},
+	{WSA881X_SPKR_DRV_GAIN - WSA881X_ANALOG_BASE, 0xC1},
+	{WSA881X_SPKR_DAC_CTL - WSA881X_ANALOG_BASE, 0x42},
+	{WSA881X_SPKR_BBM_CTL - WSA881X_ANALOG_BASE, 0x02},
+	{WSA881X_SPKR_MISC_CTL1 - WSA881X_ANALOG_BASE, 0x40},
+	{WSA881X_SPKR_MISC_CTL2 - WSA881X_ANALOG_BASE, 0x07},
+	{WSA881X_SPKR_BIAS_INT - WSA881X_ANALOG_BASE, 0x5F},
+	{WSA881X_SPKR_BIAS_PSRR - WSA881X_ANALOG_BASE, 0x44},
+	{WSA881X_BOOST_PS_CTL - WSA881X_ANALOG_BASE, 0xA0},
+	{WSA881X_BOOST_PRESET_OUT1 - WSA881X_ANALOG_BASE, 0xB7},
+	{WSA881X_BOOST_LOOP_STABILITY - WSA881X_ANALOG_BASE, 0x8D},
+	{WSA881X_SPKR_PROT_ATEST2 - WSA881X_ANALOG_BASE, 0x02},
+	{WSA881X_BONGO_RESRV_REG1 - WSA881X_ANALOG_BASE, 0x5E},
+	{WSA881X_BONGO_RESRV_REG2 - WSA881X_ANALOG_BASE, 0x07},
+};
+
+/**
+ * wsa881x_update_reg_defaults_2_0 - update default values of regs for v2.0
+ *
+ * Bongo v2.0 has different default values for certain analog and digital
+ * registers compared to v1.x. Therefore, update the values of these registers
+ * with the values from tables defined above for v2.0.
+ */
+void wsa881x_update_reg_defaults_2_0(void)
+{
+	int i, j;
+
+	for (i = 0; i < ARRAY_SIZE(wsa881x_rev_2_0_dig); i++) {
+		for (j = 0; j < ARRAY_SIZE(wsa881x_ana_reg_defaults); j++)
+			if (wsa881x_ana_reg_defaults[j].reg ==
+						wsa881x_rev_2_0_dig[i].reg)
+				wsa881x_ana_reg_defaults[j].def =
+						wsa881x_rev_2_0_dig[i].def;
+	}
+	for (i = 0; i < ARRAY_SIZE(wsa881x_rev_2_0_ana); i++) {
+		for (j = 0; j < ARRAY_SIZE(wsa881x_ana_reg_defaults); j++)
+			if (wsa881x_ana_reg_defaults[j].reg ==
+						wsa881x_rev_2_0_ana[i].reg)
+				wsa881x_ana_reg_defaults[j].def =
+						wsa881x_rev_2_0_ana[i].def;
+	}
+}
+EXPORT_SYMBOL(wsa881x_update_reg_defaults_2_0);
+
+/**
+ * wsa881x_update_regmap_2_0 - update regmap framework with new tables
+ * @regmap: pointer to bongo regmap structure
+ * @flag: indicates digital or analog bongo slave
+ *
+ * Bongo v2.0 has some new registers for both analog and digital slaves.
+ * Update the regmap framework with all the new registers.
+ */
+void wsa881x_update_regmap_2_0(struct regmap *regmap, int flag)
+{
+	u16 ret = 0;
+
+	switch (flag) {
+	case WSA881X_DIGITAL_SLAVE:
+		ret = regmap_register_patch(regmap, wsa881x_rev_2_0_dig,
+					ARRAY_SIZE(wsa881x_rev_2_0_dig));
+		break;
+	case WSA881X_ANALOG_SLAVE:
+		ret = regmap_register_patch(regmap, wsa881x_rev_2_0_ana,
+					ARRAY_SIZE(wsa881x_rev_2_0_ana));
+		break;
+	default:
+		pr_debug("%s: unknown version", __func__);
+		ret = -EINVAL;
+		break;
+	}
+	if (ret)
+		pr_err("%s: Failed to update regmap defaults ret= %d\n",
+			__func__, ret);
+}
+EXPORT_SYMBOL(wsa881x_update_regmap_2_0);
+
 static bool wsa881x_readable_register(struct device *dev, unsigned int reg)
 {
 	return wsa881x_ana_reg_readable[reg];
@@ -330,20 +437,34 @@ static bool wsa881x_readable_register(struct device *dev, unsigned int reg)
 static bool wsa881x_volatile_register(struct device *dev, unsigned int reg)
 {
 	switch (reg) {
+	case WSA881X_CHIP_ID0:
+	case WSA881X_CHIP_ID1:
+	case WSA881X_CHIP_ID2:
+	case WSA881X_CHIP_ID3:
+	case WSA881X_BUS_ID:
+	case WSA881X_TEMP_MSB:
+	case WSA881X_TEMP_LSB:
+	case WSA881X_SDM_PDM9_LSB:
+	case WSA881X_SDM_PDM9_MSB:
 	case WSA881X_OTP_REG_0:
 	case WSA881X_OTP_REG_1:
 	case WSA881X_OTP_REG_2:
 	case WSA881X_OTP_REG_3:
 	case WSA881X_OTP_REG_4:
 	case WSA881X_OTP_REG_5:
+	case WSA881X_OTP_REG_31:
 	case WSA881X_TEMP_DOUT_MSB:
 	case WSA881X_TEMP_DOUT_LSB:
 	case WSA881X_TEMP_OP:
 	case WSA881X_OTP_CTRL1:
 	case WSA881X_INTR_STATUS:
+	case WSA881X_ATE_TEST_MODE:
+	case WSA881X_PIN_STATUS:
+	case WSA881X_SWR_HM_TEST2:
 	case WSA881X_SPKR_STATUS1:
 	case WSA881X_SPKR_STATUS2:
 	case WSA881X_SPKR_STATUS3:
+	case WSA881X_SPKR_PROT_SAR:
 		return true;
 	default:
 		return false;

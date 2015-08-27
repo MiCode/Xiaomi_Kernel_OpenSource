@@ -124,7 +124,7 @@ struct smbchg_chip {
 	bool				cfg_chg_led_sw_ctrl;
 	bool				vbat_above_headroom;
 	bool				force_aicl_rerun;
-	bool				enable_hvdcp_9v;
+	bool				hvdcp3_supported;
 	u8				original_usbin_allowance;
 	struct parallel_usb_cfg		parallel;
 	struct delayed_work		parallel_en_work;
@@ -264,6 +264,7 @@ enum smbchg_wa {
 	SMBCHG_AICL_DEGLITCH_WA = BIT(0),
 	SMBCHG_HVDCP_9V_EN_WA	= BIT(1),
 	SMBCHG_USB100_WA = BIT(2),
+	SMBCHG_BATT_OV_WA = BIT(3),
 };
 
 enum print_reason {
@@ -3911,8 +3912,8 @@ static void smbchg_hvdcp_det_work(struct work_struct *work)
 	int rc;
 
 	if (is_hvdcp_present(chip)) {
-		if (chip->enable_hvdcp_9v
-				&& (chip->wa_flags & SMBCHG_HVDCP_9V_EN_WA)) {
+		if (!chip->hvdcp3_supported &&
+			(chip->wa_flags & SMBCHG_HVDCP_9V_EN_WA)) {
 			/* force HVDCP 2.0 */
 			rc = force_9v_hvdcp(chip);
 			if (rc)
@@ -4644,10 +4645,173 @@ out:
 	return rc;
 }
 
+#define USB_CMD_APSD		0x41
+#define APSD_RERUN		BIT(0)
+static int rerun_apsd(struct smbchg_chip *chip)
+{
+	int rc;
+
+	INIT_COMPLETION(chip->src_det_raised);
+	INIT_COMPLETION(chip->usbin_uv_lowered);
+	INIT_COMPLETION(chip->src_det_lowered);
+	INIT_COMPLETION(chip->usbin_uv_raised);
+
+	/* re-run APSD */
+	rc = smbchg_masked_write(chip, chip->usb_chgpth_base + USB_CMD_APSD,
+					APSD_RERUN, APSD_RERUN);
+	if (rc) {
+		pr_err("Couldn't re-run APSD rc=%d\n", rc);
+		return rc;
+	}
+
+	pr_smb(PR_MISC, "Waiting on rising usbin uv\n");
+	rc = wait_for_usbin_uv(chip, true);
+	if (rc < 0) {
+		pr_err("wait for usbin uv failed rc = %d\n", rc);
+		return rc;
+	}
+
+	pr_smb(PR_MISC, "Waiting on falling src det\n");
+	rc = wait_for_src_detect(chip, false);
+	if (rc < 0) {
+		pr_err("wait for src detect failed rc = %d\n", rc);
+		return rc;
+	}
+
+	pr_smb(PR_MISC, "Waiting on falling usbin uv\n");
+	rc = wait_for_usbin_uv(chip, false);
+	if (rc < 0) {
+		pr_err("wait for usbin uv failed rc = %d\n", rc);
+		return rc;
+	}
+
+	pr_smb(PR_MISC, "Waiting on rising src det\n");
+	rc = wait_for_src_detect(chip, true);
+	if (rc < 0) {
+		pr_err("wait for src detect failed rc = %d\n", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
+#define SCHG_LITE_USBIN_HVDCP_5_9V		0x8
+#define SCHG_LITE_USBIN_HVDCP_5_9V_SEL_MASK	0x38
+#define SCHG_LITE_USBIN_HVDCP_SEL_IDLE		BIT(3)
+static bool is_hvdcp_5v_cont_mode(struct smbchg_chip *chip)
+{
+	int rc;
+	u8 reg = 0;
+
+	rc = smbchg_read(chip, &reg,
+		chip->usb_chgpth_base + USBIN_HVDCP_STS, 1);
+	if (rc) {
+		pr_err("Unable to read HVDCP status rc=%d\n", rc);
+		return false;
+	}
+
+	pr_smb(PR_STATUS, "HVDCP status = %x\n", reg);
+
+	if (reg & SCHG_LITE_USBIN_HVDCP_SEL_IDLE) {
+		rc = smbchg_read(chip, &reg,
+			chip->usb_chgpth_base + INPUT_STS, 1);
+		if (rc) {
+			pr_err("Unable to read INPUT status rc=%d\n", rc);
+			return false;
+		}
+		pr_smb(PR_STATUS, "INPUT status = %x\n", reg);
+		if ((reg & SCHG_LITE_USBIN_HVDCP_5_9V_SEL_MASK) ==
+					SCHG_LITE_USBIN_HVDCP_5_9V)
+			return true;
+	}
+	return false;
+}
+
 static int smbchg_prepare_for_pulsing_lite(struct smbchg_chip *chip)
 {
 	int rc = 0;
 
+	/* check if HVDCP is already in 5V continuous mode */
+	if (is_hvdcp_5v_cont_mode(chip)) {
+		pr_smb(PR_MISC, "HVDCP by default is in 5V continuous mode\n");
+		return 0;
+	}
+
+	/* switch to 5V HVDCP */
+	pr_smb(PR_MISC, "Switch to 5V HVDCP\n");
+	rc = smbchg_sec_masked_write(chip, chip->usb_chgpth_base + CHGPTH_CFG,
+				HVDCP_ADAPTER_SEL_MASK, HVDCP_5V);
+	if (rc < 0) {
+		pr_err("Couldn't configure HVDCP 5V rc=%d\n", rc);
+		goto out;
+	}
+
+	/* wait for HVDCP to lower to 5V */
+	msleep(500);
+	/*
+	 * Check if the same hvdcp session is in progress. src_det should be
+	 * high and that we are still in 5V hvdcp
+	 */
+	if (!is_src_detect_high(chip)) {
+		pr_smb(PR_MISC, "src det low after 500mS sleep\n");
+		goto out;
+	}
+
+	/* reduce input current limit to 300mA */
+	pr_smb(PR_MISC, "Reduce mA = 300\n");
+	mutex_lock(&chip->current_change_lock);
+	chip->target_fastchg_current_ma = 300;
+	rc = smbchg_set_thermal_limited_usb_current_max(chip,
+			chip->target_fastchg_current_ma);
+	mutex_unlock(&chip->current_change_lock);
+	if (rc < 0) {
+		pr_err("Couldn't set usb current rc=%d continuing\n", rc);
+		goto out;
+	}
+
+	pr_smb(PR_MISC, "Disable AICL\n");
+	smbchg_sec_masked_write(chip, chip->usb_chgpth_base + USB_AICL_CFG,
+			AICL_EN_BIT, 0);
+
+	chip->hvdcp_3_det_ignore_uv = true;
+
+	/* re-run APSD */
+	rc = rerun_apsd(chip);
+	if (rc) {
+		pr_err("APSD rerun failed\n");
+		goto out;
+	}
+
+	chip->hvdcp_3_det_ignore_uv = false;
+
+	pr_smb(PR_MISC, "Enable AICL\n");
+	smbchg_sec_masked_write(chip, chip->usb_chgpth_base + USB_AICL_CFG,
+			AICL_EN_BIT, AICL_EN_BIT);
+	/*
+	 * DCP will switch to HVDCP in this time by removing the short
+	 * between DP DM
+	 */
+	msleep(HVDCP_NOTIFY_MS);
+	/*
+	 * Check if the same hvdcp session is in progress. src_det should be
+	 * high and the usb type should be none since APSD was disabled
+	 */
+	if (!is_src_detect_high(chip)) {
+		pr_smb(PR_MISC, "src det low after 2s sleep\n");
+		rc = -EINVAL;
+		goto out;
+	}
+
+	/* We are set if HVDCP in 5V continuous mode */
+	if (!is_hvdcp_5v_cont_mode(chip)) {
+		pr_err("HVDCP could not be set in 5V continuous mode\n");
+		goto out;
+	}
+
+	return 0;
+out:
+	chip->hvdcp_3_det_ignore_uv = false;
+	restore_from_hvdcp_detection(chip);
 	return rc;
 }
 
@@ -4655,12 +4819,38 @@ static int smbchg_unprepare_for_pulsing_lite(struct smbchg_chip *chip)
 {
 	int rc = 0;
 
+	pr_smb(PR_MISC, "Forcing 9V HVDCP 2.0\n");
+	rc = force_9v_hvdcp(chip);
+	if (rc) {
+		pr_err("Failed to force 9V HVDCP=%d\n",	rc);
+		return rc;
+	}
+
+	/* Reset the input current limit */
+	pr_smb(PR_MISC, "Reset ICL\n");
+	mutex_lock(&chip->current_change_lock);
+	chip->usb_target_current_ma = DEFAULT_WALL_CHG_MA;
+	rc = smbchg_set_thermal_limited_usb_current_max(chip,
+			chip->usb_target_current_ma);
+	mutex_unlock(&chip->current_change_lock);
+	if (rc < 0)
+		pr_err("Couldn't set usb current rc=%d continuing\n", rc);
+
 	return rc;
 }
 
+#define CMD_HVDCP_2		0x43
+#define SINGLE_INCREMENT	BIT(0)
+#define SINGLE_DECREMENT	BIT(1)
 static int smbchg_dp_pulse_lite(struct smbchg_chip *chip)
 {
 	int rc = 0;
+
+	pr_smb(PR_MISC, "Increment DP\n");
+	rc = smbchg_masked_write(chip, chip->usb_chgpth_base + CMD_HVDCP_2,
+				SINGLE_INCREMENT, SINGLE_INCREMENT);
+	if (rc)
+		pr_err("Single-increment failed rc=%d\n", rc);
 
 	return rc;
 }
@@ -4668,6 +4858,12 @@ static int smbchg_dp_pulse_lite(struct smbchg_chip *chip)
 static int smbchg_dm_pulse_lite(struct smbchg_chip *chip)
 {
 	int rc = 0;
+
+	pr_smb(PR_MISC, "Decrement DM\n");
+	rc = smbchg_masked_write(chip, chip->usb_chgpth_base + CMD_HVDCP_2,
+				SINGLE_DECREMENT, SINGLE_DECREMENT);
+	if (rc)
+		pr_err("Single-decrement failed rc=%d\n", rc);
 
 	return rc;
 }
@@ -4736,6 +4932,10 @@ static int smbchg_dp_dm(struct smbchg_chip *chip, int val)
 		if (!rc && chip->pulse_cnt)
 			chip->pulse_cnt--;
 		pr_smb(PR_MISC, "pulse_cnt = %d\n", chip->pulse_cnt);
+		break;
+	case POWER_SUPPLY_DP_DM_HVDCP3_SUPPORTED:
+		chip->hvdcp3_supported = true;
+		pr_smb(PR_MISC, "HVDCP3 supported\n");
 		break;
 	default:
 		break;
@@ -5608,7 +5808,6 @@ static inline int get_bpd(const char *name)
 #define RECHG_THRESHOLD_SRC_BIT		BIT(1)
 #define TERM_I_SRC_BIT			BIT(2)
 #define TERM_SRC_FG			BIT(2)
-#define CHGR_CFG2			0xFC
 #define CHG_INHIB_CFG_REG		0xF7
 #define CHG_INHIBIT_50MV_VAL		0x00
 #define CHG_INHIBIT_100MV_VAL		0x01
@@ -5616,9 +5815,11 @@ static inline int get_bpd(const char *name)
 #define CHG_INHIBIT_300MV_VAL		0x03
 #define CHG_INHIBIT_MASK		0x03
 #define USE_REGISTER_FOR_CURRENT	BIT(2)
+#define CHGR_CFG2			0xFC
 #define CHG_EN_SRC_BIT			BIT(7)
 #define CHG_EN_COMMAND_BIT		BIT(6)
 #define P2F_CHG_TRAN			BIT(5)
+#define CHG_BAT_OV_ECC			BIT(4)
 #define I_TERM_BIT			BIT(3)
 #define AUTO_RECHG_BIT			BIT(2)
 #define CHARGER_INHIBIT_BIT		BIT(0)
@@ -5660,6 +5861,50 @@ static inline int get_bpd(const char *name)
 #define APSD_RERUN_BIT			BIT(0)
 #define OTG_OC_CFG			0xF1
 #define HICCUP_ENABLED_BIT		BIT(6)
+static void batt_ov_wa_check(struct smbchg_chip *chip)
+{
+	int rc;
+	u8 reg;
+
+	/* disable-'battery OV disables charging' feature */
+	rc = smbchg_sec_masked_write(chip, chip->chgr_base + CHGR_CFG2,
+				CHG_BAT_OV_ECC, 0);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't set chgr_cfg2 rc=%d\n", rc);
+		return;
+	}
+
+	/*
+	 * if battery OV is set:
+	 * restart charging by disable/enable charging
+	 */
+	rc = smbchg_read(chip, &reg, chip->bat_if_base + RT_STS, 1);
+	if (rc < 0) {
+		dev_err(chip->dev,
+			"Couldn't read Battery RT status rc = %d\n", rc);
+		return;
+	}
+
+	if (reg & BAT_OV_BIT) {
+		rc = smbchg_charging_en(chip, false);
+		if (rc < 0) {
+			dev_err(chip->dev,
+				"Couldn't disable charging: rc = %d\n", rc);
+			return;
+		}
+
+		/* delay for charging-disable to take affect */
+		msleep(200);
+
+		rc = smbchg_charging_en(chip, true);
+		if (rc < 0) {
+			dev_err(chip->dev,
+				"Couldn't enable charging: rc = %d\n", rc);
+			return;
+		}
+	}
+}
+
 static int smbchg_hw_init(struct smbchg_chip *chip)
 {
 	int rc, i;
@@ -6024,6 +6269,9 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 				rc);
 	}
 
+	if (chip->wa_flags & SMBCHG_BATT_OV_WA)
+		batt_ov_wa_check(chip);
+
 	return rc;
 }
 
@@ -6238,8 +6486,6 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 					"qcom,low-volt-dcin");
 	chip->force_aicl_rerun = of_property_read_bool(node,
 					"qcom,force-aicl-rerun");
-	chip->enable_hvdcp_9v = of_property_read_bool(node,
-					"qcom,enable-hvdcp-9v");
 
 	/* parse the battery missing detection pin source */
 	rc = of_property_read_string(chip->spmi->dev.of_node,
@@ -6675,8 +6921,10 @@ static int smbchg_wa_config(struct smbchg_chip *chip)
 
 	switch (pmic_rev_id->pmic_subtype) {
 	case PMI8994:
-		chip->wa_flags |= SMBCHG_AICL_DEGLITCH_WA;
+		chip->wa_flags |= SMBCHG_AICL_DEGLITCH_WA
+				| SMBCHG_BATT_OV_WA;
 	case PMI8950:
+		chip->wa_flags |= SMBCHG_BATT_OV_WA;
 		if (pmic_rev_id->rev4 < 2) /* PMI8950 1.0 */ {
 			chip->wa_flags |= SMBCHG_AICL_DEGLITCH_WA;
 		} else	{ /* rev > PMI8950 v1.0 */

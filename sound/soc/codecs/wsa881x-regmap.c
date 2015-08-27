@@ -16,6 +16,12 @@
 #include "wsa881x-registers.h"
 #include "wsa881x.h"
 
+/*
+ * Default register reset values that are common across different versions
+ * are defined here. If a register reset value is changed based on version
+ * then remove it from this structure and add it in version specific
+ * structures.
+ */
 static struct reg_default wsa881x_defaults[] = {
 	{WSA881X_CHIP_ID0, 0x00},
 	{WSA881X_CHIP_ID1, 0x00},
@@ -46,7 +52,6 @@ static struct reg_default wsa881x_defaults[] = {
 	{WSA881X_OTP_CTRL1, 0x00},
 	{WSA881X_HDRIVE_CTL_GROUP1, 0x00},
 	{WSA881X_INTR_MODE, 0x00},
-	{WSA881X_INTR_MASK, 0x1F},
 	{WSA881X_INTR_STATUS, 0x00},
 	{WSA881X_INTR_CLEAR, 0x00},
 	{WSA881X_INTR_LEVEL, 0x00},
@@ -98,10 +103,6 @@ static struct reg_default wsa881x_defaults[] = {
 	{WSA881X_OTP_REG_25, 0x01},
 	{WSA881X_OTP_REG_26, 0x03},
 	{WSA881X_OTP_REG_27, 0x11},
-	{WSA881X_OTP_REG_28, 0xFF},
-	{WSA881X_OTP_REG_29, 0xFF},
-	{WSA881X_OTP_REG_30, 0xFF},
-	{WSA881X_OTP_REG_31, 0xFF},
 	{WSA881X_OTP_REG_63, 0x40},
 	/* WSA881x Analog registers */
 	{WSA881X_BIAS_REF_CTRL, 0x6C},
@@ -113,41 +114,29 @@ static struct reg_default wsa881x_defaults[] = {
 	{WSA881X_TEMP_CLK_CTRL, 0x87},
 	{WSA881X_TEMP_TEST, 0x00},
 	{WSA881X_TEMP_BIAS, 0x51},
-	{WSA881X_TEMP_ADC_CTRL, 0x00},
 	{WSA881X_TEMP_DOUT_MSB, 0x00},
 	{WSA881X_TEMP_DOUT_LSB, 0x00},
 	{WSA881X_ADC_EN_MODU_V, 0x00},
 	{WSA881X_ADC_EN_MODU_I, 0x00},
 	{WSA881X_ADC_EN_DET_TEST_V, 0x00},
 	{WSA881X_ADC_EN_DET_TEST_I, 0x00},
-	{WSA881X_ADC_SEL_IBIAS, 0x25},
 	{WSA881X_ADC_EN_SEL_IBAIS, 0x10},
 	{WSA881X_SPKR_DRV_EN, 0x74},
-	{WSA881X_SPKR_DRV_GAIN, 0x01},
-	{WSA881X_SPKR_DAC_CTL, 0x40},
 	{WSA881X_SPKR_DRV_DBG, 0x15},
 	{WSA881X_SPKR_PWRSTG_DBG, 0x00},
 	{WSA881X_SPKR_OCP_CTL, 0xD4},
 	{WSA881X_SPKR_CLIP_CTL, 0x90},
-	{WSA881X_SPKR_BBM_CTL, 0x00},
-	{WSA881X_SPKR_MISC_CTL1, 0x80},
-	{WSA881X_SPKR_MISC_CTL2, 0x00},
-	{WSA881X_SPKR_BIAS_INT, 0x56},
 	{WSA881X_SPKR_PA_INT, 0x54},
 	{WSA881X_SPKR_BIAS_CAL, 0xAC},
-	{WSA881X_SPKR_BIAS_PSRR, 0x54},
 	{WSA881X_SPKR_STATUS1, 0x00},
 	{WSA881X_SPKR_STATUS2, 0x00},
 	{WSA881X_BOOST_EN_CTL, 0x18},
 	{WSA881X_BOOST_CURRENT_LIMIT, 0x7A},
-	{WSA881X_BOOST_PS_CTL, 0xC0},
-	{WSA881X_BOOST_PRESET_OUT1, 0x77},
 	{WSA881X_BOOST_PRESET_OUT2, 0x70},
 	{WSA881X_BOOST_FORCE_OUT, 0x0E},
 	{WSA881X_BOOST_LDO_PROG, 0x16},
 	{WSA881X_BOOST_SLOPE_COMP_ISENSE_FB, 0x71},
 	{WSA881X_BOOST_RON_CTL, 0x0F},
-	{WSA881X_BOOST_LOOP_STABILITY, 0xAD},
 	{WSA881X_BOOST_ZX_CTL, 0x34},
 	{WSA881X_BOOST_START_CTL, 0x23},
 	{WSA881X_BOOST_MISC1_CTL, 0x80},
@@ -159,14 +148,102 @@ static struct reg_default wsa881x_defaults[] = {
 	{WSA881X_SPKR_PROT_FE_ISENSE_BIAS_SET1, 0x8D},
 	{WSA881X_SPKR_PROT_FE_ISENSE_BIAS_SET2, 0x8D},
 	{WSA881X_SPKR_PROT_ATEST1, 0x01},
-	{WSA881X_SPKR_PROT_ATEST2, 0x00},
 	{WSA881X_SPKR_PROT_FE_VSENSE_VCM, 0x8D},
 	{WSA881X_SPKR_PROT_FE_VSENSE_BIAS_SET1, 0x4D},
-	{WSA881X_BONGO_RESRV_REG1, 0x00},
-	{WSA881X_BONGO_RESRV_REG2, 0x00},
 	{WSA881X_SPKR_PROT_SAR, 0x00},
 	{WSA881X_SPKR_STATUS3, 0x00},
 };
+
+/* Default register reset values for WSA881x rev 1.0 or 1.1 */
+static struct reg_default wsa881x_rev_1_x[] = {
+	{WSA881X_INTR_MASK, 0x1F},
+	{WSA881X_OTP_REG_28, 0xFF},
+	{WSA881X_OTP_REG_29, 0xFF},
+	{WSA881X_OTP_REG_30, 0xFF},
+	{WSA881X_OTP_REG_31, 0xFF},
+	{WSA881X_TEMP_ADC_CTRL, 0x00},
+	{WSA881X_ADC_SEL_IBIAS, 0x25},
+	{WSA881X_SPKR_DRV_GAIN, 0x01},
+	{WSA881X_SPKR_DAC_CTL, 0x40},
+	{WSA881X_SPKR_BBM_CTL, 0x00},
+	{WSA881X_SPKR_MISC_CTL1, 0x80},
+	{WSA881X_SPKR_MISC_CTL2, 0x00},
+	{WSA881X_SPKR_BIAS_INT, 0x56},
+	{WSA881X_SPKR_BIAS_PSRR, 0x54},
+	{WSA881X_BOOST_PS_CTL, 0xC0},
+	{WSA881X_BOOST_PRESET_OUT1, 0x77},
+	{WSA881X_BOOST_LOOP_STABILITY, 0xAD},
+	{WSA881X_SPKR_PROT_ATEST2, 0x00},
+	{WSA881X_BONGO_RESRV_REG1, 0x00},
+	{WSA881X_BONGO_RESRV_REG2, 0x00},
+};
+
+/* Default register reset values for WSA881x rev 2.0 */
+static struct reg_default wsa881x_rev_2_0[] = {
+	{WSA881X_RESET_CTL, 0x00},
+	{WSA881X_TADC_VALUE_CTL, 0x01},
+	{WSA881X_INTR_MASK, 0x1B},
+	{WSA881X_IOPAD_CTL, 0x00},
+	{WSA881X_OTP_REG_28, 0x3F},
+	{WSA881X_OTP_REG_29, 0x3F},
+	{WSA881X_OTP_REG_30, 0x01},
+	{WSA881X_OTP_REG_31, 0x01},
+	{WSA881X_TEMP_ADC_CTRL, 0x03},
+	{WSA881X_ADC_SEL_IBIAS, 0x45},
+	{WSA881X_SPKR_DRV_GAIN, 0xC1},
+	{WSA881X_SPKR_DAC_CTL, 0x42},
+	{WSA881X_SPKR_BBM_CTL, 0x02},
+	{WSA881X_SPKR_MISC_CTL1, 0x40},
+	{WSA881X_SPKR_MISC_CTL2, 0x07},
+	{WSA881X_SPKR_BIAS_INT, 0x5F},
+	{WSA881X_SPKR_BIAS_PSRR, 0x44},
+	{WSA881X_BOOST_PS_CTL, 0xA0},
+	{WSA881X_BOOST_PRESET_OUT1, 0xB7},
+	{WSA881X_BOOST_LOOP_STABILITY, 0x8D},
+	{WSA881X_SPKR_PROT_ATEST2, 0x02},
+	{WSA881X_BONGO_RESRV_REG1, 0x5E},
+	{WSA881X_BONGO_RESRV_REG2, 0x07},
+};
+
+/*
+ * wsa881x_regmap_defaults - update regmap default register values
+ * @regmap: pointer to regmap structure
+ * @version: wsa881x version id
+ *
+ * Update regmap default register values based on version id
+ *
+ */
+void wsa881x_regmap_defaults(struct regmap *regmap, u8 version)
+{
+	u16 ret = 0;
+
+	if (!regmap) {
+		pr_debug("%s: regmap structure is NULL\n", __func__);
+		return;
+	}
+
+	switch (version) {
+	case WSA881X_1_X:
+		ret = regmap_register_patch(regmap,
+					    wsa881x_rev_1_x,
+					    ARRAY_SIZE(wsa881x_rev_1_x));
+		break;
+	case WSA881X_2_0:
+		ret = regmap_register_patch(regmap,
+					    wsa881x_rev_2_0,
+					    ARRAY_SIZE(wsa881x_rev_2_0));
+		break;
+	default:
+		pr_debug("%s: unknown version", __func__);
+		ret = -EINVAL;
+		break;
+	}
+
+	if (ret)
+		pr_debug("%s: Failed to update regmap defaults ret= %d\n",
+			 __func__, ret);
+}
+EXPORT_SYMBOL(wsa881x_regmap_defaults);
 
 static bool wsa881x_readable_register(struct device *dev, unsigned int reg)
 {
@@ -176,8 +253,20 @@ static bool wsa881x_readable_register(struct device *dev, unsigned int reg)
 static bool wsa881x_volatile_register(struct device *dev, unsigned int reg)
 {
 	switch (reg) {
+	case WSA881X_CHIP_ID0:
+	case WSA881X_CHIP_ID1:
+	case WSA881X_CHIP_ID2:
+	case WSA881X_CHIP_ID3:
+	case WSA881X_BUS_ID:
+	case WSA881X_TEMP_MSB:
+	case WSA881X_TEMP_LSB:
+	case WSA881X_SDM_PDM9_LSB:
+	case WSA881X_SDM_PDM9_MSB:
 	case WSA881X_OTP_CTRL1:
 	case WSA881X_INTR_STATUS:
+	case WSA881X_ATE_TEST_MODE:
+	case WSA881X_PIN_STATUS:
+	case WSA881X_SWR_HM_TEST2:
 	case WSA881X_SPKR_STATUS1:
 	case WSA881X_SPKR_STATUS2:
 	case WSA881X_SPKR_STATUS3:
@@ -187,9 +276,11 @@ static bool wsa881x_volatile_register(struct device *dev, unsigned int reg)
 	case WSA881X_OTP_REG_3:
 	case WSA881X_OTP_REG_4:
 	case WSA881X_OTP_REG_5:
+	case WSA881X_OTP_REG_31:
 	case WSA881X_TEMP_DOUT_MSB:
 	case WSA881X_TEMP_DOUT_LSB:
 	case WSA881X_TEMP_OP:
+	case WSA881X_SPKR_PROT_SAR:
 		return true;
 	default:
 		return false;

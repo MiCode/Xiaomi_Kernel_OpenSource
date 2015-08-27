@@ -444,6 +444,17 @@ int mdss_dba_utils_video_on(void *data, struct mdss_panel_info *pinfo)
 	video_cfg.pclk_khz = pinfo->clk_rate / 1000;
 	video_cfg.hdmi_mode = hdmi_edid_get_sink_mode(ud->edid_data);
 
+	/* Calculate number of DSI lanes configured */
+	video_cfg.num_of_input_lanes = 0;
+	if (pinfo->mipi.data_lane0)
+		video_cfg.num_of_input_lanes++;
+	if (pinfo->mipi.data_lane1)
+		video_cfg.num_of_input_lanes++;
+	if (pinfo->mipi.data_lane2)
+		video_cfg.num_of_input_lanes++;
+	if (pinfo->mipi.data_lane3)
+		video_cfg.num_of_input_lanes++;
+
 	if (ud->ops.video_on)
 		ret = ud->ops.video_on(ud->dba_data, true, &video_cfg, 0);
 

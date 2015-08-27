@@ -109,6 +109,17 @@
 			};
 		};
 
+		usb_c_intn_pin {
+			qcom,pins = <&gp 101>, <&gp 102>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <0>;
+			label = "usb_typec-gpio";
+			usbc_int_default: usbc_int_default {
+				drive-strength = <2>;	/* 2 MA */
+				bias-pull-up;		/* PULL UP*/
+			};
+		};
+
 		cti_trigout_b0 {
 			qcom,pins = <&gp 22>;
 			qcom,num-grp-pins = <1>;

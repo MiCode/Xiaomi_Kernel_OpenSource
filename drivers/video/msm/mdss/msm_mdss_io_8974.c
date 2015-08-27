@@ -43,6 +43,8 @@
 void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	struct dsi_shared_data *sdata;
+	struct mdss_dsi_ctrl_pdata *octrl;
+	u32 reg_val = 0;
 
 	if (ctrl == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -50,15 +52,47 @@ void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 	}
 
 	sdata = ctrl->shared_data;
+	octrl = mdss_dsi_get_other_ctrl(ctrl);
 
-	/* start phy sw reset */
-	MIPI_OUTP(ctrl->ctrl_base + 0x12c, 0x0001);
-	udelay(1000);
-	wmb();
-	/* end phy sw reset */
-	MIPI_OUTP(ctrl->ctrl_base + 0x12c, 0x0000);
-	udelay(100);
-	wmb();
+	/*
+	 * For dual dsi case if we do DSI PHY sw reset,
+	 * this will reset DSI PHY regulators also.
+	 * Since DSI PHY regulator is shared among both
+	 * the DSI controllers, we should not do DSI PHY
+	 * sw reset when the other DSI controller is still
+	 * active.
+	 */
+	mutex_lock(&sdata->phy_reg_lock);
+	if ((sdata->hw_rev != MDSS_DSI_HW_REV_103) &&
+		mdss_dsi_is_hw_config_dual(sdata) &&
+		(octrl && octrl->is_phyreg_enabled)) {
+		/* start phy lane and HW reset */
+		reg_val = MIPI_INP(ctrl->ctrl_base + 0x12c);
+		reg_val |= (BIT(16) | BIT(8));
+		MIPI_OUTP(ctrl->ctrl_base + 0x12c, reg_val);
+		udelay(1000);
+		/* ensure phy lane and HW reset starts */
+		wmb();
+		/* end phy lane and HW reset */
+		reg_val = MIPI_INP(ctrl->ctrl_base + 0x12c);
+		reg_val &= ~(BIT(16) | BIT(8));
+		MIPI_OUTP(ctrl->ctrl_base + 0x12c, reg_val);
+		udelay(100);
+		/* ensure phy lane and HW reset ends */
+		wmb();
+	} else {
+		/* start phy sw reset */
+		MIPI_OUTP(ctrl->ctrl_base + 0x12c, 0x0001);
+		udelay(1000);
+		/* ensure phy sw reset starts */
+		wmb();
+		/* end phy sw reset */
+		MIPI_OUTP(ctrl->ctrl_base + 0x12c, 0x0000);
+		udelay(100);
+		/* ensure phy sw reset ends */
+		wmb();
+	}
+	mutex_unlock(&sdata->phy_reg_lock);
 
 	if ((sdata->hw_rev == MDSS_DSI_HW_REV_103) &&
 		!mdss_dsi_is_hw_config_dual(sdata) &&
@@ -336,13 +370,22 @@ static void mdss_dsi_phy_regulator_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 	}
 
 	sdata = ctrl->shared_data;
+	other_ctrl = mdss_dsi_get_other_ctrl(ctrl);
 
 	mutex_lock(&sdata->phy_reg_lock);
 	if (enable) {
-		if (ctrl->shared_data->hw_rev == MDSS_DSI_HW_REV_103)
+		if (ctrl->shared_data->hw_rev == MDSS_DSI_HW_REV_103) {
 			mdss_dsi_20nm_phy_regulator_enable(ctrl);
-		else
-			mdss_dsi_28nm_phy_regulator_enable(ctrl);
+		} else {
+			/*
+			 * For dual dsi case, do not reconfigure dsi phy
+			 * regulator if the other dsi controller is still
+			 * active.
+			 */
+			if (!mdss_dsi_is_hw_config_dual(sdata) ||
+				(other_ctrl && !other_ctrl->is_phyreg_enabled))
+				mdss_dsi_28nm_phy_regulator_enable(ctrl);
+		}
 		ctrl->is_phyreg_enabled = 1;
 	} else {
 		/*
@@ -352,7 +395,6 @@ static void mdss_dsi_phy_regulator_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 		 */
 		if (mdss_dsi_is_hw_config_split(ctrl->shared_data) ||
 			mdss_dsi_is_hw_config_dual(ctrl->shared_data)) {
-			other_ctrl = mdss_dsi_get_other_ctrl(ctrl);
 			if (other_ctrl && !other_ctrl->is_phyreg_enabled)
 				mdss_dsi_phy_regulator_disable(ctrl);
 		} else {
