@@ -2036,10 +2036,9 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 		/* One time call: only for first time */
 		afe_send_custom_topology();
 		afe_send_port_topology_id(port_id);
-
 		afe_send_cal(port_id);
+		afe_send_hw_delay(port_id, rate);
 	}
-	afe_send_hw_delay(port_id, rate);
 
 	/* Start SW MAD module */
 	mad_type = afe_port_get_mad_type(port_id);
