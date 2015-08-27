@@ -38,6 +38,7 @@ MODULE_PARM_DESC(num_out_bufs,
 		"Number of OUT buffers");
 
 static struct workqueue_struct *ipa_usb_wq;
+static bool gadget_restarted;
 
 struct usb_gsi_debugfs {
 	struct dentry *debugfs_root;
@@ -2591,6 +2592,7 @@ static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 	 */
 	flush_workqueue(gsi->d_port.ipa_usb_wq);
 	ipa_usb_deinit_teth_prot(gsi->prot_id);
+	gadget_restarted = false;
 
 	if (gsi->prot_id == IPA_USB_RNDIS) {
 		gsi->d_port.sm_state = STATE_UNINITIALIZED;
@@ -2641,6 +2643,11 @@ int gsi_bind_config(struct usb_configuration *c, enum ipa_usb_teth_prot prot_id)
 	if (!gsi) {
 		pr_err("%s: gsi prot ctx is %p\n", __func__, gsi);
 		return -EINVAL;
+	}
+
+	if (!gadget_restarted) {
+		usb_gadget_restart(c->cdev->gadget);
+		gadget_restarted = true;
 	}
 
 	switch (prot_id) {
