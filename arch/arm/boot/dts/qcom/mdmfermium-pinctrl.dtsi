@@ -32,5 +32,69 @@
 				bias-pull-down;
 			};
 		};
+
+		spi1 {
+
+			spi1_default: spi1_default {
+				/* active state */
+				mux {
+					/* MOSI, MISO, CLK */
+					pins = "gpio4", "gpio5", "gpio7";
+					function = "blsp_spi2";
+				};
+
+				config {
+					pins = "gpio4", "gpio5", "gpio7";
+					drive-strength = <12>; /* 12 MA */
+					bias-disable = <0>; /* No PULL */
+				};
+			};
+
+
+			spi1_sleep: spi1_sleep {
+				/* suspended state */
+				mux {
+					/* MOSI, MISO, CLK */
+					pins = "gpio4", "gpio5", "gpio7";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio4", "gpio5", "gpio7";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-down; /* PULL Down */
+				};
+			};
+
+			spi1_cs0_active: cs0_active {
+				/* CS */
+				mux {
+					pins = "gpio6";
+					function = "blsp_spi2";
+				};
+
+				config {
+					pins = "gpio6";
+					drive-strength = <2>;
+					bias-disable = <0>;
+				};
+			};
+
+			spi1_cs0_sleep: cs0_sleep {
+				/* CS */
+				mux {
+					pins = "gpio6";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio6";
+					drive-strength = <2>;
+					bias-disable = <0>;
+				};
+			};
+		};
+
+
 	};
 };
