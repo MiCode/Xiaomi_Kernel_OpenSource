@@ -1,6 +1,4 @@
-/* arch/arm/mach-msm/smd_tty.c
- *
- * Copyright (C) 2007 Google, Inc.
+/* Copyright (C) 2007 Google, Inc.
  * Copyright (c) 2009-2015, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
@@ -12,7 +10,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
  */
 
 #include <linux/module.h>
