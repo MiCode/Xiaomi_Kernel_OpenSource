@@ -38,12 +38,6 @@
 #include <linux/of.h>
 #include <linux/ipc_logging.h>
 
-#ifdef CONFIG_ARCH_FSM9XXX
-#define DEFAULT_NUM_SMD_PKT_PORTS 4
-#else
-#define DEFAULT_NUM_SMD_PKT_PORTS 31
-#endif
-
 #define MODULE_NAME "msm_smdpkt"
 #define DEVICE_NAME "smdpkt"
 #define WAKEUPSOURCE_TIMEOUT (2000) /* two seconds */
@@ -102,12 +96,9 @@ static void check_and_wakeup_reader(struct smd_pkt_dev *smd_pkt_devp);
 static void check_and_wakeup_writer(struct smd_pkt_dev *smd_pkt_devp);
 static uint32_t is_modem_smsm_inited(void);
 
-#define SMD_PKT_PROBE_WAIT_TIMEOUT 3000
-static struct delayed_work smdpkt_probe_work;
-static int smdpkt_probe_done;
 static DEFINE_MUTEX(smd_pkt_dev_lock_lha1);
 static LIST_HEAD(smd_pkt_dev_list);
-static int num_smd_pkt_ports = DEFAULT_NUM_SMD_PKT_PORTS;
+static int num_smd_pkt_ports;
 
 #define SMD_PKT_IPC_LOG_PAGE_CNT 2
 static void *smd_pkt_ilctxt;
@@ -781,135 +772,6 @@ static void ch_notify(void *priv, unsigned event)
 	}
 }
 
-/*
- * Legacy configuration : smd_ch_name[], smd_ch_edge[] and smd_pkt_dev_name[].
- * Future targets use either platform device or device tree configuration.
- */
-#ifdef CONFIG_ARCH_FSM9XXX
-static char *smd_pkt_dev_name[] = {
-	"smdcntl1",
-	"smdcntl2",
-	"smd22",
-	"smd_pkt_loopback",
-};
-
-static char *smd_ch_name[] = {
-	"DATA6_CNTL",
-	"DATA7_CNTL",
-	"DATA22",
-	"LOOPBACK",
-};
-
-static uint32_t smd_ch_edge[] = {
-	SMD_APPS_QDSP,
-	SMD_APPS_QDSP,
-	SMD_APPS_QDSP,
-	SMD_APPS_QDSP
-};
-#else
-static char *smd_pkt_dev_name[] = {
-	"smdcntl0",
-	"smdcntl1",
-	"smdcntl2",
-	"smdcntl3",
-	"smdcntl4",
-	"smdcntl5",
-	"smdcntl6",
-	"smdcntl7",
-	"smdcntl9",
-	"smdcntl10",
-	"smdcntl11",
-	"smd22",
-	"smdcnt_rev0",
-	"smdcnt_rev1",
-	"smdcnt_rev2",
-	"smdcnt_rev3",
-	"smdcnt_rev4",
-	"smdcnt_rev5",
-	"smdcnt_rev6",
-	"smdcnt_rev7",
-	"smdcnt_rev8",
-	"smd_sns_dsps",
-	"apr_apps2",
-	"smdcntl8",
-	"smd_sns_adsp",
-	"smd_cxm_qmi",
-	"smd_test_framework",
-	"smd_logging_0",
-	"smd_data_0",
-	"apr",
-	"smd_pkt_loopback",
-};
-
-static char *smd_ch_name[] = {
-	"DATA5_CNTL",
-	"DATA6_CNTL",
-	"DATA7_CNTL",
-	"DATA8_CNTL",
-	"DATA9_CNTL",
-	"DATA12_CNTL",
-	"DATA13_CNTL",
-	"DATA14_CNTL",
-	"DATA15_CNTL",
-	"DATA16_CNTL",
-	"DATA17_CNTL",
-	"DATA22",
-	"DATA23_CNTL",
-	"DATA24_CNTL",
-	"DATA25_CNTL",
-	"DATA26_CNTL",
-	"DATA27_CNTL",
-	"DATA28_CNTL",
-	"DATA29_CNTL",
-	"DATA30_CNTL",
-	"DATA31_CNTL",
-	"SENSOR",
-	"apr_apps2",
-	"DATA40_CNTL",
-	"SENSOR",
-	"CXM_QMI_PORT_8064",
-	"TESTFRAMEWORK",
-	"LOGGING",
-	"DATA",
-	"apr",
-	"LOOPBACK",
-};
-
-static uint32_t smd_ch_edge[] = {
-	SMD_APPS_MODEM,
-	SMD_APPS_MODEM,
-	SMD_APPS_MODEM,
-	SMD_APPS_MODEM,
-	SMD_APPS_MODEM,
-	SMD_APPS_MODEM,
-	SMD_APPS_MODEM,
-	SMD_APPS_MODEM,
-	SMD_APPS_MODEM,
-	SMD_APPS_MODEM,
-	SMD_APPS_MODEM,
-	SMD_APPS_MODEM,
-	SMD_APPS_MODEM,
-	SMD_APPS_MODEM,
-	SMD_APPS_MODEM,
-	SMD_APPS_MODEM,
-	SMD_APPS_MODEM,
-	SMD_APPS_MODEM,
-	SMD_APPS_MODEM,
-	SMD_APPS_MODEM,
-	SMD_APPS_MODEM,
-	SMD_APPS_DSPS,
-	SMD_APPS_QDSP,
-	SMD_APPS_MODEM,
-	SMD_APPS_QDSP,
-	SMD_APPS_WCNSS,
-	SMD_APPS_QDSP,
-	SMD_APPS_QDSP,
-	SMD_APPS_QDSP,
-	SMD_APPS_QDSP,
-	SMD_APPS_MODEM,
-};
-#endif
-
 static int smd_pkt_dummy_probe(struct platform_device *pdev)
 {
 	struct smd_pkt_dev *smd_pkt_devp;
@@ -1335,20 +1197,11 @@ static void smd_pkt_core_deinit(void)
 
 static int smd_pkt_alloc_chrdev_region(void)
 {
-	int r;
-
-	if (ARRAY_SIZE(smd_ch_name) != DEFAULT_NUM_SMD_PKT_PORTS ||
-			ARRAY_SIZE(smd_ch_edge) != DEFAULT_NUM_SMD_PKT_PORTS ||
-			ARRAY_SIZE(smd_pkt_dev_name)
-					!= DEFAULT_NUM_SMD_PKT_PORTS) {
-		pr_err("%s: mismatch in number of ports\n", __func__);
-		BUG();
-	}
-
-	r = alloc_chrdev_region(&smd_pkt_number,
+	int r = alloc_chrdev_region(&smd_pkt_number,
 			       0,
 			       num_smd_pkt_ports,
 			       DEVICE_NAME);
+
 	if (IS_ERR_VALUE(r)) {
 		pr_err("%s: alloc_chrdev_region() failed ret:%i\n",
 			__func__, r);
@@ -1365,53 +1218,6 @@ static int smd_pkt_alloc_chrdev_region(void)
 	}
 
 	return 0;
-}
-
-static int smd_pkt_core_init(void)
-{
-	int i;
-	int r;
-	struct smd_pkt_dev *smd_pkt_devp;
-
-	r = smd_pkt_alloc_chrdev_region();
-	if (r) {
-		pr_err("%s: smd_pkt_alloc_chrdev_region() failed ret:%i\n",
-			__func__, r);
-		return r;
-	}
-
-	for (i = 0; i < num_smd_pkt_ports; ++i) {
-		smd_pkt_devp = kzalloc(sizeof(struct smd_pkt_dev),
-					 GFP_KERNEL);
-		if (IS_ERR_OR_NULL(smd_pkt_devp)) {
-			pr_err("%s: kzalloc() failed for smd_pkt_dev id:%d\n",
-				__func__, i);
-			r = -ENOMEM;
-			goto error_destroy;
-		}
-
-		smd_pkt_devp->edge = smd_ch_edge[i];
-		strlcpy(smd_pkt_devp->ch_name, smd_ch_name[i],
-							SMD_MAX_CH_NAME_LEN);
-		strlcpy(smd_pkt_devp->dev_name, smd_pkt_dev_name[i],
-							SMD_MAX_CH_NAME_LEN);
-
-		r = smd_pkt_init_add_device(smd_pkt_devp, i);
-		if (r < 0) {
-			pr_err("add device failed for idx:%d ret=%d\n", i, r);
-			kfree(smd_pkt_devp);
-			goto error_destroy;
-		}
-	}
-
-	INIT_DELAYED_WORK(&loopback_work, loopback_probe_worker);
-
-	D_STATUS("SMD Packet Port Driver Initialized.\n");
-	return 0;
-
-error_destroy:
-	smd_pkt_core_deinit();
-	return r;
 }
 
 static int parse_smdpkt_devicetree(struct device_node *node,
@@ -1517,19 +1323,6 @@ error_destroy:
 static int msm_smd_pkt_probe(struct platform_device *pdev)
 {
 	int ret;
-	/*
-	 * If smd_probe_worker called before msm_smd_pkt_probe,
-	 * then remove legacy device and proceed with new configuration.
-	 */
-	mutex_lock(&smd_pkt_dev_lock_lha1);
-	if (smdpkt_probe_done == 1) {
-		mutex_unlock(&smd_pkt_dev_lock_lha1);
-		smd_pkt_core_deinit();
-	} else {
-		smdpkt_probe_done = 1;
-		mutex_unlock(&smd_pkt_dev_lock_lha1);
-	}
-	D_STATUS("%s smdpkt_probe_done = %d\n", __func__, smdpkt_probe_done);
 
 	if (pdev) {
 		if (pdev->dev.of_node) {
@@ -1542,23 +1335,6 @@ static int msm_smd_pkt_probe(struct platform_device *pdev)
 	}
 
 	return 0;
-}
-
-static void smdpkt_probe_worker(struct work_struct *work)
-{
-	int ret;
-	D_STATUS("%s smdpkt_probe_done =%d\n", __func__, smdpkt_probe_done);
-
-	mutex_lock(&smd_pkt_dev_lock_lha1);
-	if (!smdpkt_probe_done) {
-		smdpkt_probe_done = 1;
-		mutex_unlock(&smd_pkt_dev_lock_lha1);
-		ret = smd_pkt_core_init();
-		if (ret < 0)
-			pr_err("smd_pkt_core_init failed ret = %d\n", ret);
-		return;
-	}
-	mutex_unlock(&smd_pkt_dev_lock_lha1);
 }
 
 static struct of_device_id msm_smd_pkt_match_table[] = {
@@ -1587,10 +1363,6 @@ static int __init smd_pkt_init(void)
 			 __func__, rc);
 		return rc;
 	}
-
-	INIT_DELAYED_WORK(&smdpkt_probe_work, smdpkt_probe_worker);
-	schedule_delayed_work(&smdpkt_probe_work,
-				msecs_to_jiffies(SMD_PKT_PROBE_WAIT_TIMEOUT));
 
 	smd_pkt_ilctxt = ipc_log_context_create(SMD_PKT_IPC_LOG_PAGE_CNT,
 						"smd_pkt", 0);
