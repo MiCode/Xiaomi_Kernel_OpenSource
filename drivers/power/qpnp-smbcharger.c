@@ -3487,7 +3487,7 @@ static int smbchg_regulator_init(struct smbchg_chip *chip)
 		init_data->constraints.valid_ops_mask
 			|= REGULATOR_CHANGE_STATUS;
 
-		chip->otg_vreg.rdev = regulator_register(
+		chip->otg_vreg.rdev = devm_regulator_register(chip->dev,
 						&chip->otg_vreg.rdesc, &cfg);
 		if (IS_ERR(chip->otg_vreg.rdev)) {
 			rc = PTR_ERR(chip->otg_vreg.rdev);
@@ -3530,8 +3530,9 @@ static int smbchg_regulator_init(struct smbchg_chip *chip)
 		init_data->constraints.valid_ops_mask
 			|= REGULATOR_CHANGE_STATUS;
 
-		chip->ext_otg_vreg.rdev = regulator_register(
-					&chip->ext_otg_vreg.rdesc, &cfg);
+		chip->ext_otg_vreg.rdev = devm_regulator_register(chip->dev,
+						&chip->ext_otg_vreg.rdesc,
+						&cfg);
 		if (IS_ERR(chip->ext_otg_vreg.rdev)) {
 			rc = PTR_ERR(chip->ext_otg_vreg.rdev);
 			chip->ext_otg_vreg.rdev = NULL;
@@ -3542,14 +3543,6 @@ static int smbchg_regulator_init(struct smbchg_chip *chip)
 	}
 
 	return rc;
-}
-
-static void smbchg_regulator_deinit(struct smbchg_chip *chip)
-{
-	if (chip->otg_vreg.rdev)
-		regulator_unregister(chip->otg_vreg.rdev);
-	if (chip->ext_otg_vreg.rdev)
-		regulator_unregister(chip->ext_otg_vreg.rdev);
 }
 
 #define CMD_CHG_LED_REG		0x43
@@ -7143,14 +7136,14 @@ static int smbchg_probe(struct spmi_device *spmi)
 	if (rc < 0) {
 		dev_err(&spmi->dev,
 			"Unable to intialize hardware rc = %d\n", rc);
-		goto free_regulator;
+		goto out;
 	}
 
 	rc = determine_initial_status(chip);
 	if (rc < 0) {
 		dev_err(&spmi->dev,
 			"Unable to determine init status rc = %d\n", rc);
-		goto free_regulator;
+		goto out;
 	}
 
 	chip->previous_soc = -EINVAL;
@@ -7167,7 +7160,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 	if (rc < 0) {
 		dev_err(&spmi->dev,
 			"Unable to register batt_psy rc = %d\n", rc);
-		goto free_regulator;
+		goto out;
 	}
 	if (chip->dc_psy_type != -EINVAL) {
 		chip->dc_psy.name		= "dc";
@@ -7238,8 +7231,7 @@ unregister_dc_psy:
 	power_supply_unregister(&chip->dc_psy);
 unregister_batt_psy:
 	power_supply_unregister(&chip->batt_psy);
-free_regulator:
-	smbchg_regulator_deinit(chip);
+out:
 	handle_usb_removal(chip);
 	return rc;
 }
@@ -7254,7 +7246,6 @@ static int smbchg_remove(struct spmi_device *spmi)
 		power_supply_unregister(&chip->dc_psy);
 
 	power_supply_unregister(&chip->batt_psy);
-	smbchg_regulator_deinit(chip);
 
 	return 0;
 }
