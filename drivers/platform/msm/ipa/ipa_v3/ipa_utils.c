@@ -581,6 +581,11 @@ int ipa3_cfg_route(struct ipa3_route *route)
 		route->route_def_hdr_ofst,
 		route->route_frag_def_pipe);
 
+	if (route->route_dis) {
+		IPAERR("Route disable is not supported!\n");
+		return -EPERM;
+	}
+
 	ipa3_inc_client_enable_clks();
 
 	ipa3_ctx->ctrl->ipa3_cfg_route(route);
@@ -599,16 +604,8 @@ int ipa3_cfg_route(struct ipa3_route *route)
  */
 int ipa3_cfg_filter(u32 disable)
 {
-	u32 ipa_filter_ofst = IPA_FILTER_OFST_v3_0;
-
-	ipa3_inc_client_enable_clks();
-	ipa_write_reg(ipa3_ctx->mmio, ipa_filter_ofst,
-			IPA_SETFIELD(!disable,
-					IPA_FILTER_FILTER_EN_SHFT,
-					IPA_FILTER_FILTER_EN_BMSK));
-	ipa3_dec_client_disable_clks();
-
-	return 0;
+	IPAERR("Filter disable is not supported!\n");
+	return -EPERM;
 }
 
 /**
@@ -3732,24 +3729,12 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 		goto fail_alloc_desc;
 	}
 
-	/* IP_PACKET_INIT IC for tag status to be sent to apps */
-	pkt_init = kzalloc(sizeof(*pkt_init), GFP_KERNEL);
-	if (!pkt_init) {
-		IPAERR("failed to allocate memory\n");
-		res = -ENOMEM;
-		goto fail_alloc_pkt_init;
+	/* Copy the required descriptors from the client now */
+	if (desc) {
+		memcpy(&(tag_desc[0]), desc, descs_num *
+			sizeof(tag_desc[0]));
+		desc_idx += descs_num;
 	}
-
-	pkt_init->destination_pipe_index =
-		ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
-
-	tag_desc[desc_idx].opcode = IPA_IP_PACKET_INIT;
-	tag_desc[desc_idx].pyld = pkt_init;
-	tag_desc[desc_idx].len = sizeof(*pkt_init);
-	tag_desc[desc_idx].type = IPA_IMM_CMD_DESC;
-	tag_desc[desc_idx].callback = ipa3_tag_free_buf;
-	tag_desc[desc_idx].user1 = pkt_init;
-	desc_idx++;
 
 	/* NO-OP IC for ensuring that IPA pipeline is empty */
 	reg_write_nop = kzalloc(sizeof(*reg_write_nop), GFP_KERNEL);
@@ -3771,6 +3756,25 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	tag_desc[desc_idx].user1 = reg_write_nop;
 	desc_idx++;
 
+	/* IP_PACKET_INIT IC for tag status to be sent to apps */
+	pkt_init = kzalloc(sizeof(*pkt_init), GFP_KERNEL);
+	if (!pkt_init) {
+		IPAERR("failed to allocate memory\n");
+		res = -ENOMEM;
+		goto fail_alloc_pkt_init;
+	}
+
+	pkt_init->destination_pipe_index =
+		ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
+
+	tag_desc[desc_idx].opcode = IPA_IP_PACKET_INIT;
+	tag_desc[desc_idx].pyld = pkt_init;
+	tag_desc[desc_idx].len = sizeof(*pkt_init);
+	tag_desc[desc_idx].type = IPA_IMM_CMD_DESC;
+	tag_desc[desc_idx].callback = ipa3_tag_free_buf;
+	tag_desc[desc_idx].user1 = pkt_init;
+	desc_idx++;
+
 	/* status IC */
 	status = kzalloc(sizeof(*status), GFP_KERNEL);
 	if (!status) {
@@ -3788,13 +3792,6 @@ int ipa3_tag_process(struct ipa3_desc desc[],
 	tag_desc[desc_idx].callback = ipa3_tag_free_buf;
 	tag_desc[desc_idx].user1 = status;
 	desc_idx++;
-
-	/* Copy the required descriptors from the client now */
-	if (desc) {
-		memcpy(&(tag_desc[desc_idx]), desc, descs_num *
-			sizeof(struct ipa3_desc));
-		desc_idx += descs_num;
-	}
 
 	comp = kzalloc(sizeof(*comp), GFP_KERNEL);
 	if (!comp) {
