@@ -12,7 +12,7 @@
  */
 
 #include "skeleton.dtsi"
-#include <dt-bindings/clock/msm-clocks-8909.h>
+#include <dt-bindings/clock/mdm-clocks-fermium.h>
 #include <dt-bindings/clock/msm-clocks-a7.h>
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 
@@ -220,7 +220,6 @@
 			 <&clock_gcc clk_gcc_usb_hs_system_clk>,
 			 <&clock_gcc clk_gcc_usb2a_phy_sleep_clk>,
 			 <&clock_gcc clk_bimc_usb_a_clk>,
-			 <&clock_gcc clk_snoc_usb_a_clk>,
 			 <&clock_gcc clk_pcnoc_usb_a_clk>,
 			 <&clock_gcc clk_gcc_qusb2_phy_clk>,
 			 <&clock_gcc clk_gcc_usb2_hs_phy_only_clk>,
