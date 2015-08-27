@@ -124,6 +124,11 @@
 #define DWC3_GEVNTSIZ(n)	(0xc408 + (n * 0x10))
 #define DWC3_GEVNTCOUNT(n)	(0xc40c + (n * 0x10))
 
+#define DWC3_GEVNTCOUNT_EVNTINTRPTMASK		(1 << 31)
+#define DWC3_GEVNTADRHI_EVNTADRHI_GSI_EN(n)	(n << 22)
+#define DWC3_GEVNTADRHI_EVNTADRHI_GSI_IDX(n)	(n << 16)
+#define DWC3_GEVENT_TYPE_GSI			0x3
+
 #define DWC3_GHWPARAMS8		0xc600
 #define DWC3_GFLADJ		0xc630
 
@@ -439,6 +444,11 @@
 
 struct dwc3_trb;
 
+enum event_buf_type {
+	EVT_BUF_TYPE_NORMAL,
+	EVT_BUF_TYPE_GSI
+};
+
 /**
  * struct dwc3_event_buffer - Software event buffer representation
  * @buf: _THE_ buffer
@@ -452,6 +462,7 @@ struct dwc3_trb;
 struct dwc3_event_buffer {
 	void			*buf;
 	unsigned		length;
+	enum event_buf_type	type;
 	unsigned int		lpos;
 	unsigned int		count;
 	unsigned int		flags;
@@ -855,6 +866,8 @@ struct dwc3 {
 
 	u32			nr_scratch;
 	u32			num_event_buffers;
+	u32			num_normal_event_buffers;
+	u32			num_gsi_event_buffers;
 
 	u32			u1;
 	u32			u1u2;

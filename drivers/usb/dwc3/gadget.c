@@ -3443,7 +3443,7 @@ static irqreturn_t dwc3_thread_interrupt(int irq, void *_dwc)
 	spin_lock_irqsave(&dwc->lock, flags);
 	dwc->bh_handled_evt_cnt[dwc->bh_dbg_index] = 0;
 
-	for (i = 0; i < dwc->num_event_buffers; i++)
+	for (i = 0; i < dwc->num_normal_event_buffers; i++)
 		ret |= dwc3_process_event_buf(dwc, i);
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
@@ -3499,7 +3499,7 @@ static irqreturn_t dwc3_interrupt(int irq, void *_dwc)
 		return IRQ_HANDLED;
 	}
 
-	for (i = 0; i < dwc->num_event_buffers; i++) {
+	for (i = 0; i < dwc->num_normal_event_buffers; i++) {
 		irqreturn_t status;
 
 		status = dwc3_check_event_buf(dwc, i);

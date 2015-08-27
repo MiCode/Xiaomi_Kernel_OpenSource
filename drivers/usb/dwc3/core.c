@@ -234,7 +234,7 @@ static void dwc3_free_one_event_buffer(struct dwc3 *dwc,
  * otherwise ERR_PTR(errno).
  */
 static struct dwc3_event_buffer *dwc3_alloc_one_event_buffer(struct dwc3 *dwc,
-		unsigned length)
+		unsigned length, enum event_buf_type type)
 {
 	struct dwc3_event_buffer	*evt;
 
@@ -244,6 +244,7 @@ static struct dwc3_event_buffer *dwc3_alloc_one_event_buffer(struct dwc3 *dwc,
 
 	evt->dwc	= dwc;
 	evt->length	= length;
+	evt->type	= type;
 	evt->buf	= dma_alloc_coherent(dwc->dev, length,
 			&evt->dma, GFP_KERNEL);
 	if (!evt->buf)
@@ -278,26 +279,40 @@ static void dwc3_free_event_buffers(struct dwc3 *dwc)
  */
 static int dwc3_alloc_event_buffers(struct dwc3 *dwc, unsigned length)
 {
-	int			num;
-	int			i;
+	int	i;
+	int	j = 0;
 
-	num = DWC3_NUM_INT(dwc->hwparams.hwparams1);
-	dwc->num_event_buffers = num;
+	dwc->num_event_buffers = dwc->num_normal_event_buffers +
+		dwc->num_gsi_event_buffers;
 
-	dwc->ev_buffs = devm_kzalloc(dwc->dev, sizeof(*dwc->ev_buffs) * num,
+	dwc->ev_buffs = devm_kzalloc(dwc->dev,
+			sizeof(*dwc->ev_buffs) * dwc->num_event_buffers,
 			GFP_KERNEL);
 	if (!dwc->ev_buffs)
 		return -ENOMEM;
 
-	for (i = 0; i < num; i++) {
+	for (i = 0; i < dwc->num_normal_event_buffers; i++) {
 		struct dwc3_event_buffer	*evt;
 
-		evt = dwc3_alloc_one_event_buffer(dwc, length);
+		evt = dwc3_alloc_one_event_buffer(dwc, length,
+				EVT_BUF_TYPE_NORMAL);
 		if (IS_ERR(evt)) {
 			dev_err(dwc->dev, "can't allocate event buffer\n");
 			return PTR_ERR(evt);
 		}
-		dwc->ev_buffs[i] = evt;
+		dwc->ev_buffs[j++] = evt;
+	}
+
+	for (i = 0; i < dwc->num_gsi_event_buffers; i++) {
+		struct dwc3_event_buffer	*evt;
+
+		evt = dwc3_alloc_one_event_buffer(dwc, length,
+				EVT_BUF_TYPE_GSI);
+		if (IS_ERR(evt)) {
+			dev_err(dwc->dev, "can't allocate event buffer\n");
+			return PTR_ERR(evt);
+		}
+		dwc->ev_buffs[j++] = evt;
 	}
 
 	return 0;
@@ -324,10 +339,23 @@ int dwc3_event_buffers_setup(struct dwc3 *dwc)
 
 		dwc3_writel(dwc->regs, DWC3_GEVNTADRLO(n),
 				lower_32_bits(evt->dma));
-		dwc3_writel(dwc->regs, DWC3_GEVNTADRHI(n),
-				upper_32_bits(evt->dma));
-		dwc3_writel(dwc->regs, DWC3_GEVNTSIZ(n),
-				DWC3_GEVNTSIZ_SIZE(evt->length));
+
+		if (evt->type == EVT_BUF_TYPE_NORMAL) {
+			dwc3_writel(dwc->regs, DWC3_GEVNTADRHI(n),
+					upper_32_bits(evt->dma));
+			dwc3_writel(dwc->regs, DWC3_GEVNTSIZ(n),
+					DWC3_GEVNTSIZ_SIZE(evt->length));
+		} else {
+			dwc3_writel(dwc->regs, DWC3_GEVNTADRHI(n),
+				DWC3_GEVNTADRHI_EVNTADRHI_GSI_EN(
+					DWC3_GEVENT_TYPE_GSI) |
+				DWC3_GEVNTADRHI_EVNTADRHI_GSI_IDX(n));
+
+			dwc3_writel(dwc->regs, DWC3_GEVNTSIZ(n),
+				DWC3_GEVNTCOUNT_EVNTINTRPTMASK |
+				((evt->length) & 0xffff));
+		}
+
 		dwc3_writel(dwc->regs, DWC3_GEVNTCOUNT(n), 0);
 	}
 
@@ -803,6 +831,7 @@ static int dwc3_probe(struct platform_device *pdev)
 	struct dwc3		*dwc;
 	u8			lpm_nyet_threshold;
 	u8			hird_threshold;
+	u32			num_evt_buffs;
 
 	int			ret;
 
@@ -891,6 +920,18 @@ static int dwc3_probe(struct platform_device *pdev)
 
 		dwc->disable_clk_gating = of_property_read_bool(node,
 					"snps,disable-clk-gating");
+
+		dwc->num_normal_event_buffers = 1;
+		ret = of_property_read_u32(node,
+			"snps,num-normal-evt-buffs", &num_evt_buffs);
+		if (!ret)
+			dwc->num_normal_event_buffers = num_evt_buffs;
+
+		ret = of_property_read_u32(node,
+			"snps,num-gsi-evt-buffs", &num_evt_buffs);
+		if (!ret)
+			dwc->num_gsi_event_buffers = num_evt_buffs;
+
 		if (dwc->enable_bus_suspend) {
 			pm_runtime_set_autosuspend_delay(dev, 500);
 			pm_runtime_use_autosuspend(dev);
