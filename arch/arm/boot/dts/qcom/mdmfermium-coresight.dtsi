@@ -345,4 +345,61 @@
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
+
+	rpm_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <21>;
+		coresight-name = "coresight-rpm-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <0>;
+
+		qcom,inst-id = <4>;
+	};
+
+	modem_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <22>;
+		coresight-name = "coresight-modem-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <2>;
+
+		qcom,inst-id = <2>;
+	};
+
+	fuse: fuse@a601c {
+		compatible = "arm,coresight-fuse-v2";
+		reg = <0xa601c 0x8>;
+		reg-names = "fuse-base";
+
+		coresight-id = <23>;
+		coresight-name = "coresight-fuse";
+		coresight-nr-inports = <0>;
+	};
+
+	dbgui: dbgui@606d000 {
+		compatible = "qcom,coresight-dbgui";
+		reg = <0x606d000 0x1000>;
+		reg-names = "dbgui-base";
+
+		coresight-id = <24>;
+		coresight-name = "coresight-dbgui";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in2>;
+		coresight-child-ports = <1>;
+
+		qcom,dbgui-addr-offset = <0x30>;
+		qcom,dbgui-data-offset = <0xB0>;
+		qcom,dbgui-size = <32>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
 };
