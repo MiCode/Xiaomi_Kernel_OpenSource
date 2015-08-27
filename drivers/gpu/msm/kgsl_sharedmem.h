@@ -67,7 +67,7 @@ void kgsl_sharedmem_uninit_sysfs(void);
 int kgsl_allocate_user(struct kgsl_device *device,
 		struct kgsl_memdesc *memdesc,
 		struct kgsl_pagetable *pagetable,
-		uint64_t size, uint64_t mmapsize, uint64_t flags);
+		uint64_t size, uint64_t flags);
 
 void kgsl_get_memory_usage(char *str, size_t len, uint64_t memflags);
 
@@ -226,7 +226,7 @@ kgsl_memdesc_use_cpu_map(const struct kgsl_memdesc *memdesc)
 }
 
 /*
- * kgsl_memdesc_mmapsize - get the size of the mmap region
+ * kgsl_memdesc_footprint - get the size of the mmap region
  * @memdesc - the memdesc
  *
  * The entire memdesc must be mapped. Additionally if the
@@ -235,7 +235,7 @@ kgsl_memdesc_use_cpu_map(const struct kgsl_memdesc *memdesc)
  * match up.
  */
 static inline uint64_t
-kgsl_memdesc_mmapsize(const struct kgsl_memdesc *memdesc)
+kgsl_memdesc_footprint(const struct kgsl_memdesc *memdesc)
 {
 	uint64_t size = memdesc->size;
 	if (kgsl_memdesc_has_guard_page(memdesc))

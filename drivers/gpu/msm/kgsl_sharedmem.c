@@ -336,7 +336,7 @@ static int kgsl_allocate_secure(struct kgsl_device *device,
 int kgsl_allocate_user(struct kgsl_device *device,
 		struct kgsl_memdesc *memdesc,
 		struct kgsl_pagetable *pagetable,
-		uint64_t size, uint64_t mmapsize, uint64_t flags)
+		uint64_t size, uint64_t flags)
 {
 	int ret;
 
