@@ -828,6 +828,8 @@ static void clean_txn_info(struct qmi_handle *handle)
 
 int qmi_handle_destroy(struct qmi_handle *handle)
 {
+	DEFINE_WAIT(wait);
+
 	if (!handle)
 		return -EINVAL;
 
@@ -843,10 +845,18 @@ int qmi_handle_destroy(struct qmi_handle *handle)
 	mutex_unlock(&handle->handle_lock);
 	flush_workqueue(handle->handle_wq);
 	destroy_workqueue(handle->handle_wq);
-	wait_event(handle->reset_waitq,
-		   (list_empty(&handle->txn_list) &&
-		    list_empty(&handle->pending_txn_list)));
 
+	mutex_lock(&handle->handle_lock);
+	while (!list_empty(&handle->txn_list) ||
+		    !list_empty(&handle->pending_txn_list)) {
+		prepare_to_wait(&handle->reset_waitq, &wait,
+				TASK_UNINTERRUPTIBLE);
+		mutex_unlock(&handle->handle_lock);
+		schedule();
+		mutex_lock(&handle->handle_lock);
+		finish_wait(&handle->reset_waitq, &wait);
+	}
+	mutex_unlock(&handle->handle_lock);
 	kfree(handle->dest_info);
 	kfree(handle);
 	return 0;
@@ -1052,8 +1062,8 @@ int qmi_send_req_wait(struct qmi_handle *handle,
 send_req_wait_err:
 	list_del(&txn_handle->list);
 	kfree(txn_handle);
-	mutex_unlock(&handle->handle_lock);
 	wake_up(&handle->reset_waitq);
+	mutex_unlock(&handle->handle_lock);
 	return rc;
 }
 EXPORT_SYMBOL(qmi_send_req_wait);
