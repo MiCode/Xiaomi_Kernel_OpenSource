@@ -4963,6 +4963,11 @@ static int mdss_mdp_update_panel_info(struct msm_fb_data_type *mfd,
 	struct mdss_panel_data *pdata;
 	struct mdss_mdp_ctl *sctl;
 
+	if (ctl == NULL) {
+		pr_debug("ctl not initialized\n");
+		return 0;
+	}
+
 	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_DSI_UPDATE_PANEL_DATA,
 						(void *)(unsigned long)mode);
 	if (ret)
