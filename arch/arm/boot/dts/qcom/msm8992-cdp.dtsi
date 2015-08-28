@@ -133,6 +133,10 @@
 	qpnp,qpnp-labibb-mode = "lcd";
 };
 
+&ibb_regulator {
+	qcom,qpnp-ibb-discharge-resistor = <32>;
+};
+
 &pmx_hdmi_cec {
 	qcom,num-grp-pins = <1>;
 	qcom,pins = <&gp 31>;
