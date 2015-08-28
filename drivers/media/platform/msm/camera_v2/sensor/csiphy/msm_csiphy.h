@@ -33,7 +33,7 @@ struct csiphy_reg_parms_t {
 	uint32_t mipi_csiphy_lnck_cfg1_addr;
 	uint32_t mipi_csiphy_lnck_cfg2_addr;
 	uint32_t mipi_csiphy_lnck_cfg3_addr;
-	uint32_t mipi_csiphy_lnck_cfg4_addr;
+	uint32_t mipi_csiphy_glbl_pwg_cfg0_addr;
 	uint32_t mipi_csiphy_lnn_test_imp;
 	uint32_t mipi_csiphy_lnn_misc1_addr;
 	uint32_t mipi_csiphy_glbl_reset_addr;
