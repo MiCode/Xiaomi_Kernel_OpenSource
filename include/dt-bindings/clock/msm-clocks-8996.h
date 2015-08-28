@@ -85,7 +85,6 @@
 #define clk_aggre2_noc_a_clk		0xcab67089
 #define clk_mmssnoc_axi_clk		0xdb4b31e6
 #define clk_mmssnoc_axi_a_clk		0xd4970614
-#define clk_mmssnoc_gds_clk		0x06a22afa
 
 #define clk_gpll0			0x1ebe3bc4
 #define clk_gpll0_ao			0xa1368304
