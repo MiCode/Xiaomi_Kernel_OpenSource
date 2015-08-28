@@ -405,6 +405,7 @@
 &dsi_sharp_1080_cmd {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,partial-update-enabled;
+	qcom,panel-roi-alignment = <2 2 4 2 1080 2>;
 };
 
 &pmx_mdss {
