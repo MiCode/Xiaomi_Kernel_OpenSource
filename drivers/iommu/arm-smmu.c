@@ -751,11 +751,10 @@ static int arm_smmu_unrequest_bus(struct arm_smmu_device *smmu)
 
 static int arm_smmu_disable_regulators(struct arm_smmu_device *smmu)
 {
-	if (!smmu->gdsc)
-		return 0;
-
 	arm_smmu_unprepare_clocks(smmu);
 	arm_smmu_unrequest_bus(smmu);
+	if (!smmu->gdsc)
+		return 0;
 	return regulator_disable(smmu->gdsc);
 }
 
@@ -763,25 +762,27 @@ static int arm_smmu_enable_regulators(struct arm_smmu_device *smmu)
 {
 	int ret;
 
-	if (!smmu->gdsc)
-		return 0;
-
-	ret = regulator_enable(smmu->gdsc);
-	if (ret)
-		return ret;
+	if (smmu->gdsc) {
+		ret = regulator_enable(smmu->gdsc);
+		if (ret)
+			goto out;
+	}
 
 	ret = arm_smmu_request_bus(smmu);
-	if (ret) {
-		regulator_disable(smmu->gdsc);
-		goto out;
-	}
+	if (ret)
+		goto out_reg;
 
 	ret = arm_smmu_prepare_clocks(smmu);
-	if (ret) {
-		arm_smmu_unrequest_bus(smmu);
-		regulator_disable(smmu->gdsc);
-	}
+	if (ret)
+		goto out_bus;
 
+	return ret;
+
+out_bus:
+	arm_smmu_unrequest_bus(smmu);
+out_reg:
+	if (smmu->gdsc)
+		regulator_disable(smmu->gdsc);
 out:
 	return ret;
 }
