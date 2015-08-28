@@ -4188,8 +4188,6 @@ int sdhci_add_host(struct sdhci_host *host)
 					mmc_hostname(mmc), ret);
 	}
 
-	mmc_add_host(mmc);
-
 	if (host->quirks2 & SDHCI_QUIRK2_IGN_DATA_END_BIT_ERROR) {
 		host->ier = (host->ier & ~SDHCI_INT_DATA_END_BIT);
 		sdhci_writel(host, host->ier, SDHCI_INT_ENABLE);
@@ -4217,6 +4215,7 @@ int sdhci_add_host(struct sdhci_host *host)
 
 	sdhci_enable_card_detection(host);
 
+	mmc_add_host(mmc);
 	return 0;
 
 #ifdef SDHCI_USE_LEDS_CLASS
