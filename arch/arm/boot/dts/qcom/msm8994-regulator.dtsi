@@ -634,7 +634,7 @@
 		qcom,cpr-apc-volt-step = <5000>;
 
 		qcom,cpr-fuse-row = <137 0>;
-		qcom,cpr-fuse-target-quot = <39 39 47 55>;
+		qcom,cpr-fuse-target-quot = <31 39 47 55>;
 		qcom,cpr-fuse-target-quot-size = <8 8 8 8>;
 		qcom,cpr-fuse-target-quot-scale =
 					<0 10>,
@@ -655,7 +655,7 @@
 					<57 55 4 0>;
 		qcom,cpr-fuse-redun-sel = <140 61 3 1 0>;
 		qcom,cpr-fuse-redun-row = <1000 0>;
-		qcom,cpr-fuse-redun-target-quot = <8 8 16 24>;
+		qcom,cpr-fuse-redun-target-quot = <0 8 16 24>;
 		qcom,cpr-fuse-redun-ro-sel = <44 44 44 44>;
 		qcom,cpr-fuse-redun-init-voltage =
 					<1000 32 6 0>,
@@ -693,6 +693,12 @@
 				<0 0 0 (-25000)>,
 				<0 (-25000) (-25000) 20000>,
 				<0 (-25000) (-25000) 0>;
+		qcom,cpr-fuse-min-quot-diff = <0 0 0 0>;
+		qcom,cpr-min-quot-diff-adjustment =
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>;
 
 		qcom,cpr-scaled-init-voltage-as-ceiling;
 		qcom,cpr-voltage-scaling-factor-max = <0 0 2000 2000>;
@@ -830,6 +836,15 @@
 				<0 0 (-25000) (-35000)>,
 				<0 0 (-25000) (-35000)>,
 				<0 0 (-25000) (-35000)>;
+		qcom,cpr-fuse-min-quot-diff = <0 0 0 0>;
+		qcom,cpr-min-quot-diff-adjustment =
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>,
+					<0 0 0 0>;
 		qcom,cpr-cpus = <&CPU4 &CPU5 &CPU6 &CPU7>;
 		qcom,cpr-online-cpu-virtual-corner-init-voltage-adjustment =
 			/* 1st fuse version tuple matched */
