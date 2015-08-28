@@ -79,7 +79,7 @@
 			cdc_pdm_lines_2_act: pdm_lines_2_on {
 				mux {
 					pins = "gpio70", "gpio71", "gpio72";
-					function = "cdm_pdm0";
+					function = "cdc_pdm0";
 				};
 
 				config {
@@ -91,7 +91,7 @@
 			cdc_pdm_lines_2_sus: pdm_lines_2_off {
 				mux {
 					pins = "gpio70", "gpio71", "gpio72";
-					function = "cdm_pdm0";
+					function = "cdc_pdm0";
 				};
 
 				config {
@@ -809,7 +809,7 @@
 
 		/* WSA Reset */
 		wsa_reset {
-			wsa_active: wsa_reset_on {
+			wsa_reset_on: wsa_reset_on {
 				mux {
 					pins = "gpio68";
 					function = "gpio";
@@ -822,7 +822,7 @@
 				};
 			};
 
-			wsa_suspend: wsa_reset_off {
+			wsa_reset_off: wsa_reset_off {
 				mux {
 					pins = "gpio68";
 					function = "gpio";
@@ -866,6 +866,34 @@
 			};
 		};
 
+		/* WSA VI sense */
+		wsa-vi {
+			wsa_vi_on: wsa_vi_on {
+				mux {
+					pins = "gpio94", "gpio95";
+					function = "wsa_io";
+				};
+
+				config {
+					pins = "gpio94", "gpio95";
+					drive-strength = <8>; /* 8 MA */
+					bias-disable; /* NO pull */
+				};
+			};
+
+			wsa_vi_off: wsa_vi_off {
+				mux {
+					pins = "gpio94", "gpio95";
+					function = "wsa_io";
+				};
+
+				config {
+					pins = "gpio94", "gpio95";
+					drive-strength = <2>; /* 2 MA */
+					bias-pull-down;
+				};
+			};
+		};
 		/*sensors */
 		cam_sensor_mclk0_default: cam_sensor_mclk0_default {
 			cam_sensor_mclk0_default {
