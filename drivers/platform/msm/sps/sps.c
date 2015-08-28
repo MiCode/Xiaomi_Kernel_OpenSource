@@ -57,6 +57,11 @@ u8 reg_dump_option;
 u32 testbus_sel;
 u32 bam_pipe_sel;
 u32 desc_option;
+/**
+ * Specifies range of log level from level 0 to level 3 to have fine-granularity for logging
+ * to serve all BAM use cases.
+ */
+u32 log_level_sel;
 
 static char *debugfs_buf;
 static u32 debugfs_buf_size;
@@ -73,6 +78,7 @@ struct dentry *dfile_testbus_sel;
 struct dentry *dfile_bam_pipe_sel;
 struct dentry *dfile_desc_option;
 struct dentry *dfile_bam_addr;
+struct dentry *dfile_log_level_sel;
 
 static struct sps_bam *phy2bam(phys_addr_t phys_addr);
 
@@ -283,6 +289,7 @@ static ssize_t sps_set_bam_addr(struct file *file, const char __user *buf,
 	} else {
 		vir_addr = &bam->base;
 		num_pipes = bam->props.num_pipes;
+		bam->ipc_loglevel = log_level_sel;
 	}
 
 	switch (reg_dump_option) {
@@ -493,6 +500,7 @@ static void sps_debugfs_init(void)
 	debugfs_buf_size = 0;
 	debugfs_buf_used = 0;
 	wraparound = false;
+	log_level_sel = 0;
 
 	dent = debugfs_create_dir("sps", 0);
 	if (IS_ERR(dent)) {
@@ -568,8 +576,17 @@ static void sps_debugfs_init(void)
 		goto bam_addr_err;
 	}
 
+	dfile_log_level_sel = debugfs_create_u32("log_level_sel", 0664,
+						dent, &log_level_sel);
+	if (!dfile_log_level_sel || IS_ERR(dfile_log_level_sel)) {
+		pr_err("sps:fail to create debug_fs file for log_level_sel.\n");
+		goto bam_log_level_err;
+	}
+
 	return;
 
+bam_log_level_err:
+	debugfs_remove(dfile_bam_addr);
 bam_addr_err:
 	debugfs_remove(dfile_desc_option);
 desc_option_err:
@@ -612,6 +629,7 @@ static void sps_debugfs_exit(void)
 		debugfs_remove(dfile_bam_addr);
 	if (dent)
 		debugfs_remove(dent);
+	debugfs_remove(dfile_log_level_sel);
 	kfree(debugfs_buf);
 	debugfs_buf = NULL;
 }
