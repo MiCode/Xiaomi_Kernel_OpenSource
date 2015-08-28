@@ -704,6 +704,7 @@ struct hfi_picture_type {
 #define HFI_STATISTICS_MODE_DEFAULT 0x10
 #define HFI_STATISTICS_MODE_1 0x11
 #define HFI_STATISTICS_MODE_2 0x12
+#define HFI_STATISTICS_MODE_3 0x13
 
 struct hfi_uncompressed_format_select {
 	u32 buffer_type;
