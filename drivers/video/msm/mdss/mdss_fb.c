@@ -1553,7 +1553,6 @@ static int mdss_fb_blank_unblank(struct msm_fb_data_type *mfd)
 	if (mdss_panel_is_power_off(cur_power_state)) {
 		mutex_lock(&mfd->bl_lock);
 		if (!mfd->bl_updated) {
-			mfd->bl_updated = 1;
 			/*
 			 * If in AD calibration mode then frameworks would not
 			 * be allowed to update backlight hence post unblank
