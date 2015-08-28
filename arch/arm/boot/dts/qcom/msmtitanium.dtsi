@@ -92,6 +92,7 @@
 #include "msmtitanium-ion.dtsi"
 #include "msmtitanium-smp2p.dtsi"
 #include "msm-arm-smmu-titanium.dtsi"
+#include "msmtitanium-coresight.dtsi"
 
 &soc {
 	#address-cells = <1>;
