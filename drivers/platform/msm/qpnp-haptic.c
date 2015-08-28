@@ -1510,6 +1510,7 @@ static int qpnp_hap_set(struct qpnp_hap *hap, int on)
 				 * Start timer to poll Auto Resonance error bit
 				 */
 				mutex_lock(&hap->lock);
+				hrtimer_cancel(&hap->auto_res_err_poll_timer);
 				hrtimer_start(&hap->auto_res_err_poll_timer,
 						ktime_set(0, timeout_ns),
 						 HRTIMER_MODE_REL);
