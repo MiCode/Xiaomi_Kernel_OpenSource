@@ -725,8 +725,8 @@ country JO:
 country JP:  DFS-MKK
 	(2402 - 2482 @ 40), (20)
 	(2474 - 2494 @ 20), (20), NO-OFDM
-	(5170 - 5250 @ 80), (20), AUTO-BW
-	(5250 - 5330 @ 80), (20), DFS, AUTO-BW
+	(5170 - 5250 @ 80), (20), AUTO-BW, NO-OUTDOOR
+	(5250 - 5330 @ 80), (20), DFS, AUTO-BW, NO-OUTDOOR
 	(5490 - 5710 @ 160), (20), DFS
 	# 60 GHz band channels 2-4 at 10mW,
 	# ref: http://www.arib.or.jp/english/html/overview/doc/1-STD-T74v1_1.pdf
@@ -1354,9 +1354,9 @@ country TT: DFS-FCC
 
 country TW: DFS-FCC
 	(2402 - 2472 @ 40), (30)
-	(5270 - 5330 @ 40), (17)
-	(5490 - 5590 @ 80), (17), DFS
-	(5650 - 5730 @ 80), (30), DFS
+	(5170 - 5250 @ 80), (24), AUTO-BW
+	(5250 - 5330 @ 80), (24), DFS, AUTO-BW
+	(5490 - 5730 @ 160), (24), DFS
 	(5735 - 5835 @ 80), (30)
 
 country TZ:
