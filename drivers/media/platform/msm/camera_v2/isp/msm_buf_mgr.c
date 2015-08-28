@@ -816,7 +816,7 @@ static int msm_isp_buf_divert(struct msm_isp_buf_mgr *buf_mgr,
 		buf_info->buf_put_count++;
 		if (buf_info->buf_put_count != ISP_SHARE_BUF_CLIENT) {
 			rc = buf_info->buf_put_count;
-
+			buf_info->frame_id = frame_id;
 			spin_unlock_irqrestore(&bufq->bufq_lock, flags);
 			return rc;
 		}

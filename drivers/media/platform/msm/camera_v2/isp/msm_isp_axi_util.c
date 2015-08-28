@@ -1575,6 +1575,10 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 				__func__, buf->frame_id, frame_id);
 			vfe_dev->buf_mgr->frameId_mismatch_recovery = 1;
 			return;
+		} else if (buf->frame_id != frame_id) {
+			pr_err("%s: Dropping the Frame %d buf frame id is %d\n",
+				 __func__, frame_id, buf->frame_id);
+			drop_frame = 1;
 		}
 		if (drop_frame) {
 			/* Put but if dual vfe usecase and
