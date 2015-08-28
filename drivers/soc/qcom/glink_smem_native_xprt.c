@@ -593,12 +593,17 @@ static int fifo_tx(struct edge_info *einfo, const void *data, int len)
 	unsigned long flags;
 	int ret;
 
+	DEFINE_WAIT(wait);
+
 	spin_lock_irqsave(&einfo->write_lock, flags);
 	while (fifo_write_avail(einfo) < len) {
 		send_tx_blocked_signal(einfo);
 		spin_unlock_irqrestore(&einfo->write_lock, flags);
-		wait_event(einfo->tx_blocked_queue,
-				fifo_write_avail(einfo) < len || einfo->in_ssr);
+		prepare_to_wait(&einfo->tx_blocked_queue, &wait,
+							TASK_UNINTERRUPTIBLE);
+		if (fifo_write_avail(einfo) < len && !einfo->in_ssr)
+			schedule();
+		finish_wait(&einfo->tx_blocked_queue, &wait);
 		spin_lock_irqsave(&einfo->write_lock, flags);
 		if (einfo->in_ssr) {
 			spin_unlock_irqrestore(&einfo->write_lock, flags);
@@ -790,14 +795,14 @@ static void __rx_worker(struct edge_info *einfo, bool atomic_ctx)
 		srcu_read_unlock(&einfo->use_ref, rcu_id);
 		return;
 	}
-	if (!atomic_ctx && fifo_write_avail(einfo)) {
-		if (einfo->tx_resume_needed) {
+	if (!atomic_ctx) {
+		if (einfo->tx_resume_needed && fifo_write_avail(einfo)) {
 			einfo->tx_resume_needed = false;
 			einfo->xprt_if.glink_core_if_ptr->tx_resume(
 							&einfo->xprt_if);
 		}
 		spin_lock_irqsave(&einfo->write_lock, flags);
-		if (einfo->tx_blocked_signal_sent) {
+		if (waitqueue_active(&einfo->tx_blocked_queue)) {
 			einfo->tx_blocked_signal_sent = false;
 			trigger_wakeup = true;
 		}
