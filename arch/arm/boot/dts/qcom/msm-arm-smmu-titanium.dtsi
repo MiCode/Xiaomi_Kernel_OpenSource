@@ -21,8 +21,8 @@
 		reg = <0x1c40000 0x10000>;
 		#iommu-cells = <1>;
 		#global-interrupts = <1>;
-		interrupts = <0 42 0>, <0 240 0>, <0 241 0>,
-				<0 242 0>, <0 245 0>;
+		interrupts = <0 37 0>, <0 225 0>, <0 232 0>,
+				<0 233 0>, <0 234 0>;
 		qcom,register-save;
 		qcom,skip-init;
 		qcom,dynamic;
@@ -237,13 +237,15 @@
 			qcom,report-error-on-fault;
 		};
 
-		pronto_buf: qcom,iommu-ctx@1e37000 {
+		access_control: qcom,iommu-ctx@1e37000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e37000 0x1000>;
 			interrupts = <0 114 0>;
-			qcom,iommu-ctx-sids = <0x1406 0x1408 0x140c>;
-			qcom,iommu-sid-mask = <0x3f1 0x3f3 0x3f1>;
-			label = "pronto_buf";
+			qcom,iommu-ctx-sids = <0x1406 0x1408 0x140c
+					0x100 0x1d4 0x1e6 0x340>;
+			qcom,iommu-sid-mask = <0x3f1 0x3f3 0x3f1
+					0x7f 0x1 0x1 0x3f>;
+			label = "access_control";
 		};
 
 		ipa: qcom,iommu-ctx@1e38000 {
@@ -253,33 +255,6 @@
 			qcom,iommu-ctx-sids = <0x2000 0x2004>;
 			qcom,iommu-sid-mask = <0x3fa 0x3f8>;
 			label = "ipa";
-		};
-
-		sdc: qcom,iommu-ctx@1e39000 {
-			compatible = "qcom,msm-smmu-v2-ctx";
-			reg = <0x1e39000 0x1000>;
-			interrupts = <0 116 0>;
-			qcom,iommu-ctx-sids = <0x100>;
-			qcom,iommu-sid-mask = <0x7f>;
-			label = "sdc";
-		};
-
-		lpass_stream: qcom,iommu-ctx@1e3a000 {
-			compatible = "qcom,msm-smmu-v2-ctx";
-			reg = <0x1e3a000 0x1000>;
-			interrupts = <0 117 0>;
-			qcom,iommu-ctx-sids = <0x1d4 0x1e6>;
-			qcom,iommu-sid-mask = <0x1 0x1>;
-			label = "lpass_stream";
-		};
-
-		usb: qcom,iommu-ctx@1e3b000 {
-			compatible = "qcom,msm-smmu-v2-ctx";
-			reg = <0x1e3b000 0x1000>;
-			interrupts = <0 118 0>;
-			qcom,iommu-ctx-sids = <0x340>;
-			qcom,iommu-sid-mask = <0x3f>;
-			label = "usb";
 		};
 	};
 };
