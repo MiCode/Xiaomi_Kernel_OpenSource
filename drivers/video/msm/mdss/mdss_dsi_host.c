@@ -1174,7 +1174,8 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 		}
 
 		/* DSI_COMMAND_MODE_NULL_INSERTION_CTRL */
-		if (ctrl_pdata->shared_data->hw_rev >= MDSS_DSI_HW_REV_104) {
+		if ((ctrl_pdata->shared_data->hw_rev >= MDSS_DSI_HW_REV_104)
+			&& ctrl_pdata->null_insert_enabled) {
 			data = (mipi->vc << 1); /* Virtual channel ID */
 			data |= 0 << 16; /* Word count of the NULL packet */
 			data |= 0x1; /* Enable Null insertion */
