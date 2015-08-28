@@ -317,7 +317,7 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev)
 	struct bus_type *bus;
 	unsigned long iova = 0x10000;
 	phys_addr_t paddr = 0xa000;
-	int htw_disable = 1;
+	int htw_disable = 1, atomic_domain = 1;
 
 	bus = msm_iommu_get_bus(dev);
 	if (!bus)
@@ -332,6 +332,13 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev)
 	if (iommu_domain_set_attr(domain, DOMAIN_ATTR_COHERENT_HTW_DISABLE,
 				  &htw_disable)) {
 		seq_puts(s, "Couldn't disable coherent htw\n");
+		goto out_domain_free;
+	}
+
+	if (iommu_domain_set_attr(domain, DOMAIN_ATTR_ATOMIC,
+				  &atomic_domain)) {
+		seq_printf(s, "Couldn't set atomic_domain to %d\n",
+			   atomic_domain);
 		goto out_domain_free;
 	}
 
