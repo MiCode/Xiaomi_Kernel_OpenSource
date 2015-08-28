@@ -546,6 +546,7 @@ static int hfi_fill_codec_info(u8 *data_ptr,
 	u32 codecs = 0, codec_count = 0, size = 0;
 	struct msm_vidc_capability *capability;
 	u32 prop_id = *((u32 *)data_ptr);
+	u8 *orig_data_ptr = data_ptr;
 
 	if (prop_id ==  HFI_PROPERTY_PARAM_CODEC_SUPPORTED) {
 		struct hfi_codec_supported *prop;
@@ -586,6 +587,18 @@ static int hfi_fill_codec_info(u8 *data_ptr,
 		}
 	}
 	sys_init_done->codec_count = codec_count;
+
+	prop_id = *((u32 *)(orig_data_ptr + size));
+	if (prop_id == HFI_PROPERTY_PARAM_MAX_SESSIONS_SUPPORTED) {
+		struct hfi_max_sessions_supported *prop =
+			(struct hfi_max_sessions_supported *)
+			(orig_data_ptr + size + sizeof(u32));
+
+		sys_init_done->max_sessions_supported = prop->max_sessions;
+		size += sizeof(struct hfi_max_sessions_supported) + sizeof(u32);
+		dprintk(VIDC_DBG, "max_sessions_supported %d\n",
+				prop->max_sessions);
+	}
 	return size;
 }
 

@@ -273,6 +273,8 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_COMMON_START + 0x00E)
 #define HFI_PROPERTY_PARAM_MVC_BUFFER_LAYOUT \
 	(HFI_PROPERTY_PARAM_COMMON_START + 0x00F)
+#define  HFI_PROPERTY_PARAM_MAX_SESSIONS_SUPPORTED	    \
+	(HFI_PROPERTY_PARAM_COMMON_START + 0x010)
 
 #define HFI_PROPERTY_CONFIG_COMMON_START				\
 	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET + 0x2000)
@@ -754,6 +756,10 @@ struct hfi_codec_supported {
 struct hfi_properties_supported {
 	u32 num_properties;
 	u32 rg_properties[1];
+};
+
+struct hfi_max_sessions_supported {
+	u32 max_sessions;
 };
 
 struct hfi_vpe_color_space_conversion {
