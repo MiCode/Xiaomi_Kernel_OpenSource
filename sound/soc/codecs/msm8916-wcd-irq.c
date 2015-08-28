@@ -257,6 +257,7 @@ enum wcd9xxx_spmi_pm_state wcd9xxx_spmi_pm_cmpxchg(
 		enum wcd9xxx_spmi_pm_state n)
 {
 	enum wcd9xxx_spmi_pm_state old;
+
 	mutex_lock(&map.pm_lock);
 	old = map.pm_state;
 	if (old == o)
@@ -425,6 +426,7 @@ void wcd9xxx_spmi_set_dev(struct spmi_device *spmi, int i)
 int wcd9xxx_spmi_irq_init(void)
 {
 	int i = 0;
+
 	for (; i < MAX_NUM_IRQS; i++)
 		map.mask[BIT_BYTE(i)] |= BYTE_BIT_MASK(i);
 	mutex_init(&map.pm_lock);

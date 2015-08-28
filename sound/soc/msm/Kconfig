@@ -154,4 +154,33 @@ config SND_SOC_MSM8996
 	 the machine driver and the corresponding
 	 DAI-links
 
+config SND_SOC_MSM8X16
+	tristate "SoC Machine driver for MSM8916"
+	depends on ARCH_MSMTITANIUM || ARCH_MSM8916
+	select SND_SOC_QDSP6V2
+	select SND_SOC_MSM_STUB
+	select SND_SOC_MSM_HOSTLESS_PCM
+	select SND_DYNAMIC_MINORS
+	select MSM_QDSP6_APRV2
+	select SND_SOC_WCD9330
+	select SND_SOC_WCD9335
+	select SND_SOC_MSM8X16_WCD
+	select SND_SOC_WSA881X_ANALOG
+	select SND_SOC_WSA881X
+	select MFD_CORE
+	select QTI_PP
+	select DTS_SRS_TM
+	select DOLBY_DAP
+	select DOLBY_DS2
+	select SND_SOC_CPE
+	select SND_SOC_WCD_CPE
+	select SND_HWDEP
+        select DTS_EAGLE
+	help
+	 To add support for SoC audio on MSM8996.
+	 This will enable sound soc drivers which
+	 interfaces with DSP, also it will enable
+	 the machine driver and the corresponding
+	 DAI-links
+
 endmenu
