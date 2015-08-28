@@ -1443,7 +1443,6 @@ struct hfi_device {
 						unsigned long instant_bitrate);
 	int (*vote_bus)(void *dev, struct vidc_bus_vote_data *data,
 			int num_data);
-	int (*unvote_bus)(void *dev);
 	int (*get_fw_info)(void *dev, enum fw_info info);
 	int (*session_clean)(void *sess);
 	int (*get_core_capabilities)(void *dev);

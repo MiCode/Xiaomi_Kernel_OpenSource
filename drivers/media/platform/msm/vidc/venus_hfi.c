@@ -837,23 +837,6 @@ err_unknown_device:
 	return rc;
 }
 
-static int venus_hfi_unvote_buses(void *dev)
-{
-	struct venus_hfi_device *device = dev;
-	int rc = 0;
-
-	if (!device) {
-		dprintk(VIDC_ERR, "Invalid device in %s\n", __func__);
-		return -EINVAL;
-	}
-
-	mutex_lock(&device->lock);
-	rc = __unvote_buses(device);
-	mutex_unlock(&device->lock);
-
-	return rc;
-}
-
 static int __vote_buses(struct venus_hfi_device *device,
 		struct vidc_bus_vote_data *data, int num_data)
 {
@@ -4634,7 +4617,6 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->session_get_property = venus_hfi_session_get_property;
 	hdev->scale_clocks = venus_hfi_scale_clocks;
 	hdev->vote_bus = venus_hfi_vote_buses;
-	hdev->unvote_bus = venus_hfi_unvote_buses;
 	hdev->get_fw_info = venus_hfi_get_fw_info;
 	hdev->get_core_capabilities = venus_hfi_get_core_capabilities;
 	hdev->suspend = venus_hfi_suspend;
