@@ -2136,7 +2136,7 @@
 		qcom,save-reg;
 	};
 
-	sound-9335 {
+	ext_codec: sound-9335 {
 		compatible = "qcom,msm8952-audio-slim-codec";
 		qcom,model = "msm8976-tasha-snd-card";
 
