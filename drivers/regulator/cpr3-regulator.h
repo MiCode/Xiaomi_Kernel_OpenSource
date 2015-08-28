@@ -140,6 +140,9 @@ struct cpr3_corner {
  *			LDO operate
  * @ldo_adjust_volt:	Voltage in microvolts used to offset margin assigned
  *			to IR drop between PMIC and CPU
+ * @ldo_ret_volt:	The lowest supported CPU retention voltage in
+ *			microvolts. This voltage may vary part-to-part based
+ *			upon the value of hardware fuses.
  * @ldo_max_volt:	The maximum physically supported LDO voltage in
  *			microvolts
  * @ldo_mode_allowed:	Boolean which indicates if LDO mode is allowed for this
@@ -177,6 +180,7 @@ struct cpr3_regulator {
 	int			debug_corner;
 	int			ldo_headroom_volt;
 	int			ldo_adjust_volt;
+	int			ldo_ret_volt;
 	int			ldo_max_volt;
 	bool			ldo_mode_allowed;
 	bool			vreg_enabled;
