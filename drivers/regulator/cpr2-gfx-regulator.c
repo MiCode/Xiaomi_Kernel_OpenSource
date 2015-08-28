@@ -366,9 +366,7 @@ static void cpr_irq_clr_ack(struct cpr2_gfx_regulator *cpr_vreg)
 
 static void cpr_irq_set(struct cpr2_gfx_regulator *cpr_vreg, u32 int_bits)
 {
-	if (cpr_vreg->ctrl_enable)
-		cpr_write(cpr_vreg, REG_RBIF_IRQ_EN(cpr_vreg->irq_line),
-			int_bits);
+	cpr_write(cpr_vreg, REG_RBIF_IRQ_EN(cpr_vreg->irq_line), int_bits);
 }
 
 static void cpr_ctl_modify(struct cpr2_gfx_regulator *cpr_vreg, u32 mask,
@@ -729,6 +727,13 @@ static irqreturn_t cpr2_gfx_irq_handler(int irq, void *dev)
 
 	mutex_lock(&cpr_vreg->cpr_mutex);
 
+	if (!cpr_vreg->ctrl_enable) {
+		/* Already disabled */
+		cpr_debug_irq(cpr_vreg,
+				"CPR interrupt received but CPR is disabled\n");
+		goto _exit;
+	}
+
 	reg_val = cpr_read(cpr_vreg, REG_RBIF_IRQ_STATUS);
 	if (cpr_vreg->flags & FLAGS_IGNORE_1ST_IRQ_STATUS)
 		reg_val = cpr_read(cpr_vreg, REG_RBIF_IRQ_STATUS);
@@ -889,23 +894,24 @@ static int cpr2_gfx_regulator_enable(struct regulator_dev *rdev)
 	struct cpr2_gfx_regulator *cpr_vreg = rdev_get_drvdata(rdev);
 	int rc = 0;
 
+	mutex_lock(&cpr_vreg->cpr_mutex);
+
 	/* Enable dependency power before vdd_gfx */
 	if (cpr_vreg->vdd_mx) {
 		rc = regulator_enable(cpr_vreg->vdd_mx);
 		if (rc) {
 			cpr_err(cpr_vreg, "regulator_enable: vdd_mx: rc=%d\n",
 				rc);
-			return rc;
+			goto _exit;
 		}
 	}
 
 	rc = regulator_enable(cpr_vreg->vdd_gfx);
 	if (rc) {
 		cpr_err(cpr_vreg, "regulator_enable: vdd_gfx: rc=%d\n", rc);
-		return rc;
+		goto _exit;
 	}
 
-	mutex_lock(&cpr_vreg->cpr_mutex);
 	cpr_vreg->vreg_enabled = true;
 	if (cpr_is_allowed(cpr_vreg)) {
 		rc = cpr2_gfx_closed_loop_enable(cpr_vreg);
@@ -926,13 +932,15 @@ static int cpr2_gfx_regulator_enable(struct regulator_dev *rdev)
 		cpr_vreg->corner);
 _exit:
 	mutex_unlock(&cpr_vreg->cpr_mutex);
-	return 0;
+	return rc;
 }
 
 static int cpr2_gfx_regulator_disable(struct regulator_dev *rdev)
 {
 	struct cpr2_gfx_regulator *cpr_vreg = rdev_get_drvdata(rdev);
 	int rc;
+
+	mutex_lock(&cpr_vreg->cpr_mutex);
 
 	rc = regulator_disable(cpr_vreg->vdd_gfx);
 	if (!rc) {
@@ -941,23 +949,24 @@ static int cpr2_gfx_regulator_disable(struct regulator_dev *rdev)
 			if (rc) {
 				cpr_err(cpr_vreg, "regulator_disable: vdd_mx: rc=%d\n",
 					rc);
-				return rc;
+				goto _exit;
 			}
 		}
 
-		mutex_lock(&cpr_vreg->cpr_mutex);
 		cpr_vreg->vreg_enabled = false;
 		if (cpr_is_allowed(cpr_vreg)) {
 			cpr_ctl_disable(cpr_vreg);
 			cpr2_gfx_closed_loop_disable(cpr_vreg);
 		}
-		mutex_unlock(&cpr_vreg->cpr_mutex);
 	} else {
 		cpr_err(cpr_vreg, "regulator_disable: vdd_gfx: rc=%d\n", rc);
 	}
 
 	cpr_debug(cpr_vreg, "cpr_enable = %s\n",
 		cpr_vreg->enable ? "enabled" : "disabled");
+
+_exit:
+	mutex_unlock(&cpr_vreg->cpr_mutex);
 	return rc;
 }
 
@@ -2071,7 +2080,6 @@ static int cpr_enable_set(void *data, u64 val)
 			cpr_ctl_enable(cpr_vreg, cpr_vreg->corner);
 		} else {
 			cpr_ctl_disable(cpr_vreg);
-			cpr_irq_set(cpr_vreg, 0);
 			cpr2_gfx_closed_loop_disable(cpr_vreg);
 		}
 	}
@@ -2409,7 +2417,6 @@ static int cpr2_gfx_regulator_remove(struct platform_device *pdev)
 		/* Disable CPR */
 		if (cpr_vreg->ctrl_enable) {
 			cpr_ctl_disable(cpr_vreg);
-			cpr_irq_set(cpr_vreg, 0);
 			cpr2_gfx_closed_loop_disable(cpr_vreg);
 		}
 
