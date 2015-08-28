@@ -125,7 +125,6 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 	struct sk_buff *skbn;
 	struct rmnet_map_header_s *maph;
 	uint32_t packet_len;
-	uint8_t ip_byte;
 
 	if (skb->len == 0)
 		return 0;
@@ -156,14 +155,6 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 	if (ntohs(maph->pkt_len) == 0) {
 		LOGD("Dropping empty MAP frame");
 		rmnet_kfree_skb(skbn, RMNET_STATS_SKBFREE_DEAGG_DATA_LEN_0);
-		return 0;
-	}
-
-	/* Sanity check */
-	ip_byte = (skbn->data[4]) & 0xF0;
-	if (!RMNET_MAP_GET_CD_BIT(skbn) && ip_byte != 0x40 && ip_byte != 0x60) {
-		LOGM("Unknown IP type: 0x%02X", ip_byte);
-		rmnet_kfree_skb(skbn, RMNET_STATS_SKBFREE_DEAGG_UNKOWN_IP_TYP);
 		return 0;
 	}
 
