@@ -110,6 +110,8 @@ Optional properties:
 					controller. These pin configurations are installed in the pinctrl
 					device node. Refer to pinctrl-bindings.txt
 - qcom,regulator-ldo-mode:		Boolean to enable ldo mode for the dsi phy regulator
+- qcom,null-insertion-enabled:		Boolean to enable NULL packet insertion
+					feature for DSI controller.
 - qcom,dsi-irq-line:			Boolean specifies if DSI has a different irq line than mdp.
 - qcom,lane-map:			Specifies the data lane swap configuration.
 					"lane_map_0123" = <0 1 2 3> (default value)
@@ -222,6 +224,7 @@ Example:
 			qcom,mmss-ulp-clamp-ctrl-offset = <0x20>;
 			qcom,mmss-phyreset-ctrl-offset = <0x24>;
 			qcom,regulator-ldo-mode;
+			qcom,null-insertion-enabled;
 
 			pinctrl-names = "mdss_default", "mdss_sleep";
 			pinctrl-0 = <&mdss_dsi_active>;
