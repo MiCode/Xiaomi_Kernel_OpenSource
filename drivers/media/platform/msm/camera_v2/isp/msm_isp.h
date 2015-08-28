@@ -631,6 +631,7 @@ struct msm_vfe_common_subdev {
 };
 
 struct dual_vfe_resource {
+	struct vfe_device *vfe_dev[MAX_VFE];
 	void __iomem *vfe_base[MAX_VFE];
 	uint32_t reg_update_mask[MAX_VFE];
 	struct msm_vfe_stats_shared_data *stats_data[MAX_VFE];
