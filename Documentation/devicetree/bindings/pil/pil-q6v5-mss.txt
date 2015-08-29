@@ -70,6 +70,8 @@ Optional properties:
 - qcom,pil-force-shutdown: Boolean. If set, the SSR framework will not trigger graceful shutdown
                            on behalf of the subsystem driver.
 - qcom,qdsp6v56-1-8: Boolean- Present if the qdsp version is v56 1.8
+- qcom,qdsp6v56-1-8-inrush-current: Boolean- Present if the qdsp version is V56 1.8 and has in-rush
+				    current issue.
 
 Example:
 	qcom,mss@fc880000 {
