@@ -138,6 +138,7 @@ struct silabs_fm_device {
 	u8 rds_fifo_cnt; /* 0 - 25 */
 	struct silabs_af_info af_info1;
 	struct silabs_af_info af_info2;
+	struct silabs_srch_list_compl srch_list;
 };
 
 static int silabs_fm_request_irq(struct silabs_fm_device *radio);
@@ -681,6 +682,20 @@ static int set_property(struct silabs_fm_device *radio, u16 prop, u16 value)
 	return retval;
 }
 
+static void update_search_list(struct silabs_fm_device *radio, int freq)
+{
+	int temp_freq = freq;
+
+	temp_freq = temp_freq -
+		(radio->recv_conf.band_low_limit * TUNE_STEP_SIZE);
+	temp_freq = temp_freq / 50;
+	radio->srch_list.rel_freq[radio->srch_list.num_stations_found].
+					rel_freq_lsb = GET_LSB(temp_freq);
+	radio->srch_list.rel_freq[radio->srch_list.num_stations_found].
+					rel_freq_msb = GET_MSB(temp_freq);
+	radio->srch_list.num_stations_found++;
+}
+
 static void silabs_scan(struct work_struct *work)
 {
 	struct silabs_fm_device *radio;
@@ -689,6 +704,8 @@ static void silabs_scan(struct work_struct *work)
 	u8 bltf;
 	u32 temp_freq_khz;
 	int retval = 0;
+	struct kfifo *data_b;
+	int len = 0;
 
 	FMDBG("+%s, getting radio handle from work struct\n", __func__);
 	radio = container_of(work, struct silabs_fm_device, work_scan.work);
@@ -720,7 +737,10 @@ static void silabs_scan(struct work_struct *work)
 		/* If scan is cancelled or FM is not ON, break */
 		if (radio->is_search_cancelled == true) {
 			FMDBG("%s: scan cancelled\n", __func__);
-			goto seek_cancelled;
+			if (radio->g_search_mode == SCAN_FOR_STRONG)
+				goto seek_tune_fail;
+			else
+				goto seek_cancelled;
 		} else if (radio->mode != FM_RECV) {
 			FMDERR("%s: FM is not in proper state\n", __func__);
 			return;
@@ -763,7 +783,7 @@ static void silabs_scan(struct work_struct *work)
 		mutex_unlock(&radio->lock);
 		FMDBG("In %s, freq is %d\n", __func__, temp_freq_khz);
 
-		if (valid) {
+		if ((valid) && (radio->g_search_mode == SCAN)) {
 			FMDBG("val bit set, posting SILABS_EVT_TUNE_SUCC\n");
 			silabs_fm_q_event(radio, SILABS_EVT_TUNE_SUCC);
 		}
@@ -778,19 +798,35 @@ static void silabs_scan(struct work_struct *work)
 		 */
 		if (radio->is_search_cancelled == true) {
 			FMDBG("%s: scan cancelled\n", __func__);
-			goto seek_cancelled;
+			if (radio->g_search_mode == SCAN_FOR_STRONG)
+				goto seek_tune_fail;
+			else
+				goto seek_cancelled;
 		} else if (radio->mode != FM_RECV) {
 			FMDERR("%s: FM is not in proper state\n", __func__);
 			return;
 		}
 
-		/* sleep for dwell period */
-		msleep(radio->dwell_time_sec * 1000);
-
-		/* need to queue the event when the seek completes */
-		silabs_fm_q_event(radio, SILABS_EVT_SCAN_NEXT);
+		if (radio->g_search_mode == SCAN) {
+			/* sleep for dwell period */
+			msleep(radio->dwell_time_sec * 1000);
+			/* need to queue the event when the seek completes */
+			silabs_fm_q_event(radio, SILABS_EVT_SCAN_NEXT);
+		} else if ((valid) &&
+				(radio->g_search_mode == SCAN_FOR_STRONG)) {
+			update_search_list(radio, temp_freq_khz);
+		}
 	}
+
 seek_tune_fail:
+	if (radio->g_search_mode == SCAN_FOR_STRONG) {
+		len = radio->srch_list.num_stations_found * 2 +
+			sizeof(radio->srch_list.num_stations_found);
+		data_b = &radio->data_buf[SILABS_FM_BUF_SRCH_LIST];
+		kfifo_in_locked(data_b, &radio->srch_list, len,
+				&radio->buf_lock[SILABS_FM_BUF_SRCH_LIST]);
+		silabs_fm_q_event(radio, SILABS_EVT_NEW_SRCH_LIST);
+	}
 	/* tune to original frequency */
 	retval = tune(radio, current_freq_khz);
 	if (retval < 0)
@@ -3096,6 +3132,9 @@ static int silabs_fm_vidioc_s_ctrl(struct file *file, void *priv,
 		if ((ctrl->value >= 0) || (ctrl->value <= MAX_AF_WAIT_SEC))
 			radio->af_wait_timer = ctrl->value;
 		break;
+	case V4L2_CID_PRIVATE_SILABS_SRCH_CNT:
+		retval = 0;
+		break;
 	default:
 		retval = -EINVAL;
 		break;
@@ -3350,7 +3389,7 @@ static int silabs_fm_vidioc_s_hw_freq_seek(struct file *file, void *priv,
 
 	radio->is_search_cancelled = false;
 
-	if (radio->g_search_mode == 0) {
+	if (radio->g_search_mode == SEEK) {
 		/* seek */
 		FMDBG("starting seek\n");
 
@@ -3358,10 +3397,16 @@ static int silabs_fm_vidioc_s_hw_freq_seek(struct file *file, void *priv,
 
 		retval = silabs_seek(radio, dir, WRAP_ENABLE);
 
-	} else if (radio->g_search_mode == 1) {
+	} else if ((radio->g_search_mode == SCAN) ||
+			(radio->g_search_mode == SCAN_FOR_STRONG)) {
 		/* scan */
-		FMDBG("starting scan\n");
-
+		if (radio->g_search_mode == SCAN_FOR_STRONG) {
+			FMDBG("starting search list\n");
+			memset(&radio->srch_list, 0,
+				sizeof(struct silabs_srch_list_compl));
+		} else {
+			FMDBG("starting scan\n");
+		}
 		silabs_search(radio, START_SCAN);
 
 	} else {
