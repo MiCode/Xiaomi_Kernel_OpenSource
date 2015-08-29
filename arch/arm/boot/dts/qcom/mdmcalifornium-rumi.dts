@@ -55,6 +55,7 @@
 };
 
 &usb3 {
+	qcom,disable-dev-mode-pm;
 	dwc3@8a00000 {
 		maximum-speed = "high-speed";
 	};
