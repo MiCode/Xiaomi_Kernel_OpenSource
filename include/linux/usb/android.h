@@ -43,6 +43,11 @@ enum android_function_index {
 	ANDROID_AUDIO_SRC,
 	ANDROID_CHARGER,
 	ANDROID_MIDI,
+	ANDROID_RNDIS_GSI,
+	ANDROID_ECM_GSI,
+	ANDROID_RMNET_GSI,
+	ANDROID_MBIM_GSI,
+	ANDROID_DPL_GSI,
 	ANDROID_MAX_FUNC_CNT,
 	ANDROID_INVALID_FUNC,
 };
@@ -96,6 +101,16 @@ static enum android_function_index name_to_func_idx(const char *name)
 		return ANDROID_AUDIO_SRC;
 	if (!strncasecmp("MIDI", name, FUNC_NAME_LEN))
 		return ANDROID_MIDI;
+	if (!strncasecmp("RNDIS_GSI", name, FUNC_NAME_LEN))
+		return ANDROID_RNDIS_GSI;
+	if (!strncasecmp("ECM_GSI", name, FUNC_NAME_LEN))
+		return ANDROID_ECM_GSI;
+	if (!strncasecmp("RMNET_GSI", name, FUNC_NAME_LEN))
+		return ANDROID_RMNET_GSI;
+	if (!strncasecmp("MBIM_GSI", name, FUNC_NAME_LEN))
+		return ANDROID_MBIM_GSI;
+	if (!strncasecmp("DPL_GSI", name, FUNC_NAME_LEN))
+		return ANDROID_DPL_GSI;
 
 	return ANDROID_INVALID_FUNC;
 }

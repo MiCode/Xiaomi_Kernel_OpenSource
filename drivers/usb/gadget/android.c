@@ -67,6 +67,7 @@
 #include "u_data_ipa.c"
 #include "u_ether.c"
 #include "u_qc_ether.c"
+#include "f_gsi.c"
 #include "f_mass_storage.h"
 
 USB_ETHERNET_MODULE_PARAMETERS();
@@ -2855,6 +2856,148 @@ static struct android_usb_function midi_function = {
 	.attributes	= midi_function_attributes,
 };
 #endif
+
+static int rndis_gsi_function_init(struct android_usb_function *f,
+					struct usb_composite_dev *cdev)
+{
+
+	/* "Wireless" RNDIS; auto-detected by Windows */
+	rndis_gsi_iad_descriptor.bFunctionClass =
+					USB_CLASS_WIRELESS_CONTROLLER;
+	rndis_gsi_iad_descriptor.bFunctionSubClass = 0x01;
+	rndis_gsi_iad_descriptor.bFunctionProtocol = 0x03;
+	rndis_gsi_control_intf.bInterfaceClass =
+					USB_CLASS_WIRELESS_CONTROLLER;
+	rndis_gsi_control_intf.bInterfaceSubClass =	 0x01;
+	rndis_gsi_control_intf.bInterfaceProtocol =	 0x03;
+
+	return gsi_function_init(IPA_USB_RNDIS);
+}
+
+static void rndis_gsi_function_cleanup(struct android_usb_function *f)
+{
+	gsi_function_cleanup(IPA_USB_RNDIS);
+}
+
+static int rndis_gsi_function_bind_config(struct android_usb_function *f,
+					struct usb_configuration *c)
+{
+
+	return gsi_bind_config(c, IPA_USB_RNDIS);
+}
+
+static struct android_usb_function rndis_gsi_function = {
+	.name		= "rndis_gsi",
+	.init		= rndis_gsi_function_init,
+	.cleanup	= rndis_gsi_function_cleanup,
+	.bind_config	= rndis_gsi_function_bind_config,
+};
+
+static int rmnet_gsi_function_init(struct android_usb_function *f,
+					struct usb_composite_dev *cdev)
+{
+	return gsi_function_init(IPA_USB_RMNET);
+}
+
+static void rmnet_gsi_function_cleanup(struct android_usb_function *f)
+{
+	gsi_function_cleanup(IPA_USB_RMNET);
+}
+
+static int rmnet_gsi_function_bind_config(struct android_usb_function *f,
+					 struct usb_configuration *c)
+{
+	return gsi_bind_config(c, IPA_USB_RMNET);
+}
+
+static struct android_usb_function rmnet_gsi_function = {
+	.name		= "rmnet_gsi",
+	.init		= rmnet_gsi_function_init,
+	.cleanup	= rmnet_gsi_function_cleanup,
+	.bind_config	= rmnet_gsi_function_bind_config,
+};
+
+static int ecm_gsi_function_init(struct android_usb_function *f,
+				struct usb_composite_dev *cdev)
+{
+	return gsi_function_init(IPA_USB_ECM);
+}
+
+static void ecm_gsi_function_cleanup(struct android_usb_function *f)
+{
+	return gsi_function_cleanup(IPA_USB_ECM);
+}
+
+static int ecm_gsi_function_bind_config(struct android_usb_function *f,
+					struct usb_configuration *c)
+{
+	return gsi_bind_config(c, IPA_USB_ECM);
+}
+
+static struct android_usb_function ecm_gsi_function = {
+	.name		= "ecm_gsi",
+	.init		= ecm_gsi_function_init,
+	.cleanup	= ecm_gsi_function_cleanup,
+	.bind_config	= ecm_gsi_function_bind_config,
+};
+
+static int mbim_gsi_function_init(struct android_usb_function *f,
+					 struct usb_composite_dev *cdev)
+{
+	return gsi_function_init(IPA_USB_MBIM);
+}
+
+static void mbim_gsi_function_cleanup(struct android_usb_function *f)
+{
+	gsi_function_cleanup(IPA_USB_MBIM);
+}
+
+static int mbim_gsi_function_bind_config(struct android_usb_function *f,
+					  struct usb_configuration *c)
+{
+	return gsi_bind_config(c, IPA_USB_MBIM);
+}
+
+static int mbim_gsi_function_ctrlrequest(struct android_usb_function *f,
+					struct usb_composite_dev *cdev,
+					const struct usb_ctrlrequest *c)
+{
+	return gsi_os_desc_ctrlrequest(cdev, c);
+}
+
+static struct android_usb_function mbim_gsi_function = {
+	.name		= "mbim_gsi",
+	.cleanup	= mbim_gsi_function_cleanup,
+	.bind_config	= mbim_gsi_function_bind_config,
+	.init		= mbim_gsi_function_init,
+	.ctrlrequest	= mbim_gsi_function_ctrlrequest,
+};
+
+static int dpl_gsi_function_init(struct android_usb_function *f,
+	struct usb_composite_dev *cdev)
+{
+	return gsi_function_init(IPA_USB_DIAG);
+}
+
+static void dpl_gsi_function_cleanup(struct android_usb_function *f)
+{
+	gsi_function_cleanup(IPA_USB_DIAG);
+}
+
+static int dpl_gsi_function_bind_config(struct android_usb_function *f,
+					struct usb_configuration *c)
+{
+	return gsi_bind_config(c, IPA_USB_DIAG);
+
+}
+
+static struct android_usb_function dpl_gsi_function = {
+	.name		= "dpl_gsi",
+	.init		= dpl_gsi_function_init,
+	.cleanup	= dpl_gsi_function_cleanup,
+	.bind_config	= dpl_gsi_function_bind_config,
+};
+
 static struct android_usb_function *supported_functions[] = {
 	[ANDROID_FFS] = &ffs_function,
 	[ANDROID_MBIM_BAM] = &mbim_function,
@@ -2882,6 +3025,11 @@ static struct android_usb_function *supported_functions[] = {
 #ifdef CONFIG_SND_RAWMIDI
 	[ANDROID_MIDI] = &midi_function,
 #endif
+	[ANDROID_RNDIS_GSI] = &rndis_gsi_function,
+	[ANDROID_ECM_GSI] = &ecm_gsi_function,
+	[ANDROID_RMNET_GSI] = &rmnet_gsi_function,
+	[ANDROID_MBIM_GSI] = &mbim_gsi_function,
+	[ANDROID_DPL_GSI] = &dpl_gsi_function,
 	NULL
 };
 
