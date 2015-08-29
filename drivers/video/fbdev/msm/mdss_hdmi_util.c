@@ -114,6 +114,21 @@ int hdmi_set_resv_timing_info(struct msm_hdmi_mode_timing_info *mode)
 	return -ENOMEM;
 }
 
+bool hdmi_is_valid_resv_timing(int mode)
+{
+	struct msm_hdmi_mode_timing_info *info;
+
+	if (mode < HDMI_VFRMT_RESERVE1 || mode > RESERVE_VFRMT_END) {
+		DEV_ERR("%s: invalid mode %d\n", __func__, mode);
+		return false;
+	}
+
+	info = &hdmi_resv_timings[mode - HDMI_VFRMT_RESERVE1];
+
+	return info->video_format >= HDMI_VFRMT_RESERVE1 &&
+		info->video_format <= RESERVE_VFRMT_END;
+}
+
 void hdmi_reset_resv_timing_info(void)
 {
 	int i;
