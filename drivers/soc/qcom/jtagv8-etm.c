@@ -1414,10 +1414,10 @@ void msm_jtag_etm_save_state(void)
 
 	cpu = raw_smp_processor_id();
 
-	if (etm[cpu]->save_restore_disabled)
+	if (!etm[cpu] || etm[cpu]->save_restore_disabled)
 		return;
 
-	if (etm[cpu] && etm[cpu]->save_restore_enabled) {
+	if (etm[cpu]->save_restore_enabled) {
 		if (etm[cpu]->si_enable)
 			etm_si_save_state(etm[cpu]);
 		else
@@ -1432,14 +1432,14 @@ void msm_jtag_etm_restore_state(void)
 
 	cpu = raw_smp_processor_id();
 
-	if (etm[cpu]->save_restore_disabled)
+	if (!etm[cpu] || etm[cpu]->save_restore_disabled)
 		return;
 
 	/*
 	 * Check to ensure we attempt to restore only when save
 	 * has been done is accomplished by callee function.
 	 */
-	if (etm[cpu] && etm[cpu]->save_restore_enabled) {
+	if (etm[cpu]->save_restore_enabled) {
 		if (etm[cpu]->si_enable)
 			etm_si_restore_state(etm[cpu]);
 		else
