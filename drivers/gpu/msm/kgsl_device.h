@@ -260,7 +260,6 @@ struct kgsl_device {
 
 	wait_queue_head_t wait_queue;
 	wait_queue_head_t active_cnt_wq;
-	struct workqueue_struct *work_queue;
 	struct platform_device *pdev;
 	struct dentry *d_debugfs;
 	struct idr context_idr;

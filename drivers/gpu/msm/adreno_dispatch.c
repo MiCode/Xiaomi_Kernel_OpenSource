@@ -2135,7 +2135,7 @@ static void adreno_dispatcher_work(struct work_struct *work)
 	 * stragglers
 	 */
 	if (dispatcher->inflight == 0 && count)
-		queue_work(device->work_queue, &device->event_work);
+		kgsl_schedule_work(&device->event_work);
 
 	/* Try to dispatch new commands */
 	_adreno_dispatcher_issuecmds(adreno_dev);
@@ -2188,7 +2188,7 @@ void adreno_dispatcher_schedule(struct kgsl_device *device)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 
-	queue_work(device->work_queue, &dispatcher->work);
+	kgsl_schedule_work(&dispatcher->work);
 }
 
 /**
@@ -2577,7 +2577,7 @@ void adreno_preempt_process_dispatch_queue(struct adreno_device *adreno_dev,
 		cmdbatch->expires = jiffies +
 			msecs_to_jiffies(adreno_cmdbatch_timeout);
 	}
-	queue_work(device->work_queue, &device->event_work);
+	kgsl_schedule_work(&device->event_work);
 }
 
 /**

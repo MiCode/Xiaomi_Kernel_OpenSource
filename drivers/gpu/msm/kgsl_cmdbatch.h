@@ -95,6 +95,7 @@ struct kgsl_cmdbatch_sync_event {
 	struct kgsl_sync_fence_waiter *handle;
 	struct kgsl_device *device;
 	struct kref refcount;
+	struct rcu_head rcu;
 };
 
 /**
