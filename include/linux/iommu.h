@@ -124,6 +124,8 @@ extern struct dentry *iommu_debugfs_top;
  * @domain_set_attr: Change domain attributes
  * @pgsize_bitmap: bitmap of supported page sizes
  * @trigger_fault: trigger a fault on the device attached to an iommu domain
+ * @reg_read: read an IOMMU register
+ * @reg_write: write an IOMMU register
  */
 struct iommu_ops {
 	bool (*capable)(enum iommu_cap);
@@ -164,6 +166,10 @@ struct iommu_ops {
 	int (*dma_supported)(struct iommu_domain *domain, struct device *dev,
 			     u64 mask);
 	void (*trigger_fault)(struct iommu_domain *domain, unsigned long flags);
+	unsigned long (*reg_read)(struct iommu_domain *domain,
+				  unsigned long offset);
+	void (*reg_write)(struct iommu_domain *domain, unsigned long val,
+			  unsigned long offset);
 
 	unsigned long pgsize_bitmap;
 };
@@ -205,6 +211,10 @@ extern void iommu_set_fault_handler(struct iommu_domain *domain,
 			iommu_fault_handler_t handler, void *token);
 extern void iommu_trigger_fault(struct iommu_domain *domain,
 				unsigned long flags);
+extern unsigned long iommu_reg_read(struct iommu_domain *domain,
+				    unsigned long offset);
+extern void iommu_reg_write(struct iommu_domain *domain, unsigned long offset,
+			    unsigned long val);
 
 extern int iommu_attach_group(struct iommu_domain *domain,
 			      struct iommu_group *group);
@@ -410,6 +420,17 @@ static inline void iommu_set_fault_handler(struct iommu_domain *domain,
 
 static inline void iommu_trigger_fault(struct iommu_domain *domain,
 				       unsigned long flags)
+{
+}
+
+static inline unsigned long iommu_reg_read(struct iommu_domain *domain,
+					   unsigned long offset)
+{
+	return 0;
+}
+
+static inline void iommu_reg_write(struct iommu_domain *domain,
+				   unsigned long val, unsigned long offset)
 {
 }
 
