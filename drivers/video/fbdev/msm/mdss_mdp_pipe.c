@@ -2359,19 +2359,14 @@ void mdss_mdp_pipe_calc_pixel_extn(struct mdss_mdp_pipe *pipe)
 		 * phase step x,y for 0 plane should be calculated before
 		 * this
 		 */
-		if (pipe->src_fmt->is_yuv) {
-			if (i == 1 || i == 2) {
-				pipe->scale.phase_step_x[i] =
-					pipe->scale.phase_step_x[0] / 2;
-				pipe->scale.phase_step_y[i] =
-					pipe->scale.phase_step_y[0] / 2;
-			} else {
-				pipe->scale.phase_step_x[i] =
-					pipe->scale.phase_step_x[0];
-				pipe->scale.phase_step_y[i] =
-					pipe->scale.phase_step_y[0];
-			}
-		} else {
+		if (pipe->src_fmt->is_yuv && (i == 1 || i == 2)) {
+			pipe->scale.phase_step_x[i] =
+				pipe->scale.phase_step_x[0]
+					>> pipe->chroma_sample_h;
+			pipe->scale.phase_step_y[i] =
+				pipe->scale.phase_step_y[0]
+					>> pipe->chroma_sample_v;
+		} else if (i > 0) {
 			pipe->scale.phase_step_x[i] =
 				pipe->scale.phase_step_x[0];
 			pipe->scale.phase_step_y[i] =
