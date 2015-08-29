@@ -99,7 +99,7 @@
 #define FW_WRITE_CHUNK_SIZE		128
 #define FW_WRITE_RETRY_COUNT		4
 #define CHIP_FLASH_SIZE			0x8000
-#define DEVICE_READY_MAX_WAIT		500
+#define DEVICE_READY_MAX_WAIT		10
 
 /* result of reading with BUF_QUERY bits */
 #define CMD_STATUS_BITS			0x07
@@ -1111,7 +1111,7 @@ static bool IT7260_chipIdentify(void)
 							'2', '6', '0'};
 	uint8_t chip_id[10] = {0,};
 
-	IT7260_waitDeviceReady(true, false);
+	IT7260_waitDeviceReady(false, false);
 
 	if (!IT7260_i2cWriteNoReadyCheck(BUF_COMMAND, cmd_ident,
 							sizeof(cmd_ident))) {
@@ -1119,7 +1119,7 @@ static bool IT7260_chipIdentify(void)
 		return false;
 	}
 
-	IT7260_waitDeviceReady(true, false);
+	IT7260_waitDeviceReady(false, false);
 
 	if (!IT7260_i2cReadNoReadyCheck(BUF_RESPONSE, chip_id,
 							sizeof(chip_id))) {
