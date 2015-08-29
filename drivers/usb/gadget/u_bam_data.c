@@ -111,13 +111,16 @@ struct bam_data_ch_info {
 	unsigned int		rx_flow_control_disable;
 	unsigned int		rx_flow_control_enable;
 	unsigned int		rx_flow_control_triggered;
-	/* used for RNDIS/ECM network inteface based design */
-	atomic_t		is_net_interface_up;
+	/*
+	 * used for RNDIS/ECM network inteface based design
+	 * to indicate ecm/rndis pipe connect notifiaction is sent
+	 * to ecm_ipa/rndis_ipa.
+	 */
+	atomic_t		pipe_connect_notified;
 	bool			tx_req_dequeued;
 };
 
 static struct work_struct *rndis_conn_w;
-static bool is_ipa_rndis_net_on;
 
 enum u_bam_data_event_type {
 	U_BAM_DATA_DISCONNECT_E = 0,
@@ -746,19 +749,19 @@ static void bam2bam_free_rx_skb_idle_list(struct bam_data_port *port)
  * if those APIs init counterpart is already performed.
  * MBIM: teth_bridge_connect() is NO_OPS and teth_bridge_init() is
  * being called with atomic context on cable connect, hence there is no
- * need to consider for this check. is_net_interface_up is being used
+ * need to consider for this check. pipe_connect_notified is being used
  * for RNDIS/ECM driver due to its different design with usage of
  * network interface created by IPA driver.
  */
 static void bam_data_ipa_disconnect(struct bam_data_ch_info *d)
 {
-	pr_debug("%s(): is_net_interface_up:%d\n",
-		__func__, atomic_read(&d->is_net_interface_up));
+	pr_debug("%s(): pipe_connect_notified:%d\n",
+		__func__, atomic_read(&d->pipe_connect_notified));
 	/*
-	 * Check if is_net_interface_up is set to 1, then perform disconnect
-	 * part and set is_net_interface_up to zero.
+	 * Check if pipe_connect_notified is set to 1, then perform disconnect
+	 * part and set pipe_connect_notified to zero.
 	 */
-	if (atomic_xchg(&d->is_net_interface_up, 0) == 1) {
+	if (atomic_xchg(&d->pipe_connect_notified, 0) == 1) {
 		void *priv;
 		if (d->func_type == USB_FUNC_ECM) {
 			priv = ecm_qc_get_ipa_priv();
@@ -766,7 +769,6 @@ static void bam_data_ipa_disconnect(struct bam_data_ch_info *d)
 		} else if (d->func_type == USB_FUNC_RNDIS) {
 			priv = rndis_qc_get_ipa_priv();
 			rndis_ipa_pipe_disconnect_notify(priv);
-			is_ipa_rndis_net_on = false;
 		}
 		pr_debug("%s(): net interface is disconnected.\n", __func__);
 	}
@@ -1136,8 +1138,8 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 					__func__, ret);
 				return;
 			}
-			is_ipa_rndis_net_on = true;
 		}
+		atomic_set(&d->pipe_connect_notified, 1);
 	} else { /* transport type is USB_GADGET_XPORT_BAM2BAM */
 		/* Upadate BAM specific attributes in usb_request */
 		usb_bam_reset_complete();
@@ -1217,14 +1219,6 @@ void bam_data_start_rx_tx(u8 port_num)
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	d = &port->data_ch;
-	/*
-	 * As this API is being called once network interface is up for
-	 * RNDIS/ECM i.e. USB driver has already notified USB cable connect
-	 * notification. Hence set this here and only clear as part of USB
-	 * cable disconnect i.e. bam_data_disconnect() API even not as part
-	 * of any error happen in this API further.
-	 */
-	atomic_set(&d->is_net_interface_up, 1);
 	if (!port->port_usb || !port->port_usb->in->driver_data
 		|| !port->port_usb->out->driver_data) {
 		pr_err("%s: Can't start tx, rx, ep not enabled", __func__);
@@ -1297,9 +1291,19 @@ static int bam2bam_data_port_alloc(int portno)
 
 void u_bam_data_start_rndis_ipa(void)
 {
-	pr_debug("%s\n", __func__);
+	int port_num = u_bam_data_func_to_port(USB_FUNC_RNDIS,
+					RNDIS_QC_ACTIVE_PORT);
+	struct bam_data_port *port = bam2bam_data_ports[port_num];
+	struct bam_data_ch_info *d;
 
-	if (!is_ipa_rndis_net_on)
+	pr_debug("%s\n", __func__);
+	if (!port) {
+		pr_err("%s: port is NULL", __func__);
+		return;
+	}
+
+	d = &port->data_ch;
+	if (!atomic_read(&d->pipe_connect_notified))
 		queue_work(bam_data_wq, rndis_conn_w);
 	else
 		pr_debug("%s: Transfers already started?\n", __func__);
@@ -1307,13 +1311,19 @@ void u_bam_data_start_rndis_ipa(void)
 
 void u_bam_data_stop_rndis_ipa(void)
 {
+	int port_num = u_bam_data_func_to_port(USB_FUNC_RNDIS,
+					RNDIS_QC_ACTIVE_PORT);
+	struct bam_data_port *port = bam2bam_data_ports[port_num];
+	struct bam_data_ch_info *d;
+
 	pr_debug("%s\n", __func__);
+	if (!port) {
+		pr_err("%s: port is NULL", __func__);
+		return;
+	}
 
-	if (is_ipa_rndis_net_on) {
-		int port_num = u_bam_data_func_to_port(USB_FUNC_RNDIS,
-							RNDIS_QC_ACTIVE_PORT);
-		struct bam_data_port *port = bam2bam_data_ports[port_num];
-
+	d = &port->data_ch;
+	if (!atomic_read(&d->pipe_connect_notified)) {
 		rndis_ipa_reset_trigger();
 		bam_data_stop_endless_tx(port);
 		if (port->is_ipa_connected)
