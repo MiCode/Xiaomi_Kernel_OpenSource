@@ -68,7 +68,6 @@ DEFINE_CLK_RPM_SMD(snoc_clk, snoc_a_clk, RPM_BUS_CLK_TYPE, SNOC_CLK_ID, NULL);
 
 DEFINE_CLK_RPM_SMD(mmssnoc_axi_clk, mmssnoc_axi_a_clk, RPM_MMAXI_CLK_TYPE,
 				MMXI_CLK_ID, NULL);
-static DEFINE_CLK_VOTER(mmssnoc_gds_clk, &mmssnoc_axi_clk.c, LONG_MAX);
 
 DEFINE_CLK_RPM_SMD_BRANCH(aggre1_noc_clk, aggre1_noc_a_clk,
 				RPM_AGGR_CLK_TYPE, AGGR1_NOC_ID, 1000);
@@ -3345,7 +3344,6 @@ static struct clk_lookup msm_clocks_rpm_8996[] = {
 	CLK_LIST(aggre2_noc_a_clk),
 	CLK_LIST(mmssnoc_axi_clk),
 	CLK_LIST(mmssnoc_axi_a_clk),
-	CLK_LIST(mmssnoc_gds_clk),
 	CLK_LIST(bb_clk1),
 	CLK_LIST(bb_clk1_ao),
 	CLK_LIST(bb_clk1_pin),
