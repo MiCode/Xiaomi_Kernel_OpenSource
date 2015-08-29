@@ -60,14 +60,6 @@
 
 /* Get TUNE2's high nibble value read from efuse */
 #define TUNE2_HIGH_NIBBLE_VAL(val, pos, mask)	((val >> pos) & mask)
-#define QRBTC_USB2_PLL			0x404
-#define QRBTC_USB2_PLLCTRL2		0x414
-#define QRBTC_USB2_PLLCTRL1		0x410
-#define QRBTC_USB2_PLLCTRL3		0x418
-#define QRBTC_USB2_PLLTEST1		0x408
-#define RUMI_RESET_ADDRESS		0x6500
-#define RUMI_RESET_VALUE_1		0x80000000
-#define RUMI_RESET_VALUE_2		0x000201e0
 
 #define QUSB2PHY_PORT_INTR_CTRL         0xBC
 #define CHG_DET_INTR_EN                 BIT(4)
@@ -80,6 +72,10 @@
 #define LINESTATE_DP			BIT(0)
 #define LINESTATE_DM			BIT(1)
 
+#define HS_PHY_CTRL_REG			0x10
+#define UTMI_OTG_VBUS_VALID             BIT(20)
+#define SW_SESSVLD_SEL                  BIT(28)
+
 #define QUSB2PHY_1P8_VOL_MIN           1800000 /* uV */
 #define QUSB2PHY_1P8_VOL_MAX           1800000 /* uV */
 #define QUSB2PHY_1P8_HPM_LOAD          30000   /* uA */
@@ -87,11 +83,6 @@
 #define QUSB2PHY_3P3_VOL_MIN		3075000 /* uV */
 #define QUSB2PHY_3P3_VOL_MAX		3200000 /* uV */
 #define QUSB2PHY_3P3_HPM_LOAD		30000	/* uA */
-
-#define UTMI_OTG_VBUS_VALID             BIT(20)
-#define SW_SESSVLD_SEL			BIT(28)
-
-#define HS_PHY_CTRL_REG			0x10
 
 unsigned int tune2;
 module_param(tune2, uint, S_IRUGO | S_IWUSR);
@@ -124,8 +115,17 @@ struct qusb_phy {
 	bool			cable_connected;
 	bool			suspended;
 	bool			ulpi_mode;
-	bool			emulation;
 	bool			rm_pulldown;
+
+	/* emulation targets specific */
+	void __iomem		*emu_phy_base;
+	bool			emulation;
+	int			*emu_init_seq;
+	int			emu_init_seq_len;
+	int			*phy_pll_reset_seq;
+	int			phy_pll_reset_seq_len;
+	int			*emu_dcm_reset_seq;
+	int			emu_dcm_reset_seq_len;
 };
 
 static int qusb_phy_reset(struct usb_phy *phy)
@@ -504,10 +504,24 @@ static void qusb_phy_get_tune2_param(struct qusb_phy *qphy)
 					TUNE2_DEFAULT_LOW_NIBBLE);
 }
 
+static void qusb_phy_write_seq(void __iomem *base, u32 *seq, int cnt,
+		unsigned long delay)
+{
+	int i;
+
+	pr_debug("Seq count:%d\n", cnt);
+	for (i = 0; i < cnt; i = i+2) {
+		pr_debug("write 0x%02x to 0x%02x\n", seq[i], seq[i+1]);
+		writel_relaxed(seq[i], base + seq[i+1]);
+		if (delay)
+			usleep_range(delay, (delay + 2000));
+	}
+}
+
 static int qusb_phy_init(struct usb_phy *phy)
 {
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
-	int ret, *seq = NULL, i;
+	int ret;
 
 	dev_dbg(phy->dev, "%s\n", __func__);
 
@@ -518,81 +532,70 @@ static int qusb_phy_init(struct usb_phy *phy)
 	qusb_phy_enable_clocks(qphy, true);
 
 	if (qphy->emulation) {
-		/* Configure QUSB2 PLLs for RUMI */
-		writel_relaxed(0x19, qphy->base + QRBTC_USB2_PLL);
-		writel_relaxed(0x20, qphy->base + QRBTC_USB2_PLLCTRL2);
-		writel_relaxed(0x79, qphy->base + QRBTC_USB2_PLLCTRL1);
-		writel_relaxed(0x00, qphy->base + QRBTC_USB2_PLLCTRL3);
-		writel_relaxed(0x99, qphy->base + QRBTC_USB2_PLL);
-		writel_relaxed(0x04, qphy->base + QRBTC_USB2_PLLTEST1);
-		writel_relaxed(0xD9, qphy->base + QRBTC_USB2_PLL);
+		if (qphy->emu_init_seq)
+			qusb_phy_write_seq(qphy->emu_phy_base,
+				qphy->emu_init_seq, qphy->emu_init_seq_len, 0);
 
-		/* Wait for 5ms as per QUSB2 RUMI sequence from VI */
+		if (qphy->qusb_phy_init_seq)
+			qusb_phy_write_seq(qphy->base, qphy->qusb_phy_init_seq,
+					qphy->init_seq_len, 0);
+
+		/* Wait for 5ms as per QUSB2 RUMI sequence */
 		usleep_range(5000, 7000);
 
-		/* Perform the RUMI PLL Reset */
-		writel_relaxed((int)RUMI_RESET_VALUE_1,
-					qphy->base + RUMI_RESET_ADDRESS);
-		/* Wait for 10ms as per QUSB2 RUMI sequence from VI */
-		usleep_range(10000, 12000);
-		writel_relaxed(0x0, qphy->base + RUMI_RESET_ADDRESS);
-		/* Wait for 10ms as per QUSB2 RUMI sequence from VI */
-		usleep_range(10000, 12000);
-		writel_relaxed((int)RUMI_RESET_VALUE_2,
-					qphy->base + RUMI_RESET_ADDRESS);
-		/* Wait for 10ms as per QUSB2 RUMI sequence from VI */
-		usleep_range(10000, 12000);
-		writel_relaxed(0x0, qphy->base + RUMI_RESET_ADDRESS);
-	} else {
-		/* Disable the PHY */
-		writel_relaxed(CLAMP_N_EN | FREEZIO_N | POWER_DOWN,
-				qphy->base + QUSB2PHY_PORT_POWERDOWN);
+		if (qphy->phy_pll_reset_seq)
+			qusb_phy_write_seq(qphy->base, qphy->phy_pll_reset_seq,
+					qphy->phy_pll_reset_seq_len, 10000);
 
-		/* configure for ULPI mode if requested */
-		if (qphy->ulpi_mode)
-			writel_relaxed(0x0,
-				qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
+		if (qphy->emu_dcm_reset_seq)
+			qusb_phy_write_seq(qphy->emu_phy_base,
+					qphy->emu_dcm_reset_seq,
+					qphy->emu_dcm_reset_seq_len, 10000);
 
-		if (qphy->qusb_phy_init_seq) {
-			seq = qphy->qusb_phy_init_seq;
-			dev_dbg(phy->dev, "count:%d\n", qphy->init_seq_len);
-			for (i = 0; i < qphy->init_seq_len; i = i+2) {
-				dev_dbg(phy->dev, "write 0x%02x to 0x%02x\n",
-					seq[i], seq[i+1]);
-				writel_relaxed(seq[i], qphy->base + seq[i+1]);
-			}
-		}
-
-		/*
-		 * Check for EFUSE value only if tune2_efuse_reg is available
-		 * and try to read EFUSE value only once i.e. not every USB
-		 * cable connect case.
-		 */
-		if (qphy->tune2_efuse_reg) {
-			if (!qphy->tune2_val)
-				qusb_phy_get_tune2_param(qphy);
-
-			pr_debug("%s(): Programming TUNE2 parameter as:%x\n",
-					__func__, qphy->tune2_val);
-			writel_relaxed(qphy->tune2_val,
-					qphy->base + QUSB2PHY_PORT_TUNE2);
-		}
-
-		/* If tune2 modparam set, override tune2 value */
-		if (tune2) {
-			pr_debug("%s(): (modparam) TUNE2 val:0x%02x\n",
-							__func__, tune2);
-			writel_relaxed(tune2,
-					qphy->base + QUSB2PHY_PORT_TUNE2);
-		}
-
-		/* ensure above writes are completed before re-enabling PHY */
-		wmb();
-
-		/* Enable the PHY */
-		writel_relaxed(CLAMP_N_EN | FREEZIO_N,
-			qphy->base + QUSB2PHY_PORT_POWERDOWN);
+		return 0;
 	}
+
+	/* Disable the PHY */
+	writel_relaxed(CLAMP_N_EN | FREEZIO_N | POWER_DOWN,
+			qphy->base + QUSB2PHY_PORT_POWERDOWN);
+
+	/* configure for ULPI mode if requested */
+	if (qphy->ulpi_mode)
+		writel_relaxed(0x0, qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
+
+	if (qphy->qusb_phy_init_seq)
+		qusb_phy_write_seq(qphy->base, qphy->qusb_phy_init_seq,
+				qphy->init_seq_len, 0);
+
+	/*
+	 * Check for EFUSE value only if tune2_efuse_reg is available
+	 * and try to read EFUSE value only once i.e. not every USB
+	 * cable connect case.
+	 */
+	if (qphy->tune2_efuse_reg) {
+		if (!qphy->tune2_val)
+			qusb_phy_get_tune2_param(qphy);
+
+		pr_debug("%s(): Programming TUNE2 parameter as:%x\n", __func__,
+				qphy->tune2_val);
+		writel_relaxed(qphy->tune2_val,
+				qphy->base + QUSB2PHY_PORT_TUNE2);
+	}
+
+	/* If tune2 modparam set, override tune2 value */
+	if (tune2) {
+		pr_debug("%s(): (modparam) TUNE2 val:0x%02x\n",
+						__func__, tune2);
+		writel_relaxed(tune2,
+				qphy->base + QUSB2PHY_PORT_TUNE2);
+	}
+
+	/* ensure above writes are completed before re-enabling PHY */
+	wmb();
+
+	/* Enable the PHY */
+	writel_relaxed(CLAMP_N_EN | FREEZIO_N,
+		qphy->base + QUSB2PHY_PORT_POWERDOWN);
 	return 0;
 }
 
@@ -786,6 +789,14 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	if (IS_ERR(qphy->qscratch_base))
 		qphy->qscratch_base = NULL;
 
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+							"emu_phy_base");
+	qphy->emu_phy_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(qphy->emu_phy_base)) {
+		qphy->emu_phy_base = NULL;
+		dev_dbg(dev, "couldn't find emu_phy_base\n");
+	}
+
 	qphy->tune2_efuse_reg = NULL;
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 							"tune2_efuse_addr");
@@ -828,6 +839,69 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	qphy->emulation = of_property_read_bool(dev->of_node,
 					"qcom,emulation");
 
+	of_get_property(dev->of_node, "qcom,emu-init-seq", &size);
+	if (size) {
+		qphy->emu_init_seq = devm_kzalloc(dev,
+						size, GFP_KERNEL);
+		if (qphy->emu_init_seq) {
+			qphy->emu_init_seq_len =
+				(size / sizeof(*qphy->emu_init_seq));
+			if (qphy->emu_init_seq_len % 2) {
+				dev_err(dev, "invalid emu_init_seq_len\n");
+				return -EINVAL;
+			}
+
+			of_property_read_u32_array(dev->of_node,
+				"qcom,qemu-init-seq",
+				qphy->emu_init_seq,
+				qphy->emu_init_seq_len);
+		} else {
+			dev_dbg(dev, "error allocating memory for emu_init_seq\n");
+		}
+	}
+
+	of_get_property(dev->of_node, "qcom,phy-pll-reset-seq", &size);
+	if (size) {
+		qphy->phy_pll_reset_seq = devm_kzalloc(dev,
+						size, GFP_KERNEL);
+		if (qphy->phy_pll_reset_seq) {
+			qphy->phy_pll_reset_seq_len =
+				(size / sizeof(*qphy->phy_pll_reset_seq));
+			if (qphy->phy_pll_reset_seq_len % 2) {
+				dev_err(dev, "invalid phy_pll_reset_seq_len\n");
+				return -EINVAL;
+			}
+
+			of_property_read_u32_array(dev->of_node,
+				"qcom,phy-pll-reset-seq",
+				qphy->phy_pll_reset_seq,
+				qphy->phy_pll_reset_seq_len);
+		} else {
+			dev_dbg(dev, "error allocating memory for phy_pll_reset_seq\n");
+		}
+	}
+
+	of_get_property(dev->of_node, "qcom,emu-dcm-reset-seq", &size);
+	if (size) {
+		qphy->emu_dcm_reset_seq = devm_kzalloc(dev,
+						size, GFP_KERNEL);
+		if (qphy->emu_dcm_reset_seq) {
+			qphy->emu_dcm_reset_seq_len =
+				(size / sizeof(*qphy->emu_dcm_reset_seq));
+			if (qphy->emu_dcm_reset_seq_len % 2) {
+				dev_err(dev, "invalid emu_dcm_reset_seq_len\n");
+				return -EINVAL;
+			}
+
+			of_property_read_u32_array(dev->of_node,
+				"qcom,emu-dcm-reset-seq",
+				qphy->emu_dcm_reset_seq,
+				qphy->emu_dcm_reset_seq_len);
+		} else {
+			dev_dbg(dev, "error allocating memory for emu_dcm_reset_seq\n");
+		}
+	}
+
 	of_get_property(dev->of_node, "qcom,qusb-phy-init-seq", &size);
 	if (size) {
 		qphy->qusb_phy_init_seq = devm_kzalloc(dev,
@@ -835,6 +909,11 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		if (qphy->qusb_phy_init_seq) {
 			qphy->init_seq_len =
 				(size / sizeof(*qphy->qusb_phy_init_seq));
+			if (qphy->init_seq_len % 2) {
+				dev_err(dev, "invalid init_seq_len\n");
+				return -EINVAL;
+			}
+
 			of_property_read_u32_array(dev->of_node,
 				"qcom,qusb-phy-init-seq",
 				qphy->qusb_phy_init_seq,

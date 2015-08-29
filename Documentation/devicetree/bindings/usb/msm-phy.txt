@@ -157,11 +157,15 @@ Optional properties:
    "qscratch_base" : QSCRATCH base register set.
    "tune2_efuse_addr": EFUSE based register address to read TUNE2 parameter.
    via the QSCRATCH interface.
+   "emu_phy_base" : phy base address used for programming emulation target phy.
  - reg-names: Should be "qscratch_base". The qscratch register bank
    allows us to manipulate QUSB PHY bits eg. to enable D+ pull-up using s/w
    control in device mode. The reg-names property is required if the
    reg property is specified.
  - qcom,qusb-phy-init-seq: QUSB PHY initialization sequence with value,reg pair.
+ - qcom,emu-init-seq : emulation initialization sequence with value,reg pair.
+ - qcom,phy-pll-reset-seq : emulation PLL reset sequence with value,reg pair.
+ - qcom,emu-dcm-reset-seq : emulation DCM reset sequence with value,reg pair.
  - qcom,tune2-efuse-bit-pos: TUNE2 parameter related start bit position with EFUSE register
  - qcom,tune2-efuse-num-bits: Number of bits based value to use for TUNE2 high nibble
  - qcom,emulation: Indicates that we are running on emulation platform.
