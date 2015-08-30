@@ -1270,10 +1270,9 @@ adreno_get_rptr(struct adreno_ringbuffer *rb)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(rb->device);
 	if (adreno_dev->cur_rb == rb &&
 		adreno_preempt_state(adreno_dev,
-			ADRENO_DISPATCHER_PREEMPT_CLEAR)) {
+			ADRENO_DISPATCHER_PREEMPT_CLEAR))
 		adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_RPTR, &(rb->rptr));
-		rmb();
-	}
+
 	return rb->rptr;
 }
 
