@@ -56,6 +56,8 @@
  * @limitation:		CPR limitation select fuse parameter value
  * @partial_binning:	Chip partial binning fuse parameter value which defines
  *			limitations found on a given chip
+ * @vdd_mx_ret_fuse:	Defines the logic retention voltage of VDD_MX
+ * @vdd_apcc_ret_fuse:	Defines the logic retention voltage of VDD_APCC
  *
  * This struct holds the values for all of the fuses read from memory.  The
  * values for ro_sel, init_voltage, target_quot, and quot_offset come from
@@ -72,6 +74,8 @@ struct cpr3_msm8996_hmss_fuses {
 	u64	redundant_fusing;
 	u64	limitation;
 	u64	partial_binning;
+	u64	vdd_mx_ret_fuse;
+	u64	vdd_apcc_ret_fuse;
 };
 
 /**
@@ -318,6 +322,16 @@ static const struct cpr3_fuse_param msm8996_cpr_limitation_param[] = {
 	{},
 };
 
+static const struct cpr3_fuse_param msm8996_vdd_mx_ret_param[] = {
+	{41, 2, 4},
+	{},
+};
+
+static const struct cpr3_fuse_param msm8996_vdd_apcc_ret_param[] = {
+	{41, 52, 54},
+	{},
+};
+
 static const struct cpr3_fuse_param msm8996_cpr_partial_binning_param[] = {
 	{39, 55, 59},
 	{},
@@ -362,6 +376,15 @@ static const int msm8996_v3_hmss_fuse_ref_volt[MSM8996_HMSS_FUSE_CORNERS] = {
 	745000,
 	905000,
 	1140000,
+};
+
+/* Defines mapping from retention fuse values to voltages in microvolts */
+static const int msm8996_vdd_apcc_fuse_ret_volt[] = {
+	600000, 550000, 500000, 450000, 400000, 350000, 300000, 600000,
+};
+
+static const int msm8996_vdd_mx_fuse_ret_volt[] = {
+	700000, 650000, 580000, 550000, 490000, 490000, 490000, 490000,
 };
 
 #define MSM8996_HMSS_FUSE_STEP_VOLT		10000
@@ -452,6 +475,25 @@ static int cpr3_msm8996_hmss_read_fuse_data(struct cpr3_regulator *vreg)
 		: fuse->partial_binning == MSM8996_CPR_PARTIAL_BINNING_NOM
 			? "NOM min voltage"
 		: "none");
+
+	rc = cpr3_read_fuse_param(base, msm8996_vdd_mx_ret_param,
+				&fuse->vdd_mx_ret_fuse);
+	if (rc) {
+		cpr3_err(vreg, "Unable to read VDD_MX retention fuse, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = cpr3_read_fuse_param(base, msm8996_vdd_apcc_ret_param,
+				&fuse->vdd_apcc_ret_fuse);
+	if (rc) {
+		cpr3_err(vreg, "Unable to read VDD_APCC retention fuse, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	cpr3_info(vreg, "Retention voltage fuses: VDD_MX = %llu, VDD_APCC = %llu\n",
+		  fuse->vdd_mx_ret_fuse, fuse->vdd_apcc_ret_fuse);
 
 	id = vreg->thread->thread_id;
 
@@ -1227,6 +1269,107 @@ static int cpr3_hmss_init_thread(struct cpr3_thread *thread)
 	return 0;
 }
 
+#define MAX_KVREG_NAME_SIZE 25
+/**
+ * cpr3_hmss_kvreg_init() - initialize HMSS Kryo Regulator data for a CPR3
+ *		regulator
+ * @vreg:		Pointer to the CPR3 regulator
+ *
+ * This function loads Kryo Regulator data from device tree if it is present
+ * and requests a handle to the appropriate Kryo regulator device. In addition,
+ * it initializes Kryo Regulator data originating from hardware fuses, such as
+ * the LDO retention voltage, and requests the Kryo retention regulator to
+ * be configured to that value.
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_hmss_kvreg_init(struct cpr3_regulator *vreg)
+{
+	struct cpr3_msm8996_hmss_fuses *fuse = vreg->platform_fuses;
+	struct device_node *node = vreg->of_node;
+	struct cpr3_controller *ctrl = vreg->thread->ctrl;
+	int id = vreg->thread->thread_id;
+	char kvreg_name_buf[MAX_KVREG_NAME_SIZE];
+	int rc;
+
+	scnprintf(kvreg_name_buf, MAX_KVREG_NAME_SIZE,
+		"vdd-thread%d-ldo-supply", id);
+
+	if (!of_find_property(ctrl->dev->of_node, kvreg_name_buf , NULL))
+		return 0;
+	else if (!of_find_property(node, "qcom,ldo-headroom-voltage", NULL))
+		return 0;
+
+	scnprintf(kvreg_name_buf, MAX_KVREG_NAME_SIZE, "vdd-thread%d-ldo", id);
+
+	vreg->ldo_regulator = devm_regulator_get(ctrl->dev, kvreg_name_buf);
+	if (IS_ERR(vreg->ldo_regulator)) {
+		rc = PTR_ERR(vreg->ldo_regulator);
+		if (rc != -EPROBE_DEFER)
+			cpr3_err(vreg, "unable to request %s regulator, rc=%d\n",
+				 kvreg_name_buf, rc);
+		return rc;
+	}
+
+	vreg->ldo_regulator_bypass = BHS_MODE;
+
+	scnprintf(kvreg_name_buf, MAX_KVREG_NAME_SIZE, "vdd-thread%d-ldo-ret",
+		  id);
+
+	vreg->ldo_ret_regulator = devm_regulator_get(ctrl->dev, kvreg_name_buf);
+	if (IS_ERR(vreg->ldo_ret_regulator)) {
+		rc = PTR_ERR(vreg->ldo_ret_regulator);
+		if (rc != -EPROBE_DEFER)
+			cpr3_err(vreg, "unable to request %s regulator, rc=%d\n",
+				 kvreg_name_buf, rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(node, "qcom,ldo-headroom-voltage",
+				&vreg->ldo_headroom_volt);
+	if (rc) {
+		cpr3_err(vreg, "error reading qcom,ldo-headroom-voltage, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(node, "qcom,ldo-max-voltage",
+				&vreg->ldo_max_volt);
+	if (rc) {
+		cpr3_err(vreg, "error reading qcom,ldo-max-voltage, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	/* Determine the CPU retention voltage based on fused data */
+	vreg->ldo_ret_volt =
+		max(msm8996_vdd_apcc_fuse_ret_volt[fuse->vdd_apcc_ret_fuse],
+		    msm8996_vdd_mx_fuse_ret_volt[fuse->vdd_mx_ret_fuse]);
+
+	rc = regulator_set_voltage(vreg->ldo_ret_regulator, vreg->ldo_ret_volt,
+				   INT_MAX);
+	if (rc < 0) {
+		cpr3_err(vreg, "regulator_set_voltage(ldo_ret) == %d failed, rc=%d\n",
+			 vreg->ldo_ret_volt, rc);
+		return rc;
+	}
+
+	/* optional properties, do not error out if missing */
+	of_property_read_u32(node, "qcom,ldo-adjust-voltage",
+			     &vreg->ldo_adjust_volt);
+
+	vreg->ldo_mode_allowed = !of_property_read_bool(node,
+							"qcom,ldo-disable");
+
+	cpr3_info(vreg, "LDO headroom=%d uV, LDO adj=%d uV, LDO mode=%s, LDO retention=%d uV\n",
+		  vreg->ldo_headroom_volt,
+		  vreg->ldo_adjust_volt,
+		  vreg->ldo_mode_allowed ? "allowed" : "disallowed",
+		  vreg->ldo_ret_volt);
+
+	return 0;
+}
+
 /**
  * cpr3_hmss_init_regulator() - perform all steps necessary to initialize the
  *		configuration data for a CPR3 regulator
@@ -1244,6 +1387,14 @@ static int cpr3_hmss_init_regulator(struct cpr3_regulator *vreg)
 	rc = cpr3_msm8996_hmss_read_fuse_data(vreg);
 	if (rc) {
 		cpr3_err(vreg, "unable to read CPR fuse data, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = cpr3_hmss_kvreg_init(vreg);
+	if (rc) {
+		if (rc != -EPROBE_DEFER)
+			cpr3_err(vreg, "unable to initialize Kryo Regulator settings, rc=%d\n",
+				 rc);
 		return rc;
 	}
 
@@ -1363,89 +1514,6 @@ static int cpr3_hmss_apm_init(struct cpr3_controller *ctrl)
 
 	ctrl->apm_high_supply = MSM_APM_SUPPLY_APCC;
 	ctrl->apm_low_supply = MSM_APM_SUPPLY_MX;
-
-	return 0;
-}
-
-#define MAX_KVREG_NAME_SIZE 25
-/**
- * cpr3_hmss_kvreg_init() - initialize HMSS Kryo Regulator data for a CPR3
- *		regulator
- * @vreg:		Pointer to the CPR3 regulator
- *
- * This function loads Kryo Regulator data from device tree if it is present
- * and requests a handle to the appropriate Kryo regulator device.
- *
- * Return: 0 on success, errno on failure
- */
-static int cpr3_hmss_kvreg_init(struct cpr3_regulator *vreg)
-{
-	struct device_node *node = vreg->of_node;
-	struct cpr3_controller *ctrl = vreg->thread->ctrl;
-	int id = vreg->thread->thread_id;
-	char kvreg_name_buf[MAX_KVREG_NAME_SIZE];
-	int rc;
-
-	scnprintf(kvreg_name_buf, MAX_KVREG_NAME_SIZE,
-		"vdd-thread%d-ldo-supply", id);
-
-	if (!of_find_property(ctrl->dev->of_node, kvreg_name_buf , NULL))
-		return 0;
-	else if (!of_find_property(node, "qcom,ldo-headroom-voltage", NULL))
-		return 0;
-
-	scnprintf(kvreg_name_buf, MAX_KVREG_NAME_SIZE, "vdd-thread%d-ldo", id);
-
-	vreg->ldo_regulator = devm_regulator_get(ctrl->dev, kvreg_name_buf);
-	if (IS_ERR(vreg->ldo_regulator)) {
-		rc = PTR_ERR(vreg->ldo_regulator);
-		if (rc != -EPROBE_DEFER)
-			cpr3_err(vreg, "unable to request %s regulator, rc=%d\n",
-				 kvreg_name_buf, rc);
-		return rc;
-	}
-
-	vreg->ldo_regulator_bypass = BHS_MODE;
-
-	scnprintf(kvreg_name_buf, MAX_KVREG_NAME_SIZE, "vdd-thread%d-ldo-ret",
-		id);
-
-	vreg->ldo_ret_regulator = devm_regulator_get(ctrl->dev, kvreg_name_buf);
-	if (IS_ERR(vreg->ldo_ret_regulator)) {
-		rc = PTR_ERR(vreg->ldo_ret_regulator);
-		if (rc != -EPROBE_DEFER)
-			cpr3_err(vreg, "unable to request %s regulator, rc=%d\n",
-				 kvreg_name_buf, rc);
-		return rc;
-	}
-
-	rc = of_property_read_u32(node, "qcom,ldo-headroom-voltage",
-				&vreg->ldo_headroom_volt);
-	if (rc) {
-		cpr3_err(vreg, "error reading qcom,ldo-headroom-voltage, rc=%d\n",
-			rc);
-		return rc;
-	}
-
-	rc = of_property_read_u32(node, "qcom,ldo-max-voltage",
-				&vreg->ldo_max_volt);
-	if (rc) {
-		cpr3_err(vreg, "error reading qcom,ldo-max-voltage, rc=%d\n",
-			rc);
-		return rc;
-	}
-
-	/* optional properties, do not error out if missing */
-	of_property_read_u32(node, "qcom,ldo-adjust-voltage",
-			     &vreg->ldo_adjust_volt);
-
-	vreg->ldo_mode_allowed = !of_property_read_bool(node,
-							  "qcom,ldo-disable");
-
-	cpr3_info(vreg, "LDO headroom=%d uV, LDO adj=%d uV, LDO mode=%s\n",
-		  vreg->ldo_headroom_volt,
-		  vreg->ldo_adjust_volt,
-		  vreg->ldo_mode_allowed ? "allowed" : "disallowed");
 
 	return 0;
 }
@@ -1630,14 +1698,6 @@ static int cpr3_hmss_regulator_probe(struct platform_device *pdev)
 
 		for (j = 0; j < ctrl->thread[i].vreg_count; j++) {
 			vreg = &ctrl->thread[i].vreg[j];
-
-			rc = cpr3_hmss_kvreg_init(vreg);
-			if (rc) {
-				if (rc != -EPROBE_DEFER)
-					cpr3_err(vreg, "unable to initialize Kryo Regulator settings, rc=%d\n",
-						 rc);
-				return rc;
-			}
 
 			rc = cpr3_hmss_init_regulator(vreg);
 			if (rc) {
