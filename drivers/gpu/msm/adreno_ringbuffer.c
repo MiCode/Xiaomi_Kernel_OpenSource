@@ -94,11 +94,20 @@ void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb,
 		local_irq_save(flags);
 
 		/* Read always on registers */
-		if (!adreno_is_a3xx(adreno_dev))
+		if (!adreno_is_a3xx(adreno_dev)) {
 			adreno_readreg64(adreno_dev,
 				ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO,
 				ADRENO_REG_RBBM_ALWAYSON_COUNTER_HI,
 				&time->ticks);
+
+			/*
+			 * Mask hi bits as they may be incorrect on
+			 * a4x and some a5x
+			 */
+			if (ADRENO_GPUREV(adreno_dev) >= 400 &&
+				ADRENO_GPUREV(adreno_dev) <= ADRENO_REV_A530)
+				time->ticks &= 0xFFFFFFFF;
+		}
 		else
 			time->ticks = 0;
 
@@ -868,8 +877,20 @@ static inline int _get_alwayson_counter(struct adreno_device *adreno_dev,
 	unsigned int *p = cmds;
 
 	*p++ = cp_mem_packet(adreno_dev, CP_REG_TO_MEM, 2, 1);
-	*p++ = adreno_getreg(adreno_dev, ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO) |
-		(1 << 30) | (2 << 18);
+
+	/*
+	 * For a4x and some a5x the alwayson_hi read through CPU
+	 * will be masked. Only do 32 bit CP reads for keeping the
+	 * numbers consistent
+	 */
+	if (ADRENO_GPUREV(adreno_dev) >= 400 &&
+		ADRENO_GPUREV(adreno_dev) <= ADRENO_REV_A530)
+		*p++ = adreno_getreg(adreno_dev,
+			ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO);
+	else
+		*p++ = adreno_getreg(adreno_dev,
+			ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO) |
+			(1 << 30) | (2 << 18);
 	p += cp_gpuaddr(adreno_dev, p, gpuaddr);
 
 	return (unsigned int)(p - cmds);
