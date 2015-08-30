@@ -327,6 +327,7 @@
 			<0xff 286>, /* pcie20_0_int_pls_link_down */
 			<0xff 290>, /* ufs_ice_nonsec_level_irq */
 			<0xff 293>, /* pcie20_2_int_pls_link_down */
+			<0xff 295>, /* camss_cpp_mmu_cirpt[0] */
 			<0xff 296>, /* camss_cpp_mmu_pmirpt */
 			<0xff 297>, /* ufs_intrq */
 			<0xff 302>, /* qdss_etrbytecnt_irq */
@@ -348,12 +349,15 @@
 			<0xff 352>, /* mdss_mmu_cirpt[0] */
 			<0xff 353>, /* mdss_mmu_cirpt[1] */
 			<0xff 361>, /* ogpu_mmu_cirpt[0] */
+			<0xff 362>, /* ogpu_mmu_cirpt[1] */
 			<0xff 365>, /* ipa_irq[0] */
 			<0xff 366>, /* ogpu_mmu_pmirpt */
 			<0xff 367>, /* venus0_mmu_cirpt[0] */
 			<0xff 368>, /* venus0_mmu_cirpt[1] */
 			<0xff 369>, /* venus0_mmu_cirpt[2] */
 			<0xff 370>, /* venus0_mmu_cirpt[3] */
+			<0xff 375>, /* camss_vfe_mmu_cirpt[0] */
+			<0xff 376>, /* camss_vfe_mmu_cirpt[1] */
 			<0xff 380>, /* mdss_dma_mmu_cirpt[0] */
 			<0xff 381>, /* mdss_dma_mmu_cirpt[1] */
 			<0xff 385>, /* mdss_dma_mmu_pmirpt */
