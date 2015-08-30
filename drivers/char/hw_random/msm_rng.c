@@ -169,6 +169,7 @@ err:
 static struct hwrng msm_rng = {
 	.name = DRIVER_NAME,
 	.read = msm_rng_read,
+	.quality = 700,
 };
 
 static int msm_rng_enable_hw(struct msm_rng_device *msm_rng_dev)
