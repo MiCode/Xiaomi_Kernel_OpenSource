@@ -595,7 +595,7 @@ static struct msm_pcie_vreg_info_t msm_pcie_vreg_info[MSM_PCIE_MAX_VREG] = {
 /* GPIOs */
 static struct msm_pcie_gpio_info_t msm_pcie_gpio_info[MSM_PCIE_MAX_GPIO] = {
 	{"perst-gpio",		0, 1, 0, 0, 1},
-	{"wake-gpio",		0, 0, 0, 0, 1},
+	{"wake-gpio",		0, 0, 0, 0, 0},
 	{"qcom,ep-gpio",	0, 1, 1, 0, 0}
 };
 
@@ -3557,7 +3557,10 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 
 	/* All allocations succeeded */
 
-	dev->wake_n = gpio_to_irq(dev->gpio[MSM_PCIE_GPIO_WAKE].num);
+	if (dev->gpio[MSM_PCIE_GPIO_WAKE].num)
+		dev->wake_n = gpio_to_irq(dev->gpio[MSM_PCIE_GPIO_WAKE].num);
+	else
+		dev->wake_n = 0;
 
 	dev->parf = dev->res[MSM_PCIE_RES_PARF].base;
 	dev->phy = dev->res[MSM_PCIE_RES_PHY].base;
@@ -4926,22 +4929,26 @@ int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 	}
 
 	/* register handler for PCIE_WAKE_N interrupt line */
-	rc = devm_request_irq(pdev,
-			dev->wake_n, handle_wake_irq, IRQF_TRIGGER_FALLING,
-			 "msm_pcie_wake", dev);
-	if (rc) {
-		PCIE_ERR(dev, "PCIe: RC%d: Unable to request wake interrupt\n",
-			dev->rc_idx);
-		return rc;
-	}
+	if (dev->wake_n) {
+		rc = devm_request_irq(pdev,
+				dev->wake_n, handle_wake_irq,
+				IRQF_TRIGGER_FALLING, "msm_pcie_wake", dev);
+		if (rc) {
+			PCIE_ERR(dev,
+				"PCIe: RC%d: Unable to request wake interrupt\n",
+				dev->rc_idx);
+			return rc;
+		}
 
-	INIT_WORK(&dev->handle_wake_work, handle_wake_func);
+		INIT_WORK(&dev->handle_wake_work, handle_wake_func);
 
-	rc = enable_irq_wake(dev->wake_n);
-	if (rc) {
-		PCIE_ERR(dev, "PCIe: RC%d: Unable to enable wake interrupt\n",
-			dev->rc_idx);
-		return rc;
+		rc = enable_irq_wake(dev->wake_n);
+		if (rc) {
+			PCIE_ERR(dev,
+				"PCIe: RC%d: Unable to enable wake interrupt\n",
+				dev->rc_idx);
+			return rc;
+		}
 	}
 
 	/* Create a virtual domain of interrupts */
@@ -4953,7 +4960,10 @@ int32_t msm_pcie_irq_init(struct msm_pcie_dev_t *dev)
 			PCIE_ERR(dev,
 				"PCIe: RC%d: Unable to initialize irq domain\n",
 				dev->rc_idx);
-			disable_irq(dev->wake_n);
+
+			if (dev->wake_n)
+				disable_irq(dev->wake_n);
+
 			return PTR_ERR(dev->irq_domain);
 		}
 
@@ -4968,7 +4978,9 @@ void msm_pcie_irq_deinit(struct msm_pcie_dev_t *dev)
 	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
 
 	wakeup_source_trash(&dev->ws);
-	disable_irq(dev->wake_n);
+
+	if (dev->wake_n)
+		disable_irq(dev->wake_n);
 }
 
 
