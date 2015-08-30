@@ -24,10 +24,14 @@
 #define SYNAPTICS_DS4 (1 << 0)
 #define SYNAPTICS_DS5 (1 << 1)
 #define SYNAPTICS_DSX_DRIVER_PRODUCT SYNAPTICS_DS4
-#define SYNAPTICS_DSX_DRIVER_VERSION 0x1004
+#define SYNAPTICS_DSX_DRIVER_VERSION 0x1005
 
 #include <linux/version.h>
-#ifdef CONFIG_HAS_EARLYSUSPEND
+
+#ifdef CONFIG_FB
+#include <linux/notifier.h>
+#include <linux/fb.h>
+#elif defined CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
 
@@ -227,6 +231,13 @@ struct synaptics_rmi4_data {
 			unsigned char *data, unsigned short length);
 	int (*irq_enable)(struct synaptics_rmi4_data *rmi4_data, bool enable);
 	int (*reset_device)(struct synaptics_rmi4_data *rmi4_data);
+#ifdef CONFIG_FB
+	struct notifier_block fb_notif;
+#else
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	struct early_suspend early_suspend;
+#endif
+#endif
 };
 
 enum exp_fn {

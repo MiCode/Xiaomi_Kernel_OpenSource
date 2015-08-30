@@ -12,7 +12,6 @@ Required properties:
 
 Optional property:
  - vdd-supply		: Analog power supply needed to power device
- - synaptics,reg-en	: specify to indicate regulator is needed
  - vcc_i2c-supply		: Power source required to pull up i2c bus
  - synaptics,i2c-pull-up	: specify to indicate pull up is needed
  - synaptics,button-map		: virtual key code mappings to be used
@@ -48,6 +47,5 @@ Example:
 			synaptics,irq-gpio = <&msmgpio 17 0x00>;
 			synaptics,button-map = [8B 66 9E];
 			synaptics,i2c-pull-up;
-			synaptics,reg-en;
 		};
 	};
