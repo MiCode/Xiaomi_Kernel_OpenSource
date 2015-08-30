@@ -150,6 +150,7 @@ enum ipa_client_type {
 	IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD,
 	IPA_CLIENT_Q6_DECOMP_PROD,
 	IPA_CLIENT_Q6_DECOMP2_PROD,
+	IPA_CLIENT_UC_USB_PROD,
 
 	/* Below PROD client type is only for test purpose */
 	IPA_CLIENT_TEST_PROD,

@@ -1063,6 +1063,8 @@ struct ipa3_sps_pm {
  * @ep: list of all end points
  * @skip_ep_cfg_shadow: state to update filter table correctly across
   power-save
+ * @ep_flt_bitmap: End-points supporting filtering bitmap
+ * @ep_flt_num: End-points supporting filtering number
  * @resume_on_connect: resume ep on ipa3_connect
  * @flt_tbl: list of all IPA filter tables
  * @mode: IPA operating mode
@@ -1138,6 +1140,8 @@ struct ipa3_context {
 	unsigned long bam_handle;
 	struct ipa3_ep_context ep[IPA3_MAX_NUM_PIPES];
 	bool skip_ep_cfg_shadow[IPA3_MAX_NUM_PIPES];
+	u32 ep_flt_bitmap;
+	u32 ep_flt_num;
 	bool resume_on_connect[IPA_CLIENT_MAX];
 	struct ipa3_flt_tbl flt_tbl[IPA3_MAX_NUM_PIPES][IPA_IP_MAX];
 	void __iomem *mmio;
@@ -1734,6 +1738,10 @@ void ipa3_proxy_clk_unvote(void);
 bool ipa3_is_client_handle_valid(u32 clnt_hdl);
 
 enum ipa_client_type ipa3_get_client_mapping(int pipe_idx);
+
+void ipa_init_ep_flt_bitmap(void);
+
+bool ipa_is_ep_support_flt(int pipe_idx);
 
 enum ipa_rm_resource_name ipa3_get_rm_resource_from_ep(int pipe_idx);
 

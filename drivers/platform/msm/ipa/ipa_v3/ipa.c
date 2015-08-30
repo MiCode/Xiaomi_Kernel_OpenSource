@@ -2976,6 +2976,10 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_init_hw;
 	}
 
+	ipa_init_ep_flt_bitmap();
+	IPADBG("EP with flt support bitmap 0x%x (%u pipes)\n",
+		ipa3_ctx->ep_flt_bitmap, ipa3_ctx->ep_flt_num);
+
 	ipa3_ctx->ctrl->ipa_sram_read_settings();
 	IPADBG("SRAM, size: 0x%x, restricted bytes: 0x%x\n",
 		ipa3_ctx->smem_sz, ipa3_ctx->smem_restricted_bytes);
@@ -3157,6 +3161,9 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 	INIT_LIST_HEAD(&ipa3_ctx->rt_tbl_set[IPA_IP_v4].head_rt_tbl_list);
 	INIT_LIST_HEAD(&ipa3_ctx->rt_tbl_set[IPA_IP_v6].head_rt_tbl_list);
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
+		if (ipa_is_ep_support_flt(i))
+			continue;
+
 		flt_tbl = &ipa3_ctx->flt_tbl[i][IPA_IP_v4];
 		INIT_LIST_HEAD(&flt_tbl->head_flt_rule_list);
 		flt_tbl->in_sys = !ipa3_ctx->ip4_flt_tbl_nhash_lcl;
