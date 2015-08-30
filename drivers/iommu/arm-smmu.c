@@ -1685,7 +1685,7 @@ static int arm_smmu_attach_dynamic(struct iommu_domain *domain,
 	int ret;
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 	enum io_pgtable_fmt fmt;
-	struct io_pgtable_ops *pgtbl_ops;
+	struct io_pgtable_ops *pgtbl_ops = NULL;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 
 	if (!(smmu->options & ARM_SMMU_OPT_DYNAMIC)) {
@@ -1752,7 +1752,7 @@ static int arm_smmu_attach_dynamic(struct iommu_domain *domain,
 	ret = 0;
 out:
 	if (ret)
-		kfree(pgtbl_ops);
+		free_io_pgtable_ops(pgtbl_ops);
 	mutex_unlock(&smmu->attach_lock);
 
 	return ret;

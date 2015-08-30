@@ -915,12 +915,14 @@ static struct kgsl_process_private *kgsl_process_private_new(
 	/* Allocate a pagetable for the new process object */
 	if (kgsl_mmu_enabled()) {
 		private->pagetable = kgsl_mmu_getpagetable(&device->mmu, tgid);
-		if (private->pagetable == NULL) {
+		if (IS_ERR(private->pagetable)) {
+			int err = PTR_ERR(private->pagetable);
+
 			idr_destroy(&private->mem_idr);
 			idr_destroy(&private->syncsource_idr);
 
 			kfree(private);
-			private = ERR_PTR(-ENOMEM);
+			private = ERR_PTR(err);
 		}
 	}
 
