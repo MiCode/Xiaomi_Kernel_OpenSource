@@ -510,6 +510,7 @@ static void arm64_erp_local_handler(void *info)
 		ca53_parse_l2merrsr(errdata);
 	break;
 
+	case ARM_CPU_PART_CORTEX_A72:
 	case ARM_CPU_PART_CORTEX_A57:
 		ca57_parse_cpumerrsr(errdata);
 		ca57_parse_l2merrsr(errdata);
@@ -810,6 +811,7 @@ static void check_sbe_event(struct erp_drvdata *drv)
 		ca53_parse_l2merrsr(&errdata);
 	break;
 
+	case ARM_CPU_PART_CORTEX_A72:
 	case ARM_CPU_PART_CORTEX_A57:
 		ca57_parse_cpumerrsr(&errdata);
 		ca57_parse_l2merrsr(&errdata);
