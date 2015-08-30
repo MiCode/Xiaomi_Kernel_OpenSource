@@ -739,6 +739,9 @@ static int smb358_hw_init(struct smb358_charger *chip)
 
 	if (!chip->disable_apsd)
 		reg = CHG_CTRL_APSD_EN_BIT;
+	else
+		reg = 0;
+
 	rc = smb358_masked_write(chip, CHG_CTRL_REG,
 				CHG_CTRL_APSD_EN_MASK, reg);
 	if (rc) {
