@@ -116,6 +116,7 @@ enum msm_usb_phy_type {
  *
  * USB_CHG_STATE_UNDEFINED	USB charger is not connected or detection
  *                              process is not yet started.
+ * USB_CHG_STATE_IN_PROGRESS	Charger detection in progress
  * USB_CHG_STATE_WAIT_FOR_DCD	Waiting for Data pins contact.
  * USB_CHG_STATE_DCD_DONE	Data pin contact is detected.
  * USB_CHG_STATE_PRIMARY_DONE	Primary detection is completed (Detects
@@ -127,6 +128,7 @@ enum msm_usb_phy_type {
  */
 enum usb_chg_state {
 	USB_CHG_STATE_UNDEFINED = 0,
+	USB_CHG_STATE_IN_PROGRESS,
 	USB_CHG_STATE_WAIT_FOR_DCD,
 	USB_CHG_STATE_DCD_DONE,
 	USB_CHG_STATE_PRIMARY_DONE,
@@ -252,9 +254,6 @@ enum usb_id_state {
  * @vddmin_gpio: dedictaed gpio in the platform that is used for
  *		pullup the D+ line in case of bus suspend with
  *		phy retention.
- * @rw_during_lpm_workaround: Determines whether remote-wakeup
- *		during low-power mode workaround will be
- *		applied.
  * @enable_ahb2ahb_bypass: Indicates whether enable AHB2AHB BYPASS
  *		mode with controller in device mode.
  * @bool disable_retention_with_vdd_min: Indicates whether to enable
@@ -300,7 +299,6 @@ struct msm_otg_platform_data {
 	bool l1_supported;
 	bool dpdm_pulldown_added;
 	int vddmin_gpio;
-	bool rw_during_lpm_workaround;
 	bool enable_ahb2ahb_bypass;
 	bool disable_retention_with_vdd_min;
 	int usb_id_gpio;
@@ -347,6 +345,8 @@ struct msm_otg_platform_data {
  * @usb_phy_ctrl_reg: relevant PHY_CTRL_REG register base address.
  * @inputs: OTG state machine inputs(Id, SessValid etc).
  * @sm_work: OTG state machine work.
+ * @sm_work_pending: OTG state machine work is pending, queued post pm_resume
+ * @resume_pending: USB h/w lpm_exit pending. Done on next sm_work run
  * @pm_suspended: OTG device is system(PM) suspended.
  * @pm_notify: Notifier to receive system wide PM transition events.
 		It is used to defer wakeup events processing until
@@ -372,14 +372,8 @@ struct msm_otg_platform_data {
  *               very slow plug in of wall charger.
  * @is_ext_chg_dcp: To indicate whether charger detected by external entity
 		SMB hardware is DCP charger or not.
- * @pm_done: It is used to increment the pm counter using pm_runtime_get_sync.
-	     This handles the race case when PM resume thread returns before
-	     the charger detection starts. When USB is disconnected and in lpm
-	     pm_done is set to true.
  * @ext_id_irq: IRQ for ID interrupt.
  * @phy_irq_pending: Gets set when PHY IRQ arrives in LPM.
- * host_suspend_wait: wait_queue on which USB core waits for USB entering lpm
-	     in host bus suspend case.
  * @id_state: Indicates USBID line status.
  * @rm_pulldown: Indicates pulldown status on D+ and D- data lines.
  * @dbg_idx: Dynamic debug buffer Index.
@@ -418,10 +412,10 @@ struct msm_otg {
 	unsigned long inputs;
 	struct work_struct sm_work;
 	bool sm_work_pending;
+	bool resume_pending;
 	atomic_t pm_suspended;
 	struct notifier_block pm_notify;
 	atomic_t in_lpm;
-	atomic_t set_fpr_with_lpm_exit;
 	bool err_event_seen;
 	int async_int;
 	unsigned cur_power;
@@ -429,7 +423,6 @@ struct msm_otg {
 	struct workqueue_struct *otg_wq;
 	struct delayed_work chg_work;
 	struct delayed_work id_status_work;
-	struct delayed_work suspend_work;
 	enum usb_chg_state chg_state;
 	enum usb_chg_type chg_type;
 	u8 dcd_retries;
@@ -513,11 +506,9 @@ struct msm_otg {
 	struct completion ext_chg_wait;
 	struct pinctrl *phy_pinctrl;
 	bool is_ext_chg_dcp;
-	bool pm_done;
 	struct qpnp_vadc_chip	*vadc_dev;
 	int ext_id_irq;
 	bool phy_irq_pending;
-	wait_queue_head_t	host_suspend_wait;
 	enum usb_id_state id_state;
 	bool rm_pulldown;
 /* Maximum debug message length */
