@@ -291,6 +291,7 @@
 			<0xff 109>, /* smmu_bus_intr[37] */
 			<0xff 112>, /* smmu_bus_intr[38] */
 			<0xff 114>, /* qdsd_intr_out */
+			<0xff 128>, /* blsp1_peripheral_irq[3] */
 			<0xff 129>, /* blsp1_peripheral_irq[4] */
 			<0xff 131>, /* qup_irq */
 			<0xff 137>, /* smmu_intr_bus[44] */
