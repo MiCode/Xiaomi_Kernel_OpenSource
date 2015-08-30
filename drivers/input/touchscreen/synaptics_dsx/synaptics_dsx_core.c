@@ -91,6 +91,9 @@
 #define SYNA_F11_MAX		4096
 #define SYNA_F12_MAX		65536
 
+#define SYNA_S332U_PACKAGE_ID		332
+#define SYNA_S332U_PACKAGE_ID_REV		85
+
 static int synaptics_rmi4_f12_set_enables(struct synaptics_rmi4_data *rmi4_data,
 		unsigned short ctrl28);
 
@@ -4187,8 +4190,15 @@ static int synaptics_rmi4_resume(struct device *dev)
 	int retval;
 	struct synaptics_rmi4_exp_fhandler *exp_fhandler;
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+	struct synaptics_rmi4_device_info *rmi;
 	const struct synaptics_dsx_board_data *bdata =
 			rmi4_data->hw_if->board_data;
+
+	rmi = &(rmi4_data->rmi4_mod_info);
+	if (rmi->package_id == SYNA_S332U_PACKAGE_ID &&
+			rmi->package_id_rev == SYNA_S332U_PACKAGE_ID_REV) {
+		synaptics_rmi4_reset_device(rmi4_data);
+	}
 
 	if (rmi4_data->staying_awake)
 		return 0;
