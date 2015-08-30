@@ -480,3 +480,5 @@
 };
 
 #include "msmthorium-regulator.dtsi"
+#include "msm-pmthorium.dtsi"
+#include "msm-pmithorium.dtsi"
