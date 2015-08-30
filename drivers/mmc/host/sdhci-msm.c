@@ -167,8 +167,10 @@
 #define CORE_FLL_CYCLE_CNT	(1 << 18)
 #define CORE_DLL_CLOCK_DISABLE	(1 << 21)
 
-#define CORE_DDR_CONFIG		0x1B8
-#define DDR_CONFIG_POR_VAL	0x80040853
+#define CORE_DDR_CONFIG			0x1B8
+#define DDR_CONFIG_POR_VAL		0x80040853
+#define DDR_CONFIG_PRG_RCLK_DLY_MASK	0x1FF
+#define DDR_CONFIG_PRG_RCLK_DLY		115
 
 #define MSM_MMC_DEFAULT_CPU_DMA_LATENCY 200 /* usecs */
 
@@ -764,19 +766,18 @@ static int sdhci_msm_cm_dll_sdc4_calibration(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
-	u32 dll_status;
+	u32 dll_status, ddr_config;
 	int ret = 0;
 
 	pr_debug("%s: Enter %s\n", mmc_hostname(host->mmc), __func__);
 
 	/*
-	 * Currently the CORE_DDR_CONFIG register defaults to desired
-	 * configuration on reset. Currently reprogramming the power on
-	 * reset (POR) value in case it might have been modified by
-	 * bootloaders. In the future, if this changes, then the desired
-	 * values will need to be programmed appropriately.
+	 * Reprogramming the value in case it might have been modified by
+	 * bootloaders.
 	 */
-	writel_relaxed(DDR_CONFIG_POR_VAL, host->ioaddr + CORE_DDR_CONFIG);
+	ddr_config = DDR_CONFIG_POR_VAL & ~DDR_CONFIG_PRG_RCLK_DLY_MASK;
+	ddr_config |= DDR_CONFIG_PRG_RCLK_DLY;
+	writel_relaxed(ddr_config, host->ioaddr + CORE_DDR_CONFIG);
 
 	if (msm_host->enhanced_strobe)
 		writel_relaxed((readl_relaxed(host->ioaddr + CORE_DDR_200_CFG)
