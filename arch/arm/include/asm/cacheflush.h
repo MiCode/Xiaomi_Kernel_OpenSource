@@ -510,11 +510,4 @@ int set_memory_nx(unsigned long addr, int numpages);
 
 void flush_uprobe_xol_access(struct page *page, unsigned long uaddr,
 			     void *kaddr, unsigned long len);
-
-#ifdef CONFIG_KERNEL_TEXT_RDONLY
-void set_kernel_text_ro(void);
-#else
-static inline void set_kernel_text_ro(void) { }
-#endif
-
 #endif
