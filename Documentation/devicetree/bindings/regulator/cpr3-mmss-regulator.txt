@@ -140,6 +140,8 @@ gfx_cpr: cpr3-ctrl@838000 {
 
 	qcom,cpr-enable;
 
+	qcom,cpr-aging-ref-voltage = <905000>;
+
 	thread@0 {
 		qcom,cpr-thread-id = <0>;
 		qcom,cpr-consecutive-up = <0>;
@@ -194,6 +196,13 @@ gfx_cpr: cpr3-ctrl@838000 {
 
 			qcom,allow-voltage-interpolation;
 			qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+			qcom,cpr-aging-max-voltage-adjustment = <25000>;
+			qcom,cpr-aging-ref-corner = <3>;
+			qcom,cpr-aging-ro-scaling-factor = <2950>;
+			qcom,cpr-aging-derate =
+				<1000 1000 1000 1000>;
+			qcom,allow-aging-voltage-adjustment = <1>;
 		};
 	};
 };
