@@ -18,7 +18,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. MSM Thorium";
 	compatible = "qcom,msmthorium";
-	qcom,msm-id = <293 0x0>;
+	qcom,msm-id = <294 0x0>;
 	interrupt-parent = <&intc>;
 
 	reserved-memory {
