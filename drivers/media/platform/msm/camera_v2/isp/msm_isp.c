@@ -550,7 +550,8 @@ int vfe_hw_probe(struct platform_device *pdev)
 		&vfe_dev->axi_data;
 	vfe_dev->common_data->dual_vfe_res->stats_data[vfe_dev->pdev->id] =
 		&vfe_dev->stats_data;
-
+	vfe_dev->common_data->dual_vfe_res->vfe_dev[vfe_dev->pdev->id] =
+		vfe_dev;
 	rc = vfe_dev->hw_info->vfe_ops.core_ops.get_platform_data(vfe_dev);
 	if (rc < 0) {
 		pr_err("%s: failed to get platform resources\n", __func__);

@@ -321,12 +321,15 @@ static int msm_vidc_load_bus_vectors(struct msm_vidc_platform_resources *res)
 	for_each_child_of_node(bus_node, child_node) {
 		bool passive = false;
 		bool low_power = false;
+		bool low_latency = false;
 		u32 configs = 0;
 		struct bus_info *bus = &buses->bus_tbl[c];
 
 		passive = of_property_read_bool(child_node, "qcom,bus-passive");
 		low_power = of_property_read_bool(child_node,
 			"qcom,bus-low-power");
+		low_latency = of_property_read_bool(child_node,
+			"qcom,bus-low-latency");
 		rc = of_property_read_u32(child_node, "qcom,bus-configs",
 				&configs);
 		if (rc) {
@@ -335,9 +338,13 @@ static int msm_vidc_load_bus_vectors(struct msm_vidc_platform_resources *res)
 					child_node->name, rc);
 			break;
 		}
-
+		if (low_power)
+			bus->power_mode = VIDC_POWER_LOW;
+		else if (low_latency)
+			bus->power_mode = VIDC_POWER_LOW_LATENCY;
+		else
+			bus->power_mode = VIDC_POWER_NORMAL;
 		bus->passive = passive;
-		bus->low_power = low_power;
 		bus->sessions_supported = configs;
 		bus->pdata = msm_bus_pdata_from_node(pdev, child_node);
 		if (IS_ERR_OR_NULL(bus->pdata)) {
@@ -345,10 +352,12 @@ static int msm_vidc_load_bus_vectors(struct msm_vidc_platform_resources *res)
 			dprintk(VIDC_ERR, "Failed to get bus pdata: %d\n", rc);
 			break;
 		}
+		res->power_modes |= bus->power_mode;
 
-		dprintk(VIDC_DBG, "Bus %s supports: %x, passive: %d\n",
+		dprintk(VIDC_DBG,
+				"Bus %s supports: %x, passive: %d, power_mode: %d\n",
 				bus->pdata->name, bus->sessions_supported,
-				passive);
+				passive, bus->power_mode);
 		++c;
 	}
 

@@ -942,16 +942,14 @@ static int msm_ispif_restart_frame_boundary(struct ispif_device *ispif,
 
 	if (vfe_mask & (1 << VFE0)) {
 		init_completion(&ispif->reset_complete[VFE0]);
-		pr_err("%s Init completion VFE0\n", __func__);
-			/* initiate reset of ISPIF */
+		/* initiate reset of ISPIF */
 		msm_camera_io_w(0x00001FF9,
 				ispif->base + ISPIF_RST_CMD_ADDR);
 	}
 	if (ispif->hw_num_isps > 1 && (vfe_mask & (1 << VFE1))) {
 		init_completion(&ispif->reset_complete[VFE1]);
-		pr_err("%s Init completion VFE1\n", __func__);
-				msm_camera_io_w(0x00001FF9,
-					ispif->base + ISPIF_RST_CMD_1_ADDR);
+		msm_camera_io_w(0x00001FF9,
+			ispif->base + ISPIF_RST_CMD_1_ADDR);
 	}
 
 	if (vfe_mask & (1 << VFE0)) {
@@ -975,7 +973,7 @@ static int msm_ispif_restart_frame_boundary(struct ispif_device *ispif,
 		}
 	}
 
-	pr_info("%s: ISPIF reset hw done", __func__);
+	pr_info("%s: ISPIF reset hw done, Restarting", __func__);
 	rc = msm_cam_clk_enable(&ispif->pdev->dev,
 		ispif_clk_info, ispif->clk,
 		ispif->num_clk, 0);

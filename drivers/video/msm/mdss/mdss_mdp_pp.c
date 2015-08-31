@@ -2383,16 +2383,16 @@ static int pp_ad_calc_bl(struct msm_fb_data_type *mfd, int bl_in, int *bl_out,
 	mutex_lock(&ad->lock);
 	if (!mfd->ad_bl_level)
 		mfd->ad_bl_level = bl_in;
-	if (!(ad->state & PP_AD_STATE_RUN)) {
-		pr_debug("AD is not running.\n");
+	/* return if AD is not running or turned OFF */
+	if (!(ad->state & PP_AD_STATE_RUN) || !(ad->bl_mfd)) {
+		pr_debug("AD is not running/turned off.\n");
 		mutex_unlock(&ad->lock);
 		return -EPERM;
 	}
 
-	if (!ad->bl_mfd || !ad->bl_mfd->panel_info) {
-		pr_err("Invalid ad info: bl_mfd = 0x%p, ad->bl_mfd->panel_info = 0x%p\n",
-			ad->bl_mfd,
-			(!ad->bl_mfd) ? NULL : ad->bl_mfd->panel_info);
+	if (!ad->bl_mfd->panel_info) {
+		pr_err("Invalid ad panel info: ad->bl_mfd->panel_info = 0x%p\n",
+			ad->bl_mfd->panel_info);
 		mutex_unlock(&ad->lock);
 		return -EINVAL;
 	}
@@ -4988,14 +4988,14 @@ error:
 			INIT_COMPLETION(ad->comp);
 			mutex_unlock(&ad->lock);
 		}
-		if (wait) {
+		if ((wait) && (ad->last_bl)) {
 			ret = wait_for_completion_timeout(
 					&ad->comp, HIST_WAIT_TIMEOUT(1));
 			if (ret == 0)
 				ret = -ETIMEDOUT;
-			else if (ret > 0)
-				input->output = ad->last_str;
 		}
+		if (ret >= 0)
+			input->output = ad->last_str;
 	}
 	return ret;
 }
@@ -5266,16 +5266,20 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 		 * Assertive Display is up and running as long as there are
 		 * no updates to AD init or cfg
 		 */
-		ad->sts &= ~PP_AD_STS_DIRTY_DATA;
-		ad->state |= PP_AD_STATE_DATA;
 		pr_debug("dirty data, last_bl = %d\n", ad->last_bl);
 		bl = bl_mfd->ad_bl_level;
+		if (bl) {
+			ad->sts &= ~PP_AD_STS_DIRTY_DATA;
+			ad->state |= PP_AD_STATE_DATA;
+		}
 
 		if ((ad->cfg.mode == MDSS_AD_MODE_AUTO_STR) &&
 							(ad->last_bl != bl)) {
 			ad->last_bl = bl;
-			ad->calc_itr = ad->cfg.stab_itr;
-			ad->sts |= PP_AD_STS_DIRTY_VSYNC;
+			if (bl) {
+				ad->calc_itr = ad->cfg.stab_itr;
+				ad->sts |= PP_AD_STS_DIRTY_VSYNC;
+			}
 			linear_map(bl, &ad->bl_data,
 				bl_mfd->panel_info->bl_max,
 				MDSS_MDP_AD_BL_SCALE);

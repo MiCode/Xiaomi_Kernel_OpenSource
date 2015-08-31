@@ -1347,7 +1347,7 @@ static inline enum vidc_vote_data_session VIDC_VOTE_DATA_SESSION_VAL(
 struct vidc_bus_vote_data {
 	enum vidc_vote_data_session session;
 	int load;
-	bool low_power;
+	enum msm_vidc_power_mode power_mode;
 };
 
 struct vidc_clk_scale_data {

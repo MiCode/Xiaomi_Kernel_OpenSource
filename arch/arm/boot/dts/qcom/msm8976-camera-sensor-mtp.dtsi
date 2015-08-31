@@ -59,7 +59,7 @@
 		qcom,page0 = <0 0 0 0 0 0>;
 		qcom,poll0 = <0 0 0 0 0 0>;
 		qcom,saddr0 = <0xa0>;
-		qcom,mem0 = <2048 0x0000 2 0 1 0>;
+		qcom,mem0 = <8192 0x0000 2 0 1 0>;
 
 		cam_vio-supply = <&pm8950_l6>;
 		qcom,cam-vreg-name = "cam_vio";

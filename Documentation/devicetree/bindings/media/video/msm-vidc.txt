@@ -123,6 +123,8 @@ Optional properties:
   expressed in units of macroblocks per second.
 - qcom,dcvs-min-mbperframe = Supported DCVS MBs per frame, expressed in
   units of macroblocks per second.
+- qcom,bus-low-latency = A bool indicating the perticular bus client to be
+  used only when low latency mode is enabled by the client.
 
 Example:
 
