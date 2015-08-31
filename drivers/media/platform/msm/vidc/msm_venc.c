@@ -2789,10 +2789,13 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_MODE:
 		property_id = HAL_PARAM_VENC_LOW_LATENCY;
 		if (ctrl->val ==
-			V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_ENABLE)
+			V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_ENABLE) {
 			enable.enable = 1;
-		else
+			inst->flags |= VIDC_LOW_LATENCY;
+		} else {
 			enable.enable = 0;
+			inst->flags &= ~VIDC_LOW_LATENCY;
+		}
 		pdata = &enable;
 		break;
 	default:

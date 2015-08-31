@@ -66,6 +66,16 @@ static inline bool is_turbo_session(struct msm_vidc_inst *inst)
 	return !!(inst->flags & VIDC_TURBO);
 }
 
+static inline bool is_low_power_session(struct msm_vidc_inst *inst)
+{
+	return !!(inst->flags & VIDC_POWER_SAVE);
+}
+
+static inline bool is_low_latency_session(struct msm_vidc_inst *inst)
+{
+	return !!(inst->flags & VIDC_LOW_LATENCY);
+}
+
 static inline bool is_thumbnail_session(struct msm_vidc_inst *inst)
 {
 	return !!(inst->flags & VIDC_THUMBNAIL);
@@ -292,7 +302,16 @@ static int msm_comm_vote_bus(struct msm_vidc_core *core)
 				get_hal_domain(inst->session_type));
 		vote_data[i].load = msm_comm_get_inst_load(inst,
 				LOAD_CALC_NO_QUIRKS);
-		vote_data[i].low_power = !!(inst->flags & VIDC_POWER_SAVE);
+
+		if (is_turbo_session(inst))
+			vote_data[i].power_mode = VIDC_POWER_TURBO;
+		else if (is_low_power_session(inst))
+			vote_data[i].power_mode = VIDC_POWER_LOW;
+		else if (is_low_latency_session(inst))
+			vote_data[i].power_mode = VIDC_POWER_LOW_LATENCY;
+		else
+			vote_data[i].power_mode = VIDC_POWER_NORMAL;
+
 		i++;
 	}
 	mutex_unlock(&core->lock);
@@ -1132,6 +1151,7 @@ static void handle_session_error(enum command_response cmd, void *data)
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct hfi_device *hdev = NULL;
 	struct msm_vidc_inst *inst = NULL;
+	int event = V4L2_EVENT_MSM_VIDC_SYS_ERROR;
 
 	if (!response) {
 		dprintk(VIDC_ERR,
@@ -1153,18 +1173,17 @@ static void handle_session_error(enum command_response cmd, void *data)
 	change_inst_state(inst, MSM_VIDC_CORE_INVALID);
 
 	if (response->status == VIDC_ERR_MAX_CLIENTS) {
-		dprintk(VIDC_WARN,
-			"send max clients reached error to client: %p\n",
-			inst);
-		msm_vidc_queue_v4l2_event(inst,
-			V4L2_EVENT_MSM_VIDC_MAX_CLIENTS);
+		dprintk(VIDC_WARN, "Too many clients, rejecting %p", inst);
+		event = V4L2_EVENT_MSM_VIDC_MAX_CLIENTS;
+	} else if (response->status == VIDC_ERR_NOT_SUPPORTED) {
+		dprintk(VIDC_WARN, "Unsupported error for %p", inst);
+		event = V4L2_EVENT_MSM_VIDC_HW_UNSUPPORTED;
 	} else {
-		dprintk(VIDC_ERR,
-			"send session error to client: %p\n",
-			inst);
-		msm_vidc_queue_v4l2_event(inst,
-			V4L2_EVENT_MSM_VIDC_SYS_ERROR);
+		dprintk(VIDC_WARN, "Unknown session error (%d) for %p\n",
+				response->status, inst);
+		event = V4L2_EVENT_MSM_VIDC_SYS_ERROR;
 	}
+	msm_vidc_queue_v4l2_event(inst, event);
 }
 
 static void msm_comm_clean_notify_client(struct msm_vidc_core *core)

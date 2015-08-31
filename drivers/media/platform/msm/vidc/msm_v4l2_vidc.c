@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -80,6 +80,12 @@ static int msm_v4l2_close(struct file *filp)
 		dprintk(VIDC_WARN,
 			"Failed in %s for release output buffers\n", __func__);
 
+	rc = msm_vidc_free_buffers(vidc_inst,
+			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+	if (rc)
+		dprintk(VIDC_WARN,
+			"%s: Failed to free output buffers\n", __func__);
+
 	rc = msm_vidc_close(vidc_inst);
 	trace_msm_v4l2_vidc_close_end("msm_v4l2_close end");
 	return rc;
@@ -139,11 +145,18 @@ int msm_v4l2_reqbufs(struct file *file, void *fh,
 {
 	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
 	int rc = 0;
-	if (b->count == 0)
+	if (b->count == 0) {
 		rc = msm_vidc_release_buffers(vidc_inst, b->type);
-	if (rc)
-		dprintk(VIDC_WARN,
-			"Failed in %s for release output buffers\n", __func__);
+		if (rc)
+			dprintk(VIDC_WARN,
+				"%s: failed to release output buffers\n",
+				__func__);
+		rc = msm_vidc_free_buffers(vidc_inst, b->type);
+		if (rc)
+			dprintk(VIDC_WARN,
+				"%s: failed to free output buffers\n",
+				__func__);
+	}
 	return msm_vidc_reqbufs((void *)vidc_inst, b);
 }
 

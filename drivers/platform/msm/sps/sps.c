@@ -2189,6 +2189,9 @@ int sps_register_bam_device(const struct sps_bam_props *bam_props,
 		goto exit_err;
 	}
 
+	if (bam_props->ipc_loglevel)
+		bam->ipc_loglevel = bam_props->ipc_loglevel;
+
 	ok = sps_bam_device_init(bam);
 	mutex_unlock(&bam->lock);
 	if (ok) {

@@ -494,8 +494,16 @@ static int mdss_mdp_display_splash_image(struct msm_fb_data_type *mfd)
 	rc = mdss_mdp_splash_kickoff(mfd, &src_rect, &dest_rect);
 	if (rc)
 		pr_err("splash image display failed\n");
-	else
+	else {
 		sinfo->splash_pipe_allocated = true;
+		/*
+		 * Once the splash pipe is allocated, set the splash flag which
+		 * is being stored in var.reserved[3].
+		 */
+		mfd->fbi->var.reserved[3] =
+					mfd->panel_info->cont_splash_enabled |
+					mfd->splash_info.splash_pipe_allocated;
+	}
 end:
 	return rc;
 }

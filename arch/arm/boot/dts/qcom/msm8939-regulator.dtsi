@@ -69,9 +69,15 @@
 		qcom,corner-acc-map = <0 0 1>;
 		qcom,l2-acc-custom-data = <0x0 0x0 0x3000>;
 
-		qcom,override-acc-fuse-sel = <0 30 1 1 0>;
-		qcom,override-corner-acc-map = <0 1 1>;
-		qcom,override-l2-acc-custom-data = <0x0 0x3000 0x3000>;
+		qcom,override-acc-fuse-sel = <0 30 1 0>;
+		qcom,override-fuse-version-map = <0>,
+						 <1>;
+		qcom,override-corner-acc-map =
+					<0      0       1>,
+					<0      1       1>;
+		qcom,override-l2-acc-custom-data =
+					<0x0    0x0     0x3000>,
+					<0x0    0x3000  0x3000>;
 	};
 
 	apc_vreg_corner: regulator@b018000 {
