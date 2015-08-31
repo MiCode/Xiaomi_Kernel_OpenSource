@@ -159,6 +159,14 @@ Platform independent properties:
 		    enabled) as opposed to open-loop mode (i.e. CPR sensing loop
 		    disabled) by default.
 
+- qcom,cpr-aging-ref-voltage
+	Usage:      required if qcom,allow-aging-voltage-adjustment is specified
+		    for any third level nodes
+	Value type: <u32>
+	Definition: Specifies the CPR aging reference voltage in microvolts.
+		    This is the voltage that vdd-supply must be set to when
+		    performing an aging measurement.
+
 =================================================
 Second Level Nodes - CPR Threads for a Controller
 =================================================
@@ -460,8 +468,9 @@ Platform independent properties:
 		    order to utilize this property.
 
 - qcom,cpr-ro-scaling-factor
-	Usage:      required if qcom,cpr-closed-loop-voltage-fuse-adjustment
-		    or qcom,cpr-closed-loop-voltage-adjustment is specified
+	Usage:      required if qcom,cpr-closed-loop-voltage-fuse-adjustment,
+		    qcom,cpr-closed-loop-voltage-adjustment, or
+		    qcom,allow-aging-voltage-adjustment is specified
 	Value type: <prop-encoded-array>
 	Definition: A grouping of integer tuple lists.  Each tuple defines the
 		    CPR ring oscillator (RO) scaling factor with units of QUOT/V
@@ -487,6 +496,81 @@ Platform independent properties:
 		    value in qcom,cpr-closed-loop-voltage-fuse-adjustment or
 		    qcom,cpr-closed-loop-voltage-adjustment by the relevant RO
 		    scaling factor in this property.
+
+- qcom,allow-aging-voltage-adjustment
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integers which specifies if CPR aging adjustment
+		    should be performed for each fuse combination.
+		    Supported per-combo element values:
+			0 - do not perform CPR aging adjustment
+			1 - perform CPR aging adjustment
+
+		    The list must contain either qcom,cpr-fuse-combos number of
+		    elements in which case the elements are applied to fuse
+		    combinations 1-to-1 or the list must contain exactly 1
+		    element which is used regardless of the fuse combination
+		    found on a given chip.
+
+- qcom,cpr-aging-max-voltage-adjustment
+	Usage:      required if qcom,allow-aging-voltage-adjustment is specified
+	Value type: <prop-encoded-array>
+	Definition: A list of integers which defines the maximum CPR aging
+		    voltage margin adjustment in microvolts that may be added
+		    for each fuse combination.  If this property is specified
+		    and the adjustment specified is greater than 0, then aging
+		    adjustments are required for this regulator.
+
+		    The list must contain either qcom,cpr-fuse-combos number of
+		    elements in which case the max adjustments are applied to
+		    fuse combinations 1-to-1 or the list must contain exactly 1
+		    element which is used regardless of the fuse combination
+		    found on a given chip.
+
+- qcom,cpr-aging-ref-corner
+	Usage:      required if qcom,allow-aging-voltage-adjustment is specified
+	Value type: <prop-encoded-array>
+	Definition: A list of integers which defines the CPR reference corner
+		    for this regulator to use during aging measurements for each
+		    fuse combination.
+
+		    The list must contain either qcom,cpr-fuse-combos number of
+		    elements in which case the max adjustments are applied to
+		    fuse combinations 1-to-1 or the list must contain exactly 1
+		    element which is used regardless of the fuse combination
+		    found on a given chip.
+
+- qcom,cpr-aging-ro-scaling-factor
+	Usage:      required if qcom,allow-aging-voltage-adjustment is specified
+	Value type: <prop-encoded-array>
+	Definition: A list of integers which defines the CPR aging ring
+		    oscillator (RO) scaling factor with units of QUOT/V to use
+		    during aging measurements for each fuse combination.
+
+		    The list must contain either qcom,cpr-fuse-combos number of
+		    elements in which case the scaling factors are applied to
+		    fuse combinations 1-to-1 or the list must contain exactly 1
+		    element which is used regardless of the fuse combination
+		    found on a given chip.
+
+- qcom,cpr-aging-derate
+	Usage:      optional, though only meaningful if
+		    qcom,allow-aging-voltage-adjustment is specified
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the CPR aging
+		    derating scaling factor to apply to the closed-loop voltage
+		    margin adjustment for each corner.  The individual scaling
+		    factors have units of uV/mV and are ordered from lowest to
+		    highest corner per tuple.  For example, a value of 900
+		    specifies that the voltage adjustment for the corner should
+		    be 90% (900/1000) of that for the reference corner.
+
+		    The list and tuples must meet the same size requirements as
+		    those specified for qcom,cpr-voltage-ceiling above.
+
+		    If this property is not specified, then it is assumed that
+		    no corners require derating (i.e. the scaling factor would
+		    be 1000).
 
 All properties specified within the core regulator framework can also be used in
 third level nodes.  These bindings can be found in:
