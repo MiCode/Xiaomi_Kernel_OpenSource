@@ -45,7 +45,7 @@ TRACE_EVENT(bus_update_request,
 		__entry->ib = ib;
 	),
 
-	TP_printk("time= %d.%d name=%s src=%d dest=%d ab=%llu ib=%llu",
+	TP_printk("time= %u.%09u name=%s src=%d dest=%d ab=%llu ib=%llu",
 		__entry->sec,
 		__entry->nsec,
 		__get_str(name),
