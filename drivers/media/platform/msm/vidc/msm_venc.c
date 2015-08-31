@@ -1277,11 +1277,10 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 			}
 		}
 
+		*num_buffers += msm_dcvs_get_extra_buff_count(inst);
 		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
 		new_buf_count.buffer_type = HAL_BUFFER_OUTPUT;
 		new_buf_count.buffer_count_actual = *num_buffers;
-		new_buf_count.buffer_count_actual +=
-				msm_dcvs_get_extra_buff_count(inst);
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
 			property_id, &new_buf_count);
 		if (!rc)
