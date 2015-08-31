@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,8 +49,10 @@ static bool qmi_modem_init_fin, qmi_indication_fin;
 static struct work_struct ipa_qmi_service_init_work;
 static uint32_t ipa_wan_platform;
 struct ipa_qmi_context *ipa_qmi_ctx;
-static bool workqueues_stopped;
 static bool first_time_handshake;
+static atomic_t workqueues_stopped;
+static atomic_t ipa_qmi_initialized;
+struct mutex ipa_qmi_lock;
 
 /* QMI A5 service */
 
@@ -320,7 +322,7 @@ static void qmi_ipa_a5_svc_ntfy(struct qmi_handle *handle,
 {
 	switch (event) {
 	case QMI_RECV_MSG:
-		if (!workqueues_stopped)
+		if (!atomic_read(&workqueues_stopped))
 			queue_delayed_work(ipa_svc_workqueue,
 					   &work_recv_msg, 0);
 		break;
@@ -515,12 +517,17 @@ int qmi_filter_request_send(struct ipa_install_fltr_rule_req_msg_v01 *req)
 		req->filter_spec_list_len);
 	}
 
-	/* cache the qmi_filter_request */
-	memcpy(&(ipa_qmi_ctx->ipa_install_fltr_rule_req_msg_cache[
-		ipa_qmi_ctx->num_ipa_install_fltr_rule_req_msg]),
-			req, sizeof(struct ipa_install_fltr_rule_req_msg_v01));
-	ipa_qmi_ctx->num_ipa_install_fltr_rule_req_msg++;
-	ipa_qmi_ctx->num_ipa_install_fltr_rule_req_msg %= 10;
+	mutex_lock(&ipa_qmi_lock);
+	if (ipa_qmi_ctx != NULL) {
+		/* cache the qmi_filter_request */
+		memcpy(&(ipa_qmi_ctx->ipa_install_fltr_rule_req_msg_cache[
+			ipa_qmi_ctx->num_ipa_install_fltr_rule_req_msg]),
+			req,
+			sizeof(struct ipa_install_fltr_rule_req_msg_v01));
+		ipa_qmi_ctx->num_ipa_install_fltr_rule_req_msg++;
+		ipa_qmi_ctx->num_ipa_install_fltr_rule_req_msg %= 10;
+	}
+	mutex_unlock(&ipa_qmi_lock);
 
 	req_desc.max_msg_len = QMI_IPA_INSTALL_FILTER_RULE_REQ_MAX_MSG_LEN_V01;
 	req_desc.msg_id = QMI_IPA_INSTALL_FILTER_RULE_REQ_V01;
@@ -655,13 +662,17 @@ int qmi_filter_notify_send(struct ipa_fltr_installed_notif_req_msg_v01 *req)
 		return -EINVAL;
 	}
 
-	/* cache the qmi_filter_request */
-	memcpy(&(ipa_qmi_ctx->ipa_fltr_installed_notif_req_msg_cache[
-		ipa_qmi_ctx->num_ipa_fltr_installed_notif_req_msg]),
-		req, sizeof(struct ipa_fltr_installed_notif_req_msg_v01));
-	ipa_qmi_ctx->num_ipa_fltr_installed_notif_req_msg++;
-	ipa_qmi_ctx->num_ipa_fltr_installed_notif_req_msg %= 10;
-
+	mutex_lock(&ipa_qmi_lock);
+	if (ipa_qmi_ctx != NULL) {
+		/* cache the qmi_filter_request */
+		memcpy(&(ipa_qmi_ctx->ipa_fltr_installed_notif_req_msg_cache[
+			ipa_qmi_ctx->num_ipa_fltr_installed_notif_req_msg]),
+			req,
+			sizeof(struct ipa_fltr_installed_notif_req_msg_v01));
+		ipa_qmi_ctx->num_ipa_fltr_installed_notif_req_msg++;
+		ipa_qmi_ctx->num_ipa_fltr_installed_notif_req_msg %= 10;
+	}
+	mutex_unlock(&ipa_qmi_lock);
 	req_desc.max_msg_len =
 	QMI_IPA_FILTER_INSTALLED_NOTIF_REQ_MAX_MSG_LEN_V01;
 	req_desc.msg_id = QMI_IPA_FILTER_INSTALLED_NOTIF_REQ_V01;
@@ -702,7 +713,7 @@ static void ipa_q6_clnt_notify(struct qmi_handle *handle,
 	switch (event) {
 	case QMI_RECV_MSG:
 		IPAWANDBG("client qmi recv message called");
-		if (!workqueues_stopped)
+		if (!atomic_read(&workqueues_stopped))
 			queue_delayed_work(ipa_clnt_resp_workqueue,
 					   &work_recv_msg_client, 0);
 		break;
@@ -765,8 +776,7 @@ static void ipa_q6_clnt_svc_arrive(struct work_struct *work)
 			IPA_Q6_SERVICE_INS_ID);
 	if (rc < 0) {
 		IPAWANERR("Server not found\n");
-		qmi_handle_destroy(ipa_q6_clnt);
-		ipa_q6_clnt = NULL;
+		ipa_q6_clnt_svc_exit(0);
 		return;
 	}
 
@@ -823,9 +833,14 @@ static void ipa_q6_clnt_svc_arrive(struct work_struct *work)
 
 static void ipa_q6_clnt_svc_exit(struct work_struct *work)
 {
-	qmi_handle_destroy(ipa_q6_clnt);
+	mutex_lock(&ipa_qmi_lock);
+
+	if (ipa_q6_clnt)
+		qmi_handle_destroy(ipa_q6_clnt);
 	ipa_q6_clnt_reset = 1;
 	ipa_q6_clnt = NULL;
+
+	mutex_unlock(&ipa_qmi_lock);
 }
 
 
@@ -836,12 +851,12 @@ static int ipa_q6_clnt_svc_event_notify(struct notifier_block *this,
 	IPAWANDBG("event %ld\n", code);
 	switch (code) {
 	case QMI_SERVER_ARRIVE:
-		if (!workqueues_stopped)
+		if (!atomic_read(&workqueues_stopped))
 			queue_delayed_work(ipa_clnt_req_workqueue,
 					   &work_svc_arrive, 0);
 		break;
 	case QMI_SERVER_EXIT:
-		if (!workqueues_stopped)
+		if (!atomic_read(&workqueues_stopped))
 			queue_delayed_work(ipa_clnt_req_workqueue,
 					   &work_svc_exit, 0);
 		break;
@@ -922,6 +937,7 @@ static void ipa_qmi_service_init_worker(struct work_struct *work)
 		goto destroy_clnt_resp_wq;
 	}
 
+	atomic_set(&ipa_qmi_initialized, 1);
 	/* get Q6 service and start send modem-initial to Q6 */
 	IPAWANDBG("wait service available\n");
 	return;
@@ -949,9 +965,9 @@ int ipa_qmi_service_init(uint32_t wan_platform_type)
 	ipa_wan_platform = wan_platform_type;
 	qmi_modem_init_fin = false;
 	qmi_indication_fin = false;
-	workqueues_stopped = false;
+	atomic_set(&workqueues_stopped, 0);
 
-	if (!ipa_svc_handle) {
+	if (0 == atomic_read(&ipa_qmi_initialized)) {
 		INIT_WORK(&ipa_qmi_service_init_work,
 			ipa_qmi_service_init_worker);
 		schedule_work(&ipa_qmi_service_init_work);
@@ -963,7 +979,7 @@ void ipa_qmi_service_exit(void)
 {
 	int ret = 0;
 
-	workqueues_stopped = true;
+	atomic_set(&workqueues_stopped, 1);
 
 	/* qmi-service */
 	if (ipa_svc_handle) {
@@ -984,6 +1000,7 @@ void ipa_qmi_service_exit(void)
 			IPAWANERR("Error destroying qmi handle %p, ret=%d\n",
 			ipa_svc_handle, ret);
 	}
+	ipa_svc_handle = 0;
 
 	/* qmi-client */
 
@@ -1008,14 +1025,16 @@ void ipa_qmi_service_exit(void)
 		ipa_clnt_resp_workqueue = NULL;
 	}
 
+	mutex_lock(&ipa_qmi_lock);
 	/* clean the QMI msg cache */
 	if (ipa_qmi_ctx != NULL) {
 		vfree(ipa_qmi_ctx);
 		ipa_qmi_ctx = NULL;
 	}
-	ipa_svc_handle = 0;
+	mutex_unlock(&ipa_qmi_lock);
 	qmi_modem_init_fin = false;
 	qmi_indication_fin = false;
+	atomic_set(&ipa_qmi_initialized, 0);
 }
 
 void ipa_qmi_stop_workqueues(void)
@@ -1023,7 +1042,7 @@ void ipa_qmi_stop_workqueues(void)
 	IPAWANDBG("Stopping all QMI workqueues\n");
 
 	/* Stopping all workqueues so new work won't be scheduled */
-	workqueues_stopped = true;
+	atomic_set(&workqueues_stopped, 1);
 
 	/* Making sure that the current scheduled work won't be executed */
 	cancel_delayed_work(&work_recv_msg);
@@ -1177,4 +1196,14 @@ int ipa_qmi_stop_data_qouta(void)
 	return ipa_check_qmi_response(rc,
 		QMI_IPA_STOP_DATA_USAGE_QUOTA_REQ_V01, resp.resp.result,
 		resp.resp.error, "ipa_stop_data_usage_quota_req_msg_v01");
+}
+
+void ipa_qmi_init(void)
+{
+	mutex_init(&ipa_qmi_lock);
+}
+
+void ipa_qmi_cleanup(void)
+{
+	mutex_destroy(&ipa_qmi_lock);
 }
