@@ -30,3 +30,7 @@
 &spi_1 {
 	status = "ok";
 };
+
+&blsp1_uart3 {
+	status = "ok";
+};
