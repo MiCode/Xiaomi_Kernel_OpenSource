@@ -11,9 +11,6 @@
 # Copyright (C) 1995-2002 Russell King
 #
 
-ifneq ($(MACHINE),)
-include $(srctree)/$(MACHINE)/Makefile.boot
-endif
 include $(srctree)/arch/arm/boot/dts/Makefile
 
 include $(srctree)/arch/arm/boot/dts/Makefile
