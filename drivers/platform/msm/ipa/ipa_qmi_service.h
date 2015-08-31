@@ -36,6 +36,7 @@
 	pr_err(DEV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 
 extern struct ipa_qmi_context *ipa_qmi_ctx;
+extern struct mutex ipa_qmi_lock;
 
 struct ipa_qmi_context {
 struct ipa_ioc_ext_intf_prop q6_ul_filter_rule[MAX_NUM_Q6_RULE];
@@ -69,6 +70,8 @@ int ipa_qmi_get_network_stats(struct ipa_get_apn_data_stats_req_msg_v01 *req,
 int ipa_qmi_set_data_quota(struct ipa_set_data_usage_quota_req_msg_v01 *req);
 int ipa_qmi_stop_data_qouta(void);
 void ipa_q6_handshake_complete(bool);
+void ipa_qmi_init(void);
+void ipa_qmi_cleanup(void);
 
 extern struct elem_info ipa_init_modem_driver_req_msg_data_v01_ei[];
 extern struct elem_info ipa_init_modem_driver_resp_msg_data_v01_ei[];
@@ -265,6 +268,15 @@ void ipa_q6_handshake_complete(bool)
 {
 	return;
 }
+
+void ipa_qmi_init(void)
+{
+}
+
+void ipa_qmi_cleanup(void)
+{
+}
+
 #endif /* CONFIG_RMNET_IPA */
 
 #endif /* IPA_QMI_SERVICE_H */
