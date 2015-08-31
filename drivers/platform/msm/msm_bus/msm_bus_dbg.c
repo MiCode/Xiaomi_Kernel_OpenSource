@@ -380,8 +380,8 @@ int msm_bus_dbg_rec_transaction(const struct msm_bus_client_handle *pdata,
 	}
 	buf = cldata->buffer;
 	ts = ktime_to_timespec(ktime_get());
-	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "\n%d.%d\n",
-		(int)ts.tv_sec, (int)ts.tv_nsec);
+	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "\n%ld.%09lu\n",
+		ts.tv_sec, ts.tv_nsec);
 	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "master: ");
 
 	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "%d  ", pdata->mas);
@@ -484,8 +484,8 @@ static int msm_bus_dbg_fill_cl_buffer(const struct msm_bus_scale_pdata *pdata,
 	}
 	buf = cldata->buffer;
 	ts = ktime_to_timespec(ktime_get());
-	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "\n%d.%d\n",
-		(int)ts.tv_sec, (int)ts.tv_nsec);
+	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "\n%ld.%09lu\n",
+		ts.tv_sec, ts.tv_nsec);
 	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "curr   : %d\n", index);
 	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "masters: ");
 
@@ -708,8 +708,8 @@ static int msm_bus_dbg_fill_fab_buffer(const char *fabname,
 	buf = fablist->buffer;
 	mutex_unlock(&msm_bus_dbg_fablist_lock);
 	ts = ktime_to_timespec(ktime_get());
-	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "\n%d.%d\n",
-		(int)ts.tv_sec, (int)ts.tv_nsec);
+	i += scnprintf(buf + i, MAX_BUFF_SIZE - i, "\n%ld.%09lu\n",
+		ts.tv_sec, ts.tv_nsec);
 
 	msm_bus_rpm_fill_cdata_buffer(&i, buf, MAX_BUFF_SIZE, cdata,
 		nmasters, nslaves, ntslaves);
