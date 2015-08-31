@@ -96,54 +96,82 @@ struct ipa3_rt_rule_hw_hdr {
 
 /**
  * struct ipa3_ip_v4_filter_init - IPA_IP_V4_FILTER_INIT command payload
- * @ipv4_rules_addr: address of ipv4 rules
- * @size_ipv4_rules: size of the above
- * @ipv4_addr: ipv4 address
+ * @hash_rules_addr: System memory address of IPv4 hashable rules
+ * @hash_rules_size: Size in bytes of the hashable rules
+ * @hash_local_addr: Shared memory address of IPv4 hashable rules
+ * @nhash_rules_size: Size in bytes of the non-hashable rules
+ * @nhash_local_addr: Shared memory address of IPv4 non-hashable rules
  * @rsvd: reserved
+ * @nhash_rules_addr: System memory address of IPv4 non-hashable rules
  */
 struct ipa3_ip_v4_filter_init {
-	u64 ipv4_rules_addr:32;
-	u64 size_ipv4_rules:12;
-	u64 ipv4_addr:16;
-	u64 rsvd:4;
+	u64 hash_rules_addr:64;
+	u64 hash_rules_size:12;
+	u64 hash_local_addr:16;
+	u64 nhash_rules_size:12;
+	u64 nhash_local_addr:16;
+	u64 rsvd:8;
+	u64 nhash_rules_addr:64;
 };
 
 /**
  * struct ipa3_ip_v6_filter_init - IPA_IP_V6_FILTER_INIT command payload
- * @ipv6_rules_addr: address of ipv6 rules
- * @size_ipv6_rules: size of the above
- * @ipv6_addr: ipv6 address
+ * @hash_rules_addr: System memory address of IPv6 hashable rules
+ * @hash_rules_size: Size in bytes of the hashable rules
+ * @hash_local_addr: Shared memory address of IPv6 hashable rules
+ * @nhash_rules_size: Size in bytes of the non-hashable rules
+ * @nhash_local_addr: Shared memory address of IPv6 non-hashable rules
+ * @rsvd: reserved
+ * @nhash_rules_addr: System memory address of IPv6 non-hashable rules
  */
 struct ipa3_ip_v6_filter_init {
-	u64 ipv6_rules_addr:32;
-	u64 size_ipv6_rules:16;
-	u64 ipv6_addr:16;
+	u64 hash_rules_addr:64;
+	u64 hash_rules_size:12;
+	u64 hash_local_addr:16;
+	u64 nhash_rules_size:12;
+	u64 nhash_local_addr:16;
+	u64 rsvd:8;
+	u64 nhash_rules_addr:64;
 };
 
 /**
  * struct ipa3_ip_v4_routing_init - IPA_IP_V4_ROUTING_INIT command payload
- * @ipv4_rules_addr: address of ipv4 rules
- * @size_ipv4_rules: size of the above
- * @ipv4_addr: ipv4 address
+ * @hash_rules_addr: System memory address of IPv4 hashable rules
+ * @hash_rules_size: Size in bytes of the hashable rules
+ * @hash_local_addr: Shared memory address of IPv4 hashable rules
+ * @nhash_rules_size: Size in bytes of the non-hashable rules
+ * @nhash_local_addr: Shared memory address of IPv4 non-hashable rules
  * @rsvd: reserved
+ * @nhash_rules_addr: System memory address of IPv4 non-hashable rules
  */
 struct ipa3_ip_v4_routing_init {
-	u64 ipv4_rules_addr:32;
-	u64 size_ipv4_rules:12;
-	u64 ipv4_addr:16;
-	u64 rsvd:4;
+	u64 hash_rules_addr:64;
+	u64 hash_rules_size:12;
+	u64 hash_local_addr:16;
+	u64 nhash_rules_size:12;
+	u64 nhash_local_addr:16;
+	u64 rsvd:8;
+	u64 nhash_rules_addr:64;
 };
 
 /**
  * struct ipa3_ip_v6_routing_init - IPA_IP_V6_ROUTING_INIT command payload
- * @ipv6_rules_addr: address of ipv6 rules
- * @size_ipv6_rules: size of the above
- * @ipv6_addr: ipv6 address
+ * @hash_rules_addr: System memory address of IPv6 hashable rules
+ * @hash_rules_size: Size in bytes of the hashable rules
+ * @hash_local_addr: Shared memory address of IPv6 hashable rules
+ * @nhash_rules_size: Size in bytes of the non-hashable rules
+ * @nhash_local_addr: Shared memory address of IPv6 non-hashable rules
+ * @rsvd: reserved
+ * @nhash_rules_addr: System memory address of IPv6 non-hashable rules
  */
 struct ipa3_ip_v6_routing_init {
-	u64 ipv6_rules_addr:32;
-	u64 size_ipv6_rules:16;
-	u64 ipv6_addr:16;
+	u64 hash_rules_addr:64;
+	u64 hash_rules_size:12;
+	u64 hash_local_addr:16;
+	u64 nhash_rules_size:12;
+	u64 nhash_local_addr:16;
+	u64 rsvd:8;
+	u64 nhash_rules_addr:64;
 };
 
 /**
