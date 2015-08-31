@@ -50,100 +50,146 @@
  * @retain_hdr: added to add back to the packet the header removed
  *  as part of header removal. This will be done as part of
  *  header insertion block.
- * @to_uc: direct IPA to sent the packet to uc instead of
- *  the intended destination. This will be performed just after
- *  routing block processing, so routing will have determined
- *  destination end point and uc will receive this information
- *  together with the packet as part of the HW packet TX commands
- * @rsvd: reserved bits
+ * @rsvd1: reserved bits
+ * @priority: Rule priority. Added to distinguish rules order
+ *  at the integrated table consisting from hashable and
+ *  non-hashable parts
+ * @rsvd2: reserved bits
+ * @rule_id: rule ID that will be returned in the packet status
+ * @rsvd3: reserved bits
  */
 struct ipa3_flt_rule_hw_hdr {
 	union {
-		u32 word;
+		u64 word;
 		struct {
-			u32 en_rule:16;
-			u32 action:5;
-			u32 rt_tbl_idx:5;
-			u32 retain_hdr:1;
-			u32 to_uc:1;
-			u32 rsvd:4;
+			u64 en_rule:16;
+			u64 action:5;
+			u64 rt_tbl_idx:5;
+			u64 retain_hdr:1;
+			u64 rsvd1:5;
+			u64 priority:10;
+			u64 rsvd2:6;
+			u64 rule_id:10;
+			u64 rsvd3:6;
 		} hdr;
 	} u;
 };
 
 /**
  * struct ipa3_rt_rule_hw_hdr - HW header of IPA routing rule
- * @word: filtering rule properties
+ * @word: routing rule properties
  * @en_rule: enable rule
  * @pipe_dest_idx: destination pipe index
  * @system: changed from local to system due to HW change
  * @hdr_offset: header offset
  * @proc_ctx: whether hdr_offset points to header table or to
  *	header processing context table
+ * @priority: Rule priority. Added to distinguish rules order
+ *  at the integrated table consisting from hashable and
+ *  non-hashable parts
+ * @rsvd1: reserved bits
+ * @retain_hdr: added to add back to the packet the header removed
+ *  as part of header removal. This will be done as part of
+ *  header insertion block.
+ * @rule_id: rule ID that will be returned in the packet status
+ * @rsvd2: reserved bits
  */
 struct ipa3_rt_rule_hw_hdr {
 	union {
-		u32 word;
+		u64 word;
 		struct {
-			u32 en_rule:16;
-			u32 pipe_dest_idx:5;
-			u32 system:1;
-			u32 hdr_offset:9;
-			u32 proc_ctx:1;
+			u64 en_rule:16;
+			u64 pipe_dest_idx:5;
+			u64 system:1;
+			u64 hdr_offset:9;
+			u64 proc_ctx:1;
+			u64 priority:10;
+			u64 rsvd1:5;
+			u64 retain_hdr:1;
+			u64 rule_id:10;
+			u64 rsvd2:6;
 		} hdr;
 	} u;
 };
 
 /**
  * struct ipa3_ip_v4_filter_init - IPA_IP_V4_FILTER_INIT command payload
- * @ipv4_rules_addr: address of ipv4 rules
- * @size_ipv4_rules: size of the above
- * @ipv4_addr: ipv4 address
+ * @hash_rules_addr: System memory address of IPv4 hashable rules
+ * @hash_rules_size: Size in bytes of the hashable rules
+ * @hash_local_addr: Shared memory address of IPv4 hashable rules
+ * @nhash_rules_size: Size in bytes of the non-hashable rules
+ * @nhash_local_addr: Shared memory address of IPv4 non-hashable rules
  * @rsvd: reserved
+ * @nhash_rules_addr: System memory address of IPv4 non-hashable rules
  */
 struct ipa3_ip_v4_filter_init {
-	u64 ipv4_rules_addr:32;
-	u64 size_ipv4_rules:12;
-	u64 ipv4_addr:16;
-	u64 rsvd:4;
+	u64 hash_rules_addr:64;
+	u64 hash_rules_size:12;
+	u64 hash_local_addr:16;
+	u64 nhash_rules_size:12;
+	u64 nhash_local_addr:16;
+	u64 rsvd:8;
+	u64 nhash_rules_addr:64;
 };
 
 /**
  * struct ipa3_ip_v6_filter_init - IPA_IP_V6_FILTER_INIT command payload
- * @ipv6_rules_addr: address of ipv6 rules
- * @size_ipv6_rules: size of the above
- * @ipv6_addr: ipv6 address
+ * @hash_rules_addr: System memory address of IPv6 hashable rules
+ * @hash_rules_size: Size in bytes of the hashable rules
+ * @hash_local_addr: Shared memory address of IPv6 hashable rules
+ * @nhash_rules_size: Size in bytes of the non-hashable rules
+ * @nhash_local_addr: Shared memory address of IPv6 non-hashable rules
+ * @rsvd: reserved
+ * @nhash_rules_addr: System memory address of IPv6 non-hashable rules
  */
 struct ipa3_ip_v6_filter_init {
-	u64 ipv6_rules_addr:32;
-	u64 size_ipv6_rules:16;
-	u64 ipv6_addr:16;
+	u64 hash_rules_addr:64;
+	u64 hash_rules_size:12;
+	u64 hash_local_addr:16;
+	u64 nhash_rules_size:12;
+	u64 nhash_local_addr:16;
+	u64 rsvd:8;
+	u64 nhash_rules_addr:64;
 };
 
 /**
  * struct ipa3_ip_v4_routing_init - IPA_IP_V4_ROUTING_INIT command payload
- * @ipv4_rules_addr: address of ipv4 rules
- * @size_ipv4_rules: size of the above
- * @ipv4_addr: ipv4 address
+ * @hash_rules_addr: System memory address of IPv4 hashable rules
+ * @hash_rules_size: Size in bytes of the hashable rules
+ * @hash_local_addr: Shared memory address of IPv4 hashable rules
+ * @nhash_rules_size: Size in bytes of the non-hashable rules
+ * @nhash_local_addr: Shared memory address of IPv4 non-hashable rules
  * @rsvd: reserved
+ * @nhash_rules_addr: System memory address of IPv4 non-hashable rules
  */
 struct ipa3_ip_v4_routing_init {
-	u64 ipv4_rules_addr:32;
-	u64 size_ipv4_rules:12;
-	u64 ipv4_addr:16;
-	u64 rsvd:4;
+	u64 hash_rules_addr:64;
+	u64 hash_rules_size:12;
+	u64 hash_local_addr:16;
+	u64 nhash_rules_size:12;
+	u64 nhash_local_addr:16;
+	u64 rsvd:8;
+	u64 nhash_rules_addr:64;
 };
 
 /**
  * struct ipa3_ip_v6_routing_init - IPA_IP_V6_ROUTING_INIT command payload
- * @ipv6_rules_addr: address of ipv6 rules
- * @size_ipv6_rules: size of the above
- * @ipv6_addr: ipv6 address
+ * @hash_rules_addr: System memory address of IPv6 hashable rules
+ * @hash_rules_size: Size in bytes of the hashable rules
+ * @hash_local_addr: Shared memory address of IPv6 hashable rules
+ * @nhash_rules_size: Size in bytes of the non-hashable rules
+ * @nhash_local_addr: Shared memory address of IPv6 non-hashable rules
+ * @rsvd: reserved
+ * @nhash_rules_addr: System memory address of IPv6 non-hashable rules
  */
 struct ipa3_ip_v6_routing_init {
-	u64 ipv6_rules_addr:32;
-	u64 size_ipv6_rules:16;
-	u64 ipv6_addr:16;
+	u64 hash_rules_addr:64;
+	u64 hash_rules_size:12;
+	u64 hash_local_addr:16;
+	u64 nhash_rules_size:12;
+	u64 nhash_local_addr:16;
+	u64 rsvd:8;
+	u64 nhash_rules_addr:64;
 };
 
 /**

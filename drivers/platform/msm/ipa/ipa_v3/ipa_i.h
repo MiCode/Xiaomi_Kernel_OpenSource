@@ -131,7 +131,33 @@
 
 #define IPA_HW_TABLE_ALIGNMENT(start_ofst) \
 	(((start_ofst) + 127) & ~127)
-#define IPA_RT_FLT_HW_RULE_BUF_SIZE	(128)
+#define IPA_RT_FLT_HW_RULE_BUF_SIZE	(256)
+
+#define IPA_HW_TBL_WIDTH (8)
+#define IPA_HW_TBL_SYSADDR_ALIGNMENT (127)
+#define IPA_HW_TBL_LCLADDR_ALIGNMENT (7)
+#define IPA_HW_TBL_ADDR_MASK (127)
+#define IPA_HW_TBL_BLK_SIZE_ALIGNMENT (127)
+#define IPA_HW_TBL_HDR_WIDTH (8)
+#define IPA_HW_RULE_START_ALIGNMENT (7)
+
+/*
+ * for local tables (at sram) offsets is used as tables addresses
+ * offset need to be in 8B units (local address aligned) and
+ * left shifted to its place. Local bit need to be enabled.
+ */
+#define IPA_HW_TBL_OFSET_TO_LCLADDR(__ofst) \
+	( \
+	(((__ofst)/(IPA_HW_TBL_LCLADDR_ALIGNMENT+1)) * \
+	(IPA_HW_TBL_ADDR_MASK + 1)) + 1 \
+	)
+
+#define IPA_RULE_MAX_PRIORITY (0)
+#define IPA_RULE_MIN_PRIORITY (1023)
+
+#define IPA_RULE_ID_MIN_VAL (0)
+#define IPA_RULE_ID_MAX_VAL (1022)
+#define IPA_RULE_ID_RULE_MISS (0x3FF)
 
 #define IPA_HDR_PROC_CTX_TABLE_ALIGNMENT_BYTE 8
 #define IPA_HDR_PROC_CTX_TABLE_ALIGNMENT(start_ofst) \
@@ -182,6 +208,10 @@ struct ipa3_mem_buffer {
  * @tbl: filter table
  * @rt_tbl: routing table
  * @hw_len: entry's size
+ * @id: rule handle - globaly unique
+ * @prio: rule 10bit priority which defines the order of the rule
+ *  among other rules at the same integrated table
+ * @rule_id: rule 10bit ID to be returned in packet status
  */
 struct ipa3_flt_entry {
 	struct list_head link;
@@ -191,6 +221,8 @@ struct ipa3_flt_entry {
 	struct ipa3_rt_tbl *rt_tbl;
 	u32 hw_len;
 	int id;
+	u16 prio;
+	u16 rule_id;
 };
 
 /**
@@ -208,6 +240,7 @@ struct ipa3_flt_entry {
  * @curr_mem: current routing tables block in sys memory
  * @prev_mem: previous routing table block in sys memory
  * @id: routing table id
+ * @rule_ids: idr structure that holds the rule_id for each rule
  */
 struct ipa3_rt_tbl {
 	struct list_head link;
@@ -218,11 +251,12 @@ struct ipa3_rt_tbl {
 	u32 ref_cnt;
 	struct ipa3_rt_tbl_set *set;
 	u32 cookie;
-	bool in_sys;
-	u32 sz;
-	struct ipa3_mem_buffer curr_mem;
-	struct ipa3_mem_buffer prev_mem;
+	bool in_sys[IPA_RULE_TYPE_MAX];
+	u32 sz[IPA_RULE_TYPE_MAX];
+	struct ipa3_mem_buffer curr_mem[IPA_RULE_TYPE_MAX];
+	struct ipa3_mem_buffer prev_mem[IPA_RULE_TYPE_MAX];
 	int id;
+	struct idr rule_ids;
 };
 
 /**
@@ -370,19 +404,21 @@ struct ipa3_hdr_proc_ctx_tbl {
  * @head_flt_rule_list: filter rules list
  * @rule_cnt: number of filter rules
  * @in_sys: flag indicating if filter table is located in system memory
- * @sz: the size of the filter table
+ * @sz: the size of the filter tables
  * @end: the last header index
  * @curr_mem: current filter tables block in sys memory
  * @prev_mem: previous filter table block in sys memory
+ * @rule_ids: idr structure that holds the rule_id for each rule
  */
 struct ipa3_flt_tbl {
 	struct list_head head_flt_rule_list;
 	u32 rule_cnt;
-	bool in_sys;
-	u32 sz;
-	struct ipa3_mem_buffer curr_mem;
-	struct ipa3_mem_buffer prev_mem;
+	bool in_sys[IPA_RULE_TYPE_MAX];
+	u32 sz[IPA_RULE_TYPE_MAX];
+	struct ipa3_mem_buffer curr_mem[IPA_RULE_TYPE_MAX];
+	struct ipa3_mem_buffer prev_mem[IPA_RULE_TYPE_MAX];
 	bool sticky_rear;
+	struct idr rule_ids;
 };
 
 /**
@@ -394,6 +430,10 @@ struct ipa3_flt_tbl {
  * @hdr: header table
  * @proc_ctx: processing context table
  * @hw_len: the length of the table
+ * @id: rule handle - globaly unique
+ * @prio: rule 10bit priority which defines the order of the rule
+ *  among other rules at the integrated same table
+ * @rule_id: rule 10bit ID to be returned in packet status
  */
 struct ipa3_rt_entry {
 	struct list_head link;
@@ -404,6 +444,8 @@ struct ipa3_rt_entry {
 	struct ipa3_hdr_proc_ctx_entry *proc_ctx;
 	u32 hw_len;
 	int id;
+	u16 prio;
+	u16 rule_id;
 };
 
 /**
@@ -1063,12 +1105,13 @@ struct ipa3_sps_pm {
  * @ep: list of all end points
  * @skip_ep_cfg_shadow: state to update filter table correctly across
   power-save
+ * @ep_flt_bitmap: End-points supporting filtering bitmap
+ * @ep_flt_num: End-points supporting filtering number
  * @resume_on_connect: resume ep on ipa3_connect
  * @flt_tbl: list of all IPA filter tables
  * @mode: IPA operating mode
  * @mmio: iomem
  * @ipa_wrapper_base: IPA wrapper base address
- * @glob_flt_tbl: global filter table
  * @hdr_tbl: IPA header table
  * @hdr_proc_ctx_tbl: IPA processing context table
  * @rt_tbl_set: list of routing tables each of which is a list of rules
@@ -1138,11 +1181,12 @@ struct ipa3_context {
 	unsigned long bam_handle;
 	struct ipa3_ep_context ep[IPA3_MAX_NUM_PIPES];
 	bool skip_ep_cfg_shadow[IPA3_MAX_NUM_PIPES];
+	u32 ep_flt_bitmap;
+	u32 ep_flt_num;
 	bool resume_on_connect[IPA_CLIENT_MAX];
 	struct ipa3_flt_tbl flt_tbl[IPA3_MAX_NUM_PIPES][IPA_IP_MAX];
 	void __iomem *mmio;
 	u32 ipa_wrapper_base;
-	struct ipa3_flt_tbl glob_flt_tbl[IPA_IP_MAX];
 	struct ipa3_hdr_tbl hdr_tbl;
 	struct ipa3_hdr_proc_ctx_tbl hdr_proc_ctx_tbl;
 	struct ipa3_rt_tbl_set rt_tbl_set[IPA_IP_MAX];
@@ -1735,6 +1779,10 @@ bool ipa3_is_client_handle_valid(u32 clnt_hdl);
 
 enum ipa_client_type ipa3_get_client_mapping(int pipe_idx);
 
+void ipa_init_ep_flt_bitmap(void);
+
+bool ipa_is_ep_support_flt(int pipe_idx);
+
 enum ipa_rm_resource_name ipa3_get_rm_resource_from_ep(int pipe_idx);
 
 bool ipa3_get_modem_cfg_emb_pipe_flt(void);
@@ -1757,6 +1805,7 @@ int ipa3_generate_hw_rule(enum ipa_ip_type ip,
 			 const struct ipa_rule_attrib *attrib,
 			 u8 **buf,
 			 u16 *en_rule);
+u8 *ipa3_write_64(u64 w, u8 *dest);
 u8 *ipa3_write_32(u32 w, u8 *dest);
 u8 *ipa3_write_16(u16 hw, u8 *dest);
 u8 *ipa3_write_8(u8 b, u8 *dest);
@@ -1857,6 +1906,7 @@ void ipa3_delete_dflt_flt_rules(u32 ipa_ep_idx);
 
 int ipa3_enable_data_path(u32 clnt_hdl);
 int ipa3_disable_data_path(u32 clnt_hdl);
+int ipa3_alloc_rule_id(struct idr *rule_ids);
 int ipa3_id_alloc(void *ptr);
 void *ipa3_id_find(u32 id);
 void ipa3_id_remove(u32 id);

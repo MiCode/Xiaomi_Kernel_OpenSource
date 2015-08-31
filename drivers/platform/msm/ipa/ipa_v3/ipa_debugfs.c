@@ -748,37 +748,11 @@ static ssize_t ipa3_read_flt(struct file *file, char __user *ubuf, size_t count,
 	u32 bitmap;
 	bool eq;
 
-	tbl = &ipa3_ctx->glob_flt_tbl[ip];
 	mutex_lock(&ipa3_ctx->lock);
-	i = 0;
-	list_for_each_entry(entry, &tbl->head_flt_rule_list, link) {
-		if (entry->rule.eq_attrib_type) {
-			rt_tbl_idx = entry->rule.rt_tbl_idx;
-			bitmap = entry->rule.eq_attrib.rule_eq_bitmap;
-			eq = true;
-		} else {
-			rt_tbl = ipa3_id_find(entry->rule.rt_tbl_hdl);
-			if (rt_tbl)
-				rt_tbl_idx = rt_tbl->idx;
-			else
-				rt_tbl_idx = ~0;
-			bitmap = entry->rule.attrib.attrib_mask;
-			eq = false;
-		}
-		pr_err("ep_idx:global rule_idx:%d act:%d rt_tbl_idx:%d ",
-			i, entry->rule.action, rt_tbl_idx);
-		pr_err("attrib_mask:%08x to_uc:%d, retain_hdr:%d eq:%d ",
-			bitmap, entry->rule.to_uc, entry->rule.retain_hdr, eq);
-		if (eq)
-			ipa3_attrib_dump_eq(
-				&entry->rule.eq_attrib);
-		else
-			ipa3_attrib_dump(
-				&entry->rule.attrib, ip);
-		i++;
-	}
 
 	for (j = 0; j < ipa3_ctx->ipa_num_pipes; j++) {
+		if (!ipa_is_ep_support_flt(j))
+			continue;
 		tbl = &ipa3_ctx->flt_tbl[j][ip];
 		i = 0;
 		list_for_each_entry(entry, &tbl->head_flt_rule_list, link) {

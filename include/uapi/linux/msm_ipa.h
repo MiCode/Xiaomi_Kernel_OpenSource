@@ -150,6 +150,7 @@ enum ipa_client_type {
 	IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD,
 	IPA_CLIENT_Q6_DECOMP_PROD,
 	IPA_CLIENT_Q6_DECOMP2_PROD,
+	IPA_CLIENT_UC_USB_PROD,
 
 	/* Below PROD client type is only for test purpose */
 	IPA_CLIENT_TEST_PROD,
@@ -249,6 +250,17 @@ enum ipa_ip_type {
 	IPA_IP_v4,
 	IPA_IP_v6,
 	IPA_IP_MAX
+};
+
+/**
+ * enum ipa_rule_type - Type of routing or filtering rule
+ * Hashable: Rule will be located at the hashable tables
+ * Non_Hashable: Rule will be located at the non-hashable tables
+ */
+enum ipa_rule_type {
+	IPA_RULE_HASHABLE,
+	IPA_RULE_NON_HASHABLE,
+	IPA_RULE_TYPE_MAX
 };
 
 /**
@@ -578,6 +590,12 @@ struct ipa_ipfltri_rule_eq {
  * @rt_tbl_idx: index of RT table referred to by filter rule (valid when
  * eq_attrib_type is true and non-exception action)
  * @eq_attrib_type: true if equation level form used to specify attributes
+ * @max_prio: bool switch. is this rule with Max priority? meaning on rule hit,
+ *  IPA will use the rule and will not look for other rules that may have
+ *  higher priority
+ * @hashable: bool switch. is this rule hashable or not?
+ *  ipa uses hashable rules to cache their hit results to be used in
+ *  consecutive packets
  */
 struct ipa_flt_rule {
 	uint8_t retain_hdr;
@@ -588,6 +606,8 @@ struct ipa_flt_rule {
 	struct ipa_ipfltri_rule_eq eq_attrib;
 	uint32_t rt_tbl_idx;
 	uint8_t eq_attrib_type;
+	uint8_t max_prio;
+	uint8_t hashable;
 };
 
 /**
@@ -628,12 +648,23 @@ enum ipa_hdr_proc_type {
  * @hdr_proc_ctx_hdl: handle to header processing context. if it is provided
 	hdr_hdl shall be 0
  * @attrib: attributes of the rule
+ * @max_prio: bool switch. is this rule with Max priority? meaning on rule hit,
+ *  IPA will use the rule and will not look for other rules that may have
+ *  higher priority
+ * @hashable: bool switch. is this rule hashable or not?
+ *  ipa uses hashable rules to cache their hit results to be used in
+ *  consecutive packets
+ * @retain_hdr: bool switch to instruct IPA core to add back to the packet
+ *  the header removed as part of header removal
  */
 struct ipa_rt_rule {
 	enum ipa_client_type dst;
 	uint32_t hdr_hdl;
 	uint32_t hdr_proc_ctx_hdl;
 	struct ipa_rule_attrib attrib;
+	uint8_t max_prio;
+	uint8_t hashable;
+	uint8_t retain_hdr;
 };
 
 /**

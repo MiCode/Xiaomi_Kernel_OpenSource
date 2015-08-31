@@ -41,9 +41,6 @@
 			       x == IPA_MODE_MOBILE_AP_WLAN)
 #define IPA_CNOC_CLK_RATE (75 * 1000 * 1000UL)
 #define IPA_A5_MUX_HEADER_LENGTH (8)
-#define IPA_ROUTING_RULE_BYTE_SIZE (4)
-#define IPA_STATUS_CLEAR_OFST (0x3f28)
-#define IPA_STATUS_CLEAR_SIZE (32)
 
 #define IPA_AGGR_MAX_STR_LENGTH (10)
 
@@ -1680,7 +1677,8 @@ int _ipa_init_sram_v3_0(void)
 
 	phys_addr = ipa3_ctx->ipa_wrapper_base +
 		ipa3_ctx->ctrl->ipa_reg_base_ofst +
-		IPA_SRAM_SW_FIRST_v3;
+		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(
+			ipa3_ctx->smem_restricted_bytes / 4);
 
 	ipa_sram_mmio = ioremap(phys_addr,
 		ipa3_ctx->smem_sz - ipa3_ctx->smem_restricted_bytes);
@@ -1696,7 +1694,7 @@ int _ipa_init_sram_v3_0(void)
 		IPA_MEM_PART(v4_flt_nhash_ofst) - 4);
 	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_flt_nhash_ofst));
 	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_flt_hash_ofst) - 4);
-	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_flt_nhash_ofst));
+	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_flt_hash_ofst));
 	ipa3_sram_set_canary(ipa_sram_mmio,
 		IPA_MEM_PART(v6_flt_nhash_ofst) - 4);
 	ipa3_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_flt_nhash_ofst));
@@ -1815,7 +1813,7 @@ int _ipa_init_rt4_v3(void)
 	struct ipa3_desc desc = { 0 };
 	struct ipa3_mem_buffer mem;
 	struct ipa3_ip_v4_routing_init v4_cmd;
-	u32 *entry;
+	u64 *entry;
 	int i;
 	int rc = 0;
 
@@ -1840,12 +1838,18 @@ int _ipa_init_rt4_v3(void)
 	}
 
 	desc.opcode = IPA_IP_V4_ROUTING_INIT;
-	v4_cmd.ipv4_rules_addr = mem.phys_base;
-	v4_cmd.size_ipv4_rules = mem.size;
-	v4_cmd.ipv4_addr = ipa3_ctx->smem_restricted_bytes +
+	v4_cmd.hash_rules_addr = mem.phys_base;
+	v4_cmd.hash_rules_size = mem.size;
+	v4_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
+		IPA_MEM_PART(v4_rt_hash_ofst);
+	v4_cmd.nhash_rules_addr = mem.phys_base;
+	v4_cmd.nhash_rules_size = mem.size;
+	v4_cmd.nhash_local_addr = ipa3_ctx->smem_restricted_bytes +
 		IPA_MEM_PART(v4_rt_nhash_ofst);
-	IPADBG("putting Routing IPv4 rules to phys 0x%x",
-				v4_cmd.ipv4_addr);
+	IPADBG("putting hashable routing IPv4 rules to phys 0x%x\n",
+				v4_cmd.hash_local_addr);
+	IPADBG("putting non-hashable routing IPv4 rules to phys 0x%x\n",
+				v4_cmd.nhash_local_addr);
 
 	desc.pyld = &v4_cmd;
 	desc.len = sizeof(struct ipa3_ip_v4_routing_init);
@@ -1871,7 +1875,7 @@ int _ipa_init_rt6_v3(void)
 	struct ipa3_desc desc = { 0 };
 	struct ipa3_mem_buffer mem;
 	struct ipa3_ip_v6_routing_init v6_cmd;
-	u32 *entry;
+	u64 *entry;
 	int i;
 	int rc = 0;
 
@@ -1896,12 +1900,18 @@ int _ipa_init_rt6_v3(void)
 	}
 
 	desc.opcode = IPA_IP_V6_ROUTING_INIT;
-	v6_cmd.ipv6_rules_addr = mem.phys_base;
-	v6_cmd.size_ipv6_rules = mem.size;
-	v6_cmd.ipv6_addr = ipa3_ctx->smem_restricted_bytes +
+	v6_cmd.hash_rules_addr = mem.phys_base;
+	v6_cmd.hash_rules_size = mem.size;
+	v6_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
+		IPA_MEM_PART(v6_rt_hash_ofst);
+	v6_cmd.nhash_rules_addr = mem.phys_base;
+	v6_cmd.nhash_rules_size = mem.size;
+	v6_cmd.nhash_local_addr = ipa3_ctx->smem_restricted_bytes +
 		IPA_MEM_PART(v6_rt_nhash_ofst);
-	IPADBG("putting Routing IPv6 rules to phys 0x%x",
-				v6_cmd.ipv6_addr);
+	IPADBG("putting hashable routing IPv6 rules to phys 0x%x\n",
+				v6_cmd.hash_local_addr);
+	IPADBG("putting non-hashable routing IPv6 rules to phys 0x%x\n",
+				v6_cmd.nhash_local_addr);
 
 	desc.pyld = &v6_cmd;
 	desc.len = sizeof(struct ipa3_ip_v6_routing_init);
@@ -1927,11 +1937,32 @@ int _ipa_init_flt4_v3(void)
 	struct ipa3_desc desc = { 0 };
 	struct ipa3_mem_buffer mem;
 	struct ipa3_ip_v4_filter_init v4_cmd;
-	u32 *entry;
+	u64 *entry;
 	int i;
 	int rc = 0;
+	int flt_spc;
 
-	mem.size = IPA_MEM_PART(v4_flt_nhash_size);
+	flt_spc = IPA_MEM_PART(v4_flt_hash_size);
+	/* bitmap word */
+	flt_spc -= IPA_HW_TBL_HDR_WIDTH;
+	flt_spc /= IPA_HW_TBL_HDR_WIDTH;
+	if (ipa3_ctx->ep_flt_num > flt_spc) {
+		IPAERR("space for v4 hash flt hdr is too small\n");
+		WARN_ON(1);
+		return -EPERM;
+	}
+	flt_spc = IPA_MEM_PART(v4_flt_nhash_size);
+	/* bitmap word */
+	flt_spc -= IPA_HW_TBL_HDR_WIDTH;
+	flt_spc /= IPA_HW_TBL_HDR_WIDTH;
+	if (ipa3_ctx->ep_flt_num > flt_spc) {
+		IPAERR("space for v4 non-hash flt hdr is too small\n");
+		WARN_ON(1);
+		return -EPERM;
+	}
+
+	/* +1 for filtering header bitmap */
+	mem.size = (ipa3_ctx->ep_flt_num + 1) * IPA_HW_TBL_HDR_WIDTH;
 	mem.base = dma_alloc_coherent(ipa3_ctx->pdev, mem.size, &mem.phys_base,
 			GFP_KERNEL);
 	if (!mem.base) {
@@ -1941,21 +1972,28 @@ int _ipa_init_flt4_v3(void)
 
 	entry = mem.base;
 
-	*entry = ((0xFFFFF << 1) | 0x1);
+	*entry = ((u64)ipa3_ctx->ep_flt_bitmap) << 1;
+	IPADBG("v4 flt bitmap 0x%llx\n", *entry);
 	entry++;
 
-	for (i = 0; i <= ipa3_ctx->ipa_num_pipes; i++) {
+	for (i = 0; i <= ipa3_ctx->ep_flt_num; i++) {
 		*entry = ipa3_ctx->empty_rt_tbl_mem.phys_base;
 		entry++;
 	}
 
 	desc.opcode = IPA_IP_V4_FILTER_INIT;
-	v4_cmd.ipv4_rules_addr = mem.phys_base;
-	v4_cmd.size_ipv4_rules = mem.size;
-	v4_cmd.ipv4_addr = ipa3_ctx->smem_restricted_bytes +
+	v4_cmd.hash_rules_addr = mem.phys_base;
+	v4_cmd.hash_rules_size = mem.size;
+	v4_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
+		IPA_MEM_PART(v4_flt_hash_ofst);
+	v4_cmd.nhash_rules_addr = mem.phys_base;
+	v4_cmd.nhash_rules_size = mem.size;
+	v4_cmd.nhash_local_addr = ipa3_ctx->smem_restricted_bytes +
 		IPA_MEM_PART(v4_flt_nhash_ofst);
-	IPADBG("putting Filtering IPv4 rules to phys 0x%x",
-				v4_cmd.ipv4_addr);
+	IPADBG("putting hashable filtering IPv4 rules to phys 0x%x\n",
+				v4_cmd.hash_local_addr);
+	IPADBG("putting non-hashable filtering IPv4 rules to phys 0x%x\n",
+				v4_cmd.nhash_local_addr);
 
 	desc.pyld = &v4_cmd;
 	desc.len = sizeof(struct ipa3_ip_v4_filter_init);
@@ -1981,11 +2019,32 @@ int _ipa_init_flt6_v3(void)
 	struct ipa3_desc desc = { 0 };
 	struct ipa3_mem_buffer mem;
 	struct ipa3_ip_v6_filter_init v6_cmd;
-	u32 *entry;
+	u64 *entry;
 	int i;
 	int rc = 0;
+	int flt_spc;
 
-	mem.size = IPA_MEM_PART(v6_flt_nhash_size);
+	flt_spc = IPA_MEM_PART(v6_flt_hash_size);
+	/* bitmap word */
+	flt_spc -= IPA_HW_TBL_HDR_WIDTH;
+	flt_spc /= IPA_HW_TBL_HDR_WIDTH;
+	if (ipa3_ctx->ep_flt_num > flt_spc) {
+		IPAERR("space for v6 hash flt hdr is too small\n");
+		WARN_ON(1);
+		return -EPERM;
+	}
+	flt_spc = IPA_MEM_PART(v6_flt_nhash_size);
+	/* bitmap word */
+	flt_spc -= IPA_HW_TBL_HDR_WIDTH;
+	flt_spc /= IPA_HW_TBL_HDR_WIDTH;
+	if (ipa3_ctx->ep_flt_num > flt_spc) {
+		IPAERR("space for v6 non-hash flt hdr is too small\n");
+		WARN_ON(1);
+		return -EPERM;
+	}
+
+	/* +1 for filtering header bitmap */
+	mem.size = (ipa3_ctx->ep_flt_num + 1) * IPA_HW_TBL_HDR_WIDTH;
 	mem.base = dma_alloc_coherent(ipa3_ctx->pdev, mem.size, &mem.phys_base,
 			GFP_KERNEL);
 	if (!mem.base) {
@@ -1995,21 +2054,28 @@ int _ipa_init_flt6_v3(void)
 
 	entry = mem.base;
 
-	*entry = (0xFFFFF << 1) | 0x1;
+	*entry = ((u64)ipa3_ctx->ep_flt_bitmap) << 1;
+	IPADBG("v6 flt bitmap 0x%llx\n", *entry);
 	entry++;
 
-	for (i = 0; i <= ipa3_ctx->ipa_num_pipes; i++) {
+	for (i = 0; i <= ipa3_ctx->ep_flt_num; i++) {
 		*entry = ipa3_ctx->empty_rt_tbl_mem.phys_base;
 		entry++;
 	}
 
 	desc.opcode = IPA_IP_V6_FILTER_INIT;
-	v6_cmd.ipv6_rules_addr = mem.phys_base;
-	v6_cmd.size_ipv6_rules = mem.size;
-	v6_cmd.ipv6_addr = ipa3_ctx->smem_restricted_bytes +
+	v6_cmd.hash_rules_addr = mem.phys_base;
+	v6_cmd.hash_rules_size = mem.size;
+	v6_cmd.hash_local_addr = ipa3_ctx->smem_restricted_bytes +
+		IPA_MEM_PART(v6_flt_hash_ofst);
+	v6_cmd.nhash_rules_addr = mem.phys_base;
+	v6_cmd.nhash_rules_size = mem.size;
+	v6_cmd.nhash_local_addr = ipa3_ctx->smem_restricted_bytes +
 		IPA_MEM_PART(v6_flt_nhash_ofst);
-	IPADBG("putting Filtering IPv6 rules to phys 0x%x",
-				v6_cmd.ipv6_addr);
+	IPADBG("putting hashable filtering IPv6 rules to phys 0x%x\n",
+				v6_cmd.hash_local_addr);
+	IPADBG("putting non-hashable filtering IPv6 rules to phys 0x%x\n",
+				v6_cmd.nhash_local_addr);
 
 	desc.pyld = &v6_cmd;
 	desc.len = sizeof(struct ipa3_ip_v6_filter_init);
@@ -2030,7 +2096,7 @@ static int ipa3_setup_apps_pipes(void)
 	struct ipa_sys_connect_params sys_in;
 	int result = 0;
 
-	/* CMD OUT (A5->IPA) */
+	/* CMD OUT (AP->IPA) */
 	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
 	sys_in.client = IPA_CLIENT_APPS_CMD_PROD;
 	sys_in.desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
@@ -2105,7 +2171,7 @@ static int ipa3_setup_apps_pipes(void)
 		goto fail_schedule_delayed_work;
 	}
 
-	/* LAN-WAN OUT (A5->IPA) */
+	/* LAN-WAN OUT (AP->IPA) */
 	memset(&sys_in, 0, sizeof(struct ipa_sys_connect_params));
 	sys_in.client = IPA_CLIENT_APPS_LAN_WAN_PROD;
 	sys_in.desc_fifo_sz = IPA_SYS_TX_DATA_DESC_FIFO_SZ;
@@ -2585,84 +2651,6 @@ int ipa3_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 	return 0;
 }
 
-static int ipa3_init_flt_block(void)
-{
-	int result = 0;
-
-	/*
-	 * SW workaround for Improper Filter Behavior when neither Global nor
-	 * Pipe Rules are present => configure dummy global filter rule
-	 * always which results in a miss
-	 */
-	struct ipa_ioc_add_flt_rule *rules;
-	struct ipa_flt_rule_add *rule;
-	struct ipa_ioc_get_rt_tbl rt_lookup;
-	enum ipa_ip_type ip;
-
-	size_t sz = sizeof(struct ipa_ioc_add_flt_rule) +
-		   sizeof(struct ipa_flt_rule_add);
-
-	rules = kmalloc(sz, GFP_KERNEL);
-	if (rules == NULL) {
-		IPAERR("fail to alloc mem for dummy filter rule\n");
-		return -ENOMEM;
-	}
-
-	IPADBG("Adding global rules for IPv4 and IPv6");
-	for (ip = IPA_IP_v4; ip < IPA_IP_MAX; ip++) {
-		memset(&rt_lookup, 0,
-				sizeof(struct ipa_ioc_get_rt_tbl));
-		rt_lookup.ip = ip;
-		strlcpy(rt_lookup.name, IPA_DFLT_RT_TBL_NAME,
-				IPA_RESOURCE_NAME_MAX);
-		ipa3_get_rt_tbl(&rt_lookup);
-		ipa3_put_rt_tbl(rt_lookup.hdl);
-		memset(rules, 0, sz);
-		rule = &rules->rules[0];
-		rules->commit = 1;
-		rules->ip = ip;
-		rules->global = 1;
-		rules->num_rules = 1;
-		rule->at_rear = 1;
-		if (ip == IPA_IP_v4) {
-			rule->rule.attrib.attrib_mask =
-				IPA_FLT_PROTOCOL | IPA_FLT_DST_ADDR;
-			rule->rule.attrib.u.v4.protocol =
-			   IPA_INVALID_L4_PROTOCOL;
-			rule->rule.attrib.u.v4.dst_addr_mask = ~0;
-			rule->rule.attrib.u.v4.dst_addr = ~0;
-		} else if (ip == IPA_IP_v6) {
-			rule->rule.attrib.attrib_mask =
-				IPA_FLT_NEXT_HDR | IPA_FLT_DST_ADDR;
-			rule->rule.attrib.u.v6.next_hdr =
-				IPA_INVALID_L4_PROTOCOL;
-			rule->rule.attrib.u.v6.dst_addr_mask[0] = ~0;
-			rule->rule.attrib.u.v6.dst_addr_mask[1] = ~0;
-			rule->rule.attrib.u.v6.dst_addr_mask[2] = ~0;
-			rule->rule.attrib.u.v6.dst_addr_mask[3] = ~0;
-			rule->rule.attrib.u.v6.dst_addr[0] = ~0;
-			rule->rule.attrib.u.v6.dst_addr[1] = ~0;
-			rule->rule.attrib.u.v6.dst_addr[2] = ~0;
-			rule->rule.attrib.u.v6.dst_addr[3] = ~0;
-		} else {
-			result = -EINVAL;
-			WARN_ON(1);
-			break;
-		}
-		rule->rule.action = IPA_PASS_TO_ROUTING;
-		rule->rule.rt_tbl_hdl = rt_lookup.hdl;
-		rule->rule.retain_hdr = true;
-
-		if (ipa3_add_flt_rule(rules) || rules->rules[0].status) {
-			result = -EINVAL;
-			WARN_ON(1);
-			break;
-		}
-	}
-	kfree(rules);
-	return result;
-}
-
 /**
 * ipa3_suspend_handler() - Handles the suspend interrupt:
 * wakes up the suspended peripheral by requesting its consumer
@@ -2829,6 +2817,28 @@ static void ipa3_sps_event_cb(enum sps_callback_case event, void *param)
 
 	spin_unlock_irqrestore(&ipa3_ctx->sps_pm.lock, flags);
 }
+
+/**
+ * ipa3_destroy_flt_tbl_idrs() - destroy the idr structure for flt tables
+ *  The idr strcuture per filtering table is intended for rule id generation
+ *  per filtering rule.
+ */
+static void ipa3_destroy_flt_tbl_idrs(void)
+{
+	int i;
+	struct ipa3_flt_tbl *flt_tbl;
+
+	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
+		if (!ipa_is_ep_support_flt(i))
+			continue;
+
+		flt_tbl = &ipa3_ctx->flt_tbl[i][IPA_IP_v4];
+		idr_destroy(&flt_tbl->rule_ids);
+		flt_tbl = &ipa3_ctx->flt_tbl[i][IPA_IP_v6];
+		idr_destroy(&flt_tbl->rule_ids);
+	}
+}
+
 /**
 * ipa3_init() - Initialize the IPA Driver
 * @resource_p:	contain platform specific values from DST file
@@ -2975,6 +2985,10 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 		result = -ENODEV;
 		goto fail_init_hw;
 	}
+
+	ipa_init_ep_flt_bitmap();
+	IPADBG("EP with flt support bitmap 0x%x (%u pipes)\n",
+		ipa3_ctx->ep_flt_bitmap, ipa3_ctx->ep_flt_num);
 
 	ipa3_ctx->ctrl->ipa_sram_read_settings();
 	IPADBG("SRAM, size: 0x%x, restricted bytes: 0x%x\n",
@@ -3135,14 +3149,7 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_dma_pool;
 	}
 
-	ipa3_ctx->glob_flt_tbl[IPA_IP_v4].in_sys =
-		!ipa3_ctx->ip4_flt_tbl_nhash_lcl;
-	ipa3_ctx->glob_flt_tbl[IPA_IP_v6].in_sys =
-		!ipa3_ctx->ip6_flt_tbl_nhash_lcl;
-
 	/* init the various list heads */
-	INIT_LIST_HEAD(&ipa3_ctx->glob_flt_tbl[IPA_IP_v4].head_flt_rule_list);
-	INIT_LIST_HEAD(&ipa3_ctx->glob_flt_tbl[IPA_IP_v6].head_flt_rule_list);
 	INIT_LIST_HEAD(&ipa3_ctx->hdr_tbl.head_hdr_entry_list);
 	for (i = 0; i < IPA_HDR_BIN_MAX; i++) {
 		INIT_LIST_HEAD(&ipa3_ctx->hdr_tbl.head_offset_list[i]);
@@ -3157,13 +3164,24 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 	INIT_LIST_HEAD(&ipa3_ctx->rt_tbl_set[IPA_IP_v4].head_rt_tbl_list);
 	INIT_LIST_HEAD(&ipa3_ctx->rt_tbl_set[IPA_IP_v6].head_rt_tbl_list);
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
+		if (!ipa_is_ep_support_flt(i))
+			continue;
+
 		flt_tbl = &ipa3_ctx->flt_tbl[i][IPA_IP_v4];
 		INIT_LIST_HEAD(&flt_tbl->head_flt_rule_list);
-		flt_tbl->in_sys = !ipa3_ctx->ip4_flt_tbl_nhash_lcl;
+		flt_tbl->in_sys[IPA_RULE_HASHABLE] =
+			!ipa3_ctx->ip4_flt_tbl_hash_lcl;
+		flt_tbl->in_sys[IPA_RULE_NON_HASHABLE] =
+			!ipa3_ctx->ip4_flt_tbl_nhash_lcl;
+		idr_init(&flt_tbl->rule_ids);
 
 		flt_tbl = &ipa3_ctx->flt_tbl[i][IPA_IP_v6];
 		INIT_LIST_HEAD(&flt_tbl->head_flt_rule_list);
-		flt_tbl->in_sys = !ipa3_ctx->ip6_flt_tbl_nhash_lcl;
+		flt_tbl->in_sys[IPA_RULE_HASHABLE] =
+			!ipa3_ctx->ip6_flt_tbl_hash_lcl;
+		flt_tbl->in_sys[IPA_RULE_NON_HASHABLE] =
+			!ipa3_ctx->ip6_flt_tbl_nhash_lcl;
+		idr_init(&flt_tbl->rule_ids);
 	}
 
 	rset = &ipa3_ctx->reap_rt_tbl_set[IPA_IP_v4];
@@ -3192,7 +3210,7 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 	 * setup an empty routing table in system memory, this will be used
 	 * to delete a routing table cleanly and safely
 	 */
-	ipa3_ctx->empty_rt_tbl_mem.size = IPA_ROUTING_RULE_BYTE_SIZE;
+	ipa3_ctx->empty_rt_tbl_mem.size = IPA_HW_TBL_WIDTH;
 
 	ipa3_ctx->empty_rt_tbl_mem.base =
 		dma_alloc_coherent(ipa3_ctx->pdev,
@@ -3205,24 +3223,24 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 		result = -ENOMEM;
 		goto fail_apps_pipes;
 	}
+	if (ipa3_ctx->empty_rt_tbl_mem.phys_base &
+		IPA_HW_TBL_SYSADDR_ALIGNMENT) {
+		IPAERR("Empty routing table buf is not address aligned 0x%x\n",
+				ipa3_ctx->empty_rt_tbl_mem.phys_base);
+		result = -EFAULT;
+		goto fail_empty_rt_tbl;
+	}
 	memset(ipa3_ctx->empty_rt_tbl_mem.base, 0,
 			ipa3_ctx->empty_rt_tbl_mem.size);
 	IPADBG("empty routing table was allocated in system memory");
 
-	/* setup the A5-IPA pipes */
+	/* setup the AP-IPA pipes */
 	if (ipa3_setup_apps_pipes()) {
 		IPAERR(":failed to setup IPA-Apps pipes.\n");
 		result = -ENODEV;
 		goto fail_empty_rt_tbl;
 	}
 	IPADBG("IPA System2Bam pipes were connected\n");
-
-	if (ipa3_init_flt_block()) {
-		IPAERR("fail to setup dummy filter rules\n");
-		result = -ENODEV;
-		goto fail_empty_rt_tbl;
-	}
-	IPADBG("filter block was set with dummy filter rules");
 
 	/* setup the IPA pipe mem pool */
 	if (resource_p->ipa_pipe_mem_size)
@@ -3365,6 +3383,7 @@ fail_empty_rt_tbl:
 			  ipa3_ctx->empty_rt_tbl_mem.base,
 			  ipa3_ctx->empty_rt_tbl_mem.phys_base);
 fail_apps_pipes:
+	ipa3_destroy_flt_tbl_idrs();
 	idr_destroy(&ipa3_ctx->ipa_idr);
 fail_dma_pool:
 	kmem_cache_destroy(ipa3_ctx->rx_pkt_wrapper_cache);
@@ -3839,4 +3858,3 @@ struct ipa3_context *ipa3_get_ctx(void)
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("IPA HW device driver");
-
