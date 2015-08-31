@@ -48,6 +48,10 @@ struct gic_chip_data {
 	unsigned int wakeup_irqs[32];
 	unsigned int enabled_irqs[32];
 #endif
+#ifdef CONFIG_ARM_GIC_PANIC_HANDLER
+	u32 saved_dist_regs[0x400];
+	u32 saved_router_regs[0x800];
+#endif
 };
 
 static struct gic_chip_data gic_data __read_mostly;
@@ -301,6 +305,29 @@ static inline void __iomem *gic_data_dist_base(struct gic_chip_data *data)
 {
 	return data->dist_base;
 }
+
+#ifdef CONFIG_ARM_GIC_PANIC_HANDLER
+static int gic_panic_handler(struct notifier_block *this,
+			unsigned long event, void *ptr)
+{
+	int i;
+	void __iomem *base;
+
+	base = gic_data.dist_base;
+	for (i = 0; i < 0x400; i += 1)
+		gic_data.saved_dist_regs[i] = readl_relaxed(base + 4 * i);
+
+	base = gic_data.dist_base + GICD_IROUTER;
+	for (i = 0; i < 0x800; i += 1)
+		gic_data.saved_router_regs[i] = readl_relaxed(base + 4 * i);
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block gic_panic_blk = {
+	.notifier_call = gic_panic_handler,
+};
+#endif
 
 #ifdef CONFIG_PM
 static int gic_suspend_one(struct gic_chip_data *gic)
@@ -863,6 +890,10 @@ static int __init gic_of_init(struct device_node *node, struct device_node *pare
 	gic_dist_init();
 	gic_cpu_init();
 	gic_cpu_pm_init();
+
+#ifdef CONFIG_ARM_GIC_PANIC_HANDLER
+	atomic_notifier_chain_register(&panic_notifier_list, &gic_panic_blk);
+#endif
 
 	return 0;
 
