@@ -943,8 +943,8 @@ static struct clk_freq_tbl ftbl_video_core_clk_src_v2[] = {
 static struct clk_freq_tbl ftbl_video_core_clk_src_v3[] = {
 	F_MM(  75000000, mmsscc_gpll0_div,    4,    0,     0),
 	F_MM( 150000000,     mmsscc_gpll0,    4,    0,     0),
-	F_MM( 355333333,  mmpll3_out_main,    3,    0,     0),
-	F_MM( 533000000,  mmpll3_out_main,    2,    0,     0),
+	F_MM( 346666667,  mmpll3_out_main,    3,    0,     0),
+	F_MM( 520000000,  mmpll3_out_main,    2,    0,     0),
 	F_END
 };
 
@@ -1588,8 +1588,8 @@ static struct clk_freq_tbl ftbl_video_subcore0_clk_src_v2[] = {
 static struct clk_freq_tbl ftbl_video_subcore0_clk_src_v3[] = {
 	F_MM(  75000000, mmsscc_gpll0_div,    4,    0,     0),
 	F_MM( 150000000,     mmsscc_gpll0,    4,    0,     0),
-	F_MM( 355333333,  mmpll3_out_main,    3,    0,     0),
-	F_MM( 533000000,  mmpll3_out_main,    2,    0,     0),
+	F_MM( 346666667,  mmpll3_out_main,    3,    0,     0),
+	F_MM( 520000000,  mmpll3_out_main,    2,    0,     0),
 	F_END
 };
 
@@ -1627,8 +1627,8 @@ static struct clk_freq_tbl ftbl_video_subcore1_clk_src_v2[] = {
 static struct clk_freq_tbl ftbl_video_subcore1_clk_src_v3[] = {
 	F_MM(  75000000, mmsscc_gpll0_div,    4,    0,     0),
 	F_MM( 150000000,     mmsscc_gpll0,    4,    0,     0),
-	F_MM( 355333333,  mmpll3_out_main,    3,    0,     0),
-	F_MM( 533000000,  mmpll3_out_main,    2,    0,     0),
+	F_MM( 346666667,  mmpll3_out_main,    3,    0,     0),
+	F_MM( 520000000,  mmpll3_out_main,    2,    0,     0),
 	F_END
 };
 
@@ -3424,11 +3424,11 @@ static void msm_mmsscc_8996_v3_fixup(void)
 	mmpll2.no_prepared_reconfig = true;
 	mmpll2.c.ops = &clk_ops_alpha_pll;
 
-	mmpll3.c.rate = 1066000000;
-	mmpll3.c.fmax[VDD_DIG_LOWER] = 533000000;
-	mmpll3.c.fmax[VDD_DIG_LOW] = 533000000;
-	mmpll3.c.fmax[VDD_DIG_NOMINAL] = 1066000000;
-	mmpll3.c.fmax[VDD_DIG_HIGH] = 1066000000;
+	mmpll3.c.rate = 1040000000;
+	mmpll3.c.fmax[VDD_DIG_LOWER] = 520000000;
+	mmpll3.c.fmax[VDD_DIG_LOW] = 520000000;
+	mmpll3.c.fmax[VDD_DIG_NOMINAL] = 1040000000;
+	mmpll3.c.fmax[VDD_DIG_HIGH] = 1040000000;
 
 	mmpll5.c.rate = 825000000;
 	mmpll5.c.fmax[VDD_DIG_LOWER] = 412500000;
@@ -3490,14 +3490,14 @@ static void msm_mmsscc_8996_v3_fixup(void)
 	rbcpr_clk_src.c.fmax[VDD_DIG_HIGH] = 50000000;
 
 	video_core_clk_src.freq_tbl = ftbl_video_core_clk_src_v3;
-	video_core_clk_src.c.fmax[VDD_DIG_NOMINAL] = 355333333;
-	video_core_clk_src.c.fmax[VDD_DIG_HIGH] = 533000000;
+	video_core_clk_src.c.fmax[VDD_DIG_NOMINAL] = 346666667;
+	video_core_clk_src.c.fmax[VDD_DIG_HIGH] = 520000000;
 	video_subcore0_clk_src.freq_tbl = ftbl_video_subcore0_clk_src_v3;
-	video_subcore0_clk_src.c.fmax[VDD_DIG_NOMINAL] = 355333333;
-	video_subcore0_clk_src.c.fmax[VDD_DIG_HIGH] = 533000000;
+	video_subcore0_clk_src.c.fmax[VDD_DIG_NOMINAL] = 346666667;
+	video_subcore0_clk_src.c.fmax[VDD_DIG_HIGH] = 520000000;
 	video_subcore1_clk_src.freq_tbl = ftbl_video_subcore1_clk_src_v3;
-	video_subcore1_clk_src.c.fmax[VDD_DIG_NOMINAL] = 355333333;
-	video_subcore1_clk_src.c.fmax[VDD_DIG_HIGH] = 533000000;
+	video_subcore1_clk_src.c.fmax[VDD_DIG_NOMINAL] = 346666667;
+	video_subcore1_clk_src.c.fmax[VDD_DIG_HIGH] = 520000000;
 }
 
 static int is_v3_gpu;
