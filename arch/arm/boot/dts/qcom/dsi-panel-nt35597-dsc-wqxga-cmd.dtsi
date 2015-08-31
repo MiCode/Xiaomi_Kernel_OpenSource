@@ -26,7 +26,6 @@
 		qcom,mdss-dsi-v-back-porch = <7>;
 		qcom,mdss-dsi-v-front-porch = <8>;
 		qcom,mdss-dsi-v-pulse-width = <1>;
-		qcom,mdss-tear-check-sync-cfg-height = <2576>;
 		qcom,mdss-dsi-bpp = <24>;
 		qcom,mdss-dsi-border-color = <0>;
 		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
