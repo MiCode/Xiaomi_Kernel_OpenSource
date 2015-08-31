@@ -390,7 +390,7 @@ config SND_SOC_MSM8X16_WCD
 
 config SND_SOC_WCD_CPE
 	tristate
-	default y if SND_SOC_WCD9330=y
+	default y if SND_SOC_WCD9330=y || SND_SOC_WCD9335=y
 
 config SND_SOC_MSM8909_WCD
 	tristate
