@@ -19,7 +19,7 @@ Required properties:
 Optional properties:
  - reg: Additional registers
 	"tcsr" : top-level CSR register to be written during power-on reset
-		 intialize the internal MUX that controls whether this PHY is
+		 initialize the internal MUX that controls whether this PHY is
 		 used with the USB3 or the USB2 controller.
 
  - qcom,hsphy-init: Init value used to override HSPHY parameters into
@@ -98,7 +98,6 @@ Required properties:
  - reg: Address and length of the register set for the device
    Required regs are:
    "qmp_phy_base" : QMP PHY Base register set.
-   "qmp_ahb2phy_base" : SS AHB2PHY CSR register set.
  - "vls_clamp_reg" : top-level CSR register to be written to enable phy vls
    clamp which allows phy to detect autonomous mode.
  - <supply-name>-supply: phandle to the regulator device tree node
@@ -121,10 +120,8 @@ Example:
 	ssphy0: ssphy@f9b38000 {
 		compatible = "qcom,usb-ssphy-qmp";
 		reg = <0xf9b38000 0x16c>,
-			<0xf9b3e000 0x3ff>,
 			<0x01947244 0x4>;
 		reg-names = "qmp_phy_base",
-			"qmp_ahb2phy_base",
 			"vls_clamp_reg";
 		vdd-supply = <&pmd9635_l4>;
 		vdda18-supply = <&pmd9635_l8>;

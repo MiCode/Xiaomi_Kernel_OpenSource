@@ -37,8 +37,6 @@
 
 #define PHYSTATUS				BIT(6)
 
-/* AHB2PHY register offsets */
-#define PERIPH_SS_AHB2PHY_TOP_CFG		0x10
 
 #define INIT_MAX_TIME_USEC			1000
 
@@ -319,7 +317,6 @@ static const struct qmp_reg_val qmp_settings_rev1_misc[] = {
 struct msm_ssphy_qmp {
 	struct usb_phy		phy;
 	void __iomem		*base;
-	void __iomem		*ahb2phy;
 	void __iomem		*vls_clamp_reg;
 	struct regulator	*vdd;
 	struct regulator	*vdda18;
@@ -549,10 +546,6 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 			revid);
 		return -ENODEV;
 	}
-
-	/* Configure AHB2PHY for one wait state reads/writes */
-	if (phy->ahb2phy)
-		writel_relaxed(0x11, phy->ahb2phy + PERIPH_SS_AHB2PHY_TOP_CFG);
 
 	writel_relaxed(0x01, phy->base + PCIE_USB3_PHY_POWER_DOWN_CONTROL);
 
@@ -914,16 +907,6 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	if (IS_ERR(phy->vls_clamp_reg)) {
 		dev_err(dev, "couldn't find vls_clamp_reg address.\n");
 		return PTR_ERR(phy->vls_clamp_reg);
-	}
-
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-						"qmp_ahb2phy_base");
-	if (res) {
-		phy->ahb2phy = devm_ioremap_resource(dev, res);
-		if (IS_ERR(phy->ahb2phy)) {
-			dev_err(dev, "couldn't find qmp_ahb2phy_base addr.\n");
-			phy->ahb2phy = NULL;
-		}
 	}
 
 	phy->emulation = of_property_read_bool(dev->of_node,

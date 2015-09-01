@@ -609,7 +609,9 @@
 
 	usb3: ssusb@8a00000{
 		compatible = "qcom,dwc-usb3-msm";
-		reg = <0x08a00000 0xfc000>;
+		reg = <0x08a00000 0xfc000>,
+			<0x0007e000 0x400>;
+		reg-names = "core_base", "ahb2phy_base";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges;
@@ -803,10 +805,8 @@
 
 	ssphy: ssphy@78000 {
 		compatible = "qcom,usb-ssphy-qmp";
-		reg = <0x00078000 0x45c>,
-		      <0x0007e000 0x400>;
-		reg-names = "qmp_phy_base",
-			    "qmp_ahb2phy_base";
+		reg = <0x00078000 0x45c>;
+		reg-names = "qmp_phy_base";
 		vdd-supply = <&pmd9635_l4>;
 		vdda18-supply = <&pmd9635_l8>;
 		qcom,vdd-voltage-level = <0 1000000 1000000>;
