@@ -2147,18 +2147,16 @@ struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 			alt_mixer = mixer_pool;
 			mixer_pool++;
 			nmixers--;
-		} else if (ctl->panel_data->panel_info.type ==
-							WRITEBACK_PANEL) {
-			mixer_pool += mdss_mdp_get_wb_ctl_support(ctl->mdata,
-									false);
+		} else if ((ctl->panel_data->panel_info.type == WRITEBACK_PANEL)
+			&& (ctl->mdata->ndspp < nmixers)) {
+			mixer_pool += ctl->mdata->ndspp;
+			nmixers -= ctl->mdata->ndspp;
 		}
 		break;
 
 	case MDSS_MDP_MIXER_TYPE_WRITEBACK:
 		mixer_pool = ctl->mdata->mixer_wb;
 		nmixers = nmixers_wb;
-		if ((ctl->mdata->wfd_mode == MDSS_MDP_WFD_DEDICATED) && rotator)
-			mixer_pool = mixer_pool + nmixers;
 		break;
 
 	default:
@@ -2166,15 +2164,6 @@ struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 		pr_err("invalid pipe type %d\n", type);
 		break;
 	}
-
-	/* early mdp revision only supports mux of dual pipe on mixers 0 and 1,
-	 * need to ensure that these pipes are readily available by using
-	 * mixer 2 if available and mux is not required */
-	if (!mux && (ctl->mdata->mdp_rev == MDSS_MDP_HW_REV_100) &&
-			(type == MDSS_MDP_MIXER_TYPE_INTF) &&
-			(nmixers >= MDSS_MDP_INTF_LAYERMIXER2) &&
-			(mixer_pool[MDSS_MDP_INTF_LAYERMIXER2].ref_cnt == 0))
-		mixer_pool += MDSS_MDP_INTF_LAYERMIXER2;
 
 	/*Allocate virtual wb mixer if no dedicated wfd wb blk is present*/
 	if ((ctl->mdata->wfd_mode == MDSS_MDP_WFD_SHARED) &&
