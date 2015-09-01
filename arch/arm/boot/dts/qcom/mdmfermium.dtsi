@@ -411,7 +411,7 @@
 		compatible = "qcom,hsusb-otg";
 		reg = <0x78d9000 0x400>, <0x6c000 0x200>;
 		reg-names = "core", "phy_csr";
-		interrupts = <0 134 0>,<0 142 0>;
+		interrupts = <0 134 0>,<0 139 0>;
 		interrupt-names = "core_irq", "async_irq";
 
 		hsusb_vdd_dig-supply = <&mdmfermium_l9>;
@@ -422,10 +422,13 @@
 		qcom,hsusb-otg-phy-type = <3>; /* SNPS Femto PHY */
 		qcom,hsusb-otg-mode = <3>; /* OTG mode */
 		qcom,hsusb-otg-otg-control = <2>; /* PMIC control */
+		qcom,usbid-gpio = <&pm8019_mpps 1 0>;
+		qcom,hsusb-log2-itc = <4>;
 		qcom,dp-manual-pullup;
-		qcom,hsusb-otg-disable-reset;
 		qcom,boost-sysclk-with-streaming;
 		qcom,phy-dvdd-always-on;
+		qcom,hsusb-otg-lpm-on-dev-suspend;
+		qcom,axi-prefetch-enable;
 		qcom,hsusb-otg-mpm-dpsehv-int = <49>;
 		qcom,hsusb-otg-mpm-dmsehv-int = <58>;
 
@@ -446,14 +449,47 @@
 			 <&clock_gcc clk_gcc_usb_hs_phy_cfg_ahb_clk>,
 			 <&clock_gcc clk_xo_otg_clk>;
 		clock-names = "iface_clk", "core_clk", "sleep_clk",
-				"bimc_clk", "snoc_clk", "pcnoc_clk",
-				"phy_reset_clk", "phy_por_clk", "phy_csr_clk",
-				"xo";
-		qcom,bus-clk-rate = <400000000 200000000 100000000>;
-		qcom,max-nominal-sysclk-rate = <100000000>;
+				"bimc_clk", "pcnoc_clk", "phy_reset_clk",
+				"phy_por_clk", "phy_csr_clk", "xo";
+		qcom,bus-clk-rate = <240000000 0 100000000>;
+		qcom,max-nominal-sysclk-rate = <133330000>;
+
+		qcom,usbbam@78c4000 {
+			compatible = "qcom,usb-bam-msm";
+			reg = <0x78c4000 0x15000>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 135 0>;
+			qcom,bam-type = <1>;
+			qcom,usb-bam-num-pipes = <2>;
+			qcom,usb-bam-fifo-baseaddr = <0x08603800>;
+			qcom,ignore-core-reset-ack;
+			qcom,disable-clk-gating;
+			qcom,reset-bam-on-disconnect;
+
+			qcom,pipe0 {
+				label = "hsusb-qdss-in-0";
+				qcom,usb-bam-mem-type = <2>;
+				qcom,dir = <1>;
+				qcom,pipe-num = <0>;
+				qcom,peer-bam = <0>;
+				qcom,peer-bam-physical-address = <0x6084000>;
+				qcom,src-bam-pipe-index = <0>;
+				qcom,dst-bam-pipe-index = <0>;
+				qcom,data-fifo-offset = <0x0>;
+				qcom,data-fifo-size = <0x600>;
+				qcom,descriptor-fifo-offset = <0x600>;
+				qcom,descriptor-fifo-size = <0x200>;
+			};
+		};
 	};
 
-		qnand_1: nand@7980000 {
+	android_usb: android_usb@086000c8 {
+		compatible = "qcom,android-usb";
+		reg = <0x086000c8 0xc8>;
+		qcom,pm-qos-latency = <2 1001 12701>;
+	};
+
+	qnand_1: nand@7980000 {
 		compatible = "qcom,msm-nand";
 		reg = <0x07980000 0x1000>,
 		      <0x07984000 0x1a000>;
@@ -558,13 +594,6 @@
 
 	mitigation_profile0: qcom,limit_info-0 {
 		qcom,temperature-sensor = <&sensor_information4>;
-	};
-
-	android_usb: android_usb@086000c8 {
-		compatible = "qcom,android-usb";
-		reg = <0x086000c8 0xc8>;
-		qcom,pm-qos-latency = <2 1001 12701>;
-		qcom,streaming-func = "rndis","rmnet","ecm","usb_mbim";
 	};
 
 	qcom,ipc-spinlock@1905000 {
