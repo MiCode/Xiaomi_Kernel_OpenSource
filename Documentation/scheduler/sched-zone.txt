@@ -719,6 +719,14 @@ c. PF_WAKE_UP_IDLE
 	term "PF_WAKE_UP_IDLE wakeup" to signify wakeups involving a task with
 	PF_WAKE_UP_IDLE flag set.
 
+d. /proc/sys/kernel/sched_select_prev_cpu_us
+	This threshold controls whether task placement goes through fast path or
+	not. If task's wakeup time since last sleep is short there are high
+	chances that it's better to place the task on its previous CPU. This
+	reduces task placement latency, cache miss and number of migrations.
+	Default value of sched_select_prev_cpu_us is 2000 (2ms).  This can be
+	turned off by setting it to 0.
+
 **** 5.2.4 Wakeup Logic for Task "p"
 
 Wakeup task placement logic is as follows:

@@ -859,6 +859,12 @@ static inline void set_task_last_wake(struct task_struct *p, u64 wallclock)
 {
 	p->last_wake_ts = wallclock;
 }
+
+static inline void set_task_last_switch_out(struct task_struct *p,
+					    u64 wallclock)
+{
+	p->last_switch_out_ts = wallclock;
+}
 #else
 u64 sched_ktime_clock(void)
 {
@@ -867,6 +873,8 @@ u64 sched_ktime_clock(void)
 
 static inline void clear_ed_task(struct task_struct *p, struct rq *rq) {}
 static inline void set_task_last_wake(struct task_struct *p, u64 wallclock) {}
+static inline void set_task_last_switch_out(struct task_struct *p,
+					    u64 wallclock) {}
 #endif
 
 #if defined(CONFIG_RT_GROUP_SCHED) || (defined(CONFIG_FAIR_GROUP_SCHED) && \
@@ -2196,6 +2204,7 @@ static inline void mark_task_starting(struct task_struct *p)
 
 	wallclock = sched_ktime_clock();
 	p->ravg.mark_start = p->last_wake_ts = wallclock;
+	p->last_switch_out_ts = 0;
 }
 
 static inline void set_window_start(struct rq *rq)
@@ -5307,6 +5316,8 @@ static void __sched notrace __schedule(bool preempt)
 		rq->nr_switches++;
 		rq->curr = next;
 		++*switch_count;
+
+		set_task_last_switch_out(prev, wallclock);
 
 		trace_sched_switch(preempt, prev, next);
 		rq = context_switch(rq, prev, next); /* unlocks the rq */
