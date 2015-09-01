@@ -1311,7 +1311,11 @@ struct ipa_ioc_write_qmapid {
 	uint8_t qmap_id;
 };
 
-
+enum ipacm_client_enum {
+	IPACM_CLIENT_USB = 1,
+	IPACM_CLIENT_WLAN,
+	IPACM_CLIENT_MAX
+};
 /**
  *   actual IOCTLs supported by IPA driver
  */
