@@ -14,10 +14,15 @@
 &soc {
 	qcom,msm-cam@1b00000 {
 		compatible = "qcom,msm-cam";
+		reg = <0x8c0000 0x40000>;
+		reg-names = "msm-cam";
+		status = "ok";
+		bus-vectors = "suspend", "svs", "nominal", "turbo";
+		qcom,bus-votes = <0 320000000 640000000 640000000>;
 	};
 
 	qcom,csiphy@1b0ac00 {
-		status = "disabled";
+		status = "ok";
 		cell-index = <0>;
 		compatible = "qcom,csiphy-v3.1", "qcom,csiphy";
 		reg = <0x1b0ac00 0x200>,
@@ -36,11 +41,11 @@
 			"csiphy_timer_src_clk", "csiphy_timer_clk",
 			"camss_ahb_src", "csi_phy_clk",
 			"camss_ahb_clk";
-		qcom,clock-rates = <0 61540000 200000000 0 0 0 0>;
+		qcom,clock-rates = <0 61540000 160000000 0 0 0 0>;
 	};
 
 	qcom,csiphy@1b0b000 {
-		status = "disabled";
+		status = "ok";
 		cell-index = <1>;
 		compatible = "qcom,csiphy-v3.1", "qcom,csiphy";
 		reg = <0x1b0b000 0x200>,
@@ -59,11 +64,11 @@
 			"csiphy_timer_src_clk", "csiphy_timer_clk",
 			"camss_ahb_src", "csi_phy_clk",
 			"camss_ahb_clk";
-		qcom,clock-rates = <0 61540000 200000000 0 0 0 0>;
+		qcom,clock-rates = <0 61540000 160000000 0 0 0 0>;
 	};
 
 	qcom,csid@1b08000  {
-		status = "disabled";
+		status = "ok";
 		cell-index = <0>;
 		compatible = "qcom,csid-v3.4.1", "qcom,csid";
 		reg = <0x1b08000 0x100>;
@@ -71,7 +76,7 @@
 		interrupts = <0 51 0>;
 		interrupt-names = "csid";
 		qcom,csi-vdd-voltage = <1200000>;
-		qcom,mipi-csi-vdd-supply = <&pm8950_l23>;
+		qcom,mipi-csi-vdd-supply = <&pm8950_l2>;
 		clocks = <&clock_gcc clk_gcc_camss_top_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_csi0_ahb_clk>,
@@ -84,11 +89,11 @@
 			"ispif_ahb_clk", "csi_ahb_clk", "csi_src_clk",
 			"csi_clk",  "csi_pix_clk",
 			"csi_rdi_clk", "camss_ahb_clk";
-		qcom,clock-rates = <0 61540000 0 200000000 0 0 0 0>;
+		qcom,clock-rates = <0 61540000 0 160000000 0 0 0 0>;
 	};
 
 	qcom,csid@1b08400 {
-		status = "disabled";
+		status = "ok";
 		cell-index = <1>;
 		compatible = "qcom,csid-v3.4.1", "qcom,csid";
 		reg = <0x1b08400 0x100>;
@@ -96,7 +101,7 @@
 		interrupts = <0 52 0>;
 		interrupt-names = "csid";
 		qcom,csi-vdd-voltage = <1200000>;
-		qcom,mipi-csi-vdd-supply = <&pm8950_l23>;
+		qcom,mipi-csi-vdd-supply = <&pm8950_l2>;
 		clocks = <&clock_gcc clk_gcc_camss_top_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_csi1_ahb_clk>,
@@ -109,11 +114,11 @@
 			"ispif_ahb_clk", "csi_ahb_clk", "csi_src_clk",
 			"csi_clk", "csi_pix_clk",
 			"csi_rdi_clk", "camss_ahb_clk";
-		qcom,clock-rates = <0 61540000 0 200000000 0 0 0 0>;
+		qcom,clock-rates = <0 61540000 0 160000000 0 0 0 0>;
 	};
 
 	qcom,csid@1b08800 {
-		status = "disabled";
+		status = "ok";
 		cell-index = <2>;
 		compatible = "qcom,csid-v3.4.1", "qcom,csid";
 		reg = <0x1b08800 0x100>;
@@ -121,7 +126,7 @@
 		interrupts = <0 153 0>;
 		interrupt-names = "csid";
 		qcom,csi-vdd-voltage = <1200000>;
-		qcom,mipi-csi-vdd-supply = <&pm8950_l23>;
+		qcom,mipi-csi-vdd-supply = <&pm8950_l2>;
 		clocks = <&clock_gcc clk_gcc_camss_top_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_csi2_ahb_clk>,
@@ -134,7 +139,7 @@
 			"ispif_ahb_clk", "csi_ahb_clk", "csi_src_clk",
 			"csi_clk", "csi_pix_clk",
 			"csi_rdi_clk", "camss_ahb_clk";
-		qcom,clock-rates = <0 61540000 0 200000000 0 0 0 0>;
+		qcom,clock-rates = <0 61540000 0 160000000 0 0 0 0>;
 	};
 
 	qcom,ispif@1b0a000 {
@@ -284,13 +289,14 @@
 	};
 
 	qcom,cam_smmu {
-		status = "disabled";
+		status = "ok";
 		compatible = "qcom,msm-cam-smmu";
 		msm_cam_smmu_cb1: msm_cam_smmu_cb1 {
 			compatible = "qcom,qsmmu-cam-cb";
 			iommus = <&apps_iommu 0x400>,
 						<&apps_iommu 0x3000>;
 			label = "vfe";
+			qcom,scratch-buf-support;
 		};
 
 		msm_cam_smmu_cb2: msm_cam_smmu_cb2 {
@@ -313,7 +319,7 @@
 	};
 
 	qcom,jpeg@1b1c000 {
-		status = "disabled";
+		status = "ok";
 		cell-index = <0>;
 		compatible = "qcom,jpeg";
 		reg = <0x1b1c000 0x400>,
@@ -337,7 +343,7 @@
 	};
 
 	qcom,irqrouter@1b00000 {
-		status = "disabled";
+		status = "ok";
 		cell-index = <0>;
 		compatible = "qcom,irqrouter";
 		reg = <0x1b00000 0x100>;
@@ -345,7 +351,7 @@
 	};
 
 	qcom,cpp@1b04000 {
-		status = "disabled";
+		status = "ok";
 		cell-index = <0>;
 		compatible = "qcom,cpp";
 		reg = <0x1b04000 0x100>,
@@ -379,7 +385,7 @@
 	};
 
 	cci: qcom,cci@1b0c000 {
-		status = "disabled";
+		status = "ok";
 		cell-index = <0>;
 		compatible = "qcom,cci";
 		reg = <0x1b0c000 0x1000>;
@@ -388,17 +394,17 @@
 		reg-names = "cci";
 		interrupts = <0 50 0>;
 		interrupt-names = "cci";
-		clocks = <&clock_gcc clk_gcc_camss_top_ahb_clk>,
+		clocks = <&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
 			<&clock_gcc clk_cci_clk_src>,
 			<&clock_gcc clk_gcc_camss_cci_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_cci_clk>,
 			<&clock_gcc clk_gcc_camss_ahb_clk>,
-			<&clock_gcc clk_gcc_camss_ispif_ahb_clk>;
-		clock-names = "camss_top_ahb_clk", "cci_src_clk",
+			<&clock_gcc clk_gcc_camss_top_ahb_clk>;
+		clock-names = "ispif_ahb_clk", "cci_src_clk",
 			"cci_ahb_clk", "camss_cci_clk",
-			"camss_ahb_clk", "ispif_ahb_clk";
-		qcom,clock-rates = <0 19200000 0 0 0 61540000>,
-				<0 37500000 0 0 0 61540000>;
+			"camss_ahb_clk", "camss_top_ahb_clk";
+		qcom,clock-rates = <61540000 19200000 0 0 0 0>,
+				<61540000 37500000 0 0 0 0>;
 		pinctrl-names = "cci_default", "cci_suspend";
 			pinctrl-0 = <&cci0_active &cci1_active>;
 			pinctrl-1 = <&cci0_suspend &cci1_suspend>;
@@ -454,7 +460,7 @@
 	qcom,hw-scl-stretch-en = <0>;
 	qcom,hw-trdhld = <6>;
 	qcom,hw-tsp = <3>;
-	status = "disabled";
+	status = "ok";
 };
 
 &i2c_freq_custom {
@@ -468,7 +474,7 @@
 	qcom,hw-scl-stretch-en = <1>;
 	qcom,hw-trdhld = <6>;
 	qcom,hw-tsp = <3>;
-	status = "disabled";
+	status = "ok";
 };
 
 &i2c_freq_1Mhz {
@@ -483,5 +489,5 @@
 	qcom,hw-trdhld = <3>;
 	qcom,hw-tsp = <3>;
 	qcom,cci-clk-src = <37500000>;
-	status = "disabled";
+	status = "ok";
 };
