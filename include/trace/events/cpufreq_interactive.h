@@ -118,6 +118,20 @@ TRACE_EVENT(cpufreq_interactive_load_change,
 	    TP_printk("re-evaluate for cpu=%lu", __entry->cpu_id)
 );
 
+TRACE_EVENT(cpufreq_interactive_cpuload,
+	    TP_PROTO(unsigned long cpu_id, unsigned long load),
+	    TP_ARGS(cpu_id, load),
+	    TP_STRUCT__entry(
+		__field(unsigned long, cpu_id)
+		__field(unsigned long, load)
+	    ),
+	    TP_fast_assign(
+		__entry->cpu_id = cpu_id;
+		__entry->load = load;
+	    ),
+	    TP_printk("cpu=%lu load=%lu", __entry->cpu_id, __entry->load)
+);
+
 #endif /* _TRACE_CPUFREQ_INTERACTIVE_H */
 
 /* This part must be outside protection */
