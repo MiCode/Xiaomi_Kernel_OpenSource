@@ -3463,7 +3463,7 @@
 &gdsc_mmagic_video {
 	clock-names = "core_root_clk";
 	/* RPM enables the mmagic bimc GDSC when this clk node is voted for. */
-	clocks = <&clock_gcc clk_mmssnoc_axi_clk>;
+	clocks = <&clock_gcc clk_mmssnoc_gds_clk>;
 	qcom,enable-root-clk;
 	status = "ok";
 };
@@ -3471,7 +3471,7 @@
 &gdsc_mmagic_mdss {
 	clock-names = "core_root_clk";
 	/* RPM enables the mmagic bimc GDSC when this clk node is voted for. */
-	clocks = <&clock_gcc clk_mmssnoc_axi_clk>;
+	clocks = <&clock_gcc clk_mmssnoc_gds_clk>;
 	qcom,enable-root-clk;
 	status = "ok";
 };
@@ -3479,7 +3479,7 @@
 &gdsc_mmagic_camss {
 	clock-names = "core_root_clk";
 	/* RPM enables the mmagic bimc GDSC when this clk node is voted for. */
-	clocks = <&clock_gcc clk_mmssnoc_axi_clk>;
+	clocks = <&clock_gcc clk_mmssnoc_gds_clk>;
 	qcom,enable-root-clk;
 	status = "ok";
 };
