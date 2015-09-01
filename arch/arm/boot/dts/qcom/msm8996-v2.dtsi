@@ -133,6 +133,9 @@
 		<0 0 0 0 0>,
 		<0 0 0 0 0>,
 		<0 0 0 0 0>;
+
+	/delete-property/ qcom,cpr-open-loop-voltage-adjustment;
+	/delete-property/ qcom,cpr-open-loop-voltage-min-diff;
 };
 
 &apc0_cbf_vreg {
@@ -237,6 +240,9 @@
 		<0 0 0 20000 0>,
 		<0 0 0 0 0>,
 		<0 0 0 0 0>;
+
+	/delete-property/ qcom,cpr-open-loop-voltage-adjustment;
+	/delete-property/ qcom,cpr-open-loop-voltage-min-diff;
 };
 
 &gfx_cpr {

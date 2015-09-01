@@ -659,6 +659,14 @@
 					<0 0 0 0 0>,
 					<0 0 0 0 0>;
 
+				qcom,cpr-open-loop-voltage-adjustment =
+					<       0        0        0        0
+					 (-50000) (-50000) (-50000) (-50000)
+					 (-50000) (-50000) (-50000) (-50000)
+					 (-50000) (-50000) (-50000) (-50000)>;
+				qcom,cpr-open-loop-voltage-min-diff =
+				       <0 0 0 0 (-50000) 0 0 0 0 0 0 0 0 0 0 0>;
+
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
@@ -820,6 +828,18 @@
 					<0 0 0 0 0>,
 					<0 0 0 0 0>,
 					<0 0 0 0 0>;
+
+				qcom,cpr-open-loop-voltage-adjustment =
+					<       0        0        0        0
+					 (-50000) (-50000) (-50000) (-50000)
+					 (-50000) (-50000) (-50000) (-50000)
+					 (-50000) (-50000) (-50000) (-50000)
+					 (-50000) (-50000) (-50000) (-50000)
+					 (-50000) (-50000) (-50000) (-50000)
+					 (-50000)>;
+				qcom,cpr-open-loop-voltage-min-diff =
+					<0 0 0 0 (-50000) 0 0 0 0 0 0 0 0 0 0 0
+					 0 0 0 0 0 0 0 0 0>;
 
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
