@@ -2997,7 +2997,7 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 			rc = msm_isp_cfg_ping_pong_address(vfe_dev,
 				stream_info, pingpong_status, valid_address, 1);
 			if (done_buf && (rc < 0)) {
-				rc = vfe_dev->buf_mgr->ops->reset_put_buf_cnt(
+				rc |= vfe_dev->buf_mgr->ops->reset_put_buf_cnt(
 					vfe_dev->buf_mgr,
 					done_buf->bufq_handle,
 					done_buf->buf_idx);
