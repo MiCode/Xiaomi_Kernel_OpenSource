@@ -228,9 +228,10 @@ struct msm_slim_pdata {
 };
 
 struct msm_slim_bulk_wr {
-	phys_addr_t	phys;
+	dma_addr_t	wr_dma;
 	void		*base;
 	int		size;
+	int		buf_sz;
 	int		(*cb)(void *ctx, int err);
 	void		*ctx;
 	bool		in_progress;
