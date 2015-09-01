@@ -1580,6 +1580,9 @@ static bool wcd9335_is_volatile_register(struct device *dev, unsigned int reg)
 	case WCD9335_SPLINE_SRC1_STATUS:
 	case WCD9335_SPLINE_SRC2_STATUS:
 	case WCD9335_SPLINE_SRC3_STATUS:
+	case WCD9335_SIDO_SIDO_TEST_2:
+	case WCD9335_SIDO_SIDO_CCL_8:
+	case WCD9335_BIAS_VBG_FINE_ADJ:
 		return true;
 	default:
 		return false;
