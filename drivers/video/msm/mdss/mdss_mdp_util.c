@@ -236,6 +236,31 @@ hist_isr_done:
 	return IRQ_HANDLED;
 }
 
+void mdss_mdp_format_flag_removal(u32 *table, u32 num, u32 remove_bits)
+{
+	struct mdss_mdp_format_params *fmt = NULL;
+	int i, j;
+
+	if (table == NULL) {
+		pr_err("Null table provided\n");
+		return;
+	}
+
+	for (i = 0; i < num; i++) {
+		if (table[i] > MDP_IMGTYPE_LIMIT) {
+			pr_err("Invalid format:%d, idx:%d\n", table[i], i);
+			continue;
+		}
+		for (j = 0; j < ARRAY_SIZE(mdss_mdp_format_map); j++) {
+			fmt = &mdss_mdp_format_map[i];
+			if (table[i] == fmt->format) {
+				fmt->flag &= ~remove_bits;
+				break;
+			}
+		}
+	}
+}
+
 struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format)
 {
 	struct mdss_mdp_format_params *fmt = NULL;
