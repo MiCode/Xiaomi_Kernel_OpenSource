@@ -526,4 +526,5 @@
 /* Audio External Clocks */
 #define clk_audio_ap_clk 0x312ac429
 #define clk_audio_pmi_clk 0xb7ba2274
+#define clk_audio_ap_clk2 0xf0fbaf5b
 #endif
