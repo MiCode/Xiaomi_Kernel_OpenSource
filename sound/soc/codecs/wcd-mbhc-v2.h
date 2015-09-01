@@ -55,6 +55,8 @@ enum wcd_mbhc_register_function {
 	WCD_MBHC_HPHL_PA_EN,
 	WCD_MBHC_HPH_PA_EN,
 	WCD_MBHC_SWCH_LEVEL_REMOVE,
+	WCD_MBHC_PULLDOWN_CTRL,
+	WCD_MBHC_REG_FUNC_MAX,
 };
 
 enum wcd_mbhc_plug_type {
@@ -261,21 +263,25 @@ struct wcd_mbhc_register {
 		  "%s: BCL should have acquired\n", __func__); \
 }
 
-#define WCD_MBHC_REG_UPDATE_BITS(function, val) \
-{						\
-	snd_soc_update_bits(mbhc->codec,	\
-	mbhc->wcd_mbhc_regs[function].reg,	\
-	mbhc->wcd_mbhc_regs[function].mask,	\
-	val << (mbhc->wcd_mbhc_regs[function].offset)); \
-}
+#define WCD_MBHC_REG_UPDATE_BITS(function, val)			\
+do {								\
+	if (mbhc->wcd_mbhc_regs[function].reg) {		\
+		snd_soc_update_bits(mbhc->codec,		\
+		mbhc->wcd_mbhc_regs[function].reg,		\
+		mbhc->wcd_mbhc_regs[function].mask,		\
+		val << (mbhc->wcd_mbhc_regs[function].offset));	\
+	}							\
+} while (0)
 
-#define WCD_MBHC_REG_READ(function, val)	\
-{						\
-	val = (((snd_soc_read(mbhc->codec,	\
-	mbhc->wcd_mbhc_regs[function].reg)) &	\
-	(mbhc->wcd_mbhc_regs[function].mask)) >> \
-	(mbhc->wcd_mbhc_regs[function].offset)); \
-}
+#define WCD_MBHC_REG_READ(function, val)			\
+do {								\
+	if (mbhc->wcd_mbhc_regs[function].reg) {		\
+		val = (((snd_soc_read(mbhc->codec,		\
+		mbhc->wcd_mbhc_regs[function].reg)) &		\
+		(mbhc->wcd_mbhc_regs[function].mask)) >>	\
+		(mbhc->wcd_mbhc_regs[function].offset));	\
+	}							\
+} while (0)
 
 struct wcd_mbhc_cb {
 	int (*enable_mb_source)(struct snd_soc_codec *, bool);
