@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,6 +68,10 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num,
 	enum transport_type trans);
 void gbam_suspend(struct grmnet *gr, u8 port_num, enum transport_type trans);
 void gbam_resume(struct grmnet *gr, u8 port_num, enum transport_type trans);
+int gbam_mbim_setup(void);
+int gbam_mbim_connect(struct usb_gadget *g, struct usb_ep *in,
+					struct usb_ep *out);
+void gbam_mbim_disconnect(void);
 int gsmd_ctrl_connect(struct grmnet *gr, int port_num);
 void gsmd_ctrl_disconnect(struct grmnet *gr, u8 port_num);
 int gsmd_ctrl_setup(enum ctrl_client client_num, unsigned int count,

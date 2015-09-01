@@ -1105,6 +1105,7 @@ static void gbam_notify(void *p, int event, unsigned long data)
 		if (test_bit(BAM_CH_OPENED, &d->flags))
 			pr_warn("%s, BAM channel opened already", __func__);
 		bam_mux_rx_req_size = data;
+		pr_debug("%s rx_req_size: %lu", __func__, bam_mux_rx_req_size);
 		break;
 	}
 }
@@ -2422,4 +2423,48 @@ void gbam_resume(struct grmnet *gr, u8 port_num, enum transport_type trans)
 	queue_work(gbam_wq, &port->resume_w);
 
 	spin_unlock_irqrestore(&port->port_lock, flags);
+}
+
+int gbam_mbim_connect(struct usb_gadget *g, struct usb_ep *in,
+			struct usb_ep *out)
+{
+	struct grmnet *gr;
+
+	gr = kzalloc(sizeof(*gr), GFP_ATOMIC);
+	if (!gr)
+		return -ENOMEM;
+	gr->in = in;
+	gr->out = out;
+	gr->gadget = g;
+
+	return gbam_connect(gr, 0, USB_GADGET_XPORT_BAM, 0, 0);
+}
+
+void gbam_mbim_disconnect(void)
+{
+	struct gbam_port *port = bam_ports[0].port;
+	struct grmnet *gr = port->port_usb;
+
+	if (!gr) {
+		pr_err("%s: port_usb is NULL\n", __func__);
+		return;
+	}
+
+	gbam_disconnect(gr, 0, USB_GADGET_XPORT_BAM);
+	kfree(gr);
+}
+
+int gbam_mbim_setup(void)
+{
+	int ret = 0;
+
+	/*
+	 * MBIM requires only 1 USB_GADGET_XPORT_BAM
+	 * port. The port is always 0 and is shared
+	 * between RMNET and MBIM.
+	 */
+	if (!n_bam_ports)
+		ret = gbam_setup(1);
+
+	return ret;
 }
