@@ -157,6 +157,10 @@
 
 #define FEATURE_MASK_LEN	2
 
+#define DIAG_MD_NONE			0
+#define DIAG_MD_NORMAL			1
+#define DIAG_MD_PERIPHERAL		2
+
 /*
  * The status bit masks when received in a signal handler are to be
  * used in conjunction with the peripheral list bit mask to determine the
@@ -193,6 +197,11 @@
 #define PERIPHERAL_SENSORS	3
 #define NUM_PERIPHERALS		4
 #define APPS_DATA		(NUM_PERIPHERALS)
+
+/* Number of sessions possible in Memory Device Mode. +1 for Apps data */
+#define NUM_MD_SESSIONS		(NUM_PERIPHERALS + 1)
+
+#define MD_PERIPHERAL_MASK(x)	(1 << x)
 
 /*
  * Number of stm processors includes all the peripherals and
@@ -384,6 +393,21 @@ struct diag_partial_pkt_t {
 	unsigned char *data;
 } __packed;
 
+struct diag_logging_mode_param_t {
+	uint32_t req_mode;
+	uint32_t peripheral_mask;
+	uint8_t mode_param;
+} __packed;
+
+struct diag_md_session_t {
+	int pid;
+	int peripheral_mask;
+	struct diag_mask_info *msg_mask;
+	struct diag_mask_info *log_mask;
+	struct diag_mask_info *event_mask;
+	struct task_struct *task;
+};
+
 /*
  * High level structure for storing Diag masks.
  *
@@ -535,7 +559,10 @@ struct diagchar_dev {
 	int in_busy_dcipktdata;
 	int logging_mode;
 	int mask_check;
-	struct diag_md_proc_info md_proc[DIAG_NUM_PROC];
+	uint32_t md_session_mask;
+	uint8_t md_session_mode;
+	struct diag_md_session_t *md_session_map[NUM_MD_SESSIONS];
+	struct mutex md_session_lock;
 	/* Power related variables */
 	struct diag_ws_ref_t dci_ws;
 	struct diag_ws_ref_t md_ws;
@@ -589,5 +616,8 @@ void diag_cmd_remove_reg_by_proc(int proc);
 int diag_cmd_chk_polling(struct diag_cmd_reg_entry_t *entry);
 
 void diag_record_stats(int type, int flag);
+
+struct diag_md_session_t *diag_md_session_get_pid(int pid);
+struct diag_md_session_t *diag_md_session_get_peripheral(uint8_t peripheral);
 
 #endif

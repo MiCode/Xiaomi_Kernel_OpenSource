@@ -23,6 +23,7 @@
 #include "diagmem.h"
 #include "diag_masks.h"
 #include "diag_ipc_logging.h"
+#include "diag_mux.h"
 
 #define FEATURE_SUPPORTED(x)	((feature_mask << (i * 8)) & (1 << x))
 
@@ -110,16 +111,20 @@ void diag_notify_md_client(uint8_t peripheral, int data)
 	int stat = 0;
 	struct siginfo info;
 
-	if (driver->logging_mode != MEMORY_DEVICE_MODE)
+	if (peripheral > NUM_PERIPHERALS)
+		return;
+
+	if (driver->logging_mode != DIAG_MEMORY_DEVICE_MODE)
 		return;
 
 	memset(&info, 0, sizeof(struct siginfo));
 	info.si_code = SI_QUEUE;
 	info.si_int = (PERIPHERAL_MASK(peripheral) | data);
 	info.si_signo = SIGCONT;
-	if (driver->md_proc[DIAG_LOCAL_PROC].mdlog_process) {
+	if (driver->md_session_map[peripheral] &&
+	    driver->md_session_map[peripheral]->task) {
 		stat = send_sig_info(info.si_signo, &info,
-			driver->md_proc[DIAG_LOCAL_PROC].mdlog_process);
+				     driver->md_session_map[peripheral]->task);
 		if (stat)
 			pr_err("diag: Err sending signal to memory device client, signal data: 0x%x, stat: %d\n",
 			       info.si_int, stat);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,6 +44,7 @@ struct diag_logger_ops {
 	void (*close)(void);
 	int (*queue_read)(int id);
 	int (*write)(int id, unsigned char *buf, int len, int ctx);
+	int (*close_peripheral)(int id, uint8_t peripheral);
 };
 
 struct diag_logger_t {
@@ -59,6 +60,7 @@ void diag_mux_exit(void);
 int diag_mux_register(int proc, int ctx, struct diag_mux_ops *ops);
 int diag_mux_queue_read(int proc);
 int diag_mux_write(int proc, unsigned char *buf, int len, int ctx);
+int diag_mux_close_peripheral(int proc, uint8_t peripheral);
 int diag_mux_open_all(struct diag_logger_t *logger);
 int diag_mux_close_all(void);
 int diag_mux_switch_logging(int new_mode);
