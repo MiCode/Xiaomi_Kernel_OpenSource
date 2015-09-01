@@ -808,6 +808,15 @@ config REGULATOR_CPR
 	  to voltage value before writing to a voltage regulator API, such as
 	  that provided by spm-regulator driver.
 
+config REGULATOR_CPR2_GFX
+	bool "RBCPR regulator driver for GFX"
+	depends on OF
+	help
+	  This driver supports the CPR (core power reduction) controller for the
+	  graphics (GFX) rail. The GFX CPR2 controller monitors the graphics voltage
+	  requirements. This driver reads initial voltage values out of hardware
+	  fuses and CPR target quotient values out of device tree.
+
 config REGULATOR_CPR3
 	bool "CPR3 regulator core support"
 	help
