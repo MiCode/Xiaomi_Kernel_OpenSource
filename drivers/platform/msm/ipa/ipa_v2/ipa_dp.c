@@ -2965,7 +2965,7 @@ void ipa2_free_skb(struct ipa_rx_data *data)
 
 int ipa2_sys_setup(struct ipa_sys_connect_params *sys_in,
 			unsigned long *ipa_bam_hdl,
-			u32 *ipa_pipe_num, u32 *clnt_hdl)
+			u32 *ipa_pipe_num, u32 *clnt_hdl, bool en_status)
 {
 	struct ipa_ep_context *ep;
 	int ipa_ep_idx;
