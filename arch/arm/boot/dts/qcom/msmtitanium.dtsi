@@ -12,7 +12,7 @@
  */
 
 #include "skeleton64.dtsi"
-#include <dt-bindings/clock/msm-clocks-8952.h>
+#include <dt-bindings/clock/msm-clocks-titanium.h>
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 
 / {

@@ -70,7 +70,7 @@
 #define clk_blsp1_uart2_apps_clk_src		0xfc9c2f73
 #define clk_byte0_clk_src			0x75cc885b
 #define clk_cci_clk_src				0x822f3d97
-#define clk_camss_top_ahb_clk_src		0xa68afe9c
+#define clk_camss_top_ahb_clk_src		0xf92304fb
 #define clk_camss_gp0_clk_src			0x43b063e9
 #define clk_camss_gp1_clk_src			0xa3315f1b
 #define clk_crypto_clk_src			0x37a21414
@@ -88,7 +88,7 @@
 #define clk_mdp_clk_src				0x6dc1f8f1
 #define clk_mclk0_clk_src			0x266b3853
 #define clk_mclk1_clk_src			0xa73cad0c
-#define clk_mclk2_clk_src                       0x6be1dc47
+#define clk_mclk2_clk_src                       0x42545468
 #define clk_pclk0_clk_src			0xccac1f35
 #define clk_pdm2_clk_src			0x31e494fd
 #define clk_sdcc1_apps_clk_src			0xd4975db2
@@ -168,7 +168,7 @@
 #define clk_gcc_camss_jpeg_axi_clk		0x3e278896
 #define clk_gcc_camss_mclk0_clk			0x80902deb
 #define clk_gcc_camss_mclk1_clk			0x5002d85f
-#define clk_gcc_camss_mclk2_clk                 0xa7c6507a
+#define clk_gcc_camss_mclk2_clk                 0x222f8fff
 #define clk_gcc_camss_micro_ahb_clk		0xfbbee8cf
 #define clk_gcc_camss_csi0phytimer_clk		0xf8897589
 #define clk_gcc_camss_csi1phytimer_clk		0x4d26438f
@@ -253,7 +253,7 @@
 #define clk_bimc_usb_clk			0x9bd2b2bf
 #define clk_qdss_clk				0x1492202a
 #define clk_qdss_a_clk				0xdd121669
-#define clk_xo_clk_src				0x6ac2a778
+#define clk_xo_clk_src				0x23f5649f
 #define clk_xo_a_clk_src			0x2fdd2c7c
 #define clk_xo_otg_clk				0x79bca5cc
 #define clk_xo_a2				0xeba5a83d
