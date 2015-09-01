@@ -425,7 +425,7 @@ static int gport_rmnet_connect(struct f_rmnet *dev, unsigned intf)
 	port_num = rmnet_ports[dev->port_num].data_xport_num;
 
 	switch (dxport) {
-	case USB_GADGET_XPORT_BAM:
+	case USB_GADGET_XPORT_BAM_DMUX:
 		ret = gbam_connect(&dev->port, port_num,
 			dxport, src_connection_idx, dst_connection_idx);
 		if (ret) {
@@ -529,7 +529,7 @@ static int gport_rmnet_disconnect(struct f_rmnet *dev)
 
 	port_num = rmnet_ports[dev->port_num].data_xport_num;
 	switch (dxport) {
-	case USB_GADGET_XPORT_BAM:
+	case USB_GADGET_XPORT_BAM_DMUX:
 	case USB_GADGET_XPORT_BAM2BAM_IPA:
 		gbam_disconnect(&dev->port, port_num, dxport);
 		break;
@@ -606,7 +606,7 @@ static void frmnet_suspend(struct usb_function *f)
 
 	port_num = rmnet_ports[dev->port_num].data_xport_num;
 	switch (dxport) {
-	case USB_GADGET_XPORT_BAM:
+	case USB_GADGET_XPORT_BAM_DMUX:
 		break;
 	case USB_GADGET_XPORT_BAM2BAM_IPA:
 		if (remote_wakeup_allowed) {
@@ -660,7 +660,7 @@ static void frmnet_resume(struct usb_function *f)
 
 	port_num = rmnet_ports[dev->port_num].data_xport_num;
 	switch (dxport) {
-	case USB_GADGET_XPORT_BAM:
+	case USB_GADGET_XPORT_BAM_DMUX:
 		break;
 	case USB_GADGET_XPORT_BAM2BAM_IPA:
 		if (remote_wakeup_allowed) {
@@ -1432,11 +1432,14 @@ static int frmnet_init_port(const char *ctrl_name, const char *data_name,
 	}
 
 	switch (rmnet_port->data_xport) {
-	case USB_GADGET_XPORT_BAM:
+	case USB_GADGET_XPORT_BAM2BAM:
+		/* Override BAM2BAM to BAM_DMUX for old ABI compatibility */
+		rmnet_port->data_xport = USB_GADGET_XPORT_BAM_DMUX;
+		/* fall-through */
+	case USB_GADGET_XPORT_BAM_DMUX:
 		rmnet_port->data_xport_num = no_data_bam_ports;
 		no_data_bam_ports++;
 		break;
-	case USB_GADGET_XPORT_BAM2BAM:
 	case USB_GADGET_XPORT_BAM2BAM_IPA:
 		rmnet_port->data_xport_num = no_data_bam2bam_ports;
 		no_data_bam2bam_ports++;

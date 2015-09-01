@@ -512,7 +512,7 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 		gqti_ctrl_disconnect(&qdss->port, DPL_QTI_CTRL_PORT_NO);
 
 	switch (dxport) {
-	case USB_GADGET_XPORT_BAM:
+	case USB_GADGET_XPORT_BAM2BAM:
 		/*
 		 * Uninitialized init data i.e. ep specific operation.
 		 * Notify qdss to cancel all active transfers.
@@ -543,7 +543,7 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 		break;
 	case USB_GADGET_XPORT_BAM_DMUX:
 		gbam_disconnect(&qdss_ports[qdss->port_num].bam_dmux_port,
-				portno, USB_GADGET_XPORT_BAM);
+				portno, USB_GADGET_XPORT_BAM_DMUX);
 		break;
 	case USB_GADGET_XPORT_HSIC:
 		pr_debug("usb_qdss_disconnect_work: HSIC transport\n");
@@ -696,7 +696,7 @@ static void usb_qdss_connect_work(struct work_struct *work)
 	}
 
 	switch (dxport) {
-	case USB_GADGET_XPORT_BAM:
+	case USB_GADGET_XPORT_BAM2BAM:
 		status = init_data(qdss->port.data);
 		if (status) {
 			pr_err("init_data error");
@@ -736,7 +736,7 @@ static void usb_qdss_connect_work(struct work_struct *work)
 		qdss_ports[qdss->port_num].bam_dmux_port.in =
 						qdss->port.data;
 		status = gbam_connect(&qdss_ports[qdss->port_num].bam_dmux_port,
-				port_num, USB_GADGET_XPORT_BAM, 0, 0);
+				port_num, USB_GADGET_XPORT_BAM_DMUX, 0, 0);
 		if (status)
 			pr_err("BAM_DMUX connect failed with %d\n", status);
 		break;
@@ -891,7 +891,7 @@ static int qdss_bind_config(struct usb_configuration *c, unsigned char portno)
 		}
 	}
 
-	if (qdss_ports[portno].data_xport == USB_GADGET_XPORT_BAM)
+	if (qdss_ports[portno].data_xport == USB_GADGET_XPORT_BAM2BAM)
 		name = kasprintf(GFP_ATOMIC, "qdss");
 	else
 		name = kasprintf(GFP_ATOMIC, "qdss%d", portno);
@@ -1218,10 +1218,10 @@ static int qdss_init_port(const char *ctrl_name, const char *data_name,
 	}
 
 	switch (qdss_port->data_xport) {
-	case USB_GADGET_XPORT_BAM:
+	case USB_GADGET_XPORT_BAM2BAM:
 		qdss_port->data_xport_num = no_data_bam_ports;
 		no_data_bam_ports++;
-		pr_debug("USB_GADGET_XPORT_BAM %d\n", no_data_bam_ports);
+		pr_debug("USB_GADGET_XPORT_BAM2BAM %d\n", no_data_bam_ports);
 		break;
 	case USB_GADGET_XPORT_BAM2BAM_IPA:
 		qdss_port->data_xport_num = no_ipa_ports;

@@ -199,8 +199,7 @@ int gqti_ctrl_connect(void *gr, u8 port_num, unsigned intf,
 
 	spin_lock_irqsave(&port->lock, flags);
 	port->gtype = gtype;
-	if (dxport == USB_GADGET_XPORT_BAM ||
-			dxport == USB_GADGET_XPORT_BAM_DMUX) {
+	if (dxport == USB_GADGET_XPORT_BAM_DMUX) {
 		/*
 		 * BAM-DMUX data transport is used for RMNET and DPL
 		 * on some targets where IPA is not available.

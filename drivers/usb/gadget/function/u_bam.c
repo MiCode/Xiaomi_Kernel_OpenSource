@@ -1961,7 +1961,7 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 		pr_err("%s: invalid xport#%d\n", __func__, trans);
 		return;
 	}
-	if (trans == USB_GADGET_XPORT_BAM &&
+	if (trans == USB_GADGET_XPORT_BAM_DMUX &&
 		port_num >= n_bam_ports) {
 		pr_err("%s: invalid bam portno#%d\n",
 			   __func__, port_num);
@@ -1979,7 +1979,7 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 		pr_err("%s: grmnet port is null\n", __func__);
 		return;
 	}
-	if (trans == USB_GADGET_XPORT_BAM)
+	if (trans == USB_GADGET_XPORT_BAM_DMUX)
 		port = bam_ports[port_num].port;
 	else
 		port = bam2bam_ports[port_num];
@@ -2009,7 +2009,7 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 
 	port->port_usb = gr;
 
-	if (trans == USB_GADGET_XPORT_BAM)
+	if (trans == USB_GADGET_XPORT_BAM_DMUX)
 		gbam_free_buffers(port);
 	else if (trans == USB_GADGET_XPORT_BAM2BAM_IPA)
 		gbam_free_rx_buffers(port);
@@ -2100,7 +2100,7 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 		return -EINVAL;
 	}
 
-	if (trans == USB_GADGET_XPORT_BAM && port_num >= n_bam_ports) {
+	if (trans == USB_GADGET_XPORT_BAM_DMUX && port_num >= n_bam_ports) {
 		pr_err("%s: invalid portno#%d\n", __func__, port_num);
 		return -ENODEV;
 	}
@@ -2111,7 +2111,7 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 		return -ENODEV;
 	}
 
-	if (trans == USB_GADGET_XPORT_BAM)
+	if (trans == USB_GADGET_XPORT_BAM_DMUX)
 		port = bam_ports[port_num].port;
 	else
 		port = bam2bam_ports[port_num];
@@ -2167,7 +2167,7 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 		d->tx_req->no_interrupt = 1;
 	}
 
-	if (d->trans == USB_GADGET_XPORT_BAM) {
+	if (d->trans == USB_GADGET_XPORT_BAM_DMUX) {
 		d->to_host = 0;
 		d->to_modem = 0;
 		d->pending_pkts_with_bam = 0;
@@ -2437,7 +2437,7 @@ int gbam_mbim_connect(struct usb_gadget *g, struct usb_ep *in,
 	gr->out = out;
 	gr->gadget = g;
 
-	return gbam_connect(gr, 0, USB_GADGET_XPORT_BAM, 0, 0);
+	return gbam_connect(gr, 0, USB_GADGET_XPORT_BAM_DMUX, 0, 0);
 }
 
 void gbam_mbim_disconnect(void)
@@ -2450,7 +2450,7 @@ void gbam_mbim_disconnect(void)
 		return;
 	}
 
-	gbam_disconnect(gr, 0, USB_GADGET_XPORT_BAM);
+	gbam_disconnect(gr, 0, USB_GADGET_XPORT_BAM_DMUX);
 	kfree(gr);
 }
 
@@ -2459,7 +2459,7 @@ int gbam_mbim_setup(void)
 	int ret = 0;
 
 	/*
-	 * MBIM requires only 1 USB_GADGET_XPORT_BAM
+	 * MBIM requires only 1 USB_GADGET_XPORT_BAM_DMUX
 	 * port. The port is always 0 and is shared
 	 * between RMNET and MBIM.
 	 */

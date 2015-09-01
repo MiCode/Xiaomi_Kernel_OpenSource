@@ -1143,7 +1143,7 @@ static int mbim_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			 * disconnect
 			 */
 			switch (mbim->xport) {
-			case USB_GADGET_XPORT_BAM:
+			case USB_GADGET_XPORT_BAM_DMUX:
 				gbam_mbim_disconnect();
 				break;
 			case USB_GADGET_XPORT_BAM2BAM_IPA:
@@ -1197,7 +1197,7 @@ static int mbim_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 		pr_debug("Activate mbim\n");
 		switch (mbim->xport) {
-		case USB_GADGET_XPORT_BAM:
+		case USB_GADGET_XPORT_BAM_DMUX:
 			gbam_mbim_connect(cdev->gadget, mbim->bam_port.in,
 						mbim->bam_port.out);
 			break;
@@ -1284,7 +1284,7 @@ static void mbim_disable(struct usb_function *f)
 	}
 
 	switch (mbim->xport) {
-	case USB_GADGET_XPORT_BAM:
+	case USB_GADGET_XPORT_BAM_DMUX:
 		gbam_mbim_disconnect();
 		break;
 	case USB_GADGET_XPORT_BAM2BAM_IPA:
@@ -1315,7 +1315,7 @@ static void mbim_suspend(struct usb_function *f)
 	pr_debug("%s(): remote_wakeup:%d\n:", __func__,
 			mbim->cdev->gadget->remote_wakeup);
 
-	if (mbim->xport == USB_GADGET_XPORT_BAM)
+	if (mbim->xport == USB_GADGET_XPORT_BAM_DMUX)
 		return;
 
 	/* If the function is in Function Suspend state, avoid suspending the
@@ -1350,7 +1350,7 @@ static void mbim_resume(struct usb_function *f)
 
 	pr_info("mbim resumed\n");
 
-	if (mbim->xport == USB_GADGET_XPORT_BAM)
+	if (mbim->xport == USB_GADGET_XPORT_BAM_DMUX)
 		return;
 
 	/*
@@ -1660,7 +1660,11 @@ int mbim_bind_config(struct usb_configuration *c, unsigned portno,
 
 	mbim->xport = str_to_xport(xport_name);
 	switch (mbim->xport) {
-	case USB_GADGET_XPORT_BAM:
+	case USB_GADGET_XPORT_BAM2BAM:
+		/* Override BAM2BAM to BAM_DMUX for old ABI compatibility */
+		mbim->xport = USB_GADGET_XPORT_BAM_DMUX;
+		/* fall-through */
+	case USB_GADGET_XPORT_BAM_DMUX:
 		status = gbam_mbim_setup();
 		if (status)
 			break;
@@ -1995,7 +1999,7 @@ static long mbim_ioctl(struct file *fp, unsigned cmd, unsigned long arg)
 		}
 
 		switch (mbim->xport) {
-		case USB_GADGET_XPORT_BAM:
+		case USB_GADGET_XPORT_BAM_DMUX:
 			/*
 			 * Rmnet and MBIM share the same BAM-DMUX channel.
 			 * This channel number 8 should be in sync with
