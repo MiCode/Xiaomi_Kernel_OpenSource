@@ -14,8 +14,9 @@
 &soc {
 	tmc_etr: tmc@6026000 {
 		compatible = "arm,coresight-tmc";
-		reg = <0x6026000 0x1000>;
-		reg-names = "tmc-base";
+		reg = <0x6026000 0x1000>,
+		      <0x6084000 0x15000>;
+		reg-names = "tmc-base", "bam-base";
 		interrupts = <0 166 0>;
 		interrupt-names = "byte-cntr-irq";
 
