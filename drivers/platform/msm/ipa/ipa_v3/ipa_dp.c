@@ -2769,7 +2769,7 @@ void ipa3_free_skb(struct ipa_rx_data *data)
 
 int ipa3_sys_setup(struct ipa_sys_connect_params *sys_in,
 			unsigned long *ipa_bam_hdl,
-			u32 *ipa_pipe_num, u32 *clnt_hdl)
+			u32 *ipa_pipe_num, u32 *clnt_hdl, bool en_status)
 {
 	struct ipa3_ep_context *ep;
 	int ipa_ep_idx;
@@ -2837,6 +2837,10 @@ int ipa3_sys_setup(struct ipa_sys_connect_params *sys_in,
 	ep->client_notify = sys_in->notify;
 	ep->priv = sys_in->priv;
 	ep->keep_ipa_awake = true;
+	if (en_status) {
+		ep->status.status_en = true;
+		ep->status.status_ep = ipa_ep_idx;
+	}
 
 	result = ipa3_enable_data_path(ipa_ep_idx);
 	if (result) {

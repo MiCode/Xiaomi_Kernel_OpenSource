@@ -1566,7 +1566,7 @@ int ipa2_teardown_sys_pipe(u32 clnt_hdl);
 
 int ipa2_sys_setup(struct ipa_sys_connect_params *sys_in,
 	unsigned long *ipa_bam_hdl,
-	u32 *ipa_pipe_num, u32 *clnt_hdl);
+	u32 *ipa_pipe_num, u32 *clnt_hdl, bool en_status);
 
 int ipa2_sys_teardown(u32 clnt_hdl);
 
