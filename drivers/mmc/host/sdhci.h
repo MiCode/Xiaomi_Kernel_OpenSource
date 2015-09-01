@@ -308,6 +308,7 @@ struct sdhci_ops {
 	int	(*crypto_engine_cfg)(struct sdhci_host *host,
 				struct mmc_request *mrq, u32 slot);
 	int	(*crypto_engine_reset)(struct sdhci_host *host);
+	void	(*crypto_cfg_reset)(struct sdhci_host *host, unsigned int slot);
 	void	(*set_uhs_signaling)(struct sdhci_host *host, unsigned int uhs);
 	void	(*hw_reset)(struct sdhci_host *host);
 	void    (*adma_workaround)(struct sdhci_host *host, u32 intmask);

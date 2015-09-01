@@ -653,6 +653,8 @@ static void cmdq_finish_data(struct mmc_host *mmc, unsigned int tag)
 			    CMDQ_SEND_STATUS_TRIGGER, CQCTL);
 
 	cmdq_runtime_pm_put(cq_host);
+	if (cq_host->ops->crypto_cfg_reset)
+		cq_host->ops->crypto_cfg_reset(mmc, tag);
 	mrq->done(mrq);
 }
 
