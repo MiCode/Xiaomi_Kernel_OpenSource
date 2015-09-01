@@ -977,6 +977,7 @@ static void rndis_ipa_tx_complete_notify(void *private,
 
 	atomic_dec(&rndis_ipa_ctx->outstanding_pkts);
 	if (netif_queue_stopped(rndis_ipa_ctx->net) &&
+		netif_carrier_ok(rndis_ipa_ctx->net) &&
 		atomic_read(&rndis_ipa_ctx->outstanding_pkts) <
 					(rndis_ipa_ctx->outstanding_low)) {
 		RNDIS_IPA_DEBUG("outstanding low boundary reached (%d)n",
