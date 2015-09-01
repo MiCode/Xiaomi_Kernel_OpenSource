@@ -825,10 +825,6 @@ static int mdss_mdp_video_dfps_wait4vsync(struct mdss_mdp_ctl *ctl)
 	struct mdss_mdp_video_ctx *ctx;
 
 	ctx = (struct mdss_mdp_video_ctx *) ctl->intf_ctx[MASTER_CTX];
-	if (!ctx) {
-		pr_err("invalid ctx\n");
-		return -ENODEV;
-	}
 
 	video_vsync_irq_enable(ctl, true);
 	reinit_completion(&ctx->vsync_comp);
@@ -892,9 +888,9 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 	struct mdss_data_type *mdata;
 
 	ctx = (struct mdss_mdp_video_ctx *) ctl->intf_ctx[MASTER_CTX];
-	if (!ctx) {
-		pr_err("invalid ctx\n");
-		return -ENODEV;
+	if (!ctx || !ctx->timegen_en || !ctx->ref_cnt) {
+		pr_err("invalid ctx or interface is powered off\n");
+		return -EINVAL;
 	}
 
 	mdata = ctl->mdata;
@@ -906,22 +902,25 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 		}
 	} else if (is_pingpong_split(ctl->mfd)) {
 		sctx = (struct mdss_mdp_video_ctx *) ctl->intf_ctx[SLAVE_CTX];
-		if (!sctx) {
-			pr_err("invalid sctx\n");
-			return -ENODEV;
+		if (!sctx || !sctx->timegen_en || !sctx->ref_cnt) {
+			pr_err("invalid sctx or interface is powered off\n");
+			return -EINVAL;
 		}
 	}
 
+	mutex_lock(&ctl->offlock);
 	pdata = ctl->panel_data;
 	if (pdata == NULL) {
 		pr_err("%s: Invalid panel data\n", __func__);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
 
 	if (!pdata->panel_info.dynamic_fps) {
 		pr_err("%s: Dynamic fps not enabled for this panel\n",
 						__func__);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
 
 	vsync_period = mdss_panel_get_vtotal(&pdata->panel_info);
@@ -933,7 +932,8 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 				== DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
 			if (!ctx->timegen_en) {
 				pr_err("TG is OFF. DFPS mode invalid\n");
-				return -EINVAL;
+				rc = -EINVAL;
+				goto end;
 			}
 			rc = mdss_mdp_ctl_intf_event(ctl,
 					MDSS_EVENT_PANEL_UPDATE_FPS,
@@ -948,7 +948,8 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 			unsigned long flags;
 			if (!ctx->timegen_en) {
 				pr_err("TG is OFF. DFPS mode invalid\n");
-				return -EINVAL;
+				rc = -EINVAL;
+				goto end;
 			}
 
 			/*
@@ -961,7 +962,7 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 			rc = mdss_mdp_video_dfps_wait4vsync(ctl);
 			if (rc < 0) {
 				pr_err("Error during wait4vsync\n");
-				return rc;
+				goto end;
 			}
 
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
@@ -1017,7 +1018,8 @@ exit_dfps:
 		} else {
 			pr_err("intf %d panel, unknown FPS mode\n",
 							ctl->intf_num);
-			return -EINVAL;
+			rc = -EINVAL;
+			goto end;
 		}
 	} else {
 		rc = mdss_mdp_ctl_intf_event(ctl,
@@ -1028,6 +1030,8 @@ exit_dfps:
 						ctl->intf_num, rc);
 	}
 
+end:
+	mutex_unlock(&ctl->offlock);
 	return rc;
 }
 
