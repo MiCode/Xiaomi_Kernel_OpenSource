@@ -179,6 +179,7 @@ static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.key_code[6] = 0,
 	.key_code[7] = 0,
 	.linein_th = 5000,
+	.moist_cfg = { V_45_MV, I_3P0_UA },
 };
 
 static struct wcd9xxx_mbhc_config mbhc_cfg = {
