@@ -700,8 +700,13 @@ int tasha_enable_efuse_sensing(struct snd_soc_codec *codec)
 	if (!(snd_soc_read(codec, WCD9335_CHIP_TIER_CTRL_EFUSE_STATUS) & 0x01))
 		WARN(1, "%s: Efuse sense is not complete\n", __func__);
 
-	if (TASHA_IS_2_0(priv->wcd9xxx->version))
+	if (TASHA_IS_2_0(priv->wcd9xxx->version)) {
+		if (!(snd_soc_read(codec,
+			WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT0) & 0x40))
+			snd_soc_update_bits(codec, WCD9335_HPH_R_ATEST,
+					    0x04, 0x00);
 		tasha_enable_sido_buck(codec);
+	}
 
 	tasha_cdc_mclk_enable(codec, false, false);
 
