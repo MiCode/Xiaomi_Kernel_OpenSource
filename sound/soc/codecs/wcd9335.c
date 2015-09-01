@@ -669,10 +669,13 @@ EXPORT_SYMBOL(tasha_set_spkr_mode);
 
 int tasha_enable_efuse_sensing(struct snd_soc_codec *codec)
 {
+	struct tasha_priv *priv = snd_soc_codec_get_drvdata(codec);
+
 	tasha_cdc_mclk_enable(codec, true, false);
 
-	snd_soc_update_bits(codec, WCD9335_CHIP_TIER_CTRL_EFUSE_CTL,
-			    0x1E, 0x02);
+	if (!TASHA_IS_2_0(priv->wcd9xxx->version))
+		snd_soc_update_bits(codec, WCD9335_CHIP_TIER_CTRL_EFUSE_CTL,
+				    0x1E, 0x02);
 	snd_soc_update_bits(codec, WCD9335_CHIP_TIER_CTRL_EFUSE_CTL,
 			    0x01, 0x01);
 	/*
