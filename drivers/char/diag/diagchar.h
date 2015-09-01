@@ -402,6 +402,8 @@ struct diag_logging_mode_param_t {
 struct diag_md_session_t {
 	int pid;
 	int peripheral_mask;
+	uint8_t hdlc_disabled;
+	struct timer_list hdlc_reset_timer;
 	struct diag_mask_info *msg_mask;
 	struct diag_mask_info *log_mask;
 	struct diag_mask_info *event_mask;
@@ -550,6 +552,7 @@ struct diagchar_dev {
 	struct workqueue_struct *diag_wq;
 	struct work_struct diag_drain_work;
 	struct work_struct update_user_clients;
+	struct work_struct update_md_clients;
 	struct workqueue_struct *diag_cntl_wq;
 	uint8_t log_on_demand_support;
 	uint8_t *apps_req_buf;

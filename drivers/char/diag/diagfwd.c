@@ -382,7 +382,16 @@ static void encode_rsp_and_send(unsigned char *buf, int len)
 
 void diag_send_rsp(unsigned char *buf, int len)
 {
-	if (driver->hdlc_disabled)
+	struct diag_md_session_t *session_info = NULL;
+	uint8_t hdlc_disabled;
+
+	session_info = diag_md_session_get_peripheral(APPS_DATA);
+	if (session_info)
+		hdlc_disabled = session_info->hdlc_disabled;
+	else
+		hdlc_disabled = driver->hdlc_disabled;
+
+	if (hdlc_disabled)
 		pack_rsp_and_send(buf, len);
 	else
 		encode_rsp_and_send(buf, len);
@@ -444,6 +453,24 @@ void diag_update_userspace_clients(unsigned int type)
 	mutex_unlock(&driver->diagchar_mutex);
 }
 
+void diag_update_md_clients(unsigned int type)
+{
+	int i, j;
+
+	mutex_lock(&driver->diagchar_mutex);
+	for (i = 0; i < NUM_MD_SESSIONS; i++) {
+		if (driver->md_session_map[i] != NULL)
+			for (j = 0; j < driver->num_clients; j++) {
+				if (driver->client_map[j].pid != 0 &&
+					driver->client_map[j].pid ==
+					driver->md_session_map[i]->pid)
+					driver->data_ready[j] |= type;
+				break;
+			}
+	}
+	wake_up_interruptible(&driver->wait_q);
+	mutex_unlock(&driver->diagchar_mutex);
+}
 void diag_update_sleeping_process(int process_id, int data_type)
 {
 	int i;
@@ -842,7 +869,7 @@ void diag_send_error_rsp(unsigned char *buf, int len)
 }
 
 int diag_process_apps_pkt(unsigned char *buf, int len,
-			  struct diag_md_session_t *info)
+			struct diag_md_session_t *info)
 {
 	int i;
 	int mask_ret;
@@ -889,7 +916,12 @@ int diag_process_apps_pkt(unsigned char *buf, int len,
 	if (temp_entry) {
 		reg_item = container_of(temp_entry, struct diag_cmd_reg_t,
 								entry);
-		write_len = diag_send_data(reg_item, buf, len);
+		if (info) {
+			if (MD_PERIPHERAL_MASK(reg_item->proc) &
+				info->peripheral_mask)
+				write_len = diag_send_data(reg_item, buf, len);
+		} else
+			write_len = diag_send_data(reg_item, buf, len);
 		mutex_unlock(&driver->cmd_reg_mutex);
 		return write_len;
 	}
@@ -1048,8 +1080,11 @@ int diag_process_apps_pkt(unsigned char *buf, int len,
 		 */
 		pr_debug("diag: In %s, disabling HDLC encoding\n",
 		       __func__);
-		driver->hdlc_disabled = 1;
-		diag_update_userspace_clients(HDLC_SUPPORT_TYPE);
+		if (info)
+			info->hdlc_disabled = 1;
+		else
+			driver->hdlc_disabled = 1;
+		diag_update_md_clients(HDLC_SUPPORT_TYPE);
 		mutex_unlock(&driver->hdlc_disable_mutex);
 		return 0;
 	}
@@ -1212,7 +1247,8 @@ static int diagfwd_mux_close(int id, int mode)
 		pr_debug("diag: In %s, re-enabling HDLC encoding\n",
 		       __func__);
 		mutex_lock(&driver->hdlc_disable_mutex);
-		driver->hdlc_disabled = 0;
+		if (driver->md_session_mode == DIAG_MD_NONE)
+			driver->hdlc_disabled = 0;
 		mutex_unlock(&driver->hdlc_disable_mutex);
 		queue_work(driver->diag_wq,
 			&(driver->update_user_clients));
@@ -1224,24 +1260,43 @@ static int diagfwd_mux_close(int id, int mode)
 
 static uint8_t hdlc_reset;
 
-static void hdlc_reset_timer_start(void)
+static void hdlc_reset_timer_start(struct diag_md_session_t *info)
 {
 	if (!hdlc_timer_in_progress) {
 		hdlc_timer_in_progress = 1;
-		mod_timer(&driver->hdlc_reset_timer,
+		if (info)
+			mod_timer(&info->hdlc_reset_timer,
+			  jiffies + msecs_to_jiffies(200));
+		else
+			mod_timer(&driver->hdlc_reset_timer,
 			  jiffies + msecs_to_jiffies(200));
 	}
 }
 
 static void hdlc_reset_timer_func(unsigned long data)
 {
-
 	pr_debug("diag: In %s, re-enabling HDLC encoding\n",
 		       __func__);
 	if (hdlc_reset) {
 		driver->hdlc_disabled = 0;
 		queue_work(driver->diag_wq,
 			&(driver->update_user_clients));
+	}
+	hdlc_timer_in_progress = 0;
+}
+
+void diag_md_hdlc_reset_timer_func(unsigned long pid)
+{
+	struct diag_md_session_t *session_info = NULL;
+
+	pr_debug("diag: In %s, re-enabling HDLC encoding\n",
+		       __func__);
+	if (hdlc_reset) {
+		session_info = diag_md_session_get_pid(pid);
+		if (session_info)
+			session_info->hdlc_disabled = 0;
+		queue_work(driver->diag_wq,
+			&(driver->update_md_clients));
 	}
 	hdlc_timer_in_progress = 0;
 }
@@ -1255,7 +1310,7 @@ static void diag_hdlc_start_recovery(unsigned char *buf, int len,
 	struct diag_pkt_frame_t *actual_pkt = NULL;
 
 	hdlc_reset = 1;
-	hdlc_reset_timer_start();
+	hdlc_reset_timer_start(info);
 
 	actual_pkt = (struct diag_pkt_frame_t *)buf;
 	for (i = 0; i < len; i++) {
@@ -1274,9 +1329,13 @@ static void diag_hdlc_start_recovery(unsigned char *buf, int len,
 			pr_err("diag: In %s, re-enabling HDLC encoding\n",
 					__func__);
 			mutex_lock(&driver->hdlc_disable_mutex);
-			driver->hdlc_disabled = 0;
+			if (info)
+				info->hdlc_disabled = 0;
+			else
+				driver->hdlc_disabled = 0;
 			mutex_unlock(&driver->hdlc_disable_mutex);
-			diag_update_userspace_clients(HDLC_SUPPORT_TYPE);
+			diag_update_md_clients(HDLC_SUPPORT_TYPE);
+
 			return;
 		}
 	}

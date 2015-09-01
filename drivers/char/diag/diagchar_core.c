@@ -226,12 +226,25 @@ void diag_update_user_client_work_fn(struct work_struct *work)
 	diag_update_userspace_clients(HDLC_SUPPORT_TYPE);
 }
 
+static void diag_update_md_client_work_fn(struct work_struct *work)
+{
+	diag_update_md_clients(HDLC_SUPPORT_TYPE);
+}
+
 void diag_drain_work_fn(struct work_struct *work)
 {
-	timer_in_progress = 0;
+	struct diag_md_session_t *session_info = NULL;
+	uint8_t hdlc_disabled = 0;
 
+	timer_in_progress = 0;
 	mutex_lock(&apps_data_mutex);
-	if (!driver->hdlc_disabled)
+	session_info = diag_md_session_get_peripheral(APPS_DATA);
+	if (session_info)
+		hdlc_disabled = session_info->hdlc_disabled;
+	else
+		hdlc_disabled = driver->hdlc_disabled;
+
+	if (!hdlc_disabled)
 		diag_drain_apps_data(&hdlc_data);
 	else
 		diag_drain_apps_data(&non_hdlc_data);
@@ -851,6 +864,8 @@ static int diag_send_raw_data_remote(int proc, void *buf, int len,
 	struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
 	struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
 	int bridge_index = proc - 1;
+	struct diag_md_session_t *session_info = NULL;
+	uint8_t hdlc_disabled = 0;
 
 	if (!buf)
 		return -EINVAL;
@@ -875,8 +890,12 @@ static int diag_send_raw_data_remote(int proc, void *buf, int len,
 
 	if (driver->hdlc_encode_buf_len != 0)
 		return -EAGAIN;
-
-	if (driver->hdlc_disabled) {
+	session_info = diag_md_session_get_peripheral(APPS_DATA);
+	if (session_info)
+		hdlc_disabled = session_info->hdlc_disabled;
+	else
+		hdlc_disabled = driver->hdlc_disabled;
+	if (hdlc_disabled) {
 		payload = *(uint16_t *)(buf + 2);
 		driver->hdlc_encode_buf_len = payload;
 		/*
@@ -1170,6 +1189,9 @@ int diag_md_session_create(int mode, int peripheral_mask, int proc)
 			driver->md_session_map[i] = new_session;
 		}
 		driver->md_session_mode = DIAG_MD_NORMAL;
+		setup_timer(&new_session->hdlc_reset_timer,
+			diag_md_hdlc_reset_timer_func,
+			new_session->pid);
 		DIAG_LOG(DIAG_DEBUG_USERSPACE,
 			 "created session in normal mode\n");
 		mutex_unlock(&driver->md_session_lock);
@@ -1213,7 +1235,6 @@ int diag_md_session_create(int mode, int peripheral_mask, int proc)
 			 "return value of msg copy. err %d\n", err);
 		goto fail_peripheral;
 	}
-
 	for (i = 0; i < NUM_MD_SESSIONS; i++) {
 		if ((MD_PERIPHERAL_MASK(i) & peripheral_mask) == 0)
 			continue;
@@ -1226,6 +1247,9 @@ int diag_md_session_create(int mode, int peripheral_mask, int proc)
 		new_session->peripheral_mask |= MD_PERIPHERAL_MASK(i);
 		driver->md_session_map[i] = new_session;
 		driver->md_session_mask |= MD_PERIPHERAL_MASK(i);
+		setup_timer(&new_session->hdlc_reset_timer,
+			diag_md_hdlc_reset_timer_func,
+			new_session->pid);
 	}
 	driver->md_session_mode = DIAG_MD_PERIPHERAL;
 	mutex_unlock(&driver->md_session_lock);
@@ -1275,6 +1299,7 @@ static void diag_md_session_close(struct diag_md_session_t *session_info)
 		diag_event_mask_free(session_info->event_mask);
 		kfree(session_info->event_mask);
 		session_info->event_mask = NULL;
+		del_timer(&session_info->hdlc_reset_timer);
 	}
 
 	for (i = 0; i < NUM_MD_SESSIONS && !found; i++) {
@@ -1771,15 +1796,21 @@ static int diag_ioctl_dci_support(unsigned long ioarg)
 static int diag_ioctl_hdlc_toggle(unsigned long ioarg)
 {
 	uint8_t hdlc_support;
+	struct diag_md_session_t *session_info = NULL;
 
+	session_info = diag_md_session_get_pid(current->tgid);
 	if (copy_from_user(&hdlc_support, (void __user *)ioarg,
 				sizeof(uint8_t)))
 		return -EFAULT;
-
 	mutex_lock(&driver->hdlc_disable_mutex);
-	driver->hdlc_disabled = hdlc_support;
+	if (session_info) {
+		mutex_lock(&driver->md_session_lock);
+		session_info->hdlc_disabled = hdlc_support;
+		mutex_unlock(&driver->md_session_lock);
+	} else
+		driver->hdlc_disabled = hdlc_support;
 	mutex_unlock(&driver->hdlc_disable_mutex);
-	diag_update_userspace_clients(HDLC_SUPPORT_TYPE);
+	diag_update_md_clients(HDLC_SUPPORT_TYPE);
 
 	return 0;
 }
@@ -2465,6 +2496,7 @@ static int diag_user_process_userspace_data(const char __user *buf, int len)
 	int remote_proc = 0;
 	int token_offset = 0;
 	struct diag_md_session_t *session_info = NULL;
+	uint8_t hdlc_disabled;
 
 	if (!buf || len <= 0 || len > USER_SPACE_DATA) {
 		pr_err_ratelimited("diag: In %s, invalid buf %p len: %d\n",
@@ -2518,7 +2550,11 @@ static int diag_user_process_userspace_data(const char __user *buf, int len)
 				__func__, current->tgid);
 			return -EINVAL;
 		}
-		if (!driver->hdlc_disabled)
+		if (session_info)
+			hdlc_disabled = session_info->hdlc_disabled;
+		else
+			hdlc_disabled = driver->hdlc_disabled;
+		if (!hdlc_disabled)
 			diag_process_hdlc_pkt((void *)
 				(driver->user_space_data_buf),
 				len, session_info);
@@ -2548,6 +2584,8 @@ static int diag_user_process_apps_data(const char __user *buf, int len,
 	int stm_size = 0;
 	const int mempool = POOL_TYPE_COPY;
 	unsigned char *user_space_data = NULL;
+	struct diag_md_session_t *session_info = NULL;
+	uint8_t hdlc_disabled;
 
 	if (!buf || len <= 0 || len > DIAG_MAX_RSP_SIZE) {
 		pr_err_ratelimited("diag: In %s, invalid buf %p len: %d\n",
@@ -2600,13 +2638,17 @@ static int diag_user_process_apps_data(const char __user *buf, int len,
 
 	mutex_lock(&apps_data_mutex);
 	mutex_lock(&driver->hdlc_disable_mutex);
-	if (driver->hdlc_disabled) {
+	session_info = diag_md_session_get_peripheral(APPS_DATA);
+	if (session_info)
+		hdlc_disabled = session_info->hdlc_disabled;
+	else
+		hdlc_disabled = driver->hdlc_disabled;
+	if (hdlc_disabled)
 		ret = diag_process_apps_data_non_hdlc(user_space_data, len,
 						      pkt_type);
-	} else {
+	else
 		ret = diag_process_apps_data_hdlc(user_space_data, len,
 						  pkt_type);
-	}
 	mutex_unlock(&driver->hdlc_disable_mutex);
 	mutex_unlock(&apps_data_mutex);
 
@@ -2676,7 +2718,10 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		data_type = driver->data_ready[index] & HDLC_SUPPORT_TYPE;
 		driver->data_ready[index] ^= HDLC_SUPPORT_TYPE;
 		COPY_USER_SPACE_OR_EXIT(buf, data_type, sizeof(int));
-		COPY_USER_SPACE_OR_EXIT(buf+4, driver->hdlc_disabled,
+		session_info = diag_md_session_get_pid(current->tgid);
+		if (session_info)
+			COPY_USER_SPACE_OR_EXIT(buf+4,
+					session_info->hdlc_disabled,
 					sizeof(uint8_t));
 		goto exit;
 	}
@@ -3247,6 +3292,8 @@ static int __init diagchar_init(void)
 	INIT_WORK(&(driver->diag_drain_work), diag_drain_work_fn);
 	INIT_WORK(&(driver->update_user_clients),
 			diag_update_user_client_work_fn);
+	INIT_WORK(&(driver->update_md_clients),
+			diag_update_md_client_work_fn);
 	diag_ws_init();
 	diag_stats_init();
 	diag_debug_init();
