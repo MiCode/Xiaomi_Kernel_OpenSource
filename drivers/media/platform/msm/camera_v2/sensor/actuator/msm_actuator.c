@@ -1051,7 +1051,8 @@ static int32_t msm_actuator_power_down(struct msm_actuator_ctrl_t *a_ctrl)
 
 		if (a_ctrl->deinit_setting_size > 0) {
 			if (a_ctrl->func_tbl && a_ctrl->
-				func_tbl->actuator_init_focus) {
+				func_tbl->actuator_init_focus &&
+				a_ctrl->deinit_settings) {
 				rc = a_ctrl->func_tbl->
 					actuator_init_focus(a_ctrl,
 					a_ctrl->deinit_setting_size,
@@ -1299,6 +1300,7 @@ static int32_t msm_actuator_set_param(struct msm_actuator_ctrl_t *a_ctrl,
 					actuator_params.deinit_setting_size *
 					sizeof(struct reg_settings_t))) {
 					kfree(a_ctrl->deinit_settings);
+					a_ctrl->deinit_settings = NULL;
 					kfree(a_ctrl->i2c_reg_tbl);
 					a_ctrl->i2c_reg_tbl = NULL;
 					pr_err("Error copying deinit_settings\n");
