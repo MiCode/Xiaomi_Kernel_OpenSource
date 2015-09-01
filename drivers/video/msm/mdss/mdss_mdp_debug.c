@@ -283,6 +283,38 @@ static void __dump_buf_data(struct seq_file *s, struct msm_fb_data_type *mfd)
 	mutex_unlock(&mdp5_data->list_lock);
 }
 
+static void __dump_timings(struct seq_file *s, struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_panel_info *pinfo;
+
+	if (!ctl || !ctl->panel_data)
+		return;
+
+	pinfo = &ctl->panel_data->panel_info;
+	seq_printf(s, "Panel #%d %dx%dp%d\n",
+			pinfo->pdest, pinfo->xres, pinfo->yres,
+			mdss_panel_get_framerate(pinfo));
+	seq_printf(s, "\tvbp=%d vfp=%d vpw=%d hbp=%d hfp=%d hpw=%d\n",
+			pinfo->lcdc.v_back_porch,
+			pinfo->lcdc.v_front_porch,
+			pinfo->lcdc.v_pulse_width,
+			pinfo->lcdc.h_back_porch,
+			pinfo->lcdc.h_front_porch,
+			pinfo->lcdc.h_pulse_width);
+
+	if (pinfo->lcdc.border_bottom || pinfo->lcdc.border_top ||
+			pinfo->lcdc.border_left ||
+			pinfo->lcdc.border_right) {
+		seq_printf(s, "\tborder (l,t,r,b):[%d,%d,%d,%d] off xy:%d,%d\n",
+				pinfo->lcdc.border_left,
+				pinfo->lcdc.border_top,
+				pinfo->lcdc.border_right,
+				pinfo->lcdc.border_bottom,
+				ctl->border_x_off,
+				ctl->border_y_off);
+	}
+}
+
 static void __dump_ctl(struct seq_file *s, struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_perf_params *perf;
@@ -292,7 +324,13 @@ static void __dump_ctl(struct seq_file *s, struct mdss_mdp_ctl *ctl)
 	seq_printf(s, "\n--[ Control path #%d - ", ctl->num);
 
 	if (ctl->panel_data) {
-		seq_puts(s, mdss_panel2str(ctl->panel_data->panel_info.type));
+		struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
+
+		seq_printf(s, "%s%s]--\n",
+			sctl && sctl->panel_data ? "DUAL " : "",
+			mdss_panel2str(ctl->panel_data->panel_info.type));
+		__dump_timings(s, ctl);
+		__dump_timings(s, sctl);
 	} else {
 		struct mdss_mdp_mixer *mixer;
 		mixer = ctl->mixer_left;
@@ -303,9 +341,9 @@ static void __dump_ctl(struct seq_file *s, struct mdss_mdp_ctl *ctl)
 		} else {
 			seq_puts(s, "unknown");
 		}
+		seq_puts(s, "]--\n");
 	}
 	perf = &ctl->cur_perf;
-	seq_puts(s, "]--\n");
 	seq_printf(s, "MDP Clk=%u  Final BW=%llu\n",
 			perf->mdp_clk_rate,
 			perf->bw_ctl);
