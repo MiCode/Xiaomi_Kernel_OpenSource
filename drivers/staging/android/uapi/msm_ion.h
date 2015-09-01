@@ -25,6 +25,7 @@ enum msm_ion_heap_types {
 enum ion_heap_ids {
 	INVALID_HEAP_ID = -1,
 	ION_CP_MM_HEAP_ID = 8,
+	ION_SECURE_HEAP_ID = 9,
 	ION_CP_MFC_HEAP_ID = 12,
 	ION_CP_WB_HEAP_ID = 16, /* 8660 only */
 	ION_CAMERA_HEAP_ID = 20, /* 8660 only */
@@ -65,6 +66,20 @@ enum cp_mem_usage {
 	MAX_USAGE = 0x6,
 	UNKNOWN = 0x7FFFFFFF,
 };
+
+/**
+ * Flags to be used when allocating from the secure heap for
+ * content protection
+ */
+#define ION_FLAG_CP_TOUCH (1 << 17)
+#define ION_FLAG_CP_BITSTREAM (1 << 18)
+#define ION_FLAG_CP_PIXEL  (1 << 19)
+#define ION_FLAG_CP_NON_PIXEL (1 << 20)
+#define ION_FLAG_CP_CAMERA (1 << 21)
+#define ION_FLAG_CP_HLOS (1 << 22)
+#define ION_FLAG_CP_HLOS_FREE (1 << 23)
+#define ION_FLAG_CP_SEC_DISPLAY (1 << 25)
+#define ION_FLAG_CP_APP (1 << 26)
 
 /**
  * Flag to allow non continguous allocation of memory from secure
@@ -115,6 +130,7 @@ enum cp_mem_usage {
 #define ION_MM_FIRMWARE_HEAP_NAME	"mm_fw"
 #define ION_PIL1_HEAP_NAME  "pil_1"
 #define ION_PIL2_HEAP_NAME  "pil_2"
+#define ION_SECURE_HEAP_NAME	"secure_heap"
 #define ION_QSECOM_HEAP_NAME	"qsecom"
 
 #define ION_SET_CACHED(__cache)		(__cache | ION_FLAG_CACHED)
