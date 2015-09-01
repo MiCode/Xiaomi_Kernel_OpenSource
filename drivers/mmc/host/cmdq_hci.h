@@ -210,6 +210,7 @@ struct cmdq_host_ops {
 	void (*post_cqe_halt)(struct mmc_host *mmc);
 	int (*crypto_cfg)(struct mmc_host *mmc, struct mmc_request *mrq,
 				u32 slot);
+	void (*crypto_cfg_reset)(struct mmc_host *mmc, unsigned int slot);
 };
 
 static inline void cmdq_writel(struct cmdq_host *host, u32 val, int reg)
