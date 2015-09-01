@@ -389,7 +389,7 @@ static int swrm_get_master_port(u8 *mstr_port_id, u8 slv_port_id)
 	return -EINVAL;
 }
 
-static int swrm_cmd_fifo_rd_cmd(struct swr_mstr_ctrl *swrm, u32 *cmd_data,
+static int swrm_cmd_fifo_rd_cmd(struct swr_mstr_ctrl *swrm, int *cmd_data,
 				 u8 dev_addr, u8 cmd_id, u16 reg_addr,
 				 u32 len)
 {
@@ -453,11 +453,13 @@ err:
 	return ret;
 }
 
-static int swrm_read(struct swr_master *master, u8 dev_num, u32 reg_addr,
-		u32 *buf, u32 len)
+static int swrm_read(struct swr_master *master, u8 dev_num, u16 reg_addr,
+		     void *buf, u32 len)
 {
 	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(master);
 	int ret = 0;
+	int val;
+	u8 *reg_val = (u8 *)buf;
 
 	if (!swrm) {
 		dev_err(&master->dev, "%s: swrm is NULL\n", __func__);
@@ -465,29 +467,24 @@ static int swrm_read(struct swr_master *master, u8 dev_num, u32 reg_addr,
 	}
 
 	pm_runtime_get_sync(&swrm->pdev->dev);
-	if (dev_num) {
-		swrm_cmd_fifo_rd_cmd(swrm, buf, dev_num, 0, reg_addr,
-					len);
-	} else {
-		if (swrm->read)
-			buf[0] = swrm->read(swrm->handle, reg_addr);
-		else {
-			dev_err(&master->dev, "%s: handle is NULL 0x%x\n",
-				__func__, reg_addr);
-			ret = -EINVAL;
-		}
-	}
+	if (dev_num)
+		swrm_cmd_fifo_rd_cmd(swrm, &val, dev_num, 0, reg_addr, len);
+	else
+		val = swrm->read(swrm->handle, reg_addr);
+
+	*reg_val = (u8)val;
 	pm_runtime_mark_last_busy(&swrm->pdev->dev);
 	pm_runtime_put_autosuspend(&swrm->pdev->dev);
 
 	return ret;
 }
 
-static int swrm_write(struct swr_master *master, u8 dev_num, u32 reg_addr,
-		u32 *buf)
+static int swrm_write(struct swr_master *master, u8 dev_num, u16 reg_addr,
+		      const void *buf)
 {
 	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(master);
 	int ret = 0;
+	u8 reg_val = *(u8 *)buf;
 
 	if (!swrm) {
 		dev_err(&master->dev, "%s: swrm is NULL\n", __func__);
@@ -495,17 +492,11 @@ static int swrm_write(struct swr_master *master, u8 dev_num, u32 reg_addr,
 	}
 
 	pm_runtime_get_sync(&swrm->pdev->dev);
-	if (dev_num) {
-		ret = swrm_cmd_fifo_wr_cmd(swrm, buf[0], dev_num, 0, reg_addr);
-	} else {
-		if (swrm->write) {
-			ret = swrm->write(swrm->handle, reg_addr, buf[0]);
-		} else {
-			dev_err(&master->dev, "%s: handle is NULL 0x%x\n",
-				__func__, reg_addr);
-			ret = -EINVAL;
-		}
-	}
+	if (dev_num)
+		ret = swrm_cmd_fifo_wr_cmd(swrm, reg_val, dev_num, 0, reg_addr);
+	else
+		ret = swrm->write(swrm->handle, reg_addr, reg_val);
+
 	pm_runtime_mark_last_busy(&swrm->pdev->dev);
 	pm_runtime_put_autosuspend(&swrm->pdev->dev);
 
