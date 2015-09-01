@@ -12,6 +12,7 @@
 
 #include "msm-arm-smmu.dtsi"
 #include "msm-arm-smmu-impl-defs-8996.dtsi"
+#include <dt-bindings/msm/msm-bus-ids.h>
 
 &anoc0_smmu {
 	status = "ok";
@@ -91,6 +92,7 @@
 		"jpeg_ahb_clk", "jpeg_axi_clk",
 		"mmssnoc_axi_clk", "mmagic_camss_axi_clk";
 	#clock-cells = <1>;
+	qcom,bus-master-id = <MSM_BUS_MASTER_JPEG>;
 };
 
 &vfe_smmu {
@@ -112,6 +114,7 @@
 		"vfe_ahb_clk", "vfe_axi_clk",
 		"mmssnoc_axi_clk", "mmagic_camss_axi_clk";
 	#clock-cells = <1>;
+	qcom,bus-master-id = <MSM_BUS_MASTER_VFE>;
 };
 
 &cpp_fd_smmu {
@@ -133,6 +136,7 @@
 		"cpp_ahb_clk", "cpp_axi_clk",
 		"mmssnoc_axi_clk", "mmagic_camss_axi_clk";
 	#clock-cells = <1>;
+	qcom,bus-master-id = <MSM_BUS_MASTER_CPP>;
 };
 
 &venus_smmu {
@@ -154,6 +158,7 @@
 		"video_ahb_clk", "video_axi_clk",
 		"mmssnoc_axi_clk", "mmagic_video_axi_clk";
 	#clock-cells = <1>;
+	qcom,bus-master-id = <MSM_BUS_MASTER_VIDEO_P0>;
 };
 
 &mdp_smmu {
@@ -174,6 +179,7 @@
 		"mdp_ahb_clk", "mdp_axi_clk",
 		"mmssnoc_axi_clk", "mmagic_mdss_axi_clk";
 	#clock-cells = <1>;
+	qcom,bus-master-id = <MSM_BUS_MASTER_MDP_PORT0>;
 };
 
 &rot_smmu {
@@ -194,7 +200,9 @@
 		"rot_ahb_clk", "rot_axi_clk",
 		"mmssnoc_axi_clk", "mmagic_mdss_axi_clk";
 	#clock-cells = <1>;
+	qcom,bus-master-id = <MSM_BUS_MASTER_ROTATOR>;
 };
+
 &kgsl_smmu {
 	status = "ok";
 	qcom,register-save;
