@@ -794,8 +794,8 @@ static ssize_t ipa_read_flt(struct file *file, char __user *ubuf, size_t count,
 		}
 		pr_err("ep_idx:global rule_idx:%d act:%d rt_tbl_idx:%d ",
 			i, entry->rule.action, rt_tbl_idx);
-		pr_err("attrib_mask:%08x to_uc:%d, retain_hdr:%d eq:%d ",
-			bitmap, entry->rule.to_uc, entry->rule.retain_hdr, eq);
+		pr_err("attrib_mask:%08x retain_hdr:%d eq:%d ",
+			bitmap, entry->rule.retain_hdr, eq);
 		if (eq)
 			ipa_attrib_dump_eq(
 				&entry->rule.eq_attrib);
@@ -824,9 +824,8 @@ static ssize_t ipa_read_flt(struct file *file, char __user *ubuf, size_t count,
 			}
 			pr_err("ep_idx:%d rule_idx:%d act:%d rt_tbl_idx:%d ",
 				j, i, entry->rule.action, rt_tbl_idx);
-			pr_err("attrib_mask:%08x to_uc:%d, retain_hdr:%d ",
-				bitmap, entry->rule.to_uc,
-				entry->rule.retain_hdr);
+			pr_err("attrib_mask:%08x retain_hdr:%d ",
+				bitmap, entry->rule.retain_hdr);
 			pr_err("eq:%d ", eq);
 			if (eq)
 				ipa_attrib_dump_eq(

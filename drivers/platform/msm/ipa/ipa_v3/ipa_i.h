@@ -81,19 +81,19 @@
 
 #define IPA_TOS_EQ			BIT(0)
 #define IPA_PROTOCOL_EQ			BIT(1)
-#define IPA_OFFSET_MEQ32_0		BIT(2)
-#define IPA_OFFSET_MEQ32_1		BIT(3)
-#define IPA_IHL_OFFSET_RANGE16_0	BIT(4)
-#define IPA_IHL_OFFSET_RANGE16_1	BIT(5)
-#define IPA_IHL_OFFSET_EQ_16		BIT(6)
-#define IPA_IHL_OFFSET_EQ_32		BIT(7)
-#define IPA_IHL_OFFSET_MEQ32_0		BIT(8)
-#define IPA_OFFSET_MEQ128_0		BIT(9)
-#define IPA_OFFSET_MEQ128_1		BIT(10)
-#define IPA_TC_EQ			BIT(11)
-#define IPA_FL_EQ			BIT(12)
-#define IPA_IHL_OFFSET_MEQ32_1		BIT(13)
-#define IPA_METADATA_COMPARE		BIT(14)
+#define IPA_TC_EQ			BIT(2)
+#define IPA_OFFSET_MEQ128_0		BIT(3)
+#define IPA_OFFSET_MEQ128_1		BIT(4)
+#define IPA_OFFSET_MEQ32_0		BIT(5)
+#define IPA_OFFSET_MEQ32_1		BIT(6)
+#define IPA_IHL_OFFSET_MEQ32_0		BIT(7)
+#define IPA_IHL_OFFSET_MEQ32_1		BIT(8)
+#define IPA_METADATA_COMPARE		BIT(9)
+#define IPA_IHL_OFFSET_RANGE16_0	BIT(10)
+#define IPA_IHL_OFFSET_RANGE16_1	BIT(11)
+#define IPA_IHL_OFFSET_EQ_32		BIT(12)
+#define IPA_IHL_OFFSET_EQ_16		BIT(13)
+#define IPA_FL_EQ			BIT(14)
 #define IPA_IS_FRAG			BIT(15)
 
 #define IPA_HDR_BIN0 0
@@ -469,10 +469,15 @@ struct ipa3_rt_tbl_set {
  *	specified Status End Point. Status endpoint needs to be
  *	configured with STATUS_EN=1 Valid only for Input Pipes (IPA
  *	Consumer)
+ * @status_location: Location of PKT-STATUS on destination pipe.
+ *	If set to 0 (default), PKT-STATUS will be appended before the packet
+ *	for this endpoint. If set to 1, PKT-STATUS will be appended after the
+ *	packet for this endpoint. Valid only for Output Pipes (IPA Producer)
  */
 struct ipa3_ep_cfg_status {
 	bool status_en;
 	u8 status_ep;
+	bool status_location;
 };
 
 /**
@@ -1096,6 +1101,29 @@ struct ipa3_sps_pm {
 };
 
 /**
+ * struct ipa3_hash_tuple - Hash tuple members for flt and rt
+ *  the fields tells if to be masked or not
+ * @src_id: pipe number for flt, table index for rt
+ * @src_ip_addr: IP source address
+ * @dst_ip_addr: IP destination address
+ * @src_port: L4 source port
+ * @dst_port: L4 destination port
+ * @protocol: IP protocol field
+ * @meta_data: packet meta-data
+ *
+ */
+struct ipa3_hash_tuple {
+	/* src_id: pipe in flt, tbl index in rt */
+	bool src_id;
+	bool src_ip_addr;
+	bool dst_ip_addr;
+	bool src_port;
+	bool dst_port;
+	bool protocol;
+	bool meta_data;
+};
+
+/**
  * struct ipa3_context - IPA context
  * @class: pointer to the struct class
  * @dev_num: device number
@@ -1288,6 +1316,8 @@ struct ipa3_context {
  * @route_frag_def_pipe: Default pipe to route fragmented exception
  *    packets and frag new rule statues, if source pipe does not have
  *    a notification status pipe defined.
+ * @route_def_retain_hdr: default value of retain header. It is used
+ *    when no rule was hit
  */
 struct ipa3_route {
 	u32 route_dis;
@@ -1295,6 +1325,7 @@ struct ipa3_route {
 	u32 route_def_hdr_table;
 	u32 route_def_hdr_ofst;
 	u8  route_frag_def_pipe;
+	u32 route_def_retain_hdr;
 };
 
 /**
@@ -1792,6 +1823,8 @@ bool ipa3_get_modem_cfg_emb_pipe_flt(void);
 int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	struct ipa_api_controller *api_ctrl);
 
+bool ipa_is_modem_pipe(int pipe_idx);
+
 int ipa3_send_one(struct ipa3_sys_context *sys, struct ipa3_desc *desc,
 		bool in_atomic);
 int ipa3_send(struct ipa3_sys_context *sys,
@@ -1810,6 +1843,7 @@ u8 *ipa3_write_32(u32 w, u8 *dest);
 u8 *ipa3_write_16(u16 hw, u8 *dest);
 u8 *ipa3_write_8(u8 b, u8 *dest);
 u8 *ipa3_pad_to_32(u8 *dest);
+u8 *ipa3_pad_to_64(u8 *dest);
 int ipa3_init_hw(void);
 struct ipa3_rt_tbl *__ipa3_find_rt_tbl(enum ipa_ip_type ip, const char *name);
 int ipa3_set_single_ndp_per_mbim(bool);
@@ -1981,5 +2015,7 @@ int ipa3_rm_add_dependency_sync(enum ipa_rm_resource_name resource_name,
 		enum ipa_rm_resource_name depends_on_name);
 int ipa3_release_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
 int ipa3_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
+int ipa3_set_flt_tuple_mask(int pipe_idx, struct ipa3_hash_tuple *tuple);
+int ipa3_set_rt_tuple_mask(int tbl_idx, struct ipa3_hash_tuple *tuple);
 
 #endif /* _IPA3_I_H_ */

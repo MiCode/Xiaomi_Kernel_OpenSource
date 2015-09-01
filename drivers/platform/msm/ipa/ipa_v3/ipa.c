@@ -1068,6 +1068,7 @@ int ipa3_setup_dflt_rt_tables(void)
 	rt_rule_entry->at_rear = 1;
 	rt_rule_entry->rule.dst = IPA_CLIENT_APPS_LAN_CONS;
 	rt_rule_entry->rule.hdr_hdl = ipa3_ctx->excp_hdr_hdl;
+	rt_rule_entry->rule.retain_hdr = 1;
 
 	if (ipa3_add_rt_rule(rt_rule)) {
 		IPAERR("fail to add dflt v4 rule\n");
@@ -1138,6 +1139,7 @@ static int ipa3_setup_exception_path(void)
 	route.route_frag_def_pipe = ipa3_get_ep_mapping(
 		IPA_CLIENT_APPS_LAN_CONS);
 	route.route_def_hdr_table = !ipa3_ctx->hdr_tbl_lcl;
+	route.route_def_retain_hdr = 1;
 
 	if (ipa3_cfg_route(&route)) {
 		IPAERR("fail to add exception hdr\n");
@@ -1330,15 +1332,18 @@ static u32 ipa3_get_max_flt_rt_cmds(u32 num_pipes)
 {
 	u32 max_cmds = 0;
 
-	/* As many filter tables as there are pipes, x2 for IPv4 and IPv6 */
-	max_cmds += num_pipes * 2;
+	/*
+	 * As many filter tables as there are filtering pipes,
+	 *	x4 for IPv4/IPv6 and hashable/non-hashable combinations
+	 */
+	max_cmds += ipa3_ctx->ep_flt_num * 4;
 
-	/* For each of the Modem routing tables */
-	max_cmds += (IPA_MEM_PART(v4_modem_rt_index_hi) -
-		     IPA_MEM_PART(v4_modem_rt_index_lo) + 1);
+	/* For each of the Modem routing tables - x2 for hash/non-hash */
+	max_cmds += ((IPA_MEM_PART(v4_modem_rt_index_hi) -
+		     IPA_MEM_PART(v4_modem_rt_index_lo) + 1) * 2);
 
-	max_cmds += (IPA_MEM_PART(v6_modem_rt_index_hi) -
-		     IPA_MEM_PART(v6_modem_rt_index_lo) + 1);
+	max_cmds += ((IPA_MEM_PART(v6_modem_rt_index_hi) -
+		     IPA_MEM_PART(v6_modem_rt_index_lo) + 1) * 2);
 
 	return max_cmds;
 }
@@ -1352,17 +1357,18 @@ static int ipa3_q6_clean_q6_tables(void)
 	int index;
 	int retval;
 	struct ipa3_mem_buffer mem = { 0 };
-	u32 *entry;
+	u64 *entry;
 	u32 max_cmds = ipa3_get_max_flt_rt_cmds(ipa3_ctx->ipa_num_pipes);
+	int flt_idx = 0;
 
-	mem.base = dma_alloc_coherent(ipa3_ctx->pdev, 4, &mem.phys_base,
-		GFP_KERNEL);
+	mem.size = IPA_HW_TBL_HDR_WIDTH;
+	mem.base = dma_alloc_coherent(ipa3_ctx->pdev, mem.size,
+		&mem.phys_base, GFP_KERNEL);
 	if (!mem.base) {
 		IPAERR("failed to alloc DMA buff of size %d\n", mem.size);
 		return -ENOMEM;
 	}
 
-	mem.size = 4;
 	entry = mem.base;
 	*entry = ipa3_ctx->empty_rt_tbl_mem.phys_base;
 
@@ -1382,15 +1388,56 @@ static int ipa3_q6_clean_q6_tables(void)
 	}
 
 	/*
-	 * Iterating over all the pipes which are either invalid but connected
-	 * or connected but not configured by AP.
+	 * Iterating over all the filtering pipes which are
+	 * either invalid but connected or connected but not configured by AP.
 	 */
 	for (pipe_idx = 0; pipe_idx < ipa3_ctx->ipa_num_pipes; pipe_idx++) {
+		if (!ipa_is_ep_support_flt(pipe_idx))
+			continue;
+
 		if (!ipa3_ctx->ep[pipe_idx].valid ||
 		    ipa3_ctx->ep[pipe_idx].skip_ep_cfg) {
 			/*
-			 * Need to point v4 and v6 fltr tables to an empty
-			 * table
+			 * Need to point v4 and v6 hash fltr tables to an
+			 * empty table
+			 */
+			cmd[num_cmds].skip_pipeline_clear = 0;
+			cmd[num_cmds].pipeline_clear_options =
+				IPA_FULL_PIPELINE_CLEAR;
+			cmd[num_cmds].size = mem.size;
+			cmd[num_cmds].system_addr = mem.phys_base;
+			cmd[num_cmds].local_addr =
+				ipa3_ctx->smem_restricted_bytes +
+				IPA_MEM_PART(v4_flt_hash_ofst) +
+				IPA_HW_TBL_HDR_WIDTH +
+				flt_idx * IPA_HW_TBL_HDR_WIDTH;
+
+			desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
+			desc[num_cmds].pyld = &cmd[num_cmds];
+			desc[num_cmds].len = sizeof(*cmd);
+			desc[num_cmds].type = IPA_IMM_CMD_DESC;
+			num_cmds++;
+
+			cmd[num_cmds].skip_pipeline_clear = 0;
+			cmd[num_cmds].pipeline_clear_options =
+				IPA_FULL_PIPELINE_CLEAR;
+			cmd[num_cmds].size = mem.size;
+			cmd[num_cmds].system_addr =  mem.phys_base;
+			cmd[num_cmds].local_addr =
+				ipa3_ctx->smem_restricted_bytes +
+				IPA_MEM_PART(v6_flt_hash_ofst) +
+				IPA_HW_TBL_HDR_WIDTH +
+				flt_idx * IPA_HW_TBL_HDR_WIDTH;
+
+			desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
+			desc[num_cmds].pyld = &cmd[num_cmds];
+			desc[num_cmds].len = sizeof(*cmd);
+			desc[num_cmds].type = IPA_IMM_CMD_DESC;
+			num_cmds++;
+
+			/*
+			 * Need to point v4 and v6 non-hash fltr tables to an
+			 * empty table
 			 */
 			cmd[num_cmds].skip_pipeline_clear = 0;
 			cmd[num_cmds].pipeline_clear_options =
@@ -1400,7 +1447,8 @@ static int ipa3_q6_clean_q6_tables(void)
 			cmd[num_cmds].local_addr =
 				ipa3_ctx->smem_restricted_bytes +
 				IPA_MEM_PART(v4_flt_nhash_ofst) +
-				8 + pipe_idx * 4;
+				IPA_HW_TBL_HDR_WIDTH +
+				flt_idx * IPA_HW_TBL_HDR_WIDTH;
 
 			desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
 			desc[num_cmds].pyld = &cmd[num_cmds];
@@ -1416,7 +1464,8 @@ static int ipa3_q6_clean_q6_tables(void)
 			cmd[num_cmds].local_addr =
 				ipa3_ctx->smem_restricted_bytes +
 				IPA_MEM_PART(v6_flt_nhash_ofst) +
-				8 + pipe_idx * 4;
+				IPA_HW_TBL_HDR_WIDTH +
+				flt_idx * IPA_HW_TBL_HDR_WIDTH;
 
 			desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
 			desc[num_cmds].pyld = &cmd[num_cmds];
@@ -1424,6 +1473,8 @@ static int ipa3_q6_clean_q6_tables(void)
 			desc[num_cmds].type = IPA_IMM_CMD_DESC;
 			num_cmds++;
 		}
+
+		flt_idx++;
 	}
 
 	/* Need to point v4/v6 modem routing tables to an empty table */
@@ -1436,7 +1487,23 @@ static int ipa3_q6_clean_q6_tables(void)
 		cmd[num_cmds].size = mem.size;
 		cmd[num_cmds].system_addr =  mem.phys_base;
 		cmd[num_cmds].local_addr = ipa3_ctx->smem_restricted_bytes +
-			IPA_MEM_PART(v4_rt_nhash_ofst) + index * 4;
+			IPA_MEM_PART(v4_rt_hash_ofst) +
+			index * IPA_HW_TBL_HDR_WIDTH;
+
+		desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
+		desc[num_cmds].pyld = &cmd[num_cmds];
+		desc[num_cmds].len = sizeof(*cmd);
+		desc[num_cmds].type = IPA_IMM_CMD_DESC;
+		num_cmds++;
+
+		cmd[num_cmds].skip_pipeline_clear = 0;
+		cmd[num_cmds].pipeline_clear_options =
+			IPA_FULL_PIPELINE_CLEAR;
+		cmd[num_cmds].size = mem.size;
+		cmd[num_cmds].system_addr =  mem.phys_base;
+		cmd[num_cmds].local_addr = ipa3_ctx->smem_restricted_bytes +
+			IPA_MEM_PART(v4_rt_nhash_ofst) +
+			index * IPA_HW_TBL_HDR_WIDTH;
 
 		desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
 		desc[num_cmds].pyld = &cmd[num_cmds];
@@ -1454,7 +1521,23 @@ static int ipa3_q6_clean_q6_tables(void)
 		cmd[num_cmds].size = mem.size;
 		cmd[num_cmds].system_addr =  mem.phys_base;
 		cmd[num_cmds].local_addr = ipa3_ctx->smem_restricted_bytes +
-			IPA_MEM_PART(v6_rt_nhash_ofst) + index * 4;
+			IPA_MEM_PART(v6_rt_hash_ofst) +
+			index * IPA_HW_TBL_HDR_WIDTH;
+
+		desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
+		desc[num_cmds].pyld = &cmd[num_cmds];
+		desc[num_cmds].len = sizeof(*cmd);
+		desc[num_cmds].type = IPA_IMM_CMD_DESC;
+		num_cmds++;
+
+		cmd[num_cmds].skip_pipeline_clear = 0;
+		cmd[num_cmds].pipeline_clear_options =
+			IPA_FULL_PIPELINE_CLEAR;
+		cmd[num_cmds].size = mem.size;
+		cmd[num_cmds].system_addr =  mem.phys_base;
+		cmd[num_cmds].local_addr = ipa3_ctx->smem_restricted_bytes +
+			IPA_MEM_PART(v6_rt_nhash_ofst) +
+			index * IPA_HW_TBL_HDR_WIDTH;
 
 		desc[num_cmds].opcode = IPA_DMA_SHARED_MEM;
 		desc[num_cmds].pyld = &cmd[num_cmds];
@@ -1680,8 +1763,7 @@ int _ipa_init_sram_v3_0(void)
 		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(
 			ipa3_ctx->smem_restricted_bytes / 4);
 
-	ipa_sram_mmio = ioremap(phys_addr,
-		ipa3_ctx->smem_sz - ipa3_ctx->smem_restricted_bytes);
+	ipa_sram_mmio = ioremap(phys_addr, ipa3_ctx->smem_sz);
 	if (!ipa_sram_mmio) {
 		IPAERR("fail to ioremap IPA SRAM\n");
 		return -ENOMEM;
@@ -2091,6 +2173,58 @@ int _ipa_init_flt6_v3(void)
 	return rc;
 }
 
+static int ipa3_setup_flt_hash_tuple(void)
+{
+	int pipe_idx;
+	struct ipa3_hash_tuple tuple;
+
+	memset(&tuple, 0, sizeof(struct ipa3_hash_tuple));
+
+	for (pipe_idx = 0; pipe_idx < ipa3_ctx->ipa_num_pipes ; pipe_idx++) {
+		if (!ipa_is_ep_support_flt(pipe_idx))
+			continue;
+
+		if (ipa_is_modem_pipe(pipe_idx))
+			continue;
+
+		if (ipa3_set_flt_tuple_mask(pipe_idx, &tuple)) {
+			IPAERR("failed to setup pipe %d flt tuple\n", pipe_idx);
+			return -EFAULT;
+		}
+	}
+
+	return 0;
+}
+
+static int ipa3_setup_rt_hash_tuple(void)
+{
+	int tbl_idx;
+	struct ipa3_hash_tuple tuple;
+
+	memset(&tuple, 0, sizeof(struct ipa3_hash_tuple));
+
+	for (tbl_idx = 0;
+		tbl_idx < max(IPA_MEM_PART(v6_rt_num_index),
+		IPA_MEM_PART(v4_rt_num_index));
+		tbl_idx++) {
+
+		if (tbl_idx >= IPA_MEM_PART(v4_modem_rt_index_lo) &&
+			tbl_idx <= IPA_MEM_PART(v4_modem_rt_index_hi))
+			continue;
+
+		if (tbl_idx >= IPA_MEM_PART(v6_modem_rt_index_lo) &&
+			tbl_idx <= IPA_MEM_PART(v6_modem_rt_index_hi))
+			continue;
+
+		if (ipa3_set_rt_tuple_mask(tbl_idx, &tuple)) {
+			IPAERR("failed to setup tbl %d rt tuple\n", tbl_idx);
+			return -EFAULT;
+		}
+	}
+
+	return 0;
+}
+
 static int ipa3_setup_apps_pipes(void)
 {
 	struct ipa_sys_connect_params sys_in;
@@ -2127,6 +2261,20 @@ static int ipa3_setup_apps_pipes(void)
 
 	ipa3_ctx->ctrl->ipa_init_flt6();
 	IPADBG("V6 FLT initialized\n");
+
+	if (ipa3_setup_flt_hash_tuple()) {
+		IPAERR(":fail to configure flt hash tuple\n");
+		result = -EPERM;
+		goto fail_schedule_delayed_work;
+	}
+	IPADBG("flt hash tuple is configured\n");
+
+	if (ipa3_setup_rt_hash_tuple()) {
+		IPAERR(":fail to configure rt hash tuple\n");
+		result = -EPERM;
+		goto fail_schedule_delayed_work;
+	}
+	IPADBG("rt hash tuple is configured\n");
 
 	if (ipa3_setup_exception_path()) {
 		IPAERR(":fail to setup excp path\n");
@@ -3009,11 +3157,9 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 		ipa3_ctx->ip6_flt_tbl_hash_lcl,
 		ipa3_ctx->ip6_flt_tbl_nhash_lcl);
 
-	if (ipa3_ctx->smem_reqd_sz >
-		ipa3_ctx->smem_sz - ipa3_ctx->smem_restricted_bytes) {
+	if (ipa3_ctx->smem_reqd_sz > ipa3_ctx->smem_sz) {
 		IPAERR("SW expect more core memory, needed %d, avail %d\n",
-			ipa3_ctx->smem_reqd_sz, ipa3_ctx->smem_sz -
-			ipa3_ctx->smem_restricted_bytes);
+			ipa3_ctx->smem_reqd_sz, ipa3_ctx->smem_sz);
 		result = -ENOMEM;
 		goto fail_init_hw;
 	}
@@ -3282,15 +3428,6 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 		IPAERR("unable to create nat device\n");
 		result = -ENODEV;
 		goto fail_nat_dev_add;
-	}
-
-	/* Create workqueue for power management */
-	ipa3_ctx->power_mgmt_wq =
-		create_singlethread_workqueue("ipa_power_mgmt");
-	if (!ipa3_ctx->power_mgmt_wq) {
-		IPAERR("failed to create wq\n");
-		result = -ENOMEM;
-		goto fail_init_hw;
 	}
 
 	/* Initialize IPA RM (resource manager) */
