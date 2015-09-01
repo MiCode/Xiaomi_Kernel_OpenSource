@@ -1552,7 +1552,6 @@
 		qcom,disk-encrypt-pipe-pair = <2>;
 		qcom,support-fde;
 		qcom,appsbl-qseecom-support;
-		qcom,appsbl-loaded-keymaster;
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,support-bus-scaling;
