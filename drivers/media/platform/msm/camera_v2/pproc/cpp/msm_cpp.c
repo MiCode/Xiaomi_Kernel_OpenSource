@@ -1218,15 +1218,21 @@ static void cpp_release_hardware(struct cpp_device *cpp_dev)
 	iounmap(cpp_dev->camss_cpp_base);
 	msm_cam_clk_enable(&cpp_dev->pdev->dev, cpp_clk_info,
 		cpp_dev->cpp_clk, cpp_dev->num_clk, 0);
-	regulator_disable(cpp_dev->fs_cpp);
-	regulator_put(cpp_dev->fs_cpp);
-	cpp_dev->fs_cpp = NULL;
-	regulator_disable(cpp_dev->fs_camss);
-	regulator_put(cpp_dev->fs_camss);
-	cpp_dev->fs_camss = NULL;
-	regulator_disable(cpp_dev->fs_mmagic_camss);
-	regulator_put(cpp_dev->fs_mmagic_camss);
-	cpp_dev->fs_mmagic_camss = NULL;
+	if (cpp_dev->fs_cpp) {
+		regulator_disable(cpp_dev->fs_cpp);
+		regulator_put(cpp_dev->fs_cpp);
+		cpp_dev->fs_cpp = NULL;
+	}
+	if (cpp_dev->fs_camss) {
+		regulator_disable(cpp_dev->fs_camss);
+		regulator_put(cpp_dev->fs_camss);
+		cpp_dev->fs_camss = NULL;
+	}
+	if (cpp_dev->fs_mmagic_camss) {
+		regulator_disable(cpp_dev->fs_mmagic_camss);
+		regulator_put(cpp_dev->fs_mmagic_camss);
+		cpp_dev->fs_mmagic_camss = NULL;
+	}
 	if (cpp_dev->stream_cnt > 0) {
 		pr_warn("stream count active\n");
 		rc = msm_cpp_update_bandwidth_setting(cpp_dev, 0, 0);
