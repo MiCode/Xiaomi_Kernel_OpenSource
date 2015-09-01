@@ -257,6 +257,11 @@ Optional Properties:
 					charger current reduces beyond this threshold
 					parallel charger is disabled. Must be specified
 					if parallel charger is used.
+- qcom,parallel-main-chg-fcc-percent	Percentage of the fast charge current allotted to the
+					main charger when parallel charging is enabled and
+					operational. If this property is not defined, the
+					driver defaults to a 40%/60% split between the main
+					and parallel charger.
 - qcom,battery-data			Points to the phandle of node which
 					contains the battery-profiles supported
 					by the charger/FG.
