@@ -184,6 +184,25 @@
 		};
 	};
 
+	jtag_fuse: jtagfuse@a601c {
+		compatible = "qcom,jtag-fuse-v2";
+		reg = <0xa601c 0x8>;
+		reg-names = "fuse-base";
+	};
+
+	jtag_mm: jtagmm@6042000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x6042000 0x1000>,
+		      <0x6040000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU0>;
+	};
+
 	clock_gcc: qcom,gcc@1800000 {
 		compatible = "qcom,dummycc";
 		#clock-cells = <1>;
