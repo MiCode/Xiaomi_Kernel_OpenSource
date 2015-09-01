@@ -115,9 +115,9 @@ TRACE_EVENT(sched_enq_deq_task,
 TRACE_EVENT(sched_task_load,
 
 	TP_PROTO(struct task_struct *p, bool boost, int reason,
-		 bool sync, bool need_idle, int best_cpu),
+		 bool sync, bool need_idle, bool fast_path, int best_cpu),
 
-	TP_ARGS(p, boost, reason, sync, need_idle, best_cpu),
+	TP_ARGS(p, boost, reason, sync, need_idle, fast_path, best_cpu),
 
 	TP_STRUCT__entry(
 		__array(	char,	comm,	TASK_COMM_LEN	)
@@ -127,6 +127,7 @@ TRACE_EVENT(sched_task_load,
 		__field(	int,	reason			)
 		__field(	bool,	sync			)
 		__field(	bool,	need_idle		)
+		__field(	bool,	fast_path		)
 		__field(	int,	best_cpu		)
 		__field(	u64,	latency			)
 	),
@@ -139,16 +140,18 @@ TRACE_EVENT(sched_task_load,
 		__entry->reason		= reason;
 		__entry->sync		= sync;
 		__entry->need_idle	= need_idle;
+		__entry->fast_path	= fast_path;
 		__entry->best_cpu	= best_cpu;
 		__entry->latency	= p->state == TASK_WAKING ?
 						      sched_ktime_clock() -
 						      p->ravg.mark_start : 0;
 	),
 
-	TP_printk("%d (%s): demand=%u boost=%d reason=%d sync=%d need_idle=%d best_cpu=%d latency=%llu",
+	TP_printk("%d (%s): demand=%u boost=%d reason=%d sync=%d need_idle=%d fast_path=%d best_cpu=%d latency=%llu",
 		__entry->pid, __entry->comm, __entry->demand,
 		__entry->boost, __entry->reason, __entry->sync,
-		__entry->need_idle, __entry->best_cpu, __entry->latency)
+		__entry->need_idle, __entry->fast_path,
+		__entry->best_cpu, __entry->latency)
 );
 
 DECLARE_EVENT_CLASS(sched_cpu_load,

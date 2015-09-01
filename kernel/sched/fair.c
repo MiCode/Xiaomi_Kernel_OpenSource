@@ -2539,6 +2539,14 @@ unsigned int up_down_migrate_scale_factor = 1024;
  */
 unsigned int sysctl_sched_boost;
 
+/*
+ * Scheduler selects and places task to its previous CPU if sleep time is
+ * less than sysctl_sched_select_prev_cpu_us.
+ */
+static unsigned int __read_mostly
+sched_short_sleep_task_threshold = 2000 * NSEC_PER_USEC;
+unsigned int __read_mostly sysctl_sched_select_prev_cpu_us = 2000;
+
 static inline int available_cpu_capacity(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
@@ -2596,6 +2604,9 @@ void set_hmp_defaults(void)
 			  (u64)sched_ravg_window, 100);
 
 	sched_upmigrate_min_nice = sysctl_sched_upmigrate_min_nice;
+
+	sched_short_sleep_task_threshold = sysctl_sched_select_prev_cpu_us *
+					   NSEC_PER_USEC;
 }
 
 u32 sched_get_init_task_load(struct task_struct *p)
@@ -2942,6 +2953,21 @@ static inline int wake_to_idle(struct task_struct *p)
 			 (p->flags & PF_WAKE_UP_IDLE);
 }
 
+static inline bool short_sleep_task_waking(struct task_struct *p, int prev_cpu,
+					   const cpumask_t *search_cpus)
+{
+	/*
+	 * This function should be used by task wake up path only as it's
+	 * assuming p->last_switch_out_ts as last sleep time.
+	 * p->last_switch_out_ts can denote last preemption time as well as
+	 * last sleep time.
+	 */
+	return (sched_short_sleep_task_threshold &&
+		(p->ravg.mark_start - p->last_switch_out_ts <
+		 sched_short_sleep_task_threshold) &&
+		cpumask_test_cpu(prev_cpu, search_cpus));
+}
+
 /* return cheapest cpu that can fit this task */
 static int select_best_cpu(struct task_struct *p, int target, int reason,
 			   int sync)
@@ -2954,11 +2980,32 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 	s64 spare_capacity, highest_spare_capacity = 0;
 	int boost = sched_boost();
 	int need_idle = wake_to_idle(p);
+	bool fast_path = false;
 	cpumask_t search_cpus;
 	struct rq *trq;
 
-	trq = task_rq(p);
 	cpumask_and(&search_cpus, tsk_cpus_allowed(p), cpu_online_mask);
+
+	if (!boost && !reason && !need_idle &&
+	    short_sleep_task_waking(p, prev_cpu, &search_cpus)) {
+		cpu_load = cpu_load_sync(prev_cpu, sync);
+		tload = scale_load_to_cpu(task_load(p), prev_cpu);
+		if (eligible_cpu(tload, cpu_load, prev_cpu, sync) &&
+		    task_load_will_fit(p, tload, prev_cpu)) {
+			fast_path = true;
+			best_cpu = prev_cpu;
+			goto done;
+		}
+
+		spare_capacity = sched_ravg_window - cpu_load;
+		if (spare_capacity > 0) {
+			highest_spare_capacity = spare_capacity;
+			best_capacity_cpu = prev_cpu;
+		}
+		cpumask_clear_cpu(prev_cpu, &search_cpus);
+	}
+
+	trq = task_rq(p);
 	for_each_cpu(i, &search_cpus) {
 		struct rq *rq = cpu_rq(i);
 
@@ -3046,10 +3093,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 
 	if (best_idle_cpu >= 0) {
 		best_cpu = best_idle_cpu;
-		goto done;
-	}
-
-	if (best_cpu < 0 || boost) {
+	} else if (best_cpu < 0 || boost) {
 		if (unlikely(best_capacity_cpu < 0))
 			best_cpu = prev_cpu;
 		else
@@ -3060,7 +3104,8 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 	}
 
 done:
-	trace_sched_task_load(p, boost, reason, sync, need_idle, best_cpu);
+	trace_sched_task_load(p, boost, reason, sync, need_idle, fast_path,
+			      best_cpu);
 
 	return best_cpu;
 }
