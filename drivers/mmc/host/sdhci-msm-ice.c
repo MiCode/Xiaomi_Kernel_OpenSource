@@ -146,6 +146,12 @@ int sdhci_msm_ice_init(struct sdhci_host *host)
 	return 0;
 }
 
+void sdhci_msm_ice_cfg_reset(struct sdhci_host *host, u32 slot)
+{
+	writel_relaxed(SDHCI_MSM_ICE_ENABLE_BYPASS,
+		host->ioaddr + CORE_VENDOR_SPEC_ICE_CTRL_INFO_3_n + 16 * slot);
+}
+
 int sdhci_msm_ice_cfg(struct sdhci_host *host, struct mmc_request *mrq,
 			u32 slot)
 {
