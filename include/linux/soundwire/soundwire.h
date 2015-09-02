@@ -137,6 +137,8 @@ struct swr_master {
 			void *buf, u32 len);
 	int (*write)(struct swr_master *mstr, u8 dev_num, u16 reg_addr,
 			const void *buf);
+	int (*bulk_write)(struct swr_master *master, u8 dev_num, void *reg,
+			  const void *buf, size_t len);
 	int (*get_logical_dev_num)(struct swr_master *mstr, u64 dev_id,
 				u8 *dev_num);
 };
@@ -258,6 +260,9 @@ extern int swr_read(struct swr_device *dev, u8 dev_num, u16 reg_addr,
 
 extern int swr_write(struct swr_device *dev, u8 dev_num, u16 reg_addr,
 			const void *buf);
+
+extern int swr_bulk_write(struct swr_device *dev, u8 dev_num, void *reg_addr,
+			  const void *buf, size_t len);
 
 extern int swr_connect_port(struct swr_device *dev, u8 *port_id, u8 num_port,
 				u8 *ch_mask, u32 *ch_rate, u8 *num_ch);
