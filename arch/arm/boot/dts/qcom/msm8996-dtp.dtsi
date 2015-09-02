@@ -12,6 +12,7 @@
 
 #include "msm8996-pinctrl.dtsi"
 #include "msm8996-mdss-panels.dtsi"
+#include "msm8996-camera-sensor-dtp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8996 DTP";
