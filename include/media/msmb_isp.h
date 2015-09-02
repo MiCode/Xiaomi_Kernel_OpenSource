@@ -240,6 +240,8 @@ struct msm_vfe_fetch_eng_start {
 	uint32_t session_id;
 	uint32_t stream_id;
 	uint32_t buf_idx;
+	uint8_t  offline_mode;
+	uint32_t fd;
 	uint32_t buf_addr;
 };
 
@@ -488,6 +490,10 @@ enum msm_isp_buf_type {
 	MAX_ISP_BUF_TYPE,
 };
 
+struct msm_isp_unmap_buf_req {
+	uint32_t fd;
+};
+
 struct msm_isp_buf_request {
 	uint32_t session_id;
 	uint32_t stream_id;
@@ -625,6 +631,14 @@ struct msm_isp_buf_event {
 	uint32_t output_format;
 	int8_t buf_idx;
 };
+struct msm_isp_fetch_eng_event {
+	uint32_t session_id;
+	uint32_t stream_id;
+	uint32_t handle;
+	uint32_t fd;
+	int8_t buf_idx;
+	int8_t offline_mode;
+};
 struct msm_isp_stats_event {
 	uint32_t stats_mask;                        /* 4 bytes */
 	uint8_t stats_buf_idxs[MSM_ISP_STATS_MAX];  /* 11 bytes */
@@ -696,6 +710,8 @@ struct msm_isp_event_data {
 		struct msm_isp_stats_event stats;
 		/* Sent for Buf_Divert event */
 		struct msm_isp_buf_event buf_done;
+		/* Sent for offline fetch done event */
+		struct msm_isp_fetch_eng_event fetch_done;
 		/* Sent for Error_Event */
 		struct msm_isp_error_info error_info;
 		/*
@@ -716,6 +732,7 @@ struct msm_isp_event_data32 {
 	union {
 		struct msm_isp_stats_event stats;
 		struct msm_isp_buf_event buf_done;
+		struct msm_isp_fetch_eng_event fetch_done;
 		struct msm_isp_error_info error_info;
 		struct msm_isp_output_info output_info;
 		struct msm_isp_sof_info sof_info;
@@ -822,5 +839,11 @@ struct msm_isp_event_data32 {
 #define VIDIOC_MSM_ISP_SET_DUAL_HW_MASTER_SLAVE \
 	_IOWR('V', BASE_VIDIOC_PRIVATE+22, struct msm_isp_set_dual_hw_ms_cmd)
 
+
+#define VIDIOC_MSM_ISP_MAP_BUF_START_FE \
+	_IOWR('V', BASE_VIDIOC_PRIVATE+21, struct msm_vfe_fetch_eng_start)
+
+#define VIDIOC_MSM_ISP_UNMAP_BUF \
+	_IOWR('V', BASE_VIDIOC_PRIVATE+22, struct msm_isp_unmap_buf_req)
 
 #endif /* __MSMB_ISP__ */
