@@ -307,7 +307,7 @@
 		compatible = "qcom,smem";
 		reg = <0x86000000 0x200000>,
 			<0x17820010 0x4>,
-			<0x778000 0x8000>,
+			<0x778000 0x7000>,
 			<0x1fd4000 0x8>;
 		reg-names = "smem", "irq-reg-base", "aux-mem1",
 			"smem_targ_info_reg";
@@ -435,7 +435,7 @@
 
 	qcom,glink-smem-native-xprt-rpm@778000 {
 		compatible = "qcom,glink-rpm-native-xprt";
-		reg = <0x778000 0x8000>,
+		reg = <0x778000 0x7000>,
 			<0x17820010 0x4>;
 		reg-names = "msgram", "irq-reg-base";
 		qcom,irq-mask = <0x1>;
