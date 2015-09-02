@@ -13,6 +13,7 @@
 
 /dts-v1/;
 
+#include "msm8956.dtsi"
 #include "msm8956-cdp.dtsi"
 
 / {
