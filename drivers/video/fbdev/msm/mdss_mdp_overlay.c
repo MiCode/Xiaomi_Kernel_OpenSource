@@ -3587,44 +3587,39 @@ static int mdss_mdp_pp_ioctl(struct msm_fb_data_type *mfd,
 			mdp_pp.op != mdp_op_calib_dcm_state))
 		return -EPERM;
 
-	if (!mdss_mdp_mfd_valid_dspp(mfd)) {
-		pr_err("invalid display num %d for PP config\n", mfd->index);
-		return -EPERM;
-	}
-
 	switch (mdp_pp.op) {
 	case mdp_op_pa_cfg:
-		ret = mdss_mdp_pa_config(&mdp_pp.data.pa_cfg_data,
+		ret = mdss_mdp_pa_config(mfd, &mdp_pp.data.pa_cfg_data,
 					&copyback);
 		break;
 
 	case mdp_op_pa_v2_cfg:
-		ret = mdss_mdp_pa_v2_config(&mdp_pp.data.pa_v2_cfg_data,
+		ret = mdss_mdp_pa_v2_config(mfd, &mdp_pp.data.pa_v2_cfg_data,
 					&copyback);
 		break;
 
 	case mdp_op_pcc_cfg:
-		ret = mdss_mdp_pcc_config(&mdp_pp.data.pcc_cfg_data,
+		ret = mdss_mdp_pcc_config(mfd, &mdp_pp.data.pcc_cfg_data,
 					&copyback);
 		break;
 
 	case mdp_op_lut_cfg:
 		switch (mdp_pp.data.lut_cfg_data.lut_type) {
 		case mdp_lut_igc:
-			ret = mdss_mdp_igc_lut_config(
+			ret = mdss_mdp_igc_lut_config(mfd,
 					(struct mdp_igc_lut_data *)
 					&mdp_pp.data.lut_cfg_data.data,
 					&copyback, copy_from_kernel);
 			break;
 
 		case mdp_lut_pgc:
-			ret = mdss_mdp_argc_config(
+			ret = mdss_mdp_argc_config(mfd,
 				&mdp_pp.data.lut_cfg_data.data.pgc_lut_data,
 				&copyback);
 			break;
 
 		case mdp_lut_hist:
-			ret = mdss_mdp_hist_lut_config(
+			ret = mdss_mdp_hist_lut_config(mfd,
 				(struct mdp_hist_lut_data *)
 				&mdp_pp.data.lut_cfg_data.data, &copyback);
 			break;
@@ -3635,13 +3630,13 @@ static int mdss_mdp_pp_ioctl(struct msm_fb_data_type *mfd,
 		}
 		break;
 	case mdp_op_dither_cfg:
-		ret = mdss_mdp_dither_config(
+		ret = mdss_mdp_dither_config(mfd,
 				&mdp_pp.data.dither_cfg_data,
 				&copyback,
 				false);
 		break;
 	case mdp_op_gamut_cfg:
-		ret = mdss_mdp_gamut_config(
+		ret = mdss_mdp_gamut_config(mfd,
 				&mdp_pp.data.gamut_cfg_data,
 				&copyback);
 		break;
