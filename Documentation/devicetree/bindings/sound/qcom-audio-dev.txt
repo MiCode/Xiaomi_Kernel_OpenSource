@@ -565,6 +565,9 @@ Example:
 		clocks = <&clock_rpm clk_div_clk1>;
 		qcom,node_has_rpm_clock;
 		#clock-cells = <1>;
+		pinctrl-names = "sleep", "active";
+		pinctrl-0 = <&spkr_i2s_clk_sleep>;
+		pinctrl-1 = <&spkr_i2s_clk_active>;
 	};
 
 	audio_slimslave {

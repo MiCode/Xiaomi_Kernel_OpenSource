@@ -685,6 +685,7 @@ struct tasha_priv {
 	struct mutex micb_lock;
 
 	struct clk *wcd_ext_clk;
+	struct clk *wcd_native_clk;
 	struct mutex swr_read_lock;
 	struct mutex swr_write_lock;
 	struct mutex swr_clk_lock;
@@ -11019,7 +11020,7 @@ static int tasha_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct tasha_priv *tasha;
-	struct clk *wcd_ext_clk;
+	struct clk *wcd_ext_clk, *wcd_native_clk;
 	struct wcd9xxx_resmgr_v2 *resmgr;
 	struct wcd9xxx_power_region *cdc_pwr;
 
@@ -11091,6 +11092,14 @@ static int tasha_probe(struct platform_device *pdev)
 		goto resmgr_remove;
 	}
 	tasha->wcd_ext_clk = wcd_ext_clk;
+
+	/* Register native clk for 44.1 playback */
+	wcd_native_clk = clk_get(tasha->wcd9xxx->dev, "wcd_native_clk");
+	if (IS_ERR(wcd_native_clk))
+		dev_dbg(tasha->wcd9xxx->dev, "%s: clk get %s failed\n",
+			__func__, "wcd_native_clk");
+	else
+		tasha->wcd_native_clk = wcd_native_clk;
 	/* Update codec register default values */
 	tasha_update_reg_defaults(tasha);
 	schedule_work(&tasha->swr_add_devices_work);
@@ -11115,6 +11124,8 @@ static int tasha_remove(struct platform_device *pdev)
 	tasha = platform_get_drvdata(pdev);
 
 	clk_put(tasha->wcd_ext_clk);
+	if (tasha->wcd_native_clk)
+		clk_put(tasha->wcd_native_clk);
 	devm_kfree(&pdev->dev, tasha);
 	snd_soc_unregister_codec(&pdev->dev);
 	return 0;

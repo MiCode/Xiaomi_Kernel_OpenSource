@@ -7431,6 +7431,7 @@ struct afe_param_id_clip_bank_sel {
 #define Q6AFE_LPASS_OSR_CLK_DISABLE		     0x0
 
 /* Supported Bit clock values */
+#define Q6AFE_LPASS_IBIT_CLK_11_P2896_MHZ		0xAC4400
 #define Q6AFE_LPASS_IBIT_CLK_8_P192_MHZ		0x7D0000
 #define Q6AFE_LPASS_IBIT_CLK_6_P144_MHZ		0x5DC000
 #define Q6AFE_LPASS_IBIT_CLK_4_P096_MHZ		0x3E8000
@@ -7531,6 +7532,8 @@ enum afe_lpass_clk_mode {
 #define Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_DIVIDEND	0x2
 /* Clock attribute for divisor couple case */
 #define Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_DIVISOR	0x3
+/* Clock set API version */
+#define Q6AFE_LPASS_CLK_CONFIG_API_VERSION		0x1
 
 struct afe_clk_set {
 	/*
