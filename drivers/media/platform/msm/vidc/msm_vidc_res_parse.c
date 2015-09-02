@@ -685,6 +685,15 @@ static int msm_vidc_load_clock_voltage_table(
 	struct platform_device *pdev = res->pdev;
 	struct clock_voltage_info *cv_info = &res->cv_info;
 	int *cv_table = NULL;
+	bool clock_voltage_control = false;
+
+	clock_voltage_control = of_property_read_bool(pdev->dev.of_node,
+			"qcom,disable-clock-voltage-control");
+	if (clock_voltage_control)
+		msm_vidc_regulator_cx_control = 0;
+
+	dprintk(VIDC_DBG, "clock voltage control enabled = %s\n",
+		msm_vidc_regulator_cx_control ? "yes" : "no");
 
 	num_elements = get_u32_array_num_elements(pdev,
 			"qcom,clock-voltage-tbl");
