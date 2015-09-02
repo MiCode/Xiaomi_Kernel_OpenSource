@@ -283,7 +283,8 @@ static rx_handler_result_t _rmnet_map_ingress_handler(struct sk_buff *skb,
 	if (config->ingress_data_format & RMNET_INGRESS_FORMAT_DEMUXING)
 		skb->dev = ep->egress_dev;
 
-	if (config->ingress_data_format & RMNET_INGRESS_FORMAT_MAP_CKSUMV3) {
+	if ((config->ingress_data_format & RMNET_INGRESS_FORMAT_MAP_CKSUMV3) ||
+	    (config->ingress_data_format & RMNET_INGRESS_FORMAT_MAP_CKSUMV4)) {
 		ckresult = rmnet_map_checksum_downlink_packet(skb);
 		trace_rmnet_map_checksum_downlink_packet(skb, ckresult);
 		rmnet_stats_dl_checksum(ckresult);
@@ -373,7 +374,8 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 	additional_header_length = 0;
 
 	required_headroom = sizeof(struct rmnet_map_header_s);
-	if (config->egress_data_format & RMNET_EGRESS_FORMAT_MAP_CKSUMV3) {
+	if ((config->egress_data_format & RMNET_EGRESS_FORMAT_MAP_CKSUMV3) ||
+	    (config->egress_data_format & RMNET_EGRESS_FORMAT_MAP_CKSUMV4)) {
 		required_headroom +=
 			sizeof(struct rmnet_map_ul_checksum_header_s);
 		additional_header_length +=
@@ -390,8 +392,10 @@ static int rmnet_map_egress_handler(struct sk_buff *skb,
 		}
 	}
 
-	if (config->egress_data_format & RMNET_EGRESS_FORMAT_MAP_CKSUMV3) {
-		ckresult = rmnet_map_checksum_uplink_packet(skb, orig_dev);
+	if ((config->egress_data_format & RMNET_EGRESS_FORMAT_MAP_CKSUMV3) ||
+	    (config->egress_data_format & RMNET_EGRESS_FORMAT_MAP_CKSUMV4)) {
+		ckresult = rmnet_map_checksum_uplink_packet
+				(skb, orig_dev, config->egress_data_format);
 		trace_rmnet_map_checksum_uplink_packet(orig_dev, ckresult);
 		rmnet_stats_ul_checksum(ckresult);
 	}
