@@ -1751,7 +1751,6 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		tomtom_enable_qfuse_sensing(rtd->codec);
 	} else {
 		tasha_event_register(msm8996_tasha_codec_event_cb, rtd->codec);
-		tasha_enable_efuse_sensing(rtd->codec);
 		if (aux_dev_type == WSA8810)
 			tasha_set_spkr_mode(rtd->codec, SPKR_MODE_1);
 	}
