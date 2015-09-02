@@ -65,7 +65,9 @@
 #define IPA_IOCTL_ADD_HDR_PROC_CTX 40
 #define IPA_IOCTL_DEL_HDR_PROC_CTX 41
 #define IPA_IOCTL_MDFY_RT_RULE 42
-#define IPA_IOCTL_MAX 43
+#define IPA_IOCTL_ADD_RT_RULE_AFTER 43
+#define IPA_IOCTL_ADD_FLT_RULE_AFTER 44
+#define IPA_IOCTL_MAX 45
 
 /**
  * max size of the header to be inserted
@@ -868,6 +870,28 @@ struct ipa_ioc_add_rt_rule {
 };
 
 /**
+ * struct ipa_ioc_add_rt_rule_after - routing rule addition after a specific
+ * rule parameters(supports multiple rules and commit);
+ *
+ * all rules MUST be added to same table
+ * @commit: should rules be written to IPA HW also?
+ * @ip: IP family of rule
+ * @rt_tbl_name: name of routing table resource
+ * @num_rules: number of routing rules that follow
+ * @add_after_hdl: the rules will be added after this specific rule
+ * @ipa_rt_rule_add rules: all rules need to go back to back here, no pointers
+ *			   at_rear field will be ignored when using this IOCTL
+ */
+struct ipa_ioc_add_rt_rule_after {
+	uint8_t commit;
+	enum ipa_ip_type ip;
+	char rt_tbl_name[IPA_RESOURCE_NAME_MAX];
+	uint8_t num_rules;
+	uint32_t add_after_hdl;
+	struct ipa_rt_rule_add rules[0];
+};
+
+/**
  * struct ipa_rt_rule_mdfy - routing rule descriptor includes
  * in and out parameters
  * @rule: actual rule to be added
@@ -975,6 +999,27 @@ struct ipa_ioc_add_flt_rule {
 	enum ipa_client_type ep;
 	uint8_t global;
 	uint8_t num_rules;
+	struct ipa_flt_rule_add rules[0];
+};
+
+/**
+ * struct ipa_ioc_add_flt_rule_after - filtering rule addition after specific
+ * rule parameters (supports multiple rules and commit)
+ * all rules MUST be added to same table
+ * @commit: should rules be written to IPA HW also?
+ * @ip: IP family of rule
+ * @ep:	which "clients" pipe does this rule apply to?
+ * @num_rules: number of filtering rules that follow
+ * @add_after_hdl: rules will be added after the rule with this handle
+ * @rules: all rules need to go back to back here, no pointers. at rear field
+ *	   is ignored when using this IOCTL
+ */
+struct ipa_ioc_add_flt_rule_after {
+	uint8_t commit;
+	enum ipa_ip_type ip;
+	enum ipa_client_type ep;
+	uint8_t num_rules;
+	uint32_t add_after_hdl;
 	struct ipa_flt_rule_add rules[0];
 };
 
@@ -1378,12 +1423,18 @@ struct ipa_ioc_write_qmapid {
 #define IPA_IOC_ADD_RT_RULE _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_ADD_RT_RULE, \
 					struct ipa_ioc_add_rt_rule *)
+#define IPA_IOC_ADD_RT_RULE_AFTER _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_ADD_RT_RULE_AFTER, \
+					struct ipa_ioc_add_rt_rule_after *)
 #define IPA_IOC_DEL_RT_RULE _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_DEL_RT_RULE, \
 					struct ipa_ioc_del_rt_rule *)
 #define IPA_IOC_ADD_FLT_RULE _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_ADD_FLT_RULE, \
 					struct ipa_ioc_add_flt_rule *)
+#define IPA_IOC_ADD_FLT_RULE_AFTER _IOWR(IPA_IOC_MAGIC, \
+					IPA_IOCTL_ADD_FLT_RULE_AFTER, \
+					struct ipa_ioc_add_flt_rule_after *)
 #define IPA_IOC_DEL_FLT_RULE _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_DEL_FLT_RULE, \
 					struct ipa_ioc_del_flt_rule *)
