@@ -362,7 +362,8 @@
 		compatible = "qcom,glink_ssr";
 		label = "modem";
 		qcom,edge = "mpss";
-		qcom,notify-edges = <&glink_lpass>, <&glink_dsps>, <&glink_rpm>;
+		qcom,notify-edges = <&glink_lpass>, <&glink_dsps>, <&glink_rpm>,
+					<&glink_spss>;
 		qcom,xprt = "smem";
 	};
 
@@ -370,7 +371,8 @@
 		compatible = "qcom,glink_ssr";
 		label = "adsp";
 		qcom,edge = "lpass";
-		qcom,notify-edges = <&glink_mpss>, <&glink_dsps>, <&glink_rpm>;
+		qcom,notify-edges = <&glink_mpss>, <&glink_dsps>, <&glink_rpm>,
+					<&glink_spss>;
 		qcom,xprt = "smem";
 	};
 
@@ -378,7 +380,8 @@
 		compatible = "qcom,glink_ssr";
 		label = "slpi";
 		qcom,edge = "dsps";
-		qcom,notify-edges = <&glink_mpss>, <&glink_lpass>, <&glink_rpm>;
+		qcom,notify-edges = <&glink_mpss>, <&glink_lpass>, <&glink_rpm>,
+					<&glink_spss>;
 		qcom,xprt = "smem";
 	};
 
@@ -387,8 +390,17 @@
 		label = "rpm";
 		qcom,edge = "rpm";
 		qcom,notify-edges = <&glink_lpass>, <&glink_mpss>,
-					<&glink_dsps>;
+					<&glink_dsps>, <&glink_spss>;
 		qcom,xprt = "smem";
+	};
+
+	glink_spss: qcom,glink-ssr-spss {
+		compatible = "qcom,glink_ssr";
+		label = "spss";
+		qcom,edge = "spss";
+		qcom,notify-edges = <&glink_mpss>, <&glink_lpass>,
+				<&glink_dsps>, <&glink_rpm>;
+		qcom,xprt = "mailbox";
 	};
 
 	qcom,glink-smem-native-xprt-modem@86000000 {
