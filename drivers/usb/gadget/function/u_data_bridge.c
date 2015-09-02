@@ -507,6 +507,7 @@ ssize_t gbridge_port_write(struct file *file,
 	struct gbridge_port *port;
 	struct usb_request *req;
 	struct list_head *pool;
+	unsigned xfer_size;
 
 	port = file->private_data;
 	if (!port) {
@@ -528,12 +529,17 @@ ssize_t gbridge_port_write(struct file *file,
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	pr_debug("%s: write buf size:%zu\n", __func__, count);
-	ret = copy_from_user(req->buf, buf, count);
+	if (count > BRIDGE_TX_BUF_SIZE)
+		xfer_size = BRIDGE_TX_BUF_SIZE;
+	else
+		xfer_size = count;
+
+	ret = copy_from_user(req->buf, buf, xfer_size);
 	if (ret) {
 		pr_err("copy_from_user failed: err %d\n", ret);
 		ret = -EFAULT;
 	} else {
-		req->length = count;
+		req->length = xfer_size;
 		ret = usb_ep_queue(port->port_usb->in, req, GFP_KERNEL);
 		if (ret) {
 			pr_err("EP QUEUE failed:%d\n", ret);
@@ -552,7 +558,7 @@ err_exit:
 	if (ret)
 		return ret;
 	else
-		return count;
+		return xfer_size;
 }
 
 static unsigned int gbridge_port_poll(struct file *file, poll_table *wait)
