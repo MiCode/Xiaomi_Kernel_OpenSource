@@ -117,13 +117,11 @@ int _ipa_read_gen_reg_v3_0(char *buff, int max_len)
 			"IPA_VERSION=0x%x\n"
 			"IPA_COMP_HW_VERSION=0x%x\n"
 			"IPA_ROUTE=0x%x\n"
-			"IPA_FILTER=0x%x\n"
 			"IPA_SHARED_MEM_RESTRICTED=0x%x\n"
 			"IPA_SHARED_MEM_SIZE=0x%x\n",
 			ipa_read_reg(ipa3_ctx->mmio, IPA_VERSION_OFST),
 			ipa_read_reg(ipa3_ctx->mmio, IPA_COMP_HW_VERSION_OFST),
 			ipa_read_reg(ipa3_ctx->mmio, IPA_ROUTE_OFST_v3_0),
-			ipa_read_reg(ipa3_ctx->mmio, IPA_FILTER_OFST_v3_0),
 			ipa_read_reg_field(ipa3_ctx->mmio,
 				IPA_SHARED_MEM_SIZE_OFST_v3_0,
 				IPA_SHARED_MEM_SIZE_SHARED_MEM_BADDR_BMSK_v3_0,
