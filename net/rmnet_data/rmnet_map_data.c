@@ -131,7 +131,8 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 	maph = (struct rmnet_map_header_s *) skb->data;
 	packet_len = ntohs(maph->pkt_len) + sizeof(struct rmnet_map_header_s);
 
-	if (config->ingress_data_format & RMNET_INGRESS_FORMAT_MAP_CKSUMV3)
+	if ((config->ingress_data_format & RMNET_INGRESS_FORMAT_MAP_CKSUMV3) ||
+	    (config->ingress_data_format & RMNET_INGRESS_FORMAT_MAP_CKSUMV4))
 		packet_len += sizeof(struct rmnet_map_dl_checksum_trailer_s);
 
 	if ((((int)skb->len) - ((int)packet_len)) < 0) {
@@ -654,6 +655,37 @@ static void rmnet_map_fill_ipv6_packet_ul_checksum_header(void *iphdr,
 	skb->ip_summed = CHECKSUM_NONE;
 }
 
+static void rmnet_map_complement_ipv4_txporthdr_csum_field(void *iphdr)
+{
+	struct iphdr *ip4h = (struct iphdr *)iphdr;
+	void *txporthdr;
+	uint16_t *csum;
+
+	txporthdr = iphdr + ip4h->ihl*4;
+
+	if ((ip4h->protocol == IPPROTO_TCP) ||
+	    (ip4h->protocol == IPPROTO_UDP)) {
+		csum = (uint16_t *)rmnet_map_get_checksum_field(ip4h->protocol,
+								txporthdr);
+		*csum = ~(*csum);
+	}
+}
+
+static void rmnet_map_complement_ipv6_txporthdr_csum_field(void *ip6hdr)
+{
+	struct ipv6hdr *ip6h = (struct ipv6hdr *)ip6hdr;
+	void *txporthdr;
+	uint16_t *csum;
+
+	txporthdr = ip6hdr + sizeof(struct ipv6hdr);
+
+	if ((ip6h->nexthdr == IPPROTO_TCP) || (ip6h->nexthdr == IPPROTO_UDP)) {
+		csum = (uint16_t *)rmnet_map_get_checksum_field(ip6h->nexthdr,
+								txporthdr);
+		*csum = ~(*csum);
+	}
+}
+
 /**
  * rmnet_map_checksum_uplink_packet() - Generates UL checksum
  * meta info header
@@ -668,7 +700,7 @@ static void rmnet_map_fill_ipv6_packet_ul_checksum_header(void *iphdr,
  *   - RMNET_MAP_CHECKSUM_SW: Unsupported packet for UL checksum offload.
  */
 int rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
-	struct net_device *orig_dev)
+	struct net_device *orig_dev, uint32_t egress_data_format)
 {
 	unsigned char ip_version;
 	struct rmnet_map_ul_checksum_header_s *ul_header;
@@ -691,10 +723,18 @@ int rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
 		if (ip_version == 0x04) {
 			rmnet_map_fill_ipv4_packet_ul_checksum_header(iphdr,
 				ul_header, skb);
+			if (egress_data_format &
+			    RMNET_EGRESS_FORMAT_MAP_CKSUMV4)
+				rmnet_map_complement_ipv4_txporthdr_csum_field(
+					iphdr);
 			return RMNET_MAP_CHECKSUM_OK;
 		} else if (ip_version == 0x06) {
 			rmnet_map_fill_ipv6_packet_ul_checksum_header(iphdr,
 				ul_header, skb);
+			if (egress_data_format &
+			    RMNET_EGRESS_FORMAT_MAP_CKSUMV4)
+				rmnet_map_complement_ipv6_txporthdr_csum_field(
+					iphdr);
 			return RMNET_MAP_CHECKSUM_OK;
 		} else {
 			ret = RMNET_MAP_CHECKSUM_ERR_UNKNOWN_IP_VERSION;
