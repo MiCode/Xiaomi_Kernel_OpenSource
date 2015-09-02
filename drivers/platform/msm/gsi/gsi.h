@@ -20,7 +20,7 @@
 #include <linux/msm_gsi.h>
 
 #define GSI_MAX_CHAN      31
-#define GSI_MAX_EVT_RING  16
+#define GSI_MAX_EVT_RING  23
 #define GSI_NO_EVT_ERINDEX 31
 
 #define gsi_readl(c)	({ u32 __v = readl_relaxed(c); __iormb(); __v; })
