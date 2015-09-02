@@ -26,7 +26,7 @@
 #include <linux/spinlock.h>
 
 struct removed_region {
-	dma_addr_t	base;
+	phys_addr_t	base;
 	int		nr_pages;
 	unsigned long	*bitmap;
 	struct mutex	lock;
