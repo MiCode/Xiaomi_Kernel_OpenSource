@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#include <dt-bindings/clock/msm-clocks-8996.h>
-
 &soc {
 	jpeg_smmu: arm,smmu-jpeg@d80000 {
 		status = "disabled";
