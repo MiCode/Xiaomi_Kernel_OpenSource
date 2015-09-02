@@ -275,8 +275,10 @@ static int wcd_resmgr_enable_clk_rco(struct wcd9xxx_resmgr_v2 *resmgr)
 	} else if ((resmgr->clk_rco_users == 1) &&
 		   (resmgr->clk_mclk_users)) {
 		/* RCO Enable */
-		wcd_resmgr_codec_reg_update_bits(resmgr, WCD9335_ANA_RCO,
-						 0x80, 0x80);
+		if (resmgr->sido_input_src == SIDO_SOURCE_INTERNAL)
+			wcd_resmgr_codec_reg_update_bits(resmgr,
+							 WCD9335_ANA_RCO,
+							 0x80, 0x80);
 		/*
 		 * 20us required after RCO BG is enabled as per HW
 		 * requirements
@@ -336,16 +338,20 @@ static int wcd_resmgr_disable_clk_rco(struct wcd9xxx_resmgr_v2 *resmgr)
 						 0x04, 0x00);
 		wcd_resmgr_codec_reg_update_bits(resmgr, WCD9335_ANA_RCO,
 						 0x40, 0x00);
-		wcd_resmgr_codec_reg_update_bits(resmgr, WCD9335_ANA_RCO,
-						 0x80, 0x00);
+		if (resmgr->sido_input_src == SIDO_SOURCE_INTERNAL)
+			wcd_resmgr_codec_reg_update_bits(resmgr,
+							 WCD9335_ANA_RCO,
+							 0x80, 0x00);
 		resmgr->clk_type = WCD_CLK_OFF;
 	} else if ((resmgr->clk_rco_users == 0) &&
 	      (resmgr->clk_mclk_users)) {
 		/* Disable RCO while MCLK is ON */
 		wcd_resmgr_codec_reg_update_bits(resmgr, WCD9335_ANA_RCO,
 						 0x40, 0x00);
-		wcd_resmgr_codec_reg_update_bits(resmgr, WCD9335_ANA_RCO,
-						 0x80, 0x00);
+		if (resmgr->sido_input_src == SIDO_SOURCE_INTERNAL)
+			wcd_resmgr_codec_reg_update_bits(resmgr,
+							 WCD9335_ANA_RCO,
+							 0x80, 0x00);
 	}
 	pr_debug("%s: rco clk users: %d, clk_type: %s\n", __func__,
 		 resmgr->clk_rco_users,
@@ -442,6 +448,7 @@ struct wcd9xxx_resmgr_v2 *wcd_resmgr_init(
 	resmgr->master_bias_users = 0;
 	resmgr->codec = codec;
 	resmgr->core_res = core_res;
+	resmgr->sido_input_src = SIDO_SOURCE_INTERNAL;
 
 	return resmgr;
 }
