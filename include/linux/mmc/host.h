@@ -432,7 +432,7 @@ struct mmc_host {
 #define MMC_CAP2_HS400_POST_TUNING	(1 << 21)
 #define MMC_CAP2_NONHOTPLUG	(1 << 25)	/*Don't support hotplug*/
 #define MMC_CAP2_CMD_QUEUE	(1 << 26)	/* support eMMC command queue */
-
+#define MMC_CAP2_SANITIZE       (1 << 27)               /* Support Sanitize */
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
 #ifdef CONFIG_MMC_CLKGATE
