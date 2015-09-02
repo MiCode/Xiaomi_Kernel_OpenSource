@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -141,6 +141,6 @@ void rmnet_map_aggregate(struct sk_buff *skb,
 
 int rmnet_map_checksum_downlink_packet(struct sk_buff *skb);
 int rmnet_map_checksum_uplink_packet(struct sk_buff *skb,
-				      struct net_device *orig_dev);
+	struct net_device *orig_dev, uint32_t egress_data_format);
 
 #endif /* _RMNET_MAP_H_ */
