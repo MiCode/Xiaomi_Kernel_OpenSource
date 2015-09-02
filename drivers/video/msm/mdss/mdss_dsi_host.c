@@ -1078,6 +1078,7 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 	struct mdss_panel_info *pinfo;
 	struct mipi_panel_info *mipi;
 	struct dsc_desc *dsc = NULL;
+	u32 data = 0;
 	u32 hbp, hfp, vbp, vfp, hspw, vspw, width, height;
 	u32 ystride, bpp, dst_bpp, byte_num;
 	u32 stream_ctrl, stream_total;
@@ -1170,6 +1171,14 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 			stream_ctrl = (ystride << 16) | (mipi->vc << 8) |
 					DTYPE_DCS_LWRITE;
 			stream_total = height << 16 | width;
+		}
+
+		/* DSI_COMMAND_MODE_NULL_INSERTION_CTRL */
+		if (ctrl_pdata->shared_data->hw_rev >= MDSS_DSI_HW_REV_104) {
+			data = (mipi->vc << 1); /* Virtual channel ID */
+			data |= 0 << 16; /* Word count of the NULL packet */
+			data |= 0x1; /* Enable Null insertion */
+			MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2b4, data);
 		}
 
 		/* DSI_COMMAND_MODE_MDP_STREAM_CTRL */
