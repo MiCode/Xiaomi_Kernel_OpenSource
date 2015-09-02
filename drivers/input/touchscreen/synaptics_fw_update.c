@@ -29,7 +29,6 @@
 #include <linux/input/synaptics_dsx.h>
 #include "synaptics_i2c_rmi4.h"
 
-#define DEBUG_FW_UPDATE
 #define SHOW_PROGRESS
 #define MAX_FIRMWARE_ID_LEN 10
 #define FORCE_UPDATE false
@@ -53,6 +52,14 @@
 #define BLOCK_NUMBER_OFFSET 0
 #define BLOCK_DATA_OFFSET 2
 
+#define RMI4_INFO_MAX_LEN	200
+
+#define RMI4_STORE_TS_INFO(buf, id, rev, fw_ver) \
+		snprintf(buf, RMI4_INFO_MAX_LEN, \
+			"controller\t= synaptics\n" \
+			"model\t\t= %d rev %d\n" \
+			"fw_ver\t\t= %d\n", id, rev, fw_ver)
+
 enum falsh_config_area {
 	UI_CONFIG_AREA = 0x00,
 	PERM_CONFIG_AREA = 0x01,
@@ -75,7 +82,8 @@ enum flash_command {
 enum flash_area {
 	NONE,
 	UI_FIRMWARE,
-	CONFIG_AREA
+	CONFIG_AREA,
+	MISMATCH
 };
 
 enum image_file_option {
@@ -115,10 +123,10 @@ struct image_header_data {
 			/* 0x10-0x1F */
 			unsigned char product_id[
 					SYNAPTICS_RMI4_PRODUCT_ID_SIZE];
-			unsigned char reserved_1a;
-			unsigned char reserved_1b;
-			unsigned char reserved_1c;
-			unsigned char reserved_1d;
+			unsigned char pkg_id_lsb;
+			unsigned char pkg_id_msb;
+			unsigned char pkg_id_rev_lsb;
+			unsigned char pkg_id_rev_msb;
 			unsigned char product_info[
 					SYNAPTICS_RMI4_PRODUCT_INFO_SIZE];
 			/* 0x20-0x2F */
@@ -131,7 +139,7 @@ struct image_header_data {
 			/* 0x50-0x53*/
 			unsigned char firmware_id[4];
 		} __packed;
-		unsigned char data[54];
+		unsigned char data[0x54];
 	};
 };
 
@@ -143,6 +151,8 @@ struct image_header {
 	unsigned char bootloader_version;
 	unsigned char product_id[SYNAPTICS_RMI4_PRODUCT_ID_SIZE + 1];
 	unsigned char product_info[SYNAPTICS_RMI4_PRODUCT_INFO_SIZE];
+	u16 package_id;
+	u16 package_revision_id;
 	unsigned int firmware_id;
 	bool is_contain_build_info;
 };
@@ -244,6 +254,7 @@ struct synaptics_rmi4_fwu_handle {
 	struct workqueue_struct *fwu_workqueue;
 	struct delayed_work fwu_work;
 	char firmware_name[NAME_BUFFER_SIZE];
+	char *ts_info;
 };
 
 static struct synaptics_rmi4_fwu_handle *fwu;
@@ -266,6 +277,26 @@ static unsigned int extract_uint_be(const unsigned char *ptr)
 			(unsigned int)ptr[0] * 0x1000000;
 }
 
+static void synaptics_rmi4_update_debug_info(void)
+{
+	unsigned char pkg_id[4];
+	unsigned int build_id;
+	struct synaptics_rmi4_device_info *rmi;
+	/* read device package id */
+	fwu->fn_ptr->read(fwu->rmi4_data,
+				fwu->f01_fd.query_base_addr + 17,
+				pkg_id,
+				sizeof(pkg_id));
+	rmi = &(fwu->rmi4_data->rmi4_mod_info);
+
+	build_id = (unsigned int)rmi->build_id[0] +
+			(unsigned int)rmi->build_id[1] * 0x100 +
+			(unsigned int)rmi->build_id[2] * 0x10000;
+
+	RMI4_STORE_TS_INFO(fwu->ts_info, pkg_id[1] << 8 | pkg_id[0],
+		pkg_id[3] << 8 | pkg_id[2], build_id);
+}
+
 static void parse_header(struct image_header *header,
 		const unsigned char *fw_image)
 {
@@ -277,25 +308,33 @@ static void parse_header(struct image_header *header,
 	header->config_size = extract_uint(data->config_size);
 	memcpy(header->product_id, data->product_id,
 		sizeof(data->product_id));
-	header->product_id[sizeof(data->product_info)] = 0;
+	header->product_id[sizeof(data->product_id)] = 0;
+
 	memcpy(header->product_info, data->product_info,
 		sizeof(data->product_info));
 
 	header->is_contain_build_info =
 		(data->options_firmware_id == (1 << OPTION_BUILD_INFO));
 	if (header->is_contain_build_info) {
+		header->package_id = (data->pkg_id_rev_msb << 8) |
+				data->pkg_id_lsb;
+		header->package_revision_id = (data->pkg_id_rev_msb << 8) |
+				data->pkg_id_rev_lsb;
+		dev_info(&fwu->rmi4_data->i2c_client->dev,
+			"%s Package ID %d Rev %d\n", __func__,
+			header->package_id, header->package_revision_id);
+
 		header->firmware_id = extract_uint(data->firmware_id);
 		dev_info(&fwu->rmi4_data->i2c_client->dev,
 			"%s Firwmare build id %d\n", __func__,
 			header->firmware_id);
 	}
 
-#ifdef DEBUG_FW_UPDATE
-	dev_info(&fwu->rmi4_data->i2c_client->dev,
+	dev_dbg(&fwu->rmi4_data->i2c_client->dev,
 		"Firwmare size %d, config size %d\n",
 		header->image_size,
 		header->config_size);
-#endif
+	return;
 }
 
 static int fwu_read_f01_device_status(struct f01_device_status *status)
@@ -447,11 +486,9 @@ static int fwu_reset_device(void)
 {
 	int retval;
 
-#ifdef DEBUG_FW_UPDATE
-	dev_info(&fwu->rmi4_data->i2c_client->dev,
+	dev_dbg(&fwu->rmi4_data->i2c_client->dev,
 			"%s: Reset device\n",
 			__func__);
-#endif
 
 	retval = fwu->rmi4_data->reset_device(fwu->rmi4_data);
 	if (retval < 0) {
@@ -517,6 +554,7 @@ static enum flash_area fwu_go_nogo(struct image_header *header)
 	unsigned long imageFirmwareID;
 	unsigned char firmware_id[4];
 	unsigned char config_id[4];
+	unsigned char pkg_id[4];
 	char *strptr;
 	char *imagePR = kzalloc(sizeof(MAX_FIRMWARE_ID_LEN), GFP_KERNEL);
 	enum flash_area flash_area = NONE;
@@ -526,6 +564,24 @@ static enum flash_area fwu_go_nogo(struct image_header *header)
 	if (fwu->force_update) {
 		flash_area = UI_FIRMWARE;
 		goto exit;
+	}
+
+	if (header->is_contain_build_info) {
+		/* if package id does not match, do not update firmware */
+		fwu->fn_ptr->read(fwu->rmi4_data,
+					fwu->f01_fd.query_base_addr + 17,
+					pkg_id,
+					sizeof(pkg_id));
+
+		if (header->package_id != ((pkg_id[1] << 8) | pkg_id[0])) {
+			flash_area = MISMATCH;
+			goto exit;
+		}
+		if (header->package_revision_id !=
+				((pkg_id[3] << 8) | pkg_id[2])) {
+			flash_area = MISMATCH;
+			goto exit;
+		}
 	}
 
 	retval = fwu_read_f01_device_status(&f01_device_status);
@@ -638,10 +694,13 @@ static enum flash_area fwu_go_nogo(struct image_header *header)
 		flash_area = CONFIG_AREA;
 		goto exit;
 	}
-
 exit:
 	kfree(imagePR);
-	if (flash_area == NONE)
+	if (flash_area == MISMATCH)
+		dev_info(&i2c_client->dev,
+			"%s: Package ID indicates mismatch of firmware and",
+			" controller compatibility\n", __func__);
+	else if (flash_area == NONE)
 		dev_info(&i2c_client->dev,
 			"%s: Nothing needs to be updated\n", __func__);
 	else
@@ -663,9 +722,7 @@ static int fwu_scan_pdt(void)
 	bool f34found = false;
 	struct synaptics_rmi4_fn_desc rmi_fd;
 
-#ifdef DEBUG_FW_UPDATE
-	dev_info(&fwu->rmi4_data->i2c_client->dev, "Scan PDT\n");
-#endif
+	dev_dbg(&fwu->rmi4_data->i2c_client->dev, "Scan PDT\n");
 
 	for (addr = PDT_START; addr > PDT_END; addr -= PDT_ENTRY_SIZE) {
 		retval = fwu->fn_ptr->read(fwu->rmi4_data,
@@ -728,13 +785,11 @@ static int fwu_write_blocks(unsigned char *block_ptr, unsigned short block_cnt,
 				10 : 100;
 #endif
 
-#ifdef DEBUG_FW_UPDATE
-	dev_info(&i2c_client->dev,
+	dev_dbg(&i2c_client->dev,
 			"%s: Start to update %s blocks\n",
 			__func__,
 			command == CMD_WRITE_CONFIG_BLOCK ?
 			"config" : "firmware");
-#endif
 	retval = fwu->fn_ptr->write(fwu->rmi4_data,
 			fwu->f34_fd.data_base_addr + BLOCK_NUMBER_OFFSET,
 			block_offset,
@@ -819,12 +874,11 @@ static int fwu_write_bootloader_id(void)
 {
 	int retval;
 
-#ifdef DEBUG_FW_UPDATE
-	dev_info(&fwu->rmi4_data->i2c_client->dev,
+	dev_dbg(&fwu->rmi4_data->i2c_client->dev,
 			"Write bootloader ID 0x%02X 0x%02X\n",
 			fwu->bootloader_id[0],
 			fwu->bootloader_id[1]);
-#endif
+
 	retval = fwu->fn_ptr->write(fwu->rmi4_data,
 			fwu->f34_fd.data_base_addr + BLOCK_DATA_OFFSET,
 			fwu->bootloader_id,
@@ -845,9 +899,8 @@ static int fwu_enter_flash_prog(void)
 	struct f01_device_status f01_device_status;
 	struct f01_device_control f01_device_control;
 
-#ifdef DEBUG_FW_UPDATE
-	dev_info(&fwu->rmi4_data->i2c_client->dev, "Enter bootloader mode\n");
-#endif
+	dev_dbg(&fwu->rmi4_data->i2c_client->dev, "Enter bootloader mode\n");
+
 	retval = fwu_read_f01_device_status(&f01_device_status);
 	if (retval < 0)
 		return retval;
@@ -1263,6 +1316,8 @@ static int fwu_start_reflash(void)
 
 	switch (flash_area) {
 	case NONE:
+	case MISMATCH:
+		retval = 0;
 		dev_info(&fwu->rmi4_data->i2c_client->dev,
 		"%s: No need to do reflash.\n",
 		__func__);
@@ -1327,7 +1382,7 @@ int synaptics_fw_updater(unsigned char *fw_data)
 		return -ENODEV;
 
 	fwu->rmi4_data->fw_updating = true;
-	if (fwu->rmi4_data->touch_stopped == true) {
+	if (fwu->rmi4_data->suspended == true) {
 		fwu->rmi4_data->fw_updating = false;
 		dev_err(&fwu->rmi4_data->i2c_client->dev,
 			"Cannot start fw upgrade while device is in suspend\n");
@@ -1339,6 +1394,8 @@ int synaptics_fw_updater(unsigned char *fw_data)
 
 	retval = fwu_start_reflash();
 	fwu->rmi4_data->fw_updating = false;
+
+	synaptics_rmi4_update_debug_info();
 
 	return retval;
 }
@@ -1617,6 +1674,41 @@ static ssize_t fwu_sysfs_config_id_show(struct device *dev,
 		config_id[0], config_id[1], config_id[2], config_id[3]);
 }
 
+static ssize_t fwu_sysfs_package_id_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	unsigned char pkg_id[4];
+	/* read device package id */
+	fwu->fn_ptr->read(fwu->rmi4_data,
+				fwu->f01_fd.query_base_addr + 17,
+				pkg_id,
+				sizeof(pkg_id));
+
+	return snprintf(buf, PAGE_SIZE, "%d rev %d\n",
+		(pkg_id[1] << 8) | pkg_id[0],
+		(pkg_id[3] << 8) | pkg_id[2]);
+}
+
+static int synaptics_rmi4_debug_dump_info(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%s\n", fwu->ts_info);
+
+	return 0;
+}
+
+static int debugfs_dump_info_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, synaptics_rmi4_debug_dump_info,
+			inode->i_private);
+}
+
+static const struct file_operations debug_dump_info_fops = {
+	.owner		= THIS_MODULE,
+	.open		= debugfs_dump_info_open,
+	.read		= seq_read,
+	.release	= single_release,
+};
+
 static void synaptics_rmi4_fwu_attn(struct synaptics_rmi4_data *rmi4_data,
 		unsigned char intr_mask)
 {
@@ -1627,7 +1719,7 @@ static void synaptics_rmi4_fwu_attn(struct synaptics_rmi4_data *rmi4_data,
 static struct bin_attribute dev_attr_data = {
 	.attr = {
 		.name = "data",
-		.mode = (S_IRUGO | S_IWUGO),
+		.mode = (S_IRUGO | S_IWUSR | S_IWGRP),
 	},
 	.size = 0,
 	.read = fwu_sysfs_show_image,
@@ -1635,25 +1727,25 @@ static struct bin_attribute dev_attr_data = {
 };
 
 static struct device_attribute attrs[] = {
-	__ATTR(fw_name, S_IWUGO | S_IRUGO,
+	__ATTR(fw_name, S_IRUGO | S_IWUSR | S_IWGRP,
 			fwu_sysfs_fw_name_show,
 			fwu_sysfs_fw_name_store),
-	__ATTR(force_update_fw, S_IWUGO,
+	__ATTR(force_update_fw, S_IRUGO | S_IWUSR | S_IWGRP,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_force_reflash_store),
-	__ATTR(update_fw, S_IWUGO,
+	__ATTR(update_fw, S_IRUGO | S_IWUSR | S_IWGRP,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_do_reflash_store),
-	__ATTR(writeconfig, S_IWUGO,
+	__ATTR(writeconfig, S_IRUGO | S_IWUSR | S_IWGRP,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_write_config_store),
-	__ATTR(readconfig, S_IWUGO,
+	__ATTR(readconfig, S_IRUGO | S_IWUSR | S_IWGRP,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_read_config_store),
-	__ATTR(configarea, S_IWUGO,
+	__ATTR(configarea, S_IRUGO | S_IWUSR | S_IWGRP,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_config_area_store),
-	__ATTR(imagesize, S_IWUGO,
+	__ATTR(imagesize, S_IRUGO | S_IWUSR | S_IWGRP,
 			synaptics_rmi4_show_error,
 			fwu_sysfs_image_size_store),
 	__ATTR(blocksize, S_IRUGO,
@@ -1677,6 +1769,9 @@ static struct device_attribute attrs[] = {
 	__ATTR(config_id, S_IRUGO,
 			fwu_sysfs_config_id_show,
 			synaptics_rmi4_store_error),
+	__ATTR(package_id, S_IRUGO,
+			fwu_sysfs_package_id_show,
+			synaptics_rmi4_store_error),
 };
 
 
@@ -1690,6 +1785,7 @@ static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 	int retval;
 	unsigned char attr_count;
 	struct pdt_properties pdt_props;
+	struct dentry *temp;
 
 	fwu = kzalloc(sizeof(*fwu), GFP_KERNEL);
 	if (!fwu)
@@ -1746,7 +1842,7 @@ static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 	fwu->initialized = true;
 	fwu->force_update = FORCE_UPDATE;
 
-	retval = sysfs_create_bin_file(&rmi4_data->input_dev->dev.kobj,
+	retval = sysfs_create_bin_file(&rmi4_data->i2c_client->dev.kobj,
 			&dev_attr_data);
 	if (retval < 0) {
 		dev_err(&rmi4_data->i2c_client->dev,
@@ -1756,7 +1852,7 @@ static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 	}
 
 	for (attr_count = 0; attr_count < ARRAY_SIZE(attrs); attr_count++) {
-		retval = sysfs_create_file(&rmi4_data->input_dev->dev.kobj,
+		retval = sysfs_create_file(&rmi4_data->i2c_client->dev.kobj,
 				&attrs[attr_count].attr);
 		if (retval < 0) {
 			dev_err(&rmi4_data->i2c_client->dev,
@@ -1766,6 +1862,23 @@ static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 			goto exit_remove_attrs;
 		}
 	}
+
+	temp = debugfs_create_file("dump_info", S_IRUSR | S_IWUSR,
+			fwu->rmi4_data->dir, fwu->rmi4_data,
+			&debug_dump_info_fops);
+	if (temp == NULL || IS_ERR(temp)) {
+		dev_err(&rmi4_data->i2c_client->dev,
+			"%s: Failed to create debugfs dump info file\n",
+			__func__);
+		retval = PTR_ERR(temp);
+		goto exit_remove_attrs;
+	}
+
+	fwu->ts_info = kzalloc(RMI4_INFO_MAX_LEN, GFP_KERNEL);
+	if (!fwu->ts_info)
+		goto exit_free_ts_info;
+
+	synaptics_rmi4_update_debug_info();
 
 #ifdef INSIDE_FIRMWARE_UPDATE
 	fwu->fwu_workqueue = create_singlethread_workqueue("fwu_workqueue");
@@ -1778,7 +1891,8 @@ static int synaptics_rmi4_fwu_init(struct synaptics_rmi4_data *rmi4_data)
 	init_completion(&remove_complete);
 
 	return 0;
-
+exit_free_ts_info:
+	debugfs_remove(temp);
 exit_remove_attrs:
 for (attr_count--; attr_count >= 0; attr_count--) {
 	sysfs_remove_file(&rmi4_data->input_dev->dev.kobj,
