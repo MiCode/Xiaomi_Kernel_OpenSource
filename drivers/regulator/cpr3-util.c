@@ -961,8 +961,8 @@ done:
 int cpr3_adjust_open_loop_voltages(struct cpr3_regulator *vreg, int corner_sum,
 		int combo_offset)
 {
-	int i, rc, prev_volt;
-	int *volt_adjust;
+	int i, rc, prev_volt, min_volt;
+	int *volt_adjust, *volt_diff;
 
 	if (!of_find_property(vreg->of_node,
 			"qcom,cpr-open-loop-voltage-adjustment", NULL)) {
@@ -972,8 +972,11 @@ int cpr3_adjust_open_loop_voltages(struct cpr3_regulator *vreg, int corner_sum,
 
 	volt_adjust = kcalloc(vreg->corner_count, sizeof(*volt_adjust),
 				GFP_KERNEL);
-	if (!volt_adjust)
-		return -ENOMEM;
+	volt_diff = kcalloc(vreg->corner_count, sizeof(*volt_diff), GFP_KERNEL);
+	if (!volt_adjust || !volt_diff) {
+		rc = -ENOMEM;
+		goto done;
+	}
 
 	rc = cpr3_parse_array_property(vreg,
 		"qcom,cpr-open-loop-voltage-adjustment",
@@ -993,20 +996,36 @@ int cpr3_adjust_open_loop_voltages(struct cpr3_regulator *vreg, int corner_sum,
 		}
 	}
 
-	/* Ensure that open-loop voltages increase monotonically */
+	if (of_find_property(vreg->of_node,
+			"qcom,cpr-open-loop-voltage-min-diff", NULL)) {
+		rc = cpr3_parse_array_property(vreg,
+			"qcom,cpr-open-loop-voltage-min-diff",
+			vreg->corner_count, corner_sum, combo_offset,
+			volt_diff);
+		if (rc) {
+			cpr3_err(vreg, "could not load minimum open-loop voltage differences, rc=%d\n",
+				rc);
+			goto done;
+		}
+	}
+
+	/*
+	 * Ensure that open-loop voltages increase monotonically with respect
+	 * to configurable minimum allowed differences.
+	 */
 	for (i = 1; i < vreg->corner_count; i++) {
-		if (vreg->corner[i].open_loop_volt
-		    < vreg->corner[i - 1].open_loop_volt) {
-			cpr3_info(vreg, "adjusted corner %d open-loop voltage=%d uV < corner %d voltage=%d uV; overriding: corner %d voltage=%d\n",
+		min_volt = vreg->corner[i - 1].open_loop_volt + volt_diff[i];
+		if (vreg->corner[i].open_loop_volt < min_volt) {
+			cpr3_info(vreg, "adjusted corner %d open-loop voltage=%d uV < corner %d voltage=%d uV + min diff=%d uV; overriding: corner %d voltage=%d\n",
 				i, vreg->corner[i].open_loop_volt,
 				i - 1, vreg->corner[i - 1].open_loop_volt,
-				i, vreg->corner[i - 1].open_loop_volt);
-			vreg->corner[i].open_loop_volt
-				= vreg->corner[i - 1].open_loop_volt;
+				volt_diff[i], i, min_volt);
+			vreg->corner[i].open_loop_volt = min_volt;
 		}
 	}
 
 done:
+	kfree(volt_diff);
 	kfree(volt_adjust);
 	return rc;
 }
