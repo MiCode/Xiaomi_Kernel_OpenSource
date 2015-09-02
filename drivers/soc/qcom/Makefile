@@ -80,4 +80,5 @@ obj-$(CONFIG_TRACER_PKT) += tracer_pkt.o
 obj-$(CONFIG_ICNSS) += icnss.o
 obj-$(CONFIG_MSM_BAM_DMUX) += bam_dmux.o
 obj-$(CONFIG_MSM_SERVICE_LOCATOR) += service-locator.o
+obj-$(CONFIG_MSM_PACMAN)        += msm_pacman.o
 obj-$(CONFIG_MSM_QBT1000) += qbt1000.o

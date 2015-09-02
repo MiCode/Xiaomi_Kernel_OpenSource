@@ -1,0 +1,22 @@
+* msm-pacman - The MSM Peripheral Access Control Manager
+
+Required Properties:
+
+ - compatible:	"qcom,msm-pacman"
+
+Aliases:
+
+  An alias is required to properly map the i2c/SPI bus driver to a Qualcomm
+  Universal Peripheral (QUP) ID. The alias is of the form 'qup<n>', where
+  <n> is an integer specifying the QUP ID.
+
+Example:
+
+	aliases {
+		i2c2 = &i2c_2;
+		qup2 = &ic2_2;
+	};
+
+	qcom,msm-pacman {
+		compatible = "qcom,msm-pacman";
+	};
