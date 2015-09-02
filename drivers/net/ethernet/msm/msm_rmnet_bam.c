@@ -811,7 +811,7 @@ static int bam_rmnet_probe(struct platform_device *pdev)
 	else
 		dev_name = "rev_rmnet%d";
 
-	dev = alloc_netdev(sizeof(*p), dev_name, rmnet_setup);
+	dev = alloc_netdev(sizeof(*p), dev_name, NET_NAME_ENUM, rmnet_setup);
 	if (!dev) {
 		pr_err("%s: no memory for netdev %d\n", __func__, i);
 		return -ENOMEM;
