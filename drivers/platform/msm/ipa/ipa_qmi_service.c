@@ -770,8 +770,8 @@ static void ipa_q6_clnt_svc_arrive(struct work_struct *work)
 		return;
 	}
 	qmi_modem_init_fin = true;
-	ipa_proxy_clk_unvote();
-	/* is_load_uc=FALSE indicates that SSR has occured */
+
+	/* is_load_uc=FALSE indicates that SSR has occurred */
 	ipa_q6_handshake_complete(!is_load_uc);
 	IPAWANDBG("complete, qmi_modem_init_fin : %d\n",
 		qmi_modem_init_fin);
