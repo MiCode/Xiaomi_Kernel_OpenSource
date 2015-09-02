@@ -1383,6 +1383,8 @@ static int ssr(struct glink_transport_if *if_ptr)
 			list_del(&intent->node);
 			kfree(intent);
 		}
+		kfree(ch->cur_intent);
+		ch->cur_intent = NULL;
 		spin_unlock_irqrestore(&ch->intents_lock, flags);
 		ch->is_closing = false;
 		spin_lock_irqsave(&einfo->channels_lock, flags);
