@@ -214,6 +214,53 @@ static void msm_isp_unprepare_v4l2_buf(
 	return;
 }
 
+static int msm_isp_map_buf(struct msm_isp_buf_mgr *buf_mgr,
+	struct msm_isp_buffer_mapped_info *mapped_info, uint32_t fd)
+{
+	int rc = 0;
+	int ret;
+
+	if (!buf_mgr || !mapped_info) {
+		pr_err_ratelimited("%s: %d] NULL ptr buf_mgr %p mapped_info %p\n",
+			__func__, __LINE__, buf_mgr, mapped_info);
+		return -EINVAL;
+	}
+	ret = cam_smmu_get_phy_addr(buf_mgr->iommu_hdl,
+				fd,
+				CAM_SMMU_MAP_RW,
+				&(mapped_info->paddr),
+				&(mapped_info->len));
+
+	if (ret) {
+		rc = -EINVAL;
+		pr_err_ratelimited("%s: cannot map address", __func__);
+		goto smmu_map_error;
+	}
+	CDBG("%s: addr:%lu\n",
+		__func__, (unsigned long)mapped_info->paddr);
+
+	return rc;
+smmu_map_error:
+	cam_smmu_put_phy_addr(buf_mgr->iommu_hdl,
+			fd);
+	return rc;
+}
+
+static int msm_isp_unmap_buf(struct msm_isp_buf_mgr *buf_mgr,
+	uint32_t fd)
+{
+	if (!buf_mgr) {
+		pr_err_ratelimited("%s: %d] NULL ptr buf_mgr\n",
+			__func__, __LINE__);
+		return -EINVAL;
+	}
+
+	cam_smmu_put_phy_addr(buf_mgr->iommu_hdl,
+			fd);
+
+	return 0;
+}
+
 static int msm_isp_buf_prepare(struct msm_isp_buf_mgr *buf_mgr,
 	struct msm_isp_qbuf_info *info, struct vb2_buffer *vb2_buf)
 {
@@ -1211,22 +1258,32 @@ int msm_isp_proc_buf_cmd(struct msm_isp_buf_mgr *buf_mgr,
 	switch (cmd) {
 	case VIDIOC_MSM_ISP_REQUEST_BUF: {
 		struct msm_isp_buf_request *buf_req = arg;
+
 		buf_mgr->ops->request_buf(buf_mgr, buf_req);
 		break;
 	}
 	case VIDIOC_MSM_ISP_ENQUEUE_BUF: {
 		struct msm_isp_qbuf_info *qbuf_info = arg;
+
 		buf_mgr->ops->enqueue_buf(buf_mgr, qbuf_info);
 		break;
 	}
 	case VIDIOC_MSM_ISP_DEQUEUE_BUF: {
 		struct msm_isp_qbuf_info *qbuf_info = arg;
+
 		buf_mgr->ops->dequeue_buf(buf_mgr, qbuf_info);
 		break;
 	}
 	case VIDIOC_MSM_ISP_RELEASE_BUF: {
 		struct msm_isp_buf_request *buf_req = arg;
+
 		buf_mgr->ops->release_buf(buf_mgr, buf_req->handle);
+		break;
+	}
+	case VIDIOC_MSM_ISP_UNMAP_BUF: {
+		struct msm_isp_unmap_buf_req *unmap_req = arg;
+
+		buf_mgr->ops->unmap_buf(buf_mgr, unmap_req->fd);
 		break;
 	}
 	}
@@ -1369,6 +1426,8 @@ static struct msm_isp_buf_ops isp_buf_ops = {
 	.get_buf_src = msm_isp_get_buf_src,
 	.get_buf = msm_isp_get_buf,
 	.get_buf_by_index = msm_isp_get_buf_by_index,
+	.map_buf = msm_isp_map_buf,
+	.unmap_buf = msm_isp_unmap_buf,
 	.put_buf = msm_isp_put_buf,
 	.flush_buf = msm_isp_flush_buf,
 	.buf_done = msm_isp_buf_done,
