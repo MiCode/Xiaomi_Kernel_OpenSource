@@ -3421,7 +3421,8 @@ int ipa3_straddle_boundary(u32 start, u32 end, u32 boundary)
 }
 
 /**
- * ipa3_bam_reg_dump() - Dump selected BAM registers for IPA and DMA-BAM
+ * ipa3_bam_reg_dump() - Dump selected BAM registers for IPA.
+ * The API is right now used only to dump IPA registers towards USB.
  *
  * Function is rate limited to avoid flooding kernel log buffer
  */
@@ -3432,8 +3433,11 @@ void ipa3_bam_reg_dump(void)
 	if (__ratelimit(&_rs)) {
 		ipa3_inc_client_enable_clks();
 		pr_err("IPA BAM START\n");
-		sps_get_bam_debug_info(ipa3_ctx->bam_handle, 5, 511950, 0, 0);
-		sps_get_bam_debug_info(ipa3_ctx->bam_handle, 93, 0, 0, 0);
+		sps_get_bam_debug_info(ipa3_ctx->bam_handle, 93,
+			(SPS_BAM_PIPE(ipa3_get_ep_mapping(IPA_CLIENT_USB_CONS))
+			|
+			SPS_BAM_PIPE(ipa3_get_ep_mapping(IPA_CLIENT_USB_PROD))),
+			0, 2);
 		ipa3_dec_client_disable_clks();
 	}
 }
