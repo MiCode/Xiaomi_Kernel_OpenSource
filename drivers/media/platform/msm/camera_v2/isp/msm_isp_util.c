@@ -965,9 +965,9 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		/* fallthrough */
 	case VIDIOC_MSM_ISP_DEQUEUE_BUF: {
 		/* fallthrough */
-		mutex_lock(&vfe_dev->buf_mgr_mutex);
+		mutex_lock(&vfe_dev->buf_mgr->lock);
 		rc = msm_isp_proc_buf_cmd(vfe_dev->buf_mgr, cmd, arg);
-		mutex_unlock(&vfe_dev->buf_mgr_mutex);
+		mutex_unlock(&vfe_dev->buf_mgr->lock);
 		break;
 	}
 	case VIDIOC_MSM_ISP_RELEASE_BUF: {
@@ -977,9 +977,7 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 			return rc;
 		}
 		mutex_lock(&vfe_dev->buf_mgr->lock);
-		mutex_lock(&vfe_dev->buf_mgr_mutex);
 		rc = msm_isp_proc_buf_cmd(vfe_dev->buf_mgr, cmd, arg);
-		mutex_unlock(&vfe_dev->buf_mgr_mutex);
 		mutex_unlock(&vfe_dev->buf_mgr->lock);
 		break;
 	}

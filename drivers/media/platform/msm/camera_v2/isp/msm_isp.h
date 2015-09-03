@@ -665,7 +665,6 @@ struct vfe_device {
 	struct completion stats_config_complete;
 	struct mutex realtime_mutex;
 	struct mutex core_mutex;
-	struct mutex buf_mgr_mutex;
 	spinlock_t shared_data_lock;
 	spinlock_t reg_update_lock;
 	spinlock_t tasklet_lock;
