@@ -28,6 +28,7 @@
 #define QSEOS_RESULT_FAIL_KEY_ID_DNE          -70
 #define QSEOS_RESULT_FAIL_INCORRECT_PSWD      -71
 #define QSEOS_RESULT_FAIL_MAX_ATTEMPT         -72
+#define QSEOS_RESULT_FAIL_PENDING_OPERATION   -73
 
 enum qseecom_command_scm_resp_type {
 	QSEOS_APP_ID = 0xEE01,
