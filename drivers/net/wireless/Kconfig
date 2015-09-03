@@ -371,6 +371,16 @@ config CLD_DEBUG
 	  Say N, if you are building a release kernel for production use.
 	  Only say Y, if you are building a kernel with debug support.
 
+config CLD_HL_SDIO_CORE
+	tristate "Qualcomm CORE driver for QCA6174 with SDIO interface"
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	select WEXT_CORE
+	select WEXT_SPY
+	select NL80211_TESTMODE
+	depends on ARCH_MSM
+	depends on MMC
+
 source "drivers/net/wireless/ath/Kconfig"
 source "drivers/net/wireless/b43/Kconfig"
 source "drivers/net/wireless/b43legacy/Kconfig"
