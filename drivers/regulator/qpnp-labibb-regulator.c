@@ -25,7 +25,7 @@
 #include <linux/spmi.h>
 #include <linux/string.h>
 
-#define QPNP_LABIBB_REGULATOR_DIRVER_NAME	"qcom,qpnp-labibb-regulator"
+#define QPNP_LABIBB_REGULATOR_DRIVER_NAME	"qcom,qpnp-labibb-regulator"
 
 #define REG_PERPH_TYPE			0x04
 
@@ -54,6 +54,7 @@
 #define REG_LAB_RDSON_MNGMNT		0x53
 #define REG_LAB_PRECHARGE_CTL		0x5E
 #define REG_LAB_SOFT_START_CTL		0x5F
+#define REG_LAB_SPARE_CTL		0x60
 
 /* LAB register bits definitions */
 
@@ -76,9 +77,9 @@
 #define LAB_ENABLE_CTL_EN		BIT(7)
 
 /* REG_LAB_PD_CTL */
-#define LAB_PD_CTL_FULL_PD		BIT(0)
+#define LAB_PD_CTL_STRONG_PULL		BIT(0)
 #define LAB_PD_CTL_STRENGTH_MASK	BIT(0)
-#define LAB_PD_CTL_DISABLE		BIT(1)
+#define LAB_PD_CTL_DISABLE_PD		BIT(1)
 #define LAB_PD_CTL_EN_MASK		BIT(1)
 
 /* REG_LAB_IBB_EN_RDY */
@@ -117,7 +118,12 @@
 #define LAB_SOFT_START_CTL_BITS		2
 #define LAB_SOFT_START_CTL_MASK		((1 << LAB_SOFT_START_CTL_BITS) - 1)
 
+/* REG_LAB_SPARE_CTL */
+#define LAB_SPARE_TOUCH_WAKE_BIT	BIT(3)
+#define LAB_SPARE_DISABLE_SCP_BIT	BIT(0)
+
 /* IBB register offset definitions */
+#define REG_IBB_REVISION4		0x03
 #define REG_IBB_STATUS1			0x08
 #define REG_IBB_VOLTAGE		0x41
 #define REG_IBB_RING_SUPPRESSION_CTL	0x42
@@ -128,8 +134,11 @@
 #define REG_IBB_CLK_DIV			0x48
 #define REG_IBB_CURRENT_LIMIT		0x4B
 #define REG_IBB_PS_CTL			0x50
+#define REG_IBB_RDSON_MNGMNT		0x53
 #define REG_IBB_PWRUP_PWRDN_CTL_1	0x58
+#define REG_IBB_PWRUP_PWRDN_CTL_2	0x59
 #define REG_IBB_SOFT_START_CTL		0x5F
+#define REG_IBB_SPARE_CTL		0x60
 #define REG_IBB_NLIMIT_DAC		0x61
 
 /* IBB register bits definition */
@@ -150,7 +159,8 @@
 #define IBB_MODULE_RDY_EN		BIT(7)
 
 /* REG_IBB_ENABLE_CTL */
-#define IBB_ENABLE_CTL_EN		BIT(7)
+#define IBB_ENABLE_CTL_SWIRE_RDY	BIT(6)
+#define IBB_ENABLE_CTL_MODULE_EN	BIT(7)
 
 /* REG_IBB_PD_CTL */
 #define IBB_PD_CTL_HALF_STRENGTH	BIT(0)
@@ -163,10 +173,27 @@
 #define IBB_CURRENT_LIMIT_MASK		((1 << IBB_CURRENT_LIMIT_BITS) - 1)
 #define IBB_CURRENT_LIMIT_DEBOUNCE_SHIFT	5
 #define IBB_CURRENT_LIMIT_EN		BIT(7)
+#define IBB_ILIMIT_COUNT_CYC8		0
+#define IBB_CURRENT_MAX_500MA		0xA
 
 /* REG_IBB_PS_CTL */
 #define IBB_PS_CTL_EN			0x85
 #define IBB_PS_CTL_DISABLE		0x5
+
+/* REG_IBB_RDSON_MNGMNT */
+#define IBB_NFET_SLEW_EN		BIT(7)
+#define IBB_PFET_SLEW_EN		BIT(6)
+#define IBB_OVERRIDE_NFET_SW_SIZE	BIT(5)
+#define IBB_OVERRIDE_PFET_SW_SIZE	BIT(2)
+#define IBB_NFET_SW_SIZE_BITS		2
+#define IBB_PFET_SW_SIZE_BITS		2
+#define IBB_NFET_SW_SIZE_MASK		((1 << NFET_SW_SIZE_BITS) - 1)
+#define IBB_PFET_SW_SIZE_MASK		((1 << PFET_SW_SIZE_BITS) - 1)
+#define IBB_NFET_SW_SIZE_SHIFT		3
+
+/* REG_IBB_SPARE_CTL */
+#define IBB_BYPASS_PWRDN_DLY2_BIT	BIT(5)
+#define IBB_FAST_STARTUP		BIT(3)
 
 /* REG_IBB_NLIMIT_DAC */
 #define IBB_NLIMIT_DAC_EN		0x0
@@ -183,6 +210,11 @@
 #define IBB_PWRUP_PWRDN_CTL_1_LAB_VREG_OK	BIT(7)
 #define IBB_PWRUP_PWRDN_CTL_1_EN_DLY1	BIT(6)
 #define PWRUP_PWRDN_CTL_1_DISCHARGE_EN	BIT(2)
+
+/* REG_IBB_PWRUP_PWRDN_CTL_2 */
+#define IBB_DIS_DLY_BITS		2
+#define IBB_DIS_DLY_MASK		((1 << IBB_DIS_DLY_BITS) - 1)
+#define IBB_WAIT_MBG_OK			BIT(2)
 
 /**
  * enum qpnp_labibb_mode - working mode of LAB/IBB regulators
@@ -393,8 +425,38 @@ struct qpnp_labibb {
 	struct lab_regulator		lab_vreg;
 	struct ibb_regulator		ibb_vreg;
 	int				mode;
+	bool				ttw_en;
+	bool				ibb_settings_saved;
 };
 
+enum ibb_settings_index {
+	IBB_PD_CTL = 0,
+	IBB_CURRENT_LIMIT,
+	IBB_RDSON_MNGMNT,
+	IBB_PWRUP_PWRDN_CTL_1,
+	IBB_PWRUP_PWRDN_CTL_2,
+	IBB_SETTINGS_MAX,
+};
+
+struct ibb_settings {
+	u16	address;
+	u8	value;
+	bool	sec_access;
+};
+
+#define SETTING(_id, _sec_access)		\
+	[_id] = {				\
+		.address = REG_##_id,		\
+		.sec_access = _sec_access,	\
+	}
+
+static struct ibb_settings settings[IBB_SETTINGS_MAX] = {
+	SETTING(IBB_PD_CTL, false),
+	SETTING(IBB_CURRENT_LIMIT, true),
+	SETTING(IBB_RDSON_MNGMNT, false),
+	SETTING(IBB_PWRUP_PWRDN_CTL_1, true),
+	SETTING(IBB_PWRUP_PWRDN_CTL_2, true),
+};
 
 static int
 qpnp_labibb_read(struct qpnp_labibb *labibb, u8 *val,
@@ -560,10 +622,10 @@ static int qpnp_lab_dt_init(struct qpnp_labibb *labibb,
 	val = 0;
 
 	if (of_property_read_bool(of_node, "qcom,qpnp-lab-full-pull-down"))
-		val |= LAB_PD_CTL_FULL_PD;
+		val |= LAB_PD_CTL_STRONG_PULL;
 
 	if (!of_property_read_bool(of_node, "qcom,qpnp-lab-pull-down-enable"))
-		val |= LAB_PD_CTL_DISABLE;
+		val |= LAB_PD_CTL_DISABLE_PD;
 
 	rc = qpnp_labibb_write(labibb, labibb->lab_base + REG_LAB_PD_CTL,
 				&val, 1);
@@ -771,7 +833,7 @@ static int qpnp_lab_dt_init(struct qpnp_labibb *labibb,
 static int qpnp_labibb_regulator_enable(struct qpnp_labibb *labibb)
 {
 	int rc;
-	u8 val = IBB_ENABLE_CTL_EN;
+	u8 val = IBB_ENABLE_CTL_MODULE_EN;
 	int dly;
 	int retries;
 	bool enabled = false;
@@ -1133,7 +1195,7 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 		return rc;
 	}
 
-	if (!(val & IBB_ENABLE_CTL_EN)) {
+	if (!(val & IBB_ENABLE_CTL_MODULE_EN)) {
 		rc = qpnp_lab_dt_init(labibb, of_node);
 		if (rc) {
 			pr_err("qpnp-lab: wrong DT parameter specified: rc = %d\n",
@@ -1299,7 +1361,7 @@ int qpnp_lab_set_pd_strength(struct regulator *regulator, u32 strength)
 	int rc = 0;
 
 	if (strength > 0)
-		val = LAB_PD_CTL_FULL_PD;
+		val = LAB_PD_CTL_STRONG_PULL;
 	else
 		val = 0;
 
@@ -1335,7 +1397,7 @@ int qpnp_lab_pd_enable_ctl(struct regulator *regulator, bool enable)
 	if (enable)
 		val = 0;
 	else
-		val = LAB_PD_CTL_DISABLE;
+		val = LAB_PD_CTL_DISABLE_PD;
 
 	labibb = regulator_get_drvdata(regulator);
 
@@ -1814,7 +1876,7 @@ static int qpnp_ibb_regulator_enable(struct regulator_dev *rdev)
 		if (labibb->mode != QPNP_LABIBB_STANDALONE_MODE)
 			return qpnp_labibb_regulator_enable(labibb);
 
-		val = IBB_ENABLE_CTL_EN;
+		val = IBB_ENABLE_CTL_MODULE_EN;
 		rc = qpnp_labibb_write(labibb,
 			labibb->ibb_base + REG_IBB_ENABLE_CTL, &val, 1);
 		if (rc) {
@@ -1934,6 +1996,231 @@ static struct regulator_ops qpnp_ibb_ops = {
 	.get_voltage		= qpnp_ibb_regulator_get_voltage,
 };
 
+static int qpnp_ibb_restore_settings(struct qpnp_labibb *labibb)
+{
+	int rc, i;
+
+	for (i = 0; i < ARRAY_SIZE(settings); i++) {
+		if (settings[i].sec_access)
+			rc = qpnp_labibb_sec_write(labibb, labibb->ibb_base,
+					settings[i].address, &settings[i].value,
+					1);
+		else
+			rc = qpnp_labibb_write(labibb, labibb->ibb_base +
+					settings[i].address, &settings[i].value,
+					1);
+		if (rc) {
+			pr_err("qpnp_labibb_write register %x failed rc = %d\n",
+				settings[i].address, rc);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
+static int qpnp_ibb_save_settings(struct qpnp_labibb *labibb)
+{
+	int rc, i;
+
+	for (i = 0; i < ARRAY_SIZE(settings); i++) {
+		rc = qpnp_labibb_read(labibb, &settings[i].value,
+					labibb->ibb_base + settings[i].address,
+					1);
+		if (rc) {
+			pr_err("qpnp_labibb_read register %x failed rc = %d\n",
+				settings[i].address, rc);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
+static int qpnp_labibb_regulator_suspend(struct device *dev)
+{
+	struct qpnp_labibb *labibb = dev_get_drvdata(dev);
+	int rc = 0;
+	u8 val;
+
+	if (!labibb->ttw_en) {
+		pr_debug("TTW feature not enabled\n");
+		return 0;
+	}
+
+	if (labibb->lab_vreg.vreg_enabled || labibb->ibb_vreg.vreg_enabled) {
+		pr_debug("lab_en: %d ibb_en: %d cannot configure TTW settings\n",
+				labibb->lab_vreg.vreg_enabled,
+				labibb->ibb_vreg.vreg_enabled);
+		return -EINVAL;
+	}
+
+	/* Save the IBB settings before they get modified for TTW mode */
+	if (!labibb->ibb_settings_saved) {
+		rc = qpnp_ibb_save_settings(labibb);
+		if (rc) {
+			pr_err("Error in storing IBB setttings, rc=%d\n", rc);
+			return rc;
+		}
+		labibb->ibb_settings_saved = true;
+	}
+
+	val = LAB_PD_CTL_DISABLE_PD;
+	rc = qpnp_labibb_write(labibb, labibb->lab_base + REG_LAB_PD_CTL,
+				&val, 1);
+	if (rc) {
+		pr_err("qpnp_labibb_write register %x failed rc = %d\n",
+			REG_LAB_PD_CTL, rc);
+		return rc;
+	}
+
+	val = LAB_SPARE_TOUCH_WAKE_BIT | LAB_SPARE_DISABLE_SCP_BIT;
+	rc = qpnp_labibb_write(labibb, labibb->lab_base + REG_LAB_SPARE_CTL,
+				&val, 1);
+	if (rc) {
+		pr_err("qpnp_labibb_write register %x failed rc = %d\n",
+			REG_LAB_SPARE_CTL, rc);
+		return rc;
+	}
+
+	val = 0;
+	rc = qpnp_labibb_write(labibb, labibb->ibb_base + REG_IBB_PD_CTL,
+				&val, 1);
+	if (rc) {
+		pr_err("qpnp_labibb_read register %x failed rc = %d\n",
+			REG_IBB_PD_CTL, rc);
+		return rc;
+	}
+
+	val = 0;
+	rc = qpnp_labibb_sec_write(labibb, labibb->ibb_base,
+				REG_IBB_PWRUP_PWRDN_CTL_1, &val, 1);
+	if (rc) {
+		pr_err("qpnp_labibb_write register %x failed rc = %d\n",
+			REG_IBB_PWRUP_PWRDN_CTL_1, rc);
+		return rc;
+	}
+
+	val = IBB_WAIT_MBG_OK;
+	rc = qpnp_labibb_sec_masked_write(labibb, labibb->ibb_base,
+				REG_IBB_PWRUP_PWRDN_CTL_2,
+				IBB_DIS_DLY_MASK | IBB_WAIT_MBG_OK, val, 1);
+	if (rc) {
+		pr_err("qpnp_labibb_sec_write register %x failed rc = %d\n",
+			REG_IBB_PWRUP_PWRDN_CTL_2, rc);
+		return rc;
+	}
+
+	val = IBB_NFET_SLEW_EN | IBB_PFET_SLEW_EN | IBB_OVERRIDE_NFET_SW_SIZE |
+		IBB_OVERRIDE_PFET_SW_SIZE;
+	rc = qpnp_labibb_masked_write(labibb, labibb->ibb_base +
+				REG_IBB_RDSON_MNGMNT, 0xFF, val, 1);
+	if (rc) {
+		pr_err("qpnp_labibb_write register %x failed rc = %d\n",
+			REG_IBB_RDSON_MNGMNT, rc);
+		return rc;
+	}
+
+	val = IBB_CURRENT_LIMIT_EN | IBB_CURRENT_MAX_500MA |
+		(IBB_ILIMIT_COUNT_CYC8 << IBB_CURRENT_LIMIT_DEBOUNCE_SHIFT);
+	rc = qpnp_labibb_sec_write(labibb, labibb->ibb_base,
+				REG_IBB_CURRENT_LIMIT, &val, 1);
+	if (rc) {
+		pr_err("qpnp_labibb_write register %x failed rc = %d\n",
+			REG_IBB_CURRENT_LIMIT, rc);
+		return rc;
+	}
+
+	val = IBB_BYPASS_PWRDN_DLY2_BIT | IBB_FAST_STARTUP;
+	rc = qpnp_labibb_write(labibb, labibb->ibb_base + REG_IBB_SPARE_CTL,
+				&val, 1);
+	if (rc) {
+		pr_err("qpnp_labibb_write register %x failed rc = %d\n",
+			REG_IBB_SPARE_CTL, rc);
+		return rc;
+	}
+
+	val = IBB_ENABLE_CTL_SWIRE_RDY;
+	rc = qpnp_labibb_write(labibb, labibb->ibb_base + REG_IBB_ENABLE_CTL,
+		&val, 1);
+	if (rc) {
+		pr_err("qpnp_labibb_write register %x failed rc = %d\n",
+				REG_IBB_ENABLE_CTL, rc);
+		return rc;
+	}
+	return 0;
+}
+
+static int qpnp_labibb_regulator_resume(struct device *dev)
+{
+	struct qpnp_labibb *labibb = dev_get_drvdata(dev);
+	int rc = 0;
+	u8 val;
+
+	if (!labibb->ttw_en) {
+		pr_debug("TTW feature not enabled\n");
+		return 0;
+	}
+
+	if (labibb->lab_vreg.vreg_enabled || labibb->ibb_vreg.vreg_enabled) {
+		pr_debug("lab_en: %d ibb_en: %d cannot configure normal settings\n",
+				labibb->lab_vreg.vreg_enabled,
+				labibb->ibb_vreg.vreg_enabled);
+		return -EINVAL;
+	}
+
+	if (!labibb->ibb_settings_saved) {
+		pr_err("IBB settings are not saved!\n");
+		return -EINVAL;
+	}
+
+	/* Restore the IBB settings back to switch back to normal mode */
+	rc = qpnp_ibb_restore_settings(labibb);
+	if (rc) {
+		pr_err("Error in restoring IBB setttings, rc=%d\n", rc);
+		return rc;
+	}
+
+	val = LAB_PD_CTL_STRONG_PULL;
+	rc = qpnp_labibb_write(labibb, labibb->lab_base + REG_LAB_PD_CTL,
+				&val, 1);
+	if (rc) {
+		pr_err("qpnp_labibb_write register %x failed rc = %d\n",
+			REG_LAB_PD_CTL, rc);
+		return rc;
+	}
+
+	val = 0;
+	rc = qpnp_labibb_write(labibb, labibb->lab_base + REG_LAB_SPARE_CTL,
+				&val, 1);
+	if (rc) {
+		pr_err("qpnp_labibb_write register %x failed rc = %d\n",
+			REG_LAB_SPARE_CTL, rc);
+		return rc;
+	}
+
+	val = 0;
+	rc = qpnp_labibb_write(labibb, labibb->ibb_base + REG_IBB_SPARE_CTL,
+				&val, 1);
+	if (rc) {
+		pr_err("qpnp_labibb_write register %x failed rc = %d\n",
+			REG_IBB_SPARE_CTL, rc);
+		return rc;
+	}
+
+	val = 0;
+	rc = qpnp_labibb_write(labibb, labibb->ibb_base + REG_IBB_ENABLE_CTL,
+		&val, 1);
+
+	if (rc) {
+		pr_err("qpnp_labibb_write register %x failed rc = %d\n",
+				REG_IBB_ENABLE_CTL, rc);
+		return rc;
+	}
+
+	return rc;
+}
+
 static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 					struct device_node *of_node)
 {
@@ -2019,6 +2306,20 @@ static int register_qpnp_ibb_regulator(struct qpnp_labibb *labibb,
 		pr_err("qpnp_labibb_write register %x failed rc = %d\n",
 			REG_IBB_SOFT_START_CTL, rc);
 		return rc;
+	}
+
+	rc = qpnp_labibb_read(labibb, &val,
+				labibb->ibb_base + REG_IBB_REVISION4, 1);
+	if (rc) {
+		pr_err("qpnp_labibb_read register %x failed rc = %d\n",
+			REG_IBB_REVISION4, rc);
+		return rc;
+	}
+
+	/* PMI8996 has revision 1 */
+	if (val < 1 && labibb->ttw_en) {
+		pr_err("TTW feature cannot be enabled for revision %d\n", val);
+		labibb->ttw_en = false;
 	}
 
 	rc = qpnp_labibb_read(labibb, &ibb_enable_ctl,
@@ -2195,6 +2496,9 @@ static int qpnp_labibb_regulator_probe(struct spmi_device *spmi)
 		return rc;
 	}
 
+	labibb->ttw_en = of_property_read_bool(labibb->dev->of_node,
+				"qcom,labibb-touch-to-wake-en");
+
 	spmi_for_each_container_dev(spmi_resource, spmi) {
 		if (!spmi_resource) {
 			pr_err("qpnp_labibb: spmi resource absent\n");
@@ -2266,15 +2570,21 @@ static int qpnp_labibb_regulator_remove(struct spmi_device *spmi)
 	return 0;
 }
 
+static const struct dev_pm_ops qpnp_labibb_pm_ops = {
+	.suspend	= qpnp_labibb_regulator_suspend,
+	.resume		= qpnp_labibb_regulator_resume,
+};
+
 static struct of_device_id spmi_match_table[] = {
-	{ .compatible = QPNP_LABIBB_REGULATOR_DIRVER_NAME, },
+	{ .compatible = QPNP_LABIBB_REGULATOR_DRIVER_NAME, },
 	{ },
 };
 
 static struct spmi_driver qpnp_labibb_regulator_driver = {
 	.driver		= {
-		.name	= QPNP_LABIBB_REGULATOR_DIRVER_NAME,
+		.name	= QPNP_LABIBB_REGULATOR_DRIVER_NAME,
 		.of_match_table = spmi_match_table,
+		.pm	= &qpnp_labibb_pm_ops,
 	},
 	.probe		= qpnp_labibb_regulator_probe,
 	.remove		= qpnp_labibb_regulator_remove,
