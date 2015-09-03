@@ -1,6 +1,4 @@
-#ifdef CONFIG_SCHED_QHMP
-#include "qhmp_sched.h"
-#else
+
 #include <linux/sched.h>
 #include <linux/sched/sysctl.h>
 #include <linux/sched/rt.h>
@@ -26,13 +24,6 @@ extern __read_mostly int scheduler_running;
 
 extern unsigned long calc_load_update;
 extern atomic_long_t calc_load_tasks;
-
-struct freq_max_load {
-	struct rcu_head rcu;
-	u32 freqs[0];
-};
-
-extern DEFINE_PER_CPU(struct freq_max_load *, freq_max_load);
 
 extern long calc_load_fold_active(struct rq *this_rq);
 extern void update_cpu_load_active(struct rq *this_rq);
@@ -330,7 +321,7 @@ struct cfs_bandwidth { };
 #ifdef CONFIG_SCHED_HMP
 
 struct hmp_sched_stats {
-	int nr_big_tasks;
+	int nr_big_tasks, nr_small_tasks;
 	u64 cumulative_runnable_avg;
 };
 
@@ -646,6 +637,10 @@ struct rq {
 	int capacity;
 	int max_possible_capacity;
 	u64 window_start;
+	int prefer_idle;
+	u32 mostly_idle_load;
+	int mostly_idle_nr_run;
+	int mostly_idle_freq;
 	unsigned long hmp_flags;
 
 	u64 cur_irqload;
@@ -872,7 +867,6 @@ extern int group_balance_cpu(struct sched_group *sg);
  * well with groups where rq capacity can change independently.
  */
 #define group_rq_capacity(group) capacity(cpu_rq(group_first_cpu(group)))
-#define group_rq_mpc(group) max_poss_capacity(cpu_rq(group_first_cpu(group)))
 
 #else
 
@@ -910,6 +904,8 @@ extern unsigned int max_possible_capacity;
 extern cpumask_t mpc_mask;
 extern unsigned long capacity_scale_cpu_efficiency(int cpu);
 extern unsigned long capacity_scale_cpu_freq(int cpu);
+extern unsigned int sched_mostly_idle_load;
+extern unsigned int sched_small_task;
 extern unsigned int sched_upmigrate;
 extern unsigned int sched_downmigrate;
 extern unsigned int sched_init_task_load_pelt;
@@ -917,7 +913,7 @@ extern unsigned int sched_init_task_load_windows;
 extern unsigned int sched_heavy_task;
 extern unsigned int up_down_migrate_scale_factor;
 extern void reset_cpu_hmp_stats(int cpu, int reset_cra);
-extern void fixup_nr_big_task(int cpu, int reset_stats);
+extern void fixup_nr_big_small_task(int cpu, int reset_stats);
 extern unsigned int max_task_load(void);
 extern void sched_account_irqtime(int cpu, struct task_struct *curr,
 				 u64 delta, u64 wallclock);
@@ -944,11 +940,6 @@ static inline int capacity(struct rq *rq)
 {
 	return rq->capacity;
 }
-static inline int max_poss_capacity(struct rq *rq)
-{
-	return rq->max_possible_capacity;
-}
-
 
 static inline void
 inc_cumulative_runnable_avg(struct hmp_sched_stats *stats,
@@ -1035,7 +1026,7 @@ static inline int sched_cpu_high_irqload(int cpu)
 
 struct hmp_sched_stats;
 
-static inline void fixup_nr_big_task(int cpu, int reset_stats)
+static inline void fixup_nr_big_small_task(int cpu, int reset_stats)
 {
 }
 
@@ -1055,12 +1046,6 @@ static inline int capacity(struct rq *rq)
 {
 	return SCHED_LOAD_SCALE;
 }
-
-static inline int max_poss_capacity(struct rq *rq)
-{
-	return SCHED_LOAD_SCALE;
-}
-
 
 static inline void inc_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 		 struct task_struct *p)
@@ -1145,12 +1130,13 @@ static inline void clear_reserved(int cpu)
 	clear_bit(CPU_RESERVED, &rq->hmp_flags);
 }
 
+int mostly_idle_cpu(int cpu);
 extern void check_for_migration(struct rq *rq, struct task_struct *p);
-extern void pre_big_task_count_change(const struct cpumask *cpus);
-extern void post_big_task_count_change(const struct cpumask *cpus);
+extern void pre_big_small_task_count_change(const struct cpumask *cpus);
+extern void post_big_small_task_count_change(const struct cpumask *cpus);
 extern void set_hmp_defaults(void);
 extern int power_delta_exceeded(unsigned int cpu_cost, unsigned int base_cost);
-extern unsigned int power_cost(u64 total_load, int cpu);
+extern unsigned int power_cost(u64 load, int cpu);
 extern void reset_all_window_stats(u64 window_start, unsigned int window_size);
 extern void boost_kick(int cpu);
 extern int sched_boost(void);
@@ -1161,8 +1147,8 @@ extern int sched_boost(void);
 #define sched_freq_legacy_mode 1
 
 static inline void check_for_migration(struct rq *rq, struct task_struct *p) { }
-static inline void pre_big_task_count_change(void) { }
-static inline void post_big_task_count_change(void) { }
+static inline void pre_big_small_task_count_change(void) { }
+static inline void post_big_small_task_count_change(void) { }
 static inline void set_hmp_defaults(void) { }
 
 static inline void clear_reserved(int cpu) { }
@@ -1900,6 +1886,9 @@ enum rq_nohz_flag_bits {
 #define nohz_flags(cpu)	(&cpu_rq(cpu)->nohz_flags)
 #endif
 
+#define NOHZ_KICK_ANY 0
+#define NOHZ_KICK_RESTRICT 1
+
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
 
 DECLARE_PER_CPU(u64, cpu_hardirq_time);
@@ -1948,4 +1937,3 @@ static inline u64 irq_time_read(int cpu)
 }
 #endif /* CONFIG_64BIT */
 #endif /* CONFIG_IRQ_TIME_ACCOUNTING */
-#endif /* CONFIG_SCHED_QHMP */

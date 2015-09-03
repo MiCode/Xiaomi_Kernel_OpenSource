@@ -1668,8 +1668,16 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 			cpu_rq(i)->hmp_stats.cumulative_runnable_avg, i);
 		cpu_cost = power_cost(cpu_load, i);
 
+#ifdef CONFIG_SCHED_QHMP
+		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i), mostly_idle_cpu(i),
+				     sched_irqload(i), cpu_cost, cpu_temp(i));
+
+		if (sched_boost() && capacity(cpu_rq(i)) != max_capacity)
+			continue;
+#else
 		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i), sched_irqload(i),
 						cpu_cost, cpu_temp(i));
+#endif
 
 		if (power_delta_exceeded(cpu_cost, min_cost)) {
 			if (cpu_cost > min_cost)

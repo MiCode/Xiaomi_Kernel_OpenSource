@@ -1313,6 +1313,9 @@ struct task_struct {
 	 * of this task
 	 */
 	u32 init_load_pct;
+#ifdef CONFIG_SCHED_QHMP
+	u64 run_start;
+#endif
 #endif
 #ifdef CONFIG_CGROUP_SCHED
 	struct task_group *sched_task_group;
@@ -1966,7 +1969,14 @@ extern unsigned long sched_get_busy(int cpu);
 extern void sched_get_cpus_busy(unsigned long *busy,
 				const struct cpumask *query_cpus);
 extern void sched_set_io_is_busy(int val);
+#ifdef CONFIG_SCHED_QHMP
+static inline int sched_update_freq_max_load(const cpumask_t *cpumask)
+{
+	return 0;
+}
+#else
 int sched_update_freq_max_load(const cpumask_t *cpumask);
+#endif
 #else
 static inline int sched_set_window(u64 window_start, unsigned int window_size)
 {
@@ -2178,6 +2188,17 @@ extern u32 sched_get_wake_up_idle(struct task_struct *p);
 extern int sched_set_boost(int enable);
 extern int sched_set_init_task_load(struct task_struct *p, int init_load_pct);
 extern u32 sched_get_init_task_load(struct task_struct *p);
+#ifdef CONFIG_SCHED_QHMP
+extern int sched_set_cpu_prefer_idle(int cpu, int prefer_idle);
+extern int sched_get_cpu_prefer_idle(int cpu);
+extern int sched_set_cpu_mostly_idle_load(int cpu, int mostly_idle_pct);
+extern int sched_get_cpu_mostly_idle_load(int cpu);
+extern int sched_set_cpu_mostly_idle_nr_run(int cpu, int nr_run);
+extern int sched_get_cpu_mostly_idle_nr_run(int cpu);
+extern int
+sched_set_cpu_mostly_idle_freq(int cpu, unsigned int mostly_idle_freq);
+extern unsigned int sched_get_cpu_mostly_idle_freq(int cpu);
+#endif
 
 #else
 static inline int sched_set_boost(int enable)

@@ -179,9 +179,179 @@ static struct attribute_group crash_note_cpu_attr_group = {
 };
 #endif
 
+#ifdef CONFIG_SCHED_QHMP
+static ssize_t show_sched_mostly_idle_load(struct device *dev,
+		 struct device_attribute *attr, char *buf)
+{
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
+	ssize_t rc;
+	int cpunum;
+	int mostly_idle_pct;
+
+	cpunum = cpu->dev.id;
+
+	mostly_idle_pct = sched_get_cpu_mostly_idle_load(cpunum);
+
+	rc = snprintf(buf, PAGE_SIZE-2, "%d\n", mostly_idle_pct);
+
+	return rc;
+}
+
+static ssize_t __ref store_sched_mostly_idle_load(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
+{
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
+	int cpuid = cpu->dev.id;
+	int mostly_idle_load, err;
+
+	err = kstrtoint(strstrip((char *)buf), 0, &mostly_idle_load);
+	if (err)
+		return err;
+
+	err = sched_set_cpu_mostly_idle_load(cpuid, mostly_idle_load);
+	if (err >= 0)
+		err = count;
+
+	return err;
+}
+
+static ssize_t show_sched_mostly_idle_freq(struct device *dev,
+		 struct device_attribute *attr, char *buf)
+{
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
+	ssize_t rc;
+	int cpunum;
+	unsigned int mostly_idle_freq;
+
+	cpunum = cpu->dev.id;
+
+	mostly_idle_freq = sched_get_cpu_mostly_idle_freq(cpunum);
+
+	rc = snprintf(buf, PAGE_SIZE-2, "%d\n", mostly_idle_freq);
+
+	return rc;
+}
+
+static ssize_t __ref store_sched_mostly_idle_freq(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
+{
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
+	int cpuid = cpu->dev.id, err;
+	unsigned int mostly_idle_freq;
+
+	err = kstrtoint(strstrip((char *)buf), 0, &mostly_idle_freq);
+	if (err)
+		return err;
+
+	err = sched_set_cpu_mostly_idle_freq(cpuid, mostly_idle_freq);
+	if (err >= 0)
+		err = count;
+
+	return err;
+}
+
+static ssize_t show_sched_mostly_idle_nr_run(struct device *dev,
+		 struct device_attribute *attr, char *buf)
+{
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
+	ssize_t rc;
+	int cpunum;
+	int mostly_idle_nr_run;
+
+	cpunum = cpu->dev.id;
+
+	mostly_idle_nr_run = sched_get_cpu_mostly_idle_nr_run(cpunum);
+
+	rc = snprintf(buf, PAGE_SIZE-2, "%d\n", mostly_idle_nr_run);
+
+	return rc;
+}
+
+static ssize_t __ref store_sched_mostly_idle_nr_run(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
+{
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
+	int cpuid = cpu->dev.id;
+	int mostly_idle_nr_run, err;
+
+	err = kstrtoint(strstrip((char *)buf), 0, &mostly_idle_nr_run);
+	if (err)
+		return err;
+
+	err = sched_set_cpu_mostly_idle_nr_run(cpuid, mostly_idle_nr_run);
+	if (err >= 0)
+		err = count;
+
+	return err;
+}
+
+static ssize_t show_sched_prefer_idle(struct device *dev,
+		 struct device_attribute *attr, char *buf)
+{
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
+	ssize_t rc;
+	int cpunum;
+	int prefer_idle;
+
+	cpunum = cpu->dev.id;
+
+	prefer_idle = sched_get_cpu_prefer_idle(cpunum);
+
+	rc = snprintf(buf, PAGE_SIZE-2, "%d\n", prefer_idle);
+
+	return rc;
+}
+
+static ssize_t __ref store_sched_prefer_idle(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
+{
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
+	int cpuid = cpu->dev.id;
+	int prefer_idle, err;
+
+	err = kstrtoint(strstrip((char *)buf), 0, &prefer_idle);
+	if (err)
+		return err;
+
+	err = sched_set_cpu_prefer_idle(cpuid, prefer_idle);
+	if (err >= 0)
+		err = count;
+
+	return err;
+}
+
+static DEVICE_ATTR(sched_mostly_idle_freq, 0664, show_sched_mostly_idle_freq,
+						store_sched_mostly_idle_freq);
+static DEVICE_ATTR(sched_mostly_idle_load, 0664, show_sched_mostly_idle_load,
+						store_sched_mostly_idle_load);
+static DEVICE_ATTR(sched_mostly_idle_nr_run, 0664,
+		show_sched_mostly_idle_nr_run, store_sched_mostly_idle_nr_run);
+static DEVICE_ATTR(sched_prefer_idle, 0664,
+		show_sched_prefer_idle, store_sched_prefer_idle);
+
+static struct attribute *hmp_sched_cpu_attrs[] = {
+	&dev_attr_sched_mostly_idle_load.attr,
+	&dev_attr_sched_mostly_idle_nr_run.attr,
+	&dev_attr_sched_mostly_idle_freq.attr,
+	&dev_attr_sched_prefer_idle.attr,
+	NULL
+};
+
+static struct attribute_group sched_hmp_cpu_attr_group = {
+	.attrs = hmp_sched_cpu_attrs,
+};
+
+#endif	/* CONFIG_SCHED_QHMP */
 static const struct attribute_group *common_cpu_attr_groups[] = {
 #ifdef CONFIG_KEXEC
 	&crash_note_cpu_attr_group,
+#endif
+#ifdef CONFIG_SCHED_QHMP
+	&sched_hmp_cpu_attr_group,
 #endif
 	NULL
 };
@@ -189,6 +359,9 @@ static const struct attribute_group *common_cpu_attr_groups[] = {
 static const struct attribute_group *hotplugable_cpu_attr_groups[] = {
 #ifdef CONFIG_KEXEC
 	&crash_note_cpu_attr_group,
+#endif
+#ifdef CONFIG_SCHED_QHMP
+	&sched_hmp_cpu_attr_group,
 #endif
 	NULL
 };
