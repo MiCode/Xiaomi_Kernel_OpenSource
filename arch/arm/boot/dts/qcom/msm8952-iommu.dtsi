@@ -137,6 +137,15 @@
 			label = "adsp_opendsp";
 		};
 
+		adsp_shared: qcom,iommu-ctx@1e31000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			reg = <0x1e31000 0x1000>;
+			interrupts = <0 109 0>;
+			qcom,iommu-ctx-sids = <0x2c0f>;
+			qcom,iommu-sid-mask = <0x7>;
+			label = "adsp_shared";
+		};
+
 		lpass_stream: qcom,iommu-ctx@1e32000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e32000 0x1000>;
