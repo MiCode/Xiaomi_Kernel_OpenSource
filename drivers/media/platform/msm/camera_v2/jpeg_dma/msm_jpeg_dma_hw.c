@@ -24,6 +24,7 @@
 #include <linux/msm-bus-board.h>
 #include <media/videobuf2-core.h>
 
+#include "msm_camera_io_util.h"
 #include "cam_smmu_api.h"
 #include "msm_jpeg_dma_dev.h"
 #include "msm_jpeg_dma_hw.h"
@@ -79,7 +80,7 @@ static const struct msm_jpegdma_block msm_jpegdma_block_sel[] = {
 static inline u32 msm_jpegdma_hw_read_reg(struct msm_jpegdma_device *dma,
 	enum msm_jpegdma_mem_resources base_idx, u32 reg)
 {
-	return readl_relaxed(dma->iomem_base[base_idx] + reg);
+	return msm_camera_io_r(dma->iomem_base[base_idx] + reg);
 }
 
 /*
@@ -95,7 +96,7 @@ static inline void msm_jpegdma_hw_write_reg(struct msm_jpegdma_device *dma,
 	pr_debug("%s:%d]%p %08x\n", __func__, __LINE__,
 		dma->iomem_base[base_idx] + reg,
 		value);
-	writel_relaxed(value, dma->iomem_base[base_idx] + reg);
+	msm_camera_io_w(value, dma->iomem_base[base_idx] + reg);
 }
 
 /*

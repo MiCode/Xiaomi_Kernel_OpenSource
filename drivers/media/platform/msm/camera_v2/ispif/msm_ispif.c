@@ -65,7 +65,7 @@ static void msm_ispif_io_dump_reg(struct ispif_device *ispif)
 {
 	if (!ispif->enb_dump_reg)
 		return;
-	msm_camera_io_dump(ispif->base, 0x250);
+	msm_camera_io_dump(ispif->base, 0x250, 0);
 }
 
 

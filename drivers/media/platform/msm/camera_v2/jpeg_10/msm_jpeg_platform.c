@@ -25,6 +25,7 @@
 #include <linux/dma-attrs.h>
 #include <linux/dma-buf.h>
 
+#include "msm_camera_io_util.h"
 #include "msm_jpeg_platform.h"
 #include "msm_jpeg_sync.h"
 #include "msm_jpeg_common.h"
@@ -242,51 +243,51 @@ err_get_phy:
 static void set_vbif_params(struct msm_jpeg_device *pgmn_dev,
 	 void *jpeg_vbif_base)
 {
-	writel_relaxed(0x1,
+	msm_camera_io_w(0x1,
 		jpeg_vbif_base + JPEG_VBIF_CLKON);
 
 	if (pgmn_dev->hw_version != JPEG_8994) {
-		writel_relaxed(0x10101010,
+		msm_camera_io_w(0x10101010,
 			jpeg_vbif_base + JPEG_VBIF_IN_RD_LIM_CONF0);
-		writel_relaxed(0x10101010,
+		msm_camera_io_w(0x10101010,
 			jpeg_vbif_base + JPEG_VBIF_IN_RD_LIM_CONF1);
-		writel_relaxed(0x10101010,
+		msm_camera_io_w(0x10101010,
 			jpeg_vbif_base + JPEG_VBIF_IN_RD_LIM_CONF2);
-		writel_relaxed(0x10101010,
+		msm_camera_io_w(0x10101010,
 			jpeg_vbif_base + JPEG_VBIF_IN_WR_LIM_CONF0);
-		writel_relaxed(0x10101010,
+		msm_camera_io_w(0x10101010,
 			jpeg_vbif_base + JPEG_VBIF_IN_WR_LIM_CONF1);
-		writel_relaxed(0x10101010,
+		msm_camera_io_w(0x10101010,
 			jpeg_vbif_base + JPEG_VBIF_IN_WR_LIM_CONF2);
-		writel_relaxed(0x00001010,
+		msm_camera_io_w(0x00001010,
 			jpeg_vbif_base + JPEG_VBIF_OUT_RD_LIM_CONF0);
-		writel_relaxed(0x00000110,
+		msm_camera_io_w(0x00000110,
 			jpeg_vbif_base + JPEG_VBIF_OUT_WR_LIM_CONF0);
-		writel_relaxed(0x00000707,
+		msm_camera_io_w(0x00000707,
 			jpeg_vbif_base + JPEG_VBIF_DDR_OUT_MAX_BURST);
-		writel_relaxed(0x00000FFF,
+		msm_camera_io_w(0x00000FFF,
 			jpeg_vbif_base + JPEG_VBIF_OUT_AXI_AOOO_EN);
-		writel_relaxed(0x0FFF0FFF,
+		msm_camera_io_w(0x0FFF0FFF,
 			jpeg_vbif_base + JPEG_VBIF_OUT_AXI_AOOO);
-		writel_relaxed(0x2222,
+		msm_camera_io_w(0x2222,
 			jpeg_vbif_base + JPEG_VBIF_OUT_AXI_AMEMTYPE_CONF1);
 	}
 
-	writel_relaxed(0x7,
+	msm_camera_io_w(0x7,
 		jpeg_vbif_base + JPEG_VBIF_OCMEM_OUT_MAX_BURST);
-	writel_relaxed(0x00000030,
+	msm_camera_io_w(0x00000030,
 		jpeg_vbif_base + JPEG_VBIF_ARB_CTL);
 
 	/*FE and WE QOS configuration need to be set when
 	QOS RR arbitration is enabled*/
 	if (pgmn_dev->hw_version != JPEG_8974_V1)
-		writel_relaxed(0x00000003,
+		msm_camera_io_w(0x00000003,
 				jpeg_vbif_base + JPEG_VBIF_ROUND_ROBIN_QOS_ARB);
 	else
-		writel_relaxed(0x00000001,
+		msm_camera_io_w(0x00000001,
 				jpeg_vbif_base + JPEG_VBIF_ROUND_ROBIN_QOS_ARB);
 
-	writel_relaxed(0x22222222,
+	msm_camera_io_w(0x22222222,
 		jpeg_vbif_base + JPEG_VBIF_OUT_AXI_AMEMTYPE_CONF0);
 
 }
@@ -349,7 +350,7 @@ static int32_t msm_jpeg_set_init_dt_parms(struct msm_jpeg_device *pgmn_dev,
 					__func__, __LINE__,
 					base + dt_reg_settings[i],
 					dt_reg_settings[i + 1]);
-			writel_relaxed(dt_reg_settings[i + 1],
+			msm_camera_io_w(dt_reg_settings[i + 1],
 					base + dt_reg_settings[i]);
 		}
 		kfree(dt_reg_settings);
@@ -503,7 +504,7 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 		goto fail_clk;
 	}
 
-	pgmn_dev->hw_version = readl_relaxed(jpeg_base +
+	pgmn_dev->hw_version = msm_camera_io_r(jpeg_base +
 		JPEG_HW_VERSION);
 	JPEG_DBG_HIGH("%s:%d] jpeg HW version 0x%x", __func__, __LINE__,
 		pgmn_dev->hw_version);

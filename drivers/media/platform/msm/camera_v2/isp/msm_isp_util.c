@@ -79,39 +79,6 @@ static struct msm_bus_scale_pdata msm_isp_bus_client_pdata = {
 	.name = "msm_camera_isp",
 };
 
-
-void msm_camera_io_dump_2(void __iomem *addr, int size)
-{
-	char line_str[128], *p_str;
-	int i;
-	u32 *p = (u32 *) addr;
-	u32 data;
-	pr_err("%s: %p %d\n", __func__, addr, size);
-	line_str[0] = '\0';
-	p_str = line_str;
-	for (i = 0; i < size/4; i++) {
-		if (i % 4 == 0) {
-#ifdef CONFIG_COMPAT
-			snprintf(p_str, 20, "%016lx: ", (unsigned long) p);
-			p_str += 18;
-#else
-			snprintf(p_str, 12, "%08lx: ", (unsigned long) p);
-			p_str += 10;
-#endif
-		}
-		data = readl_relaxed(p++);
-		snprintf(p_str, 12, "%08x ", data);
-		p_str += 9;
-		if ((i + 1) % 4 == 0) {
-			pr_err("%s\n", line_str);
-			line_str[0] = '\0';
-			p_str = line_str;
-		}
-	}
-	if (line_str[0] != '\0')
-		pr_err("%s\n", line_str);
-}
-
 void msm_isp_print_fourcc_error(const char *origin, uint32_t fourcc_format)
 {
 	int i;

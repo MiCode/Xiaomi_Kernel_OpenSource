@@ -14,6 +14,7 @@
 
 #include "msm_isp.h"
 #include <soc/qcom/camera2.h>
+#include "msm_camera_io_util.h"
 
 /* #define CONFIG_MSM_ISP_DBG 1 */
 
@@ -75,7 +76,6 @@ int msm_isp_get_clk_info(struct vfe_device *vfe_dev,
 	struct platform_device *pdev, struct msm_cam_clk_info *vfe_clk_info);
 void msm_isp_fetch_engine_done_notify(struct vfe_device *vfe_dev,
 	struct msm_vfe_fetch_engine_info *fetch_engine_info);
-void msm_camera_io_dump_2(void __iomem *addr, int size);
 void msm_isp_print_fourcc_error(const char *origin, uint32_t fourcc_format);
 void msm_isp_flush_tasklet(struct vfe_device *vfe_dev);
 void msm_isp_save_framedrop_values(struct vfe_device *vfe_dev);
