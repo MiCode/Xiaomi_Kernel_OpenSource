@@ -3040,6 +3040,11 @@ void _ipa_cfg_ep_aggr_v3_0(u32 pipe_number,
 			IPA_ENDP_INIT_AGGR_N_AGGR_PKT_LIMIT_SHFT,
 			IPA_ENDP_INIT_AGGR_N_AGGR_PKT_LIMIT_BMSK);
 
+	/* set byte-limit aggregation behavior to soft-byte limit */
+	IPA_SETFIELD_IN_REG(reg_val, 0,
+			IPA_ENDP_INIT_AGGR_N_AGGR_HARD_BYTE_LIMIT_ENABLE_SHFT,
+			IPA_ENDP_INIT_AGGR_N_AGGR_HARD_BYTE_LIMIT_ENABLE_BMSK);
+
 	ipa_write_reg(ipa3_ctx->mmio,
 			IPA_ENDP_INIT_AGGR_N_OFST_v3_0(pipe_number), reg_val);
 }
