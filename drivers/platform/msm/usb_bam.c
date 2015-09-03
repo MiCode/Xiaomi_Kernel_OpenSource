@@ -960,6 +960,14 @@ static int usb_bam_disconnect_ipa_cons(
 	pipe_connect->inactivity_notify = NULL;
 	pipe_connect->priv = NULL;
 
+	/*
+	 * On some platforms, there is a chance that flow control
+	 * is disabled from IPA side, due to this IPA core may not
+	 * consume data from USB. Hence notify IPA to enable flow
+	 * control and then check sps pipe is empty or not before
+	 * processing USB->IPA pipes disconnect.
+	 */
+	ipa_clear_endpoint_delay(ipa_params->cons_clnt_hdl);
 retry:
 	/* Make sure pipe is empty before disconnecting it */
 	while (1) {
