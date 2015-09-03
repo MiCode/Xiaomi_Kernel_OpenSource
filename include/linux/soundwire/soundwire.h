@@ -180,6 +180,7 @@ static inline struct swr_device *to_swr_device(struct device *dev)
  * @shutdown: standard shutdown callback used during power down/halt
  * @suspend: standard suspend callback used during system suspend
  * @resume: standard resume callback used during system resume
+ * @startup: additional init operation for slave devices
  * @driver: soundwire device drivers should initialize name and
  * owner field of this structure
  * @id_table: list of soundwire devices supported by this driver
@@ -193,6 +194,7 @@ struct swr_driver {
 	int	(*device_up)(struct swr_device *swr);
 	int	(*device_down)(struct swr_device *swr);
 	int	(*reset_device)(struct swr_device *swr);
+	int	(*startup)(struct swr_device *swr);
 	struct device_driver		driver;
 	const struct swr_device_id	*id_table;
 };
@@ -238,6 +240,8 @@ static inline void swr_set_dev_data(struct swr_device *dev, void *data)
 {
 	dev_set_drvdata(&dev->dev, data);
 }
+
+extern int swr_startup_devices(struct swr_device *swr_dev);
 
 extern struct swr_device *swr_new_device(struct swr_master *master,
 				struct swr_boardinfo const *info);
