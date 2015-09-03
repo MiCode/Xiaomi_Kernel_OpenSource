@@ -401,11 +401,17 @@ static void cmdq_prep_task_desc(struct mmc_request *mrq,
 {
 	struct mmc_cmdq_req *cmdq_req = mrq->cmdq_req;
 	u32 req_flags = cmdq_req->cmdq_req_flags;
+	struct mmc_host *mmc = mrq->host;
+	struct cmdq_host *cq_host = mmc_cmdq_private(mmc);
+	u32 prio = !!(req_flags & PRIO);
+
+	if (cq_host->quirks & CMDQ_QUIRK_PRIO_READ)
+		prio |= (!!(req_flags & DIR) ? 1 : 0);
 
 	pr_debug("%s: %s: data-tag: 0x%08x - dir: %d - prio: %d - cnt: 0x%08x -	addr: 0x%llx\n",
 		 mmc_hostname(mrq->host), __func__,
 		 !!(req_flags & DAT_TAG), !!(req_flags & DIR),
-		 !!(req_flags & PRIO), cmdq_req->data.blocks,
+		 prio, cmdq_req->data.blocks,
 		 (u64)mrq->cmdq_req->blk_addr);
 
 	*data = VALID(1) |
@@ -416,7 +422,7 @@ static void cmdq_prep_task_desc(struct mmc_request *mrq,
 		CONTEXT(mrq->cmdq_req->ctx_id) |
 		DATA_TAG(!!(req_flags & DAT_TAG)) |
 		DATA_DIR(!!(req_flags & DIR)) |
-		PRIORITY(!!(req_flags & PRIO)) |
+		PRIORITY(prio) |
 		QBAR(qbr) |
 		REL_WRITE(!!(req_flags & REL_WR)) |
 		BLK_COUNT(mrq->cmdq_req->data.blocks) |
