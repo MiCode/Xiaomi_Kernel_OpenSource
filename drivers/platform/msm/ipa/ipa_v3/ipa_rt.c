@@ -989,73 +989,73 @@ static int __ipa_del_rt_tbl(struct ipa3_rt_tbl *entry)
 	return 0;
 }
 
-static int __ipa_add_rt_rule(enum ipa_ip_type ip, const char *name,
-		const struct ipa_rt_rule *rule, u8 at_rear, u32 *rule_hdl)
+static int __ipa_rt_validate_hndls(const struct ipa_rt_rule *rule,
+				struct ipa3_hdr_entry **hdr,
+				struct ipa3_hdr_proc_ctx_entry **proc_ctx)
 {
-	struct ipa3_rt_tbl *tbl;
-	struct ipa3_rt_entry *entry;
-	struct ipa3_hdr_entry *hdr = NULL;
-	struct ipa3_hdr_proc_ctx_entry *proc_ctx = NULL;
-	int id;
-
 	if (rule->hdr_hdl && rule->hdr_proc_ctx_hdl) {
 		IPAERR("rule contains both hdr_hdl and hdr_proc_ctx_hdl\n");
-		goto error;
+		return -EPERM;
 	}
 
 	if (rule->hdr_hdl) {
-		hdr = ipa3_id_find(rule->hdr_hdl);
-		if ((hdr == NULL) || (hdr->cookie != IPA_COOKIE)) {
+		*hdr = ipa3_id_find(rule->hdr_hdl);
+		if ((*hdr == NULL) || ((*hdr)->cookie != IPA_COOKIE)) {
 			IPAERR("rt rule does not point to valid hdr\n");
-			goto error;
+			return -EPERM;
 		}
 	} else if (rule->hdr_proc_ctx_hdl) {
-		proc_ctx = ipa3_id_find(rule->hdr_proc_ctx_hdl);
-		if ((proc_ctx == NULL) || (proc_ctx->cookie != IPA_COOKIE)) {
+		*proc_ctx = ipa3_id_find(rule->hdr_proc_ctx_hdl);
+		if ((*proc_ctx == NULL) ||
+			((*proc_ctx)->cookie != IPA_COOKIE)) {
+
 			IPAERR("rt rule does not point to valid proc ctx\n");
-			goto error;
+			return -EPERM;
 		}
 	}
 
+	return 0;
+}
 
-	tbl = __ipa_add_rt_tbl(ip, name);
-	if (tbl == NULL || (tbl->cookie != IPA_COOKIE)) {
-		IPAERR("failed adding rt tbl name=%s\n", name ? name : "");
-		goto error;
-	}
-	/*
-	 * do not allow any rules to be added at end of the "default" routing
-	 * tables
-	 */
-	if (!strcmp(tbl->name, IPA_DFLT_RT_TBL_NAME) &&
-	    (tbl->rule_cnt > 0) && (at_rear != 0)) {
-		IPAERR("cannot add rule at end of tbl rule_cnt=%d at_rear=%d\n",
-		       tbl->rule_cnt, at_rear);
-		goto error;
-	}
+static int __ipa_create_rt_entry(struct ipa3_rt_entry **entry,
+		const struct ipa_rt_rule *rule,
+		struct ipa3_rt_tbl *tbl, struct ipa3_hdr_entry *hdr,
+		struct ipa3_hdr_proc_ctx_entry *proc_ctx)
+{
+	int id;
 
-	entry = kmem_cache_zalloc(ipa3_ctx->rt_rule_cache, GFP_KERNEL);
-	if (!entry) {
+	*entry = kmem_cache_zalloc(ipa3_ctx->rt_rule_cache, GFP_KERNEL);
+	if (!*entry) {
 		IPAERR("failed to alloc RT rule object\n");
 		goto error;
 	}
-	INIT_LIST_HEAD(&entry->link);
-	entry->cookie = IPA_COOKIE;
-	entry->rule = *rule;
-	entry->tbl = tbl;
-	entry->hdr = hdr;
-	entry->proc_ctx = proc_ctx;
+	INIT_LIST_HEAD(&(*entry)->link);
+	(*(entry))->cookie = IPA_COOKIE;
+	(*(entry))->rule = *rule;
+	(*(entry))->tbl = tbl;
+	(*(entry))->hdr = hdr;
+	(*(entry))->proc_ctx = proc_ctx;
 	id = ipa3_alloc_rule_id(&tbl->rule_ids);
 	if (id < 0) {
 		IPAERR("failed to allocate rule id\n");
 		WARN_ON(1);
 		goto alloc_rule_id_fail;
 	}
-	entry->rule_id = id;
-	if (at_rear)
-		list_add_tail(&entry->link, &tbl->head_rt_rule_list);
-	else
-		list_add(&entry->link, &tbl->head_rt_rule_list);
+	(*(entry))->rule_id = id;
+
+	return 0;
+
+alloc_rule_id_fail:
+	kmem_cache_free(ipa3_ctx->rt_rule_cache, *entry);
+error:
+	return -EPERM;
+}
+
+static int __ipa_finish_rt_rule_add(struct ipa3_rt_entry *entry, u32 *rule_hdl,
+		struct ipa3_rt_tbl *tbl)
+{
+	int id;
+
 	tbl->rule_cnt++;
 	if (entry->hdr)
 		entry->hdr->ref_cnt++;
@@ -1077,9 +1077,87 @@ static int __ipa_add_rt_rule(enum ipa_ip_type ip, const char *name,
 ipa_insert_failed:
 	idr_remove(&tbl->rule_ids, entry->rule_id);
 	list_del(&entry->link);
-alloc_rule_id_fail:
 	kmem_cache_free(ipa3_ctx->rt_rule_cache, entry);
+	return -EPERM;
+}
+
+static int __ipa_add_rt_rule(enum ipa_ip_type ip, const char *name,
+		const struct ipa_rt_rule *rule, u8 at_rear, u32 *rule_hdl)
+{
+	struct ipa3_rt_tbl *tbl;
+	struct ipa3_rt_entry *entry;
+	struct ipa3_hdr_entry *hdr = NULL;
+	struct ipa3_hdr_proc_ctx_entry *proc_ctx = NULL;
+
+	if (__ipa_rt_validate_hndls(rule, &hdr, &proc_ctx))
+		goto error;
+
+
+	tbl = __ipa_add_rt_tbl(ip, name);
+	if (tbl == NULL || (tbl->cookie != IPA_COOKIE)) {
+		IPAERR("failed adding rt tbl name = %s\n",
+			name ? name : "");
+		goto error;
+	}
+	/*
+	 * do not allow any rules to be added at end of the "default" routing
+	 * tables
+	 */
+	if (!strcmp(tbl->name, IPA_DFLT_RT_TBL_NAME) &&
+	    (tbl->rule_cnt > 0) && (at_rear != 0)) {
+		IPAERR("cannot add rule at end of tbl rule_cnt=%d at_rear=%d\n",
+		       tbl->rule_cnt, at_rear);
+		goto error;
+	}
+
+	if (__ipa_create_rt_entry(&entry, rule, tbl, hdr, proc_ctx))
+		goto error;
+
+	if (at_rear)
+		list_add_tail(&entry->link, &tbl->head_rt_rule_list);
+	else
+		list_add(&entry->link, &tbl->head_rt_rule_list);
+
+	if (__ipa_finish_rt_rule_add(entry, rule_hdl, tbl))
+		goto error;
+
+	return 0;
+
 error:
+	return -EPERM;
+}
+
+static int __ipa_add_rt_rule_after(struct ipa3_rt_tbl *tbl,
+		const struct ipa_rt_rule *rule, u32 *rule_hdl,
+		struct ipa3_rt_entry **add_after_entry)
+{
+	struct ipa3_rt_entry *entry;
+	struct ipa3_hdr_entry *hdr = NULL;
+	struct ipa3_hdr_proc_ctx_entry *proc_ctx = NULL;
+
+	if (!*add_after_entry)
+		goto error;
+
+	if (__ipa_rt_validate_hndls(rule, &hdr, &proc_ctx))
+		goto error;
+
+	if (__ipa_create_rt_entry(&entry, rule, tbl, hdr, proc_ctx))
+		goto error;
+
+	list_add(&entry->link, &((*add_after_entry)->link));
+
+	if (__ipa_finish_rt_rule_add(entry, rule_hdl, tbl))
+		goto error;
+
+	/*
+	 * prepare for next insertion
+	 */
+	*add_after_entry = entry;
+
+	return 0;
+
+error:
+	*add_after_entry = NULL;
 	return -EPERM;
 }
 
@@ -1122,6 +1200,102 @@ int ipa3_add_rt_rule(struct ipa_ioc_add_rt_rule *rules)
 		}
 
 	ret = 0;
+bail:
+	mutex_unlock(&ipa3_ctx->lock);
+	return ret;
+}
+
+/**
+ * ipa3_add_rt_rule_after() - Add the given routing rules after the
+ * specified rule to SW and optionally commit to IPA HW
+ * @rules:	[inout] set of routing rules to add + handle where to add
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa3_add_rt_rule_after(struct ipa_ioc_add_rt_rule_after *rules)
+{
+	int i;
+	int ret = 0;
+	struct ipa3_rt_tbl *tbl = NULL;
+	struct ipa3_rt_entry *entry = NULL;
+
+	if (rules == NULL || rules->num_rules == 0 || rules->ip >= IPA_IP_MAX) {
+		IPAERR("bad parm\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ipa3_ctx->lock);
+
+	tbl = __ipa3_find_rt_tbl(rules->ip, rules->rt_tbl_name);
+	if (tbl == NULL || (tbl->cookie != IPA_COOKIE)) {
+		IPAERR("failed finding rt tbl name = %s\n",
+			rules->rt_tbl_name ? rules->rt_tbl_name : "");
+		ret = -EINVAL;
+		goto bail;
+	}
+
+	if (tbl->rule_cnt <= 0) {
+		IPAERR("tbl->rule_cnt <= 0");
+		ret = -EINVAL;
+		goto bail;
+	}
+
+	entry = ipa3_id_find(rules->add_after_hdl);
+	if (!entry) {
+		IPAERR("failed finding rule %d in rt tbls\n",
+			rules->add_after_hdl);
+		ret = -EINVAL;
+		goto bail;
+	}
+
+	if (entry->tbl != tbl) {
+		IPAERR("given rt rule does not match the table\n");
+		ret = -EINVAL;
+		goto bail;
+	}
+
+	/*
+	 * do not allow any rules to be added at end of the "default" routing
+	 * tables
+	 */
+	if (!strcmp(tbl->name, IPA_DFLT_RT_TBL_NAME) &&
+			(&entry->link == tbl->head_rt_rule_list.prev)) {
+		IPAERR("cannot add rule at end of tbl rule_cnt=%d\n",
+			tbl->rule_cnt);
+		ret = -EINVAL;
+		goto bail;
+	}
+
+	/*
+	 * we add all rules one after the other, if one insertion fails, it cuts
+	 * the chain (all following will receive fail status) following calls to
+	 * __ipa_add_rt_rule_after will fail (entry == NULL)
+	 */
+
+	for (i = 0; i < rules->num_rules; i++) {
+		if (__ipa_add_rt_rule_after(tbl,
+					&rules->rules[i].rule,
+					&rules->rules[i].rt_rule_hdl,
+					&entry)) {
+			IPAERR("failed to add rt rule %d\n", i);
+			rules->rules[i].status = IPA_RT_STATUS_OF_ADD_FAILED;
+		} else {
+			rules->rules[i].status = 0;
+		}
+	}
+
+	if (rules->commit)
+		if (ipa3_ctx->ctrl->ipa3_commit_rt(rules->ip)) {
+			IPAERR("failed to commit\n");
+			ret = -EPERM;
+			goto bail;
+		}
+
+	ret = 0;
+	goto bail;
+
 bail:
 	mutex_unlock(&ipa3_ctx->lock);
 	return ret;

@@ -498,6 +498,37 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		break;
+	case IPA_IOC_ADD_RT_RULE_AFTER:
+		if (copy_from_user(header, (u8 *)arg,
+			sizeof(struct ipa_ioc_add_rt_rule_after))) {
+
+			retval = -EFAULT;
+			break;
+		}
+		pyld_sz =
+		   sizeof(struct ipa_ioc_add_rt_rule_after) +
+		   ((struct ipa_ioc_add_rt_rule_after *)header)->num_rules *
+		   sizeof(struct ipa_rt_rule_add);
+		param = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!param) {
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (u8 *)arg, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		if (ipa3_add_rt_rule_after(
+			(struct ipa_ioc_add_rt_rule_after *)param)) {
+
+			retval = -EFAULT;
+			break;
+		}
+		if (copy_to_user((u8 *)arg, param, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
 
 	case IPA_IOC_MDFY_RT_RULE:
 		if (copy_from_user(header, (u8 *)arg,
@@ -577,6 +608,37 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		if (ipa3_add_flt_rule((struct ipa_ioc_add_flt_rule *)param)) {
+			retval = -EFAULT;
+			break;
+		}
+		if (copy_to_user((u8 *)arg, param, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+
+	case IPA_IOC_ADD_FLT_RULE_AFTER:
+		if (copy_from_user(header, (u8 *)arg,
+				sizeof(struct ipa_ioc_add_flt_rule_after))) {
+
+			retval = -EFAULT;
+			break;
+		}
+		pyld_sz =
+		   sizeof(struct ipa_ioc_add_flt_rule_after) +
+		   ((struct ipa_ioc_add_flt_rule_after *)header)->num_rules *
+		   sizeof(struct ipa_flt_rule_add);
+		param = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!param) {
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (u8 *)arg, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		if (ipa3_add_flt_rule_after(
+				(struct ipa_ioc_add_flt_rule_after *)param)) {
 			retval = -EFAULT;
 			break;
 		}
