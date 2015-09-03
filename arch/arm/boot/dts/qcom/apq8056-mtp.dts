@@ -20,6 +20,5 @@
 / {
 	model = "Qualcomm Technologies, Inc. APQ 8056 MTP";
 	compatible = "qcom,apq8056-mtp", "qcom,apq8056", "qcom,mtp";
-	qcom,msm-id = <274 0>;
 	qcom,board-id = <8 0>;
 };
