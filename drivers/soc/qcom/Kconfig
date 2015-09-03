@@ -297,6 +297,17 @@ endchoice
 
 endif
 
+config MSM_SCM_ERRATA
+	depends on DEBUG_FS
+	depends on MSM_SCM
+	bool "Support for enabling/disabling errata workarounds via debugfs"
+	help
+	  Exposes a debugfs interface intended for advanced system debugging
+	  where it may be desirable to enable or disable certain hardware
+	  errata workarounds at runtime.
+
+	  If unsure, say N.
+
 config MSM_MPM_OF
        bool "Modem Power Manager"
        depends on OF
