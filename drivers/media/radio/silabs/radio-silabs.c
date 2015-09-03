@@ -2291,6 +2291,7 @@ static void silabs_interrupts_handler(struct silabs_fm_device *radio)
 				__func__);
 			silabs_fm_q_event(radio, SILABS_EVT_TUNE_SUCC);
 			radio->seek_tune_status = NO_SEEK_TUNE_PENDING;
+			radio->is_af_tune_in_progress = false;
 		} else if (radio->seek_tune_status == SEEK_PENDING) {
 			FMDBG("%s: posting SILABS_EVT_SEEK_COMPLETE event\n",
 				__func__);
