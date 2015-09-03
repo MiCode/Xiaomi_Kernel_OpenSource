@@ -463,14 +463,6 @@
 };
 
 &slim_msm {
-	tomtom_codec {
-		qcom,cdc-micbias2-headset-only;
-		qcom,cdc-micbias1-ext-cap;
-		qcom,cdc-micbias2-ext-cap;
-		qcom,cdc-micbias3-ext-cap;
-		qcom,cdc-micbias4-ext-cap;
-	};
-
 	tasha_codec {
 		swr_master {
 			compatible = "qcom,swr-wcd";
@@ -643,13 +635,6 @@
 			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
-	};
-
-	sound {
-		qcom,model = "msm8996-tomtom-cdp-snd-card";
-		qcom,hdmi-audio-rx;
-		asoc-codec = <&stub_codec>, <&hdmi_audio>;
-		asoc-codec-names = "msm-stub-codec.1", "msm-hdmi-audio-codec-rx";
 	};
 
 	sound-9335 {
