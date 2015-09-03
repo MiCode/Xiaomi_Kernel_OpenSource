@@ -1229,11 +1229,15 @@ int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 		if (rc)
 			goto err3;
 	} else {
-		rc = msm_isp_buf_put_scratch(buf_mgr);
-		if (rc)
-			goto done;
-		if (buf_mgr->attach_ref_cnt == 1) {
-			rc = cam_smmu_ops(buf_mgr->img_iommu_hdl,
+		if (buf_mgr->attach_ref_cnt > 0)
+			buf_mgr->attach_ref_cnt--;
+		else
+			pr_err("%s: Error! Invalid ref_cnt %d\n",
+				__func__, buf_mgr->attach_ref_cnt);
+
+		if (buf_mgr->attach_ref_cnt == 0) {
+			rc = msm_isp_buf_put_scratch(buf_mgr);
+			rc |= cam_smmu_ops(buf_mgr->img_iommu_hdl,
 				CAM_SMMU_DETACH);
 			rc |= cam_smmu_ops(buf_mgr->stats_iommu_hdl,
 				CAM_SMMU_DETACH);
@@ -1242,14 +1246,11 @@ int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 					__func__, rc);
 			}
 		}
-		if (buf_mgr->attach_ref_cnt > 0)
-			buf_mgr->attach_ref_cnt--;
-		else
-			pr_err("%s: Error! Invalid ref_cnt\n", __func__);
 	}
-done:
+
 	mutex_unlock(&buf_mgr->lock);
 	return rc;
+
 err3:
 	if (cam_smmu_ops(buf_mgr->stats_iommu_hdl, CAM_SMMU_DETACH))
 		pr_err("%s: stats iommu detach fail\n", __func__);
@@ -1274,6 +1275,7 @@ static int msm_isp_init_isp_buf_mgr(struct msm_isp_buf_mgr *buf_mgr,
 	}
 
 	CDBG("%s: E\n", __func__);
+	buf_mgr->attach_ref_cnt = 0;
 
 	INIT_LIST_HEAD(&buf_mgr->buffer_q);
 	buf_mgr->num_buf_q = BUF_MGR_NUM_BUF_Q;
@@ -1327,6 +1329,7 @@ static int msm_isp_deinit_isp_buf_mgr(
 	cam_smmu_destroy_handle(buf_mgr->img_iommu_hdl);
 	cam_smmu_destroy_handle(buf_mgr->stats_iommu_hdl);
 
+	buf_mgr->attach_ref_cnt = 0;
 	mutex_unlock(&buf_mgr->lock);
 	return 0;
 }
