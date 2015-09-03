@@ -951,27 +951,12 @@ static int wsa881x_probe(struct snd_soc_codec *codec)
 {
 	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
 	struct swr_device *dev;
-	u8 devnum = 0;
-	int ret;
 
 	if (!wsa881x)
 		return -EINVAL;
 
 	dev = wsa881x->swr_slave;
 	wsa881x->codec = codec;
-	/*
-	 * Add 5msec delay to provide sufficient time for
-	 * soundwire auto enumeration of slave devices as
-	 * as per HW requirement.
-	 */
-	usleep_range(5000, 5010);
-	ret = swr_get_logical_dev_num(dev, dev->addr, &devnum);
-	if (ret) {
-		dev_err(codec->dev, "%s failed to get devnum, err:%d\n",
-			__func__, ret);
-		return ret;
-	}
-	dev->dev_num = devnum;
 	mutex_init(&wsa881x->bg_lock);
 	mutex_init(&wsa881x->res_lock);
 	wsa881x_init(codec);
@@ -983,7 +968,7 @@ static int wsa881x_probe(struct snd_soc_codec *codec)
 	wsa881x->tz_pdata.codec = codec;
 	wsa881x->tz_pdata.wsa_temp_reg_read = wsa881x_temp_reg_read;
 	wsa881x_init_thermal(&wsa881x->tz_pdata);
-	return ret;
+	return 0;
 }
 
 static int wsa881x_remove(struct snd_soc_codec *codec)
@@ -1020,6 +1005,53 @@ static struct snd_soc_codec_driver soc_codec_dev_wsa881x = {
 	.get_regmap = wsa881x_get_regmap,
 };
 
+static int wsa881x_swr_startup(struct swr_device *swr_dev)
+{
+	int ret = 0;
+	u8 devnum = 0;
+	struct wsa881x_priv *wsa881x;
+
+	wsa881x = swr_get_dev_data(swr_dev);
+	if (!wsa881x) {
+		dev_err(&swr_dev->dev, "%s: wsa881x is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	/*
+	 * Add 5msec delay to provide sufficient time for
+	 * soundwire auto enumeration of slave devices as
+	 * as per HW requirement.
+	 */
+	usleep_range(5000, 5010);
+	ret = swr_get_logical_dev_num(swr_dev, swr_dev->addr, &devnum);
+	if (ret) {
+		dev_dbg(&swr_dev->dev, "%s failed to get devnum, err:%d\n",
+			__func__, ret);
+		goto err;
+	}
+	swr_dev->dev_num = devnum;
+
+	wsa881x->regmap = devm_regmap_init_swr(swr_dev,
+					       &wsa881x_regmap_config);
+	if (IS_ERR(wsa881x->regmap)) {
+		ret = PTR_ERR(wsa881x->regmap);
+		dev_err(&swr_dev->dev, "%s: regmap_init failed %d\n",
+			__func__, ret);
+		goto err;
+	}
+
+	ret = snd_soc_register_codec(&swr_dev->dev, &soc_codec_dev_wsa881x,
+				     NULL, 0);
+	if (ret) {
+		dev_err(&swr_dev->dev, "%s: Codec registration failed\n",
+			__func__);
+		goto err;
+	}
+
+err:
+	return ret;
+}
+
 static int wsa881x_gpio_ctrl(struct wsa881x_priv *wsa881x, bool enable)
 {
 	if (wsa881x->pd_gpio < 0) {
@@ -1041,16 +1073,21 @@ static int wsa881x_gpio_init(struct swr_device *pdev)
 		dev_err(&pdev->dev, "%s: wsa881x is NULL\n", __func__);
 		return -EINVAL;
 	}
-	if (wsa881x->pd_gpio < 0) {
-		dev_err(&pdev->dev, "%s: pd_gpio is invalid\n", __func__);
-		return -EINVAL;
-	}
 	dev_dbg(&pdev->dev, "%s: gpio %d request with name %s\n",
 		__func__, wsa881x->pd_gpio, dev_name(&pdev->dev));
 	ret = gpio_request(wsa881x->pd_gpio, dev_name(&pdev->dev));
-	if (ret)
-		dev_err(&pdev->dev, "%s: Failed to request gpio %d, err: %d\n",
-			__func__, wsa881x->pd_gpio, ret);
+	if (ret) {
+		if (ret == -EBUSY) {
+			/* GPIO was already requested */
+			dev_dbg(&pdev->dev,
+				 "%s: gpio %d is already set to high\n",
+				 __func__, wsa881x->pd_gpio);
+			ret = 0;
+		} else {
+			dev_err(&pdev->dev, "%s: Failed to request gpio %d, err: %d\n",
+				__func__, wsa881x->pd_gpio, ret);
+		}
+	}
 	return ret;
 }
 
@@ -1076,25 +1113,11 @@ static int wsa881x_swr_probe(struct swr_device *pdev)
 	dev_dbg(&pdev->dev, "%s: reset gpio %d\n", __func__, wsa881x->pd_gpio);
 	swr_set_dev_data(pdev, wsa881x);
 
-	wsa881x->regmap = devm_regmap_init_swr(pdev, &wsa881x_regmap_config);
-	if (IS_ERR(wsa881x->regmap)) {
-		ret = PTR_ERR(wsa881x->regmap);
-		dev_err(&pdev->dev, "%s: regmap_init failed %d\n",
-			__func__, ret);
-		goto err;
-	}
 	wsa881x->swr_slave = pdev;
 	ret = wsa881x_gpio_init(pdev);
 	if (ret)
 		goto err;
 	wsa881x_gpio_ctrl(wsa881x, true);
-	ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_wsa881x,
-				     NULL, 0);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "%s: Codec registration failed\n",
-			__func__);
-		goto err;
-	}
 	if (!debugfs_wsa881x_dent) {
 		dbgwsa881x = wsa881x;
 		debugfs_wsa881x_dent = debugfs_create_dir(
@@ -1244,6 +1267,7 @@ static struct swr_driver wsa881x_codec_driver = {
 	.device_up = wsa881x_swr_up,
 	.device_down = wsa881x_swr_down,
 	.reset_device = wsa881x_swr_reset,
+	.startup = wsa881x_swr_startup,
 };
 
 static int __init wsa881x_codec_init(void)
