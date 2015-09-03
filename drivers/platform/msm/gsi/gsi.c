@@ -2393,6 +2393,7 @@ static int msm_gsi_probe(struct platform_device *pdev)
 	}
 
 	gsi_ctx->dev = dev;
+	gsi_debugfs_init();
 
 	return 0;
 }
