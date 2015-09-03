@@ -2021,5 +2021,6 @@ int ipa3_release_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
 int ipa3_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
 int ipa3_set_flt_tuple_mask(int pipe_idx, struct ipa3_hash_tuple *tuple);
 int ipa3_set_rt_tuple_mask(int tbl_idx, struct ipa3_hash_tuple *tuple);
+void ipa3_set_resorce_groups_min_max_limits(void);
 
 #endif /* _IPA3_I_H_ */
