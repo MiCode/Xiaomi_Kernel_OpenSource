@@ -471,6 +471,8 @@
 };
 
 #include "msmtitanium-regulator.dtsi"
+#include "msm-pmtitanium.dtsi"
+#include "msm-pmi8950.dtsi"
 #include "msm-gdsc-8916.dtsi"
 
 &gdsc_venus {
@@ -511,4 +513,122 @@
 
 &gdsc_usb30 {
 	status = "okay";
+};
+
+&pmtitanium_mpps {
+	mpp@a100 {
+		/* MPP2 - PA_THERM config */
+		qcom,mode = <4>; /* AIN input */
+		qcom,invert = <1>; /* Enable MPP */
+		qcom,ain-route = <1>; /* AMUX 6 */
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* Function constant */
+	};
+
+	mpp@a300 {
+		/* MPP4 - CASE_THERM config */
+		qcom,mode = <4>; /* AIN input */
+		qcom,invert = <1>; /* Enable MPP */
+		qcom,ain-route = <3>; /* AMUX 8 */
+		qcom,master-en = <1>;
+		qcom,src-sel = <0>; /* Function constant */
+	};
+};
+
+&pmtitanium_vadc {
+	chan@5 {
+		label = "vcoin";
+		reg = <5>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <1>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@7 {
+		label = "vph_pwr";
+		reg = <7>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <1>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@36 {
+		label = "pa_therm0";
+		reg = <0x36>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@11 {
+		label = "pa_therm1";
+		reg = <0x11>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+		qcom,vadc-thermal-node;
+	};
+
+	chan@32 {
+		label = "xo_therm";
+		reg = <0x32>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <4>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+		qcom,vadc-thermal-node;
+	};
+
+	chan@3c {
+		label = "xo_therm_buf";
+		reg = <0x3c>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <4>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+		qcom,vadc-thermal-node;
+	};
+
+	chan@13 {
+		label = "case_therm";
+		reg = <0x13>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+		qcom,vadc-thermal-node;
+	};
+};
+
+&pmtitanium_adc_tm {
+	chan@36 {
+		label = "pa_therm0";
+		reg = <0x36>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+		qcom,btm-channel-number = <0x48>;
+		qcom,thermal-node;
+	};
 };
