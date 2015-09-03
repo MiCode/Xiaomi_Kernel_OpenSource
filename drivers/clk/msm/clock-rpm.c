@@ -14,7 +14,7 @@
 #define pr_fmt(fmt) "%s: " fmt, __func__
 
 #include <linux/err.h>
-#include <linux/mutex.h>
+#include <linux/rtmutex.h>
 #include <linux/clk/msm-clk-provider.h>
 #include <soc/qcom/clock-rpm.h>
 #include <soc/qcom/msm-clock-controller.h>
@@ -99,7 +99,7 @@ struct clk_rpmrs_data clk_rpmrs_data_smd = {
 	.ctx_sleep_id = MSM_RPM_CTX_SLEEP_SET,
 };
 
-static DEFINE_MUTEX(rpm_clock_lock);
+static DEFINE_RT_MUTEX(rpm_clock_lock);
 
 static void to_active_sleep_khz(struct rpm_clk *r, unsigned long rate,
 			unsigned long *active_khz, unsigned long *sleep_khz)
@@ -126,7 +126,7 @@ static int rpm_clk_prepare(struct clk *clk)
 	unsigned long peer_khz = 0, peer_sleep_khz = 0;
 	struct rpm_clk *peer = r->peer;
 
-	mutex_lock(&rpm_clock_lock);
+	rt_mutex_lock(&rpm_clock_lock);
 
 	to_active_sleep_khz(r, r->c.rate, &this_khz, &this_sleep_khz);
 
@@ -162,7 +162,7 @@ out:
 	if (!rc)
 		r->enabled = true;
 
-	mutex_unlock(&rpm_clock_lock);
+	rt_mutex_unlock(&rpm_clock_lock);
 
 	return rc;
 }
@@ -171,7 +171,7 @@ static void rpm_clk_unprepare(struct clk *clk)
 {
 	struct rpm_clk *r = to_rpm_clk(clk);
 
-	mutex_lock(&rpm_clock_lock);
+	rt_mutex_lock(&rpm_clock_lock);
 
 	if (r->c.rate) {
 		uint32_t value;
@@ -194,7 +194,7 @@ static void rpm_clk_unprepare(struct clk *clk)
 	}
 	r->enabled = false;
 out:
-	mutex_unlock(&rpm_clock_lock);
+	rt_mutex_unlock(&rpm_clock_lock);
 
 	return;
 }
@@ -205,7 +205,7 @@ static int rpm_clk_set_rate(struct clk *clk, unsigned long rate)
 	unsigned long this_khz, this_sleep_khz;
 	int rc = 0;
 
-	mutex_lock(&rpm_clock_lock);
+	rt_mutex_lock(&rpm_clock_lock);
 
 	if (r->enabled) {
 		uint32_t value;
@@ -229,7 +229,7 @@ static int rpm_clk_set_rate(struct clk *clk, unsigned long rate)
 	}
 
 out:
-	mutex_unlock(&rpm_clock_lock);
+	rt_mutex_unlock(&rpm_clock_lock);
 
 	return rc;
 }
