@@ -164,6 +164,7 @@ struct cmdq_host {
 	u32 quirks;
 #define CMDQ_QUIRK_SHORT_TXFR_DESC_SZ 0x1
 #define CMDQ_QUIRK_NO_DCMD	0x2
+#define CMDQ_QUIRK_PRIO_READ	(1<<2)
 
 	bool enabled;
 	bool halted;
