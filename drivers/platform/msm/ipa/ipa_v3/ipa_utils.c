@@ -60,6 +60,27 @@
 #define IPA_GROUP_UC_RX_Q (5)
 #define IPA_CLIENT_NOT_USED {-1, -1, false}
 
+
+/* HPS, DPS sequencers Types*/
+#define IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY  0x00000000
+/* DMA + DECIPHER/CIPHER */
+#define IPA_DPS_HPS_SEQ_TYPE_DMA_DEC 0x00000011
+/* Packet Processing + no decipher + uCP (for Ethernet Bridging) */
+#define IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_UCP 0x00000002
+/* Packet Processing + decipher + uCP */
+#define IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_DEC_UCP 0x00000013
+/* 2 Packet Processing pass + no decipher + uCP */
+#define IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP 0x00000004
+/* 2 Packet Processing pass + decipher + uCP */
+#define IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_DEC_UCP 0x00000015
+/* Packet Processing + no decipher + no uCP */
+#define IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_NO_UCP 0x00000006
+/* Packet Processing + no decipher + no uCP */
+#define IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_DEC_NO_UCP 0x00000017
+/* COMP/DECOMP */
+#define IPA_DPS_HPS_SEQ_TYPE_DMA_COMP_DECOMP 0x00000020
+
+
 static const int ipa_ofst_meq32[] = { IPA_OFFSET_MEQ32_0,
 					IPA_OFFSET_MEQ32_1, -1 };
 static const int ipa_ofst_meq128[] = { IPA_OFFSET_MEQ128_0,
@@ -2932,6 +2953,7 @@ void _ipa_cfg_ep_mode_v3_0(u32 pipe_number, u32 dst_pipe_number,
 int ipa3_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ep_mode)
 {
 	int ep;
+	int type;
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0 || ep_mode == NULL) {
@@ -2971,6 +2993,15 @@ int ipa3_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ep_mode)
 	ipa3_ctx->ctrl->ipa3_cfg_ep_mode(clnt_hdl,
 			ipa3_ctx->ep[clnt_hdl].dst_pipe_index,
 			ep_mode);
+
+	 /* Configure sequencers type*/
+	if (ep_mode->mode == IPA_DMA)
+		type = IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY;
+	else
+		type = IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_UCP;
+
+	IPADBG(" set sequencers to sequance 0x%x, ep = %d\n", type, clnt_hdl);
+	ipa_write_reg(ipa3_ctx->mmio, IPA_ENDP_INIT_SEQ_n_OFST(clnt_hdl), type);
 
 	ipa3_dec_client_disable_clks();
 
