@@ -375,7 +375,7 @@ void add_popp(u32 dev_idx, u32 port_id, u32 popp_id)
 	rtac_adm_data.device[dev_idx].popp[
 		rtac_adm_data.device[dev_idx].num_of_popp].popp = popp_id;
 	rtac_adm_data.device[dev_idx].popp[
-		rtac_adm_data.device[dev_idx].num_of_popp++].popp_topology =
+		rtac_adm_data.device[dev_idx].num_of_popp].popp_topology =
 		q6asm_get_asm_topology(popp_id);
 	rtac_adm_data.device[dev_idx].popp[
 		rtac_adm_data.device[dev_idx].num_of_popp++].app_type =
