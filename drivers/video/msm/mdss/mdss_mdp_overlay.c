@@ -4644,7 +4644,7 @@ static int mdss_mdp_overlay_handoff(struct msm_fb_data_type *mfd)
 		goto error;
 	}
 
-	ctl->clk_rate = mdss_mdp_get_clk_rate(MDSS_CLK_MDP_CORE);
+	ctl->clk_rate = mdss_mdp_get_clk_rate(MDSS_CLK_MDP_CORE, false);
 	pr_debug("Set the ctl clock rate to %d Hz\n", ctl->clk_rate);
 
 	rc = __mdss_mdp_ctl_handoff(ctl, mdata);
@@ -4879,7 +4879,8 @@ int mdss_mdp_input_event_handler(struct msm_fb_data_type *mfd)
 	int rc = 0;
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 
-	if (ctl->ops.early_wake_up_fnc)
+	if (ctl && mdss_panel_is_power_on(ctl->power_state) &&
+	    ctl->ops.early_wake_up_fnc)
 		rc = ctl->ops.early_wake_up_fnc(ctl);
 
 	return rc;
