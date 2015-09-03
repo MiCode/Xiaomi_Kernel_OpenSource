@@ -712,14 +712,15 @@ static int ibs_enqueue(struct hci_uart *hu, struct sk_buff *skb)
 	return 0;
 }
 
-static inline int ibs_check_data_len(struct ibs_struct *ibs, int len)
+static inline int ibs_check_data_len(struct hci_dev *hdev,
+					struct ibs_struct *ibs, int len)
 {
 	register int room = skb_tailroom(ibs->rx_skb);
 
 	BT_DBG("len %d room %d", len, room);
 
 	if (!len) {
-		hci_recv_frame(ibs->rx_skb);
+		hci_recv_frame(hdev, ibs->rx_skb);
 	} else if (len > room) {
 		BT_ERR("Data length is too large");
 		kfree_skb(ibs->rx_skb);
@@ -762,7 +763,7 @@ static int ibs_recv(struct hci_uart *hu, void *data, int count)
 			switch (ibs->rx_state) {
 			case HCI_IBS_W4_DATA:
 				BT_DBG("Complete data");
-				hci_recv_frame(ibs->rx_skb);
+				hci_recv_frame(hu->hdev, ibs->rx_skb);
 
 				ibs->rx_state = HCI_IBS_W4_PACKET_TYPE;
 				ibs->rx_skb = NULL;
@@ -774,7 +775,7 @@ static int ibs_recv(struct hci_uart *hu, void *data, int count)
 				BT_DBG("Event header: evt 0x%2.2x plen %d",
 					eh->evt, eh->plen);
 
-				ibs_check_data_len(ibs, eh->plen);
+				ibs_check_data_len(hu->hdev, ibs, eh->plen);
 				continue;
 
 			case HCI_IBS_W4_ACL_HDR:
@@ -783,7 +784,7 @@ static int ibs_recv(struct hci_uart *hu, void *data, int count)
 
 				BT_DBG("ACL header: dlen %d", dlen);
 
-				ibs_check_data_len(ibs, dlen);
+				ibs_check_data_len(hu->hdev, ibs, dlen);
 				continue;
 
 			case HCI_IBS_W4_SCO_HDR:
@@ -791,7 +792,7 @@ static int ibs_recv(struct hci_uart *hu, void *data, int count)
 
 				BT_DBG("SCO header: dlen %d", sh->dlen);
 
-				ibs_check_data_len(ibs, sh->dlen);
+				ibs_check_data_len(hu->hdev, ibs, sh->dlen);
 				continue;
 			}
 		}
