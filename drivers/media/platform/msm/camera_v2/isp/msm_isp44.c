@@ -46,7 +46,7 @@
 #define VFE44_XBAR_BASE(idx) (0x58 + 0x4 * (idx / 2))
 #define VFE44_XBAR_SHIFT(idx) ((idx%2) ? 16 : 0)
 #define VFE44_PING_PONG_BASE(wm, ping_pong) \
-	(VFE44_WM_BASE(wm) + 0x4 * (1 + (~(ping_pong >> wm) & 0x1)))
+	(VFE44_WM_BASE(wm) + 0x4 * (1 + ((~ping_pong) & 0x1)))
 
 #define VFE44_BUS_RD_CGC_OVERRIDE_BIT 16
 
@@ -1374,12 +1374,12 @@ static void msm_vfe44_read_wm_ping_pong_addr(
 
 static void msm_vfe44_update_ping_pong_addr(
 	void __iomem *vfe_base,
-	uint8_t wm_idx, uint32_t pingpong_status, dma_addr_t paddr,
+	uint8_t wm_idx, uint32_t pingpong_bit, dma_addr_t paddr,
 	int32_t buf_size)
 {
 	uint32_t paddr32 = (paddr & 0xFFFFFFFF);
 	msm_camera_io_w(paddr32, vfe_base +
-		VFE44_PING_PONG_BASE(wm_idx, pingpong_status));
+		VFE44_PING_PONG_BASE(wm_idx, pingpong_bit));
 }
 
 static int msm_vfe44_axi_halt(struct vfe_device *vfe_dev,
