@@ -239,7 +239,7 @@ enum {
 
 #define DSI_EV_PLL_UNLOCKED		0x0001
 #define DSI_EV_MDP_FIFO_UNDERFLOW	0x0002
-#define DSI_EV_DSI_FIFO_EMPTY		0x0003
+#define DSI_EV_DSI_FIFO_EMPTY		0x0004
 #define DSI_EV_MDP_BUSY_RELEASE		0x80000000
 
 struct mdss_dsi_ctrl_pdata {
