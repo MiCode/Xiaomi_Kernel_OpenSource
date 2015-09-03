@@ -660,6 +660,20 @@ struct tasha_priv {
 
 static enum codec_variant codec_ver;
 
+static void tasha_enable_sido_buck(struct snd_soc_codec *codec)
+{
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	snd_soc_update_bits(codec, WCD9335_ANA_RCO, 0x80, 0x80);
+	snd_soc_update_bits(codec, WCD9335_ANA_BUCK_CTL, 0x02, 0x02);
+	/* 100us sleep needed after IREF settings */
+	usleep_range(100, 110);
+	snd_soc_update_bits(codec, WCD9335_ANA_BUCK_CTL, 0x04, 0x04);
+	/* 100us sleep needed after VREF settings */
+	usleep_range(100, 110);
+	tasha->resmgr->sido_input_src = SIDO_SOURCE_RCO_BG;
+}
+
 int tasha_enable_efuse_sensing(struct snd_soc_codec *codec)
 {
 	struct tasha_priv *priv = snd_soc_codec_get_drvdata(codec);
@@ -678,6 +692,9 @@ int tasha_enable_efuse_sensing(struct snd_soc_codec *codec)
 	usleep_range(5000, 5500);
 	if (!(snd_soc_read(codec, WCD9335_CHIP_TIER_CTRL_EFUSE_STATUS) & 0x01))
 		WARN(1, "%s: Efuse sense is not complete\n", __func__);
+
+	if (TASHA_IS_2_0(priv->wcd9xxx->version))
+		tasha_enable_sido_buck(codec);
 
 	tasha_cdc_mclk_enable(codec, false, false);
 
@@ -9870,6 +9887,8 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 		snd_soc_update_bits(codec, WCD9335_CODEC_RPM_CLK_MCLK_CFG,
 				    0x03, 0x01);
 	tasha_codec_init_reg(codec);
+
+	tasha_enable_efuse_sensing(codec);
 
 	pdata = dev_get_platdata(codec->dev->parent);
 	ret = tasha_handle_pdata(tasha, pdata);
