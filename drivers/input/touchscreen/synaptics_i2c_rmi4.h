@@ -45,6 +45,7 @@
 
 #define SYNAPTICS_RMI4_F01 (0x01)
 #define SYNAPTICS_RMI4_F11 (0x11)
+#define SYNAPTICS_RMI4_F12 (0x12)
 #define SYNAPTICS_RMI4_F1A (0x1a)
 #define SYNAPTICS_RMI4_F34 (0x34)
 #define SYNAPTICS_RMI4_F54 (0x54)
@@ -69,7 +70,7 @@
 #define MASK_2BIT 0x03
 #define MASK_1BIT 0x01
 
-#define NAME_BUFFER_SIZE 128
+#define NAME_BUFFER_SIZE 256
 
 /*
  * struct synaptics_rmi4_fn_desc - function descriptor fields in PDT
@@ -85,9 +86,12 @@ struct synaptics_rmi4_fn_desc {
 	unsigned char cmd_base_addr;
 	unsigned char ctrl_base_addr;
 	unsigned char data_base_addr;
-	unsigned char intr_src_count;
+	unsigned char intr_src_count:3;
+	unsigned char reserved_b3_b4:2;
+	unsigned char version:2;
+	unsigned char reserved_b7:1;
 	unsigned char fn_number;
-};
+} __packed;
 
 /*
  * synaptics_rmi4_fn_full_addr - full 16-bit base addresses
@@ -129,6 +133,7 @@ struct synaptics_rmi4_fn {
 	struct list_head link;
 	int data_size;
 	void *data;
+	void *extra;
 };
 
 /*
@@ -181,6 +186,10 @@ struct synaptics_rmi4_device_info {
  * @irq: attention interrupt
  * @sensor_max_x: sensor maximum x value
  * @sensor_max_y: sensor maximum y value
+ * @disp_maxx: max x value of display
+ * @disp_maxy: max y value of display
+ * @disp_minx: min x value of display
+ * @disp_miny: min y value of display
  * @irq_enabled: flag for indicating interrupt enable status
  * @touch_stopped: flag to stop interrupt thread processing
  * @fingers_on_2d: flag to indicate presence of fingers in 2d area
@@ -214,6 +223,8 @@ struct synaptics_rmi4_data {
 	unsigned char num_of_rx;
 	unsigned char num_of_tx;
 	unsigned char num_of_fingers;
+	unsigned char max_touch_width;
+	unsigned char report_enable;
 	unsigned char intr_mask[MAX_INTR_REGISTERS];
 	unsigned short num_of_intr_regs;
 	unsigned short f01_query_base_addr;
@@ -223,6 +234,10 @@ struct synaptics_rmi4_data {
 	int irq;
 	int sensor_max_x;
 	int sensor_max_y;
+	int disp_maxx;
+	int disp_maxy;
+	int disp_minx;
+	int disp_miny;
 	bool irq_enabled;
 	bool touch_stopped;
 	bool fingers_on_2d;
@@ -232,6 +247,8 @@ struct synaptics_rmi4_data {
 	bool fw_updating;
 	bool suspended;
 	wait_queue_head_t wait;
+	bool stay_awake;
+	bool staying_awake;
 	int (*i2c_read)(struct synaptics_rmi4_data *pdata, unsigned short addr,
 			unsigned char *data, unsigned short length);
 	int (*i2c_write)(struct synaptics_rmi4_data *pdata, unsigned short addr,
