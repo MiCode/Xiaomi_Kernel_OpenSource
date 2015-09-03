@@ -12,6 +12,7 @@
 
 #include "msm8996-pinctrl.dtsi"
 #include "msm8996-camera-sensor-mtp.dtsi"
+#include "msm8996-wsa881x.dtsi"
 
 / {
 	bluetooth: bt_qca6174 {
@@ -688,7 +689,11 @@
 		qcom,hph-en1-gpio = <&pmi8994_gpios 10 0>;
 		qcom,hph-en0-gpio = <&pm8994_gpios 13 0>;
 		qcom,us-euro-gpios = <&pm8994_mpps 2 0>;
-		qcom,aux-codec = <&wsa881x_1>, <&wsa881x_2>;
+		qcom,wsa-max-devs = <2>;
+		qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_212>,
+				<&wsa881x_213>, <&wsa881x_214>;
+		qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrLeft",
+					  "SpkrRight", "SpkrLeft";
 	};
 };
 
@@ -867,27 +872,5 @@
 		pinctrl-1 = <&nfc_int_suspend &nfc_disable_suspend>;
 		clocks = <&clock_gcc clk_bb_clk2_pin>;
 		clock-names = "ref_clk";
-	};
-};
-
-&slim_msm {
-	tasha_codec {
-		swr_master {
-			compatible = "qcom,swr-wcd";
-			#address-cells = <2>;
-			#size-cells = <0>;
-
-			wsa881x_1: wsa881x@20170212 {
-				compatible = "qcom,wsa881x";
-				reg = <0x00 0x20170212>;
-				qcom,spkr-sd-n-gpio = <&pmi8994_gpios 3 0>;
-			};
-
-			wsa881x_2: wsa881x@20170211 {
-				compatible = "qcom,wsa881x";
-				reg = <0x00 0x20170211>;
-				qcom,spkr-sd-n-gpio = <&pmi8994_gpios 2 0>;
-			};
-		};
 	};
 };
