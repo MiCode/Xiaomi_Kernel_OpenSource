@@ -1418,9 +1418,6 @@ int msm_vidc_close(void *instance)
 	if (!inst || !inst->core)
 		return -EINVAL;
 
-	v4l2_fh_del(&inst->event_handler);
-	v4l2_fh_exit(&inst->event_handler);
-
 	mutex_lock(&inst->registeredbufs.lock);
 	list_for_each_entry_safe(bi, dummy, &inst->registeredbufs.list, list) {
 		if (bi->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
@@ -1463,6 +1460,9 @@ int msm_vidc_close(void *instance)
 			"Failed to move video instance to uninit state\n");
 
 	msm_comm_session_clean(inst);
+
+	v4l2_fh_del(&inst->event_handler);
+	v4l2_fh_exit(&inst->event_handler);
 
 	msm_smem_delete_client(inst->mem_client);
 
