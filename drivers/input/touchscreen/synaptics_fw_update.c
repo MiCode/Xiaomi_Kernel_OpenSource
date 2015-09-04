@@ -1403,6 +1403,10 @@ static int fwu_do_read_config(void)
 
 	kfree(fwu->read_config_buf);
 	fwu->read_config_buf = kzalloc(fwu->config_size, GFP_KERNEL);
+	if (!fwu->read_config_buf) {
+		retval = -ENOMEM;
+		goto exit;
+	}
 
 	block_offset[1] |= (fwu->config_area << 5);
 
