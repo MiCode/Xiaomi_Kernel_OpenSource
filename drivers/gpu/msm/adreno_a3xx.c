@@ -1321,6 +1321,7 @@ uint64_t a3xx_perfcounter_read(struct adreno_device *adreno_dev,
 	 (1 << A3XX_INT_CP_IB1_INT) |            \
 	 (1 << A3XX_INT_CP_IB2_INT) |            \
 	 (1 << A3XX_INT_CP_RB_INT) |             \
+	 (1 << A3XX_INT_CACHE_FLUSH_TS) |	 \
 	 (1 << A3XX_INT_CP_REG_PROTECT_FAULT) |  \
 	 (1 << A3XX_INT_CP_AHB_ERROR_HALT) |     \
 	 (1 << A3XX_INT_UCHE_OOB_ACCESS))
@@ -1348,7 +1349,7 @@ static struct adreno_irq_funcs a3xx_irq_funcs[] = {
 	ADRENO_IRQ_CALLBACK(NULL),	       /* 17 - CP_RB_DONE_TS */
 	ADRENO_IRQ_CALLBACK(NULL),	       /* 18 - CP_VS_DONE_TS */
 	ADRENO_IRQ_CALLBACK(NULL),	       /* 19 - CP_PS_DONE_TS */
-	ADRENO_IRQ_CALLBACK(NULL),	       /* 20 - CP_CACHE_FLUSH_TS */
+	ADRENO_IRQ_CALLBACK(adreno_cp_callback), /* 20 - CP_CACHE_FLUSH_TS */
 	/* 21 - CP_AHB_ERROR_FAULT */
 	ADRENO_IRQ_CALLBACK(a3xx_err_callback),
 	ADRENO_IRQ_CALLBACK(NULL),	       /* 22 - Unused */
