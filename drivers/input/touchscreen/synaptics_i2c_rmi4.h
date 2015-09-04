@@ -5,7 +5,7 @@
  *
  * Copyright (C) 2012 Alexandra Chin <alexandra.chin@tw.synaptics.com>
  * Copyright (C) 2012 Scott Lin <scott.lin@tw.synaptics.com>
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,6 +35,10 @@
 #include <linux/earlysuspend.h>
 #endif
 #include <linux/debugfs.h>
+#if defined(CONFIG_SECURE_TOUCH)
+#include <linux/completion.h>
+#include <linux/atomic.h>
+#endif
 
 #define PDT_PROPS (0x00EF)
 #define PDT_START (0x00E9)
@@ -268,6 +272,12 @@ struct synaptics_rmi4_data {
 	struct pinctrl *ts_pinctrl;
 	struct pinctrl_state *gpio_state_active;
 	struct pinctrl_state *gpio_state_suspend;
+#if defined(CONFIG_SECURE_TOUCH)
+	atomic_t st_enabled;
+	atomic_t st_pending_irqs;
+	struct completion st_powerdown;
+	struct completion st_irq_processed;
+#endif
 };
 
 enum exp_fn {
