@@ -2463,6 +2463,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	device_init_wakeup(mdwc->dev, 1);
 	pm_stay_awake(mdwc->dev);
 
+	if (of_property_read_bool(node, "qcom,disable-dev-mode-pm"))
+		pm_runtime_get_noresume(mdwc->dev);
+
 	schedule_delayed_work(&mdwc->sm_work, 0);
 
 	/* Update initial ID state */
