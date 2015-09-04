@@ -623,7 +623,7 @@ static int qcrypto_count_sg(struct scatterlist *sg, int nbytes)
 {
 	int i;
 
-	for (i = 0; nbytes > 0 && sg != NULL; i++, sg = scatterwalk_sg_next(sg))
+	for (i = 0; (nbytes > 0) && sg; i++, sg = scatterwalk_sg_next(sg))
 		nbytes -= sg->length;
 
 	return i;
@@ -635,7 +635,7 @@ static size_t qcrypto_sg_copy_from_buffer(struct scatterlist *sgl,
 	int i;
 	size_t offset, len;
 
-	for (i = 0, offset = 0; i < nents; ++i) {
+	for (i = 0, offset = 0; (i < nents) && sgl; ++i) {
 		len = sg_copy_from_buffer(sgl, 1, buf, buflen);
 		buf += len;
 		buflen -= len;
@@ -652,7 +652,7 @@ static size_t qcrypto_sg_copy_to_buffer(struct scatterlist *sgl,
 	int i;
 	size_t offset, len;
 
-	for (i = 0, offset = 0; i < nents; ++i) {
+	for (i = 0, offset = 0; (i < nents) && sgl; ++i) {
 		len = sg_copy_to_buffer(sgl, 1, buf, buflen);
 		buf += len;
 		buflen -= len;
@@ -3392,7 +3392,7 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 	len = rctx->trailing_buf_len;
 	sg_last = req->src;
 
-	while (len < nbytes) {
+	while ((len < nbytes) && sg_last) {
 		if ((len + sg_last->length) > nbytes)
 			break;
 		len += sg_last->length;
@@ -3418,7 +3418,8 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 			req->src = rctx->sg;
 			sg_mark_end(&rctx->sg[0]);
 		} else {
-			sg_mark_end(sg_last);
+			if (sg_last)
+				sg_mark_end(sg_last);
 			memset(rctx->sg, 0, sizeof(rctx->sg));
 			sg_set_buf(&rctx->sg[0], staging,
 						rctx->trailing_buf_len);
@@ -3426,8 +3427,10 @@ static int _sha_update(struct ahash_request  *req, uint32_t sha_block_size)
 			sg_chain(rctx->sg, 2, req->src);
 			req->src = rctx->sg;
 		}
-	} else
-		sg_mark_end(sg_last);
+	} else {
+		if (sg_last)
+			sg_mark_end(sg_last);
+	}
 
 	req->nbytes = nbytes;
 	rctx->trailing_buf_len = trailing_buf_len;
