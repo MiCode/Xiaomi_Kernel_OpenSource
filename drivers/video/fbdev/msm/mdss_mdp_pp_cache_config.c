@@ -967,21 +967,20 @@ igc_exit:
 
 static int pp_pgc_lut_cache_params_v1_7(struct mdp_pgc_lut_data *config,
 			    struct mdss_pp_res_type *mdss_pp_res,
-			    int location, int cnt)
+			    int location)
 {
-	int ret = 0, max_cnt = 0;
+	int ret = 0;
 	u32 sz = 0;
+	u32 disp_num;
 	struct mdp_pgc_lut_data_v1_7 *v17_cache_data = NULL, v17_usr_config;
 	struct mdss_pp_res_type_v1_7 *res_cache = NULL;
 	if (location != DSPP && location != LM) {
 		pr_err("Invalid location for pgc %d\n", location);
 		return -EINVAL;
 	}
-	max_cnt = (location == DSPP) ? MDSS_BLOCK_DISP_NUM :
-		   MDSS_BLOCK_LM_NUM;
-	if (cnt >= max_cnt) {
-		pr_err("invalid layer count %d max is %d location is %d\n",
-			cnt, max_cnt, location);
+	disp_num = PP_BLOCK(config->block) - MDP_LOGICAL_BLOCK_DISP_0;
+	if (disp_num >= MDSS_BLOCK_DISP_NUM) {
+		pr_err("invalid disp_num %d\n", disp_num);
 		return -EINVAL;
 	}
 	res_cache = mdss_pp_res->pp_data_res;
@@ -1006,25 +1005,32 @@ static int pp_pgc_lut_cache_params_v1_7(struct mdp_pgc_lut_data *config,
 	if (!(config->flags & MDP_PP_OPS_WRITE)) {
 		pr_debug("ops write not set flags %d\n", config->flags);
 		if (location == DSPP)
-			mdss_pp_res->pgc_disp_cfg[cnt].flags = config->flags;
+			mdss_pp_res->pgc_disp_cfg[disp_num].flags =
+				config->flags;
 		else
-			mdss_pp_res->argc_disp_cfg[cnt].flags = config->flags;
+			mdss_pp_res->argc_disp_cfg[disp_num].flags =
+				config->flags;
 		return 0;
 	}
 	if (location == DSPP) {
-		mdss_pp_res->pgc_disp_cfg[cnt] = *config;
-		v17_cache_data = &res_cache->pgc_dspp_v17_data[cnt];
-		v17_cache_data->c0_data = &res_cache->pgc_table_c0[cnt][0];
-		v17_cache_data->c1_data = &res_cache->pgc_table_c1[cnt][0];
-		v17_cache_data->c2_data = &res_cache->pgc_table_c2[cnt][0];
-		mdss_pp_res->pgc_disp_cfg[cnt].cfg_payload = v17_cache_data;
+		mdss_pp_res->pgc_disp_cfg[disp_num] = *config;
+		v17_cache_data = &res_cache->pgc_dspp_v17_data[disp_num];
+		v17_cache_data->c0_data = &res_cache->pgc_table_c0[disp_num][0];
+		v17_cache_data->c1_data = &res_cache->pgc_table_c1[disp_num][0];
+		v17_cache_data->c2_data = &res_cache->pgc_table_c2[disp_num][0];
+		mdss_pp_res->pgc_disp_cfg[disp_num].cfg_payload =
+			v17_cache_data;
 	} else {
-		mdss_pp_res->argc_disp_cfg[cnt] = *config;
-		v17_cache_data = &res_cache->pgc_lm_v17_data[cnt];
-		v17_cache_data->c0_data = &res_cache->pgc_lm_table_c0[cnt][0];
-		v17_cache_data->c1_data = &res_cache->pgc_lm_table_c1[cnt][0];
-		v17_cache_data->c2_data = &res_cache->pgc_lm_table_c2[cnt][0];
-		mdss_pp_res->argc_disp_cfg[cnt].cfg_payload = v17_cache_data;
+		mdss_pp_res->argc_disp_cfg[disp_num] = *config;
+		v17_cache_data = &res_cache->pgc_lm_v17_data[disp_num];
+		v17_cache_data->c0_data =
+			&res_cache->pgc_lm_table_c0[disp_num][0];
+		v17_cache_data->c1_data =
+			&res_cache->pgc_lm_table_c1[disp_num][0];
+		v17_cache_data->c2_data =
+			&res_cache->pgc_lm_table_c2[disp_num][0];
+		mdss_pp_res->argc_disp_cfg[disp_num].cfg_payload =
+			v17_cache_data;
 	}
 	v17_cache_data->len = 0;
 	sz = PGC_LUT_ENTRIES * sizeof(u32);
@@ -1050,15 +1056,14 @@ static int pp_pgc_lut_cache_params_v1_7(struct mdp_pgc_lut_data *config,
 	return 0;
 bail_out:
 	if (location == DSPP)
-		mdss_pp_res->pgc_disp_cfg[cnt].flags = 0;
+		mdss_pp_res->pgc_disp_cfg[disp_num].flags = 0;
 	else
-		mdss_pp_res->argc_disp_cfg[cnt].flags = 0;
+		mdss_pp_res->argc_disp_cfg[disp_num].flags = 0;
 	return ret;
 }
 
 int pp_pgc_lut_cache_params(struct mdp_pgc_lut_data *config,
-			    struct mdss_pp_res_type *mdss_pp_res, int loc,
-			    int cnt)
+			    struct mdss_pp_res_type *mdss_pp_res, int loc)
 {
 	int ret = 0;
 	if (!config || !mdss_pp_res) {
@@ -1068,8 +1073,7 @@ int pp_pgc_lut_cache_params(struct mdp_pgc_lut_data *config,
 	}
 	switch (config->version) {
 	case mdp_pgc_v1_7:
-		ret = pp_pgc_lut_cache_params_v1_7(config, mdss_pp_res,
-						   loc, cnt);
+		ret = pp_pgc_lut_cache_params_v1_7(config, mdss_pp_res, loc);
 		break;
 	default:
 		pr_err("unsupported igc version %d\n",
