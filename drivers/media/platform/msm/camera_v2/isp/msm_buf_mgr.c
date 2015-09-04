@@ -226,6 +226,7 @@ static void msm_isp_unprepare_v4l2_buf(
 							mapped_info->buf_fd);
 				list_del(&buf_pending->list);
 				kfree(buf_pending);
+				buf_pending = NULL;
 				break;
 			}
 		}
