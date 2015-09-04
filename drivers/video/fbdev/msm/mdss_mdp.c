@@ -885,6 +885,8 @@ void mdss_bus_bandwidth_ctrl(int enable)
 		mdata->bus_ref_cnt, changed, enable);
 
 	if (changed) {
+		MDSS_XLOG(mdata->bus_ref_cnt, enable);
+
 		if (!enable) {
 			if (!mdata->handoff_pending) {
 				msm_bus_scale_client_update_request(
@@ -3799,6 +3801,9 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 
 	if (!mdata->fs)
 		return;
+
+	MDSS_XLOG(on, mdata->fs_ena, mdata->idle_pc, mdata->en_svs_high,
+		atomic_read(&mdata->active_intf_cnt));
 
 	if (on) {
 		if (!mdata->fs_ena) {
