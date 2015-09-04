@@ -482,6 +482,9 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 		get_clk_pwr_state_name(mdp5_data->resources_state),
 		get_sw_event_name(sw_event));
 
+	MDSS_XLOG(ctl->num, mdp5_data->resources_state, sw_event,
+		XLOG_FUNC_ENTRY);
+
 	switch (sw_event) {
 	case MDP_RSRC_CTL_EVENT_KICKOFF:
 		/*
@@ -519,6 +522,7 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 		}
 
 		mutex_lock(&ctl->rsrc_lock);
+		MDSS_XLOG(ctl->num, mdp5_data->resources_state, sw_event, 0x11);
 		/* Transition OFF->ON || GATE->ON (enable clocks) */
 		if ((mdp5_data->resources_state == MDP_RSRC_CTL_STATE_OFF) ||
 			(mdp5_data->resources_state ==
@@ -599,6 +603,9 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 				jiffies_to_msecs
 				(CMD_MODE_IDLE_TIMEOUT));
 
+			MDSS_XLOG(ctl->num, mdp5_data->resources_state,
+				sw_event, 0x22);
+
 			/* start work item to gate */
 			if (mdata->enable_gate)
 				schedule_work(&ctx->gate_clk_work);
@@ -653,6 +660,7 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 		}
 
 		mutex_lock(&ctl->rsrc_lock);
+		MDSS_XLOG(ctl->num, mdp5_data->resources_state, sw_event, 0x33);
 		if ((mdp5_data->resources_state == MDP_RSRC_CTL_STATE_ON) ||
 				(mdp5_data->resources_state
 				== MDP_RSRC_CTL_STATE_GATE)) {
@@ -709,6 +717,7 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 				 __func__, get_sw_event_name(sw_event));
 
 		mutex_lock(&ctl->rsrc_lock);
+		MDSS_XLOG(ctl->num, mdp5_data->resources_state, sw_event, 0x44);
 		if (mdp5_data->resources_state == MDP_RSRC_CTL_STATE_OFF) {
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 			mdss_mdp_ctl_intf_event(ctx->ctl,
@@ -740,6 +749,7 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 		pr_warn("%s unexpected event (%d)\n", __func__, sw_event);
 		break;
 	}
+	MDSS_XLOG(sw_event, mdp5_data->resources_state, XLOG_FUNC_EXIT);
 
 exit:
 	return rc;
@@ -751,7 +761,7 @@ static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	mutex_lock(&ctx->clk_mtx);
-	MDSS_XLOG(ctx->pp_num, atomic_read(&ctx->koff_cnt));
+	MDSS_XLOG(ctx->pp_num, atomic_read(&ctx->koff_cnt), mdata->bus_ref_cnt);
 
 	mdss_bus_bandwidth_ctrl(true);
 
@@ -770,7 +780,7 @@ static inline void mdss_mdp_cmd_clk_off(struct mdss_mdp_cmd_ctx *ctx)
 	}
 
 	mutex_lock(&ctx->clk_mtx);
-	MDSS_XLOG(ctx->pp_num, atomic_read(&ctx->koff_cnt));
+	MDSS_XLOG(ctx->pp_num, atomic_read(&ctx->koff_cnt), mdata->bus_ref_cnt);
 
 	mdss_mdp_hist_intr_setup(&mdata->hist_intr, MDSS_IRQ_SUSPEND);
 
@@ -967,6 +977,7 @@ static void clk_ctrl_delayed_off_work(struct work_struct *work)
 		(mdp5_data->resources_state));
 
 	mutex_lock(&ctl->rsrc_lock);
+	MDSS_XLOG(ctl->num, mdp5_data->resources_state, XLOG_FUNC_ENTRY);
 
 	if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
 		mutex_lock(&cmd_clk_mtx);
@@ -1025,6 +1036,7 @@ exit:
 	if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY)
 		mutex_unlock(&cmd_clk_mtx);
 
+	MDSS_XLOG(ctl->num, mdp5_data->resources_state, XLOG_FUNC_EXIT);
 	mutex_unlock(&ctl->rsrc_lock);
 
 	ATRACE_END(__func__);
@@ -1061,6 +1073,8 @@ static void clk_ctrl_gate_work(struct work_struct *work)
 		(mdp5_data->resources_state));
 
 	mutex_lock(&ctl->rsrc_lock);
+	MDSS_XLOG(ctl->num, mdp5_data->resources_state, XLOG_FUNC_ENTRY);
+
 
 	if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
 		mutex_lock(&cmd_clk_mtx);
@@ -1116,6 +1130,7 @@ exit:
 	if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY)
 		mutex_unlock(&cmd_clk_mtx);
 
+	MDSS_XLOG(ctl->num, mdp5_data->resources_state, XLOG_FUNC_EXIT);
 	mutex_unlock(&ctl->rsrc_lock);
 
 	ATRACE_END(__func__);
@@ -1337,10 +1352,12 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 				__func__,
 				ctl->num, rc, ctx->pp_timeout_report_cnt);
 		if (ctx->pp_timeout_report_cnt == 0) {
+			MDSS_XLOG(0xbad);
 			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
 				"dsi1_ctrl", "dsi1_phy", "vbif", "dbg_bus",
 				"vbif_dbg_bus", "panic");
 		} else if (ctx->pp_timeout_report_cnt == MAX_RECOVERY_TRIALS) {
+			MDSS_XLOG(0xbad2);
 			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
 				"dsi1_ctrl", "dsi1_phy", "vbif", "dbg_bus",
 				"vbif_dbg_bus", "panic");
