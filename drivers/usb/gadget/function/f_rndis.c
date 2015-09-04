@@ -1010,7 +1010,7 @@ rndis_bind_config_vendor(struct usb_configuration *c, u8 ethaddr[ETH_ALEN],
 	rndis->port.func.setup = rndis_setup;
 	rndis->port.func.disable = rndis_disable;
 
-	status = rndis_register(rndis_response_available, rndis);
+	status = rndis_register(rndis_response_available, rndis, NULL);
 	if (status < 0) {
 		kfree(rndis);
 		return status;
@@ -1186,7 +1186,7 @@ static struct usb_function *rndis_alloc(struct usb_function_instance *fi)
 	rndis->port.func.disable = rndis_disable;
 	rndis->port.func.free_func = rndis_free;
 
-	status = rndis_register(rndis_response_available, rndis);
+	status = rndis_register(rndis_response_available, rndis, NULL);
 	if (status < 0) {
 		kfree(rndis);
 		return ERR_PTR(status);

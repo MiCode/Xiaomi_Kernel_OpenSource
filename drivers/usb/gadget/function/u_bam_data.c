@@ -1282,6 +1282,14 @@ void u_bam_data_stop_rndis_ipa(void)
 	}
 }
 
+void bam_data_flow_control_enable(bool enable)
+{
+	if (enable)
+		u_bam_data_stop_rndis_ipa();
+	else
+		u_bam_data_start_rndis_ipa();
+}
+
 static void bam_data_free_reqs(struct bam_data_port *port)
 {
 
