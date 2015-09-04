@@ -1083,6 +1083,26 @@ static int __init set_sched_enable_power_aware(char *str)
 
 early_param("sched_enable_power_aware", set_sched_enable_power_aware);
 
+bool have_sched_same_pwr_cost_cpus;
+cpumask_var_t sched_same_pwr_cost_cpus;
+static int __init set_sched_same_power_cost_cpus(char *str)
+{
+	char buf[64];
+
+	alloc_bootmem_cpumask_var(&sched_same_pwr_cost_cpus);
+	if (cpulist_parse(str, sched_same_pwr_cost_cpus) < 0) {
+		pr_warn("sched: Incorrect sched_same_power_cost_cpus cpumask\n");
+		return -EINVAL;
+	}
+
+	cpulist_scnprintf(buf, sizeof(buf), sched_same_pwr_cost_cpus);
+	if (!cpumask_empty(sched_same_pwr_cost_cpus))
+		have_sched_same_pwr_cost_cpus = true;
+	return 0;
+}
+
+early_param("sched_same_power_cost_cpus", set_sched_same_power_cost_cpus);
+
 static inline int got_boost_kick(void)
 {
 	int cpu = smp_processor_id();
@@ -1209,7 +1229,11 @@ unsigned int min_max_freq = 1;
 
 unsigned int max_capacity = 1024; /* max(rq->capacity) */
 unsigned int min_capacity = 1024; /* min(rq->capacity) */
-unsigned int max_load_scale_factor = 1024; /* max(rq->load_scale_factor) */
+unsigned int max_load_scale_factor = 1024; /* max possible load scale factor */
+unsigned int max_possible_capacity = 1024; /* max(rq->max_possible_capacity) */
+
+/* Mask of all CPUs that have  max_possible_capacity */
+cpumask_t mpc_mask = CPU_MASK_ALL;
 
 /* Window size (in ns) */
 __read_mostly unsigned int sched_ravg_window = 10000000;
@@ -2032,6 +2056,86 @@ const char *sched_window_reset_reasons[] = {
 	"MIGRATION_FIXUP_CHANGE",
 	"FREQ_ACCOUNT_WAIT_TIME_CHANGE"};
 
+/* Should be called under rq lock held */
+static void update_power_cost_table(struct rq *rq)
+{
+	int i;
+	u64 max_demand;
+	unsigned int max_freq, freqs, load;
+	struct cpu_pwr_stats *per_cpu_info = get_cpu_pwr_stats();
+	struct cpu_pstate_pwr *costs;
+	struct hmp_power_cost_table *ptr;
+	struct hmp_power_cost *map;
+
+	ptr = &rq->pwr_cost_table;
+	if (!sysctl_sched_enable_power_aware ||
+	    (!per_cpu_info || !per_cpu_info[rq->cpu].ptable))
+		return;
+
+	freqs = per_cpu_info[rq->cpu].len;
+	BUG_ON(freqs <= 0);
+
+	if (!ptr->len) {
+		map = kmalloc(sizeof(*(ptr->map)) * freqs, GFP_ATOMIC);
+		BUG_ON(!map);
+	} else {
+		BUG_ON(freqs != ptr->len);
+		map = ptr->map;
+	}
+	max_demand = div64_u64(max_task_load(), max_possible_capacity);
+	max_demand *= rq->max_possible_capacity;
+
+	costs = per_cpu_info[rq->cpu].ptable;
+	max_freq = costs[freqs - 1].freq;
+	for (i = 0; i < freqs; i++) {
+		load = costs[i].freq * 100 / max_freq;
+		map[i].freq = costs[i].freq;
+		map[i].power_cost = &costs[i].power;
+		map[i].demand = div64_u64(max_demand * load, 100);
+	}
+
+	/*
+	 * power_cost() doesn't hold rq lock, so set the rq->pwr_cost_table
+	 * afterwards.
+	 */
+	ptr->map = map;
+	ptr->len = freqs;
+}
+
+int sched_enable_power_aware_handler(struct ctl_table *table, int write,
+				     void __user *buffer, size_t *lenp,
+				     loff_t *ppos)
+{
+	int ret;
+	int i;
+	unsigned long flags;
+	unsigned int *data = (unsigned int *)table->data;
+	unsigned int old_val = *data;
+
+	ret = proc_dointvec(table, write, buffer, lenp, ppos);
+	if (ret || !write)
+		goto done;
+
+	if (write && (old_val == *data))
+		goto done;
+
+	if (*data != 0 && *data != 1) {
+		ret = -EINVAL;
+		*data = old_val;
+		goto done;
+	}
+
+	if (*data == 1) {
+		for_each_possible_cpu(i) {
+			raw_spin_lock_irqsave(&cpu_rq(i)->lock, flags);
+			update_power_cost_table(cpu_rq(i));
+			raw_spin_unlock_irqrestore(&cpu_rq(i)->lock, flags);
+		}
+	}
+done:
+	return ret;
+}
+
 /* Called with IRQs enabled */
 void reset_all_window_stats(u64 window_start, unsigned int window_size)
 {
@@ -2076,6 +2180,9 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 		reset_cpu_hmp_stats(cpu, 1);
 
 		fixup_nr_big_small_task(cpu, 0);
+
+		if (window_size)
+			update_power_cost_table(rq);
 	}
 
 	if (sched_window_stats_policy != sysctl_sched_window_stats_policy) {
@@ -2333,25 +2440,33 @@ heavy_task_wakeup(struct task_struct *p, struct rq *rq, int event)
 #endif	/* CONFIG_SCHED_FREQ_INPUT */
 
 /* Keep track of max/min capacity possible across CPUs "currently" */
-static void update_min_max_capacity(void)
+static void __update_min_max_capacity(void)
 {
 	int i;
 	int max = 0, min = INT_MAX;
-	int max_lsf = 0;
 
-	for_each_possible_cpu(i) {
+	for_each_online_cpu(i) {
 		if (cpu_rq(i)->capacity > max)
 			max = cpu_rq(i)->capacity;
 		if (cpu_rq(i)->capacity < min)
 			min = cpu_rq(i)->capacity;
-
-		if (cpu_rq(i)->load_scale_factor > max_lsf)
-			max_lsf = cpu_rq(i)->load_scale_factor;
 	}
 
 	max_capacity = max;
 	min_capacity = min;
-	max_load_scale_factor = max_lsf;
+}
+
+static void update_min_max_capacity(void)
+{
+	int i;
+
+	for_each_possible_cpu(i)
+		raw_spin_lock(&cpu_rq(i)->lock);
+
+	__update_min_max_capacity();
+
+	for_each_possible_cpu(i)
+		raw_spin_unlock(&cpu_rq(i)->lock);
 }
 
 /*
@@ -2428,15 +2543,21 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 		unsigned long val, void *data)
 {
 	struct cpufreq_policy *policy = (struct cpufreq_policy *)data;
-	int i;
+	int i, update_max = 0;
+	u64 highest_mpc = 0, highest_mplsf = 0;
 	const struct cpumask *cpus = policy->related_cpus;
 	unsigned int orig_min_max_freq = min_max_freq;
 	unsigned int orig_max_possible_freq = max_possible_freq;
 	/* Initialized to policy->max in case policy->related_cpus is empty! */
 	unsigned int orig_max_freq = policy->max;
 
-	if (val != CPUFREQ_NOTIFY)
+	if (val != CPUFREQ_NOTIFY && val != CPUFREQ_REMOVE_POLICY)
 		return 0;
+
+	if (val == CPUFREQ_REMOVE_POLICY) {
+		update_min_max_capacity();
+		return 0;
+	}
 
 	for_each_cpu(i, policy->related_cpus) {
 		cpumask_copy(&cpu_rq(i)->freq_domain_cpumask,
@@ -2453,11 +2574,6 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 	min_max_freq = min(min_max_freq, policy->cpuinfo.max_freq);
 	BUG_ON(!min_max_freq);
 	BUG_ON(!policy->max);
-
-	if (orig_max_possible_freq == max_possible_freq &&
-		orig_min_max_freq == min_max_freq &&
-		orig_max_freq == policy->max)
-			return 0;
 
 	/*
 	 * A changed min_max_freq or max_possible_freq (possible during bootup)
@@ -2483,8 +2599,10 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 	 */
 
 	if (orig_min_max_freq != min_max_freq ||
-		orig_max_possible_freq != max_possible_freq)
+		orig_max_possible_freq != max_possible_freq) {
 			cpus = cpu_possible_mask;
+			update_max = 1;
+	}
 
 	/*
 	 * Changed load_scale_factor can trigger reclassification of tasks as
@@ -2494,16 +2612,41 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 	pre_big_small_task_count_change(cpu_possible_mask);
 	for_each_cpu(i, cpus) {
 		struct rq *rq = cpu_rq(i);
-		u64 max_possible_capacity;
 
 		rq->capacity = compute_capacity(i);
-		max_possible_capacity = div_u64(((u64) rq->capacity) *
-					rq->max_possible_freq, rq->max_freq);
-		rq->max_possible_capacity = (int) max_possible_capacity;
 		rq->load_scale_factor = compute_load_scale_factor(i);
+
+		if (update_max) {
+			u64 mpc, mplsf;
+
+			mpc = div_u64(((u64) rq->capacity) *
+				rq->max_possible_freq, rq->max_freq);
+			rq->max_possible_capacity = (int) mpc;
+
+			mplsf = div_u64(((u64) rq->load_scale_factor) *
+				rq->max_possible_freq, rq->max_freq);
+
+			if (mpc > highest_mpc) {
+				highest_mpc = mpc;
+				cpumask_clear(&mpc_mask);
+				cpumask_set_cpu(i, &mpc_mask);
+			} else if (mpc == highest_mpc) {
+				cpumask_set_cpu(i, &mpc_mask);
+			}
+
+			if (mplsf > highest_mplsf)
+				highest_mplsf = mplsf;
+
+			update_power_cost_table(rq);
+		}
 	}
 
-	update_min_max_capacity();
+	if (update_max) {
+		max_possible_capacity = highest_mpc;
+		max_load_scale_factor = highest_mplsf;
+	}
+
+	__update_min_max_capacity();
 	post_big_small_task_count_change(cpu_possible_mask);
 
 	return 0;
@@ -2536,6 +2679,19 @@ static int cpufreq_notifier_trans(struct notifier_block *nb,
 	return 0;
 }
 
+static int pwr_stats_ready_notifier(struct notifier_block *nb,
+				    unsigned long cpu, void *data)
+{
+	struct rq *rq = cpu_rq(cpu);
+	unsigned long flags;
+
+	raw_spin_lock_irqsave(&rq->lock, flags);
+	update_power_cost_table(rq);
+	raw_spin_unlock_irqrestore(&rq->lock, flags);
+
+	return 0;
+}
+
 static struct notifier_block notifier_policy_block = {
 	.notifier_call = cpufreq_notifier_policy
 };
@@ -2543,6 +2699,15 @@ static struct notifier_block notifier_policy_block = {
 static struct notifier_block notifier_trans_block = {
 	.notifier_call = cpufreq_notifier_trans
 };
+
+static struct notifier_block notifier_pwr_stats_ready = {
+	.notifier_call = pwr_stats_ready_notifier
+};
+
+int __weak register_cpu_pwr_stats_ready_notifier(struct notifier_block *nb)
+{
+	return 1;
+}
 
 static int register_sched_callback(void)
 {
@@ -2557,6 +2722,8 @@ static int register_sched_callback(void)
 	if (!ret)
 		ret = cpufreq_register_notifier(&notifier_trans_block,
 						CPUFREQ_TRANSITION_NOTIFIER);
+
+	register_cpu_pwr_stats_ready_notifier(&notifier_pwr_stats_ready);
 
 	return 0;
 }

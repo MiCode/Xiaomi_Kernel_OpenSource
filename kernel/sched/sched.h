@@ -251,6 +251,20 @@ struct hmp_sched_stats {
 	u64 cumulative_runnable_avg;
 };
 
+struct hmp_power_cost {
+	unsigned int freq;
+	unsigned int *power_cost;
+	u64 demand;
+};
+
+struct hmp_power_cost_table {
+	int len;
+	struct hmp_power_cost *map;
+};
+
+extern bool have_sched_same_pwr_cost_cpus;
+extern cpumask_var_t sched_same_pwr_cost_cpus;
+
 #endif
 
 /* CFS-related fields in a runqueue */
@@ -525,6 +539,8 @@ struct rq {
 	u64 avg_irqload;
 	u64 irqload_ts;
 
+	struct hmp_power_cost_table pwr_cost_table;
+
 #ifdef CONFIG_SCHED_FREQ_INPUT
 	unsigned int old_busy_time;
 	int notifier_sent;
@@ -736,6 +752,8 @@ extern unsigned int min_possible_efficiency;
 extern unsigned int max_capacity;
 extern unsigned int min_capacity;
 extern unsigned int max_load_scale_factor;
+extern unsigned int max_possible_capacity;
+extern cpumask_t mpc_mask;
 extern unsigned long capacity_scale_cpu_efficiency(int cpu);
 extern unsigned long capacity_scale_cpu_freq(int cpu);
 extern unsigned int sched_mostly_idle_load;
@@ -748,12 +766,26 @@ extern unsigned int sched_heavy_task;
 
 extern void reset_cpu_hmp_stats(int cpu, int reset_cra);
 extern void fixup_nr_big_small_task(int cpu, int reset_stats);
-u64 scale_load_to_cpu(u64 load, int cpu);
 unsigned int max_task_load(void);
 extern void sched_account_irqtime(int cpu, struct task_struct *curr,
 				 u64 delta, u64 wallclock);
 unsigned int cpu_temp(int cpu);
 extern unsigned int nr_eligible_big_tasks(int cpu);
+
+/*
+ * 'load' is in reference to "best cpu" at its best frequency.
+ * Scale that in reference to a given cpu, accounting for how bad it is
+ * in reference to "best cpu".
+ */
+static inline u64 scale_load_to_cpu(u64 task_load, int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	task_load *= (u64)rq->load_scale_factor;
+	task_load /= 1024;
+
+	return task_load;
+}
 
 static inline int capacity(struct rq *rq)
 {
