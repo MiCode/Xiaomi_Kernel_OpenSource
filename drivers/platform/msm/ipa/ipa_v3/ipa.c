@@ -31,6 +31,7 @@
 #include <linux/netdevice.h>
 #include <linux/delay.h>
 #include <linux/msm_gsi.h>
+#include <linux/qcom_iommu.h>
 #include "ipa_i.h"
 #include "ipa_rm_i.h"
 
@@ -3800,7 +3801,7 @@ static int ipa_smmu_wlan_cb_probe(struct device *dev)
 	IPADBG("sub pdev=%p\n", dev);
 
 	cb->dev = dev;
-	cb->iommu = iommu_domain_alloc(&platform_bus_type);
+	cb->iommu = iommu_domain_alloc(msm_iommu_get_bus(dev));
 	if (!cb->iommu) {
 		IPAERR("could not alloc iommu domain\n");
 		/* assume this failure is because iommu driver is not ready */
@@ -3850,7 +3851,7 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 	}
 
 	cb->dev = dev;
-	cb->mapping = ipa3_arm_iommu_create_mapping(&platform_bus_type,
+	cb->mapping = ipa3_arm_iommu_create_mapping(msm_iommu_get_bus(dev),
 			IPA_SMMU_UC_VA_START, IPA_SMMU_UC_VA_SIZE);
 	if (IS_ERR(cb->mapping)) {
 		IPADBG("Fail to create mapping\n");
@@ -3897,7 +3898,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	}
 
 	cb->dev = dev;
-	cb->mapping = ipa3_arm_iommu_create_mapping(&platform_bus_type,
+	cb->mapping = ipa3_arm_iommu_create_mapping(msm_iommu_get_bus(dev),
 			IPA_SMMU_AP_VA_START, IPA_SMMU_AP_VA_SIZE);
 	if (IS_ERR(cb->mapping)) {
 		IPADBG("Fail to create mapping\n");
