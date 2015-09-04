@@ -1069,8 +1069,9 @@ static void apps_ipa_packet_receive_notify(void *priv,
 	struct sk_buff *skb = (struct sk_buff *)data;
 	struct net_device *dev = (struct net_device *)priv;
 	int result;
+	unsigned int packet_len = skb->len;
 
-	IPAWANDBG("Tx packet was received");
+	IPAWANDBG("Rx packet was received");
 	if (evt != IPA_RECEIVE) {
 		IPAWANERR("A none IPA_RECEIVE event in wan_ipa_receive\n");
 		return;
@@ -1086,7 +1087,7 @@ static void apps_ipa_packet_receive_notify(void *priv,
 		dev->stats.rx_dropped++;
 	}
 	dev->stats.rx_packets++;
-	dev->stats.rx_bytes += skb->len;
+	dev->stats.rx_bytes += packet_len;
 	return;
 }
 
