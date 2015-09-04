@@ -1544,7 +1544,7 @@ scaling_not_supported:
 add_clkgate_enable:
 	gating->enable_attr.show = ufshcd_clkgate_enable_show;
 	gating->enable_attr.store = ufshcd_clkgate_enable_store;
-	sysfs_attr_init(&clk_gating->enable_attr.attr);
+	sysfs_attr_init(&gating->enable_attr.attr);
 	gating->enable_attr.attr.name = "clkgate_enable";
 	gating->enable_attr.attr.mode = S_IRUGO | S_IWUSR;
 	if (device_create_file(hba->dev, &gating->enable_attr))
