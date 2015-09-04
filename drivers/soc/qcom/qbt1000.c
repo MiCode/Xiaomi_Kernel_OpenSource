@@ -10,7 +10,6 @@
  * GNU General Public License for more details.
  */
 
-#define pr_fmt(fmt) "qbt1000:%s: " fmt, __func__
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -27,9 +26,29 @@
 #include <linux/atomic.h>
 #include <linux/of.h>
 #include <uapi/linux/qbt1000.h>
+#include <soc/qcom/scm.h>
 #include "qseecom_kernel.h"
 
+#include <soc/qcom/msm_qmi_interface.h>
+#define QBT1000_SNS_SERVICE_ID		0x138 /* From sns_common_v01.idl */
+#define QBT1000_SNS_SERVICE_VER_ID	1
+#define QBT1000_SNS_INSTANCE_INST_ID	0
+
+static void qbt1000_qmi_clnt_svc_arrive(struct work_struct *work);
+static void qbt1000_qmi_clnt_svc_exit(struct work_struct *work);
+static void qbt1000_qmi_clnt_recv_msg(struct work_struct *work);
+
 #define QBT1000_DEV "qbt1000"
+
+/* definitions for the TZ_BLSP_MODIFY_OWNERSHIP_ID system call */
+#define TZ_BLSP_MODIFY_OWNERSHIP_ARGINFO    2
+#define TZ_BLSP_MODIFY_OWNERSHIP_SVC_ID     4 /* resource locking service */
+#define TZ_BLSP_MODIFY_OWNERSHIP_FUNC_ID    3
+
+enum sensor_connection_types {
+	SPI,
+	SSC_SPI,
+};
 
 /*
  * shared buffer size - init with max value,
@@ -42,13 +61,24 @@ struct qbt1000_drvdata {
 	struct cdev	qbt1000_cdev;
 	struct device	*dev;
 	char		*qbt1000_node;
+	enum sensor_connection_types sensor_conn_type;
 	struct clk	**clocks;
 	unsigned	clock_count;
 	uint8_t		clock_state;
+	uint8_t		ssc_state;
 	unsigned	root_clk_idx;
 	unsigned	frequency;
 	atomic_t	available;
 	struct mutex	mutex;
+	struct work_struct qmi_svc_arrive;
+	struct work_struct qmi_svc_exit;
+	struct work_struct qmi_svc_rcv_msg;
+	struct qmi_handle *qmi_handle;
+	struct notifier_block qmi_svc_notifier;
+	uint32_t	tz_subsys_id;
+	uint32_t	ssc_subsys_id;
+	uint32_t	ssc_spi_port;
+	uint32_t	ssc_spi_port_slave_index;
 };
 
 /**
@@ -72,14 +102,12 @@ static int get_cmd_rsp_buffers(struct qseecom_handle *hdl,
 	*cmd_len = ALIGN(*cmd_len, 64);
 	*rsp_len = ALIGN(*rsp_len, 64);
 
-	if ((*rsp_len + *cmd_len) > g_app_buf_size) {
-		pr_err("buffer too small to hold cmd=%d and rsp=%d\n",
-			*cmd_len, *rsp_len);
+	if ((*rsp_len + *cmd_len) > g_app_buf_size)
 		return -ENOMEM;
-	}
 
 	*cmd = hdl->sbuf;
 	*rsp = hdl->sbuf + *cmd_len;
+
 	return 0;
 }
 
@@ -101,16 +129,17 @@ static int clocks_on(struct qbt1000_drvdata *drvdata)
 		for (index = 0; index < drvdata->clock_count; index++) {
 			rc = clk_prepare_enable(drvdata->clocks[index]);
 			if (rc) {
-				pr_err("failure to prepare clk at idx:%d\n",
-					index);
+				dev_err(drvdata->dev, "%s: Clk idx:%d fail\n",
+					__func__, index);
 				goto unprepare;
 			}
 			if (index == drvdata->root_clk_idx) {
 				rc = clk_set_rate(drvdata->clocks[index],
 					drvdata->frequency);
 				if (rc) {
-					pr_err("failure set clock rate at idx:%d\n",
-						index);
+					dev_err(drvdata->dev,
+					 "%s: Failed clk  set rate at idx:%d\n",
+					 __func__, index);
 					goto unprepare;
 				}
 			}
@@ -147,6 +176,473 @@ static void clocks_off(struct qbt1000_drvdata *drvdata)
 	mutex_unlock(&drvdata->mutex);
 }
 
+#define SNS_QFP_OPEN_REQ_V01 0x0020
+#define SNS_QFP_OPEN_RESP_V01 0x0020
+#define SNS_QFP_KEEP_ALIVE_REQ_V01 0x0022
+#define SNS_QFP_KEEP_ALIVE_RESP_V01 0x0022
+#define SNS_QFP_CLOSE_REQ_V01 0x0021
+#define SNS_QFP_CLOSE_RESP_V01 0x0021
+#define SNS_QFP_VERSION_REQ_V01 0x0001
+#define TIMEOUT_MS			(500)
+
+struct sns_common_resp_s_v01 {
+	uint8_t sns_result_t;
+	uint8_t sns_err_t;
+};
+
+struct sns_qfp_open_req_msg_v01 {
+	uint8_t port_id;
+	uint8_t slave_index;
+	uint32_t freq;
+};
+#define SNS_QFP_OPEN_REQ_MSG_V01_MAX_MSG_LEN 15
+
+struct sns_qfp_open_resp_msg_v01 {
+	struct sns_common_resp_s_v01 resp;
+};
+#define SNS_QFP_OPEN_RESP_MSG_V01_MAX_MSG_LEN 5
+
+struct sns_qfp_close_req_msg_v01 {
+	char placeholder;
+};
+#define SNS_QFP_CLOSE_REQ_MSG_V01_MAX_MSG_LEN 0
+
+struct sns_qfp_close_resp_msg_v01 {
+	struct sns_common_resp_s_v01 resp;
+};
+#define SNS_QFP_CLOSE_RESP_MSG_V01_MAX_MSG_LEN 5
+
+struct sns_qfp_keep_alive_req_msg_v01 {
+	uint8_t enable;
+};
+#define SNS_QFP_KEEP_ALIVE_REQ_MSG_V01_MAX_MSG_LEN 4
+
+struct sns_qfp_keep_alive_resp_msg_v01 {
+	struct sns_common_resp_s_v01 resp;
+};
+#define SNS_QFP_KEEP_ALIVE_RESP_MSG_V01_MAX_MSG_LEN 5
+
+static struct elem_info sns_common_resp_s_v01_ei[] = {
+	{
+		.data_type    = QMI_UNSIGNED_1_BYTE,
+		.elem_len     = 1,
+		.elem_size    = sizeof(uint8_t),
+		.is_array     = NO_ARRAY,
+		.tlv_type     = 0,
+		.offset       = offsetof(struct sns_common_resp_s_v01,
+					 sns_result_t),
+	},
+	{
+		.data_type    = QMI_UNSIGNED_1_BYTE,
+		.elem_len     = 1,
+		.elem_size    = sizeof(uint8_t),
+		.is_array     = NO_ARRAY,
+		.tlv_type     = 0,
+		.offset       = offsetof(struct sns_common_resp_s_v01,
+					 sns_err_t),
+	},
+	{
+		.data_type    = QMI_EOTI,
+		.is_array     = NO_ARRAY,
+		.is_array     = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+static struct elem_info sns_qfp_open_req_msg_v01_ei[] = {
+	{
+		.data_type    = QMI_UNSIGNED_1_BYTE,
+		.elem_len     = 1,
+		.elem_size    = sizeof(uint8_t),
+		.is_array     = NO_ARRAY,
+		.tlv_type     = 0x01,
+		.offset       = offsetof(struct sns_qfp_open_req_msg_v01,
+					 port_id),
+	},
+	{
+		.data_type    = QMI_UNSIGNED_1_BYTE,
+		.elem_len     = 1,
+		.elem_size    = sizeof(uint8_t),
+		.is_array     = NO_ARRAY,
+		.tlv_type     = 0x02,
+		.offset       = offsetof(struct sns_qfp_open_req_msg_v01,
+					 slave_index),
+	},
+	{
+		.data_type    = QMI_UNSIGNED_4_BYTE,
+		.elem_len     = 1,
+		.elem_size    = sizeof(uint32_t),
+		.is_array     = NO_ARRAY,
+		.tlv_type     = 0x03,
+		.offset       = offsetof(struct sns_qfp_open_req_msg_v01,
+					 freq),
+	},
+	{
+		.data_type    = QMI_EOTI,
+		.is_array     = NO_ARRAY,
+		.is_array     = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+static struct elem_info sns_qfp_open_resp_msg_v01_ei[] = {
+	{
+		.data_type    = QMI_STRUCT,
+		.elem_len     = 1,
+		.elem_size    = sizeof(struct sns_common_resp_s_v01),
+		.is_array     = NO_ARRAY,
+		.tlv_type     = 0x01,
+		.offset       = offsetof(struct sns_qfp_open_resp_msg_v01,
+					 resp),
+		.ei_array     = sns_common_resp_s_v01_ei,
+	},
+	{
+		.data_type    = QMI_EOTI,
+		.is_array     = NO_ARRAY,
+		.is_array     = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+static struct elem_info sns_qfp_close_req_msg_v01_ei[] = {
+	{
+		.data_type    = QMI_EOTI,
+		.is_array     = NO_ARRAY,
+		.is_array     = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+static struct elem_info sns_qfp_close_resp_msg_v01_ei[] = {
+	{
+		.data_type    = QMI_STRUCT,
+		.elem_len     = 1,
+		.elem_size    = sizeof(struct sns_common_resp_s_v01),
+		.is_array     = NO_ARRAY,
+		.tlv_type     = 0x01,
+		.offset       = offsetof(struct sns_qfp_close_resp_msg_v01,
+					 resp),
+		.ei_array     = sns_common_resp_s_v01_ei,
+	},
+	{
+		.data_type    = QMI_EOTI,
+		.is_array     = NO_ARRAY,
+		.is_array     = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+static struct elem_info sns_qfp_keep_alive_req_msg_v01_ei[] = {
+	{
+		.data_type    = QMI_UNSIGNED_1_BYTE,
+		.elem_len     = 1,
+		.elem_size    = sizeof(uint8_t),
+		.is_array     = NO_ARRAY,
+		.tlv_type     = 0x01,
+		.offset       = offsetof(struct sns_qfp_keep_alive_req_msg_v01,
+					 enable),
+	},
+	{
+		.data_type    = QMI_EOTI,
+		.is_array     = NO_ARRAY,
+		.is_array     = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+static struct elem_info sns_qfp_keep_alive_resp_msg_v01_ei[] = {
+	{
+		.data_type    = QMI_STRUCT,
+		.elem_len     = 1,
+		.elem_size    = sizeof(struct sns_common_resp_s_v01),
+		.is_array     = NO_ARRAY,
+		.tlv_type     = 0x01,
+		.offset       = offsetof(struct sns_qfp_keep_alive_resp_msg_v01,
+					 resp),
+		.ei_array     = sns_common_resp_s_v01_ei,
+	},
+	{
+		.data_type    = QMI_EOTI,
+		.is_array     = NO_ARRAY,
+		.is_array     = QMI_COMMON_TLV_TYPE,
+	},
+};
+
+static int qbt1000_sns_open_req(struct qbt1000_drvdata *drvdata)
+{
+	struct sns_qfp_open_req_msg_v01 req;
+	struct sns_qfp_open_resp_msg_v01 resp = { { 0, 0 } };
+
+	struct msg_desc req_desc, resp_desc;
+	int ret = -EINVAL;
+
+	mutex_lock(&drvdata->mutex);
+
+	if (!drvdata->qmi_handle) {
+		dev_info(drvdata->dev,
+			 "%s: QMI service unavailable. Skipping QMI requests\n",
+			 __func__);
+		goto err;
+	}
+
+	req.port_id = drvdata->ssc_spi_port;
+	req.slave_index = drvdata->ssc_spi_port_slave_index;
+	req.freq = drvdata->frequency;
+
+	req_desc.msg_id = SNS_QFP_OPEN_REQ_V01;
+	req_desc.max_msg_len = SNS_QFP_OPEN_REQ_MSG_V01_MAX_MSG_LEN;
+	req_desc.ei_array = sns_qfp_open_req_msg_v01_ei;
+
+	resp_desc.msg_id = SNS_QFP_OPEN_RESP_V01;
+	resp_desc.max_msg_len = SNS_QFP_OPEN_RESP_MSG_V01_MAX_MSG_LEN;
+	resp_desc.ei_array = sns_qfp_open_resp_msg_v01_ei;
+
+	ret = qmi_send_req_wait(drvdata->qmi_handle,
+				&req_desc, &req, sizeof(req),
+				&resp_desc, &resp, sizeof(resp),
+				TIMEOUT_MS);
+
+	if (ret < 0) {
+		dev_err(drvdata->dev, "%s: QMI send req failed %d\n", __func__,
+			ret);
+		goto err;
+	}
+
+	if (resp.resp.sns_result_t != 0) {
+		dev_err(drvdata->dev, "%s: QMI request failed %d %d\n",
+			__func__, resp.resp.sns_result_t, resp.resp.sns_err_t);
+		ret = -EREMOTEIO;
+		goto err;
+	}
+
+err:
+	mutex_unlock(&drvdata->mutex);
+	return ret;
+}
+
+static int qbt1000_sns_keep_alive_req(struct qbt1000_drvdata *drvdata,
+				      uint8_t enable)
+{
+	struct sns_qfp_keep_alive_req_msg_v01 req;
+	struct sns_qfp_keep_alive_resp_msg_v01 resp = { { 0, 0 } };
+
+	struct msg_desc req_desc, resp_desc;
+	int ret = -EINVAL;
+
+	mutex_lock(&drvdata->mutex);
+
+	if (!drvdata->qmi_handle) {
+		dev_info(drvdata->dev,
+			 "%s: QMI service unavailable. Skipping QMI requests\n",
+			 __func__);
+		goto err;
+	}
+
+	req.enable = enable;
+
+	req_desc.msg_id = SNS_QFP_KEEP_ALIVE_REQ_V01;
+	req_desc.max_msg_len = SNS_QFP_KEEP_ALIVE_REQ_MSG_V01_MAX_MSG_LEN;
+	req_desc.ei_array = sns_qfp_keep_alive_req_msg_v01_ei;
+
+	resp_desc.msg_id = SNS_QFP_KEEP_ALIVE_RESP_V01;
+	resp_desc.max_msg_len = SNS_QFP_KEEP_ALIVE_RESP_MSG_V01_MAX_MSG_LEN;
+	resp_desc.ei_array = sns_qfp_keep_alive_resp_msg_v01_ei;
+
+	ret = qmi_send_req_wait(drvdata->qmi_handle,
+				&req_desc, &req, sizeof(req),
+				&resp_desc, &resp, sizeof(resp),
+				TIMEOUT_MS);
+
+	if (ret < 0) {
+		dev_err(drvdata->dev, "%s: QMI send req failed %d\n", __func__,
+			ret);
+		goto err;
+	}
+
+	if (resp.resp.sns_result_t != 0) {
+		dev_err(drvdata->dev, "%s: QMI request failed %d %d\n",
+			__func__, resp.resp.sns_result_t, resp.resp.sns_err_t);
+		ret = -EREMOTEIO;
+		goto err;
+	}
+
+err:
+	mutex_unlock(&drvdata->mutex);
+	return ret;
+}
+
+static int qbt1000_sns_close_req(struct qbt1000_drvdata *drvdata)
+{
+	struct sns_qfp_close_req_msg_v01 req;
+	struct sns_qfp_close_resp_msg_v01 resp = { { 0, 0 } };
+
+	struct msg_desc req_desc, resp_desc;
+	int ret = -EINVAL;
+
+	mutex_lock(&drvdata->mutex);
+
+	if (!drvdata->qmi_handle) {
+		dev_info(drvdata->dev,
+			 "%s: QMI service unavailable. Skipping QMI requests\n",
+			 __func__);
+		goto err;
+	}
+
+	req.placeholder = 1;
+
+	req_desc.msg_id = SNS_QFP_CLOSE_REQ_V01;
+	req_desc.max_msg_len = SNS_QFP_CLOSE_REQ_MSG_V01_MAX_MSG_LEN;
+	req_desc.ei_array = sns_qfp_close_req_msg_v01_ei;
+
+	resp_desc.msg_id = SNS_QFP_CLOSE_RESP_V01;
+	resp_desc.max_msg_len = SNS_QFP_CLOSE_RESP_MSG_V01_MAX_MSG_LEN;
+	resp_desc.ei_array = sns_qfp_close_resp_msg_v01_ei;
+
+	ret = qmi_send_req_wait(drvdata->qmi_handle,
+				&req_desc, &req, sizeof(req),
+				&resp_desc, &resp, sizeof(resp),
+				TIMEOUT_MS);
+
+	if (ret < 0) {
+		dev_err(drvdata->dev, "%s: QMI send req failed %d\n", __func__,
+			ret);
+		goto err;
+	}
+
+	if (resp.resp.sns_result_t != 0) {
+		dev_err(drvdata->dev, "%s: QMI request failed %d %d\n",
+			__func__, resp.resp.sns_result_t, resp.resp.sns_err_t);
+		ret = -EREMOTEIO;
+		goto err;
+	}
+
+err:
+	mutex_unlock(&drvdata->mutex);
+	return ret;
+}
+
+static void qbt1000_sns_notify(struct qmi_handle *handle,
+			     enum qmi_event_type event, void *notify_priv)
+{
+
+	struct qbt1000_drvdata *drvdata =
+					(struct qbt1000_drvdata *)notify_priv;
+
+	switch (event) {
+	case QMI_RECV_MSG:
+		schedule_work(&drvdata->qmi_svc_rcv_msg);
+		break;
+	default:
+		break;
+	}
+}
+
+static int qbt1000_qmi_svc_event_notify(struct notifier_block *this,
+					unsigned long code,
+					void *_cmd)
+{
+	struct qbt1000_drvdata *drvdata = container_of(this,
+						struct qbt1000_drvdata,
+						qmi_svc_notifier);
+
+	switch (code) {
+	case QMI_SERVER_ARRIVE:
+		schedule_work(&drvdata->qmi_svc_arrive);
+		break;
+	case QMI_SERVER_EXIT:
+		schedule_work(&drvdata->qmi_svc_exit);
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
+static void qbt1000_qmi_ind_cb(struct qmi_handle *handle, unsigned int msg_id,
+			void *msg, unsigned int msg_len, void *ind_cb_priv)
+{
+}
+
+static void qbt1000_qmi_connect_to_service(struct qbt1000_drvdata *drvdata)
+{
+	int rc = 0;
+
+	/* Create a Local client port for QMI communication */
+	drvdata->qmi_handle = qmi_handle_create(qbt1000_sns_notify, drvdata);
+	if (!drvdata->qmi_handle) {
+		dev_err(drvdata->dev, "%s: QMI client handle alloc failed\n",
+			__func__);
+		return;
+	}
+
+	rc = qmi_connect_to_service(drvdata->qmi_handle,
+				    QBT1000_SNS_SERVICE_ID,
+				    QBT1000_SNS_SERVICE_VER_ID,
+				    QBT1000_SNS_INSTANCE_INST_ID);
+	if (rc < 0) {
+		dev_err(drvdata->dev, "%s: Could not connect to SNS service\n",
+			__func__);
+		goto err;
+	}
+
+	rc = qmi_register_ind_cb(drvdata->qmi_handle, qbt1000_qmi_ind_cb,
+							(void *)drvdata);
+	if (rc < 0) {
+		dev_err(drvdata->dev, "%s: Could not register the QMI ind cb\n",
+			__func__);
+		goto err;
+	}
+
+	return;
+
+err:
+	qmi_handle_destroy(drvdata->qmi_handle);
+	drvdata->qmi_handle = NULL;
+}
+
+static void qbt1000_qmi_clnt_svc_arrive(struct work_struct *work)
+{
+	struct qbt1000_drvdata *drvdata = container_of(work,
+					struct qbt1000_drvdata, qmi_svc_arrive);
+
+	qbt1000_qmi_connect_to_service(drvdata);
+}
+
+static void qbt1000_qmi_clnt_svc_exit(struct work_struct *work)
+{
+	struct qbt1000_drvdata *drvdata = container_of(work,
+					struct qbt1000_drvdata, qmi_svc_exit);
+
+	qmi_handle_destroy(drvdata->qmi_handle);
+	drvdata->qmi_handle = NULL;
+}
+
+static void qbt1000_qmi_clnt_recv_msg(struct work_struct *work)
+{
+	struct qbt1000_drvdata *drvdata = container_of(work,
+				struct qbt1000_drvdata, qmi_svc_rcv_msg);
+
+	if (qmi_recv_msg(drvdata->qmi_handle) < 0)
+		dev_err(drvdata->dev, "%s: Error receiving QMI message\n",
+		 __func__);
+}
+
+static int qbt1000_set_blsp_ownership(struct qbt1000_drvdata *drvdata,
+				      uint8_t owner_id)
+{
+	int rc = 0;
+	struct scm_desc desc = {0};
+
+	desc.arginfo = TZ_BLSP_MODIFY_OWNERSHIP_ARGINFO;
+	desc.args[0] = drvdata->ssc_spi_port + 11;
+	desc.args[1] = owner_id;
+
+
+	rc = scm_call2(SCM_SIP_FNID(TZ_BLSP_MODIFY_OWNERSHIP_SVC_ID,
+				    TZ_BLSP_MODIFY_OWNERSHIP_FUNC_ID),
+				    &desc);
+
+	if (rc < 0)
+		dev_err(drvdata->dev, "%s: Error blsp ownership switch to %d\n",
+			__func__, owner_id);
+
+	return rc;
+}
+
 /**
  * qbt1000_open() - Function called when user space opens device.
  * Successful if driver not currently open and clocks turned on.
@@ -167,16 +663,41 @@ static int qbt1000_open(struct inode *inode, struct file *file)
 	/* disallowing concurrent opens */
 	if (!atomic_dec_and_test(&drvdata->available)) {
 		atomic_inc(&drvdata->available);
-		rc = -EBUSY;
-	} else {
-		/*
-		 * return success/err of clock vote.
-		 * and increment atomic counter on failure
-		 */
-		rc = clocks_on(drvdata);
-		if (rc)
-			atomic_inc(&drvdata->available);
+		return -EBUSY;
 	}
+
+	if (drvdata->sensor_conn_type == SPI) {
+		rc = clocks_on(drvdata);
+	} else if (drvdata->sensor_conn_type == SSC_SPI) {
+		rc = qbt1000_sns_open_req(drvdata);
+		if (rc < 0) {
+			dev_err(drvdata->dev, "%s: Error sensor open request\n",
+				__func__);
+			goto out;
+		}
+		rc = qbt1000_sns_keep_alive_req(drvdata, 1);
+		if (rc < 0) {
+			dev_err(drvdata->dev,
+				"%s: Error sensor keep-alive request\n",
+				 __func__);
+			qbt1000_sns_close_req(drvdata);
+			goto out;
+		}
+		rc = qbt1000_set_blsp_ownership(drvdata, drvdata->tz_subsys_id);
+		if (rc < 0) {
+			dev_err(drvdata->dev,
+				"%s: Error setting blsp ownership\n", __func__);
+			qbt1000_sns_keep_alive_req(drvdata, 0);
+			qbt1000_sns_close_req(drvdata);
+			goto out;
+		}
+		drvdata->ssc_state = 1;
+	}
+
+out:
+	/* increment atomic counter on failure */
+	if (rc)
+		atomic_inc(&drvdata->available);
 
 	return rc;
 }
@@ -193,7 +714,15 @@ static int qbt1000_release(struct inode *inode, struct file *file)
 {
 	struct qbt1000_drvdata *drvdata = file->private_data;
 
-	clocks_off(drvdata);
+	if (drvdata->sensor_conn_type == SPI) {
+		clocks_off(drvdata);
+	} else if (drvdata->sensor_conn_type == SSC_SPI) {
+		qbt1000_sns_keep_alive_req(drvdata, 0);
+		qbt1000_set_blsp_ownership(drvdata, drvdata->ssc_subsys_id);
+		qbt1000_sns_close_req(drvdata);
+		drvdata->ssc_state = 0;
+	}
+
 	atomic_inc(&drvdata->available);
 	return 0;
 }
@@ -215,16 +744,19 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 	struct qbt1000_drvdata *drvdata;
 
 	if (IS_ERR(priv_arg)) {
-		pr_err("invalid user space pointer %lu\n", arg);
+		dev_err(drvdata->dev, "%s: invalid user space pointer %lu\n",
+			__func__, arg);
 		return -EINVAL;
 	}
 
 	drvdata = file->private_data;
 
 	mutex_lock(&drvdata->mutex);
-	if (!drvdata->clock_state) {
+	if (((drvdata->sensor_conn_type == SPI) && (!drvdata->clock_state)) ||
+	    ((drvdata->sensor_conn_type == SSC_SPI) && (!drvdata->ssc_state))) {
 		rc = -EPERM;
-		pr_err("IOCTL call made with clocks off\n");
+		dev_err(drvdata->dev, "%s: IOCTL call in invalid state\n",
+			__func__);
 		goto end;
 	}
 
@@ -236,7 +768,9 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 		if (copy_from_user(&app, priv_arg,
 			sizeof(app)) != 0) {
 			rc = -ENOMEM;
-			pr_err("failed copy from user space-LOAD\n");
+			dev_err(drvdata->dev,
+				"%s: Failed copy from user space-LOAD\n",
+				__func__);
 			goto end;
 		}
 
@@ -244,14 +778,9 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 		rc = qseecom_start_app(app.app_handle, app.name, app.size);
 		if (rc == 0) {
 			g_app_buf_size = app.size;
-			rc = qseecom_set_bandwidth(*app.app_handle,
-				app.high_band_width == 1 ? true : false);
-			if (rc != 0) {
-				/* log error, allow to continue */
-				pr_err("App %s failed to set bw\n", app.name);
-			}
 		} else {
-			pr_err("app %s failed to load\n", app.name);
+			dev_err(drvdata->dev, "%s: App %s failed to load\n",
+				__func__, app.name);
 			goto end;
 		}
 
@@ -264,23 +793,24 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 		if (copy_from_user(&app, priv_arg,
 			sizeof(app)) != 0) {
 			rc = -ENOMEM;
-			pr_err("failed copy from user space-UNLOAD\n");
+			dev_err(drvdata->dev,
+				"%s: Failed copy from user space-LOAD\n",
+				 __func__);
 			goto end;
 		}
 
 		/* if the app hasn't been loaded already, return err */
 		if (!app.app_handle) {
-			pr_err("app not loaded\n");
+			dev_err(drvdata->dev, "%s: App not loaded\n",
+				__func__);
 			rc = -EINVAL;
 			goto end;
 		}
 
-		/* set bw & shutdown the TZ app */
-		qseecom_set_bandwidth(*app.app_handle,
-			app.high_band_width == 1 ? true : false);
 		rc = qseecom_shutdown_app(app.app_handle);
 		if (rc != 0) {
-			pr_err("app failed to shutdown\n");
+			dev_err(drvdata->dev, "%s: App failed to shutdown\n",
+				__func__);
 			goto end;
 		}
 
@@ -299,13 +829,16 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			sizeof(tzcmd))
 				!= 0) {
 			rc = -ENOMEM;
-			pr_err("failed copy from user space %d\n", rc);
+			dev_err(drvdata->dev,
+				"%s: Failed copy from user space-LOAD\n",
+				 __func__);
 			goto end;
 		}
 
 		/* if the app hasn't been loaded already, return err */
 		if (!tzcmd.app_handle) {
-			pr_err("app not loaded\n");
+			dev_err(drvdata->dev, "%s: App not loaded\n",
+				__func__);
 			rc = -EINVAL;
 			goto end;
 		}
@@ -324,7 +857,9 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 		rc = copy_from_user(aligned_cmd, (void __user *)tzcmd.req_buf,
 				tzcmd.req_buf_len);
 		if (rc != 0) {
-			pr_err("failure to copy user space buf %d\n", rc);
+			dev_err(drvdata->dev,
+				"%s: Failure to copy user space buf %d\n",
+				 __func__, rc);
 			goto end;
 		}
 
@@ -334,24 +869,27 @@ static long qbt1000_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			aligned_cmd_len,
 			aligned_rsp,
 			aligned_rsp_len);
+
 		if (rc == 0) {
 			/* copy rsp buf back to user space unaligned buffer */
 			rc = copy_to_user((void __user *)tzcmd.rsp_buf,
 				 aligned_rsp, tzcmd.rsp_buf_len);
 			if (rc != 0) {
-				pr_err("failed copy 2us rc:%d bytes %d:\n",
-					rc, tzcmd.rsp_buf_len);
+				dev_err(drvdata->dev,
+					"%s: Failed copy 2us rc:%d bytes %d:\n",
+					 __func__, rc, tzcmd.rsp_buf_len);
 				goto end;
 			}
 		} else {
-			pr_err("failure to send tz cmd %d\n", rc);
+			dev_err(drvdata->dev, "%s: Failure to send tz cmd %d\n",
+				__func__, rc);
 			goto end;
 		}
 
 		break;
 	}
 	default:
-		pr_err("invalid cmd %d\n", cmd);
+		dev_err(drvdata->dev, "%s: Invalid cmd %d\n", __func__, cmd);
 		rc = -EINVAL;
 		goto end;
 	}
@@ -389,7 +927,8 @@ static int qbt1000_dev_register(struct qbt1000_drvdata *drvdata)
 
 	ret = alloc_chrdev_region(&dev_no, 0, 1, drvdata->qbt1000_node);
 	if (ret) {
-		pr_err("alloc_chrdev_region failed %d\n", ret);
+		dev_err(drvdata->dev, "%s: alloc_chrdev_region failed %d\n",
+			__func__, ret);
 		goto err_alloc;
 	}
 
@@ -398,7 +937,8 @@ static int qbt1000_dev_register(struct qbt1000_drvdata *drvdata)
 	drvdata->qbt1000_cdev.owner = THIS_MODULE;
 	ret = cdev_add(&drvdata->qbt1000_cdev, dev_no, 1);
 	if (ret) {
-		pr_err("cdev_add failed %d\n", ret);
+		dev_err(drvdata->dev, "%s: cdev_add failed %d\n", __func__,
+			ret);
 		goto err_cdev_add;
 	}
 
@@ -406,7 +946,8 @@ static int qbt1000_dev_register(struct qbt1000_drvdata *drvdata)
 					   drvdata->qbt1000_node);
 	if (IS_ERR(drvdata->qbt1000_class)) {
 		ret = PTR_ERR(drvdata->qbt1000_class);
-		pr_err("class_create failed %d\n", ret);
+		dev_err(drvdata->dev, "%s: class_create failed %d\n", __func__,
+			ret);
 		goto err_class_create;
 	}
 
@@ -415,11 +956,13 @@ static int qbt1000_dev_register(struct qbt1000_drvdata *drvdata)
 			       drvdata->qbt1000_node);
 	if (IS_ERR(device)) {
 		ret = PTR_ERR(device);
-		pr_err("device_create failed %d\n", ret);
+		dev_err(drvdata->dev, "%s: device_create failed %d\n",
+			__func__, ret);
 		goto err_dev_create;
 	}
 
 	return 0;
+
 err_dev_create:
 	class_destroy(drvdata->qbt1000_class);
 err_class_create:
@@ -428,6 +971,128 @@ err_cdev_add:
 	unregister_chrdev_region(drvdata->qbt1000_cdev.dev, 1);
 err_alloc:
 	return ret;
+}
+
+static int qbt1000_read_spi_conn_properties(struct device_node *node,
+					    struct qbt1000_drvdata *drvdata)
+{
+	int rc = 0;
+	int index = 0;
+	uint32_t rate;
+	uint8_t clkcnt = 0;
+	const char *clock_name;
+
+	if ((node == NULL) || (drvdata == NULL))
+		return -EINVAL;
+
+	drvdata->sensor_conn_type = SPI;
+
+	/* obtain number of clocks from hw config */
+	clkcnt = of_property_count_strings(node, "clock-names");
+	if (IS_ERR_VALUE(drvdata->clock_count)) {
+			dev_err(drvdata->dev, "%s: Failed to get clock names\n",
+				__func__);
+			return -EINVAL;
+	}
+
+	/* sanity check for max clock count */
+	if (clkcnt > 16) {
+			dev_err(drvdata->dev, "%s: Invalid clock count %d\n",
+				__func__, clkcnt);
+			return -EINVAL;
+	}
+
+	/* alloc mem for clock array - auto free if probe fails */
+	drvdata->clock_count = clkcnt;
+	drvdata->clocks = devm_kzalloc(drvdata->dev,
+				sizeof(struct clk *) * drvdata->clock_count,
+				GFP_KERNEL);
+	if (!drvdata->clocks) {
+			dev_err(drvdata->dev,
+				"%s: Failed to alloc memory for clocks\n",
+				__func__);
+			return -ENOMEM;
+	}
+
+	/* load clock names */
+	for (index = 0; index < drvdata->clock_count; index++) {
+			of_property_read_string_index(node,
+					"clock-names",
+					index, &clock_name);
+			drvdata->clocks[index] = devm_clk_get(drvdata->dev,
+							      clock_name);
+			if (IS_ERR(drvdata->clocks[index])) {
+				rc = PTR_ERR(drvdata->clocks[index]);
+				if (rc != -EPROBE_DEFER)
+					dev_err(drvdata->dev,
+						"%s: Failed get %s\n",
+						__func__, clock_name);
+					return rc;
+			}
+
+			if (!strcmp(clock_name, "spi_clk"))
+				drvdata->root_clk_idx = index;
+	}
+
+	/* read clock frequency */
+	if (of_property_read_u32(node, "clock-frequency", &rate) == 0)
+		drvdata->frequency = rate;
+
+	return 0;
+}
+
+static int qbt1000_read_ssc_spi_conn_properties(struct device_node *node,
+						struct qbt1000_drvdata *drvdata)
+{
+	int rc = 0;
+	uint32_t rate;
+
+	if ((node == NULL) || (drvdata == NULL))
+		return -EINVAL;
+
+	drvdata->sensor_conn_type = SSC_SPI;
+
+	/* read SPI port id */
+	if (of_property_read_u32(node, "qcom,spi-port-id",
+				 &drvdata->ssc_spi_port) != 0)
+			return -EINVAL;
+
+	/* read SPI port slave index */
+	if (of_property_read_u32(node, "qcom,spi-port-slave-index",
+				 &drvdata->ssc_spi_port_slave_index) != 0)
+		return -EINVAL;
+
+	/* read TZ subsys id */
+	if (of_property_read_u32(node, "qcom,tz-subsys-id",
+				 &drvdata->tz_subsys_id) != 0)
+		return -EINVAL;
+
+	/* read SSC subsys id */
+	if (of_property_read_u32(node, "qcom,ssc-subsys-id",
+				 &drvdata->ssc_subsys_id) != 0)
+		return -EINVAL;
+
+	/* read clock frequency */
+	if (of_property_read_u32(node, "clock-frequency", &rate) != 0)
+		return -EINVAL;
+
+	drvdata->frequency = rate;
+
+	INIT_WORK(&drvdata->qmi_svc_arrive, qbt1000_qmi_clnt_svc_arrive);
+	INIT_WORK(&drvdata->qmi_svc_exit, qbt1000_qmi_clnt_svc_exit);
+	INIT_WORK(&drvdata->qmi_svc_rcv_msg, qbt1000_qmi_clnt_recv_msg);
+
+	drvdata->qmi_svc_notifier.notifier_call = qbt1000_qmi_svc_event_notify;
+	drvdata->qmi_handle = NULL;
+	rc = qmi_svc_event_notifier_register(QBT1000_SNS_SERVICE_ID,
+					     QBT1000_SNS_SERVICE_VER_ID,
+					     QBT1000_SNS_INSTANCE_INST_ID,
+					     &drvdata->qmi_svc_notifier);
+	if (rc < 0)
+		dev_err(drvdata->dev, "%s: QMI service notifier reg failed\n",
+			__func__);
+
+	return rc;
 }
 
 /**
@@ -441,10 +1106,8 @@ static int qbt1000_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct qbt1000_drvdata *drvdata;
 	int rc = 0;
-	int index = 0;
-	uint32_t rate;
-	uint8_t clkcnt = 0;
-	const char *clock_name;
+	int child_node_cnt = 0;
+	struct device_node *child_node;
 
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
@@ -453,56 +1116,44 @@ static int qbt1000_probe(struct platform_device *pdev)
 	drvdata->dev = &pdev->dev;
 	platform_set_drvdata(pdev, drvdata);
 
-	/* obtain number of clocks from hw config */
-	clkcnt = of_property_count_strings(pdev->dev.of_node, "clock-names");
-	if (IS_ERR_VALUE(drvdata->clock_count)) {
-		pr_err("failed to get clock names\n");
+	/* get child count */
+	child_node_cnt = of_get_child_count(pdev->dev.of_node);
+	if (child_node_cnt != 1) {
+		dev_err(drvdata->dev, "%s: Invalid number of child nodes %d\n",
+			__func__, child_node_cnt);
 		rc = -EINVAL;
 		goto end;
 	}
 
-	/* sanity check for max clock count */
-	if (clkcnt > 16) {
-		pr_err("invalid clock count %d\n", clkcnt);
-		rc = -EINVAL;
-		goto end;
-	}
-
-	/* alloc mem for clock array - auto free if probe fails */
-	drvdata->clock_count = clkcnt;
-	pr_debug("clock count %d\n", clkcnt);
-	drvdata->clocks = devm_kzalloc(&pdev->dev,
-		sizeof(struct clk *) * drvdata->clock_count, GFP_KERNEL);
-	if (!drvdata->clocks) {
-		rc = -ENOMEM;
-		goto end;
-	}
-
-	/* load clock names */
-	for (index = 0; index < drvdata->clock_count; index++) {
-		of_property_read_string_index(pdev->dev.of_node,
-			"clock-names",
-			index, &clock_name);
-		pr_debug("getting clock %s\n", clock_name);
-		drvdata->clocks[index] = devm_clk_get(&pdev->dev, clock_name);
-		if (IS_ERR(drvdata->clocks[index])) {
-			rc = PTR_ERR(drvdata->clocks[index]);
-			if (rc != -EPROBE_DEFER)
-				pr_err("failed to get %s\n", clock_name);
+	for_each_child_of_node(pdev->dev.of_node, child_node) {
+		if (!of_node_cmp(child_node->name,
+				 "qcom,fingerprint-sensor-spi-conn")) {
+			/* sensor connected to regular SPI port */
+			rc = qbt1000_read_spi_conn_properties(child_node,
+							      drvdata);
+			if (rc != 0) {
+				dev_err(drvdata->dev,
+					"%s: Failed to read SPI conn prop\n",
+					__func__);
+				goto end;
+			}
+		} else if (!of_node_cmp(child_node->name,
+				"qcom,fingerprint-sensor-ssc-spi-conn")) {
+			/* sensor connected to SSC SPI port */
+			rc = qbt1000_read_ssc_spi_conn_properties(child_node,
+								  drvdata);
+			if (rc != 0) {
+				dev_err(drvdata->dev,
+					"%s: Failed to read SPI conn prop\n",
+					__func__);
+				goto end;
+			}
+		} else {
+			dev_err(drvdata->dev, "%s: Invalid child node %s\n",
+				__func__, child_node->name);
+			rc = -EINVAL;
 			goto end;
 		}
-
-		if (!strcmp(clock_name, "spi_clk")) {
-			pr_debug("root index %d\n", index);
-			drvdata->root_clk_idx = index;
-		}
-	}
-
-	/* read clock frequency */
-	if (of_property_read_u32(pdev->dev.of_node,
-		"clock-frequency", &rate) == 0) {
-		pr_debug("clk frequency %d\n", rate);
-		drvdata->frequency = rate;
 	}
 
 	atomic_set(&drvdata->available, 1);
@@ -519,7 +1170,19 @@ static int qbt1000_remove(struct platform_device *pdev)
 {
 	struct qbt1000_drvdata *drvdata = platform_get_drvdata(pdev);
 
-	clocks_off(drvdata);
+
+	if (drvdata->sensor_conn_type == SPI) {
+		clocks_off(drvdata);
+	} else if (drvdata->sensor_conn_type == SSC_SPI) {
+		qbt1000_sns_keep_alive_req(drvdata, 0);
+		qbt1000_set_blsp_ownership(drvdata, drvdata->ssc_subsys_id);
+		qbt1000_sns_close_req(drvdata);
+		qmi_handle_destroy(drvdata->qmi_handle);
+		qmi_svc_event_notifier_unregister(QBT1000_SNS_SERVICE_ID,
+						  QBT1000_SNS_SERVICE_VER_ID,
+						  QBT1000_SNS_INSTANCE_INST_ID,
+						  &drvdata->qmi_svc_notifier);
+	}
 	mutex_destroy(&drvdata->mutex);
 
 	device_destroy(drvdata->qbt1000_class, drvdata->qbt1000_cdev.dev);
@@ -541,7 +1204,8 @@ static int qbt1000_suspend(struct platform_device *pdev, pm_message_t state)
 	 * driver will allow suspend to occur.
 	 */
 	mutex_lock(&drvdata->mutex);
-	if (drvdata->clock_state)
+	if (((drvdata->sensor_conn_type == SPI) && (!drvdata->clock_state)) ||
+	    ((drvdata->sensor_conn_type == SSC_SPI) && (!drvdata->ssc_state)))
 		rc = -EBUSY;
 	mutex_unlock(&drvdata->mutex);
 
