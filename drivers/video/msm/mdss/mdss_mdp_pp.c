@@ -1457,45 +1457,40 @@ int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	return ret;
 }
 
-static int pp_mixer_setup(u32 disp_num,
-		struct mdss_mdp_mixer *mixer)
+static int pp_mixer_setup(struct mdss_mdp_mixer *mixer)
 {
-	u32 flags, dspp_num, opmode = 0, lm_bitmask = 0;
+	u32 flags, disp_num, opmode = 0, lm_bitmask = 0;
 	struct mdp_pgc_lut_data *pgc_config;
 	struct pp_sts_type *pp_sts;
 	struct mdss_mdp_ctl *ctl;
 	char __iomem *addr;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
-	if (!mixer || !mixer->ctl || !mdata)
+	if (!mixer || !mixer->ctl || !mixer->ctl->mfd || !mdata) {
+		pr_err("invalid parameters, mixer %p ctl %p mfd %p mdata %p\n",
+			mixer, (mixer ? mixer->ctl : NULL),
+			(mixer ? (mixer->ctl ? mixer->ctl->mfd : NULL) : NULL),
+			mdata);
 		return -EINVAL;
-	dspp_num = mixer->num;
+	}
 	ctl = mixer->ctl;
+	disp_num = ctl->mfd->index;
 
-	/* no corresponding dspp */
-	if ((mixer->type != MDSS_MDP_MIXER_TYPE_INTF) ||
-		(dspp_num >= mdata->ndspp))
-		return 0;
 	if (disp_num < MDSS_BLOCK_DISP_NUM)
 		flags = mdss_pp_res->pp_disp_flags[disp_num];
 	else
 		flags = 0;
 
-	lm_bitmask = (dspp_num == MDSS_MDP_DSPP3) ?
-		BIT(20) : (BIT(6) << dspp_num);
+	if (mixer->num == MDSS_MDP_INTF_LAYERMIXER3)
+		lm_bitmask = BIT(20);
+	else if (mixer->type == MDSS_MDP_MIXER_TYPE_WRITEBACK)
+		lm_bitmask = BIT(9) << mixer->num;
+	else
+		lm_bitmask = BIT(6) << mixer->num;
 
 	pp_sts = &mdss_pp_res->pp_disp_sts[disp_num];
 	/* GC_LUT is in layer mixer */
 	if (flags & PP_FLAGS_DIRTY_ARGC) {
-		/*
-		 * GC LUT should be disabled before being rewritten. Skip
-		 * GC LUT programming if it is already enabled.
-		 */
-		if (pp_sts->argc_sts & PP_STS_ENABLE) {
-			pr_debug("LM %d GC already enabled, skipping programming\n",
-					mixer->num);
-			return 0;
-		}
 		if (pp_ops[GC].pp_set_config) {
 			if (mdata->pp_block_off.lm_pgc_off == U32_MAX) {
 				pr_err("invalid pgc offset %d\n", U32_MAX);
@@ -1536,17 +1531,17 @@ static int pp_mixer_setup(u32 disp_num,
 	return 0;
 }
 
-static char __iomem *mdss_mdp_get_mixer_addr_off(u32 dspp_num)
+static char __iomem *mdss_mdp_get_mixer_addr_off(u32 mixer_num)
 {
 	struct mdss_data_type *mdata;
 	struct mdss_mdp_mixer *mixer;
 
 	mdata = mdss_mdp_get_mdata();
-	if (mdata->ndspp <= dspp_num) {
-		pr_err("Invalid dspp_num=%d\n", dspp_num);
+	if (mdata->nmixers_intf <= mixer_num) {
+		pr_err("Invalid mixer_num=%d\n", mixer_num);
 		return ERR_PTR(-EINVAL);
 	}
-	mixer = mdata->mixer_intf + dspp_num;
+	mixer = mdata->mixer_intf + mixer_num;
 	return mixer->base;
 }
 
@@ -1974,7 +1969,7 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 	int i, req = -1;
 	bool valid_mixers = true;
 	bool valid_ad_panel = true;
-	if ((!ctl->mfd) || (!mdss_pp_res) || (!mdata))
+	if ((!ctl) || (!ctl->mfd) || (!mdss_pp_res) || (!mdata))
 		return -EINVAL;
 
 	/* treat fb_num the same as block logical id*/
@@ -2031,11 +2026,11 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 	}
 
 	if (ctl->mixer_left) {
-		pp_mixer_setup(disp_num, ctl->mixer_left);
+		pp_mixer_setup(ctl->mixer_left);
 		pp_dspp_setup(disp_num, ctl->mixer_left);
 	}
 	if (ctl->mixer_right) {
-		pp_mixer_setup(disp_num, ctl->mixer_right);
+		pp_mixer_setup(ctl->mixer_right);
 		pp_dspp_setup(disp_num, ctl->mixer_right);
 	}
 	/* clear dirty flag */
@@ -3440,17 +3435,20 @@ int mdss_mdp_argc_config(struct msm_fb_data_type *mfd,
 				u32 *copyback)
 {
 	int ret = 0;
-	u32 disp_num, dspp_num = 0, is_lm = 0;
+	u32 disp_num, num = 0, is_lm = 0;
 	struct mdp_pgc_lut_data local_cfg;
 	struct mdp_pgc_lut_data *pgc_ptr;
 	u32 tbl_size, r_size, g_size, b_size;
 	char __iomem *argc_addr = 0;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_mdp_ctl *ctl = NULL;
 	u32 dirty_flag = 0;
 
 	if ((PP_BLOCK(config->block) < MDP_LOGICAL_BLOCK_DISP_0) ||
-		(PP_BLOCK(config->block) >= MDP_BLOCK_MAX))
+		(PP_BLOCK(config->block) >= MDP_BLOCK_MAX)) {
+		pr_err("invalid block value %d\n", PP_BLOCK(config->block));
 		return -EINVAL;
+	}
 
 	if ((config->flags & MDSS_PP_SPLIT_MASK) == MDSS_PP_SPLIT_MASK) {
 		pr_warn("Can't set both split bits\n");
@@ -3465,21 +3463,38 @@ int mdss_mdp_argc_config(struct msm_fb_data_type *mfd,
 	}
 
 	disp_num = PP_BLOCK(config->block) - MDP_LOGICAL_BLOCK_DISP_0;
-	ret = pp_get_dspp_num(disp_num, &dspp_num);
-	if (ret) {
-		pr_err("%s, no dspp connects to disp %d\n", __func__, disp_num);
-		goto argc_config_exit;
+	ctl = mfd_to_ctl(mfd);
+	num = (ctl && ctl->mixer_left) ? ctl->mixer_left->num : -1;
+	if (num < 0) {
+		pr_err("invalid mfd index %d config\n",
+				mfd->index);
+		return -EPERM;
 	}
-
 	switch (PP_LOCAT(config->block)) {
 	case MDSS_PP_LM_CFG:
-		argc_addr = mdss_mdp_get_mixer_addr_off(dspp_num) +
+		/*
+		 * LM GC LUT should be disabled before being rewritten. Skip
+		 * GC LUT config if it is already enabled.
+		 */
+		if ((mdss_pp_res->pp_disp_sts[disp_num].argc_sts &
+				PP_STS_ENABLE) &&
+				!(config->flags & MDP_PP_OPS_DISABLE)) {
+			pr_err("LM GC already enabled disp %d, skipping config\n",
+					mfd->index);
+			return -EPERM;
+		}
+		argc_addr = mdss_mdp_get_mixer_addr_off(num) +
 			MDSS_MDP_REG_LM_GC_LUT_BASE;
 		pgc_ptr = &mdss_pp_res->argc_disp_cfg[disp_num];
 		dirty_flag = PP_FLAGS_DIRTY_ARGC;
 		break;
 	case MDSS_PP_DSPP_CFG:
-		argc_addr = mdss_mdp_get_dspp_addr_off(dspp_num) +
+		if (!mdss_mdp_mfd_valid_dspp(mfd)) {
+			pr_err("invalid mfd index %d for dspp config\n",
+				mfd->index);
+			return -EPERM;
+		}
+		argc_addr = mdss_mdp_get_dspp_addr_off(num) +
 					MDSS_MDP_REG_DSPP_GC_BASE;
 		pgc_ptr = &mdss_pp_res->pgc_disp_cfg[disp_num];
 		dirty_flag = PP_FLAGS_DIRTY_PGC;
@@ -3507,8 +3522,8 @@ int mdss_mdp_argc_config(struct msm_fb_data_type *mfd,
 				goto clock_off;
 			}
 			temp_addr = (is_lm) ?
-				     mdss_mdp_get_mixer_addr_off(dspp_num) :
-				     mdss_mdp_get_dspp_addr_off(dspp_num);
+				     mdss_mdp_get_mixer_addr_off(num) :
+				     mdss_mdp_get_dspp_addr_off(num);
 			if (IS_ERR_OR_NULL(temp_addr)) {
 				pr_err("invalid addr is_lm %d\n", is_lm);
 				ret = -EINVAL;
@@ -3558,7 +3573,7 @@ clock_off:
 			pr_debug("version of gc is %d\n", config->version);
 			is_lm = (PP_LOCAT(config->block) == MDSS_PP_LM_CFG);
 			ret = pp_pgc_lut_cache_params(config, mdss_pp_res,
-				((is_lm) ? LM : DSPP), dspp_num);
+				((is_lm) ? LM : DSPP));
 			if (ret) {
 				pr_err("gamut set config failed ret %d\n",
 					ret);
