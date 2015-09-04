@@ -28,6 +28,7 @@ static int regmap_swr_gather_write(void *context,
 	size_t addr_bytes, val_bytes;
 	int i, ret = 0;
 	u16 reg_addr = 0;
+	u8 *value;
 
 	if (swr == NULL) {
 		dev_err(dev, "%s: swr device is NULL\n", __func__);
@@ -47,12 +48,11 @@ static int regmap_swr_gather_write(void *context,
 	val_bytes = map->format.val_bytes;
 	/* val_len = val_bytes * val_count */
 	for (i = 0; i < (val_len / val_bytes); i++) {
-		reg_addr = reg_addr + i;
-		val = (u8 *)val + (val_bytes * i);
-		ret = swr_write(swr, swr->dev_num, reg_addr, val);
+		value = (u8 *)val + (val_bytes * i);
+		ret = swr_write(swr, swr->dev_num, (reg_addr + i), value);
 		if (ret < 0) {
 			dev_err(dev, "%s: write reg 0x%x failed, err %d\n",
-				__func__, reg_addr, ret);
+				__func__, (reg_addr + i), ret);
 			break;
 		}
 	}
