@@ -1,18 +1,53 @@
 * QBT1000 (Qualcomm Technologies Inc Ultra-Sonic Fingerprint Sensor)
 
-Required properties:
-- compatible : Should be "qcom,qbt1000"
-- clock-names : List of clock names that need to be voted on/off
-- clocks : Property pair that represents the clock controller and the clock
-           id. This in combimination with the clock-name is used to obtain
-           the handle for the clock that needs to be voted on/off
-- clock-frequency : Frequency of clock in Hz
+1) Main node
 
-Example:
+   Required properties:
+   - compatible : Should be "qcom,qbt1000"
+
+2) Child nodes
+
+   The main node must have one of the two possible child nodes which describes the
+   properties of sensor connection.
+
+   a) Sensor connected to SPI port :
+   Node name - qcom,fingerprint-sensor-spi-conn
+
+   Required properties:
+   - clock-names : List of clock names that need to be voted on/off
+   - clocks : Property pair that represents the clock controller and the clock
+              id. This in combimination with the clock-name is used to obtain
+              the handle for the clock that needs to be voted on/off
+   - clock-frequency : Frequency of clock in Hz
+
+   b) Sensor connected to SSC SPI port :
+   Node name - qcom,fingerprint-sensor-ssc-spi-conn
+
+   Required properties:
+   - qcom,spi-port-id : SPI port id sensor is connected to
+   - qcom,spi-port-slave-index : SPI port slave index
+   - qcom,tz-subsys-id : TZ subsystem-id for SCM calls
+   - qcom,ssc-subsys-id : SSC subsystem-id for SCM calls
+   - clock-frequency : Frequency of clock in Hz
+
+Examples:
         qcom,qbt1000 {
                 compatible = "qcom,qbt1000";
-                clock-names = "spi_clk", "ahb_clk";
-                clocks = <&clock_gcc clk_gcc_blsp1_qup5_spi_apps_clk>,
-                         <&clock_gcc clk_gcc_blsp1_ahb_clk>;
-                clock-frequency = <15000000>;
+                qcom,fingerprint-sensor-spi-conn {
+                        clock-names = "spi_clk", "ahb_clk";
+                        clocks = <&clock_gcc clk_gcc_blsp1_qup5_spi_apps_clk>,
+                        <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+                        clock-frequency = <15000000>;
+                };
+        };
+
+        qcom,qbt1000 {
+                compatible = "qcom,qbt1000";
+                qcom,fingerprint-sensor-ssc-spi-conn {
+                        qcom,spi-port-id = <13>;
+                        qcom,spi-port-slave-index = <0>;
+                        qcom,tz-subsys-id = <1>;
+                        qcom,ssc-subsys-id = <5>;
+                        clock-frequency = <15000000>;
+                };
         };
