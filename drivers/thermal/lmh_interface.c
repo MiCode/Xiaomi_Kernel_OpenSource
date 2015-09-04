@@ -38,6 +38,7 @@
 #define LMH_DBGFS_READ_TYPES		"data_types"
 #define LMH_DBGFS_CONFIG_TYPES		"config_types"
 #define LMH_TRACE_INTERVAL_XO_TICKS	250
+#define LMH_POLLING_MSEC		30
 
 struct lmh_mon_threshold {
 	long				value;
@@ -94,6 +95,7 @@ static struct lmh_mon_driver_data	*lmh_mon_data;
 static struct class			lmh_class_info = {
 	.name = "msm_limits",
 };
+static int lmh_poll_interval = LMH_POLLING_MSEC;
 static DECLARE_RWSEM(lmh_mon_access_lock);
 static LIST_HEAD(lmh_sensor_list);
 static DECLARE_RWSEM(lmh_dev_access_lock);
@@ -155,6 +157,11 @@ LMH_HW_LOG_FS(hw_log_enable);
 LMH_HW_LOG_FS(hw_log_interval);
 LMH_DEV_GET(max_level);
 LMH_DEV_GET(curr_level);
+
+int lmh_get_poll_interval(void)
+{
+	return lmh_poll_interval;
+}
 
 static ssize_t curr_level_set(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
