@@ -45,15 +45,99 @@
 		IPA_ENDP_INIT_AGGR_N_AGGR_PKT_LIMIT_BMSK >> \
 		IPA_ENDP_INIT_AGGR_N_AGGR_PKT_LIMIT_SHFT)
 
-#define IPA_GROUP_UL      (0)
-#define IPA_GROUP_DL      (1)
-#define IPA_GROUP_Q6ZIP   (2)
-#define IPA_GROUP_DPL     (3)
-#define IPA_GROUP_DIAG    IPA_GROUP_DPL
-#define IPA_GROUP_DMA     (4)
-#define IPA_GROUP_IMM_CMD  IPA_GROUP_DMA
-#define IPA_GROUP_UC_RX_Q (5)
+/* configure IPA spare register 1 in order to have correct IPA version
+ * set bits 0,2,3 and 4. see SpareBits documentation.xlsx
+ */
+#define IPA_SPARE_REG_1_VAL (0x0000001D)
+
+
+/* HPS, DPS sequencers Types*/
+#define IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY  0x00000000
+/* DMA + DECIPHER/CIPHER */
+#define IPA_DPS_HPS_SEQ_TYPE_DMA_DEC 0x00000011
+/* Packet Processing + no decipher + uCP (for Ethernet Bridging) */
+#define IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_UCP 0x00000002
+/* Packet Processing + decipher + uCP */
+#define IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_DEC_UCP 0x00000013
+/* 2 Packet Processing pass + no decipher + uCP */
+#define IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP 0x00000004
+/* 2 Packet Processing pass + decipher + uCP */
+#define IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_DEC_UCP 0x00000015
+/* Packet Processing + no decipher + no uCP */
+#define IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_NO_UCP 0x00000006
+/* Packet Processing + no decipher + no uCP */
+#define IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_DEC_NO_UCP 0x00000017
+/* COMP/DECOMP */
+#define IPA_DPS_HPS_SEQ_TYPE_DMA_COMP_DECOMP 0x00000020
+
 #define IPA_CLIENT_NOT_USED {-1, -1, false}
+
+/* Resource Group index*/
+#define IPA_GROUP_UL		(0)
+#define IPA_GROUP_DL		(1)
+#define IPA_GROUP_DIAG		(2)
+#define IPA_GROUP_DPL		IPA_GROUP_DIAG
+#define IPA_GROUP_DMA		(3)
+#define IPA_GROUP_IMM_CMD	IPA_GROUP_DMA
+#define IPA_GROUP_Q6ZIP		(4)
+#define IPA_GROUP_Q6ZIP_GENERAL	IPA_GROUP_Q6ZIP
+#define IPA_GROUP_UC_RX_Q	(5)
+#define IPA_GROUP_Q6ZIP_ENGINE	IPA_GROUP_UC_RX_Q
+#define IPA_GROUP_MAX		(6)
+
+enum ipa_rsrc_grp_type_src {
+	IPA_RSRC_GRP_TYPE_SRC_PKT_CONTEXTS,
+	IPA_RSRC_GRP_TYPE_SRC_HDR_SECTORS,
+	IPA_RSRC_GRP_TYPE_SRC_HDRI1_BUFFER,
+	IPA_RSRC_GRP_TYPE_SRS_DESCRIPTOR_LISTS,
+	IPA_RSRC_GRP_TYPE_SRC_DESCRIPTOR_BUFF,
+	IPA_RSRC_GRP_TYPE_SRC_HDRI2_BUFFERS,
+	IPA_RSRC_GRP_TYPE_SRC_HPS_DMARS,
+	IPA_RSRC_GRP_TYPE_SRC_ACK_ENTRIES,
+	IPA_RSRC_GRP_TYPE_SRC_MAX,
+};
+enum ipa_rsrc_grp_type_dst {
+	IPA_RSRC_GRP_TYPE_DST_DATA_SECTORS,
+	IPA_RSRC_GRP_TYPE_DST_DATA_SECTOR_LISTS,
+	IPA_RSRC_GRP_TYPE_DST_DPS_DMARS,
+	IPA_RSRC_GRP_TYPE_DST_MAX,
+};
+
+struct rsrc_min_max {
+	u32 min;
+	u32 max;
+};
+
+static const struct rsrc_min_max ipa3_rsrc_src_grp_config
+			[IPA_RSRC_GRP_TYPE_SRC_MAX][IPA_GROUP_MAX] = {
+		/*UL	DL	DIAG	DMA	Q6zip	uC Rx*/
+	[IPA_RSRC_GRP_TYPE_SRC_PKT_CONTEXTS] = {
+		{3, 255}, {3, 255}, {1, 255}, {1, 255}, {3, 255}, {1, 255} },
+	[IPA_RSRC_GRP_TYPE_SRC_HDR_SECTORS] = {
+		{0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255} },
+	[IPA_RSRC_GRP_TYPE_SRC_HDRI1_BUFFER] = {
+		{0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255} },
+	[IPA_RSRC_GRP_TYPE_SRS_DESCRIPTOR_LISTS] = {
+		{12, 12}, {12, 12}, {5, 5}, {5, 5},  {8, 8}, {6, 6} },
+	[IPA_RSRC_GRP_TYPE_SRC_DESCRIPTOR_BUFF] = {
+		{19, 19}, {20, 20}, {5, 5}, {5, 5}, {8, 8}, {6, 6} },
+	[IPA_RSRC_GRP_TYPE_SRC_HDRI2_BUFFERS] = {
+		{0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255} },
+	[IPA_RSRC_GRP_TYPE_SRC_HPS_DMARS] = {
+		{1, 1}, {1, 1}, {1, 1}, {1, 1}, {1, 1}, {1, 1} },
+	[IPA_RSRC_GRP_TYPE_SRC_ACK_ENTRIES] = {
+		{12, 12},   {12, 12}, {5, 5}, {5, 5}, {8, 8}, {6, 6} },
+};
+static const struct rsrc_min_max ipa3_rsrc_dst_grp_config
+			[IPA_RSRC_GRP_TYPE_DST_MAX][IPA_GROUP_MAX] = {
+		/*UL	DL	DIAG	DMA  Q6zip_gen Q6zip_eng*/
+	[IPA_RSRC_GRP_TYPE_DST_DATA_SECTORS] = {
+		{3, 3}, {3, 3}, {1, 1}, {2, 2}, {2, 2}, {2, 2} },
+	[IPA_RSRC_GRP_TYPE_DST_DATA_SECTOR_LISTS] = {
+		{0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255} },
+	[IPA_RSRC_GRP_TYPE_DST_DPS_DMARS] = {
+		{1, 1}, {1, 1}, {1, 1}, {1, 1}, {1, 1}, {0, 0} },
+};
 
 static const int ipa_ofst_meq32[] = { IPA_OFFSET_MEQ32_0,
 					IPA_OFFSET_MEQ32_1, -1 };
@@ -642,6 +726,10 @@ int ipa3_init_hw(void)
 
 	/* using old BCR configuration(IPAv2.6)*/
 	ipa_write_reg(ipa3_ctx->mmio, IPA_BCR_OFST, IPA_BCR_REG_VAL);
+
+	ipa_write_reg(ipa3_ctx->mmio,
+			IPA_SPARE_REG_1_OFST,
+			IPA_SPARE_REG_1_VAL);
 	return 0;
 }
 
@@ -2923,6 +3011,7 @@ void _ipa_cfg_ep_mode_v3_0(u32 pipe_number, u32 dst_pipe_number,
 int ipa3_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ep_mode)
 {
 	int ep;
+	int type;
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 	    ipa3_ctx->ep[clnt_hdl].valid == 0 || ep_mode == NULL) {
@@ -2962,6 +3051,15 @@ int ipa3_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ep_mode)
 	ipa3_ctx->ctrl->ipa3_cfg_ep_mode(clnt_hdl,
 			ipa3_ctx->ep[clnt_hdl].dst_pipe_index,
 			ep_mode);
+
+	 /* Configure sequencers type*/
+	if (ep_mode->mode == IPA_DMA)
+		type = IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY;
+	else
+		type = IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_UCP;
+
+	IPADBG(" set sequencers to sequance 0x%x, ep = %d\n", type, clnt_hdl);
+	ipa_write_reg(ipa3_ctx->mmio, IPA_ENDP_INIT_SEQ_n_OFST(clnt_hdl), type);
 
 	ipa3_dec_client_disable_clks();
 
@@ -3030,6 +3128,11 @@ void _ipa_cfg_ep_aggr_v3_0(u32 pipe_number,
 	IPA_SETFIELD_IN_REG(reg_val, ep_aggr->aggr_pkt_limit,
 			IPA_ENDP_INIT_AGGR_N_AGGR_PKT_LIMIT_SHFT,
 			IPA_ENDP_INIT_AGGR_N_AGGR_PKT_LIMIT_BMSK);
+
+	/* set byte-limit aggregation behavior to soft-byte limit */
+	IPA_SETFIELD_IN_REG(reg_val, 0,
+			IPA_ENDP_INIT_AGGR_N_AGGR_HARD_BYTE_LIMIT_ENABLE_SHFT,
+			IPA_ENDP_INIT_AGGR_N_AGGR_HARD_BYTE_LIMIT_ENABLE_BMSK);
 
 	ipa_write_reg(ipa3_ctx->mmio,
 			IPA_ENDP_INIT_AGGR_N_OFST_v3_0(pipe_number), reg_val);
@@ -4576,4 +4679,116 @@ bool ipa_is_modem_pipe(int pipe_idx)
 	}
 
 	return false;
+}
+
+static void ipa3_write_rsrc_grp_type_reg(int group_index,
+			enum ipa_rsrc_grp_type_src n, bool src, u32 val) {
+
+	if (src) {
+		switch (group_index) {
+		case IPA_GROUP_UL:
+		case IPA_GROUP_DL:
+			ipa_write_reg(ipa3_ctx->mmio,
+				IPA_SRC_RSRC_GRP_01_RSRC_TYPE_n(n), val);
+			break;
+		case IPA_GROUP_DIAG:
+		case IPA_GROUP_DMA:
+			ipa_write_reg(ipa3_ctx->mmio,
+				IPA_SRC_RSRC_GRP_23_RSRC_TYPE_n(n), val);
+			break;
+		case IPA_GROUP_Q6ZIP:
+		case IPA_GROUP_UC_RX_Q:
+			ipa_write_reg(ipa3_ctx->mmio,
+				IPA_SRC_RSRC_GRP_45_RSRC_TYPE_n(n), val);
+			break;
+		default:
+			IPAERR(
+			" Invalid source resource group,index #%d\n",
+			group_index);
+			break;
+		}
+	} else {
+		switch (group_index) {
+		case IPA_GROUP_UL:
+		case IPA_GROUP_DL:
+			ipa_write_reg(ipa3_ctx->mmio,
+				IPA_DST_RSRC_GRP_01_RSRC_TYPE_n(n), val);
+			break;
+		case IPA_GROUP_DIAG:
+		case IPA_GROUP_DMA:
+			ipa_write_reg(ipa3_ctx->mmio,
+				IPA_DST_RSRC_GRP_23_RSRC_TYPE_n(n), val);
+			break;
+		case IPA_GROUP_Q6ZIP_GENERAL:
+		case IPA_GROUP_Q6ZIP_ENGINE:
+			ipa_write_reg(ipa3_ctx->mmio,
+				IPA_DST_RSRC_GRP_45_RSRC_TYPE_n(n), val);
+			break;
+		default:
+			IPAERR(
+			" Invalid destination resource group,index #%d\n",
+			group_index);
+			break;
+		}
+	}
+}
+
+void ipa3_set_resorce_groups_min_max_limits(void)
+{
+	int i;
+	int j;
+	u32 reg;
+
+	IPADBG("ENTER\n");
+	IPADBG("Assign source rsrc groups min-max limits\n");
+
+	for (i = 0; i < IPA_RSRC_GRP_TYPE_SRC_MAX; i++) {
+		for (j = 0; j < IPA_GROUP_MAX; j = j + 2) {
+			reg = 0;
+			IPA_SETFIELD_IN_REG(reg,
+				ipa3_rsrc_src_grp_config[i][j].min,
+				IPA_RSRC_GRP_XY_RSRC_TYPE_n_X_MIN_LIM_SHFT,
+				IPA_RSRC_GRP_XY_RSRC_TYPE_n_X_MIN_LIM_BMSK);
+			IPA_SETFIELD_IN_REG(reg,
+				ipa3_rsrc_src_grp_config[i][j].max,
+				IPA_RSRC_GRP_XY_RSRC_TYPE_n_X_MAX_LIM_SHFT,
+				IPA_RSRC_GRP_XY_RSRC_TYPE_n_X_MAX_LIM_BMSK);
+			IPA_SETFIELD_IN_REG(reg,
+				ipa3_rsrc_src_grp_config[i][j + 1].min,
+				IPA_RSRC_GRP_XY_RSRC_TYPE_n_Y_MIN_LIM_SHFT,
+				IPA_RSRC_GRP_XY_RSRC_TYPE_n_Y_MIN_LIM_BMSK);
+			IPA_SETFIELD_IN_REG(reg,
+				ipa3_rsrc_src_grp_config[i][j + 1].max,
+				IPA_RSRC_GRP_XY_RSRC_TYPE_n_Y_MAX_LIM_SHFT,
+				IPA_RSRC_GRP_XY_RSRC_TYPE_n_Y_MAX_LIM_BMSK);
+			ipa3_write_rsrc_grp_type_reg(j, i, true, reg);
+		}
+	}
+
+	IPADBG("Assign destination rsrc groups min-max limits\n");
+
+	for (i = 0; i < IPA_RSRC_GRP_TYPE_DST_MAX; i++) {
+		for (j = 0; j < IPA_GROUP_MAX; j = j + 2) {
+			reg = 0;
+			IPA_SETFIELD_IN_REG(reg,
+				ipa3_rsrc_dst_grp_config[i][j].min,
+				IPA_RSRC_GRP_XY_RSRC_TYPE_n_X_MIN_LIM_SHFT,
+				IPA_RSRC_GRP_XY_RSRC_TYPE_n_X_MIN_LIM_BMSK);
+			IPA_SETFIELD_IN_REG(reg,
+				ipa3_rsrc_dst_grp_config[i][j].max,
+				IPA_RSRC_GRP_XY_RSRC_TYPE_n_X_MAX_LIM_SHFT,
+				IPA_RSRC_GRP_XY_RSRC_TYPE_n_X_MAX_LIM_BMSK);
+			IPA_SETFIELD_IN_REG(reg,
+				ipa3_rsrc_dst_grp_config[i][j + 1].min,
+				IPA_RSRC_GRP_XY_RSRC_TYPE_n_Y_MIN_LIM_SHFT,
+				IPA_RSRC_GRP_XY_RSRC_TYPE_n_Y_MIN_LIM_BMSK);
+			IPA_SETFIELD_IN_REG(reg,
+				ipa3_rsrc_dst_grp_config[i][j + 1].max,
+				IPA_RSRC_GRP_XY_RSRC_TYPE_n_Y_MAX_LIM_SHFT,
+				IPA_RSRC_GRP_XY_RSRC_TYPE_n_Y_MAX_LIM_BMSK);
+			ipa3_write_rsrc_grp_type_reg(j, i, false, reg);
+		}
+	}
+
+	IPADBG("EXIT\n");
 }

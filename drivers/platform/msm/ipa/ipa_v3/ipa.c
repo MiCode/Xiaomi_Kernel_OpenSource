@@ -3230,6 +3230,9 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 	spin_lock_init(&ipa3_ctx->ipa3_active_clients.spinlock);
 	ipa3_ctx->ipa3_active_clients.cnt = 1;
 
+	/* Assign resource limitation to each group */
+	ipa3_set_resorce_groups_min_max_limits();
+
 	/* Create workqueues for power management */
 	ipa3_ctx->power_mgmt_wq =
 		create_singlethread_workqueue("ipa_power_mgmt");

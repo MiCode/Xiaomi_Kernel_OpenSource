@@ -13,6 +13,7 @@
 #include "ipa_i.h"
 
 #define INTERRUPT_WORKQUEUE_NAME "ipa_interrupt_wq"
+#define DIS_SUSPEND_INTERRUPT_TIMEOUT 5
 
 struct ipa3_interrupt_info {
 	ipa_irq_handler_t handler;
@@ -31,6 +32,14 @@ struct ipa3_interrupt_work_wrap {
 static struct ipa3_interrupt_info ipa_interrupt_to_cb[IPA_IRQ_MAX];
 static struct workqueue_struct *ipa_interrupt_wq;
 static u32 ipa_ee;
+
+static void ipa3_tx_suspend_interrupt_wa(void);
+static void ipa3_enable_tx_suspend_wa(struct work_struct *work);
+static DECLARE_DELAYED_WORK(dwork_en_suspend_int,
+						ipa3_enable_tx_suspend_wa);
+static spinlock_t suspend_wa_lock;
+static void ipa3_process_interrupts(void);
+
 
 static void ipa3_interrupt_defer(struct work_struct *work);
 static DECLARE_WORK(ipa3_interrupt_defer_work, ipa3_interrupt_defer);
@@ -79,6 +88,8 @@ static int ipa3_handle_interrupt(enum ipa_irq_type interrupt)
 
 	switch (interrupt) {
 	case IPA_TX_SUSPEND_IRQ:
+		IPADBG("processing TX_SUSPEND interrupt work-around\n");
+		ipa3_tx_suspend_interrupt_wa();
 		suspend_data = ipa_read_reg(ipa3_ctx->mmio,
 					IPA_IRQ_SUSPEND_INFO_EE_n_ADDR(ipa_ee));
 		if (!ipa3_is_valid_ep(suspend_data))
@@ -126,13 +137,62 @@ fail_alloc_work:
 	return res;
 }
 
+static void ipa3_enable_tx_suspend_wa(struct work_struct *work)
+{
+	u32 en;
+	u32 suspend_bmask;
+
+	IPADBG("Enter\n");
+
+	/* make sure ipa hw is clocked on*/
+	ipa3_inc_client_enable_clks();
+
+	en = ipa_read_reg(ipa3_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee));
+	suspend_bmask = 1 << IPA_TX_SUSPEND_IRQ;
+	/*enable  TX_SUSPEND_IRQ*/
+	en |= suspend_bmask;
+	IPADBG("enable TX_SUSPEND_IRQ, IPA_IRQ_EN_EE reg, write val = %u\n"
+		, en);
+	ipa_write_reg(ipa3_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee), en);
+	ipa3_process_interrupts();
+	ipa3_dec_client_disable_clks();
+
+	IPADBG("Exit\n");
+}
+
+static void ipa3_tx_suspend_interrupt_wa(void)
+{
+	u32 val;
+	u32 suspend_bmask;
+
+	IPADBG("Enter\n");
+
+	/*disable TX_SUSPEND_IRQ*/
+	val = ipa_read_reg(ipa3_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee));
+	suspend_bmask = 1 << IPA_TX_SUSPEND_IRQ;
+	val &= ~suspend_bmask;
+	IPADBG("Disabling TX_SUSPEND_IRQ, write val: %u to IPA_IRQ_EN_EE reg\n",
+		val);
+	ipa_write_reg(ipa3_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee), val);
+
+	IPADBG(" processing suspend interrupt work-around, delayed work\n");
+	queue_delayed_work(ipa_interrupt_wq, &dwork_en_suspend_int,
+			msecs_to_jiffies(DIS_SUSPEND_INTERRUPT_TIMEOUT));
+
+	IPADBG("Exit\n");
+}
+
 static void ipa3_process_interrupts(void)
 {
 	u32 reg;
 	u32 bmsk;
 	u32 i = 0;
 	u32 en;
+	unsigned long flags;
 
+	IPADBG("Enter\n");
+
+	spin_lock_irqsave(&suspend_wa_lock, flags);
 	en = ipa_read_reg(ipa3_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee));
 	reg = ipa_read_reg(ipa3_ctx->mmio, IPA_IRQ_STTS_EE_n_ADDR(ipa_ee));
 	while (en & reg) {
@@ -146,7 +206,14 @@ static void ipa3_process_interrupts(void)
 				IPA_IRQ_CLR_EE_n_ADDR(ipa_ee), reg);
 		reg = ipa_read_reg(ipa3_ctx->mmio,
 				IPA_IRQ_STTS_EE_n_ADDR(ipa_ee));
+		/* since the suspend interrupt HW bug we must
+		  * read again the EN register, otherwise the while is endless
+		  */
+		en = ipa_read_reg(ipa3_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee));
 	}
+
+	spin_unlock_irqrestore(&suspend_wa_lock, flags);
+	IPADBG("Exit\n");
 }
 
 static void ipa3_interrupt_defer(struct work_struct *work)
@@ -162,6 +229,7 @@ static irqreturn_t ipa3_isr(int irq, void *ctxt)
 {
 	unsigned long flags;
 
+	IPADBG("Enter\n");
 	/* defer interrupt handling in case IPA is not clocked on */
 	if (ipa3_active_clients_trylock(&flags) == 0) {
 		IPADBG("defer interrupt processing\n");
@@ -176,6 +244,7 @@ static irqreturn_t ipa3_isr(int irq, void *ctxt)
 	}
 
 	ipa3_process_interrupts();
+	IPADBG("Exit\n");
 
 bail:
 	ipa3_active_clients_trylock_unlock(&flags);
@@ -293,5 +362,6 @@ int ipa3_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev)
 	else
 		IPADBG("IPA IRQ wakeup enabled irq=%d\n", ipa_irq);
 
+	spin_lock_init(&suspend_wa_lock);
 	return 0;
 }

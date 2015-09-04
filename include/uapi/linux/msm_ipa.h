@@ -598,6 +598,8 @@ struct ipa_ipfltri_rule_eq {
  * @hashable: bool switch. is this rule hashable or not?
  *  ipa uses hashable rules to cache their hit results to be used in
  *  consecutive packets
+ * @rule_id: rule_id to be assigned to the filter rule. In case client specifies
+ *  rule_id as 0 the driver will assign a new rule_id
  */
 struct ipa_flt_rule {
 	uint8_t retain_hdr;
@@ -610,6 +612,7 @@ struct ipa_flt_rule {
 	uint8_t eq_attrib_type;
 	uint8_t max_prio;
 	uint8_t hashable;
+	uint16_t rule_id;
 };
 
 /**

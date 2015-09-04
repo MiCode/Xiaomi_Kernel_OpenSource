@@ -1068,6 +1068,18 @@ static int __ipa_validate_flt_rule(const struct ipa_flt_rule *rule,
 		}
 	}
 
+	if (rule->rule_id) {
+		if (rule->rule_id >= IPA_RULE_ID_MIN_VAL &&
+		    rule->rule_id <= IPA_RULE_ID_MAX_VAL) {
+			IPAERR("invalid rule_id provided 0x%x\n"
+				"rule_id 0x%x - 0x%x  are auto generated\n",
+				rule->rule_id,
+				IPA_RULE_ID_MIN_VAL,
+				IPA_RULE_ID_MAX_VAL);
+			goto error;
+		}
+	}
+
 	return 0;
 
 error:
@@ -1090,11 +1102,15 @@ static int __ipa_create_flt_entry(struct ipa3_flt_entry **entry,
 	(*entry)->cookie = IPA_COOKIE;
 	(*entry)->rt_tbl = rt_tbl;
 	(*entry)->tbl = tbl;
-	id = ipa3_alloc_rule_id(&tbl->rule_ids);
-	if (id < 0) {
-		IPAERR("failed to allocate rule id\n");
-		WARN_ON(1);
-		goto rule_id_fail;
+	if (rule->rule_id) {
+		id = rule->rule_id;
+	} else {
+		id = ipa3_alloc_rule_id(&tbl->rule_ids);
+		if (id < 0) {
+			IPAERR("failed to allocate rule id\n");
+			WARN_ON(1);
+			goto rule_id_fail;
+		}
 	}
 	(*entry)->rule_id = id;
 
@@ -1221,7 +1237,10 @@ static int __ipa_del_flt_rule(u32 rule_hdl)
 	IPADBG("del flt rule rule_cnt=%d rule_id=%d\n",
 		entry->tbl->rule_cnt, entry->rule_id);
 	entry->cookie = 0;
-	idr_remove(&entry->tbl->rule_ids, entry->rule_id);
+	/* if rule id was allocated from idr, remove it */
+	if (entry->rule_id >= IPA_RULE_ID_MIN_VAL &&
+	    entry->rule_id <= IPA_RULE_ID_MAX_VAL)
+		idr_remove(&entry->tbl->rule_ids, entry->rule_id);
 	kmem_cache_free(ipa3_ctx->flt_rule_cache, entry);
 
 	/* remove the handle from the database */
@@ -1632,7 +1651,11 @@ int ipa3_reset_flt(enum ipa_ip_type ip)
 			entry->tbl->rule_cnt--;
 			if (entry->rt_tbl)
 				entry->rt_tbl->ref_cnt--;
-			idr_remove(&entry->tbl->rule_ids, entry->rule_id);
+			/* if rule id was allocated from idr, remove it */
+			if (entry->rule_id >= IPA_RULE_ID_MIN_VAL &&
+			    entry->rule_id <= IPA_RULE_ID_MAX_VAL)
+				idr_remove(&entry->tbl->rule_ids,
+						entry->rule_id);
 			entry->cookie = 0;
 			id = entry->id;
 			kmem_cache_free(ipa3_ctx->flt_rule_cache, entry);

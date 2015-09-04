@@ -155,8 +155,8 @@
 #define IPA_RULE_MAX_PRIORITY (0)
 #define IPA_RULE_MIN_PRIORITY (1023)
 
-#define IPA_RULE_ID_MIN_VAL (0)
-#define IPA_RULE_ID_MAX_VAL (1022)
+#define IPA_RULE_ID_MIN_VAL (0x01)
+#define IPA_RULE_ID_MAX_VAL (0x1FF)
 #define IPA_RULE_ID_RULE_MISS (0x3FF)
 
 #define IPA_HDR_PROC_CTX_TABLE_ALIGNMENT_BYTE 8
@@ -208,7 +208,7 @@ struct ipa3_mem_buffer {
  * @tbl: filter table
  * @rt_tbl: routing table
  * @hw_len: entry's size
- * @id: rule handle - globaly unique
+ * @id: rule handle - globally unique
  * @prio: rule 10bit priority which defines the order of the rule
  *  among other rules at the same integrated table
  * @rule_id: rule 10bit ID to be returned in packet status
@@ -2021,5 +2021,6 @@ int ipa3_release_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
 int ipa3_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
 int ipa3_set_flt_tuple_mask(int pipe_idx, struct ipa3_hash_tuple *tuple);
 int ipa3_set_rt_tuple_mask(int tbl_idx, struct ipa3_hash_tuple *tuple);
+void ipa3_set_resorce_groups_min_max_limits(void);
 
 #endif /* _IPA3_I_H_ */
