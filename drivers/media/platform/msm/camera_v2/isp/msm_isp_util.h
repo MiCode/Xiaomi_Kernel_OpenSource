@@ -78,7 +78,8 @@ void msm_isp_fetch_engine_done_notify(struct vfe_device *vfe_dev,
 	struct msm_vfe_fetch_engine_info *fetch_engine_info);
 void msm_isp_print_fourcc_error(const char *origin, uint32_t fourcc_format);
 void msm_isp_flush_tasklet(struct vfe_device *vfe_dev);
-void msm_isp_save_framedrop_values(struct vfe_device *vfe_dev);
+void msm_isp_save_framedrop_values(struct vfe_device *vfe_dev,
+	enum msm_vfe_input_src frame_src);
 void msm_isp_get_timestamp(struct msm_isp_timestamp *time_stamp);
 
 #endif /* __MSM_ISP_UTIL_H__ */

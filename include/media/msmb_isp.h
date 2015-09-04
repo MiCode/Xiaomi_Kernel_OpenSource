@@ -88,6 +88,14 @@ enum msm_vfe_frame_skip_pattern {
 	MAX_SKIP,
 };
 
+/*
+ * Define an unused period. When this period is set it means that the stream is
+ * stopped(i.e the pattern is 0). We don't track the current pattern, just the
+ * period defines what the pattern is, if period is this then pattern is 0 else
+ * pattern is 1
+ */
+#define MSM_VFE_STREAM_STOP_PERIOD 15
+
 enum msm_isp_stats_type {
 	MSM_ISP_STATS_AEC,   /* legacy based AEC */
 	MSM_ISP_STATS_AF,    /* legacy based AF */
