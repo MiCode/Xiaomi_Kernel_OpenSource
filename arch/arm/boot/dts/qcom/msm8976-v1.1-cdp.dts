@@ -12,11 +12,11 @@
  */
 
 /dts-v1/;
-#include "msm8976.dtsi"
-#include "msm8976-mtp.dtsi"
+#include "msm8976-v1.1.dtsi"
+#include "msm8976-cdp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM8976 MTP";
-	compatible = "qcom,msm8976-mtp", "qcom,msm8976", "qcom,mtp";
-	qcom,board-id= <8 0>;
+	model = "Qualcomm Technologies, Inc. MSM8976v1.1 CDP";
+	compatible = "qcom,msm8976-cdp", "qcom,msm8976", "qcom,cdp";
+	qcom,board-id= <1 0>;
 };
