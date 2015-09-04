@@ -888,6 +888,36 @@ static void switch_to_intr_rx_work_func(struct work_struct *work)
 }
 
 /**
+ * ipa_update_repl_threshold()- Update the repl_threshold for the client.
+ *
+ * Return value: None.
+ */
+void ipa_update_repl_threshold(enum ipa_client_type ipa_client)
+{
+	int ep_idx;
+	struct ipa_ep_context *ep;
+
+	/* Check if ep is valid. */
+	ep_idx = ipa_get_ep_mapping(ipa_client);
+	if (ep_idx == -1) {
+		IPADBG("Invalid IPA client\n");
+		return;
+	}
+
+	ep = &ipa_ctx->ep[ep_idx];
+	if (!ep->valid) {
+		IPADBG("EP not valid/Not applicable for client.\n");
+		return;
+	}
+	/*
+	 * Determine how many buffers/descriptors remaining will
+	 * cause to drop below the yellow WM bar.
+	 */
+	ep->rx_replenish_threshold = ipa_get_sys_yellow_wm()
+					/ ep->sys->rx_buff_sz;
+}
+
+/**
  * ipa_setup_sys_pipe() - Setup an IPA end-point in system-BAM mode and perform
  * IPA EP configuration
  * @sys_in:	[in] input needed to setup BAM pipe and configure EP
@@ -1069,6 +1099,12 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 		 */
 		ep->rx_replenish_threshold = ipa_get_sys_yellow_wm()
 						/ ep->sys->rx_buff_sz;
+		/* Only when the WAN pipes are setup, actual threshold will
+		 * be read from the register. So update LAN_CONS ep again with
+		 * right value.
+		 */
+		if (sys_in->client == IPA_CLIENT_APPS_WAN_CONS)
+			ipa_update_repl_threshold(IPA_CLIENT_APPS_LAN_CONS);
 	} else {
 		ep->connect.mode = SPS_MODE_DEST;
 		ep->connect.source = SPS_DEV_HANDLE_MEM;
