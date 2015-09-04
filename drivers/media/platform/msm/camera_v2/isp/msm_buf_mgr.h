@@ -183,7 +183,6 @@ struct msm_isp_buf_mgr {
 	int secure_enable;
 
 	int num_iommu_ctx;
-	struct list_head buffer_q;
 	int num_iommu_secure_ctx;
 	int attach_ref_cnt;
 	enum msm_isp_buf_mgr_state attach_state;

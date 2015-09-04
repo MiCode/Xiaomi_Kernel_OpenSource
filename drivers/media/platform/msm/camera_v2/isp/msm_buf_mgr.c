@@ -148,7 +148,6 @@ static int msm_isp_prepare_v4l2_buf(struct msm_isp_buf_mgr *buf_mgr,
 	int i, rc = -1;
 	int ret;
 	struct msm_isp_buffer_mapped_info *mapped_info;
-	struct buffer_cmd *buf_pending = NULL;
 	int iommu_hdl;
 	uint32_t accu_length = 0;
 
@@ -177,25 +176,12 @@ static int msm_isp_prepare_v4l2_buf(struct msm_isp_buf_mgr *buf_mgr,
 		CDBG("%s: plane: %d addr:%lu\n",
 			__func__, i, (unsigned long)mapped_info->paddr);
 
-		buf_pending = kzalloc(sizeof(struct buffer_cmd), GFP_ATOMIC);
-		if (!buf_pending) {
-			pr_err_ratelimited("No free memory for buf_pending\n");
-			rc = -ENOMEM;
-			goto get_mem_err;
-		}
-
-		buf_pending->mapped_info = mapped_info;
-		list_add_tail(&buf_pending->list, &buf_mgr->buffer_q);
 	}
 	buf_info->num_planes = qbuf_buf->num_planes;
 	return 0;
 get_phy_err:
 	i--;
-get_mem_err:
-	for (; i >= 0; i--) {
-		cam_smmu_put_phy_addr(iommu_hdl,
-				qbuf_buf->planes[i].addr);
-	}
+
 	return rc;
 }
 
@@ -206,10 +192,8 @@ static void msm_isp_unprepare_v4l2_buf(
 {
 	int i;
 	struct msm_isp_buffer_mapped_info *mapped_info;
-	struct buffer_cmd *buf_pending = NULL;
 	struct msm_isp_bufq *bufq = NULL;
 	int iommu_hdl;
-	unsigned long flags;
 
 	if (!buf_mgr || !buf_info) {
 		pr_err("%s: NULL ptr %p %p\n", __func__,
@@ -233,21 +217,6 @@ static void msm_isp_unprepare_v4l2_buf(
 		mapped_info = &buf_info->mapped_info[i];
 
 		cam_smmu_put_phy_addr(iommu_hdl, mapped_info->buf_fd);
-
-		/*protect buffer_q list access*/
-		spin_lock_irqsave(&bufq->bufq_lock, flags);
-		list_for_each_entry(buf_pending, &buf_mgr->buffer_q, list) {
-			if (!buf_pending)
-				break;
-
-			if (buf_pending->mapped_info == mapped_info) {
-				list_del(&buf_pending->list);
-				kfree(buf_pending);
-				buf_pending = NULL;
-				break;
-			}
-		}
-		spin_unlock_irqrestore(&bufq->bufq_lock, flags);
 	}
 	return;
 }
@@ -426,9 +395,6 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 	struct msm_isp_buffer *temp_buf_info;
 	struct msm_isp_bufq *bufq = NULL;
 	struct vb2_buffer *vb2_buf = NULL;
-	struct buffer_cmd *buf_pending = NULL;
-	struct msm_isp_buffer_mapped_info *mped_info_tmp1;
-	struct msm_isp_buffer_mapped_info *mped_info_tmp2;
 
 	if (buf_mgr->open_count == 0) {
 		pr_err_ratelimited("%s: bug mgr open cnt = 0\n",
@@ -494,28 +460,8 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 		list_for_each_entry(temp_buf_info, &bufq->head, list) {
 			if (temp_buf_info->state ==
 					MSM_ISP_BUFFER_STATE_QUEUED) {
-
-					list_for_each_entry(buf_pending,
-						&buf_mgr->buffer_q, list) {
-					if (!buf_pending)
-						break;
-					mped_info_tmp1 =
-						buf_pending->mapped_info;
-					mped_info_tmp2 =
-						&temp_buf_info->mapped_info[0];
-
-					if (mped_info_tmp1 == mped_info_tmp2
-						&& (mped_info_tmp1->len ==
-							mped_info_tmp2->len)
-						&& (mped_info_tmp1->paddr ==
-						mped_info_tmp2->paddr)) {
-						/* found one buf */
-						list_del(
-							&temp_buf_info->list);
-						*buf_info = temp_buf_info;
-						break;
-					}
-				}
+				list_del(&temp_buf_info->list);
+				*buf_info = temp_buf_info;
 				break;
 			}
 		}
@@ -525,27 +471,9 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 			bufq->session_id, bufq->stream_id);
 		if (vb2_buf) {
 			if (vb2_buf->v4l2_buf.index < bufq->num_bufs) {
-				list_for_each_entry(buf_pending,
-						&buf_mgr->buffer_q, list) {
-					if (!buf_pending)
-						break;
-					mped_info_tmp1 =
-						buf_pending->mapped_info;
-					mped_info_tmp2 =
-					&bufq->bufs[vb2_buf->v4l2_buf.index]
-						.mapped_info[0];
-
-					if (mped_info_tmp1 == mped_info_tmp2
-						&& (mped_info_tmp1->len ==
-							mped_info_tmp2->len)
-						&& (mped_info_tmp1->paddr ==
-						mped_info_tmp2->paddr)) {
-						*buf_info = &bufq->bufs[vb2_buf
-							->v4l2_buf.index];
-						(*buf_info)->vb2_buf = vb2_buf;
-						break;
-					}
-				}
+				*buf_info = &bufq->bufs[vb2_buf
+						->v4l2_buf.index];
+				(*buf_info)->vb2_buf = vb2_buf;
 			} else {
 				pr_err("%s: Incorrect buf index %d\n",
 					__func__, vb2_buf->v4l2_buf.index);
@@ -1278,7 +1206,6 @@ static int msm_isp_init_isp_buf_mgr(struct msm_isp_buf_mgr *buf_mgr,
 	CDBG("%s: E\n", __func__);
 	buf_mgr->attach_ref_cnt = 0;
 
-	INIT_LIST_HEAD(&buf_mgr->buffer_q);
 	buf_mgr->num_buf_q = BUF_MGR_NUM_BUF_Q;
 	memset(buf_mgr->bufq, 0, sizeof(buf_mgr->bufq));
 
