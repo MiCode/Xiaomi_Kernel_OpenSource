@@ -9617,21 +9617,31 @@ static int tasha_codec_vote_max_bw(struct snd_soc_codec *codec,
 static int tasha_cpe_err_irq_control(struct snd_soc_codec *codec,
 	enum cpe_err_irq_cntl_type cntl_type, u8 *status)
 {
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	u8 irq_bits;
+
+	if (TASHA_IS_2_0(tasha->wcd9xxx->version))
+		irq_bits = 0xFF;
+	else
+		irq_bits = 0x3F;
+
+	if (status)
+		irq_bits = (*status) & irq_bits;
+
 	switch (cntl_type) {
 	case CPE_ERR_IRQ_MASK:
 		snd_soc_update_bits(codec,
 				    WCD9335_CPE_SS_SS_ERROR_INT_MASK,
-				    0x3F, 0x3F);
+				    irq_bits, irq_bits);
 		break;
 	case CPE_ERR_IRQ_UNMASK:
 		snd_soc_update_bits(codec,
 				    WCD9335_CPE_SS_SS_ERROR_INT_MASK,
-				    0x3F, 0x00);
+				    irq_bits, 0x00);
 		break;
 	case CPE_ERR_IRQ_CLEAR:
-		snd_soc_update_bits(codec,
-				    WCD9335_CPE_SS_SS_ERROR_INT_CLEAR,
-				    0x3F, 0x3F);
+		snd_soc_write(codec, WCD9335_CPE_SS_SS_ERROR_INT_CLEAR,
+			      irq_bits);
 		break;
 	case CPE_ERR_IRQ_STATUS:
 		if (!status)
