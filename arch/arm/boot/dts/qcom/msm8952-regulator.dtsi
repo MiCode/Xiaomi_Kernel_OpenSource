@@ -382,6 +382,10 @@
 		qcom,vdd-apc-step-down-limit = <1>;
 		qcom,cpr-apc-volt-step = <5000>;
 
+		qcom,cpr-thermal-sensor-id = <9>;
+		qcom,cpr-disable-temp-threshold = <10>;
+		qcom,cpr-enable-temp-threshold = <15>;
+
 		qcom,cpr-fuse-row = <27 0>;
 		qcom,cpr-fuse-target-quot = <42 24 6>;
 		qcom,cpr-fuse-ro-sel = <60 57 54>;
