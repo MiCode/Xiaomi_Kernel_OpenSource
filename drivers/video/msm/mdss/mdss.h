@@ -30,6 +30,7 @@
 
 #define MAX_DRV_SUP_MMB_BLKS	44
 #define MAX_DRV_SUP_PIPES 10
+#define MAX_CLIENT_NAME_LEN 20
 
 #define MDSS_PINCTRL_STATE_DEFAULT "mdss_default"
 #define MDSS_PINCTRL_STATE_SLEEP  "mdss_sleep"
@@ -173,6 +174,7 @@ enum mdss_qos_settings {
 };
 
 struct reg_bus_client {
+	char name[MAX_CLIENT_NAME_LEN];
 	short usecase_ndx;
 	u32 id;
 	struct list_head list;
@@ -461,7 +463,7 @@ void mdss_bus_bandwidth_ctrl(int enable);
 int mdss_iommu_ctrl(int enable);
 int mdss_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota);
 int mdss_update_reg_bus_vote(struct reg_bus_client *, u32 usecase_ndx);
-struct reg_bus_client *mdss_reg_bus_vote_client_create(void);
+struct reg_bus_client *mdss_reg_bus_vote_client_create(char *client_name);
 void mdss_reg_bus_vote_client_destroy(struct reg_bus_client *);
 
 struct mdss_util_intf {

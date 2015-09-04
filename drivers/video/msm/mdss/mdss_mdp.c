@@ -365,19 +365,26 @@ static int mdss_mdp_bus_scale_set_quota(u64 ab_quota_rt, u64 ab_quota_nrt,
 	return rc;
 }
 
-struct reg_bus_client *mdss_reg_bus_vote_client_create()
+struct reg_bus_client *mdss_reg_bus_vote_client_create(char *client_name)
 {
 	struct reg_bus_client *client;
 	static u32 id;
+
+	if (client_name == NULL) {
+		pr_err("client name is null\n");
+		return ERR_PTR(-EINVAL);
+	}
 
 	client = kzalloc(sizeof(struct reg_bus_client), GFP_KERNEL);
 	if (!client)
 		return ERR_PTR(-ENOMEM);
 
 	mutex_lock(&mdss_res->reg_bus_lock);
+	strlcpy(client->name, client_name, MAX_CLIENT_NAME_LEN);
 	client->usecase_ndx = VOTE_INDEX_DISABLE;
 	client->id = id;
-	pr_debug("bus vote client created:%p id :%d\n", client, id);
+	pr_debug("bus vote client %s created:%p id :%d\n", client_name,
+		client, id);
 	id++;
 	list_add(&client->list, &mdss_res->reg_bus_clist);
 	mutex_unlock(&mdss_res->reg_bus_lock);
@@ -390,8 +397,8 @@ void mdss_reg_bus_vote_client_destroy(struct reg_bus_client *client)
 	if (!client) {
 		pr_err("reg bus vote: invalid client handle\n");
 	} else {
-		pr_debug("bus vote client destroyed:%p id:%u\n",
-			client, client->id);
+		pr_debug("bus vote client %s destroyed:%p id:%u\n",
+			client->name, client, client->id);
 		mutex_lock(&mdss_res->reg_bus_lock);
 		list_del_init(&client->list);
 		mutex_unlock(&mdss_res->reg_bus_lock);
@@ -424,9 +431,9 @@ int mdss_update_reg_bus_vote(struct reg_bus_client *bus_client, u32 usecase_ndx)
 		mdss_res->reg_bus_usecase_ndx = max_usecase_ndx;
 	}
 
-	pr_debug("%pS: changed=%d current idx=%d request client id:%u idx:%d\n",
+	pr_debug("%pS: changed=%d current idx=%d request client %s id:%u idx:%d\n",
 		__builtin_return_address(0), changed, max_usecase_ndx,
-		bus_client->id, usecase_ndx);
+		bus_client->name, bus_client->id, usecase_ndx);
 	MDSS_XLOG(changed, max_usecase_ndx, bus_client->id, usecase_ndx);
 	if (changed)
 		ret = msm_bus_scale_client_update_request(mdss_res->reg_bus_hdl,
@@ -1083,7 +1090,7 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 		mdata->vdd_cx = NULL;
 	}
 
-	mdata->reg_bus_clt = mdss_reg_bus_vote_client_create();
+	mdata->reg_bus_clt = mdss_reg_bus_vote_client_create("mdp\0");
 	if (IS_ERR_OR_NULL(mdata->reg_bus_clt)) {
 		pr_err("bus client register failed\n");
 		return PTR_ERR(mdata->reg_bus_clt);

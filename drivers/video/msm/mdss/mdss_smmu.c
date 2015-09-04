@@ -505,6 +505,7 @@ int mdss_smmu_probe(struct platform_device *pdev)
 	const struct of_device_id *match;
 	struct dss_module_power *mp;
 	int disable_htw = 1;
+	char name[MAX_CLIENT_NAME_LEN];
 
 	if (!mdata) {
 		pr_err("probe failed as mdata is not initialized\n");
@@ -568,7 +569,8 @@ int mdss_smmu_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	mdss_smmu->reg_bus_clt = mdss_reg_bus_vote_client_create();
+	snprintf(name, MAX_CLIENT_NAME_LEN, "smmu:%u", domain);
+	mdss_smmu->reg_bus_clt = mdss_reg_bus_vote_client_create(name);
 	if (IS_ERR_OR_NULL(mdss_smmu->reg_bus_clt)) {
 		pr_err("mdss bus client register failed\n");
 		msm_dss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg,
