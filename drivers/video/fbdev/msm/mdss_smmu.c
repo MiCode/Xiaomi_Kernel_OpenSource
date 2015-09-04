@@ -17,6 +17,7 @@
 #include <linux/debugfs.h>
 #include <linux/kernel.h>
 #include <linux/iommu.h>
+#include <linux/qcom_iommu.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/clk/msm-clk.h>
@@ -583,7 +584,7 @@ int mdss_smmu_probe(struct platform_device *pdev)
 	}
 
 	mdss_smmu->mmu_mapping = arm_iommu_create_mapping(
-		&platform_bus_type, va_start, va_size);
+		msm_iommu_get_bus(dev), va_start, va_size);
 	if (IS_ERR(mdss_smmu->mmu_mapping)) {
 		pr_err("iommu create mapping failed for domain[%d]\n", domain);
 		rc = PTR_ERR(mdss_smmu->mmu_mapping);
