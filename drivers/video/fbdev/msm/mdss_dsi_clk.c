@@ -872,7 +872,7 @@ void *mdss_dsi_clk_init(struct mdss_dsi_clk_info *info)
 	mngr->pre_clkoff_cb = info->pre_clkoff_cb;
 	mngr->post_clkoff_cb = info->post_clkoff_cb;
 	mngr->priv_data = info->priv_data;
-	mngr->reg_bus_clt = mdss_reg_bus_vote_client_create();
+	mngr->reg_bus_clt = mdss_reg_bus_vote_client_create(info->name);
 	if (IS_ERR_OR_NULL(mngr->reg_bus_clt)) {
 		pr_err("Unable to get handle for reg bus vote\n");
 		kfree(mngr);
