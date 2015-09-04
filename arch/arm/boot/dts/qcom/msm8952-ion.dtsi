@@ -38,12 +38,6 @@
 			qcom,ion-heap-type = "DMA";
 		};
 
-		qcom,ion-heap@28 { /* AUDIO HEAP */
-			reg = <28>;
-			memory-region = <&audio_mem>;
-			qcom,ion-heap-type = "DMA";
-		};
-
 		qcom,ion-heap@22 {
 			reg = <22>;
 			memory-region = <&adsp_mem>;

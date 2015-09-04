@@ -15,9 +15,11 @@
 #include <sound/soc.h>
 #include <sound/jack.h>
 #include <sound/q6afe-v2.h>
-#include <linux/mfd/wcd9xxx/pdata.h>
 #include "wcd-mbhc-v2.h"
 #include "wcdcal-hwdep.h"
+
+#define MICBIAS_EXT_BYP_CAP 0x00
+#define MICBIAS_NO_EXT_BYP_CAP 0x01
 
 #define MSM8X16_WCD_NUM_REGISTERS	0x6FF
 #define MSM8X16_WCD_MAX_REGISTER	(MSM8X16_WCD_NUM_REGISTERS-1)
@@ -47,18 +49,51 @@
 #define MCLK_SUS_RSC	2
 #define MCLK_SUS_NO_ACT	3
 
-#define NUM_DECIMATORS	2
+#define NUM_DECIMATORS	4
 #define MSM89XX_VDD_SPKDRV_NAME "cdc-vdd-spkdrv"
 
 extern const u8 msm8x16_wcd_reg_readable[MSM8X16_WCD_CACHE_SIZE];
 extern const u8 msm8x16_wcd_reg_readonly[MSM8X16_WCD_CACHE_SIZE];
 extern const u8 msm8x16_wcd_reset_reg_defaults[MSM8X16_WCD_CACHE_SIZE];
+extern const u8 cajon_digital_reg[MSM8X16_WCD_CACHE_SIZE];
 
 enum codec_versions {
 	TOMBAK_1_0,
 	TOMBAK_2_0,
 	CONGA,
+	CAJON,
+	CAJON_2_0,
 	UNSUPPORTED,
+};
+
+/* Each micbias can be assigned to one of three cfilters
+ * Vbatt_min >= .15V + ldoh_v
+ * ldoh_v >= .15v + cfiltx_mv
+ * If ldoh_v = 1.95 160 mv < cfiltx_mv < 1800 mv
+ * If ldoh_v = 2.35 200 mv < cfiltx_mv < 2200 mv
+ * If ldoh_v = 2.75 240 mv < cfiltx_mv < 2600 mv
+ * If ldoh_v = 2.85 250 mv < cfiltx_mv < 2700 mv
+ */
+
+struct wcd9xxx_micbias_setting {
+	u8 ldoh_v;
+	u32 cfilt1_mv; /* in mv */
+	u32 cfilt2_mv; /* in mv */
+	u32 cfilt3_mv; /* in mv */
+	/* Different WCD9xxx series codecs may not
+	 * have 4 mic biases. If a codec has fewer
+	 * mic biases, some of these properties will
+	 * not be used.
+	 */
+	u8 bias1_cfilt_sel;
+	u8 bias2_cfilt_sel;
+	u8 bias3_cfilt_sel;
+	u8 bias4_cfilt_sel;
+	u8 bias1_cap_mode;
+	u8 bias2_cap_mode;
+	u8 bias3_cap_mode;
+	u8 bias4_cap_mode;
+	bool bias2_is_headset_only;
 };
 
 enum msm8x16_wcd_pid_current {
@@ -141,6 +176,11 @@ struct msm8x16_wcd_regulator {
 	struct regulator *regulator;
 };
 
+struct on_demand_supply {
+	struct regulator *supply;
+	atomic_t ref;
+};
+
 struct msm8916_asoc_mach_data {
 	int codec_type;
 	int ext_pa;
@@ -152,12 +192,18 @@ struct msm8916_asoc_mach_data {
 	u8 micbias2_cap_mode;
 	atomic_t mclk_rsc_ref;
 	atomic_t mclk_enabled;
+	atomic_t wsa_mclk_rsc_ref;
 	struct mutex cdc_mclk_mutex;
+	struct mutex wsa_mclk_mutex;
 	struct delayed_work disable_mclk_work;
 	struct afe_digital_clk_cfg digital_cdc_clk;
+	struct afe_clk_set digital_cdc_core_clk;
+	struct afe_clk_set digital_cdc_mclk;
 	void __iomem *vaddr_gpio_mux_spkr_ctl;
 	void __iomem *vaddr_gpio_mux_mic_ctl;
+	void __iomem *vaddr_gpio_mux_quin_ctl;
 	void __iomem *vaddr_gpio_mux_pcm_ctl;
+	struct on_demand_supply wsa_switch_supply;
 };
 
 struct msm8x16_wcd_pdata {
@@ -169,6 +215,8 @@ struct msm8x16_wcd_pdata {
 	struct wcd9xxx_micbias_setting micbias;
 	struct msm8x16_wcd_regulator regulator[MAX_REGULATOR];
 	u32 mclk_rate;
+	u32 is_lpass;
+	u32 dig_cdc_addr;
 };
 
 enum msm8x16_wcd_micbias_num {
@@ -194,11 +242,6 @@ struct msm8x16_wcd {
 	int num_irqs;
 	u32 mclk_rate;
 	char __iomem *dig_base;
-};
-
-struct on_demand_supply {
-	struct regulator *supply;
-	atomic_t ref;
 };
 
 struct msm8x16_wcd_priv {

@@ -1,5 +1,17 @@
 Qualcomm audio devices for ALSA sound SoC
 
+* msmapr-audio
+
+Required properties:
+
+ - compatible : "qcom,msmapr-audio"
+
+ - qcom,apr-dest-type : Name of hardware module to which apr packets
+                        are routed."MDSP" indicates that apr module is in modem
+                        "ADSP" indicates that apr module is in adsp.
+                        "Dynamic" indicates using service registry to discover
+                        services.
+
 * msm-pcm
 
 Required properties:
@@ -26,7 +38,7 @@ Required properties:
                             low latency.
                             regular : regular low latency stream
                             ultra : ultra low latency stream
-                            ull-pp : ultra low latency stream with post-processing capability
+
 * msm-pcm-routing
 
 Required properties:
@@ -122,6 +134,14 @@ Required properties:
 Optional properties:
 
  - compatible : "msm-dai-q6-spdif"
+
+* msm-dai-q6-mi2s-hdmi
+
+Optional properties:
+
+ - compatible : "qcom,msm-dai-q6-mi2s-hdmi"
+ - qcom,msm-dai-q6-mi2s-dev-id : Port ID of MI2S interface to
+   which HDMI is connected.
 
 * msm-dai-q6-hdmi
 
@@ -221,24 +241,12 @@ Required properties:
 
  - qcom,msm-cpudai-auxpcm-pcm-clk-rate:   Clock rate for pcm - 2048000. The
                                           first value is for 8khz mode, the
-                                          second is for 16KHz mode. When clock
-					  rate is set to zero, then external
-					  clock is assumed.
+                                          second is for auxpcm
 
  - qcom,msm-auxpcm-interface:             name of AUXPCM interface "primary"
                                           indicates primary AUXPCM interface
                                           "secondary" indicates secondary
                                           AUXPCM interface
-Optional properties:
-
-- pinctrl-names:			  Pinctrl state names for each pin
-					  group configuration.
-- pinctrl-x: 				  Defines pinctrl state for each pin
-					  group
-- qcom,msm-cpudai-afe-clk-ver:            Indicates version of AFE clock
-					  interface to be used for enabling
-					  PCM clock. If not defined, selects
-					  default AFE clock interface.
 
 * msm-pcm-hostless
 
@@ -279,7 +287,10 @@ Required properties:
 
  - interrupt-parent :                      Parent interrupt controller
 
- - qcom,gpio-connect                       Gpio that connects to parent
+ - interrupts :                            Interrupt number on the parent
+                                           interrupt controller
+
+ - interrupt-names :                       Name of interrupt on the parent
                                            interrupt controller
 
 * audio-ext-clk
@@ -393,6 +404,11 @@ Example:
 
 	qcom,msm-dai-q6-spdif {
 		compatible = "qcom,msm-dai-q6-spdif";
+	};
+
+	qcom,msm-dai-q6-mi2s-hdmi {
+		compatible = "qcom,msm-dai-q6-mi2s-hdmi";
+		qcom,msm-dai-q6-mi2s-dev-id = <4118>;
 	};
 
 	qcom,msm-dai-q6-hdmi {
@@ -529,9 +545,6 @@ Example:
 		qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>, <2048000>;
 		qcom,msm-auxpcm-interface = "primary";
 		compatible = "qcom,msm-auxpcm-dev";
-		pinctrl-names = "default", "idle";
-		pinctrl-0 = <&pri_aux_pcm_active &pri_aux_pcm_din_active>;
-		pinctrl-1 = <&pri_aux_pcm_sleep &pri_aux_pcm_din_sleep>;
 	};
 
         qcom,msm-pcm-hostless {
@@ -640,6 +653,11 @@ normally open.
 
 Optional Properties:
 - qcom,us-euro-gpios : GPIO on which gnd/mic swap signal is coming.
+- qcom,msm-micbias1-ext-cap : Boolean. Enable micbias1 external
+capacitor mode.
+- qcom,msm-micbias2-ext-cap : Boolean. Enable micbias2 external
+capacitor mode.
+- qcom,msm-spk-ext-pa : GPIO which enables external speaker pa.
 
 Example:
 
@@ -654,6 +672,7 @@ Example:
 		qcom,msm-mbhc-gnd-swh = <0>;
 		qcom,msm-hs-micbias-type = "internal";
 		qcom,cdc-us-euro-gpios = <&msmgpio 120 0>;
+		qcom,msm-spk-ext-pa = <&msm_gpio 0 0>;
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
 			"INT_LDO_H", "MCLK",
@@ -708,6 +727,345 @@ Example:
 				"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770";
 		asoc-codec = <&stub>, <&pm8916_tombak_dig>;
 		asoc-codec-names = "msm-stub-codec.1", "tombak_codec";
+	};
+
+* MSM8952 ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,msm8952-audio-codec"
+- qcom,model : The user-visible name of this sound card.
+- reg : Offset and length of the register region(s) for MI2S/PCM MUX
+- reg-names : Register region name(s) referenced in reg above
+	 Required register resource entries are:
+	 "csr_gp_io_mux_mic_ctl": Physical address of MUX that controls
+				controls LPA IF tertiary, quad, PCM0, Digital Codec
+				and Secondary TLMM mux setting for mic path operation.
+	 "csr_gp_io_mux_spkr_ctl": Physical address of MUX that controls
+				IF primary, secondary, Digital Codec and Primary TLMM
+				setting for speaker path operation.
+	 "csr_gp_io_lpaif_pri_pcm_pri_mode_muxsel": Physical address of MUX
+				that controls the mux between LPA IF Quad and PCM0
+				path to secondary TLMM
+- qcom,msm-hs-micbias-type : This property is used to recognize the headset
+  micbias type, internal or external.
+- qcom,msm-ext-pa : This property is used to inform machine driver about
+  the connection of external PA over available MI2S interfaces,
+  following values can be given to this property.
+  primary -> Primary MI2S interface
+  secondary -> Secondary MI2S interface
+  tertiary -> Tertiary MI2S interface
+  quaternary -> Quaternary MI2S interface
+- qcom,msm-mbhc-hphl-swh: This property is used to distinguish headset HPHL
+switch type on target typically the switch type will be normally open or
+normally close, value for this property 0 for normally close and 1 for
+normally open.
+-  qcom,msm-mbhc-gnd-swh: This property is used to distinguish headset GND
+switch type on target typically the switch type will be normally open or
+normally close, value for this property 0 for normally close and 1 for
+normally open.
+- qcom,audio-routing : A list of the connections between audio components.
+- qcom,msm-gpios : Lists down all the gpio sets that are supported.
+- qcom,pinctrl-names : Lists all the possible combinations of the gpio sets
+mentioned in qcom,msm-gpios.
+- pinctrl-names : The combinations of gpio sets from above that are supported in
+the flavor.
+- pinctrl-# : Pinctrl states as mentioned in pinctrl-names.
+
+Optional properties:
+- qcom,prim-auxpcm-gpio-clk  : GPIO on which Primary AUXPCM clk signal is coming.
+- qcom,prim-auxpcm-gpio-sync : GPIO on which Primary AUXPCM SYNC signal is coming.
+- qcom,prim-auxpcm-gpio-din  : GPIO on which Primary AUXPCM DIN signal is coming.
+- qcom,prim-auxpcm-gpio-dout : GPIO on which Primary AUXPCM DOUT signal is coming.
+- qcom,prim-auxpcm-gpio-set : set of GPIO lines used for Primary AUXPCM port
+- qcom,cdc-us-euro-gpios : GPIO on which gnd/mic swap signal is coming.
+- qcom,msm-micbias1-ext-cap : Boolean. Enable micbias1 external
+capacitor mode.
+- qcom,msm-micbias2-ext-cap : Boolean. Enable micbias2 external
+capacitor mode.
+- qcom,msm-spk-ext-pa : GPIO which enables external speaker pa.
+
+To Configure External Audio Switch
+- qcom,msm-ext-audio-switch : GPIO which controls external switch that switches
+  audio path between headset and speakers.
+- ext-switch-vdd-supply : Power supply that control external audio switch
+- qcom,ext-switch-vdd-voltage : Minimum and maximum voltage in uV to set for
+  power supply.
+- qcom,ext-switch-vdd-op-mode : Maxmum # of uA current the switch will draw
+  from the power supply.
+Example:
+	qcom,msm-ext-audio-switch = <&msm_gpio 2 0>; - gpio # and active_state
+	ext-switch-vdd-supply = <&pm8950_l13>; - Power Rail
+	qcom,ext-switch-vdd-voltage = <3075000 3075000>; - Min, Max uV voltage
+	qcom,ext-switch-vdd-op-mode = <5000>; - Operational current uA
+	Additional needs to add two additional qcom,audio-routings
+			"HEADPHONE", "VDD_EXT_AUDIO_SWITCH"
+			"SPK_OUT", "VDD_EXT_AUDIO_SWITCH"
+
+- qcom,msm-mclk-freq : This property is used to inform machine driver about
+mclk frequency needs to be configured for internal and external PA.
+- asoc-platform: This is phandle list containing the references to platform device
+		 nodes that are used as part of the sound card dai-links.
+- asoc-platform-names: This property contains list of platform names. The order of
+		       the platform names should match to that of the phandle order
+		       given in "asoc-platform".
+- asoc-cpu: This is phandle list containing the references to cpu dai device nodes
+	    that are used as part of the sound card dai-links.
+- asoc-cpu-names: This property contains list of cpu dai names. The order of the
+		  cpu dai names should match to that of the phandle order given.
+- asoc-codec: This is phandle list containing the references to codec dai device
+	nodes that are used as part of the sound card dai-links.
+- asoc-codec-names: This property contains list of codec dai names. The order of the
+	codec dai names should match to that of the phandle order given
+	in "asoc-codec".
+- asoc-wsa-codec-names: This property contains list of wsa codec names. The names
+		  should comply with the wsa nodes configurations.
+- asoc-wsa-codec-prefixes: This property contains list of wsa codec prefixes.
+- msm-vdd-wsa-switch-supply: WSA codec supply's regulator device tree node.
+- qcom,msm-vdd-wsa-switch-voltage: WSA codec supply's voltage level in mV.
+- qcom,msm-vdd-wsa-switch-current: WSA codec max current level in mA.
+
+Example:
+	 sound {
+		compatible = "qcom,msm8952-audio-codec";
+		qcom,model = "msm8952-snd-card";
+		reg = <0xc051000 0x4>,
+		      <0xc051004 0x4>,
+		      <0xc055000 0x4>;
+		reg-names = "csr_gp_io_mux_mic_ctl",
+			    "csr_gp_io_mux_spkr_ctl",
+			    "csr_gp_io_lpaif_pri_pcm_pri_mode_muxsel";
+		qcom,msm-ext-pa = "primary";
+		qcom,msm-mclk-freq = <9600000>;
+		qcom,msm-mbhc-hphl-swh = <0>;
+		qcom,msm-mbhc-gnd-swh = <0>;
+		qcom,msm-hs-micbias-type = "internal";
+		qcom,msm-micbias1-ext-cap;
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"SPK_RX_BIAS", "MCLK",
+			"INT_LDO_H", "MCLK",
+			"MIC BIAS External", "Handset Mic",
+			"MIC BIAS Internal2", "Headset Mic",
+			"MIC BIAS External", "Secondary Mic",
+			"AMIC1", "MIC BIAS External",
+			"AMIC2", "MIC BIAS Internal2",
+			"AMIC3", "MIC BIAS External";
+		qcom,msm-gpios =
+			"pri_i2s",
+			"us_eu_gpio";
+		qcom,pinctrl-names =
+			"all_off",
+			"pri_i2s_act",
+			"us_eu_gpio_act",
+			"pri_i2s_us_eu_gpio_act";
+		pinctrl-names =
+			"all_off",
+			"pri_i2s_act",
+			"us_eu_gpio_act",
+			"pri_i2s_us_eu_gpio_act";
+		pinctrl-0 = <&cdc_pdm_lines_sus &cdc_pdm_lines_2_sus &cross_conn_det_sus>;
+		pinctrl-1 = <&cdc_pdm_lines_act &cdc_pdm_lines_2_act &cross_conn_det_sus>;
+		pinctrl-2 = <&cdc_pdm_lines_sus &cdc_pdm_lines_2_sus &cross_conn_det_act>;
+		pinctrl-3 = <&cdc_pdm_lines_act &cdc_pdm_lines_2_act &cross_conn_det_act>;
+		qcom,cdc-us-euro-gpios = <&msm_gpio 63 0>;
+		qcom,prim-auxpcm-gpio-clk  = <&msm_gpio 63 0>;
+		qcom,prim-auxpcm-gpio-sync = <&msm_gpio 64 0>;
+		qcom,prim-auxpcm-gpio-din  = <&msm_gpio 65 0>;
+		qcom,prim-auxpcm-gpio-dout = <&msm_gpio 66 0>;
+		qcom,prim-auxpcm-gpio-set = "prim-gpio-prim";
+		qcom,tapan-codec-9302;
+		asoc-platform = <&pcm0>, <&pcm1>, <&voip>, <&voice>,
+				<&loopback>, <&compress>, <&hostless>,
+				<&afe>, <&lsm>, <&routing>, <&lpa>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
+				"msm-voip-dsp", "msm-pcm-voice", "msm-pcm-loopback",
+				"msm-compress-dsp", "msm-pcm-hostless", "msm-pcm-afe",
+				"msm-lsm-client", "msm-pcm-routing", "msm-pcm-lpa";
+		asoc-cpu = <&dai_pri_auxpcm>, <&dai_hdmi>,
+				<&dai_mi2s0>, <&dai_mi2s1>, <&dai_mi2s2>, <&dai_mi2s3>,
+				<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
+				<&sb_3_rx>, <&sb_3_tx>, <&sb_4_rx>, <&sb_4_tx>,
+				<&bt_sco_rx>, <&bt_sco_tx>, <&int_fm_rx>, <&int_fm_tx>,
+				<&afe_pcm_rx>, <&afe_pcm_tx>, <&afe_proxy_rx>, <&afe_proxy_tx>,
+				<&incall_record_rx>, <&incall_record_tx>, <&incall_music_rx>,
+				<&incall_music_2_rx>;
+		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-hdmi.8",
+				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
+				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
+				"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
+				"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
+				"msm-dai-q6-dev.16390", "msm-dai-q6-dev.16391",
+				"msm-dai-q6-dev.16392", "msm-dai-q6-dev.16393",
+				"msm-dai-q6-dev.12288", "msm-dai-q6-dev.12289",
+				"msm-dai-q6-dev.12292", "msm-dai-q6-dev.12293",
+				"msm-dai-q6-dev.224", "msm-dai-q6-dev.225",
+				"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
+				"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
+				"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770";
+		asoc-codec = <&stub>, <&pm8916_tombak_dig>;
+		asoc-codec-names = "msm-stub-codec.1", "tombak_codec";
+		asoc-wsa-codec-names = "wsa881x-i2c-codec.8-000f";
+		asoc-wsa-codec-prefixes = "SpkrMono";
+	};
+
+* MSM8952 Slimbus ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,msm8952-audio-slimbus-codec"
+- qcom,model : The user-visible name of this sound card.
+- qcom,pinctrl-names : Lists all the possible combinations of the gpio sets
+mentioned in qcom,msm-gpios. Say we have 2^N combinations for N GPIOs,
+this would list all the 2^N combinations.
+- pinctrl-names : The combinations of gpio sets from above that are supported in
+the flavor. This can be sometimes same as qcom, pinctrl-names i.e with 2^N
+combinations or will have less incase if some combination is not supported.
+- pinctrl-# : Pinctrl states as mentioned in pinctrl-names.
+- reg : Offset and length of the register region(s) for MI2S/PCM MUX
+- reg-names : Register region name(s) referenced in reg above
+	 Required register resource entries are:
+	 "csr_gp_io_mux_mic_ctl": Physical address of MUX that controls
+				controls LPA IF tertiary, quad, PCM0, Digital Codec
+				and Secondary TLMM mux setting for mic path operation.
+	 "csr_gp_io_mux_spkr_ctl": Physical address of MUX that controls
+				IF primary, secondary, Digital Codec and Primary TLMM
+				setting for speaker path operation.
+- qcom,cdc-mclk-gpios : GPIO on which mclk signal is coming.
+- clock-names : clock name defined for external clock.
+- qcom,audio-routing : A list of the connections between audio components.
+  Each entry is a pair of strings, the first being the connection's sink,
+  the second being the connection's source.
+
+Optional Properties:
+- qcom,cdc-us-euro-gpios : GPIO on which gnd/mic swap signal is coming.
+- qcom,cdc-vdd-spkr-gpios : GPIO which controls PA for VDD speaker
+- qcom,headset-jack-type-NC: Set if the headset jack type is NC (Normally Closed)
+- qcom,tomtom-mclk-clk-freq : Tapan mclk Freq in Hz. currently only 9600000Hz
+				is supported.
+- qcom,msm-ext-pa : This property is used to inform machine driver about
+  the connection of external PA over available MI2S interfaces,
+  following values can be given to this property.
+  primary -> Primary MI2S interface
+  secondary -> Secondary MI2S interface
+  tertiary -> Tertiary MI2S interface
+  quaternary -> Quaternary MI2S interface
+- asoc-platform: This is phandle list containing the references to platform device
+		 nodes that are used as part of the sound card dai-links.
+- asoc-platform-names: This property contains list of platform names. The order of
+		       the platform names should match to that of the phandle order
+		       given in "asoc-platform".
+- asoc-cpu: This is phandle list containing the references to cpu dai device nodes
+	    that are used as part of the sound card dai-links.
+- asoc-cpu-names: This property contains list of cpu dai names. The order of the
+		  cpu dai names should match to that of the phandle order given
+		  in "asoc-cpu". The cpu names are in the form of "%s.%d" form,
+		  where the id (%d) field represents the back-end AFE port id that
+		  this CPU dai is associated with.
+- asoc-codec: This is phandle list containing the references to codec dai device
+	      nodes that are used as part of the sound card dai-links.
+- asoc-codec-names: This property contains list of codec dai names. The order of the
+		    codec dai names should match to that of the phandle order given
+		    in "asoc-codec".
+- asoc-wsa-codec-names: This property contains list of wsa codec names. The names
+			should comply with the wsa nodes configurations.
+- asoc-wsa-codec-prefixes: This property contains list of wsa codec prefixes.
+
+Example:
+	 sound {
+		compatible = "qcom,msm8952-audio-slim-codec";
+		qcom,model = "msm8952-tomtom-snd-card";
+		reg = <0xc051000 0x4>,
+		      <0xc051004 0x4>,
+		      <0xc055000 0x4>;
+		reg-names = "csr_gp_io_mux_mic_ctl",
+			    "csr_gp_io_mux_spkr_ctl",
+			    "csr_gp_io_lpaif_pri_pcm_pri_mode_muxsel";
+		qcom,msm-ext-pa = "primary";
+		qcom,msm-mclk-freq = <9600000>;
+		qcom,msm-mbhc-hphl-swh = <0>;
+		qcom,msm-mbhc-gnd-swh = <0>;
+		qcom,msm-hs-micbias-type = "internal";
+		qcom,msm-micbias1-ext-cap;
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"SPK_RX_BIAS", "MCLK",
+			"INT_LDO_H", "MCLK",
+			"MIC BIAS External", "Handset Mic",
+			"MIC BIAS Internal2", "Headset Mic",
+			"MIC BIAS External", "Secondary Mic",
+			"AMIC1", "MIC BIAS External",
+			"AMIC2", "MIC BIAS Internal2",
+			"AMIC3", "MIC BIAS External";
+		qcom,msm-gpios =
+			"slim",
+			"us_eu_gpio";
+		qcom,pinctrl-names =
+			"all_off",
+			"slim_act",
+			"us_eu_gpio_act",
+			"slim_us_eu_gpio_act";
+		pinctrl-names =
+			"all_off",
+			"slim_act",
+			"us_eu_gpio_act",
+			"slim_us_eu_gpio_act";
+		pinctrl-0 = <&cdc_slim_lines_sus &cross_conn_det_sus>;
+		pinctrl-1 = <&cdc_slim_lines_act &cross_conn_det_sus>;
+		pinctrl-2 = <&cdc_slim_lines_sus &cross_conn_det_act>;
+		pinctrl-3 = <&cdc_slim_lines_act &cross_conn_det_act>;
+		qcom,cdc-us-euro-gpios = <&msm_gpio 63 0>;
+		qcom,headset-jack-type-NC;
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"LDO_H", "MCLK",
+			"SPK_OUT", "MCLK",
+			"AMIC1", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Handset Mic",
+			"AMIC2", "MIC BIAS2 External",
+			"MIC BIAS2 External", "Headset Mic",
+			"AMIC4", "MIC BIAS2 External",
+			"MIC BIAS2 External", "ANCRight Headset Mic",
+			"AMIC5", "MIC BIAS2 External",
+			"MIC BIAS2 External", "ANCLeft Headset Mic",
+			"DMIC1", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Digital Mic1",
+			"DMIC2", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Digital Mic2",
+			"DMIC3", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Digital Mic3",
+			"DMIC4", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Digital Mic4";
+		asoc-platform = <&pcm0>, <&pcm1>, <&voip>, <&voice>,
+				<&loopback>, <&compress>, <&hostless>,
+				<&afe>, <&lsm>, <&routing>, <&lpa>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
+				"msm-voip-dsp", "msm-pcm-voice", "msm-pcm-loopback",
+				"msm-compress-dsp", "msm-pcm-hostless", "msm-pcm-afe",
+				"msm-lsm-client", "msm-pcm-routing", "msm-pcm-lpa";
+		asoc-cpu = <&dai_hdmi>, <&dai_mi2s0>, <&dai_mi2s1>,
+				<&dai_mi2s2>, <&dai_mi2s3>, <&sb_0_rx>, <&sb_0_tx>,
+				<&sb_1_rx>, <&sb_1_tx>, <&sb_3_rx>, <&sb_3_tx>,
+				<&sb_4_rx>, <&sb_4_tx>, <&sb_5_tx>, <&bt_sco_rx>,
+				<&bt_sco_tx>, <&int_fm_rx>, <&int_fm_tx>, <&afe_pcm_rx>,
+				<&afe_pcm_tx>, <&afe_proxy_rx>, <&afe_proxy_tx>,
+				<&incall_record_rx>, <&incall_record_tx>, <&incall_music_rx>,
+				<&incall_music_2_rx>;
+		asoc-cpu-names = "msm-dai-q6-hdmi.8", "msm-dai-q6-mi2s.0",
+				"msm-dai-q6-mi2s.1", "msm-dai-q6-mi2s.2",
+				"msm-dai-q6-mi2s.3", "msm-dai-q6-dev.16384",
+				"msm-dai-q6-dev.16385", "msm-dai-q6-dev.16386",
+				"msm-dai-q6-dev.16387", "msm-dai-q6-dev.16390",
+				"msm-dai-q6-dev.16391", "msm-dai-q6-dev.16392",
+				"msm-dai-q6-dev.16393", "msm-dai-q6-dev.16395",
+				"msm-dai-q6-dev.12288", "msm-dai-q6-dev.12289",
+				"msm-dai-q6-dev.12292", "msm-dai-q6-dev.12293",
+				"msm-dai-q6-dev.224", "msm-dai-q6-dev.225",
+				"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
+				"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
+				"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770";
+		asoc-codec = <&stub_codec>;
+		asoc-codec-names = "msm-stub-codec.1";
+		asoc-wsa-codec-names = "wsa881x.20170212";
+		asoc-wsa-codec-prefixes = "SpkrLeft";
 	};
 
 * MSM8974 ASoC Machine driver
@@ -891,12 +1249,6 @@ Required properties:
 				This element in indicates which input TX lines
 				are used in the MI2S interface.
 
-Optional properties:
-
-- pinctrl-names:		Pinctrl state names for each pin group
-				configuration.
-- pinctrl-x: 			Defines pinctrl state for each pin group
-
 Example:
 
 qcom,msm-dai-mi2s {
@@ -906,10 +1258,65 @@ qcom,msm-dai-mi2s {
 			qcom,msm-dai-q6-mi2s-dev-id = <0>;
 			qcom,msm-mi2s-rx-lines = <2>;
 			qcom,msm-mi2s-tx-lines = <1>;
-			pinctrl-names = "default", "idle";
-			pinctrl-0 = <&tert_mi2s_active &tert_mi2s_sd0_active>;
-			pinctrl-1 = <&tert_mi2s_sleep &tert_mi2s_sd0_sleep>;
 		};
+};
+
+* MSM9625 ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,mdm9625-audio-taiko"
+- qcom,model : The user-visible name of this sound card.
+- qcom,audio-routing : A list of the connections between audio components.
+  Each entry is a pair of strings, the first being the connection's sink,
+  the second being the connection's source.
+- qcom,taiko-mclk-clk-freq : Master clock value given to codec. Some WCD9XXX
+  codec can run at different mclk values. Mclk value can be 9.6MHz or 12.288MHz.
+  This element represents the value for MCLK provided to codec.
+- prim-i2s-gpio-ws : Specifies gpio assigned for primary WS I2S pin.
+- prim-i2s-gpio-din : Specifies gpio assigned for primary DIN I2S pin.
+- prim-i2s-gpio-dout : Specifies gpio assigned for primary DOUT I2S pin.
+- prim-i2s-gpio-sclk : Specifies gpio assigned for primary SCLK I2S pin.
+- prim-i2s-gpio-mclk : Specifies gpio assigned for MCLK I2S pin.
+
+Example:
+
+sound {
+		compatible = "qcom,mdm9625-audio-taiko";
+		qcom,model = "mdm9625-taiko-i2s-snd-card";
+
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"LDO_H", "MCLK",
+			"Ext Spk Bottom Pos", "LINEOUT1",
+			"Ext Spk Bottom Neg", "LINEOUT3",
+			"Ext Spk Top Pos", "LINEOUT2",
+			"Ext Spk Top Neg", "LINEOUT4",
+			"AMIC1", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Handset Mic",
+			"AMIC2", "MIC BIAS2 External",
+			"MIC BIAS2 External", "Headset Mic",
+			"AMIC3", "MIC BIAS3 Internal1",
+			"MIC BIAS3 Internal1", "ANCRight Headset Mic",
+			"AMIC4", "MIC BIAS1 Internal2",
+			"MIC BIAS1 Internal2", "ANCLeft Headset Mic",
+			"DMIC1", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Digital Mic1",
+			"DMIC2", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Digital Mic2",
+			"DMIC3", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Digital Mic3",
+			"DMIC4", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Digital Mic4",
+			"DMIC5", "MIC BIAS4 External",
+			"MIC BIAS4 External", "Digital Mic5",
+			"DMIC6", "MIC BIAS4 External",
+			"MIC BIAS4 External", "Digital Mic6";
+			qcom,taiko-mclk-clk-freq = <12288000>;
+			prim-i2s-gpio-ws   =  <&msmgpio 12 0>;
+			prim-i2s-gpio-din  =  <&msmgpio 13 0>;
+			prim-i2s-gpio-dout =  <&msmgpio 14 0>;
+			prim-i2s-gpio-sclk =  <&msmgpio 15 0>;
+			prim-i2s-gpio-mclk =  <&msmgpio 71 0>;
 };
 
 * msm-adsp-loader
@@ -953,15 +1360,316 @@ Optional properties:
 	no SMMU. Audio lib introduce wrapper for ION APIs. The wrapper needs
         presence of SMMU in ADSP to handle ION APIs differently.
         Presence of this property means ADSP has SMMU in it.
- - iommus:
-	A phandle parsed by smmu driver. Number of entries will vary across
-	targets.
+ - qcom,smmu-sid: Slave ID to be appended to the physical address passed to ADSP.
 
 Example:
 
 qcom,msm-audio-ion {
 	compatible = "qcom,msm-audio-ion;
 	qcom,smmu-enabled;
+	qcom,smmu-sid = <0x1>;
+};
+
+* MSM8226 ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,msm8226-audio-tapan"
+- qcom,model : The user-visible name of this sound card.
+- qcom,tapan-mclk-clk-freq : Tapan mclk Freq in Hz. currently only 9600000Hz
+				is supported.
+- qcom,prim-auxpcm-gpio-clk  : GPIO on which Primary AUXPCM clk signal is coming.
+- qcom,prim-auxpcm-gpio-sync : GPIO on which Primary AUXPCM SYNC signal is coming.
+- qcom,prim-auxpcm-gpio-din  : GPIO on which Primary AUXPCM DIN signal is coming.
+- qcom,prim-auxpcm-gpio-dout : GPIO on which Primary AUXPCM DOUT signal is coming.
+- qcom,prim-auxpcm-gpio-set : set of GPIO lines used for Primary AUXPCM port
+		 Possible Values:
+		 prim-gpio-prim : Primary AUXPCM shares GPIOs with Primary MI2S
+		 prim-gpio-tert : Primary AUXPCM shares GPIOs with Tertiary MI2S
+
+Optional Properties:
+- qcom,cdc-us-euro-gpios : GPIO on which gnd/mic swap signal is coming.
+- qcom,cdc-lineout-spkr-gpios : GPIO which controls external PAs to enable Lineout1/2 speaker
+- qcom,cdc-vdd-spkr-gpios : GPIO which controls PA for VDD speaker
+- qcom,headset-jack-type-NC: Set if the headset jack type is NC (Normally Closed)
+
+Example:
+
+sound {
+	compatible = "qcom,msm8226-audio-tapan";
+	qcom,model = "msm8226-tapan-snd-card";
+	qcom,tapan-mclk-clk-freq = <9600000>;
+	qcom,prim-auxpcm-gpio-clk  = <&msmgpio 63 0>;
+	qcom,prim-auxpcm-gpio-sync = <&msmgpio 64 0>;
+	qcom,prim-auxpcm-gpio-din  = <&msmgpio 65 0>;
+	qcom,prim-auxpcm-gpio-dout = <&msmgpio 66 0>;
+	qcom,prim-auxpcm-gpio-set = "prim-gpio-prim";
+	qcom,cdc-us-euro-gpios = <&msmgpio 69 0>;
+	qcom,cdc-lineout-spkr-gpios = <&pm8226_gpios 2 0>;
+	qcom,cdc-vdd-spkr-gpios = <&pm8226_gpios 3 0>;
+};
+
+* MSM8939 Slimbus ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,msm8939-audio-codec"
+- qcom,model : The user-visible name of this sound card.
+- qcom,tapan-mclk-clk-freq : Tapan mclk Freq in Hz. currently only 9600000Hz
+				is supported.
+- pinctrl-states: the names of the pinctrl states that used by the driver to
+	configure the TLMM pins. The allowed states are subset of the following
+	list: "cdc_slim_lines_act", "cdc_slim_lines_sus",
+		"cross_conn_det_act","cross_conn_det_sus",
+		"cdc_vdd_spkr_act","cdc_vdd_spkr_sus";.
+- pinctrl-#: a list of pinctrl phandles for the different pinctrl states. Refer
+	to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt" for the
+	pinctrl handles definitions. Each pinctrl-# corresponds to the respective
+	state name that appears under pinctrl-state list.
+- asoc-platform: This is phandle list containing the references to platform device
+		 nodes that are used as part of the sound card dai-links.
+- asoc-platform-names: This property contains list of platform names. The order of
+		       the platform names should match to that of the phandle order
+		       given in "asoc-platform".
+- asoc-cpu: This is phandle list containing the references to cpu dai device nodes
+	    that are used as part of the sound card dai-links.
+- asoc-cpu-names: This property contains list of cpu dai names. The order of the
+		  cpu dai names should match to that of the phandle order given
+		  in "asoc-cpu". The cpu names are in the form of "%s.%d" form,
+		  where the id (%d) field represents the back-end AFE port id that
+		  this CPU dai is associated with.
+- asoc-codec: This is phandle list containing the references to codec dai device
+	      nodes that are used as part of the sound card dai-links.
+- asoc-codec-names: This property contains list of codec dai names. The order of the
+		    codec dai names should match to that of the phandle order given
+		    in "asoc-codec".
+
+
+Optional Properties:
+- qcom,cdc-us-euro-gpios : GPIO on which gnd/mic swap signal is coming.
+- qcom,cdc-vdd-spkr-gpios : GPIO which controls PA for VDD speaker
+- qcom,headset-jack-type-NC: Set if the headset jack type is NC (Normally Closed)
+
+Example:
+
+sound-9306 {
+	compatible = "qcom,msm8939-audio-codec";
+	qcom,model = "msm8939-tapan-snd-card";
+	qcom,tapan-mclk-clk-freq = <9600000>;
+	pinctrl-names = "cdc_slim_lines_act", "cdc_slim_lines_sus",
+			"cross_conn_det_act","cross_conn_det_sus",
+			"cdc_vdd_spkr_act","cdc_vdd_spkr_sus";
+	pinctrl-0 = <&cdc_slim_lines_act>;
+	pinctrl-1 = <&cdc_slim_lines_sus>;
+	pinctrl-2 = <&cross_conn_det_act>;
+	pinctrl-3 = <&cross_conn_det_sus>;
+	pinctrl-4 = <&cdc_vdd_spkr_act>;
+	pinctrl-5 = <&cdc_vdd_spkr_sus>;
+	qcom,cdc-us-euro-gpios = <&msm_gpio 120 0>;
+	qcom,cdc-vdd-spkr-gpios = <&msm_gpio 121 0>;
+	qcom,headset-jack-type-NC;
+};
+
+* MDM9630 ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,mdm9630-audio-taiko"
+- qcom,model : The user-visible name of this sound card.
+- qcom,audio-routing : A list of the connections between audio components.
+  Each entry is a pair of strings, the first being the connection's sink,
+  the second being the connection's source.
+- qcom,taiko-mclk-clk-freq : Master clock value given to codec. Some WCD9XXX
+  codec can run at different mclk values. Mclk value can be 9.6MHz or 12.288MHz.
+  This element represents the value for MCLK provided to codec.
+- qcom,prim-i2s-gpio-ws : Specifies gpio assigned for primary WS I2S pin.
+- qcom,prim-i2s-gpio-din : Specifies gpio assigned for primary DIN I2S pin.
+- qcom,prim-i2s-gpio-dout : Specifies gpio assigned for primary DOUT I2S pin.
+- qcom,prim-i2s-gpio-sclk : Specifies gpio assigned for primary SCLK I2S pin.
+- qcom,prim-i2s-gpio-mclk : Specifies gpio assigned for MCLK I2S pin.
+- asoc-platform: This is phandle list containing the references to platform device
+		 nodes that are used as part of the sound card dai-links.
+- asoc-platform-names: This property contains list of platform names. The order of
+		       the platform names should match to that of the phandle order
+		       given in "asoc-platform".
+- asoc-cpu: This is phandle list containing the references to cpu dai device nodes
+	    that are used as part of the sound card dai-links.
+- asoc-cpu-names: This property contains list of cpu dai names. The order of the
+		  cpu dai names should match to that of the phandle order given
+		  in "asoc-cpu". The cpu names are in the form of "%s.%d" form,
+		  where the id (%d) field represents the back-end AFE port id that
+		  this CPU dai is associated with.
+- asoc-codec: This is phandle list containing the references to codec dai device
+	      nodes that are used as part of the sound card dai-links.
+- asoc-codec-names: This property contains list of codec dai names. The order of the
+		    codec dai names should match to that of the phandle order given
+		    in "asoc-codec".
+
+Example:
+
+	sound {
+                compatible = "qcom,mdm9630-audio-taiko";
+                qcom,model = "mdm9630-taiko-i2s-snd-card";
+
+                qcom,audio-routing =
+                        "RX_BIAS", "MCLK",
+                        "LDO_H", "MCLK",
+                        "Ext Spk Bottom Pos", "LINEOUT1",
+                        "Ext Spk Bottom Neg", "LINEOUT3",
+                        "Ext Spk Top Pos", "LINEOUT2",
+                        "Ext Spk Top Neg", "LINEOUT4",
+                        "AMIC1", "MIC BIAS1 External",
+                        "MIC BIAS1 External", "Handset Mic",
+                        "AMIC2", "MIC BIAS2 External",
+                        "MIC BIAS2 External", "Headset Mic",
+                        "AMIC3", "MIC BIAS3 Internal1",
+                        "MIC BIAS3 Internal1", "ANCRight Headset Mic",
+                        "AMIC4", "MIC BIAS1 Internal2",
+                        "MIC BIAS1 Internal2", "ANCLeft Headset Mic",
+                        "DMIC1", "MIC BIAS1 External",
+                        "MIC BIAS1 External", "Digital Mic1",
+                        "DMIC2", "MIC BIAS1 External",
+                        "MIC BIAS1 External", "Digital Mic2",
+                        "DMIC3", "MIC BIAS3 External",
+                        "MIC BIAS3 External", "Digital Mic3",
+                        "DMIC4", "MIC BIAS3 External",
+                        "MIC BIAS3 External", "Digital Mic4",
+                        "DMIC5", "MIC BIAS4 External",
+                        "MIC BIAS4 External", "Digital Mic5",
+                        "DMIC6", "MIC BIAS4 External",
+                        "MIC BIAS4 External", "Digital Mic6";
+                        qcom,taiko-mclk-clk-freq = <12288000>;
+                        qcom,prim-i2s-gpio-ws   =  <&msmgpio 12 0>;
+                        qcom,prim-i2s-gpio-din  =  <&msmgpio 13 0>;
+                        qcom,prim-i2s-gpio-dout =  <&msmgpio 14 0>;
+                        qcom,prim-i2s-gpio-sclk =  <&msmgpio 15 0>;
+                        qcom,prim-i2s-gpio-mclk =  <&msmgpio 71 0>;
+	};
+
+* APQ8084 ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,apq8084-audio-taiko" or "qcom,apq8084-audio-tomtom"
+- qcom,model : The user-visible name of this sound card.
+- qcom,audio-routing : A list of the connections between audio components.
+  Each entry is a pair of strings, the first being the connection's sink,
+  the second being the connection's source.
+- qcom,taiko-mclk-clk-freq : Taiko mclk Freq in Hz. currently only 9600000Hz
+				is supported. This property is required when
+				compatible field is "qcom,apq8084-audio-taiko"
+- qcom,tomtom-mclk-clk-freq : TomTom mclk Freq in Hz. currently only 9600000Hz
+				is supported. This property is required when
+				compatible field is "qcom,apq8084-audio-tomtom"
+- qcom,prim-auxpcm-gpio-clk  : GPIO on which Primary AUXPCM clk signal is coming.
+- qcom,prim-auxpcm-gpio-sync : GPIO on which Primary AUXPCM SYNC signal is coming.
+- qcom,prim-auxpcm-gpio-din  : GPIO on which Primary AUXPCM DIN signal is coming.
+- qcom,prim-auxpcm-gpio-dout : GPIO on which Primary AUXPCM DOUT signal is coming.
+- qcom,prim-auxpcm-gpio-set : set of GPIO lines used for Primary AUXPCM port
+		 Possible Values:
+		 prim-gpio-prim : Primary AUXPCM shares GPIOs with Primary MI2S
+		 prim-gpio-tert : Primary AUXPCM shares GPIOs with Tertiary MI2S
+- qcom,sec-auxpcm-gpio-clk  : GPIO on which Secondary AUXPCM clk signal is coming.
+- qcom,sec-auxpcm-gpio-sync : GPIO on which Secondary AUXPCM SYNC signal is coming.
+- qcom,sec-auxpcm-gpio-din  : GPIO on which Secondary AUXPCM DIN signal is coming.
+- qcom,sec-auxpcm-gpio-dout : GPIO on which Secondary AUXPCM DOUT signal is coming.
+- qcom,ext-mclk-gpio  : audio uses this GPIO to request mclk in MTP and CDP
+- asoc-platform: This is phandle list containing the references to platform device
+		 nodes that are used as part of the sound card dai-links.
+- asoc-platform-names: This property contains list of platform names. The order of
+		       the platform names should match to that of the phandle order
+		       given in "asoc-platform".
+- asoc-cpu: This is phandle list containing the references to cpu dai device nodes
+	    that are used as part of the sound card dai-links.
+- asoc-cpu-names: This property contains list of cpu dai names. The order of the
+		  cpu dai names should match to that of the phandle order given
+		  in "asoc-cpu". The cpu names are in the form of "%s.%d" form,
+		  where the id (%d) field represents the back-end AFE port id that
+		  this CPU dai is associated with.
+- asoc-codec: This is phandle list containing the references to codec dai device
+	      nodes that are used as part of the sound card dai-links.
+- asoc-codec-names: This property contains list of codec dai names. The order of the
+		    codec dai names should match to that of the phandle order given
+		    in "asoc-codec".
+Optional properties:
+- qcom,us-euro-gpios : GPIO on which gnd/mic swap signal is coming.
+- qcom,hdmi-audio-rx: specifies if HDMI audio support is enabled or not.
+- qcom,headset-jack-type-NO: Adjust GPIO level based on the headset jack type.
+- qcom,mbhc-bias-internal: Flag to indicate if internal micbias should be used
+			   for headset detection.
+- qcom,dock-plug-det-irq: Interrupt line to detect Docking/Undocking of Liquid
+			  device
+- qcom,mbhc-audio-jack-type : String to indicate the jack type on the hardware.
+		Possible Values:
+		4-pole-jack : Jack on the hardware is 4-pole.
+		5-pole-jack : Jack on the hardware is 5-pole.
+		6-pole-jack : Jack on the hardware is 6-pole.
+- pinctrl-states: the names of the pinctrl states that used by the driver to
+	configure the TLMM pins. The allowed states are subset of the following
+	list: pmx-pri-mi2s-active, pmx-pri-quad-mi2s-active, pmx-quad-mi2s-active,
+	 pmx-pri-quad-mi2s-sleep, pmx-quad-mi2s-sleep.
+- pinctrl-#: a list of pinctrl phandles for the different pinctrl states. Refer
+	to "Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt" for the
+	pinctrl handles definitions. Each pinctrl-# corresponds to the respective
+	state name that appears under pinctrl-state list.
+
+Example:
+
+sound {
+	compatible = "qcom,apq8084-audio-taiko";
+		     "qcom,apq8084-audio-i2s-taiko"
+	qcom,model = "apq8084-taiko-mtp-snd-card";
+
+	qcom,audio-routing =
+		"RX_BIAS", "MCLK",
+		"LDO_H", "MCLK",
+		"HEADPHONE", "LDO_H",
+		"Ext Spk Bottom Pos", "LINEOUT1",
+		"Ext Spk Bottom Neg", "LINEOUT3",
+		"Ext Spk Top Pos", "LINEOUT2",
+		"Ext Spk Top Neg", "LINEOUT4",
+		"AMIC1", "MIC BIAS1 Internal1",
+		"MIC BIAS1 Internal1", "Handset Mic",
+		"AMIC2", "MIC BIAS2 External",
+		"MIC BIAS2 External", "Headset Mic",
+		"AMIC3", "MIC BIAS3 Internal1",
+		"MIC BIAS3 Internal1", "ANCRight Headset Mic",
+		"AMIC4", "MIC BIAS1 Internal2",
+		"MIC BIAS1 Internal2", "ANCLeft Headset Mic",
+		"DMIC1", "MIC BIAS1 External",
+		"MIC BIAS1 External", "Digital Mic1",
+		"DMIC2", "MIC BIAS1 External",
+		"MIC BIAS1 External", "Digital Mic2",
+		"DMIC3", "MIC BIAS3 External",
+		"MIC BIAS3 External", "Digital Mic3",
+		"DMIC4", "MIC BIAS3 External",
+		"MIC BIAS3 External", "Digital Mic4",
+		"DMIC5", "MIC BIAS4 External",
+		"MIC BIAS4 External", "Digital Mic5",
+		"DMIC6", "MIC BIAS4 External",
+		"MIC BIAS4 External", "Digital Mic6";
+
+	qcom,taiko-mclk-clk-freq = <9600000>;
+	qcom,us-euro-gpios = <&pm8941_gpios 20 0>;
+
+	qcom,hdmi-audio-rx;
+
+	qcom,ext-mclk-gpio  = <&msmgpio 47 0>;
+	qcom,dock-plug-det-irq = <&msmgpio 142 0>;
+	qcom,prim-auxpcm-gpio-clk  = <&msmgpio 65 0>;
+	qcom,prim-auxpcm-gpio-sync = <&msmgpio 66 0>;
+	qcom,prim-auxpcm-gpio-din  = <&msmgpio 67 0>;
+	qcom,prim-auxpcm-gpio-dout = <&msmgpio 68 0>;
+	qcom,prim-auxpcm-gpio-set = "prim-gpio-prim";
+	qcom,sec-auxpcm-gpio-clk  = <&msmgpio 79 0>;
+	qcom,sec-auxpcm-gpio-sync = <&msmgpio 80 0>;
+	qcom,sec-auxpcm-gpio-din  = <&msmgpio 81 0>;
+	qcom,sec-auxpcm-gpio-dout = <&msmgpio 82 0>;
+	qcom,mbhc-audio-jack-type = "4-pole-jack";
+	pinctrl-names = "pmx-pri-mi2s-active",
+			"pmx-pri-quad-mi2s-active",
+			"pmx-quad-mi2s-active",
+			"pmx-pri-quad-mi2s-sleep";
+	pinctrl-0 = <&pmx_pri_mi2s_active &pmx_quad_mi2s_sleep>;
+	pinctrl-1 = <&pmx_pri_mi2s_active &pmx_quad_mi2s_active>;
+	pinctrl-2 = <&pmx_pri_mi2s_sleep &pmx_quad_mi2s_active>;
+	pinctrl-3 = <&pmx_pri_mi2s_sleep &pmx_quad_mi2s_sleep>;
 };
 
 * MSM8994 ASoC Machine driver
@@ -1072,18 +1780,18 @@ Example:
 		asoc-codec-names = "msm-stub-codec.1";
 	};
 
-* MSM8996 ASoC Machine driver
+* MDM9640 ASoC Machine driver
 
 Required properties:
-- compatible : "qcom,msm8996-asoc-snd-tomtom" for tomtom codec and
-		node is "sound" and "qcom,msm8996-asoc-snd-tasha"
-		for tasha codec and node is "sound-9335"
+- compatible : "qcom,mdm9640-audio-tomtom"
 - qcom,model : The user-visible name of this sound card.
-- qcom,tomtom-mclk-clk-freq : MCLK frequency value for tomtom codec
-			      and node is "sound"
-- qcom,tasha-mclk-clk-freq : MCLK frequency value for tasha codec
-			     and node is "sound-9335"
 - qcom,audio-routing : A list of the connections between audio components.
+Each entry is a pair of strings, the first being the connection's sink,
+the second being the connection's source.
+- qcom,tomtom-mclk-clk-freq : Master clock value given to codec. Some WCD9XXX
+codec can run at different mclk values. Mclk value can be 9.6MHz or 12.288MHz.
+- pinctrl-names : pinctrl state names for each pin group configuration.
+- pinctrl-x : defines pinctrl state for each pin group
 - asoc-platform: This is phandle list containing the references to platform device
 		 nodes that are used as part of the sound card dai-links.
 - asoc-platform-names: This property contains list of platform names. The order of
@@ -1101,81 +1809,42 @@ Required properties:
 - asoc-codec-names: This property contains list of codec dai names. The order of the
 		    codec dai names should match to that of the phandle order given
 		    in "asoc-codec".
-Optional properties:
-- qcom,ext-ult-spk-amp-gpio : GPIO to enable ultrasound emitter amp.
-- qcom,mbhc-audio-jack-type : String to indicate the jack type on the hardware.
-		Possible Values:
-		4-pole-jack : Jack on the hardware is 4-pole.
-		5-pole-jack : Jack on the hardware is 5-pole.
-		6-pole-jack : Jack on the hardware is 6-pole.
-- clock-names : clock name defined for external clock.
-- clocks : external clock defined for codec clock.
-- qcom,hph-en1-gpio : GPIO to enable HiFi amplifiers.
-- qcom,hph-en0-gpio : GPIO to enable HiFi audio route to headset.
 
 Example:
 
 	sound {
-	compatible = "qcom,msm8996-asoc-snd";
-	qcom,model = "msm8996-tomtom-snd-card";
+		compatible = "qcom,mdm9640-audio-tomtom";
+		qcom,model = "mdm9640-tomtom-i2s-snd-card";
 
-	qcom,audio-routing =
-		"RX_BIAS", "MCLK",
-		"LDO_H", "MCLK",
-		"AIF4 MAD", "MCLK",
-		"ultrasound amp", "LINEOUT1",
-		"ultrasound amp", "LINEOUT3",
-		"AMIC1", "MIC BIAS1 Internal1",
-		"MIC BIAS1 Internal1", "Handset Mic",
-		"AMIC2", "MIC BIAS2 External",
-		"MIC BIAS2 External", "Headset Mic",
-		"AMIC3", "MIC BIAS2 External",
-		"MIC BIAS2 External", "ANCRight Headset Mic",
-		"AMIC4", "MIC BIAS2 External",
-		"MIC BIAS2 External", "ANCLeft Headset Mic",
-		"DMIC1", "MIC BIAS1 External",
-		"MIC BIAS1 External", "Digital Mic1",
-		"DMIC2", "MIC BIAS1 External",
-		"MIC BIAS1 External", "Digital Mic2",
-		"DMIC3", "MIC BIAS3 External",
-		"MIC BIAS3 External", "Digital Mic3",
-		"DMIC4", "MIC BIAS3 External",
-		"MIC BIAS3 External", "Digital Mic4",
-		"DMIC5", "MIC BIAS4 External",
-		"MIC BIAS4 External", "Digital Mic5",
-		"DMIC6", "MIC BIAS4 External",
-		"MIC BIAS4 External", "Digital Mic6";
-
-	clock-names = "osr_clk";
-	clocks = <&clock_rpm clk_div_clk1>;
-	qcom,mbhc-audio-jack-type = "6-pole-jack";
-		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
-				<&loopback>, <&compress>, <&hostless>,
-				<&afe>, <&lsm>, <&routing>, <&cpe>, <&compr>;
-		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1", "msm-pcm-dsp.2",
-				"msm-voip-dsp", "msm-pcm-voice", "msm-pcm-loopback",
-				"msm-compress-dsp", "msm-pcm-hostless", "msm-pcm-afe",
-				"msm-lsm-client", "msm-pcm-routing", "msm-cpe-lsm",
-				"msm-compr-dsp";
-		asoc-cpu = <&dai_pri_auxpcm>, <&dai_sec_auxpcm>, <&dai_hdmi>, <&dai_mi2s>,
-				<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
-				<&sb_2_rx>, <&sb_2_tx>, <&sb_3_rx>, <&sb_3_tx>,
-				<&sb_4_rx>, <&sb_4_tx>, <&sb_5_tx>, <&afe_pcm_rx>,
-				<&afe_pcm_tx>, <&afe_proxy_rx>, <&afe_proxy_tx>,
-				<&incall_record_rx>, <&incall_record_tx>,
-				<&incall_music_rx>, <&incall_music2_rx>;
-		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
-				"msm-dai-q6-hdmi.8", "msm-dai-q6-mi2s.2",
-				"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
-				"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
-				"msm-dai-q6-dev.16388", "msm-dai-q6-dev.16389",
-				"msm-dai-q6-dev.16390", "msm-dai-q6-dev.16391",
-				"msm-dai-q6-dev.16392", "msm-dai-q6-dev.16393",
-				"msm-dai-q6-dev.16395", "msm-dai-q6-dev.224",
-				"msm-dai-q6-dev.225", "msm-dai-q6-dev.241",
-				"msm-dai-q6-dev.240", "msm-dai-q6-dev.32771",
-				"msm-dai-q6-dev.32772", "msm-dai-q6-dev.32773",
-				"msm-dai-q6-dev.32770";
-		asoc-codec = <&stub_codec>;
-		asoc-codec-names = "msm-stub-codec.1";
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"LDO_H", "MCLK",
+			"AIF4 MAD", "MCLK",
+			"ultrasound amp", "LINEOUT1",
+			"ultrasound amp", "LINEOUT3",
+			"AMIC1", "MIC BIAS1 Internal1",
+			"MIC BIAS1 Internal1", "Handset Mic",
+			"AMIC2", "MIC BIAS2 External",
+			"MIC BIAS2 External", "Headset Mic",
+			"AMIC3", "MIC BIAS2 External",
+			"MIC BIAS2 External", "ANCRight Headset Mic",
+			"AMIC4", "MIC BIAS2 External",
+			"MIC BIAS2 External", "ANCLeft Headset Mic",
+			"DMIC1", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Digital Mic1",
+			"DMIC2", "MIC BIAS1 External",
+			"MIC BIAS1 External", "Digital Mic2",
+			"DMIC3", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Digital Mic3",
+			"DMIC4", "MIC BIAS3 External",
+			"MIC BIAS3 External", "Digital Mic4",
+			"DMIC5", "MIC BIAS4 External",
+			"MIC BIAS4 External", "Digital Mic5",
+			"DMIC6", "MIC BIAS4 External",
+			"MIC BIAS4 External", "Digital Mic6";
+			qcom,tomtom-mclk-clk-freq = <12288000>;
+		pinctrl-names = "pri-mi2s-active",
+				"pri-mi2s-sleep";
+		pinctrl-0 = <&pri_mi2s_active>, <&pri_mi2s_din_active>;
+		pinctrl-1 = <&pri_mi2s_sleep>, <&pri_mi2s_din_sleep>;
 	};
