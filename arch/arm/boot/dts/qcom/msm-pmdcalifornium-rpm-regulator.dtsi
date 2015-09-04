@@ -75,10 +75,10 @@
 		};
 	};
 
-	rpm-regulator-smpa5 {
+	rpm-regulator-smpa5 {		/* VDD_CX supply */
 		compatible = "qcom,rpm-smd-regulator-resource";
-		qcom,resource-name = "smpa";
-		qcom,resource-id = <5>;
+		qcom,resource-name = "rwcx";
+		qcom,resource-id = <0>;
 		qcom,regulator-type = <1>;
 		qcom,hpm-min-load = <100000>;
 		status = "disabled";
@@ -219,10 +219,10 @@
 		};
 	};
 
-	rpm-regulator-ldoa9 {
+	rpm-regulator-ldoa9 {		/* VDD_MX supply */
 		compatible = "qcom,rpm-smd-regulator-resource";
-		qcom,resource-name = "ldoa";
-		qcom,resource-id = <9>;
+		qcom,resource-name = "rwmx";
+		qcom,resource-id = <0>;
 		qcom,regulator-type = <0>;
 		qcom,hpm-min-load = <10000>;
 		status = "disabled";
