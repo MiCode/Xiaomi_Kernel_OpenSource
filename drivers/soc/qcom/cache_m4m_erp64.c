@@ -182,8 +182,8 @@ static void msm_erp_show_icache_error(void)
 	}
 
 	pr_alert("CPU%d: I-cache error\n", cpu);
-	pr_alert("CPU%d: ICESYNR0 0x%llx ICESYNR1 0x%llx ICEAR0 0x%llx IECAR1 0x%llx\n",
-		 cpu, erp_mrs(ICESYNR0_EL1), erp_mrs(ICESYNR1_EL1),
+	pr_alert("CPU%d: ICESR_EL1 0x%llx ICESYNR0 0x%llx ICESYNR1 0x%llx ICEAR0 0x%llx IECAR1 0x%llx\n",
+		 cpu, icesr, erp_mrs(ICESYNR0_EL1), erp_mrs(ICESYNR1_EL1),
 		 erp_mrs(ICEAR0_EL1), erp_mrs(ICEAR1_EL1));
 
 	/*
