@@ -383,7 +383,7 @@ static void lmh_poll(struct work_struct *work)
 		goto poll_exit;
 	} else {
 		queue_delayed_work(lmh_dat->poll_wq, &lmh_dat->poll_work,
-			msecs_to_jiffies(lmh_poll_interval));
+			msecs_to_jiffies(lmh_get_poll_interval()));
 	}
 
 poll_exit:
@@ -455,7 +455,7 @@ static irqreturn_t lmh_isr_thread(int irq, void *data)
 decide_next_action:
 	if (lmh_dat->intr_state == LMH_ISR_POLLING)
 		queue_delayed_work(lmh_dat->poll_wq, &lmh_dat->poll_work,
-			msecs_to_jiffies(lmh_poll_interval));
+			msecs_to_jiffies(lmh_get_poll_interval()));
 	else
 		enable_irq(lmh_dat->irq_num);
 
