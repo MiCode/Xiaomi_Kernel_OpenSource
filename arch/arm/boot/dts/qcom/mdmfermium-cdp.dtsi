@@ -22,3 +22,11 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&uart_console_sleep>;
 };
+
+&i2c_4 {
+	status = "ok";
+};
+
+&spi_1 {
+	status = "ok";
+};
