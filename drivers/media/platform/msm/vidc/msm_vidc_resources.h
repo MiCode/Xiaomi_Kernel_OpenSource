@@ -26,6 +26,11 @@ struct load_freq_table {
 	u32 supported_codecs;
 };
 
+struct imem_ab_table {
+	u32 core_freq;
+	u32 imem_ab;
+};
+
 struct reg_value_pair {
 	u32 reg;
 	u32 value;
@@ -121,6 +126,8 @@ struct msm_vidc_platform_resources {
 	uint32_t irq;
 	struct load_freq_table *load_freq_tbl;
 	uint32_t load_freq_tbl_size;
+	struct imem_ab_table *imem_ab_tbl;
+	u32 imem_ab_tbl_size;
 	struct reg_set reg_set;
 	struct addr_set qdss_addr_set;
 	struct buffer_usage_set buffer_usage_set;

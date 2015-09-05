@@ -1379,7 +1379,7 @@ static unsigned long __get_clock_rate_with_bitrate(struct clock_info *clock,
 	return freq;
 }
 
-static unsigned long venus_hfi_get_core_clock_rate(void *dev)
+static unsigned long venus_hfi_get_core_clock_rate(void *dev, bool actual_rate)
 {
 	struct venus_hfi_device *device = (struct venus_hfi_device *) dev;
 	struct clock_info *vc;
@@ -1389,11 +1389,15 @@ static unsigned long venus_hfi_get_core_clock_rate(void *dev)
 		return -EINVAL;
 	}
 
-	vc = __get_clock(device, "core_clk");
-	if (vc)
-		return clk_get_rate(vc->clk);
-	else
-		return 0;
+	if (actual_rate) {
+		vc = __get_clock(device, "core_clk");
+		if (vc)
+			return clk_get_rate(vc->clk);
+		else
+			return 0;
+	} else {
+		return device->scaled_rate;
+	}
 }
 
 static int venus_hfi_suspend(void *dev)
@@ -1505,6 +1509,9 @@ static int __scale_clocks(struct venus_hfi_device *device, int load,
 					rate, cl->name, rc);
 				return rc;
 			}
+
+			if (!strcmp(cl->name, "core_clk"))
+				device->scaled_rate = rate;
 
 			dprintk(VIDC_PROF, "Scaling clock %s to %lu\n",
 					cl->name, rate);

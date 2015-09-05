@@ -69,6 +69,12 @@ static inline void msm_vidc_free_freq_table(
 	res->load_freq_tbl = NULL;
 }
 
+static inline void msm_vidc_free_imem_ab_table(
+		struct msm_vidc_platform_resources *res)
+{
+	res->imem_ab_tbl = NULL;
+}
+
 static inline void msm_vidc_free_reg_table(
 			struct msm_vidc_platform_resources *res)
 {
@@ -225,6 +231,44 @@ static int msm_vidc_load_qdss_table(struct msm_vidc_platform_resources *res)
 	}
 err_qdss_addr_tbl:
 	return rc;
+}
+
+static int msm_vidc_load_imem_ab_table(struct msm_vidc_platform_resources *res)
+{
+	int num_elements = 0;
+	struct platform_device *pdev = res->pdev;
+
+	if (!of_find_property(pdev->dev.of_node, "qcom,imem-ab-tbl", NULL)) {
+		/* optional property */
+		dprintk(VIDC_DBG, "qcom,imem-freq-tbl not found\n");
+		return 0;
+	}
+
+	num_elements = get_u32_array_num_elements(pdev, "qcom,imem-ab-tbl");
+	num_elements /= (sizeof(*res->imem_ab_tbl) / sizeof(u32));
+	if (!num_elements) {
+		dprintk(VIDC_ERR, "no elements in imem ab table\n");
+		return -EINVAL;
+	}
+
+	res->imem_ab_tbl = devm_kzalloc(&pdev->dev, num_elements *
+			sizeof(*res->imem_ab_tbl), GFP_KERNEL);
+	if (!res->imem_ab_tbl) {
+		dprintk(VIDC_ERR, "Failed to alloc imem_ab_tbl\n");
+		return -ENOMEM;
+	}
+
+	if (of_property_read_u32_array(pdev->dev.of_node,
+		"qcom,imem-ab-tbl", (u32 *)res->imem_ab_tbl,
+		num_elements * sizeof(*res->imem_ab_tbl) / sizeof(u32))) {
+		dprintk(VIDC_ERR, "Failed to read imem_ab_tbl\n");
+		msm_vidc_free_imem_ab_table(res);
+		return -EINVAL;
+	}
+
+	res->imem_ab_tbl_size = num_elements;
+
+	return 0;
 }
 
 static int msm_vidc_load_freq_table(struct msm_vidc_platform_resources *res)
@@ -629,6 +673,10 @@ int read_platform_resources_from_dt(
 		dprintk(VIDC_ERR, "Failed to load freq table: %d\n", rc);
 		goto err_load_freq_table;
 	}
+
+	rc = msm_vidc_load_imem_ab_table(res);
+	if (rc)
+		dprintk(VIDC_WARN, "Failed to load freq table: %d\n", rc);
 
 	rc = msm_vidc_load_qdss_table(res);
 	if (rc)
