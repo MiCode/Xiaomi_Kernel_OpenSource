@@ -33,3 +33,41 @@ Example:
 			iommus = <&lpass_q6_smmu 9>,
 		};
 	};
+
+Legacy SMMU v1/v2:
+
+Required properties:
+- compatible : Must be "qcom,msm-fastprc-legacy-compute-cb"
+
+Required subnode:
+- qcom,msm_fastrpc_compute_cb : Child nodes representing the compute context
+                                banks
+
+Required subnode properties:
+- qcom,adsp-shared-domain-phandle: Specifies the phandle of iommu domain
+                                   associated with context bank
+- qcom,adsp-shared-sids : A list of SID associated with the context bank
+
+Example:
+        qcom,adsprpc_domains {
+                compatible = "qcom,msm-fastrpc-legacy-compute-cb";
+                qcom,msm_fastrpc_compute_cb {
+                       qcom,adsp-shared-domain-phandle = <&adsp_shared_domain>;
+                       qcom,adsp-shared-sids = <0x8 0x9>;
+                };
+        };
+
+IOMMU Domain:
+
+Required properties:
+- label : Label describing the context bank
+- qcom,iommu-contexts : phandle that describe the context bank handle
+- qcom,virtual-addr-pool : Virtual address range that the context bank
+                           will be using
+
+Example:
+        adsp_shared_domain: qcom,iommu-domain6 {
+                label = "adsp_shared";
+                qcom,iommu-contexts = <&adsp_shared>;
+                qcom,virtual-addr-pool = <0x80000000 0x7FFFFFFF>;
+        };
