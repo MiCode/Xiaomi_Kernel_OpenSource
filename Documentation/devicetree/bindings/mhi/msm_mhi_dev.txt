@@ -19,6 +19,9 @@ Required properties:
   - interrupt-names: Should be mhi-device-inta for MHI interrupt.
   - qcom,mhi-ifc-id: ID of HW interface via which MHI on device side
 		communicates with host side.
+  - qcom,mhi-local-pa-base: MHI device local physical start address.
+  - qcom,mhi-ep-msi: End point MSI number.
+  - qcom,mhi-version: MHI specification version supported by the device.
 
 Example:
 
@@ -32,4 +35,7 @@ Example:
 		interrupts = <0 42 0>;
 		interrupt-names = "mhi-device-inta";
 		qcom,mhi-ifc-id = <0x030017cb>;
+		qcom,mhi-local-pa-base = <80000000>;
+		qcom,mhi-ep-msi = <1>;
+		qcom,mhi-version = <0x1000000>;
 	};
