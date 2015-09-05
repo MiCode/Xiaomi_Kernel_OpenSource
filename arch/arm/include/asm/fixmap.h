@@ -28,7 +28,11 @@ enum fixed_addresses {
 
 	FIX_KMAP_BEGIN = __end_of_permanent_fixed_addresses,
 	FIX_KMAP_END = FIX_KMAP_BEGIN + (KM_TYPE_NR * NR_CPUS) - 1,
-	 __end_of_fixed_addresses = (FIXADDR_END - FIXADDR_START) >> PAGE_SHIFT,
+	/* Support writing RO kernel text via kprobes, jump labels, etc. */
+	FIX_TEXT_POKE0,
+	FIX_TEXT_POKE1,
+
+	__end_of_fixed_addresses = (FIXADDR_END - FIXADDR_START) >> PAGE_SHIFT,
 };
 
 #define FIXMAP_PAGE_COMMON (L_PTE_YOUNG | L_PTE_PRESENT | L_PTE_XN)
@@ -40,7 +44,7 @@ enum fixed_addresses {
 extern void __early_set_fixmap(enum fixed_addresses idx,
 					phys_addr_t phys, pgprot_t flags);
 
-#define __set_fixmap __early_set_fixmap
+void __set_fixmap(enum fixed_addresses idx, phys_addr_t phys, pgprot_t prot);
 
 #include <asm-generic/fixmap.h>
 
