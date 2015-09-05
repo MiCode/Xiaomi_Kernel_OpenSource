@@ -1089,7 +1089,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "Set Max Hier P num layers sessions",
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 0,
-		.maximum = 3,
+		.maximum = 6,
 		.default_value = 0,
 		.step = 1,
 		.qmenu = NULL,
@@ -1099,7 +1099,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "Set Base Layer ID for Hier-P",
 		.type = V4L2_CTRL_TYPE_INTEGER,
 		.minimum = 0,
-		.maximum = 3,
+		.maximum = 6,
 		.default_value = 0,
 		.step = 1,
 		.qmenu = NULL,
@@ -1485,8 +1485,7 @@ static int msm_venc_toggle_hier_p(struct msm_vidc_inst *inst, int layers)
 		return -EINVAL;
 	}
 
-	if (inst->fmts[CAPTURE_PORT]->fourcc != V4L2_PIX_FMT_VP8 &&
-		inst->fmts[CAPTURE_PORT]->fourcc != V4L2_PIX_FMT_H264)
+	if (inst->fmts[CAPTURE_PORT]->fourcc != V4L2_PIX_FMT_VP8)
 		return 0;
 
 	num_enh_layers = layers ? : 0;
