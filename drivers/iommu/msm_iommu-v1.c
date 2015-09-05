@@ -1232,6 +1232,20 @@ static size_t msm_iommu_map_sg(struct iommu_domain *domain, unsigned long va,
 static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 					  phys_addr_t va)
 {
+	phys_addr_t ret;
+	unsigned long flags;
+
+	mutex_lock(&msm_iommu_lock);
+	spin_lock_irqsave(&msm_iommu_spin_lock, flags);
+	ret = msm_iommu_iova_to_phys_soft(domain, va);
+	spin_unlock_irqrestore(&msm_iommu_spin_lock, flags);
+	mutex_unlock(&msm_iommu_lock);
+	return ret;
+}
+
+static phys_addr_t msm_iommu_iova_to_phys_hard(struct iommu_domain *domain,
+					  phys_addr_t va)
+{
 	struct msm_iommu_priv *priv;
 	struct msm_iommu_drvdata *iommu_drvdata;
 	struct msm_iommu_ctx_drvdata *ctx_drvdata;
@@ -1256,10 +1270,8 @@ static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 	iommu_drvdata = dev_get_drvdata(ctx_drvdata->pdev->dev.parent);
 
 	if (iommu_drvdata->model == MMU_500) {
-		spin_lock_irqsave(&msm_iommu_spin_lock, flags);
-		ret = msm_iommu_iova_to_phys_soft(domain, va);
-		spin_unlock_irqrestore(&msm_iommu_spin_lock, flags);
-		mutex_unlock(&msm_iommu_lock);
+		WARN_ONCE(1,
+			"ATOS based iova_to_phys is not supported in MMU500\n");
 		return ret;
 	}
 
@@ -1709,6 +1721,7 @@ static struct iommu_ops msm_iommu_ops = {
 	.unmap_range = msm_iommu_unmap_range,
 	.map_sg = msm_iommu_map_sg,
 	.iova_to_phys = msm_iommu_iova_to_phys,
+	.iova_to_phys_hard = msm_iommu_iova_to_phys_hard,
 	.capable = msm_iommu_capable,
 	.pgsize_bitmap = MSM_IOMMU_PGSIZES,
 	.domain_set_attr = msm_iommu_domain_set_attr,
