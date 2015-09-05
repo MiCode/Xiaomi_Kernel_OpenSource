@@ -20,6 +20,7 @@
 #define GPLL2_MODE				0x25000
 #define GPLL2_STATUS				0x25024
 #define APCS_GPLL_ENA_VOTE			0x45000
+#define APCS_MODE				0x00018
 #define APSS_AHB_CMD_RCGR			0x46000
 #define PRNG_AHB_CBCR				0x13004
 #define EMAC_0_125M_CMD_RCGR			0x4E028
@@ -175,7 +176,6 @@
 	},                                      \
 	.num_fmax = VDD_DIG_NUM
 
-
 enum vdd_dig_levels {
 	VDD_DIG_NONE,
 	VDD_DIG_LOWER,
@@ -194,6 +194,17 @@ static int vdd_corner[] = {
 };
 
 static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
+
+
+#define VDD_STROMER_FMAX_MAP3(l1, f1, l2, f2, l3, f3) \
+	.vdd_class = &vdd_stromer_pll, \
+	.fmax = (unsigned long[VDD_DIG_NUM]) {  \
+		[VDD_DIG_##l1] = (f1),          \
+		[VDD_DIG_##l2] = (f2),          \
+		[VDD_DIG_##l3] = (f3),          \
+	},                                      \
+	.num_fmax = VDD_DIG_NUM
+
 
 #define RPM_MISC_CLK_TYPE			0x306b6c63
 #define RPM_BUS_CLK_TYPE			0x316b6c63

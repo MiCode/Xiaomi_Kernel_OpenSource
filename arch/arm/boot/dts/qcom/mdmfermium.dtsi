@@ -237,17 +237,53 @@
 
 	clock_gcc: qcom,gcc@1800000 {
 		compatible = "qcom,gcc-mdmfermium";
-		reg = <0x1800000 0x80000>;
-		reg-names = "cc_base";
+		reg = <0x1800000 0x80000>,
+			<0x0b008000 0x00050>;
+		reg-names = "cc_base", "apcs_base";
 		vdd_dig-supply = <&mdmfermium_s3_level>;
+		vdd_stromer_dig-supply = <&mdmfermium_s3_level_ao>;
 		#clock-cells = <1>;
 	};
 
 	clock_debug: qcom,debug@1874000 {
 		compatible = "qcom,cc-debug-mdmfermium";
-		reg = <0x1800000 0x80000>;
-		reg-names = "cc_base";
+		reg = <0x1800000 0x80000>,
+			<0xb01101c 0x8>;
+		reg-names = "cc_base", "meas";
 		#clock-cells = <1>;
+	};
+
+	clock_cpu: qcom,clock-a7@0b010008 {
+		compatible = "qcom,clock-a7-mdmfermium";
+		reg = <0x0b010008 0x8>,
+				<0x000a412c 0x8>;
+		reg-names = "rcg-base", "efuse";
+		qcom,safe-freq = < 400000000 >;
+		/* ToDo: update mdmfermium_s1 to apc_vreg_corner */
+		cpu-vdd-supply = <&mdmfermium_s1>;
+		qcom,enable-opp;
+		clocks = <&clock_gcc clk_gpll0_ao_clk_src>,
+					<&clock_gcc clk_a7sspll>;
+		clock-names = "clk-1", "clk-5";
+		qcom,speed0-bin-v0 =
+				<          0 0>,
+				<  400000000 4>,
+				<  800000000 5>,
+				< 1190400000 7>;
+		#clock-cells = <1>;
+	};
+
+	qcom,msm-cpufreq {
+		reg = <0 4>;
+		compatible = "qcom,msm-cpufreq";
+		clocks = <&clock_cpu  clk_a7ssmux>;
+		clock-names = "cpu0_clk";
+		qcom,cpufreq-table =
+				<  400000 >,
+				<  800000 >,
+				<  998400 >,
+				< 1094400 >,
+				< 1190400 >;
 	};
 
 	qcom,sps {
