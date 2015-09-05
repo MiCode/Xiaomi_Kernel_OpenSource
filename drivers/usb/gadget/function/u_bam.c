@@ -1168,7 +1168,7 @@ static void gbam_disconnect_work(struct work_struct *w)
 
 	if (!test_bit(BAM_CH_OPENED, &d->flags)) {
 		pr_err("%s: Bam channel is not opened\n", __func__);
-		return;
+		goto exit;
 	}
 
 	msm_bam_dmux_close(d->id);
@@ -1177,6 +1177,7 @@ static void gbam_disconnect_work(struct work_struct *w)
 	 * Decrement usage count which was incremented upon cable connect
 	 * or cable disconnect in suspended state
 	 */
+exit:
 	usb_gadget_autopm_put_async(port->gadget);
 }
 
