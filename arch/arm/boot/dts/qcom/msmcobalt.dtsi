@@ -292,6 +292,11 @@
 		#clock-cells = <1>;
 	};
 
+	clock_gpu: qcom,gpucc@5065000 {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
 	clock_debug: qcom,debugcc@162000 {
 		compatible = "qcom,dummycc";
 		#clock-cells = <1>;
@@ -603,18 +608,30 @@
 };
 
 &gdsc_usb30 {
+	clock-names = "core_clk";
+	clocks = <&clock_gcc clk_gcc_usb30_master_clk>;
 	status = "ok";
 };
 
 &gdsc_pcie_0 {
+	clock-names = "master_bus_clk", "slave_bus_clk", "core_clk";
+	clocks = <&clock_gcc clk_gcc_pcie_0_mstr_axi_clk>,
+		 <&clock_gcc clk_gcc_pcie_0_slv_axi_clk>,
+		 <&clock_gcc clk_gcc_pcie_0_pipe_clk>;
 	status = "ok";
 };
 
 &gdsc_ufs {
+	clock-names = "bus_clk", "ice_clk", "unipro_clk";
+	clocks = <&clock_gcc clk_gcc_ufs_axi_clk>,
+		 <&clock_gcc clk_gcc_ufs_ice_core_clk>,
+		 <&clock_gcc clk_gcc_ufs_unipro_core_clk>;
 	status = "ok";
 };
 
 &gdsc_bimc_smmu {
+	clock-names = "bus_clk";
+	clocks = <&clock_gcc clk_bimc_smmu_axi_clk>;
 	status = "ok";
 };
 
@@ -631,38 +648,70 @@
 };
 
 &gdsc_venus {
+	clock-names = "bus_clk", "maxi_clk", "core_clk";
+	clocks = <&clock_mmss clk_video_axi_clk>,
+		 <&clock_mmss clk_video_maxi_clk>,
+		 <&clock_mmss clk_video_core_clk>;
 	status = "ok";
 };
 
 &gdsc_venus_core0 {
+	clock-names = "core0_clk";
+	clocks = <&clock_mmss clk_video_subcore0_clk>;
 	status = "ok";
 };
 
 &gdsc_venus_core1 {
+	clock-names = "core1_clk";
+	clocks = <&clock_mmss clk_video_subcore1_clk>;
 	status = "ok";
 };
 
 &gdsc_camss_top {
+	clock-names = "bus_clk", "vfe_axi";
+	clocks = <&clock_mmss clk_camss_cpp_axi_clk>,
+		 <&clock_mmss clk_camss_vfe_vbif_axi_clk>;
 	status = "ok";
 };
 
 &gdsc_vfe0 {
+	clock-names = "core0_clk" , "core0_stream_clk";
+	clocks = <&clock_mmss clk_camss_vfe0_clk>,
+		 <&clock_mmss clk_camss_vfe0_stream_clk>;
+	parent-supply = <&gdsc_camss_top>;
 	status = "ok";
 };
 
 &gdsc_vfe1 {
+	clock-names = "core1_clk" , "core1_stream_clk";
+	clocks = <&clock_mmss clk_camss_vfe1_clk>,
+		 <&clock_mmss clk_camss_vfe1_stream_clk>;
+	parent-supply = <&gdsc_camss_top>;
 	status = "ok";
 };
 
 &gdsc_cpp {
+	clock-names = "core_clk";
+	clocks = <&clock_mmss clk_camss_cpp_clk>;
+	parent-supply = <&gdsc_camss_top>;
 	status = "ok";
 };
 
 &gdsc_mdss {
+	clock-names = "bus_clk", "core_clk", "root_clk";
+	clocks = <&clock_mmss clk_mdss_axi_clk>,
+		 <&clock_mmss clk_mdss_mdp_clk>,
+		 <&clock_mmss clk_mdss_rot_clk>;
 	status = "ok";
 };
 
 &gdsc_gpu_gx {
+	clock-names = "bimc_core_clk", "core_clk", "core_root_clk";
+	clocks = <&clock_gcc clk_gcc_gpu_bimc_gfx_clk>,
+		 <&clock_gpu clk_gfx3d_clk>,
+		 <&clock_gpu clk_gfx3d_clk_src>;
+	qcom,force-enable-root-clk;
+	parent-supply = <&pm8005_s1>;
 	status = "ok";
 };
 

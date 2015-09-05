@@ -14,28 +14,28 @@
 &soc {
 	/* GCC GDSCs */
 	gdsc_mmss: qcom,gdsc@109004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_mmss";
 		reg = <0x109004 0x4>;
 		status = "disabled";
 	};
 
 	gdsc_usb30: qcom,gdsc@10f004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_usb30";
 		reg = <0x10f004 0x4>;
 		status = "disabled";
 	};
 
 	gdsc_pcie_0: qcom,gdsc@16b004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_pcie_0";
 		reg = <0x16b004 0x4>;
 		status = "disabled";
 	};
 
 	gdsc_ufs: qcom,gdsc@175004 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_ufs";
 		reg = <0x175004 0x4>;
 		status = "disabled";
@@ -74,56 +74,56 @@
 	};
 
 	gdsc_venus: qcom,gdsc@c8c1024 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_venus";
 		reg = <0xc8c1024 0x4>;
 		status = "disabled";
 	};
 
 	gdsc_venus_core0: qcom,gdsc@c8c1040 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_venus_core0";
 		reg = <0xc8c1040 0x4>;
 		status = "disabled";
 	};
 
 	gdsc_venus_core1: qcom,gdsc@c8c1044 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_venus_core1";
 		reg = <0xc8c1044 0x4>;
 		status = "disabled";
 	};
 
 	gdsc_camss_top: qcom,gdsc@c8c34a0 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_camss_top";
 		reg = <0xc8c34a0 0x4>;
 		status = "disabled";
 	};
 
 	gdsc_vfe0: qcom,gdsc@c8c3664 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_vfe0";
 		reg = <0xc8c3664 0x4>;
 		status = "disabled";
 	};
 
 	gdsc_vfe1: qcom,gdsc@c8c3674 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_vfe1";
 		reg = <0xc8c3674 0x4>;
 		status = "disabled";
 	};
 
 	gdsc_cpp: qcom,gdsc@c8c36d4 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_cpp";
 		reg = <0xc8c36d4 0x4>;
 		status = "disabled";
 	};
 
 	gdsc_mdss: qcom,gdsc@c8c2304 {
-		compatible = "regulator-fixed";
+		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_mdss";
 		reg = <0xc8c2304 0x4>;
 		status = "disabled";
@@ -133,7 +133,9 @@
 	gdsc_gpu_cx: qcom,gdsc@5066004 {
 		compatible = "regulator-fixed";
 		regulator-name = "gdsc_gpu_cx";
-		reg = <0x5066004 0x4>;
+		reg = <0x5066004 0x4>,
+		      <0x5065130 0x4>;
+		reg-names = "base", "domain_addr";
 		status = "disabled";
 	};
 
