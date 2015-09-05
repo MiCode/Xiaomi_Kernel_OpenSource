@@ -15,7 +15,6 @@
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/interrupt.h>
-#include <linux/workqueue.h>
 #include <linux/kernel.h>
 #include <linux/io.h>
 #include <linux/err.h>
@@ -61,13 +60,11 @@ struct lmh_device_data {
 };
 
 struct lmh_mon_sensor_data {
+	struct list_head		list_ptr;
 	char				sensor_name[LMH_NAME_MAX];
 	struct lmh_sensor_ops		*sensor_ops;
-	struct delayed_work		isr_poll;
-	struct list_head		list_ptr;
 	struct rw_semaphore		lock;
 	struct lmh_mon_threshold	trip[LMH_TRIP_MAX];
-	enum lmh_monitor_state		state;
 	struct thermal_zone_device	*tzdev;
 	enum thermal_device_mode	mode;
 };
@@ -332,44 +329,7 @@ static void lmh_evaluate_and_notify(struct lmh_mon_sensor_data *lmh_sensor,
 	}
 }
 
-static void lmh_interrupt_monitor(struct work_struct *work)
-{
-	int ret = 0;
-	long val = 0;
-	struct lmh_mon_sensor_data *lmh_sensor = container_of(work,
-				struct lmh_mon_sensor_data, isr_poll.work);
-
-	down_write(&lmh_sensor->lock);
-	ret = lmh_sensor->sensor_ops->read(lmh_sensor->sensor_ops, &val);
-	if (ret) {
-		pr_err("Error reading the sensor:[%s]. err:%d\n",
-			lmh_sensor->sensor_name, ret);
-		goto exit_monitor;
-	}
-	lmh_evaluate_and_notify(lmh_sensor, val);
-	if (val <= 0) {
-		ret = lmh_sensor->sensor_ops->reset_interrupt(
-				lmh_sensor->sensor_ops);
-		if (ret == -EAGAIN)
-			goto schedule_and_exit;
-		else if (ret)
-			pr_err("Sensor:[%s] interrupt reset failed. err:%d\n",
-					lmh_sensor->sensor_name, ret);
-		pr_debug("Rearm sensor:[%s] interrupt\n",
-			lmh_sensor->sensor_name);
-		lmh_sensor->state = LMH_ISR_MONITOR;
-		goto exit_monitor;
-	}
-
-schedule_and_exit:
-	schedule_delayed_work(&lmh_sensor->isr_poll,
-		msecs_to_jiffies(lmh_poll_interval));
-
-exit_monitor:
-	up_write(&lmh_sensor->lock);
-}
-
-void lmh_interrupt_notify(struct lmh_sensor_ops *ops, long trip_val)
+void lmh_update_reading(struct lmh_sensor_ops *ops, long trip_val)
 {
 	struct lmh_mon_sensor_data *lmh_sensor = NULL;
 
@@ -385,14 +345,9 @@ void lmh_interrupt_notify(struct lmh_sensor_ops *ops, long trip_val)
 		goto interrupt_exit;
 	}
 	down_write(&lmh_sensor->lock);
-	if (lmh_sensor->state != LMH_ISR_MONITOR)
-		goto interrupt_exit;
-	pr_debug("Sensor:[%s] interrupt triggered with intensity:%ld\n",
-			lmh_sensor->sensor_name, trip_val);
-	lmh_sensor->state = LMH_ISR_POLLING;
+	pr_debug("Sensor:[%s] intensity:%ld\n", lmh_sensor->sensor_name,
+		trip_val);
 	lmh_evaluate_and_notify(lmh_sensor, trip_val);
-	schedule_delayed_work(&lmh_sensor->isr_poll,
-		msecs_to_jiffies(lmh_poll_interval));
 interrupt_exit:
 	if (lmh_sensor)
 		up_write(&lmh_sensor->lock);
@@ -557,11 +512,9 @@ static int lmh_sensor_init(struct lmh_mon_sensor_data *lmh_sensor,
 {
 	int idx = 0, ret = 0;
 
-	lmh_sensor->state = LMH_ISR_MONITOR;
 	strlcpy(lmh_sensor->sensor_name, sensor_name, LMH_NAME_MAX);
 	lmh_sensor->sensor_ops = ops;
-	ops->interrupt_notify = lmh_interrupt_notify;
-	INIT_DELAYED_WORK(&lmh_sensor->isr_poll, lmh_interrupt_monitor);
+	ops->new_value_notify = lmh_update_reading;
 	for (idx = 0; idx < LMH_TRIP_MAX; idx++) {
 		lmh_sensor->trip[idx].value = 0;
 		lmh_sensor->trip[idx].active = false;
@@ -585,8 +538,7 @@ int lmh_sensor_register(char *sensor_name, struct lmh_sensor_ops *ops)
 		return -EINVAL;
 	}
 
-	if (!ops->read || !ops->reset_interrupt || !ops->enable_hw_log
-		|| !ops->disable_hw_log) {
+	if (!ops->read || !ops->enable_hw_log || !ops->disable_hw_log) {
 		pr_err("Invalid ops input for sensor:%s\n", sensor_name);
 		return -EINVAL;
 	}
@@ -637,8 +589,6 @@ static void lmh_sensor_remove(struct lmh_sensor_ops *ops)
 		goto deregister_exit;
 	}
 	down_write(&lmh_sensor->lock);
-	cancel_delayed_work_sync(&lmh_sensor->isr_poll);
-	lmh_sensor->state = LMH_ISR_DISABLED;
 	thermal_zone_device_unregister(lmh_sensor->tzdev);
 	list_del(&lmh_sensor->list_ptr);
 	up_write(&lmh_sensor->lock);

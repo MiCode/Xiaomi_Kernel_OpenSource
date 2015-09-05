@@ -32,17 +32,16 @@ enum lmh_monitor_state {
 };
 
 struct lmh_sensor_ops {
-	int (*read) (struct lmh_sensor_ops *, long *);
-	int (*reset_interrupt) (struct lmh_sensor_ops *);
-	int (*enable_hw_log) (uint32_t, uint32_t);
-	int (*disable_hw_log) (void);
-	void (*interrupt_notify) (struct lmh_sensor_ops *, long);
+	int (*read)(struct lmh_sensor_ops *, long *);
+	int (*enable_hw_log)(uint32_t, uint32_t);
+	int (*disable_hw_log)(void);
+	void (*new_value_notify)(struct lmh_sensor_ops *, long);
 };
 
 struct lmh_device_ops {
-	int (*get_available_levels) (struct lmh_device_ops *, int *);
-	int (*get_curr_level) (struct lmh_device_ops *, int *);
-	int (*set_level) (struct lmh_device_ops *, int);
+	int (*get_available_levels)(struct lmh_device_ops *, int *);
+	int (*get_curr_level)(struct lmh_device_ops *, int *);
+	int (*set_level)(struct lmh_device_ops *, int);
 };
 
 struct lmh_debug_ops {
