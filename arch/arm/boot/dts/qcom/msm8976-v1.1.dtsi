@@ -11,12 +11,20 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+
+/*
+ * NOTE:
+ * As a general rule, only version-specific property overrides should be placed
+ * inside this file. However, device definitions should be placed inside the
+ * msm8976.dtsi file.
+ */
+
 #include "msm8976.dtsi"
-#include "msm8976-mtp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM8976 MTP";
-	compatible = "qcom,msm8976-mtp", "qcom,msm8976", "qcom,mtp";
-	qcom,board-id= <8 0>;
+	model = "Qualcomm Technologies, Inc. MSM 8976v1.1";
+	compatible = "qcom,msm8976";
+	qcom,msm-id = <278 0x10001>;
 };
+
+/*Overwrite with V1.1 spec*/

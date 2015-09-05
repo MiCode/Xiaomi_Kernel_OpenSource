@@ -11,12 +11,10 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
-#include "msm8976.dtsi"
-#include "msm8976-mtp.dtsi"
+#include "msm8956-v1.1.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM8976 MTP";
-	compatible = "qcom,msm8976-mtp", "qcom,msm8976", "qcom,mtp";
-	qcom,board-id= <8 0>;
+	model = "Qualcomm Technologies, Inc. APQ 8056v1.1";
+	compatible = "qcom,apq8056";
+	qcom,msm-id = <274 0x10001>;
 };
