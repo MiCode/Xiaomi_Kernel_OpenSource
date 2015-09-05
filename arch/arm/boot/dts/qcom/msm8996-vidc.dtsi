@@ -47,6 +47,16 @@
 			< 489600 150000000 0xffffffff>, /* 1080p @ 60 */
 			< 244800  75000000 0xffffffff>; /* 1080p @ 30 */
 
+		/* Table lists <video_core_freq imem_ab> pairs.
+		 * imem_ab value determines the imem clock frequency for the
+		 * corresponding video core frequency.
+		 */
+		qcom,imem-ab-tbl =
+			<75000000  1500000>, /* imem @ svs2 freq 75 Mhz */
+			<150000000 1500000>, /* imem @ svs2 freq 75 Mhz */
+			<355333333 2500000>, /* imem @ svs freq 171 Mhz */
+			<533000000 6000000>; /* imem @ noimal freq 320 Mhz */
+
 		/* Regulators */
 		/* Note: don't change the order of the regulators below as they
 		 * correspond to the order in which the driver enables them.
@@ -95,7 +105,7 @@
 			label = "venus-vmem";
 			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0_OCMEM>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_VMEM>;
-			qcom,bus-governor = "msm-vidc-vmem";
+			qcom,bus-governor = "msm-vidc-vmem+";
 			qcom,bus-range-kbps = <1000 6776000>;
 		};
 
