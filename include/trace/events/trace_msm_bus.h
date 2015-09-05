@@ -204,6 +204,34 @@ TRACE_EVENT(bus_client_status,
 		(unsigned long long)__entry->ib,
 		__entry->active_only)
 );
+
+TRACE_EVENT(bus_agg_bw,
+
+	TP_PROTO(unsigned int node_id, int rpm_id, int ctx_set,
+		unsigned long long agg_ab),
+
+	TP_ARGS(node_id, rpm_id, ctx_set, agg_ab),
+
+	TP_STRUCT__entry(
+		__field(unsigned int, node_id)
+		__field(int, rpm_id)
+		__field(int, ctx_set)
+		__field(u64, agg_ab)
+	),
+
+	TP_fast_assign(
+		__entry->node_id = node_id;
+		__entry->rpm_id = rpm_id;
+		__entry->ctx_set = ctx_set;
+		__entry->agg_ab = agg_ab;
+	),
+
+	TP_printk("node_id:%u rpm_id:%d rpm_ctx:%d agg_ab:%llu",
+		__entry->node_id,
+		__entry->rpm_id,
+		__entry->ctx_set,
+		(unsigned long long)__entry->agg_ab)
+);
 #endif
 #define TRACE_INCLUDE_FILE trace_msm_bus
 #include <trace/define_trace.h>
