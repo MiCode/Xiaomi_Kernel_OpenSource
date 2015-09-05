@@ -17,6 +17,8 @@ Required properties:
   - interrupts: The MHI interrupt used when Host issues request to
 		process pending data to be read by the device.
   - interrupt-names: Should be mhi-device-inta for MHI interrupt.
+  - qcom,mhi-ifc-id: ID of HW interface via which MHI on device side
+		communicates with host side.
 
 Example:
 
@@ -29,4 +31,5 @@ Example:
 			    "ipa_uc_mbox_erdb";
 		interrupts = <0 42 0>;
 		interrupt-names = "mhi-device-inta";
+		qcom,mhi-ifc-id = <0x030017cb>;
 	};
