@@ -354,8 +354,7 @@ static void parse_header(void)
 		(data->options_firmware_id == (1 << OPTION_BUILD_INFO));
 
 	if (img->is_contain_build_info) {
-		img->firmware_id = extract_uint(data->firmware_id);
-		img->package_id = (data->pkg_id_rev_msb << 8) |
+		img->package_id = (data->pkg_id_msb << 8) |
 				data->pkg_id_lsb;
 		img->package_revision_id = (data->pkg_id_rev_msb << 8) |
 				data->pkg_id_rev_lsb;
@@ -1564,7 +1563,7 @@ static int fwu_start_reflash(void)
 		}
 
 		dev_dbg(&fwu->rmi4_data->i2c_client->dev,
-				"%s: Firmware image size = %zd\n",
+				"%s: Firmware image size = %zu\n",
 				__func__, fw_entry->size);
 
 		fwu->data_buffer = fw_entry->data;
@@ -1675,7 +1674,7 @@ static ssize_t fwu_sysfs_show_image(struct file *data_file,
 
 	if (count < fwu->config_size) {
 		dev_err(&rmi4_data->i2c_client->dev,
-				"%s: Not enough space (%zd bytes) in buffer\n",
+				"%s: Not enough space (%zu bytes) in buffer\n",
 				__func__, count);
 		return -EINVAL;
 	}
@@ -1908,11 +1907,19 @@ static ssize_t fwu_sysfs_config_area_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
 	int retval;
-	unsigned long config_area;
+	unsigned short config_area;
+	struct synaptics_rmi4_data *rmi4_data = fwu->rmi4_data;
 
-	retval = kstrtoul(buf, 10, &config_area);
+	retval = kstrtou16(buf, 10, &config_area);
 	if (retval)
 		return retval;
+
+	if (config_area < 0x00 || config_area > 0x03) {
+		dev_err(&rmi4_data->i2c_client->dev,
+			"%s: Incorrect value of config_area\n",
+			__func__);
+		return -EINVAL;
+	}
 
 	fwu->config_area = config_area;
 
@@ -2051,26 +2058,26 @@ static struct device_attribute attrs[] = {
 	__ATTR(fw_name, S_IRUGO | S_IWUSR | S_IWGRP,
 			fwu_sysfs_image_name_show,
 			fwu_sysfs_image_name_store),
-	__ATTR(force_update_fw, S_IRUGO | S_IWUSR | S_IWGRP,
-			synaptics_rmi4_show_error,
+	__ATTR(force_update_fw, S_IWUSR | S_IWGRP,
+			NULL,
 			fwu_sysfs_force_reflash_store),
-	__ATTR(update_fw, S_IRUGO | S_IWUSR | S_IWGRP,
-			synaptics_rmi4_show_error,
+	__ATTR(update_fw, S_IWUSR | S_IWGRP,
+			NULL,
 			fwu_sysfs_do_reflash_store),
-	__ATTR(writeconfig, S_IRUGO | S_IWUSR | S_IWGRP,
-			synaptics_rmi4_show_error,
+	__ATTR(writeconfig, S_IWUSR | S_IWGRP,
+			NULL,
 			fwu_sysfs_write_config_store),
-	__ATTR(writelockdown, S_IRUGO | S_IWUSR | S_IWGRP,
-			synaptics_rmi4_show_error,
+	__ATTR(writelockdown, S_IWUSR | S_IWGRP,
+			NULL,
 			fwu_sysfs_write_lockdown_store),
-	__ATTR(readconfig, S_IRUGO | S_IWUSR | S_IWGRP,
-			synaptics_rmi4_show_error,
+	__ATTR(readconfig, S_IWUSR | S_IWGRP,
+			NULL,
 			fwu_sysfs_read_config_store),
-	__ATTR(configarea, S_IRUGO | S_IWUSR | S_IWGRP,
-			synaptics_rmi4_show_error,
+	__ATTR(configarea, S_IWUSR | S_IWGRP,
+			NULL,
 			fwu_sysfs_config_area_store),
-	__ATTR(imagesize, S_IRUGO | S_IWUSR | S_IWGRP,
-			synaptics_rmi4_show_error,
+	__ATTR(imagesize, S_IWUSR | S_IWGRP,
+			NULL,
 			fwu_sysfs_image_size_store),
 	__ATTR(blocksize, S_IRUGO,
 			fwu_sysfs_block_size_show,
