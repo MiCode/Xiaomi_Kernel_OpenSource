@@ -17,6 +17,7 @@
 #include <linux/clk.h>
 #include <linux/list.h>
 #include <linux/regulator/consumer.h>
+#include <linux/platform_device.h>
 #include <soc/qcom/socinfo.h>
 
 extern pgprot_t     pgprot_kernel;
