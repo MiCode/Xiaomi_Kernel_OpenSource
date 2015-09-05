@@ -771,10 +771,16 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		if (!len)
 			continue;
 		if (map) {
-			uintptr_t offset = buf_page_start(buf)
-				- buf_page_start(map->va);
+			struct vm_area_struct *vma;
+			uintptr_t offset;
 			int num = buf_num_pages(buf, len);
 			int idx = list[i].pgidx;
+
+			VERIFY(err, NULL != (vma = find_vma(current->mm,
+								map->va)));
+			if (err)
+				goto bail;
+			offset = buf_page_start(buf) - vma->vm_start;
 			pages[idx].addr = map->phys + offset;
 			if (msm_audio_ion_is_smmu_available())
 				pages[idx].addr |= STREAM_ID;
