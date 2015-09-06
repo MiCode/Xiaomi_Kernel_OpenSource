@@ -1228,12 +1228,12 @@ static int _mmc_sd_suspend(struct mmc_host *host)
 	BUG_ON(!host);
 	BUG_ON(!host->card);
 
-	/*
-	 * Disable clock scaling before suspend and enable it after resume so
-	 * as to avoid clock scaling decisions kicking in during this window.
-	 */
-	if (mmc_can_scale_clk(host))
-		mmc_disable_clk_scaling(host);
+	err = mmc_suspend_clk_scaling(host);
+	if (err) {
+		pr_err("%s: %s: fail to suspend clock scaling (%d)\n",
+			mmc_hostname(host), __func__,  err);
+		return err;
+	}
 
 	mmc_claim_host(host);
 
@@ -1311,8 +1311,12 @@ static int _mmc_sd_resume(struct mmc_host *host)
 #endif
 	mmc_card_clr_suspended(host->card);
 
-	if (mmc_can_scale_clk(host))
-		mmc_init_clk_scaling(host);
+	err = mmc_resume_clk_scaling(host);
+	if (err) {
+		pr_err("%s: %s: fail to resume clock scaling (%d)\n",
+			mmc_hostname(host), __func__, err);
+		goto out;
+	}
 
 out:
 	mmc_release_host(host);
@@ -1357,8 +1361,6 @@ static int mmc_sd_runtime_resume(struct mmc_host *host)
 	if (err && err != -ENOMEDIUM)
 		pr_err("%s: error %d doing runtime resume\n",
 			mmc_hostname(host), err);
-
-	mmc_init_clk_scaling(host);
 
 	return 0;
 }
@@ -1459,6 +1461,13 @@ int mmc_attach_sd(struct mmc_host *host)
 		goto remove_card;
 
 	mmc_claim_host(host);
+
+	err = mmc_init_clk_scaling(host);
+	if (err) {
+		mmc_release_host(host);
+		goto remove_card;
+	}
+
 	return 0;
 
 remove_card:

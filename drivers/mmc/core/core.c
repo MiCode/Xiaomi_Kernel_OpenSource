@@ -258,25 +258,6 @@ out:
 EXPORT_SYMBOL(mmc_cmdq_clk_scaling_stop_busy);
 
 /**
- * mmc_disable_devfreq_clk_scaling() - Disable clock scaling
- * @host: pointer to mmc host structure
- *
- * Disables clock scaling aggresively
- */
-void mmc_disable_clk_scaling(struct mmc_host *host)
-{
-	if (!host) {
-		pr_err("bad host parameter\n");
-		WARN_ON(1);
-		return;
-	}
-	pr_debug("%s: disabling clock scaling\n", mmc_hostname(host));
-	mmc_exit_clk_scaling(host);
-
-}
-EXPORT_SYMBOL(mmc_disable_clk_scaling);
-
-/**
  * mmc_can_scale_clk() - Check clock scaling capability
  * @host: pointer to mmc host structure
  */
@@ -288,8 +269,7 @@ bool mmc_can_scale_clk(struct mmc_host *host)
 		return false;
 	}
 
-	return (host->caps2 & MMC_CAP2_CLK_SCALE) &&
-		(!(host->pm_flags & MMC_PM_IGNORE_PM_NOTIFY));
+	return host->caps2 & MMC_CAP2_CLK_SCALE;
 }
 EXPORT_SYMBOL(mmc_can_scale_clk);
 
@@ -737,6 +717,94 @@ int mmc_init_clk_scaling(struct mmc_host *host)
 EXPORT_SYMBOL(mmc_init_clk_scaling);
 
 /**
+ * mmc_suspend_clk_scaling() - suspend clock scaling
+ * @host: pointer to mmc host structure
+ *
+ * This API will suspend devfreq feature for the specific host.
+ * The statistics collected by mmc will be cleared.
+ * This function is intended to be called by the pm callbacks
+ * (e.g. runtime_suspend, suspend) of the mmc device
+ */
+int mmc_suspend_clk_scaling(struct mmc_host *host)
+{
+	int err;
+
+	if (!host) {
+		WARN(1, "bad host parameter\n");
+		return -EINVAL;
+	}
+
+	if (!mmc_can_scale_clk(host) || !host->clk_scaling.enable)
+		return 0;
+
+	if (!host->clk_scaling.devfreq) {
+		pr_err("%s: %s: no devfreq is assosiated with this device\n",
+			mmc_hostname(host), __func__);
+		return -EPERM;
+	}
+
+	atomic_inc(&host->clk_scaling.devfreq_abort);
+	err = devfreq_suspend_device(host->clk_scaling.devfreq);
+	if (err) {
+		pr_err("%s: %s: failed to suspend devfreq\n",
+			mmc_hostname(host), __func__);
+		return err;
+	}
+	host->clk_scaling.enable = false;
+
+	host->clk_scaling.total_busy_time_us = 0;
+
+	pr_debug("%s: devfreq was removed\n", mmc_hostname(host));
+
+	return 0;
+}
+EXPORT_SYMBOL(mmc_suspend_clk_scaling);
+
+/**
+ * mmc_resume_clk_scaling() - resume clock scaling
+ * @host: pointer to mmc host structure
+ *
+ * This API will resume devfreq feature for the specific host.
+ * This API is intended to be called by the pm callbacks
+ * (e.g. runtime_suspend, suspend) of the mmc device
+ */
+int mmc_resume_clk_scaling(struct mmc_host *host)
+{
+	int err = 0;
+
+	if (!host) {
+		WARN(1, "bad host parameter\n");
+		return -EINVAL;
+	}
+
+	if (!mmc_can_scale_clk(host))
+		return 0;
+
+	if (!host->clk_scaling.devfreq) {
+		pr_err("%s: %s: no devfreq is assosiated with this device\n",
+			mmc_hostname(host), __func__);
+		return -EPERM;
+	}
+
+	atomic_set(&host->clk_scaling.devfreq_abort, 0);
+	host->clk_scaling.curr_freq = host->ios.clock;
+	host->clk_scaling.clk_scaling_in_progress = false;
+	host->clk_scaling.need_freq_change = false;
+
+	err = devfreq_resume_device(host->clk_scaling.devfreq);
+	if (err) {
+		pr_err("%s: %s: failed to resume devfreq (%d)\n",
+			mmc_hostname(host), __func__, err);
+	} else {
+		host->clk_scaling.enable = true;
+		pr_debug("%s: devfreq resumed\n", mmc_hostname(host));
+	}
+
+	return err;
+}
+EXPORT_SYMBOL(mmc_resume_clk_scaling);
+
+/**
  * mmc_exit_devfreq_clk_scaling() - Disable clock scaling
  * @host: pointer to mmc host structure
  *
@@ -747,64 +815,41 @@ int mmc_exit_clk_scaling(struct mmc_host *host)
 	int err;
 
 	if (!host) {
-		pr_err("bad host parameter\n");
+		pr_err("%s: bad host parameter\n", __func__);
 		WARN_ON(1);
 		return -EINVAL;
 	}
 
-	if (!mmc_can_scale_clk(host) || !host->clk_scaling.enable)
+	if (!mmc_can_scale_clk(host))
 		return 0;
 
 	if (!host->clk_scaling.devfreq) {
-		pr_err("%s: no devfreq is assosiated with this device\n",
-			mmc_hostname(host));
+		pr_err("%s: %s: no devfreq is assosiated with this device\n",
+			mmc_hostname(host), __func__);
 		return -EPERM;
 	}
 
-	host->clk_scaling.enable = false;
-	atomic_inc(&host->clk_scaling.devfreq_abort);
-	err = devfreq_suspend_device(host->clk_scaling.devfreq);
+	err = mmc_suspend_clk_scaling(host);
 	if (err) {
-		pr_err("%s: failed to suspend devfreq\n", mmc_hostname(host));
+		pr_err("%s: %s: fail to suspend clock scaling (%d)\n",
+			mmc_hostname(host), __func__,  err);
 		return err;
 	}
-	pr_debug("%s: devfreq suspended\n", mmc_hostname(host));
 
 	err = devfreq_remove_device(host->clk_scaling.devfreq);
 	if (err) {
-		pr_err("%s: remove devfreq failed\n", mmc_hostname(host));
+		pr_err("%s: remove devfreq failed (%d)\n",
+			mmc_hostname(host), err);
 		return err;
 	}
 
 	host->clk_scaling.devfreq = NULL;
 	atomic_set(&host->clk_scaling.devfreq_abort, 1);
-	mmc_reset_clk_scale_stats(host);
 	pr_debug("%s: devfreq was removed\n", mmc_hostname(host));
 
 	return 0;
 }
 EXPORT_SYMBOL(mmc_exit_clk_scaling);
-
-
-/**
- * mmc_reset_clk_scale_stats() - reset clock scaling statistics
- * @host: pointer to mmc host structure
- */
-void mmc_reset_clk_scale_stats(struct mmc_host *host)
-{
-	if (!host) {
-		pr_err("bad host parameter\n");
-		WARN_ON(1);
-		return;
-	}
-	if (!host->clk_scaling.enable)
-		return;
-	spin_lock_bh(&host->clk_scaling.lock);
-	host->clk_scaling.total_busy_time_us = 0;
-	spin_unlock_bh(&host->clk_scaling.lock);
-
-}
-EXPORT_SYMBOL(mmc_reset_clk_scale_stats);
 
 static inline void mmc_complete_cmd(struct mmc_request *mrq)
 {
@@ -4359,7 +4404,6 @@ static int mmc_pm_notify(struct notifier_block *notify_block,
 		spin_unlock_irqrestore(&host->lock, flags);
 		cancel_delayed_work_sync(&host->detect);
 
-		mmc_disable_clk_scaling(host);
 		if (!host->bus_ops)
 			break;
 
