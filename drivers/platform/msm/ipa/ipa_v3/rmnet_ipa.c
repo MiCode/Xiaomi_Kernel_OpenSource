@@ -2041,7 +2041,7 @@ static int ipa3_wwan_remove(struct platform_device *pdev)
 		IPAWANERR("Error deleting resource %d, ret=%d\n",
 		IPA_RM_RESOURCE_WWAN_0_PROD, ret);
 	cancel_work_sync(&ipa3_tx_wakequeue_work);
-	cancel_delayed_work_sync(&ipa_tether_stats_poll_wakequeue_work);
+	cancel_delayed_work(&ipa_tether_stats_poll_wakequeue_work);
 	free_netdev(ipa3_netdevs[0]);
 	ipa3_netdevs[0] = NULL;
 	/* No need to remove wwan_ioctl during SSR */
@@ -2258,7 +2258,9 @@ static void tethering_stats_poll_queue(struct work_struct *work)
 {
 	rmnet_ipa_get_stats_and_update();
 
-	schedule_delayed_work(&ipa_tether_stats_poll_wakequeue_work,
+	/* Schedule again only if there's an active polling interval */
+	if (0 != ipa_rmnet_ctx.polling_interval)
+		schedule_delayed_work(&ipa_tether_stats_poll_wakequeue_work,
 			msecs_to_jiffies(ipa3_rmnet_ctx.polling_interval*1000));
 }
 
