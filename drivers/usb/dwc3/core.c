@@ -961,24 +961,30 @@ static int dwc3_probe(struct platform_device *pdev)
 	dwc->num_in_eps = 16;
 	dwc->num_out_eps = 16;
 
-	ret = dwc3_gadget_init(dwc);
-	if (ret) {
-		dev_err(dev, "failed to initialize gadget\n");
-		goto err_usb3phy_power;
+	if (dwc->dr_mode == USB_DR_MODE_OTG ||
+		dwc->dr_mode == USB_DR_MODE_PERIPHERAL) {
+		ret = dwc3_gadget_init(dwc);
+		if (ret) {
+			dev_err(dev, "failed to initialize gadget\n");
+			goto err_usb3phy_power;
+		}
 	}
 
-	ret = dwc3_host_init(dwc);
-	if (ret) {
-		dev_err(dev, "failed to initialize host\n");
-		goto err_gadget_exit;
+	if (dwc->dr_mode == USB_DR_MODE_OTG ||
+		dwc->dr_mode ==  USB_DR_MODE_HOST) {
+		ret = dwc3_host_init(dwc);
+		if (ret) {
+			dev_err(dev, "failed to initialize host\n");
+			goto err_gadget_exit;
+		}
 	}
-
 	dwc3_notify_event(dwc, DWC3_CONTROLLER_POST_INITIALIZATION_EVENT);
 
 	return 0;
 
 err_gadget_exit:
-	dwc3_gadget_exit(dwc);
+	if (dwc->dr_mode == USB_DR_MODE_OTG)
+		dwc3_gadget_exit(dwc);
 err_usb3phy_power:
 	phy_power_off(dwc->usb3_generic_phy);
 

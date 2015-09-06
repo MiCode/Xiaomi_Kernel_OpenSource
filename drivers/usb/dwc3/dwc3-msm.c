@@ -222,6 +222,7 @@ struct dwc3_msm {
 	int  pwr_event_irq;
 	atomic_t                in_p3;
 	unsigned int		lpm_to_suspend_delay;
+	bool			init;
 };
 
 #define USB_HSPHY_3P3_VOL_MIN		3050000 /* uV */
@@ -1575,10 +1576,8 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
  */
 static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
 {
-	static bool init;
-
 	/* Flush processing any pending events before handling new ones */
-	if (init)
+	if (mdwc->init)
 		flush_delayed_work(&mdwc->sm_work);
 
 	if (mdwc->id_state == DWC3_ID_FLOAT) {
@@ -1605,8 +1604,8 @@ static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
 		clear_bit(B_SUSPEND, &mdwc->inputs);
 	}
 
-	if (!init) {
-		init = true;
+	if (!mdwc->init) {
+		mdwc->init = true;
 		if (!work_busy(&mdwc->sm_work.work))
 			schedule_delayed_work(&mdwc->sm_work, 0);
 
@@ -1645,11 +1644,7 @@ static void dwc3_resume_work(struct work_struct *w)
 	}
 
 	dbg_event(0xFF, "RWrk", dwc->is_drd);
-	if (dwc->is_drd)
-		dwc3_ext_event_notify(mdwc);
-	else if (mdwc->in_host_mode)
-		/* host-only mode: resume xhci directly */
-		pm_runtime_resume(&dwc->xhci->dev);
+	dwc3_ext_event_notify(mdwc);
 }
 
 static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc)
@@ -2349,24 +2344,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	}
 
 	host_mode = of_usb_get_dr_mode(dwc3_node) == USB_DR_MODE_HOST;
-	if (host_mode && of_get_property(pdev->dev.of_node, "vbus_dwc3-supply",
-									NULL)) {
-		mdwc->vbus_reg = devm_regulator_get(&pdev->dev, "vbus_dwc3");
-		if (IS_ERR(mdwc->vbus_reg)) {
-			dev_err(&pdev->dev, "Failed to get vbus regulator\n");
-			ret = PTR_ERR(mdwc->vbus_reg);
-			of_node_put(dwc3_node);
-			goto err;
-		}
-		ret = regulator_enable(mdwc->vbus_reg);
-		if (ret) {
-			mdwc->vbus_reg = 0;
-			dev_err(&pdev->dev, "Failed to enable vbus_reg\n");
-			of_node_put(dwc3_node);
-			goto err;
-		}
-	}
-
 	/* usb_psy required only for vbus_notifications */
 	if (!host_mode) {
 		mdwc->usb_psy.name = "usb";
@@ -2442,18 +2419,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	}
 
 	dwc->vbus_active = of_property_read_bool(node, "qcom,vbus-present");
-
-	if (!dwc->is_drd) {
-		if (host_mode) {
-			dev_dbg(&pdev->dev, "DWC3 in host only mode\n");
-			mdwc->in_host_mode = true;
-			mdwc->hs_phy->flags |= PHY_HOST_MODE;
-			mdwc->ss_phy->flags |= PHY_HOST_MODE;
-		} else {
-			dev_dbg(&pdev->dev, "DWC3 in device-only mode\n");
-		}
-	}
-
 	mdwc->irq_to_affin = platform_get_irq(mdwc->dwc3, 0);
 	mdwc->dwc3_cpu_notifier.notifier_call = dwc3_cpu_notifier_cb;
 
@@ -2478,6 +2443,16 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		local_irq_restore(flags);
 		enable_irq_wake(mdwc->pmic_id_irq);
 	}
+
+	if (!dwc->is_drd && host_mode) {
+		dev_dbg(&pdev->dev, "DWC3 in host only mode\n");
+		mdwc->in_host_mode = true;
+		mdwc->hs_phy->flags |= PHY_HOST_MODE;
+		mdwc->ss_phy->flags |= PHY_HOST_MODE;
+		mdwc->id_state = DWC3_ID_GROUND;
+		dwc3_ext_event_notify(mdwc);
+	}
+
 	return 0;
 
 put_dwc3:
@@ -2895,8 +2870,22 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	switch (mdwc->otg_state) {
 	case OTG_STATE_UNDEFINED:
 		dwc3_init_sm(mdwc);
+		if (!test_bit(ID, &mdwc->inputs)) {
+			dbg_event(0xFF, "undef_host", 0);
+			atomic_set(&dwc->in_lpm, 0);
+			pm_runtime_set_active(mdwc->dev);
+			pm_runtime_enable(mdwc->dev);
+			pm_runtime_get_noresume(mdwc->dev);
+			dwc3_initialize(mdwc);
+			mdwc->otg_state = OTG_STATE_A_HOST;
+			dwc3_otg_start_host(mdwc, 1);
+			pm_runtime_put_noidle(mdwc->dev);
+			return;
+		}
+
 		if (test_bit(B_SESS_VLD, &mdwc->inputs)) {
 			dev_dbg(mdwc->dev, "b_sess_vld\n");
+			dbg_event(0xFF, "undef_b_sess_vld", 0);
 			switch (mdwc->chg_type) {
 			case DWC3_DCP_CHARGER:
 			case DWC3_PROPRIETARY_CHARGER:
@@ -2926,6 +2915,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		}
 
 		if (!test_bit(B_SESS_VLD, &mdwc->inputs)) {
+			dbg_event(0xFF, "undef_!b_sess_vld", 0);
 			atomic_set(&dwc->in_lpm, 0);
 			pm_runtime_set_active(mdwc->dev);
 			pm_runtime_enable(mdwc->dev);
