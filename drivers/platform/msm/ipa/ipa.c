@@ -2935,7 +2935,7 @@ void ipa_suspend_handler(enum ipa_irq_type interrupt,
 		if ((suspend_data & bmsk) && (ipa_ctx->ep[i].valid)) {
 			resource = ipa_get_rm_resource_from_ep(i);
 			res = ipa_rm_request_resource_with_timer(resource);
-			if (res == EPERM &&
+			if (res == -EPERM &&
 				IPA_CLIENT_IS_CONS(ipa_ctx->ep[i].client)) {
 				holb_cfg.en = 1;
 				res = ipa_cfg_ep_holb_by_client(
