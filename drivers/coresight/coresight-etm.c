@@ -350,7 +350,6 @@ static void etm_clr_pwrdwn(struct etm_drvdata *drvdata)
 
 static void etm_set_pwrup(struct etm_drvdata *drvdata)
 {
-	uint32_t cpmr;
 	uint32_t etmpdcr;
 
 	etmpdcr = etm_readl_mm(drvdata, ETMPDCR);
@@ -363,7 +362,6 @@ static void etm_set_pwrup(struct etm_drvdata *drvdata)
 
 static void etm_clr_pwrup(struct etm_drvdata *drvdata)
 {
-	uint32_t cpmr;
 	uint32_t etmpdcr;
 
 	/* ensure pending cp14 accesses complete before clearing pwrup */
