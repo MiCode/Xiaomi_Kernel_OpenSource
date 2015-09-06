@@ -918,7 +918,7 @@ int mmc_sd_setup_card(struct mmc_host *host, struct mmc_card *card,
 			if (!err) {
 				if (retries > 1) {
 					printk(KERN_WARNING
-					       "%s: recovered\n", 
+					       "%s: recovered\n",
 					       mmc_hostname(host));
 				}
 				break;
@@ -1192,12 +1192,12 @@ static int _mmc_sd_suspend(struct mmc_host *host)
 	BUG_ON(!host);
 	BUG_ON(!host->card);
 
-	/*
-	 * Disable clock scaling before suspend and enable it after resume so
-	 * as to avoid clock scaling decisions kicking in during this window.
-	 */
-	if (mmc_can_scale_clk(host))
-		mmc_disable_clk_scaling(host);
+	err = mmc_suspend_clk_scaling(host);
+	if (err) {
+		pr_err("%s: %s: fail to suspend clock scaling (%d)\n",
+			mmc_hostname(host), __func__,  err);
+		return err;
+	}
 
 	mmc_claim_host(host);
 
@@ -1275,8 +1275,12 @@ static int _mmc_sd_resume(struct mmc_host *host)
 #endif
 	mmc_card_clr_suspended(host->card);
 
-	if (mmc_can_scale_clk(host))
-		mmc_init_clk_scaling(host);
+	err = mmc_resume_clk_scaling(host);
+	if (err) {
+		pr_err("%s: %s: fail to resume clock scaling (%d)\n",
+			mmc_hostname(host), __func__, err);
+		goto out;
+	}
 
 out:
 	mmc_release_host(host);
@@ -1340,15 +1344,22 @@ static int mmc_sd_power_restore(struct mmc_host *host)
 {
 	int ret;
 
-	/* Disable clk scaling to avoid switching frequencies intermittently */
-	mmc_disable_clk_scaling(host);
+	/* Suspend clk scaling to avoid switching frequencies intermittently */
+	ret = mmc_suspend_clk_scaling(host);
+	if (ret) {
+		pr_err("%s: %s: fail to suspend clock scaling (%d)\n",
+			mmc_hostname(host), __func__, ret);
+		return ret;
+	}
 
 	mmc_claim_host(host);
 	ret = mmc_sd_init_card(host, host->card->ocr, host->card);
 	mmc_release_host(host);
 
-	if (mmc_can_scale_clk(host))
-		mmc_init_clk_scaling(host);
+	ret = mmc_resume_clk_scaling(host);
+	if (ret)
+		pr_err("%s: %s: fail to resume clock scaling (%d)\n",
+			mmc_hostname(host), __func__, ret);
 
 	return ret;
 }
@@ -1443,7 +1454,9 @@ int mmc_attach_sd(struct mmc_host *host)
 	if (err)
 		goto remove_card;
 
-	mmc_init_clk_scaling(host);
+	err = mmc_init_clk_scaling(host);
+	if (err)
+		goto remove_card;
 
 	return 0;
 
