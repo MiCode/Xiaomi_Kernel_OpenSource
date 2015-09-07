@@ -8366,15 +8366,12 @@ static int ufshcd_scale_gear(struct ufs_hba *hba, bool scale_up)
 		}
 	}
 
-	/* check if the power mode needs to be changed or not? */
-	if (memcmp(&new_pwr_info, &hba->pwr_info,
-		   sizeof(struct ufs_pa_layer_attr)))
-		ret = ufshcd_change_power_mode(hba, &new_pwr_info);
+	ret = ufshcd_change_power_mode(hba, &new_pwr_info);
 
 	if (ret)
 		dev_err(hba->dev, "%s: failed err %d, old gear: (tx %d rx %d), new gear: (tx %d rx %d)",
 			__func__, ret,
-			hba->pwr_info.gear_tx, hba->pwr_info.gear_tx,
+			hba->pwr_info.gear_tx, hba->pwr_info.gear_rx,
 			new_pwr_info.gear_tx, new_pwr_info.gear_rx);
 
 	return ret;
