@@ -283,8 +283,27 @@
 		dma-names = "tx", "rx";
 	};
 
-	clock_gcc: qcom,gcc {
-		compatible = "qcom,dummycc";
+	clock_gcc: qcom,gcc@1800000 {
+		compatible = "qcom,gcc-thorium";
+		reg = <0x1800000 0x80000>,
+			<0xb116000 0x00040>,
+			<0xb016000 0x00040>,
+			<0xb1d0000 0x00040>;
+		reg-names = "cc_base", "apcs_c0_base",
+			"apcs_c1_base", "apcs_cci_base";
+		vdd_dig-supply = <&pmthorium_s2_level>;
+		vdd_sr2_dig-supply = <&pmthorium_s2_level_ao>;
+		vdd_sr2_pll-supply = <&pmthorium_l7_ao>;
+		vdd_hf_dig-supply = <&pmthorium_s2_level_ao>;
+		vdd_hf_pll-supply = <&pmthorium_l7_ao>;
+		#clock-cells = <1>;
+	};
+
+	clock_debug: qcom,cc-debug@1874000 {
+		compatible = "qcom,cc-debug-thorium";
+		reg = <0x1874000 0x4>,
+		      <0xb11101c 0x8>;
+		reg-names = "cc_base", "meas";
 		#clock-cells = <1>;
 	};
 
