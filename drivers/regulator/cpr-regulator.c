@@ -36,6 +36,8 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/cpr-regulator.h>
+#include <linux/msm_thermal.h>
+#include <linux/msm_tsens.h>
 #include <soc/qcom/scm.h>
 
 /* Register Offsets for RB-CPR and Bit Definitions */
@@ -267,6 +269,7 @@ struct cpr_regulator {
 	int				corner;
 	int				ceiling_max;
 	struct dentry			*debugfs;
+	struct device			*dev;
 
 	/* eFuse parameters */
 	phys_addr_t	efuse_addr;
@@ -297,6 +300,14 @@ struct cpr_regulator {
 
 	/* mem-acc regulator */
 	struct regulator	*mem_acc_vreg;
+
+	/* thermal monitor */
+	int			tsens_id;
+	int			cpr_disable_temp_threshold;
+	int			cpr_enable_temp_threshold;
+	bool			cpr_disable_on_temperature;
+	bool			cpr_thermal_disable;
+	struct threshold_info	tsens_threshold_config;
 
 	/* CPR parameters */
 	u32		num_fuse_corners;
@@ -532,7 +543,8 @@ static u64 cpr_read_efuse_param(struct cpr_regulator *cpr_vreg, int row_start,
 
 static bool cpr_is_allowed(struct cpr_regulator *cpr_vreg)
 {
-	if (cpr_vreg->cpr_fuse_disable || !cpr_vreg->enable)
+	if (cpr_vreg->cpr_fuse_disable || !cpr_vreg->enable ||
+				cpr_vreg->cpr_thermal_disable)
 		return false;
 	else
 		return true;
@@ -4889,6 +4901,139 @@ static int cpr_vsens_init(struct platform_device *pdev,
 	return rc;
 }
 
+static int cpr_disable_on_temp(struct cpr_regulator *cpr_vreg, bool disable)
+{
+	int rc = 0;
+
+	mutex_lock(&cpr_vreg->cpr_mutex);
+
+	if (cpr_vreg->cpr_fuse_disable ||
+		(cpr_vreg->cpr_thermal_disable == disable))
+		goto out;
+
+	cpr_vreg->cpr_thermal_disable = disable;
+
+	if (cpr_vreg->enable && cpr_vreg->corner) {
+		if (disable) {
+			cpr_debug(cpr_vreg, "Disabling CPR - below temperature threshold [%d]\n",
+					cpr_vreg->cpr_disable_temp_threshold);
+			/* disable CPR and force open-loop */
+			cpr_ctl_disable(cpr_vreg);
+			rc = cpr_regulator_set_voltage(cpr_vreg->rdev,
+						cpr_vreg->corner, false);
+			if (rc < 0)
+				cpr_err(cpr_vreg, "Failed to set voltage, rc=%d\n",
+						rc);
+		} else {
+			/* enable CPR */
+			cpr_debug(cpr_vreg, "Enabling CPR - above temperature thresold [%d]\n",
+					cpr_vreg->cpr_enable_temp_threshold);
+			rc = cpr_regulator_set_voltage(cpr_vreg->rdev,
+						cpr_vreg->corner, true);
+			if (rc < 0)
+				cpr_err(cpr_vreg, "Failed to set voltage, rc=%d\n",
+						rc);
+		}
+	}
+out:
+	mutex_unlock(&cpr_vreg->cpr_mutex);
+	return rc;
+}
+
+static void tsens_threshold_notify(struct therm_threshold *tsens_cb_data)
+{
+	struct threshold_info *info = tsens_cb_data->parent;
+	struct cpr_regulator *cpr_vreg = container_of(info,
+			struct cpr_regulator, tsens_threshold_config);
+	int rc = 0;
+
+	cpr_debug(cpr_vreg, "Triggered tsens-notification trip_type=%d for thermal_zone_id=%d\n",
+		tsens_cb_data->trip_triggered, tsens_cb_data->sensor_id);
+
+	switch (tsens_cb_data->trip_triggered) {
+	case THERMAL_TRIP_CONFIGURABLE_HI:
+		rc = cpr_disable_on_temp(cpr_vreg, false);
+		if (rc < 0)
+			cpr_err(cpr_vreg, "Failed to enable CPR, rc=%d\n", rc);
+		break;
+	case THERMAL_TRIP_CONFIGURABLE_LOW:
+		rc = cpr_disable_on_temp(cpr_vreg, true);
+		if (rc < 0)
+			cpr_err(cpr_vreg, "Failed to disable CPR, rc=%d\n", rc);
+		break;
+	default:
+		cpr_debug(cpr_vreg, "trip-type %d not supported\n",
+				tsens_cb_data->trip_triggered);
+		break;
+	}
+
+	rc = sensor_mgr_set_threshold(tsens_cb_data->sensor_id,
+					tsens_cb_data->threshold);
+	if (rc < 0)
+		cpr_err(cpr_vreg, "Failed to set temp. threshold, rc=%d\n", rc);
+}
+
+static int cpr_check_tsens(struct cpr_regulator *cpr_vreg)
+{
+	int rc = 0;
+	struct tsens_device tsens_dev;
+	unsigned long temp = 0;
+	bool disable;
+
+	if (tsens_is_ready() > 0) {
+		tsens_dev.sensor_num = cpr_vreg->tsens_id;
+		rc = tsens_get_temp(&tsens_dev, &temp);
+		if (rc < 0) {
+			cpr_err(cpr_vreg, "Faled to read tsens, rc=%d\n", rc);
+			return rc;
+		}
+
+		disable = (int) temp <= cpr_vreg->cpr_disable_temp_threshold;
+		rc = cpr_disable_on_temp(cpr_vreg, disable);
+		if (rc)
+			cpr_err(cpr_vreg, "Failed to %s CPR, rc=%d\n",
+					disable ? "disable" : "enable", rc);
+	}
+
+	return rc;
+}
+
+static int cpr_thermal_init(struct cpr_regulator *cpr_vreg)
+{
+	int rc;
+	struct device_node *of_node = cpr_vreg->dev->of_node;
+
+	if (!of_find_property(of_node, "qcom,cpr-thermal-sensor-id", NULL))
+		return 0;
+
+	CPR_PROP_READ_U32(cpr_vreg, of_node, "cpr-thermal-sensor-id",
+			  &cpr_vreg->tsens_id, rc);
+	if (rc < 0)
+		return rc;
+
+	CPR_PROP_READ_U32(cpr_vreg, of_node, "cpr-disable-temp-threshold",
+			  &cpr_vreg->cpr_disable_temp_threshold, rc);
+	if (rc < 0)
+		return rc;
+
+	CPR_PROP_READ_U32(cpr_vreg, of_node, "cpr-enable-temp-threshold",
+			  &cpr_vreg->cpr_enable_temp_threshold, rc);
+	if (rc < 0)
+		return rc;
+
+	if (cpr_vreg->cpr_disable_temp_threshold >=
+				cpr_vreg->cpr_enable_temp_threshold) {
+		cpr_err(cpr_vreg, "Invalid temperature threshold cpr_disable_temp[%d] >= cpr_enable_temp[%d]\n",
+				cpr_vreg->cpr_disable_temp_threshold,
+				cpr_vreg->cpr_enable_temp_threshold);
+		return -EINVAL;
+	}
+
+	cpr_vreg->cpr_disable_on_temperature = true;
+
+	return 0;
+}
+
 static int cpr_init_cpr(struct platform_device *pdev,
 			       struct cpr_regulator *cpr_vreg)
 {
@@ -5636,6 +5781,7 @@ static int cpr_regulator_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	cpr_vreg->dev = &pdev->dev;
 	cpr_vreg->rdesc.name = init_data->constraints.name;
 	if (cpr_vreg->rdesc.name == NULL) {
 		dev_err(dev, "regulator-name missing\n");
@@ -5732,6 +5878,12 @@ static int cpr_regulator_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	rc = cpr_thermal_init(cpr_vreg);
+	if (rc) {
+		cpr_err(cpr_vreg, "Thermal intialization failed rc=%d\n", rc);
+		return rc;
+	}
+
 	/* Load per-online CPU adjustment data */
 	rc = cpr_init_per_cpu_adjustments(cpr_vreg, &pdev->dev);
 	if (rc) {
@@ -5781,6 +5933,17 @@ static int cpr_regulator_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, cpr_vreg);
 	cpr_debugfs_init(cpr_vreg);
 
+	if (cpr_vreg->cpr_disable_on_temperature) {
+		rc = cpr_check_tsens(cpr_vreg);
+		if (rc < 0) {
+			cpr_err(cpr_vreg, "Unable to config CPR on tsens, rc=%d\n",
+									rc);
+			cpr_apc_exit(cpr_vreg);
+			cpr_debugfs_remove(cpr_vreg);
+			return rc;
+		}
+	}
+
 	mutex_lock(&cpr_regulator_list_mutex);
 	list_add(&cpr_vreg->list, &cpr_regulator_list);
 	mutex_unlock(&cpr_regulator_list_mutex);
@@ -5811,6 +5974,10 @@ static int cpr_regulator_remove(struct platform_device *pdev)
 		if (cpr_vreg->cpu_notifier.notifier_call)
 			unregister_hotcpu_notifier(&cpr_vreg->cpu_notifier);
 
+		if (cpr_vreg->cpr_disable_on_temperature)
+			sensor_mgr_remove_threshold(
+				&cpr_vreg->tsens_threshold_config);
+
 		cpr_apc_exit(cpr_vreg);
 		cpr_debugfs_remove(cpr_vreg);
 		regulator_unregister(cpr_vreg->rdev);
@@ -5835,6 +6002,56 @@ static struct platform_driver cpr_regulator_driver = {
 	.suspend	= cpr_regulator_suspend,
 	.resume		= cpr_regulator_resume,
 };
+
+static int initialize_tsens_monitor(struct cpr_regulator *cpr_vreg)
+{
+	int rc;
+
+	rc = cpr_check_tsens(cpr_vreg);
+	if (rc < 0) {
+		cpr_err(cpr_vreg, "Unable to check tsens, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = sensor_mgr_init_threshold(&cpr_vreg->tsens_threshold_config,
+				cpr_vreg->tsens_id,
+				cpr_vreg->cpr_enable_temp_threshold, /* high */
+				cpr_vreg->cpr_disable_temp_threshold, /* low */
+				tsens_threshold_notify);
+	if (rc < 0) {
+		cpr_err(cpr_vreg, "Failed to init tsens monitor, rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = sensor_mgr_convert_id_and_set_threshold(
+			&cpr_vreg->tsens_threshold_config);
+	if (rc < 0)
+		cpr_err(cpr_vreg, "Failed to set tsens threshold, rc=%d\n",
+					rc);
+
+	return rc;
+}
+
+int __init cpr_regulator_late_init(void)
+{
+	int rc;
+	struct cpr_regulator *cpr_vreg;
+
+	mutex_lock(&cpr_regulator_list_mutex);
+
+	list_for_each_entry(cpr_vreg, &cpr_regulator_list, list) {
+		if (cpr_vreg->cpr_disable_on_temperature) {
+			rc = initialize_tsens_monitor(cpr_vreg);
+			if (rc)
+				cpr_err(cpr_vreg, "Failed to initialize temperature monitor, rc=%d\n",
+					rc);
+		}
+	}
+
+	mutex_unlock(&cpr_regulator_list_mutex);
+	return 0;
+}
+late_initcall(cpr_regulator_late_init);
 
 /**
  * cpr_regulator_init() - register cpr-regulator driver

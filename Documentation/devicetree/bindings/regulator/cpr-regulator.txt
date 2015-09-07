@@ -708,6 +708,17 @@ Optional properties:
 				The number of quadruples should be equal to the number of values specified in
 				the qcom,cpr-aging-sensor-id property. This property is required if
 				the qcom,cpr-aging-sensor-id property has been specified.
+- qcom,cpr-thermal-sensor-id:	TSENS hardware sensor-id of the sensor which
+				needs to be monitored.
+- qcom,cpr-disable-temp-threshold:	The TSENS temperature threshold in degrees Celsius at which CPR
+				closed-loop is disabled. CPR closed-loop will stay disabled as long as the
+				temperature is below this threshold. This property is required
+				only if 'qcom,cpr-thermal-sensor-id' is present.
+- qcom,cpr-enable-temp-threshold:	The TSENS temperature threshold in degrees Celsius at which CPR
+				closed-loop is enabled. CPR closed-loop will stay enabled above this
+				temperature threshold. This property is required only if
+				'qcom,cpr-thermal-sensor-id' is present.
+
 Example:
 	apc_vreg_corner: regulator@f9018000 {
 		status = "okay";
@@ -957,4 +968,8 @@ Example:
 		qcom,cpr-fuse-aging-init-quot-diff =
 				<101 0 8 0>,
 				<101 8 8 0>;
+
+		qcom,cpr-thermal-sensor-id = <9>;
+		qcom,cpr-disable-temp-threshold = <5>;
+		qcom,cpr-enable-temp-threshold = <10>;
 	};
