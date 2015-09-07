@@ -24,6 +24,8 @@
 #include "include/msm_csid_3_1_hwreg.h"
 #include "include/msm_csid_3_2_hwreg.h"
 #include "include/msm_csid_3_5_hwreg.h"
+#include "include/msm_csid_3_4_1_hwreg.h"
+#include "include/msm_csid_3_6_0_hwreg.h"
 #include "cam_hw_ops.h"
 
 #define V4L2_IDENT_CSID                            50002
@@ -36,6 +38,8 @@
 #define CSID_VERSION_V32                      0x30020000
 #define CSID_VERSION_V33                      0x30030000
 #define CSID_VERSION_V34                      0x30040000
+#define CSID_VERSION_V34_1                    0x30040001
+#define CSID_VERSION_V36                      0x30060000
 #define CSID_VERSION_V37                      0x30070000
 #define CSID_VERSION_V35                      0x30050000
 #define CSID_VERSION_V40                      0x40000000
@@ -130,20 +134,29 @@ static void msm_csid_set_debug_reg(struct csid_device *csid_dev,
 {
 	uint32_t val = 0;
 
-	if (csid_dev->csid_3p_enabled == 1) {
-		val = ((1 << csid_params->lane_cnt) - 1) <<
-			csid_dev->ctrl_reg->
-				csid_reg.csid_err_lane_overflow_offset_3p;
+	if ((csid_dev->hw_dts_version == CSID_VERSION_V34_1) ||
+		(csid_dev->hw_dts_version == CSID_VERSION_V36)) {
+			val = ((1 << csid_params->lane_cnt) - 1) << 20;
+			msm_camera_io_w(0x7f010800 | val, csid_dev->base +
+			csid_dev->ctrl_reg->csid_reg.csid_irq_mask_addr);
+			msm_camera_io_w(0x7f010800 | val, csid_dev->base +
+			csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr);
 	} else {
-		val = ((1 << csid_params->lane_cnt) - 1) <<
-			csid_dev->ctrl_reg->
+		if (csid_dev->csid_3p_enabled == 1) {
+			val = ((1 << csid_params->lane_cnt) - 1) <<
+				csid_dev->ctrl_reg->
+				csid_reg.csid_err_lane_overflow_offset_3p;
+		} else {
+			val = ((1 << csid_params->lane_cnt) - 1) <<
+				csid_dev->ctrl_reg->
 				csid_reg.csid_err_lane_overflow_offset_2p;
-	}
-	val |= csid_dev->ctrl_reg->csid_reg.csid_irq_mask_val;
-	msm_camera_io_w(val, csid_dev->base +
+		}
+		val |= csid_dev->ctrl_reg->csid_reg.csid_irq_mask_val;
+		msm_camera_io_w(val, csid_dev->base +
 		csid_dev->ctrl_reg->csid_reg.csid_irq_mask_addr);
-	msm_camera_io_w(val, csid_dev->base +
+		msm_camera_io_w(val, csid_dev->base +
 		csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr);
+	}
 }
 #elif(SHORT_PKT_CAPTURE)
 static void msm_csid_set_debug_reg(struct csid_device *csid_dev,
@@ -151,21 +164,30 @@ static void msm_csid_set_debug_reg(struct csid_device *csid_dev,
 {
 	uint32_t val = 0;
 
-	if (csid_dev->csid_3p_enabled == 1) {
-		val = ((1 << csid_params->lane_cnt) - 1) <<
-			csid_dev->ctrl_reg->
-				csid_reg.csid_err_lane_overflow_offset_3p;
+	if ((csid_dev->hw_dts_version == CSID_VERSION_V34_1) ||
+		(csid_dev->hw_dts_version == CSID_VERSION_V36)) {
+			val = ((1 << csid_params->lane_cnt) - 1) << 20;
+			msm_camera_io_w(0x7f010a00 | val, csid_dev->base +
+			csid_dev->ctrl_reg->csid_reg.csid_irq_mask_addr);
+			msm_camera_io_w(0x7f010a00 | val, csid_dev->base +
+			csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr);
 	} else {
-		val = ((1 << csid_params->lane_cnt) - 1) <<
-			csid_dev->ctrl_reg->
+		if (csid_dev->csid_3p_enabled == 1) {
+			val = ((1 << csid_params->lane_cnt) - 1) <<
+				csid_dev->ctrl_reg->
+				csid_reg.csid_err_lane_overflow_offset_3p;
+		} else {
+			val = ((1 << csid_params->lane_cnt) - 1) <<
+				csid_dev->ctrl_reg->
 				csid_reg.csid_err_lane_overflow_offset_2p;
-	}
-	val |= csid_dev->ctrl_reg->csid_reg.csid_irq_mask_val;
-	val |= SHORT_PKT_OFFSET;
-	msm_camera_io_w(val, csid_dev->base +
+		}
+		val |= csid_dev->ctrl_reg->csid_reg.csid_irq_mask_val;
+		val |= SHORT_PKT_OFFSET;
+		msm_camera_io_w(val, csid_dev->base +
 		csid_dev->ctrl_reg->csid_reg.csid_irq_mask_addr);
-	msm_camera_io_w(val, csid_dev->base +
+		msm_camera_io_w(val, csid_dev->base +
 		csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr);
+	}
 }
 #else
 static void msm_csid_set_debug_reg(struct csid_device *csid_dev,
@@ -1218,6 +1240,18 @@ static int csid_probe(struct platform_device *pdev)
 		new_csid_dev->ctrl_reg->csid_lane_assign =
 			csid_lane_assign_v3_2;
 		new_csid_dev->hw_dts_version = CSID_VERSION_V32;
+	} else if (of_device_is_compatible(new_csid_dev->pdev->dev.of_node,
+		"qcom,csid-v3.4.1")) {
+		new_csid_dev->ctrl_reg->csid_reg = csid_v3_4_1;
+		new_csid_dev->hw_dts_version = CSID_VERSION_V34_1;
+		new_csid_dev->ctrl_reg->csid_lane_assign =
+			csid_lane_assign_v3_4_1;
+	} else if (of_device_is_compatible(new_csid_dev->pdev->dev.of_node,
+		"qcom,csid-v3.6.0")) {
+		new_csid_dev->ctrl_reg->csid_reg = csid_v3_6_0;
+		new_csid_dev->hw_dts_version = CSID_VERSION_V36;
+				new_csid_dev->ctrl_reg->csid_lane_assign =
+			csid_lane_assign_v3_6_0;
 	} else if (of_device_is_compatible(new_csid_dev->pdev->dev.of_node,
 		"qcom,csid-v3.5")) {
 		new_csid_dev->ctrl_reg->csid_reg = csid_v3_5;
