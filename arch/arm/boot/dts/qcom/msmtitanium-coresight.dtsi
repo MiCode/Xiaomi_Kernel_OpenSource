@@ -410,4 +410,25 @@
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
+
+	dbgui: dbgui@6108000 {
+		compatible = "qcom,coresight-dbgui";
+		reg = <0x6108000 0x1000>;
+		reg-names = "dbgui-base";
+
+		coresight-id = <26>;
+		coresight-name = "coresight-dbgui";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_center>;
+		coresight-child-ports = <2>;
+
+		qcom,dbgui-addr-offset = <0x30>;
+		qcom,dbgui-data-offset = <0x130>;
+		qcom,dbgui-size = <64>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
 };
