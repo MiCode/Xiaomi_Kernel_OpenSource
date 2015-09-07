@@ -408,6 +408,8 @@ struct msm_vfe_src_info {
 	uint32_t input_format;/*V4L2 pix format with bayer pattern*/
 	uint32_t last_updt_frm_id;
 	uint32_t sof_counter_step;
+	uint64_t stats_ab;
+	uint64_t stats_ib;
 	enum msm_vfe_dual_hw_type dual_hw_type;
 	struct msm_vfe_dual_hw_ms_info dual_hw_ms_info;
 };
