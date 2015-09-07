@@ -164,7 +164,7 @@ enum {
 };
 
 struct mdss_intf_recovery {
-	void (*fxn)(void *ctx, int event);
+	int (*fxn)(void *ctx, int event);
 	void *data;
 };
 
