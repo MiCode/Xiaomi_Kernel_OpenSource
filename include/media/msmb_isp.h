@@ -716,6 +716,10 @@ struct msm_isp_event_data32 {
 };
 #endif
 
+struct msm_isp_set_stats_ab {
+	uint64_t stats_ab;
+};
+
 #define V4L2_PIX_FMT_QBGGR8  v4l2_fourcc('Q', 'B', 'G', '8')
 #define V4L2_PIX_FMT_QGBRG8  v4l2_fourcc('Q', 'G', 'B', '8')
 #define V4L2_PIX_FMT_QGRBG8  v4l2_fourcc('Q', 'G', 'R', '8')
@@ -815,5 +819,7 @@ struct msm_isp_event_data32 {
 #define VIDIOC_MSM_ISP_SET_DUAL_HW_MASTER_SLAVE \
 	_IOWR('V', BASE_VIDIOC_PRIVATE+22, struct msm_isp_set_dual_hw_ms_cmd)
 
+#define VIDIOC_MSM_ISP_SET_STATS_BANDWIDTH \
+	_IOWR('V', BASE_VIDIOC_PRIVATE+23, struct msm_isp_set_stats_ab)
 
 #endif /* __MSMB_ISP__ */
