@@ -266,3 +266,11 @@
 	qcom,chg-led-support;
 	qcom,chg-led-sw-controls;
 };
+
+&pm8950_cajon_dig {
+	status = "disabled";
+};
+
+&pm8950_cajon_analog {
+	status = "disabled";
+};
