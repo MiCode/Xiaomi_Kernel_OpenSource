@@ -49,6 +49,9 @@ module_param(disable_restart_work, uint, S_IRUGO | S_IWUSR);
 static int enable_debug;
 module_param(enable_debug, int, S_IRUGO | S_IWUSR);
 
+#define SHUTDOWN_ACK_MAX_LOOPS	50
+#define SHUTDOWN_ACK_DELAY	100
+
 /**
  * enum p_subsys_state - state of a subsystem (private)
  * @SUBSYS_NORMAL: subsystem is operating normally
@@ -550,6 +553,24 @@ static void disable_all_irqs(struct subsys_device *dev)
 	if (dev->desc->stop_ack_irq && dev->desc->stop_ack_handler)
 		disable_irq(dev->desc->stop_ack_irq);
 }
+
+int wait_for_shutdown_ack(struct subsys_desc *desc)
+{
+	int count;
+
+	if (!desc->shutdown_ack_gpio)
+		return 0;
+
+	for (count = SHUTDOWN_ACK_MAX_LOOPS; count > 0; count--) {
+		if (gpio_get_value(desc->shutdown_ack_gpio))
+			return count;
+		msleep(SHUTDOWN_ACK_DELAY);
+	}
+
+	pr_err("[%s]: Timed out waiting for shutdown ack\n", desc->name);
+	return -ETIMEDOUT;
+}
+EXPORT_SYMBOL(wait_for_shutdown_ack);
 
 static int wait_for_err_ready(struct subsys_device *subsys)
 {
@@ -1441,6 +1462,11 @@ static int subsys_parse_devicetree(struct subsys_desc *desc)
 
 	ret = __get_gpio(desc, "qcom,gpio-ramdump-disable",
 			&desc->ramdump_disable_gpio);
+	if (ret && ret != -ENOENT)
+		return ret;
+
+	ret = __get_gpio(desc, "qcom,gpio-shutdown-ack",
+			&desc->shutdown_ack_gpio);
 	if (ret && ret != -ENOENT)
 		return ret;
 
