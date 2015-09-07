@@ -107,16 +107,6 @@ static struct ufsdbg_err_scenario err_scen_arr[] = {
 		ARRAY_SIZE(err_inject_intr_err_codes),
 	},
 	{
-		"ERR_INJECT_HIBERN8_ENTER",
-		NULL,
-		0,
-	},
-	{
-		"ERR_INJECT_HIBERN8_EXIT",
-		NULL,
-		0,
-	},
-	{
 		"ERR_INJECT_PWR_CHANGE",
 		err_inject_pwr_change_err_codes,
 		ARRAY_SIZE(err_inject_pwr_change_err_codes),
@@ -287,8 +277,6 @@ void ufsdbg_error_inject_dispatcher(struct ufs_hba *hba,
 
 		ufsdbg_intr_fail_request(hba, (u32 *)&opt_ret);
 		/* fall through */
-	case ERR_INJECT_HIBERN8_ENTER:
-	case ERR_INJECT_HIBERN8_EXIT:
 	case ERR_INJECT_PWR_CHANGE:
 	case ERR_INJECT_UIC:
 	case ERR_INJECT_DME_ATTR:
