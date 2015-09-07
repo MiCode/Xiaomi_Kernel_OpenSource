@@ -2844,8 +2844,11 @@ static inline void ufshcd_init_query(struct ufs_hba *hba,
 		struct ufs_query_req **request, struct ufs_query_res **response,
 		enum query_opcode opcode, u8 idn, u8 index, u8 selector)
 {
+	int idn_t = (int)idn;
+
 	ufsdbg_error_inject_dispatcher(hba,
-		ERR_INJECT_QUERY, idn, (int *)&idn);
+		ERR_INJECT_QUERY, idn_t, (int *)&idn_t);
+	idn = idn_t;
 
 	*request = &hba->dev_cmd.query.request;
 	*response = &hba->dev_cmd.query.response;
@@ -2938,7 +2941,7 @@ int ufshcd_query_flag(struct ufs_hba *hba, enum query_opcode opcode,
 	if (err) {
 		dev_err(hba->dev,
 			"%s: Sending flag query for idn %d failed, err = %d\n",
-			__func__, idn, err);
+			__func__, request->upiu_req.idn, err);
 		goto out_unlock;
 	}
 
@@ -3004,7 +3007,8 @@ int ufshcd_query_attr(struct ufs_hba *hba, enum query_opcode opcode,
 
 	if (err) {
 		dev_err(hba->dev, "%s: opcode 0x%.2x for idn %d failed, index %d, err = %d\n",
-				__func__, opcode, idn, index, err);
+				__func__, opcode,
+				request->upiu_req.idn, index, err);
 		goto out_unlock;
 	}
 
@@ -3105,7 +3109,8 @@ static int __ufshcd_query_descriptor(struct ufs_hba *hba,
 
 	if (err) {
 		dev_err(hba->dev, "%s: opcode 0x%.2x for idn %d failed, index %d, err = %d\n",
-				__func__, opcode, idn, index, err);
+				__func__, opcode,
+				request->upiu_req.idn, index, err);
 		goto out_unlock;
 	}
 
@@ -4046,7 +4051,7 @@ static int ufshcd_get_max_pwr_mode(struct ufs_hba *hba)
 int ufshcd_change_power_mode(struct ufs_hba *hba,
 			     struct ufs_pa_layer_attr *pwr_mode)
 {
-	int ret;
+	int ret = 0;
 
 	/* if already configured to the requested pwr_mode */
 	if (pwr_mode->gear_rx == hba->pwr_info.gear_rx &&
@@ -4059,6 +4064,10 @@ int ufshcd_change_power_mode(struct ufs_hba *hba,
 		dev_dbg(hba->dev, "%s: power already configured\n", __func__);
 		return 0;
 	}
+
+	ufsdbg_error_inject_dispatcher(hba, ERR_INJECT_PWR_CHANGE, 0, &ret);
+	if (ret)
+		return ret;
 
 	/*
 	 * Configure attributes for power mode change with below.
@@ -4119,9 +4128,6 @@ int ufshcd_change_power_mode(struct ufs_hba *hba,
 		memcpy(&hba->pwr_info, pwr_mode,
 			sizeof(struct ufs_pa_layer_attr));
 	}
-
-	ufsdbg_error_inject_dispatcher(hba,
-		ERR_INJECT_PWR_CHANGE, 0, &ret);
 
 	return ret;
 }
@@ -8369,10 +8375,11 @@ static int ufshcd_scale_gear(struct ufs_hba *hba, bool scale_up)
 	ret = ufshcd_change_power_mode(hba, &new_pwr_info);
 
 	if (ret)
-		dev_err(hba->dev, "%s: failed err %d, old gear: (tx %d rx %d), new gear: (tx %d rx %d)",
+		dev_err(hba->dev, "%s: failed err %d, old gear: (tx %d rx %d), new gear: (tx %d rx %d), scale_up = %d",
 			__func__, ret,
 			hba->pwr_info.gear_tx, hba->pwr_info.gear_rx,
-			new_pwr_info.gear_tx, new_pwr_info.gear_rx);
+			new_pwr_info.gear_tx, new_pwr_info.gear_rx,
+			scale_up);
 
 	return ret;
 }
