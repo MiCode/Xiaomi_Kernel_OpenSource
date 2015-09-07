@@ -502,7 +502,7 @@ int msm_register_domain(struct msm_iova_layout *layout)
 
 	bus = layout->is_secure == MSM_IOMMU_DOMAIN_SECURE ?
 					&msm_iommu_sec_bus_type :
-					&platform_bus_type;
+					msm_iommu_non_sec_bus_type;
 
 	data->pools = pools;
 	data->npools = layout->npartitions;
