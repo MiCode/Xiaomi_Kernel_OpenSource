@@ -192,3 +192,11 @@
 &slim_msm{
 	status = "disabled";
 };
+
+&pm8950_cajon_dig {
+	status = "ok";
+};
+
+&pm8950_cajon_analog {
+	status = "ok";
+};
