@@ -546,6 +546,7 @@ static int pp_ad_calc_bl(struct msm_fb_data_type *mfd, int bl_in, int *bl_out,
 		bool *bl_out_notify);
 static int pp_ad_work_setup(struct msm_fb_data_type *mfd);
 static int pp_ad_shutdown_cleanup(struct msm_fb_data_type *mfd);
+static bool pp_ad_is_valid_display(struct msm_fb_data_type *mfd);
 static int pp_num_to_side(struct mdss_mdp_ctl *ctl, u32 num);
 static inline bool pp_sts_is_enabled(u32 sts, int side);
 static inline void pp_sts_set_split_bits(u32 *sts, u32 bits);
@@ -2067,10 +2068,7 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 		if (mixer_id[i] >= mdata->nad_cfgs)
 			valid_mixers = false;
 	}
-	valid_ad_panel = (ctl->mfd->panel_info->type != DTV_PANEL) &&
-		(((mdata->mdp_rev < MDSS_MDP_HW_REV_103) &&
-			(ctl->mfd->panel_info->type == WRITEBACK_PANEL)) ||
-		(ctl->mfd->panel_info->type != WRITEBACK_PANEL));
+	valid_ad_panel = pp_ad_is_valid_display(ctl->mfd);
 
 	if (valid_mixers && (mixer_cnt <= mdata->nmax_concurrent_ad_hw) &&
 		valid_ad_panel) {
@@ -2147,6 +2145,11 @@ int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 dspp_num)
 		pr_err("invalid input: ctl = 0x%p, mdata = 0x%p, mfd = 0x%p\n",
 			ctl, (!ctl) ? NULL : ctl->mdata,
 			(!ctl) ? NULL : ctl->mfd);
+		return -EPERM;
+	}
+
+	if (!pp_ad_is_valid_display(ctl->mfd)) {
+		pr_info("skipping postproc for wb or hdmi panel\n");
 		return -EPERM;
 	}
 
@@ -2354,7 +2357,7 @@ int mdss_mdp_pp_overlay_init(struct msm_fb_data_type *mfd)
 		return -EPERM;
 	}
 
-	if (mdata->nad_cfgs) {
+	if ((mdata->nad_cfgs) && pp_ad_is_valid_display(mfd)) {
 		mfd->mdp.ad_calc_bl = pp_ad_calc_bl;
 		mfd->mdp.ad_work_setup = pp_ad_work_setup;
 		mfd->mdp.ad_shutdown_cleanup = pp_ad_shutdown_cleanup;
@@ -2506,6 +2509,27 @@ static int pp_ad_shutdown_cleanup(struct msm_fb_data_type *mfd)
 	}
 
 	return 0;
+}
+
+static bool pp_ad_is_valid_display(struct msm_fb_data_type *mfd)
+{
+	struct mdss_panel_info *pinfo = mfd->panel_info;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if ((!pinfo) || (!mdata))
+		return false;
+
+	if ((mdata->mdp_rev < MDSS_MDP_HW_REV_103) &&
+			(pinfo->type == WRITEBACK_PANEL))
+		return true;
+
+	if (pinfo->is_dba_panel)
+		return false;
+
+	if (!pinfo->is_pluggable && (pinfo->type != WRITEBACK_PANEL))
+		return true;
+
+	return false;
 }
 
 static int pp_get_dspp_num(u32 disp_num, u32 *dspp_num)
@@ -4710,8 +4734,8 @@ static int mdss_ad_init_checks(struct msm_fb_data_type *mfd)
 		return -ENODEV;
 	}
 
-	if (ad_mfd->panel_info->type == DTV_PANEL) {
-		pr_debug("AD not supported on external display\n");
+	if (!pp_ad_is_valid_display(ad_mfd)) {
+		pr_debug("AD not supported on wb or hdmi panel\n");
 		return ret;
 	}
 
@@ -5654,54 +5678,23 @@ End:
 static int is_valid_calib_dspp_addr(char __iomem *ptr)
 {
 	char __iomem *base;
+	char __iomem *dspp0_base;
+	char __iomem *wb0_base;
 	int ret = 0, counter = 0;
-	struct mdss_mdp_mixer *mixer;
+	struct mdss_mdp_ctl *ctl;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
-	for (counter = 0; counter < mdss_res->nmixers_intf; counter++) {
-		mixer = mdss_res->mixer_intf + counter;
-		base = mixer->dspp_base;
+	dspp0_base = mdata->mixer_intf->dspp_base;
+	wb0_base = mdata->ctl_off->wb_base;
 
-		if (ptr == base) {
-			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
-			break;
-		/* PA range */
-		} else if ((ptr >= base + MDSS_MDP_REG_DSPP_PA_BASE) &&
-				(ptr <= base + MDSS_MDP_REG_DSPP_PA_BASE +
-						MDSS_MDP_PA_SIZE)) {
-			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
-			break;
-		/* PCC range */
-		} else if ((ptr >= base + MDSS_MDP_REG_DSPP_PCC_BASE) &&
-				(ptr <= base + MDSS_MDP_REG_DSPP_PCC_BASE +
-						MDSS_MDP_PCC_SIZE)) {
-			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
-			break;
-		/* Gamut range */
-		} else if ((ptr >= base + MDSS_MDP_REG_DSPP_GAMUT_BASE) &&
-				(ptr <= base + MDSS_MDP_REG_DSPP_GAMUT_BASE +
-						MDSS_MDP_GAMUT_SIZE)) {
-			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
-			break;
-		/* GC range */
-		} else if ((ptr >= base + MDSS_MDP_REG_DSPP_GC_BASE) &&
-				(ptr <= base + MDSS_MDP_REG_DSPP_GC_BASE +
-						MDSS_MDP_GC_SIZE)) {
-			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
-			break;
-		/* Dither enable/disable */
-		} else if ((ptr == base + MDSS_MDP_REG_DSPP_DITHER_DEPTH)) {
-			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
-			break;
-		/* Six zone and mem color */
-		} else if (mdss_res->mdp_rev >= MDSS_MDP_HW_REV_103 &&
-			(ptr >= base + MDSS_MDP_REG_DSPP_SIX_ZONE_BASE) &&
-			(ptr <= base + MDSS_MDP_REG_DSPP_SIX_ZONE_BASE +
-					MDSS_MDP_SIX_ZONE_SIZE +
-					MDSS_MDP_MEM_COL_SIZE)) {
-			ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
-			break;
-		}
+	for (counter = 0; counter < mdata->nctl; counter++) {
+		ctl = mdata->ctl_off + counter;
+		base = ctl->wb_base;
+		wb0_base = base < wb0_base ? base : wb0_base;
 	}
+
+	if ((ptr >= dspp0_base) && (ptr < wb0_base))
+		ret = MDP_PP_OPS_READ | MDP_PP_OPS_WRITE;
 
 	return ret;
 }

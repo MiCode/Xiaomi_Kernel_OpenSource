@@ -1432,7 +1432,7 @@ static struct rcg_clk sdcc1_apps_clk_src = {
 	.c = {
 		.dbg_name = "sdcc1_apps_clk_src",
 		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP2(LOWER, 50000000, NOMINAL, 384000000),
+		VDD_DIG_FMAX_MAP2(LOWER, 100000000, NOMINAL, 384000000),
 		CLK_INIT(sdcc1_apps_clk_src.c),
 	},
 };
