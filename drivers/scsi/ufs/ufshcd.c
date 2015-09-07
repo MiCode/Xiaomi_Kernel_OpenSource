@@ -1303,7 +1303,6 @@ static int ufshcd_scale_gear(struct ufs_hba *hba, bool scale_up)
 		}
 	}
 
-	/* check if the power mode needs to be changed or not? */
 	ret = ufshcd_change_power_mode(hba, &new_pwr_info);
 
 	if (ret)
