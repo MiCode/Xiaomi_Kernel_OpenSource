@@ -28,3 +28,10 @@
 };
 
 /*Overwrite with V1.1 spec*/
+&clock_gcc {
+	compatible = "qcom,gcc-8976-v1";
+};
+
+&clock_gcc_mdss {
+	compatible = "qcom,gcc-mdss-8976-v1";
+};

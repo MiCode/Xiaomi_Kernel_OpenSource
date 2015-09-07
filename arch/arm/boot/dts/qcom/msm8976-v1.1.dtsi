@@ -60,3 +60,11 @@
 			<1251 1190 1380 1301 760 798 592 640>;
 	};
 };
+
+&clock_gcc {
+	compatible = "qcom,gcc-8976-v1";
+};
+
+&clock_gcc_mdss {
+	compatible = "qcom,gcc-mdss-8976-v1";
+};
