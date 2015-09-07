@@ -22,6 +22,11 @@ enum wcd_clock_type {
 	WCD_CLK_MCLK,
 };
 
+enum {
+	SIDO_SOURCE_INTERNAL,
+	SIDO_SOURCE_RCO_BG,
+};
+
 struct wcd_resmgr_cb {
 	int (*cdc_rco_ctrl)(struct snd_soc_codec *, bool);
 };
@@ -40,6 +45,7 @@ struct wcd9xxx_resmgr_v2 {
 	enum wcd_clock_type clk_type;
 
 	const struct wcd_resmgr_cb *resmgr_cb;
+	int sido_input_src;
 };
 
 #define WCD9XXX_V2_BG_CLK_LOCK(resmgr)			\
