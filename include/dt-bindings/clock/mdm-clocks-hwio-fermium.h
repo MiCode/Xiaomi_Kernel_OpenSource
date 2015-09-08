@@ -196,12 +196,10 @@ static int vdd_corner[] = {
 static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
 
-#define VDD_STROMER_FMAX_MAP3(l1, f1, l2, f2, l3, f3) \
+#define VDD_STROMER_FMAX_MAP1(l1, f1) \
 	.vdd_class = &vdd_stromer_pll, \
 	.fmax = (unsigned long[VDD_DIG_NUM]) {  \
 		[VDD_DIG_##l1] = (f1),          \
-		[VDD_DIG_##l2] = (f2),          \
-		[VDD_DIG_##l3] = (f3),          \
 	},                                      \
 	.num_fmax = VDD_DIG_NUM
 
