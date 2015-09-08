@@ -3778,6 +3778,7 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *_chip)
 	} else {
 		if (!chip->use_otp_profile) {
 			reinit_completion(&chip->batt_id_avail);
+			reinit_completion(&chip->first_soc_done);
 			schedule_work(&chip->batt_profile_init);
 			cancel_delayed_work(&chip->update_sram_data);
 			schedule_delayed_work(
@@ -3794,7 +3795,6 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *_chip)
 
 	if (chip->power_supply_registered)
 		power_supply_changed(&chip->bms_psy);
-	complete_all(&chip->first_soc_done);
 	return IRQ_HANDLED;
 }
 
@@ -3914,6 +3914,9 @@ static irqreturn_t fg_first_soc_irq_handler(int irq, void *_chip)
 
 	if (chip->power_supply_registered)
 		power_supply_changed(&chip->bms_psy);
+
+	complete_all(&chip->first_soc_done);
+
 	return IRQ_HANDLED;
 }
 
@@ -6161,7 +6164,6 @@ static int fg_probe(struct spmi_device *spmi)
 	complete_all(&chip->sram_access_revoked);
 	init_completion(&chip->batt_id_avail);
 	init_completion(&chip->first_soc_done);
-	complete_all(&chip->first_soc_done);
 	dev_set_drvdata(&spmi->dev, chip);
 
 	spmi_for_each_container_dev(spmi_resource, spmi) {
