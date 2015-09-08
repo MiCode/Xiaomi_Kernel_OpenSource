@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -214,6 +214,7 @@ static int prepare_tsc_input_device(uint16_t ind,
 		__func__,
 		input_info->req_buttons_bitmap,
 		max_buttons_bitmap);
+		input_free_device(in_dev);
 		return -EINVAL;
 	}
 
