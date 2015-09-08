@@ -296,11 +296,6 @@
 		dma-names = "tx", "rx";
 	};
 
-	clock_gcc: qcom,gcc {
-		compatible = "qcom,dummycc";
-		#clock-cells = <1>;
-	};
-
 	dcc: dcc@b3000 {
 		compatible = "qcom,dcc";
 		reg = <0xb3000 0x1000>,
@@ -311,6 +306,51 @@
 		clock-names = "dcc_clk";
 
 		qcom,save-reg;
+	};
+
+	clock_gcc: qcom,gcc@1800000 {
+		compatible = "qcom,gcc-titanium";
+		reg = <0x1800000 0x80000>;
+		reg-names = "cc_base";
+		vdd_dig-supply = <&pmtitanium_s2_level>;
+		#clock-cells = <1>;
+	};
+
+	clock_gcc_mdss: qcom,gcc-mdss@1800000 {
+		compatible = "qcom,dummycc";
+		reg = <0x1800000 0x80000>;
+		#clock-cells = <1>;
+	};
+
+	clock_debug: qcom,cc-debug@1874000 {
+		compatible = "qcom,cc-debug-titanium";
+		reg = <0x1874000 0x4>;
+		reg-names = "cc_base";
+		#clock-cells = <1>;
+	};
+
+	clock_gcc_gfx: qcom,gcc-gfx@1800000 {
+		compatible = "qcom,gcc-gfx-titanium";
+		reg = <0x1800000 0x80000>;
+		reg-names = "cc_base";
+		vdd_gfx-supply = <&gfx_vreg_corner>;
+		qcom,gfxfreq-corner =
+			<         0   0 >,
+			< 133330000   1 >,  /* Min SVS   */
+			< 216000000   2 >,  /* Low SVS   */
+			< 320000000   3 >,  /* SVS       */
+			< 400000000   4 >,  /* SVS Plus  */
+			< 510000000   5 >,  /* NOM       */
+			< 560000000   6 >,  /* Nom Plus  */
+			< 650000000   7 >;  /* Turbo     */
+		#clock-cells = <1>;
+	};
+
+	rpm_bus: qcom,rpm-smd {
+		compatible = "qcom,rpm-smd";
+		rpm-channel-name = "rpm_requests";
+		rpm-channel-type = <15>; /* SMD_APPS_RPM */
+		rpm-standalone;
 	};
 
 	qcom,ipc-spinlock@1905000 {
@@ -944,6 +984,7 @@
 
 &gdsc_oxili_gx {
 	status = "okay";
+	parent-supply = <&gfx_vreg_corner>;
 };
 
 &gdsc_jpeg {
