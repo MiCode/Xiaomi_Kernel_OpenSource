@@ -180,7 +180,7 @@ static void rmnet_reset_mac_header(struct sk_buff *skb)
 #else
 static void rmnet_reset_mac_header(struct sk_buff *skb)
 {
-	skb->mac_header = skb->data;
+	skb->mac_header = skb->network_header;
 	skb->mac_len = 0;
 }
 #endif /*NET_SKBUFF_DATA_USES_OFFSET*/
