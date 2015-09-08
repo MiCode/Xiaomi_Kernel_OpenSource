@@ -18,6 +18,8 @@ struct vm_area_struct;		/* vma defining user mapping in mm_types.h */
 #define VM_UNINITIALIZED	0x00000020	/* vm_struct is not fully initialized */
 #define VM_NO_GUARD		0x00000040      /* don't add guard page */
 #define VM_KASAN		0x00000080      /* has allocated kasan shadow memory */
+#define VM_LOWMEM		0x00000100	/* Tracking of direct mapped lowmem */
+
 /* bits [20..32] reserved for arch specific ioremap internals */
 
 /*
@@ -158,6 +160,7 @@ extern long vwrite(char *buf, char *addr, unsigned long count);
 extern struct list_head vmap_area_list;
 extern __init void vm_area_add_early(struct vm_struct *vm);
 extern __init void vm_area_register_early(struct vm_struct *vm, size_t align);
+extern __init int vm_area_check_early(struct vm_struct *vm);
 
 #ifdef CONFIG_SMP
 # ifdef CONFIG_MMU
