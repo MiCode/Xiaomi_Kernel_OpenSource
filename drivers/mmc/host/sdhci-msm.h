@@ -16,6 +16,7 @@
 #define __SDHCI_MSM_H__
 
 #include <linux/mmc/mmc.h>
+#include <linux/pm_qos.h>
 #include "sdhci-pltfm.h"
 
 /* This structure keeps information per regulator */
@@ -83,6 +84,27 @@ struct sdhci_msm_bus_voting_data {
 	unsigned int bw_vecs_size;
 };
 
+struct sdhci_msm_cpu_group_map {
+	int nr_groups;
+	cpumask_t *mask;
+};
+
+struct sdhci_msm_pm_qos_latency {
+	s32 latency[SDHCI_POWER_POLICY_NUM];
+};
+
+struct sdhci_msm_pm_qos_data {
+	struct sdhci_msm_cpu_group_map cpu_group_map;
+	enum pm_qos_req_type irq_req_type;
+	int irq_cpu;
+	struct sdhci_msm_pm_qos_latency irq_latency;
+	struct sdhci_msm_pm_qos_latency *cmdq_latency;
+	struct sdhci_msm_pm_qos_latency *latency;
+	bool irq_valid;
+	bool cmdq_valid;
+	bool legacy_valid;
+};
+
 struct sdhci_msm_pltfm_data {
 	/* Supported UHS-I Modes */
 	u32 caps;
@@ -104,6 +126,7 @@ struct sdhci_msm_pltfm_data {
 	unsigned char sup_clk_cnt;
 	u32 *sup_ice_clk_table;
 	unsigned char sup_ice_clk_cnt;
+	struct sdhci_msm_pm_qos_data pm_qos_data;
 };
 
 struct sdhci_msm_bus_vote {

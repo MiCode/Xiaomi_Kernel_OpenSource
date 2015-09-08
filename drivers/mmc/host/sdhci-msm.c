@@ -1427,6 +1427,169 @@ out:
 	return ret;
 }
 
+static int sdhci_msm_pm_qos_parse_irq(struct device *dev,
+		struct sdhci_msm_pltfm_data *pdata)
+{
+	struct device_node *np = dev->of_node;
+	const char *str;
+	u32 cpu;
+	int ret = 0;
+	int i;
+
+	pdata->pm_qos_data.irq_valid = false;
+	pdata->pm_qos_data.irq_req_type = PM_QOS_REQ_AFFINE_CORES;
+	if (!of_property_read_string(np, "qcom,pm-qos-irq-type", &str) &&
+		!strcmp(str, "affine_irq")) {
+		pdata->pm_qos_data.irq_req_type = PM_QOS_REQ_AFFINE_IRQ;
+	}
+
+	/* must specify cpu for "affine_cores" type */
+	if (pdata->pm_qos_data.irq_req_type == PM_QOS_REQ_AFFINE_CORES) {
+		pdata->pm_qos_data.irq_cpu = -1;
+		ret = of_property_read_u32(np, "qcom,pm-qos-irq-cpu", &cpu);
+		if (ret) {
+			dev_err(dev, "%s: error %d reading irq cpu\n", __func__,
+				ret);
+			goto out;
+		}
+		if (cpu < 0 || cpu >= num_possible_cpus()) {
+			dev_err(dev, "%s: invalid irq cpu %d (NR_CPUS=%d)\n",
+				__func__, cpu, num_possible_cpus());
+			ret = -EINVAL;
+			goto out;
+		}
+		pdata->pm_qos_data.irq_cpu = cpu;
+	}
+
+	if (of_property_count_u32_elems(np, "qcom,pm-qos-irq-latency") !=
+		SDHCI_POWER_POLICY_NUM) {
+		dev_err(dev, "%s: could not read %d values for 'qcom,pm-qos-irq-latency'\n",
+			__func__, SDHCI_POWER_POLICY_NUM);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	for (i = 0; i < SDHCI_POWER_POLICY_NUM; i++)
+		of_property_read_u32_index(np, "qcom,pm-qos-irq-latency", i,
+			&pdata->pm_qos_data.irq_latency.latency[i]);
+
+	pdata->pm_qos_data.irq_valid = true;
+out:
+	return ret;
+}
+
+static int sdhci_msm_pm_qos_parse_cpu_groups(struct device *dev,
+		struct sdhci_msm_pltfm_data *pdata)
+{
+	struct device_node *np = dev->of_node;
+	u32 mask;
+	int nr_groups;
+	int ret;
+	int i;
+
+	/* Read cpu group mapping */
+	nr_groups = of_property_count_u32_elems(np, "qcom,pm-qos-cpu-groups");
+	if (nr_groups <= 0) {
+		ret = -EINVAL;
+		goto out;
+	}
+	pdata->pm_qos_data.cpu_group_map.nr_groups = nr_groups;
+	pdata->pm_qos_data.cpu_group_map.mask =
+		kcalloc(nr_groups, sizeof(cpumask_t), GFP_KERNEL);
+	if (!pdata->pm_qos_data.cpu_group_map.mask) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	for (i = 0; i < nr_groups; i++) {
+		of_property_read_u32_index(np, "qcom,pm-qos-cpu-groups",
+			i, &mask);
+
+		pdata->pm_qos_data.cpu_group_map.mask[i].bits[0] = mask;
+		if (!cpumask_subset(&pdata->pm_qos_data.cpu_group_map.mask[i],
+			cpu_possible_mask)) {
+			dev_err(dev, "%s: invalid mask 0x%x of cpu group #%d\n",
+				__func__, mask, i);
+			ret = -EINVAL;
+			goto free_res;
+		}
+	}
+	return 0;
+
+free_res:
+	kfree(pdata->pm_qos_data.cpu_group_map.mask);
+out:
+	return ret;
+}
+
+static int sdhci_msm_pm_qos_parse_latency(struct device *dev, const char *name,
+		int nr_groups, struct sdhci_msm_pm_qos_latency **latency)
+{
+	struct device_node *np = dev->of_node;
+	struct sdhci_msm_pm_qos_latency *values;
+	int ret;
+	int i;
+	int group;
+	int cfg;
+
+	ret = of_property_count_u32_elems(np, name);
+	if (ret > 0 && ret != SDHCI_POWER_POLICY_NUM * nr_groups) {
+		dev_err(dev, "%s: invalid number of values for property %s: expected=%d actual=%d\n",
+			__func__, name,	SDHCI_POWER_POLICY_NUM * nr_groups,
+			ret);
+		return -EINVAL;
+	} else if (ret < 0) {
+		return ret;
+	}
+
+	values = kcalloc(nr_groups, sizeof(struct sdhci_msm_pm_qos_latency),
+			GFP_KERNEL);
+	if (!values)
+		return -ENOMEM;
+
+	for (i = 0; i < SDHCI_POWER_POLICY_NUM * nr_groups; i++) {
+		group = i / SDHCI_POWER_POLICY_NUM;
+		cfg = i % SDHCI_POWER_POLICY_NUM;
+		of_property_read_u32_index(np, name, i,
+				&(values[group].latency[cfg]));
+	}
+
+	*latency = values;
+	return 0;
+}
+
+static void sdhci_msm_pm_qos_parse(struct device *dev,
+				struct sdhci_msm_pltfm_data *pdata)
+{
+	if (sdhci_msm_pm_qos_parse_irq(dev, pdata))
+		dev_notice(dev, "%s: PM QoS voting for IRQ will be disabled\n",
+			__func__);
+
+	if (!sdhci_msm_pm_qos_parse_cpu_groups(dev, pdata)) {
+		pdata->pm_qos_data.cmdq_valid =
+			!sdhci_msm_pm_qos_parse_latency(dev,
+				"qcom,pm-qos-cmdq-latency-us",
+				pdata->pm_qos_data.cpu_group_map.nr_groups,
+				&pdata->pm_qos_data.cmdq_latency);
+		pdata->pm_qos_data.legacy_valid =
+			!sdhci_msm_pm_qos_parse_latency(dev,
+				"qcom,pm-qos-legacy-latency-us",
+				pdata->pm_qos_data.cpu_group_map.nr_groups,
+				&pdata->pm_qos_data.latency);
+		if (!pdata->pm_qos_data.cmdq_valid &&
+			!pdata->pm_qos_data.legacy_valid) {
+			/* clean-up previously allocated arrays */
+			kfree(pdata->pm_qos_data.latency);
+			kfree(pdata->pm_qos_data.cmdq_latency);
+			dev_err(dev, "%s: invalid PM QoS latency values. Voting for cpu group will be disabled\n",
+				__func__);
+		}
+	} else {
+		dev_notice(dev, "%s: PM QoS voting for cpu group will be disabled\n",
+			__func__);
+	}
+}
+
 /* Parse platform data */
 static
 struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
@@ -1543,6 +1706,8 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 
 	if (of_property_read_bool(np, "qcom,wakeup-on-idle"))
 		msm_host->mmc->wakeup_on_idle = true;
+
+	sdhci_msm_pm_qos_parse(dev, pdata);
 
 	return pdata;
 out:
