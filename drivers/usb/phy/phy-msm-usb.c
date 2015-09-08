@@ -879,6 +879,12 @@ static int msm_otg_bus_freq_get(struct device *dev, struct msm_otg *motg)
 	of_property_read_u32_array(np, "qcom,bus-clk-rate", bus_freqs,
 		USB_NUM_BUS_CLOCKS);
 	for (i = 0; i < USB_NUM_BUS_CLOCKS; i++) {
+		if (bus_freqs[i] == 0) {
+			motg->bus_clks[i] = NULL;
+			pr_debug("%s not available\n", bus_clkname[i]);
+			continue;
+		}
+
 		motg->bus_clks[i] = devm_clk_get(motg->phy.dev,
 				bus_clkname[i]);
 		if (IS_ERR(motg->bus_clks[i])) {
@@ -909,6 +915,8 @@ static void msm_otg_bus_clks_enable(struct msm_otg *motg)
 		return;
 
 	for (i = 0; i < USB_NUM_BUS_CLOCKS; i++) {
+		if (motg->bus_clks[i] == NULL)
+			continue;
 		ret = clk_prepare_enable(motg->bus_clks[i]);
 		if (ret) {
 			pr_err("%s enable rate failed: %d\n", bus_clkname[i],
@@ -919,8 +927,10 @@ static void msm_otg_bus_clks_enable(struct msm_otg *motg)
 	motg->bus_clks_enabled = true;
 	return;
 err_clk_en:
-	for (--i; i >= 0; --i)
-		clk_disable_unprepare(motg->bus_clks[i]);
+	for (--i; i >= 0; --i) {
+		if (motg->bus_clks[i] != NULL)
+			clk_disable_unprepare(motg->bus_clks[i]);
+	}
 }
 
 static void msm_otg_bus_clks_disable(struct msm_otg *motg)
@@ -930,8 +940,10 @@ static void msm_otg_bus_clks_disable(struct msm_otg *motg)
 	if (!bus_clk_rate_set || !motg->bus_clks_enabled)
 		return;
 
-	for (i = 0; i < USB_NUM_BUS_CLOCKS; i++)
-		clk_disable_unprepare(motg->bus_clks[i]);
+	for (i = 0; i < USB_NUM_BUS_CLOCKS; i++) {
+		if (motg->bus_clks[i] != NULL)
+			clk_disable_unprepare(motg->bus_clks[i]);
+	}
 	motg->bus_clks_enabled = false;
 }
 
