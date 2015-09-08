@@ -2240,8 +2240,11 @@
 				"msm-dai-q6-dev.12292", "msm-dai-q6-dev.12293";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
-		asoc-wsa-codec-names = "wsa881x.20170212", "wsa881x.20170211";
-		asoc-wsa-codec-prefixes = "SpkrLeft", "SpkrRight";
+		qcom,max-aux-codec = <2>;
+		qcom,aux-codec = "wsa881x.20170211", "wsa881x.20170212",
+				 "wsa881x.21170213", "wsa881x.21170214";
+		qcom,aux-codec-prefix = "SpkrRight", "SpkrLeft",
+					"SpkrRight", "SpkrLeft";
 	};
 
 	wcd9xxx_intc: wcd9xxx-irq {
