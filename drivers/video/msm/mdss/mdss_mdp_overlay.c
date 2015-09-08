@@ -37,6 +37,7 @@
 #include "mdss_mdp_rotator.h"
 #include "mdss_smmu.h"
 #include "mdss_mdp_wfd.h"
+#include "mdss_dsi_clk.h"
 
 #define VSYNC_PERIOD 16
 #define BORDERFILL_NDX	0x0BF000BF
@@ -1719,7 +1720,8 @@ int mdss_mode_switch(struct msm_fb_data_type *mfd, u32 mode)
 int mdss_mode_switch_post(struct msm_fb_data_type *mfd, u32 mode)
 {
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
-	struct mdss_mdp_ctl *sctl;
+	struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
+	struct dsi_panel_clk_ctrl clk_ctrl;
 	int rc = 0;
 	u32 frame_rate = 0;
 
@@ -1747,15 +1749,20 @@ int mdss_mode_switch_post(struct msm_fb_data_type *mfd, u32 mode)
 		 * from video to command. This allows for idle
 		 * power collapse to work as intended.
 		 */
-		mdss_mdp_ctl_intf_event(ctl,
-			MDSS_EVENT_PANEL_CLK_CTRL, (void *)0,
-			false);
+		clk_ctrl.state = MDSS_DSI_CLK_OFF;
+		clk_ctrl.client = DSI_CLK_REQ_DSI_CLIENT;
+		if (sctl)
+			mdss_mdp_ctl_intf_event(sctl,
+				MDSS_EVENT_PANEL_CLK_CTRL,
+				(void *)&clk_ctrl, true);
+
+		mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_CLK_CTRL,
+			(void *)&clk_ctrl, true);
 	} else if (mode == SWITCH_RESOLUTION) {
 		if (ctl->ops.reconfigure)
 			rc = ctl->ops.reconfigure(ctl, mode, 0);
 	}
 	ctl->pending_mode_switch = 0;
-	sctl = mdss_mdp_get_split_ctl(ctl);
 	if (sctl)
 		sctl->pending_mode_switch = 0;
 

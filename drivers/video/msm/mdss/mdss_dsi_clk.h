@@ -27,6 +27,11 @@ enum mdss_dsi_clk_state {
 	MDSS_DSI_CLK_EARLY_GATE,
 };
 
+enum dsi_clk_req_client {
+	DSI_CLK_REQ_MDP_CLIENT = 0,
+	DSI_CLK_REQ_DSI_CLIENT,
+};
+
 enum mdss_dsi_link_clk_type {
 	MDSS_DSI_LINK_ESC_CLK,
 	MDSS_DSI_LINK_BYTE_CLK,
@@ -100,6 +105,11 @@ struct mdss_dsi_link_clk_info {
 	struct clk *esc_clk;
 	struct clk *byte_clk;
 	struct clk *pixel_clk;
+};
+
+struct dsi_panel_clk_ctrl {
+	enum mdss_dsi_clk_state state;
+	enum dsi_clk_req_client client;
 };
 
 /**
