@@ -2607,10 +2607,6 @@
 		qcom,synchronous-cluster-id = <0 1>;
 		qcom,synchronous-cluster-map = <0 2 &CPU0 &CPU1>,
 			<1 2 &CPU2 &CPU3>;
-		qcom,mx-restriction-temp = <5>;
-		qcom,mx-restriction-temp-hysteresis = <5>;
-		qcom,mx-retention-min = <3>;
-		vdd-mx-supply = <&pm8994_s2_corner>;
 
 		qcom,vdd-restriction-temp = <5>;
 		qcom,vdd-restriction-temp-hysteresis = <10>;
