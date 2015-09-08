@@ -394,6 +394,11 @@ static inline unsigned long memblock_region_reserved_end_pfn(const struct memblo
 	for (idx = 0, rgn = &memblock_type->regions[0];			\
 	     idx < memblock_type->cnt;					\
 	     idx++, rgn = &memblock_type->regions[idx])
+#define for_each_memblock_rev(memblock_type, region)	\
+	for (region = memblock.memblock_type.regions + \
+			memblock.memblock_type.cnt - 1;	\
+	     region >= memblock.memblock_type.regions;	\
+	     region--)
 
 #ifdef CONFIG_MEMTEST
 extern void early_memtest(phys_addr_t start, phys_addr_t end);
