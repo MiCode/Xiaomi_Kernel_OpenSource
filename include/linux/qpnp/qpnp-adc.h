@@ -807,6 +807,8 @@ struct qpnp_adc_tm_btm_param {
 	int32_t					low_temp;
 	int32_t					high_thr;
 	int32_t					low_thr;
+	int32_t					gain_num;
+	int32_t					gain_den;
 	enum qpnp_vadc_channels			channel;
 	enum qpnp_state_request			state_request;
 	enum qpnp_adc_meas_timer_1		timer_interval;

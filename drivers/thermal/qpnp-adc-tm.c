@@ -2018,7 +2018,7 @@ static struct thermal_zone_device_ops qpnp_adc_tm_thermal_ops = {
 int32_t qpnp_adc_tm_channel_measure(struct qpnp_adc_tm_chip *chip,
 					struct qpnp_adc_tm_btm_param *param)
 {
-	uint32_t channel, dt_index = 0, scale_type = 0;
+	uint32_t channel, amux_prescaling, dt_index = 0, scale_type = 0;
 	int rc = 0, i = 0, version = 0;
 	bool chan_found = false;
 
@@ -2072,8 +2072,19 @@ int32_t qpnp_adc_tm_channel_measure(struct qpnp_adc_tm_chip *chip,
 		goto fail_unlock;
 	}
 
+
+	amux_prescaling =
+		chip->adc->adc_channels[dt_index].chan_path_prescaling;
+
+	if (amux_prescaling >= PATH_SCALING_NONE) {
+		rc = -EINVAL;
+		goto fail_unlock;
+	}
+
 	pr_debug("channel:%d, scale_type:%d, dt_idx:%d",
 					channel, scale_type, dt_index);
+	param->gain_num = qpnp_vadc_amux_scaling_ratio[amux_prescaling].num;
+	param->gain_den = qpnp_vadc_amux_scaling_ratio[amux_prescaling].den;
 	chip->adc->amux_prop->amux_channel = channel;
 	chip->adc->amux_prop->decimation =
 			chip->adc->adc_channels[dt_index].adc_decimation;

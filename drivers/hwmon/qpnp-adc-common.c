@@ -1236,7 +1236,7 @@ int32_t qpnp_adc_vbatt_rscaler(struct qpnp_vadc_chip *chip,
 	if (rc < 0)
 		return rc;
 
-	low_thr = (((param->low_thr/3) - QPNP_ADC_625_UV) *
+	low_thr = (((param->low_thr/param->gain_den) - QPNP_ADC_625_UV) *
 				vbatt_param.dy);
 	if (low_thr < 0) {
 		sign = 1;
@@ -1248,7 +1248,7 @@ int32_t qpnp_adc_vbatt_rscaler(struct qpnp_vadc_chip *chip,
 	*low_threshold = low_thr + vbatt_param.adc_gnd;
 
 	sign = 0;
-	high_thr = (((param->high_thr/3) - QPNP_ADC_625_UV) *
+	high_thr = (((param->high_thr/param->gain_den) - QPNP_ADC_625_UV) *
 				vbatt_param.dy);
 	if (high_thr < 0) {
 		sign = 1;
