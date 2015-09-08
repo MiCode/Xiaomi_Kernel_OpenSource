@@ -59,6 +59,9 @@
 
 static struct workqueue_struct	*uether_wq;
 
+/* Extra buffer size to allocate for tx */
+#define EXTRA_ALLOCATION_SIZE_U_ETH	128
+
 struct eth_dev {
 	/* lock is held while accessing port_usb
 	 */
@@ -104,6 +107,7 @@ struct eth_dev {
 	unsigned long		tx_throttle;
 	unsigned long		rx_throttle;
 	unsigned int		tx_pkts_rcvd;
+	unsigned long		skb_expand_cnt;
 	struct dentry		*uether_dent;
 	struct dentry		*uether_dfile;
 };
@@ -718,8 +722,11 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 {
 	struct eth_dev		*dev = netdev_priv(net);
 	int			length = 0;
+	int			tail_room = 0;
+	int			extra_alloc = 0;
 	int			retval;
 	struct usb_request	*req = NULL;
+	struct sk_buff		*new_skb;
 	unsigned long		flags;
 	struct usb_ep		*in = NULL;
 	u16			cdc_filter = 0;
@@ -850,7 +857,28 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		dev->tx_skb_hold_count = 0;
 		spin_unlock_irqrestore(&dev->lock, flags);
 	} else {
+		/*
+		 * Some UDC requires allocation of some extra bytes for
+		 * TX buffer due to hardware requirement. Check if extra
+		 * bytes are already there, otherwise allocate new buffer
+		 * with extra bytes and do memcpy.
+		 */
 		length = skb->len;
+		if (dev->gadget->extra_buf_alloc)
+			extra_alloc = EXTRA_ALLOCATION_SIZE_U_ETH;
+		tail_room = skb_tailroom(skb);
+		if (tail_room < extra_alloc) {
+			pr_debug("%s: tail_room  %d less than %d\n", __func__,
+					tail_room, extra_alloc);
+			new_skb = skb_copy_expand(skb, 0, extra_alloc -
+					tail_room, GFP_ATOMIC);
+			if (!new_skb)
+				return -ENOMEM;
+			dev_kfree_skb_any(skb);
+			skb = new_skb;
+			dev->skb_expand_cnt++;
+		}
+
 		req->buf = skb->data;
 		req->context = skb;
 	}
@@ -1691,6 +1719,8 @@ static int uether_stat_show(struct seq_file *s, void *unused)
 		seq_printf(s, "tx_throttle = %lu\n", dev->tx_throttle);
 		seq_printf(s, "tx_pkts_rcvd=%u\n", dev->tx_pkts_rcvd);
 		seq_printf(s, "rx_throttle = %lu\n", dev->rx_throttle);
+		seq_printf(s, "skb_expand_cnt = %lu\n",
+					dev->skb_expand_cnt);
 	}
 	return ret;
 }
@@ -1711,6 +1741,7 @@ static ssize_t uether_stat_reset(struct file *file,
 	/* Reset tx_throttle */
 	dev->tx_throttle = 0;
 	dev->rx_throttle = 0;
+	dev->skb_expand_cnt = 0;
 	spin_unlock_irqrestore(&dev->lock, flags);
 	return count;
 }
