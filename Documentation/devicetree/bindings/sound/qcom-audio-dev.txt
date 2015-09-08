@@ -1791,13 +1791,20 @@ codec can run at different mclk values. Mclk value can be 9.6MHz or 12.288MHz.
 - asoc-codec-names: This property contains list of codec dai names. The order of the
 		    codec dai names should match to that of the phandle order given
 		    in "asoc-codec".
+- qcom,wsa-max-devs : Maximum number of WSA881x devices present in the target
+- qcom,wsa-devs : List of phandles for all possible WSA881x devices supported for the target
+- qcom,wsa-aux-dev-prefix : Name prefix with Left/Right configuration for WSA881x device
 
 Example:
 
 	sound {
 		compatible = "qcom,mdm9640-audio-tomtom";
 		qcom,model = "mdm9640-tomtom-i2s-snd-card";
-
+		qcom,wsa-max-devs = <2>;
+		qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_212>,
+				<&wsa881x_213>, <&wsa881x_214>;
+		qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrLeft",
+					  "SpkrRight", "SpkrLeft";
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
 			"LDO_H", "MCLK",
