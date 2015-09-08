@@ -205,17 +205,23 @@ static ssize_t avail_level_get(struct device *dev,
 		if (count + lvl_buf_count >= PAGE_SIZE) {
 			pr_err("overflow.\n");
 			break;
+		} else if (count < 0) {
+			pr_err("Error writing to buffer. err:%d\n", count);
+			ret = count;
+			goto lvl_get_exit;
 		}
 		lvl_buf_count += count;
 	}
 	count = snprintf(lvl_buf + lvl_buf_count, PAGE_SIZE - lvl_buf_count,
 			"\n");
-	if (count + lvl_buf_count < PAGE_SIZE)
+	if (count < 0)
+		pr_err("Error writing new line to buffer. err:%d\n", count);
+	else if (count + lvl_buf_count < PAGE_SIZE)
 		lvl_buf_count += count;
 
 	count = snprintf(buf, lvl_buf_count + 1, lvl_buf);
-	if (count > PAGE_SIZE) {
-		pr_err("copy to user buf failed\n");
+	if (count > PAGE_SIZE || count < 0) {
+		pr_err("copy to user buffer failed\n");
 		ret = -EFAULT;
 		goto lvl_get_exit;
 	}
