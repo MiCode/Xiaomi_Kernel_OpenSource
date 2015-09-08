@@ -207,6 +207,7 @@ struct dwc3_msm {
 	bool			vbus_active;
 	bool			suspend;
 	bool			ext_inuse;
+	bool			disable_host_mode_pm;
 	enum dwc3_id_state	id_state;
 	unsigned long		lpm_flags;
 #define MDWC3_SS_PHY_SUSPEND		BIT(0)
@@ -2333,6 +2334,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev,
 			"unable to read platform data tx fifo size\n");
 
+	mdwc->disable_host_mode_pm = of_property_read_bool(node,
+				"qcom,disable-host-mode-pm");
+
 	dwc3_set_notifier(&dwc3_msm_notify_event);
 
 	/* Assumes dwc3 is the only DT child of dwc3-msm */
@@ -2604,6 +2608,14 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 				atomic_read(&dwc->dev->power.usage_count));
 			return ret;
 		}
+
+		/*
+		 * In some cases it is observed that USB PHY is not going into
+		 * suspend with host mode suspend functionality. Hence disable
+		 * XHCI's runtime PM here if disable_host_mode_pm is set.
+		 */
+		if (mdwc->disable_host_mode_pm)
+			pm_runtime_disable(&dwc->xhci->dev);
 
 		hcd = platform_get_drvdata(dwc->xhci);
 
