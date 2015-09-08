@@ -201,6 +201,10 @@ enum ipa_client_type {
 	IPA_CLIENT_MAX,
 };
 
+#define IPA_CLIENT_IS_APPS_CONS(client) \
+	((client) == IPA_CLIENT_APPS_LAN_CONS || \
+	(client) == IPA_CLIENT_APPS_WAN_CONS)
+
 #define IPA_CLIENT_IS_USB_CONS(client) \
 	((client) == IPA_CLIENT_USB_CONS || \
 	(client) == IPA_CLIENT_USB2_CONS || \
