@@ -30,7 +30,7 @@
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,partial-update-enabled;
-	qcom,panel-roi-alignment = <720 64 720 64 720 64>;
+	qcom,panel-roi-alignment = <720 128 720 128 720 128>;
 };
 
 &dsi_nt35597_dsc_video {

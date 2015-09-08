@@ -526,6 +526,48 @@ struct msm_vfe_axi_src_state {
 	uint32_t src_frame_id;
 };
 
+enum msm_isp_event_mask_index {
+	ISP_EVENT_MASK_INDEX_STATS_NOTIFY		= 0,
+	ISP_EVENT_MASK_INDEX_ERROR			= 1,
+	ISP_EVENT_MASK_INDEX_IOMMU_P_FAULT		= 2,
+	ISP_EVENT_MASK_INDEX_STREAM_UPDATE_DONE		= 3,
+	ISP_EVENT_MASK_INDEX_REG_UPDATE			= 4,
+	ISP_EVENT_MASK_INDEX_SOF			= 5,
+	ISP_EVENT_MASK_INDEX_BUF_DIVERT			= 6,
+	ISP_EVENT_MASK_INDEX_COMP_STATS_NOTIFY		= 7,
+	ISP_EVENT_MASK_INDEX_MASK_FE_READ_DONE		= 8
+};
+
+
+#define ISP_EVENT_SUBS_MASK_NONE			0
+
+#define ISP_EVENT_SUBS_MASK_STATS_NOTIFY \
+			(1 << ISP_EVENT_MASK_INDEX_STATS_NOTIFY)
+
+#define ISP_EVENT_SUBS_MASK_ERROR \
+			(1 << ISP_EVENT_MASK_INDEX_ERROR)
+
+#define ISP_EVENT_SUBS_MASK_IOMMU_P_FAULT \
+			(1 << ISP_EVENT_MASK_INDEX_IOMMU_P_FAULT)
+
+#define ISP_EVENT_SUBS_MASK_STREAM_UPDATE_DONE \
+			(1 << ISP_EVENT_MASK_INDEX_STREAM_UPDATE_DONE)
+
+#define ISP_EVENT_SUBS_MASK_REG_UPDATE \
+			(1 << ISP_EVENT_MASK_INDEX_REG_UPDATE)
+
+#define ISP_EVENT_SUBS_MASK_SOF \
+			(1 << ISP_EVENT_MASK_INDEX_SOF)
+
+#define ISP_EVENT_SUBS_MASK_BUF_DIVERT \
+			(1 << ISP_EVENT_MASK_INDEX_BUF_DIVERT)
+
+#define ISP_EVENT_SUBS_MASK_COMP_STATS_NOTIFY \
+			(1 << ISP_EVENT_MASK_INDEX_COMP_STATS_NOTIFY)
+
+#define ISP_EVENT_SUBS_MASK_FE_READ_DONE \
+			(1 << ISP_EVENT_MASK_INDEX_MASK_FE_READ_DONE)
+
 enum msm_isp_event_idx {
 	ISP_REG_UPDATE        = 0,
 	ISP_EPOCH_0           = 1,
@@ -624,12 +666,12 @@ struct msm_isp_output_info {
 /* This structure is piggybacked with SOF event */
 struct msm_isp_sof_info {
 	uint8_t regs_not_updated;
-	/* mask with bufq_handle for regs not updated or return empty */
-	uint16_t output_err_mask;
-	/* mask with stream_idx for get_buf failed */
-	uint8_t stream_framedrop_mask;
+	/* mask with AXI_SRC for regs not updated */
+	uint16_t reg_update_fail_mask;
+	/* mask with bufq_handle for get_buf failed */
+	uint32_t stream_get_buf_fail_mask;
 	/* mask with stats stream_idx for get_buf failed */
-	uint16_t stats_framedrop_mask;
+	uint16_t stats_get_buf_fail_mask;
 	/* delta between master and slave */
 	struct msm_isp_ms_delta_info ms_delta_info;
 };
@@ -649,6 +691,10 @@ struct msm_isp_event_data {
 		struct msm_isp_buf_event buf_done;
 		/* Sent for Error_Event */
 		struct msm_isp_error_info error_info;
+		/*
+		 * This struct needs to be removed once
+		 * userspace switches to sof_info
+		 */
 		struct msm_isp_output_info output_info;
 		/* Sent for SOF event */
 		struct msm_isp_sof_info sof_info;
