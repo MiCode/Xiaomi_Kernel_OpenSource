@@ -26,6 +26,7 @@ struct sdhci_next {
 enum sdhci_power_policy {
 	SDHCI_PERFORMANCE_MODE,
 	SDHCI_POWER_SAVE_MODE,
+	SDHCI_POWER_POLICY_NUM /* Always keep this one last */
 };
 
 struct sdhci_host {
