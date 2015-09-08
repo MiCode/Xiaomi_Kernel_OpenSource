@@ -22,8 +22,8 @@
 		((uintptr_t)pce_dev->coh_vmem +			\
 		((uintptr_t)x - (uintptr_t)pce_dev->coh_pmem))
 #define GET_PHYS_ADDR(x)  \
-		((uintptr_t)pce_dev->coh_pmem +			\
-		((uintptr_t)x - (uintptr_t)pce_dev->coh_vmem))
+		(phys_addr_t)(((uintptr_t)pce_dev->coh_pmem +	\
+		((uintptr_t)x - (uintptr_t)pce_dev->coh_vmem)))
 
 #define CRYPTO_REG_SIZE 4
 #define NUM_OF_CRYPTO_AUTH_IV_REG 16
