@@ -1447,12 +1447,21 @@ static void __init map_lowmem(void)
 	struct memblock_region *reg;
 	phys_addr_t kernel_x_start = round_down(__pa(KERNEL_START), SECTION_SIZE);
 	phys_addr_t kernel_x_end = round_up(__pa(__init_end), SECTION_SIZE);
+	struct static_vm *svm;
+	phys_addr_t start;
+	phys_addr_t end;
+	unsigned long vaddr;
+	unsigned long pfn;
+	unsigned long length;
+	unsigned int type;
+	int nr = 0;
 
 	/* Map all the lowmem memory banks. */
 	for_each_memblock(memory, reg) {
-		phys_addr_t start = reg->base;
-		phys_addr_t end = start + reg->size;
 		struct map_desc map;
+		start = reg->base;
+		end = start + reg->size;
+		nr++;
 
 		if (memblock_is_nomap(reg))
 			continue;
@@ -1503,6 +1512,33 @@ static void __init map_lowmem(void)
 				create_mapping(&map);
 			}
 		}
+	}
+	svm = early_alloc_aligned(sizeof(*svm) * nr, __alignof__(*svm));
+
+	for_each_memblock(memory, reg) {
+		struct vm_struct *vm;
+
+		start = reg->base;
+		end = start + reg->size;
+
+		if (end > arm_lowmem_limit)
+			end = arm_lowmem_limit;
+		if (start >= end)
+			break;
+
+		vm = &svm->vm;
+		pfn = __phys_to_pfn(start);
+		vaddr = __phys_to_virt(start);
+		length = end - start;
+		type = MT_MEMORY_RW;
+
+		vm->addr = (void *)(vaddr & PAGE_MASK);
+		vm->size = PAGE_ALIGN(length + (vaddr & ~PAGE_MASK));
+		vm->phys_addr = __pfn_to_phys(pfn);
+		vm->flags = VM_LOWMEM;
+		vm->flags |= VM_ARM_MTYPE(type);
+		vm->caller = map_lowmem;
+		add_static_vm_early(svm++);
 	}
 }
 
