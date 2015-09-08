@@ -1676,7 +1676,8 @@ void ipa3_install_dflt_flt_rules(u32 ipa_ep_idx)
 	struct ipa_flt_rule rule;
 
 	if (!ipa_is_ep_support_flt(ipa_ep_idx)) {
-		IPAERR("cannot add flt rules to non filtering pipe");
+		IPADBG("cannot add flt rules to non filtering pipe num %d\n",
+			ipa_ep_idx);
 		return;
 	}
 
