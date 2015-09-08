@@ -50,5 +50,34 @@
 
 		};
 
+		i2c2 {
+			i2c2_default: i2c2_default {
+				/* active state */
+				mux {
+					pins = "gpio6", "gpio7";
+					function = "blsp_i2c2";
+				};
+
+				config {
+					pins = "gpio6", "gpio7";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			i2c2_sleep: i2c2_sleep {
+				/* suspended state */
+				mux {
+					pins = "gpio6", "gpio7";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio6", "gpio7";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
 	};
 };
