@@ -15,6 +15,8 @@
 
 #include "msm_qpic_nand.h"
 
+#define QPIC_BAM_DEFAULT_IPC_LOGLVL 2
+
 static bool enable_euclean;
 
 /*
@@ -3121,6 +3123,7 @@ static int msm_nand_bam_init(struct msm_nand_info *nand_info)
 	 * and thus the flag SPS_BAM_MGR_MULTI_EE is set.
 	 */
 	bam.manage = SPS_BAM_MGR_DEVICE_REMOTE | SPS_BAM_MGR_MULTI_EE;
+	bam.ipc_loglevel = QPIC_BAM_DEFAULT_IPC_LOGLVL;
 
 	rc = sps_phy2h(bam.phys_addr, &nand_info->sps.bam_handle);
 	if (!rc)
