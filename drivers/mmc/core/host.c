@@ -168,8 +168,6 @@ void mmc_host_clk_hold(struct mmc_host *host)
 		spin_unlock_irqrestore(&host->clk_lock, flags);
 		mmc_ungate_clock(host);
 
-		/* Reset clock scaling stats as host is out of idle */
-		mmc_reset_clk_scale_stats(host);
 		spin_lock_irqsave(&host->clk_lock, flags);
 		pr_debug("%s: ungated MCI clock\n", mmc_hostname(host));
 	}
