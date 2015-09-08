@@ -126,6 +126,38 @@ static int __init msm_cpu_prepare(unsigned int cpu)
 	return 0;
 }
 
+static int msmtitanium_cpu_boot(unsigned int cpu)
+{
+	int ret = 0;
+
+	if (per_cpu(cold_boot_done, cpu) == false) {
+		ret = msmtitanium_unclamp_secondary_arm_cpu(cpu);
+		if (ret)
+			return ret;
+
+		per_cpu(cold_boot_done, cpu) = true;
+	}
+	return secondary_pen_release(cpu);
+}
+
+#ifdef CONFIG_HOTPLUG_CPU
+static void msmtitanium_wfi_cpu_die(unsigned int cpu)
+{
+	if (unlikely(cpu != smp_processor_id())) {
+		pr_crit("%s: running on %u, should be %u\n",
+			__func__, smp_processor_id(), cpu);
+		BUG();
+	}
+	for (;;) {
+		wfi();
+		if (secondary_holding_pen_release == cpu_logical_map(cpu))
+			break;	/*Proper wake up */
+
+		pr_debug("CPU%u: spurious wakeup call\n", cpu);
+		BUG();
+	}
+}
+#endif
 
 static int msm_cpu_boot(unsigned int cpu)
 {
@@ -196,3 +228,19 @@ static struct cpu_operations msm_cortex_a_ops = {
 };
 CPU_METHOD_OF_DECLARE(msm_cortex_a_ops,
 		"qcom,arm-cortex-acc", &msm_cortex_a_ops);
+
+static struct cpu_operations msmtitanium_cortex_a_ops = {
+	.name		= "qcom,titanium-arm-cortex-acc",
+	.cpu_init	= msm_cpu_init,
+	.cpu_prepare	= msm_cpu_prepare,
+	.cpu_boot	= msmtitanium_cpu_boot,
+	.cpu_postboot	= msm_cpu_postboot,
+#ifdef CONFIG_HOTPLUG_CPU
+	.cpu_die        = msmtitanium_wfi_cpu_die,
+#endif
+#ifdef CONFIG_ARM64_CPU_SUSPEND
+	.cpu_suspend       = msm_pm_collapse,
+#endif
+};
+CPU_METHOD_OF_DECLARE(msmtitanium_cortex_a_ops,
+	"qcom,titanium-arm-cortex-acc", &msmtitanium_cortex_a_ops);
