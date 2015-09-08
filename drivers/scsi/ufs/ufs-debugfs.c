@@ -357,7 +357,7 @@ static ssize_t ufsdbg_err_inj_scenario_write(struct file *file,
 		return ret;
 	}
 
-	hba->debugfs_files.err_inj_scenario_mask |= err_scen;
+	hba->debugfs_files.err_inj_scenario_mask = err_scen;
 
 	return cnt;
 }
