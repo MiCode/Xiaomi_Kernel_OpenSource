@@ -4929,6 +4929,7 @@ static int msm8x16_wcd_device_up(struct snd_soc_codec *codec)
 	struct msm8x16_wcd_priv *msm8x16_wcd_priv =
 		snd_soc_codec_get_drvdata(codec);
 	u32 reg;
+	int ret = 0;
 	dev_dbg(codec->dev, "%s: device up!\n", __func__);
 
 	mutex_lock(&codec->mutex);
@@ -4975,7 +4976,14 @@ static int msm8x16_wcd_device_up(struct snd_soc_codec *codec)
 
 	msm8x16_wcd_configure_cap(codec, false, false);
 	wcd_mbhc_stop(&msm8x16_wcd_priv->mbhc);
-	wcd_mbhc_start(&msm8x16_wcd_priv->mbhc,
+	wcd_mbhc_deinit(&msm8x16_wcd_priv->mbhc);
+	ret = wcd_mbhc_init(&msm8x16_wcd_priv->mbhc, codec, &mbhc_cb, &intr_ids,
+			wcd_mbhc_registers, true);
+	if (ret)
+		dev_err(codec->dev, "%s: mbhc initialization failed\n",
+			__func__);
+	else
+		wcd_mbhc_start(&msm8x16_wcd_priv->mbhc,
 			msm8x16_wcd_priv->mbhc.mbhc_cfg);
 
 	mutex_unlock(&codec->mutex);
