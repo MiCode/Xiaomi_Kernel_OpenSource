@@ -4963,6 +4963,13 @@ static int glink_scheduler_tx(struct channel_ctx *ctx,
 					"%s: unrecoverable xprt failure %d\n",
 					__func__, ret);
 			break;
+		} else if (!ret && tx_info->size_remaining) {
+			/*
+			 * Transport unable to send any data on this channel.
+			 * Break out of the loop so that the scheduler can
+			 * continue with the next channel.
+			 */
+			break;
 		} else {
 			txd_len += tx_len;
 		}
@@ -5039,6 +5046,15 @@ static void tx_work_func(struct work_struct *work)
 					"%s: unrecoverable xprt failure %d\n",
 					__func__, ret);
 			break;
+		} else if (!ret) {
+			/*
+			 * Transport unable to send any data on this channel,
+			 * but didn't return an error. Move to the next channel
+			 * and continue.
+			 */
+			mutex_lock(&xprt_ptr->tx_ready_mutex_lhb2);
+			list_rotate_left(&xprt_ptr->prio_bin[prio].tx_ready);
+			mutex_unlock(&xprt_ptr->tx_ready_mutex_lhb2);
 		}
 
 		mutex_lock(&xprt_ptr->tx_ready_mutex_lhb2);
