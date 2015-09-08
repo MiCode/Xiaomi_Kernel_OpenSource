@@ -651,6 +651,8 @@ static void ipa_sps_irq_tx_notify(struct sps_event_notify *notify)
 
 	switch (notify->event_id) {
 	case SPS_EVENT_EOT:
+		if (IPA_CLIENT_IS_APPS_CONS(sys->ep->client))
+			atomic_set(&ipa_ctx->sps_pm.eot_activity, 1);
 		if (!atomic_read(&sys->curr_polling_state)) {
 			ret = sps_get_config(sys->ep->ep_hdl,
 					&sys->ep->connect);
@@ -693,6 +695,8 @@ static void ipa_sps_irq_tx_no_aggr_notify(struct sps_event_notify *notify)
 	switch (notify->event_id) {
 	case SPS_EVENT_EOT:
 		tx_pkt = notify->data.transfer.user;
+		if (IPA_CLIENT_IS_APPS_CONS(tx_pkt->sys->ep->client))
+			atomic_set(&ipa_ctx->sps_pm.eot_activity, 1);
 		queue_work(tx_pkt->sys->wq, &tx_pkt->work);
 		break;
 	default:
@@ -808,6 +812,8 @@ static void ipa_sps_irq_rx_notify(struct sps_event_notify *notify)
 
 	switch (notify->event_id) {
 	case SPS_EVENT_EOT:
+		if (IPA_CLIENT_IS_APPS_CONS(sys->ep->client))
+			atomic_set(&ipa_ctx->sps_pm.eot_activity, 1);
 		if (!atomic_read(&sys->curr_polling_state)) {
 			ret = sps_get_config(sys->ep->ep_hdl,
 					&sys->ep->connect);
@@ -2510,6 +2516,8 @@ void ipa_sps_irq_rx_no_aggr_notify(struct sps_event_notify *notify)
 	switch (notify->event_id) {
 	case SPS_EVENT_EOT:
 		rx_pkt = notify->data.transfer.user;
+		if (IPA_CLIENT_IS_APPS_CONS(rx_pkt->sys->ep->client))
+			atomic_set(&ipa_ctx->sps_pm.eot_activity, 1);
 		rx_pkt->len = notify->data.transfer.iovec.size;
 		IPADBG("event %d notified sys=%p len=%u\n", notify->event_id,
 				notify->user, rx_pkt->len);

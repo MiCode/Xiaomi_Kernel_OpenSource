@@ -4903,3 +4903,20 @@ u32 ipa_get_sys_yellow_wm(void)
 		return 0;
 }
 EXPORT_SYMBOL(ipa_get_sys_yellow_wm);
+
+void ipa_suspend_apps_pipes(bool suspend)
+{
+	struct ipa_ep_cfg_ctrl cfg;
+	int ipa_ep_idx;
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.ipa_ep_suspend = suspend;
+
+	ipa_ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
+	if (ipa_ctx->ep[ipa_ep_idx].valid)
+		ipa_cfg_ep_ctrl(ipa_ep_idx, &cfg);
+
+	ipa_ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+	if (ipa_ctx->ep[ipa_ep_idx].valid)
+		ipa_cfg_ep_ctrl(ipa_ep_idx, &cfg);
+}

@@ -1045,14 +1045,13 @@ struct ipa_uc_wdi_ctx {
 
 /**
  * struct ipa_sps_pm - SPS power management related members
- * @lock: lock for ensuring atomic operations
- * @res_granted: true if SPS requested IPA resource and IPA granted it
- * @res_rel_in_prog: true if releasing IPA resource is in progress
+ * @dec_clients: true if need to decrease active clients count
+ * @eot_activity: represent EOT interrupt activity to determine to reset
+ *  the inactivity timer
  */
 struct ipa_sps_pm {
-	spinlock_t lock;
-	bool res_granted;
-	bool res_rel_in_prog;
+	bool dec_clients;
+	atomic_t eot_activity;
 };
 
 /**
@@ -1593,4 +1592,5 @@ int ipa_smmu_unmap_peer_bam(unsigned long dev);
 struct ipa_smmu_cb_ctx *ipa_get_wlan_smmu_ctx(void);
 struct ipa_smmu_cb_ctx *ipa_get_uc_smmu_ctx(void);
 struct iommu_domain *ipa_get_uc_smmu_domain(void);
+void ipa_suspend_apps_pipes(bool suspend);
 #endif /* _IPA_I_H_ */
