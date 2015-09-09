@@ -571,6 +571,9 @@ static ulong corr_counter_limit = 5;
 /* counter to keep track if common PHY needs to be configured */
 static u32 num_rc_on;
 
+/* global lock for PCIe common PHY */
+static struct mutex com_phy_lock;
+
 /* Table to track info of PCIe devices */
 static struct msm_pcie_device_info
 	msm_pcie_dev_tbl[MAX_RC_NUM * MAX_DEVICE_NUM];
@@ -3665,9 +3668,13 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 			PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT, 0, BIT(31));
 	}
 
+	mutex_lock(&com_phy_lock);
 	/* init PCIe PHY */
 	if (!num_rc_on)
 		pcie_phy_init(dev);
+
+	num_rc_on++;
+	mutex_unlock(&com_phy_lock);
 
 	if (options & PM_PIPE_CLK) {
 		usleep_range(PHY_STABILIZATION_DELAY_US_MIN,
@@ -3764,7 +3771,6 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	dev->power_on = true;
 	dev->suspending = false;
 	dev->link_turned_on_counter++;
-	num_rc_on++;
 
 	goto out;
 
@@ -3776,12 +3782,17 @@ link_fail:
 		PCIE_N_SW_RESET(dev->rc_idx, dev->common_phy), 0x1);
 	msm_pcie_write_reg(dev->phy,
 		PCIE_N_POWER_DOWN_CONTROL(dev->rc_idx, dev->common_phy), 0);
+
+	mutex_lock(&com_phy_lock);
+	num_rc_on--;
 	if (!num_rc_on) {
 		PCIE_DBG(dev, "PCIe: RC%d is powering down the common phy\n",
 			dev->rc_idx);
 		msm_pcie_write_reg(dev->phy, PCIE_COM_SW_RESET, 0x1);
 		msm_pcie_write_reg(dev->phy, PCIE_COM_POWER_DOWN_CONTROL, 0);
 	}
+	mutex_unlock(&com_phy_lock);
+
 	msm_pcie_pipe_clk_deinit(dev);
 	msm_pcie_clk_deinit(dev);
 clk_fail:
@@ -3811,7 +3822,6 @@ void msm_pcie_disable(struct msm_pcie_dev_t *dev, u32 options)
 	dev->link_status = MSM_PCIE_LINK_DISABLED;
 	dev->power_on = false;
 	dev->link_turned_off_counter++;
-	num_rc_on--;
 
 	PCIE_INFO(dev, "PCIe: Assert the reset of endpoint of RC%d.\n",
 		dev->rc_idx);
@@ -3824,12 +3834,15 @@ void msm_pcie_disable(struct msm_pcie_dev_t *dev, u32 options)
 	msm_pcie_write_reg(dev->phy,
 		PCIE_N_POWER_DOWN_CONTROL(dev->rc_idx, dev->common_phy), 0);
 
+	mutex_lock(&com_phy_lock);
+	num_rc_on--;
 	if (!num_rc_on) {
 		PCIE_DBG(dev, "PCIe: RC%d is powering down the common phy\n",
 			dev->rc_idx);
 		msm_pcie_write_reg(dev->phy, PCIE_COM_SW_RESET, 0x1);
 		msm_pcie_write_reg(dev->phy, PCIE_COM_POWER_DOWN_CONTROL, 0);
 	}
+	mutex_unlock(&com_phy_lock);
 
 	if (options & PM_CLK) {
 		msm_pcie_write_mask(dev->parf + PCIE20_PARF_PHY_CTRL, 0,
@@ -5365,6 +5378,7 @@ int __init pcie_init(void)
 
 	pcie_drv.rc_num = 0;
 	mutex_init(&pcie_drv.drv_lock);
+	mutex_init(&com_phy_lock);
 
 	for (i = 0; i < MAX_RC_NUM; i++) {
 		snprintf(rc_name, MAX_RC_NAME_LEN, "pcie%d-short", i);
