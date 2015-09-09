@@ -1343,11 +1343,6 @@ static int swrm_suspend(struct device *dev)
 			pm_runtime_disable(dev);
 			pm_runtime_set_suspended(dev);
 			pm_runtime_enable(dev);
-		} else {
-			if (swrm->clk && swrm->handle) {
-				swrm->clk(swrm->handle, false);
-				swrm->state = SWR_MSTR_DOWN;
-			}
 		}
 	}
 	if (ret == -EBUSY) {
@@ -1372,11 +1367,6 @@ static int swrm_resume(struct device *dev)
 
 	dev_dbg(dev, "%s: system resume, state: %d\n", __func__, swrm->state);
 	if (!pm_runtime_enabled(dev) || !pm_runtime_suspend(dev)) {
-		if (swrm->clk && swrm->handle &&
-		    swrm->state == SWR_MSTR_DOWN) {
-			swrm->clk(swrm->handle, true);
-			swrm->state = SWR_MSTR_UP;
-		}
 		ret = swrm_runtime_resume(dev);
 		if (!ret) {
 			pm_runtime_mark_last_busy(dev);
