@@ -165,3 +165,7 @@
 		};
 	};
 };
+
+&mdss_dsi {
+	/delete-property/ qcom,split-dsi-independent-pll;
+};

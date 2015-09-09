@@ -197,12 +197,19 @@
 
 		clocks = <&clock_gcc clk_gcc_mdss_mdp_clk>,
 			<&clock_gcc clk_gcc_mdss_ahb_clk>,
-			<&clock_gcc clk_gcc_mdss_axi_clk>;
-		clock-names = "mdp_core_clk", "iface_clk", "bus_clk";
+			<&clock_gcc clk_gcc_mdss_axi_clk>,
+			<&clock_gcc_mdss clk_ext_byte0_clk_src>,
+			<&clock_gcc_mdss clk_ext_byte1_clk_src>,
+			<&clock_gcc_mdss clk_ext_pclk0_clk_src>,
+			<&clock_gcc_mdss clk_ext_pclk1_clk_src>;
+		clock-names = "mdp_core_clk", "iface_clk", "bus_clk",
+			"ext_byte0_clk", "ext_byte1_clk", "ext_pixel0_clk",
+			"ext_pixel1_clk";
 
 		qcom,mmss-ulp-clamp-ctrl-offset = <0x20>;
 		qcom,mmss-phyreset-ctrl-offset = <0x24>;
 		qcom,timing-db-mode;
+		qcom,split-dsi-independent-pll;
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;
@@ -266,8 +273,11 @@
 
 			clocks = <&clock_gcc_mdss clk_gcc_mdss_byte0_clk>,
 				<&clock_gcc_mdss clk_gcc_mdss_pclk0_clk>,
-				<&clock_gcc clk_gcc_mdss_esc0_clk>;
-			clock-names = "byte_clk", "pixel_clk", "core_clk";
+				<&clock_gcc clk_gcc_mdss_esc0_clk>,
+				<&clock_gcc_mdss clk_byte0_clk_src>,
+				<&clock_gcc_mdss clk_pclk0_clk_src>;
+			clock-names = "byte_clk", "pixel_clk", "core_clk",
+				"byte_clk_rcg", "pixel_clk_rcg";
 
 			qcom,platform-strength-ctrl = [ff 06];
 			qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
@@ -300,8 +310,11 @@
 
 			clocks = <&clock_gcc_mdss clk_gcc_mdss_byte1_clk>,
 				<&clock_gcc_mdss clk_gcc_mdss_pclk1_clk>,
-				<&clock_gcc clk_gcc_mdss_esc1_clk>;
-			clock-names = "byte_clk", "pixel_clk", "core_clk";
+				<&clock_gcc clk_gcc_mdss_esc1_clk>,
+				<&clock_gcc_mdss clk_byte1_clk_src>,
+				<&clock_gcc_mdss clk_pclk1_clk_src>;
+			clock-names = "byte_clk", "pixel_clk", "core_clk",
+				"byte_clk_rcg", "pixel_clk_rcg";
 
 			qcom,platform-strength-ctrl = [ff 06];
 			qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
