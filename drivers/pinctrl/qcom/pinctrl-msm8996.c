@@ -1897,12 +1897,12 @@ static const struct msm_pingroup msm8996_groups[] = {
 	PINGROUP(147, NA, qspi1, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(148, NA, qspi2, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(149, NA, qspi3, NA, NA, NA, NA, NA, NA, NA),
-	SDC_QDSD_PINGROUP(sdc1_clk, 0x21c000, 13, 6),
-	SDC_QDSD_PINGROUP(sdc1_cmd, 0x21c000, 11, 3),
-	SDC_QDSD_PINGROUP(sdc1_data, 0x21c000, 9, 0),
-	SDC_QDSD_PINGROUP(sdc2_clk, 0x21d000, 14, 6),
-	SDC_QDSD_PINGROUP(sdc2_cmd, 0x21d000, 11, 3),
-	SDC_QDSD_PINGROUP(sdc2_data, 0x21d000, 9, 0),
+	SDC_QDSD_PINGROUP(sdc1_clk, 0x12c000, 13, 6),
+	SDC_QDSD_PINGROUP(sdc1_cmd, 0x12c000, 11, 3),
+	SDC_QDSD_PINGROUP(sdc1_data, 0x12c000, 9, 0),
+	SDC_QDSD_PINGROUP(sdc2_clk, 0x12d000, 14, 6),
+	SDC_QDSD_PINGROUP(sdc2_cmd, 0x12d000, 11, 3),
+	SDC_QDSD_PINGROUP(sdc2_data, 0x12d000, 9, 0),
 	SDC_QDSD_PINGROUP(sdc1_rclk, 0x12c000, 15, 0),
 };
 
