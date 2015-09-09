@@ -193,6 +193,10 @@
 	bias-disable;
 };
 
+&pmi8950_haptic {
+	qcom,vmax-mv = <3300>;
+};
+
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
 };
