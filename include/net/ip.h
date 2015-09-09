@@ -210,6 +210,7 @@ static inline int inet_is_reserved_local_port(int port)
 	return test_bit(port, sysctl_local_reserved_ports);
 }
 
+extern int sysctl_reserved_port_bind;
 extern int sysctl_ip_nonlocal_bind;
 
 /* From inetpeer.c */
