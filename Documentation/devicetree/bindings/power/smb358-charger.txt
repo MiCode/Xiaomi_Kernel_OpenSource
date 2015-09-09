@@ -16,7 +16,6 @@ Required Properties:
 				power supply name.
 - qcom,float-voltage-mv		Float Voltage in mV - the maximum voltage up to which
 				the battery is charged. Supported range 3500mV to 4500mV
-- qcom,chg-vadc			Corresponding VADC device's phandle.
 
 Optional Properties:
 
@@ -66,6 +65,7 @@ Optional Properties:
 - qcom,cool-bat-ma:		Maximum cool battery charge current in milli-amps.
 - qcom,warm-bat-mv:		Maximum warm battery target voltage in milli-volts.
 - qcom,cool-bat-mv:		Maximum cool battery target voltage in milli-volts.
+- qcom,chg-vadc			Corresponding VADC device's phandle.
 
 Example:
 	i2c@f9967000 {

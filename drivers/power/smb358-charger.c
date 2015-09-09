@@ -944,7 +944,7 @@ static int smb358_get_prop_batt_temp(struct smb358_charger *chip)
 	int rc = 0;
 	struct qpnp_vadc_result results;
 
-	if (!smb358_get_prop_batt_present(chip))
+	if (!smb358_get_prop_batt_present(chip) || !chip->vadc_dev)
 		return DEFAULT_TEMP;
 
 	rc = qpnp_vadc_read(chip->vadc_dev, LR_MUX1_BATT_THERM, &results);
@@ -963,6 +963,9 @@ smb358_get_prop_battery_voltage_now(struct smb358_charger *chip)
 {
 	int rc = 0;
 	struct qpnp_vadc_result results;
+
+	if (!chip->vadc_dev)
+		return 0;
 
 	rc = qpnp_vadc_read(chip->vadc_dev, VBAT_SNS, &results);
 	if (rc) {
@@ -2399,13 +2402,15 @@ static int smb358_charger_probe(struct i2c_client *client,
 	chip->usb_psy = usb_psy;
 	chip->fake_battery_soc = -EINVAL;
 
-	/* early for VADC get, defer probe if needed */
-	chip->vadc_dev = qpnp_get_vadc(chip->dev, "chg");
-	if (IS_ERR(chip->vadc_dev)) {
-		rc = PTR_ERR(chip->vadc_dev);
-		if (rc != -EPROBE_DEFER)
-			pr_err("vadc property missing\n");
-		return rc;
+	if (of_find_property(chip->dev->of_node, "qcom,chg-vadc", NULL)) {
+		/* early for VADC get, defer probe if needed */
+		chip->vadc_dev = qpnp_get_vadc(chip->dev, "chg");
+		if (IS_ERR(chip->vadc_dev)) {
+			rc = PTR_ERR(chip->vadc_dev);
+			if (rc != -EPROBE_DEFER)
+				pr_err("vadc property configured incorrectly\n");
+			return rc;
+		}
 	}
 
 	rc = smb_parse_dt(chip);
