@@ -66,6 +66,11 @@ Optional properties:
 - qcom,mmss-phyreset-ctrl-offset:	Specifies the offset for dsi phy reset control register.
 - qcom,timing-db-mode:			Boolean specifies dsi timing mode registers are supported or not.
 - qcom,dsi-clk-ln-recovery:		Boolean which enables the clk lane recovery
+- qcom,split-dsi-independent-pll:	Boolean which specifies if the individual DSI controllers need to be
+					driven by respective DSI PLLs for split DSI use-cases which is required
+					on specific MSM revisions. This property supersedes the default configuration
+					of using a shared PLL for split DSI configuration and is not applicable to
+					single/dual DSI configurations.
 
 mdss-dsi-ctrl is a dsi controller device which is treated as a subnode of the mdss-dsi device.
 
@@ -137,6 +142,7 @@ Example:
 
 		qcom,timing-db-mode;
 		qcom,dsi-clk-ln-recovery;
+		qcom,split-dsi-independent-pll;
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;
