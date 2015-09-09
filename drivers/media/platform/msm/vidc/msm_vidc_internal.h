@@ -200,7 +200,6 @@ struct dcvs_stats {
 	bool is_clock_scaled;
 	int etb_counter;
 	bool is_power_save_mode;
-	bool is_additional_buff_added;
 };
 
 struct profile_data {

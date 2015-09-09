@@ -1337,8 +1337,14 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 
 		buff_req = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
 		if (buff_req) {
-			*num_buffers = buff_req->buffer_count_actual =
-			max(*num_buffers, buff_req->buffer_count_min);
+			/*
+			 * Pretend as if the FW itself is asking for additional
+			 * buffers, which are required for DCVS
+			 */
+			unsigned int min_req_buffers =
+				buff_req->buffer_count_min +
+				msm_dcvs_get_extra_buff_count(inst);
+			*num_buffers = max(*num_buffers, min_req_buffers);
 		}
 
 		if (*num_buffers < MIN_NUM_CAPTURE_BUFFERS ||
@@ -1398,12 +1404,8 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
 		new_buf_count.buffer_type = HAL_BUFFER_OUTPUT;
 		new_buf_count.buffer_count_actual = *num_buffers;
-		new_buf_count.buffer_count_actual +=
-				msm_dcvs_get_extra_buff_count(inst);
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
 			property_id, &new_buf_count);
-		if (!rc)
-			msm_dcvs_set_buff_req_handled(inst);
 
 		break;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:

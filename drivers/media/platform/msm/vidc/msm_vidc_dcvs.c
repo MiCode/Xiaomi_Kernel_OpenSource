@@ -542,8 +542,7 @@ static bool msm_dcvs_check_supported(struct msm_vidc_inst *inst)
 	} else if (instance_count == 1 &&
 			inst->session_type == MSM_VIDC_ENCODER &&
 			!msm_comm_turbo_session(inst)) {
-		if (!msm_dcvs_enc_check(inst) ||
-			!inst->dcvs.is_additional_buff_added)
+		if (!msm_dcvs_enc_check(inst))
 			return false;
 	} else {
 		/*
@@ -591,10 +590,8 @@ int msm_dcvs_get_extra_buff_count(struct msm_vidc_inst *inst)
 	}
 
 	if (inst->session_type == MSM_VIDC_ENCODER) {
-		if (msm_dcvs_enc_check(inst)) {
-			if (!inst->dcvs.is_additional_buff_added)
-				extra_buffer = DCVS_ENC_EXTRA_OUTPUT_BUFFERS;
-		}
+		if (msm_dcvs_enc_check(inst))
+			extra_buffer = DCVS_ENC_EXTRA_OUTPUT_BUFFERS;
 	} else if (inst->session_type == MSM_VIDC_DECODER) {
 		if (msm_dcvs_check_supported(inst))
 			extra_buffer = DCVS_DEC_EXTRA_OUTPUT_BUFFERS;
@@ -602,22 +599,6 @@ int msm_dcvs_get_extra_buff_count(struct msm_vidc_inst *inst)
 	return extra_buffer;
 }
 
-void msm_dcvs_set_buff_req_handled(struct msm_vidc_inst *inst)
-{
-	if (!inst) {
-		dprintk(VIDC_ERR, "%s Invalid args\n", __func__);
-		return;
-	}
-
-	if (inst->session_type == MSM_VIDC_ENCODER) {
-		if (msm_dcvs_enc_check(inst)) {
-			if (!inst->dcvs.is_additional_buff_added)
-				inst->dcvs.is_additional_buff_added = true;
-				dprintk(VIDC_PROF,
-					"ENC_DCVS: additional o/p buffer added");
-		}
-	}
-}
 
 void msm_dcvs_enc_set_power_save_mode(struct msm_vidc_inst *inst,
 					bool is_power_save_mode)
