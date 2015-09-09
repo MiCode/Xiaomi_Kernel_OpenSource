@@ -30,7 +30,7 @@
 #include <linux/types.h>
 #include <asm/cacheflush.h>
 #include <asm/smp_plat.h>
-#include <asm/mmu.h>
+#include <asm/insn.h>
 #include <soc/qcom/kryo-l2-accessors.h>
 
 #define TYPE_MAX_CHARACTERS 20
@@ -176,7 +176,7 @@ static u64 do_cpregister_rw(int write)
 	 * instruction, ensuring cache coherency.
 	 */
 	p_opcode = (u32 *)&cpaccess_dummy_inst;
-	mem_text_write_kernel_word(p_opcode, opcode);
+	aarch64_insn_write(p_opcode, opcode);
 
 	/*
 	 * Use smp_call_function_single to do CPU core specific
