@@ -95,6 +95,7 @@ struct msm_audio {
 	int cmd_interrupt;
 	bool meta_data_mode;
 	uint32_t volume;
+	int ch_mixer;
 };
 
 struct output_meta_data_st {
