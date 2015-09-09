@@ -326,6 +326,8 @@ static int msm_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					SNDRV_PCM_HW_PARAM_CHANNELS);
 
 	pr_debug("%s(), channel:%d\n", __func__, msm_ter_mi2s_tx_ch);
+	param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			SNDRV_PCM_FORMAT_S16_LE);
 	rate->min = rate->max = 48000;
 	channels->min = channels->max = msm_ter_mi2s_tx_ch;
 
@@ -411,7 +413,12 @@ static int msm_mi2s_snd_hw_params(struct snd_pcm_substream *substream,
 {
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
-	param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT, mi2s_rx_bit_format);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			       mi2s_rx_bit_format);
+	else
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			       SNDRV_PCM_FORMAT_S16_LE);
 	return 0;
 }
 
