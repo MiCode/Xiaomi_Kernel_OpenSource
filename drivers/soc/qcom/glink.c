@@ -3416,7 +3416,7 @@ int of_get_glink_core_qos_cfg(struct device_node *phandle,
 	num_flows /= 2;
 	cfg->num_flows = num_flows;
 
-	cfg->flow_info = kmalloc_array(num_flows, sizeof(cfg->flow_info),
+	cfg->flow_info = kmalloc_array(num_flows, sizeof(*(cfg->flow_info)),
 					GFP_KERNEL);
 	if (!cfg->flow_info) {
 		GLINK_ERR("%s: Memory allocation for flow info failed\n",
@@ -3424,7 +3424,7 @@ int of_get_glink_core_qos_cfg(struct device_node *phandle,
 		rc = -ENOMEM;
 		goto error;
 	}
-	arr32 = kmalloc_array(num_flows, sizeof(uint32_t), GFP_KERNEL);
+	arr32 = kmalloc_array(num_flows * 2, sizeof(uint32_t), GFP_KERNEL);
 	if (!arr32) {
 		GLINK_ERR("%s: Memory allocation for temporary array failed\n",
 				__func__);
