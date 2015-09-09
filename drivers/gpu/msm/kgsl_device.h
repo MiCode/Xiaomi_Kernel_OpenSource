@@ -541,6 +541,7 @@ struct kgsl_device_private {
  * @work: worker to dump the frozen memory
  * @dump_gate: completion gate signaled by worker when it is finished.
  * @process: the process that caused the hang, if known.
+ * @sysfs_read: An atomic for concurrent snapshot reads via syfs.
  */
 struct kgsl_snapshot {
 	u8 *start;
@@ -555,6 +556,7 @@ struct kgsl_snapshot {
 	struct work_struct work;
 	struct completion dump_gate;
 	struct kgsl_process_private *process;
+	atomic_t sysfs_read;
 };
 
 /**
