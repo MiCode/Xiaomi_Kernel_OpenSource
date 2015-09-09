@@ -3129,6 +3129,13 @@ int ipa2_sys_teardown(u32 clnt_hdl)
 	return 0;
 }
 
+int ipa2_sys_update_gsi_hdls(u32 clnt_hdl, unsigned long gsi_ch_hdl,
+	unsigned long gsi_ev_hdl)
+{
+	IPAERR("GSI not supported in IPAv2");
+	return -EFAULT;
+}
+
 
 /**
  * ipa_adjust_ra_buff_base_sz()

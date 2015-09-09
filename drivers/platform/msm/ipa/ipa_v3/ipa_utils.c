@@ -799,12 +799,12 @@ int ipa3_get_ep_mapping(enum ipa_client_type client)
 }
 
 /**
- * ipa_get_gsi_ep_info() - provide gsi ep information
+ * ipa3_get_gsi_ep_info() - provide gsi ep information
  * @ipa_ep_idx: IPA endpoint index
  *
  * Return value: pointer to ipa_gsi_ep_info
  */
-struct ipa_gsi_ep_config *ipa_get_gsi_ep_info(int ipa_ep_idx)
+struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info(int ipa_ep_idx)
 {
 	int i;
 
@@ -4656,6 +4656,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_teardown_sys_pipe = ipa3_teardown_sys_pipe;
 	api_ctrl->ipa_sys_setup = ipa3_sys_setup;
 	api_ctrl->ipa_sys_teardown = ipa3_sys_teardown;
+	api_ctrl->ipa_sys_update_gsi_hdls = ipa3_sys_update_gsi_hdls;
 	api_ctrl->ipa_connect_wdi_pipe = ipa3_connect_wdi_pipe;
 	api_ctrl->ipa_disconnect_wdi_pipe = ipa3_disconnect_wdi_pipe;
 	api_ctrl->ipa_enable_wdi_pipe = ipa3_enable_wdi_pipe;
@@ -4729,6 +4730,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_dma_dev = ipa3_get_dma_dev;
 	api_ctrl->ipa_release_wdi_mapping = ipa3_release_wdi_mapping;
 	api_ctrl->ipa_create_wdi_mapping = ipa3_create_wdi_mapping;
+	api_ctrl->ipa_get_gsi_ep_info = ipa3_get_gsi_ep_info;
 
 	return 0;
 }

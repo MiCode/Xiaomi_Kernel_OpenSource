@@ -3005,7 +3005,7 @@ void ipa3_free_skb(struct ipa_rx_data *data)
 /* Functions added to support kernel tests */
 
 int ipa3_sys_setup(struct ipa_sys_connect_params *sys_in,
-			unsigned long *ipa_bam_hdl,
+			unsigned long *ipa_bam_or_gsi_hdl,
 			u32 *ipa_pipe_num, u32 *clnt_hdl, bool en_status)
 {
 	struct ipa3_ep_context *ep;
@@ -3017,7 +3017,7 @@ int ipa3_sys_setup(struct ipa_sys_connect_params *sys_in,
 		goto fail_gen;
 	}
 
-	if (ipa_bam_hdl == NULL || ipa_pipe_num == NULL) {
+	if (ipa_bam_or_gsi_hdl == NULL || ipa_pipe_num == NULL) {
 		IPAERR("NULL args\n");
 		goto fail_gen;
 	}
@@ -3103,7 +3103,10 @@ int ipa3_sys_setup(struct ipa_sys_connect_params *sys_in,
 	*clnt_hdl = ipa_ep_idx;
 
 	*ipa_pipe_num = ipa_ep_idx;
-	*ipa_bam_hdl = ipa3_ctx->bam_handle;
+	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI)
+		*ipa_bam_or_gsi_hdl = ipa3_ctx->gsi_dev_hdl;
+	else
+		*ipa_bam_or_gsi_hdl = ipa3_ctx->bam_handle;
 
 	if (!ep->keep_ipa_awake)
 		ipa3_dec_client_disable_clks();
@@ -3142,6 +3145,25 @@ int ipa3_sys_teardown(u32 clnt_hdl)
 	ipa3_dec_client_disable_clks();
 
 	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);
+
+	return 0;
+}
+
+int ipa3_sys_update_gsi_hdls(u32 clnt_hdl, unsigned long gsi_ch_hdl,
+	unsigned long gsi_ev_hdl)
+{
+	struct ipa3_ep_context *ep;
+
+	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
+		ipa3_ctx->ep[clnt_hdl].valid == 0) {
+		IPAERR("bad parm(Either endpoint or client hdl invalid)\n");
+		return -EINVAL;
+	}
+
+	ep = &ipa3_ctx->ep[clnt_hdl];
+
+	ep->gsi_chan_hdl = gsi_ch_hdl;
+	ep->gsi_evt_ring_hdl = gsi_ev_hdl;
 
 	return 0;
 }
@@ -3304,7 +3326,7 @@ static int ipa_gsi_setup_channel(struct ipa3_ep_context *ep)
 	else
 		gsi_channel_props.dir = GSI_CHAN_DIR_FROM_GSI;
 
-	gsi_ep_info = ipa_get_gsi_ep_info(ipa3_get_ep_mapping(ep->client));
+	gsi_ep_info = ipa3_get_gsi_ep_info(ipa3_get_ep_mapping(ep->client));
 	if (!gsi_ep_info) {
 		IPAERR("Invalid ep number\n");
 		result = -EINVAL;
