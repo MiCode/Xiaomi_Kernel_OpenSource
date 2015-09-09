@@ -1433,20 +1433,20 @@ static void gbam2bam_connect_work(struct work_struct *w)
 		configure_data_fifo(d->usb_bam_type, d->dst_connection_idx,
 				    port->port_usb->in, d->dst_pipe_type);
 		spin_unlock_irqrestore(&port->port_lock_dl, flags);
+	}
 
-		gqti_ctrl_update_ipa_pipes(port->port_usb, port->port_num,
-			d->ipa_params.ipa_prod_ep_idx ,
-			d->ipa_params.ipa_cons_ep_idx);
+	gqti_ctrl_update_ipa_pipes(port->port_usb, port->port_num,
+					d->ipa_params.ipa_prod_ep_idx ,
+					d->ipa_params.ipa_cons_ep_idx);
 
-		connect_params.ipa_usb_pipe_hdl = d->ipa_params.prod_clnt_hdl;
-		connect_params.usb_ipa_pipe_hdl = d->ipa_params.cons_clnt_hdl;
-		connect_params.tethering_mode = TETH_TETHERING_MODE_RMNET;
-		connect_params.client_type = d->ipa_params.src_client;
-		ret = teth_bridge_connect(&connect_params);
-		if (ret) {
-			pr_err("%s:teth_bridge_connect() failed\n", __func__);
-			return;
-		}
+	connect_params.ipa_usb_pipe_hdl = d->ipa_params.prod_clnt_hdl;
+	connect_params.usb_ipa_pipe_hdl = d->ipa_params.cons_clnt_hdl;
+	connect_params.tethering_mode = TETH_TETHERING_MODE_RMNET;
+	connect_params.client_type = d->ipa_params.src_client;
+	ret = teth_bridge_connect(&connect_params);
+	if (ret) {
+		pr_err("%s:teth_bridge_connect() failed\n", __func__);
+		return;
 	}
 
 	spin_lock_irqsave(&port->port_lock, flags);
