@@ -77,6 +77,8 @@
 #define UBWC_MASK 0x20
 #define CDS_MASK 0x40
 #define MMU_PF_MASK 0x80
+#define POP_FRONT 1
+#define POP_BACK 0
 
 #define CPP_DT_READ_U32_ERR(_dev, _key, _str, _ret, _out) { \
 		_key = _str; \
@@ -164,15 +166,17 @@ static struct msm_bus_scale_pdata msm_cpp_bus_scale_data = {
 	.name = "msm_camera_cpp",
 };
 
-#define msm_dequeue(queue, member) ({	   \
+#define msm_dequeue(queue, member, pop_dir) ({	   \
 	unsigned long flags;		  \
 	struct msm_device_queue *__q = (queue);	 \
 	struct msm_queue_cmd *qcmd = 0;	   \
 	spin_lock_irqsave(&__q->lock, flags);	 \
 	if (!list_empty(&__q->list)) {		\
 		__q->len--;		 \
-		qcmd = list_first_entry(&__q->list,   \
-		struct msm_queue_cmd, member);  \
+		qcmd = pop_dir ? list_first_entry(&__q->list,   \
+			struct msm_queue_cmd, member) :    \
+			list_last_entry(&__q->list,   \
+			struct msm_queue_cmd, member);    \
 		list_del_init(&qcmd->member);	 \
 	}			 \
 	spin_unlock_irqrestore(&__q->lock, flags);  \
@@ -1551,7 +1555,7 @@ static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev,
 	struct msm_buf_mngr_info buff_mgr_info;
 	int rc = 0;
 
-	frame_qcmd = msm_dequeue(queue, list_frame);
+	frame_qcmd = msm_dequeue(queue, list_frame, POP_FRONT);
 	if (frame_qcmd) {
 		processed_frame = frame_qcmd->command;
 		do_gettimeofday(&(processed_frame->out_time));
@@ -1865,6 +1869,7 @@ static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
 	int32_t rc = -EAGAIN;
 	int ret;
 	struct msm_cpp_frame_info_t *process_frame;
+	struct msm_queue_cmd *qcmd = NULL;
 	uint32_t queue_len = 0;
 
 	if (cpp_dev->processing_q.len < MAX_CPP_PROCESSING_FRAME) {
@@ -1902,7 +1907,7 @@ static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
 		if (rc) {
 			pr_err("%s: Rescheduling plane info failed %d\n",
 				__func__, rc);
-			goto end;
+			goto dequeue_frame;
 		}
 		/* send stripes */
 		i1 = cpp_dev->payload_params.stripe_base +
@@ -1923,17 +1928,35 @@ static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
 		if (rc) {
 			pr_err("%s: Rescheduling stripe info failed %d\n",
 				__func__, rc);
-			goto end;
+			goto dequeue_frame;
 		}
 		/* send trailer */
 		msm_cpp_write(MSM_CPP_MSG_ID_TRAILER, cpp_dev->base);
 
 		do_gettimeofday(&(process_frame->in_time));
 		rc = 0;
+	} else {
+		pr_err("process queue full. drop frame\n");
+		goto end;
+	}
+
+dequeue_frame:
+	if (rc < 0) {
+		qcmd = msm_dequeue(&cpp_dev->processing_q, list_frame,
+			POP_BACK);
+		if (!qcmd)
+			pr_warn("%s:%d: no queue cmd\n", __func__, __LINE__);
+		spin_lock_irqsave(&cpp_timer.data.processed_frame_lock,
+			flags);
+		queue_len = cpp_dev->processing_q.len;
+		spin_unlock_irqrestore(
+			&cpp_timer.data.processed_frame_lock, flags);
+		if (queue_len == 0) {
+			atomic_set(&cpp_timer.used, 0);
+			del_timer(&cpp_timer.cpp_timer);
+		}
 	}
 end:
-	if (rc < 0)
-		pr_err("process queue full. drop frame\n");
 	return rc;
 }
 
@@ -2577,7 +2600,7 @@ void msm_cpp_clean_queue(struct cpp_device *cpp_dev)
 	while (cpp_dev->processing_q.len) {
 		pr_debug("queue len:%d\n", cpp_dev->processing_q.len);
 		queue = &cpp_dev->processing_q;
-		frame_qcmd = msm_dequeue(queue, list_frame);
+		frame_qcmd = msm_dequeue(queue, list_frame, POP_FRONT);
 		if (frame_qcmd) {
 			processed_frame = frame_qcmd->command;
 			kfree(frame_qcmd);
@@ -2998,7 +3021,7 @@ STREAM_BUFF_END:
 		struct msm_queue_cmd *event_qcmd;
 		struct msm_cpp_frame_info_t *process_frame;
 		CPP_DBG("VIDIOC_MSM_CPP_GET_EVENTPAYLOAD\n");
-		event_qcmd = msm_dequeue(queue, list_eventdata);
+		event_qcmd = msm_dequeue(queue, list_eventdata, POP_FRONT);
 		if (!event_qcmd) {
 			pr_err("no queue cmd available");
 			mutex_unlock(&cpp_dev->mutex);
@@ -3688,7 +3711,7 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 
 		CPP_DBG("VIDIOC_MSM_CPP_GET_EVENTPAYLOAD\n");
 		mutex_lock(&cpp_dev->mutex);
-		event_qcmd = msm_dequeue(queue, list_eventdata);
+		event_qcmd = msm_dequeue(queue, list_eventdata, POP_FRONT);
 		if (!event_qcmd) {
 			pr_err("no queue cmd available");
 			mutex_unlock(&cpp_dev->mutex);
