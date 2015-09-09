@@ -1253,8 +1253,6 @@ static int armv8pmu_set_event_filter(struct hw_perf_event *event,
 {
 	unsigned long config_base = 0;
 
-	if (attr->exclude_idle)
-		return -EPERM;
 	if (attr->exclude_user)
 		config_base |= ARMV8_EXCLUDE_EL0;
 	if (attr->exclude_kernel)
@@ -1410,6 +1408,26 @@ static void armpmu_update_counters(void *x)
 		struct perf_event *event = hw_events->events[idx];
 
 		if (!event)
+			continue;
+
+		cpu_pmu->pmu.read(event);
+	}
+}
+
+static void armpmu_idle_update(void)
+{
+	struct pmu_hw_events *hw_events;
+	int idx;
+
+	if (!cpu_pmu)
+		return;
+
+	hw_events = cpu_pmu->get_hw_events();
+
+	for (idx = 0; idx <= cpu_pmu->num_events; ++idx) {
+		struct perf_event *event = hw_events->events[idx];
+
+		if (!event || !event->attr.exclude_idle)
 			continue;
 
 		cpu_pmu->pmu.read(event);
@@ -1581,6 +1599,19 @@ static struct notifier_block perf_cpu_pm_notifier_block = {
 	.notifier_call = perf_cpu_pm_notifier,
 };
 
+static int perf_cpu_idle_notifier(struct notifier_block *nb,
+				unsigned long action, void *data)
+{
+	if (action == IDLE_START)
+		armpmu_idle_update();
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block perf_cpu_idle_nb = {
+	.notifier_call = perf_cpu_idle_notifier,
+};
+
 /*
  * PMU platform driver and devicetree bindings.
  */
@@ -1633,6 +1664,8 @@ static int __init register_pmu_driver(void)
 	if (err)
 		goto err_cpu_pm;
 
+	idle_notifier_register(&perf_cpu_idle_nb);
+
 	err = platform_driver_register(&armpmu_driver);
 	if (err)
 		goto err_driver;
@@ -1640,6 +1673,7 @@ static int __init register_pmu_driver(void)
 
 err_driver:
 	cpu_pm_unregister_notifier(&perf_cpu_pm_notifier_block);
+	idle_notifier_unregister(&perf_cpu_idle_nb);
 err_cpu_pm:
 	unregister_cpu_notifier(&cpu_pmu_hotplug_notifier);
 	return err;
