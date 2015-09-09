@@ -299,6 +299,8 @@ struct ipa_api_controller {
 
 	int (*ipa_ap_resume)(struct device *dev);
 
+	int (*ipa_stop_gsi_channel)(u32 clnt_hdl);
+
 	struct iommu_domain *(*ipa_get_smmu_domain)(void);
 
 	int (*ipa_disable_apps_wan_cons_deaggr)(uint32_t agg_size,

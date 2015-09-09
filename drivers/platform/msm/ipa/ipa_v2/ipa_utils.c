@@ -4867,6 +4867,13 @@ static struct ipa_gsi_ep_config *ipa2_get_gsi_ep_info(int ipa_ep_idx)
 	return NULL;
 }
 
+static int ipa2_stop_gsi_channel(u32 clnt_hdl)
+{
+	IPAERR("Not supported for IPA 2.x\n");
+	return -EFAULT;
+}
+
+
 int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	struct ipa_api_controller *api_ctrl)
 {
@@ -5009,6 +5016,7 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_rm_add_dependency_sync = ipa2_rm_add_dependency_sync;
 	api_ctrl->ipa_get_dma_dev = ipa2_get_dma_dev;
 	api_ctrl->ipa_get_gsi_ep_info = ipa2_get_gsi_ep_info;
+	api_ctrl->ipa_stop_gsi_channel = ipa2_stop_gsi_channel;
 
 	return 0;
 }

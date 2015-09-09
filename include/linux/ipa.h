@@ -1445,6 +1445,8 @@ int ipa_disable_apps_wan_cons_deaggr(uint32_t agg_size, uint32_t agg_count);
 
 struct ipa_gsi_ep_config *ipa_get_gsi_ep_info(int ipa_ep_idx);
 
+int ipa_stop_gsi_channel(u32 clnt_hdl);
+
 #else /* (CONFIG_IPA || CONFIG_IPA3) */
 
 /*
@@ -2182,6 +2184,11 @@ static inline int ipa_disable_apps_wan_cons_deaggr(void)
 static inline struct ipa_gsi_ep_config *ipa_get_gsi_ep_info(int ipa_ep_idx)
 {
 	return NULL;
+}
+
+static inline int ipa_stop_gsi_channel(u32 clnt_hdl)
+{
+	return -EPERM;
 }
 
 #endif /* (CONFIG_IPA || CONFIG_IPA3) */

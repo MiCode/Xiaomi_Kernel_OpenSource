@@ -2522,6 +2522,21 @@ struct ipa_gsi_ep_config *ipa_get_gsi_ep_info(int ipa_ep_idx)
 }
 EXPORT_SYMBOL(ipa_get_gsi_ep_info);
 
+/**
+ * ipa_stop_gsi_channel()- Stops a GSI channel in IPA
+ *
+ * Return value: 0 on success, negative otherwise
+ */
+int ipa_stop_gsi_channel(u32 clnt_hdl)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_stop_gsi_channel, clnt_hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_stop_gsi_channel);
+
 static struct of_device_id ipa_plat_drv_match[] = {
 	{ .compatible = "qcom,ipa", },
 	{ .compatible = "qcom,ipa-smmu-ap-cb", },

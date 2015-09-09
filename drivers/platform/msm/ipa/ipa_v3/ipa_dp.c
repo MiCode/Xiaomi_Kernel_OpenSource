@@ -1308,7 +1308,6 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 		ipa3_inc_client_enable_clks();
 
 	ipa3_disable_data_path(clnt_hdl);
-	ep->valid = 0;
 
 	if (IPA_CLIENT_IS_PROD(ep->client)) {
 		do {
@@ -1324,7 +1323,7 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 
 	flush_workqueue(ep->sys->wq);
 	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
-		result = ipa3_stop_gsi_channel(ep->gsi_chan_hdl);
+		result = ipa3_stop_gsi_channel(clnt_hdl);
 		if (result != GSI_STATUS_SUCCESS) {
 			IPAERR("GSI stop chan err: %d.\n", result);
 			BUG();
@@ -1394,6 +1393,7 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 	if (!atomic_read(&ipa3_ctx->wc_memb.active_clnt_cnt))
 		ipa3_cleanup_wlan_rx_common_cache();
 
+	ep->valid = 0;
 	ipa3_dec_client_disable_clks();
 
 	IPADBG("client (ep: %d) disconnected\n", clnt_hdl);

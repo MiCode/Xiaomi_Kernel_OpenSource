@@ -1519,6 +1519,8 @@ int ipa3_connect(const struct ipa_connect_params *in,
 		u32 *clnt_hdl);
 int ipa3_disconnect(u32 clnt_hdl);
 
+int ipa3_stop_gsi_channel(u32 clnt_hdl);
+
 /*
  * Resume / Suspend
  */
@@ -2051,6 +2053,5 @@ int ipa3_set_rt_tuple_mask(int tbl_idx, struct ipa3_hash_tuple *tuple);
 void ipa3_set_resorce_groups_min_max_limits(void);
 void ipa3_suspend_apps_pipes(bool suspend);
 
-int ipa3_stop_gsi_channel(unsigned long chan_hdl);
 
 #endif /* _IPA3_I_H_ */
