@@ -68,6 +68,7 @@
 #include "mdmcalifornium-smp2p.dtsi"
 #include "msm-gdsc.dtsi"
 #include "mdmcalifornium-blsp.dtsi"
+#include "mdmcalifornium-bus.dtsi"
 
 &soc {
 	#address-cells = <1>;
