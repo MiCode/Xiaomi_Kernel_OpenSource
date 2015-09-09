@@ -483,6 +483,8 @@ static int msm_iommu_probe(struct platform_device *pdev)
 					global_client_irq, ret);
 	}
 
+	idr_init(&drvdata->asid_idr);
+
 	ret = of_platform_populate(pdev->dev.of_node, msm_iommu_ctx_match_table,
 				   NULL, &pdev->dev);
 fail:
@@ -506,6 +508,7 @@ static int msm_iommu_remove(struct platform_device *pdev)
 
 	drv = platform_get_drvdata(pdev);
 	if (drv) {
+		idr_destroy(&drv->asid_idr);
 		__put_bus_vote_client(drv);
 		clk_unprepare(drv->clk);
 		clk_unprepare(drv->pclk);

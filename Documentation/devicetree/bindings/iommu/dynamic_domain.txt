@@ -1,0 +1,80 @@
+This document describes the concept of Dynamic domains, how to use dynamic
+domains and their implementation.
+
+Dynamic Domains:
+================
+
+Some clients like graphics has many processes and hence
+many domains (one for each process). While switching
+between processes, context bank is updated by client
+driver to point to new domain (or say TTBR0 is updated
+to point to new page table). During this time, client
+driver also invalidates the TLB to discard old page
+table entries from TLB. This is costly operation in
+time.
+
+SMMU provides ASID tagging support with each page table.
+If we tag different ASID with each domain, we can omit
+TLB invalidation of out going domain. To make this
+happen, client can attach one base domain and multiple
+_dynamic_ domains. Dynamic domain would represent
+each translation context with unique ASID on same
+context bank.
+
+How to use dynamic domains:
+===========================
+
+Following is example code of how to use dynamic domains.
+
+void fn()
+{
+    struct iommu_domain *base_domain, *dyn_domain1, *dyn_domain2;
+
+    base_domain = iommu_domain_alloc(bus);
+    dyn_domain1 = iommu_domain_alloc(bus);
+    dyn_domain2 = iommu_domain_alloc(bus);
+
+    iommu_attach_device(base_domain, dev);
+
+    iommu_domain_set_attr(dyn_domain1, DOMAIN_ATTR_DYNAMIC, &dynamic);
+    iommu_domain_set_attr(dyn_domain2, DOMAIN_ATTR_DYNAMIC, &dynamic);
+    iommu_attach_device(dyn_domain1, dev);
+    iommu_attach_device(dyn_domain2, dev);
+
+    while (keep_going) {
+            iommu_map(dyn_domain1, ...);
+            iommu_map(dyn_domain2, ...);
+            use_domain(dyn_domain1, job1);
+            use_domain(dyn_domain2, job2);
+            iommu_unmap(dyn_domain1, ...);
+            iommu_unmap(dyn_domain2, ...);
+    }
+
+    iommu_detach_device(dyn_domain2, dev);
+    iommu_detach_device(dyn_domain1, dev);
+    iommu_detach_device(base_domain, dev);
+}
+
+Some constraints while using dynamic domains:
+============================================
+
+* Before detaching the base_domain, we must detach all the dynamic
+  domains. This is because, dynamic domain detach will invalidate
+  the TLB. At the time of TLB invalidate, we really want the CB
+  programming intact. And detach of base_domain will clear the CB
+  programming which can cause some issues in TLB invalidation of
+  dynamic domains.
+
+* At the time of fault, the domain used by fault handler is the
+  base_domain. So, any debug info which comes from attached domain
+  would be from base_domain where as at the time of fault, it may
+  be possible that some dynamic_domain is attached. So, don't trust
+  debug info comes out from domain.
+
+* Dynamic domains doesn't store its CB device identity. IOMMU drivers
+  assumes that only one domain can be attached to one CB at any given
+  time. We still attach multiple dynamic domains on top of one
+  base_domain to CB. In the background, client driver uses these dynamic
+  domains to switch the per-process page tables about which IOMMU driver
+  can never be aware. Hence, dynamic domains never really knows its CB
+  device.
