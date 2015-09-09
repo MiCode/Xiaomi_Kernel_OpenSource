@@ -186,6 +186,9 @@ void msm_dcvs_init_load(struct msm_vidc_inst *inst)
 		} else if (dcvs->load > load_1080p) {
 			dcvs->load_low = DCVS_DEC_SVS_LOAD;
 			dcvs->load_high = DCVS_DEC_NOMINAL_LOAD;
+		} else {
+			dcvs->load_low = DCVS_DEC_SVS2_LOAD;
+			dcvs->load_high = DCVS_DEC_SVS_LOAD;
 		}
 	} else { /* encoder */
 		if (dcvs->load >= load_uhd) {
@@ -285,11 +288,11 @@ void msm_dcvs_monitor_buffer(struct msm_vidc_inst *inst)
 		dcvs->threshold_disp_buf_high = new_ftb;
 		if (dcvs->threshold_disp_buf_high <=
 			dcvs->threshold_disp_buf_low +
-			DCVS_DEC_EXTRA_OUTPUT_BUFFERS) {
+			DCVS_BUFFER_SAFEGUARD) {
 			dcvs->threshold_disp_buf_high =
 				dcvs->threshold_disp_buf_low +
-				DCVS_DEC_EXTRA_OUTPUT_BUFFERS
-				+ (DCVS_DEC_EXTRA_OUTPUT_BUFFERS == 0);
+				DCVS_BUFFER_SAFEGUARD
+				+ (DCVS_BUFFER_SAFEGUARD == 0);
 		}
 
 		dcvs->threshold_disp_buf_high =
@@ -527,10 +530,12 @@ static bool msm_dcvs_check_supported(struct msm_vidc_inst *inst)
 			(inst->fmts[OUTPUT_PORT]->fourcc ==
 				V4L2_PIX_FMT_VP8) ||
 			(inst->fmts[OUTPUT_PORT]->fourcc ==
+				V4L2_PIX_FMT_VP9) ||
+			(inst->fmts[OUTPUT_PORT]->fourcc ==
 				V4L2_PIX_FMT_H264_NO_SC);
 		if (!is_codec_supported ||
 			!IS_VALID_DCVS_SESSION(num_mbs_per_frame,
-					DCVS_MIN_SUPPORTED_MBPERFRAME))
+					DCVS_DEC_MIN_SUPPORTED_MBPERFRAME))
 			return false;
 
 		if (!output_buf_req) {
