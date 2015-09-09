@@ -169,6 +169,13 @@ static bool timeline_fence_enable_signaling(struct dma_fence *fence)
 	return true;
 }
 
+static void timeline_fence_disable_signaling(struct dma_fence *fence)
+{
+	struct sync_pt *pt = dma_fence_to_sync_pt(fence);
+
+	list_del_init(&pt->link);
+}
+
 static void timeline_fence_value_str(struct dma_fence *fence,
 				    char *str, int size)
 {
@@ -187,6 +194,7 @@ static const struct dma_fence_ops timeline_fence_ops = {
 	.get_driver_name = timeline_fence_get_driver_name,
 	.get_timeline_name = timeline_fence_get_timeline_name,
 	.enable_signaling = timeline_fence_enable_signaling,
+	.disable_signaling = timeline_fence_disable_signaling,
 	.signaled = timeline_fence_signaled,
 	.wait = dma_fence_default_wait,
 	.release = timeline_fence_release,
