@@ -499,6 +499,7 @@ static irqreturn_t synaptics_filter_interrupt(
 {
 	if (atomic_read(&rmi4_data->st_enabled)) {
 		if (atomic_cmpxchg(&rmi4_data->st_pending_irqs, 0, 1) == 0) {
+			reinit_completion(&rmi4_data->st_irq_processed);
 			synaptics_secure_touch_notify(rmi4_data);
 			wait_for_completion_interruptible(
 				&rmi4_data->st_irq_processed);
