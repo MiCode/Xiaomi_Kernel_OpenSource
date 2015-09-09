@@ -89,10 +89,10 @@
 					reg = <1>;
 					label = "pwr-l2-gdhs";
 					qcom,psci-mode = <3>;
-					qcom,latency-us = <600>;
+					qcom,latency-us = <80>;
 					qcom,ss-power = <350>;
 					qcom,energy-overhead = <30000>;
-					qcom,time-overhead = <1250>;
+					qcom,time-overhead = <150>;
 					qcom,min-child-idx = <1>;
 				};
 
@@ -103,7 +103,7 @@
 					qcom,latency-us = <700>;
 					qcom,ss-power = <180>;
 					qcom,energy-overhead = <65000>;
-					qcom,time-overhead = <1900>;
+					qcom,time-overhead = <11500>;
 					qcom,min-child-idx = <1>;
 					qcom,is-reset;
 				};
@@ -161,10 +161,10 @@
 					reg = <1>;
 					label = "perf-l2-gdhs";
 					qcom,psci-mode = <3>;
-					qcom,latency-us = <700>;
+					qcom,latency-us = <80>;
 					qcom,ss-power = <500>;
 					qcom,energy-overhead = <33000>;
-					qcom,time-overhead = <1350>;
+					qcom,time-overhead = <150>;
 					qcom,min-child-idx = <1>;
 				};
 
@@ -175,7 +175,7 @@
 					qcom,latency-us = <800>;
 					qcom,ss-power = <250>;
 					qcom,energy-overhead = <80000>;
-					qcom,time-overhead = <2300>;
+					qcom,time-overhead = <11500>;
 					qcom,min-child-idx = <1>;
 					qcom,is-reset;
 				};
