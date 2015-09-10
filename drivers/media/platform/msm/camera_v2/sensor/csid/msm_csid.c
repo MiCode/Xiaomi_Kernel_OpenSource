@@ -143,7 +143,7 @@ static void msm_csid_set_debug_reg(struct csid_device *csid_dev,
 	msm_camera_io_w(val, csid_dev->base +
 		csid_dev->ctrl_reg->csid_reg.csid_irq_clear_cmd_addr);
 }
-#elseif(SHORT_PKT_CAPTURE)
+#elif(SHORT_PKT_CAPTURE)
 static void msm_csid_set_debug_reg(struct csid_device *csid_dev,
 	struct msm_camera_csid_params *csid_params)
 {
@@ -314,8 +314,8 @@ static int msm_csid_config(struct csid_device *csid_dev,
 			val |= csid_params->phy_sel <<
 			    csid_dev->ctrl_reg->csid_reg.csid_phy_sel_shift_3p;
 			val |= ENABLE_3P_BIT;
-			msm_camera_io_w(val, csidbase +
-			    csid_dev->ctrl_reg->csid_reg.csid_3p_ctrl_0_addr);
+			msm_camera_io_w(val, csidbase + csid_dev->ctrl_reg
+				->csid_reg.csid_3p_ctrl_0_addr);
 		}
 	}
 
@@ -338,6 +338,7 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 {
 	uint32_t irq;
 	uint32_t short_dt = 0;
+	uint32_t count = 0, dt = 0;
 	struct csid_device *csid_dev = data;
 
 	if (!csid_dev) {
@@ -355,9 +356,10 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 		short_dt = msm_camera_io_r(csid_dev->base +
 			csid_dev->ctrl_reg->
 			csid_reg.csid_captured_short_pkt_addr);
-		short_dt = short_dt >> 24;
-		pr_err("CSID:: %s:%d core %d short dt %x\n",
-			__func__, __LINE__, csid_dev->pdev->id, short_dt);
+		count = (short_dt >> 8) & 0xffff;
+		dt =  short_dt >> 24;
+		CDBG("CSID:: %s:%d core %d dt: 0x%x, count: %d\n",
+			__func__, __LINE__, csid_dev->pdev->id, dt, count);
 		msm_camera_io_w(0x101, csid_dev->base +
 		csid_dev->ctrl_reg->csid_reg.csid_rst_cmd_addr);
 	}
