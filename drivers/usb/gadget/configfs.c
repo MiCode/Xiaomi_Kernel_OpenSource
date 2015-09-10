@@ -436,6 +436,11 @@ static int config_usb_cfg_link(
 	}
 
 	f = usb_get_function(fi);
+	if (f == NULL) {
+		/* Are we trying to symlink PTP without MTP function? */
+		ret = -EINVAL; /* Invalid Configuration */
+		goto out;
+	}
 	if (IS_ERR(f)) {
 		ret = PTR_ERR(f);
 		goto out;
@@ -1326,6 +1331,7 @@ static void purge_configs_funcs(struct gadget_info *gi)
 			}
 		}
 		c->next_interface_id = 0;
+		memset(c->interface, 0, sizeof(c->interface));
 		c->superspeed = 0;
 		c->highspeed = 0;
 		c->fullspeed = 0;
@@ -1607,11 +1613,97 @@ static const struct usb_gadget_driver configfs_driver_template = {
 	},
 };
 
+#ifdef CONFIG_USB_CONFIGFS_UEVENT
+static ssize_t state_show(struct device *pdev, struct device_attribute *attr,
+			char *buf)
+{
+	struct gadget_info *dev = dev_get_drvdata(pdev);
+	struct usb_composite_dev *cdev;
+	char *state = "DISCONNECTED";
+	unsigned long flags;
+
+	if (!dev)
+		goto out;
+
+	cdev = &dev->cdev;
+
+	if (!cdev)
+		goto out;
+
+	spin_lock_irqsave(&cdev->lock, flags);
+	if (cdev->config)
+		state = "CONFIGURED";
+	else if (dev->connected)
+		state = "CONNECTED";
+	spin_unlock_irqrestore(&cdev->lock, flags);
+out:
+	return sprintf(buf, "%s\n", state);
+}
+
+static DEVICE_ATTR(state, S_IRUGO, state_show, NULL);
+
+static struct device_attribute *android_usb_attributes[] = {
+	&dev_attr_state,
+	NULL
+};
+
+static int android_device_create(struct gadget_info *gi)
+{
+	struct device_attribute **attrs;
+	struct device_attribute *attr;
+
+	INIT_WORK(&gi->work, android_work);
+	android_device = device_create(android_class, NULL,
+				MKDEV(0, 0), NULL, "android0");
+	if (IS_ERR(android_device))
+		return PTR_ERR(android_device);
+
+	dev_set_drvdata(android_device, gi);
+
+	attrs = android_usb_attributes;
+	while ((attr = *attrs++)) {
+		int err;
+
+		err = device_create_file(android_device, attr);
+		if (err) {
+			device_destroy(android_device->class,
+				       android_device->devt);
+			return err;
+		}
+	}
+
+	return 0;
+}
+
+static void android_device_destroy(void)
+{
+	struct device_attribute **attrs;
+	struct device_attribute *attr;
+
+	attrs = android_usb_attributes;
+	while ((attr = *attrs++))
+		device_remove_file(android_device, attr);
+	device_destroy(android_device->class, android_device->devt);
+}
+#else
+static inline int android_device_create(struct gadget_info *gi)
+{
+	return 0;
+}
+
+static inline void android_device_destroy(void)
+{
+}
+#endif
+
 static struct config_group *gadgets_make(
 		struct config_group *group,
 		const char *name)
 {
 	struct gadget_info *gi;
+	struct device_attribute **attrs;
+	struct device_attribute *attr;
+	int err;
 
 	gi = kzalloc(sizeof(*gi), GFP_KERNEL);
 	if (!gi)
@@ -1651,15 +1743,10 @@ static struct config_group *gadgets_make(
 	gi->composite.gadget_driver.function = kstrdup(name, GFP_KERNEL);
 	gi->composite.name = gi->composite.gadget_driver.function;
 
-#ifdef CONFIG_USB_CONFIGFS_UEVENT
-	INIT_WORK(&gi->work, android_work);
-	android_device = device_create(android_class, NULL,
-				MKDEV(0, 0), NULL, "android0");
-	if (IS_ERR(android_device))
-		goto err;
-#endif
-
 	if (!gi->composite.gadget_driver.function)
+		goto err;
+
+	if (android_device_create(gi) < 0)
 		goto err;
 
 #ifdef CONFIG_USB_OTG
@@ -1671,6 +1758,7 @@ static struct config_group *gadgets_make(
 	config_group_init_type_name(&gi->group, name,
 				&gadget_root_type);
 	return &gi->group;
+
 err:
 	kfree(gi);
 	return ERR_PTR(-ENOMEM);
@@ -1678,10 +1766,11 @@ err:
 
 static void gadgets_drop(struct config_group *group, struct config_item *item)
 {
+	struct device_attribute **attrs;
+	struct device_attribute *attr;
+
 	config_item_put(item);
-#ifdef CONFIG_USB_CONFIGFS_UEVENT
-	device_destroy(android_device->class, android_device->devt);
-#endif
+	android_device_destroy();
 }
 
 static struct configfs_group_operations gadgets_ops = {
