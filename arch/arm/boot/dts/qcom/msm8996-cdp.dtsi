@@ -12,6 +12,7 @@
 
 #include "msm8996-pinctrl.dtsi"
 #include "msm8996-camera-sensor-cdp.dtsi"
+#include "msm8996-wsa881x.dtsi"
 
 / {
 	bluetooth: bt_qca6174 {
@@ -462,28 +463,6 @@
 	qcom,panel-roi-alignment = <4 4 2 2 20 20>;
 };
 
-&slim_msm {
-	tasha_codec {
-		swr_master {
-			compatible = "qcom,swr-wcd";
-			#address-cells = <2>;
-			#size-cells = <0>;
-
-			wsa881x_1: wsa881x@20170212 {
-				compatible = "qcom,wsa881x";
-				reg = <0x00 0x20170212>;
-				qcom,spkr-sd-n-gpio = <&pmi8994_gpios 3 0>;
-			};
-
-			wsa881x_2: wsa881x@20170211 {
-				compatible = "qcom,wsa881x";
-				reg = <0x00 0x20170211>;
-				qcom,spkr-sd-n-gpio = <&pmi8994_gpios 2 0>;
-			};
-		};
-	};
-};
-
 &pm8994_gpios {
 	gpio@c700 { /* GPIO 8 - WLAN_EN */
 		qcom,mode = <1>;		/* Digital output*/
@@ -643,7 +622,11 @@
 		asoc-codec = <&stub_codec>, <&hdmi_audio>;
 		asoc-codec-names = "msm-stub-codec.1", "msm-hdmi-audio-codec-rx";
 		qcom,us-euro-gpios = <&pm8994_mpps 2 0>;
-		qcom,aux-codec = <&wsa881x_1>, <&wsa881x_2>;
+		qcom,wsa-max-devs = <2>;
+		qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_212>,
+				<&wsa881x_213>, <&wsa881x_214>;
+		qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrLeft",
+					  "SpkrRight", "SpkrLeft";
 	};
 };
 

@@ -12,6 +12,7 @@
 
 #include "msm8996-pinctrl.dtsi"
 #include "msm8996-camera-sensor-liquid.dtsi"
+#include "msm8996-wsa881x.dtsi"
 
 / {
 	bluetooth: bt_qca6174 {
@@ -485,7 +486,11 @@
 		qcom,hdmi-audio-rx;
 		asoc-codec = <&stub_codec>, <&hdmi_audio>;
 		asoc-codec-names = "msm-stub-codec.1", "msm-hdmi-audio-codec-rx";
-		qcom,aux-codec = <&wsa881x_1>, <&wsa881x_2>;
+		qcom,wsa-max-devs = <2>;
+		qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_212>,
+				<&wsa881x_213>, <&wsa881x_214>;
+		qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrLeft",
+					  "SpkrRight", "SpkrLeft";
 	};
 
 	usb_detect {
@@ -653,28 +658,6 @@
 		atmel,cfg_2 {
 			atmel,version = <0x11>;
 			atmel,build = <0xab>;
-		};
-	};
-};
-
-&slim_msm {
-	tasha_codec {
-		swr_master {
-			compatible = "qcom,swr-wcd";
-			#address-cells = <2>;
-			#size-cells = <0>;
-
-			wsa881x_1: wsa881x@21170214 {
-				compatible = "qcom,wsa881x";
-				reg = <0x00 0x21170214>;
-				qcom,spkr-sd-n-gpio = <&pmi8994_gpios 3 0>;
-			};
-
-			wsa881x_2: wsa881x@21170213 {
-				compatible = "qcom,wsa881x";
-				reg = <0x00 0x21170213>;
-				qcom,spkr-sd-n-gpio = <&pmi8994_gpios 2 0>;
-			};
 		};
 	};
 };
