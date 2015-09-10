@@ -805,14 +805,13 @@ int msm_ion_heap_high_order_page_zero(struct page *page, int order)
 	return ret;
 }
 
-int msm_ion_heap_buffer_zero(struct ion_buffer *buffer)
+int msm_ion_heap_sg_table_zero(struct sg_table *table, size_t size)
 {
-	struct sg_table *table = buffer->sg_table;
 	struct scatterlist *sg;
 	int i, j, ret = 0, npages = 0;
 	struct pages_mem pages_mem;
 
-	pages_mem.size = PAGE_ALIGN(buffer->size);
+	pages_mem.size = PAGE_ALIGN(size);
 
 	if (msm_ion_heap_alloc_pages_mem(&pages_mem))
 		return -ENOMEM;
