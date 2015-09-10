@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,6 +44,7 @@ struct msm_eeprom_ctrl_t {
 	uint8_t is_supported;
 	struct msm_eeprom_board_info *eboard_info;
 	uint32_t subdev_id;
+	uint32_t read_eeprom;
 };
 
 #endif
