@@ -303,4 +303,7 @@
 #define clk_a53ssmux_bc				0xb5983c42
 #define clk_a53ssmux_cci			0x15560bd5
 
+#define clk_a53_lc_clk				0xc69f0878
+#define clk_a53_bc_clk				0xcf28e63a
+#define clk_cci_clk                             0x96854074
 #endif
