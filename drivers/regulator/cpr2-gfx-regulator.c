@@ -163,6 +163,9 @@ struct cpr2_gfx_regulator {
 	/* eFuse parameters */
 	phys_addr_t		efuse_addr;
 	void __iomem		*efuse_base;
+	u64			*remapped_row;
+	u32			remapped_row_base;
+	int			num_remapped_rows;
 
 	/* Process voltage parameters */
 	int			*open_loop_volt;
@@ -253,9 +256,26 @@ module_param_named(debug_enable, cpr_debug_enable, int, S_IRUGO | S_IWUSR);
 #define cpr_err(cpr_vreg, message, ...) \
 	pr_err("%s: " message, (cpr_vreg)->rdesc.name, ##__VA_ARGS__)
 
+static u64 cpr_read_remapped_efuse_row(struct cpr2_gfx_regulator *cpr_vreg,
+					u32 row_num)
+{
+	if (row_num - cpr_vreg->remapped_row_base
+			>= cpr_vreg->num_remapped_rows) {
+		cpr_err(cpr_vreg, "invalid row=%u, max remapped row=%u\n",
+			row_num, cpr_vreg->remapped_row_base
+					+ cpr_vreg->num_remapped_rows - 1);
+		return 0;
+	}
+
+	return cpr_vreg->remapped_row[row_num - cpr_vreg->remapped_row_base];
+}
+
 static u64 cpr_read_efuse_row(struct cpr2_gfx_regulator *cpr_vreg, u32 row_num)
 {
 	u64 efuse_bits;
+
+	if (cpr_vreg->remapped_row && row_num >= cpr_vreg->remapped_row_base)
+		return cpr_read_remapped_efuse_row(cpr_vreg, row_num);
 
 	efuse_bits = readq_relaxed(cpr_vreg->efuse_base
 			+ row_num * BYTES_PER_FUSE_ROW);
@@ -1156,6 +1176,108 @@ static int cpr_mem_acc_init(struct cpr2_gfx_regulator *cpr_vreg)
 	return 0;
 }
 
+/*
+ * Create a set of virtual fuse rows if optional device tree properties are
+ * present.
+ */
+static int cpr_remap_efuse_data(struct cpr2_gfx_regulator *cpr_vreg)
+{
+	struct device_node *of_node = cpr_vreg->dev->of_node;
+	struct property *prop;
+	u64 fuse_param;
+	u32 *temp;
+	int size, rc, i, bits, in_row, in_bit, out_row, out_bit;
+
+	prop = of_find_property(of_node, "qcom,fuse-remap-source", NULL);
+	if (!prop) {
+		/* No fuse remapping needed. */
+		return 0;
+	}
+
+	size = prop->length / sizeof(u32);
+	if (size == 0 || size % 3) {
+		cpr_err(cpr_vreg, "qcom,fuse-remap-source has invalid size=%d\n",
+			size);
+		return -EINVAL;
+	}
+	size /= 3;
+
+	rc = of_property_read_u32(of_node, "qcom,fuse-remap-base-row",
+				&cpr_vreg->remapped_row_base);
+	if (rc) {
+		cpr_err(cpr_vreg, "could not read qcom,fuse-remap-base-row, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	temp = kcalloc(size * 3, sizeof(*temp), GFP_KERNEL);
+	if (!temp)
+		return -ENOMEM;
+
+	rc = of_property_read_u32_array(of_node, "qcom,fuse-remap-source", temp,
+					size * 3);
+	if (rc) {
+		cpr_err(cpr_vreg, "could not read qcom,fuse-remap-source, rc=%d\n",
+			rc);
+		goto done;
+	}
+
+	/*
+	 * Format of tuples in qcom,fuse-remap-source property:
+	 * <row bit-offset bit-count>
+	 */
+	for (i = 0, bits = 0; i < size; i++)
+		bits += temp[i * 3 + 2];
+
+	cpr_vreg->num_remapped_rows = DIV_ROUND_UP(bits, 64);
+	cpr_vreg->remapped_row = devm_kzalloc(cpr_vreg->dev,
+		sizeof(*cpr_vreg->remapped_row) * cpr_vreg->num_remapped_rows,
+		GFP_KERNEL);
+	if (!cpr_vreg->remapped_row) {
+		cpr_err(cpr_vreg, "remapped_row memory allocation failed\n");
+		rc = -ENOMEM;
+		goto done;
+	}
+
+	for (i = 0, out_row = 0, out_bit = 0; i < size; i++) {
+		in_row = temp[i * 3];
+		in_bit = temp[i * 3 + 1];
+		bits = temp[i * 3 + 2];
+
+		while (bits > 64) {
+			fuse_param = cpr_read_efuse_param(cpr_vreg, in_row,
+					in_bit, 64);
+
+			cpr_vreg->remapped_row[out_row++]
+				|= fuse_param << out_bit;
+			if (out_bit > 0)
+				cpr_vreg->remapped_row[out_row]
+					|= fuse_param >> (64 - out_bit);
+
+			bits -= 64;
+			in_bit += 64;
+		}
+
+		fuse_param = cpr_read_efuse_param(cpr_vreg, in_row, in_bit,
+						bits);
+
+		cpr_vreg->remapped_row[out_row] |= fuse_param << out_bit;
+		if (bits < 64 - out_bit) {
+			out_bit += bits;
+		} else {
+			out_row++;
+			if (out_bit > 0)
+				cpr_vreg->remapped_row[out_row]
+					|= fuse_param >> (64 - out_bit);
+			out_bit = bits - (64 - out_bit);
+		}
+	}
+
+done:
+	kfree(temp);
+	return rc;
+}
+
 static int cpr_efuse_init(struct platform_device *pdev,
 				 struct cpr2_gfx_regulator *cpr_vreg)
 {
@@ -1568,8 +1690,8 @@ static int cpr_parse_vdd_mx_parameters(struct cpr2_gfx_regulator *cpr_vreg)
 		return -EINVAL;
 	}
 
-	cpr_vreg->vdd_mx_corner_map = devm_kzalloc(cpr_vreg->dev,
-		(size + 1) * sizeof(*cpr_vreg->vdd_mx_corner_map),
+	cpr_vreg->vdd_mx_corner_map = devm_kcalloc(cpr_vreg->dev,
+		(size + 1), sizeof(*cpr_vreg->vdd_mx_corner_map),
 			GFP_KERNEL);
 	if (!cpr_vreg->vdd_mx_corner_map) {
 		cpr_err(cpr_vreg,
@@ -2329,6 +2451,12 @@ static int cpr2_gfx_regulator_probe(struct platform_device *pdev)
 	rc = cpr_efuse_init(pdev, cpr_vreg);
 	if (rc) {
 		cpr_err(cpr_vreg, "Wrong eFuse address specified: rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = cpr_remap_efuse_data(cpr_vreg);
+	if (rc) {
+		cpr_err(cpr_vreg, "Could not remap fuse data: rc=%d\n", rc);
 		return rc;
 	}
 
