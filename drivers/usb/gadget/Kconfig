@@ -202,6 +202,9 @@ config USB_F_AUDIO_SRC
 config USB_F_ACC
 	tristate
 
+config USB_F_MIDI
+	tristate
+
 choice
 	tristate "USB Gadget Drivers"
 	default USB_ETH
@@ -409,6 +412,20 @@ config USB_CONFIGFS_UEVENT
 	  Enable uevent notifications to userspace when the gadget
 	  state changes. The gadget can be in any of the following
 	  three states: "CONNECTED/DISCONNECTED/CONFIGURED"
+
+config USB_CONFIGFS_F_MIDI
+	boolean "MIDI function"
+	depends on USB_CONFIGFS
+	depends on SND
+	select USB_LIBCOMPOSITE
+	select SND_RAWMIDI
+	select USB_F_MIDI
+	help
+	  The MIDI Function acts as a USB Audio device, with one MIDI
+	  input and one MIDI output. These MIDI jacks appear as
+	  a sound "card" in the ALSA sound system. Other MIDI
+	  connections can then be made on the gadget system, using
+	  ALSA's aconnect utility etc.
 
 source "drivers/usb/gadget/legacy/Kconfig"
 
