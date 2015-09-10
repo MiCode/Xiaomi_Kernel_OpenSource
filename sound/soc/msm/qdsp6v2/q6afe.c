@@ -4150,10 +4150,9 @@ fail_cmd:
 	return ret;
 }
 
-int afe_set_lpass_clock_v2(u16 port_id, struct afe_clk_set *cfg)
+int afe_set_lpass_clk_cfg(int index, struct afe_clk_set *cfg)
 {
 	struct afe_lpass_clk_config_command_v2 clk_cfg;
-	int index = 0;
 	int ret = 0;
 
 	if (!cfg) {
@@ -4161,11 +4160,9 @@ int afe_set_lpass_clock_v2(u16 port_id, struct afe_clk_set *cfg)
 		ret = -EINVAL;
 		return ret;
 	}
-	index = q6audio_get_port_index(port_id);
-	ret = q6audio_is_digital_pcm_interface(port_id);
-	if (ret < 0) {
-		pr_err("%s: q6audio_is_digital_pcm_interface fail %d\n",
-			__func__, ret);
+
+	if (index < 0 || index >= AFE_MAX_PORTS) {
+		pr_err("%s: index[%d] invalid!\n", __func__, index);
 		return -EINVAL;
 	}
 
@@ -4206,8 +4203,8 @@ int afe_set_lpass_clock_v2(u16 port_id, struct afe_clk_set *cfg)
 	atomic_set(&this_afe.status, 0);
 	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &clk_cfg);
 	if (ret < 0) {
-		pr_err("%s: AFE enable for port 0x%x ret %d\n",
-		       __func__, port_id, ret);
+		pr_err("%s: AFE clk cfg failed with ret %d\n",
+		       __func__, ret);
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
@@ -4228,6 +4225,27 @@ int afe_set_lpass_clock_v2(u16 port_id, struct afe_clk_set *cfg)
 
 fail_cmd:
 	mutex_unlock(&this_afe.afe_cmd_lock);
+	return ret;
+}
+
+int afe_set_lpass_clock_v2(u16 port_id, struct afe_clk_set *cfg)
+{
+	int index = 0;
+	int ret = 0;
+
+	index = q6audio_get_port_index(port_id);
+	ret = q6audio_is_digital_pcm_interface(port_id);
+	if (ret < 0) {
+		pr_err("%s: q6audio_is_digital_pcm_interface fail %d\n",
+			__func__, ret);
+		return -EINVAL;
+	}
+
+	ret = afe_set_lpass_clk_cfg(index, cfg);
+	if (ret)
+		pr_err("%s: afe_set_lpass_clk_cfg_v2 failed %d\n",
+			__func__, ret);
+
 	return ret;
 }
 
