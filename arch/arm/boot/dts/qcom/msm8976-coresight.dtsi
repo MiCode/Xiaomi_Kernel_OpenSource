@@ -19,8 +19,9 @@
 		interrupts = <0 166 0>;
 		interrupt-names = "byte-cntr-irq";
 
-		qcom,memory-size = <0x100000>;
+		qcom,memory-size = <0x500000>;
 		qcom,sg-enable;
+		coresight-default-sink;
 		qcom,force-reg-dump;
 
 		coresight-id = <0>;
@@ -93,7 +94,6 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&replicator>;
 		coresight-child-ports = <0>;
-		coresight-default-sink;
 		coresight-ctis = <&cti0 &cti8>;
 		qcom,force-reg-dump;
 
