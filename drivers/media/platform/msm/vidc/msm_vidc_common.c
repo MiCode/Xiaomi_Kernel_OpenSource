@@ -4481,3 +4481,46 @@ void msm_vidc_fw_unload_handler(struct work_struct *work)
 	}
 	mutex_unlock(&core->lock);
 }
+
+int msm_comm_set_color_format(struct msm_vidc_inst *inst,
+		enum hal_buffer buffer_type, int fourcc)
+{
+	struct hal_uncompressed_format_select hal_fmt = {0};
+	int rc = 0;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s - invalid param\n", __func__);
+		return -EINVAL;
+	}
+
+	hdev = inst->core->device;
+	hal_fmt.buffer_type = buffer_type;
+
+	switch (fourcc) {
+	case V4L2_PIX_FMT_NV12:
+		dprintk(VIDC_DBG, "set color format: nv12\n");
+		hal_fmt.format = HAL_COLOR_FORMAT_NV12;
+		break;
+	case V4L2_PIX_FMT_NV21:
+		dprintk(VIDC_DBG, "set color format: nv21\n");
+		hal_fmt.format = HAL_COLOR_FORMAT_NV21;
+		break;
+	default:
+		dprintk(VIDC_ERR, "%s: unknown color formar: %#x\n",
+			__func__, fourcc);
+		rc = -ENOTSUPP;
+		goto exit;
+	}
+
+	rc = call_hfi_op(hdev, session_set_property, inst->session,
+		HAL_PARAM_UNCOMPRESSED_FORMAT_SELECT, &hal_fmt);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"%s: Failed to set color format[%#x]\n",
+			__func__, hal_fmt.format);
+	}
+
+exit:
+	return rc;
+}
