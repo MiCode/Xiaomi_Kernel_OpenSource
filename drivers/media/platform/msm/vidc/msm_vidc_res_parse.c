@@ -13,6 +13,7 @@
 
 #include <asm/dma-iommu.h>
 #include <linux/iommu.h>
+#include <linux/qcom_iommu.h>
 #include <linux/of.h>
 #include <linux/slab.h>
 #include <linux/sort.h>
@@ -25,6 +26,8 @@
 enum clock_properties {
 	CLOCK_PROP_HAS_SCALING = 1 << 0,
 };
+static int msm_vidc_populate_legacy_context_bank(
+			struct msm_vidc_platform_resources *res);
 
 static size_t get_u32_array_num_elements(struct platform_device *pdev,
 					char *name)
@@ -716,6 +719,13 @@ int read_platform_resources_from_dt(
 		goto err_load_max_hw_load;
 	}
 
+	rc = msm_vidc_populate_legacy_context_bank(res);
+	if (rc) {
+		dprintk(VIDC_ERR,
+			"Failed to setup context banks %d\n", rc);
+		goto err_setup_legacy_cb;
+	}
+
 	res->use_non_secure_pil = of_property_read_bool(pdev->dev.of_node,
 			"qcom,use-non-secure-pil");
 
@@ -736,6 +746,8 @@ int read_platform_resources_from_dt(
 			"qcom,never-unload-fw");
 
 	return rc;
+
+err_setup_legacy_cb:
 err_load_max_hw_load:
 	msm_vidc_free_clock_table(res);
 err_load_clock_table:
@@ -771,17 +783,24 @@ static int msm_vidc_setup_context_bank(struct context_bank_info *cb,
 	int rc = 0;
 	int disable_htw = 1;
 	int secure_vmid = VMID_INVAL;
+	struct bus_type *bus;
 
 	if (!dev || !cb) {
 		dprintk(VIDC_ERR,
 			"%s: Invalid Input params\n", __func__);
 		return -EINVAL;
 	}
-
 	cb->dev = dev;
-	cb->mapping = arm_iommu_create_mapping(&platform_bus_type,
-			cb->addr_range.start, cb->addr_range.size);
 
+	bus = msm_iommu_get_bus(cb->dev);
+	if (IS_ERR_OR_NULL(bus)) {
+		dprintk(VIDC_ERR, "%s - failed to get bus type\n", __func__);
+		rc = PTR_ERR(bus) ?: -ENODEV;
+		goto remove_cb;
+	}
+
+	cb->mapping = arm_iommu_create_mapping(bus, cb->addr_range.start,
+					cb->addr_range.size);
 	if (IS_ERR_OR_NULL(cb->mapping)) {
 		dprintk(VIDC_ERR, "%s - failed to create mapping\n", __func__);
 		rc = PTR_ERR(cb->mapping) ?: -ENODEV;
@@ -891,6 +910,104 @@ static int msm_vidc_populate_context_bank(struct device *dev,
 	}
 
 	return 0;
+
+err_setup_cb:
+	list_del(&cb->list);
+	return rc;
+}
+
+static int msm_vidc_populate_legacy_context_bank(
+			struct msm_vidc_platform_resources *res)
+{
+	int rc = 0;
+	struct platform_device *pdev = NULL;
+	struct device_node *domains_parent_node = NULL;
+	struct device_node *domains_child_node = NULL;
+	struct device_node *ctx_node = NULL;
+	struct context_bank_info *cb;
+
+	if (!res || !res->pdev) {
+		dprintk(VIDC_ERR, "%s - invalid inputs\n", __func__);
+		return -EINVAL;
+	}
+	pdev = res->pdev;
+
+	domains_parent_node = of_find_node_by_name(pdev->dev.of_node,
+			"qcom,vidc-iommu-domains");
+	if (!domains_parent_node) {
+		dprintk(VIDC_DBG,
+			"%s legacy iommu domains not present\n", __func__);
+		return 0;
+	}
+
+	/* set up each context bank for legacy DT bindings*/
+	for_each_child_of_node(domains_parent_node,
+		domains_child_node) {
+		cb = devm_kzalloc(&pdev->dev, sizeof(*cb), GFP_KERNEL);
+		if (!cb) {
+			dprintk(VIDC_ERR,
+				"%s - Failed to allocate cb\n", __func__);
+			return -ENOMEM;
+		}
+		INIT_LIST_HEAD(&cb->list);
+		list_add_tail(&cb->list, &res->context_banks);
+
+		ctx_node = of_parse_phandle(domains_child_node,
+				"qcom,vidc-domain-phandle", 0);
+		if (!ctx_node) {
+			dprintk(VIDC_ERR,
+				"%s Unable to parse pHandle\n", __func__);
+			rc = -EBADHANDLE;
+			goto err_setup_cb;
+		}
+
+		rc = of_property_read_string(ctx_node, "label", &(cb->name));
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s Could not find label\n", __func__);
+			goto err_setup_cb;
+		}
+
+		rc = of_property_read_u32_array(ctx_node,
+			"qcom,virtual-addr-pool", (u32 *)&cb->addr_range, 2);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s Could not read addr pool for group : %s (%d)\n",
+				__func__, cb->name, rc);
+			goto err_setup_cb;
+		}
+
+		cb->is_secure =
+			of_property_read_bool(ctx_node, "qcom,secure-domain");
+
+		rc = of_property_read_u32(domains_child_node,
+				"qcom,vidc-buffer-types", &cb->buffer_type);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s Could not read buffer type (%d)\n",
+				__func__, rc);
+			goto err_setup_cb;
+		}
+
+		cb->dev = msm_iommu_get_ctx(cb->name);
+		if (IS_ERR_OR_NULL(cb->dev)) {
+			dprintk(VIDC_ERR, "%s could not get device for cb %s\n",
+					__func__, cb->name);
+			rc = -ENOENT;
+			goto err_setup_cb;
+		}
+
+		rc = msm_vidc_setup_context_bank(cb, cb->dev);
+		if (rc) {
+			dprintk(VIDC_ERR, "Cannot setup context bank %d\n", rc);
+			goto err_setup_cb;
+		}
+		dprintk(VIDC_DBG,
+			"%s: context bank %s secure %d addr start = %#x addr size = %#x buffer_type = %#x\n",
+			__func__, cb->name, cb->is_secure, cb->addr_range.start,
+			cb->addr_range.size, cb->buffer_type);
+	}
+	return rc;
 
 err_setup_cb:
 	list_del(&cb->list);
