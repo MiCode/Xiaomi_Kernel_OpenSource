@@ -1069,23 +1069,46 @@ static irqreturn_t svass_exception_irq(int irq, void *data)
 	struct wcd_cpe_core *core = data;
 	u8 status = 0;
 
-	if (CPE_ERR_IRQ_CB(core))
-		core->cpe_cdc_cb->cpe_err_irq_control(
-					core->codec,
-					CPE_ERR_IRQ_STATUS,
-					&status);
-	dev_err(core->dev,
-		"%s: err_interrupt status = 0x%x\n",
-		__func__, status);
+	if (!core || !CPE_ERR_IRQ_CB(core)) {
+		pr_err("%s: Invalid %s\n",
+		       __func__,
+		       (!core) ? "core" : "cdc control");
+		return IRQ_HANDLED;
+	}
 
-	if (status & core->irq_info.cpe_fatal_irqs) {
-		wcd_cpe_ssr_event(core, WCD_CPE_SSR_EVENT);
-	} else {
-		/* Make sure all error interrupts are cleared */
-		if (CPE_ERR_IRQ_CB(core))
-			core->cpe_cdc_cb->cpe_err_irq_control(
-					core->codec,
-					CPE_ERR_IRQ_CLEAR, NULL);
+	core->cpe_cdc_cb->cpe_err_irq_control(core->codec,
+			CPE_ERR_IRQ_STATUS, &status);
+
+	while (status != 0) {
+		if (status & core->irq_info.cpe_fatal_irqs) {
+			dev_err(core->dev,
+				"%s: CPE SSR event,err_status = 0x%02x\n",
+				__func__, status);
+			wcd_cpe_ssr_event(core, WCD_CPE_SSR_EVENT);
+			/*
+			 * If fatal interrupt is received,
+			 * trigger SSR and stop processing
+			 * further interrupts
+			 */
+			break;
+		}
+		/*
+		 * Mask the interrupt that was raised to
+		 * avoid spurious interrupts
+		 */
+		core->cpe_cdc_cb->cpe_err_irq_control(core->codec,
+					CPE_ERR_IRQ_MASK, &status);
+
+		/* Clear only the interrupt that was raised */
+		core->cpe_cdc_cb->cpe_err_irq_control(core->codec,
+					CPE_ERR_IRQ_CLEAR, &status);
+		dev_err(core->dev,
+			"%s: err_interrupt status = 0x%x\n",
+			__func__, status);
+
+		/* Read status for pending interrupts */
+		core->cpe_cdc_cb->cpe_err_irq_control(core->codec,
+					CPE_ERR_IRQ_STATUS, &status);
 	}
 
 	return IRQ_HANDLED;
@@ -2902,6 +2925,7 @@ static int wcd_cpe_lab_ch_setup(void *core_handle,
 	struct wcd_cpe_core *core = core_handle;
 	struct snd_soc_codec *codec;
 	int rc = 0;
+	u8 cpe_intr_bits;
 
 	if (!core || !core->codec) {
 		pr_err("%s: Invalid handle to %s\n",
@@ -2956,6 +2980,17 @@ static int wcd_cpe_lab_ch_setup(void *core_handle,
 		break;
 
 	case WCD_CPE_PRE_DISABLE:
+		/*
+		 * Mask the non-fatal interrupts in CPE as they will
+		 * be generated during lab teardown and may flood.
+		 */
+		cpe_intr_bits = ~(core->irq_info.cpe_fatal_irqs & 0xFF);
+		if (CPE_ERR_IRQ_CB(core))
+			core->cpe_cdc_cb->cpe_err_irq_control(
+						core->codec,
+						CPE_ERR_IRQ_MASK,
+						&cpe_intr_bits);
+
 		rc = core->cpe_cdc_cb->lab_cdc_ch_ctl(codec,
 						      false);
 		if (rc)
@@ -2979,13 +3014,18 @@ static int wcd_cpe_lab_ch_setup(void *core_handle,
 
 		/* Continue with disabling even if toggle lab fails */
 		rc = core->cpe_cdc_cb->cdc_ext_clk(codec, false, false);
-		if (rc) {
+		if (rc)
 			dev_err(core->dev,
 				"%s: failed to disable cdc clk, err = %d\n",
 				__func__, rc);
-			goto done;
-		}
 
+		/* Unmask non-fatal CPE interrupts */
+		cpe_intr_bits = ~(core->irq_info.cpe_fatal_irqs & 0xFF);
+		if (CPE_ERR_IRQ_CB(core))
+			core->cpe_cdc_cb->cpe_err_irq_control(
+						core->codec,
+						CPE_ERR_IRQ_UNMASK,
+						&cpe_intr_bits);
 		break;
 
 	default:
