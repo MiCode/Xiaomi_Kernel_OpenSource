@@ -662,11 +662,17 @@ static int at24_remove(struct i2c_client *client)
 }
 
 /*-------------------------------------------------------------------------*/
+static const struct of_device_id at24_of_match[] = {
+	{ .compatible = "atmel,24c32", },
+	{ }
+};
+MODULE_DEVICE_TABLE(of, at24_of_match);
 
 static struct i2c_driver at24_driver = {
 	.driver = {
 		.name = "at24",
 		.owner = THIS_MODULE,
+		.of_match_table = at24_of_match,
 	},
 	.probe = at24_probe,
 	.remove = at24_remove,

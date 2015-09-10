@@ -1,0 +1,13 @@
+EEPROMs (IIC) compatible with Atmel at24.
+
+Required properties:
+- compatible : "atmel,24c32".
+- reg: Should contain registers location
+
+Additional compatible properties are also allowed.
+
+Example:
+	at24@51 {
+		compatible = "atmel,24c32";
+		reg = <0x51>;
+	};
