@@ -1314,7 +1314,6 @@ static int msm_isp_get_done_buf(struct vfe_device *vfe_dev,
 	return rc;
 }
 
-
 void msm_isp_halt_send_error(struct vfe_device *vfe_dev)
 {
 	uint32_t i = 0;
@@ -2693,14 +2692,21 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	}
 
 	frame_src = SRC_TO_INTF(stream_info->stream_src);
-
-	if (((frame_src == VFE_PIX_0) && (frame_id <=
+	/*
+	 * If PIX stream is active then RDI path uses SOF frame ID of PIX
+	 * In case of standalone RDI streaming, SOF are used from
+	 * individual intf.
+	 */
+	if (((vfe_dev->axi_data.src_info[VFE_PIX_0].active) && (frame_id <=
+		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id)) ||
+		((!vfe_dev->axi_data.src_info[VFE_PIX_0].active) && (frame_id <=
 		vfe_dev->axi_data.src_info[frame_src].frame_id)) ||
 		stream_info->undelivered_request_cnt >= MAX_BUFFERS_IN_HW) {
-		pr_debug("%s:%d invalid request_frame %d cur frame id %d\n",
+		pr_debug("%s:%d invalid request_frame %d cur frame id %d pix %d\n",
 			__func__, __LINE__, frame_id,
-			vfe_dev->axi_data.src_info[frame_src].
-				frame_id);
+			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id,
+			vfe_dev->axi_data.src_info[VFE_PIX_0].active);
+
 		rc = msm_isp_return_empty_buffer(vfe_dev, stream_info,
 			user_stream_id, frame_id, frame_src);
 		if (rc < 0)
