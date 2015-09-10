@@ -1216,7 +1216,7 @@ static void mtp_function_disable(struct usb_function *f)
 	VDBG(cdev, "%s disabled\n", dev->function.name);
 }
 
-static int mtp_bind_config(struct usb_configuration *c, bool ptp_config)
+static int __maybe_unused mtp_bind_config(struct usb_configuration *c, bool ptp_config)
 {
 	struct mtp_dev *dev = _mtp_dev;
 	int ret = 0;
@@ -1297,7 +1297,7 @@ err1:
 	return ret;
 }
 
-static int mtp_setup(void)
+static int __maybe_unused mtp_setup(void)
 {
 	return __mtp_setup(NULL);
 }
