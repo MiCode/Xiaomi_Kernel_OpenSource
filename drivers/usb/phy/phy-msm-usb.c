@@ -2662,7 +2662,9 @@ static void msm_otg_sm_work(struct work_struct *w)
 				case USB_PROPRIETARY_CHARGER:
 					msm_otg_notify_charger(motg,
 							dcp_max_current);
-					otg->phy->state = OTG_STATE_B_CHARGER;
+					if (!motg->is_ext_chg_dcp)
+						otg->phy->state =
+							OTG_STATE_B_CHARGER;
 					break;
 				case USB_FLOATED_CHARGER:
 					msm_otg_notify_charger(motg,
