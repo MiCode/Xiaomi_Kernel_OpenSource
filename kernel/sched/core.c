@@ -2887,7 +2887,7 @@ static struct rq *__migrate_task(struct rq *rq, struct task_struct *p, int dest_
 	rq = move_queued_task(rq, p, dest_cpu);
 
 	if (!same_freq_domain(src_cpu, dest_cpu)) {
-		check_for_freq_change(rq);
+		check_for_freq_change(cpu_rq(src_cpu));
 		check_for_freq_change(cpu_rq(dest_cpu));
 	}
 
