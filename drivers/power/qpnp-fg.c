@@ -43,7 +43,6 @@
 
 /* SPMI Register offsets */
 #define SOC_MONOTONIC_SOC	0x09
-#define OTP_CFG1		0xE2
 #define SOC_BOOT_MOD		0x50
 #define SOC_RESTART		0x51
 
@@ -725,20 +724,10 @@ static inline int fg_assert_sram_access(struct fg_chip *chip)
 #define INTF_CTL_BURST		BIT(7)
 #define INTF_CTL_WR_EN		BIT(6)
 static int fg_config_access(struct fg_chip *chip, bool write,
-		bool burst, bool otp)
+		bool burst)
 {
 	int rc;
 	u8 intf_ctl = 0;
-
-	if (otp) {
-		/* Configure OTP access */
-		rc = fg_masked_write(chip, chip->mem_base + OTP_CFG1,
-				0xFF, 0x00, 1);
-		if (rc) {
-			pr_err("failed to set OTP cfg\n");
-			return -EIO;
-		}
-	}
 
 	intf_ctl = (write ? INTF_CTL_WR_EN : 0) | (burst ? INTF_CTL_BURST : 0);
 
@@ -845,13 +834,9 @@ static int fg_sub_mem_read(struct fg_chip *chip, u8 *val, u16 address, int len,
 {
 	int rc, total_len;
 	u8 *rd_data = val;
-	bool otp;
 	char str[DEBUG_PRINT_BUFFER_SIZE];
 
-	if (address < RAM_OFFSET)
-		otp = true;
-
-	rc = fg_config_access(chip, 0, (len > 4), otp);
+	rc = fg_config_access(chip, 0, (len > 4));
 	if (rc)
 		return rc;
 
@@ -982,7 +967,7 @@ static int fg_conventional_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 				goto out;
 			memcpy(word + offset, wr_data, sublen);
 			/* configure access as burst if more to write */
-			rc = fg_config_access(chip, 1, (len - sublen) > 0, 0);
+			rc = fg_config_access(chip, 1, (len - sublen) > 0);
 			if (rc)
 				goto out;
 			rc = fg_set_ram_addr(chip, &address);
@@ -992,7 +977,7 @@ static int fg_conventional_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 			access_configured = true;
 		} else if (len >= 4) {
 			if (!access_configured) {
-				rc = fg_config_access(chip, 1, len > 4, 0);
+				rc = fg_config_access(chip, 1, len > 4);
 				if (rc)
 					goto out;
 				rc = fg_set_ram_addr(chip, &address);
@@ -1008,7 +993,7 @@ static int fg_conventional_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 			if (rc)
 				goto out;
 			memcpy(word, wr_data, sublen);
-			rc = fg_config_access(chip, 1, 0, 0);
+			rc = fg_config_access(chip, 1, 0);
 			if (rc)
 				goto out;
 			rc = fg_set_ram_addr(chip, &address);
@@ -1278,7 +1263,7 @@ static int fg_interleaved_mem_config(struct fg_chip *chip, u8 *val,
 	}
 
 	/* configure for the read/write single/burst mode */
-	rc = fg_config_access(chip, op, (offset + len) > 4, 0);
+	rc = fg_config_access(chip, op, (offset + len) > 4);
 	if (rc) {
 		pr_err("failed to set configure memory access rc = %d\n", rc);
 		return rc;
