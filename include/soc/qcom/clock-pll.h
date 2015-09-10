@@ -69,6 +69,12 @@ struct pll_config_vals {
 	bool enable_mn;
 };
 
+struct pll_spm_ctrl {
+	u32 offset;
+	u32 event_bit;
+	void __iomem *spm_base;
+};
+
 #define PLL_FREQ_END	(UINT_MAX-1)
 #define PLL_F_END { .freq_hz = PLL_FREQ_END }
 
@@ -156,6 +162,7 @@ struct pll_clk {
 	bool inited;
 	bool no_prepared_reconfig;
 
+	struct pll_spm_ctrl spm_ctrl;
 	struct clk c;
 	void *const __iomem *base;
 };
