@@ -13,7 +13,6 @@
 
 #include <linux/export.h>
 #include <linux/err.h>
-#include <linux/io.h>
 #include <linux/msm_ion.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
@@ -232,71 +231,6 @@ static int ion_no_pages_cache_ops(struct ion_client *client,
 	return 0;
 }
 
-static void __do_cache_ops(struct page *page, unsigned int offset,
-		unsigned int length, void (*op)(const void *, const void *))
-{
-	unsigned int left = length;
-	unsigned long pfn;
-	unsigned long nr_pages;
-	void *vaddr;
-
-	pfn = page_to_pfn(page) + offset / PAGE_SIZE;
-	page = pfn_to_page(pfn);
-	offset &= ~PAGE_MASK;
-
-	if (!PageHighMem(page)) {
-		vaddr = page_address(page) + offset;
-		op(vaddr, vaddr + length);
-		goto out;
-	}
-
-	nr_pages = DIV_ROUND_UP(length, PAGE_SIZE);
-	if (nr_pages > 1) {
-		struct vm_struct *area;
-		unsigned long addr;
-
-		area = get_vm_area_caller((nr_pages << PAGE_SHIFT), VM_IOREMAP,
-				__builtin_return_address(0));
-		if (!area)
-			goto perpage;
-
-		addr = (unsigned long)area->addr;
-		area->phys_addr = __pfn_to_phys(pfn);
-
-		if (ioremap_page_range(addr, addr + length, area->phys_addr,
-					PAGE_KERNEL)) {
-			vunmap(area->addr);
-			goto perpage;
-		}
-
-		op(area->addr + offset, area->addr + offset + length);
-		unmap_kernel_range_noflush(addr, area->size);
-		vunmap(area->addr);
-		goto out;
-	}
-
-perpage:
-	do {
-		unsigned int len;
-
-		len = left;
-		if (len + offset > PAGE_SIZE)
-			len = PAGE_SIZE - offset;
-
-		page = pfn_to_page(pfn);
-		vaddr = kmap_atomic(page);
-		op(vaddr + offset, vaddr + offset + len);
-		kunmap_atomic(vaddr);
-
-		offset = 0;
-		pfn++;
-		left -= len;
-	} while (left);
-
-out:
-	return;
-}
-
 static int ion_pages_cache_ops(struct ion_client *client,
 			struct ion_handle *handle,
 			void *vaddr, unsigned int offset, unsigned int length,
@@ -304,43 +238,36 @@ static int ion_pages_cache_ops(struct ion_client *client,
 {
 	struct sg_table *table = NULL;
 	struct scatterlist *sg;
+	struct page *page;
 	int i;
-	unsigned int len = 0;
-	void (*op)(const void *, const void *);
-
+	void *ptr;
 
 	table = ion_sg_table(client, handle);
 	if (IS_ERR_OR_NULL(table))
 		return PTR_ERR(table);
 
-	switch (cmd) {
+	for_each_sg(table->sgl, sg, table->nents, i) {
+		page = sg_page(sg);
+		if (PageHighMem(page))
+			ptr = kmap_atomic(page);
+		else
+			ptr = page_address(page);
+
+		switch (cmd) {
 		case ION_IOC_CLEAN_CACHES:
-			op = dmac_clean_range;
+			dmac_clean_range(ptr, ptr + sg->length);
 			break;
 		case ION_IOC_INV_CACHES:
-			op = dmac_inv_range;
+			dmac_inv_range(ptr, ptr + sg->length);
 			break;
 		case ION_IOC_CLEAN_INV_CACHES:
-			op = dmac_flush_range;
+			dmac_flush_range(ptr, ptr + sg->length);
 			break;
 		default:
 			return -EINVAL;
-	};
-
-	if (vaddr) {
-		op(vaddr + offset, vaddr + offset + length);
-		return 0;
-	}
-
-	for_each_sg(table->sgl, sg, table->nents, i) {
-		len += sg->length;
-		if (len < offset)
-			continue;
-
-		__do_cache_ops(sg_page(sg), sg->offset, sg->length, op);
-
-		if (len > length + offset)
-			break;
+		}
+		if (PageHighMem(page))
+			kunmap_atomic(ptr);
 	}
 	return 0;
 }
