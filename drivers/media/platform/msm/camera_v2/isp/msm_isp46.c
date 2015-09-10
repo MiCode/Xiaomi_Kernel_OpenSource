@@ -455,6 +455,10 @@ static void msm_vfe46_process_reg_update(struct vfe_device *vfe_dev,
 				if (atomic_read(
 					&vfe_dev->stats_data.stats_update))
 					msm_isp_stats_stream_update(vfe_dev);
+				if (vfe_dev->axi_data.camif_state ==
+					CAMIF_STOPPING)
+					vfe_dev->hw_info->vfe_ops.core_ops.
+						reg_update(vfe_dev, i);
 				break;
 			case VFE_RAW_0:
 			case VFE_RAW_1:
@@ -555,6 +559,8 @@ static void msm_vfe46_reg_update(struct vfe_device *vfe_dev,
 		msm_camera_io_w_mb(update_mask,
 			vfe_dev->vfe_base + 0x3D8);
 	} else if (!vfe_dev->is_split ||
+		((frame_src == VFE_PIX_0) &&
+		(vfe_dev->axi_data.camif_state == CAMIF_STOPPING)) ||
 		(frame_src >= VFE_RAW_0 && frame_src <= VFE_SRC_MAX)) {
 		msm_camera_io_w_mb(update_mask,
 			vfe_dev->vfe_base + 0x3D8);

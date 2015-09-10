@@ -393,9 +393,15 @@ struct msm_vfe_axi_composite_info {
 	uint32_t stream_composite_mask;
 };
 
+enum msm_vfe_camif_state {
+	CAMIF_STOPPED,
+	CAMIF_ENABLE,
+	CAMIF_DISABLE,
+	CAMIF_STOPPING,
+};
+
 struct msm_vfe_src_info {
 	uint32_t frame_id;
-	uint32_t camif_sof_frame_id;
 	uint32_t reg_update_frame_id;
 	uint8_t active;
 	uint8_t pix_stream_count;
@@ -437,7 +443,7 @@ struct msm_vfe_axi_shared_data {
 	uint8_t num_pix_stream;
 	uint32_t rdi_wm_mask;
 	struct msm_vfe_axi_composite_info
-	composite_info[MAX_NUM_COMPOSITE_MASK];
+		composite_info[MAX_NUM_COMPOSITE_MASK];
 	uint8_t num_used_composite_mask;
 	uint32_t stream_update[VFE_SRC_MAX];
 	atomic_t axi_cfg_update[VFE_SRC_MAX];
@@ -446,6 +452,7 @@ struct msm_vfe_axi_shared_data {
 	uint16_t stream_handle_cnt;
 	uint32_t event_mask;
 	uint8_t enable_frameid_recovery;
+	enum msm_vfe_camif_state camif_state;
 };
 
 struct msm_vfe_stats_hardware_info {
