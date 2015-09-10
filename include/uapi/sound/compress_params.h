@@ -263,6 +263,7 @@ struct snd_enc_wma {
 	__u32 encodeopt;
 	__u32 encodeopt1;
 	__u32 encodeopt2;
+	__u32 avg_bit_rate;
 };
 
 
