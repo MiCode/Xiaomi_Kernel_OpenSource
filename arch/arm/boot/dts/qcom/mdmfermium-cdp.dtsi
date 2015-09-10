@@ -34,3 +34,27 @@
 &blsp1_uart3 {
 	status = "ok";
 };
+
+/* MPP pin 2 configs for SMB358 interrupt line */
+&pm8019_mpps {
+	mpp@a100 {
+		qcom,mode = <0>;	/* Digital input */
+		qcom,vin-sel = <3>;	/* 1.8V (L11) */
+		qcom,src-sel = <0>;	/* QPNP_PIN_SEL_FUNC_CONSTANT */
+		qcom,pull = <2>;	/* PULL UP 10KOHM */
+		qcom,master-en = <1>;
+	};
+};
+
+&i2c_4 {
+	/* SMB358 charger configuration */
+	smb358_otg_vreg: smb358-charger@57 {
+		compatible = "qcom,smb358-charger";
+		regulator-name = "smb358_otg_vreg";
+		reg = <0x57>;
+		interrupt-parent = <&spmi_bus>;
+		interrupts = <0x0 0xa1 0x0>; /* PMIC MPP 2 */
+		qcom,float-voltage-mv = <4200>;
+		qcom,irq-gpio = <&pm8019_mpps 2 0>;
+	};
+};
