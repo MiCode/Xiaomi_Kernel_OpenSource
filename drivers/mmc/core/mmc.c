@@ -2299,7 +2299,7 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 	if (is_suspend)
 		host->dev_status = DEV_SUSPENDING;
 
-	if (mmc_card_cmdq(host->card)) {
+	if (host->card->cmdq_init) {
 		BUG_ON(host->cmdq_ctx.active_reqs);
 
 		err = mmc_cmdq_halt(host, true);
