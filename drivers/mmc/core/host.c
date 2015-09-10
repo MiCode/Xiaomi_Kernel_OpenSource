@@ -57,7 +57,7 @@ static int mmc_host_runtime_suspend(struct device *dev)
 	if (host->ops->notify_pm_status)
 		host->ops->notify_pm_status(host, DEV_SUSPENDING);
 
-	if (host->card && mmc_card_cmdq(host->card)) {
+	if (host->card && host->card->cmdq_init) {
 		BUG_ON(host->cmdq_ctx.active_reqs);
 
 		mmc_card_set_suspended(host->card);
