@@ -198,6 +198,73 @@ static int power_on_l2_msm8916(struct device_node *l2ccc_node, u32 pon_mask,
 	return 0;
 }
 
+static int power_on_l2_msmthorium(struct device_node *l2ccc_node, u32 pon_mask,
+				int cpu)
+{
+	u32 pon_status;
+	void __iomem *l2_base;
+
+	l2_base = of_iomap(l2ccc_node, 0);
+	if (!l2_base)
+		return -ENOMEM;
+
+	/* Skip power-on sequence if l2 cache is already powered up */
+	pon_status = (__raw_readl(l2_base + L2_PWR_STATUS) & pon_mask)
+				== pon_mask;
+	if (pon_status) {
+		iounmap(l2_base);
+		return 0;
+	}
+
+	/* Close GDHS of L2SCU logic */
+	writel_relaxed(0x0010D700, l2_base + L2_PWR_CTL);
+	mb();
+
+	/* Assert PRESETDBG */
+	writel_relaxed(0x00400000, l2_base + L2_PWR_CTL_OVERRIDE);
+	mb();
+	udelay(2);
+
+	/* De-assert L2/SCU memory clamp */
+	writel_relaxed(0x00101700, l2_base + L2_PWR_CTL);
+	mb();
+
+	/* Wakeup L2/SCU RAMs - deassert slp signals */
+	writel_relaxed(0x00101703, l2_base + L2_PWR_CTL);
+	mb();
+	udelay(2);
+
+	/* Enable clocks using SW CLK EN */
+	writel_relaxed(0x00000001, l2_base + L2_CORE_CBCR);
+	mb();
+
+	/* De-assert L2/SCU logic Clamp */
+	writel_relaxed(0x00101603, l2_base + L2_PWR_CTL);
+	mb();
+	udelay(2);
+
+	/* De-assert PRESETDBG */
+	writel_relaxed(0x00000000, l2_base + L2_PWR_CTL_OVERRIDE);
+	mb();
+
+	/* De-assert L2/SCU logic reset */
+	writel_relaxed(0x00100203, l2_base + L2_PWR_CTL);
+	mb();
+	udelay(54);
+
+	/* Set PMIC_APC_ON */
+	writel_relaxed(0x10100203, l2_base + L2_PWR_CTL);
+	mb();
+
+	/* Set H/W clock control for the cluster CBC block */
+	writel_relaxed(0x00000003, l2_base + L2_CORE_CBCR);
+	mb();
+
+	iounmap(l2_base);
+
+	return 0;
+}
+
 static const struct msm_l2ccc_of_info l2ccc_info[] = {
 	{
 		.compat = "qcom,8916-l2ccc",
@@ -207,6 +274,11 @@ static const struct msm_l2ccc_of_info l2ccc_info[] = {
 	{
 		.compat = "qcom,titanium-l2ccc",
 		.l2_power_on = power_on_l2_msmtitanium,
+		.l2_power_on_mask = BIT(9) | BIT(28),
+	},
+	{
+		.compat = "qcom,thorium-l2ccc",
+		.l2_power_on = power_on_l2_msmthorium,
 		.l2_power_on_mask = BIT(9) | BIT(28),
 	},
 };
@@ -326,6 +398,103 @@ int msmtitanium_unclamp_secondary_arm_cpu(unsigned int cpu)
 	}
 
 	msmtitanium_unclamp_cpu(reg);
+
+	/* Secondary CPU-N is now alive */
+	iounmap(reg);
+out_acc_reg:
+	of_node_put(l2ccc_node);
+out_l2ccc:
+	of_node_put(l2_node);
+out_l2:
+	of_node_put(acc_node);
+out_acc:
+	of_node_put(cpu_node);
+
+	return ret;
+}
+
+static inline void msmthorium_unclamp_cpu(void __iomem *reg)
+{
+	/* Assert reset */
+	writel_relaxed(0x00000033, reg + CPU_PWR_CTL);
+	mb();
+
+	/* Program skew between en_few and en_rest to 16 XO clk cycles,
+	close Core logic head switch*/
+	writel_relaxed(0x10000001, reg + CPU_PWR_GATE_CTL);
+	mb();
+	udelay(2);
+
+	/* De-assert coremem clamp */
+	writel_relaxed(0x00000031, reg + CPU_PWR_CTL);
+	mb();
+
+	/* Close coremem array gdhs */
+	writel_relaxed(0x00000039, reg + CPU_PWR_CTL);
+	mb();
+	udelay(2);
+
+	/* De-assert clamp */
+	writel_relaxed(0x00020038, reg + CPU_PWR_CTL);
+	mb();
+	udelay(2);
+
+	/* De-assert core-n reset */
+	writel_relaxed(0x00020008, reg + CPU_PWR_CTL);
+	mb();
+
+	/* Assert PWRDUP; */
+	writel_relaxed(0x00020088, reg + CPU_PWR_CTL);
+	mb();
+}
+
+
+int msmthorium_unclamp_secondary_arm_cpu(unsigned int cpu)
+{
+
+	int ret = 0;
+	struct device_node *cpu_node, *acc_node, *l2_node, *l2ccc_node;
+	void __iomem *reg;
+
+	cpu_node = of_get_cpu_node(cpu, NULL);
+	if (!cpu_node)
+		return -ENODEV;
+
+	acc_node = of_parse_phandle(cpu_node, "qcom,acc", 0);
+	if (!acc_node) {
+			ret = -ENODEV;
+			goto out_acc;
+	}
+
+	l2_node = of_parse_phandle(cpu_node, "next-level-cache", 0);
+	if (!l2_node) {
+		ret = -ENODEV;
+		goto out_l2;
+	}
+
+	l2ccc_node = of_parse_phandle(l2_node, "power-domain", 0);
+	if (!l2ccc_node) {
+		ret = -ENODEV;
+		goto out_l2ccc;
+	}
+
+	/*
+	* Ensure L2-cache of the CPU is powered on before
+	* unclamping cpu power rails.
+	*/
+	ret = power_on_l2_cache(l2ccc_node, cpu);
+	if (ret) {
+		pr_err("L2 cache power up failed for CPU%d\n", cpu);
+		goto out_acc_reg;
+	}
+
+	reg = of_iomap(acc_node, 0);
+	if (!reg) {
+		ret = -ENOMEM;
+		goto out_acc_reg;
+	}
+
+	msmthorium_unclamp_cpu(reg);
 
 	/* Secondary CPU-N is now alive */
 	iounmap(reg);

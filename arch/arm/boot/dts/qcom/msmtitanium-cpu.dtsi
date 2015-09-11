@@ -51,8 +51,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x0>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
+			enable-method = "qcom,titanium-arm-cortex-acc";
 			qcom,acc = <&acc0>;
 			next-level-cache = <&L2_0>;
 			L2_0: l2-cache {
@@ -65,9 +64,8 @@
 		CPU1: cpu@1 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
+			enable-method = "qcom,titanium-arm-cortex-acc";
 			reg = <0x1>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
 			qcom,acc = <&acc1>;
 			next-level-cache = <&L2_0>;
 		};
@@ -75,9 +73,8 @@
 		CPU2: cpu@2 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
+			enable-method = "qcom,titanium-arm-cortex-acc";
 			reg = <0x2>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
 			qcom,acc = <&acc2>;
 			next-level-cache = <&L2_0>;
 		};
@@ -85,9 +82,8 @@
 		CPU3: cpu@3 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
+			enable-method = "qcom,titanium-arm-cortex-acc";
 			reg = <0x3>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
 			qcom,acc = <&acc3>;
 			next-level-cache = <&L2_0>;
 		};
@@ -95,9 +91,8 @@
 		CPU4: cpu@100 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
+			enable-method = "qcom,titanium-arm-cortex-acc";
 			reg = <0x100>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
 			qcom,acc = <&acc4>;
 			next-level-cache = <&L2_1>;
 			L2_1: l2-cache {
@@ -110,9 +105,8 @@
 		CPU5: cpu@101 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
+			enable-method = "qcom,titanium-arm-cortex-acc";
 			reg = <0x101>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
 			qcom,acc = <&acc5>;
 			next-level-cache = <&L2_1>;
 		};
@@ -120,9 +114,8 @@
 		CPU6: cpu@102 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
+			enable-method = "qcom,titanium-arm-cortex-acc";
 			reg = <0x102>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
 			qcom,acc = <&acc6>;
 			next-level-cache = <&L2_1>;
 		};
@@ -130,9 +123,8 @@
 		CPU7: cpu@103 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
+			enable-method = "qcom,titanium-arm-cortex-acc";
 			reg = <0x103>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
 			qcom,acc = <&acc7>;
 			next-level-cache = <&L2_1>;
 		};
@@ -141,52 +133,52 @@
 
 &soc {
 	l2ccc_0: clock-controller@b111000 {
-		compatible = "qcom,8916-l2ccc";
+		compatible = "qcom,titanium-l2ccc";
 		reg = <0x0b111000 0x1000>;
 	};
 
 	l2ccc_1: clock-controller@b011000 {
-		compatible = "qcom,8916-l2ccc";
+		compatible = "qcom,titanium-l2ccc";
 		reg = <0x0b011000 0x1000>;
 	};
 
-	acc0:clock-controller@b088000 {
-		compatible = "qcom,arm-cortex-acc";
-		reg = <0x0b088000 0x1000>;
-	};
-
-	acc1:clock-controller@b098000 {
-		compatible = "qcom,arm-cortex-acc";
-		reg = <0x0b098000 0x1000>;
-	};
-
-	acc2:clock-controller@b0a8000 {
-		compatible = "qcom,arm-cortex-acc";
-		reg = <0x0b0a8000 0x1000>;
-	};
-
-	acc3:clock-controller@b0b8000 {
-		compatible = "qcom,arm-cortex-acc";
-		reg = <0x0b0b8000 0x1000>;
-	};
-
-	acc4:clock-controller@b188000 {
+	acc0:clock-controller@b188000 {
 		compatible = "qcom,arm-cortex-acc";
 		reg = <0x0b188000 0x1000>;
 	};
 
-	acc5:clock-controller@b198000 {
+	acc1:clock-controller@b198000 {
 		compatible = "qcom,arm-cortex-acc";
 		reg = <0x0b198000 0x1000>;
 	};
 
-	acc6:clock-controller@b1a8000 {
+	acc2:clock-controller@b1a8000 {
 		compatible = "qcom,arm-cortex-acc";
 		reg = <0x0b1a8000 0x1000>;
 	};
 
-	acc7:clock-controller@b1b8000 {
+	acc3:clock-controller@b1b8000 {
 		compatible = "qcom,arm-cortex-acc";
 		reg = <0x0b1b8000 0x1000>;
+	};
+
+	acc4:clock-controller@b088000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b088000 0x1000>;
+	};
+
+	acc5:clock-controller@b098000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b098000 0x1000>;
+	};
+
+	acc6:clock-controller@b0a8000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b0a8000 0x1000>;
+	};
+
+	acc7:clock-controller@b0b8000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b0b8000 0x1000>;
 	};
 };
