@@ -309,7 +309,9 @@ void dwc3_ep0_out_start(struct dwc3 *dwc)
 
 	ret = dwc3_ep0_start_trans(dwc, 0, dwc->ctrl_req_addr, 8,
 			DWC3_TRBCTL_CONTROL_SETUP);
-	WARN_ON(ret < 0);
+
+	if (WARN_ON_ONCE(ret < 0))
+		dbg_event(dwc->eps[0]->number, "EOUTSTART", ret);
 }
 
 static struct dwc3_ep *dwc3_wIndex_to_dep(struct dwc3 *dwc, __le16 wIndex_le)
@@ -665,7 +667,8 @@ static void dwc3_ep0_set_sel_cmpl(struct usb_ep *ep, struct usb_request *req)
 	/* now that we have the time, issue DGCMD Set Sel */
 	ret = dwc3_send_gadget_generic_command(dwc,
 			DWC3_DGCMD_SET_PERIODIC_PAR, param);
-	WARN_ON(ret < 0);
+	if (WARN_ON_ONCE(ret < 0))
+		dbg_event(dep->number, "ESET_SELCMPL", ret);
 }
 
 static int dwc3_ep0_set_sel(struct dwc3 *dwc, struct usb_ctrlrequest *ctrl)
@@ -888,7 +891,8 @@ static void dwc3_ep0_complete_data(struct dwc3 *dwc,
 			ret = dwc3_ep0_start_trans(dwc, epnum,
 					dwc->ctrl_req_addr, 0,
 					DWC3_TRBCTL_CONTROL_DATA);
-			WARN_ON(ret < 0);
+			if (WARN_ON_ONCE(ret < 0))
+				dbg_event(epnum, "ECTRL_DATA", ret);
 		}
 	}
 }
@@ -1040,8 +1044,8 @@ static void __dwc3_ep0_do_control_status(struct dwc3 *dwc, struct dwc3_ep *dep)
 	}
 
 	ret = dwc3_ep0_start_control_status(dep);
-	dbg_print(dep->number, "QUEUE", ret, "STATUS");
-	WARN_ON(ret);
+	if (WARN_ON_ONCE(ret))
+		dbg_event(dep->number, "ECTRLSTATUS", ret);
 }
 
 static void dwc3_ep0_do_control_status(struct dwc3 *dwc,
