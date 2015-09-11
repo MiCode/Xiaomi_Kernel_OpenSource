@@ -269,9 +269,6 @@ static const struct v4l2_file_operations msm_v4l2_vidc_fops = {
 	.release = msm_v4l2_close,
 	.ioctl = video_ioctl2,
 	.poll = msm_v4l2_poll,
-#ifdef CONFIG_COMPAT
-	.compat_ioctl32 = v4l2_compat_ioctl32,
-#endif
 };
 
 void msm_vidc_release_video_device(struct video_device *pvdev)
