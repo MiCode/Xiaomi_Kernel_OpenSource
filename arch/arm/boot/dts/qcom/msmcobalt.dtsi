@@ -17,6 +17,7 @@
 / {
 	model = "Qualcomm Technologies, Inc. MSM COBALT";
 	compatible = "qcom,msmcobalt";
+	qcom,msm-id = <292 0x0>;
 	interrupt-parent = <&intc>;
 
 	aliases {
