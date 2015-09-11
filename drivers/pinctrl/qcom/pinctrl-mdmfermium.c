@@ -33,7 +33,7 @@
 		.pins = gpio##id##_pins,		\
 		.npins = (unsigned)ARRAY_SIZE(gpio##id##_pins),	\
 		.funcs = (int[]){			\
-			msm_mux_NA, /* gpio mode */	\
+			msm_mux_gpio, /* gpio mode */	\
 			msm_mux_##f1,			\
 			msm_mux_##f2,			\
 			msm_mux_##f3,			\
@@ -59,6 +59,7 @@
 		.intr_enable_bit = 0,		\
 		.intr_status_bit = 0,		\
 		.intr_target_bit = 5,		\
+		.intr_target_kpss_val = 4,	\
 		.intr_raw_status_bit = 4,	\
 		.intr_polarity_bit = 1,		\
 		.intr_detection_bit = 2,	\
@@ -282,7 +283,7 @@ static const unsigned int qdsd_data3_pins[] = { 91 };
 
 enum mdmfermium_functions {
 	msm_mux_blsp_spi3,
-	msm_mux_,
+	msm_mux_gpio,
 	msm_mux_blsp_uart3,
 	msm_mux_qdss_tracedata_a,
 	msm_mux_bimc_dte1,
@@ -414,7 +415,7 @@ enum mdmfermium_functions {
 static const char * const blsp_spi3_groups[] = {
 	"gpio0", "gpio1", "gpio2", "gpio3",
 };
-static const char * const _groups[] = {
+static const char * const gpio_groups[] = {
 	"gpio0", "gpio1", "gpio2", "gpio3", "gpio4", "gpio5", "gpio6", "gpio7",
 	"gpio12", "gpio13", "gpio14", "gpio15", "gpio16", "gpio17", "gpio20",
 	"gpio22", "gpio23", "gpio27", "gpio28", "gpio31", "gpio32", "gpio33",
@@ -810,7 +811,7 @@ static const char * const pwr_crypto_enabled_b_groups[] = {
 
 static const struct msm_function mdmfermium_functions[] = {
 	FUNCTION(blsp_spi3),
-	FUNCTION(),
+	FUNCTION(gpio),
 	FUNCTION(blsp_uart3),
 	FUNCTION(qdss_tracedata_a),
 	FUNCTION(bimc_dte1),
