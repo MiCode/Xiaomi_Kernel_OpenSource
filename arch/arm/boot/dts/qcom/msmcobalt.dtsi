@@ -957,6 +957,12 @@
 		compatible = "qcom,msm-fastrpc-adsp";
 		qcom,fastrpc-glink;
 
+		qcom,msm_fastrpc_cpz_cb1 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 2>;
+			qcom,secure-context-bank;
+		};
 		qcom,msm_fastrpc_compute_cb1 {
 			compatible = "qcom,msm-fastrpc-compute-cb";
 			label = "adsprpc-smd";

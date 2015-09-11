@@ -16,15 +16,20 @@
 
 #include <linux/types.h>
 
-#define FASTRPC_IOCTL_INVOKE  _IOWR('R', 1, struct fastrpc_ioctl_invoke)
-#define FASTRPC_IOCTL_MMAP    _IOWR('R', 2, struct fastrpc_ioctl_mmap)
-#define FASTRPC_IOCTL_MUNMAP  _IOWR('R', 3, struct fastrpc_ioctl_munmap)
-#define FASTRPC_IOCTL_INVOKE_FD  _IOWR('R', 4, struct fastrpc_ioctl_invoke_fd)
-#define FASTRPC_IOCTL_SETMODE    _IOWR('R', 5, uint32_t)
-#define FASTRPC_IOCTL_INIT       _IOWR('R', 6, struct fastrpc_ioctl_init)
+#define FASTRPC_IOCTL_INVOKE	_IOWR('R', 1, struct fastrpc_ioctl_invoke)
+#define FASTRPC_IOCTL_MMAP	_IOWR('R', 2, struct fastrpc_ioctl_mmap)
+#define FASTRPC_IOCTL_MUNMAP	_IOWR('R', 3, struct fastrpc_ioctl_munmap)
+#define FASTRPC_IOCTL_INVOKE_FD	_IOWR('R', 4, struct fastrpc_ioctl_invoke_fd)
+#define FASTRPC_IOCTL_SETMODE	_IOWR('R', 5, uint32_t)
+#define FASTRPC_IOCTL_INIT	_IOWR('R', 6, struct fastrpc_ioctl_init)
+#define FASTRPC_IOCTL_INVOKE_ATTRS \
+				_IOWR('R', 7, struct fastrpc_ioctl_invoke_attrs)
 #define FASTRPC_GLINK_GUID "fastrpcglink-apps-dsp"
 #define FASTRPC_SMD_GUID "fastrpcsmd-apps-dsp"
 #define DEVICE_NAME      "adsprpc-smd"
+
+/* Set for buffers that have no virtual mapping in userspace */
+#define FASTRPC_ATTR_NOVA 0x1
 
 /* Driver should operate in parallel with the co-processor */
 #define FASTRPC_MODE_PARALLEL    0
@@ -123,6 +128,12 @@ struct fastrpc_ioctl_invoke {
 struct fastrpc_ioctl_invoke_fd {
 	struct fastrpc_ioctl_invoke inv;
 	int *fds;		/* fd list */
+};
+
+struct fastrpc_ioctl_invoke_attrs {
+	struct fastrpc_ioctl_invoke inv;
+	int *fds;		/* fd list */
+	unsigned *attrs;	/* attribute list */
 };
 
 struct fastrpc_ioctl_init {

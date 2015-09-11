@@ -30,6 +30,8 @@
 		_IOWR('R', 4, struct compat_fastrpc_ioctl_invoke_fd)
 #define COMPAT_FASTRPC_IOCTL_INIT \
 		_IOWR('R', 6, struct compat_fastrpc_ioctl_init)
+#define COMPAT_FASTRPC_IOCTL_INVOKE_ATTRS \
+		_IOWR('R', 7, struct compat_fastrpc_ioctl_invoke_attrs)
 
 struct compat_remote_buf {
 	compat_uptr_t pv;	/* buffer pointer */
@@ -50,6 +52,12 @@ struct compat_fastrpc_ioctl_invoke {
 struct compat_fastrpc_ioctl_invoke_fd {
 	struct compat_fastrpc_ioctl_invoke inv;
 	compat_uptr_t fds;	/* fd list */
+};
+
+struct compat_fastrpc_ioctl_invoke_attrs {
+	struct compat_fastrpc_ioctl_invoke inv;
+	compat_uptr_t fds;	/* fd list */
+	compat_uptr_t attrs;	/* attribute list */
 };
 
 struct compat_fastrpc_ioctl_mmap {
@@ -76,14 +84,14 @@ struct compat_fastrpc_ioctl_init {
 };
 
 static int compat_get_fastrpc_ioctl_invoke(
-			struct compat_fastrpc_ioctl_invoke_fd __user *inv32,
-			struct fastrpc_ioctl_invoke_fd __user **inva,
+			struct compat_fastrpc_ioctl_invoke_attrs __user *inv32,
+			struct fastrpc_ioctl_invoke_attrs __user **inva,
 			unsigned int cmd)
 {
 	compat_uint_t u, sc;
 	compat_ssize_t s;
 	compat_uptr_t p;
-	struct fastrpc_ioctl_invoke_fd *inv;
+	struct fastrpc_ioctl_invoke_attrs *inv;
 	union compat_remote_arg *pra32;
 	union remote_arg *pra;
 	int err, len, num, j;
@@ -122,9 +130,14 @@ static int compat_get_fastrpc_ioctl_invoke(
 	}
 
 	err |= put_user(NULL, &inv->fds);
-	if (cmd == COMPAT_FASTRPC_IOCTL_INVOKE_FD) {
+	if (cmd != COMPAT_FASTRPC_IOCTL_INVOKE) {
 		err |= get_user(p, &inv32->fds);
 		err |= put_user(p, (compat_uptr_t *)&inv->fds);
+	}
+	err |= put_user(NULL, &inv->attrs);
+	if (cmd == COMPAT_FASTRPC_IOCTL_INVOKE_ATTRS) {
+		err |= get_user(p, &inv32->attrs);
+		err |= put_user(p, (compat_uptr_t *)&inv->attrs);
 	}
 
 	*inva = inv;
@@ -132,8 +145,8 @@ static int compat_get_fastrpc_ioctl_invoke(
 }
 
 static int compat_put_fastrpc_ioctl_invoke(
-			struct compat_fastrpc_ioctl_invoke_fd __user *inv32,
-			struct fastrpc_ioctl_invoke_fd __user *inv)
+			struct compat_fastrpc_ioctl_invoke_attrs __user *inv32,
+			struct fastrpc_ioctl_invoke_attrs __user *inv)
 {
 	compat_uptr_t p;
 	compat_uint_t u, h;
@@ -247,9 +260,10 @@ long compat_fastrpc_device_ioctl(struct file *filp, unsigned int cmd,
 	switch (cmd) {
 	case COMPAT_FASTRPC_IOCTL_INVOKE:
 	case COMPAT_FASTRPC_IOCTL_INVOKE_FD:
+	case COMPAT_FASTRPC_IOCTL_INVOKE_ATTRS:
 	{
-		struct compat_fastrpc_ioctl_invoke_fd __user *inv32;
-		struct fastrpc_ioctl_invoke_fd __user *inv;
+		struct compat_fastrpc_ioctl_invoke_attrs __user *inv32;
+		struct fastrpc_ioctl_invoke_attrs __user *inv;
 		long ret;
 
 		inv32 = compat_ptr(arg);
@@ -257,8 +271,8 @@ long compat_fastrpc_device_ioctl(struct file *filp, unsigned int cmd,
 							&inv, cmd));
 		if (err)
 			return err;
-		ret = filp->f_op->unlocked_ioctl(filp, FASTRPC_IOCTL_INVOKE_FD,
-							(unsigned long)inv);
+		ret = filp->f_op->unlocked_ioctl(filp,
+				FASTRPC_IOCTL_INVOKE_ATTRS, (unsigned long)inv);
 		if (ret)
 			return ret;
 		VERIFY(err, 0 == compat_put_fastrpc_ioctl_invoke(inv32, inv));
