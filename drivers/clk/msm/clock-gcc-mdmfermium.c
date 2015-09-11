@@ -113,8 +113,7 @@ static struct alpha_pll_clk a7sspll = {
 		.parent = &xo_a_clk_src.c,
 		.dbg_name = "a7sspll",
 		.ops = &clk_ops_dyna_alpha_pll,
-		VDD_STROMER_FMAX_MAP3(LOWER, 400000000, NOMINAL, 800000000,
-					HIGH, 1200000000),
+		VDD_STROMER_FMAX_MAP1(LOW, 140000000),
 		CLK_INIT(a7sspll.c),
 	},
 };
