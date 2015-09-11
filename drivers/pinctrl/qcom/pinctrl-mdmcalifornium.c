@@ -33,7 +33,7 @@
 		.pins = gpio##id##_pins,		\
 		.npins = (unsigned)ARRAY_SIZE(gpio##id##_pins),	\
 		.funcs = (int[]){			\
-			msm_mux_NA, /* gpio mode */	\
+			msm_mux_gpio, /* gpio mode */	\
 			msm_mux_##f1,			\
 			msm_mux_##f2,			\
 			msm_mux_##f3,			\
@@ -322,30 +322,25 @@ static const unsigned int qdsd_data3_pins[] = { 111 };
 
 enum mdmcalifornium_functions {
 	msm_mux_uim2_data,
-	msm_mux_,
-	msm_mux_blsp_uart_tx_a1,
 	msm_mux_qdss_stm31,
 	msm_mux_ebi0_wrcdc,
 	msm_mux_uim2_present,
-	msm_mux_blsp_uart_rx_a1,
 	msm_mux_qdss_stm30,
 	msm_mux_blsp_spi1,
 	msm_mux_uim2_reset,
-	msm_mux_blsp_uart_cts_n_a1,
-	msm_mux_blsp_i2c_sda_a1,
 	msm_mux_qdss_stm29,
 	msm_mux_uim2_clk,
-	msm_mux_blsp_uart_rfr_n_a1,
-	msm_mux_blsp_i2c_scl_a1,
+	msm_mux_blsp_i2c1,
 	msm_mux_qdss_stm28,
 	msm_mux_blsp_spi2,
+	msm_mux_blsp_uart1,
 	msm_mux_blsp_uart2,
+	msm_mux_blsp_uart4,
 	msm_mux_qdss_stm23,
 	msm_mux_qdss_tracedata_a,
 	msm_mux_qdss_stm22,
-	msm_mux_blsp_i2c_sda_a2,
 	msm_mux_qdss_stm21,
-	msm_mux_blsp_i2c_scl_a2,
+	msm_mux_blsp_i2c2,
 	msm_mux_qdss_stm20,
 	msm_mux_pri_mi2s_ws_b,
 	msm_mux_blsp_spi3,
@@ -361,51 +356,36 @@ enum mdmcalifornium_functions {
 	msm_mux_pwr_crypto,
 	msm_mux_pri_mi2s_sck_b,
 	msm_mux_pri_mi2s_ws_a,
-	msm_mux_blsp_uart_tx_a4,
 	msm_mux_qdss_stm19,
 	msm_mux_pri_mi2s_data0_a,
-	msm_mux_blsp_uart_rx_a4,
 	msm_mux_qdss_stm18,
 	msm_mux_pri_mi2s_data1_a,
-	msm_mux_blsp_uart_cts_n_a4,
-	msm_mux_blsp_i2c_sda_a4,
 	msm_mux_slimbus_data,
 	msm_mux_qdss_stm17,
 	msm_mux_bimc_dte0,
 	msm_mux_native_tsens,
 	msm_mux_pri_mi2s_sck_a,
-	msm_mux_blsp_uart_rfr_n_a4,
-	msm_mux_blsp_i2c_scl_a4,
+	msm_mux_blsp_i2c4,
 	msm_mux_slimbus_clk,
 	msm_mux_qdss_stm16,
 	msm_mux_bimc_dte1,
 	msm_mux_sec_mi2s_ws_a,
 	msm_mux_blsp_spi4,
-	msm_mux_blsp_uart_tx_b4,
 	msm_mux_qdss_stm27,
 	msm_mux_sec_mi2s_data0_a,
-	msm_mux_blsp_uart_rx_b4,
 	msm_mux_qdss_cti,
 	msm_mux_qdss_stm26,
 	msm_mux_sec_mi2s_data1_a,
-	msm_mux_blsp_uart_cts_n_b4,
-	msm_mux_blsp_i2c_sda_b4,
 	msm_mux_qdss_stm25,
 	msm_mux_sec_mi2s_sck_a,
-	msm_mux_blsp_uart_rfr_n_b4,
-	msm_mux_blsp_i2c_scl_b4,
 	msm_mux_qdss_stm24,
 	msm_mux_sec_mi2s_ws_b,
 	msm_mux_ebi2_a,
-	msm_mux_blsp_uart_tx_b1,
 	msm_mux_sec_mi2s_data0_b,
 	msm_mux_ebi2_lcd,
-	msm_mux_blsp_uart_rx_b1,
 	msm_mux_sec_mi2s_data1_b,
-	msm_mux_blsp_uart_cts_n_b1,
 	msm_mux_ebi1_smt4,
 	msm_mux_sec_mi2s_sck_b,
-	msm_mux_blsp_uart_rfr_n_b1,
 	msm_mux_m_voc_ext_vfr_ref_irq_a,
 	msm_mux_adsp_ext_vfr_irq_a,
 	msm_mux_qdss_stm11,
@@ -421,8 +401,6 @@ enum mdmcalifornium_functions {
 	msm_mux_pa_indicator,
 	msm_mux_qdss_traceclk_a,
 	msm_mux_prng_rosc,
-	msm_mux_blsp_i2c_sda_b2,
-	msm_mux_blsp_i2c_scl_b2,
 	msm_mux_nav_pps_in_a,
 	msm_mux_qdss_tracectl_a,
 	msm_mux_epm2,
@@ -478,15 +456,14 @@ enum mdmcalifornium_functions {
 	msm_mux_uim1_present,
 	msm_mux_uim1_reset,
 	msm_mux_uim1_clk,
-	msm_mux_blsp_i2c_sda_b1,
-	msm_mux_blsp_i2c_scl_b1,
+	msm_mux_gpio,
 	msm_mux_NA,
 };
 
 static const char * const uim2_data_groups[] = {
 	"gpio0",
 };
-static const char * const _groups[] = {
+static const char * const gpio_groups[] = {
 	"gpio0", "gpio1", "gpio2", "gpio3", "gpio4", "gpio5", "gpio6", "gpio7",
 	"gpio8", "gpio9", "gpio10", "gpio11", "gpio12", "gpio13", "gpio14",
 	"gpio15", "gpio16", "gpio17", "gpio18", "gpio19", "gpio20", "gpio21",
@@ -501,9 +478,6 @@ static const char * const _groups[] = {
 	"gpio91", "gpio92", "gpio93", "gpio94", "gpio95", "gpio96", "gpio97",
 	"gpio98", "gpio99", "gpio99",
 };
-static const char * const blsp_uart_tx_a1_groups[] = {
-	"gpio0",
-};
 static const char * const qdss_stm31_groups[] = {
 	"gpio0",
 };
@@ -511,9 +485,6 @@ static const char * const ebi0_wrcdc_groups[] = {
 	"gpio0", "gpio2",
 };
 static const char * const uim2_present_groups[] = {
-	"gpio1",
-};
-static const char * const blsp_uart_rx_a1_groups[] = {
 	"gpio1",
 };
 static const char * const qdss_stm30_groups[] = {
@@ -525,11 +496,8 @@ static const char * const blsp_spi1_groups[] = {
 static const char * const uim2_reset_groups[] = {
 	"gpio2",
 };
-static const char * const blsp_uart_cts_n_a1_groups[] = {
-	"gpio2",
-};
-static const char * const blsp_i2c_sda_a1_groups[] = {
-	"gpio2",
+static const char * const blsp_i2c1_groups[] = {
+	"gpio2", "gpio3", "gpio84", "gpio85",
 };
 static const char * const qdss_stm29_groups[] = {
 	"gpio2",
@@ -537,17 +505,15 @@ static const char * const qdss_stm29_groups[] = {
 static const char * const uim2_clk_groups[] = {
 	"gpio3",
 };
-static const char * const blsp_uart_rfr_n_a1_groups[] = {
-	"gpio3",
-};
-static const char * const blsp_i2c_scl_a1_groups[] = {
-	"gpio3",
-};
 static const char * const qdss_stm28_groups[] = {
 	"gpio3",
 };
 static const char * const blsp_spi2_groups[] = {
 	"gpio4", "gpio5", "gpio6", "gpio7", "gpio60", "gpio68", "gpio71",
+};
+static const char * const blsp_uart1_groups[] = {
+	"gpio0", "gpio1", "gpio2", "gpio3", "gpio20", "gpio21", "gpio22",
+	"gpio23",
 };
 static const char * const blsp_uart2_groups[] = {
 	"gpio4", "gpio5", "gpio6", "gpio7",
@@ -563,14 +529,11 @@ static const char * const qdss_tracedata_a_groups[] = {
 static const char * const qdss_stm22_groups[] = {
 	"gpio5",
 };
-static const char * const blsp_i2c_sda_a2_groups[] = {
-	"gpio6",
+static const char * const blsp_i2c2_groups[] = {
+	"gpio6", "gpio7", "gpio48", "gpio49",
 };
 static const char * const qdss_stm21_groups[] = {
 	"gpio6",
-};
-static const char * const blsp_i2c_scl_a2_groups[] = {
-	"gpio7",
 };
 static const char * const qdss_stm20_groups[] = {
 	"gpio7",
@@ -583,6 +546,10 @@ static const char * const blsp_spi3_groups[] = {
 };
 static const char * const blsp_uart3_groups[] = {
 	"gpio8", "gpio9", "gpio10", "gpio11",
+};
+static const char * const blsp_uart4_groups[] = {
+	"gpio12", "gpio13", "gpio14", "gpio15", "gpio16", "gpio17", "gpio18",
+	"gpio19",
 };
 static const char * const ldo_en_groups[] = {
 	"gpio8",
@@ -617,16 +584,10 @@ static const char * const pri_mi2s_sck_b_groups[] = {
 static const char * const pri_mi2s_ws_a_groups[] = {
 	"gpio12",
 };
-static const char * const blsp_uart_tx_a4_groups[] = {
-	"gpio12",
-};
 static const char * const qdss_stm19_groups[] = {
 	"gpio12",
 };
 static const char * const pri_mi2s_data0_a_groups[] = {
-	"gpio13",
-};
-static const char * const blsp_uart_rx_a4_groups[] = {
 	"gpio13",
 };
 static const char * const qdss_stm18_groups[] = {
@@ -635,11 +596,8 @@ static const char * const qdss_stm18_groups[] = {
 static const char * const pri_mi2s_data1_a_groups[] = {
 	"gpio14",
 };
-static const char * const blsp_uart_cts_n_a4_groups[] = {
-	"gpio14",
-};
-static const char * const blsp_i2c_sda_a4_groups[] = {
-	"gpio14",
+static const char * const blsp_i2c4_groups[] = {
+	"gpio14", "gpio15", "gpio18", "gpio19",
 };
 static const char * const slimbus_data_groups[] = {
 	"gpio14",
@@ -654,12 +612,6 @@ static const char * const native_tsens_groups[] = {
 	"gpio14",
 };
 static const char * const pri_mi2s_sck_a_groups[] = {
-	"gpio15",
-};
-static const char * const blsp_uart_rfr_n_a4_groups[] = {
-	"gpio15",
-};
-static const char * const blsp_i2c_scl_a4_groups[] = {
 	"gpio15",
 };
 static const char * const slimbus_clk_groups[] = {
@@ -677,16 +629,10 @@ static const char * const sec_mi2s_ws_a_groups[] = {
 static const char * const blsp_spi4_groups[] = {
 	"gpio16", "gpio17", "gpio18", "gpio19", "gpio68", "gpio69", "gpio71",
 };
-static const char * const blsp_uart_tx_b4_groups[] = {
-	"gpio16",
-};
 static const char * const qdss_stm27_groups[] = {
 	"gpio16",
 };
 static const char * const sec_mi2s_data0_a_groups[] = {
-	"gpio17",
-};
-static const char * const blsp_uart_rx_b4_groups[] = {
 	"gpio17",
 };
 static const char * const qdss_cti_groups[] = {
@@ -698,22 +644,10 @@ static const char * const qdss_stm26_groups[] = {
 static const char * const sec_mi2s_data1_a_groups[] = {
 	"gpio18",
 };
-static const char * const blsp_uart_cts_n_b4_groups[] = {
-	"gpio18",
-};
-static const char * const blsp_i2c_sda_b4_groups[] = {
-	"gpio18",
-};
 static const char * const qdss_stm25_groups[] = {
 	"gpio18",
 };
 static const char * const sec_mi2s_sck_a_groups[] = {
-	"gpio19",
-};
-static const char * const blsp_uart_rfr_n_b4_groups[] = {
-	"gpio19",
-};
-static const char * const blsp_i2c_scl_b4_groups[] = {
 	"gpio19",
 };
 static const char * const qdss_stm24_groups[] = {
@@ -725,31 +659,19 @@ static const char * const sec_mi2s_ws_b_groups[] = {
 static const char * const ebi2_a_groups[] = {
 	"gpio20",
 };
-static const char * const blsp_uart_tx_b1_groups[] = {
-	"gpio20",
-};
 static const char * const sec_mi2s_data0_b_groups[] = {
 	"gpio21",
 };
 static const char * const ebi2_lcd_groups[] = {
 	"gpio21", "gpio22", "gpio23",
 };
-static const char * const blsp_uart_rx_b1_groups[] = {
-	"gpio21",
-};
 static const char * const sec_mi2s_data1_b_groups[] = {
-	"gpio22",
-};
-static const char * const blsp_uart_cts_n_b1_groups[] = {
 	"gpio22",
 };
 static const char * const ebi1_smt4_groups[] = {
 	"gpio22",
 };
 static const char * const sec_mi2s_sck_b_groups[] = {
-	"gpio23",
-};
-static const char * const blsp_uart_rfr_n_b1_groups[] = {
 	"gpio23",
 };
 static const char * const m_voc_ext_vfr_ref_irq_a_groups[] = {
@@ -796,12 +718,6 @@ static const char * const qdss_traceclk_a_groups[] = {
 };
 static const char * const prng_rosc_groups[] = {
 	"gpio47",
-};
-static const char * const blsp_i2c_sda_b2_groups[] = {
-	"gpio48",
-};
-static const char * const blsp_i2c_scl_b2_groups[] = {
-	"gpio49",
 };
 static const char * const nav_pps_in_a_groups[] = {
 	"gpio50",
@@ -968,39 +884,28 @@ static const char * const uim1_reset_groups[] = {
 static const char * const uim1_clk_groups[] = {
 	"gpio79",
 };
-static const char * const blsp_i2c_sda_b1_groups[] = {
-	"gpio84",
-};
-static const char * const blsp_i2c_scl_b1_groups[] = {
-	"gpio85",
-};
 
 static const struct msm_function mdmcalifornium_functions[] = {
+	FUNCTION(gpio),
 	FUNCTION(uim2_data),
-	FUNCTION(),
-	FUNCTION(blsp_uart_tx_a1),
 	FUNCTION(qdss_stm31),
 	FUNCTION(ebi0_wrcdc),
 	FUNCTION(uim2_present),
-	FUNCTION(blsp_uart_rx_a1),
+	FUNCTION(blsp_uart1),
 	FUNCTION(qdss_stm30),
 	FUNCTION(blsp_spi1),
 	FUNCTION(uim2_reset),
-	FUNCTION(blsp_uart_cts_n_a1),
-	FUNCTION(blsp_i2c_sda_a1),
+	FUNCTION(blsp_i2c1),
 	FUNCTION(qdss_stm29),
 	FUNCTION(uim2_clk),
-	FUNCTION(blsp_uart_rfr_n_a1),
-	FUNCTION(blsp_i2c_scl_a1),
 	FUNCTION(qdss_stm28),
 	FUNCTION(blsp_spi2),
 	FUNCTION(blsp_uart2),
 	FUNCTION(qdss_stm23),
 	FUNCTION(qdss_tracedata_a),
 	FUNCTION(qdss_stm22),
-	FUNCTION(blsp_i2c_sda_a2),
+	FUNCTION(blsp_i2c2),
 	FUNCTION(qdss_stm21),
-	FUNCTION(blsp_i2c_scl_a2),
 	FUNCTION(qdss_stm20),
 	FUNCTION(pri_mi2s_ws_b),
 	FUNCTION(blsp_spi3),
@@ -1016,51 +921,37 @@ static const struct msm_function mdmcalifornium_functions[] = {
 	FUNCTION(pwr_crypto),
 	FUNCTION(pri_mi2s_sck_b),
 	FUNCTION(pri_mi2s_ws_a),
-	FUNCTION(blsp_uart_tx_a4),
+	FUNCTION(blsp_uart4),
 	FUNCTION(qdss_stm19),
 	FUNCTION(pri_mi2s_data0_a),
-	FUNCTION(blsp_uart_rx_a4),
 	FUNCTION(qdss_stm18),
 	FUNCTION(pri_mi2s_data1_a),
-	FUNCTION(blsp_uart_cts_n_a4),
-	FUNCTION(blsp_i2c_sda_a4),
+	FUNCTION(blsp_i2c4),
 	FUNCTION(slimbus_data),
 	FUNCTION(qdss_stm17),
 	FUNCTION(bimc_dte0),
 	FUNCTION(native_tsens),
 	FUNCTION(pri_mi2s_sck_a),
-	FUNCTION(blsp_uart_rfr_n_a4),
-	FUNCTION(blsp_i2c_scl_a4),
 	FUNCTION(slimbus_clk),
 	FUNCTION(qdss_stm16),
 	FUNCTION(bimc_dte1),
 	FUNCTION(sec_mi2s_ws_a),
 	FUNCTION(blsp_spi4),
-	FUNCTION(blsp_uart_tx_b4),
 	FUNCTION(qdss_stm27),
 	FUNCTION(sec_mi2s_data0_a),
-	FUNCTION(blsp_uart_rx_b4),
 	FUNCTION(qdss_cti),
 	FUNCTION(qdss_stm26),
 	FUNCTION(sec_mi2s_data1_a),
-	FUNCTION(blsp_uart_cts_n_b4),
-	FUNCTION(blsp_i2c_sda_b4),
 	FUNCTION(qdss_stm25),
 	FUNCTION(sec_mi2s_sck_a),
-	FUNCTION(blsp_uart_rfr_n_b4),
-	FUNCTION(blsp_i2c_scl_b4),
 	FUNCTION(qdss_stm24),
 	FUNCTION(sec_mi2s_ws_b),
 	FUNCTION(ebi2_a),
-	FUNCTION(blsp_uart_tx_b1),
 	FUNCTION(sec_mi2s_data0_b),
 	FUNCTION(ebi2_lcd),
-	FUNCTION(blsp_uart_rx_b1),
 	FUNCTION(sec_mi2s_data1_b),
-	FUNCTION(blsp_uart_cts_n_b1),
 	FUNCTION(ebi1_smt4),
 	FUNCTION(sec_mi2s_sck_b),
-	FUNCTION(blsp_uart_rfr_n_b1),
 	FUNCTION(m_voc_ext_vfr_ref_irq_a),
 	FUNCTION(adsp_ext_vfr_irq_a),
 	FUNCTION(qdss_stm11),
@@ -1076,8 +967,6 @@ static const struct msm_function mdmcalifornium_functions[] = {
 	FUNCTION(pa_indicator),
 	FUNCTION(qdss_traceclk_a),
 	FUNCTION(prng_rosc),
-	FUNCTION(blsp_i2c_sda_b2),
-	FUNCTION(blsp_i2c_scl_b2),
 	FUNCTION(nav_pps_in_a),
 	FUNCTION(qdss_tracectl_a),
 	FUNCTION(epm2),
@@ -1133,26 +1022,24 @@ static const struct msm_function mdmcalifornium_functions[] = {
 	FUNCTION(uim1_present),
 	FUNCTION(uim1_reset),
 	FUNCTION(uim1_clk),
-	FUNCTION(blsp_i2c_sda_b1),
-	FUNCTION(blsp_i2c_scl_b1),
 };
 
 static const struct msm_pingroup mdmcalifornium_groups[] = {
-	PINGROUP(0, uim2_data, blsp_spi1, blsp_uart_tx_a1, qdss_stm31,
+	PINGROUP(0, uim2_data, blsp_spi1, blsp_uart1, qdss_stm31,
 		 ebi0_wrcdc, NA, NA, NA, NA),
-	PINGROUP(1, uim2_present, blsp_spi1, blsp_uart_rx_a1, qdss_stm30, NA,
+	PINGROUP(1, uim2_present, blsp_spi1, blsp_uart1, qdss_stm30, NA,
 		 NA, NA, NA, NA),
-	PINGROUP(2, uim2_reset, blsp_spi1, blsp_uart_cts_n_a1, blsp_i2c_sda_a1,
+	PINGROUP(2, uim2_reset, blsp_spi1, blsp_uart1, blsp_i2c1,
 		 qdss_stm29, ebi0_wrcdc, NA, NA, NA),
-	PINGROUP(3, uim2_clk, blsp_spi1, blsp_uart_rfr_n_a1, blsp_i2c_scl_a1,
+	PINGROUP(3, uim2_clk, blsp_spi1, blsp_uart1, blsp_i2c1,
 		 qdss_stm28, NA, NA, NA, NA),
 	PINGROUP(4, blsp_spi2, blsp_uart2, NA, qdss_stm23, qdss_tracedata_a,
 		 NA, NA, NA, NA),
 	PINGROUP(5, blsp_spi2, blsp_uart2, NA, qdss_stm22, qdss_tracedata_a,
 		 NA, NA, NA, NA),
-	PINGROUP(6, blsp_spi2, blsp_uart2, blsp_i2c_sda_a2, NA, qdss_stm21,
+	PINGROUP(6, blsp_spi2, blsp_uart2, blsp_i2c2, NA, qdss_stm21,
 		 qdss_tracedata_a, NA, NA, NA),
-	PINGROUP(7, blsp_spi2, blsp_uart2, blsp_i2c_scl_a2, NA, qdss_stm20,
+	PINGROUP(7, blsp_spi2, blsp_uart2, blsp_i2c2, NA, qdss_stm20,
 		 qdss_tracedata_a, NA, NA, NA),
 	PINGROUP(8, pri_mi2s_ws_b, blsp_spi3, blsp_uart3, ldo_en, NA,
 		 qdss_tracedata_a, qdss_cti_trig1_out_b, pwr_modem, NA),
@@ -1162,30 +1049,30 @@ static const struct msm_pingroup mdmcalifornium_groups[] = {
 		 pwr_crypto, NA, NA, NA, NA),
 	PINGROUP(11, pri_mi2s_sck_b, blsp_spi3, blsp_uart3, blsp_i2c3, NA, NA,
 		 NA, NA, NA),
-	PINGROUP(12, pri_mi2s_ws_a, blsp_uart_tx_a4, NA, qdss_stm19, NA, NA,
+	PINGROUP(12, pri_mi2s_ws_a, blsp_uart4, NA, qdss_stm19, NA, NA,
 		 NA, NA, NA),
-	PINGROUP(13, pri_mi2s_data0_a, blsp_uart_rx_a4, NA, qdss_stm18, NA, NA,
+	PINGROUP(13, pri_mi2s_data0_a, blsp_uart4, NA, qdss_stm18, NA, NA,
 		 NA, NA, NA),
-	PINGROUP(14, pri_mi2s_data1_a, blsp_uart_cts_n_a4, blsp_i2c_sda_a4,
+	PINGROUP(14, pri_mi2s_data1_a, blsp_uart4, blsp_i2c4,
 		 slimbus_data, NA, NA, qdss_stm17, bimc_dte0, native_tsens),
-	PINGROUP(15, pri_mi2s_sck_a, blsp_uart_rfr_n_a4, blsp_i2c_scl_a4,
+	PINGROUP(15, pri_mi2s_sck_a, blsp_uart4, blsp_i2c4,
 		 slimbus_clk, NA, qdss_stm16, bimc_dte1, NA, NA),
-	PINGROUP(16, sec_mi2s_ws_a, blsp_spi4, blsp_uart_tx_b4, NA, NA,
+	PINGROUP(16, sec_mi2s_ws_a, blsp_spi4, blsp_uart4, NA, NA,
 		 qdss_stm27, qdss_tracedata_a, NA, NA),
-	PINGROUP(17, sec_mi2s_data0_a, blsp_spi4, blsp_uart_rx_b4, qdss_cti,
+	PINGROUP(17, sec_mi2s_data0_a, blsp_spi4, blsp_uart4, qdss_cti,
 		 qdss_stm26, qdss_tracedata_a, NA, NA, NA),
-	PINGROUP(18, sec_mi2s_data1_a, blsp_spi4, blsp_uart_cts_n_b4,
-		 blsp_i2c_sda_b4, qdss_cti, NA, qdss_stm25, qdss_tracedata_a,
+	PINGROUP(18, sec_mi2s_data1_a, blsp_spi4, blsp_uart4,
+		 blsp_i2c4, qdss_cti, NA, qdss_stm25, qdss_tracedata_a,
 		 NA),
-	PINGROUP(19, sec_mi2s_sck_a, blsp_spi4, blsp_uart_rfr_n_b4,
-		 blsp_i2c_scl_b4, NA, qdss_stm24, qdss_tracedata_a, NA, NA),
-	PINGROUP(20, sec_mi2s_ws_b, ebi2_a, blsp_uart_tx_b1, qdss_tracedata_a,
+	PINGROUP(19, sec_mi2s_sck_a, blsp_spi4, blsp_uart4,
+		 blsp_i2c4, NA, qdss_stm24, qdss_tracedata_a, NA, NA),
+	PINGROUP(20, sec_mi2s_ws_b, ebi2_a, blsp_uart1, qdss_tracedata_a,
 		 NA, NA, NA, NA, NA),
-	PINGROUP(21, sec_mi2s_data0_b, ebi2_lcd, blsp_uart_rx_b1, NA, NA, NA,
+	PINGROUP(21, sec_mi2s_data0_b, ebi2_lcd, blsp_uart1, NA, NA, NA,
 		 NA, NA, NA),
-	PINGROUP(22, sec_mi2s_data1_b, ebi2_lcd, blsp_uart_cts_n_b1,
+	PINGROUP(22, sec_mi2s_data1_b, ebi2_lcd, blsp_uart1,
 		 qdss_tracedata_a, NA, ebi1_smt4, NA, NA, NA),
-	PINGROUP(23, sec_mi2s_sck_b, ebi2_lcd, blsp_uart_rfr_n_b1, NA, NA, NA,
+	PINGROUP(23, sec_mi2s_sck_b, ebi2_lcd, blsp_uart1, NA, NA, NA,
 		 NA, NA, NA),
 	PINGROUP(24, m_voc_ext_vfr_ref_irq_a, adsp_ext_vfr_irq_a, NA,
 		 qdss_stm11, NA, NA, NA, NA, NA),
@@ -1213,8 +1100,8 @@ static const struct msm_pingroup mdmcalifornium_groups[] = {
 	PINGROUP(45, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(46, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(47, NA, prng_rosc, NA, NA, NA, NA, NA, NA, NA),
-	PINGROUP(48, NA, blsp_i2c_sda_b2, NA, NA, NA, NA, NA, NA, NA),
-	PINGROUP(49, NA, blsp_i2c_scl_b2, NA, NA, NA, NA, NA, NA, NA),
+	PINGROUP(48, NA, blsp_i2c2, NA, NA, NA, NA, NA, NA, NA),
+	PINGROUP(49, NA, blsp_i2c2, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(50, nav_pps_in_a, qdss_tracectl_a, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(51, nav_pps_in_b, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(52, coex_uart, qdss_cti, NA, NA, NA, NA, NA, NA, NA),
@@ -1257,8 +1144,8 @@ static const struct msm_pingroup mdmcalifornium_groups[] = {
 	PINGROUP(81, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(82, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(83, NA, NA, NA, NA, NA, NA, NA, NA, NA),
-	PINGROUP(84, NA, NA, blsp_i2c_sda_b1, NA, NA, NA, NA, NA, NA),
-	PINGROUP(85, NA, NA, blsp_i2c_scl_b1, NA, NA, NA, NA, NA, NA),
+	PINGROUP(84, NA, NA, blsp_i2c1, NA, NA, NA, NA, NA, NA),
+	PINGROUP(85, NA, NA, blsp_i2c1, NA, NA, NA, NA, NA, NA),
 	PINGROUP(86, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(87, NA, NA, NA, NA, NA, NA, NA, NA, NA),
 	PINGROUP(88, NA, NA, NA, NA, NA, NA, NA, NA, NA),
