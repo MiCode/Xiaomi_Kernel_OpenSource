@@ -36,7 +36,8 @@ bool hdmi_edid_get_sink_scrambler_support(void *input);
 bool hdmi_edid_get_scdc_support(void *input);
 int hdmi_edid_get_audio_blk(void *edid_ctrl,
 	struct msm_hdmi_audio_edid_blk *blk);
-void hdmi_edid_set_video_resolution(void *edid_ctrl, u32 resolution);
+void hdmi_edid_set_video_resolution(void *edid_ctrl, u32 resolution,
+	bool reset);
 void hdmi_edid_deinit(void *edid_ctrl);
 void *hdmi_edid_init(struct hdmi_edid_init_data *init_data);
 
