@@ -2903,6 +2903,10 @@ int fsg_common_set_num_buffers(struct fsg_common *common, unsigned int n)
 {
 	struct fsg_buffhd *bh, *buffhds;
 	int i, rc;
+	size_t extra_buf_alloc = 0;
+
+	if (common->gadget)
+		extra_buf_alloc = common->gadget->extra_buf_alloc;
 
 	rc = fsg_num_buffers_validate(n);
 	if (rc != 0)
@@ -2920,7 +2924,8 @@ int fsg_common_set_num_buffers(struct fsg_common *common, unsigned int n)
 		bh->next = bh + 1;
 		++bh;
 buffhds_first_it:
-		bh->buf = kmalloc(FSG_BUFLEN, GFP_KERNEL);
+		bh->buf = kmalloc(FSG_BUFLEN + extra_buf_alloc,
+				GFP_KERNEL);
 		if (unlikely(!bh->buf))
 			goto error_release;
 	} while (--i);
