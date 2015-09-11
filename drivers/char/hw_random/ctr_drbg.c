@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -402,7 +402,9 @@ ctr_drbg_instantiate(struct ctr_drbg_ctx_s *ctx,
 	if (reseed_interval > (1ULL << 48))
 		return CTR_DRBG_INVALID_ARG + 2;
 
-	ctr_aes_init(ctx);
+	rc = ctr_aes_init(ctx);
+	if (rc)
+		return CTR_DRBG_GENERAL_ERROR;
 
 	memset(ctx->seed.as_bytes, 0, sizeof(ctx->seed.as_bytes));
 	memcpy(df_input, (uint8_t *)entropy, entropy_len_bits / 8);
