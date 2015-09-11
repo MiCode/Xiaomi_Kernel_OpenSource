@@ -237,7 +237,7 @@ static int msm_isp_buf_prepare(struct msm_isp_buf_mgr *buf_mgr,
 	}
 
 	if (buf_info->state != MSM_ISP_BUFFER_STATE_INITIALIZED) {
-		pr_err("%s: Invalid buffer state: %d bufq %x buf-id %d\n",
+		pr_err_ratelimited("%s: Invalid buffer state: %d bufq %x buf-id %d\n",
 			__func__, buf_info->state, bufq->bufq_handle,
 			buf_info->buf_idx);
 		spin_unlock_irqrestore(&bufq->bufq_lock, flags);
