@@ -331,6 +331,7 @@ struct sdhci_ops {
 	void	(*enhanced_strobe_mask)(struct sdhci_host *host, bool set);
 	void	(*detect)(struct sdhci_host *host, bool detected);
 	int	(*notify_load)(struct sdhci_host *host, enum mmc_load state);
+	void	(*reset_workaround)(struct sdhci_host *host, u32 enable);
 };
 
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS
