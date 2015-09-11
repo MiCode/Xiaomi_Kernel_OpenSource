@@ -3183,8 +3183,10 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		}
 
 		/* skip the probe if eMMC isn't a boot device */
-		if ((ret == 1) && !sdhci_msm_is_bootdevice(&pdev->dev))
+		if ((ret == 1) && !sdhci_msm_is_bootdevice(&pdev->dev)) {
+			ret = -ENODEV;
 			goto pltfm_free;
+		}
 
 		if (disable_slots & (1 << (ret - 1))) {
 			dev_info(&pdev->dev, "%s: Slot %d disabled\n", __func__,
