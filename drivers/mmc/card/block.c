@@ -3011,14 +3011,15 @@ static void mmc_blk_cmdq_shutdown(struct mmc_queue *mq)
 	struct mmc_card *card = mq->card;
 	struct mmc_host *host = card->host;
 
+	mmc_rpm_hold(host, &card->dev);
+	mmc_claim_host(card->host);
+
 	err = mmc_cmdq_halt(host, true);
 	if (err) {
 		pr_err("%s: halt: failed: %d\n", __func__, err);
 		return;
 	}
 
-	mmc_rpm_hold(host, &card->dev);
-	mmc_claim_host(card->host);
 	/* disable CQ mode in card */
 	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			 EXT_CSD_CMDQ, 0,
