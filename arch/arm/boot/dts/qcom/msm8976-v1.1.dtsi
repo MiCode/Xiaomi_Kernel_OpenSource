@@ -28,3 +28,35 @@
 };
 
 /*Overwrite with V1.1 spec*/
+&soc {
+	/* APC0 / APC 1 / GFX CPR nodes */
+	apc0_vreg_corner: regulator@b018000 {
+
+		/delete-property/ qcom,cpr-fuse-version-map;
+		/delete-property/ qcom,cpr-quotient-adjustment;
+
+		qcom,cpr-speed-bin-max-corners =
+				<0 0 2 4 8>;
+	};
+
+	apc1_vreg_corner: regulator@b118000 {
+
+		/delete-property/ qcom,cpr-fuse-version-map;
+		/delete-property/ qcom,cpr-quotient-adjustment;
+
+		qcom,cpr-speed-bin-max-corners =
+				<0 0 2 4 7>;
+	};
+
+	gfx_vreg_corner: regulator@98000 {
+		qcom,cpr-target-quotients =
+			<513  489  620  574  237 272 144 177>,
+			<637  602  750  693  312 357 199 241>,
+			<769  727  882  820  403 455 271 322>,
+			<830  796  952  898  444 495 307 358>,
+			<979  935  1101 1037 554 607 399 456>,
+			<1060 1015 1188 1124 611 662 452 507>,
+			<1136 1083 1260 1190 675 720 513 566>,
+			<1251 1190 1380 1301 760 798 592 640>;
+	};
+};
