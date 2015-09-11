@@ -146,6 +146,7 @@ struct fastrpc_channel_ctx {
 	int channel;
 	int sesscount;
 	int ssrcount;
+	void *handle;
 };
 
 struct fastrpc_apps {
@@ -1866,8 +1867,9 @@ static int __init fastrpc_device_init(void)
 		if (err)
 			goto device_create_bail;
 		me->channel[i].ssrcount = 0;
-		me->channel[i].nb.notifier_call = fastrpc_restart_notifier_cb,
-		(void)subsys_notif_register_notifier(gcinfo[i].subsys,
+		me->channel[i].nb.notifier_call = fastrpc_restart_notifier_cb;
+		me->channel[i].handle = subsys_notif_register_notifier(
+							gcinfo[i].subsys,
 							&me->channel[i].nb);
 	}
 
@@ -1878,6 +1880,13 @@ static int __init fastrpc_device_init(void)
 	return 0;
 
 device_create_bail:
+	for (i = 0; i < NUM_CHANNELS; i++) {
+		if (IS_ERR_OR_NULL(me->channel[i].dev))
+			continue;
+		device_destroy(me->class, MKDEV(MAJOR(me->dev_no), i));
+		subsys_notif_unregister_notifier(me->channel[i].handle,
+						&me->channel[i].nb);
+	}
 	class_destroy(me->class);
 class_create_bail:
 	cdev_del(&me->cdev);
@@ -1900,7 +1909,7 @@ static void __exit fastrpc_device_exit(void)
 		if (!gcinfo[i].name)
 			continue;
 		device_destroy(me->class, MKDEV(MAJOR(me->dev_no), i));
-		subsys_notif_unregister_notifier(gcinfo[i].subsys,
+		subsys_notif_unregister_notifier(me->channel[i].handle,
 						&me->channel[i].nb);
 	}
 	class_destroy(me->class);
