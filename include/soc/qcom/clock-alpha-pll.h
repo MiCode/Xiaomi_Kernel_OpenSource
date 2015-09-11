@@ -73,7 +73,8 @@ struct alpha_pll_clk {
 	 * that the workaround is required.
 	 */
 	bool offline_bit_workaround;
-
+	bool is_fabia;
+	unsigned long min_supported_freq;
 	struct clk c;
 };
 
@@ -89,3 +90,5 @@ extern struct clk_ops clk_ops_alpha_pll;
 extern struct clk_ops clk_ops_alpha_pll_hwfsm;
 extern struct clk_ops clk_ops_fixed_alpha_pll;
 extern struct clk_ops clk_ops_dyna_alpha_pll;
+extern struct clk_ops clk_ops_fixed_fabia_alpha_pll;
+extern struct clk_ops clk_ops_fabia_alpha_pll;
