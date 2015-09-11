@@ -711,9 +711,9 @@
 		#clock-cells = <1>;
 	};
 
-	qcom,rmtfs_sharedmem@00000000 {
+	qcom,rmtfs_sharedmem@0 {
 		compatible = "qcom,sharedmem-uio";
-		reg = <0x00000000 0x00180000>;
+		reg = <0x0 0x00200000>;
 		reg-names = "rmtfs";
 		qcom,client-id = <0x00000001>;
 	};
