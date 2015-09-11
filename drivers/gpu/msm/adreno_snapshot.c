@@ -795,16 +795,6 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 			snapshot, snapshot_global,
 			&adreno_dev->pwron_fixup);
 
-	/* Dump the pt switch IB for each RB */
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_HAS_REG_TO_REG_CMDS)) {
-		FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
-			kgsl_snapshot_add_section(device,
-				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,
-				snapshot, snapshot_global,
-				&rb->pt_update_desc);
-		}
-	}
-
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) {
 		FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
 			kgsl_snapshot_add_section(device,
