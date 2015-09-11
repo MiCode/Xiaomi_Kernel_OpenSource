@@ -113,11 +113,13 @@ static int create_lvl_avail_nodes(const char *name,
 		goto failed;
 	}
 
+	sysfs_attr_init(&avail->idle_enabled_attr.attr);
 	avail->idle_enabled_attr.attr.name = lpm_types[IDLE].str;
 	avail->idle_enabled_attr.attr.mode = 0644;
 	avail->idle_enabled_attr.show = lpm_enable_show;
 	avail->idle_enabled_attr.store = lpm_enable_store;
 
+	sysfs_attr_init(&avail->suspend_enabled_attr.attr);
 	avail->suspend_enabled_attr.attr.name = lpm_types[SUSPEND].str;
 	avail->suspend_enabled_attr.attr.mode = 0644;
 	avail->suspend_enabled_attr.show = lpm_enable_show;
