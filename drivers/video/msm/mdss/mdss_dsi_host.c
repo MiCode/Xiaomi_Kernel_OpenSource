@@ -1625,6 +1625,14 @@ do_send:
 	while (!end) {
 		pr_debug("%s:  rlen=%d pkt_size=%d rx_byte=%d\n",
 				__func__, rlen, pkt_size, rx_byte);
+		/*
+		 * Skip max_pkt_size dcs cmd if
+		 * its already been configured
+		 * for the requested pkt_size
+		 */
+		if (pkt_size == ctrl->cur_max_pkt_size)
+			goto skip_max_pkt_size;
+
 		max_pktsize[0] = pkt_size;
 		mdss_dsi_buf_init(tp);
 		ret = mdss_dsi_cmd_dma_add(tp, &pkt_size_cmd);
@@ -1651,9 +1659,11 @@ do_send:
 			rp->read_cnt = 0;
 			goto end;
 		}
+		ctrl->cur_max_pkt_size = pkt_size;
 		pr_debug("%s: max_pkt_size=%d sent\n",
 					__func__, pkt_size);
 
+skip_max_pkt_size:
 		mdss_dsi_buf_init(tp);
 		ret = mdss_dsi_cmd_dma_add(tp, cmds);
 		if (!ret) {
