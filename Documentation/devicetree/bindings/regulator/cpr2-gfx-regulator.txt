@@ -366,6 +366,90 @@ This document describes the bindings that apply for GFX CPR controller.
 		    greater than all of the real row numbers addressed in other properties of
 		    the cpr2-gfx-regulator device node.
 
+- qcom,cpr-aging-sensor-id
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: Array of CPR sensor IDs to be used in the CPR de-aging algorithm.
+		    The number of values should be equal to number of sensors selected
+		    for age calibration. If this property is not specified,
+		    then the de-aging procedure is not enabled.
+
+- qcom,cpr-de-aging-allowed
+	Usage:      required if qcom,cpr-aging-sensor-id specified
+	Value type: <u32>
+	Definition: Integer values that specify whether the CPR de-aging procedure is allowed or
+		    not for a particular fuse revision. If the qcom,cpr-fuse-version-map
+		    property is specified, then qcom,cpr-de-aging-allowed must contain the same number
+		    of elements as there are tuples in qcom,cpr-fuse-version-map. If qcom,cpr-fuse-version-map
+		    is not specified, then qcom,cpr-de-aging-allowed must contain a single value that
+		    is used unconditionally. An element value of 1 means that the CPR de-aging procedure
+		    can be performed for parts with the corresponding fuse revision. An element value of 0
+		    means that CPR de-aging cannot be performed.
+
+- qcom,cpr-aging-ref-corner
+	Usage:      required if qcom,cpr-aging-sensor-id specified
+	Value type: <u32>
+	Definition: The vdd-gfx-supply reference virtual voltage corner to be set during
+		    the CPR de-aging measurements. This corner value is needed to set
+		    appropriate voltage on the dependent voltage rails such as vdd-mx
+		    and mem-acc.
+
+- cpr-aging-min-gfx-corner
+	Usage:      required if qcom,cpr-aging-sensor-id specified
+	Value type: <u32>
+	Definition: The minimum vdd-gfx-supply virtual voltage corner to start the CPR
+		    de-aging measurements. This corner value is needed to make sure that
+		    gfx CPR sensors are in active state. This corner value should filter
+		    out the corners requested by non-gpu clients of gfx voltage rail.
+
+- qcom,cpr-aging-ref-voltage
+	Usage:      required if qcom,cpr-aging-sensor-id specified
+	Value type: <u32>
+	Definition: The vdd-gfx-supply reference voltage in microvolts to be set during
+		    the CPR de-aging measurements.
+
+- qcom,cpr-max-aging-margin
+	Usage:      required if qcom,cpr-aging-sensor-id specified
+	Value type: <u32>
+	Definition: The maximum allowed aging voltage margin in microvolts.
+		    This is used to limit the calculated aging voltage margin.
+
+- qcom,cpr-aging-ro-scaling-factor
+	Usage:      required if qcom,cpr-aging-sensor-id specified
+	Value type: <u32>
+	Definition: The aging ring oscillator (RO) scaling factor with units of QUOT/V.
+		    This value is used for calculating a voltage margin from RO measurements.
+
+- qcom,cpr-ro-scaling-factor
+	Usage:      required if qcom,cpr-aging-sensor-id specified
+	Value type: <prop-encoded-array>
+	Definition: Array of scaling factors with units of QUOT/V for each ring oscillator ordered
+		    from the lowest to the highest RO. These values are used to calculate
+		    the aging voltage margin adjustment for all of the ROs. Since CPR2 supports
+		    exactly 8 ROs, the array must contain 8 elements corresponding to RO0 through RO7 in order.
+		    If a given RO is unused for a fuse corner, then its scaling factor may be specified as 0.
+
+- qcom,cpr-aging-derate
+	Usage:      required if qcom,cpr-aging-sensor-id specified
+	Value type: <prop-encoded-array>
+	Definition: Array of scaling factors which define the amount of derating to apply to the reference
+		    aging voltage margin adjustment for each of the fuse corners. Each element has units
+		    of uV/mV. This property must be of length defined by qcom,cpr-corners.
+		    The elements are ordered from the lowest to the highest corner.
+
+- qcom,cpr-fuse-aging-init-quot-diff
+	Usage:      required if qcom,cpr-aging-sensor-id specified
+	Value type: <prop-encoded-array>
+	Definition: Array of triplets in which each triplet specifies a fuse location to read in
+		    order to get an initial quotient difference. The difference between quot min and quot max
+		    is fused as the initial quotient difference.
+		    The 3 elements are:
+		    [0] => fuse row number
+		    [1] => bit offset within the row
+		    [2] => number of bits in the fuse parameter
+		    The number of triplets should be equal to the number of values specified in
+		    the qcom,cpr-aging-sensor-id property.
+
 =======
 Example
 =======
@@ -443,4 +527,15 @@ gfx_vreg_corner: regulator@98000 {
 	qcom,fuse-remap-source =
 				<59 12 6>,
 				<72 30 2>;
+
+	qcom,cpr-aging-sensor-id = <3>;
+	qcom,cpr-aging-ref-corner = <6>;
+	qcom,cpr-aging-min-gfx-corner = <4>;
+	qcom,cpr-aging-ref-voltage = <1050000>;
+	qcom,cpr-max-aging-margin = <15000>;
+	qcom,cpr-de-aging-allowed = <1>;
+	qcom,cpr-aging-ro-scaling-factor = <3500>;
+	qcom,cpr-ro-scaling-factor = <2500 2200 2500 2200 1600 1800 1200 1400>;
+	qcom,cpr-aging-derate = <1000 1000 1000 1000 1000 1000 1250 1250>;
+	qcom,cpr-fuse-aging-init-quot-diff = <1000 0 8 0>;
 };

@@ -16,6 +16,7 @@
 #include <linux/module.h>
 #include <linux/cpu.h>
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/string.h>
 #include <linux/kernel.h>
@@ -29,6 +30,7 @@
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/debugfs.h>
+#include <linux/sort.h>
 #include <linux/uaccess.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
@@ -46,6 +48,11 @@
 #define RBCPR_GCNT_TARGET_GCNT_BITS	10
 #define RBCPR_GCNT_TARGET_GCNT_SHIFT	12
 #define RBCPR_GCNT_TARGET_GCNT_MASK	((1<<RBCPR_GCNT_TARGET_GCNT_BITS)-1)
+
+/* RBCPR Sensor Mask and Bypass Registers */
+#define REG_RBCPR_SENSOR_MASK0		0x20
+#define RBCPR_SENSOR_MASK0_SENSOR(n)	(~BIT(n))
+#define REG_RBCPR_SENSOR_BYPASS0	0x30
 
 /* RBCPR Timer Control */
 #define REG_RBCPR_TIMER_INTERVAL	0x44
@@ -99,6 +106,13 @@
 
 /* RBCPR Result status Register */
 #define REG_RBCPR_RESULT_0		0xA0
+#define REG_RBCPR_RESULT_1		0xA4
+
+#define RBCPR_RESULT_1_SEL_FAST_BITS	3
+#define RBCPR_RESULT_1_SEL_FAST(val)	(val & \
+					((1<<RBCPR_RESULT_1_SEL_FAST_BITS) - 1))
+
+#define RBCPR_RESULT0_BUSY_SHIFT	19
 
 #define RBCPR_RESULT0_BUSY_SHIFT	19
 #define RBCPR_RESULT0_BUSY_MASK		BIT(RBCPR_RESULT0_BUSY_SHIFT)
@@ -127,6 +141,23 @@
 			CPR_INT_MID | CPR_INT_UP | CPR_INT_MAX | CPR_INT_CLAMP)
 #define CPR_INT_DEFAULT	(CPR_INT_UP | CPR_INT_DOWN)
 
+/* RBCPR Debug Resgister */
+#define REG_RBCPR_DEBUG1		0x120
+#define RBCPR_DEBUG1_QUOT_FAST_BITS	12
+#define RBCPR_DEBUG1_QUOT_SLOW_BITS	12
+#define RBCPR_DEBUG1_QUOT_SLOW_SHIFT	12
+
+#define RBCPR_DEBUG1_QUOT_FAST(val)	(val & \
+					((1<<RBCPR_DEBUG1_QUOT_FAST_BITS)-1))
+
+#define RBCPR_DEBUG1_QUOT_SLOW(val)	((val>>RBCPR_DEBUG1_QUOT_SLOW_SHIFT) & \
+					((1<<RBCPR_DEBUG1_QUOT_SLOW_BITS)-1))
+
+/* RBCPR Aging Resgister */
+#define REG_RBCPR_HTOL_AGE		0x160
+#define RBCPR_HTOL_AGE_PAGE		BIT(1)
+#define RBCPR_AGE_DATA_STATUS		BIT(2)
+
 #define BYTES_PER_FUSE_ROW		8
 
 #define FLAGS_IGNORE_1ST_IRQ_STATUS	BIT(0)
@@ -142,10 +173,54 @@
  */
 #define CPR_CORNER_LIMIT	100
 
+/*
+ * The amount of time to wait for the CPR controller to become idle when
+ * performing an aging measurement.
+ */
+#define CPR_AGING_MEASUREMENT_TIMEOUT_NS	5000000
+
+/*
+ * The number of individual aging measurements to perform which are then
+ * averaged together in order to determine the final aging adjustment value.
+ */
+#define CPR_AGING_MEASUREMENT_ITERATIONS	16
+
+/*
+ * Aging measurements for the aged and unaged ring oscillators take place a few
+ * microseconds apart.  If the vdd-supply voltage fluctuates between the two
+ * measurements, then the difference between them will be incorrect.  The
+ * difference could end up too high or too low.  This constant defines the
+ * number of lowest and highest measurements to ignore when averaging.
+ */
+#define CPR_AGING_MEASUREMENT_FILTER	3
+
 enum voltage_change_dir {
 	NO_CHANGE,
 	DOWN,
 	UP,
+};
+
+struct cpr2_gfx_aging_sensor_info {
+	u32 sensor_id;
+	int initial_quot_diff;
+	int current_quot_diff;
+};
+
+struct cpr2_gfx_aging_info {
+	struct cpr2_gfx_aging_sensor_info *sensor_info;
+	int	num_aging_sensors;
+	int	aging_corner;
+	int	min_gfx_corner;
+	u32	aging_ro_kv;
+	u32	*aging_derate;
+	u32	aging_sensor_bypass;
+	u32	max_aging_margin;
+	u32	aging_ref_voltage;
+	u32	*cpr_ro_kv;
+	int	*voltage_adjust;
+
+	bool	cpr_aging_error;
+	bool	cpr_aging_done;
 };
 
 struct cpr2_gfx_regulator {
@@ -224,6 +299,8 @@ struct cpr2_gfx_regulator {
 
 	bool			is_cpr_suspended;
 	bool			ctrl_enable;
+
+	struct cpr2_gfx_aging_info	*aging_info;
 };
 
 #define CPR_DEBUG_MASK_IRQ	BIT(0)
@@ -990,13 +1067,367 @@ _exit:
 	return rc;
 }
 
+/**
+ * cmp_int() - int comparison function to be passed into the sort() function
+ *		which leads to ascending sorting
+ * @a:			First int value
+ * @b:			Second int value
+ *
+ * Return: >0 if a > b, 0 if a == b, <0 if a < b
+ */
+static int cmp_int(const void *a, const void *b)
+{
+	return *(int *)a - *(int *)b;
+}
+
+static int cpr_get_aging_quot_delta(struct cpr2_gfx_regulator *cpr_vreg,
+			struct cpr2_gfx_aging_sensor_info *aging_sensor_info)
+{
+	int quot_min, quot_max, is_aging_measurement, aging_measurement_count;
+	int quot_min_scaled, quot_max_scaled, quot_delta_scaled_sum;
+	int rc = 0, sel_fast = 0, i, quot_delta_scaled;
+	int *quot_delta_results, filtered_count;
+	u32 val, gcnt_ref, gcnt;
+	ktime_t start, end;
+	s64 time_ns, max_wait_ns;
+
+
+	quot_delta_results = kcalloc(CPR_AGING_MEASUREMENT_ITERATIONS,
+			sizeof(*quot_delta_results), GFP_ATOMIC);
+	if (!quot_delta_results)
+		return -ENOMEM;
+
+	/* Clear the target quotient value and gate count of all ROs */
+	for (i = 0; i < cpr_vreg->ro_count; i++)
+		cpr_write(cpr_vreg, REG_RBCPR_GCNT_TARGET(i), 0);
+
+	/* Program GCNT0/1 for getting aging data */
+	gcnt_ref = (cpr_vreg->ref_clk_khz * cpr_vreg->gcnt_time_us) / 1000;
+	gcnt = gcnt_ref * 3 / 2;
+	val = (gcnt & RBCPR_GCNT_TARGET_GCNT_MASK) <<
+			RBCPR_GCNT_TARGET_GCNT_SHIFT;
+	cpr_write(cpr_vreg, REG_RBCPR_GCNT_TARGET(0), val);
+	cpr_write(cpr_vreg, REG_RBCPR_GCNT_TARGET(1), val);
+
+	val = cpr_read(cpr_vreg, REG_RBCPR_GCNT_TARGET(0));
+	cpr_debug(cpr_vreg, "RBCPR_GCNT_TARGET0 = 0x%08x\n", val);
+
+	val = cpr_read(cpr_vreg, REG_RBCPR_GCNT_TARGET(1));
+	cpr_debug(cpr_vreg, "RBCPR_GCNT_TARGET1 = 0x%08x\n", val);
+
+	/* Program TIMER_INTERVAL to zero */
+	cpr_write(cpr_vreg, REG_RBCPR_TIMER_INTERVAL, 0);
+
+	/* Bypass sensors in collapsible domain */
+	if (cpr_vreg->aging_info->aging_sensor_bypass)
+		cpr_write(cpr_vreg, REG_RBCPR_SENSOR_BYPASS0,
+			(cpr_vreg->aging_info->aging_sensor_bypass &
+		RBCPR_SENSOR_MASK0_SENSOR(aging_sensor_info->sensor_id)));
+
+	/* Mask other sensors */
+	cpr_write(cpr_vreg, REG_RBCPR_SENSOR_MASK0,
+		RBCPR_SENSOR_MASK0_SENSOR(aging_sensor_info->sensor_id));
+	val = cpr_read(cpr_vreg, REG_RBCPR_SENSOR_MASK0);
+	cpr_debug(cpr_vreg, "RBCPR_SENSOR_MASK0 = 0x%08x\n", val);
+
+	/* Enable cpr controller */
+	cpr_ctl_modify(cpr_vreg, RBCPR_CTL_LOOP_EN, RBCPR_CTL_LOOP_EN);
+
+	/* Make sure cpr starts measurement with toggling busy bit */
+	mb();
+
+	/* Wait and Ignore the first measurement. Time-out after 5ms */
+	max_wait_ns = CPR_AGING_MEASUREMENT_TIMEOUT_NS;
+	start = ktime_get();
+	do {
+		end = ktime_get();
+		time_ns = ktime_to_ns(ktime_sub(end, start));
+		if (time_ns > max_wait_ns) {
+			cpr_err(cpr_vreg, "CPR controller still busy after %lld us\n",
+				div_s64(time_ns, 1000));
+			rc = -ETIMEDOUT;
+			goto _exit;
+		}
+		usleep_range(50, 100);
+	} while (cpr_ctl_is_busy(cpr_vreg));
+
+	/* Set age page mode */
+	cpr_write(cpr_vreg, REG_RBCPR_HTOL_AGE, RBCPR_HTOL_AGE_PAGE);
+
+
+	aging_measurement_count = 0;
+	quot_delta_scaled_sum = 0;
+
+	for (i = 0; i < CPR_AGING_MEASUREMENT_ITERATIONS; i++) {
+		/* Send cont nack */
+		cpr_write(cpr_vreg, REG_RBIF_CONT_NACK_CMD, 1);
+
+		/*
+		 * Make sure cpr starts next measurement with
+		 * toggling busy bit
+		 */
+		mb();
+
+		/*
+		 * Wait for controller to finish measurement
+		 * and time-out after 5ms
+		 */
+		max_wait_ns = CPR_AGING_MEASUREMENT_TIMEOUT_NS;
+		start = ktime_get();
+		do {
+			end = ktime_get();
+			time_ns = ktime_to_ns(ktime_sub(end, start));
+			if (time_ns > max_wait_ns) {
+				cpr_err(cpr_vreg, "CPR controller still busy after %lld us\n",
+					div_s64(time_ns, 1000));
+				rc = -ETIMEDOUT;
+				goto _exit;
+			}
+			usleep_range(50, 100);
+		} while (cpr_ctl_is_busy(cpr_vreg));
+
+		/* Check for PAGE_IS_AGE flag in status register */
+		val = cpr_read(cpr_vreg, REG_RBCPR_HTOL_AGE);
+		is_aging_measurement = val & RBCPR_AGE_DATA_STATUS;
+
+		val = cpr_read(cpr_vreg, REG_RBCPR_RESULT_1);
+		sel_fast = RBCPR_RESULT_1_SEL_FAST(val);
+		cpr_debug(cpr_vreg, "RBCPR_RESULT_1 = 0x%08x\n", val);
+
+		val = cpr_read(cpr_vreg, REG_RBCPR_DEBUG1);
+		cpr_debug(cpr_vreg, "RBCPR_DEBUG1 = 0x%08x\n", val);
+
+		if (sel_fast == 1) {
+			quot_min = RBCPR_DEBUG1_QUOT_FAST(val);
+			quot_max = RBCPR_DEBUG1_QUOT_SLOW(val);
+		} else {
+			quot_min = RBCPR_DEBUG1_QUOT_SLOW(val);
+			quot_max = RBCPR_DEBUG1_QUOT_FAST(val);
+		}
+
+		/*
+		 * Scale the quotients so that they are equivalent to the fused
+		 * values.  This accounts for the difference in measurement
+		 * interval times.
+		 */
+
+		quot_min_scaled = quot_min * (gcnt_ref + 1) / (gcnt + 1);
+		quot_max_scaled = quot_max * (gcnt_ref + 1) / (gcnt + 1);
+
+		quot_delta_scaled = 0;
+		if (is_aging_measurement) {
+			quot_delta_scaled = quot_min_scaled - quot_max_scaled;
+			quot_delta_results[aging_measurement_count++] =
+					quot_delta_scaled;
+		}
+
+		cpr_debug(cpr_vreg,
+			"Age sensor[%d]: measurement[%d]: page_is_age=%u quot_min = %d, quot_max = %d quot_min_scaled = %d, quot_max_scaled = %d quot_delta_scaled = %d\n",
+			aging_sensor_info->sensor_id, i, is_aging_measurement,
+			quot_min, quot_max, quot_min_scaled, quot_max_scaled,
+			quot_delta_scaled);
+	}
+
+	filtered_count
+		= aging_measurement_count - CPR_AGING_MEASUREMENT_FILTER * 2;
+	if (filtered_count > 0) {
+		sort(quot_delta_results, aging_measurement_count,
+			sizeof(*quot_delta_results), cmp_int, NULL);
+
+		quot_delta_scaled_sum = 0;
+		for (i = 0; i < filtered_count; i++)
+			quot_delta_scaled_sum
+				+= quot_delta_results[i
+					+ CPR_AGING_MEASUREMENT_FILTER];
+
+		aging_sensor_info->current_quot_diff
+			= quot_delta_scaled_sum / filtered_count;
+
+		cpr_debug(cpr_vreg,
+			"Age sensor[%d]: average aging quotient delta = %d (count = %d)\n",
+			aging_sensor_info->sensor_id,
+			aging_sensor_info->current_quot_diff, filtered_count);
+	} else {
+		cpr_err(cpr_vreg, "%d aging measurements completed after %d iterations\n",
+			aging_measurement_count,
+			CPR_AGING_MEASUREMENT_ITERATIONS);
+		rc = -EBUSY;
+	}
+
+_exit:
+	/* Clear age page bit */
+	cpr_write(cpr_vreg, REG_RBCPR_HTOL_AGE, 0x0);
+
+	/* Disable the CPR controller after aging procedure */
+	cpr_ctl_modify(cpr_vreg, RBCPR_CTL_LOOP_EN, 0x0);
+
+	/* Clear the sensor bypass */
+	if (cpr_vreg->aging_info->aging_sensor_bypass)
+		cpr_write(cpr_vreg, REG_RBCPR_SENSOR_BYPASS0, 0x0);
+
+	/* Unmask all sensors */
+	cpr_write(cpr_vreg, REG_RBCPR_SENSOR_MASK0, 0x0);
+
+	/* Clear gcnt0/1 registers */
+	cpr_write(cpr_vreg, REG_RBCPR_GCNT_TARGET(0), 0x0);
+	cpr_write(cpr_vreg, REG_RBCPR_GCNT_TARGET(1), 0x0);
+
+	/* Program the delay count for the timer */
+	val = (cpr_vreg->ref_clk_khz * cpr_vreg->timer_delay_us) / 1000;
+	cpr_write(cpr_vreg, REG_RBCPR_TIMER_INTERVAL, val);
+
+	return rc;
+}
+
+static void cpr_de_aging_adjustment(struct cpr2_gfx_regulator *cpr_vreg)
+{
+	struct cpr2_gfx_aging_info *aging_info = cpr_vreg->aging_info;
+	struct cpr2_gfx_aging_sensor_info *aging_sensor_info;
+	int i, j, num_aging_sensors, retries, rc = 0, pos = 0;
+	int max_quot_diff = 0;
+	u32 voltage_adjust, aging_voltage_adjust = 0;
+	size_t buflen;
+	char *buf;
+
+	aging_sensor_info = aging_info->sensor_info;
+	num_aging_sensors = aging_info->num_aging_sensors;
+
+	for (i = 0; i < num_aging_sensors; i++, aging_sensor_info++) {
+		retries = 2;
+		while (retries--) {
+			rc = cpr_get_aging_quot_delta(cpr_vreg,
+					aging_sensor_info);
+			if (!rc)
+				break;
+		}
+		if (rc && retries < 0) {
+			cpr_err(cpr_vreg, "error in age calibration: rc = %d\n",
+				rc);
+			aging_info->cpr_aging_error = true;
+			return;
+		}
+
+		max_quot_diff = max(max_quot_diff,
+					(aging_sensor_info->current_quot_diff -
+					aging_sensor_info->initial_quot_diff));
+	}
+
+	cpr_debug(cpr_vreg, "Max aging quot delta = %d\n",
+				max_quot_diff);
+	aging_voltage_adjust = DIV_ROUND_UP(max_quot_diff * 1000000,
+					aging_info->aging_ro_kv);
+
+	/*
+	 * Log per-virtual corner target quotients since they are useful for
+	 * baseline CPR logging.
+	 */
+	buflen = cpr_vreg->ro_count * (MAX_CHARS_PER_INT + 2) * sizeof(*buf);
+	buf = kzalloc(buflen, GFP_KERNEL);
+	if (buf == NULL) {
+		cpr_err(cpr_vreg, "Could not allocate memory for target quotient logging\n");
+		return;
+	}
+
+	for (i = CPR_CORNER_MIN; i <= cpr_vreg->num_corners; i++) {
+		/* Remove initial max aging adjustment */
+		for (j = 0; j < cpr_vreg->ro_count; j++)
+			cpr_vreg->cpr_target_quot[i][j] -=
+					(aging_info->cpr_ro_kv[j]
+				* aging_info->max_aging_margin) / 1000000;
+		aging_info->voltage_adjust[i] = 0;
+
+		if (aging_voltage_adjust > 0) {
+			/* Add required aging adjustment */
+			voltage_adjust = (aging_voltage_adjust
+					* aging_info->aging_derate[i]) / 1000;
+			voltage_adjust = min(voltage_adjust,
+						aging_info->max_aging_margin);
+			for (j = 0; j < cpr_vreg->ro_count; j++)
+				cpr_vreg->cpr_target_quot[i][j] +=
+						(aging_info->cpr_ro_kv[j]
+						* voltage_adjust) / 1000000;
+
+			aging_info->voltage_adjust[i] = voltage_adjust;
+		}
+
+		pos = 0;
+		for (j = 0; j < cpr_vreg->ro_count; j++)
+			pos += scnprintf(buf + pos, buflen - pos, "%d%s",
+				cpr_vreg->cpr_target_quot[i][j],
+				j < cpr_vreg->ro_count ? " " : "\0");
+		cpr_debug(cpr_vreg, "Corner[%d]: Age adjusted target quotients: %s\n",
+				i, buf);
+	}
+	kfree(buf);
+}
+
+static int cpr_calculate_de_aging_margin(struct cpr2_gfx_regulator *cpr_vreg)
+{
+	struct cpr2_gfx_aging_info *aging_info = cpr_vreg->aging_info;
+	enum voltage_change_dir change_dir = NO_CHANGE;
+	u32 save_ctl, save_irq;
+	int rc = 0;
+
+	save_ctl = cpr_read(cpr_vreg, REG_RBCPR_CTL);
+	save_irq = cpr_read(cpr_vreg, REG_RBIF_IRQ_EN(cpr_vreg->irq_line));
+
+	/* Disable interrupt and CPR */
+	cpr_irq_set(cpr_vreg, 0);
+	cpr_write(cpr_vreg, REG_RBCPR_CTL, 0);
+
+	if (aging_info->aging_corner > cpr_vreg->corner)
+		change_dir = UP;
+	else if (aging_info->aging_corner < cpr_vreg->corner)
+		change_dir = DOWN;
+
+	/* set selected reference voltage for de-aging */
+	rc = cpr2_gfx_scale_voltage(cpr_vreg,
+				aging_info->aging_corner,
+				aging_info->aging_ref_voltage,
+				change_dir);
+	if (rc) {
+		cpr_err(cpr_vreg, "Unable to set aging reference voltage, rc = %d\n",
+			rc);
+		return rc;
+	}
+
+	/* Configure to PWM mode */
+	rc = regulator_set_mode(cpr_vreg->vdd_gfx, REGULATOR_MODE_NORMAL);
+	if (rc) {
+		cpr_err(cpr_vreg, "unable to configure vdd-supply for mode=%u, rc=%d\n",
+			REGULATOR_MODE_NORMAL, rc);
+		return rc;
+	}
+
+	cpr_de_aging_adjustment(cpr_vreg);
+	aging_info->cpr_aging_done = true;
+
+	/* Configure back to initial mode */
+	rc = regulator_set_mode(cpr_vreg->vdd_gfx, REGULATOR_MODE_IDLE);
+	if (rc) {
+		cpr_err(cpr_vreg, "unable to configure vdd-supply for mode=%u, rc=%d\n",
+			REGULATOR_MODE_IDLE, rc);
+		return rc;
+	}
+
+	/* Clear interrupts */
+	cpr_irq_clr(cpr_vreg);
+
+	/* Restore register values */
+	cpr_irq_set(cpr_vreg, save_irq);
+	cpr_write(cpr_vreg, REG_RBCPR_CTL, save_ctl);
+
+	return rc;
+}
+
 static int cpr2_gfx_regulator_set_voltage(struct regulator_dev *rdev,
 		int corner, int corner_max, unsigned *selector)
 {
 	struct cpr2_gfx_regulator *cpr_vreg = rdev_get_drvdata(rdev);
-	int rc = 0;
-	int new_volt;
+	struct cpr2_gfx_aging_info *aging_info = cpr_vreg->aging_info;
+	int rc = 0, new_volt;
 	enum voltage_change_dir change_dir = NO_CHANGE;
+	bool reset_quot = false;
 
 	mutex_lock(&cpr_vreg->cpr_mutex);
 
@@ -1014,13 +1445,34 @@ static int cpr2_gfx_regulator_set_voltage(struct regulator_dev *rdev,
 	else if (corner < cpr_vreg->corner)
 		change_dir = DOWN;
 
+	/* Read age sensor data and apply de-aging adjustments */
+	if (cpr_vreg->vreg_enabled && aging_info && !aging_info->cpr_aging_done
+		&& corner >= aging_info->min_gfx_corner
+		&& corner <= aging_info->aging_corner) {
+		rc = cpr_calculate_de_aging_margin(cpr_vreg);
+		if (rc) {
+			cpr_err(cpr_vreg, "failed in de-aging calibration: rc=%d\n",
+				rc);
+		} else {
+			change_dir = NO_CHANGE;
+			if (corner > aging_info->aging_corner)
+				change_dir = UP;
+			else if (corner  < aging_info->aging_corner)
+				change_dir = DOWN;
+		}
+		reset_quot = true;
+	}
+
 	rc = cpr2_gfx_scale_voltage(cpr_vreg, corner, new_volt, change_dir);
 	if (rc)
 		goto _exit;
 
 	if (cpr_vreg->ctrl_enable) {
 		cpr_irq_clr(cpr_vreg);
-		cpr_corner_switch(cpr_vreg, corner);
+		if (reset_quot)
+			cpr_corner_restore(cpr_vreg, corner);
+		else
+			cpr_corner_switch(cpr_vreg, corner);
 		cpr_ctl_enable(cpr_vreg, corner);
 	}
 
@@ -1865,6 +2317,321 @@ static int cpr_init_target_quotients(struct cpr2_gfx_regulator *cpr_vreg)
 	return rc;
 }
 
+static int cpr_check_de_aging_allowed(struct cpr2_gfx_regulator *cpr_vreg)
+{
+	struct device_node *of_node = cpr_vreg->dev->of_node;
+	char *allow_str = "qcom,cpr-de-aging-allowed";
+	int rc = 0, count;
+	int tuple_count, tuple_match;
+	u32 allow_status = 0;
+
+	if (!of_find_property(of_node, allow_str, &count)) {
+		/* CPR de-aging is not allowed for all fuse revisions. */
+		return allow_status;
+	}
+
+	count /= sizeof(u32);
+	if (cpr_vreg->cpr_fuse_map_count) {
+		if (cpr_vreg->cpr_fuse_map_match == FUSE_MAP_NO_MATCH)
+			/* No matching index to use for CPR de-aging allowed. */
+			return 0;
+		tuple_count = cpr_vreg->cpr_fuse_map_count;
+		tuple_match = cpr_vreg->cpr_fuse_map_match;
+	} else {
+		tuple_count = 1;
+		tuple_match = 0;
+	}
+
+	if (count != tuple_count) {
+		cpr_err(cpr_vreg, "%s count=%d is invalid\n", allow_str,
+			count);
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32_index(of_node, allow_str, tuple_match,
+		&allow_status);
+	if (rc) {
+		cpr_err(cpr_vreg, "could not read %s index %u, rc=%d\n",
+			allow_str, tuple_match, rc);
+		return rc;
+	}
+
+	cpr_debug(cpr_vreg, "CPR de-aging is %s for fuse revision %d\n",
+			allow_status ? "allowed" : "not allowed",
+			cpr_vreg->cpr_fuse_revision);
+
+	return allow_status;
+}
+
+#define CPR_PROP_READ_U32(cpr_vreg, of_node, cpr_property, cpr_config, rc) \
+do {									\
+	if (!rc) {							\
+		rc = of_property_read_u32(of_node, cpr_property,	\
+				cpr_config);				\
+		if (rc) {						\
+			cpr_err(cpr_vreg, "Missing " #cpr_property	\
+				": rc = %d\n", rc);			\
+		}							\
+	}								\
+} while (0)
+
+static int cpr_aging_init(struct cpr2_gfx_regulator *cpr_vreg)
+{
+	struct device_node *of_node = cpr_vreg->dev->of_node;
+	struct cpr2_gfx_aging_info *aging_info;
+	struct cpr2_gfx_aging_sensor_info *sensor_info;
+	int num_corners = cpr_vreg->num_corners;
+	int i, j, rc = 0, len = 0, num_aging_sensors, bits, pos = 0;
+	u32 *aging_sensor_id, *fuse_sel, *fuse_sel_orig;
+	u32 sensor = 0, non_collapsible_sensor_mask = 0;
+	u64 efuse_val;
+	struct property *prop;
+	size_t buflen;
+	char *buf;
+
+	if (!of_find_property(of_node, "qcom,cpr-aging-sensor-id", &len)) {
+		/* No CPR de-aging adjustments needed */
+		return 0;
+	}
+
+	if (len == 0) {
+		cpr_err(cpr_vreg, "qcom,cpr-aging-sensor-id property format is invalid\n");
+		return -EINVAL;
+	}
+	num_aging_sensors = len / sizeof(u32);
+	cpr_debug(cpr_vreg, "No of aging sensors = %d\n", num_aging_sensors);
+
+	rc = cpr_check_de_aging_allowed(cpr_vreg);
+	if (rc < 0) {
+		cpr_err(cpr_vreg, "cpr_check_de_aging_allowed failed: rc=%d\n",
+			rc);
+		return rc;
+	} else if (rc == 0) {
+		/* CPR de-aging is not allowed for the current fuse combo */
+		return 0;
+	}
+
+	aging_info = devm_kzalloc(cpr_vreg->dev, sizeof(*aging_info),
+				GFP_KERNEL);
+	if (!aging_info)
+		return -ENOMEM;
+
+	cpr_vreg->aging_info = aging_info;
+	aging_info->num_aging_sensors = num_aging_sensors;
+
+	rc = of_property_read_u32(of_node, "qcom,cpr-aging-ref-corner",
+			&aging_info->aging_corner);
+	if (rc) {
+		cpr_err(cpr_vreg, "qcom,cpr-aging-ref-corner missing rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	CPR_PROP_READ_U32(cpr_vreg, of_node, "qcom,cpr-aging-min-gfx-corner",
+			&aging_info->min_gfx_corner, rc);
+	if (rc)
+		return rc;
+
+	if (aging_info->aging_corner < aging_info->min_gfx_corner) {
+		cpr_err(cpr_vreg, "condition (aging_corner(%d) >= min_gfx_corner(%d)) failed\n",
+			aging_info->aging_corner, aging_info->min_gfx_corner);
+		return -EINVAL;
+	}
+
+	CPR_PROP_READ_U32(cpr_vreg, of_node, "qcom,cpr-aging-ref-voltage",
+			&aging_info->aging_ref_voltage, rc);
+	if (rc)
+		return rc;
+
+	CPR_PROP_READ_U32(cpr_vreg, of_node, "qcom,cpr-max-aging-margin",
+			&aging_info->max_aging_margin, rc);
+	if (rc)
+		return rc;
+
+	CPR_PROP_READ_U32(cpr_vreg, of_node, "qcom,cpr-aging-ro-scaling-factor",
+			&aging_info->aging_ro_kv, rc);
+	if (rc)
+		return rc;
+
+	/* Check for DIV by 0 error */
+	if (aging_info->aging_ro_kv == 0) {
+		cpr_err(cpr_vreg, "invalid cpr-aging-ro-scaling-factor value: %u\n",
+			aging_info->aging_ro_kv);
+		return -EINVAL;
+	}
+
+
+	prop = of_find_property(of_node, "qcom,cpr-ro-scaling-factor", &len);
+	len = len / sizeof(u32);
+	if ((!prop) || len != cpr_vreg->ro_count) {
+		cpr_err(cpr_vreg, "qcom,cpr-ro-scaling-factor is missing or has an incorrect size\n");
+		return -EINVAL;
+	}
+
+	if (of_find_property(of_node, "qcom,cpr-non-collapsible-sensors",
+				&len)) {
+
+		len = len / sizeof(u32);
+		if (len <= 0 || len > 32) {
+			cpr_err(cpr_vreg, "qcom,cpr-non-collapsible-sensors has an incorrect size\n");
+			return -EINVAL;
+		}
+
+		for (i = 0; i < len; i++) {
+			rc = of_property_read_u32_index(of_node,
+						"qcom,cpr-non-collapsible-sensors",
+						i, &sensor);
+			if (rc) {
+				cpr_err(cpr_vreg, "could not read qcom,cpr-non-collapsible-sensors index %u, rc=%d\n",
+					i, rc);
+				return rc;
+			}
+
+			if (sensor > 31) {
+				cpr_err(cpr_vreg, "invalid non-collapsible sensor = %u\n",
+					sensor);
+				return -EINVAL;
+			}
+		}
+
+		non_collapsible_sensor_mask |= BIT(sensor);
+
+		/*
+		 * Bypass the sensors in collapsible domain for
+		 * de-aging measurements
+		 */
+		aging_info->aging_sensor_bypass =
+						~(non_collapsible_sensor_mask);
+		cpr_debug(cpr_vreg, "sensor bypass mask for aging = 0x%08x\n",
+			aging_info->aging_sensor_bypass);
+	}
+
+	prop = of_find_property(of_node, "qcom,cpr-aging-derate", NULL);
+	if ((!prop) ||
+		(prop->length != num_corners * sizeof(u32))) {
+		cpr_err(cpr_vreg, "qcom,cpr-aging-derate incorrectly configured\n");
+		return -EINVAL;
+	}
+
+	aging_sensor_id = kcalloc(num_aging_sensors, sizeof(*aging_sensor_id),
+				GFP_KERNEL);
+	fuse_sel = kcalloc(num_aging_sensors * 3, sizeof(*fuse_sel),
+				GFP_KERNEL);
+	aging_info->voltage_adjust = devm_kcalloc(cpr_vreg->dev,
+					num_corners + 1,
+					sizeof(*aging_info->voltage_adjust),
+					GFP_KERNEL);
+	aging_info->sensor_info = devm_kcalloc(cpr_vreg->dev, num_aging_sensors,
+					sizeof(*aging_info->sensor_info),
+					GFP_KERNEL);
+	aging_info->aging_derate = devm_kcalloc(cpr_vreg->dev,
+					num_corners + 1,
+					sizeof(*aging_info->aging_derate),
+					GFP_KERNEL);
+	aging_info->cpr_ro_kv = devm_kcalloc(cpr_vreg->dev, cpr_vreg->ro_count,
+					sizeof(*aging_info->cpr_ro_kv),
+					GFP_KERNEL);
+
+	if (!aging_info->aging_derate || !aging_sensor_id
+		|| !aging_info->sensor_info || !fuse_sel
+		|| !aging_info->voltage_adjust || !aging_info->cpr_ro_kv)
+		goto err;
+
+	rc = of_property_read_u32_array(of_node, "qcom,cpr-aging-sensor-id",
+					aging_sensor_id, num_aging_sensors);
+	if (rc) {
+		cpr_err(cpr_vreg, "qcom,cpr-aging-sensor-id property read failed, rc = %d\n",
+				rc);
+		goto err;
+	}
+
+	for (i = 0; i < num_aging_sensors; i++)
+		if (aging_sensor_id[i] < 0 || aging_sensor_id[i] > 31) {
+			cpr_err(cpr_vreg, "Invalid aging sensor id: %u\n",
+				aging_sensor_id[i]);
+			rc = -EINVAL;
+			goto err;
+		}
+
+	rc = of_property_read_u32_array(of_node, "qcom,cpr-ro-scaling-factor",
+			aging_info->cpr_ro_kv, cpr_vreg->ro_count);
+	if (rc) {
+		cpr_err(cpr_vreg, "qcom,cpr-ro-scaling-factor property read failed, rc = %d\n",
+			rc);
+		goto err;
+	}
+
+	rc = of_property_read_u32_array(of_node, "qcom,cpr-aging-derate",
+			&aging_info->aging_derate[CPR_CORNER_MIN],
+			num_corners);
+	if (rc) {
+		cpr_err(cpr_vreg, "qcom,cpr-aging-derate property read failed, rc = %d\n",
+				rc);
+		goto err;
+	}
+
+	rc = of_property_read_u32_array(of_node,
+				"qcom,cpr-fuse-aging-init-quot-diff",
+				fuse_sel, (num_aging_sensors * 3));
+	if (rc) {
+		cpr_err(cpr_vreg, "qcom,cpr-fuse-aging-init-quot-diff read failed, rc = %d\n",
+				rc);
+		goto err;
+	}
+
+	fuse_sel_orig = fuse_sel;
+	sensor_info = aging_info->sensor_info;
+	for (i = 0; i < num_aging_sensors; i++, sensor_info++) {
+		sensor_info->sensor_id = aging_sensor_id[i];
+		efuse_val = cpr_read_efuse_param(cpr_vreg, fuse_sel[0],
+				fuse_sel[1], fuse_sel[2]);
+		bits = fuse_sel[2];
+		sensor_info->initial_quot_diff = ((efuse_val & BIT(bits - 1)) ?
+			-1 : 1) * (efuse_val & (BIT(bits - 1) - 1));
+
+		cpr_debug(cpr_vreg, "Age sensor[%d] Initial quot diff = %d\n",
+				sensor_info->sensor_id,
+				sensor_info->initial_quot_diff);
+		fuse_sel += 3;
+	}
+
+	/*
+	 * Log Age adjusted per-virtual corner target quotients since they are
+	 * useful for baseline CPR logging.
+	 */
+	buflen = cpr_vreg->ro_count * (MAX_CHARS_PER_INT + 2) * sizeof(*buf);
+	buf = kzalloc(buflen, GFP_KERNEL);
+	if (buf == NULL) {
+		cpr_err(cpr_vreg, "Could not allocate memory for target quotient logging\n");
+		return 0;
+	}
+
+	/*
+	 * Add max aging margin here. This can be adjusted later in
+	 * de-aging algorithm.
+	 */
+	for (i = CPR_CORNER_MIN; i <= num_corners; i++) {
+		pos = 0;
+		for (j = 0; j < cpr_vreg->ro_count; j++) {
+			cpr_vreg->cpr_target_quot[i][j] +=
+					(aging_info->cpr_ro_kv[j]
+				* aging_info->max_aging_margin) / 1000000;
+			pos += scnprintf(buf + pos, buflen - pos, "%d%s",
+				cpr_vreg->cpr_target_quot[i][j],
+				j < cpr_vreg->ro_count ? " " : "\0");
+		}
+		cpr_debug(cpr_vreg, "Corner[%d]: Age margin adjusted target quotients: %s\n",
+				i, buf);
+		aging_info->voltage_adjust[i] = aging_info->max_aging_margin;
+	}
+	kfree(buf);
+
+err:
+	kfree(fuse_sel_orig);
+	kfree(aging_sensor_id);
+	return rc;
+}
+
 /*
  * Conditionally reduce the per-virtual-corner ceiling voltages if certain
  * device tree flags are present.
@@ -1901,18 +2668,6 @@ static int cpr_init_cpr_voltages(struct cpr2_gfx_regulator *cpr_vreg)
 
 	return 0;
 }
-
-#define CPR_PROP_READ_U32(cpr_vreg, of_node, cpr_property, cpr_config, rc) \
-do {									\
-	if (!rc) {							\
-		rc = of_property_read_u32(of_node, cpr_property,	\
-				cpr_config);				\
-		if (rc) {						\
-			cpr_err(cpr_vreg, "Missing " #cpr_property	\
-				": rc = %d\n", rc);			\
-		}							\
-	}								\
-} while (0)
 
 static int cpr_init_cpr_parameters(struct cpr2_gfx_regulator *cpr_vreg)
 {
@@ -2102,6 +2857,12 @@ static int cpr_init_cpr(struct platform_device *pdev,
 		return rc;
 	}
 
+	rc = cpr_aging_init(cpr_vreg);
+	if (rc) {
+		cpr_err(cpr_vreg, "CPR aging init failed: rc=%d\n", rc);
+		return rc;
+	}
+
 	/* Reduce the ceiling voltage if allowed. */
 	rc = cpr_reduce_ceiling_voltage(cpr_vreg);
 	if (rc)
@@ -2271,6 +3032,10 @@ static ssize_t cpr2_gfx_debug_info_read(struct file *file, char __user *buff,
 		cpr_vreg->corner, cpr_vreg->last_volt[cpr_vreg->corner]);
 	ret += len;
 
+	/* Skip CPR register dump when CPR clocks disabled */
+	if (!cpr_vreg->ctrl_enable)
+		goto _exit;
+
 	for (ro_sel = 0; ro_sel < cpr_vreg->ro_count; ro_sel++) {
 		gcnt = cpr_read(cpr_vreg, REG_RBCPR_GCNT_TARGET(ro_sel));
 		len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
@@ -2324,6 +3089,8 @@ static ssize_t cpr2_gfx_debug_info_read(struct file *file, char __user *buff,
 	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
 			", busy = %u]\n", busy);
 	ret += len;
+
+_exit:
 	mutex_unlock(&cpr_vreg->cpr_mutex);
 
 	ret = simple_read_from_buffer(buff, count, ppos, debugfs_buf, ret);
@@ -2334,6 +3101,65 @@ static ssize_t cpr2_gfx_debug_info_read(struct file *file, char __user *buff,
 static const struct file_operations cpr2_gfx_debug_info_fops = {
 	.open = cpr2_gfx_debug_info_open,
 	.read = cpr2_gfx_debug_info_read,
+};
+
+static int cpr2_gfx_aging_debug_info_open(struct inode *inode,
+			struct file *file)
+{
+	file->private_data = inode->i_private;
+
+	return 0;
+}
+
+static ssize_t cpr2_gfx_aging_debug_info_read(struct file *file,
+			char __user *buff, size_t count, loff_t *ppos)
+{
+	struct cpr2_gfx_regulator *cpr_vreg = file->private_data;
+	struct cpr2_gfx_aging_info *aging_info = cpr_vreg->aging_info;
+	char *debugfs_buf;
+	ssize_t len, ret = 0;
+	int i;
+
+	debugfs_buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!debugfs_buf)
+		return -ENOMEM;
+
+	mutex_lock(&cpr_vreg->cpr_mutex);
+
+	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
+			"aging_adj_volt = [");
+	ret += len;
+
+	for (i = CPR_CORNER_MIN; i <= cpr_vreg->num_corners; i++) {
+		len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
+				" %d", aging_info->voltage_adjust[i]);
+		ret += len;
+	}
+
+	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
+			" ]uV\n");
+	ret += len;
+
+	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
+			"aging_measurement_done = %s\n",
+			aging_info->cpr_aging_done ? "true" : "false");
+	ret += len;
+
+	len = snprintf(debugfs_buf + ret, PAGE_SIZE - ret,
+			"aging_measurement_error = %s\n",
+			aging_info->cpr_aging_error ? "true" : "false");
+	ret += len;
+
+	mutex_unlock(&cpr_vreg->cpr_mutex);
+
+	ret = simple_read_from_buffer(buff, count, ppos, debugfs_buf, ret);
+	kfree(debugfs_buf);
+	return ret;
+}
+
+static const struct file_operations cpr2_gfx_aging_debug_info_fops = {
+	.open = cpr2_gfx_aging_debug_info_open,
+	.read = cpr2_gfx_aging_debug_info_read,
 };
 
 static void cpr2_gfx_debugfs_init(struct cpr2_gfx_regulator *cpr_vreg)
@@ -2378,6 +3204,16 @@ static void cpr2_gfx_debugfs_init(struct cpr2_gfx_regulator *cpr_vreg)
 	if (IS_ERR_OR_NULL(temp)) {
 		cpr_err(cpr_vreg, "cpr_floor node creation failed\n");
 		return;
+	}
+
+	if (cpr_vreg->aging_info) {
+		temp = debugfs_create_file("aging_debug_info", S_IRUGO,
+					cpr_vreg->debugfs, cpr_vreg,
+					&cpr2_gfx_aging_debug_info_fops);
+		if (IS_ERR_OR_NULL(temp)) {
+			cpr_err(cpr_vreg, "aging_debug_info node creation failed\n");
+			return;
+		}
 	}
 }
 
