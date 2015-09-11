@@ -3233,6 +3233,7 @@ int sdhci_msm_notify_load(struct sdhci_host *host, enum mmc_load state)
 
 static struct sdhci_ops sdhci_msm_ops = {
 	.crypto_engine_cfg = sdhci_msm_ice_cfg,
+	.crypto_cfg_reset = sdhci_msm_ice_cfg_reset,
 	.crypto_engine_reset = sdhci_msm_ice_reset,
 	.platform_reset_enter = sdhci_msm_reset_enter,
 	.set_uhs_signaling = sdhci_msm_set_uhs_signaling,
