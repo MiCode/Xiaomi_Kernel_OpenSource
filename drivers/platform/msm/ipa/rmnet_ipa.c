@@ -63,6 +63,7 @@ static bool egress_set, a7_ul_flt_set;
 static struct workqueue_struct *ipa_rm_q6_workqueue; /* IPA_RM workqueue*/
 static atomic_t is_initialized;
 static atomic_t is_ssr;
+static void *subsys_notify_handle;
 
 u32 apps_to_ipa_hdl, ipa_to_apps_hdl; /* get handler from ipa */
 static struct mutex ipa_to_apps_pipe_handle_guard;
@@ -2007,11 +2008,6 @@ setup_dflt_wan_rt_tables_err:
 	ipa_del_a7_qmap_hdr();
 setup_a7_qmap_hdr_err:
 	ipa_qmi_service_exit();
-	ret = subsys_notif_unregister_notifier(SUBSYS_MODEM, &ssr_notifier);
-	if (ret)
-		IPAWANERR(
-		"Error subsys_notif_unregister_notifier system %s, ret=%d\n",
-		SUBSYS_MODEM, ret);
 	atomic_set(&is_ssr, 0);
 	return ret;
 }
@@ -2453,24 +2449,30 @@ void ipa_q6_handshake_complete(bool ssr_bootup)
 
 static int __init ipa_wwan_init(void)
 {
-	void *subsys;
-
 	atomic_set(&is_initialized, 0);
 	atomic_set(&is_ssr, 0);
 
 	mutex_init(&ipa_to_apps_pipe_handle_guard);
 	ipa_to_apps_hdl = -1;
 	/* Register for Modem SSR */
-	subsys = subsys_notif_register_notifier(SUBSYS_MODEM, &ssr_notifier);
-	if (!IS_ERR(subsys))
+	subsys_notify_handle = subsys_notif_register_notifier(SUBSYS_MODEM,
+						&ssr_notifier);
+	if (!IS_ERR(subsys_notify_handle))
 		return platform_driver_register(&rmnet_ipa_driver);
 	else
-		return (int)PTR_ERR(subsys);
+		return (int)PTR_ERR(subsys_notify_handle);
 	}
 
 static void __exit ipa_wwan_cleanup(void)
 {
+	int ret;
 	mutex_destroy(&ipa_to_apps_pipe_handle_guard);
+	ret = subsys_notif_unregister_notifier(subsys_notify_handle,
+					&ssr_notifier);
+	if (ret)
+		IPAWANERR(
+		"Error subsys_notif_unregister_notifier system %s, ret=%d\n",
+		SUBSYS_MODEM, ret);
 	platform_driver_unregister(&rmnet_ipa_driver);
 }
 
