@@ -2858,14 +2858,13 @@ static unsigned int power_cost_at_freq(int cpu, unsigned int freq)
 	BUG();
 }
 
-/* Return the cost of running task p on CPU cpu. This function
- * currently assumes that task p is the only task which will run on
- * the CPU. */
+/* Return the cost of running the total task load total_load on CPU cpu. */
 unsigned int power_cost(u64 total_load, int cpu)
 {
 	unsigned int task_freq;
 	struct rq *rq = cpu_rq(cpu);
 	u64 demand;
+	int total_static_pwr_cost = 0;
 
 	if (!sysctl_sched_enable_power_aware)
 		return rq->max_possible_capacity;
@@ -2877,7 +2876,12 @@ unsigned int power_cost(u64 total_load, int cpu)
 	task_freq = demand * rq->max_possible_freq;
 	task_freq /= 100; /* khz needed */
 
-	return power_cost_at_freq(cpu, task_freq);
+	if (idle_cpu(cpu) && rq->cstate) {
+		total_static_pwr_cost += rq->static_cpu_pwr_cost;
+		if (rq->dstate)
+			total_static_pwr_cost += rq->static_cluster_pwr_cost;
+	}
+	return power_cost_at_freq(cpu, task_freq) + total_static_pwr_cost;
 }
 
 #define UP_MIGRATION		1

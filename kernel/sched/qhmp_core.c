@@ -800,6 +800,29 @@ sched_set_cpu_cstate(int cpu, int cstate, int wakeup_energy, int wakeup_latency)
 	rq->wakeup_energy = wakeup_energy;
 	rq->wakeup_latency = wakeup_latency;
 }
+
+/*
+ * Note D-state for (idle) cluster.
+ *
+ * @dstate = dstate index, 0 -> active state
+ * @wakeup_energy = energy spent in waking up cluster
+ * @wakeup_latency = latency to wakeup from cluster
+ *
+ */
+void sched_set_cluster_dstate(const cpumask_t *cluster_cpus, int dstate,
+			int wakeup_energy, int wakeup_latency)
+{
+	int cpu;
+
+	for_each_cpu(cpu, cluster_cpus) {
+		struct rq *rq = cpu_rq(cpu);
+
+		rq->dstate = dstate;
+		rq->dstate_wakeup_energy = wakeup_energy;
+		rq->dstate_wakeup_latency = wakeup_latency;
+	}
+}
+
 #endif /* CONFIG_SMP */
 
 #if defined(CONFIG_RT_GROUP_SCHED) || (defined(CONFIG_FAIR_GROUP_SCHED) && \
@@ -1146,6 +1169,32 @@ static inline void clear_hmp_request(int cpu)
 		rq->active_balance = 0;
 		raw_spin_unlock_irqrestore(&rq->lock, flags);
 	}
+}
+
+int sched_set_static_cpu_pwr_cost(int cpu, unsigned int cost)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	rq->static_cpu_pwr_cost = cost;
+	return 0;
+}
+
+unsigned int sched_get_static_cpu_pwr_cost(int cpu)
+{
+	return cpu_rq(cpu)->static_cpu_pwr_cost;
+}
+
+int sched_set_static_cluster_pwr_cost(int cpu, unsigned int cost)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	rq->static_cluster_pwr_cost = cost;
+	return 0;
+}
+
+unsigned int sched_get_static_cluster_pwr_cost(int cpu)
+{
+	return cpu_rq(cpu)->static_cluster_pwr_cost;
 }
 
 #else
@@ -8943,6 +8992,8 @@ void __init sched_init(void)
 		rq->avg_irqload = 0;
 		rq->irqload_ts = 0;
 		rq->prefer_idle = 1;
+		rq->static_cpu_pwr_cost = 0;
+		rq->static_cluster_pwr_cost = 0;
 #ifdef CONFIG_SCHED_FREQ_INPUT
 		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
 		rq->old_busy_time = 0;
@@ -8952,6 +9003,10 @@ void __init sched_init(void)
 		rq->max_idle_balance_cost = sysctl_sched_migration_cost;
 		rq->cstate = 0;
 		rq->wakeup_latency = 0;
+
+		rq->dstate = 0;
+		rq->dstate_wakeup_latency = 0;
+		rq->dstate_wakeup_energy = 0;
 
 		INIT_LIST_HEAD(&rq->cfs_tasks);
 

@@ -559,6 +559,8 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 	/* Notify cluster enter event after successfully config completion */
 	cluster_notify(cluster, level, true);
 
+	sched_set_cluster_dstate(&cluster->child_cpus, idx, 0, 0);
+
 	cluster->last_level = idx;
 	spin_unlock(&cluster->sync_lock);
 	return 0;
@@ -687,6 +689,8 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 		BUG_ON(ret);
 
 	}
+	sched_set_cluster_dstate(&cluster->child_cpus, 0, 0, 0);
+
 	cluster_notify(cluster, &cluster->levels[last_level], false);
 unlock_return:
 	spin_unlock(&cluster->sync_lock);

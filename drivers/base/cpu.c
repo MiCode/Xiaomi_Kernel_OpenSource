@@ -179,6 +179,99 @@ static struct attribute_group crash_note_cpu_attr_group = {
 };
 #endif
 
+#ifdef CONFIG_SCHED_HMP
+
+static ssize_t show_sched_static_cpu_pwr_cost(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
+	ssize_t rc;
+	int cpuid = cpu->dev.id;
+	unsigned int pwr_cost;
+
+	pwr_cost = sched_get_static_cpu_pwr_cost(cpuid);
+
+	rc = snprintf(buf, PAGE_SIZE-2, "%d\n", pwr_cost);
+
+	return rc;
+}
+
+static ssize_t __ref store_sched_static_cpu_pwr_cost(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
+	int err;
+	int cpuid = cpu->dev.id;
+	unsigned int pwr_cost;
+
+	err = kstrtouint(strstrip((char *)buf), 0, &pwr_cost);
+	if (err)
+		return err;
+
+	err = sched_set_static_cpu_pwr_cost(cpuid, pwr_cost);
+
+	if (err >= 0)
+		err = count;
+
+	return err;
+}
+
+static ssize_t show_sched_static_cluster_pwr_cost(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
+	ssize_t rc;
+	int cpuid = cpu->dev.id;
+	unsigned int pwr_cost;
+
+	pwr_cost = sched_get_static_cluster_pwr_cost(cpuid);
+
+	rc = snprintf(buf, PAGE_SIZE-2, "%d\n", pwr_cost);
+
+	return rc;
+}
+
+static ssize_t __ref store_sched_static_cluster_pwr_cost(struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct cpu *cpu = container_of(dev, struct cpu, dev);
+	int err;
+	int cpuid = cpu->dev.id;
+	unsigned int pwr_cost;
+
+	err = kstrtouint(strstrip((char *)buf), 0, &pwr_cost);
+	if (err)
+		return err;
+
+	err = sched_set_static_cluster_pwr_cost(cpuid, pwr_cost);
+
+	if (err >= 0)
+		err = count;
+
+	return err;
+}
+
+static DEVICE_ATTR(sched_static_cpu_pwr_cost, 0644,
+					show_sched_static_cpu_pwr_cost,
+					store_sched_static_cpu_pwr_cost);
+static DEVICE_ATTR(sched_static_cluster_pwr_cost, 0644,
+					show_sched_static_cluster_pwr_cost,
+					store_sched_static_cluster_pwr_cost);
+
+static struct attribute *hmp_sched_cpu_attrs[] = {
+	&dev_attr_sched_static_cpu_pwr_cost.attr,
+	&dev_attr_sched_static_cluster_pwr_cost.attr,
+	NULL
+};
+
+static struct attribute_group sched_hmp_cpu_attr_group = {
+	.attrs = hmp_sched_cpu_attrs,
+};
+
+#endif /* CONFIG_SCHED_HMP */
+
 #ifdef CONFIG_SCHED_QHMP
 static ssize_t show_sched_mostly_idle_load(struct device *dev,
 		 struct device_attribute *attr, char *buf)
@@ -333,7 +426,7 @@ static DEVICE_ATTR(sched_mostly_idle_nr_run, 0664,
 static DEVICE_ATTR(sched_prefer_idle, 0664,
 		show_sched_prefer_idle, store_sched_prefer_idle);
 
-static struct attribute *hmp_sched_cpu_attrs[] = {
+static struct attribute *qhmp_sched_cpu_attrs[] = {
 	&dev_attr_sched_mostly_idle_load.attr,
 	&dev_attr_sched_mostly_idle_nr_run.attr,
 	&dev_attr_sched_mostly_idle_freq.attr,
@@ -341,8 +434,8 @@ static struct attribute *hmp_sched_cpu_attrs[] = {
 	NULL
 };
 
-static struct attribute_group sched_hmp_cpu_attr_group = {
-	.attrs = hmp_sched_cpu_attrs,
+static struct attribute_group sched_qhmp_cpu_attr_group = {
+	.attrs = qhmp_sched_cpu_attrs,
 };
 
 #endif	/* CONFIG_SCHED_QHMP */
@@ -350,8 +443,11 @@ static const struct attribute_group *common_cpu_attr_groups[] = {
 #ifdef CONFIG_KEXEC
 	&crash_note_cpu_attr_group,
 #endif
-#ifdef CONFIG_SCHED_QHMP
+#ifdef CONFIG_SCHED_HMP
 	&sched_hmp_cpu_attr_group,
+#endif
+#ifdef CONFIG_SCHED_QHMP
+	&sched_qhmp_cpu_attr_group,
 #endif
 	NULL
 };
@@ -360,8 +456,11 @@ static const struct attribute_group *hotplugable_cpu_attr_groups[] = {
 #ifdef CONFIG_KEXEC
 	&crash_note_cpu_attr_group,
 #endif
-#ifdef CONFIG_SCHED_QHMP
+#ifdef CONFIG_SCHED_HMP
 	&sched_hmp_cpu_attr_group,
+#endif
+#ifdef CONFIG_SCHED_QHMP
+	&sched_qhmp_cpu_attr_group,
 #endif
 	NULL
 };
