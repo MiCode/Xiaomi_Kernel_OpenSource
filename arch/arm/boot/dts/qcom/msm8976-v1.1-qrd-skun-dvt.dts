@@ -13,14 +13,14 @@
 
 /dts-v1/;
 
-#include "msm8976.dtsi"
+#include "msm8976-v1.1.dtsi"
 #include "msm8976-qrd-skun.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM8976 QRD SKUN";
-	compatible = "qcom,msm8976-qrd-skun-evt2", "qcom,msm8976-qrd",
+	model = "Qualcomm Technologies, Inc. MSM8976 V1.1 QRD SKUN";
+	compatible = "qcom,msm8976-v1.1-qrd-skun-dvt", "qcom,msm8976-qrd",
 		   "qcom,msm8976", "qcom,qrd";
-	qcom,board-id= <0x3000b 0>;
+	qcom,board-id= <0x5000b 0>;
 };
 
 &spmi_bus {
