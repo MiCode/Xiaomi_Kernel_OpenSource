@@ -21,6 +21,7 @@
 
 	aliases {
 		serial0 = &uartblsp2dm1;
+		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 	};
 
 	cpus {
@@ -506,6 +507,41 @@
 		qcom,xprt-linkid = <1>;
 		qcom,xprt-version = <1>;
 		qcom,fragmented-data;
+	};
+
+	sdhc_2: sdhci@c0a4900 {
+		compatible = "qcom,sdhci-msm";
+		reg = <0xc0a4900 0x314>, <0xc0a4000 0x800>;
+		reg-names = "hc_mem", "core_mem";
+
+		interrupts = <0 125 0>, <0 221 0>;
+		interrupt-names = "hc_irq", "pwr_irq";
+
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_sdcc2_ahb_clk>,
+			 <&clock_gcc clk_gcc_sdcc2_apps_clk>;
+
+		qcom,large-address-bus;
+		qcom,bus-width = <4>;
+		qcom,cpu-dma-latency-us = <701>;
+
+		qcom,devfreq,freq-table = <52000000 200000000>;
+
+		qcom,msm-bus,name = "sdhc2";
+		qcom,msm-bus,num-cases = <8>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps = <81 512 0 0>, /* No vote */
+				<81 512 1600 3200>,    /* 400 KB/s*/
+				<81 512 80000 160000>, /* 20 MB/s */
+				<81 512 100000 200000>, /* 25 MB/s */
+				<81 512 200000 400000>, /* 50 MB/s */
+				<81 512 400000 800000>, /* 100 MB/s */
+				<81 512 800000 800000>, /* 200 MB/s */
+				<81 512 2048000 4096000>; /* Max. bandwidth */
+		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000
+						100000000 200000000 4294967295>;
+
+		status = "disabled";
 	};
 
 	ufsphy1: ufsphy@1da7000 {
