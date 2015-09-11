@@ -236,6 +236,37 @@
 		compatible = "qcom,msm_gsi";
 	};
 
+	ipa_hw: qcom,ipa@07B00000 {
+		compatible = "qcom,ipa";
+		reg =
+			<0x07B00000 0x34000>,
+			<0x07B84000 0x31FFFF>,
+			<0x07B04000 0x2C000>;
+		reg-names = "ipa-base", "bam-base", "gsi-base";
+		interrupts =
+			<0 31 0>,
+			<0 34 0>,
+			<0 34 0>;
+		interrupt-names = "ipa-irq", "bam-irq", "gsi-irq";
+		qcom,ipa-hw-ver = <10>; /* IPA core version = IPAv3.0 */
+		qcom,ipa-hw-mode = <0>; /* IPA hw type = Normal */
+		qcom,ee = <0>;
+		qcom,use-gsi;
+		qcom,use-ipa-tethering-bridge;
+		qcom,modem-cfg-emb-pipe-flt;
+		clock-names = "core_clk";
+		clocks = <&clock_gcc clk_ipa_a_clk>;
+		qcom,msm-bus,name = "ipa";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+		<90 512 0 0>, <90 585 0 0>,         /* No vote */
+		<90 512 80000 640000>, <90 585 80000 640000>,    /* SVS */
+		<90 512 206000 960000>, <90 585 206000 960000>,    /* NOMINAL */
+		<90 512 206000 3600000>, <90 585 206000 3600000>;    /* TURBO */
+		qcom,bus-vector-names = "MIN", "SVS", "NOMINAL", "TURBO";
+	};
+
 	blsp1_uart2: serial@78b0000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0x78b0000 0x200>;
