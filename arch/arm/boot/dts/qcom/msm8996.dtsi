@@ -718,20 +718,6 @@
 		qcom,client-id = <0x00000001>;
 	};
 
-	qcom,dsp_sharedmem@00000000 {
-		compatible = "qcom,sharedmem-uio";
-		reg = <0x00000000 0x00010000>;
-		reg-names = "rfsa_dsp";
-		qcom,client-id = <0x011013ec>;
-	};
-
-	qcom,mdm_sharedmem@00000000 {
-		compatible = "qcom,sharedmem-uio";
-		reg = <0x00000000 0x00010000>;
-		reg-names = "rfsa_mdm";
-		qcom,client-id = <0x011013ed>;
-	};
-
 	wcd9xxx_intc: wcd9xxx-irq {
 		compatible = "qcom,wcd9xxx-irq";
 		interrupt-controller;
