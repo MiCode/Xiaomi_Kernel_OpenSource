@@ -17,6 +17,7 @@ Required properties:
 			"qcom,gcc-8994"
 			"qcom,gcc-8994v2"
 			"qcom,gcc-8952"
+			"qcom,gcc-spm-8952"
 			"qcom,gcc-fsm9010"
 			"qcom,gcc-8996"
 			"qcom,gcc-8996-v2"

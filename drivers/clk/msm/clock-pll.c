@@ -55,6 +55,8 @@ static DEFINE_SPINLOCK(pll_reg_lock);
 #define ENABLE_WAIT_MAX_LOOPS 200
 #define PLL_LOCKED_BIT BIT(16)
 
+#define SPM_FORCE_EVENT   0x4
+
 static int pll_vote_clk_enable(struct clk *c)
 {
 	u32 ena, count;
@@ -137,6 +139,54 @@ struct clk_ops clk_ops_pll_vote = {
 	.list_registers = pll_vote_clk_list_registers,
 };
 
+/*
+ *  spm_event() -- Set/Clear SPM events
+ *  PLL off sequence -- enable (1)
+ *    Set L2_SPM_FORCE_EVENT_EN[bit] register to 1
+ *    Set L2_SPM_FORCE_EVENT[bit] register to 1
+ *  PLL on sequence -- enable (0)
+ *   Clear L2_SPM_FORCE_EVENT[bit] register to 0
+ *   Clear L2_SPM_FORCE_EVENT_EN[bit] register to 0
+ */
+static void spm_event(void __iomem *base, u32 offset, u32 bit,
+							bool enable)
+{
+	uint32_t val;
+
+	if (!base)
+		return;
+
+	if (enable) {
+		/* L2_SPM_FORCE_EVENT_EN */
+		val = readl_relaxed(base + offset);
+		val |= BIT(bit);
+		writel_relaxed(val, (base + offset));
+		/* Ensure that the write above goes through. */
+		mb();
+
+		/* L2_SPM_FORCE_EVENT */
+		val = readl_relaxed(base + offset + SPM_FORCE_EVENT);
+		val |= BIT(bit);
+		writel_relaxed(val, (base + offset + SPM_FORCE_EVENT));
+		/* Ensure that the write above goes through. */
+		mb();
+	} else {
+		/* L2_SPM_FORCE_EVENT */
+		val = readl_relaxed(base + offset + SPM_FORCE_EVENT);
+		val &= ~BIT(bit);
+		writel_relaxed(val, (base + offset + SPM_FORCE_EVENT));
+		/* Ensure that the write above goes through. */
+		mb();
+
+		/* L2_SPM_FORCE_EVENT_EN */
+		val = readl_relaxed(base + offset);
+		val &= ~BIT(bit);
+		writel_relaxed(val, (base + offset));
+		/* Ensure that the write above goes through. */
+		mb();
+	}
+}
+
 static void __pll_config_reg(void __iomem *pll_config, struct pll_freq_tbl *f,
 			struct pll_config_masks *masks)
 {
@@ -174,6 +224,9 @@ static int sr2_pll_clk_enable(struct clk *c)
 	u32 lockmask = pll->masks.lock_mask ?: PLL_LOCKED_BIT;
 
 	spin_lock_irqsave(&pll_reg_lock, flags);
+
+	spm_event(pll->spm_ctrl.spm_base, pll->spm_ctrl.offset,
+				pll->spm_ctrl.event_bit, false);
 
 	/* Disable PLL bypass mode. */
 	mode |= PLL_BYPASSNL;
@@ -528,6 +581,8 @@ static void local_pll_clk_disable(struct clk *c)
 	 * the bypass mode, and assert the reset.
 	 */
 	spin_lock_irqsave(&pll_reg_lock, flags);
+	spm_event(pll->spm_ctrl.spm_base, pll->spm_ctrl.offset,
+				pll->spm_ctrl.event_bit, true);
 	__pll_clk_disable_reg(PLL_MODE_REG(pll));
 	spin_unlock_irqrestore(&pll_reg_lock, flags);
 }
