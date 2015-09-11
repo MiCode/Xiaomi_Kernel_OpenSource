@@ -1088,6 +1088,7 @@ int mdss_dsi_switch_mode(struct mdss_panel_data *pdata, int mode)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mipi_panel_info *pinfo;
+	bool dsi_ctrl_setup_needed = false;
 
 	if (!pdata) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -1110,6 +1111,7 @@ int mdss_dsi_switch_mode(struct mdss_panel_data *pdata, int mode)
 	} else if (mode == MIPI_CMD_PANEL) {
 		mode = SWITCH_TO_CMD_MODE;
 	} else if (mode == SWITCH_RESOLUTION) {
+		dsi_ctrl_setup_needed = true;
 		pr_debug("Resolution switch mode selected\n");
 	} else {
 		pr_err("Invalid mode selected, mode=%d\n", mode);
@@ -1118,7 +1120,8 @@ int mdss_dsi_switch_mode(struct mdss_panel_data *pdata, int mode)
 
 	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
 			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_ON);
-	mdss_dsi_ctrl_setup(ctrl_pdata);
+	if (dsi_ctrl_setup_needed)
+		mdss_dsi_ctrl_setup(ctrl_pdata);
 	ctrl_pdata->switch_mode(pdata, mode);
 	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
 			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_OFF);
