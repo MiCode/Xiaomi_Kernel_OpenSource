@@ -2259,7 +2259,7 @@ static void tethering_stats_poll_queue(struct work_struct *work)
 	rmnet_ipa_get_stats_and_update();
 
 	/* Schedule again only if there's an active polling interval */
-	if (0 != ipa_rmnet_ctx.polling_interval)
+	if (0 != ipa3_rmnet_ctx.polling_interval)
 		schedule_delayed_work(&ipa_tether_stats_poll_wakequeue_work,
 			msecs_to_jiffies(ipa3_rmnet_ctx.polling_interval*1000));
 }
