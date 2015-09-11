@@ -141,6 +141,8 @@
 	};
 
 	clock_gcc: qcom,gcc@1800000 {
+		#address-cells = <1>;
+		#size-cells = <1>;
 		compatible = "qcom,gcc-8952";
 		reg = <0x1800000 0x80000>,
 			<0xb116000 0x00040>,
@@ -154,6 +156,15 @@
 		vdd_hf_dig-supply = <&pm8950_s2_level_ao>;
 		vdd_hf_pll-supply = <&pm8950_l7_ao>;
 		#clock-cells = <1>;
+		ranges;
+		qcom,spm@0 {
+			compatible = "qcom,gcc-spm-8952";
+			reg = <0x0b111200 0x100>,
+			      <0x0b011200 0x100>,
+			      <0x0b1d4000 0x100>;
+			reg-names = "spm_c0_base", "spm_c1_base",
+					"spm_cci_base";
+		};
 	};
 
 	clock_gcc_mdss: qcom,gcc-mdss@1ac8300 {
