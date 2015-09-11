@@ -2211,7 +2211,7 @@ static int msm_comm_init_core(struct msm_vidc_inst *inst)
 		goto fail_core_init;
 	}
 	core->state = VIDC_CORE_INIT;
-
+	core->smmu_fault_handled = false;
 core_already_inited:
 	change_inst_state(inst, MSM_VIDC_CORE_INIT);
 	mutex_unlock(&core->lock);

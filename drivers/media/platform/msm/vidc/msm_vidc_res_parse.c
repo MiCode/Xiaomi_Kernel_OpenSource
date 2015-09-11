@@ -848,14 +848,85 @@ remove_cb:
 	return rc;
 }
 
+int msm_vidc_smmu_fault_handler(struct iommu_domain *domain,
+		struct device *dev, unsigned long iova, int flags, void *token)
+{
+	struct msm_vidc_core *core = token;
+	struct msm_vidc_inst *inst;
+	struct buffer_info *temp;
+	struct internal_buf *buf;
+	int i = 0;
+
+	if (!domain || !core) {
+		dprintk(VIDC_ERR, "%s - invalid param %p %p\n",
+			__func__, domain, core);
+		return -EINVAL;
+	}
+
+	if (core->smmu_fault_handled)
+		return -ENOSYS;
+
+	dprintk(VIDC_ERR, "%s - faulting address: %lx\n", __func__, iova);
+
+	mutex_lock(&core->lock);
+	list_for_each_entry(inst, &core->instances, list) {
+		dprintk(VIDC_ERR,
+			"---Buffer details for inst: %p of type: %d---\n",
+			inst, inst->session_type);
+		mutex_lock(&inst->registeredbufs.lock);
+		dprintk(VIDC_ERR, "registered buffer list:\n");
+		list_for_each_entry(temp, &inst->registeredbufs.list, list)
+			for (i = 0; i < temp->num_planes; i++)
+				dprintk(VIDC_ERR,
+					"type: %d plane: %d addr: %pa size: %d\n",
+					temp->type, i, &temp->device_addr[i],
+					temp->size[i]);
+
+		mutex_unlock(&inst->registeredbufs.lock);
+
+		mutex_lock(&inst->scratchbufs.lock);
+		dprintk(VIDC_ERR, "scratch buffer list:\n");
+		list_for_each_entry(buf, &inst->scratchbufs.list, list)
+			dprintk(VIDC_ERR, "type: %d addr: %pa size: %lu\n",
+				buf->buffer_type, &buf->handle->device_addr,
+				buf->handle->size);
+		mutex_unlock(&inst->scratchbufs.lock);
+
+		mutex_lock(&inst->persistbufs.lock);
+		dprintk(VIDC_ERR, "persist buffer list:\n");
+		list_for_each_entry(buf, &inst->persistbufs.list, list)
+			dprintk(VIDC_ERR, "type: %d addr: %pa size: %lu\n",
+				buf->buffer_type, &buf->handle->device_addr,
+				buf->handle->size);
+		mutex_unlock(&inst->persistbufs.lock);
+
+		mutex_lock(&inst->outputbufs.lock);
+		dprintk(VIDC_ERR, "dpb buffer list:\n");
+		list_for_each_entry(buf, &inst->outputbufs.list, list)
+			dprintk(VIDC_ERR, "type: %d addr: %pa size: %lu\n",
+				buf->buffer_type, &buf->handle->device_addr,
+				buf->handle->size);
+		mutex_unlock(&inst->outputbufs.lock);
+	}
+	core->smmu_fault_handled = true;
+	mutex_unlock(&core->lock);
+	/*
+	 * Return -ENOSYS to elicit the default behaviour of smmu driver.
+	 * If we return -ENOSYS, then smmu driver assumes page fault handler
+	 * is not installed and prints a list of useful debug information like
+	 * FAR, SID etc. This information is not printed if we return 0.
+	 */
+	return -ENOSYS;
+}
+
 static int msm_vidc_populate_context_bank(struct device *dev,
-		struct msm_vidc_platform_resources *res)
+		struct msm_vidc_core *core)
 {
 	int rc = 0;
 	struct context_bank_info *cb = NULL;
 	struct device_node *np = NULL;
 
-	if (!dev || !res) {
+	if (!dev || !core) {
 		dprintk(VIDC_ERR, "%s - invalid inputs\n", __func__);
 		return -EINVAL;
 	}
@@ -868,7 +939,7 @@ static int msm_vidc_populate_context_bank(struct device *dev,
 	}
 
 	INIT_LIST_HEAD(&cb->list);
-	list_add_tail(&cb->list, &res->context_banks);
+	list_add_tail(&cb->list, &core->resources.context_banks);
 
 	rc = of_property_read_string(np, "label", &cb->name);
 	if (rc) {
@@ -908,6 +979,9 @@ static int msm_vidc_populate_context_bank(struct device *dev,
 		dprintk(VIDC_ERR, "Cannot setup context bank %d\n", rc);
 		goto err_setup_cb;
 	}
+
+	iommu_set_fault_handler(cb->mapping->domain,
+		msm_vidc_smmu_fault_handler, (void *)core);
 
 	return 0;
 
@@ -1053,8 +1127,7 @@ int read_context_bank_resources_from_dt(struct platform_device *pdev)
 			}
 		}
 	} else {
-		rc = msm_vidc_populate_context_bank(&pdev->dev,
-					&core->resources);
+		rc = msm_vidc_populate_context_bank(&pdev->dev, core);
 		if (rc)
 			dprintk(VIDC_ERR, "Failed to probe context bank\n");
 		else

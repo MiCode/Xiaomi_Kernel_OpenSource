@@ -257,6 +257,7 @@ struct msm_vidc_core {
 	u32 enc_codec_supported;
 	u32 dec_codec_supported;
 	struct delayed_work fw_unload_work;
+	bool smmu_fault_handled;
 };
 
 struct msm_vidc_inst {
