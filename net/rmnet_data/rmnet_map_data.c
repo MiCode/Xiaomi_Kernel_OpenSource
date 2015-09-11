@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -130,6 +130,9 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 
 	maph = (struct rmnet_map_header_s *) skb->data;
 	packet_len = ntohs(maph->pkt_len) + sizeof(struct rmnet_map_header_s);
+
+	if (config->ingress_data_format & RMNET_INGRESS_FORMAT_MAP_CKSUMV3)
+		packet_len += sizeof(struct rmnet_map_dl_checksum_trailer_s);
 
 	if ((((int)skb->len) - ((int)packet_len)) < 0) {
 		LOGM("%s", "Got malformed packet. Dropping");
