@@ -273,6 +273,41 @@
 		#clock-cells = <1>;
 	};
 
+	cpubw: qcom,cpubw {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<  366 /*  48   MHz */>,
+			<  732 /*  96   MHz */>,
+			<  952 /* 124.8 MHz */>,
+			< 1171 /* 153.6 MHz */>,
+			< 1831 /* 240   MHz */>,
+			< 2343 /* 307.2 MHZ */>;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+			target-dev = <&cpubw>;
+			cpu-to-dev-map =
+				 <  400000   732>,
+				 <  800000  1171>,
+				 <  998400  1831>,
+				 < 1094400  2343>,
+				 < 1305600  2343>;
+		};
+	};
+
+	qcom,cpu-bwmon {
+		compatible = "qcom,bimc-bwmon2";
+		reg = <0x408000 0x300>, <0x401000 0x200>;
+		reg-names = "base", "global_base";
+		interrupts = <0 183 4>;
+		qcom,mport = <0>;
+		qcom,target-dev = <&cpubw>;
+	};
+
 	qcom,msm-cpufreq {
 		reg = <0 4>;
 		compatible = "qcom,msm-cpufreq";
