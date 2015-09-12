@@ -436,7 +436,8 @@ struct wcd_swr_ctrl_platform_data {
 			  int action);
 };
 
-static struct wcd_mbhc_register wcd_mbhc_registers[] = {
+static struct wcd_mbhc_register
+	wcd_mbhc_registers[WCD_MBHC_REG_FUNC_MAX] = {
 	WCD_MBHC_REGISTER("WCD_MBHC_L_DET_EN",
 			  WCD9335_ANA_MBHC_MECH, 0x80, 7, 0),
 	WCD_MBHC_REGISTER("WCD_MBHC_GND_DET_EN",
@@ -501,6 +502,8 @@ static struct wcd_mbhc_register wcd_mbhc_registers[] = {
 	 * Register "0" is not a valid register for MBHC.
 	 */
 	WCD_MBHC_REGISTER("WCD_MBHC_MOISTURE_VREF",
+			  0, 0, 0, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_PULLDOWN_CTRL",
 			  0, 0, 0, 0),
 };
 
