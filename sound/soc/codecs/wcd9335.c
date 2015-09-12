@@ -5912,83 +5912,151 @@ static int tasha_pinctl_mode_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static void wcd_vbat_adc_out_config_2_0(struct wcd_vbat *vbat,
+					struct snd_soc_codec *codec)
+{
+	u8 val1, val2;
+
+	/*
+	 * Measure dcp1 by using "ALT" branch of band gap
+	 * voltage(Vbg) and use it in FAST mode
+	 */
+	snd_soc_update_bits(codec, WCD9335_BIAS_CTL, 0x82, 0x82);
+	snd_soc_update_bits(codec, WCD9335_CDC_VBAT_VBAT_PATH_CTL, 0x10, 0x10);
+	snd_soc_update_bits(codec, WCD9335_CDC_VBAT_VBAT_DEBUG1, 0x01, 0x01);
+	snd_soc_update_bits(codec, WCD9335_ANA_VBADC, 0x80, 0x80);
+	snd_soc_update_bits(codec, WCD9335_VBADC_SUBBLOCK_EN, 0x20, 0x00);
+
+	snd_soc_update_bits(codec, WCD9335_VBADC_FE_CTRL, 0x20, 0x20);
+	/* Wait 100 usec after calibration select as Vbg */
+	usleep_range(100, 110);
+
+	snd_soc_update_bits(codec, WCD9335_VBADC_ADC_IO, 0x40, 0x40);
+	val1 = snd_soc_read(codec, WCD9335_VBADC_ADC_DOUTMSB);
+	val2 = snd_soc_read(codec, WCD9335_VBADC_ADC_DOUTLSB);
+	snd_soc_update_bits(codec, WCD9335_VBADC_ADC_IO, 0x40, 0x00);
+
+	vbat->dcp1 = (((val1 & 0xFF) << 3) | (val2 & 0x07));
+
+	snd_soc_update_bits(codec, WCD9335_BIAS_CTL, 0x40, 0x40);
+	/* Wait 100 usec after selecting Vbg as 1.05V */
+	usleep_range(100, 110);
+
+	snd_soc_update_bits(codec, WCD9335_VBADC_ADC_IO, 0x40, 0x40);
+	val1 = snd_soc_read(codec, WCD9335_VBADC_ADC_DOUTMSB);
+	val2 = snd_soc_read(codec, WCD9335_VBADC_ADC_DOUTLSB);
+	snd_soc_update_bits(codec, WCD9335_VBADC_ADC_IO, 0x40, 0x00);
+
+	vbat->dcp2 = (((val1 & 0xFF) << 3) | (val2 & 0x07));
+
+	dev_dbg(codec->dev, "%s: dcp1:0x%x, dcp2:0x%x\n",
+		__func__, vbat->dcp1, vbat->dcp2);
+
+	snd_soc_write(codec, WCD9335_BIAS_CTL, 0x28);
+	/* Wait 100 usec after selecting Vbg as 0.85V */
+	usleep_range(100, 110);
+
+	snd_soc_update_bits(codec, WCD9335_VBADC_FE_CTRL, 0x20, 0x00);
+	snd_soc_update_bits(codec, WCD9335_VBADC_SUBBLOCK_EN, 0x20, 0x20);
+	snd_soc_update_bits(codec, WCD9335_ANA_VBADC, 0x80, 0x00);
+
+	snd_soc_update_bits(codec, WCD9335_CDC_VBAT_VBAT_PATH_CTL, 0x10, 0x00);
+	snd_soc_update_bits(codec, WCD9335_CDC_VBAT_VBAT_DEBUG1, 0x01, 0x00);
+}
+
+static void wcd_vbat_adc_out_config_1_x(struct wcd_vbat *vbat,
+					struct snd_soc_codec *codec)
+{
+	u8 val1, val2;
+
+	/*
+	 * Measure dcp1 by applying band gap voltage(Vbg)
+	 * of 0.85V
+	 */
+	snd_soc_write(codec, WCD9335_ANA_BIAS, 0x20);
+	snd_soc_write(codec, WCD9335_BIAS_CTL, 0x28);
+	snd_soc_write(codec, WCD9335_BIAS_VBG_FINE_ADJ, 0x05);
+	snd_soc_write(codec, WCD9335_ANA_BIAS, 0xA0);
+	/* Wait 2 sec after enabling band gap bias */
+	usleep_range(2000000, 2000100);
+
+	snd_soc_write(codec, WCD9335_ANA_CLK_TOP, 0x82);
+	snd_soc_write(codec, WCD9335_ANA_CLK_TOP, 0x87);
+	snd_soc_update_bits(codec, WCD9335_CDC_VBAT_VBAT_PATH_CTL, 0x10, 0x10);
+	snd_soc_write(codec, WCD9335_CDC_VBAT_VBAT_CFG, 0x0D);
+	snd_soc_write(codec, WCD9335_CDC_VBAT_VBAT_DEBUG1, 0x01);
+
+	snd_soc_write(codec, WCD9335_ANA_VBADC, 0x80);
+	snd_soc_write(codec, WCD9335_VBADC_SUBBLOCK_EN, 0xDE);
+	snd_soc_write(codec, WCD9335_VBADC_FE_CTRL, 0x3C);
+	/* Wait 1 msec after calibration select as Vbg */
+	usleep_range(1000, 1100);
+
+	snd_soc_write(codec, WCD9335_VBADC_ADC_IO, 0xC0);
+	val1 = snd_soc_read(codec, WCD9335_VBADC_ADC_DOUTMSB);
+	val2 = snd_soc_read(codec, WCD9335_VBADC_ADC_DOUTLSB);
+	snd_soc_write(codec, WCD9335_VBADC_ADC_IO, 0x80);
+
+	vbat->dcp1 = (((val1 & 0xFF) << 3) | (val2 & 0x07));
+
+	/*
+	 * Measure dcp2 by applying band gap voltage(Vbg)
+	 * of 1.05V
+	 */
+	snd_soc_write(codec, WCD9335_ANA_BIAS, 0x80);
+	snd_soc_write(codec, WCD9335_ANA_BIAS, 0xC0);
+	snd_soc_write(codec, WCD9335_BIAS_CTL, 0x68);
+	/* Wait 2 msec after selecting Vbg as 1.05V */
+	usleep_range(2000, 2100);
+
+	snd_soc_write(codec, WCD9335_ANA_BIAS, 0x80);
+	/* Wait 1 sec after enabling band gap bias */
+	usleep_range(1000000, 1000100);
+
+	snd_soc_write(codec, WCD9335_VBADC_ADC_IO, 0xC0);
+	val1 = snd_soc_read(codec, WCD9335_VBADC_ADC_DOUTMSB);
+	val2 = snd_soc_read(codec, WCD9335_VBADC_ADC_DOUTLSB);
+	snd_soc_write(codec, WCD9335_VBADC_ADC_IO, 0x80);
+
+	vbat->dcp2 = (((val1 & 0xFF) << 3) | (val2 & 0x07));
+
+	dev_dbg(codec->dev, "%s: dcp1:0x%x, dcp2:0x%x\n",
+		__func__, vbat->dcp1, vbat->dcp2);
+
+	/* Reset the Vbat ADC configuration */
+	snd_soc_write(codec, WCD9335_ANA_BIAS, 0x80);
+	snd_soc_write(codec, WCD9335_ANA_BIAS, 0xC0);
+
+	snd_soc_write(codec, WCD9335_BIAS_CTL, 0x28);
+	/* Wait 2 msec after selecting Vbg as 0.85V */
+	usleep_range(2000, 2100);
+
+	snd_soc_write(codec, WCD9335_ANA_BIAS, 0xA0);
+	/* Wait 1 sec after enabling band gap bias */
+	usleep_range(1000000, 1000100);
+
+	snd_soc_write(codec, WCD9335_VBADC_FE_CTRL, 0x1C);
+	snd_soc_write(codec, WCD9335_VBADC_SUBBLOCK_EN, 0xFE);
+	snd_soc_write(codec, WCD9335_VBADC_ADC_IO, 0x80);
+	snd_soc_write(codec, WCD9335_ANA_VBADC, 0x00);
+
+	snd_soc_write(codec, WCD9335_CDC_VBAT_VBAT_DEBUG1, 0x00);
+	snd_soc_write(codec, WCD9335_CDC_VBAT_VBAT_PATH_CTL, 0x00);
+	snd_soc_write(codec, WCD9335_CDC_VBAT_VBAT_CFG, 0x0A);
+}
+
 static void wcd_vbat_adc_out_config(struct wcd_vbat *vbat,
 				struct snd_soc_codec *codec)
 {
-	u8 val1, val2;
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
 
 	if (!vbat->adc_config) {
 		tasha_cdc_mclk_enable(codec, true, false);
 
-		/* Measure dcp1 by applying band gap voltage(Vbg) of 0.85V */
-		snd_soc_write(codec, WCD9335_ANA_BIAS, 0x20);
-		snd_soc_write(codec, WCD9335_BIAS_CTL, 0x28);
-		snd_soc_write(codec, WCD9335_BIAS_VBG_FINE_ADJ, 0x05);
-		snd_soc_write(codec, WCD9335_ANA_BIAS, 0xA0);
-		/* Wait 2 sec after enabling band gap bias */
-		usleep_range(2000000, 2000100);
-
-		snd_soc_write(codec, WCD9335_ANA_CLK_TOP, 0x82);
-		snd_soc_write(codec, WCD9335_ANA_CLK_TOP, 0x87);
-		snd_soc_update_bits(codec, WCD9335_CDC_VBAT_VBAT_PATH_CTL,
-					0x10, 0x10);
-		snd_soc_write(codec, WCD9335_CDC_VBAT_VBAT_CFG, 0x0D);
-		snd_soc_write(codec, WCD9335_CDC_VBAT_VBAT_DEBUG1, 0x01);
-
-		snd_soc_write(codec, WCD9335_ANA_VBADC, 0x80);
-		snd_soc_write(codec, WCD9335_VBADC_SUBBLOCK_EN, 0xDE);
-		snd_soc_write(codec, WCD9335_VBADC_FE_CTRL, 0x3C);
-		/* Wait 1 msec after calibration select as Vbg */
-		usleep_range(1000, 1100);
-
-		snd_soc_write(codec, WCD9335_VBADC_ADC_IO, 0xC0);
-		val1 = snd_soc_read(codec, WCD9335_VBADC_ADC_DOUTMSB);
-		val2 = snd_soc_read(codec, WCD9335_VBADC_ADC_DOUTLSB);
-		snd_soc_write(codec, WCD9335_VBADC_ADC_IO, 0x80);
-
-		vbat->dcp1 = (((val1 & 0xFF) << 3) | (val2 & 0x07));
-
-		/* Measure dcp2 by applying band gap voltage(Vbg) of 1.05V */
-		snd_soc_write(codec, WCD9335_ANA_BIAS, 0x80);
-		snd_soc_write(codec, WCD9335_ANA_BIAS, 0xC0);
-		snd_soc_write(codec, WCD9335_BIAS_CTL, 0x68);
-		/* Wait 2 msec after selecting Vbg as 1.05V */
-		usleep_range(2000, 2100);
-
-		snd_soc_write(codec, WCD9335_ANA_BIAS, 0x80);
-		/* Wait 1 sec after enabling band gap bias */
-		usleep_range(1000000, 1000100);
-
-		snd_soc_write(codec, WCD9335_VBADC_ADC_IO, 0xC0);
-		val1 = snd_soc_read(codec, WCD9335_VBADC_ADC_DOUTMSB);
-		val2 = snd_soc_read(codec, WCD9335_VBADC_ADC_DOUTLSB);
-		snd_soc_write(codec, WCD9335_VBADC_ADC_IO, 0x80);
-
-		vbat->dcp2 = (((val1 & 0xFF) << 3) | (val2 & 0x07));
-
-		dev_dbg(codec->dev, "%s: dcp1:0x%x, dcp2:0x%x\n",
-				__func__, vbat->dcp1, vbat->dcp2);
-
-		/* Reset the Vbat ADC configuration */
-		snd_soc_write(codec, WCD9335_ANA_BIAS, 0x80);
-		snd_soc_write(codec, WCD9335_ANA_BIAS, 0xC0);
-
-		snd_soc_write(codec, WCD9335_BIAS_CTL, 0x28);
-		/* Wait 2 msec after selecting Vbg as 0.85V */
-		usleep_range(2000, 2100);
-
-		snd_soc_write(codec, WCD9335_ANA_BIAS, 0xA0);
-		/* Wait 1 sec after enabling band gap bias */
-		usleep_range(1000000, 1000100);
-
-		snd_soc_write(codec, WCD9335_VBADC_FE_CTRL, 0x1C);
-		snd_soc_write(codec, WCD9335_VBADC_SUBBLOCK_EN, 0xFE);
-		snd_soc_write(codec, WCD9335_VBADC_ADC_IO, 0x80);
-		snd_soc_write(codec, WCD9335_ANA_VBADC, 0x00);
-
-		snd_soc_write(codec, WCD9335_CDC_VBAT_VBAT_DEBUG1, 0x00);
-		snd_soc_write(codec, WCD9335_CDC_VBAT_VBAT_PATH_CTL, 0x00);
-		snd_soc_write(codec, WCD9335_CDC_VBAT_VBAT_CFG, 0x0A);
+		if (TASHA_IS_2_0(wcd9xxx->version))
+			wcd_vbat_adc_out_config_2_0(vbat, codec);
+		else
+			wcd_vbat_adc_out_config_1_x(vbat, codec);
 
 		tasha_cdc_mclk_enable(codec, false, false);
 		vbat->adc_config = true;
