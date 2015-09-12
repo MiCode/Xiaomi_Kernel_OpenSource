@@ -191,7 +191,6 @@ static int synaptics_rmi4_capacitance_button_map(
 				struct synaptics_rmi4_data *rmi4_data,
 				struct synaptics_rmi4_fn *fhandler);
 
-
 static irqreturn_t synaptics_rmi4_irq(int irq, void *data);
 
 #if defined(CONFIG_SECURE_TOUCH)
@@ -642,8 +641,8 @@ static ssize_t synaptics_secure_touch_enable_store(struct device *dev,
 			err = -EIO;
 			break;
 		}
-		INIT_COMPLETION(data->st_powerdown);
-		INIT_COMPLETION(data->st_irq_processed);
+		reinit_completion(&data->st_powerdown);
+		reinit_completion(&data->st_irq_processed);
 		atomic_set(&data->st_enabled, 1);
 		atomic_set(&data->st_pending_irqs,  0);
 		break;
@@ -2444,18 +2443,19 @@ static int synaptics_rmi4_capacitance_button_map(
 				"%s: Button map is missing in board file\n",
 				__func__);
 		return -ENODEV;
-	}
-	if (pdata->capacitance_button_map->nbuttons !=
-		f1a->button_count) {
-		f1a->valid_button_count = min(f1a->button_count,
-			pdata->capacitance_button_map->nbuttons);
 	} else {
-		f1a->valid_button_count = f1a->button_count;
-	}
+		if (pdata->capacitance_button_map->nbuttons !=
+			f1a->button_count) {
+			f1a->valid_button_count = min(f1a->button_count,
+				pdata->capacitance_button_map->nbuttons);
+		} else {
+			f1a->valid_button_count = f1a->button_count;
+		}
 
-	for (ii = 0; ii < f1a->valid_button_count; ii++)
-		f1a->button_map[ii] =
-				pdata->capacitance_button_map->map[ii];
+		for (ii = 0; ii < f1a->valid_button_count; ii++)
+			f1a->button_map[ii] =
+					pdata->capacitance_button_map->map[ii];
+	}
 
 	return 0;
 }
@@ -3308,8 +3308,8 @@ static int synaptics_rmi4_gpio_configure(struct synaptics_rmi4_data *rmi4_data,
 				irq_gpio);
 			if (retval) {
 				dev_err(&rmi4_data->i2c_client->dev,
-					"unable to set direction for gpio ",
-					"[%d]\n", rmi4_data->board->irq_gpio);
+				"unable to set direction for gpio [%d]\n",
+					rmi4_data->board->irq_gpio);
 				goto err_irq_gpio_dir;
 			}
 		} else {
@@ -3333,8 +3333,8 @@ static int synaptics_rmi4_gpio_configure(struct synaptics_rmi4_data *rmi4_data,
 				reset_gpio, 1);
 			if (retval) {
 				dev_err(&rmi4_data->i2c_client->dev,
-					"unable to set direction for gpio ",
-					"[%d]\n", rmi4_data->board->reset_gpio);
+				"unable to set direction for gpio [%d]\n",
+					rmi4_data->board->reset_gpio);
 				goto err_reset_gpio_dir;
 			}
 
@@ -3344,29 +3344,26 @@ static int synaptics_rmi4_gpio_configure(struct synaptics_rmi4_data *rmi4_data,
 			synaptics_rmi4_reset_command(rmi4_data);
 
 		return 0;
-	} else {
-		if (rmi4_data->board->disable_gpios) {
-			if (gpio_is_valid(rmi4_data->board->irq_gpio))
-				gpio_free(rmi4_data->board->irq_gpio);
-			if (gpio_is_valid(rmi4_data->board->reset_gpio)) {
-				/*
-				 * This is intended to save leakage current
-				 * only. Even if the call(gpio_direction_input)
-				 * fails, only leakage current will be more but
-				 * functionality will not be affected.
-				 */
-				retval = gpio_direction_input(rmi4_data->
-							board->reset_gpio);
-				if (retval) {
-					dev_err(&rmi4_data->i2c_client->dev,
-					"unable to set direction for gpio ",
-					"[%d]\n", rmi4_data->board->irq_gpio);
-				}
-				gpio_free(rmi4_data->board->reset_gpio);
+	}
+	if (rmi4_data->board->disable_gpios) {
+		if (gpio_is_valid(rmi4_data->board->irq_gpio))
+			gpio_free(rmi4_data->board->irq_gpio);
+		if (gpio_is_valid(rmi4_data->board->reset_gpio)) {
+			/*
+			 * This is intended to save leakage current
+			 * only. Even if the call(gpio_direction_input)
+			 * fails, only leakage current will be more but
+			 * functionality will not be affected.
+			 */
+			retval = gpio_direction_input(rmi4_data->
+						board->reset_gpio);
+			if (retval) {
+				dev_err(&rmi4_data->i2c_client->dev,
+				"unable to set direction for gpio [%d]\n",
+					rmi4_data->board->irq_gpio);
 			}
+			gpio_free(rmi4_data->board->reset_gpio);
 		}
-
-		return 0;
 	}
 
 	return 0;
@@ -4028,8 +4025,7 @@ static int synaptics_rmi4_regulator_lpm(struct synaptics_rmi4_data *rmi4_data,
 			load_ua);
 		if (retval < 0) {
 			dev_err(&rmi4_data->i2c_client->dev,
-				"Regulator vcc_i2c set_opt failed ",
-				"rc=%d\n", retval);
+			"Regulator vcc_i2c set_opt failed rc=%d\n", retval);
 			goto fail_regulator_lpm;
 		}
 
@@ -4037,8 +4033,8 @@ static int synaptics_rmi4_regulator_lpm(struct synaptics_rmi4_data *rmi4_data,
 			retval = regulator_disable(rmi4_data->vcc_i2c);
 			if (retval) {
 				dev_err(&rmi4_data->i2c_client->dev,
-					"Regulator vcc_i2c disable failed ",
-					"rc=%d\n", retval);
+				"Regulator vcc_i2c disable failed rc=%d\n",
+					retval);
 				goto fail_regulator_lpm;
 			}
 		}
@@ -4100,8 +4096,8 @@ regulator_hpm:
 			retval = regulator_enable(rmi4_data->vcc_i2c);
 			if (retval) {
 				dev_err(&rmi4_data->i2c_client->dev,
-					"Regulator vcc_i2c enable failed ",
-					"rc=%d\n", retval);
+				"Regulator vcc_i2c enable failed rc=%d\n",
+					retval);
 				goto fail_regulator_hpm;
 			}
 		}

@@ -810,8 +810,7 @@ static enum flash_area fwu_go_nogo(void)
 				sizeof(fwu->image_name));
 		if (!strptr) {
 			dev_err(&i2c_client->dev,
-				"No valid PR number (PRxxxxxxx)",
-				"found in image file name...\n");
+			"No valid PR number found in image file name...\n");
 			goto exit;
 		}
 
@@ -884,7 +883,7 @@ exit:
 	kfree(imagePR);
 	if (flash_area == MISMATCH)
 		dev_info(&i2c_client->dev,
-			"%s: Package ID indicates mismatch of firmware and",
+			"%s: Package ID indicates mismatch of firmware and"
 			" controller compatibility\n", __func__);
 	else if (flash_area == NONE)
 		dev_info(&i2c_client->dev,
