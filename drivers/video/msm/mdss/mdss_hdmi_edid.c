@@ -151,6 +151,8 @@ static int hdmi_edid_reset_parser(struct hdmi_edid_ctrl *edid_ctrl)
 	/* reset sink mode to DVI as default */
 	edid_ctrl->sink_mode = SINK_MODE_DVI;
 
+	edid_ctrl->sink_data.num_of_elements = 0;
+
 	/* reset scan info data */
 	edid_ctrl->pt_scan_info = 0;
 	edid_ctrl->it_scan_info = 0;
@@ -710,8 +712,8 @@ static void hdmi_edid_parse_Y420VDB(struct hdmi_edid_ctrl *edid_ctrl,
 	len = in_buf[0] & 0x1F;
 	/* Offset to byte 3 */
 	in_buf += 2;
-	for (i = 0; i < len; i++) {
-		video_format = *in_buf & 0x7F;
+	for (i = 0; i < len - 1; i++) {
+		video_format = *(in_buf + i) & 0x7F;
 		hdmi_edid_add_sink_y420_format(edid_ctrl, video_format);
 	}
 }
@@ -1695,7 +1697,6 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl)
 
 	sink_data = &edid_ctrl->sink_data;
 
-	sink_data->num_of_elements = 0;
 	sink_data->disp_multi_3d_mode_list_cnt = 0;
 	if (svd != NULL) {
 		++svd;
