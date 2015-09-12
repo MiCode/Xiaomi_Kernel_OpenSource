@@ -7,10 +7,12 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+#include <linux/bootmem.h>
 #include <linux/module.h>
 #include <linux/mm.h>
 #include <linux/gfp.h>
 #include <linux/errno.h>
+#include <linux/ioport.h>
 #include <linux/list.h>
 #include <linux/init.h>
 #include <linux/device.h>
@@ -24,11 +26,14 @@
 #include <linux/vmalloc.h>
 #include <linux/sizes.h>
 #include <linux/spinlock.h>
+#include <asm/dma-contiguous.h>
+#include <asm/tlbflush.h>
 
 struct removed_region {
 	phys_addr_t	base;
 	int		nr_pages;
 	unsigned long	*bitmap;
+	int		fixup;
 	struct mutex	lock;
 };
 
@@ -72,6 +77,140 @@ static int dma_assign_removed_region(struct device *dev,
 	return 0;
 }
 
+static void adapt_iomem_resource(unsigned long base_pfn, unsigned long end_pfn)
+{
+	struct resource *res, *conflict;
+	resource_size_t cstart, cend;
+
+	res = kzalloc(sizeof(*res), GFP_KERNEL);
+	if (!res)
+		return;
+
+	res->name  = "System RAM";
+	res->start = __pfn_to_phys(base_pfn);
+	res->end = __pfn_to_phys(end_pfn) - 1;
+	res->flags = IORESOURCE_MEM | IORESOURCE_BUSY;
+
+	conflict = request_resource_conflict(&iomem_resource, res);
+	if (!conflict) {
+		pr_err("Removed memory: no conflict resource found\n");
+		kfree(res);
+		goto done;
+	}
+
+	cstart = conflict->start;
+	cend = conflict->end;
+	if ((cstart == res->start) && (cend == res->end)) {
+		release_resource(conflict);
+	} else if ((res->start >= cstart) && (res->start <= cend)) {
+		if (res->start == cstart) {
+			adjust_resource(conflict, res->end + 1,
+					cend - res->end);
+		} else if (res->end == cend) {
+			adjust_resource(conflict, cstart,
+					res->start - cstart);
+		} else {
+			adjust_resource(conflict, cstart,
+					res->start - cstart);
+			res->start = res->end + 1;
+			res->end = cend;
+			request_resource(&iomem_resource, res);
+			goto done;
+		}
+	} else {
+		pr_err("Removed memory: incorrect resource conflict start=%llx end=%llx\n",
+				(unsigned long long) conflict->start,
+				(unsigned long long) conflict->end);
+	}
+
+	kfree(res);
+done:
+	return;
+}
+
+#ifdef CONFIG_FLATMEM
+static void free_memmap(unsigned long start_pfn, unsigned long end_pfn)
+{
+	struct page *start_pg, *end_pg;
+	unsigned long pg, pgend;
+
+	/*
+	 * Convert start_pfn/end_pfn to a struct page pointer.
+	 */
+	start_pg = pfn_to_page(start_pfn - 1) + 1;
+	end_pg = pfn_to_page(end_pfn - 1) + 1;
+
+	/*
+	 * Convert to physical addresses, and round start upwards and end
+	 * downwards.
+	 */
+	pg = (unsigned long)PAGE_ALIGN(__pa(start_pg));
+	pgend = (unsigned long)__pa(end_pg) & PAGE_MASK;
+
+	/*
+	 * If there are free pages between these, free the section of the
+	 * memmap array.
+	 */
+	if (pg < pgend)
+		free_bootmem_late(pg, pgend - pg);
+}
+#else
+static void free_memmap(unsigned long start_pfn, unsigned long end_pfn)
+{
+}
+#endif
+
+static int _clear_pte(pte_t *pte, pgtable_t token, unsigned long addr,
+			    void *data)
+{
+	pte_clear(&init_mm, addr, pte);
+	return 0;
+}
+
+static void clear_mapping(unsigned long addr, unsigned long size)
+{
+	apply_to_page_range(&init_mm, addr, size, _clear_pte, NULL);
+	/* ensure ptes are updated */
+	mb();
+	flush_tlb_kernel_range(addr, addr + size);
+}
+
+static void removed_region_fixup(struct removed_region *dma_mem, int index)
+{
+	unsigned long fixup_size;
+	unsigned long base_pfn;
+
+	if (index > dma_mem->nr_pages)
+		return;
+
+	/* carve-out */
+	memblock_free(dma_mem->base, dma_mem->nr_pages * PAGE_SIZE);
+	memblock_remove(dma_mem->base, index * PAGE_SIZE);
+
+	/* clear page-mappings */
+	base_pfn = dma_mem->base >> PAGE_SHIFT;
+	if (!PageHighMem(pfn_to_page(base_pfn))) {
+		clear_mapping((unsigned long) phys_to_virt(dma_mem->base),
+				index * PAGE_SIZE);
+	}
+
+	/* free page objects */
+	free_memmap(base_pfn, base_pfn + index);
+
+	/* return remaining area to system */
+	fixup_size = (dma_mem->nr_pages - index) * PAGE_SIZE;
+	free_bootmem_late(dma_mem->base + index * PAGE_SIZE, fixup_size);
+
+	/*
+	 * release freed resource region so as to show up under iomem resource
+	 * list
+	 */
+	adapt_iomem_resource(base_pfn, base_pfn + index);
+
+	/* limit the fixup region */
+	dma_mem->nr_pages = index;
+}
+
 void *removed_alloc(struct device *dev, size_t size, dma_addr_t *handle,
 		    gfp_t gfp, struct dma_attrs *attrs)
 {
@@ -107,6 +246,11 @@ void *removed_alloc(struct device *dev, size_t size, dma_addr_t *handle,
 		*handle = base;
 
 		bitmap_set(dma_mem->bitmap, pageno, nbits);
+
+		if (dma_mem->fixup) {
+			removed_region_fixup(dma_mem, pageno + nbits);
+			dma_mem->fixup = 0;
+		}
 
 		if (no_kernel_mapping && skip_zeroing) {
 			addr = (void *)NO_KERNEL_MAPPING_DUMMY;
@@ -254,6 +398,7 @@ static int rmem_dma_device_init(struct reserved_mem *rmem, struct device *dev)
                         &rmem->base, (unsigned long)rmem->size / SZ_1M);
                 return -EINVAL;
         }
+	mem->fixup = rmem->fixup;
 	set_dma_ops(dev, &removed_dma_ops);
         rmem->priv = mem;
         dma_assign_removed_region(dev, mem);
@@ -273,6 +418,25 @@ static const struct reserved_mem_ops removed_mem_ops = {
 
 static int __init removed_dma_setup(struct reserved_mem *rmem)
 {
+	unsigned long node = rmem->fdt_node;
+	int nomap, fixup;
+
+	nomap = of_get_flat_dt_prop(node, "no-map", NULL) != NULL;
+	fixup = of_get_flat_dt_prop(node, "no-map-fixup", NULL) != NULL;
+
+	if (nomap && fixup) {
+		pr_err("Removed memory: nomap & nomap-fixup can't co-exist\n");
+		return -EINVAL;
+	}
+
+	rmem->fixup = fixup;
+	if (rmem->fixup) {
+		/* Architecture specific contiguous memory fixup only for
+		 * no-map-fixup to split mappings
+		 */
+		dma_contiguous_early_fixup(rmem->base, rmem->size);
+	}
+
         rmem->ops = &removed_mem_ops;
         pr_info("Removed memory: created DMA memory pool at %pa, size %ld MiB\n",
                 &rmem->base, (unsigned long)rmem->size / SZ_1M);
