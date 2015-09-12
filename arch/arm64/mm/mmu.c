@@ -306,11 +306,26 @@ void __init remap_as_pages(unsigned long start, unsigned long size)
 	unsigned long end = start + size;
 
 	/*
+	 * Make start and end PMD_SIZE aligned, observing memory
+	 * boundaries
+	 */
+	if (memblock_is_memory(start & PMD_MASK))
+		start = start & PMD_MASK;
+	if (memblock_is_memory(ALIGN(end, PMD_SIZE)))
+		end = ALIGN(end, PMD_SIZE);
+
+	size = end - start;
+
+	/*
 	 * Clear previous low-memory mapping
 	 */
 	for (addr = __phys_to_virt(start); addr < __phys_to_virt(end);
-	     addr += PMD_SIZE)
-		pmd_clear(pmd_off_k(addr));
+	     addr += PMD_SIZE) {
+		pmd_t *pmd;
+		pmd = pmd_off_k(addr);
+		if (pmd_bad(*pmd) || pmd_sect(*pmd))
+			pmd_clear(pmd);
+	}
 
 	create_mapping(start, __phys_to_virt(start), size, PAGE_KERNEL, true);
 }
