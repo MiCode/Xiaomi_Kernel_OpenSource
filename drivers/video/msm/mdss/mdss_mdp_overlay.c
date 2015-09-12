@@ -425,7 +425,7 @@ int mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe,
 		 */
 		if (mdata->has_decimation && (pipe->vert_deci < MAX_DECIMATION)
 			&& !pipe->bwc_mode && !pipe->scale.enable_pxl_ext &&
-			(pipe->src_fmt == MDSS_MDP_FETCH_LINEAR))
+			mdss_mdp_is_linear_format(pipe->src_fmt))
 			pipe->vert_deci++;
 		else
 			return -E2BIG;
