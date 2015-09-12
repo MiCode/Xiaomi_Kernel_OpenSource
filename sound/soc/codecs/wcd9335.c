@@ -95,6 +95,9 @@
 #define CPE_FLL_CLK_150MHZ 150000000
 #define WCD9335_REG_BITS 8
 
+#define WCD9335_MAX_VALID_ADC_MUX  13
+#define WCD9335_INVALID_ADC_MUX 9
+
 #define TASHA_DIG_CORE_REG_MIN  WCD9335_CDC_ANC0_CLK_RESET_CTL
 #define TASHA_DIG_CORE_REG_MAX  0xDFF
 
@@ -3697,6 +3700,98 @@ static int tasha_codec_set_iir_gain(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int tasha_codec_find_amic_input(struct snd_soc_codec *codec,
+				       int adc_mux_n)
+{
+	u16 mask, shift, adc_mux_in_reg;
+	u16 amic_mux_sel_reg;
+	bool is_amic;
+
+	if (adc_mux_n < 0 || adc_mux_n > WCD9335_MAX_VALID_ADC_MUX ||
+	    adc_mux_n == WCD9335_INVALID_ADC_MUX)
+		return 0;
+
+	/* Check whether adc mux input is AMIC or DMIC */
+	if (adc_mux_n < 4) {
+		adc_mux_in_reg = WCD9335_CDC_TX_INP_MUX_ADC_MUX0_CFG1 +
+				 2 * adc_mux_n;
+		amic_mux_sel_reg = WCD9335_CDC_TX_INP_MUX_ADC_MUX0_CFG0 +
+				   2 * adc_mux_n;
+		mask = 0x03;
+		shift = 0;
+	} else {
+		adc_mux_in_reg = WCD9335_CDC_TX_INP_MUX_ADC_MUX4_CFG0 +
+				 adc_mux_n - 4;
+		amic_mux_sel_reg = adc_mux_in_reg;
+		mask = 0xC0;
+		shift = 6;
+	}
+	is_amic = (((snd_soc_read(codec, adc_mux_in_reg) & mask) >> shift)
+		    == 1);
+	if (!is_amic)
+		return 0;
+
+	return snd_soc_read(codec, amic_mux_sel_reg) & 0x07;
+}
+
+static void tasha_codec_set_tx_hold(struct snd_soc_codec *codec,
+				    u16 amic_reg, bool set)
+{
+	u8 mask = 0x20;
+	u8 val;
+
+	if (amic_reg == WCD9335_ANA_AMIC1 ||
+	    amic_reg == WCD9335_ANA_AMIC3 ||
+	    amic_reg == WCD9335_ANA_AMIC5)
+		mask = 0x40;
+
+	val = set ? mask : 0x00;
+
+	switch (amic_reg) {
+	case WCD9335_ANA_AMIC1:
+	case WCD9335_ANA_AMIC2:
+		snd_soc_update_bits(codec, WCD9335_ANA_AMIC2, mask, val);
+		break;
+	case WCD9335_ANA_AMIC3:
+	case WCD9335_ANA_AMIC4:
+		snd_soc_update_bits(codec, WCD9335_ANA_AMIC4, mask, val);
+		break;
+	case WCD9335_ANA_AMIC5:
+	case WCD9335_ANA_AMIC6:
+		snd_soc_update_bits(codec, WCD9335_ANA_AMIC6, mask, val);
+		break;
+	default:
+		dev_dbg(codec->dev, "%s: invalid amic: %d\n",
+			__func__, amic_reg);
+		break;
+	}
+}
+
+static int tasha_codec_tx_adc_cfg(struct snd_soc_dapm_widget *w,
+				  struct snd_kcontrol *kcontrol, int event)
+{
+	int adc_mux_n = w->shift;
+	struct snd_soc_codec *codec = w->codec;
+	int amic_n;
+	u16 amic_reg;
+
+	dev_dbg(codec->dev, "%s: event: %d\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		amic_n = tasha_codec_find_amic_input(codec, adc_mux_n);
+		if (amic_n) {
+			amic_reg = WCD9335_ANA_AMIC1 + amic_n - 1;
+			tasha_codec_set_tx_hold(codec, amic_reg, false);
+		}
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 #define  TX_HPF_CUT_OFF_FREQ_MASK	0x60
 #define  CF_MIN_3DB_4HZ			0x0
 #define  CF_MIN_3DB_75HZ		0x1
@@ -3710,8 +3805,8 @@ static int tasha_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	char *dec_adc_mux_name = NULL;
 	char *widget_name = NULL;
 	char *wname;
-	int ret = 0;
-	u16 tx_vol_ctl_reg;
+	int ret = 0, amic_n;
+	u16 tx_vol_ctl_reg, amic_reg;
 	char *dec;
 
 	dev_dbg(codec->dev, "%s %d\n", __func__, event);
@@ -3759,6 +3854,11 @@ static int tasha_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMU:
 		/* Remove Mute */
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x00);
+		amic_n = tasha_codec_find_amic_input(codec, decimator);
+		if (amic_n) {
+			amic_reg = WCD9335_ANA_AMIC1 + amic_n - 1;
+			tasha_codec_set_tx_hold(codec, amic_reg, false);
+		}
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x10);
@@ -3824,6 +3924,24 @@ static u8 tasha_get_dmic_clk_val(struct snd_soc_codec *codec,
 
 done:
 	return dmic_ctl_val;
+}
+
+static int tasha_codec_enable_adc(struct snd_soc_dapm_widget *w,
+		struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+
+	dev_dbg(codec->dev, "%s: event:%d\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		tasha_codec_set_tx_hold(codec, w->reg, true);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
 }
 
 static int tasha_codec_enable_dmic(struct snd_soc_dapm_widget *w,
@@ -7613,18 +7731,21 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 			   SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 
-	SND_SOC_DAPM_MUX("ADC MUX10", SND_SOC_NOPM, 0, 0,
-			 &tx_adc_mux10),
+	SND_SOC_DAPM_MUX_E("ADC MUX10", SND_SOC_NOPM, 0, 10,
+			 &tx_adc_mux10, tasha_codec_tx_adc_cfg,
+			 SND_SOC_DAPM_POST_PMU),
 
-	SND_SOC_DAPM_MUX("ADC MUX11", SND_SOC_NOPM, 0, 0,
-			 &tx_adc_mux11),
+	SND_SOC_DAPM_MUX_E("ADC MUX11", SND_SOC_NOPM, 0, 11,
+			 &tx_adc_mux11, tasha_codec_tx_adc_cfg,
+			 SND_SOC_DAPM_POST_PMU),
 
-	SND_SOC_DAPM_MUX("ADC MUX12", SND_SOC_NOPM, 0, 0,
-			 &tx_adc_mux12),
+	SND_SOC_DAPM_MUX_E("ADC MUX12", SND_SOC_NOPM, 0, 12,
+			 &tx_adc_mux12, tasha_codec_tx_adc_cfg,
+			 SND_SOC_DAPM_POST_PMU),
 
-	SND_SOC_DAPM_MUX("ADC MUX13", SND_SOC_NOPM, 0, 0,
-			 &tx_adc_mux13),
-
+	SND_SOC_DAPM_MUX_E("ADC MUX13", SND_SOC_NOPM, 0, 13,
+			 &tx_adc_mux13, tasha_codec_tx_adc_cfg,
+			 SND_SOC_DAPM_POST_PMU),
 
 	SND_SOC_DAPM_MUX("DMIC MUX0", SND_SOC_NOPM, 0, 0,
 		&tx_dmic_mux0),
@@ -7680,12 +7801,18 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_MUX("AMIC MUX13", SND_SOC_NOPM, 0, 0,
 		&tx_amic_mux13),
 
-	SND_SOC_DAPM_ADC("ADC1", NULL, WCD9335_ANA_AMIC1, 7, 0),
-	SND_SOC_DAPM_ADC("ADC2", NULL, WCD9335_ANA_AMIC2, 7, 0),
-	SND_SOC_DAPM_ADC("ADC3", NULL, WCD9335_ANA_AMIC3, 7, 0),
-	SND_SOC_DAPM_ADC("ADC4", NULL, WCD9335_ANA_AMIC4, 7, 0),
-	SND_SOC_DAPM_ADC("ADC5", NULL, WCD9335_ANA_AMIC5, 7, 0),
-	SND_SOC_DAPM_ADC("ADC6", NULL, WCD9335_ANA_AMIC6, 7, 0),
+	SND_SOC_DAPM_ADC_E("ADC1", NULL, WCD9335_ANA_AMIC1, 7, 0,
+			   tasha_codec_enable_adc, SND_SOC_DAPM_PRE_PMU),
+	SND_SOC_DAPM_ADC_E("ADC2", NULL, WCD9335_ANA_AMIC2, 7, 0,
+			   tasha_codec_enable_adc, SND_SOC_DAPM_PRE_PMU),
+	SND_SOC_DAPM_ADC_E("ADC3", NULL, WCD9335_ANA_AMIC3, 7, 0,
+			   tasha_codec_enable_adc, SND_SOC_DAPM_PRE_PMU),
+	SND_SOC_DAPM_ADC_E("ADC4", NULL, WCD9335_ANA_AMIC4, 7, 0,
+			   tasha_codec_enable_adc, SND_SOC_DAPM_PRE_PMU),
+	SND_SOC_DAPM_ADC_E("ADC5", NULL, WCD9335_ANA_AMIC5, 7, 0,
+			   tasha_codec_enable_adc, SND_SOC_DAPM_PRE_PMU),
+	SND_SOC_DAPM_ADC_E("ADC6", NULL, WCD9335_ANA_AMIC6, 7, 0,
+			   tasha_codec_enable_adc, SND_SOC_DAPM_PRE_PMU),
 
 	SND_SOC_DAPM_SUPPLY("COMP1_CLK", SND_SOC_NOPM, COMPANDER_1, 0,
 			    tasha_config_compander, SND_SOC_DAPM_PRE_PMU |
