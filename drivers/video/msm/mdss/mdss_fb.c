@@ -927,11 +927,23 @@ static void mdss_fb_videomode_from_panel_timing(struct fb_videomode *videomode,
 	videomode->upper_margin = pt->v_back_porch;
 	videomode->lower_margin = pt->v_front_porch;
 	videomode->vsync_len = pt->v_pulse_width;
-	videomode->pixclock = pt->clk_rate;
 	videomode->refresh = pt->frame_rate;
 	videomode->flag = 0;
 	videomode->vmode = 0;
 	videomode->sync = 0;
+
+	if (videomode->refresh) {
+		unsigned long clk_rate, h_total, v_total;
+
+		h_total = videomode->xres + videomode->left_margin
+			+ videomode->right_margin + videomode->hsync_len;
+		v_total = videomode->yres + videomode->lower_margin
+			+ videomode->upper_margin + videomode->vsync_len;
+		clk_rate = h_total * v_total * videomode->refresh;
+		videomode->pixclock = KHZ2PICOS(clk_rate / 1000);
+	} else {
+		videomode->pixclock = KHZ2PICOS(pt->clk_rate / 1000);
+	}
 }
 
 static int mdss_fb_init_panel_modes(struct msm_fb_data_type *mfd,
@@ -986,6 +998,12 @@ static int mdss_fb_init_panel_modes(struct msm_fb_data_type *mfd,
 
 	fbi->monspecs.modedb = modedb;
 	fbi->monspecs.modedb_len = num_timings;
+
+	/* destroy and recreate modelist */
+	fb_destroy_modelist(&fbi->modelist);
+
+	if (fbi->mode)
+		fb_videomode_to_var(&fbi->var, fbi->mode);
 	fb_videomode_to_modelist(modedb, num_timings, &fbi->modelist);
 
 	return 0;
@@ -2264,7 +2282,6 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	struct fb_fix_screeninfo *fix;
 	struct fb_var_screeninfo *var;
 	int *id;
-	u64 clk_rate;
 
 	/*
 	 * fb info initialization
@@ -2395,7 +2412,7 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 		return ret;
 	}
 
-	var->xres = mdss_fb_get_panel_xres(panel_info);
+	mdss_panelinfo_to_fb_var(panel_info, var);
 
 	fix->type = panel_info->is_3d_panel;
 	if (mfd->mdp.fb_stride)
@@ -2404,28 +2421,13 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	else
 		fix->line_length = var->xres * bpp;
 
-	var->yres = panel_info->yres;
-	if (panel_info->physical_width)
-		var->width = panel_info->physical_width;
-	if (panel_info->physical_height)
-		var->height = panel_info->physical_height;
 	var->xres_virtual = var->xres;
 	var->yres_virtual = panel_info->yres * mfd->fb_page;
 	var->bits_per_pixel = bpp * 8;	/* FrameBuffer color depth */
-	var->upper_margin = panel_info->lcdc.v_back_porch;
-	var->lower_margin = panel_info->lcdc.v_front_porch;
-	var->vsync_len = panel_info->lcdc.v_pulse_width;
-	var->left_margin = panel_info->lcdc.h_back_porch;
-	var->right_margin = panel_info->lcdc.h_front_porch;
-	var->hsync_len = panel_info->lcdc.h_pulse_width;
-	clk_rate = panel_info->clk_rate;
-	do_div(clk_rate, 1000U);
-	var->pixclock = (u32) clk_rate;
 
 	/*
 	 * Populate smem length here for uspace to get the
-	 * Framebuffer size when FBIO_FSCREENINFO ioctl is
-	 * called.
+	 * Framebuffer size when FBIO_FSCREENINFO ioctl is called.
 	 */
 	fix->smem_len = PAGE_ALIGN(fix->line_length * var->yres) * mfd->fb_page;
 
@@ -3234,7 +3236,6 @@ static void mdss_fb_var_to_panelinfo(struct fb_var_screeninfo *var,
 	pinfo->lcdc.h_front_porch = var->right_margin;
 	pinfo->lcdc.h_back_porch = var->left_margin;
 	pinfo->lcdc.h_pulse_width = var->hsync_len;
-	pinfo->clk_rate = var->pixclock;
 
 	if (var->grayscale > 1) {
 		format = mdss_grayscale_to_mdp_format(var->grayscale);
@@ -3244,15 +3245,22 @@ static void mdss_fb_var_to_panelinfo(struct fb_var_screeninfo *var,
 			pr_warn("Failed to map grayscale value (%d) to an MDP format\n",
 					var->grayscale);
 	}
+
+	/*
+	 * if greater than 1M, then rate would fall below 1mhz which is not
+	 * even supported. In this case it means clock rate is actually
+	 * passed directly in hz.
+	 */
+	if (var->pixclock > SZ_1M)
+		pinfo->clk_rate = var->pixclock;
+	else
+		pinfo->clk_rate = PICOS2KHZ(var->pixclock) * 1000;
 }
 
 static void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
 						struct fb_var_screeninfo *var)
 {
-	struct mdss_panel_data *pdata = container_of(pinfo,
-				struct mdss_panel_data, panel_info);
-
-	var->xres = mdss_fb_get_panel_xres(&pdata->panel_info);
+	var->xres = mdss_fb_get_panel_xres(pinfo);
 	var->yres = pinfo->yres;
 	var->lower_margin = pinfo->lcdc.v_front_porch -
 		pinfo->prg_fet;
@@ -3262,7 +3270,12 @@ static void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
 	var->right_margin = pinfo->lcdc.h_front_porch;
 	var->left_margin = pinfo->lcdc.h_back_porch;
 	var->hsync_len = pinfo->lcdc.h_pulse_width;
-	var->pixclock = (u32)pinfo->clk_rate;
+	var->pixclock = KHZ2PICOS(pinfo->clk_rate / 1000);
+
+	if (pinfo->physical_width)
+		var->width = pinfo->physical_width;
+	if (pinfo->physical_height)
+		var->height = pinfo->physical_height;
 }
 
 /**
@@ -3610,6 +3623,13 @@ static int mdss_fb_set_par(struct fb_info *info)
 		mode = fb_match_mode(var, &info->modelist);
 		if (!mode)
 			return -EINVAL;
+
+		pr_debug("found mode: %s\n", mode->name);
+
+		if (fb_mode_is_equal(mode, info->mode)) {
+			pr_debug("mode is equal to current mode\n");
+			return 0;
+		}
 
 		ret = mdss_fb_videomode_switch(mfd, mode);
 		if (ret)
