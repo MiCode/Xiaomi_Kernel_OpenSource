@@ -4286,6 +4286,15 @@ static void __unload_fw(struct venus_hfi_device *device)
 	if (device->state != VENUS_STATE_DEINIT)
 		flush_workqueue(device->venus_pm_workq);
 	__halt_axi(device);
+
+	/*
+	 * If the core_clk is asserted, then PIL cannot enable
+	 * any of the venus clocks. So deassert the clock before
+	 * calling subsystem_put.
+	 */
+	if (__core_clk_reset(device, CLK_RESET_DEASSERT))
+		dprintk(VIDC_ERR, "failed to deassert core_clk\n");
+
 	subsystem_put(device->resources.fw.cookie);
 	__interface_queues_release(device);
 	__venus_power_off(device, false);
