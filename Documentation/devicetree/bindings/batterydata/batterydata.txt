@@ -52,6 +52,17 @@ Profile data node optional properties:
 - qcom,chg-rs-to-rslow: A constant for rslow compensation in the fuel gauge.
 			This will be provided by the profiling tool for
 			additional fuel gauge accuracy during charging.
+- qcom,fastchg-current-ma: Specifies the maximum fastcharge current.
+- qcom,fg-cc-cv-threshold-mv: Voltage threshold in mV for transition from constant
+			charge (CC) to constant voltage (CV). This value should
+			be 10 mV less than the float voltage.
+			This property should only be specified if
+			"qcom,autoadjust-vfloat" property is specified in the
+			charger driver to ensure a proper operation.
+- qcom,thermal-coefficients: Byte array of thermal coefficients for reading
+			battery thermistor. This should be exactly 6 bytes
+			in length.
+			Example: [01 02 03 04 05 06]
 
 Profile data node required subnodes:
 - qcom,fcc-temp-lut : An 1-dimensional lookup table node that encodes

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -276,6 +276,10 @@ static int of_batterydata_load_battery_data(struct device_node *node,
 			"max-voltage-uv", node, rc, true);
 	OF_PROP_READ(batt_data->cutoff_uv, "v-cutoff-uv", node, rc, true);
 	OF_PROP_READ(batt_data->iterm_ua, "chg-term-ua", node, rc, true);
+	OF_PROP_READ(batt_data->fastchg_current_ma,
+			"fastchg-current-ma", node, rc, true);
+	OF_PROP_READ(batt_data->fg_cc_cv_threshold_mv,
+			"fg-cc-cv-threshold-mv", node, rc, true);
 
 	batt_data->batt_id_kohm = best_id_kohm;
 
