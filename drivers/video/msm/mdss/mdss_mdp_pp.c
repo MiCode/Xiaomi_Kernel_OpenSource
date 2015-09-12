@@ -2173,6 +2173,7 @@ int mdss_mdp_pp_resume(struct msm_fb_data_type *mfd)
 	if ((PP_AD_STATE_DATA & ad->state) &&
 			(ad->sts & PP_STS_ENABLE))
 		ad->sts |= PP_AD_STS_DIRTY_DATA;
+	ad->state &= ~PP_AD_STATE_VSYNC;
 	mutex_unlock(&ad->lock);
 
 	return 0;
@@ -5464,10 +5465,10 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 			/* Clear state and regs when going to off state*/
 			ad->sts = 0;
 			ad->sts |= PP_AD_STS_DIRTY_VSYNC;
-			ad->state &= !PP_AD_STATE_INIT;
-			ad->state &= !PP_AD_STATE_CFG;
-			ad->state &= !PP_AD_STATE_DATA;
-			ad->state &= !PP_AD_STATE_BL_LIN;
+			ad->state &= ~PP_AD_STATE_INIT;
+			ad->state &= ~PP_AD_STATE_CFG;
+			ad->state &= ~PP_AD_STATE_DATA;
+			ad->state &= ~PP_AD_STATE_BL_LIN;
 			ad->ad_data = 0;
 			ad->ad_data_mode = 0;
 			ad->last_bl = 0;
