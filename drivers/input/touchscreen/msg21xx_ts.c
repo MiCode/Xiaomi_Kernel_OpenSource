@@ -108,13 +108,6 @@ struct msg21xx_ts_platform_data {
 	u32 panel_maxx;
 	u32 panel_maxy;
 	u32 num_max_touches;
-	bool no_force_update;
-	bool i2c_pull_up;
-	bool ignore_id_check;
-	int (*power_init)(bool);
-	int (*power_on)(bool);
-	int (*power_init)(bool);
-	int (*power_on)(bool);
 	u8 ic_type;
 	u32 button_map[MAX_BUTTONS];
 	u32 num_buttons;
@@ -221,13 +214,17 @@ static void _CRC_initTable(void)
 
 static void msg21xx_reset_hw(struct msg21xx_ts_platform_data *pdata)
 {
+	unsigned int delay;
+
 	gpio_direction_output(pdata->reset_gpio, 1);
 	gpio_set_value_cansleep(pdata->reset_gpio, 0);
 	/* Note that the RST must be in LOW 10ms at least */
-	usleep(pdata->hard_reset_delay_ms * 1000);
+	delay = pdata->hard_reset_delay_ms * 1000;
+	usleep_range(delay, delay + 1);
 	gpio_set_value_cansleep(pdata->reset_gpio, 1);
 	/* Enable the interrupt service thread/routine for INT after 50ms */
-	usleep(pdata->post_hard_reset_delay_ms * 1000);
+	delay = pdata->post_hard_reset_delay_ms * 1000;
+	usleep_range(delay, delay + 1);
 }
 
 static int read_i2c_seq(struct msg21xx_ts_data *ts_data, unsigned char addr,
@@ -308,7 +305,6 @@ static void write_reg(struct msg21xx_ts_data *ts_data, unsigned char bank,
 {
 	unsigned char tx_data[5] = {0x10, bank, addr, data & 0xFF, data >> 8};
 
-	write_i2c_seq(SLAVE_I2C_ID_DBBUS, &tx_data[0], 5);
 	write_i2c_seq(ts_data, SLAVE_I2C_ID_DBBUS, tx_data, sizeof(tx_data));
 }
 
@@ -318,7 +314,6 @@ static void write_reg_8bit(struct msg21xx_ts_data *ts_data, unsigned char bank,
 {
 	unsigned char tx_data[4] = {0x10, bank, addr, data};
 
-	write_i2c_seq(SLAVE_I2C_ID_DBBUS, &tx_data[0], 4);
 	write_i2c_seq(ts_data, SLAVE_I2C_ID_DBBUS, tx_data, sizeof(tx_data));
 }
 
@@ -445,30 +440,6 @@ static int firmware_erase_c33(struct msg21xx_ts_data *ts_data,
 	if (emem_type == EMEM_MAIN)
 		write_reg_8bit(ts_data, 0x16, 0x0E, 0x04); /* erase main */
 	else
-		write_reg_8bit(0x16, 0x0E, 0x08); /*erase all block*/
-
-	return 1;
-}
-
-static void _ReadBinConfig(void);
-static unsigned int _CalMainCRC32(void);
-
-static int check_fw_update(void)
-{
-	int ret = 0;
-
-	msg21xx_read_firmware_id();
-	_ReadBinConfig();
-	if (main_sw_id == info_sw_id) {
-		if (_CalMainCRC32() == bin_conf_crc32) {
-			/*check upgrading*/
-			if ((update_bin_major == pdata->fw_version_major) &&
-				(update_bin_minor > pdata->fw_version_minor)) {
-				ret = 1;
-			}
-		}
-	}
-	return ret;
 		write_reg_8bit(ts_data, 0x16, 0x0E, 0x08); /* erase all block */
 
 	return 0;
@@ -1252,12 +1223,6 @@ static irqreturn_t msg21xx_ts_interrupt(int irq, void *dev_id)
 			}
 		}
 
-		if (last_count > info.count) {
-			for (i = info.count; i < MAX_TOUCH_NUM; i++) {
-				input_mt_slot(input_dev, i);
-				input_mt_report_slot_state(input_dev,
-		}
-
 		if (last_count > ts_data->info.count) {
 			for (i = ts_data->info.count;
 				i < ts_data->pdata->num_max_touches;
@@ -1374,8 +1339,6 @@ static int msg21xx_ts_power_on(struct msg21xx_ts_data *ts_data, bool on)
 
 	return rc;
 
-	DBG("*** %s ***\n", __func__);
-	rc = regulator_disable(vdd);
 power_off:
 	rc = regulator_disable(ts_data->vdd);
 	if (rc) {
@@ -1433,20 +1396,6 @@ static int msg21xx_ts_gpio_configure(struct msg21xx_ts_data *ts_data, bool on)
 			goto err_reset_gpio_req;
 		}
 
-	} else {
-		if (gpio_is_valid(pdata->irq_gpio))
-			gpio_free(pdata->irq_gpio);
-		if (gpio_is_valid(pdata->reset_gpio)) {
-			gpio_set_value_cansleep(pdata->reset_gpio, 0);
-			ret = gpio_direction_input(pdata->reset_gpio);
-			if (ret)
-				dev_err(&i2c_client->dev,
-					"Unable to set direction for gpio [%d]\n",
-					pdata->reset_gpio);
-			gpio_free(pdata->reset_gpio);
-		}
-	}
-	return 0;
 		/* power on TP */
 		ret = gpio_direction_output(
 					ts_data->pdata->reset_gpio, 1);
@@ -1894,20 +1843,6 @@ static int msg21xx_ts_probe(struct i2c_client *client,
 	for (i = 0; i < pdata->num_buttons; i++)
 		input_set_capability(input_dev, EV_KEY, pdata->button_map[i]);
 
-	input_set_drvdata(input_dev, ts_data);
-	i2c_set_clientdata(client, ts_data);
-
-#ifdef CONFIG_TP_HAVE_KEY
-	{
-		int i;
-
-		for (i = 0; i < num_buttons; i++)
-			input_set_capability(input_dev, EV_KEY, button_map[i]);
-	}
-#endif
-
-	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR,
-				0, 2, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR, 0, 2, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X,
 			0, pdata->x_max, 0, 0);
