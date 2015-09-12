@@ -79,16 +79,18 @@ void *removed_alloc(struct device *dev, size_t size, dma_addr_t *handle,
 					attrs);
 	bool skip_zeroing = dma_get_attr(DMA_ATTR_SKIP_ZEROING, attrs);
 	int pageno;
-	unsigned long order = get_order(size);
+	unsigned long order;
 	void *addr = NULL;
 	struct removed_region *dma_mem = dev->removed_mem;
-	int nbits = size >> PAGE_SHIFT;
+	int nbits;
 	unsigned int align;
-
-	size = PAGE_ALIGN(size);
 
 	if (!(gfp & __GFP_WAIT))
 		return NULL;
+
+	size = PAGE_ALIGN(size);
+	nbits = size >> PAGE_SHIFT;
+	order = get_order(size);
 
 	if (order > get_order(SZ_1M))
 		order = get_order(SZ_1M);
