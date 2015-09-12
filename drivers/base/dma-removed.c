@@ -1,6 +1,6 @@
 /*
  *
- *  Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ *  Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *  Copyright (C) 2000-2004 Russell King
  *
  * This program is free software; you can redistribute it and/or modify
@@ -118,7 +118,7 @@ void *removed_alloc(struct device *dev, size_t size, dma_addr_t *handle,
 			bitmap_clear(dma_mem->bitmap, pageno, nbits);
 		} else {
 			if (!skip_zeroing)
-				memset(addr, 0, size);
+				memset_io(addr, 0, size);
 			if (no_kernel_mapping) {
 				iounmap(addr);
 				addr = (void *)NO_KERNEL_MAPPING_DUMMY;
