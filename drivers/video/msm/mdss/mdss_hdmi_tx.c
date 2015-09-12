@@ -3346,13 +3346,8 @@ static int hdmi_tx_start(struct hdmi_tx_ctrl *hdmi_ctrl)
 		hdmi_tx_set_spd_infoframe(hdmi_ctrl);
 	}
 
-	rc = hdmi_tx_setup_scrambler(hdmi_ctrl);
-	if (rc) {
-		DEV_ERR("%s: Scrambler setup failed\n", __func__);
-		hdmi_tx_set_mode(hdmi_ctrl, false);
-		return rc;
-	}
-	/* todo: CEC */
+	if (hdmi_tx_setup_scrambler(hdmi_ctrl))
+		DEV_WARN("%s: Scrambler setup failed\n", __func__);
 
 	DEV_INFO("%s: HDMI Core: Initialized\n", __func__);
 
@@ -4032,6 +4027,12 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 		break;
 
 	case MDSS_EVENT_RESET:
+		if (hdmi_ctrl->hpd_initialized) {
+			hdmi_tx_set_mode(hdmi_ctrl, false);
+			hdmi_tx_phy_reset(hdmi_ctrl);
+			hdmi_tx_set_mode(hdmi_ctrl, true);
+		}
+
 		if (hdmi_ctrl->panel_suspend) {
 			u32 timeout;
 			hdmi_ctrl->panel_suspend = false;
