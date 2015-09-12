@@ -114,6 +114,17 @@
 
 #define TASHA_VERSION_ENTRY_SIZE 17
 
+#define WCD9335_AMIC_PWR_LEVEL_LP 0
+#define WCD9335_AMIC_PWR_LEVEL_DEFAULT 1
+#define WCD9335_AMIC_PWR_LEVEL_HP 2
+#define WCD9335_AMIC_PWR_LVL_MASK 0x60
+#define WCD9335_AMIC_PWR_LVL_SHIFT 0x5
+
+#define WCD9335_DEC_PWR_LVL_MASK 0x06
+#define WCD9335_DEC_PWR_LVL_LP 0x02
+#define WCD9335_DEC_PWR_LVL_HP 0x04
+#define WCD9335_DEC_PWR_LVL_DF 0x00
+
 static int cpe_debug_mode;
 
 #define TASHA_MAX_MICBIAS 4
@@ -3792,6 +3803,34 @@ static int tasha_codec_tx_adc_cfg(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static u16 tasha_codec_get_amic_pwlvl_reg(struct snd_soc_codec *codec, int amic)
+{
+	u16 pwr_level_reg = 0;
+
+	switch (amic) {
+	case 1:
+	case 2:
+		pwr_level_reg = WCD9335_ANA_AMIC1;
+		break;
+
+	case 3:
+	case 4:
+		pwr_level_reg = WCD9335_ANA_AMIC3;
+		break;
+
+	case 5:
+	case 6:
+		pwr_level_reg = WCD9335_ANA_AMIC5;
+		break;
+	default:
+		dev_dbg(codec->dev, "%s: invalid amic: %d\n",
+			__func__, amic);
+		break;
+	}
+
+	return pwr_level_reg;
+}
+
 #define  TX_HPF_CUT_OFF_FREQ_MASK	0x60
 #define  CF_MIN_3DB_4HZ			0x0
 #define  CF_MIN_3DB_75HZ		0x1
@@ -3806,7 +3845,7 @@ static int tasha_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	char *widget_name = NULL;
 	char *wname;
 	int ret = 0, amic_n;
-	u16 tx_vol_ctl_reg, amic_reg;
+	u16 tx_vol_ctl_reg, amic_reg, pwr_level_reg = 0, dec_cfg_reg;
 	char *dec;
 
 	dev_dbg(codec->dev, "%s %d\n", __func__, event);
@@ -3848,6 +3887,37 @@ static int tasha_codec_enable_dec(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		dec_cfg_reg = WCD9335_CDC_TX0_TX_PATH_CFG0 + 16 * decimator;
+
+		amic_n = tasha_codec_find_amic_input(codec, decimator);
+		if (amic_n)
+			pwr_level_reg = tasha_codec_get_amic_pwlvl_reg(codec,
+								       amic_n);
+
+		if (pwr_level_reg) {
+			switch ((snd_soc_read(codec, pwr_level_reg) &
+					      WCD9335_AMIC_PWR_LVL_MASK) >>
+					      WCD9335_AMIC_PWR_LVL_SHIFT) {
+			case WCD9335_AMIC_PWR_LEVEL_LP:
+				snd_soc_update_bits(codec, dec_cfg_reg,
+						    WCD9335_DEC_PWR_LVL_MASK,
+						    WCD9335_DEC_PWR_LVL_LP);
+				break;
+
+			case WCD9335_AMIC_PWR_LEVEL_HP:
+				snd_soc_update_bits(codec, dec_cfg_reg,
+						    WCD9335_DEC_PWR_LVL_MASK,
+						    WCD9335_DEC_PWR_LVL_HP);
+				break;
+			case WCD9335_AMIC_PWR_LEVEL_DEFAULT:
+			default:
+				snd_soc_update_bits(codec, dec_cfg_reg,
+						    WCD9335_DEC_PWR_LVL_MASK,
+						    WCD9335_DEC_PWR_LVL_DF);
+				break;
+			}
+		}
+
 		/* Enable TX PGA Mute */
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x10);
 		break;
@@ -5428,6 +5498,51 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX INT7 MIX2 INP", "SRC1", "SRC1"},
 };
 
+static int tasha_amic_pwr_lvl_get(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	u16 amic_reg;
+
+	if (!strcmp(kcontrol->id.name, "AMIC_1_2 PWR MODE"))
+		amic_reg = WCD9335_ANA_AMIC1;
+	if (!strcmp(kcontrol->id.name, "AMIC_3_4 PWR MODE"))
+		amic_reg = WCD9335_ANA_AMIC3;
+	if (!strcmp(kcontrol->id.name, "AMIC_5_6 PWR MODE"))
+		amic_reg = WCD9335_ANA_AMIC5;
+
+	ucontrol->value.integer.value[0] =
+		(snd_soc_read(codec, amic_reg) & WCD9335_AMIC_PWR_LVL_MASK) >>
+			     WCD9335_AMIC_PWR_LVL_SHIFT;
+
+	return 0;
+}
+
+static int tasha_amic_pwr_lvl_put(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	u32 mode_val;
+	u16 amic_reg;
+
+	mode_val = ucontrol->value.enumerated.item[0];
+
+	dev_dbg(codec->dev, "%s: mode: %d\n",
+		__func__, mode_val);
+
+	if (!strcmp(kcontrol->id.name, "AMIC_1_2 PWR MODE"))
+		amic_reg = WCD9335_ANA_AMIC1;
+	if (!strcmp(kcontrol->id.name, "AMIC_3_4 PWR MODE"))
+		amic_reg = WCD9335_ANA_AMIC3;
+	if (!strcmp(kcontrol->id.name, "AMIC_5_6 PWR MODE"))
+		amic_reg = WCD9335_ANA_AMIC5;
+
+	snd_soc_update_bits(codec, amic_reg, WCD9335_AMIC_PWR_LVL_MASK,
+			    mode_val << WCD9335_AMIC_PWR_LVL_SHIFT);
+
+	return 0;
+}
+
 static int tasha_rx_hph_mode_get(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
 {
@@ -5685,6 +5800,14 @@ static const struct soc_enum rx_hph_mode_mux_enum =
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(rx_hph_mode_mux_text),
 			    rx_hph_mode_mux_text);
 
+static const char * const amic_pwr_lvl_text[] = {
+	"LOW_PWR", "DEFAULT", "HIGH_PERF"
+};
+
+static const struct soc_enum amic_pwr_lvl_enum =
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(amic_pwr_lvl_text),
+			    amic_pwr_lvl_text);
+
 static const struct snd_kcontrol_new tasha_snd_controls[] = {
 	SOC_SINGLE_SX_TLV("RX0 Digital Volume", WCD9335_CDC_RX0_RX_VOL_CTL,
 		0, -84, 40, digital_gain), /* -84dB min - 40dB max */
@@ -5884,6 +6007,12 @@ static const struct snd_kcontrol_new tasha_snd_controls[] = {
 
 	SOC_SINGLE_EXT("DMIC3_DATA_PIN_MODE", SND_SOC_NOPM, 22, 1, 0,
 		       tasha_pinctl_mode_get, tasha_pinctl_mode_put),
+	SOC_ENUM_EXT("AMIC_1_2 PWR MODE", amic_pwr_lvl_enum,
+		       tasha_amic_pwr_lvl_get, tasha_amic_pwr_lvl_put),
+	SOC_ENUM_EXT("AMIC_3_4 PWR MODE", amic_pwr_lvl_enum,
+		       tasha_amic_pwr_lvl_get, tasha_amic_pwr_lvl_put),
+	SOC_ENUM_EXT("AMIC_5_6 PWR MODE", amic_pwr_lvl_enum,
+		       tasha_amic_pwr_lvl_get, tasha_amic_pwr_lvl_put),
 };
 
 static int tasha_put_dec_enum(struct snd_kcontrol *kcontrol,
