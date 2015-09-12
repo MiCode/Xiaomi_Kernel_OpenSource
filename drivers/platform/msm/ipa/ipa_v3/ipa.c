@@ -163,9 +163,6 @@ struct ipa3_ioc_nat_alloc_mem32 {
 static void ipa3_start_tag_process(struct work_struct *work);
 static DECLARE_WORK(ipa3_tag_work, ipa3_start_tag_process);
 
-static void ipa3_sps_process_irq(struct work_struct *work);
-static DECLARE_WORK(ipa3_sps_process_irq_work, ipa3_sps_process_irq);
-
 static void ipa3_sps_release_resource(struct work_struct *work);
 static DECLARE_DELAYED_WORK(ipa3_sps_release_resource_work,
 	ipa3_sps_release_resource);
@@ -2609,6 +2606,7 @@ void _ipa_enable_clks_v3_0(void)
 
 	if (smmu_clk)
 		clk_prepare_enable(smmu_clk);
+	ipa3_suspend_apps_pipes(false);
 }
 
 static unsigned int ipa3_get_bus_vote(void)
@@ -2660,6 +2658,7 @@ void ipa3_enable_clks(void)
 void _ipa_disable_clks_v3_0(void)
 {
 	IPADBG("disabling gcc_ipa_clk\n");
+	ipa3_suspend_apps_pipes(true);
 	ipa3_uc_notify_clk_state(false);
 	if (ipa3_clk)
 		clk_disable_unprepare(ipa3_clk);
@@ -2861,6 +2860,13 @@ int ipa3_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 	return 0;
 }
 
+static void ipa3_sps_process_irq_schedule_rel(void)
+{
+	queue_delayed_work(ipa3_ctx->sps_power_mgmt_wq,
+		&ipa3_sps_release_resource_work,
+		msecs_to_jiffies(IPA_SPS_PROD_TIMEOUT_MSEC));
+}
+
 /**
 * ipa3_suspend_handler() - Handles the suspend interrupt:
 * wakes up the suspended peripheral by requesting its consumer
@@ -2881,42 +2887,21 @@ void ipa3_suspend_handler(enum ipa_irq_type interrupt,
 	IPADBG("interrupt=%d, interrupt_data=%u\n", interrupt, suspend_data);
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
 		if ((suspend_data & bmsk) && (ipa3_ctx->ep[i].valid)) {
-			resource = ipa3_get_rm_resource_from_ep(i);
-			ipa3_rm_request_resource_with_timer(resource);
+			if (IPA_CLIENT_IS_APPS_CONS(ipa3_ctx->ep[i].client)) {
+				/*
+				 * pipe will be unsuspended as part of
+				 * enabling IPA clocks
+				 */
+				ipa3_inc_client_enable_clks();
+				ipa3_ctx->sps_pm.dec_clients = true;
+				ipa3_sps_process_irq_schedule_rel();
+			} else {
+				resource = ipa3_get_rm_resource_from_ep(i);
+				ipa3_rm_request_resource_with_timer(resource);
+			}
 		}
 		bmsk = bmsk << 1;
 	}
-}
-
-static void ipa3_sps_process_irq_schedule_rel(void)
-{
-	ipa3_ctx->sps_pm.res_rel_in_prog = true;
-	queue_delayed_work(ipa3_ctx->sps_power_mgmt_wq,
-			   &ipa3_sps_release_resource_work,
-			   msecs_to_jiffies(IPA_SPS_PROD_TIMEOUT_MSEC));
-}
-
-static void ipa3_sps_process_irq(struct work_struct *work)
-{
-	unsigned long flags;
-	int ret;
-
-	/* request IPA clocks */
-	ipa3_inc_client_enable_clks();
-
-	/* mark SPS resource as granted */
-	spin_lock_irqsave(&ipa3_ctx->sps_pm.lock, flags);
-	ipa3_ctx->sps_pm.res_granted = true;
-	IPADBG("IPA is ON, calling sps driver\n");
-
-	/* process bam irq */
-	ret = sps_bam_process_irq(ipa3_ctx->bam_handle);
-	if (ret)
-		IPAERR("sps_process_eot_event failed %d\n", ret);
-
-	/* release IPA clocks */
-	ipa3_sps_process_irq_schedule_rel();
-	spin_unlock_irqrestore(&ipa3_ctx->sps_pm.lock, flags);
 }
 
 static int ipa3_apps_cons_release_resource(void)
@@ -2931,19 +2916,16 @@ static int ipa3_apps_cons_request_resource(void)
 
 static void ipa3_sps_release_resource(struct work_struct *work)
 {
-	unsigned long flags;
-	bool dec_clients = false;
-
-	spin_lock_irqsave(&ipa3_ctx->sps_pm.lock, flags);
 	/* check whether still need to decrease client usage */
-	if (ipa3_ctx->sps_pm.res_rel_in_prog) {
-		dec_clients = true;
-		ipa3_ctx->sps_pm.res_rel_in_prog = false;
-		ipa3_ctx->sps_pm.res_granted = false;
+	if (ipa3_ctx->sps_pm.dec_clients) {
+		if (atomic_read(&ipa3_ctx->sps_pm.eot_activity)) {
+			ipa3_sps_process_irq_schedule_rel();
+		} else {
+			ipa3_ctx->sps_pm.dec_clients = false;
+			ipa3_dec_client_disable_clks();
+		}
 	}
-	spin_unlock_irqrestore(&ipa3_ctx->sps_pm.lock, flags);
-	if (dec_clients)
-		ipa3_dec_client_disable_clks();
+	atomic_set(&ipa3_ctx->sps_pm.eot_activity, 0);
 }
 
 int ipa3_create_apps_resource(void)
@@ -2969,63 +2951,6 @@ int ipa3_create_apps_resource(void)
 	ipa3_rm_set_perf_profile(IPA_RM_RESOURCE_APPS_CONS, &profile);
 
 	return result;
-}
-
-/**
- * ipa3_sps_event_cb() - Handles SPS events
- * @event: event to handle
- * @param: event-specific paramer
- *
- * This callback support the following events:
- *	- SPS_CALLBACK_BAM_RES_REQ: request resource
- *		Try to increase IPA active client counter.
- *		In case this can be done synchronously then
- *		return in *param true. Otherwise return false in *param
- *		and request IPA clocks. Later call to
- *		sps_bam_process_irq to process the pending irq.
- *	- SPS_CALLBACK_BAM_RES_REL: release resource
- *		schedule a delayed work for decreasing IPA active client
- *		counter. In case that during this time another request arrives,
- *		this work will be canceled.
- */
-static void ipa3_sps_event_cb(enum sps_callback_case event, void *param)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&ipa3_ctx->sps_pm.lock, flags);
-
-	switch (event) {
-	case SPS_CALLBACK_BAM_RES_REQ:
-	{
-		bool *ready = (bool *)param;
-
-		/* make sure no release will happen */
-		cancel_delayed_work(&ipa3_sps_release_resource_work);
-		ipa3_ctx->sps_pm.res_rel_in_prog = false;
-
-		if (ipa3_ctx->sps_pm.res_granted) {
-			*ready = true;
-		} else {
-			if (ipa3_inc_client_enable_clks_no_block() == 0) {
-				ipa3_ctx->sps_pm.res_granted = true;
-				*ready = true;
-			} else {
-				queue_work(ipa3_ctx->sps_power_mgmt_wq,
-					   &ipa3_sps_process_irq_work);
-				*ready = false;
-			}
-		}
-		break;
-	}
-
-	case SPS_CALLBACK_BAM_RES_REL:
-		ipa3_sps_process_irq_schedule_rel();
-		break;
-	default:
-		IPADBG("unsupported event %d\n", event);
-	}
-
-	spin_unlock_irqrestore(&ipa3_ctx->sps_pm.lock, flags);
 }
 
 /**
@@ -3250,10 +3175,6 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_create_sps_wq;
 	}
 
-	spin_lock_init(&ipa3_ctx->sps_pm.lock);
-	ipa3_ctx->sps_pm.res_granted = false;
-	ipa3_ctx->sps_pm.res_rel_in_prog = false;
-
 	/* register IPA with SPS driver */
 	bam_props.phys_addr = resource_p->bam_mem_base;
 	bam_props.virt_size = resource_p->bam_mem_size;
@@ -3264,13 +3185,11 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 	bam_props.options |= SPS_BAM_NO_LOCAL_CLK_GATING;
 	if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_VIRTUAL)
 		bam_props.options |= SPS_BAM_OPT_IRQ_WAKEUP;
-	bam_props.options |= SPS_BAM_RES_CONFIRM;
 	if (ipa3_ctx->ipa_bam_remote_mode == true)
 		bam_props.manage |= SPS_BAM_MGR_DEVICE_REMOTE;
 	if (ipa3_ctx->smmu_present)
 		bam_props.options |= SPS_BAM_SMMU_EN;
 	bam_props.ee = resource_p->ee;
-	bam_props.callback = ipa3_sps_event_cb;
 	bam_props.ipc_loglevel = 2;
 
 	result = sps_register_bam_device(&bam_props, &ipa3_ctx->bam_handle);
@@ -4012,15 +3931,6 @@ int ipa3_ap_suspend(struct device *dev)
 	int i;
 
 	IPADBG("Enter...\n");
-	/*
-	 * In case SPS requested IPA resources fail to suspend.
-	 * This can happen if SPS driver is during the processing of
-	 * IPA BAM interrupt
-	 */
-	if (ipa3_ctx->sps_pm.res_granted && !ipa3_ctx->sps_pm.res_rel_in_prog) {
-		IPAERR("SPS resource is granted, do not suspend\n");
-		return -EAGAIN;
-	}
 
 	/* In case there is a tx/rx handler in polling mode fail to suspend */
 	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
@@ -4033,6 +3943,7 @@ int ipa3_ap_suspend(struct device *dev)
 	}
 
 	/* release SPS IPA resource without waiting for inactivity timer */
+	atomic_set(&ipa3_ctx->sps_pm.eot_activity, 0);
 	ipa3_sps_release_resource(NULL);
 	IPADBG("Exit\n");
 

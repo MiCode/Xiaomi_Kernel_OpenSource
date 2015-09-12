@@ -4796,3 +4796,21 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 
 	IPADBG("EXIT\n");
 }
+
+void ipa3_suspend_apps_pipes(bool suspend)
+{
+	struct ipa_ep_cfg_ctrl cfg;
+	int ipa_ep_idx;
+
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.ipa_ep_suspend = suspend;
+
+	ipa_ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
+	if (ipa3_ctx->ep[ipa_ep_idx].valid)
+		ipa3_cfg_ep_ctrl(ipa_ep_idx, &cfg);
+
+	ipa_ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+	if (ipa3_ctx->ep[ipa_ep_idx].valid)
+		ipa3_cfg_ep_ctrl(ipa_ep_idx, &cfg);
+}
+

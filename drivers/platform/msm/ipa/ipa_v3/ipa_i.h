@@ -1090,14 +1090,13 @@ struct ipa3_uc_wdi_ctx {
 
 /**
  * struct ipa3_sps_pm - SPS power management related members
- * @lock: lock for ensuring atomic operations
- * @res_granted: true if SPS requested IPA resource and IPA granted it
- * @res_rel_in_prog: true if releasing IPA resource is in progress
+ * @dec_clients: true if need to decrease active clients count
+ * @eot_activity: represent EOT interrupt activity to determine to reset
+ *  the inactivity timer
  */
 struct ipa3_sps_pm {
-	spinlock_t lock;
-	bool res_granted;
-	bool res_rel_in_prog;
+	bool dec_clients;
+	atomic_t eot_activity;
 };
 
 /**
@@ -2022,5 +2021,6 @@ int ipa3_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
 int ipa3_set_flt_tuple_mask(int pipe_idx, struct ipa3_hash_tuple *tuple);
 int ipa3_set_rt_tuple_mask(int tbl_idx, struct ipa3_hash_tuple *tuple);
 void ipa3_set_resorce_groups_min_max_limits(void);
+void ipa3_suspend_apps_pipes(bool suspend);
 
 #endif /* _IPA3_I_H_ */
