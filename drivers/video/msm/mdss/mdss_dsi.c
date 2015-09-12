@@ -3172,6 +3172,9 @@ static int mdss_dsi_parse_ctrl_params(struct platform_device *ctrl_pdev,
 	struct mdss_panel_info *pinfo = &(ctrl_pdata->panel_data.panel_info);
 	const char *data;
 
+	ctrl_pdata->null_insert_enabled = of_property_read_bool(
+		ctrl_pdev->dev.of_node, "qcom,null-insertion-enabled");
+
 	data = of_get_property(ctrl_pdev->dev.of_node,
 		"qcom,platform-strength-ctrl", &len);
 	if (!data) {

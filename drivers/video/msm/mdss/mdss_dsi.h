@@ -459,6 +459,7 @@ struct mdss_dsi_ctrl_pdata {
 	struct regulator *ibb; /* vreg handle */
 	struct mutex clk_lane_mutex;
 
+	bool null_insert_enabled;
 	bool ulps;
 	bool core_power;
 	bool mmss_clamp;

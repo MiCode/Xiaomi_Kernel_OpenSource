@@ -384,6 +384,7 @@
 				"pll_byte_clk_mux", "pll_pixel_clk_mux",
 				"pll_byte_clk_src", "pll_pixel_clk_src";
 
+			qcom,null-insertion-enabled;
 			qcom,platform-strength-ctrl = [ff 06
 							ff 06
 							ff 06
@@ -428,6 +429,7 @@
 				"pll_byte_clk_mux", "pll_pixel_clk_mux",
 				"pll_byte_clk_src", "pll_pixel_clk_src";
 
+			qcom,null-insertion-enabled;
 			qcom,platform-strength-ctrl = [ff 06
 							ff 06
 							ff 06
