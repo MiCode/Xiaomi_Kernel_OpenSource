@@ -187,6 +187,26 @@ static ssize_t hdcp2p2_sysfs_wta_trigger(struct device *dev,
 	return count;
 }
 
+static ssize_t hdcp2p2_sysfs_wta_min_level_change(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct hdcp2p2_ctrl *hdcp2p2_ctrl =
+		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP2P2);
+	int res;
+
+	if (!hdcp2p2_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	DEV_DBG("%s: notification of minimum level change received\n",
+						__func__);
+	res = hdcp2p2_ctrl->txmtr_ops->
+		hdcp_txmtr_query_stream_type(hdcp2p2_ctrl->hdcp_lib_handle);
+
+	return  count;
+}
+
 static void hdcp2p2_auth_failed(struct hdcp2p2_ctrl *hdcp2p2_ctrl)
 {
 	mutex_lock(&hdcp2p2_ctrl->mutex);
@@ -470,6 +490,8 @@ static ssize_t hdcp2p2_sysfs_rda_hdcp2_version(struct device *dev,
 
 static DEVICE_ATTR(trigger, S_IRUGO | S_IWUSR, hdcp2p2_sysfs_rda_trigger,
 		hdcp2p2_sysfs_wta_trigger);
+static DEVICE_ATTR(min_level_change, S_IWUSR, NULL,
+		hdcp2p2_sysfs_wta_min_level_change);
 static DEVICE_ATTR(sink_status, S_IRUGO, hdcp2p2_sysfs_rda_sink_status,
 		NULL);
 static DEVICE_ATTR(hdcp2_version, S_IRUGO,
@@ -479,6 +501,7 @@ static DEVICE_ATTR(hdcp2_version, S_IRUGO,
 
 static struct attribute *hdcp2p2_fs_attrs[] = {
 	&dev_attr_trigger.attr,
+	&dev_attr_min_level_change.attr,
 	&dev_attr_sink_status.attr,
 	&dev_attr_hdcp2_version.attr,
 	NULL,
