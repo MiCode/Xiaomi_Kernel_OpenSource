@@ -940,6 +940,12 @@ struct teth_aggr_capabilities {
 	struct teth_aggr_params_link prot_caps[0];
 };
 
+enum ipacm_client_enum {
+     IPACM_CLIENT_USB = 1,
+     IPACM_CLIENT_WLAN,
+     IPACM_CLIENT_MAX
+};
+
 
 #define TETH_BRIDGE_IOC_SET_BRIDGE_MODE _IOW(TETH_BRIDGE_IOC_MAGIC, \
 				TETH_BRIDGE_IOCTL_SET_BRIDGE_MODE, \
