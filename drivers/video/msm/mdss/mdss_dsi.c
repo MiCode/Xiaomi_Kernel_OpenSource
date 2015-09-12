@@ -882,20 +882,16 @@ static int mdss_dsi_debugfs_setup(struct mdss_panel_data *pdata,
 
 static int mdss_dsi_debugfs_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
-	struct mdss_panel_data *pdata = &ctrl_pdata->panel_data;
 	int rc;
+	struct mdss_panel_data *pdata = &ctrl_pdata->panel_data;
+	struct mdss_panel_info panel_info = pdata->panel_info;
 
-	do {
-		struct mdss_panel_info panel_info = pdata->panel_info;
-		rc = mdss_dsi_debugfs_setup(pdata,
-					panel_info.debugfs_info->root);
-		if (rc) {
-			pr_err("%s: Error in initilizing dsi ctrl debugfs\n",
+	rc = mdss_dsi_debugfs_setup(pdata, panel_info.debugfs_info->root);
+	if (rc) {
+		pr_err("%s: Error in initilizing dsi ctrl debugfs\n",
 				__func__);
-			return rc;
-		}
-		pdata = pdata->next;
-	} while (pdata);
+		return rc;
+	}
 
 	pr_debug("%s: Initialized mdss_dsi_debugfs_init\n", __func__);
 	return 0;

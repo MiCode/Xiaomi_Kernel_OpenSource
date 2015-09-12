@@ -1210,6 +1210,7 @@ static int mdss_fb_remove(struct platform_device *pdev)
 static int mdss_fb_send_panel_event(struct msm_fb_data_type *mfd,
 					int event, void *arg)
 {
+	int ret = 0;
 	struct mdss_panel_data *pdata;
 
 	pdata = dev_get_platdata(&mfd->pdev->dev);
@@ -1220,10 +1221,14 @@ static int mdss_fb_send_panel_event(struct msm_fb_data_type *mfd,
 
 	pr_debug("sending event=%d for fb%d\n", event, mfd->index);
 
-	if (pdata->event_handler)
-		return pdata->event_handler(pdata, event, arg);
+	do {
+		if (pdata->event_handler)
+			ret = pdata->event_handler(pdata, event, arg);
 
-	return 0;
+		pdata = pdata->next;
+	} while (!ret && pdata);
+
+	return ret;
 }
 
 static int mdss_fb_suspend_sub(struct msm_fb_data_type *mfd)
