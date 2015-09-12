@@ -4004,22 +4004,15 @@ int mdss_mdp_async_ctl_flush(struct msm_fb_data_type *mfd,
 {
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_ctl *ctl = mdp5_data->ctl;
-	struct mdss_mdp_ctl *sctl = NULL;
+	struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
 	int ret = 0;
 
 	mutex_lock(&ctl->flush_lock);
 
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, flush_bits);
-	if ((!ctl->split_flush_en) && is_split_lm(mfd)) {
-		sctl = mdss_mdp_get_split_ctl(ctl);
-		if (!sctl) {
-			pr_err("not able to get the other ctl\n");
-			ret = -EINVAL;
-			goto end;
-		}
+	if ((!ctl->split_flush_en) && sctl)
 		mdss_mdp_ctl_write(sctl, MDSS_MDP_REG_CTL_FLUSH, flush_bits);
-	}
-end:
+
 	mutex_unlock(&ctl->flush_lock);
 	return ret;
 }

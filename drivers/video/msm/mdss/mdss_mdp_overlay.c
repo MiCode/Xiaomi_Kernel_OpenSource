@@ -4368,6 +4368,33 @@ error:
 		return ctl;
 }
 
+static void mdss_mdp_set_lm_flag(struct msm_fb_data_type *mfd)
+{
+	u32 width;
+	struct mdss_data_type *mdata;
+
+	/* if lm_widths are set, the split_mode would have been set */
+	if (mfd->panel_info->lm_widths[0] && mfd->panel_info->lm_widths[1])
+		return;
+
+	mdata = mdss_mdp_get_mdata();
+	width = mfd->fbi->var.xres;
+
+	/* setting the appropriate split_mode for HDMI usecases */
+	if (mfd->split_mode == MDP_SPLIT_MODE_NONE &&
+			width > mdata->max_mixer_width) {
+		width /= 2;
+		mfd->split_mode = MDP_DUAL_LM_SINGLE_DISPLAY;
+		mfd->split_fb_left = width;
+		mfd->split_fb_right = width;
+	} else if (mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY &&
+			width <= mdata->max_mixer_width) {
+		mfd->split_mode = MDP_SPLIT_MODE_NONE;
+		mfd->split_fb_left = 0;
+		mfd->split_fb_right = 0;
+	}
+}
+
 static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 {
 	int rc;
@@ -4383,6 +4410,8 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 	mdp5_data = mfd_to_mdp5_data(mfd);
 	if (!mdp5_data)
 		return -EINVAL;
+
+	mdss_mdp_set_lm_flag(mfd);
 
 	if (!mdp5_data->ctl) {
 		ctl = __mdss_mdp_overlay_ctl_init(mfd);
