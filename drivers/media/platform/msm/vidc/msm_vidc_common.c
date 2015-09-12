@@ -981,7 +981,7 @@ static void handle_session_prop_info(enum hal_command_response cmd, void *data)
 	}
 
 	getprop->data = kmemdup(&response->data.property,
-			response->size, GFP_KERNEL);
+			sizeof(union hal_get_property), GFP_KERNEL);
 	if (!getprop->data) {
 		dprintk(VIDC_ERR, "%s: kmemdup failed\n", __func__);
 		kfree(getprop);
