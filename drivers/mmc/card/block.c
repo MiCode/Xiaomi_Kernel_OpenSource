@@ -2900,18 +2900,38 @@ static enum blk_eh_timer_return mmc_blk_cmdq_req_timed_out(struct request *req)
 	struct mmc_queue *mq = req->q->queuedata;
 	struct mmc_host *host = mq->card->host;
 	struct mmc_queue_req *mq_rq = req->special;
-	struct mmc_request *mrq = &mq_rq->cmdq_req.mrq;
-	struct mmc_cmdq_req *cmdq_req = &mq_rq->cmdq_req;
+	struct mmc_request *mrq;
+	struct mmc_cmdq_req *cmdq_req;
+
+	BUG_ON(!host);
+
+	/*
+	 * The mmc_queue_req will be present only if the request
+	 * is issued to the LLD. The request could be fetched from
+	 * block layer queue but could be waiting to be issued
+	 * (for e.g. clock scaling is waiting for an empty cmdq queue)
+	 * Reset the timer in such cases to give LLD more time
+	 */
+	if (!mq_rq) {
+		pr_warn("%s: restart timer for tag: %d\n", __func__, req->tag);
+		return BLK_EH_RESET_TIMER;
+	}
+
+	mrq = &mq_rq->cmdq_req.mrq;
+	cmdq_req = &mq_rq->cmdq_req;
+
+	BUG_ON(!mrq || !cmdq_req);
 
 	if (cmdq_req->cmdq_req_flags & DCMD)
 		mrq->cmd->error = -ETIMEDOUT;
 	else
 		mrq->data->error = -ETIMEDOUT;
 
+	BUG_ON(host->err_mrq != NULL);
 	host->err_mrq = mrq;
-	mrq->done(mrq);
 
-	return BLK_EH_NOT_HANDLED;
+	mmc_host_clk_release(mrq->host);
+	return BLK_EH_HANDLED;
 }
 
 static void mmc_blk_cmdq_err(struct mmc_queue *mq)
@@ -2992,6 +3012,7 @@ unhalt:
 	mmc_cmdq_halt(host, false);
 
 out:
+	host->err_mrq = NULL;
 	pm_runtime_mark_last_busy(&card->dev);
 	__mmc_put_card(card);
 
