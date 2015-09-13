@@ -51,6 +51,8 @@
 #define TRUE   1
 #define FALSE  0
 
+#define CSID_TIMEOUT msecs_to_jiffies(100)
+
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
@@ -170,13 +172,21 @@ static void msm_csid_set_debug_reg(struct csid_device *csid_dev,
 	struct msm_camera_csid_params *csid_params) {}
 #endif
 
-
-static void msm_csid_reset(struct csid_device *csid_dev)
+static int msm_csid_reset(struct csid_device *csid_dev)
 {
+	int32_t rc = 0;
 	msm_camera_io_w(csid_dev->ctrl_reg->csid_reg.csid_rst_stb_all,
 		csid_dev->base +
 		csid_dev->ctrl_reg->csid_reg.csid_rst_cmd_addr);
-	wait_for_completion(&csid_dev->reset_complete);
+	rc = wait_for_completion_timeout(&csid_dev->reset_complete,
+		CSID_TIMEOUT);
+	if (rc <= 0) {
+		pr_err("wait_for_completion in msm_csid_reset fail rc = %d\n",
+			rc);
+		if (rc == 0)
+			rc = -ETIMEDOUT;
+	}
+	return rc;
 }
 
 static int msm_csid_config(struct csid_device *csid_dev,
@@ -205,7 +215,11 @@ static int msm_csid_config(struct csid_device *csid_dev,
 		csid_params->phy_sel);
 
 	csid_dev->csid_lane_cnt = csid_params->lane_cnt;
-	msm_csid_reset(csid_dev);
+	rc = msm_csid_reset(csid_dev);
+	if (rc < 0) {
+		pr_err("%s:%d msm_csid_reset failed\n", __func__, __LINE__);
+		return rc;
+	}
 
 	csid_clk_ptr = csid_dev->csid_clk;
 	if (!csid_clk_ptr) {
@@ -508,10 +522,19 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 
 	enable_irq(csid_dev->irq->start);
 
-	msm_csid_reset(csid_dev);
+	rc = msm_csid_reset(csid_dev);
+	if (rc < 0) {
+		pr_err("%s:%d msm_csid_reset failed\n", __func__, __LINE__);
+		goto msm_csid_reset_fail;
+	}
+
 	csid_dev->csid_state = CSID_POWER_UP;
 	return rc;
 
+msm_csid_reset_fail:
+	disable_irq(csid_dev->irq->start);
+	msm_cam_clk_enable(&csid_dev->pdev->dev, csid_clk_info,
+		csid_dev->csid_clk, csid_dev->num_clk, 0);
 clk_enable_failed:
 	if (csid_dev->ctrl_reg->csid_reg.csid_version < CSID_VERSION_V22) {
 		msm_camera_enable_vreg(&csid_dev->pdev->dev,
