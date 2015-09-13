@@ -1520,6 +1520,7 @@ static int __qseecom_reentrancy_process_incomplete_cmd(
 		/* lock mutex again after resp sent */
 		mutex_lock(&app_access_lock);
 		ptr_svc->send_resp_flag = 0;
+		qseecom.send_resp_flag = 0;
 
 		/* restore signal mask */
 		sigprocmask(SIG_SETMASK, &old_sigset, NULL);
@@ -6363,8 +6364,6 @@ long qseecom_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			ret = -EINVAL;
 			break;
 		}
-		/* Only one client allowed here at a time */
-		mutex_lock(&app_access_lock);
 		atomic_inc(&data->ioctl_count);
 		if (cmd == QSEECOM_IOCTL_SEND_MODFD_RESP)
 			ret = qseecom_send_modfd_resp(data, argp);
@@ -6372,7 +6371,6 @@ long qseecom_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			ret = qseecom_send_modfd_resp_64(data, argp);
 		atomic_dec(&data->ioctl_count);
 		wake_up_all(&data->abort_wq);
-		mutex_unlock(&app_access_lock);
 		if (ret)
 			pr_err("failed qseecom_send_mod_resp: %d\n", ret);
 		break;
