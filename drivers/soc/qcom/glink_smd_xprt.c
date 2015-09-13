@@ -1583,21 +1583,21 @@ static int tx(struct glink_transport_if *if_ptr, uint32_t lcid,
 	if (!ch->streaming_ch) {
 		if (pctx->size == pctx->size_remaining) {
 			rc = smd_write_avail(ch->smd_ch);
-			if (!rc) {
+			if (rc <= 0) {
 				srcu_read_unlock(&einfo->ssr_sync, rcu_id);
-				return 0;
+				return rc;
 			}
 			rc = smd_write_start(ch->smd_ch, pctx->size);
 			if (rc) {
 				srcu_read_unlock(&einfo->ssr_sync, rcu_id);
-				return 0;
+				return rc;
 			}
 		}
 
 		rc = smd_write_segment_avail(ch->smd_ch);
-		if (!rc) {
+		if (rc <= 0) {
 			srcu_read_unlock(&einfo->ssr_sync, rcu_id);
-			return 0;
+			return rc;
 		}
 		if (rc > tx_size)
 			rc = tx_size;
@@ -1606,13 +1606,13 @@ static int tx(struct glink_transport_if *if_ptr, uint32_t lcid,
 			SMDXPRT_ERR("%s: write segment failed %d\n", __func__,
 									rc);
 			srcu_read_unlock(&einfo->ssr_sync, rcu_id);
-			return 0;
+			return rc;
 		}
 	} else {
 		rc = smd_write_avail(ch->smd_ch);
-		if (!rc) {
+		if (rc <= 0) {
 			srcu_read_unlock(&einfo->ssr_sync, rcu_id);
-			return 0;
+			return rc;
 		}
 		if (rc > tx_size)
 			rc = tx_size;
@@ -1620,7 +1620,7 @@ static int tx(struct glink_transport_if *if_ptr, uint32_t lcid,
 		if (rc < 0) {
 			SMDXPRT_ERR("%s: write failed %d\n", __func__, rc);
 			srcu_read_unlock(&einfo->ssr_sync, rcu_id);
-			return 0;
+			return rc;
 		}
 	}
 
