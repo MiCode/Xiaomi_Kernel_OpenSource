@@ -726,7 +726,8 @@ static irqreturn_t msm_cpp_irq(int irq_num, void *data)
 		spin_lock_irqsave(&cpp_dev->tasklet_lock, flags);
 		queue_cmd = &cpp_dev->tasklet_queue_cmd[cpp_dev->taskletq_idx];
 		if (queue_cmd->cmd_used) {
-			pr_err("%s: cpp tasklet queue overflow\n", __func__);
+			pr_err("%s:%d] cpp tasklet queue overflow tx %d rc %x",
+				__func__, __LINE__, tx_level, irq_status);
 			list_del(&queue_cmd->list);
 		} else {
 			atomic_add(1, &cpp_dev->irq_cnt);
@@ -1714,6 +1715,17 @@ static void msm_cpp_flush_queue_and_release_buffer(struct cpp_device *cpp_dev,
 	cpp_dev->timeout_trial_cnt = 0;
 }
 
+static void msm_cpp_set_micro_irq_mask(struct cpp_device *cpp_dev,
+	uint8_t enable, uint32_t irq_mask)
+{
+	msm_camera_io_w_mb(irq_mask, cpp_dev->base +
+		MSM_CPP_MICRO_IRQGEN_MASK);
+	msm_camera_io_w_mb(0xFFFF, cpp_dev->base +
+		MSM_CPP_MICRO_IRQGEN_CLR);
+	if (enable)
+		enable_irq(cpp_dev->irq->start);
+}
+
 static void msm_cpp_do_timeout_work(struct work_struct *work)
 {
 	uint32_t j = 0, i = 0, i1 = 0, i2 = 0;
@@ -1726,7 +1738,7 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 		jiffies);
 	mutex_lock(&cpp_dev->mutex);
 
-	if (!work || cpp_timer.data.cpp_dev->state != CPP_STATE_ACTIVE) {
+	if (!work || (cpp_timer.data.cpp_dev->state != CPP_STATE_ACTIVE)) {
 		pr_err("Invalid work:%p or state:%d\n", work,
 			cpp_timer.data.cpp_dev->state);
 		/* Do not flush queue here as it is not a fatal error */
@@ -1752,27 +1764,25 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 		cpp_dev->state = CPP_STATE_OFF;
 		/* clean buf queue here */
 		msm_cpp_flush_queue_and_release_buffer(cpp_dev, queue_len);
+		msm_cpp_set_micro_irq_mask(cpp_dev, 1, 0x0);
 		goto end;
 	} else {
 		pr_debug("Firmware loading done\n");
 	}
-	enable_irq(cpp_timer.data.cpp_dev->irq->start);
-	msm_camera_io_w_mb(0x8, cpp_timer.data.cpp_dev->base +
-		MSM_CPP_MICRO_IRQGEN_MASK);
-	msm_camera_io_w_mb(0xFFFF,
-		cpp_timer.data.cpp_dev->base +
-		MSM_CPP_MICRO_IRQGEN_CLR);
 
 	if (!atomic_read(&cpp_timer.used)) {
 		pr_warn("Delayed trigger, IRQ serviced\n");
 		/* Do not flush queue here as it is not a fatal error */
+		msm_cpp_set_micro_irq_mask(cpp_dev, 1, 0x8);
 		goto end;
 	}
 
 	if (cpp_dev->timeout_trial_cnt >=
 		cpp_dev->max_timeout_trial_cnt) {
 		pr_warn("Max trial reached\n");
+		cpp_dev->state = CPP_STATE_OFF;
 		msm_cpp_flush_queue_and_release_buffer(cpp_dev, queue_len);
+		msm_cpp_set_micro_irq_mask(cpp_dev, 1, 0x0);
 		goto end;
 	}
 
@@ -1781,6 +1791,8 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 		CPP_CMD_TIMEOUT_MS, jiffies);
 	mod_timer(&cpp_timer.cpp_timer,
 		jiffies + msecs_to_jiffies(CPP_CMD_TIMEOUT_MS));
+
+	msm_cpp_set_micro_irq_mask(cpp_dev, 1, 0x8);
 
 	for (i = 0; i < MAX_CPP_PROCESSING_FRAME; i++)
 		processed_frame[i] = cpp_timer.data.processed_frame[i];
@@ -1798,6 +1810,9 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 				if (rc) {
 					pr_err("%s:%d] poll failed %d rc %d",
 						__func__, __LINE__, j, rc);
+					cpp_dev->state = CPP_STATE_OFF;
+					msm_cpp_set_micro_irq_mask(cpp_dev,
+						0, 0x0);
 					goto end;
 				}
 			}
@@ -1808,9 +1823,10 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 			pr_err("%s: Rescheduling plane info failed %d\n",
 				__func__, rc);
 			/* flush the queue */
+			cpp_dev->state = CPP_STATE_OFF;
 			msm_cpp_flush_queue_and_release_buffer(cpp_dev,
 				queue_len);
-			cpp_dev->state = CPP_STATE_OFF;
+			msm_cpp_set_micro_irq_mask(cpp_dev, 0, 0x0);
 			goto end;
 		}
 		/* send stripes */
@@ -1836,9 +1852,10 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 			pr_err("%s:%d] Rescheduling stripe info failed %d\n",
 				__func__, __LINE__, rc);
 			/* flush the queue */
+			cpp_dev->state = CPP_STATE_OFF;
 			msm_cpp_flush_queue_and_release_buffer(cpp_dev,
 				queue_len);
-			cpp_dev->state = CPP_STATE_OFF;
+			msm_cpp_set_micro_irq_mask(cpp_dev, 0, 0x0);
 			goto end;
 		}
 		/* send trailer */
@@ -1850,8 +1867,7 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 
 end:
 	mutex_unlock(&cpp_dev->mutex);
-
-	pr_debug("exit\n");
+	pr_debug("%s:%d] exit\n", __func__, __LINE__);
 	return;
 }
 
