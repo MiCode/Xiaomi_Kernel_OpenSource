@@ -243,6 +243,7 @@ static void msm_isp_unprepare_v4l2_buf(
 			if (buf_pending->mapped_info == mapped_info) {
 				list_del(&buf_pending->list);
 				kfree(buf_pending);
+				buf_pending = NULL;
 				break;
 			}
 		}
