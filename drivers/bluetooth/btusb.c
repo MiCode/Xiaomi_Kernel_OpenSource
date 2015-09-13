@@ -4,7 +4,6 @@
  *
  *  Copyright (C) 2005-2008  Marcel Holtmann <marcel@holtmann.org>
  *
- *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation; either version 2 of the License, or
@@ -1963,7 +1962,7 @@ static int btusb_probe(struct usb_interface *intf,
 	struct usb_endpoint_descriptor *ep_desc;
 	struct btusb_data *data;
 	struct hci_dev *hdev;
-	int i, err;
+	int i, version, err;
 
 	BT_DBG("intf %p id %p", intf, id);
 
@@ -1985,12 +1984,17 @@ static int btusb_probe(struct usb_interface *intf,
 	if (id->driver_info & BTUSB_ATH3012) {
 		struct usb_device *udev = interface_to_usbdev(intf);
 
+		version = get_rome_version(udev);
+		BT_INFO("Rome Version: 0x%x",  version);
 		/* Old firmware would otherwise let ath3k driver load
 		 * patch and sysconfig files */
-		if (le16_to_cpu(udev->descriptor.bcdDevice) <= 0x0001)
+		if (version)
+			rome_download(udev);
+		else if (le16_to_cpu(udev->descriptor.bcdDevice) <= 0x0001) {
+			BT_INFO("FW for ar3k is yet to be downloaded");
 			return -ENODEV;
+		}
 	}
-
 	data = devm_kzalloc(&intf->dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
