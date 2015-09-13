@@ -1420,13 +1420,11 @@ static enum hrtimer_restart detect_auto_res_error(struct hrtimer *timer)
 		return HRTIMER_NORESTART;
 	} else {
 		update_lra_frequency(hap);
-	}
-
-	currtime  = ktime_get();
-	hrtimer_forward(&hap->auto_res_err_poll_timer, currtime,
+		currtime  = ktime_get();
+		hrtimer_forward(&hap->auto_res_err_poll_timer, currtime,
 				ktime_set(0, POLL_TIME_AUTO_RES_ERR_NS));
-
-	return HRTIMER_RESTART;
+		return HRTIMER_RESTART;
+	}
 }
 
 static void correct_auto_res_error(struct work_struct *auto_res_err_work)
@@ -1497,7 +1495,8 @@ static int qpnp_hap_set(struct qpnp_hap *hap, int on)
 
 			rc = qpnp_hap_play(hap, on);
 
-			if (hap->correct_lra_drive_freq ||
+			if ((hap->act_type == QPNP_HAP_LRA &&
+				hap->correct_lra_drive_freq) ||
 				hap->auto_res_mode == QPNP_HAP_AUTO_RES_QWD) {
 				usleep_range(AUTO_RES_ENABLE_TIMEOUT,
 					(AUTO_RES_ENABLE_TIMEOUT + 1));
@@ -1511,6 +1510,7 @@ static int qpnp_hap_set(struct qpnp_hap *hap, int on)
 				 * Start timer to poll Auto Resonance error bit
 				 */
 				mutex_lock(&hap->lock);
+				hrtimer_cancel(&hap->auto_res_err_poll_timer);
 				hrtimer_start(&hap->auto_res_err_poll_timer,
 						ktime_set(0, timeout_ns),
 						 HRTIMER_MODE_REL);
@@ -1529,7 +1529,8 @@ static int qpnp_hap_set(struct qpnp_hap *hap, int on)
 			}
 
 			rc = qpnp_hap_mod_enable(hap, on);
-			if (hap->correct_lra_drive_freq) {
+			if (hap->act_type == QPNP_HAP_LRA &&
+					hap->correct_lra_drive_freq) {
 				hrtimer_cancel(&hap->auto_res_err_poll_timer);
 				calculate_lra_code(hap);
 			}
@@ -1546,6 +1547,11 @@ static void qpnp_hap_td_enable(struct timed_output_dev *dev, int value)
 					 timed_dev);
 
 	mutex_lock(&hap->lock);
+
+	if (hap->act_type == QPNP_HAP_LRA &&
+				hap->correct_lra_drive_freq)
+		hrtimer_cancel(&hap->auto_res_err_poll_timer);
+
 	hrtimer_cancel(&hap->hap_timer);
 
 	if (value == 0) {
@@ -1686,7 +1692,6 @@ static enum hrtimer_restart qpnp_hap_test_timer(struct hrtimer *timer)
 static int qpnp_haptic_suspend(struct device *dev)
 {
 	struct qpnp_hap *hap = dev_get_drvdata(dev);
-
 	hrtimer_cancel(&hap->hap_timer);
 	cancel_work_sync(&hap->work);
 	/* turn-off haptic */
@@ -2024,6 +2029,14 @@ static int qpnp_hap_parse_dt(struct qpnp_hap *hap)
 			dev_err(&spmi->dev, "Unable to read cal period\n");
 			return rc;
 		}
+
+		hap->correct_lra_drive_freq =
+				of_property_read_bool(spmi->dev.of_node,
+						"qcom,correct-lra-drive-freq");
+
+		hap->misc_trim_error_rc19p2_clk_reg_present =
+				of_property_read_bool(spmi->dev.of_node,
+				"qcom,misc-trim-error-rc19p2-clk-reg-present");
 	}
 
 	rc = of_property_read_string(spmi->dev.of_node,
@@ -2150,13 +2163,6 @@ static int qpnp_hap_parse_dt(struct qpnp_hap *hap)
 		}
 	}
 
-	hap->correct_lra_drive_freq = of_property_read_bool(spmi->dev.of_node,
-						 "qcom,correct-lra-drive-freq");
-
-	hap->misc_trim_error_rc19p2_clk_reg_present =
-				of_property_read_bool(spmi->dev.of_node,
-				"qcom,misc-trim-error-rc19p2-clk-reg-present");
-
 	return 0;
 }
 
@@ -2209,17 +2215,17 @@ static int qpnp_haptic_probe(struct spmi_device *spmi)
 	hap->timed_dev.get_time = qpnp_hap_get_time;
 	hap->timed_dev.enable = qpnp_hap_td_enable;
 
+	if (hap->act_type == QPNP_HAP_LRA && hap->correct_lra_drive_freq) {
+		INIT_WORK(&hap->auto_res_err_work, correct_auto_res_error);
+		hrtimer_init(&hap->auto_res_err_poll_timer, CLOCK_MONOTONIC,
+						HRTIMER_MODE_REL);
+		hap->auto_res_err_poll_timer.function = detect_auto_res_error;
+	}
+
 	rc = timed_output_dev_register(&hap->timed_dev);
 	if (rc < 0) {
 		dev_err(&spmi->dev, "timed_output registration failed\n");
 		goto timed_output_fail;
-	}
-
-	if (hap->correct_lra_drive_freq) {
-		INIT_WORK(&hap->auto_res_err_work, correct_auto_res_error);
-		hrtimer_init(&hap->auto_res_err_poll_timer, CLOCK_MONOTONIC,
-				HRTIMER_MODE_REL);
-		hap->auto_res_err_poll_timer.function = detect_auto_res_error;
 	}
 
 	for (i = 0; i < ARRAY_SIZE(qpnp_hap_attrs); i++) {
@@ -2242,6 +2248,8 @@ sysfs_fail:
 	timed_output_dev_unregister(&hap->timed_dev);
 timed_output_fail:
 	cancel_work_sync(&hap->work);
+	if (hap->act_type == QPNP_HAP_LRA && hap->correct_lra_drive_freq)
+		hrtimer_cancel(&hap->auto_res_err_poll_timer);
 	hrtimer_cancel(&hap->hap_timer);
 	mutex_destroy(&hap->lock);
 	mutex_destroy(&hap->wf_lock);
@@ -2259,6 +2267,8 @@ static int qpnp_haptic_remove(struct spmi_device *spmi)
 				&qpnp_hap_attrs[i].attr);
 
 	cancel_work_sync(&hap->work);
+	if (hap->act_type == QPNP_HAP_LRA && hap->correct_lra_drive_freq)
+		hrtimer_cancel(&hap->auto_res_err_poll_timer);
 	hrtimer_cancel(&hap->hap_timer);
 	timed_output_dev_unregister(&hap->timed_dev);
 	mutex_destroy(&hap->lock);
