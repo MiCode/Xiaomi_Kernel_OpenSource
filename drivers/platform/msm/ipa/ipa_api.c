@@ -1772,6 +1772,50 @@ int teth_bridge_connect(struct teth_bridge_connect_params *connect_params)
 }
 EXPORT_SYMBOL(teth_bridge_connect);
 
+/* ipa_set_client() - provide client mapping
+ * @client: client type
+ *
+ * Return value: none
+ */
+
+void ipa_set_client(int index, enum ipacm_client_enum client, bool uplink)
+{
+	IPA_API_DISPATCH(ipa_set_client, index, client, uplink);
+}
+EXPORT_SYMBOL(ipa_set_client);
+
+/**
+ * ipa_get_client() - provide client mapping
+ * @client: client type
+ *
+ * Return value: none
+ */
+enum ipacm_client_enum ipa_get_client(int pipe_idx)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_get_client, pipe_idx);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_get_client);
+
+/**
+ * ipa_get_client_uplink() - provide client mapping
+ * @client: client type
+ *
+ * Return value: none
+ */
+bool ipa_get_client_uplink(int pipe_idx)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_get_client_uplink, pipe_idx);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_get_client_uplink);
+
 /**
  * odu_bridge_init() - Initialize the ODU bridge driver
  * @params: initialization parameters

@@ -906,6 +906,51 @@ int ipa2_get_ep_mapping(enum ipa_client_type client)
 	return ep_mapping[hw_type_index][client];
 }
 
+/* ipa2_set_client() - provide client mapping
+ * @client: client type
+ *
+ * Return value: none
+ */
+
+void ipa2_set_client(int index, enum ipacm_client_enum client, bool uplink)
+{
+	if (client >= IPACM_CLIENT_MAX || client < IPACM_CLIENT_USB) {
+		IPAERR("Bad client number! client =%d\n", client);
+	} else if (index >= IPA_MAX_NUM_PIPES || index < 0) {
+		IPAERR("Bad pipe index! index =%d\n", index);
+	} else {
+		ipa_ctx->ipacm_client[index].client_enum = client;
+		ipa_ctx->ipacm_client[index].uplink = uplink;
+	}
+}
+
+/**
+ * ipa2_get_client() - provide client mapping
+ * @client: client type
+ *
+ * Return value: none
+ */
+enum ipacm_client_enum ipa2_get_client(int pipe_idx)
+{
+	if (pipe_idx >= IPA_MAX_NUM_PIPES || pipe_idx < 0) {
+		IPAERR("Bad pipe index! pipe_idx =%d\n", pipe_idx);
+		return IPACM_CLIENT_MAX;
+	} else {
+		return ipa_ctx->ipacm_client[pipe_idx].client_enum;
+	}
+}
+
+/**
+ * ipa2_get_client_uplink() - provide client mapping
+ * @client: client type
+ *
+ * Return value: none
+ */
+bool ipa2_get_client_uplink(int pipe_idx)
+{
+	return ipa_ctx->ipacm_client[pipe_idx].uplink;
+}
+
 /**
  * ipa2_get_rm_resource_from_ep() - get the IPA_RM resource which is related to
  * the supplied pipe index.
@@ -4975,6 +5020,9 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->teth_bridge_init = ipa2_teth_bridge_init;
 	api_ctrl->teth_bridge_disconnect = ipa2_teth_bridge_disconnect;
 	api_ctrl->teth_bridge_connect = ipa2_teth_bridge_connect;
+	api_ctrl->ipa_set_client = ipa2_set_client;
+	api_ctrl->ipa_get_client = ipa2_get_client;
+	api_ctrl->ipa_get_client_uplink = ipa2_get_client_uplink;
 	api_ctrl->odu_bridge_init = ipa2_odu_bridge_init;
 	api_ctrl->odu_bridge_connect = ipa2_odu_bridge_connect;
 	api_ctrl->odu_bridge_disconnect = ipa2_odu_bridge_disconnect;
