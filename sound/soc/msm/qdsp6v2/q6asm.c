@@ -2301,7 +2301,7 @@ static int __q6asm_open_write(struct audio_client *ac, uint32_t format,
 		open.dec_fmt_id = ASM_MEDIA_FMT_AAC_V2;
 		break;
 	case FORMAT_MPEG4_MULTI_AAC:
-		open.dec_fmt_id = ASM_MEDIA_FMT_DOLBY_AAC;
+		open.dec_fmt_id = ASM_MEDIA_FMT_AAC_V2;
 		break;
 	case FORMAT_WMA_V9:
 		open.dec_fmt_id = ASM_MEDIA_FMT_WMA_V9_V2;
@@ -2429,7 +2429,7 @@ static int __q6asm_open_read_write(struct audio_client *ac, uint32_t rd_format,
 		open.dec_fmt_id = ASM_MEDIA_FMT_AAC_V2;
 		break;
 	case FORMAT_MPEG4_MULTI_AAC:
-		open.dec_fmt_id = ASM_MEDIA_FMT_DOLBY_AAC;
+		open.dec_fmt_id = ASM_MEDIA_FMT_AAC_V2;
 		break;
 	case FORMAT_WMA_V9:
 		open.dec_fmt_id = ASM_MEDIA_FMT_WMA_V9_V2;
