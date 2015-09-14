@@ -316,33 +316,6 @@ err_reg_handoff_failed:
 	return rc;
 }
 
-static int __acquire_regulators(struct venus_hfi_device *device)
-{
-	int rc = 0;
-	struct regulator_info *rinfo;
-
-	dprintk(VIDC_DBG, "Enabling regulators\n");
-
-	venus_hfi_for_each_regulator(device, rinfo) {
-		if (rinfo->has_hw_power_collapse) {
-			/*
-			 * Once driver has the control, it restores the
-			 * previous state of regulator. Hence driver no
-			 * need to call regulator_enable for these.
-			 */
-			rc = __acquire_regulator(rinfo);
-			if (rc) {
-				dprintk(VIDC_WARN,
-						"Failed: Aqcuire control: %s\n",
-						rinfo->name);
-				break;
-			}
-		}
-	}
-
-	return rc;
-}
-
 static int __write_queue(struct vidc_iface_q_info *qinfo, u8 *packet,
 		bool *rx_req_is_set)
 {
@@ -4136,26 +4109,10 @@ static inline int __suspend(struct venus_hfi_device *device)
 		goto err_tzbsp_suspend;
 	}
 
-	/*
-	* For some regulators, driver might have transferred the control to HW.
-	* So before touching any clocks, driver should get the regulator
-	* control back. Acquire regulators also makes sure that the regulators
-	* are turned ON. So driver can touch the clocks safely.
-	*/
-
-	rc = __acquire_regulators(device);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to enable gdsc in %s Err code = %d\n",
-			__func__, rc);
-		goto err_acquire_regulators;
-	}
-
 	__venus_power_off(device, true);
 	dprintk(VIDC_INFO, "Venus power collapsed\n");
 	return rc;
-err_acquire_regulators:
-	if (__tzbsp_set_video_state(TZBSP_VIDEO_STATE_RESUME))
-		dprintk(VIDC_ERR, "Failed TZBSP_RESUME\n");
+
 err_tzbsp_suspend:
 	return rc;
 }
