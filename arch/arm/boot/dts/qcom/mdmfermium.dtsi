@@ -81,6 +81,7 @@
 #include "mdmfermium-smp2p.dtsi"
 #include "mdmfermium-bus.dtsi"
 #include "mdmfermium-coresight.dtsi"
+#include "mdmfermium-pm.dtsi"
 
 &soc {
 	#address-cells = <1>;
