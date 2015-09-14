@@ -3044,6 +3044,10 @@
 		status = "ok";
 	};
 
+	qcom,msm-pacman {
+		compatible = "qcom,msm-pacman";
+	};
+
 	qcom,msm_fastrpc {
 		compatible = "qcom,msm-fastrpc-adsp";
 
