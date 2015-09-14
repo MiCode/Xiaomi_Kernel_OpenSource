@@ -369,6 +369,14 @@
 		qcom,clock-rates = <0 240000000 0 0 240000000 0 0>;
 		qcom,min-clock-rate = <160000000>;
 		bus_master = <1>;
+		qcom,cpp-fw-payload-info {
+			qcom,stripe-base = <156>;
+			qcom,plane-base = <141>;
+			qcom,stripe-size = <27>;
+			qcom,plane-size = <5>;
+			qcom,fe-ptr-off = <5>;
+			qcom,we-ptr-off = <11>;
+		};
 	};
 
 	cci: qcom,cci@1b0c000 {
