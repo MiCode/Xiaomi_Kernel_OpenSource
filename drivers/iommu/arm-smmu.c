@@ -447,6 +447,7 @@ struct arm_smmu_domain {
 	u32				secure_vmid;
 	struct list_head		pte_info_list;
 	struct list_head		unassign_list;
+	struct mutex			assign_lock;
 };
 
 static struct iommu_ops arm_smmu_ops;
@@ -1367,6 +1368,23 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 
 static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain);
 
+static bool arm_smmu_is_domain_secure(struct arm_smmu_domain *smmu_domain)
+{
+	return (smmu_domain->secure_vmid != VMID_INVAL);
+}
+
+static void arm_smmu_secure_domain_lock(struct arm_smmu_domain *smmu_domain)
+{
+	if (arm_smmu_is_domain_secure(smmu_domain))
+		mutex_lock(&smmu_domain->assign_lock);
+}
+
+static void arm_smmu_secure_domain_unlock(struct arm_smmu_domain *smmu_domain)
+{
+	if (arm_smmu_is_domain_secure(smmu_domain))
+		mutex_unlock(&smmu_domain->assign_lock);
+}
+
 static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 					struct arm_smmu_device *smmu)
 {
@@ -1467,7 +1485,11 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	 * assign any page table memory that might have been allocated
 	 * during alloc_io_pgtable_ops
 	 */
-	arm_smmu_assign_table(smmu_domain);
+	if (arm_smmu_is_domain_secure(smmu_domain)) {
+		arm_smmu_secure_domain_lock(smmu_domain);
+		arm_smmu_assign_table(smmu_domain);
+		arm_smmu_secure_domain_unlock(smmu_domain);
+	}
 
 	/* Update our support page sizes to reflect the page table format */
 	arm_smmu_ops.pgsize_bitmap = smmu_domain->pgtbl_cfg.pgsize_bitmap;
@@ -1555,6 +1577,7 @@ static int arm_smmu_domain_init(struct iommu_domain *domain)
 
 	mutex_init(&smmu_domain->init_mutex);
 	spin_lock_init(&smmu_domain->pgtbl_lock);
+	mutex_init(&smmu_domain->assign_lock);
 	domain->priv = smmu_domain;
 	return 0;
 }
@@ -1570,7 +1593,11 @@ static void arm_smmu_domain_destroy(struct iommu_domain *domain)
 	if (smmu_domain->pgtbl_ops) {
 		free_io_pgtable_ops(smmu_domain->pgtbl_ops);
 		/* unassign any freed page table memory */
-		arm_smmu_unassign_table(smmu_domain);
+		if (arm_smmu_is_domain_secure(smmu_domain)) {
+			arm_smmu_secure_domain_lock(smmu_domain);
+			arm_smmu_unassign_table(smmu_domain);
+			arm_smmu_secure_domain_unlock(smmu_domain);
+		}
 		smmu_domain->pgtbl_ops = NULL;
 	}
 
@@ -1771,7 +1798,11 @@ static int arm_smmu_attach_dynamic(struct iommu_domain *domain,
 	 * assign any page table memory that might have been allocated
 	 * during alloc_io_pgtable_ops
 	 */
-	arm_smmu_assign_table(smmu_domain);
+	if (arm_smmu_is_domain_secure(smmu_domain)) {
+		arm_smmu_secure_domain_lock(smmu_domain);
+		arm_smmu_assign_table(smmu_domain);
+		arm_smmu_secure_domain_unlock(smmu_domain);
+	}
 
 	cfg->vmid = cfg->cbndx + 2;
 	smmu_domain->smmu = smmu;
@@ -1972,6 +2003,7 @@ unlock:
 	mutex_unlock(&smmu_domain->init_mutex);
 }
 
+
 static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain)
 {
 	int ret = 0;
@@ -1979,38 +2011,22 @@ static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain)
 	int dest_perms[2] = {PERM_READ | PERM_WRITE, PERM_READ};
 	int source_vmid = VMID_HLOS;
 	struct arm_smmu_pte_info *pte_info, *temp;
-	unsigned long flags;
-	void *addr;
 
-	if (smmu_domain->secure_vmid == VMID_INVAL)
+	if (!arm_smmu_is_domain_secure(smmu_domain))
 		return ret;
-	while (1) {
-		spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
-		if (list_empty(&smmu_domain->pte_info_list)) {
-			spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
-			break;
-		}
 
-		pte_info = list_first_entry(&smmu_domain->pte_info_list,
-			struct arm_smmu_pte_info, entry);
-		addr = pte_info->virt_addr;
+	list_for_each_entry(pte_info, &smmu_domain->pte_info_list, entry) {
+		ret = hyp_assign_phys(virt_to_phys(pte_info->virt_addr),
+					PAGE_SIZE, &source_vmid, 1,
+					dest_vmids, dest_perms, 2);
+		if (WARN_ON(ret))
+			break;
+	}
+
+	list_for_each_entry_safe(pte_info, temp, &smmu_domain->pte_info_list,
+							entry) {
 		list_del(&pte_info->entry);
 		kfree(pte_info);
-		spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
-
-		ret = hyp_assign_phys(virt_to_phys(addr),
-				      PAGE_SIZE, &source_vmid, 1,
-				      dest_vmids, dest_perms, 2);
-		if (WARN_ON(ret)) {
-			spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
-			list_for_each_entry_safe(pte_info, temp,
-					&smmu_domain->pte_info_list, entry) {
-				list_del(&pte_info->entry);
-				kfree(pte_info);
-			}
-			spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
-			break;
-		}
 	}
 	return ret;
 }
@@ -2022,39 +2038,24 @@ static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain)
 	int dest_perms = PERM_READ | PERM_WRITE | PERM_EXEC;
 	int source_vmlist[2] = {VMID_HLOS, smmu_domain->secure_vmid};
 	struct arm_smmu_pte_info *pte_info, *temp;
-	unsigned long flags;
-	void *addr;
 
-	if (smmu_domain->secure_vmid == VMID_INVAL)
+	if (!arm_smmu_is_domain_secure(smmu_domain))
 		return;
 
-	while (1) {
-		spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
-		if (list_empty(&smmu_domain->unassign_list)) {
-			spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
+	list_for_each_entry(pte_info, &smmu_domain->unassign_list, entry) {
+		ret = hyp_assign_phys(virt_to_phys(pte_info->virt_addr),
+				PAGE_SIZE, source_vmlist, 2,
+				&dest_vmids, &dest_perms, 1);
+		if (WARN_ON(ret))
 			break;
-		}
-		pte_info = list_first_entry(&smmu_domain->unassign_list,
-			struct arm_smmu_pte_info, entry);
-		addr = pte_info->virt_addr;
+
+		free_pages_exact(pte_info->virt_addr, pte_info->size);
+	}
+
+	list_for_each_entry_safe(pte_info, temp, &smmu_domain->unassign_list,
+							entry) {
 		list_del(&pte_info->entry);
 		kfree(pte_info);
-		spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
-
-		ret = hyp_assign_phys(virt_to_phys(addr),
-				      PAGE_SIZE, source_vmlist, 2,
-				      &dest_vmids, &dest_perms, 1);
-		if (WARN_ON(ret)) {
-			spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
-			list_for_each_entry_safe(pte_info, temp,
-					&smmu_domain->unassign_list, entry) {
-				list_del(&pte_info->entry);
-				kfree(pte_info);
-			}
-			spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
-			break;
-		}
-		free_pages_exact(addr, PAGE_SIZE);
 	}
 	return;
 }
@@ -2064,7 +2065,7 @@ static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size)
 	struct arm_smmu_domain *smmu_domain = cookie;
 	struct arm_smmu_pte_info *pte_info;
 
-	if (smmu_domain->secure_vmid == VMID_INVAL) {
+	if (!arm_smmu_is_domain_secure(smmu_domain)) {
 		free_pages_exact(addr, size);
 		return;
 	}
@@ -2083,7 +2084,7 @@ static void arm_smmu_prepare_pgtable(void *addr, void *cookie)
 	struct arm_smmu_domain *smmu_domain = cookie;
 	struct arm_smmu_pte_info *pte_info;
 
-	if (smmu_domain->secure_vmid == VMID_INVAL)
+	if (!arm_smmu_is_domain_secure(smmu_domain))
 		return;
 
 	pte_info = kzalloc(sizeof(struct arm_smmu_pte_info), GFP_ATOMIC);
@@ -2104,12 +2105,16 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 	if (!ops)
 		return -ENODEV;
 
+	arm_smmu_secure_domain_lock(smmu_domain);
+
 	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
 	ret = ops->map(ops, iova, paddr, size, prot);
 	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
 
 	if (!ret)
 		ret = arm_smmu_assign_table(smmu_domain);
+
+	arm_smmu_secure_domain_unlock(smmu_domain);
 
 	return ret;
 }
@@ -2128,17 +2133,24 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	if (!ops)
 		return -ENODEV;
 
+	arm_smmu_secure_domain_lock(smmu_domain);
+
 	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
 	ret = ops->map_sg(ops, iova, sg, nents, prot, &size);
 	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
 
 	if (ret) {
-		if (arm_smmu_assign_table(smmu_domain))
-			return 0;
+		if (arm_smmu_assign_table(smmu_domain)) {
+			ret = 0;
+			goto out;
+		}
 	} else {
+		arm_smmu_secure_domain_unlock(smmu_domain);
 		arm_smmu_unmap(domain, iova, size);
 	}
 
+out:
+	arm_smmu_secure_domain_unlock(smmu_domain);
 	return ret;
 }
 
@@ -2171,6 +2183,7 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 		arm_smmu_enable_clocks_atomic(smmu_domain->smmu);
 	} else {
 		mutex_lock(&smmu_domain->init_mutex);
+		arm_smmu_secure_domain_lock(smmu_domain);
 		if (smmu_domain->smmu)
 			arm_smmu_enable_clocks(smmu_domain->smmu);
 	}
@@ -2186,6 +2199,8 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	 */
 	if (arm_smmu_assign_table(smmu_domain)) {
 		arm_smmu_unassign_table(smmu_domain);
+		arm_smmu_secure_domain_unlock(smmu_domain);
+		mutex_unlock(&smmu_domain->init_mutex);
 		return 0;
 	}
 
@@ -2197,6 +2212,7 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	} else {
 		if (smmu_domain->smmu)
 			arm_smmu_disable_clocks(smmu_domain->smmu);
+		arm_smmu_secure_domain_unlock(smmu_domain);
 		mutex_unlock(&smmu_domain->init_mutex);
 	}
 
