@@ -20,10 +20,7 @@
 #ifndef __MAXIM_STI_H__
 #define __MAXIM_STI_H__
 
-#ifdef __KERNEL__
-#include <net/genetlink.h>
-#include <net/sock.h>
-#else
+#ifndef __KERNEL__
 #include <stdlib.h>
 #include "genetlink.h"
 #endif
@@ -61,7 +58,7 @@
 	((struct nlattr *)((void *)aptr + \
 			NLA_ALIGN(((struct nlattr *)aptr)->nla_len)))
 #define GENL_CMP(name1, name2)  strncmp(name1, name2, GENL_NAMSIZ)
-#define GENL_COPY(name1, name2) strncpy(name1, name2, GENL_NAMSIZ)
+#define GENL_COPY(name1, name2) strlcpy(name1, name2, GENL_NAMSIZ)
 #define GENL_CHK(name)          (strlen(name) > (GENL_NAMSIZ - 1))
 #define MSG_TYPE(nptr)          NL_ATTR_FIRST(nptr)->nla_type
 #define MSG_PAYLOAD(nptr)       NL_ATTR_VAL(NL_ATTR_FIRST(nptr), void)
@@ -106,7 +103,7 @@ nl_add_attr(void *buf, __u16 type, void *ptr, __u16 len)
 
 	a_ptr = nl_alloc_attr(buf, type, len);
 	if (a_ptr == NULL)
-		return -1;
+		return -EPERM;
 	memcpy(a_ptr, ptr, len);
 	return 0;
 }
@@ -328,31 +325,6 @@ struct __attribute__ ((__packed__)) fu_sysfs_info {
 	__u16  charger_value;
 	__u16  lcd_fps_value;
 };
-
-#ifdef __KERNEL__
-/****************************************************************************\
-* Kernel platform data structure                                             *
-\****************************************************************************/
-
-#define MAXIM_STI_NAME  "maxim_sti"
-
-struct maxim_sti_pdata {
-	char      *touch_fusion;
-	char      *config_file;
-	char      *nl_family;
-	char      *fw_name;
-	u32       nl_mc_groups;
-	u32       chip_access_method;
-	u32       default_reset_state;
-	u32       tx_buf_size;
-	u32       rx_buf_size;
-	int       gpio_reset;
-	int       gpio_irq;
-	int       (*init)(struct maxim_sti_pdata *pdata, bool init);
-	void      (*reset)(struct maxim_sti_pdata *pdata, int value);
-	int       (*irq)(struct maxim_sti_pdata *pdata);
-};
-#endif
 
 #endif
 

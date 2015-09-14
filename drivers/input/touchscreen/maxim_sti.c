@@ -27,7 +27,9 @@
 #include <linux/interrupt.h>
 #include <linux/input.h>
 #include <linux/regulator/consumer.h>
-#include <linux/input/maxim_sti.h>
+#include <net/genetlink.h>
+#include <net/sock.h>
+#include <uapi/linux/maxim_sti.h>
 #include <asm/byteorder.h>  /* MUST include this header to get byte order */
 #ifdef CONFIG_OF
 #include <linux/gpio.h>
@@ -57,6 +59,24 @@
 /****************************************************************************\
 * Device context structure, globals, and macros                              *
 \****************************************************************************/
+#define MAXIM_STI_NAME  "maxim_sti"
+
+struct maxim_sti_pdata {
+	char      *touch_fusion;
+	char      *config_file;
+	char      *nl_family;
+	char      *fw_name;
+	u32       nl_mc_groups;
+	u32       chip_access_method;
+	u32       default_reset_state;
+	u32       tx_buf_size;
+	u32       rx_buf_size;
+	int       gpio_reset;
+	int       gpio_irq;
+	int       (*init)(struct maxim_sti_pdata *pdata, bool init);
+	void      (*reset)(struct maxim_sti_pdata *pdata, int value);
+	int       (*irq)(struct maxim_sti_pdata *pdata);
+};
 
 struct dev_data;
 

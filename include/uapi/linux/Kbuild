@@ -252,6 +252,7 @@ header-y += magic.h
 header-y += major.h
 header-y += map_to_7segment.h
 header-y += matroxfb.h
+header-y += maxim_sti.h
 header-y += mdio.h
 header-y += mdss_rotator.h
 header-y += media.h
