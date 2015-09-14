@@ -770,6 +770,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret = 0, size = 0;
 	const char *phy_type;
+	bool hold_phy_reset;
 
 	qphy = devm_kzalloc(dev, sizeof(*qphy), GFP_KERNEL);
 	if (!qphy)
@@ -934,6 +935,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	hold_phy_reset = of_property_read_bool(dev->of_node, "qcom,hold-reset");
 	ret = of_property_read_u32_array(dev->of_node, "qcom,vdd-voltage-level",
 					 (u32 *) qphy->vdd_levels,
 					 ARRAY_SIZE(qphy->vdd_levels));
@@ -974,6 +976,14 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		qphy->phy.notify_connect        = qusb_phy_notify_connect;
 		qphy->phy.notify_disconnect     = qusb_phy_notify_disconnect;
 	}
+
+	/*
+	 * On some platforms multiple QUSB PHYs are available. If QUSB PHY is
+	 * not used, there is leakage current seen with QUSB PHY related voltage
+	 * rail. Hence keep QUSB PHY into reset state explicitly here.
+	 */
+	if (hold_phy_reset)
+		clk_reset(qphy->phy_reset, CLK_RESET_ASSERT);
 
 	ret = usb_add_phy_dev(&qphy->phy);
 	return ret;
