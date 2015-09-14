@@ -685,8 +685,12 @@ int qmi_filter_notify_send(struct ipa_fltr_installed_notif_req_msg_v01 *req)
 static void ipa_q6_clnt_recv_msg(struct work_struct *work)
 {
 	int rc;
-	rc = qmi_recv_msg(ipa_q6_clnt);
-	if (rc < 0)
+
+	do {
+		IPAWANDBG("Notified about a Receive Event");
+		rc = qmi_recv_msg(ipa_q6_clnt);
+	} while (rc == 0);
+	if (rc != -ENOMSG)
 		IPAWANERR("Error receiving message\n");
 }
 
