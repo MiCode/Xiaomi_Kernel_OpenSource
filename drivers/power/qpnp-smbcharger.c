@@ -174,6 +174,7 @@ struct smbchg_chip {
 	bool				dc_present;
 	bool				usb_present;
 	bool				batt_present;
+	bool				batt_ov;
 	int				otg_retries;
 	ktime_t				otg_enable_time;
 	bool				aicl_deglitch_short;
@@ -202,6 +203,7 @@ struct smbchg_chip {
 	int				batt_cool_irq;
 	int				batt_cold_irq;
 	int				batt_missing_irq;
+	int				batt_ov_irq;
 	int				vbat_low_irq;
 	int				chg_hot_irq;
 	int				chg_term_irq;
@@ -966,6 +968,8 @@ static int get_prop_batt_voltage_max_design(struct smbchg_chip *chip)
 
 static int get_prop_batt_health(struct smbchg_chip *chip)
 {
+	if (chip->batt_ov)
+		return POWER_SUPPLY_HEALTH_OVERVOLTAGE;
 	if (chip->batt_hot)
 		return POWER_SUPPLY_HEALTH_OVERHEAT;
 	else if (chip->batt_cold)
@@ -5498,6 +5502,22 @@ static irqreturn_t batt_pres_handler(int irq, void *_chip)
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t batt_ov_handler(int irq, void *_chip)
+{
+	struct smbchg_chip *chip = _chip;
+	int rc;
+	u8 reg;
+
+	rc = smbchg_read(chip, &reg, chip->bat_if_base + RT_STS, 1);
+	if (rc)
+		dev_err(chip->dev, "Unable to read RT_STS rc = %d\n", rc);
+	else
+		chip->batt_ov = !!(reg & BAT_OV_BIT);
+
+	pr_warn_ratelimited("batt ov: %d\n", chip->batt_ov);
+	return IRQ_HANDLED;
+}
+
 static irqreturn_t vbat_low_handler(int irq, void *_chip)
 {
 	pr_warn_ratelimited("vbat low\n");
@@ -5968,6 +5988,7 @@ static int determine_initial_status(struct smbchg_chip *chip)
 	 */
 
 	batt_pres_handler(0, chip);
+	batt_ov_handler(0, chip);
 	batt_hot_handler(0, chip);
 	batt_warm_handler(0, chip);
 	batt_cool_handler(0, chip);
@@ -6925,6 +6946,8 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 				"batt-cold", batt_cold_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->batt_missing_irq,
 				"batt-missing", batt_pres_handler, flags, rc);
+			REQUEST_IRQ(chip, spmi_resource, chip->batt_ov_irq,
+				"batt-ov", batt_ov_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->vbat_low_irq,
 				"batt-low", vbat_low_handler, flags, rc);
 			enable_irq_wake(chip->batt_hot_irq);
