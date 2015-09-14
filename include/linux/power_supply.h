@@ -197,6 +197,7 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_RERUN_AICL,
 	POWER_SUPPLY_PROP_CYCLE_COUNT_ID,
 	POWER_SUPPLY_PROP_SAFETY_TIMER_EXPIRED,
+	POWER_SUPPLY_PROP_RESTRICTED_CHARGING,
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT,
 	/* Properties of type `const char *' */
