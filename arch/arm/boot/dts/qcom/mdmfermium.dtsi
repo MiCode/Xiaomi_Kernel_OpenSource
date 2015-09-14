@@ -674,13 +674,13 @@
 		interrupts = <0 190 0>;
 		qcom,pmic-arb-channel = <0>;
 		qcom,pmic-arb-max-peripherals = <128>;
+		qcom,pmic-arb-max-periph-interrupts = <128>;
 		qcom,pmic-arb-ee = <0>;
 		#interrupt-cells = <3>;
 		interrupt-controller;
 		#address-cells = <1>;
 		#size-cells = <0>;
 		cell-index = <0>;
-		status = "disabled";
 	};
 
 	spi_1: spi@78b6000 { /* BLSP1 QUP1 */
