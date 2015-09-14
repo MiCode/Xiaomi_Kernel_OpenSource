@@ -324,6 +324,7 @@ enum icl_voters {
 	THERMAL_ICL_VOTER,
 	HVDCP_ICL_VOTER,
 	USER_ICL_VOTER,
+	WEAK_CHARGER_ICL_VOTER,
 	NUM_ICL_VOTER,
 };
 
@@ -1381,6 +1382,29 @@ static int smbchg_set_high_usb_chg_current(struct smbchg_chip *chip,
 {
 	int i, rc;
 	u8 usb_cur_val;
+
+	if (current_ma == CURRENT_100_MA) {
+		rc = smbchg_sec_masked_write(chip,
+					chip->usb_chgpth_base + CHGPTH_CFG,
+					CFG_USB_2_3_SEL_BIT, CFG_USB_2);
+		if (rc < 0) {
+			pr_err("Couldn't set CFG_USB_2 rc=%d\n", rc);
+			return rc;
+		}
+
+		rc = smbchg_masked_write(chip, chip->usb_chgpth_base + CMD_IL,
+			USBIN_MODE_CHG_BIT | USB51_MODE_BIT | ICL_OVERRIDE_BIT,
+			USBIN_LIMITED_MODE | USB51_100MA | ICL_OVERRIDE_BIT);
+		if (rc < 0) {
+			pr_err("Couldn't set ICL_OVERRIDE rc=%d\n", rc);
+			return rc;
+		}
+
+		pr_smb(PR_STATUS,
+			"Forcing 100mA current limit\n");
+		chip->usb_max_current_ma = CURRENT_100_MA;
+		return rc;
+	}
 
 	i = find_smaller_in_array(chip->tables.usb_ilim_ma_table,
 			current_ma, chip->tables.usb_ilim_ma_len);
@@ -4236,6 +4260,7 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 	if (rc < 0)
 		pr_err("Couldn't set override rc = %d\n", rc);
 
+	vote(chip->usb_icl_votable, WEAK_CHARGER_ICL_VOTER, false, 0);
 	restore_from_hvdcp_detection(chip);
 }
 
@@ -4483,15 +4508,26 @@ static void increment_aicl_count(struct smbchg_chip *chip)
 				elapsed_seconds, chip->first_aicl_seconds,
 				now_seconds, chip->aicl_irq_count);
 			pr_smb(PR_INTERRUPT, "Disable AICL rerun\n");
+			chip->very_weak_charger = true;
+			bad_charger = true;
+
 			/*
 			 * Disable AICL rerun since many interrupts were
 			 * triggered in a short time
 			 */
-			chip->very_weak_charger = true;
 			rc = smbchg_hw_aicl_rerun_en(chip, false);
 			if (rc)
-				pr_err("could not enable aicl reruns: %d", rc);
-			bad_charger = true;
+				pr_err("Couldn't disable AICL reruns rc=%d\n",
+					rc);
+
+			/* Vote 100mA current limit */
+			rc = vote(chip->usb_icl_votable, WEAK_CHARGER_ICL_VOTER,
+					true, CURRENT_100_MA);
+			if (rc < 0) {
+				pr_err("Can't vote %d current limit rc=%d\n",
+					CURRENT_100_MA, rc);
+			}
+
 			chip->aicl_irq_count = 0;
 		} else if ((get_prop_charge_type(chip) ==
 				POWER_SUPPLY_CHARGE_TYPE_FAST) &&
