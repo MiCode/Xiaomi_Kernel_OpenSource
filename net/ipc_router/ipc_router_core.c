@@ -1104,6 +1104,7 @@ static int post_pkt_to_port(struct msm_ipc_port *port_ptr,
 		       size_t oob_data_len, void *priv);
 	void (*data_ready)(struct sock *sk) = NULL;
 	struct sock *sk;
+	uint32_t pkt_type;
 
 	if (unlikely(!port_ptr || !pkt))
 		return -EINVAL;
@@ -1124,6 +1125,7 @@ static int post_pkt_to_port(struct msm_ipc_port *port_ptr,
 	list_add_tail(&temp_pkt->list, &port_ptr->port_rx_q);
 	wake_up(&port_ptr->port_rx_wait_q);
 	notify = port_ptr->notify;
+	pkt_type = temp_pkt->hdr.type;
 	sk = (struct sock *)port_ptr->endpoint;
 	if (sk) {
 		read_lock(&sk->sk_callback_lock);
@@ -1132,7 +1134,7 @@ static int post_pkt_to_port(struct msm_ipc_port *port_ptr,
 	}
 	mutex_unlock(&port_ptr->port_rx_q_lock_lhc3);
 	if (notify)
-		notify(pkt->hdr.type, NULL, 0, port_ptr->priv);
+		notify(pkt_type, NULL, 0, port_ptr->priv);
 	else if (sk && data_ready)
 		data_ready(sk);
 
