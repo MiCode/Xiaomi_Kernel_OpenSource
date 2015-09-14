@@ -61,6 +61,10 @@ struct rmnet_mux_val {
 int rmnet_ipa_poll_tethering_stats(struct wan_ioctl_poll_tethering_stats *data);
 int rmnet_ipa_set_data_quota(struct wan_ioctl_set_data_quota *data);
 void ipa_broadcast_quota_reach_ind(uint32_t mux_id);
+int rmnet_ipa_set_tether_client_pipe(struct wan_ioctl_set_tether_client_pipe
+	*data);
+int rmnet_ipa_query_tethering_stats(struct wan_ioctl_query_tether_stats *data,
+	bool reset);
 
 int ipa_qmi_get_data_stats(struct ipa_get_data_stats_req_msg_v01 *req,
 	struct ipa_get_data_stats_resp_msg_v01 *resp);
