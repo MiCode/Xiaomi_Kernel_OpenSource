@@ -3759,7 +3759,7 @@ int mdss_mdp_mixer_pipe_unstage(struct mdss_mdp_pipe *pipe,
 		!(pipe->src_split_req && mixer->is_right_mixer);
 	index = (pipe->mixer_stage * MAX_PIPES_PER_STAGE) + right_blend_index;
 
-	if (pipe == mixer->stage_pipe[index]) {
+	if (index < MAX_PIPES_PER_LM && pipe == mixer->stage_pipe[index]) {
 		pr_debug("unstage p%d from %s side of stage=%d lm=%d ndx=%d\n",
 			pipe->num, pipe->is_right_blend ? "right" : "left",
 			pipe->mixer_stage, mixer->num, index);

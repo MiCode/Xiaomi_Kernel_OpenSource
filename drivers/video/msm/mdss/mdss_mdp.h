@@ -504,7 +504,7 @@ struct mdss_mdp_pipe {
 	struct mdss_mdp_format_params *src_fmt;
 	struct mdss_mdp_plane_sizes src_planes;
 
-	u8 mixer_stage;
+	enum mdss_mdp_stage_index mixer_stage;
 	u8 is_fg;
 	u8 alpha;
 	u8 blend_op;
