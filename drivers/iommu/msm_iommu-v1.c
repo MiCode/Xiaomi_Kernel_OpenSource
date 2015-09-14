@@ -996,7 +996,7 @@ static int msm_iommu_dynamic_attach(struct iommu_domain *domain,
 	priv = domain->priv;
 
 	/* Check if the domain is already attached or not */
-	if (priv->asid < MAX_ASID)
+	if (priv->asid < MAX_ASID && priv->asid > 0)
 		return -EBUSY;
 
 	ret = idr_alloc_cyclic(&iommu_drvdata->asid_idr, priv,
