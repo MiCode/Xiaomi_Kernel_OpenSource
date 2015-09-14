@@ -319,32 +319,5 @@ struct __attribute__ ((__packed__)) fu_sysfs_info {
 	__u16  lcd_fps_value;
 };
 
-#ifdef __KERNEL__
-/****************************************************************************\
-* Kernel platform data structure                                             *
-\****************************************************************************/
-
-#define MAXIM_STI_NAME  "maxim_sti"
-
-struct maxim_sti_pdata {
-	char      *touch_fusion;
-	char      *config_file;
-	char      *nl_family;
-	char      *fw_name;
-	u32       nl_mc_groups;
-	u32       chip_access_method;
-	u32       default_reset_state;
-	u32       tx_buf_size;
-	u32       rx_buf_size;
-	u32       gpio_reset;
-	u32       gpio_irq;
-	int       (*init)(struct device *dev,
-				struct maxim_sti_pdata *pdata, bool init);
-	void      (*reset)(struct maxim_sti_pdata *pdata, int value);
-	int       (*irq)(struct maxim_sti_pdata *pdata);
-	u32       wakeup_gesture_support;
-};
-#endif
-
 #endif
 
