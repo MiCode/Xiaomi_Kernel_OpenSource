@@ -521,6 +521,8 @@ static void setup_64bit_pagetable(struct kgsl_mmu *mmu,
 		struct kgsl_iommu_pt *pt)
 {
 	if (mmu->secured && pagetable->name == KGSL_MMU_SECURE_PT) {
+		pt->compat_va_start = KGSL_IOMMU_SECURE_BASE;
+		pt->compat_va_end = KGSL_IOMMU_SECURE_END;
 		pt->va_start = KGSL_IOMMU_SECURE_BASE;
 		pt->va_end = KGSL_IOMMU_SECURE_END;
 	} else {
@@ -548,6 +550,8 @@ static void setup_32bit_pagetable(struct kgsl_mmu *mmu,
 {
 	if (mmu->secured) {
 		if (pagetable->name == KGSL_MMU_SECURE_PT) {
+			pt->compat_va_start = KGSL_IOMMU_SECURE_BASE;
+			pt->compat_va_end = KGSL_IOMMU_SECURE_END;
 			pt->va_start = KGSL_IOMMU_SECURE_BASE;
 			pt->va_end = KGSL_IOMMU_SECURE_END;
 		} else {
