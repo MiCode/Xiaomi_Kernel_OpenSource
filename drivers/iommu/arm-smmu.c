@@ -1089,6 +1089,10 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	phys_addr_t phys_soft;
 	u32 frsynra;
 
+	static DEFINE_RATELIMIT_STATE(_rs,
+				      DEFAULT_RATELIMIT_INTERVAL,
+				      DEFAULT_RATELIMIT_BURST);
+
 	mutex_lock(&smmu_domain->init_mutex);
 	smmu = smmu_domain->smmu;
 	if (!smmu) {
@@ -1148,25 +1152,30 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 		phys_addr_t phys_atos = arm_smmu_verify_fault(domain, iova,
 							      fsr);
 
-		dev_err(smmu->dev,
-			"Unhandled context fault: iova=0x%08lx, fsr=0x%x, fsynr=0x%x, cb=%d\n",
-			iova, fsr, fsynr, cfg->cbndx);
-		dev_err(smmu->dev, "FAR    = %016lx\n", (unsigned long)far);
-		dev_err(smmu->dev, "FSR    = %08x [%s%s%s%s%s%s%s%s%s]\n", fsr,
-			(fsr & 0x02) ? "TF " : "",
-			(fsr & 0x04) ? "AFF " : "",
-			(fsr & 0x08) ? "PF " : "",
-			(fsr & 0x10) ? "EF " : "",
-			(fsr & 0x20) ? "TLBMCF " : "",
-			(fsr & 0x40) ? "TLBLKF " : "",
-			(fsr & 0x80) ? "MHF " : "",
-			(fsr & 0x40000000) ? "SS " : "",
-			(fsr & 0x80000000) ? "MULTI " : "");
-		dev_err(smmu->dev,
-			"soft iova-to-phys=%pa\n", &phys_soft);
-		dev_err(smmu->dev,
-			"hard iova-to-phys (ATOS)=%pa\n", &phys_atos);
-		dev_err(smmu->dev, "SID=0x%x\n", frsynra & 0x1FF);
+		if (__ratelimit(&_rs)) {
+			dev_err(smmu->dev,
+				"Unhandled context fault: iova=0x%08lx, fsr=0x%x, fsynr=0x%x, cb=%d\n",
+				iova, fsr, fsynr, cfg->cbndx);
+			dev_err(smmu->dev, "FAR    = %016lx\n",
+				(unsigned long)far);
+			dev_err(smmu->dev,
+				"FSR    = %08x [%s%s%s%s%s%s%s%s%s]\n",
+				fsr,
+				(fsr & 0x02) ? "TF " : "",
+				(fsr & 0x04) ? "AFF " : "",
+				(fsr & 0x08) ? "PF " : "",
+				(fsr & 0x10) ? "EF " : "",
+				(fsr & 0x20) ? "TLBMCF " : "",
+				(fsr & 0x40) ? "TLBLKF " : "",
+				(fsr & 0x80) ? "MHF " : "",
+				(fsr & 0x40000000) ? "SS " : "",
+				(fsr & 0x80000000) ? "MULTI " : "");
+			dev_err(smmu->dev,
+				"soft iova-to-phys=%pa\n", &phys_soft);
+			dev_err(smmu->dev,
+				"hard iova-to-phys (ATOS)=%pa\n", &phys_atos);
+			dev_err(smmu->dev, "SID=0x%x\n", frsynra & 0x1FF);
+		}
 		ret = IRQ_NONE;
 		resume = RESUME_TERMINATE;
 	}
