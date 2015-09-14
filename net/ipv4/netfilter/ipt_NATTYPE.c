@@ -24,6 +24,7 @@
  * Ubicom32 implementation derived from
  * Cameo's implementation(with many thanks):
  */
+
 #include <linux/types.h>
 #include <linux/ip.h>
 #include <linux/udp.h>
@@ -36,7 +37,7 @@
 #include <linux/tcp.h>
 #include <net/netfilter/nf_conntrack.h>
 #include <net/netfilter/nf_conntrack_core.h>
-#include <net/netfilter/nf_nat_rule.h>
+#include <net/netfilter/nf_nat.h>
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter_ipv4/ipt_NATTYPE.h>
 #include <linux/atomic.h>
@@ -58,12 +59,16 @@ static const char * const modes[] = {"MODE_DNAT", "MODE_FORWARD_IN",
 struct ipt_nattype {
 	struct list_head list;
 	struct timer_list timeout;
+	unsigned long timeout_value;
+	unsigned int nattype_cookie;
 	unsigned short proto;		/* Protocol: TCP or UDP */
-	struct nf_nat_ipv4_range range;	/* LAN side src info*/
+	struct nf_nat_range range;	/* LAN side source information */
 	unsigned short nat_port;	/* Routed NAT port */
 	unsigned int dest_addr;	/* Original egress packets dst addr */
 	unsigned short dest_port;/* Original egress packets destination port */
 };
+
+#define NATTYPE_COOKIE 0x11abcdef
 
 /* TODO: It might be better to use a hash table for performance in
  * heavy traffic.
@@ -78,8 +83,8 @@ static void nattype_nte_debug_print(const struct ipt_nattype *nte,
 				    const char *s)
 {
 	DEBUGP("%p: %s - proto[%d], src[%pI4:%d], nat[<x>:%d], dest[%pI4:%d]\n",
-	       nte, s, nte->proto,
-		&nte->range.min_ip, ntohs(nte->range.min.all),
+		nte, s, nte->proto,
+		&nte->range.min_addr.ip, ntohs(nte->range.min.all),
 		ntohs(nte->nat_port),
 		&nte->dest_addr, ntohs(nte->dest_port));
 }
@@ -96,13 +101,25 @@ static void nattype_free(struct ipt_nattype *nte)
 /* netfilter NATTYPE nattype_refresh_timer()
  * Refresh the timer for this object.
  */
-static bool nattype_refresh_timer(struct ipt_nattype *nte)
+bool nattype_refresh_timer(unsigned long nat_type, unsigned long timeout_value)
 {
+	struct ipt_nattype *nte = (struct ipt_nattype *)nat_type;
+
+	if (!nte)
+		return false;
+	spin_lock_bh(&nattype_lock);
+	if (nte->nattype_cookie != NATTYPE_COOKIE) {
+		spin_unlock_bh(&nattype_lock);
+		return false;
+	}
 	if (del_timer(&nte->timeout)) {
-		nte->timeout.expires = jiffies + NATTYPE_TIMEOUT * HZ;
+		nte->timeout_value = timeout_value - jiffies;
+		nte->timeout.expires = timeout_value;
 		add_timer(&nte->timeout);
+		spin_unlock_bh(&nattype_lock);
 		return true;
 	}
+	spin_unlock_bh(&nattype_lock);
 	return false;
 }
 
@@ -121,6 +138,7 @@ static void nattype_timer_timeout(unsigned long in_nattype)
 	nattype_nte_debug_print(nte, "timeout");
 	spin_lock_bh(&nattype_lock);
 	list_del(&nte->list);
+	memset(nte, 0, sizeof(struct ipt_nattype));
 	spin_unlock_bh(&nattype_lock);
 	nattype_free(nte);
 }
@@ -200,7 +218,8 @@ static bool nattype_packet_in_match(const struct ipt_nattype *nte,
 /* netfilter NATTYPE nattype_compare
  * Compare two entries, return true if relevant fields are the same.
  */
-static bool nattype_compare(struct ipt_nattype *n1, struct ipt_nattype *n2)
+static bool nattype_compare(struct ipt_nattype *n1, struct ipt_nattype *n2,
+			    const struct ipt_nattype_info *info)
 {
 	/* netfilter NATTYPE Protocol
 	 * compare.
@@ -212,19 +231,19 @@ static bool nattype_compare(struct ipt_nattype *n1, struct ipt_nattype *n2)
 	}
 
 	 /* netfilter NATTYPE LAN Source compare.
-	  * Since we always keep min/max values the same,
-	  * just compare the min values.
-	  */
-	if (n1->range.min_ip != n2->range.min_ip) {
-		DEBUGP("nattype_compare: r.min_ip mismatch: %pI4:%pI4\n",
-		       &n1->range.min_ip, &n2->range.min_ip);
+	 * Since we always keep min/max values the same,
+	 * just compare the min values.
+	 */
+	if (n1->range.min_addr.ip != n2->range.min_addr.ip) {
+		DEBUGP("nattype_compare: r.min_addr.ip mismatch: %pI4:%pI4\n",
+		       &n1->range.min_addr.ip, &n2->range.min_addr.ip);
 		return false;
 	}
 
-	if (n1->range.min.all != n2->range.min.all) {
+	if (n1->range.min_addr.all != n2->range.min_addr.all) {
 		DEBUGP("nattype_compare: r.min mismatch: %d:%d\n",
-		       ntohs(n1->range.min.all),
-		       ntohs(n2->range.min.all));
+				ntohs(n1->range.min_addr.all),
+				ntohs(n2->range.min_addr.all));
 		return false;
 	}
 
@@ -237,20 +256,16 @@ static bool nattype_compare(struct ipt_nattype *n1, struct ipt_nattype *n2)
 		return false;
 	}
 
-	/* netfilter NATTYPE
-	 * Destination compare
+	/* netfilter NATTYPE Destination compare
+	 * Destination Comapre for Address Restricted Cone NAT.
 	 */
-	if (n1->dest_addr != n2->dest_addr) {
+	if ((info->type == TYPE_ADDRESS_RESTRICTED) &&
+	    (n1->dest_addr != n2->dest_addr)) {
 		DEBUGP("nattype_compare: dest_addr mismatch: %pI4:%pI4\n",
 		       &n1->dest_addr, &n2->dest_addr);
 		return false;
 	}
 
-	if (n1->dest_port != n2->dest_port) {
-		DEBUGP("nattype_compare: dest_port mismatch: %d:%d\n",
-		       ntohs(n1->dest_port), ntohs(n2->dest_port));
-		return false;
-	}
 	return true;
 }
 
@@ -269,7 +284,7 @@ static unsigned int nattype_nat(struct sk_buff *skb,
 	list_for_each_entry(nte, &nattype_list, list) {
 		struct nf_conn *ct;
 		enum ip_conntrack_info ctinfo;
-		struct nf_nat_ipv4_range newrange;
+		struct nf_nat_range newrange;
 		unsigned int ret;
 
 		if (!nattype_packet_in_match(nte, skb, par->targinfo))
@@ -290,11 +305,22 @@ static unsigned int nattype_nat(struct sk_buff *skb,
 			return XT_CONTINUE;
 		}
 
-		/* Expand the ingress conntrack
-		 * to include the reply as source
+		/* netfilter
+		 * Refresh the timer, if we fail, break
+		 * out and forward fail as though we never
+		 * found the entry.
+		 */
+		if (!nattype_refresh_timer((unsigned long)nte,
+					   jiffies + nte->timeout_value))
+			break;
+
+		/* netfilter
+		 * Expand the ingress conntrack to include the reply as source
 		 */
 		DEBUGP("Expand ingress conntrack=%p, type=%d, src[%pI4:%d]\n",
-		       ct, ctinfo, &newrange.min_ip, ntohs(newrange.min.all));
+		       ct, ctinfo, &newrange.min_addr.ip,
+		       ntohs(newrange.min.all));
+		ct->nattype_entry = (unsigned long)nte;
 		ret = nf_nat_setup_info(ct, &newrange, NF_NAT_MANIP_DST);
 		DEBUGP("Expand returned: %d\n", ret);
 		return ret;
@@ -317,12 +343,22 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 	enum ip_conntrack_info ctinfo;
 	const struct ipt_nattype_info *info = par->targinfo;
 	uint16_t nat_port;
+	enum ip_conntrack_dir dir;
+
 
 	if (par->hooknum != NF_INET_FORWARD)
 		return XT_CONTINUE;
 
-	/* Ingress packet,
-	 * refresh the timer if we find an entry.
+	/* netfilter
+	 * Egress packet, create a new rule in our list.  If conntrack does
+	 * not have an entry, skip this packet.
+	 */
+	ct = nf_ct_get(skb, &ctinfo);
+	if (!ct)
+		return XT_CONTINUE;
+
+	/* netfilter
+	 * Ingress packet, refresh the timer if we find an entry.
 	 */
 	if (info->mode == MODE_FORWARD_IN) {
 		spin_lock_bh(&nattype_lock);
@@ -334,12 +370,14 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 			if (!nattype_packet_in_match(nte, skb, info))
 				continue;
 
+			spin_unlock_bh(&nattype_lock);
 			/* netfilter NATTYPE
 			 * Refresh the timer, if we fail, break
 			 * out and forward fail as though we never
 			 * found the entry.
 			 */
-			if (!nattype_refresh_timer(nte))
+			if (!nattype_refresh_timer((unsigned long)nte,
+						   ct->timeout.expires))
 				break;
 
 			/* netfilter NATTYPE
@@ -347,7 +385,6 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 			 * entry values should not change so print
 			 * them outside the lock.
 			 */
-			spin_unlock_bh(&nattype_lock);
 			nattype_nte_debug_print(nte, "refresh");
 			DEBUGP("FORWARD_IN_ACCEPT\n");
 			return NF_ACCEPT;
@@ -357,15 +394,9 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 		return XT_CONTINUE;
 	}
 
-	/* netfilter NATTYPE
-	 * Egress packet, create a new rule in our list.  If conntrack does
-	 * not have an entry, skip this packet.
-	 */
-	ct = nf_ct_get(skb, &ctinfo);
-	if (!ct || (ctinfo == IP_CT_NEW && ctinfo == IP_CT_RELATED))
-		return XT_CONTINUE;
+	dir = CTINFO2DIR(ctinfo);
 
-	nat_port = ct->tuplehash[IP_CT_DIR_REPLY].tuple.dst.u.all;
+	nat_port = ct->tuplehash[!dir].tuple.dst.u.all;
 
 	/* netfilter NATTYPE
 	 * Allocate a new entry
@@ -381,20 +412,22 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 	nte->proto = iph->protocol;
 	nte->nat_port = nat_port;
 	nte->dest_addr = iph->daddr;
-	nte->range.min_ip = iph->saddr;
-	nte->range.max_ip = nte->range.min_ip;
+	nte->range.min_addr.ip = iph->saddr;
+	nte->range.max_addr.ip = nte->range.min_addr.ip;
 
 	/* netfilter NATTYPE
 	 * TOOD: Would it be better to get this information from the
 	 * conntrack instead of the headers.
 	 */
 	if (iph->protocol == IPPROTO_TCP) {
-		nte->range.min.tcp.port = ((struct tcphdr *)protoh)->source;
-		nte->range.max.tcp.port = nte->range.min.tcp.port;
+		nte->range.min_proto.tcp.port =
+					((struct tcphdr *)protoh)->source;
+		nte->range.max_proto.tcp.port = nte->range.min_proto.tcp.port;
 		nte->dest_port = ((struct tcphdr *)protoh)->dest;
 	} else if (iph->protocol == IPPROTO_UDP) {
-		nte->range.min.udp.port = ((struct udphdr *)protoh)->source;
-		nte->range.max.udp.port = nte->range.min.udp.port;
+		nte->range.min_proto.udp.port =
+					((struct udphdr *)protoh)->source;
+		nte->range.max_proto.udp.port = nte->range.min_proto.udp.port;
 		nte->dest_port = ((struct udphdr *)protoh)->dest;
 	}
 	nte->range.flags = (NF_NAT_RANGE_MAP_IPS |
@@ -415,15 +448,17 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 	 */
 	spin_lock_bh(&nattype_lock);
 	list_for_each_entry(nte2, &nattype_list, list) {
-		if (!nattype_compare(nte, nte2))
+		if (!nattype_compare(nte, nte2, info))
 			continue;
-
+		spin_unlock_bh(&nattype_lock);
 		/* netfilter NATTYPE
 		 * If we can not refresh this entry, insert our new
 		 * entry as this one is timed out and will be removed
 		 * from the list shortly.
 		 */
-		if (!nattype_refresh_timer(nte2))
+		nte2->timeout_value = ct->timeout.expires - jiffies;
+		if (!nattype_refresh_timer((unsigned long)nte2,
+					   ct->timeout.expires))
 			break;
 
 		/* netfilter NATTYPE
@@ -432,7 +467,6 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 		 *
 		 * Free up the new entry.
 		 */
-		spin_unlock_bh(&nattype_lock);
 		nattype_nte_debug_print(nte2, "refresh");
 		nattype_free(nte);
 		return XT_CONTINUE;
@@ -441,9 +475,12 @@ static unsigned int nattype_forward(struct sk_buff *skb,
 	/* netfilter NATTYPE
 	 * Add the new entry to the list.
 	 */
-	nte->timeout.expires = jiffies + (NATTYPE_TIMEOUT  * HZ);
+	nte->timeout_value = ct->timeout.expires - jiffies;
+	nte->timeout.expires = ct->timeout.expires;
 	add_timer(&nte->timeout);
 	list_add(&nte->list, &nattype_list);
+	ct->nattype_entry = (unsigned long)nte;
+	nte->nattype_cookie = NATTYPE_COOKIE;
 	spin_unlock_bh(&nattype_lock);
 	nattype_nte_debug_print(nte, "ADD");
 	return XT_CONTINUE;
