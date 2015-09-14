@@ -165,6 +165,7 @@ void msm_dcvs_init_load(struct msm_vidc_inst *inst)
 	struct hal_buffer_requirements *output_buf_req;
 	struct dcvs_stats *dcvs;
 	const unsigned int load_uhd = NUM_MBS_PER_SEC(2160, 3840, 30),
+		load_dci = NUM_MBS_PER_SEC(2160, 4096, 24),
 		load_1080p = NUM_MBS_PER_SEC(1088, 1920, 60);
 
 	dprintk(VIDC_DBG, "Init DCVS Load\n");
@@ -188,7 +189,7 @@ void msm_dcvs_init_load(struct msm_vidc_inst *inst)
 			dcvs->load_high = DCVS_DEC_NOMINAL_LOAD;
 		}
 	} else { /* encoder */
-		if (dcvs->load >= load_uhd) {
+		if (dcvs->load >= min(load_uhd, load_dci)) {
 			dcvs->load_low = DCVS_ENC_NOMINAL_LOAD;
 			dcvs->load_high = DCVS_ENC_TURBO_LOAD;
 		}
