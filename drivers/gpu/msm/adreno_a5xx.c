@@ -1480,6 +1480,20 @@ static void a5xx_lm_enable(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A5XX_GPMU_CLOCK_THROTTLE_CTRL, val);
 }
 
+static int gpmu_set_level(struct kgsl_device *device, unsigned int val)
+{
+	unsigned int reg;
+	int retry = 20;
+
+	kgsl_regwrite(device, A5XX_GPMU_GPMU_VOLTAGE, val);
+
+	do {
+		kgsl_regread(device, A5XX_GPMU_GPMU_VOLTAGE, &reg);
+	} while ((reg & 0x80000000) && retry--);
+
+	return (reg & 0x80000000) ? -ETIMEDOUT : 0;
+}
+
 /*
  * a5xx_pwrlevel_change_settings() - Program the hardware during power level
  * transitions
@@ -1514,16 +1528,16 @@ static void a5xx_pwrlevel_change_settings(struct adreno_device *adreno_dev,
 	else if (post == 1)
 		pre = 0;
 
-	if (pre)
-		kgsl_regwrite(device, A5XX_GPMU_GPMU_VOLTAGE,
-			(0x80000010 | postlevel));
-
-	if (pre && post)
-		udelay(3);
+	if (pre) {
+		if (gpmu_set_level(device, (0x80000010 | postlevel)))
+			KGSL_CORE_ERR(
+				"GPMU pre powerlevel did not stabilize\n");
+	}
 
 	if (post) {
-		kgsl_regwrite(device, A5XX_GPMU_GPMU_VOLTAGE,
-			(0x80000000 | postlevel));
+		if (gpmu_set_level(device, (0x80000000 | postlevel)))
+			KGSL_CORE_ERR(
+				"GPMU post powerlevel did not stabilize\n");
 		pre = 0;
 	}
 }
