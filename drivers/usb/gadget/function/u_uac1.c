@@ -708,8 +708,16 @@ static int gaudio_close_snd_dev(struct gaudio *gau)
  */
 int gaudio_setup(struct gaudio *card)
 {
+	struct gaudio_snd_dev *snd;
 	int	ret;
 
+	snd = &card->control;
+	if (snd->card) {
+		pr_debug("snd devices already opened\n");
+		return 0;
+	}
+
+	pr_debug("trying to open snd devices\n");
 	ret = gaudio_open_snd_dev(card);
 	if (ret)
 		ERROR(card, "we need at least one control device\n");
