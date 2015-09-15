@@ -3522,6 +3522,48 @@ void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 		mdss_mdp_set_mixer_roi(ctl->mixer_right->ctl, r_roi);
 }
 
+u32 mdss_mdp_get_mixer_mask(u32 pipe_num, u32 stage)
+{
+	u32 mask = 0;
+
+	if ((pipe_num == MDSS_MDP_SSPP_VIG3 ||
+			pipe_num == MDSS_MDP_SSPP_RGB3)) {
+		/* Add 2 to account for Cursor & Border bits */
+		mask = stage << ((3 * pipe_num) + 2);
+	} else {
+		mask = stage << (3 * pipe_num);
+	}
+	return mask;
+}
+
+u32 mdss_mdp_get_mixer_extn_mask(u32 pipe_num, u32 stage)
+{
+	u32 mask = 0;
+
+	/*
+	 * The ctl layer extension bits are ordered
+	 * VIG0-3, RGB0-3, DMA0-1
+	 */
+	if (pipe_num < MDSS_MDP_SSPP_RGB0) {
+		mask = BIT(pipe_num << 1);
+	} else if (pipe_num >= MDSS_MDP_SSPP_RGB0 &&
+			pipe_num < MDSS_MDP_SSPP_DMA0) {
+		mask = BIT((pipe_num + 1) << 1);
+	} else if (pipe_num >= MDSS_MDP_SSPP_DMA0 &&
+			pipe_num < MDSS_MDP_SSPP_VIG3) {
+		mask = BIT((pipe_num + 2) << 1);
+	} else if (pipe_num >= MDSS_MDP_SSPP_CURSOR0 &&
+			pipe_num <= MDSS_MDP_SSPP_CURSOR1) {
+		mask = stage << (20 + (6 * (pipe_num - MDSS_MDP_SSPP_CURSOR0)));
+	} else if (pipe_num == MDSS_MDP_SSPP_VIG3) {
+		mask = BIT(6);
+	} else if (pipe_num == MDSS_MDP_SSPP_RGB3) {
+		mask = BIT(14);
+	}
+
+	return mask;
+}
+
 static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 	int mixer_mux)
 {
@@ -3572,16 +3614,12 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 	if (pipe == NULL) {
 		mixercfg = MDSS_MDP_LM_BORDER_COLOR;
 	} else {
-		if (pipe->num == MDSS_MDP_SSPP_VIG3 ||
-			pipe->num == MDSS_MDP_SSPP_RGB3) {
-			/* Add 2 to account for Cursor & Border bits */
-			mixercfg = 1 << ((3 * pipe->num)+2);
-		} else if (pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR) {
-			mixercfg_extn = BIT(20 + (6 *
-					(pipe->num - MDSS_MDP_SSPP_CURSOR0)));
-		} else {
-			mixercfg = 1 << (3 * pipe->num);
-		}
+		if (pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR)
+			mixercfg_extn |= mdss_mdp_get_mixer_extn_mask(
+						pipe->num, 1);
+		else
+			mixercfg  |= mdss_mdp_get_mixer_mask(pipe->num, 1);
+
 		if (pipe->src_fmt->alpha_enable)
 			bg_alpha_enable = 1;
 	}
@@ -3681,36 +3719,11 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 			mixer_op_mode = 0;
 
 		if ((stage < MDSS_MDP_STAGE_6) &&
-			(pipe->num == MDSS_MDP_SSPP_VIG3 ||
-			 pipe->num == MDSS_MDP_SSPP_RGB3)) {
-			/*
-			 * STAGE_6 require extension register
-			 * Add 2 to account for Cursor & Border bits
-			 */
-			mixercfg |= stage << ((3 * pipe->num)+2);
-		} else if (pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR) {
-			mixercfg_extn |= stage << (20 + (6 *
-					(pipe->num - MDSS_MDP_SSPP_CURSOR0)));
-		} else if (stage < MDSS_MDP_STAGE_6) {
-			mixercfg |= stage << (3 * pipe->num);
-		} else {
-			/*
-			 * The ctl layer extension bits are ordered
-			 * VIG0-3, RGB0-3, DMA0-1
-			 */
-			if (pipe->num < MDSS_MDP_SSPP_RGB0)
-				mixercfg_extn |= BIT(pipe->num << 1);
-			else if (pipe->num >= MDSS_MDP_SSPP_RGB0  &&
-					pipe->num < MDSS_MDP_SSPP_DMA0)
-				mixercfg_extn |= BIT((pipe->num + 1) << 1);
-			else if (pipe->num >= MDSS_MDP_SSPP_DMA0 &&
-					pipe->num < MDSS_MDP_SSPP_VIG3)
-				mixercfg_extn |= BIT((pipe->num + 2) << 1);
-			else if (pipe->num == MDSS_MDP_SSPP_VIG3)
-				mixercfg_extn |= BIT(6);
-			else
-				mixercfg_extn |= BIT(14);
-		}
+			(pipe->type != MDSS_MDP_PIPE_TYPE_CURSOR))
+			mixercfg |= mdss_mdp_get_mixer_mask(pipe->num, stage);
+		else
+			mixercfg_extn |= mdss_mdp_get_mixer_extn_mask(
+						pipe->num, stage);
 
 		trace_mdp_sspp_change(pipe);
 
@@ -4676,13 +4689,18 @@ static inline int __mdss_mdp_ctl_get_mixer_off(struct mdss_mdp_mixer *mixer)
 	}
 }
 
-u32 mdss_mdp_get_mixercfg(struct mdss_mdp_mixer *mixer)
+u32 mdss_mdp_get_mixercfg(struct mdss_mdp_mixer *mixer, bool extn)
 {
+	u32 mixer_off;
+
 	if (!mixer || !mixer->ctl)
 		return 0;
 
-	return mdss_mdp_ctl_read(mixer->ctl,
-		__mdss_mdp_ctl_get_mixer_off(mixer));
+	mixer_off = __mdss_mdp_ctl_get_mixer_off(mixer);
+	mixer_off = extn ? (mixer_off + MDSS_MDP_REG_CTL_LAYER_EXTN_OFFSET) :
+				mixer_off;
+
+	return mdss_mdp_ctl_read(mixer->ctl, mixer_off);
 }
 
 static int __mdss_mdp_mixer_handoff_helper(struct mdss_mdp_mixer *mixer,
