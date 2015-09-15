@@ -83,6 +83,6 @@
 		qcom,mdss-dsi-fbc-h-line-budget = <1200>;
 		qcom,mdss-dsi-fbc-lossless-threshold = <0x200>;
 		qcom,mdss-dsi-fbc-lossy-threshold = <192>;
-		qcom,mdss-dsi-fbc-rgb-threshold = <4>;
+		qcom,mdss-dsi-fbc-rgb-threshold = <0>;
 	};
 };
