@@ -572,9 +572,13 @@ static void qbam_issue_pending(struct dma_chan *chan)
 
 	for_each_sg(qbam_desc->sgl, sg, qbam_desc->sg_len, i) {
 
+		/* Add BAM flags only on the last buffer */
+		bool is_last_buf = (i == ((qbam_desc->sg_len) - 1));
+
 		ret = sps_transfer_one(qbam_chan->bam_pipe.handle,
 					sg_dma_address(sg), sg_dma_len(sg),
-					qbam_desc, qbam_desc->flags);
+					qbam_desc,
+					(is_last_buf ? qbam_desc->flags : 0));
 		if (ret < 0) {
 			qbam_chan->error = ret;
 

@@ -1080,6 +1080,18 @@ static int i2c_msm_dma_xfer_prepare(struct i2c_msm_ctrl *ctrl)
 			tx->desc_cnt_cur += 2; /* msg + tag */
 		}
 
+		/* for last buffer in a transfer msg */
+		if (buf->is_last) {
+			/* add ovrhead byte cnt for tags specific to DMA mode */
+			ctrl->xfer.rx_ovrhd_cnt += 2; /* EOT+FLUSH_STOP tags*/
+			ctrl->xfer.tx_ovrhd_cnt += 2; /* EOT+FLUSH_STOP tags */
+
+			/* increment rx desc cnt to read off tags and
+			 * increment tx desc cnt to queue EOT+FLUSH_STOP tags */
+			tx->desc_cnt_cur++;
+			rx->desc_cnt_cur++;
+		}
+
 		if ((rx->desc_cnt_cur >= I2C_MSM_DMA_RX_SZ) ||
 		    (tx->desc_cnt_cur >= I2C_MSM_DMA_TX_SZ))
 			return -ENOMEM;
@@ -1144,55 +1156,6 @@ static void i2c_msm_dma_callback_xfer_complete(void *dma_async_param)
 	complete(&ctrl->xfer.complete);
 }
 
-static int i2c_msm_dma_xfer_buf(struct i2c_msm_ctrl *ctrl,
-	struct i2c_msm_dma_chan *chan, phys_addr_t buf_phys_addr, u32 buf_len,
-								u32 flags)
-{
-	struct scatterlist sg[1];
-	struct dma_async_tx_descriptor *dma_desc;
-
-	sg_init_table(sg, 1);
-	sg_dma_len(&sg[0])     = buf_len;
-	sg_dma_address(&sg[0]) = buf_phys_addr;
-
-	dma_desc = dmaengine_prep_slave_sg(chan->dma_chan, sg, 1, chan->dir,
-									flags);
-
-	if (dma_desc < 0) {
-		dev_err(ctrl->dev,
-		   "error dmaengine_prep_slave_sg:%ld\n", PTR_ERR(dma_desc));
-		return PTR_ERR(dma_desc);
-	}
-	dma_desc->callback = i2c_msm_dma_callback_xfer_complete;
-	dma_desc->callback_param = ctrl;
-
-	dmaengine_submit(dma_desc);
-	dma_async_issue_pending(chan->dma_chan);
-
-	return 0;
-}
-
-/*
- * i2c_msm_dma_xfer_rmv_inp_fifo_tag: read the input tag off the rx chan
- *
- * The tag in the rx channel is "dont care" from DMA transfer perspective.
- * Here we queue a buffer to read this tag off the fifo.
- */
-static int i2c_msm_dma_xfer_rmv_inp_fifo_tag(struct i2c_msm_ctrl *ctrl, u32 len)
-{
-	int ret;
-	ret = i2c_msm_dma_xfer_buf(ctrl, &ctrl->xfer.dma.chan[I2C_MSM_DMA_RX],
-					 ctrl->xfer.dma.input_tag.phy_addr,
-					 len, 0);
-
-	if (ret < 0)
-		dev_err(ctrl->dev,
-			"error on reading DMA input tags len:%d sps-err:%d\n",
-			len, ret);
-
-	return ret;
-}
-
 /*
  * i2c_msm_dma_xfer_process: Queue transfers to DMA
  * @pre 1)QUP is in run state. 2) i2c_msm_dma_xfer_prepare() was called.
@@ -1201,14 +1164,18 @@ static int i2c_msm_dma_xfer_rmv_inp_fifo_tag(struct i2c_msm_ctrl *ctrl, u32 len)
 static int i2c_msm_dma_xfer_process(struct i2c_msm_ctrl *ctrl)
 {
 	struct i2c_msm_xfer_mode_dma *dma = &ctrl->xfer.dma;
-	struct i2c_msm_dma_chan *tx;
-	struct i2c_msm_dma_chan *rx;
-	struct i2c_msm_dma_buf  *buf_itr;
-	struct i2c_msm_dma_chan *chan;
+	struct i2c_msm_dma_chan *tx       = &dma->chan[I2C_MSM_DMA_TX];
+	struct i2c_msm_dma_chan *rx       = &dma->chan[I2C_MSM_DMA_RX];
+	struct scatterlist *sg_rx         = NULL;
+	struct scatterlist *sg_rx_itr     = NULL;
+	struct scatterlist *sg_tx         = NULL;
+	struct scatterlist *sg_tx_itr     = NULL;
+	struct dma_async_tx_descriptor     *dma_desc_rx;
+	struct dma_async_tx_descriptor     *dma_desc_tx;
+	struct i2c_msm_dma_buf             *buf_itr;
 	int  i;
-	int  ret           = 0;
-	u32  dma_flags     = 0; /* dma_flags!=0 only on last xfer */
-	char str[64];
+	int  ret = 0;
+
 	i2c_msm_dbg(ctrl, MSM_DBG, "Going to enqueue %zu buffers in DMA",
 							dma->buf_arr_cnt);
 
@@ -1220,88 +1187,121 @@ static int i2c_msm_dma_xfer_process(struct i2c_msm_ctrl *ctrl)
 		return ret;
 	}
 
-	tx = &dma->chan[I2C_MSM_DMA_TX];
-	rx = &dma->chan[I2C_MSM_DMA_RX];
+	sg_tx = kcalloc(tx->desc_cnt_cur, sizeof(struct scatterlist),
+								GFP_KERNEL);
+	if (!sg_tx) {
+		ret = -ENOMEM;
+		goto dma_xfer_end;
+	}
+	sg_init_table(sg_tx, tx->desc_cnt_cur);
+	sg_tx_itr = sg_tx;
+
+	sg_rx = kcalloc(rx->desc_cnt_cur, sizeof(struct scatterlist),
+								GFP_KERNEL);
+	if (!sg_rx) {
+		ret = -ENOMEM;
+		goto dma_xfer_end;
+	}
+	sg_init_table(sg_rx, rx->desc_cnt_cur);
+	sg_rx_itr = sg_rx;
+
 	buf_itr = dma->buf_arr;
 
 	for (i = 0; i < dma->buf_arr_cnt ; ++i, ++buf_itr) {
 		/* Queue tag */
-		i2c_msm_dbg(ctrl, MSM_DBG, "queueing dma tag %s",
-			i2c_msm_dbg_dma_tag_to_str(&buf_itr->tag, str,
-							ARRAY_SIZE(str)));
+		sg_dma_address(sg_tx_itr) = buf_itr->tag.buf;
+		sg_dma_len(sg_tx_itr) = buf_itr->tag.len;
+		++sg_tx_itr;
 
-		ret = i2c_msm_dma_xfer_buf(ctrl, tx, buf_itr->tag.buf,
-						buf_itr->tag.len, dma_flags);
-		if (ret) {
-			dev_err(ctrl->dev, "error:%d on queuing tag in dma.\n",
-									ret);
-			goto dma_xfer_end;
-		}
-
-		/* Step over read tag + len in input FIFO on read transfer*/
-		if (buf_itr->is_rx) {
-			ret = i2c_msm_dma_xfer_rmv_inp_fifo_tag(ctrl, 2);
-			if (ret)
-				goto dma_xfer_end;
-		}
-
-		/* Set EOT on last transfer if it is a write */
-		if (buf_itr->is_last && !ctrl->xfer.last_is_rx)
-			dma_flags = (SPS_IOVEC_FLAG_EOT | SPS_IOVEC_FLAG_NWD);
-
-		/* Queue data to appropriate channel */
-		chan = buf_itr->is_rx ? rx : tx;
-
-		i2c_msm_dbg(ctrl, MSM_DBG,
-			"Queue data buf to %s chan desc(phy:0x%llx len:%zu) "
-			"EOT:%d NWD:%d",
-			chan->name, (u64) buf_itr->ptr.phy_addr, buf_itr->len,
-			!!(dma_flags & SPS_IOVEC_FLAG_EOT),
-			!!(dma_flags & SPS_IOVEC_FLAG_NWD));
-
-		ret = i2c_msm_dma_xfer_buf(ctrl, chan, buf_itr->ptr.phy_addr,
-						buf_itr->len, dma_flags);
-		if (ret < 0) {
-			dev_err(ctrl->dev,
-				"error:%d on queuing data to %s DMA channel\n",
-				ret, chan->name);
-			goto dma_xfer_end;
-		}
-	}
-
-	if (ctrl->xfer.last_is_rx) {
-		/*
-		 * Reading the tag off the input fifo has side effects and
-		 * it is mandatory for getting the DMA's interrupt.
+		/* read off tag + len bytes(don't care) in input FIFO
+		 * on read transfer
 		 */
-		ret = i2c_msm_dma_xfer_rmv_inp_fifo_tag(ctrl, 2);
-		if (ret)
-			goto dma_xfer_end;
+		if (buf_itr->is_rx) {
+			/* rid of input tag */
+			sg_dma_address(sg_rx_itr) =
+					ctrl->xfer.dma.input_tag.phy_addr;
+			sg_dma_len(sg_rx_itr)     = QUP_BUF_OVERHD_BC;
+			++sg_rx_itr;
 
-		dma_flags = (SPS_IOVEC_FLAG_EOT | SPS_IOVEC_FLAG_NWD);
-
-		/* queue the two bytes of EOT + FLUSH_STOP tags to tx. */
-		ret = i2c_msm_dma_xfer_buf(ctrl, tx,
-			dma->eot_n_flush_stop_tags.phy_addr, 2, dma_flags);
-		if (ret < 0) {
-			dev_err(ctrl->dev,
-			"error:%d on queuing EOT+FLUSH_STOP tags to tx EOT:1 NWD:1\n",
-									ret);
-			goto dma_xfer_end;
+			/* queue data buffer */
+			sg_dma_address(sg_rx_itr) = buf_itr->ptr.phy_addr;
+			sg_dma_len(sg_rx_itr)     = buf_itr->len;
+			++sg_rx_itr;
+		} else {
+			sg_dma_address(sg_tx_itr) = buf_itr->ptr.phy_addr;
+			sg_dma_len(sg_tx_itr)     = buf_itr->len;
+			++sg_tx_itr;
 		}
 	}
+
+	/* this tag will be copied to rx fifo */
+	sg_dma_address(sg_tx_itr) = dma->eot_n_flush_stop_tags.phy_addr;
+	sg_dma_len(sg_tx_itr)     = QUP_BUF_OVERHD_BC;
+	++sg_tx_itr;
+
+	/*
+	 * Reading the tag off the input fifo has side effects and
+	 * it is mandatory for getting the DMA's interrupt.
+	 */
+	sg_dma_address(sg_rx_itr) = ctrl->xfer.dma.input_tag.phy_addr;
+	sg_dma_len(sg_rx_itr)     = QUP_BUF_OVERHD_BC;
+	++sg_rx_itr;
+
+	/*
+	 * We only want a single BAM interrupt per transfer, and we always
+	 * add a flush-stop i2c tag as the last tx sg entry. Since the dma
+	 * driver puts the supplied BAM flags only on the last BAM descriptor,
+	 * the flush stop will always be the one which generate that interrupt
+	 * and invokes the callback.
+	 */
+	dma_desc_tx = dmaengine_prep_slave_sg(tx->dma_chan,
+						sg_tx,
+						sg_tx_itr - sg_tx,
+						tx->dir,
+						(SPS_IOVEC_FLAG_EOT |
+							SPS_IOVEC_FLAG_NWD));
+	if (dma_desc_tx < 0) {
+		dev_err(ctrl->dev, "error dmaengine_prep_slave_sg tx:%ld\n",
+							PTR_ERR(dma_desc_tx));
+		ret = PTR_ERR(dma_desc_tx);
+		goto dma_xfer_end;
+	}
+
+	/* callback defined for tx dma desc */
+	dma_desc_tx->callback       = i2c_msm_dma_callback_xfer_complete;
+	dma_desc_tx->callback_param = ctrl;
+	dmaengine_submit(dma_desc_tx);
+	dma_async_issue_pending(tx->dma_chan);
+
+	/* queue the rx dma desc */
+	dma_desc_rx = dmaengine_prep_slave_sg(rx->dma_chan, sg_rx,
+					sg_rx_itr - sg_rx, rx->dir, 0);
+	if (dma_desc_rx < 0) {
+		dev_err(ctrl->dev,
+			"error dmaengine_prep_slave_sg rx:%ld\n",
+						PTR_ERR(dma_desc_rx));
+		ret = PTR_ERR(dma_desc_rx);
+		goto dma_xfer_end;
+	}
+
+	dmaengine_submit(dma_desc_rx);
+	dma_async_issue_pending(rx->dma_chan);
 
 	/* Set the QUP State to Run when completes the txn */
 	ret = i2c_msm_qup_state_set(ctrl, QUP_STATE_RUN);
 	if (ret) {
 		dev_err(ctrl->dev, "transition to run state failed before DMA transaction :%d\n",
 									ret);
-		return ret;
+		goto dma_xfer_end;
 	}
 
 	ret = i2c_msm_xfer_wait_for_completion(ctrl, &ctrl->xfer.complete);
 
 dma_xfer_end:
+	/* free scatter-gather lists */
+	kfree(sg_tx);
+	kfree(sg_rx);
+
 	return ret;
 }
 
@@ -1443,11 +1443,6 @@ static int i2c_msm_dma_xfer(struct i2c_msm_ctrl *ctrl)
 	if (ret) {
 		dev_err(ctrl->dev, "DMA Init Failed: %d\n", ret);
 		return ret;
-	}
-
-	if (ctrl->xfer.last_is_rx) {
-		ctrl->xfer.rx_ovrhd_cnt += 2; /* EOT+FLUSH_STOP tags*/
-		ctrl->xfer.tx_ovrhd_cnt += 2; /* EOT+FLUSH_STOP tags */
 	}
 
 	/* dma map user's buffers and create tags */
