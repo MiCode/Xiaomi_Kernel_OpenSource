@@ -1352,7 +1352,7 @@ static int mdss_mdp_video_ctx_setup(struct mdss_mdp_ctl *ctl,
 
 	if (mdss_mdp_is_cdm_supported(mdata, ctl->intf_type, 0)) {
 		ctl->cdm = mdss_mdp_cdm_init(ctl, MDP_CDM_CDWN_OUTPUT_HDMI);
-		if (ctl->cdm) {
+		if (!IS_ERR_OR_NULL(ctl->cdm)) {
 			if (mdss_mdp_video_cdm_setup(ctl->cdm, pinfo)) {
 				pr_err("%s: setting up cdm failed\n",
 				       __func__);
