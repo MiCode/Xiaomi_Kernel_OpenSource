@@ -848,7 +848,7 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 	if (mdss_mdp_is_cdm_supported(ctl->mdata, ctl->intf_type,
 				mixer_type)) {
 		ctl->cdm = mdss_mdp_cdm_init(ctl, MDP_CDM_CDWN_OUTPUT_WB);
-		if (!ctl->cdm) {
+		if (IS_ERR_OR_NULL(ctl->cdm)) {
 			pr_err("%s failed to init cdm\n", __func__);
 			return -EBUSY;
 		}
