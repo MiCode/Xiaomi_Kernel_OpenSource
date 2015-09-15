@@ -69,6 +69,9 @@ extern unsigned int sysctl_sched_powerband_limit_pct;
 extern unsigned int sysctl_sched_lowspill_freq;
 extern unsigned int sysctl_sched_pack_freq;
 extern unsigned int sysctl_sched_boost;
+#if defined(CONFIG_SCHED_FREQ_INPUT)
+extern unsigned int sysctl_sched_new_task_windows;
+#endif
 
 #else /* CONFIG_SCHED_HMP */
 
