@@ -760,7 +760,7 @@ static const struct file_operations dpl_qti_ctrl_fops = {
 	.poll = qti_ctrl_poll,
 };
 
-static int __init gqti_ctrl_init(void)
+int gqti_ctrl_init(void)
 {
 	int ret, i, sz = QTI_CTRL_NAME_LEN;
 	struct qti_ctrl_port *port = NULL;
@@ -823,9 +823,8 @@ fail_init:
 	}
 	return ret;
 }
-module_init(gqti_ctrl_init);
 
-static void __exit gqti_ctrl_cleanup(void)
+void gqti_ctrl_cleanup(void)
 {
 	int i;
 
@@ -836,4 +835,3 @@ static void __exit gqti_ctrl_cleanup(void)
 	}
 	qti_ctrl_debugfs_exit();
 }
-module_exit(gqti_ctrl_cleanup);

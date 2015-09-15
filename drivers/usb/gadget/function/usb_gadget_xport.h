@@ -123,6 +123,8 @@ void ghsic_data_disconnect(void *, int);
 int ghsic_data_setup(unsigned int, enum gadget_type);
 void ghsic_data_set_port_name(const char *, const char *);
 
+int gqti_ctrl_init(void);
+void gqti_ctrl_cleanup(void);
 int gqti_ctrl_connect(void *gr, u8 port_num, unsigned intf,
 		enum transport_type dxport, enum gadget_type gtype);
 void gqti_ctrl_disconnect(void *gr, u8 port_num);
