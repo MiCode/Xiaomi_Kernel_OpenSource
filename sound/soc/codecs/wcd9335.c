@@ -1765,6 +1765,61 @@ static int tasha_get_iir_enable_audio_mixer(
 	return 0;
 }
 
+static int tasha_hph_impedance_get(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	uint32_t zl, zr;
+	bool hphr;
+	struct soc_multi_mixer_control *mc;
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tasha_priv *priv = snd_soc_codec_get_drvdata(codec);
+
+	mc = (struct soc_multi_mixer_control *)(kcontrol->private_value);
+	hphr = mc->shift;
+	wcd_mbhc_get_impedance(&priv->mbhc, &zl, &zr);
+	dev_dbg(codec->dev, "%s: zl=%u(ohms), zr=%u(ohms)\n", __func__, zl, zr);
+	ucontrol->value.integer.value[0] = hphr ? zr : zl;
+
+	return 0;
+}
+
+static const struct snd_kcontrol_new impedance_detect_controls[] = {
+	SOC_SINGLE_EXT("HPHL Impedance", 0, 0, UINT_MAX, 0,
+		       tasha_hph_impedance_get, NULL),
+	SOC_SINGLE_EXT("HPHR Impedance", 0, 1, UINT_MAX, 0,
+		       tasha_hph_impedance_get, NULL),
+};
+
+static int tasha_get_hph_type(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct tasha_priv *priv = snd_soc_codec_get_drvdata(codec);
+	struct wcd_mbhc *mbhc;
+
+	if (!priv) {
+		dev_dbg(codec->dev, "%s: wcd9335 private data is NULL\n",
+				__func__);
+		return 0;
+	}
+
+	mbhc = &priv->mbhc;
+	if (!mbhc) {
+		dev_dbg(codec->dev, "%s: mbhc not initialized\n", __func__);
+		return 0;
+	}
+
+	ucontrol->value.integer.value[0] = (u32) mbhc->hph_type;
+	dev_dbg(codec->dev, "%s: hph_type = %u\n", __func__, mbhc->hph_type);
+
+	return 0;
+}
+
+static const struct snd_kcontrol_new hph_type_detect_controls[] = {
+	SOC_SINGLE_EXT("HPH Type", 0, 0, UINT_MAX, 0,
+		       tasha_get_hph_type, NULL),
+};
+
 static int tasha_vi_feed_mixer_get(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
@@ -10790,6 +10845,11 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 					TASHA_TX13;
 		tasha_init_slim_slave_cfg(codec);
 	}
+
+	snd_soc_add_codec_controls(codec, impedance_detect_controls,
+				   ARRAY_SIZE(impedance_detect_controls));
+	snd_soc_add_codec_controls(codec, hph_type_detect_controls,
+				   ARRAY_SIZE(hph_type_detect_controls));
 
 	snd_soc_add_codec_controls(codec,
 			tasha_analog_gain_controls,
