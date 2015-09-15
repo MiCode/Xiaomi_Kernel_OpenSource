@@ -660,6 +660,7 @@ struct rq {
 	u64 irqload_ts;
 	unsigned int static_cpu_pwr_cost;
 	unsigned int static_cluster_pwr_cost;
+	struct task_struct *ed_task;
 
 #ifdef CONFIG_SCHED_FREQ_INPUT
 	unsigned int old_busy_time;
