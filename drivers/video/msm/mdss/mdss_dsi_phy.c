@@ -30,6 +30,10 @@
 #define CLK_ZERO_RECO_MAX1	511
 #define CLK_ZERO_RECO_MAX2	255
 
+/* No. of timing params for phy rev 2.0 */
+#define TIMING_PARAM_DLANE_COUNT	32
+#define TIMING_PARAM_CLK_COUNT	8
+
 struct timing_entry {
 	int32_t mipi_min;
 	int32_t mipi_max;
@@ -700,6 +704,40 @@ static void mdss_dsi_phy_update_timing_param(struct mdss_panel_info *pinfo,
 		reg->timing[11]);
 }
 
+static void mdss_dsi_phy_update_timing_param_rev_2(
+		struct mdss_panel_info *pinfo,
+		struct dsi_phy_timing *t_param)
+{
+	struct mdss_dsi_phy_ctrl *reg;
+	int i = 0;
+
+	reg = &(pinfo->mipi.dsi_phy_db);
+
+	for (i = 0; i < TIMING_PARAM_DLANE_COUNT; i += 8) {
+		reg->timing_8996[i] = t_param->hs_exit.program_value;
+		reg->timing_8996[i + 1] = t_param->hs_zero.program_value;
+		reg->timing_8996[i + 2] = t_param->hs_prepare.program_value;
+		reg->timing_8996[i + 3] = t_param->hs_trail.program_value;
+		reg->timing_8996[i + 4] = t_param->hs_rqst.program_value;
+		reg->timing_8996[i + 5] = 0x3;
+		reg->timing_8996[i + 6] = 0x4;
+		reg->timing_8996[i + 7] = 0xA0;
+	}
+
+	for (i = TIMING_PARAM_DLANE_COUNT;
+			i < TIMING_PARAM_DLANE_COUNT + TIMING_PARAM_CLK_COUNT;
+			i += 8) {
+		reg->timing_8996[i] = t_param->hs_exit.program_value;
+		reg->timing_8996[i + 1] = t_param->clk_zero.program_value;
+		reg->timing_8996[i + 2] = t_param->clk_prepare.program_value;
+		reg->timing_8996[i + 3] = t_param->clk_trail.program_value;
+		reg->timing_8996[i + 4] = t_param->hs_rqst_clk.program_value;
+		reg->timing_8996[i + 5] = 0x3;
+		reg->timing_8996[i + 6] = 0x4;
+		reg->timing_8996[i + 7] = 0xA0;
+	}
+}
+
 int mdss_dsi_phy_calc_timing_param(struct mdss_panel_info *pinfo, u32 phy_rev,
 		u32 frate_hz)
 {
@@ -764,8 +802,9 @@ int mdss_dsi_phy_calc_timing_param(struct mdss_panel_info *pinfo, u32 phy_rev,
 		rc = mdss_dsi_phy_calc_param_phy_rev_2(&t_clk, &t_param);
 		if (rc) {
 			pr_err("Phy timing calculations failed\n");
-			break;
+			goto timing_calc_end;
 		}
+		mdss_dsi_phy_update_timing_param_rev_2(pinfo, &t_param);
 		break;
 	default:
 		pr_err("phy rev %d not supported\n", phy_rev);
