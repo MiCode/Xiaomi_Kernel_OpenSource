@@ -382,6 +382,10 @@
 		qcom,vdd-apc-step-down-limit = <1>;
 		qcom,cpr-apc-volt-step = <5000>;
 
+		qcom,cpr-thermal-sensor-id = <9>;
+		qcom,cpr-disable-temp-threshold = <10>;
+		qcom,cpr-enable-temp-threshold = <15>;
+
 		qcom,cpr-fuse-row = <27 0>;
 		qcom,cpr-fuse-target-quot = <42 24 6>;
 		qcom,cpr-fuse-ro-sel = <60 57 54>;
@@ -436,12 +440,12 @@
 			<0    16      33>, /* NOM + 10mv, TURBO + 20mv */
 			<0    0        0>;
 		qcom,cpr-floor-to-ceiling-max-range =
-			<(-1) (-1) (-1) (-1) (-1) (-1) 50000 50000>,
-			<(-1) (-1) (-1) (-1) (-1) (-1) 50000 50000>,
-			<(-1) (-1) (-1) (-1) (-1) (-1) 50000 50000>,
-			<(-1) (-1) (-1) (-1) (-1) (-1) 50000 50000>,
-			<(-1) (-1) (-1) (-1) (-1) (-1) 50000 50000>,
-			<(-1) (-1) (-1) (-1) (-1) (-1) 50000 50000>;
+			<(-1) 30000 30000 30000 30000 50000 50000 50000>,
+			<(-1) 30000 30000 30000 30000 50000 50000 50000>,
+			<(-1) 30000 30000 30000 30000 50000 50000 50000>,
+			<(-1) 30000 30000 30000 30000 50000 50000 50000>,
+			<(-1) 30000 30000 30000 30000 50000 50000 50000>,
+			<(-1) 30000 30000 30000 30000 50000 50000 50000>;
 		qcom,cpr-scaled-init-voltage-as-ceiling;
 		qcom,cpr-voltage-scaling-factor-max = <0 2000 2000>;
 		qcom,cpr-voltage-floor-override =
