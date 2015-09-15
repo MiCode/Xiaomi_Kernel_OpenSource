@@ -395,9 +395,10 @@ static void mdss_mdp_hist_intr_notify(u32 disp);
 static int mdss_mdp_panel_default_dither_config(struct msm_fb_data_type *mfd,
 					u32 panel_bpp);
 static int mdss_mdp_limited_lut_igc_config(struct msm_fb_data_type *mfd);
-static int pp_ad_shutdown_cleanup(struct msm_fb_data_type *mfd);
 static inline int pp_validate_dspp_mfd_block(struct msm_fb_data_type *mfd,
 					int block);
+static int pp_mfd_release_all(struct msm_fb_data_type *mfd);
+static int pp_mfd_ad_release_all(struct msm_fb_data_type *mfd);
 
 static u32 last_sts, last_state;
 
@@ -2416,10 +2417,10 @@ int mdss_mdp_pp_overlay_init(struct msm_fb_data_type *mfd)
 		pr_err("Invalid mfd %p mdata %p\n", mfd, mdata);
 		return -EPERM;
 	}
-	if (mdata->nad_cfgs) {
+
+	if (mdata->nad_cfgs)
 		mfd->mdp.ad_calc_bl = pp_ad_calc_bl;
-		mfd->mdp.ad_shutdown_cleanup = pp_ad_shutdown_cleanup;
-	}
+	mfd->mdp.pp_release_fnc = pp_mfd_release_all;
 	return 0;
 }
 
@@ -6588,7 +6589,25 @@ static int mdss_mdp_mfd_valid_ad(struct msm_fb_data_type *mfd)
 	return valid_ad;
 }
 
-static int pp_ad_shutdown_cleanup(struct msm_fb_data_type *mfd)
+static int pp_mfd_release_all(struct msm_fb_data_type *mfd)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	int ret = 0;
+
+	if (mdata->nad_cfgs) {
+		ret = pp_mfd_ad_release_all(mfd);
+		if (ret)
+			pr_err("ad release all failed on disp %d, ret %d\n",
+				mfd->index, ret);
+	}
+
+	if (mdss_mdp_mfd_valid_dspp(mfd))
+		mdss_mdp_hist_stop(mfd->index + MDP_LOGICAL_BLOCK_DISP_0);
+
+	return ret;
+}
+
+static int pp_mfd_ad_release_all(struct msm_fb_data_type *mfd)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_mdp_ctl *ctl = NULL;
