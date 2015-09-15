@@ -453,6 +453,7 @@ static u64 update_load(int cpu)
 	return now;
 }
 
+#define NEW_TASK_RATIO 75
 static void __cpufreq_interactive_timer(unsigned long data, bool is_notif)
 {
 	u64 now;
@@ -470,9 +471,11 @@ static void __cpufreq_interactive_timer(unsigned long data, bool is_notif)
 	unsigned long max_cpu;
 	int i, fcpu;
 	struct sched_load *sl;
+	int new_load_pct = 0;
 	struct cpufreq_govinfo govinfo;
 	bool skip_hispeed_logic, skip_min_sample_time;
 	bool policy_max_fast_restore = false;
+	bool jump_to_max = false;
 
 	if (!down_read_trylock(&ppol->enable_sem))
 		return;
@@ -480,8 +483,12 @@ static void __cpufreq_interactive_timer(unsigned long data, bool is_notif)
 		goto exit;
 
 	fcpu = cpumask_first(ppol->policy->related_cpus);
+	skip_hispeed_logic = tunables->ignore_hispeed_on_notif && is_notif;
+	skip_min_sample_time = tunables->fast_ramp_down && is_notif;
+
 	now = ktime_to_us(ktime_get());
-	spin_lock_irqsave(&ppol->load_lock, flags);
+	spin_lock_irqsave(&ppol->target_freq_lock, flags);
+	spin_lock(&ppol->load_lock);
 	ppol->last_evaluated_jiffy = get_jiffies_64();
 
 	if (tunables->use_sched_load)
@@ -494,6 +501,7 @@ static void __cpufreq_interactive_timer(unsigned long data, bool is_notif)
 			cputime_speedadj = (u64)sl->prev_load *
 					   ppol->policy->cpuinfo.max_freq;
 			do_div(cputime_speedadj, tunables->timer_rate);
+			new_load_pct = sl->new_task_load * 100 / sl->prev_load;
 		} else {
 			now = update_load(i);
 			delta_time = (unsigned int)
@@ -505,38 +513,25 @@ static void __cpufreq_interactive_timer(unsigned long data, bool is_notif)
 		}
 		tmploadadjfreq = (unsigned int)cputime_speedadj * 100;
 		pcpu->loadadjfreq = tmploadadjfreq;
-		trace_cpufreq_interactive_cpuload(i, tmploadadjfreq /
-						  ppol->target_freq);
 
 		if (tmploadadjfreq > loadadjfreq) {
 			loadadjfreq = tmploadadjfreq;
 			max_cpu = i;
 		}
-	}
-	spin_unlock_irqrestore(&ppol->load_lock, flags);
+		cpu_load = tmploadadjfreq / ppol->target_freq;
+		trace_cpufreq_interactive_cpuload(i, cpu_load, new_load_pct);
 
-	/*
-	 * Send govinfo notification.
-	 * Govinfo notification could potentially wake up another thread
-	 * managed by its clients. Thread wakeups might trigger a load
-	 * change callback that executes this function again. Therefore
-	 * no spinlock could be held when sending the notification.
-	 */
-	for_each_cpu(i, ppol->policy->cpus) {
-		pcpu = &per_cpu(cpuinfo, i);
-		govinfo.cpu = i;
-		govinfo.load = pcpu->loadadjfreq / ppol->policy->max;
-		govinfo.sampling_rate_us = tunables->timer_rate;
-		atomic_notifier_call_chain(&cpufreq_govinfo_notifier_list,
-					   CPUFREQ_LOAD_CHANGE, &govinfo);
+		if (cpu_load >= tunables->go_hispeed_load &&
+		    new_load_pct >= NEW_TASK_RATIO) {
+			skip_hispeed_logic = true;
+			jump_to_max = true;
+		}
 	}
+	spin_unlock(&ppol->load_lock);
 
-	spin_lock_irqsave(&ppol->target_freq_lock, flags);
 	cpu_load = loadadjfreq / ppol->target_freq;
 	tunables->boosted = tunables->boost_val || now < tunables->boostpulse_endtime;
 
-	skip_hispeed_logic = tunables->ignore_hispeed_on_notif && is_notif;
-	skip_min_sample_time = tunables->fast_ramp_down && is_notif;
 	if (now - ppol->max_freq_hyst_start_time <
 	    tunables->max_freq_hysteresis &&
 	    cpu_load >= tunables->go_hispeed_load &&
@@ -546,7 +541,7 @@ static void __cpufreq_interactive_timer(unsigned long data, bool is_notif)
 		policy_max_fast_restore = true;
 	}
 
-	if (policy_max_fast_restore) {
+	if (policy_max_fast_restore || jump_to_max) {
 		new_freq = ppol->policy->max;
 	} else if (skip_hispeed_logic) {
 		new_freq = choose_freq(ppol, loadadjfreq);
@@ -650,6 +645,22 @@ static void __cpufreq_interactive_timer(unsigned long data, bool is_notif)
 rearm:
 	if (!timer_pending(&ppol->policy_timer))
 		cpufreq_interactive_timer_resched(data, false);
+
+	/*
+	 * Send govinfo notification.
+	 * Govinfo notification could potentially wake up another thread
+	 * managed by its clients. Thread wakeups might trigger a load
+	 * change callback that executes this function again. Therefore
+	 * no spinlock could be held when sending the notification.
+	 */
+	for_each_cpu(i, ppol->policy->cpus) {
+		pcpu = &per_cpu(cpuinfo, i);
+		govinfo.cpu = i;
+		govinfo.load = pcpu->loadadjfreq / ppol->policy->max;
+		govinfo.sampling_rate_us = tunables->timer_rate;
+		atomic_notifier_call_chain(&cpufreq_govinfo_notifier_list,
+					   CPUFREQ_LOAD_CHANGE, &govinfo);
+	}
 
 exit:
 	up_read(&ppol->enable_sem);
