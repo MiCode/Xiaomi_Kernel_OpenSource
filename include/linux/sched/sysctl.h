@@ -66,6 +66,7 @@ extern unsigned int sysctl_sched_upmigrate_pct;
 extern unsigned int sysctl_sched_downmigrate_pct;
 extern int sysctl_sched_upmigrate_min_nice;
 extern unsigned int sysctl_sched_powerband_limit_pct;
+extern unsigned int sysctl_early_detection_duration;
 extern unsigned int sysctl_sched_lowspill_freq;
 extern unsigned int sysctl_sched_pack_freq;
 extern unsigned int sysctl_sched_boost;
