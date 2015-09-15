@@ -17,7 +17,6 @@
 
 #include "adreno.h"
 #include "a5xx_reg.h"
-#include "adreno_a3xx.h"
 #include "adreno_a5xx.h"
 #include "adreno_cp_parser.h"
 #include "adreno_trace.h"
@@ -125,9 +124,9 @@ static void a5xx_preemption_start(struct adreno_device *adreno_dev,
 	kgsl_sharedmem_writel(device, &rb->preemption_desc,
 		PREEMPT_RECORD(wptr), rb->wptr);
 	kgsl_regwrite(device, A5XX_CP_CONTEXT_SWITCH_RESTORE_ADDR_LO,
-		_lo_32(rb->preemption_desc.gpuaddr));
+		lower_32_bits(rb->preemption_desc.gpuaddr));
 	kgsl_regwrite(device, A5XX_CP_CONTEXT_SWITCH_RESTORE_ADDR_HI,
-		_hi_32(rb->preemption_desc.gpuaddr));
+		upper_32_bits(rb->preemption_desc.gpuaddr));
 	kgsl_sharedmem_readq(&rb->pagetable_desc, &ttbr0,
 		offsetof(struct adreno_ringbuffer_pagetable_info, ttbr0));
 	kgsl_sharedmem_readl(&rb->pagetable_desc, &contextidr,
@@ -289,9 +288,9 @@ static int a5xx_preemption_pre_ibsubmit(
 	 * a5xx_cp_preemption_record pointed by CONTEXT_SWITCH_SAVE_ADDR
 	 */
 	*cmds++ = cp_type4_packet(A5XX_CP_CONTEXT_SWITCH_SAVE_ADDR_LO, 1);
-	*cmds++ = _lo_32(gpuaddr);
+	*cmds++ = lower_32_bits(gpuaddr);
 	*cmds++ = cp_type4_packet(A5XX_CP_CONTEXT_SWITCH_SAVE_ADDR_HI, 1);
-	*cmds++ = _hi_32(gpuaddr);
+	*cmds++ = upper_32_bits(gpuaddr);
 
 	/* Turn CP protection ON */
 	*cmds++ = cp_type7_packet(CP_SET_PROTECTED_MODE, 1);
@@ -1943,9 +1942,9 @@ static int _preemption_init(
 	 * a5xx_cp_preemption_record pointed by CONTEXT_SWITCH_SAVE_ADDR
 	 */
 	*cmds++ = cp_type4_packet(A5XX_CP_CONTEXT_SWITCH_SAVE_ADDR_LO, 1);
-	*cmds++ = _lo_32(gpuaddr);
+	*cmds++ = lower_32_bits(gpuaddr);
 	*cmds++ = cp_type4_packet(A5XX_CP_CONTEXT_SWITCH_SAVE_ADDR_HI, 1);
-	*cmds++ = _hi_32(gpuaddr);
+	*cmds++ = upper_32_bits(gpuaddr);
 
 	/* Turn CP protection ON */
 	*cmds++ = cp_type7_packet(CP_SET_PROTECTED_MODE, 1);
@@ -2177,15 +2176,15 @@ static int a5xx_microcode_load(struct adreno_device *adreno_dev,
 
 	gpuaddr = adreno_dev->pm4.gpuaddr;
 	kgsl_regwrite(device, A5XX_CP_PM4_INSTR_BASE_LO,
-				(uint)gpuaddr);
+				lower_32_bits(gpuaddr));
 	kgsl_regwrite(device, A5XX_CP_PM4_INSTR_BASE_HI,
-				((uint64_t)(gpuaddr) >> 32));
+				upper_32_bits(gpuaddr));
 
 	gpuaddr = adreno_dev->pfp.gpuaddr;
 	kgsl_regwrite(device, A5XX_CP_PFP_INSTR_BASE_LO,
-				(uint)gpuaddr);
+				lower_32_bits(gpuaddr));
 	kgsl_regwrite(device, A5XX_CP_PFP_INSTR_BASE_HI,
-				((uint64_t)(gpuaddr) >> 32));
+				upper_32_bits(gpuaddr));
 
 	/*
 	 * Resume call to write the zap shader base address into the

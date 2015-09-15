@@ -24,7 +24,6 @@
 #include "kgsl_mmu.h"
 #include "kgsl_device.h"
 #include "kgsl_sharedmem.h"
-#include "adreno.h"
 
 static enum kgsl_mmutype kgsl_mmu_type;
 

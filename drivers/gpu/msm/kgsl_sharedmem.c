@@ -26,7 +26,6 @@
 #include "kgsl_cffdump.h"
 #include "kgsl_device.h"
 #include "kgsl_log.h"
-#include "adreno.h"
 
 /*
  * The user can set this from debugfs to force failed memory allocations to
@@ -1001,9 +1000,9 @@ kgsl_sharedmem_writeq(struct kgsl_device *device,
 	if (offsetbytes + sizeof(uint32_t) > memdesc->size)
 		return -ERANGE;
 	kgsl_cffdump_write(device,
-		_lo_32(memdesc->gpuaddr + offsetbytes), src);
+		lower_32_bits(memdesc->gpuaddr + offsetbytes), src);
 	kgsl_cffdump_write(device,
-		_hi_32(memdesc->gpuaddr + offsetbytes), src);
+		upper_32_bits(memdesc->gpuaddr + offsetbytes), src);
 	dst = (uint64_t *)(memdesc->hostptr + offsetbytes);
 	*dst = src;
 
