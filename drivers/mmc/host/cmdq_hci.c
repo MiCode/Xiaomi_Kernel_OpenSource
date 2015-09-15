@@ -778,17 +778,27 @@ static int cmdq_halt(struct mmc_host *mmc, bool halt)
 {
 	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
 	u32 ret = 0;
+	int retries = 3;
 
 	cmdq_runtime_pm_get(cq_host);
 	if (halt) {
-		cmdq_writel(cq_host, cmdq_readl(cq_host, CQCTL) | HALT,
-			    CQCTL);
-		ret = wait_for_completion_timeout(&cq_host->halt_comp,
+		while (retries) {
+			cmdq_writel(cq_host, cmdq_readl(cq_host, CQCTL) | HALT,
+				    CQCTL);
+			ret = wait_for_completion_timeout(&cq_host->halt_comp,
 					  msecs_to_jiffies(HALT_TIMEOUT_MS));
-		/* halt done: re-enable legacy interrupts */
-		if (cq_host->ops->clear_set_irqs)
-			cq_host->ops->clear_set_irqs(mmc, false);
-		ret = ret ? 0 : -ETIMEDOUT;
+			if (!ret && !(cmdq_readl(cq_host, CQCTL) & HALT)) {
+				retries--;
+				continue;
+			} else {
+				/* halt done: re-enable legacy interrupts */
+				if (cq_host->ops->clear_set_irqs)
+					cq_host->ops->clear_set_irqs(mmc,
+								false);
+				break;
+			}
+		}
+		return retries ? 0 : -ETIMEDOUT;
 	} else {
 		if (cq_host->ops->set_data_timeout)
 			cq_host->ops->set_data_timeout(mmc, 0xf);
