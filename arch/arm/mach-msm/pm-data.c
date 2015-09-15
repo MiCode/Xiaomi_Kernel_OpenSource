@@ -13,7 +13,7 @@
 
 #include "pm.h"
 
-struct msm_pm_platform_data msm_pm_sleep_modes[] = {
+struct msm_pm_platform_data msm_pm_sleep_modes[] __refdata = {
 	[MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_POWER_COLLAPSE)] = {
 		.idle_supported = 1,
 		.suspend_supported = 1,
