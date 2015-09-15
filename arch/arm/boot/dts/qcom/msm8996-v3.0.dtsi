@@ -104,6 +104,8 @@
 	qcom,cpr-floor-to-ceiling-max-range =
 	       <0 70000 75000 80000 90000 95000 100000>;
 
+	/delete-property/ qcom,cpr-fused-closed-loop-voltage-adjustment-map;
+
 	qcom,allow-voltage-interpolation;
 	qcom,cpr-scaled-open-loop-voltage-as-ceiling;
 
