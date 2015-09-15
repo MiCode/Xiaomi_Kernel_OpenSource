@@ -1980,6 +1980,14 @@ void msm_isp_do_tasklet(unsigned long data)
 	struct msm_vfe_tasklet_queue_cmd *queue_cmd;
 	struct msm_isp_timestamp ts;
 	uint32_t irq_status0, irq_status1, iommu_page_fault;
+
+	if (vfe_dev->vfe_base == NULL || vfe_dev->vfe_open_cnt == 0) {
+		ISP_DBG("%s: VFE%d open cnt = %d, device closed(base = %p)\n",
+			__func__, vfe_dev->pdev->id, vfe_dev->vfe_open_cnt,
+			vfe_dev->vfe_base);
+		return;
+	}
+
 	while (atomic_read(&vfe_dev->irq_cnt)) {
 		spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
 		queue_cmd = list_first_entry(&vfe_dev->tasklet_q,
@@ -2179,7 +2187,8 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		return -EINVAL;
 	}
 
-	if (--vfe_dev->vfe_open_cnt) {
+	if (vfe_dev->vfe_open_cnt > 1) {
+		vfe_dev->vfe_open_cnt--;
 		mutex_unlock(&vfe_dev->core_mutex);
 		mutex_unlock(&vfe_dev->realtime_mutex);
 		return 0;
@@ -2192,6 +2201,9 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	/*Stop CAMIF Immediately*/
 	vfe_dev->hw_info->vfe_ops.core_ops.
 		update_camif_state(vfe_dev, DISABLE_CAMIF_IMMEDIATELY);
+
+	/* after regular hw stop, reduce open cnt */
+	vfe_dev->vfe_open_cnt--;
 
 	vfe_dev->hw_info->vfe_ops.core_ops.release_hw(vfe_dev);
 	vfe_dev->buf_mgr->ops->buf_mgr_deinit(vfe_dev->buf_mgr);
