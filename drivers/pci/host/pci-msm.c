@@ -46,6 +46,20 @@
 #include <linux/ipc_logging.h>
 #include <linux/msm_pcie.h>
 
+#ifdef CONFIG_ARCH_MDMCALIFORNIUM
+#define PCIE_VENDOR_ID_RCP		0x17cb
+#define PCIE_DEVICE_ID_RCP		0x0302
+
+#define PCIE20_PARF_DBI_BASE_ADDR	0x350
+#define PCIE20_PARF_SLV_ADDR_SPACE_SIZE	0x358
+#else
+#define PCIE_VENDOR_ID_RCP		0x17cb
+#define PCIE_DEVICE_ID_RCP		0x0104
+
+#define PCIE20_PARF_DBI_BASE_ADDR	0x168
+#define PCIE20_PARF_SLV_ADDR_SPACE_SIZE	0x16C
+#endif
+
 #define TX_BASE 0x1000
 #define RX_BASE 0x1200
 #define PCS_BASE 0x1400
@@ -161,8 +175,6 @@
 #define PCIE20_PARF_PHY_REFCLK	   0x4C
 #define PCIE20_PARF_CONFIG_BITS	  0x50
 #define PCIE20_PARF_TEST_BUS		0xE4
-#define PCIE20_PARF_DBI_BASE_ADDR	0x168
-#define PCIE20_PARF_SLV_ADDR_SPACE_SIZE	0x16C
 #define PCIE20_PARF_MHI_CLOCK_RESET_CTRL	0x174
 #define PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT   0x1A8
 #define PCIE20_PARF_LTSSM              0x1B0
@@ -172,7 +184,6 @@
 #define PCIE20_PARF_SID_OFFSET		0x234
 #define PCIE20_PARF_BDF_TRANSLATE_CFG	0x24C
 #define PCIE20_PARF_BDF_TRANSLATE_N	0x250
-
 
 #define PCIE20_ELBI_VERSION		0x00
 #define PCIE20_ELBI_SYS_CTRL	     0x04
@@ -216,9 +227,6 @@
 #define PCIE20_AER_CORR_ERR_STATUS_REG		0x110
 #define PCIE20_AER_ROOT_ERR_STATUS_REG		0x130
 #define PCIE20_AER_ERR_SRC_ID_REG		0x134
-
-#define PCIE_VENDOR_ID_RCP		 0x17cb
-#define PCIE_DEVICE_ID_RCP		 0x0104
 
 #define RD 0
 #define WR 1
@@ -288,9 +296,6 @@
 /* Config Space Offsets */
 #define BDF_OFFSET(bus, devfn) \
 	((bus << 24) | (devfn << 16))
-
-#define PCIE_BUS_PRIV_DATA(pdev) \
-	(struct msm_pcie_dev_t *)(pdev->bus->sysdata)
 
 #define PCIE_GEN_DBG(x...) do { \
 	if (msm_pcie_debug_mask) \
@@ -729,6 +734,38 @@ static const struct msm_pcie_irq_info_t msm_pcie_msi_info[MSM_PCIE_MAX_MSI] = {
 	{"msi_24", 0}, {"msi_25", 0}, {"msi_26", 0}, {"msi_27", 0},
 	{"msi_28", 0}, {"msi_29", 0}, {"msi_30", 0}, {"msi_31", 0}
 };
+
+#ifdef CONFIG_ARM
+#define PCIE_BUS_PRIV_DATA(bus) \
+	(((struct pci_sys_data *)bus->sysdata)->private_data)
+
+static struct pci_sys_data msm_pcie_sys_data[MAX_RC_NUM];
+
+static inline void *msm_pcie_setup_sys_data(struct msm_pcie_dev_t *dev)
+{
+	msm_pcie_sys_data[dev->rc_idx].domain = dev->rc_idx;
+	msm_pcie_sys_data[dev->rc_idx].private_data = dev;
+
+	return &msm_pcie_sys_data[dev->rc_idx];
+}
+
+static inline void msm_pcie_fixup_irqs(struct msm_pcie_dev_t *dev)
+{
+	pci_fixup_irqs(pci_common_swizzle, of_irq_parse_and_map_pci);
+}
+#else
+#define PCIE_BUS_PRIV_DATA(bus) \
+	(struct msm_pcie_dev_t *)(bus->sysdata)
+
+static inline void *msm_pcie_setup_sys_data(struct msm_pcie_dev_t *dev)
+{
+	return dev;
+}
+
+static inline void msm_pcie_fixup_irqs(struct msm_pcie_dev_t *dev)
+{
+}
+#endif
 
 static inline void msm_pcie_write_reg(void *base, u32 offset, u32 value)
 {
@@ -2034,7 +2071,7 @@ int msm_pcie_debug_info(struct pci_dev *dev, u32 option, u32 base,
 		}
 	}
 
-	pdev = PCIE_BUS_PRIV_DATA(dev);
+	pdev = PCIE_BUS_PRIV_DATA(dev->bus);
 	rc_sel = 1 << pdev->rc_idx;
 
 	msm_pcie_sel_debug_testcase(pdev, option);
@@ -2557,7 +2594,7 @@ static inline int msm_pcie_oper_conf(struct pci_bus *bus, u32 devfn, int oper,
 	u32 bdf = BDF_OFFSET(bus->number, devfn);
 	int i;
 
-	dev = bus->sysdata;
+	dev = PCIE_BUS_PRIV_DATA(bus);
 
 	if (!dev) {
 		pr_err("PCIe: No device found for this bus.\n");
@@ -4151,7 +4188,7 @@ EXPORT_SYMBOL(msm_pcie_configure_sid);
 
 int msm_pcie_enumerate(u32 rc_idx)
 {
-	int ret = 0, bus_ret = 0;
+	int ret = 0, bus_ret = 0, scan_ret = 0;
 	struct msm_pcie_dev_t *dev = &msm_pcie_dev[rc_idx];
 
 	PCIE_DBG(dev, "Enumerate RC%d\n", rc_idx);
@@ -4191,7 +4228,9 @@ int msm_pcie_enumerate(u32 rc_idx)
 			}
 
 			bus = pci_create_root_bus(&dev->pdev->dev, 0,
-						&msm_pcie_ops, dev, &res);
+						&msm_pcie_ops,
+						msm_pcie_setup_sys_data(dev),
+						&res);
 			if (!bus) {
 				PCIE_ERR(dev,
 					"PCIe: failed to create root bus for RC%d\n",
@@ -4200,7 +4239,14 @@ int msm_pcie_enumerate(u32 rc_idx)
 				return -ENOMEM;
 			}
 
-			pci_rescan_bus(bus);
+			scan_ret = pci_scan_child_bus(bus);
+			PCIE_DBG(dev,
+				"PCIe: RC%d: The max subordinate bus number discovered is %d\n",
+				dev->rc_idx, ret);
+
+			msm_pcie_fixup_irqs(dev);
+			pci_assign_unassigned_bus_resources(bus);
+			pci_bus_add_devices(bus);
 
 			dev->enumerated = true;
 
@@ -4220,7 +4266,7 @@ int msm_pcie_enumerate(u32 rc_idx)
 					device_id, pcidev);
 				if (pcidev && (&msm_pcie_dev[rc_idx] ==
 					(struct msm_pcie_dev_t *)
-					PCIE_BUS_PRIV_DATA(pcidev))) {
+					PCIE_BUS_PRIV_DATA(pcidev->bus))) {
 					msm_pcie_dev[rc_idx].dev = pcidev;
 					found = true;
 					PCIE_DBG(&msm_pcie_dev[rc_idx],
@@ -4733,7 +4779,7 @@ void arch_teardown_msi_irq(unsigned int irq)
 void arch_teardown_msi_irqs(struct pci_dev *dev)
 {
 	struct msi_desc *entry;
-	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev);
+	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev->bus);
 
 	PCIE_DBG(pcie_dev, "RC:%d EP: vendor_id:0x%x device_id:0x%x\n",
 		pcie_dev->rc_idx, dev->vendor, dev->device);
@@ -4795,7 +4841,7 @@ static int arch_setup_msi_irq_default(struct pci_dev *pdev,
 {
 	int irq;
 	struct msi_msg msg;
-	struct msm_pcie_dev_t *dev = PCIE_BUS_PRIV_DATA(pdev);
+	struct msm_pcie_dev_t *dev = PCIE_BUS_PRIV_DATA(pdev->bus);
 
 	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
 
@@ -4860,7 +4906,7 @@ static int arch_setup_msi_irq_qgic(struct pci_dev *pdev,
 {
 	int irq, index, firstirq = 0;
 	struct msi_msg msg;
-	struct msm_pcie_dev_t *dev = PCIE_BUS_PRIV_DATA(pdev);
+	struct msm_pcie_dev_t *dev = PCIE_BUS_PRIV_DATA(pdev->bus);
 
 	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
 
@@ -4889,7 +4935,7 @@ static int arch_setup_msi_irq_qgic(struct pci_dev *pdev,
 
 int arch_setup_msi_irq(struct pci_dev *pdev, struct msi_desc *desc)
 {
-	struct msm_pcie_dev_t *dev = PCIE_BUS_PRIV_DATA(pdev);
+	struct msm_pcie_dev_t *dev = PCIE_BUS_PRIV_DATA(pdev->bus);
 
 	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
 
@@ -4917,7 +4963,7 @@ int arch_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)
 {
 	struct msi_desc *entry;
 	int ret;
-	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev);
+	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev->bus);
 
 	PCIE_DBG(pcie_dev, "RC%d\n", pcie_dev->rc_idx);
 
@@ -5572,7 +5618,7 @@ module_exit(pcie_exit);
 /* RC do not represent the right class; set it to PCI_CLASS_BRIDGE_PCI */
 static void msm_pcie_fixup_early(struct pci_dev *dev)
 {
-	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev);
+	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev->bus);
 	PCIE_DBG(pcie_dev, "hdr_type %d\n", dev->hdr_type);
 	if (dev->hdr_type == 1)
 		dev->class = (dev->class & 0xff) | (PCI_CLASS_BRIDGE_PCI << 8);
@@ -5588,7 +5634,7 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 	u32 val = 0;
 	int ret_l23;
 	unsigned long irqsave_flags;
-	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev);
+	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev->bus);
 
 	PCIE_DBG(pcie_dev, "RC%d: entry\n", pcie_dev->rc_idx);
 
@@ -5655,7 +5701,7 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 static void msm_pcie_fixup_suspend(struct pci_dev *dev)
 {
 	int ret;
-	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev);
+	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev->bus);
 
 	PCIE_DBG(pcie_dev, "RC%d\n", pcie_dev->rc_idx);
 
@@ -5692,7 +5738,7 @@ static int msm_pcie_pm_resume(struct pci_dev *dev,
 			void *user, void *data, u32 options)
 {
 	int ret;
-	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev);
+	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev->bus);
 
 	PCIE_DBG(pcie_dev, "RC%d: entry\n", pcie_dev->rc_idx);
 
@@ -5753,7 +5799,7 @@ static int msm_pcie_pm_resume(struct pci_dev *dev,
 void msm_pcie_fixup_resume(struct pci_dev *dev)
 {
 	int ret;
-	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev);
+	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev->bus);
 
 	PCIE_DBG(pcie_dev, "RC%d\n", pcie_dev->rc_idx);
 
@@ -5776,7 +5822,7 @@ DECLARE_PCI_FIXUP_RESUME(PCIE_VENDOR_ID_RCP, PCIE_DEVICE_ID_RCP,
 void msm_pcie_fixup_resume_early(struct pci_dev *dev)
 {
 	int ret;
-	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev);
+	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev->bus);
 
 	PCIE_DBG(pcie_dev, "RC%d\n", pcie_dev->rc_idx);
 
@@ -5813,7 +5859,7 @@ int msm_pcie_pm_control(enum msm_pcie_pm_opt pm_opt, u32 busnr, void *user,
 		goto out;
 	}
 
-	pcie_dev = PCIE_BUS_PRIV_DATA(((struct pci_dev *)user));
+	pcie_dev = PCIE_BUS_PRIV_DATA(((struct pci_dev *)user)->bus);
 
 	if (pcie_dev) {
 		rc_idx = pcie_dev->rc_idx;
@@ -5990,7 +6036,7 @@ int msm_pcie_register_event(struct msm_pcie_register_event *reg)
 		return -ENODEV;
 	}
 
-	pcie_dev = PCIE_BUS_PRIV_DATA(((struct pci_dev *)reg->user));
+	pcie_dev = PCIE_BUS_PRIV_DATA(((struct pci_dev *)reg->user)->bus);
 
 	if (!pcie_dev) {
 		PCIE_ERR(pcie_dev, "%s",
@@ -6061,7 +6107,7 @@ int msm_pcie_deregister_event(struct msm_pcie_register_event *reg)
 		return -ENODEV;
 	}
 
-	pcie_dev = PCIE_BUS_PRIV_DATA(((struct pci_dev *)reg->user));
+	pcie_dev = PCIE_BUS_PRIV_DATA(((struct pci_dev *)reg->user)->bus);
 
 	if (!pcie_dev) {
 		PCIE_ERR(pcie_dev, "%s",
@@ -6105,7 +6151,7 @@ int msm_pcie_recover_config(struct pci_dev *dev)
 	struct msm_pcie_dev_t *pcie_dev;
 
 	if (dev) {
-		pcie_dev = PCIE_BUS_PRIV_DATA(dev);
+		pcie_dev = PCIE_BUS_PRIV_DATA(dev->bus);
 		PCIE_DBG(pcie_dev,
 			"Recovery for the link of RC%d\n", pcie_dev->rc_idx);
 	} else {
@@ -6147,7 +6193,7 @@ int msm_pcie_shadow_control(struct pci_dev *dev, bool enable)
 	struct msm_pcie_dev_t *pcie_dev;
 
 	if (dev) {
-		pcie_dev = PCIE_BUS_PRIV_DATA(dev);
+		pcie_dev = PCIE_BUS_PRIV_DATA(dev->bus);
 		PCIE_DBG(pcie_dev,
 			"User requests to %s shadow\n",
 			enable ? "enable" : "disable");
