@@ -1075,6 +1075,8 @@ static ssize_t ipa3_read_wdi(struct file *file, char __user *ubuf,
 			"RX num_db=%u\n"
 			"RX num_unexpected_db=%u\n"
 			"RX num_pkts_in_dis_uninit_state=%u\n"
+			"num_ic_inj_vdev_change=%u\n"
+			"num_ic_inj_fw_desc_change=%u\n"
 			"RX reserved1=%u\n"
 			"RX reserved2=%u\n",
 			stats.rx_ch_stats.max_outstanding_pkts,
@@ -1094,6 +1096,8 @@ static ssize_t ipa3_read_wdi(struct file *file, char __user *ubuf,
 			stats.rx_ch_stats.num_db,
 			stats.rx_ch_stats.num_unexpected_db,
 			stats.rx_ch_stats.num_pkts_in_dis_uninit_state,
+			stats.rx_ch_stats.num_ic_inj_vdev_change,
+			stats.rx_ch_stats.num_ic_inj_fw_desc_change,
 			stats.rx_ch_stats.reserved1,
 			stats.rx_ch_stats.reserved2);
 		cnt += nbytes;
