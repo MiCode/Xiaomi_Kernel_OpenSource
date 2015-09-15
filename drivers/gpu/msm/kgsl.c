@@ -2960,7 +2960,7 @@ static struct kgsl_mem_entry *gpumem_alloc_entry(
 		mmapsize = size;
 
 	/* For now only allow allocations up to 4G */
-	if (size > UINT_MAX)
+	if (size == 0 || size > UINT_MAX)
 		return ERR_PTR(-EINVAL);
 
 	/* Only allow a mmap size that we can actually mmap */
