@@ -288,6 +288,21 @@ out:
 DEFINE_SIMPLE_ATTRIBUTE(mmc_max_clock_fops, mmc_max_clock_get,
 		mmc_max_clock_set, "%llu\n");
 
+static int mmc_force_err_set(void *data, u64 val)
+{
+	struct mmc_host *host = data;
+
+	if (host && host->ops && host->ops->force_err_irq) {
+		mmc_host_clk_hold(host);
+		host->ops->force_err_irq(host, val);
+		mmc_host_clk_release(host);
+	}
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(mmc_force_err_fops, NULL, mmc_force_err_set, "%llu\n");
+
 void mmc_add_host_debugfs(struct mmc_host *host)
 {
 	struct dentry *root;
@@ -337,6 +352,10 @@ void mmc_add_host_debugfs(struct mmc_host *host)
 					     &host->fail_mmc_request)))
 		goto err_node;
 #endif
+	if (!debugfs_create_file("force_error", S_IWUSR, root, host,
+		&mmc_force_err_fops))
+		goto err_node;
+
 	return;
 
 err_node:
