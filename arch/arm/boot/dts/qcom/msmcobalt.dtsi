@@ -1630,3 +1630,4 @@
 #include "msmcobalt-vidc.dtsi"
 #include "msmcobalt-coresight.dtsi"
 #include "msmcobalt-bus.dtsi"
+#include "msmcobalt-gpu.dtsi"
