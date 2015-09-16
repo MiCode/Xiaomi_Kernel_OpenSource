@@ -1136,6 +1136,12 @@ static int tomtom_config_compander(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		/* If EAR PA is enabled then compander should not be enabled */
+		if ((snd_soc_read(codec, TOMTOM_A_RX_EAR_EN) & 0x10) != 0) {
+			pr_debug("%s: EAR is enabled, do not enable compander\n",
+				 __func__);
+			break;
+		}
 		/* Set compander Sample rate */
 		snd_soc_update_bits(codec,
 				    TOMTOM_A_CDC_COMP0_FS_CFG + (comp * 8),
@@ -6491,6 +6497,21 @@ static int tomtom_codec_ear_dac_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		/*
+		 * When EAR is enabled, compander (1) in HPH path should be
+		 * disabled, and gain source for HPH set to register
+		 */
+		if ((snd_soc_read(codec, TOMTOM_A_CDC_COMP1_B1_CTL) &
+				  0x03) != 0) {
+			pr_debug("%s: Disabling COMP1\n", __func__);
+			snd_soc_update_bits(codec, TOMTOM_A_RX_HPH_L_GAIN,
+						0x20, 0x20);
+			snd_soc_update_bits(codec, TOMTOM_A_RX_HPH_R_GAIN,
+						0x20, 0x20);
+			snd_soc_update_bits(codec, TOMTOM_A_CDC_COMP1_B1_CTL,
+						0x03, 0x00);
+		}
+
 		wcd9xxx_clsh_fsm(codec, &tomtom_p->clsh_d,
 						 WCD9XXX_CLSH_STATE_EAR,
 						 WCD9XXX_CLSH_REQ_ENABLE,
