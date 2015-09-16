@@ -2039,10 +2039,6 @@ static int mdss_mdp_parse_dt(struct platform_device *pdev)
 		return rc;
 	}
 
-	rc = mdss_mdp_parse_dt_ppb_off(pdev);
-	if (rc)
-		pr_debug("Info in device tree: ppb offset not configured\n");
-
 	rc = mdss_mdp_parse_dt_cdm(pdev);
 	if (rc)
 		pr_debug("CDM offset not found in device tree\n");
@@ -3259,6 +3255,11 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 		}
 		mdata->slave_pingpong_base = mdata->mdss_io.base +
 			slave_pingpong_off;
+		rc = mdss_mdp_parse_dt_ppb_off(pdev);
+		if (rc) {
+			pr_err("Error in device tree: ppb offset not configured\n");
+			return rc;
+		}
 	}
 
 	/*

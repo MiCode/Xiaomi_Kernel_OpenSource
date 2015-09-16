@@ -2826,6 +2826,12 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 	else
 		offset = MDSS_MDP_CTL0;
 
+	if (is_pingpong_split(mfd) && !mdata->has_pingpong_split) {
+		pr_err("Error: pp_split cannot be enabled on fb%d if HW doesn't support it\n",
+			mfd->index);
+		return ERR_PTR(-EINVAL);
+	}
+
 	ctl = mdss_mdp_ctl_alloc(mdata, offset);
 	if (!ctl) {
 		pr_err("unable to allocate ctl\n");
