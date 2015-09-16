@@ -32,6 +32,12 @@
 #define SWR_AUTO_SUSPEND_DELAY_MS	3000 /* delay in msec */
 #define SWR_DEV_ID_MASK			0xFFFFFFFF
 
+/* pm runtime auto suspend timer in msecs */
+static int auto_suspend_timer = SWR_AUTO_SUSPEND_DELAY_MS;
+module_param(auto_suspend_timer, int,
+		S_IRUGO | S_IWUSR | S_IWGRP);
+MODULE_PARM_DESC(auto_suspend_timer, "timer for auto suspend");
+
 static u8 mstr_ports[] = {100, 101, 102, 103, 104, 105, 106, 107};
 static u8 mstr_port_type[] = {SWR_DAC_PORT, SWR_COMP_PORT, SWR_BOOST_PORT,
 			      SWR_DAC_PORT, SWR_COMP_PORT, SWR_BOOST_PORT,
@@ -1086,7 +1092,7 @@ static int swrm_probe(struct platform_device *pdev)
 				   (void *) "swrm_reg_dump",
 				   &swrm_debug_ops);
 	}
-	pm_runtime_set_autosuspend_delay(&pdev->dev, SWR_AUTO_SUSPEND_DELAY_MS);
+	pm_runtime_set_autosuspend_delay(&pdev->dev, auto_suspend_timer);
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
@@ -1169,6 +1175,7 @@ static int swrm_runtime_resume(struct device *dev)
 		swrm_master_init(swrm);
 	}
 exit:
+	pm_runtime_set_autosuspend_delay(&pdev->dev, auto_suspend_timer);
 	mutex_unlock(&swrm->reslock);
 	return ret;
 }
