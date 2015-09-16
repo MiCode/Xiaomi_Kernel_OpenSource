@@ -12,17 +12,24 @@ Required properties:
 Optional properties:
 
  - vcc_ana-supply	: Analog power supply needed to power device
- - qcom,afe-load	: AFE load in uA
- - qcom,afe-vtg-min	: AFE minimum voltage in uV
- - qcom,afe-vtg-max	: AFE maximum voltage in uV
+ - qcom,afe-load	: AFE/Analog supply load in uA
+ - qcom,afe-vtg-min	: AFE/Analog minimum voltage in uV
+ - qcom,afe-vtg-max	: AFE/Analog maximum voltage in uV
+ - qcom,dig-load	: Digital supply load in uA
+ - qcom,dig-vtg-min	: Digital supply minimum voltage in uV
+ - qcom,dig-vtg-max	: Digital supply maximum voltage in uV
 
 Example:
 	&soc {
 		hbtp {
 			compatible = "qcom,hbtp-input";
-			vcc_ana-supply = <&pm8941_l18>;
-			qcom,afe-load = <150000>;
-			qcom,afe-vtg-min = <2700000>;
-			qcom,afe-vtg-max = <3300000>;
+			vcc_ana-supply = <&pm8941_l17>;
+			vcc_dig-supply = <&pm8950_l16>;
+			qcom,afe-load = <50000>;
+			qcom,afe-vtg-min = <2850000>;
+			qcom,afe-vtg-max = <2850000>;
+			qcom,dig-load = <15000>;
+			qcom,dig-vtg-min = <1800000>;
+			qcom,dig-vtg-max = <1800000>;
 		};
 	};
