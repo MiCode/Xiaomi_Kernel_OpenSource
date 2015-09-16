@@ -1378,10 +1378,10 @@ void *msm_vidc_open(int core_id, int session_type)
 
 	return inst;
 
-fail_setup:
-	debugfs_remove_recursive(inst->debugfs_root);
-
 fail_init:
+	debugfs_remove_recursive(inst->debugfs_root);
+	v4l2_fh_del(&inst->event_handler);
+fail_setup:
 	vb2_queue_release(&inst->bufq[OUTPUT_PORT].vb2_bufq);
 
 	mutex_lock(&core->lock);
