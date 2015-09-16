@@ -1864,17 +1864,11 @@ static int msm_iommu_domain_get_attr(struct iommu_domain *domain,
 		*((unsigned int *) data) = ctx_drvdata->num;
 		break;
 	case DOMAIN_ATTR_TTBR0:
-		if (!ctx_drvdata)
-			return -ENODEV;
-
 		ttbr0 = get_full_ttbr0(priv);
 
 		*((u64 *)data) = ttbr0;
 		break;
 	case DOMAIN_ATTR_CONTEXTIDR:
-		if (!ctx_drvdata)
-			return -ENODEV;
-
 		if (IS_CB_FORMAT_LONG)
 			ctxidr = priv->procid;
 		else
