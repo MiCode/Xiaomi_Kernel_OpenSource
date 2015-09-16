@@ -338,7 +338,6 @@ static inline void _pop_cmdbatch(struct adreno_context *drawctxt)
 static struct kgsl_cmdbatch *_expire_markers(struct adreno_context *drawctxt)
 {
 	struct kgsl_cmdbatch *cmdbatch;
-	bool pending = false;
 
 	if (drawctxt->cmdqueue_head == drawctxt->cmdqueue_tail)
 		return NULL;
@@ -357,17 +356,7 @@ static struct kgsl_cmdbatch *_expire_markers(struct adreno_context *drawctxt)
 	}
 
 	if (cmdbatch->flags & KGSL_CMDBATCH_SYNC) {
-		/*
-		 * We may have cmdbatch timer running, which also uses same
-		 * lock, take a lock with software interrupt disabled (bh) to
-		 * avoid spin lock recursion.
-		 */
-		spin_lock_bh(&cmdbatch->lock);
-		if (!list_empty(&cmdbatch->synclist))
-			pending = true;
-		spin_unlock_bh(&cmdbatch->lock);
-
-		if (!pending) {
+		if (!kgsl_cmdbatch_events_pending(cmdbatch)) {
 			_pop_cmdbatch(drawctxt);
 			kgsl_cmdbatch_destroy(cmdbatch);
 			return _expire_markers(drawctxt);
@@ -406,10 +395,8 @@ static struct kgsl_cmdbatch *_get_cmdbatch(struct adreno_context *drawctxt)
 			(!test_bit(CMDBATCH_FLAG_SKIP, &cmdbatch->priv)))
 		pending = true;
 
-	rcu_read_lock();
-	if (!list_empty(&cmdbatch->synclist))
+	if (kgsl_cmdbatch_events_pending(cmdbatch))
 		pending = true;
-	rcu_read_unlock();
 
 	/*
 	 * If changes are pending and the canary timer hasn't been

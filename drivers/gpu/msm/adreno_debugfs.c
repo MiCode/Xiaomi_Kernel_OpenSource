@@ -201,22 +201,26 @@ static void print_flags(struct seq_file *s, const struct flag_entry *table,
 
 static void cmdbatch_print(struct seq_file *s, struct kgsl_cmdbatch *cmdbatch)
 {
-	struct kgsl_cmdbatch_sync_event *sync_event;
+	struct kgsl_cmdbatch_sync_event *event;
+	unsigned int i;
 
 	/* print fences first, since they block this cmdbatch */
 
-	rcu_read_lock();
-	list_for_each_entry_rcu(sync_event, &cmdbatch->synclist, node) {
+	for (i = 0; i < cmdbatch->numsyncs; i++) {
+		event = &cmdbatch->synclist[i];
+
+		if (!kgsl_cmdbatch_event_pending(cmdbatch, i))
+			continue;
+
 		/*
 		 * Timestamp is 0 for KGSL_CONTEXT_SYNC, but print it anyways
 		 * so that it is clear if the fence was a separate submit
 		 * or part of an IB submit.
 		 */
 		seq_printf(s, "\t%d ", cmdbatch->timestamp);
-		sync_event_print(s, sync_event);
+		sync_event_print(s, event);
 		seq_puts(s, "\n");
 	}
-	rcu_read_unlock();
 
 	/* if this flag is set, there won't be an IB */
 	if (cmdbatch->flags & KGSL_CONTEXT_SYNC)
