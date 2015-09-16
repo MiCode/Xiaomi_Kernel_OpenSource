@@ -3055,6 +3055,8 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 {
 	int rc = 0;
 	u32 ctrl_status = 0;
+	int count = 0;
+	const int max_tries = 10;
 	struct venus_hfi_device *device = list_first_entry(
 			&hal_ctxt.dev_head, struct venus_hfi_device, list);
 	if (!device) {
@@ -3092,21 +3094,28 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 	}
 
 	if (device->last_packet_type != HFI_CMD_SYS_PC_PREP) {
-		dprintk(VIDC_DBG,
-			"Last command (%#x) is not PC_PREP cmd\n",
+		dprintk(VIDC_WARN,
+			"Skip PC. Reason: Last packet queued(%#x) is not PC_PREP\n",
 			device->last_packet_type);
 		goto skip_power_off;
 	}
 
 	if (__get_q_size(device, VIDC_IFACEQ_MSGQ_IDX) ||
 		__get_q_size(device, VIDC_IFACEQ_CMDQ_IDX)) {
-		dprintk(VIDC_DBG, "Cmd/msg queues are not empty\n");
+		dprintk(VIDC_WARN,
+			"Skip PC. Reason: Cmd/Msg queue not empty\n");
 		goto skip_power_off;
 	}
 
-	ctrl_status = __read_register(device, VIDC_CPU_CS_SCIACMDARG0);
-	if (!(ctrl_status & VIDC_CPU_CS_SCIACMDARG0_HFI_CTRL_PC_READY)) {
-		dprintk(VIDC_DBG, "Venus not ready for power collapse (%#x)\n",
+	while (!(ctrl_status & BIT(0)) && count < max_tries) {
+		ctrl_status = __read_register(device, VIDC_WRAPPER_CPU_STATUS);
+		usleep_range(1000, 1500);
+		count++;
+	}
+
+	if (!(ctrl_status & BIT(0))) {
+		dprintk(VIDC_WARN,
+			"Skip PC. Reason: Core is not in WFI state (%#x)\n",
 			ctrl_status);
 		goto skip_power_off;
 	}
@@ -3135,8 +3144,6 @@ skip_power_off:
 
 	/* Cancel pending delayed works if any */
 	cancel_delayed_work(&venus_hfi_pm_work);
-	dprintk(VIDC_WARN, "Power off skipped (last pkt %#x, status: %#x)\n",
-		device->last_packet_type, ctrl_status);
 
 exit:
 	mutex_unlock(&device->lock);
