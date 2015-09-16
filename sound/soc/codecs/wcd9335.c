@@ -9695,6 +9695,7 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_val_1_0[] = {
 };
 
 static const struct tasha_reg_mask_val tasha_codec_reg_init_val_2_0[] = {
+	{WCD9335_RCO_CTRL_2, 0x0F, 0x08},
 	{WCD9335_RX_BIAS_FLYB_MID_RST, 0xF0, 0x10},
 	{WCD9335_HPH_OCP_CTL, 0xFF, 0x5A},
 	{WCD9335_HPH_L_TEST, 0x01, 0x01},
