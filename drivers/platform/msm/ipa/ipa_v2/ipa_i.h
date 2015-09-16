@@ -1666,9 +1666,9 @@ int ipa2_dma_enable(void);
 
 int ipa2_dma_disable(void);
 
-int ipa2_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src, int len);
+int ipa2_dma_sync_memcpy(u64 dest, u64 src, int len);
 
-int ipa2_dma_async_memcpy(phys_addr_t dest, phys_addr_t src, int len,
+int ipa2_dma_async_memcpy(u64 dest, u64 src, int len,
 			void (*user_cb)(void *user1), void *user_param);
 
 int ipa2_dma_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);

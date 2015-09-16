@@ -1950,7 +1950,7 @@ EXPORT_SYMBOL(ipa_dma_disable);
  *		-SPS_ERROR: on sps faliures
  *		-EFAULT: other
  */
-int ipa_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src, int len)
+int ipa_dma_sync_memcpy(u64 dest, u64 src, int len)
 {
 	int ret;
 
@@ -1976,7 +1976,7 @@ EXPORT_SYMBOL(ipa_dma_sync_memcpy);
  *		-SPS_ERROR: on sps faliures
  *		-EFAULT: descr fifo is full.
  */
-int ipa_dma_async_memcpy(phys_addr_t dest, phys_addr_t src, int len,
+int ipa_dma_async_memcpy(u64 dest, u64 src, int len,
 		void (*user_cb)(void *user1), void *user_param)
 {
 	int ret;
