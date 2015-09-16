@@ -152,6 +152,8 @@ enum adreno_gpurev {
 	ADRENO_REV_A418 = 418,
 	ADRENO_REV_A420 = 420,
 	ADRENO_REV_A430 = 430,
+	ADRENO_REV_A505 = 505,
+	ADRENO_REV_A506 = 506,
 	ADRENO_REV_A510 = 510,
 	ADRENO_REV_A530 = 530,
 };
@@ -921,6 +923,8 @@ static inline int adreno_is_a5xx(struct adreno_device *adreno_dev)
 			ADRENO_GPUREV(adreno_dev) < 600;
 }
 
+ADRENO_TARGET(a505, ADRENO_REV_A505)
+ADRENO_TARGET(a506, ADRENO_REV_A506)
 ADRENO_TARGET(a510, ADRENO_REV_A510)
 ADRENO_TARGET(a530, ADRENO_REV_A530)
 
@@ -942,6 +946,11 @@ static inline int adreno_is_a530v3(struct adreno_device *adreno_dev)
 		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 2);
 }
 
+static inline int adreno_is_a505_or_a506(struct adreno_device *adreno_dev)
+{
+	return ADRENO_GPUREV(adreno_dev) >= 505 &&
+			ADRENO_GPUREV(adreno_dev) <= 506;
+}
 /**
  * adreno_context_timestamp() - Return the last queued timestamp for the context
  * @k_ctxt: Pointer to the KGSL context to query
