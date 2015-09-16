@@ -1593,4 +1593,5 @@ struct ipa_smmu_cb_ctx *ipa_get_wlan_smmu_ctx(void);
 struct ipa_smmu_cb_ctx *ipa_get_uc_smmu_ctx(void);
 struct iommu_domain *ipa_get_uc_smmu_domain(void);
 void ipa_suspend_apps_pipes(bool suspend);
+void ipa_update_repl_threshold(enum ipa_client_type ipa_client);
 #endif /* _IPA_I_H_ */
