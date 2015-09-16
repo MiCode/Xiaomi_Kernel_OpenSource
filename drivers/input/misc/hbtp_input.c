@@ -41,10 +41,15 @@ struct hbtp_data {
 	struct notifier_block fb_notif;
 #endif
 	struct regulator *vcc_ana;
+	struct regulator *vcc_dig;
 	int afe_load_ua;
 	int afe_vtg_min_uv;
 	int afe_vtg_max_uv;
-	bool manage_afe_power;
+	int dig_load_ua;
+	int dig_vtg_min_uv;
+	int dig_vtg_max_uv;
+	bool manage_afe_power_ana;
+	bool manage_power_dig;
 };
 
 static struct hbtp_data *hbtp;
@@ -204,40 +209,68 @@ static int reg_set_optimum_mode_check(struct regulator *reg, int load_uA)
 
 static int hbtp_pdev_power_on(struct hbtp_data *hbtp, bool on)
 {
-	int ret, error;
+	int ret;
 
-	if (!hbtp->vcc_ana) {
-		pr_err("%s: regulator is not available\n", __func__);
+	if (!hbtp->vcc_ana)
+		pr_err("%s: analog regulator is not available\n", __func__);
+
+	if (!hbtp->vcc_dig)
+		pr_err("%s: digital regulator is not available\n", __func__);
+
+	if (!hbtp->vcc_ana && !hbtp->vcc_dig) {
+		pr_err("%s: no regulators available\n", __func__);
 		return -EINVAL;
 	}
 
 	if (!on)
 		goto reg_off;
 
-	ret = reg_set_optimum_mode_check(hbtp->vcc_ana, hbtp->afe_load_ua);
-	if (ret < 0) {
-		pr_err("%s: Regulator vcc_ana set_opt failed rc=%d\n",
-			__func__, ret);
-		return -EINVAL;
-	}
+	if (hbtp->vcc_ana) {
+		ret = reg_set_optimum_mode_check(hbtp->vcc_ana,
+			hbtp->afe_load_ua);
+		if (ret < 0) {
+			pr_err("%s: Regulator vcc_ana set_opt failed rc=%d\n",
+				__func__, ret);
+			return ret;
+		}
 
-	ret = regulator_enable(hbtp->vcc_ana);
-	if (ret) {
-		pr_err("%s: Regulator vcc_ana enable failed rc=%d\n",
-			__func__, ret);
-		error = -EINVAL;
-		goto error_reg_en_vcc_ana;
+		ret = regulator_enable(hbtp->vcc_ana);
+		if (ret) {
+			pr_err("%s: Regulator vcc_ana enable failed rc=%d\n",
+				__func__, ret);
+			reg_set_optimum_mode_check(hbtp->vcc_ana, 0);
+			return ret;
+		}
+	}
+	if (hbtp->vcc_dig) {
+		ret = reg_set_optimum_mode_check(hbtp->vcc_dig,
+			hbtp->dig_load_ua);
+		if (ret < 0) {
+			pr_err("%s: Regulator vcc_dig set_opt failed rc=%d\n",
+				__func__, ret);
+			return ret;
+		}
+
+		ret = regulator_enable(hbtp->vcc_dig);
+		if (ret) {
+			pr_err("%s: Regulator vcc_dig enable failed rc=%d\n",
+				__func__, ret);
+			reg_set_optimum_mode_check(hbtp->vcc_dig, 0);
+			return ret;
+		}
 	}
 
 	return 0;
 
-error_reg_en_vcc_ana:
-	reg_set_optimum_mode_check(hbtp->vcc_ana, 0);
-	return error;
-
 reg_off:
-	reg_set_optimum_mode_check(hbtp->vcc_ana, 0);
-	regulator_disable(hbtp->vcc_ana);
+	if (hbtp->vcc_ana) {
+		reg_set_optimum_mode_check(hbtp->vcc_ana, 0);
+		regulator_disable(hbtp->vcc_ana);
+	}
+	if (hbtp->vcc_dig) {
+		reg_set_optimum_mode_check(hbtp->vcc_dig, 0);
+		regulator_disable(hbtp->vcc_dig);
+	}
 	return 0;
 }
 
@@ -387,9 +420,12 @@ static int hbtp_parse_dt(struct device *dev)
 	struct device_node *np = dev->of_node;
 	u32 temp_val;
 
-	if (of_find_property(np, "vcc_ana-supply", NULL)) {
-		hbtp->manage_afe_power = true;
+	if (of_find_property(np, "vcc_ana-supply", NULL))
+		hbtp->manage_afe_power_ana = true;
+	if (of_find_property(np, "vcc_dig-supply", NULL))
+		hbtp->manage_power_dig = true;
 
+	if (hbtp->manage_afe_power_ana) {
 		rc = of_property_read_u32(np, "qcom,afe-load", &temp_val);
 		if (!rc) {
 			hbtp->afe_load_ua = (int) temp_val;
@@ -414,6 +450,31 @@ static int hbtp_parse_dt(struct device *dev)
 			return rc;
 		}
 	}
+	if (hbtp->manage_power_dig) {
+		rc = of_property_read_u32(np, "qcom,dig-load", &temp_val);
+		if (!rc) {
+			hbtp->dig_load_ua = (int) temp_val;
+		} else {
+			dev_err(dev, "Unable to read digital load\n");
+			return rc;
+		}
+
+		rc = of_property_read_u32(np, "qcom,dig-vtg-min", &temp_val);
+		if (!rc) {
+			hbtp->dig_vtg_min_uv = (int) temp_val;
+		} else {
+			dev_err(dev, "Unable to read digital min voltage\n");
+			return rc;
+		}
+
+		rc = of_property_read_u32(np, "qcom,dig-vtg-max", &temp_val);
+		if (!rc) {
+			hbtp->dig_vtg_max_uv = (int) temp_val;
+		} else {
+			dev_err(dev, "Unable to read digital max voltage\n");
+			return rc;
+		}
+	}
 
 	return 0;
 }
@@ -426,8 +487,8 @@ static int hbtp_parse_dt(struct device *dev)
 
 static int hbtp_pdev_probe(struct platform_device *pdev)
 {
-	int error, ret;
-	struct regulator *vcc_ana;
+	int error;
+	struct regulator *vcc_ana, *vcc_dig;
 
 	if (pdev->dev.of_node) {
 		error = hbtp_parse_dt(&pdev->dev);
@@ -437,43 +498,63 @@ static int hbtp_pdev_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (hbtp->manage_afe_power) {
+	if (hbtp->manage_afe_power_ana) {
 		vcc_ana = regulator_get(&pdev->dev, "vcc_ana");
 		if (IS_ERR(vcc_ana)) {
-			ret = PTR_ERR(vcc_ana);
+			error = PTR_ERR(vcc_ana);
 			pr_err("%s: regulator get failed vcc_ana rc=%d\n",
-				__func__, ret);
-			return -EINVAL;
+				__func__, error);
+			return error;
 		}
 
 		if (regulator_count_voltages(vcc_ana) > 0) {
-			ret = regulator_set_voltage(vcc_ana,
+			error = regulator_set_voltage(vcc_ana,
 				hbtp->afe_vtg_min_uv, hbtp->afe_vtg_max_uv);
-			if (ret) {
-				pr_err("%s: regulator set vtg failed rc=%d\n",
-					__func__, ret);
-				error = -EINVAL;
-				goto error_set_vtg_vcc_ana;
+			if (error) {
+				pr_err("%s: regulator set vtg failed vcc_ana rc=%d\n",
+					__func__, error);
+				regulator_put(vcc_ana);
+				return error;
 			}
 		}
 		hbtp->vcc_ana = vcc_ana;
 	}
 
+	if (hbtp->manage_power_dig) {
+		vcc_dig = regulator_get(&pdev->dev, "vcc_dig");
+		if (IS_ERR(vcc_dig)) {
+			error = PTR_ERR(vcc_dig);
+			pr_err("%s: regulator get failed vcc_dig rc=%d\n",
+				__func__, error);
+			return error;
+		}
+
+		if (regulator_count_voltages(vcc_dig) > 0) {
+			error = regulator_set_voltage(vcc_dig,
+				hbtp->dig_vtg_min_uv, hbtp->dig_vtg_max_uv);
+			if (error) {
+				pr_err("%s: regulator set vtg failed vcc_dig rc=%d\n",
+					__func__, error);
+				regulator_put(vcc_dig);
+				return error;
+			}
+		}
+		hbtp->vcc_dig = vcc_dig;
+	}
+
 	hbtp->pdev = pdev;
 
 	return 0;
-
-error_set_vtg_vcc_ana:
-	regulator_put(vcc_ana);
-
-	return error;
-};
+}
 
 static int hbtp_pdev_remove(struct platform_device *pdev)
 {
-	if (hbtp->vcc_ana) {
+	if (hbtp->vcc_ana || hbtp->vcc_dig) {
 		hbtp_pdev_power_on(hbtp, false);
-		regulator_put(hbtp->vcc_ana);
+		if (hbtp->vcc_ana)
+			regulator_put(hbtp->vcc_ana);
+		if (hbtp->vcc_dig)
+			regulator_put(hbtp->vcc_dig);
 	}
 
 	return 0;
