@@ -582,6 +582,7 @@ struct mdss_panel_info {
 	bool dynamic_switch_pending;
 	bool is_lpm_mode;
 	bool is_split_display; /* two DSIs in one display, pp split or not */
+	bool use_pingpong_split;
 
 	/*
 	 * index[0] = left layer mixer, value of 0 not valid
