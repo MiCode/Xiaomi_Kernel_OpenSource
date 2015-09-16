@@ -424,20 +424,22 @@ Optional properites:
 					mixers to reduce power.
 					Ex: Normally 1080x1920 display uses single DSI and thus one layer
 					    mixer. But if we use two layer mixers then mux the output of
-					    those mixers two into single stream and route it to single DSI
+					    those two mixers into single stream and route it to single DSI
 					    then we can lower the clock requirements of MDP. To use this
 					    configuration we need two fill this array with <540 540>.
-					This property should not be used if underlying display is using
-					two DSI panels such a way that each carrying half the display.
 					Both values doesn't have to be same, but recommended, however sum of
 					both values has to be equal to the panel-width.
 					By default two mixer streams are merged using 2D mux, however if
 					2 DSC encoders are used then merge is performed within compression
 					engine.
+- qcom,split-mode:			String property indicating which split mode MDP should use. Valid
+					entries are "pingpong-split" and "dualctl-split".
+					This property is mutually exclusive with qcom,lm-split.
 - qcom,mdss-dsc-encoders:		An integer value indicating how many DSC encoders should be used
 					to drive data stream to DSI.
 					Default value is 1 and max value is 2.
-					2 encoder should be used only if qcom,mdss-lm-split is used.
+					2 encoder should be used only if qcom,mdss-lm-split or
+					qcom,split-mode with pingpong-split is used.
 - qcom,mdss-dsc-slice-height:		An integer value indicates the dsc slice height.
 - qcom,mdss-dsc-slice-width:		An integer value indicates the dsc slice width.
 					Multiple of slice width should be equal to panel-width.
@@ -695,5 +697,12 @@ Example:
 			qcom,mdss-dsc-config-by-manufacture-cmd;
 		};
 
+		dsi_sim_vid_config2: config2 {
+			qcom,split-mode = "dualctl-split";
+		};
+
+		dsi_sim_vid_config3: config3 {
+			qcom,split-mode = "pingpong-split";
+		};
 	};
 };

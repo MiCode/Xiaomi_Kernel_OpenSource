@@ -4986,10 +4986,6 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 
 	mfd->mdp.private1 = mdp5_data;
 	mfd->wait_for_kickoff = true;
-	if (is_panel_split(mfd) && mdp5_data->mdata->has_pingpong_split) {
-		mfd->split_fb_left = mfd->split_fb_right = 0;
-		mfd->split_mode = MDP_PINGPONG_SPLIT;
-	}
 
 	rc = mdss_mdp_overlay_fb_parse_dt(mfd);
 	if (rc)

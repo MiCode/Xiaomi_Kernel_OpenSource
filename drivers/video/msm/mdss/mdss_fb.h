@@ -381,9 +381,7 @@ static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)
 /* Function returns true for either any kind of dual display */
 static inline bool is_panel_split(struct msm_fb_data_type *mfd)
 {
-	return mfd &&
-	       (mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY ||
-		mfd->split_mode == MDP_PINGPONG_SPLIT);
+	return mfd && mfd->panel_info && mfd->panel_info->is_split_display;
 }
 /* Function returns true, if Layer Mixer split is Set */
 static inline bool is_split_lm(struct msm_fb_data_type *mfd)
