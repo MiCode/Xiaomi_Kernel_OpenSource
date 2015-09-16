@@ -298,6 +298,10 @@ unsigned int adreno_iommu_set_apriv(struct adreno_device *adreno_dev,
 {
 	unsigned int *cmds_orig = cmds;
 
+	/* adreno 3xx doesn't have the CP_CNTL.APRIV field */
+	if (adreno_is_a3xx(adreno_dev))
+		return 0;
+
 	cmds += cp_wait_for_idle(adreno_dev, cmds);
 	cmds += cp_wait_for_me(adreno_dev, cmds);
 	*cmds++ = cp_register(adreno_dev, adreno_getreg(adreno_dev,
@@ -590,12 +594,10 @@ unsigned int adreno_iommu_set_pt_generate_cmds(
 	unsigned int *cmds_orig = cmds;
 	struct kgsl_iommu *iommu = adreno_dev->dev.mmu.priv;
 
-	/* If we are in a fault the MMU will be reset soon */
-	if (test_bit(ADRENO_DEVICE_FAULT, &adreno_dev->priv))
-		return 0;
-
 	ttbr0 = kgsl_mmu_pagetable_get_ttbr0(pt);
 	contextidr = kgsl_mmu_pagetable_get_contextidr(pt);
+
+	cmds += adreno_iommu_set_apriv(adreno_dev, cmds, 1);
 
 	cmds += _adreno_iommu_add_idle_indirect_cmds(adreno_dev, cmds,
 		device->mmu.setstate_memory.gpuaddr +
@@ -620,6 +622,8 @@ unsigned int adreno_iommu_set_pt_generate_cmds(
 
 	/* invalidate all base pointers */
 	cmds += cp_invalidate_state(adreno_dev, cmds);
+
+	cmds += adreno_iommu_set_apriv(adreno_dev, cmds, 0);
 
 	return cmds - cmds_orig;
 }
@@ -827,16 +831,13 @@ static int _set_pagetable_gpu(struct adreno_ringbuffer *rb,
 
 	cmds = link;
 
+	/* If we are in a fault the MMU will be reset soon */
+	if (test_bit(ADRENO_DEVICE_FAULT, &adreno_dev->priv))
+		return 0;
+
 	kgsl_mmu_enable_clk(&device->mmu);
 
-	/* pt switch may use privileged memory */
-	if (adreno_is_a4xx(adreno_dev))
-		cmds += adreno_iommu_set_apriv(adreno_dev, cmds, 1);
-
 	cmds += adreno_iommu_set_pt_generate_cmds(rb, cmds, new_pt);
-
-	if (adreno_is_a4xx(adreno_dev))
-		cmds += adreno_iommu_set_apriv(adreno_dev, cmds, 0);
 
 	if ((unsigned int) (cmds - link) > (PAGE_SIZE / sizeof(unsigned int))) {
 		KGSL_DRV_ERR(device, "Temp command buffer overflow\n");

@@ -1249,31 +1249,6 @@ int adreno_ringbuffer_waittimestamp(struct adreno_ringbuffer *rb,
 }
 
 /**
- * adreno_ringbuffer_pt_switch_cmds() - Add commands to switch the pagetable
- * @rb: The ringbuffer on which the commands are going to be submitted
- * @cmds: The pointer where the commands are copied
- *
- * Returns the number of DWORDS added to cmds pointer
- */
-static int
-adreno_ringbuffer_pt_switch_cmds(struct adreno_ringbuffer *rb,
-				unsigned int *cmds,
-				struct kgsl_pagetable *pt)
-{
-	unsigned int *cmds_orig = cmds;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(rb->device);
-
-	cmds += adreno_iommu_set_apriv(adreno_dev, cmds, 1);
-
-	cmds += adreno_iommu_set_pt_generate_cmds(rb, cmds, pt);
-
-	cmds += adreno_iommu_set_apriv(adreno_dev, cmds, 0);
-
-	return cmds - cmds_orig;
-}
-
-
-/**
  * adreno_ringbuffer_submit_preempt_token() - Submit a preempt token
  * @rb: Ringbuffer in which the token is submitted
  * @incoming_rb: The RB to which the GPU switches when this preemption
@@ -1320,12 +1295,11 @@ int adreno_ringbuffer_submit_preempt_token(struct adreno_ringbuffer *rb,
 			 */
 			BUG_ON(!pt);
 			/* set the ringbuffer for incoming RB */
-			pt_switch_sizedwords = adreno_ringbuffer_pt_switch_cmds(
-								incoming_rb,
+			pt_switch_sizedwords =
+				adreno_iommu_set_pt_generate_cmds(incoming_rb,
 								&link[0], pt);
+			total_sizedwords += pt_switch_sizedwords;
 
-			total_sizedwords = total_sizedwords +
-						pt_switch_sizedwords;
 		}
 	}
 
