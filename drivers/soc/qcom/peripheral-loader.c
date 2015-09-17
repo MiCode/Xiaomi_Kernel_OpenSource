@@ -704,7 +704,7 @@ static int pil_parse_devicetree(struct pil_desc *desc)
 				"qcom,gpio-proxy-unvote", 0);
 
 		if (clk_ready < 0) {
-			dev_err(desc->dev,
+			dev_dbg(desc->dev,
 				"[%s]: Error getting proxy unvoting gpio\n",
 				desc->name);
 			return clk_ready;
