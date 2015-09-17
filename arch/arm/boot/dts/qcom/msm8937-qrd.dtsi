@@ -12,6 +12,7 @@
  */
 
 #include "msm8937-pinctrl.dtsi"
+#include "msm8937-camera-sensor-qrd.dtsi"
 
 &soc {
 };
