@@ -756,12 +756,34 @@ static enum handoff alpha_pll_handoff(struct clk *c)
 	return HANDOFF_ENABLED_CLK;
 }
 
+static void __iomem *alpha_pll_list_registers(struct clk *clk, int n,
+				struct clk_register_data **regs, u32 *size)
+{
+	struct alpha_pll_clk *pll = to_alpha_pll_clk(clk);
+	static struct clk_register_data data[] = {
+		{"PLL_MODE", 0x0},
+		{"PLL_L_VAL", 0x4},
+		{"PLL_ALPHA_VAL", 0x8},
+		{"PLL_ALPHA_VAL_U", 0xC},
+		{"PLL_USER_CTL", 0x10},
+		{"PLL_CONFIG_CTL", 0x18},
+	};
+
+	if (n)
+		return ERR_PTR(-EINVAL);
+
+	*regs = data;
+	*size = ARRAY_SIZE(data);
+	return MODE_REG(pll);
+}
+
 struct clk_ops clk_ops_alpha_pll = {
 	.enable = alpha_pll_enable,
 	.disable = alpha_pll_disable,
 	.round_rate = alpha_pll_round_rate,
 	.set_rate = alpha_pll_set_rate,
 	.handoff = alpha_pll_handoff,
+	.list_registers = alpha_pll_list_registers,
 };
 
 struct clk_ops clk_ops_alpha_pll_hwfsm = {
@@ -770,12 +792,14 @@ struct clk_ops clk_ops_alpha_pll_hwfsm = {
 	.round_rate = alpha_pll_round_rate,
 	.set_rate = alpha_pll_set_rate,
 	.handoff = alpha_pll_handoff,
+	.list_registers = alpha_pll_list_registers,
 };
 
 struct clk_ops clk_ops_fixed_alpha_pll = {
 	.enable = alpha_pll_enable,
 	.disable = alpha_pll_disable,
 	.handoff = alpha_pll_handoff,
+	.list_registers = alpha_pll_list_registers,
 };
 
 struct clk_ops clk_ops_dyna_alpha_pll = {
