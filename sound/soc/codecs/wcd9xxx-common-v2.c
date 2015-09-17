@@ -33,6 +33,13 @@ enum {
 	DAC_GAIN_M0P6DB,
 };
 
+enum {
+	VREF_FILT_R_0OHM = 0,
+	VREF_FILT_R_25KOHM,
+	VREF_FILT_R_50KOHM,
+	VREF_FILT_R_100KOHM,
+};
+
 static void (*clsh_state_fp[NUM_CLSH_STATES_V2])(struct snd_soc_codec *,
 					      struct wcd_clsh_cdc_data *,
 					      u8 req_state, bool en, int mode);
@@ -256,10 +263,16 @@ static void wcd_clsh_set_hph_mode(struct snd_soc_codec *codec,
 {
 	u8 val;
 	u8 gain;
+	u8 res_val = VREF_FILT_R_0OHM;
+
 	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
 
 	switch (mode) {
 	case CLS_H_NORMAL:
+		res_val = VREF_FILT_R_50KOHM;
+		val = 0x00;
+		gain = DAC_GAIN_0DB;
+		break;
 	case CLS_AB:
 		val = 0x00;
 		gain = DAC_GAIN_0DB;
@@ -277,7 +290,7 @@ static void wcd_clsh_set_hph_mode(struct snd_soc_codec *codec,
 	snd_soc_update_bits(codec, WCD9XXX_A_ANA_HPH, 0x0C, val);
 	if (TASHA_IS_2_0(wcd9xxx->version)) {
 		snd_soc_update_bits(codec, WCD9XXX_CLASSH_CTRL_VCL_2,
-				    0x30, 0x00);
+				    0x30, (res_val << 4));
 		snd_soc_update_bits(codec, WCD9XXX_HPH_REFBUFF_UHQA_CTL,
 				    0x07, gain);
 	}
