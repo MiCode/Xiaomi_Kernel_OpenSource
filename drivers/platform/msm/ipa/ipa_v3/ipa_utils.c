@@ -238,6 +238,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 					= {28, IPA_GROUP_DMA, false},
 	[IPA_3_0][IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS]
 					= {29, IPA_GROUP_DMA, false},
+	[IPA_3_0][IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS]     = IPA_CLIENT_NOT_USED,
 	/* Only for test purpose */
 	[IPA_3_0][IPA_CLIENT_TEST_CONS]           = {16, IPA_GROUP_DL, false},
 	[IPA_3_0][IPA_CLIENT_TEST1_CONS]          = {16, IPA_GROUP_DL, false},
