@@ -23,7 +23,6 @@
 #include <linux/workqueue.h>
 #include <linux/sched.h>
 #include <soc/qcom/sysmon.h>
-#include <mach/gpiomux.h>
 #include "esoc.h"
 
 #define MDM_PBLRDY_CNT			20
@@ -86,8 +85,11 @@ struct mdm_ctrl {
 	struct work_struct restart_reason_work;
 	struct completion debug_done;
 	struct device *dev;
-	struct gpiomux_setting *mdm2ap_status_gpio_run_cfg;
-	struct gpiomux_setting mdm2ap_status_old_config;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *gpio_state_booting;
+	struct pinctrl_state *gpio_state_running;
+	struct pinctrl_state *gpio_state_active;
+	struct pinctrl_state *gpio_state_suspend;
 	int mdm2ap_status_valid_old_config;
 	int soft_reset_inverted;
 	int errfatal_irq;
@@ -229,32 +231,23 @@ static void mdm_deconfigure_ipc(struct mdm_ctrl *mdm)
 static void mdm_update_gpio_configs(struct mdm_ctrl *mdm,
 				enum gpio_update_config gpio_config)
 {
-	struct device *dev = mdm->dev;
+	struct pinctrl_state *pins_state = NULL;
 	/* Some gpio configuration may need updating after modem bootup.*/
 	switch (gpio_config) {
 	case GPIO_UPDATE_RUNNING_CONFIG:
-		if (mdm->mdm2ap_status_gpio_run_cfg) {
-			if (msm_gpiomux_write(MDM_GPIO(mdm, MDM2AP_STATUS),
-				GPIOMUX_ACTIVE,
-				mdm->mdm2ap_status_gpio_run_cfg,
-				&mdm->mdm2ap_status_old_config))
-				dev_err(dev, "switch to run failed\n");
-			else
-				mdm->mdm2ap_status_valid_old_config = 1;
-		}
+		pins_state = mdm->gpio_state_running;
 		break;
 	case GPIO_UPDATE_BOOTING_CONFIG:
-		if (mdm->mdm2ap_status_valid_old_config) {
-			msm_gpiomux_write(MDM_GPIO(mdm, MDM2AP_STATUS),
-					GPIOMUX_ACTIVE,
-					&mdm->mdm2ap_status_old_config,
-					NULL);
-			mdm->mdm2ap_status_valid_old_config = 0;
-		}
+		pins_state = mdm->gpio_state_booting;
 		break;
 	default:
-		dev_err(dev, "%s: called with no config\n", __func__);
+		pins_state = NULL;
+		dev_err(mdm->dev, "%s: called with no config\n", __func__);
 		break;
+	}
+	if (pins_state != NULL) {
+		if (pinctrl_select_state(mdm->pinctrl, pins_state))
+			dev_err(mdm->dev, "switching gpio config failed\n");
 	}
 }
 
@@ -866,6 +859,55 @@ fatal_err:
 
 }
 
+static int mdm_pinctrl_init(struct mdm_ctrl *mdm)
+{
+	int retval = 0;
+
+	mdm->pinctrl = devm_pinctrl_get(mdm->dev);
+	if (IS_ERR_OR_NULL(mdm->pinctrl)) {
+		retval = PTR_ERR(mdm->pinctrl);
+		goto err_state_suspend;
+	}
+	mdm->gpio_state_booting =
+		pinctrl_lookup_state(mdm->pinctrl,
+				"mdm_booting");
+	if (IS_ERR_OR_NULL(mdm->gpio_state_booting)) {
+		mdm->gpio_state_running = NULL;
+		mdm->gpio_state_booting = NULL;
+	} else {
+		mdm->gpio_state_running =
+			pinctrl_lookup_state(mdm->pinctrl,
+				"mdm_running");
+		if (IS_ERR_OR_NULL(mdm->gpio_state_running)) {
+			mdm->gpio_state_booting = NULL;
+			mdm->gpio_state_running = NULL;
+		}
+	}
+	mdm->gpio_state_active =
+		pinctrl_lookup_state(mdm->pinctrl,
+				"mdm_active");
+	if (IS_ERR_OR_NULL(mdm->gpio_state_active)) {
+		retval = PTR_ERR(mdm->gpio_state_active);
+		goto err_state_active;
+	}
+	mdm->gpio_state_suspend =
+		pinctrl_lookup_state(mdm->pinctrl,
+				"mdm_suspend");
+	if (IS_ERR_OR_NULL(mdm->gpio_state_suspend)) {
+		retval = PTR_ERR(mdm->gpio_state_suspend);
+		goto err_state_suspend;
+	}
+	retval = pinctrl_select_state(mdm->pinctrl, mdm->gpio_state_active);
+	return retval;
+
+err_state_suspend:
+	mdm->gpio_state_active = NULL;
+err_state_active:
+	mdm->gpio_state_suspend = NULL;
+	mdm->gpio_state_booting = NULL;
+	mdm->gpio_state_running = NULL;
+	return retval;
+}
 static int mdm9x25_setup_hw(struct mdm_ctrl *mdm,
 					struct esoc_clink_ops const *ops,
 					struct platform_device *pdev)
@@ -890,6 +932,10 @@ static int mdm9x25_setup_hw(struct mdm_ctrl *mdm,
 	if (ret)
 		return ret;
 	dev_err(mdm->dev, "parsing gpio done\n");
+	ret = mdm_pinctrl_init(mdm);
+	if (ret)
+		return ret;
+	dev_err(mdm->dev, "pinctrl init done\n");
 	ret = mdm_configure_ipc(mdm, pdev);
 	if (ret)
 		return ret;
@@ -945,6 +991,10 @@ static int mdm9x35_setup_hw(struct mdm_ctrl *mdm,
 	if (ret)
 		return ret;
 	dev_dbg(mdm->dev, "parsing gpio done\n");
+	ret = mdm_pinctrl_init(mdm);
+	if (ret)
+		return ret;
+	dev_dbg(mdm->dev, "pinctrl init done\n");
 	ret = mdm_configure_ipc(mdm, pdev);
 	if (ret)
 		return ret;
