@@ -182,11 +182,12 @@
 };
 
 &dsi_dual_jdi_4k_nofbc_video {
-	qcom,mdss-dsi-panel-timings-8996 = [31 2e 0d 12 0d 03 04 a0
-		31 2e 0d 12 0d 03 04 a0
-		31 2e 0d 12 0d 03 04 a0
-		31 2e 0d 12 0d 03 04 a0
-		31 53 0c 12 0d 03 04 a0];
+	qcom,mdss-dsi-panel-timings-8996 = [
+		2c 27 0e 10 0a 03 04 a0
+		2c 27 0e 10 0a 03 04 a0
+		2c 27 0e 10 0a 03 04 a0
+		2c 27 0e 10 0a 03 04 a0
+		2c 32 0e 0f 0a 03 04 a0];
 };
 
 &dsi_hx8379a_fwvga_truly_vid {
