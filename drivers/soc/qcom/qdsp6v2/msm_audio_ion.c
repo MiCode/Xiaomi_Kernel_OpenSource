@@ -27,6 +27,7 @@
 #include <linux/of_device.h>
 #include <linux/msm_audio_ion.h>
 #include <linux/export.h>
+#include <linux/qcom_iommu.h>
 #include <asm/dma-iommu.h>
 
 #define MSM_AUDIO_ION_PROBED (1 << 0)
@@ -39,6 +40,16 @@
 
 #define MSM_AUDIO_SMMU_SID_OFFSET 32
 
+struct addr_range {
+	dma_addr_t start;
+	size_t size;
+};
+
+struct context_bank_info {
+	const char *name;
+	struct addr_range addr_range;
+};
+
 struct msm_audio_ion_private {
 	bool smmu_enabled;
 	bool audioheap_enabled;
@@ -48,6 +59,7 @@ struct msm_audio_ion_private {
 	struct list_head alloc_list;
 	struct mutex list_mutex;
 	u64 smmu_sid_bits;
+	u32 smmu_version;
 };
 
 struct msm_audio_alloc_data {
@@ -664,13 +676,69 @@ err:
 	return rc;
 }
 
+static int msm_audio_smmu_init_legacy(struct device *dev)
+{
+	struct dma_iommu_mapping *mapping;
+	struct device_node *ctx_node = NULL;
+	struct context_bank_info *cb;
+	int ret;
+
+	cb = devm_kzalloc(dev, sizeof(struct context_bank_info), GFP_KERNEL);
+	ctx_node = of_parse_phandle(dev->of_node, "iommus", 0);
+	if (!ctx_node) {
+		dev_err(dev, "%s Could not find any iommus for audio\n",
+			__func__);
+		return -EINVAL;
+	}
+	ret = of_property_read_string(ctx_node, "label", &(cb->name));
+	if (ret) {
+		dev_err(dev, "%s Could not find label\n", __func__);
+		return -EINVAL;
+	}
+	pr_debug("label found : %s\n", cb->name);
+	ret = of_property_read_u32_array(ctx_node,
+				"qcom,virtual-addr-pool",
+				(u32 *)&cb->addr_range, 2);
+	if (ret) {
+		dev_err(dev, "%s Could not read addr pool for group : (%d)\n",
+			__func__, ret);
+		return -EINVAL;
+	}
+	msm_audio_ion_data.cb_dev = msm_iommu_get_ctx(cb->name);
+	dev_dbg(dev, "%s Legacy iommu usage\n", __func__);
+	mapping = arm_iommu_create_mapping(
+				msm_iommu_get_bus(msm_audio_ion_data.cb_dev),
+					   cb->addr_range.start,
+					   cb->addr_range.size);
+	if (IS_ERR(mapping))
+		return PTR_ERR(mapping);
+
+	ret = arm_iommu_attach_device(msm_audio_ion_data.cb_dev, mapping);
+	if (ret) {
+		dev_err(dev, "%s: Attach failed, err = %d\n",
+			__func__, ret);
+		goto fail_attach;
+	}
+
+	msm_audio_ion_data.mapping = mapping;
+	INIT_LIST_HEAD(&msm_audio_ion_data.alloc_list);
+	mutex_init(&(msm_audio_ion_data.list_mutex));
+
+	return 0;
+
+fail_attach:
+	arm_iommu_release_mapping(mapping);
+	return ret;
+}
+
 static int msm_audio_smmu_init(struct device *dev)
 {
 	struct dma_iommu_mapping *mapping;
 	int ret;
 	int disable_htw = 1;
 
-	mapping = arm_iommu_create_mapping(&platform_bus_type,
+	mapping = arm_iommu_create_mapping(
+					msm_iommu_get_bus(dev),
 					   MSM_AUDIO_ION_VA_START,
 					   MSM_AUDIO_ION_VA_LEN);
 	if (IS_ERR(mapping))
@@ -692,7 +760,6 @@ static int msm_audio_smmu_init(struct device *dev)
 	INIT_LIST_HEAD(&msm_audio_ion_data.alloc_list);
 	mutex_init(&(msm_audio_ion_data.list_mutex));
 
-
 	return 0;
 
 fail_attach:
@@ -710,6 +777,7 @@ static int msm_audio_ion_probe(struct platform_device *pdev)
 {
 	int rc = 0;
 	const char *msm_audio_ion_dt = "qcom,smmu-enabled";
+	const char *msm_audio_ion_smmu = "qcom,smmu-version";
 	bool smmu_enabled;
 	enum apr_subsys_state q6_state;
 	struct device *dev = &pdev->dev;
@@ -727,6 +795,17 @@ static int msm_audio_ion_probe(struct platform_device *pdev)
 	msm_audio_ion_data.smmu_enabled = smmu_enabled;
 
 	if (smmu_enabled) {
+		rc = of_property_read_u32(dev->of_node,
+					msm_audio_ion_smmu,
+					&msm_audio_ion_data.smmu_version);
+		if (rc) {
+			dev_err(dev,
+				"%s: qcom,smmu_version missing in DT node\n",
+				__func__);
+			return rc;
+		}
+		dev_dbg(dev, "%s: SMMU version is (%d)", __func__,
+				msm_audio_ion_data.smmu_version);
 		q6_state = apr_get_q6_state();
 		if (q6_state == APR_SUBSYS_DOWN) {
 			dev_dbg(dev,
@@ -757,7 +836,15 @@ static int msm_audio_ion_probe(struct platform_device *pdev)
 		msm_audio_ion_data.smmu_sid_bits =
 			smmu_sid << MSM_AUDIO_SMMU_SID_OFFSET;
 
-		rc = msm_audio_smmu_init(dev);
+		if (msm_audio_ion_data.smmu_version == 0x1) {
+			rc = msm_audio_smmu_init_legacy(dev);
+		} else if (msm_audio_ion_data.smmu_version == 0x2) {
+			rc = msm_audio_smmu_init(dev);
+		} else {
+			dev_err(dev, "%s: smmu version invalid %d\n",
+				__func__, msm_audio_ion_data.smmu_version);
+			rc = -EINVAL;
+		}
 		if (rc)
 			dev_err(dev, "%s: smmu init failed, err = %d\n",
 				__func__, rc);

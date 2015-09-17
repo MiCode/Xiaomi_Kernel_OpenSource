@@ -2113,6 +2113,7 @@
 
 	qcom,msm-audio-ion {
 		compatible = "qcom,msm-audio-ion";
+		qcom,smmu-version = <1>;
 		qcom,smmu-enabled;
 		iommus = <&lpass_q6_smmu 1>;
 	};
