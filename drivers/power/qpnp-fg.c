@@ -103,6 +103,7 @@ enum pmic_subtype {
 enum wa_flags {
 	IADC_GAIN_COMP_WA = BIT(0),
 	USE_CC_SOC_REG = BIT(1),
+	PULSE_REQUEST_WA = BIT(2)
 };
 
 enum current_sense_type {
@@ -3242,7 +3243,7 @@ static void status_change_work(struct work_struct *work)
 			enable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
 			chip->vbat_low_irq_enabled = true;
 		}
-		if (capacity == 100)
+		if (!!(chip->wa_flag & PULSE_REQUEST_WA) && capacity == 100)
 			fg_configure_soc(chip);
 	} else if (chip->status == POWER_SUPPLY_STATUS_DISCHARGING) {
 		if (chip->vbat_low_irq_enabled) {
@@ -5889,6 +5890,7 @@ static int fg_hw_init(struct fg_chip *chip)
 	switch (chip->pmic_subtype) {
 	case PMI8994:
 		rc = fg_8994_hw_init(chip);
+		chip->wa_flag |= PULSE_REQUEST_WA;
 		break;
 	case PMI8996:
 	case PMI8950:
