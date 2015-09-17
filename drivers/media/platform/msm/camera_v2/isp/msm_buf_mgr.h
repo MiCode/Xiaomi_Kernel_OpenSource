@@ -171,7 +171,6 @@ struct msm_isp_buf_mgr {
 
 	struct ion_client *client;
 	struct msm_isp_buf_ops *ops;
-	uint32_t buf_handle_cnt;
 
 	struct msm_sd_req_vb2_q *vb2_ops;
 
