@@ -181,7 +181,7 @@ static struct mdss_mdp_format_params_ubwc mdss_mdp_format_ubwc_map[] = {
 	{
 		.mdp_format = FMT_RGB_565(MDP_RGB_565_UBWC,
 			MDSS_MDP_FETCH_UBWC, VALID_ROT_WB_FORMAT,
-			C1_B_Cb, C0_G_Y, C2_R_Cr),
+			C2_R_Cr, C0_G_Y, C1_B_Cb),
 		.micro = {
 			.tile_height = 4,
 			.tile_width = 16,
