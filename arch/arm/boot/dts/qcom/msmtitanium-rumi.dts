@@ -55,6 +55,8 @@
 };
 
 &usb3 {
+	qcom,disable-dev-mode-pm;
+	/delete-property/ USB3_GDSC-supply;
 	dwc3@7000000 {
 		maximum-speed = "high-speed";
 	};
@@ -65,5 +67,22 @@
 };
 
 &qusb_phy {
+	reg = <0x00079000 0x180>,
+	      <0x070f8800 0x400>,
+	      <0x0700cd00 0x40>;
+	reg-names = "qusb_phy_base",
+		    "qscratch_base",
+		    "emu_phy_base";
 	qcom,emulation;
+	qcom,qusb-phy-init-seq = <0x19 0x404
+				0x20 0x414
+				0x79 0x410
+				0x00 0x418
+				0x99 0x404
+				0x04 0x408
+				0xd9 0x404>;
+	qcom,emu-dcm-reset-seq = <0x100000 0x20
+				0x0 0x20
+				0x1e0 0x20
+				0x5 0x14>;
 };
