@@ -124,6 +124,7 @@ struct smbchg_chip {
 	int				prechg_safety_time;
 	int				bmd_pin_src;
 	int				jeita_temp_hard_limit;
+	int				sw_esr_pulse_current_ma;
 	bool				use_vfloat_adjustments;
 	bool				iterm_disabled;
 	bool				bmd_algo_disabled;
@@ -178,7 +179,6 @@ struct smbchg_chip {
 	int				otg_retries;
 	ktime_t				otg_enable_time;
 	bool				aicl_deglitch_short;
-	bool				sw_esr_pulse_en;
 	bool				safety_timer_en;
 	bool				aicl_complete;
 	bool				usb_ov_det;
@@ -286,6 +286,7 @@ enum smbchg_wa {
 	SMBCHG_HVDCP_9V_EN_WA	= BIT(1),
 	SMBCHG_USB100_WA = BIT(2),
 	SMBCHG_BATT_OV_WA = BIT(3),
+	SMBCHG_CC_ESR_WA = BIT(4),
 };
 
 enum print_reason {
@@ -1839,6 +1840,12 @@ static int smbchg_set_fastchg_current_raw(struct smbchg_chip *chip,
 		return rc;
 	}
 
+	if (chip->tables.usb_ilim_ma_table[i] == chip->fastchg_current_ma) {
+		pr_smb(PR_STATUS, "skipping fastchg current request: %d\n",
+				chip->fastchg_current_ma);
+		return 0;
+	}
+
 	cur_val = i & FCC_MASK;
 	rc = smbchg_sec_masked_write(chip, chip->chgr_base + FCC_CFG,
 				FCC_MASK, cur_val);
@@ -1859,17 +1866,10 @@ static int smbchg_set_fastchg_current(struct smbchg_chip *chip,
 {
 	int rc = 0;
 
+	if (chip->sw_esr_pulse_current_ma > 0)
+		current_ma = chip->sw_esr_pulse_current_ma;
 	mutex_lock(&chip->fcc_lock);
-	if (chip->sw_esr_pulse_en)
-		current_ma -= ESR_PULSE_CURRENT_DELTA_MA;
-	/* If the requested FCC is same, do not configure it again */
-	if (current_ma == chip->fastchg_current_ma) {
-		pr_smb(PR_STATUS, "not configuring FCC current: %d FCC: %d\n",
-			current_ma, chip->fastchg_current_ma);
-		goto out;
-	}
 	rc = smbchg_set_fastchg_current_raw(chip, current_ma);
-out:
 	mutex_unlock(&chip->fcc_lock);
 	return rc;
 }
@@ -1890,8 +1890,20 @@ static int smbchg_parallel_usb_charging_en(struct smbchg_chip *chip, bool en)
 static int smbchg_sw_esr_pulse_en(struct smbchg_chip *chip, bool en)
 {
 	int rc;
+	int ibat_ua;
 
-	chip->sw_esr_pulse_en = en;
+	rc = get_property_from_fg(chip,
+			POWER_SUPPLY_PROP_CURRENT_NOW, &ibat_ua);
+	if (rc) {
+		pr_smb(PR_STATUS,
+			"bms psy does not support current_now rc = %d\n", rc);
+		return rc;
+	}
+	chip->sw_esr_pulse_current_ma = max((ibat_ua / 1000)
+			- ESR_PULSE_CURRENT_DELTA_MA,
+			chip->iterm_ma + ESR_PULSE_CURRENT_DELTA_MA);
+	pr_smb(PR_STATUS, "setting sw esr pulse fcc = %d\n",
+			chip->sw_esr_pulse_current_ma);
 	rc = smbchg_set_fastchg_current(chip, chip->target_fastchg_current_ma);
 	if (rc)
 		return rc;
@@ -2729,6 +2741,33 @@ static int smbchg_fastchg_current_comp_set(struct smbchg_chip *chip,
 	return rc;
 }
 
+#define CFG_TCC_REG			0xF9
+#define CHG_ITERM_MASK			SMB_MASK(2, 0)
+static int smbchg_iterm_set(struct smbchg_chip *chip, int iterm_ma)
+{
+	int rc;
+	u8 reg;
+
+	reg = find_closest_in_array(
+			chip->tables.iterm_ma_table,
+			chip->tables.iterm_ma_len,
+			iterm_ma);
+
+	rc = smbchg_sec_masked_write(chip,
+			chip->chgr_base + CFG_TCC_REG,
+			CHG_ITERM_MASK, reg);
+	if (rc) {
+		dev_err(chip->dev,
+			"Couldn't set iterm rc = %d\n", rc);
+		return rc;
+	}
+	pr_smb(PR_STATUS, "set tcc (%d) to 0x%02x\n",
+			iterm_ma, reg);
+	chip->iterm_ma = iterm_ma;
+
+	return 0;
+}
+
 #define FV_CMP_CFG	0xF5
 #define FV_COMP_MASK	SMB_MASK(5, 0)
 static int smbchg_float_voltage_comp_set(struct smbchg_chip *chip, int code)
@@ -2936,8 +2975,7 @@ static void smbchg_cc_esr_wa_check(struct smbchg_chip *chip)
 {
 	int rc, esr_count;
 
-	/* WA is not required on SCHG_LITE */
-	if (chip->schg_version == QPNP_SCHG_LITE)
+	if (!(chip->wa_flags & SMBCHG_CC_ESR_WA))
 		return;
 
 	if (!is_usb_present(chip) && !is_dc_present(chip)) {
@@ -3169,7 +3207,7 @@ static void smbchg_aicl_deglitch_wa_check(struct smbchg_chip *chip)
 #define LOADING_BATT_TYPE	"Loading Battery Data"
 static int smbchg_config_chg_battery_type(struct smbchg_chip *chip)
 {
-	int rc = 0, max_voltage_uv = 0, fastchg_ma = 0, ret = 0;
+	int rc = 0, max_voltage_uv = 0, fastchg_ma = 0, ret = 0, iterm_ua = 0;
 	struct device_node *batt_node, *profile_node;
 	struct device_node *node = chip->spmi->dev.of_node;
 	union power_supply_propval prop = {0,};
@@ -3222,6 +3260,29 @@ static int smbchg_config_chg_battery_type(struct smbchg_chip *chip)
 				return rc;
 			}
 		}
+	}
+
+	/* change chg term */
+	rc = of_property_read_u32(profile_node, "qcom,chg-term-ua",
+						&iterm_ua);
+	if (rc && rc != -EINVAL) {
+		pr_warn("couldn't read battery term current=%d\n", rc);
+		ret = rc;
+	} else if (!rc) {
+		if (chip->iterm_ma != (iterm_ua / 1000)
+				&& !chip->iterm_disabled) {
+			pr_info("Term current changed from %dmA to %dmA for battery-type %s\n",
+				chip->iterm_ma, (iterm_ua / 1000),
+				chip->battery_type);
+			rc = smbchg_iterm_set(chip,
+						(iterm_ua / 1000));
+			if (rc < 0) {
+				dev_err(chip->dev,
+				"Couldn't set iterm rc = %d\n", rc);
+				return rc;
+			}
+		}
+		chip->iterm_ma = iterm_ua / 1000;
 	}
 
 	/*
@@ -6074,16 +6135,6 @@ static inline int get_bpd(const char *name)
 #define I_TERM_BIT			BIT(3)
 #define AUTO_RECHG_BIT			BIT(2)
 #define CHARGER_INHIBIT_BIT		BIT(0)
-#define CFG_TCC_REG			0xF9
-#define CHG_ITERM_50MA			0x1
-#define CHG_ITERM_100MA			0x2
-#define CHG_ITERM_150MA			0x3
-#define CHG_ITERM_200MA			0x4
-#define CHG_ITERM_250MA			0x5
-#define CHG_ITERM_300MA			0x0
-#define CHG_ITERM_500MA			0x6
-#define CHG_ITERM_600MA			0x7
-#define CHG_ITERM_MASK			SMB_MASK(2, 0)
 #define USB51_COMMAND_POL		BIT(2)
 #define USB51AC_CTRL			BIT(1)
 #define TR_8OR32B			0xFE
@@ -6315,21 +6366,7 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 			dev_err(chip->dev, "Error: Both iterm_disabled and iterm_ma set\n");
 			return -EINVAL;
 		} else {
-			reg = find_closest_in_array(
-					chip->tables.iterm_ma_table,
-					chip->tables.iterm_ma_len,
-					chip->iterm_ma);
-
-			rc = smbchg_sec_masked_write(chip,
-					chip->chgr_base + CFG_TCC_REG,
-					CHG_ITERM_MASK, reg);
-			if (rc) {
-				dev_err(chip->dev,
-					"Couldn't set iterm rc = %d\n", rc);
-				return rc;
-			}
-			pr_smb(PR_STATUS, "set tcc (%d) to 0x%02x\n",
-					chip->iterm_ma, reg);
+			smbchg_iterm_set(chip, chip->iterm_ma);
 		}
 	}
 
@@ -7200,7 +7237,8 @@ static int smbchg_check_chg_version(struct smbchg_chip *chip)
 	switch (pmic_rev_id->pmic_subtype) {
 	case PMI8994:
 		chip->wa_flags |= SMBCHG_AICL_DEGLITCH_WA
-				| SMBCHG_BATT_OV_WA;
+				| SMBCHG_BATT_OV_WA
+				| SMBCHG_CC_ESR_WA;
 		use_pmi8994_tables(chip);
 		chip->schg_version = QPNP_SCHG;
 		break;
@@ -7216,6 +7254,7 @@ static int smbchg_check_chg_version(struct smbchg_chip *chip)
 		chip->schg_version = QPNP_SCHG_LITE;
 		break;
 	case PMI8996:
+		chip->wa_flags |= SMBCHG_CC_ESR_WA;
 		use_pmi8996_tables(chip);
 		chip->schg_version = QPNP_SCHG;
 		break;
