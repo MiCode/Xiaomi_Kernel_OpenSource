@@ -999,6 +999,8 @@ static int htree_dirblock_to_tree(struct file *dir_file,
 				   hinfo->hash, hinfo->minor_hash, de,
 				   &tmp_str);
 		} else {
+			int save_len = fname_crypto_str.len;
+
 			/* Directory is encrypted */
 			err = ext4_fname_disk_to_usr(ctx, hinfo, de,
 						     &fname_crypto_str);
@@ -1009,6 +1011,7 @@ static int htree_dirblock_to_tree(struct file *dir_file,
 			err = ext4_htree_store_dirent(dir_file,
 				   hinfo->hash, hinfo->minor_hash, de,
 					&fname_crypto_str);
+			fname_crypto_str.len = save_len;
 		}
 		if (err != 0) {
 			count = err;
@@ -3129,6 +3132,7 @@ static int ext4_symlink(struct inode *dir,
 		istr.name = (const unsigned char *) symname;
 		istr.len = len;
 		ostr.name = sd->encrypted_path;
+		ostr.len = disk_link.len;
 		err = ext4_fname_usr_to_disk(ctx, &istr, &ostr);
 		ext4_put_fname_crypto_ctx(&ctx);
 		if (err < 0)
