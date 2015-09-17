@@ -28,6 +28,8 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/delay.h>
+#include <linux/crypto.h>
+#include <crypto/internal/rng.h>
 
 #include <linux/platform_data/qcom_crypto_device.h>
 
@@ -59,7 +61,8 @@ struct msm_rng_device {
 };
 
 struct msm_rng_device msm_rng_device_info;
-
+static struct msm_rng_device *msm_rng_dev_cached;
+struct mutex cached_rng_lock;
 static long msm_rng_ioctl(struct file *filp, unsigned int cmd,
 				unsigned long arg)
 {
@@ -86,27 +89,22 @@ static long msm_rng_ioctl(struct file *filp, unsigned int cmd,
  *  back to caller
  *
  */
-static int msm_rng_read(struct hwrng *rng, void *data, size_t max, bool wait)
+static int msm_rng_direct_read(struct msm_rng_device *msm_rng_dev,
+					void *data, size_t max)
 {
-	struct msm_rng_device *msm_rng_dev;
 	struct platform_device *pdev;
 	void __iomem *base;
-	size_t maxsize;
 	size_t currsize = 0;
 	u32 val;
 	u32 *retdata = data;
 	int ret;
 	int failed = 0;
 
-	msm_rng_dev = (struct msm_rng_device *)rng->priv;
 	pdev = msm_rng_dev->pdev;
 	base = msm_rng_dev->base;
 
-	/* calculate max size bytes to transfer back to caller */
-	maxsize = min_t(size_t, MAX_HW_FIFO_SIZE, max);
-
 	/* no room for word data */
-	if (maxsize < 4)
+	if (max < 4)
 		return 0;
 
 	mutex_lock(&msm_rng_dev->rng_lock);
@@ -146,10 +144,10 @@ static int msm_rng_read(struct hwrng *rng, void *data, size_t max, bool wait)
 		*(retdata++) = val;
 		currsize += 4;
 		/* make sure we stay on 32bit boundary */
-		if ((maxsize - currsize) < 4)
+		if ((max - currsize) < 4)
 			break;
 
-	} while (currsize < maxsize);
+	} while (currsize < max);
 
 	/* vote to turn off clock */
 	clk_disable_unprepare(msm_rng_dev->prng_clk);
@@ -165,6 +163,17 @@ err:
 	val = 0L;
 	return currsize;
 }
+static int msm_rng_read(struct hwrng *rng, void *data, size_t max, bool wait)
+{
+	struct msm_rng_device *msm_rng_dev;
+	int rv = 0;
+
+	msm_rng_dev = (struct msm_rng_device *)rng->priv;
+	rv = msm_rng_direct_read(msm_rng_dev, data, max);
+
+	return rv;
+}
+
 
 static struct hwrng msm_rng = {
 	.name = DRIVER_NAME,
@@ -308,6 +317,7 @@ static int msm_rng_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&msm_rng_dev->rng_lock);
+	mutex_init(&cached_rng_lock);
 
 	/* register with hwrng framework */
 	msm_rng.priv = (unsigned long) msm_rng_dev;
@@ -333,7 +343,7 @@ static int msm_rng_probe(struct platform_device *pdev)
 		goto unregister_chrdev;
 	}
 	cdev_init(&msm_rng_cdev, &msm_rng_fops);
-
+	msm_rng_dev_cached = msm_rng_dev;
 	return error;
 
 unregister_chrdev:
@@ -361,8 +371,66 @@ static int msm_rng_remove(struct platform_device *pdev)
 		msm_bus_scale_unregister_client(msm_rng_dev->qrng_perf_client);
 
 	kzfree(msm_rng_dev);
+	msm_rng_dev_cached = NULL;
 	return 0;
 }
+
+static int qrng_get_random(struct crypto_rng *tfm, u8 *rdata,
+				unsigned int dlen)
+{
+	int sizeread = 0;
+	int rv = -EFAULT;
+
+	if (!msm_rng_dev_cached) {
+		pr_err("%s: msm_rng_dev is not initialized.\n", __func__);
+		rv = -ENODEV;
+		goto err_exit;
+	}
+
+	if (!rdata) {
+		pr_err("%s: data buffer is null!\n", __func__);
+		rv = -EINVAL;
+		goto err_exit;
+	}
+
+	if (signal_pending(current) ||
+		mutex_lock_interruptible(&cached_rng_lock)) {
+		pr_err("%s: mutex lock interrupted!\n", __func__);
+		rv = -ERESTARTSYS;
+		goto err_exit;
+	}
+	sizeread = msm_rng_direct_read(msm_rng_dev_cached, rdata, dlen);
+
+	if (sizeread == dlen)
+		rv = 0;
+
+	mutex_unlock(&cached_rng_lock);
+err_exit:
+	return rv;
+
+}
+
+static int qrng_reset(struct crypto_rng *tfm, u8 *seed, unsigned int slen)
+{
+	return 0;
+}
+
+static struct crypto_alg rng_alg = {
+	.cra_name               = "qrng",
+	.cra_driver_name        = "fips_hw_qrng",
+	.cra_priority           = 300,
+	.cra_flags              = CRYPTO_ALG_TYPE_RNG,
+	.cra_ctxsize            = 0,
+	.cra_type               = &crypto_rng_type,
+	.cra_module             = THIS_MODULE,
+	.cra_u                  = {
+		.rng = {
+			.rng_make_random    = qrng_get_random,
+			.rng_reset          = qrng_reset,
+			.seedsize           = 0,
+			}
+		}
+};
 
 static struct of_device_id qrng_match[] = {
 	{	.compatible = "qcom,msm-rng",
@@ -382,13 +450,31 @@ static struct platform_driver rng_driver = {
 
 static int __init msm_rng_init(void)
 {
-	return platform_driver_register(&rng_driver);
+	int ret;
+
+	msm_rng_dev_cached = NULL;
+	ret = platform_driver_register(&rng_driver);
+	if (ret) {
+		pr_err("%s: platform_driver_register error:%d\n",
+			__func__, ret);
+		goto err_exit;
+	}
+	ret = crypto_register_alg(&rng_alg);
+	if (ret) {
+		pr_err("%s: crypto_register_algs error:%d\n",
+			__func__, ret);
+		goto err_exit;
+	}
+
+err_exit:
+	return ret;
 }
 
 module_init(msm_rng_init);
 
 static void __exit msm_rng_exit(void)
 {
+	crypto_unregister_alg(&rng_alg);
 	platform_driver_unregister(&rng_driver);
 }
 
