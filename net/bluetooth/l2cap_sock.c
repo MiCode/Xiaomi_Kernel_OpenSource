@@ -1269,6 +1269,9 @@ static void l2cap_sock_teardown_cb(struct l2cap_chan *chan, int err)
 
 		sk->sk_err = err;
 
+		/* parent can be valid only when L2CAP connection is confirmed
+		 * and accept ioctl call was scheduled on a timeout
+		 */
 		if (parent) {
 			bt_accept_unlink(sk);
 			parent->sk_data_ready(parent);
