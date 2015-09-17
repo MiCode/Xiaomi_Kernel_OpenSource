@@ -384,8 +384,8 @@ static void ipa3_del_dflt_wan_rt_tables(void)
 	kfree(rt_rule);
 }
 
-int ipa3_copy_ul_filter_rule_to_ipa(struct ipa_install_fltr_rule_req_msg_v01
-		*rule_req, uint32_t *rule_hdl)
+int ipa3_copy_ul_filter_rule_to_ipa(struct ipa3_install_fltr_rule_req_msg_v01
+		*rule_req)
 {
 	int i, j;
 
@@ -408,10 +408,6 @@ int ipa3_copy_ul_filter_rule_to_ipa(struct ipa_install_fltr_rule_req_msg_v01
 				ipa3_num_q6_rule);
 			goto failure;
 		}
-		/* construct UL_filter_rule handler QMI use-cas */
-		ipa3_qmi_ctx->q6_ul_filter_rule[i].filter_hdl =
-			UL_FILTER_RULE_HANDLE_START + i;
-		rule_hdl[i] = ipa3_qmi_ctx->q6_ul_filter_rule[i].filter_hdl;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].ip =
 			rule_req->filter_spec_list[i].ip_type;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].action =
@@ -423,6 +419,10 @@ int ipa3_copy_ul_filter_rule_to_ipa(struct ipa_install_fltr_rule_req_msg_v01
 		if (rule_req->filter_spec_list[i].is_mux_id_valid == true)
 			ipa3_qmi_ctx->q6_ul_filter_rule[i].mux_id =
 			rule_req->filter_spec_list[i].mux_id;
+		ipa3_qmi_ctx->q6_ul_filter_rule[i].rule_id =
+			rule_req->filter_spec_list[i].rule_id;
+		ipa3_qmi_ctx->q6_ul_filter_rule[i].is_rule_hashable =
+			rule_req->filter_spec_list[i].is_rule_hashable;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.rule_eq_bitmap =
 			rule_req->filter_spec_list[i].filter_rule.
 			rule_eq_bitmap;
@@ -599,10 +599,9 @@ static int ipa3_wwan_add_ul_flt_rule_to_ipa(void)
 {
 	u32 pyld_sz;
 	int i, retval = 0;
-	int num_v4_rule = 0, num_v6_rule = 0;
 	struct ipa_ioc_add_flt_rule *param;
 	struct ipa_flt_rule_add flt_rule_entry;
-	struct ipa_fltr_installed_notif_req_msg_v01 req;
+	struct ipa3_fltr_installed_notif_req_msg_v01 req;
 
 	pyld_sz = sizeof(struct ipa_ioc_add_flt_rule) +
 	   sizeof(struct ipa_flt_rule_add);
@@ -624,6 +623,10 @@ static int ipa3_wwan_add_ul_flt_rule_to_ipa(void)
 		flt_rule_entry.rule.rt_tbl_idx
 		= ipa3_qmi_ctx->q6_ul_filter_rule[i].rt_tbl_idx;
 		flt_rule_entry.rule.retain_hdr = true;
+		flt_rule_entry.rule.hashable =
+			ipa3_qmi_ctx->q6_ul_filter_rule[i].is_rule_hashable;
+		flt_rule_entry.rule.rule_id =
+			ipa3_qmi_ctx->q6_ul_filter_rule[i].rule_id;
 
 		/* debug rt-hdl*/
 		IPAWANDBG("install-IPA index(%d),rt-tbl:(%d)\n",
@@ -644,22 +647,15 @@ static int ipa3_wwan_add_ul_flt_rule_to_ipa(void)
 		}
 	}
 
-	/* send ipa_fltr_installed_notif_req_msg_v01 to Q6*/
-	memset(&req, 0, sizeof(struct ipa_fltr_installed_notif_req_msg_v01));
+	/* send ipa3_fltr_installed_notif_req_msg_v01 to Q6*/
+	memset(&req, 0, sizeof(struct ipa3_fltr_installed_notif_req_msg_v01));
 	req.source_pipe_index =
 		ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_WAN_PROD);
 	req.install_status = QMI_RESULT_SUCCESS_V01;
-	req.filter_index_list_len = ipa3_num_q6_rule;
+	req.rule_id_len = ipa3_num_q6_rule;
 	for (i = 0; i < ipa3_num_q6_rule; i++) {
-		if (ipa3_qmi_ctx->q6_ul_filter_rule[i].ip == IPA_IP_v4) {
-			req.filter_index_list[i].filter_index = num_v4_rule;
-			num_v4_rule++;
-		} else {
-			req.filter_index_list[i].filter_index = num_v6_rule;
-			num_v6_rule++;
-		}
-		req.filter_index_list[i].filter_handle =
-			ipa3_qmi_ctx->q6_ul_filter_rule[i].filter_hdl;
+		req.rule_id[i] =
+			ipa3_qmi_ctx->q6_ul_filter_rule[i].rule_id;
 	}
 	if (ipa3_qmi_filter_notify_send(&req)) {
 		IPAWANDBG("add filter rule index on A7-RX failed\n");
