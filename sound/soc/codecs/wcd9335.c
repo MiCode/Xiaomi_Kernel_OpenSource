@@ -2652,6 +2652,14 @@ static int tasha_set_compander(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static void tasha_codec_init_flyback(struct snd_soc_codec *codec)
+{
+	snd_soc_update_bits(codec, WCD9335_HPH_L_EN, 0xC0, 0x00);
+	snd_soc_update_bits(codec, WCD9335_HPH_R_EN, 0xC0, 0x00);
+	snd_soc_update_bits(codec, WCD9335_RX_BIAS_FLYB_BUFF, 0x0F, 0x00);
+	snd_soc_update_bits(codec, WCD9335_RX_BIAS_FLYB_BUFF, 0xF0, 0x00);
+}
+
 static int tasha_codec_enable_rx_bias(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
@@ -2663,9 +2671,12 @@ static int tasha_codec_enable_rx_bias(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		tasha->rx_bias_count++;
-		if (tasha->rx_bias_count == 1)
+		if (tasha->rx_bias_count == 1) {
+			if (TASHA_IS_2_0(tasha->wcd9xxx->version))
+				tasha_codec_init_flyback(codec);
 			snd_soc_update_bits(codec, WCD9335_ANA_RX_SUPPLIES,
 					    0x01, 0x01);
+		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		tasha->rx_bias_count--;
@@ -9697,9 +9708,11 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_val_1_0[] = {
 static const struct tasha_reg_mask_val tasha_codec_reg_init_val_2_0[] = {
 	{WCD9335_RCO_CTRL_2, 0x0F, 0x08},
 	{WCD9335_RX_BIAS_FLYB_MID_RST, 0xF0, 0x10},
+	{WCD9335_FLYBACK_CTRL_1, 0x20, 0x20},
 	{WCD9335_HPH_OCP_CTL, 0xFF, 0x5A},
 	{WCD9335_HPH_L_TEST, 0x01, 0x01},
 	{WCD9335_HPH_R_TEST, 0x01, 0x01},
+	{WCD9335_FLYBACK_VNEG_DAC_CTRL_2, 0xE0, 0x20},
 };
 
 static const struct tasha_reg_mask_val tasha_codec_reg_defaults[] = {
@@ -9732,6 +9745,24 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_common_val[] = {
 	{WCD9335_CDC_COMPANDER8_CTL3, 0x80, 0x80},
 	{WCD9335_CDC_COMPANDER7_CTL7, 0x01, 0x01},
 	{WCD9335_CDC_COMPANDER8_CTL7, 0x01, 0x01},
+	{WCD9335_CDC_RX0_RX_PATH_CFG0, 0x01, 0x01},
+	{WCD9335_CDC_RX1_RX_PATH_CFG0, 0x01, 0x01},
+	{WCD9335_CDC_RX2_RX_PATH_CFG0, 0x01, 0x01},
+	{WCD9335_CDC_RX3_RX_PATH_CFG0, 0x01, 0x01},
+	{WCD9335_CDC_RX4_RX_PATH_CFG0, 0x01, 0x01},
+	{WCD9335_CDC_RX5_RX_PATH_CFG0, 0x01, 0x01},
+	{WCD9335_CDC_RX6_RX_PATH_CFG0, 0x01, 0x01},
+	{WCD9335_CDC_RX7_RX_PATH_CFG0, 0x01, 0x01},
+	{WCD9335_CDC_RX8_RX_PATH_CFG0, 0x01, 0x01},
+	{WCD9335_CDC_RX0_RX_PATH_MIX_CFG, 0x01, 0x01},
+	{WCD9335_CDC_RX1_RX_PATH_MIX_CFG, 0x01, 0x01},
+	{WCD9335_CDC_RX2_RX_PATH_MIX_CFG, 0x01, 0x01},
+	{WCD9335_CDC_RX3_RX_PATH_MIX_CFG, 0x01, 0x01},
+	{WCD9335_CDC_RX4_RX_PATH_MIX_CFG, 0x01, 0x01},
+	{WCD9335_CDC_RX5_RX_PATH_MIX_CFG, 0x01, 0x01},
+	{WCD9335_CDC_RX6_RX_PATH_MIX_CFG, 0x01, 0x01},
+	{WCD9335_CDC_RX7_RX_PATH_MIX_CFG, 0x01, 0x01},
+	{WCD9335_CDC_RX8_RX_PATH_MIX_CFG, 0x01, 0x01},
 };
 
 static const struct tasha_reg_mask_val tasha_codec_reg_init_1_x_val[] = {
@@ -9786,15 +9817,6 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_1_x_val[] = {
 	{WCD9335_CLASSH_CTRL_CCL_5, 0xFF, 0x40},
 	{WCD9335_RX_TIMER_DIV, 0xFF, 0x32},
 	{WCD9335_SE_LO_COM2, 0xFF, 0x01},
-	{WCD9335_CDC_RX0_RX_PATH_CFG0, 0x01, 0x01},
-	{WCD9335_CDC_RX1_RX_PATH_CFG0, 0x01, 0x01},
-	{WCD9335_CDC_RX2_RX_PATH_CFG0, 0x01, 0x01},
-	{WCD9335_CDC_RX3_RX_PATH_CFG0, 0x01, 0x01},
-	{WCD9335_CDC_RX4_RX_PATH_CFG0, 0x01, 0x01},
-	{WCD9335_CDC_RX5_RX_PATH_CFG0, 0x01, 0x01},
-	{WCD9335_CDC_RX6_RX_PATH_CFG0, 0x01, 0x01},
-	{WCD9335_CDC_RX7_RX_PATH_CFG0, 0x01, 0x01},
-	{WCD9335_CDC_RX8_RX_PATH_CFG0, 0x01, 0x01},
 	{WCD9335_MBHC_ZDET_ANA_CTL, 0x0F, 0x07},
 	{WCD9335_RX_BIAS_HPH_PA, 0xF0, 0x60},
 	{WCD9335_HPH_RDAC_LDO_CTL, 0x88, 0x88},
@@ -9803,15 +9825,6 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_1_x_val[] = {
 	{WCD9335_DIFF_LO_CORE_OUT_PROG, 0xFC, 0xD8},
 	{WCD9335_CDC_RX5_RX_PATH_SEC3, 0xBD, 0xBD},
 	{WCD9335_CDC_RX6_RX_PATH_SEC3, 0xBD, 0xBD},
-	{WCD9335_CDC_RX0_RX_PATH_MIX_CFG, 0x01, 0x01},
-	{WCD9335_CDC_RX1_RX_PATH_MIX_CFG, 0x01, 0x01},
-	{WCD9335_CDC_RX2_RX_PATH_MIX_CFG, 0x01, 0x01},
-	{WCD9335_CDC_RX3_RX_PATH_MIX_CFG, 0x01, 0x01},
-	{WCD9335_CDC_RX4_RX_PATH_MIX_CFG, 0x01, 0x01},
-	{WCD9335_CDC_RX5_RX_PATH_MIX_CFG, 0x01, 0x01},
-	{WCD9335_CDC_RX6_RX_PATH_MIX_CFG, 0x01, 0x01},
-	{WCD9335_CDC_RX7_RX_PATH_MIX_CFG, 0x01, 0x01},
-	{WCD9335_CDC_RX8_RX_PATH_MIX_CFG, 0x01, 0x01},
 };
 
 static void tasha_update_reg_reset_values(struct snd_soc_codec *codec)
