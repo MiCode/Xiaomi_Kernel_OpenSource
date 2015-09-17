@@ -414,5 +414,7 @@
 #define SEEMP_API_Instrumentation__execStartActivityFromAppTask 410
 #define SEEMP_API_ah_SystemSensorManager__registerListenerImpl 411
 #define SEEMP_API_ah_SystemSensorManager__unregisterListenerImpl 412
+#define SEEMP_API_WindowManagerImpl__addView 413
+#define SEEMP_API_WindowManagerImpl__updateViewLayout 414
 
 #endif /* _SEEMP_API_H_ */

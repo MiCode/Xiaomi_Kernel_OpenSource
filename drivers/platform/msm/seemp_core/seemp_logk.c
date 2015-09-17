@@ -393,7 +393,6 @@ static long seemp_logk_ioctl(struct file *filp, unsigned int cmd,
 		mutex_unlock(&sdev->lock);
 		if (ret && block_apps)
 			wake_up_interruptible(&sdev->writers_wq);
-		return 0;
 	} else if (cmd == SEEMP_CMD_GET_RINGSZ) {
 		if (copy_to_user((unsigned int *)arg, &sdev->ring_sz,
 				sizeof(unsigned int)))
@@ -408,9 +407,11 @@ static long seemp_logk_ioctl(struct file *filp, unsigned int cmd,
 		return seemp_logk_set_mapping(arg);
 	} else if (SEEMP_CMD_CHECK_FILTER == cmd) {
 		return seemp_logk_check_filter(arg);
+	} else {
+		pr_err("Invalid Request %X\n", cmd);
+		return -ENOIOCTLCMD;
 	}
-	pr_err("Invalid Request %X\n", cmd);
-	return -ENOIOCTLCMD;
+	return 0;
 }
 
 static long seemp_logk_reserve_rdblks(
