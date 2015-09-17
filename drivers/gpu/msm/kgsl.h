@@ -435,13 +435,16 @@ static inline void kgsl_schedule_work(struct work_struct *work)
 static inline int
 kgsl_mem_entry_get(struct kgsl_mem_entry *entry)
 {
-	return kref_get_unless_zero(&entry->refcount);
+	if (entry)
+		return kref_get_unless_zero(&entry->refcount);
+	return 0;
 }
 
 static inline void
 kgsl_mem_entry_put(struct kgsl_mem_entry *entry)
 {
-	kref_put(&entry->refcount, kgsl_mem_entry_destroy);
+	if (entry)
+		kref_put(&entry->refcount, kgsl_mem_entry_destroy);
 }
 
 /**
