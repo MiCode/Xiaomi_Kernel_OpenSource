@@ -667,7 +667,7 @@ static int mdss_mdp_ubwc_data_check(struct mdss_mdp_data *data,
 			struct mdss_mdp_plane_sizes *ps,
 			struct mdss_mdp_format_params *fmt)
 {
-	int rc = 0;
+	int i, inc;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	unsigned long data_size = 0;
 	dma_addr_t base_addr;
@@ -675,7 +675,7 @@ static int mdss_mdp_ubwc_data_check(struct mdss_mdp_data *data,
 	if (!mdss_mdp_is_ubwc_supported(mdata)) {
 		pr_err("ubwc format is not supported for format: %d\n",
 			fmt->format);
-		goto end;
+		return -ENOTSUPP;
 	}
 
 	if (data->p[0].len == ps->plane_size[0])
@@ -686,8 +686,7 @@ static int mdss_mdp_ubwc_data_check(struct mdss_mdp_data *data,
 	if (data_size < ps->total_size) {
 		pr_err("insufficient current mem len=%lu required mem len=%u\n",
 		       data_size, ps->total_size);
-		rc = -ENOMEM;
-		goto end;
+		return -ENOMEM;
 	}
 
 	base_addr = data->p[0].addr;
@@ -757,8 +756,25 @@ static int mdss_mdp_ubwc_data_check(struct mdss_mdp_data *data,
 		data->p[2].len = ps->plane_size[2];
 	}
 	data->num_planes = ps->num_planes;
+
 end:
-	return rc;
+	if (data->num_planes != ps->num_planes) {
+		pr_err("num_planes don't match: fmt:%d, data:%d, ps:%d\n",
+				fmt->format, data->num_planes, ps->num_planes);
+		return -EINVAL;
+	}
+
+	inc = ((fmt->format == MDP_Y_CBCR_H2V2_UBWC) ? 1 : 2);
+	for (i = 0; i < MAX_PLANES; i += inc) {
+		if (data->p[i].len != ps->plane_size[i]) {
+			pr_err("plane:%d fmt:%d, len does not match: data:%lu, ps:%d\n",
+					i, fmt->format, data->p[i].len,
+					ps->plane_size[i]);
+			return -EINVAL;
+		}
+	}
+
+	return 0;
 }
 
 int mdss_mdp_data_check(struct mdss_mdp_data *data,
