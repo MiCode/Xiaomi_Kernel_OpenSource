@@ -167,7 +167,7 @@
 
 #define IPA_MEM_v3_0_RAM_V4_RT_NUM_INDEX 15
 #define IPA_MEM_v3_0_V4_MODEM_RT_INDEX_LO 0
-#define IPA_MEM_v3_0_V4_MODEM_RT_INDEX_HI 6
+#define IPA_MEM_v3_0_V4_MODEM_RT_INDEX_HI 5
 #define IPA_MEM_v3_0_V4_APPS_RT_INDEX_LO \
 	(IPA_MEM_v3_0_V4_MODEM_RT_INDEX_HI + 1)
 #define IPA_MEM_v3_0_V4_APPS_RT_INDEX_HI \
@@ -197,7 +197,7 @@
 
 #define IPA_MEM_v3_0_RAM_V6_RT_NUM_INDEX 15
 #define IPA_MEM_v3_0_V6_MODEM_RT_INDEX_LO 0
-#define IPA_MEM_v3_0_V6_MODEM_RT_INDEX_HI 6
+#define IPA_MEM_v3_0_V6_MODEM_RT_INDEX_HI 5
 #define IPA_MEM_v3_0_V6_APPS_RT_INDEX_LO \
 	(IPA_MEM_v3_0_V6_MODEM_RT_INDEX_HI + 1)
 #define IPA_MEM_v3_0_V6_APPS_RT_INDEX_HI \
@@ -265,12 +265,12 @@
 #endif
 
 #define IPA_MEM_v3_0_RAM_MODEM_OFST (IPA_MEM_v3_0_RAM_APPS_HDR_PROC_CTX_OFST + \
-	IPA_MEM_v3_0_RAM_APPS_HDR_PROC_CTX_SIZE + IPA_MEM_CANARY_SIZE)
-#define IPA_MEM_v3_0_RAM_MODEM_SIZE 5160
+	IPA_MEM_v3_0_RAM_APPS_HDR_PROC_CTX_SIZE + 2 * IPA_MEM_CANARY_SIZE)
+#define IPA_MEM_v3_0_RAM_MODEM_SIZE 5156
 
-/* modem memory is 4B aligned */
-#if (IPA_MEM_v3_0_RAM_MODEM_OFST & 3)
-#error modem memory is not 4B aligned
+/* modem memory is 8B aligned */
+#if (IPA_MEM_v3_0_RAM_MODEM_OFST & 7)
+#error modem memory is not 8B aligned
 #endif
 
 #define IPA_MEM_v3_0_RAM_APPS_V4_FLT_HASH_OFST (IPA_MEM_v3_0_RAM_MODEM_OFST + \
