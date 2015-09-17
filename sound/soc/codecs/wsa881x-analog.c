@@ -337,14 +337,6 @@ static int wsa881x_i2c_get_client_index(struct i2c_client *client,
 	return ret;
 }
 
-static int wsa881x_temp_sensor_ctrl(struct snd_soc_codec *codec, bool enable)
-{
-	dev_dbg(codec->dev, "%s: enable:%d\n", __func__, enable);
-	snd_soc_update_bits(codec, WSA881X_TEMP_OP, (0x01 << 2),
-				(enable << 2));
-	return 0;
-}
-
 static int wsa881x_boost_ctrl(struct snd_soc_codec *codec, bool enable)
 {
 	struct wsa881x_pdata *wsa881x = snd_soc_codec_get_drvdata(codec);
@@ -617,7 +609,6 @@ static int wsa881x_spkr_pa_ctrl(struct snd_soc_codec *codec, bool enable)
 			wsa881x_visense_txfe_ctrl(codec, true,
 						0x00, 0x01, 0x00);
 			wsa881x_visense_adc_ctrl(codec, true);
-			wsa881x_temp_sensor_ctrl(codec, true);
 		}
 	} else {
 		/*
@@ -956,6 +947,7 @@ static int32_t wsa881x_temp_reg_read(struct snd_soc_codec *codec,
 	wsa_temp_reg->d2_msb = snd_soc_read(codec, WSA881X_OTP_REG_3);
 	wsa_temp_reg->d2_lsb = snd_soc_read(codec, WSA881X_OTP_REG_4);
 
+	snd_soc_update_bits(codec, WSA881X_TEMP_OP, 0x04, 0x00);
 	wsa881x_resource_acquire(codec, false);
 
 	return 0;
