@@ -222,6 +222,16 @@
 };
 
 &msm_vidc {
+	/* Table lists <video_core_freq imem_ab> pairs.
+	 * imem_ab value determines the imem clock frequency for the
+	 * corresponding video core frequency.
+	 */
+	qcom,imem-ab-tbl =
+		<75000000  1500000>, /* imem @ svs2 freq 75 Mhz */
+		<150000000 1500000>, /* imem @ svs2 freq 75 Mhz */
+		<346666667 2500000>, /* imem @ svs freq 171 Mhz */
+		<520000000 6000000>; /* imem @ noimal freq 320 Mhz */
+
 	qcom,load-freq-tbl =
 			/* Encoders */
 			<972000 520000000 0x55555555>, /* 4k UHD @ 30 */
