@@ -625,6 +625,7 @@ config SND_SOC_WCD9320
 
 config SND_SOC_WCD9330
         tristate
+	depends on WCD9330_CODEC
 
 config SND_SOC_WCD9335
         tristate
@@ -643,6 +644,10 @@ config SND_SOC_MSM8X16_WCD
 config SND_SOC_WCD9XXX
 	tristate
 	default y if SND_SOC_WCD9320=y || SND_SOC_WCD9330=y || SND_SOC_WCD9335=y
+
+config SND_SOC_WCD9XXX_V2
+	tristate
+	default y if SND_SOC_WCD9335=y
 
 config SND_SOC_WCD_CPE
 	tristate
