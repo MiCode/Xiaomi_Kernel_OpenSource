@@ -834,7 +834,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 		dev_dbg(smmu->dev,
 			"soft iova-to-phys=%pa\n", &phys_soft);
 		ret = IRQ_HANDLED;
-		resume = RESUME_RETRY;
+		resume = RESUME_TERMINATE;
 	} else {
 		phys_addr_t phys_atos = arm_smmu_verify_fault(domain, iova,
 							      fsr);
