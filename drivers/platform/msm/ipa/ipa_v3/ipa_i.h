@@ -46,6 +46,8 @@
 #define IPA_NUM_DESC_PER_SW_TX (3)
 #define IPA_GENERIC_RX_POOL_SZ 192
 
+#define IPA_MAX_STATUS_STAT_NUM 30
+
 #define IPADBG(fmt, args...) \
 	pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 #define IPAERR(fmt, args...) \
@@ -534,6 +536,11 @@ struct ipa_gsi_ep_mem_info {
 	void *chan_ring_base_vaddr;
 };
 
+struct ipa3_status_stats {
+	struct ipa3_hw_pkt_status status[IPA_MAX_STATUS_STAT_NUM];
+	int curr;
+};
+
 /**
  * struct ipa3_ep_context - IPA end point context
  * @valid: flag indicating id EP context is valid
@@ -686,6 +693,7 @@ struct ipa3_sys_context {
 	spinlock_t spinlock;
 	struct workqueue_struct *wq;
 	struct workqueue_struct *repl_wq;
+	struct ipa3_status_stats *status_stat;
 	/* ordering is important - other immutable fields go below */
 };
 

@@ -23,6 +23,9 @@
 #define IPA_DBG_CNTR_OFF 127264
 #define IPA_DBG_MAX_RULE_IN_TBL 128
 
+#define IPA_DUMP_STATUS_FIELD(f) \
+	pr_err(#f "=0x%x\n", status->f)
+
 const char *ipa3_excp_name[] = {
 	__stringify_1(IPA_A5_MUX_HDR_EXCP_RSVD0),
 	__stringify_1(IPA_A5_MUX_HDR_EXCP_RSVD1),
@@ -107,6 +110,7 @@ static struct dentry *dfile_dbg_cnt;
 static struct dentry *dfile_msg;
 static struct dentry *dfile_ip4_nat;
 static struct dentry *dfile_rm_stats;
+static struct dentry *dfile_status_stats;
 static char dbg_buff[IPA_MAX_MSG_LEN];
 static s8 ep_reg_idx;
 
@@ -1519,6 +1523,69 @@ static ssize_t ipa3_rm_read_stats(struct file *file, char __user *ubuf,
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, cnt);
 }
 
+static void ipa_dump_status(struct ipa3_hw_pkt_status *status)
+{
+	IPA_DUMP_STATUS_FIELD(status_opcode);
+	IPA_DUMP_STATUS_FIELD(exception);
+	IPA_DUMP_STATUS_FIELD(status_mask);
+	IPA_DUMP_STATUS_FIELD(pkt_len);
+	IPA_DUMP_STATUS_FIELD(endp_src_idx);
+	IPA_DUMP_STATUS_FIELD(endp_dest_idx);
+	IPA_DUMP_STATUS_FIELD(metadata);
+	IPA_DUMP_STATUS_FIELD(filt_local);
+	IPA_DUMP_STATUS_FIELD(filt_hash);
+	IPA_DUMP_STATUS_FIELD(filt_global);
+	IPA_DUMP_STATUS_FIELD(ret_hdr);
+	IPA_DUMP_STATUS_FIELD(filt_rule_id);
+	IPA_DUMP_STATUS_FIELD(route_local);
+	IPA_DUMP_STATUS_FIELD(route_hash);
+	IPA_DUMP_STATUS_FIELD(ucp);
+	IPA_DUMP_STATUS_FIELD(route_tbl_idx);
+	IPA_DUMP_STATUS_FIELD(route_rule_id);
+	IPA_DUMP_STATUS_FIELD(nat_hit);
+	IPA_DUMP_STATUS_FIELD(nat_tbl_idx);
+	IPA_DUMP_STATUS_FIELD(nat_type);
+	pr_err("tag = 0x%llx\n", (u64)status->tag & 0xFFFFFFFFFFFF);
+	IPA_DUMP_STATUS_FIELD(seq_num);
+	IPA_DUMP_STATUS_FIELD(time_day_ctr);
+	IPA_DUMP_STATUS_FIELD(hdr_local);
+	IPA_DUMP_STATUS_FIELD(hdr_offset);
+	IPA_DUMP_STATUS_FIELD(frag_hit);
+	IPA_DUMP_STATUS_FIELD(frag_rule);
+}
+
+static ssize_t ipa_status_stats_read(struct file *file, char __user *ubuf,
+		size_t count, loff_t *ppos)
+{
+	struct ipa3_status_stats *stats;
+	int i, j;
+
+	stats = kzalloc(sizeof(*stats), GFP_KERNEL);
+	if (!stats)
+		return -EFAULT;
+
+	for (i = 0; i < ipa3_ctx->ipa_num_pipes; i++) {
+		if (!ipa3_ctx->ep[i].sys || !ipa3_ctx->ep[i].sys->status_stat)
+			continue;
+
+		memcpy(stats, ipa3_ctx->ep[i].sys->status_stat, sizeof(*stats));
+		stats->curr = (stats->curr + IPA_MAX_STATUS_STAT_NUM - 1)
+			% IPA_MAX_STATUS_STAT_NUM;
+		pr_err("Statuses for pipe %d\n", i);
+		for (j = 0; j < IPA_MAX_STATUS_STAT_NUM; j++) {
+			pr_err("curr=%d\n", stats->curr);
+			ipa_dump_status(&stats->status[stats->curr]);
+			pr_err("\n\n\n");
+			stats->curr = (stats->curr + 1) %
+				IPA_MAX_STATUS_STAT_NUM;
+		}
+	}
+
+	kfree(stats);
+	return 0;
+}
+
+
 const struct file_operations ipa3_gen_reg_ops = {
 	.read = ipa3_read_gen_reg,
 };
@@ -1584,6 +1651,10 @@ const struct file_operations ipa3_msg_ops = {
 const struct file_operations ipa3_dbg_cnt_ops = {
 	.read = ipa3_read_dbg_cnt,
 	.write = ipa3_write_dbg_cnt,
+};
+
+const struct file_operations ipa3_status_stats_ops = {
+	.read = ipa_status_stats_read,
 };
 
 const struct file_operations ipa3_nat4_ops = {
@@ -1760,6 +1831,13 @@ void ipa3_debugfs_init(void)
 			read_only_mode, dent, 0, &ipa3_rm_stats);
 	if (!dfile_rm_stats || IS_ERR(dfile_rm_stats)) {
 		IPAERR("fail to create file for debug_fs rm_stats\n");
+		goto fail;
+	}
+
+	dfile_status_stats = debugfs_create_file("status_stats",
+			read_only_mode, dent, 0, &ipa3_status_stats_ops);
+	if (!dfile_status_stats || IS_ERR(dfile_status_stats)) {
+		IPAERR("fail to create file for debug_fs status_stats\n");
 		goto fail;
 	}
 
