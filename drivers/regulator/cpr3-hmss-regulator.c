@@ -81,33 +81,11 @@ struct cpr3_msm8996_hmss_fuses {
 	u64	aging_init_quot_diff;
 };
 
-/**
- * enum cpr3_msm8996_hmss_fuse_combo - fuse combinations supported by the HMSS
- *			CPR3 controller on MSM8996
- * %CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV0:	Part with CPR fusing rev == 0
- * %CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV1:	Part with CPR fusing rev == 1
- * %CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV2:	Part with CPR fusing rev == 2
- * %CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV3:	Part with CPR fusing rev == 3
- * %CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV4:	Part with CPR fusing rev == 4
- * %CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV5:	Part with CPR fusing rev == 5
- * %CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV6:	Part with CPR fusing rev == 6
- * %CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV7:	Part with CPR fusing rev == 7
- * %CPR3_MSM8996_HMSS_FUSE_COMBO_COUNT:		Defines the number of
- *						combinations supported
- *
- * This list will be expanded as new requirements are added.
+/*
+ * Fuse combos 0 -  7 map to CPR fusing revision 0 - 7 with speed bin fuse = 0.
+ * Fuse combos 8 - 15 map to CPR fusing revision 0 - 7 with speed bin fuse = 1.
  */
-enum cpr3_msm8996_hmss_fuse_combo {
-	CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV0 = 0,
-	CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV1 = 1,
-	CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV2 = 2,
-	CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV3 = 3,
-	CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV4 = 4,
-	CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV5 = 5,
-	CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV6 = 6,
-	CPR3_MSM8996_HMSS_FUSE_COMBO_CPR_REV7 = 7,
-	CPR3_MSM8996_HMSS_FUSE_COMBO_COUNT
-};
+#define CPR3_MSM8996_HMSS_FUSE_COMBO_COUNT	16
 
 /*
  * Constants which define the name of each fuse corner.  Note that no actual
@@ -565,7 +543,7 @@ static int cpr3_msm8996_hmss_read_fuse_data(struct cpr3_regulator *vreg)
 		}
 	}
 
-	vreg->fuse_combo = fuse->cpr_fusing_rev;
+	vreg->fuse_combo = fuse->cpr_fusing_rev + 8 * fuse->speed_bin;
 	if (vreg->fuse_combo >= CPR3_MSM8996_HMSS_FUSE_COMBO_COUNT) {
 		cpr3_err(vreg, "invalid CPR fuse combo = %d found\n",
 			vreg->fuse_combo);
