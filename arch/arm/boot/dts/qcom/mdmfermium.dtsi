@@ -259,8 +259,7 @@
 				<0x000a412c 0x8>;
 		reg-names = "rcg-base", "efuse";
 		qcom,safe-freq = < 400000000 >;
-		/* ToDo: update mdmfermium_s1 to apc_vreg_corner */
-		cpu-vdd-supply = <&mdmfermium_s1>;
+		cpu-vdd-supply = <&apc_vreg_corner>;
 		qcom,enable-opp;
 		clocks = <&clock_gcc clk_gpll0_ao_clk_src>,
 					<&clock_gcc clk_a7sspll>;
@@ -613,6 +612,13 @@
 		};
 	};
 
+	rpm_bus: qcom,rpm-smd {
+		compatible = "qcom,rpm-smd";
+		rpm-channel-name = "rpm_requests";
+		rpm-channel-type = <15>; /* SMD_APPS_RPM */
+		rpm-standalone;
+	};
+
 	qcom,smdtty {
 		compatible = "qcom,smdtty";
 
@@ -791,8 +797,9 @@
 	};
 };
 
-#include "mdmfermium-regulator.dtsi"
+#include "mdmfermium-rpm-regulator.dtsi"
 #include "msm-pm8019.dtsi"
+#include "mdmfermium-regulator.dtsi"
 
 &pm8019_vadc {
 	chan@31 {
