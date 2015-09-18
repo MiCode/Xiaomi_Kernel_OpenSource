@@ -155,6 +155,93 @@ DEFINE_EVENT(msm_lmh_print_event, lmh_event_call,
 
 #elif defined(TRACE_MSM_THERMAL)
 
+DECLARE_EVENT_CLASS(msm_thermal_progressive_sampling,
+
+	TP_PROTO(const char *sensor, long temp),
+
+	TP_ARGS(sensor, temp),
+
+	TP_STRUCT__entry(
+		__string(_name, sensor)
+		__field(long, temp)
+	),
+
+	TP_fast_assign(
+		__assign_str(_name, sensor);
+		__entry->temp = temp;
+	),
+
+	TP_printk("prog_sampling:sensor=%s temp=%ld",
+		  __get_str(_name), __entry->temp)
+);
+
+DECLARE_EVENT_CLASS(msm_thermal_progressive_state,
+
+	TP_PROTO(const char *sensor, const char *type, int curr_state),
+
+	TP_ARGS(sensor, type, curr_state),
+
+	TP_STRUCT__entry(
+		__string(_name, sensor)
+		__string(_type, type)
+		__field(int, curr_state)
+	),
+
+	TP_fast_assign(
+		__assign_str(_name, sensor);
+		__assign_str(_type, type);
+		__entry->curr_state = curr_state;
+	),
+
+	TP_printk("prog_state:sensor=%s type=%s curr_state=%s",
+		__get_str(_name), __get_str(_type),
+		__entry->curr_state ? (__entry->curr_state == 1 ?
+		"paused" : "monitor") : "sampling")
+);
+
+DECLARE_EVENT_CLASS(msm_thermal_progressive_mitigate,
+
+	TP_PROTO(const char *sensor, unsigned int cluster, unsigned int freq),
+
+	TP_ARGS(sensor, cluster, freq),
+
+	TP_STRUCT__entry(
+		__string(_name, sensor)
+		__field(unsigned int, cluster)
+		__field(unsigned int, freq)
+	),
+
+	TP_fast_assign(
+		__assign_str(_name, sensor);
+		__entry->cluster = cluster;
+		__entry->freq = freq;
+	),
+
+	TP_printk("prog_mitigate:sensor=%s device=cluster%u freq=%u",
+		__get_str(_name), __entry->cluster, __entry->freq)
+);
+
+DEFINE_EVENT(msm_thermal_progressive_sampling, thermal_progressive_sampling,
+
+	TP_PROTO(const char *sensor, long temp),
+
+	TP_ARGS(sensor, temp)
+);
+
+DEFINE_EVENT(msm_thermal_progressive_state, thermal_progressive_state,
+
+	TP_PROTO(const char *sensor, const char *type, int curr_state),
+
+	TP_ARGS(sensor, type, curr_state)
+);
+
+DEFINE_EVENT(msm_thermal_progressive_mitigate, thermal_progressive_mitigate,
+
+	TP_PROTO(const char *sensor, unsigned int cluster, unsigned int freq),
+
+	TP_ARGS(sensor, cluster, freq)
+);
+
 DECLARE_EVENT_CLASS(msm_thermal_post_core_ctl,
 
 	TP_PROTO(unsigned int cpu, unsigned int online),
