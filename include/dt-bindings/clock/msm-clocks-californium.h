@@ -16,9 +16,9 @@
 
 /* RPM controlled clocks */
 #define clk_xo 0xf13dfee3
-#define clk_xo_ao 0x480207b3
+#define clk_xo_a_clk 0xd939b99b
 #define clk_cxo_clk_src 0x79e95308
-#define clk_cxo_clk_src_ao 0x64eb6004
+#define clk_cxo_a_clk_src 0x3dba80d6
 #define clk_mss_cfg_ahb_clk 0x4a6d85ae
 #define clk_mss_cfg_ahb_a_clk 0x2a1502ca
 #define clk_ce_clk 0xd8bc64e1

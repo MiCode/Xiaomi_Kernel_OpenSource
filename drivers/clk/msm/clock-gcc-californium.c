@@ -177,9 +177,9 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define QUSB_REF_CLK_EN                                  (0x41030)
 #define DCC_CBCR                                         (0x77004)
 
-DEFINE_CLK_RPM_SMD_BRANCH(xo, xo_ao, RPM_MISC_CLK_TYPE,
+DEFINE_CLK_RPM_SMD_BRANCH(xo, xo_a_clk, RPM_MISC_CLK_TYPE,
 			  XO_ID, 19200000);
-DEFINE_CLK_RPM_SMD_BRANCH(cxo_clk_src, cxo_clk_src_ao, RPM_MISC_CLK_TYPE,
+DEFINE_CLK_RPM_SMD_BRANCH(cxo_clk_src, cxo_a_clk_src, RPM_MISC_CLK_TYPE,
 			  CXO_CLK_SRC_ID, 19200000);
 DEFINE_CLK_RPM_SMD_BRANCH(mss_cfg_ahb_clk, mss_cfg_ahb_a_clk, RPM_MCFG_CLK_TYPE,
 			  MSS_CFG_AHB_CLK_ID, 19200000);
@@ -258,7 +258,7 @@ static struct pll_vote_clk gpll0_ao = {
 	.base = &virt_base,
 	.c = {
 		.rate = 600000000,
-		.parent = &xo_ao.c,
+		.parent = &xo_a_clk.c,
 		.dbg_name = "gpll0_ao",
 		.ops = &clk_ops_pll_acpu_vote,
 		CLK_INIT(gpll0_ao.c),
@@ -1329,9 +1329,9 @@ static struct mux_clk gcc_debug_mux = {
 
 static struct clk_lookup msm_clocks_rpm_californium[] = {
 	CLK_LIST(xo),
-	CLK_LIST(xo_ao),
+	CLK_LIST(xo_a_clk),
 	CLK_LIST(cxo_clk_src),
-	CLK_LIST(cxo_clk_src_ao),
+	CLK_LIST(cxo_a_clk_src),
 	CLK_LIST(mss_cfg_ahb_clk),
 	CLK_LIST(mss_cfg_ahb_a_clk),
 	CLK_LIST(ce_clk),
@@ -1511,7 +1511,7 @@ static int msm_gcc_californium_probe(struct platform_device *pdev)
 	clk_set_rate(&pcnoc_keepalive_a_clk.c, 19200000);
 	clk_prepare_enable(&pcnoc_keepalive_a_clk.c);
 
-	clk_prepare_enable(&xo_ao.c);
+	clk_prepare_enable(&xo_a_clk.c);
 
 	dev_info(&pdev->dev, "Registered GCC clocks.\n");
 
