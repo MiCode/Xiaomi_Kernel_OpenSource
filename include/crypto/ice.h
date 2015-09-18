@@ -106,6 +106,7 @@ struct qcom_ice_variant_ops {
 	int	(*config)(struct platform_device *, struct request* ,
 				struct ice_data_setting*);
 	int	(*status)(struct platform_device *);
+	void	(*debug)(struct platform_device *);
 };
 
 #endif /* _QCOM_INLINE_CRYPTO_ENGINE_H_ */
