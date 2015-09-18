@@ -942,6 +942,11 @@ static void wcd9xxx_clsh_state_hph_ear(struct snd_soc_codec *codec,
 		 * The below check condition is required to make sure
 		 * functions inside if condition will execute only once.
 		 */
+		if (req_state == WCD9XXX_CLSH_STATE_EAR)
+			wcd9xxx_cfg_clsh_param_ear(codec);
+		if (clsh_d->state == WCD9XXX_CLSH_STATE_EAR)
+			wcd9xxx_cfg_clsh_param_hph(codec);
+
 		if ((clsh_d->state == WCD9XXX_CLSH_STATE_EAR) ||
 			(req_state == WCD9XXX_CLSH_STATE_EAR)) {
 			wcd9xxx_dynamic_bypass_buck_ctrl(codec, false);
@@ -1003,6 +1008,9 @@ static void wcd9xxx_clsh_state_hph_lo(struct snd_soc_codec *codec,
 	dev_dbg(codec->dev, "%s: enter %s\n", __func__,
 			is_enable ? "enable" : "disable");
 	if (is_enable) {
+		if (clsh_d->state == WCD9XXX_CLSH_STATE_LO)
+			wcd9xxx_cfg_clsh_param_hph(codec);
+
 		if ((clsh_d->state == WCD9XXX_CLSH_STATE_LO) ||
 			(req_state == WCD9XXX_CLSH_STATE_LO)) {
 			wcd9xxx_dynamic_bypass_buck_ctrl_lo(codec, false);
@@ -1088,6 +1096,7 @@ static void wcd9xxx_clsh_state_ear_lo(struct snd_soc_codec *codec,
 		wcd9xxx_dynamic_bypass_buck_ctrl(codec, false);
 		wcd9xxx_enable_buck(codec, clsh_d, true);
 		if (req_state & WCD9XXX_CLSH_STATE_EAR) {
+			wcd9xxx_cfg_clsh_param_ear(codec);
 			wcd9xxx_set_fclk_get_ncp(codec, clsh_d,
 						NCP_FCLK_LEVEL_8);
 			wcd9xxx_ncp_bypass_enable(codec, true);
@@ -1132,6 +1141,9 @@ static void wcd9xxx_clsh_state_hph_ear_lo(struct snd_soc_codec *codec,
 	dev_dbg(codec->dev, "%s: enter %s\n", __func__,
 			is_enable ? "enable" : "disable");
 
+	if (clsh_d->state == WCD9XXX_CLSH_STATE_EAR_LO)
+		wcd9xxx_cfg_clsh_param_hph(codec);
+
 	if (req_state & WCD9XXX_CLSH_STATE_HPHL)
 		wcd9xxx_clsh_comp_req(codec, clsh_d, CLSH_COMPUTE_HPH_L,
 					is_enable);
@@ -1140,9 +1152,11 @@ static void wcd9xxx_clsh_state_hph_ear_lo(struct snd_soc_codec *codec,
 		wcd9xxx_clsh_comp_req(codec, clsh_d, CLSH_COMPUTE_HPH_R,
 					is_enable);
 
-	if (req_state & WCD9XXX_CLSH_STATE_EAR)
+	if (req_state & WCD9XXX_CLSH_STATE_EAR) {
+		wcd9xxx_cfg_clsh_param_ear(codec);
 		wcd9xxx_clsh_comp_req(codec, clsh_d, CLSH_COMPUTE_EAR,
 					is_enable);
+	}
 }
 
 static void wcd9xxx_clsh_state_ear(struct snd_soc_codec *codec,
