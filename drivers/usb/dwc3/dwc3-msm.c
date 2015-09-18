@@ -1612,9 +1612,15 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 			}
 		}
 
+		/*
+		 * Don't allow low power mode if bam pipes are still connected.
+		 * Otherwise it could lead to unclocked access when sps driver
+		 * accesses USB bam registers as part of bam pipes disconnection
+		 */
 		if (!msm_bam_usb_lpm_ok(DWC3_CTRL)) {
 			dev_dbg(mdwc->dev, "%s: IPA handshake not finished, will suspend when done\n",
 					__func__);
+			pm_schedule_suspend(mdwc->dev, 1000);
 			return -EBUSY;
 		}
 	}
