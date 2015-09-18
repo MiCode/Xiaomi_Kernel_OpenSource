@@ -1172,6 +1172,72 @@ static int  qcom_ice_resume(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(qcom_ice_resume);
 
+static void qcom_ice_debug(struct platform_device *pdev)
+{
+	struct ice_device *ice_dev;
+
+	if (!pdev)
+		pr_err("%s: Invalid params passed\n", __func__);
+
+	ice_dev = platform_get_drvdata(pdev);
+
+	if (!ice_dev)
+		pr_err("%s: No ICE device available\n", __func__);
+
+	if (!ice_dev->is_ice_enabled)
+		pr_err("%s: ICE device is not enabled\n", __func__);
+
+	pr_info("%s: =========== REGISTER DUMP (%p)===========\n",
+			ice_dev->ice_instance_type, ice_dev);
+
+	pr_info("%s: ICE Control: 0x%08x | ICE Reset: 0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_CONTROL),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_RESET));
+
+	pr_info("%s: ICE Version: 0x%08x | ICE FUSE:  0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_VERSION),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_FUSE_SETTING));
+
+	pr_info("%s: ICE Param1: 0x%08x | ICE Param2:  0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_PARAMETERS_1),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_PARAMETERS_2));
+
+	pr_info("%s: ICE Param3: 0x%08x | ICE Param4:  0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_PARAMETERS_3),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_PARAMETERS_4));
+
+	pr_info("%s: ICE Param5: 0x%08x | ICE IRQ STTS:  0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_PARAMETERS_5),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_NON_SEC_IRQ_STTS));
+
+	pr_info("%s: ICE IRQ MASK: 0x%08x | ICE IRQ CLR:  0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_NON_SEC_IRQ_MASK),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_NON_SEC_IRQ_CLR));
+
+	if ((ICE_REV(ice_dev->ice_hw_version, MAJOR) > 2) ||
+		((ICE_REV(ice_dev->ice_hw_version, MAJOR) == 2) &&
+		 (ICE_REV(ice_dev->ice_hw_version, MINOR) >= 1))) {
+		pr_info("%s: ICE BIST Sts: 0x%08x | ICE Bypass Sts:  0x%08x\n",
+			ice_dev->ice_instance_type,
+			qcom_ice_readl(ice_dev, QCOM_ICE_REGS_BIST_STATUS),
+			qcom_ice_readl(ice_dev, QCOM_ICE_REGS_BYPASS_STATUS));
+	}
+
+	pr_info("%s: ICE ADV CTRL: 0x%08x | ICE ENDIAN SWAP:  0x%08x\n",
+		ice_dev->ice_instance_type,
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_ADVANCED_CONTROL),
+		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_ENDIAN_SWAP));
+
+}
+EXPORT_SYMBOL(qcom_ice_debug);
+
+
 static int qcom_ice_reset(struct  platform_device *pdev)
 {
 	struct ice_device *ice_dev;
@@ -1302,6 +1368,7 @@ const struct qcom_ice_variant_ops qcom_ice_ops = {
 	.suspend          = qcom_ice_suspend,
 	.config           = qcom_ice_config,
 	.status           = qcom_ice_status,
+	.debug            = qcom_ice_debug,
 };
 
 /* Following struct is required to match device with driver from dts file */
