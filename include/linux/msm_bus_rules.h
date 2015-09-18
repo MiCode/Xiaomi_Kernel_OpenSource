@@ -78,7 +78,7 @@ static inline bool msm_rule_are_rules_registered(void)
 {
 	return false;
 }
-static inline bool msm_rules_update(struct bus_rule_type *old_rule,
+static inline bool msm_rule_update(struct bus_rule_type *old_rule,
 					struct bus_rule_type *new_rule,
 					struct notifier_block *nb)
 {
