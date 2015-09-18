@@ -34,9 +34,12 @@
 #define WCD_CPE_LOAD_ALL \
 	(WCD_CPE_LOAD_IMEM | WCD_CPE_LOAD_DATA)
 
+#define WCD_CPE_IMAGE_FNAME_MAX 64
+
 enum {
 	WCD_CPE_LSM_CAL_AFE = 0,
 	WCD_CPE_LSM_CAL_LSM,
+	WCD_CPE_LSM_CAL_TOPOLOGY_ID,
 	WCD_CPE_LSM_CAL_MAX,
 };
 
@@ -111,7 +114,10 @@ struct wcd_cpe_core {
 	struct device *dev;
 
 	/* firmware image file name */
-	char fname[64];
+	char fname[WCD_CPE_IMAGE_FNAME_MAX];
+
+	/* firmware image file name from sysfs */
+	char dyn_fname[WCD_CPE_IMAGE_FNAME_MAX];
 
 	/* codec information needed by cpe services */
 	struct cpe_svc_codec_info_v1 cdc_info;
@@ -173,6 +179,9 @@ struct wcd_cpe_core {
 
 	/* IRQ information for CPE interrupts */
 	struct wcd_cpe_irq_info irq_info;
+
+	/* Kobject for sysfs entry */
+	struct kobject cpe_kobj;
 };
 
 struct wcd_cpe_params {
