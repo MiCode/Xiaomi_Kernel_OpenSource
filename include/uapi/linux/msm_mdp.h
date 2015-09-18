@@ -969,10 +969,15 @@ struct mdp_pa_cfg_data {
 	struct mdp_pa_cfg pa_data;
 };
 
+#define MDP_DITHER_DATA_V1_7_SZ 16
+
 struct mdp_dither_data_v1_7 {
 	uint32_t g_y_depth;
 	uint32_t r_cr_depth;
 	uint32_t b_cb_depth;
+	uint32_t len;
+	uint32_t data[MDP_DITHER_DATA_V1_7_SZ];
+	uint32_t temporal_en;
 };
 
 struct mdp_dither_cfg_data {
