@@ -800,7 +800,7 @@
 			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb_clk>,
 			 <&clock_gcc clk_gcc_qusb2a_phy_reset>;
 
-		clock-names = "ref_clk", "cfg_ahb_clk", "phy_reset";
+		clock-names = "ref_clk_src", "cfg_ahb_clk", "phy_reset";
 	};
 
 	ssphy: ssphy@78000 {
