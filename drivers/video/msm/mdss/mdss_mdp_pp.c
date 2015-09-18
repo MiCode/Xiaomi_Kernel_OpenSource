@@ -1963,13 +1963,12 @@ error:
 int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_data_type *mdata = ctl->mdata;
-	int ret = 0;
+	int ret = 0, i;
 	u32 flags, pa_v2_flags;
 	u32 max_bw_needed;
 	u32 mixer_cnt;
 	u32 mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
 	u32 disp_num;
-	int i, req = -1;
 	bool valid_mixers = true;
 	bool valid_ad_panel = true;
 	if ((!ctl->mfd) || (!mdss_pp_res) || (!mdata))
@@ -2012,7 +2011,6 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 	else
 		pa_v2_flags =
 			mdss_pp_res->pa_v2_disp_cfg[disp_num].pa_v2_data.flags;
-
 	/*
 	 * If a LUT based PP feature needs to be reprogrammed during resume,
 	 * increase the register bus bandwidth to maximum frequency
@@ -2021,11 +2019,11 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 	max_bw_needed = (IS_PP_RESUME_COMMIT(flags) &&
 				(IS_PP_LUT_DIRTY(flags) ||
 				IS_SIX_ZONE_DIRTY(flags, pa_v2_flags)));
-	if (mdata->reg_bus_hdl && max_bw_needed) {
-		req = msm_bus_scale_client_update_request(mdata->reg_bus_hdl,
-				REG_CLK_CFG_HIGH);
-		if (req)
-			pr_err("Updated reg_bus_scale failed, ret = %d", req);
+	if (mdata->pp_reg_bus_clt && max_bw_needed) {
+		ret = mdss_update_reg_bus_vote(mdata->pp_reg_bus_clt,
+				VOTE_INDEX_80_MHZ);
+		if (ret)
+			pr_err("Updated reg_bus_scale failed, ret = %d", ret);
 	}
 
 	if (ctl->mixer_left) {
@@ -2043,11 +2041,11 @@ int mdss_mdp_pp_setup_locked(struct mdss_mdp_ctl *ctl)
 			mdata->ad_cfgs[disp_num].reg_sts = 0;
 	}
 
-	if (mdata->reg_bus_hdl && max_bw_needed) {
-		req = msm_bus_scale_client_update_request(mdata->reg_bus_hdl,
-				REG_CLK_CFG_OFF);
-		if (req)
-			pr_err("Updated reg_bus_scale failed, ret = %d", req);
+	if (mdata->pp_reg_bus_clt && max_bw_needed) {
+		ret = mdss_update_reg_bus_vote(mdata->pp_reg_bus_clt,
+				VOTE_INDEX_DISABLE);
+		if (ret)
+			pr_err("Updated reg_bus_scale failed, ret = %d", ret);
 	}
 	if (IS_PP_RESUME_COMMIT(flags))
 		mdss_pp_res->pp_disp_flags[disp_num] &=
@@ -2306,6 +2304,11 @@ int mdss_mdp_pp_init(struct device *dev)
 	if (!mdata)
 		return -EPERM;
 
+
+	mdata->pp_reg_bus_clt = mdss_reg_bus_vote_client_create("pp\0");
+	if (IS_ERR_OR_NULL(mdata->pp_reg_bus_clt))
+		pr_err("bus client register failed\n");
+
 	mutex_lock(&mdss_pp_mutex);
 	if (!mdss_pp_res) {
 		mdss_pp_res = devm_kzalloc(dev, sizeof(*mdss_pp_res),
@@ -2402,6 +2405,8 @@ pp_exit:
 
 void mdss_mdp_pp_term(struct device *dev)
 {
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
 	if (mdss_pp_res) {
 		mutex_lock(&mdss_pp_mutex);
 		devm_kfree(dev, mdss_pp_res->dspp_hist);
@@ -2409,6 +2414,9 @@ void mdss_mdp_pp_term(struct device *dev)
 		mdss_pp_res = NULL;
 		mutex_unlock(&mdss_pp_mutex);
 	}
+
+	mdss_reg_bus_vote_client_destroy(mdata->pp_reg_bus_clt);
+	mdata->pp_reg_bus_clt = NULL;
 }
 
 int mdss_mdp_pp_overlay_init(struct msm_fb_data_type *mfd)
