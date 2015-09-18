@@ -4,6 +4,7 @@
  *
  * Copyright (c)2013 Maxim Integrated Products, Inc.
  * Copyright (C) 2013, NVIDIA Corporation.  All Rights Reserved.
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -44,7 +45,6 @@
 * Netlink: common kernel/user space macros                                   *
 \****************************************************************************/
 
-//#define NL_BUF_SIZE  8192
 #define NL_BUF_SIZE  30720
 
 #define NL_ATTR_FIRST(nptr) \
@@ -118,11 +118,13 @@ nl_add_attr(void *buf, __u16 type, void *ptr, __u16 len)
 enum {
 	MC_DRIVER,
 	MC_FUSION,
-	MC_REQUIRED_GROUPS,
+	MC_EVENT_BROADCAST,
+	MC_GROUPS,
 };
 
 #define MC_DRIVER_NAME     "driver"
 #define MC_FUSION_NAME     "fusion"
+#define MC_EVENT_BROADCAST_NAME  "event_broadcast"
 
 #define NL_FAMILY_VERSION  1
 
@@ -344,8 +346,8 @@ struct maxim_sti_pdata {
 	u32       default_reset_state;
 	u32       tx_buf_size;
 	u32       rx_buf_size;
-	u32       gpio_reset;
-	u32       gpio_irq;
+	int       gpio_reset;
+	int       gpio_irq;
 	int       (*init)(struct maxim_sti_pdata *pdata, bool init);
 	void      (*reset)(struct maxim_sti_pdata *pdata, int value);
 	int       (*irq)(struct maxim_sti_pdata *pdata);

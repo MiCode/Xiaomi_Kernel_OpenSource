@@ -1,0 +1,47 @@
+Maxim STI touch controller:
+
+Required properties:
+- spi-max-frequency: Maximum SPI frequency supported by the controller.
+- avdd-supply: analog power supply.
+- dvdd-supply: digial power supply.
+- maxim_sti,irq-gpio: irq gpio.
+- maxim_sti,reset-gpio: reset gpio.
+- maxim_sti,touch_fusion: path to touch_fusion daemon.
+- maxim_sti,config_file: path to config file.
+- maxim_sti,fw_name: name of firmware file.
+
+Optional properties:
+ - pinctrl-names	: this should be defined if a target uses pinctrl framework.
+			See "pinctrl" in documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt.
+			It should specify the names of the configs that pinctrl can install in driver.
+			Following are the pinctrl configs that can be installed:
+			"pmx_ts_active" : active configuration of pins. This should specify active
+			config defined in pin groups of interrupt and reset gpios.
+			"pmx_ts_suspend" : disabled configuration of pins. This should specify sleep
+			config defined in pin groups of interrupt and reset gpios.
+
+Example:
+
+&spi_13 { /* BLSP1 QUP3 */
+	status = "ok";
+	maxim_sti@0 {
+		compatible = "maxim,maxim_sti";
+		reg = <0>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <65 0>;
+		spi-max-frequency = <16000000>;
+		avdd-supply = <&pm8950_l17>;
+		dvdd-supply = <&pm8950_l6>;
+		spi-supply = <&pm8950_l5>;
+		maxim_sti,irq-gpio = <&msm_gpio 65 0x00>;
+		maxim_sti,reset-gpio = <&msm_gpio 64 0x00>;
+		maxim_sti,touch_fusion = "/vendor/bin/touch_fusion";
+		maxim_sti,config_file = "/vendor/firmware/touch_fusion_panel_id_0x%04x.cfg";
+		maxim_sti,fw_name = "maxim_fp35.bin";
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+       };
+};
+
