@@ -40,7 +40,7 @@
 &clock_gpu {
 	compatible = "qcom,gpucc-8996-v3";
 	qcom,gfx3d_clk_src_v2-opp-handle = <&msm_gpu>;
-	qcom,gfxfreq-corner-v2 =
+	qcom,gfxfreq-speedbin0 =
 		<	   0  0  0 >,
 		<  133000000  2  4 >,
 		<  214000000  3  4 >,
@@ -49,7 +49,7 @@
 		<  510000000  6  5 >,
 		<  560000000  7  7 >,
 		<  624000000  8  7 >;
-	qcom,gpufreq-mx-corner-v2 =
+	qcom,gfxfreq-mx-speedbin0 =
 		<	   0  0 >,
 		<  133000000  4 >,
 		<  214000000  4 >,
@@ -58,6 +58,21 @@
 		<  510000000  5 >,
 		<  560000000  7 >,
 		<  624000000  7 >;
+
+	qcom,gfxfreq-speedbin1 =
+		<	   0  0  0 >,
+		<  133000000  2  4 >,
+		<  214000000  3  4 >,
+		<  315000000  4  4 >,
+		<  401800000  5  5 >,
+		<  510000000  6  5 >;
+	qcom,gfxfreq-mx-speedbin1 =
+		<	   0  0 >,
+		<  133000000  4 >,
+		<  214000000  4 >,
+		<  315000000  4 >,
+		<  401800000  5 >,
+		<  510000000  5 >;
 };
 
 &gdsc_gpu_gx {

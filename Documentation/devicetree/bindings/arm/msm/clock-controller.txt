@@ -84,6 +84,13 @@ Optional properties:
 			    operate at. Drivers can use the OPP library API to
 			    operate on the list of OPPs registered using these
 			    values.
+- qcom,<clk>-speedbinX: A table of frequency (Hz) to voltage (corner) mapping
+			that represents the max frequency possible for each
+			supported voltage level for the clock.
+			'X' is the speed bin into which the device falls into -
+			a bin will have unique frequency-voltage relationships.
+			The value 'X' is read from efuse registers, and the right
+			table is picked from multiple possible tables.
 - qcom,<clock-name>-opp-handle: phandle references to the devices for which OPP
 			table is filled with the clock frequency and voltage
 			values.
