@@ -454,7 +454,7 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 		if (temp && !is_dynamic_output_buffer_mode(b, inst)) {
 			dprintk(VIDC_DBG,
 				"This memory region has already been prepared\n");
-			rc = -EINVAL;
+			rc = 0;
 			mutex_unlock(&inst->registeredbufs.lock);
 			goto exit;
 		}
@@ -827,13 +827,11 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 		return -EINVAL;
 	}
 
-	if (is_dynamic_output_buffer_mode(b, inst)) {
-		rc = map_and_register_buf(inst, b);
-		if (rc == -EEXIST)
-			return 0;
-		if (rc)
-			return rc;
-	}
+	rc = map_and_register_buf(inst, b);
+	if (rc == -EEXIST)
+		return 0;
+	if (rc)
+		return rc;
 
 	for (i = 0; i < b->length; ++i) {
 		if (EXTRADATA_IDX(b->length) &&
