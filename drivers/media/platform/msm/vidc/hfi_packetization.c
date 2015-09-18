@@ -1050,30 +1050,6 @@ int create_pkt_cmd_session_set_property(
 
 		break;
 	}
-	case HAL_PARAM_BUFFER_SIZE_MINIMUM:
-	{
-		struct hfi_buffer_size_minimum *hfi;
-		struct hal_buffer_size_minimum *prop =
-			(struct hal_buffer_size_minimum *) pdata;
-		u32 buffer_type;
-
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_BUFFER_SIZE_MINIMUM;
-
-		hfi = (struct hfi_buffer_size_minimum *)
-			&pkt->rg_property_data[1];
-		hfi->buffer_size = prop->buffer_size;
-
-		buffer_type = get_hfi_buffer(prop->buffer_type);
-		if (buffer_type)
-			hfi->buffer_type = buffer_type;
-		else
-			return -EINVAL;
-
-		pkt->size += sizeof(u32) + sizeof(struct
-				hfi_buffer_count_actual);
-		break;
-	}
 	case HAL_PARAM_NAL_STREAM_FORMAT_SELECT:
 	{
 		struct hfi_nal_stream_format_select *hfi;
@@ -1985,6 +1961,7 @@ int create_pkt_cmd_session_set_property(
 	case HAL_CONFIG_VDEC_MULTI_STREAM:
 	case HAL_PARAM_VENC_MULTI_SLICE_INFO:
 	case HAL_CONFIG_VENC_TIMESTAMP_SCALE:
+	case HAL_PARAM_BUFFER_SIZE_MINIMUM:
 	default:
 		dprintk(VIDC_ERR, "DEFAULT: Calling %#x\n", ptype);
 		rc = -ENOTSUPP;
@@ -2134,6 +2111,30 @@ static int create_3x_pkt_cmd_session_set_property(
 	case HAL_PARAM_VDEC_CONTINUE_DATA_TRANSFER:
 	{
 		rc = -ENOTSUPP;
+		break;
+	}
+	case HAL_PARAM_BUFFER_SIZE_MINIMUM:
+	{
+		struct hfi_buffer_size_minimum *hfi;
+		struct hal_buffer_size_minimum *prop =
+			(struct hal_buffer_size_minimum *) pdata;
+		u32 buffer_type;
+
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_BUFFER_SIZE_MINIMUM;
+
+		hfi = (struct hfi_buffer_size_minimum *)
+			&pkt->rg_property_data[1];
+		hfi->buffer_size = prop->buffer_size;
+
+		buffer_type = get_hfi_buffer(prop->buffer_type);
+		if (buffer_type)
+			hfi->buffer_type = buffer_type;
+		else
+			return -EINVAL;
+
+		pkt->size += sizeof(u32) + sizeof(struct
+				hfi_buffer_count_actual);
 		break;
 	}
 	default:
