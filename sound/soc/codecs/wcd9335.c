@@ -348,6 +348,18 @@ enum {
 	INTn_2_INP_SEL_PROXIMITY,
 };
 
+enum {
+	INTERP_EAR = 0,
+	INTERP_HPHL,
+	INTERP_HPHR,
+	INTERP_LO1,
+	INTERP_LO2,
+	INTERP_LO3,
+	INTERP_LO4,
+	INTERP_SPKR1,
+	INTERP_SPKR2,
+};
+
 struct interp_sample_rate {
 	int sample_rate;
 	int rate_val;
@@ -471,6 +483,8 @@ static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
 
 static struct snd_soc_dai_driver tasha_dai[];
 static int wcd9335_get_micb_vout_ctl_val(u32 micb_mv);
+
+static int tasha_config_compander(struct snd_soc_codec *, int, int);
 
 /* Hold instance to soundwire platform device */
 struct tasha_swr_ctrl_data {
@@ -3710,6 +3724,8 @@ static int tasha_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 		tasha_codec_enable_prim_interpolator(codec, reg, event);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
+		tasha_config_compander(codec, w->shift, event);
+
 		/* apply gain after int clk is enabled */
 		if (reg == WCD9335_CDC_RX0_RX_PATH_CTL)
 			gain_reg = WCD9335_CDC_RX0_RX_VOL_CTL;
@@ -3737,6 +3753,7 @@ static int tasha_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 		snd_soc_write(codec, gain_reg, snd_soc_read(codec, gain_reg));
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		tasha_config_compander(codec, w->shift, event);
 		tasha_codec_enable_prim_interpolator(codec, reg, event);
 		break;
 	};
@@ -4970,15 +4987,6 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX INT7 SEC MIX", NULL, "RX INT7 SPLINE MIX"},
 	{"RX INT7 MIX2", NULL, "RX INT7 SEC MIX"},
 	{"RX INT7 MIX2", NULL, "RX INT7 MIX2 INP"},
-
-	{"RX INT1 MIX2", NULL, "COMP1_CLK"},
-	{"RX INT2 MIX2", NULL, "COMP2_CLK"},
-	{"RX INT3 MIX2", NULL, "COMP3_CLK"},
-	{"RX INT4 MIX2", NULL, "COMP4_CLK"},
-	{"RX INT5 MIX2", NULL, "COMP5_CLK"},
-	{"RX INT6 MIX2", NULL, "COMP6_CLK"},
-	{"RX INT7 MIX2", NULL, "COMP7_CLK"},
-	{"RX INT8 SEC MIX", NULL, "COMP8_CLK"},
 
 	{"RX INT7 INTERP", NULL, "RX INT7 MIX2"},
 
@@ -6604,16 +6612,20 @@ static int tasha_ear_pa_gain_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int tasha_config_compander(struct snd_soc_dapm_widget *w,
-				  struct snd_kcontrol *kcontrol, int event)
+static int tasha_config_compander(struct snd_soc_codec *codec, int interp_n,
+				  int event)
 {
-	struct snd_soc_codec *codec = w->codec;
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
-	const int comp = w->shift;
+	int comp;
 	u16 comp_ctl0_reg, rx_path_cfg0_reg;
 
-	pr_debug("%s: %s event %d compander %d, enabled %d", __func__,
-		 w->name, event, comp + 1, tasha->comp_enabled[comp]);
+	/* EAR does not have compander */
+	if (!interp_n)
+		return 0;
+
+	comp = interp_n - 1;
+	dev_dbg(codec->dev, "%s: event %d compander %d, enabled %d\n",
+		__func__, event, comp + 1, tasha->comp_enabled[comp]);
 
 	if (!tasha->comp_enabled[comp])
 		return 0;
@@ -6621,23 +6633,22 @@ static int tasha_config_compander(struct snd_soc_dapm_widget *w,
 	comp_ctl0_reg = WCD9335_CDC_COMPANDER1_CTL0 + (comp * 8);
 	rx_path_cfg0_reg = WCD9335_CDC_RX1_RX_PATH_CFG0 + (comp * 20);
 
-	switch (event) {
-	case SND_SOC_DAPM_PRE_PMU:
+	if (SND_SOC_DAPM_EVENT_ON(event)) {
 		/* Enable Compander Clock */
 		snd_soc_update_bits(codec, comp_ctl0_reg, 0x01, 0x01);
 		snd_soc_update_bits(codec, comp_ctl0_reg, 0x02, 0x02);
 		snd_soc_update_bits(codec, comp_ctl0_reg, 0x02, 0x00);
 		snd_soc_update_bits(codec, rx_path_cfg0_reg, 0x02, 0x02);
-		break;
-	case SND_SOC_DAPM_PRE_PMD:
+	}
+
+	if (SND_SOC_DAPM_EVENT_OFF(event)) {
 		snd_soc_update_bits(codec, comp_ctl0_reg, 0x04, 0x04);
 		snd_soc_update_bits(codec, rx_path_cfg0_reg, 0x02, 0x00);
 		snd_soc_update_bits(codec, comp_ctl0_reg, 0x02, 0x02);
 		snd_soc_update_bits(codec, comp_ctl0_reg, 0x02, 0x00);
 		snd_soc_update_bits(codec, comp_ctl0_reg, 0x01, 0x00);
 		snd_soc_update_bits(codec, comp_ctl0_reg, 0x04, 0x00);
-		break;
-	};
+	}
 
 	return 0;
 }
@@ -8432,38 +8443,6 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_ADC_E("ADC6", NULL, WCD9335_ANA_AMIC6, 7, 0,
 			   tasha_codec_enable_adc, SND_SOC_DAPM_PRE_PMU),
 
-	SND_SOC_DAPM_SUPPLY("COMP1_CLK", SND_SOC_NOPM, COMPANDER_1, 0,
-			    tasha_config_compander, SND_SOC_DAPM_PRE_PMU |
-			    SND_SOC_DAPM_PRE_PMD),
-
-	SND_SOC_DAPM_SUPPLY("COMP2_CLK", SND_SOC_NOPM, COMPANDER_2, 0,
-			    tasha_config_compander, SND_SOC_DAPM_PRE_PMU |
-			    SND_SOC_DAPM_PRE_PMD),
-
-	SND_SOC_DAPM_SUPPLY("COMP3_CLK", SND_SOC_NOPM, COMPANDER_3, 0,
-			    tasha_config_compander, SND_SOC_DAPM_PRE_PMU |
-			    SND_SOC_DAPM_PRE_PMD),
-
-	SND_SOC_DAPM_SUPPLY("COMP4_CLK", SND_SOC_NOPM, COMPANDER_4, 0,
-			    tasha_config_compander, SND_SOC_DAPM_PRE_PMU |
-			    SND_SOC_DAPM_PRE_PMD),
-
-	SND_SOC_DAPM_SUPPLY("COMP5_CLK", SND_SOC_NOPM, COMPANDER_5, 0,
-			    tasha_config_compander, SND_SOC_DAPM_PRE_PMU |
-			    SND_SOC_DAPM_PRE_PMD),
-
-	SND_SOC_DAPM_SUPPLY("COMP6_CLK", SND_SOC_NOPM, COMPANDER_6, 0,
-			    tasha_config_compander, SND_SOC_DAPM_PRE_PMU |
-			    SND_SOC_DAPM_PRE_PMD),
-
-	SND_SOC_DAPM_SUPPLY("COMP7_CLK", SND_SOC_NOPM, COMPANDER_7, 0,
-			    tasha_config_compander, SND_SOC_DAPM_PRE_PMU |
-			    SND_SOC_DAPM_PRE_PMD),
-
-	SND_SOC_DAPM_SUPPLY("COMP8_CLK", SND_SOC_NOPM, COMPANDER_8, 0,
-			    tasha_config_compander, SND_SOC_DAPM_PRE_PMU |
-			    SND_SOC_DAPM_PRE_PMD),
-
 	SND_SOC_DAPM_INPUT("AMIC1"),
 	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1", SND_SOC_NOPM, 0, 0,
 			       tasha_codec_enable_micbias,
@@ -8604,39 +8583,48 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 		&rx_int2_dem_inp_mux),
 
 	SND_SOC_DAPM_MUX_E("RX INT0 INTERP", SND_SOC_NOPM,
-		0, 0, &rx_int0_interp_mux, tasha_codec_enable_interpolator,
+		INTERP_EAR, 0, &rx_int0_interp_mux,
+		tasha_codec_enable_interpolator,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 		SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MUX_E("RX INT1 INTERP", SND_SOC_NOPM,
-		0, 0, &rx_int1_interp_mux, tasha_codec_enable_interpolator,
+		INTERP_HPHL, 0, &rx_int1_interp_mux,
+		tasha_codec_enable_interpolator,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 		SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MUX_E("RX INT2 INTERP", SND_SOC_NOPM,
-		0, 0, &rx_int2_interp_mux, tasha_codec_enable_interpolator,
+		INTERP_HPHR, 0, &rx_int2_interp_mux,
+		tasha_codec_enable_interpolator,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 		SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MUX_E("RX INT3 INTERP", SND_SOC_NOPM,
-		0, 0, &rx_int3_interp_mux, tasha_codec_enable_interpolator,
+		INTERP_LO1, 0, &rx_int3_interp_mux,
+		tasha_codec_enable_interpolator,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 		SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MUX_E("RX INT4 INTERP", SND_SOC_NOPM,
-		0, 0, &rx_int4_interp_mux, tasha_codec_enable_interpolator,
+		INTERP_LO2, 0, &rx_int4_interp_mux,
+		tasha_codec_enable_interpolator,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 		SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MUX_E("RX INT5 INTERP", SND_SOC_NOPM,
-		0, 0, &rx_int5_interp_mux, tasha_codec_enable_interpolator,
+		INTERP_LO3, 0, &rx_int5_interp_mux,
+		tasha_codec_enable_interpolator,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 		SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MUX_E("RX INT6 INTERP", SND_SOC_NOPM,
-		0, 0, &rx_int6_interp_mux, tasha_codec_enable_interpolator,
+		INTERP_LO4, 0, &rx_int6_interp_mux,
+		tasha_codec_enable_interpolator,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 		SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MUX_E("RX INT7 INTERP", SND_SOC_NOPM,
-		0, 0, &rx_int7_interp_mux, tasha_codec_enable_interpolator,
+		INTERP_SPKR1, 0, &rx_int7_interp_mux,
+		tasha_codec_enable_interpolator,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 		SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MUX_E("RX INT8 INTERP", SND_SOC_NOPM,
-		0, 0, &rx_int8_interp_mux, tasha_codec_enable_interpolator,
+		INTERP_SPKR2, 0, &rx_int8_interp_mux,
+		tasha_codec_enable_interpolator,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 		SND_SOC_DAPM_POST_PMD),
 
