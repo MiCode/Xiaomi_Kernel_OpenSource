@@ -433,6 +433,7 @@ struct diagchar_dev {
 	struct device *diag_dev;
 	int ref_count;
 	struct mutex diagchar_mutex;
+	struct mutex diag_file_mutex;
 	wait_queue_head_t wait_q;
 	struct diag_client_map *client_map;
 	int *data_ready;
