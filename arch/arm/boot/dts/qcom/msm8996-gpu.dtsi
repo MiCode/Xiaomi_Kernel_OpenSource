@@ -129,7 +129,6 @@
 		vddcx-supply = <&gdsc_gpu>;
 		vdd-supply = <&gdsc_gpu_gx>;
 
-		qcom,gx-retention;
 		/* Power levels */
 		qcom,gpu-pwrlevels {
 			#address-cells = <1>;
