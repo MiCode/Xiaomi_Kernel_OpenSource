@@ -27,6 +27,7 @@
 #include <linux/tick.h>
 #include <linux/time.h>
 #include <linux/timer.h>
+#include <linux/hrtimer.h>
 #include <linux/workqueue.h>
 #include <linux/kthread.h>
 #include <linux/slab.h>
@@ -37,6 +38,7 @@
 struct cpufreq_interactive_policyinfo {
 	struct timer_list policy_timer;
 	struct timer_list policy_slack_timer;
+	struct hrtimer notif_timer;
 	spinlock_t load_lock; /* protects load tracking stat */
 	u64 last_evaluated_jiffy;
 	struct cpufreq_policy *policy;
@@ -52,6 +54,7 @@ struct cpufreq_interactive_policyinfo {
 	struct rw_semaphore enable_sem;
 	bool reject_notification;
 	bool notif_pending;
+	unsigned long notif_cpu;
 	int governor_enabled;
 	struct cpufreq_interactive_tunables *cached_tunables;
 	struct sched_load *sl;
@@ -753,10 +756,36 @@ static int load_change_callback(struct notifier_block *nb, unsigned long val,
 	struct cpufreq_interactive_tunables *tunables;
 	unsigned long flags;
 
-	if (speedchange_task == current)
-		return 0;
 	if (!ppol || ppol->reject_notification)
 		return 0;
+
+	if (!down_read_trylock(&ppol->enable_sem))
+		return 0;
+	if (!ppol->governor_enabled)
+		goto exit;
+
+	tunables = ppol->policy->governor_data;
+	if (!tunables->use_sched_load || !tunables->use_migration_notif)
+		goto exit;
+
+	spin_lock_irqsave(&ppol->target_freq_lock, flags);
+	ppol->notif_pending = true;
+	ppol->notif_cpu = cpu;
+	spin_unlock_irqrestore(&ppol->target_freq_lock, flags);
+
+	if (!hrtimer_is_queued(&ppol->notif_timer))
+		hrtimer_start(&ppol->notif_timer, ms_to_ktime(1),
+			      HRTIMER_MODE_REL);
+exit:
+	up_read(&ppol->enable_sem);
+	return 0;
+}
+
+static enum hrtimer_restart cpufreq_interactive_hrtimer(struct hrtimer *timer)
+{
+	struct cpufreq_interactive_policyinfo *ppol = container_of(timer,
+			struct cpufreq_interactive_policyinfo, notif_timer);
+	int cpu;
 
 	if (!down_read_trylock(&ppol->enable_sem))
 		return 0;
@@ -764,22 +793,14 @@ static int load_change_callback(struct notifier_block *nb, unsigned long val,
 		up_read(&ppol->enable_sem);
 		return 0;
 	}
-	tunables = ppol->policy->governor_data;
-	if (!tunables->use_sched_load || !tunables->use_migration_notif) {
-		up_read(&ppol->enable_sem);
-		return 0;
-	}
-
+	cpu = ppol->notif_cpu;
 	trace_cpufreq_interactive_load_change(cpu);
-	spin_lock_irqsave(&ppol->target_freq_lock, flags);
-	ppol->notif_pending = true;
-	spin_unlock_irqrestore(&ppol->target_freq_lock, flags);
 	del_timer(&ppol->policy_timer);
 	del_timer(&ppol->policy_slack_timer);
 	cpufreq_interactive_timer(cpu);
 
 	up_read(&ppol->enable_sem);
-	return 0;
+	return HRTIMER_NORESTART;
 }
 
 static struct notifier_block load_notifier_block = {
@@ -1544,6 +1565,8 @@ static struct cpufreq_interactive_policyinfo *get_policyinfo(
 	ppol->policy_timer.function = cpufreq_interactive_timer;
 	init_timer(&ppol->policy_slack_timer);
 	ppol->policy_slack_timer.function = cpufreq_interactive_nop_timer;
+	hrtimer_init(&ppol->notif_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	ppol->notif_timer.function = cpufreq_interactive_hrtimer;
 	spin_lock_init(&ppol->load_lock);
 	spin_lock_init(&ppol->target_freq_lock);
 	init_rwsem(&ppol->enable_sem);
