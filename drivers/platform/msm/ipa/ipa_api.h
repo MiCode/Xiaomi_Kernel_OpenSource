@@ -155,6 +155,9 @@ struct ipa_api_controller {
 
 	int (*ipa_sys_teardown)(u32 clnt_hdl);
 
+	int (*ipa_sys_update_gsi_hdls)(u32 clnt_hdl, unsigned long gsi_ch_hdl,
+		unsigned long gsi_ev_hdl);
+
 	int (*ipa_connect_wdi_pipe)(struct ipa_wdi_in_params *in,
 		struct ipa_wdi_out_params *out);
 
@@ -296,6 +299,8 @@ struct ipa_api_controller {
 
 	int (*ipa_ap_resume)(struct device *dev);
 
+	int (*ipa_stop_gsi_channel)(u32 clnt_hdl);
+
 	struct iommu_domain *(*ipa_get_smmu_domain)(void);
 
 	int (*ipa_disable_apps_wan_cons_deaggr)(uint32_t agg_size,
@@ -312,6 +317,8 @@ struct ipa_api_controller {
 
 	int (*ipa_create_wdi_mapping)(u32 num_buffers,
 		struct ipa_wdi_buffer_info *info);
+
+	struct ipa_gsi_ep_config *(*ipa_get_gsi_ep_info)(int ipa_ep_idx);
 
 };
 

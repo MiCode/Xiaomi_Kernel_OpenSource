@@ -1569,6 +1569,9 @@ int ipa2_sys_setup(struct ipa_sys_connect_params *sys_in,
 
 int ipa2_sys_teardown(u32 clnt_hdl);
 
+int ipa2_sys_update_gsi_hdls(u32 clnt_hdl, unsigned long gsi_ch_hdl,
+	unsigned long gsi_ev_hdl);
+
 int ipa2_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		struct ipa_wdi_out_params *out);
 int ipa2_disconnect_wdi_pipe(u32 clnt_hdl);

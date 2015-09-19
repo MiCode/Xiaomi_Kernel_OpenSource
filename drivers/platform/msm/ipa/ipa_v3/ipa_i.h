@@ -167,14 +167,6 @@
 #define MAX_RESOURCE_TO_CLIENTS (IPA_CLIENT_MAX)
 #define IPA_MEM_PART(x_) (ipa3_ctx->ctrl->mem_partition.x_)
 
-struct ipa_gsi_ep_config {
-	int ipa_ep_num;
-	int ipa_gsi_chan_num;
-	int ipa_if_tlv;
-	int ipa_if_aos;
-	int ee;
-};
-
 #define IPA_SMMU_AP_VA_START 0x1000
 #define IPA_SMMU_AP_VA_SIZE 0x40000000
 #define IPA_SMMU_AP_VA_END (IPA_SMMU_AP_VA_START +  IPA_SMMU_AP_VA_SIZE)
@@ -1527,6 +1519,8 @@ int ipa3_connect(const struct ipa_connect_params *in,
 		u32 *clnt_hdl);
 int ipa3_disconnect(u32 clnt_hdl);
 
+int ipa3_stop_gsi_channel(u32 clnt_hdl);
+
 /*
  * Resume / Suspend
  */
@@ -1691,6 +1685,9 @@ int ipa3_sys_setup(struct ipa_sys_connect_params *sys_in,
 	u32 *ipa_pipe_num, u32 *clnt_hdl, bool en_status);
 
 int ipa3_sys_teardown(u32 clnt_hdl);
+
+int ipa3_sys_update_gsi_hdls(u32 clnt_hdl, unsigned long gsi_ch_hdl,
+	unsigned long gsi_ev_hdl);
 
 int ipa3_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		struct ipa_wdi_out_params *out);
@@ -2038,7 +2035,7 @@ int ipa3_uc_mhi_stop_event_update_channel(int channelHandle);
 int ipa3_uc_mhi_print_stats(char *dbg_buff, int size);
 int ipa3_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);
 void ipa3_tag_free_buf(void *user1, int user2);
-struct ipa_gsi_ep_config *ipa_get_gsi_ep_info(int ipa_ep_idx);
+struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info(int ipa_ep_idx);
 
 u32 ipa3_get_num_pipes(void);
 struct ipa_smmu_cb_ctx *ipa3_get_wlan_smmu_ctx(void);
@@ -2056,6 +2053,5 @@ int ipa3_set_rt_tuple_mask(int tbl_idx, struct ipa3_hash_tuple *tuple);
 void ipa3_set_resorce_groups_min_max_limits(void);
 void ipa3_suspend_apps_pipes(bool suspend);
 
-int ipa3_stop_gsi_channel(unsigned long chan_hdl);
 
 #endif /* _IPA3_I_H_ */

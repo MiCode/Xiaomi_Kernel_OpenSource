@@ -4861,6 +4861,19 @@ int ipa2_disable_apps_wan_cons_deaggr(uint32_t agg_size, uint32_t agg_count)
 	return res;
 }
 
+static struct ipa_gsi_ep_config *ipa2_get_gsi_ep_info(int ipa_ep_idx)
+{
+	IPAERR("Not supported for IPA 2.x\n");
+	return NULL;
+}
+
+static int ipa2_stop_gsi_channel(u32 clnt_hdl)
+{
+	IPAERR("Not supported for IPA 2.x\n");
+	return -EFAULT;
+}
+
+
 int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	struct ipa_api_controller *api_ctrl)
 {
@@ -4926,6 +4939,7 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_free_skb = ipa2_free_skb;
 	api_ctrl->ipa_setup_sys_pipe = ipa2_setup_sys_pipe;
 	api_ctrl->ipa_teardown_sys_pipe = ipa2_teardown_sys_pipe;
+	api_ctrl->ipa_sys_update_gsi_hdls = ipa2_sys_update_gsi_hdls;
 	api_ctrl->ipa_sys_setup = ipa2_sys_setup;
 	api_ctrl->ipa_sys_teardown = ipa2_sys_teardown;
 	api_ctrl->ipa_connect_wdi_pipe = ipa2_connect_wdi_pipe;
@@ -5001,6 +5015,8 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 		ipa2_disable_apps_wan_cons_deaggr;
 	api_ctrl->ipa_rm_add_dependency_sync = ipa2_rm_add_dependency_sync;
 	api_ctrl->ipa_get_dma_dev = ipa2_get_dma_dev;
+	api_ctrl->ipa_get_gsi_ep_info = ipa2_get_gsi_ep_info;
+	api_ctrl->ipa_stop_gsi_channel = ipa2_stop_gsi_channel;
 
 	return 0;
 }

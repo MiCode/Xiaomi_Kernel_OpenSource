@@ -51,6 +51,9 @@
 #define IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC (1000)
 #define IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC (2000)
 
+/* In IPAv3 only endpoints 0-3 can be configured to deaggregation */
+#define IPA_EP_SUPPORTS_DEAGGR(idx) ((idx) >= 0 && (idx) <= 3)
+
 /* configure IPA spare register 1 in order to have correct IPA version
  * set bits 0,2,3 and 4. see SpareBits documentation.xlsx
  */
@@ -175,15 +178,15 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 	[IPA_3_0][IPA_CLIENT_HSIC4_PROD]          = IPA_CLIENT_NOT_USED,
 	[IPA_3_0][IPA_CLIENT_USB4_PROD]           = IPA_CLIENT_NOT_USED,
 	[IPA_3_0][IPA_CLIENT_HSIC5_PROD]          = IPA_CLIENT_NOT_USED,
-	[IPA_3_0][IPA_CLIENT_USB_PROD]            = {0, IPA_GROUP_UL, true},
+	[IPA_3_0][IPA_CLIENT_USB_PROD]            = {1, IPA_GROUP_UL, true},
 	[IPA_3_0][IPA_CLIENT_UC_USB_PROD]         = {2, IPA_GROUP_UL, true},
 	[IPA_3_0][IPA_CLIENT_A5_WLAN_AMPDU_PROD]  = IPA_CLIENT_NOT_USED,
 	[IPA_3_0][IPA_CLIENT_A2_EMBEDDED_PROD]    = IPA_CLIENT_NOT_USED,
 	[IPA_3_0][IPA_CLIENT_A2_TETHERED_PROD]    = IPA_CLIENT_NOT_USED,
-	[IPA_3_0][IPA_CLIENT_APPS_LAN_WAN_PROD]   = {3, IPA_GROUP_UL, true},
+	[IPA_3_0][IPA_CLIENT_APPS_LAN_WAN_PROD]   = {14, IPA_GROUP_UL, true},
 	[IPA_3_0][IPA_CLIENT_APPS_CMD_PROD]
-					= {4, IPA_GROUP_IMM_CMD, false},
-	[IPA_3_0][IPA_CLIENT_ODU_PROD]            = {11, IPA_GROUP_UL, true},
+					= {22, IPA_GROUP_IMM_CMD, false},
+	[IPA_3_0][IPA_CLIENT_ODU_PROD]            = {12, IPA_GROUP_UL, true},
 	[IPA_3_0][IPA_CLIENT_MHI_PROD]            = {0, IPA_GROUP_UL, true},
 	[IPA_3_0][IPA_CLIENT_Q6_LAN_PROD]         = {9, IPA_GROUP_UL, false},
 	[IPA_3_0][IPA_CLIENT_Q6_WAN_PROD]         = {5, IPA_GROUP_DL, true},
@@ -192,15 +195,15 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 	[IPA_3_0][IPA_CLIENT_Q6_DECOMP_PROD]      = {7, IPA_GROUP_Q6ZIP, false},
 	[IPA_3_0][IPA_CLIENT_Q6_DECOMP2_PROD]     = {8, IPA_GROUP_Q6ZIP, false},
 	[IPA_3_0][IPA_CLIENT_MEMCPY_DMA_SYNC_PROD]
-					= {14, IPA_GROUP_DMA, false},
+					= {12, IPA_GROUP_DMA, false},
 	[IPA_3_0][IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD]
-					= {11, IPA_GROUP_DMA, false},
+					= {13, IPA_GROUP_DMA, false},
 	/* Only for test purpose */
-	[IPA_3_0][IPA_CLIENT_TEST_PROD]           = {0, IPA_GROUP_UL, true},
-	[IPA_3_0][IPA_CLIENT_TEST1_PROD]          = {0, IPA_GROUP_UL, true},
-	[IPA_3_0][IPA_CLIENT_TEST2_PROD]          = {1, IPA_GROUP_UL, true},
-	[IPA_3_0][IPA_CLIENT_TEST3_PROD]          = {13, IPA_GROUP_UL, true},
-	[IPA_3_0][IPA_CLIENT_TEST4_PROD]          = {14, IPA_GROUP_UL, true},
+	[IPA_3_0][IPA_CLIENT_TEST_PROD]           = {1, IPA_GROUP_UL, true},
+	[IPA_3_0][IPA_CLIENT_TEST1_PROD]          = {1, IPA_GROUP_UL, true},
+	[IPA_3_0][IPA_CLIENT_TEST2_PROD]          = {3, IPA_GROUP_UL, true},
+	[IPA_3_0][IPA_CLIENT_TEST3_PROD]          = {12, IPA_GROUP_UL, true},
+	[IPA_3_0][IPA_CLIENT_TEST4_PROD]          = {13, IPA_GROUP_UL, true},
 
 	[IPA_3_0][IPA_CLIENT_HSIC1_CONS]          = IPA_CLIENT_NOT_USED,
 	[IPA_3_0][IPA_CLIENT_WLAN1_CONS]          = {25, IPA_GROUP_DL, false},
@@ -214,33 +217,33 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 	[IPA_3_0][IPA_CLIENT_USB4_CONS]           = IPA_CLIENT_NOT_USED,
 	[IPA_3_0][IPA_CLIENT_WLAN4_CONS]          = {29, IPA_GROUP_DL, false},
 	[IPA_3_0][IPA_CLIENT_HSIC5_CONS]          = IPA_CLIENT_NOT_USED,
-	[IPA_3_0][IPA_CLIENT_USB_CONS]            = {23, IPA_GROUP_DL, false},
+	[IPA_3_0][IPA_CLIENT_USB_CONS]            = {26, IPA_GROUP_DL, false},
 	[IPA_3_0][IPA_CLIENT_USB_DPL_CONS]        = {17, IPA_GROUP_DPL, false},
 	[IPA_3_0][IPA_CLIENT_A2_EMBEDDED_CONS]    = IPA_CLIENT_NOT_USED,
 	[IPA_3_0][IPA_CLIENT_A2_TETHERED_CONS]    = IPA_CLIENT_NOT_USED,
 	[IPA_3_0][IPA_CLIENT_A5_LAN_WAN_CONS]     = IPA_CLIENT_NOT_USED,
 	[IPA_3_0][IPA_CLIENT_APPS_LAN_CONS]       = {15, IPA_GROUP_UL, false},
 	[IPA_3_0][IPA_CLIENT_APPS_WAN_CONS]       = {16, IPA_GROUP_DL, false},
-	[IPA_3_0][IPA_CLIENT_ODU_EMB_CONS]        = {26, IPA_GROUP_DL, false},
-	[IPA_3_0][IPA_CLIENT_ODU_TETH_CONS]       = {30, IPA_GROUP_DL, false},
+	[IPA_3_0][IPA_CLIENT_ODU_EMB_CONS]        = {23, IPA_GROUP_DL, false},
+	[IPA_3_0][IPA_CLIENT_ODU_TETH_CONS]       = IPA_CLIENT_NOT_USED,
 	[IPA_3_0][IPA_CLIENT_MHI_CONS]            = {23, IPA_GROUP_DL, false},
 	[IPA_3_0][IPA_CLIENT_Q6_LAN_CONS]         = {19, IPA_GROUP_DL, false},
 	[IPA_3_0][IPA_CLIENT_Q6_WAN_CONS]         = {18, IPA_GROUP_UL, false},
-	[IPA_3_0][IPA_CLIENT_Q6_DUN_CONS]         = {20, IPA_GROUP_DIAG, false},
+	[IPA_3_0][IPA_CLIENT_Q6_DUN_CONS]         = {30, IPA_GROUP_DIAG, false},
 	[IPA_3_0][IPA_CLIENT_Q6_DECOMP_CONS]
 					= {21, IPA_GROUP_Q6ZIP, false},
 	[IPA_3_0][IPA_CLIENT_Q6_DECOMP2_CONS]
-					= {22, IPA_GROUP_Q6ZIP, false},
+					= {4, IPA_GROUP_Q6ZIP, false},
 	[IPA_3_0][IPA_CLIENT_MEMCPY_DMA_SYNC_CONS]
-					= {30, IPA_GROUP_DMA, false},
+					= {28, IPA_GROUP_DMA, false},
 	[IPA_3_0][IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS]
-					= {26, IPA_GROUP_DMA, false},
+					= {29, IPA_GROUP_DMA, false},
 	/* Only for test purpose */
-	[IPA_3_0][IPA_CLIENT_TEST_CONS]           = {27, IPA_GROUP_DL, false},
-	[IPA_3_0][IPA_CLIENT_TEST1_CONS]          = {27, IPA_GROUP_DL, false},
-	[IPA_3_0][IPA_CLIENT_TEST2_CONS]          = {28, IPA_GROUP_DL, false},
-	[IPA_3_0][IPA_CLIENT_TEST3_CONS]          = {29, IPA_GROUP_DL, false},
-	[IPA_3_0][IPA_CLIENT_TEST4_CONS]          = {30, IPA_GROUP_DL, false},
+	[IPA_3_0][IPA_CLIENT_TEST_CONS]           = {16, IPA_GROUP_DL, false},
+	[IPA_3_0][IPA_CLIENT_TEST1_CONS]          = {16, IPA_GROUP_DL, false},
+	[IPA_3_0][IPA_CLIENT_TEST2_CONS]          = {27, IPA_GROUP_DL, false},
+	[IPA_3_0][IPA_CLIENT_TEST3_CONS]          = {28, IPA_GROUP_DL, false},
+	[IPA_3_0][IPA_CLIENT_TEST4_CONS]          = {29, IPA_GROUP_DL, false},
 };
 
 /* this array include information tuple:
@@ -799,12 +802,12 @@ int ipa3_get_ep_mapping(enum ipa_client_type client)
 }
 
 /**
- * ipa_get_gsi_ep_info() - provide gsi ep information
+ * ipa3_get_gsi_ep_info() - provide gsi ep information
  * @ipa_ep_idx: IPA endpoint index
  *
  * Return value: pointer to ipa_gsi_ep_info
  */
-struct ipa_gsi_ep_config *ipa_get_gsi_ep_info(int ipa_ep_idx)
+struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info(int ipa_ep_idx)
 {
 	int i;
 
@@ -3215,6 +3218,13 @@ int ipa3_cfg_ep_aggr(u32 clnt_hdl, const struct ipa_ep_cfg_aggr *ep_aggr)
 		return -EINVAL;
 	}
 
+	if (ep_aggr->aggr_en == IPA_ENABLE_DEAGGR &&
+	    !IPA_EP_SUPPORTS_DEAGGR(clnt_hdl)) {
+		IPAERR("pipe=%d cannot be configured to DEAGGR\n", clnt_hdl);
+		WARN_ON(1);
+		return -EINVAL;
+	}
+
 	IPADBG("pipe=%d en=%d(%s), type=%d(%s), byte_limit=%d, time_limit=%d\n",
 			clnt_hdl,
 			ep_aggr->aggr_en,
@@ -4656,6 +4666,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_teardown_sys_pipe = ipa3_teardown_sys_pipe;
 	api_ctrl->ipa_sys_setup = ipa3_sys_setup;
 	api_ctrl->ipa_sys_teardown = ipa3_sys_teardown;
+	api_ctrl->ipa_sys_update_gsi_hdls = ipa3_sys_update_gsi_hdls;
 	api_ctrl->ipa_connect_wdi_pipe = ipa3_connect_wdi_pipe;
 	api_ctrl->ipa_disconnect_wdi_pipe = ipa3_disconnect_wdi_pipe;
 	api_ctrl->ipa_enable_wdi_pipe = ipa3_enable_wdi_pipe;
@@ -4729,6 +4740,8 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_dma_dev = ipa3_get_dma_dev;
 	api_ctrl->ipa_release_wdi_mapping = ipa3_release_wdi_mapping;
 	api_ctrl->ipa_create_wdi_mapping = ipa3_create_wdi_mapping;
+	api_ctrl->ipa_get_gsi_ep_info = ipa3_get_gsi_ep_info;
+	api_ctrl->ipa_stop_gsi_channel = ipa3_stop_gsi_channel;
 
 	return 0;
 }
@@ -4889,7 +4902,7 @@ void ipa3_suspend_apps_pipes(bool suspend)
 }
 
 /**
- * ipa_stop_gsi_channel_proc()- Stops a GSI channel in IPA
+ * ipa3_stop_gsi_channel()- Stops a GSI channel in IPA
  * @chan_hdl: GSI channel handle
  *
  * This function implements the sequence to stop a GSI channel
@@ -4897,60 +4910,76 @@ void ipa3_suspend_apps_pipes(bool suspend)
  *
  * Return value: 0 on success, negative otherwise
  */
-int ipa3_stop_gsi_channel(unsigned long chan_hdl)
+int ipa3_stop_gsi_channel(u32 clnt_hdl)
 {
 	struct ipa3_hw_imm_cmd_dma_task_32b_addr cmd;
 	struct ipa3_desc desc;
 	struct ipa3_mem_buffer mem;
 	int res;
 	int i;
+	struct ipa3_ep_context *ep;
+
+	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
+		ipa3_ctx->ep[clnt_hdl].valid == 0) {
+		IPAERR("bad parm.\n");
+		return -EINVAL;
+	}
+
+	ep = &ipa3_ctx->ep[clnt_hdl];
+	if (!ep->keep_ipa_awake)
+		ipa3_inc_client_enable_clks();
 
 	memset(&mem, 0, sizeof(mem));
+
+	if (IPA_CLIENT_IS_PROD(ep->client)) {
+		res = gsi_stop_channel(ep->gsi_chan_hdl);
+		goto bail;
+	}
+
 	for (i = 0; i < IPA_GSI_CHANNEL_STOP_MAX_RETRY; i++) {
 		IPADBG("Calling gsi_stop_channel\n");
-		res = gsi_stop_channel(chan_hdl);
+		res = gsi_stop_channel(ep->gsi_chan_hdl);
 		IPADBG("gsi_stop_channel returned %d\n", res);
 		if (res != -GSI_STATUS_AGAIN && res != -GSI_STATUS_TIMED_OUT)
 			goto bail;
-		if (res == -GSI_STATUS_TIMED_OUT) {
-			/* Send a 1B packet DMA_RASK to IPA and try again*/
-			IPADBG("gsi_stop_channel timed out\n");
+		/* Send a 1B packet DMA_RASK to IPA and try again*/
+		IPADBG("gsi_stop_channel timed out\n");
+		if (!mem.base) {
+			mem.size = IPA_GSI_CHANNEL_STOP_PKT_SIZE;
+			mem.base = dma_alloc_coherent(ipa3_ctx->pdev,
+				mem.size,
+				&mem.phys_base,
+				GFP_KERNEL);
 			if (!mem.base) {
-				mem.size = IPA_GSI_CHANNEL_STOP_PKT_SIZE;
-				mem.base = dma_alloc_coherent(ipa3_ctx->pdev,
-					mem.size,
-					&mem.phys_base,
-					GFP_KERNEL);
-				if (!mem.base) {
-					IPAERR("no mem\n");
-					res = -EFAULT;
-					goto bail;
-				}
-
-				memset(&cmd, 0, sizeof(cmd));
-				cmd.flsh = 1;
-				cmd.size1 = mem.size;
-				cmd.addr1 = mem.phys_base;
-				cmd.packet_size = mem.size;
-			}
-
-			memset(&desc, 0, sizeof(desc));
-			desc.opcode = IPA_DMA_TASK_32B_ADDR(1);
-			desc.pyld = &cmd;
-			desc.len = sizeof(cmd);
-			desc.type = IPA_IMM_CMD_DESC;
-
-			IPADBG("sending 1B packet to IPA\n");
-			if (ipa3_send_cmd(1, &desc)) {
-				IPAERR("ipa3_send_cmd failed\n");
-				dma_free_coherent(ipa3_ctx->pdev,
-					mem.size,
-					mem.base,
-					mem.phys_base);
+				IPAERR("no mem\n");
 				res = -EFAULT;
 				goto bail;
 			}
+
+			memset(&cmd, 0, sizeof(cmd));
+			cmd.flsh = 1;
+			cmd.size1 = mem.size;
+			cmd.addr1 = mem.phys_base;
+			cmd.packet_size = mem.size;
 		}
+
+		memset(&desc, 0, sizeof(desc));
+		desc.opcode = IPA_DMA_TASK_32B_ADDR(1);
+		desc.pyld = &cmd;
+		desc.len = sizeof(cmd);
+		desc.type = IPA_IMM_CMD_DESC;
+
+		IPADBG("sending 1B packet to IPA\n");
+		if (ipa3_send_cmd(1, &desc)) {
+			IPAERR("ipa3_send_cmd failed\n");
+			dma_free_coherent(ipa3_ctx->pdev,
+				mem.size,
+				mem.base,
+				mem.phys_base);
+			res = -EFAULT;
+			goto bail;
+		}
+
 		/* sleep for short period to flush IPA */
 		usleep_range(IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC,
 			IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC);

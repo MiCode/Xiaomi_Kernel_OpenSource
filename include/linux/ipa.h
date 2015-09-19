@@ -1092,6 +1092,23 @@ struct ipa_mhi_connect_params {
 	u8 channel_id;
 };
 
+/**
+ * struct ipa_gsi_ep_config - IPA GSI endpoint configurations
+ *
+ * @ipa_ep_num: IPA EP pipe number
+ * @ipa_gsi_chan_num: GSI channel number
+ * @ipa_if_tlv: number of IPA_IF TLV
+ * @ipa_if_aos: number of IPA_IF AOS
+ * @ee: Execution environment
+ */
+struct ipa_gsi_ep_config {
+	int ipa_ep_num;
+	int ipa_gsi_chan_num;
+	int ipa_if_tlv;
+	int ipa_if_aos;
+	int ee;
+};
+
 #if defined CONFIG_IPA || defined CONFIG_IPA3
 
 /*
@@ -1425,6 +1442,10 @@ struct device *ipa_get_dma_dev(void);
 struct iommu_domain *ipa_get_smmu_domain(void);
 
 int ipa_disable_apps_wan_cons_deaggr(uint32_t agg_size, uint32_t agg_count);
+
+struct ipa_gsi_ep_config *ipa_get_gsi_ep_info(int ipa_ep_idx);
+
+int ipa_stop_gsi_channel(u32 clnt_hdl);
 
 #else /* (CONFIG_IPA || CONFIG_IPA3) */
 
@@ -2158,6 +2179,16 @@ static inline int ipa_release_wdi_mapping(u32 num_buffers,
 static inline int ipa_disable_apps_wan_cons_deaggr(void)
 {
 	return -EINVAL;
+}
+
+static inline struct ipa_gsi_ep_config *ipa_get_gsi_ep_info(int ipa_ep_idx)
+{
+	return NULL;
+}
+
+static inline int ipa_stop_gsi_channel(u32 clnt_hdl)
+{
+	return -EPERM;
 }
 
 #endif /* (CONFIG_IPA || CONFIG_IPA3) */

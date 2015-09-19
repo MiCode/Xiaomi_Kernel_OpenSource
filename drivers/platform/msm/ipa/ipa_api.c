@@ -1188,13 +1188,13 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl)
 EXPORT_SYMBOL(ipa_teardown_sys_pipe);
 
 int ipa_sys_setup(struct ipa_sys_connect_params *sys_in,
-	unsigned long *ipa_bam_hdl,
+	unsigned long *ipa_bam_or_gsi_hdl,
 	u32 *ipa_pipe_num, u32 *clnt_hdl, bool en_status)
 
 {
 	int ret;
 
-	IPA_API_DISPATCH_RETURN(ipa_sys_setup, sys_in, ipa_bam_hdl,
+	IPA_API_DISPATCH_RETURN(ipa_sys_setup, sys_in, ipa_bam_or_gsi_hdl,
 			ipa_pipe_num, clnt_hdl, en_status);
 
 	return ret;
@@ -1210,6 +1210,18 @@ int ipa_sys_teardown(u32 clnt_hdl)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_sys_teardown);
+
+int ipa_sys_update_gsi_hdls(u32 clnt_hdl, unsigned long gsi_ch_hdl,
+	unsigned long gsi_ev_hdl)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_sys_update_gsi_hdls, clnt_hdl,
+		gsi_ch_hdl, gsi_ev_hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_sys_update_gsi_hdls);
 
 /**
  * ipa_connect_wdi_pipe() - WDI client connect
@@ -2495,6 +2507,35 @@ int ipa_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_create_wdi_mapping);
+
+/**
+ * ipa_get_gsi_ep_info() - provide gsi ep information
+ * @ipa_ep_idx: IPA endpoint index
+ *
+ * Return value: pointer to ipa_gsi_ep_info
+ */
+struct ipa_gsi_ep_config *ipa_get_gsi_ep_info(int ipa_ep_idx)
+{
+	if (!ipa_api_ctrl || !ipa_api_ctrl->ipa_get_gsi_ep_info)
+		return NULL;
+	return ipa_api_ctrl->ipa_get_gsi_ep_info(ipa_ep_idx);
+}
+EXPORT_SYMBOL(ipa_get_gsi_ep_info);
+
+/**
+ * ipa_stop_gsi_channel()- Stops a GSI channel in IPA
+ *
+ * Return value: 0 on success, negative otherwise
+ */
+int ipa_stop_gsi_channel(u32 clnt_hdl)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_stop_gsi_channel, clnt_hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_stop_gsi_channel);
 
 static struct of_device_id ipa_plat_drv_match[] = {
 	{ .compatible = "qcom,ipa", },
