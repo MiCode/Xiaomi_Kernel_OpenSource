@@ -2352,10 +2352,13 @@
 
 	qcom,qbt1000 {
 		compatible = "qcom,qbt1000";
-		clock-names = "spi_clk", "ahb_clk";
-		clocks = <&clock_gcc clk_gcc_blsp1_qup5_spi_apps_clk>,
-			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
-		clock-frequency = <15000000>;
+		qcom,fingerprint-sensor-ssc-spi-conn {
+			qcom,spi-port-id = <2>;
+			qcom,spi-port-slave-index = <0>;
+			qcom,tz-subsys-id = <1>;
+			qcom,ssc-subsys-id = <5>;
+			clock-frequency = <15000000>;
+		};
 	};
 
 	qcom,sensor-information {
