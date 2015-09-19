@@ -692,7 +692,7 @@ gov_attr(decay_rate, 0U, 100U);
 gov_attr(io_percent, 1U, 100U);
 gov_attr(bw_step, 50U, 1000U);
 gov_attr(sample_ms, 1U, 50U);
-gov_attr(up_scale, 100U, 500U);
+gov_attr(up_scale, 0U, 500U);
 gov_attr(up_thres, 1U, 100U);
 gov_attr(down_thres, 0U, 90U);
 gov_attr(down_count, 0U, 90U);
