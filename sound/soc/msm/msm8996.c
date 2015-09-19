@@ -1968,6 +1968,32 @@ static struct snd_soc_ops msm8996_slimbus_2_be_ops = {
 	.hw_params = msm8996_slimbus_2_hw_params,
 };
 
+static int msm8996_get_ll_qos_val(struct snd_pcm_runtime *runtime)
+{
+	int usecs;
+
+	/* take 10% of period time as the deadline */
+	usecs = (100000 / runtime->rate) * runtime->period_size;
+	usecs += ((100000 % runtime->rate) * runtime->period_size) /
+		runtime->rate;
+
+	return usecs;
+}
+
+static int msm8996_mm5_prepare(struct snd_pcm_substream *substream)
+{
+	if (pm_qos_request_active(&substream->latency_pm_qos_req))
+		pm_qos_remove_request(&substream->latency_pm_qos_req);
+	pm_qos_add_request(&substream->latency_pm_qos_req,
+			   PM_QOS_CPU_DMA_LATENCY,
+			   msm8996_get_ll_qos_val(substream->runtime));
+	return 0;
+}
+
+static struct snd_soc_ops msm8996_mm5_ops = {
+	.prepare = msm8996_mm5_prepare,
+};
+
 /* Digital audio interface glue - connects codec <---> CPU */
 static struct snd_soc_dai_link msm8996_common_dai_links[] = {
 	/* FrontEnd DAI Links */
@@ -2231,6 +2257,7 @@ static struct snd_soc_dai_link msm8996_common_dai_links[] = {
 		/* this dainlink has playback support */
 		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA5,
+		.ops = &msm8996_mm5_ops,
 	},
 	{
 		.name = "Listen 1 Audio Service",
