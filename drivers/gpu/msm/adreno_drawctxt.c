@@ -82,15 +82,13 @@ void adreno_drawctxt_dump(struct kgsl_device *device,
 			goto stats;
 		}
 
-		rcu_read_lock();
-		if (!list_empty(&cmdbatch->synclist)) {
+		if (kgsl_cmdbatch_events_pending(cmdbatch)) {
 			dev_err(device->dev,
 				"  context[%d] (ts=%d) Active sync points:\n",
 				context->id, cmdbatch->timestamp);
 
 			kgsl_dump_syncpoints(device, cmdbatch);
 		}
-		rcu_read_unlock();
 	}
 
 stats:

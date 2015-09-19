@@ -1539,7 +1539,7 @@ long kgsl_ioctl_submit_commands(struct kgsl_device_private *dev_priv,
 		param->flags |= KGSL_CMDBATCH_MARKER;
 
 	/* Make sure that we don't have too many syncpoints */
-	if (param->numsyncs > KGSL_MAX_NUMIBS)
+	if (param->numsyncs > KGSL_MAX_SYNCPOINTS)
 		return -EINVAL;
 
 	context = kgsl_context_get_owner(dev_priv, param->context_id);
@@ -1608,7 +1608,7 @@ long kgsl_ioctl_gpu_command(struct kgsl_device_private *dev_priv,
 	/* Make sure that the memobj and syncpoint count isn't too big */
 	if (param->numcmds > KGSL_MAX_NUMIBS ||
 		param->numobjs > KGSL_MAX_NUMIBS ||
-		param->numsyncs > KGSL_MAX_NUMIBS)
+		param->numsyncs > KGSL_MAX_SYNCPOINTS)
 		return -EINVAL;
 
 	context = kgsl_context_get_owner(dev_priv, param->context_id);
