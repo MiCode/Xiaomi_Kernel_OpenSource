@@ -853,6 +853,7 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 			return -EBUSY;
 		}
 	} else {
+		ctl->cdm = NULL;
 		pr_debug("%s: cdm not supported\n", __func__);
 	}
 	ctl->priv_data = ctx;
