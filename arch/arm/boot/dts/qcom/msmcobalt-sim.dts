@@ -30,3 +30,11 @@
 &ufs1 {
 	status = "ok";
 };
+
+&qusb_phy0 {
+	compatible =  "usb-nop-xceiv";
+};
+
+&ssphy {
+	compatible =  "usb-nop-xceiv";
+};
