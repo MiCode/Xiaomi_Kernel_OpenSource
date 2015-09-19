@@ -44,6 +44,16 @@
 	};
 };
 
+&pmdcalifornium_gpios {
+	gpio@c100 { /* GPIO 2 - VADC */
+		/* GPIO should be left off, and in the high
+		 * impedance state when the pin is used with the VADC
+		 */
+		status = "ok";
+		qcom,master-en = <0>;	/* DISABLE GPIO */
+	};
+};
+
 &qnand_1 {
 	status = "ok";
 };
