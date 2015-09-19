@@ -357,6 +357,9 @@
 &labibb {
 	status = "ok";
 	qpnp,qpnp-labibb-mode = "lcd";
+};
+
+&ibb_regulator {
 	qcom,qpnp-ibb-discharge-resistor = <32>;
 };
 
@@ -547,6 +550,10 @@
 			synaptics,irq-gpio = <&tlmm 125 0x2008>;
 			synaptics,button-map = <139 102 158>;
 			synaptics,disable-gpios;
+			/* Underlying clocks used by secure touch */
+			clock-names = "iface_clk", "core_clk";
+			clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
+				 <&clock_gcc clk_gcc_blsp2_qup6_i2c_apps_clk>;
 		};
 	};
 
@@ -687,6 +694,7 @@
 
 	gpio@c700 { /* GPIO 8 - WLAN_EN */
 		qcom,mode = <1>;	/* Digital output*/
+		qcom,out-strength = <2>;/* QPNP_PIN_OUT_STRENGTH_MED */
 		qcom,pull = <4>;	/* Pulldown 10uA */
 		qcom,vin-sel = <2>;	/* VIN2 */
 		qcom,src-sel = <0>;	/* GPIO */
@@ -766,6 +774,7 @@
 
 	gpio@d200 { /* GPIO 19 - Rome BT Reset */
 		qcom,mode = <1>;		/* Digital output*/
+		qcom,out-strength = <2>;	/* QPNP_PIN_OUT_STRENGTH_MED */
 		qcom,pull = <4>;		/* Pulldown 10uA */
 		qcom,vin-sel = <2>;		/* VIN2 */
 		qcom,src-sel = <0>;		/* GPIO */
