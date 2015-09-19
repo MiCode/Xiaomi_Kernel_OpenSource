@@ -2096,6 +2096,7 @@ int mdss_mdp_ctl_free(struct mdss_mdp_ctl *ctl)
 	ctl->mixer_left = NULL;
 	ctl->mixer_right = NULL;
 	ctl->wb = NULL;
+	ctl->cdm = NULL;
 	memset(&ctl->ops, 0, sizeof(ctl->ops));
 	mutex_unlock(&mdss_mdp_ctl_lock);
 
