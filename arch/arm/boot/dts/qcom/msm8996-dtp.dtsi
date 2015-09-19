@@ -62,6 +62,7 @@
 &pmi8994_fg {
 	qcom,battery-data = <&qrd_batterydata>;
 	qcom,ext-sense-type;
+	qcom,hold-soc-while-full;
 };
 
 &pmi8994_gpios {
