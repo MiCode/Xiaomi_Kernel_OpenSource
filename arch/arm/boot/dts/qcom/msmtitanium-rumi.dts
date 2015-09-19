@@ -53,3 +53,17 @@
 
 	status = "ok";
 };
+
+&usb3 {
+	dwc3@7000000 {
+		maximum-speed = "high-speed";
+	};
+};
+
+&ssphy {
+	qcom,emulation;
+};
+
+&qusb_phy {
+	qcom,emulation;
+};

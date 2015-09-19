@@ -576,6 +576,184 @@
 		memory-region = <&venus_mem>;
 	};
 
+	usb3: ssusb@7000000{
+		compatible = "qcom,dwc-usb3-msm";
+		reg = <0x07000000 0xfc000>,
+		      <0x7E000 0x400>;
+		reg-names = "core_base",
+			"ahb2phy_base";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		interrupts = <0 136 0>, <0 134 0>;
+		interrupt-names = "hs_phy_irq", "pwr_event_irq";
+
+		USB3_GDSC-supply = <&gdsc_usb30>;
+		vbus_dwc3-supply = <&smbcharger_charger_otg>;
+		qcom,usb-dbm = <&dbm_1p5>;
+		qcom,msm-bus,name = "usb3";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+					<61 512 0 0>,
+					<61 512 240000 960000>;
+
+		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
+
+		clocks = <&clock_gcc clk_gcc_usb30_master_clk>,
+			<&clock_gcc clk_gcc_pcnoc_usb3_axi_clk>,
+			<&clock_gcc clk_gcc_usb30_mock_utmi_clk>,
+			<&clock_gcc clk_gcc_usb30_sleep_clk>,
+			<&clock_gcc clk_xo_dwc3_clk>;
+
+		clock-names = "core_clk", "iface_clk", "utmi_clk",
+				"sleep_clk", "xo";
+
+		dwc3@7000000 {
+			compatible = "snps,dwc3";
+			reg = <0x07000000 0xc8d0>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 140 0>;
+			usb-phy = <&qusb_phy>, <&ssphy>;
+			tx-fifo-resize;
+			snps,usb3-u1u2-disable;
+			snps,nominal-elastic-buffer;
+			snps,is-utmi-l1-suspend;
+			snps,hird-threshold = /bits/ 8 <0x0>;
+		};
+
+		qcom,usbbam@7104000 {
+			compatible = "qcom,usb-bam-msm";
+			reg = <0x07104000 0x1a934>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 135 0>;
+
+			qcom,bam-type = <0>;
+			qcom,usb-bam-fifo-baseaddr = <0x08605000>;
+			qcom,usb-bam-num-pipes = <8>;
+			qcom,ignore-core-reset-ack;
+			qcom,disable-clk-gating;
+			qcom,usb-bam-override-threshold = <0x4001>;
+			qcom,usb-bam-max-mbps-highspeed = <400>;
+			qcom,usb-bam-max-mbps-superspeed = <3600>;
+			qcom,reset-bam-on-connect;
+
+			qcom,pipe0 {
+				label = "ssusb-ipa-out-0";
+				qcom,usb-bam-mem-type = <1>;
+				qcom,dir = <0>;
+				qcom,pipe-num = <0>;
+				qcom,peer-bam = <1>;
+				qcom,src-bam-pipe-index = <1>;
+				qcom,data-fifo-size = <0x8000>;
+				qcom,descriptor-fifo-size = <0x2000>;
+			};
+
+			qcom,pipe1 {
+				label = "ssusb-ipa-in-0";
+				qcom,usb-bam-mem-type = <1>;
+				qcom,dir = <1>;
+				qcom,pipe-num = <0>;
+				qcom,peer-bam = <1>;
+				qcom,dst-bam-pipe-index = <0>;
+				qcom,data-fifo-size = <0x8000>;
+				qcom,descriptor-fifo-size = <0x2000>;
+			};
+
+			qcom,pipe2 {
+				label = "ssusb-qdss-in-0";
+				qcom,usb-bam-mem-type = <2>;
+				qcom,dir = <1>;
+				qcom,pipe-num = <0>;
+				qcom,peer-bam = <0>;
+				qcom,peer-bam-physical-address = <0x06044000>;
+				qcom,src-bam-pipe-index = <0>;
+				qcom,dst-bam-pipe-index = <2>;
+				qcom,data-fifo-offset = <0x0>;
+				qcom,data-fifo-size = <0xe00>;
+				qcom,descriptor-fifo-offset = <0xe00>;
+				qcom,descriptor-fifo-size = <0x200>;
+			};
+
+			qcom,pipe3 {
+				label = "ssusb-dpl-ipa-in-1";
+				qcom,usb-bam-mem-type = <1>;
+				qcom,dir = <1>;
+				qcom,pipe-num = <1>;
+				qcom,peer-bam = <1>;
+				qcom,dst-bam-pipe-index = <2>;
+				qcom,data-fifo-size = <0x8000>;
+				qcom,descriptor-fifo-size = <0x2000>;
+			};
+		};
+	};
+
+	qusb_phy: qusb@79000 {
+		compatible = "qcom,qusb2phy";
+		reg = <0x079000 0x180>,
+			<0x070f8800 0x400>;
+		reg-names = "qusb_phy_base",
+			"qscratch_base";
+
+		vdd-supply = <&pmtitanium_l3>;
+		vdda18-supply = <&pmtitanium_l7>;
+		vdda33-supply = <&pmtitanium_l13>;
+		qcom,vdd-voltage-level = <0 925000 925000>;
+		qcom,qusb-phy-init-seq = <0xF8 0x80
+					0xB3 0x84
+					0x93 0x88
+					0xC0 0x8C
+					0x30 0x08
+					0x79 0x0C
+					0x21 0x10
+					0x14 0x9C>;
+		phy_type= "utmi";
+
+		clocks = <&clock_gcc clk_ln_bb_clk>,
+			 <&clock_gcc clk_gcc_qusb_ref_clk>,
+			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb_clk>,
+			 <&clock_gcc clk_gcc_qusb2_phy_reset>;
+
+		clock-names = "ref_clk_src", "ref_clk", "cfg_ahb_clk",
+			      "phy_reset";
+
+	};
+
+	ssphy: ssphy@78000 {
+		compatible = "qcom,usb-ssphy-qmp-v2";
+		reg = <0x78000 0x45C>,
+		      <0x0193F244 0x4>;
+		reg-names = "qmp_phy_base",
+			    "vls_clamp_reg";
+		vdd-supply = <&pmtitanium_l3>;
+		vdda18-supply = <&pmtitanium_l7>;
+		qcom,vdd-voltage-level = <0 925000 925000>;
+		qcom,vbus-valid-override;
+
+		clocks = <&clock_gcc clk_gcc_usb3_aux_clk>,
+			 <&clock_gcc clk_gcc_usb3_pipe_clk>,
+			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb_clk>,
+			 <&clock_gcc clk_gcc_usb3_phy_reset>,
+			 <&clock_gcc clk_gcc_usb3phy_phy_reset>,
+			 <&clock_gcc clk_ln_bb_clk>,
+			 <&clock_gcc clk_gcc_usb_ss_ref_clk>;
+
+		clock-names = "aux_clk", "pipe_clk", "cfg_ahb_clk", "phy_reset",
+			      "phy_phy_reset", "ref_clk_src", "ref_clk";
+
+	};
+
+	dbm_1p5: dbm@70f8000 {
+		compatible = "qcom,usb-dbm-1p5";
+		reg = <0x070f8000 0x300>;
+		qcom,reset-ep-after-lpm-resume;
+	};
+
+	android_usb@86000c8 {
+		compatible = "qcom,android-usb";
+		reg = <0x086000c8 0xc8>;
+	};
 };
 
 #include "msmtitanium-regulator.dtsi"
