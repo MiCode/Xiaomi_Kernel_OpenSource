@@ -577,7 +577,7 @@
 			label = "rgb";
 			status = "okay";
 
-			qcom,rgb_0 {
+			red_led: qcom,rgb_0 {
 				label = "rgb";
 				qcom,id = <3>;
 				qcom,mode = "pwm";
@@ -590,7 +590,7 @@
 					"battery-charging";
 			};
 
-			qcom,rgb_1 {
+			green_led: qcom,rgb_1 {
 				label = "rgb";
 				qcom,id = <4>;
 				qcom,mode = "pwm";
@@ -602,7 +602,7 @@
 				linux,default-trigger = "battery-full";
 			};
 
-			qcom,rgb_2 {
+			blue_led: qcom,rgb_2 {
 				label = "rgb";
 				qcom,id = <5>;
 				qcom,mode = "pwm";

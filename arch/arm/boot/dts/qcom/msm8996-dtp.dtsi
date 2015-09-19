@@ -525,3 +525,15 @@
 &pmi8994_haptics {
 	status = "okay";
 };
+
+&red_led {
+	/delete-property/ linux,default-trigger;
+};
+
+&green_led {
+	/delete-property/ linux,default-trigger;
+};
+
+&blue_led {
+	/delete-property/ linux,default-trigger;
+};
