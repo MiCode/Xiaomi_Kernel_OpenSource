@@ -864,6 +864,12 @@ static char qdss_xport_names[MAX_XPORT_STR_LEN];
 /*qdss debug interface setting 0: disable   1:enable */
 static bool qdss_debug_intf;
 
+static int rmnet_function_init(struct android_usb_function *f,
+		struct usb_composite_dev *cdev)
+{
+	return rmnet_init();
+}
+
 static void rmnet_function_cleanup(struct android_usb_function *f)
 {
 	frmnet_cleanup();
@@ -979,6 +985,7 @@ static struct device_attribute *rmnet_function_attributes[] = {
 
 static struct android_usb_function rmnet_function = {
 	.name		= "rmnet",
+	.init		= rmnet_function_init,
 	.cleanup	= rmnet_function_cleanup,
 	.bind_config	= rmnet_function_bind_config,
 	.unbind_config	= rmnet_function_unbind_config,

@@ -1352,9 +1352,16 @@ static void frmnet_unbind_config(void)
 		}
 }
 
+static int rmnet_init(void)
+{
+	return gqti_ctrl_init();
+}
+
 static void frmnet_cleanup(void)
 {
 	int i;
+
+	gqti_ctrl_cleanup();
 
 	for (i = 0; i < nr_rmnet_ports; i++)
 		kfree(rmnet_ports[i].port);
