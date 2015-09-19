@@ -738,6 +738,8 @@ static int dwc3_ep_trbs_show(struct seq_file *s, void *unused)
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	dep = dwc->eps[ep_num];
+	if (!dep->trb_pool)
+		return 0;
 
 	seq_printf(s, "%s trb pool: flags:0x%x freeslot:%d busyslot:%d\n",
 		dep->name, dep->flags, dep->free_slot, dep->busy_slot);
