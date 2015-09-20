@@ -74,6 +74,9 @@ extern unsigned int sysctl_sched_small_task_pct;
 #else
 extern unsigned int sysctl_sched_lowspill_freq;
 extern unsigned int sysctl_sched_pack_freq;
+#if defined(CONFIG_SCHED_FREQ_INPUT)
+extern unsigned int sysctl_sched_new_task_windows;
+#endif
 #endif
 
 #else /* CONFIG_SCHED_HMP */

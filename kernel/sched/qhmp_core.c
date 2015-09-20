@@ -2207,7 +2207,8 @@ scale_load_to_freq(u64 load, unsigned int src_freq, unsigned int dst_freq)
 	return div64_u64(load * (u64)src_freq, (u64)dst_freq);
 }
 
-void sched_get_cpus_busy(unsigned long *busy, const struct cpumask *query_cpus)
+void sched_get_cpus_busy(struct sched_load *busy,
+			 const struct cpumask *query_cpus)
 {
 	unsigned long flags;
 	struct rq *rq;
@@ -2272,9 +2273,10 @@ void sched_get_cpus_busy(unsigned long *busy, const struct cpumask *query_cpus)
 						     rq->max_possible_freq);
 		}
 
-		busy[i] = div64_u64(load[i], NSEC_PER_USEC);
+		busy[i].prev_load = div64_u64(load[i], NSEC_PER_USEC);
+		busy[i].new_task_load = 0;
 
-		trace_sched_get_busy(cpu, busy[i]);
+		trace_sched_get_busy(cpu, busy[i].prev_load);
 		i++;
 	}
 }
@@ -2282,12 +2284,12 @@ void sched_get_cpus_busy(unsigned long *busy, const struct cpumask *query_cpus)
 unsigned long sched_get_busy(int cpu)
 {
 	struct cpumask query_cpu = CPU_MASK_NONE;
-	unsigned long busy;
+	struct sched_load busy;
 
 	cpumask_set_cpu(cpu, &query_cpu);
 	sched_get_cpus_busy(&busy, &query_cpu);
 
-	return busy;
+	return busy.prev_load;
 }
 
 void sched_set_io_is_busy(int val)
