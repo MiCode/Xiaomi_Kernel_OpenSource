@@ -513,7 +513,7 @@ static int hdmi_ddc_clear_irq(struct hdmi_tx_ddc_ctrl *ddc_ctrl,
 static int hdmi_ddc_read_retry(struct hdmi_tx_ddc_ctrl *ddc_ctrl,
 	struct hdmi_tx_ddc_data *ddc_data)
 {
-	u32 reg_val, ndx, time_out_count;
+	u32 reg_val, ndx, time_out_count, wait_time;
 	int status = 0;
 	int log_retry_fail;
 
@@ -608,8 +608,17 @@ again:
 	reinit_completion(&ddc_ctrl->ddc_sw_done);
 	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_CTRL, BIT(0) | BIT(20));
 
+	if (ddc_data->hard_timeout) {
+		DEV_DBG("%s: using hard_timeout %dms\n", __func__,
+			ddc_data->hard_timeout);
+		wait_time = msecs_to_jiffies(ddc_data->hard_timeout);
+	} else {
+		wait_time = HZ/2;
+	}
+
 	time_out_count = wait_for_completion_timeout(
-		&ddc_ctrl->ddc_sw_done, HZ/2);
+		&ddc_ctrl->ddc_sw_done, wait_time);
+
 	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL, BIT(1));
 	if (!time_out_count) {
 		if (ddc_data->retry-- > 0) {
@@ -1548,7 +1557,8 @@ int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl,
 	reg_val &= (BIT(12) | BIT(14) | BIT(4) | BIT(8));
 
 	if (reg_val) {
-		DEV_ERR("%s: DDC transaction error\n", __func__);
+		DEV_ERR("%s: DDC transaction error, hdcp2p2_ddc_status 0x%x\n",
+			__func__, reg_val);
 		return -EIO;
 	}
 
