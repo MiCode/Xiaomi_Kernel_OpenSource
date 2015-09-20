@@ -408,6 +408,7 @@ struct hdmi_tx_ddc_data {
 	u32 offset;
 	u32 request_len;
 	u32 no_align;
+	u32 hard_timeout;
 	int retry;
 };
 
