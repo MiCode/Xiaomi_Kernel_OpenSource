@@ -40,6 +40,12 @@
 		qcom,float-voltage-mv = <4400>;
 		qcom,recharge-mv = <100>;
 	};
+
+	ina231@40 {
+		compatible = "ina231";
+		reg = <0x40>;
+		shunt-resistor = <5000>;
+	};
 };
 
 &ufs_ice {
