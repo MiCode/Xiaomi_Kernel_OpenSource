@@ -120,6 +120,8 @@ struct sdhci_msm_pm_qos_group {
 struct sdhci_msm_pm_qos_irq {
 	struct pm_qos_request req;
 	struct work_struct unvote_work;
+	struct device_attribute enable_attr;
+	struct device_attribute status_attr;
 	atomic_t counter;
 	s32 latency;
 	bool enabled;
@@ -202,6 +204,8 @@ struct sdhci_msm_host {
 	u32 ice_clk_rate;
 	struct sdhci_msm_pm_qos_group *pm_qos;
 	int pm_qos_prev_cpu;
+	struct device_attribute pm_qos_group_enable_attr;
+	struct device_attribute pm_qos_group_status_attr;
 	bool pm_qos_group_enable;
 	struct sdhci_msm_pm_qos_irq pm_qos_irq;
 };

@@ -3156,11 +3156,69 @@ void sdhci_msm_pm_qos_irq_unvote(struct sdhci_host *host, bool async)
 			msm_host->pm_qos_irq.latency);
 }
 
+static ssize_t
+sdhci_msm_pm_qos_irq_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	struct sdhci_msm_pm_qos_irq *irq = &msm_host->pm_qos_irq;
+
+	return snprintf(buf, PAGE_SIZE,
+		"IRQ PM QoS: enabled=%d, counter=%d, latency=%d\n",
+		irq->enabled, atomic_read(&irq->counter), irq->latency);
+}
+
+static ssize_t
+sdhci_msm_pm_qos_irq_enable_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	return snprintf(buf, PAGE_SIZE, "%u\n", msm_host->pm_qos_irq.enabled);
+}
+
+static ssize_t
+sdhci_msm_pm_qos_irq_enable_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	uint32_t value;
+	bool enable;
+	int ret;
+
+	ret = kstrtou32(buf, 0, &value);
+	if (ret)
+		goto out;
+	enable = !!value;
+
+	if (enable == msm_host->pm_qos_irq.enabled)
+		goto out;
+
+	msm_host->pm_qos_irq.enabled = enable;
+	if (!enable) {
+		cancel_work_sync(&msm_host->pm_qos_irq.unvote_work);
+		atomic_set(&msm_host->pm_qos_irq.counter, 0);
+		msm_host->pm_qos_irq.latency = PM_QOS_DEFAULT_VALUE;
+		pm_qos_update_request(&msm_host->pm_qos_irq.req,
+				msm_host->pm_qos_irq.latency);
+	}
+
+out:
+	return count;
+}
+
 void sdhci_msm_pm_qos_irq_init(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	struct sdhci_msm_pm_qos_latency *irq_latency;
+	int ret;
 
 	if (!msm_host->pdata->pm_qos_data.irq_valid)
 		return;
@@ -3187,6 +3245,101 @@ void sdhci_msm_pm_qos_irq_init(struct sdhci_host *host)
 	pm_qos_add_request(&msm_host->pm_qos_irq.req, PM_QOS_CPU_DMA_LATENCY,
 			msm_host->pm_qos_irq.latency);
 	msm_host->pm_qos_irq.enabled = true;
+
+	/* sysfs */
+	msm_host->pm_qos_irq.enable_attr.show =
+		sdhci_msm_pm_qos_irq_enable_show;
+	msm_host->pm_qos_irq.enable_attr.store =
+		sdhci_msm_pm_qos_irq_enable_store;
+	sysfs_attr_init(&msm_host->pm_qos_irq.enable_attr.attr);
+	msm_host->pm_qos_irq.enable_attr.attr.name = "pm_qos_irq_enable";
+	msm_host->pm_qos_irq.enable_attr.attr.mode = S_IRUGO | S_IWUSR;
+	ret = device_create_file(&msm_host->pdev->dev,
+		&msm_host->pm_qos_irq.enable_attr);
+	if (ret)
+		pr_err("%s: fail to create pm_qos_irq_enable (%d)\n",
+			__func__, ret);
+
+	msm_host->pm_qos_irq.status_attr.show = sdhci_msm_pm_qos_irq_show;
+	msm_host->pm_qos_irq.status_attr.store = NULL;
+	sysfs_attr_init(&msm_host->pm_qos_irq.status_attr.attr);
+	msm_host->pm_qos_irq.status_attr.attr.name = "pm_qos_irq_status";
+	msm_host->pm_qos_irq.status_attr.attr.mode = S_IRUGO;
+	ret = device_create_file(&msm_host->pdev->dev,
+			&msm_host->pm_qos_irq.status_attr);
+	if (ret)
+		pr_err("%s: fail to create pm_qos_irq_status (%d)\n",
+			__func__, ret);
+}
+
+static ssize_t sdhci_msm_pm_qos_group_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	struct sdhci_msm_pm_qos_group *group;
+	int i;
+	int nr_groups = msm_host->pdata->pm_qos_data.cpu_group_map.nr_groups;
+	int offset = 0;
+
+	for (i = 0; i < nr_groups; i++) {
+		group = &msm_host->pm_qos[i];
+		offset += snprintf(&buf[offset], PAGE_SIZE,
+			"Group #%d (mask=0x%lx) PM QoS: enabled=%d, counter=%d, latency=%d\n",
+			i, group->req.cpus_affine.bits[0],
+			msm_host->pm_qos_group_enable,
+			atomic_read(&group->counter),
+			group->latency);
+	}
+
+	return offset;
+}
+
+static ssize_t sdhci_msm_pm_qos_group_enable_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	return snprintf(buf, PAGE_SIZE, "%s\n",
+		msm_host->pm_qos_group_enable ? "enabled" : "disabled");
+}
+
+static ssize_t sdhci_msm_pm_qos_group_enable_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	int nr_groups = msm_host->pdata->pm_qos_data.cpu_group_map.nr_groups;
+	uint32_t value;
+	bool enable;
+	int ret;
+	int i;
+
+	ret = kstrtou32(buf, 0, &value);
+	if (ret)
+		goto out;
+	enable = !!value;
+
+	if (enable == msm_host->pm_qos_group_enable)
+		goto out;
+
+	msm_host->pm_qos_group_enable = enable;
+	if (!enable) {
+		for (i = 0; i < nr_groups; i++) {
+			cancel_work_sync(&msm_host->pm_qos[i].unvote_work);
+			atomic_set(&msm_host->pm_qos[i].counter, 0);
+			msm_host->pm_qos[i].latency = PM_QOS_DEFAULT_VALUE;
+			pm_qos_update_request(&msm_host->pm_qos[i].req,
+				msm_host->pm_qos[i].latency);
+		}
+	}
+
+out:
+	return count;
 }
 
 static int sdhci_msm_get_cpu_group(struct sdhci_msm_host *msm_host, int cpu)
@@ -3273,6 +3426,7 @@ void sdhci_msm_pm_qos_cpu_init(struct sdhci_host *host,
 	int nr_groups = msm_host->pdata->pm_qos_data.cpu_group_map.nr_groups;
 	struct sdhci_msm_pm_qos_group *group;
 	int i;
+	int ret;
 
 	if (msm_host->pm_qos_group_enable)
 		return;
@@ -3302,6 +3456,32 @@ void sdhci_msm_pm_qos_cpu_init(struct sdhci_host *host,
 	}
 	msm_host->pm_qos_prev_cpu = -1;
 	msm_host->pm_qos_group_enable = true;
+
+	/* sysfs */
+	msm_host->pm_qos_group_status_attr.show = sdhci_msm_pm_qos_group_show;
+	msm_host->pm_qos_group_status_attr.store = NULL;
+	sysfs_attr_init(&msm_host->pm_qos_group_status_attr.attr);
+	msm_host->pm_qos_group_status_attr.attr.name =
+			"pm_qos_cpu_groups_status";
+	msm_host->pm_qos_group_status_attr.attr.mode = S_IRUGO;
+	ret = device_create_file(&msm_host->pdev->dev,
+			&msm_host->pm_qos_group_status_attr);
+	if (ret)
+		dev_err(&msm_host->pdev->dev, "%s: fail to create pm_qos_group_status_attr (%d)\n",
+			__func__, ret);
+	msm_host->pm_qos_group_enable_attr.show =
+			sdhci_msm_pm_qos_group_enable_show;
+	msm_host->pm_qos_group_enable_attr.store =
+			sdhci_msm_pm_qos_group_enable_store;
+	sysfs_attr_init(&msm_host->pm_qos_group_enable_attr.attr);
+	msm_host->pm_qos_group_enable_attr.attr.name =
+			"pm_qos_cpu_groups_enable";
+	msm_host->pm_qos_group_enable_attr.attr.mode = S_IRUGO;
+	ret = device_create_file(&msm_host->pdev->dev,
+			&msm_host->pm_qos_group_enable_attr);
+	if (ret)
+		dev_err(&msm_host->pdev->dev, "%s: fail to create pm_qos_group_enable_attr (%d)\n",
+			__func__, ret);
 }
 
 static void sdhci_msm_pre_req(struct sdhci_host *host,
