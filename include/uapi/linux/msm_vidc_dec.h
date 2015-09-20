@@ -545,6 +545,9 @@ struct vdec_aspectratioinfo {
 struct vdec_sep_metadatainfo {
 	void __user *metabufaddr;
 	uint32_t size;
+	int fd;
+	int offset;
+	uint32_t buffer_size;
 };
 
 struct vdec_output_frameinfo {
