@@ -182,8 +182,10 @@ static struct pll_freq_tbl apcs_c0_pll_freq[] = {
 	F_APCS_PLL( 460800000,  24, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL( 499200000,  26, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL( 518400000,  27, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL( 806400000,  42, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL( 844800000,  44, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL( 883200000,  46, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL( 902400000,  47, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL( 921600000,  48, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL( 998400000,  52, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1094400000,  57, 0x0, 0x1, 0x0, 0x0, 0x0),
@@ -234,12 +236,15 @@ static struct pll_freq_tbl apcs_c1_pll_freq[] = {
 	F_APCS_PLL( 844800000, 44, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL( 883200000, 46, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL( 960000000, 50, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL( 998400000, 52, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1036800000, 54, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1094400000, 57, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1113600000, 58, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1190400000, 62, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1248000000, 65, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1267200000, 66, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1344000000, 70, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1401000000, 73, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1420800000, 74, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1440000000, 75, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1459200000, 76, 0x0, 0x1, 0x0, 0x0, 0x0),
@@ -570,9 +575,9 @@ static struct clk_freq_tbl ftbl_gcc_camss_vfe0_1_clk_thorium[] = {
 	F( 100000000,          gpll0,    8,    0,     0),
 	F( 133333333,          gpll0,    6,    0,     0),
 	F( 160000000,          gpll0,    5,    0,     0),
-	F( 177777778,          gpll0,  4.5,    0,     0),
+	F( 177780000,          gpll0,  4.5,    0,     0),
 	F( 200000000,          gpll0,    4,    0,     0),
-	F( 266666667,          gpll0,    3,    0,     0),
+	F( 266670000,          gpll0,    3,    0,     0),
 	F( 308570000,          gpll6,  3.5,    0,     0),
 	F( 320000000,          gpll0,  2.5,    0,     0),
 	F( 360000000,          gpll6,    3,    0,     0),
@@ -1158,14 +1163,6 @@ static struct clk_freq_tbl ftbl_gcc_camss_csi0_1phytimer_clk[] = {
 	F_END
 };
 
-static struct clk_freq_tbl ftbl_gcc_camss_csi0_1phytimer_clk_thorium[] = {
-	F( 100000000,          gpll0,    8,    0,     0),
-	F( 160000000,          gpll0,    5,    0,     0),
-	F( 200000000,          gpll0,    4,    0,     0),
-	F( 266670000,          gpll0,    3,    0,     0),
-	F_END
-};
-
 static struct rcg_clk csi0phytimer_clk_src = {
 	.cmd_rcgr_reg = CSI0PHYTIMER_CMD_RCGR,
 	.set_rate = set_rate_hid,
@@ -1559,6 +1556,9 @@ static struct clk_freq_tbl ftbl_gcc_sdcc1_apps_clk_thorium[] = {
 	F( 50000000,    gpll0,  16,     0,      0),
 	F( 100000000,   gpll0,  8,      0,      0),
 	F( 177770000,   gpll0,  4.5,    0,      0),
+	F( 200000000,   gpll0,  4,      0,      0),
+	F( 384000000,   gpll4,  3,      0,      0),
+
 	F_END
 };
 
@@ -3847,8 +3847,7 @@ static int get_mmio_addr(struct platform_device *pdev)
 static void override_for_thorium(void)
 {
 	gpll3_clk_src.c.rate = 900000000;
-	OVERRIDE_FMAX3(camss_top_ahb,
-	LOWER, 40000000, LOW, 61540000, NOMINAL, 80000000);
+	OVERRIDE_FMAX1(cci, LOWER, 37500000);
 	OVERRIDE_FMAX3(csi0,
 		LOWER, 100000000, LOW, 200000000, NOMINAL, 266670000);
 	OVERRIDE_FTABLE(csi0, ftbl_gcc_camss_csi0_2_clk);
@@ -3862,6 +3861,10 @@ static void override_for_thorium(void)
 		LOWER, 160000000, LOW, 308570000, NOMINAL, 400000000,
 		NOM_PLUS, 432000000);
 	OVERRIDE_FTABLE(vfe0, ftbl_gcc_camss_vfe0_1_clk);
+	OVERRIDE_FMAX4(vfe1,
+		LOWER, 160000000, LOW, 308570000, NOMINAL, 400000000,
+		NOM_PLUS, 432000000);
+	OVERRIDE_FTABLE(vfe1, ftbl_gcc_camss_vfe0_1_clk);
 	OVERRIDE_FMAX5(gfx3d,
 		LOWER, 216000000, LOW, 300000000, NOMINAL, 375000000,
 		NOM_PLUS, 400000000, HIGH, 450000000);
@@ -3875,14 +3878,10 @@ static void override_for_thorium(void)
 		NOM_PLUS, 308570000, HIGH, 320000000);
 	OVERRIDE_FTABLE(jpeg0, ftbl_gcc_camss_jpeg0_clk);
 	OVERRIDE_FMAX2(csi0phytimer, LOWER, 100000000, LOW, 200000000);
-	OVERRIDE_FTABLE(csi0phytimer,
-		ftbl_gcc_camss_csi0_1phytimer_clk);
 	OVERRIDE_FMAX2(csi1phytimer, LOWER, 100000000, LOW, 200000000);
-	OVERRIDE_FTABLE(csi1phytimer,
-		ftbl_gcc_camss_csi0_1phytimer_clk);
-	OVERRIDE_FMAX2(gp1, LOWER, 100000000, LOW, 200000000);
-	OVERRIDE_FMAX2(gp2, LOWER, 100000000, LOW, 200000000);
-	OVERRIDE_FMAX2(gp3, LOWER, 100000000, LOW, 200000000);
+	OVERRIDE_FMAX2(gp1, LOWER, 100000000, NOMINAL, 200000000);
+	OVERRIDE_FMAX2(gp2, LOWER, 100000000, NOMINAL, 200000000);
+	OVERRIDE_FMAX2(gp3, LOWER, 100000000, NOMINAL, 200000000);
 	OVERRIDE_FMAX2(byte0, LOWER, 125000000, NOMINAL, 187500000);
 	OVERRIDE_FTABLE(byte0, ftbl_gcc_mdss_byte0_clk);
 	byte0_clk_src.current_freq = ftbl_gcc_mdss_pclk0_clk_thorium;

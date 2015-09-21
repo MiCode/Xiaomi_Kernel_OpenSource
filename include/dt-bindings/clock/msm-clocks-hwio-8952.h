@@ -339,6 +339,9 @@
 	},                                      \
 	.num_fmax = VDD_DIG_NUM
 
+# define OVERRIDE_FMAX1(clkname, l1, f1) \
+	clkname##_clk_src.c.fmax[VDD_DIG_##l1] = (f1)
+
 # define OVERRIDE_FMAX2(clkname, l1, f1, l2, f2) \
 	clkname##_clk_src.c.fmax[VDD_DIG_##l1] = (f1);  \
 	clkname##_clk_src.c.fmax[VDD_DIG_##l2] = (f2)
