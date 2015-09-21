@@ -125,6 +125,8 @@ Optional properties:
   units of macroblocks per second.
 - qcom,bus-low-latency = A bool indicating the perticular bus client to be
   used only when low latency mode is enabled by the client.
+- qcom,disable-clock-voltage-control = A bool indicating whether driver need
+  to control clock and voltage settings.
 
 Example:
 
