@@ -866,9 +866,7 @@ static int msm_slim_init_rx_msgq(struct msm_slim_ctrl *dev, u32 pipe_reg)
 	struct sps_connect *config = &endpoint->config;
 	struct sps_mem_buffer *descr = &config->desc;
 	struct sps_mem_buffer *mem = &endpoint->buf;
-	struct completion *notify = &dev->rx_msgq_notify;
 
-	init_completion(notify);
 	if (dev->use_rx_msgqs == MSM_MSGQ_DISABLED)
 		return 0;
 
