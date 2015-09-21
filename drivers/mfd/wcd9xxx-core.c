@@ -67,6 +67,7 @@
 #define SLIM_REPEAT_WRITE_MAX_SLICE 16
 #define REG_BYTES 2
 #define VAL_BYTES 1
+#define WCD9XXX_PAGE_NUM(reg)    (((reg) >> 8) & 0xff)
 
 struct wcd9xxx_i2c {
 	struct i2c_client *client;
@@ -86,6 +87,7 @@ static struct pinctrl_info pinctrl_info;
 static struct regmap_config wcd9xxx_base_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 8,
+	.can_multi_write = true,
 };
 
 static const int wcd9xxx_cdc_types[] = {
@@ -341,6 +343,8 @@ static int regmap_slim_multi_reg_write(void *context,
 	u8 val[WCD9335_PAGE_SIZE];
 	int ret = 0;
 	int i = 0;
+	int n = 0;
+	unsigned int page_num;
 	size_t num_regs = (count / (REG_BYTES + VAL_BYTES));
 	struct wcd9xxx_reg_val *bulk_reg;
 	u8 *buf;
@@ -353,19 +357,25 @@ static int regmap_slim_multi_reg_write(void *context,
 		dev_err(dev, "%s: data is NULL\n", __func__);
 		return -EINVAL;
 	}
-	if ((num_regs == 0) || (num_regs > WCD9335_PAGE_SIZE)) {
-		dev_err(dev, "%s: num_regs = %zd\n", __func__, num_regs);
+	if (num_regs == 0)
 		return -EINVAL;
-	}
 
 	bulk_reg = kzalloc(num_regs * (sizeof(struct wcd9xxx_reg_val)),
 			   GFP_KERNEL);
 	if (!bulk_reg)
 		return -ENOMEM;
 
-	buf = ((u8 *)data);
-	for (i = 0; i < num_regs; i++) {
+	buf = (u8 *)data;
+	reg = *(u16 *)buf;
+	page_num = WCD9XXX_PAGE_NUM(reg);
+	for (i = 0, n = 0; n < num_regs; i++, n++) {
 		reg = *(u16 *)buf;
+		if (page_num != WCD9XXX_PAGE_NUM(reg)) {
+			ret = wcd9xxx_slim_bulk_write(wcd9xxx, bulk_reg,
+						      i, false);
+			page_num = WCD9XXX_PAGE_NUM(reg);
+			i = 0;
+		}
 		buf += REG_BYTES;
 		val[i] = *buf;
 		buf += VAL_BYTES;
@@ -374,7 +384,7 @@ static int regmap_slim_multi_reg_write(void *context,
 		bulk_reg[i].bytes = 1;
 	}
 	ret = wcd9xxx_slim_bulk_write(wcd9xxx, bulk_reg,
-				      num_regs, false);
+				      i, false);
 	if (ret)
 		dev_err(dev, "%s: error writing bulk regs\n",
 			__func__);
