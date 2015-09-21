@@ -44,6 +44,7 @@ struct ipa3_usb_teth_prot_context {
 		struct teth_bridge_init_params teth_bridge;
 	} teth_prot_params;
 	enum ipa3_usb_teth_prot_state state;
+	void *user_data;
 };
 
 enum ipa3_usb_cons_state {
@@ -86,6 +87,8 @@ struct ipa3_usb_context {
 	struct ipa3_usb_teth_prot_context
 		teth_prot_ctx[IPA_USB_MAX_TETH_PROT_SIZE];
 	int num_init_prot;
+	enum ipa3_usb_teth_prot_state teth_bridge_state;
+	struct teth_bridge_init_params teth_bridge_params;
 	struct completion dev_ready_comp;
 	struct ipa3_usb_rm_context rm_ctx;
 	int (*ipa_usb_notify_cb)(enum ipa_usb_notify_event, void *user_data);
@@ -370,6 +373,7 @@ int ipa3_usb_init(void)
 		ipa3_usb_ctx->teth_prot_ctx[i].state =
 			IPA_USB_TETH_PROT_INVALID;
 	ipa3_usb_ctx->num_init_prot = 0;
+	ipa3_usb_ctx->teth_bridge_state = IPA_USB_TETH_PROT_INVALID;
 	init_completion(&ipa3_usb_ctx->dev_ready_comp);
 
 	ipa3_usb_ctx->rm_ctx.prod_valid = false;
@@ -560,6 +564,8 @@ int ipa3_usb_cons_release_resource_cb(void)
 		if (ipa3_usb_ctx->rm_ctx.cons_requested)
 			ipa3_usb_ctx->rm_ctx.cons_requested = false;
 		break;
+	case IPA_USB_CONNECTED:
+		break;
 	default:
 		IPA_USB_ERR("received cons_release_cb in bad state: %s!\n",
 			ipa3_usb_state_to_string(ipa3_usb_ctx->state));
@@ -590,6 +596,23 @@ static char *ipa3_usb_teth_prot_to_string(enum ipa_usb_teth_prot teth_prot)
 	}
 
 	return NULL;
+}
+
+static int ipa3_usb_init_teth_bridge(void)
+{
+	int result;
+
+	if (ipa3_usb_ctx->teth_bridge_state != IPA_USB_TETH_PROT_INVALID)
+		return 0;
+
+	result = teth_bridge_init(&ipa3_usb_ctx->teth_bridge_params);
+	if (result) {
+		IPA_USB_ERR("Failed to initialize teth_bridge.\n");
+		return result;
+	}
+	ipa3_usb_ctx->teth_bridge_state = IPA_USB_TETH_PROT_INITIALIZED;
+
+	return 0;
 }
 
 int ipa3_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
@@ -672,7 +695,7 @@ int ipa3_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
 			result = -EPERM;
 			goto bad_params;
 		}
-		ipa3_usb_ctx->user_data = user_data;
+		ipa3_usb_ctx->teth_prot_ctx[teth_prot].user_data = user_data;
 		ipa3_usb_ctx->teth_prot_ctx[teth_prot].
 			teth_prot_params.rndis.device_ready_notify =
 			ipa3_usb_device_ready_notify_cb;
@@ -712,23 +735,18 @@ int ipa3_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
 		break;
 	case IPA_USB_RMNET:
 	case IPA_USB_MBIM:
-		if (ipa3_usb_ctx->teth_prot_ctx[IPA_USB_RMNET].state !=
+		if (ipa3_usb_ctx->teth_prot_ctx[teth_prot].state !=
 			IPA_USB_TETH_PROT_INVALID) {
 			IPA_USB_DBG("%s already initialized\n",
 				ipa3_usb_teth_prot_to_string(teth_prot));
 			result = -EPERM;
 			goto bad_params;
 		}
-		ipa3_usb_ctx->user_data = user_data;
-		result = teth_bridge_init(&ipa3_usb_ctx->
-			teth_prot_ctx[IPA_USB_RMNET].teth_prot_params.
-			teth_bridge);
-		if (result) {
-			IPA_USB_ERR("Failed to initialize %s.\n",
-				ipa3_usb_teth_prot_to_string(teth_prot));
+		ipa3_usb_ctx->teth_prot_ctx[teth_prot].user_data = user_data;
+		result = ipa3_usb_init_teth_bridge();
+		if (result)
 			goto init_rndis_ipa_fail;
-		}
-		ipa3_usb_ctx->teth_prot_ctx[IPA_USB_RMNET].state =
+		ipa3_usb_ctx->teth_prot_ctx[teth_prot].state =
 			IPA_USB_TETH_PROT_INITIALIZED;
 		ipa3_usb_ctx->num_init_prot++;
 		IPA_USB_DBG("initialized %s\n",
@@ -835,7 +853,7 @@ static bool ipa3_usb_check_chan_params(struct ipa_usb_xdci_chan_params *params)
 		break;
 	case IPA_USB_RMNET:
 	case IPA_USB_MBIM:
-		if (ipa3_usb_ctx->teth_prot_ctx[IPA_USB_RMNET].state ==
+		if (ipa3_usb_ctx->teth_prot_ctx[params->teth_prot].state ==
 			IPA_USB_TETH_PROT_INVALID) {
 			IPA_USB_ERR("%s is not initialized\n",
 				ipa3_usb_teth_prot_to_string(
@@ -921,14 +939,12 @@ int ipa3_usb_request_xdci_channel(struct ipa_usb_xdci_chan_params *params,
 		break;
 	case IPA_USB_RMNET:
 	case IPA_USB_MBIM:
-		chan_params.priv = ipa3_usb_ctx->teth_prot_ctx[IPA_USB_RMNET].
-			teth_prot_params.teth_bridge.private_data;
+		chan_params.priv =
+			ipa3_usb_ctx->teth_bridge_params.private_data;
 		chan_params.notify =
-			ipa3_usb_ctx->teth_prot_ctx[IPA_USB_RMNET].
-			teth_prot_params.teth_bridge.usb_notify_cb;
+			ipa3_usb_ctx->teth_bridge_params.usb_notify_cb;
 		chan_params.skip_ep_cfg =
-			ipa3_usb_ctx->teth_prot_ctx[IPA_USB_RMNET].
-			teth_prot_params.teth_bridge.skip_ep_cfg;
+			ipa3_usb_ctx->teth_bridge_params.skip_ep_cfg;
 		break;
 	case IPA_USB_DIAG:
 		chan_params.priv = NULL;
@@ -1096,6 +1112,25 @@ static bool ipa3_usb_check_connect_params(
 	return true;
 }
 
+static int ipa3_usb_connect_teth_bridge(
+	struct teth_bridge_connect_params *params)
+{
+	int result;
+
+	if (ipa3_usb_ctx->teth_bridge_state != IPA_USB_TETH_PROT_INITIALIZED)
+		return 0;
+
+	result = teth_bridge_connect(params);
+	if (result) {
+		IPA_USB_ERR("failed to connect teth_bridge.\n");
+		ipa3_usb_ctx->user_data = NULL;
+		return result;
+	}
+	ipa3_usb_ctx->teth_bridge_state = IPA_USB_TETH_PROT_CONNECTED;
+
+	return 0;
+}
+
 static int ipa3_usb_connect_teth_prot(
 	struct ipa_usb_xdci_connect_params *params)
 {
@@ -1113,6 +1148,8 @@ static int ipa3_usb_connect_teth_prot(
 				params->teth_prot));
 			break;
 		}
+		ipa3_usb_ctx->user_data =
+			ipa3_usb_ctx->teth_prot_ctx[IPA_USB_RNDIS].user_data;
 		result = rndis_ipa_pipe_connect_notify(
 			params->usb_to_ipa_clnt_hdl,
 			params->ipa_to_usb_clnt_hdl,
@@ -1125,6 +1162,7 @@ static int ipa3_usb_connect_teth_prot(
 			IPA_USB_ERR("failed to connect %s.\n",
 				ipa3_usb_teth_prot_to_string(
 				params->teth_prot));
+			ipa3_usb_ctx->user_data = NULL;
 			return result;
 		}
 		ipa3_usb_ctx->teth_prot_ctx[IPA_USB_RNDIS].state =
@@ -1141,6 +1179,8 @@ static int ipa3_usb_connect_teth_prot(
 				params->teth_prot));
 			break;
 		}
+		ipa3_usb_ctx->user_data =
+			ipa3_usb_ctx->teth_prot_ctx[IPA_USB_ECM].user_data;
 		result = ecm_ipa_connect(params->usb_to_ipa_clnt_hdl,
 			params->ipa_to_usb_clnt_hdl,
 			ipa3_usb_ctx->teth_prot_ctx[IPA_USB_ECM].
@@ -1149,6 +1189,7 @@ static int ipa3_usb_connect_teth_prot(
 			IPA_USB_ERR("failed to connect %s.\n",
 				ipa3_usb_teth_prot_to_string(
 				params->teth_prot));
+			ipa3_usb_ctx->user_data = NULL;
 			return result;
 		}
 		ipa3_usb_ctx->teth_prot_ctx[IPA_USB_ECM].state =
@@ -1159,42 +1200,30 @@ static int ipa3_usb_connect_teth_prot(
 		break;
 	case IPA_USB_RMNET:
 	case IPA_USB_MBIM:
-		if (ipa3_usb_ctx->teth_prot_ctx[IPA_USB_RMNET].state ==
+		if (ipa3_usb_ctx->teth_prot_ctx[params->teth_prot].state ==
 			IPA_USB_TETH_PROT_CONNECTED) {
 			IPA_USB_DBG("%s is already connected.\n",
 				ipa3_usb_teth_prot_to_string(
 				params->teth_prot));
-			return -EPERM;
+			break;
 		}
-		if (ipa3_usb_ctx->teth_prot_ctx[IPA_USB_RMNET].state !=
-			IPA_USB_TETH_PROT_INITIALIZED) {
-			result = teth_bridge_init(&ipa3_usb_ctx->
-				teth_prot_ctx[IPA_USB_RMNET].teth_prot_params.
-				teth_bridge);
-			if (result) {
-				IPA_USB_ERR("Failed to initialize %s.\n",
-					ipa3_usb_teth_prot_to_string(
-					params->teth_prot));
+		result = ipa3_usb_init_teth_bridge();
+		if (result)
 				return result;
-			}
-			ipa3_usb_ctx->teth_prot_ctx[IPA_USB_RMNET].state =
-			IPA_USB_TETH_PROT_INITIALIZED;
-			ipa3_usb_ctx->num_init_prot++;
-		}
+
+		ipa3_usb_ctx->user_data =
+			ipa3_usb_ctx->teth_prot_ctx[params->teth_prot].
+			user_data;
 		teth_bridge_params.ipa_usb_pipe_hdl =
 			params->ipa_to_usb_clnt_hdl;
 		teth_bridge_params.usb_ipa_pipe_hdl =
 			params->usb_to_ipa_clnt_hdl;
 		teth_bridge_params.tethering_mode = TETH_TETHERING_MODE_RMNET;
 		teth_bridge_params.client_type = IPA_CLIENT_USB_PROD;
-		result = teth_bridge_connect(&teth_bridge_params);
-		if (result) {
-			IPA_USB_ERR("failed to connect %s.\n",
-				ipa3_usb_teth_prot_to_string(
-				params->teth_prot));
+		result = ipa3_usb_connect_teth_bridge(&teth_bridge_params);
+		if (result)
 			return result;
-		}
-		ipa3_usb_ctx->teth_prot_ctx[IPA_USB_RMNET].state =
+		ipa3_usb_ctx->teth_prot_ctx[params->teth_prot].state =
 			IPA_USB_TETH_PROT_CONNECTED;
 		ipa3_usb_notify_device_ready(ipa3_usb_ctx->user_data);
 		IPA_USB_DBG("%s is connected.\n",
@@ -1219,6 +1248,23 @@ static int ipa3_usb_connect_teth_prot(
 	default:
 		break;
 	}
+
+	return 0;
+}
+
+static int ipa3_usb_disconnect_teth_bridge(void)
+{
+	int result;
+
+	if (ipa3_usb_ctx->teth_bridge_state != IPA_USB_TETH_PROT_CONNECTED)
+		return 0;
+
+	result = teth_bridge_disconnect(IPA_CLIENT_USB_PROD);
+	if (result) {
+		IPA_USB_ERR("failed to disconnect teth_bridge.\n");
+		return result;
+	}
+	ipa3_usb_ctx->teth_bridge_state = IPA_USB_TETH_PROT_INVALID;
 
 	return 0;
 }
@@ -1257,20 +1303,17 @@ static int ipa3_usb_disconnect_teth_prot(enum ipa_usb_teth_prot teth_prot)
 		break;
 	case IPA_USB_RMNET:
 	case IPA_USB_MBIM:
-		if (ipa3_usb_ctx->teth_prot_ctx[IPA_USB_RMNET].state !=
+		if (ipa3_usb_ctx->teth_prot_ctx[teth_prot].state !=
 			IPA_USB_TETH_PROT_CONNECTED) {
 			IPA_USB_DBG("%s is not connected.\n",
 				ipa3_usb_teth_prot_to_string(teth_prot));
 			return -EPERM;
 		}
-		result = teth_bridge_disconnect(IPA_CLIENT_USB_PROD);
-		if (result) {
-			IPA_USB_ERR("failed to disconnect %s.\n",
-				ipa3_usb_teth_prot_to_string(teth_prot));
+		result = ipa3_usb_disconnect_teth_bridge();
+		if (result)
 			break;
-		}
-		ipa3_usb_ctx->teth_prot_ctx[IPA_USB_RMNET].state =
-			IPA_USB_TETH_PROT_INVALID;
+		ipa3_usb_ctx->teth_prot_ctx[teth_prot].state =
+			IPA_USB_TETH_PROT_INITIALIZED;
 		IPA_USB_DBG("disconnected %s\n",
 			ipa3_usb_teth_prot_to_string(teth_prot));
 		break;
@@ -1290,6 +1333,7 @@ static int ipa3_usb_disconnect_teth_prot(enum ipa_usb_teth_prot teth_prot)
 		break;
 	}
 
+	ipa3_usb_ctx->user_data = NULL;
 	return result;
 }
 
@@ -1490,7 +1534,7 @@ static int ipa3_usb_check_disconnect_prot(enum ipa_usb_teth_prot teth_prot)
 		break;
 	case IPA_USB_RMNET:
 	case IPA_USB_MBIM:
-		if (ipa3_usb_ctx->teth_prot_ctx[IPA_USB_RMNET].state !=
+		if (ipa3_usb_ctx->teth_prot_ctx[teth_prot].state !=
 			IPA_USB_TETH_PROT_CONNECTED) {
 			IPA_USB_ERR("%s is not connected.\n",
 				ipa3_usb_teth_prot_to_string(teth_prot));
@@ -1734,7 +1778,7 @@ int ipa3_usb_deinit_teth_prot(enum ipa_usb_teth_prot teth_prot)
 			ecm_ipa_cleanup(
 				ipa3_usb_ctx->teth_prot_ctx[teth_prot].
 				teth_prot_params.ecm.private);
-		ipa3_usb_ctx->user_data = NULL;
+		ipa3_usb_ctx->teth_prot_ctx[teth_prot].user_data = NULL;
 		ipa3_usb_ctx->teth_prot_ctx[teth_prot].state =
 			IPA_USB_TETH_PROT_INVALID;
 		ipa3_usb_ctx->num_init_prot--;
@@ -1743,29 +1787,23 @@ int ipa3_usb_deinit_teth_prot(enum ipa_usb_teth_prot teth_prot)
 		break;
 	case IPA_USB_RMNET:
 	case IPA_USB_MBIM:
-		if (ipa3_usb_ctx->teth_prot_ctx[IPA_USB_RMNET].state ==
+		if (ipa3_usb_ctx->teth_prot_ctx[teth_prot].state ==
 			IPA_USB_TETH_PROT_CONNECTED) {
 			IPA_USB_ERR("%s is connected\n",
 				ipa3_usb_teth_prot_to_string(teth_prot));
 			result = -EINVAL;
 			goto bad_params;
 		}
-		if (ipa3_usb_ctx->teth_prot_ctx[IPA_USB_RMNET].state ==
-			IPA_USB_TETH_PROT_INITIALIZED) {
-			result = teth_bridge_disconnect(IPA_CLIENT_USB_PROD);
-			if (result) {
-				IPA_USB_ERR("failed to disconnect %s.\n",
-					ipa3_usb_teth_prot_to_string(
-					teth_prot));
-				goto bad_params;
-			}
-			ipa3_usb_ctx->user_data = NULL;
-			ipa3_usb_ctx->teth_prot_ctx[IPA_USB_RMNET].state =
-				IPA_USB_TETH_PROT_INVALID;
-			IPA_USB_DBG("deinitialized %s\n",
-				ipa3_usb_teth_prot_to_string(teth_prot));
-		}
+		result = ipa3_usb_disconnect_teth_bridge();
+		if (result)
+			goto bad_params;
+		ipa3_usb_ctx->teth_prot_ctx[teth_prot].user_data =
+			NULL;
+		ipa3_usb_ctx->teth_prot_ctx[teth_prot].state =
+			IPA_USB_TETH_PROT_INVALID;
 		ipa3_usb_ctx->num_init_prot--;
+		IPA_USB_DBG("deinitialized %s\n",
+			ipa3_usb_teth_prot_to_string(teth_prot));
 		break;
 	case IPA_USB_DIAG:
 		if (ipa3_usb_ctx->teth_prot_ctx[teth_prot].state !=
