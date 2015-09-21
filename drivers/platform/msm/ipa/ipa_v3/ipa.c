@@ -3529,6 +3529,12 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 	else
 		IPADBG(":wdi init ok\n");
 
+	result = ipa3_usb_init();
+	if (result)
+		IPAERR(":ipa_usb init failed (%d)\n", -result);
+	else
+		IPADBG(":ipa_usb init ok\n");
+
 	ipa3_ctx->q6_proxy_clk_vote_valid = true;
 
 	ipa3_register_panic_hdlr();

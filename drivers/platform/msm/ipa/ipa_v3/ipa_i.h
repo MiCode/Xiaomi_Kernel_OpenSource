@@ -539,6 +539,10 @@ struct ipa_gsi_ep_mem_info {
  * @valid: flag indicating id EP context is valid
  * @client: EP client type
  * @ep_hdl: EP's client SPS handle
+ * @gsi_chan_hdl: EP's GSI channel handle
+ * @gsi_evt_ring_hdl: EP's GSI channel event ring handle
+ * @gsi_mem_info: EP's GSI channel rings info
+ * @chan_scratch: EP's GSI channel scratch info
  * @cfg: EP cionfiguration
  * @dst_pipe_index: destination pipe index
  * @rt_tbl_idx: routing table index
@@ -564,6 +568,7 @@ struct ipa3_ep_context {
 	unsigned long gsi_chan_hdl;
 	unsigned long gsi_evt_ring_hdl;
 	struct ipa_gsi_ep_mem_info gsi_mem_info;
+	union __packed gsi_channel_scratch chan_scratch;
 	bool bytes_xfered_valid;
 	u16 bytes_xfered;
 	dma_addr_t phys_base;
@@ -593,6 +598,39 @@ struct ipa3_ep_context {
 	/* sys MUST be the last element of this struct */
 	struct ipa3_sys_context *sys;
 };
+
+/**
+ * ipa_usb_xdci_chan_params - xDCI channel related properties
+ *
+ * @ipa_ep_cfg:          IPA EP configuration
+ * @client:              type of "client"
+ * @priv:                callback cookie
+ * @notify:              callback
+ *           priv - callback cookie evt - type of event data - data relevant
+ *           to event.  May not be valid. See event_type enum for valid
+ *           cases.
+ * @skip_ep_cfg:         boolean field that determines if EP should be
+ *                       configured by IPA driver
+ * @keep_ipa_awake:      when true, IPA will not be clock gated
+ * @evt_ring_params:     parameters for the channel's event ring
+ * @evt_scratch:         parameters for the channel's event ring scratch
+ * @chan_params:         parameters for the channel
+ * @chan_scratch:        parameters for the channel's scratch
+ *
+ */
+struct ipa_request_gsi_channel_params {
+	struct ipa_ep_cfg ipa_ep_cfg;
+	enum ipa_client_type client;
+	void *priv;
+	ipa_notify_cb notify;
+	bool skip_ep_cfg;
+	bool keep_ipa_awake;
+	struct gsi_evt_ring_props evt_ring_params;
+	union __packed gsi_evt_scratch evt_scratch;
+	struct gsi_chan_props chan_params;
+	union __packed gsi_channel_scratch chan_scratch;
+};
+
 
 enum ipa3_sys_pipe_policy {
 	IPA_POLICY_INTR_MODE,
@@ -1519,9 +1557,61 @@ int ipa3_connect(const struct ipa_connect_params *in,
 		u32 *clnt_hdl);
 int ipa3_disconnect(u32 clnt_hdl);
 
+/* Generic GSI channels functions */
+int ipa3_request_gsi_channel(struct ipa_request_gsi_channel_params *params,
+			     struct ipa_req_chan_out_params *out_params);
+
+int ipa3_release_gsi_channel(u32 clnt_hdl);
+
+int ipa3_start_gsi_channel(u32 clnt_hdl);
+
 int ipa3_stop_gsi_channel(u32 clnt_hdl);
 
 int ipa3_reset_gsi_channel(u32 clnt_hdl);
+
+int ipa3_reset_gsi_event_ring(u32 clnt_hdl);
+
+/* Specific xDCI channels functions */
+int ipa3_set_usb_max_packet_size(
+	enum ipa_usb_max_usb_packet_size usb_max_packet_size);
+
+int ipa3_xdci_connect(u32 clnt_hdl, u8 xferrscidx, bool xferrscidx_valid);
+
+int ipa3_xdci_disconnect(u32 clnt_hdl, bool should_force_clear, u32 qmi_req_id);
+
+int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
+	bool should_force_clear, u32 qmi_req_id);
+
+int ipa3_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl);
+
+/*
+ * USB
+ */
+int ipa3_usb_init(void);
+
+int ipa3_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
+			   struct ipa_usb_teth_params *teth_params,
+			   int (*ipa_usb_notify_cb)(enum ipa_usb_notify_event,
+			   void *),
+			   void *user_data);
+
+int ipa3_usb_request_xdci_channel(struct ipa_usb_xdci_chan_params *params,
+				   struct ipa_req_chan_out_params *out_params);
+
+int ipa3_usb_xdci_connect(struct ipa_usb_xdci_connect_params *params);
+
+int ipa3_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
+			     enum ipa_usb_teth_prot teth_prot);
+
+int ipa3_usb_release_xdci_channel(u32 clnt_hdl,
+				  enum ipa_usb_teth_prot teth_prot);
+
+int ipa3_usb_deinit_teth_prot(enum ipa_usb_teth_prot teth_prot);
+
+int ipa3_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
+			  enum ipa_usb_teth_prot teth_prot);
+
+int ipa3_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl);
 
 /*
  * Resume / Suspend

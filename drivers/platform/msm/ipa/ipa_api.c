@@ -2617,6 +2617,98 @@ static int ipa_ap_resume(struct device *dev)
 	return ret;
 }
 
+int ipa_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
+	struct ipa_usb_teth_params *teth_params,
+	int (*ipa_usb_notify_cb)(enum ipa_usb_notify_event, void *),
+	void *user_data)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_usb_init_teth_prot, teth_prot, teth_params,
+		ipa_usb_notify_cb, user_data);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_usb_init_teth_prot);
+
+int ipa_usb_request_xdci_channel(struct ipa_usb_xdci_chan_params *params,
+	struct ipa_req_chan_out_params *out_params)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_usb_request_xdci_channel, params,
+		out_params);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_usb_request_xdci_channel);
+
+int ipa_usb_xdci_connect(struct ipa_usb_xdci_connect_params *params)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_usb_xdci_connect, params);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_usb_xdci_connect);
+
+int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
+	enum ipa_usb_teth_prot teth_prot)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_usb_xdci_disconnect, ul_clnt_hdl,
+		dl_clnt_hdl, teth_prot);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_usb_xdci_disconnect);
+
+int ipa_usb_release_xdci_channel(u32 clnt_hdl,
+	enum ipa_usb_teth_prot teth_prot)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_usb_release_xdci_channel, clnt_hdl,
+		teth_prot);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_usb_release_xdci_channel);
+
+int ipa_usb_deinit_teth_prot(enum ipa_usb_teth_prot teth_prot)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_usb_deinit_teth_prot, teth_prot);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_usb_deinit_teth_prot);
+
+int ipa_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
+	enum ipa_usb_teth_prot teth_prot)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_usb_xdci_suspend, ul_clnt_hdl,
+		dl_clnt_hdl, teth_prot);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_usb_xdci_suspend);
+
+int ipa_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_usb_xdci_resume, ul_clnt_hdl, dl_clnt_hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_usb_xdci_resume);
+
 static const struct dev_pm_ops ipa_pm_ops = {
 	.suspend_noirq = ipa_ap_suspend,
 	.resume_noirq = ipa_ap_resume,
