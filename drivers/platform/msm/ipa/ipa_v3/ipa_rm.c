@@ -370,7 +370,7 @@ int ipa3_rm_request_resource_with_timer(enum ipa_rm_resource_name resource_name)
 		goto bail;
 	}
 	result = ipa3_rm_resource_consumer_request(
-			(struct ipa3_rm_resource_cons *)resource, 0, false);
+		(struct ipa3_rm_resource_cons *)resource, 0, false, true);
 	if (result != 0 && result != -EINPROGRESS) {
 		IPA_RM_ERR("consumer request returned error %d\n", result);
 		result = -EPERM;
