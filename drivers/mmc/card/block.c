@@ -2980,6 +2980,8 @@ static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 	struct mmc_request *mrq = host->err_mrq;
 	struct mmc_card *card = mq->card;
 	struct mmc_cmdq_context_info *ctx_info = &host->cmdq_ctx;
+	struct request_queue *q = mrq->req->q;
+	int tag = mrq->req->tag;
 
 	pm_runtime_get_sync(&card->dev);
 	mmc_host_clk_hold(host);
@@ -3020,13 +3022,13 @@ static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 					 mrq->req, &gen_err, &status);
 			if (err) {
 				pr_err("%s: error %d sending stop (%d) command\n",
-					mrq->req->rq_disk->disk_name,
+					mmc_hostname(host),
 					err, status);
 				goto reset;
 			}
 		}
 
-		if (mmc_cmdq_discard_queue(host, mrq->req->tag))
+		if (mmc_cmdq_discard_queue(host, tag))
 			goto reset;
 		else
 			goto unhalt;
@@ -3048,7 +3050,7 @@ static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 
 reset:
 	spin_lock_irq(mq->queue->queue_lock);
-	blk_queue_invalidate_tags(mrq->req->q);
+	blk_queue_invalidate_tags(q);
 	spin_unlock_irq(mq->queue->queue_lock);
 	mmc_blk_cmdq_reset(host, true);
 	goto out;
