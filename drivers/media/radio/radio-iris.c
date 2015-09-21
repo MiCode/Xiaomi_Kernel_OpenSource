@@ -5151,10 +5151,14 @@ static int iris_fops_release(struct file *file)
 		radio->mode = FM_OFF;
 		retval = hci_cmd(HCI_FM_DISABLE_RECV_CMD,
 						radio->fm_hdev);
+		/* wait for disable cmd resp from controller */
+		msleep(50);
 	} else if (radio->mode == FM_TRANS) {
 		radio->mode = FM_OFF;
 		retval = hci_cmd(HCI_FM_DISABLE_TRANS_CMD,
 					radio->fm_hdev);
+		/* wait for disable cmd resp from controller */
+		msleep(50);
 	} else if (radio->mode == FM_CALIB) {
 		radio->mode = FM_OFF;
 		return retval;
