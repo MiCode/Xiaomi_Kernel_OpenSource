@@ -137,17 +137,6 @@ config IOMMU_FORCE_4K_MAPPINGS
 
          If unsure, say N here.
 
-config MSM_IOMMU_TLBINVAL_ON_MAP
-	bool "Invalidates the SMMU TLB on map"
-	depends on MSM_IOMMU
-	help
-	 Say Y here if you want to invalidate the SMMU TLB during map
-	 operations. This feature needs to be enabled only on older
-	 targets which have a hardware bug and need the TLB to be
-	 invalidated on all map and map range calls.
-
-	 If unsure, say Y here.
-
 config MMU500_ACTIVE_PREFETCH_BUG_WITH_SECTION_MAPPING
 	bool "Don't align Virtual address at 1MB boundary"
 	depends on MSM_IOMMU
