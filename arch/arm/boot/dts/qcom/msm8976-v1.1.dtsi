@@ -60,3 +60,108 @@
 			<1251 1190 1380 1301 760 798 592 640>;
 	};
 };
+
+&clock_gcc {
+	compatible = "qcom,gcc-8976-v1";
+};
+
+&clock_gcc_mdss {
+	compatible = "qcom,gcc-mdss-8976-v1";
+};
+
+&soc {
+	/delete-node/ qcom,cpu-clock-8976@b016000;
+
+	clock_cpu: qcom,cpu-clock-8976@b016000 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "qcom,cpu-clock-8976";
+		reg =   <0xb114000  0x68>,
+			<0xb014000  0x68>,
+			<0xb116000  0x40>,
+			<0xb016000  0x40>,
+			<0xb1d0000  0x40>,
+			<0xb111050  0x08>,
+			<0xb011050  0x08>,
+			<0xb1d1050  0x08>,
+			<0x00a412c  0x08>;
+		reg-names = "rcgwr-c0-base", "rcgwr-c1-base",
+			    "c0-pll", "c1-pll", "cci-pll",
+			    "c0-mux", "c1-mux", "cci-mux",
+			    "efuse";
+
+		/* RCGwR settings */
+		qcom,num-clusters = <2>;
+		qcom,lmh-sid-c0  = < 0x30 0x077706db>,
+				   < 0x34 0x05550249>,
+				   < 0x38 0x00000111>;
+		qcom,link-sid-c0 = < 0x40 0x000fc987>;
+		qcom,dfs-sid-c0  = < 0x10 0xfefebff7>,
+				   < 0x14 0xfdff7fef>,
+				   < 0x18 0xfbffdefb>,
+				   < 0x1c 0xb69b5555>,
+				   < 0x20 0x24929249>,
+				   < 0x24 0x49241112>,
+				   < 0x28 0x11112111>,
+				   < 0x2c 0x00008102>;
+		qcom,lmh-sid-c1  = < 0x30 0x077706db>,
+				   < 0x34 0x05550249>,
+				   < 0x38 0x00000111>;
+		qcom,link-sid-c1 = < 0x40 0x000fc987>;
+		qcom,dfs-sid-c1  = < 0x10 0xfefebff7>,
+				   < 0x14 0xfdff7fef>,
+				   < 0x18 0xfbffdefb>,
+				   < 0x1c 0xb69b5555>,
+				   < 0x20 0x24929249>,
+				   < 0x24 0x49241112>,
+				   < 0x28 0x11112111>,
+				   < 0x2c 0x00008102>;
+
+		vdd_mx_hf-supply = <&pm8950_s6_level_ao>;
+		vdd_hf_pll-supply = <&pm8950_l7_ao>;
+		vdd_mx_sr-supply = <&pm8950_s6_level_ao>;
+		vdd_a72-supply = <&apc1_vreg_corner>;
+		vdd_a53-supply = <&apc0_vreg_corner>;
+		vdd_cci-supply = <&apc0_vreg_corner>;
+		clocks = <&clock_gcc clk_xo_a_clk_src>,
+			 <&clock_gcc clk_gpll4_clk_src>,
+			 <&clock_gcc clk_gpll0_ao_clk_src>;
+		clock-names = "xo_a", "aux_clk_2", "aux_clk_3";
+		qcom,speed0-bin-v0-c0 =
+			<          0 0>,
+			<  400000000 1>,
+			<  691200000 2>,
+			<  806400000 3>,
+			< 1017600000 4>,
+			< 1190400000 5>,
+			< 1305600000 6>,
+			< 1382400000 7>,
+			< 1401600000 8>;
+		qcom,speed0-bin-v0-c1 =
+			<          0 0>,
+			<  400000000 1>,
+			<  883200000 2>,
+			< 1190400000 3>,
+			< 1382400000 4>,
+			< 1612800000 5>,
+			< 1747200000 6>,
+			< 1804800000 7>;
+		qcom,speed0-bin-v0-cci =
+			<          0 0>,
+			<  307200000 1>,
+			<  403200000 3>,
+			<  441600000 4>,
+			<  556800000 5>,
+			<  614400000 6>;
+		#clock-cells = <1>;
+		ranges;
+		qcom,spm@0 {
+			compatible = "qcom,cpu-spm-8976";
+			reg = <0x0b111200 0x100>,
+			      <0x0b011200 0x100>,
+			      <0x0b1d4000 0x100>;
+			reg-names = "spm_c0_base", "spm_c1_base",
+				     "spm_cci_base";
+		};
+	};
+};
