@@ -763,26 +763,6 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 	switch (event_type) {
 	case ISP_EVENT_SOF:
 		if (frame_src == VFE_PIX_0) {
-			/* Frame id is incremented in CAMIF SOF. Event is sent
-			 * in EPOCH. If by this time, both VFE dont have same
-			 * frame_id, then we have scheduling issues or some
-			 * other s/w issue */
-			if (vfe_dev->is_split &&
-				vfe_dev->common_data->dual_vfe_res->
-					axi_data[0]->
-					src_info[VFE_PIX_0].frame_id !=
-				vfe_dev->common_data->dual_vfe_res->
-					axi_data[1]->
-					src_info[VFE_PIX_0].frame_id) {
-				pr_err_ratelimited("%s: Error! 2 VFE out of sync vfe0 frame_id %u vfe1 %u\n",
-					__func__,
-					vfe_dev->common_data->dual_vfe_res->
-						axi_data[0]->
-						src_info[VFE_PIX_0].frame_id,
-					vfe_dev->common_data->dual_vfe_res->
-						axi_data[1]->
-						src_info[VFE_PIX_0].frame_id);
-			}
 			if (vfe_dev->isp_sof_debug < ISP_SOF_DEBUG_COUNT)
 				pr_err("%s: PIX0 frame id: %u\n", __func__,
 				vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
@@ -1651,10 +1631,6 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 
 			vfe_dev->buf_mgr->frameId_mismatch_recovery = 1;
 			return;
-		} else if (buf->frame_id != frame_id) {
-			pr_err("%s: Dropping the Frame %d buf frame id is %d\n",
-				 __func__, frame_id, buf->frame_id);
-			drop_frame = 1;
 		}
 		if (drop_frame) {
 			/* Put but if dual vfe usecase and
@@ -3082,12 +3058,6 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 			rc = msm_isp_cfg_ping_pong_address(vfe_dev,
 				stream_info, pingpong_status,
 				valid_address, 1, 0);
-			if (done_buf && (rc < 0)) {
-				rc |= vfe_dev->buf_mgr->ops->reset_put_buf_cnt(
-					vfe_dev->buf_mgr,
-					done_buf->bufq_handle,
-					done_buf->buf_idx);
-			}
 
 			spin_unlock_irqrestore(&stream_info->lock, flags);
 
