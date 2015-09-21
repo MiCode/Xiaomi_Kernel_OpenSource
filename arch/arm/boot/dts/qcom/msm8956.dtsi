@@ -76,7 +76,7 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x8d600000 0x0 0x1b00000>;
+			reg = <0x0 0x8d600000 0x0 0x1700000>;
 			label = "reloc_mem";
 		};
 
