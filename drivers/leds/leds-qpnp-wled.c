@@ -256,6 +256,7 @@ struct qpnp_wled {
 	bool en_cabc;
 	bool disp_type_amoled;
 	bool en_ext_pfet_sc_pro;
+	bool prev_state;
 };
 
 /* helper to read a pmic register */
@@ -690,13 +691,17 @@ static void qpnp_wled_work(struct work_struct *work)
 		}
 	}
 
-	rc = qpnp_wled_module_en(wled, wled->ctrl_base, !!level);
+	if (!!level != wled->prev_state) {
+		rc = qpnp_wled_module_en(wled, wled->ctrl_base, !!level);
 
-	if (rc) {
-		dev_err(&wled->spmi->dev, "wled %sable failed\n",
-					level ? "en" : "dis");
-		goto unlock_mutex;
+		if (rc) {
+			dev_err(&wled->spmi->dev, "wled %sable failed\n",
+						level ? "en" : "dis");
+			goto unlock_mutex;
+		}
 	}
+
+	wled->prev_state = !!level;
 unlock_mutex:
 	mutex_unlock(&wled->lock);
 }
