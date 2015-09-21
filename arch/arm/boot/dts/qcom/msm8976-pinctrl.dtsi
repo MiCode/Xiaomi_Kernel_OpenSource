@@ -571,6 +571,31 @@
 			};
 		};
 
+		cam_sensor_front_vdig {
+			/* VDIG */
+			qcom,pins = <&gp 105>;
+			qcom,num-grp-pins = <1>;
+			label = "cam_sensor_front_vdig";
+			/* active state */
+			cam_sensor_front_vdig: cam_sensor_front_vdig {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
+		cam_sensor_front_vdig_sleep {
+			/* VDIG */
+			qcom,pins = <&gp 105>;
+			qcom,num-grp-pins = <1>;
+			label = "cam_sensor_front_vdig_sleep";
+			/*suspended state */
+			cam_sensor_front_vdig_sleep:
+				cam_sensor_front_vdig_sleep {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
 		cam_sensor_mclk2_default {
 			/* MCLK2 */
 			qcom,pins = <&gp 28>;
