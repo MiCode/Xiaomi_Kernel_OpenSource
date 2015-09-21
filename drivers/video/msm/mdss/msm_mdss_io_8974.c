@@ -803,25 +803,23 @@ int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 	h_period = mdss_panel_get_htotal(panel_info, true);
 	v_period = mdss_panel_get_vtotal(panel_info);
 
+	if (lanes == 0) {
+		pr_warn("%s: forcing mdss_dsi lanes to 1\n", __func__);
+		lanes = 1;
+	}
+
 	if (ctrl_pdata->refresh_clk_rate || (frame_rate !=
 	     panel_info->mipi.frame_rate) ||
 	    (!panel_info->clk_rate)) {
-		if (lanes > 0) {
-			panel_info->clk_rate =
-			((h_period * v_period *
-			  frame_rate * bpp * 8)
-			   / lanes);
-		} else {
-			pr_err("%s: forcing mdss_dsi lanes to 1\n", __func__);
-			panel_info->clk_rate =
-				(h_period * v_period * frame_rate * bpp * 8);
-		}
+		panel_info->clk_rate = (u32)div_u64(((u64)(h_period * v_period)
+				* frame_rate * bpp * 8), lanes);
 	}
 
 	if (panel_info->clk_rate == 0)
 		panel_info->clk_rate = 454000000;
 
-	dsi_pclk_rate = (((panel_info->clk_rate) * lanes) / (8 * bpp));
+	dsi_pclk_rate = (u32)div_u64(((u64)(panel_info->clk_rate) * lanes),
+			(8 * bpp));
 
 	if ((dsi_pclk_rate < 3300000) || (dsi_pclk_rate > 250000000))
 		dsi_pclk_rate = 35000000;
