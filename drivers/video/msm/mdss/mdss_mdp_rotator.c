@@ -1004,6 +1004,7 @@ int mdss_mdp_rotator_play(struct msm_fb_data_type *mfd,
 			    struct msmfb_overlay_data *req)
 {
 	struct mdss_mdp_rotator_session *rot;
+	struct mdp_layer_buffer buffer;
 	int ret;
 	u32 flgs;
 	struct mdss_mdp_data src_buf;
@@ -1023,8 +1024,12 @@ int mdss_mdp_rotator_play(struct msm_fb_data_type *mfd,
 	mdss_iommu_ctrl(1);
 	mutex_lock(&rot->lock);
 
-	ret = mdss_mdp_data_get(&src_buf, &req->data, 1, flgs,
-		&mfd->pdev->dev, true, DMA_TO_DEVICE);
+	buffer.width = rot->src_rect.w;
+	buffer.height = rot->src_rect.h;
+	buffer.format = rot->format;
+	ret = mdss_mdp_data_get_and_validate_size(&src_buf,
+		&req->data, 1, flgs, &mfd->pdev->dev, true,
+		DMA_TO_DEVICE, &buffer);
 	if (ret) {
 		pr_err("src_data pmem error\n");
 		goto dst_buf_fail;
@@ -1040,8 +1045,14 @@ int mdss_mdp_rotator_play(struct msm_fb_data_type *mfd,
 	memcpy(&rot->src_buf, &src_buf, sizeof(struct mdss_mdp_data));
 
 	mdss_mdp_data_free(&rot->dst_buf, true, DMA_FROM_DEVICE);
-	ret = mdss_mdp_data_get(&rot->dst_buf, &req->dst_data, 1, flgs,
-		&mfd->pdev->dev, true, DMA_FROM_DEVICE);
+	buffer.width = rot->dst.w;
+	buffer.height = rot->dst.h;
+	buffer.format = mdss_mdp_get_rotator_dst_format(rot->format,
+		rot->flags & MDP_ROT_90, rot->bwc_mode);
+
+	ret = mdss_mdp_data_get_and_validate_size(&rot->dst_buf,
+		&req->dst_data, 1, flgs, &mfd->pdev->dev, true,
+		DMA_FROM_DEVICE, &buffer);
 	if (ret) {
 		pr_err("dst_data pmem error\n");
 		mdss_mdp_data_free(&rot->src_buf, true, DMA_TO_DEVICE);

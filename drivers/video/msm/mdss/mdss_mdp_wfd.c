@@ -239,8 +239,9 @@ static int mdss_mdp_wfd_import_data(struct device *device,
 		planes[i].offset = buffer->planes[i].offset;
 	}
 
-	ret =  mdss_mdp_data_get(data, planes, buffer->plane_count, flags,
-					device, false, DMA_FROM_DEVICE);
+	ret =  mdss_mdp_data_get_and_validate_size(data, planes,
+			buffer->plane_count, flags, device,
+			false, DMA_FROM_DEVICE, buffer);
 
 	return ret;
 }
