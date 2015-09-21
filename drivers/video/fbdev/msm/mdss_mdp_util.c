@@ -1238,9 +1238,9 @@ err_unmap:
 	return ret;
 }
 
-int mdss_mdp_data_get(struct mdss_mdp_data *data, struct msmfb_data *planes,
-		int num_planes, u32 flags, struct device *dev, bool rotator,
-		int dir)
+static int mdss_mdp_data_get(struct mdss_mdp_data *data,
+		struct msmfb_data *planes, int num_planes, u32 flags,
+		struct device *dev, bool rotator, int dir)
 {
 	int i, rc = 0;
 
@@ -1298,6 +1298,55 @@ void mdss_mdp_data_free(struct mdss_mdp_data *data, bool rotator, int dir)
 	mdss_iommu_ctrl(0);
 
 	data->num_planes = 0;
+}
+
+int mdss_mdp_data_get_and_validate_size(struct mdss_mdp_data *data,
+	struct msmfb_data *planes, int num_planes, u32 flags,
+	struct device *dev, bool rotator, int dir,
+	struct mdp_layer_buffer *buffer)
+{
+	struct mdss_mdp_format_params *fmt;
+	struct mdss_mdp_plane_sizes ps;
+	int ret, i;
+	unsigned long total_buf_len = 0;
+
+	fmt = mdss_mdp_get_format_params(buffer->format);
+	if (!fmt) {
+		pr_err("Format %d not supported\n", buffer->format);
+		return -EINVAL;
+	}
+
+	ret = mdss_mdp_data_get(data, planes, num_planes,
+		flags, dev, rotator, dir);
+	if (ret)
+		return ret;
+
+	mdss_mdp_get_plane_sizes(fmt, buffer->width, buffer->height, &ps, 0, 0);
+
+	for (i = 0; i < num_planes ; i++) {
+		unsigned long plane_len = (data->p[i].srcp_dma_buf) ?
+				data->p[i].srcp_dma_buf->size : data->p[i].len;
+
+		if (plane_len < planes[i].offset) {
+			pr_err("Offset=%d larger than buffer size=%lu\n",
+				planes[i].offset, plane_len);
+			ret = -EINVAL;
+			goto buf_too_small;
+		}
+		total_buf_len += plane_len - planes[i].offset;
+	}
+
+	if (total_buf_len < ps.total_size) {
+		pr_err("Buffer size=%lu, expected size=%d\n", total_buf_len,
+			ps.total_size);
+		ret = -EINVAL;
+		goto buf_too_small;
+	}
+	return 0;
+
+buf_too_small:
+	mdss_mdp_data_free(data, rotator, dir);
+	return ret;
 }
 
 int mdss_mdp_calc_phase_step(u32 src, u32 dst, u32 *out_phase)

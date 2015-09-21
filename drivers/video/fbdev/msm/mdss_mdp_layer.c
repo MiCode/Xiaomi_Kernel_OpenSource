@@ -856,15 +856,18 @@ static struct mdss_mdp_data *__map_layer_buffer(struct msm_fb_data_type *mfd,
 
 	image.memory_id = buffer->planes[0].fd;
 	image.offset = buffer->planes[0].offset;
-	ret = mdss_mdp_data_get(src_data, &image, 1, flags,
-			&mfd->pdev->dev, false, DMA_TO_DEVICE);
-	if (ret) {
-		mdss_mdp_overlay_buf_free(mfd, src_data);
-		src_data = ERR_PTR(ret);
-	} else {
-		src_data->num_planes = 1;
-	}
+	ret = mdss_mdp_data_get_and_validate_size(src_data, &image, 1,
+			flags, &mfd->pdev->dev, false, DMA_TO_DEVICE,
+			buffer);
+	if (ret)
+		goto end_buf_free;
 
+	src_data->num_planes = 1;
+	return src_data;
+
+end_buf_free:
+	mdss_mdp_overlay_buf_free(mfd, src_data);
+	src_data = ERR_PTR(ret);
 end:
 	return src_data;
 }

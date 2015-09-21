@@ -409,10 +409,12 @@ static struct mdss_mdp_wb_data *get_local_node(struct mdss_mdp_wb *wb,
 static struct mdss_mdp_wb_data *get_user_node(struct msm_fb_data_type *mfd,
 						struct msmfb_data *data)
 {
-
+	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
+	struct mdp_layer_buffer buffer;
 	struct mdss_mdp_wb *wb = mfd_to_wb(mfd);
 	struct mdss_mdp_wb_data *node;
 	struct mdss_mdp_img_data *buf;
+	struct mdss_mdp_mixer *mixer;
 	u32 flags = 0;
 	int ret;
 
@@ -453,8 +455,17 @@ static struct mdss_mdp_wb_data *get_user_node(struct msm_fb_data_type *mfd,
 	if (wb->is_secure)
 		flags |= MDP_SECURE_OVERLAY_SESSION;
 
-	ret = mdss_mdp_data_get(&node->buf_data, data, 1, flags,
-		&mfd->pdev->dev, true, DMA_FROM_DEVICE);
+	mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_DEFAULT);
+	if (!mixer) {
+		pr_err("Null mixer\n");
+		goto register_fail;
+	}
+	buffer.width = mixer->width;
+	buffer.height = mixer->height;
+	buffer.format = ctl->dst_format;
+	ret = mdss_mdp_data_get_and_validate_size(&node->buf_data,
+		data, 1, flags, &mfd->pdev->dev, true, DMA_FROM_DEVICE,
+		&buffer);
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("error getting buffer info\n");
 		goto register_fail;
