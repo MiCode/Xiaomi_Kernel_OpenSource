@@ -657,7 +657,7 @@
 		      <0x06400000 0x1000>,
 		      <0x06480000 0x1000>,
 		      <0x09A11000 0x1000>,
-		      <0x00070130    0x8>,
+		      <0x00074130    0x8>,
 		      <0x09820000 0x1000>;
 		reg-names = "pwrcl_pll", "perfcl_pll", "cbf_pll", "pwrcl_mux", "perfcl_mux", "cbf_mux", "efuse", "debug";
 		vdd-pwrcl-supply = <&apc0_pwrcl_vreg>;
