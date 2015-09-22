@@ -379,6 +379,39 @@ Platform independent properties:
 		    single tuple may only be specified if all of the corner
 		    counts in qcom,cpr-corners are the same.
 
+- qcom,cpr-open-loop-voltage-min-diff
+	Usage:      optional; only meaningful if the
+		    qcom,cpr-open-loop-voltage-adjustment property is specified
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the minimum
+		    allowed open-loop voltage difference in microvolts between
+		    each voltage corner and the one immediately preceding it.
+		    The elements in a tuple are ordered from the lowest to the
+		    highest corner.  The value specified for the first corner is
+		    ignored since there is no corner before it.
+
+		    Negative voltage values may be specified for this property.
+		    A negative value means that the open-loop voltage of a
+		    corner may be lower than that of the preceding corner.
+
+		    The minimum difference is enforced after the open-loop
+		    voltage values have been interpolated for intermediate
+		    corners and after adjustments have been applied.
+
+		    The list must contain either qcom,cpr-fuse-combos number of
+		    tuples in which case the tuples are matched to fuse
+		    combinations 1-to-1 or the list must contain exactly 1 tuple
+		    which is used regardless of the fuse combination found on a
+		    given chip.
+
+		    Each tuple must be of the length defined in the
+		    corresponding element of the qcom,cpr-corners property.  A
+		    single tuple may only be specified if all of the corner
+		    counts in qcom,cpr-corners are the same.
+
+		    If this property is not specified, then the minimum
+		    difference is assumed to be 0 uV for all corners.
+
 - qcom,cpr-closed-loop-voltage-fuse-adjustment
 	Usage:      optional
 	Value type: <prop-encoded-array>
