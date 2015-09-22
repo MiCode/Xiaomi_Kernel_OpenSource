@@ -106,6 +106,8 @@ Optional properties:
            internal persist = 0x200
            internal persist1 = 0x400
            internal cmd queue = 0x800
+- qcom,pm-qos-latency-us = The latency used to vote for QOS power manager. This
+value is typically max(latencies of every cluster at all power levels) + 1
 
 [Second level nodes]
 Context Banks

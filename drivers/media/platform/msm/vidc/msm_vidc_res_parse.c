@@ -745,6 +745,9 @@ int read_platform_resources_from_dt(
 	res->never_unload_fw = of_property_read_bool(pdev->dev.of_node,
 			"qcom,never-unload-fw");
 
+	of_property_read_u32(pdev->dev.of_node,
+			"qcom,pm-qos-latency-us", &res->pm_qos_latency_us);
+
 	return rc;
 
 err_setup_legacy_cb:

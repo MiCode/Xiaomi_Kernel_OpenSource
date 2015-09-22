@@ -146,6 +146,7 @@ struct msm_vidc_platform_resources {
 	const char *fw_name;
 	const char *hfi_version;
 	bool never_unload_fw;
+	uint32_t pm_qos_latency_us;
 };
 
 static inline bool is_iommu_present(struct msm_vidc_platform_resources *res)
