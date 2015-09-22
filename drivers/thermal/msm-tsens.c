@@ -5262,14 +5262,16 @@ static int get_device_tree_data(struct platform_device *pdev,
 	else
 		tmdev->tsens_type = TSENS_TYPE0;
 
-	if (!strcmp(id->compatible, "qcom,msm8994-tsens") ||
+	tmdev->tsens_valid_status_check = of_property_read_bool(of_node,
+				"qcom,valid-status-check");
+	if (!tmdev->tsens_valid_status_check) {
+		if (!strcmp(id->compatible, "qcom,msm8994-tsens") ||
 		(!strcmp(id->compatible, "qcom,msmzirc-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msm8992-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msm8996-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msmtitanium-tsens")))
-		tmdev->tsens_valid_status_check = true;
-	else
-		tmdev->tsens_valid_status_check = false;
+			tmdev->tsens_valid_status_check = true;
+	}
 
 	tmdev->tsens_irq = platform_get_irq_byname(pdev,
 					"tsens-upper-lower");
