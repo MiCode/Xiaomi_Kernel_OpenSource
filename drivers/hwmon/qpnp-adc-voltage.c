@@ -2227,6 +2227,7 @@ static int32_t qpnp_vadc_init_thermal(struct qpnp_vadc_chip *vadc,
 			vadc->vadc_therm_chan[i].thermal_node = true;
 			snprintf(name, sizeof(name), "%s",
 				vadc->adc->adc_channels[i].name);
+			vadc->vadc_therm_chan[i].vadc_dev = vadc;
 			vadc->vadc_therm_chan[i].tz_dev =
 				thermal_zone_device_register(name,
 				0, 0, &vadc->vadc_therm_chan[i],
@@ -2235,7 +2236,6 @@ static int32_t qpnp_vadc_init_thermal(struct qpnp_vadc_chip *vadc,
 				pr_err("thermal device register failed.\n");
 				goto thermal_err_sens;
 			}
-			vadc->vadc_therm_chan[i].vadc_dev = vadc;
 		}
 		i++;
 		thermal_node = false;
