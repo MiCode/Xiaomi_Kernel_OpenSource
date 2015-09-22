@@ -176,8 +176,6 @@
 #define CORE_DDR_CONFIG_2		0x1BC
 #define DDR_CONFIG_2_POR_VAL		0x80040873
 
-#define MSM_MMC_DEFAULT_CPU_DMA_LATENCY 200 /* usecs */
-
 /* 512 descriptors */
 #define SDHCI_MSM_MAX_SEGMENTS  (1 << 9)
 #define SDHCI_MSM_MMC_CLK_GATE_DELAY	200 /* msecs */
@@ -1426,30 +1424,6 @@ out:
 	return ret;
 }
 
-#ifdef CONFIG_SMP
-static void sdhci_msm_populate_affinity_type(struct sdhci_msm_pltfm_data *pdata,
-					     struct device_node *np)
-{
-	const char *cpu_affinity = NULL;
-
-	pdata->cpu_affinity_type = PM_QOS_REQ_AFFINE_IRQ;
-	if (!of_property_read_string(np, "qcom,cpu-affinity",
-				    &cpu_affinity)) {
-		if (!strcmp(cpu_affinity, "all_cores"))
-			pdata->cpu_affinity_type = PM_QOS_REQ_ALL_CORES;
-		else if (!strcmp(cpu_affinity, "affine_cores"))
-			pdata->cpu_affinity_type = PM_QOS_REQ_AFFINE_CORES;
-		else if (!strcmp(cpu_affinity, "affine_irq"))
-			pdata->cpu_affinity_type = PM_QOS_REQ_AFFINE_IRQ;
-	}
-}
-#else
-static void sdhci_msm_populate_affinity_type(struct sdhci_msm_pltfm_data *pdata,
-					     struct device_node *np)
-{
-}
-#endif
-
 /* Parse platform data */
 static
 struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
@@ -1458,7 +1432,6 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 	struct sdhci_msm_pltfm_data *pdata = NULL;
 	struct device_node *np = dev->of_node;
 	u32 bus_width = 0;
-	u32 cpu_dma_latency;
 	int len, i;
 	int clk_table_len;
 	u32 *clk_table = NULL;
@@ -1485,12 +1458,6 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 		dev_notice(dev, "invalid bus-width, default to 1-bit mode\n");
 		pdata->mmc_bus_width = 0;
 	}
-
-	if (!of_property_read_u32(np, "qcom,cpu-dma-latency-us",
-				&cpu_dma_latency))
-		pdata->cpu_dma_latency_us = cpu_dma_latency;
-	else
-		pdata->cpu_dma_latency_us = MSM_MMC_DEFAULT_CPU_DMA_LATENCY;
 
 	if (sdhci_msm_dt_get_array(dev, "qcom,devfreq,freq-table",
 			&msm_host->mmc->clk_scaling.freq_table,
@@ -1594,8 +1561,6 @@ struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
 
 	pdata->largeaddressbus =
 		of_property_read_bool(np, "qcom,large-address-bus");
-
-	sdhci_msm_populate_affinity_type(pdata, np);
 
 	if (of_property_read_bool(np, "qcom,wakeup-on-idle"))
 		msm_host->mmc->wakeup_on_idle = true;
@@ -3494,8 +3459,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	if (msm_host->pdata->nonhotplug)
 		msm_host->mmc->caps2 |= MMC_CAP2_NONHOTPLUG;
 
-	host->cpu_dma_latency_us = msm_host->pdata->cpu_dma_latency_us;
-	host->pm_qos_req_dma.type = msm_host->pdata->cpu_affinity_type;
 
 	/* Initialize ICE if present */
 	if (msm_host->ice.pdev) {

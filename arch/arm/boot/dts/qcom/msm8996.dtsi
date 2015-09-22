@@ -878,7 +878,6 @@
 		sdhc-msm-crypto = <&sdcc1_ice>;
 		qcom,large-address-bus;
 		qcom,bus-width = <8>;
-		qcom,cpu-dma-latency-us = <701>;
 
 		qcom,devfreq,freq-table = <20000000 200000000>;
 
@@ -915,7 +914,6 @@
 
 		qcom,large-address-bus;
 		qcom,bus-width = <4>;
-		qcom,cpu-dma-latency-us = <701>;
 
 		qcom,devfreq,freq-table = <20000000 200000000>;
 
