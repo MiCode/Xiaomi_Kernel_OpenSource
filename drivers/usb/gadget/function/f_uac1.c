@@ -1010,8 +1010,9 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 				pr_err("request allocation failed\n");
 				return -ENOMEM;
 			}
-			req->buf = kzalloc(req_capture_buf_size,
-						GFP_ATOMIC);
+			req->buf = kzalloc(req_capture_buf_size +
+					cdev->gadget->extra_buf_alloc,
+					GFP_ATOMIC);
 			if (!req->buf) {
 				pr_err("request buffer allocation failed\n");
 				return -ENOMEM;

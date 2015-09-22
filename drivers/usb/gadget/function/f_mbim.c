@@ -567,13 +567,14 @@ static void mbim_free_ctrl_pkt(struct ctrl_pkt *pkt)
 	}
 }
 
-static struct usb_request *mbim_alloc_req(struct usb_ep *ep, int buffer_size)
+static struct usb_request *mbim_alloc_req(struct usb_ep *ep, int buffer_size,
+		size_t extra_buf)
 {
 	struct usb_request *req = usb_ep_alloc_request(ep, GFP_KERNEL);
 	if (!req)
 		return NULL;
 
-	req->buf = kmalloc(buffer_size, GFP_KERNEL);
+	req->buf = kmalloc(buffer_size + extra_buf, GFP_KERNEL);
 	if (!req->buf) {
 		usb_ep_free_request(ep, req);
 		return NULL;
@@ -1510,7 +1511,8 @@ mbim_bind(struct usb_configuration *c, struct usb_function *f)
 	status = -ENOMEM;
 
 	/* allocate notification request and buffer */
-	mbim->not_port.notify_req = mbim_alloc_req(ep, NCM_STATUS_BYTECOUNT);
+	mbim->not_port.notify_req = mbim_alloc_req(ep, NCM_STATUS_BYTECOUNT,
+				cdev->gadget->extra_buf_alloc);
 	if (!mbim->not_port.notify_req) {
 		pr_info("failed to allocate notify request\n");
 		goto fail;
