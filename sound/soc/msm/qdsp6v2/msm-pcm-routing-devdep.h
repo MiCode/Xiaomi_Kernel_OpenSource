@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
 * only version 2 as published by the Free Software Foundation.
@@ -10,7 +10,7 @@
 */
 
 #ifndef _MSM_PCM_ROUTING_DEVDEP_H_
-#define _MSM_PCM_ROUTING_DEVDEP_H__
+#define _MSM_PCM_ROUTING_DEVDEP_H_
 
 #include <sound/soc.h>
 #include "msm-pcm-routing-v2.h"
