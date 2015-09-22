@@ -104,6 +104,12 @@ union  meta_data {
 	struct dec_meta_in meta_in;
 } __packed;
 
+/* per device wakeup source manager */
+struct ws_mgr {
+	struct mutex       ws_lock;
+	uint32_t           ref_cnt;
+};
+
 #define PCM_BUF_COUNT           (2)
 /* Buffer with meta */
 #define PCM_BUFSZ_MIN           ((4*1024) + sizeof(struct dec_meta_out))
@@ -164,6 +170,10 @@ struct q6audio_aio {
 	wait_queue_head_t event_wait;
 	spinlock_t dsp_lock;
 	spinlock_t event_queue_lock;
+
+	struct miscdevice *miscdevice;
+	uint32_t wakelock_voted;
+	struct ws_mgr *audio_ws_mgr;
 
 #ifdef CONFIG_DEBUG_FS
 	struct dentry *dentry;
