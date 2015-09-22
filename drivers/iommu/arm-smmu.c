@@ -293,13 +293,6 @@
 
 #define FSYNR0_WNR			(1 << 4)
 
-#define ARM_SMMU_IMPL_DEF0(smmu) \
-	((smmu)->base + (2 * (1 << (smmu)->pgshift)))
-#define ARM_SMMU_IMPL_DEF1(smmu) \
-	((smmu)->base + (6 * (1 << (smmu)->pgshift)))
-#define IMPL_DEF1_MICRO_MMU_CTRL	0
-#define MICRO_MMU_CTRL_LOCAL_HALT_REQ	(1 << 2)
-
 static int force_stage;
 module_param_named(force_stage, force_stage, int, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(force_stage,
