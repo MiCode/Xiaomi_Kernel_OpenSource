@@ -25,3 +25,11 @@
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_hx8399a_1080p_video>;
 };
+
+&dsi_hx8399a_1080p_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,esd-check-enabled;
+};
