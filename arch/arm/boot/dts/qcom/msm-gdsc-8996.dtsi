@@ -22,7 +22,9 @@
 	gdsc_mmagic_video: qcom,gdsc@8c119c {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_mmagic_video";
-		reg = <0x8c119c 0x4>;
+		reg = <0x8c119c 0x4>,
+		      <0x8c120c 0x4>;
+		reg-names = "base", "hw_ctrl_addr";
 		qcom,no-status-check-on-disable;
 		status = "disabled";
 	};
@@ -30,7 +32,9 @@
 	gdsc_mmagic_mdss: qcom,gdsc@8c247c {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_mmagic_mdss";
-		reg = <0x8c247c 0x4>;
+		reg = <0x8c247c 0x4>,
+		      <0x8c2480 0x4>;
+		reg-names = "base", "hw_ctrl_addr";
 		qcom,no-status-check-on-disable;
 		status = "disabled";
 	};
@@ -38,7 +42,9 @@
 	gdsc_mmagic_camss: qcom,gdsc@8c3c4c {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_mmagic_camss";
-		reg = <0x8c3c4c 0x4>;
+		reg = <0x8c3c4c 0x4>,
+		      <0x8c3c50 0x4>;
+		reg-names = "base", "hw_ctrl_addr";
 		qcom,no-status-check-on-disable;
 		status = "disabled";
 	};
@@ -151,7 +157,9 @@
 	gdsc_gpu: qcom,gdsc@8c4034 {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_gpu";
-		reg = <0x8c4034 0x4>;
+		reg = <0x8c4034 0x4>,
+		      <0x8c4038 0x4>;
+		reg-names = "base", "hw_ctrl_addr";
 		qcom,no-status-check-on-disable;
 		status = "disabled";
 	};
@@ -192,7 +200,10 @@
 	gdsc_aggre0_noc: qcom,gdsc@381004 {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_aggre0_noc";
-		reg = <0x381004 0x4>;
+		reg = <0x381004 0x4>,
+		      <0x381028 0x4>;
+		reg-names = "base", "hw_ctrl_addr";
+		qcom,no-status-check-on-disable;
 		status = "disabled";
 	};
 };
