@@ -1413,7 +1413,8 @@ static void tasha_wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
 	struct wcd9xxx *wcd9xxx = tasha->wcd9xxx;
 	s16 reg0, reg1, reg2, reg3, reg4;
-	int32_t z1L, z1R;
+	int32_t z1L, z1R, z1Ls;
+	int zMono, z_diff1, z_diff2;
 	bool is_fsm_disable = false;
 	bool is_change = false;
 	struct tasha_mbhc_zdet_param zdet_param[] = {
@@ -1532,6 +1533,49 @@ right_ch_impedance:
 	dev_dbg(codec->dev, "%s: impedance on HPH_R = %d(ohms)\n",
 				__func__, *zr);
 
+	/* mono/stereo detection */
+	if ((*zl == TASHA_ZDET_FLOATING_IMPEDANCE) &&
+		(*zr == TASHA_ZDET_FLOATING_IMPEDANCE)) {
+		dev_dbg(codec->dev,
+			"%s: plug type is invalid or extension cable\n",
+			__func__);
+		goto zdet_complete;
+	}
+	if ((*zl == TASHA_ZDET_FLOATING_IMPEDANCE) ||
+	    (*zr == TASHA_ZDET_FLOATING_IMPEDANCE) ||
+	    ((*zl < WCD_MONO_HS_MIN_THR) && (*zr > WCD_MONO_HS_MIN_THR)) ||
+	    ((*zl > WCD_MONO_HS_MIN_THR) && (*zr < WCD_MONO_HS_MIN_THR))) {
+		dev_dbg(codec->dev,
+			"%s: Mono plug type with one ch floating or shorted to GND\n",
+			__func__);
+		mbhc->hph_type = WCD_MBHC_HPH_MONO;
+		goto zdet_complete;
+	}
+	snd_soc_update_bits(codec, WCD9335_HPH_R_ATEST, 0x02, 0x02);
+	snd_soc_update_bits(codec, WCD9335_HPH_PA_CTL2, 0x40, 0x01);
+	if (*zl < (TASHA_ZDET_VAL_32/1000))
+		tasha_mbhc_zdet_ramp(codec, &zdet_param[0], &z1Ls, NULL, d1);
+	else
+		tasha_mbhc_zdet_ramp(codec, &zdet_param[1], &z1Ls, NULL, d1);
+	snd_soc_update_bits(codec, WCD9335_HPH_PA_CTL2, 0x40, 0x00);
+	snd_soc_update_bits(codec, WCD9335_HPH_R_ATEST, 0x02, 0x00);
+	z1Ls /= 1000;
+	tasha_wcd_mbhc_qfuse_cal(codec, &z1Ls, 0);
+	/* parallel of left Z and 9 ohm pull down resistor */
+	zMono = ((*zl) * 9) / ((*zl) + 9);
+	z_diff1 = (z1Ls > zMono) ? (z1Ls - zMono) : (zMono - z1Ls);
+	z_diff2 = ((*zl) > z1Ls) ? ((*zl) - z1Ls) : (z1Ls - (*zl));
+	if ((z_diff1 * (*zl + z1Ls)) > (z_diff2 * (z1Ls + zMono))) {
+		dev_dbg(codec->dev, "%s: stereo plug type detected\n",
+				__func__);
+		mbhc->hph_type = WCD_MBHC_HPH_STEREO;
+	} else {
+		dev_dbg(codec->dev, "%s: MONO plug type detected\n",
+			 __func__);
+		mbhc->hph_type = WCD_MBHC_HPH_MONO;
+	}
+
+zdet_complete:
 	snd_soc_write(codec, WCD9335_ANA_MBHC_BTN5, reg0);
 	snd_soc_write(codec, WCD9335_ANA_MBHC_BTN6, reg1);
 	snd_soc_write(codec, WCD9335_ANA_MBHC_BTN7, reg2);
