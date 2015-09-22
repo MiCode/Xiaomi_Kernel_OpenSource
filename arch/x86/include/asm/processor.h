@@ -660,6 +660,10 @@ static inline void cpu_relax(void)
 	rep_nop();
 }
 
+#ifndef cpu_read_relax
+#define cpu_read_relax() cpu_relax()
+#endif
+
 /* Stop speculative execution and prefetching of modified code. */
 static inline void sync_core(void)
 {
