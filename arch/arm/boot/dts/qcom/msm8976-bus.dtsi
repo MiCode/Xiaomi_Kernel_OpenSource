@@ -437,6 +437,7 @@
 			qcom,ap-owned;
 			qcom,qport = <16 17>;
 			qcom,qos-mode = "bypass";
+			qcom,vrail-comp = <200>;
 			qcom,connections = <&slv_smmnoc_bimc &mm_int_0>;
 			qcom,bus-dev = <&fab_snoc_mm>;
 			qcom,mas-rpm-id = <ICBID_MASTER_GFX3D>;
@@ -751,6 +752,7 @@
 			qcom,buswidth = <16>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
+			qcom,vrail-comp = <200>;
 			qcom,connections = <&snoc_int_0>;
 			qcom,bus-dev = <&fab_snoc_mm>;
 			qcom,mas-rpm-id = <ICBID_MASTER_MM_INT_0>;
@@ -1039,6 +1041,7 @@
 			qcom,buswidth = <16>;
 			qcom,agg-ports = <2>;
 			qcom,ap-owned;
+			qcom,vrail-comp = <200>;
 			qcom,bus-dev = <&fab_snoc_mm>;
 			qcom,connections = <&mas_smmnoc_bimc>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_SMMNOC_BIMC>;
