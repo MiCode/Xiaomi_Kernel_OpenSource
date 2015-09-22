@@ -1347,6 +1347,17 @@ static struct branch_clk gcc_emac_0_tx_clk = {
 	},
 };
 
+static struct branch_clk gcc_emac_0_rx_clk = {
+	.cbcr_reg = EMAC_0_RX_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_emac_0_rx_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_emac_0_rx_clk.c),
+	},
+};
+
 static struct branch_clk gcc_usb2a_phy_sleep_clk = {
 	.cbcr_reg = USB2A_PHY_SLEEP_CBCR,
 	.has_sibling = 1,
@@ -1643,6 +1654,7 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_emac_0_sys_25m_clk.c, 0x01ba },
 		{ &gcc_emac_0_tx_clk.c, 0x01bb },
 		{ &gcc_emac_0_125m_clk.c, 0x01bc },
+		{ &gcc_emac_0_rx_clk.c, 0x01bd },
 		{ &gcc_emac_0_sys_clk.c, 0x01be },
 	),
 	.c = {
@@ -1764,6 +1776,7 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	 CLK_LIST(gcc_emac_0_sys_25m_clk),
 	 CLK_LIST(gcc_emac_0_sys_clk),
 	 CLK_LIST(gcc_emac_0_tx_clk),
+	 CLK_LIST(gcc_emac_0_rx_clk),
 	 CLK_LIST(gcc_usb2a_phy_sleep_clk),
 	 CLK_LIST(gcc_usb_hs_phy_cfg_ahb_clk),
 	 CLK_LIST(gcc_usb_hs_ahb_clk),
