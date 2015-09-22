@@ -2977,8 +2977,14 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 		if (SRC_TO_INTF(stream_info->stream_src) >= VFE_SRC_MAX)
 			continue;
 		if (stream_info->state != ACTIVE &&
-			stream_info->state != INACTIVE) {
-			pr_err("%s: Invalid stream state\n", __func__);
+			stream_info->state != INACTIVE &&
+			update_cmd->update_type !=
+			UPDATE_STREAM_REQUEST_FRAMES &&
+			update_cmd->update_type !=
+			UPDATE_STREAM_REMOVE_BUFQ) {
+			pr_err("%s: Invalid stream state %d, update cmd %d\n",
+				__func__, stream_info->state,
+				stream_info->stream_id);
 			return -EINVAL;
 		}
 		if (update_cmd->update_type == UPDATE_STREAM_AXI_CONFIG &&
