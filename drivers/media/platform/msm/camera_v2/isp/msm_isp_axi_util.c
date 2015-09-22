@@ -1119,22 +1119,66 @@ int msm_isp_release_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	return rc;
 }
 
-static void msm_isp_axi_stream_enable_cfg(
+static int  msm_isp_axi_stream_enable_cfg(
 	struct vfe_device *vfe_dev,
-	struct msm_vfe_axi_stream *stream_info)
+	struct msm_vfe_axi_stream *stream_info, int32_t dual_vfe_sync)
 {
-	int i;
+	int i, vfe_id = 0, enable_wm = 0;
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
+	uint32_t stream_idx = HANDLE_TO_IDX(stream_info->stream_handle);
+	struct dual_vfe_resource *dual_vfe_res = NULL;
+
+	if (stream_idx >= MAX_NUM_STREAM) {
+		pr_err("%s: Invalid stream_idx", __func__);
+		goto error;
+	}
+
 	if (stream_info->state == INACTIVE)
-		return;
+		goto error;
+
+	if (stream_info->state == START_PENDING ||
+		stream_info->state == RESUME_PENDING) {
+		enable_wm = 1;
+	} else {
+		enable_wm = 0;
+	}
 	for (i = 0; i < stream_info->num_planes; i++) {
-		if (stream_info->state == START_PENDING ||
-			stream_info->state == RESUME_PENDING) {
+		/*
+		 * In case when sensor is streaming, use dual vfe sync mode
+		 * to enable wm together and avoid split.
+		 */
+		if ((stream_info->stream_src < RDI_INTF_0) &&
+			vfe_dev->is_split && vfe_dev->pdev->id == ISP_VFE1 &&
+			dual_vfe_sync) {
+			dual_vfe_res = vfe_dev->common_data->dual_vfe_res;
+			if (!dual_vfe_res->vfe_base[ISP_VFE0] ||
+				!dual_vfe_res->axi_data[ISP_VFE0] ||
+				!dual_vfe_res->vfe_base[ISP_VFE1] ||
+				!dual_vfe_res->axi_data[ISP_VFE1]) {
+				pr_err("%s:%d failed vfe0 %p %p vfe %p %p\n",
+					__func__, __LINE__,
+					dual_vfe_res->vfe_base[ISP_VFE0],
+					dual_vfe_res->axi_data[ISP_VFE0],
+					dual_vfe_res->vfe_base[ISP_VFE1],
+					dual_vfe_res->axi_data[ISP_VFE1]);
+				goto error;
+			}
+			for (vfe_id = 0; vfe_id < MAX_VFE; vfe_id++) {
+				vfe_dev->hw_info->vfe_ops.axi_ops.
+				enable_wm(dual_vfe_res->vfe_base[vfe_id],
+					dual_vfe_res->axi_data[vfe_id]->
+					stream_info[stream_idx].wm[i],
+					enable_wm);
+			}
+		} else if (!vfe_dev->is_split ||
+			(stream_info->stream_src >= RDI_INTF_0 &&
+			stream_info->stream_src <= RDI_INTF_2) ||
+			!dual_vfe_sync) {
 			vfe_dev->hw_info->vfe_ops.axi_ops.
-				enable_wm(vfe_dev, stream_info->wm[i], 1);
-		} else {
-			vfe_dev->hw_info->vfe_ops.axi_ops.
-				enable_wm(vfe_dev, stream_info->wm[i], 0);
+			enable_wm(vfe_dev->vfe_base, stream_info->wm[i],
+					enable_wm);
+		}
+		if (!enable_wm) {
 			/* Issue a reg update for Raw Snapshot Case
 			 * since we dont have reg update ack
 			*/
@@ -1151,11 +1195,13 @@ static void msm_isp_axi_stream_enable_cfg(
 			}
 		}
 	}
-
 	if (stream_info->state == START_PENDING)
 		axi_data->num_active_stream++;
 	else if (stream_info->state == STOP_PENDING)
 		axi_data->num_active_stream--;
+	return 0;
+error:
+	return -EINVAL;
 }
 
 void msm_isp_axi_stream_update(struct vfe_device *vfe_dev,
@@ -1179,7 +1225,7 @@ void msm_isp_axi_stream_update(struct vfe_device *vfe_dev,
 		else if (axi_data->stream_info[i].state == START_PENDING ||
 			axi_data->stream_info[i].state == STOP_PENDING) {
 			msm_isp_axi_stream_enable_cfg(
-				vfe_dev, &axi_data->stream_info[i]);
+				vfe_dev, &axi_data->stream_info[i], 1);
 			axi_data->stream_info[i].state =
 				axi_data->stream_info[i].state ==
 				START_PENDING ? STARTING : STOPPING;
@@ -1281,7 +1327,7 @@ void msm_isp_axi_cfg_update(struct vfe_device *vfe_dev,
 			/*Resume AXI*/
 			stream_info->state = RESUME_PENDING;
 			msm_isp_axi_stream_enable_cfg(
-				vfe_dev, &axi_data->stream_info[i]);
+				vfe_dev, &axi_data->stream_info[i], 1);
 			stream_info->state = RESUMING;
 		} else if (stream_info->state == RESUMING) {
 			stream_info->runtime_output_format =
@@ -1388,16 +1434,18 @@ int msm_isp_print_ping_pong_address(struct vfe_device *vfe_dev,
 					pr_err("%s: buf NULL\n", __func__);
 					continue;
 				}
-				pr_debug("%s: stream_id %x ping-pong %d plane %d start_addr %x addr_offset %x len %lx stride %d scanline %d\n"
+				pr_debug("%s: stream_id %x ping-pong %d	plane %d start_addr %lu	addr_offset %x len %lx stride %d scanline %d\n"
 					, __func__, stream_info->stream_id,
-					pingpong_bit, i,
-					(uint32_t)buf->mapped_info[i].paddr,
+					pingpong_bit, i, (unsigned long)
+					buf->mapped_info[i].paddr,
 					stream_info->
 						plane_cfg[i].plane_addr_offset,
 					buf->mapped_info[i].len,
-					stream_info->plane_cfg[i].output_stride,
 					stream_info->
-						plane_cfg[i].output_scan_lines);
+						plane_cfg[i].output_stride,
+					stream_info->
+						plane_cfg[i].output_scan_lines
+					);
 			}
 		}
 	}
@@ -2368,7 +2416,7 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 					0x900, 1);
 
 			/*Configure AXI start bits to start immediately*/
-			msm_isp_axi_stream_enable_cfg(vfe_dev, stream_info);
+			msm_isp_axi_stream_enable_cfg(vfe_dev, stream_info, 0);
 			stream_info->state = ACTIVE;
 			vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev,
 				SRC_TO_INTF(stream_info->stream_src));
@@ -2475,7 +2523,7 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 		if (!wait_for_complete_for_this_stream ||
 			stream_info->state == INACTIVE ||
 			!vfe_dev->axi_data.src_info[intf].active) {
-			msm_isp_axi_stream_enable_cfg(vfe_dev, stream_info);
+			msm_isp_axi_stream_enable_cfg(vfe_dev, stream_info, 0);
 			stream_info->state = INACTIVE;
 			vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev,
 				SRC_TO_INTF(stream_info->stream_src));
@@ -2507,7 +2555,7 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 					stream_cfg_cmd->stream_handle[i])];
 				stream_info->state = STOPPING;
 				msm_isp_axi_stream_enable_cfg(
-					vfe_dev, stream_info);
+					vfe_dev, stream_info, 0);
 				vfe_dev->hw_info->vfe_ops.core_ops.reg_update(
 					vfe_dev,
 					SRC_TO_INTF(stream_info->stream_src));
@@ -3006,7 +3054,7 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 				spin_lock_irqsave(&stream_info->lock, flags);
 				stream_info->state = PAUSE_PENDING;
 				msm_isp_axi_stream_enable_cfg(
-					vfe_dev, stream_info);
+					vfe_dev, stream_info, 1);
 				stream_info->state = PAUSING;
 				atomic_set(&axi_data->
 					axi_cfg_update[SRC_TO_INTF(
@@ -3223,7 +3271,8 @@ void msm_isp_axi_disable_all_wm(struct vfe_device *vfe_dev)
 			continue;
 
 		for (j = 0; j < stream_info->num_planes; j++)
-			vfe_dev->hw_info->vfe_ops.axi_ops.enable_wm(vfe_dev,
+			vfe_dev->hw_info->vfe_ops.axi_ops.enable_wm(
+				vfe_dev->vfe_base,
 				stream_info->wm[j], 0);
 	}
 }

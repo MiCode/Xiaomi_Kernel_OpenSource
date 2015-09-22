@@ -145,7 +145,7 @@ struct msm_vfe_irq_ops {
 struct msm_vfe_axi_ops {
 	void (*reload_wm)(struct vfe_device *vfe_dev, void __iomem *vfe_base,
 		uint32_t reload_mask);
-	void (*enable_wm)(struct vfe_device *vfe_dev,
+	void (*enable_wm)(void __iomem *vfe_base,
 		uint8_t wm_idx, uint8_t enable);
 	int32_t (*cfg_io_format)(struct vfe_device *vfe_dev,
 		enum msm_vfe_axi_stream_src stream_src,
