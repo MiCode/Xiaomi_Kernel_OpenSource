@@ -2456,8 +2456,6 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 	if (new_frame->duplicate_output) {
 		CPP_DBG("duplication enabled, dup_id=0x%x",
 			new_frame->duplicate_identity);
-		memset(&new_frame->duplicate_buffer_info, 0,
-			sizeof(struct msm_cpp_buffer_info_t));
 		memset(&dup_buff_mgr_info, 0, sizeof(struct msm_buf_mngr_info));
 		dup_buff_mgr_info.session_id =
 			((new_frame->duplicate_identity >> 16) & 0xFFFF);
@@ -2594,6 +2592,8 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 				k_frame_info.output_buffer_info[i] =
 					frame->output_buffer_info[i];
 			}
+			k_frame_info.duplicate_buffer_info =
+				frame->duplicate_buffer_info;
 		}
 	}
 
@@ -3615,6 +3615,8 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 					cpp_frame->output_buffer_info[0];
 				k32_frame_info.output_buffer_info[1] =
 					cpp_frame->output_buffer_info[1];
+				k32_frame_info.duplicate_buffer_info =
+					cpp_frame->duplicate_buffer_info;
 			}
 		} else {
 			pr_err("%s: Error getting frame\n", __func__);
