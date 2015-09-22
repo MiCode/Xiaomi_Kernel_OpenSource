@@ -1557,10 +1557,11 @@ static struct iommu_ops arm_smmu_ops = {
 static int arm_smmu_halt(struct arm_smmu_device *smmu)
 {
 	void __iomem *impl_def1_base = ARM_SMMU_IMPL_DEF1(smmu);
-	u32 tmp;
+	u32 reg, tmp;
 
-	writel_relaxed(MICRO_MMU_CTRL_LOCAL_HALT_REQ,
-		impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+	reg = readl_relaxed(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
+	reg |= MICRO_MMU_CTRL_LOCAL_HALT_REQ;
+	writel_relaxed(reg, impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL);
 
 	if (readl_poll_timeout_atomic(impl_def1_base + IMPL_DEF1_MICRO_MMU_CTRL,
 					tmp, (tmp & MICRO_MMU_CTRL_IDLE),
