@@ -1068,13 +1068,19 @@ static void diagfwd_buffers_exit(struct diagfwd_info *fwd_info)
 	spin_lock_irqsave(&fwd_info->buf_lock, flags);
 	if (fwd_info->buf_1) {
 		kfree(fwd_info->buf_1->data);
+		fwd_info->buf_1->data = NULL;
 		kfree(fwd_info->buf_1->data_raw);
+		fwd_info->buf_1->data_raw = NULL;
 		kfree(fwd_info->buf_1);
+		fwd_info->buf_1 = NULL;
 	}
 	if (fwd_info->buf_2) {
 		kfree(fwd_info->buf_2->data);
+		fwd_info->buf_2->data = NULL;
 		kfree(fwd_info->buf_2->data_raw);
+		fwd_info->buf_2->data_raw = NULL;
 		kfree(fwd_info->buf_2);
+		fwd_info->buf_2 = NULL;
 	}
 	spin_unlock_irqrestore(&fwd_info->buf_lock, flags);
 }

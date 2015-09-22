@@ -366,6 +366,7 @@ struct msm_dba_video_cfg {
 	bool hdmi_mode;
 	enum msm_dba_video_aspect_ratio ar;
 	u32  num_of_input_lanes;
+	u8 scaninfo;
 };
 
 /**

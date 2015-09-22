@@ -726,19 +726,16 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 	dual_hw_ms_cmd = (struct msm_isp_set_dual_hw_ms_cmd *)arg;
 	vfe_dev->common_data->ms_resource.dual_hw_type = DUAL_HW_MASTER_SLAVE;
 	vfe_dev->vfe_ub_policy = MSM_WM_UB_EQUAL_SLICING;
-	if (dual_hw_ms_cmd->primary_intf >= VFE_SRC_MAX) {
-		pr_err("%s: Error! Invalid SRC param %d\n", __func__,
-			dual_hw_ms_cmd->primary_intf);
-		return -EINVAL;
+	if (dual_hw_ms_cmd->primary_intf < VFE_SRC_MAX) {
+		src_info = &vfe_dev->axi_data.
+			src_info[dual_hw_ms_cmd->primary_intf];
+		src_info->dual_hw_ms_info.dual_hw_ms_type =
+			dual_hw_ms_cmd->dual_hw_ms_type;
 	}
 
-	src_info = &vfe_dev->axi_data.src_info[dual_hw_ms_cmd->primary_intf];
-
-	src_info->dual_hw_ms_info.dual_hw_ms_type =
-		dual_hw_ms_cmd->dual_hw_ms_type;
-
 	/* No lock needed here since ioctl lock protects 2 session from race */
-	if (dual_hw_ms_cmd->dual_hw_ms_type == MS_TYPE_MASTER) {
+	if (src_info != NULL &&
+		dual_hw_ms_cmd->dual_hw_ms_type == MS_TYPE_MASTER) {
 		src_info->dual_hw_type = DUAL_HW_MASTER_SLAVE;
 		ISP_DBG("%s: Master\n", __func__);
 
@@ -746,7 +743,7 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 			&vfe_dev->common_data->ms_resource.master_sof_info;
 		vfe_dev->common_data->ms_resource.sof_delta_threshold =
 			dual_hw_ms_cmd->sof_delta_threshold;
-	} else {
+	} else if (src_info != NULL) {
 		spin_lock(&vfe_dev->common_data->common_dev_data_lock);
 		src_info->dual_hw_type = DUAL_HW_MASTER_SLAVE;
 		ISP_DBG("%s: Slave\n", __func__);
@@ -775,6 +772,9 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 		}
 	}
 	ISP_DBG("%s: num_src %d\n", __func__, dual_hw_ms_cmd->num_src);
+	/* This for loop is for non-primary intf to be marked with Master/Slave
+	 * in order for frame id sync. But their timestamp is not saved.
+	 * So no sof_info resource is allocated */
 	for (i = 0; i < dual_hw_ms_cmd->num_src; i++) {
 		if (dual_hw_ms_cmd->input_src[i] >= VFE_SRC_MAX) {
 			pr_err("%s: Error! Invalid SRC param %d\n", __func__,
@@ -1980,6 +1980,14 @@ void msm_isp_do_tasklet(unsigned long data)
 	struct msm_vfe_tasklet_queue_cmd *queue_cmd;
 	struct msm_isp_timestamp ts;
 	uint32_t irq_status0, irq_status1, iommu_page_fault;
+
+	if (vfe_dev->vfe_base == NULL || vfe_dev->vfe_open_cnt == 0) {
+		ISP_DBG("%s: VFE%d open cnt = %d, device closed(base = %p)\n",
+			__func__, vfe_dev->pdev->id, vfe_dev->vfe_open_cnt,
+			vfe_dev->vfe_base);
+		return;
+	}
+
 	while (atomic_read(&vfe_dev->irq_cnt)) {
 		spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
 		queue_cmd = list_first_entry(&vfe_dev->tasklet_q,
@@ -2179,7 +2187,8 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		return -EINVAL;
 	}
 
-	if (--vfe_dev->vfe_open_cnt) {
+	if (vfe_dev->vfe_open_cnt > 1) {
+		vfe_dev->vfe_open_cnt--;
 		mutex_unlock(&vfe_dev->core_mutex);
 		mutex_unlock(&vfe_dev->realtime_mutex);
 		return 0;
@@ -2192,6 +2201,9 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	/*Stop CAMIF Immediately*/
 	vfe_dev->hw_info->vfe_ops.core_ops.
 		update_camif_state(vfe_dev, DISABLE_CAMIF_IMMEDIATELY);
+
+	/* after regular hw stop, reduce open cnt */
+	vfe_dev->vfe_open_cnt--;
 
 	vfe_dev->hw_info->vfe_ops.core_ops.release_hw(vfe_dev);
 	vfe_dev->buf_mgr->ops->buf_mgr_deinit(vfe_dev->buf_mgr);

@@ -144,7 +144,7 @@ static struct pll_clk a72ss_hf_pll = {
 	},
 	.base = &virt_bases[APCS_C1_PLL_BASE],
 	.max_rate = 1843200000,
-	.min_rate = 1190400000,
+	.min_rate = 940800000,
 	.c = {
 		.parent = &xo_a_clk.c,
 		.dbg_name = "a72ss_hf_pll",
@@ -338,7 +338,7 @@ struct cpu_clk_8976 {
 };
 
 static void do_nothing(void *unused) { }
-#define CPU_LATENCY_NO_L2_PC_US (500)
+#define CPU_LATENCY_NO_L2_PC_US (280)
 
 static inline struct cpu_clk_8976 *to_cpu_clk_8976(struct clk *c)
 {

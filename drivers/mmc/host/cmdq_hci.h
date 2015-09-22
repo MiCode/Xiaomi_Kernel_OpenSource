@@ -204,6 +204,7 @@ struct cmdq_host_ops {
 	int (*reset)(struct mmc_host *mmc);
 	int (*crypto_cfg)(struct mmc_host *mmc, struct mmc_request *mrq,
 				u32 slot);
+	void (*crypto_cfg_reset)(struct mmc_host *mmc, unsigned int slot);
 	void (*post_cqe_halt)(struct mmc_host *mmc);
 	void (*pm_qos_update)(struct mmc_host *mmc, struct mmc_request *mrq,
 				bool enable);

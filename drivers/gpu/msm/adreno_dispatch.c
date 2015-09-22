@@ -443,12 +443,6 @@ static struct kgsl_cmdbatch *_get_cmdbatch(struct adreno_context *drawctxt)
 		return ERR_PTR(-EAGAIN);
 	}
 
-	/*
-	 * Otherwise, delete the timer to make sure it is good
-	 * and dead before queuing the buffer
-	 */
-	del_timer_sync(&cmdbatch->timer);
-
 	_pop_cmdbatch(drawctxt);
 	return cmdbatch;
 }
@@ -467,6 +461,14 @@ static struct kgsl_cmdbatch *adreno_dispatcher_get_cmdbatch(
 	spin_lock(&drawctxt->lock);
 	cmdbatch = _get_cmdbatch(drawctxt);
 	spin_unlock(&drawctxt->lock);
+
+	/*
+	 * Delete the timer and wait for timer handler to finish executing
+	 * on another core before queueing the buffer. We must do this
+	 * without holding any spin lock that the timer handler might be using
+	 */
+	if (!IS_ERR_OR_NULL(cmdbatch))
+		del_timer_sync(&cmdbatch->timer);
 
 	return cmdbatch;
 }

@@ -1506,6 +1506,7 @@ static int qpnp_hap_set(struct qpnp_hap *hap, int on)
 				 * Start timer to poll Auto Resonance error bit
 				 */
 				mutex_lock(&hap->lock);
+				hrtimer_cancel(&hap->auto_res_err_poll_timer);
 				hrtimer_start(&hap->auto_res_err_poll_timer,
 						ktime_set(0, timeout_ns),
 						 HRTIMER_MODE_REL);
@@ -1542,11 +1543,6 @@ static void qpnp_hap_td_enable(struct timed_output_dev *dev, int value)
 					 timed_dev);
 
 	mutex_lock(&hap->lock);
-
-	if (hap->act_type == QPNP_HAP_LRA &&
-				hap->correct_lra_drive_freq)
-		hrtimer_cancel(&hap->auto_res_err_poll_timer);
-
 	hrtimer_cancel(&hap->hap_timer);
 
 	if (value == 0) {

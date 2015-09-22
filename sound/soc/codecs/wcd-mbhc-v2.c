@@ -1207,7 +1207,8 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 		pr_debug("%s: cross con found, start polling\n",
 			 __func__);
 		plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
-		mbhc->current_plug = plug_type;
+		if (!mbhc->current_plug)
+			mbhc->current_plug = plug_type;
 		pr_debug("%s: Plug found, plug type is %d\n",
 			 __func__, plug_type);
 	}
@@ -1449,7 +1450,7 @@ static irqreturn_t wcd_mbhc_hs_ins_irq(int irq, void *data)
 				msleep(20);
 				WCD_MBHC_REG_UPDATE_BITS(
 						WCD_MBHC_ELECT_SCHMT_ISRC,
-						3);
+						1);
 			}
 			if (hphl_sch) {
 				hphl_trigerred++;
@@ -1479,8 +1480,6 @@ determine_plug:
 				   false);
 
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_SCHMT_ISRC, 0);
-	/* Enable HW FSM */
-	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 1);
 	hphl_trigerred = 0;
 	mic_trigerred = 0;
 	mbhc->is_extn_cable = true;

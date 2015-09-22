@@ -945,18 +945,25 @@ static const struct wcd9xxx_codec_type wcd9xxx_codecs[] = {
 		ARRAY_SIZE(tasha_devs), TASHA_NUM_IRQS, -1,
 		WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TAIKO, 0x01
 	},
+	{
+		TASHA2P0_MAJOR, cpu_to_le16(0x1), tasha_devs,
+		ARRAY_SIZE(tasha_devs), TASHA_NUM_IRQS, 2,
+		WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TAIKO, 0x01
+	},
 };
 
 static void wcd9335_bring_up(struct wcd9xxx *wcd9xxx)
 {
-	int val;
+	int val, byte0;
 
 	val = __wcd9xxx_reg_read(wcd9xxx,
 				 WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT0);
-	pr_debug("%s: codec version %s 1.0\n", __func__,
-		 ((val & 0x80) ? "greater than" : "is"));
+	byte0 = __wcd9xxx_reg_read(wcd9xxx,
+				   WCD9335_CHIP_TIER_CTRL_CHIP_ID_BYTE0);
 
-	if (val & 0x80) {
+	if ((val & 0x80) && (byte0 == 0x0)) {
+		dev_info(wcd9xxx->dev, "%s: wcd9335 codec version is v1.1\n",
+			 __func__);
 		__wcd9xxx_reg_write(wcd9xxx, WCD9335_CODEC_RPM_RST_CTL, 0x01);
 		__wcd9xxx_reg_write(wcd9xxx, WCD9335_SIDO_SIDO_CCL_2, 0xFC);
 		__wcd9xxx_reg_write(wcd9xxx, WCD9335_SIDO_SIDO_CCL_4, 0x21);
@@ -967,7 +974,23 @@ static void wcd9335_bring_up(struct wcd9xxx *wcd9xxx)
 		__wcd9xxx_reg_write(wcd9xxx,
 				    WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x3);
 		__wcd9xxx_reg_write(wcd9xxx, WCD9335_CODEC_RPM_RST_CTL, 0x3);
+	} else if (byte0 == 0x1) {
+		dev_info(wcd9xxx->dev, "%s: wcd9335 codec version is v2.0\n",
+			 __func__);
+		__wcd9xxx_reg_write(wcd9xxx, WCD9335_CODEC_RPM_RST_CTL, 0x01);
+		__wcd9xxx_reg_write(wcd9xxx, WCD9335_SIDO_SIDO_TEST_2, 0x00);
+		__wcd9xxx_reg_write(wcd9xxx, WCD9335_SIDO_SIDO_CCL_8, 0x6F);
+		__wcd9xxx_reg_write(wcd9xxx, WCD9335_BIAS_VBG_FINE_ADJ, 0x65);
+		__wcd9xxx_reg_write(wcd9xxx,
+				    WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x5);
+		__wcd9xxx_reg_write(wcd9xxx,
+				    WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x7);
+		__wcd9xxx_reg_write(wcd9xxx,
+				    WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x3);
+		__wcd9xxx_reg_write(wcd9xxx, WCD9335_CODEC_RPM_RST_CTL, 0x3);
 	} else {
+		dev_info(wcd9xxx->dev, "%s: wcd9335 codec version is v1.0\n",
+			 __func__);
 		__wcd9xxx_reg_write(wcd9xxx, WCD9335_CODEC_RPM_RST_CTL, 0x01);
 		__wcd9xxx_reg_write(wcd9xxx, WCD9335_SIDO_SIDO_CCL_2, 0xFC);
 		__wcd9xxx_reg_write(wcd9xxx, WCD9335_SIDO_SIDO_CCL_4, 0x21);
@@ -979,16 +1002,8 @@ static void wcd9335_bring_up(struct wcd9xxx *wcd9xxx)
 
 static void wcd9335_bring_down(struct wcd9xxx *wcd9xxx)
 {
-	int val;
-
-	val = __wcd9xxx_reg_read(wcd9xxx,
-				 WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT0);
-	if (val & 0x80)
-		__wcd9xxx_reg_write(wcd9xxx,
-				    WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x4);
-	else
-		__wcd9xxx_reg_write(wcd9xxx,
-				    WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x7);
+	__wcd9xxx_reg_write(wcd9xxx,
+			WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x4);
 }
 
 static void wcd9xxx_bring_up(struct wcd9xxx *wcd9xxx)
@@ -1368,6 +1383,7 @@ static void wcd9xxx_core_res_update_irq_regs(
 {
 	switch (id_major) {
 	case TASHA_MAJOR:
+	case TASHA2P0_MAJOR:
 		core_res->intr_reg[WCD9XXX_INTR_STATUS_BASE] =
 					WCD9335_INTR_PIN1_STATUS0;
 		core_res->intr_reg[WCD9XXX_INTR_CLEAR_BASE] =
@@ -1403,6 +1419,7 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx)
 	u8 version;
 	const struct wcd9xxx_codec_type *found;
 	struct wcd9xxx_core_resource *core_res = &wcd9xxx->core_res;
+	regmap_patch_fptr regmap_apply_patch = NULL;
 
 	mutex_init(&wcd9xxx->io_lock);
 	mutex_init(&wcd9xxx->xfer_lock);
@@ -1429,7 +1446,8 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx)
 	} else if (wcd9xxx->codec_type->id_major == TOMTOM_MAJOR) {
 		core_res->intr_table = intr_tbl_v3;
 		core_res->intr_table_size = ARRAY_SIZE(intr_tbl_v3);
-	} else if (wcd9xxx->codec_type->id_major == TASHA_MAJOR) {
+	} else if ((wcd9xxx->codec_type->id_major == TASHA_MAJOR) ||
+		  (wcd9xxx->codec_type->id_major == TASHA2P0_MAJOR)) {
 		core_res->intr_table = intr_tbl_v4;
 		core_res->intr_table_size = ARRAY_SIZE(intr_tbl_v4);
 	} else {
@@ -1453,6 +1471,16 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx)
 		ret = wcd9xxx_regmap_init_cache(wcd9xxx);
 		if (ret)
 			goto err_irq;
+
+		regmap_apply_patch = wcd9xxx_get_regmap_reg_patch(
+							wcd9xxx->type);
+		if (regmap_apply_patch) {
+			ret = regmap_apply_patch(wcd9xxx->regmap,
+					   wcd9xxx->version);
+			if (ret)
+				dev_err(wcd9xxx->dev,
+					"Failed to register patch: %d\n", ret);
+		}
 	}
 
 	ret = mfd_add_devices(wcd9xxx->dev, -1, found->dev, found->size,

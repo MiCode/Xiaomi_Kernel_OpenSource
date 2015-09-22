@@ -127,15 +127,18 @@ dtb-$(CONFIG_ARCH_MSM8916) += msm8916-sim.dtb \
 	msm8976-rumi.dtb \
 	msm8976-qrd-skun.dtb \
 	msm8976-qrd-skun-evt2.dtb \
+	msm8976-v1.1-qrd-skun-dvt.dtb \
 	msm8976-cdp.dtb \
 	msm8976-mtp.dtb \
 	msm8976-rcm.dtb \
+	msm8976-internal-codec-cdp.dtb \
 	apq8076-cdp.dtb \
 	apq8076-mtp.dtb \
 	msm8956-sim.dtb \
 	msm8956-rumi.dtb \
 	msm8956-cdp.dtb \
 	msm8956-mtp.dtb \
+	msm8956-internal-codec-cdp.dtb \
 	apq8056-cdp.dtb \
 	apq8056-mtp.dtb \
 	msm8956-v1.1-mtp.dtb \

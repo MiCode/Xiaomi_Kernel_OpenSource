@@ -133,6 +133,9 @@
 	pinctrl-0 = <&uart_console_sleep>;
 };
 
+&mem_client_3_size {
+	qcom,peripheral-size = <0x500000>;
+};
 
 &spmi_bus {
 	qcom,pmi8950@3 {

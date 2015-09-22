@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,7 @@
 #ifndef __MSM_FIPS_DRBG_H__
 #define __MSM_FIPS_DRBG_H__
 
+#include <linux/mutex.h>
 #include "ctr_drbg.h"
 #include "msm_rng.h"
 
@@ -28,6 +29,7 @@ struct fips_drbg_ctx_s {
 	get_entropy_callback_t get_entropy_callback;
 	void *get_entropy_callback_ctx;
 	struct ctr_drbg_ctx_s ctr_drbg_ctx;
+	struct mutex drbg_lock;
 	uint8_t fips_drbg_started;
 	uint8_t prev_hw_drbg_block[Q_HW_DRBG_BLOCK_BYTES];
 };
