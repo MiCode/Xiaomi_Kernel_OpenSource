@@ -646,11 +646,12 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 	struct msm_vfe_sof_info *master_sof_info = NULL;
 	int32_t time, master_time, delta;
 	uint32_t sof_incr = 0;
+	unsigned long flags;
 
 	if (vfe_dev->axi_data.src_info[frame_src].frame_id == 0)
 		msm_isp_update_dual_HW_ms_info_at_start(vfe_dev, frame_src);
 
-	spin_lock(&vfe_dev->common_data->common_dev_data_lock);
+	spin_lock_irqsave(&vfe_dev->common_data->common_dev_data_lock, flags);
 	dual_hw_type =
 		vfe_dev->axi_data.src_info[frame_src].dual_hw_type;
 	ms_type =
@@ -677,8 +678,10 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 			master_sof_info;
 		master_time = master_sof_info->mono_timestamp_ms;
 		delta = vfe_dev->common_data->ms_resource.sof_delta_threshold;
-		ISP_DBG("%s: Slave time %d Master time %d delta %d\n",
-			__func__, time, master_time, time - master_time);
+		ISP_DBG("%s: vfe %d frame %d Slave time %d Master time %d delta %d\n",
+			__func__, vfe_dev->pdev->id,
+			vfe_dev->axi_data.src_info[frame_src].frame_id,
+			time, master_time, time - master_time);
 
 		if (time - master_time > delta)
 			sof_incr = 1;
@@ -726,7 +729,8 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 		sof_info->mono_timestamp_ms = ts->buf_time.tv_sec * 1000 +
 			ts->buf_time.tv_usec / 1000;
 	}
-	spin_unlock(&vfe_dev->common_data->common_dev_data_lock);
+	spin_unlock_irqrestore(&vfe_dev->common_data->common_dev_data_lock,
+		flags);
 }
 
 void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
@@ -742,6 +746,26 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 	switch (event_type) {
 	case ISP_EVENT_SOF:
 		if (frame_src == VFE_PIX_0) {
+			/* Frame id is incremented in CAMIF SOF. Event is sent
+			 * in EPOCH. If by this time, both VFE dont have same
+			 * frame_id, then we have scheduling issues or some
+			 * other s/w issue */
+			if (vfe_dev->is_split &&
+				vfe_dev->common_data->dual_vfe_res->
+					axi_data[0]->
+					src_info[VFE_PIX_0].frame_id !=
+				vfe_dev->common_data->dual_vfe_res->
+					axi_data[1]->
+					src_info[VFE_PIX_0].frame_id) {
+				pr_err_ratelimited("%s: Error! 2 VFE out of sync vfe0 frame_id %u vfe1 %u\n",
+					__func__,
+					vfe_dev->common_data->dual_vfe_res->
+						axi_data[0]->
+						src_info[VFE_PIX_0].frame_id,
+					vfe_dev->common_data->dual_vfe_res->
+						axi_data[1]->
+						src_info[VFE_PIX_0].frame_id);
+			}
 			if (vfe_dev->isp_sof_debug < ISP_SOF_DEBUG_COUNT)
 				pr_err("%s: PIX0 frame id: %u\n", __func__,
 				vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
@@ -2152,6 +2176,7 @@ static int msm_isp_update_dual_HW_ms_info_at_start(
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 	struct msm_vfe_src_info *src_info = NULL;
 	uint32_t vfe_id = 0;
+	unsigned long flags;
 
 	if (stream_src >= VFE_SRC_MAX) {
 		pr_err("%s: Error! Invalid src %u\n", __func__, stream_src);
@@ -2162,23 +2187,29 @@ static int msm_isp_update_dual_HW_ms_info_at_start(
 	if (src_info->dual_hw_type != DUAL_HW_MASTER_SLAVE)
 		return rc;
 
+	spin_lock_irqsave(&vfe_dev->common_data->common_dev_data_lock, flags);
 	if (src_info->dual_hw_ms_info.dual_hw_ms_type ==
 		MS_TYPE_MASTER) {
-		spin_lock(&vfe_dev->common_data->common_dev_data_lock);
+		if (vfe_dev->common_data->ms_resource.master_active == 1) {
+			spin_unlock_irqrestore(&vfe_dev->common_data->
+				common_dev_data_lock, flags);
+			return rc;
+		}
+
 		vfe_dev->common_data->ms_resource.master_active = 1;
-		spin_unlock(&vfe_dev->common_data->common_dev_data_lock);
 
 		/*
 		 * If any slaves are active, then find the max slave
 		 * frame_id and set it to Master, so master will start
 		 * higher and then the slave can copy master frame_id
 		 * without repeating.
-		 * For safety, add some buffer, currently 5.
 		 */
-		if (!vfe_dev->common_data->ms_resource.slave_active_mask)
+		if (!vfe_dev->common_data->ms_resource.slave_active_mask) {
+			spin_unlock_irqrestore(&vfe_dev->common_data->
+				common_dev_data_lock, flags);
 			return rc;
+		}
 
-		spin_lock(&vfe_dev->common_data->common_dev_data_lock);
 		for (j = 0, k = 0; k < MS_NUM_SLAVE_MAX; k++) {
 			if (!(vfe_dev->common_data->ms_resource.
 				reserved_slave_mask & (1 << k)))
@@ -2203,19 +2234,18 @@ static int msm_isp_update_dual_HW_ms_info_at_start(
 			vfe_dev->common_data->dual_vfe_res->axi_data[vfe_id]->
 				src_info[stream_src].frame_id = max_sof + 1;
 		}
-		spin_unlock(&vfe_dev->common_data->common_dev_data_lock);
 
 		ISP_DBG("%s: Setting Master frame_id to %u\n", __func__,
 			max_sof + 1);
 	} else {
-		spin_lock(&vfe_dev->common_data->common_dev_data_lock);
 		if (src_info->dual_hw_ms_info.sof_info != NULL) {
 			slave_id = src_info->dual_hw_ms_info.slave_id;
 			vfe_dev->common_data->ms_resource.slave_active_mask |=
 				(1 << slave_id);
 		}
-		spin_unlock(&vfe_dev->common_data->common_dev_data_lock);
 	}
+	spin_unlock_irqrestore(&vfe_dev->common_data->common_dev_data_lock,
+		flags);
 
 	return rc;
 }

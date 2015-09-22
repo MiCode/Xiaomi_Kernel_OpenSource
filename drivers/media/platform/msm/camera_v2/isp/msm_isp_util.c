@@ -701,19 +701,16 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 	dual_hw_ms_cmd = (struct msm_isp_set_dual_hw_ms_cmd *)arg;
 	vfe_dev->common_data->ms_resource.dual_hw_type = DUAL_HW_MASTER_SLAVE;
 	vfe_dev->vfe_ub_policy = MSM_WM_UB_EQUAL_SLICING;
-	if (dual_hw_ms_cmd->primary_intf >= VFE_SRC_MAX) {
-		pr_err("%s: Error! Invalid SRC param %d\n", __func__,
-			dual_hw_ms_cmd->primary_intf);
-		return -EINVAL;
+	if (dual_hw_ms_cmd->primary_intf < VFE_SRC_MAX) {
+		src_info = &vfe_dev->axi_data.
+			src_info[dual_hw_ms_cmd->primary_intf];
+		src_info->dual_hw_ms_info.dual_hw_ms_type =
+			dual_hw_ms_cmd->dual_hw_ms_type;
 	}
 
-	src_info = &vfe_dev->axi_data.src_info[dual_hw_ms_cmd->primary_intf];
-
-	src_info->dual_hw_ms_info.dual_hw_ms_type =
-		dual_hw_ms_cmd->dual_hw_ms_type;
-
 	/* No lock needed here since ioctl lock protects 2 session from race */
-	if (dual_hw_ms_cmd->dual_hw_ms_type == MS_TYPE_MASTER) {
+	if (src_info != NULL &&
+		dual_hw_ms_cmd->dual_hw_ms_type == MS_TYPE_MASTER) {
 		src_info->dual_hw_type = DUAL_HW_MASTER_SLAVE;
 		ISP_DBG("%s: Master\n", __func__);
 
@@ -721,7 +718,7 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 			&vfe_dev->common_data->ms_resource.master_sof_info;
 		vfe_dev->common_data->ms_resource.sof_delta_threshold =
 			dual_hw_ms_cmd->sof_delta_threshold;
-	} else {
+	} else if (src_info != NULL) {
 		spin_lock(&vfe_dev->common_data->common_dev_data_lock);
 		src_info->dual_hw_type = DUAL_HW_MASTER_SLAVE;
 		ISP_DBG("%s: Slave\n", __func__);
@@ -750,6 +747,9 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 		}
 	}
 	ISP_DBG("%s: num_src %d\n", __func__, dual_hw_ms_cmd->num_src);
+	/* This for loop is for non-primary intf to be marked with Master/Slave
+	 * in order for frame id sync. But their timestamp is not saved.
+	 * So no sof_info resource is allocated */
 	for (i = 0; i < dual_hw_ms_cmd->num_src; i++) {
 		if (dual_hw_ms_cmd->input_src[i] >= VFE_SRC_MAX) {
 			pr_err("%s: Error! Invalid SRC param %d\n", __func__,
