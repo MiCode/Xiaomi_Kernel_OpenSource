@@ -214,7 +214,12 @@
 		mmagic-vdd-supply = <&gdsc_mmagic_camss>;
 		vfe0-vdd-supply = <&gdsc_vfe0>;
 		vfe1-vdd-supply = <&gdsc_vfe1>;
-		clocks = <&clock_mmss clk_camss_ispif_ahb_clk>,
+		qcom,vdd-names = "camss-vdd", "mmagic-vdd", "vfe0-vdd",
+				"vfe1-vdd";
+		clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
+			<&clock_mmss clk_camss_top_ahb_clk>,
+			<&clock_mmss clk_camss_ahb_clk>,
+			<&clock_mmss clk_camss_ispif_ahb_clk>,
 			<&clock_mmss clk_csi0_clk_src>,
 			<&clock_mmss clk_camss_csi0_clk>,
 			<&clock_mmss clk_camss_csi0rdi_clk>,
@@ -237,7 +242,9 @@
 			<&clock_mmss clk_vfe1_clk_src>,
 			<&clock_mmss clk_camss_vfe1_clk>,
 			<&clock_mmss clk_camss_csi_vfe1_clk>;
-		clock-names = "ispif_ahb_clk",
+		clock-names = "mmagic_camss_ahb_clk",
+			"camss_top_ahb_clk",
+			"camss_ahb_clk", "ispif_ahb_clk",
 			"csi0_src_clk", "csi0_clk",
 			"csi0_pix_clk", "csi0_rdi_clk",
 			"csi1_src_clk", "csi1_clk",
@@ -248,14 +255,15 @@
 			"csi3_pix_clk", "csi3_rdi_clk",
 			"vfe0_clk_src", "camss_vfe_vfe0_clk", "camss_csi_vfe0_clk",
 			"vfe1_clk_src", "camss_vfe_vfe1_clk", "camss_csi_vfe1_clk";
-		qcom,clock-rates = <0
+		qcom,clock-rates = <0 0 0 0
 			200000000 0 0 0
 			200000000 0 0 0
 			200000000 0 0 0
 			200000000 0 0 0
 			0 0 0
 			0 0 0>;
-		qcom,clock-control = "NO_SET_RATE",
+		qcom,clock-control = "NO_SET_RATE", "NO_SET_RATE",
+			"NO_SET_RATE", "NO_SET_RATE",
 			"SET_RATE", "NO_SET_RATE", "NO_SET_RATE", "NO_SET_RATE",
 			"SET_RATE", "NO_SET_RATE", "NO_SET_RATE", "NO_SET_RATE",
 			"SET_RATE", "NO_SET_RATE", "NO_SET_RATE", "NO_SET_RATE",
