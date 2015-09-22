@@ -4848,6 +4848,7 @@ static void pp_ad_calc_worker(struct work_struct *work)
 	base = mdata->ad_off[ad->calc_hw_num].base;
 
 	if ((ad->cfg.mode == MDSS_AD_MODE_AUTO_STR) && (ad->last_bl == 0)) {
+		complete(&ad->comp);
 		mutex_unlock(&ad->lock);
 		return;
 	}

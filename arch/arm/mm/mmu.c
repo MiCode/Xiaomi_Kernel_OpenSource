@@ -1568,9 +1568,11 @@ static void __init remap_pages(void)
 		pmd_t *pmd = NULL;
 		unsigned long next;
 		unsigned long pfn = __phys_to_pfn(phys_start);
-		bool fixup = false;
+		bool fixup = false, end_fixup = false;
 		unsigned long saved_start = addr;
 
+		if (phys_start > arm_lowmem_limit)
+			break;
 		if (phys_end > arm_lowmem_limit)
 			end = (unsigned long)__va(arm_lowmem_limit);
 		if (phys_start >= phys_end)
@@ -1586,8 +1588,10 @@ static void __init remap_pages(void)
 			pmd++;
 		}
 
-		if (end & SECTION_SIZE)
+		if (end & SECTION_SIZE) {
+			end_fixup = true;
 			pmd_empty_section_gap(end);
+		}
 #endif
 
 		do {
@@ -1610,6 +1614,10 @@ static void __init remap_pages(void)
 			 */
 			pmd = pmd_off_k(saved_start);
 			pmd[0] = pmd[1] & ~1;
+		}
+		if (end_fixup) {
+			pmd = pmd_off_k(end);
+			pmd[1] = pmd[0] & ~1;
 		}
 	}
 }

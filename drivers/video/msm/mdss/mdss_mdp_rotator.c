@@ -214,6 +214,13 @@ static int __mdss_mdp_rotator_to_pipe(struct mdss_mdp_rotator_session *rot,
 		struct mdss_mdp_pipe *pipe)
 {
 	int ret;
+	struct mdss_mdp_pipe *rot_pipe = NULL;
+	struct mdss_mdp_ctl *orig_ctl;
+
+	rot_pipe = rot->pipe;
+	orig_ctl = rot_pipe->mixer->ctl;
+	if (orig_ctl->wb_lock)
+		mutex_lock(orig_ctl->wb_lock);
 
 	pipe->flags = rot->flags;
 	pipe->src_fmt = mdss_mdp_get_format_params(rot->format);
@@ -227,12 +234,12 @@ static int __mdss_mdp_rotator_to_pipe(struct mdss_mdp_rotator_session *rot,
 	rot->params_changed = 0;
 
 	ret = mdss_mdp_smp_reserve(pipe);
-	if (ret) {
+	if (ret)
 		pr_debug("unable to mdss_mdp_smp_reserve rot data\n");
-		return ret;
-	}
 
-	return 0;
+	if (orig_ctl->wb_lock)
+		mutex_unlock(orig_ctl->wb_lock);
+	return ret;
 }
 
 static int mdss_mdp_rotator_queue_sub(struct mdss_mdp_rotator_session *rot,

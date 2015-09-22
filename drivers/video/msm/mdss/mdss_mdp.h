@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -197,6 +197,7 @@ struct mdss_mdp_ctl {
 	struct mdss_mdp_mixer *mixer_right;
 	struct mutex lock;
 	struct mutex *shared_lock;
+	struct mutex *wb_lock;
 	spinlock_t spin_lock;
 
 	struct mdss_panel_data *panel_data;

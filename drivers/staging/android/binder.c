@@ -3590,13 +3590,25 @@ static int binder_transactions_show(struct seq_file *m, void *unused)
 
 static int binder_proc_show(struct seq_file *m, void *unused)
 {
+	struct binder_proc *itr;
 	struct binder_proc *proc = m->private;
+	struct hlist_node *pos;
 	int do_lock = !binder_debug_no_lock;
+	bool valid_proc = false;
 
 	if (do_lock)
 		mutex_lock(&binder_lock);
-	seq_puts(m, "binder proc state:\n");
-	print_binder_proc(m, proc, 1);
+
+	hlist_for_each_entry(itr, pos, &binder_procs, proc_node) {
+		if (itr == proc) {
+			valid_proc = true;
+			break;
+		}
+	}
+	if (valid_proc) {
+		seq_puts(m, "binder proc state:\n");
+		print_binder_proc(m, proc, 1);
+	}
 	if (do_lock)
 		mutex_unlock(&binder_lock);
 	return 0;

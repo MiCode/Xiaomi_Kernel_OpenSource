@@ -56,6 +56,7 @@
 #define WCNSS_ENABLE_PC_LATENCY	PM_QOS_DEFAULT_VALUE
 #define WCNSS_PM_QOS_TIMEOUT	15000
 #define WAIT_FOR_CBC_IND     2
+#define IS_CAL_DATA_PRESENT     0
 
 /* module params */
 #define WCNSS_CONFIG_UNSPECIFIED (-1)
@@ -2254,7 +2255,7 @@ static void wcnss_nvbin_dnld_main(struct work_struct *worker)
 	if (!FW_CALDATA_CAPABLE())
 		goto nv_download;
 
-	if (!penv->fw_cal_available && WCNSS_CONFIG_UNSPECIFIED
+	if (!penv->fw_cal_available && IS_CAL_DATA_PRESENT
 		!= has_calibrated_data && !penv->user_cal_available) {
 		while (!penv->user_cal_available && retry++ < 5)
 			msleep(500);
