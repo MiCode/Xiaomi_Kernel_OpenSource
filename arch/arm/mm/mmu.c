@@ -1104,6 +1104,19 @@ void __init sanity_check_meminfo(void)
 	phys_addr_t vmalloc_limit = __pa(vmalloc_min - 1) + 1;
 	struct memblock_region *reg;
 
+#ifdef CONFIG_ENABLE_VMALLOC_SAVING
+	struct memblock_region *prev_reg = NULL;
+
+	for_each_memblock(memory, reg) {
+		if (prev_reg == NULL) {
+			prev_reg = reg;
+			continue;
+		}
+		vmalloc_limit += reg->base - (prev_reg->base + prev_reg->size);
+		prev_reg = reg;
+	}
+#endif
+
 	for_each_memblock(memory, reg) {
 		phys_addr_t block_start = reg->base;
 		phys_addr_t block_end = reg->base + reg->size;
