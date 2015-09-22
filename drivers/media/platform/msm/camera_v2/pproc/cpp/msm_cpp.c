@@ -3723,9 +3723,16 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 			cmd = VIDIOC_MSM_CPP_APPEND_STREAM_BUFF_INFO;
 		break;
 	}
-	case VIDIOC_MSM_CPP_DEQUEUE_STREAM_BUFF_INFO32:
+	case VIDIOC_MSM_CPP_DEQUEUE_STREAM_BUFF_INFO32: {
+		uint32_t identity_k = 0;
+		uint32_t *identity_u = (uint32_t *)kp_ioctl.ioctl_ptr;
+
+		get_user(identity_k, identity_u);
+		kp_ioctl.ioctl_ptr = (void *)&identity_k;
+		kp_ioctl.len = sizeof(uint32_t);
 		cmd = VIDIOC_MSM_CPP_DEQUEUE_STREAM_BUFF_INFO;
 		break;
+	}
 	case VIDIOC_MSM_CPP_GET_EVENTPAYLOAD32:
 	{
 		struct msm_device_queue *queue = &cpp_dev->eventData_q;
