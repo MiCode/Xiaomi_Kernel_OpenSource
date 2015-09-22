@@ -5007,10 +5007,18 @@ static void tx_work_func(struct work_struct *work)
 	struct glink_core_xprt_ctx *xprt_ptr =
 			container_of(work, struct glink_core_xprt_ctx, tx_work);
 	struct channel_ctx *ch_ptr;
+	struct channel_ctx *tx_ready_head;
 	uint32_t prio;
 	int ret;
+	bool transmitted_successfully = true;
 
 	GLINK_PERF("%s: worker starting\n", __func__);
+
+	prio = xprt_ptr->num_priority - 1;
+	mutex_lock(&xprt_ptr->tx_ready_mutex_lhb2);
+	tx_ready_head = list_first_entry(&xprt_ptr->prio_bin[prio].tx_ready,
+				struct channel_ctx, tx_ready_list_node);
+	mutex_unlock(&xprt_ptr->tx_ready_mutex_lhb2);
 
 	while (1) {
 		prio = xprt_ptr->num_priority - 1;
@@ -5026,6 +5034,14 @@ static void tx_work_func(struct work_struct *work)
 		ch_ptr = list_first_entry(&xprt_ptr->prio_bin[prio].tx_ready,
 				struct channel_ctx, tx_ready_list_node);
 		mutex_unlock(&xprt_ptr->tx_ready_mutex_lhb2);
+
+		if (ch_ptr == tx_ready_head && !transmitted_successfully) {
+			GLINK_ERR_XPRT(xprt_ptr,
+				"%s: Unable to send data on this transport.\n",
+				__func__);
+			break;
+		}
+		transmitted_successfully = false;
 
 		ret = glink_scheduler_tx(ch_ptr, xprt_ptr);
 		if (ret == -EAGAIN) {
@@ -5055,6 +5071,7 @@ static void tx_work_func(struct work_struct *work)
 			mutex_lock(&xprt_ptr->tx_ready_mutex_lhb2);
 			list_rotate_left(&xprt_ptr->prio_bin[prio].tx_ready);
 			mutex_unlock(&xprt_ptr->tx_ready_mutex_lhb2);
+			continue;
 		}
 
 		mutex_lock(&xprt_ptr->tx_ready_mutex_lhb2);
@@ -5064,10 +5081,16 @@ static void tx_work_func(struct work_struct *work)
 		if (list_empty(&ch_ptr->tx_active)) {
 			list_del_init(&ch_ptr->tx_ready_list_node);
 			glink_qos_done_ch_tx(ch_ptr);
+
+			tx_ready_head = list_first_entry(
+				&xprt_ptr->prio_bin[prio].tx_ready,
+				struct channel_ctx, tx_ready_list_node);
 		}
 
 		mutex_unlock(&ch_ptr->tx_lists_mutex_lhc3);
 		mutex_unlock(&xprt_ptr->tx_ready_mutex_lhb2);
+
+		transmitted_successfully = true;
 	}
 	glink_pm_qos_unvote(xprt_ptr);
 	GLINK_PERF("%s: worker exiting\n", __func__);
