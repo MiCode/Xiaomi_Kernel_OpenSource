@@ -1103,5 +1103,17 @@ config TOUCHSCREEN_GT9XX
 
           If unsure, say N.
 
+config TOUCHSCREEN_MAXIM_STI
+	tristate "Maxim based STI touchscreens"
+	depends on SPI_MASTER
+	help
+	  Say Y here if you have a touchscreen interface using the
+	  Maxim STI based touch controller.
+
+	  If unsure, say N
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called maxim_sti.
+
 source "drivers/input/touchscreen/gt9xx/Kconfig"
 endif
