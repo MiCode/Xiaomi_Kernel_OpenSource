@@ -1900,7 +1900,7 @@
 		compatible = "qcom,qusb2phy";
 		reg = <0x07411000 0x180>,
 			<0x06af8800 0x400>,
-			<0x0007024C 0x4>,
+			<0x0007024c 0x4>,
 			<0x00388018 0x4>;
 		reg-names = "qusb_phy_base",
 			"qscratch_base",
@@ -1938,7 +1938,7 @@
 		compatible = "qcom,qusb2phy";
 		reg = <0x07412000 0x180>,
 			<0x076f8800 0x400>,
-			<0x0007024C 0x4>,
+			<0x0007024c 0x4>,
 			<0x00388014 0x4>;
 		reg-names = "qusb_phy_base",
 			"qscratch_base",
@@ -1975,8 +1975,8 @@
 
 	ssphy: ssphy@7410000 {
 		compatible = "qcom,usb-ssphy-qmp-v2";
-		reg = <0x7410000 0x45C>,
-		      <0x007AB244 0x4>;
+		reg = <0x7410000 0x45c>,
+		      <0x007ab244 0x4>;
 		reg-names = "qmp_phy_base",
 			    "vls_clamp_reg";
 		vdd-supply = <&pm8994_l28>;
