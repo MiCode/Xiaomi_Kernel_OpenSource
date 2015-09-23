@@ -4013,12 +4013,20 @@ static int msm_gcc_probe(struct platform_device *pdev)
 
 	clk_prepare_enable(&xo_a_clk_src.c);
 
-	/* Configure Sleep and Wakeup cycles for GMEM clock */
-	regval = readl_relaxed(GCC_REG_BASE(OXILI_GMEM_CBCR));
-	regval ^= 0xFF0;
-	regval |= CLKFLAG_WAKEUP_CYCLES << 8;
-	regval |= CLKFLAG_SLEEP_CYCLES << 4;
-	writel_relaxed(regval, GCC_REG_BASE(OXILI_GMEM_CBCR));
+	if (!compat_bin) {
+		/* Configure Sleep and Wakeup cycles for GMEM clock */
+		regval = readl_relaxed(GCC_REG_BASE(OXILI_GMEM_CBCR));
+		regval ^= 0xFF0;
+		regval |= CLKFLAG_WAKEUP_CYCLES << 8;
+		regval |= CLKFLAG_SLEEP_CYCLES << 4;
+		writel_relaxed(regval, GCC_REG_BASE(OXILI_GMEM_CBCR));
+	} else {
+		/* Configure Sleep and Wakeup cycles for OXILI clock */
+		regval = readl_relaxed(GCC_REG_BASE(OXILI_GFX3D_CBCR));
+		regval &= ~0xF0;
+		regval |= CLKFLAG_SLEEP_CYCLES << 4;
+		writel_relaxed(regval, GCC_REG_BASE(OXILI_GFX3D_CBCR));
+	}
 
 	ret = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
 	if (ret)
