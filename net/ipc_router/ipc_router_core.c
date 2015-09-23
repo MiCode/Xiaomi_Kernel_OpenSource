@@ -4124,8 +4124,6 @@ static int ipc_router_core_init(void)
 		return 0;
 	}
 
-	msm_ipc_router_debug_mask |= SMEM_LOG;
-
 	debugfs_init();
 
 	for (i = 0; i < SRV_HASH_SIZE; i++)
