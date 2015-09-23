@@ -2430,9 +2430,6 @@ static void mdss_mdp_ctl_dsc_config(struct mdss_mdp_mixer *mixer,
 	mdss_mdp_pingpong_write(mixer->pingpong_base,
 		MDSS_MDP_REG_PP_DCE_DATA_OUT_SWAP, data);
 
-	/* dce0_sel->pp0, dce1_sel->pp1 */
-	writel_relaxed(0x0, offset + MDSS_MDP_REG_DCE_SEL);
-
 	if (mixer->num == MDSS_MDP_INTF_LAYERMIXER0) {
 		offset += MDSS_MDP_DSC_0_OFFSET;
 	} else if (mixer->num == MDSS_MDP_INTF_LAYERMIXER1) {
@@ -2682,6 +2679,49 @@ void mdss_mdp_ctl_dsc_setup(struct mdss_mdp_ctl *ctl,
 	if (mdss_mdp_is_lm_swap_needed(mdata, ctl)) {
 		right_valid = false;
 		left_valid = true;
+	}
+
+	if ((is_dual_lm_single_display(ctl->mfd)) &&
+	    (pinfo->partial_update_enabled) &&
+	    (pinfo->dsc_enc_total == 2) && (dsc->full_frame_slices == 4) &&
+	    (mdss_has_quirk(mdata, MDSS_QUIRK_DSC_2SLICE_PU_THRPUT))) {
+
+		if (mdss_mdp_is_both_lm_valid(ctl)) {
+			/* left + right */
+
+			pr_debug("full line (4 slices) or middle 2 slice partial update\n");
+			writel_relaxed(0x0,
+				mdata->mdp_base + mdata->ppb[0].ctl_off);
+			writel_relaxed(0x0,
+				mdata->mdp_base + MDSS_MDP_REG_DCE_SEL);
+		} else if (mixer_left->valid_roi || mixer_right->valid_roi) {
+			/* left-only or right-only */
+
+			u32 this_frame_slices =
+				dsc->pic_width / dsc->slice_width;
+
+			if (this_frame_slices == 2) {
+				pr_debug("2 slice parital update, use merge\n");
+
+				/* tandem + merge */
+				mode = BIT(1) | BIT(0);
+
+				right_valid = true;
+				left_valid = true;
+
+				writel_relaxed(0x2 << 4, mdata->mdp_base +
+					mdata->ppb[0].ctl_off);
+				writel_relaxed(BIT(0),
+					mdata->mdp_base + MDSS_MDP_REG_DCE_SEL);
+			} else {
+				pr_debug("only one slice partial update\n");
+				writel_relaxed(0x0,
+					mdata->mdp_base +
+					mdata->ppb[0].ctl_off);
+				writel_relaxed(0x0,
+					mdata->mdp_base + MDSS_MDP_REG_DCE_SEL);
+			}
+		}
 	}
 
 	if (left_valid) {
