@@ -192,15 +192,15 @@
 			reg = <0 0x88800000 0 0x6200000>;
 		};
 
-		dfps_data_mem: dfps_data_mem@82400000 {
+		dfps_data_mem: dfps_data_mem@83400000 {
 		       compatible = "shared-dma-pool";
 		       no-map;
-		       reg = <0 0x82400000 0 0x1000>;
+		       reg = <0 0x83400000 0 0x1000>;
 		       label = "dfps_data_mem";
 		};
 
-		cont_splash_mem: cont_splash_mem@82401000 {
-			reg = <0 0x82401000 0 0x1c00000>;
+		cont_splash_mem: cont_splash_mem@83401000 {
+			reg = <0 0x83401000 0 0x23FF000>;
 			label = "cont_splash_mem";
 		};
 	};
