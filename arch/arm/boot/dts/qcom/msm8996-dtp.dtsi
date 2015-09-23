@@ -538,3 +538,7 @@
 &blue_led {
 	/delete-property/ linux,default-trigger;
 };
+
+&pmi8994_wled {
+	qcom,led-strings-list = [00 01];
+};
