@@ -2430,10 +2430,6 @@ static int ecm_function_init(struct android_usb_function *f,
 
 	f->config = config;
 
-	config->fi = usb_get_function_instance("ecm");
-	if (IS_ERR(config->fi))
-		return PTR_ERR(config->fi);
-
 	return 0;
 }
 
@@ -2463,6 +2459,10 @@ static int ecm_function_bind_config(struct android_usb_function *f,
 	pr_info("%s MAC: %02X:%02X:%02X:%02X:%02X:%02X\n", __func__,
 		ecm->ethaddr[0], ecm->ethaddr[1], ecm->ethaddr[2],
 		ecm->ethaddr[3], ecm->ethaddr[4], ecm->ethaddr[5]);
+
+	ecm->fi = usb_get_function_instance("ecm");
+	if (IS_ERR(ecm->fi))
+		return PTR_ERR(ecm->fi);
 
 	ecm_opts = container_of(ecm->fi, struct f_ecm_opts, func_inst);
 	strlcpy(ecm_opts->net->name, "ecm%d", sizeof(ecm_opts->net->name));
@@ -2495,8 +2495,8 @@ static void ecm_function_unbind_config(struct android_usb_function *f,
 						struct usb_configuration *c)
 {
 	struct ecm_function_config *ecm = f->config;
-	if (ecm->func)
-		usb_remove_function(c, ecm->func);
+
+	usb_put_function_instance(ecm->fi);
 }
 
 static struct android_usb_function ecm_function = {
