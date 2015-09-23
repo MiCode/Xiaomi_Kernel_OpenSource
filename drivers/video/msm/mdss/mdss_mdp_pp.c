@@ -3575,7 +3575,7 @@ clock_off:
 			ret = pp_pgc_lut_cache_params(config, mdss_pp_res,
 				((is_lm) ? LM : DSPP));
 			if (ret) {
-				pr_err("gamut set config failed ret %d\n",
+				pr_err("pgc cache params failed, ret %d\n",
 					ret);
 				goto argc_config_exit;
 			}
@@ -4912,7 +4912,7 @@ static int mdss_mdp_get_ad(struct msm_fb_data_type *mfd,
 	}
 
 	if (!mdss_mdp_mfd_valid_ad(mfd)) {
-		pr_warn("AD not supported on display num %d hw config\n",
+		pr_debug("AD not supported on display num %d hw config\n",
 			mfd->index);
 		return -EPERM;
 	}
@@ -6596,7 +6596,11 @@ static int pp_ad_shutdown_cleanup(struct msm_fb_data_type *mfd)
 		return 0;
 
 	ret = mdss_mdp_get_ad(mfd, &ad);
-	if (ret) {
+	if (ret == -ENODEV || ret == -EPERM) {
+		pr_debug("AD not supported on device, disp num %d\n",
+			mfd->index);
+		return 0;
+	} else if (ret) {
 		pr_err("failed to get ad_info ret %d\n", ret);
 		return ret;
 	}
