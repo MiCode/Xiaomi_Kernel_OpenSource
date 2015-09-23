@@ -41,7 +41,6 @@
 #define QPNP_WLED_ILIM_REG(b)		(b + 0x4E)
 #define QPNP_WLED_SC_PRO_REG(b)		(b + 0x5E)
 #define QPNP_WLED_TEST1_REG(b)		(b + 0xE2)
-#define QPNP_WLED_TEST3_REG(b)		(b + 0xE4)
 #define QPNP_WLED_TEST4_REG(b)		(b + 0xE5)
 
 #define QPNP_WLED_EN_MASK		0x7F
@@ -71,9 +70,6 @@
 #define QPNP_WLED_OVP_19400_MV		19400
 #define QPNP_WLED_OVP_29500_MV		29500
 #define QPNP_WLED_OVP_31000_MV		31000
-#define QPNP_WLED_TEST3_OVP_DIS		0x1F
-#define QPNP_WLED_TEST3_OVP_EN		0x3F
-#define QPNP_WLED_TEST3_OVP_DLY_US	100
 #define QPNP_WLED_TEST4_EN_VREF_UP	0x32
 
 /* sink registers */
@@ -205,6 +201,8 @@ static u8 qpnp_wled_sink_dbg_regs[] = {
  *  @ sc_cnt - short circuit irq count
  *  @ ctrl_base - base address for wled ctrl
  *  @ sink_base - base address for wled sink
+ *  @ ibb_base - base address for IBB(Inverting Buck Boost)
+ *  @ lab_base - base address for LAB(LCD/AMOLED Boost)
  *  @ mod_freq_khz - modulator frequency in KHZ
  *  @ hyb_thres - threshold for hybrid dimming
  *  @ sync_dly_us - sync delay in us
@@ -223,6 +221,8 @@ static u8 qpnp_wled_sink_dbg_regs[] = {
  *  @ en_phase_stag - enable or disable phase staggering
  *  @ en_cabc - enable or disable cabc
  *  @ disp_type_amoled - type of display: LCD/AMOLED
+ *  @ ibb_bias_active - activate display bias
+ *  @ lab_fast_precharge - fast/slow precharge
  *  @ en_ext_pfet_sc_pro - enable sc protection on external pfet
  */
 struct qpnp_wled {
@@ -351,19 +351,6 @@ static int qpnp_wled_module_en(struct qpnp_wled *wled,
 	int rc;
 	u8 reg;
 
-	/* false OVP can be generated when module is enabled so disable it*/
-	if (state) {
-		rc = qpnp_wled_sec_access(wled, base_addr);
-		if (rc)
-			return rc;
-
-		reg = QPNP_WLED_TEST3_OVP_DIS;
-		rc = qpnp_wled_write_reg(wled, &reg,
-				QPNP_WLED_TEST3_REG(base_addr));
-		if (rc)
-			return rc;
-	}
-
 	rc = qpnp_wled_read_reg(wled, &reg,
 			QPNP_WLED_MODULE_EN_REG(base_addr));
 	if (rc < 0)
@@ -374,21 +361,6 @@ static int qpnp_wled_module_en(struct qpnp_wled *wled,
 			QPNP_WLED_MODULE_EN_REG(base_addr));
 	if (rc)
 		return rc;
-
-	/* enable OVP */
-	if (state) {
-		usleep_range(QPNP_WLED_TEST3_OVP_DLY_US,
-				QPNP_WLED_TEST3_OVP_DLY_US + 1);
-		rc = qpnp_wled_sec_access(wled, base_addr);
-		if (rc)
-			return rc;
-
-		reg = QPNP_WLED_TEST3_OVP_EN;
-		rc = qpnp_wled_write_reg(wled, &reg,
-				QPNP_WLED_TEST3_REG(base_addr));
-		if (rc)
-			return rc;
-	}
 
 	return 0;
 }
