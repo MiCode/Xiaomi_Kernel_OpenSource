@@ -2108,6 +2108,10 @@ static int mdss_dsi_panel_timing_from_dt(struct device_node *np,
 	u32 tmp;
 	int rc, i, len;
 	const char *data;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata;
+
+	ctrl_pdata = container_of(panel_data, struct mdss_dsi_ctrl_pdata,
+				panel_data);
 
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-panel-width", &tmp);
 	if (rc) {
@@ -2144,6 +2148,15 @@ static int mdss_dsi_panel_timing_from_dt(struct device_node *np,
 	pt->timing.border_left = !rc ? tmp : 0;
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-h-right-border", &tmp);
 	pt->timing.border_right = !rc ? tmp : 0;
+
+	/* overriding left/right borders for split display cases */
+	if (mdss_dsi_is_hw_config_split(ctrl_pdata->shared_data)) {
+		if (panel_data->next)
+			pt->timing.border_right = 0;
+		else
+			pt->timing.border_left = 0;
+	}
+
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-v-top-border", &tmp);
 	pt->timing.border_top = !rc ? tmp : 0;
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-v-bottom-border", &tmp);
