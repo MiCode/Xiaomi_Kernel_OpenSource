@@ -568,6 +568,8 @@ struct ipa3_status_stats {
  *  by IPA driver
  * @keep_ipa_awake: when true, IPA will not be clock gated
  * @disconnect_in_progress: Indicates client disconnect in progress.
+ * @qmi_request_sent: Indicates whether QMI request to enable clear data path
+ *					request is sent or not.
  */
 struct ipa3_ep_context {
 	int valid;
@@ -603,6 +605,7 @@ struct ipa3_ep_context {
 	struct ipa3_wlan_stats wstats;
 	u32 wdi_state;
 	bool disconnect_in_progress;
+	u32 qmi_request_sent;
 
 	/* sys MUST be the last element of this struct */
 	struct ipa3_sys_context *sys;

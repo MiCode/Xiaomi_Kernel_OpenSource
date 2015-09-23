@@ -543,7 +543,8 @@ int ipa3_disconnect(u32 clnt_hdl)
 	unsigned long peer_bam;
 	unsigned long base;
 	struct iommu_domain *smmu_domain;
-	struct ipa_ep_cfg_ctrl ep_ctrl = {0};
+	struct ipa_disable_force_clear_datapath_req_msg_v01 req = {0};
+	int res;
 
 	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
 		ipa3_ctx->ep[clnt_hdl].valid == 0) {
@@ -638,13 +639,20 @@ int ipa3_disconnect(u32 clnt_hdl)
 
 	ipa3_delete_dflt_flt_rules(clnt_hdl);
 
-	spin_lock(&ipa3_ctx->disconnect_lock);
-	/* If flow is enabled/disabled at this point, we restore the ep state.*/
-	if (ep->client == IPA_CLIENT_USB_PROD) {
-		ep_ctrl.ipa_ep_delay = false;
-		ep_ctrl.ipa_ep_suspend = false;
-		ipa3_cfg_ep_ctrl(clnt_hdl, &ep_ctrl);
+	/* If APPS flow control is not enabled, send a message to modem to
+	 * enable flow control honoring.
+	 */
+	if (!ipa3_ctx->tethered_flow_control && ep->qmi_request_sent) {
+		/* Send a message to modem to disable flow control honoring. */
+		req.request_id = clnt_hdl;
+		res = ipa3_qmi_disable_force_clear_datapath_send(&req);
+		if (res) {
+			IPADBG("disable_force_clear_datapath failed %d\n",
+				res);
+		}
 	}
+
+	spin_lock(&ipa3_ctx->disconnect_lock);
 	memset(&ipa3_ctx->ep[clnt_hdl], 0, sizeof(struct ipa3_ep_context));
 	spin_unlock(&ipa3_ctx->disconnect_lock);
 
@@ -1713,14 +1721,11 @@ int ipa3_clear_endpoint_delay(u32 clnt_hdl)
 {
 	struct ipa3_ep_context *ep;
 	struct ipa_ep_cfg_ctrl ep_ctrl = {0};
+	struct ipa_enable_force_clear_datapath_req_msg_v01 req = {0};
+	int res;
 
 	if (unlikely(!ipa3_ctx)) {
 		IPAERR("IPA driver was not initialized\n");
-		return -EINVAL;
-	}
-
-	if (!ipa3_ctx->tethered_flow_control) {
-		IPAERR("APPS flow control is not enabled\n");
 		return -EINVAL;
 	}
 
@@ -1732,17 +1737,32 @@ int ipa3_clear_endpoint_delay(u32 clnt_hdl)
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
 
+	if (!ipa3_ctx->tethered_flow_control) {
+		IPADBG("APPS flow control is not enabled\n");
+		/* Send a message to modem to disable flow control honoring. */
+		req.request_id = clnt_hdl;
+		req.source_pipe_bitmask = 1 << clnt_hdl;
+		res = ipa3_qmi_enable_force_clear_datapath_send(&req);
+		if (res) {
+			IPADBG("enable_force_clear_datapath failed %d\n",
+				res);
+		}
+		ep->qmi_request_sent = true;
+	}
+
 	ipa3_inc_client_enable_clks();
 	/* Set disconnect in progress flag so further flow control events are
 	 * not honored.
 	 */
 	spin_lock(&ipa3_ctx->disconnect_lock);
 	ep->disconnect_in_progress = true;
+	spin_unlock(&ipa3_ctx->disconnect_lock);
+
 	/* If flow is disabled at this point, restore the ep state.*/
 	ep_ctrl.ipa_ep_delay = false;
 	ep_ctrl.ipa_ep_suspend = false;
 	ipa3_cfg_ep_ctrl(clnt_hdl, &ep_ctrl);
-	spin_unlock(&ipa3_ctx->disconnect_lock);
+
 	ipa3_dec_client_disable_clks();
 
 	IPADBG("client (ep: %d) removed ep delay\n", clnt_hdl);
