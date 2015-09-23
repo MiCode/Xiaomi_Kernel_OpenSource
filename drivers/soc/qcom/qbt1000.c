@@ -25,6 +25,7 @@
 #include <linux/mutex.h>
 #include <linux/atomic.h>
 #include <linux/of.h>
+#include <linux/input.h>
 #include <uapi/linux/qbt1000.h>
 #include <soc/qcom/scm.h>
 #include "qseecom_kernel.h"
@@ -39,6 +40,8 @@ static void qbt1000_qmi_clnt_svc_exit(struct work_struct *work);
 static void qbt1000_qmi_clnt_recv_msg(struct work_struct *work);
 
 #define QBT1000_DEV "qbt1000"
+#define QBT1000_IN_DEV_NAME "qbt1000_key_input"
+#define QBT1000_IN_DEV_VERSION 0x0100
 
 /* definitions for the TZ_BLSP_MODIFY_OWNERSHIP_ID system call */
 #define TZ_BLSP_MODIFY_OWNERSHIP_ARGINFO    2
@@ -70,6 +73,7 @@ struct qbt1000_drvdata {
 	unsigned	frequency;
 	atomic_t	available;
 	struct mutex	mutex;
+	struct input_dev *in_dev;
 	struct work_struct qmi_svc_arrive;
 	struct work_struct qmi_svc_exit;
 	struct work_struct qmi_svc_rcv_msg;
@@ -973,6 +977,60 @@ err_alloc:
 	return ret;
 }
 
+/**
+ * qbt1000_create_input_device() - Function allocates an input
+ * device, configures it for key events and registers it
+ *
+ * @drvdata:	ptr to driver data
+ *
+ * Return: 0 on success. Error code on failure.
+ */
+int qbt1000_create_input_device(struct qbt1000_drvdata *drvdata)
+{
+	int rc = 0;
+
+	drvdata->in_dev = input_allocate_device();
+	if (drvdata->in_dev == NULL) {
+		dev_err(drvdata->dev, "%s: input_allocate_device() failed\n",
+			__func__);
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	drvdata->in_dev->name = QBT1000_IN_DEV_NAME;
+	drvdata->in_dev->phys = NULL;
+	drvdata->in_dev->id.bustype = BUS_HOST;
+	drvdata->in_dev->id.vendor  = 0x0001;
+	drvdata->in_dev->id.product = 0x0001;
+	drvdata->in_dev->id.version = QBT1000_IN_DEV_VERSION;
+
+	drvdata->in_dev->evbit[0] = BIT_MASK(EV_KEY) |  BIT_MASK(EV_ABS);
+	drvdata->in_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
+	drvdata->in_dev->keybit[BIT_WORD(KEY_HOMEPAGE)] =
+		BIT_MASK(KEY_HOMEPAGE);
+
+	input_set_abs_params(drvdata->in_dev, ABS_X,
+			     0,
+			     1000,
+			     0, 0);
+	input_set_abs_params(drvdata->in_dev, ABS_Y,
+			     0,
+			     1000,
+			     0, 0);
+
+	rc = input_register_device(drvdata->in_dev);
+	if (rc) {
+		dev_err(drvdata->dev, "%s: input_reg_dev() failed %d\n",
+			__func__, rc);
+		goto end;
+	}
+
+end:
+	if (rc)
+		input_free_device(drvdata->in_dev);
+	return rc;
+}
+
 static int qbt1000_read_spi_conn_properties(struct device_node *node,
 					    struct qbt1000_drvdata *drvdata)
 {
@@ -1161,6 +1219,12 @@ static int qbt1000_probe(struct platform_device *pdev)
 	mutex_init(&drvdata->mutex);
 
 	rc = qbt1000_dev_register(drvdata);
+	if (rc < 0)
+		goto end;
+
+	rc = qbt1000_create_input_device(drvdata);
+	if (rc < 0)
+		goto end;
 
 end:
 	return rc;
@@ -1170,6 +1234,7 @@ static int qbt1000_remove(struct platform_device *pdev)
 {
 	struct qbt1000_drvdata *drvdata = platform_get_drvdata(pdev);
 
+	input_unregister_device(drvdata->in_dev);
 
 	if (drvdata->sensor_conn_type == SPI) {
 		clocks_off(drvdata);
@@ -1204,8 +1269,8 @@ static int qbt1000_suspend(struct platform_device *pdev, pm_message_t state)
 	 * driver will allow suspend to occur.
 	 */
 	mutex_lock(&drvdata->mutex);
-	if (((drvdata->sensor_conn_type == SPI) && (!drvdata->clock_state)) ||
-	    ((drvdata->sensor_conn_type == SSC_SPI) && (!drvdata->ssc_state)))
+	if (((drvdata->sensor_conn_type == SPI) && (drvdata->clock_state)) ||
+	    ((drvdata->sensor_conn_type == SSC_SPI) && (drvdata->ssc_state)))
 		rc = -EBUSY;
 	mutex_unlock(&drvdata->mutex);
 
