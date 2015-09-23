@@ -4116,6 +4116,7 @@ static struct platform_driver ipc_router_driver = {
 static int ipc_router_core_init(void)
 {
 	int i;
+	int ret;
 	struct msm_ipc_routing_table_entry *rt_entry;
 
 	mutex_lock(&ipc_router_init_lock);
@@ -4150,10 +4151,14 @@ static int ipc_router_core_init(void)
 		return -ENOMEM;
 	}
 
-	is_ipc_router_inited = true;
+	ret = msm_ipc_router_security_init();
+	if (ret < 0)
+		IPC_RTR_ERR("%s: Security Init failed\n", __func__);
+	else
+		is_ipc_router_inited = true;
 	mutex_unlock(&ipc_router_init_lock);
 
-	return 0;
+	return ret;
 }
 
 static int msm_ipc_router_init(void)
@@ -4163,10 +4168,6 @@ static int msm_ipc_router_init(void)
 	ret = ipc_router_core_init();
 	if (ret < 0)
 		return ret;
-
-	ret = msm_ipc_router_security_init();
-	if (ret < 0)
-		IPC_RTR_ERR("%s: Security Init failed\n", __func__);
 
 	ret = platform_driver_register(&ipc_router_driver);
 	if (ret)
