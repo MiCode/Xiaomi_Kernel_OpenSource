@@ -1138,18 +1138,26 @@ void mdss_hw_init(struct mdss_data_type *mdata);
 
 int mdss_mdp_mfd_valid_dspp(struct msm_fb_data_type *mfd);
 
-int mdss_mdp_pa_config(struct mdp_pa_cfg_data *config, u32 *copyback);
-int mdss_mdp_pa_v2_config(struct mdp_pa_v2_cfg_data *config, u32 *copyback);
-int mdss_mdp_pcc_config(struct mdp_pcc_cfg_data *cfg_ptr, u32 *copyback);
-int mdss_mdp_igc_lut_config(struct mdp_igc_lut_data *config, u32 *copyback,
+int mdss_mdp_pa_config(struct msm_fb_data_type *mfd,
+			struct mdp_pa_cfg_data *config, u32 *copyback);
+int mdss_mdp_pa_v2_config(struct msm_fb_data_type *mfd,
+			struct mdp_pa_v2_cfg_data *config, u32 *copyback);
+int mdss_mdp_pcc_config(struct msm_fb_data_type *mfd,
+			struct mdp_pcc_cfg_data *cfg_ptr, u32 *copyback);
+int mdss_mdp_igc_lut_config(struct msm_fb_data_type *mfd,
+			struct mdp_igc_lut_data *config, u32 *copyback,
 				u32 copy_from_kernel);
-int mdss_mdp_argc_config(struct mdp_pgc_lut_data *config, u32 *copyback);
-int mdss_mdp_hist_lut_config(struct mdp_hist_lut_data *config, u32 *copyback);
+int mdss_mdp_argc_config(struct msm_fb_data_type *mfd,
+			struct mdp_pgc_lut_data *config, u32 *copyback);
+int mdss_mdp_hist_lut_config(struct msm_fb_data_type *mfd,
+			struct mdp_hist_lut_data *config, u32 *copyback);
 int mdss_mdp_pp_default_overlay_config(struct msm_fb_data_type *mfd,
 					struct mdss_panel_data *pdata);
-int mdss_mdp_dither_config(struct mdp_dither_cfg_data *config, u32 *copyback,
+int mdss_mdp_dither_config(struct msm_fb_data_type *mfd,
+			struct mdp_dither_cfg_data *config, u32 *copyback,
 			   int copy_from_kernel);
-int mdss_mdp_gamut_config(struct mdp_gamut_cfg_data *config, u32 *copyback);
+int mdss_mdp_gamut_config(struct msm_fb_data_type *mfd,
+			struct mdp_gamut_cfg_data *config, u32 *copyback);
 
 int mdss_mdp_hist_intr_req(struct mdss_intr *intr, u32 bits, bool en);
 int mdss_mdp_hist_intr_setup(struct mdss_intr *intr, int state);
