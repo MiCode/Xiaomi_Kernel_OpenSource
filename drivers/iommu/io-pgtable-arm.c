@@ -340,8 +340,8 @@ static int arm_lpae_init_pte(struct arm_lpae_io_pgtable *data,
 	struct io_pgtable_cfg *cfg = &data->iop.cfg;
 
 	/* We require an unmap first */
-	if (iopte_leaf(*ptep, lvl)) {
-		WARN_ON(!selftest_running);
+	if (*ptep & ARM_LPAE_PTE_VALID) {
+		BUG_ON(!selftest_running);
 		return -EEXIST;
 	}
 
