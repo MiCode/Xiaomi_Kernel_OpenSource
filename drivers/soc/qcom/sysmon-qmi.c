@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,7 +49,7 @@
 #define SSCTL_SERVICE_ID			0x2B
 #define SSCTL_VER_2				2
 #define SERVER_TIMEOUT				500
-#define SHUTDOWN_TIMEOUT			5000
+#define SHUTDOWN_TIMEOUT			10000
 
 #define QMI_EOTI_DATA_TYPE	\
 {				\
