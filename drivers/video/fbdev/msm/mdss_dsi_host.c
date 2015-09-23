@@ -2219,8 +2219,8 @@ void mdss_dsi_cmd_mdp_busy(struct mdss_dsi_ctrl_pdata *ctrl)
 				pr_err("%s: timeout error\n", __func__);
 				MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl",
 					"dsi0_phy", "dsi1_ctrl", "dsi1_phy",
-					"vbif", "dbg_bus", "vbif_dbg_bus",
-					"panic");
+					"vbif", "vbif_nrt", "dbg_bus",
+					"vbif_dbg_bus", "panic");
 			}
 		}
 	}
@@ -2486,8 +2486,8 @@ static int dsi_event_thread(void *data)
 			}
 			mutex_unlock(&ctrl->mutex);
 			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl",
-				"dsi0_phy", "dsi1_ctrl", "dsi1_phy",
-				"vbif", "dbg_bus", "vbif_dbg_bus", "panic");
+				"dsi0_phy", "dsi1_ctrl", "dsi1_phy", "vbif",
+				"vbif_nrt", "dbg_bus", "vbif_dbg_bus", "panic");
 		}
 
 		if (todo & DSI_EV_DSI_FIFO_EMPTY)
