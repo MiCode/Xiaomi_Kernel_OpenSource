@@ -964,10 +964,23 @@ static int a5xx_gpmu_start(struct adreno_device *adreno_dev)
 	if (reg != 0xBABEFACE) {
 		KGSL_CORE_ERR("GPMU firmware initialization timed out\n");
 		ret = -ETIMEDOUT;
-	}
-	else
+	} else {
 		set_bit(ADRENO_DEVICE_GPMU_INITIALIZED, &adreno_dev->priv);
-
+		/*
+		 *  We are in AWARE state and IRQ line from GPU to host is
+		 *  disabled.
+		 *  Read pending GPMU interrupts and clear GPMU_RBBM_INTR_INFO.
+		 */
+		kgsl_regread(device, A5XX_GPMU_RBBM_INTR_INFO, &reg);
+		/*
+		 * Clear RBBM interrupt mask if any of GPMU interrupts
+		 * are pending.
+		 */
+		if (reg)
+			kgsl_regwrite(device,
+				A5XX_RBBM_INT_CLEAR_CMD,
+				1 << A5XX_INT_GPMU_FIRMWARE);
+	}
 	return ret;
 }
 
@@ -2848,7 +2861,7 @@ static void a5xx_gpmu_int_callback(struct adreno_device *adreno_dev, int bit)
 			KGSL_DRV_CRIT_RATELIMIT(device,
 						"GPMU: Watchdog bite\n");
 		}
-	} else
+	} else if (!(reg & BIT(1)))
 		KGSL_DRV_CRIT_RATELIMIT(device,
 					"GPMU: Unknown interrupt 0x%08X\n",
 					reg);
@@ -2871,6 +2884,7 @@ static void a5xx_gpmu_int_callback(struct adreno_device *adreno_dev, int bit)
 	 (1 << A5XX_INT_UCHE_OOB_ACCESS) |		\
 	 (1 << A5XX_INT_UCHE_TRAP_INTR) |		\
 	 (1 << A5XX_INT_CP_SW) |			\
+	 (1 << A5XX_INT_GPMU_FIRMWARE) |                \
 	 (1 << A5XX_INT_GPMU_VOLTAGE_DROOP))
 
 
