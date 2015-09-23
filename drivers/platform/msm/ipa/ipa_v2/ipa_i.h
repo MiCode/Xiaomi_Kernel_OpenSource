@@ -1939,7 +1939,5 @@ struct device *ipa2_get_dma_dev(void);
 int ipa2_release_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
 int ipa2_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
 void ipa_suspend_apps_pipes(bool suspend);
-
-
-
+void ipa_update_repl_threshold(enum ipa_client_type ipa_client);
 #endif /* _IPA_I_H_ */
