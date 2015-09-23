@@ -944,8 +944,10 @@ static inline u64 scale_load_to_cpu(u64 task_load, int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 
-	task_load *= (u64)rq->load_scale_factor;
-	task_load /= 1024;
+	if (rq->load_scale_factor != 1024) {
+		task_load *= (u64)rq->load_scale_factor;
+		task_load /= 1024;
+	}
 
 	return task_load;
 }
