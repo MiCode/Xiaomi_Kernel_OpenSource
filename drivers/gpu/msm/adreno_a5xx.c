@@ -597,12 +597,24 @@ static void a5xx_enable_pc(struct adreno_device *adreno_dev)
 	trace_adreno_sp_tp((unsigned long) __builtin_return_address(0));
 };
 
+/*
+ * The maximum payload of a type4 packet is the max size minus one for the
+ * opcode
+ */
+#define TYPE4_MAX_PAYLOAD (PM4_TYPE4_PKT_SIZE_MAX - 1)
+
 static int _gpmu_create_load_cmds(struct adreno_device *adreno_dev,
 	uint32_t *ucode, uint32_t size)
 {
 	uint32_t *start, *cmds;
 	uint32_t offset = 0;
-	uint32_t cmds_size = size + size / PM4_TYPE4_PKT_SIZE_MAX + 5;
+	uint32_t cmds_size = size;
+
+	/* Add a dword for each PM4 packet */
+	cmds_size += (size / TYPE4_MAX_PAYLOAD) + 1;
+
+	/* Add 4 dwords for the protected mode */
+	cmds_size += 4;
 
 	if (adreno_dev->gpmu_cmds != NULL)
 		return 0;
@@ -625,8 +637,8 @@ static int _gpmu_create_load_cmds(struct adreno_device *adreno_dev,
 	while (size > 0) {
 		int tmp_size = size;
 
-		if (size >= PM4_TYPE4_PKT_SIZE_MAX - 1)
-			tmp_size = PM4_TYPE4_PKT_SIZE_MAX - 1;
+		if (size >= TYPE4_MAX_PAYLOAD)
+			tmp_size = TYPE4_MAX_PAYLOAD;
 
 		*cmds++ = cp_type4_packet(
 				A5XX_GPMU_INST_RAM_BASE + offset,
@@ -643,7 +655,7 @@ static int _gpmu_create_load_cmds(struct adreno_device *adreno_dev,
 	*cmds++ = cp_type7_packet(CP_SET_PROTECTED_MODE, 1);
 	*cmds++ = 1;
 
-	adreno_dev->gpmu_cmds_size = cmds - start;
+	adreno_dev->gpmu_cmds_size = (size_t) (cmds - start);
 
 	return 0;
 }
