@@ -222,7 +222,8 @@
 
 #define clk_pixel_clk_src                       0x8b6f83d8
 #define clk_byte_clk_src                        0x3a911c53
-
+#define clk_ext_pclk0_clk_src			0x087c1612
+#define clk_ext_byte0_clk_src			0xfb32f31e
 /* clock_rpm controlled clocks */
 #define clk_pnoc_clk				0xc1296d0f
 #define clk_pnoc_a_clk				0x9bcffee4
