@@ -1,15 +1,6 @@
-/*
- * Copyright (c) 2012-2015, 2017-2018 The Linux Foundation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- */
+// SPDX-License-Identifier: GPL-2.0
+/* Copyright (c) 2012-2018, The Linux Foundation. All rights reserved. */
+
 #include <linux/bitmap.h>
 #include <linux/delay.h>
 #include <linux/err.h>
@@ -1328,7 +1319,12 @@ static struct platform_driver spmi_pmic_arb_driver = {
 		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 	},
 };
-module_platform_driver(spmi_pmic_arb_driver);
+
+int __init spmi_pmic_arb_init(void)
+{
+	return platform_driver_register(&spmi_pmic_arb_driver);
+}
+arch_initcall(spmi_pmic_arb_init);
 
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("platform:spmi_pmic_arb");
