@@ -1902,7 +1902,7 @@ static int pp_pgc_set_config(char __iomem *base_addr,
 		u32 block_type)
 {
 	char __iomem *c0 = NULL, *c1 = NULL, *c2 = NULL;
-	u32 val = 0, i = 0;
+	u32 val = 0, i = 0, *sts = NULL;
 	struct mdp_pgc_lut_data *pgc_data = NULL;
 	struct mdp_pgc_lut_data_v1_7  *pgc_data_v17 = NULL;
 
@@ -1911,31 +1911,37 @@ static int pp_pgc_set_config(char __iomem *base_addr,
 		      base_addr, cfg_data, pp_sts);
 		return -EINVAL;
 	}
+	if (block_type != DSPP && block_type != LM) {
+		pr_err("invalid block type %d\n", block_type);
+		return -EINVAL;
+	}
+	sts = (block_type == DSPP) ? &pp_sts->pgc_sts : &pp_sts->argc_sts;
 	pgc_data = (struct mdp_pgc_lut_data *) cfg_data;
-	pgc_data_v17 = (struct mdp_pgc_lut_data_v1_7 *)
-			pgc_data->cfg_payload;
-	if (pgc_data->version != mdp_pgc_v1_7 || !pgc_data_v17) {
-		pr_err("invalid pgc version %d payload %p\n",
-			pgc_data->version, pgc_data_v17);
+	if (pgc_data->version != mdp_pgc_v1_7) {
+		pr_err("invalid pgc version %d\n",
+			pgc_data->version);
 		return -EINVAL;
 	}
 	if (!(pgc_data->flags & ~(MDP_PP_OPS_READ))) {
-		pr_info("only read ops is set %d", pgc_data->flags);
+		pr_debug("only read ops is set %d", pgc_data->flags);
 		return 0;
 	}
-	if (!(pgc_data->flags & MDP_PP_OPS_WRITE)) {
-		pr_info("only read ops is set %d", pgc_data->flags);
+	if (pgc_data->flags & MDP_PP_OPS_DISABLE) {
+		pr_debug("disable GC\n");
 		goto set_ops;
 	}
+
+	pgc_data_v17 = (struct mdp_pgc_lut_data_v1_7 *) pgc_data->cfg_payload;
+	if (!pgc_data_v17) {
+		pr_err("invalid payload for GC %p\n", pgc_data_v17);
+		return -EINVAL;
+	}
+
 	if (pgc_data_v17->len != PGC_LUT_ENTRIES || !pgc_data_v17->c0_data ||
 	    !pgc_data_v17->c1_data || !pgc_data_v17->c2_data) {
 		pr_err("Invalid params entries %d c0_data %p c1_data %p c2_data %p\n",
 			pgc_data_v17->len, pgc_data_v17->c0_data,
 			pgc_data_v17->c1_data, pgc_data_v17->c2_data);
-		return -EINVAL;
-	}
-	if (block_type != DSPP && block_type != LM) {
-		pr_err("invalid block type %d\n", block_type);
 		return -EINVAL;
 	}
 	c0 = base_addr + PGC_C0_LUT_INDEX;
@@ -1963,14 +1969,15 @@ static int pp_pgc_set_config(char __iomem *base_addr,
 		val = PGC_SWAP;
 		writel_relaxed(val, base_addr + PGC_LUT_SWAP);
 	}
+
 set_ops:
 	if (pgc_data->flags & MDP_PP_OPS_DISABLE) {
-		pp_sts->pgc_sts &= ~PP_STS_ENABLE;
+		*sts &= ~PP_STS_ENABLE;
 		writel_relaxed(0, base_addr + PGC_OPMODE_OFF);
 	} else if (pgc_data->flags & MDP_PP_OPS_ENABLE) {
 		val = PGC_ENABLE;
 		writel_relaxed(val, base_addr + PGC_OPMODE_OFF);
-		pp_sts->pgc_sts |= PP_STS_ENABLE;
+		*sts |= PP_STS_ENABLE;
 	}
 	return 0;
 }

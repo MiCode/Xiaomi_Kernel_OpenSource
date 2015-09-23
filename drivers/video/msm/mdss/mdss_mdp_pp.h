@@ -19,8 +19,6 @@
 
 #define MDSS_BLOCK_DISP_NUM (MDP_BLOCK_MAX - MDP_LOGICAL_BLOCK_DISP_0)
 
-#define MDSS_BLOCK_LM_NUM (MDSS_BLOCK_DISP_NUM + \
-			  MDSS_MDP_INTF_MAX_LAYERMIXER)
 /* PP STS related flags */
 #define PP_STS_ENABLE	0x1
 #define PP_STS_GAMUT_FIRST	0x2
@@ -103,9 +101,9 @@ struct mdp_pp_driver_ops {
 };
 
 struct mdss_pp_res_type_v1_7 {
-	u32 pgc_lm_table_c0[MDSS_BLOCK_LM_NUM][PGC_LUT_ENTRIES];
-	u32 pgc_lm_table_c1[MDSS_BLOCK_LM_NUM][PGC_LUT_ENTRIES];
-	u32 pgc_lm_table_c2[MDSS_BLOCK_LM_NUM][PGC_LUT_ENTRIES];
+	u32 pgc_lm_table_c0[MDSS_BLOCK_DISP_NUM][PGC_LUT_ENTRIES];
+	u32 pgc_lm_table_c1[MDSS_BLOCK_DISP_NUM][PGC_LUT_ENTRIES];
+	u32 pgc_lm_table_c2[MDSS_BLOCK_DISP_NUM][PGC_LUT_ENTRIES];
 	u32 pgc_table_c0[MDSS_BLOCK_DISP_NUM][PGC_LUT_ENTRIES];
 	u32 pgc_table_c1[MDSS_BLOCK_DISP_NUM][PGC_LUT_ENTRIES];
 	u32 pgc_table_c2[MDSS_BLOCK_DISP_NUM][PGC_LUT_ENTRIES];
@@ -115,7 +113,7 @@ struct mdss_pp_res_type_v1_7 {
 	u32 six_zone_lut_p0[MDSS_BLOCK_DISP_NUM][MDP_SIX_ZONE_LUT_SIZE];
 	u32 six_zone_lut_p1[MDSS_BLOCK_DISP_NUM][MDP_SIX_ZONE_LUT_SIZE];
 	struct mdp_pgc_lut_data_v1_7 pgc_dspp_v17_data[MDSS_BLOCK_DISP_NUM];
-	struct mdp_pgc_lut_data_v1_7 pgc_lm_v17_data[MDSS_BLOCK_LM_NUM];
+	struct mdp_pgc_lut_data_v1_7 pgc_lm_v17_data[MDSS_BLOCK_DISP_NUM];
 	struct mdp_igc_lut_data_v1_7 igc_v17_data[MDSS_BLOCK_DISP_NUM];
 	struct mdp_hist_lut_data_v1_7 hist_lut_v17_data[MDSS_BLOCK_DISP_NUM];
 	struct mdp_dither_data_v1_7 dither_v17_data[MDSS_BLOCK_DISP_NUM];
