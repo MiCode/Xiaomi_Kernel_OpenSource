@@ -33,6 +33,7 @@ struct wsa881x_tz_priv {
 	wsa_temp_register_read wsa_temp_reg_read;
 };
 
+int wsa881x_get_temp(struct thermal_zone_device *tz_dev, unsigned long *temp);
 int wsa881x_init_thermal(struct wsa881x_tz_priv *tz_pdata);
 void wsa881x_deinit_thermal(struct thermal_zone_device *tz_dev);
 #endif

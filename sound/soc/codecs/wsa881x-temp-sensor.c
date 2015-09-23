@@ -24,8 +24,17 @@
 #define HIGH_TEMP_THRESHOLD 45
 #define TEMP_INVALID	0xFFFF
 
-static int wsa881x_get_temp(struct thermal_zone_device *thermal,
-			unsigned long *temp)
+/*
+ * wsa881x_get_temp - get wsa temperature
+ * @thermal: thermal zone device
+ * @temp: temperature value
+ *
+ * Get the temperature of wsa881x.
+ *
+ * Return: 0 on success or negative error code on failure.
+ */
+int wsa881x_get_temp(struct thermal_zone_device *thermal,
+		     unsigned long *temp)
 {
 	struct wsa881x_tz_priv *pdata;
 	struct snd_soc_codec *codec;
@@ -35,6 +44,9 @@ static int wsa881x_get_temp(struct thermal_zone_device *thermal,
 	long temp_val;
 	int t1 = T1_TEMP;
 	int t2 = T2_TEMP;
+
+	if (!thermal)
+		return -EINVAL;
 
 	if (thermal->devdata) {
 		pdata = thermal->devdata;
@@ -90,11 +102,13 @@ static int wsa881x_get_temp(struct thermal_zone_device *thermal,
 				   __func__, temp_val, LOW_TEMP_THRESHOLD,
 				   HIGH_TEMP_THRESHOLD);
 	}
-	*temp = temp_val;
+	if (temp)
+		*temp = temp_val;
 	pr_debug("%s: t0 measured: %ld dmeas = %d, d1 = %d, d2 = %d\n",
 		  __func__, temp_val, dmeas, d1, d2);
 	return ret;
 }
+EXPORT_SYMBOL(wsa881x_get_temp);
 
 static struct thermal_zone_device_ops wsa881x_thermal_ops = {
 	.get_temp = wsa881x_get_temp,
