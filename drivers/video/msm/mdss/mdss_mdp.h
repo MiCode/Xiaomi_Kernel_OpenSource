@@ -938,9 +938,9 @@ static inline bool mdss_mdp_is_nv12_format(struct mdss_mdp_format_params *fmt)
 		(fmt->fetch_planes == MDSS_MDP_PLANE_PSEUDO_PLANAR);
 }
 
-static inline int mdss_mdp_is_ubwc_supported(struct mdss_data_type *mdata)
+static inline bool mdss_mdp_is_ubwc_supported(struct mdss_data_type *mdata)
 {
-	return IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_107);
+	return mdata->has_ubwc;
 }
 
 static inline int mdss_mdp_is_cdm_supported(struct mdss_data_type *mdata,

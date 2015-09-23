@@ -1191,6 +1191,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdata->apply_post_scale_bytes = false;
 		mdata->hflip_buffer_reused = false;
 		mdata->min_prefill_lines = 21;
+		mdata->has_ubwc = true;
 		set_bit(MDSS_QOS_PER_PIPE_IB, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_OVERHEAD_FACTOR, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_CDP, mdata->mdss_qos_map);
@@ -1562,6 +1563,8 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 	SPRINT("features=");
 	if (mdata->has_bwc)
 		SPRINT(" bwc");
+	if (mdata->has_ubwc)
+		SPRINT(" ubwc");
 	if (mdata->has_decimation)
 		SPRINT(" decimation");
 	if (mdata->highest_bank_bit && !mdss_mdp_is_ubwc_supported(mdata))
