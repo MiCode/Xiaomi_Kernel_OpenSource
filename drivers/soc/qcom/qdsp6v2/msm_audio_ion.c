@@ -682,6 +682,7 @@ static int msm_audio_smmu_init_legacy(struct device *dev)
 	struct device_node *ctx_node = NULL;
 	struct context_bank_info *cb;
 	int ret;
+	u32 read_val[2];
 
 	cb = devm_kzalloc(dev, sizeof(struct context_bank_info), GFP_KERNEL);
 	ctx_node = of_parse_phandle(dev->of_node, "iommus", 0);
@@ -698,13 +699,15 @@ static int msm_audio_smmu_init_legacy(struct device *dev)
 	pr_debug("label found : %s\n", cb->name);
 	ret = of_property_read_u32_array(ctx_node,
 				"qcom,virtual-addr-pool",
-				(u32 *)&cb->addr_range, 2);
+				read_val, 2);
 	if (ret) {
 		dev_err(dev, "%s Could not read addr pool for group : (%d)\n",
 			__func__, ret);
 		return -EINVAL;
 	}
 	msm_audio_ion_data.cb_dev = msm_iommu_get_ctx(cb->name);
+	cb->addr_range.start = (dma_addr_t) read_val[0];
+	cb->addr_range.size = (size_t) read_val[1];
 	dev_dbg(dev, "%s Legacy iommu usage\n", __func__);
 	mapping = arm_iommu_create_mapping(
 				msm_iommu_get_bus(msm_audio_ion_data.cb_dev),
