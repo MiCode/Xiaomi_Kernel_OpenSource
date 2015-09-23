@@ -1900,10 +1900,12 @@
 		compatible = "qcom,qusb2phy";
 		reg = <0x07411000 0x180>,
 			<0x06af8800 0x400>,
-			<0x0007024C 0x4>;
+			<0x0007024C 0x4>,
+			<0x00388018 0x4>;
 		reg-names = "qusb_phy_base",
 			"qscratch_base",
-			"tune2_efuse_addr";
+			"tune2_efuse_addr",
+			"ref_clk_addr";
 		vdd-supply = <&pm8994_s2_corner>;
 		vdda18-supply = <&pm8994_l12>;
 		vdda33-supply = <&pm8994_l24>;
@@ -1936,10 +1938,12 @@
 		compatible = "qcom,qusb2phy";
 		reg = <0x07412000 0x180>,
 			<0x076f8800 0x400>,
-			<0x0007024C 0x4>;
+			<0x0007024C 0x4>,
+			<0x00388014 0x4>;
 		reg-names = "qusb_phy_base",
 			"qscratch_base",
-			"tune2_efuse_addr";
+			"tune2_efuse_addr",
+			"ref_clk_addr";
 		vdd-supply = <&pm8994_s2_corner>;
 		vdda18-supply = <&pm8994_l12>;
 		vdda33-supply = <&pm8994_l24>;
