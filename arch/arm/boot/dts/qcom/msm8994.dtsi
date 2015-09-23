@@ -1471,6 +1471,7 @@
 			qcom,cdc-dmic-sample-rate = <4800000>;
 			qcom,cdc-mad-dmic-rate = <600000>;
 			qcom,cdc-variant = "WCD9330";
+			qcom,cdc-spkdrv-ocp-curr-limit-mA = <2625>;
 		};
 	};
 
