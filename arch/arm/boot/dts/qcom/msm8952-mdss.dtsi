@@ -33,15 +33,14 @@
 		qcom,mdss-ib-factor = <1 1>;		/* no fudge  */
 		qcom,mdss-ib-factor-cmd = <1 1>;	/* no fudge */
 		qcom,mdss-clk-factor = <105 100>;	/* 1.05 times */
-		qcom,max-bandwidth-low-kbps = <2300000>;
-		qcom,max-bandwidth-high-kbps = <2300000>;
-		qcom,max-bandwidth-per-pipe-kbps = <1500000>;
+		qcom,max-bandwidth-low-kbps = <4000000>;
+		qcom,max-bandwidth-high-kbps = <4000000>;
+		qcom,max-bandwidth-per-pipe-kbps = <1 2300000>,	/* Default */
+						   <2 1700000>;	/* Camera */
 
 		/* Bandwidth limit settings */
-		qcom,max-bw-settings = <1 2300000>,	/* Default */
-				       <2 1700000>,	/* Camera */
-				       <4 2300000>,	/* HFlip */
-				       <8 2000000>;	/* VFlip */
+		qcom,max-bw-settings = <1 4000000>,	/* Default */
+				       <2 2200000>;	/* Camera */
 
 		/* VBIF QoS remapper settings*/
 		qcom,mdss-vbif-qos-rt-setting = <2 2 2 2>;
