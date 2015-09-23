@@ -38,11 +38,15 @@
 		label = "kgsl-3d0";
 		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
 		reg = <0x01c00000 0x10000
-		       0x01c10000 0x10000>;
-		reg-names = "kgsl_3d0_reg_memory" , "kgsl_3d0_shader_memory";
+		       0x01c10000 0x10000
+		       0x0005c000 0x204>;
+		reg-names = "kgsl_3d0_reg_memory" , "kgsl_3d0_shader_memory" ,
+			    "qfprom_memory";
 		interrupts = <0 33 0>;
 		interrupt-names = "kgsl_3d0_irq";
 		qcom,id = <0>;
+
+		qcom,gpu-speed-config = <0>;
 
 		qcom,chipid = <0x03000400>;
 
@@ -119,6 +123,40 @@
 			};
 		};
 
-	};
+		qcom,gpu-speed-config@0 {
+			compatible = "gpu-speed-config@0";
+			/* Power levels */
+			qcom,gpu-pwrlevels {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				compatible = "qcom,gpu-pwrlevels";
+
+				qcom,gpu-pwrlevel@0 {
+					reg = <0>;
+					qcom,gpu-freq = <456000000>;
+					qcom,bus-freq = <3>;
+				};
+
+				qcom,gpu-pwrlevel@1 {
+					reg = <1>;
+					qcom,gpu-freq = <307200000>;
+					qcom,bus-freq = <2>;
+				};
+
+				qcom,gpu-pwrlevel@2 {
+					reg = <2>;
+					qcom,gpu-freq = <200000000>;
+					qcom,bus-freq = <1>;
+				};
+
+				qcom,gpu-pwrlevel@3 {
+					reg = <3>;
+					qcom,gpu-freq = <19200000>;
+					qcom,bus-freq = <0>;
+				};
+			};
+		};
+	 };
 };
 
