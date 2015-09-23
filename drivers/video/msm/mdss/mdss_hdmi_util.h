@@ -459,6 +459,7 @@ int hdmi_get_supported_mode(struct msm_hdmi_mode_timing_info *info,
 ssize_t hdmi_get_video_3d_fmt_2string(u32 format, char *buf, u32 size);
 const char *msm_hdmi_mode_2string(u32 mode);
 int hdmi_set_resv_timing_info(struct msm_hdmi_mode_timing_info *mode);
+bool hdmi_is_valid_resv_timing(int mode);
 void hdmi_reset_resv_timing_info(void);
 
 /* todo: Fix this. Right now this is defined in mdss_hdmi_tx.c */

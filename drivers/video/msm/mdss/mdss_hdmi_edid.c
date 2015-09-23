@@ -132,6 +132,7 @@ struct hdmi_edid_ctrl {
 	int sadb_size;
 	u8 edid_buf[MAX_EDID_SIZE];
 	char vendor_id[EDID_VENDOR_ID_SIZE];
+	bool keep_resv_timings;
 
 	struct hdmi_edid_sink_data sink_data;
 	struct hdmi_edid_init_data init_data;
@@ -176,7 +177,8 @@ static int hdmi_edid_reset_parser(struct hdmi_edid_ctrl *edid_ctrl)
 	edid_ctrl->sadb_size = 0;
 
 	/* reset new resolution details */
-	hdmi_reset_resv_timing_info();
+	if (!edid_ctrl->keep_resv_timings)
+		hdmi_reset_resv_timing_info();
 
 	return 0;
 }
@@ -573,6 +575,60 @@ static ssize_t hdmi_common_rda_edid_raw_data(struct device *dev,
 } /* hdmi_common_rda_edid_raw_data */
 static DEVICE_ATTR(edid_raw_data, S_IRUGO, hdmi_common_rda_edid_raw_data, NULL);
 
+static ssize_t hdmi_edid_sysfs_wta_add_resolution(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int rc;
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	struct hdmi_edid_ctrl *edid_ctrl = hdmi_edid_get_ctrl(dev);
+	struct msm_hdmi_mode_timing_info timing;
+
+	if (!edid_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	rc = sscanf(buf,
+		"%lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu",
+		(unsigned long *) &timing.active_h,
+		(unsigned long *) &timing.front_porch_h,
+		(unsigned long *) &timing.pulse_width_h,
+		(unsigned long *) &timing.back_porch_h,
+		(unsigned long *) &timing.active_low_h,
+		(unsigned long *) &timing.active_v,
+		(unsigned long *) &timing.front_porch_v,
+		(unsigned long *) &timing.pulse_width_v,
+		(unsigned long *) &timing.back_porch_v,
+		(unsigned long *) &timing.active_low_v,
+		(unsigned long *) &timing.pixel_freq,
+		(unsigned long *) &timing.refresh_rate,
+		(unsigned long *) &timing.interlaced,
+		(unsigned long *) &timing.supported,
+		(unsigned long *) &timing.ar);
+
+	if (rc != 15) {
+		DEV_ERR("%s: error reading buf\n", __func__);
+		goto err;
+	}
+
+	rc = hdmi_set_resv_timing_info(&timing);
+
+	if (!IS_ERR_VALUE(rc)) {
+		DEV_DBG("%s: added new res %d\n", __func__, rc);
+	} else {
+		DEV_ERR("%s: error adding new res %d\n", __func__, rc);
+		goto err;
+	}
+
+	edid_ctrl->keep_resv_timings = true;
+	return ret;
+
+err:
+	edid_ctrl->keep_resv_timings = false;
+	return -EFAULT;
+}
+static DEVICE_ATTR(add_res, S_IWUSR, NULL, hdmi_edid_sysfs_wta_add_resolution);
+
 static struct attribute *hdmi_edid_fs_attrs[] = {
 	&dev_attr_edid_modes.attr,
 	&dev_attr_pa.attr,
@@ -584,6 +640,7 @@ static struct attribute *hdmi_edid_fs_attrs[] = {
 	&dev_attr_edid_audio_latency.attr,
 	&dev_attr_edid_video_latency.attr,
 	&dev_attr_res_info.attr,
+	&dev_attr_add_res.attr,
 	NULL,
 };
 
@@ -1942,6 +1999,19 @@ end:
 	return ret;
 }
 
+static void hdmi_edid_add_resv_timings(struct hdmi_edid_ctrl *edid_ctrl)
+{
+	int i = HDMI_VFRMT_RESERVE1;
+
+	while (i <= RESERVE_VFRMT_END) {
+		if (hdmi_is_valid_resv_timing(i))
+			hdmi_edid_add_sink_video_format(edid_ctrl, i);
+		else
+			break;
+		i++;
+	}
+}
+
 int hdmi_edid_parser(void *input)
 {
 	u8 *edid_buf = NULL;
@@ -2021,6 +2091,9 @@ bail:
 	edid_ctrl->cea_blks = num_of_cea_blocks;
 
 	hdmi_edid_get_display_mode(edid_ctrl);
+
+	if (edid_ctrl->keep_resv_timings)
+		hdmi_edid_add_resv_timings(edid_ctrl);
 
 	return 0;
 
