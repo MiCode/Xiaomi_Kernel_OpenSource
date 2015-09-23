@@ -985,7 +985,7 @@ static uint32_t register_client_adhoc(struct msm_bus_scale_pdata *pdata)
 	lnode = kzalloc(pdata->usecase->num_paths * sizeof(int), GFP_KERNEL);
 	if (ZERO_OR_NULL_PTR(lnode)) {
 		MSM_BUS_ERR("%s: Error allocating pathnode ptr!", __func__);
-		goto exit_register_client;
+		goto exit_lnode_malloc_fail;
 	}
 	client->src_pnode = lnode;
 
@@ -993,7 +993,7 @@ static uint32_t register_client_adhoc(struct msm_bus_scale_pdata *pdata)
 					sizeof(struct device *), GFP_KERNEL);
 	if (IS_ERR_OR_NULL(client->src_devs)) {
 		MSM_BUS_ERR("%s: Error allocating pathnode ptr!", __func__);
-		goto exit_register_client;
+		goto exit_src_dev_malloc_fail;
 	}
 	client->curr = -1;
 
@@ -1004,7 +1004,7 @@ static uint32_t register_client_adhoc(struct msm_bus_scale_pdata *pdata)
 		if ((src < 0) || (dest < 0)) {
 			MSM_BUS_ERR("%s:Invalid src/dst.src %d dest %d",
 				__func__, src, dest);
-			goto exit_register_client;
+			goto exit_invalid_data;
 		}
 		dev = bus_find_device(&msm_bus_type, NULL,
 				(void *) &src,
@@ -1012,7 +1012,7 @@ static uint32_t register_client_adhoc(struct msm_bus_scale_pdata *pdata)
 		if (IS_ERR_OR_NULL(dev)) {
 			MSM_BUS_ERR("%s:Failed to find path.src %d dest %d",
 				__func__, src, dest);
-			goto exit_register_client;
+			goto exit_invalid_data;
 		}
 		client->src_devs[i] = dev;
 
@@ -1020,7 +1020,7 @@ static uint32_t register_client_adhoc(struct msm_bus_scale_pdata *pdata)
 		if (lnode[i] < 0) {
 			MSM_BUS_ERR("%s:Failed to find path.src %d dest %d",
 				__func__, src, dest);
-			goto exit_register_client;
+			goto exit_invalid_data;
 		}
 	}
 
@@ -1029,6 +1029,14 @@ static uint32_t register_client_adhoc(struct msm_bus_scale_pdata *pdata)
 					handle);
 	MSM_BUS_DBG("%s:Client handle %d %s", __func__, handle,
 						client->pdata->name);
+	rt_mutex_unlock(&msm_bus_adhoc_lock);
+	return handle;
+exit_invalid_data:
+	kfree(client->src_devs);
+exit_src_dev_malloc_fail:
+	kfree(lnode);
+exit_lnode_malloc_fail:
+	kfree(client);
 exit_register_client:
 	rt_mutex_unlock(&msm_bus_adhoc_lock);
 	return handle;
