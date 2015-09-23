@@ -1508,20 +1508,6 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 		dev_dbg(mdwc->dev, "%s: exit power collapse (POR=%d)\n",
 			__func__, mdwc->power_collapse_por);
 
-		/* Reset HSPHY */
-		ret = usb_phy_reset(mdwc->hs_phy);
-		if (ret) {
-			dev_err(mdwc->dev, "hsphy reset failed\n");
-			return ret;
-		}
-
-		/* Reset SS PHY */
-		ret = usb_phy_reset(mdwc->ss_phy);
-		if (ret) {
-			dev_err(mdwc->dev, "ssphy reset failed\n");
-			return ret;
-		}
-
 		if (mdwc->power_collapse_por)
 			dwc3_msm_power_collapse_por(mdwc);
 
