@@ -16,6 +16,12 @@ Required properties
 		"apc0-cpu0-spm", "apc0-cpu1-spm", "apc1-cpu0-spm", "apc1-cpu1-spm",
 		"apc0-l2-spm", and "apc1-l2-spm".
 
+Optional properties
+- qcom,clock-source-override:	Specify this property to request a switch of the APC0 and APC1
+				clock sources to GPLL0 before the APM switch begins and to
+				switch back to the original clock source after the APM switch
+				completes.
+
 MSM APM Users
 
 Required properties:
