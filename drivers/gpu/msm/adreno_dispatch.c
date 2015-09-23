@@ -87,7 +87,7 @@ static int dispatcher_do_fault(struct kgsl_device *device);
  * @id: ID of the context to add
  *
  * This function is called when a new item is added to a context - this tracks
- * the number of active contexts seen in the last 500ms for the command queue
+ * the number of active contexts seen in the last 100ms for the command queue
  */
 static void _track_context(struct adreno_dispatcher_cmdqueue *cmdqueue,
 		unsigned int id)
@@ -102,7 +102,7 @@ static void _track_context(struct adreno_dispatcher_cmdqueue *cmdqueue,
 
 		/* If the new ID matches the slot update the expire time */
 		if (list[i].id == id) {
-			list[i].jiffies = jiffies + msecs_to_jiffies(500);
+			list[i].jiffies = jiffies + msecs_to_jiffies(100);
 			updated = true;
 			count++;
 			continue;
@@ -127,7 +127,7 @@ static void _track_context(struct adreno_dispatcher_cmdqueue *cmdqueue,
 	if (updated == false) {
 		int pos = (empty != -1) ? empty : oldest;
 
-		list[pos].jiffies = jiffies + msecs_to_jiffies(500);
+		list[pos].jiffies = jiffies + msecs_to_jiffies(100);
 		list[pos].id = id;
 		count++;
 	}
@@ -136,7 +136,7 @@ static void _track_context(struct adreno_dispatcher_cmdqueue *cmdqueue,
 }
 
 /*
- *  If only one context has queued in the last 500 millseconds increase
+ *  If only one context has queued in the last 100 milliseconds increase
  *  inflight to a high number to load up the GPU. If multiple contexts
  *  have queued drop the inflight for better context switch latency.
  *  If no contexts have queued what are you even doing here?
