@@ -57,11 +57,8 @@
 #define ADSP_STATE_READY_TIMEOUT_MS    3000
 #define DEV_NAME_STR_LEN            32
 
-enum {
-	AUX_DEV_NONE = 0,
-	WSA8810,
-	WSA8815,
-};
+#define WSA8810_NAME_1 "wsa881x.20170211"
+#define WSA8810_NAME_2 "wsa881x.20170212"
 
 static int slim0_rx_sample_rate = SAMPLING_RATE_48KHZ;
 static int slim0_tx_sample_rate = SAMPLING_RATE_48KHZ;
@@ -88,8 +85,6 @@ static int msm_hdmi_rx_ch = 2;
 static int msm_proxy_rx_ch = 2;
 static int hdmi_rx_sample_rate = SAMPLING_RATE_48KHZ;
 static int msm_tert_mi2s_tx_ch = 2;
-
-static int aux_dev_type;
 
 static bool codec_reg_done;
 
@@ -1544,6 +1539,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_pcm_runtime *rtd_aux = rtd->card->rtd_aux;
 	void *mbhc_calibration;
 	struct snd_card *card;
 	struct snd_info_entry *entry;
@@ -1719,8 +1715,15 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	}
 
 	tasha_event_register(msm8996_tasha_codec_event_cb, rtd->codec);
-	if (aux_dev_type == WSA8810)
-		tasha_set_spkr_mode(rtd->codec, SPKR_MODE_1);
+
+	/*
+	 * Send speaker configuration only for WSA8810.
+	 * Defalut configuration is for WSA8815.
+	 */
+	if (rtd_aux && rtd_aux->component)
+		if (!strcmp(rtd_aux->component->name, WSA8810_NAME_1) ||
+		    !strcmp(rtd_aux->component->name, WSA8810_NAME_2))
+			tasha_set_spkr_mode(rtd->codec, SPKR_MODE_1);
 
 	codec_reg_done = true;
 
@@ -3571,6 +3574,8 @@ static int msm8996_asoc_machine_probe(struct platform_device *pdev)
 			ret);
 		goto err;
 	}
+	dev_info(&pdev->dev, "Sound card %s registered\n", card->name);
+
 	ret = of_property_read_string(pdev->dev.of_node,
 		"qcom,mbhc-audio-jack-type", &mbhc_audio_jack_type);
 	if (ret) {
