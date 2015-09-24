@@ -299,6 +299,9 @@ int panel_debug_register_base(const char *name, void __iomem *base,
 		goto reg_fail;
 	}
 
+	/* Initialize list to make sure check for null list will be valid */
+	INIT_LIST_HEAD(&dbg->dump_list);
+
 	list_add(&dbg->head, &mdd->base_list);
 
 	return 0;
