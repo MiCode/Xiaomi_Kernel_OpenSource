@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016	, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1825,8 +1825,10 @@ int sps_get_config(struct sps_pipe *h, struct sps_connect *config)
 	if (pipe->bam == NULL)
 		SPS_DBG(sps, "sps:%s.\n", __func__);
 	else
-	SPS_DBG(pipe->bam, "sps:%s; BAM: %pa; pipe index:%d.\n",
-		__func__, BAM_ID(pipe->bam), pipe->pipe_index);
+		SPS_DBG(pipe->bam,
+			"sps:%s; BAM: %pa; pipe index:%d; options:0x%x.\n",
+			__func__, BAM_ID(pipe->bam), pipe->pipe_index,
+			pipe->connect.options);
 
 	/* Copy current client connection state */
 	*config = pipe->connect;
@@ -1854,11 +1856,13 @@ int sps_set_config(struct sps_pipe *h, struct sps_connect *config)
 	}
 
 	bam = sps_bam_lock(pipe);
-	if (bam == NULL)
+	if (bam == NULL) {
+		SPS_ERR(sps, "sps:%s:BAM is NULL.\n", __func__);
 		return SPS_ERROR;
+	}
 
-	SPS_DBG(bam, "sps:%s; BAM: %pa; pipe index:%d.\n",
-		__func__, BAM_ID(bam), pipe->pipe_index);
+	SPS_DBG(bam, "sps:%s; BAM: %pa; pipe index:%d, config-options:0x%x.\n",
+		__func__, BAM_ID(bam), pipe->pipe_index, config->options);
 
 	result = sps_bam_pipe_set_params(bam, pipe->pipe_index,
 					 config->options);
