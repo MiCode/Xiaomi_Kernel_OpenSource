@@ -2420,7 +2420,7 @@ int ipa_disable_apps_wan_cons_deaggr(uint32_t agg_size, uint32_t agg_count)
 	int ret;
 
 	IPA_API_DISPATCH_RETURN(ipa_disable_apps_wan_cons_deaggr, agg_size,
-		agg_size);
+		agg_count);
 
 	return ret;
 }
