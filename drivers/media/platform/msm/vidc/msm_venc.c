@@ -3230,6 +3230,7 @@ int msm_venc_set_csc(struct msm_vidc_inst *inst)
 int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 {
 	struct msm_vidc_format *fmt = NULL;
+	struct hal_frame_size frame_sz = {0};
 	int rc = 0;
 	int i;
 	struct hfi_device *hdev;
@@ -3270,9 +3271,6 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			goto exit;
 		}
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		struct hal_uncompressed_format_select hal_fmt = {0};
-		struct hal_frame_size frame_sz;
-
 		inst->prop.width[OUTPUT_PORT] = f->fmt.pix_mp.width;
 		inst->prop.height[OUTPUT_PORT] = f->fmt.pix_mp.height;
 
@@ -3316,28 +3314,18 @@ int msm_venc_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			goto exit;
 		}
 
-		switch (fmt->fourcc) {
-		case V4L2_PIX_FMT_NV12:
-			hal_fmt.format = HAL_COLOR_FORMAT_NV12;
-			break;
-		case V4L2_PIX_FMT_NV21:
-			hal_fmt.format = HAL_COLOR_FORMAT_NV21;
-			break;
-		default:
-			/* we really shouldn't be here */
-			rc = -ENOTSUPP;
-			goto exit;
-		}
-
-		hal_fmt.buffer_type = HAL_BUFFER_INPUT;
-		rc = call_hfi_op(hdev, session_set_property, (void *)
-			inst->session, HAL_PARAM_UNCOMPRESSED_FORMAT_SELECT,
-			&hal_fmt);
+		rc = msm_comm_set_color_format(inst,
+			HAL_BUFFER_INPUT, fmt->fourcc);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"Failed to set input color format\n");
 			goto exit;
 		}
+	} else {
+		dprintk(VIDC_ERR, "%s: Unsupported buf type: %d\n",
+			__func__, f->type);
+		rc = -EINVAL;
+		goto exit;
 	}
 
 	if (!fmt) {

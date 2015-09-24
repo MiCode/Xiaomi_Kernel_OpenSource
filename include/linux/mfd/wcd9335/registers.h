@@ -120,6 +120,8 @@ enum {
 #define WCD9335_DATA_HUB_DATA_HUB_TX_I2S_SD0_R_CFG       0x0072
 #define WCD9335_DATA_HUB_DATA_HUB_TX_I2S_SD1_L_CFG       0x0073
 #define WCD9335_DATA_HUB_DATA_HUB_TX_I2S_SD1_R_CFG       0x0074
+#define WCD9335_DATA_HUB_NATIVE_FIFO_SYNC                0x0075
+#define WCD9335_DATA_HUB_NATIVE_FIFO_STATUS              0x007D
 #define WCD9335_INTR_CFG                                 0x0081
 #define WCD9335_INTR_CLR_COMMIT                          0x0082
 #define WCD9335_INTR_PIN1_MASK0                          0x0089
@@ -379,10 +381,13 @@ enum {
 #define WCD9335_CPE_SS_US_EC_MUX_CFG                     0x025e
 #define WCD9335_CPE_SS_MAD_CTL                           0x025f
 #define WCD9335_CPE_SS_CPAR_CTL                          0x0260
+#define WCD9335_CPE_SS_TX_PP_BUF_INT_PERIOD              0x0261
+#define WCD9335_CPE_SS_TX_PP_CFG                         0x0262
 #define WCD9335_CPE_SS_DMIC0_CTL                         0x0263
 #define WCD9335_CPE_SS_DMIC1_CTL                         0x0264
 #define WCD9335_CPE_SS_DMIC2_CTL                         0x0265
 #define WCD9335_CPE_SS_DMIC_CFG                          0x0266
+#define WCD9335_CPE_SS_SVA_CFG                           0x0267
 #define WCD9335_CPE_SS_CPAR_CFG                          0x0271
 #define WCD9335_CPE_SS_WDOG_CFG                          0x0272
 #define WCD9335_CPE_SS_BACKUP_INT                        0x0273
@@ -510,7 +515,8 @@ enum {
 #define WCD9335_MBHC_PLUG_DETECT_CTL                     0x0658
 #define WCD9335_MBHC_ZDET_ANA_CTL                        0x0659
 #define WCD9335_MBHC_ZDET_RAMP_CTL                       0x065a
-#define WCD9335_MBHC_FSM_DEBUG                           0x065b
+#define WCD9335_MBHC_FSM_DEBUG                           0x065b /* v1.x */
+#define WCD9335_MBHC_FSM_STATUS                          0x065b /* v2.0 */
 #define WCD9335_MBHC_TEST_CTL                            0x065c
 #define WCD9335_VBADC_SUBBLOCK_EN                        0x065d
 #define WCD9335_VBADC_IBIAS_FE                           0x065e
@@ -596,7 +602,8 @@ enum {
 #define WCD9335_FLYBACK_VNEG_DAC_CTRL_1                  0x06ae
 #define WCD9335_FLYBACK_VNEG_DAC_CTRL_2                  0x06af
 #define WCD9335_FLYBACK_VNEG_DAC_CTRL_3                  0x06b0
-#define WCD9335_FLYBACK_VNEG_DAC_CTRL_4                  0x06b1
+#define WCD9335_FLYBACK_VNEG_DAC_CTRL_4                  0x06b1 /* v1.x */
+#define WCD9335_FLYBACK_CTRL_1                           0x06b1 /* v2.0 */
 #define WCD9335_FLYBACK_TEST_CTL                         0x06b2
 #define WCD9335_RX_AUX_SW_CTL                            0x06b3
 #define WCD9335_RX_PA_AUX_IN_CONN                        0x06b4
@@ -721,6 +728,7 @@ enum {
 #define WCD9335_CDC_TX0_TX_PATH_SEC4                     0x0a3b
 #define WCD9335_CDC_TX0_TX_PATH_SEC5                     0x0a3c
 #define WCD9335_CDC_TX0_TX_PATH_SEC6                     0x0a3d
+#define WCD9335_CDC_TX0_TX_PATH_SEC7                     0x0a3e
 #define WCD9335_CDC_TX1_TX_PATH_CTL                      0x0a41
 #define WCD9335_CDC_TX1_TX_PATH_CFG0                     0x0a42
 #define WCD9335_CDC_TX1_TX_PATH_CFG1                     0x0a43
@@ -1123,9 +1131,13 @@ enum {
 #define WCD9335_CDC_VBAT_VBAT_GAIN_UPD_MON               0x0c50
 #define WCD9335_CDC_VBAT_VBAT_GAIN_MON_VAL               0x0c51
 #define WCD9335_SPLINE_SRC0_CLK_RST_CTL_0                0x0c55
+#define WCD9335_SPLINE_SRC0_STATUS                       0x0c56
 #define WCD9335_SPLINE_SRC1_CLK_RST_CTL_0                0x0c6d
+#define WCD9335_SPLINE_SRC1_STATUS                       0x0c6e
 #define WCD9335_SPLINE_SRC2_CLK_RST_CTL_0                0x0c85
+#define WCD9335_SPLINE_SRC2_STATUS                       0x0c86
 #define WCD9335_SPLINE_SRC3_CLK_RST_CTL_0                0x0c9d
+#define WCD9335_SPLINE_SRC3_STATUS                       0x0c9e
 #define WCD9335_CDC_SIDETONE_SRC0_ST_SRC_PATH_CTL        0x0cb5
 #define WCD9335_CDC_SIDETONE_SRC0_ST_SRC_PATH_CFG1       0x0cb6
 #define WCD9335_CDC_SIDETONE_SRC1_ST_SRC_PATH_CTL        0x0cb9
@@ -1203,6 +1215,7 @@ enum {
 #define WCD9335_CDC_PROX_DETECT_PROX_TEST_BUFF_MSB       0x0d51
 #define WCD9335_CDC_PROX_DETECT_PROX_TEST_BUFF_LSB_RD    0x0d52
 #define WCD9335_CDC_PROX_DETECT_PROX_TEST_BUFF_MSB_RD    0x0d53
+#define WCD9335_CDC_PROX_DETECT_PROX_CTL_REPEAT_PAT      0x0d54
 #define WCD9335_CDC_SIDETONE_IIR0_IIR_PATH_CTL           0x0d55
 #define WCD9335_CDC_SIDETONE_IIR0_IIR_GAIN_B1_CTL        0x0d56
 #define WCD9335_CDC_SIDETONE_IIR0_IIR_GAIN_B2_CTL        0x0d57

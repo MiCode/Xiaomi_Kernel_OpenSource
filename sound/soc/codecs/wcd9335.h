@@ -117,4 +117,8 @@ extern void tasha_event_register(
 	struct snd_soc_codec *codec);
 extern int tasha_codec_info_create_codec_entry(struct snd_info_entry *,
 					       struct snd_soc_codec *);
+extern int tasha_codec_enable_standalone_micbias(struct snd_soc_codec *codec,
+						int micb_num,
+						bool enable);
+
 #endif

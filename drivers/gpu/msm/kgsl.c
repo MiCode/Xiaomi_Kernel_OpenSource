@@ -417,7 +417,7 @@ kgsl_mem_entry_attach_process(struct kgsl_mem_entry *entry,
 	int id;
 	int ret;
 	struct kgsl_process_private *process = dev_priv->process_priv;
-	struct kgsl_pagetable *pagetable;
+	struct kgsl_pagetable *pagetable = NULL;
 
 	ret = kgsl_process_private_get(process);
 	if (!ret)

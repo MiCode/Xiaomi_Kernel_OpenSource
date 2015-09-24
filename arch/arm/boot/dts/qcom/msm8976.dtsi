@@ -334,7 +334,8 @@
 			< 1190400000 5>,
 			< 1305600000 6>,
 			< 1382400000 7>,
-			< 1401600000 8>;
+			< 1401600000 8>,
+			< 1440000000 9>;
 		qcom,speed1-bin-v0-c1 =
 			<          0 0>,
 			<  400000000 1>,
@@ -509,7 +510,13 @@
 		qcom,cpufreq-table-4 =
 			<  400000 >,
 			<  883200 >,
+			<  940800 >,
+			<  998400 >,
+			< 1056000 >,
+			< 1113600 >,
 			< 1190400 >,
+			< 1248000 >,
+			< 1305600 >,
 			< 1382400 >,
 			< 1612800 >,
 			< 1747200 >,
@@ -863,9 +870,9 @@
 			label = "modem";
 		};
 
-		qcom,client_3 {
+		mem_client_3_size: qcom,client_3 {
 			compatible = "qcom,memshare-peripheral";
-			qcom,peripheral-size = <0>;
+			qcom,peripheral-size = <0x0>;
 			qcom,client-id = <1>;
 			label = "modem";
 		};
@@ -1467,12 +1474,13 @@
 		qcom,ce-hw-instance = <0>;
 		qcom,ce-device = <0>;
 		qcom,ce-hw-shared;
+		qcom,clk-mgmt-sus-res;
 		qcom,msm-bus,name = "qcrypto-noc";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 			<55 512 0 0>,
-			<55 512 393600 800000>;
+			<55 512 393600 393600>;
 		clocks = <&clock_gcc clk_crypto_clk_src>,
 			 <&clock_gcc clk_gcc_crypto_clk>,
 			 <&clock_gcc clk_gcc_crypto_ahb_clk>,
@@ -1501,7 +1509,7 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 			<55 512 0 0>,
-			<55 512 393600 800000>;
+			<55 512 393600 393600>;
 		clocks = <&clock_gcc clk_crypto_clk_src>,
 			 <&clock_gcc clk_gcc_crypto_clk>,
 			 <&clock_gcc clk_gcc_crypto_ahb_clk>,
@@ -1780,7 +1788,7 @@
 			<734400 360000000 0xffffffff>, /* NOM  , 1080p90D */
 			<734400 400000000 0x55555555>, /* NOM+ , 1080p90E */
 			<489600 228570000 0xffffffff>, /* SVS  , 1080p60D */
-			<489600 400000000 0x55555555>, /* NOM+ , 1080p60E */
+			<489600 466000000 0x55555555>, /* TURBO, 1080p60E */
 			<432000 228570000 0xffffffff>, /* SVS  , 720p120D */
 			<432000 360000000 0x55555555>, /* NOM  , 720p120E */
 			<244800 133333333 0xffffffff>, /* SVS- , 1080p30D */
@@ -1869,7 +1877,7 @@
 					<63 512 252000 0>,  /* 720p  30 fps */
 					<63 512 496000 0>,  /* 720p  60 fps */
 					<63 512 574000 0>,  /* 1080p 30 fps */
-					<63 512 1076000 0>, /* 1080p 60 fps */
+					<63 512 1148000 0>, /* 1080p 60 fps */
 					<63 512 1967000 0>, /* UHD   24 fps */
 					<63 512 2458000 0>, /* 4K    24 fps */
 					<63 512 2458000 0>; /* UHD   30 fps */
@@ -2139,7 +2147,7 @@
 		qcom,save-reg;
 	};
 
-	sound-9335 {
+	ext_codec: sound-9335 {
 		compatible = "qcom,msm8952-audio-slim-codec";
 		qcom,model = "msm8976-tasha-snd-card";
 
@@ -2757,12 +2765,10 @@
 		qcom,master-en = <1>;
 	};
 	gpio@c400 {
-		qcom,mode = <1>;
-		qcom,output-type = <0>;
-		qcom,pull = <0>;
+		qcom,mode = <0>;
+		qcom,pull = <5>;
 		qcom,vin-sel = <2>;
-		qcom,out-strength = <3>;
-		qcom,src-sel = <0>;
+		qcom,src-sel = <2>;
 		qcom,master-en = <1>;
 		status = "okay";
 	};

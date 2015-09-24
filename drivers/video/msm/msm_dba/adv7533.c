@@ -1227,8 +1227,6 @@ static void adv7533_video_setup(struct adv7533 *pdata,
 		v_total, cfg->v_active, cfg->v_front_porch,
 		cfg->v_pulse_width, cfg->v_back_porch);
 
-	/* aspect ratio and sync polarity */
-	ADV7533_WRITE(I2C_ADDR_MAIN, 0x17, 0x02);
 
 	/* h_width */
 	ADV7533_WRITE(I2C_ADDR_CEC_DSI, 0x28, ((h_total & 0xFF0) >> 4));
@@ -1270,6 +1268,7 @@ static int adv7533_video_on(void *client, bool on,
 {
 	int ret = -EINVAL;
 	u8 lanes;
+	u8 reg_val = 0;
 	struct adv7533 *pdata = adv7533_get_platform_data(client);
 
 	if (!pdata || !cfg) {
@@ -1290,6 +1289,27 @@ static int adv7533_video_on(void *client, bool on,
 		ADV7533_WRITE(I2C_ADDR_MAIN, 0xAF, 0x06);
 	else
 		ADV7533_WRITE(I2C_ADDR_MAIN, 0xAF, 0x04);
+
+	/* set scan info for AVI Infoframe*/
+	if (cfg->scaninfo) {
+		ADV7533_READ(I2C_ADDR_MAIN, 0x55, &reg_val, 1);
+		reg_val |= cfg->scaninfo & (BIT(1) | BIT(0));
+		ADV7533_WRITE(I2C_ADDR_MAIN, 0x55, reg_val);
+	}
+
+	/*
+	 * aspect ratio and sync polarity set up.
+	 * Currently adv only supports 16:9 or 4:3 aspect ratio
+	 * configuration.
+	 */
+	if (cfg->h_active * 3 - cfg->v_active * 4) {
+		ADV7533_WRITE(I2C_ADDR_MAIN, 0x17, 0x02);
+		ADV7533_WRITE(I2C_ADDR_MAIN, 0x56, 0x28);
+	} else {
+		/* 4:3 aspect ratio */
+		ADV7533_WRITE(I2C_ADDR_MAIN, 0x17, 0x00);
+		ADV7533_WRITE(I2C_ADDR_MAIN, 0x56, 0x18);
+	}
 
 	ADV7533_WRITE_ARRAY(adv7533_video_en);
 end:

@@ -337,6 +337,7 @@
 			<0xff 112>, /* smmu_bus_intr[38] */
 			<0xff 114>, /* qdsd_intr_out */
 			<0xff 126>, /* app_cxt_irpt_10 */
+			<0xff 128>, /* blsp1_peripheral_irq[3] */
 			<0xff 129>, /* blsp1_peripheral_irq[4] */
 			<0xff 130>, /* qup_irq */
 			<0xff 131>, /* qup_irq */
@@ -391,6 +392,7 @@
 			<0xff 207>, /* rpm_ipc(27) */
 			<0xff 212>, /* lpass_slimbus_bam_ee1_irq */
 			<0xff 215>, /* o_bimc_intr[0] */
+			<0xff 224>, /* spdm_realtime_irq[1] */
 			<0xff 239>, /* crypto_bam_irq[1]*/
 			<0xff 240>, /* summary_irq_kpss */
 			<0xff 253>, /* sdc2_pwr_cmd_irq */

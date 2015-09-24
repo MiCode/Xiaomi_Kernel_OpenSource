@@ -1371,16 +1371,21 @@ static int set_default_properties(struct msm_vidc_inst *inst)
 int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 {
 	struct msm_vidc_format *fmt = NULL;
+	struct hal_uncompressed_format_select hal_fmt = {0};
+	struct hfi_device *hdev = NULL;
 	struct hal_frame_size frame_sz;
 	int rc = 0;
 	int ret = 0;
 	int i;
 	int max_input_size = 0;
 
-	if (!inst || !f) {
-		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
+	if (!f || !inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR,
+			"%s: invalid parameters, format %p, inst %p\n",
+			__func__, f, inst);
 		return -EINVAL;
 	}
+	hdev = inst->core->device;
 
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 		fmt = msm_comm_get_pixel_fmt_fourcc(vdec_formats,
@@ -1400,6 +1405,8 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			HAL_VIDEO_DECODER_PRIMARY) {
 			inst->prop.width[OUTPUT_PORT] = f->fmt.pix_mp.width;
 			inst->prop.height[OUTPUT_PORT] = f->fmt.pix_mp.height;
+			msm_comm_set_color_format(inst, HAL_BUFFER_OUTPUT,
+				f->fmt.pix_mp.pixelformat);
 		}
 
 		inst->fmts[fmt->type] = fmt;
@@ -1408,8 +1415,42 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			frame_sz.buffer_type = HAL_BUFFER_OUTPUT2;
 			frame_sz.width = inst->prop.width[CAPTURE_PORT];
 			frame_sz.height = inst->prop.height[CAPTURE_PORT];
+			msm_comm_set_color_format(inst, HAL_BUFFER_OUTPUT2,
+				f->fmt.pix_mp.pixelformat);
+			/*
+			 * If split mode is enabled then enable TILE mode
+			 * on output DPB buffers for power effeciency
+			 */
+			switch (f->fmt.pix_mp.pixelformat) {
+			case V4L2_PIX_FMT_NV12:
+				dprintk(VIDC_DBG,
+					"set color format: nv12_tile\n");
+				hal_fmt.format = HAL_COLOR_FORMAT_NV12_4x4TILE;
+				break;
+			case V4L2_PIX_FMT_NV21:
+				dprintk(VIDC_DBG,
+					"set color format: nv21_tile\n");
+				hal_fmt.format = HAL_COLOR_FORMAT_NV21_4x4TILE;
+				break;
+			default:
+				rc = -ENOTSUPP;
+				dprintk(VIDC_ERR,
+					"%s: invalid color format[%#x]\n",
+					__func__, f->fmt.pix_mp.pixelformat);
+				goto err_invalid_fmt;
+			}
+			hal_fmt.buffer_type = HAL_BUFFER_OUTPUT;
+			rc = call_hfi_op(hdev, session_set_property,
+				(void *)inst->session,
+				HAL_PARAM_UNCOMPRESSED_FORMAT_SELECT,
+				&hal_fmt);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"Failed to set input color format\n");
+				goto err_invalid_fmt;
+			}
 			dprintk(VIDC_DBG,
-				"buffer type = %d width = %d, height = %d\n",
+				"set buffer type = %d width = %d, height = %d\n",
 				frame_sz.buffer_type, frame_sz.width,
 				frame_sz.height);
 			ret = msm_comm_try_set_prop(inst,
@@ -1494,7 +1535,7 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		frame_sz.width = inst->prop.width[OUTPUT_PORT];
 		frame_sz.height = inst->prop.height[OUTPUT_PORT];
 		dprintk(VIDC_DBG,
-			"buffer type = %d width = %d, height = %d\n",
+			"set buffer type = %d width = %d, height = %d\n",
 			frame_sz.buffer_type, frame_sz.width,
 			frame_sz.height);
 		msm_comm_try_set_prop(inst, HAL_PARAM_FRAME_SIZE, &frame_sz);

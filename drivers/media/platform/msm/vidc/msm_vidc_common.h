@@ -88,4 +88,6 @@ int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 int msm_comm_get_load(struct msm_vidc_core *core,
 			enum session_type type, enum load_calc_quirks quirks);
 int msm_comm_g_ctrl(struct msm_vidc_inst *inst, int id);
+int msm_comm_set_color_format(struct msm_vidc_inst *inst,
+		enum hal_buffer buffer_type, int fourcc);
 #endif

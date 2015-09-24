@@ -1566,12 +1566,13 @@
 		qcom,ce-hw-instance = <0>;
 		qcom,ce-device = <0>;
 		qcom,ce-hw-shared;
+		qcom,clk-mgmt-sus-res;
 		qcom,msm-bus,name = "qcrypto-noc";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<55 512 0 0>,
-				<55 512 393600 800000>;
+				<55 512 393600 393600>;
 		clocks = <&clock_gcc clk_crypto_clk_src>,
 			 <&clock_gcc clk_gcc_crypto_clk>,
 			 <&clock_gcc clk_gcc_crypto_ahb_clk>,
@@ -1600,7 +1601,7 @@
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 			<55 512 0 0>,
-			<55 512 393600 800000>;
+			<55 512 393600 393600>;
 		clocks = <&clock_gcc clk_crypto_clk_src>,
 			 <&clock_gcc clk_gcc_crypto_clk>,
 			 <&clock_gcc clk_gcc_crypto_ahb_clk>,
@@ -1873,6 +1874,7 @@
 		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_1_in 1 0>;
 		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_1_in 2 0>;
 		qcom,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_1_in 3 0>;
+		qcom,gpio-shutdown-ack = <&smp2pgpio_ssr_smp2p_1_in 7 0>;
 
 		/* GPIO output to mss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
@@ -2150,6 +2152,11 @@
 		qcom,msm-dai-q6-dev-id = <8>;
 	};
 
+	dai_mi2s_hdmi: qcom,msm-dai-q6-mi2s-hdmi {
+		compatible = "qcom,msm-dai-q6-mi2s-hdmi";
+		qcom,msm-dai-q6-mi2s-dev-id = <4118>;
+	};
+
 	lsm: qcom,msm-lsm-client {
 		compatible = "qcom,msm-lsm-client";
 	};
@@ -2176,6 +2183,16 @@
 			qcom,msm-dai-q6-dev-id = <16387>;
 		};
 
+		sb_2_rx: qcom,msm-dai-q6-sb-2-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16388>;
+		};
+
+		sb_2_tx: qcom,msm-dai-q6-sb-2-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16389>;
+		};
+
 		sb_3_rx: qcom,msm-dai-q6-sb-3-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16390>;
@@ -2194,6 +2211,11 @@
 		sb_4_tx: qcom,msm-dai-q6-sb-4-tx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <16393>;
+		};
+
+		sb_5_rx: qcom,msm-dai-q6-sb-5-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16394>;
 		};
 
 		sb_5_tx: qcom,msm-dai-q6-sb-5-tx {
