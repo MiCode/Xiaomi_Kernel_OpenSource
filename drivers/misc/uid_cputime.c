@@ -44,7 +44,8 @@ struct uid_entry {
 static struct uid_entry *find_uid_entry(uid_t uid)
 {
 	struct uid_entry *uid_entry;
-	hash_for_each_possible(hash_table, uid_entry, hash, uid) {
+	struct hlist_node *node;
+	hash_for_each_possible(hash_table, uid_entry, node, hash, uid) {
 		if (uid_entry->uid == uid)
 			return uid_entry;
 	}
@@ -74,13 +75,12 @@ static int uid_stat_show(struct seq_file *m, void *v)
 {
 	struct uid_entry *uid_entry;
 	struct task_struct *task;
-	cputime_t utime;
-	cputime_t stime;
 	unsigned long bkt;
+	struct hlist_node *node;
 
 	mutex_lock(&uid_lock);
 
-	hash_for_each(hash_table, bkt, uid_entry, hash) {
+	hash_for_each(hash_table, bkt, node, uid_entry, hash) {
 		uid_entry->active_stime = 0;
 		uid_entry->active_utime = 0;
 	}
@@ -95,13 +95,12 @@ static int uid_stat_show(struct seq_file *m, void *v)
 						__func__, task_uid(task));
 			return -ENOMEM;
 		}
-		task_cputime_adjusted(task, &utime, &stime);
-		uid_entry->active_utime += utime;
-		uid_entry->active_stime += stime;
+		uid_entry->active_utime += task->utime;
+		uid_entry->active_stime += task->stime;
 	}
 	read_unlock(&tasklist_lock);
 
-	hash_for_each(hash_table, bkt, uid_entry, hash) {
+	hash_for_each(hash_table, bkt, node, uid_entry, hash) {
 		cputime_t total_utime = uid_entry->utime +
 							uid_entry->active_utime;
 		cputime_t total_stime = uid_entry->stime +
@@ -117,7 +116,7 @@ static int uid_stat_show(struct seq_file *m, void *v)
 
 static int uid_stat_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, uid_stat_show, PDE_DATA(inode));
+	return single_open(file, uid_stat_show, PDE(inode)->data);
 }
 
 static const struct file_operations uid_stat_fops = {
@@ -140,6 +139,7 @@ static ssize_t uid_remove_write(struct file *file,
 	char uids[128];
 	char *start_uid, *end_uid = NULL;
 	long int uid_start = 0, uid_end = 0;
+	struct hlist_node *node;
 
 	if (count >= sizeof(uids))
 		count = sizeof(uids) - 1;
@@ -162,8 +162,8 @@ static ssize_t uid_remove_write(struct file *file,
 	mutex_lock(&uid_lock);
 
 	for (; uid_start <= uid_end; uid_start++) {
-		hash_for_each_possible_safe(hash_table, uid_entry, tmp,
-							hash, uid_start) {
+		hash_for_each_possible_safe(hash_table, uid_entry, node,
+						   tmp, hash, uid_start) {
 			hash_del(&uid_entry->hash);
 			kfree(uid_entry);
 		}
@@ -184,7 +184,6 @@ static int process_notifier(struct notifier_block *self,
 {
 	struct task_struct *task = v;
 	struct uid_entry *uid_entry;
-	cputime_t utime, stime;
 	uid_t uid;
 
 	if (!task)
@@ -198,9 +197,8 @@ static int process_notifier(struct notifier_block *self,
 		goto exit;
 	}
 
-	task_cputime_adjusted(task, &utime, &stime);
-	uid_entry->utime += utime;
-	uid_entry->stime += stime;
+	uid_entry->utime += task->utime;
+	uid_entry->stime += task->stime;
 
 exit:
 	mutex_unlock(&uid_lock);
