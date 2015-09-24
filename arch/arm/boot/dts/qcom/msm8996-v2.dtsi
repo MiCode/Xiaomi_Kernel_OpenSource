@@ -83,6 +83,8 @@
 	qcom,cpr-enable;
 	qcom,cpr-hw-closed-loop;
 
+	/delete-property/ qcom,cpr-aging-ref-voltage;
+
 	thread@0 {
 		qcom,cpr-consecutive-down = <2>;
 		qcom,cpr-up-threshold = <0>;
@@ -152,6 +154,11 @@
 	/delete-property/ qcom,cpr-open-loop-voltage-adjustment;
 	/delete-property/ qcom,cpr-open-loop-voltage-min-diff;
 	/delete-property/ qcom,cpr-closed-loop-voltage-adjustment;
+
+	/delete-property/ qcom,cpr-aging-max-voltage-adjustment;
+	/delete-property/ qcom,cpr-aging-ref-corner;
+	/delete-property/ qcom,cpr-aging-ro-scaling-factor;
+	/delete-property/ qcom,allow-aging-voltage-adjustment;
 };
 
 &apc0_cbf_vreg {
@@ -200,6 +207,11 @@
 		<0 0 0 0 0>,
 		<0 0 0 0 (-115000)>,
 		<0 0 0 0 (-115000)>;
+
+	/delete-property/ qcom,cpr-aging-max-voltage-adjustment;
+	/delete-property/ qcom,cpr-aging-ref-corner;
+	/delete-property/ qcom,cpr-aging-ro-scaling-factor;
+	/delete-property/ qcom,allow-aging-voltage-adjustment;
 };
 
 &apc1_vreg {
@@ -260,6 +272,11 @@
 	/delete-property/ qcom,cpr-open-loop-voltage-adjustment;
 	/delete-property/ qcom,cpr-open-loop-voltage-min-diff;
 	/delete-property/ qcom,cpr-closed-loop-voltage-adjustment;
+
+	/delete-property/ qcom,cpr-aging-max-voltage-adjustment;
+	/delete-property/ qcom,cpr-aging-ref-corner;
+	/delete-property/ qcom,cpr-aging-ro-scaling-factor;
+	/delete-property/ qcom,allow-aging-voltage-adjustment;
 };
 
 &gfx_cpr {
