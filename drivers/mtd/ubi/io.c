@@ -1096,6 +1096,14 @@ int ubi_io_write_vid_hdr(struct ubi_device *ubi, int pnum,
 	dbg_io("write VID header to PEB %d", pnum);
 	ubi_assert(pnum >= 0 &&  pnum < ubi->peb_count);
 
+	/*
+	 * Re-erase the PEB before using it. This should minimize any issues
+	 * from decay of charge in this block.
+	 */
+	err = ubi_wl_erase_peb(ubi, pnum);
+	if (err)
+		return err;
+
 	err = self_check_peb_ec_hdr(ubi, pnum);
 	if (err)
 		return err;
@@ -1115,6 +1123,8 @@ int ubi_io_write_vid_hdr(struct ubi_device *ubi, int pnum,
 	p = (char *)vid_hdr - ubi->vid_hdr_shift;
 	err = ubi_io_write(ubi, p, pnum, ubi->vid_hdr_aloffset,
 			   ubi->vid_hdr_alsize);
+	if (!err)
+		ubi_wl_update_peb_sqnum(ubi, pnum, vid_hdr);
 	return err;
 }
 
