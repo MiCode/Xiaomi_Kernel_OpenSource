@@ -282,6 +282,8 @@
 &gfx_cpr {
 	system-supply = <&pm8994_s1_corner>;
 	qcom,cpr-enable;
+
+	/delete-property/ qcom,cpr-aging-ref-voltage;
 };
 
 &gfx_vreg {
@@ -334,6 +336,11 @@
 		<0 0 0 (-10000) (-65000)>;
 	qcom,cpr-floor-to-ceiling-max-range =
 		<0 130000 40000 85000 85000>;
+
+	/delete-property/ qcom,cpr-aging-max-voltage-adjustment;
+	/delete-property/ qcom,cpr-aging-ref-corner;
+	/delete-property/ qcom,cpr-aging-ro-scaling-factor;
+	/delete-property/ qcom,allow-aging-voltage-adjustment;
 };
 
 &kryo0_vreg {

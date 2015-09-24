@@ -24,6 +24,8 @@
 &gfx_cpr {
 	system-supply = <&pm8994_s1_corner>;
 	qcom,cpr-enable;
+
+	/delete-property/ qcom,cpr-aging-ref-voltage;
 };
 
 &gfx_vreg {
@@ -104,6 +106,11 @@
 
 	qcom,allow-voltage-interpolation;
 	qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+	/delete-property/ qcom,cpr-aging-max-voltage-adjustment;
+	/delete-property/ qcom,cpr-aging-ref-corner;
+	/delete-property/ qcom,cpr-aging-ro-scaling-factor;
+	/delete-property/ qcom,allow-aging-voltage-adjustment;
 };
 
 &clock_gpu {
