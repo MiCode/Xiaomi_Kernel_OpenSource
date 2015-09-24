@@ -3127,6 +3127,75 @@ static int tasha_codec_enable_ear_pa(struct snd_soc_dapm_widget *w,
 	return ret;
 }
 
+static void tasha_codec_hph_lohifi_config(struct snd_soc_codec *codec,
+					  struct tasha_priv *tasha,
+					  int event)
+{
+	if (SND_SOC_DAPM_EVENT_ON(event)) {
+		snd_soc_update_bits(codec, WCD9335_HPH_PA_CTL1, 0x0E, 0x02);
+		snd_soc_update_bits(codec, WCD9335_HPH_PA_CTL2, 0x08, 0x08);
+		snd_soc_update_bits(codec, WCD9335_RX_BIAS_HPH_PA, 0x0F, 0x06);
+		snd_soc_update_bits(codec, WCD9335_RX_BIAS_HPH_RDACBUFF_CNP2,
+				    0xF0, 0x40);
+	}
+
+	if (SND_SOC_DAPM_EVENT_OFF(event)) {
+		snd_soc_write(codec, WCD9335_RX_BIAS_HPH_RDACBUFF_CNP2, 0x8A);
+		snd_soc_update_bits(codec, WCD9335_RX_BIAS_HPH_PA, 0x0F, 0x0A);
+		snd_soc_update_bits(codec, WCD9335_HPH_PA_CTL1, 0x0E, 0x06);
+		snd_soc_update_bits(codec, WCD9335_HPH_PA_CTL2, 0x08, 0x00);
+	}
+}
+
+static void tasha_codec_hph_lp_config(struct snd_soc_codec *codec,
+				      struct tasha_priv *tasha,
+				      int event)
+{
+	if (SND_SOC_DAPM_EVENT_ON(event)) {
+		snd_soc_update_bits(codec, WCD9335_HPH_PA_CTL1, 0x0E, 0x0C);
+		snd_soc_update_bits(codec, WCD9335_HPH_PA_CTL2, 0x08, 0x08);
+		snd_soc_update_bits(codec, WCD9335_HPH_PA_CTL2, 0x04, 0x04);
+		snd_soc_update_bits(codec, WCD9335_HPH_PA_CTL2, 0x20, 0x20);
+		snd_soc_update_bits(codec, WCD9335_HPH_RDAC_LDO_CTL, 0x07,
+				    0x01);
+		snd_soc_update_bits(codec, WCD9335_HPH_RDAC_LDO_CTL, 0x70,
+				    0x10);
+		snd_soc_update_bits(codec, WCD9335_RX_BIAS_HPH_RDAC_LDO,
+				    0x0F, 0x01);
+		snd_soc_update_bits(codec, WCD9335_RX_BIAS_HPH_RDAC_LDO,
+				    0xF0, 0x10);
+	}
+
+	if (SND_SOC_DAPM_EVENT_OFF(event)) {
+		snd_soc_update_bits(codec, WCD9335_HPH_R_EN, 0xC0, 0x80);
+		snd_soc_update_bits(codec, WCD9335_HPH_L_EN, 0xC0, 0x80);
+		snd_soc_write(codec, WCD9335_RX_BIAS_HPH_RDAC_LDO, 0x88);
+		snd_soc_write(codec, WCD9335_HPH_RDAC_LDO_CTL, 0x33);
+		snd_soc_update_bits(codec, WCD9335_HPH_PA_CTL2, 0x20, 0x00);
+		snd_soc_update_bits(codec, WCD9335_HPH_PA_CTL2, 0x04, 0x00);
+		snd_soc_update_bits(codec, WCD9335_HPH_PA_CTL2, 0x08, 0x00);
+		snd_soc_update_bits(codec, WCD9335_HPH_PA_CTL1, 0x0E, 0x06);
+	}
+}
+
+static void tasha_codec_hph_mode_config(struct snd_soc_codec *codec,
+					int event, int mode)
+{
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	if (!TASHA_IS_2_0(tasha->wcd9xxx->version))
+		return;
+
+	switch (mode) {
+	case CLS_H_LP:
+		tasha_codec_hph_lp_config(codec, tasha, event);
+		break;
+	case CLS_H_LOHIFI:
+		tasha_codec_hph_lohifi_config(codec, tasha, event);
+		break;
+	}
+}
+
 static int tasha_codec_hphr_dac_event(struct snd_soc_dapm_widget *w,
 				      struct snd_kcontrol *kcontrol,
 				      int event)
@@ -3149,7 +3218,7 @@ static int tasha_codec_hphr_dac_event(struct snd_soc_dapm_widget *w,
 		/* Read DEM INP Select */
 		dem_inp = snd_soc_read(codec, WCD9335_CDC_RX2_RX_PATH_SEC0) &
 			  0x03;
-		if (((hph_mode == CLS_H_HIFI) ||
+		if (((hph_mode == CLS_H_HIFI) || (hph_mode == CLS_H_LOHIFI) ||
 		     (hph_mode == CLS_H_LP)) && (dem_inp != 0x01)) {
 			dev_err(codec->dev, "%s: DEM Input not set correctly, hph_mode: %d\n",
 					__func__, hph_mode);
@@ -3158,7 +3227,11 @@ static int tasha_codec_hphr_dac_event(struct snd_soc_dapm_widget *w,
 		wcd_clsh_fsm(codec, &tasha->clsh_d,
 			     WCD_CLSH_EVENT_PRE_DAC,
 			     WCD_CLSH_STATE_HPHR,
-			     hph_mode);
+			     ((hph_mode == CLS_H_LOHIFI) ?
+			       CLS_H_HIFI : hph_mode));
+
+		tasha_codec_hph_mode_config(codec, event, hph_mode);
+
 		if (tasha->anc_func)
 			snd_soc_update_bits(codec,
 				WCD9335_CDC_RX2_RX_PATH_CFG0, 0x10, 0x10);
@@ -3183,10 +3256,16 @@ static int tasha_codec_hphr_dac_event(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMD:
 		/* 1000us required as per HW requirement */
 		usleep_range(1000, 1100);
+
+		if (!(wcd_clsh_get_clsh_state(&tasha->clsh_d) &
+		     WCD_CLSH_STATE_HPHL))
+			tasha_codec_hph_mode_config(codec, event, hph_mode);
+
 		wcd_clsh_fsm(codec, &tasha->clsh_d,
 			     WCD_CLSH_EVENT_POST_PA,
 			     WCD_CLSH_STATE_HPHR,
-			     hph_mode);
+			     ((hph_mode == CLS_H_LOHIFI) ?
+			       CLS_H_HIFI : hph_mode));
 		break;
 	};
 
@@ -3215,7 +3294,7 @@ static int tasha_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 		/* Read DEM INP Select */
 		dem_inp = snd_soc_read(codec, WCD9335_CDC_RX1_RX_PATH_SEC0) &
 			  0x03;
-		if (((hph_mode == CLS_H_HIFI) ||
+		if (((hph_mode == CLS_H_HIFI) || (hph_mode == CLS_H_LOHIFI) ||
 		     (hph_mode == CLS_H_LP)) && (dem_inp != 0x01)) {
 			dev_err(codec->dev, "%s: DEM Input not set correctly, hph_mode: %d\n",
 					__func__, hph_mode);
@@ -3224,7 +3303,11 @@ static int tasha_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 		wcd_clsh_fsm(codec, &tasha->clsh_d,
 			     WCD_CLSH_EVENT_PRE_DAC,
 			     WCD_CLSH_STATE_HPHL,
-			     hph_mode);
+			     ((hph_mode == CLS_H_LOHIFI) ?
+			       CLS_H_HIFI : hph_mode));
+
+		tasha_codec_hph_mode_config(codec, event, hph_mode);
+
 		if (tasha->anc_func)
 			snd_soc_update_bits(codec,
 				WCD9335_CDC_RX1_RX_PATH_CFG0, 0x10, 0x10);
@@ -3249,10 +3332,15 @@ static int tasha_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMD:
 		/* 1000us required as per HW requirement */
 		usleep_range(1000, 1100);
+
+		if (!(wcd_clsh_get_clsh_state(&tasha->clsh_d) &
+		     WCD_CLSH_STATE_HPHR))
+			tasha_codec_hph_mode_config(codec, event, hph_mode);
 		wcd_clsh_fsm(codec, &tasha->clsh_d,
 			     WCD_CLSH_EVENT_POST_PA,
 			     WCD_CLSH_STATE_HPHL,
-			     hph_mode);
+			     ((hph_mode == CLS_H_LOHIFI) ?
+			       CLS_H_HIFI : hph_mode));
 		break;
 	};
 
@@ -6258,7 +6346,7 @@ static int tasha_codec_vbat_enable_event(struct snd_soc_dapm_widget *w,
 }
 
 static const char * const rx_hph_mode_mux_text[] = {
-	"CLS_H_INVALID", "CLS_H_HIFI", "CLS_H_LP", "CLS_AB"
+	"CLS_H_INVALID", "CLS_H_HIFI", "CLS_H_LP", "CLS_AB", "CLS_H_LOHIFI"
 };
 
 static const struct soc_enum rx_hph_mode_mux_enum =
