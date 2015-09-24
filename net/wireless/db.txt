@@ -722,7 +722,7 @@ country JO:
 	(5170 - 5250 @ 80), (23)
 	(5735 - 5835 @ 80), (23)
 
-country JP:  DFS-MKK
+country JP: DFS-JP
 	(2402 - 2482 @ 40), (20)
 	(2474 - 2494 @ 20), (20), NO-OFDM
 	(5170 - 5250 @ 80), (20), AUTO-BW, NO-OUTDOOR
