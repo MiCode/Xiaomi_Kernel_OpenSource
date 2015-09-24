@@ -2698,6 +2698,9 @@ static int mmc_runtime_idle(struct mmc_host *host)
 	bool halt_cmdq;
 
 	BUG_ON(!host->card);
+
+	mmc_claim_host(host);
+
 	halt_cmdq = mmc_card_cmdq(host->card) &&
 			(host->card->bkops.needs_check ||
 			 host->card->bkops.needs_manual);
@@ -2722,10 +2725,9 @@ static int mmc_runtime_idle(struct mmc_host *host)
 		host->card->bkops.needs_check = false;
 
 	if (host->card->bkops.needs_check) {
-		mmc_claim_host(host);
 		mmc_check_bkops(host->card);
 		host->card->bkops.needs_check = false;
-		mmc_release_host(host);
+
 	}
 
 	if (host->card->bkops.needs_manual)
@@ -2737,6 +2739,7 @@ static int mmc_runtime_idle(struct mmc_host *host)
 			pr_err("%s: %s failed to unhalt cmdq (%d)\n",
 					mmc_hostname(host), __func__, err);
 	}
+
 out:
 	/*
 	 * TODO: consider prolonging suspend when bkops
@@ -2745,6 +2748,7 @@ out:
 	 */
 	pm_schedule_suspend(&host->card->dev, MMC_AUTOSUSPEND_DELAY_MS);
 no_suspend:
+	mmc_release_host(host);
 	pm_runtime_mark_last_busy(&host->card->dev);
 	/* return negative value in order to avoid autosuspend */
 	return (err) ? err : NO_AUTOSUSPEND;
