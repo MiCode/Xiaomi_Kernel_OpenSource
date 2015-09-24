@@ -397,6 +397,11 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, ssize_t size,
 	int err = 0;
 	struct fastrpc_buf *buf = 0, *fr = 0;
 	struct hlist_node *n;
+
+	VERIFY(err, size > 0);
+	if (err)
+		goto bail;
+
 	/* find the smallest buffer that fits in the cache */
 	spin_lock(&fl->hlock);
 	hlist_for_each_entry_safe(buf, n, &fl->bufs, hn) {
