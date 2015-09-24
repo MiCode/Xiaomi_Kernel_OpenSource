@@ -151,6 +151,8 @@ irqreturn_t mdss_mdp_isr(int irq, void *ptr)
 	struct mdss_data_type *mdata = ptr;
 	u32 isr, mask, hist_isr, hist_mask;
 
+	if (!mdata->clk_ena)
+		return IRQ_HANDLED;
 
 	isr = readl_relaxed(mdata->mdp_base + MDSS_MDP_REG_INTR_STATUS);
 
