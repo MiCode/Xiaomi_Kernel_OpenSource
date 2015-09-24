@@ -14,9 +14,11 @@
 
 #define INTERRUPT_WORKQUEUE_NAME "ipa_interrupt_wq"
 #define DIS_SUSPEND_INTERRUPT_TIMEOUT 5
+#define IPA_IRQ_NUM_MAX 32
 
 struct ipa3_interrupt_info {
 	ipa_irq_handler_t handler;
+	enum ipa_irq_type interrupt;
 	void *private_data;
 	bool deferred_flag;
 };
@@ -29,7 +31,7 @@ struct ipa3_interrupt_work_wrap {
 	void *interrupt_data;
 };
 
-static struct ipa3_interrupt_info ipa_interrupt_to_cb[IPA_IRQ_MAX];
+static struct ipa3_interrupt_info ipa_interrupt_to_cb[IPA_IRQ_NUM_MAX];
 static struct workqueue_struct *ipa_interrupt_wq;
 static u32 ipa_ee;
 
@@ -40,6 +42,27 @@ static DECLARE_DELAYED_WORK(dwork_en_suspend_int,
 static spinlock_t suspend_wa_lock;
 static void ipa3_process_interrupts(void);
 
+static int ipa3_irq_mapping[IPA_IRQ_MAX] = {
+	[IPA_UC_TX_CMD_Q_NOT_FULL_IRQ]		= -1,
+	[IPA_UC_TO_PROC_ACK_Q_NOT_FULL_IRQ]	= -1,
+	[IPA_BAD_SNOC_ACCESS_IRQ]		= 0,
+	[IPA_EOT_COAL_IRQ]			= 1,
+	[IPA_UC_IRQ_0]				= 2,
+	[IPA_UC_IRQ_1]				= 3,
+	[IPA_UC_IRQ_2]				= 4,
+	[IPA_UC_IRQ_3]				= 5,
+	[IPA_UC_IN_Q_NOT_EMPTY_IRQ]		= 6,
+	[IPA_UC_RX_CMD_Q_NOT_FULL_IRQ]		= 7,
+	[IPA_PROC_TO_UC_ACK_Q_NOT_EMPTY_IRQ]	= 8,
+	[IPA_RX_ERR_IRQ]			= 9,
+	[IPA_DEAGGR_ERR_IRQ]			= 10,
+	[IPA_TX_ERR_IRQ]			= 11,
+	[IPA_STEP_MODE_IRQ]			= 12,
+	[IPA_PROC_ERR_IRQ]			= 13,
+	[IPA_TX_SUSPEND_IRQ]			= 14,
+	[IPA_TX_HOLB_DROP_IRQ]			= 15,
+	[IPA_BAM_IDLE_IRQ]			= 16,
+};
 
 static void ipa3_interrupt_defer(struct work_struct *work);
 static DECLARE_WORK(ipa3_interrupt_defer_work, ipa3_interrupt_defer);
@@ -70,7 +93,7 @@ static bool ipa3_is_valid_ep(u32 ep_suspend_data)
 	return false;
 }
 
-static int ipa3_handle_interrupt(enum ipa_irq_type interrupt)
+static int ipa3_handle_interrupt(int irq_num)
 {
 	struct ipa3_interrupt_info interrupt_info;
 	struct ipa3_interrupt_work_wrap *work_data;
@@ -79,14 +102,14 @@ static int ipa3_handle_interrupt(enum ipa_irq_type interrupt)
 	struct ipa_tx_suspend_irq_data *suspend_interrupt_data = NULL;
 	int res;
 
-	interrupt_info = ipa_interrupt_to_cb[interrupt];
+	interrupt_info = ipa_interrupt_to_cb[irq_num];
 	if (interrupt_info.handler == NULL) {
-		IPAERR("A callback function wasn't set for interrupt type %d\n",
-				interrupt);
+		IPAERR("A callback function wasn't set for interrupt num %d\n",
+			irq_num);
 		return -EINVAL;
 	}
 
-	switch (interrupt) {
+	switch (interrupt_info.interrupt) {
 	case IPA_TX_SUSPEND_IRQ:
 		IPADBG("processing TX_SUSPEND interrupt work-around\n");
 		ipa3_tx_suspend_interrupt_wa();
@@ -119,14 +142,15 @@ static int ipa3_handle_interrupt(enum ipa_irq_type interrupt)
 		INIT_WORK(&work_data->interrupt_work,
 				ipa3_deferred_interrupt_work);
 		work_data->handler = interrupt_info.handler;
-		work_data->interrupt = interrupt;
+		work_data->interrupt = interrupt_info.interrupt;
 		work_data->private_data = interrupt_info.private_data;
 		work_data->interrupt_data = interrupt_data;
 		queue_work(ipa_interrupt_wq, &work_data->interrupt_work);
 
 	} else {
-		interrupt_info.handler(interrupt, interrupt_info.private_data,
-				interrupt_data);
+		interrupt_info.handler(interrupt_info.interrupt,
+			interrupt_info.private_data,
+			interrupt_data);
 		kfree(interrupt_data);
 	}
 
@@ -141,14 +165,18 @@ static void ipa3_enable_tx_suspend_wa(struct work_struct *work)
 {
 	u32 en;
 	u32 suspend_bmask;
+	int irq_num;
 
 	IPADBG("Enter\n");
+
+	irq_num = ipa3_irq_mapping[IPA_TX_SUSPEND_IRQ];
+	BUG_ON(irq_num == -1);
 
 	/* make sure ipa hw is clocked on*/
 	ipa3_inc_client_enable_clks();
 
 	en = ipa_read_reg(ipa3_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee));
-	suspend_bmask = 1 << IPA_TX_SUSPEND_IRQ;
+	suspend_bmask = 1 << irq_num;
 	/*enable  TX_SUSPEND_IRQ*/
 	en |= suspend_bmask;
 	IPADBG("enable TX_SUSPEND_IRQ, IPA_IRQ_EN_EE reg, write val = %u\n"
@@ -164,12 +192,15 @@ static void ipa3_tx_suspend_interrupt_wa(void)
 {
 	u32 val;
 	u32 suspend_bmask;
+	int irq_num;
 
 	IPADBG("Enter\n");
+	irq_num = ipa3_irq_mapping[IPA_TX_SUSPEND_IRQ];
+	BUG_ON(irq_num == -1);
 
 	/*disable TX_SUSPEND_IRQ*/
 	val = ipa_read_reg(ipa3_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee));
-	suspend_bmask = 1 << IPA_TX_SUSPEND_IRQ;
+	suspend_bmask = 1 << irq_num;
 	val &= ~suspend_bmask;
 	IPADBG("Disabling TX_SUSPEND_IRQ, write val: %u to IPA_IRQ_EN_EE reg\n",
 		val);
@@ -197,7 +228,7 @@ static void ipa3_process_interrupts(void)
 	reg = ipa_read_reg(ipa3_ctx->mmio, IPA_IRQ_STTS_EE_n_ADDR(ipa_ee));
 	while (en & reg) {
 		bmsk = 1;
-		for (i = 0; i < IPA_IRQ_MAX; i++) {
+		for (i = 0; i < IPA_IRQ_NUM_MAX; i++) {
 			if (en & reg & bmsk)
 				ipa3_handle_interrupt(i);
 			bmsk = bmsk << 1;
@@ -268,19 +299,30 @@ int ipa3_add_interrupt_handler(enum ipa_irq_type interrupt,
 {
 	u32 val;
 	u32 bmsk;
+	int irq_num;
 
 	IPADBG("in ipa3_add_interrupt_handler\n");
-	if (interrupt < IPA_BAD_SNOC_ACCESS_IRQ || interrupt >= IPA_IRQ_MAX) {
+	if (interrupt < IPA_BAD_SNOC_ACCESS_IRQ ||
+		interrupt >= IPA_IRQ_MAX) {
 		IPAERR("invalid interrupt number %d\n", interrupt);
 		return -EINVAL;
 	}
-	ipa_interrupt_to_cb[interrupt].deferred_flag = deferred_flag;
-	ipa_interrupt_to_cb[interrupt].handler = handler;
-	ipa_interrupt_to_cb[interrupt].private_data = private_data;
+
+	irq_num = ipa3_irq_mapping[interrupt];
+	if (irq_num < 0 || irq_num >= IPA_IRQ_NUM_MAX) {
+		IPAERR("interrupt %d not supported\n", interrupt);
+		WARN_ON(1);
+		return -EFAULT;
+	}
+
+	ipa_interrupt_to_cb[irq_num].deferred_flag = deferred_flag;
+	ipa_interrupt_to_cb[irq_num].handler = handler;
+	ipa_interrupt_to_cb[irq_num].private_data = private_data;
+	ipa_interrupt_to_cb[irq_num].interrupt = interrupt;
 
 	val = ipa_read_reg(ipa3_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee));
 	IPADBG("read IPA_IRQ_EN_EE_n_ADDR register. reg = %d\n", val);
-	bmsk = 1<<interrupt;
+	bmsk = 1 << irq_num;
 	val |= bmsk;
 	ipa_write_reg(ipa3_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee), val);
 	IPADBG("wrote IPA_IRQ_EN_EE_n_ADDR register. reg = %d\n", val);
@@ -297,16 +339,28 @@ int ipa3_remove_interrupt_handler(enum ipa_irq_type interrupt)
 {
 	u32 val;
 	u32 bmsk;
+	int irq_num;
 
-	if (interrupt < IPA_BAD_SNOC_ACCESS_IRQ || interrupt >= IPA_IRQ_MAX) {
+	if (interrupt < IPA_BAD_SNOC_ACCESS_IRQ ||
+		interrupt >= IPA_IRQ_MAX) {
 		IPAERR("invalid interrupt number %d\n", interrupt);
 		return -EINVAL;
 	}
-	ipa_interrupt_to_cb[interrupt].deferred_flag = false;
-	ipa_interrupt_to_cb[interrupt].handler = NULL;
-	ipa_interrupt_to_cb[interrupt].private_data = NULL;
+
+	irq_num = ipa3_irq_mapping[interrupt];
+	if (irq_num < 0 || irq_num >= IPA_IRQ_NUM_MAX) {
+		IPAERR("interrupt %d not supported\n", interrupt);
+		WARN_ON(1);
+		return -EFAULT;
+	}
+
+	ipa_interrupt_to_cb[irq_num].deferred_flag = false;
+	ipa_interrupt_to_cb[irq_num].handler = NULL;
+	ipa_interrupt_to_cb[irq_num].private_data = NULL;
+	ipa_interrupt_to_cb[irq_num].interrupt = -1;
+
 	val = ipa_read_reg(ipa3_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee));
-	bmsk = 1<<interrupt;
+	bmsk = 1 << irq_num;
 	val &= ~bmsk;
 	ipa_write_reg(ipa3_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee), val);
 
@@ -331,10 +385,11 @@ int ipa3_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev)
 	int res = 0;
 
 	ipa_ee = ee;
-	for (idx = 0; idx < IPA_IRQ_MAX; idx++) {
+	for (idx = 0; idx < IPA_IRQ_NUM_MAX; idx++) {
 		ipa_interrupt_to_cb[idx].deferred_flag = false;
 		ipa_interrupt_to_cb[idx].handler = NULL;
 		ipa_interrupt_to_cb[idx].private_data = NULL;
+		ipa_interrupt_to_cb[idx].interrupt = -1;
 	}
 
 	ipa_interrupt_wq = create_singlethread_workqueue(

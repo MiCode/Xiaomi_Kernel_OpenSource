@@ -696,8 +696,14 @@ struct ipa_rx_data {
 	dma_addr_t dma_addr;
 };
 
+/**
+ * enum ipa_irq_type - IPA Interrupt Type
+ * Used to register handlers for IPA interrupts
+ *
+ * Below enum is a logical mapping and not the actual interrupt bit in HW
+ */
 enum ipa_irq_type {
-	IPA_BAD_SNOC_ACCESS_IRQ = 0,
+	IPA_BAD_SNOC_ACCESS_IRQ,
 	IPA_EOT_COAL_IRQ,
 	IPA_UC_IRQ_0,
 	IPA_UC_IRQ_1,
@@ -705,15 +711,17 @@ enum ipa_irq_type {
 	IPA_UC_IRQ_3,
 	IPA_UC_IN_Q_NOT_EMPTY_IRQ,
 	IPA_UC_RX_CMD_Q_NOT_FULL_IRQ,
+	IPA_UC_TX_CMD_Q_NOT_FULL_IRQ,
+	IPA_UC_TO_PROC_ACK_Q_NOT_FULL_IRQ,
 	IPA_PROC_TO_UC_ACK_Q_NOT_EMPTY_IRQ,
 	IPA_RX_ERR_IRQ,
 	IPA_DEAGGR_ERR_IRQ,
 	IPA_TX_ERR_IRQ,
 	IPA_STEP_MODE_IRQ,
 	IPA_PROC_ERR_IRQ,
-	IPA_TX_SUSPEND_IRQ = 14,
-	IPA_TX_HOLB_DROP_IRQ = 15,
-	IPA_BAM_IDLE_IRQ = 16,
+	IPA_TX_SUSPEND_IRQ,
+	IPA_TX_HOLB_DROP_IRQ,
+	IPA_BAM_IDLE_IRQ,
 	IPA_IRQ_MAX
 };
 
