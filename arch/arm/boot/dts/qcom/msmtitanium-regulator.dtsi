@@ -172,6 +172,13 @@
 		regulator-max-microvolt = <2950000>;
 	};
 
+	pmtitanium_l12: regulator-l12 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmtitanium_l12";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <2950000>;
+	};
+
 	pmtitanium_l13: regulator-l13 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmtitanium_l13";
