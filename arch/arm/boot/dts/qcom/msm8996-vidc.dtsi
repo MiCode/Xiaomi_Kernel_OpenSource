@@ -54,8 +54,8 @@
 		qcom,imem-ab-tbl =
 			<75000000  1500000>, /* imem @ svs2 freq 75 Mhz */
 			<150000000 1500000>, /* imem @ svs2 freq 75 Mhz */
-			<355333333 2500000>, /* imem @ svs freq 171 Mhz */
-			<533000000 6000000>; /* imem @ noimal freq 320 Mhz */
+			<320000000 2500000>, /* imem @ svs freq 171 Mhz */
+			<490000000 6000000>; /* imem @ noimal freq 320 Mhz */
 
 		/* Regulators */
 		/* Note: don't change the order of the regulators below as they
