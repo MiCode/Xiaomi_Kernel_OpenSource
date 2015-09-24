@@ -35,6 +35,8 @@
 #define MDM9x35_HSIC			"HSIC"
 #define MDM9x45_LABEL			"MDM9x45"
 #define MDM9x45_PCIE			"PCIe"
+#define MDM9x55_LABEL			"MDM9x55"
+#define MDM9x55_PCIE			"PCIe"
 #define MDM2AP_STATUS_TIMEOUT_MS	120000L
 #define MDM_MODEM_TIMEOUT		3000
 #define DEF_RAMDUMP_TIMEOUT		120000
@@ -150,4 +152,5 @@ static inline int mdm_pon_setup(struct mdm_ctrl *mdm)
 extern struct mdm_pon_ops mdm9x25_pon_ops;
 extern struct mdm_pon_ops mdm9x35_pon_ops;
 extern struct mdm_pon_ops mdm9x45_pon_ops;
+extern struct mdm_pon_ops mdm9x55_pon_ops;
 #endif
