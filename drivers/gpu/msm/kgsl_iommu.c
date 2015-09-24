@@ -260,8 +260,8 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	struct device *dev, unsigned long addr, int flags, void *token)
 {
 	int ret = 0;
-	struct kgsl_pagetable *default_pt = token;
-	struct kgsl_mmu *mmu = default_pt->mmu;
+	struct kgsl_pagetable *pt = token;
+	struct kgsl_mmu *mmu = pt->mmu;
 	struct kgsl_iommu *iommu;
 	struct kgsl_iommu_context *ctx;
 	u64 ptbase;
@@ -287,6 +287,9 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 	device = mmu->device;
 	adreno_dev = ADRENO_DEVICE(device);
+
+	if (pt->name == KGSL_MMU_SECURE_PT)
+		ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE];
 
 	/*
 	 * set the fault bits and stuff before any printks so that if fault
@@ -697,6 +700,7 @@ static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	int disable_htw = !MMU_FEATURE(mmu, KGSL_MMU_COHERENT_HTW);
 	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE];
 	int secure_vmid = VMID_CP_PIXEL;
+	unsigned int cb_num;
 
 	if (!mmu->secured)
 		return -EPERM;
@@ -722,6 +726,23 @@ static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	}
 
 	ret = _attach_pt(iommu_pt, ctx, mmu->device);
+
+	if (MMU_FEATURE(mmu, KGSL_MMU_HYP_SECURE_ALLOC))
+		iommu_set_fault_handler(iommu_pt->domain,
+					kgsl_iommu_fault_handler, pt);
+
+	ret = iommu_domain_get_attr(iommu_pt->domain,
+				DOMAIN_ATTR_CONTEXT_BANK, &cb_num);
+	if (ret) {
+		KGSL_CORE_ERR("get DOMAIN_ATTR_PROCID failed: %d\n",
+				ret);
+		goto done;
+	}
+
+	ctx->cb_num = cb_num;
+	ctx->regbase = iommu->regbase + KGSL_IOMMU_CB0_OFFSET
+			+ (cb_num << KGSL_IOMMU_CB_SHIFT);
+
 done:
 	if (ret)
 		_free_pt(ctx, pt, mmu->device);
