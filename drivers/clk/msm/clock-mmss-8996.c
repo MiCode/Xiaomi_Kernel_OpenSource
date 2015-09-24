@@ -1649,7 +1649,7 @@ static struct rcg_clk video_subcore1_clk_src = {
 
 static struct branch_clk mmss_mmagic_ahb_clk = {
 	.cbcr_reg = MMSS_MMSS_MMAGIC_AHB_CBCR,
-	.has_sibling = 0,
+	.has_sibling = 1,
 	.check_enable_bit = true,
 	.base = &virt_base,
 	.no_halt_check_on_disable = true,
