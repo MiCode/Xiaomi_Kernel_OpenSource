@@ -67,6 +67,9 @@
 
 #define Q6AFE_LPASS_OSR_CLK_9_P600_MHZ	0x927C00
 
+#define WSA8810_NAME_1 "wsa881x.20170211"
+#define WSA8810_NAME_2 "wsa881x.20170212"
+
 enum btsco_rates {
 	RATE_8KHZ_ID,
 	RATE_16KHZ_ID,
@@ -1913,6 +1916,7 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_aux_dev *aux_dev = rtd->card->aux_dev;
 
 	/* Codec SLIMBUS configuration
 	 * RX1, RX2, RX3, RX4, RX5, RX6, RX7, RX8, RX9, RX10, RX11, RX12, RX13
@@ -1952,6 +1956,14 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 				ARRAY_SIZE(msm8952_tasha_dapm_widgets));
 		snd_soc_dapm_add_routes(dapm, wcd9335_audio_paths,
 				ARRAY_SIZE(wcd9335_audio_paths));
+		/*
+		 * Send speaker configuration only for WSA8810.
+		 * Defalut configuration is for WSA8815.
+		 */
+		if (aux_dev)
+			if (!strcmp(aux_dev->codec_name, WSA8810_NAME_1) ||
+				!strcmp(aux_dev->codec_name, WSA8810_NAME_2))
+				tasha_set_spkr_mode(codec, SPKR_MODE_1);
 	}
 
 	snd_soc_dapm_enable_pin(dapm, "Lineout_1 amp");
