@@ -294,36 +294,39 @@ void ipa_flow_control(enum ipa_client_type ipa_client, bool enable, uint32_t qma
 	/* Check if ep is valid. */
 	ep_idx = ipa_get_ep_mapping(ipa_client);
 	if (ep_idx == -1) {
-		IPAERR("Invalid IPA client\n");
+		IPADBG("Invalid IPA client\n");
 		return;
 	}
 
 	ep = &ipa_ctx->ep[ep_idx];
-	if (!ep->valid) {
-		IPAERR("EP not valid.\n");
+	if (!ep->valid || (ep->client != IPA_CLIENT_USB_PROD)) {
+		IPADBG("EP not valid/Not applicable for client.\n");
 		return;
 	}
 
+	spin_lock(&ipa_ctx->disconnect_lock);
 	/* Check if the QMAP_ID matches. */
-	if ( ep->cfg.meta.qmap_id != qmap_id )
-	{
-		IPADBG("Flow control indication not for the same flow: %u %u\n",
+	if (ep->cfg.meta.qmap_id != qmap_id) {
+		IPADBG("Flow control ind not for same flow: %u %u\n",
 			ep->cfg.meta.qmap_id, qmap_id);
+		spin_unlock(&ipa_ctx->disconnect_lock);
 		return;
 	}
-
-	if (enable) {
-		IPADBG("Enabling Flow\n");
-		ep_ctrl.ipa_ep_delay = false;
-		IPA_STATS_INC_CNT(ipa_ctx->stats.flow_enable);
-	} else {
-		IPADBG("Disabling Flow\n");
-		ep_ctrl.ipa_ep_delay = true;
-		IPA_STATS_INC_CNT(ipa_ctx->stats.flow_disable);
-	}
-	ep_ctrl.ipa_ep_suspend = false;
-	ipa_cfg_ep_ctrl(ep_idx, &ep_ctrl);
-	return;
+	if (!ep->disconnect_in_progress) {
+		if (enable) {
+			IPADBG("Enabling Flow\n");
+			ep_ctrl.ipa_ep_delay = false;
+			IPA_STATS_INC_CNT(ipa_ctx->stats.flow_enable);
+		} else {
+			IPADBG("Disabling Flow\n");
+			ep_ctrl.ipa_ep_delay = true;
+			IPA_STATS_INC_CNT(ipa_ctx->stats.flow_disable);
+		}
+		ep_ctrl.ipa_ep_suspend = false;
+		ipa_cfg_ep_ctrl(ep_idx, &ep_ctrl);
+	} else
+		IPADBG("EP disconnect is in progress\n");
+	spin_unlock(&ipa_ctx->disconnect_lock);
 }
 static void ipa_wan_msg_free_cb(void *buff, u32 len, u32 type)
 {
@@ -2258,7 +2261,7 @@ static int ipa_setup_apps_pipes(void)
 	 * thread may nullify it - e.g. on EP disconnect.
 	 * This lock intended to protect the access to the source EP call-back
 	 */
-	spin_lock_init(&ipa_ctx->lan_rx_clnt_notify_lock);
+	spin_lock_init(&ipa_ctx->disconnect_lock);
 	if (ipa_setup_sys_pipe(&sys_in, &ipa_ctx->clnt_hdl_data_in)) {
 		IPAERR(":setup sys pipe failed.\n");
 		result = -EPERM;
