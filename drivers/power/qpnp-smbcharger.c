@@ -1582,8 +1582,8 @@ static int smbchg_set_usb_current_max(struct smbchg_chip *chip,
 	}
 	pr_smb(PR_STATUS, "USB current_ma = %d\n", current_ma);
 
-	if (current_ma == SUSPEND_CURRENT_MA) {
-		/* suspend the usb if current set to 2mA */
+	if (current_ma <= SUSPEND_CURRENT_MA) {
+		/* suspend the usb if current <= 2mA */
 		rc = smbchg_primary_usb_en(chip, false, REASON_USB, &changed);
 		chip->usb_max_current_ma = 0;
 		goto out;
