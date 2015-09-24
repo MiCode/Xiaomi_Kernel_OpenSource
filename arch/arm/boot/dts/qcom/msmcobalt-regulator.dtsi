@@ -186,8 +186,8 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmcobalt_l6";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <1104000>;
-		regulator-max-microvolt = <1104000>;
+		regulator-min-microvolt = <1808000>;
+		regulator-max-microvolt = <1808000>;
 	};
 
 	pmcobalt_l7: regulator-pmcobalt-l7 {
@@ -371,16 +371,8 @@
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pmcobalt_l28";
 		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <2864000>;
-		regulator-max-microvolt = <2864000>;
-	};
-
-	pmcobalt_l29: regulator-pmcobalt-l29 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmcobalt_l29";
-		qcom,hpm-min-load = <10000>;
-		regulator-min-microvolt = <704000>;
-		regulator-max-microvolt = <704000>;
+		regulator-min-microvolt = <3008000>;
+		regulator-max-microvolt = <3008000>;
 	};
 
 	pmcobalt_lvs1: regulator-pmcobalt-lvs1 {
@@ -393,11 +385,11 @@
 		regulator-name = "pmcobalt_lvs2";
 	};
 
-	pmicobalt_boost: regulator-pmicobalt-boost {
+	pmicobalt_bob: regulator-pmicobalt-bob {
 		compatible = "qcom,stub-regulator";
-		regulator-name = "pmicobalt_boost";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
+		regulator-name = "pmicobalt_bob";
+		regulator-min-microvolt = <3312000>;
+		regulator-max-microvolt = <3312000>;
 	};
 
 	/* PM8005 S1 + S4 = 2 phase VDD_GFX supply */
@@ -409,13 +401,21 @@
 		regulator-max-microvolt = <952000>;
 	};
 
-	/* PM8005 S3 = VDD_MODEM supply */
+	/* PM8005 S2 = VDD_MODEM supply */
+	pm8005_s2: regulator-pm8005-s2 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pm8005_s2";
+		qcom,hpm-min-load = <100000>;
+		regulator-min-microvolt = <352000>;
+		regulator-max-microvolt = <952000>;
+	};
+
 	pm8005_s3: regulator-pm8005-s3 {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "pm8005_s3";
 		qcom,hpm-min-load = <100000>;
-		regulator-min-microvolt = <752000>;
-		regulator-max-microvolt = <752000>;
+		regulator-min-microvolt = <600000>;
+		regulator-max-microvolt = <600000>;
 	};
 };
 
