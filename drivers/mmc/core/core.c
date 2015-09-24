@@ -1259,7 +1259,8 @@ EXPORT_SYMBOL(mmc_check_bkops);
  *	mmc_start_manual_bkops - start BKOPS for supported cards
  *	@card: MMC card to start BKOPS
  *
- *	Send START_BKOPS to the card.
+ *      Send START_BKOPS to the card.
+ *      The function should be called with claimed host.
 */
 void mmc_start_manual_bkops(struct mmc_card *card)
 {
@@ -1273,7 +1274,6 @@ void mmc_start_manual_bkops(struct mmc_card *card)
 	if (mmc_card_doing_bkops(card))
 		return;
 
-	mmc_claim_host(card->host);
 	mmc_retune_hold(card->host);
 
 	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL, EXT_CSD_BKOPS_START,
@@ -1288,7 +1288,6 @@ void mmc_start_manual_bkops(struct mmc_card *card)
 	}
 
 	mmc_retune_release(card->host);
-	mmc_release_host(card->host);
 }
 EXPORT_SYMBOL(mmc_start_manual_bkops);
 
