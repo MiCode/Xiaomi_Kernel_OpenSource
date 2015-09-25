@@ -1790,7 +1790,7 @@
 			<489600 228570000 0xffffffff>, /* SVS  , 1080p60D */
 			<489600 466000000 0x55555555>, /* TURBO, 1080p60E */
 			<432000 228570000 0xffffffff>, /* SVS  , 720p120D */
-			<432000 360000000 0x55555555>, /* NOM  , 720p120E */
+			<432000 400000000 0x55555555>, /* NOM+ , 720p120E */
 			<244800 133333333 0xffffffff>, /* SVS- , 1080p30D */
 			<244800 228570000 0x55555555>, /* SVS  , 1080p30E */
 			<216000 100000000 0xffffffff>, /* SVS- , 720p60D  */
@@ -2751,7 +2751,7 @@
 		status = "ok";
 		qcom,mode = <1>;
 		qcom,pull = <5>;
-		qcom,vin-sel = <2>;
+		qcom,vin-sel = <0>;
 		qcom,src-sel = <2>;
 		qcom,master-en = <1>;
 		qcom,out-strength = <2>;

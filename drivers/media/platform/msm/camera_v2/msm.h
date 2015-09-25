@@ -30,7 +30,11 @@
 #include <media/videobuf2-msm-mem.h>
 #include <media/msmb_camera.h>
 
-#define MSM_POST_EVT_TIMEOUT 5000
+/* Setting MAX timeout to 6.5seconds considering
+ * backend will operate @ .6fps in certain usecases
+ * like Long exposure usecase and isp needs max of 2 frames
+ * to stop the hardware which will be around 3 seconds*/
+#define MSM_POST_EVT_TIMEOUT 6500
 #define MSM_POST_EVT_NOTIMEOUT 0xFFFFFFFF
 #define MSM_CAMERA_STREAM_CNT_BITS  32
 
@@ -103,7 +107,6 @@ struct msm_session {
 	 * session struct msm_stream */
 	struct msm_queue_head stream_q;
 	struct mutex lock;
-	struct mutex lock_q;
 };
 
 void msm_pm_qos_update_request(int val);

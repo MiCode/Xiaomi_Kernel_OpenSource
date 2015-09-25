@@ -751,6 +751,9 @@ static int mmc_blk_ioctl_cmd(struct block_device *bdev,
 		}
 	}
 
+	if (mmc_card_get_bkops_en_manual(card))
+		mmc_stop_bkops(card);
+
 	err = mmc_blk_part_switch(card, md);
 	if (err)
 		goto cmd_rel_host;
@@ -897,6 +900,9 @@ static int mmc_blk_ioctl_rpmb_cmd(struct block_device *bdev,
 
 	mmc_rpm_hold(card->host, &card->dev);
 	mmc_claim_host(card->host);
+
+	if (mmc_card_get_bkops_en_manual(card))
+		mmc_stop_bkops(card);
 
 	err = mmc_blk_part_switch(card, md);
 	if (err)
@@ -3041,18 +3047,38 @@ static enum blk_eh_timer_return mmc_blk_cmdq_req_timed_out(struct request *req)
 	struct mmc_queue *mq = req->q->queuedata;
 	struct mmc_host *host = mq->card->host;
 	struct mmc_queue_req *mq_rq = req->special;
-	struct mmc_request *mrq = &mq_rq->cmdq_req.mrq;
-	struct mmc_cmdq_req *cmdq_req = &mq_rq->cmdq_req;
+	struct mmc_request *mrq;
+	struct mmc_cmdq_req *cmdq_req;
+
+	BUG_ON(!host);
+
+	/*
+	 * The mmc_queue_req will be present only if the request
+	 * is issued to the LLD. The request could be fetched from
+	 * block layer queue but could be waiting to be issued
+	 * (for e.g. clock scaling is waiting for an empty cmdq queue)
+	 * Reset the timer in such cases to give LLD more time
+	 */
+	if (!mq_rq) {
+		pr_warn("%s: restart timer for tag: %d\n", __func__, req->tag);
+		return BLK_EH_RESET_TIMER;
+	}
+
+	mrq = &mq_rq->cmdq_req.mrq;
+	cmdq_req = &mq_rq->cmdq_req;
+
+	BUG_ON(!mrq || !cmdq_req);
 
 	if (cmdq_req->cmdq_req_flags & DCMD)
 		mrq->cmd->error = -ETIMEDOUT;
 	else
 		mrq->data->error = -ETIMEDOUT;
 
+	BUG_ON(host->err_mrq != NULL);
 	host->err_mrq = mrq;
-	mrq->done(mrq);
 
-	return BLK_EH_NOT_HANDLED;
+	mmc_host_clk_release(mrq->host);
+	return BLK_EH_HANDLED;
 }
 
 static void mmc_blk_cmdq_err(struct mmc_queue *mq)
@@ -3066,6 +3092,8 @@ static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 	struct mmc_request *mrq = host->err_mrq;
 	struct mmc_card *card = mq->card;
 	struct mmc_cmdq_context_info *ctx_info = &host->cmdq_ctx;
+	struct request_queue *q = mrq->req->q;
+	int tag = mrq->req->tag;
 
 	mmc_rpm_hold(host, &card->dev);
 	mmc_host_clk_hold(host);
@@ -3105,12 +3133,12 @@ static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 			err = send_stop(card, &stop_status);
 			if (err) {
 				pr_err("%s: error %d sending stop command\n",
-				       mrq->req->rq_disk->disk_name, err);
+				       mmc_hostname(host), err);
 				goto reset;
 			}
 		}
 
-		if (mmc_cmdq_discard_queue(host, mrq->req->tag))
+		if (mmc_cmdq_discard_queue(host, tag))
 			goto reset;
 		else
 			goto unhalt;
@@ -3122,7 +3150,7 @@ static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 
 reset:
 	spin_lock_irq(mq->queue->queue_lock);
-	blk_queue_invalidate_tags(mrq->req->q);
+	blk_queue_invalidate_tags(q);
 	spin_unlock_irq(mq->queue->queue_lock);
 	mmc_blk_cmdq_reset(host, true);
 	goto out;
@@ -3131,10 +3159,11 @@ unhalt:
 	mmc_cmdq_halt(host, false);
 
 out:
+	host->err_mrq = NULL;
 	mmc_rpm_release(host, &card->dev);
 
 	if (test_and_clear_bit(0, &ctx_info->req_starved))
-		blk_run_queue(mrq->req->q);
+		blk_run_queue(q);
 }
 
 /* invoked by block layer in softirq context */

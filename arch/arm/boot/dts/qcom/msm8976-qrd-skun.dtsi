@@ -214,6 +214,8 @@
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,esd-check-enabled;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_hfp";
 };
 
 &pmx_mdss {
@@ -255,6 +257,8 @@
 	qcom,cool-bat-decidegc = <(-100)>;
 	qcom,hot-bat-decidegc = <550>;
 	qcom,warm-bat-decidegc = <550>;
+	qcom,bad-battery-detection-enable;
+	qcom,hold-soc-while-full;
 };
 
 &labibb {

@@ -365,7 +365,7 @@ enum {
 
 /* warnings and errors show up on console always */
 #define SLIM_WARN(dev, x...) do { \
-	pr_warn(x); \
+	pr_warn_ratelimited(x); \
 	if (dev->ipc_slimbus_log && dev->ipc_log_mask >= WARN_LEV) \
 		ipc_log_string(dev->ipc_slimbus_log, x); \
 } while (0)
@@ -375,7 +375,7 @@ enum {
  * in IPC logging. Further errors continue to log on the console
  */
 #define SLIM_ERR(dev, x...) do { \
-	pr_err(x); \
+	pr_err_ratelimited(x); \
 	if (dev->ipc_slimbus_log && dev->ipc_log_mask >= ERR_LEV) { \
 		ipc_log_string(dev->ipc_slimbus_log, x); \
 		dev->default_ipc_log_mask = dev->ipc_log_mask; \

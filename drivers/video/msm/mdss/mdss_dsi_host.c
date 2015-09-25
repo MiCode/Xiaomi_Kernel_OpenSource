@@ -2422,10 +2422,11 @@ static int dsi_event_thread(void *data)
 				ctrl->recovery->fxn(ctrl->recovery->data,
 					MDP_INTF_DSI_CMD_FIFO_UNDERFLOW);
 				mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 0);
+			} else {
+				MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl",
+				"dsi0_phy", "dsi1_ctrl", "dsi1_phy", "panic");
 			}
 			mutex_unlock(&ctrl->mutex);
-			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
-				"dsi1_ctrl", "dsi1_phy", "panic");
 		}
 
 		if (todo & DSI_EV_DSI_FIFO_EMPTY)

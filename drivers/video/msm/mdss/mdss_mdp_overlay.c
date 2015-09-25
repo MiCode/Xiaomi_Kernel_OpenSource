@@ -1101,6 +1101,8 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		goto exit_fail;
 	}
 
+	mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_left);
+	mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_right);
 
 	pipe->mixer_stage = req->z_order;
 	req->id = pipe->ndx;
@@ -1390,6 +1392,7 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
 		if (recovery_mode) {
 			mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_left);
 			mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_right);
+			pipe->mixer_stage = MDSS_MDP_STAGE_UNUSED;
 		}
 		__overlay_pipe_cleanup(mfd, pipe);
 		ctl->mixer_left->next_pipe_map &= ~pipe->ndx;
@@ -2027,6 +2030,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		mdss_mdp_pipe_queue_data(pipe, NULL);
 		mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_left);
 		mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_right);
+		pipe->mixer_stage = MDSS_MDP_STAGE_UNUSED;
 		list_move(&pipe->list, &mdp5_data->pipes_destroy);
 		need_cleanup = true;
 	}
@@ -2138,8 +2142,14 @@ int mdss_mdp_overlay_release(struct msm_fb_data_type *mfd, int ndx)
 				list_del_init(&pipe->list);
 
 			mdss_mdp_pipe_unmap(pipe);
-			if (destroy_pipe)
+			if (destroy_pipe) {
+				mdss_mdp_mixer_pipe_unstage(pipe,
+							pipe->mixer_left);
+				mdss_mdp_mixer_pipe_unstage(pipe,
+							pipe->mixer_right);
+				pipe->mixer_stage = MDSS_MDP_STAGE_UNUSED;
 				__overlay_pipe_cleanup(mfd, pipe);
+			}
 
 			if (unset_ndx == ndx)
 				break;

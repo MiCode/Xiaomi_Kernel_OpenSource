@@ -282,7 +282,8 @@ static int ipa_open(struct inode *inode, struct file *filp)
 * Return codes:
 * None
 */
-void ipa_flow_control(enum ipa_client_type ipa_client, bool enable, uint32_t qmap_id)
+void ipa_flow_control(enum ipa_client_type ipa_client,
+		bool enable, uint32_t qmap_id)
 {
 	struct ipa_ep_cfg_ctrl ep_ctrl = {0};
 	int ep_idx;

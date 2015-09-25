@@ -653,7 +653,6 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 			mrq->data->error = err;
 		}
 
-		tag = 0;
 		/*
 		 * CQE detected a reponse error from device
 		 * In most cases, this would require a reset.
@@ -725,17 +724,26 @@ static int cmdq_halt(struct mmc_host *mmc, bool halt)
 {
 	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
 	u32 val;
+	int retries = 3;
 
 	if (halt) {
-		cmdq_writel(cq_host, cmdq_readl(cq_host, CQCTL) | HALT,
-			    CQCTL);
-		val = wait_for_completion_timeout(&cq_host->halt_comp,
+		while (retries) {
+			cmdq_writel(cq_host, cmdq_readl(cq_host, CQCTL) | HALT,
+				    CQCTL);
+			val = wait_for_completion_timeout(&cq_host->halt_comp,
 					  msecs_to_jiffies(HALT_TIMEOUT_MS));
-		/* halt done: re-enable legacy interrupts */
-		if (cq_host->ops->clear_set_irqs)
-			cq_host->ops->clear_set_irqs(mmc, false);
-
-		return val ? 0 : -ETIMEDOUT;
+			if (!val && !(cmdq_readl(cq_host, CQCTL) & HALT)) {
+				retries--;
+				continue;
+			} else {
+				/* halt done: re-enable legacy interrupts */
+				if (cq_host->ops->clear_set_irqs)
+					cq_host->ops->clear_set_irqs(mmc,
+								false);
+				break;
+			}
+		}
+		return retries ? 0 : -ETIMEDOUT;
 	} else {
 		if (cq_host->ops->set_data_timeout)
 			cq_host->ops->set_data_timeout(mmc, 0xf);

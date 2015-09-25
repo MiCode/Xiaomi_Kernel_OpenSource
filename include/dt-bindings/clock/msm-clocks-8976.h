@@ -240,7 +240,9 @@
 #define clk_gp2_clk_src				0xfb1f0065
 #define clk_gp3_clk_src				0x63b693d6
 #define clk_byte0_clk_src			0x75cc885b
+#define clk_ext_byte0_clk_src			0xfb32f31e
 #define clk_byte1_clk_src			0x63c2c955
+#define clk_ext_byte1_clk_src			0x585ef6d4
 #define clk_esc0_clk_src			0xb41d7c38
 #define clk_esc1_clk_src			0x3b0afa42
 #define clk_dsi_pll0_byte_clk_src		0x44539836
@@ -249,7 +251,9 @@
 #define clk_dsi_pll1_pixel_clk_src		0xce233fcf
 #define clk_mdp_clk_src				0x6dc1f8f1
 #define clk_pclk0_clk_src			0xccac1f35
+#define clk_ext_pclk0_clk_src			0x087c1612
 #define clk_pclk1_clk_src			0x090f68ac
+#define clk_ext_pclk1_clk_src			0x8067c5a3
 #define clk_vsync_clk_src			0xecb43940
 #define clk_gfx3d_clk_src			0x917f76ef
 #define clk_pdm2_clk_src			0x31e494fd

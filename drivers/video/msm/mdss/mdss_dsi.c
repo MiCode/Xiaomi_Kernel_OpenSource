@@ -116,7 +116,8 @@ static void mdss_dsi_config_clk_src(struct platform_device *pdev)
 		sdata->byte0_parent = sdata->ext_byte0_clk;
 		sdata->pixel0_parent = sdata->ext_pixel0_clk;
 
-		if (mdss_dsi_is_hw_config_split(sdata)) {
+		if (mdss_dsi_is_hw_config_split(sdata) &&
+			!sdata->split_config_independent_pll) {
 			sdata->byte1_parent = sdata->byte0_parent;
 			sdata->pixel1_parent = sdata->pixel0_parent;
 		} else {
@@ -2714,6 +2715,15 @@ static int mdss_dsi_parse_hw_cfg(struct platform_device *pdev, char *pan_cfg)
 			__func__);
 		return -EINVAL;
 	}
+
+	/*
+	 * For certain h/w revisions, use both the DSI PLLs for
+	 * split DSI use-cases since it is necessary to do so.
+	 */
+	if (mdss_dsi_is_hw_config_split(sdata))
+		sdata->split_config_independent_pll =
+			of_property_read_bool(pdev->dev.of_node,
+			"qcom,split-dsi-independent-pll");
 
 	pr_debug("%s: DSI h/w configuration is %d\n", __func__,
 		sdata->hw_config);
