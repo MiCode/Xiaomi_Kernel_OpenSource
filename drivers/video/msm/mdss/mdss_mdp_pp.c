@@ -6203,6 +6203,7 @@ static int sspp_cache_location(u32 pipe_type, enum pp_config_block *block)
 		break;
 	case MDSS_MDP_PIPE_TYPE_DMA:
 		*block = SSPP_DMA;
+		break;
 	default:
 		pr_err("invalid pipe type %d\n", pipe_type);
 		ret = -EINVAL;
