@@ -1490,20 +1490,8 @@ static long msm_ispif_subdev_ioctl(struct v4l2_subdev *sd,
 		ispif->ispif_rdi2_debug = 0;
 		return 0;
 	}
-	case MSM_SD_SHUTDOWN: {
-		struct ispif_device *ispif =
-			(struct ispif_device *)v4l2_get_subdevdata(sd);
-
-		if (ispif && ispif->base) {
-			while (ispif->open_cnt != 0)
-				ispif_close_node(sd, NULL);
-		} else {
-			pr_debug("%s:SD SHUTDOWN fail, ispif%s %p\n", __func__,
-				ispif ? "_base" : "",
-				ispif ? ispif->base : NULL);
-		}
+	case MSM_SD_SHUTDOWN:
 		return 0;
-	}
 	default:
 		pr_err_ratelimited("%s: invalid cmd 0x%x received\n",
 			__func__, cmd);
