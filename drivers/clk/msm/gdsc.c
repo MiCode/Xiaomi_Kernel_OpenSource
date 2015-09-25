@@ -92,6 +92,7 @@ struct gdsc {
 	bool			no_status_check_on_disable;
 	bool			is_gdsc_enabled;
 	void __iomem		*domain_addr;
+	void __iomem		*hw_ctrl_addr;
 };
 
 static int gdsc_is_enabled(struct regulator_dev *rdev)
@@ -118,7 +119,7 @@ static int gdsc_is_enabled(struct regulator_dev *rdev)
 static int gdsc_enable(struct regulator_dev *rdev)
 {
 	struct gdsc *sc = rdev_get_drvdata(rdev);
-	uint32_t regval;
+	uint32_t regval, hw_ctrl_regval;
 	int i, ret;
 
 	if (sc->root_en || sc->force_root_en)
@@ -145,15 +146,24 @@ static int gdsc_enable(struct regulator_dev *rdev)
 		regval &= ~SW_COLLAPSE_MASK;
 		writel_relaxed(regval, sc->gdscr);
 
-		ret = poll_gdsc_status(sc->gdscr, ENABLED);
+		/* Wait for 8 XO cycles before polling the status bit. */
+		mb();
+		udelay(1);
+
+		if (sc->hw_ctrl_addr)
+			ret = poll_gdsc_status(sc->hw_ctrl_addr, ENABLED);
+		else
+			ret = poll_gdsc_status(sc->gdscr, ENABLED);
 
 		if (ret) {
 			dev_err(&rdev->dev, "%s enable timed out: 0x%x\n",
 				sc->rdesc.name, regval);
 			udelay(TIMEOUT_US);
 			regval = readl_relaxed(sc->gdscr);
-			dev_err(&rdev->dev, "%s final state: 0x%x (%d us after timeout)\n",
-				sc->rdesc.name, regval, TIMEOUT_US);
+			hw_ctrl_regval = readl_relaxed(sc->hw_ctrl_addr);
+			dev_err(&rdev->dev, "%s final state: 0x%x, GDS_HW_CTRL: 0x%x (%d us after timeout)\n",
+					sc->rdesc.name, regval,
+					hw_ctrl_regval, TIMEOUT_US);
 			return ret;
 		}
 	} else {
@@ -232,7 +242,11 @@ static int gdsc_disable(struct regulator_dev *rdev)
 			 */
 			udelay(TIMEOUT_US);
 		} else {
-			ret = poll_gdsc_status(sc->gdscr, DISABLED);
+			if (sc->hw_ctrl_addr)
+				ret = poll_gdsc_status(sc->hw_ctrl_addr,
+								DISABLED);
+			else
+				ret = poll_gdsc_status(sc->gdscr, DISABLED);
 			if (ret)
 				dev_err(&rdev->dev, "%s disable timed out: 0x%x\n",
 					sc->rdesc.name, regval);
@@ -381,6 +395,15 @@ static int gdsc_probe(struct platform_device *pdev)
 		sc->domain_addr = devm_ioremap(&pdev->dev, res->start,
 							resource_size(res));
 		if (sc->domain_addr == NULL)
+			return -ENOMEM;
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+							"hw_ctrl_addr");
+	if (res) {
+		sc->hw_ctrl_addr = devm_ioremap(&pdev->dev, res->start,
+							resource_size(res));
+		if (sc->hw_ctrl_addr == NULL)
 			return -ENOMEM;
 	}
 
