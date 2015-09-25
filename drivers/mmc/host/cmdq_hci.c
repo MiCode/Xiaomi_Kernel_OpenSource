@@ -840,6 +840,8 @@ int cmdq_init(struct cmdq_host *cq_host, struct mmc_host *mmc,
 	cq_host->num_slots = NUM_SLOTS;
 	cq_host->dcmd_slot = DCMD_SLOT;
 
+	cq_host->quirks |= CMDQ_QUIRK_PRIO_READ;
+
 	mmc->cmdq_ops = &cmdq_host_ops;
 
 	cq_host->mrq_slot = kzalloc(sizeof(cq_host->mrq_slot) *
