@@ -2091,6 +2091,7 @@ int ipa3_tag_process(struct ipa3_desc *desc, int num_descs,
 		    unsigned long timeout);
 
 int ipa3_q6_cleanup(void);
+int ipa3_q6_pipe_reset(void);
 int ipa3_init_q6_smem(void);
 
 int ipa3_sps_connect_safe(struct sps_pipe *h, struct sps_connect *connect,
