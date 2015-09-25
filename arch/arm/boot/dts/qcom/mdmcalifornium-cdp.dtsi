@@ -25,3 +25,24 @@
 	pinctrl-0 = <&uart2_console_active>;
 
 };
+
+&i2c_3 {
+	status = "ok";
+	smb1351_otg_supply: smb1351-charger@55 {
+		compatible = "qcom,smb1351-charger";
+		reg = <0x55>;
+		interrupt-parent = <&tlmm_pinmux>;
+		interrupts = <83 0>;
+		qcom,float-voltage-mv = <4200>;
+		qcom,charging-timeout = <1536>;
+		qcom,recharge-thresh-mv = <200>;
+		qcom,iterm-ma = <100>;
+		regulator-name = "smb1351_otg_supply";
+		qcom,charging-disabled;
+		qcom,id-line-not-connected;
+	};
+};
+
+&usb3 {
+	vbus_dwc3-supply = <&smb1351_otg_supply>;
+};
