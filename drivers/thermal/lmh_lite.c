@@ -54,6 +54,7 @@
 #define LMH_DEBUG_GET_TYPE		0x0B
 #define MAX_TRACE_EVENT_MSG_LEN		50
 #define APCS_DPM_VOLTAGE_SCALE		0x09950804
+#define LMH_ODCM_MAX_COUNT		6
 
 #define LMH_CHECK_SCM_CMD(_cmd) \
 	do { \
@@ -157,6 +158,9 @@ struct lmh_driver_data {
 	struct regulator		*regulator;
 	struct notifier_block		dpm_notifier_blk;
 	void __iomem			*dpm_voltage_scale_reg;
+	uint32_t			odcm_thresh_mV;
+	void __iomem			*odcm_reg[LMH_ODCM_MAX_COUNT];
+	bool				odcm_enabled;
 };
 
 struct lmh_sensor_data {
@@ -171,6 +175,7 @@ struct lmh_sensor_data {
 
 struct lmh_default_data {
 	uint32_t			default_profile;
+	uint32_t			odcm_reg_addr[LMH_ODCM_MAX_COUNT];
 };
 
 static struct lmh_default_data		lmh_lite_data = {
@@ -178,11 +183,19 @@ static struct lmh_default_data		lmh_lite_data = {
 };
 static struct lmh_default_data		lmh_v1_data = {
 	.default_profile = 1,
+	.odcm_reg_addr = {	0x09981030, /* CPU0 */
+				0x09991030, /* CPU1 */
+				0x099A1028, /* APC0_L2 */
+				0x099B1030, /* CPU2 */
+				0x099C1030, /* CPU3 */
+				0x099D1028, /* APC1_l2 */
+	},
 };
 static struct lmh_default_data		*lmh_hw_data;
 static struct lmh_driver_data		*lmh_data;
 static DECLARE_RWSEM(lmh_sensor_access);
 static DEFINE_MUTEX(lmh_sensor_read);
+static DEFINE_MUTEX(lmh_odcm_access);
 static LIST_HEAD(lmh_sensor_list);
 
 static int lmh_read(struct lmh_sensor_ops *ops, long *val)
@@ -453,7 +466,7 @@ isr_unlock_exit:
 
 static int lmh_get_sensor_devicetree(struct platform_device *pdev)
 {
-	int ret = 0;
+	int ret = 0, idx = 0;
 	char *key = NULL;
 	struct device_node *node = pdev->dev.of_node;
 	struct resource *lmh_intr_base = NULL;
@@ -477,6 +490,28 @@ static int lmh_get_sensor_devicetree(struct platform_device *pdev)
 		pr_err("unable to get vdd-apss regulator. err:%ld\n",
 			PTR_ERR(lmh_data->regulator));
 		lmh_data->regulator = NULL;
+	} else {
+		key = "qcom,lmh-odcm-disable-threshold-mA";
+		ret = of_property_read_u32(node, key,
+			&lmh_data->odcm_thresh_mV);
+		if (ret) {
+			pr_err("Error getting ODCM thresh. err:%d\n", ret);
+			ret = 0;
+		} else {
+			lmh_data->odcm_enabled = true;
+			for (; idx < LMH_ODCM_MAX_COUNT; idx++) {
+				lmh_data->odcm_reg[idx] =
+					devm_ioremap(&pdev->dev,
+					lmh_hw_data->odcm_reg_addr[idx], 4);
+				if (!lmh_data->odcm_reg[idx]) {
+					pr_err("Err mapping ODCM memory 0x%x\n",
+					lmh_hw_data->odcm_reg_addr[idx]);
+					lmh_data->odcm_enabled = false;
+					lmh_data->odcm_reg[0] = NULL;
+					break;
+				}
+			}
+		}
 	}
 
 	lmh_data->irq_num = platform_get_irq(pdev, 0);
@@ -1053,6 +1088,62 @@ static void lmh_voltage_scale_set(uint32_t voltage)
 	trace_lmh_event_call(trace_buf);
 }
 
+static void write_to_odcm(bool enable)
+{
+	uint32_t idx = 0, data = enable ? 1 : 0;
+
+	for (; idx < LMH_ODCM_MAX_COUNT; idx++)
+		writel_relaxed(data, lmh_data->odcm_reg[idx]);
+}
+
+static void evaluate_and_config_odcm(uint32_t rail_uV, unsigned long state)
+{
+	uint32_t rail_mV = rail_uV / 1000;
+	static bool prev_state, disable_odcm;
+
+	mutex_lock(&lmh_odcm_access);
+	switch (state) {
+	case REGULATOR_EVENT_VOLTAGE_CHANGE:
+		if (!disable_odcm)
+			break;
+		pr_debug("Disable ODCM\n");
+		write_to_odcm(false);
+		lmh_data->odcm_enabled = false;
+		disable_odcm = false;
+		break;
+	case REGULATOR_EVENT_PRE_VOLTAGE_CHANGE:
+		disable_odcm = false;
+		prev_state = lmh_data->odcm_enabled;
+		if (rail_mV > lmh_data->odcm_thresh_mV) {
+			if (lmh_data->odcm_enabled)
+				break;
+			/* Enable ODCM before the voltage increases */
+			pr_debug("Enable ODCM for voltage %u mV\n", rail_mV);
+			write_to_odcm(true);
+			lmh_data->odcm_enabled = true;
+		} else {
+			if (!lmh_data->odcm_enabled)
+				break;
+			/* Disable ODCM after the voltage decreases */
+			pr_debug("Disable ODCM for voltage %u mV\n", rail_mV);
+			disable_odcm = true;
+		}
+		break;
+	case REGULATOR_EVENT_ABORT_VOLTAGE_CHANGE:
+		disable_odcm = false;
+		if (prev_state == lmh_data->odcm_enabled)
+			break;
+		pr_debug("Reverting ODCM state to %s\n",
+			prev_state ? "enabled" : "disabled");
+		write_to_odcm(prev_state);
+		lmh_data->odcm_enabled = prev_state;
+		break;
+	default:
+		break;
+	}
+	mutex_unlock(&lmh_odcm_access);
+}
+
 static int lmh_voltage_change_notifier(struct notifier_block *nb_data,
 	unsigned long event, void *data)
 {
@@ -1062,12 +1153,15 @@ static int lmh_voltage_change_notifier(struct notifier_block *nb_data,
 
 	if (event == REGULATOR_EVENT_VOLTAGE_CHANGE) {
 		/* Convert from uV to mV */
+		pr_debug("Received event POST_VOLTAGE_CHANGE\n");
 		voltage = ((unsigned long)data) / 1000;
 		if (change_needed == 1 &&
 			(last_voltage == voltage)) {
 			lmh_voltage_scale_set(voltage);
 			change_needed = 0;
 		}
+		if (lmh_data->odcm_reg[0])
+			evaluate_and_config_odcm(0, event);
 	} else if (event == REGULATOR_EVENT_PRE_VOLTAGE_CHANGE) {
 		struct pre_voltage_change_data *change_data =
 			(struct pre_voltage_change_data *)data;
@@ -1082,6 +1176,13 @@ static int lmh_voltage_change_notifier(struct notifier_block *nb_data,
 		pr_debug("max = %lu mV min = %lu mV previous = %lu mV\n",
 			change_data->max_uV / 1000, change_data->min_uV / 1000,
 			change_data->old_uV / 1000);
+
+		if (lmh_data->odcm_reg[0])
+			evaluate_and_config_odcm(change_data->max_uV, event);
+	} else if (event == REGULATOR_EVENT_ABORT_VOLTAGE_CHANGE) {
+		pr_debug("Received event ABORT_VOLTAGE_CHANGE\n");
+		if (lmh_data->odcm_reg[0])
+			evaluate_and_config_odcm(0, event);
 	}
 
 	return NOTIFY_OK;
