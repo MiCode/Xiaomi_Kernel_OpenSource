@@ -565,6 +565,7 @@
 	};
 	lmh: qcom,lmh {
 		vdd-apss-supply = <&pm8994_s11>;
+		qcom,lmh-odcm-disable-threshold-mA = <850>;
 	};
 };
 
