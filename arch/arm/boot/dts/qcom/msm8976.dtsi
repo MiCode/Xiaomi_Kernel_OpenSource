@@ -2694,6 +2694,8 @@
 };
 
 &gdsc_oxili_cx {
+	clock-names = "core_clk";
+	clocks = <&clock_gcc_gfx clk_gcc_oxili_gfx3d_clk>;
 	status = "okay";
 };
 
