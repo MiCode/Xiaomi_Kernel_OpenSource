@@ -231,6 +231,10 @@
 #define clk_ext_pclk0_clk_src			0x087c1612
 #define clk_ext_byte0_clk_src			0xfb32f31e
 
+#define clk_dsi_pll0_byte_clk_src		0x44539836
+#define clk_dsi_pll0_pixel_clk_src		0x5767c287
+#define clk_dsi_pll1_byte_clk_src		0x73e88d02
+#define clk_dsi_pll1_pixel_clk_src		0xce233fcf
 #define clk_ext_pclk1_clk_src			0x8067c5a3
 #define clk_ext_byte1_clk_src			0x585ef6d4
 #define clk_byte1_clk_src			0x63c2c955
