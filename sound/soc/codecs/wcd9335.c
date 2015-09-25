@@ -118,7 +118,7 @@
 
 #define TASHA_VERSION_ENTRY_SIZE 17
 
-static int tasha_cpe_debug_mode = 1;
+static int tasha_cpe_debug_mode;
 module_param(tasha_cpe_debug_mode, int,
 	     S_IRUGO | S_IWUSR | S_IWGRP);
 MODULE_PARM_DESC(tasha_cpe_debug_mode, "tasha boot cpe in debug mode");
