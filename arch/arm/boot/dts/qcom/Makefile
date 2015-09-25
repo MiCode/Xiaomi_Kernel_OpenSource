@@ -57,7 +57,16 @@ dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v2-pmi8994-cdp.dtb \
 	apq8096-v3.0-pmi8996-cdp.dtb \
 	apq8096-v3.0-pmi8996-mtp.dtb \
 	apq8096-v3.0-liquid.dtb \
-	apq8096-v3.0-dragonboard.dtb
+	apq8096-v3.0-dragonboard.dtb \
+	apq8096-v3-pmi8994-mdm9x55-i2s-cdp.dtb \
+	apq8096-v3-pmi8994-pm8004-mdm9x55-i2s-cdp.dtb \
+	apq8096-v3-pmi8994-pm8004-pmk8001-mdm9x55-i2s-cdp.dtb \
+	apq8096-v3-pmi8994-pmk8001-mdm9x55-i2s-cdp.dtb \
+	apq8096-v3-pmi8996-mdm9x55-i2s-cdp.dtb \
+	apq8096-v3-pmi8994-mdm9x55-i2s-mtp.dtb \
+	apq8096-v3-pmi8994-mdm9x55-slimbus-mtp.dtb \
+	apq8096-v3-pmi8996-mdm9x55-i2s-mtp.dtb \
+	apq8096-v3-pmi8996-mdm9x55-slimbus-mtp.dtb
 
 dtb-$(CONFIG_ARCH_MSMCOBALT) += msmcobalt-sim.dtb \
 	msmcobalt-rumi.dtb
