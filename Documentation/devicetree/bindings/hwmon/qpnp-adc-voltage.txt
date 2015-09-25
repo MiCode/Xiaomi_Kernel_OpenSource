@@ -8,7 +8,8 @@ for the USR peripheral of the VADC.
 VADC node
 
 Required properties:
-- compatible : should be "qcom,qpnp-vadc" for Voltage ADC driver.
+- compatible : should be "qcom,qpnp-vadc" for Voltage ADC driver and
+		"qcom,qpnp-vadc-hc" for VADC_HC voltage ADC driver.
 - reg : offset and length of the PMIC Aribter register map.
 - address-cells : Must be one.
 - size-cells : Must be zero.
