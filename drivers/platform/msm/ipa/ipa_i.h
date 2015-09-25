@@ -503,6 +503,8 @@ struct ipa_wlan_comm_memb {
  *                          avoid the RX pipe to run out of descriptors
  *                          and cause HOLB.
  * @disconnect_in_progress: Indicates client disconnect in progress.
+ * @qmi_request_sent: Indicates whether QMI request to enable clear data path
+ *					request is sent or not.
  */
 struct ipa_ep_context {
 	int valid;
@@ -532,6 +534,7 @@ struct ipa_ep_context {
 	u32 wdi_state;
 	u32 rx_replenish_threshold;
 	bool disconnect_in_progress;
+	u32 qmi_request_sent;
 
 	/* sys MUST be the last element of this struct */
 	struct ipa_sys_context *sys;
