@@ -2328,7 +2328,6 @@ static int mdss_dsi_ctrl_clock_init(struct platform_device *ctrl_pdev,
 {
 	int rc = 0;
 	struct mdss_dsi_clk_info info;
-	struct mdss_panel_info *pinfo;
 	struct mdss_dsi_clk_client client1 = {"dsi_clk_client"};
 	struct mdss_dsi_clk_client client2 = {"mdp_event_client"};
 	void *handle;
@@ -2336,17 +2335,6 @@ static int mdss_dsi_ctrl_clock_init(struct platform_device *ctrl_pdev,
 	if (mdss_dsi_link_clk_init(ctrl_pdev, ctrl_pdata)) {
 		pr_err("%s: unable to initialize Dsi ctrl clks\n", __func__);
 		return -EPERM;
-	}
-
-	pinfo = &(ctrl_pdata->panel_data.panel_info);
-
-	if (pinfo->dynamic_fps &&
-			pinfo->dfps_update == DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
-		if (mdss_dsi_shadow_clk_init(ctrl_pdev, ctrl_pdata)) {
-			pr_err("unable to initialize shadow ctrl clks\n");
-			rc = -EPERM;
-			goto error_link_clk_deinit;
-		}
 	}
 
 	memset(&info, 0x0, sizeof(info));
@@ -2372,7 +2360,7 @@ static int mdss_dsi_ctrl_clock_init(struct platform_device *ctrl_pdev,
 		rc = PTR_ERR(ctrl_pdata->clk_mngr);
 		ctrl_pdata->clk_mngr = NULL;
 		pr_err("dsi clock registration failed, rc = %d\n", rc);
-		goto error_shadow_clk_deinit;
+		goto error_link_clk_deinit;
 	}
 
 	/*
@@ -2407,8 +2395,6 @@ error_clk_client_deregister:
 	mdss_dsi_clk_deregister(ctrl_pdata->dsi_clk_handle);
 error_clk_deinit:
 	mdss_dsi_clk_deinit(ctrl_pdata);
-error_shadow_clk_deinit:
-	mdss_dsi_shadow_clk_deinit(&ctrl_pdev->dev, ctrl_pdata);
 error_link_clk_deinit:
 	mdss_dsi_link_clk_deinit(&ctrl_pdev->dev, ctrl_pdata);
 	return rc;
@@ -2545,6 +2531,11 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	else
 		ctrl_pdata->panel_data.panel_info.pdest = DISPLAY_2;
 
+	if (mdss_dsi_ctrl_clock_init(pdev, ctrl_pdata)) {
+		pr_err("%s: unable to initialize dsi clk manager\n", __func__);
+		return -EPERM;
+	}
+
 	dsi_pan_node = mdss_dsi_config_panel(pdev);
 	if (!dsi_pan_node) {
 		pr_err("%s: panel configuration failed\n", __func__);
@@ -2573,9 +2564,14 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 		goto error_pan_node;
 	}
 
-	if (mdss_dsi_ctrl_clock_init(pdev, ctrl_pdata)) {
-		pr_err("%s: unable to initialize dsi clk manager\n", __func__);
-		return -EPERM;
+	pinfo = &(ctrl_pdata->panel_data.panel_info);
+	if (pinfo->dynamic_fps &&
+			pinfo->dfps_update == DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
+		if (mdss_dsi_shadow_clk_init(pdev, ctrl_pdata)) {
+			pr_err("%s: unable to initialize shadow ctrl clks\n",
+					__func__);
+			return -EPERM;
+		}
 	}
 
 	rc = mdss_dsi_set_clk_rates(ctrl_pdata);
@@ -2584,7 +2580,6 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	pinfo = &(ctrl_pdata->panel_data.panel_info);
 	rc = mdss_dsi_cont_splash_config(pinfo, ctrl_pdata);
 	if (rc) {
 		pr_err("%s: Failed to set dsi splash config\n", __func__);
@@ -2598,7 +2593,7 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 			"VSYNC_GPIO", ctrl_pdata);
 		if (rc) {
 			pr_err("TE request_irq failed.\n");
-			goto error_pan_node;
+			goto error_shadow_clk_deinit;
 		}
 		disable_irq(gpio_to_irq(ctrl_pdata->disp_te_gpio));
 	}
@@ -2611,6 +2606,8 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 
 	return 0;
 
+error_shadow_clk_deinit:
+	mdss_dsi_shadow_clk_deinit(&pdev->dev, ctrl_pdata);
 error_pan_node:
 	mdss_dsi_unregister_bl_settings(ctrl_pdata);
 	of_node_put(dsi_pan_node);
