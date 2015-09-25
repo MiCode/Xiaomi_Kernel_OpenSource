@@ -45,6 +45,14 @@
 		qcom,master-en = <0>;	/* DISABLE GPIO */
 	};
 
+	gpio@c400 { /* GPIO 5 - USB_ID */
+		status = "ok";
+		qcom,mode = <0>;	/* Digital input */
+		qcom,pull = <1>;	/* Pull up 1.5 uA */
+		qcom,vin-sel = <1>;	/* 1.8 V */
+		qcom,master-en = <1>;   /* Enable GPIO */
+	};
+
 	gpio@c500 { /* GPIO 6 - Rome 3.3V control */
 		status = "ok";
 		qcom,mode = <1>;		/* Digital output*/
