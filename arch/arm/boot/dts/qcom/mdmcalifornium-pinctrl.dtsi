@@ -270,6 +270,22 @@
 			};
 		};
 
+		/* SMB CONFIGURATION */
+		pmx_smb_stat {
+			smb_stat_active: smb_stat_active {
+				mux {
+					pins = "gpio83";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio83";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+		};
+
 		/* UART HS CONFIGURATION */
 
 		blsp1_uart1_active: blsp1_uart1_active {
