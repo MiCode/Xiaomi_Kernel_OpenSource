@@ -416,11 +416,6 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 				spin_unlock_irqrestore(
 					&bufq->bufq_lock, flags);
 				return rc;
-			} else if (temp_buf_info->buf_used[id] &&
-					temp_buf_info->buf_reuse_flag) {
-				spin_unlock_irqrestore(
-					&bufq->bufq_lock, flags);
-				return rc;
 			}
 		}
 	}
@@ -461,7 +456,7 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 
 			}
 		} else {
-			pr_err("%s: No Buffer session_id: %d stream_id: %d\n",
+			pr_err_ratelimited("%s: No Buffer session_id: %d stream_id: %d\n",
 				__func__, bufq->session_id, bufq->stream_id);
 			rc = -EINVAL;
 		}
@@ -678,7 +673,7 @@ static int msm_isp_update_put_buf_cnt(struct msm_isp_buf_mgr *buf_mgr,
 			}
 		}
 	} else {
-		pr_warn("%s: Invalid state\n", __func__);
+		pr_err_ratelimited("%s: Invalid state\n", __func__);
 	}
 	spin_unlock_irqrestore(&bufq->bufq_lock, flags);
 	return 0;
