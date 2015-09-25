@@ -53,7 +53,9 @@ memory allocation over a PCIe bridge
                                 configures embedded pipe filtering rules
 - qcom,skip-uc-pipe-reset:      Boolean context flag to indicate whether
                                 a pipe reset via the IPA uC is required
-
+- qcom,tethered-flow-control:   Boolean context flag to indicate whether
+                                apps based flow control is needed for tethered
+                                call.
 IPA pipe sub nodes (A2 static pipes configurations):
 
 -label: two labels are supported, a2-to-ipa and ipa-to-a2 which
