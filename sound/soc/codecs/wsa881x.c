@@ -952,6 +952,7 @@ static int32_t wsa881x_temp_reg_read(struct snd_soc_codec *codec,
 	wsa_temp_reg->d2_msb = snd_soc_read(codec, WSA881X_OTP_REG_3);
 	wsa_temp_reg->d2_lsb = snd_soc_read(codec, WSA881X_OTP_REG_4);
 
+	snd_soc_update_bits(codec, WSA881X_TEMP_OP, 0x04, 0x00);
 	wsa881x_resource_acquire(codec, DISABLE);
 
 	return 0;
