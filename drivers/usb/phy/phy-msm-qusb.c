@@ -786,19 +786,24 @@ static int qusb_phy_probe(struct platform_device *pdev)
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 							"qscratch_base");
-	qphy->qscratch_base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(qphy->qscratch_base))
-		qphy->qscratch_base = NULL;
+	if (res) {
+		qphy->qscratch_base = devm_ioremap_resource(dev, res);
+		if (IS_ERR(qphy->qscratch_base)) {
+			dev_dbg(dev, "couldn't ioremap qscratch_base\n");
+			qphy->qscratch_base = NULL;
+		}
+	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 							"emu_phy_base");
-	qphy->emu_phy_base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(qphy->emu_phy_base)) {
-		qphy->emu_phy_base = NULL;
-		dev_dbg(dev, "couldn't find emu_phy_base\n");
+	if (res) {
+		qphy->emu_phy_base = devm_ioremap_resource(dev, res);
+		if (IS_ERR(qphy->emu_phy_base)) {
+			dev_dbg(dev, "couldn't ioremap emu_phy_base\n");
+			qphy->emu_phy_base = NULL;
+		}
 	}
 
-	qphy->tune2_efuse_reg = NULL;
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 							"tune2_efuse_addr");
 	if (res) {
