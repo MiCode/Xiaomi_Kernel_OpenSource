@@ -131,7 +131,7 @@
 		reg = <0x0>;
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
-		qcom,mount-angle = <90>;
+		qcom,mount-angle = <180>;
 		qcom,led-flash-src = <&led_flash0>;
 		qcom,actuator-src = <&actuator0>;
 		qcom,eeprom-src = <&eeprom0>;
@@ -210,7 +210,7 @@
 		reg = <0x02>;
 		qcom,csiphy-sd-index = <2>;
 		qcom,csid-sd-index = <2>;
-		qcom,mount-angle = <90>;
+		qcom,mount-angle = <360>;
 		qcom,eeprom-src = <&eeprom1>;
 		qcom,actuator-src = <&actuator1>;
 		cam_vdig-supply = <&pm8994_l27>;
