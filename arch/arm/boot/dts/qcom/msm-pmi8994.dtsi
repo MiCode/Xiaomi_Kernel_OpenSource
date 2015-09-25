@@ -513,7 +513,7 @@
 			};
 		};
 
-		qcom,leds@d800 {
+		pmi8994_wled: qcom,leds@d800 {
 			compatible = "qcom,qpnp-wled";
 			reg = <0xd800 0x100>,
 				<0xd900 0x100>,
