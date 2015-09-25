@@ -925,7 +925,6 @@ err_create_pkt:
 	return rc;
 }
 
-static DECLARE_COMPLETION(pc_prep_done);
 static DECLARE_COMPLETION(release_resources_done);
 
 static int __alloc_imem(struct venus_hfi_device *device, unsigned long size)
@@ -1431,8 +1430,6 @@ static int __iface_cmdq_write_relaxed(struct venus_hfi_device *device,
 		}
 
 		if (device->res->sw_power_collapsible) {
-			dprintk(VIDC_DBG,
-				"Cancel and queue delayed work again\n");
 			cancel_delayed_work(&venus_hfi_pm_work);
 			if (!queue_delayed_work(device->venus_pm_workq,
 				&venus_hfi_pm_work,
@@ -3005,8 +3002,6 @@ static int __prepare_pc(struct venus_hfi_device *device)
 	int rc = 0;
 	struct hfi_cmd_sys_pc_prep_packet pkt;
 
-	init_completion(&pc_prep_done);
-
 	rc = call_hfi_pkt_op(device, sys_pc_prep, &pkt);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to create sys pc prep pkt\n");
@@ -3015,27 +3010,8 @@ static int __prepare_pc(struct venus_hfi_device *device)
 
 	if (__iface_cmdq_write(device, &pkt))
 		rc = -ENOTEMPTY;
-	if (rc) {
+	if (rc)
 		dprintk(VIDC_ERR, "Failed to prepare venus for power off");
-		goto err_pc_prep;
-	}
-
-	WARN_ON(!mutex_is_locked(&device->lock));
-	mutex_unlock(&device->lock);
-	rc = wait_for_completion_timeout(&pc_prep_done,
-			msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
-	mutex_lock(&device->lock);
-	if (!rc) {
-		dprintk(VIDC_ERR,
-				"Wait interrupted or timeout for PC_PREP_DONE: %d\n",
-				rc);
-		__flush_debug_queue(device, NULL);
-		BUG_ON(msm_vidc_debug_timeout);
-		rc = -EIO;
-		goto err_pc_prep;
-	}
-
-	rc = 0;
 err_pc_prep:
 	return rc;
 }
@@ -3043,9 +3019,9 @@ err_pc_prep:
 static void venus_hfi_pm_handler(struct work_struct *work)
 {
 	int rc = 0;
-	u32 ctrl_status = 0;
+	u32 wfi_status = 0, idle_status = 0, pc_ready = 0;
 	int count = 0;
-	const int max_tries = 10;
+	const int max_tries = 5;
 	struct venus_hfi_device *device = list_first_entry(
 			&hal_ctxt.dev_head, struct venus_hfi_device, list);
 	if (!device) {
@@ -3053,6 +3029,16 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 		return;
 	}
 
+	/*
+	 * It is ok to check this variable outside the lock since
+	 * it is being updated in this context only
+	 */
+	if (device->skip_pc_count >= VIDC_MAX_PC_SKIP_COUNT) {
+		dprintk(VIDC_WARN, "Failed to PC for %d times\n",
+				device->skip_pc_count);
+		__process_fatal_error(device);
+		return;
+	}
 	mutex_lock(&device->lock);
 	if (!device->power_enabled) {
 		dprintk(VIDC_DBG, "%s: Power already disabled\n",
@@ -3063,77 +3049,66 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 	rc = __core_in_valid_state(device);
 	if (!rc) {
 		dprintk(VIDC_WARN,
-			"Core is in bad state, Skipping power collapse\n");
+				"Core is in bad state, Skipping power collapse\n");
 		goto skip_power_off;
 	}
+	pc_ready = __read_register(device, VIDC_CPU_CS_SCIACMDARG0) &
+		VIDC_CPU_CS_SCIACMDARG0_HFI_CTRL_PC_READY;
+	if (!pc_ready) {
+		wfi_status = __read_register(device,
+				VIDC_WRAPPER_CPU_STATUS);
+		idle_status = __read_register(device,
+				VIDC_CPU_CS_SCIACMDARG0);
+		if (!(wfi_status & BIT(0)) ||
+				!(idle_status & BIT(30))) {
+			dprintk(VIDC_WARN, "Skipping PC\n");
+			goto skip_power_off;
+		}
 
-	dprintk(VIDC_DBG, "Prepare for power collapse\n");
+		rc = __prepare_pc(device);
+		if (rc) {
+			dprintk(VIDC_WARN, "Failed PC %d\n", rc);
+			goto skip_power_off;
+		}
 
-	rc = __prepare_pc(device);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to prepare for PC %d\n", rc);
-		mutex_unlock(&device->lock);
-		/*
-		 * __process_fatal_error invokes msm_vidc layer callback
-		 * function. Hence avoid holding the device->lock over the
-		 * callback function.
-		 */
-		__process_fatal_error(device);
-		return;
-	}
+		while (count < max_tries) {
+			wfi_status = __read_register(device,
+					VIDC_WRAPPER_CPU_STATUS);
+			pc_ready = __read_register(device,
+					VIDC_CPU_CS_SCIACMDARG0);
+			if ((wfi_status & BIT(0)) && (pc_ready &
+				VIDC_CPU_CS_SCIACMDARG0_HFI_CTRL_PC_READY))
+				break;
+			usleep_range(1000, 1500);
+			count++;
+		}
 
-	if (device->last_packet_type != HFI_CMD_SYS_PC_PREP) {
-		dprintk(VIDC_WARN,
-			"Skip PC. Reason: Last packet queued(%#x) is not PC_PREP\n",
-			device->last_packet_type);
-		goto skip_power_off;
-	}
-
-	if (__get_q_size(device, VIDC_IFACEQ_MSGQ_IDX) ||
-		__get_q_size(device, VIDC_IFACEQ_CMDQ_IDX)) {
-		dprintk(VIDC_WARN,
-			"Skip PC. Reason: Cmd/Msg queue not empty\n");
-		goto skip_power_off;
-	}
-
-	while (!(ctrl_status & BIT(0)) && count < max_tries) {
-		ctrl_status = __read_register(device, VIDC_WRAPPER_CPU_STATUS);
-		usleep_range(1000, 1500);
-		count++;
-	}
-
-	if (!(ctrl_status & BIT(0))) {
-		dprintk(VIDC_WARN,
-			"Skip PC. Reason: Core is not in WFI state (%#x)\n",
-			ctrl_status);
-		goto skip_power_off;
+		if (count == max_tries) {
+			dprintk(VIDC_ERR,
+					"Skip PC. Core is not in right state (%#x, %#x)\n",
+					wfi_status, pc_ready);
+			goto skip_power_off;
+		}
 	}
 
 	rc = __suspend(device);
-	if (rc) {
+	if (rc)
 		dprintk(VIDC_ERR, "Failed venus power off\n");
-		goto err_power_off;
-	}
 
 	/* Cancel pending delayed works if any */
 	cancel_delayed_work(&venus_hfi_pm_work);
+	device->skip_pc_count = 0;
 
 	mutex_unlock(&device->lock);
 	return;
 
-err_power_off:
 skip_power_off:
-
-	/*
-	* When power collapse is escaped, driver no need to inform Venus.
-	* Venus is self-sufficient to come out of the power collapse at
-	* any stage. Driver can skip power collapse and continue with
-	* normal execution.
-	*/
-
-	/* Cancel pending delayed works if any */
-	cancel_delayed_work(&venus_hfi_pm_work);
-
+	device->skip_pc_count++;
+	dprintk(VIDC_WARN, "Skip PC(%d, %#x, %#x, %#x)\n",
+		device->skip_pc_count, wfi_status, idle_status, pc_ready);
+	queue_delayed_work(device->venus_pm_workq,
+			&venus_hfi_pm_work,
+			msecs_to_jiffies(msm_vidc_pwr_collapse_delay));
 exit:
 	mutex_unlock(&device->lock);
 	return;
@@ -3226,6 +3201,7 @@ static int __response_handler(struct venus_hfi_device *device)
 	struct msm_vidc_cb_info *packets;
 	int packet_count = 0;
 	u8 *raw_packet = NULL;
+	bool requeue_pm_work = true;
 
 	if (!device || device->state != VENUS_STATE_INIT)
 		return 0;
@@ -3290,16 +3266,6 @@ static int __response_handler(struct venus_hfi_device *device)
 			if (__set_imem(device, &device->resources.imem))
 				dprintk(VIDC_WARN,
 				"Failed to set IMEM. Performance will be impacted\n");
-			break;
-		case HAL_SYS_PC_PREP_DONE:
-			dprintk(VIDC_DBG, "Received SYS_PC_PREP_DONE\n");
-			complete(&pc_prep_done);
-			/*
-			 * PC_PREP_DONE should be the last packet during
-			 * power collapse, so decrement the packet count
-			 * to not process this pkt in callback
-			 */
-			--packet_count;
 			break;
 		case HAL_SESSION_LOAD_RESOURCE_DONE:
 			/*
@@ -3382,6 +3348,15 @@ static int __response_handler(struct venus_hfi_device *device)
 		}
 	}
 
+	if (requeue_pm_work && device->res->sw_power_collapsible) {
+		cancel_delayed_work(&venus_hfi_pm_work);
+		if (!queue_delayed_work(device->venus_pm_workq,
+			&venus_hfi_pm_work,
+			msecs_to_jiffies(msm_vidc_pwr_collapse_delay))) {
+			dprintk(VIDC_ERR, "PM work already scheduled\n");
+		}
+	}
+
 exit:
 	__flush_debug_queue(device, raw_packet);
 
@@ -3413,16 +3388,6 @@ static void venus_hfi_core_work_handler(struct work_struct *work)
 	if (__resume(device)) {
 		dprintk(VIDC_ERR, "%s: Power enable failed\n", __func__);
 		goto err_no_work;
-	}
-
-	if (device->res->sw_power_collapsible) {
-		dprintk(VIDC_DBG, "Cancel and queue delayed work again.\n");
-		cancel_delayed_work(&venus_hfi_pm_work);
-		if (!queue_delayed_work(device->venus_pm_workq,
-			&venus_hfi_pm_work,
-			msecs_to_jiffies(msm_vidc_pwr_collapse_delay))) {
-			dprintk(VIDC_DBG, "PM work already scheduled\n");
-		}
 	}
 
 	__core_clear_interrupt(device);
