@@ -2999,7 +2999,7 @@
 		qcom,msm-cpudai-auxpcm-pcm-clk-rate = <2048000>, <2048000>;
 		qcom,msm-auxpcm-interface = "primary";
 		qcom,msm-cpudai-afe-clk-ver = <2>;
-		pinctrl-names = "default", "idle";
+		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&pri_aux_pcm_active &pri_aux_pcm_din_active>;
 		pinctrl-1 = <&pri_aux_pcm_sleep &pri_aux_pcm_din_sleep>;
 	};
@@ -3025,7 +3025,7 @@
 			qcom,msm-dai-q6-mi2s-dev-id = <2>;
 			qcom,msm-mi2s-rx-lines = <2>;
 			qcom,msm-mi2s-tx-lines = <1>;
-			pinctrl-names = "default", "idle";
+			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&tert_mi2s_active &tert_mi2s_sd0_active>;
 			pinctrl-1 = <&tert_mi2s_sleep &tert_mi2s_sd0_sleep>;
 		};
