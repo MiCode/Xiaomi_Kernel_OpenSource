@@ -136,3 +136,8 @@
 &mdss_dsi {
 	/delete-property/ qcom,split-dsi-independent-pll;
 };
+
+&sdhc_1 {
+	qcom,clk-rates = <400000 25000000 50000000 100000000
+					186400000 372800000>;
+};
