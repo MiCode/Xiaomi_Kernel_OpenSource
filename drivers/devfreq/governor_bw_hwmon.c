@@ -220,10 +220,11 @@ static int __bw_hwmon_sample_end(struct bw_hwmon *hwmon)
 	 * bandwidth usage and do the bandwidth calculation based on just
 	 * this micro sample.
 	 */
-	if (mbps > node->up_wake_mbps)
+	if (mbps > node->up_wake_mbps) {
 		wake = UP_WAKE;
-	else if (mbps < node->down_wake_mbps) {
-		node->down_cnt--;
+	} else if (mbps < node->down_wake_mbps) {
+		if (node->down_cnt)
+			node->down_cnt--;
 		if (node->down_cnt <= 0)
 			wake = DOWN_WAKE;
 	}
@@ -338,15 +339,6 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 		req_mbps += ((meas_mbps - node->prev_req)
 				* node->up_scale) / 100;
 		/*
-		 * Don't drop below max_mbps which caused the UP_WAKE if
-		 * down_thres is enabled. This is functionally equivalent of
-		 * two adjacent decision windows overlapping by one short
-		 * sample window when an UP_WAKE happens.
-		 */
-		node->max_mbps = meas_mbps;
-		node->down_cnt = node->down_count;
-
-		/*
 		 * However if the measured load is less than the historic
 		 * peak, but the over request is higher than the historic
 		 * peak, then we could limit the over requesting to the
@@ -357,13 +349,6 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 			req_mbps = node->hist_max_mbps;
 
 		req_mbps = min(req_mbps, meas_mbps_zone);
-	} else {
-		/*
-		 * We want to quickly drop the vote only if we are
-		 * over-voting (UP_WAKE). So, effectively disable it for all
-		 * other cases by setting it to a very large value.
-		 */
-		node->down_cnt = INT_MAX;
 	}
 
 	hyst_lo_tol = (node->hyst_mbps * HIST_PEAK_TOL) / 100;
@@ -420,6 +405,7 @@ static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
 		node->down_wake_mbps = (meas_mbps * node->down_thres) / 100;
 		thres = mbps_to_bytes(meas_mbps, node->sample_ms);
 	}
+	node->down_cnt = node->down_count;
 
 	node->bytes = hw->set_thres(hw, thres);
 
