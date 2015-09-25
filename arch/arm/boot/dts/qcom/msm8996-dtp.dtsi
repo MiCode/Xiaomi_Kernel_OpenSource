@@ -525,6 +525,8 @@
 
 &pmi8994_haptics {
 	status = "okay";
+	qcom,vmax-mv = <3000>;
+	qcom,actuator-type = "erm";
 };
 
 &red_led {
