@@ -1406,7 +1406,7 @@ int swrm_wcd_notify(struct platform_device *pdev, u32 id, void *data)
 			dev_dbg(swrm->dev, "%s: SWR master is already UP: %d\n",
 				__func__, swrm->state);
 		} else {
-			swrm_runtime_resume(&pdev->dev);
+			pm_runtime_get_sync(&pdev->dev);
 			list_for_each_entry(swr_dev, &mstr->devices, dev_list) {
 				ret = swr_reset_device(swr_dev);
 				if (ret) {
@@ -1416,6 +1416,8 @@ int swrm_wcd_notify(struct platform_device *pdev, u32 id, void *data)
 					swrm_clk_request(swrm, false);
 				}
 			}
+			pm_runtime_mark_last_busy(&pdev->dev);
+			pm_runtime_put_autosuspend(&pdev->dev);
 		}
 		mutex_unlock(&swrm->mlock);
 		break;
