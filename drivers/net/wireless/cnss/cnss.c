@@ -259,6 +259,7 @@ static struct cnss_data {
 	int modem_current_status;
 	struct msm_bus_scale_pdata *bus_scale_table;
 	uint32_t bus_client;
+	int current_bandwidth_vote;
 	void *subsys_handle;
 	struct esoc_desc *esoc_desc;
 	struct cnss_platform_cap cap;
@@ -2062,7 +2063,8 @@ void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver)
 	}
 
 	if (penv->bus_client)
-		msm_bus_scale_client_update_request(penv->bus_client, 0);
+		msm_bus_scale_client_update_request(penv->bus_client,
+						    CNSS_BUS_WIDTH_NONE);
 
 	if (!pdev) {
 		pr_err("%d: invalid pdev\n", __LINE__);
@@ -2951,9 +2953,12 @@ int cnss_request_bus_bandwidth(int bandwidth)
 	case CNSS_BUS_WIDTH_HIGH:
 		ret = msm_bus_scale_client_update_request(penv->bus_client,
 				bandwidth);
-		if (ret)
+		if (!ret) {
+			penv->current_bandwidth_vote = bandwidth;
+		} else {
 			pr_err("%s: could not set bus bandwidth %d, ret = %d\n",
 			       __func__, bandwidth, ret);
+		}
 		break;
 
 	default:
@@ -3058,6 +3063,8 @@ int cnss_auto_suspend(void)
 	penv->monitor_wake_intr = true;
 	penv->pcie_link_state = PCIE_LINK_DOWN;
 
+	msm_bus_scale_client_update_request(penv->bus_client,
+					    CNSS_BUS_WIDTH_NONE);
 out:
 	return ret;
 }
@@ -3091,6 +3098,9 @@ int cnss_auto_resume(void)
 	pci_restore_state(pdev);
 
 	atomic_set(&penv->auto_suspended, 0);
+
+	msm_bus_scale_client_update_request(penv->bus_client,
+					    penv->current_bandwidth_vote);
 out:
 	return ret;
 }
