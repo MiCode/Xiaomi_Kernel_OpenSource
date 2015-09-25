@@ -76,6 +76,18 @@ static int mmc_host_runtime_suspend(struct device *dev)
 	if (ret < 0 && ret != -ENOMEDIUM)
 		pr_err("%s: %s: suspend host failed: %d\n", mmc_hostname(host),
 		       __func__, ret);
+	/* reset CQE state if host suspend fails */
+	if (ret < 0 && host->card && host->card->cmdq_init) {
+		mmc_card_clr_suspended(host->card);
+		mmc_host_clk_hold(host);
+		host->cmdq_ops->enable(host);
+		mmc_host_clk_release(host);
+		ret = mmc_cmdq_halt(host, false);
+		if (ret) {
+			pr_err("%s: halt: failed: %d\n", __func__, ret);
+			goto out;
+		}
+	}
 
 	/*
 	 * During card detection within mmc_rescan(), mmc_rpm_hold() will
@@ -166,13 +178,18 @@ static int mmc_host_suspend(struct device *dev)
 	host->dev_status = DEV_SUSPENDING;
 	spin_unlock_irqrestore(&host->clk_lock, flags);
 	if (!pm_runtime_suspended(dev)) {
-		if (host->card && mmc_card_cmdq(host->card)) {
+		if (host->card && host->card->cmdq_init) {
+			if (!mmc_try_claim_host(host)) {
+				ret = -EBUSY;
+				goto out;
+			}
 			BUG_ON(host->cmdq_ctx.active_reqs);
 
 			mmc_card_set_suspended(host->card);
 			ret = mmc_cmdq_halt(host, true);
 			if (ret) {
 				mmc_card_clr_suspended(host->card);
+				mmc_release_host(host);
 				pr_err("%s: halt: failed: %d\n", __func__, ret);
 				goto out;
 			}
@@ -184,6 +201,21 @@ static int mmc_host_suspend(struct device *dev)
 		if (ret < 0)
 			pr_err("%s: %s: failed: ret: %d\n", mmc_hostname(host),
 			       __func__, ret);
+		/* reset CQE state if host suspend fails */
+		if (ret < 0 && host->card && host->card->cmdq_init) {
+			mmc_card_clr_suspended(host->card);
+			mmc_host_clk_hold(host);
+			host->cmdq_ops->enable(host);
+			mmc_host_clk_release(host);
+			ret = mmc_cmdq_halt(host, false);
+			if (ret) {
+				mmc_release_host(host);
+				pr_err("%s: halt: failed: %d\n", __func__, ret);
+				goto out;
+			}
+		}
+		if (host->card && host->card->cmdq_init)
+			mmc_release_host(host);
 	}
 	/*
 	 * If SDIO function driver doesn't want to power off the card,

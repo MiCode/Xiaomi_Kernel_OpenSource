@@ -124,7 +124,6 @@ static irqreturn_t ngd_slim_interrupt(int irq, void *d)
 						(4 * i));
 			SLIM_DBG(dev, "REG-RX data: %x\n", rx_buf[i]);
 		}
-		ngd_slim_rx(dev, (u8 *)rx_buf);
 		writel_relaxed(NGD_INT_RX_MSG_RCVD,
 				ngd + NGD_INT_CLR);
 		/*
@@ -132,8 +131,7 @@ static irqreturn_t ngd_slim_interrupt(int irq, void *d)
 		 * queuing work
 		 */
 		mb();
-		if (dev->use_rx_msgqs == MSM_MSGQ_ENABLED)
-			SLIM_WARN(dev, "direct msg rcvd with RX MSGQs\n");
+		ngd_slim_rx(dev, (u8 *)rx_buf);
 	}
 	if (stat & NGD_INT_RECFG_DONE) {
 		writel_relaxed(NGD_INT_RECFG_DONE, ngd + NGD_INT_CLR);
@@ -1037,8 +1035,10 @@ static int ngd_get_laddr(struct slim_controller *ctrl, const u8 *ea,
 	return ret;
 }
 
-static void ngd_slim_setup_msg_path(struct msm_slim_ctrl *dev)
+static void ngd_slim_setup(struct msm_slim_ctrl *dev)
 {
+	u32 cfg = readl_relaxed(dev->base +
+				 NGD_BASE(dev->ctrl.nr, dev->ver));
 	if (dev->state == MSM_CTRL_DOWN) {
 		msm_slim_sps_init(dev, dev->bam_mem,
 			NGD_BASE(dev->ctrl.nr,
@@ -1046,21 +1046,45 @@ static void ngd_slim_setup_msg_path(struct msm_slim_ctrl *dev)
 	} else {
 		if (dev->use_rx_msgqs == MSM_MSGQ_DISABLED)
 			goto setup_tx_msg_path;
-		if (dev->use_rx_msgqs == MSM_MSGQ_ENABLED) {
-			SLIM_WARN(dev, "pipe setup when RX msgq enabled?");
+		if (cfg & NGD_CFG_RX_MSGQ_EN) {
+			SLIM_WARN(dev, "RX msgq status HW:0x%x, SW:%d:", cfg,
+				  dev->use_rx_msgqs);
 			goto setup_tx_msg_path;
 		}
+
+		if (dev->use_rx_msgqs == MSM_MSGQ_ENABLED)
+			msm_slim_disconnect_endp(dev, &dev->rx_msgq,
+						 &dev->use_rx_msgqs);
 		msm_slim_connect_endp(dev, &dev->rx_msgq);
 
 setup_tx_msg_path:
 		if (dev->use_tx_msgqs == MSM_MSGQ_DISABLED)
-			return;
-		if (dev->use_tx_msgqs == MSM_MSGQ_ENABLED) {
-			SLIM_WARN(dev, "pipe setup when TX msgq enabled?");
-			return;
+			goto ngd_enable;
+		if (cfg & NGD_CFG_TX_MSGQ_EN) {
+			SLIM_WARN(dev, "TX msgq status HW:0x%x, SW:%d:", cfg,
+				  dev->use_tx_msgqs);
+			goto ngd_enable;
 		}
+
+		if (dev->use_tx_msgqs == MSM_MSGQ_ENABLED)
+			msm_slim_disconnect_endp(dev, &dev->tx_msgq,
+						 &dev->use_tx_msgqs);
 		msm_slim_connect_endp(dev, &dev->tx_msgq);
 	}
+ngd_enable:
+	if (dev->use_rx_msgqs == MSM_MSGQ_ENABLED)
+		cfg |= NGD_CFG_RX_MSGQ_EN;
+	if (dev->use_tx_msgqs == MSM_MSGQ_ENABLED)
+		cfg |= NGD_CFG_TX_MSGQ_EN;
+
+	/* Enable NGD if it's not already enabled*/
+	if (!(cfg & NGD_CFG_ENABLE))
+		cfg |= NGD_CFG_ENABLE;
+
+	writel_relaxed(cfg, dev->base + NGD_BASE(dev->ctrl.nr, dev->ver));
+	/* make sure NGD MSG-Q config goes through */
+	mb();
+
 }
 
 static void ngd_slim_rx(struct msm_slim_ctrl *dev, u8 *buf)
@@ -1197,10 +1221,6 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev, bool mdm_restart)
 		dev->state = MSM_CTRL_DOWN;
 	}
 
-	msm_slim_deinit_ep(dev, &dev->rx_msgq,
-				&dev->use_rx_msgqs);
-	msm_slim_deinit_ep(dev, &dev->tx_msgq,
-				&dev->use_tx_msgqs);
 	/*
 	 * ADSP power collapse case (OR SSR), where HW was reset
 	 * BAM programming will happen when capability message is received
@@ -1216,17 +1236,12 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev, bool mdm_restart)
 	/* make sure register got updated */
 	mb();
 
-	/*
-	 * Enable NGD. Configure NGD in register acc. mode until master
-	 * announcement is received
-	 */
-	writel_relaxed(1, dev->base + NGD_BASE(dev->ctrl.nr, dev->ver));
-	/* make sure NGD enabling goes through */
-	mb();
+	/* reconnect BAM pipes if needed and enable NGD */
+	ngd_slim_setup(dev);
 
 	timeout = wait_for_completion_timeout(&dev->reconf, HZ);
 	if (!timeout) {
-		SLIM_ERR(dev, "Failed to receive master capability\n");
+		SLIM_WARN(dev, "capability exchange timed-out\n");
 		return -ETIMEDOUT;
 	}
 	/* mutliple transactions waiting on slimbus to power up? */
@@ -1286,7 +1301,6 @@ static int ngd_slim_rx_msgq_thread(void *data)
 	struct msm_slim_ctrl *dev = (struct msm_slim_ctrl *)data;
 	struct completion *notify = &dev->rx_msgq_notify;
 	int ret = 0;
-	u32 msgq_en = 1;
 
 	while (!kthread_should_stop()) {
 		struct slim_msg_txn txn;
@@ -1309,17 +1323,6 @@ static int ngd_slim_rx_msgq_thread(void *data)
 		txn.wbuf = wbuf;
 		txn.len = 4;
 		SLIM_INFO(dev, "SLIM SAT: Rcvd master capability\n");
-		if (dev->state >= MSM_CTRL_ASLEEP) {
-			ngd_slim_setup_msg_path(dev);
-			if (dev->use_rx_msgqs == MSM_MSGQ_ENABLED)
-				msgq_en |= NGD_CFG_RX_MSGQ_EN;
-			if (dev->use_tx_msgqs == MSM_MSGQ_ENABLED)
-				msgq_en |= NGD_CFG_TX_MSGQ_EN;
-			writel_relaxed(msgq_en, dev->base +
-					NGD_BASE(dev->ctrl.nr, dev->ver));
-			/* make sure NGD MSG-Q config goes through */
-			mb();
-		}
 capability_retry:
 		txn.rl = 8;
 		ret = ngd_xfer_msg(&dev->ctrl, &txn);
@@ -1331,7 +1334,7 @@ capability_retry:
 			if (prev_state >= MSM_CTRL_ASLEEP)
 				complete(&dev->reconf);
 			else
-				SLIM_ERR(dev,
+				SLIM_WARN(dev,
 					"SLIM: unexpected capability, state:%d\n",
 						prev_state);
 			/* ADSP SSR, send device_up notifications */
@@ -1344,6 +1347,8 @@ capability_retry:
 				retries++;
 				goto capability_retry;
 			}
+		} else {
+			SLIM_WARN(dev, "SLIM: capability TX failed:%d\n", ret);
 		}
 	}
 	return 0;

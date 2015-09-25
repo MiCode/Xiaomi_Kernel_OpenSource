@@ -2431,6 +2431,7 @@ static int venus_hfi_core_init(void *device)
 	struct list_head *ptr, *next;
 	struct hal_session *session = NULL;
 	struct venus_hfi_device *dev;
+	struct clock_voltage_info *cv_info = NULL;
 
 	if (device) {
 		dev = device;
@@ -2494,7 +2495,8 @@ static int venus_hfi_core_init(void *device)
 	 * firmware will check below register in sys_init parsing
 	 * to see if SW workaround for venus HW bug is enabled
 	 */
-	if (msm_vidc_regulator_cx_control) {
+	cv_info = &dev->res->cv_info;
+	if (cv_info->count && msm_vidc_regulator_cx_control) {
 		u32 ctrl_init;
 		dprintk(VIDC_DBG, "Cx voltage control enabled\n");
 		ctrl_init = venus_hfi_read_register(device, VIDC_CTRL_INIT);
@@ -3631,7 +3633,7 @@ static void venus_hfi_response_handler(struct venus_hfi_device *device)
 		}
 		venus_hfi_flush_debug_queue(device, packet);
 	} else {
-		dprintk(VIDC_ERR, "SPURIOUS_INTERRUPT\n");
+		dprintk(VIDC_DBG, "device (%p) is in deinit state\n", device);
 	}
 	kfree(packet);
 }
@@ -3651,7 +3653,8 @@ static void venus_hfi_core_work_handler(struct work_struct *work)
 		dprintk(VIDC_ERR, "%s: Power enable failed\n", __func__);
 		return;
 	}
-	if (device->res->sw_power_collapsible) {
+	if (device->res->sw_power_collapsible &&
+		device->state != VENUS_STATE_DEINIT) {
 		dprintk(VIDC_DBG, "Cancel and queue delayed work from %s\n",
 			__func__);
 		cancel_delayed_work(&venus_hfi_pm_work);

@@ -230,6 +230,7 @@ struct dsi_shared_data {
 	bool cmd_clk_ln_recovery_en;
 	bool dsi0_active;
 	bool dsi1_active;
+	bool split_config_independent_pll;
 
 	/* DSI bus clocks */
 	struct clk *mdp_core_clk;

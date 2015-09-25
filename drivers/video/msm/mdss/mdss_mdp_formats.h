@@ -269,10 +269,10 @@ static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
 		.bpp = 2,
 		.element = { C2_R_Cr, C0_G_Y, C1_B_Cb, C0_G_Y },
 	},
-	FMT_RGB_1555(MDP_RGBA_5551, 1, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
-	FMT_RGB_1555(MDP_ARGB_1555, 1, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
-	FMT_RGB_4444(MDP_RGBA_4444, 1, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
-	FMT_RGB_4444(MDP_ARGB_4444, 1, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
+	FMT_RGB_1555(MDP_RGBA_5551, 1, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
+	FMT_RGB_1555(MDP_ARGB_1555, 1, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb),
+	FMT_RGB_4444(MDP_RGBA_4444, 1, C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
+	FMT_RGB_4444(MDP_ARGB_4444, 1, C3_ALPHA, C2_R_Cr, C0_G_Y, C1_B_Cb),
 
 };
 #endif

@@ -285,6 +285,7 @@
 
 /* cpp_clk_src */
 #define gpll2_source_val		2
+#define gpll2_out_source_val		4
 #define gpll4_aux_source_val		3
 #define gpll6_out_m_source_val		5
 
@@ -316,6 +317,7 @@
 
 #define dsi0_phypll_mm_source_val	1
 #define dsi1_phypll_mm_source_val	1
+#define dsi0_phypll_clk_mm_source_val	3
 
 #define F(f, s, div, m, n) \
 	{ \
