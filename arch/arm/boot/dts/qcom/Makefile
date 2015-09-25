@@ -32,10 +32,26 @@ dtb-$(CONFIG_ARCH_MSM8996) += msm8996-v2-pmi8994-cdp.dtb \
 	msm8996-v3.0-fluid.dtb \
 	msm8996-v3.0-liquid.dtb \
 	msm8996-v3.0-dtp.dtb \
+	apq8096-v2-pmi8994-cdp.dtb \
+	apq8096-v2-pmi8994-pmk8001-cdp.dtb \
+	apq8096-v2-pmi8994-pm8004-cdp.dtb \
+	apq8096-v2-pmi8994-pm8004-pmk8001-cdp.dtb \
 	apq8096-v2-liquid.dtb \
-	apq8096-v3-liquid.dtb \
 	apq8096-v2-dragonboard.dtb \
-	apq8096-v3-dragonboard.dtb
+	apq8096-v3-pmi8994-cdp.dtb \
+	apq8096-v3-pmi8994-pmk8001-cdp.dtb \
+	apq8096-v3-pmi8994-pm8004-cdp.dtb \
+	apq8096-v3-pmi8994-pm8004-pmk8001-cdp.dtb \
+	apq8096-v3-pmi8996-cdp.dtb \
+	apq8096-v3-liquid.dtb \
+	apq8096-v3-dragonboard.dtb \
+	apq8096-v3.0-pmi8994-cdp.dtb \
+	apq8096-v3.0-pmi8994-pm8004-cdp.dtb \
+	apq8096-v3.0-pmi8994-pm8004-pmk8001-cdp.dtb \
+	apq8096-v3.0-pmi8994-pmk8001-cdp.dtb \
+	apq8096-v3.0-pmi8996-cdp.dtb \
+	apq8096-v3.0-liquid.dtb \
+	apq8096-v3.0-dragonboard.dtb
 
 dtb-$(CONFIG_ARCH_MSMCOBALT) += msmcobalt-sim.dtb \
 	msmcobalt-rumi.dtb

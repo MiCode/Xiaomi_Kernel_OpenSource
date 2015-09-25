@@ -16,9 +16,9 @@
  * msm8996.dtsi file.
  */
 
-#include "msm8996-v3.dtsi"
+#include "msm8996-v3.0.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. APQ 8096 v3";
-	qcom,msm-id = <291 0x30001>;
+	model = "Qualcomm Technologies, Inc. APQ 8096 v3.0";
+	qcom,msm-id = <291 0x30000>;
 };
