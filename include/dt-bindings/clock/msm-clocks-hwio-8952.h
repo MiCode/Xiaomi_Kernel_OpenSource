@@ -104,6 +104,7 @@
 #define GFX_TCU_CBCR			0x12020
 #define JPEG_TBU_CBCR			0x12034
 #define SMMU_CFG_CBCR			0x12038
+#define QDSS_DAP_CBCR			0x29084
 #define VFE_TBU_CBCR			0x1203C
 #define VFE1_TBU_CBCR			0x12090
 #define CPP_TBU_CBCR			0x12040
@@ -201,12 +202,21 @@
 #define OXILI_GMEM_CBCR			0x59024
 #define OXILI_AHB_CBCR			0x59028
 #define OXILI_TIMER_CBCR		0x59040
+#define OXILI_AON_CBCR			0x5904C
 #define CAMSS_TOP_AHB_CMD_RCGR		0x5A000
 #define BIMC_GPU_CBCR			0x59030
 #define GTCU_AHB_CBCR			0x12044
 #define IPA_TBU_CBCR			0x120A0
 #define SYSTEM_MM_NOC_CMD_RCGR		0x3D000
 #define USB_FS_BCR			0x3F000
+
+#define BYTE1_CMD_RCGR			0x4D0B0
+#define ESC1_CMD_RCGR			0x4D0A8
+#define PCLK1_CMD_RCGR			0x4D0B8
+#define MDSS_BYTE1_CBCR			0x4D0A0
+#define MDSS_ESC1_CBCR			0x4D09C
+#define MDSS_PCLK1_CBCR			0x4D0A4
+#define DCC_CBCR			0x77004
 
 #define RPM_MISC_CLK_TYPE		0x306b6c63
 #define RPM_BUS_CLK_TYPE		0x316b6c63
@@ -257,4 +267,140 @@
 #define APCS_C1_PLL_CONFIG_CTL		0x00014
 #define APCS_C1_PLL_STATUS		0x0001C
 
+
+#define CLKFLAG_WAKEUP_CYCLES		0x0
+#define CLKFLAG_SLEEP_CYCLES		0x0
+
+/* Mux source select values */
+#define xo_source_val			0
+#define xo_a_source_val			0
+#define gpll0_source_val		1
+#define gpll3_source_val		2
+#define gpll0_out_main_source_val	1   /* sdcc1_ice_core */
+/* cci_clk_src and usb_fs_system_clk_src */
+#define gpll0_out_aux_source_val	2
+#define gpll4_source_val		2   /* sdcc1_apss_clk_src */
+#define gpll6_source_val		2   /* mclk0_2_clk_src */
+#define gpll6_aux_source_val		3   /* gfx3d_clk_src */
+#define gpll6_out_main_source_val	1   /* usb_fs_ic_clk_src */
+#define dsi0_phypll_source_val		1
+#define dsi0_0phypll_source_val		1   /* byte0_clk & pclk0_clk */
+#define dsi0_1phypll_source_val         3   /* byte1_clk & pclk1_clk */
+#define dsi1_0phypll_source_val         3   /* byte0_clk & pclk0_clk */
+#define dsi1_1phypll_source_val         1   /* byte1_clk & pclk1_clk */
+
+
+#define F(f, s, div, m, n) \
+	{ \
+		.freq_hz = (f), \
+		.src_clk = &s##_clk_src.c, \
+		.m_val = (m), \
+		.n_val = ~((n)-(m)) * !!(n), \
+		.d_val = ~(n),\
+		.div_src_val = BVAL(4, 0, (int)(2*(div) - 1)) \
+			| BVAL(10, 8, s##_source_val), \
+	}
+
+#define F_SLEW(f, s_f, s, div, m, n) \
+	{ \
+		.freq_hz = (f), \
+		.src_freq = (s_f), \
+		.src_clk = &s##_clk_src.c, \
+		.m_val = (m), \
+		.n_val = ~((n)-(m)) * !!(n), \
+		.d_val = ~(n),\
+		.div_src_val = BVAL(4, 0, (int)(2*(div) - 1)) \
+			| BVAL(10, 8, s##_source_val), \
+	}
+
+#define F_APCS_PLL(f, l, m, n, pre_div, post_div, vco) \
+	{ \
+		.freq_hz = (f), \
+		.l_val = (l), \
+		.m_val = (m), \
+		.n_val = (n), \
+		.pre_div_val = BVAL(12, 12, (pre_div)), \
+		.post_div_val = BVAL(9, 8, (post_div)), \
+		.vco_val = BVAL(29, 28, (vco)), \
+	}
+
+#define VDD_DIG_FMAX_MAP1(l1, f1) \
+	.vdd_class = &vdd_dig, \
+	.fmax = (unsigned long[VDD_DIG_NUM]) {  \
+		[VDD_DIG_##l1] = (f1),          \
+	},                                      \
+	.num_fmax = VDD_DIG_NUM
+
+#define VDD_DIG_FMAX_MAP2(l1, f1, l2, f2) \
+	.vdd_class = &vdd_dig, \
+	.fmax = (unsigned long[VDD_DIG_NUM]) {  \
+		[VDD_DIG_##l1] = (f1),          \
+		[VDD_DIG_##l2] = (f2),          \
+	},                                      \
+	.num_fmax = VDD_DIG_NUM
+
+# define OVERRIDE_FMAX2(clkname, l1, f1, l2, f2) \
+	clkname##_clk_src.c.fmax[VDD_DIG_##l1] = (f1);  \
+	clkname##_clk_src.c.fmax[VDD_DIG_##l2] = (f2)
+
+#define VDD_DIG_FMAX_MAP3(l1, f1, l2, f2, l3, f3) \
+	.vdd_class = &vdd_dig, \
+	.fmax = (unsigned long[VDD_DIG_NUM]) {  \
+		[VDD_DIG_##l1] = (f1),          \
+		[VDD_DIG_##l2] = (f2),          \
+		[VDD_DIG_##l3] = (f3),          \
+	},                                      \
+	.num_fmax = VDD_DIG_NUM
+
+# define OVERRIDE_FMAX3(clkname, l1, f1, l2, f2, l3, f3) \
+	clkname##_clk_src.c.fmax[VDD_DIG_##l1] = (f1);\
+	clkname##_clk_src.c.fmax[VDD_DIG_##l2] = (f2);\
+	clkname##_clk_src.c.fmax[VDD_DIG_##l3] = (f3)
+
+
+# define OVERRIDE_FMAX4(clkname, l1, f1, l2, f2, l3, f3, l4, f4) \
+	clkname##_clk_src.c.fmax[VDD_DIG_##l1] = (f1);\
+	clkname##_clk_src.c.fmax[VDD_DIG_##l2] = (f2);\
+	clkname##_clk_src.c.fmax[VDD_DIG_##l3] = (f3);\
+	clkname##_clk_src.c.fmax[VDD_DIG_##l4] = (f4)
+
+#define VDD_DIG_FMAX_MAP5(l1, f1, l2, f2, l3, f3, l4, f4, l5, f5) \
+	.vdd_class = &vdd_dig, \
+	.fmax = (unsigned long[VDD_DIG_NUM]) {  \
+		[VDD_DIG_##l1] = (f1),\
+		[VDD_DIG_##l2] = (f2),\
+		[VDD_DIG_##l3] = (f3),\
+		[VDD_DIG_##l4] = (f4),\
+		[VDD_DIG_##l5] = (f5),\
+	},\
+	.num_fmax = VDD_DIG_NUM
+
+#define OVERRIDE_FMAX5(clkname, l1, f1, l2, f2, l3, f3, l4, f4, l5, f5) \
+	clkname##_clk_src.c.fmax[VDD_DIG_##l1] = (f1);\
+	clkname##_clk_src.c.fmax[VDD_DIG_##l2] = (f2);\
+	clkname##_clk_src.c.fmax[VDD_DIG_##l3] = (f3);\
+	clkname##_clk_src.c.fmax[VDD_DIG_##l4] = (f4);\
+	clkname##_clk_src.c.fmax[VDD_DIG_##l5] = (f5)
+
+#define OVERRIDE_FTABLE(clkname, ftable) \
+	clkname##_clk_src.freq_tbl = ftable##_thorium
+
+enum vdd_dig_levels {
+	VDD_DIG_NONE,
+	VDD_DIG_LOWER,
+	VDD_DIG_LOW,
+	VDD_DIG_NOMINAL,
+	VDD_DIG_NOM_PLUS,
+	VDD_DIG_HIGH,
+	VDD_DIG_NUM
+};
+
+int vdd_corner[] = {
+	RPM_REGULATOR_LEVEL_NONE,		/* VDD_DIG_NONE */
+	RPM_REGULATOR_LEVEL_SVS,		/* VDD_DIG_SVS */
+	RPM_REGULATOR_LEVEL_SVS_PLUS,		/* VDD_DIG_SVS_PLUS */
+	RPM_REGULATOR_LEVEL_NOM,		/* VDD_DIG_NOM */
+	RPM_REGULATOR_LEVEL_NOM_PLUS,		/* VDD_DIG_NOM_PLUS */
+	RPM_REGULATOR_LEVEL_TURBO,		/* VDD_DIG_TURBO */
+};
 #endif
