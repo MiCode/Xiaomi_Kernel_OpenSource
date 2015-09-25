@@ -1286,15 +1286,16 @@ int msm_vidc_destroy(struct msm_vidc_inst *inst)
 
 	core = inst->core;
 
-	v4l2_fh_del(&inst->event_handler);
-
-	for (i = 0; i < MAX_PORT_NUM; i++)
-		vb2_queue_release(&inst->bufq[i].vb2_bufq);
-
 	mutex_lock(&core->lock);
 	/* inst->list lives in core->instances */
 	list_del(&inst->list);
 	mutex_unlock(&core->lock);
+
+	v4l2_fh_del(&inst->event_handler);
+	v4l2_fh_exit(&inst->event_handler);
+
+	for (i = 0; i < MAX_PORT_NUM; i++)
+		vb2_queue_release(&inst->bufq[i].vb2_bufq);
 
 	pr_info(VIDC_DBG_TAG "Closed video instance: %p\n",
 			VIDC_MSG_PRIO2STRING(VIDC_INFO), inst);
