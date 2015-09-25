@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,7 +67,7 @@ enum {
 	/* dynamic items */
 	SMEM_AARM_PARTITION_TABLE,
 	SMEM_AARM_BAD_BLOCK_TABLE,
-	SMEM_RESERVE_BAD_BLOCKS,
+	SMEM_ERR_CRASH_LOG_ADSP,
 	SMEM_WM_UUID,
 	SMEM_CHANNEL_ALLOC_TBL,
 	SMEM_SMD_BASE_ID,
@@ -169,7 +169,9 @@ enum {
 	SMEM_GLINK_NATIVE_XPRT_FIFO_0, /* 479 */
 	SMEM_GLINK_NATIVE_XPRT_FIFO_1, /* 480 */
 	SMEM_SMP2P_SENSOR_BASE, /* 481 */
-	SMEM_NUM_ITEMS = SMEM_SMP2P_SENSOR_BASE + 8, /* 489 */
+	SMEM_SMP2P_TZ_BASE = SMEM_SMP2P_SENSOR_BASE + 8, /* 489 */
+	SMEM_IPA_FILTER_TABLE = SMEM_SMP2P_TZ_BASE + 8, /* 497 */
+	SMEM_NUM_ITEMS, /* 498 */
 };
 
 #ifdef CONFIG_MSM_SMEM
