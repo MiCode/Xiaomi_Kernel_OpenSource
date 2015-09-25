@@ -336,7 +336,6 @@ struct msm_ssphy_qmp {
 	bool			in_suspend;
 	bool			override_pll_cal;
 	bool			emulation;
-	bool			switch_pipe_clk_src;
 	bool			misc_config;
 	unsigned int		*phy_reg; /* revision based offset */
 };
@@ -504,18 +503,6 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 			clk_prepare_enable(phy->ref_clk);
 		clk_prepare_enable(phy->aux_clk);
 		clk_prepare_enable(phy->cfg_ahb_clk);
-
-		if (phy->switch_pipe_clk_src) {
-			/*
-			 * Before PHY is initilized we must first use the xo
-			 * clock as the source clock for the gcc_usb3_pipe_clk
-			 * as 19.2MHz. After PHY initilization we will set the
-			 * rate again to 125MHz.
-			 */
-			clk_set_rate(phy->pipe_clk, 19200000);
-			clk_prepare_enable(phy->pipe_clk);
-		} /* otherwise pipe_clk must be enabled after initialization */
-		phy->clk_enabled = true;
 	}
 
 	/* Rev ID is made up each of the LSBs of REVISION_ID[0-3] */
@@ -552,6 +539,15 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 
 	writel_relaxed(0x01, phy->base + PCIE_USB3_PHY_POWER_DOWN_CONTROL);
 
+	/* Make sure that above write completed to get PHY into POWER DOWN */
+	mb();
+
+	if (!phy->clk_enabled) {
+		clk_set_rate(phy->pipe_clk, 125000000);
+		clk_prepare_enable(phy->pipe_clk);
+		phy->clk_enabled = true;
+	}
+
 	/* Main configuration */
 	ret = configure_phy_regs(uphy, reg);
 	if (ret) {
@@ -579,9 +575,6 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	writel_relaxed(0x03, phy->base + PCIE_USB3_PHY_START);
 	writel_relaxed(0x00, phy->base + PCIE_USB3_PHY_SW_RESET);
 
-	if (!phy->switch_pipe_clk_src)
-		/* this clock wasn't enabled before, enable it now */
-		clk_prepare_enable(phy->pipe_clk);
 
 	/* Wait for PHY initialization to be done */
 	do {
@@ -599,16 +592,6 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 					phy->phy_reg[USB3_PHY_PCS_STATUS]));
 		return -EBUSY;
 	};
-
-	/*
-	 * After PHY initilization above, the PHY is generating
-	 * the usb3_pipe_clk in 125MHz. Therefore now we can (if needed)
-	 * switch the gcc_usb3_pipe_clk to 125MHz as well, so the
-	 * gcc_usb3_pipe_clk is sourced now from the usb3_pipe3_clk
-	 * instead of from the xo clock.
-	 */
-	if (phy->switch_pipe_clk_src)
-		clk_set_rate(phy->pipe_clk, 125000000);
 
 	return 0;
 }
@@ -976,9 +959,6 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 					"qcom,qmp-misc-config");
 	if (phy->misc_config)
 		dev_dbg(dev, "Miscellaneous configurations are enabled.\n");
-
-	phy->switch_pipe_clk_src = !of_property_read_bool(dev->of_node,
-					"qcom,no-pipe-clk-switch");
 
 	phy->phy.dev			= dev;
 	phy->phy.init			= msm_ssphy_qmp_init;
