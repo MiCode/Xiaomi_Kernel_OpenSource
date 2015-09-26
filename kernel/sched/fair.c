@@ -7021,7 +7021,7 @@ static inline bool task_fits_capacity(struct task_struct *p,
 static inline bool task_fits_max(struct task_struct *p, int cpu)
 {
 	unsigned long capacity = capacity_orig_of(cpu);
-	unsigned long max_capacity = cpu_rq(cpu)->rd->max_cpu_capacity;
+	unsigned long max_capacity = cpu_rq(cpu)->rd->max_cpu_capacity.val;
 
 	if (capacity == max_capacity)
 		return true;
@@ -7567,7 +7567,7 @@ static int wake_cap(struct task_struct *p, int cpu, int prev_cpu)
 		return 0;
 
 	min_cap = min(capacity_orig_of(prev_cpu), capacity_orig_of(cpu));
-	max_cap = cpu_rq(cpu)->rd->max_cpu_capacity;
+	max_cap = cpu_rq(cpu)->rd->max_cpu_capacity.val;
 
 	/* Minimum capacity is close to max, no need to abort wake_affine */
 	if (max_cap - min_cap < max_cap >> 3)
@@ -9311,10 +9311,21 @@ static unsigned long scale_rt_capacity(int cpu)
 	return 1;
 }
 
+void init_max_cpu_capacity(struct max_cpu_capacity *mcc)
+{
+	raw_spin_lock_init(&mcc->lock);
+	mcc->val = 0;
+	mcc->cpu = -1;
+}
+
 static void update_cpu_capacity(struct sched_domain *sd, int cpu)
 {
 	unsigned long capacity = arch_scale_cpu_capacity(sd, cpu);
 	struct sched_group *sdg = sd->groups;
+	struct max_cpu_capacity *mcc;
+	unsigned long max_capacity;
+	int max_cap_cpu;
+	unsigned long flags;
 
 	capacity = min(capacity, thermal_cap(cpu));
 
@@ -9323,6 +9334,26 @@ static void update_cpu_capacity(struct sched_domain *sd, int cpu)
 	capacity *= arch_scale_max_freq_capacity(sd, cpu);
 	capacity >>= SCHED_CAPACITY_SHIFT;
 
+	mcc = &cpu_rq(cpu)->rd->max_cpu_capacity;
+
+	raw_spin_lock_irqsave(&mcc->lock, flags);
+	max_capacity = mcc->val;
+	max_cap_cpu = mcc->cpu;
+
+	if ((max_capacity > capacity && max_cap_cpu == cpu) ||
+	    max_capacity < capacity) {
+		mcc->val = capacity;
+		mcc->cpu = cpu;
+#ifdef CONFIG_SCHED_DEBUG
+		raw_spin_unlock_irqrestore(&mcc->lock, flags);
+		printk_deferred("CPU%d: update max cpu_capacity %lu\n",
+							cpu, capacity);
+		goto skip_unlock;
+#endif
+	}
+	raw_spin_unlock_irqrestore(&mcc->lock, flags);
+
+skip_unlock: __attribute__ ((unused));
 	capacity *= scale_rt_capacity(cpu);
 	capacity >>= SCHED_CAPACITY_SHIFT;
 
@@ -11123,7 +11154,7 @@ static inline int find_new_ilb(void)
 	if (sd && (ilb >= nr_cpu_ids || !idle_cpu(ilb))) {
 		if (!energy_aware() ||
 				(capacity_orig_of(cpu) ==
-				cpu_rq(cpu)->rd->max_cpu_capacity ||
+				cpu_rq(cpu)->rd->max_cpu_capacity.val ||
 				cpu_overutilized(cpu))) {
 			cpumask_andnot(&cpumask, nohz.idle_cpus_mask,
 					cpu_isolated_mask);
