@@ -1991,8 +1991,24 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	ATRACE_BEGIN("display_wait4comp");
 	ret = mdss_mdp_display_wait4comp(mdp5_data->ctl);
 	ATRACE_END("display_wait4comp");
-	mutex_lock(&mdp5_data->ov_lock);
 
+	/*
+	 * Configure Timing Engine, if new fps was set.
+	 * We need to do this after the wait for vsync
+	 * to guarantee that mdp flush bit and dsi flush
+	 * bit are set within the same vsync period
+	 * regardless of  mdp revision.
+	 */
+	ATRACE_BEGIN("fps_update");
+	ret = mdss_mdp_ctl_update_fps(ctl);
+	ATRACE_END("fps_update");
+
+	if (IS_ERR_VALUE(ret)) {
+		pr_err("failed to update fps!\n");
+		goto commit_fail;
+	}
+
+	mutex_lock(&mdp5_data->ov_lock);
 	/*
 	 * If there is no secure display session and sd_enabled, disable the
 	 * secure display session
@@ -2651,13 +2667,21 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 		return rc;
 	}
 
-	if (!mdp5_data->ctl || !mdss_mdp_ctl_is_power_on(mdp5_data->ctl))
-		return 0;
+	if (!mdp5_data->ctl || !mdss_mdp_ctl_is_power_on(mdp5_data->ctl)) {
+		pr_debug("panel is off\n");
+		return count;
+	}
 
 	pdata = dev_get_platdata(&mfd->pdev->dev);
 	if (!pdata) {
 		pr_err("no panel connected for fb%d\n", mfd->index);
 		return -ENODEV;
+	}
+
+	if (!pdata->panel_info.dynamic_fps) {
+		pr_err_once("%s: Dynamic fps not enabled for this panel\n",
+				__func__);
+		return -EINVAL;
 	}
 
 	if (dfps == pdata->panel_info.mipi.frame_rate) {
@@ -2676,18 +2700,8 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 		pr_warn("Unsupported FPS. Configuring to max_fps = %d\n",
 				pdata->panel_info.max_fps);
 		dfps = pdata->panel_info.max_fps;
-		rc = mdss_mdp_ctl_update_fps(mdp5_data->ctl, dfps);
-	} else {
-		rc = mdss_mdp_ctl_update_fps(mdp5_data->ctl, dfps);
 	}
-	if (!rc) {
-		pr_debug("%s: configured to '%d' FPS\n", __func__, dfps);
-	} else {
-		pr_err("Failed to configure '%d' FPS. rc = %d\n",
-							dfps, rc);
-		mutex_unlock(&mdp5_data->dfps_lock);
-		return rc;
-	}
+
 	pdata->panel_info.new_fps = dfps;
 	mutex_unlock(&mdp5_data->dfps_lock);
 	return count;
