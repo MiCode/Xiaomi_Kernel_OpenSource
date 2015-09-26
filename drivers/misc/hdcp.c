@@ -863,6 +863,27 @@ exit:
 	return rc;
 }
 
+static bool hdcp2p2_client_feature_supported(void *phdcpcontext)
+{
+	int rc = 0;
+	bool supported = false;
+	struct hdcp2p2_handle *handle = phdcpcontext;
+
+	if (!handle) {
+		pr_err("invalid input\n");
+		goto end;
+	}
+
+	rc = hdcp2p2_library_load(handle);
+	if (!rc) {
+		pr_debug("HDCP2p2 supported\n");
+		hdcp2p2_library_unload(handle);
+		supported = true;
+	}
+end:
+	return supported;
+}
+
 static int hdcp2p2_client_start(void *phdcpcontext)
 {
 	int rc = 0;
@@ -1135,6 +1156,7 @@ int hdcp_library_register(void **pphdcpcontext,
 	/* populate ops to be called by client */
 	txmtr_ops->start = hdcp2p2_client_start;
 	txmtr_ops->stop = hdcp2p2_client_stop;
+	txmtr_ops->feature_supported = hdcp2p2_client_feature_supported;
 	txmtr_ops->process_message = hdcp2p2_txmtr_process_message;
 	txmtr_ops->hdcp_txmtr_query_stream_type =
 		hdcp2p2_txmtr_query_stream_type;
@@ -1166,7 +1188,8 @@ int hdcp_library_register(void **pphdcpcontext,
 	}
 
 	*((struct hdcp2p2_handle **)pphdcpcontext) = handle;
-	pr_debug("hdcp lib successfully initialized\n");
+
+	pr_debug("hdcp lib successfully registered\n");
 
 	return 0;
 error:
@@ -1195,6 +1218,8 @@ void hdcp_library_deregister(void *phdcpcontext)
 
 	if (handle->hdcp_workqueue)
 		destroy_workqueue(handle->hdcp_workqueue);
+
+	mutex_destroy(&handle->hdcp_lock);
 
 	kzfree(handle->listener_buf);
 	kzfree(handle);

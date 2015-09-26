@@ -554,6 +554,29 @@ static int hdcp2p2_isr(void *input)
 	return 0;
 }
 
+static bool hdcp2p2_feature_supported(void *input)
+{
+	struct hdcp2p2_ctrl *hdcp2p2_ctrl = input;
+	struct hdcp_txmtr_ops *lib = NULL;
+	bool supported = false;
+
+	if (!hdcp2p2_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		goto end;
+	}
+
+	lib = hdcp2p2_ctrl->txmtr_ops;
+	if (!lib) {
+		DEV_ERR("%s: invalid lib ops data\n", __func__);
+		goto end;
+	}
+
+	if (lib->feature_supported)
+		supported = lib->feature_supported(
+			hdcp2p2_ctrl->hdcp_lib_handle);
+end:
+	return supported;
+}
 
 static void hdcp2p2_reset(struct hdcp2p2_ctrl *hdcp2p2_ctrl)
 {
@@ -781,6 +804,7 @@ void *hdmi_hdcp2p2_init(struct hdmi_hdcp_init_data *init_data)
 		.hdmi_hdcp_isr = hdcp2p2_isr,
 		.hdmi_hdcp_reauthenticate = hdcp2p2_reauthenticate,
 		.hdmi_hdcp_authenticate = hdcp2p2_authenticate,
+		.feature_supported = hdcp2p2_feature_supported,
 		.hdmi_hdcp_off = hdcp2p2_off
 	};
 

@@ -1601,6 +1601,36 @@ error:
 	return status;
 } /* hdmi_tx_read_sink_info */
 
+static void hdmi_tx_update_hdcp_info(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	void *fd = NULL;
+	struct hdmi_hdcp_ops *ops = NULL;
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+
+	/* check first if hdcp2p2 is supported */
+	fd = hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP2P2];
+	if (fd)
+		ops = hdmi_hdcp2p2_start(fd);
+
+	if (ops && ops->feature_supported)
+		hdmi_ctrl->hdcp22_present = ops->feature_supported(fd);
+	else
+		hdmi_ctrl->hdcp22_present = false;
+
+	if (!hdmi_ctrl->hdcp22_present && hdmi_ctrl->hdcp14_present) {
+		fd = hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP];
+		ops = hdmi_hdcp_start(fd);
+	}
+
+	/* update internal data about hdcp */
+	hdmi_ctrl->hdcp_feature_data = fd;
+	hdmi_ctrl->hdcp_ops = ops;
+}
+
 static void hdmi_tx_hpd_int_work(struct work_struct *work)
 {
 	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
@@ -1630,26 +1660,7 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 		if (hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM, false))
 			DEV_ERR("%s: Failed to disable ddc power\n", __func__);
 
-		/* Figure out HDCP capabilities of sink */
-		hdmi_ctrl->hdcp_ops = NULL;
-		hdmi_ctrl->hdcp_feature_data =
-			hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP2P2];
-		if (hdmi_ctrl->hdcp_feature_data)
-			hdmi_ctrl->hdcp_ops =
-				hdmi_hdcp2p2_start(
-					hdmi_ctrl->hdcp_feature_data);
-
-		if (hdmi_ctrl->hdcp_ops)
-			hdmi_ctrl->hdcp22_present = true;
-		else
-			hdmi_ctrl->hdcp22_present = false;
-
-		if (!hdmi_ctrl->hdcp22_present && hdmi_ctrl->hdcp14_present) {
-			hdmi_ctrl->hdcp_feature_data =
-				hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP];
-			hdmi_ctrl->hdcp_ops =
-				hdmi_hdcp_start(hdmi_ctrl->hdcp_feature_data);
-		}
+		hdmi_tx_update_hdcp_info(hdmi_ctrl);
 
 		hdmi_tx_send_cable_notification(hdmi_ctrl, true);
 	} else {

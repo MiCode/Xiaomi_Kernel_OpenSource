@@ -17,6 +17,7 @@
 struct hdcp_txmtr_ops {
 	int (*start)(void *phdcpcontext);
 	int (*stop)(void *phdcpcontext);
+	bool (*feature_supported)(void *phdcpcontext);
 
 	int (*process_message)(void *phdcpcontext,
 		unsigned char *msg, uint32_t msg_size);
