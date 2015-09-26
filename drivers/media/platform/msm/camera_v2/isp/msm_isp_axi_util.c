@@ -1854,6 +1854,7 @@ static int msm_isp_update_stream_bandwidth(struct vfe_device *vfe_dev)
 	uint32_t num_rdi_streams = 0;
 	uint32_t total_streams   = 0;
 	uint64_t total_bandwidth = 0;
+	uint64_t stats_ab = 0, stats_ib = 0;
 
 	for (i = 0; i < VFE_AXI_SRC_MAX; i++) {
 		stream_info = &axi_data->stream_info[i];
@@ -1870,6 +1871,13 @@ static int msm_isp_update_stream_bandwidth(struct vfe_device *vfe_dev)
 	}
 	total_bandwidth = total_pix_bandwidth + total_rdi_bandwidth;
 	total_streams = num_pix_streams + num_rdi_streams;
+
+	stats_ab = axi_data->src_info[VFE_PIX_0].stats_ab;
+	stats_ab = (stats_ab == 0) ? MSM_ISP_MIN_AB : stats_ab;
+
+	stats_ib = axi_data->src_info[VFE_PIX_0].stats_ib;
+	stats_ib = (stats_ib == 0) ? MSM_ISP_MIN_IB : stats_ib;
+
 	if (total_bandwidth == 0)
 		rc = msm_isp_update_bandwidth(ISP_VFE0 + vfe_dev->pdev->id,
 			0, 0);
@@ -1879,8 +1887,8 @@ static int msm_isp_update_stream_bandwidth(struct vfe_device *vfe_dev)
 		(total_bandwidth * ISP_BUS_UTILIZATION_FACTOR / ISP_Q2));
 	else
 		rc = msm_isp_update_bandwidth(ISP_VFE0 + vfe_dev->pdev->id,
-			(total_bandwidth + MSM_ISP_MIN_AB),
-			(total_bandwidth + MSM_ISP_MIN_IB));
+			(total_bandwidth + stats_ab),
+			(total_bandwidth + stats_ib));
 
 	if (rc < 0)
 		pr_err("%s: update failed\n", __func__);
