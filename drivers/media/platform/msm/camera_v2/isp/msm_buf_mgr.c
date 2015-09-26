@@ -84,8 +84,7 @@ static uint32_t msm_isp_get_buf_handle(
 	uint32_t session_id, uint32_t stream_id)
 {
 	int i;
-	if ((buf_mgr->buf_handle_cnt << 8) == 0)
-		buf_mgr->buf_handle_cnt++;
+	uint32_t embedded_stream_id = 0;
 
 	for (i = 0; i < buf_mgr->num_buf_q; i++) {
 		if (buf_mgr->bufq[i].session_id == session_id &&
@@ -93,12 +92,18 @@ static uint32_t msm_isp_get_buf_handle(
 			return 0;
 	}
 
+	/* put stream id in handle, if its stats, use FFFF */
+	if (stream_id & (1 << 31))
+		embedded_stream_id = 0xFFFF;
+	else
+		embedded_stream_id = stream_id;
+
 	for (i = 0; i < buf_mgr->num_buf_q; i++) {
 		if (buf_mgr->bufq[i].bufq_handle == 0) {
 			memset(&buf_mgr->bufq[i],
 				0, sizeof(struct msm_isp_bufq));
 			buf_mgr->bufq[i].bufq_handle =
-				(++buf_mgr->buf_handle_cnt) << 8 | i;
+				embedded_stream_id << 8 | i;
 			return buf_mgr->bufq[i].bufq_handle;
 		}
 	}
@@ -838,6 +843,15 @@ static int msm_isp_buf_enqueue(struct msm_isp_buf_mgr *buf_mgr,
 	int rc = -1, buf_state;
 	struct msm_isp_bufq *bufq = NULL;
 	struct msm_isp_buffer *buf_info = NULL;
+
+	bufq = msm_isp_get_bufq(buf_mgr, info->handle);
+	if (!bufq) {
+		pr_err("%s: Invalid bufq, handle 0x%x, stream id %x num_plane %d\n"
+			, __func__, info->handle, (info->handle >> 8),
+			info->buffer.num_planes);
+		return -EINVAL;
+	}
+
 	buf_state = msm_isp_buf_prepare(buf_mgr, info, NULL);
 	if (buf_state < 0) {
 		pr_err_ratelimited("%s: Buf prepare failed\n", __func__);
@@ -855,12 +869,6 @@ static int msm_isp_buf_enqueue(struct msm_isp_buf_mgr *buf_mgr,
 			rc = msm_isp_put_buf(buf_mgr,
 				info->handle, info->buf_idx);
 		} else {
-			bufq = msm_isp_get_bufq(buf_mgr, info->handle);
-			if (!bufq) {
-				pr_err("%s: Invalid bufq\n",
-					__func__);
-				return rc;
-			}
 			if (BUF_SRC(bufq->stream_id))
 				pr_err("%s: Invalid native buffer state\n",
 					__func__);
@@ -870,11 +878,6 @@ static int msm_isp_buf_enqueue(struct msm_isp_buf_mgr *buf_mgr,
 					buf_info->tv, buf_info->frame_id, 0);
 		}
 	} else {
-		bufq = msm_isp_get_bufq(buf_mgr, info->handle);
-		if (!bufq) {
-			pr_err("%s: Invalid bufq\n", __func__);
-			return rc;
-			}
 		if (MSM_ISP_BUFFER_SRC_HAL != BUF_SRC(bufq->stream_id)) {
 			rc = msm_isp_put_buf(buf_mgr,
 					info->handle, info->buf_idx);
@@ -1223,7 +1226,6 @@ static int msm_isp_init_isp_buf_mgr(struct msm_isp_buf_mgr *buf_mgr,
 	for (i = 0; i < BUF_MGR_NUM_BUF_Q; i++)
 		spin_lock_init(&buf_mgr->bufq[i].bufq_lock);
 
-	buf_mgr->buf_handle_cnt = 0;
 	buf_mgr->pagefault_debug_disable = 0;
 	buf_mgr->frameId_mismatch_recovery = 0;
 	mutex_unlock(&buf_mgr->lock);
