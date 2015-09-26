@@ -428,16 +428,10 @@
 		msm_cam_smmu_cb1 {
 			compatible = "qcom,msm-cam-smmu-cb";
 			iommus = <&vfe_smmu 0>,
-					<&vfe_smmu 2>;
-			label = "vfe_image";
-			qcom,scratch-buf-support;
-		};
-
-		msm_cam_smmu_cb2 {
-			compatible = "qcom,msm-cam-smmu-cb";
-			iommus = <&vfe_smmu 1>,
+					<&vfe_smmu 1>,
+					<&vfe_smmu 2>,
 					<&vfe_smmu 3>;
-			label = "vfe_stats";
+			label = "vfe";
 			qcom,scratch-buf-support;
 		};
 
