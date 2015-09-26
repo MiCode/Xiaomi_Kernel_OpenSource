@@ -2145,10 +2145,7 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	/* Register page fault handler */
 	vfe_dev->buf_mgr->pagefault_debug_disable = 0;
 	cam_smmu_reg_client_page_fault_handler(
-			vfe_dev->buf_mgr->img_iommu_hdl,
-			msm_vfe_iommu_fault_handler, vfe_dev);
-	cam_smmu_reg_client_page_fault_handler(
-			vfe_dev->buf_mgr->stats_iommu_hdl,
+			vfe_dev->buf_mgr->iommu_hdl,
 			msm_vfe_iommu_fault_handler, vfe_dev);
 	mutex_unlock(&vfe_dev->core_mutex);
 	mutex_unlock(&vfe_dev->realtime_mutex);
@@ -2192,10 +2189,7 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	}
 	/* Unregister page fault handler */
 	cam_smmu_reg_client_page_fault_handler(
-		vfe_dev->buf_mgr->img_iommu_hdl,
-		NULL, vfe_dev);
-	cam_smmu_reg_client_page_fault_handler(
-		vfe_dev->buf_mgr->stats_iommu_hdl,
+		vfe_dev->buf_mgr->iommu_hdl,
 		NULL, vfe_dev);
 
 	rc = vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev, 1);

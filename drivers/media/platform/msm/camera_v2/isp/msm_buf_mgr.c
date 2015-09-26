@@ -153,18 +153,12 @@ static int msm_isp_prepare_v4l2_buf(struct msm_isp_buf_mgr *buf_mgr,
 	int i, rc = -1;
 	int ret;
 	struct msm_isp_buffer_mapped_info *mapped_info;
-	int iommu_hdl;
 	uint32_t accu_length = 0;
-
-	if (stream_id & ISP_STATS_STREAM_BIT)
-		iommu_hdl = buf_mgr->stats_iommu_hdl;
-	else
-		iommu_hdl = buf_mgr->img_iommu_hdl;
 
 	for (i = 0; i < qbuf_buf->num_planes; i++) {
 		mapped_info = &buf_info->mapped_info[i];
 		mapped_info->buf_fd = qbuf_buf->planes[i].addr;
-		ret = cam_smmu_get_phy_addr(iommu_hdl,
+		ret = cam_smmu_get_phy_addr(buf_mgr->iommu_hdl,
 					mapped_info->buf_fd,
 					CAM_SMMU_MAP_RW,
 					&(mapped_info->paddr),
@@ -198,7 +192,6 @@ static void msm_isp_unprepare_v4l2_buf(
 	int i;
 	struct msm_isp_buffer_mapped_info *mapped_info;
 	struct msm_isp_bufq *bufq = NULL;
-	int iommu_hdl;
 
 	if (!buf_mgr || !buf_info) {
 		pr_err("%s: NULL ptr %p %p\n", __func__,
@@ -213,15 +206,10 @@ static void msm_isp_unprepare_v4l2_buf(
 		return;
 	}
 
-	if (stream_id & ISP_STATS_STREAM_BIT)
-		iommu_hdl = buf_mgr->stats_iommu_hdl;
-	else
-		iommu_hdl = buf_mgr->img_iommu_hdl;
-
 	for (i = 0; i < buf_info->num_planes; i++) {
 		mapped_info = &buf_info->mapped_info[i];
 
-		cam_smmu_put_phy_addr(iommu_hdl, mapped_info->buf_fd);
+		cam_smmu_put_phy_addr(buf_mgr->iommu_hdl, mapped_info->buf_fd);
 	}
 	return;
 }
@@ -1050,27 +1038,22 @@ static void msm_isp_release_all_bufq(
  */
 static int msm_isp_buf_put_scratch(struct msm_isp_buf_mgr *buf_mgr)
 {
-	int rc, ret;
+	int rc;
 
 	if (!buf_mgr->scratch_buf_addr)
 		return 0;
 
-	rc = cam_smmu_put_phy_addr_scratch(buf_mgr->img_iommu_hdl,
+	rc = cam_smmu_put_phy_addr_scratch(buf_mgr->iommu_hdl,
 				buf_mgr->scratch_buf_addr);
 	if (rc)
 		pr_err("%s: failed to put scratch buffer to img iommu: %d\n",
 			__func__, rc);
 
-	ret = cam_smmu_put_phy_addr_scratch(buf_mgr->stats_iommu_hdl,
-				buf_mgr->scratch_buf_addr);
-	if (ret)
-		pr_err("%s: failed to put scratch buffer to stats iommu: %d\n",
-			__func__, ret);
 
-	if (!rc && !ret)
+	if (!rc)
 		buf_mgr->scratch_buf_addr = 0;
 
-	return rc | ret;
+	return rc;
 }
 
 /**
@@ -1085,14 +1068,13 @@ static int msm_isp_buf_put_scratch(struct msm_isp_buf_mgr *buf_mgr)
 static int msm_isp_buf_get_scratch(struct msm_isp_buf_mgr *buf_mgr)
 {
 	int rc;
-	dma_addr_t scratch_buf_addr;
 
 	if (buf_mgr->scratch_buf_addr || !buf_mgr->scratch_buf_range)
 		/* already mapped or not supported */
 		return 0;
 
 	rc = cam_smmu_get_phy_addr_scratch(
-				buf_mgr->img_iommu_hdl,
+				buf_mgr->iommu_hdl,
 				CAM_SMMU_MAP_RW,
 				&buf_mgr->scratch_buf_addr,
 				buf_mgr->scratch_buf_range,
@@ -1101,26 +1083,6 @@ static int msm_isp_buf_get_scratch(struct msm_isp_buf_mgr *buf_mgr)
 		pr_err("%s: failed to map scratch buffer to img iommu: %d\n",
 			__func__, rc);
 		return rc;
-	}
-	rc = cam_smmu_get_phy_addr_scratch(
-				buf_mgr->stats_iommu_hdl,
-				CAM_SMMU_MAP_RW,
-				&scratch_buf_addr,
-				buf_mgr->scratch_buf_range,
-				SZ_4K);
-	if (rc) {
-		pr_err("%s: failed to map scratch buffer to stats iommu: %d\n",
-			__func__, rc);
-		cam_smmu_put_phy_addr_scratch(buf_mgr->img_iommu_hdl,
-				buf_mgr->scratch_buf_addr);
-		return rc;
-	}
-
-	if (scratch_buf_addr != buf_mgr->scratch_buf_addr) {
-		pr_err("%s: Scratch addr differ: %pa/%pa\n",
-		__func__, &scratch_buf_addr, &buf_mgr->scratch_buf_addr);
-		rc = -EINVAL;
-		msm_isp_buf_put_scratch(buf_mgr);
 	}
 	return rc;
 }
@@ -1141,25 +1103,18 @@ int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 		 * non-secure mode
 		 */
 		if (buf_mgr->attach_ref_cnt == 0) {
-			rc = cam_smmu_ops(buf_mgr->img_iommu_hdl,
+			rc = cam_smmu_ops(buf_mgr->iommu_hdl,
 				CAM_SMMU_ATTACH);
 			if (rc < 0) {
 				pr_err("%s: img smmu attach error, rc :%d\n",
 					__func__, rc);
 			goto err1;
 			}
-			rc = cam_smmu_ops(buf_mgr->stats_iommu_hdl,
-				CAM_SMMU_ATTACH);
-			if (rc < 0) {
-				pr_err("%s: stats smmu attach error, rc :%d\n",
-					__func__, rc);
-				goto err2;
-			}
 		}
 		buf_mgr->attach_ref_cnt++;
 		rc = msm_isp_buf_get_scratch(buf_mgr);
 		if (rc)
-			goto err3;
+			goto err2;
 	} else {
 		if (buf_mgr->attach_ref_cnt > 0)
 			buf_mgr->attach_ref_cnt--;
@@ -1169,9 +1124,7 @@ int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 
 		if (buf_mgr->attach_ref_cnt == 0) {
 			rc = msm_isp_buf_put_scratch(buf_mgr);
-			rc |= cam_smmu_ops(buf_mgr->img_iommu_hdl,
-				CAM_SMMU_DETACH);
-			rc |= cam_smmu_ops(buf_mgr->stats_iommu_hdl,
+			rc |= cam_smmu_ops(buf_mgr->iommu_hdl,
 				CAM_SMMU_DETACH);
 			if (rc < 0) {
 				pr_err("%s: img/stats smmu detach error, rc :%d\n",
@@ -1183,11 +1136,8 @@ int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 	mutex_unlock(&buf_mgr->lock);
 	return rc;
 
-err3:
-	if (cam_smmu_ops(buf_mgr->stats_iommu_hdl, CAM_SMMU_DETACH))
-		pr_err("%s: stats iommu detach fail\n", __func__);
 err2:
-	if (cam_smmu_ops(buf_mgr->img_iommu_hdl, CAM_SMMU_DETACH))
+	if (cam_smmu_ops(buf_mgr->iommu_hdl, CAM_SMMU_DETACH))
 		pr_err("%s: img smmu detach error\n", __func__);
 err1:
 	mutex_unlock(&buf_mgr->lock);
@@ -1212,15 +1162,10 @@ static int msm_isp_init_isp_buf_mgr(struct msm_isp_buf_mgr *buf_mgr,
 	buf_mgr->num_buf_q = BUF_MGR_NUM_BUF_Q;
 	memset(buf_mgr->bufq, 0, sizeof(buf_mgr->bufq));
 
-	rc = cam_smmu_get_handle("vfe_image", &buf_mgr->img_iommu_hdl);
+	rc = cam_smmu_get_handle("vfe", &buf_mgr->iommu_hdl);
 	if (rc < 0) {
-		pr_err("vfe get image handle failed\n");
-		goto get_handle_error1;
-	}
-	rc = cam_smmu_get_handle("vfe_stats", &buf_mgr->stats_iommu_hdl);
-	if (rc < 0) {
-		pr_err("vfe get stats handle failed\n");
-		goto get_handle_error2;
+		pr_err("vfe get handle failed\n");
+		goto get_handle_error;
 	}
 
 	for (i = 0; i < BUF_MGR_NUM_BUF_Q; i++)
@@ -1231,9 +1176,7 @@ static int msm_isp_init_isp_buf_mgr(struct msm_isp_buf_mgr *buf_mgr,
 	mutex_unlock(&buf_mgr->lock);
 	return 0;
 
-get_handle_error2:
-	cam_smmu_destroy_handle(buf_mgr->img_iommu_hdl);
-get_handle_error1:
+get_handle_error:
 	mutex_unlock(&buf_mgr->lock);
 	return rc;
 }
@@ -1254,10 +1197,8 @@ static int msm_isp_deinit_isp_buf_mgr(
 	buf_mgr->pagefault_debug_disable = 0;
 
 	msm_isp_buf_put_scratch(buf_mgr);
-	cam_smmu_ops(buf_mgr->img_iommu_hdl, CAM_SMMU_DETACH);
-	cam_smmu_ops(buf_mgr->stats_iommu_hdl, CAM_SMMU_DETACH);
-	cam_smmu_destroy_handle(buf_mgr->img_iommu_hdl);
-	cam_smmu_destroy_handle(buf_mgr->stats_iommu_hdl);
+	cam_smmu_ops(buf_mgr->iommu_hdl, CAM_SMMU_DETACH);
+	cam_smmu_destroy_handle(buf_mgr->iommu_hdl);
 
 	buf_mgr->attach_ref_cnt = 0;
 	mutex_unlock(&buf_mgr->lock);
