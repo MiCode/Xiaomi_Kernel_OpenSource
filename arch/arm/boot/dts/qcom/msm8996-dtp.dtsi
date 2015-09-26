@@ -544,3 +544,9 @@
 &pmi8994_wled {
 	qcom,led-strings-list = [00 01];
 };
+
+&pm8994_l27{
+	regulator-min-microvolt = <1200000>;
+	regulator-max-microvolt = <1200000>;
+	qcom,init-voltage = <1200000>;
+};
