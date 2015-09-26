@@ -449,6 +449,7 @@ struct arm_smmu_domain {
 	struct list_head		unassign_list;
 	struct mutex			assign_lock;
 	struct list_head		secure_pool_list;
+	bool				non_fatal_faults;
 };
 
 static struct iommu_ops arm_smmu_ops;
@@ -1162,6 +1163,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	void __iomem *gr1_base;
 	phys_addr_t phys_soft;
 	u32 frsynra;
+	bool non_fatal_fault = smmu_domain->non_fatal_faults;
 
 	static DEFINE_RATELIMIT_STATE(_rs,
 				      DEFAULT_RATELIMIT_INTERVAL,
@@ -1256,6 +1258,11 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 		}
 		ret = IRQ_NONE;
 		resume = RESUME_TERMINATE;
+		if (!non_fatal_fault) {
+			dev_err(smmu->dev,
+				"Unhandled context faults are fatal on this domain. Going down now...\n");
+			BUG();
+		}
 	}
 
 	/*
@@ -2667,6 +2674,11 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 					& (1 << DOMAIN_ATTR_DYNAMIC));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_NON_FATAL_FAULTS:
+		*((int *)data) = !!(smmu_domain->attributes
+				    & (1 << DOMAIN_ATTR_NON_FATAL_FAULTS));
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
 		break;
@@ -2772,6 +2784,10 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 
 		/* this will be validated during attach */
 		smmu_domain->cfg.cbndx = *((unsigned int *)data);
+		ret = 0;
+		break;
+	case DOMAIN_ATTR_NON_FATAL_FAULTS:
+		smmu_domain->non_fatal_faults = *((int *)data);
 		ret = 0;
 		break;
 	default:
