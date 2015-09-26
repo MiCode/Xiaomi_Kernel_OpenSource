@@ -4136,15 +4136,40 @@ int mdss_mdp_mixer_pipe_unstage(struct mdss_mdp_pipe *pipe,
 	return 0;
 }
 
-int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl, int fps)
+int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl)
 {
+	struct mdss_panel_info *pinfo;
+	struct mdss_overlay_private *mdp5_data;
 	int ret = 0;
-	struct mdss_mdp_ctl *sctl = NULL;
+	int new_fps;
 
-	sctl = mdss_mdp_get_split_ctl(ctl);
+	if (!ctl->panel_data || !ctl->mfd)
+		return -ENODEV;
 
-	if (ctl->ops.config_fps_fnc)
-		ret = ctl->ops.config_fps_fnc(ctl, sctl, fps);
+	pinfo = &ctl->panel_data->panel_info;
+
+	if (!pinfo->dynamic_fps || !ctl->ops.config_fps_fnc)
+		return 0;
+
+	mdp5_data = mfd_to_mdp5_data(ctl->mfd);
+	if (!mdp5_data)
+		return -ENODEV;
+
+	mutex_lock(&mdp5_data->dfps_lock);
+	new_fps = pinfo->new_fps;
+	mutex_unlock(&mdp5_data->dfps_lock);
+
+	if (new_fps == pinfo->mipi.frame_rate) {
+		pr_debug("FPS is already %d\n", new_fps);
+		return 0;
+	}
+
+	ret = ctl->ops.config_fps_fnc(ctl, new_fps);
+	if (!ret)
+		pr_debug("fps set to %d\n", new_fps);
+	else
+		pr_err("Failed to configure %d fps rc=%d\n",
+			new_fps, ret);
 
 	return ret;
 }
