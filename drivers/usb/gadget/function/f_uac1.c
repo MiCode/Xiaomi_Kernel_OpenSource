@@ -479,6 +479,9 @@ static void f_audio_buffer_free(struct f_audio_buf *audio_buf)
 
 struct f_audio {
 	struct gaudio			card;
+	atomic_t			online;
+	struct mutex                    mutex;
+	struct work_struct		close_work;
 
 	/* endpoints handle full and/or high speeds */
 	struct usb_ep			*out_ep;
@@ -520,6 +523,19 @@ static void f_audio_playback_work(struct work_struct *data)
 	int res = 0;
 
 	pr_debug("%s: started\n", __func__);
+	if (!atomic_read(&audio->online)) {
+		pr_debug("%s offline\n", __func__);
+		return;
+	}
+	/* set up ASLA audio devices if not already done */
+	mutex_lock(&audio->mutex);
+	res = gaudio_setup(&audio->card);
+	if (res < 0) {
+		mutex_unlock(&audio->mutex);
+		return;
+	}
+	mutex_unlock(&audio->mutex);
+
 	spin_lock_irqsave(&audio->playback_lock, flags);
 	if (list_empty(&audio->play_queue)) {
 		pr_err("playback_buf is empty");
@@ -605,6 +621,19 @@ static void f_audio_capture_work(struct work_struct *data)
 	int res = 0;
 
 	pr_debug("%s Started\n", __func__);
+	if (!atomic_read(&audio->online)) {
+		pr_debug("%s offline\n", __func__);
+		return;
+	}
+	/* set up ASLA audio devices if not already done */
+	mutex_lock(&audio->mutex);
+	res = gaudio_setup(&audio->card);
+	if (res < 0) {
+		mutex_unlock(&audio->mutex);
+		return;
+	}
+	mutex_unlock(&audio->mutex);
+
 	spin_lock_irqsave(&audio->capture_lock, flags);
 	if (!list_empty(&audio->capture_queue)) {
 		spin_unlock_irqrestore(&audio->capture_lock, flags);
@@ -701,6 +730,11 @@ static void f_audio_complete(struct usb_ep *ep, struct usb_request *req)
 		break;
 	default:
 		pr_err("Failed completion: status %d", status);
+		/* fall through to to free buffer and req */
+	case -ECONNRESET:
+	case -ESHUTDOWN:
+		kfree(req->buf);
+		usb_ep_free_request(ep, req);
 		break;
 	}
 }
@@ -987,6 +1021,7 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	req_playback_count = opts->req_playback_count;
 	audio_playback_buf_size = opts->audio_playback_buf_size;
 
+	atomic_set(&audio->online, 1);
 	if (intf == uac1_header_desc.baInterfaceNr[0]) {
 		if (audio->alt_intf[0] == alt) {
 			pr_debug("Alt interface is already set to %d. Do nothing.\n",
@@ -996,6 +1031,10 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		}
 
 		if (alt == 1) {
+			err = config_ep_by_speed(cdev->gadget, f, in_ep);
+			if (err)
+				return err;
+
 			err = usb_ep_enable(in_ep);
 			if (err) {
 				pr_err("Failed to enable capture ep");
@@ -1029,6 +1068,7 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			schedule_work(&audio->capture_work);
 		} else {
 			struct f_audio_buf *capture_buf;
+			usb_ep_disable(in_ep);
 			spin_lock_irqsave(&audio->capture_lock, flags);
 			while (!list_empty(&audio->capture_queue)) {
 				capture_buf =
@@ -1051,6 +1091,10 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		}
 
 		if (alt == 1) {
+			err = config_ep_by_speed(cdev->gadget, f, out_ep);
+			if (err)
+				return err;
+
 			err = usb_ep_enable(out_ep);
 			if (err) {
 				pr_err("Failed to enable playback ep");
@@ -1092,6 +1136,7 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		} else {
 			struct f_audio_buf *playback_copy_buf =
 				audio->playback_copy_buf;
+			usb_ep_disable(out_ep);
 			if (playback_copy_buf) {
 				pr_err("Schedule playback_work");
 				list_add_tail(&playback_copy_buf->list,
@@ -1110,10 +1155,32 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	return err;
 }
 
+static void f_audio_close_work(struct work_struct *data)
+{
+	struct f_audio *audio =
+			container_of(data, struct f_audio, close_work);
+
+	pr_debug("close audio files\n");
+	mutex_lock(&audio->mutex);
+	gaudio_cleanup(&audio->card);
+	mutex_unlock(&audio->mutex);
+}
+
 static void f_audio_disable(struct usb_function *f)
 {
-	struct f_audio *audio = func_to_audio(f);
+	struct f_audio	*audio = func_to_audio(f);
+	struct usb_ep	*out_ep = audio->out_ep;
+	struct usb_ep	*in_ep = audio->in_ep;
+
+	pr_debug("Disable audio");
+	atomic_set(&audio->online, 0);
+	usb_ep_disable(in_ep);
+	usb_ep_disable(out_ep);
+
 	u_audio_clear(&audio->card);
+	schedule_work(&audio->close_work);
+
+	return;
 }
 
 /*-------------------------------------------------------------------------*/
@@ -1523,6 +1590,9 @@ static void f_audio_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct f_audio *audio = func_to_audio(f);
 
+	flush_work(&audio->playback_work);
+	flush_work(&audio->capture_work);
+	flush_work(&audio->close_work);
 	gaudio_cleanup(&audio->card);
 	usb_free_all_descriptors(f);
 }
@@ -1561,6 +1631,8 @@ static struct usb_function *f_audio_alloc(struct usb_function_instance *fi)
 
 	INIT_WORK(&audio->playback_work, f_audio_playback_work);
 	INIT_WORK(&audio->capture_work, f_audio_capture_work);
+	INIT_WORK(&audio->close_work, f_audio_close_work);
+	mutex_init(&audio->mutex);
 
 	return &audio->card.func;
 }
