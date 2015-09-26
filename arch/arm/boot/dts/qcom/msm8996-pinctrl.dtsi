@@ -948,6 +948,33 @@
 			};
 		};
 
+		spkr_i2s_clk_pin {
+			spkr_i2s_clk_sleep: spkr_i2s_clk_sleep {
+				mux {
+					pins = "gpio69";
+					function = "spkr_i2s";
+				};
+
+				config {
+					pins = "gpio69";
+					drive-strength = <2>; /* 2 mA */
+					bias-pull-down;       /* PULL DOWN */
+				};
+			};
+			spkr_i2s_clk_active: spkr_i2s_clk_active {
+				mux {
+					pins = "gpio69";
+					function = "spkr_i2s";
+				};
+
+				config {
+					pins = "gpio69";
+					drive-strength = <8>; /* 8 mA */
+					bias-disable;         /* NO PULL */
+				};
+			};
+		};
+
 		cnss_pins {
 			cnss_default: cnss_default {
 				mux {

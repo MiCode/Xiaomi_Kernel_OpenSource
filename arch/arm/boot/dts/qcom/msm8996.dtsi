@@ -741,6 +741,9 @@
 		clocks = <&clock_gcc clk_div_clk1>;
 		qcom,node_has_rpm_clock;
 		#clock-cells = <1>;
+		pinctrl-names = "sleep", "active";
+		pinctrl-0 = <&spkr_i2s_clk_sleep>;
+		pinctrl-1 = <&spkr_i2s_clk_active>;
 	};
 
 	tspp: msm_tspp@075e7000 {
@@ -820,8 +823,9 @@
 
 			qcom,cdc-reset-gpio = <&tlmm 64 0>;
 
-			clock-names = "wcd_clk";
-			clocks = <&clock_audio clk_audio_pmi_clk>;
+			clock-names = "wcd_clk", "wcd_native_clk";
+			clocks = <&clock_audio clk_audio_pmi_clk>,
+				 <&clock_audio clk_audio_ap_clk2>;
 
 			cdc-vdd-buck-supply = <&pm8994_s4>;
 			qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
