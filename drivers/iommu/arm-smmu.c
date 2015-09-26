@@ -821,6 +821,8 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	bool fatal_asf = smmu->options & ARM_SMMU_OPT_FATAL_ASF;
 	phys_addr_t phys_soft;
 	u32 frsynra;
+	bool non_fatal_fault = !!(smmu_domain->attributes &
+					DOMAIN_ATTR_NON_FATAL_FAULTS);
 
 	static DEFINE_RATELIMIT_STATE(_rs,
 				      DEFAULT_RATELIMIT_INTERVAL,
@@ -896,6 +898,11 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 		}
 		ret = IRQ_NONE;
 		resume = RESUME_TERMINATE;
+		if (!non_fatal_fault) {
+			dev_err(smmu->dev,
+				"Unhandled arm-smmu context fault!\n");
+			BUG();
+		}
 	}
 
 	/*
@@ -1870,6 +1877,11 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 					& (1 << DOMAIN_ATTR_DYNAMIC));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_NON_FATAL_FAULTS:
+		*((int *)data) = !!(smmu_domain->attributes
+				    & (1 << DOMAIN_ATTR_NON_FATAL_FAULTS));
+		ret = 0;
+		break;
 	default:
 		return -ENODEV;
 	}
@@ -1940,6 +1952,18 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		smmu_domain->cfg.cbndx = *((unsigned int *)data);
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_NON_FATAL_FAULTS: {
+		u32 non_fatal_faults = *((int *)data);
+
+		if (non_fatal_faults)
+			smmu_domain->attributes |=
+					1 << DOMAIN_ATTR_NON_FATAL_FAULTS;
+		else
+			smmu_domain->attributes &=
+					~(1 << DOMAIN_ATTR_NON_FATAL_FAULTS);
+		ret = 0;
+		break;
+	}
 	default:
 		ret = -ENODEV;
 	}
