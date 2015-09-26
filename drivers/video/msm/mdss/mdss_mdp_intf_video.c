@@ -828,19 +828,32 @@ static int mdss_mdp_video_dfps_wait4vsync(struct mdss_mdp_ctl *ctl)
 	struct mdss_mdp_video_ctx *ctx;
 
 	ctx = (struct mdss_mdp_video_ctx *) ctl->intf_ctx[MASTER_CTX];
+	if (!ctx) {
+		pr_err("invalid ctx\n");
+		return -ENODEV;
+	}
 
 	video_vsync_irq_enable(ctl, true);
 	reinit_completion(&ctx->vsync_comp);
 	rc = wait_for_completion_timeout(&ctx->vsync_comp,
 		usecs_to_jiffies(VSYNC_TIMEOUT_US));
-	WARN(rc <= 0, "timeout (%d) vsync interrupt on ctl=%d\n",
-		rc, ctl->num);
 
+	if (rc <= 0) {
+		pr_warn("vsync timeout %d fallback to poll mode\n",
+			ctl->num);
+		rc = mdss_mdp_video_pollwait(ctl);
+		if (rc) {
+			pr_err("error polling for vsync\n");
+			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
+				"dsi1_ctrl", "dsi1_phy", "vbif", "dbg_bus",
+				"vbif_dbg_bus", "panic");
+		}
+	} else {
+		rc = 0;
+	}
 	video_vsync_irq_disable(ctl);
-	if (rc <= 0)
-		return -EPERM;
 
-	return 0;
+	return rc;
 }
 
 static int mdss_mdp_video_dfps_check_line_cnt(struct mdss_mdp_ctl *ctl)
@@ -881,14 +894,29 @@ static void mdss_mdp_video_timegen_flush(struct mdss_mdp_ctl *ctl,
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, ctl_flush);
 }
 
-static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
-					struct mdss_mdp_ctl *sctl, int new_fps)
+/**
+ * mdss_mdp_video_config_fps() - modify the fps.
+ * @ctl: pointer to the master controller.
+ * @new_fps: new fps to be set.
+ *
+ * This function configures the hardware to modify the fps.
+ * Note that this function will flush the DSI and MDP
+ * to reconfigure the fps in VFP and HFP methods.
+ * Given above statement, is callers responsibility to call
+ * this function at the beginning of the frame, so it can be
+ * guaranteed that flush of both (DSI and MDP) happen within
+ * the same frame.
+ *
+ * Return: 0 - succeed, otherwise - fail
+ */
+static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl, int new_fps)
 {
 	struct mdss_mdp_video_ctx *ctx, *sctx = NULL;
 	struct mdss_panel_data *pdata;
 	int rc = 0;
 	u32 hsync_period, vsync_period;
-	struct mdss_data_type *mdata;
+	struct mdss_data_type *mdata = ctl->mdata;
+	struct mdss_mdp_ctl *sctl = NULL;
 
 	ctx = (struct mdss_mdp_video_ctx *) ctl->intf_ctx[MASTER_CTX];
 	if (!ctx || !ctx->timegen_en || !ctx->ref_cnt) {
@@ -896,7 +924,7 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 		return -EINVAL;
 	}
 
-	mdata = ctl->mdata;
+	sctl = mdss_mdp_get_split_ctl(ctl);
 	if (sctl) {
 		sctx = (struct mdss_mdp_video_ctx *) sctl->intf_ctx[MASTER_CTX];
 		if (!sctx) {
@@ -919,15 +947,11 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 		goto end;
 	}
 
-	if (!pdata->panel_info.dynamic_fps) {
-		pr_err("%s: Dynamic fps not enabled for this panel\n",
-						__func__);
-		rc = -EINVAL;
-		goto end;
-	}
-
 	vsync_period = mdss_panel_get_vtotal(&pdata->panel_info);
 	hsync_period = mdss_panel_get_htotal(&pdata->panel_info, true);
+
+	pr_debug("ctl:%d dfps_update:%d fps:%d\n",
+		ctl->num, pdata->panel_info.dfps_update, new_fps);
 
 	if (pdata->panel_info.dfps_update
 			!= DFPS_SUSPEND_RESUME_MODE) {
@@ -942,6 +966,7 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 					MDSS_EVENT_PANEL_UPDATE_FPS,
 					(void *) (unsigned long) new_fps,
 					CTL_INTF_EVENT_FLAG_DEFAULT);
+
 			WARN(rc, "intf %d panel fps update error (%d)\n",
 							ctl->intf_num, rc);
 		} else if (pdata->panel_info.dfps_update
@@ -952,19 +977,6 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 			if (!ctx->timegen_en) {
 				pr_err("TG is OFF. DFPS mode invalid\n");
 				rc = -EINVAL;
-				goto end;
-			}
-
-			/*
-			 * there is possibility that the time of mdp flush
-			 * bit set and the time of dsi flush bit are cross
-			 * vsync boundary. therefore wait4vsync is needed
-			 * to guarantee both flush bits are set within same
-			 * vsync period regardless of mdp revision.
-			 */
-			rc = mdss_mdp_video_dfps_wait4vsync(ctl);
-			if (rc < 0) {
-				pr_err("Error during wait4vsync\n");
 				goto end;
 			}
 
@@ -979,14 +991,16 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 
 			rc = mdss_mdp_video_fps_update(ctx, pdata, new_fps);
 			if (rc < 0) {
-				pr_err("%s: Error during DFPS\n", __func__);
+				pr_err("%s: Error during DFPS: %d\n", __func__,
+					new_fps);
 				goto exit_dfps;
 			}
 			if (sctx) {
 				rc = mdss_mdp_video_fps_update(sctx,
 							pdata->next, new_fps);
 				if (rc < 0) {
-					pr_err("%s: DFPS error\n", __func__);
+					pr_err("%s: DFPS error fps:%d\n",
+						__func__, new_fps);
 					goto exit_dfps;
 				}
 			}
@@ -997,6 +1011,7 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 			WARN(rc, "intf %d panel fps update error (%d)\n",
 							ctl->intf_num, rc);
 
+			rc = 0;
 			mdss_mdp_fetch_start_config(ctx, ctl);
 			if (sctx)
 				mdss_mdp_fetch_start_config(sctx, ctl);
@@ -1018,6 +1033,21 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 exit_dfps:
 			spin_unlock_irqrestore(&ctx->dfps_lock, flags);
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+
+			/*
+			 * Wait for one vsync to make sure these changes
+			 * are applied as part of one single frame and
+			 * no mixer changes happen at the same time.
+			 * A potential optimization would be not to wait
+			 * here, but next mixer programming would need
+			 * to wait before programming the flush bits.
+			 */
+			if (!rc) {
+				rc = mdss_mdp_video_dfps_wait4vsync(ctl);
+				if (rc < 0)
+					pr_err("Error in dfps_wait: %d\n", rc);
+			}
+
 		} else {
 			pr_err("intf %d panel, unknown FPS mode\n",
 							ctl->intf_num);
