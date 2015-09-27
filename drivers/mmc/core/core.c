@@ -1604,13 +1604,13 @@ EXPORT_SYMBOL(mmc_cmdq_discard_queue);
 /**
  *	mmc_cmdq_post_req - post process of a completed request
  *	@host: host instance
- *	@mrq: the request to be processed
+ *	@tag: the request tag.
  *	@err: non-zero is error, success otherwise
  */
-void mmc_cmdq_post_req(struct mmc_host *host, struct mmc_request *mrq, int err)
+void mmc_cmdq_post_req(struct mmc_host *host, int tag, int err)
 {
 	if (likely(host->cmdq_ops->post_req))
-		host->cmdq_ops->post_req(host, mrq, err);
+		host->cmdq_ops->post_req(host, tag, err);
 }
 EXPORT_SYMBOL(mmc_cmdq_post_req);
 

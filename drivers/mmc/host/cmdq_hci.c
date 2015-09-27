@@ -980,15 +980,23 @@ static int cmdq_halt(struct mmc_host *mmc, bool halt)
 	return ret;
 }
 
-static void cmdq_post_req(struct mmc_host *host, struct mmc_request *mrq,
-			  int err)
+static void cmdq_post_req(struct mmc_host *mmc, int tag, int err)
 {
-	struct mmc_data *data = mrq->data;
-	struct sdhci_host *sdhci_host = mmc_priv(host);
+	struct cmdq_host *cq_host;
+	struct mmc_request *mrq;
+	struct mmc_data *data;
+	struct sdhci_host *sdhci_host = mmc_priv(mmc);
+
+	if (WARN_ON(!mmc))
+		return;
+
+	cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
+	mrq = get_req_by_tag(cq_host, tag);
+	data = mrq->data;
 
 	if (data) {
 		data->error = err;
-		dma_unmap_sg(mmc_dev(host), data->sg, data->sg_len,
+		dma_unmap_sg(mmc_dev(mmc), data->sg, data->sg_len,
 			     (data->flags & MMC_DATA_READ) ?
 			     DMA_FROM_DEVICE : DMA_TO_DEVICE);
 		if (err)
