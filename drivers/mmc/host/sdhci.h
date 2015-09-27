@@ -466,20 +466,20 @@ struct sdhci_host {
  * could be lager than the maximum timeout value that controller
  * can handle.
  */
-#define SDHCI_QUIRK2_IGNORE_DATATOUT_FOR_R1BCMD		(1<<21)
+#define SDHCI_QUIRK2_IGNORE_DATATOUT_FOR_R1BCMD		(1<<20)
 
 /*
  * The preset value registers are not properly initialized by
  * some hardware and hence preset value must not be enabled for
  * such controllers.
  */
-#define SDHCI_QUIRK2_BROKEN_PRESET_VALUE		(1<<22)
+#define SDHCI_QUIRK2_BROKEN_PRESET_VALUE		(1<<21)
 /*
  * Some controllers define the usage of 0xF in data timeout counter
  * register (0x2E) which is actually a reserved bit as per
  * specification.
  */
-#define SDHCI_QUIRK2_USE_RESERVED_MAX_TIMEOUT		(1<<23)
+#define SDHCI_QUIRK2_USE_RESERVED_MAX_TIMEOUT		(1<<22)
 /*
  * This is applicable for controllers that advertize timeout clock
  * value in capabilities register (bit 5-0) as just 50MHz whereas the
