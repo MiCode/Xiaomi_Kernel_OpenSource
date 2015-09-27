@@ -3555,6 +3555,7 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 	struct msm_cpp_stream_buff_info_t k_cpp_buff_info;
 	struct msm_cpp_frame_info32_t k32_frame_info;
 	struct msm_cpp_frame_info_t k64_frame_info;
+	uint32_t identity_k = 0;
 	void __user *up = (void __user *)arg;
 
 	if (sd == NULL) {
@@ -3723,7 +3724,6 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 		break;
 	}
 	case VIDIOC_MSM_CPP_DEQUEUE_STREAM_BUFF_INFO32: {
-		uint32_t identity_k = 0;
 		uint32_t *identity_u = (uint32_t *)kp_ioctl.ioctl_ptr;
 
 		get_user(identity_k, identity_u);
