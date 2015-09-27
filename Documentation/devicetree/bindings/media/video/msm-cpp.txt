@@ -21,6 +21,40 @@ Required properties:
 - qcom,min-clock-rate: minimum clock rate in Hz, to be set to CPP hardware in
   case dynamic clock scaling based on prevalent streams need lower clock rate.
 - bus_master: Flag for presence of CPP bus master
+- qcom,cpp-fw-payload-info: Child node for cpp node having infomration on
+  cpp firmware payload offsets. This is mandatory node.
+
+Required properties of the child node:
+- qcom,stripe-base = Base offset of stripes in cpp payload.
+- qcom,plane-base = Base offset of planes in cpp payload.
+- qcom,stripe-size = size of each stripe in payload.
+- qcom,plane-size = size of each plane in payload.
+- qcom,fe-ptr-off = offset from stripe base to fetch engine address
+  location in payload.
+- qcom,we-ptr-off = offset from stripe base to write engine address
+  location in payload.
+
+Optional properties of the child node:
+- qcom,ref-fe-ptr-off =  offset from stripe base to reference fetch engine
+  address location in payload.
+- qcom,ref-we-ptr-off = offset from stripe base to reference write engine
+  address location in payload.
+- qcom,we-meta-ptr-off = offset from stripe base to metadata address
+  location in payload.
+- qcom,fe-mmu-pf-ptr-off = offset from plane base to fetch engine mmu prefetch
+  address min location in payload.
+- qcom,ref-fe-mmu-pf-ptr-off = offset from plane base to reference fetch engine
+  mmu prefetch address min location in payload.
+- qcom,we-mmu-pf-ptr-off = offset from plane base to write engine mmu prefetch
+  address min location in payload.
+- qcom,dup-we-mmu-pf-ptr-off = offset from plane base to duplicate write engine
+   mmu prefetch address min location in payload.
+- qcom,ref-we-mmu-pf-ptr-off =  offset from plane base to reference write engine
+   mmu prefetch address min location in payload.
+- qcom,set-group-buffer-len = length/size of set group buffer command used for
+  hfr.
+- qcom,dup-frame-indicator-off =  offset for duplicate frame indicator in a
+  batch for frames
 
 Example:
 
@@ -47,4 +81,22 @@ Example:
 		qcom,clock-rates = <0 465000000 0 0 465000000 0 0>;
 		qcom,min-clock-rate = <465000000>;
 		bus_master = <0>;
+		qcom,cpp-fw-payload-info {
+			qcom,stripe-base = <553>;
+			qcom,plane-base = <481>;
+			qcom,stripe-size = <61>;
+			qcom,plane-size = <24>;
+			qcom,fe-ptr-off = <11>;
+			qcom,we-ptr-off = <23>;
+			qcom,ref-fe-ptr-off = <17>;
+			qcom,ref-we-ptr-off = <36>;
+			qcom,we-meta-ptr-off = <42>;
+			qcom,fe-mmu-pf-ptr-off = <6>;
+			qcom,ref-fe-mmu-pf-ptr-off = <9>;
+			qcom,we-mmu-pf-ptr-off = <12>;
+			qcom,dup-we-mmu-pf-ptr-off = <17>;
+			qcom,ref-we-mmu-pf-ptr-off = <22>;
+			qcom,set-group-buffer-len = <69>;
+			qcom,dup-frame-indicator-off = <37>;
+		};
 	};

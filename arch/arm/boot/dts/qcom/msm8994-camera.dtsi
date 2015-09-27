@@ -449,6 +449,18 @@
 			"camss_vfe_cpp_clk","micro_iface_clk", "camss_ahb_clk";
 		qcom,clock-rates = <0 465000000 0 0 465000000 0 0>;
 		qcom,min-clock-rate = <320000000>;
+		qcom,cpp-fw-payload-info {
+			qcom,stripe-base = <493>;
+			qcom,plane-base = <478>;
+			qcom,stripe-size = <48>;
+			qcom,plane-size = <5>;
+			qcom,fe-ptr-off = <8>;
+			qcom,we-ptr-off = <20>;
+			qcom,ref-fe-ptr-off = <14>;
+			qcom,ref-we-ptr-off = <30>;
+			qcom,set-group-buffer-len = <69>;
+			qcom,dup-frame-indicator-off = <37>;
+		};
 	};
 
 	qcom,fd@fd878000 {

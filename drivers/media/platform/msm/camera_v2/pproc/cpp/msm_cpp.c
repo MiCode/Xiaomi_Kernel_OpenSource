@@ -63,21 +63,27 @@
 #define CPP_FW_VERSION_1_8_0	0x10080000
 #define CPP_FW_VERSION_1_10_0	0x10100000
 
-/* stripe information offsets in frame command */
-#define STRIPE_BASE_FW_1_2_0	130
-#define STRIPE_BASE_FW_1_4_0	140
-#define STRIPE_BASE_FW_1_5_0	156
-#define STRIPE_BASE_FW_1_6_0	464
-#define STRIPE_BASE_FW_1_8_0	493
-#define STRIPE_BASE_FW_1_10_0	553
-
-#define PLANE_BASE_FW_1_8_0	478
-#define PLANE_BASE_FW_1_10_0	481
-
 /* dump the frame command before writing to the hardware */
 #define  MSM_CPP_DUMP_FRM_CMD 0
 
 #define CPP_CLK_INFO_MAX 16
+
+#define PAYLOAD_NUM_PLANES 3
+#define TNR_MASK 0x4
+#define UBWC_MASK 0x20
+#define CDS_MASK 0x40
+#define MMU_PF_MASK 0x80
+
+#define CPP_DT_READ_U32_ERR(_dev, _key, _str, _ret, _out) { \
+		_key = _str; \
+		_ret = of_property_read_u32(_dev, _key, &_out); \
+		if (_ret) \
+			break; \
+	}
+
+#define CPP_DT_READ_U32(_dev, _str, _out) { \
+		of_property_read_u32(_dev, _str, &_out); \
+	}
 
 static int msm_cpp_buffer_ops(struct cpp_device *cpp_dev,
 	uint32_t buff_mgr_ops, struct msm_buf_mngr_info *buff_mgr_info);
@@ -182,27 +188,6 @@ struct msm_cpp_timer_t {
 };
 
 struct msm_cpp_timer_t cpp_timer;
-
-static int msm_cpp_is_tnr_enabled(struct cpp_device *cpp_dev,
-	uint32_t *cpp_frame_msg)
-{
-	if (cpp_frame_msg && cpp_dev) {
-		if (((cpp_dev->fw_version & 0xffff0000) ==
-			CPP_FW_VERSION_1_8_0) &&
-			((cpp_frame_msg[PLANE_BASE_FW_1_8_0] & 0x40) ||
-			(cpp_frame_msg[PLANE_BASE_FW_1_8_0 + 5] & 0x40) ||
-			(cpp_frame_msg[PLANE_BASE_FW_1_8_0 + 10] & 0x40))) {
-			return 1;
-		} else if (((cpp_dev->fw_version & 0xffff0000) ==
-			CPP_FW_VERSION_1_10_0) &&
-			((cpp_frame_msg[PLANE_BASE_FW_1_10_0] & 0x40) ||
-			(cpp_frame_msg[PLANE_BASE_FW_1_10_0 + 24] & 0x40) ||
-			(cpp_frame_msg[PLANE_BASE_FW_1_10_0 + 48] & 0x40))) {
-			return 1;
-		}
-	}
-	return 0;
-}
 
 static int msm_cpp_init_bandwidth_mgr(struct cpp_device *cpp_dev)
 {
@@ -852,106 +837,71 @@ static void cpp_get_clk_freq_tbl(struct clk *clk, struct cpp_hw_info *hw_info,
 	hw_info->freq_tbl_count = idx;
 }
 
-static void msm_cpp_calculate_stripe_base(struct cpp_device *cpp_dev)
+static int msm_cpp_read_payload_params_from_dt(struct cpp_device *cpp_dev)
 {
-	if ((cpp_dev->fw_version & 0xffff0000) ==
-		CPP_FW_VERSION_1_2_0) {
-		cpp_dev->stripe_base = STRIPE_BASE_FW_1_2_0;
-		cpp_dev->stripe_info_offset = 12;
-		cpp_dev->stripe_size = 27;
-		cpp_dev->rd_pntr = 5;
-		cpp_dev->wr_0_pntr = 11;
-		cpp_dev->wr_1_pntr = 12;
-		cpp_dev->wr_2_pntr = 13;
-		cpp_dev->wr_3_pntr = 14;
-		cpp_dev->rd_ref_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_ref_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_0_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_1_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_2_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_3_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
-	} else if ((cpp_dev->fw_version & 0xffff0000) ==
-		CPP_FW_VERSION_1_4_0) {
-		cpp_dev->stripe_base = STRIPE_BASE_FW_1_4_0;
-		cpp_dev->stripe_info_offset = 12;
-		cpp_dev->stripe_size = 27;
-		cpp_dev->rd_pntr = 5;
-		cpp_dev->wr_0_pntr = 11;
-		cpp_dev->wr_1_pntr = 12;
-		cpp_dev->wr_2_pntr = 13;
-		cpp_dev->wr_3_pntr = 14;
-		cpp_dev->rd_ref_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_ref_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_0_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_1_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_2_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_3_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
-	} else if ((cpp_dev->fw_version & 0xffff0000) ==
-		CPP_FW_VERSION_1_5_0) {
-		cpp_dev->stripe_base = STRIPE_BASE_FW_1_5_0;
-		cpp_dev->stripe_info_offset = 12;
-		cpp_dev->stripe_size = 27;
-		cpp_dev->rd_pntr = 5;
-		cpp_dev->wr_0_pntr = 11;
-		cpp_dev->wr_1_pntr = 12;
-		cpp_dev->wr_2_pntr = 13;
-		cpp_dev->wr_3_pntr = 14;
-		cpp_dev->rd_ref_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_ref_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_0_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_1_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_2_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_3_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
-	} else if ((cpp_dev->fw_version & 0xffff0000) ==
-		CPP_FW_VERSION_1_6_0) {
-		cpp_dev->stripe_base = STRIPE_BASE_FW_1_6_0;
-		cpp_dev->stripe_info_offset = 12;
-		cpp_dev->stripe_size = 27;
-		cpp_dev->rd_pntr = 5;
-		cpp_dev->wr_0_pntr = 11;
-		cpp_dev->wr_1_pntr = 12;
-		cpp_dev->wr_2_pntr = 13;
-		cpp_dev->wr_3_pntr = 14;
-		cpp_dev->rd_ref_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_ref_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_0_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_1_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_2_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_3_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
-	} else if ((cpp_dev->fw_version & 0xffff0000) ==
-		CPP_FW_VERSION_1_8_0) {
-		cpp_dev->stripe_base = STRIPE_BASE_FW_1_8_0;
-		cpp_dev->stripe_info_offset = 9;
-		cpp_dev->stripe_size = 48;
-		cpp_dev->rd_pntr = 8;
-		cpp_dev->wr_0_pntr = 20;
-		cpp_dev->wr_1_pntr = 21;
-		cpp_dev->wr_2_pntr = 22;
-		cpp_dev->wr_3_pntr = 23;
-		cpp_dev->rd_ref_pntr = 14;
-		cpp_dev->wr_ref_pntr = 30;
-		cpp_dev->wr_0_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_1_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_2_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
-		cpp_dev->wr_3_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
-	} else if ((cpp_dev->fw_version & 0xffff0000) ==
-		CPP_FW_VERSION_1_10_0) {
-		cpp_dev->stripe_base = STRIPE_BASE_FW_1_10_0;
-		cpp_dev->stripe_info_offset = 9;
-		cpp_dev->stripe_size = 61;
-		cpp_dev->rd_pntr = 11;
-		cpp_dev->wr_0_pntr = 23;
-		cpp_dev->wr_1_pntr = 24;
-		cpp_dev->wr_2_pntr = 25;
-		cpp_dev->wr_3_pntr = 26;
-		cpp_dev->rd_ref_pntr = 17;
-		cpp_dev->wr_ref_pntr = 36;
-		cpp_dev->wr_0_meta_data_wr_pntr = 42;
-		cpp_dev->wr_1_meta_data_wr_pntr = 43;
-		cpp_dev->wr_2_meta_data_wr_pntr = 44;
-		cpp_dev->wr_3_meta_data_wr_pntr = 45;
+	struct platform_device *pdev = cpp_dev->pdev;
+	struct device_node *fw_info_node = NULL, *dev_node = NULL;
+	char *key = "qcom,cpp-fw-payload-info";
+	struct msm_cpp_payload_params *payload_params;
+	int ret = 0;
+
+	if (!pdev || !pdev->dev.of_node) {
+		pr_err("%s: Invalid platform device/node\n", __func__);
+		ret = -ENODEV;
+		goto no_cpp_node;
 	}
-	return;
+
+	dev_node = pdev->dev.of_node;
+	fw_info_node = of_find_node_by_name(dev_node, key);
+	if (!fw_info_node) {
+		ret = -ENODEV;
+		goto no_binding;
+	}
+	payload_params = &cpp_dev->payload_params;
+	memset(payload_params, 0x0, sizeof(struct msm_cpp_payload_params));
+
+	do {
+		CPP_DT_READ_U32_ERR(fw_info_node, key, "qcom,stripe-base", ret,
+			payload_params->stripe_base);
+		CPP_DT_READ_U32_ERR(fw_info_node, key, "qcom,plane-base", ret,
+			payload_params->plane_base);
+		CPP_DT_READ_U32_ERR(fw_info_node, key, "qcom,stripe-size", ret,
+			payload_params->stripe_size);
+		CPP_DT_READ_U32_ERR(fw_info_node, key, "qcom,plane-size", ret,
+			payload_params->plane_size);
+		CPP_DT_READ_U32_ERR(fw_info_node, key, "qcom,fe-ptr-off", ret,
+			payload_params->rd_pntr_off);
+		CPP_DT_READ_U32_ERR(fw_info_node, key, "qcom,we-ptr-off", ret,
+			payload_params->wr_0_pntr_off);
+
+		CPP_DT_READ_U32(fw_info_node, "qcom,ref-fe-ptr-off",
+			payload_params->rd_ref_pntr_off);
+		CPP_DT_READ_U32(fw_info_node, "qcom,ref-we-ptr-off",
+			payload_params->wr_ref_pntr_off);
+		CPP_DT_READ_U32(fw_info_node, "qcom,we-meta-ptr-off",
+			payload_params->wr_0_meta_data_wr_pntr_off);
+		CPP_DT_READ_U32(fw_info_node, "qcom,fe-mmu-pf-ptr-off",
+			payload_params->fe_mmu_pf_ptr_off);
+		CPP_DT_READ_U32(fw_info_node, "qcom,ref-fe-mmu-pf-ptr-off",
+			payload_params->ref_fe_mmu_pf_ptr_off);
+		CPP_DT_READ_U32(fw_info_node, "qcom,we-mmu-pf-ptr-off",
+			payload_params->we_mmu_pf_ptr_off);
+		CPP_DT_READ_U32(fw_info_node, "qcom,dup-we-mmu-pf-ptr-off",
+			payload_params->dup_we_mmu_pf_ptr_off);
+		CPP_DT_READ_U32(fw_info_node, "qcom,ref-we-mmu-pf-ptr-off",
+			payload_params->ref_we_mmu_pf_ptr_off);
+		CPP_DT_READ_U32(fw_info_node, "qcom,set-group-buffer-len",
+			payload_params->set_group_buffer_len);
+		CPP_DT_READ_U32(fw_info_node, "qcom,dup-frame-indicator-off",
+			payload_params->dup_frame_indicator_off);
+	} while (0);
+
+no_binding:
+	if (ret)
+		pr_err("%s: Error reading binding %s, ret %d\n",
+			__func__, key, ret);
+no_cpp_node:
+	return ret;
 }
 
 static int cpp_init_hardware(struct cpp_device *cpp_dev)
@@ -1232,9 +1182,24 @@ static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin)
 	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_JUMP_ACK);
 	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_TRAILER);
 
-	/* Update the payload offsets */
-	msm_cpp_calculate_stripe_base(cpp_dev);
+	/*Get Bootloader Version*/
+	msm_cpp_write(MSM_CPP_CMD_GET_BOOTLOADER_VER, cpp_dev->base);
+	pr_info("MC Bootloader Version: 0x%x\n",
+		   msm_cpp_read(cpp_dev->base));
 
+	/*Get Firmware Version*/
+	msm_cpp_write(MSM_CPP_CMD_GET_FW_VER, cpp_dev->base);
+	msm_cpp_write(MSM_CPP_MSG_ID_CMD, cpp_dev->base);
+	msm_cpp_write(0x1, cpp_dev->base);
+	msm_cpp_write(MSM_CPP_CMD_GET_FW_VER, cpp_dev->base);
+	msm_cpp_write(MSM_CPP_MSG_ID_TRAILER, cpp_dev->base);
+
+	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_CMD);
+	msm_cpp_poll(cpp_dev->base, 0x2);
+	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_FW_VER);
+	cpp_dev->fw_version = msm_cpp_read(cpp_dev->base);
+	pr_info("CPP FW Version: 0x%08x\n", cpp_dev->fw_version);
+	msm_cpp_poll(cpp_dev->base, MSM_CPP_MSG_ID_TRAILER);
 	/*Disable MC clock*/
 	/*msm_camera_io_w(0x0, cpp_dev->base +
 					   MSM_CPP_MICRO_CLKEN_CTL);*/
@@ -1542,13 +1507,15 @@ static int msm_cpp_dump_frame_cmd(struct msm_cpp_frame_info_t *frame_info)
 
 	CPP_DBG("msg[%03d] = 0x%08x\n", 0, 0x6);
 	/* send top level and plane level */
-	for (i = 0; i < cpp_dev->stripe_base; i++)
+	for (i = 0; i < cpp_dev->payload_params.stripe_base; i++)
 		CPP_DBG("msg[%03d] = 0x%08x\n", i,
 			frame_info->cpp_cmd_msg[i]);
 	/* send stripes */
-	i1 = cpp_dev->stripe_base +
-		cpp_dev->stripe_size * frame_info->first_stripe_index;
-	i2 = cpp_dev->stripe_size * (frame_info->last_stripe_index -
+	i1 = cpp_dev->payload_params.stripe_base +
+		cpp_dev->payload_params.stripe_size *
+		frame_info->first_stripe_index;
+	i2 = cpp_dev->payload_params.stripe_size *
+		(frame_info->last_stripe_index -
 		frame_info->first_stripe_index + 1);
 	for (i = 0; i < i2; i++)
 		CPP_DBG("msg[%03d] = 0x%08x\n", i+i1,
@@ -1634,17 +1601,17 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 
 		msm_cpp_write(0x6, cpp_dev->base);
 		/* send top level and plane level */
-		for (j = 0; j < cpp_dev->stripe_base; j++) {
+		for (j = 0; j < cpp_dev->payload_params.stripe_base; j++) {
 			if (j % MSM_CPP_RX_FIFO_LEVEL == 0)
 				msm_cpp_poll_rx_empty(cpp_dev->base);
 			msm_cpp_write(processed_frame[i]->cpp_cmd_msg[j],
 				cpp_dev->base);
 		}
 		/* send stripes */
-		i1 = cpp_dev->stripe_base +
-			cpp_dev->stripe_size *
+		i1 = cpp_dev->payload_params.stripe_base +
+			cpp_dev->payload_params.stripe_size *
 			processed_frame[i]->first_stripe_index;
-		i2 = cpp_dev->stripe_size *
+		i2 = cpp_dev->payload_params.stripe_size *
 			(processed_frame[i]->last_stripe_index -
 			processed_frame[i]->first_stripe_index + 1);
 		for (j = 0; j < i2; j++) {
@@ -1708,16 +1675,18 @@ static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
 
 		msm_cpp_write(0x6, cpp_dev->base);
 		/* send top level and plane level */
-		for (i = 0; i < cpp_dev->stripe_base; i++) {
+		for (i = 0; i < cpp_dev->payload_params.stripe_base; i++) {
 			if (i % MSM_CPP_RX_FIFO_LEVEL == 0)
 				msm_cpp_poll_rx_empty(cpp_dev->base);
 			msm_cpp_write(process_frame->cpp_cmd_msg[i],
 				cpp_dev->base);
 		}
 		/* send stripes */
-		i1 = cpp_dev->stripe_base + cpp_dev->stripe_size *
+		i1 = cpp_dev->payload_params.stripe_base +
+			cpp_dev->payload_params.stripe_size *
 			process_frame->first_stripe_index;
-		i2 = cpp_dev->stripe_size * (process_frame->last_stripe_index -
+		i2 = cpp_dev->payload_params.stripe_size *
+			(process_frame->last_stripe_index -
 			process_frame->first_stripe_index + 1);
 		for (i = 0; i < i2; i++) {
 			if (i % MSM_CPP_RX_FIFO_LEVEL == 0)
@@ -1836,6 +1805,254 @@ static int msm_cpp_check_buf_type(struct msm_buf_mngr_info *buff_mgr_info,
 
 	return num_output_bufs;
 }
+
+static void msm_cpp_update_frame_msg_phy_address(struct cpp_device *cpp_dev,
+	struct msm_cpp_frame_info_t *new_frame, unsigned long in_phyaddr,
+	unsigned long out_phyaddr0, unsigned long out_phyaddr1,
+	unsigned long tnr_scratch_buffer0, unsigned long tnr_scratch_buffer1)
+{
+	int32_t stripe_base, plane_base;
+	uint32_t rd_pntr_off, wr_0_pntr_off, wr_1_pntr_off,
+		wr_2_pntr_off, wr_3_pntr_off;
+	uint32_t wr_0_meta_data_wr_pntr_off, wr_1_meta_data_wr_pntr_off,
+		wr_2_meta_data_wr_pntr_off, wr_3_meta_data_wr_pntr_off;
+	uint32_t rd_ref_pntr_off, wr_ref_pntr_off;
+	uint32_t stripe_size, plane_size;
+	uint32_t fe_mmu_pf_ptr_off, ref_fe_mmu_pf_ptr_off, we_mmu_pf_ptr_off,
+		dup_we_mmu_pf_ptr_off, ref_we_mmu_pf_ptr_off;
+	uint8_t tnr_enabled, ubwc_enabled, mmu_pf_en, cds_en;
+	int32_t i = 0;
+	uint32_t *cpp_frame_msg;
+
+	cpp_frame_msg = new_frame->cpp_cmd_msg;
+
+	/* Update stripe/plane size and base offsets */
+	stripe_base = cpp_dev->payload_params.stripe_base;
+	stripe_size = cpp_dev->payload_params.stripe_size;
+	plane_base = cpp_dev->payload_params.plane_base;
+	plane_size = cpp_dev->payload_params.plane_size;
+
+	/* Fetch engine Offset */
+	rd_pntr_off = cpp_dev->payload_params.rd_pntr_off;
+	/* Write engine offsets */
+	wr_0_pntr_off = cpp_dev->payload_params.wr_0_pntr_off;
+	wr_1_pntr_off = wr_0_pntr_off + 1;
+	wr_2_pntr_off = wr_1_pntr_off + 1;
+	wr_3_pntr_off = wr_2_pntr_off + 1;
+	/* Reference engine offsets */
+	rd_ref_pntr_off = cpp_dev->payload_params.rd_ref_pntr_off;
+	wr_ref_pntr_off = cpp_dev->payload_params.wr_ref_pntr_off;
+	/* Meta data offsets */
+	wr_0_meta_data_wr_pntr_off =
+		cpp_dev->payload_params.wr_0_meta_data_wr_pntr_off;
+	wr_1_meta_data_wr_pntr_off = (wr_0_meta_data_wr_pntr_off + 1);
+	wr_2_meta_data_wr_pntr_off = (wr_1_meta_data_wr_pntr_off + 1);
+	wr_3_meta_data_wr_pntr_off = (wr_2_meta_data_wr_pntr_off + 1);
+	/* MMU PF offsets */
+	fe_mmu_pf_ptr_off = cpp_dev->payload_params.fe_mmu_pf_ptr_off;
+	ref_fe_mmu_pf_ptr_off = cpp_dev->payload_params.ref_fe_mmu_pf_ptr_off;
+	we_mmu_pf_ptr_off = cpp_dev->payload_params.we_mmu_pf_ptr_off;
+	dup_we_mmu_pf_ptr_off = cpp_dev->payload_params.dup_we_mmu_pf_ptr_off;
+	ref_we_mmu_pf_ptr_off = cpp_dev->payload_params.ref_we_mmu_pf_ptr_off;
+
+	pr_debug("%s: feature_mask 0x%x\n", __func__, new_frame->feature_mask);
+
+	/* Update individual module status from feature mask */
+	tnr_enabled = ((new_frame->feature_mask & TNR_MASK) >> 2);
+	ubwc_enabled = ((new_frame->feature_mask & UBWC_MASK) >> 5);
+	cds_en = ((new_frame->feature_mask & CDS_MASK) >> 6);
+	mmu_pf_en = ((new_frame->feature_mask & MMU_PF_MASK) >> 7);
+
+	/*
+	 * Update the stripe based addresses for fetch/write/reference engines.
+	 * Update meta data offset for ubwc.
+	 * Update ref engine address for cds / tnr.
+	 */
+	for (i = 0; i < new_frame->num_strips; i++) {
+		cpp_frame_msg[stripe_base + rd_pntr_off + i * stripe_size] +=
+			(uint32_t) in_phyaddr;
+		cpp_frame_msg[stripe_base + wr_0_pntr_off + i * stripe_size] +=
+			(uint32_t) out_phyaddr0;
+		cpp_frame_msg[stripe_base + wr_1_pntr_off + i * stripe_size] +=
+			(uint32_t) out_phyaddr1;
+		cpp_frame_msg[stripe_base + wr_2_pntr_off + i * stripe_size] +=
+			(uint32_t) out_phyaddr0;
+		cpp_frame_msg[stripe_base + wr_3_pntr_off + i * stripe_size] +=
+			(uint32_t) out_phyaddr1;
+		if (tnr_enabled) {
+			cpp_frame_msg[stripe_base + rd_ref_pntr_off +
+				i * stripe_size] +=
+				(uint32_t)tnr_scratch_buffer0;
+			cpp_frame_msg[stripe_base + wr_ref_pntr_off +
+				i * stripe_size] +=
+				(uint32_t)tnr_scratch_buffer1;
+		} else if (cds_en) {
+			cpp_frame_msg[stripe_base + rd_ref_pntr_off +
+				i * stripe_size] +=
+				(uint32_t)in_phyaddr;
+		}
+		if (ubwc_enabled) {
+			cpp_frame_msg[stripe_base + wr_0_meta_data_wr_pntr_off +
+				i * stripe_size] += (uint32_t) out_phyaddr0;
+			cpp_frame_msg[stripe_base + wr_1_meta_data_wr_pntr_off +
+				i * stripe_size] += (uint32_t) out_phyaddr1;
+			cpp_frame_msg[stripe_base + wr_2_meta_data_wr_pntr_off +
+				i * stripe_size] += (uint32_t) out_phyaddr0;
+			cpp_frame_msg[stripe_base + wr_3_meta_data_wr_pntr_off +
+				i * stripe_size] += (uint32_t) out_phyaddr1;
+		}
+	}
+
+	if (!mmu_pf_en)
+		goto exit;
+
+	/* Update mmu prefetch related plane specific address */
+	for (i = 0; i < PAYLOAD_NUM_PLANES; i++) {
+		cpp_frame_msg[plane_base + fe_mmu_pf_ptr_off +
+			i * plane_size] += (uint32_t)in_phyaddr;
+		cpp_frame_msg[plane_base + fe_mmu_pf_ptr_off +
+			i * plane_size + 1] += (uint32_t)in_phyaddr;
+		cpp_frame_msg[plane_base + ref_fe_mmu_pf_ptr_off +
+			i * plane_size] += (uint32_t)tnr_scratch_buffer0;
+		cpp_frame_msg[plane_base + ref_fe_mmu_pf_ptr_off +
+			i * plane_size + 1] += (uint32_t)tnr_scratch_buffer0;
+		cpp_frame_msg[plane_base + we_mmu_pf_ptr_off +
+			i * plane_size] += (uint32_t)out_phyaddr0;
+		cpp_frame_msg[plane_base + we_mmu_pf_ptr_off +
+			i * plane_size + 1] += (uint32_t)out_phyaddr0;
+		cpp_frame_msg[plane_base + dup_we_mmu_pf_ptr_off +
+			i * plane_size] += (uint32_t)out_phyaddr1;
+		cpp_frame_msg[plane_base + dup_we_mmu_pf_ptr_off +
+			i * plane_size + 1] += (uint32_t)out_phyaddr1;
+		cpp_frame_msg[plane_base + ref_we_mmu_pf_ptr_off +
+			i * plane_size] += (uint32_t)tnr_scratch_buffer1;
+		cpp_frame_msg[plane_base + ref_we_mmu_pf_ptr_off +
+			i * plane_size + 1] += (uint32_t)tnr_scratch_buffer1;
+	}
+exit:
+	return;
+}
+
+static int32_t msm_cpp_set_group_buffer(struct cpp_device *cpp_dev,
+	struct msm_cpp_frame_info_t *new_frame, unsigned long out_phyaddr,
+	uint32_t num_output_bufs)
+{
+
+	uint32_t *set_group_buffer_w_duplication = NULL;
+	uint32_t *ptr;
+	unsigned long out_phyaddr0, out_phyaddr1, distance;
+	int32_t rc = 0;
+	uint32_t set_group_buffer_len, set_group_buffer_len_bytes,
+		dup_frame_off, ubwc_enabled, i = 0;
+
+	do {
+		if (new_frame->batch_info.batch_mode != BATCH_MODE_VIDEO) {
+			pr_debug("%s: batch mode not set %d\n", __func__,
+				new_frame->batch_info.batch_mode);
+			break;
+		}
+
+		if (new_frame->batch_info.batch_size <= 1) {
+			pr_debug("%s: batch size is invalid %d\n", __func__,
+				new_frame->batch_info.batch_size);
+			break;
+		}
+
+		set_group_buffer_len =
+			cpp_dev->payload_params.set_group_buffer_len;
+		if (!set_group_buffer_len) {
+			pr_err("%s: invalid set group buffer cmd len %d\n",
+				 __func__, set_group_buffer_len);
+			rc = -EINVAL;
+			break;
+		}
+
+		/*
+		 * Length of  MSM_CPP_CMD_GROUP_BUFFER command +
+		 * 4 byte for header + 4 byte for the length field +
+		 * 4 byte for the trailer + 4 byte for
+		 * MSM_CPP_CMD_GROUP_BUFFER prefix before the payload
+		 */
+		set_group_buffer_len += 4;
+		set_group_buffer_len_bytes = set_group_buffer_len *
+			sizeof(uint32_t);
+		set_group_buffer_w_duplication =
+			kzalloc(set_group_buffer_len_bytes, GFP_KERNEL);
+		if (!set_group_buffer_w_duplication) {
+			pr_err("%s: set group buffer data alloc failed\n",
+				__func__);
+			rc = -ENOMEM;
+			break;
+		}
+
+		memset(set_group_buffer_w_duplication, 0x0,
+			set_group_buffer_len_bytes);
+		dup_frame_off =
+			cpp_dev->payload_params.dup_frame_indicator_off;
+		/* Add a factor of 1 as command is prefixed to the payload. */
+		dup_frame_off += 1;
+		ubwc_enabled = ((new_frame->feature_mask & UBWC_MASK) >> 5);
+		ptr = set_group_buffer_w_duplication;
+		/*create and send Set Group Buffer with Duplicate command*/
+		*ptr++ = MSM_CPP_CMD_GROUP_BUFFER;
+		*ptr++ = MSM_CPP_MSG_ID_CMD;
+		/*
+		 * This field is the value read from dt and stands for length of
+		 * actual data in payload
+		 */
+		*ptr++ = cpp_dev->payload_params.set_group_buffer_len;
+		*ptr++ = MSM_CPP_CMD_GROUP_BUFFER;
+		*ptr++ = 0;
+		out_phyaddr0 = out_phyaddr;
+
+		for (i = 1; i < num_output_bufs; i++) {
+			out_phyaddr1 = msm_cpp_fetch_buffer_info(cpp_dev,
+				&new_frame->output_buffer_info[i],
+				((new_frame->identity >> 16) & 0xFFFF),
+				(new_frame->identity & 0xFFFF),
+				&new_frame->output_buffer_info[i].fd);
+			if (!out_phyaddr1) {
+				pr_err("%s: error getting o/p phy addr\n",
+					__func__);
+				rc = -EINVAL;
+				break;
+			}
+			distance = out_phyaddr1 - out_phyaddr0;
+			out_phyaddr0 = out_phyaddr1;
+			*ptr++ = distance;
+			*ptr++ = distance;
+			*ptr++ = distance;
+			if (ubwc_enabled)
+				*ptr++ = distance;
+		}
+		if (rc)
+			break;
+
+		if (new_frame->duplicate_output)
+			set_group_buffer_w_duplication[dup_frame_off] =
+				1 << new_frame->batch_info.pick_preview_idx;
+		else
+			set_group_buffer_w_duplication[dup_frame_off] = 0;
+
+		/*
+		 * Index for cpp message id trailer is length of payload for
+		 * set group buffer minus 1
+		 */
+		set_group_buffer_w_duplication[set_group_buffer_len - 1] =
+			MSM_CPP_MSG_ID_TRAILER;
+		rc = msm_cpp_send_command_to_hardware(cpp_dev,
+			set_group_buffer_w_duplication, set_group_buffer_len);
+		if (rc < 0) {
+			pr_err("%s: Send Command Error rc %d\n", __func__, rc);
+			break;
+		}
+
+	} while (0);
+
+	kfree(set_group_buffer_w_duplication);
+	return rc;
+}
+
 static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 	struct msm_cpp_frame_info_t *new_frame)
 {
@@ -1848,36 +2065,21 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 	uint16_t num_stripes = 0;
 	struct msm_buf_mngr_info buff_mgr_info, dup_buff_mgr_info;
 	int32_t in_fd;
-	int32_t i = 0, num_output_bufs = 1;
+	int32_t num_output_bufs = 1;
 	int32_t stripe_base = 0;
-	uint32_t rd_pntr, wr_0_pntr, wr_1_pntr, wr_2_pntr, wr_3_pntr;
-	uint32_t wr_0_meta_data_wr_pntr, wr_1_meta_data_wr_pntr,
-		wr_2_meta_data_wr_pntr, wr_3_meta_data_wr_pntr;
-	uint32_t rd_ref_pntr, wr_ref_pntr, stripe_info_offset, stripe_size;
-	uint8_t tnr_enabled, ubwc_enabled;
+	uint32_t stripe_size;
+	uint8_t tnr_enabled;
 	enum msm_camera_buf_mngr_buf_type buf_type =
 		MSM_CAMERA_BUF_MNGR_BUF_PLANAR;
+
+	stripe_base = cpp_dev->payload_params.stripe_base;
+	stripe_size = cpp_dev->payload_params.stripe_size;
 
 	if (!new_frame) {
 		pr_err("%s: Frame is Null\n", __func__);
 		return -EINVAL;
 	}
 	cpp_frame_msg = new_frame->cpp_cmd_msg;
-
-	stripe_base = cpp_dev->stripe_base;
-	stripe_info_offset = cpp_dev->stripe_info_offset;
-	stripe_size = cpp_dev->stripe_size;
-	rd_pntr = cpp_dev->rd_pntr;
-	wr_0_pntr = cpp_dev->wr_0_pntr;
-	wr_1_pntr = cpp_dev->wr_1_pntr;
-	wr_2_pntr = cpp_dev->wr_2_pntr;
-	wr_3_pntr = cpp_dev->wr_3_pntr;
-	rd_ref_pntr = cpp_dev->rd_ref_pntr;
-	wr_ref_pntr = cpp_dev->wr_ref_pntr;
-	wr_0_meta_data_wr_pntr = cpp_dev->wr_0_meta_data_wr_pntr;
-	wr_1_meta_data_wr_pntr = cpp_dev->wr_1_meta_data_wr_pntr;
-	wr_2_meta_data_wr_pntr = cpp_dev->wr_2_meta_data_wr_pntr;
-	wr_3_meta_data_wr_pntr = cpp_dev->wr_3_meta_data_wr_pntr;
 
 	if (cpp_frame_msg == NULL ||
 		(new_frame->msg_len < MSM_CPP_MIN_FRAME_LENGTH)) {
@@ -2003,57 +2205,7 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 		CPP_DBG("out_phyaddr1= %08x\n", (uint32_t)out_phyaddr1);
 	}
 
-	if ((BATCH_MODE_VIDEO == new_frame->batch_info.batch_mode) &&
-		(new_frame->batch_info.batch_size > 1)) {
-		/*create and send Set Group Buffer with Duplicate command*/
-		uint32_t set_group_buffer_w_duplication[73];
-		uint32_t *ptr = &set_group_buffer_w_duplication[0];
-		unsigned long out_phyaddr, out_phyaddr_new, distance;
-
-		memset(ptr, 0, sizeof(set_group_buffer_w_duplication));
-		*ptr++ = MSM_CPP_CMD_GROUP_BUFFER;
-		*ptr++ = MSM_CPP_MSG_ID_CMD;
-		*ptr++ = MSM_CPP_GROUP_CMD_LEN;
-		*ptr++ = MSM_CPP_CMD_GROUP_BUFFER;
-		*ptr++ = 0;
-		out_phyaddr = out_phyaddr0;
-		for (i = 1; i < num_output_bufs; i++) {
-			out_phyaddr_new = msm_cpp_fetch_buffer_info(cpp_dev,
-				&new_frame->output_buffer_info[i],
-				((new_frame->identity >> 16) & 0xFFFF),
-				(new_frame->identity & 0xFFFF),
-				&new_frame->output_buffer_info[i].fd);
-			if (!out_phyaddr_new) {
-				pr_err("%s: error getting o/p phy addr\n",
-					__func__);
-				rc = -EINVAL;
-				goto phyaddr_err;
-			}
-			distance = out_phyaddr_new - out_phyaddr;
-			out_phyaddr = out_phyaddr_new;
-			*ptr++ = distance;
-			*ptr++ = distance;
-			*ptr++ = distance;
-		}
-		if (new_frame->duplicate_output)
-			set_group_buffer_w_duplication[38] =
-				1 << new_frame->batch_info.pick_preview_idx;
-		else
-			set_group_buffer_w_duplication[38] = 0;
-
-		set_group_buffer_w_duplication[72] = MSM_CPP_MSG_ID_TRAILER;
-		rc = msm_cpp_send_command_to_hardware(cpp_dev,
-			&set_group_buffer_w_duplication[0], 73);
-		if (rc < 0) {
-			pr_err("%s: Send Command Error\n", __func__);
-			rc = -EINVAL;
-			goto phyaddr_err;
-		}
-	}
-
-	tnr_enabled = msm_cpp_is_tnr_enabled(cpp_dev, cpp_frame_msg);
-	pr_debug("%s: feature_mask 0x%x\n", __func__, new_frame->feature_mask);
-	ubwc_enabled = ((new_frame->feature_mask & 0x20) >> 5);
+	tnr_enabled = ((new_frame->feature_mask & TNR_MASK) >> 2);
 	if (tnr_enabled) {
 		tnr_scratch_buffer0 = msm_cpp_fetch_buffer_info(cpp_dev,
 			&new_frame->tnr_scratch_buffer_info[0],
@@ -2081,41 +2233,20 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 		tnr_scratch_buffer1 = 0;
 	}
 
-	for (i = 0; i < new_frame->num_strips; i++) {
-		cpp_frame_msg[stripe_base + rd_pntr + i * stripe_size] +=
-			(uint32_t) in_phyaddr;
-		cpp_frame_msg[stripe_base + wr_0_pntr + i * stripe_size] +=
-			(uint32_t) out_phyaddr0;
-		cpp_frame_msg[stripe_base + wr_1_pntr + i * stripe_size] +=
-			(uint32_t) out_phyaddr1;
-		cpp_frame_msg[stripe_base + wr_2_pntr + i * stripe_size] +=
-			(uint32_t) out_phyaddr0;
-		cpp_frame_msg[stripe_base + wr_3_pntr + i * stripe_size] +=
-			(uint32_t) out_phyaddr1;
-		if (tnr_enabled) {
-			cpp_frame_msg[stripe_base + rd_ref_pntr +
-				i * stripe_size] +=
-				(uint32_t)tnr_scratch_buffer0;
-			cpp_frame_msg[stripe_base + wr_ref_pntr +
-				i * stripe_size] +=
-				(uint32_t)tnr_scratch_buffer1;
-		}
-		if (ubwc_enabled) {
-			cpp_frame_msg[stripe_base + wr_0_meta_data_wr_pntr +
-				i * stripe_size] += (uint32_t) out_phyaddr0;
-			cpp_frame_msg[stripe_base + wr_1_meta_data_wr_pntr +
-				i * stripe_size] += (uint32_t) out_phyaddr1;
-			cpp_frame_msg[stripe_base + wr_2_meta_data_wr_pntr +
-				i * stripe_size] += (uint32_t) out_phyaddr0;
-			cpp_frame_msg[stripe_base + wr_3_meta_data_wr_pntr +
-				i * stripe_size] += (uint32_t) out_phyaddr1;
 
-		}
-	}
-
+	msm_cpp_update_frame_msg_phy_address(cpp_dev, new_frame,
+		in_phyaddr, out_phyaddr0, out_phyaddr1,
+		tnr_scratch_buffer0, tnr_scratch_buffer1);
 	if (tnr_enabled) {
 		cpp_frame_msg[10] = tnr_scratch_buffer1 -
 			tnr_scratch_buffer0;
+	}
+
+	rc = msm_cpp_set_group_buffer(cpp_dev, new_frame, out_phyaddr0,
+		num_output_bufs);
+	if (rc) {
+		pr_err("%s: set group buffer failure %d\n", __func__, rc);
+		goto phyaddr_err;
 	}
 
 	num_stripes = new_frame->last_stripe_index -
@@ -3598,6 +3729,10 @@ static int cpp_probe(struct platform_device *pdev)
 	if (rc)
 		cpp_dev->bus_master_flag = 0;
 	pr_err("Bus master %d\n", cpp_dev->bus_master_flag);
+
+	rc = msm_cpp_read_payload_params_from_dt(cpp_dev);
+	if (rc)
+		goto cpp_probe_init_error;
 
 	rc = cpp_init_hardware(cpp_dev);
 	if (rc < 0)

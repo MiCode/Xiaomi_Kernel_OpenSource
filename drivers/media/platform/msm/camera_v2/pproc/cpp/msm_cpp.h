@@ -90,7 +90,6 @@
 #define MSM_CPP_TASKLETQ_SIZE		16
 #define MSM_CPP_TX_FIFO_LEVEL		16
 #define MSM_CPP_RX_FIFO_LEVEL		512
-#define MSM_CPP_GROUP_CMD_LEN		69
 
 struct cpp_subscribe_info {
 	struct v4l2_fh *vfh;
@@ -175,6 +174,27 @@ struct msm_cpp_work_t {
 	struct cpp_device *cpp_dev;
 };
 
+struct msm_cpp_payload_params {
+	uint32_t stripe_base;
+	uint32_t stripe_size;
+	uint32_t plane_base;
+	uint32_t plane_size;
+
+	/* offsets for stripe/plane pointers in payload */
+	uint32_t rd_pntr_off;
+	uint32_t wr_0_pntr_off;
+	uint32_t rd_ref_pntr_off;
+	uint32_t wr_ref_pntr_off;
+	uint32_t wr_0_meta_data_wr_pntr_off;
+	uint32_t fe_mmu_pf_ptr_off;
+	uint32_t ref_fe_mmu_pf_ptr_off;
+	uint32_t we_mmu_pf_ptr_off;
+	uint32_t dup_we_mmu_pf_ptr_off;
+	uint32_t ref_we_mmu_pf_ptr_off;
+	uint32_t set_group_buffer_len;
+	uint32_t dup_frame_indicator_off;
+};
+
 struct cpp_device {
 	struct platform_device *pdev;
 	struct msm_sd_subdev msm_sd;
@@ -236,22 +256,9 @@ struct cpp_device {
 	uint32_t num_buffq;
 	struct v4l2_subdev *buf_mgr_subdev;
 
-	uint32_t rd_pntr;
-	uint32_t wr_0_pntr;
-	uint32_t wr_1_pntr;
-	uint32_t wr_2_pntr;
-	uint32_t wr_3_pntr;
-	uint32_t rd_ref_pntr;
-	uint32_t wr_ref_pntr;
-	uint32_t wr_0_meta_data_wr_pntr;
-	uint32_t wr_1_meta_data_wr_pntr;
-	uint32_t wr_2_meta_data_wr_pntr;
-	uint32_t wr_3_meta_data_wr_pntr;
-	uint32_t stripe_base;
-	uint32_t stripe_size;
-	uint32_t stripe_info_offset;
 	uint32_t bus_client;
 	uint32_t bus_idx;
 	uint32_t bus_master_flag;
+	struct msm_cpp_payload_params payload_params;
 };
 #endif /* __MSM_CPP_H__ */
