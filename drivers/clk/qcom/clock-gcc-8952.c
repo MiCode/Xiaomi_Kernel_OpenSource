@@ -2367,15 +2367,14 @@ static struct local_vote_clk gcc_crypto_clk = {
 	},
 };
 
-static struct gate_clk gcc_oxili_gmem_clk = {
-	.en_reg = OXILI_GMEM_CBCR,
-	.en_mask = BIT(0),
-	.delay_us = 50,
+static struct branch_clk gcc_oxili_gmem_clk = {
+	.cbcr_reg = OXILI_GMEM_CBCR,
+	.has_sibling = 1,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_oxili_gmem_clk",
 		.parent = &gfx3d_clk_src.c,
-		.ops = &clk_ops_gate,
+		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_oxili_gmem_clk.c),
 	},
 };
@@ -3581,6 +3580,10 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	regval |= CLKFLAG_WAKEUP_CYCLES << 8;
 	regval |= CLKFLAG_SLEEP_CYCLES << 4;
 	writel_relaxed(regval, GCC_REG_BASE(OXILI_GMEM_CBCR));
+
+	/* Disable GMEM HW Dynamic */
+	regval = 0x1;
+	writel_relaxed(regval, GCC_REG_BASE(GCC_SPARE3_REG));
 
 	ret = of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
 	if (ret)
