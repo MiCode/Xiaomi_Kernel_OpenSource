@@ -370,10 +370,6 @@
 	qpnp,qpnp-labibb-mode = "lcd";
 };
 
-&ibb_regulator {
-	qcom,qpnp-ibb-discharge-resistor = <32>;
-};
-
 &dsi_dual_sharp_video {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 	qcom,mdss-dsi-bl-min-level = <1>;

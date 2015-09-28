@@ -359,10 +359,6 @@
 	qpnp,qpnp-labibb-mode = "lcd";
 };
 
-&ibb_regulator {
-	qcom,qpnp-ibb-discharge-resistor = <32>;
-};
-
 &rpm_bus {
 	rpm-regulator-bstb {
 		status = "disabled";
