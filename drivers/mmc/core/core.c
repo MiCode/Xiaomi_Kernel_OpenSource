@@ -4014,6 +4014,23 @@ static void mmc_hw_reset_for_init(struct mmc_host *host)
 	mmc_host_clk_release(host);
 }
 
+/*
+ * mmc_cmdq_hw_reset: Helper API for doing
+ * reset_all of host and reinitializing card.
+ * This must be called with mmc_claim_host
+ * acquired by the caller.
+ */
+int mmc_cmdq_hw_reset(struct mmc_host *host)
+{
+	if (!host->bus_ops->power_restore)
+	return -EOPNOTSUPP;
+
+	mmc_power_cycle(host, host->ocr_avail);
+	mmc_select_voltage(host, host->card->ocr);
+	return host->bus_ops->power_restore(host);
+}
+EXPORT_SYMBOL(mmc_cmdq_hw_reset);
+
 int mmc_hw_reset(struct mmc_host *host)
 {
 	int ret;
@@ -4313,7 +4330,9 @@ int mmc_power_restore_host(struct mmc_host *host)
 	}
 
 	mmc_power_up(host, host->card->ocr);
+	mmc_claim_host(host);
 	ret = host->bus_ops->power_restore(host);
+	mmc_release_host(host);
 
 	mmc_bus_put(host);
 
