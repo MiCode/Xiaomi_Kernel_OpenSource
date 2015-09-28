@@ -58,13 +58,13 @@
 int (*nfnetlink_parse_nat_setup_hook)(struct nf_conn *ct,
 				      enum nf_nat_manip_type manip,
 				      const struct nlattr *attr) __read_mostly;
-EXPORT_SYMBOL(nfnetlink_parse_nat_setup_hook);
+EXPORT_SYMBOL_GPL(nfnetlink_parse_nat_setup_hook);
 
 __cacheline_aligned_in_smp spinlock_t nf_conntrack_locks[CONNTRACK_LOCKS];
-EXPORT_SYMBOL(nf_conntrack_locks);
+EXPORT_SYMBOL_GPL(nf_conntrack_locks);
 
 __cacheline_aligned_in_smp DEFINE_SPINLOCK(nf_conntrack_expect_lock);
-EXPORT_SYMBOL(nf_conntrack_expect_lock);
+EXPORT_SYMBOL_GPL(nf_conntrack_expect_lock);
 
 static void nf_conntrack_double_unlock(unsigned int h1, unsigned int h2)
 {
@@ -115,16 +115,16 @@ static void nf_conntrack_all_unlock(void)
 }
 
 unsigned int nf_conntrack_htable_size __read_mostly;
-EXPORT_SYMBOL(nf_conntrack_htable_size);
+EXPORT_SYMBOL_GPL(nf_conntrack_htable_size);
 
 unsigned int nf_conntrack_max __read_mostly;
-EXPORT_SYMBOL(nf_conntrack_max);
+EXPORT_SYMBOL_GPL(nf_conntrack_max);
 
 DEFINE_PER_CPU(struct nf_conn, nf_conntrack_untracked);
 EXPORT_PER_CPU_SYMBOL(nf_conntrack_untracked);
 
 unsigned int nf_conntrack_hash_rnd __read_mostly;
-EXPORT_SYMBOL(nf_conntrack_hash_rnd);
+EXPORT_SYMBOL_GPL(nf_conntrack_hash_rnd);
 
 static u32 hash_conntrack_raw(const struct nf_conntrack_tuple *tuple, u16 zone)
 {
@@ -183,7 +183,7 @@ nf_ct_get_tuple(const struct sk_buff *skb,
 
 	return l4proto->pkt_to_tuple(skb, dataoff, tuple);
 }
-EXPORT_SYMBOL(nf_ct_get_tuple);
+EXPORT_SYMBOL_GPL(nf_ct_get_tuple);
 
 bool nf_ct_get_tuplepr(const struct sk_buff *skb, unsigned int nhoff,
 		       u_int16_t l3num, struct nf_conntrack_tuple *tuple)
@@ -211,7 +211,7 @@ bool nf_ct_get_tuplepr(const struct sk_buff *skb, unsigned int nhoff,
 	rcu_read_unlock();
 	return ret;
 }
-EXPORT_SYMBOL(nf_ct_get_tuplepr);
+EXPORT_SYMBOL_GPL(nf_ct_get_tuplepr);
 
 bool
 nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
@@ -230,7 +230,7 @@ nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
 	inverse->dst.protonum = orig->dst.protonum;
 	return l4proto->invert_tuple(inverse, orig);
 }
-EXPORT_SYMBOL(nf_ct_invert_tuple);
+EXPORT_SYMBOL_GPL(nf_ct_invert_tuple);
 
 static void
 clean_from_lists(struct nf_conn *ct)
@@ -389,7 +389,7 @@ bool nf_ct_delete(struct nf_conn *ct, u32 portid, int report)
 	nf_ct_put(ct);
 	return true;
 }
-EXPORT_SYMBOL(nf_ct_delete);
+EXPORT_SYMBOL_GPL(nf_ct_delete);
 
 static void death_by_timeout(unsigned long ul_conntrack)
 {
@@ -486,7 +486,7 @@ nf_conntrack_find_get(struct net *net, u16 zone,
 	return __nf_conntrack_find_get(net, zone, tuple,
 				       hash_conntrack_raw(tuple, zone));
 }
-EXPORT_SYMBOL(nf_conntrack_find_get);
+EXPORT_SYMBOL_GPL(nf_conntrack_find_get);
 
 static void __nf_conntrack_hash_insert(struct nf_conn *ct,
 				       unsigned int hash,
@@ -549,7 +549,7 @@ out:
 	local_bh_enable();
 	return -EEXIST;
 }
-EXPORT_SYMBOL(nf_conntrack_hash_check_insert);
+EXPORT_SYMBOL_GPL(nf_conntrack_hash_check_insert);
 
 /* deletion from this larval template list happens via nf_ct_put() */
 void nf_conntrack_tmpl_insert(struct net *net, struct nf_conn *tmpl)
@@ -571,7 +571,7 @@ void nf_conntrack_tmpl_insert(struct net *net, struct nf_conn *tmpl)
 				 &pcpu->tmpl);
 	spin_unlock_bh(&pcpu->lock);
 }
-EXPORT_SYMBOL(nf_conntrack_tmpl_insert);
+EXPORT_SYMBOL_GPL(nf_conntrack_tmpl_insert);
 
 /* Confirm a connection given skb; places it in hash table */
 int
@@ -687,7 +687,7 @@ out:
 	local_bh_enable();
 	return NF_DROP;
 }
-EXPORT_SYMBOL(__nf_conntrack_confirm);
+EXPORT_SYMBOL_GPL(__nf_conntrack_confirm);
 
 /* Returns true if a connection correspondings to the tuple (required
    for NAT). */
@@ -721,7 +721,7 @@ nf_conntrack_tuple_taken(const struct nf_conntrack_tuple *tuple,
 
 	return 0;
 }
-EXPORT_SYMBOL(nf_conntrack_tuple_taken);
+EXPORT_SYMBOL_GPL(nf_conntrack_tuple_taken);
 
 #define NF_CT_EVICTION_RANGE	8
 
@@ -883,7 +883,7 @@ struct nf_conn *nf_conntrack_alloc(struct net *net, u16 zone,
 {
 	return __nf_conntrack_alloc(net, zone, orig, repl, gfp, 0);
 }
-EXPORT_SYMBOL(nf_conntrack_alloc);
+EXPORT_SYMBOL_GPL(nf_conntrack_alloc);
 
 void nf_conntrack_free(struct nf_conn *ct)
 {
@@ -900,7 +900,7 @@ void nf_conntrack_free(struct nf_conn *ct)
 	smp_mb__before_atomic();
 	atomic_dec(&net->ct.count);
 }
-EXPORT_SYMBOL(nf_conntrack_free);
+EXPORT_SYMBOL_GPL(nf_conntrack_free);
 
 
 /* Allocate a new conntrack: we return -ENOMEM if classification
@@ -1182,7 +1182,7 @@ out:
 
 	return ret;
 }
-EXPORT_SYMBOL(nf_conntrack_in);
+EXPORT_SYMBOL_GPL(nf_conntrack_in);
 
 bool nf_ct_invert_tuplepr(struct nf_conntrack_tuple *inverse,
 			  const struct nf_conntrack_tuple *orig)
@@ -1197,7 +1197,7 @@ bool nf_ct_invert_tuplepr(struct nf_conntrack_tuple *inverse,
 	rcu_read_unlock();
 	return ret;
 }
-EXPORT_SYMBOL(nf_ct_invert_tuplepr);
+EXPORT_SYMBOL_GPL(nf_ct_invert_tuplepr);
 
 /* Alter reply tuple (maybe alter helper).  This is for NAT, and is
    implicitly racy: see __nf_conntrack_confirm */
@@ -1220,7 +1220,7 @@ void nf_conntrack_alter_reply(struct nf_conn *ct,
 	__nf_ct_try_assign_helper(ct, NULL, GFP_ATOMIC);
 	rcu_read_unlock();
 }
-EXPORT_SYMBOL(nf_conntrack_alter_reply);
+EXPORT_SYMBOL_GPL(nf_conntrack_alter_reply);
 
 /* Refresh conntrack for this many jiffies and do accounting if do_acct is 1 */
 void __nf_ct_refresh_acct(struct nf_conn *ct,
@@ -1267,7 +1267,7 @@ acct:
 		}
 	}
 }
-EXPORT_SYMBOL(__nf_ct_refresh_acct);
+EXPORT_SYMBOL_GPL(__nf_ct_refresh_acct);
 
 bool __nf_ct_kill_acct(struct nf_conn *ct,
 		       enum ip_conntrack_info ctinfo,
@@ -1293,7 +1293,7 @@ bool __nf_ct_kill_acct(struct nf_conn *ct,
 	}
 	return false;
 }
-EXPORT_SYMBOL(__nf_ct_kill_acct);
+EXPORT_SYMBOL_GPL(__nf_ct_kill_acct);
 
 #ifdef CONFIG_NF_CONNTRACK_ZONES
 static struct nf_ct_ext_type nf_ct_zone_extend __read_mostly = {
@@ -1323,13 +1323,13 @@ int nf_ct_port_tuple_to_nlattr(struct sk_buff *skb,
 nla_put_failure:
 	return -1;
 }
-EXPORT_SYMBOL(nf_ct_port_tuple_to_nlattr);
+EXPORT_SYMBOL_GPL(nf_ct_port_tuple_to_nlattr);
 
 const struct nla_policy nf_ct_port_nla_policy[CTA_PROTO_MAX+1] = {
 	[CTA_PROTO_SRC_PORT]  = { .type = NLA_U16 },
 	[CTA_PROTO_DST_PORT]  = { .type = NLA_U16 },
 };
-EXPORT_SYMBOL(nf_ct_port_nla_policy);
+EXPORT_SYMBOL_GPL(nf_ct_port_nla_policy);
 
 int nf_ct_port_nlattr_to_tuple(struct nlattr *tb[],
 			       struct nf_conntrack_tuple *t)
@@ -1342,13 +1342,13 @@ int nf_ct_port_nlattr_to_tuple(struct nlattr *tb[],
 
 	return 0;
 }
-EXPORT_SYMBOL(nf_ct_port_nlattr_to_tuple);
+EXPORT_SYMBOL_GPL(nf_ct_port_nlattr_to_tuple);
 
 int nf_ct_port_nlattr_tuple_size(void)
 {
 	return nla_policy_len(nf_ct_port_nla_policy, CTA_PROTO_MAX + 1);
 }
-EXPORT_SYMBOL(nf_ct_port_nlattr_tuple_size);
+EXPORT_SYMBOL_GPL(nf_ct_port_nlattr_tuple_size);
 #endif
 
 /* Used by ipt_REJECT and ip6t_REJECT. */
@@ -1434,7 +1434,7 @@ void nf_ct_iterate_cleanup(struct net *net,
 		nf_ct_put(ct);
 	}
 }
-EXPORT_SYMBOL(nf_ct_iterate_cleanup);
+EXPORT_SYMBOL_GPL(nf_ct_iterate_cleanup);
 
 static int kill_all(struct nf_conn *i, void *data)
 {
@@ -1449,13 +1449,13 @@ void nf_ct_free_hashtable(void *hash, unsigned int size)
 		free_pages((unsigned long)hash,
 			   get_order(sizeof(struct hlist_head) * size));
 }
-EXPORT_SYMBOL(nf_ct_free_hashtable);
+EXPORT_SYMBOL_GPL(nf_ct_free_hashtable);
 
 void nf_conntrack_flush_report(struct net *net, u32 portid, int report)
 {
 	nf_ct_iterate_cleanup(net, kill_all, NULL, portid, report);
 }
-EXPORT_SYMBOL(nf_conntrack_flush_report);
+EXPORT_SYMBOL_GPL(nf_conntrack_flush_report);
 
 static int untrack_refs(void)
 {
@@ -1566,7 +1566,7 @@ void *nf_ct_alloc_hashtable(unsigned int *sizep, int nulls)
 
 	return hash;
 }
-EXPORT_SYMBOL(nf_ct_alloc_hashtable);
+EXPORT_SYMBOL_GPL(nf_ct_alloc_hashtable);
 
 int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
 {
@@ -1627,7 +1627,7 @@ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp)
 	nf_ct_free_hashtable(old_hash, old_size);
 	return 0;
 }
-EXPORT_SYMBOL(nf_conntrack_set_hashsize);
+EXPORT_SYMBOL_GPL(nf_conntrack_set_hashsize);
 
 module_param_call(hashsize, nf_conntrack_set_hashsize, param_get_uint,
 		  &nf_conntrack_htable_size, 0600);
@@ -1639,7 +1639,7 @@ void nf_ct_untracked_status_or(unsigned long bits)
 	for_each_possible_cpu(cpu)
 		per_cpu(nf_conntrack_untracked, cpu).status |= bits;
 }
-EXPORT_SYMBOL(nf_ct_untracked_status_or);
+EXPORT_SYMBOL_GPL(nf_ct_untracked_status_or);
 
 int nf_conntrack_init_start(void)
 {
