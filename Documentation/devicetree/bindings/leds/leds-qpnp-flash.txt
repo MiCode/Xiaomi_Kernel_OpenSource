@@ -86,6 +86,8 @@ operational simplification. For backward compatibility purpose, switch node can 
 			  "1", etc..
 - qcom,max-current	: maximum current allowed on this LED. Valid values should be
 			  integer from 0 to 1000 inclusive, indicating 0 to 1000 mA.
+- qcom,pmic-revid	: PMIC revision id source. This property is needed for PMI8996
+			revision check.
 
 Optional properties inside child node:
 - qcom,current		: default current intensity for LED. Accepted values should be
@@ -129,6 +131,7 @@ Example:
 		qcom,die-temp-vadc = <&pmi8994_vadc>;
 		qcom,die-temp-threshold = <85 80 75 70 65>;
 		qcom,die-temp-derate-current = <400 800 1200 1600 2000>;
+		qcom,pmic-revid = <&pmi8994_revid>;
 
 		pm8226_flash0: qcom,flash_0 {
 			label = "flash";
