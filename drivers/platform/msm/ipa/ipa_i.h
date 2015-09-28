@@ -1237,7 +1237,6 @@ struct ipa_context {
 
 	/* RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA */
 	bool ipa_client_apps_wan_cons_agg_gro;
-	bool tethered_flow_control;
 };
 
 /**
@@ -1287,7 +1286,6 @@ struct ipa_plat_drv_res {
 	bool modem_cfg_emb_pipe_flt;
 	u32 wan_rx_ring_size;
 	bool skip_uc_pipe_reset;
-	bool tethered_flow_control;
 };
 
 struct ipa_mem_partition {

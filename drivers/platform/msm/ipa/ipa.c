@@ -288,12 +288,6 @@ void ipa_flow_control(enum ipa_client_type ipa_client,
 	int ep_idx;
 	struct ipa_ep_context *ep;
 
-	/* Check if tethered flow control is needed or not.*/
-	if (!ipa_ctx->tethered_flow_control) {
-		IPADBG("Apps flow control is not needed\n");
-		return;
-	}
-
 	/* Check if ep is valid. */
 	ep_idx = ipa_get_ep_mapping(ipa_client);
 	if (ep_idx == -1) {
@@ -1430,7 +1424,7 @@ static int ipa_q6_clean_q6_tables(void)
 	mem.base = dma_alloc_coherent(ipa_ctx->pdev, 4, &mem.phys_base,
 		GFP_KERNEL);
 	if (!mem.base) {
-		IPAERR("failed to alloc DMA buff of size 4\n");
+		IPAERR("failed to alloc DMA buff of size %d\n", mem.size);
 		return -ENOMEM;
 	}
 
@@ -3140,7 +3134,6 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	ipa_ctx->modem_cfg_emb_pipe_flt = resource_p->modem_cfg_emb_pipe_flt;
 	ipa_ctx->wan_rx_ring_size = resource_p->wan_rx_ring_size;
 	ipa_ctx->skip_uc_pipe_reset = resource_p->skip_uc_pipe_reset;
-	ipa_ctx->tethered_flow_control = resource_p->tethered_flow_control;
 
 	/* default aggregation parameters */
 	ipa_ctx->aggregation_type = IPA_MBIM_16;
@@ -3707,13 +3700,6 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 		"qcom,skip-uc-pipe-reset");
 	IPADBG(": skip uC pipe reset = %s\n",
 		ipa_drv_res->skip_uc_pipe_reset
-		? "True" : "False");
-
-	ipa_drv_res->tethered_flow_control =
-		of_property_read_bool(pdev->dev.of_node,
-		"qcom,tethered-flow-control");
-	IPADBG(": Use apps based flow control = %s\n",
-		ipa_drv_res->tethered_flow_control
 		? "True" : "False");
 
 	/* Get IPA wrapper address */
