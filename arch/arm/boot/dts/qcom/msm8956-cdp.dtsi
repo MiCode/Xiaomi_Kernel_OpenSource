@@ -241,3 +241,11 @@
 		};
 	};
 };
+
+&pm8950_cajon_dig {
+	status = "disabled";
+};
+
+&pm8950_cajon_analog {
+	status = "disabled";
+};
