@@ -19,10 +19,6 @@
 	qcom,pmic-id = <0x20009 0x10013 0x0 0x0>;
 };
 
-&pmi8994_charger {
-	qcom,charging-disabled;
-};
-
 &ibb_regulator {
 	qcom,qpnp-ibb-discharge-resistor = <300>;
 };
