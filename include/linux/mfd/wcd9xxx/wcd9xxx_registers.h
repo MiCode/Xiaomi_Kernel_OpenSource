@@ -330,4 +330,9 @@
 #define WCD9XXX_A_ANA_HPH				(0x609)
 #define WCD9XXX_A_CDC_CLSH_CRC				(0xC01)
 #define WCD9XXX_FLYBACK_EN				(0x6A4)
+#define WCD9XXX_RX_BIAS_FLYB_BUFF			(0x6C7)
+#define WCD9XXX_HPH_L_EN				(0x6D3)
+#define WCD9XXX_HPH_R_EN				(0x6D6)
+#define WCD9XXX_HPH_REFBUFF_UHQA_CTL			(0x6DD)
+#define WCD9XXX_CLASSH_CTRL_VCL_2                       (0x69B)
 #endif
