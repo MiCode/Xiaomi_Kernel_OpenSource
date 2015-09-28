@@ -2884,6 +2884,10 @@ int cnss_auto_suspend(void)
 	if (penv->pcie_link_state) {
 		pci_save_state(pdev);
 		penv->saved_state = pci_store_saved_state(pdev);
+		pci_disable_device(pdev);
+		ret = pci_set_power_state(pdev, PCI_D3hot);
+		if (ret)
+			pr_err("%s: Set D3Hot failed: %d\n", __func__, ret);
 		if (msm_pcie_pm_control(MSM_PCIE_SUSPEND,
 			cnss_get_pci_dev_bus_number(pdev),
 			pdev, NULL, PM_OPTIONS)) {
@@ -2919,6 +2923,9 @@ int cnss_auto_resume(void)
 			ret = -EAGAIN;
 			goto out;
 		}
+		ret = pci_enable_device(pdev);
+		if (ret)
+			pr_err("%s: enable device failed: %d\n", __func__, ret);
 		penv->pcie_link_state = PCIE_LINK_UP;
 	}
 
@@ -2927,6 +2934,7 @@ int cnss_auto_resume(void)
 			&penv->saved_state);
 
 	pci_restore_state(pdev);
+	pci_set_master(pdev);
 
 	atomic_set(&penv->auto_suspended, 0);
 out:
