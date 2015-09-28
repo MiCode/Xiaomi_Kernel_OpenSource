@@ -276,6 +276,20 @@ void mdss_dsi_get_hw_revision(struct mdss_dsi_ctrl_pdata *ctrl)
 				ctrl->ndx, ctrl->shared_data->hw_rev);
 }
 
+void mdss_dsi_get_phy_revision(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	if (ctrl->shared_data->phy_rev)
+		return;
+
+	mdss_dsi_clk_ctrl(ctrl, DSI_CORE_CLKS, 1);
+	ctrl->shared_data->phy_rev =
+			(MIPI_INP(ctrl->phy_io.base + 0x20c) >> 4) & 0xf;
+	mdss_dsi_clk_ctrl(ctrl, DSI_CORE_CLKS, 0);
+
+	pr_debug("%s: ndx=%d phy_rev=%x\n", __func__,
+				ctrl->ndx, ctrl->shared_data->phy_rev);
+}
+
 void mdss_dsi_host_init(struct mdss_panel_data *pdata)
 {
 	u32 dsi_ctrl, intr_ctrl;

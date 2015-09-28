@@ -50,6 +50,9 @@
 
 	qcom,clk-rates = <400000 25000000 50000000 100000000>;
 
+	/* empty property for overriding as RUMI does not support HS400/HS200 */
+	qcom,bus-speed-mode = "";
+
 	qcom,nonremovable;
 
 	status = "ok";

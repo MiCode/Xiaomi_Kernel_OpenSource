@@ -118,7 +118,7 @@
 
 #define TASHA_VERSION_ENTRY_SIZE 17
 
-static int tasha_cpe_debug_mode = 1;
+static int tasha_cpe_debug_mode;
 module_param(tasha_cpe_debug_mode, int,
 	     S_IRUGO | S_IWUSR | S_IWGRP);
 MODULE_PARM_DESC(tasha_cpe_debug_mode, "tasha boot cpe in debug mode");
@@ -9138,6 +9138,8 @@ static ssize_t tasha_codec_version_read(struct snd_info_entry *entry,
 			len = snprintf(buffer, sizeof(buffer), "WCD9335_1_0\n");
 		else if (TASHA_IS_1_1(wcd9xxx->version))
 			len = snprintf(buffer, sizeof(buffer), "WCD9335_1_1\n");
+	} else if (wcd9xxx->codec_type->id_major == TASHA2P0_MAJOR) {
+			len = snprintf(buffer, sizeof(buffer), "WCD9335_2_0\n");
 	} else
 		len = snprintf(buffer, sizeof(buffer), "VER_UNDEFINED\n");
 
