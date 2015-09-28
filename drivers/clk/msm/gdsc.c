@@ -59,6 +59,7 @@ struct gdsc {
 	int			root_clk_idx;
 	bool			no_status_check_on_disable;
 	bool			is_gdsc_enabled;
+	bool			allow_clear;
 	void __iomem		*domain_addr;
 	void __iomem		*hw_ctrl_addr;
 	void __iomem		*sw_reset_addr;
@@ -70,6 +71,14 @@ enum gdscr_status {
 };
 
 static DEFINE_MUTEX(gdsc_seq_lock);
+
+void gdsc_allow_clear_retention(struct regulator *regulator)
+{
+	struct gdsc *sc = regulator_get_drvdata(regulator);
+
+	if (sc)
+		sc->allow_clear = true;
+}
 
 static int poll_gdsc_status(struct gdsc *sc, enum gdscr_status status)
 {
@@ -254,9 +263,9 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	for (i = sc->clock_count-1; i >= 0; i--) {
 		if (unlikely(i == sc->root_clk_idx))
 			continue;
-		if (sc->toggle_mem)
+		if (sc->toggle_mem && sc->allow_clear)
 			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_MEM);
-		if (sc->toggle_periph)
+		if (sc->toggle_periph && sc->allow_clear)
 			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_PERIPH);
 	}
 
@@ -561,13 +570,17 @@ static int gdsc_probe(struct platform_device *pdev)
 		}
 	}
 
+	sc->allow_clear = of_property_read_bool(pdev->dev.of_node,
+							"qcom,disallow-clear");
+	sc->allow_clear = !sc->allow_clear;
+
 	for (i = 0; i < sc->clock_count; i++) {
-		if (retain_mem || (regval & PWR_ON_MASK))
+		if (retain_mem || (regval & PWR_ON_MASK) || !sc->allow_clear)
 			clk_set_flags(sc->clocks[i], CLKFLAG_RETAIN_MEM);
 		else
 			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_MEM);
 
-		if (retain_periph || (regval & PWR_ON_MASK))
+		if (retain_periph || (regval & PWR_ON_MASK) || !sc->allow_clear)
 			clk_set_flags(sc->clocks[i], CLKFLAG_RETAIN_PERIPH);
 		else
 			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_PERIPH);
