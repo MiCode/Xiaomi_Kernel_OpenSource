@@ -720,6 +720,7 @@ static int mdss_dsi_post_panel_on(struct mdss_panel_data *pdata)
 	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
 	struct mdss_panel_info *pinfo;
 	struct dsi_panel_cmds *on_cmds;
+	u32 vsync_period = 0;
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -744,6 +745,13 @@ static int mdss_dsi_post_panel_on(struct mdss_panel_data *pdata)
 	if (on_cmds->cmd_cnt) {
 		msleep(50);	/* wait for 3 vsync passed */
 		mdss_dsi_panel_cmds_send(ctrl, on_cmds);
+	}
+
+	if (pinfo->is_dba_panel) {
+		/* ensure at least 1 frame transfers to down stream device */
+		vsync_period = (MSEC_PER_SEC / pinfo->mipi.frame_rate) + 1;
+		msleep(vsync_period);
+		mdss_dba_utils_hdcp_enable(pinfo->dba_data, true);
 	}
 
 end:
@@ -775,8 +783,10 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 	if (ctrl->off_cmds.cmd_cnt)
 		mdss_dsi_panel_cmds_send(ctrl, &ctrl->off_cmds);
 
-	if (ctrl->ds_registered)
+	if (ctrl->ds_registered) {
 		mdss_dba_utils_video_off(pinfo->dba_data);
+		mdss_dba_utils_hdcp_enable(pinfo->dba_data, false);
+	}
 
 end:
 	pinfo->blank_state = MDSS_PANEL_BLANK_BLANK;

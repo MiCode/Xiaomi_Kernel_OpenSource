@@ -40,6 +40,7 @@ struct mdss_dba_utils_init_data {
 
 int mdss_dba_utils_video_on(void *data, struct mdss_panel_info *pinfo);
 int mdss_dba_utils_video_off(void *data);
+void mdss_dba_utils_hdcp_enable(void *data, bool enable);
 
 void *mdss_dba_utils_init(struct mdss_dba_utils_init_data *init_data);
 void mdss_dba_utils_deinit(void *data);
