@@ -99,6 +99,15 @@ struct tasha_reg_mask_val {
 	u8 val;
 };
 
+/* Selects compander and smart boost settings
+ * for a given speaker mode
+ */
+enum {
+	SPKR_MODE_DEFAULT,
+	SPKR_MODE_1,          /* COMP Gain = 12dB, Smartboost Max = 5.5V */
+};
+
+
 extern void *tasha_get_afe_config(struct snd_soc_codec *codec,
 				  enum afe_config_type config_type);
 extern int tasha_cdc_mclk_enable(struct snd_soc_codec *codec, int enable,
@@ -120,5 +129,5 @@ extern int tasha_codec_info_create_codec_entry(struct snd_info_entry *,
 extern int tasha_codec_enable_standalone_micbias(struct snd_soc_codec *codec,
 						int micb_num,
 						bool enable);
-
+extern int tasha_set_spkr_mode(struct snd_soc_codec *codec, int mode);
 #endif
