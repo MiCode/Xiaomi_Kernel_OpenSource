@@ -135,6 +135,7 @@ int sdhci_msm_ice_init(struct sdhci_host *host)
 		pr_err("%s: ice init timedout after %d ms\n",
 				mmc_hostname(host->mmc),
 				SDHCI_MSM_ICE_COMPLETION_TIMEOUT_MS);
+		sdhci_msm_ice_print_regs(host);
 		return -ETIMEDOUT;
 	}
 
@@ -253,6 +254,7 @@ int sdhci_msm_ice_reset(struct sdhci_host *host)
 		pr_err("%s: ice reset timedout after %d ms\n",
 			mmc_hostname(host->mmc),
 			SDHCI_MSM_ICE_COMPLETION_TIMEOUT_MS);
+		sdhci_msm_ice_print_regs(host);
 		return -ETIMEDOUT;
 	}
 
@@ -293,6 +295,7 @@ int sdhci_msm_ice_resume(struct sdhci_host *host)
 		pr_err("%s: ice resume timedout after %d ms\n",
 			mmc_hostname(host->mmc),
 			SDHCI_MSM_ICE_COMPLETION_TIMEOUT_MS);
+		sdhci_msm_ice_print_regs(host);
 		return -ETIMEDOUT;
 	}
 
@@ -352,4 +355,13 @@ int sdhci_msm_ice_get_status(struct sdhci_host *host, int *ice_status)
 		*ice_status = stat;
 	}
 	return 0;
+}
+
+void sdhci_msm_ice_print_regs(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	if (msm_host->ice.vops->debug)
+		msm_host->ice.vops->debug(msm_host->ice.pdev);
 }
