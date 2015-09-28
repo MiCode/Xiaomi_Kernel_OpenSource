@@ -666,6 +666,9 @@ static int msm_iommu_ctx_probe(struct platform_device *pdev)
 
 		dev_info(&pdev->dev, "context %s using bank %d\n",
 			 ctx_drvdata->name, ctx_drvdata->num);
+
+		if (strcmp(ctx_drvdata->name, "access_control") == 0)
+			msm_access_control();
 	}
 
 	return ret;
