@@ -71,6 +71,9 @@ static const enum ipa_client_type usb_cons[BAM2BAM_N_PORTS] = {
 #define BAM_PENDING_BYTES_LIMIT			(50 * BAM_MUX_RX_REQ_SIZE)
 #define BAM_PENDING_BYTES_FCTRL_EN_TSHOLD	(BAM_PENDING_BYTES_LIMIT / 3)
 
+/* Extra buffer size to allocate for tx */
+#define EXTRA_ALLOCATION_SIZE_U_BAM	128
+
 static unsigned int bam_pending_pkts_limit = BAM_PENDING_PKTS_LIMIT;
 module_param(bam_pending_pkts_limit, uint, S_IRUGO | S_IWUSR);
 
@@ -168,6 +171,7 @@ struct bam_ch_info {
 	unsigned int		max_num_pkts_pending_with_bam;
 	unsigned int		max_bytes_pending_with_bam;
 	unsigned int		delayed_bam_mux_write_done;
+	unsigned long		skb_expand_cnt;
 };
 
 struct gbam_port {
@@ -392,7 +396,10 @@ static void gbam_write_data_tohost(struct gbam_port *port)
 	unsigned long			flags;
 	struct bam_ch_info		*d = &port->data_ch;
 	struct sk_buff			*skb;
+	struct sk_buff			*new_skb;
 	int				ret;
+	int				tail_room = 0;
+	int				extra_alloc = 0;
 	struct usb_request		*req;
 	struct usb_ep			*ep;
 
@@ -410,6 +417,30 @@ static void gbam_write_data_tohost(struct gbam_port *port)
 			spin_unlock_irqrestore(&port->port_lock_dl, flags);
 			return;
 		}
+
+		/*
+		 * Some UDC requires allocation of some extra bytes for
+		 * TX buffer due to hardware requirement. Check if extra
+		 * bytes are already there, otherwise allocate new buffer
+		 * with extra bytes and do memcpy.
+		 */
+		if (port->gadget->extra_buf_alloc)
+			extra_alloc = EXTRA_ALLOCATION_SIZE_U_BAM;
+		tail_room = skb_tailroom(skb);
+		if (tail_room < extra_alloc) {
+			pr_debug("%s: tail_room  %d less than %d\n", __func__,
+					tail_room, extra_alloc);
+			new_skb = skb_copy_expand(skb, 0, extra_alloc -
+					tail_room, GFP_ATOMIC);
+			if (!new_skb) {
+				pr_err("skb_copy_expand failed\n");
+				return;
+			}
+			dev_kfree_skb_any(skb);
+			skb = new_skb;
+			d->skb_expand_cnt++;
+		}
+
 		req = list_first_entry(&d->tx_idle,
 				struct usb_request,
 				list);
@@ -1852,7 +1883,8 @@ static ssize_t gbam_read_stats(struct file *file, char __user *ubuf,
 				"tx_buf_len:	 %u\n"
 				"rx_buf_len:	 %u\n"
 				"data_ch_open:   %d\n"
-				"data_ch_ready:  %d\n",
+				"data_ch_ready:  %d\n"
+				"skb_expand_cnt: %lu\n",
 				i, port, &port->data_ch,
 				d->to_host, d->to_modem,
 				d->pending_pkts_with_bam,
@@ -1866,7 +1898,8 @@ static ssize_t gbam_read_stats(struct file *file, char __user *ubuf,
 				d->delayed_bam_mux_write_done,
 				d->tx_skb_q.qlen, d->rx_skb_q.qlen,
 				test_bit(BAM_CH_OPENED, &d->flags),
-				test_bit(BAM_CH_READY, &d->flags));
+				test_bit(BAM_CH_READY, &d->flags),
+				d->skb_expand_cnt);
 
 		spin_unlock(&port->port_lock_dl);
 		spin_unlock_irqrestore(&port->port_lock_ul, flags);
@@ -1909,6 +1942,7 @@ static ssize_t gbam_reset_stats(struct file *file, const char __user *buf,
 		d->max_num_pkts_pending_with_bam = 0;
 		d->max_bytes_pending_with_bam = 0;
 		d->delayed_bam_mux_write_done = 0;
+		d->skb_expand_cnt = 0;
 
 		spin_unlock(&port->port_lock_dl);
 		spin_unlock_irqrestore(&port->port_lock_ul, flags);
