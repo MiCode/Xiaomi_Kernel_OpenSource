@@ -2866,7 +2866,7 @@ int hci_dev_cmd(unsigned int cmd, void __user *arg)
 
 	case HCISETLINKMODE:
 		hdev->link_mode = ((__u16) dr.dev_opt) &
-					(HCI_LM_MASTER | HCI_LM_ACCEPT);
+					(HCI_LM_MASTER);
 		break;
 
 	case HCISETPTYPE:
@@ -3985,7 +3985,7 @@ struct hci_dev *hci_alloc_dev(void)
 
 	hdev->pkt_type  = (HCI_DM1 | HCI_DH1 | HCI_HV1);
 	hdev->esco_type = (ESCO_HV1);
-	hdev->link_mode = (HCI_LM_ACCEPT);
+	hdev->link_mode = (HCI_LM_MASTER); /* Allow DUT to be in MASTER role */
 	hdev->num_iac = 0x01;		/* One IAC support is mandatory */
 	hdev->io_capability = 0x03;	/* No Input No Output */
 	hdev->manufacturer = 0xffff;	/* Default to internal use */
