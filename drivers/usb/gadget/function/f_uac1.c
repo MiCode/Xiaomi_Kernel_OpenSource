@@ -496,7 +496,6 @@ struct f_audio {
 	struct f_audio_buf		*capture_copy_buf;
 	struct work_struct		capture_work;
 	struct list_head		capture_queue;
-	struct usb_request		*capture_req;
 
 	u8				alt_intf[F_AUDIO_NUM_INTERFACES];
 
@@ -1010,7 +1009,7 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	unsigned long flags;
 	struct f_uac1_opts *opts;
 	int req_playback_buf_size, req_playback_count, audio_playback_buf_size;
-	int req_capture_buf_size;
+	int req_capture_buf_size, req_capture_count;
 	int i = 0, err = 0;
 
 	DBG(cdev, "intf %d, alt %d\n", intf, alt);
@@ -1019,6 +1018,7 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	req_playback_buf_size = opts->req_playback_buf_size;
 	req_capture_buf_size = opts->req_capture_buf_size;
 	req_playback_count = opts->req_playback_count;
+	req_capture_count = opts->req_capture_count;
 	audio_playback_buf_size = opts->audio_playback_buf_size;
 
 	atomic_set(&audio->online, 1);
@@ -1043,29 +1043,28 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			in_ep->driver_data = audio;
 			audio->capture_copy_buf = 0;
 
-			/* Allocate a write buffer */
-			req = usb_ep_alloc_request(in_ep, GFP_ATOMIC);
-			if (!req) {
-				pr_err("request allocation failed\n");
-				return -ENOMEM;
-			}
-			req->buf = kzalloc(req_capture_buf_size +
-					cdev->gadget->extra_buf_alloc,
-					GFP_ATOMIC);
-			if (!req->buf) {
-				pr_err("request buffer allocation failed\n");
-				return -ENOMEM;
-			}
-
-			req->length = req_capture_buf_size;
-			req->context = audio;
-			req->complete =	f_audio_complete;
-			audio->capture_req = req;
-			err = usb_ep_queue(in_ep, req, GFP_ATOMIC);
-			if (err)
-				pr_err("Failed to queue %s req: err %d\n",
-				 in_ep->name, err);
 			schedule_work(&audio->capture_work);
+			for (i = 0; i < req_capture_count && err == 0; i++) {
+				/* Allocate a write buffer */
+				req = usb_ep_alloc_request(in_ep, GFP_ATOMIC);
+				if (!req) {
+					pr_err("request allocation failed\n");
+					return -ENOMEM;
+				}
+				req->buf = kzalloc(req_capture_buf_size +
+						cdev->gadget->extra_buf_alloc,
+						GFP_ATOMIC);
+				if (!req->buf)
+					return -ENOMEM;
+
+				req->length = req_capture_buf_size;
+				req->context = audio;
+				req->complete =	f_audio_complete;
+				err = usb_ep_queue(in_ep, req, GFP_ATOMIC);
+				if (err)
+					pr_err("Failed to queue %s req,err%d\n",
+						 in_ep->name, err);
+			}
 		} else {
 			struct f_audio_buf *capture_buf;
 			usb_ep_disable(in_ep);
@@ -1562,8 +1561,8 @@ static struct usb_function_instance *f_audio_alloc_inst(void)
 
 	opts->req_playback_buf_size = UAC1_OUT_EP_MAX_PACKET_SIZE;
 	opts->req_capture_buf_size = UAC1_IN_EP_MAX_PACKET_SIZE;
-	opts->req_playback_count = UAC1_REQ_COUNT;
-	opts->req_capture_count = UAC1_REQ_COUNT;
+	opts->req_playback_count = UAC1_OUT_REQ_COUNT;
+	opts->req_capture_count = UAC1_IN_REQ_COUNT;
 	opts->audio_playback_buf_size = UAC1_AUDIO_PLAYBACK_BUF_SIZE;
 	opts->audio_capture_buf_size = UAC1_AUDIO_CAPTURE_BUF_SIZE;
 	opts->audio_playback_realtime = 1;
