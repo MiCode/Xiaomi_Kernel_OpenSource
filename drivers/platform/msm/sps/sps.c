@@ -2500,6 +2500,7 @@ EXPORT_SYMBOL(sps_pipe_pending_desc);
 int sps_bam_process_irq(unsigned long dev)
 {
 	struct sps_bam *bam;
+	int ret = 0;
 
 	if (!dev) {
 		SPS_ERR(sps, "sps:%s:BAM handle is NULL.\n", __func__);
@@ -2514,9 +2515,9 @@ int sps_bam_process_irq(unsigned long dev)
 
 	SPS_DBG1(bam, "sps:%s; BAM: %pa.\n", __func__, BAM_ID(bam));
 
-	sps_bam_check_irq(bam);
+	ret = sps_bam_check_irq(bam);
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(sps_bam_process_irq);
 
