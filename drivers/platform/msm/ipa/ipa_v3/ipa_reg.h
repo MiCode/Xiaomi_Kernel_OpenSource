@@ -239,7 +239,7 @@
 
 #define IPA_IRQ_EE_UC_n_OFFS(n) (0x0000301c + 0x1000 * (n))
 
-#define IPA_UC_MAILBOX_m_n_OFFS_v3_0(m, n) (0x00022000 + 0x80 * (m) + 0x4 * (n))
+#define IPA_UC_MAILBOX_m_n_OFFS_v3_0(m, n) (0x00032000 + 0x80 * (m) + 0x4 * (n))
 
 #define IPA_SYS_PKT_PROC_CNTXT_BASE_OFST (0x000001e0)
 #define IPA_LOCAL_PKT_PROC_CNTXT_BASE_OFST (0x000001e8)

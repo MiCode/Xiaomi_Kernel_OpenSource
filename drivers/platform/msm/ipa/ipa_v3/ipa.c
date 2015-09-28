@@ -2978,6 +2978,40 @@ int ipa3_create_apps_resource(void)
 }
 
 /**
+ * ipa3_init_interrupts() - Register to IPA IRQs
+ *
+ * Return codes: 0 in success, negative in failure
+ *
+ */
+int ipa3_init_interrupts(void)
+{
+	int result;
+
+	/*register IPA IRQ handler*/
+	result = ipa3_interrupts_init(ipa3_res.ipa_irq, 0,
+			master_dev);
+	if (result) {
+		IPAERR("ipa interrupts initialization failed\n");
+		return -ENODEV;
+	}
+
+	/*add handler for suspend interrupt*/
+	result = ipa3_add_interrupt_handler(IPA_TX_SUSPEND_IRQ,
+			ipa3_suspend_handler, true, NULL);
+	if (result) {
+		IPAERR("register handler for suspend interrupt failed\n");
+		result = -ENODEV;
+		goto fail_add_interrupt_handler;
+	}
+
+	return 0;
+
+fail_add_interrupt_handler:
+	free_irq(ipa3_res.ipa_irq, master_dev);
+	return result;
+}
+
+/**
  * ipa3_destroy_flt_tbl_idrs() - destroy the idr structure for flt tables
  *  The idr strcuture per filtering table is intended for rule id generation
  *  per filtering rule.
@@ -3069,6 +3103,7 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->skip_uc_pipe_reset = resource_p->skip_uc_pipe_reset;
 	ipa3_ctx->transport_prototype = resource_p->transport_prototype;
 	ipa3_ctx->ee = resource_p->ee;
+	ipa3_ctx->apply_rg10_wa = resource_p->apply_rg10_wa;
 
 	/* default aggregation parameters */
 	ipa3_ctx->aggregation_type = IPA_MBIM_16;
@@ -3486,22 +3521,15 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 		goto fail_create_apps_resource;
 	}
 
-	/*register IPA IRQ handler*/
-	result = ipa3_interrupts_init(resource_p->ipa_irq, 0,
-			master_dev);
-	if (result) {
-		IPAERR("ipa interrupts initialization failed\n");
-		result = -ENODEV;
-		goto fail_ipa_interrupts_init;
-	}
-
-	/*add handler for suspend interrupt*/
-	result = ipa3_add_interrupt_handler(IPA_TX_SUSPEND_IRQ,
-			ipa3_suspend_handler, true, NULL);
-	if (result) {
-		IPAERR("register handler for suspend interrupt failed\n");
-		result = -ENODEV;
-		goto fail_add_interrupt_handler;
+	if (!ipa3_ctx->apply_rg10_wa) {
+		result = ipa3_init_interrupts();
+		if (result) {
+			IPAERR("ipa initialization of interrupts failed\n");
+			result = -ENODEV;
+			goto fail_ipa_init_interrupts;
+		}
+	} else {
+		IPADBG("Initialization of ipa interrupts skipped\n");
 	}
 
 	if (ipa3_ctx->use_ipa_teth_bridge) {
@@ -3510,7 +3538,7 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 		if (result) {
 			IPAERR(":teth_bridge init failed (%d)\n", -result);
 			result = -ENODEV;
-			goto fail_add_interrupt_handler;
+			goto fail_teth_bridge_driver_init;
 		}
 		IPADBG("teth_bridge initialized");
 	}
@@ -3543,9 +3571,10 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 
 	return 0;
 
-fail_add_interrupt_handler:
-	free_irq(resource_p->ipa_irq, master_dev);
-fail_ipa_interrupts_init:
+fail_teth_bridge_driver_init:
+	if (!ipa3_ctx->apply_rg10_wa)
+		free_irq(resource_p->ipa_irq, master_dev);
+fail_ipa_init_interrupts:
 	ipa3_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
 fail_create_apps_resource:
 	ipa3_rm_exit();
@@ -3629,6 +3658,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->ipa_bam_remote_mode = false;
 	ipa_drv_res->modem_cfg_emb_pipe_flt = false;
 	ipa_drv_res->wan_rx_ring_size = IPA_GENERIC_RX_POOL_SZ;
+	ipa_drv_res->apply_rg10_wa = false;
 
 	smmu_disable_htw = of_property_read_bool(pdev->dev.of_node,
 			"qcom,smmu-disable-htw");
@@ -3656,7 +3686,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 		IPADBG(": found ipa_drv_res->ipa3_hw_mode = %d",
 				ipa_drv_res->ipa3_hw_mode);
 
-	/* Get IPA WAN RX pool sizee */
+	/* Get IPA WAN RX pool size */
 	result = of_property_read_u32(pdev->dev.of_node,
 			"qcom,wan-rx-ring-size",
 			&ipa_drv_res->wan_rx_ring_size);
@@ -3792,6 +3822,13 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 			&ipa_drv_res->ee);
 	if (result)
 		ipa_drv_res->ee = 0;
+
+	ipa_drv_res->apply_rg10_wa =
+		of_property_read_bool(pdev->dev.of_node,
+		"qcom,use-rg10-limitation-mitigation");
+	IPADBG(": Use Register Group 10 limitation mitigation = %s\n",
+		ipa_drv_res->apply_rg10_wa
+		? "True" : "False");
 
 	return 0;
 }
