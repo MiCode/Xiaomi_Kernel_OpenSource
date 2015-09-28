@@ -2099,13 +2099,13 @@ struct diag_dci_client_tbl *diag_dci_get_client_entry(int client_id)
 	return NULL;
 }
 
-struct diag_dci_client_tbl *dci_lookup_client_entry_pid(int pid)
+struct diag_dci_client_tbl *dci_lookup_client_entry_pid(int tgid)
 {
 	struct list_head *start, *temp;
 	struct diag_dci_client_tbl *entry = NULL;
 	list_for_each_safe(start, temp, &driver->dci_client_list) {
 		entry = list_entry(start, struct diag_dci_client_tbl, track);
-		if (entry->client->tgid == pid)
+		if (entry->client->tgid == tgid)
 			return entry;
 	}
 	return NULL;
