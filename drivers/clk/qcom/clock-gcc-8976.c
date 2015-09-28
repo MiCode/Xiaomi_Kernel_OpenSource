@@ -994,26 +994,6 @@ static struct rcg_clk crypto_clk_src = {
 	},
 };
 
-static struct clk_freq_tbl ftbl_dsa_core_clk_src[] = {
-	F(  19200000,             xo,    1,    0,     0),
-	F( 300000000,          gpll4,    4,    0,     0),
-	F_END
-};
-
-static struct rcg_clk dsa_core_clk_src = {
-	.cmd_rcgr_reg = DSA_CORE_CMD_RCGR,
-	.set_rate = set_rate_hid,
-	.freq_tbl = ftbl_dsa_core_clk_src,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "dsa_core_clk_src",
-		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP1(LOWER, 300000000),
-		CLK_INIT(dsa_core_clk_src.c),
-	},
-};
-
 static struct clk_freq_tbl ftbl_gp1_clk_src[] = {
 	F(  19200000,             xo,    1,    0,     0),
 	F_END
@@ -2348,30 +2328,6 @@ static struct branch_clk gcc_dcc_clk = {
 	},
 };
 
-
-static struct branch_clk gcc_dsa_core_clk = {
-	.cbcr_reg = DSA_CORE_CBCR,
-	.has_sibling = 0,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "gcc_dsa_core_clk",
-		.parent = &dsa_core_clk_src.c,
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_dsa_core_clk.c),
-	},
-};
-
-static struct branch_clk gcc_dsa_noc_cfg_ahb_clk = {
-	.cbcr_reg = DSA_NOC_CFG_AHB_CBCR,
-	.has_sibling = 0,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "gcc_dsa_noc_cfg_ahb_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_dsa_noc_cfg_ahb_clk.c),
-	},
-};
-
 static struct gate_clk gcc_oxili_gmem_clk = {
 	.en_reg = OXILI_GMEM_CBCR,
 	.en_mask = BIT(0),
@@ -2751,40 +2707,6 @@ static struct branch_clk gcc_sdcc3_apps_clk = {
 		.parent = &sdcc3_apps_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_sdcc3_apps_clk.c),
-	},
-};
-
-static struct branch_clk gcc_throttle_gfx_1_ahb_clk = {
-	.cbcr_reg = THROTTLE_GFX_1_AHB_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "gcc_throttle_gfx_1_ahb_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_throttle_gfx_1_ahb_clk.c),
-	},
-};
-
-static struct branch_clk gcc_throttle_gfx_1_axi_clk = {
-	.cbcr_reg = THROTTLE_GFX_1_AXI_CBCR,
-	.has_sibling = 0,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "gcc_throttle_gfx_1_axi_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_throttle_gfx_1_axi_clk.c),
-	},
-};
-
-static struct branch_clk gcc_throttle_gfx_1_cxo_clk = {
-	.cbcr_reg = THROTTLE_GFX_1_CXO_CBCR,
-	.has_sibling = 0,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "gcc_throttle_gfx_1_cxo_clk",
-		.parent = &xo_clk_src.c,
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_throttle_gfx_1_cxo_clk.c),
 	},
 };
 
@@ -3368,11 +3290,6 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_blsp2_qup3_i2c_apps_clk.c, 0x0234 },
 		{ &gcc_blsp2_qup4_spi_apps_clk.c, 0x0238 },
 		{ &gcc_blsp2_qup4_i2c_apps_clk.c, 0x0239 },
-		{ &gcc_dsa_core_clk.c, 0x0248 },
-		{ &gcc_dsa_noc_cfg_ahb_clk.c, 0x0249 },
-		{ &gcc_throttle_gfx_1_cxo_clk.c, 0x0250 },
-		{ &gcc_throttle_gfx_1_ahb_clk.c, 0x0251 },
-		{ &gcc_throttle_gfx_1_axi_clk.c, 0x0252 },
 		{ &gcc_dcc_clk.c, 0x0268 },
 		{ &gcc_aps_0_clk.c, 0x0280 },
 		{ &gcc_aps_1_clk.c, 0x0288 },
@@ -3501,8 +3418,6 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	 CLK_LIST(gcc_camss_vfe1_axi_clk),
 	 CLK_LIST(gcc_camss_vfe1_clk),
 	 CLK_LIST(gcc_dcc_clk),
-	 CLK_LIST(gcc_dsa_core_clk),
-	 CLK_LIST(gcc_dsa_noc_cfg_ahb_clk),
 	 CLK_LIST(gcc_gp1_clk),
 	 CLK_LIST(gcc_gp2_clk),
 	 CLK_LIST(gcc_gp3_clk),
@@ -3526,9 +3441,6 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	 CLK_LIST(gcc_sdcc2_apps_clk),
 	 CLK_LIST(gcc_sdcc3_ahb_clk),
 	 CLK_LIST(gcc_sdcc3_apps_clk),
-	 CLK_LIST(gcc_throttle_gfx_1_ahb_clk),
-	 CLK_LIST(gcc_throttle_gfx_1_axi_clk),
-	 CLK_LIST(gcc_throttle_gfx_1_cxo_clk),
 	 CLK_LIST(gcc_usb2a_phy_sleep_clk),
 	 CLK_LIST(gcc_usb_hs_phy_cfg_ahb_clk),
 	 CLK_LIST(gcc_usb_fs_ahb_clk),
@@ -3600,7 +3512,6 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	 CLK_LIST(vfe0_clk_src),
 	 CLK_LIST(vfe1_clk_src),
 	 CLK_LIST(crypto_clk_src),
-	 CLK_LIST(dsa_core_clk_src),
 	 CLK_LIST(gp1_clk_src),
 	 CLK_LIST(gp2_clk_src),
 	 CLK_LIST(gp3_clk_src),

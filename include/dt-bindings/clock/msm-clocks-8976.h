@@ -120,8 +120,6 @@
 #define clk_gcc_camss_vfe1_axi_clk		0xaf7463b3
 #define clk_gcc_camss_vfe1_clk			0xcaf20d99
 #define clk_gcc_dcc_clk				0xd1000c50
-#define clk_gcc_dsa_core_clk			0xa7bc3134
-#define clk_gcc_dsa_noc_cfg_ahb_clk		0x9ba991b0
 #define clk_gcc_oxili_gmem_clk			0x5620913a
 #define clk_gcc_gp1_clk				0x057f7b69
 #define clk_gcc_gp2_clk				0x9bf83ffd
@@ -155,9 +153,6 @@
 #define clk_gcc_sdcc2_apps_clk			0x861b20ac
 #define clk_gcc_sdcc3_ahb_clk			0x565b2c03
 #define clk_gcc_sdcc3_apps_clk			0x0b27aeac
-#define clk_gcc_throttle_gfx_1_ahb_clk		0x816e2808
-#define clk_gcc_throttle_gfx_1_axi_clk		0xde9e65b7
-#define clk_gcc_throttle_gfx_1_cxo_clk		0x3f1cc76e
 #define clk_gcc_usb2a_phy_sleep_clk		0x6caa736f
 #define clk_gcc_usb_hs_phy_cfg_ahb_clk		0xe13808fd
 #define clk_gcc_usb_fs_ahb_clk			0x69283a8e
@@ -235,7 +230,6 @@
 #define clk_vfe0_clk_src			0xa0c2bd8f
 #define clk_vfe1_clk_src			0x4e357366
 #define clk_crypto_clk_src			0x37a21414
-#define clk_dsa_core_clk_src			0x26f8bb96
 #define clk_gp1_clk_src				0xad85b97a
 #define clk_gp2_clk_src				0xfb1f0065
 #define clk_gp3_clk_src				0x63b693d6
