@@ -2603,8 +2603,7 @@ static int hci_dev_do_close(struct hci_dev *hdev)
 	skb_queue_purge(&hdev->cmd_q);
 	atomic_set(&hdev->cmd_cnt, 1);
 	if (!test_bit(HCI_AUTO_OFF, &hdev->dev_flags) &&
-	    !test_bit(HCI_UNCONFIGURED, &hdev->dev_flags) &&
-	    test_bit(HCI_QUIRK_RESET_ON_CLOSE, &hdev->quirks)) {
+	    !test_bit(HCI_UNCONFIGURED, &hdev->dev_flags)) {
 		set_bit(HCI_INIT, &hdev->flags);
 		__hci_req_sync(hdev, hci_reset_req, 0, HCI_CMD_TIMEOUT);
 		clear_bit(HCI_INIT, &hdev->flags);
