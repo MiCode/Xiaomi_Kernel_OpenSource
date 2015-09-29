@@ -201,7 +201,7 @@ struct sdhci_msm_host {
 	struct sdhci_msm_ice_data ice;
 	u32 ice_clk_rate;
 	struct sdhci_msm_pm_qos_group *pm_qos;
-	int pm_qos_prev_group;
+	int pm_qos_prev_cpu;
 	bool pm_qos_group_enable;
 	struct sdhci_msm_pm_qos_irq pm_qos_irq;
 };
@@ -216,7 +216,7 @@ void sdhci_msm_pm_qos_cpu_init(struct sdhci_host *host,
 		struct sdhci_msm_pm_qos_latency *latency);
 void sdhci_msm_pm_qos_cpu_vote(struct sdhci_host *host,
 		struct sdhci_msm_pm_qos_latency *latency, int cpu);
-void sdhci_msm_pm_qos_cpu_unvote(struct sdhci_host *host, int cpu, bool async);
+bool sdhci_msm_pm_qos_cpu_unvote(struct sdhci_host *host, int cpu, bool async);
 
 
 #endif /* __SDHCI_MSM_H__ */

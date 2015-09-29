@@ -107,6 +107,7 @@ struct mmc_cmdq_host_ops {
 };
 
 struct mmc_host_ops {
+	int (*init)(struct mmc_host *host);
 	/*
 	 * 'enable' is called when the host is claimed and 'disable' is called
 	 * when the host is released. 'enable' and 'disable' are deprecated.

@@ -2568,6 +2568,9 @@ static void sdhci_post_req(struct mmc_host *mmc, struct mmc_request *mrq,
 			       DMA_TO_DEVICE : DMA_FROM_DEVICE);
 
 	data->host_cookie = COOKIE_UNMAPPED;
+
+	if (host->ops->pre_req)
+		host->ops->pre_req(host, mrq);
 }
 
 static void sdhci_pre_req(struct mmc_host *mmc, struct mmc_request *mrq,
@@ -2637,7 +2640,17 @@ static void sdhci_detect(struct mmc_host *mmc, bool detected)
 		host->ops->detect(host, detected);
 }
 
+static int sdhci_late_init(struct mmc_host *mmc)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	if (host->ops->init)
+		host->ops->init(host);
+
+	return 0;
+}
 static const struct mmc_host_ops sdhci_ops = {
+	.init           = sdhci_late_init,
 	.request	= sdhci_request,
 	.post_req	= sdhci_post_req,
 	.pre_req	= sdhci_pre_req,

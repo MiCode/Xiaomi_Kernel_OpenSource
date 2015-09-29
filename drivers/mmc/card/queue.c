@@ -483,6 +483,10 @@ cur_sg_alloc_failed:
 success:
 	sema_init(&mq->thread_sem, 1);
 
+	/* hook for pm qos legacy init */
+	if (card->host->ops->init)
+		card->host->ops->init(card->host);
+
 	mq->thread = kthread_run(mmc_queue_thread, mq, "mmcqd/%d%s",
 		host->index, subname ? subname : "");
 
