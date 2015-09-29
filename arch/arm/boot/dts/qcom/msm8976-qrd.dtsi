@@ -12,6 +12,7 @@
  */
 
 #include "msm8976-camera-sensor-qrd.dtsi"
+#include "msm8976-wsa881x.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8976 QRD";

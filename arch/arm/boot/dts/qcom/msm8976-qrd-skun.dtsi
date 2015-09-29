@@ -12,6 +12,7 @@
  */
 
 #include "msm8976-qrd.dtsi"
+#include "msm8976-wsa881x.dtsi"
 
 &i2c_4 { /* BLSP1 QUP4 */
 	focaltech@38 {
@@ -115,27 +116,9 @@
 			"SpkrRight IN", "SPK2 OUT";
 
 		qcom,msm-mbhc-hphl-swh = <1>;
-		asoc-wsa-codec-names = "wsa881x.20170211";
-		asoc-wsa-codec-prefixes = "SpkrRight";
-	};
-};
-
-&slim_msm {
-	tasha_codec {
-		swr_master {
-			compatible = "qcom,swr-wcd";
-			#address-cells = <2>;
-			#size-cells = <0>;
-
-			wsa881x@20170211 {
-				compatible = "qcom,wsa881x";
-				reg = <0x00 0x20170211>;
-				pinctrl-names = "wsa_spkr_sd_act",
-						"wsa_spkr_sd_sus";
-				pinctrl-0 = <&wsa_spkr_sd_act>;
-				pinctrl-1 = <&wsa_spkr_sd_sus>;
-			};
-		};
+		qcom,max-aux-codec = <1>;
+		qcom,aux-codec = "wsa881x.20170211";
+		qcom,aux-codec-prefix = "SpkrRight";
 	};
 };
 
