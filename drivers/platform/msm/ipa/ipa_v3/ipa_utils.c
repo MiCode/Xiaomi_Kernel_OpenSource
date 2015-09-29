@@ -48,7 +48,7 @@
 /* configure IPA spare register 1 in order to have correct IPA version
  * set bits 0,2,3 and 4. see SpareBits documentation.xlsx
  */
-#define IPA_SPARE_REG_1_VAL (0x0000001D)
+#define IPA_SPARE_REG_1_VAL (0xE000081D)
 
 
 /* HPS, DPS sequencers Types*/
