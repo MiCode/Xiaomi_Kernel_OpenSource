@@ -2225,18 +2225,26 @@ static void smbchg_parallel_usb_en_work(struct work_struct *work)
 static void smbchg_parallel_usb_check_ok(struct smbchg_chip *chip)
 {
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
+	bool in_progress;
 
 	if (!parallel_psy || !chip->parallel_charger_detected)
 		return;
 	mutex_lock(&chip->parallel.lock);
+	in_progress = (chip->parallel.current_max_ma != 0);
 	if (smbchg_is_parallel_usb_ok(chip)) {
-		smbchg_stay_awake(chip, PM_PARALLEL_CHECK);
-		schedule_delayed_work(
-			&chip->parallel_en_work,
-			msecs_to_jiffies(PARALLEL_CHARGER_EN_DELAY_MS));
-	} else if (chip->parallel.current_max_ma != 0) {
-		pr_smb(PR_STATUS, "parallel charging unavailable\n");
-		smbchg_parallel_usb_disable(chip);
+		if (!in_progress) {
+			smbchg_stay_awake(chip, PM_PARALLEL_CHECK);
+			schedule_delayed_work(
+				&chip->parallel_en_work,
+				msecs_to_jiffies(PARALLEL_CHARGER_EN_DELAY_MS));
+		} else {
+			smbchg_parallel_usb_enable(chip);
+		}
+	} else {
+		if (in_progress) {
+			pr_smb(PR_STATUS, "parallel charging unavailable\n");
+			smbchg_parallel_usb_disable(chip);
+		}
 	}
 	mutex_unlock(&chip->parallel.lock);
 }
