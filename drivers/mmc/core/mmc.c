@@ -1662,7 +1662,7 @@ static int mmc_select_cmdq(struct mmc_card *card)
 	}
 
 	mmc_host_clk_release(card->host);
-	pr_info("%s: CMDQ enabled on card\n", mmc_hostname(host));
+	pr_info_once("%s: CMDQ enabled on card\n", mmc_hostname(host));
 out:
 	return ret;
 }
@@ -2302,12 +2302,13 @@ err:
 	return err;
 }
 
-static int mmc_can_sleep(struct mmc_card *card)
+static int mmc_can_sleepawake(struct mmc_host *host)
 {
-	return (card && card->ext_csd.rev >= 3);
+	return host && (host->caps2 & MMC_CAP2_SLEEP_AWAKE) && host->card &&
+		(host->card->ext_csd.rev >= 3);
 }
 
-static int mmc_sleep(struct mmc_host *host)
+static int mmc_sleepawake(struct mmc_host *host, bool sleep)
 {
 	struct mmc_command cmd = {0};
 	struct mmc_card *card = host->card;
@@ -2317,13 +2318,16 @@ static int mmc_sleep(struct mmc_host *host)
 	/* Re-tuning can't be done once the card is deselected */
 	mmc_retune_hold(host);
 
-	err = mmc_deselect_cards(host);
-	if (err)
-		goto out_release;
+	if (sleep) {
+		err = mmc_deselect_cards(host);
+		if (err)
+			goto out_release;
+	}
 
 	cmd.opcode = MMC_SLEEP_AWAKE;
 	cmd.arg = card->rca << 16;
-	cmd.arg |= 1 << 15;
+	if (sleep)
+		cmd.arg |= 1 << 15;
 
 	/*
 	 * If the max_busy_timeout of the host is specified, validate it against
@@ -2350,6 +2354,9 @@ static int mmc_sleep(struct mmc_host *host)
 	 */
 	if (!cmd.busy_timeout || !(host->caps & MMC_CAP_WAIT_WHILE_BUSY))
 		mmc_delay(timeout_ms);
+
+	if (!sleep)
+		err = mmc_select_card(card);
 
 out_release:
 	mmc_retune_release(host);
@@ -2461,6 +2468,69 @@ static void mmc_detect(struct mmc_host *host)
 	}
 }
 
+static int mmc_cache_card_ext_csd(struct mmc_host *host)
+{
+	int err;
+	u8 *ext_csd;
+	struct mmc_card *card = host->card;
+
+	err = mmc_get_ext_csd(card, &ext_csd);
+	if (err || !ext_csd) {
+		pr_err("%s: %s: mmc_get_ext_csd failed (%d)\n",
+			mmc_hostname(host), __func__, err);
+		return err;
+	}
+
+	/* only cache read/write fields that the sw changes */
+	card->ext_csd.raw_ext_csd_cmdq = ext_csd[EXT_CSD_CMDQ];
+	card->ext_csd.raw_ext_csd_cache_ctrl = ext_csd[EXT_CSD_CACHE_CTRL];
+	card->ext_csd.raw_ext_csd_bus_width = ext_csd[EXT_CSD_BUS_WIDTH];
+	card->ext_csd.raw_ext_csd_hs_timing = ext_csd[EXT_CSD_HS_TIMING];
+
+	kfree(ext_csd);
+
+	return 0;
+}
+
+static int mmc_test_awake_ext_csd(struct mmc_host *host)
+{
+	int err;
+	u8 *ext_csd;
+	struct mmc_card *card = host->card;
+
+	err = mmc_get_ext_csd(card, &ext_csd);
+	if (err) {
+		pr_err("%s: %s: mmc_get_ext_csd failed (%d)\n",
+			mmc_hostname(host), __func__, err);
+		return err;
+	}
+
+	/* only compare read/write fields that the sw changes */
+	pr_debug("%s: %s: type(cached:current) cmdq(%d:%d) cache_ctrl(%d:%d) bus_width (%d:%d) timing(%d:%d)\n",
+		mmc_hostname(host), __func__,
+		card->ext_csd.raw_ext_csd_cmdq,
+		ext_csd[EXT_CSD_CMDQ],
+		card->ext_csd.raw_ext_csd_cache_ctrl,
+		ext_csd[EXT_CSD_CACHE_CTRL],
+		card->ext_csd.raw_ext_csd_bus_width,
+		ext_csd[EXT_CSD_BUS_WIDTH],
+		card->ext_csd.raw_ext_csd_hs_timing,
+		ext_csd[EXT_CSD_HS_TIMING]);
+
+	err = !((card->ext_csd.raw_ext_csd_cmdq ==
+			ext_csd[EXT_CSD_CMDQ]) &&
+		(card->ext_csd.raw_ext_csd_cache_ctrl ==
+			ext_csd[EXT_CSD_CACHE_CTRL]) &&
+		(card->ext_csd.raw_ext_csd_bus_width ==
+			ext_csd[EXT_CSD_BUS_WIDTH]) &&
+		(card->ext_csd.raw_ext_csd_hs_timing ==
+			ext_csd[EXT_CSD_HS_TIMING]));
+
+	kfree(ext_csd);
+
+	return err;
+}
+
 static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 {
 	int err = 0;
@@ -2512,10 +2582,13 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 	if (err)
 		goto out;
 
-	if (mmc_can_sleep(host->card))
-		err = mmc_sleep(host);
-	else if (!mmc_host_is_spi(host))
+	if (mmc_can_sleepawake(host)) {
+		memcpy(&host->cached_ios, &host->ios, sizeof(host->cached_ios));
+		mmc_cache_card_ext_csd(host);
+		err = mmc_sleepawake(host, true);
+	} else if (!mmc_host_is_spi(host)) {
 		err = mmc_deselect_cards(host);
+	}
 
 	if (!err) {
 		mmc_power_off(host);
@@ -2527,6 +2600,71 @@ out:
 	else if (is_suspend)
 		host->dev_status = DEV_SUSPENDED;
 	mmc_release_host(host);
+	return err;
+}
+
+static int mmc_partial_init(struct mmc_host *host)
+{
+	int err = 0;
+	struct mmc_card *card = host->card;
+
+	pr_debug("%s: %s: starting partial init\n",
+		mmc_hostname(host), __func__);
+
+	mmc_set_bus_width(host, host->cached_ios.bus_width);
+	mmc_set_timing(host, host->cached_ios.timing);
+	mmc_set_clock(host, host->cached_ios.clock);
+	mmc_set_bus_mode(host, host->cached_ios.bus_mode);
+
+	mmc_host_clk_hold(host);
+
+	if (mmc_card_hs200(card) || mmc_card_hs400(card)) {
+		if (card->ext_csd.strobe_support && host->ops->enhanced_strobe)
+			err = host->ops->enhanced_strobe(host);
+		else
+			err = host->ops->execute_tuning(host,
+				MMC_SEND_TUNING_BLOCK_HS200);
+		if (err)
+			pr_warn("%s: %s: tuning execution failed (%d)\n",
+				mmc_hostname(host), __func__, err);
+	}
+
+	/*
+	 * The ext_csd is read to make sure the card did not went through
+	 * Power-failure during sleep period.
+	 * A subset of the W/E_P, W/C_P register will be tested. In case
+	 * these registers values are different from the values that were
+	 * cached during suspend, we will conclude that a Power-failure occurred
+	 * and will do full initialization sequence.
+	 * In addition, full init sequence also transfer ext_csd before moving
+	 * to CMDQ mode which has a side affect of configuring SDHCI registers
+	 * which needed to be done before moving to CMDQ mode. The same
+	 * registers need to be configured for partial init.
+	 */
+	err = mmc_test_awake_ext_csd(host);
+	if (err) {
+		pr_debug("%s: %s: fail on ext_csd read (%d)\n",
+			mmc_hostname(host), __func__, err);
+		goto out;
+	}
+	pr_debug("%s: %s: reading and comparing ext_csd successful\n",
+		mmc_hostname(host), __func__);
+
+	if (card->ext_csd.cmdq_support && (card->host->caps2 &
+					   MMC_CAP2_CMD_QUEUE)) {
+		err = mmc_select_cmdq(card);
+		if (err) {
+			pr_warn("%s: %s: enabling CMDQ mode failed (%d)\n",
+					mmc_hostname(card->host),
+					__func__, err);
+		}
+	}
+out:
+	mmc_host_clk_release(host);
+
+	pr_debug("%s: %s: done partial init (%d)\n",
+		mmc_hostname(host), __func__, err);
+
 	return err;
 }
 
@@ -2555,7 +2693,7 @@ static int mmc_suspend(struct mmc_host *host)
  */
 static int _mmc_resume(struct mmc_host *host)
 {
-	int err = 0;
+	int err = -ENOSYS;
 	int retries;
 
 	BUG_ON(!host);
@@ -2571,7 +2709,18 @@ static int _mmc_resume(struct mmc_host *host)
 	mmc_power_up(host, host->card->ocr);
 	retries = 3;
 	while (retries) {
-		err = mmc_init_card(host, host->card->ocr, host->card);
+		if (mmc_can_sleepawake(host)) {
+			err = mmc_sleepawake(host, false);
+			if (!err)
+				err = mmc_partial_init(host);
+			if (err)
+				pr_err("%s: %s: awake failed (%d), fallback to full init\n",
+					mmc_hostname(host), __func__, err);
+		}
+
+		if (err)
+			err = mmc_init_card(host, host->card->ocr, host->card);
+
 		if (err) {
 			pr_err("%s: MMC card re-init failed rc = %d (retries = %d)\n",
 			       mmc_hostname(host), err, retries);
