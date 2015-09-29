@@ -24,8 +24,11 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
 #include <linux/pm_runtime.h>
+#include <linux/workqueue.h>
 
 #include "cmdq_hci.h"
+#include "sdhci.h"
+#include "sdhci-msm.h"
 
 #define DCMD_SLOT 31
 #define NUM_SLOTS 32
@@ -575,6 +578,21 @@ static void cmdq_prep_dcmd_desc(struct mmc_host *mmc,
 
 }
 
+static void cmdq_pm_qos_vote(struct sdhci_host *host, struct mmc_request *mrq)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	sdhci_msm_pm_qos_cpu_vote(host,
+		msm_host->pdata->pm_qos_data.cmdq_latency, mrq->req->cpu);
+}
+
+static void cmdq_pm_qos_unvote(struct sdhci_host *host, struct mmc_request *mrq)
+{
+	/* use async as we're inside an atomic context (soft-irq) */
+	sdhci_msm_pm_qos_cpu_unvote(host, mrq->req->cpu, true);
+}
+
 static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	int err = 0;
@@ -582,6 +600,7 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	u64 *task_desc = NULL;
 	u32 tag = mrq->cmdq_req->tag;
 	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
+	struct sdhci_host *host = mmc_priv(mmc);
 
 	if (!cq_host->enabled) {
 		pr_err("%s: CMDQ host not enabled yet !!!\n",
@@ -619,6 +638,9 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	if (cq_host->ops->set_tranfer_params)
 		cq_host->ops->set_tranfer_params(mmc);
 
+	/* PM QoS */
+	sdhci_msm_pm_qos_irq_vote(host);
+	cmdq_pm_qos_vote(host, mrq);
 ring_doorbell:
 	/* Ensure the task descriptor list is flushed before ringing doorbell */
 	wmb();
@@ -770,6 +792,7 @@ static void cmdq_post_req(struct mmc_host *host, struct mmc_request *mrq,
 			  int err)
 {
 	struct mmc_data *data = mrq->data;
+	struct sdhci_host *sdhci_host = mmc_priv(host);
 
 	if (data) {
 		data->error = err;
@@ -780,6 +803,10 @@ static void cmdq_post_req(struct mmc_host *host, struct mmc_request *mrq,
 			data->bytes_xfered = 0;
 		else
 			data->bytes_xfered = blk_rq_bytes(mrq->req);
+
+		/* we're in atomic context (soft-irq) so unvote async. */
+		sdhci_msm_pm_qos_irq_unvote(sdhci_host, true);
+		cmdq_pm_qos_unvote(sdhci_host, mrq);
 	}
 }
 
@@ -791,7 +818,26 @@ static void cmdq_dumpstate(struct mmc_host *mmc)
 	cmdq_runtime_pm_put(cq_host);
 }
 
+static int cmdq_late_init(struct mmc_host *mmc)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	/*
+	 * TODO: This should basically move to something like "sdhci-cmdq-msm"
+	 * for msm specific implementation.
+	 */
+	sdhci_msm_pm_qos_irq_init(host);
+
+	if (msm_host->pdata->pm_qos_data.cmdq_valid)
+		sdhci_msm_pm_qos_cpu_init(host,
+			msm_host->pdata->pm_qos_data.cmdq_latency);
+	return 0;
+}
+
 static const struct mmc_cmdq_host_ops cmdq_host_ops = {
+	.init = cmdq_late_init,
 	.enable = cmdq_enable,
 	.disable = cmdq_disable,
 	.request = cmdq_request,

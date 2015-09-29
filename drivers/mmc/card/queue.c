@@ -350,6 +350,9 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 			blk_cleanup_queue(mq->queue);
 		} else {
 			sema_init(&mq->thread_sem, 1);
+			/* hook for pm qos cmdq init */
+			if (card->host->cmdq_ops->init)
+				card->host->cmdq_ops->init(card->host);
 			mq->queue->queuedata = mq;
 			card->host->cmdq_ctx.q = mq->queue;
 			mq->thread = kthread_run(mmc_cmdq_thread, mq,
