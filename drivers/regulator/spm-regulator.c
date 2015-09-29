@@ -28,6 +28,12 @@
 #include <linux/regulator/spm-regulator.h>
 #include <soc/qcom/spm.h>
 
+#if defined(CONFIG_ARM64) || (defined(CONFIG_ARM) && defined(CONFIG_ARM_PSCI))
+	asmlinkage int __invoke_psci_fn_smc(u64, u64, u64, u64);
+#else
+	#define __invoke_psci_fn_smc(a, b, c, d) 0
+#endif
+
 #define SPM_REGULATOR_DRIVER_NAME "qcom,spm-regulator"
 
 struct voltage_range {
@@ -135,6 +141,7 @@ struct spm_vreg {
 	int				avs_min_uV;
 	int				avs_max_uV;
 	bool				avs_enabled;
+	u32				recal_cluster_mask;
 };
 
 static inline bool spm_regulator_using_avs(struct spm_vreg *vreg)
@@ -289,6 +296,22 @@ static int spm_regulator_write_voltage(struct spm_vreg *vreg, int uV)
 	return rc;
 }
 
+static int spm_regulator_recalibrate(struct spm_vreg *vreg)
+{
+	int rc;
+
+	if (!vreg->recal_cluster_mask)
+		return 0;
+
+	rc = __invoke_psci_fn_smc(0xC4000020, vreg->recal_cluster_mask,
+				  2, 0);
+	if (rc)
+		pr_err("%s: recalibration failed, rc=%d\n", vreg->rdesc.name,
+			rc);
+
+	return rc;
+}
+
 static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 {
 	struct spm_vreg *vreg = rdev_get_drvdata(rdev);
@@ -332,6 +355,8 @@ static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 		if (rc)
 			return rc;
 	}
+
+	rc = spm_regulator_recalibrate(vreg);
 
 	return rc;
 }
@@ -854,6 +879,9 @@ static int spm_regulator_probe(struct spmi_device *spmi)
 	vreg->cpu_num = 0;
 	of_property_read_u32(vreg->spmi_dev->dev.of_node, "qcom,cpu-num",
 						&vreg->cpu_num);
+
+	of_property_read_u32(vreg->spmi_dev->dev.of_node, "qcom,recal-mask",
+						&vreg->recal_cluster_mask);
 
 	/*
 	 * The regulator must be initialized to range 0 or range 1 during
