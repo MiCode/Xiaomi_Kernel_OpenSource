@@ -633,6 +633,7 @@ again:
 
 	time_out_count = wait_for_completion_timeout(
 		&ddc_ctrl->ddc_sw_done, wait_time);
+	DEV_DBG("ddc read done at %dms\n", jiffies_to_msecs(jiffies));
 
 	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL, BIT(1));
 	if (!time_out_count) {
@@ -1088,6 +1089,8 @@ again:
 
 	time_out_count = wait_for_completion_timeout(
 		&ddc_ctrl->ddc_sw_done, HZ/2);
+
+	DEV_DBG("DDC write done at %dms\n", jiffies_to_msecs(jiffies));
 
 	reg_val = DSS_REG_R(ddc_ctrl->io, HDMI_DDC_INT_CTRL);
 	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL, reg_val & (~BIT(2)));
