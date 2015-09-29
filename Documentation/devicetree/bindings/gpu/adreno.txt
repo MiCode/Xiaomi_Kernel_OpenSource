@@ -10,7 +10,9 @@ Required properties:
 - reg-names:		Resource names used for the physical address of device registers
 			and shader memory. "kgsl_3d0_reg_memory" gives the physical address
 			and length of device registers while "kgsl_3d0_shader_memory" gives
-			physical address and length of device shader memory.
+			physical address and length of device shader memory.  If
+			specified, "qfprom_memory" gives the range for the efuse
+			registers used for various configuration options.
 - interrupts:		Interrupt mapping for GPU IRQ.
 - interrupt-names:	String property to describe the name of the interrupt.
 - qcom,id:		An integer used as an identification number for the device.
@@ -34,7 +36,6 @@ Required properties:
 				"alt_mem_iface_clk", "rbbmtimer_clk",  "alwayson_clk"
 				"core_clk" and "iface_clk" are required and others are optional
 
-- qcom,gpu-efuse-leakage:	memory region for GPU power rail leakage.
 - qcom,base-leakage-coefficient: Dynamic leakage coefficient.
 - qcom,lm-limit:	Current limit for GPU limit management.
 

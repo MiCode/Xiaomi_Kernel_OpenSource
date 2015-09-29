@@ -176,6 +176,58 @@ static inline int adreno_of_read_property(struct device_node *node,
 	return ret;
 }
 
+static void __iomem *efuse_base;
+static size_t efuse_len;
+
+int adreno_efuse_map(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+	struct resource *res;
+
+	if (efuse_base != NULL)
+		return 0;
+
+	res = platform_get_resource_byname(device->pdev, IORESOURCE_MEM,
+		"qfprom_memory");
+
+	if (res == NULL)
+		return -ENODEV;
+
+	efuse_base = ioremap(res->start, resource_size(res));
+	if (efuse_base == NULL)
+		return -ENODEV;
+
+	efuse_len = resource_size(res);
+	return 0;
+}
+
+void adreno_efuse_unmap(struct adreno_device *adreno_dev)
+{
+	if (efuse_base != NULL) {
+		iounmap(efuse_base);
+		efuse_base = NULL;
+		efuse_len = 0;
+	}
+}
+
+int adreno_efuse_read_u32(struct adreno_device *adreno_dev, unsigned int offset,
+		unsigned int *val)
+{
+	if (efuse_base == NULL)
+		return -ENODEV;
+
+	if (offset >= efuse_len)
+		return -ERANGE;
+
+	if (val != NULL) {
+		*val = readl_relaxed(efuse_base + offset);
+		/* Make sure memory is updated before returning */
+		rmb();
+	}
+
+	return 0;
+}
+
 /*
  * adreno_iommu_cb_probe() - Adreno iommu context bank probe
  *
@@ -751,8 +803,10 @@ adreno_identify_gpu(struct adreno_device *adreno_dev)
 		if (reg_offsets->offset_0 != i && !reg_offsets->offsets[i])
 			reg_offsets->offsets[i] = ADRENO_REG_UNUSED;
 	}
-	if (gpudev->gpudev_init)
-		gpudev->gpudev_init(adreno_dev);
+
+	/* Do target specific identification */
+	if (gpudev->platform_setup != NULL)
+		gpudev->platform_setup(adreno_dev);
 }
 
 static const struct platform_device_id adreno_id_table[] = {
@@ -976,14 +1030,15 @@ static int adreno_probe(struct platform_device *pdev)
 	device->pdev = pdev;
 	device->mmu.priv = &device_3d0_iommu;
 
+	/* Get the chip ID from the DT and set up target specific parameters */
+	adreno_identify_gpu(adreno_dev);
+
+	/* Get the rest of the device tree */
 	status = adreno_of_get_pdata(pdev);
 	if (status) {
 		device->pdev = NULL;
 		return status;
 	}
-
-	/* Identify the specific GPU */
-	adreno_identify_gpu(adreno_dev);
 
 	/* Bro, do you even 64 bit? */
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_64BIT))
@@ -1093,6 +1148,9 @@ static int adreno_remove(struct platform_device *pdev)
 
 	kfree(adreno_ft_regs_val);
 	adreno_ft_regs_val = NULL;
+
+	if (efuse_base != NULL)
+		iounmap(efuse_base);
 
 	adreno_perfcounter_close(adreno_dev);
 	kgsl_device_platform_remove(device);

@@ -659,7 +659,7 @@ struct adreno_gpudev {
 	/* GPU specific function hooks */
 	void (*irq_trace)(struct adreno_device *, unsigned int status);
 	void (*snapshot)(struct adreno_device *, struct kgsl_snapshot *);
-	void (*gpudev_init)(struct adreno_device *);
+	void (*platform_setup)(struct adreno_device *);
 	int (*rb_init)(struct adreno_device *, struct adreno_ringbuffer *);
 	int (*hw_init)(struct adreno_device *);
 	int (*switch_to_unsecure_mode)(struct adreno_device *,
@@ -859,6 +859,11 @@ long adreno_ioctl_perfcounter_get(struct kgsl_device_private *dev_priv,
 
 long adreno_ioctl_perfcounter_put(struct kgsl_device_private *dev_priv,
 	unsigned int cmd, void *data);
+
+int adreno_efuse_map(struct adreno_device *adreno_dev);
+int adreno_efuse_read_u32(struct adreno_device *adreno_dev, unsigned int offset,
+		unsigned int *val);
+void adreno_efuse_unmap(struct adreno_device *adreno_dev);
 
 #define ADRENO_TARGET(_name, _id) \
 static inline int adreno_is_##_name(struct adreno_device *adreno_dev) \

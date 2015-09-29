@@ -105,9 +105,58 @@ static int _read_fw2_block_header(uint32_t *header, uint32_t id,
 
 #define AGC_POWER_CONFIG_PRODUCTION_ID	1
 
-#define GFX_DEFAULT_LEAKAGE 0x004E001A
 #define LM_DEFAULT_LIMIT    6000
 
+#define A530_DEFAULT_LEAKAGE 0x004E001A
+#define A530_QFPROM_RAW_PTE_ROW0_MSB 0x134
+#define A530_QFPROM_RAW_PTE_ROW2_MSB 0x144
+
+static void a530_efuse_leakage(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+	unsigned int row0, row2;
+	unsigned int multiplier, gfx_active, leakage_pwr_on, coeff;
+
+	adreno_efuse_read_u32(adreno_dev,
+		A530_QFPROM_RAW_PTE_ROW0_MSB, &row0);
+
+	adreno_efuse_read_u32(adreno_dev,
+		A530_QFPROM_RAW_PTE_ROW2_MSB, &row2);
+
+	multiplier = (row0 >> 1) & 0x3;
+	gfx_active = (row2 >> 2) & 0xFF;
+
+	if (of_property_read_u32(device->pdev->dev.of_node,
+		"qcom,base-leakage-coefficient", &coeff))
+		return;
+
+	leakage_pwr_on = gfx_active * (1 << multiplier);
+
+	adreno_dev->lm_leakage = (leakage_pwr_on << 16) |
+		((leakage_pwr_on * coeff) / 100);
+}
+
+static const struct {
+	int (*check)(struct adreno_device *adreno_dev);
+	void (*func)(struct adreno_device *adreno_dev);
+} a5xx_efuse_funcs[] = {
+	{ adreno_is_a530, a530_efuse_leakage },
+};
+
+static void a5xx_check_features(struct adreno_device *adreno_dev)
+{
+	unsigned int i;
+
+	if (adreno_efuse_map(adreno_dev))
+		return;
+
+	for (i = 0; i < ARRAY_SIZE(a5xx_efuse_funcs); i++) {
+		if (a5xx_efuse_funcs[i].check(adreno_dev))
+			a5xx_efuse_funcs[i].func(adreno_dev);
+	}
+
+	adreno_efuse_unmap(adreno_dev);
+}
 
 /*
  * a5xx_preemption_start() - Setup state to start preemption
@@ -345,16 +394,10 @@ static int a5xx_preemption_post_ibsubmit(
 	return cmds - cmds_orig;
 }
 
-/*
- * a5xx_gpudev_init() - Initialize gpudev specific fields
- * @adreno_dev: Pointer to adreno device
- */
-static void a5xx_gpudev_init(struct adreno_device *adreno_dev)
+static void a5xx_platform_setup(struct adreno_device *adreno_dev)
 {
 	uint64_t addr;
-	struct adreno_gpudev *gpudev;
-
-	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (adreno_is_a505_or_a506(adreno_dev)) {
 		gpudev->snapshot_data->sect_sizes->cp_meq = 32;
@@ -381,6 +424,12 @@ static void a5xx_gpudev_init(struct adreno_device *adreno_dev)
 	addr = ALIGN(ADRENO_UCHE_GMEM_BASE + adreno_dev->gmem_size, SZ_64K);
 	adreno_dev->sp_local_gpuaddr = addr;
 	adreno_dev->sp_pvt_gpuaddr = addr + SZ_64K;
+
+	/* Setup defaults that might get changed by the fuse bits */
+	adreno_dev->lm_leakage = A530_DEFAULT_LEAKAGE;
+
+	/* Check efuse bits for various capabilties */
+	a5xx_check_features(adreno_dev);
 }
 
 /**
@@ -1423,42 +1472,6 @@ static void _write_voltage_table(struct adreno_device *adreno_dev,
 	*length = levels * 2 + 2;
 }
 
-static uint32_t gfx_base_leakage(struct adreno_device *adreno_dev)
-{
-	struct kgsl_device *device = &adreno_dev->dev;
-	void __iomem *base;
-	uint32_t gfx_active, multiplier, leakage_pwr_on, coeff, leakagemem[2];
-
-	if (adreno_dev->lm_leakage)
-		return adreno_dev->lm_leakage;
-
-	adreno_dev->lm_leakage = GFX_DEFAULT_LEAKAGE;
-
-	if (of_property_read_u32_array(device->pdev->dev.of_node,
-		"qcom,gpu-efuse-leakage", leakagemem, 2))
-		return adreno_dev->lm_leakage;
-
-	if (!leakagemem[0] || !leakagemem[1])
-		return adreno_dev->lm_leakage;
-
-	base = ioremap(leakagemem[0], leakagemem[1]);
-	if (!base)
-		return adreno_dev->lm_leakage;
-
-	multiplier = (uint32_t) ((readq(base) >> 33) & 0x3);
-	gfx_active = (uint32_t) ((readq(base + 16) >> 34) & 0xff);
-	iounmap(base);
-
-	if (of_property_read_u32(device->pdev->dev.of_node,
-		"qcom,base-leakage-coefficient", &coeff) || !coeff)
-		return adreno_dev->lm_leakage;
-
-	leakage_pwr_on = gfx_active * (1 << multiplier);
-	adreno_dev->lm_leakage = (leakage_pwr_on << 16) |
-		(leakage_pwr_on * coeff) / 100;
-	return adreno_dev->lm_leakage;
-}
-
 static uint32_t lm_limit(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
@@ -1508,7 +1521,7 @@ static void a5xx_lm_init(struct adreno_device *adreno_dev)
 			(0x80000000 | device->pwrctrl.active_pwrlevel));
 	/* use the leakage to set this value at runtime */
 	kgsl_regwrite(device, A5XX_GPMU_BASE_LEAKAGE,
-		gfx_base_leakage(adreno_dev));
+		adreno_dev->lm_leakage);
 
 	/* Enable the power threshold and set it to 6000m */
 	kgsl_regwrite(device, A5XX_GPMU_GPMU_PWR_THRESHOLD,
@@ -2953,7 +2966,7 @@ static struct adreno_irq a5xx_irq = {
 
 /*
  * Default size for CP queues for A5xx targets. You must
- * overwrite these value in gpudev_init function for
+ * overwrite these value in platform_setup function for
  * A5xx derivatives if size differs.
  */
 static struct adreno_snapshot_sizes a5xx_snap_sizes = {
@@ -3489,7 +3502,7 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.snapshot_data = &a5xx_snapshot_data,
 	.irq_trace = trace_kgsl_a5xx_irq_status,
 	.num_prio_levels = ADRENO_PRIORITY_MAX_RB_LEVELS,
-	.gpudev_init = a5xx_gpudev_init,
+	.platform_setup = a5xx_platform_setup,
 	.rb_init = a5xx_rb_init,
 	.hw_init = a5xx_hw_init,
 	.switch_to_unsecure_mode = a5xx_switch_to_unsecure_mode,
