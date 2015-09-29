@@ -64,6 +64,7 @@
 
 &pm8994_s11 {
 	regulator-max-microvolt = <1015000>;
+	/delete-property/ qcom,recal-mask;
 };
 
 &pm8994_s11_limit {
