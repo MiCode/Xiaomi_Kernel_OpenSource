@@ -120,7 +120,7 @@
 					label = "perf-l2-pc";
 					qcom,psci-mode = <3>;
 					qcom,latency-us = <305>;
-					qcom,ss-power = <408>;
+					qcom,ss-power = <405>;
 					qcom,energy-overhead = <564794>;
 					qcom,time-overhead = <879>;
 					qcom,min-child-idx = <1>;
@@ -138,16 +138,16 @@
 						qcom,psci-cpu-mode = <0>;
 						qcom,spm-cpu-mode = "wfi";
 						qcom,latency-us = <1>;
-						qcom,ss-power = <570>;
+						qcom,ss-power = <530>;
 						qcom,energy-overhead = <62806>;
-						qcom,time-overhead = <37>;
+						qcom,time-overhead = <67>;
 					};
 
 					qcom,pm-cpu-level@1 {
 						reg = <1>;
 						qcom,psci-cpu-mode = <2>;
 						qcom,spm-cpu-mode = "standalone_pc";
-						qcom,latency-us = <210>;
+						qcom,latency-us = <190>;
 						qcom,ss-power = <472>;
 						qcom,energy-overhead = <233383>;
 						qcom,time-overhead = <326>;
