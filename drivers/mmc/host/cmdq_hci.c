@@ -132,6 +132,31 @@ static void cmdq_clear_set_irqs(struct cmdq_host *cq_host, u32 clear, u32 set)
 
 #define DRV_NAME "cmdq-host"
 
+static void cmdq_dump_task_history(struct cmdq_host *cq_host)
+{
+	int i;
+
+	if (likely(!cq_host->mmc->cmdq_thist_enabled))
+		return;
+
+	if (!cq_host->thist) {
+		pr_err("%s: %s: CMDQ task history buffer not allocated\n",
+			mmc_hostname(cq_host->mmc), __func__);
+		return;
+	}
+
+	pr_err("---- Circular Task History ----\n");
+	pr_err(DRV_NAME ": Last entry index: %d", cq_host->thist_idx - 1);
+
+	for (i = 0; i < cq_host->num_slots; i++) {
+		pr_err(DRV_NAME ": [%02d]%s Task: 0x%08x | Args: 0x%08x\n", i,
+			(cq_host->thist[i].is_dcmd) ? "DCMD" : "DATA",
+			lower_32_bits(cq_host->thist[i].task),
+			upper_32_bits(cq_host->thist[i].task));
+	}
+	pr_err("-------------------------\n");
+}
+
 static void cmdq_dumpregs(struct cmdq_host *cq_host)
 {
 	struct mmc_host *mmc = cq_host->mmc;
@@ -176,6 +201,7 @@ static void cmdq_dumpregs(struct cmdq_host *cq_host)
 	       cmdq_readl(cq_host, CQ_VENDOR_CFG));
 	pr_err(DRV_NAME ": ===========================================\n");
 
+	cmdq_dump_task_history(cq_host);
 	if (cq_host->ops->dump_vendor_regs)
 		cq_host->ops->dump_vendor_regs(mmc);
 }
@@ -252,6 +278,10 @@ static int cmdq_host_alloc_tdl(struct cmdq_host *cq_host)
 					      data_size,
 					      &cq_host->trans_desc_dma_base,
 					      GFP_KERNEL);
+	cq_host->thist = devm_kzalloc(mmc_dev(cq_host->mmc),
+					(sizeof(*cq_host->thist) *
+						cq_host->num_slots),
+					GFP_KERNEL);
 	if (!cq_host->desc_base || !cq_host->trans_desc_base)
 		return -ENOMEM;
 
@@ -526,6 +556,26 @@ static int cmdq_prep_tran_desc(struct mmc_request *mrq,
 	return 0;
 }
 
+static void cmdq_log_task_desc_history(struct cmdq_host *cq_host, u64 task,
+					bool is_dcmd)
+{
+	if (likely(!cq_host->mmc->cmdq_thist_enabled))
+		return;
+
+	if (!cq_host->thist) {
+		pr_err("%s: %s: CMDQ task history buffer not allocated\n",
+			mmc_hostname(cq_host->mmc), __func__);
+		return;
+	}
+
+	if (cq_host->thist_idx >= cq_host->num_slots)
+		cq_host->thist_idx = 0;
+
+	cq_host->thist[cq_host->thist_idx].is_dcmd = is_dcmd;
+	memcpy(&cq_host->thist[cq_host->thist_idx++].task,
+		&task, cq_host->task_desc_len);
+}
+
 static void cmdq_prep_dcmd_desc(struct mmc_host *mmc,
 				   struct mmc_request *mrq)
 {
@@ -565,7 +615,7 @@ static void cmdq_prep_dcmd_desc(struct mmc_host *mmc,
 		mrq->cmd->opcode, timing, resp_type);
 	dataddr = (__le64 __force *)(desc + 4);
 	dataddr[0] = cpu_to_le64((u64)mrq->cmd->arg);
-
+	cmdq_log_task_desc_history(cq_host, *task_desc, true);
 }
 
 static void cmdq_pm_qos_vote(struct sdhci_host *host, struct mmc_request *mrq)
@@ -623,6 +673,7 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	cmdq_prep_task_desc(mrq, &data, 1,
 			    (mrq->cmdq_req->cmdq_req_flags & QBR));
 	*task_desc = cpu_to_le64(data);
+	cmdq_log_task_desc_history(cq_host, *task_desc, false);
 
 	err = cmdq_prep_tran_desc(mrq, cq_host, tag);
 	if (err) {
