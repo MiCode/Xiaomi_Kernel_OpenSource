@@ -144,6 +144,11 @@
 #define CQ_VENDOR_CFG	0x100
 #define CMDQ_SEND_STATUS_TRIGGER (1 << 31)
 
+struct task_history {
+	u64 task;
+	bool is_dcmd;
+};
+
 struct cmdq_host {
 	const struct cmdq_host_ops *ops;
 	void __iomem *mmio;
@@ -182,6 +187,9 @@ struct cmdq_host {
 
 	dma_addr_t desc_dma_base;
 	dma_addr_t trans_desc_dma_base;
+
+	struct task_history *thist;
+	u8 thist_idx;
 
 	struct completion halt_comp;
 	struct mmc_request **mrq_slot;
