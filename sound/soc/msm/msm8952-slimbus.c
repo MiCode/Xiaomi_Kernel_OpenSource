@@ -66,6 +66,7 @@
 #define HS_STARTWORK_TIMEOUT        4000
 
 #define Q6AFE_LPASS_OSR_CLK_9_P600_MHZ	0x927C00
+#define MAX_AUX_CODECS	4
 
 enum btsco_rates {
 	RATE_8KHZ_ID,
@@ -311,6 +312,11 @@ struct msm8952_asoc_mach_data {
 	void __iomem *vaddr_gpio_mux_quin_ctl;
 };
 
+struct msm895x_auxcodec_prefix_map {
+	char codec_name[50];
+	char codec_prefix[25];
+};
+
 static inline int param_is_mask(int p)
 {
 	return (p >= SNDRV_PCM_HW_PARAM_FIRST_MASK) &&
@@ -330,18 +336,33 @@ int msm895x_wsa881x_init(struct snd_soc_dapm_context *dapm)
 	unsigned int ch_mask[WSA881X_MAX_SWR_PORTS] = {0x1, 0xF, 0x3, 0x3};
 	struct snd_soc_card *card = dapm->codec->card;
 	struct msm8952_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	struct msm895x_auxcodec_prefix_map codec_prefix_map[MAX_AUX_CODECS] = {
+	{ "wsa881x.20170211", "SpkrRight" },
+	{ "wsa881x.20170212", "SpkrLeft" },
+	{ "wsa881x.21170213", "SpkrRight" },
+	{ "wsa881x.21170214", "SpkrLeft" } };
+	u8 i;
 
 	if (!dapm->codec->name) {
 		pr_err("%s codec_name is NULL\n", __func__);
 		return -EINVAL;
 	}
 	dev_dbg(dapm->codec->dev, "%s codec_name: %s\n", __func__,
-		dapm->codec->name);
-	if (!strcmp(dapm->codec->name, "wsa881x.20170212")) {
+			dapm->codec->name);
+	for (i = 0; i < MAX_AUX_CODECS; i++) {
+		if (!strcmp(dapm->codec->name, codec_prefix_map[i].codec_name))
+			break;
+	}
+	if (i >= MAX_AUX_CODECS) {
+		pr_err("%s: could not find prefix map\n" , __func__);
+		return -EINVAL;
+	}
+
+	if (!strcmp(codec_prefix_map[i].codec_prefix, "SpkrLeft")) {
 		wsa881x_set_channel_map(dapm->codec, &spkleft_ports[0],
 				WSA881X_MAX_SWR_PORTS, &ch_mask[0],
 				&ch_rate[0]);
-	} else if (!strcmp(dapm->codec->name, "wsa881x.20170211")) {
+	} else if (!strcmp(codec_prefix_map[i].codec_prefix, "SpkrRight")) {
 		wsa881x_set_channel_map(dapm->codec, &spkright_ports[0],
 				WSA881X_MAX_SWR_PORTS, &ch_mask[0],
 				&ch_rate[0]);
@@ -2370,7 +2391,7 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 	card = populate_snd_card_dailinks(&pdev->dev);
 	if (!card) {
 		dev_err(&pdev->dev, "%s: Card uninitialized\n", __func__);
-		ret = -EINVAL;
+		ret = -EPROBE_DEFER;
 		goto err;
 	}
 	card->dev = &pdev->dev;

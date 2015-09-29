@@ -1520,6 +1520,22 @@ static int soc_check_aux_dev(struct snd_soc_card *card, int num)
 	return -EPROBE_DEFER;
 }
 
+int soc_check_aux_dev_byname(struct snd_soc_card *card, const char *codec_name)
+{
+	struct snd_soc_codec *codec;
+
+	/* find CODEC from registered CODECs*/
+	list_for_each_entry(codec, &codec_list, list) {
+		if (!strcmp(codec->name, codec_name))
+			return 0;
+	}
+
+	dev_err(card->dev, "ASoC: %s not registered\n", codec_name);
+
+	return -EPROBE_DEFER;
+}
+EXPORT_SYMBOL(soc_check_aux_dev_byname);
+
 static int soc_probe_aux_dev(struct snd_soc_card *card, int num)
 {
 	struct snd_soc_aux_dev *aux_dev = &card->aux_dev[num];
