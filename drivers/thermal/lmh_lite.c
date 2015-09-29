@@ -413,12 +413,6 @@ static void lmh_trim_error(void)
 	return;
 }
 
-static irqreturn_t lmh_handle_isr(int irq, void *dev_id)
-{
-	disable_irq_nosync(irq);
-	return IRQ_WAKE_THREAD;
-}
-
 static irqreturn_t lmh_isr_thread(int irq, void *data)
 {
 	struct lmh_driver_data *lmh_dat = data;
@@ -426,6 +420,7 @@ static irqreturn_t lmh_isr_thread(int irq, void *data)
 	pr_debug("LMH Interrupt triggered\n");
 	trace_lmh_event_call("Lmh Interrupt");
 
+	disable_irq_nosync(irq);
 	down_write(&lmh_sensor_access);
 	if (lmh_dat->intr_state != LMH_ISR_MONITOR) {
 		pr_err("Invalid software state\n");
@@ -521,7 +516,7 @@ static int lmh_get_sensor_devicetree(struct platform_device *pdev)
 		goto dev_exit;
 	}
 
-	ret = request_threaded_irq(lmh_data->irq_num, lmh_handle_isr,
+	ret = request_threaded_irq(lmh_data->irq_num, NULL,
 		lmh_isr_thread, IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
 		LMH_INTERRUPT, lmh_data);
 	if (ret) {
