@@ -327,11 +327,11 @@
 		qcom,pipe-attr-ee;
 	};
 
-	blsp1_uart2: serial@78b0000 { /* BLSP1 UART2 */
+	blsp1_uart5: serial@78b3000 { /* BLSP1 UART5 */
 		compatible = "qcom,msm-lsuart-v14";
-		reg = <0x78b0000 0x200>;
-		interrupts = <0 108 0>;
-		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
+		reg = <0x78b3000 0x200>;
+		interrupts = <0 121 0>;
+		clocks = <&clock_gcc clk_gcc_blsp1_uart5_apps_clk>,
 			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
 		clock-names = "core_clk", "iface_clk";
 		status = "disabled";
