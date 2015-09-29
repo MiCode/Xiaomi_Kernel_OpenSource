@@ -104,13 +104,12 @@
 /* Convert from vout ctl to micbias voltage in mV */
 #define WCD_VOUT_CTL_TO_MICB(v) (1000 + v * 50)
 
-#define TASHA_ZDET_NUM_MEASUREMENTS 25
+#define TASHA_ZDET_NUM_MEASUREMENTS 60
 #define TASHA_MBHC_GET_C1(c)  ((c & 0xC000) >> 14)
 #define TASHA_MBHC_GET_X1(x)  (x & 0x3FFF)
-#define TASHA_MBHC_IS_SECOND_RAMP_ENABLE(z)  (z > 300)
-#define TASHA_MBHC_ZDET_C_MAX  3
-#define TASHA_MBHC_ZDET_CONST  (74 * 16384)
-#define TASHA_MBHC_ZDET_DELAY_PER_MEAS_US  1000
+/* z value compared in milliOhm */
+#define TASHA_MBHC_IS_SECOND_RAMP_REQUIRED(z) ((z > 400000) || (z < 32000))
+#define TASHA_MBHC_ZDET_CONST  (86 * 16384)
 
 #define TASHA_VERSION_ENTRY_SIZE 17
 
@@ -169,7 +168,9 @@ struct tasha_mbhc_zdet_param {
 	u16 ldo_ctl;
 	u16 noff;
 	u16 nshift;
+	u16 btn5;
 	u16 btn6;
+	u16 btn7;
 };
 
 static struct afe_param_cdc_reg_page_cfg tasha_cdc_reg_page_cfg = {
@@ -1268,59 +1269,57 @@ static int tasha_mbhc_micb_ctrl_threshold_mic(struct snd_soc_codec *codec,
 }
 
 static inline void tasha_mbhc_get_result_params(struct wcd9xxx *wcd9xxx,
-						s32 *x1f, s16 *c1f)
+						s16 *d1_a, u16 noff,
+						int32_t *zdet)
 {
-	int i, num_meas;
-	u16 val, result12[TASHA_ZDET_NUM_MEASUREMENTS];
-	s16 c1, c1_old = 0;
-	s32 x1_cap = 0, x1;
-	u32 delay;
+	int i;
+	u16 val;
+	s16 c1;
+	s32 x1, d1;
+	int32_t denom;
+	int minCode_param[] = {
+			3277, 1639, 820, 410, 205, 103, 52, 26
+	};
 
+	wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
+				WCD9335_ANA_MBHC_ZDET, 0x20, 0x20);
 	for (i = 0; i < TASHA_ZDET_NUM_MEASUREMENTS; i++) {
-		wcd9xxx_bulk_read(&wcd9xxx->core_res, WCD9335_ANA_MBHC_RESULT_1,
-				  2, (u8 *)&val);
-		result12[i] = val;
-		if (TASHA_MBHC_GET_C1(val) == TASHA_MBHC_ZDET_C_MAX)
+		val = wcd9xxx_reg_read(&wcd9xxx->core_res,
+					WCD9335_ANA_MBHC_RESULT_2);
+		if (val & 0x80)
 			break;
-		/* Add 1ms delay before each measurement */
-		usleep_range(TASHA_MBHC_ZDET_DELAY_PER_MEAS_US,
-			     TASHA_MBHC_ZDET_DELAY_PER_MEAS_US + 100);
 	}
-	num_meas = (i == TASHA_ZDET_NUM_MEASUREMENTS) ? i : (i + 1);
+	val = val << 0x8;
+	val |= wcd9xxx_reg_read(&wcd9xxx->core_res,
+				WCD9335_ANA_MBHC_RESULT_1);
+	wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
+				WCD9335_ANA_MBHC_ZDET, 0x20, 0x00);
+	x1 = TASHA_MBHC_GET_X1(val);
+	c1 = TASHA_MBHC_GET_C1(val);
+	if (!c1 || !x1) {
+		dev_dbg(wcd9xxx->dev,
+			"%s: Impedance detect ramp error, c1=%d, x1=0x%x\n",
+			__func__, c1, x1);
+		return;
+	}
+	d1 = d1_a[c1];
+	denom = (x1 * d1) - (1 << (14 - noff));
+	if (denom > 0)
+		*zdet = (TASHA_MBHC_ZDET_CONST * 1000) / denom;
+	else if (x1 < minCode_param[noff])
+		*zdet = TASHA_ZDET_FLOATING_IMPEDANCE;
 
-	/*
-	 * Start the impedance detection ramp down and wait for it
-	 * to be completed
-	 */
-	wcd9xxx_reg_update_bits(&wcd9xxx->core_res, WCD9335_ANA_MBHC_ZDET,
-				0x20, 0x00);
-	delay = num_meas * TASHA_MBHC_ZDET_DELAY_PER_MEAS_US;
-	if (delay < 15000)
-		delay = 15000;
-	usleep_range(delay, delay + 100);
-
-	c1_old = TASHA_MBHC_GET_C1(result12[0]);
-	if (c1_old > 0)
-		x1_cap = TASHA_MBHC_GET_X1(result12[0]);
-	if (c1_old == TASHA_MBHC_ZDET_C_MAX)
-		x1 = TASHA_MBHC_GET_X1(result12[0]);
-	for (i = 1; i < num_meas; i++) {
-		c1 = TASHA_MBHC_GET_C1(result12[i]);
-
-		if ((c1_old == 0) && ((c1 == 1) || (c1 == 2)))
-			x1_cap = TASHA_MBHC_GET_X1(result12[i]);
-		else if (c1 == TASHA_MBHC_ZDET_C_MAX) {
-			x1 = TASHA_MBHC_GET_X1(result12[i]);
+	dev_dbg(wcd9xxx->dev, "%s: d1=%d, c1=%d, x1=0x%x, z_val=%d(milliOhm)\n",
+		__func__, d1, c1, x1, *zdet);
+	i = 0;
+	while (x1) {
+		wcd9xxx_bulk_read(&wcd9xxx->core_res,
+				WCD9335_ANA_MBHC_RESULT_1, 2, (u8 *)&val);
+		x1 = TASHA_MBHC_GET_X1(val);
+		i++;
+		if (i == TASHA_ZDET_NUM_MEASUREMENTS)
 			break;
-		}
-		c1_old = c1;
 	}
-	if (!x1)
-		pr_err("%s: RDAC code is 0\n", __func__);
-
-	c1 = (x1_cap != x1) ? 3 : 1;
-	*c1f = c1;
-	*x1f = x1;
 }
 
 /*
@@ -1347,57 +1346,70 @@ EXPORT_SYMBOL(tasha_mbhc_zdet_gpio_ctrl);
 
 static void tasha_mbhc_zdet_ramp(struct snd_soc_codec *codec,
 				 struct tasha_mbhc_zdet_param *zdet_param,
-				 uint32_t *zl, uint32_t *zr)
+				 int32_t *zl, int32_t *zr, s16 *d1_a)
 {
 	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
-	s16 c1L, c1R;
-	s32 d1L, d1R, x1L, x1R;
-	int z1L = 0, z1R = 0;
-	int denomL, denomR;
-	s16 d1_a[4] = {0, 30, 30, 5};
+	int32_t zdet = 0;
 
 	snd_soc_update_bits(codec, WCD9335_MBHC_ZDET_ANA_CTL, 0x70,
 			    zdet_param->ldo_ctl << 4);
+	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_BTN5, 0xFC,
+			    zdet_param->btn5);
 	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_BTN6, 0xFC,
 			    zdet_param->btn6);
+	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_BTN7, 0xFC,
+			    zdet_param->btn7);
 	snd_soc_update_bits(codec, WCD9335_MBHC_ZDET_ANA_CTL, 0x0F,
 			    zdet_param->noff);
 	snd_soc_update_bits(codec, WCD9335_MBHC_ZDET_RAMP_CTL, 0x0F,
 			    zdet_param->nshift);
 
+	if (!zl)
+		goto z_right;
 	/* Start impedance measurement for HPH_L */
-	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_ZDET, 0x80, 0x80);
-	/* wait for 1ms as per HW requirement after L_MEAS_EN */
-	usleep_range(1000, 1100);
-	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_ZDET, 0x20, 0x20);
-	tasha_mbhc_get_result_params(wcd9xxx, &x1L, &c1L);
-	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_ZDET, 0x80, 0x00);
+	wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
+				WCD9335_ANA_MBHC_ZDET, 0x80, 0x80);
+	dev_dbg(wcd9xxx->dev, "%s: ramp for HPH_L, noff = %d\n",
+					__func__, zdet_param->noff);
+	tasha_mbhc_get_result_params(wcd9xxx, d1_a, zdet_param->noff, &zdet);
+	wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
+				WCD9335_ANA_MBHC_ZDET, 0x80, 0x00);
 
+	*zl = zdet;
+
+z_right:
+	if (!zr)
+		return;
 	/* Start impedance measurement for HPH_R */
-	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_ZDET, 0x40, 0x40);
-	/* wait for 1ms as per HW requirement after R_MEAS_EN */
-	usleep_range(1000, 1100);
-	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_ZDET, 0x20, 0x20);
-	tasha_mbhc_get_result_params(wcd9xxx, &x1R, &c1R);
-	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_ZDET, 0x40, 0x00);
+	wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
+				WCD9335_ANA_MBHC_ZDET, 0x40, 0x40);
+	dev_dbg(wcd9xxx->dev, "%s: ramp for HPH_R, noff = %d\n",
+					__func__, zdet_param->noff);
+	tasha_mbhc_get_result_params(wcd9xxx, d1_a, zdet_param->noff, &zdet);
+	wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
+				WCD9335_ANA_MBHC_ZDET, 0x40, 0x00);
 
-	d1L = d1_a[c1L];
-	d1R = d1_a[c1R];
-	denomL = (x1L * d1L) - (1 << (14 - zdet_param->noff));
-	denomR = (x1R * d1R) - (1 << (14 - zdet_param->noff));
+	*zr = zdet;
+}
 
-	if (denomL > 0)
-		z1L = TASHA_MBHC_ZDET_CONST / denomL;
-	if (denomR > 0)
-		z1R = TASHA_MBHC_ZDET_CONST / denomR;
+static inline void tasha_wcd_mbhc_qfuse_cal(struct snd_soc_codec *codec,
+					int32_t *z_val, int flag_l_r)
+{
+	s16 q1;
+	int q1_cal;
 
-	dev_dbg(codec->dev, "%s: d1L:%d, c1L:%d, x1L:0x%x, z1L:%d\n",
-		__func__, d1L, c1L, x1L, z1L);
-	dev_dbg(codec->dev, "%s: d1R:%d, c1R:%d, x1R:0x%x, z1R:%d\n",
-		__func__, d1R, c1R, x1R, z1R);
-
-	*zl = z1L;
-	*zr = z1R;
+	if (*z_val < (TASHA_ZDET_VAL_400/1000))
+		q1 = snd_soc_read(codec,
+			WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT1 + (2 * flag_l_r));
+	else
+		q1 = snd_soc_read(codec,
+			WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT2 + (2 * flag_l_r));
+	if (q1 & 0x80)
+		q1_cal = (10000 - ((q1 & 0x7F) * 25));
+	else
+		q1_cal = (10000 + (q1 * 25));
+	if (q1_cal > 0)
+		*z_val = ((*z_val) * 10000) / q1_cal;
 }
 
 static void tasha_wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
@@ -1405,16 +1417,33 @@ static void tasha_wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 {
 	struct snd_soc_codec *codec = mbhc->codec;
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx *wcd9xxx = tasha->wcd9xxx;
 	s16 reg0, reg1, reg2, reg3, reg4;
-	int z1L, z1R;
+	int32_t z1L, z1R, z1Ls;
+	int zMono, z_diff1, z_diff2;
 	bool is_fsm_disable = false;
-	bool is_second_ramp = false;
 	bool is_change = false;
-	struct tasha_mbhc_zdet_param zdet_param[2] = {
-		{2, 0, 2, 0x80},
-		{5, 4, 3, 0x80},
+	struct tasha_mbhc_zdet_param zdet_param[] = {
+		{4, 0, 4, 0x08, 0x14, 0x18}, /* < 32ohm */
+		{1, 0, 2, 0x18, 0x7C, 0x90}, /* 32ohm < Z < 400ohm */
+		{1, 4, 5, 0x18, 0x7C, 0x90}, /* 400ohm < Z < 1200ohm */
+		{1, 6, 7, 0x18, 0x7C, 0x90}, /* >1200ohm */
 	};
+	struct tasha_mbhc_zdet_param *zdet_param_ptr = NULL;
+	s16 d1_a[][4] = {
+		{0, 30, 90, 30},
+		{0, 30, 30, 5},
+		{0, 30, 30, 5},
+		{0, 30, 30, 5},
+	};
+	s16 *d1 = NULL;
 
+	if (!TASHA_IS_2_0(wcd9xxx->version)) {
+		dev_dbg(codec->dev, "Z-det is not supported for this codec version\n");
+		*zl = 0;
+		*zr = 0;
+		return;
+	}
 	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
 
 	if (tasha->zdet_gpio_cb)
@@ -1426,59 +1455,150 @@ static void tasha_wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 	reg3 = snd_soc_read(codec, WCD9335_MBHC_CTL_1);
 	reg4 = snd_soc_read(codec, WCD9335_MBHC_ZDET_ANA_CTL);
 
-	if (snd_soc_read(codec, WCD9335_ANA_MBHC_ELECT) & 0x80) {
+	if (wcd9xxx_reg_read(&wcd9xxx->core_res,
+				WCD9335_ANA_MBHC_ELECT) & 0x80) {
 		is_fsm_disable = true;
-		snd_soc_update_bits(codec, WCD9335_ANA_MBHC_ELECT, 0x80, 0x00);
+		wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
+					WCD9335_ANA_MBHC_ELECT, 0x80, 0x00);
 	}
 
 	/* For NO-jack, disable L_DET_EN before Z-det measurements */
 	if (mbhc->hphl_swh)
-		snd_soc_update_bits(codec, WCD9335_ANA_MBHC_MECH, 0x80, 0x00);
+		wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
+					WCD9335_ANA_MBHC_MECH, 0x80, 0x00);
 
 	/* Enable AZ */
 	snd_soc_update_bits(codec, WCD9335_MBHC_CTL_1, 0x0C, 0x04);
 	/* Turn off 100k pull down on HPHL */
-	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_MECH, 0x01, 0x00);
-	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_ZDET, 0x80, 0x00);
-	/*
-	 * 10ms sleep is needed as per HW requirement after L_MEAS_EN
-	 * is disabled
-	 */
-	usleep_range(10000, 10100);
-	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_BTN5, 0xFC, 0x18);
-	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_BTN6, 0xFC, 0x7C);
-	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_BTN7, 0xFC, 0x90);
+	wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
+				WCD9335_ANA_MBHC_MECH, 0x01, 0x00);
 
-	tasha_mbhc_zdet_ramp(codec, zdet_param, &z1L, &z1R);
+	/* First get impedance on Left */
+	d1 = d1_a[1];
+	zdet_param_ptr = &zdet_param[1];
+	tasha_mbhc_zdet_ramp(codec, zdet_param_ptr, &z1L, NULL, d1);
 
-	*zl = z1L;
-	*zr = z1R;
+	if (!TASHA_MBHC_IS_SECOND_RAMP_REQUIRED(z1L))
+		goto left_ch_impedance;
 
-	if (!is_second_ramp)
-		goto complete_zdet;
-
-	if (TASHA_MBHC_IS_SECOND_RAMP_ENABLE(z1L) ||
-	    TASHA_MBHC_IS_SECOND_RAMP_ENABLE(z1R)) {
-		tasha_mbhc_zdet_ramp(codec, zdet_param +
-			sizeof(struct tasha_mbhc_zdet_param), &z1L, &z1R);
-		*zl = z1L;
-		*zr = z1R;
+	/* second ramp for left ch */
+	if (z1L < TASHA_ZDET_VAL_32) {
+		zdet_param_ptr = &zdet_param[0];
+		d1 = d1_a[0];
+	} else if ((z1L > TASHA_ZDET_VAL_400) && (z1L <= TASHA_ZDET_VAL_1200)) {
+		zdet_param_ptr = &zdet_param[2];
+		d1 = d1_a[2];
+	} else if (z1L > TASHA_ZDET_VAL_1200) {
+		zdet_param_ptr = &zdet_param[3];
+		d1 = d1_a[3];
 	}
-complete_zdet:
+	tasha_mbhc_zdet_ramp(codec, zdet_param_ptr, &z1L, NULL, d1);
+
+left_ch_impedance:
+	if ((z1L == TASHA_ZDET_FLOATING_IMPEDANCE) ||
+		(z1L > TASHA_ZDET_VAL_100K)) {
+		*zl = TASHA_ZDET_FLOATING_IMPEDANCE;
+		zdet_param_ptr = &zdet_param[1];
+		d1 = d1_a[1];
+	} else {
+		*zl = z1L/1000;
+		tasha_wcd_mbhc_qfuse_cal(codec, zl, 0);
+	}
+	dev_dbg(codec->dev, "%s: impedance on HPH_L = %d(ohms)\n",
+				__func__, *zl);
+
+	/* start of right impedance ramp and calculation */
+	tasha_mbhc_zdet_ramp(codec, zdet_param_ptr, NULL, &z1R, d1);
+	if (TASHA_MBHC_IS_SECOND_RAMP_REQUIRED(z1R)) {
+		if (((z1R > TASHA_ZDET_VAL_1200) &&
+			(zdet_param_ptr->noff == 0x6)) ||
+			((*zl) != TASHA_ZDET_FLOATING_IMPEDANCE))
+			goto right_ch_impedance;
+		/* second ramp for right ch */
+		if (z1R < TASHA_ZDET_VAL_32) {
+			zdet_param_ptr = &zdet_param[0];
+			d1 = d1_a[0];
+		} else if ((z1R > TASHA_ZDET_VAL_400) &&
+			(z1R <= TASHA_ZDET_VAL_1200)) {
+			zdet_param_ptr = &zdet_param[2];
+			d1 = d1_a[2];
+		} else if (z1R > TASHA_ZDET_VAL_1200) {
+			zdet_param_ptr = &zdet_param[3];
+			d1 = d1_a[3];
+		}
+		tasha_mbhc_zdet_ramp(codec, zdet_param_ptr, NULL, &z1R, d1);
+	}
+right_ch_impedance:
+	if ((z1R == TASHA_ZDET_FLOATING_IMPEDANCE) ||
+		(z1R > TASHA_ZDET_VAL_100K)) {
+		*zr = TASHA_ZDET_FLOATING_IMPEDANCE;
+	} else {
+		*zr = z1R/1000;
+		tasha_wcd_mbhc_qfuse_cal(codec, zr, 1);
+	}
+	dev_dbg(codec->dev, "%s: impedance on HPH_R = %d(ohms)\n",
+				__func__, *zr);
+
+	/* mono/stereo detection */
+	if ((*zl == TASHA_ZDET_FLOATING_IMPEDANCE) &&
+		(*zr == TASHA_ZDET_FLOATING_IMPEDANCE)) {
+		dev_dbg(codec->dev,
+			"%s: plug type is invalid or extension cable\n",
+			__func__);
+		goto zdet_complete;
+	}
+	if ((*zl == TASHA_ZDET_FLOATING_IMPEDANCE) ||
+	    (*zr == TASHA_ZDET_FLOATING_IMPEDANCE) ||
+	    ((*zl < WCD_MONO_HS_MIN_THR) && (*zr > WCD_MONO_HS_MIN_THR)) ||
+	    ((*zl > WCD_MONO_HS_MIN_THR) && (*zr < WCD_MONO_HS_MIN_THR))) {
+		dev_dbg(codec->dev,
+			"%s: Mono plug type with one ch floating or shorted to GND\n",
+			__func__);
+		mbhc->hph_type = WCD_MBHC_HPH_MONO;
+		goto zdet_complete;
+	}
+	snd_soc_update_bits(codec, WCD9335_HPH_R_ATEST, 0x02, 0x02);
+	snd_soc_update_bits(codec, WCD9335_HPH_PA_CTL2, 0x40, 0x01);
+	if (*zl < (TASHA_ZDET_VAL_32/1000))
+		tasha_mbhc_zdet_ramp(codec, &zdet_param[0], &z1Ls, NULL, d1);
+	else
+		tasha_mbhc_zdet_ramp(codec, &zdet_param[1], &z1Ls, NULL, d1);
+	snd_soc_update_bits(codec, WCD9335_HPH_PA_CTL2, 0x40, 0x00);
+	snd_soc_update_bits(codec, WCD9335_HPH_R_ATEST, 0x02, 0x00);
+	z1Ls /= 1000;
+	tasha_wcd_mbhc_qfuse_cal(codec, &z1Ls, 0);
+	/* parallel of left Z and 9 ohm pull down resistor */
+	zMono = ((*zl) * 9) / ((*zl) + 9);
+	z_diff1 = (z1Ls > zMono) ? (z1Ls - zMono) : (zMono - z1Ls);
+	z_diff2 = ((*zl) > z1Ls) ? ((*zl) - z1Ls) : (z1Ls - (*zl));
+	if ((z_diff1 * (*zl + z1Ls)) > (z_diff2 * (z1Ls + zMono))) {
+		dev_dbg(codec->dev, "%s: stereo plug type detected\n",
+				__func__);
+		mbhc->hph_type = WCD_MBHC_HPH_STEREO;
+	} else {
+		dev_dbg(codec->dev, "%s: MONO plug type detected\n",
+			 __func__);
+		mbhc->hph_type = WCD_MBHC_HPH_MONO;
+	}
+
+zdet_complete:
 	snd_soc_write(codec, WCD9335_ANA_MBHC_BTN5, reg0);
 	snd_soc_write(codec, WCD9335_ANA_MBHC_BTN6, reg1);
 	snd_soc_write(codec, WCD9335_ANA_MBHC_BTN7, reg2);
 	/* Turn on 100k pull down on HPHL */
-	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_MECH, 0x01, 0x01);
+	wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
+				WCD9335_ANA_MBHC_MECH, 0x01, 0x01);
 
 	/* For NO-jack, re-enable L_DET_EN after Z-det measurements */
 	if (mbhc->hphl_swh)
-		snd_soc_update_bits(codec, WCD9335_ANA_MBHC_MECH, 0x80, 0x80);
+		wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
+					WCD9335_ANA_MBHC_MECH, 0x80, 0x80);
 
 	snd_soc_write(codec, WCD9335_MBHC_ZDET_ANA_CTL, reg4);
 	snd_soc_write(codec, WCD9335_MBHC_CTL_1, reg3);
 	if (is_fsm_disable)
-		snd_soc_update_bits(codec, WCD9335_ANA_MBHC_ELECT, 0x80, 0x80);
+		wcd9xxx_reg_update_bits(&wcd9xxx->core_res,
+					WCD9335_ANA_MBHC_ELECT, 0x80, 0x80);
 	if (tasha->zdet_gpio_cb && is_change)
 		tasha->zdet_gpio_cb(codec, false);
 }
