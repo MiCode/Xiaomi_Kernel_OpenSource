@@ -925,14 +925,36 @@ int create_pkt_cmd_session_get_property(
 		pkt->rg_property_data[0] =
 			HFI_PROPERTY_PARAM_PROFILE_LEVEL_CURRENT;
 		break;
-	case HAL_CONFIG_VDEC_ENTROPY:
-		pkt->rg_property_data[0] = HFI_PROPERTY_CONFIG_VDEC_ENTROPY;
-		break;
 	default:
 		dprintk(VIDC_ERR, "%s cmd:%#x not supported\n", __func__,
 			ptype);
 		rc = -EINVAL;
 		break;
+	}
+	return rc;
+}
+
+int create_3x_pkt_cmd_session_get_property(
+		struct hfi_cmd_session_get_property_packet *pkt,
+		struct hal_session *session, enum hal_property ptype)
+{
+	int rc = 0;
+
+	if (!pkt || !session) {
+		dprintk(VIDC_ERR, "%s Invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+	pkt->size = sizeof(struct hfi_cmd_session_get_property_packet);
+	pkt->packet_type = HFI_CMD_SESSION_GET_PROPERTY;
+	pkt->session_id = hash32_ptr(session);
+	pkt->num_properties = 1;
+	switch (ptype) {
+	case HAL_CONFIG_VDEC_ENTROPY:
+		pkt->rg_property_data[0] = HFI_PROPERTY_CONFIG_VDEC_ENTROPY;
+		break;
+	default:
+		rc = create_pkt_cmd_session_get_property(pkt,
+				session, ptype);
 	}
 	return rc;
 }
@@ -2204,6 +2226,8 @@ struct hfi_packetization_ops *get_venus_3x_ops(void)
 	/* Override new HFI functions for HFI_PACKETIZATION_3XX here. */
 	hfi_venus_3x.session_set_property =
 		create_3x_pkt_cmd_session_set_property;
+	hfi_venus_3x.session_get_property =
+		create_3x_pkt_cmd_session_get_property;
 	hfi_venus_3x.session_cmd = create_3x_pkt_cmd_session_cmd;
 	hfi_venus_3x.session_sync_process = create_pkt_cmd_session_sync_process;
 
