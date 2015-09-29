@@ -54,7 +54,7 @@ MODULE_PARM_DESC(sip_direct_signalling, "expect incoming calls from registrar "
 					"only (default 1)");
 
 const struct nf_nat_sip_hooks *nf_nat_sip_hooks;
-EXPORT_SYMBOL(nf_nat_sip_hooks);
+EXPORT_SYMBOL_GPL(nf_nat_sip_hooks);
 static struct ctl_table_header *sip_sysctl_header;
 static unsigned nf_ct_disable_sip_alg;
 static int sip_direct_media = 1;
@@ -589,7 +589,7 @@ int ct_sip_parse_request(const struct nf_conn *ct,
 	*matchlen = end - dptr;
 	return 1;
 }
-EXPORT_SYMBOL(ct_sip_parse_request);
+EXPORT_SYMBOL_GPL(ct_sip_parse_request);
 
 /* SIP header parsing: SIP headers are located at the beginning of a line, but
  * may span several lines, in which case the continuation lines begin with a
@@ -737,7 +737,7 @@ int ct_sip_get_header(const struct nf_conn *ct, const char *dptr,
 	}
 	return 0;
 }
-EXPORT_SYMBOL(ct_sip_get_header);
+EXPORT_SYMBOL_GPL(ct_sip_get_header);
 
 /* Get next header field in a list of comma separated values */
 static int ct_sip_next_header(const struct nf_conn *ct, const char *dptr,
@@ -841,7 +841,7 @@ int ct_sip_parse_header_uri(const struct nf_conn *ct, const char *dptr,
 		*dataoff = c - dptr;
 	return 1;
 }
-EXPORT_SYMBOL(ct_sip_parse_header_uri);
+EXPORT_SYMBOL_GPL(ct_sip_parse_header_uri);
 
 static int ct_sip_parse_param(const struct nf_conn *ct, const char *dptr,
 			      unsigned int dataoff, unsigned int datalen,
@@ -895,7 +895,7 @@ int ct_sip_parse_address_param(const struct nf_conn *ct, const char *dptr,
 	*matchlen = end - start;
 	return 1;
 }
-EXPORT_SYMBOL(ct_sip_parse_address_param);
+EXPORT_SYMBOL_GPL(ct_sip_parse_address_param);
 
 /* Parse numerical header parameter and return value, offset and length */
 int ct_sip_parse_numerical_param(const struct nf_conn *ct, const char *dptr,
@@ -926,7 +926,7 @@ int ct_sip_parse_numerical_param(const struct nf_conn *ct, const char *dptr,
 	}
 	return 1;
 }
-EXPORT_SYMBOL(ct_sip_parse_numerical_param);
+EXPORT_SYMBOL_GPL(ct_sip_parse_numerical_param);
 
 static int ct_sip_parse_transport(struct nf_conn *ct, const char *dptr,
 				  unsigned int dataoff, unsigned int datalen,
@@ -1084,7 +1084,7 @@ int ct_sip_get_sdp_header(const struct nf_conn *ct, const char *dptr,
 	}
 	return 0;
 }
-EXPORT_SYMBOL(ct_sip_get_sdp_header);
+EXPORT_SYMBOL_GPL(ct_sip_get_sdp_header);
 
 static int ct_sip_parse_sdp_addr(const struct nf_conn *ct, const char *dptr,
 				 unsigned int dataoff, unsigned int datalen,
