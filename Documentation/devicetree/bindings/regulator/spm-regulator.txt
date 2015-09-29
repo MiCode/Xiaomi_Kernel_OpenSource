@@ -24,6 +24,9 @@ Optional properties:
 		    be managed by an SPM.  Instead, the voltage should be
 		    controlled via SPMI.
 - qcom,max-voltage-step:  Maximum single voltage step size in microvolts.
+- qcom,recal-mask: Bit mask of the APSS clusters to recalibrate after each
+		    voltage change.  Bit 0 corresponds to the first cluster,
+		    bit 1 corresponds to the second cluster, and so on.
 
 Optional structure:
 - A child node may be specified within a qcom,spm-regulator node which defines
