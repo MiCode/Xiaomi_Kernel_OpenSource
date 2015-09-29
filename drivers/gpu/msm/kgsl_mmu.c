@@ -752,7 +752,7 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 		KGSL_STATS_ADD(size, &pagetable->stats.mapped,
 			&pagetable->stats.max_mapped);
 
-		KGSL_STATS_ADD(size, &pagetable->stats.entries,
+		KGSL_STATS_ADD(1, &pagetable->stats.entries,
 			&pagetable->stats.max_entries);
 
 		memdesc->priv |= KGSL_MEMDESC_MAPPED;
