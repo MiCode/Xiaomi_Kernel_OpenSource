@@ -899,9 +899,6 @@ static int swrm_get_logical_dev_num(struct swr_master *mstr, u64 dev_id,
 	u64 id;
 	int ret = -EINVAL;
 	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(mstr);
-	static int i_back = 0;
-	u64 id_0;
-	static int count = 0;
 
 	pm_runtime_get_sync(&swrm->pdev->dev);
 	for (i = 1; i < (mstr->num_dev + 1); i++) {
@@ -911,9 +908,6 @@ static int swrm_get_logical_dev_num(struct swr_master *mstr, u64 dev_id,
 			    SWRM_ENUMERATOR_SLAVE_DEV_ID_1(i));
 		id = id & SWR_DEV_ID_MASK;
 
-		if (i == 1)
-			id_0 = id;
-
 		if (id == dev_id) {
 			if (swrm_get_device_status(swrm, i) == 0x01) {
 				*dev_num = i;
@@ -922,71 +916,9 @@ static int swrm_get_logical_dev_num(struct swr_master *mstr, u64 dev_id,
 				dev_err(swrm->dev, "%s: device is not ready\n",
 					 __func__);
 			}
-			i_back = i;
 			goto found;
 		}
 	}
-	if (i_back == 0) {
-		i = 1;
-		i_back = i;
-	} else if (i_back == 1) {
-		i = 2;
-	} else if (i_back == 2) {
-		i = 1;
-	}
-
-	 if ((id == 0x21170213)) {
-		 count++;
-		 if (count > 1 && id_0 == 0x21170214) {
-			dev_err(swrm->dev, "%s: device id 0x%llx expected to  match with 0x%llx\n",
-				__func__, id_0, dev_id);
-
-			if (swrm_get_device_status(swrm, i) == 0x01)
-				pr_err("device id is 214\n");
-			*dev_num = i;
-			ret = 0;
-			goto found;
-		 } else {
-			dev_err(swrm->dev, "%s: device id 0x%llx expected to  match with 0x%llx\n",
-				__func__, id, dev_id);
-			if (swrm_get_device_status(swrm, i) == 0x01) {
-				pr_err("device id is 213\n");
-			}
-			*dev_num = i;
-			ret = 0;
-			goto found;
-		 }
-	} else if ((id == 0x21170214)) {
-			dev_err(swrm->dev, "%s: device id 0x%llx expected to  match with 0x%llx\n",
-				__func__, id, dev_id);
-
-			if (swrm_get_device_status(swrm, i) == 0x01)
-				pr_err("device id is 214\n");
-			*dev_num = i;
-			ret = 0;
-			goto found;
-	} else if ((id == 0x20170211)) {
-			dev_err(swrm->dev, "%s: device id 0x%llx expected to  match with 0x%llx\n",
-				__func__, id, dev_id);
-
-			if (swrm_get_device_status(swrm, i) == 0x01) {
-				pr_err("device id is 211\n");
-			}
-			*dev_num = i;
-			ret = 0;
-			goto found;
-	} else if ((id == 0x20170212)) {
-			dev_err(swrm->dev, "%s: device id 0x%llx expected to  match with 0x%llx\n",
-				__func__, id, dev_id);
-
-			if (swrm_get_device_status(swrm, i) == 0x01) {
-				pr_err("device id is 212\n");
-			}
-			*dev_num = i;
-			ret = 0;
-			goto found;
-	}
-
 	dev_err(swrm->dev, "%s: device id 0x%llx does not match with 0x%llx\n",
 		__func__, id, dev_id);
 found:
