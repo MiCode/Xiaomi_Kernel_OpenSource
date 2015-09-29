@@ -573,6 +573,7 @@
 		qcom,apm-ctrl = <&apc_apm>;
 		qcom,apm-threshold-voltage = <850000>;
 		qcom,apm-hysteresis-voltage = <5000>;
+		qcom,system-supply-max-voltage = <1015000>;
 
 		vdd-supply = <&pm8994_s11>;
 		qcom,voltage-step = <5000>;
@@ -604,7 +605,8 @@
 				qcom,cpr-fuse-combos = <8>;
 				qcom,cpr-corners = <16>;
 
-				qcom,ldo-headroom-voltage = <150000>;
+				qcom,ldo-min-headroom-voltage = <150000>;
+				qcom,ldo-max-headroom-voltage = <470000>;
 				qcom,ldo-max-voltage = <890000>;
 
 				qcom,cpr-corner-fmax-map = <1 2 7 12 16>;
@@ -786,7 +788,8 @@
 				qcom,cpr-fuse-combos = <8>;
 				qcom,cpr-corners = <25>;
 
-				qcom,ldo-headroom-voltage = <150000>;
+				qcom,ldo-min-headroom-voltage = <150000>;
+				qcom,ldo-max-headroom-voltage = <470000>;
 				qcom,ldo-max-voltage = <890000>;
 
 				qcom,cpr-corner-fmax-map = <1 4 9 13 25>;

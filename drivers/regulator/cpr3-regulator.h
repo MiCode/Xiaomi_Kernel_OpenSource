@@ -156,9 +156,12 @@ struct cpr3_corner {
  *			participated in the last aggregation event
  * @debug_corner:	Index identifying voltage corner used for displaying
  *			corner configuration values in debugfs
- * @ldo_headroom_volt:	Voltage difference in microvolts required between the
- *			VDD supply voltage and the LDO output in order for the
- *			LDO operate
+ * @ldo_min_headroom_volt: Minimum voltage difference in microvolts required
+ *			between the VDD supply voltage and the LDO output in
+ *			order for the LDO operate
+ * @ldo_max_headroom_volt: Maximum voltage difference in microvolts between
+ *			the input and output of the active LDO hardware to
+ *			maintain optimum operability.
  * @ldo_adjust_volt:	Voltage in microvolts used to offset margin assigned
  *			to IR drop between PMIC and CPU
  * @ldo_ret_volt:	The lowest supported CPU retention voltage in
@@ -213,7 +216,8 @@ struct cpr3_regulator {
 	int			last_closed_loop_corner;
 	bool			aggregated;
 	int			debug_corner;
-	int			ldo_headroom_volt;
+	int			ldo_min_headroom_volt;
+	int			ldo_max_headroom_volt;
 	int			ldo_adjust_volt;
 	int			ldo_ret_volt;
 	int			ldo_max_volt;
@@ -338,6 +342,8 @@ struct cpr3_aging_sensor_info {
  * @vdd_limit_regulator: Pointer to the VDD supply limit regulator which is used
  *			for hardware closed-loop in order specify ceiling and
  *			floor voltage limits (platform specific)
+ * @system_supply_max_volt: Voltage in microvolts which corresponds to the
+ *			absolute ceiling voltage of the system-supply
  * @core_clk:		Pointer to the CPR3 controller core clock
  * @iface_clk:		Pointer to the CPR3 interface clock (platform specific)
  * @bus_clk:		Pointer to the CPR3 bus clock (platform specific)
@@ -445,6 +451,7 @@ struct cpr3_controller {
 	struct regulator	*vdd_regulator;
 	struct regulator	*system_regulator;
 	struct regulator	*vdd_limit_regulator;
+	int			system_supply_max_volt;
 	struct clk		*core_clk;
 	struct clk		*iface_clk;
 	struct clk		*bus_clk;

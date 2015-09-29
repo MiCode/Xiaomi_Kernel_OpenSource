@@ -782,7 +782,7 @@ static int cpr3_regulator_config_ldo_retention(struct cpr3_regulator *vreg,
 
 	}
 
-	mode = floor_volt >= retention_volt + vreg->ldo_headroom_volt
+	mode = floor_volt >= retention_volt + vreg->ldo_min_headroom_volt
 		? LDO_MODE : BHS_MODE;
 
 	rc = regulator_allow_bypass(ldo_ret_reg, mode);
@@ -811,7 +811,7 @@ static int cpr3_regulator_set_bhs_mode(struct cpr3_regulator *vreg,
 	struct regulator *ldo_reg = vreg->ldo_regulator;
 	int bhs_volt, rc;
 
-	bhs_volt = vdd_volt - vreg->ldo_headroom_volt;
+	bhs_volt = vdd_volt - vreg->ldo_min_headroom_volt;
 	if (bhs_volt > vreg->ldo_max_volt) {
 		cpr3_debug(vreg, "limited to LDO output of %d uV when switching to BHS mode\n",
 			   vreg->ldo_max_volt);
@@ -839,13 +839,18 @@ static int cpr3_regulator_set_bhs_mode(struct cpr3_regulator *vreg,
 
 /**
  * cpr3_regulator_config_vreg_ldo() - configure the voltage and bypass state for
- *		the LDO regulator associated with a single CPR3 regulator
+ *		the LDO regulator associated with a single CPR3 regulator.
+ *
  * @vreg:		Pointer to the CPR3 regulator
  * @vdd_floor_volt:	Last known aggregated floor voltage in microvolts for
  *			the VDD supply
  * @vdd_ceiling_volt:	Last known aggregated ceiling voltage in microvolts for
  *			the VDD supply
- * @vdd_volt:		Last known voltage in microvolts for the VDD supply
+ * @last_volt:		Last known voltage in microvolts for the VDD supply
+ * @apm_crossing:	Flag indicating if an APM reconfiguration is taking
+ *			place as a result of a VDD voltage scale request and
+ *			the VDD supply is at the crossover voltage
+ * @new_volt:		New voltage in microvolts that VDD needs to end up at
  *
  * This function performs all relevant LDO or BHS configurations if an LDO
  * regulator is specified.
@@ -853,11 +858,54 @@ static int cpr3_regulator_set_bhs_mode(struct cpr3_regulator *vreg,
  * Return: 0 on success, errno on failure
  */
 static int cpr3_regulator_config_vreg_ldo(struct cpr3_regulator *vreg,
-			     int vdd_floor_volt, int vdd_ceiling_volt,
-			     int vdd_volt)
+			  int vdd_floor_volt, int vdd_ceiling_volt,
+			  int last_volt, bool apm_crossing, int new_volt)
 {
+	struct cpr3_controller *ctrl = vreg->thread->ctrl;
 	struct regulator *ldo_reg = vreg->ldo_regulator;
-	int rc, ldo_volt, bhs_volt, max_volt;
+	struct cpr3_corner *current_corner;
+	enum msm_apm_supply apm_mode;
+	int rc, ldo_volt, final_ldo_volt, bhs_volt, max_volt, safe_volt;
+
+	if (apm_crossing) {
+		if (!vreg->vreg_enabled || vreg->current_corner
+		    == CPR3_REGULATOR_CORNER_INVALID)
+			return 0;
+
+		/*
+		 * Guarantee LDO maximum headroom is not
+		 * violated when the APM is switched to the
+		 * system-supply source.
+		 */
+		current_corner = &vreg->corner[vreg->current_corner];
+		if (vreg->ldo_regulator_bypass == LDO_MODE) {
+			apm_mode = msm_apm_get_supply(ctrl->apm);
+			if (apm_mode < 0) {
+				cpr3_err(ctrl, "APM get supply failed, rc=%d\n",
+					 apm_mode);
+				return apm_mode;
+			}
+
+			if (apm_mode == ctrl->apm_high_supply &&
+			    new_volt < ctrl->apm_threshold_volt) {
+				safe_volt = max(current_corner->open_loop_volt
+						- vreg->ldo_adjust_volt,
+						ctrl->system_supply_max_volt
+						- vreg->ldo_max_headroom_volt);
+				max_volt = min(ctrl->system_supply_max_volt,
+					       vreg->ldo_max_volt);
+
+				rc = regulator_set_voltage(ldo_reg, safe_volt,
+							   max_volt);
+				if (rc) {
+					cpr3_err(vreg, "regulator_set_voltage(ldo) == %d failed, rc=%d\n",
+						 safe_volt, rc);
+					return rc;
+				}
+			}
+		}
+		return 0;
+	}
 
 	rc = cpr3_regulator_config_ldo_retention(vreg, vdd_floor_volt);
 	if (rc)
@@ -867,34 +915,55 @@ static int cpr3_regulator_config_vreg_ldo(struct cpr3_regulator *vreg,
 	    == CPR3_REGULATOR_CORNER_INVALID)
 		return 0;
 
-	ldo_volt = vreg->corner[vreg->current_corner].open_loop_volt
+	current_corner = &vreg->corner[vreg->current_corner];
+	ldo_volt = current_corner->open_loop_volt
 		- vreg->ldo_adjust_volt;
-
+	bhs_volt = last_volt - vreg->ldo_min_headroom_volt;
 	max_volt = min(vdd_ceiling_volt, vreg->ldo_max_volt);
 
-	if (vdd_floor_volt >= ldo_volt + vreg->ldo_headroom_volt) {
+	if (vdd_floor_volt >= ldo_volt + vreg->ldo_min_headroom_volt &&
+	    ldo_volt >= ctrl->system_supply_max_volt -
+	    vreg->ldo_max_headroom_volt &&
+	    bhs_volt >= ctrl->system_supply_max_volt -
+	    vreg->ldo_max_headroom_volt) {
+		/* LDO minimum and maximum headrooms satisfied */
+		apm_mode = msm_apm_get_supply(ctrl->apm);
+		if (apm_mode < 0) {
+			cpr3_err(ctrl, "APM get supply failed, rc=%d\n",
+				 apm_mode);
+			return apm_mode;
+		}
+
 		if (vreg->ldo_regulator_bypass == BHS_MODE) {
 			if (ldo_volt > vreg->ldo_max_volt) {
 				cpr3_debug(vreg, "cannot support LDO mode with ldo_volt=%d uV\n",
 					   ldo_volt);
 				return 0;
 			}
+
 			/*
 			 * BHS to LDO transition. Configure LDO output
 			 * to min(max LDO output, VDD - LDO headroom)
-			 * voltage then switch the regulator mode.
+			 * voltage if APM is on high supply source or
+			 * min(max(system-supply ceiling - LDO max headroom,
+			 * VDD - LDO headroom), max LDO output) if
+			 * APM is on low supply source, then switch
+			 * regulator mode.
 			 */
-			bhs_volt = vdd_volt - vreg->ldo_headroom_volt;
-			if (bhs_volt > vreg->ldo_max_volt) {
-				cpr3_debug(vreg, "limiting bhs_volt=%d uV to %d uV\n",
-					   bhs_volt, vreg->ldo_max_volt);
-				bhs_volt = vreg->ldo_max_volt;
-			}
+			if (apm_mode == ctrl->apm_high_supply)
+				safe_volt = min(vreg->ldo_max_volt, bhs_volt);
+			else
+				safe_volt =
+					min(max(ctrl->system_supply_max_volt -
+						vreg->ldo_max_headroom_volt,
+						bhs_volt),
+					    vreg->ldo_max_volt);
 
-			rc = regulator_set_voltage(ldo_reg, bhs_volt, max_volt);
+			rc = regulator_set_voltage(ldo_reg, safe_volt,
+						   max_volt);
 			if (rc) {
 				cpr3_err(vreg, "regulator_set_voltage(ldo) == %d failed, rc=%d\n",
-					 bhs_volt, rc);
+					 safe_volt, rc);
 				return rc;
 			}
 
@@ -908,15 +977,22 @@ static int cpr3_regulator_config_vreg_ldo(struct cpr3_regulator *vreg,
 		}
 
 		/* Configure final LDO output voltage */
-		rc = regulator_set_voltage(ldo_reg, ldo_volt, max_volt);
+		if (apm_mode == ctrl->apm_high_supply)
+			final_ldo_volt = max(ldo_volt,
+					     vdd_ceiling_volt -
+					     vreg->ldo_max_headroom_volt);
+		else
+			final_ldo_volt = ldo_volt;
+
+		rc = regulator_set_voltage(ldo_reg, final_ldo_volt, max_volt);
 		if (rc) {
 			cpr3_err(vreg, "regulator_set_voltage(ldo) == %d failed, rc=%d\n",
-				 ldo_volt, rc);
+				 final_ldo_volt, rc);
 			return rc;
 		}
 	} else {
 		if (vreg->ldo_regulator_bypass == LDO_MODE) {
-			rc = cpr3_regulator_set_bhs_mode(vreg, vdd_volt,
+			rc = cpr3_regulator_set_bhs_mode(vreg, last_volt,
 							vdd_ceiling_volt);
 			if (rc)
 				return rc;
@@ -935,13 +1011,17 @@ static int cpr3_regulator_config_vreg_ldo(struct cpr3_regulator *vreg,
  *			the VDD supply
  * @vdd_ceiling_volt:	Last known aggregated ceiling voltage in microvolts for
  *			the VDD supply
- * @vdd_volt:		Last known voltage in microvolts for the VDD supply
+ * @last_volt:		Last known voltage in microvolts for the VDD supply
+ * @apm_crossing:	Flag indicating if an APM reconfiguration is taking
+ *			place as a result of a VDD voltage scale request and
+ *			the VDD supply is at the crossover voltage
+ * @new_volt:		New voltage in microvolts that VDD needs to end up at
  *
  * Return: 0 on success, errno on failure
  */
 static int cpr3_regulator_config_ldo(struct cpr3_controller *ctrl,
 			     int vdd_floor_volt, int vdd_ceiling_volt,
-			     int vdd_volt)
+			     int last_volt, bool apm_crossing, int new_volt)
 {
 	struct cpr3_regulator *vreg;
 	int i, j, rc;
@@ -954,7 +1034,8 @@ static int cpr3_regulator_config_ldo(struct cpr3_controller *ctrl,
 				continue;
 
 			rc = cpr3_regulator_config_vreg_ldo(vreg,
-				vdd_floor_volt, vdd_ceiling_volt, vdd_volt);
+					vdd_floor_volt, vdd_ceiling_volt,
+					last_volt, apm_crossing, new_volt);
 			if (rc)
 				return rc;
 		}
@@ -999,10 +1080,31 @@ static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
 		apm_crossing = true;
 
 	if (apm_crossing) {
+		if (new_volt < last_volt) {
+			/* Decreasing VDD voltage */
+			rc = cpr3_regulator_config_ldo(ctrl, apm_volt,
+						       last_max_volt, last_volt,
+						       false, apm_volt);
+			if (rc) {
+				cpr3_err(ctrl, "unable to configure LDO state, rc=%d\n",
+					 rc);
+				return rc;
+			}
+		}
+
 		rc = regulator_set_voltage(vdd, apm_volt, apm_volt);
 		if (rc) {
 			cpr3_err(ctrl, "regulator_set_voltage(vdd) == %d failed, rc=%d\n",
-				apm_volt, rc);
+				 apm_volt, rc);
+			return rc;
+		}
+
+		rc = cpr3_regulator_config_ldo(ctrl, aggr_corner->floor_volt,
+					       last_max_volt, apm_volt, true,
+					       new_volt);
+		if (rc) {
+			cpr3_err(ctrl, "unable to configure LDO state, rc=%d\n",
+				 rc);
 			return rc;
 		}
 
@@ -1020,7 +1122,8 @@ static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
 		/* Decreasing VDD voltage */
 		rc = cpr3_regulator_config_ldo(ctrl, aggr_corner->floor_volt,
 					       last_max_volt, apm_crossing ?
-					       apm_volt : last_volt);
+					       apm_volt : last_volt, false,
+					       new_volt);
 		if (rc) {
 			cpr3_err(ctrl, "unable to configure LDO state, rc=%d\n",
 				 rc);
@@ -1056,7 +1159,8 @@ static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
 	if (new_volt >= last_volt) {
 		/* Increasing VDD voltage */
 		rc = cpr3_regulator_config_ldo(ctrl, aggr_corner->floor_volt,
-					       max_volt, new_volt);
+					       max_volt, new_volt, false,
+					       new_volt);
 		if (rc) {
 			cpr3_err(ctrl, "unable to configure LDO state, rc=%d\n",
 				 rc);
