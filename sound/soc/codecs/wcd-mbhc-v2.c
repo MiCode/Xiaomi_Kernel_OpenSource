@@ -1241,17 +1241,6 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_MECH_DETECTION_TYPE,
 				 !detection_type);
 
-	/*
-	 * For faster pull-up, adjust the pull-up current to 3uA.
-	 * Possible that some codecs may choose not to update the
-	 * pull up current, in which case this callback function
-	 * will not be defined.
-	 */
-	if (mbhc->mbhc_cb->hph_pull_up_control) {
-		mbhc->mbhc_cb->hph_pull_up_control(codec,
-				(detection_type ? REMOVE : INSERT));
-	}
-
 	pr_debug("%s: mbhc->current_plug: %d detection_type: %d\n", __func__,
 			mbhc->current_plug, detection_type);
 	wcd_cancel_hs_detect_plug(mbhc, &mbhc->correct_plug_swch);
@@ -1647,7 +1636,7 @@ static bool wcd_mbhc_fw_validate(const void *data, size_t size)
 	return true;
 }
 
-irqreturn_t wcd_mbhc_btn_press_handler(int irq, void *data)
+static irqreturn_t wcd_mbhc_btn_press_handler(int irq, void *data)
 {
 	struct wcd_mbhc *mbhc = data;
 	int mask;
@@ -1808,6 +1797,18 @@ static irqreturn_t wcd_mbhc_hphr_ocp_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static void wcd_mbhc_moisture_config(struct wcd_mbhc *mbhc)
+{
+	if (mbhc->mbhc_cfg->moist_cfg.m_vref_ctl == V_OFF)
+		return;
+
+	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_MOISTURE_VREF,
+				 mbhc->mbhc_cfg->moist_cfg.m_vref_ctl);
+	if (mbhc->mbhc_cb->hph_pull_up_control)
+		mbhc->mbhc_cb->hph_pull_up_control(mbhc->codec,
+				mbhc->mbhc_cfg->moist_cfg.m_iref_ctl);
+}
+
 static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 {
 	int ret = 0;
@@ -1818,9 +1819,12 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 
 	/* enable HS detection */
 	if (mbhc->mbhc_cb->hph_pull_up_control)
-		mbhc->mbhc_cb->hph_pull_up_control(codec, INSERT);
+		mbhc->mbhc_cb->hph_pull_up_control(codec, I_DEFAULT);
 	else
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HS_L_DET_PULL_UP_CTRL, 3);
+
+	wcd_mbhc_moisture_config(mbhc);
+
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_HPHL_PLUG_TYPE, mbhc->hphl_swh);
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_GND_PLUG_TYPE, mbhc->gnd_swh);
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_SW_HPH_LP_100K_TO_GND, 1);
@@ -1977,7 +1981,6 @@ int wcd_mbhc_set_keycode(struct wcd_mbhc *mbhc)
 				WARN_ONCE(1, "Wrong button number:%d\n", i);
 				result = -1;
 				return result;
-				break;
 			}
 			ret = snd_jack_set_key(mbhc->button_jack.jack,
 							type,
