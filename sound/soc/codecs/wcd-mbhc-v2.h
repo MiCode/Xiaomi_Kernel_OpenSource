@@ -55,6 +55,7 @@ enum wcd_mbhc_register_function {
 	WCD_MBHC_HPHL_PA_EN,
 	WCD_MBHC_HPH_PA_EN,
 	WCD_MBHC_SWCH_LEVEL_REMOVE,
+	WCD_MBHC_MOISTURE_VREF,
 	WCD_MBHC_PULLDOWN_CTRL,
 	WCD_MBHC_REG_FUNC_MAX,
 };
@@ -83,11 +84,6 @@ enum {
 	MIC_BIAS_2,
 	MIC_BIAS_3,
 	MIC_BIAS_4
-};
-
-enum {
-	REMOVE = 0,
-	INSERT,
 };
 
 enum {
@@ -211,6 +207,31 @@ enum wcd_mbhc_hph_type {
 	WCD_MBHC_HPH_STEREO,
 };
 
+/*
+ * These enum definitions are directly mapped to the register
+ * definitions
+ */
+enum mbhc_moisture_vref {
+	V_OFF,
+	V_45_MV,
+	V_100_MV,
+	V_225_MV,
+};
+
+enum mbhc_hs_pullup_iref {
+	I_DEFAULT = -1,
+	I_OFF = 0,
+	I_1P0_UA,
+	I_2P0_UA,
+	I_3P0_UA,
+};
+
+struct wcd_mbhc_moisture_cfg {
+	enum mbhc_moisture_vref m_vref_ctl;
+	enum mbhc_hs_pullup_iref m_iref_ctl;
+};
+
+
 struct wcd_mbhc_config {
 	bool read_fw_bin;
 	void *calibration;
@@ -218,9 +239,10 @@ struct wcd_mbhc_config {
 	bool mono_stero_detection;
 	bool (*swap_gnd_mic) (struct snd_soc_codec *codec);
 	bool hs_ext_micbias;
+	bool gnd_det_en;
 	int key_code[WCD_MBHC_KEYCODE_NUM];
 	uint32_t linein_th;
-	bool gnd_det_en;
+	struct wcd_mbhc_moisture_cfg moist_cfg;
 };
 
 struct wcd_mbhc_intr {
@@ -263,14 +285,20 @@ struct wcd_mbhc_register {
 		  "%s: BCL should have acquired\n", __func__); \
 }
 
-#define WCD_MBHC_REG_UPDATE_BITS(function, val)			\
-do {								\
-	if (mbhc->wcd_mbhc_regs[function].reg) {		\
-		snd_soc_update_bits(mbhc->codec,		\
-		mbhc->wcd_mbhc_regs[function].reg,		\
-		mbhc->wcd_mbhc_regs[function].mask,		\
-		val << (mbhc->wcd_mbhc_regs[function].offset));	\
-	}							\
+/*
+ * Macros to update and read mbhc register bits. Check for
+ * "0" before updating or reading the register, because it
+ * is possible that one codec wants to write to that bit and
+ * other codec does not.
+ */
+#define WCD_MBHC_REG_UPDATE_BITS(function, val)         \
+do {                                                    \
+	if (mbhc->wcd_mbhc_regs[function].reg) {        \
+		snd_soc_update_bits(mbhc->codec,	\
+		mbhc->wcd_mbhc_regs[function].reg,	\
+		mbhc->wcd_mbhc_regs[function].mask,	\
+		val << (mbhc->wcd_mbhc_regs[function].offset)); \
+	}                                               \
 } while (0)
 
 #define WCD_MBHC_REG_READ(function, val)			\
@@ -313,7 +341,8 @@ struct wcd_mbhc_cb {
 	bool (*hph_pa_on_status)(struct snd_soc_codec *);
 	void (*set_btn_thr)(struct snd_soc_codec *, s16 *, s16 *,
 			    int num_btn, bool);
-	void (*hph_pull_up_control)(struct snd_soc_codec *, bool);
+	void (*hph_pull_up_control)(struct snd_soc_codec *,
+				    enum mbhc_hs_pullup_iref);
 	int (*mbhc_micbias_control)(struct snd_soc_codec *, int req);
 	void (*mbhc_micb_ramp_control)(struct snd_soc_codec *, bool);
 	void (*skip_imped_detect)(struct snd_soc_codec *);
