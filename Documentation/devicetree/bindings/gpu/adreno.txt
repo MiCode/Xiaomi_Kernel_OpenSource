@@ -78,7 +78,7 @@ IOMMU Data:
 - iommu:			Phandle for the KGSL IOMMU device node
 
 GPU Power levels:
-- qcom,gpu-pwrlevels:		Container for the GPU Power Levels (see
+- qcom,gpu-pwrlevel-bins:	Container for sets of GPU power levels (see
 				adreno-pwrlevels.txt)
 
 DCVS Core info
@@ -189,38 +189,43 @@ Example of A330 GPU in MSM8916:
 		coresight-child-ports = <5>;
 
 		/* Power levels */
-		qcom,gpu-pwrlevels {
+		qcom,gpu-pwrlevels-bins {
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			compatible = "qcom,gpu-pwrlevels";
+			qcom,gpu-pwrlevels-0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
 
-			qcom,gpu-pwrlevel@0 {
-				reg = <0>;
-				qcom,gpu-freq = <400000000>;
-				qcom,bus-freq = <3>;
-				qcom,io-fraction = <33>;
-			};
+				qcom,speed-bin = <0>;
 
-			qcom,gpu-pwrlevel@1 {
-				reg = <1>;
-				qcom,gpu-freq = <310000000>;
-				qcom,bus-freq = <2>;
-				qcom,io-fraction = <66>;
-			};
+				qcom,gpu-pwrlevel@0 {
+					reg = <0>;
+					qcom,gpu-freq = <400000000>;
+					qcom,bus-freq = <3>;
+					qcom,io-fraction = <33>;
+				};
 
-			qcom,gpu-pwrlevel@2 {
-				reg = <2>;
-				qcom,gpu-freq = <200000000>;
-				qcom,bus-freq = <1>;
-				qcom,io-fraction = <100>;
-			};
+				qcom,gpu-pwrlevel@1 {
+					reg = <1>;
+					qcom,gpu-freq = <310000000>;
+					qcom,bus-freq = <2>;
+					qcom,io-fraction = <66>;
+				};
 
-			qcom,gpu-pwrlevel@3 {
-				reg = <3>;
-				qcom,gpu-freq = <27000000>;
-				qcom,bus-freq = <0>;
-				qcom,io-fraction = <0>;
+				qcom,gpu-pwrlevel@2 {
+					reg = <2>;
+					qcom,gpu-freq = <200000000>;
+					qcom,bus-freq = <1>;
+					qcom,io-fraction = <100>;
+				};
+
+				qcom,gpu-pwrlevel@3 {
+					reg = <3>;
+					qcom,gpu-freq = <27000000>;
+					qcom,bus-freq = <0>;
+					qcom,io-fraction = <0>;
+				};
 			};
 		};
 

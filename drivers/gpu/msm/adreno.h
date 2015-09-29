@@ -293,6 +293,7 @@ struct adreno_gpu_core {
  * @lm_limit: limiting value for LM
  * @lm_threshold_count: register value for counter for lm threshold breakin
  * @lm_threshold_cross: number of current peaks exceeding threshold
+ * @speed_bin: Indicate which power level set to use
  */
 struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
@@ -351,6 +352,8 @@ struct adreno_device {
 	struct kgsl_memdesc capturescript;
 	struct kgsl_memdesc snapshot_registers;
 	bool capturescript_working;
+
+	unsigned int speed_bin;
 };
 
 /**

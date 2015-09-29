@@ -821,18 +821,11 @@ static const struct of_device_id adreno_match_table[] = {
 	{}
 };
 
-static int adreno_of_get_pwrlevels(struct device_node *parent,
+static int adreno_of_parse_pwrlevels(struct device_node *node,
 	struct kgsl_device_platform_data *pdata)
 {
-	struct device_node *node, *child;
+	struct device_node *child;
 	int ret = -EINVAL;
-
-	node = of_find_node_by_name(parent, "qcom,gpu-pwrlevels");
-
-	if (node == NULL) {
-		KGSL_CORE_ERR("Unable to find 'qcom,gpu-pwrlevels'\n");
-		return -EINVAL;
-	}
 
 	pdata->num_levels = 0;
 
@@ -871,19 +864,48 @@ static int adreno_of_get_pwrlevels(struct device_node *parent,
 			level->bus_max = level->bus_freq;
 	}
 
-	if (of_property_read_u32(parent, "qcom,initial-pwrlevel",
-		&pdata->init_level))
-		pdata->init_level = 1;
-
-	if (pdata->init_level < 0 || pdata->init_level > pdata->num_levels) {
-		KGSL_CORE_ERR("Initial power level out of range\n");
-		pdata->init_level = 1;
-	}
 
 	ret = 0;
 done:
 	return ret;
 
+}
+static int adreno_of_get_legacy_pwrlevels(struct device_node *parent,
+	struct kgsl_device_platform_data *pdata)
+{
+	struct device_node *node;
+
+	node = of_find_node_by_name(parent, "qcom,gpu-pwrlevels");
+
+	if (node == NULL) {
+		KGSL_CORE_ERR("Unable to find 'qcom,gpu-pwrlevels'\n");
+		return -EINVAL;
+	}
+
+	return adreno_of_parse_pwrlevels(node, pdata);
+}
+
+static int adreno_of_get_pwrlevels(struct device_node *parent,
+		struct adreno_device *adreno_dev,
+		struct kgsl_device_platform_data *pdata)
+{
+	struct device_node *node, *child;
+
+	node = of_find_node_by_name(parent, "qcom,gpu-pwrlevel-bins");
+	if (node == NULL)
+		return adreno_of_get_legacy_pwrlevels(parent, pdata);
+
+	for_each_child_of_node(node, child) {
+		unsigned int bin;
+
+		if (of_property_read_u32(child, "qcom,speed-bin", &bin))
+			continue;
+
+		if (bin == adreno_dev->speed_bin)
+			return adreno_of_parse_pwrlevels(child, pdata);
+	}
+
+	return -ENODEV;
 }
 
 static inline struct adreno_device *adreno_get_dev(struct platform_device *pdev)
@@ -894,8 +916,9 @@ static inline struct adreno_device *adreno_get_dev(struct platform_device *pdev)
 	return of_id ? (struct adreno_device *) of_id->data : NULL;
 }
 
-static int adreno_of_get_pdata(struct platform_device *pdev)
+static int adreno_of_get_pdata(struct adreno_device *adreno_dev)
 {
+	struct platform_device *pdev = adreno_dev->dev.pdev;
 	struct kgsl_device_platform_data *pdata = NULL;
 	int ret = -EINVAL;
 
@@ -914,9 +937,18 @@ static int adreno_of_get_pdata(struct platform_device *pdev)
 	}
 
 	/* pwrlevel Data */
-	ret = adreno_of_get_pwrlevels(pdev->dev.of_node, pdata);
+	ret = adreno_of_get_pwrlevels(pdev->dev.of_node, adreno_dev, pdata);
 	if (ret)
 		goto err;
+
+	if (of_property_read_u32(pdev->dev.of_node, "qcom,initial-pwrlevel",
+		&pdata->init_level))
+		pdata->init_level = 1;
+
+	if (pdata->init_level < 0 || pdata->init_level > pdata->num_levels) {
+		KGSL_CORE_ERR("Initial power level out of range\n");
+		pdata->init_level = 1;
+	}
 
 	/* get pm-qos-active-latency, set it to default if not found */
 	if (of_property_read_u32(pdev->dev.of_node,
@@ -1034,7 +1066,7 @@ static int adreno_probe(struct platform_device *pdev)
 	adreno_identify_gpu(adreno_dev);
 
 	/* Get the rest of the device tree */
-	status = adreno_of_get_pdata(pdev);
+	status = adreno_of_get_pdata(adreno_dev);
 	if (status) {
 		device->pdev = NULL;
 		return status;

@@ -55,7 +55,7 @@
 		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
 		status = "ok";
 		reg = <0xb00000 0x3f000
-		       0x070000 0x0343C>;
+		       0x070000 0x04720>;
 		reg-names = "kgsl_3d0_reg_memory", "qfprom_memory";
 		interrupts = <0 300 0>;
 		interrupt-names = "kgsl_3d0_irq";

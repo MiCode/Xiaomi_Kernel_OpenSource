@@ -108,8 +108,10 @@ static int _read_fw2_block_header(uint32_t *header, uint32_t id,
 #define LM_DEFAULT_LIMIT    6000
 
 #define A530_DEFAULT_LEAKAGE 0x004E001A
+
 #define A530_QFPROM_RAW_PTE_ROW0_MSB 0x134
 #define A530_QFPROM_RAW_PTE_ROW2_MSB 0x144
+#define A530_QFPROM_CORR_PTE_ROW0_LSB 0x4130
 
 static void a530_efuse_leakage(struct adreno_device *adreno_dev)
 {
@@ -136,11 +138,23 @@ static void a530_efuse_leakage(struct adreno_device *adreno_dev)
 		((leakage_pwr_on * coeff) / 100);
 }
 
+static void a530_efuse_speed_bin(struct adreno_device *adreno_dev)
+{
+	unsigned int val;
+
+	adreno_efuse_read_u32(adreno_dev,
+		A530_QFPROM_CORR_PTE_ROW0_LSB, &val);
+
+	adreno_dev->speed_bin =
+		(val & 0xE0000000) >> 29;
+}
+
 static const struct {
 	int (*check)(struct adreno_device *adreno_dev);
 	void (*func)(struct adreno_device *adreno_dev);
 } a5xx_efuse_funcs[] = {
 	{ adreno_is_a530, a530_efuse_leakage },
+	{ adreno_is_a530v3, a530_efuse_speed_bin },
 };
 
 static void a5xx_check_features(struct adreno_device *adreno_dev)
@@ -427,6 +441,7 @@ static void a5xx_platform_setup(struct adreno_device *adreno_dev)
 
 	/* Setup defaults that might get changed by the fuse bits */
 	adreno_dev->lm_leakage = A530_DEFAULT_LEAKAGE;
+	adreno_dev->speed_bin = 0;
 
 	/* Check efuse bits for various capabilties */
 	a5xx_check_features(adreno_dev);
