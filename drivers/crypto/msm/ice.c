@@ -47,7 +47,8 @@
 	TZ_SYSCALL_CREATE_PARAM_ID_0
 
 #define ICE_REV(x, y) (((x) & ICE_CORE_##y##_REV_MASK) >> ICE_CORE_##y##_REV)
-#define QCOM_ICE_DEV	"ice"
+#define QCOM_UFS_ICE_DEV	"iceufs"
+#define QCOM_SDCC_ICE_DEV	"icesdcc"
 #define QCOM_ICE_TYPE_NAME_LEN 8
 #define QCOM_ICE_MAX_BIST_CHECK_COUNT 100
 
@@ -719,34 +720,30 @@ static int register_ice_device(struct ice_device *ice_dev)
 	unsigned baseminor = 0;
 	unsigned count = 1;
 	struct device *class_dev;
-	char tmp_dev_name[16];
-	memset(tmp_dev_name, 0, 16);
-
-	strlcpy(tmp_dev_name, QCOM_ICE_DEV, 8);
-	strlcat(tmp_dev_name, ice_dev->ice_instance_type, 8);
-
-	pr_debug("%s: instance type = %s device name = %s\n", __func__,
-				ice_dev->ice_instance_type, tmp_dev_name);
+	int is_sdcc_ice = !strcmp(ice_dev->ice_instance_type, "sdcc");
 
 	rc = alloc_chrdev_region(&ice_dev->device_no, baseminor, count,
-							tmp_dev_name);
+			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : QCOM_UFS_ICE_DEV);
 	if (rc < 0) {
-		pr_err("alloc_chrdev_region failed %d for %s\n",
-						rc, tmp_dev_name);
+		pr_err("alloc_chrdev_region failed %d for %s\n", rc,
+			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : QCOM_UFS_ICE_DEV);
 		return rc;
 	}
-	ice_dev->driver_class = class_create(THIS_MODULE, tmp_dev_name);
+	ice_dev->driver_class = class_create(THIS_MODULE,
+			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : QCOM_UFS_ICE_DEV);
 	if (IS_ERR(ice_dev->driver_class)) {
 		rc = -ENOMEM;
-		pr_err("class_create failed %d for %s\n", rc, tmp_dev_name);
+		pr_err("class_create failed %d for %s\n", rc,
+			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : QCOM_UFS_ICE_DEV);
 		goto exit_unreg_chrdev_region;
 	}
 	class_dev = device_create(ice_dev->driver_class, NULL,
-					ice_dev->device_no, NULL, tmp_dev_name);
+					ice_dev->device_no, NULL,
+			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : QCOM_UFS_ICE_DEV);
 
 	if (!class_dev) {
-		pr_err("class_device_create failed %d for %s\n",
-							rc, tmp_dev_name);
+		pr_err("class_device_create failed %d for %s\n", rc,
+			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : QCOM_UFS_ICE_DEV);
 		rc = -ENOMEM;
 		goto exit_destroy_class;
 	}
@@ -756,7 +753,8 @@ static int register_ice_device(struct ice_device *ice_dev)
 
 	rc = cdev_add(&ice_dev->cdev, MKDEV(MAJOR(ice_dev->device_no), 0), 1);
 	if (rc < 0) {
-		pr_err("cdev_add failed %d for %s\n", rc, tmp_dev_name);
+		pr_err("cdev_add failed %d for %s\n", rc,
+			is_sdcc_ice ? QCOM_SDCC_ICE_DEV : QCOM_UFS_ICE_DEV);
 		goto exit_destroy_device;
 	}
 	return  0;
