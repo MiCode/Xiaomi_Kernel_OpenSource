@@ -2265,29 +2265,21 @@ static int smbchg_set_fastchg_current_user(struct smbchg_chip *chip,
 {
 	int rc = 0;
 
-	mutex_lock(&chip->parallel.lock);
 	pr_smb(PR_STATUS, "User setting FCC to %d\n", current_ma);
 	chip->cfg_fastchg_current_ma = current_ma;
-	if (smbchg_is_parallel_usb_ok(chip)) {
-		smbchg_parallel_usb_enable(chip);
-	} else {
-		if (chip->parallel.current_max_ma != 0) {
-			/*
-			 * If parallel charging is not available, disable it.
-			 * FCC for main charger will be configured in that.
-			 */
-			pr_smb(PR_STATUS, "parallel charging unavailable\n");
-			smbchg_parallel_usb_disable(chip);
-			goto out;
-		}
+
+	if (chip->parallel.current_max_ma == 0) {
 		rc = smbchg_set_fastchg_current(chip,
 				chip->cfg_fastchg_current_ma);
-		if (rc)
-			pr_err("Couldn't set fastchg current rc: %d\n",
-				rc);
+		if (rc < 0)
+			pr_err("Couldn't set fastchg current rc: %d\n", rc);
 	}
-out:
-	mutex_unlock(&chip->parallel.lock);
+	/*
+	 * check if parallel charging can be enabled, and if enabled,
+	 * distribute the fcc
+	 */
+	smbchg_parallel_usb_check_ok(chip);
+
 	return rc;
 }
 
