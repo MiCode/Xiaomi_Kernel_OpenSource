@@ -129,6 +129,47 @@ err_out:
 EXPORT_SYMBOL(swr_new_device);
 
 /**
+ * swr_startup_devices - perform additional initialization for child devices
+ *
+ * @swr_dev: pointer to soundwire slave device
+ *
+ * Performs any additional initialization needed for a soundwire slave device.
+ * This is a optional functionality defined by slave devices.
+ * Removes the slave node from the list, in case there is any failure.
+ */
+int swr_startup_devices(struct swr_device *swr_dev)
+{
+	struct swr_driver *swr_drv;
+	struct device *dev;
+	int ret = 0;
+
+	if (!swr_dev)
+		return -EINVAL;
+
+	dev = &swr_dev->dev;
+	if (!dev)
+		return -EINVAL;
+
+	swr_drv = to_swr_driver(dev->driver);
+	if (!swr_drv)
+		return -EINVAL;
+
+	if (swr_drv->startup) {
+		ret = swr_drv->startup(swr_dev);
+		if (ret)
+			goto out;
+
+		dev_dbg(&swr_dev->dev,
+			"%s: startup complete for device %lx\n",
+			__func__, swr_dev->addr);
+	}
+
+out:
+	return ret;
+}
+EXPORT_SYMBOL(swr_startup_devices);
+
+/**
  * of_register_swr_devices - register child devices on to the soundwire bus
  * @master: pointer to soundwire master device
  *
