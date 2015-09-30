@@ -245,6 +245,9 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 	vsync_period = p->vsync_pulse_width + p->v_back_porch +
 			p->height + p->v_front_porch;
 
+	MDSS_XLOG(p->vsync_pulse_width, p->v_back_porch,
+			p->height, p->v_front_porch);
+
 	display_v_start = ((p->vsync_pulse_width + p->v_back_porch) *
 			hsync_period) + p->hsync_skew;
 	display_v_end = ((vsync_period - p->v_front_porch) * hsync_period) +
@@ -328,6 +331,7 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_HSYNC_SKEW, p->hsync_skew);
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_POLARITY_CTL, polarity_ctl);
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_FRAME_LINE_COUNT_EN, 0x3);
+	MDSS_XLOG(hsync_period, vsync_period);
 
 	/*
 	 * If CDM is present Interface should have destination
@@ -743,6 +747,7 @@ static int mdss_mdp_video_timegen_update(struct mdss_mdp_video_ctx *ctx,
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_DISPLAY_V_START_F0,
 						display_v_start);
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_DISPLAY_V_END_F0, display_v_end);
+	MDSS_XLOG(ctx->intf_num, hsync_ctl, vsync_period, hsync_period);
 
 	return 0;
 }
@@ -804,6 +809,8 @@ static int mdss_mdp_video_vfp_fps_update(struct mdss_mdp_video_ctx *ctx,
 		mdp_video_write(ctx, MDSS_MDP_REG_INTF_VSYNC_PERIOD_F0,
 			new_vsync_period_f0 & 0x7fffff);
 	}
+	MDSS_XLOG(ctx->intf_num, current_vsync_period_f0,
+		hsync_period, vsync_period, new_vsync_period_f0);
 
 	return 0;
 }
@@ -881,6 +888,7 @@ static void mdss_mdp_video_timegen_flush(struct mdss_mdp_ctl *ctl,
 {
 	u32 ctl_flush;
 	struct mdss_data_type *mdata;
+
 	mdata = ctl->mdata;
 	ctl_flush = (BIT(31) >> (ctl->intf_num - MDSS_MDP_INTF0));
 	if (sctx) {
@@ -892,6 +900,7 @@ static void mdss_mdp_video_timegen_flush(struct mdss_mdp_ctl *ctl,
 					(sctx->intf_num - MDSS_MDP_INTF0));
 	}
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, ctl_flush);
+	MDSS_XLOG(ctl->intf_num, sctx?sctx->intf_num:0xf00, ctl_flush);
 }
 
 /**
@@ -952,6 +961,8 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl, int new_fps)
 
 	pr_debug("ctl:%d dfps_update:%d fps:%d\n",
 		ctl->num, pdata->panel_info.dfps_update, new_fps);
+	MDSS_XLOG(ctl->num, pdata->panel_info.dfps_update,
+		new_fps, XLOG_FUNC_ENTRY);
 
 	if (pdata->panel_info.dfps_update
 			!= DFPS_SUSPEND_RESUME_MODE) {
@@ -1064,6 +1075,7 @@ exit_dfps:
 	}
 
 end:
+	MDSS_XLOG(ctl->num, new_fps, XLOG_FUNC_EXIT);
 	mutex_unlock(&ctl->offlock);
 	return rc;
 }
@@ -1251,6 +1263,7 @@ static void mdss_mdp_fetch_end_config(struct mdss_mdp_video_ctx *ctx,
 
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_VBLANK_END_CONF, fetch_stop);
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_CONFIG, vblank_end_enable);
+	MDSS_XLOG(ctx->intf_num, fetch_stop, vblank_end_enable);
 }
 
 static void mdss_mdp_fetch_start_config(struct mdss_mdp_video_ctx *ctx,
@@ -1287,6 +1300,7 @@ static void mdss_mdp_fetch_start_config(struct mdss_mdp_video_ctx *ctx,
 
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_PROG_FETCH_START, fetch_start);
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_CONFIG, fetch_enable);
+	MDSS_XLOG(ctx->intf_num, fetch_enable, fetch_start);
 }
 
 static inline bool mdss_mdp_video_need_pixel_drop(u32 vic)
@@ -1361,6 +1375,8 @@ static void mdss_mdp_handoff_programmable_fetch(struct mdss_mdp_ctl *ctl,
 			((fetch_start_handoff - 1)/h_total_handoff);
 		pr_debug("programmable fetch lines %d start:%d\n",
 			pinfo->prg_fet, fetch_start_handoff);
+		MDSS_XLOG(pinfo->prg_fet, fetch_start_handoff,
+			h_total_handoff, v_total_handoff);
 	}
 }
 
