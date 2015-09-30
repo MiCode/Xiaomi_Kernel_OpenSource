@@ -48,6 +48,7 @@
 #define OVERLAY_MAX		10
 
 #define VALID_ROT_WB_FORMAT BIT(0)
+#define VALID_MDP_WB_INTF_FORMAT BIT(1)
 
 #define C3_ALPHA	3	/* alpha */
 #define C2_R_Cr		2	/* R/Cr */
@@ -1219,6 +1220,7 @@ int mdss_mdp_get_rau_strides(u32 w, u32 h, struct mdss_mdp_format_params *fmt,
 			       struct mdss_mdp_plane_sizes *ps);
 void mdss_mdp_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 	struct mdss_mdp_plane_sizes *ps, struct mdss_mdp_format_params *fmt);
+void mdss_mdp_format_flag_removal(u32 *table, u32 num, u32 remove_bits);
 struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format);
 int mdss_mdp_validate_offset_for_ubwc_format(
 	struct mdss_mdp_format_params *fmt, u16 x, u16 y);
@@ -1292,6 +1294,7 @@ struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 		struct mdss_mdp_ctl *ctl, u32 type, int mux, int rotator);
 int mdss_mdp_mixer_free(struct mdss_mdp_mixer *mixer);
 
+bool mdss_mdp_is_wb_mdp_intf(u32 num, u32 reg_index);
 struct mdss_mdp_writeback *mdss_mdp_wb_assign(u32 id, u32 reg_index);
 struct mdss_mdp_writeback *mdss_mdp_wb_alloc(u32 caps, u32 reg_index);
 void mdss_mdp_wb_free(struct mdss_mdp_writeback *wb);

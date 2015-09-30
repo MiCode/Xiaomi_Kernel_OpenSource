@@ -4826,6 +4826,25 @@ struct mdss_mdp_writeback *mdss_mdp_wb_alloc(u32 caps, u32 reg_index)
 	return wb;
 }
 
+bool mdss_mdp_is_wb_mdp_intf(u32 num, u32 reg_index)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_mdp_writeback *wb = NULL;
+	bool wb_virtual_on;
+
+	wb_virtual_on = (mdata->nctl == mdata->nwb_offsets);
+
+	if (num >= mdata->nwb || (wb_virtual_on && reg_index >=
+			mdata->nwb_offsets))
+		return false;
+
+	wb = mdata->wb + num;
+	if (!wb)
+		return false;
+
+	return (wb->caps & MDSS_MDP_WB_INTF) ? true : false;
+}
+
 struct mdss_mdp_writeback *mdss_mdp_wb_assign(u32 num, u32 reg_index)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();

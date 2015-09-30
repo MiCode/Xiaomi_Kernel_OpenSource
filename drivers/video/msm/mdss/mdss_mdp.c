@@ -134,6 +134,12 @@ static struct msm_bus_scale_pdata mdp_reg_bus_scale_table = {
 	.active_only = true,
 };
 
+u32 invalid_mdp107_wb_output_fmts[] = {
+	MDP_XRGB_8888,
+	MDP_RGBX_8888,
+	MDP_BGRX_8888,
+};
+
 static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on);
 static int mdss_mdp_parse_dt(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev);
@@ -1185,6 +1191,9 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 	case MDSS_MDP_HW_REV_107:
 		mdss_set_quirk(mdata, MDSS_QUIRK_ROTCDP);
 	case MDSS_MDP_HW_REV_107_1:
+		mdss_mdp_format_flag_removal(invalid_mdp107_wb_output_fmts,
+			ARRAY_SIZE(invalid_mdp107_wb_output_fmts),
+			VALID_MDP_WB_INTF_FORMAT);
 	case MDSS_MDP_HW_REV_107_2:
 		mdata->max_target_zorder = 7; /* excluding base layer */
 		mdata->max_cursor_size = 128;
