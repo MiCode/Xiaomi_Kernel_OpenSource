@@ -48,6 +48,8 @@
 static int msm_spi_pm_resume_runtime(struct device *device);
 static int msm_spi_pm_suspend_runtime(struct device *device);
 static inline void msm_spi_dma_unmap_buffers(struct msm_spi *dd);
+static int get_local_resources(struct msm_spi *dd);
+static void put_local_resources(struct msm_spi *dd);
 
 static inline int msm_spi_configure_gsbi(struct msm_spi *dd,
 					struct platform_device *pdev)
@@ -1538,6 +1540,20 @@ static inline void msm_spi_set_cs(struct spi_device *spi, bool set_flag)
 	struct msm_spi *dd = spi_master_get_devdata(spi->master);
 	u32 spi_ioc;
 	u32 spi_ioc_orig;
+	int rc;
+
+	rc = pm_runtime_get_sync(dd->dev);
+	if (rc < 0) {
+		dev_err(dd->dev, "Failure during runtime get");
+		return;
+	}
+
+	if (dd->pdata->is_shared) {
+		rc = get_local_resources(dd);
+		if (rc)
+			return;
+	}
+
 
 	if (!(spi->mode & SPI_CS_HIGH))
 		set_flag = !set_flag;
@@ -1551,6 +1567,10 @@ static inline void msm_spi_set_cs(struct spi_device *spi, bool set_flag)
 
 	if (spi_ioc != spi_ioc_orig)
 		writel_relaxed(spi_ioc, dd->base + SPI_IO_CONTROL);
+	if (dd->pdata->is_shared)
+		put_local_resources(dd);
+	pm_runtime_mark_last_busy(dd->dev);
+	pm_runtime_put_autosuspend(dd->dev);
 }
 
 static void reset_core(struct msm_spi *dd)
