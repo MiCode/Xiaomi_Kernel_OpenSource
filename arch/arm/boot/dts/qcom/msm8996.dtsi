@@ -1635,6 +1635,12 @@
 		qcom,rtb-size = <0x100000>;
 	};
 
+	qcom,mpm2-sleep-counter@4a3000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0x004a3000 0x1000>;
+		clock-frequency = <32768>;
+	};
+
 	qcom,msm-imem@66bf000 {
 		compatible = "qcom,msm-imem";
 		reg = <0x66bf000 0x1000>; /* Address and size of IMEM */
@@ -1650,6 +1656,11 @@
 		restart_reason@65c {
 			compatible = "qcom,msm-imem-restart_reason";
 			reg = <0x65c 4>;
+		};
+
+		boot_stats@6b0 {
+			compatible = "qcom,msm-imem-boot_stats";
+			reg = <0x6b0 32>;
 		};
 
 		pil@94c {
