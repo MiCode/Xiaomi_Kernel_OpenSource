@@ -109,6 +109,18 @@
 			qcom,init-voltage-level = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 			qcom,use-voltage-level;
 		};
+
+		pm8950_s6_floor_level: regulator-s6-floor-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pm8950_s6_floor_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-floor-level;
+			qcom,always-send-voltage;
+		};
 	};
 
 	rpm-regulator-ldoa1 {
