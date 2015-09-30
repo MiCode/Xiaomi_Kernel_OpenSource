@@ -124,6 +124,8 @@
 #define WCD9335_DEC_PWR_LVL_HP 0x04
 #define WCD9335_DEC_PWR_LVL_DF 0x00
 
+#define CALCULATE_VOUT_D(req_mv) (((req_mv - 650) * 10) / 25)
+
 static int cpe_debug_mode;
 
 #define TASHA_MAX_MICBIAS 4
@@ -143,6 +145,11 @@ enum {
 	POWER_RESUME,
 };
 
+enum tasha_sido_voltage {
+	SIDO_VOLTAGE_SVS_MV = 950,
+	SIDO_VOLTAGE_NOMINAL_MV = 1100,
+};
+
 static int dig_core_collapse_enable = 1;
 module_param(dig_core_collapse_enable, int,
 		S_IRUGO | S_IWUSR | S_IWGRP);
@@ -153,6 +160,19 @@ static int dig_core_collapse_timer = (TASHA_DIG_CORE_COLLAPSE_TIMER_MS/1000);
 module_param(dig_core_collapse_timer, int,
 		S_IRUGO | S_IWUSR | S_IWGRP);
 MODULE_PARM_DESC(dig_core_collapse_timer, "timer for power gating");
+
+/* SVS Scaling enable/disable */
+static int svs_scaling_enabled = 1;
+module_param(svs_scaling_enabled, int,
+		S_IRUGO | S_IWUSR | S_IWGRP);
+MODULE_PARM_DESC(svs_scaling_enabled, "enable/disable svs scaling");
+
+/* SVS buck setting */
+static int sido_buck_svs_voltage = SIDO_VOLTAGE_SVS_MV;
+module_param(sido_buck_svs_voltage, int,
+		S_IRUGO | S_IWUSR | S_IWGRP);
+MODULE_PARM_DESC(sido_buck_svs_voltage,
+			"setting for SVS voltage for SIDO BUCK");
 
 static struct afe_param_slimbus_slave_port_cfg tasha_slimbus_slave_port_cfg = {
 	.minor_version = 1,
@@ -304,6 +324,8 @@ enum {
 	VI_SENSE_1,
 	VI_SENSE_2,
 	AIF4_SWITCH_VALUE,
+	AUDIO_NOMINAL,
+	CPE_NOMINAL,
 };
 
 enum {
@@ -659,6 +681,7 @@ struct tasha_priv {
 	/* handle to cpe core */
 	struct wcd_cpe_core *cpe_core;
 	u32 current_cpe_clk_freq;
+	enum tasha_sido_voltage sido_voltage;
 
 	u32 ana_rx_supplies;
 	/* Multiplication factor used for impedance detection */
@@ -684,6 +707,7 @@ struct tasha_priv {
 	struct wcd9xxx_resmgr_v2 *resmgr;
 	struct delayed_work power_gate_work;
 	struct mutex power_lock;
+	struct mutex sido_lock;
 
 	/* mbhc module */
 	struct wcd_mbhc mbhc;
@@ -779,6 +803,130 @@ static void tasha_enable_sido_buck(struct snd_soc_codec *codec)
 	/* 100us sleep needed after VREF settings */
 	usleep_range(100, 110);
 	tasha->resmgr->sido_input_src = SIDO_SOURCE_RCO_BG;
+}
+
+static bool tasha_cdc_is_svs_enabled(struct tasha_priv *tasha)
+{
+	if (TASHA_IS_2_0(tasha->wcd9xxx->version) &&
+		svs_scaling_enabled)
+		return true;
+
+	return false;
+}
+
+static int tasha_cdc_req_mclk_enable(struct tasha_priv *tasha,
+				     bool enable)
+{
+	int ret = 0;
+
+	if (enable) {
+		ret = clk_prepare_enable(tasha->wcd_ext_clk);
+		if (ret) {
+			dev_err(tasha->dev, "%s: ext clk enable failed\n",
+				__func__);
+			goto err;
+		}
+		/* get BG */
+		wcd_resmgr_enable_master_bias(tasha->resmgr);
+		/* get MCLK */
+		wcd_resmgr_enable_clk_block(tasha->resmgr, WCD_CLK_MCLK);
+	} else {
+		/* put MCLK */
+		wcd_resmgr_disable_clk_block(tasha->resmgr, WCD_CLK_MCLK);
+		/* put BG */
+		wcd_resmgr_disable_master_bias(tasha->resmgr);
+		clk_disable_unprepare(tasha->wcd_ext_clk);
+	}
+err:
+	return ret;
+}
+
+static int tasha_cdc_check_sido_value(enum tasha_sido_voltage req_mv)
+{
+	if ((req_mv != SIDO_VOLTAGE_SVS_MV) &&
+		(req_mv != SIDO_VOLTAGE_NOMINAL_MV))
+		return -EINVAL;
+
+	return 0;
+}
+
+static void tasha_codec_apply_sido_voltage(
+				struct tasha_priv *tasha,
+				enum tasha_sido_voltage req_mv)
+{
+	u32 vout_d_val;
+	struct snd_soc_codec *codec = tasha->codec;
+	int ret;
+
+	if (!codec)
+		return;
+
+	if (!tasha_cdc_is_svs_enabled(tasha))
+		return;
+
+	if ((sido_buck_svs_voltage != SIDO_VOLTAGE_SVS_MV) &&
+		(sido_buck_svs_voltage != SIDO_VOLTAGE_NOMINAL_MV))
+		sido_buck_svs_voltage = SIDO_VOLTAGE_SVS_MV;
+
+	ret = tasha_cdc_check_sido_value(req_mv);
+	if (ret < 0) {
+		dev_dbg(codec->dev, "%s: requested mv=%d not in range\n",
+			__func__, req_mv);
+		return;
+	}
+	if (req_mv == tasha->sido_voltage) {
+		dev_dbg(codec->dev, "%s: Already at requested mv=%d\n",
+			__func__, req_mv);
+		return;
+	}
+	if (req_mv == sido_buck_svs_voltage) {
+		if (test_bit(AUDIO_NOMINAL, &tasha->status_mask) ||
+			test_bit(CPE_NOMINAL, &tasha->status_mask)) {
+			dev_dbg(codec->dev,
+				"%s: nominal client running, status_mask=%lu\n",
+				__func__, tasha->status_mask);
+			return;
+		}
+	}
+	/* compute the vout_d step value */
+	vout_d_val = CALCULATE_VOUT_D(req_mv);
+	snd_soc_write(codec, WCD9335_ANA_BUCK_VOUT_D, vout_d_val & 0xFF);
+	snd_soc_update_bits(codec, WCD9335_ANA_BUCK_CTL, 0x80, 0x80);
+
+	/* 1 msec sleep required after SIDO Vout_D voltage change */
+	usleep_range(1000, 1100);
+	tasha->sido_voltage = req_mv;
+	dev_dbg(codec->dev,
+		"%s: updated SIDO buck Vout_D to %d, vout_d step = %u\n",
+		__func__, tasha->sido_voltage, vout_d_val);
+
+	snd_soc_update_bits(codec, WCD9335_ANA_BUCK_CTL,
+				0x80, 0x00);
+}
+
+static int tasha_codec_update_sido_voltage(
+				struct tasha_priv *tasha,
+				enum tasha_sido_voltage req_mv)
+{
+	int ret = 0;
+
+	if (!tasha_cdc_is_svs_enabled(tasha))
+		return ret;
+
+	mutex_lock(&tasha->sido_lock);
+	/* enable mclk before setting SIDO voltage */
+	ret = tasha_cdc_req_mclk_enable(tasha, true);
+	if (ret) {
+		dev_err(tasha->dev, "%s: ext clk enable failed\n",
+			__func__);
+		goto err;
+	}
+	tasha_codec_apply_sido_voltage(tasha, req_mv);
+	tasha_cdc_req_mclk_enable(tasha, false);
+
+err:
+	mutex_unlock(&tasha->sido_lock);
+	return ret;
 }
 
 int tasha_enable_efuse_sensing(struct snd_soc_codec *codec)
@@ -9796,6 +9944,9 @@ static void tasha_codec_power_gate_work(struct work_struct *work)
 	tasha = container_of(dwork, struct tasha_priv, power_gate_work);
 	codec = tasha->codec;
 
+	if (!codec)
+		return;
+
 	mutex_lock(&tasha->power_lock);
 	dev_dbg(codec->dev, "%s: Entering power gating function, %d\n",
 		__func__, tasha->power_active_ref);
@@ -9812,6 +9963,8 @@ static void tasha_codec_power_gate_work(struct work_struct *work)
 			0x01, 0x00);
 	snd_soc_update_bits(codec, WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL,
 			0x02, 0x00);
+	clear_bit(AUDIO_NOMINAL, &tasha->status_mask);
+	tasha_codec_update_sido_voltage(tasha, sido_buck_svs_voltage);
 	wcd9xxx_set_power_state(tasha->wcd9xxx, WCD_REGION_POWER_DOWN,
 				WCD9XXX_DIG_CORE_REGION_1);
 exit:
@@ -9916,22 +10069,20 @@ static int __tasha_cdc_mclk_enable_locked(struct tasha_priv *tasha,
 
 	if (enable) {
 		tasha_dig_core_power_collapse(tasha, POWER_RESUME);
-		ret = clk_prepare_enable(tasha->wcd_ext_clk);
-		if (ret) {
-			dev_err(tasha->dev, "%s: ext clk enable failed\n",
-				__func__);
+		ret = tasha_cdc_req_mclk_enable(tasha, true);
+		if (ret)
 			goto err;
-		}
-		/* get BG */
-		wcd_resmgr_enable_master_bias(tasha->resmgr);
-		/* get MCLK */
-		wcd_resmgr_enable_clk_block(tasha->resmgr, WCD_CLK_MCLK);
+
+		set_bit(AUDIO_NOMINAL, &tasha->status_mask);
+		tasha_codec_apply_sido_voltage(tasha,
+				SIDO_VOLTAGE_NOMINAL_MV);
 	} else {
-		/* put MCLK */
-		wcd_resmgr_disable_clk_block(tasha->resmgr, WCD_CLK_MCLK);
-		/* put BG */
-		wcd_resmgr_disable_master_bias(tasha->resmgr);
-		clk_disable_unprepare(tasha->wcd_ext_clk);
+		if (!dig_core_collapse_enable) {
+			clear_bit(AUDIO_NOMINAL, &tasha->status_mask);
+			tasha_codec_update_sido_voltage(tasha,
+						sido_buck_svs_voltage);
+		}
+		tasha_cdc_req_mclk_enable(tasha, false);
 		tasha_dig_core_power_collapse(tasha, POWER_COLLAPSE);
 	}
 
@@ -10066,10 +10217,10 @@ static int tasha_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
 			ret = wcd_resmgr_enable_clk_block(tasha->resmgr,
 							  WCD_CLK_RCO);
 		} else {
-			ret = __tasha_cdc_mclk_enable_locked(tasha, true);
+			ret = tasha_cdc_req_mclk_enable(tasha, true);
 			ret |= wcd_resmgr_enable_clk_block(tasha->resmgr,
 							   WCD_CLK_RCO);
-			ret |= __tasha_cdc_mclk_enable_locked(tasha, false);
+			ret |= tasha_cdc_req_mclk_enable(tasha, false);
 		}
 
 	} else {
@@ -10661,21 +10812,94 @@ static int tasha_codec_cpe_fll_update_divider(
 	return 0;
 }
 
+static int __tasha_cdc_change_cpe_clk(struct snd_soc_codec *codec,
+		u32 clk_freq)
+{
+	int ret = 0;
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	if (!tasha_cdc_is_svs_enabled(tasha)) {
+		dev_dbg(codec->dev,
+			"%s: SVS not enabled or tasha is not 2p0, return\n",
+			__func__);
+		return 0;
+	}
+	dev_dbg(codec->dev, "%s: clk_freq = %u\n", __func__, clk_freq);
+
+	if (clk_freq == CPE_FLL_CLK_75MHZ) {
+		/* Change to SVS */
+		snd_soc_update_bits(codec, WCD9335_CPE_FLL_FLL_MODE,
+				    0x08, 0x08);
+		if (tasha_codec_cpe_fll_update_divider(codec, clk_freq)) {
+			ret = -EINVAL;
+			goto done;
+		}
+
+		snd_soc_update_bits(codec, WCD9335_CPE_FLL_FLL_MODE,
+				    0x10, 0x10);
+
+		clear_bit(CPE_NOMINAL, &tasha->status_mask);
+		tasha_codec_update_sido_voltage(tasha, sido_buck_svs_voltage);
+
+	} else if (clk_freq == CPE_FLL_CLK_150MHZ) {
+		/* change to nominal */
+		snd_soc_update_bits(codec, WCD9335_CPE_FLL_FLL_MODE,
+				    0x08, 0x08);
+
+		set_bit(CPE_NOMINAL, &tasha->status_mask);
+		tasha_codec_update_sido_voltage(tasha, SIDO_VOLTAGE_NOMINAL_MV);
+
+		if (tasha_codec_cpe_fll_update_divider(codec, clk_freq)) {
+			ret = -EINVAL;
+			goto done;
+		}
+		snd_soc_update_bits(codec, WCD9335_CPE_FLL_FLL_MODE,
+				    0x10, 0x10);
+	} else {
+		dev_err(codec->dev,
+			"%s: Invalid clk_freq request %d for CPE FLL\n",
+			__func__, clk_freq);
+		ret = -EINVAL;
+	}
+
+done:
+	snd_soc_update_bits(codec, WCD9335_CPE_FLL_FLL_MODE,
+			    0x10, 0x00);
+	snd_soc_update_bits(codec, WCD9335_CPE_FLL_FLL_MODE,
+			    0x08, 0x00);
+	return ret;
+}
+
 
 static int tasha_codec_cpe_fll_enable(struct snd_soc_codec *codec,
 				   bool enable)
 {
 	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
 	u8 clk_sel_reg_val = 0x00;
 
-	dev_dbg(codec->dev,
-		"%s: enable = %s\n",
-		__func__, enable ? "true" : "false");
+	dev_dbg(codec->dev, "%s: enable = %s\n",
+			__func__, enable ? "true" : "false");
 
 	if (enable) {
-		if (tasha_codec_cpe_fll_update_divider(codec,
-				CPE_FLL_CLK_75MHZ))
-			return -EINVAL;
+		if (tasha_cdc_is_svs_enabled(tasha)) {
+			/* FLL enable is always at SVS */
+			if (__tasha_cdc_change_cpe_clk(codec,
+					CPE_FLL_CLK_75MHZ)) {
+				dev_err(codec->dev,
+					"%s: clk change to %d failed\n",
+					__func__, CPE_FLL_CLK_75MHZ);
+				return -EINVAL;
+			}
+		} else {
+			if (tasha_codec_cpe_fll_update_divider(codec,
+							CPE_FLL_CLK_75MHZ)) {
+				dev_err(codec->dev,
+					"%s: clk change to %d failed\n",
+					__func__, CPE_FLL_CLK_75MHZ);
+				return -EINVAL;
+			}
+		}
 
 		if (TASHA_IS_1_0(wcd9xxx->version)) {
 			tasha_cdc_mclk_enable(codec, true, false);
@@ -10718,6 +10942,14 @@ static int tasha_codec_cpe_fll_enable(struct snd_soc_codec *codec,
 
 		if (TASHA_IS_1_0(wcd9xxx->version))
 			tasha_cdc_mclk_enable(codec, false, false);
+
+		/*
+		 * FLL could get disabled while at nominal,
+		 * scale it back to SVS
+		 */
+		if (tasha_cdc_is_svs_enabled(tasha))
+			__tasha_cdc_change_cpe_clk(codec,
+						CPE_FLL_CLK_75MHZ);
 	}
 
 	return 0;
@@ -10747,8 +10979,13 @@ static void tasha_cdc_query_cpe_clk_plan(void *data,
 	clk_freq->current_clk_feq = cpe_clk_khz;
 	clk_freq->num_clk_freqs = 2;
 
-	clk_freq->clk_freqs[0] = CPE_FLL_CLK_75MHZ;
-	clk_freq->clk_freqs[1] = CPE_FLL_CLK_150MHZ;
+	if (tasha_cdc_is_svs_enabled(tasha)) {
+		clk_freq->clk_freqs[0] = CPE_FLL_CLK_75MHZ / 1000;
+		clk_freq->clk_freqs[1] = CPE_FLL_CLK_150MHZ / 1000;
+	} else {
+		clk_freq->clk_freqs[0] = CPE_FLL_CLK_75MHZ;
+		clk_freq->clk_freqs[1] = CPE_FLL_CLK_150MHZ;
+	}
 }
 
 static void tasha_cdc_change_cpe_clk(void *data,
@@ -10756,7 +10993,7 @@ static void tasha_cdc_change_cpe_clk(void *data,
 {
 	struct snd_soc_codec *codec = data;
 	struct tasha_priv *tasha;
-	u32 cpe_clk_khz;
+	u32 cpe_clk_khz, req_freq;
 
 	if (!codec) {
 		pr_err("%s: Invalid codec handle\n",
@@ -10767,10 +11004,24 @@ static void tasha_cdc_change_cpe_clk(void *data,
 	tasha = snd_soc_codec_get_drvdata(codec);
 	cpe_clk_khz = tasha->current_cpe_clk_freq / 1000;
 
+	if (tasha_cdc_is_svs_enabled(tasha)) {
+		if ((clk_freq * 1000) <= CPE_FLL_CLK_75MHZ)
+			req_freq = CPE_FLL_CLK_75MHZ;
+		else
+			req_freq = CPE_FLL_CLK_150MHZ;
+	}
+
 	dev_dbg(codec->dev,
 		"%s: requested clk_freq = %u, current clk_freq = %u\n",
 		__func__, clk_freq * 1000,
 		tasha->current_cpe_clk_freq);
+
+	if (tasha_cdc_is_svs_enabled(tasha)) {
+		if (__tasha_cdc_change_cpe_clk(codec, req_freq))
+			dev_err(codec->dev,
+				"%s: clock/voltage scaling failed\n",
+				__func__);
+	}
 }
 
 static int tasha_codec_slim_reserve_bw(struct snd_soc_codec *codec,
@@ -11537,6 +11788,7 @@ static int tasha_probe(struct platform_device *pdev)
 	tasha->dev = &pdev->dev;
 	INIT_DELAYED_WORK(&tasha->power_gate_work, tasha_codec_power_gate_work);
 	mutex_init(&tasha->power_lock);
+	mutex_init(&tasha->sido_lock);
 	INIT_WORK(&tasha->swr_add_devices_work, wcd_swr_ctrl_add_devices);
 	BLOCKING_INIT_NOTIFIER_HEAD(&tasha->notifier);
 	mutex_init(&tasha->micb_lock);
@@ -11593,6 +11845,8 @@ static int tasha_probe(struct platform_device *pdev)
 		goto resmgr_remove;
 	}
 	tasha->wcd_ext_clk = wcd_ext_clk;
+	tasha->sido_voltage = SIDO_VOLTAGE_NOMINAL_MV;
+	set_bit(AUDIO_NOMINAL, &tasha->status_mask);
 
 	/* Register native clk for 44.1 playback */
 	wcd_native_clk = clk_get(tasha->wcd9xxx->dev, "wcd_native_clk");
