@@ -2801,7 +2801,7 @@ static int mdss_dsi_parse_hw_cfg(struct platform_device *pdev, char *pan_cfg)
 	struct mdss_dsi_data *dsi_res = platform_get_drvdata(pdev);
 	struct dsi_shared_data *sdata;
 	char dsi_cfg[20];
-	char *cfg_prim = NULL, *cfg_sec = NULL;
+	char *cfg_prim = NULL, *cfg_sec = NULL, *ch = NULL;
 	int i = 0;
 
 	if (!dsi_res) {
@@ -2834,6 +2834,13 @@ static int mdss_dsi_parse_hw_cfg(struct platform_device *pdev, char *pan_cfg)
 	}
 
 	if (data) {
+		/*
+		 * To handle the  override parameter (#override:sim)
+		 * passed for simulator panels
+		 */
+		ch = strnstr(data, "#", strlen(data));
+		ch ? *ch = '\0' : false;
+
 		if (!strcmp(data, "dual_dsi"))
 			sdata->hw_config = DUAL_DSI;
 		else if (!strcmp(data, "split_dsi"))
