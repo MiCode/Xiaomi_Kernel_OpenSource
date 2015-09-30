@@ -4097,6 +4097,7 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 				GFP_KERNEL);
 			if (!scale) {
 				pr_err("unable to allocate memory for overlays\n");
+				mdss_mdp_free_layer_pp_info(layer);
 				ret = -ENOMEM;
 				goto err;
 			}
@@ -4108,6 +4109,7 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 						layer->scale);
 				kfree(scale);
 				scale = NULL;
+				mdss_mdp_free_layer_pp_info(layer);
 				ret = -EFAULT;
 				goto err;
 			}

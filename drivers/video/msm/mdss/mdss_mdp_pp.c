@@ -6489,8 +6489,8 @@ exit_pp_info:
 
 void mdss_mdp_free_layer_pp_info(struct mdp_input_layer *layer)
 {
-	struct mdp_overlay_pp_params *pp_info =
-		(struct mdp_overlay_pp_params *) layer->pp_info;
+	struct mdp_overlay_pp_params *pp_info = (layer) ?
+		(struct mdp_overlay_pp_params *) layer->pp_info : NULL;
 
 	if (!pp_info)
 		return;
@@ -6500,6 +6500,7 @@ void mdss_mdp_free_layer_pp_info(struct mdp_input_layer *layer)
 	kfree(pp_info->pa_v2_cfg_data.cfg_payload);
 	kfree(pp_info->pcc_cfg_data.cfg_payload);
 	kfree(pp_info);
+	layer->pp_info = NULL;
 }
 
 int mdss_mdp_mfd_valid_dspp(struct msm_fb_data_type *mfd)
