@@ -1104,6 +1104,7 @@ union IpaHwMhiDlUlSyncCmdData_t {
  * @uc_loaded: Indicates if uC has loaded
  * @uc_failed: Indicates if uC has failed / returned an error
  * @uc_lock: uC interface lock to allow only one uC interaction at a time
+ * @uc_spinlock: same as uc_lock but for irq contexts
  * @uc_completation: Completion mechanism to wait for uC commands
  * @uc_sram_mmio: Pointer to uC mapped memory
  * @pending_cmd: The last command sent waiting to be ACKed
@@ -1116,6 +1117,7 @@ struct ipa3_uc_ctx {
 	bool uc_loaded;
 	bool uc_failed;
 	struct mutex uc_lock;
+	spinlock_t uc_spinlock;
 	struct completion uc_completion;
 	struct IpaHwSharedMemCommonMapping_t *uc_sram_mmio;
 	struct IpaHwEventLogInfoData_t *uc_event_top_mmio;
@@ -1253,6 +1255,7 @@ struct ipa3_hash_tuple {
  * @uc_wdi_ctx: WDI specific fields for uC interface
  * @ipa_num_pipes: The number of pipes used by IPA HW
  * @skip_uc_pipe_reset: Indicates whether pipe reset via uC needs to be avoided
+ * @apply_rg10_wa: Indicates whether to use register group 10 workaround
 
  * IPA context - holds all relevant info about IPA driver and its state
  */
@@ -1354,6 +1357,7 @@ struct ipa3_context {
 	enum ipa_transport_type transport_prototype;
 	unsigned long gsi_dev_hdl;
 	u32 ee;
+	bool apply_rg10_wa;
 	bool smmu_present;
 	unsigned long peer_bam_iova;
 	phys_addr_t peer_bam_pa;
@@ -1416,6 +1420,7 @@ struct ipa3_plat_drv_res {
 	u32 wan_rx_ring_size;
 	bool skip_uc_pipe_reset;
 	enum ipa_transport_type transport_prototype;
+	bool apply_rg10_wa;
 };
 
 struct ipa3_mem_partition {
@@ -2101,6 +2106,7 @@ int ipa3_mhi_handle_ipa_config_req(struct ipa_config_req_msg_v01 *config_req);
 int ipa3_uc_interface_init(void);
 int ipa3_uc_reset_pipe(enum ipa_client_type ipa_client);
 int ipa3_uc_state_check(void);
+void ipa3_uc_load_notify(void);
 int ipa3_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 		    bool polling_mode, unsigned long timeout_jiffies);
 void ipa3_register_panic_hdlr(void);
@@ -2128,6 +2134,7 @@ int ipa3_uc_mhi_print_stats(char *dbg_buff, int size);
 int ipa3_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);
 void ipa3_tag_free_buf(void *user1, int user2);
 struct ipa_gsi_ep_config *ipa3_get_gsi_ep_info(int ipa_ep_idx);
+void ipa3_uc_rg10_write_reg(void *base, u32 offset, u32 val);
 
 u32 ipa3_get_num_pipes(void);
 struct ipa_smmu_cb_ctx *ipa3_get_wlan_smmu_ctx(void);
@@ -2135,6 +2142,7 @@ struct ipa_smmu_cb_ctx *ipa3_get_uc_smmu_ctx(void);
 struct iommu_domain *ipa_get_uc_smmu_domain(void);
 int ipa3_ap_suspend(struct device *dev);
 int ipa3_ap_resume(struct device *dev);
+int ipa3_init_interrupts(void);
 struct iommu_domain *ipa3_get_smmu_domain(void);
 int ipa3_rm_add_dependency_sync(enum ipa_rm_resource_name resource_name,
 		enum ipa_rm_resource_name depends_on_name);

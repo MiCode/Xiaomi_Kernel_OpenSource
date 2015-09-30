@@ -59,6 +59,9 @@ memory allocation over a PCIe bridge
 				workaround IPA HW limitations
 - qcom,use-gsi:                 Boolean context flag to indicate if the
                                 transport protocol is GSI
+- qcom,use-rg10-limitation-mitigation:	Boolean context flag to activate
+					the mitigation to register group 10
+					AP access limitation
 
 IPA pipe sub nodes (A2 static pipes configurations):
 

@@ -181,7 +181,8 @@ static void ipa3_enable_tx_suspend_wa(struct work_struct *work)
 	en |= suspend_bmask;
 	IPADBG("enable TX_SUSPEND_IRQ, IPA_IRQ_EN_EE reg, write val = %u\n"
 		, en);
-	ipa_write_reg(ipa3_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee), en);
+	ipa3_uc_rg10_write_reg(ipa3_ctx->mmio,
+		IPA_IRQ_EN_EE_n_ADDR(ipa_ee), en);
 	ipa3_process_interrupts();
 	ipa3_dec_client_disable_clks();
 
@@ -204,7 +205,8 @@ static void ipa3_tx_suspend_interrupt_wa(void)
 	val &= ~suspend_bmask;
 	IPADBG("Disabling TX_SUSPEND_IRQ, write val: %u to IPA_IRQ_EN_EE reg\n",
 		val);
-	ipa_write_reg(ipa3_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee), val);
+	ipa3_uc_rg10_write_reg(ipa3_ctx->mmio,
+		IPA_IRQ_EN_EE_n_ADDR(ipa_ee), val);
 
 	IPADBG(" processing suspend interrupt work-around, delayed work\n");
 	queue_delayed_work(ipa_interrupt_wq, &dwork_en_suspend_int,
@@ -233,7 +235,7 @@ static void ipa3_process_interrupts(void)
 				ipa3_handle_interrupt(i);
 			bmsk = bmsk << 1;
 		}
-		ipa_write_reg(ipa3_ctx->mmio,
+		ipa3_uc_rg10_write_reg(ipa3_ctx->mmio,
 				IPA_IRQ_CLR_EE_n_ADDR(ipa_ee), reg);
 		reg = ipa_read_reg(ipa3_ctx->mmio,
 				IPA_IRQ_STTS_EE_n_ADDR(ipa_ee));
@@ -324,7 +326,8 @@ int ipa3_add_interrupt_handler(enum ipa_irq_type interrupt,
 	IPADBG("read IPA_IRQ_EN_EE_n_ADDR register. reg = %d\n", val);
 	bmsk = 1 << irq_num;
 	val |= bmsk;
-	ipa_write_reg(ipa3_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee), val);
+	ipa3_uc_rg10_write_reg(ipa3_ctx->mmio,
+		IPA_IRQ_EN_EE_n_ADDR(ipa_ee), val);
 	IPADBG("wrote IPA_IRQ_EN_EE_n_ADDR register. reg = %d\n", val);
 	return 0;
 }
@@ -362,7 +365,8 @@ int ipa3_remove_interrupt_handler(enum ipa_irq_type interrupt)
 	val = ipa_read_reg(ipa3_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee));
 	bmsk = 1 << irq_num;
 	val &= ~bmsk;
-	ipa_write_reg(ipa3_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee), val);
+	ipa3_uc_rg10_write_reg(ipa3_ctx->mmio,
+		IPA_IRQ_EN_EE_n_ADDR(ipa_ee), val);
 
 	return 0;
 }
@@ -400,7 +404,8 @@ int ipa3_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev)
 	}
 
 	/*Clearing interrupts status*/
-	ipa_write_reg(ipa3_ctx->mmio, IPA_IRQ_CLR_EE_n_ADDR(ipa_ee), reg);
+	ipa3_uc_rg10_write_reg(ipa3_ctx->mmio,
+		IPA_IRQ_CLR_EE_n_ADDR(ipa_ee), reg);
 
 	res = request_irq(ipa_irq, (irq_handler_t) ipa3_isr,
 				IRQF_TRIGGER_RISING, "ipa", ipa_dev);
