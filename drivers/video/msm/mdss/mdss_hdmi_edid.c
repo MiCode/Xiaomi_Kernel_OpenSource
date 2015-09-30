@@ -122,6 +122,7 @@ struct hdmi_edid_ctrl {
 	u16 physical_address;
 	u32 video_resolution; /* selected by user */
 	u32 sink_mode; /* HDMI or DVI */
+	u32 default_vic;
 	u16 audio_latency;
 	u16 video_latency;
 	u32 present_3d;
@@ -175,6 +176,8 @@ static int hdmi_edid_reset_parser(struct hdmi_edid_ctrl *edid_ctrl)
 		sizeof(edid_ctrl->spkr_alloc_data_block));
 	edid_ctrl->adb_size = 0;
 	edid_ctrl->sadb_size = 0;
+
+	hdmi_edid_set_video_resolution(edid_ctrl, edid_ctrl->default_vic, true);
 
 	/* reset new resolution details */
 	if (!edid_ctrl->keep_resv_timings)
@@ -2214,7 +2217,7 @@ int hdmi_edid_get_audio_blk(void *input, struct msm_hdmi_audio_edid_blk *blk)
 	return 0;
 } /* hdmi_edid_get_audio_blk */
 
-void hdmi_edid_set_video_resolution(void *input, u32 resolution)
+void hdmi_edid_set_video_resolution(void *input, u32 resolution, bool reset)
 {
 	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
 
@@ -2225,7 +2228,9 @@ void hdmi_edid_set_video_resolution(void *input, u32 resolution)
 
 	edid_ctrl->video_resolution = resolution;
 
-	if (1 == edid_ctrl->sink_data.num_of_elements) {
+	if (reset) {
+		edid_ctrl->default_vic = resolution;
+		edid_ctrl->sink_data.num_of_elements = 1;
 		edid_ctrl->sink_data.disp_mode_list[0].video_format =
 			resolution;
 		edid_ctrl->sink_data.disp_mode_list[0].rgb_support = true;

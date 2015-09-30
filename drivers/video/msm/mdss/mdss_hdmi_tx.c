@@ -1431,7 +1431,7 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl,
 
 	hdmi_edid_set_video_resolution(
 		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID],
-		hdmi_ctrl->vid_cfg.vic);
+		hdmi_ctrl->vid_cfg.vic, true);
 
 	/* Initialize HDCP features */
 	res = platform_get_resource_byname(hdmi_ctrl->pdev,
@@ -1784,7 +1784,8 @@ static int hdmi_tx_set_video_fmt(struct hdmi_tx_ctrl *hdmi_ctrl,
 		(vid_cfg->timing.pixel_freq * 1000) >> div;
 
 	hdmi_edid_set_video_resolution(
-		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID], vid_cfg->vic);
+		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID],
+		vid_cfg->vic, false);
 
 	return res_changed;
 } /* hdmi_tx_set_video_fmt */
