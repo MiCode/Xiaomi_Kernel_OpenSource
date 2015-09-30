@@ -475,6 +475,8 @@ static void glink_xprt_notify_state(void *handle, const void *priv,
 	  __func__, glink_xprtp->edge, glink_xprtp->transport, event);
 	switch (event) {
 	case GLINK_CONNECTED:
+		if (IS_ERR_OR_NULL(glink_xprtp->ch_hndl))
+			glink_xprtp->ch_hndl = handle;
 		mutex_lock(&glink_xprtp->ss_reset_lock);
 		glink_xprtp->ss_reset = 0;
 		mutex_unlock(&glink_xprtp->ss_reset_lock);
