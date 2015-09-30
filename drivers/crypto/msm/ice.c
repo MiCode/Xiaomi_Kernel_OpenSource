@@ -1435,56 +1435,105 @@ out:
 	return ice_dev;
 }
 
-int qcom_ice_setup_ice_hw(const char *storage_type, int enable)
+
+static int enable_ice_setup(struct ice_device *ice_dev)
 {
 	int ret = -1, vote;
-	struct ice_device *ice_dev = NULL;
 
-	ice_dev = get_ice_device_from_storage_type(storage_type);
-	if (!ice_dev)
-		goto out;
+	/* Setup Regulator */
+	if (ice_dev->is_regulator_available) {
+		if (qcom_ice_get_vreg(ice_dev)) {
+			pr_err("%s: Could not get regulator\n", __func__);
+			goto out;
+		}
+		ret = regulator_enable(ice_dev->reg);
+		if (ret) {
+			pr_err("%s:%p: Could not enable regulator\n",
+					__func__, ice_dev);
+			goto out;
+		}
+	}
 
 	/* Setup Clocks */
-	if (qcom_ice_enable_clocks(ice_dev, enable)) {
-		pr_err("%s:%p:%s Could not enable clocks\n", __func__, ice_dev,
-				ice_dev->ice_instance_type);
-		goto out;
+	if (qcom_ice_enable_clocks(ice_dev, true)) {
+		pr_err("%s:%p:%s Could not enable clocks\n", __func__,
+				ice_dev, ice_dev->ice_instance_type);
+		goto out_reg;
 	}
 
 	/* Setup Bus Vote */
-	vote = qcom_ice_get_bus_vote(ice_dev, enable ? "MAX" : "MIN");
+	vote = qcom_ice_get_bus_vote(ice_dev, "MAX");
 	if (vote < 0)
 		goto out_clocks;
+
 	ret = qcom_ice_set_bus_vote(ice_dev, vote);
 	if (ret) {
 		pr_err("%s:%p: failed %d\n", __func__, ice_dev, ret);
 		goto out_clocks;
 	}
 
-	/* Setup Regulator */
+	return ret;
+
+out_clocks:
+	qcom_ice_enable_clocks(ice_dev, false);
+out_reg:
+	regulator_disable(ice_dev->reg);
+out:
+	return ret;
+}
+
+static int disable_ice_setup(struct ice_device *ice_dev)
+{
+	int ret = -1, vote;
+
+	/* Setup Bus Vote */
+	vote = qcom_ice_get_bus_vote(ice_dev, "MIN");
+	if (vote < 0) {
+		pr_err("%s:%p: Unable to get bus vote\n", __func__, ice_dev);
+		goto out_disable_clocks;
+	}
+
+	ret = qcom_ice_set_bus_vote(ice_dev, vote);
+	if (ret)
+		pr_err("%s:%p: failed %d\n", __func__, ice_dev, ret);
+
+out_disable_clocks:
+
+	/* Setup Clocks */
+	if (qcom_ice_enable_clocks(ice_dev, false))
+		pr_err("%s:%p:%s Could not disable clocks\n", __func__,
+				ice_dev, ice_dev->ice_instance_type);
+
+/* Setup Regulator */
 	if (ice_dev->is_regulator_available) {
 		if (qcom_ice_get_vreg(ice_dev)) {
 			pr_err("%s: Could not get regulator\n", __func__);
-			goto out_bw_vote;
+			goto out;
 		}
-		ret = (enable) ? regulator_enable(ice_dev->reg)
-				: regulator_disable(ice_dev->reg);
+		ret = regulator_disable(ice_dev->reg);
 		if (ret) {
-			pr_err("%s:%p: Could not enable/disable regulator\n",
+			pr_err("%s:%p: Could not disable regulator\n",
 					__func__, ice_dev);
-			goto out_bw_vote;
+			goto out;
 		}
 	}
-	return ret;
-
-out_bw_vote:
-	if (vote)
-		qcom_ice_set_bus_vote(ice_dev, !vote);
-out_clocks:
-	if (enable)
-		qcom_ice_enable_clocks(ice_dev, !enable);
 out:
 	return ret;
+}
+
+int qcom_ice_setup_ice_hw(const char *storage_type, int enable)
+{
+	int ret = -1;
+	struct ice_device *ice_dev = NULL;
+
+	ice_dev = get_ice_device_from_storage_type(storage_type);
+	if (!ice_dev)
+		return ret;
+
+	if (enable)
+		return enable_ice_setup(ice_dev);
+	else
+		return disable_ice_setup(ice_dev);
 }
 
 struct qcom_ice_variant_ops *qcom_ice_get_variant_ops(struct device_node *node)
