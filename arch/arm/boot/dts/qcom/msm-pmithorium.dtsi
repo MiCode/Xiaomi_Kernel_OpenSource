@@ -383,5 +383,80 @@
 			qcom,en-ext-pfet-sc-pro;
 		};
 
+		flash_led: qcom,leds@d300 {
+			compatible = "qcom,qpnp-flash-led";
+			status = "okay";
+			reg = <0xd300 0x100>;
+			label = "flash";
+			qcom,headroom = <500>;
+			qcom,startup-dly = <128>;
+			qcom,clamp-curr = <200>;
+			qcom,pmic-charger-support;
+			qcom,self-check-enabled;
+			qcom,thermal-derate-enabled;
+			qcom,thermal-derate-threshold = <100>;
+			qcom,thermal-derate-rate = "5_PERCENT";
+			qcom,current-ramp-enabled;
+			qcom,ramp_up_step = "6P7_US";
+			qcom,ramp_dn_step = "6P7_US";
+			qcom,vph-pwr-droop-enabled;
+			qcom,vph-pwr-droop-threshold = <3000>;
+			qcom,vph-pwr-droop-debounce-time = <10>;
+			qcom,headroom-sense-ch0-enabled;
+			qcom,headroom-sense-ch1-enabled;
+
+			pmithorium_flash0: qcom,flash_0 {
+				label = "flash";
+				qcom,led-name = "led:flash_0";
+				qcom,default-led-trigger =
+						"flash0_trigger";
+				qcom,max-current = <1000>;
+				qcom,duration = <1280>;
+				qcom,id = <0>;
+				qcom,current = <625>;
+			};
+
+			pmithorium_flash1: qcom,flash_1 {
+				label = "flash";
+				qcom,led-name = "led:flash_1";
+				qcom,default-led-trigger =
+						"flash1_trigger";
+				qcom,max-current = <1000>;
+				qcom,duration = <1280>;
+				qcom,id = <1>;
+				qcom,current = <625>;
+			};
+
+			pmithorium_torch0: qcom,torch_0 {
+				label = "torch";
+				qcom,led-name = "led:torch_0";
+				qcom,default-led-trigger =
+						"torch0_trigger";
+				qcom,max-current = <200>;
+				qcom,id = <0>;
+				qcom,current = <120>;
+			};
+
+			pmithorium_torch1: qcom,torch_1 {
+				label = "torch";
+				qcom,led-name = "led:torch_1";
+				qcom,default-led-trigger =
+						"torch1_trigger";
+				qcom,max-current = <200>;
+				qcom,id = <1>;
+				qcom,current = <120>;
+			};
+
+			pmithorium_switch: qcom,switch {
+				label = "switch";
+				qcom,led-name = "led:switch";
+				qcom,default-led-trigger =
+						"switch_trigger";
+				qcom,max-current = <1000>;
+				qcom,duration = <1280>;
+				qcom,id = <2>;
+				qcom,current = <625>;
+			};
+		};
 	};
 };
