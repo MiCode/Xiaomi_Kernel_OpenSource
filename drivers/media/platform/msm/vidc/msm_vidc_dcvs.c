@@ -127,7 +127,7 @@ void msm_dcvs_check_and_scale_clocks(struct msm_vidc_inst *inst, bool is_etb)
 
 static inline int get_pending_bufs_fw(struct msm_vidc_inst *inst)
 {
-	int fw_out_qsize = 0;
+	int fw_out_qsize = 0, buffers_in_driver = 0;
 
 	if (!inst) {
 		dprintk(VIDC_ERR, "%s Invalid args\n", __func__);
@@ -135,10 +135,21 @@ static inline int get_pending_bufs_fw(struct msm_vidc_inst *inst)
 	}
 
 	if (inst->state >= MSM_VIDC_OPEN_DONE &&
-		inst->state < MSM_VIDC_STOP_DONE)
+			inst->state < MSM_VIDC_STOP_DONE) {
+		struct buffer_info *temp = NULL;
+
 		fw_out_qsize = inst->count.ftb - inst->count.fbd;
 
-	return fw_out_qsize;
+		list_for_each_entry(temp, &inst->registeredbufs.list, list) {
+			if (temp->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
+					!temp->inactive &&
+					atomic_read(&temp->ref_count) == 2) {
+				buffers_in_driver++;
+			}
+		}
+	}
+
+	return fw_out_qsize + buffers_in_driver;
 }
 
 static inline void msm_dcvs_print_dcvs_stats(struct dcvs_stats *dcvs)
@@ -212,7 +223,8 @@ void msm_dcvs_init_load(struct msm_vidc_inst *inst)
 
 	/* calculating the min and max threshold */
 	if (output_buf_req->buffer_count_actual) {
-		dcvs->min_threshold = DCVS_MIN_DISPLAY_BUFF;
+		dcvs->min_threshold = output_buf_req->buffer_count_actual -
+			output_buf_req->buffer_count_min;
 		dcvs->max_threshold = output_buf_req->buffer_count_actual;
 		if (dcvs->max_threshold <= dcvs->min_threshold)
 			dcvs->max_threshold =
@@ -298,13 +310,13 @@ void msm_dcvs_monitor_buffer(struct msm_vidc_inst *inst)
 		prev_buf_count =
 			dcvs->num_ftb[((dcvs->ftb_index - 2 +
 				DCVS_FTB_WINDOW) % DCVS_FTB_WINDOW)];
-		if (prev_buf_count == DCVS_MIN_DISPLAY_BUFF &&
-			buffers_outside_fw == DCVS_MIN_DISPLAY_BUFF) {
+		if (prev_buf_count == dcvs->threshold_disp_buf_low &&
+			buffers_outside_fw <= dcvs->threshold_disp_buf_low) {
 			dcvs->transition_turbo = true;
-		} else if (buffers_outside_fw > DCVS_MIN_DISPLAY_BUFF &&
+		} else if (buffers_outside_fw > dcvs->threshold_disp_buf_low &&
 			(buffers_outside_fw -
 			 (prev_buf_count - buffers_outside_fw))
-			< DCVS_MIN_DISPLAY_BUFF){
+			< dcvs->threshold_disp_buf_low){
 			dcvs->transition_turbo = true;
 		}
 	}
