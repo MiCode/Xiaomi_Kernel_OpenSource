@@ -6,22 +6,27 @@ Required properties :
 - interrupt-parent: Should be phandle for the interrupt controller
                     that services interrupts for this device.
 - interrupt: IRQ line
+- <supply-name>-supply: handle to the regulator device tree node.
+        "supply-name" is "vdd_io" regulator to drive I2C SCL and SDA lines.
 
 Optional properties:
 - pinctrl-names : This should be defined if a target uses pinctrl framework
-  for INT_N pin. See "pinctrl" in
+  for INT_N and ENB pin. See "pinctrl" in
   Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt.
   It should specify the names of the configs that pinctrl can install in driver.
   Following are the pinctrl config that can be installed:
-      "usbc_int_default" : Default configuration of INT_N pin.
-
+      "usbc_int_default" : Default configuration of pins.
+- pericom,enb-gpio : This corresponds to GPIO that is used to drive ENB pin.
+  GPIO flag represents whether ENB pin is active-high(0) or active-low(1).
 
 Example :
-       pericom-type-c@3d {
-               compatible = "pericom,usb-type-c";
-               reg = <0x3d>;
-               interrupt-parent = <&msm_gpio>;
-               interrupts = <102 0>;    /* MSM GPIO 102 */
-               pinctrl-names = "default";
-               pinctrl-0 = <&usbc_int_default>;
-       };
+	pericom-type-c@3d {
+		compatible = "pericom,usb-type-c";
+		reg = <0x3d>;
+		vdd_io-supply = <&pm8950_l5>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <102 2>;    /* MSM GPIO 102, TRIGGER_FALLING */
+		pericom,enb-gpio = <&msm_gpio 101 0x1>;	/* active low ENB */
+		pinctrl-names = "default";
+		pinctrl-0 = <&usbc_int_default>;
+	};
