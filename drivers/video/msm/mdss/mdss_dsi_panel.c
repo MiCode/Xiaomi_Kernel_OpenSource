@@ -587,6 +587,7 @@ static void mdss_dsi_panel_switch_mode(struct mdss_panel_data *pdata,
 				panel_data);
 
 	if (mipi->dms_mode != DYNAMIC_MODE_RESOLUTION_SWITCH_IMMEDIATE) {
+		flags |= CMD_REQ_COMMIT;
 		if (mode == SWITCH_TO_CMD_MODE)
 			pcmds = &ctrl_pdata->video2cmd;
 		else
