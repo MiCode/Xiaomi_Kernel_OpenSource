@@ -692,7 +692,7 @@ int msm_isp_cfg_set_stats_ab(struct vfe_device *vfe_dev, void *arg)
 	if (!vfe_dev || !arg) {
 		pr_err("%s: Error! Invalid input vfe_dev %p arg %p\n",
 			__func__, vfe_dev, arg);
-		return -EINVAL;
+	return -EINVAL;
 	}
 	stats_ab = arg;
 	if ((stats_ab->stats_ab  == (uint64_t) -1) ||
