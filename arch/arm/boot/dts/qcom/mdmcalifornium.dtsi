@@ -723,3 +723,15 @@
 #include "msm-pmdcalifornium-rpm-regulator.dtsi"
 #include "msm-pmdcalifornium.dtsi"
 #include "mdmcalifornium-regulator.dtsi"
+
+&pmdcalifornium_pon {
+	interrupts = <0x0 0x8 0x0>;
+	interrupt-names = "kpdpwr";
+	qcom,system-reset;
+
+	qcom,pon_1 {
+		qcom,pon-type = <0>;
+		qcom,pull-up = <1>;
+		linux,code = <116>;
+	};
+};
