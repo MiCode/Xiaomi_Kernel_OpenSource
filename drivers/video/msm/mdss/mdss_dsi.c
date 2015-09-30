@@ -1584,7 +1584,10 @@ static void __mdss_dsi_update_video_mode_total(struct mdss_panel_data *pdata,
 
 	if (ctrl_pdata->shared_data->timing_db_mode)
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x1e4, 0x1);
+
 	ctrl_pdata->panel_data.panel_info.mipi.frame_rate = new_fps;
+	MDSS_XLOG(current_dsi_v_total, new_dsi_v_total, new_fps,
+		ctrl_pdata->shared_data->timing_db_mode);
 
 }
 
