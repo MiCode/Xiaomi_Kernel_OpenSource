@@ -17,6 +17,7 @@
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/memblock.h>
+#include <video/msm_hdmi_modes.h>
 
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
@@ -1255,6 +1256,12 @@ static void mdss_mdp_fetch_start_config(struct mdss_mdp_video_ctx *ctx,
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_CONFIG, fetch_enable);
 }
 
+static inline bool mdss_mdp_video_need_pixel_drop(u32 vic)
+{
+	return vic == HDMI_VFRMT_4096x2160p50_256_135 ||
+		vic == HDMI_VFRMT_4096x2160p60_256_135;
+}
+
 static int mdss_mdp_video_cdm_setup(struct mdss_mdp_cdm *cdm,
 				   struct mdss_panel_info *pinfo)
 {
@@ -1284,8 +1291,13 @@ static int mdss_mdp_video_cdm_setup(struct mdss_mdp_cdm *cdm,
 		setup.vert_downsampling_type = MDP_CDM_CDWN_DISABLE;
 		break;
 	case MDSS_MDP_CHROMA_420:
-		setup.horz_downsampling_type = MDP_CDM_CDWN_COSITE;
-		setup.vert_downsampling_type = MDP_CDM_CDWN_OFFSITE;
+		if (mdss_mdp_video_need_pixel_drop(pinfo->vic)) {
+			setup.horz_downsampling_type = MDP_CDM_CDWN_PIXEL_DROP;
+			setup.vert_downsampling_type = MDP_CDM_CDWN_PIXEL_DROP;
+		} else {
+			setup.horz_downsampling_type = MDP_CDM_CDWN_COSITE;
+			setup.vert_downsampling_type = MDP_CDM_CDWN_OFFSITE;
+		}
 		break;
 	case MDSS_MDP_CHROMA_H1V2:
 	default:
