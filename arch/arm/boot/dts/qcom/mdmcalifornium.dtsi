@@ -571,8 +571,8 @@
 			interrupts = <0 131 0>;
 			usb-phy = <&qusb_phy>, <&ssphy>;
 			snps,nominal-elastic-buffer;
-			snps,hird_thresh = <0x7>;
-			snps,lpm-nyet-thresh = <0x8>;
+			snps,is-utmi-l1-suspend;
+			snps,hird-threshold = /bits/ 8 <0x0>;
 			snps,bus-suspend-enable;
 			snps,usb3-u1u2-disable;
 		};
