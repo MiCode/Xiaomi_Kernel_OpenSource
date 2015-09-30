@@ -215,6 +215,7 @@
 #include "msm-gdsc-8996.dtsi"
 #include "msm8996-bus.dtsi"
 #include "msm-rdbg.dtsi"
+#include "msm8996-blsp.dtsi"
 
 &soc {
 	#address-cells = <1>;
