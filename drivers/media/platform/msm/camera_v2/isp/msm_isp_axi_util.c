@@ -1516,6 +1516,7 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 	uint32_t buf_src;
 	uint8_t drop_frame = 0;
 	struct msm_isp_bufq *bufq = NULL;
+	uint32_t num_bufq = 0;
 	memset(&buf_event, 0, sizeof(buf_event));
 
 
@@ -1634,6 +1635,12 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 				ISP_DBG("%s:%d vfe_id %d Buffer dropped %d\n",
 					__func__, __LINE__, vfe_dev->pdev->id,
 					frame_id);
+				/* Update the framedrop count and flag only for
+					controllable_output */
+				num_bufq = buf->bufq_handle & 0xFF;
+				vfe_dev->error_info.
+					stream_framedrop_count[num_bufq]++;
+				vfe_dev->error_info.framedrop_flag = 1;
 				return;
 			}
 		}
