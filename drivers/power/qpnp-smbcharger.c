@@ -1457,7 +1457,11 @@ static int smbchg_set_usb_current_max(struct smbchg_chip *chip,
 	enum power_supply_type usb_supply_type;
 	char *usb_type_name = "null";
 
-	if (!chip->batt_present) {
+	/*
+	 * if the battery is not present, do not allow the usb ICL to lower in
+	 * order to avoid browning out the device during a hotswap.
+	 */
+	if (!chip->batt_present && current_ma < chip->usb_max_current_ma) {
 		pr_info_ratelimited("Ignoring usb current->%d, battery is absent\n",
 				current_ma);
 		return 0;
@@ -1971,7 +1975,18 @@ static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip,
 		return false;
 	}
 
-	if (get_prop_charge_type(chip) != POWER_SUPPLY_CHARGE_TYPE_FAST) {
+	/*
+	 * If the battery is not present, try not to change parallel charging
+	 * from OFF to ON or from ON to OFF, as it could cause the device to
+	 * brown out in the instant that the USB settings are changed.
+	 *
+	 * Only allow parallel charging check to report false (thereby turnin
+	 * off parallel charging) if the battery is still there, or if parallel
+	 * charging is disabled in the first place.
+	 */
+	if (get_prop_charge_type(chip) != POWER_SUPPLY_CHARGE_TYPE_FAST
+			&& (get_prop_batt_present(chip)
+				|| chip->parallel.current_max_ma == 0)) {
 		pr_smb(PR_STATUS, "Not in fast charge, skipping\n");
 		return false;
 	}
