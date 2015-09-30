@@ -25,6 +25,12 @@
 
 #include  "mdss_mdp.h"
 
+/*
+ * Defining characteristics about rotation work, that has corresponding
+ * fmt and roi checks in open session
+ */
+#define MDSS_MDP_DEFINING_FLAG_BITS MDP_ROTATION_90
+
 struct mdss_rot_entry;
 struct mdss_rot_perf;
 
@@ -189,5 +195,38 @@ struct mdp_rotation_request32 {
 	uint32_t reserved[6];
 };
 #endif
+
+static inline int __compare_session_item_rect(
+	struct mdp_rotation_buf_info *s_rect,
+	struct mdp_rect *i_rect, uint32_t i_fmt, bool src)
+{
+	if ((s_rect->width != i_rect->w) || (s_rect->height != i_rect->h) ||
+			(s_rect->format != i_fmt)) {
+		pr_err("%s: session{%u,%u}f:%u mismatch from item{%u,%u}f:%u\n",
+			(src ? "src":"dst"), s_rect->width, s_rect->height,
+			s_rect->format, i_rect->w, i_rect->h, i_fmt);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+/*
+ * Compare all important flag bits associated with rotation between session
+ * config and item request. Format and roi validation is done during open
+ * session and is based certain defining bits. If these defining bits are
+ * different in item request, there is a possibility that rotation item
+ * is not a valid configuration.
+ */
+static inline int __compare_session_rotations(uint32_t cfg_flag,
+	uint32_t item_flag)
+{
+	cfg_flag &= MDSS_MDP_DEFINING_FLAG_BITS;
+	item_flag &= MDSS_MDP_DEFINING_FLAG_BITS;
+	if (cfg_flag != item_flag) {
+		pr_err("Rotation degree request different from open session\n");
+		return -EINVAL;
+	}
+	return 0;
+}
 
 #endif
