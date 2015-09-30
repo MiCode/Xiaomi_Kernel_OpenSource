@@ -889,18 +889,20 @@ static void set_load_weight(struct task_struct *p)
 	load->inv_weight = prio_to_wmult[prio];
 }
 
-static void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
+static inline void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 {
 	update_rq_clock(rq);
-	sched_info_queued(rq, p);
+	if (!(flags & ENQUEUE_RESTORE))
+		sched_info_queued(rq, p);
 	p->sched_class->enqueue_task(rq, p, flags);
 	trace_sched_enq_deq_task(p, 1, cpumask_bits(&p->cpus_allowed)[0]);
 }
 
-static void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
+static inline void dequeue_task(struct rq *rq, struct task_struct *p, int flags)
 {
 	update_rq_clock(rq);
-	sched_info_dequeued(rq, p);
+	if (!(flags & DEQUEUE_SAVE))
+		sched_info_dequeued(rq, p);
 	p->sched_class->dequeue_task(rq, p, flags);
 	trace_sched_enq_deq_task(p, 0, cpumask_bits(&p->cpus_allowed)[0]);
 }
@@ -3211,7 +3213,7 @@ ttwu_stat(struct task_struct *p, int cpu, int wake_flags)
 #endif /* CONFIG_SCHEDSTATS */
 }
 
-static void ttwu_activate(struct rq *rq, struct task_struct *p, int en_flags)
+static inline void ttwu_activate(struct rq *rq, struct task_struct *p, int en_flags)
 {
 	activate_task(rq, p, en_flags);
 	p->on_rq = TASK_ON_RQ_QUEUED;
@@ -4886,7 +4888,7 @@ EXPORT_SYMBOL(default_wake_function);
  */
 void rt_mutex_setprio(struct task_struct *p, int prio)
 {
-	int oldprio, queued, running, enqueue_flag = 0;
+	int oldprio, queued, running, enqueue_flag = ENQUEUE_RESTORE;
 	struct rq *rq;
 	const struct sched_class *prev_class;
 
@@ -4918,7 +4920,7 @@ void rt_mutex_setprio(struct task_struct *p, int prio)
 	queued = task_on_rq_queued(p);
 	running = task_current(rq, p);
 	if (queued)
-		dequeue_task(rq, p, 0);
+		dequeue_task(rq, p, DEQUEUE_SAVE);
 	if (running)
 		put_prev_task(rq, p);
 
@@ -4937,7 +4939,7 @@ void rt_mutex_setprio(struct task_struct *p, int prio)
 		    (pi_task && dl_entity_preempt(&pi_task->dl, &p->dl))) {
 			p->dl.dl_boosted = 1;
 			p->dl.dl_throttled = 0;
-			enqueue_flag = ENQUEUE_REPLENISH;
+			enqueue_flag |= ENQUEUE_REPLENISH;
 		} else
 			p->dl.dl_boosted = 0;
 		p->sched_class = &dl_sched_class;
@@ -4945,7 +4947,7 @@ void rt_mutex_setprio(struct task_struct *p, int prio)
 		if (dl_prio(oldprio))
 			p->dl.dl_boosted = 0;
 		if (oldprio < prio)
-			enqueue_flag = ENQUEUE_HEAD;
+			enqueue_flag |= ENQUEUE_HEAD;
 		p->sched_class = &rt_sched_class;
 	} else {
 		if (dl_prio(oldprio))
@@ -4993,7 +4995,7 @@ void set_user_nice(struct task_struct *p, long nice)
 	}
 	queued = task_on_rq_queued(p);
 	if (queued)
-		dequeue_task(rq, p, 0);
+		dequeue_task(rq, p, DEQUEUE_SAVE);
 
 	p->static_prio = NICE_TO_PRIO(nice);
 	set_load_weight(p);
@@ -5002,7 +5004,7 @@ void set_user_nice(struct task_struct *p, long nice)
 	delta = p->prio - old_prio;
 
 	if (queued) {
-		enqueue_task(rq, p, 0);
+		enqueue_task(rq, p, ENQUEUE_RESTORE);
 		/*
 		 * If the task increased its priority or is running and
 		 * lowered its priority, then reschedule its CPU:
@@ -5475,7 +5477,7 @@ change:
 	queued = task_on_rq_queued(p);
 	running = task_current(rq, p);
 	if (queued)
-		dequeue_task(rq, p, 0);
+		dequeue_task(rq, p, DEQUEUE_SAVE);
 	if (running)
 		put_prev_task(rq, p);
 
@@ -5485,11 +5487,15 @@ change:
 	if (running)
 		p->sched_class->set_curr_task(rq);
 	if (queued) {
+		int enqueue_flags = ENQUEUE_RESTORE;
 		/*
 		 * We enqueue to tail when the priority of a task is
 		 * increased (user space view).
 		 */
-		enqueue_task(rq, p, oldprio <= p->prio ? ENQUEUE_HEAD : 0);
+		if (oldprio <= p->prio)
+			enqueue_flags |= ENQUEUE_HEAD;
+
+		enqueue_task(rq, p, enqueue_flags);
 	}
 
 	check_class_changed(rq, p, prev_class, oldprio);
@@ -6719,7 +6725,7 @@ void sched_setnuma(struct task_struct *p, int nid)
 	running = task_current(rq, p);
 
 	if (queued)
-		dequeue_task(rq, p, 0);
+		dequeue_task(rq, p, DEQUEUE_SAVE);
 	if (running)
 		put_prev_task(rq, p);
 
@@ -6728,7 +6734,7 @@ void sched_setnuma(struct task_struct *p, int nid)
 	if (running)
 		p->sched_class->set_curr_task(rq);
 	if (queued)
-		enqueue_task(rq, p, 0);
+		enqueue_task(rq, p, ENQUEUE_RESTORE);
 	task_rq_unlock(rq, p, &flags);
 }
 #endif
@@ -9391,7 +9397,7 @@ void sched_move_task(struct task_struct *tsk)
 	queued = task_on_rq_queued(tsk);
 
 	if (queued)
-		dequeue_task(rq, tsk, 0);
+		dequeue_task(rq, tsk, DEQUEUE_SAVE);
 	if (unlikely(running))
 		put_prev_task(rq, tsk);
 
@@ -9415,7 +9421,7 @@ void sched_move_task(struct task_struct *tsk)
 	if (unlikely(running))
 		tsk->sched_class->set_curr_task(rq);
 	if (queued)
-		enqueue_task(rq, tsk, 0);
+		enqueue_task(rq, tsk, ENQUEUE_RESTORE);
 
 	task_rq_unlock(rq, tsk, &flags);
 }
