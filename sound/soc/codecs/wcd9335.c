@@ -501,6 +501,7 @@ struct wcd_swr_ctrl_platform_data {
 	void *handle; /* holds codec private data */
 	int (*read)(void *handle, int reg);
 	int (*write)(void *handle, int reg, int val);
+	int (*bulk_write)(void *handle, u32 *reg, u32 *val, size_t len);
 	int (*clk)(void *handle, bool enable);
 	int (*handle_irq)(void *handle,
 			  irqreturn_t (*swrm_irq_handler)(int irq,
@@ -9512,7 +9513,6 @@ static int tasha_hw_params(struct snd_pcm_substream *substream,
 		 dai->name, dai->id, params_rate(params),
 		 params_channels(params));
 
-
 	switch (substream->stream) {
 	case SNDRV_PCM_STREAM_PLAYBACK:
 		ret = tasha_set_interpolator_rate(dai, params_rate(params));
@@ -11239,12 +11239,60 @@ err:
 	return ret;
 }
 
+static int tasha_swrm_bulk_write(void *handle, u32 *reg, u32 *val, size_t len)
+{
+	struct tasha_priv *tasha;
+	struct wcd9xxx *wcd9xxx;
+	struct wcd9xxx_reg_val *bulk_reg;
+	unsigned short swr_wr_addr_base;
+	unsigned short swr_wr_data_base;
+	int i, j, ret;
+
+	if (!handle) {
+		pr_err("%s: NULL handle\n", __func__);
+		return -EINVAL;
+	}
+	if (len <= 0) {
+		pr_err("%s: Invalid size: %zu\n", __func__, len);
+		return -EINVAL;
+	}
+	tasha = (struct tasha_priv *)handle;
+	wcd9xxx = tasha->wcd9xxx;
+
+	swr_wr_addr_base = WCD9335_SWR_AHB_BRIDGE_WR_ADDR_0;
+	swr_wr_data_base = WCD9335_SWR_AHB_BRIDGE_WR_DATA_0;
+
+	bulk_reg = kzalloc((2 * len * sizeof(struct wcd9xxx_reg_val)),
+			   GFP_KERNEL);
+	if (!bulk_reg)
+		return -ENOMEM;
+
+	for (i = 0, j = 0; i < (len * 2); i += 2, j++) {
+		bulk_reg[i].reg = swr_wr_data_base;
+		bulk_reg[i].buf = (u8 *)(&val[j]);
+		bulk_reg[i].bytes = 4;
+		bulk_reg[i+1].reg = swr_wr_addr_base;
+		bulk_reg[i+1].buf = (u8 *)(&reg[j]);
+		bulk_reg[i+1].bytes = 4;
+	}
+	mutex_lock(&tasha->swr_write_lock);
+	ret = wcd9xxx_slim_bulk_write(wcd9xxx, bulk_reg, (len * 2), false);
+	if (ret)
+		dev_err(tasha->dev, "%s: swrm bulk write failed, ret: %d\n",
+			__func__, ret);
+	mutex_unlock(&tasha->swr_write_lock);
+	kfree(bulk_reg);
+
+	return ret;
+}
+
 static int tasha_swrm_write(void *handle, int reg, int val)
 {
 	struct tasha_priv *tasha;
 	struct wcd9xxx *wcd9xxx;
 	unsigned short swr_wr_addr_base;
 	unsigned short swr_wr_data_base;
+	struct wcd9xxx_reg_val bulk_reg[2];
 	int ret;
 
 	if (!handle) {
@@ -11254,28 +11302,21 @@ static int tasha_swrm_write(void *handle, int reg, int val)
 	tasha = (struct tasha_priv *)handle;
 	wcd9xxx = tasha->wcd9xxx;
 
-	dev_dbg(tasha->dev, "%s: writing soundwire register, reg: 0x%x, val: 0x%x\n",
-		__func__, reg, val);
 	swr_wr_addr_base = WCD9335_SWR_AHB_BRIDGE_WR_ADDR_0;
 	swr_wr_data_base = WCD9335_SWR_AHB_BRIDGE_WR_DATA_0;
 
-	mutex_lock(&tasha->swr_write_lock);
-	/* First Write the Data to registe */
-	ret = wcd9xxx_bulk_write(&wcd9xxx->core_res, swr_wr_data_base, 4,
-				 (u8 *)&val);
-	if (ret < 0) {
-		pr_err("%s: WR Data Failure\n", __func__);
-		goto err;
-	}
-	/* Next Write Address */
-	ret = wcd9xxx_bulk_write(&wcd9xxx->core_res, swr_wr_addr_base, 4,
-				 (u8 *)&reg);
-	if (ret < 0) {
-		pr_err("%s: WR Addr Failure\n", __func__);
-		goto err;
-	}
+	/* First Write the Data to register */
+	bulk_reg[0].reg = swr_wr_data_base;
+	bulk_reg[0].buf = (u8 *)(&val);
+	bulk_reg[0].bytes = 4;
+	bulk_reg[1].reg = swr_wr_addr_base;
+	bulk_reg[1].buf = (u8 *)(&reg);
+	bulk_reg[1].bytes = 4;
 
-err:
+	mutex_lock(&tasha->swr_write_lock);
+	ret = wcd9xxx_slim_bulk_write(wcd9xxx, bulk_reg, 2, false);
+	if (ret < 0)
+		pr_err("%s: WR Data Failure\n", __func__);
 	mutex_unlock(&tasha->swr_write_lock);
 	return ret;
 }
@@ -11500,6 +11541,7 @@ static int tasha_probe(struct platform_device *pdev)
 	tasha->swr_plat_data.handle = (void *) tasha;
 	tasha->swr_plat_data.read = tasha_swrm_read;
 	tasha->swr_plat_data.write = tasha_swrm_write;
+	tasha->swr_plat_data.bulk_write = tasha_swrm_bulk_write;
 	tasha->swr_plat_data.clk = tasha_swrm_clock;
 	tasha->swr_plat_data.handle_irq = tasha_swrm_handle_irq;
 
