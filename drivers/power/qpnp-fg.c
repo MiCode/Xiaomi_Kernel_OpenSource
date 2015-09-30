@@ -3717,6 +3717,23 @@ static bool is_battery_missing(struct fg_chip *chip)
 	return (fg_batt_sts & BATT_MISSING_STS) ? true : false;
 }
 
+#define SOC_FIRST_EST_DONE	BIT(5)
+static bool is_first_est_done(struct fg_chip *chip)
+{
+	int rc;
+	u8 fg_soc_sts;
+
+	rc = fg_read(chip, &fg_soc_sts,
+				 INT_RT_STS(chip->soc_base), 1);
+	if (rc) {
+		pr_err("spmi read failed: addr=%03X, rc=%d\n",
+				INT_RT_STS(chip->soc_base), rc);
+		return false;
+	}
+
+	return (fg_soc_sts & SOC_FIRST_EST_DONE) ? true : false;
+}
+
 static irqreturn_t fg_vbatt_low_handler(int irq, void *_chip)
 {
 	struct fg_chip *chip = _chip;
@@ -4340,6 +4357,25 @@ static int fg_do_restart(struct fg_chip *chip, bool write_profile)
 
 	/* decrement the user count so that memory access can be released */
 	fg_release_access_if_necessary(chip);
+
+	/*
+	 * make sure that the first estimate has completed
+	 * in case of a hotswap
+	 */
+	rc = wait_for_completion_interruptible_timeout(&chip->first_soc_done,
+			msecs_to_jiffies(PROFILE_LOAD_TIMEOUT_MS));
+	if (rc <= 0) {
+		pr_err("transaction timed out rc=%d\n", rc);
+		rc = -ETIMEDOUT;
+		goto fail;
+	}
+
+	/*
+	 * reinitialize the completion so that the driver knows when the restart
+	 * finishes
+	 */
+	reinit_completion(&chip->first_soc_done);
+
 	/*
 	 * set the restart bits so that the next fg cycle will not reload
 	 * the profile
@@ -6230,6 +6266,10 @@ static int fg_probe(struct spmi_device *spmi)
 			goto of_init_fail;
 		}
 	}
+
+	/* check if the first estimate is already finished at this time */
+	if (is_first_est_done(chip))
+		complete_all(&chip->first_soc_done);
 
 	reg = 0xFF;
 	rc = fg_write(chip, &reg, INT_EN_CLR(chip->mem_base), 1);
