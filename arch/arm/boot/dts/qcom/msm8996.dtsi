@@ -244,6 +244,7 @@
 				"apc1-cpu1-spm",
 				"apc0-l2-spm",
 				"apc1-l2-spm";
+		qcom,clock-source-override;
 	};
 
 	intc: interrupt-controller@09bc0000 {
