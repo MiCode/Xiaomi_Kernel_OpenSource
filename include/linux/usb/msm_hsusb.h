@@ -370,6 +370,8 @@ struct msm_otg_platform_data {
  * @bus_clks_enabled: indicates pcnoc/snoc/bimc clocks are on or not.
  * @chg_check_timer: The timer used to implement the workaround to detect
  *               very slow plug in of wall charger.
+ * @bc1p2_current_max: Max charging current allowed as per bc1.2 chg detection
+ * @typec_current_max: Max charging current allowed as per type-c chg detection
  * @is_ext_chg_dcp: To indicate whether charger detected by external entity
 		SMB hardware is DCP charger or not.
  * @ext_id_irq: IRQ for ID interrupt.
@@ -495,6 +497,8 @@ struct msm_otg {
 	unsigned int host_mode;
 	unsigned int voltage_max;
 	unsigned int current_max;
+	unsigned int bc1p2_current_max;
+	unsigned int typec_current_max;
 	unsigned int usbin_health;
 
 	dev_t ext_chg_dev;
