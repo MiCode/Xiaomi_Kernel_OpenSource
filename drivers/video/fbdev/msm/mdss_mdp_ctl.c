@@ -4594,7 +4594,7 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 			sctl_flush_bits);
 		sctl->flush_bits = 0;
 	}
-	MDSS_XLOG(ctl_flush_bits, sctl_flush_bits);
+	MDSS_XLOG(ctl->intf_num, ctl_flush_bits, sctl_flush_bits);
 	wmb();
 	ctl->flush_reg_data = ctl_flush_bits;
 	ctl->flush_bits = 0;
