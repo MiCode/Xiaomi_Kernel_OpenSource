@@ -19,6 +19,18 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
+		pmithorium_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+			qcom,secondary-pon-reset;
+			qcom,cfg-shutdown-for-hard-reset;
+		};
+
 		pmithorium_vadc: vadc@3100 {
 			compatible = "qcom,qpnp-vadc";
 			reg = <0x3100 0x100>;
@@ -119,6 +131,228 @@
 			};
 		};
 
+		pmithorium_mpps: mpps {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-pin";
+			gpio-controller;
+			#gpio-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			label = "pmithorium-mpp";
 
+			mpp@a000 {
+				reg = <0xa000 0x100>;
+				qcom,pin-num = <1>;
+				status = "disabled";
+			};
+
+			mpp@a100 {
+				reg = <0xa100 0x100>;
+				qcom,pin-num = <2>;
+				status = "disabled";
+			};
+
+			mpp@a300 {
+				reg = <0xa300 0x100>;
+				qcom,pin-num = <4>;
+				status = "disabled";
+			};
+		};
+
+		pmithorium_charger: qcom,qpnp-smbcharger {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-smbcharger";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			qcom,iterm-ma = <100>;
+			qcom,fastchg-current-ma = <2000>;
+			qcom,float-voltage-mv = <4200>;
+			qcom,resume-delta-mv = <200>;
+			qcom,chg-inhibit-fg;
+			qcom,rparasitic-uohm = <100000>;
+			qcom,bms-psy-name = "bms";
+			qcom,thermal-mitigation = <1500 700 600 0>;
+			qcom,parallel-usb-min-current-ma = <1400>;
+			qcom,parallel-usb-9v-min-current-ma = <900>;
+			qcom,parallel-allowed-lowering-ma = <500>;
+			qcom,pmic-revid = <&pmithorium_revid>;
+
+			qcom,chgr@1000 {
+				reg = <0x1000 0x100>;
+				interrupts =	<0x2 0x10 0x0>,
+						<0x2 0x10 0x1>,
+						<0x2 0x10 0x2>,
+						<0x2 0x10 0x3>,
+						<0x2 0x10 0x4>,
+						<0x2 0x10 0x5>,
+						<0x2 0x10 0x6>,
+						<0x2 0x10 0x7>;
+
+				interrupt-names =	"chg-error",
+							"chg-inhibit",
+							"chg-prechg-sft",
+							"chg-complete-chg-sft",
+							"chg-p2f-thr",
+							"chg-rechg-thr",
+							"chg-taper-thr",
+							"chg-tcc-thr";
+			};
+
+			qcom,otg@1100 {
+				reg = <0x1100 0x100>;
+				interrupts =	<0x2 0x11 0x0>,
+						<0x2 0x11 0x1>,
+						<0x2 0x11 0x3>;
+				interrupt-names =	"otg-fail",
+							"otg-oc",
+						"usbid-change";
+			};
+
+			qcom,bat-if@1200 {
+				reg = <0x1200 0x100>;
+				interrupts =	<0x2 0x12 0x0>,
+						<0x2 0x12 0x1>,
+						<0x2 0x12 0x2>,
+						<0x2 0x12 0x3>,
+					<0x2 0x12 0x4>,
+						<0x2 0x12 0x5>,
+						<0x2 0x12 0x6>,
+						<0x2 0x12 0x7>;
+
+				interrupt-names =	"batt-hot",
+							"batt-warm",
+							"batt-cold",
+							"batt-cool",
+						"batt-ov",
+							"batt-low",
+							"batt-missing",
+							"batt-term-missing";
+			};
+
+			qcom,usb-chgpth@1300 {
+				reg = <0x1300 0x100>;
+				interrupts =	<0x2 0x13 0x0>,
+						<0x2 0x13 0x1>,
+					<0x2 0x13 0x2>,
+						<0x2 0x13 0x5>;
+
+				interrupt-names =	"usbin-uv",
+						"usbin-ov",
+							"usbin-src-det",
+							"aicl-done";
+			};
+
+			qcom,dc-chgpth@1400 {
+				reg = <0x1400 0x100>;
+				interrupts =	<0x2 0x14 0x0>,
+						<0x2 0x14 0x1>;
+				interrupt-names =	"dcin-uv",
+							"dcin-ov";
+			};
+
+			qcom,chgr-misc@1600 {
+				reg = <0x1600 0x100>;
+				interrupts =	<0x2 0x16 0x0>,
+						<0x2 0x16 0x1>,
+						<0x2 0x16 0x2>,
+					<0x2 0x16 0x3>,
+						<0x2 0x16 0x4>,
+						<0x2 0x16 0x5>;
+
+				interrupt-names =	"power-ok",
+							"temp-shutdown",
+							"wdog-timeout",
+							"flash-fail",
+							"otst2",
+							"otst3";
+			};
+		};
+
+		pmithorium_fg: qcom,fg {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-fg";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qcom,resume-soc = <95>;
+			status = "okay";
+			qcom,bcl-lm-threshold-ma = <127>;
+			qcom,bcl-mh-threshold-ma = <405>;
+			qcom,fg-iterm-ma = <100>;
+			qcom,fg-chg-iterm-ma = <100>;
+			qcom,pmic-revid = <&pmithorium_revid>;
+
+			qcom,fg-soc@4000 {
+			status = "okay";
+				reg = <0x4000 0x100>;
+				interrupts =	<0x2 0x40 0x0>,
+						<0x2 0x40 0x1>,
+						<0x2 0x40 0x2>,
+						<0x2 0x40 0x3>,
+						<0x2 0x40 0x4>,
+						<0x2 0x40 0x5>,
+						<0x2 0x40 0x6>;
+
+				interrupt-names =	"high-soc",
+							"low-soc",
+							"full-soc",
+							"empty-soc",
+							"delta-soc",
+							"first-est-done",
+							"update-soc";
+			};
+
+			qcom,fg-batt@4100 {
+				reg = <0x4100 0x100>;
+				interrupts =	<0x2 0x41 0x0>,
+						<0x2 0x41 0x1>,
+					<0x2 0x41 0x2>,
+						<0x2 0x41 0x3>,
+						<0x2 0x41 0x4>,
+						<0x2 0x41 0x5>,
+						<0x2 0x41 0x6>,
+						<0x2 0x41 0x7>;
+
+				interrupt-names =	"soft-cold",
+							"soft-hot",
+							"vbatt-low",
+							"batt-ided",
+							"batt-id-req",
+							"batt-unknown",
+							"batt-missing",
+							"batt-match";
+			};
+
+			qcom,revid-tp-rev@1f1 {
+				reg = <0x1f1 0x1>;
+			};
+
+			qcom,fg-memif@4400 {
+				status = "okay";
+				reg = <0x4400 0x100>;
+				interrupts =	<0x2 0x44 0x0>,
+						<0x2 0x44 0x2>;
+
+				interrupt-names =	"mem-avail",
+							"data-rcvry-sug";
+			};
+		};
+	};
+
+	qcom,pmithorium@3 {
+		spmi-slave-container;
+		reg = <0x3>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pmithorium_pwm: pwm@b000 {
+			status = "disabled";
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb000 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <0>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+		};
 	};
 };
