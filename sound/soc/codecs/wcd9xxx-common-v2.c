@@ -884,6 +884,9 @@ void wcd_clsh_init(struct wcd_clsh_cdc_data *clsh)
 	wcd_clsh_set_int_mode(clsh, WCD_CLSH_STATE_HPHL, CLS_NONE);
 	wcd_clsh_set_int_mode(clsh, WCD_CLSH_STATE_HPHR, CLS_NONE);
 	wcd_clsh_set_int_mode(clsh, WCD_CLSH_STATE_LO, CLS_NONE);
+	clsh->flyback_users = 0;
+	clsh->buck_users = 0;
+	clsh->clsh_users = 0;
 }
 EXPORT_SYMBOL(wcd_clsh_init);
 
