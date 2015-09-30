@@ -73,6 +73,7 @@ Optional Properties:
   - qcom,n-fts: The number of fast training sequences sent when the link state
     is changed from L0s to L0.
   - qcom,pcie-phy-ver: version of PCIe PHY.
+  - qcom,use-19p2mhz-aux-clk: The frequency of PCIe AUX clock is 19.2MHz.
   - qcom,ep-wakeirq: The endpoint will issue wake signal when it is up, and the
     root complex has the capability to enumerate the endpoint for this case.
   - qcom,msi-gicm-addr: MSI address for GICv2m.
