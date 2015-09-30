@@ -2050,6 +2050,16 @@ static void smbchg_parallel_usb_enable(struct smbchg_chip *chip,
 		return;
 	}
 
+	/*
+	 * if the total current is decreasing then reduce it by few mA instead
+	 * of directly setting it to the lower current
+	 */
+	if (new_parallel_cl_ma <= chip->parallel.current_max_ma) {
+		total_current_ma = 2 * chip->parallel.current_max_ma;
+		total_current_ma -= 100;
+		new_parallel_cl_ma = total_current_ma / 2;
+	}
+
 	pr_smb(PR_STATUS, "New Total USB current = %d[%d, %d]\n",
 		total_current_ma, new_parallel_cl_ma,
 		new_parallel_cl_ma);
@@ -2060,6 +2070,12 @@ static void smbchg_parallel_usb_enable(struct smbchg_chip *chip,
 	smbchg_set_usb_current_max(chip, chip->parallel.current_max_ma);
 	power_supply_set_current_limit(parallel_psy,
 				chip->parallel.current_max_ma * 1000);
+
+	if (smbchg_get_aicl_level_ma(chip) <  chip->parallel.current_max_ma) {
+		/* allow for the current from parallel and main to settle */
+		msleep(500);
+		smbchg_rerun_aicl(chip);
+	}
 	return;
 }
 
