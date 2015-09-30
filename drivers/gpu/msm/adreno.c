@@ -49,6 +49,10 @@
 
 #define KGSL_LOG_LEVEL_DEFAULT 3
 
+#define SECVID_PROGRAM_PATH_UNKNOWN	0x0
+#define SECVID_PROGRAM_PATH_GPU		0x1
+#define SECVID_PROGRAM_PATH_CPU		0x2
+
 static void adreno_input_work(struct work_struct *work);
 
 static struct devfreq_msm_adreno_tz_data adreno_tz_data = {
@@ -1095,6 +1099,143 @@ static int adreno_init(struct kgsl_device *device)
 	return ret;
 }
 
+static void secvid_cpu_path(struct adreno_device *adreno_dev)
+{
+	if (adreno_is_a4xx(adreno_dev))
+		adreno_writereg(adreno_dev,
+			ADRENO_REG_RBBM_SECVID_TRUST_CONFIG, 0x2);
+	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SECVID_TSB_CONTROL, 0x0);
+	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE,
+		KGSL_IOMMU_SECURE_MEM_BASE);
+	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_SIZE,
+		KGSL_IOMMU_SECURE_MEM_SIZE);
+}
+
+static void secvid_gpu_path(struct adreno_device *adreno_dev)
+{
+	unsigned int *cmds;
+	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
+	int ret = 0;
+
+	cmds = adreno_ringbuffer_allocspace(rb, 13);
+
+	*cmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
+	*cmds++ = 0;
+
+	*cmds++ = cp_type3_packet(CP_WIDE_REG_WRITE, 2);
+	*cmds++ = adreno_getreg(adreno_dev,
+			ADRENO_REG_RBBM_SECVID_TSB_CONTROL);
+	*cmds++ = 0x0;
+
+	*cmds++ = cp_type3_packet(CP_WIDE_REG_WRITE, 2);
+	*cmds++ = adreno_getreg(adreno_dev,
+			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE);
+	*cmds++ = KGSL_IOMMU_SECURE_MEM_BASE;
+
+	*cmds++ = cp_type3_packet(CP_WIDE_REG_WRITE, 2);
+	*cmds++ = adreno_getreg(adreno_dev,
+			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_SIZE);
+	*cmds++ = KGSL_IOMMU_SECURE_MEM_SIZE;
+
+	*cmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
+	*cmds++ = 1;
+
+	adreno_ringbuffer_submit(rb, NULL);
+
+	/* idle device to validate secure init */
+	ret = adreno_spin_idle(&adreno_dev->dev);
+	if (ret) {
+		KGSL_DRV_ERR(rb->device,
+			"secure init failed to idle %d\n", ret);
+		secvid_cpu_path(adreno_dev);
+		}
+}
+
+static int secvid_verify_gpu_path(struct adreno_device *adreno_dev)
+{
+	unsigned int *cmds, val = 0;
+	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
+	int ret = 0;
+
+	cmds = adreno_ringbuffer_allocspace(rb, 19);
+
+	*cmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
+	*cmds++ = 0;
+
+	/* init the scratch register with default value */
+	*cmds++ = cp_type3_packet(CP_WIDE_REG_WRITE, 2);
+	*cmds++ = adreno_getreg(adreno_dev, ADRENO_REG_CP_SCRATCH_REG0);
+	*cmds++ = 0x0;
+
+	/* write one of the secvid registers */
+	*cmds++ = cp_type3_packet(CP_WIDE_REG_WRITE, 2);
+	*cmds++ = adreno_getreg(adreno_dev,
+			ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE);
+	*cmds++ = KGSL_IOMMU_SECURE_MEM_BASE;
+
+	/* wait for register writes to complete */
+	*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+	*cmds++ = 0x0;
+
+	/*
+	 * Check if the SECVID trust base register write went through.
+	 * If it did, then write 0x1 in the scratch register otherwise
+	 * do nothing. This tells us whether CP writes to SECVID
+	 * registers is supported in TZ or not.
+	 */
+	*cmds++ = cp_type3_packet(CP_COND_WRITE, 6);
+	*cmds++ = 0x3;
+	*cmds++ =  adreno_getreg(adreno_dev,
+				ADRENO_REG_RBBM_SECVID_TSB_TRUSTED_BASE);
+	*cmds++ = KGSL_IOMMU_SECURE_MEM_BASE;
+	*cmds++ = 0xFFFFFFFF;
+	*cmds++ = adreno_getreg(adreno_dev, ADRENO_REG_CP_SCRATCH_REG0);
+	*cmds++ = 0x1;
+
+	*cmds++ = cp_type3_packet(CP_SET_PROTECTED_MODE, 1);
+	*cmds++ = 1;
+
+	adreno_ringbuffer_submit(rb, NULL);
+
+	ret = adreno_spin_idle(&adreno_dev->dev);
+	if (ret) {
+		KGSL_DRV_ERR(rb->device,
+		"secure init verification failed to idle %d\n", ret);
+		secvid_cpu_path(adreno_dev);
+		return SECVID_PROGRAM_PATH_CPU;
+	}
+
+	adreno_readreg(adreno_dev, ADRENO_REG_CP_SCRATCH_REG0, &val);
+
+	if (val == 0x1) {
+		secvid_gpu_path(adreno_dev);
+		return SECVID_PROGRAM_PATH_GPU;
+	}
+
+	secvid_cpu_path(adreno_dev);
+
+	return SECVID_PROGRAM_PATH_CPU;
+}
+
+static void adreno_secvid_start(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	static unsigned int secvid_path = SECVID_PROGRAM_PATH_UNKNOWN;
+
+	/*
+	 * For a4x only, writing secvid registers through cpu might cause
+	 * xPU violation. So first write secvid registers through GPU.
+	 * If that fails, then fall back to CPU.
+	 */
+	if (!adreno_is_a4xx(adreno_dev) ||
+		secvid_path == SECVID_PROGRAM_PATH_CPU) {
+		secvid_cpu_path(adreno_dev);
+	} else if (secvid_path == SECVID_PROGRAM_PATH_GPU)
+		secvid_gpu_path(adreno_dev);
+	else
+		secvid_path = secvid_verify_gpu_path(adreno_dev);
+}
+
 /**
  * _adreno_start - Power up the GPU and prepare to accept commands
  * @adreno_dev: Pointer to an adreno_device structure
@@ -1193,6 +1334,9 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	if (status)
 		goto error_mmu_off;
+
+	if (device->mmu.secured)
+		adreno_secvid_start(device);
 
 	/* Enable h/w power collapse feature */
 	if (gpudev->enable_pc)
