@@ -31,6 +31,10 @@
 	status = "ok";
 };
 
+&sdcc1_ice {
+	status = "ok";
+};
+
 &ufsphy1 {
 	status = "ok";
 };
