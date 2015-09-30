@@ -1902,7 +1902,8 @@ unsigned int power_cost_at_freq(int cpu, unsigned int freq)
 		 * capacity as a rough stand-in for real CPU power
 		 * numbers, assuming bigger CPUs are more power
 		 * hungry. */
-		return cpu_rq(cpu)->max_possible_capacity;
+		return cpu_rq(cpu)->efficiency *
+				(cpu_rq(cpu)->max_possible_freq / 1024);
 
 	if (!freq)
 		freq = min_max_freq;
@@ -1921,14 +1922,15 @@ unsigned int power_cost_at_freq(int cpu, unsigned int freq)
 /* Return the cost of running task p on CPU cpu. This function
  * currently assumes that task p is the only task which will run on
  * the CPU. */
-static unsigned int power_cost(u64 task_load, int cpu)
+unsigned int power_cost(u64 task_load, int cpu)
 {
 	unsigned int task_freq, cur_freq;
 	struct rq *rq = cpu_rq(cpu);
 	u64 demand;
 
 	if (!sysctl_sched_enable_power_aware)
-		return rq->max_possible_capacity;
+		return cpu_rq(cpu)->efficiency *
+				(cpu_rq(cpu)->max_possible_freq / 1024);
 
 	/* calculate % of max freq needed */
 	demand = task_load * 100;
@@ -3036,11 +3038,6 @@ static inline int select_best_cpu(struct task_struct *p, int target,
 static inline int find_new_hmp_ilb(int call_cpu, int type)
 {
 	return 0;
-}
-
-static inline int power_cost(u64 task_load, int cpu)
-{
-	return SCHED_POWER_SCALE;
 }
 
 static inline int
