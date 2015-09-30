@@ -131,6 +131,10 @@
 				     "spm_cci_base";
 		};
 	};
+
+	qcom,vidc@1d00000 {
+		qcom,disable-clock-voltage-control;
+	};
 };
 
 &mdss_dsi {
