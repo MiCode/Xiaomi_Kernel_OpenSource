@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -346,6 +346,7 @@ static int mdp3_ctrl_clk_enable(struct msm_fb_data_type *mfd, int enable)
 {
 	struct mdp3_session_data *session;
 	struct mdss_panel_data *panel;
+	struct dsi_panel_clk_ctrl clk_ctrl;
 	int rc = 0;
 
 	pr_debug("mdp3_ctrl_clk_enable %d\n", enable);
@@ -358,8 +359,10 @@ static int mdp3_ctrl_clk_enable(struct msm_fb_data_type *mfd, int enable)
 
 	if ((enable && session->clk_on == 0) ||
 				(!enable && session->clk_on == 1)) {
+		clk_ctrl.client = DSI_CLK_REQ_MDP_CLIENT;
+		clk_ctrl.state = enable;
 		rc = panel->event_handler(panel,
-			MDSS_EVENT_PANEL_CLK_CTRL, (void *)enable);
+			MDSS_EVENT_PANEL_CLK_CTRL, (void *)&clk_ctrl);
 		rc |= mdp3_res_update(enable, 1, MDP3_CLIENT_DMA_P);
 	} else {
 		pr_debug("enable = %d, clk_on=%d\n", enable, session->clk_on);

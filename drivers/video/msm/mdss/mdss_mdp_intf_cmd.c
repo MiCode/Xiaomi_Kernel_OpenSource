@@ -457,6 +457,7 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_mdp_ctl *sctl = NULL;
 	struct mdss_mdp_cmd_ctx *ctx, *sctx = NULL;
+	struct dsi_panel_clk_ctrl clk_ctrl;
 	u32 status;
 	int rc = 0;
 
@@ -531,14 +532,16 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 			/* Enable/Ungate DSI clocks and resources */
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
+			clk_ctrl.state = MDSS_DSI_CLK_ON;
+			clk_ctrl.client = DSI_CLK_REQ_MDP_CLIENT;
 			mdss_mdp_ctl_intf_event /* enable master */
 				(ctx->ctl, MDSS_EVENT_PANEL_CLK_CTRL,
-				(void *)MDSS_DSI_CLK_ON, true);
+				(void *)&clk_ctrl, true);
 
 			if (sctx) /* then slave */
 				mdss_mdp_ctl_intf_event
 				 (sctx->ctl, MDSS_EVENT_PANEL_CLK_CTRL,
-				 (void *)MDSS_DSI_CLK_ON, true);
+				 (void *)&clk_ctrl, true);
 
 			if (mdp5_data->resources_state ==
 					MDP_RSRC_CTL_STATE_GATE)
@@ -720,14 +723,16 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 		MDSS_XLOG(ctl->num, mdp5_data->resources_state, sw_event, 0x44);
 		if (mdp5_data->resources_state == MDP_RSRC_CTL_STATE_OFF) {
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+			clk_ctrl.state = MDSS_DSI_CLK_ON;
+			clk_ctrl.client = DSI_CLK_REQ_MDP_CLIENT;
 			mdss_mdp_ctl_intf_event(ctx->ctl,
 						MDSS_EVENT_PANEL_CLK_CTRL,
-						(void *)MDSS_DSI_CLK_ON,
+						(void *)&clk_ctrl,
 						true);
 			if (sctx)
 				mdss_mdp_ctl_intf_event(sctx->ctl,
 						      MDSS_EVENT_PANEL_CLK_CTRL,
-						      (void *)MDSS_DSI_CLK_ON,
+						      (void *)&clk_ctrl,
 						      true);
 
 			mdss_mdp_cmd_clk_on(ctx);
@@ -773,6 +778,7 @@ static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx)
 static inline void mdss_mdp_cmd_clk_off(struct mdss_mdp_cmd_ctx *ctx)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct dsi_panel_clk_ctrl clk_ctrl;
 
 	if (ctx->autorefresh_init) {
 		/* Do not turn off clocks if aurtorefresh is on. */
@@ -786,9 +792,11 @@ static inline void mdss_mdp_cmd_clk_off(struct mdss_mdp_cmd_ctx *ctx)
 
 	/* Power off DSI, is caller responsibility to do slave then master  */
 	if (ctx->ctl) {
+		clk_ctrl.state = MDSS_DSI_CLK_OFF;
+		clk_ctrl.client = DSI_CLK_REQ_MDP_CLIENT;
 		mdss_mdp_ctl_intf_event
 			(ctx->ctl, MDSS_EVENT_PANEL_CLK_CTRL,
-			(void *) MDSS_DSI_CLK_OFF, true);
+			(void *)&clk_ctrl, true);
 	} else {
 		pr_err("OFF with ctl:NULL\n");
 	}
@@ -1049,6 +1057,7 @@ static void clk_ctrl_gate_work(struct work_struct *work)
 		container_of(work, typeof(*ctx), gate_clk_work);
 	struct mdss_mdp_ctl *ctl, *sctl;
 	struct mdss_mdp_cmd_ctx *sctx = NULL;
+	struct dsi_panel_clk_ctrl clk_ctrl;
 
 	if (!ctx) {
 		pr_err("%s: invalid ctx\n", __func__);
@@ -1108,16 +1117,18 @@ static void clk_ctrl_gate_work(struct work_struct *work)
 		goto exit;
 	}
 
+	clk_ctrl.state = MDSS_DSI_CLK_EARLY_GATE;
+	clk_ctrl.client = DSI_CLK_REQ_MDP_CLIENT;
 	/* First gate the DSI clocks for the slave controller (if present) */
 	if (sctx)
 		mdss_mdp_ctl_intf_event
 			(sctx->ctl, MDSS_EVENT_PANEL_CLK_CTRL,
-			(void *)MDSS_DSI_CLK_EARLY_GATE, true);
+			(void *)&clk_ctrl, true);
 
 	/* Now gate DSI clocks for the master */
 	mdss_mdp_ctl_intf_event
 		(ctx->ctl, MDSS_EVENT_PANEL_CLK_CTRL,
-		(void *)MDSS_DSI_CLK_EARLY_GATE, true);
+		(void *)&clk_ctrl, true);
 
 	/* Gate mdp clocks */
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
@@ -1279,16 +1290,19 @@ int mdss_mdp_cmd_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 {
 	struct mdss_panel_data *pdata;
 	struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
+	struct dsi_panel_clk_ctrl clk_ctrl;
 	int ret = 0;
 
 	pdata = ctl->panel_data;
 
+	clk_ctrl.state = MDSS_DSI_CLK_OFF;
+	clk_ctrl.client = DSI_CLK_REQ_MDP_CLIENT;
 	if (sctl)
 		mdss_mdp_ctl_intf_event(sctl, MDSS_EVENT_PANEL_CLK_CTRL,
-			(void *)MDSS_DSI_CLK_OFF, true);
+			(void *)&clk_ctrl, true);
 
 	mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_CLK_CTRL,
-		(void *)MDSS_DSI_CLK_OFF, true);
+		(void *)&clk_ctrl, true);
 
 	pdata->panel_info.cont_splash_enabled = 0;
 	if (sctl)
@@ -2192,19 +2206,28 @@ void mdss_mdp_switch_roi_reset(struct mdss_mdp_ctl *ctl)
 
 void mdss_mdp_switch_to_vid_mode(struct mdss_mdp_ctl *ctl, int prep)
 {
+	struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
+	struct dsi_panel_clk_ctrl clk_ctrl;
 	long int mode = MIPI_VIDEO_PANEL;
-	int rc = 0;
 
 	pr_debug("%s start, prep = %d\n", __func__, prep);
 
 	if (prep) {
 		/*
 		 * In dsi_on there is an explicit decrement to dsi clk refcount
-		 * if we are in cmd mode. We need to rebalance clock in order
-		 * to properly enable vid mode compnents
+		 * if we are in cmd mode, using the dsi client handle. We need
+		 * to rebalance clock in order to properly enable vid mode
+		 * compnents.
 		 */
-		rc = mdss_mdp_ctl_intf_event
-			(ctl, MDSS_EVENT_PANEL_CLK_CTRL, (void *)1, false);
+		clk_ctrl.state = MDSS_DSI_CLK_ON;
+		clk_ctrl.client = DSI_CLK_REQ_DSI_CLIENT;
+		if (sctl)
+			mdss_mdp_ctl_intf_event(sctl,
+				MDSS_EVENT_PANEL_CLK_CTRL,
+				(void *)&clk_ctrl, true);
+
+		mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_CLK_CTRL,
+			(void *)&clk_ctrl, true);
 
 		return;
 	}
@@ -2216,6 +2239,7 @@ void mdss_mdp_switch_to_vid_mode(struct mdss_mdp_ctl *ctl, int prep)
 static int mdss_mdp_cmd_reconfigure(struct mdss_mdp_ctl *ctl,
 		enum dynamic_switch_modes mode, bool prep)
 {
+	struct dsi_panel_clk_ctrl clk_ctrl;
 	int ret, rc = 0;
 
 	if (mdss_mdp_ctl_is_power_off(ctl))
@@ -2242,9 +2266,11 @@ static int mdss_mdp_cmd_reconfigure(struct mdss_mdp_ctl *ctl,
 			if (IS_ERR_VALUE(rc))
 				pr_err("IOMMU attach failed\n");
 
+			clk_ctrl.state = MDSS_DSI_CLK_ON;
+			clk_ctrl.client = DSI_CLK_REQ_MDP_CLIENT;
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 			mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_CLK_CTRL,
-					(void *)1, false);
+					(void *)&clk_ctrl, false);
 
 			mdss_mdp_ctl_stop(ctl, MDSS_PANEL_POWER_OFF);
 			mdss_mdp_ctl_intf_event(ctl,
@@ -2252,8 +2278,10 @@ static int mdss_mdp_cmd_reconfigure(struct mdss_mdp_ctl *ctl,
 					(void *) mode, false);
 		} else {
 			/* release ref count after switch is complete */
+			clk_ctrl.state = MDSS_DSI_CLK_OFF;
+			clk_ctrl.client = DSI_CLK_REQ_MDP_CLIENT;
 			mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_CLK_CTRL,
-					(void *)0, false);
+					(void *)&clk_ctrl, false);
 			mdss_iommu_ctrl(0);
 			mdss_bus_bandwidth_ctrl(false);
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);

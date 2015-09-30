@@ -139,9 +139,18 @@ static void mdss_dsi_set_reg(struct mdss_dsi_ctrl_pdata *ctrl, int off,
 	MIPI_OUTP(ctrl->ctrl_base + off, data);
 }
 
-void mdss_dsi_clk_req(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
+void mdss_dsi_clk_req(struct mdss_dsi_ctrl_pdata *ctrl,
+	struct dsi_panel_clk_ctrl *clk_ctrl)
 {
-	MDSS_XLOG(ctrl->ndx, enable, ctrl->mdp_busy, current->pid);
+	enum dsi_clk_req_client client = clk_ctrl->client;
+	int enable = clk_ctrl->state;
+	void *clk_handle = ctrl->mdp_clk_handle;
+
+	if (clk_ctrl->client == DSI_CLK_REQ_DSI_CLIENT)
+		clk_handle = ctrl->dsi_clk_handle;
+
+	MDSS_XLOG(ctrl->ndx, enable, ctrl->mdp_busy, current->pid,
+		client);
 	if (enable == 0) {
 		/* need wait before disable */
 		mutex_lock(&ctrl->cmd_mutex);
@@ -149,8 +158,9 @@ void mdss_dsi_clk_req(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 		mutex_unlock(&ctrl->cmd_mutex);
 	}
 
-	MDSS_XLOG(ctrl->ndx, enable, ctrl->mdp_busy, current->pid);
-	mdss_dsi_clk_ctrl(ctrl, ctrl->mdp_clk_handle,
+	MDSS_XLOG(ctrl->ndx, enable, ctrl->mdp_busy, current->pid,
+		client);
+	mdss_dsi_clk_ctrl(ctrl, clk_handle,
 		  MDSS_DSI_ALL_CLKS, enable);
 }
 
