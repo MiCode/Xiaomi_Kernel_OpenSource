@@ -706,7 +706,9 @@ static void mdss_mdp_video_underrun_intr_done(void *arg)
 	pr_debug("display underrun detected for ctl=%d count=%d\n", ctl->num,
 			ctl->underrun_cnt);
 
-	if (ctl->opmode & MDSS_MDP_CTL_OP_PACK_3D_ENABLE)
+	if (!test_bit(MDSS_CAPS_3D_MUX_UNDERRUN_RECOVERY_SUPPORTED,
+		ctl->mdata->mdss_caps_map) &&
+		(ctl->opmode & MDSS_MDP_CTL_OP_PACK_3D_ENABLE))
 		schedule_work(&ctl->recover_work);
 }
 
