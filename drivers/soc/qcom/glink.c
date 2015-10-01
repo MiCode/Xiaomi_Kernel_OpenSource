@@ -5007,18 +5007,13 @@ static void tx_work_func(struct work_struct *work)
 	struct glink_core_xprt_ctx *xprt_ptr =
 			container_of(work, struct glink_core_xprt_ctx, tx_work);
 	struct channel_ctx *ch_ptr;
-	struct channel_ctx *tx_ready_head;
 	uint32_t prio;
+	uint32_t tx_ready_head_prio;
 	int ret;
+	struct channel_ctx *tx_ready_head = NULL;
 	bool transmitted_successfully = true;
 
 	GLINK_PERF("%s: worker starting\n", __func__);
-
-	prio = xprt_ptr->num_priority - 1;
-	mutex_lock(&xprt_ptr->tx_ready_mutex_lhb2);
-	tx_ready_head = list_first_entry(&xprt_ptr->prio_bin[prio].tx_ready,
-				struct channel_ctx, tx_ready_list_node);
-	mutex_unlock(&xprt_ptr->tx_ready_mutex_lhb2);
 
 	while (1) {
 		prio = xprt_ptr->num_priority - 1;
@@ -5034,6 +5029,11 @@ static void tx_work_func(struct work_struct *work)
 		ch_ptr = list_first_entry(&xprt_ptr->prio_bin[prio].tx_ready,
 				struct channel_ctx, tx_ready_list_node);
 		mutex_unlock(&xprt_ptr->tx_ready_mutex_lhb2);
+
+		if (tx_ready_head == NULL || tx_ready_head_prio < prio) {
+			tx_ready_head = ch_ptr;
+			tx_ready_head_prio = prio;
+		}
 
 		if (ch_ptr == tx_ready_head && !transmitted_successfully) {
 			GLINK_ERR_XPRT(xprt_ptr,
@@ -5081,15 +5081,12 @@ static void tx_work_func(struct work_struct *work)
 		if (list_empty(&ch_ptr->tx_active)) {
 			list_del_init(&ch_ptr->tx_ready_list_node);
 			glink_qos_done_ch_tx(ch_ptr);
-
-			tx_ready_head = list_first_entry(
-				&xprt_ptr->prio_bin[prio].tx_ready,
-				struct channel_ctx, tx_ready_list_node);
 		}
 
 		mutex_unlock(&ch_ptr->tx_lists_mutex_lhc3);
 		mutex_unlock(&xprt_ptr->tx_ready_mutex_lhb2);
 
+		tx_ready_head = NULL;
 		transmitted_successfully = true;
 	}
 	glink_pm_qos_unvote(xprt_ptr);
