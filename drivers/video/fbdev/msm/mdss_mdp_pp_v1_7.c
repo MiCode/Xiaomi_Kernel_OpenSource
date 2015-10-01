@@ -887,7 +887,8 @@ static int pp_gamut_set_config(char __iomem *base_addr,
 			writel_relaxed(gamut_data->c0_data[i][j],
 				      base_addr + GAMUT_TABLE_UPPER_R);
 		}
-		if (i >= MDP_GAMUT_SCALE_OFF_TABLE_NUM)
+		if ((i >= MDP_GAMUT_SCALE_OFF_TABLE_NUM) ||
+				(!gamut_data->map_en))
 			continue;
 		for (j = 0; j < MDP_GAMUT_SCALE_OFF_SZ; j++) {
 			writel_relaxed((gamut_data->scale_off_data[i][j]),
