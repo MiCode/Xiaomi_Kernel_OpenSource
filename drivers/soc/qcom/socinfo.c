@@ -967,8 +967,10 @@ msm_get_images(struct device *dev,
 
 	*buf = '\0';
 	for (image = 0; image < SMEM_IMAGE_VERSION_BLOCKS_COUNT; image++) {
-		if (*image_address == '\0')
+		if (*image_address == '\0') {
+			image_address += SMEM_IMAGE_VERSION_SINGLE_BLOCK_SIZE;
 			continue;
+		}
 
 		pos += snprintf(buf + pos, PAGE_SIZE - pos, "%d:\n",
 				image);
