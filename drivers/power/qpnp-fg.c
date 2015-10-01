@@ -103,6 +103,7 @@ enum pmic_subtype {
 enum wa_flags {
 	IADC_GAIN_COMP_WA = BIT(0),
 	USE_CC_SOC_REG = BIT(1),
+	PULSE_REQUEST_WA = BIT(2)
 };
 
 enum current_sense_type {
@@ -410,7 +411,7 @@ struct fg_chip {
 	struct power_supply	bms_psy;
 	struct mutex		rw_lock;
 	struct mutex		sysfs_restart_lock;
-	struct work_struct	batt_profile_init;
+	struct delayed_work	batt_profile_init;
 	struct work_struct	dump_sram;
 	struct work_struct	status_change_work;
 	struct work_struct	cycle_count_work;
@@ -3242,7 +3243,7 @@ static void status_change_work(struct work_struct *work)
 			enable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
 			chip->vbat_low_irq_enabled = true;
 		}
-		if (capacity == 100)
+		if (!!(chip->wa_flag & PULSE_REQUEST_WA) && capacity == 100)
 			fg_configure_soc(chip);
 	} else if (chip->status == POWER_SUPPLY_STATUS_DISCHARGING) {
 		if (chip->vbat_low_irq_enabled) {
@@ -3764,7 +3765,7 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *_chip)
 		if (!chip->use_otp_profile) {
 			reinit_completion(&chip->batt_id_avail);
 			reinit_completion(&chip->first_soc_done);
-			schedule_work(&chip->batt_profile_init);
+			schedule_delayed_work(&chip->batt_profile_init, 0);
 			cancel_delayed_work(&chip->update_sram_data);
 			schedule_delayed_work(
 				&chip->update_sram_data,
@@ -4426,6 +4427,7 @@ fail:
 #define PROFILE_COMPARE_LEN		32
 #define THERMAL_COEFF_ADDR		0x444
 #define THERMAL_COEFF_OFFSET		0x2
+#define BATTERY_PSY_WAIT_MS		2000
 static int fg_batt_profile_init(struct fg_chip *chip)
 {
 	int rc = 0, ret;
@@ -4593,6 +4595,14 @@ wait:
 				DUMP_PREFIX_NONE, 16, 1,
 				chip->batt_profile, len, false);
 	}
+	if (!chip->batt_psy && chip->batt_psy_name)
+		chip->batt_psy = power_supply_get_by_name(chip->batt_psy_name);
+
+	if (!chip->batt_psy) {
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("batt psy not registered\n");
+		goto reschedule;
+	}
 	if (chip->power_supply_registered)
 		power_supply_changed(&chip->bms_psy);
 
@@ -4660,6 +4670,12 @@ no_profile:
 		power_supply_changed(&chip->bms_psy);
 	fg_relax(&chip->profile_wakeup_source);
 	return rc;
+reschedule:
+	schedule_delayed_work(
+		&chip->batt_profile_init,
+		msecs_to_jiffies(BATTERY_PSY_WAIT_MS));
+	fg_relax(&chip->profile_wakeup_source);
+	return 0;
 }
 
 static void check_empty_work(struct work_struct *work)
@@ -4682,7 +4698,7 @@ static void batt_profile_init(struct work_struct *work)
 {
 	struct fg_chip *chip = container_of(work,
 				struct fg_chip,
-				batt_profile_init);
+				batt_profile_init.work);
 
 	if (fg_batt_profile_init(chip))
 		pr_err("failed to initialize profile\n");
@@ -5205,11 +5221,11 @@ static void fg_cleanup(struct fg_chip *chip)
 	cancel_delayed_work_sync(&chip->update_temp_work);
 	cancel_delayed_work_sync(&chip->update_jeita_setting);
 	cancel_delayed_work_sync(&chip->check_empty_work);
+	cancel_delayed_work_sync(&chip->batt_profile_init);
 	alarm_try_to_cancel(&chip->fg_cap_learning_alarm);
 	cancel_work_sync(&chip->rslow_comp_work);
 	cancel_work_sync(&chip->set_resume_soc_work);
 	cancel_work_sync(&chip->fg_cap_learning_work);
-	cancel_work_sync(&chip->batt_profile_init);
 	cancel_work_sync(&chip->dump_sram);
 	cancel_work_sync(&chip->status_change_work);
 	cancel_work_sync(&chip->cycle_count_work);
@@ -5875,6 +5891,7 @@ static int fg_hw_init(struct fg_chip *chip)
 	switch (chip->pmic_subtype) {
 	case PMI8994:
 		rc = fg_8994_hw_init(chip);
+		chip->wa_flag |= PULSE_REQUEST_WA;
 		break;
 	case PMI8996:
 	case PMI8950:
@@ -6017,7 +6034,7 @@ static void delayed_init_work(struct work_struct *work)
 		update_temp_data(&chip->update_temp_work.work);
 
 	if (!chip->use_otp_profile)
-		schedule_work(&chip->batt_profile_init);
+		schedule_delayed_work(&chip->batt_profile_init, 0);
 
 	if (chip->wa_flag & IADC_GAIN_COMP_WA) {
 		/* read default gain config */
@@ -6130,9 +6147,9 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_DELAYED_WORK(&chip->update_sram_data, update_sram_data_work);
 	INIT_DELAYED_WORK(&chip->update_temp_work, update_temp_data);
 	INIT_DELAYED_WORK(&chip->check_empty_work, check_empty_work);
+	INIT_DELAYED_WORK(&chip->batt_profile_init, batt_profile_init);
 	INIT_WORK(&chip->rslow_comp_work, rslow_comp_work);
 	INIT_WORK(&chip->fg_cap_learning_work, fg_cap_learning_work);
-	INIT_WORK(&chip->batt_profile_init, batt_profile_init);
 	INIT_WORK(&chip->dump_sram, dump_sram);
 	INIT_WORK(&chip->status_change_work, status_change_work);
 	INIT_WORK(&chip->cycle_count_work, update_cycle_count);
@@ -6293,10 +6310,10 @@ cancel_work:
 	cancel_delayed_work_sync(&chip->update_sram_data);
 	cancel_delayed_work_sync(&chip->update_temp_work);
 	cancel_delayed_work_sync(&chip->check_empty_work);
+	cancel_delayed_work_sync(&chip->batt_profile_init);
 	alarm_try_to_cancel(&chip->fg_cap_learning_alarm);
 	cancel_work_sync(&chip->set_resume_soc_work);
 	cancel_work_sync(&chip->fg_cap_learning_work);
-	cancel_work_sync(&chip->batt_profile_init);
 	cancel_work_sync(&chip->dump_sram);
 	cancel_work_sync(&chip->status_change_work);
 	cancel_work_sync(&chip->cycle_count_work);
