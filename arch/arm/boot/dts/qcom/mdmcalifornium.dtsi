@@ -236,6 +236,10 @@
 		compatible = "qcom,msm_gsi";
 	};
 
+	qcom,rmnet-ipa {
+		compatible = "qcom,rmnet-ipa3";
+	};
+
 	ipa_hw: qcom,ipa@07B00000 {
 		compatible = "qcom,ipa";
 		reg =
