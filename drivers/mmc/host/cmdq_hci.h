@@ -114,11 +114,6 @@
 #define CQIC_DEFAULT_ICCTH 31
 #define CQIC_DEFAULT_ICTOVAL 1
 
-#define CQ_CMD_DBG_RAM	0x158
-#define CQ_CMD_DBG_RAM_WA 0x198
-#define CQ_CMD_DBG_RAM_OL 0x19C
-
-
 /* attribute fields */
 #define VALID(x)	((x & 1) << 0)
 #define END(x)		((x & 1) << 1)
