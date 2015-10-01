@@ -553,11 +553,11 @@
 		reg-names = "acc-sel-l1";
 		regulator-name = "mem_acc_gfx_corner";
 		regulator-min-microvolt = <1>;
-		regulator-max-microvolt = <8>;
+		regulator-max-microvolt = <9>;
 
 		qcom,acc-sel-l1-bit-pos = <0>;
 		qcom,acc-sel-l1-bit-size = <2>;
-		qcom,corner-acc-map = <0 0 0 1 1 1 1 1>;
+		qcom,corner-acc-map = <0 0 0 1 1 1 1 1 1>;
 	};
 
 	/* CPR regulators */
@@ -571,12 +571,16 @@
 		interrupts = <0 314 0>;
 
 		regulator-name = "gfx_corner";
-		qcom,cpr-corners = <8>;
+		qcom,cpr-corners = <9>;
 		regulator-min-microvolt = <1>;
-		regulator-max-microvolt = <8>;
+		regulator-max-microvolt = <9>;
 
-		qcom,cpr-voltage-ceiling = <810000 865000 900000 950000 1010000 1050000 1110000 1165000>;
-		qcom,cpr-voltage-floor =   <755000 755000 755000 795000  835000  855000  920000  945000>;
+		qcom,cpr-voltage-ceiling =
+				<810000 865000 900000 950000 1010000
+				1050000 1110000 1165000 1165000>;
+		qcom,cpr-voltage-floor =
+				<755000 755000 755000 795000 835000
+				855000 920000 945000 945000>;
 		vdd-gfx-supply = <&pm8004_s5>;
 
 		vdd-mx-supply = <&pm8950_s6_level_ao>;
@@ -588,6 +592,7 @@
 					 <RPM_SMD_REGULATOR_LEVEL_SVS_PLUS>,
 					 <RPM_SMD_REGULATOR_LEVEL_NOM>,
 					 <RPM_SMD_REGULATOR_LEVEL_NOM_PLUS>,
+					 <RPM_SMD_REGULATOR_LEVEL_TURBO>,
 					 <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 
 		mem-acc-supply = <&mem_acc_gfx_vreg_corner>;
@@ -606,7 +611,9 @@
 		qcom,vdd-gfx-step-down-limit = <1>;
 		qcom,cpr-gfx-volt-step = <5000>;
 
-		qcom,cpr-init-voltage-ref = <865000 865000 950000 950000 950000 1050000 1050000 1165000>;
+		qcom,cpr-init-voltage-ref =
+				<865000 865000 950000 950000 950000
+				1050000 1050000 1165000 1165000>;
 		qcom,cpr-fuse-init-voltage =
 					<72 50 5>,
 					<72 50 5>,
@@ -615,12 +622,13 @@
 					<72 45 5>,
 					<72 40 5>,
 					<72 40 5>,
+					<72 35 5>,
 					<72 35 5>;
 		qcom,cpr-init-voltage-step = <12500>;
 		qcom,cpr-ro-count = <8>;
 		qcom,cpr-init-voltage-as-ceiling;
 		qcom,cpr-init-voltage-adjustment =
-				<(-55000) 0 (-60000) 0 (60000) 0 (60000) 0>;
+			<(-55000) 0 (-60000) 0 (60000) 0 (60000) 0 (50000)>;
 		qcom,cpr-target-quotients =
 			<513  489  620  574  237 272 144 177>,
 			<575  547  688  638  272 312 169 206>,
@@ -629,7 +637,8 @@
 			<917  880  1039 982  514 562 369 421>,
 			<998  960  1126 1069 571 617 422 472>,
 			<1074 1028 1198 1135 635 675 483 531>,
-			<1188 1135 1317 1246 720 753 562 605>;
+			<1188 1135 1317 1246 720 753 562 605>,
+			<1276 1212 1405 1323 776 816 604 654>;
 		qcom,cpr-enable;
 	};
 };
