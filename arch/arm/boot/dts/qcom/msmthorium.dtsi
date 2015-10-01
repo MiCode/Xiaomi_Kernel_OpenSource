@@ -91,6 +91,7 @@
 #include "msmthorium-pinctrl.dtsi"
 #include "msmthorium-cpu.dtsi"
 #include "msmthorium-ion.dtsi"
+#include "msm-arm-smmu-thorium.dtsi"
 #include "msmthorium-coresight.dtsi"
 #include "msmthorium-smp2p.dtsi"
 
