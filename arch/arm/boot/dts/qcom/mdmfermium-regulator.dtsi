@@ -29,7 +29,7 @@
 		mdmfermium_s3_level: regulator-s3-level {
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "mdmfermium_s3_level";
-
+			qcom,set = <3>;
 			regulator-min-microvolt =
 					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 			regulator-max-microvolt =
@@ -63,6 +63,7 @@
 		mdmfermium_s3_level_so: regulator-s3-level-so {
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "mdmfermium_s3_level_so";
+			qcom,set = <2>;
 			regulator-min-microvolt =
 					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 			regulator-max-microvolt =
@@ -88,7 +89,6 @@
 		mdmfermium_l1: regulator-l1 {
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "mdmfermium_l1";
-			parent-supply = <&mdmfermium_s2>;
 			regulator-min-microvolt = <1250000>;
 			regulator-max-microvolt = <1250000>;
 			qcom,init-voltage = <1250000>;
@@ -101,7 +101,6 @@
 		mdmfermium_l2: regulator-l2 {
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "mdmfermium_l2";
-			parent-supply = <&mdmfermium_s4>;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
@@ -114,7 +113,6 @@
 		mdmfermium_l3: regulator-l3 {
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "mdmfermium_l3";
-			parent-supply = <&mdmfermium_s4>;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
@@ -163,7 +161,6 @@
 		mdmfermium_l7: regulator-l7 {
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "mdmfermium_l7";
-			parent-supply = <&mdmfermium_s4>;
 			regulator-min-microvolt = <1700000>;
 			regulator-max-microvolt = <1900000>;
 			qcom,init-voltage = <1700000>;
@@ -176,7 +173,6 @@
 		mdmfermium_l8: regulator-l8 {
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "mdmfermium_l8";
-			parent-supply = <&mdmfermium_s4>;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
@@ -189,7 +185,6 @@
 		mdmfermium_l9: regulator-l9 {
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "mdmfermium_l9";
-			parent-supply = <&mdmfermium_s2>;
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1250000>;
 			qcom,init-voltage = <1200000>;
@@ -202,7 +197,6 @@
 		mdmfermium_l10: regulator-l10 {
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "mdmfermium_l10";
-			parent-supply = <&mdmfermium_s1>;
 			regulator-min-microvolt = <1050000>;
 			regulator-max-microvolt = <1050000>;
 			qcom,init-voltage = <1050000>;
@@ -215,7 +209,6 @@
 		mdmfermium_l11: regulator-l11 {
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "mdmfermium_l11";
-			parent-supply = <&mdmfermium_s4>;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
@@ -230,7 +223,6 @@
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "mdmfermium_l12_level";
 			qcom,set = <3>;
-			parent-supply = <&mdmfermium_s2>;
 			regulator-min-microvolt =
 					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 			regulator-max-microvolt =
@@ -242,7 +234,6 @@
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "mdmfermium_l12_level_ao";
 			qcom,set = <1>;
-			parent-supply = <&mdmfermium_s2>;
 			regulator-min-microvolt =
 					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 			regulator-max-microvolt =
@@ -255,7 +246,6 @@
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "mdmfermium_l12_level_so";
 			qcom,set = <2>;
-			parent-supply = <&mdmfermium_s2>;
 			regulator-min-microvolt =
 					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 			regulator-max-microvolt =
