@@ -1291,6 +1291,12 @@ adreno_get_rptr(struct adreno_ringbuffer *rb)
 	return rb->rptr;
 }
 
+static inline bool adreno_is_preemption_enabled(
+				struct adreno_device *adreno_dev)
+{
+	return test_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
+}
+
 /**
  * adreno_ctx_get_rb() - Return the ringbuffer that a context should
  * use based on priority
@@ -1307,6 +1313,14 @@ static inline struct adreno_ringbuffer *adreno_ctx_get_rb(
 		return NULL;
 
 	context = &(drawctxt->base);
+
+	/*
+	 * If preemption is disabled then everybody needs to go on the same
+	 * ringbuffer
+	 */
+
+	if (!adreno_is_preemption_enabled(adreno_dev))
+		return &(adreno_dev->ringbuffers[0]);
 
 	/*
 	 * Math to convert the priority field in context structure to an RB ID.
@@ -1359,12 +1373,6 @@ void adreno_writereg64(struct adreno_device *adreno_dev,
 
 unsigned int adreno_iommu_set_apriv(struct adreno_device *adreno_dev,
 				unsigned int *cmds, int set);
-
-static inline bool adreno_is_preemption_enabled(
-				struct adreno_device *adreno_dev)
-{
-	return test_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
-}
 
 static inline bool adreno_soft_fault_detect(struct adreno_device *adreno_dev)
 {
