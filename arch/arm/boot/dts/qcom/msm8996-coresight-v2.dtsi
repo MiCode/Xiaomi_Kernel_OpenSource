@@ -10,13 +10,15 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
 &soc {
 	tmc_etr: tmc@3028000 {
 		compatible = "arm,coresight-tmc";
 		reg = <0x3028000 0x1000>,
 		      <0x3084000 0x15000>;
 		reg-names = "tmc-base", "bam-base";
-		interrupts = <0 270 0>;
+		interrupts = <GIC_SPI 270 IRQ_TYPE_EDGE_RISING>;
 		interrupt-names = "byte-cntr-irq";
 
 		qcom,memory-size = <0x400000>;
