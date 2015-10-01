@@ -1301,17 +1301,6 @@ static int cpu_clock_8996_driver_probe(struct platform_device *pdev)
 	pwrcl_clk.hw_low_power_ctrl = true;
 	perfcl_clk.hw_low_power_ctrl = true;
 
-	/* If we mapped in APC bases for ACD, unmap them here. */
-	if (vbases[APC0_BASE]) {
-		iounmap(vbases[APC0_BASE]);
-		vbases[APC0_BASE] = NULL;
-	}
-
-	if (vbases[APC1_BASE]) {
-		iounmap(vbases[APC1_BASE]);
-		vbases[APC1_BASE] = NULL;
-	}
-
 	ret = cpu_clock_8996_resources_init(pdev);
 	if (ret) {
 		dev_err(&pdev->dev, "resources init failed\n");
