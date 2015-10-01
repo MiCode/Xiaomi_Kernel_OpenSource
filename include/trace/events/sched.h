@@ -76,6 +76,7 @@ TRACE_EVENT(sched_enq_deq_task,
 		__field(unsigned int,	sum_scaled		)
 		__field(unsigned int,	period			)
 		__field(unsigned int,	demand			)
+		__field(unsigned int,	grp_id			)
 #endif
 	),
 
@@ -93,12 +94,13 @@ TRACE_EVENT(sched_enq_deq_task,
 		__entry->sum_scaled	= p->se.avg.runnable_avg_sum_scaled;
 		__entry->period		= p->se.avg.runnable_avg_period;
 		__entry->demand		= p->ravg.demand;
+		__entry->grp_id		= p->grp ? p->grp->id : 0;
 #endif
 	),
 
 	TP_printk("cpu=%d %s comm=%s pid=%d prio=%d nr_running=%u cpu_load=%lu rt_nr_running=%u affine=%x"
 #ifdef CONFIG_SCHED_HMP
-		 " sum_scaled=%u period=%u demand=%u"
+		 " sum_scaled=%u period=%u demand=%u grp_id=%d"
 #endif
 			, __entry->cpu,
 			__entry->enqueue ? "enqueue" : "dequeue",
@@ -107,7 +109,8 @@ TRACE_EVENT(sched_enq_deq_task,
 			__entry->cpu_load, __entry->rt_nr_running,
 			__entry->cpus_allowed
 #ifdef CONFIG_SCHED_HMP
-			, __entry->sum_scaled, __entry->period, __entry->demand
+			, __entry->sum_scaled, __entry->period, __entry->demand,
+			__entry->grp_id
 #endif
 			)
 );
@@ -154,6 +157,31 @@ TRACE_EVENT(sched_task_load,
 		__entry->sum_scaled, __entry->period, __entry->demand,
 		__entry->small_task, __entry->boost, __entry->reason,
 		__entry->sync, __entry->prefer_idle)
+);
+
+TRACE_EVENT(sched_set_preferred_cluster,
+
+	TP_PROTO(struct related_thread_group *grp, u64 total_demand),
+
+	TP_ARGS(grp, total_demand),
+
+	TP_STRUCT__entry(
+		__field(		int,	id			)
+		__field(		u64,	demand			)
+		__field(		int,	cluster_first_cpu	)
+	),
+
+	TP_fast_assign(
+		__entry->id			= grp->id;
+		__entry->demand			= total_demand;
+		__entry->cluster_first_cpu	= grp->preferred_cluster ?
+							cluster_first_cpu(grp->preferred_cluster)
+							: -1;
+	),
+
+	TP_printk("group_id %d total_demand %llu preferred_cluster_first_cpu %d",
+			__entry->id, __entry->demand,
+			__entry->cluster_first_cpu)
 );
 
 TRACE_EVENT(sched_cpu_load,

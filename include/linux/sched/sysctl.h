@@ -46,6 +46,8 @@ extern unsigned int sysctl_sched_migration_fixup;
 extern unsigned int sysctl_sched_heavy_task_pct;
 extern unsigned int sysctl_sched_min_runtime;
 extern unsigned int sysctl_sched_enable_power_aware;
+extern unsigned int sysctl_sched_enable_colocation;
+extern unsigned int sysctl_sched_enable_thread_grouping;
 
 #if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
 extern unsigned int sysctl_sched_init_task_load_pct;
@@ -63,6 +65,9 @@ extern unsigned int sysctl_sched_small_task_pct;
 extern unsigned int sysctl_sched_upmigrate_pct;
 extern unsigned int sysctl_sched_downmigrate_pct;
 extern int sysctl_sched_upmigrate_min_nice;
+extern unsigned int sysctl_sched_grp_upmigrate_pct;
+extern unsigned int sysctl_sched_grp_downmigrate_pct;
+extern unsigned int sysctl_sched_grp_task_active_windows;
 extern unsigned int sysctl_sched_powerband_limit_pct;
 extern unsigned int sysctl_sched_boost;
 extern unsigned int sysctl_power_aware_timer_migration;
