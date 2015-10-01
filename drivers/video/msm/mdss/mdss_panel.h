@@ -32,6 +32,11 @@ struct panel_id {
 /* worst case prefill lines for all chipsets including all vertical blank */
 #define MDSS_MDP_MAX_PREFILL_FETCH 25
 
+#define OVERRIDE_CFG	"override"
+#define SIM_PANEL	"sim"
+#define SIM_SW_TE_PANEL	"sim-swte"
+#define SIM_HW_TE_PANEL	"sim-hwte"
+
 /* panel type list */
 #define NO_PANEL		0xffff	/* No Panel */
 #define MDDI_PANEL		1	/* MDDI */
@@ -107,6 +112,21 @@ enum {
 	MODE_GPIO_NOT_VALID = 0,
 	MODE_GPIO_HIGH,
 	MODE_GPIO_LOW,
+};
+
+/*
+ * enum sim_panel_modes - Different panel modes for simulator panels
+ *
+ * @SIM_MODE:		Disables all host reads for video mode simulator panels.
+ * @SIM_SW_TE_MODE:	Disables all host reads and genereates the SW TE. Used
+ *                      for cmd mode simulator panels.
+ * @SIM_HW_TE_MODE:	Disables all host reads and expects TE from hardware
+ *                      (terminator card). Used for cmd mode simulator panels.
+ */
+enum {
+	SIM_MODE = 1,
+	SIM_SW_TE_MODE,
+	SIM_HW_TE_MODE,
 };
 
 struct mdss_rect {
@@ -457,6 +477,9 @@ struct mdss_panel_info {
 
 	bool is_prim_panel;
 
+	/* refer sim_panel_modes enum for different modes */
+	u8 sim_panel_mode;
+
 	char panel_name[MDSS_MAX_PANEL_LEN];
 	struct mdss_mdp_pp_tear_check te;
 
@@ -716,6 +739,13 @@ int mdss_panel_get_boot_cfg(void);
  */
 bool mdss_is_ready(void);
 int mdss_rect_cmp(struct mdss_rect *rect1, struct mdss_rect *rect2);
+
+/**
+ * mdss_panel_override_te_params() - overrides TE params to enable SW TE
+ * @pinfo: panel info
+ */
+void mdss_panel_override_te_params(struct mdss_panel_info *pinfo);
+
 #ifdef CONFIG_FB_MSM_MDSS
 int mdss_panel_debugfs_init(struct mdss_panel_info *panel_info);
 void mdss_panel_debugfs_cleanup(struct mdss_panel_info *panel_info);
