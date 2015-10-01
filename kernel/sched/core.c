@@ -1248,6 +1248,254 @@ static void add_cluster(struct cpufreq_policy *policy)
 	mutex_unlock(&cluster_lock);
 }
 
+static LIST_HEAD(related_thread_groups);
+static DEFINE_SPINLOCK(related_thread_group_lock);
+static int nr_related_thread_groups;
+
+/* Return cluster which can offer required capacity for group */
+static struct sched_cluster *
+best_cluster(struct related_thread_group *grp, u64 total_demand)
+{
+	struct sched_cluster *cluster = NULL;
+
+	for_each_sched_cluster(cluster)
+		if (group_will_fit(cluster, grp, total_demand))
+			return cluster;
+
+	return NULL;
+}
+
+static inline bool is_task_active(struct task_struct *p)
+{
+	struct rq *rq = cpu_rq(smp_processor_id());
+
+	if (!sysctl_sched_grp_task_active_windows)
+		return true;
+
+	if (p->on_rq)
+		return true;
+
+	return (p->last_sleep_ts >= rq->window_start -
+				sched_grp_task_active_period);
+}
+
+static void _set_preferred_cluster(struct related_thread_group *grp)
+{
+	struct task_struct *p;
+	u64 combined_demand = 0;
+
+	if (!sysctl_sched_enable_colocation)
+		return;
+
+	/*
+	 * wakeup of two or more related tasks could race with each other and
+	 * could result in multiple calls to _set_preferred_cluster being issued
+	 * at same time. Avoid overhead in such cases of rechecking preferred
+	 * cluster
+	 */
+	if (sched_clock() - grp->last_update <
+			sched_grp_min_cluster_update_delta)
+		return;
+
+	list_for_each_entry(p, &grp->tasks, grp_list) {
+		if (is_task_active(p))
+			combined_demand += p->ravg.demand;
+	}
+
+	grp->preferred_cluster = best_cluster(grp, combined_demand);
+	grp->last_update = sched_clock();
+	trace_sched_set_preferred_cluster(grp, combined_demand);
+}
+
+static void set_preferred_cluster(struct related_thread_group *grp)
+{
+	raw_spin_lock(&grp->lock);
+	_set_preferred_cluster(grp);
+	raw_spin_unlock(&grp->lock);
+}
+
+struct related_thread_group *alloc_related_thread_group(int group_id)
+{
+	struct related_thread_group *grp;
+
+	grp = kzalloc(sizeof(*grp), GFP_KERNEL);
+	if (!grp)
+		return ERR_PTR(-ENOMEM);
+
+	grp->id = group_id;
+	INIT_LIST_HEAD(&grp->tasks);
+	INIT_LIST_HEAD(&grp->list);
+	raw_spin_lock_init(&grp->lock);
+
+	return grp;
+}
+
+struct related_thread_group *lookup_related_thread_group(unsigned int group_id)
+{
+	struct related_thread_group *grp;
+
+	list_for_each_entry(grp, &related_thread_groups, list) {
+		if (grp->id == group_id)
+			return grp;
+	}
+
+	return NULL;
+}
+
+/* See comments before preferred_cluster() */
+static void free_related_thread_group(struct rcu_head *rcu)
+{
+	struct related_thread_group *grp = container_of(rcu, struct
+			related_thread_group, rcu);
+
+	kfree(grp);
+}
+
+static void remove_task_from_group(struct task_struct *p)
+{
+	struct related_thread_group *grp = p->grp;
+	struct rq *rq;
+	int empty_group = 1;
+
+	raw_spin_lock(&grp->lock);
+
+	rq = __task_rq_lock(p);
+	list_del_init(&p->grp_list);
+	p->grp = NULL;
+	__task_rq_unlock(rq);
+
+	if (!list_empty(&grp->tasks)) {
+		empty_group = 0;
+		_set_preferred_cluster(grp);
+	}
+
+	raw_spin_unlock(&grp->lock);
+
+	if (empty_group) {
+		list_del(&grp->list);
+		nr_related_thread_groups--;
+		call_rcu(&grp->rcu, free_related_thread_group);
+	}
+}
+
+static int
+add_task_to_group(struct task_struct *p, struct related_thread_group *grp)
+{
+	struct rq *rq;
+
+	raw_spin_lock(&grp->lock);
+
+	/*
+	 * Change p->grp under rq->lock. Will prevent races with read-side
+	 * reference of p->grp in various hot-paths
+	 */
+	rq = __task_rq_lock(p);
+	p->grp = grp;
+	list_add(&p->grp_list, &grp->tasks);
+	__task_rq_unlock(rq);
+
+	_set_preferred_cluster(grp);
+
+	raw_spin_unlock(&grp->lock);
+
+	return 0;
+}
+
+static void
+add_new_task_to_grp(struct task_struct *new)
+{
+	unsigned long flags;
+	struct related_thread_group *grp;
+	struct task_struct *parent;
+
+	if (!sysctl_sched_enable_thread_grouping)
+		return;
+
+	if (thread_group_leader(new))
+		return;
+
+	parent = new->group_leader;
+
+	raw_spin_lock_irqsave(&parent->pi_lock, flags);
+	grp = parent->grp;
+	if (!grp) {
+		raw_spin_unlock_irqrestore(&parent->pi_lock, flags);
+		return;
+	}
+	raw_spin_lock(&grp->lock);
+	raw_spin_unlock_irqrestore(&parent->pi_lock, flags);
+
+	new->grp = grp;
+	list_add(&new->grp_list, &grp->tasks);
+
+	raw_spin_unlock(&grp->lock);
+}
+
+int sched_set_group_id(struct task_struct *p, unsigned int group_id)
+{
+	int rc = 0, destroy = 0;
+	unsigned long flags;
+	struct related_thread_group *grp = NULL, *new = NULL;
+
+redo:
+	spin_lock(&related_thread_group_lock);
+	raw_spin_lock_irqsave(&p->pi_lock, flags);
+
+	if ((current != p && p->flags & PF_EXITING) ||
+		(!p->grp && !group_id) || (p->grp && p->grp->id == group_id))
+			goto done;
+
+	if (!group_id) {
+		remove_task_from_group(p);
+		goto done;
+	}
+
+	if (p->grp && p->grp->id != group_id)
+		remove_task_from_group(p);
+
+	grp = lookup_related_thread_group(group_id);
+	if (!grp && !new) {
+		/* New group */
+		raw_spin_unlock_irqrestore(&p->pi_lock, flags);
+		spin_unlock(&related_thread_group_lock);
+		new = alloc_related_thread_group(group_id);
+		if (IS_ERR(new))
+			return -ENOMEM;
+		destroy = 1;
+		/* Rerun checks (like task exiting), since we dropped pi_lock */
+		goto redo;
+	} else if (!grp && new) {
+		/* New group - use object allocated before */
+		destroy = 0;
+		nr_related_thread_groups++;
+		list_add(&new->list, &related_thread_groups);
+		grp = new;
+	}
+
+	BUG_ON(!grp);
+	rc = add_task_to_group(p, grp);
+done:
+	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
+	spin_unlock(&related_thread_group_lock);
+
+	if (new && destroy)
+		kfree(new);
+
+	return rc;
+}
+
+unsigned int sched_get_group_id(struct task_struct *p)
+{
+	unsigned long flags;
+	unsigned int group_id;
+
+	raw_spin_lock_irqsave(&p->pi_lock, flags);
+	group_id = p->grp ? p->grp->id : 0;
+	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
+
+	return group_id;
+}
+
 static int __init set_sched_enable_hmp(char *str)
 {
 	int enable_hmp = 0;
@@ -1354,6 +1602,16 @@ __read_mostly unsigned int sysctl_sched_account_wait_time = 1;
 
 __read_mostly unsigned int sysctl_sched_cpu_high_irqload = (10 * NSEC_PER_MSEC);
 
+unsigned int __read_mostly sysctl_sched_enable_colocation = 1;
+
+unsigned int __read_mostly sysctl_sched_grp_task_active_windows = 1;
+
+/*
+ * Enable colocation for all threads in a process. The children
+ * inherits the group id from the parent.
+ */
+unsigned int __read_mostly sysctl_sched_enable_thread_grouping = 0;
+
 #ifdef CONFIG_SCHED_FREQ_INPUT
 
 static __read_mostly unsigned int sched_migration_fixup = 1;
@@ -1411,6 +1669,23 @@ __read_mostly unsigned int sched_ravg_window = 10000000;
 
 /* Max window size (in ns) = 1s */
 #define MAX_SCHED_RAVG_WINDOW 1000000000
+
+/* Thresholds used in preferred cluster evaluations */
+
+/*
+ * period = sysctl_sched_grp_task_active_windows * sched_ravg_window
+ */
+__read_mostly unsigned int sched_grp_task_active_period = 10000000;
+
+/*
+ * delta = sched_ravg_window / 4
+ */
+__read_mostly unsigned int sched_grp_min_task_load_delta = 2500000;
+
+/*
+ * delta = sched_ravg_window / 10;
+ */
+__read_mostly unsigned int sched_grp_min_cluster_update_delta = 1000000;
 
 /* Temporarily disable window-stats activity on all cpus */
 unsigned int __read_mostly sched_disable_window_stats;
@@ -2145,6 +2420,8 @@ void sched_exit(struct task_struct *p)
 	struct rq *rq = cpu_rq(cpu);
 	u64 wallclock;
 
+	sched_set_group_id(p, 0);
+
 	raw_spin_lock_irqsave(&rq->lock, flags);
 	/* rq->curr == p */
 	wallclock = sched_clock();
@@ -2779,6 +3056,25 @@ static void restore_orig_mark_start(struct task_struct *p, u64 mark_start)
 	p->ravg.mark_start = mark_start;
 }
 
+static inline int update_preferred_cluster(struct related_thread_group *grp,
+		struct task_struct *p, u32 old_load)
+{
+	u32 new_load = p->ravg.demand;
+
+	if (!sysctl_sched_enable_colocation || !grp)
+		return 0;
+
+	/*
+	 * Update if task's load has changed significantly or a complete window
+	 * has passed since we last updated preference
+	 */
+	if (abs(new_load - old_load) > sched_grp_min_task_load_delta ||
+			sched_clock() - p->grp->last_update > sched_ravg_window)
+		return 1;
+
+	return 0;
+}
+
 /*
  * Note down when task started running on a cpu. This information will be handy
  * to avoid "too" frequent task migrations for a running task on account of
@@ -3350,8 +3646,10 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	struct migration_notify_data mnd;
 	int heavy_task = 0;
 #ifdef CONFIG_SMP
+	unsigned int old_load;
 	struct rq *rq;
 	u64 wallclock;
+	struct related_thread_group *grp = NULL;
 #endif
 
 	/*
@@ -3387,11 +3685,16 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	rq = cpu_rq(task_cpu(p));
 
 	raw_spin_lock(&rq->lock);
+	old_load = task_load(p);
+	grp = task_related_thread_group(p);
 	wallclock = sched_clock();
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, wallclock, 0);
 	heavy_task = heavy_task_wakeup(p, rq, TASK_WAKE);
 	update_task_ravg(p, rq, TASK_WAKE, wallclock, 0);
 	raw_spin_unlock(&rq->lock);
+
+	if (update_preferred_cluster(grp, p, old_load))
+		set_preferred_cluster(grp);
 
 	p->sched_contributes_to_load = !!task_contributes_to_load(p);
 	p->state = TASK_WAKING;
@@ -3546,6 +3849,8 @@ static void __sched_fork(struct task_struct *p)
 	p->se.prev_sum_exec_runtime	= 0;
 	p->se.nr_migrations		= 0;
 	p->se.vruntime			= 0;
+
+	task_note_last_sleep(p, 0);
 
 	INIT_LIST_HEAD(&p->se.group_node);
 
@@ -3818,6 +4123,8 @@ void wake_up_new_task(struct task_struct *p)
 	struct rq *rq;
 
 	raw_spin_lock_irqsave(&p->pi_lock, flags);
+
+	add_new_task_to_grp(p);
 #ifdef CONFIG_SMP
 	/*
 	 * Fork balancing, do it here and not earlier because:
@@ -4827,10 +5134,14 @@ void scheduler_tick(void)
 	int cpu = smp_processor_id();
 	struct rq *rq = cpu_rq(cpu);
 	struct task_struct *curr = rq->curr;
+	u32 old_load;
+	struct related_thread_group *grp;
 
 	sched_clock_tick();
 
 	raw_spin_lock(&rq->lock);
+	old_load = task_load(curr);
+	grp = task_related_thread_group(curr);
 	set_window_start(rq);
 	update_rq_clock(rq);
 	update_cpu_load_active(rq);
@@ -4845,6 +5156,10 @@ void scheduler_tick(void)
 	trigger_load_balance(rq, cpu);
 #endif
 	rq_last_tick_reset(rq);
+
+	if (update_preferred_cluster(grp, curr, old_load))
+		set_preferred_cluster(grp);
+
 	if (curr->sched_class == &fair_sched_class)
 		check_for_migration(rq, curr);
 }
@@ -5108,6 +5423,8 @@ need_resched:
 	put_prev_task(rq, prev);
 	next = pick_next_task(rq);
 	wallclock = sched_clock();
+	if (!prev->on_rq)
+		task_note_last_sleep(prev, wallclock);
 	update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
 	update_task_ravg(next, rq, PICK_NEXT_TASK, wallclock, 0);
 	clear_tsk_need_resched(prev);
