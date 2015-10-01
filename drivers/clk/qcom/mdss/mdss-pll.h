@@ -48,6 +48,11 @@ enum {
 	MDSS_PLL_TARGET_8976,
 };
 
+enum {
+	SSC_CENTRE_SPREAD,
+	SSC_DOWN_SPREAD,
+};
+
 #define DFPS_MAX_NUM_OF_FRAME_RATES 10
 
 struct dfps_panel_info {
@@ -131,6 +136,14 @@ struct mdss_pll_resources {
 	 * 90 phase difference between bit and byte clock frequency.
 	 */
 	bool		pll_en_90_phase;
+
+	/*
+	 * DSI PLL SSC properties
+	 */
+	bool		ssc_en;
+	uint32_t	ssc_freq;
+	uint32_t	ssc_ppm;
+	uint32_t	spread_mode;
 
 	/*
 	 * handoff_status is true of pll is already enabled by bootloader with
