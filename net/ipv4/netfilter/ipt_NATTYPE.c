@@ -154,7 +154,7 @@ static bool nattype_packet_in_match(const struct ipt_nattype *nte,
 	 * further.
 	 */
 	if (nte->proto != iph->protocol) {
-		DEBUGP("nattype_packet_in_match: protocol failed: nte proto:"
+		DEBUGP("nattype_packet_in_match: protocol failed: nte proto:");
 		DEBUGP(" %d, packet proto: %d\n",
 		       nte->proto, iph->protocol);
 		return false;
