@@ -50,13 +50,13 @@ struct hdmi_hdcp2p2_ctrl {
 	enum hdmi_hdcp2p2_sink_status sink_status; /* Is sink connected */
 	struct hdmi_hdcp_init_data init_data; /* Feature data from HDMI drv */
 	struct mutex mutex; /* mutex to protect access to ctrl */
+	struct mutex wakeup_mutex; /* mutex to protect access to wakeup call*/
 	struct hdmi_hdcp_ops *ops;
 	void *lib_ctx; /* Handle to HDCP 2.2 Trustzone library */
-	struct hdcp_txmtr_ops *txmtr_ops; /* Ops for driver to call into TZ */
-	struct hdcp_client_ops *client_ops; /* Ops for driver to export to TZ */
+	struct hdcp_txmtr_ops *lib; /* Ops for driver to call into TZ */
 	struct completion rxstatus_completion; /* Rx status interrupt */
 
-	enum hdmi_hdcp_cmd wakeup_cmd;
+	enum hdmi_hdcp_wakeup_cmd wakeup_cmd;
 	char *send_msg_buf;
 	uint32_t send_msg_len;
 	uint32_t timeout;
@@ -68,6 +68,80 @@ struct hdmi_hdcp2p2_ctrl {
 	struct kthread_work send_msg;
 	struct kthread_work recv_msg;
 };
+
+static int hdmi_hdcp2p2_wakeup(struct hdmi_hdcp_wakeup_data *data)
+{
+	struct hdmi_hdcp2p2_ctrl *ctrl;
+
+	if (!data) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	ctrl = data->context;
+	if (!ctrl) {
+		pr_err("invalid ctrl\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ctrl->wakeup_mutex);
+
+	pr_debug("wakeup_cmd: %s\n", hdmi_hdcp_cmd_to_str(data->cmd));
+
+	ctrl->wakeup_cmd = data->cmd;
+	ctrl->timeout = data->timeout;
+
+	if (data->send_msg_len)	{
+		ctrl->send_msg_len = data->send_msg_len;
+
+		ctrl->send_msg_buf = kzalloc(
+			data->send_msg_len, GFP_KERNEL);
+
+		if (!ctrl->send_msg_buf)
+			goto exit;
+
+		memcpy(ctrl->send_msg_buf, data->send_msg_buf,
+			ctrl->send_msg_len);
+	}
+
+	switch (ctrl->wakeup_cmd) {
+	case HDMI_HDCP_WKUP_CMD_SEND_MESSAGE:
+		if (atomic_read(&ctrl->auth_state) != HDCP_STATE_INACTIVE)
+			queue_kthread_work(&ctrl->worker, &ctrl->send_msg);
+		break;
+	case HDMI_HDCP_WKUP_CMD_RECV_MESSAGE:
+		if (atomic_read(&ctrl->auth_state) != HDCP_STATE_INACTIVE)
+			queue_kthread_work(&ctrl->worker, &ctrl->recv_msg);
+		break;
+	case HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS:
+	case HDMI_HDCP_WKUP_CMD_STATUS_FAILED:
+		if (atomic_read(&ctrl->auth_state) != HDCP_STATE_INACTIVE)
+			queue_kthread_work(&ctrl->worker, &ctrl->status);
+		break;
+	case HDMI_HDCP_WKUP_CMD_AUTHENTICATE:
+		queue_kthread_work(&ctrl->worker, &ctrl->auth);
+		break;
+	default:
+		pr_err("invalid wakeup command %d\n", ctrl->wakeup_cmd);
+	}
+exit:
+	mutex_unlock(&ctrl->wakeup_mutex);
+	return 0;
+}
+
+static inline void hdmi_hdcp2p2_wakeup_lib(struct hdmi_hdcp2p2_ctrl *ctrl,
+	struct hdcp_lib_wakeup_data *data)
+{
+	int rc = 0;
+
+	if (ctrl && ctrl->lib && ctrl->lib->wakeup &&
+		data && (data->cmd != HDCP_LIB_WKUP_CMD_INVALID)) {
+		rc = ctrl->lib->wakeup(data);
+		if (rc)
+			pr_err("error sending %s to lib\n",
+				hdcp_lib_cmd_to_str(data->cmd));
+	}
+}
 
 static void hdmi_hdcp2p2_reset(struct hdmi_hdcp2p2_ctrl *ctrl)
 {
@@ -83,6 +157,7 @@ static void hdmi_hdcp2p2_reset(struct hdmi_hdcp2p2_ctrl *ctrl)
 static void hdmi_hdcp2p2_off(void *input)
 {
 	struct hdmi_hdcp2p2_ctrl *ctrl = (struct hdmi_hdcp2p2_ctrl *)input;
+	struct hdmi_hdcp_wakeup_data cdata = {HDMI_HDCP_WKUP_CMD_AUTHENTICATE};
 
 	if (!ctrl) {
 		pr_err("invalid input\n");
@@ -93,25 +168,25 @@ static void hdmi_hdcp2p2_off(void *input)
 
 	flush_kthread_worker(&ctrl->worker);
 
-	mutex_lock(&ctrl->mutex);
-	queue_kthread_work(&ctrl->worker, &ctrl->auth);
-	mutex_unlock(&ctrl->mutex);
+	cdata.context = input;
+
+	hdmi_hdcp2p2_wakeup(&cdata);
 }
 
 static int hdmi_hdcp2p2_authenticate(void *input)
 {
 	struct hdmi_hdcp2p2_ctrl *ctrl = input;
+	struct hdmi_hdcp_wakeup_data cdata = {HDMI_HDCP_WKUP_CMD_AUTHENTICATE};
 	int rc = 0;
 
 	flush_kthread_worker(&ctrl->worker);
 
-	mutex_lock(&ctrl->mutex);
 	ctrl->sink_status = SINK_CONNECTED;
 	atomic_set(&ctrl->auth_state, HDCP_STATE_AUTHENTICATING);
 
-	queue_kthread_work(&ctrl->worker, &ctrl->auth);
+	cdata.context = input;
+	hdmi_hdcp2p2_wakeup(&cdata);
 
-	mutex_unlock(&ctrl->mutex);
 	return rc;
 }
 
@@ -208,7 +283,7 @@ static ssize_t hdmi_hdcp2p2_sysfs_wta_min_level_change(struct device *dev,
 	}
 
 	pr_debug("notification of minimum level change received\n");
-	res = ctrl->txmtr_ops->
+	res = ctrl->lib->
 		hdcp_query_stream_type(ctrl->lib_ctx);
 
 	return  count;
@@ -398,7 +473,7 @@ static bool hdmi_hdcp2p2_feature_supported(void *input)
 		goto end;
 	}
 
-	lib = ctrl->txmtr_ops;
+	lib = ctrl->lib;
 	if (!lib) {
 		pr_err("invalid lib ops data\n");
 		goto end;
@@ -416,8 +491,7 @@ static void hdmi_hdcp2p2_send_msg_work(struct kthread_work *work)
 	int rc = 0;
 	struct hdmi_hdcp2p2_ctrl *ctrl = container_of(work,
 		struct hdmi_hdcp2p2_ctrl, send_msg);
-	struct hdcp_txmtr_ops *lib = NULL;
-	enum hdcp_lib_wakeup_cmd cmd;
+	struct hdcp_lib_wakeup_data cdata = {HDCP_LIB_WKUP_CMD_INVALID};
 
 	if (!ctrl) {
 		pr_err("invalid input\n");
@@ -426,34 +500,27 @@ static void hdmi_hdcp2p2_send_msg_work(struct kthread_work *work)
 
 	mutex_lock(&ctrl->mutex);
 
+	cdata.context = ctrl->lib_ctx;
+
 	if (atomic_read(&ctrl->auth_state) == HDCP_STATE_INACTIVE) {
 		pr_err("hdcp is off\n");
 		goto exit;
 	}
 
-	lib = ctrl->txmtr_ops;
-
-	if (!lib) {
-		pr_err("invalid lib data\n");
-		goto exit;
-	}
-
 	/* Forward the message to the sink */
 	rc = hdmi_hdcp2p2_ddc_write_message(ctrl,
-		ctrl->send_msg_buf,
-		(size_t)ctrl->send_msg_len);
+		ctrl->send_msg_buf, (size_t)ctrl->send_msg_len);
 	if (rc) {
 		pr_err("Error sending msg to sink %d\n", rc);
-		cmd = HDCP_WKUP_CMD_MSG_SEND_FAILED;
+		cdata.cmd = HDCP_LIB_WKUP_CMD_MSG_SEND_FAILED;
 	} else {
-		cmd = HDCP_WKUP_CMD_MSG_SEND_SUCCESS;
+		cdata.cmd = HDCP_LIB_WKUP_CMD_MSG_SEND_SUCCESS;
 	}
-
-	if (lib->wakeup)
-		lib->wakeup(ctrl->lib_ctx, cmd, 0, 0);
 exit:
 	kzfree(ctrl->send_msg_buf);
 	mutex_unlock(&ctrl->mutex);
+
+	hdmi_hdcp2p2_wakeup_lib(ctrl, &cdata);
 }
 
 static void hdmi_hdcp2p2_recv_msg_work(struct kthread_work *work)
@@ -463,11 +530,10 @@ static void hdmi_hdcp2p2_recv_msg_work(struct kthread_work *work)
 	char *recvd_msg_buf = NULL;
 	struct hdmi_hdcp2p2_ctrl *ctrl = container_of(work,
 		struct hdmi_hdcp2p2_ctrl, recv_msg);
-	struct hdcp_txmtr_ops *lib = NULL;
-	enum hdcp_lib_wakeup_cmd cmd;
 	struct hdmi_tx_hdcp2p2_ddc_data hdcp2p2_ddc_data;
 	struct hdmi_tx_ddc_ctrl *ddc_ctrl;
 	struct msm_hdmi_mode_timing_info *timing;
+	struct hdcp_lib_wakeup_data cdata = {HDCP_LIB_WKUP_CMD_INVALID};
 
 	if (!ctrl) {
 		pr_err("invalid input\n");
@@ -476,13 +542,7 @@ static void hdmi_hdcp2p2_recv_msg_work(struct kthread_work *work)
 
 	mutex_lock(&ctrl->mutex);
 
-	lib = ctrl->txmtr_ops;
-
-	if (!lib) {
-		pr_err("invalid lib data\n");
-		rc = -EINVAL;
-		goto exit;
-	}
+	cdata.context = ctrl->lib_ctx;
 
 	if (atomic_read(&ctrl->auth_state) == HDCP_STATE_INACTIVE) {
 		pr_err("hdcp is off\n");
@@ -539,20 +599,20 @@ static void hdmi_hdcp2p2_recv_msg_work(struct kthread_work *work)
 	hdmi_hdcp2p2_ddc_abort(ctrl);
 	hdmi_hdcp2p2_ddc_reset(ddc_ctrl);
 	hdmi_hdcp2p2_ddc_disable(ddc_ctrl);
+
+	cdata.cmd = HDCP_LIB_WKUP_CMD_MSG_RECV_SUCCESS;
+	cdata.recvd_msg_buf = recvd_msg_buf;
+	cdata.recvd_msg_len = msg_size;
 exit:
 	if (rc == -ETIMEDOUT)
-		cmd = HDCP_WKUP_CMD_MSG_RECV_TIMEOUT;
+		cdata.cmd = HDCP_LIB_WKUP_CMD_MSG_RECV_TIMEOUT;
 	else if (rc)
-		cmd = HDCP_WKUP_CMD_MSG_RECV_FAILED;
-	else
-		cmd = HDCP_WKUP_CMD_MSG_RECV_SUCCESS;
+		cdata.cmd = HDCP_LIB_WKUP_CMD_MSG_RECV_FAILED;
 
-	if (lib->wakeup)
-		lib->wakeup(ctrl->lib_ctx, cmd,
-			recvd_msg_buf, msg_size);
-
-	kfree(recvd_msg_buf);
 	mutex_unlock(&ctrl->mutex);
+
+	hdmi_hdcp2p2_wakeup_lib(ctrl, &cdata);
+	kfree(recvd_msg_buf);
 }
 
 static void hdmi_hdcp2p2_auth_status_work(struct kthread_work *work)
@@ -572,9 +632,9 @@ static void hdmi_hdcp2p2_auth_status_work(struct kthread_work *work)
 		goto exit;
 	}
 
-	if (ctrl->wakeup_cmd == HDMI_HDCP_STATUS_FAIL) {
+	if (ctrl->wakeup_cmd == HDMI_HDCP_WKUP_CMD_STATUS_FAILED) {
 		hdmi_hdcp2p2_auth_failed(ctrl);
-	} else if (ctrl->wakeup_cmd == HDMI_HDCP_STATUS_SUCCESS) {
+	} else if (ctrl->wakeup_cmd == HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS) {
 		/* Enable interrupts */
 		u32 regval = DSS_REG_R(ctrl->init_data.core_io,
 				HDMI_HDCP_INT_CTRL2);
@@ -598,8 +658,7 @@ static void hdmi_hdcp2p2_auth_work(struct kthread_work *work)
 {
 	struct hdmi_hdcp2p2_ctrl *ctrl = container_of(work,
 		struct hdmi_hdcp2p2_ctrl, auth);
-	enum hdcp_lib_wakeup_cmd cmd;
-	struct hdcp_txmtr_ops *lib = NULL;
+	struct hdcp_lib_wakeup_data cdata = {HDCP_LIB_WKUP_CMD_INVALID};
 
 	if (!ctrl) {
 		pr_err("invalid input\n");
@@ -608,93 +667,31 @@ static void hdmi_hdcp2p2_auth_work(struct kthread_work *work)
 
 	mutex_lock(&ctrl->mutex);
 
-	if (atomic_read(&ctrl->auth_state) == HDCP_STATE_INACTIVE) {
-		pr_err("hdcp is off\n");
-		goto exit;
-	}
+	cdata.context = ctrl->lib_ctx;
 
-	lib = ctrl->txmtr_ops;
-	if (lib && lib->wakeup) {
-		if (atomic_read(&ctrl->auth_state) ==
-			HDCP_STATE_AUTHENTICATING)
-			cmd = HDCP_WKUP_CMD_START;
-		else
-			cmd = HDCP_WKUP_CMD_STOP;
+	if (atomic_read(&ctrl->auth_state) == HDCP_STATE_AUTHENTICATING)
+		cdata.cmd = HDCP_LIB_WKUP_CMD_START;
+	else
+		cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
 
-		lib->wakeup(ctrl->lib_ctx, cmd, 0, 0);
-	}
-exit:
 	mutex_unlock(&ctrl->mutex);
-}
 
-static int hdmi_hdcp2p2_wakeup(void *client_ctx, enum hdmi_hdcp_cmd cmd,
-	char *msg, uint32_t msglen, uint32_t timeout)
-{
-	struct hdmi_hdcp2p2_ctrl *ctrl = client_ctx;
-
-	if (!ctrl) {
-		pr_err("invalid input\n");
-		return -EINVAL;
-	}
-
-	mutex_lock(&ctrl->mutex);
-
-	pr_debug("wakeup_cmd: %s\n", hdmi_hdcp_cmd_to_str(cmd));
-
-	if (atomic_read(&ctrl->auth_state) == HDCP_STATE_INACTIVE) {
-		pr_err("hdcp is off\n");
-		goto exit;
-	}
-
-	ctrl->wakeup_cmd = cmd;
-	ctrl->send_msg_len = msglen;
-	ctrl->timeout = timeout;
-
-	if (msglen)	{
-		ctrl->send_msg_buf = kzalloc(
-			ctrl->send_msg_len, GFP_KERNEL);
-
-		if (!ctrl->send_msg_buf)
-			goto exit;
-
-		memcpy(ctrl->send_msg_buf, msg, msglen);
-	}
-
-	switch (ctrl->wakeup_cmd) {
-	case HDMI_HDCP_SEND_MESSAGE:
-		queue_kthread_work(&ctrl->worker, &ctrl->send_msg);
-		break;
-	case HDMI_HDCP_RECV_MESSAGE:
-		queue_kthread_work(&ctrl->worker, &ctrl->recv_msg);
-		break;
-	case HDMI_HDCP_STATUS_SUCCESS:
-	case HDMI_HDCP_STATUS_FAIL:
-		queue_kthread_work(&ctrl->worker, &ctrl->status);
-		break;
-	default:
-		pr_err("invalid wakeup command %d\n",
-			ctrl->wakeup_cmd);
-	}
-exit:
-	mutex_unlock(&ctrl->mutex);
-	return 0;
+	hdmi_hdcp2p2_wakeup_lib(ctrl, &cdata);
 }
 
 void hdmi_hdcp2p2_deinit(void *input)
 {
 	struct hdmi_hdcp2p2_ctrl *ctrl = (struct hdmi_hdcp2p2_ctrl *)input;
-	struct hdcp_txmtr_ops *lib = NULL;
+	struct hdcp_lib_wakeup_data cdata = {HDCP_LIB_WKUP_CMD_INVALID};
 
 	if (!ctrl) {
 		pr_err("invalid input\n");
 		return;
 	}
 
-	lib = ctrl->txmtr_ops;
-
-	if (lib && lib->wakeup)
-		lib->wakeup(ctrl->lib_ctx,
-			HDCP_WKUP_CMD_STOP, 0, 0);
+	cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
+	cdata.context = ctrl->lib_ctx;
+	hdmi_hdcp2p2_wakeup_lib(ctrl, &cdata);
 
 	kthread_stop(ctrl->thread);
 
@@ -742,8 +739,7 @@ void *hdmi_hdcp2p2_init(struct hdmi_hdcp_init_data *init_data)
 		return ERR_PTR(-ENOMEM);
 
 	ctrl->init_data = *init_data;
-	ctrl->client_ops = &client_ops;
-	ctrl->txmtr_ops = &txmtr_ops;
+	ctrl->lib = &txmtr_ops;
 
 	rc = sysfs_create_group(init_data->sysfs_kobj,
 				&hdmi_hdcp2p2_fs_attr_group);
@@ -760,10 +756,10 @@ void *hdmi_hdcp2p2_init(struct hdmi_hdcp_init_data *init_data)
 
 	ctrl->ops = &ops;
 	mutex_init(&ctrl->mutex);
+	mutex_init(&ctrl->wakeup_mutex);
 
 	rc = hdcp_library_register(&ctrl->lib_ctx,
-			ctrl->client_ops,
-			ctrl->txmtr_ops, ctrl);
+			&client_ops, ctrl->lib, ctrl);
 	if (rc) {
 		pr_err("Unable to register with HDCP 2.2 library\n");
 		goto error;
