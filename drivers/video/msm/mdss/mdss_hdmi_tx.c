@@ -432,7 +432,6 @@ static const char *hdmi_tx_io_name(u32 type)
 {
 	switch (type) {
 	case HDMI_TX_CORE_IO:	return "core_physical";
-	case HDMI_TX_PHY_IO:	return "phy_physical";
 	case HDMI_TX_QFPROM_IO:	return "qfprom_physical";
 	case HDMI_TX_HDCP_IO:	return "hdcp_physical";
 	default:		return NULL;
@@ -2621,51 +2620,6 @@ static void hdmi_tx_phy_reset(struct hdmi_tx_ctrl *hdmi_ctrl)
 		DSS_REG_W_ND(io, HDMI_PHY_CTRL, val | SW_RESET_PLL);
 } /* hdmi_tx_phy_reset */
 
-static void hdmi_tx_init_phy(struct hdmi_tx_ctrl *hdmi_ctrl)
-{
-	struct dss_io_data *io = NULL;
-
-	if (!hdmi_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return;
-	}
-
-	io = &hdmi_ctrl->pdata.io[HDMI_TX_PHY_IO];
-	if (!io->base) {
-		DEV_DBG("%s: phy not initialized or init not available\n",
-			 __func__);
-		return;
-	}
-
-	DSS_REG_W_ND(io, HDMI_PHY_ANA_CFG0, 0x1B);
-	DSS_REG_W_ND(io, HDMI_PHY_ANA_CFG1, 0xF2);
-	DSS_REG_W_ND(io, HDMI_PHY_BIST_CFG0, 0x0);
-	DSS_REG_W_ND(io, HDMI_PHY_BIST_PATN0, 0x0);
-	DSS_REG_W_ND(io, HDMI_PHY_BIST_PATN1, 0x0);
-	DSS_REG_W_ND(io, HDMI_PHY_BIST_PATN2, 0x0);
-	DSS_REG_W_ND(io, HDMI_PHY_BIST_PATN3, 0x0);
-
-	DSS_REG_W_ND(io, HDMI_PHY_PD_CTRL1, 0x20);
-} /* hdmi_tx_init_phy */
-
-static void hdmi_tx_powerdown_phy(struct hdmi_tx_ctrl *hdmi_ctrl)
-{
-	struct dss_io_data *io = NULL;
-
-	if (!hdmi_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return;
-	}
-	io = &hdmi_ctrl->pdata.io[HDMI_TX_PHY_IO];
-	if (!io->base) {
-		DEV_DBG("%s: phy not initialized or pd not available\n",
-			 __func__);
-		return;
-	}
-
-	DSS_REG_W_ND(io, HDMI_PHY_PD_CTRL0, 0x7F);
-} /* hdmi_tx_powerdown_phy */
-
 static int hdmi_tx_audio_acr_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 	bool enabled)
 {
@@ -3348,16 +3302,13 @@ static int hdmi_tx_start(struct hdmi_tx_ctrl *hdmi_ctrl)
 	}
 
 	hdmi_tx_set_mode(hdmi_ctrl, false);
-	hdmi_tx_init_phy(hdmi_ctrl);
-	DSS_REG_W(io, HDMI_USEC_REFTIMER, 0x0001001B);
 
-	hdmi_tx_set_mode(hdmi_ctrl, true);
+	DSS_REG_W(io, HDMI_USEC_REFTIMER, 0x0001001B);
 
 	rc = hdmi_tx_video_setup(hdmi_ctrl);
 	if (rc) {
 		DEV_ERR("%s: hdmi_tx_video_setup failed. rc=%d\n",
 			__func__, rc);
-		hdmi_tx_set_mode(hdmi_ctrl, false);
 		return rc;
 	}
 
@@ -3376,6 +3327,8 @@ static int hdmi_tx_start(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	if (hdmi_tx_setup_scrambler(hdmi_ctrl))
 		DEV_WARN("%s: Scrambler setup failed\n", __func__);
+
+	hdmi_tx_set_mode(hdmi_ctrl, true);
 
 	DEV_INFO("%s: HDMI Core: Initialized\n", __func__);
 
@@ -3443,8 +3396,6 @@ static int hdmi_tx_power_off(struct mdss_panel_data *panel_data)
 	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl))
 		hdmi_tx_audio_off(hdmi_ctrl);
 
-	hdmi_tx_powerdown_phy(hdmi_ctrl);
-
 	hdmi_cec_deconfig(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]);
 
 	hdmi_tx_core_off(hdmi_ctrl);
@@ -3492,8 +3443,7 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 	}
 
 	if (!hdmi_ctrl->hpd_initialized) {
-		DEV_ERR("%s: HDMI on is not possible w/o cable detection.\n",
-			__func__);
+		DEV_ERR("%s: hpd not initialized\n", __func__);
 		return -EPERM;
 	}
 
@@ -3518,6 +3468,9 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 			hdmi_cec_config(
 				hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]);
 
+			hdmi_tx_set_vendor_specific_infoframe(hdmi_ctrl);
+			hdmi_tx_set_spd_infoframe(hdmi_ctrl);
+
 			if (!hdmi_tx_is_hdcp_enabled(hdmi_ctrl))
 				hdmi_tx_set_audio_switch_node(hdmi_ctrl, 1);
 
@@ -3534,7 +3487,6 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 	hdmi_cec_config(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]);
 
 	if (hdmi_ctrl->hpd_state) {
-		DEV_DBG("%s: Turning HDMI on\n", __func__);
 		rc = hdmi_tx_start(hdmi_ctrl);
 		if (rc) {
 			DEV_ERR("%s: hdmi_tx_start failed. rc=%d\n",
@@ -3550,9 +3502,9 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 end:
 	dss_reg_dump(io->base, io->len, "HDMI-ON: ", REG_DUMP);
 
-	DEV_INFO("%s: HDMI=%s DVI= %s\n", __func__,
+	DEV_DBG("%s: Tx: %s (%s mode)\n", __func__,
 		hdmi_tx_is_controller_on(hdmi_ctrl) ? "ON" : "OFF" ,
-		hdmi_tx_is_dvi_mode(hdmi_ctrl) ? "ON" : "OFF");
+		hdmi_tx_is_dvi_mode(hdmi_ctrl) ? "DVI" : "HDMI");
 
 	hdmi_tx_hpd_polarity_setup(hdmi_ctrl, HPD_DISCONNECT_POLARITY);
 
