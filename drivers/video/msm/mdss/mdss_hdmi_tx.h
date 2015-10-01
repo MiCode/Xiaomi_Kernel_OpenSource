@@ -160,11 +160,13 @@ struct hdmi_tx_ctrl {
 	u32 vote_hdmi_core_on;
 	u8  timing_gen_on;
 	u8  mhl_hpd_on;
+	u8  hdcp_status;
 
 	struct hdmi_util_ds_data ds_data;
 	struct completion hpd_int_done;
 	struct completion hpd_off_done;
 	struct work_struct hpd_int_work;
+	struct delayed_work hdcp_cb_work;
 
 	struct work_struct cable_notify_work;
 
