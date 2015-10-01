@@ -157,6 +157,21 @@
 			};
 		};
 
+		cnss_pins {
+			cnss_default: cnss_default {
+				mux {
+					pins = "gpio95";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio95";
+					drive-strength = <16>;
+					bias-pull-down;
+				};
+			};
+		};
+
 		/* SPI CONFIGURATION */
 		spi_1 {
 			spi_1_active: spi_1_active {
