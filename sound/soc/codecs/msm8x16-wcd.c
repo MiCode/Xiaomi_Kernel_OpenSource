@@ -2459,13 +2459,16 @@ static const char * const iir_inp1_text[] = {
 };
 
 static const struct soc_enum adc2_enum =
-	SOC_ENUM_SINGLE(0, 0, ARRAY_SIZE(adc2_mux_text), adc2_mux_text);
+	SOC_ENUM_SINGLE(SND_SOC_NOPM, 0,
+		ARRAY_SIZE(adc2_mux_text), adc2_mux_text);
 
 static const struct soc_enum ext_spk_enum =
-	SOC_ENUM_SINGLE(0, 0, ARRAY_SIZE(ext_spk_text), ext_spk_text);
+	SOC_ENUM_SINGLE(SND_SOC_NOPM, 0,
+		ARRAY_SIZE(ext_spk_text), ext_spk_text);
 
 static const struct soc_enum wsa_spk_enum =
-	SOC_ENUM_SINGLE(0, 0, ARRAY_SIZE(wsa_spk_text), wsa_spk_text);
+	SOC_ENUM_SINGLE(SND_SOC_NOPM, 0,
+		ARRAY_SIZE(wsa_spk_text), wsa_spk_text);
 
 /* RX1 MIX1 */
 static const struct soc_enum rx_mix1_inp1_chain_enum =
@@ -2700,7 +2703,7 @@ static const char * const ear_text[] = {
 };
 
 static const struct soc_enum ear_enum =
-	SOC_ENUM_SINGLE(0, 0, ARRAY_SIZE(ear_text), ear_text);
+	SOC_ENUM_SINGLE(SND_SOC_NOPM, 0, ARRAY_SIZE(ear_text), ear_text);
 
 static const struct snd_kcontrol_new ear_pa_mux[] = {
 	SOC_DAPM_ENUM("EAR_S", ear_enum)
@@ -2718,7 +2721,7 @@ static const char * const hph_text[] = {
 };
 
 static const struct soc_enum hph_enum =
-	SOC_ENUM_SINGLE(0, 0, ARRAY_SIZE(hph_text), hph_text);
+	SOC_ENUM_SINGLE(SND_SOC_NOPM, 0, ARRAY_SIZE(hph_text), hph_text);
 
 static const struct snd_kcontrol_new hphl_mux[] = {
 	SOC_DAPM_ENUM("HPHL", hph_enum)
