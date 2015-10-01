@@ -31,6 +31,10 @@
 #define IPA_USB_ERR(fmt, args...) \
 	pr_err(IPA_USB_DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
 
+typedef void (*ipa_usb_callback)(void *priv,
+		enum ipa_dp_evt_type evt,
+		unsigned long data);
+
 enum ipa3_usb_teth_prot_state {
 	IPA_USB_TETH_PROT_INITIALIZED,
 	IPA_USB_TETH_PROT_CONNECTED,
@@ -1337,6 +1341,36 @@ static int ipa3_usb_disconnect_teth_prot(enum ipa_usb_teth_prot teth_prot)
 	return result;
 }
 
+static ipa_usb_callback ipa3_usb_get_client_notify_cb(
+	enum ipa_usb_teth_prot teth_prot, bool is_tx)
+{
+	switch (teth_prot) {
+	case IPA_USB_RNDIS:
+		if (is_tx)
+			return ipa3_usb_ctx->teth_prot_ctx[IPA_USB_RNDIS].
+				teth_prot_params.rndis.ipa_tx_notify;
+		else
+			return ipa3_usb_ctx->teth_prot_ctx[IPA_USB_RNDIS].
+				teth_prot_params.rndis.ipa_rx_notify;
+	case IPA_USB_ECM:
+		if (is_tx)
+			return ipa3_usb_ctx->teth_prot_ctx[IPA_USB_ECM].
+				teth_prot_params.ecm.ecm_ipa_tx_dp_notify;
+		else
+			return ipa3_usb_ctx->teth_prot_ctx[IPA_USB_ECM].
+				teth_prot_params.ecm.ecm_ipa_rx_dp_notify;
+	case IPA_USB_RMNET:
+	case IPA_USB_MBIM:
+		return ipa3_usb_ctx->teth_bridge_params.usb_notify_cb;
+	case IPA_USB_DIAG:
+		return NULL;
+	default:
+		return NULL;
+	}
+
+	return NULL;
+}
+
 static int ipa3_usb_xdci_connect_diag(
 	struct ipa_usb_xdci_connect_params *params)
 {
@@ -1345,7 +1379,8 @@ static int ipa3_usb_xdci_connect_diag(
 	/* Start DIAG channel */
 	result = ipa3_xdci_connect(params->ipa_to_usb_clnt_hdl,
 		params->ipa_to_usb_xferrscidx,
-		params->ipa_to_usb_xferrscidx_valid);
+		params->ipa_to_usb_xferrscidx_valid,
+		ipa3_usb_get_client_notify_cb(IPA_USB_DIAG, true));
 	if (result) {
 		IPA_USB_ERR("failed to connect DIAG channel.\n");
 		return result;
@@ -1430,7 +1465,8 @@ int ipa3_usb_xdci_connect(struct ipa_usb_xdci_connect_params *params)
 	/* Start UL channel */
 	result = ipa3_xdci_connect(params->usb_to_ipa_clnt_hdl,
 		params->usb_to_ipa_xferrscidx,
-		params->usb_to_ipa_xferrscidx_valid);
+		params->usb_to_ipa_xferrscidx_valid,
+		ipa3_usb_get_client_notify_cb(params->teth_prot, false));
 	if (result) {
 		IPA_USB_ERR("failed to connect UL channel.\n");
 		goto connect_ul_fail;
@@ -1439,7 +1475,8 @@ int ipa3_usb_xdci_connect(struct ipa_usb_xdci_connect_params *params)
 	/* Start DL channel */
 	result = ipa3_xdci_connect(params->ipa_to_usb_clnt_hdl,
 		params->ipa_to_usb_xferrscidx,
-		params->ipa_to_usb_xferrscidx_valid);
+		params->ipa_to_usb_xferrscidx_valid,
+		ipa3_usb_get_client_notify_cb(params->teth_prot, true));
 	if (result) {
 		IPA_USB_ERR("failed to connect DL channel.\n");
 		goto connect_dl_fail;
