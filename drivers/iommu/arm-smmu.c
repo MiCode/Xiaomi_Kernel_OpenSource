@@ -475,6 +475,27 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ 0, NULL},
 };
 
+static int arm_smmu_enable_clocks_atomic(struct arm_smmu_device *smmu);
+static void arm_smmu_disable_clocks_atomic(struct arm_smmu_device *smmu);
+static void arm_smmu_prepare_pgtable(void *addr, void *cookie);
+static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size);
+static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
+					      dma_addr_t iova);
+static phys_addr_t arm_smmu_iova_to_phys_hard_no_halt(
+	struct iommu_domain *domain, dma_addr_t iova);
+static int arm_smmu_wait_for_halt(struct arm_smmu_device *smmu);
+static int arm_smmu_halt_nowait(struct arm_smmu_device *smmu);
+static void arm_smmu_resume(struct arm_smmu_device *smmu);
+static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
+					dma_addr_t iova);
+static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain);
+static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain);
+static int arm_smmu_halt(struct arm_smmu_device *smmu);
+static void arm_smmu_device_reset(struct arm_smmu_device *smmu);
+static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
+			     size_t size);
+
+
 static void parse_driver_options(struct arm_smmu_device *smmu)
 {
 	int i = 0;
@@ -781,9 +802,6 @@ out:
 	return ret;
 }
 
-static int arm_smmu_enable_clocks_atomic(struct arm_smmu_device *smmu);
-static void arm_smmu_disable_clocks_atomic(struct arm_smmu_device *smmu);
-
 static int arm_smmu_enable_clocks(struct arm_smmu_device *smmu)
 {
 	int ret = 0;
@@ -979,9 +997,6 @@ static void arm_smmu_flush_pgtable(void *addr, size_t size, void *cookie)
 	}
 }
 
-static void arm_smmu_prepare_pgtable(void *addr, void *cookie);
-static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size);
-
 static void *arm_smmu_alloc_pages_exact(void *cookie,
 					size_t size, gfp_t gfp_mask)
 {
@@ -1007,16 +1022,6 @@ static struct iommu_gather_ops arm_smmu_gather_ops = {
 	.alloc_pages_exact = arm_smmu_alloc_pages_exact,
 	.free_pages_exact = arm_smmu_free_pages_exact,
 };
-
-static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
-					      dma_addr_t iova);
-static phys_addr_t arm_smmu_iova_to_phys_hard_no_halt(
-	struct iommu_domain *domain, dma_addr_t iova);
-static int arm_smmu_wait_for_halt(struct arm_smmu_device *smmu);
-static int arm_smmu_halt_nowait(struct arm_smmu_device *smmu);
-static void arm_smmu_resume(struct arm_smmu_device *smmu);
-static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
-					dma_addr_t iova);
 
 static phys_addr_t arm_smmu_verify_fault(struct iommu_domain *domain,
 					 dma_addr_t iova, u32 fsr)
@@ -1366,8 +1371,6 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 	writel_relaxed(reg, cb_base + ARM_SMMU_CB_SCTLR);
 }
 
-static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain);
-
 static bool arm_smmu_is_domain_secure(struct arm_smmu_domain *smmu_domain)
 {
 	return (smmu_domain->secure_vmid != VMID_INVAL);
@@ -1520,8 +1523,6 @@ out_clear_smmu:
 out:
 	return ret;
 }
-
-static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain);
 
 static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 {
@@ -1730,9 +1731,6 @@ static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
 	arm_smmu_disable_clocks(smmu);
 }
 
-static int arm_smmu_halt(struct arm_smmu_device *smmu);
-static void arm_smmu_resume(struct arm_smmu_device *smmu);
-
 static void arm_smmu_impl_def_programming(struct arm_smmu_device *smmu)
 {
 	int i;
@@ -1744,8 +1742,6 @@ static void arm_smmu_impl_def_programming(struct arm_smmu_device *smmu)
 			ARM_SMMU_GR0(smmu) + regs[i].offset);
 	arm_smmu_resume(smmu);
 }
-
-static void arm_smmu_device_reset(struct arm_smmu_device *smmu);
 
 static int arm_smmu_attach_dynamic(struct iommu_domain *domain,
 					struct arm_smmu_device *smmu)
@@ -2119,8 +2115,6 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 	return ret;
 }
 
-static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
-			     size_t size);
 static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 			   struct scatterlist *sg, unsigned int nents, int prot)
 {
