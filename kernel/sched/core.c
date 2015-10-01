@@ -2710,6 +2710,10 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 	BUG_ON(!min_max_freq);
 	BUG_ON(!policy->max);
 
+	/* Changes to policy other than max_freq don't require any updates */
+	if (orig_max_freq == policy->max)
+		return 0;
+
 	/*
 	 * A changed min_max_freq or max_possible_freq (possible during bootup)
 	 * needs to trigger re-computation of load_scale_factor and capacity for
