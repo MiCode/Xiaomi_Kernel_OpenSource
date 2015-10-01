@@ -116,6 +116,10 @@ Optional Properties:
 				Force the GPU to use 32 bit data sizes even if
 				it is capable of doing 64 bit.
 
+- qcom,gpu-quirk-two-pass-use-wfi:
+				Signal the GPU to set Set TWOPASSUSEWFI bit in
+				A5XX_PC_DBG_ECO_CNTL (5XX only)
+
 The following properties are optional as collecting data via coresight might
 not be supported for every chipset. The documentation for coresight
 properties can be found in:

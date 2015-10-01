@@ -64,6 +64,12 @@
 #define ADRENO_FEATURE(_dev, _bit) \
 	((_dev)->gpucore->features & (_bit))
 
+/**
+ * ADRENO_QUIRK - return true if the specified quirk is required by the GPU
+ */
+#define ADRENO_QUIRK(_dev, _bit) \
+	((_dev)->quirks & (_bit))
+
 /*
  * ADRENO_PREEMPT_STYLE - return preemption style
  */
@@ -104,6 +110,13 @@
 #define ADRENO_64BIT BIT(9)
 /* Sync between SMMU operations and power collapse */
 #define ADRENO_SYNC_SMMU_PC BIT(10)
+
+/*
+ * Adreno GPU quirks - control bits for various workarounds
+ */
+
+/* Set TWOPASSUSEWFI in PC_DBG_ECO_CNTL (5XX) */
+#define ADRENO_QUIRK_TWO_PASS_USE_WFI BIT(0)
 
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0
@@ -354,6 +367,7 @@ struct adreno_device {
 	bool capturescript_working;
 
 	unsigned int speed_bin;
+	unsigned int quirks;
 };
 
 /**
