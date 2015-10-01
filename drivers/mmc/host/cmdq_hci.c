@@ -132,23 +132,6 @@ static void cmdq_clear_set_irqs(struct cmdq_host *cq_host, u32 clear, u32 set)
 
 #define DRV_NAME "cmdq-host"
 
-static void cmdq_dump_debug_ram(struct cmdq_host *cq_host)
-{
-	int i = 0;
-
-	pr_err("---- Debug RAM dump ----\n");
-	pr_err(DRV_NAME ": Debug RAM wrap-around: 0x%08x | Debug RAM overlap: 0x%08x\n",
-	       cmdq_readl(cq_host, CQ_CMD_DBG_RAM_WA),
-	       cmdq_readl(cq_host, CQ_CMD_DBG_RAM_OL));
-
-	while (i < 16) {
-		pr_err(DRV_NAME ": Debug RAM dump [%d]: 0x%08x\n", i,
-		       cmdq_readl(cq_host, CQ_CMD_DBG_RAM + (0x4 * i)));
-		i++;
-	}
-	pr_err("-------------------------\n");
-}
-
 static void cmdq_dumpregs(struct cmdq_host *cq_host)
 {
 	struct mmc_host *mmc = cq_host->mmc;
@@ -193,7 +176,6 @@ static void cmdq_dumpregs(struct cmdq_host *cq_host)
 	       cmdq_readl(cq_host, CQ_VENDOR_CFG));
 	pr_err(DRV_NAME ": ===========================================\n");
 
-	cmdq_dump_debug_ram(cq_host);
 	if (cq_host->ops->dump_vendor_regs)
 		cq_host->ops->dump_vendor_regs(mmc);
 }
