@@ -2245,18 +2245,6 @@ static void adreno_dispatcher_timer(unsigned long data)
 
 	adreno_dispatcher_schedule(device);
 }
-/**
- * adreno_dispatcher_irq_fault() - Trigger a fault in the dispatcher
- * @device: Pointer to the KGSL device
- *
- * Called from an interrupt context this will trigger a fault in the
- * dispatcher for the oldest pending command batch
- */
-void adreno_dispatcher_irq_fault(struct kgsl_device *device)
-{
-	adreno_set_gpu_fault(ADRENO_DEVICE(device), ADRENO_HARD_FAULT);
-	adreno_dispatcher_schedule(device);
-}
 
 /**
  * adreno_dispatcher_start() - activate the dispatcher
