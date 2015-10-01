@@ -207,6 +207,9 @@ static const u32 tuning_block_128[] = {
 	0xFFFFBBBB, 0xFFFF77FF, 0xFF7777FF, 0xEEDDBB77
 };
 
+/* global to hold each slot instance for debug */
+static struct sdhci_msm_host *sdhci_slot[2];
+
 static int disable_slots;
 /* root can write, others read */
 module_param(disable_slots, int, S_IRUGO|S_IWUSR);
@@ -3822,6 +3825,9 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 			ret = -ENODEV;
 			goto pltfm_free;
 		}
+
+		if (ret <= 2)
+			sdhci_slot[ret-1] = msm_host;
 
 		msm_host->pdata = sdhci_msm_populate_pdata(&pdev->dev,
 							   msm_host);
