@@ -1307,6 +1307,7 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
 			dd->input_dev[i]->id.bustype = BUS_SPI;
 			__set_bit(EV_SYN, dd->input_dev[i]->evbit);
 			__set_bit(EV_ABS, dd->input_dev[i]->evbit);
+			__set_bit(INPUT_PROP_DIRECT, dd->input_dev[i]->propbit);
 			if (i == (INPUT_DEVICES - 1)) {
 				__set_bit(EV_KEY, dd->input_dev[i]->evbit);
 				__set_bit(BTN_TOOL_RUBBER,
