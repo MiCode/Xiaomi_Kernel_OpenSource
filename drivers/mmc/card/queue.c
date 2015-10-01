@@ -68,6 +68,9 @@ static inline bool mmc_cmdq_should_pull_reqs(struct mmc_host *host,
 		ret = false;
 	else if (test_bit(CMDQ_STATE_ERR, &ctx->curr_state))
 		ret = false;
+	else if (!host->card->part_curr && mmc_host_cq_disable(host) &&
+			!mmc_card_suspended(host->card))
+		return false;
 
 	if (!ret)
 		pr_debug("%s: %s: skip pulling reqs: state: %lu, cmd_flags: 0x%x\n",
@@ -121,14 +124,9 @@ static int mmc_cmdq_thread(void *d)
 				}
 				set_current_state(TASK_RUNNING);
 				ret = mq->cmdq_issue_fn(mq, req);
-				if (ret) {
-					pr_err("%s: failed (%d) to issue req, requeue\n",
-					       mmc_hostname(host), ret);
-					spin_lock_irqsave(q->queue_lock, flags);
-					blk_requeue_request(q, req);
-					spin_unlock_irqrestore(q->queue_lock,
-							       flags);
-				}
+				if (ret)
+					pr_err("%s: error while cmdq issuing req\n",
+							mmc_hostname(host));
 			}
 		} else {
 			spin_unlock_irqrestore(q->queue_lock, flags);
