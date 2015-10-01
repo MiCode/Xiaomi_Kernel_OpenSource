@@ -602,13 +602,21 @@ static int wwan_add_ul_flt_rule_to_ipa(void)
 	int num_v4_rule = 0, num_v6_rule = 0;
 	struct ipa_ioc_add_flt_rule *param;
 	struct ipa_flt_rule_add flt_rule_entry;
-	struct ipa_fltr_installed_notif_req_msg_v01 req;
+	struct ipa_fltr_installed_notif_req_msg_v01 *req;
 
 	pyld_sz = sizeof(struct ipa_ioc_add_flt_rule) +
 	   sizeof(struct ipa_flt_rule_add);
 	param = kzalloc(pyld_sz, GFP_KERNEL);
 	if (!param)
 		return -ENOMEM;
+
+	req = (struct ipa_fltr_installed_notif_req_msg_v01 *)
+		kzalloc(sizeof(struct ipa_fltr_installed_notif_req_msg_v01),
+			GFP_KERNEL);
+	if (!req) {
+		kfree(param);
+		return -ENOMEM;
+	}
 
 	param->commit = 1;
 	param->ep = IPA_CLIENT_APPS_LAN_WAN_PROD;
@@ -645,23 +653,22 @@ static int wwan_add_ul_flt_rule_to_ipa(void)
 	}
 
 	/* send ipa_fltr_installed_notif_req_msg_v01 to Q6*/
-	memset(&req, 0, sizeof(struct ipa_fltr_installed_notif_req_msg_v01));
-	req.source_pipe_index =
+	req->source_pipe_index =
 		ipa2_get_ep_mapping(IPA_CLIENT_APPS_LAN_WAN_PROD);
-	req.install_status = QMI_RESULT_SUCCESS_V01;
-	req.filter_index_list_len = num_q6_rule;
+	req->install_status = QMI_RESULT_SUCCESS_V01;
+	req->filter_index_list_len = num_q6_rule;
 	for (i = 0; i < num_q6_rule; i++) {
 		if (ipa_qmi_ctx->q6_ul_filter_rule[i].ip == IPA_IP_v4) {
-			req.filter_index_list[i].filter_index = num_v4_rule;
+			req->filter_index_list[i].filter_index = num_v4_rule;
 			num_v4_rule++;
 		} else {
-			req.filter_index_list[i].filter_index = num_v6_rule;
+			req->filter_index_list[i].filter_index = num_v6_rule;
 			num_v6_rule++;
 		}
-		req.filter_index_list[i].filter_handle =
+		req->filter_index_list[i].filter_handle =
 			ipa_qmi_ctx->q6_ul_filter_rule[i].filter_hdl;
 	}
-	if (qmi_filter_notify_send(&req)) {
+	if (qmi_filter_notify_send(req)) {
 		IPAWANDBG("add filter rule index on A7-RX failed\n");
 		retval = -EFAULT;
 	}
@@ -669,6 +676,7 @@ static int wwan_add_ul_flt_rule_to_ipa(void)
 	IPAWANDBG("add (%d) filter rule index on A7-RX\n",
 			old_num_q6_rule);
 	kfree(param);
+	kfree(req);
 	return retval;
 }
 

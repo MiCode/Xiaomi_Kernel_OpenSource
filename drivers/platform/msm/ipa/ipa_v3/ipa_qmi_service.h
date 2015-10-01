@@ -41,10 +41,10 @@ struct ipa3_qmi_context {
 struct ipa_ioc_ext_intf_prop q6_ul_filter_rule[MAX_NUM_Q6_RULE];
 u32 q6_ul_filter_rule_hdl[MAX_NUM_Q6_RULE];
 int num_ipa_install_fltr_rule_req_msg;
-struct ipa3_install_fltr_rule_req_msg_v01
+struct ipa_install_fltr_rule_req_msg_v01
 		ipa_install_fltr_rule_req_msg_cache[MAX_NUM_QMI_RULE_CACHE];
 int num_ipa_fltr_installed_notif_req_msg;
-struct ipa3_fltr_installed_notif_req_msg_v01
+struct ipa_fltr_installed_notif_req_msg_v01
 		ipa_fltr_installed_notif_req_msg_cache[MAX_NUM_QMI_RULE_CACHE];
 bool modem_cfg_emb_pipe_flt;
 };
@@ -83,6 +83,8 @@ extern struct elem_info ipa3_set_data_usage_quota_resp_msg_data_v01_ei[];
 extern struct elem_info ipa3_data_usage_quota_reached_ind_msg_data_v01_ei[];
 extern struct elem_info ipa3_stop_data_usage_quota_req_msg_data_v01_ei[];
 extern struct elem_info ipa3_stop_data_usage_quota_resp_msg_data_v01_ei[];
+extern struct elem_info ipa3_init_modem_driver_cmplt_req_msg_data_v01_ei[];
+extern struct elem_info ipa3_init_modem_driver_cmplt_resp_msg_data_v01_ei[];
 
 /**
  * struct ipa3_rmnet_context - IPA rmnet context
@@ -106,10 +108,10 @@ void ipa3_qmi_service_exit(void);
 
 /* sending filter-install-request to modem*/
 int ipa3_qmi_filter_request_send(
-	struct ipa3_install_fltr_rule_req_msg_v01 *req);
+	struct ipa_install_fltr_rule_req_msg_v01 *req);
 
 /* sending filter-installed-notify-request to modem*/
-int ipa3_qmi_filter_notify_send(struct ipa3_fltr_installed_notif_req_msg_v01
+int ipa3_qmi_filter_notify_send(struct ipa_fltr_installed_notif_req_msg_v01
 		*req);
 
 /* voting for bus BW to ipa_rm*/
@@ -121,7 +123,7 @@ int ipa3_qmi_enable_force_clear_datapath_send(
 int ipa3_qmi_disable_force_clear_datapath_send(
 	struct ipa_disable_force_clear_datapath_req_msg_v01 *req);
 
-int ipa3_copy_ul_filter_rule_to_ipa(struct ipa3_install_fltr_rule_req_msg_v01
+int ipa3_copy_ul_filter_rule_to_ipa(struct ipa_install_fltr_rule_req_msg_v01
 	*rule_req);
 
 int ipa3_wwan_update_mux_channel_prop(void);
@@ -167,14 +169,14 @@ static inline void ipa3_qmi_service_exit(void) { }
 
 /* sending filter-install-request to modem*/
 static inline int ipa3_qmi_filter_request_send(
-	struct ipa3_install_fltr_rule_req_msg_v01 *req)
+	struct ipa_install_fltr_rule_req_msg_v01 *req)
 {
 	return -EPERM;
 }
 
 /* sending filter-installed-notify-request to modem*/
 static inline int ipa3_qmi_filter_notify_send(
-	struct ipa3_fltr_installed_notif_req_msg_v01 *req)
+	struct ipa_fltr_installed_notif_req_msg_v01 *req)
 {
 	return -EPERM;
 }
@@ -192,7 +194,7 @@ static inline int ipa3_qmi_disable_force_clear_datapath_send(
 }
 
 static inline int ipa3_copy_ul_filter_rule_to_ipa(
-	struct ipa3_install_fltr_rule_req_msg_v01 *rule_req)
+	struct ipa_install_fltr_rule_req_msg_v01 *rule_req)
 {
 	return -EPERM;
 }

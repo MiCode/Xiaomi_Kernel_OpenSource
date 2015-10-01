@@ -63,7 +63,7 @@ static long ipa3_wan_ioctl(struct file *filp,
 	case WAN_IOC_ADD_FLT_RULE:
 		IPAWANDBG("device %s got WAN_IOC_ADD_FLT_RULE :>>>\n",
 		DRIVER_NAME);
-		pyld_sz = sizeof(struct ipa3_install_fltr_rule_req_msg_v01);
+		pyld_sz = sizeof(struct ipa_install_fltr_rule_req_msg_v01);
 		param = kzalloc(pyld_sz, GFP_KERNEL);
 		if (!param) {
 			retval = -ENOMEM;
@@ -74,7 +74,7 @@ static long ipa3_wan_ioctl(struct file *filp,
 			break;
 		}
 		if (ipa3_qmi_filter_request_send(
-			(struct ipa3_install_fltr_rule_req_msg_v01 *)param)) {
+			(struct ipa_install_fltr_rule_req_msg_v01 *)param)) {
 			IPAWANDBG("IPACM->Q6 add filter rule failed\n");
 			retval = -EFAULT;
 			break;
@@ -88,7 +88,7 @@ static long ipa3_wan_ioctl(struct file *filp,
 	case WAN_IOC_ADD_FLT_RULE_INDEX:
 		IPAWANDBG("device %s got WAN_IOC_ADD_FLT_RULE_INDEX :>>>\n",
 		DRIVER_NAME);
-		pyld_sz = sizeof(struct ipa3_fltr_installed_notif_req_msg_v01);
+		pyld_sz = sizeof(struct ipa_fltr_installed_notif_req_msg_v01);
 		param = kzalloc(pyld_sz, GFP_KERNEL);
 		if (!param) {
 			retval = -ENOMEM;
@@ -99,7 +99,7 @@ static long ipa3_wan_ioctl(struct file *filp,
 			break;
 		}
 		if (ipa3_qmi_filter_notify_send(
-		(struct ipa3_fltr_installed_notif_req_msg_v01 *)param)) {
+		(struct ipa_fltr_installed_notif_req_msg_v01 *)param)) {
 			IPAWANDBG("IPACM->Q6 rule index fail\n");
 			retval = -EFAULT;
 			break;

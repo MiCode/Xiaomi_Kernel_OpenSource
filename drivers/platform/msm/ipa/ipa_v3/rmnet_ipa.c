@@ -384,13 +384,13 @@ static void ipa3_del_dflt_wan_rt_tables(void)
 	kfree(rt_rule);
 }
 
-int ipa3_copy_ul_filter_rule_to_ipa(struct ipa3_install_fltr_rule_req_msg_v01
+int ipa3_copy_ul_filter_rule_to_ipa(struct ipa_install_fltr_rule_req_msg_v01
 		*rule_req)
 {
 	int i, j;
 
-	if (rule_req->filter_spec_list_valid == true) {
-		ipa3_num_q6_rule = rule_req->filter_spec_list_len;
+	if (rule_req->filter_spec_ex_list_valid == true) {
+		ipa3_num_q6_rule = rule_req->filter_spec_ex_list_len;
 		IPAWANDBG("Received (%d) install_flt_req\n", ipa3_num_q6_rule);
 	} else {
 		ipa3_num_q6_rule = 0;
@@ -409,150 +409,157 @@ int ipa3_copy_ul_filter_rule_to_ipa(struct ipa3_install_fltr_rule_req_msg_v01
 			goto failure;
 		}
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].ip =
-			rule_req->filter_spec_list[i].ip_type;
+			rule_req->filter_spec_ex_list[i].ip_type;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].action =
-			rule_req->filter_spec_list[i].filter_action;
-		if (rule_req->filter_spec_list[i].is_routing_table_index_valid
-			== true)
+			rule_req->filter_spec_ex_list[i].filter_action;
+		if (rule_req->filter_spec_ex_list[i].
+			is_routing_table_index_valid == true)
 			ipa3_qmi_ctx->q6_ul_filter_rule[i].rt_tbl_idx =
-			rule_req->filter_spec_list[i].route_table_index;
-		if (rule_req->filter_spec_list[i].is_mux_id_valid == true)
+			rule_req->filter_spec_ex_list[i].route_table_index;
+		if (rule_req->filter_spec_ex_list[i].is_mux_id_valid == true)
 			ipa3_qmi_ctx->q6_ul_filter_rule[i].mux_id =
-			rule_req->filter_spec_list[i].mux_id;
+			rule_req->filter_spec_ex_list[i].mux_id;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].rule_id =
-			rule_req->filter_spec_list[i].rule_id;
+			rule_req->filter_spec_ex_list[i].rule_id;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].is_rule_hashable =
-			rule_req->filter_spec_list[i].is_rule_hashable;
+			rule_req->filter_spec_ex_list[i].is_rule_hashable;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.rule_eq_bitmap =
-			rule_req->filter_spec_list[i].filter_rule.
+			rule_req->filter_spec_ex_list[i].filter_rule.
 			rule_eq_bitmap;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.tos_eq_present =
-			rule_req->filter_spec_list[i].filter_rule.
+			rule_req->filter_spec_ex_list[i].filter_rule.
 			tos_eq_present;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.tos_eq =
-			rule_req->filter_spec_list[i].filter_rule.tos_eq;
+			rule_req->filter_spec_ex_list[i].filter_rule.tos_eq;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
-			protocol_eq_present = rule_req->filter_spec_list[i].
+			protocol_eq_present = rule_req->filter_spec_ex_list[i].
 			filter_rule.protocol_eq_present;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.protocol_eq =
-			rule_req->filter_spec_list[i].filter_rule.
+			rule_req->filter_spec_ex_list[i].filter_rule.
 			protocol_eq;
 
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
-			num_ihl_offset_range_16 = rule_req->filter_spec_list[i].
+			num_ihl_offset_range_16 =
+			rule_req->filter_spec_ex_list[i].
 			filter_rule.num_ihl_offset_range_16;
 		for (j = 0; j < ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
 			num_ihl_offset_range_16; j++) {
 			ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
 			ihl_offset_range_16[j].offset = rule_req->
-			filter_spec_list[i].filter_rule.
+			filter_spec_ex_list[i].filter_rule.
 			ihl_offset_range_16[j].offset;
 			ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
 			ihl_offset_range_16[j].range_low = rule_req->
-			filter_spec_list[i].filter_rule.
+			filter_spec_ex_list[i].filter_rule.
 			ihl_offset_range_16[j].range_low;
 			ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
 			ihl_offset_range_16[j].range_high = rule_req->
-			filter_spec_list[i].filter_rule.
+			filter_spec_ex_list[i].filter_rule.
 			ihl_offset_range_16[j].range_high;
 		}
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.num_offset_meq_32 =
-			rule_req->filter_spec_list[i].filter_rule.
+			rule_req->filter_spec_ex_list[i].filter_rule.
 			num_offset_meq_32;
 		for (j = 0; j < ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
 				num_offset_meq_32; j++) {
 			ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
-			offset_meq_32[j].offset = rule_req->filter_spec_list[i].
+			offset_meq_32[j].offset =
+			rule_req->filter_spec_ex_list[i].
 			filter_rule.offset_meq_32[j].offset;
 			ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
-			offset_meq_32[j].mask = rule_req->filter_spec_list[i].
+			offset_meq_32[j].mask =
+			rule_req->filter_spec_ex_list[i].
 			filter_rule.offset_meq_32[j].mask;
 			ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
-			offset_meq_32[j].value = rule_req->filter_spec_list[i].
+			offset_meq_32[j].value =
+			rule_req->filter_spec_ex_list[i].
 			filter_rule.offset_meq_32[j].value;
 		}
 
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.tc_eq_present =
-			rule_req->filter_spec_list[i].filter_rule.tc_eq_present;
+			rule_req->filter_spec_ex_list[i].
+			filter_rule.tc_eq_present;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.tc_eq =
-			rule_req->filter_spec_list[i].filter_rule.tc_eq;
+			rule_req->filter_spec_ex_list[i].filter_rule.tc_eq;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.fl_eq_present =
-			rule_req->filter_spec_list[i].filter_rule.
+			rule_req->filter_spec_ex_list[i].filter_rule.
 			flow_eq_present;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.fl_eq =
-			rule_req->filter_spec_list[i].filter_rule.flow_eq;
+			rule_req->filter_spec_ex_list[i].filter_rule.flow_eq;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
-		ihl_offset_eq_16_present = rule_req->filter_spec_list[i].
+		ihl_offset_eq_16_present = rule_req->filter_spec_ex_list[i].
 		filter_rule.ihl_offset_eq_16_present;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
-		ihl_offset_eq_16.offset = rule_req->filter_spec_list[i].
+		ihl_offset_eq_16.offset = rule_req->filter_spec_ex_list[i].
 		filter_rule.ihl_offset_eq_16.offset;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
-		ihl_offset_eq_16.value = rule_req->filter_spec_list[i].
+		ihl_offset_eq_16.value = rule_req->filter_spec_ex_list[i].
 		filter_rule.ihl_offset_eq_16.value;
 
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
-		ihl_offset_eq_32_present = rule_req->filter_spec_list[i].
+		ihl_offset_eq_32_present = rule_req->filter_spec_ex_list[i].
 		filter_rule.ihl_offset_eq_32_present;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
-		ihl_offset_eq_32.offset = rule_req->filter_spec_list[i].
+		ihl_offset_eq_32.offset = rule_req->filter_spec_ex_list[i].
 		filter_rule.ihl_offset_eq_32.offset;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
-		ihl_offset_eq_32.value = rule_req->filter_spec_list[i].
+		ihl_offset_eq_32.value = rule_req->filter_spec_ex_list[i].
 		filter_rule.ihl_offset_eq_32.value;
 
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
-		num_ihl_offset_meq_32 = rule_req->filter_spec_list[i].
+		num_ihl_offset_meq_32 = rule_req->filter_spec_ex_list[i].
 		filter_rule.num_ihl_offset_meq_32;
 		for (j = 0; j < ipa3_qmi_ctx->q6_ul_filter_rule[i].
 			eq_attrib.num_ihl_offset_meq_32; j++) {
 			ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
 				ihl_offset_meq_32[j].offset = rule_req->
-				filter_spec_list[i].filter_rule.
+				filter_spec_ex_list[i].filter_rule.
 				ihl_offset_meq_32[j].offset;
 			ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
 				ihl_offset_meq_32[j].mask = rule_req->
-				filter_spec_list[i].filter_rule.
+				filter_spec_ex_list[i].filter_rule.
 				ihl_offset_meq_32[j].mask;
 			ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
 				ihl_offset_meq_32[j].value = rule_req->
-				filter_spec_list[i].filter_rule.
+				filter_spec_ex_list[i].filter_rule.
 				ihl_offset_meq_32[j].value;
 		}
 		ipa3_qmi_ctx->
 			q6_ul_filter_rule[i].eq_attrib.num_offset_meq_128 =
-			rule_req->filter_spec_list[i].filter_rule.
+			rule_req->filter_spec_ex_list[i].filter_rule.
 			num_offset_meq_128;
 		for (j = 0; j < ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
 			num_offset_meq_128; j++) {
 			ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
 				offset_meq_128[j].offset = rule_req->
-				filter_spec_list[i].filter_rule.
+				filter_spec_ex_list[i].filter_rule.
 				offset_meq_128[j].offset;
 			memcpy(ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
 					offset_meq_128[j].mask,
-					rule_req->filter_spec_list[i].
+					rule_req->filter_spec_ex_list[i].
 					filter_rule.offset_meq_128[j].mask, 16);
 			memcpy(ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
 					offset_meq_128[j].value, rule_req->
-					filter_spec_list[i].filter_rule.
+					filter_spec_ex_list[i].filter_rule.
 					offset_meq_128[j].value, 16);
 		}
 
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
-			metadata_meq32_present = rule_req->filter_spec_list[i].
+			metadata_meq32_present =
+				rule_req->filter_spec_ex_list[i].
 				filter_rule.metadata_meq32_present;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
-			metadata_meq32.offset = rule_req->filter_spec_list[i].
+			metadata_meq32.offset =
+			rule_req->filter_spec_ex_list[i].
 			filter_rule.metadata_meq32.offset;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
-			metadata_meq32.mask = rule_req->filter_spec_list[i].
+			metadata_meq32.mask = rule_req->filter_spec_ex_list[i].
 			filter_rule.metadata_meq32.mask;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.metadata_meq32.
-			value = rule_req->filter_spec_list[i].filter_rule.
+			value = rule_req->filter_spec_ex_list[i].filter_rule.
 			metadata_meq32.value;
 		ipa3_qmi_ctx->q6_ul_filter_rule[i].eq_attrib.
-			ipv4_frag_eq_present = rule_req->filter_spec_list[i].
+			ipv4_frag_eq_present = rule_req->filter_spec_ex_list[i].
 			filter_rule.ipv4_frag_eq_present;
 	}
 
@@ -601,13 +608,21 @@ static int ipa3_wwan_add_ul_flt_rule_to_ipa(void)
 	int i, retval = 0;
 	struct ipa_ioc_add_flt_rule *param;
 	struct ipa_flt_rule_add flt_rule_entry;
-	struct ipa3_fltr_installed_notif_req_msg_v01 req;
+	struct ipa_fltr_installed_notif_req_msg_v01 *req;
 
 	pyld_sz = sizeof(struct ipa_ioc_add_flt_rule) +
 	   sizeof(struct ipa_flt_rule_add);
 	param = kzalloc(pyld_sz, GFP_KERNEL);
 	if (!param)
 		return -ENOMEM;
+
+	req = (struct ipa_fltr_installed_notif_req_msg_v01 *)
+		kzalloc(sizeof(struct ipa_fltr_installed_notif_req_msg_v01),
+			GFP_KERNEL);
+	if (!req) {
+		kfree(param);
+		return -ENOMEM;
+	}
 
 	param->commit = 1;
 	param->ep = IPA_CLIENT_APPS_LAN_WAN_PROD;
@@ -647,17 +662,17 @@ static int ipa3_wwan_add_ul_flt_rule_to_ipa(void)
 		}
 	}
 
-	/* send ipa3_fltr_installed_notif_req_msg_v01 to Q6*/
-	memset(&req, 0, sizeof(struct ipa3_fltr_installed_notif_req_msg_v01));
-	req.source_pipe_index =
+	/* send ipa_fltr_installed_notif_req_msg_v01 to Q6*/
+	req->source_pipe_index =
 		ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_WAN_PROD);
-	req.install_status = QMI_RESULT_SUCCESS_V01;
-	req.rule_id_len = ipa3_num_q6_rule;
+	req->install_status = QMI_RESULT_SUCCESS_V01;
+	req->rule_id_valid = 1;
+	req->rule_id_len = ipa3_num_q6_rule;
 	for (i = 0; i < ipa3_num_q6_rule; i++) {
-		req.rule_id[i] =
+		req->rule_id[i] =
 			ipa3_qmi_ctx->q6_ul_filter_rule[i].rule_id;
 	}
-	if (ipa3_qmi_filter_notify_send(&req)) {
+	if (ipa3_qmi_filter_notify_send(req)) {
 		IPAWANDBG("add filter rule index on A7-RX failed\n");
 		retval = -EFAULT;
 	}
@@ -665,6 +680,7 @@ static int ipa3_wwan_add_ul_flt_rule_to_ipa(void)
 	IPAWANDBG("add (%d) filter rule index on A7-RX\n",
 			ipa3_old_num_q6_rule);
 	kfree(param);
+	kfree(req);
 	return retval;
 }
 
