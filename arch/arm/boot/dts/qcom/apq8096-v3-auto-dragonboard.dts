@@ -23,3 +23,14 @@
 	qcom,msm-id = <246 0x30000>, <291 0x30000>;
 	qcom,board-id = <10 1>;
 };
+
+&spi_9 {
+	status = "ok";
+	can-controller@0 {
+		compatible = "renesas,rh850";
+		reg = <0>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <127 0>;
+		spi-max-frequency = <5000000>;
+	};
+};
