@@ -295,16 +295,23 @@ int msm_gem_get_iova_locked(struct drm_gem_object *obj, int id,
 
 		if (iommu_present(&platform_bus_type)) {
 			struct msm_mmu *mmu = priv->mmus[id];
-			uint32_t offset;
 
 			if (WARN_ON(!mmu))
 				return -EINVAL;
 
-			offset = (uint32_t)mmap_offset(obj);
-			ret = mmu->funcs->map(mmu, offset, msm_obj->sgt,
-					obj->size, IOMMU_READ | IOMMU_WRITE);
-			msm_obj->domain[id].iova = offset;
+			if (obj->import_attach && mmu->funcs->map_dma_buf) {
+				ret = mmu->funcs->map_dma_buf(mmu, msm_obj->sgt,
+						obj->import_attach->dmabuf,
+						DMA_BIDIRECTIONAL);
+				if (ret) {
+					DRM_ERROR("Unable to map dma buf\n");
+					return ret;
+				}
+			}
+			msm_obj->domain[id].iova =
+				sg_dma_address(msm_obj->sgt->sgl);
 		} else {
+			WARN_ONCE(1, "physical address being used\n");
 			msm_obj->domain[id].iova = physaddr(obj);
 		}
 	}
@@ -524,8 +531,11 @@ void msm_gem_free_object(struct drm_gem_object *obj)
 	for (id = 0; id < ARRAY_SIZE(msm_obj->domain); id++) {
 		struct msm_mmu *mmu = priv->mmus[id];
 		if (mmu && msm_obj->domain[id].iova) {
-			uint32_t offset = msm_obj->domain[id].iova;
-			mmu->funcs->unmap(mmu, offset, msm_obj->sgt, obj->size);
+			if (obj->import_attach && mmu->funcs->unmap_dma_buf) {
+				mmu->funcs->unmap_dma_buf(mmu, msm_obj->sgt,
+						obj->import_attach->dmabuf,
+						DMA_BIDIRECTIONAL);
+			}
 		}
 	}
 
