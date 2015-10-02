@@ -1158,6 +1158,15 @@ struct ipa3_transport_pm {
 };
 
 /**
+ * struct ipa3cm_client_info - the client-info indicated from IPACM
+ * @ipacm_client_enum: the enum to indicate tether-client
+ * @ipacm_client_uplink: the bool to indicate pipe for uplink
+ */
+struct ipa3cm_client_info {
+	enum ipacm_client_enum client_enum;
+	bool uplink;
+};
+/**
  * struct ipa3_hash_tuple - Hash tuple members for flt and rt
  *  the fields tells if to be masked or not
  * @src_id: pipe number for flt, table index for rt
@@ -1367,6 +1376,8 @@ struct ipa3_context {
 	u32 wdi_map_cnt;
 	/* RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA */
 	bool ipa_client_apps_wan_cons_agg_gro;
+	/* M-release support to know client pipes */
+	struct ipa3cm_client_info ipacm_client[IPA3_MAX_NUM_PIPES];
 };
 
 /**
@@ -1858,6 +1869,15 @@ int ipa3_teth_bridge_init(struct teth_bridge_init_params *params);
 int ipa3_teth_bridge_disconnect(enum ipa_client_type client);
 
 int ipa3_teth_bridge_connect(struct teth_bridge_connect_params *connect_params);
+
+/*
+ * Tethering client info
+ */
+void ipa3_set_client(int index, enum ipacm_client_enum client, bool uplink);
+
+enum ipacm_client_enum ipa3_get_client(int pipe_idx);
+
+bool ipa3_get_client_uplink(int pipe_idx);
 
 /*
  * ODU bridge
