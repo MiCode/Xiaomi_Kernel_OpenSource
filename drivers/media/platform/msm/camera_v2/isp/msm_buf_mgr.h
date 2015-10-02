@@ -101,7 +101,8 @@ struct msm_isp_buffer {
 
 	/*Share buffer cache state*/
 	struct list_head share_list;
-	uint8_t buf_used[ISP_SHARE_BUF_CLIENT];
+	uint8_t get_buf_mask;
+	uint8_t put_buf_mask;
 	uint8_t buf_get_count;
 	uint8_t buf_put_count;
 	uint8_t buf_reuse_flag;
@@ -158,8 +159,9 @@ struct msm_isp_buf_ops {
 	int (*put_buf)(struct msm_isp_buf_mgr *buf_mgr,
 		uint32_t bufq_handle, uint32_t buf_index);
 
-	int (*flush_buf)(struct msm_isp_buf_mgr *buf_mgr,
-		uint32_t bufq_handle, enum msm_isp_buffer_flush_t flush_type);
+	int (*flush_buf)(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
+	uint32_t bufq_handle, enum msm_isp_buffer_flush_t flush_type,
+	struct timeval *tv, uint32_t frame_id);
 
 	int (*buf_done)(struct msm_isp_buf_mgr *buf_mgr,
 		uint32_t bufq_handle, uint32_t buf_index,
@@ -175,9 +177,8 @@ struct msm_isp_buf_ops {
 	struct msm_isp_bufq * (*get_bufq)(struct msm_isp_buf_mgr *buf_mgr,
 		uint32_t bufq_handle);
 	int (*update_put_buf_cnt)(struct msm_isp_buf_mgr *buf_mgr,
-		uint32_t bufq_handle, uint32_t buf_index,
-		struct timeval *tv,
-		uint32_t frame_id);
+		uint32_t id, uint32_t bufq_handle, uint32_t buf_index,
+		struct timeval *tv, uint32_t frame_id);
 };
 
 struct msm_isp_buf_mgr {
