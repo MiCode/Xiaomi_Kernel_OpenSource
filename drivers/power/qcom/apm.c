@@ -25,6 +25,7 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/power/qcom/apm.h>
+#include <soc/qcom/scm.h>
 
 /*
  *        VDD_APCC
@@ -254,6 +255,7 @@ static int msm_apm_switch_to_mx(struct msm_apm_ctrl_dev *ctrl_dev)
 	int ret = 0;
 	unsigned long flags;
 
+	mutex_lock(&scm_lmh_lock);
 	spin_lock_irqsave(&ctrl_dev->lock, flags);
 
 	ret = msm_apm_secure_clock_source_override(ctrl_dev, true);
@@ -337,6 +339,7 @@ static int msm_apm_switch_to_mx(struct msm_apm_ctrl_dev *ctrl_dev)
 	}
 
 	spin_unlock_irqrestore(&ctrl_dev->lock, flags);
+	mutex_unlock(&scm_lmh_lock);
 
 	return ret;
 }
@@ -348,6 +351,7 @@ static int msm_apm_switch_to_apcc(struct msm_apm_ctrl_dev *ctrl_dev)
 	int ret = 0;
 	unsigned long flags;
 
+	mutex_lock(&scm_lmh_lock);
 	spin_lock_irqsave(&ctrl_dev->lock, flags);
 
 	ret = msm_apm_secure_clock_source_override(ctrl_dev, true);
@@ -431,6 +435,7 @@ static int msm_apm_switch_to_apcc(struct msm_apm_ctrl_dev *ctrl_dev)
 	}
 
 	spin_unlock_irqrestore(&ctrl_dev->lock, flags);
+	mutex_unlock(&scm_lmh_lock);
 
 	return ret;
 }
