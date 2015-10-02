@@ -424,6 +424,8 @@ static const char * const _size_to_string(unsigned long size)
 	return "unknown size, please add to _size_to_string";
 }
 
+#define ITERS_PER_OP 100
+
 static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 					 bool secure)
 {
@@ -476,33 +478,42 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 		goto out_domain_free;
 	}
 
+	seq_printf(s, "(average over %d iterations)\n", ITERS_PER_OP);
 	seq_printf(s, "%8s %15s %12s\n", "size", "iommu_map", "iommu_unmap");
 	for (sz = sizes; *sz; ++sz) {
 		unsigned long size = *sz;
 		size_t unmapped;
-		s64 map_elapsed_us, unmap_elapsed_us;
+		u64 map_elapsed_us = 0, unmap_elapsed_us = 0;
 		struct timespec tbefore, tafter, diff;
+		int i;
 
-		getnstimeofday(&tbefore);
-		if (iommu_map(domain, iova, paddr, size,
-			      IOMMU_READ | IOMMU_WRITE)) {
-			seq_puts(s, "Failed to map\n");
-			continue;
-		}
-		getnstimeofday(&tafter);
-		diff = timespec_sub(tafter, tbefore);
-		map_elapsed_us = div_s64(timespec_to_ns(&diff), 1000);
+		for (i = 0; i < ITERS_PER_OP; ++i) {
+			getnstimeofday(&tbefore);
+			if (iommu_map(domain, iova, paddr, size,
+				      IOMMU_READ | IOMMU_WRITE)) {
+				seq_puts(s, "Failed to map\n");
+				continue;
+			}
+			getnstimeofday(&tafter);
+			diff = timespec_sub(tafter, tbefore);
+			map_elapsed_us += div_s64(timespec_to_ns(&diff), 1000);
 
-		getnstimeofday(&tbefore);
-		unmapped = iommu_unmap(domain, iova, size);
-		if (unmapped != size) {
-			seq_printf(s, "Only unmapped %zx instead of %zx\n",
-				unmapped, size);
-			continue;
+			getnstimeofday(&tbefore);
+			unmapped = iommu_unmap(domain, iova, size);
+			if (unmapped != size) {
+				seq_printf(s,
+					   "Only unmapped %zx instead of %zx\n",
+					   unmapped, size);
+				continue;
+			}
+			getnstimeofday(&tafter);
+			diff = timespec_sub(tafter, tbefore);
+			unmap_elapsed_us += div_s64(timespec_to_ns(&diff),
+						    1000);
 		}
-		getnstimeofday(&tafter);
-		diff = timespec_sub(tafter, tbefore);
-		unmap_elapsed_us = div_s64(timespec_to_ns(&diff), 1000);
+
+		map_elapsed_us /= ITERS_PER_OP;
+		unmap_elapsed_us /= ITERS_PER_OP;
 
 		seq_printf(s, "%8s %12lld us %9lld us\n", _size_to_string(size),
 			map_elapsed_us, unmap_elapsed_us);
@@ -513,10 +524,11 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 	for (sz = sizes; *sz; ++sz) {
 		unsigned long size = *sz;
 		size_t unmapped;
-		s64 map_elapsed_us, unmap_elapsed_us;
+		u64 map_elapsed_us = 0, unmap_elapsed_us = 0;
 		struct timespec tbefore, tafter, diff;
 		struct sg_table table;
 		unsigned long chunk_size = SZ_4K;
+		int i;
 
 		if (iommu_debug_build_phoney_sg_table(dev, &table, size,
 						      chunk_size)) {
@@ -525,26 +537,33 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 			goto out_detach;
 		}
 
-		getnstimeofday(&tbefore);
-		if (iommu_map_sg(domain, iova, table.sgl, table.nents,
-				 IOMMU_READ | IOMMU_WRITE) != size) {
-			seq_puts(s, "Failed to map_sg\n");
-			goto next;
-		}
-		getnstimeofday(&tafter);
-		diff = timespec_sub(tafter, tbefore);
-		map_elapsed_us = div_s64(timespec_to_ns(&diff), 1000);
+		for (i = 0; i < ITERS_PER_OP; ++i) {
+			getnstimeofday(&tbefore);
+			if (iommu_map_sg(domain, iova, table.sgl, table.nents,
+					 IOMMU_READ | IOMMU_WRITE) != size) {
+				seq_puts(s, "Failed to map_sg\n");
+				goto next;
+			}
+			getnstimeofday(&tafter);
+			diff = timespec_sub(tafter, tbefore);
+			map_elapsed_us += div_s64(timespec_to_ns(&diff), 1000);
 
-		getnstimeofday(&tbefore);
-		unmapped = iommu_unmap(domain, iova, size);
-		if (unmapped != size) {
-			seq_printf(s, "Only unmapped %zx instead of %zx\n",
-				unmapped, size);
-			goto next;
+			getnstimeofday(&tbefore);
+			unmapped = iommu_unmap(domain, iova, size);
+			if (unmapped != size) {
+				seq_printf(s,
+					   "Only unmapped %zx instead of %zx\n",
+					   unmapped, size);
+				goto next;
+			}
+			getnstimeofday(&tafter);
+			diff = timespec_sub(tafter, tbefore);
+			unmap_elapsed_us += div_s64(timespec_to_ns(&diff),
+						    1000);
 		}
-		getnstimeofday(&tafter);
-		diff = timespec_sub(tafter, tbefore);
-		unmap_elapsed_us = div_s64(timespec_to_ns(&diff), 1000);
+
+		map_elapsed_us /= ITERS_PER_OP;
+		unmap_elapsed_us /= ITERS_PER_OP;
 
 		seq_printf(s, "%8s %12lld us %9lld us\n", _size_to_string(size),
 			map_elapsed_us, unmap_elapsed_us);
