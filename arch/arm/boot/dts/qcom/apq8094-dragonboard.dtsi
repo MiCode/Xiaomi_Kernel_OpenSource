@@ -836,6 +836,13 @@
 	};
 };
 
+&pmi8994_pwm_4 {
+	qcom,channel-owner = "lcd_bl";
+	qcom,lpg-dtest-line = <4>;
+	qcom,dtest-output = <1>;
+	status = "okay";
+};
+
 &pmi8994_gpios {
 	gpio@c100 { /* GPIO 2 - Backlight enable */
 		qcom,mode = <1>;
