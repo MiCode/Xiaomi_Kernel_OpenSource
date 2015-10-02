@@ -2603,6 +2603,9 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 	bool is_atomic = tx_flags & GLINK_TX_SINGLE_THREADED;
 	enum local_channel_state_e ch_st;
 
+	if (!size)
+		return -EINVAL;
+
 	if (!ctx)
 		return -EINVAL;
 
