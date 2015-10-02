@@ -49,6 +49,7 @@
 #include <linux/sched/deadline.h>
 #include <linux/timer.h>
 #include <linux/freezer.h>
+#include <linux/irq_work.h>
 
 #include <asm/uaccess.h>
 
@@ -168,29 +169,6 @@ struct hrtimer_clock_base *lock_hrtimer_base(const struct hrtimer *timer,
 }
 
 /*
- * With HIGHRES=y we do not migrate the timer when it is expiring
- * before the next event on the target cpu because we cannot reprogram
- * the target cpu hardware and we would cause it to fire late.
- *
- * Called with cpu_base->lock of target cpu held.
- */
-static int
-hrtimer_check_target(struct hrtimer *timer, struct hrtimer_clock_base *new_base)
-{
-#ifdef CONFIG_HIGH_RES_TIMERS
-	ktime_t expires;
-
-	if (!new_base->cpu_base->hres_active)
-		return 0;
-
-	expires = ktime_sub(hrtimer_get_expires(timer), new_base->offset);
-	return expires.tv64 <= new_base->cpu_base->expires_next.tv64;
-#else
-	return 0;
-#endif
-}
-
-/*
  * Switch the timer base to the current CPU when possible.
  */
 static inline struct hrtimer_clock_base *
@@ -199,11 +177,9 @@ switch_hrtimer_base(struct hrtimer *timer, struct hrtimer_clock_base *base,
 {
 	struct hrtimer_clock_base *new_base;
 	struct hrtimer_cpu_base *new_cpu_base;
-	int this_cpu = smp_processor_id();
 	int cpu = get_nohz_timer_target(pinned);
 	int basenum = base->index;
 
-again:
 	new_cpu_base = &per_cpu(hrtimer_bases, cpu);
 	new_base = &new_cpu_base->clock_base[basenum];
 
@@ -224,20 +200,7 @@ again:
 		timer->base = NULL;
 		raw_spin_unlock(&base->cpu_base->lock);
 		raw_spin_lock(&new_base->cpu_base->lock);
-
-		if (cpu != this_cpu && hrtimer_check_target(timer, new_base)) {
-			cpu = this_cpu;
-			raw_spin_unlock(&new_base->cpu_base->lock);
-			raw_spin_lock(&base->cpu_base->lock);
-			timer->base = base;
-			goto again;
-		}
 		timer->base = new_base;
-	} else {
-		if (cpu != this_cpu && hrtimer_check_target(timer, new_base)) {
-			cpu = this_cpu;
-			goto again;
-		}
 	}
 	return new_base;
 }
@@ -657,6 +620,20 @@ static void retrigger_next_event(void *arg)
 	raw_spin_unlock(&base->lock);
 }
 
+#ifdef CONFIG_SMP
+static void raise_hrtimer_softirq(struct irq_work *arg)
+{
+	if (!hrtimer_hres_active())
+		return;
+
+	raise_softirq(HRTIMER_SOFTIRQ);
+}
+
+static DEFINE_PER_CPU(struct irq_work, hrtimer_kick_work) = {
+	.func = raise_hrtimer_softirq,
+};
+#endif
+
 /*
  * Switch to high resolution mode
  */
@@ -720,6 +697,22 @@ static inline void hrtimer_init_hres(struct hrtimer_cpu_base *base) { }
 static inline void retrigger_next_event(void *arg) { }
 
 #endif /* CONFIG_HIGH_RES_TIMERS */
+
+#ifdef CONFIG_SMP
+
+static void kick_remote_cpu(int cpu)
+{
+	get_cpu();
+	if (cpu_online(cpu))
+		irq_work_queue_on(&per_cpu(hrtimer_kick_work, cpu), cpu);
+	put_cpu();
+}
+
+#else
+
+static inline void kick_remote_cpu(int cpu) { }
+
+#endif
 
 /*
  * Clock realtime was set
@@ -939,7 +932,7 @@ int __hrtimer_start_range_ns(struct hrtimer *timer, ktime_t tim,
 {
 	struct hrtimer_clock_base *base, *new_base;
 	unsigned long flags;
-	int ret, leftmost;
+	int ret, leftmost, kick = 0, cpu;
 
 	base = lock_hrtimer_base(timer, &flags);
 
@@ -986,7 +979,6 @@ int __hrtimer_start_range_ns(struct hrtimer *timer, ktime_t tim,
 		 * Only allow reprogramming if the new base is on this CPU.
 		 * (it might still be on another CPU if the timer was pending)
 		 *
-		 * XXX send_remote_softirq() ?
 		 */
 		if (wakeup) {
 			/*
@@ -1000,9 +992,15 @@ int __hrtimer_start_range_ns(struct hrtimer *timer, ktime_t tim,
 		} else {
 			__raise_softirq_irqoff(HRTIMER_SOFTIRQ);
 		}
+	} else {
+		cpu = new_base->cpu_base->cpu;
+		kick = (leftmost && (cpu != smp_processor_id()));
 	}
 
 	unlock_hrtimer_base(timer, &flags);
+
+	if (kick)
+		kick_remote_cpu(cpu);
 
 	return ret;
 }
