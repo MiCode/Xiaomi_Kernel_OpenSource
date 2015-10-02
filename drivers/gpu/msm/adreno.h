@@ -1358,16 +1358,6 @@ static inline bool adreno_is_preemption_enabled(
 	return test_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
 }
 
-static inline uint _lo_32(uint64_t val)
-{
-	return (uint) (val & 0xFFFFFFFF);
-}
-
-static inline uint _hi_32(uint64_t val)
-{
-	return (uint) ((val >> 32) & 0xFFFFFFFF);
-}
-
 static inline bool adreno_soft_fault_detect(struct adreno_device *adreno_dev)
 {
 	return adreno_dev->fast_hang_detect &&

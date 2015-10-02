@@ -766,9 +766,9 @@ size_t a5xx_snapshot_regs_crash_dumper(struct kgsl_device *device, u8 *buf,
 	*(script_ptr++) = 0x0;
 
 	kgsl_regwrite(device, A5XX_CP_CRASH_SCRIPT_BASE_LO,
-			_lo_32(adreno_dev->capturescript.gpuaddr));
+			lower_32_bits(adreno_dev->capturescript.gpuaddr));
 	kgsl_regwrite(device, A5XX_CP_CRASH_SCRIPT_BASE_HI,
-			_hi_32(adreno_dev->capturescript.gpuaddr));
+			upper_32_bits(adreno_dev->capturescript.gpuaddr));
 	kgsl_regwrite(device, A5XX_CP_CRASH_DUMP_CNTL, 1);
 
 	wait_time = jiffies + msecs_to_jiffies(CP_CRASH_DUMPER_TIMEOUT);

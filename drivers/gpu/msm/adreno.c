@@ -155,10 +155,10 @@ void adreno_writereg64(struct adreno_device *adreno_dev,
 
 	if (adreno_checkreg_off(adreno_dev, lo))
 		kgsl_regwrite(device, gpudev->reg_offsets->offsets[lo],
-			((unsigned int)val));
+				lower_32_bits(val));
 	if (adreno_checkreg_off(adreno_dev, hi))
 		kgsl_regwrite(device, gpudev->reg_offsets->offsets[hi],
-			((uint64_t)(val) >> 32));
+				upper_32_bits(val));
 }
 
 /**

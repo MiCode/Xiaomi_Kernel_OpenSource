@@ -382,8 +382,8 @@ static inline uint cp_gpuaddr(struct adreno_device *adreno_dev,
 	if (ADRENO_LEGACY_PM4(adreno_dev))
 		*cmds++ = (uint)gpuaddr;
 	else {
-		*cmds++ = (uint)(gpuaddr);
-		*cmds++ = ((uint64_t)(gpuaddr) >> 32);
+		*cmds++ = lower_32_bits(gpuaddr);
+		*cmds++ = upper_32_bits(gpuaddr);
 	}
 	return cmds - start;
 }

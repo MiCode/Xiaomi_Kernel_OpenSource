@@ -459,8 +459,8 @@ static unsigned int _adreno_iommu_set_pt_v1(struct adreno_ringbuffer *rb,
 	cmds += _iommu_lock(adreno_dev, cmds);
 
 	cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TTBR0, 2);
-	*cmds++ = _lo_32(ttbr0);
-	*cmds++ = _hi_32(ttbr0);
+	*cmds++ = lower_32_bits(ttbr0);
+	*cmds++ = upper_32_bits(ttbr0);
 	cmds += _cp_smmu_reg(adreno_dev, cmds,
 			KGSL_IOMMU_CTX_CONTEXTIDR, 1);
 	*cmds++ = contextidr;
@@ -498,8 +498,8 @@ static unsigned int _adreno_iommu_set_pt_v2_a3xx(struct kgsl_device *device,
 	cmds += _vbif_lock(adreno_dev, cmds);
 
 	cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TTBR0, 2);
-	*cmds++ = _lo_32(ttbr0);
-	*cmds++ = _hi_32(ttbr0);
+	*cmds++ = lower_32_bits(ttbr0);
+	*cmds++ = upper_32_bits(ttbr0);
 	cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_CONTEXTIDR, 1);
 	*cmds++ = contextidr;
 
@@ -527,8 +527,8 @@ static unsigned int _adreno_iommu_set_pt_v2_a4xx(struct kgsl_device *device,
 	cmds += _vbif_lock(adreno_dev, cmds);
 
 	cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_TTBR0, 2);
-	*cmds++ = _lo_32(ttbr0);
-	*cmds++ = _hi_32(ttbr0);
+	*cmds++ = lower_32_bits(ttbr0);
+	*cmds++ = upper_32_bits(ttbr0);
 	cmds += _cp_smmu_reg(adreno_dev, cmds, KGSL_IOMMU_CTX_CONTEXTIDR, 1);
 	*cmds++ = contextidr;
 
@@ -557,15 +557,15 @@ static unsigned int _adreno_iommu_set_pt_v2_a5xx(struct kgsl_device *device,
 
 	/* CP switches the pagetable and flushes the Caches */
 	*cmds++ = cp_packet(adreno_dev, CP_SMMU_TABLE_UPDATE, 3);
-	*cmds++ = _lo_32(ttbr0);
-	*cmds++ = _hi_32(ttbr0);
+	*cmds++ = lower_32_bits(ttbr0);
+	*cmds++ = upper_32_bits(ttbr0);
 	*cmds++ = contextidr;
 
 	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 4, 1);
 	cmds += cp_gpuaddr(adreno_dev, cmds, (rb->pagetable_desc.gpuaddr +
 		offsetof(struct adreno_ringbuffer_pagetable_info, ttbr0)));
-	*cmds++ = _lo_32(ttbr0);
-	*cmds++ = _hi_32(ttbr0);
+	*cmds++ = lower_32_bits(ttbr0);
+	*cmds++ = upper_32_bits(ttbr0);
 	*cmds++ = contextidr;
 
 	/* release all commands with wait_for_me */
@@ -650,7 +650,7 @@ unsigned int adreno_iommu_set_pt_ib(struct adreno_ringbuffer *rb,
 			(rb->pagetable_desc.gpuaddr +
 			offsetof(struct adreno_ringbuffer_pagetable_info,
 			ttbr0)));
-	*cmds++ = _lo_32(iommu_pt->ttbr0);
+	*cmds++ = lower_32_bits(iommu_pt->ttbr0);
 
 	*cmds++ =  cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
 	cmds += cp_gpuaddr(adreno_dev, cmds,

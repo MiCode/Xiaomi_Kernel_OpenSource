@@ -35,7 +35,6 @@
 #include "kgsl_sync.h"
 #include "kgsl_trace.h"
 #include "kgsl_compat.h"
-#include "adreno.h"
 
 /*
  * Define an kmem cache for the memobj structures since we allocate and free
