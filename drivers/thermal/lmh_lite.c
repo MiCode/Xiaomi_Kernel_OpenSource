@@ -1043,7 +1043,9 @@ static void lmh_voltage_scale_set(uint32_t voltage)
 {
 	char trace_buf[MAX_TRACE_EVENT_MSG_LEN] = "";
 
+	mutex_lock(&scm_lmh_lock);
 	writel_relaxed(voltage, lmh_data->dpm_voltage_scale_reg);
+	mutex_unlock(&scm_lmh_lock);
 	snprintf(trace_buf, MAX_TRACE_EVENT_MSG_LEN,
 		"DPM voltage scale %d mV", voltage);
 	pr_debug("%s\n", trace_buf);
