@@ -1379,11 +1379,13 @@ int ipa3_teardown_sys_pipe(u32 clnt_hdl)
 	if (IPA_CLIENT_IS_CONS(ep->client))
 		ipa3_cleanup_rx(ep->sys);
 
-	if (ipa3_ctx->modem_cfg_emb_pipe_flt &&
-		ep->client == IPA_CLIENT_APPS_LAN_WAN_PROD)
-		IPADBG("modem cfg emb pipe flt\n");
-	else
-		ipa3_delete_dflt_flt_rules(clnt_hdl);
+	if (!ep->skip_ep_cfg && IPA_CLIENT_IS_PROD(ep->client)) {
+		if (ipa3_ctx->modem_cfg_emb_pipe_flt &&
+			ep->client == IPA_CLIENT_APPS_LAN_WAN_PROD)
+			IPADBG("modem cfg emb pipe flt\n");
+		else
+			ipa3_delete_dflt_flt_rules(clnt_hdl);
+	}
 
 	if (IPA_CLIENT_IS_WLAN_CONS(ep->client))
 		atomic_dec(&ipa3_ctx->wc_memb.active_clnt_cnt);
