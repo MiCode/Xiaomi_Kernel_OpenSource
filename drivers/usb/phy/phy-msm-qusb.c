@@ -25,6 +25,9 @@
 #include <linux/usb/phy.h>
 #include <linux/usb/msm_hsusb.h>
 
+#define QUSB2PHY_PLL_STATUS	0x38
+#define QUSB2PHY_PLL_LOCK	BIT(5)
+
 #define QUSB2PHY_PORT_QC1	0x70
 #define VDM_SRC_EN		BIT(4)
 #define VDP_SRC_EN		BIT(2)
@@ -84,6 +87,8 @@
 #define QUSB2PHY_3P3_VOL_MAX		3200000 /* uV */
 #define QUSB2PHY_3P3_HPM_LOAD		30000	/* uA */
 
+#define QUSB2PHY_REFCLK_ENABLE		BIT(0)
+
 unsigned int tune2;
 module_param(tune2, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(tune2, "QUSB PHY TUNE2");
@@ -93,6 +98,7 @@ struct qusb_phy {
 	void __iomem		*base;
 	void __iomem		*qscratch_base;
 	void __iomem		*tune2_efuse_reg;
+	void __iomem		*ref_clk_base;
 
 	struct clk		*ref_clk_src;
 	struct clk		*ref_clk;
@@ -127,19 +133,6 @@ struct qusb_phy {
 	int			*emu_dcm_reset_seq;
 	int			emu_dcm_reset_seq_len;
 };
-
-static int qusb_phy_reset(struct usb_phy *phy)
-{
-	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
-
-	dev_dbg(phy->dev, "%s\n", __func__);
-
-	clk_reset(qphy->phy_reset, CLK_RESET_ASSERT);
-	usleep_range(100, 150);
-	clk_reset(qphy->phy_reset, CLK_RESET_DEASSERT);
-
-	return 0;
-}
 
 static void qusb_phy_enable_clocks(struct qusb_phy *qphy, bool on)
 {
@@ -531,6 +524,28 @@ static int qusb_phy_init(struct usb_phy *phy)
 
 	qusb_phy_enable_clocks(qphy, true);
 
+	/*
+	 * ref clock is enabled by default after power on reset. Linux clock
+	 * driver will disable this clock as part of late init if peripheral
+	 * driver(s) does not explicitly votes for it. Linux clock driver also
+	 * does not disable the clock until late init even if peripheral
+	 * driver explicitly requests it and cannot defer the probe until late
+	 * init. Hence, Explicitly disable the clock using register write to
+	 * allow QUSB PHY PLL to lock properly.
+	 */
+	if (qphy->ref_clk_base) {
+		writel_relaxed((readl_relaxed(qphy->ref_clk_base) &
+					~QUSB2PHY_REFCLK_ENABLE),
+					qphy->ref_clk_base);
+		/* Make sure that above write complete to get ref clk OFF */
+		wmb();
+	}
+
+	/* Perform phy reset */
+	clk_reset(qphy->phy_reset, CLK_RESET_ASSERT);
+	usleep_range(100, 150);
+	clk_reset(qphy->phy_reset, CLK_RESET_DEASSERT);
+
 	if (qphy->emulation) {
 		if (qphy->emu_init_seq)
 			qusb_phy_write_seq(qphy->emu_phy_base,
@@ -596,6 +611,29 @@ static int qusb_phy_init(struct usb_phy *phy)
 	/* Enable the PHY */
 	writel_relaxed(CLAMP_N_EN | FREEZIO_N,
 		qphy->base + QUSB2PHY_PORT_POWERDOWN);
+
+	/* Ensure above write is completed before turning ON ref clk */
+	wmb();
+
+	/* Require to get phy pll lock successfully */
+	usleep_range(150, 160);
+
+	if (!(readb_relaxed(qphy->base + QUSB2PHY_PLL_STATUS) &
+					QUSB2PHY_PLL_LOCK)) {
+		dev_err(phy->dev, "QUSB PHY PLL LOCK fails:%x\n",
+			readb_relaxed(qphy->base + QUSB2PHY_PLL_STATUS));
+		WARN_ON(1);
+	}
+
+	/* Turn on phy ref_clk */
+	if (qphy->ref_clk_base) {
+		writel_relaxed((readl_relaxed(qphy->ref_clk_base) |
+					QUSB2PHY_REFCLK_ENABLE),
+					qphy->ref_clk_base);
+		/* Make sure that above write is completed to get ref clk ON */
+		wmb();
+	}
+
 	return 0;
 }
 
@@ -826,6 +864,15 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		}
 	}
 
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+							"ref_clk_addr");
+	if (res) {
+		qphy->ref_clk_base = devm_ioremap_nocache(dev,
+				res->start, resource_size(res));
+		if (IS_ERR(qphy->ref_clk_base))
+			dev_dbg(dev, "ref_clk_address is not available.\n");
+	}
+
 	qphy->ref_clk_src = devm_clk_get(dev, "ref_clk_src");
 	if (IS_ERR(qphy->ref_clk_src))
 		return PTR_ERR(qphy->ref_clk_src);
@@ -974,7 +1021,6 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	qphy->phy.init			= qusb_phy_init;
 	qphy->phy.set_suspend           = qusb_phy_set_suspend;
 	qphy->phy.shutdown		= qusb_phy_shutdown;
-	qphy->phy.reset			= qusb_phy_reset;
 	qphy->phy.change_dpdm		= qusb_phy_update_dpdm;
 	qphy->phy.type			= USB_PHY_TYPE_USB2;
 
