@@ -116,12 +116,11 @@ const char *err_name[] = {
 struct erp_drvdata {
 	struct edac_device_ctl_info *edev_ctl;
 	void __iomem *cci_base;
-	u32 mem_perf_counter;
 	struct notifier_block nb_pm;
 	struct notifier_block nb_cpu;
 	struct notifier_block nb_panic;
 	struct work_struct work;
-	unsigned int sbe_irq;
+	struct perf_event *memerr_counters[NR_CPUS];
 };
 
 static struct erp_drvdata *panic_handler_drvdata;
@@ -131,15 +130,7 @@ struct erp_local_data {
 	enum error_type err;
 };
 
-/* Reserving the last PMU counter for Memory Event for EDAC */
-#define	ARMV8_PMCR_N_SHIFT	11	 /* Number of counters supported */
-#define	ARMV8_PMCR_N_MASK	0x1f
-#define ARMV8PMU_EVTYPE_NSH	BIT(27)
-#define ARMV8_PMCR_E		(1 << 0) /* Enable all counters */
 #define MEM_ERROR_EVENT		0x1A
-#define MAX_COUNTER_VALUE	0xFFFFFFFF
-
-static inline void sbe_enable_event(void *info);
 
 struct errors_edac {
 	const char * const msg;
@@ -615,140 +606,19 @@ static irqreturn_t arm64_cci_handler(int irq, void *drvdata)
 	return IRQ_HANDLED;
 }
 
-static inline u32 armv8pmu_pmcr_read(void)
+static void arm64_sbe_handler(struct perf_event *event,
+			      struct perf_sample_data *data,
+			      struct pt_regs *regs)
 {
-	u32 val;
-
-	asm volatile("mrs %0, pmcr_el0" : "=r" (val));
-	return val;
-}
-
-static inline u32 arm64_pmu_get_last_counter(void)
-{
-	u32 pmcr, cntr;
-
-	asm volatile("mrs %0, pmcr_el0" : "=r" (pmcr));
-	cntr = (pmcr >> ARMV8_PMCR_N_SHIFT) & ARMV8_PMCR_N_MASK;
-
-	return cntr-1;
-}
-
-static inline void arm64pmu_select_mem_counter(u32 cntr)
-{
-	asm volatile("msr pmselr_el0, %0" : : "r" (cntr));
-	isb();
-}
-
-static inline u32 arm64pmu_getreset_flags(u32 cntr)
-{
-	u32 value;
-	u32 write_val;
-
-	/* Read */
-	asm volatile("mrs %0, pmovsclr_el0" : "=r" (value));
-
-	/* Write to clear flags */
-	write_val = value & BIT(cntr);
-	asm volatile("msr pmovsclr_el0, %0" : : "r" (write_val));
-
-	return value;
-}
-
-static inline int arm64pmu_mem_counter_has_overflowed(u32 pmnc, u32 cntr)
-{
-	int ret = pmnc & BIT(cntr);
-	return ret;
-}
-
-static inline void arm64pmu_disable_mem_counter(u32 cntr)
-{
-	asm volatile("msr pmcntenclr_el0, %0" : : "r" (BIT(cntr)));
-}
-
-static inline void arm64pmu_enable_mem_counter(u32 cntr)
-{
-	asm volatile("msr pmcntenset_el0, %0" : : "r" (BIT(cntr)));
-}
-
-static inline void arm64pmu_write_mem_counter(u32 value, u32 cntr)
-{
-	arm64pmu_select_mem_counter(cntr);
-	asm volatile("msr pmxevcntr_el0, %0" : : "r" (value));
-}
-
-static inline void arm64pmu_set_mem_evtype(u32 cntr)
-{
-	u32 val = ARMV8PMU_EVTYPE_NSH | MEM_ERROR_EVENT;
-
-	arm64pmu_select_mem_counter(cntr);
-	asm volatile("msr pmxevtyper_el0, %0" : : "r" (val));
-}
-
-static inline void arm64pmu_enable_mem_irq(u32 cntr)
-{
-	asm volatile("msr pmintenset_el1, %0" : : "r" (BIT(cntr)));
-}
-
-static inline void arm64pmu_pmcr_enable(void)
-{
-	u32 val = armv8pmu_pmcr_read();
-
-	val |= ARMV8_PMCR_E;
-	asm volatile("msr pmcr_el0, %0" : : "r" (val));
-	isb();
-}
-
-/*
- * This function follows the sequence to enable
- * the memory event counter. Steps done here include
- * programming the counter for memory error perf event,
- * setting the initial counter value and enabling the interrupt
- * associated with the counter.
- */
-static inline void sbe_enable_event(void *info)
-{
-	struct erp_drvdata *drv = info;
-	unsigned long flags;
-	u32 cntr = drv->mem_perf_counter;
-
-	arm64_pmu_lock(NULL, &flags);
-	arm64pmu_disable_mem_counter(cntr);
-	arm64pmu_set_mem_evtype(cntr);
-	arm64pmu_enable_mem_irq(cntr);
-	arm64pmu_write_mem_counter(MAX_COUNTER_VALUE, cntr);
-	arm64pmu_enable_mem_counter(cntr);
-	arm64pmu_pmcr_enable();
-	arm64_pmu_unlock(NULL, &flags);
-}
-
-static irqreturn_t arm64_sbe_handler(int irq, void *drvdata)
-{
-	u32 pmovsr, cntr;
 	struct erp_local_data errdata;
-	unsigned long flags;
-	int overflow = 0, ret = IRQ_HANDLED;
 	int cpu = raw_smp_processor_id();
 
-	errdata.drv = *((struct erp_drvdata **)drvdata);
-
-	cntr = errdata.drv->mem_perf_counter;
-	arm64_pmu_lock(NULL, &flags);
-	pmovsr = arm64pmu_getreset_flags(cntr);
-	arm64_pmu_unlock(NULL, &flags);
-	overflow = arm64pmu_mem_counter_has_overflowed(pmovsr, cntr);
-
-	if (overflow) {
-		errdata.err = SBE;
-		edac_printk(KERN_CRIT, EDAC_CPU, "ARM64 CPU ERP: Single-bit error interrupt received on CPU %d!\n",
-						cpu);
-		WARN_ON(!panic_on_ce);
-		arm64_erp_local_handler(&errdata);
-		sbe_enable_event(errdata.drv);
-	} else {
-		ret = armv8pmu_handle_irq(irq, NULL);
-	}
-
-	return ret;
+	errdata.drv = event->overflow_handler_context;
+	errdata.err = SBE;
+	edac_printk(KERN_CRIT, EDAC_CPU, "ARM64 CPU ERP: Single-bit error interrupt received on CPU %d!\n",
+					cpu);
+	WARN_ON(!panic_on_ce);
+	arm64_erp_local_handler(&errdata);
 }
 
 static int request_erp_irq(struct platform_device *pdev, const char *propname,
@@ -781,20 +651,6 @@ static int request_erp_irq(struct platform_device *pdev, const char *propname,
 	return 0;
 }
 
-static void arm64_enable_pmu_irq(void *data)
-{
-	unsigned int irq = *(unsigned int *)data;
-
-	enable_percpu_irq(irq, IRQ_TYPE_NONE);
-}
-
-static void arm64_disable_pmu_irq(void *data)
-{
-	unsigned int irq = *(unsigned int *)data;
-
-	disable_percpu_irq(irq);
-}
-
 static void check_sbe_event(struct erp_drvdata *drv)
 {
 	unsigned int partnum = read_cpuid_part_number();
@@ -820,6 +676,39 @@ static void check_sbe_event(struct erp_drvdata *drv)
 	spin_unlock_irqrestore(&local_handler_lock, flags);
 }
 
+#ifdef CONFIG_EDAC_CORTEX_ARM64_DBE_IRQ_ONLY
+static void create_sbe_counter(int cpu, void *info)
+{ }
+#else
+static void create_sbe_counter(int cpu, void *info)
+{
+	struct erp_drvdata *drv = info;
+	struct perf_event *event = drv->memerr_counters[cpu];
+	struct perf_event_attr attr = {
+		.pinned = 1,
+		.disabled = 0, /* 0 will enable the counter upon creation */
+		.sample_period = 1, /* 1 will set the counter to max int */
+		.type = PERF_TYPE_RAW,
+		.config = MEM_ERROR_EVENT,
+		.size = sizeof(struct perf_event_attr),
+	};
+
+	if (event)
+		return;
+
+	/* Fails if cpu is not online */
+	event = perf_event_create_kernel_counter(&attr, cpu, NULL,
+							arm64_sbe_handler,
+							drv);
+	if (IS_ERR(event)) {
+		pr_err("PERF Event creation failed on cpu %d ptr_err %ld\n",
+							cpu, PTR_ERR(event));
+		return;
+	}
+	drv->memerr_counters[cpu] = event;
+}
+#endif
+
 static int arm64_pmu_cpu_pm_notify(struct notifier_block *self,
 					   unsigned long action, void *v)
 {
@@ -828,7 +717,6 @@ static int arm64_pmu_cpu_pm_notify(struct notifier_block *self,
 	switch (action) {
 	case CPU_PM_EXIT:
 		check_sbe_event(drv);
-		sbe_enable_event(drv);
 		break;
 	}
 
@@ -840,13 +728,11 @@ static int arm64_edac_pmu_cpu_notify(struct notifier_block *self,
 {
 	struct erp_drvdata *drv = container_of(self, struct erp_drvdata,
 								nb_cpu);
+	unsigned long cpu = (unsigned long)hcpu;
+
 	switch (action & ~CPU_TASKS_FROZEN) {
-	case CPU_STARTING:
-		sbe_enable_event(drv);
-		arm64_enable_pmu_irq(&drv->sbe_irq);
-		break;
-	case CPU_DYING:
-		arm64_disable_pmu_irq(&drv->sbe_irq);
+	case CPU_ONLINE:
+		create_sbe_counter(cpu, drv);
 		break;
 	};
 
@@ -896,10 +782,8 @@ static int arm64_cpu_erp_probe(struct platform_device *pdev)
 	struct resource *r;
 	int cpu;
 	u32 poll_msec;
-	struct erp_drvdata * __percpu *drv_cpu =
-					alloc_percpu(struct erp_drvdata *);
 
-	int rc, sbe_irq, fail = 0;
+	int rc, fail = 0;
 
 	drv = devm_kzalloc(dev, sizeof(*drv), GFP_KERNEL);
 
@@ -960,41 +844,22 @@ static int arm64_cpu_erp_probe(struct platform_device *pdev)
 			    arm64_cci_handler, drv))
 		fail++;
 
-	if (!drv_cpu)
-		goto out_irq;
-
-	sbe_irq = platform_get_irq_byname(pdev, "sbe-irq");
-	if (sbe_irq < 0 || IS_ENABLED(CONFIG_EDAC_CORTEX_ARM64_DBE_IRQ_ONLY)) {
-		pr_err("ARM64 CPU ERP: Could not find sbe-irq IRQ property. Proceeding anyway.\n");
-		fail++;
+	if (IS_ENABLED(CONFIG_EDAC_CORTEX_ARM64_DBE_IRQ_ONLY)) {
+		pr_err("ARM64 CPU ERP: SBE detection is disabled.\n");
 		goto out_irq;
 	}
-
-	for_each_possible_cpu(cpu)
-		*per_cpu_ptr(drv_cpu, cpu) = drv;
-
-	rc = request_percpu_irq(sbe_irq, arm64_sbe_handler,
-			"ARM64 Single-Bit Error PMU IRQ",
-			drv_cpu);
-	if (rc) {
-		pr_err("ARM64 CPU ERP: Failed to request IRQ %d: %d. Proceeding anyway.\n",
-								sbe_irq, rc);
-		goto out_irq;
-	}
-	drv->sbe_irq = sbe_irq;
 
 	drv->nb_pm.notifier_call = arm64_pmu_cpu_pm_notify;
-	drv->mem_perf_counter = arm64_pmu_get_last_counter();
 	cpu_pm_register_notifier(&(drv->nb_pm));
 	drv->nb_panic.notifier_call = arm64_erp_panic_notify;
 	atomic_notifier_chain_register(&panic_notifier_list,
 				       &drv->nb_panic);
-	arm64_pmu_irq_handled_externally();
-
 	drv->nb_cpu.notifier_call = arm64_edac_pmu_cpu_notify;
 	register_cpu_notifier(&drv->nb_cpu);
-	on_each_cpu(sbe_enable_event, drv, 1);
-	on_each_cpu(arm64_enable_pmu_irq, &sbe_irq, 1);
+	get_online_cpus();
+	for_each_online_cpu(cpu)
+		create_sbe_counter(cpu, drv);
+	put_online_cpus();
 
 out_irq:
 	if (fail == of_irq_count(dev->of_node)) {
