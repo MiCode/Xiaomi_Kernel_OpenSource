@@ -84,6 +84,7 @@ struct qmp_reg_val {
 	u32 offset;
 	u32 diff_clk_sel_val;
 	u32 se_clk_sel_val;
+	u32 delay;
 };
 
 /* Use these offsets/values if PCIE_USB3_PHY_REVISION_ID0 == 0 */
@@ -344,6 +345,8 @@ struct msm_ssphy_qmp {
 	bool			emulation;
 	bool			misc_config;
 	unsigned int		*phy_reg; /* revision based offset */
+	unsigned int		*qmp_phy_init_seq;
+	int			init_seq_len;
 };
 
 static const struct of_device_id msm_usb_id_table[] = {
@@ -495,6 +498,8 @@ static int configure_phy_regs(struct usb_phy *uphy,
 		writel_relaxed(diff_clk_sel ?
 				reg->diff_clk_sel_val : reg->se_clk_sel_val,
 				phy->base + reg->offset);
+		if (reg->delay)
+			usleep_range(reg->delay, reg->delay + 10);
 		reg++;
 	}
 	return 0;
@@ -558,6 +563,9 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 			revid);
 		return -ENODEV;
 	}
+
+	if (phy->qmp_phy_init_seq)
+		reg = (struct qmp_reg_val *)phy->qmp_phy_init_seq;
 
 	writel_relaxed(0x01, phy->base + PCIE_USB3_PHY_POWER_DOWN_CONTROL);
 
@@ -810,7 +818,7 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	struct msm_ssphy_qmp *phy;
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-	int ret = 0;
+	int ret = 0, size = 0;
 	const struct of_device_id *phy_ver;
 
 	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
@@ -918,6 +926,27 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 				res->start, resource_size(res));
 		if (IS_ERR(phy->tcsr_phy_clk_scheme_sel))
 			dev_dbg(dev, "err reading tcsr_phy_clk_scheme_sel\n");
+	}
+
+	of_get_property(dev->of_node, "qcom,qmp-phy-init-seq", &size);
+	if (size) {
+		if (size % sizeof(*phy->qmp_phy_init_seq)) {
+			dev_err(dev, "invalid init_seq_len\n");
+			return -EINVAL;
+		}
+		phy->qmp_phy_init_seq = devm_kzalloc(dev,
+						size, GFP_KERNEL);
+		if (phy->qmp_phy_init_seq) {
+			phy->init_seq_len =
+				(size / sizeof(*phy->qmp_phy_init_seq));
+
+			of_property_read_u32_array(dev->of_node,
+				"qcom,qmp-phy-init-seq",
+				phy->qmp_phy_init_seq,
+				phy->init_seq_len);
+		} else {
+			dev_err(dev, "error allocating memory for phy_init_seq\n");
+		}
 	}
 
 	phy->emulation = of_property_read_bool(dev->of_node,
