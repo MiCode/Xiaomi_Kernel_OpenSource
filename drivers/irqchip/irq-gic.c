@@ -289,20 +289,16 @@ void gic_show_pending_irq(void)
 	}
 }
 
-bool gic_is_any_irq_pending(void)
+uint32_t gic_return_irq_pending(void)
 {
 	struct gic_chip_data *gic = &gic_data[0];
 	void __iomem *cpu_base = gic_data_cpu_base(gic);
 	int val;
 
 	val = readl_relaxed_no_log(cpu_base + GIC_CPU_HIGHPRI);
-	val &= GIC_INVL_INTERRUPT_MASK;
-	if (val == GIC_INVL_INTERRUPT_MASK)
-		return 0;
-	else
-		return 1;
+	return val;
 }
-EXPORT_SYMBOL(gic_is_any_irq_pending);
+EXPORT_SYMBOL(gic_return_irq_pending);
 
 static void gic_show_resume_irq(struct gic_chip_data *gic)
 {
