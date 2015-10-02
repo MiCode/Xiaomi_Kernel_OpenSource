@@ -455,7 +455,8 @@ static const char * const _size_to_string(unsigned long size)
 	return "unknown size, please add to _size_to_string";
 }
 
-static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev)
+static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
+					 bool secure)
 {
 	unsigned long sizes[] = { SZ_4K, SZ_64K, SZ_2M, SZ_1M * 12,
 				  SZ_1M * 20, 0 };
@@ -476,6 +477,17 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev)
 		seq_printf(s, "Couldn't set atomic_domain to %d\n",
 			   atomic_domain);
 		goto out_domain_free;
+	}
+
+	if (secure) {
+		int secure_vmid = VMID_CP_PIXEL;
+
+		if (iommu_domain_set_attr(domain, DOMAIN_ATTR_SECURE_VMID,
+					  &secure_vmid)) {
+			seq_printf(s, "Couldn't set secure vmid to %d\n",
+				   secure_vmid);
+			goto out_domain_free;
+		}
 	}
 
 	if (iommu_attach_device(domain, dev)) {
@@ -571,7 +583,7 @@ static int iommu_debug_profiling_show(struct seq_file *s, void *ignored)
 {
 	struct iommu_debug_device *ddev = s->private;
 
-	iommu_debug_device_profiling(s, ddev->dev);
+	iommu_debug_device_profiling(s, ddev->dev, false);
 
 	return 0;
 }
@@ -583,6 +595,29 @@ static int iommu_debug_profiling_open(struct inode *inode, struct file *file)
 
 static const struct file_operations iommu_debug_profiling_fops = {
 	.open	 = iommu_debug_profiling_open,
+	.read	 = seq_read,
+	.llseek	 = seq_lseek,
+	.release = single_release,
+};
+
+static int iommu_debug_secure_profiling_show(struct seq_file *s, void *ignored)
+{
+	struct iommu_debug_device *ddev = s->private;
+
+	iommu_debug_device_profiling(s, ddev->dev, true);
+
+	return 0;
+}
+
+static int iommu_debug_secure_profiling_open(struct inode *inode,
+					     struct file *file)
+{
+	return single_open(file, iommu_debug_secure_profiling_show,
+			   inode->i_private);
+}
+
+static const struct file_operations iommu_debug_secure_profiling_fops = {
+	.open	 = iommu_debug_secure_profiling_open,
 	.read	 = seq_read,
 	.llseek	 = seq_lseek,
 	.release = single_release,
@@ -948,6 +983,13 @@ static int snarf_iommu_devices(struct device *dev, void *ignored)
 	if (!debugfs_create_file("profiling", S_IRUSR, dir, ddev,
 				 &iommu_debug_profiling_fops)) {
 		pr_err("Couldn't create iommu/devices/%s/profiling debugfs file\n",
+		       dev_name(dev));
+		goto err_rmdir;
+	}
+
+	if (!debugfs_create_file("secure_profiling", S_IRUSR, dir, ddev,
+				 &iommu_debug_secure_profiling_fops)) {
+		pr_err("Couldn't create iommu/devices/%s/secure_profiling debugfs file\n",
 		       dev_name(dev));
 		goto err_rmdir;
 	}
