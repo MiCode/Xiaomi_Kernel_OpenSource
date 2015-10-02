@@ -20,7 +20,7 @@
 #include <linux/ctype.h>
 #include <linux/cpu.h>
 
-#define MAX_PSTATES 20
+#define MAX_PSTATES 50
 
 enum arg_offset {
 	CPU_OFFSET,
