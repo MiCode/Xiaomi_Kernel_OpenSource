@@ -112,6 +112,12 @@ struct wsa881x_priv {
 #define WSA881X_VERSION_ENTRY_SIZE 27
 #define WSA881X_OCP_CTL_TIMER_SEC 2
 #define WSA881X_OCP_CTL_TEMP_CELSIUS 25
+#define WSA881X_OCP_CTL_POLL_TIMER_SEC 60
+
+static int wsa881x_ocp_poll_timer_sec = WSA881X_OCP_CTL_POLL_TIMER_SEC;
+module_param(wsa881x_ocp_poll_timer_sec, int,
+		S_IRUGO | S_IWUSR | S_IWGRP);
+MODULE_PARM_DESC(wsa881x_ocp_poll_timer_sec, "timer for ocp ctl polling");
 
 static struct wsa881x_priv *dbgwsa881x;
 static struct dentry *debugfs_wsa881x_dent;
@@ -762,6 +768,9 @@ static void wsa881x_ocp_ctl_work(struct work_struct *work)
 		snd_soc_update_bits(codec, WSA881X_SPKR_OCP_CTL, 0xC0, 0x00);
 	else
 		snd_soc_update_bits(codec, WSA881X_SPKR_OCP_CTL, 0xC0, 0xC0);
+
+	schedule_delayed_work(&wsa881x->ocp_ctl_work,
+			msecs_to_jiffies(wsa881x_ocp_poll_timer_sec * 1000));
 }
 
 static int wsa881x_spkr_pa_event(struct snd_soc_dapm_widget *w,
@@ -987,7 +996,6 @@ static int32_t wsa881x_temp_reg_read(struct snd_soc_codec *codec,
 	wsa_temp_reg->d2_msb = snd_soc_read(codec, WSA881X_OTP_REG_3);
 	wsa_temp_reg->d2_lsb = snd_soc_read(codec, WSA881X_OTP_REG_4);
 
-	snd_soc_update_bits(codec, WSA881X_TEMP_OP, 0x04, 0x00);
 	wsa881x_resource_acquire(codec, DISABLE);
 
 	return 0;
