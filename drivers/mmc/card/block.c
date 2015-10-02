@@ -2965,7 +2965,7 @@ static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 		goto reset;
 	}
 
-	if (mrq->data->error) {
+	if (mrq->data && mrq->data->error) {
 		blk_end_request_all(mrq->req, mrq->data->error);
 		for (; retry < MAX_RETRIES; retry++) {
 			err = get_card_status(card, &status, 0);
@@ -2998,8 +2998,18 @@ static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 	}
 
 	/* DCMD commands */
-	if (mrq->cmd->error)
+	if (mrq->cmd && mrq->cmd->error) {
+		/*
+		 * Notify completion for non flush commands like discard
+		 * that wait for DCMD finish.
+		 */
+		if (!(mrq->req->cmd_flags & REQ_FLUSH)) {
+			complete(&mrq->completion);
+			goto reset;
+		}
+		clear_bit(CMDQ_STATE_DCMD_ACTIVE, &ctx_info->curr_state);
 		blk_end_request_all(mrq->req, mrq->cmd->error);
+	}
 
 reset:
 	spin_lock_irq(mq->queue->queue_lock);
