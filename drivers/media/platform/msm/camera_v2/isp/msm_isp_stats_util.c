@@ -140,7 +140,7 @@ static int32_t msm_isp_stats_buf_divert(struct vfe_device *vfe_dev,
 	}
 
 	rc = vfe_dev->buf_mgr->ops->update_put_buf_cnt(
-		vfe_dev->buf_mgr, done_buf->bufq_handle,
+		vfe_dev->buf_mgr, vfe_dev->pdev->id, done_buf->bufq_handle,
 		done_buf->buf_idx, &ts->buf_time,
 		frame_id);
 	if (rc != 0) {
@@ -568,6 +568,9 @@ int msm_isp_stats_reset(struct vfe_device *vfe_dev)
 	int i = 0, rc = 0;
 	struct msm_vfe_stats_stream *stream_info = NULL;
 	struct msm_vfe_stats_shared_data *stats_data = &vfe_dev->stats_data;
+	struct msm_isp_timestamp timestamp;
+
+	msm_isp_get_timestamp(&timestamp);
 
 	for (i = 0; i < MSM_ISP_STATS_MAX; i++) {
 		stream_info = &stats_data->stream_info[i];
@@ -575,8 +578,9 @@ int msm_isp_stats_reset(struct vfe_device *vfe_dev)
 			continue;
 
 		rc = vfe_dev->buf_mgr->ops->flush_buf(vfe_dev->buf_mgr,
-			stream_info->bufq_handle,
-			MSM_ISP_BUFFER_FLUSH_ALL);
+			vfe_dev->pdev->id, stream_info->bufq_handle,
+			MSM_ISP_BUFFER_FLUSH_ALL, &timestamp.buf_time,
+			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
 		if (rc == -EFAULT) {
 			msm_isp_halt_send_error(vfe_dev,
 				ISP_EVENT_BUF_FATAL_ERROR);
@@ -688,6 +692,10 @@ static int msm_isp_stop_stats_stream(struct vfe_device *vfe_dev,
 	uint32_t num_stats_comp_mask = 0;
 	struct msm_vfe_stats_stream *stream_info;
 	struct msm_vfe_stats_shared_data *stats_data = &vfe_dev->stats_data;
+	struct msm_isp_timestamp timestamp;
+
+	msm_isp_get_timestamp(&timestamp);
+
 	num_stats_comp_mask =
 		vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask;
 
@@ -754,8 +762,9 @@ static int msm_isp_stop_stats_stream(struct vfe_device *vfe_dev,
 
 		stream_info = &stats_data->stream_info[idx];
 		rc = vfe_dev->buf_mgr->ops->flush_buf(vfe_dev->buf_mgr,
-			stream_info->bufq_handle,
-			MSM_ISP_BUFFER_FLUSH_ALL);
+			vfe_dev->pdev->id, stream_info->bufq_handle,
+			MSM_ISP_BUFFER_FLUSH_ALL, &timestamp.buf_time,
+			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id);
 		if (rc == -EFAULT) {
 			msm_isp_halt_send_error(vfe_dev,
 				ISP_EVENT_BUF_FATAL_ERROR);
