@@ -119,7 +119,7 @@ static int gdsc_is_enabled(struct regulator_dev *rdev)
 static int gdsc_enable(struct regulator_dev *rdev)
 {
 	struct gdsc *sc = rdev_get_drvdata(rdev);
-	uint32_t regval, hw_ctrl_regval;
+	uint32_t regval, hw_ctrl_regval = 0x0;
 	int i, ret;
 
 	if (sc->root_en || sc->force_root_en)
@@ -160,10 +160,15 @@ static int gdsc_enable(struct regulator_dev *rdev)
 				sc->rdesc.name, regval);
 			udelay(TIMEOUT_US);
 			regval = readl_relaxed(sc->gdscr);
-			hw_ctrl_regval = readl_relaxed(sc->hw_ctrl_addr);
-			dev_err(&rdev->dev, "%s final state: 0x%x, GDS_HW_CTRL: 0x%x (%d us after timeout)\n",
+			if (sc->hw_ctrl_addr) {
+				hw_ctrl_regval =
+					readl_relaxed(sc->hw_ctrl_addr);
+				dev_err(&rdev->dev, "%s final state (%d us after timeout): 0x%x, GDS_HW_CTRL: 0x%x\n",
 					sc->rdesc.name, regval,
 					hw_ctrl_regval, TIMEOUT_US);
+			} else
+				dev_err(&rdev->dev, "%s final state: 0x%x (%d us after timeout)\n",
+					sc->rdesc.name, regval, TIMEOUT_US);
 			return ret;
 		}
 	} else {
