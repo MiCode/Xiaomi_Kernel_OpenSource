@@ -263,8 +263,10 @@ struct mdss_data_type {
 	u32 default_robust_lut;
 
 	/* values used when HW has panic/robust LUTs per pipe */
-	u32 default_panic_lut_per_pipe;
-	u32 default_robust_lut_per_pipe;
+	u32 default_panic_lut_per_pipe_linear;
+	u32 default_panic_lut_per_pipe_tile;
+	u32 default_robust_lut_per_pipe_linear;
+	u32 default_robust_lut_per_pipe_tile;
 
 	u32 has_decimation;
 	bool has_fixed_qos_arbiter_enabled;
@@ -300,6 +302,7 @@ struct mdss_data_type {
 	u32 smp_mb_cnt;
 	u32 smp_mb_size;
 	u32 smp_mb_per_pipe;
+	u32 pixel_ram_size;
 
 	u32 rot_block_size;
 

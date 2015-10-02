@@ -476,8 +476,11 @@ Fudge Factors:			Fudge factors are used to boost demand for
 				each rt and nrt clients. This property is
 				for the MDPv1.7 and above, which configures
 				the panic independently on each client.
-				First element on the array is for the panic
-				configuration, second element for robust.
+				Each element of the array corresponds to:
+				First element - panic for linear formats
+				Second element - panic for tile formats
+				Third element - robust for linear formats
+				Fourth element - robust for tile formats
 - qcom,mdss-has-pingpong-split:	Boolean property to indicate if destination
 				split feature is available or not in the target.
 - qcom,mdss-slave-pingpong-off:	Offset address for the extra TE block which needs
@@ -693,6 +696,11 @@ Example:
 
 		qcom,mdss-pipe-dma-clk-ctrl-offsets = <0x3AC 8 12>,
 						      <0x3B4 8 12>;
+
+		qcom,mdss-per-pipe-panic-luts = <0x000f>,
+						<0xffff>,
+						<0xfffc>,
+						<0xff00>;
 
 		qcom,mdss-has-panic-ctrl;
 		qcom,mdss-pipe-vig-panic-ctrl-offsets = <0 1 2 3>;

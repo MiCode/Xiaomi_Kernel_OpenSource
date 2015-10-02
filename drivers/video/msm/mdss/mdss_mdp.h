@@ -29,7 +29,6 @@
 #include "mdss_mdp_cdm.h"
 
 #define MDSS_MDP_DEFAULT_INTR_MASK 0
-#define MDSS_MDP_PIXEL_RAM_SIZE (50 * 1024)
 
 #define PHASE_STEP_SHIFT	21
 #define PHASE_STEP_UNIT_SCALE   ((int) (1 << PHASE_STEP_SHIFT))
@@ -871,13 +870,6 @@ static inline int mdss_mdp_get_wb_ctl_support(struct mdss_data_type *mdata,
 				(mdata->nctl - mdata->nwb);
 }
 
-static inline int mdss_mdp_get_pixel_ram_size(struct mdss_data_type *mdata)
-{
-	return (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
-				MDSS_MDP_HW_REV_107)) ?
-						MDSS_MDP_PIXEL_RAM_SIZE : 0;
-}
-
 static inline bool mdss_mdp_is_nrt_vbif_client(struct mdss_data_type *mdata,
 					struct mdss_mdp_pipe *pipe)
 {
@@ -1222,7 +1214,6 @@ int mdss_mdp_wb_addr_setup(struct mdss_data_type *mdata,
 void mdss_mdp_pipe_clk_force_off(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_pipe_panic_signal_ctrl(struct mdss_mdp_pipe *pipe, bool enable);
-void mdss_mdp_config_pipe_panic_lut(struct mdss_data_type *mdata);
 void mdss_mdp_bwcpanic_ctrl(struct mdss_data_type *mdata, bool enable);
 int mdss_mdp_pipe_destroy(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
