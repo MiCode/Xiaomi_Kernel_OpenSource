@@ -34,12 +34,15 @@ struct msm_apm_ctrl_dev;
 struct msm_apm_ctrl_dev *msm_apm_ctrl_dev_get(struct device *dev);
 int msm_apm_set_supply(struct msm_apm_ctrl_dev *ctrl_dev,
 		       enum msm_apm_supply supply);
+int msm_apm_get_supply(struct msm_apm_ctrl_dev *ctrl_dev);
 
 #else
 static inline struct msm_apm_ctrl_dev *msm_apm_ctrl_dev_get(struct device *dev)
 { return ERR_PTR(-EPERM); }
 static inline int msm_apm_set_supply(struct msm_apm_ctrl_dev *ctrl_dev,
 		       enum msm_apm_supply supply)
+{ return -EPERM; }
+static inline int msm_apm_get_supply(struct msm_apm_ctrl_dev *ctrl_dev);
 { return -EPERM; }
 #endif
 #endif
