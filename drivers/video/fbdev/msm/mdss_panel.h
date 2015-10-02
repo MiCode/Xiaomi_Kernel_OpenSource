@@ -427,8 +427,6 @@ enum {
 };
 
 struct dsc_desc {
-	int ich_reset_value;
-	int ich_reset_override;
 	int initial_lines;
 	int slice_last_group_size;
 	int bpp;	/* target bit per pixel */
@@ -447,6 +445,7 @@ struct dsc_desc {
 	int slice_height;
 	int slice_width;
 	int chunk_size;
+	int full_frame_slices; /* denotes number of slice in full frame */
 
 	int pkt_per_line;
 	int bytes_in_slice;

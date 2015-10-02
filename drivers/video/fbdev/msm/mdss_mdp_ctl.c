@@ -2404,7 +2404,7 @@ static inline void mdss_mdp_ctl_dsc_disable(struct mdss_mdp_mixer *mixer)
 }
 
 static void mdss_mdp_ctl_dsc_config(struct mdss_mdp_mixer *mixer,
-	struct dsc_desc *dsc, u32 mode)
+	struct dsc_desc *dsc, u32 mode, bool ich_reset_override)
 {
 	u32 data;
 	int bpp, lsb;
@@ -2431,8 +2431,10 @@ static void mdss_mdp_ctl_dsc_config(struct mdss_mdp_mixer *mixer,
 
 	writel_relaxed(mode, offset + MDSS_MDP_REG_DSC_COMMON_MODE);
 
-	data = dsc->ich_reset_override << 28;
-	data |= dsc->ich_reset_value << 29;
+	data = 0;
+	if (ich_reset_override)
+		data = 3 << 28;
+
 	data |= (dsc->initial_lines << 20);
 	data |= ((dsc->slice_last_group_size - 1) << 18);
 	/* bpp is 6.4 format, 4 LSBs bits are for fractional part */
@@ -2448,8 +2450,8 @@ static void mdss_mdp_ctl_dsc_config(struct mdss_mdp_mixer *mixer,
 	data |= (dsc->convert_rgb << 1);
 	data |= dsc->input_10_bits;
 
-	pr_debug("%d %d %d %d %d %d %d %d %d %d, data=%x\n",
-		dsc->ich_reset_value, dsc->ich_reset_override,
+	pr_debug("%d %d %d %d %d %d %d %d %d, data=%x\n",
+		ich_reset_override,
 		dsc->initial_lines , dsc->slice_last_group_size,
 		dsc->bpp, dsc->block_pred_enable, dsc->line_buf_depth,
 		dsc->enable_422, dsc->convert_rgb, dsc->input_10_bits, data);
@@ -2574,6 +2576,8 @@ void mdss_mdp_ctl_dsc_setup(struct mdss_mdp_ctl *ctl,
 	u32 pic_width = 0, pic_height = 0;
 	u32 mode = 0;
 	bool recalc_dsc_params = false;
+	bool ich_reset_override = false;
+	bool dsc_merge = false;
 
 	if (pinfo->type == MIPI_VIDEO_PANEL)
 		mode = BIT(2);
@@ -2606,8 +2610,10 @@ void mdss_mdp_ctl_dsc_setup(struct mdss_mdp_ctl *ctl,
 
 			/* DSC Merge */
 			if ((pinfo->dsc_enc_total == 2) &&
-			    (mdss_mdp_is_both_lm_valid(main_ctl)))
+			    (mdss_mdp_is_both_lm_valid(main_ctl))) {
 				mode |= BIT(1);
+				dsc_merge = true;
+			}
 		}
 	}
 
@@ -2627,8 +2633,29 @@ void mdss_mdp_ctl_dsc_setup(struct mdss_mdp_ctl *ctl,
 	if (recalc_dsc_params)
 		mdss_dsc_parameters_calc(dsc, pic_width, pic_height);
 
+	/*
+	 * As per the DSC spec, ICH_RESET can be either end of the slice line
+	 * or at the end of the slice. HW internally generates ich_reset at
+	 * end of the slice line if DSC_MERGE is used or encoder has two
+	 * soft slices. However, if encoder has only 1 soft slice and DSC_MERGE
+	 * is not used then it will generate ich_reset at the end of slice.
+	 *
+	 * Now as per the spec, during one PPS session, position where
+	 * ich_reset is generated should not change. Now if full-screen frame
+	 * has more than 1 soft slice then HW will automatically generate
+	 * ich_reset at the end of slice_line. But for the same panel, if
+	 * partial frame is enabled and only 1 encoder is used with 1 slice,
+	 * then HW will generate ich_reset at end of the slice. This is a
+	 * mismatch. Prevent this by overriding HW's decision.
+	 */
+	if (pinfo->partial_update_enabled && !dsc_merge &&
+	    (dsc->full_frame_slices > 1) &&
+	    (dsc->slice_width == dsc->pic_width))
+		ich_reset_override = true;
+
 	if (mixer_left->valid_roi) {
-		mdss_mdp_ctl_dsc_config(mixer_left, dsc, mode);
+		mdss_mdp_ctl_dsc_config(mixer_left, dsc, mode,
+			ich_reset_override);
 		mdss_mdp_ctl_dsc_config_thresh(mixer_left, pinfo);
 		mdss_mdp_ctl_dsc_enable(mixer_left);
 	} else {
@@ -2637,7 +2664,8 @@ void mdss_mdp_ctl_dsc_setup(struct mdss_mdp_ctl *ctl,
 
 	if (mixer_right) {
 		if (mixer_right->valid_roi) {
-			mdss_mdp_ctl_dsc_config(mixer_right, dsc, mode);
+			mdss_mdp_ctl_dsc_config(mixer_right, dsc, mode,
+				ich_reset_override);
 			mdss_mdp_ctl_dsc_config_thresh(mixer_right, pinfo);
 			mdss_mdp_ctl_dsc_enable(mixer_right);
 		} else {
