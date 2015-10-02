@@ -722,7 +722,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.name = "Extradata Type",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDC_EXTRADATA_NONE,
-		.maximum = V4L2_MPEG_VIDC_EXTRADATA_YUV_STATS,
+		.maximum = V4L2_MPEG_VIDC_EXTRADATA_ROI_QP,
 		.default_value = V4L2_MPEG_VIDC_EXTRADATA_NONE,
 		.menu_skip_mask = ~(
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_NONE) |
@@ -743,7 +743,8 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_ASPECT_RATIO) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_LTR) |
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_METADATA_MBI) |
-			(1 << V4L2_MPEG_VIDC_EXTRADATA_YUV_STATS)
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_YUV_STATS)|
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_ROI_QP)
 			),
 		.qmenu = mpeg_video_vidc_extradata,
 	},
@@ -1441,6 +1442,7 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 			case V4L2_MPEG_VIDC_EXTRADATA_DIGITAL_ZOOM:
 			case V4L2_MPEG_VIDC_EXTRADATA_ASPECT_RATIO:
 			case V4L2_MPEG_VIDC_EXTRADATA_YUV_STATS:
+			case V4L2_MPEG_VIDC_EXTRADATA_ROI_QP:
 				*num_planes = *num_planes + 1;
 				break;
 			default:
