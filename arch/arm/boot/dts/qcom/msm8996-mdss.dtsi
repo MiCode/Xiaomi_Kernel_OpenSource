@@ -44,7 +44,9 @@
 		qcom,mdss-vbif-qos-nrt-setting = <1 1 1 1>;
 
 		qcom,mdss-has-panic-ctrl;
-		qcom,mdss-per-pipe-panic-luts = <0xffff>,
+		qcom,mdss-per-pipe-panic-luts = <0x000f>,
+						<0xffff>,
+						<0xfffc>,
 						<0xff00>;
 
 		qcom,mdss-mdp-reg-offset = <0x00001000>;
