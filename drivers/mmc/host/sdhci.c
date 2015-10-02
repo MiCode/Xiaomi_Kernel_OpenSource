@@ -1592,6 +1592,8 @@ static void sdhci_pre_req(struct mmc_host *mmc, struct mmc_request *mrq,
 	if (host->flags & SDHCI_REQ_USE_DMA)
 		if (sdhci_pre_dma_transfer(host, mrq->data, &host->next_data) < 0)
 			mrq->data->host_cookie = 0;
+	if (host->ops->pre_req)
+		host->ops->pre_req(host, mrq);
 }
 
 static void sdhci_post_req(struct mmc_host *mmc, struct mmc_request *mrq,
@@ -1606,6 +1608,8 @@ static void sdhci_post_req(struct mmc_host *mmc, struct mmc_request *mrq,
 			     DMA_TO_DEVICE : DMA_FROM_DEVICE);
 		data->host_cookie = 0;
 	}
+	if (host->ops->post_req)
+		host->ops->post_req(host, mrq);
 }
 
 static bool sdhci_check_state(struct sdhci_host *host)
@@ -2595,8 +2599,17 @@ static void sdhci_detect(struct mmc_host *mmc, bool detected)
 	if (host->ops->detect)
 		host->ops->detect(host, detected);
 }
+static int sdhci_late_init(struct mmc_host *mmc)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
 
+	if (host->ops->init)
+		host->ops->init(host);
+
+	return 0;
+}
 static const struct mmc_host_ops sdhci_ops = {
+	.init           = sdhci_late_init,
 	.pre_req	= sdhci_pre_req,
 	.post_req	= sdhci_post_req,
 	.request	= sdhci_request,

@@ -333,6 +333,9 @@ struct sdhci_ops {
 	void	(*detect)(struct sdhci_host *host, bool detected);
 	int	(*notify_load)(struct sdhci_host *host, enum mmc_load state);
 	void	(*reset_workaround)(struct sdhci_host *host, u32 enable);
+	void	(*init)(struct sdhci_host *host);
+	void	(*pre_req)(struct sdhci_host *host, struct mmc_request *req);
+	void	(*post_req)(struct sdhci_host *host, struct mmc_request *req);
 };
 
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS
