@@ -101,9 +101,6 @@
 			qcom,mdss-dsc-bit-per-component = <8>;
 			qcom,mdss-dsc-bit-per-pixel = <8>;
 			qcom,mdss-dsc-block-prediction-enable;
-			qcom,mdss-dsc-ich-reset-value = <0>;
-			qcom,mdss-dsc-ich-reset-override = <0>;
-			qcom,mdss-dsc-config-by-manufacture-cmd;
 		};
 
 		dsi_nt35597_dsc_cmd_config1: config1 {
@@ -116,9 +113,6 @@
 			qcom,mdss-dsc-bit-per-component = <8>;
 			qcom,mdss-dsc-bit-per-pixel = <8>;
 			qcom,mdss-dsc-block-prediction-enable;
-			qcom,mdss-dsc-ich-reset-value = <0>;
-			qcom,mdss-dsc-ich-reset-override = <0>;
-			qcom,mdss-dsc-config-by-manufacture-cmd;
 		};
 
 		dsi_nt35597_dsc_cmd_config2: config2 {
@@ -131,9 +125,6 @@
 			qcom,mdss-dsc-bit-per-component = <8>;
 			qcom,mdss-dsc-bit-per-pixel = <8>;
 			qcom,mdss-dsc-block-prediction-enable;
-			qcom,mdss-dsc-ich-reset-value = <0>;
-			qcom,mdss-dsc-ich-reset-override = <0>;
-			qcom,mdss-dsc-config-by-manufacture-cmd;
 		};
 	};
 };

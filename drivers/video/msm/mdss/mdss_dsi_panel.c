@@ -1452,17 +1452,6 @@ static int mdss_dsi_parse_dsc_params(struct device_node *np,
 	pr_debug("%s: bpc=%d bpp=%d\n", __func__,
 		dsc->bpc, dsc->bpp);
 
-	rc = of_property_read_u32(np, "qcom,mdss-dsc-ich-reset-value", &data);
-	if (rc)
-		goto end;
-	dsc->ich_reset_value = data;
-
-	rc = of_property_read_u32(np, "qcom,mdss-dsc-ich-reset-override",
-		&data);
-	if (rc)
-		goto end;
-	dsc->ich_reset_override = data;
-
 	dsc->block_pred_enable = of_property_read_bool(np,
 			"qcom,mdss-dsc-block-prediction-enable");
 
@@ -1474,6 +1463,9 @@ static int mdss_dsi_parse_dsc_params(struct device_node *np,
 		"qcom,mdss-dsc-config-by-manufacture-cmd");
 
 	mdss_dsc_parameters_calc(&timing->dsc, timing->xres, timing->yres);
+
+	timing->dsc.full_frame_slices =
+		CEIL(timing->dsc.pic_width, timing->dsc.slice_width);
 
 	timing->compression_mode = COMPRESSION_DSC;
 
