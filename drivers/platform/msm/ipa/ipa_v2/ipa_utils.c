@@ -167,13 +167,15 @@ static const int ep_mapping[3][IPA_CLIENT_MAX] = {
 	[IPA_2_0][IPA_CLIENT_MHI_CONS]           = 17,
 	[IPA_2_0][IPA_CLIENT_Q6_LAN_CONS]        =  8,
 	[IPA_2_0][IPA_CLIENT_Q6_WAN_CONS]        =  9,
-	[IPA_2_0][IPA_CLIENT_Q6_DUN_CONS]        = 10,
+	[IPA_2_0][IPA_CLIENT_Q6_DUN_CONS]        = -1,
 	[IPA_2_0][IPA_CLIENT_Q6_DECOMP_CONS]     = -1,
 	[IPA_2_0][IPA_CLIENT_Q6_DECOMP2_CONS]    = -1,
 	[IPA_2_0][IPA_CLIENT_MEMCPY_DMA_SYNC_CONS]
 						 =  13,
 	[IPA_2_0][IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS]
 						 =  16,
+	[IPA_2_0][IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS]
+						 =  10,
 	/* Only for test purpose */
 	[IPA_2_0][IPA_CLIENT_TEST_CONS]          = 1,
 	[IPA_2_0][IPA_CLIENT_TEST1_CONS]         = 1,
@@ -207,7 +209,6 @@ static const int ep_mapping[3][IPA_CLIENT_MAX] = {
 						 =  -1,
 	[IPA_2_6L][IPA_CLIENT_MEMCPY_DMA_ASYNC_PROD]
 						 =  -1,
-
 	/* Only for test purpose */
 	[IPA_2_6L][IPA_CLIENT_TEST_PROD]          = 11,
 	[IPA_2_6L][IPA_CLIENT_TEST1_PROD]         = 11,
@@ -245,6 +246,8 @@ static const int ep_mapping[3][IPA_CLIENT_MAX] = {
 	[IPA_2_6L][IPA_CLIENT_MEMCPY_DMA_SYNC_CONS]
 						 =  -1,
 	[IPA_2_6L][IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS]
+						 =  -1,
+	[IPA_2_6L][IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS]
 						 =  -1,
 	/* Only for test purpose */
 	[IPA_2_6L][IPA_CLIENT_TEST_CONS]          = 15,

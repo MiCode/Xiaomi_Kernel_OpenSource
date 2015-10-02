@@ -192,6 +192,7 @@ enum ipa_client_type {
 	IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS,
 	IPA_CLIENT_Q6_DECOMP_CONS,
 	IPA_CLIENT_Q6_DECOMP2_CONS,
+	IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS,
 	/* Below CONS client type is only for test purpose */
 	IPA_CLIENT_TEST_CONS,
 	IPA_CLIENT_TEST1_CONS,
@@ -228,7 +229,8 @@ enum ipa_client_type {
 	(client) == IPA_CLIENT_Q6_WAN_CONS || \
 	(client) == IPA_CLIENT_Q6_DUN_CONS || \
 	(client) == IPA_CLIENT_Q6_DECOMP_CONS || \
-	(client) == IPA_CLIENT_Q6_DECOMP2_CONS)
+	(client) == IPA_CLIENT_Q6_DECOMP2_CONS || \
+	(client) == IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS)
 
 #define IPA_CLIENT_IS_Q6_PROD(client) \
 	((client) == IPA_CLIENT_Q6_LAN_PROD || \
