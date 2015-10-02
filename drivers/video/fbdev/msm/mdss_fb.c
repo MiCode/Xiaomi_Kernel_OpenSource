@@ -4062,7 +4062,7 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 		goto err;
 	} else if (layer_count) {
 		buffer_size = sizeof(struct mdp_input_layer) * layer_count;
-		layer_list = kmalloc(buffer_size, GFP_KERNEL);
+		layer_list = kzalloc(buffer_size, GFP_KERNEL);
 		if (!layer_list) {
 			pr_err("unable to allocate memory for layers\n");
 			ret = -ENOMEM;
@@ -4079,6 +4079,7 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 
 		for (i = 0; i < layer_count; i++) {
 			layer = &layer_list[i];
+			scale = NULL;
 
 			if (!(layer->flags & MDP_LAYER_PP)) {
 				layer->pp_info = NULL;
@@ -4096,7 +4097,7 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 				continue;
 			}
 
-			scale = kmalloc(sizeof(struct mdp_scale_data),
+			scale = kzalloc(sizeof(struct mdp_scale_data),
 				GFP_KERNEL);
 			if (!scale) {
 				pr_err("unable to allocate memory for overlays\n");
@@ -4110,6 +4111,7 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 				pr_err("layer list copy from user failed, scale = %p\n",
 						layer->scale);
 				kfree(scale);
+				scale = NULL;
 				ret = -EFAULT;
 				goto err;
 			}
@@ -4140,6 +4142,7 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 err:
 	for (i--; i >= 0; i--) {
 		kfree(layer_list[i].scale);
+		layer_list[i].scale = NULL;
 		mdss_mdp_free_layer_pp_info(&layer_list[i]);
 	}
 	kfree(layer_list);
