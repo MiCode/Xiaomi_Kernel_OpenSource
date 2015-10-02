@@ -19,6 +19,14 @@ Required properties
 - #interrupt-cells: Should be one. The first cell is interrupt number.
 - iommus: Specifies the SID's used by this context bank.
 
+Subnode properties:
+- compatible :          Compatible name used in smmu v2.
+                        smmu_v2 names should be:
+                        "qcom,smmu_mdp_unsec"   - smmu context bank device for
+                                                unsecure mdp domain.
+                        "qcom,smmu_mdp_sec"     - smmu context bank device for
+                                                secure mdp domain.
+
 Please refer to ../../interrupt-controller/interrupts.txt for a general
 description of interrupt bindings.
 
