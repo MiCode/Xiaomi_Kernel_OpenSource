@@ -1108,6 +1108,10 @@ static int mask_request_validate(unsigned char mask_buf[])
 				return 1;
 			else if (ss_cmd == DIAG_SET_TIME_API)
 				return 1;
+			else if (ss_cmd == DIAG_SWITCH_COMMAND)
+				return 1;
+			else if (ss_cmd == DIAG_BUFFERING_MODE)
+				return 1;
 			break;
 		case 0x13: /* DIAG_SUBSYS_FS */
 			if ((ss_cmd == 0) || (ss_cmd == 0x1))
