@@ -140,6 +140,7 @@ static inline int get_pending_bufs_fw(struct msm_vidc_inst *inst)
 
 		fw_out_qsize = inst->count.ftb - inst->count.fbd;
 
+		mutex_lock(&inst->registeredbufs.lock);
 		list_for_each_entry(temp, &inst->registeredbufs.list, list) {
 			if (temp->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
 					!temp->inactive &&
@@ -147,6 +148,7 @@ static inline int get_pending_bufs_fw(struct msm_vidc_inst *inst)
 				buffers_in_driver++;
 			}
 		}
+		mutex_unlock(&inst->registeredbufs.lock);
 	}
 
 	return fw_out_qsize + buffers_in_driver;
