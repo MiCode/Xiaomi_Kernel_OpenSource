@@ -393,6 +393,19 @@ static int msm_apm_switch_to_apcc(struct msm_apm_ctrl_dev *ctrl_dev)
 }
 
 /**
+ * msm_apm_get_supply() - Returns the supply that is currently
+ *			powering the memory arrays
+ * @ctrl_dev:                   Pointer to an MSM APM controller device
+ *
+ * Returns the supply currently selected by the APM.
+ */
+int msm_apm_get_supply(struct msm_apm_ctrl_dev *ctrl_dev)
+{
+	return ctrl_dev->supply;
+}
+EXPORT_SYMBOL(msm_apm_get_supply);
+
+/**
  * msm_apm_set_supply() - Perform the necessary steps to switch the voltage
  *                        source of the memory arrays to a given supply
  * @ctrl_dev:                   Pointer to an MSM APM controller device
