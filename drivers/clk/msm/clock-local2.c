@@ -634,6 +634,14 @@ static int branch_clk_enable(struct clk *c)
 	writel_relaxed(cbcr_val, CBCR_REG(branch));
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 
+	/*
+	 * For clocks controlled by other masters via voting registers,
+	 * delay polling for the status bit to allow previous clk_disable
+	 * by the GDS controller to go through.
+	 */
+	if (branch->no_halt_check_on_disable)
+		udelay(5);
+
 	/* Wait for clock to enable before continuing. */
 	branch_clk_halt_check(c, branch->halt_check, CBCR_REG(branch),
 				BRANCH_ON);
