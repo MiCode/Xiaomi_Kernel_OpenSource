@@ -51,6 +51,7 @@ msm-y := \
 	msm_gem_submit.o \
 	msm_gpu.o \
 	msm_iommu.o \
+	msm_smmu.o \
 	msm_perf.o \
 	msm_rd.o \
 	msm_ringbuffer.o
