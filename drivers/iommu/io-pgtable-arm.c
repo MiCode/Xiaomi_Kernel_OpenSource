@@ -282,8 +282,8 @@ static int arm_lpae_init_pte(struct arm_lpae_io_pgtable *data,
 	arm_lpae_iopte pte = prot;
 
 	/* We require an unmap first */
-	if (iopte_leaf(*ptep, lvl)) {
-		WARN_ON(!suppress_map_failures);
+	if (*ptep & ARM_LPAE_PTE_VALID) {
+		BUG_ON(!suppress_map_failures);
 		return -EEXIST;
 	}
 
