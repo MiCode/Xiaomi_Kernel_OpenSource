@@ -29,8 +29,11 @@
 #include "swrm_registers.h"
 #include "swr-wcd-ctrl.h"
 
+#define SWR_BROADCAST_CMD_ID            0x0F
 #define SWR_AUTO_SUSPEND_DELAY_MS	3000 /* delay in msec */
 #define SWR_DEV_ID_MASK			0xFFFFFFFF
+#define SWR_REG_VAL_PACK(data, dev, id, reg)	\
+			((reg) | ((id) << 16) | ((dev) << 20) | ((data) << 24))
 
 /* pm runtime auto suspend timer in msecs */
 static int auto_suspend_timer = SWR_AUTO_SUSPEND_DELAY_MS;
@@ -153,6 +156,9 @@ enum {
 	SWR_ALERT,       /* Device alters master for any interrupts */
 	SWR_RESERVED,    /* Reserved */
 };
+
+#define SWRM_MAX_PORT_REG    40
+#define SWRM_MAX_INIT_REG    8
 
 #define SWR_MSTR_MAX_REG_ADDR	0x1740
 #define SWR_MSTR_START_REG_ADDR	0x00
@@ -395,6 +401,24 @@ static int swrm_get_master_port(u8 *mstr_port_id, u8 slv_port_id)
 	return -EINVAL;
 }
 
+static u32 swrm_get_packed_reg_val(u8 *cmd_id, u8 cmd_data,
+				 u8 dev_addr, u16 reg_addr)
+{
+	u32 val;
+	u8 id = *cmd_id;
+
+	if (id != SWR_BROADCAST_CMD_ID) {
+		if (id < 14)
+			id += 1;
+		else
+			id = 0;
+		*cmd_id = id;
+	}
+	val = SWR_REG_VAL_PACK(cmd_data, dev_addr, id, reg_addr);
+
+	return val;
+}
+
 static int swrm_cmd_fifo_rd_cmd(struct swr_mstr_ctrl *swrm, int *cmd_data,
 				 u8 dev_addr, u8 cmd_id, u16 reg_addr,
 				 u32 len)
@@ -402,17 +426,7 @@ static int swrm_cmd_fifo_rd_cmd(struct swr_mstr_ctrl *swrm, int *cmd_data,
 	u32 val;
 	int ret = 0;
 
-	if (!cmd_id) {
-		if (swrm->wcmd_id < 14)
-			swrm->wcmd_id += 1;
-		else
-			swrm->wcmd_id = 0;
-
-		cmd_id = swrm->wcmd_id;
-	}
-	val = (reg_addr | (cmd_id << 16) | (dev_addr << 20) |
-		(len << 24));
-
+	val = swrm_get_packed_reg_val(&swrm->rcmd_id, len, dev_addr, reg_addr);
 	ret = swrm->write(swrm->handle, SWRM_CMD_FIFO_RD_CMD, val);
 	if (ret < 0) {
 		dev_err(swrm->dev, "%s: reg 0x%x write failed, err:%d\n",
@@ -433,16 +447,12 @@ static int swrm_cmd_fifo_wr_cmd(struct swr_mstr_ctrl *swrm, u8 cmd_data,
 	u32 val;
 	int ret = 0;
 
-	if (!cmd_id) {
-		if (swrm->wcmd_id < 14)
-			swrm->wcmd_id += 1;
-		else
-			swrm->wcmd_id = 0;
-
-		cmd_id = swrm->wcmd_id;
-	}
-	val = (reg_addr | (cmd_id << 16) | (dev_addr << 20) |
-		(cmd_data << 24));
+	if (!cmd_id)
+		val = swrm_get_packed_reg_val(&swrm->wcmd_id, cmd_data,
+					      dev_addr, reg_addr);
+	else
+		val = swrm_get_packed_reg_val(&cmd_id, cmd_data,
+					      dev_addr, reg_addr);
 
 	dev_dbg(swrm->dev,
 		"%s: reg: 0x%x, cmd_id: 0x%x, dev_id: 0x%x, cmd_data: 0x%x\n",
@@ -474,7 +484,8 @@ static int swrm_read(struct swr_master *master, u8 dev_num, u16 reg_addr,
 
 	pm_runtime_get_sync(&swrm->pdev->dev);
 	if (dev_num)
-		swrm_cmd_fifo_rd_cmd(swrm, &val, dev_num, 0, reg_addr, len);
+		ret = swrm_cmd_fifo_rd_cmd(swrm, &val, dev_num, 0, reg_addr,
+					   len);
 	else
 		val = swrm->read(swrm->handle, reg_addr);
 
@@ -506,6 +517,64 @@ static int swrm_write(struct swr_master *master, u8 dev_num, u16 reg_addr,
 	pm_runtime_mark_last_busy(&swrm->pdev->dev);
 	pm_runtime_put_autosuspend(&swrm->pdev->dev);
 
+	return ret;
+}
+
+static int swrm_bulk_write(struct swr_master *master, u8 dev_num, void *reg,
+			   const void *buf, size_t len)
+{
+	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(master);
+	int ret = 0;
+	int i;
+	u32 *val;
+	u32 *swr_fifo_reg;
+
+	if (!swrm || !swrm->handle) {
+		dev_err(&master->dev, "%s: swrm is NULL\n", __func__);
+		return -EINVAL;
+	}
+	if (len <= 0)
+		return -EINVAL;
+
+	pm_runtime_get_sync(&swrm->pdev->dev);
+	if (dev_num) {
+		swr_fifo_reg = kcalloc(len, sizeof(u32), GFP_KERNEL);
+		if (!swr_fifo_reg) {
+			ret = -ENOMEM;
+			goto err;
+		}
+		val = kcalloc(len, sizeof(u32), GFP_KERNEL);
+		if (!val) {
+			ret = -ENOMEM;
+			goto mem_fail;
+		}
+
+		for (i = 0; i < len; i++) {
+			val[i] = swrm_get_packed_reg_val(&swrm->wcmd_id,
+							 ((u8 *)buf)[i],
+							 dev_num,
+							 ((u16 *)reg)[i]);
+			swr_fifo_reg[i] = SWRM_CMD_FIFO_WR_CMD;
+		}
+		ret = swrm->bulk_write(swrm->handle, swr_fifo_reg, val, len);
+		if (ret) {
+			dev_err(&master->dev, "%s: bulk write failed\n",
+				__func__);
+			ret = -EINVAL;
+		}
+	} else {
+		dev_err(&master->dev,
+			"%s: No support of Bulk write for master regs\n",
+			__func__);
+		ret = -EINVAL;
+		goto err;
+	}
+	kfree(val);
+mem_fail:
+	kfree(swr_fifo_reg);
+err:
+	pm_runtime_mark_last_busy(&swrm->pdev->dev);
+	pm_runtime_put_autosuspend(&swrm->pdev->dev);
 	return ret;
 }
 
@@ -547,6 +616,11 @@ static void swrm_apply_port_config(struct swr_master *master)
 	int port_type;
 	struct swrm_mports *mport;
 	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(master);
+
+	u32 reg[SWRM_MAX_PORT_REG];
+	u32 val[SWRM_MAX_PORT_REG];
+	int len = 0;
+
 	int mask = (SWRM_MCP_FRAME_CTRL_BANK_ROW_CTRL_BMSK |
 		SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_BMSK);
 
@@ -591,31 +665,42 @@ static void swrm_apply_port_config(struct swr_master *master)
 		value |= ((port->offset1)
 				<< SWRM_DP_PORT_CTRL_OFFSET1_SHFT);
 		value |= port->sinterval;
-		swrm->write(swrm->handle,
-			    SWRM_DP_PORT_CTRL_BANK((mport->id+1), bank),
-			    value);
+
+		reg[len] = SWRM_DP_PORT_CTRL_BANK((mport->id+1), bank);
+		val[len++] = value;
+
 		dev_dbg(swrm->dev, "%s: mport :%d, reg: 0x%x, val: 0x%x\n",
 			__func__, mport->id,
 			(SWRM_DP_PORT_CTRL_BANK((mport->id+1), bank)), value);
 
-		swrm_cmd_fifo_wr_cmd(swrm, port->ch_en, port->dev_id, 0x0,
+		reg[len] = SWRM_CMD_FIFO_WR_CMD;
+		val[len++] = SWR_REG_VAL_PACK(port->ch_en, port->dev_id, 0x00,
 				SWRS_DP_CHANNEL_ENABLE_BANK(port_type, bank));
-		swrm_cmd_fifo_wr_cmd(swrm, port->sinterval, port->dev_id, 0x0,
+
+		reg[len] = SWRM_CMD_FIFO_WR_CMD;
+		val[len++] = SWR_REG_VAL_PACK(port->sinterval,
+				port->dev_id, 0x00,
 				SWRS_DP_SAMPLE_CONTROL_1_BANK(port_type, bank));
-		swrm_cmd_fifo_wr_cmd(swrm, port->offset1, port->dev_id, 0x0,
+
+		reg[len] = SWRM_CMD_FIFO_WR_CMD;
+		val[len++] = SWR_REG_VAL_PACK(port->offset1,
+				port->dev_id, 0x00,
 				SWRS_DP_OFFSET_CONTROL_1_BANK(port_type, bank));
 
-		if (port_type != 0)
-			swrm_cmd_fifo_wr_cmd(swrm, port->offset2,
-				port->dev_id, 0x00,
-				SWRS_DP_OFFSET_CONTROL_2_BANK(port_type, bank));
-
+		if (port_type != 0) {
+			reg[len] = SWRM_CMD_FIFO_WR_CMD;
+			val[len++] = SWR_REG_VAL_PACK(port->offset2,
+					port->dev_id, 0x00,
+					SWRS_DP_OFFSET_CONTROL_2_BANK(port_type,
+									bank));
+		}
 		mport = list_next_entry(mport, list);
 		if (!mport) {
 			dev_err(swrm->dev, "%s: end of list\n", __func__);
 			break;
 		}
 	}
+	swrm->bulk_write(swrm->handle, reg, val, len);
 	enable_bank_switch(swrm, bank, SWR_MAX_ROW, SWR_MAX_COL);
 }
 
@@ -922,36 +1007,52 @@ found:
 static int swrm_master_init(struct swr_mstr_ctrl *swrm)
 {
 	int ret = 0;
-	u32 mask, val;
+	u32 val;
 	u8 row_ctrl = SWR_MAX_ROW;
 	u8 col_ctrl = SWR_MIN_COL;
 	u8 retry_cmd_num = 3;
+	u32 reg[SWRM_MAX_INIT_REG];
+	u32 value[SWRM_MAX_INIT_REG];
+	int len = 0;
 
 	/* Clear Rows and Cols */
-	mask = (SWRM_MCP_FRAME_CTRL_BANK_ROW_CTRL_BMSK |
-		SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_BMSK);
-	val = swrm->read(swrm->handle, SWRM_MCP_FRAME_CTRL_BANK_ADDR(0));
-	val &= (~mask);
-	val |= ((row_ctrl << SWRM_MCP_FRAME_CTRL_BANK_ROW_CTRL_SHFT) |
+	val = ((row_ctrl << SWRM_MCP_FRAME_CTRL_BANK_ROW_CTRL_SHFT) |
 		(col_ctrl << SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_SHFT));
-	swrm->write(swrm->handle, SWRM_MCP_FRAME_CTRL_BANK_ADDR(0), val);
+
+	reg[len] = SWRM_MCP_FRAME_CTRL_BANK_ADDR(0);
+	value[len++] = val;
 
 	/* Set Auto enumeration flag */
-	swrm->write(swrm->handle, SWRM_ENUMERATOR_CFG_ADDR, 1);
+	reg[len] = SWRM_ENUMERATOR_CFG_ADDR;
+	value[len++] = 1;
 
 	/* Mask soundwire interrupts */
-	swrm->write(swrm->handle, SWRM_INTERRUPT_MASK_ADDR, 0x1FFFD);
+	reg[len] = SWRM_INTERRUPT_MASK_ADDR;
+	value[len++] = 0x1FFFD;
+
+	/* Configure No pings */
+	val = swrm->read(swrm->handle, SWRM_MCP_CFG_ADDR);
+	val &= ~SWRM_MCP_CFG_MAX_NUM_OF_CMD_NO_PINGS_BMSK;
+	val |= (0x1f << SWRM_MCP_CFG_MAX_NUM_OF_CMD_NO_PINGS_SHFT);
+	reg[len] = SWRM_MCP_CFG_ADDR;
+	value[len++] = val;
 
 	/* Configure number of retries of a read/write cmd */
-	val = swrm->read(swrm->handle, SWRM_CMD_FIFO_CFG_ADDR);
-	val &= ~SWRM_CMD_FIFO_CFG_NUM_OF_CMD_RETRY_BMSK;
-	val |= (retry_cmd_num << SWRM_CMD_FIFO_CFG_NUM_OF_CMD_RETRY_SHFT);
-	swrm->write(swrm->handle, SWRM_CMD_FIFO_CFG_ADDR, val);
+	val = (retry_cmd_num << SWRM_CMD_FIFO_CFG_NUM_OF_CMD_RETRY_SHFT);
+	reg[len] = SWRM_CMD_FIFO_CFG_ADDR;
+	value[len++] = val;
 
 	/* Set IRQ to PULSE */
-	swrm->write(swrm->handle, SWRM_COMP_CFG_ADDR, 0x02);
-	swrm->write(swrm->handle, SWRM_MCP_BUS_CTRL_ADDR, 0x2);
-	swrm->write(swrm->handle, SWRM_COMP_CFG_ADDR, 0x03);
+	reg[len] = SWRM_COMP_CFG_ADDR;
+	value[len++] = 0x02;
+
+	reg[len] = SWRM_MCP_BUS_CTRL_ADDR;
+	value[len++] = 0x02;
+
+	reg[len] = SWRM_COMP_CFG_ADDR;
+	value[len++] = 0x03;
+	swrm->bulk_write(swrm->handle, reg, value, len);
+
 	return ret;
 }
 
@@ -1002,6 +1103,13 @@ static int swrm_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto err_pdata_fail;
 	}
+	swrm->bulk_write = pdata->bulk_write;
+	if (!swrm->bulk_write) {
+		dev_err(&pdev->dev, "%s: swrm->bulk_write is NULL\n",
+			__func__);
+		ret = -EINVAL;
+		goto err_pdata_fail;
+	}
 	swrm->clk = pdata->clk;
 	if (!swrm->clk) {
 		dev_err(&pdev->dev, "%s: swrm->clk is NULL\n",
@@ -1018,6 +1126,7 @@ static int swrm_probe(struct platform_device *pdev)
 	}
 	swrm->master.read = swrm_read;
 	swrm->master.write = swrm_write;
+	swrm->master.bulk_write = swrm_bulk_write;
 	swrm->master.get_logical_dev_num = swrm_get_logical_dev_num;
 	swrm->master.connect_port = swrm_connect_port;
 	swrm->master.disconnect_port = swrm_disconnect_port;
