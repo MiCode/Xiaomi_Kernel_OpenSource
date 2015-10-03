@@ -3141,6 +3141,93 @@ done:
 	return dmic_ctl_val;
 }
 
+static u8 tomtom_get_spkdrv_ocp_curr_limit_val(struct snd_soc_codec *codec,
+	u32 spkdrv_ocp_curr_limit)
+{
+	u8 spkdrv_ocp_curr_limit_val;
+
+	dev_dbg(codec->dev,
+		"%s: spkdrv_ocp_curr_limit = %u\n",
+		__func__, spkdrv_ocp_curr_limit);
+
+	switch (spkdrv_ocp_curr_limit) {
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_0P0_A:
+		spkdrv_ocp_curr_limit_val =
+				WCD9330_SPKDRV_OCP_CURR_LIMIT_I_0P0_A;
+		break;
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_0P375_A:
+		spkdrv_ocp_curr_limit_val =
+				WCD9330_SPKDRV_OCP_CURR_LIMIT_I_0P375_A;
+		break;
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_0P750_A:
+		spkdrv_ocp_curr_limit_val =
+				WCD9330_SPKDRV_OCP_CURR_LIMIT_I_0P750_A;
+		break;
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_1P125_A:
+		spkdrv_ocp_curr_limit_val =
+				WCD9330_SPKDRV_OCP_CURR_LIMIT_I_1P125_A;
+		break;
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_1P500_A:
+		spkdrv_ocp_curr_limit_val =
+				WCD9330_SPKDRV_OCP_CURR_LIMIT_I_1P500_A;
+		break;
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_1P875_A:
+		spkdrv_ocp_curr_limit_val =
+				WCD9330_SPKDRV_OCP_CURR_LIMIT_I_1P875_A;
+		break;
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_2P250_A:
+		spkdrv_ocp_curr_limit_val =
+				WCD9330_SPKDRV_OCP_CURR_LIMIT_I_2P250_A;
+		break;
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_2P625_A:
+		spkdrv_ocp_curr_limit_val =
+				WCD9330_SPKDRV_OCP_CURR_LIMIT_I_2P625_A;
+		break;
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_3P000_A:
+		spkdrv_ocp_curr_limit_val =
+				WCD9330_SPKDRV_OCP_CURR_LIMIT_I_3P000_A;
+		break;
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_3P375_A:
+		spkdrv_ocp_curr_limit_val =
+				WCD9330_SPKDRV_OCP_CURR_LIMIT_I_3P375_A;
+		break;
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_3P750_A:
+		spkdrv_ocp_curr_limit_val =
+				WCD9330_SPKDRV_OCP_CURR_LIMIT_I_3P750_A;
+		break;
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_4P125_A:
+		spkdrv_ocp_curr_limit_val =
+				WCD9330_SPKDRV_OCP_CURR_LIMIT_I_4P125_A;
+		break;
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_4P500_A:
+		spkdrv_ocp_curr_limit_val =
+				WCD9330_SPKDRV_OCP_CURR_LIMIT_I_4P500_A;
+		break;
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_4P875_A:
+		spkdrv_ocp_curr_limit_val =
+				WCD9330_SPKDRV_OCP_CURR_LIMIT_I_4P875_A;
+		break;
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_5P250_A:
+		spkdrv_ocp_curr_limit_val =
+				WCD9330_SPKDRV_OCP_CURR_LIMIT_I_5P250_A;
+		break;
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_5P625_A:
+		spkdrv_ocp_curr_limit_val =
+				WCD9330_SPKDRV_OCP_CURR_LIMIT_I_5P625_A;
+		break;
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_UNDEFINED:
+	default:
+		spkdrv_ocp_curr_limit_val =
+				WCD9330_SPKDRV_OCP_CURR_LIMIT_I_2P625_A;
+		dev_dbg(codec->dev,
+			"%s: Invalid spkdrv_ocp_curr_limit, using default\n",
+			__func__);
+		break;
+	}
+
+	return spkdrv_ocp_curr_limit_val;
+}
+
 static int tomtom_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
@@ -7270,6 +7357,7 @@ static int tomtom_handle_pdata(struct tomtom_priv *tomtom)
 	u8 anc_ctl_value = 0;
 	u32 def_dmic_rate;
 	u16 tx_dmic_ctl_reg;
+	u8 spkdrv_ocp_curr_limit_val;
 
 	if (!pdata) {
 		pr_err("%s: NULL pdata\n", __func__);
@@ -7468,6 +7556,15 @@ static int tomtom_handle_pdata(struct tomtom_priv *tomtom)
 		0x1, anc_ctl_value);
 	snd_soc_update_bits(codec, TOMTOM_A_CDC_ANC2_B2_CTL,
 		0x1, anc_ctl_value);
+
+	spkdrv_ocp_curr_limit_val = tomtom_get_spkdrv_ocp_curr_limit_val(
+					tomtom->codec,
+					pdata->ocp.spkdrv_ocp_curr_limit);
+	snd_soc_update_bits(codec, TOMTOM_A_SPKR_DRV1_OCP_CTL,
+		0xF, spkdrv_ocp_curr_limit_val);
+	snd_soc_update_bits(codec, TOMTOM_A_SPKR_DRV2_OCP_CTL,
+		0xF, spkdrv_ocp_curr_limit_val);
+
 done:
 	return rc;
 }
