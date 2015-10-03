@@ -68,6 +68,9 @@ Optional properties:
 		each controller is done using the qcom,sensor-id property. If the
 		property is not present the SW ID mapping with default from 0 to
 		total number of supported sensors with each controller instance.
+- qcom,valid-status-check: If property is present, check the VALID bit is set
+		before reporting the temperature data.
+
 Example:
 
 tsens@fc4a8000 {
