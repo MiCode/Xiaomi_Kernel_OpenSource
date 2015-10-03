@@ -708,6 +708,9 @@ struct tasha_priv {
 	int spkr_mode;
 };
 
+static int tasha_codec_vote_max_bw(struct snd_soc_codec *codec,
+				   bool vote);
+
 static const struct tasha_reg_mask_val tasha_spkr_default[] = {
 	{WCD9335_CDC_COMPANDER7_CTL3, 0x80, 0x80},
 	{WCD9335_CDC_COMPANDER8_CTL3, 0x80, 0x80},
@@ -7259,6 +7262,40 @@ static int tasha_codec_aif4_mixer_switch_put(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
+static int tasha_dapm_pre_powerup(struct snd_soc_dapm_widget *w,
+				  struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+
+	dev_dbg(codec->dev, "%s: w->name %s event %d\n",
+		 __func__, w->name, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		tasha_codec_vote_max_bw(codec, true);
+		break;
+	}
+
+	return 0;
+}
+
+static int tasha_dapm_post_powerup(struct snd_soc_dapm_widget *w,
+				   struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+
+	dev_dbg(codec->dev, "%s: w->name %s event %d\n",
+		 __func__, w->name, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		tasha_codec_vote_max_bw(codec, false);
+		break;
+	}
+
+	return 0;
+}
+
 static const char * const tasha_ear_pa_gain_text[] = {
 	"G_6_DB", "G_4P5_DB", "G_3_DB", "G_1P5_DB",
 	"G_0_DB", "G_M2P5_DB", "UNDEFINED", "G_M12_DB"
@@ -9161,6 +9198,8 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 			&anc_lineout1_switch),
 	SND_SOC_DAPM_SWITCH("ANC LINEOUT2 Enable", SND_SOC_NOPM, 0, 0,
 			&anc_lineout2_switch),
+	SND_SOC_DAPM_PRE("Pre powerup", tasha_dapm_pre_powerup),
+	SND_SOC_DAPM_POST("Post powerup", tasha_dapm_post_powerup),
 };
 
 static int tasha_get_channel_map(struct snd_soc_dai *dai,
