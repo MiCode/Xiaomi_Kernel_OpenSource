@@ -94,7 +94,8 @@ Example:
 SSUSB-QMP PHY
 
 Required properties:
- - compatible: Should be "qcom,usb-ssphy-qmp"
+ - compatible: Should be "qcom,usb-ssphy-qmp", "qcom,usb-ssphy-qmp-v1" or
+   "qcom,usb-ssphy-qmp-v2"
  - reg: Address and length of the register set for the device
    Required regs are:
    "qmp_phy_base" : QMP PHY Base register set.
@@ -118,6 +119,8 @@ Optional properties:
  - qcom,emulation: Indicates that we are running on emulation platform.
  - qcom,qmp-phy-init-seq: QMP PHY initialization sequence with reg, diff clk
    value, single ended clk value, delay after register write.
+ - qcom,qmp-phy-reg-offset: If present stores phy register offsets in an order
+   defined in the phy driver.
 
 Example:
 	ssphy0: ssphy@f9b38000 {

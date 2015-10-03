@@ -26,21 +26,18 @@
 #include <linux/clk.h>
 #include <linux/clk/msm-clk.h>
 
+#define INIT_MAX_TIME_USEC			1000
+
 #define USB_SSPHY_1P8_VOL_MIN		1800000 /* uV */
 #define USB_SSPHY_1P8_VOL_MAX		1800000 /* uV */
 #define USB_SSPHY_1P8_HPM_LOAD		23000	/* uA */
 
-/* QMP PHY register offsets */
-#define PCIE_USB3_PHY_SW_RESET			0x600
-#define PCIE_USB3_PHY_POWER_DOWN_CONTROL	0x604
-#define PCIE_USB3_PHY_START			0x608
 
+/* USB3PHY_PCIE_USB3_PCS_PCS_STATUS bit */
 #define PHYSTATUS				BIT(6)
 
 /* TCSR_PHY_CLK_SCHEME_SEL bit mask */
 #define PHY_CLK_SCHEME_SEL BIT(0)
-
-#define INIT_MAX_TIME_USEC			1000
 
 /* PCIE_USB3_PHY_AUTONOMOUS_MODE_CTRL bits */
 #define ARCVR_DTCT_EN		BIT(0)
@@ -55,6 +52,10 @@ enum qmp_phy_rev_reg {
 	USB3_PHY_PCS_STATUS,
 	USB3_PHY_AUTONOMOUS_MODE_CTRL,
 	USB3_PHY_LFPS_RXTERM_IRQ_CLEAR,
+	USB3_PHY_POWER_DOWN_CONTROL,
+	USB3_PHY_SW_RESET,
+	USB3_PHY_START,
+	USB3_PHY_REG_MAX,
 };
 
 /* QMP PHY register offset for rev1 */
@@ -66,6 +67,9 @@ unsigned int qmp_phy_rev1[] = {
 	[USB3_PHY_PCS_STATUS] = 0x728,
 	[USB3_PHY_AUTONOMOUS_MODE_CTRL] = 0x6BC,
 	[USB3_PHY_LFPS_RXTERM_IRQ_CLEAR] = 0x6C0,
+	[USB3_PHY_POWER_DOWN_CONTROL] = 0x604,
+	[USB3_PHY_SW_RESET] = 0x600,
+	[USB3_PHY_START] = 0x608,
 };
 
 /* QMP PHY register offset for rev2 */
@@ -77,6 +81,9 @@ unsigned int qmp_phy_rev2[] = {
 	[USB3_PHY_PCS_STATUS] = 0x77C,
 	[USB3_PHY_AUTONOMOUS_MODE_CTRL] = 0x6D4,
 	[USB3_PHY_LFPS_RXTERM_IRQ_CLEAR] = 0x6D8,
+	[USB3_PHY_POWER_DOWN_CONTROL] = 0x604,
+	[USB3_PHY_SW_RESET] = 0x600,
+	[USB3_PHY_START] = 0x608,
 };
 
 /* reg values to write based on the phy clk scheme selected */
@@ -347,11 +354,16 @@ struct msm_ssphy_qmp {
 	unsigned int		*phy_reg; /* revision based offset */
 	unsigned int		*qmp_phy_init_seq;
 	int			init_seq_len;
+	unsigned int		*qmp_phy_reg_offset;
+	int			reg_offset_cnt;
 };
 
 static const struct of_device_id msm_usb_id_table[] = {
 	{
 		.compatible = "qcom,usb-ssphy-qmp",
+	},
+	{
+		.compatible = "qcom,usb-ssphy-qmp-v1",
 		.data = qmp_phy_rev1,
 	},
 	{
@@ -567,7 +579,8 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 	if (phy->qmp_phy_init_seq)
 		reg = (struct qmp_reg_val *)phy->qmp_phy_init_seq;
 
-	writel_relaxed(0x01, phy->base + PCIE_USB3_PHY_POWER_DOWN_CONTROL);
+	writel_relaxed(0x01,
+		phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
 
 	/* Make sure that above write completed to get PHY into POWER DOWN */
 	mb();
@@ -596,8 +609,8 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 		}
 	}
 
-	writel_relaxed(0x03, phy->base + PCIE_USB3_PHY_START);
-	writel_relaxed(0x00, phy->base + PCIE_USB3_PHY_SW_RESET);
+	writel_relaxed(0x03, phy->base + phy->phy_reg[USB3_PHY_START]);
+	writel_relaxed(0x00, phy->base + phy->phy_reg[USB3_PHY_SW_RESET]);
 
 
 	/* Wait for PHY initialization to be done */
@@ -749,7 +762,7 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 	if (suspend) {
 		if (!phy->cable_connected)
 			writel_relaxed(0x00,
-				phy->base + PCIE_USB3_PHY_POWER_DOWN_CONTROL);
+			phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
 		else
 			msm_ssusb_qmp_enable_autonomous(phy, 1);
 
@@ -778,7 +791,7 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 		}
 		if (!phy->cable_connected) {
 			writel_relaxed(0x01,
-				phy->base + PCIE_USB3_PHY_POWER_DOWN_CONTROL);
+			phy->base + phy->phy_reg[USB3_PHY_POWER_DOWN_CONTROL]);
 		} else  {
 			msm_ssusb_qmp_enable_autonomous(phy, 0);
 		}
@@ -876,12 +889,35 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		}
 	}
 
+	of_get_property(dev->of_node, "qcom,qmp-phy-reg-offset", &size);
+	if (size) {
+		phy->qmp_phy_reg_offset = devm_kzalloc(dev,
+						size, GFP_KERNEL);
+		if (phy->qmp_phy_reg_offset) {
+			phy->reg_offset_cnt =
+				(size / sizeof(*phy->qmp_phy_reg_offset));
+			if (phy->reg_offset_cnt > USB3_PHY_REG_MAX) {
+				dev_err(dev, "invalid reg offset count\n");
+				return -EINVAL;
+			}
+
+			of_property_read_u32_array(dev->of_node,
+				"qcom,qmp-phy-reg-offset",
+				phy->qmp_phy_reg_offset,
+				phy->reg_offset_cnt);
+		} else {
+			dev_err(dev, "err mem alloc for qmp_phy_reg_offset\n");
+		}
+	}
+
 	phy_ver = of_match_device(msm_usb_id_table, &pdev->dev);
 	if (phy_ver) {
 		dev_dbg(dev, "Found QMP PHY version as:%s.\n",
 						phy_ver->compatible);
 		if (phy_ver->data) {
 			phy->phy_reg = (unsigned int *)phy_ver->data;
+		} else if (phy->qmp_phy_reg_offset) {
+			phy->phy_reg = phy->qmp_phy_reg_offset;
 		} else {
 			dev_err(dev,
 				"QMP PHY version match but wrong data val.\n");
