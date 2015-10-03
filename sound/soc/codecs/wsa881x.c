@@ -381,6 +381,39 @@ static const struct file_operations codec_debug_ops = {
 	.read = codec_debug_read,
 };
 
+static const struct reg_default wsa881x_pre_pmu_pa[] = {
+	{WSA881X_SPKR_DRV_GAIN, 0x41},
+	{WSA881X_SPKR_MISC_CTL1, 0x01},
+	{WSA881X_ADC_EN_DET_TEST_I, 0x01},
+	{WSA881X_ADC_EN_MODU_V, 0x02},
+	{WSA881X_ADC_EN_DET_TEST_V, 0x10},
+	{WSA881X_SPKR_PWRSTG_DBG, 0xA0},
+};
+
+static const struct reg_default wsa881x_pre_pmu_pa_2_0[] = {
+	{WSA881X_SPKR_DRV_GAIN, 0x41},
+	{WSA881X_SPKR_MISC_CTL1, 0x87},
+};
+
+static const struct reg_default wsa881x_post_pmu_pa[] = {
+	{WSA881X_SPKR_PWRSTG_DBG, 0x00},
+	{WSA881X_ADC_EN_DET_TEST_V, 0x00},
+	{WSA881X_ADC_EN_MODU_V, 0x00},
+	{WSA881X_ADC_EN_DET_TEST_I, 0x00},
+};
+
+static const struct reg_default wsa881x_vi_txfe_en[] = {
+	{WSA881X_SPKR_PROT_FE_VSENSE_VCM, 0x85},
+	{WSA881X_SPKR_PROT_ATEST2, 0x0A},
+	{WSA881X_SPKR_PROT_FE_GAIN, 0xCF},
+};
+
+static const struct reg_default wsa881x_vi_txfe_en_2_0[] = {
+	{WSA881X_SPKR_PROT_FE_VSENSE_VCM, 0x85},
+	{WSA881X_SPKR_PROT_ATEST2, 0x0A},
+	{WSA881X_SPKR_PROT_FE_GAIN, 0xCF},
+};
+
 static int wsa881x_boost_ctrl(struct snd_soc_codec *codec, bool enable)
 {
 	dev_dbg(codec->dev, "%s: enable:%d\n", __func__, enable);
@@ -401,29 +434,20 @@ static int wsa881x_visense_txfe_ctrl(struct snd_soc_codec *codec, bool enable,
 				     u8 vsense_gain)
 {
 	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
-	u8 value = 0;
+
 	dev_dbg(codec->dev,
 		"%s: enable:%d, isense1 gain: %d, isense2 gain: %d, vsense_gain %d\n",
 		__func__, enable, isense1_gain, isense2_gain, vsense_gain);
 
 	if (enable) {
-		snd_soc_update_bits(codec, WSA881X_SPKR_PROT_FE_VSENSE_VCM,
-				    0x08, 0x00);
-		if (WSA881X_IS_2_0(wsa881x->version)) {
-			snd_soc_update_bits(codec, WSA881X_SPKR_PROT_ATEST2,
-					    0x1C, 0x04);
-		} else {
-			snd_soc_update_bits(codec, WSA881X_SPKR_PROT_ATEST2,
-					    0x08, 0x08);
-			snd_soc_update_bits(codec, WSA881X_SPKR_PROT_ATEST2,
-					    0x02, 0x02);
-		}
-		value = ((isense2_gain << 6) | (isense1_gain << 4) |
-			(vsense_gain << 3));
-		snd_soc_update_bits(codec, WSA881X_SPKR_PROT_FE_GAIN,
-				    0xF8, value);
-		snd_soc_update_bits(codec, WSA881X_SPKR_PROT_FE_GAIN,
-				    0x01, 0x01);
+		if (WSA881X_IS_2_0(wsa881x->version))
+			regmap_multi_reg_write(wsa881x->regmap,
+					wsa881x_vi_txfe_en_2_0,
+					ARRAY_SIZE(wsa881x_vi_txfe_en_2_0));
+		else
+			regmap_multi_reg_write(wsa881x->regmap,
+					       wsa881x_vi_txfe_en,
+					       ARRAY_SIZE(wsa881x_vi_txfe_en));
 	} else {
 		snd_soc_update_bits(codec, WSA881X_SPKR_PROT_FE_VSENSE_VCM,
 				    0x08, 0x08);
@@ -723,18 +747,14 @@ static int wsa881x_spkr_pa_event(struct snd_soc_dapm_widget *w,
 	dev_dbg(codec->dev, "%s: %s %d\n", __func__, w->name, event);
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		snd_soc_update_bits(codec, WSA881X_SPKR_DRV_GAIN, 0xF0, 0x40);
-		snd_soc_update_bits(codec, WSA881X_SPKR_MISC_CTL1, 0x01, 0x01);
-		if (!WSA881X_IS_2_0(wsa881x->version)) {
-			snd_soc_update_bits(codec, WSA881X_ADC_EN_DET_TEST_I,
-					    0x01, 0x01);
-			snd_soc_update_bits(codec, WSA881X_ADC_EN_MODU_V,
-					    0x02, 0x02);
-			snd_soc_update_bits(codec, WSA881X_ADC_EN_DET_TEST_V,
-					    0x10, 0x10);
-			snd_soc_update_bits(codec, WSA881X_SPKR_PWRSTG_DBG,
-					    0xE0, 0xA0);
-		}
+		if (WSA881X_IS_2_0(wsa881x->version))
+			regmap_multi_reg_write(wsa881x->regmap,
+					wsa881x_pre_pmu_pa_2_0,
+					ARRAY_SIZE(wsa881x_pre_pmu_pa_2_0));
+		else
+			regmap_multi_reg_write(wsa881x->regmap,
+					wsa881x_pre_pmu_pa,
+					ARRAY_SIZE(wsa881x_pre_pmu_pa));
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		if (WSA881X_IS_2_0(wsa881x->version)) {
@@ -750,14 +770,9 @@ static int wsa881x_spkr_pa_event(struct snd_soc_dapm_widget *w,
 			 * HW requirement.
 			 */
 			usleep_range(710, 720);
-			snd_soc_update_bits(codec, WSA881X_SPKR_PWRSTG_DBG,
-					    0xE0, 0x00);
-			snd_soc_update_bits(codec, WSA881X_ADC_EN_DET_TEST_V,
-					    0x10, 0x00);
-			snd_soc_update_bits(codec, WSA881X_ADC_EN_MODU_V,
-					    0x02, 0x00);
-			snd_soc_update_bits(codec, WSA881X_ADC_EN_DET_TEST_I,
-					    0x01, 0x00);
+			regmap_multi_reg_write(wsa881x->regmap,
+					       wsa881x_post_pmu_pa,
+					       ARRAY_SIZE(wsa881x_post_pmu_pa));
 			/*
 			 * 1ms delay is needed before change in gain as per
 			 * HW requirement.
