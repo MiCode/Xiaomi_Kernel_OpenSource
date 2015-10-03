@@ -932,7 +932,7 @@ static int __alloc_imem(struct venus_hfi_device *device, unsigned long size)
 	struct imem *imem = NULL;
 	int rc = 0;
 
-	if (!device || !size)
+	if (!device)
 		return -EINVAL;
 
 	imem = &device->resources.imem;
@@ -963,6 +963,10 @@ static int __alloc_imem(struct venus_hfi_device *device, unsigned long size)
 		imem->vmem = vmem_buffer;
 		break;
 	}
+	case IMEM_NONE:
+		rc = 0;
+		break;
+
 	default:
 		rc = -ENOTSUPP;
 		goto imem_alloc_failed;
@@ -1026,6 +1030,10 @@ static int __set_imem(struct venus_hfi_device *device, struct imem *imem)
 		rhdr.resource_id = VIDC_RESOURCE_VMEM;
 		addr = imem->vmem;
 		break;
+	case IMEM_NONE:
+		dprintk(VIDC_DBG, "%s Target does not support IMEM", __func__);
+		rc = 0;
+		goto imem_set_failed;
 	default:
 		dprintk(VIDC_ERR, "IMEM of type %d unsupported\n", imem->type);
 		rc = -ENOTSUPP;
