@@ -907,18 +907,31 @@ static void inv_args_pre(uint32_t sc, remote_arg64_t *rpra)
 	}
 }
 
-static void inv_args(uint32_t sc, remote_arg64_t *rpra, int used)
+static void inv_args(struct smq_invoke_ctx* ctx)
 {
 	int i, inbufs, outbufs;
+	uint32_t sc = ctx->sc;
+	remote_arg64_t *rpra = ctx->rpra;
+	int used = ctx->used;
 	int inv = 0;
 
 	inbufs = REMOTE_SCALARS_INBUFS(sc);
 	outbufs = REMOTE_SCALARS_OUTBUFS(sc);
 	for (i = inbufs; i < inbufs + outbufs; ++i) {
+		struct fastrpc_mmap *map = ctx->maps[i];
+
+		if (!rpra[i].buf.len)
+			continue;
 		if (buf_page_start(ptr_to_uint64((void *)rpra)) ==
-				buf_page_start(rpra[i].buf.pv))
+				buf_page_start(rpra[i].buf.pv)) {
 			inv = 1;
-		else if (rpra[i].buf.len)
+			continue;
+		}
+		if (map && map->handle)
+			msm_ion_do_cache_op(map->client, map->handle,
+				uint64_to_ptr(rpra[i].buf.pv), rpra[i].buf.len,
+				ION_IOC_INV_CACHES);
+		else
 			dmac_inv_range((char *)uint64_to_ptr(rpra[i].buf.pv),
 				(char *)uint64_to_ptr(rpra[i].buf.pv
 						 + rpra[i].buf.len));
@@ -1048,12 +1061,12 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 
 	inv_args_pre(ctx->sc, ctx->rpra);
 	if (FASTRPC_MODE_SERIAL == mode)
-		inv_args(ctx->sc, ctx->rpra, ctx->used);
+		inv_args(ctx);
 	VERIFY(err, 0 == fastrpc_invoke_send(ctx, kernel, invoke->handle));
 	if (err)
 		goto bail;
 	if (FASTRPC_MODE_PARALLEL == mode)
-		inv_args(ctx->sc, ctx->rpra, ctx->used);
+		inv_args(ctx);
  wait:
 	if (kernel)
 		wait_for_completion(&ctx->work);
