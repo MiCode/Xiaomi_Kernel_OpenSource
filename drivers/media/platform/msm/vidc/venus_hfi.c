@@ -4266,52 +4266,55 @@ static void __unload_fw(struct venus_hfi_device *device)
 	__deinit_resources(device);
 }
 
-static int venus_hfi_get_fw_info(void *dev, enum fw_info info)
+static int venus_hfi_get_fw_info(void *dev, struct hal_fw_info *fw_info)
 {
-	int rc = 0;
+	int i = 0, j = 0;
 	struct venus_hfi_device *device = dev;
+	u32 smem_block_size = 0;
+	u8 *smem_table_ptr;
+	char version[VENUS_VERSION_LENGTH];
+	const u32 smem_image_index_venus = 14 * 128;
 
-	if (!device) {
-		dprintk(VIDC_ERR, "%s Invalid paramter: %p\n",
-			__func__, device);
+	if (!device || !fw_info) {
+		dprintk(VIDC_ERR,
+			"%s Invalid parameter: device = %pK fw_info = %pK\n",
+			__func__, device, fw_info);
 		return -EINVAL;
 	}
 
 	mutex_lock(&device->lock);
 
-	switch (info) {
-	case FW_BASE_ADDRESS:
-		rc = (u32)device->hal_data->firmware_base;
-		if ((phys_addr_t)rc != device->hal_data->firmware_base) {
-			dprintk(VIDC_INFO,
-				"%s: firmware_base (%pa) truncated to %#x",
-				__func__, &device->hal_data->firmware_base, rc);
-		}
-		break;
+	smem_table_ptr = smem_get_entry(SMEM_IMAGE_VERSION_TABLE,
+			&smem_block_size, 0, SMEM_ANY_HOST_FLAG);
+	if (smem_table_ptr &&
+			((smem_image_index_venus +
+			  VENUS_VERSION_LENGTH) <= smem_block_size))
+		memcpy(version,
+			smem_table_ptr + smem_image_index_venus,
+			VENUS_VERSION_LENGTH);
 
-	case FW_REGISTER_BASE:
-		rc = (u32)device->res->register_base;
-		if ((phys_addr_t)rc != device->res->register_base) {
-			dprintk(VIDC_INFO,
-				"%s: register_base (%pa) truncated to %#x",
-				__func__, &device->res->register_base, rc);
-		}
-		break;
+	while (version[i++] != 'V' && i < VENUS_VERSION_LENGTH)
+		;
 
-	case FW_REGISTER_SIZE:
-		rc = device->hal_data->register_size;
-		break;
-
-	case FW_IRQ:
-		rc = device->hal_data->irq;
-		break;
-
-	default:
-		dprintk(VIDC_ERR, "Invalid fw info requested\n");
+	if (i == VENUS_VERSION_LENGTH - 1) {
+		dprintk(VIDC_WARN, "Venus version string is not proper\n");
+		fw_info->version[0] = '\0';
+		goto fail_version_string;
 	}
 
+	for (i--; i < VENUS_VERSION_LENGTH && j < VENUS_VERSION_LENGTH; i++)
+		fw_info->version[j++] = version[i];
+	fw_info->version[j] = '\0';
+
+fail_version_string:
+	dprintk(VIDC_DBG, "F/W version retrieved : %s\n", fw_info->version);
+	fw_info->base_addr = device->hal_data->firmware_base;
+	fw_info->register_base = device->res->register_base;
+	fw_info->register_size = device->hal_data->register_size;
+	fw_info->irq = device->hal_data->irq;
+
 	mutex_unlock(&device->lock);
-	return rc;
+	return 0;
 }
 
 static int venus_hfi_get_core_capabilities(void *dev)
