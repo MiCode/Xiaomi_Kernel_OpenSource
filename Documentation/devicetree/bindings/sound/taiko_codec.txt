@@ -100,6 +100,10 @@ Optional properties:
  - qcom,cdc-variant: Indicates codec variant, WCD9XXX indicates all codecs till Taiko
 			WCD9330 indicates wcd9330 audio codec
 
+ - cdc-spkdrv-ocp-curr-limit-mA: Specifies the OCP current limit for SPKR_DRV
+				 in mA.
+				 Values from 0 A to 5.625 A in 375mA steps.
+
 Example:
 
 taiko_codec {
@@ -163,6 +167,7 @@ taiko_codec {
 	qcom,cdc-slim-ifd-elemental-addr = [00 00 A0 00 17 02];
 	qcom,cdc-dmic-sample-rate = <4800000>;
 	qcom,cdc-micbias2-headset-only;
+	qcom,cdc-spkdrv-ocp-curr-limit-mA = <2625>;
 };
 
 Wcd9xxx audio CODEC in I2C mode

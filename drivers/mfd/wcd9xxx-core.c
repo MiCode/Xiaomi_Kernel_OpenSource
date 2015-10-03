@@ -1799,6 +1799,49 @@ undefined_rate:
 	return dmic_sample_rate;
 }
 
+/*
+ * wcd9xxx_validate_spkdrv_ocp_curr_limit:
+ *	Validate the spkdrv_ocp_curr_limit.
+ *	If spkdrv_ocp_curr_limit is found to be invalid,
+ *	assign the spkdrv_ocp_curr_limit as undefined, so individual codec
+ *	drivers can use thier own defaults
+ * @dev: the device for which the spkdrv_ocp_curr_limit is to be configured
+ * @spkdrv_ocp_curr_limit: The input spkdrv_ocp_curr_limit to be configured
+ */
+static u32 wcd9xxx_validate_spkdrv_ocp_curr_limit(struct device *dev,
+		u32 spkdrv_ocp_curr_limit)
+{
+	switch (spkdrv_ocp_curr_limit) {
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_0P0_A:
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_0P375_A:
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_0P750_A:
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_1P125_A:
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_1P500_A:
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_1P875_A:
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_2P250_A:
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_2P625_A:
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_3P000_A:
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_3P375_A:
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_3P750_A:
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_4P125_A:
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_4P500_A:
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_4P875_A:
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_5P250_A:
+	case WCD9XXX_SPKDRV_OCP_CURR_LIMIT_I_5P625_A:
+		break;
+	default:
+		/* Any other spkdrv_ocp_curr_limit values are invalid */
+		dev_info(dev, "%s: Invalid spkdrv_ocp_curr_limit = %u\n",
+				__func__, spkdrv_ocp_curr_limit);
+		spkdrv_ocp_curr_limit = WCD9XXX_SPKDRV_OCP_CURR_LIMIT_UNDEFINED;
+	}
+
+	dev_dbg(dev, "%s: spkdrv_ocp_curr_limit = %u\n", __func__,
+			spkdrv_ocp_curr_limit);
+
+	return spkdrv_ocp_curr_limit;
+}
+
 static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 {
 	struct wcd9xxx_pdata *pdata;
@@ -1806,6 +1849,7 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 	u32 mclk_rate = 0;
 	u32 dmic_sample_rate = 0;
 	u32 mad_dmic_sample_rate = 0;
+	u32 spkdrv_ocp_curr_limit = 0;
 	const char *static_prop_name = "qcom,cdc-static-supplies";
 	const char *ond_prop_name = "qcom,cdc-on-demand-supplies";
 	const char *cp_supplies_name = "qcom,cdc-cp-supplies";
@@ -1939,6 +1983,22 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 		else
 			pdata->cdc_variant = WCD9XXX;
 	}
+
+
+	ret = of_property_read_u32(dev->of_node,
+				"qcom,cdc-spkdrv-ocp-curr-limit-mA",
+				&spkdrv_ocp_curr_limit);
+	if (ret) {
+		dev_dbg(dev, "Looking up %s property in node %s failed, err = %d",
+			"qcom,cdc-spkdrv-ocp-curr-limit-mA",
+			dev->of_node->full_name, ret);
+		spkdrv_ocp_curr_limit = WCD9XXX_SPKDRV_OCP_CURR_LIMIT_UNDEFINED;
+	}
+	pdata->ocp.spkdrv_ocp_curr_limit =
+		wcd9xxx_validate_spkdrv_ocp_curr_limit(dev,
+							spkdrv_ocp_curr_limit);
+
+
 
 	return pdata;
 err:
