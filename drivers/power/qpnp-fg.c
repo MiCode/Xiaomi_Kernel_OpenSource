@@ -2916,6 +2916,41 @@ static enum alarmtimer_restart fg_cap_learning_alarm_cb(struct alarm *alarm,
 #define CC_SOC_COEFF_OFFSET		0
 #define ACTUAL_CAPACITY_OFFSET		2
 #define MAH_TO_SOC_CONV_CS_OFFSET	0
+static int fg_calc_and_store_cc_soc_coeff(struct fg_chip *chip, int16_t cc_mah)
+{
+	int rc;
+	int64_t cc_to_soc_coeff, mah_to_soc;
+	u8 data[2];
+
+	rc = fg_mem_write(chip, (u8 *)&cc_mah, ACTUAL_CAPACITY_REG, 2,
+			ACTUAL_CAPACITY_OFFSET, 0);
+	if (rc) {
+		pr_err("Failed to store actual capacity: %d\n", rc);
+		return rc;
+	}
+
+	rc = fg_mem_read(chip, (u8 *)&data, MAH_TO_SOC_CONV_REG, 2,
+			MAH_TO_SOC_CONV_CS_OFFSET, 0);
+	if (rc) {
+		pr_err("Failed to read mah_to_soc_conv_cs: %d\n", rc);
+	} else {
+		mah_to_soc = data[1] << 8 | data[0];
+		mah_to_soc *= MICRO_UNIT;
+		cc_to_soc_coeff = div64_s64(mah_to_soc, cc_mah);
+		half_float_to_buffer(cc_to_soc_coeff, data);
+		rc = fg_mem_write(chip, (u8 *)data,
+				ACTUAL_CAPACITY_REG, 2,
+				CC_SOC_COEFF_OFFSET, 0);
+		if (rc)
+			pr_err("Failed to write cc_soc_coeff_offset: %d\n",
+				rc);
+		else if (fg_debug_mask & FG_AGING)
+			pr_info("new cc_soc_coeff %lld [%x %x] saved to sram\n",
+				cc_to_soc_coeff, data[0], data[1]);
+	}
+	return rc;
+}
+
 static void fg_cap_learning_load_data(struct fg_chip *chip)
 {
 	int16_t cc_mah;
@@ -2938,9 +2973,7 @@ static void fg_cap_learning_load_data(struct fg_chip *chip)
 static void fg_cap_learning_save_data(struct fg_chip *chip)
 {
 	int16_t cc_mah;
-	int64_t cc_to_soc_coeff, mah_to_soc;
 	int rc;
-	u8 data[2];
 
 	cc_mah = div64_s64(chip->learning_data.learned_cc_uah, 1000);
 
@@ -2953,30 +2986,9 @@ static void fg_cap_learning_save_data(struct fg_chip *chip)
 				cc_mah, cc_mah);
 
 	if (chip->learning_data.feedback_on) {
-		rc = fg_mem_write(chip, (u8 *)&cc_mah, ACTUAL_CAPACITY_REG, 2,
-				ACTUAL_CAPACITY_OFFSET, 0);
+		rc = fg_calc_and_store_cc_soc_coeff(chip, cc_mah);
 		if (rc)
-			pr_err("Failed to store actual capacity: %d\n", rc);
-
-		rc = fg_mem_read(chip, (u8 *)&data, MAH_TO_SOC_CONV_REG, 2,
-				MAH_TO_SOC_CONV_CS_OFFSET, 0);
-		if (rc) {
-			pr_err("Failed to read mah_to_soc_conv_cs: %d\n", rc);
-		} else {
-			mah_to_soc = data[1] << 8 | data[0];
-			mah_to_soc *= MICRO_UNIT;
-			cc_to_soc_coeff = div64_s64(mah_to_soc, cc_mah);
-			half_float_to_buffer(cc_to_soc_coeff, data);
-			rc = fg_mem_write(chip, (u8 *)data,
-					ACTUAL_CAPACITY_REG, 2,
-					CC_SOC_COEFF_OFFSET, 0);
-			if (rc)
-				pr_err("Failed to write cc_soc_coeff_offset: %d\n",
-					rc);
-			else if (fg_debug_mask & FG_AGING)
-				pr_info("new cc_soc_coeff %lld [%x %x] saved to sram\n",
-					cc_to_soc_coeff, data[0], data[1]);
-		}
+			pr_err("Error in storing cc_soc_coeff, rc:%d\n", rc);
 	}
 }
 
@@ -3989,6 +4001,7 @@ static int populate_system_data(struct fg_chip *chip)
 {
 	u8 buffer[24];
 	int rc, i;
+	int16_t cc_mah;
 
 	fg_mem_lock(chip);
 	rc = fg_mem_read(chip, buffer, OCV_COEFFS_START_REG, 24, 0, 0);
@@ -4027,6 +4040,11 @@ static int populate_system_data(struct fg_chip *chip)
 	if (chip->learning_data.learned_cc_uah == 0) {
 		chip->learning_data.learned_cc_uah = chip->nom_cap_uah;
 		fg_cap_learning_save_data(chip);
+	} else if (chip->learning_data.feedback_on) {
+		cc_mah = div64_s64(chip->learning_data.learned_cc_uah, 1000);
+		rc = fg_calc_and_store_cc_soc_coeff(chip, cc_mah);
+		if (rc)
+			pr_err("Error in restoring cc_soc_coeff, rc:%d\n", rc);
 	}
 	rc = fg_mem_read(chip, buffer, CUTOFF_VOLTAGE_REG, 2, 0, 0);
 	if (rc) {
