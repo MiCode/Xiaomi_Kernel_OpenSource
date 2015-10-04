@@ -2077,6 +2077,10 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	}
 
 	if (!strcmp(dev_name(codec_dai->dev), "tomtom_codec")) {
+
+		wcd9xxx_mbhc_cfg.gpio_level_insert = of_property_read_bool(
+						codec->card->dev->of_node,
+						"qcom,headset-jack-type-NC");
 		/* start mbhc */
 		wcd9xxx_mbhc_cfg.calibration = def_codec_mbhc_cal();
 		if (wcd9xxx_mbhc_cfg.calibration) {
@@ -2414,9 +2418,6 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, card);
 	snd_soc_card_set_drvdata(card, pdata);
 
-	wcd9xxx_mbhc_cfg.gpio_level_insert = of_property_read_bool(
-						pdev->dev.of_node,
-					"qcom,headset-jack-type-NC");
 	ret = snd_soc_of_parse_audio_routing(card,
 			"qcom,audio-routing");
 	if (ret)
