@@ -170,6 +170,7 @@ struct fastrpc_mmap {
 	struct dma_buf *buf;
 	struct sg_table *table;
 	struct dma_buf_attachment *attach;
+	struct ion_handle *handle;
 	uintptr_t phys;
 	ssize_t size;
 	uintptr_t va;
@@ -312,6 +313,8 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map)
 
 	if (map->refs)
 		return;
+	if (!IS_ERR_OR_NULL(map->handle))
+		ion_free(fl->apps->client, map->handle);
 	if (map->size || map->phys)
 		msm_dma_unmap_sg(fl->sctx->smmu.dev, map->table->sgl,
 				map->table->nents, DMA_BIDIRECTIONAL, map->buf);
@@ -331,7 +334,6 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, uintptr_t va,
 	struct fastrpc_session_ctx *sess = fl->sctx;
 	struct fastrpc_mmap *map = 0;
 	struct dma_attrs attrs;
-	struct ion_handle *handle = 0;
 	unsigned long flags;
 	int err = 0;
 	if (!fastrpc_mmap_find(fl, fd, va, len, ppmap))
@@ -360,11 +362,12 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, uintptr_t va,
 				DMA_BIDIRECTIONAL, map->buf, &attrs));
 	if (err)
 		goto bail;
-	VERIFY(err, !IS_ERR_OR_NULL(handle =
+	VERIFY(err, !IS_ERR_OR_NULL(map->handle =
 				ion_import_dma_buf(fl->apps->client, fd)));
 	if (err)
 		goto bail;
-	VERIFY(err, !ion_handle_get_flags(fl->apps->client, handle, &flags));
+	VERIFY(err, !ion_handle_get_flags(fl->apps->client, map->handle,
+				&flags));
 	if (err)
 		goto bail;
 	map->uncached = !ION_IS_CACHED(flags);
@@ -387,8 +390,6 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, uintptr_t va,
 bail:
 	if (err && map)
 		fastrpc_mmap_free(map);
-	if (handle)
-		ion_free(fl->apps->client, handle);
 	return err;
 }
 
@@ -719,57 +720,6 @@ static void fastrpc_file_list_dtor(struct fastrpc_apps *me)
 	} while (free);
 }
 
-static inline int is_overlapped_outbuf(struct smq_invoke_ctx *ctx, int oix)
-{
-	int inbufs, outbufs;
-
-	inbufs = REMOTE_SCALARS_INBUFS(ctx->sc);
-	outbufs = REMOTE_SCALARS_OUTBUFS(ctx->sc);
-	if (!ctx->overps[oix]->mstart)
-		return 1;
-	oix = oix + 1;
-	if ((oix < inbufs + outbufs) && !ctx->overps[oix]->mstart &&
-			ctx->overps[oix]->raix < inbufs)
-		return 1;
-	return 0;
-}
-
-static int clear_user_outbufs(struct smq_invoke_ctx *ctx)
-{
-	remote_arg_t *pra = ctx->lpra;
-	remote_arg_t *rpra = ctx->rpra;
-	uintptr_t ptr, end;
-	int oix, err = 0;
-	int inbufs = REMOTE_SCALARS_INBUFS(ctx->sc);
-	int outbufs = REMOTE_SCALARS_OUTBUFS(ctx->sc);
-
-	for (oix = 0; oix < inbufs + outbufs; ++oix) {
-		int i = ctx->overps[oix]->raix;
-		struct fastrpc_mmap *map = ctx->maps[i];
-
-		if (map && map->uncached)
-			continue;
-		if ((i < inbufs) || (pra[i].buf.pv != rpra[i].buf.pv) ||
-			is_overlapped_outbuf(ctx, oix))
-			continue;
-		VERIFY(err, 0 == clear_user(rpra[i].buf.pv,
-				(rpra[i].buf.len < 8) ? rpra[i].buf.len : 8));
-		if (err)
-			goto bail;
-		ptr = buf_page_start(rpra[i].buf.pv) + PAGE_SIZE;
-		end = (uintptr_t)rpra[i].buf.pv + rpra[i].buf.len;
-		for (; ptr < end; ptr += PAGE_SIZE) {
-			VERIFY(err, 0 == clear_user((void *)ptr,
-					((end - ptr) < 8) ? end - ptr : 8));
-			if (err)
-				goto bail;
-		}
-	}
-
- bail:
-	return err;
-}
-
 static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 {
 	remote_arg_t *rpra;
@@ -898,11 +848,6 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 		rlen -= mlen;
 	}
 
-	if (!kernel) {
-		VERIFY(err, 0 == clear_user_outbufs(ctx));
-		if (err)
-			goto bail;
-	}
 	for (oix = 0; oix < inbufs + outbufs; ++oix) {
 		int i = ctx->overps[oix]->raix;
 		struct fastrpc_mmap *map = ctx->maps[i];
@@ -996,9 +941,17 @@ static void inv_args(struct smq_invoke_ctx *ctx)
 
 		if (map && map->uncached)
 			continue;
-		if (buf_page_start(rpra) == buf_page_start(rpra[i].buf.pv))
+		if (!rpra[i].buf.len)
+			continue;
+		if (buf_page_start(rpra) == buf_page_start(rpra[i].buf.pv)) {
 			inv = 1;
-		else if (rpra[i].buf.len)
+			continue;
+		}
+		if (map && map->handle)
+			msm_ion_do_cache_op(ctx->fl->apps->client, map->handle,
+				rpra[i].buf.pv, rpra[i].buf.len,
+				ION_IOC_INV_CACHES);
+		else
 			dmac_inv_range(rpra[i].buf.pv,
 				(char *)rpra[i].buf.pv + rpra[i].buf.len);
 	}
