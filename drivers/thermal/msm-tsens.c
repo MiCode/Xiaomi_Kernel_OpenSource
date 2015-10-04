@@ -2536,16 +2536,25 @@ static irqreturn_t tsens_irq_thread(int irq, void *data)
 
 static int tsens_hw_init(struct tsens_tm_device *tmdev)
 {
+	void __iomem *srot_addr;
+	unsigned int srot_val;
+
 	if (!tmdev) {
 		pr_err("Invalid tsens device\n");
 		return -EINVAL;
 	}
 
-	if (tmdev->tsens_type == TSENS_TYPE3)
+	if (tmdev->tsens_type == TSENS_TYPE3) {
+		srot_addr = TSENS_CTRL_ADDR(tmdev->tsens_addr + 0x4);
+		srot_val = readl_relaxed(srot_addr);
+		if (!(srot_val & TSENS_EN)) {
+			pr_err("TSENS device is not enabled\n");
+			return -ENODEV;
+		}
 		writel_relaxed(TSENS_TM_CRITICAL_INT_EN |
 			TSENS_TM_UPPER_INT_EN | TSENS_TM_LOWER_INT_EN,
 			TSENS_TM_INT_EN(tmdev->tsens_addr));
-	else
+	} else
 		writel_relaxed(TSENS_INTERRUPT_EN,
 			TSENS_UPPER_LOWER_INTERRUPT_CTRL(tmdev->tsens_addr));
 
