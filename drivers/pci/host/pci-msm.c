@@ -1238,6 +1238,16 @@ static void pcie_pcs_port_phy_init(struct msm_pcie_dev_t *dev)
 		PCIE_N_POWER_STATE_CONFIG1(dev->rc_idx, common_phy),
 		0xA3);
 
+	if (dev->phy_ver == 0x3) {
+		msm_pcie_write_reg(dev->phy,
+			QSERDES_RX_N_SIGDET_LVL(dev->rc_idx, common_phy),
+			0x19);
+
+		msm_pcie_write_reg(dev->phy,
+			PCIE_N_TXDEEMPH_M3P5DB_V0(dev->rc_idx, common_phy),
+			0x0E);
+	}
+
 	msm_pcie_write_reg(dev->phy,
 		PCIE_N_POWER_DOWN_CONTROL(dev->rc_idx, common_phy),
 		0x03);
