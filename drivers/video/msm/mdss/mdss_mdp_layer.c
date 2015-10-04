@@ -1559,7 +1559,7 @@ int mdss_mdp_async_position_update(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_pipe *pipe = NULL;
 	struct mdp_async_layer *layer;
 	struct mdss_rect dst, src;
-	u32 flush_bits = 0;
+	u32 flush_bits = 0, inputndx = 0;
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
@@ -1593,10 +1593,12 @@ int mdss_mdp_async_position_update(struct msm_fb_data_type *mfd,
 		mdss_mdp_pipe_position_update(pipe, &src, &dst);
 
 		flush_bits |= mdss_mdp_get_pipe_flush_bits(pipe);
+		inputndx |= layer->pipe_ndx;
 	}
 	mdss_mdp_async_ctl_flush(mfd, flush_bits);
 
 done:
+	MDSS_XLOG(inputndx, update_pos->input_layer_cnt, flush_bits, rc);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	return rc;
 }
