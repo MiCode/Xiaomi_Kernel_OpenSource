@@ -23,6 +23,7 @@
 #include <linux/iommu.h>
 #include <linux/iopoll.h>
 #include <linux/of.h>
+#include <linux/pm_qos.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>
@@ -2062,6 +2063,10 @@ static int venus_hfi_core_init(void *device)
 	if (rc || __iface_cmdq_write(dev, &version_pkt))
 		dprintk(VIDC_WARN, "Failed to send image version pkt to f/w\n");
 
+	if (dev->res->pm_qos_latency_us)
+		pm_qos_add_request(&dev->qos, PM_QOS_CPU_DMA_LATENCY,
+				dev->res->pm_qos_latency_us);
+
 	mutex_unlock(&dev->lock);
 	return rc;
 err_core_init:
@@ -2083,8 +2088,11 @@ static int venus_hfi_core_release(void *dev)
 	}
 
 	mutex_lock(&device->lock);
+
+	pm_qos_remove_request(&device->qos);
 	__set_state(device, VENUS_STATE_DEINIT);
 	__unload_fw(device);
+
 	mutex_unlock(&device->lock);
 
 	return rc;
@@ -4118,6 +4126,9 @@ static inline int __suspend(struct venus_hfi_device *device)
 	}
 
 	dprintk(VIDC_DBG, "Entering power collapse\n");
+
+	pm_qos_remove_request(&device->qos);
+
 	rc = __tzbsp_set_video_state(TZBSP_VIDEO_STATE_SUSPEND);
 	if (rc) {
 		dprintk(VIDC_WARN, "Failed to suspend video core %d\n", rc);
@@ -4177,6 +4188,9 @@ static inline int __resume(struct venus_hfi_device *device)
 	 */
 	__set_threshold_registers(device);
 
+	if (device->res->pm_qos_latency_us)
+		pm_qos_add_request(&device->qos, PM_QOS_CPU_DMA_LATENCY,
+				device->res->pm_qos_latency_us);
 	dprintk(VIDC_INFO, "Resumed from power collapse\n");
 	return rc;
 err_reset_core:
