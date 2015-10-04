@@ -824,7 +824,9 @@ static ssize_t ipa3_read_stats(struct file *file, char __user *ubuf,
 			"wan_rx_empty=%u\n"
 			"wan_repl_rx_empty=%u\n"
 			"lan_rx_empty=%u\n"
-			"lan_repl_rx_empty=%u\n",
+			"lan_repl_rx_empty=%u\n"
+			"flow_enable=%u\n"
+			"flow_disable=%u\n",
 			ipa3_ctx->stats.tx_sw_pkts,
 			ipa3_ctx->stats.tx_hw_pkts,
 			ipa3_ctx->stats.tx_pkts_compl,
@@ -837,7 +839,9 @@ static ssize_t ipa3_read_stats(struct file *file, char __user *ubuf,
 			ipa3_ctx->stats.wan_rx_empty,
 			ipa3_ctx->stats.wan_repl_rx_empty,
 			ipa3_ctx->stats.lan_rx_empty,
-			ipa3_ctx->stats.lan_repl_rx_empty);
+			ipa3_ctx->stats.lan_repl_rx_empty,
+			ipa3_ctx->stats.flow_enable,
+			ipa3_ctx->stats.flow_disable);
 		cnt += nbytes;
 
 		for (i = 0; i < MAX_NUM_EXCP; i++) {

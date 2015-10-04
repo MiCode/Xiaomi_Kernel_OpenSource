@@ -1217,9 +1217,25 @@ static int ipa3_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		break;
 	/*  Flow enable  */
 	case RMNET_IOCTL_FLOW_ENABLE:
+		IPAWANDBG("Received flow enable\n");
+		if (copy_from_user(&ioctl_data, ifr->ifr_ifru.ifru_data,
+			sizeof(struct rmnet_ioctl_data_s))) {
+			rc = -EFAULT;
+			break;
+		}
+		ipa3_flow_control(IPA_CLIENT_USB_PROD, true,
+			ioctl_data.u.tcm_handle);
 		break;
 	/*  Flow disable  */
 	case RMNET_IOCTL_FLOW_DISABLE:
+		IPAWANDBG("Received flow disable\n");
+		if (copy_from_user(&ioctl_data, ifr->ifr_ifru.ifru_data,
+			sizeof(struct rmnet_ioctl_data_s))) {
+			rc = -EFAULT;
+			break;
+		}
+		ipa3_flow_control(IPA_CLIENT_USB_PROD, false,
+			ioctl_data.u.tcm_handle);
 		break;
 	/*  Set flow handle  */
 	case RMNET_IOCTL_FLOW_SET_HNDL:

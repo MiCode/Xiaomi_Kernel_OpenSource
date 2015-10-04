@@ -763,6 +763,8 @@ struct ipa_stats {
 	u32 wan_repl_rx_empty;
 	u32 lan_rx_empty;
 	u32 lan_repl_rx_empty;
+	u32 flow_enable;
+	u32 flow_disable;
 };
 
 struct ipa_active_clients {
@@ -1961,4 +1963,6 @@ int ipa2_release_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
 int ipa2_create_wdi_mapping(u32 num_buffers, struct ipa_wdi_buffer_info *info);
 void ipa_suspend_apps_pipes(bool suspend);
 void ipa_update_repl_threshold(enum ipa_client_type ipa_client);
+void ipa_flow_control(enum ipa_client_type ipa_client, bool enable,
+			uint32_t qmap_id);
 #endif /* _IPA_I_H_ */
