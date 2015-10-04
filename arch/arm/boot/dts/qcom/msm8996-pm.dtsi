@@ -9,6 +9,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
 &soc {
 	qcom,spm@9A10000 {
 		compatible = "qcom,spm-v2";
@@ -215,7 +218,7 @@
 		reg = <0x681B8 0x1000>, /* MSM_RPM_MPM_BASE 4K */
 		    <0x9820010 0x4>;   /* MSM_APCS_GCC_BASE 4K */
 		reg-names = "vmpm", "ipc";
-		interrupts = <0 171 1>;
+		interrupts = <GIC_SPI 171 IRQ_TYPE_EDGE_RISING>;
 		clocks = <&clock_gcc clk_cxo_lpm_clk>;
 		clock-names = "xo";
 		qcom,num-mpm-irqs = <96>;
