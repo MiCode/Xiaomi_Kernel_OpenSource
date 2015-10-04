@@ -2155,6 +2155,13 @@ static int ipa3_ssr_notifier_cb(struct notifier_block *this,
 			pr_info("IPA BEFORE_SHUTDOWN handling is complete\n");
 			return NOTIFY_DONE;
 		}
+		if (SUBSYS_AFTER_SHUTDOWN == code) {
+			pr_info("IPA received MPSS AFTER_SHUTDOWN\n");
+			if (atomic_read(&is_ssr))
+				ipa3_q6_pipe_reset();
+			pr_info("IPA AFTER_SHUTDOWN handling is complete\n");
+			return NOTIFY_DONE;
+		}
 		if (SUBSYS_AFTER_POWERUP == code) {
 			pr_info("IPA received MPSS AFTER_POWERUP\n");
 			if (!atomic_read(&is_initialized)
