@@ -22,3 +22,7 @@
 &pmi8994_charger {
 	qcom,charging-disabled;
 };
+
+&ibb_regulator {
+	qcom,qpnp-ibb-discharge-resistor = <300>;
+};

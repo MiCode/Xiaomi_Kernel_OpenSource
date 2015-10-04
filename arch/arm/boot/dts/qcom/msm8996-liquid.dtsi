@@ -322,10 +322,6 @@
 	qpnp,qpnp-labibb-mode = "lcd";
 };
 
-&ibb_regulator {
-	qcom,qpnp-ibb-discharge-resistor = <32>;
-};
-
 &dsi_dual_jdi_4k_nofbc_video {
 	pwms = <&pmi8994_pwm_4 0 0>;
 	pwm-names = "backlight";

@@ -482,10 +482,6 @@
 	qpnp,qpnp-labibb-mode = "lcd";
 };
 
-&ibb_regulator {
-	qcom,qpnp-ibb-discharge-resistor = <32>;
-};
-
 /* CoreSight */
 &tpiu {
 	pinctrl-names = "seta-pctrl", "setb-pctrl", "sdcard", "trace",

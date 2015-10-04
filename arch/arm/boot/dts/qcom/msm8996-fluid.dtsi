@@ -608,10 +608,6 @@
 	qpnp,qpnp-labibb-mode = "lcd";
 };
 
-&ibb_regulator {
-	qcom,qpnp-ibb-discharge-resistor = <32>;
-};
-
 &pmi8994_mpps {
 	mpp@a000 { /* MPP 1 */
 		qcom,mode = <1>;                /* Digital output */
