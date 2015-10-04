@@ -606,11 +606,7 @@ int adreno_a3xx_pwron_fixup_init(struct adreno_device *adreno_dev)
 	return 0;
 }
 
-/*
- * a3xx_gpudev_init() - Initialize gpudev specific fields
- * @adreno_dev: Pointer to adreno device
- */
-static void a3xx_gpudev_init(struct adreno_device *adreno_dev)
+static void a3xx_platform_setup(struct adreno_device *adreno_dev)
 {
 	struct adreno_gpudev *gpudev;
 	const struct adreno_reg_offsets *reg_offsets;
@@ -1837,8 +1833,7 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 	.snapshot_data = &a3xx_snapshot_data,
 	.num_prio_levels = 1,
 	.vbif_xin_halt_ctrl0_mask = A3XX_VBIF_XIN_HALT_CTRL0_MASK,
-
-	.gpudev_init = a3xx_gpudev_init,
+	.platform_setup = a3xx_platform_setup,
 	.rb_init = a3xx_rb_init,
 	.microcode_read = a3xx_microcode_read,
 	.microcode_load = a3xx_microcode_load,

@@ -45,6 +45,7 @@
 			<  5195 /*  681 MHz */ >,
 			<  5859 /*  768 MHz */ >,
 			<  7759 /*  1017 MHz */ >,
+			<  9887 /*  1296 MHz */ >,
 			<  11863 /*  1555 MHz */ >,
 			<  13763 /*  1804 MHz */ >;
 	};
@@ -53,14 +54,14 @@
 		label = "kgsl-3d0";
 		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
 		status = "ok";
-		reg = <0xb00000 0x3f000>;
-		reg-names = "kgsl_3d0_reg_memory";
+		reg = <0xb00000 0x3f000
+		       0x070000 0x04720>;
+		reg-names = "kgsl_3d0_reg_memory", "qfprom_memory";
 		interrupts = <0 300 0>;
 		interrupt-names = "kgsl_3d0_irq";
 		qcom,id = <0>;
 
 		qcom,chipid = <0x05030000>;
-		qcom,gpu-efuse-leakage = <0x00070130 24>;
 		qcom,base-leakage-coefficient = <34>;
 		qcom,lm-limit = <6000>;
 
@@ -106,7 +107,7 @@
 		qcom,gpubw-dev = <&gpubw>;
 		qcom,bus-control;
 		qcom,msm-bus,name = "grp3d";
-		qcom,msm-bus,num-cases = <12>;
+		qcom,msm-bus,num-cases = <13>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
 				<26 512 0 0>,
@@ -120,8 +121,9 @@
 				<26 512 0 5448000>,     // 7 bus=681
 				<26 512 0 6144000>,     // 8 bus=768
 				<26 512 0 8136000>,     // 9 bus=1017
-				<26 512 0 12440000>,    // 10 bus=1555
-				<26 512 0 14432000>;    // 11 bus=1804
+				<26 512 0 10368000>,    // 10 bus=1296
+				<26 512 0 12440000>,    // 11 bus=1555
+				<26 512 0 14432000>;    // 12 bus=1804
 
 		/* GDSC regulator names */
 		regulator-names = "vddcx", "vdd";
