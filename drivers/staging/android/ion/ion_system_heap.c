@@ -333,14 +333,14 @@ void ion_system_heap_free(struct ion_buffer *buffer)
 	struct ion_system_heap *sys_heap = container_of(heap,
 							struct ion_system_heap,
 							heap);
-	struct sg_table *table = buffer->sg_table;
+	struct sg_table *table = buffer->priv_virt;
 	struct scatterlist *sg;
 	LIST_HEAD(pages);
 	int i;
 
 	if (!(buffer->private_flags & ION_PRIV_FLAG_SHRINKER_FREE) &&
 	    !(buffer->flags & ION_FLAG_POOL_FORCE_ALLOC))
-		msm_ion_heap_buffer_zero(buffer);
+		msm_ion_heap_sg_table_zero(table, buffer->size);
 
 	for_each_sg(table->sgl, sg, table->nents, i)
 		free_buffer_page(sys_heap, buffer, sg_page(sg),
