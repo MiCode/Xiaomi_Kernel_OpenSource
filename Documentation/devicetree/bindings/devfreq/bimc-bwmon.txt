@@ -5,7 +5,8 @@ can be used to measure the bandwidth of read/write traffic from the BIMC
 master ports. For example, the CPU subsystem sits on one BIMC master port.
 
 Required properties:
-- compatible:		Must be "qcom,bimc-bwmon", "qcom,bimc-bwmon2"
+- compatible:		Must be "qcom,bimc-bwmon", "qcom,bimc-bwmon2" or
+			"qcom,bimc-bwmon3"
 - reg:			Pairs of physical base addresses and region sizes of
 			memory mapped registers.
 - reg-names:		Names of the bases for the above registers. Expected
