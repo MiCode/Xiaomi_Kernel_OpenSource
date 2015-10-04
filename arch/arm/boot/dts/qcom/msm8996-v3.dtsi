@@ -245,6 +245,7 @@
 			< 972000 346666667 0xffffffff>, /* 4k UHD @ 30 */
 			< 489600 150000000 0xffffffff>, /* 1080p @ 60 */
 			< 244800  75000000 0xffffffff>; /* 1080p @ 30 */
+	qcom,pm-qos-latency-us = <501>;
 };
 
 &gdsc_venus_core0 {
