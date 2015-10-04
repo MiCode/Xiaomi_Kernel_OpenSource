@@ -314,6 +314,7 @@ struct mdss_data_type {
 	struct list_head reg_bus_clist;
 	struct mutex reg_bus_lock;
 	struct reg_bus_client *reg_bus_clt;
+	struct reg_bus_client *pp_reg_bus_clt;
 
 	u32 axi_port_cnt;
 	u32 nrt_axi_port_cnt;
