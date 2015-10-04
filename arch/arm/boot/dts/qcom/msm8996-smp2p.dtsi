@@ -9,13 +9,16 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
 &soc {
 	qcom,smp2p-modem@9820010 {
 		compatible = "qcom,smp2p";
 		reg = <0x9820010 0x4>;
 		qcom,remote-pid = <1>;
 		qcom,irq-bitmask = <0x4000>;
-		interrupts = <0 451 1>;
+		interrupts = <GIC_SPI 451 IRQ_TYPE_EDGE_RISING>;
 	};
 
 	qcom,smp2p-adsp@9820010 {
@@ -23,7 +26,7 @@
 		reg = <0x9820010 0x4>;
 		qcom,remote-pid = <2>;
 		qcom,irq-bitmask = <0x400>;
-		interrupts = <0 158 1>;
+		interrupts = <GIC_SPI 158 IRQ_TYPE_EDGE_RISING>;
 	};
 
 	qcom,smp2p-dsps@9820010 {
@@ -31,7 +34,7 @@
 		reg = <0x9820010 0x4>;
 		qcom,remote-pid = <3>;
 		qcom,irq-bitmask = <0x4000000>;
-		interrupts = <0 178 1>;
+		interrupts = <GIC_SPI 178 IRQ_TYPE_EDGE_RISING>;
 	};
 
 	smp2pgpio_smp2p_15_in: qcom,smp2pgpio-smp2p-15-in {
