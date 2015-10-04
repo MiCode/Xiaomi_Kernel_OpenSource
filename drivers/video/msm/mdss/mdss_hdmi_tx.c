@@ -2385,6 +2385,7 @@ static int hdmi_tx_config_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 {
 	int rc = 0;
 	struct dss_module_power *power_data = NULL;
+	char name[MAX_CLIENT_NAME_LEN];
 
 	if (!hdmi_ctrl || module >= HDMI_TX_MAX_PM) {
 		DEV_ERR("%s: Error: invalid input\n", __func__);
@@ -2408,8 +2409,9 @@ static int hdmi_tx_config_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 			goto exit;
 		}
 
+		snprintf(name, MAX_CLIENT_NAME_LEN, "hdmi:%u", module);
 		hdmi_ctrl->pdata.reg_bus_clt[module] =
-			mdss_reg_bus_vote_client_create();
+			mdss_reg_bus_vote_client_create(name);
 		if (IS_ERR_OR_NULL(hdmi_ctrl->pdata.reg_bus_clt[module])) {
 			pr_err("reg bus client create failed\n");
 			msm_dss_config_vreg(&hdmi_ctrl->pdev->dev,
