@@ -2389,7 +2389,7 @@ static inline int ipa_mhi_destroy(void)
  * IPA_USB
  */
 
-int ipa_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
+static inline int ipa_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
 			   struct ipa_usb_teth_params *teth_params,
 			   int (*ipa_usb_notify_cb)(enum ipa_usb_notify_event,
 			   void *),
@@ -2398,41 +2398,43 @@ int ipa_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
 	return -EPERM;
 }
 
-int ipa_usb_request_xdci_channel(struct ipa_usb_xdci_chan_params *params,
-				 struct ipa_req_chan_out_params *out_params)
+static inline int ipa_usb_request_xdci_channel(
+	struct ipa_usb_xdci_chan_params *params,
+	struct ipa_req_chan_out_params *out_params)
 {
 	return -EPERM;
 }
 
-int ipa_usb_xdci_connect(struct ipa_usb_xdci_connect_params *params)
+static inline int ipa_usb_xdci_connect(
+	struct ipa_usb_xdci_connect_params *params)
 {
 	return -EPERM;
 }
 
-int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
+static inline int ipa_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 			    enum ipa_usb_teth_prot teth_prot)
 {
 	return -EPERM;
 }
 
-int ipa_usb_release_xdci_channel(u32 clnt_hdl,
-				 enum ipa_usb_teth_prot teth_prot);
+static inline int ipa_usb_release_xdci_channel(u32 clnt_hdl,
+				 enum ipa_usb_teth_prot teth_prot)
 {
 	return -EPERM;
 }
 
-int ipa_usb_deinit_teth_prot(enum ipa_usb_teth_prot teth_prot)
+static inline int ipa_usb_deinit_teth_prot(enum ipa_usb_teth_prot teth_prot)
 {
 	return -EPERM;
 }
 
-int ipa_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
+static inline int ipa_usb_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 			 enum ipa_usb_teth_prot teth_prot)
 {
 	return -EPERM;
 }
 
-int ipa_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl)
+static inline int ipa_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl)
 {
 	return -EPERM;
 }
