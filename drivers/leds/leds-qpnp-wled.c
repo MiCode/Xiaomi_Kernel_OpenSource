@@ -32,6 +32,7 @@
 #define QPNP_WLED_SINK_BASE		"qpnp-wled-sink-base"
 
 /* ctrl registers */
+#define QPNP_WLED_INT_EN_SET(b)		(b + 0x15)
 #define QPNP_WLED_EN_REG(b)		(b + 0x46)
 #define QPNP_WLED_FDBK_OP_REG(b)	(b + 0x48)
 #define QPNP_WLED_VREF_REG(b)		(b + 0x49)
@@ -71,6 +72,9 @@
 #define QPNP_WLED_OVP_29500_MV		29500
 #define QPNP_WLED_OVP_31000_MV		31000
 #define QPNP_WLED_TEST4_EN_VREF_UP	0x32
+#define QPNP_WLED_INT_EN_SET_OVP_DIS	0x00
+#define QPNP_WLED_INT_EN_SET_OVP_EN	0x02
+#define QPNP_WLED_OVP_FLT_SLEEP_US	10
 
 /* sink registers */
 #define QPNP_WLED_CURR_SINK_REG(b)	(b + 0x46)
@@ -256,6 +260,7 @@ struct qpnp_wled {
 	bool en_cabc;
 	bool disp_type_amoled;
 	bool en_ext_pfet_sc_pro;
+	bool prev_state;
 };
 
 /* helper to read a pmic register */
@@ -351,6 +356,15 @@ static int qpnp_wled_module_en(struct qpnp_wled *wled,
 	int rc;
 	u8 reg;
 
+	/* disable OVP fault interrupt */
+	if (state) {
+		reg = QPNP_WLED_INT_EN_SET_OVP_DIS;
+		rc = qpnp_wled_write_reg(wled, &reg,
+				QPNP_WLED_INT_EN_SET(base_addr));
+		if (rc)
+			return rc;
+	}
+
 	rc = qpnp_wled_read_reg(wled, &reg,
 			QPNP_WLED_MODULE_EN_REG(base_addr));
 	if (rc < 0)
@@ -361,6 +375,16 @@ static int qpnp_wled_module_en(struct qpnp_wled *wled,
 			QPNP_WLED_MODULE_EN_REG(base_addr));
 	if (rc)
 		return rc;
+
+	/* enable OVP fault interrupt */
+	if (state) {
+		udelay(QPNP_WLED_OVP_FLT_SLEEP_US);
+		reg = QPNP_WLED_INT_EN_SET_OVP_EN;
+		rc = qpnp_wled_write_reg(wled, &reg,
+				QPNP_WLED_INT_EN_SET(base_addr));
+		if (rc)
+			return rc;
+	}
 
 	return 0;
 }
@@ -690,13 +714,17 @@ static void qpnp_wled_work(struct work_struct *work)
 		}
 	}
 
-	rc = qpnp_wled_module_en(wled, wled->ctrl_base, !!level);
+	if (!!level != wled->prev_state) {
+		rc = qpnp_wled_module_en(wled, wled->ctrl_base, !!level);
 
-	if (rc) {
-		dev_err(&wled->spmi->dev, "wled %sable failed\n",
-					level ? "en" : "dis");
-		goto unlock_mutex;
+		if (rc) {
+			dev_err(&wled->spmi->dev, "wled %sable failed\n",
+						level ? "en" : "dis");
+			goto unlock_mutex;
+		}
 	}
+
+	wled->prev_state = !!level;
 unlock_mutex:
 	mutex_unlock(&wled->lock);
 }
