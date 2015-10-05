@@ -1331,6 +1331,12 @@ enum v4l2_auto_focus_range {
 #define V4L2_CID_PAN_SPEED			(V4L2_CID_CAMERA_CLASS_BASE+32)
 #define V4L2_CID_TILT_SPEED			(V4L2_CID_CAMERA_CLASS_BASE+33)
 
+/* User-class control IDs specific to the msm_ba driver */
+
+#define MSM_BA_PRIV_BASE_START			(V4L2_CID_USER_BASE | 0x7000)
+#define MSM_BA_PRIV_SD_NODE_ADDR		(MSM_BA_PRIV_BASE_START + 1)
+#define MSM_BA_PRIV_FPS			(MSM_BA_PRIV_BASE_START + 2)
+
 /* FM Modulator class control IDs */
 
 #define V4L2_CID_FM_TX_CLASS_BASE		(V4L2_CTRL_CLASS_FM_TX | 0x900)
