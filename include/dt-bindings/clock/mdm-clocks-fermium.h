@@ -87,6 +87,7 @@
 #define clk_gcc_apss_ahb_clk					 0x2b0d39ff
 #define clk_gcc_apss_axi_clk					 0x1d47f4ff
 #define clk_gcc_prng_ahb_clk					 0x397e7eaa
+#define clk_gcc_qdss_dap_clk					 0x7fa9aa73
 #define clk_gcc_apss_tcu_clk					 0xaf56a329
 #define clk_gcc_blsp1_ahb_clk					 0x8caa5b4f
 #define clk_gcc_blsp1_qup1_i2c_apps_clk				 0xc303fae9
