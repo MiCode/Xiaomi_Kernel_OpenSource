@@ -23,11 +23,11 @@
 
 		uart_console_sleep: uart_console_sleep {
 			mux {
-				pins = "gpio4", "gpio5";
-				function = "blsp_uart2";
+				pins = "gpio8", "gpio9";
+				function = "blsp_uart5";
 			};
 			config {
-				pins = "gpio4", "gpio5";
+				pins = "gpio8", "gpio9";
 				drive-strength = <2>;
 				bias-pull-down;
 			};
