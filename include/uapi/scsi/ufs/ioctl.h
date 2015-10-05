@@ -48,8 +48,8 @@ struct ufs_ioctl_query_data {
 	 * placeholder for the start of the data buffer where kernel will copy
 	 * the query data (attribute/flag/descriptor) read from the UFS device
 	 * Note:
-	 * For Read Attribute you will have to allocate 4 bytes
-	 * For Read Flag you will have to allocate 1 byte
+	 * For Read/Write Attribute you will have to allocate 4 bytes
+	 * For Read/Write Flag you will have to allocate 1 byte
 	 */
 	__u8 buffer[0];
 };

@@ -38,6 +38,8 @@ enum attr_idn {
 	QUERY_ATTR_IDN_CORR_PRG_BLK_NUM		= 0x11,
 };
 
+#define QUERY_ATTR_IDN_BOOT_LU_EN_MAX	0x02
+
 /* Descriptor idn for Query requests */
 enum desc_idn {
 	QUERY_DESC_IDN_DEVICE		= 0x0,
