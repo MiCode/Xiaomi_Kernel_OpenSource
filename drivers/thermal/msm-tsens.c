@@ -5335,6 +5335,8 @@ static int get_device_tree_data(struct platform_device *pdev,
 		(!strcmp(id->compatible, "qcom,msmzirc-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msm8992-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msm8996-tsens")) ||
+		(!strcmp(id->compatible, "qcom,msm8952-tsens")) ||
+		(!strcmp(id->compatible, "qcom,msm8937-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msmtitanium-tsens")))
 			tmdev->tsens_valid_status_check = true;
 	}
