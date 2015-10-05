@@ -224,6 +224,22 @@
 		clock-names = "core_clk", "iface_clk";
 	};
 
+	dma_blsp1: qcom,sps-dma@7884000 { /* BLSP1 */
+		#dma-cells = <4>;
+		compatible = "qcom,sps-dma";
+		reg = <0x7884000 0x1f000>;
+		interrupts = <0 238 0>;
+		qcom,summing-threshold = <10>;
+	};
+
+	dma_blsp2: qcom,sps-dma@7ac4000 { /* BLSP2 */
+		#dma-cells = <4>;
+		compatible = "qcom,sps-dma";
+		reg = <0x7ac4000 0x1f000>;
+		interrupts = <0 239 0>;
+		qcom,summing-threshold = <10>;
+	};
+
 	clock_gcc: qcom,gcc {
 		compatible = "qcom,dummycc";
 		#clock-cells = <1>;
