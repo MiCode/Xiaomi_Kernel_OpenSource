@@ -1768,7 +1768,8 @@ static void msm_isp_get_camif_update_state_and_halt(
 
 	if (vfe_dev->axi_data.num_active_stream == stream_cfg_cmd->num_streams
 		&& (stream_cfg_cmd->cmd == STOP_STREAM ||
-		stream_cfg_cmd->cmd == STOP_IMMEDIATELY))
+		stream_cfg_cmd->cmd == STOP_IMMEDIATELY) &&
+		*camif_update == NO_UPDATE)
 		*halt = 1;
 	else
 		*halt = 0;
@@ -2510,14 +2511,17 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 		vfe_dev->hw_info->vfe_ops.core_ops.
 			update_camif_state(vfe_dev, DISABLE_CAMIF);
 		vfe_dev->axi_data.camif_state = CAMIF_DISABLE;
-	} else if ((camif_update == DISABLE_CAMIF_IMMEDIATELY) ||
-					(ext_read)) {
+	} else if (((camif_update == DISABLE_CAMIF_IMMEDIATELY) ||
+					(ext_read)) && !halt) {
 		vfe_dev->ignore_error = 1;
+		vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev, 1);
 		if (!ext_read)
 			vfe_dev->hw_info->vfe_ops.core_ops.
 				update_camif_state(vfe_dev,
 						DISABLE_CAMIF_IMMEDIATELY);
 		vfe_dev->axi_data.camif_state = CAMIF_STOPPED;
+		vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev, 0, 1);
+		vfe_dev->hw_info->vfe_ops.core_ops.init_hw_reg(vfe_dev);
 		vfe_dev->ignore_error = 0;
 	}
 	msm_isp_update_camif_output_count(vfe_dev, stream_cfg_cmd);
