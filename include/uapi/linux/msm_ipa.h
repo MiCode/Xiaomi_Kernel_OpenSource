@@ -239,6 +239,25 @@ enum ipa_client_type {
 	(client) == IPA_CLIENT_Q6_DECOMP_PROD || \
 	(client) == IPA_CLIENT_Q6_DECOMP2_PROD)
 
+#define IPA_CLIENT_IS_Q6_NON_ZIP_CONS(client) \
+	((client) == IPA_CLIENT_Q6_LAN_CONS || \
+	(client) == IPA_CLIENT_Q6_WAN_CONS || \
+	(client) == IPA_CLIENT_Q6_DUN_CONS || \
+	(client) == IPA_CLIENT_Q6_LTE_WIFI_AGGR_CONS)
+
+#define IPA_CLIENT_IS_Q6_ZIP_CONS(client) \
+	((client) == IPA_CLIENT_Q6_DECOMP_CONS || \
+	(client) == IPA_CLIENT_Q6_DECOMP2_CONS)
+
+#define IPA_CLIENT_IS_Q6_NON_ZIP_PROD(client) \
+	((client) == IPA_CLIENT_Q6_LAN_PROD || \
+	(client) == IPA_CLIENT_Q6_WAN_PROD || \
+	(client) == IPA_CLIENT_Q6_CMD_PROD)
+
+#define IPA_CLIENT_IS_Q6_ZIP_PROD(client) \
+	((client) == IPA_CLIENT_Q6_DECOMP_PROD || \
+	(client) == IPA_CLIENT_Q6_DECOMP2_PROD)
+
 #define IPA_CLIENT_IS_MEMCPY_DMA_CONS(client) \
 	((client) == IPA_CLIENT_MEMCPY_DMA_SYNC_CONS || \
 	(client) == IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS)
