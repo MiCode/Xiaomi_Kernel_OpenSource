@@ -680,7 +680,7 @@ static void cmdq_finish_data(struct mmc_host *mmc, unsigned int tag)
 
 	if (mrq->cmdq_req->cmdq_req_flags & DCMD)
 		cmdq_writel(cq_host, cmdq_readl(cq_host, CQ_VENDOR_CFG) |
-			    CMDQ_SEND_STATUS_TRIGGER, CQCTL);
+			    CMDQ_SEND_STATUS_TRIGGER, CQ_VENDOR_CFG);
 
 	cmdq_runtime_pm_put(cq_host);
 	if (cq_host->ops->crypto_cfg_reset)
