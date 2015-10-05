@@ -98,6 +98,7 @@ struct mdp_pp_driver_ops {
 	int (*get_hist_offset)(u32 block, u32 *ctl_off);
 	int (*get_hist_isr_info)(u32 *isr_mask);
 	bool (*is_sspp_hist_supp)(void);
+	void (*gamut_clk_gate_en)(char __iomem *base_addr);
 };
 
 struct mdss_pp_res_type_v1_7 {

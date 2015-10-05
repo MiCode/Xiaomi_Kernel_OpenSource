@@ -1750,7 +1750,9 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 	}
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-
+	if (pp_driver_ops.gamut_clk_gate_en)
+		pp_driver_ops.gamut_clk_gate_en(base +
+					mdata->pp_block_off.dspp_gamut_off);
 	ret = pp_hist_setup(&opmode, MDSS_PP_DSPP_CFG | dspp_num, mixer);
 	if (ret)
 		goto dspp_exit;
