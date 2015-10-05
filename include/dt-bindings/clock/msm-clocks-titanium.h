@@ -16,6 +16,7 @@
 
 #define clk_gpll0_clk_src				 0x5933b69f
 #define clk_gpll2_clk_src				 0x7c34503b
+#define clk_gpll3_clk_src				 0x5b1eccd5
 #define clk_gpll4_clk_src				 0x10525d57
 #define clk_gpll6_clk_src				 0x17dceaad
 #define clk_gpll0_main_clk_src				 0xf6e5be93
@@ -77,6 +78,7 @@
 #define clk_gcc_crypto_axi_clk				 0xd4415c9b
 #define clk_gcc_crypto_clk				 0x00d390d2
 #define clk_gcc_prng_ahb_clk				 0x397e7eaa
+#define clk_gcc_qdss_dap_clk				 0x7fa9aa73
 #define clk_gcc_apss_tcu_async_clk			 0x8fbc51da
 #define clk_gcc_cpp_tbu_clk				 0xab6f19ab
 #define clk_gcc_jpeg_tbu_clk				 0xcf8fd944
@@ -97,11 +99,13 @@
 #define clk_jpeg0_clk_src				 0x9a0a0ac3
 #define clk_mdp_clk_src					 0x6dc1f8f1
 #define clk_pclk0_clk_src				 0xccac1f35
+#define clk_ext_pclk0_clk_src				 0x087c1612
 #define clk_pclk1_clk_src				 0x090f68ac
+#define clk_ext_pclk1_clk_src				 0x8067c5a3
 #define clk_usb30_master_clk_src			 0xc6262f89
 #define clk_vfe1_clk_src				 0x4e357366
-#define clk_apc0_voltage_droop_detector_clk_src		 0x824a5cb7
-#define clk_apc1_voltage_droop_detector_clk_src		 0x8708fba4
+#define clk_apc0_droop_detector_clk_src			 0x824a5cb7
+#define clk_apc1_droop_detector_clk_src			 0x8708fba4
 #define clk_blsp1_qup1_i2c_apps_clk_src			 0x17f78f5e
 #define clk_blsp1_qup1_spi_apps_clk_src			 0xf534c4fa
 #define clk_blsp1_qup2_i2c_apps_clk_src			 0x8de71c79
@@ -140,7 +144,9 @@
 #define clk_gp2_clk_src					 0xfb1f0065
 #define clk_gp3_clk_src					 0x63b693d6
 #define clk_byte0_clk_src				 0x75cc885b
+#define clk_ext_byte0_clk_src				 0xfb32f31e
 #define clk_byte1_clk_src				 0x63c2c955
+#define clk_ext_byte1_clk_src				 0x585ef6d4
 #define clk_esc0_clk_src				 0xb41d7c38
 #define clk_esc1_clk_src				 0x3b0afa42
 #define clk_vsync_clk_src				 0xecb43940
@@ -152,8 +158,8 @@
 #define clk_usb30_mock_utmi_clk_src			 0xa024a976
 #define clk_usb3_aux_clk_src				 0xfde7ae09
 #define clk_usb3_pipe_clk_src				 0x8b922db4
-#define clk_gcc_apc0_voltage_droop_detector_gpll0_clk	 0x514e25ca
-#define clk_gcc_apc1_voltage_droop_detector_gpll0_clk	 0x0c9c03ee
+#define clk_gcc_apc0_droop_detector_gpll0_clk		 0x514e25ca
+#define clk_gcc_apc1_droop_detector_gpll0_clk		 0x0c9c03ee
 #define clk_gcc_blsp1_qup1_i2c_apps_clk			 0xc303fae9
 #define clk_gcc_blsp1_qup1_spi_apps_clk			 0x759a76b0
 #define clk_gcc_blsp1_qup2_i2c_apps_clk			 0x1076f220
@@ -266,6 +272,20 @@
 #define clk_gcc_qusb2_phy_reset				 0x3ce5fa84
 #define clk_gcc_usb3_phy_reset				 0x03d559f1
 #define clk_gcc_usb3phy_phy_reset			 0xb1a4f885
+#define clk_bb_clk1					 0xf5304268
+#define clk_bb_clk1_a					 0xfa113810
+#define clk_bb_clk1_pin					 0x6dd0a779
+#define clk_bb_clk1_a_pin				 0x9b637772
+#define clk_bb_clk2					 0xfe15cb87
+#define clk_bb_clk2_a					 0x59682706
+#define clk_bb_clk2_pin					 0x498938e5
+#define clk_bb_clk2_a_pin				 0x52513787
+#define clk_rf_clk2					 0x24a30992
+#define clk_rf_clk2_a					 0x944d8bbd
+#define clk_rf_clk3					 0xb673936b
+#define clk_rf_clk3_a					 0xf7975f21
+#define clk_div_clk1					 0xaa1157a6
+#define clk_div_clk1_a					 0x6b943d68
 
 /* clock_debug controlled clocks */
 #define clk_gcc_debug_mux				 0x8121ac15
