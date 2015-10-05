@@ -1396,7 +1396,7 @@ static int cam_smmu_setup_cb(struct cam_context_bank_info *cb,
 	}
 
 	/* create a virtual mapping */
-	cb->mapping = arm_iommu_create_mapping(&platform_bus_type,
+	cb->mapping = arm_iommu_create_mapping(msm_iommu_get_bus(dev),
 		cb->va_start, cb->va_len);
 	if (IS_ERR(cb->mapping)) {
 		pr_err("Error: create mapping Failed\n");

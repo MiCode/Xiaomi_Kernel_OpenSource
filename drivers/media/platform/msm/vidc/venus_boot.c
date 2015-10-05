@@ -20,6 +20,7 @@
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/iommu.h>
+#include <linux/qcom_iommu.h>
 #include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -153,7 +154,7 @@ static int venus_setup_cb(struct device *dev,
 	size_t va_size = size;
 
 	venus_data->mapping = arm_iommu_create_mapping(
-		&platform_bus_type, va_start, va_size);
+		msm_iommu_get_bus(dev), va_start, va_size);
 	if (IS_ERR_OR_NULL(venus_data->mapping)) {
 		dprintk(VIDC_ERR, "%s: failed to create mapping for %s\n",
 		__func__, dev_name(dev));

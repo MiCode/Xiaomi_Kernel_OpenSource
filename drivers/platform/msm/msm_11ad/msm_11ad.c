@@ -18,6 +18,7 @@
 #include <asm/dma-iommu.h>
 #include <linux/msm-bus.h>
 #include <linux/iommu.h>
+#include <linux/qcom_iommu.h>
 #include <linux/version.h>
 #include <linux/delay.h>
 #include "wil_platform.h"
@@ -158,8 +159,9 @@ static int msm_11ad_smmu_init(struct msm11ad_ctx *ctx)
 	if (!ctx->use_smmu)
 		return 0;
 
-	ctx->mapping = arm_iommu_create_mapping(&platform_bus_type,
-						SMMU_BASE, SMMU_SIZE);
+	ctx->mapping = arm_iommu_create_mapping(
+			msm_iommu_get_bus(&ctx->pcidev->dev),
+			SMMU_BASE, SMMU_SIZE);
 	if (IS_ERR_OR_NULL(ctx->mapping)) {
 		rc = PTR_ERR(ctx->mapping) ?: -ENODEV;
 		dev_err(ctx->dev, "Failed to create IOMMU mapping (%d)\n", rc);
