@@ -63,6 +63,9 @@ memory allocation over a PCIe bridge
 					the mitigation to register group 10
 					AP access limitation
 
+- qcom,tethered-flow-control:   Boolean context flag to indicate whether
+                                apps based flow control is needed for tethered
+                                call.
 IPA pipe sub nodes (A2 static pipes configurations):
 
 -label: two labels are supported, a2-to-ipa and ipa-to-a2 which

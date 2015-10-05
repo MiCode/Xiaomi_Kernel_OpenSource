@@ -1257,11 +1257,11 @@ struct ipa_context {
 	u32 peer_bam_map_cnt;
 	u32 wdi_map_cnt;
 	bool use_dma_zone;
-
 	/* RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA */
 	bool ipa_client_apps_wan_cons_agg_gro;
 	/* M-release support to know client pipes */
 	struct ipacm_client_info ipacm_client[IPA_MAX_NUM_PIPES];
+	bool tethered_flow_control;
 };
 
 /**
@@ -1312,6 +1312,7 @@ struct ipa_plat_drv_res {
 	u32 wan_rx_ring_size;
 	bool skip_uc_pipe_reset;
 	bool use_dma_zone;
+	bool tethered_flow_control;
 };
 
 struct ipa_mem_partition {
@@ -1436,6 +1437,11 @@ int ipa2_disconnect(u32 clnt_hdl);
  * Resume / Suspend
  */
 int ipa2_reset_endpoint(u32 clnt_hdl);
+
+/*
+ * Remove ep delay
+ */
+int ipa2_clear_endpoint_delay(u32 clnt_hdl);
 
 /*
  * Configuration
