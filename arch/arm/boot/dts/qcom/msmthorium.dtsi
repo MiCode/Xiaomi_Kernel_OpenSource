@@ -453,7 +453,7 @@
 				"bimc_clk", "snoc_clk", "pcnoc_clk",
 				"phy_reset_clk", "phy_por_clk", "phy_csr_clk",
 				"xo";
-		qcom,bus-clk-rate = <374400000 200000000 100000000>;
+		qcom,bus-clk-rate = <748800000 200000000 100000000>;
 		qcom,max-nominal-sysclk-rate = <133330000>;
 
 		qcom,usbbam@78c4000 {
