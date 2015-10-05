@@ -823,7 +823,8 @@ void cpr3_open_loop_voltage_as_ceiling(struct cpr3_regulator *vreg)
  * @combo_offset:	The array offset for the selected fuse combo
  *
  * This function also ensures that the open-loop voltage for each corner falls
- * within the final floor to ceiling voltage range.
+ * within the final floor to ceiling voltage range and that floor voltages
+ * increase monotonically.
  *
  * Return: 0 on success, errno on failure
  */
@@ -831,11 +832,12 @@ int cpr3_limit_floor_voltages(struct cpr3_regulator *vreg, int corner_sum,
 				int combo_offset)
 {
 	char *prop = "qcom,cpr-floor-to-ceiling-max-range";
-	int i, rc, floor_new;
+	int i, floor_new;
 	u32 *floor_range;
+	int rc = 0;
 
 	if (!of_find_property(vreg->of_node, prop, NULL))
-		return 0;
+		goto enforce_monotonicity;
 
 	floor_range = kcalloc(vreg->corner_count, sizeof(*floor_range),
 				GFP_KERNEL);
@@ -864,6 +866,30 @@ int cpr3_limit_floor_voltages(struct cpr3_regulator *vreg, int corner_sum,
 
 free_floor_adjust:
 	kfree(floor_range);
+
+enforce_monotonicity:
+	/* Ensure that floor voltages increase monotonically. */
+	for (i = 1; i < vreg->corner_count; i++) {
+		if (vreg->corner[i].floor_volt
+		    < vreg->corner[i - 1].floor_volt) {
+			cpr3_debug(vreg, "corner %d floor voltage=%d uV < corner %d voltage=%d uV; overriding: corner %d voltage=%d\n",
+				i, vreg->corner[i].floor_volt,
+				i - 1, vreg->corner[i - 1].floor_volt,
+				i, vreg->corner[i - 1].floor_volt);
+			vreg->corner[i].floor_volt
+				= vreg->corner[i - 1].floor_volt;
+
+			if (vreg->corner[i].open_loop_volt
+			    < vreg->corner[i].floor_volt)
+				vreg->corner[i].open_loop_volt
+					= vreg->corner[i].floor_volt;
+			if (vreg->corner[i].ceiling_volt
+			    < vreg->corner[i].floor_volt)
+				vreg->corner[i].ceiling_volt
+					= vreg->corner[i].floor_volt;
+		}
+	}
+
 	return rc;
 }
 
