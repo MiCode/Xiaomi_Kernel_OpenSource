@@ -290,6 +290,12 @@ void ipa3_flow_control(enum ipa_client_type ipa_client,
 	int ep_idx;
 	struct ipa3_ep_context *ep;
 
+	/* Check if tethered flow control is needed or not.*/
+	if (!ipa3_ctx->tethered_flow_control) {
+		IPADBG("Apps flow control is not needed\n");
+		return;
+	}
+
 	/* Check if ep is valid. */
 	ep_idx = ipa3_get_ep_mapping(ipa_client);
 	if (ep_idx == -1) {
@@ -3182,6 +3188,7 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->modem_cfg_emb_pipe_flt = resource_p->modem_cfg_emb_pipe_flt;
 	ipa3_ctx->wan_rx_ring_size = resource_p->wan_rx_ring_size;
 	ipa3_ctx->skip_uc_pipe_reset = resource_p->skip_uc_pipe_reset;
+	ipa3_ctx->tethered_flow_control = resource_p->tethered_flow_control;
 	ipa3_ctx->transport_prototype = resource_p->transport_prototype;
 	ipa3_ctx->ee = resource_p->ee;
 	ipa3_ctx->apply_rg10_wa = resource_p->apply_rg10_wa;
@@ -3803,6 +3810,13 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 		"qcom,skip-uc-pipe-reset");
 	IPADBG(": skip uC pipe reset = %s\n",
 		ipa_drv_res->skip_uc_pipe_reset
+		? "True" : "False");
+
+	ipa_drv_res->tethered_flow_control =
+		of_property_read_bool(pdev->dev.of_node,
+		"qcom,tethered-flow-control");
+	IPADBG(": Use apps based flow control = %s\n",
+		ipa_drv_res->tethered_flow_control
 		? "True" : "False");
 
 	if (of_property_read_bool(pdev->dev.of_node,

@@ -1434,6 +1434,7 @@ struct ipa3_context {
 	bool ipa_client_apps_wan_cons_agg_gro;
 	/* M-release support to know client pipes */
 	struct ipa3cm_client_info ipacm_client[IPA3_MAX_NUM_PIPES];
+	bool tethered_flow_control;
 };
 
 /**
@@ -1488,6 +1489,7 @@ struct ipa3_plat_drv_res {
 	bool skip_uc_pipe_reset;
 	enum ipa_transport_type transport_prototype;
 	bool apply_rg10_wa;
+	bool tethered_flow_control;
 };
 
 struct ipa3_mem_partition {
@@ -1687,6 +1689,11 @@ int ipa3_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl);
  * Resume / Suspend
  */
 int ipa3_reset_endpoint(u32 clnt_hdl);
+
+/*
+ * Remove ep delay
+ */
+int ipa3_clear_endpoint_delay(u32 clnt_hdl);
 
 /*
  * Configuration

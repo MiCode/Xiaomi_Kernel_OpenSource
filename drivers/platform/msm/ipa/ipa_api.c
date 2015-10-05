@@ -110,6 +110,24 @@ int ipa_disconnect(u32 clnt_hdl)
 EXPORT_SYMBOL(ipa_disconnect);
 
 /**
+* ipa_clear_endpoint_delay() - Clear ep_delay.
+* @clnt_hdl:	[in] IPA client handle
+*
+* Returns:	0 on success, negative on failure
+*
+* Note:		Should not be called from atomic context
+*/
+int ipa_clear_endpoint_delay(u32 clnt_hdl)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_clear_endpoint_delay, clnt_hdl);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_clear_endpoint_delay);
+
+/**
 * ipa_reset_endpoint() - reset an endpoint from BAM perspective
 * @clnt_hdl:	[in] IPA client handle
 *
@@ -126,6 +144,7 @@ int ipa_reset_endpoint(u32 clnt_hdl)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_reset_endpoint);
+
 
 /**
  * ipa_cfg_ep - IPA end-point configuration
