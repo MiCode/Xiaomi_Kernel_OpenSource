@@ -51,6 +51,9 @@
 #define GAMUT_FINE_INDEX 0
 #define GAMUT_MAP_EN BIT(1)
 #define GAMUT_ENABLE BIT(0)
+#define GAMUT_CLK_GATING_ACTIVE 0x0
+#define GAMUT_CLK_GATING_PARTIAL_ACTIVE 0x11
+#define GAMUT_CLK_GATING_INACTIVE 0x33
 
 #define IGC_MASK_MAX 3
 #define IGC_C0_LUT 0
@@ -237,6 +240,7 @@ static int pp_pa_get_version(u32 *version);
 static int pp_gamut_get_version(u32 *version);
 static int pp_dither_get_version(u32 *version);
 static int pp_hist_lut_get_version(u32 *version);
+static void pp_gamut_clock_gating_en(char __iomem *base_addr);
 
 void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 {
@@ -295,7 +299,7 @@ void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
 	ops->get_hist_offset = pp_get_hist_offset;
 	ops->get_hist_isr_info = pp_get_hist_isr;
 	ops->is_sspp_hist_supp = pp_is_sspp_hist_supp;
-
+	ops->gamut_clk_gate_en = pp_gamut_clock_gating_en;
 	return &config_data;
 }
 
@@ -681,6 +685,7 @@ static int pp_gamut_get_config(char __iomem *base_addr, void *cfg_data,
 	struct mdp_gamut_cfg_data *gamut_cfg = (struct mdp_gamut_cfg_data *)
 						cfg_data;
 	struct mdp_gamut_data_v1_7 gamut_data;
+	u32 clk_gate_disable = 0;
 
 	if (!base_addr || !cfg_data) {
 		pr_err("invalid params base_addr %p cfg_data %p\n",
@@ -742,6 +747,8 @@ static int pp_gamut_get_config(char __iomem *base_addr, void *cfg_data,
 	}
 	gamut_c0 = gamut_tbl;
 	gamut_c1c2 = gamut_c0 + tbl_sz;
+	writel_relaxed(GAMUT_CLK_GATING_INACTIVE, base_addr + GAMUT_CLK_CTRL);
+	clk_gate_disable = 1;
 	for (i = 0; i < MDP_GAMUT_TABLE_NUM_V1_7; i++) {
 		val = index_start;
 		val |= GAMUT_READ_TABLE_EN;
@@ -802,6 +809,9 @@ static int pp_gamut_get_config(char __iomem *base_addr, void *cfg_data,
 		ret = -EFAULT;
 	}
 bail_out:
+	if (clk_gate_disable)
+		writel_relaxed(GAMUT_CLK_GATING_PARTIAL_ACTIVE,
+					   base_addr + GAMUT_CLK_CTRL);
 	kfree(gamut_tbl);
 	return ret;
 }
@@ -877,6 +887,7 @@ static int pp_gamut_set_config(char __iomem *base_addr,
 		}
 	}
 	base_addr_scale += GAMUT_C0_SCALE_OFF;
+	writel_relaxed(GAMUT_CLK_GATING_INACTIVE, base_addr + GAMUT_CLK_CTRL);
 	for (i = 0; i < MDP_GAMUT_TABLE_NUM_V1_7; i++) {
 		val = index_start;
 		val |= GAMUT_TABLE_SELECT(i);
@@ -895,6 +906,8 @@ static int pp_gamut_set_config(char __iomem *base_addr,
 			base_addr_scale += 4;
 		}
 	}
+	writel_relaxed(GAMUT_CLK_GATING_PARTIAL_ACTIVE,
+				   base_addr + GAMUT_CLK_CTRL);
 bail_out:
 	if (!ret) {
 		val = 0;
@@ -2127,4 +2140,16 @@ static int pp_hist_lut_get_version(u32 *version)
 	}
 	*version = mdp_hist_lut_v1_7;
 	return 0;
+}
+
+static void pp_gamut_clock_gating_en(char __iomem *base_addr)
+{
+	u32 val;
+
+	if (base_addr) {
+		val = readl_relaxed(base_addr + GAMUT_CLK_CTRL);
+		if (val == GAMUT_CLK_GATING_PARTIAL_ACTIVE)
+			writel_relaxed(GAMUT_CLK_GATING_ACTIVE,
+						   base_addr + GAMUT_CLK_CTRL);
+	}
 }
