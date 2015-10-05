@@ -366,7 +366,10 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	ddc_data.retry = 5;
 	ddc_data.what = "Bcaps";
 	ddc_data.no_align = true;
-	rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl, &ddc_data);
+
+	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
+
+	rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl);
 	if (rc) {
 		DEV_ERR("%s: %s: BCAPS read failed\n", __func__,
 			HDCP_STATE_NAME);
@@ -529,7 +532,9 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	ddc_data.data_buf = an;
 	ddc_data.data_len = 8;
 	ddc_data.what = "An";
-	rc = hdmi_ddc_write(hdcp_ctrl->init_data.ddc_ctrl, &ddc_data);
+	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
+
+	rc = hdmi_ddc_write(hdcp_ctrl->init_data.ddc_ctrl);
 	if (rc) {
 		DEV_ERR("%s: %s: An write failed\n", __func__, HDCP_STATE_NAME);
 		goto error;
@@ -542,7 +547,9 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	ddc_data.data_buf = aksv;
 	ddc_data.data_len = 5;
 	ddc_data.what = "Aksv";
-	rc = hdmi_ddc_write(hdcp_ctrl->init_data.ddc_ctrl, &ddc_data);
+	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
+
+	rc = hdmi_ddc_write(hdcp_ctrl->init_data.ddc_ctrl);
 	if (rc) {
 		DEV_ERR("%s: %s: AKSV write failed\n", __func__,
 			HDCP_STATE_NAME);
@@ -561,7 +568,10 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	ddc_data.retry = 5;
 	ddc_data.what = "Bksv";
 	ddc_data.no_align = true;
-	rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl, &ddc_data);
+
+	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
+
+	rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl);
 	if (rc) {
 		DEV_ERR("%s: %s: BKSV read failed\n", __func__,
 			HDCP_STATE_NAME);
@@ -633,7 +643,10 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	ddc_data.retry = 5;
 	ddc_data.what = "R0'";
 	ddc_data.no_align = true;
-	rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl, &ddc_data);
+
+	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
+
+	rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl);
 	if (rc) {
 		DEV_ERR("%s: %s: R0' read failed\n", __func__, HDCP_STATE_NAME);
 		goto error;
@@ -684,7 +697,8 @@ do { \
 	ddc_data.offset = (off); \
 	memset(what, 0, sizeof(what)); \
 	snprintf(what, sizeof(what), (name)); \
-	rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl, &ddc_data); \
+	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data; \
+	rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl); \
 	if (rc) { \
 		DEV_ERR("%s: %s: Read %s failed\n", __func__, HDCP_STATE_NAME, \
 			what); \
@@ -868,7 +882,10 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 		ddc_data.retry = 5;
 		ddc_data.what = "Bcaps";
 		ddc_data.no_align = false;
-		rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl, &ddc_data);
+
+		hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
+
+		rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl);
 		if (rc) {
 			DEV_ERR("%s: %s: BCAPS read failed\n", __func__,
 				HDCP_STATE_NAME);
@@ -887,7 +904,10 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	ddc_data.retry = 5;
 	ddc_data.what = "Bstatuss";
 	ddc_data.no_align = false;
-	rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl, &ddc_data);
+
+	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
+
+	rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl);
 	if (rc) {
 		DEV_ERR("%s: %s: BSTATUS read failed\n", __func__,
 			HDCP_STATE_NAME);
@@ -979,9 +999,12 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	ddc_data.retry = 5;
 	ddc_data.what = "KSV FIFO";
 	ddc_data.no_align = true;
+
+	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
+
 	cnt = 0;
 	do {
-		rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl, &ddc_data);
+		rc = hdmi_ddc_read(hdcp_ctrl->init_data.ddc_ctrl);
 		if (rc) {
 			DEV_ERR("%s: %s: KSV FIFO read failed\n", __func__,
 				HDCP_STATE_NAME);

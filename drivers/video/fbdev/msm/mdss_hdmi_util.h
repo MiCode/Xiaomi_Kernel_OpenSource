@@ -353,6 +353,7 @@
 #define HDCP2P2_RXSTATUS_DDC_FAILED_SHIFT           8
 #define HDCP2P2_RXSTATUS_DDC_FAILED_ACKSHIFT        9
 #define HDCP2P2_RXSTATUS_DDC_FAILED_INTR_MASK       10
+#define HDCP2P2_RXSTATUS_DDC_DONE                   6
 
 /*
  * Bits 1:0 in HDMI_HW_DDC_CTRL that dictate how the HDCP 2.2 RxStatus will be
@@ -395,11 +396,6 @@ enum hdmi_tx_ddc_timer_type {
 	HDMI_TX_DDC_TIMER_MAX,
 };
 
-struct hdmi_tx_ddc_ctrl {
-	struct dss_io_data *io;
-	struct completion ddc_sw_done;
-};
-
 struct hdmi_tx_ddc_data {
 	char *what;
 	u8 *data_buf;
@@ -412,18 +408,32 @@ struct hdmi_tx_ddc_data {
 	int retry;
 };
 
-enum hdmi_tx_hdcp2p2_rxstatus_field {
-	RXSTATUS_MESSAGE_SIZE,
-	RXSTATUS_REAUTH_REQ,
-	RXSTATUS_READY,
+enum hdmi_tx_hdcp2p2_rxstatus_intr_mask {
+	RXSTATUS_MESSAGE_SIZE = BIT(31),
+	RXSTATUS_READY = BIT(18),
+	RXSTATUS_REAUTH_REQ = BIT(14),
 };
 
 struct hdmi_tx_hdcp2p2_ddc_data {
-	struct hdmi_tx_ddc_data ddc_data;
-	enum hdmi_tx_hdcp2p2_rxstatus_field rxstatus_field;
+	enum hdmi_tx_hdcp2p2_rxstatus_intr_mask intr_mask;
 	u32 timer_delay_lines;
-	bool poll_sink;
+	u32 read_method;
+	u32 message_size;
+	bool encryption_ready;
+	bool ready;
+	bool reauth_req;
+	bool ddc_max_retries_fail;
+	bool ddc_done;
+	bool ddc_read_req;
 	int irq_wait_count;
+};
+
+struct hdmi_tx_ddc_ctrl {
+	struct dss_io_data *io;
+	struct completion ddc_sw_done;
+	struct completion rxstatus_completion;
+	struct hdmi_tx_ddc_data ddc_data;
+	struct hdmi_tx_hdcp2p2_ddc_data hdcp2p2_ddc_data;
 };
 
 
@@ -469,11 +479,10 @@ void *hdmi_get_featuredata_from_sysfs_dev(struct device *device, u32 type);
 /* DDC */
 void hdmi_ddc_config(struct hdmi_tx_ddc_ctrl *);
 int hdmi_ddc_isr(struct hdmi_tx_ddc_ctrl *, u32 version);
-int hdmi_ddc_write(struct hdmi_tx_ddc_ctrl *, struct hdmi_tx_ddc_data *);
-int hdmi_ddc_read_seg(struct hdmi_tx_ddc_ctrl *, struct hdmi_tx_ddc_data *);
-int hdmi_ddc_read(struct hdmi_tx_ddc_ctrl *, struct hdmi_tx_ddc_data *);
-int hdmi_ddc_abort_transaction(struct hdmi_tx_ddc_ctrl *,
-		struct hdmi_tx_ddc_data *);
+int hdmi_ddc_write(struct hdmi_tx_ddc_ctrl *);
+int hdmi_ddc_read_seg(struct hdmi_tx_ddc_ctrl *);
+int hdmi_ddc_read(struct hdmi_tx_ddc_ctrl *);
+int hdmi_ddc_abort_transaction(struct hdmi_tx_ddc_ctrl *);
 
 int hdmi_scdc_read(struct hdmi_tx_ddc_ctrl *ctrl, u32 data_type, u32 *val);
 int hdmi_scdc_write(struct hdmi_tx_ddc_ctrl *ctrl, u32 data_type, u32 val);
@@ -481,8 +490,6 @@ int hdmi_setup_ddc_timers(struct hdmi_tx_ddc_ctrl *ctrl,
 			  u32 type, u32 to_in_num_lines);
 void hdmi_hdcp2p2_ddc_reset(struct hdmi_tx_ddc_ctrl *ctrl);
 void hdmi_hdcp2p2_ddc_disable(struct hdmi_tx_ddc_ctrl *ctrl);
-int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl,
-	struct hdmi_tx_hdcp2p2_ddc_data *hdcp2p2_ddc_data,
-	struct completion *rxstatus_completion);
+int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl);
 
 #endif /* __HDMI_UTIL_H__ */
