@@ -679,7 +679,7 @@ int mmc_init_clk_scaling(struct mmc_host *host)
 	host->clk_scaling.ondemand_gov_data.upthreshold =
 		host->clk_scaling.upthreshold;
 	host->clk_scaling.ondemand_gov_data.downdifferential =
-		host->clk_scaling.downthreshold;
+		host->clk_scaling.upthreshold - host->clk_scaling.downthreshold;
 
 	err = mmc_devfreq_create_freq_table(host);
 	if (err) {
