@@ -1291,11 +1291,13 @@ static u32 hdmi_tx_ddc_read(struct hdmi_tx_ddc_ctrl *ddc_ctrl,
 			ddc_data.what        = "EDID";
 			ddc_data.no_align    = false;
 
+			ddc_ctrl->ddc_data = ddc_data;
+
 			/* Read EDID twice with 32bit alighnment too */
 			if (block < 2)
-				status = hdmi_ddc_read(ddc_ctrl, &ddc_data);
+				status = hdmi_ddc_read(ddc_ctrl);
 			else
-				status = hdmi_ddc_read_seg(ddc_ctrl, &ddc_data);
+				status = hdmi_ddc_read_seg(ddc_ctrl);
 
 			if (status)
 				break;
@@ -3777,10 +3779,14 @@ static irqreturn_t hdmi_tx_isr(int irq, void *data)
 		if (hdmi_cec_isr(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]))
 			DEV_ERR("%s: hdmi_cec_isr failed\n", __func__);
 
-	if (hdmi_ctrl->hdcp_ops && hdmi_ctrl->hdcp_feature_data)
-		if (hdmi_ctrl->hdcp_ops->hdmi_hdcp_isr(
-					hdmi_ctrl->hdcp_feature_data))
-			DEV_ERR("%s: hdmi_hdcp_isr failed\n", __func__);
+	if (hdmi_ctrl->hdcp_ops && hdmi_ctrl->hdcp_feature_data) {
+		if (hdmi_ctrl->hdcp_ops->hdmi_hdcp_isr) {
+			if (hdmi_ctrl->hdcp_ops->hdmi_hdcp_isr(
+				hdmi_ctrl->hdcp_feature_data))
+				DEV_ERR("%s: hdmi_hdcp_isr failed\n",
+					 __func__);
+		}
+	}
 end:
 	return IRQ_HANDLED;
 } /* hdmi_tx_isr */
@@ -3865,6 +3871,7 @@ static int hdmi_tx_dev_init(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	hdmi_ctrl->ddc_ctrl.io = &pdata->io[HDMI_TX_CORE_IO];
 	init_completion(&hdmi_ctrl->ddc_ctrl.ddc_sw_done);
+	init_completion(&hdmi_ctrl->ddc_ctrl.rxstatus_completion);
 
 	hdmi_ctrl->panel_power_on = false;
 	hdmi_ctrl->panel_suspend = false;
@@ -4079,6 +4086,8 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 			DEV_DBG("%s: Turning off HDCP\n", __func__);
 			hdmi_ctrl->hdcp_ops->hdmi_hdcp_off(
 				hdmi_ctrl->hdcp_feature_data);
+
+			hdmi_ctrl->hdcp_ops = NULL;
 
 			rc = hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM,
 				false);

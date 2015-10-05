@@ -333,6 +333,7 @@ struct hdcp_lib_handle {
 	uint32_t tz_ctxhandle;
 	uint32_t hdcp_timeout;
 	bool no_stored_km_flag;
+	bool feature_supported;
 	void *client_ctx;
 	struct hdcp_client_ops *client_ops;
 	struct mutex hdcp_lock;
@@ -745,9 +746,15 @@ static bool hdcp_lib_client_feature_supported(void *phdcpcontext)
 		goto exit;
 	}
 
+	if (handle->feature_supported) {
+		supported = true;
+		goto exit;
+	}
+
 	rc = hdcp_lib_library_load(handle);
 	if (!rc) {
 		pr_debug("HDCP2p2 supported\n");
+		handle->feature_supported = true;
 		hdcp_lib_library_unload(handle);
 		supported = true;
 	}
@@ -769,7 +776,7 @@ static int hdcp_lib_wakeup(struct hdcp_lib_wakeup_data *data)
 
 	handle->wakeup_cmd = data->cmd;
 
-	pr_debug("wakeup_cmd: %s\n", hdcp_lib_cmd_to_str(handle->wakeup_cmd));
+	pr_debug("cmd: %s\n", hdcp_lib_cmd_to_str(handle->wakeup_cmd));
 
 	if (data->recvd_msg_len) {
 		handle->last_msg_recvd_len = data->recvd_msg_len;
