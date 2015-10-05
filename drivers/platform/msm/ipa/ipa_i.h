@@ -1557,8 +1557,8 @@ int ipa_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id);
 int ipa_tag_process(struct ipa_desc *desc, int num_descs,
 		    unsigned long timeout);
 
-int ipa_q6_cleanup(void);
-int ipa_q6_pipe_reset(void);
+int ipa_q6_pre_shutdown_cleanup(void);
+int ipa_q6_post_shutdown_cleanup(void);
 int ipa_init_q6_smem(void);
 
 int ipa_sps_connect_safe(struct sps_pipe *h, struct sps_connect *connect,
