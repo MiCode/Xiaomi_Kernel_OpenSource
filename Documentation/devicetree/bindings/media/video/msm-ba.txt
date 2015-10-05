@@ -1,0 +1,17 @@
+* Qualcomm Technologies Inc MSM BA
+
+[Root level node]
+=====
+Required properties:
+- compatible :			Must be "qcom,msm-ba".
+- status :				A string that has to be set to "okay/ok" to enable
+						the driver. By default this property will be set to
+						"disable". Will be set to "ok/okay" status for
+						specific platforms.
+
+Example:
+
+	qcom,ba {
+		compatible = "qcom,msm-ba";
+		status = "disable";
+	};
