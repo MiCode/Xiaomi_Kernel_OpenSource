@@ -21,8 +21,55 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include <linux/dma-contiguous.h>
 #include <soc/qcom/secure_buffer.h>
 #include <linux/qcom_iommu.h>
+
+static const char *iommu_debug_attr_to_string(enum iommu_attr attr)
+{
+	switch (attr) {
+	case DOMAIN_ATTR_GEOMETRY:
+		return "DOMAIN_ATTR_GEOMETRY";
+	case DOMAIN_ATTR_PAGING:
+		return "DOMAIN_ATTR_PAGING";
+	case DOMAIN_ATTR_WINDOWS:
+		return "DOMAIN_ATTR_WINDOWS";
+	case DOMAIN_ATTR_FSL_PAMU_STASH:
+		return "DOMAIN_ATTR_FSL_PAMU_STASH";
+	case DOMAIN_ATTR_FSL_PAMU_ENABLE:
+		return "DOMAIN_ATTR_FSL_PAMU_ENABLE";
+	case DOMAIN_ATTR_FSL_PAMUV1:
+		return "DOMAIN_ATTR_FSL_PAMUV1";
+	case DOMAIN_ATTR_NESTING:
+		return "DOMAIN_ATTR_NESTING";
+	case DOMAIN_ATTR_COHERENT_HTW_DISABLE:
+		return "DOMAIN_ATTR_COHERENT_HTW_DISABLE";
+	case DOMAIN_ATTR_PT_BASE_ADDR:
+		return "DOMAIN_ATTR_PT_BASE_ADDR";
+	case DOMAIN_ATTR_SECURE_VMID:
+		return "DOMAIN_ATTR_SECURE_VMID";
+	case DOMAIN_ATTR_ATOMIC:
+		return "DOMAIN_ATTR_ATOMIC";
+	case DOMAIN_ATTR_CONTEXT_BANK:
+		return "DOMAIN_ATTR_CONTEXT_BANK";
+	case DOMAIN_ATTR_TTBR0:
+		return "DOMAIN_ATTR_TTBR0";
+	case DOMAIN_ATTR_CONTEXTIDR:
+		return "DOMAIN_ATTR_CONTEXTIDR";
+	case DOMAIN_ATTR_PROCID:
+		return "DOMAIN_ATTR_PROCID";
+	case DOMAIN_ATTR_DYNAMIC:
+		return "DOMAIN_ATTR_DYNAMIC";
+	case DOMAIN_ATTR_NON_FATAL_FAULTS:
+		return "DOMAIN_ATTR_NON_FATAL_FAULTS";
+	case DOMAIN_ATTR_S1_BYPASS:
+		return "DOMAIN_ATTR_S1_BYPASS";
+	case DOMAIN_ATTR_FAST:
+		return "DOMAIN_ATTR_FAST";
+	default:
+		return "Unknown attr!";
+	}
+}
 
 #ifdef CONFIG_IOMMU_DEBUG_TRACKING
 
@@ -460,6 +507,10 @@ static const char * const _size_to_string(unsigned long size)
 	switch (size) {
 	case SZ_4K:
 		return "4K";
+	case SZ_8K:
+		return "8K";
+	case SZ_16K:
+		return "16K";
 	case SZ_64K:
 		return "64K";
 	case SZ_2M:
@@ -492,16 +543,16 @@ DEFINE_SIMPLE_ATTRIBUTE(iommu_debug_nr_iters_ops,
 			nr_iters_get, nr_iters_set, "%llu\n");
 
 static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
-					 bool secure)
+					 enum iommu_attr attrs[],
+					 void *attr_values[], int nattrs,
+					 const unsigned long sizes[])
 {
-	unsigned long sizes[] = { SZ_4K, SZ_64K, SZ_2M, SZ_1M * 12,
-				  SZ_1M * 20, 0 };
-	unsigned long *sz;
+	int i;
+	const unsigned long *sz;
 	struct iommu_domain *domain;
 	struct bus_type *bus;
 	unsigned long iova = 0x10000;
 	phys_addr_t paddr = 0xa000;
-	int htw_disable = 1, atomic_domain = 1;
 
 	bus = msm_iommu_get_bus(dev);
 	if (!bus)
@@ -513,26 +564,18 @@ static void iommu_debug_device_profiling(struct seq_file *s, struct device *dev,
 		return;
 	}
 
-	if (iommu_domain_set_attr(domain, DOMAIN_ATTR_COHERENT_HTW_DISABLE,
-				  &htw_disable)) {
-		seq_puts(s, "Couldn't disable coherent htw\n");
-		goto out_domain_free;
+	seq_puts(s, "Domain attributes: [ ");
+	for (i = 0; i < nattrs; ++i) {
+		/* not all attrs are ints, but this will get us by for now */
+		seq_printf(s, "%s=%d%s", iommu_debug_attr_to_string(attrs[i]),
+			   *((int *)attr_values[i]),
+			   i < nattrs ? " " : "");
 	}
-
-	if (iommu_domain_set_attr(domain, DOMAIN_ATTR_ATOMIC,
-				  &atomic_domain)) {
-		seq_printf(s, "Couldn't set atomic_domain to %d\n",
-			   atomic_domain);
-		goto out_domain_free;
-	}
-
-	if (secure) {
-		int secure_vmid = VMID_CP_PIXEL;
-
-		if (iommu_domain_set_attr(domain, DOMAIN_ATTR_SECURE_VMID,
-					  &secure_vmid)) {
-			seq_printf(s, "Couldn't set secure vmid to %d\n",
-				   secure_vmid);
+	seq_puts(s, "]\n");
+	for (i = 0; i < nattrs; ++i) {
+		if (iommu_domain_set_attr(domain, attrs[i], attr_values[i])) {
+			seq_printf(s, "Couldn't set %d to the value at %p\n",
+				 attrs[i], attr_values[i]);
 			goto out_domain_free;
 		}
 	}
@@ -662,8 +705,17 @@ out_domain_free:
 static int iommu_debug_profiling_show(struct seq_file *s, void *ignored)
 {
 	struct iommu_debug_device *ddev = s->private;
+	const unsigned long sizes[] = { SZ_4K, SZ_64K, SZ_2M, SZ_1M * 12,
+					SZ_1M * 20, 0 };
+	enum iommu_attr attrs[] = {
+		DOMAIN_ATTR_COHERENT_HTW_DISABLE,
+		DOMAIN_ATTR_ATOMIC,
+	};
+	int htw_disable = 1, atomic = 1;
+	void *attr_values[] = { &htw_disable, &atomic };
 
-	iommu_debug_device_profiling(s, ddev->dev, false);
+	iommu_debug_device_profiling(s, ddev->dev, attrs, attr_values,
+				     ARRAY_SIZE(attrs), sizes);
 
 	return 0;
 }
@@ -683,8 +735,19 @@ static const struct file_operations iommu_debug_profiling_fops = {
 static int iommu_debug_secure_profiling_show(struct seq_file *s, void *ignored)
 {
 	struct iommu_debug_device *ddev = s->private;
+	const unsigned long sizes[] = { SZ_4K, SZ_64K, SZ_2M, SZ_1M * 12,
+					SZ_1M * 20, 0 };
 
-	iommu_debug_device_profiling(s, ddev->dev, true);
+	enum iommu_attr attrs[] = {
+		DOMAIN_ATTR_COHERENT_HTW_DISABLE,
+		DOMAIN_ATTR_ATOMIC,
+		DOMAIN_ATTR_SECURE_VMID,
+	};
+	int one = 1, secure_vmid = VMID_CP_PIXEL;
+	void *attr_values[] = { &one, &one, &secure_vmid };
+
+	iommu_debug_device_profiling(s, ddev->dev, attrs, attr_values,
+				     ARRAY_SIZE(attrs), sizes);
 
 	return 0;
 }
@@ -698,6 +761,38 @@ static int iommu_debug_secure_profiling_open(struct inode *inode,
 
 static const struct file_operations iommu_debug_secure_profiling_fops = {
 	.open	 = iommu_debug_secure_profiling_open,
+	.read	 = seq_read,
+	.llseek	 = seq_lseek,
+	.release = single_release,
+};
+
+static int iommu_debug_profiling_fast_show(struct seq_file *s, void *ignored)
+{
+	struct iommu_debug_device *ddev = s->private;
+	size_t sizes[] = {SZ_4K, SZ_8K, SZ_16K, SZ_64K, 0};
+	enum iommu_attr attrs[] = {
+		DOMAIN_ATTR_FAST,
+		DOMAIN_ATTR_COHERENT_HTW_DISABLE,
+		DOMAIN_ATTR_ATOMIC,
+	};
+	int one = 1;
+	void *attr_values[] = { &one, &one, &one };
+
+	iommu_debug_device_profiling(s, ddev->dev, attrs, attr_values,
+				     ARRAY_SIZE(attrs), sizes);
+
+	return 0;
+}
+
+static int iommu_debug_profiling_fast_open(struct inode *inode,
+					   struct file *file)
+{
+	return single_open(file, iommu_debug_profiling_fast_show,
+			   inode->i_private);
+}
+
+static const struct file_operations iommu_debug_profiling_fast_fops = {
+	.open	 = iommu_debug_profiling_fast_open,
 	.read	 = seq_read,
 	.llseek	 = seq_lseek,
 	.release = single_release,
@@ -1091,6 +1186,13 @@ static int snarf_iommu_devices(struct device *dev, const char *name)
 	if (!debugfs_create_file("secure_profiling", S_IRUSR, dir, ddev,
 				 &iommu_debug_secure_profiling_fops)) {
 		pr_err("Couldn't create iommu/devices/%s/secure_profiling debugfs file\n",
+		       name);
+		goto err_rmdir;
+	}
+
+	if (!debugfs_create_file("profiling_fast", S_IRUSR, dir, ddev,
+				 &iommu_debug_profiling_fast_fops)) {
+		pr_err("Couldn't create iommu/devices/%s/profiling_fast debugfs file\n",
 		       name);
 		goto err_rmdir;
 	}
