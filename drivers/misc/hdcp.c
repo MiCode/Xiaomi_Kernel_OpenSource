@@ -337,6 +337,7 @@ struct hdcp_lib_handle {
 	void *client_ctx;
 	struct hdcp_client_ops *client_ops;
 	struct mutex hdcp_lock;
+	struct mutex wakeup_mutex;
 	enum hdcp_state hdcp_state;
 	enum hdcp_lib_wakeup_cmd wakeup_cmd;
 	bool repeater_flag;
@@ -356,6 +357,7 @@ struct hdcp_lib_handle {
 	struct kthread_work timeout;
 	struct kthread_work clean;
 	struct kthread_work topology;
+	struct kthread_work stream;
 };
 
 struct hdcp_lib_message_map {
@@ -671,30 +673,20 @@ exit:
 	return rc;
 }
 
-static int hdcp_lib_query_stream_type(void *phdcpcontext)
+static void hdcp_lib_query_stream_type_work(struct kthread_work *work)
 {
 	int rc = 0;
 	struct hdcp_query_stream_type_req *req_buf;
 	struct hdcp_query_stream_type_rsp *rsp_buf;
-	struct hdcp_lib_handle *handle = phdcpcontext;
+	struct hdcp_lib_handle *handle = container_of(work,
+		struct hdcp_lib_handle, stream);
 
 	if (!handle) {
-		pr_err("invalid input\n");
-		return -EINVAL;
+		pr_err("invalid handle\n");
+		return;
 	}
 
-	if (!(handle->hdcp_state & HDCP_STATE_APP_LOADED)) {
-		pr_debug("hdcp library not loaded\n");
-		goto exit;
-	}
-
-	if (!(handle->hdcp_state & HDCP_STATE_TXMTR_INIT)) {
-		pr_err("txmtr is not initialized\n");
-		rc = -EINVAL;
-		goto exit;
-	}
-
-	flush_kthread_worker(&handle->worker);
+	mutex_lock(&handle->hdcp_lock);
 
 	/* send command to TZ */
 	req_buf = (struct hdcp_query_stream_type_req *)handle->
@@ -718,7 +710,7 @@ static int hdcp_lib_query_stream_type(void *phdcpcontext)
 		goto exit;
 	}
 
-	pr_debug("message received is %s\n",
+	pr_debug("message received from TZ: %s\n",
 		hdcp_lib_message_name((int)rsp_buf->msg[0]));
 
 	memset(handle->listener_buf, 0, MAX_TX_MESSAGE_SIZE);
@@ -726,15 +718,11 @@ static int hdcp_lib_query_stream_type(void *phdcpcontext)
 			rsp_buf->msglen);
 	handle->hdcp_timeout = rsp_buf->timeout;
 	handle->msglen = rsp_buf->msglen;
-
-	if (!atomic_read(&handle->hdcp_off))
-		hdcp_lib_send_message(handle);
-	else
-		goto exit;
-
-	pr_debug("success\n");
 exit:
-	return rc;
+	mutex_unlock(&handle->hdcp_lock);
+
+	if (!rc && !atomic_read(&handle->hdcp_off))
+		hdcp_lib_send_message(handle);
 }
 
 static bool hdcp_lib_client_feature_supported(void *phdcpcontext)
@@ -775,6 +763,8 @@ static int hdcp_lib_wakeup(struct hdcp_lib_wakeup_data *data)
 	handle = data->context;
 	if (!handle)
 		return -EINVAL;
+
+	mutex_lock(&handle->wakeup_mutex);
 
 	handle->wakeup_cmd = data->cmd;
 
@@ -830,10 +820,15 @@ static int hdcp_lib_wakeup(struct hdcp_lib_wakeup_data *data)
 		if (!atomic_read(&handle->hdcp_off))
 			queue_kthread_work(&handle->worker, &handle->timeout);
 		break;
+	case HDCP_LIB_WKUP_CMD_QUERY_STREAM_TYPE:
+		if (!atomic_read(&handle->hdcp_off))
+			queue_kthread_work(&handle->worker, &handle->stream);
+		break;
 	default:
 		pr_err("invalid wakeup command %d\n", handle->wakeup_cmd);
 	}
 exit:
+	mutex_unlock(&handle->wakeup_mutex);
 	return 0;
 }
 
@@ -1256,7 +1251,6 @@ int hdcp_library_register(void **pphdcpcontext,
 	/* populate ops to be called by client */
 	txmtr_ops->feature_supported = hdcp_lib_client_feature_supported;
 	txmtr_ops->wakeup = hdcp_lib_wakeup;
-	txmtr_ops->hdcp_query_stream_type = hdcp_lib_query_stream_type;
 
 	handle = kzalloc(sizeof(*handle), GFP_KERNEL);
 	if (!handle) {
@@ -1270,6 +1264,7 @@ int hdcp_library_register(void **pphdcpcontext,
 	atomic_set(&handle->hdcp_off, 0);
 
 	mutex_init(&handle->hdcp_lock);
+	mutex_init(&handle->wakeup_mutex);
 
 	init_kthread_worker(&handle->worker);
 
@@ -1279,6 +1274,7 @@ int hdcp_library_register(void **pphdcpcontext,
 	init_kthread_work(&handle->timeout,   hdcp_lib_manage_timeout_work);
 	init_kthread_work(&handle->clean,     hdcp_lib_cleanup_work);
 	init_kthread_work(&handle->topology,  hdcp_lib_topology_work);
+	init_kthread_work(&handle->stream,    hdcp_lib_query_stream_type_work);
 
 	init_completion(&handle->topo_wait);
 
@@ -1322,6 +1318,7 @@ void hdcp_library_deregister(void *phdcpcontext)
 	kzfree(handle->qseecom_handle);
 
 	mutex_destroy(&handle->hdcp_lock);
+	mutex_destroy(&handle->wakeup_mutex);
 
 	kzfree(handle->listener_buf);
 	kzfree(handle);
