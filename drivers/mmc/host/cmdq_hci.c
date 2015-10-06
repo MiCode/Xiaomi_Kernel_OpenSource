@@ -737,18 +737,28 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 	}
 
 	if (status & CQIS_TCC) {
-		/* read QCTCN and complete the request */
+		/* read CQTCN and complete the request */
 		comp_status = cmdq_readl(cq_host, CQTCN);
 		if (!comp_status)
 			goto out;
-
+		/*
+		 * The CQTCN must be cleared before notifying req completion
+		 * to upper layers to avoid missing completion notification
+		 * of new requests with the same tag.
+		 */
+		cmdq_writel(cq_host, comp_status, CQTCN);
+		/*
+		 * A write memory barrier is necessary to guarantee that CQTCN
+		 * gets cleared first before next doorbell for the same tag is
+		 * set but that is already achieved by the barrier present
+		 * before setting doorbell, hence one is not needed here.
+		 */
 		for_each_set_bit(tag, &comp_status, cq_host->num_slots) {
 			/* complete the corresponding mrq */
 			pr_debug("%s: completing tag -> %lu\n",
 				 mmc_hostname(mmc), tag);
 			cmdq_finish_data(mmc, tag);
 		}
-		cmdq_writel(cq_host, comp_status, CQTCN);
 	}
 
 	if (status & CQIS_HAC) {
