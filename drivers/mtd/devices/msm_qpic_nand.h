@@ -102,7 +102,7 @@
 
 /* QPIC NANDc (NAND Controller) Register Set */
 #define MSM_NAND_REG(info, off)		    (info->nand_phys + off)
-#define MSM_NAND_QPIC_VERSION(info)	    MSM_NAND_REG(info, 0x20100)
+#define MSM_NAND_QPIC_VERSION(info)	    MSM_NAND_REG(info, 0x24100)
 #define MSM_NAND_FLASH_CMD(info)	    MSM_NAND_REG(info, 0x30000)
 #define MSM_NAND_ADDR0(info)                MSM_NAND_REG(info, 0x30004)
 #define MSM_NAND_ADDR1(info)                MSM_NAND_REG(info, 0x30008)
@@ -173,7 +173,7 @@
 
 #define MSM_NAND_CTRL(info)		    MSM_NAND_REG(info, 0x30F00)
 #define BAM_MODE_EN	0
-#define MSM_NAND_VERSION(info)         MSM_NAND_REG(info, 0x30F08)
+#define MSM_NAND_VERSION(info)         MSM_NAND_REG(info, 0x34F08)
 #define MSM_NAND_READ_LOCATION_0(info)      MSM_NAND_REG(info, 0x30F20)
 #define MSM_NAND_READ_LOCATION_1(info)      MSM_NAND_REG(info, 0x30F24)
 
