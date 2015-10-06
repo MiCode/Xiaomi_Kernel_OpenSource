@@ -119,7 +119,7 @@ int __cpu_suspend(unsigned long arg, int (*fn)(unsigned long))
 		else
 			cpu_switch_mm(mm->pgd, mm);
 
-		flush_tlb_all();
+		local_flush_tlb_all();
 
 		/*
 		 * Restore per-cpu offset before any kernel
