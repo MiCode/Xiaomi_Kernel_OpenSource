@@ -13,7 +13,7 @@
 &soc {
 	tlmm: pinctrl@03400000 {
 		compatible = "qcom,msmcobalt-pinctrl";
-		reg = <0x03400000 0x4000000>;
+		reg = <0x03400000 0xc00000>;
 		interrupts = <0 208 0>;
 		gpio-controller;
 		#gpio-cells = <2>;
