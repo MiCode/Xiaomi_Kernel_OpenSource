@@ -362,7 +362,7 @@ int gbridge_port_open(struct inode *inode, struct file *file)
 	ret = wait_event_interruptible(port->open_wq,
 					port->is_connected);
 	if (ret) {
-		pr_err("open interrupted.\n");
+		pr_debug("open interrupted.\n");
 		return ret;
 	}
 
@@ -521,7 +521,7 @@ ssize_t gbridge_port_write(struct file *file,
 	if (list_empty(&port->write_pool)) {
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		pr_debug("%s: Request list is empty.\n", __func__);
-		return -EAGAIN;
+		return 0;
 	}
 	pool = &port->write_pool;
 	req = list_first_entry(pool, struct usb_request, list);
@@ -912,6 +912,10 @@ void gbridge_disconnect(void *gptr, u8 portno)
 	gser = gptr;
 
 	gbridge_stop_io(port);
+
+	/* lower DTR to modem */
+	gbridge_notify_modem(gser, portno, 0);
+
 	spin_lock_irqsave(&port->port_lock, flags);
 	port->is_connected = false;
 	port->port_usb = NULL;
