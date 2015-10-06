@@ -344,9 +344,10 @@ struct hdcp_lib_handle {
 	int last_msg_sent;
 	char *last_msg_recvd_buf;
 	uint32_t last_msg_recvd_len;
-	atomic_t hdcp_off_pending;
+	atomic_t hdcp_off;
 
 	struct task_struct *thread;
+	struct completion topo_wait;
 
 	struct kthread_worker worker;
 	struct kthread_work init;
@@ -354,6 +355,7 @@ struct hdcp_lib_handle {
 	struct kthread_work msg_recvd;
 	struct kthread_work timeout;
 	struct kthread_work clean;
+	struct kthread_work topology;
 };
 
 struct hdcp_lib_message_map {
@@ -457,7 +459,7 @@ static int hdcp_lib_enable_encryption(struct hdcp_lib_handle *handle)
 	pr_debug("success\n");
 	return 0;
 error:
-	if (!atomic_read(&handle->hdcp_off_pending))
+	if (!atomic_read(&handle->hdcp_off))
 		queue_kthread_work(&handle->worker, &handle->clean);
 
 	return rc;
@@ -725,7 +727,7 @@ static int hdcp_lib_query_stream_type(void *phdcpcontext)
 	handle->hdcp_timeout = rsp_buf->timeout;
 	handle->msglen = rsp_buf->msglen;
 
-	if (!atomic_read(&handle->hdcp_off_pending))
+	if (!atomic_read(&handle->hdcp_off))
 		hdcp_lib_send_message(handle);
 	else
 		goto exit;
@@ -792,36 +794,40 @@ static int hdcp_lib_wakeup(struct hdcp_lib_wakeup_data *data)
 			data->recvd_msg_len);
 	}
 
+	if (!completion_done(&handle->topo_wait))
+		complete_all(&handle->topo_wait);
+
 	switch (handle->wakeup_cmd) {
 	case HDCP_LIB_WKUP_CMD_START:
 		handle->no_stored_km_flag = 0;
 		handle->repeater_flag = 0;
+		handle->last_msg_sent = 0;
+		atomic_set(&handle->hdcp_off, 0);
 		handle->hdcp_state = HDCP_STATE_INIT;
 
-		if (!atomic_read(&handle->hdcp_off_pending))
-			queue_kthread_work(&handle->worker, &handle->init);
+		queue_kthread_work(&handle->worker, &handle->init);
 		break;
 	case HDCP_LIB_WKUP_CMD_STOP:
-		atomic_set(&handle->hdcp_off_pending, 1);
+		atomic_set(&handle->hdcp_off, 1);
 		queue_kthread_work(&handle->worker, &handle->clean);
 		break;
 	case HDCP_LIB_WKUP_CMD_MSG_SEND_SUCCESS:
 		handle->last_msg_sent = handle->listener_buf[0];
 
-		if (!atomic_read(&handle->hdcp_off_pending))
+		if (!atomic_read(&handle->hdcp_off))
 			queue_kthread_work(&handle->worker, &handle->msg_sent);
 		break;
 	case HDCP_LIB_WKUP_CMD_MSG_SEND_FAILED:
 	case HDCP_LIB_WKUP_CMD_MSG_RECV_FAILED:
-		if (!atomic_read(&handle->hdcp_off_pending))
+		if (!atomic_read(&handle->hdcp_off))
 			queue_kthread_work(&handle->worker, &handle->clean);
 		break;
 	case HDCP_LIB_WKUP_CMD_MSG_RECV_SUCCESS:
-		if (!atomic_read(&handle->hdcp_off_pending))
+		if (!atomic_read(&handle->hdcp_off))
 			queue_kthread_work(&handle->worker, &handle->msg_recvd);
 		break;
 	case HDCP_LIB_WKUP_CMD_MSG_RECV_TIMEOUT:
-		if (!atomic_read(&handle->hdcp_off_pending))
+		if (!atomic_read(&handle->hdcp_off))
 			queue_kthread_work(&handle->worker, &handle->timeout);
 		break;
 	default:
@@ -842,28 +848,41 @@ static void hdcp_lib_msg_sent_work(struct kthread_work *work)
 		return;
 	}
 
+	if (handle->wakeup_cmd != HDCP_LIB_WKUP_CMD_MSG_SEND_SUCCESS) {
+		pr_err("invalid wakeup command %d\n", handle->wakeup_cmd);
+		return;
+	}
+
 	mutex_lock(&handle->hdcp_lock);
 
 	cdata.context = handle->client_ctx;
 
-	if (handle->wakeup_cmd == HDCP_LIB_WKUP_CMD_MSG_SEND_SUCCESS) {
-		if (handle->last_msg_sent == SKE_SEND_EKS_MESSAGE_ID) {
-			if (!hdcp_lib_enable_encryption(handle))
-				cdata.cmd = HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS;
-			else
-				cdata.cmd = HDMI_HDCP_WKUP_CMD_STATUS_FAILED;
-		} else {
-			cdata.cmd = HDMI_HDCP_WKUP_CMD_RECV_MESSAGE;
-			cdata.timeout = handle->hdcp_timeout;
+	switch (handle->last_msg_sent) {
+	case SKE_SEND_EKS_MESSAGE_ID:
+		if (handle->repeater_flag) {
+			if (!atomic_read(&handle->hdcp_off))
+				queue_kthread_work(&handle->worker,
+					&handle->topology);
 		}
-	} else {
-		pr_err("invalid wakeup command %d\n", handle->wakeup_cmd);
+
+		if (!hdcp_lib_enable_encryption(handle))
+			cdata.cmd = HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS;
+		else
+			if (!atomic_read(&handle->hdcp_off))
+				queue_kthread_work(&handle->worker,
+					&handle->clean);
+		break;
+	case REPEATER_AUTH_SEND_ACK_MESSAGE_ID:
+		pr_debug("Repeater authentication successful\n");
+		break;
+	default:
+		cdata.cmd = HDMI_HDCP_WKUP_CMD_RECV_MESSAGE;
+		cdata.timeout = handle->hdcp_timeout;
 	}
 
 	mutex_unlock(&handle->hdcp_lock);
 
 	hdcp_lib_wakeup_client(handle, &cdata);
-	return;
 }
 
 static void hdcp_lib_init_work(struct kthread_work *work)
@@ -907,7 +926,7 @@ exit:
 	if (send_msg)
 		hdcp_lib_send_message(handle);
 
-	if (rc && !atomic_read(&handle->hdcp_off_pending))
+	if (rc && !atomic_read(&handle->hdcp_off))
 		queue_kthread_work(&handle->worker, &handle->clean);
 	return;
 }
@@ -961,7 +980,7 @@ static void hdcp_lib_manage_timeout_work(struct kthread_work *work)
 	if ((rsp_buf->commandid == HDCP_TXMTR_PROCESS_RECEIVED_MESSAGE) &&
 		((int)rsp_buf->message[0] == LC_INIT_MESSAGE_ID) &&
 			(rsp_buf->msglen == LC_INIT_MESSAGE_SIZE)) {
-		if (!atomic_read(&handle->hdcp_off_pending)) {
+		if (!atomic_read(&handle->hdcp_off)) {
 			/* keep local copy of TZ response */
 			memset(handle->listener_buf, 0, MAX_TX_MESSAGE_SIZE);
 			memcpy(handle->listener_buf,
@@ -979,7 +998,7 @@ error:
 	if (send_msg)
 		hdcp_lib_send_message(handle);
 
-	if (rc && !atomic_read(&handle->hdcp_off_pending))
+	if (rc && !atomic_read(&handle->hdcp_off))
 		queue_kthread_work(&handle->worker, &handle->clean);
 }
 
@@ -1004,10 +1023,10 @@ static void hdcp_lib_cleanup_work(struct kthread_work *work)
 
 	mutex_unlock(&handle->hdcp_lock);
 
-	if (atomic_read(&handle->hdcp_off_pending))
-		atomic_set(&handle->hdcp_off_pending, 0);
-	else
+	if (!atomic_read(&handle->hdcp_off))
 		hdcp_lib_wakeup_client(handle, &cdata);
+
+	atomic_set(&handle->hdcp_off, 1);
 }
 
 static void hdcp_lib_msg_recvd_work(struct kthread_work *work)
@@ -1115,7 +1134,7 @@ static void hdcp_lib_msg_recvd_work(struct kthread_work *work)
 	handle->hdcp_timeout = rsp_buf->timeout;
 	handle->msglen = rsp_buf->msglen;
 
-	if (!atomic_read(&handle->hdcp_off_pending)) {
+	if (!atomic_read(&handle->hdcp_off)) {
 		cdata.cmd = HDMI_HDCP_WKUP_CMD_SEND_MESSAGE;
 		cdata.send_msg_buf = handle->listener_buf;
 		cdata.send_msg_len = handle->msglen;
@@ -1128,8 +1147,34 @@ exit:
 
 	hdcp_lib_wakeup_client(handle, &cdata);
 
-	if (rc && !atomic_read(&handle->hdcp_off_pending))
+	if (rc && !atomic_read(&handle->hdcp_off))
 		queue_kthread_work(&handle->worker, &handle->clean);
+}
+
+static void hdcp_lib_topology_work(struct kthread_work *work)
+{
+	u32 timeout;
+	struct hdcp_lib_handle *handle = container_of(work,
+		struct hdcp_lib_handle, topology);
+	struct hdmi_hdcp_wakeup_data cdata = {HDMI_HDCP_WKUP_CMD_INVALID};
+
+	if (!handle) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	cdata.context = handle->client_ctx;
+	cdata.cmd = HDMI_HDCP_WKUP_CMD_RECV_MESSAGE;
+	hdcp_lib_wakeup_client(handle, &cdata);
+
+	reinit_completion(&handle->topo_wait);
+	timeout = wait_for_completion_timeout(&handle->topo_wait, HZ * 3);
+	if (!timeout) {
+		pr_err("topology receiver id list timeout\n");
+
+		if (!atomic_read(&handle->hdcp_off))
+			queue_kthread_work(&handle->worker, &handle->clean);
+	}
 }
 
 /* APIs exposed to all clients */
@@ -1222,7 +1267,7 @@ int hdcp_library_register(void **pphdcpcontext,
 	handle->client_ctx = client_ctx;
 	handle->client_ops = client_ops;
 
-	atomic_set(&handle->hdcp_off_pending, 0);
+	atomic_set(&handle->hdcp_off, 0);
 
 	mutex_init(&handle->hdcp_lock);
 
@@ -1233,6 +1278,9 @@ int hdcp_library_register(void **pphdcpcontext,
 	init_kthread_work(&handle->msg_recvd, hdcp_lib_msg_recvd_work);
 	init_kthread_work(&handle->timeout,   hdcp_lib_manage_timeout_work);
 	init_kthread_work(&handle->clean,     hdcp_lib_cleanup_work);
+	init_kthread_work(&handle->topology,  hdcp_lib_topology_work);
+
+	init_completion(&handle->topo_wait);
 
 	handle->listener_buf = kzalloc(MAX_TX_MESSAGE_SIZE, GFP_KERNEL);
 	if (!(handle->listener_buf)) {
