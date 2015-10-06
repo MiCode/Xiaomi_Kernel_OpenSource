@@ -227,6 +227,12 @@
 		status = "disabled";
 	};
 
+	 bt_qca6174 {
+		compatible = "qca,qca6174";
+		qca,bt-reset-gpio = <&pmdcalifornium_gpios 8 0>; /* BT_EN */
+		qca,bt-vdd-pa-supply = <&rome_vreg>;
+	};
+
 	qcom,sps {
 		compatible = "qcom,msm_sps_4k";
 		qcom,pipe-attr-ee;
