@@ -506,12 +506,12 @@ qpnp_labibb_write(struct qpnp_labibb *labibb, u16 base,
 
 static int
 qpnp_labibb_masked_write(struct qpnp_labibb *labibb, u16 base,
-						u8 mask, u8 val, int count)
+						u8 mask, u8 val)
 {
 	int rc;
 	u8 reg;
 
-	rc = qpnp_labibb_read(labibb, &reg, base, count);
+	rc = qpnp_labibb_read(labibb, &reg, base, 1);
 	if (rc) {
 		pr_err("spmi read failed: addr=%03X, rc=%d\n", base, rc);
 		return rc;
@@ -523,7 +523,7 @@ qpnp_labibb_masked_write(struct qpnp_labibb *labibb, u16 base,
 
 	pr_debug("Writing 0x%x\n", reg);
 
-	rc = qpnp_labibb_write(labibb, base, &reg, count);
+	rc = qpnp_labibb_write(labibb, base, &reg, 1);
 	if (rc) {
 		pr_err("spmi write failed: addr=%03X, rc=%d\n", base, rc);
 		return rc;
@@ -555,7 +555,7 @@ static int qpnp_labibb_sec_write(struct qpnp_labibb *labibb, u16 base,
 }
 
 static int qpnp_labibb_sec_masked_write(struct qpnp_labibb *labibb, u16 base,
-					u8 offset, u8 mask, u8 val, int count)
+					u8 offset, u8 mask, u8 val)
 {
 	int rc;
 	u8 sec_val = REG_LAB_IBB_SEC_UNLOCK_CODE;
@@ -568,7 +568,7 @@ static int qpnp_labibb_sec_masked_write(struct qpnp_labibb *labibb, u16 base,
 		return rc;
 	}
 
-	rc = qpnp_labibb_masked_write(labibb, base + offset, mask, val, count);
+	rc = qpnp_labibb_masked_write(labibb, base + offset, mask, val);
 	if (rc)
 		pr_err("qpnp_lab_write register %x failed rc = %d\n",
 			base + offset, rc);
@@ -818,8 +818,7 @@ static int qpnp_lab_dt_init(struct qpnp_labibb *labibb,
 				REG_LAB_VOLTAGE,
 				LAB_VOLTAGE_SET_MASK |
 				LAB_VOLTAGE_OVERRIDE_EN,
-				val,
-				1);
+				val);
 
 	if (rc) {
 		pr_err("qpnp_lab_regulator_set_voltage write register %x failed rc = %d\n",
@@ -926,7 +925,7 @@ static int qpnp_labibb_regulator_ttw_mode_enter(struct qpnp_labibb *labibb)
 	val = IBB_WAIT_MBG_OK;
 	rc = qpnp_labibb_sec_masked_write(labibb, labibb->ibb_base,
 				REG_IBB_PWRUP_PWRDN_CTL_2,
-				IBB_DIS_DLY_MASK | IBB_WAIT_MBG_OK, val, 1);
+				IBB_DIS_DLY_MASK | IBB_WAIT_MBG_OK, val);
 	if (rc) {
 		pr_err("qpnp_labibb_sec_write register %x failed rc = %d\n",
 			REG_IBB_PWRUP_PWRDN_CTL_2, rc);
@@ -936,7 +935,7 @@ static int qpnp_labibb_regulator_ttw_mode_enter(struct qpnp_labibb *labibb)
 	val = IBB_NFET_SLEW_EN | IBB_PFET_SLEW_EN | IBB_OVERRIDE_NFET_SW_SIZE |
 		IBB_OVERRIDE_PFET_SW_SIZE;
 	rc = qpnp_labibb_masked_write(labibb, labibb->ibb_base +
-				REG_IBB_RDSON_MNGMNT, 0xFF, val, 1);
+				REG_IBB_RDSON_MNGMNT, 0xFF, val);
 	if (rc) {
 		pr_err("qpnp_labibb_write register %x failed rc = %d\n",
 			REG_IBB_RDSON_MNGMNT, rc);
@@ -1273,8 +1272,7 @@ static int qpnp_lab_regulator_set_voltage(struct regulator_dev *rdev,
 				REG_LAB_VOLTAGE,
 				LAB_VOLTAGE_SET_MASK |
 				LAB_VOLTAGE_OVERRIDE_EN,
-				val | LAB_VOLTAGE_OVERRIDE_EN,
-				1);
+				val | LAB_VOLTAGE_OVERRIDE_EN);
 
 	if (rc) {
 		pr_err("qpnp_lab_regulator_set_voltage write register %x failed rc = %d\n",
@@ -1501,7 +1499,7 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 			rc = qpnp_labibb_masked_write(labibb, labibb->lab_base +
 				REG_LAB_CURRENT_SENSE,
 				LAB_CURRENT_SENSE_GAIN_MASK,
-				val, 1);
+				val);
 			if (rc) {
 				pr_err("qpnp_labibb_write register %x failed rc = %d\n",
 					REG_LAB_CURRENT_SENSE, rc);
@@ -1590,8 +1588,7 @@ int qpnp_lab_set_pd_strength(struct regulator *regulator, u32 strength)
 	rc = qpnp_labibb_masked_write(labibb, labibb->lab_base +
 				REG_LAB_PD_CTL,
 				LAB_PD_CTL_STRENGTH_MASK,
-				val,
-				1);
+				val);
 	mutex_unlock(&(labibb->lab_vreg.lab_mutex));
 
 	if (rc)
@@ -1624,8 +1621,7 @@ int qpnp_lab_pd_enable_ctl(struct regulator *regulator, bool enable)
 	rc = qpnp_labibb_masked_write(labibb, labibb->lab_base +
 				REG_LAB_PD_CTL,
 				LAB_PD_CTL_EN_MASK,
-				val,
-				1);
+				val);
 	mutex_unlock(&(labibb->lab_vreg.lab_mutex));
 
 	if (rc)
@@ -1658,8 +1654,7 @@ int qpnp_ibb_set_pd_strength(struct regulator *regulator, u32 strength)
 	rc = qpnp_labibb_masked_write(labibb, labibb->ibb_base +
 				REG_IBB_PD_CTL,
 				IBB_PD_CTL_STRENGTH_MASK,
-				val,
-				1);
+				val);
 	mutex_unlock(&(labibb->ibb_vreg.ibb_mutex));
 
 	if (rc)
@@ -1692,8 +1687,7 @@ int qpnp_ibb_pd_enable_ctl(struct regulator *regulator, bool enable)
 	rc = qpnp_labibb_masked_write(labibb, labibb->ibb_base +
 				REG_IBB_PD_CTL,
 				IBB_PD_CTL_EN_MASK,
-				val,
-				1);
+				val);
 	mutex_unlock(&(labibb->ibb_vreg.ibb_mutex));
 
 	if (rc)
@@ -1734,8 +1728,7 @@ int qpnp_ibb_set_pwrup_dly(struct regulator *regulator, u32 val)
 				REG_IBB_PWRUP_PWRDN_CTL_1,
 				IBB_PWRUP_PWRDN_CTL_1_DLY1_MASK <<
 				IBB_PWRUP_PWRDN_CTL_1_DLY1_SHIFT,
-				reg << IBB_PWRUP_PWRDN_CTL_1_DLY1_SHIFT,
-				1);
+				reg << IBB_PWRUP_PWRDN_CTL_1_DLY1_SHIFT);
 
 	if (rc) {
 		pr_err("qpnp_ibb_sec_masked_write register %x failed rc = %d\n",
@@ -1779,8 +1772,7 @@ int qpnp_ibb_set_pwrdn_dly(struct regulator *regulator, u32 val)
 	rc = qpnp_labibb_sec_masked_write(labibb, labibb->ibb_base,
 				REG_IBB_PWRUP_PWRDN_CTL_1,
 				IBB_PWRUP_PWRDN_CTL_1_DLY2_MASK,
-				reg,
-				1);
+				reg);
 
 	if (rc) {
 		pr_err("qpnp_labibb_sec_masked_write register %x failed rc = %d\n",
@@ -2072,8 +2064,7 @@ static int qpnp_ibb_dt_init(struct qpnp_labibb *labibb,
 				REG_IBB_VOLTAGE,
 				IBB_VOLTAGE_SET_MASK |
 				IBB_VOLTAGE_OVERRIDE_EN,
-				val,
-				1);
+				val);
 
 	if (rc)
 		pr_err("qpnp_ibb_masked_write write register %x failed rc = %d\n",
@@ -2183,8 +2174,7 @@ static int qpnp_ibb_regulator_set_voltage(struct regulator_dev *rdev,
 				REG_IBB_VOLTAGE,
 				IBB_VOLTAGE_SET_MASK |
 				IBB_VOLTAGE_OVERRIDE_EN,
-				val | IBB_VOLTAGE_OVERRIDE_EN,
-				1);
+				val | IBB_VOLTAGE_OVERRIDE_EN);
 
 	if (rc) {
 		pr_err("qpnp_ibb_regulator_set_voltage write register %x failed rc = %d\n",
