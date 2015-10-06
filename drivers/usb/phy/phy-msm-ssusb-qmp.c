@@ -503,6 +503,9 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 			clk_prepare_enable(phy->ref_clk);
 		clk_prepare_enable(phy->aux_clk);
 		clk_prepare_enable(phy->cfg_ahb_clk);
+		clk_set_rate(phy->pipe_clk, 125000000);
+		clk_prepare_enable(phy->pipe_clk);
+		phy->clk_enabled = true;
 	}
 
 	/* Rev ID is made up each of the LSBs of REVISION_ID[0-3] */
@@ -541,12 +544,6 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 
 	/* Make sure that above write completed to get PHY into POWER DOWN */
 	mb();
-
-	if (!phy->clk_enabled) {
-		clk_set_rate(phy->pipe_clk, 125000000);
-		clk_prepare_enable(phy->pipe_clk);
-		phy->clk_enabled = true;
-	}
 
 	/* Main configuration */
 	ret = configure_phy_regs(uphy, reg);
