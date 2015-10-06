@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -121,11 +121,19 @@ static ssize_t bhi_write(struct file *file,
 	mhi_reg_write(mhi_dev_ctxt, bhi_ctxt->bhi_base, BHI_INTVEC, 0);
 
 	for (i = 0; i < BHI_POLL_NR_RETRIES; ++i) {
+		u32 err = 0, errdbg1 = 0, errdbg2 = 0, errdbg3 = 0;
+
+		err = mhi_reg_read(bhi_ctxt->bhi_base, BHI_ERRCODE);
+		errdbg1 = mhi_reg_read(bhi_ctxt->bhi_base, BHI_ERRDBG1);
+		errdbg2 = mhi_reg_read(bhi_ctxt->bhi_base, BHI_ERRDBG2);
+		errdbg3 = mhi_reg_read(bhi_ctxt->bhi_base, BHI_ERRDBG3);
 		tx_db_val = mhi_reg_read_field(bhi_ctxt->bhi_base,
 						BHI_STATUS,
 						BHI_STATUS_MASK,
 						BHI_STATUS_SHIFT);
-		mhi_log(MHI_MSG_CRITICAL, "BHI STATUS 0x%x\n", tx_db_val);
+		mhi_log(MHI_MSG_CRITICAL,
+		"BHI STATUS 0x%x, err:0x%x errdbg1:0x%x errdbg2:0x%x errdbg3:0x%x\n",
+			tx_db_val, err, errdbg1, errdbg2, errdbg3);
 		if (BHI_STATUS_SUCCESS != tx_db_val)
 			mhi_log(MHI_MSG_CRITICAL,
 				"Incorrect BHI status: %d retry: %d\n",
