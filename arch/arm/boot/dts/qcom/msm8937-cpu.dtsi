@@ -12,6 +12,11 @@
  */
 
 / {
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -51,7 +56,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x100>;
-			enable-method = "qcom,8937-arm-cortex-acc";
+			enable-method = "psci";
 			qcom,acc = <&acc0>;
 			next-level-cache = <&L2_1>;
 			L2_1: l2-cache {
@@ -65,7 +70,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x101>;
-			enable-method = "qcom,8937-arm-cortex-acc";
+			enable-method = "psci";
 			qcom,acc = <&acc1>;
 			next-level-cache = <&L2_1>;
 		};
@@ -74,7 +79,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x102>;
-			enable-method = "qcom,8937-arm-cortex-acc";
+			enable-method = "psci";
 			qcom,acc = <&acc2>;
 			next-level-cache = <&L2_1>;
 		};
@@ -83,7 +88,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x103>;
-			enable-method = "qcom,8937-arm-cortex-acc";
+			enable-method = "psci";
 			qcom,acc = <&acc3>;
 			next-level-cache = <&L2_1>;
 		};
@@ -92,7 +97,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x0>;
-			enable-method = "qcom,8937-arm-cortex-acc";
+			enable-method = "psci";
 			qcom,acc = <&acc4>;
 			next-level-cache = <&L2_0>;
 			L2_0: l2-cache {
@@ -106,7 +111,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x1>;
-			enable-method = "qcom,8937-arm-cortex-acc";
+			enable-method = "psci";
 			qcom,acc = <&acc5>;
 			next-level-cache = <&L2_0>;
 		};
@@ -115,7 +120,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x2>;
-			enable-method = "qcom,8937-arm-cortex-acc";
+			enable-method = "psci";
 			qcom,acc = <&acc6>;
 			next-level-cache = <&L2_0>;
 		};
@@ -124,7 +129,7 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
 			reg = <0x3>;
-			enable-method = "qcom,8937-arm-cortex-acc";
+			enable-method = "psci";
 			qcom,acc = <&acc7>;
 			next-level-cache = <&L2_0>;
 		};
