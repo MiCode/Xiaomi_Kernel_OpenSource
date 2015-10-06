@@ -448,6 +448,8 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, uintptr_t va,
 		map->apps = me;
 		map->fl = 0;
 		VERIFY(err, !dma_alloc_memory(&region_start, len));
+		if (err)
+			goto bail;
 		map->phys = (uintptr_t)region_start;
 		map->size = len;
 	} else {
