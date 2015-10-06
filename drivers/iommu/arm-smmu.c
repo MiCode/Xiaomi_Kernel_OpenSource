@@ -41,6 +41,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/notifier.h>
 
 #include <linux/amba/bus.h>
 #include <soc/qcom/msm_tz_smmu.h>
@@ -359,6 +360,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_NO_M		(1 << 8)
 #define ARM_SMMU_OPT_NO_SMR_CHECK	(1 << 9)
 #define ARM_SMMU_OPT_DYNAMIC		(1 << 10)
+#define ARM_SMMU_OPT_HALT		(1 << 11)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 
@@ -385,6 +387,7 @@ struct arm_smmu_device {
 	struct clk			**clocks;
 
 	struct regulator		*gdsc;
+	struct notifier_block		regulator_nb;
 
 	/* Protects against domains attaching to the same SMMU concurrently */
 	struct mutex			attach_lock;
@@ -474,6 +477,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_NO_M, "qcom,no-mmu-enable" },
 	{ ARM_SMMU_OPT_NO_SMR_CHECK, "qcom,no-smr-check" },
 	{ ARM_SMMU_OPT_DYNAMIC, "qcom,dynamic" },
+	{ ARM_SMMU_OPT_HALT, "qcom,enable-smmu-halt"},
 	{ 0, NULL},
 };
 
@@ -2921,6 +2925,49 @@ static int arm_smmu_id_size_to_bits(int size)
 	}
 }
 
+static int regulator_notifier(struct notifier_block *nb,
+		unsigned long event, void *data)
+{
+	int ret = 0;
+	struct arm_smmu_device *smmu = container_of(nb,
+					struct arm_smmu_device, regulator_nb);
+
+	ret = arm_smmu_prepare_clocks(smmu);
+	if (ret)
+		goto out;
+
+	ret = arm_smmu_enable_clocks_atomic(smmu);
+	if (ret)
+		goto unprepare_clock;
+
+	if (event == REGULATOR_EVENT_DISABLE)
+		arm_smmu_halt(smmu);
+	else if (event == REGULATOR_EVENT_ENABLE)
+		arm_smmu_resume(smmu);
+
+	arm_smmu_disable_clocks_atomic(smmu);
+unprepare_clock:
+	arm_smmu_unprepare_clocks(smmu);
+out:
+	return ret;
+}
+
+static int register_regulator_notifier(struct arm_smmu_device *smmu)
+{
+	struct device *dev = smmu->dev;
+	int ret = 0;
+
+	if (smmu->options & ARM_SMMU_OPT_HALT) {
+		smmu->regulator_nb.notifier_call = regulator_notifier;
+		ret = regulator_register_notifier(smmu->gdsc,
+						&smmu->regulator_nb);
+
+		if (ret)
+			dev_err(dev, "Regulator notifier request failed\n");
+	}
+	return ret;
+}
+
 static int arm_smmu_init_regulators(struct arm_smmu_device *smmu)
 {
 	struct device *dev = smmu->dev;
@@ -3348,6 +3395,10 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	}
 
 	idr_init(&smmu->asid_idr);
+
+	err = register_regulator_notifier(smmu);
+	if (err)
+		goto out_free_irqs;
 
 	INIT_LIST_HEAD(&smmu->list);
 	spin_lock(&arm_smmu_devices_lock);
