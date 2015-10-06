@@ -18,6 +18,7 @@
 #include <linux/hrtimer.h>
 #include <linux/of_device.h>
 #include <linux/spmi.h>
+#include <linux/regulator/consumer.h>
 #include <linux/interrupt.h>
 #include <linux/qpnp/pwm.h>
 #include <linux/err.h>
@@ -280,6 +281,7 @@ struct qpnp_pwm_info {
  */
 struct qpnp_hap {
 	struct spmi_device *spmi;
+	struct regulator *vcc_pon;
 	struct hrtimer hap_timer;
 	struct hrtimer auto_res_err_poll_timer;
 	struct timed_output_dev timed_dev;
@@ -320,6 +322,7 @@ struct qpnp_hap {
 	bool state;
 	bool use_play_irq;
 	bool use_sc_irq;
+	bool manage_pon_supply;
 	bool wf_update;
 	bool pwm_cfg_state;
 	bool buffer_cfg_state;
@@ -1635,7 +1638,14 @@ static void qpnp_hap_worker(struct work_struct *work)
 	struct qpnp_hap *hap = container_of(work, struct qpnp_hap,
 					 work);
 	u8 val = 0x00;
-	int rc;
+	int rc, reg_en;
+
+	if (hap->vcc_pon) {
+		reg_en = regulator_enable(hap->vcc_pon);
+		if (reg_en)
+			pr_err("%s: could not enable vcc_pon regulator\n",
+				 __func__);
+	}
 
 	/* Disable haptics module if the duration of short circuit
 	 * exceeds the maximum limit (5 secs).
@@ -1647,6 +1657,13 @@ static void qpnp_hap_worker(struct work_struct *work)
 		if (hap->play_mode == QPNP_HAP_PWM)
 			qpnp_hap_mod_enable(hap, hap->state);
 		qpnp_hap_set(hap, hap->state);
+	}
+
+	if (hap->vcc_pon && !reg_en) {
+		rc = regulator_disable(hap->vcc_pon);
+		if (rc)
+			pr_err("%s: could not disable vcc_pon regulator\n",
+				 __func__);
 	}
 }
 
@@ -2163,6 +2180,9 @@ static int qpnp_hap_parse_dt(struct qpnp_hap *hap)
 		}
 	}
 
+	if (of_find_property(spmi->dev.of_node, "vcc_pon-supply", NULL))
+		hap->manage_pon_supply = true;
+
 	return 0;
 }
 
@@ -2170,6 +2190,7 @@ static int qpnp_haptic_probe(struct spmi_device *spmi)
 {
 	struct qpnp_hap *hap;
 	struct resource *hap_resource;
+	struct regulator *vcc_pon;
 	int rc, i;
 
 	hap = devm_kzalloc(&spmi->dev, sizeof(*hap), GFP_KERNEL);
@@ -2237,6 +2258,17 @@ static int qpnp_haptic_probe(struct spmi_device *spmi)
 		}
 	}
 
+	if (hap->manage_pon_supply) {
+		vcc_pon = regulator_get(&spmi->dev, "vcc_pon");
+		if (IS_ERR(vcc_pon)) {
+			rc = PTR_ERR(vcc_pon);
+			dev_err(&spmi->dev,
+				"regulator get failed vcc_pon rc=%d\n", rc);
+			goto sysfs_fail;
+		}
+		hap->vcc_pon = vcc_pon;
+	}
+
 	ghap = hap;
 
 	return 0;
@@ -2273,6 +2305,8 @@ static int qpnp_haptic_remove(struct spmi_device *spmi)
 	timed_output_dev_unregister(&hap->timed_dev);
 	mutex_destroy(&hap->lock);
 	mutex_destroy(&hap->wf_lock);
+	if (hap->vcc_pon)
+		regulator_put(hap->vcc_pon);
 
 	return 0;
 }
