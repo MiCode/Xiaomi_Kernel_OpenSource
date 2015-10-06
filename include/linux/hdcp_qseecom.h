@@ -23,6 +23,7 @@ enum hdcp_lib_wakeup_cmd {
 	HDCP_LIB_WKUP_CMD_MSG_RECV_SUCCESS,
 	HDCP_LIB_WKUP_CMD_MSG_RECV_FAILED,
 	HDCP_LIB_WKUP_CMD_MSG_RECV_TIMEOUT,
+	HDCP_LIB_WKUP_CMD_QUERY_STREAM_TYPE,
 };
 
 enum hdmi_hdcp_wakeup_cmd {
@@ -85,6 +86,8 @@ static inline char *hdcp_lib_cmd_to_str(uint32_t cmd)
 		return "HDCP_LIB_WKUP_CMD_MSG_RECV_FAILED";
 	case HDCP_LIB_WKUP_CMD_MSG_RECV_TIMEOUT:
 		return "HDCP_LIB_WKUP_CMD_MSG_RECV_TIMEOUT";
+	case HDCP_LIB_WKUP_CMD_QUERY_STREAM_TYPE:
+		return "HDCP_LIB_WKUP_CMD_QUERY_STREAM_TYPE";
 	default:
 		return "???";
 	}
@@ -96,7 +99,6 @@ struct hdcp_txmtr_ops {
 
 	int (*hdcp_txmtr_get_state)(void *phdcpcontext,
 		uint32_t *state);
-	int (*hdcp_query_stream_type)(void *phdcpcontext);
 };
 
 struct hdcp_client_ops {
