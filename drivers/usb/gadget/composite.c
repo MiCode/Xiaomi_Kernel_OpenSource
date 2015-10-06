@@ -2364,11 +2364,13 @@ void composite_suspend(struct usb_gadget *gadget)
 {
 	struct usb_composite_dev	*cdev = get_gadget_data(gadget);
 	struct usb_function		*f;
+	unsigned long			flags;
 
 	/* REVISIT:  should we have config level
 	 * suspend/resume callbacks?
 	 */
 	DBG(cdev, "suspend\n");
+	spin_lock_irqsave(&cdev->lock, flags);
 	if (cdev->config) {
 		list_for_each_entry(f, &cdev->config->functions, list) {
 			if (f->suspend)
@@ -2379,6 +2381,7 @@ void composite_suspend(struct usb_gadget *gadget)
 		cdev->driver->suspend(cdev);
 
 	cdev->suspended = 1;
+	spin_unlock_irqrestore(&cdev->lock, flags);
 
 	usb_gadget_vbus_draw(gadget, 2);
 }
