@@ -110,6 +110,14 @@ conditions.
 		  useful if the upstream hardware is capable of switching
 		  between multiple domains within a single context bank.
 
+- qcom,enable-smmu-halt : Before SMMU is powered down, SMMU needs to be in
+		  idle state prior to power collapse. When 'halt' is received by
+		  SMMU, it ensures that no new requests enters and all
+		  outstanding requests are completed and generates an
+		  acknowledgment for halt request. So add an option to register
+		  a call back notifier on regulators in whcih SMMU can be halted
+		  or resumed when regulator is powered down/up.
+
 - clocks        : List of clocks to be used during SMMU register access. See
                   Documentation/devicetree/bindings/clock/clock-bindings.txt
                   for information about the format. For each clock specified
