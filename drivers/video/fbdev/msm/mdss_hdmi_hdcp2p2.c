@@ -275,7 +275,8 @@ static ssize_t hdmi_hdcp2p2_sysfs_wta_min_level_change(struct device *dev,
 {
 	struct hdmi_hdcp2p2_ctrl *ctrl =
 		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP2P2);
-	int res;
+	struct hdcp_lib_wakeup_data cdata = {
+		HDCP_LIB_WKUP_CMD_QUERY_STREAM_TYPE};
 
 	if (!ctrl) {
 		pr_err("invalid input\n");
@@ -283,8 +284,9 @@ static ssize_t hdmi_hdcp2p2_sysfs_wta_min_level_change(struct device *dev,
 	}
 
 	pr_debug("notification of minimum level change received\n");
-	res = ctrl->lib->
-		hdcp_query_stream_type(ctrl->lib_ctx);
+
+	cdata.context = ctrl->lib_ctx;
+	hdmi_hdcp2p2_wakeup_lib(ctrl, &cdata);
 
 	return  count;
 }
