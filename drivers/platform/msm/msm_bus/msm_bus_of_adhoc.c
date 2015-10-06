@@ -506,7 +506,7 @@ static int get_bus_node_device_data(
 
 	if (node_device->node_info->is_fab_dev) {
 		struct device_node *qos_clk_node;
-		dev_err(&pdev->dev, "Dev %d\n", node_device->node_info->id);
+		dev_dbg(&pdev->dev, "Dev %d\n", node_device->node_info->id);
 
 		if (!node_device->node_info->virt_dev) {
 			node_device->fabdev =
