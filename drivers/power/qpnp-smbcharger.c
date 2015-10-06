@@ -7316,32 +7316,44 @@ static int smbchg_probe(struct spmi_device *spmi)
 		return -ENOMEM;
 	}
 
-	chip->fcc_votable = create_votable(&spmi->dev, VOTE_MIN,
+	chip->fcc_votable = create_votable(&spmi->dev,
+			"SMBCHG: fcc",
+			VOTE_MIN,
 			NUM_FCC_VOTER, set_fastchg_current_vote_cb);
 	if (IS_ERR(chip->fcc_votable))
 		return PTR_ERR(chip->fcc_votable);
 
-	chip->usb_icl_votable = create_votable(&spmi->dev, VOTE_MIN,
+	chip->usb_icl_votable = create_votable(&spmi->dev,
+			"SMBCHG: usb_icl",
+			VOTE_MIN,
 			NUM_ICL_VOTER, set_usb_current_limit_vote_cb);
 	if (IS_ERR(chip->usb_icl_votable))
 		return PTR_ERR(chip->usb_icl_votable);
 
-	chip->dc_icl_votable = create_votable(&spmi->dev, VOTE_MIN,
+	chip->dc_icl_votable = create_votable(&spmi->dev,
+			"SMBCHG: dcl_icl",
+			VOTE_MIN,
 			NUM_ICL_VOTER, set_dc_current_limit_vote_cb);
 	if (IS_ERR(chip->dc_icl_votable))
 		return PTR_ERR(chip->dc_icl_votable);
 
-	chip->usb_suspend_votable = create_votable(&spmi->dev, VOTE_SET_ANY,
+	chip->usb_suspend_votable = create_votable(&spmi->dev,
+					"SMBCHG: usb_suspend",
+					VOTE_SET_ANY,
 					NUM_EN_VOTERS, usb_suspend_vote_cb);
 	if (IS_ERR(chip->usb_suspend_votable))
 		return PTR_ERR(chip->usb_suspend_votable);
 
-	chip->dc_suspend_votable = create_votable(&spmi->dev, VOTE_SET_ANY,
+	chip->dc_suspend_votable = create_votable(&spmi->dev,
+					"SMBCHG: dc_suspend",
+					VOTE_SET_ANY,
 					NUM_EN_VOTERS, dc_suspend_vote_cb);
 	if (IS_ERR(chip->dc_suspend_votable))
 		return PTR_ERR(chip->dc_suspend_votable);
 
-	chip->battchg_suspend_votable = create_votable(&spmi->dev, VOTE_SET_ANY,
+	chip->battchg_suspend_votable = create_votable(&spmi->dev,
+					"SMBCHG: battchg_en",
+					VOTE_SET_ANY,
 					NUM_BATTCHG_EN_VOTERS,
 					charging_suspend_vote_cb);
 	if (IS_ERR(chip->dc_suspend_votable))

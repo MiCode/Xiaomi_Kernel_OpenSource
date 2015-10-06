@@ -28,6 +28,7 @@ struct client_vote {
 struct votable {
 	struct client_vote	votes[NUM_MAX_CLIENTS];
 	struct device		*dev;
+	const char		*name;
 	int			num_clients;
 	int			type;
 	int			effective_client_id;
@@ -149,6 +150,9 @@ int vote(struct votable *votable, int client_id, int state, int val)
 	votable->votes[client_id].state = state;
 	votable->votes[client_id].value = val;
 
+	pr_debug("%s: %d voting for %d - %s\n",
+			votable->name,
+			client_id, val, state ? "on" : "off");
 	switch (votable->type) {
 	case VOTE_MIN:
 		effective_id = vote_min(votable);
@@ -177,6 +181,8 @@ int vote(struct votable *votable, int client_id, int state, int val)
 	if (effective_result != votable->effective_result) {
 		votable->effective_client_id = effective_id;
 		votable->effective_result = effective_result;
+		pr_debug("%s: effective vote is now %d voted by %d",
+				votable->name, effective_result, effective_id);
 		rc = votable->callback(votable->dev, effective_result,
 					effective_id, val, client_id);
 	}
@@ -189,7 +195,8 @@ out:
 	return rc;
 }
 
-struct votable *create_votable(struct device *dev, int votable_type,
+struct votable *create_votable(struct device *dev, const char *name,
+					int votable_type,
 					int num_clients,
 					int (*callback)(struct device *dev,
 							int effective_result,
@@ -220,6 +227,7 @@ struct votable *create_votable(struct device *dev, int votable_type,
 	}
 
 	votable->dev = dev;
+	votable->name = name;
 	votable->num_clients = num_clients;
 	votable->callback = callback;
 	votable->type = votable_type;
