@@ -1151,16 +1151,12 @@ static void hdcp_lib_topology_work(struct kthread_work *work)
 	u32 timeout;
 	struct hdcp_lib_handle *handle = container_of(work,
 		struct hdcp_lib_handle, topology);
-	struct hdmi_hdcp_wakeup_data cdata = {HDMI_HDCP_WKUP_CMD_INVALID};
 
 	if (!handle) {
 		pr_err("invalid input\n");
 		return;
 	}
 
-	cdata.context = handle->client_ctx;
-	cdata.cmd = HDMI_HDCP_WKUP_CMD_RECV_MESSAGE;
-	hdcp_lib_wakeup_client(handle, &cdata);
 
 	reinit_completion(&handle->topo_wait);
 	timeout = wait_for_completion_timeout(&handle->topo_wait, HZ * 3);

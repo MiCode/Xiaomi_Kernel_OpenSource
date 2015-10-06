@@ -56,7 +56,6 @@ struct hdmi_hdcp2p2_ctrl {
 	struct hdmi_hdcp_ops *ops;
 	void *lib_ctx; /* Handle to HDCP 2.2 Trustzone library */
 	struct hdcp_txmtr_ops *lib; /* Ops for driver to call into TZ */
-	struct completion rxstatus_completion; /* Rx status interrupt */
 
 	enum hdmi_hdcp_wakeup_cmd wakeup_cmd;
 	char *send_msg_buf;
@@ -356,7 +355,7 @@ static int hdmi_hdcp2p2_ddc_write_message(struct hdmi_hdcp2p2_ctrl *ctrl,
 
 	rc = hdmi_ddc_write(ctrl->init_data.ddc_ctrl);
 	if (rc)
-		pr_err("Cannot write HDCP message register");
+		pr_err("Cannot write HDCP message register\n");
 	return rc;
 }
 
@@ -625,11 +624,12 @@ static void hdmi_hdcp2p2_link_work(struct kthread_work *work)
 	int rc = 0;
 	struct hdmi_hdcp2p2_ctrl *ctrl = container_of(work,
 		struct hdmi_hdcp2p2_ctrl, link);
-	struct hdcp_lib_wakeup_data cdata = {HDCP_LIB_WKUP_CMD_STOP};
+	struct hdcp_lib_wakeup_data cdata = {HDCP_LIB_WKUP_CMD_INVALID};
 	struct hdmi_tx_ddc_ctrl *ddc_ctrl;
 	struct hdmi_tx_hdcp2p2_ddc_data *ddc_data;
 	u64 mult;
 	struct msm_hdmi_mode_timing_info *timing;
+	char *recvd_msg_buf = NULL;
 
 	if (!ctrl) {
 		pr_err("invalid input\n");
@@ -643,6 +643,7 @@ static void hdmi_hdcp2p2_link_work(struct kthread_work *work)
 	ddc_ctrl = ctrl->init_data.ddc_ctrl;
 	if (!ddc_ctrl) {
 		rc = -EINVAL;
+		cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
 		goto exit;
 	}
 
@@ -654,27 +655,53 @@ static void hdmi_hdcp2p2_link_work(struct kthread_work *work)
 
 	timing = ctrl->init_data.timing;
 	mult = hdmi_tx_get_v_total(timing) / 20;
-	ddc_data->intr_mask = RXSTATUS_REAUTH_REQ;
+	ddc_data->intr_mask = RXSTATUS_READY | RXSTATUS_MESSAGE_SIZE |
+		RXSTATUS_REAUTH_REQ;
 	ddc_data->timer_delay_lines = (u32)mult;
 	ddc_data->read_method = HDCP2P2_RXSTATUS_HW_DDC_SW_TRIGGER;
 
 	rc = hdmi_hdcp2p2_ddc_read_rxstatus(ddc_ctrl);
 	if (rc) {
 		pr_err("error reading rxstatus %d\n", rc);
+		cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
 		goto exit;
 	}
 
 	if (ddc_data->reauth_req) {
 		pr_debug("sync reported loss of synchronization, reauth\n");
 		rc = -ENOLINK;
+		cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
+		goto exit;
+	}
+
+	if (ddc_data->ready && ddc_data->message_size) {
+		pr_debug("topology changed. rxstatus msg size %d\n",
+			ddc_data->message_size);
+
+		recvd_msg_buf = kzalloc(ddc_data->message_size, GFP_KERNEL);
+		if (!recvd_msg_buf) {
+			cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
+			goto exit;
+		}
+
+		rc = hdmi_hdcp2p2_ddc_read_message(ctrl, recvd_msg_buf,
+			ddc_data->message_size, ctrl->timeout);
+		if (rc) {
+			cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
+			pr_err("error reading message %d\n", rc);
+		} else {
+			cdata.cmd = HDCP_LIB_WKUP_CMD_MSG_RECV_SUCCESS;
+			cdata.recvd_msg_buf = recvd_msg_buf;
+			cdata.recvd_msg_len = ddc_data->message_size;
+		}
 	}
 exit:
 	mutex_unlock(&ctrl->mutex);
 
-	if (rc) {
-		/* notify hdcp lib to stop auth */
-		hdmi_hdcp2p2_wakeup_lib(ctrl, &cdata);
+	hdmi_hdcp2p2_wakeup_lib(ctrl, &cdata);
+	kfree(recvd_msg_buf);
 
+	if (rc) {
 		/* notify hdmi tx about auth failure */
 		hdmi_hdcp2p2_auth_failed(ctrl);
 
@@ -778,8 +805,6 @@ void *hdmi_hdcp2p2_init(struct hdmi_hdcp_init_data *init_data)
 		pr_err("hdcp2p2 sysfs group creation failed\n");
 		goto error;
 	}
-
-	init_completion(&ctrl->rxstatus_completion);
 
 	ctrl->sink_status = SINK_DISCONNECTED;
 
