@@ -319,8 +319,7 @@ static int cmdq_enable(struct mmc_host *mmc)
 	cmdq_writel(cq_host, mmc->card->rca, CQSSC2);
 
 	/* send QSR at lesser intervals than the default */
-	cmdq_writel(cq_host, cmdq_readl(cq_host, CQSSC1) | SEND_QSR_INTERVAL,
-				CQSSC1);
+	cmdq_writel(cq_host, SEND_QSR_INTERVAL, CQSSC1);
 
 	/* ensure the writes are done before enabling CQE */
 	mb();
@@ -335,7 +334,6 @@ static int cmdq_enable(struct mmc_host *mmc)
 
 	if (cq_host->ops->clear_set_dumpregs)
 		cq_host->ops->clear_set_dumpregs(mmc, 1);
-
 out:
 	return err;
 }
