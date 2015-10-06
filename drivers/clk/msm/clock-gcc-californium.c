@@ -36,7 +36,6 @@
 #define RPM_MEM_CLK_TYPE	0x326b6c63
 #define RPM_IPA_CLK_TYPE	0x617069
 #define RPM_CE_CLK_TYPE		0x6563
-#define RPM_MCFG_CLK_TYPE	0x6766636d
 #define RPM_QPIC_CLK_TYPE	0x63697071
 
 #define RPM_SMD_KEY_ENABLE	0x62616E45
@@ -179,13 +178,12 @@ static DEFINE_VDD_REGULATORS(vdd_dig_ao, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define PCIE_AXI_TBU_CBCR                                (0x12064)
 #define QUSB_REF_CLK_EN                                  (0x41030)
 #define DCC_CBCR                                         (0x77004)
+#define MSS_CFG_AHB_CBCR				 (0x49000)
 
 DEFINE_CLK_RPM_SMD_BRANCH(xo, xo_a_clk, RPM_MISC_CLK_TYPE,
 			  XO_ID, 19200000);
 DEFINE_CLK_RPM_SMD_BRANCH(cxo_clk_src, cxo_a_clk_src, RPM_MISC_CLK_TYPE,
 			  CXO_CLK_SRC_ID, 19200000);
-DEFINE_CLK_RPM_SMD_BRANCH(mss_cfg_ahb_clk, mss_cfg_ahb_a_clk, RPM_MCFG_CLK_TYPE,
-			  MSS_CFG_AHB_CLK_ID, 19200000);
 
 DEFINE_CLK_RPM_SMD(ce_clk, ce_a_clk, RPM_CE_CLK_TYPE,
 		   CE_CLK_ID, NULL);
@@ -1284,6 +1282,17 @@ static struct branch_clk gcc_usb_phy_cfg_ahb_clk = {
 	},
 };
 
+static struct branch_clk gcc_mss_cfg_ahb_clk = {
+	.cbcr_reg = MSS_CFG_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_mss_cfg_ahb_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_mss_cfg_ahb_clk.c),
+	},
+};
+
 static struct mux_clk gcc_debug_mux;
 static struct clk_ops clk_ops_debug_mux;
 static struct clk_mux_ops gcc_debug_mux_ops;
@@ -1310,6 +1319,7 @@ static struct mux_clk gcc_debug_mux = {
 		{ &snoc_clk.c, 0x0000 },
 		{ &gcc_sys_noc_usb3_axi_clk.c, 0x0001 },
 		{ &pcnoc_clk.c, 0x0008 },
+		{ &gcc_mss_cfg_ahb_clk.c, 0x0030 },
 		{ &qdss_clk.c, 0x0042 },
 		{ &gcc_apss_tcu_clk.c, 0x0050 },
 		{ &gcc_smmu_cfg_clk.c, 0x005b },
@@ -1365,8 +1375,6 @@ static struct clk_lookup msm_clocks_rpm_californium[] = {
 	CLK_LIST(xo_a_clk),
 	CLK_LIST(cxo_clk_src),
 	CLK_LIST(cxo_a_clk_src),
-	CLK_LIST(mss_cfg_ahb_clk),
-	CLK_LIST(mss_cfg_ahb_a_clk),
 	CLK_LIST(ce_clk),
 	CLK_LIST(ce_a_clk),
 	CLK_LIST(pcnoc_clk),
@@ -1490,6 +1498,7 @@ static struct clk_lookup msm_clocks_gcc_californium[] = {
 	CLK_LIST(gcc_usb3_aux_clk),
 	CLK_LIST(gcc_usb3_pipe_clk),
 	CLK_LIST(gcc_usb_phy_cfg_ahb_clk),
+	CLK_LIST(gcc_mss_cfg_ahb_clk),
 };
 
 static int msm_gcc_californium_probe(struct platform_device *pdev)

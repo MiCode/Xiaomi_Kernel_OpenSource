@@ -19,8 +19,6 @@
 #define clk_xo_a_clk 0xd939b99b
 #define clk_cxo_clk_src 0x79e95308
 #define clk_cxo_a_clk_src 0x3dba80d6
-#define clk_mss_cfg_ahb_clk 0x4a6d85ae
-#define clk_mss_cfg_ahb_a_clk 0x2a1502ca
 #define clk_ce_clk 0xd8bc64e1
 #define clk_ce_a_clk 0x4dfefd47
 #define clk_pcnoc_clk 0xc1296d0f
@@ -143,6 +141,7 @@
 #define clk_gcc_usb3_aux_clk 0x555d16b2
 #define clk_gcc_usb3_pipe_clk 0x26f8a97a
 #define clk_gcc_usb_phy_cfg_ahb_clk 0xccb7e26f
+#define clk_gcc_mss_cfg_ahb_clk 0x111cde81
 
 /* a7pll */
 #define clk_a7pll_clk		0x3dd5dd94
