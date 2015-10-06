@@ -144,6 +144,9 @@
 #define clk_gcc_usb3_pipe_clk 0x26f8a97a
 #define clk_gcc_usb_phy_cfg_ahb_clk 0xccb7e26f
 
+/* a7pll */
+#define clk_a7pll_clk		0x3dd5dd94
+
 /* clock_debug controlled clocks */
 #define clk_gcc_debug_mux 0x8121ac15
 
