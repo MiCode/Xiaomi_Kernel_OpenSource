@@ -30,6 +30,7 @@ Optional Properties:
 		short circuit are <0x3 0xc0 0x0> and <0x3 0xc0 0x1>.
  - interrupt-names: Specify the interrupt names associated with interrupts. Must be
 		    one of "play-irq" or "sc-irq"
+ - vcc_pon-supply: power-on driver regulator
 
 Optional properties for buffer play mode:
  - qcom,wave-samples : 8 byte buffer representing the wave. The bits in each sample
@@ -74,6 +75,7 @@ Example:
 			interrupts = <0x3 0xc0 0x0>,
 				     <0x3 0xc0 0x1>;
 			interrupt-names = "sc-irq", "play-irq";
+			vcc_pon-supply = <&pon_perph_reg>;
 			qcom,play-mode = "direct";
 			qcom,wave-play-rate-us = <5263>;
 			qcom,actuator-type = "lra";
