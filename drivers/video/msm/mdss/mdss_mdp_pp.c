@@ -5407,6 +5407,7 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 	struct mdss_data_type *mdata;
 	u32 bypass = MDSS_PP_AD_BYPASS_DEF, bl;
 	u32 width;
+	struct mdss_overlay_private *mdp5_data;
 
 	ret = mdss_mdp_get_ad(mfd, &ad);
 	if (ret == -ENODEV || ret == -EPERM) {
@@ -5454,13 +5455,16 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 		if ((ad->cfg.mode == MDSS_AD_MODE_AUTO_STR) &&
 							(ad->last_bl != bl)) {
 			ad->last_bl = bl;
-			ad->calc_itr = ad->cfg.stab_itr;
-			ad->sts |= PP_AD_STS_DIRTY_VSYNC;
 			linear_map(bl, &ad->bl_data,
 				bl_mfd->panel_info->bl_max,
 				MDSS_MDP_AD_BL_SCALE);
 		}
+		ad->calc_itr = ad->cfg.stab_itr;
+		ad->sts |= PP_AD_STS_DIRTY_VSYNC;
 		ad->reg_sts |= PP_AD_STS_DIRTY_DATA;
+		mdp5_data = mfd_to_mdp5_data(mfd);
+		if (mdp5_data)
+			mdp5_data->ad_events = 0;
 	}
 
 	if (ad->sts & PP_AD_STS_DIRTY_CFG) {
@@ -5608,15 +5612,13 @@ static void pp_ad_calc_worker(struct work_struct *work)
 			readl_relaxed(base + MDSS_MDP_REG_AD_STR_OUT));
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	}
-
+	if (mdp5_data) {
+		mdp5_data->ad_events++;
+		sysfs_notify_dirent(mdp5_data->ad_event_sd);
+	}
 	if (!ad->calc_itr) {
 		ad->state &= ~PP_AD_STATE_VSYNC;
 		ctl->ops.remove_vsync_handler(ctl, &ad->handle);
-	} else {
-		if (mdp5_data) {
-			mdp5_data->ad_events++;
-			sysfs_notify_dirent(mdp5_data->ad_event_sd);
-		}
 	}
 	mutex_unlock(&ad->lock);
 }
