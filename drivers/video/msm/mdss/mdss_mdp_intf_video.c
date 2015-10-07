@@ -902,7 +902,7 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 		}
 	} else if (is_pingpong_split(ctl->mfd)) {
 		sctx = (struct mdss_mdp_video_ctx *) ctl->intf_ctx[SLAVE_CTX];
-		if (!sctx || !sctx->timegen_en || !sctx->ref_cnt) {
+		if (!sctx || !sctx->ref_cnt) {
 			pr_err("invalid sctx or interface is powered off\n");
 			return -EINVAL;
 		}
