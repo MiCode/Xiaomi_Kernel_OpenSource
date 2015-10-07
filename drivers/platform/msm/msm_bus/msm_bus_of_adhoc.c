@@ -297,10 +297,8 @@ static void get_agg_params(
 	if (ret) {
 		if (node_info->is_fab_dev)
 			node_info->agg_params.agg_scheme = DEFAULT_AGG_SCHEME;
-		else {
+		else
 			node_info->agg_params.agg_scheme = AGG_SCHEME_NONE;
-			goto exit_get_agg_params;
-		}
 	}
 
 	ret = of_property_read_u32(dev_node, "qcom,vrail-comp",
@@ -312,22 +310,7 @@ static void get_agg_params(
 			node_info->agg_params.vrail_comp = 0;
 	}
 
-	if (node_info->agg_params.agg_scheme == AGG_SCHEME_LEG) {
-		node_info->agg_params.num_util_levels = 1;
-		node_info->agg_params.util_levels = devm_kzalloc(&pdev->dev,
-			(node_info->agg_params.num_util_levels *
-			sizeof(struct node_util_levels_type)), GFP_KERNEL);
-		if (IS_ERR_OR_NULL(node_info->agg_params.util_levels))
-			goto err_get_agg_params;
-
-		ret = of_property_read_u32(dev_node, "qcom,util-fact",
-			&node_info->agg_params.util_levels[0].util_fact);
-		if (ret) {
-			if (node_info->is_fab_dev)
-				node_info->agg_params.util_levels[0].util_fact
-							= DEFAULT_UTIL_FACT;
-		}
-	} else if (node_info->agg_params.agg_scheme == AGG_SCHEME_1) {
+	if (node_info->agg_params.agg_scheme == AGG_SCHEME_1) {
 		uint32_t len = 0;
 		const uint32_t *util_levels;
 		int i, index = 0;
@@ -357,14 +340,35 @@ static void get_agg_params(
 				node_info->agg_params.util_levels[i].util_fact);
 		}
 	} else {
-		dev_err(&pdev->dev, "Agg scheme%d unknown, using default\n",
-			node_info->agg_params.agg_scheme);
-		goto err_get_agg_params;
+		uint32_t util_fact;
+
+		ret = of_property_read_u32(dev_node, "qcom,util-fact",
+								&util_fact);
+		if (ret) {
+			if (node_info->is_fab_dev)
+				util_fact = DEFAULT_UTIL_FACT;
+			else
+				util_fact = 0;
+		}
+
+		if (util_fact) {
+			node_info->agg_params.num_util_levels = 1;
+			node_info->agg_params.util_levels =
+			devm_kzalloc(&pdev->dev,
+				(node_info->agg_params.num_util_levels *
+				sizeof(struct node_util_levels_type)),
+				GFP_KERNEL);
+			if (IS_ERR_OR_NULL(node_info->agg_params.util_levels))
+				goto err_get_agg_params;
+			node_info->agg_params.util_levels[0].util_fact =
+								util_fact;
+		}
+
 	}
 
-exit_get_agg_params:
 	return;
 err_get_agg_params:
+	node_info->agg_params.num_util_levels = 0;
 	node_info->agg_params.agg_scheme = DEFAULT_AGG_SCHEME;
 }
 
