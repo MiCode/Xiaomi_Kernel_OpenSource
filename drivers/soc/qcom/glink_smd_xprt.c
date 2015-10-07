@@ -1028,11 +1028,12 @@ static uint32_t set_version(struct glink_transport_if *if_ptr, uint32_t version,
 			uint32_t features)
 {
 	struct edge_info *einfo;
+	uint32_t capabilities = GCAP_SIGNALS | GCAP_AUTO_QUEUE_RX_INT;
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
 
 	return einfo->intentless ?
-				GCAP_INTENTLESS | GCAP_SIGNALS : GCAP_SIGNALS;
+				GCAP_INTENTLESS | capabilities : capabilities;
 }
 
 /**

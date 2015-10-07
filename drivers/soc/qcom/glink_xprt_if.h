@@ -35,9 +35,10 @@ enum xprt_ids {
 	MOCK_XPRT_LOW_ID = 410,
 };
 
-#define GCAP_SIGNALS	BIT(0)
-#define GCAP_INTENTLESS	BIT(1)
-#define GCAP_TRACER_PKT	BIT(2)
+#define GCAP_SIGNALS		BIT(0)
+#define GCAP_INTENTLESS		BIT(1)
+#define GCAP_TRACER_PKT		BIT(2)
+#define GCAP_AUTO_QUEUE_RX_INT	BIT(3)
 
 /**
  * struct glink_core_tx_pkt - Transmit Packet information
@@ -55,6 +56,7 @@ enum xprt_ids {
  * @iovec:		Pointer to the vector buffer packet.
  * @vprovider:		Packet-specific virtual buffer provider function.
  * @pprovider:		Packet-specific physical buffer provider function.
+ * @pkt_ref:		Active references to the packet.
  */
 struct glink_core_tx_pkt {
 	struct list_head list_node;
@@ -71,6 +73,7 @@ struct glink_core_tx_pkt {
 	void *iovec;
 	void * (*vprovider)(void *iovec, size_t offset, size_t *size);
 	void * (*pprovider)(void *iovec, size_t offset, size_t *size);
+	struct rwref_lock pkt_ref;
 };
 
 /**
