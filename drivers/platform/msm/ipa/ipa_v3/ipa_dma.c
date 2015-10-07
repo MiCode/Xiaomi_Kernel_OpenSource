@@ -18,6 +18,7 @@
 #include <linux/msm_ipa.h>
 #include <linux/mutex.h>
 #include <linux/ipa.h>
+#include "linux/msm_gsi.h"
 #include "ipa_i.h"
 
 #define IPA_DMA_POLLING_MIN_SLEEP_RX 1010
@@ -52,28 +53,6 @@ static void ipa3_dma_debugfs_destroy(void);
 static void ipa3_dma_debugfs_init(void) {}
 static void ipa3_dma_debugfs_destroy(void) {}
 #endif
-
-/**
- * struct ipa3_dma_xfer_wrapper - IPADMA transfer descr wrapper
- * @phys_addr_src: physical address of the source data to copy
- * @phys_addr_dest: physical address to store the copied data
- * @len: len in bytes to copy
- * @link: linked to the wrappers list on the proper(sync/async) cons pipe
- * @xfer_done: completion object for sync_memcpy completion
- * @callback: IPADMA client provided completion callback
- * @user1: cookie1 for above callback
- *
- * This struct can wrap both sync and async memcpy transfers descriptors.
- */
-struct ipa3_dma_xfer_wrapper {
-	phys_addr_t phys_addr_src;
-	phys_addr_t phys_addr_dest;
-	u16 len;
-	struct list_head link;
-	struct completion xfer_done;
-	void (*callback)(void *user1);
-	void *user1;
-};
 
 /**
  * struct ipa3_dma_ctx -IPADMA driver context information
@@ -356,7 +335,7 @@ int ipa3_dma_disable(void)
  *		-SPS_ERROR: on sps faliures
  *		-EFAULT: other
  */
-int ipa3_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src, int len)
+int ipa3_dma_sync_memcpy(u64 dest, u64 src, int len)
 {
 	int ep_idx;
 	int res;
@@ -366,7 +345,10 @@ int ipa3_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src, int len)
 	struct sps_iovec iov;
 	struct ipa3_dma_xfer_wrapper *xfer_descr = NULL;
 	struct ipa3_dma_xfer_wrapper *head_descr = NULL;
+	struct gsi_xfer_elem xfer_elem;
+	struct gsi_chan_xfer_notify gsi_notify;
 	unsigned long flags;
+	bool stop_polling = false;
 
 	IPADMA_FUNC_ENTRY();
 	if (ipa3_dma_ctx == NULL) {
@@ -381,6 +363,12 @@ int ipa3_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src, int len)
 		IPADMA_ERR("invalid len, %d\n", len);
 		return	-EINVAL;
 	}
+	if (ipa3_ctx->transport_prototype != IPA_TRANSPORT_TYPE_GSI) {
+		if (((u32)src != src) || ((u32)dest != dest)) {
+			IPADMA_ERR("Bad addr, only 32b addr supported for BAM");
+			return -EINVAL;
+		}
+	}
 	spin_lock_irqsave(&ipa3_dma_ctx->pending_lock, flags);
 	if (!ipa3_dma_ctx->is_enabled) {
 		IPADMA_ERR("can't memcpy, IPADMA isn't enabled\n");
@@ -389,11 +377,13 @@ int ipa3_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src, int len)
 	}
 	atomic_inc(&ipa3_dma_ctx->sync_memcpy_pending_cnt);
 	spin_unlock_irqrestore(&ipa3_dma_ctx->pending_lock, flags);
-	if (atomic_read(&ipa3_dma_ctx->sync_memcpy_pending_cnt) >=
-		IPA_DMA_MAX_PENDING_SYNC) {
-		atomic_dec(&ipa3_dma_ctx->sync_memcpy_pending_cnt);
-		IPADMA_DBG("Reached pending requests limit\n");
-		return -EFAULT;
+	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_SPS) {
+		if (atomic_read(&ipa3_dma_ctx->sync_memcpy_pending_cnt) >=
+				IPA_DMA_MAX_PENDING_SYNC) {
+			atomic_dec(&ipa3_dma_ctx->sync_memcpy_pending_cnt);
+			IPADMA_DBG("Reached pending requests limit\n");
+			return -EFAULT;
+		}
 	}
 
 	ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_SYNC_CONS);
@@ -427,16 +417,46 @@ int ipa3_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src, int len)
 	mutex_lock(&ipa3_dma_ctx->sync_lock);
 	list_add_tail(&xfer_descr->link, &cons_sys->head_desc_list);
 	cons_sys->len++;
-	res = sps_transfer_one(cons_sys->ep->ep_hdl, dest, len, NULL, 0);
-	if (res) {
-		IPADMA_ERR("Failed: sps_transfer_one on dest descr\n");
-		goto fail_sps_send;
-	}
-	res = sps_transfer_one(prod_sys->ep->ep_hdl, src, len,
-		NULL, SPS_IOVEC_FLAG_EOT);
-	if (res) {
-		IPADMA_ERR("Failed: sps_transfer_one on src descr\n");
-		BUG();
+	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
+		xfer_elem.addr = dest;
+		xfer_elem.len = len;
+		xfer_elem.type = GSI_XFER_ELEM_DATA;
+		xfer_elem.flags = GSI_XFER_FLAG_EOT;
+		xfer_elem.xfer_user_data = xfer_descr;
+		res = gsi_queue_xfer(cons_sys->ep->gsi_chan_hdl, 1,
+				&xfer_elem, true);
+		if (res) {
+			IPADMA_ERR(
+				"Failed: gsi_queue_xfer dest descr res:%d\n",
+				res);
+			goto fail_send;
+		}
+		xfer_elem.addr = src;
+		xfer_elem.len = len;
+		xfer_elem.type = GSI_XFER_ELEM_DATA;
+		xfer_elem.flags = GSI_XFER_FLAG_EOT;
+		xfer_elem.xfer_user_data = NULL;
+		res = gsi_queue_xfer(prod_sys->ep->gsi_chan_hdl, 1,
+				&xfer_elem, true);
+		if (res) {
+			IPADMA_ERR(
+				"Failed: gsi_queue_xfer src descr res:%d\n",
+				 res);
+			BUG();
+		}
+	} else {
+		res = sps_transfer_one(cons_sys->ep->ep_hdl, dest, len,
+			NULL, 0);
+		if (res) {
+			IPADMA_ERR("Failed: sps_transfer_one on dest descr\n");
+			goto fail_send;
+		}
+		res = sps_transfer_one(prod_sys->ep->ep_hdl, src, len,
+			NULL, SPS_IOVEC_FLAG_EOT);
+		if (res) {
+			IPADMA_ERR("Failed: sps_transfer_one on src descr\n");
+			BUG();
+		}
 	}
 	head_descr = list_first_entry(&cons_sys->head_desc_list,
 				struct ipa3_dma_xfer_wrapper, link);
@@ -454,15 +474,28 @@ int ipa3_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src, int len)
 
 	do {
 		/* wait for transfer to complete */
-		res = sps_get_iovec(cons_sys->ep->ep_hdl, &iov);
-		if (res)
-			IPADMA_ERR("Failed: get_iovec, returned %d loop#:%d\n"
-			, res, i);
-
+		if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
+			res = gsi_poll_channel(cons_sys->ep->gsi_chan_hdl,
+				&gsi_notify);
+			if (res == GSI_STATUS_SUCCESS)
+				stop_polling = true;
+			else if (res != GSI_STATUS_POLL_EMPTY)
+				IPADMA_ERR(
+					"Failed: gsi_poll_chanel, returned %d loop#:%d\n",
+					res, i);
+		} else {
+			res = sps_get_iovec(cons_sys->ep->ep_hdl, &iov);
+			if (res)
+				IPADMA_ERR(
+					"Failed: get_iovec, returned %d loop#:%d\n",
+					res, i);
+			if (iov.addr != 0)
+				stop_polling = true;
+		}
 		usleep_range(IPA_DMA_POLLING_MIN_SLEEP_RX,
 			IPA_DMA_POLLING_MAX_SLEEP_RX);
 		i++;
-	} while (iov.addr == 0);
+	} while (!stop_polling);
 
 	mutex_lock(&ipa3_dma_ctx->sync_lock);
 	list_del(&head_descr->link);
@@ -475,9 +508,14 @@ int ipa3_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src, int len)
 		complete(&head_descr->xfer_done);
 	}
 	mutex_unlock(&ipa3_dma_ctx->sync_lock);
-
-	BUG_ON(dest != iov.addr);
-	BUG_ON(len != iov.size);
+	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
+		BUG_ON(len != gsi_notify.bytes_xfered);
+		BUG_ON(dest != ((struct ipa3_dma_xfer_wrapper *)
+				(gsi_notify.xfer_user_data))->phys_addr_dest);
+	} else {
+		BUG_ON(dest != iov.addr);
+		BUG_ON(len != iov.size);
+	}
 	atomic_inc(&ipa3_dma_ctx->total_sync_memcpy);
 	atomic_dec(&ipa3_dma_ctx->sync_memcpy_pending_cnt);
 	if (ipa3_dma_ctx->destroy_pending && !ipa3_dma_work_pending())
@@ -486,7 +524,7 @@ int ipa3_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src, int len)
 	IPADMA_FUNC_EXIT();
 	return res;
 
-fail_sps_send:
+fail_send:
 	list_del(&xfer_descr->link);
 	cons_sys->len--;
 	mutex_unlock(&ipa3_dma_ctx->sync_lock);
@@ -514,7 +552,7 @@ fail_mem_alloc:
  *		-SPS_ERROR: on sps faliures
  *		-EFAULT: descr fifo is full.
  */
-int ipa3_dma_async_memcpy(phys_addr_t dest, phys_addr_t src, int len,
+int ipa3_dma_async_memcpy(u64 dest, u64 src, int len,
 		void (*user_cb)(void *user1), void *user_param)
 {
 	int ep_idx;
@@ -522,6 +560,7 @@ int ipa3_dma_async_memcpy(phys_addr_t dest, phys_addr_t src, int len,
 	struct ipa3_dma_xfer_wrapper *xfer_descr = NULL;
 	struct ipa3_sys_context *prod_sys;
 	struct ipa3_sys_context *cons_sys;
+	struct gsi_xfer_elem xfer_elem_cons, xfer_elem_prod;
 	unsigned long flags;
 
 	IPADMA_FUNC_ENTRY();
@@ -537,6 +576,13 @@ int ipa3_dma_async_memcpy(phys_addr_t dest, phys_addr_t src, int len,
 		IPADMA_ERR("invalid len, %d\n", len);
 		return	-EINVAL;
 	}
+	if (ipa3_ctx->transport_prototype != IPA_TRANSPORT_TYPE_GSI) {
+		if (((u32)src != src) || ((u32)dest != dest)) {
+			IPADMA_ERR(
+				"Bad addr - only 32b addr supported for BAM");
+			return -EINVAL;
+		}
+	}
 	if (!user_cb) {
 		IPADMA_ERR("null pointer: user_cb\n");
 		return -EINVAL;
@@ -549,11 +595,13 @@ int ipa3_dma_async_memcpy(phys_addr_t dest, phys_addr_t src, int len,
 	}
 	atomic_inc(&ipa3_dma_ctx->async_memcpy_pending_cnt);
 	spin_unlock_irqrestore(&ipa3_dma_ctx->pending_lock, flags);
-	if (atomic_read(&ipa3_dma_ctx->async_memcpy_pending_cnt) >=
-		IPA_DMA_MAX_PENDING_ASYNC) {
-		atomic_dec(&ipa3_dma_ctx->async_memcpy_pending_cnt);
-		IPADMA_DBG("Reached pending requests limit\n");
-		return -EFAULT;
+	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_SPS) {
+		if (atomic_read(&ipa3_dma_ctx->async_memcpy_pending_cnt) >=
+				IPA_DMA_MAX_PENDING_ASYNC) {
+			atomic_dec(&ipa3_dma_ctx->async_memcpy_pending_cnt);
+			IPADMA_DBG("Reached pending requests limit\n");
+			return -EFAULT;
+		}
 	}
 
 	ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_MEMCPY_DMA_ASYNC_CONS);
@@ -588,23 +636,54 @@ int ipa3_dma_async_memcpy(phys_addr_t dest, phys_addr_t src, int len,
 	spin_lock_irqsave(&ipa3_dma_ctx->async_lock, flags);
 	list_add_tail(&xfer_descr->link, &cons_sys->head_desc_list);
 	cons_sys->len++;
-	res = sps_transfer_one(cons_sys->ep->ep_hdl, dest, len, xfer_descr, 0);
-	if (res) {
-		IPADMA_ERR("Failed: sps_transfer_one on dest descr\n");
-		goto fail_sps_send;
-	}
-	res = sps_transfer_one(prod_sys->ep->ep_hdl, src, len,
-		NULL, SPS_IOVEC_FLAG_EOT);
-	if (res) {
-		IPADMA_ERR("Failed: sps_transfer_one on src descr\n");
-		BUG();
-		goto fail_sps_send;
+	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
+		xfer_elem_cons.addr = dest;
+		xfer_elem_cons.len = len;
+		xfer_elem_cons.type = GSI_XFER_ELEM_DATA;
+		xfer_elem_cons.flags = GSI_XFER_FLAG_EOT;
+		xfer_elem_cons.xfer_user_data = xfer_descr;
+		xfer_elem_prod.addr = src;
+		xfer_elem_prod.len = len;
+		xfer_elem_prod.type = GSI_XFER_ELEM_DATA;
+		xfer_elem_prod.flags = GSI_XFER_FLAG_EOT;
+		xfer_elem_prod.xfer_user_data = NULL;
+		res = gsi_queue_xfer(cons_sys->ep->gsi_chan_hdl, 1,
+				&xfer_elem_cons, true);
+		if (res) {
+			IPADMA_ERR(
+				"Failed: gsi_queue_xfer on dest descr res: %d\n",
+				res);
+			goto fail_send;
+		}
+		res = gsi_queue_xfer(prod_sys->ep->gsi_chan_hdl, 1,
+				&xfer_elem_prod, true);
+		if (res) {
+			IPADMA_ERR(
+				"Failed: gsi_queue_xfer on src descr res: %d\n",
+				res);
+			BUG();
+			goto fail_send;
+		}
+	} else {
+		res = sps_transfer_one(cons_sys->ep->ep_hdl, dest, len,
+			xfer_descr, 0);
+		if (res) {
+			IPADMA_ERR("Failed: sps_transfer_one on dest descr\n");
+			goto fail_send;
+		}
+		res = sps_transfer_one(prod_sys->ep->ep_hdl, src, len,
+			NULL, SPS_IOVEC_FLAG_EOT);
+		if (res) {
+			IPADMA_ERR("Failed: sps_transfer_one on src descr\n");
+			BUG();
+			goto fail_send;
+		}
 	}
 	spin_unlock_irqrestore(&ipa3_dma_ctx->async_lock, flags);
 	IPADMA_FUNC_EXIT();
 	return res;
 
-fail_sps_send:
+fail_send:
 	list_del(&xfer_descr->link);
 	spin_unlock_irqrestore(&ipa3_dma_ctx->async_lock, flags);
 	kmem_cache_free(ipa3_dma_ctx->ipa_dma_xfer_wrapper_cache, xfer_descr);
@@ -747,10 +826,11 @@ void ipa3_dma_async_memcpy_notify_cb(void *priv
 	list_del(&xfer_descr_expected->link);
 	sys->len--;
 	spin_unlock_irqrestore(&ipa3_dma_ctx->async_lock, flags);
-
-	BUG_ON(xfer_descr_expected->phys_addr_dest != mem_info->phys_base);
-	BUG_ON(xfer_descr_expected->len != mem_info->size);
-
+	if (ipa3_ctx->transport_prototype != IPA_TRANSPORT_TYPE_GSI) {
+		BUG_ON(xfer_descr_expected->phys_addr_dest !=
+				mem_info->phys_base);
+		BUG_ON(xfer_descr_expected->len != mem_info->size);
+	}
 	atomic_inc(&ipa3_dma_ctx->total_async_memcpy);
 	atomic_dec(&ipa3_dma_ctx->async_memcpy_pending_cnt);
 	xfer_descr_expected->callback(xfer_descr_expected->user1);

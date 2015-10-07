@@ -66,8 +66,8 @@ static void ipa_dma_debugfs_destroy(void) {}
  * This struct can wrap both sync and async memcpy transfers descriptors.
  */
 struct ipa_dma_xfer_wrapper {
-	phys_addr_t phys_addr_src;
-	phys_addr_t phys_addr_dest;
+	u64 phys_addr_src;
+	u64 phys_addr_dest;
 	u16 len;
 	struct list_head link;
 	struct completion xfer_done;
@@ -357,7 +357,7 @@ int ipa2_dma_disable(void)
  *		-SPS_ERROR: on sps faliures
  *		-EFAULT: other
  */
-int ipa2_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src, int len)
+int ipa2_dma_sync_memcpy(u64 dest, u64 src, int len)
 {
 	int ep_idx;
 	int res;
@@ -382,6 +382,10 @@ int ipa2_dma_sync_memcpy(phys_addr_t dest, phys_addr_t src, int len)
 	if (len > IPA_DMA_MAX_PKT_SZ || len <= 0) {
 		IPADMA_ERR("invalid len, %d\n", len);
 		return	-EINVAL;
+	}
+	if (((u32)src != src) || ((u32)dest != dest)) {
+		IPADMA_ERR("Bad addr - only 32b addr supported for BAM");
+		return -EINVAL;
 	}
 	spin_lock_irqsave(&ipa_dma_ctx->pending_lock, flags);
 	if (!ipa_dma_ctx->is_enabled) {
@@ -516,7 +520,7 @@ fail_mem_alloc:
  *		-SPS_ERROR: on sps faliures
  *		-EFAULT: descr fifo is full.
  */
-int ipa2_dma_async_memcpy(phys_addr_t dest, phys_addr_t src, int len,
+int ipa2_dma_async_memcpy(u64 dest, u64 src, int len,
 		void (*user_cb)(void *user1), void *user_param)
 {
 	int ep_idx;
@@ -538,6 +542,10 @@ int ipa2_dma_async_memcpy(phys_addr_t dest, phys_addr_t src, int len,
 	if (len > IPA_DMA_MAX_PKT_SZ || len <= 0) {
 		IPADMA_ERR("invalid len, %d\n", len);
 		return	-EINVAL;
+	}
+	if (((u32)src != src) || ((u32)dest != dest)) {
+		IPADMA_ERR("Bad addr - only 32b addr supported for BAM");
+		return -EINVAL;
 	}
 	if (!user_cb) {
 		IPADMA_ERR("null pointer: user_cb\n");
