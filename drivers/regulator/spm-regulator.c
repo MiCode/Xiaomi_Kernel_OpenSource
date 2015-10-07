@@ -126,6 +126,7 @@ struct spm_vreg {
 	bool				online;
 	u16				spmi_base_addr;
 	u8				init_mode;
+	u8				mode;
 	int				step_rate;
 	enum qpnp_regulator_uniq_type	regulator_type;
 	u32				cpu_num;
@@ -413,10 +414,36 @@ static int spm_regulator_is_enabled(struct regulator_dev *rdev)
 	return vreg->online;
 }
 
+static unsigned int spm_regulator_get_mode(struct regulator_dev *rdev)
+{
+	struct spm_vreg *vreg = rdev_get_drvdata(rdev);
+
+	return vreg->mode == QPNP_SMPS_MODE_PWM
+			? REGULATOR_MODE_NORMAL : REGULATOR_MODE_IDLE;
+}
+
+static int spm_regulator_set_mode(struct regulator_dev *rdev, unsigned int mode)
+{
+	struct spm_vreg *vreg = rdev_get_drvdata(rdev);
+
+	/*
+	 * Map REGULATOR_MODE_NORMAL to PWM mode and REGULATOR_MODE_IDLE to
+	 * init_mode.  This ensures that the regulator always stays in PWM mode
+	 * in the case that qcom,mode has been specified as "pwm" in device
+	 * tree.
+	 */
+	vreg->mode
+	 = mode == REGULATOR_MODE_NORMAL ? QPNP_SMPS_MODE_PWM : vreg->init_mode;
+
+	return qpnp_smps_set_mode(vreg, vreg->mode);
+}
+
 static struct regulator_ops spm_regulator_ops = {
 	.get_voltage	= spm_regulator_get_voltage,
 	.set_voltage	= spm_regulator_set_voltage,
 	.list_voltage	= spm_regulator_list_voltage,
+	.get_mode	= spm_regulator_get_mode,
+	.set_mode	= spm_regulator_set_mode,
 	.enable		= spm_regulator_enable,
 	.disable	= spm_regulator_disable,
 	.is_enabled	= spm_regulator_is_enabled,
@@ -689,6 +716,8 @@ static int qpnp_smps_init_mode(struct spm_vreg *vreg)
 				__func__, rc);
 	}
 
+	vreg->mode = vreg->init_mode;
+
 	return rc;
 }
 
@@ -891,7 +920,9 @@ static int spm_regulator_probe(struct spmi_device *spmi)
 	}
 	init_data->constraints.input_uV = init_data->constraints.max_uV;
 	init_data->constraints.valid_ops_mask |= REGULATOR_CHANGE_STATUS
-						| REGULATOR_CHANGE_VOLTAGE;
+			| REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_MODE;
+	init_data->constraints.valid_modes_mask
+				= REGULATOR_MODE_NORMAL | REGULATOR_MODE_IDLE;
 
 	if (!init_data->constraints.name) {
 		dev_err(&spmi->dev, "%s: node is missing regulator name\n",
