@@ -560,6 +560,7 @@ struct ipa_gsi_ep_mem_info {
  * @skip_ep_cfg: boolean field that determines if EP should be configured
  *  by IPA driver
  * @keep_ipa_awake: when true, IPA will not be clock gated
+ * @disconnect_in_progress: Indicates client disconnect in progress.
  */
 struct ipa3_ep_context {
 	int valid;
@@ -594,6 +595,7 @@ struct ipa3_ep_context {
 	bool keep_ipa_awake;
 	struct ipa3_wlan_stats wstats;
 	u32 wdi_state;
+	bool disconnect_in_progress;
 
 	/* sys MUST be the last element of this struct */
 	struct ipa3_sys_context *sys;
@@ -1247,7 +1249,7 @@ struct ipa3_hash_tuple {
  * @tag_process_before_gating: indicates whether to start tag process before
  *  gating IPA clocks
  * @transport_pm: transport power management related information
- * @lan_rx_clnt_notify_lock: protects LAN_CONS packet receive notification CB
+ * @disconnect_lock: protects LAN_CONS packet receive notification CB
  * @pipe_mem_pool: pipe memory pool
  * @dma_pool: special purpose DMA pool
  * @ipa3_active_clients: structure for reference counting connected IPA clients
@@ -1332,7 +1334,7 @@ struct ipa3_context {
 	u32 clnt_hdl_cmd;
 	u32 clnt_hdl_data_in;
 	u32 clnt_hdl_data_out;
-	spinlock_t lan_rx_clnt_notify_lock;
+	spinlock_t disconnect_lock;
 	u8 a5_pipe_index;
 	struct list_head intf_list;
 	struct list_head msg_list;
