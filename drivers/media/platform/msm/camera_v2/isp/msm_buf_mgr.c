@@ -400,7 +400,7 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 				*buf_cnt = temp_buf_info->buf_get_count;
 				if (temp_buf_info->buf_get_count ==
 					bufq->buf_client_count)
-					list_del(
+					list_del_init(
 					&temp_buf_info->share_list);
 				if (temp_buf_info->buf_reuse_flag) {
 					kfree(temp_buf_info);
@@ -427,7 +427,7 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 					MSM_ISP_BUFFER_STATE_QUEUED) {
 
 						/* found one buf */
-						list_del(
+						list_del_init(
 							&temp_buf_info->list);
 						*buf_info = temp_buf_info;
 						break;
@@ -781,7 +781,7 @@ static int msm_isp_flush_buf(struct msm_isp_buf_mgr *buf_mgr,
 		while (!list_empty(&bufq->share_head)) {
 			buf_info = list_entry((&bufq->share_head)->next,
 				typeof(*buf_info), share_list);
-			list_del(&(buf_info->share_list));
+			list_del_init(&(buf_info->share_list));
 			if (buf_info->buf_reuse_flag)
 				kfree(buf_info);
 		 }
