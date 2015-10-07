@@ -140,6 +140,7 @@ struct lmh_debug {
 
 struct lmh_driver_data {
 	struct device			*dev;
+	struct workqueue_struct		*poll_wq;
 	struct delayed_work		poll_work;
 	uint32_t			log_enabled;
 	uint32_t			log_delay;
@@ -368,7 +369,7 @@ static void lmh_poll(struct work_struct *work)
 		enable_irq(lmh_data->irq_num);
 		goto poll_exit;
 	} else {
-		schedule_delayed_work(&lmh_dat->poll_work,
+		queue_delayed_work(lmh_dat->poll_wq, &lmh_dat->poll_work,
 			msecs_to_jiffies(lmh_poll_interval));
 	}
 
@@ -440,7 +441,7 @@ static irqreturn_t lmh_isr_thread(int irq, void *data)
 
 decide_next_action:
 	if (lmh_dat->intr_state == LMH_ISR_POLLING)
-		schedule_delayed_work(&lmh_dat->poll_work,
+		queue_delayed_work(lmh_dat->poll_wq, &lmh_dat->poll_work,
 			msecs_to_jiffies(lmh_poll_interval));
 	else
 		enable_irq(lmh_dat->irq_num);
@@ -1199,7 +1200,14 @@ static int lmh_probe(struct platform_device *pdev)
 	}
 	lmh_data->dev = &pdev->dev;
 
+	lmh_data->poll_wq = alloc_workqueue("lmh_poll_wq", WQ_HIGHPRI, 0);
+	if (!lmh_data->poll_wq) {
+		pr_err("Error allocating workqueue\n");
+		ret = -ENOMEM;
+		goto probe_exit;
+	}
 	INIT_DEFERRABLE_WORK(&lmh_data->poll_work, lmh_poll);
+
 	ret = lmh_sensor_init(pdev);
 	if (ret) {
 		pr_err("Sensor Init failed. err:%d\n", ret);
@@ -1225,6 +1233,8 @@ static int lmh_probe(struct platform_device *pdev)
 	return ret;
 
 probe_exit:
+	if (lmh_data->poll_wq)
+		destroy_workqueue(lmh_data->poll_wq);
 	lmh_data = NULL;
 	return ret;
 }
@@ -1233,7 +1243,7 @@ static int lmh_remove(struct platform_device *pdev)
 {
 	struct lmh_driver_data *lmh_dat = platform_get_drvdata(pdev);
 
-	cancel_delayed_work_sync(&lmh_dat->poll_work);
+	destroy_workqueue(lmh_dat->poll_wq);
 	free_irq(lmh_dat->irq_num, lmh_dat);
 	lmh_remove_sensors();
 	lmh_device_deregister(&lmh_dat->dev_info.dev_ops);
