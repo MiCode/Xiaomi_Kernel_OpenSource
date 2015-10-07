@@ -237,6 +237,15 @@
 			qcom,report-error-on-fault;
 		};
 
+		ipa: qcom,iommu-ctx@1e38000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			reg = <0x1e38000 0x1000>;
+			interrupts = <0 115 0>;
+			qcom,iommu-ctx-sids = <0x2000 0x2004>;
+			qcom,iommu-sid-mask = <0x3fa 0x3f8>;
+			label = "ipa";
+		};
+
 		access_control: qcom,iommu-ctx@1e37000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e37000 0x1000>;
@@ -246,15 +255,6 @@
 			qcom,iommu-sid-mask = <0x3f1 0x3f3 0x3f1
 					0x7f 0x1 0x1 0x3f>;
 			label = "access_control";
-		};
-
-		ipa: qcom,iommu-ctx@1e38000 {
-			compatible = "qcom,msm-smmu-v2-ctx";
-			reg = <0x1e38000 0x1000>;
-			interrupts = <0 115 0>;
-			qcom,iommu-ctx-sids = <0x2000 0x2004>;
-			qcom,iommu-sid-mask = <0x3fa 0x3f8>;
-			label = "ipa";
 		};
 	};
 };
