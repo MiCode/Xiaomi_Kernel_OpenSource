@@ -59,7 +59,8 @@ struct gaudio {
 	struct gaudio_snd_dev		playback;
 	struct gaudio_snd_dev		capture;
 
-	bool				audio_reinit;
+	bool				audio_reinit_capture;
+	bool				audio_reinit_playback;
 	/* TODO */
 };
 
