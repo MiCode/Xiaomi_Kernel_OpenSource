@@ -1898,11 +1898,11 @@ static int IT7260_ts_suspend(struct device *dev)
 		return -EBUSY;
 	}
 
-	/* put the device in low power idle mode */
-	IT7260_ts_chipLowPowerMode(PWR_CTL_LOW_POWER_MODE);
-
 	if (device_may_wakeup(dev)) {
 		if (!gl_ts->device_needs_wakeup) {
+			/* put the device in low power idle mode */
+			IT7260_ts_chipLowPowerMode(PWR_CTL_LOW_POWER_MODE);
+
 			gl_ts->device_needs_wakeup = true;
 			enable_irq_wake(gl_ts->client->irq);
 		}
