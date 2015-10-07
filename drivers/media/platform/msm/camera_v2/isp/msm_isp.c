@@ -38,6 +38,7 @@
 static struct msm_sd_req_vb2_q vfe_vb2_ops;
 static struct msm_isp_buf_mgr vfe_buf_mgr;
 static struct msm_vfe_common_dev_data vfe_common_data;
+static struct dual_vfe_resource dualvfe;
 
 static const struct of_device_id msm_vfe_dt_match[] = {
 	{
@@ -53,8 +54,6 @@ MODULE_DEVICE_TABLE(of, msm_vfe_dt_match);
 #define OVERFLOW_BUFFER_LENGTH 64
 static char stat_line[OVERFLOW_LENGTH];
 
-static struct msm_isp_buf_mgr vfe_buf_mgr;
-static struct dual_vfe_resource dualvfe;
 struct msm_isp_statistics stats;
 struct msm_isp_ub_info ub_info;
 
