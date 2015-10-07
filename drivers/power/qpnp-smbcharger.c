@@ -1668,7 +1668,7 @@ static int smbchg_set_fastchg_current_raw(struct smbchg_chip *chip,
 #define USBIN_SUSPEND_STS_BIT		BIT(3)
 #define USBIN_ACTIVE_PWR_SRC_BIT	BIT(1)
 #define DCIN_ACTIVE_PWR_SRC_BIT		BIT(0)
-#define PARALLEL_REENABLE_TIMER_MS	30000
+#define PARALLEL_REENABLE_TIMER_MS	1000
 #define PARALLEL_CHG_THRESHOLD_CURRENT	1800
 
 static int smbchg_parallel_usb_charging_en(struct smbchg_chip *chip, bool en)
@@ -4856,6 +4856,13 @@ static int smbchg_unprepare_for_pulsing(struct smbchg_chip *chip)
 		goto out;
 	}
 
+	/*
+	 * reset the enabled once flag for parallel charging so
+	 * parallel charging can immediately restart after the HVDCP pulsing
+	 * is complete
+	 */
+	chip->parallel.enabled_once = false;
+
 	/* fake an insertion */
 	pr_smb(PR_MISC, "Faking Insertion\n");
 	rc = fake_insertion_removal(chip, true);
@@ -5104,6 +5111,12 @@ static int smbchg_dm_pulse_lite(struct smbchg_chip *chip)
 static int smbchg_hvdcp3_confirmed(struct smbchg_chip *chip)
 {
 	int rc = 0;
+
+	/*
+	 * reset the enabled once flag for parallel charging because this is
+	 * effectively a new insertion.
+	 */
+	chip->parallel.enabled_once = false;
 
 	pr_smb(PR_MISC, "Retracting HVDCP vote for ICL\n");
 	rc = vote(chip->usb_icl_votable, HVDCP_ICL_VOTER, false, 0);
