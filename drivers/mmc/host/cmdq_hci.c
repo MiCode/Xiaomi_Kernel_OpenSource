@@ -777,8 +777,6 @@ skip_cqterri:
 			mrq->cmdq_req->resp_arg = cmdq_readl(cq_host, CQCRA);
 		}
 
-		mmc->err_mrq = mrq;
-
 		if (cq_host->ops->pm_qos_update)
 			cq_host->ops->pm_qos_update(mmc, NULL, false);
 

@@ -258,6 +258,7 @@ struct mmc_cmdq_context_info {
 #define	CMDQ_STATE_HALT 2
 #define	CMDQ_STATE_RPM_ACTIVE 3
 #define	CMDQ_STATE_CQ_DISABLE 4
+#define	CMDQ_STATE_REQ_TIMED_OUT 5
 	/* no free tag available */
 	unsigned long	req_starved;
 	wait_queue_head_t	queue_empty_wq;
