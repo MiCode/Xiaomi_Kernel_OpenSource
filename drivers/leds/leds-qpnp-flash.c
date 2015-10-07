@@ -1037,20 +1037,19 @@ static int flash_regulator_parse_dt(struct qpnp_flash_led *led,
 			return rc;
 		}
 
-		if (of_find_property(temp, "max-voltage", NULL)) {
-			rc = of_property_read_u32(temp, "max-voltage", &val);
-			if (!rc) {
-				flash_node->reg_data[i].max_volt_uv = val;
-			} else {
-				dev_err(&led->spmi_dev->dev,
-						"Unable to read max voltage\n");
-				return rc;
-			}
+		rc = of_property_read_u32(temp, "max-voltage", &val);
+		if (!rc) {
+			flash_node->reg_data[i].max_volt_uv = val;
+		} else if (rc != -EINVAL) {
+			dev_err(&led->spmi_dev->dev,
+					"Unable to read max voltage\n");
+			return rc;
 		}
+
 		i++;
 	}
 
-	return rc;
+	return 0;
 }
 
 static int flash_regulator_setup(struct qpnp_flash_led *led,
@@ -2425,7 +2424,7 @@ static int qpnp_flash_led_probe(struct spmi_device *spmi)
 			goto error_led_register;
 		}
 
-		if (&led->flash_node[i].num_regulators) {
+		if (led->flash_node[i].num_regulators) {
 			rc = flash_regulator_parse_dt(led, &led->flash_node[i]);
 			if (rc) {
 				dev_err(&led->spmi_dev->dev,
