@@ -12,6 +12,8 @@
 #ifndef _ICNSS_WLAN_H_
 #define _ICNSS_WLAN_H_
 
+#include <linux/interrupt.h>
+
 #define ICNSS_MAX_IRQ_REGISTRATIONS    12
 
 struct icnss_driver_ops {
