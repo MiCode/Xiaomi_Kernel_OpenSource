@@ -71,6 +71,9 @@
 #define MSM_THERMAL_THRESH_CLR    "thresh_clr_degc"
 #define MSM_THERMAL_THRESH_UPDATE "update"
 #define DEVM_NAME_MAX 30
+#define MAX_CPU_NAME 10
+#define OVERALL_TYPE "Overall"
+#define INDIVIDUAL_TYPE  "Individual"
 
 #define VALIDATE_AND_SET_MASK(_node, _key, _mask, _cpu) \
 	do { \
@@ -165,6 +168,7 @@ static bool gfx_warm_phase_ctrl_enabled;
 static bool cx_phase_ctrl_enabled;
 static bool vdd_mx_enabled;
 static bool therm_reset_enabled;
+static bool ktm_prog_thresh_enabled;
 static bool online_core;
 static bool cluster_info_probed;
 static bool cluster_info_nodes_called;
@@ -199,6 +203,7 @@ static int tsens_scaling_factor = SENSOR_SCALING_FACTOR;
 
 static LIST_HEAD(devices_list);
 static LIST_HEAD(thresholds_list);
+static LIST_HEAD(prog_rules_list);
 static int mitigation = 1;
 
 enum thermal_threshold {
@@ -242,6 +247,27 @@ struct cpu_info {
 	bool freq_thresh_clear;
 	struct cluster_info *parent_ptr;
 };
+
+struct thermal_progressive_rule {
+	struct list_head                 list_ptr;
+	uint32_t                         cluster_id;
+	long                             high_temp;
+	long                             low_temp;
+	int                              cur_freq_idx;
+	int                              freq_idx_low;
+	int                              freq_idx_high;
+	struct msm_sensor_info           *sensor_info;
+	struct threshold_info            thresh;
+	struct delayed_work              prog_work;
+	uint32_t                         polling_delay_ms;
+	enum msm_therm_progressive_state overall_prog_state;
+	union device_request             cur_req;
+	struct device_clnt_data          *handle;
+};
+
+#define MSM_GET_THRESHOLD_PTR(_work) \
+	(container_of(container_of(_work, struct delayed_work, work),\
+		struct thermal_progressive_rule, prog_work))
 
 struct rail {
 	const char *name;
@@ -3191,6 +3217,70 @@ exit:
 	return ret;
 }
 
+static int evaluate_freq_idx(struct thermal_progressive_rule *prog,
+		long temp, int idx, int low_idx,
+		int max_idx)
+{
+	if (temp >= prog->high_temp)
+		idx = max_t(int, low_idx, idx - 1);
+	else if (temp <= prog->low_temp)
+		idx = max_idx;
+	else
+		idx = min_t(int, max_idx, idx + 1);
+
+	return idx;
+}
+
+static void do_prog_freq_control(struct thermal_progressive_rule *prog,
+		long temp)
+{
+	uint32_t _cluster = 0;
+	int idx = 0, ret = 0;
+	struct cluster_info *cluster_ptr = NULL;
+	struct cpufreq_frequency_table *freq_table = NULL;
+
+	idx = evaluate_freq_idx(prog, temp, prog->cur_freq_idx,
+		prog->freq_idx_low, prog->freq_idx_high);
+	if (idx == prog->cur_freq_idx)
+		return;
+	prog->cur_freq_idx = idx;
+	if (core_ptr) {
+		for (; _cluster < core_ptr->entity_count; _cluster++) {
+			cluster_ptr = &core_ptr->child_entity_ptr[_cluster];
+			if (cluster_ptr->cluster_id == prog->cluster_id) {
+				freq_table = cluster_ptr->freq_table;
+				break;
+			}
+		}
+	} else {
+		if (!freq_table_get)
+			return;
+		freq_table = table;
+	}
+
+	if (!freq_table)
+		return;
+
+	prog->cur_req.freq.max_freq = freq_table[idx].frequency;
+	prog->cur_req.freq.min_freq = CPUFREQ_MIN_NO_MITIGATION;
+	ret = devmgr_client_request_mitigation(prog->handle,
+			CPUFREQ_MITIGATION_REQ,
+			&prog->cur_req);
+	if (ret) {
+		pr_err(
+		"progressive req failed for clstr:%d freq:%u Temp:%ld err:%d\n"
+		, cluster_ptr->cluster_id, freq_table[idx].frequency,
+		temp, ret);
+		return;
+	}
+	trace_thermal_progressive_mitigate(prog->sensor_info->name,
+		cluster_ptr ? cluster_ptr->cluster_id : 0,
+		freq_table[idx].frequency);
+	pr_debug("Sensor:%s Limiting Cluster%d max frequency to %u. Temp:%ld\n",
+		prog->sensor_info->name, cluster_ptr->cluster_id,
+		freq_table[idx].frequency, temp);
+}
+
 static void do_freq_control(long temp)
 {
 	uint32_t cpu = 0;
@@ -3847,6 +3937,57 @@ therm_set_exit:
 	return ret;
 }
 
+static void msm_prog_freq_notify(struct therm_threshold *trig_thresh)
+{
+	struct threshold_info *prog_thresh = trig_thresh->parent;
+	struct thermal_progressive_rule *prog = container_of(prog_thresh,
+		struct thermal_progressive_rule, thresh);
+
+	if (!enabled) {
+		prog->overall_prog_state = MSM_THERM_PROGRESSIVE_MONITOR;
+		return;
+	}
+
+	switch (prog->overall_prog_state) {
+	case MSM_THERM_PROGRESSIVE_SAMPLING:
+		do_prog_freq_control(prog, prog_thresh->curr_max_temp);
+		if (prog->cur_freq_idx == prog->freq_idx_high) {
+			prog->overall_prog_state =
+				MSM_THERM_PROGRESSIVE_PAUSED;
+			trace_thermal_progressive_state(
+				prog->sensor_info->name, OVERALL_TYPE,
+				prog->overall_prog_state);
+			pr_debug("sensor=%s type=%s curr_state=%s\n",
+				prog->sensor_info->name, OVERALL_TYPE,
+				prog->overall_prog_state ?
+				(prog->overall_prog_state == 1 ?
+				"paused" : "monitor") : "sampling");
+		}
+		break;
+	case MSM_THERM_PROGRESSIVE_MONITOR:
+		do_prog_freq_control(prog, prog_thresh->curr_max_temp);
+		if (prog->cur_freq_idx != prog->freq_idx_high) {
+			prog->overall_prog_state =
+				MSM_THERM_PROGRESSIVE_SAMPLING;
+			trace_thermal_progressive_state(
+				prog->sensor_info->name, OVERALL_TYPE,
+				prog->overall_prog_state);
+			pr_debug("sensor=%s type=%s curr_state=%s\n",
+				prog->sensor_info->name, OVERALL_TYPE,
+				prog->overall_prog_state ?
+				(prog->overall_prog_state == 1 ?
+				"paused" : "monitor") : "sampling");
+		}
+		break;
+	case MSM_THERM_PROGRESSIVE_PAUSED:
+		break;
+	default:
+		pr_err("Invalid ss state:%d\n",
+			prog->overall_prog_state);
+		break;
+	}
+}
+
 static void cx_phase_ctrl_notify(struct therm_threshold *trig_thresh)
 {
 	static uint32_t cx_sens_status;
@@ -3974,6 +4115,101 @@ gfx_phase_ctrl_exit:
 	return;
 }
 
+static void msm_progressive_monitor(struct work_struct *work)
+{
+	int ret = 0, idx = 0, thresh_clr_ct = 0;
+	enum msm_therm_progressive_state new_prog_state =
+		MSM_THERM_PROGRESSIVE_MONITOR;
+	long temp = LONG_MIN, max_temp = LONG_MIN;
+	struct thermal_progressive_rule *prog = MSM_GET_THRESHOLD_PTR(work);
+	struct threshold_info *prog_thresh = &prog->thresh;
+
+	mutex_lock(&prog_thresh->lock);
+	for (; idx < prog_thresh->thresh_ct; idx++) {
+		struct therm_threshold *sensor_data =
+			&prog_thresh->thresh_list[idx];
+
+		ret = therm_get_temp(sensor_data->sensor_id,
+			sensor_data->id_type, &temp);
+		if (ret) {
+			pr_err("sensor:%d. temperature read err:%d\n",
+				sensor_data->sensor_id, ret);
+			temp = LONG_MIN;
+		}
+		max_temp = max(max_temp, temp);
+		pr_debug("Sensor:%d temp:%ld polling_delay_ms:%d\n",
+			sensor_data->sensor_id, temp, prog->polling_delay_ms);
+
+		trace_thermal_progressive_sampling(prog->sensor_info->name,
+			temp);
+
+		switch (sensor_data->prog_state) {
+		case MSM_THERM_PROGRESSIVE_SAMPLING:
+		case MSM_THERM_PROGRESSIVE_PAUSED:
+			if (temp == LONG_MIN) {
+				sensor_data->prog_state =
+					MSM_THERM_PROGRESSIVE_PAUSED;
+				break;
+			}
+			if (temp >= sensor_data->threshold[0].temp) {
+				new_prog_state = MSM_THERM_PROGRESSIVE_SAMPLING;
+				sensor_data->prog_state =
+					MSM_THERM_PROGRESSIVE_SAMPLING;
+			} else {
+				if (sensor_data->prog_state ==
+					MSM_THERM_PROGRESSIVE_SAMPLING) {
+					sensor_data->prog_trip_clear = true;
+					sensor_data->prog_state =
+						MSM_THERM_PROGRESSIVE_PAUSED;
+				}
+			}
+			break;
+		case MSM_THERM_PROGRESSIVE_MONITOR:
+			thresh_clr_ct++;
+			break;
+		default:
+			pr_err("Invalid progressive state:%d. sensor:%d\n",
+				sensor_data->prog_state,
+				sensor_data->sensor_id);
+			break;
+		}
+		trace_thermal_progressive_state(
+			prog->sensor_info->name, INDIVIDUAL_TYPE,
+				sensor_data->prog_state);
+
+		if (sensor_data->prog_trip_clear) {
+			sensor_mgr_set_threshold(sensor_data->sensor_id,
+				sensor_data->threshold);
+			sensor_data->prog_trip_clear = false;
+		}
+	}
+
+	prog_thresh->curr_max_temp = max_temp;
+	if (new_prog_state == MSM_THERM_PROGRESSIVE_SAMPLING)
+		goto start_sampling;
+	else if (thresh_clr_ct == prog_thresh->thresh_ct)
+		new_prog_state = MSM_THERM_PROGRESSIVE_MONITOR;
+	else if (prog->cur_freq_idx < prog->freq_idx_high)
+		new_prog_state = MSM_THERM_PROGRESSIVE_SAMPLING;
+	else
+		new_prog_state = MSM_THERM_PROGRESSIVE_PAUSED;
+
+start_sampling:
+	trace_thermal_progressive_state(
+		prog->sensor_info->name, OVERALL_TYPE, new_prog_state);
+	pr_debug("sensor=%s type=%s curr_state=%s\n",
+		prog->sensor_info->name, OVERALL_TYPE, new_prog_state ?
+		(new_prog_state == 1 ? "paused" : "monitor") : "sampling");
+
+	prog->overall_prog_state = new_prog_state;
+	prog_thresh->thresh_list[0].notify(&prog_thresh->thresh_list[0]);
+
+	if (prog->overall_prog_state == MSM_THERM_PROGRESSIVE_SAMPLING)
+		schedule_delayed_work(&prog->prog_work,
+			msecs_to_jiffies(prog->polling_delay_ms));
+	mutex_unlock(&prog_thresh->lock);
+}
+
 static void vdd_restriction_notify(struct therm_threshold *trig_thresh)
 {
 	int ret = 0;
@@ -4072,10 +4308,136 @@ set_and_exit:
 	return;
 }
 
+static void process_progressive_trip(struct threshold_info *thresh_inp,
+			struct therm_threshold *sensor_data)
+{
+	struct thermal_progressive_rule *prog = container_of(thresh_inp,
+			struct thermal_progressive_rule, thresh);
+
+	pr_debug("progressive notify: sensor:%s trip:%d\n",
+		prog->sensor_info->name, sensor_data->trip_triggered);
+	mutex_lock(&thresh_inp->lock);
+	switch (sensor_data->trip_triggered) {
+	case THERMAL_TRIP_CONFIGURABLE_HI:
+		sensor_data->prog_state = MSM_THERM_PROGRESSIVE_SAMPLING;
+		break;
+	case THERMAL_TRIP_CONFIGURABLE_LOW:
+		sensor_data->prog_state = MSM_THERM_PROGRESSIVE_MONITOR;
+		break;
+	default:
+		pr_err("Err trip:%d sensor:%s\n",
+			sensor_data->trip_triggered, prog->sensor_info->name);
+		goto process_prog_exit;
+	}
+
+	sensor_data->prog_trip_clear = true;
+	if (prog->overall_prog_state != MSM_THERM_PROGRESSIVE_SAMPLING)
+		schedule_delayed_work(&prog->prog_work, 0);
+
+process_prog_exit:
+	mutex_unlock(&thresh_inp->lock);
+}
+
+static int init_prog_threshold(struct thermal_progressive_rule *prog)
+{
+	int ret = 0;
+	uint32_t _cluster = 0, idx = 0;
+	int sensor_id = -1;
+	char cpu_str[MAX_CPU_NAME];
+	struct cluster_info *cluster_ptr = NULL;
+
+	if (core_ptr) {
+		for (; _cluster < core_ptr->entity_count; _cluster++) {
+			cluster_ptr =
+				&core_ptr->child_entity_ptr[_cluster];
+			if (cluster_ptr->cluster_id == prog->cluster_id) {
+				prog->freq_idx_low =
+					cluster_ptr->freq_idx_low;
+				prog->freq_idx_high =
+					cluster_ptr->freq_idx_high;
+				prog->cur_freq_idx =
+					cluster_ptr->freq_idx_high;
+				break;
+			}
+		}
+		if (_cluster >= core_ptr->entity_count) {
+			pr_err("Invalid cluster id:%d\n", prog->cluster_id);
+			ret = -EINVAL;
+			goto prog_exit;
+		}
+		snprintf(cpu_str, MAX_CPU_NAME, "cpu%d",
+			first_cpu(cluster_ptr->cluster_cores));
+	} else {
+		/* Assume cluster id is core number */
+		if (prog->cluster_id < num_possible_cpus()) {
+			snprintf(cpu_str, MAX_CPU_NAME, "cpu%d",
+				prog->cluster_id);
+			prog->freq_idx_low = limit_idx_low;
+			prog->freq_idx_high = prog->cur_freq_idx =
+				limit_idx_high;
+		} else {
+			pr_err("Invalid core:%d\n", prog->cluster_id);
+			ret = -EINVAL;
+			goto prog_exit;
+		}
+	}
+
+	prog->cur_req.freq.max_freq = CPUFREQ_MAX_NO_MITIGATION;
+	prog->cur_req.freq.min_freq = CPUFREQ_MIN_NO_MITIGATION;
+	prog->handle = devmgr_register_mitigation_client(
+		&msm_thermal_info.pdev->dev, cpu_str, NULL);
+	if (IS_ERR(prog->handle)) {
+		ret = PTR_ERR(prog->handle);
+		pr_err("Error registering for cpufreq. ret:%d\n", ret);
+		goto prog_exit;
+	}
+
+	if (sscanf(prog->sensor_info->name,
+		"tsens_tz_sensor%d", &sensor_id) != 1) {
+		pr_err("Invalid sensor:%s\n", prog->sensor_info->name);
+		ret = -EINVAL;
+		goto prog_exit;
+	}
+
+	ret = sensor_mgr_init_threshold(&msm_thermal_info.pdev->dev,
+			&prog->thresh, sensor_id, prog->high_temp,
+			prog->low_temp, msm_prog_freq_notify);
+	if (ret) {
+		pr_err("sensor:%d err:%d\n", sensor_id, ret);
+		goto prog_exit;
+	}
+	prog->thresh.algo_type = MSM_THERM_PROGRESSIVE;
+
+	/* For initial thresholds check set state to sampling */
+	for (; idx < prog->thresh.thresh_ct; idx++)
+		prog->thresh.thresh_list[idx].prog_state =
+			MSM_THERM_PROGRESSIVE_SAMPLING;
+	prog->overall_prog_state = MSM_THERM_PROGRESSIVE_SAMPLING;
+	INIT_DEFERRABLE_WORK(&prog->prog_work, msm_progressive_monitor);
+
+	pr_debug(
+	"Progressive:sensor:%d clst_id:%d h_temp:%ld l_temp:%ld poll_ms:%d\n",
+		sensor_id, prog->cluster_id, prog->high_temp,
+		prog->low_temp, prog->polling_delay_ms);
+
+prog_exit:
+	if (ret && prog) {
+		if (prog->handle) {
+			devmgr_unregister_mitigation_client(
+				&msm_thermal_info.pdev->dev, prog->handle);
+			prog->handle = NULL;
+		}
+		if (prog->thresh.thresh_list)
+			sensor_mgr_remove_threshold(&msm_thermal_info.pdev->dev,
+					&prog->thresh);
+	}
+	return ret;
+}
+
 static __ref int do_thermal_monitor(void *data)
 {
 	int ret = 0, j;
-	struct therm_threshold *sensor_list;
+	struct therm_threshold *sensor_data = NULL;
 	struct threshold_info *thresholds = NULL;
 
 	while (!kthread_should_stop()) {
@@ -4090,11 +4452,25 @@ static __ref int do_thermal_monitor(void *data)
 				continue;
 			thresholds->thresh_triggered = false;
 			for (j = 0; j < thresholds->thresh_ct; j++) {
-				sensor_list = &thresholds->thresh_list[j];
-				if (sensor_list->trip_triggered < 0)
+				sensor_data = &thresholds->thresh_list[j];
+				if (sensor_data->trip_triggered < 0)
 					continue;
-				sensor_list->notify(sensor_list);
-				sensor_list->trip_triggered = -1;
+
+				switch (thresholds->algo_type) {
+				case MSM_THERM_MONITOR:
+					sensor_data->notify(sensor_data);
+					break;
+				case MSM_THERM_PROGRESSIVE:
+					process_progressive_trip(thresholds,
+						sensor_data);
+					break;
+				default:
+					pr_err("Err algo:%d sensor:%d\n",
+						thresholds->algo_type,
+						sensor_data->sensor_id);
+					break;
+				}
+				sensor_data->trip_triggered = -1;
 			}
 		}
 		mutex_unlock(&threshold_mutex);
@@ -4156,6 +4532,8 @@ therm_set_exit:
 
 static void thermal_monitor_init(void)
 {
+	struct thermal_progressive_rule *prog = NULL;
+
 	if (thermal_monitor_task)
 		return;
 
@@ -4198,6 +4576,18 @@ static void thermal_monitor_init(void)
 		!(convert_to_zone_id(&thresh[MSM_VDD_MX_RESTRICTION])))
 		therm_set_threshold(&thresh[MSM_VDD_MX_RESTRICTION]);
 
+	if (ktm_prog_thresh_enabled) {
+		list_for_each_entry(prog, &prog_rules_list, list_ptr) {
+			if (!init_prog_threshold(prog) &&
+				!convert_to_zone_id(&prog->thresh)) {
+				/* Check initial thresholds */
+				schedule_delayed_work(
+				&prog->prog_work, 0);
+				therm_set_threshold(&prog->thresh);
+			}
+		}
+	}
+
 init_exit:
 	return;
 }
@@ -4236,6 +4626,9 @@ int sensor_mgr_init_threshold(struct device *dev,
 	}
 
 	mutex_lock(&threshold_mutex);
+	thresh_inp->algo_type = MSM_THERM_MONITOR;
+	thresh_inp->curr_max_temp = LONG_MIN;
+	mutex_init(&thresh_inp->lock);
 	thresh_inp->thresh_ct = (sensor_id == MONITOR_ALL_TSENS) ?
 						max_tsens_num : 1;
 	thresh_inp->thresh_triggered = false;
@@ -4268,6 +4661,9 @@ int sensor_mgr_init_threshold(struct device *dev,
 			thresh_ptr[i].threshold[0].data =
 			thresh_ptr[i].threshold[1].data =
 				(void *)&thresh_ptr[i];
+			thresh_ptr[i].prog_trip_clear = false;
+			thresh_ptr[i].prog_state =
+				MSM_THERM_PROGRESSIVE_MONITOR;
 		}
 	} else {
 		thresh_ptr->sensor_id = sensor_id;
@@ -4285,6 +4681,8 @@ int sensor_mgr_init_threshold(struct device *dev,
 		thresh_ptr->threshold[1].notify = msm_thermal_notify;
 		thresh_ptr->threshold[0].data =
 		thresh_ptr->threshold[1].data = (void *)thresh_ptr;
+		thresh_ptr->prog_trip_clear = false;
+		thresh_ptr->prog_state = MSM_THERM_PROGRESSIVE_MONITOR;
 	}
 	list_add_tail(&thresh_inp->list_ptr, &thresholds_list);
 
@@ -4470,16 +4868,40 @@ static void interrupt_mode_init(void)
 	}
 }
 
+static void ktm_progressive_exit(void)
+{
+	int ret = 0;
+	struct thermal_progressive_rule *prog = NULL, *next_prog = NULL;
+
+	list_for_each_entry_safe(prog, next_prog, &prog_rules_list, list_ptr) {
+		cancel_delayed_work_sync(&prog->prog_work);
+		sensor_mgr_remove_threshold(&msm_thermal_info.pdev->dev,
+			&prog->thresh);
+		prog->cur_req.freq.max_freq = CPUFREQ_MAX_NO_MITIGATION;
+		prog->cur_req.freq.min_freq = CPUFREQ_MIN_NO_MITIGATION;
+		ret = devmgr_client_request_mitigation(prog->handle,
+			CPUFREQ_MITIGATION_REQ, &prog->cur_req);
+		if (ret)
+			pr_err(
+			"progressive mitigation clr error for clstr:%d err:%d\n"
+			, prog->cluster_id, ret);
+	}
+}
+
 static int __ref set_enabled(const char *val, const struct kernel_param *kp)
 {
 	int ret = 0;
 
 	ret = param_set_bool(val, kp);
-	if (!enabled)
+	if (!enabled) {
+		if (ktm_prog_thresh_enabled)
+			ktm_progressive_exit();
+		disable_msm_thermal();
 		interrupt_mode_init();
-	else
+	} else {
 		pr_info("no action for enabled = %d\n",
 			enabled);
+	}
 
 	pr_info("enabled = %d\n", enabled);
 
@@ -5845,6 +6267,91 @@ fetch_mitig_exit:
 	return err;
 }
 
+static int probe_prog_threshold(struct device_node *node,
+			struct platform_device *pdev,
+			struct msm_sensor_info *sensor_info)
+{
+	int ret = 0, max_entry = 0, idx = 0, val = 0;
+	int poll_ms = 0, cluster_id = -1, high_temp = 0, low_temp = 0;
+	char *key = NULL;
+
+	key = "qcom,ktm-prog-mitigation-config";
+	if (!of_get_property(node, key, &max_entry)
+		|| max_entry <= 0) {
+		return -ENODEV;
+	}
+	max_entry /= sizeof(__be32);
+
+	for (idx = 0; idx < max_entry; idx++) {
+		struct thermal_progressive_rule *prog = NULL;
+
+		ret = 0;
+		/* Read Cluster ID */
+		ret = of_property_read_u32_index(node, key, idx++, &val);
+		if (ret) {
+			pr_err("Error reading index%d. err:%d\n", idx - 1,
+				ret);
+			goto prog_exit;
+		}
+		cluster_id = val;
+
+		/* Read high thresh */
+		ret = of_property_read_u32_index(node, key, idx++,
+			&val);
+		if (ret) {
+			pr_err("Error reading index%d. err:%d\n", idx - 1,
+				ret);
+			goto prog_exit;
+		}
+		high_temp = val;
+
+		/* Read low thresh */
+		ret = of_property_read_u32_index(node, key, idx++,
+			&val);
+		if (ret) {
+			pr_err("Error reading index%d. err:%d\n", idx - 1,
+				ret);
+			goto prog_exit;
+		}
+		low_temp = val;
+
+		/* Read progressive sampling */
+		ret = of_property_read_u32_index(node, key, idx,
+			&val);
+		if (ret) {
+			pr_err("Error reading index%d. err:%d\n", idx,
+				ret);
+			goto prog_exit;
+		}
+		poll_ms = val;
+
+		prog = devm_kzalloc(&pdev->dev,
+				sizeof(struct thermal_progressive_rule),
+				GFP_KERNEL);
+		if (!prog) {
+			ret = -ENOMEM;
+			goto prog_exit;
+		}
+		prog->cluster_id = cluster_id;
+		prog->high_temp = high_temp;
+		prog->low_temp = low_temp;
+		prog->polling_delay_ms = poll_ms;
+		prog->sensor_info = sensor_info;
+		list_add_tail(&prog->list_ptr, &prog_rules_list);
+
+prog_exit:
+		if (ret && prog) {
+			devm_kfree(&pdev->dev, prog);
+			prog = NULL;
+		}
+	}
+
+	if (!list_empty_careful(&prog_rules_list))
+		ktm_prog_thresh_enabled = true;
+
+	return ret;
+}
+
 static void probe_sensor_info(struct device_node *node,
 		struct msm_thermal_data *data, struct platform_device *pdev)
 {
@@ -5884,6 +6391,7 @@ static void probe_sensor_info(struct device_node *node,
 		goto read_node_fail;
 	}
 
+	INIT_LIST_HEAD(&prog_rules_list);
 	for_each_child_of_node(np, child_node) {
 		key = "qcom,sensor-type";
 		err = of_property_read_string(child_node,
@@ -5915,6 +6423,8 @@ static void probe_sensor_info(struct device_node *node,
 					sensors[i].scaling_factor;
 			}
 		}
+
+		probe_prog_threshold(child_node, pdev, &sensors[i]);
 		i++;
 	}
 
@@ -6936,6 +7446,7 @@ probe_exit:
 static int msm_thermal_dev_exit(struct platform_device *inp_dev)
 {
 	int i = 0;
+	struct thermal_progressive_rule *prog = NULL, *next_prog = NULL;
 
 	unregister_reboot_notifier(&msm_thermal_reboot_notifier);
 	if (msm_therm_debugfs && msm_therm_debugfs->parent)
@@ -6974,6 +7485,18 @@ static int msm_thermal_dev_exit(struct platform_device *inp_dev)
 		kfree(thresh);
 		thresh = NULL;
 	}
+
+	if (ktm_prog_thresh_enabled) {
+		ktm_progressive_exit();
+		list_for_each_entry_safe(prog, next_prog,
+			&prog_rules_list, list_ptr) {
+			list_del(&prog->list_ptr);
+			devm_kfree(&inp_dev->dev, prog);
+			prog = NULL;
+		}
+		ktm_prog_thresh_enabled = false;
+	}
+
 	return 0;
 }
 

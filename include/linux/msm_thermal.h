@@ -82,21 +82,39 @@ enum sensor_id_type {
 	THERM_ID_MAX_NR,
 };
 
+enum msm_therm_progressive_state {
+	MSM_THERM_PROGRESSIVE_SAMPLING,
+	MSM_THERM_PROGRESSIVE_PAUSED,
+	MSM_THERM_PROGRESSIVE_MONITOR,
+	MSM_THERM_PROGRESSIVE_NR,
+};
+
+enum msm_therm_monitor_type {
+	MSM_THERM_MONITOR,
+	MSM_THERM_PROGRESSIVE,
+	MSM_THERM_NR,
+};
+
 struct threshold_info;
 struct therm_threshold {
-	int32_t                     sensor_id;
-	enum sensor_id_type         id_type;
-	struct sensor_threshold     threshold[MAX_THRESHOLD];
-	int32_t                     trip_triggered;
+	int32_t                          sensor_id;
+	enum sensor_id_type              id_type;
+	struct sensor_threshold          threshold[MAX_THRESHOLD];
+	int32_t                          trip_triggered;
 	void (*notify)(struct therm_threshold *);
-	struct threshold_info       *parent;
+	struct threshold_info            *parent;
+	enum msm_therm_progressive_state prog_state;
+	bool                             prog_trip_clear;
 };
 
 struct threshold_info {
-	uint32_t                     thresh_ct;
-	bool                         thresh_triggered;
-	struct list_head             list_ptr;
-	struct therm_threshold       *thresh_list;
+	uint32_t                    thresh_ct;
+	bool                        thresh_triggered;
+	struct list_head            list_ptr;
+	enum msm_therm_monitor_type algo_type;
+	struct mutex                lock;
+	long                        curr_max_temp;
+	struct therm_threshold      *thresh_list;
 };
 
 enum device_req_type {
