@@ -887,6 +887,8 @@ static enum MHI_STATUS uci_init_client_attributes(struct mhi_uci_ctxt_t
 		case MHI_CLIENT_IP_CTRL_0_IN:
 		case MHI_CLIENT_IP_CTRL_1_OUT:
 		case MHI_CLIENT_IP_CTRL_1_IN:
+		case MHI_CLIENT_BL_OUT:
+		case MHI_CLIENT_BL_IN:
 		case MHI_CLIENT_DUN_OUT:
 		case MHI_CLIENT_DUN_IN:
 			chan_attrib->uci_ownership = 1;
