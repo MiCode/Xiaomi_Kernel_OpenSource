@@ -275,7 +275,7 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 	struct msm_audio *prtd = runtime->private_data;
 	struct msm_plat_data *pdata;
 	struct snd_pcm_hw_params *params;
-	int ret;
+	int ret = 0;
 	uint16_t bits_per_sample = 16;
 
 	pdata = (struct msm_plat_data *)
@@ -306,8 +306,6 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 			FORMAT_LINEAR_PCM, bits_per_sample);
 	if (ret < 0) {
 		pr_err("%s: q6asm_open_write_v2 failed\n", __func__);
-		q6asm_audio_client_free(prtd->audio_client);
-		prtd->audio_client = NULL;
 		return -ENOMEM;
 	}
 
@@ -319,6 +317,13 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 			prtd->session_id, substream->stream);
 	if (ret) {
 		pr_err("%s: stream reg failed ret:%d\n", __func__, ret);
+		ret = q6asm_cmd(prtd->audio_client, CMD_CLOSE);
+		if (ret < 0) {
+			pr_err("%s: error: ASM close failed returned %d\n",
+				__func__, ret);
+			goto done;
+		}
+		prtd->session_id = 0;
 		return ret;
 	}
 
@@ -343,8 +348,8 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 	prtd->enabled = 1;
 	prtd->cmd_pending = 0;
 	prtd->cmd_interrupt = 0;
-
-	return 0;
+done:
+	return ret;
 }
 
 static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
@@ -387,8 +392,6 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 				bits_per_sample);
 		if (ret < 0) {
 			pr_err("%s: q6asm_open_read failed\n", __func__);
-			q6asm_audio_client_free(prtd->audio_client);
-			prtd->audio_client = NULL;
 			return -ENOMEM;
 		}
 
@@ -404,7 +407,14 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 				event);
 		if (ret) {
 			pr_err("%s: stream reg failed ret:%d\n", __func__, ret);
-			return ret;
+			ret = q6asm_cmd(prtd->audio_client, CMD_CLOSE);
+			if (ret < 0) {
+				pr_err("%s: error: ASM close failed returned %d\n",
+					__func__, ret);
+				goto done;
+			}
+			prtd->session_id = 0;
+			goto done;
 		}
 	}
 
@@ -441,7 +451,7 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 		pr_debug("%s: cmd cfg pcm was block failed", __func__);
 
 	prtd->enabled = RUNNING;
-
+done:
 	return ret;
 }
 
@@ -681,7 +691,14 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 		if (!ret)
 			pr_err("%s: CMD_EOS failed, cmd_pending 0x%lx\n",
 			       __func__, prtd->cmd_pending);
-		q6asm_cmd(prtd->audio_client, CMD_CLOSE);
+		if (prtd->session_id) {
+			ret = q6asm_cmd(prtd->audio_client, CMD_CLOSE);
+			if (ret < 0) {
+				pr_err("%s: error: ASM close failed returned %d\n",
+					__func__, ret);
+				goto done;
+			}
+		}
 		q6asm_audio_client_buf_free_contiguous(dir,
 					prtd->audio_client);
 		q6asm_audio_client_free(prtd->audio_client);
@@ -689,7 +706,8 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->be_id,
 						SNDRV_PCM_STREAM_PLAYBACK);
 	kfree(prtd);
-	return 0;
+done:
+	return ret;
 }
 
 static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
@@ -780,10 +798,18 @@ static int msm_pcm_capture_close(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *soc_prtd = substream->private_data;
 	struct msm_audio *prtd = runtime->private_data;
 	int dir = OUT;
+	int rc = 0;
 
 	pr_debug("%s\n", __func__);
 	if (prtd->audio_client) {
-		q6asm_cmd(prtd->audio_client, CMD_CLOSE);
+		if (prtd->session_id) {
+			rc = q6asm_cmd(prtd->audio_client, CMD_CLOSE);
+			if (rc < 0) {
+				pr_err("%s: error: ASM close failed returned %d\n",
+					__func__, rc);
+				goto done;
+			}
+		}
 		q6asm_audio_client_buf_free_contiguous(dir,
 				prtd->audio_client);
 		q6asm_audio_client_free(prtd->audio_client);
@@ -792,8 +818,8 @@ static int msm_pcm_capture_close(struct snd_pcm_substream *substream)
 	msm_pcm_routing_dereg_phy_stream(soc_prtd->dai_link->be_id,
 		SNDRV_PCM_STREAM_CAPTURE);
 	kfree(prtd);
-
-	return 0;
+done:
+	return rc;
 }
 
 static int msm_pcm_copy(struct snd_pcm_substream *substream, int a,

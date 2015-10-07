@@ -372,6 +372,7 @@ static void compr_event_handler(uint32_t opcode,
 	int stream_id;
 	uint32_t stream_index;
 	unsigned long flags;
+	int rc = 0;
 
 	if (!prtd) {
 		pr_err("%s: prtd is NULL\n", __func__);
@@ -470,7 +471,16 @@ static void compr_event_handler(uint32_t opcode,
 			prtd->gapless_state.stream_opened[stream_index]) {
 			pr_debug("%s: CMD_CLOSE stream_id %d\n",
 				  __func__, stream_id);
-			q6asm_stream_cmd_nowait(ac, CMD_CLOSE, stream_id);
+			if (prtd->session_id) {
+				rc = q6asm_stream_cmd_nowait(ac, CMD_CLOSE,
+					stream_id);
+				if (rc < 0) {
+					pr_err("%s: error: ASM close failed returned %d\n",
+						__func__, rc);
+					goto done;
+				}
+				prtd->session_id = 0;
+			}
 			atomic_set(&prtd->close, 1);
 			prtd->gapless_state.stream_opened[stream_index] = 0;
 			prtd->gapless_state.set_next_stream_id = false;
@@ -598,6 +608,8 @@ static void compr_event_handler(uint32_t opcode,
 			  __func__, opcode);
 		break;
 	}
+done:
+	return;
 }
 
 static int msm_compr_get_partial_drain_delay(int frame_sz, int sample_rate)
@@ -933,6 +945,7 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 				__func__, ret, prtd->compr_passthr);
 			return ret;
 		}
+		prtd->session_id = prtd->audio_client->session;
 		ret = msm_pcm_routing_reg_phy_compr_stream(
 				soc_prtd->dai_link->be_id,
 				ac->perf_mode,
@@ -942,6 +955,13 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 		if (ret) {
 			pr_err("%s: compr stream reg failed:%d\n", __func__,
 				ret);
+			ret = q6asm_cmd(prtd->audio_client, CMD_CLOSE);
+			if (ret < 0) {
+				pr_err("%s: error: ASM close failed returned %d\n",
+					__func__, ret);
+				goto done;
+			}
+			prtd->session_id = 0;
 			return ret;
 		}
 	} else {
@@ -957,14 +977,23 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 			 return -ENOMEM;
 		}
 
+		prtd->session_id = prtd->audio_client->session;
 		pr_debug("%s: be_id %d\n", __func__, soc_prtd->dai_link->be_id);
-		ret = msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
+		ret = msm_pcm_routing_reg_phy_stream(
+				soc_prtd->dai_link->be_id,
 				ac->perf_mode,
 				prtd->session_id,
 				SNDRV_PCM_STREAM_PLAYBACK);
 		if (ret) {
-			pr_err("%s: stream reg failed:%d\n", __func__, ret);
-			return ret;
+			pr_err("%s: stream reg failed ret:%d\n", __func__, ret);
+			ret = q6asm_cmd(prtd->audio_client, CMD_CLOSE);
+			if (ret < 0) {
+				pr_err("%s: error: ASM close failed returned %d\n",
+					__func__, ret);
+				goto done;
+			}
+			prtd->session_id = 0;
+			goto done;
 		}
 	}
 
@@ -1019,7 +1048,7 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 	if (ret < 0) {
 		pr_err("%s, failed to send media format block\n", __func__);
 	}
-
+done:
 	return ret;
 }
 
@@ -1174,7 +1203,17 @@ static int msm_compr_free(struct snd_compr_stream *cstream)
 		prtd->gapless_state.stream_opened[stream_index] = 0;
 		spin_unlock_irqrestore(&prtd->lock, flags);
 		pr_debug(" close stream %d", NEXT_STREAM_ID(stream_id));
-		q6asm_stream_cmd(ac, CMD_CLOSE, NEXT_STREAM_ID(stream_id));
+		if (prtd->session_id) {
+			ret = q6asm_stream_cmd(ac, CMD_CLOSE,
+				NEXT_STREAM_ID(stream_id));
+			if (ret < 0) {
+				pr_err("%s: error: ASM close failed returned %d\n",
+					__func__, ret);
+				spin_lock_irqsave(&prtd->lock, flags);
+				goto done;
+			}
+			prtd->session_id = 0;
+		}
 		spin_lock_irqsave(&prtd->lock, flags);
 	}
 
@@ -1184,7 +1223,16 @@ static int msm_compr_free(struct snd_compr_stream *cstream)
 		prtd->gapless_state.stream_opened[stream_index] = 0;
 		spin_unlock_irqrestore(&prtd->lock, flags);
 		pr_debug("close stream %d", stream_id);
-		q6asm_stream_cmd(ac, CMD_CLOSE, stream_id);
+		if (prtd->session_id) {
+			ret = q6asm_stream_cmd(ac, CMD_CLOSE, stream_id);
+			if (ret < 0) {
+				pr_err("%s: error: ASM close failed returned %d\n",
+					__func__, ret);
+				spin_lock_irqsave(&prtd->lock, flags);
+				goto done;
+			}
+			prtd->session_id = 0;
+		}
 		spin_lock_irqsave(&prtd->lock, flags);
 	}
 	spin_unlock_irqrestore(&prtd->lock, flags);
@@ -1204,8 +1252,8 @@ static int msm_compr_free(struct snd_compr_stream *cstream)
 	kfree(pdata->dec_params[soc_prtd->dai_link->be_id]);
 	pdata->dec_params[soc_prtd->dai_link->be_id] = NULL;
 	kfree(prtd);
-
-	return 0;
+done:
+	return ret;
 }
 
 static bool msm_compr_validate_codec_compr(__u32 codec_id)
