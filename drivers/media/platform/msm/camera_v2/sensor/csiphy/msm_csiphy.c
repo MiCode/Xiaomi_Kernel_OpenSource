@@ -1361,7 +1361,7 @@ static int csiphy_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	msm_csiphy_v4l2_subdev_fops = v4l2_subdev_fops;
+	msm_cam_copy_v4l2_subdev_fops(&msm_csiphy_v4l2_subdev_fops);
 #ifdef CONFIG_COMPAT
 	msm_csiphy_v4l2_subdev_fops.compat_ioctl32 =
 		msm_csiphy_subdev_fops_ioctl;

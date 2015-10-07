@@ -176,6 +176,18 @@ static void msm_enqueue(struct msm_queue_head *qhead,
 	spin_unlock_irqrestore(&qhead->lock, flags);
 }
 
+void msm_cam_copy_v4l2_subdev_fops(struct v4l2_file_operations *d1)
+{
+	*d1 = v4l2_subdev_fops;
+}
+EXPORT_SYMBOL(msm_cam_copy_v4l2_subdev_fops);
+
+static const struct v4l2_file_operations *msm_cam_get_v4l2_subdev_fops_ptr(
+	void)
+{
+	return &v4l2_subdev_fops;
+}
+
 /* index = session id */
 static inline int __msm_queue_find_session(void *d1, void *d2)
 {
@@ -292,7 +304,7 @@ static inline int __msm_sd_register_subdev(struct v4l2_subdev *sd)
 	video_set_drvdata(vdev, sd);
 	strlcpy(vdev->name, sd->name, sizeof(vdev->name));
 	vdev->v4l2_dev = msm_v4l2_dev;
-	vdev->fops = &v4l2_subdev_fops;
+	vdev->fops = msm_cam_get_v4l2_subdev_fops_ptr();
 	vdev->release = msm_sd_unregister_subdev;
 	rc = __video_register_device(vdev, VFL_TYPE_SUBDEV, -1, 1,
 		  sd->owner);
@@ -1068,7 +1080,7 @@ static const struct file_operations logsync_fops = {
 
 static int msm_probe(struct platform_device *pdev)
 {
-	struct msm_video_device *pvdev;
+	struct msm_video_device *pvdev = NULL;
 	static struct dentry *cam_debugfs_root;
 	int rc = 0;
 

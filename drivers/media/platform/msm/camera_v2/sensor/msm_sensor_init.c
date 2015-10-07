@@ -194,8 +194,7 @@ static int __init msm_sensor_init_module(void)
 		CDBG("%s: msm_sd_register error = %d\n", __func__, ret);
 		goto error;
 	}
-
-	msm_sensor_init_v4l2_subdev_fops = v4l2_subdev_fops;
+	msm_cam_copy_v4l2_subdev_fops(&msm_sensor_init_v4l2_subdev_fops);
 #ifdef CONFIG_COMPAT
 	msm_sensor_init_v4l2_subdev_fops.compat_ioctl32 =
 		msm_sensor_init_subdev_fops_ioctl;

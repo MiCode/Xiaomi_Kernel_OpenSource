@@ -1680,11 +1680,9 @@ static int ispif_probe(struct platform_device *pdev)
 		pr_err("%s: msm_sd_register error = %d\n", __func__, rc);
 		goto error;
 	}
-	msm_ispif_v4l2_subdev_fops.owner = v4l2_subdev_fops.owner;
-	msm_ispif_v4l2_subdev_fops.open = v4l2_subdev_fops.open;
-	msm_ispif_v4l2_subdev_fops.unlocked_ioctl = msm_ispif_subdev_fops_ioctl;
-	msm_ispif_v4l2_subdev_fops.release = v4l2_subdev_fops.release;
-	msm_ispif_v4l2_subdev_fops.poll = v4l2_subdev_fops.poll;
+	msm_cam_copy_v4l2_subdev_fops(&msm_ispif_v4l2_subdev_fops);
+	msm_ispif_v4l2_subdev_fops.unlocked_ioctl =
+		msm_ispif_subdev_fops_ioctl;
 #ifdef CONFIG_COMPAT
 	msm_ispif_v4l2_subdev_fops.compat_ioctl32 = msm_ispif_subdev_fops_ioctl;
 #endif

@@ -587,12 +587,12 @@ int vfe_hw_probe(struct platform_device *pdev)
 		pr_err("%s: msm_sd_register error = %d\n", __func__, rc);
 		goto probe_fail3;
 	}
-
-	msm_isp_v4l2_fops.owner = v4l2_subdev_fops.owner;
-	msm_isp_v4l2_fops.open = v4l2_subdev_fops.open;
-	msm_isp_v4l2_fops.release = v4l2_subdev_fops.release;
-	msm_isp_v4l2_fops.poll = v4l2_subdev_fops.poll;
-
+	msm_cam_copy_v4l2_subdev_fops(&msm_isp_v4l2_fops);
+	msm_isp_v4l2_fops.unlocked_ioctl = msm_isp_v4l2_fops_ioctl;
+#ifdef CONFIG_COMPAT
+	msm_isp_v4l2_fops.compat_ioctl32 =
+		msm_isp_v4l2_fops_ioctl;
+#endif
 	vfe_dev->subdev.sd.devnode->fops = &msm_isp_v4l2_fops;
 
 	vfe_dev->buf_mgr = &vfe_buf_mgr;

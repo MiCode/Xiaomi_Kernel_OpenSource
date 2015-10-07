@@ -1584,12 +1584,7 @@ static int vpe_probe(struct platform_device *pdev)
 	vpe_dev->msm_sd.sd.entity.group_id = MSM_CAMERA_SUBDEV_VPE;
 	vpe_dev->msm_sd.sd.entity.name = pdev->name;
 	msm_sd_register(&vpe_dev->msm_sd);
-	msm_vpe_v4l2_subdev_fops.owner = v4l2_subdev_fops.owner;
-	msm_vpe_v4l2_subdev_fops.open = v4l2_subdev_fops.open;
-	msm_vpe_v4l2_subdev_fops.unlocked_ioctl = msm_vpe_subdev_fops_ioctl;
-	msm_vpe_v4l2_subdev_fops.release = v4l2_subdev_fops.release;
-	msm_vpe_v4l2_subdev_fops.poll = v4l2_subdev_fops.poll;
-
+	msm_cam_copy_v4l2_subdev_fops(&msm_vpe_v4l2_subdev_fops);
 	vpe_dev->msm_sd.sd.devnode->fops = &msm_vpe_v4l2_subdev_fops;
 	vpe_dev->msm_sd.sd.entity.revision = vpe_dev->msm_sd.sd.devnode->num;
 	vpe_dev->state = VPE_STATE_BOOT;

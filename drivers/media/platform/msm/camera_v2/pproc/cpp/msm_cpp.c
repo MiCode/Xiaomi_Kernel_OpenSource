@@ -4132,10 +4132,12 @@ static int cpp_probe(struct platform_device *pdev)
 	cpp_dev->msm_sd.sd.entity.name = pdev->name;
 	cpp_dev->msm_sd.close_seq = MSM_SD_CLOSE_3RD_CATEGORY;
 	msm_sd_register(&cpp_dev->msm_sd);
-	msm_cpp_v4l2_subdev_fops.owner = v4l2_subdev_fops.owner;
-	msm_cpp_v4l2_subdev_fops.open = v4l2_subdev_fops.open;
-	msm_cpp_v4l2_subdev_fops.release = v4l2_subdev_fops.release;
-	msm_cpp_v4l2_subdev_fops.poll = v4l2_subdev_fops.poll;
+	msm_cam_copy_v4l2_subdev_fops(&msm_cpp_v4l2_subdev_fops);
+	msm_cpp_v4l2_subdev_fops.unlocked_ioctl = msm_cpp_subdev_fops_ioctl;
+#ifdef CONFIG_COMPAT
+	msm_cpp_v4l2_subdev_fops.compat_ioctl32 =
+		msm_cpp_subdev_fops_compat_ioctl;
+#endif
 
 	cpp_dev->msm_sd.sd.devnode->fops = &msm_cpp_v4l2_subdev_fops;
 	cpp_dev->msm_sd.sd.entity.revision = cpp_dev->msm_sd.sd.devnode->num;
