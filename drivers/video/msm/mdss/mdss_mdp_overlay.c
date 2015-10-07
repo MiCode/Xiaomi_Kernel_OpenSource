@@ -1212,7 +1212,7 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd,
 	mutex_lock(&mdp5_data->list_lock);
 	list_for_each_entry(pipe, destroy_pipes, list) {
 		/* make sure pipe fetch has been halted before freeing buffer */
-		if (mdss_mdp_pipe_fetch_halt(pipe)) {
+		if (mdss_mdp_pipe_fetch_halt(pipe, false)) {
 			/*
 			 * if pipe is not able to halt. Enter recovery mode,
 			 * by un-staging any pipes that are attached to mixer
@@ -2536,7 +2536,7 @@ static void mdss_mdp_recover_underrun_handler(struct mdss_mdp_ctl *ctl,
 		return;
 	}
 
-	mdss_mdp_ctl_reset(ctl);
+	mdss_mdp_ctl_reset(ctl, true);
 	schedule_work(&ctl->remove_underrun_handler);
 }
 

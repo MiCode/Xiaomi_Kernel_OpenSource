@@ -1202,7 +1202,7 @@ int mdss_mdp_wb_addr_setup(struct mdss_data_type *mdata,
 	u32 num_wb, u32 num_intf_wb);
 
 void mdss_mdp_pipe_clk_force_off(struct mdss_mdp_pipe *pipe);
-int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe);
+int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe, bool is_recovery);
 int mdss_mdp_pipe_panic_signal_ctrl(struct mdss_mdp_pipe *pipe, bool enable);
 void mdss_mdp_config_pipe_panic_lut(struct mdss_data_type *mdata);
 void mdss_mdp_bwcpanic_ctrl(struct mdss_data_type *mdata, bool enable);
@@ -1274,7 +1274,7 @@ void mdss_mdp_pipe_calc_pixel_extn(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_wb_set_secure(struct msm_fb_data_type *mfd, int enable);
 int mdss_mdp_wb_get_secure(struct msm_fb_data_type *mfd, uint8_t *enable);
 void mdss_mdp_ctl_restore(bool locked);
-int  mdss_mdp_ctl_reset(struct mdss_mdp_ctl *ctl);
+int  mdss_mdp_ctl_reset(struct mdss_mdp_ctl *ctl, bool is_recovery);
 int mdss_mdp_wait_for_xin_halt(u32 xin_id, bool is_vbif_nrt);
 void mdss_mdp_set_ot_limit(struct mdss_mdp_set_ot_params *params);
 int mdss_mdp_cmd_set_autorefresh_mode(struct mdss_mdp_ctl *ctl,

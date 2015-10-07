@@ -560,7 +560,7 @@ static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 
 	MDSS_XLOG(ctl->num, ctl->vsync_cnt);
 
-	mdss_mdp_ctl_reset(ctl);
+	mdss_mdp_ctl_reset(ctl, false);
 	ctl->intf_ctx[MASTER_CTX] = NULL;
 
 	if (ctl->cdm) {

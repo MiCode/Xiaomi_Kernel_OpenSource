@@ -3390,7 +3390,7 @@ end:
  * This function called during control path reset and will halt
  * all the pipes staged on the mixer.
  */
-static void mdss_mdp_pipe_reset(struct mdss_mdp_mixer *mixer)
+static void mdss_mdp_pipe_reset(struct mdss_mdp_mixer *mixer, bool is_recovery)
 {
 	unsigned long pipe_map = mixer->pipe_mapped;
 	u32 bit = 0;
@@ -3403,7 +3403,7 @@ static void mdss_mdp_pipe_reset(struct mdss_mdp_mixer *mixer)
 
 		pipe = mdss_mdp_pipe_search(mdata, 1 << bit);
 		if (pipe) {
-			mdss_mdp_pipe_fetch_halt(pipe);
+			mdss_mdp_pipe_fetch_halt(pipe, is_recovery);
 			if (sw_rst_avail)
 				mdss_mdp_pipe_clk_force_off(pipe);
 		}
@@ -3418,7 +3418,7 @@ static void mdss_mdp_pipe_reset(struct mdss_mdp_mixer *mixer)
  *
  * Note: called within atomic context.
  */
-int mdss_mdp_ctl_reset(struct mdss_mdp_ctl *ctl)
+int mdss_mdp_ctl_reset(struct mdss_mdp_ctl *ctl, bool is_recovery)
 {
 	u32 status = 1;
 	int cnt = 20;
@@ -3439,10 +3439,10 @@ int mdss_mdp_ctl_reset(struct mdss_mdp_ctl *ctl)
 	} while (cnt > 0 && status);
 
 	if (mixer) {
-		mdss_mdp_pipe_reset(mixer);
+		mdss_mdp_pipe_reset(mixer, is_recovery);
 
 		if (ctl->mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY)
-			mdss_mdp_pipe_reset(ctl->mixer_right);
+			mdss_mdp_pipe_reset(ctl->mixer_right, is_recovery);
 	}
 
 	if (!cnt)
@@ -4302,9 +4302,9 @@ int mdss_mdp_display_wait4pingpong(struct mdss_mdp_ctl *ctl, bool use_lock)
 	}
 
 	if (recovery_needed) {
-		mdss_mdp_ctl_reset(ctl);
+		mdss_mdp_ctl_reset(ctl, true);
 		if (sctl)
-			mdss_mdp_ctl_reset(sctl);
+			mdss_mdp_ctl_reset(sctl, true);
 
 		mdss_mdp_ctl_intf_event(ctl,
 				MDSS_EVENT_DSI_RESET_WRITE_PTR, NULL, false);

@@ -857,7 +857,7 @@ static void mdss_mdp_cmd_intf_recovery(void *data, int event)
 	}
 
 	if (atomic_read(&ctx->koff_cnt)) {
-		mdss_mdp_ctl_reset(ctx->ctl);
+		mdss_mdp_ctl_reset(ctx->ctl, true);
 		reset_done = true;
 	}
 

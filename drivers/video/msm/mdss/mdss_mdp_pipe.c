@@ -979,7 +979,7 @@ static int mdss_mdp_pipe_init_config(struct mdss_mdp_pipe *pipe,
 	struct mdss_data_type *mdata;
 
 	if (pipe && pipe->unhalted) {
-		rc = mdss_mdp_pipe_fetch_halt(pipe);
+		rc = mdss_mdp_pipe_fetch_halt(pipe, false);
 		if (rc) {
 			pr_err("%d failed because pipe is in bad state\n",
 				pipe->num);
@@ -1301,7 +1301,7 @@ static void mdss_mdp_pipe_free(struct kref *kref)
 	mdss_mdp_pipe_panic_signal_ctrl(pipe, false);
 
 	if (pipe->play_cnt) {
-		mdss_mdp_pipe_fetch_halt(pipe);
+		mdss_mdp_pipe_fetch_halt(pipe, false);
 		mdss_mdp_pipe_pp_clear(pipe);
 		mdss_mdp_smp_free(pipe);
 	} else {
@@ -1474,7 +1474,7 @@ void mdss_mdp_pipe_clk_force_off(struct mdss_mdp_pipe *pipe)
  * and would not fetch any more data. This function cannot be called from
  * interrupt context.
  */
-int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe)
+int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe, bool is_recovery)
 {
 	bool is_idle, forced_on = false, in_use = false;
 	int rc = 0;
@@ -1488,7 +1488,11 @@ int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe)
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
 	is_idle = mdss_mdp_is_pipe_idle(pipe, true, is_nrt_vbif);
-	if (!is_idle)
+	/*
+	 * avoid pipe_in_use check in recovery path as the pipes would not
+	 * have been unstaged at this point.
+	 */
+	if (!is_idle && !is_recovery)
 		in_use = mdss_mdp_check_pipe_in_use(pipe);
 
 	if (!is_idle && !in_use) {
