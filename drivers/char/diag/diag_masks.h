@@ -156,11 +156,23 @@ extern struct diag_mask_info event_mask;
 
 int diag_masks_init(void);
 void diag_masks_exit(void);
-int diag_process_apps_masks(unsigned char *buf, int len);
+int diag_log_mask_copy(struct diag_mask_info *dest,
+		       struct diag_mask_info *src);
+int diag_msg_mask_copy(struct diag_mask_info *dest,
+		       struct diag_mask_info *src);
+int diag_event_mask_copy(struct diag_mask_info *dest,
+			 struct diag_mask_info *src);
+void diag_log_mask_free(struct diag_mask_info *mask_info);
+void diag_msg_mask_free(struct diag_mask_info *mask_info);
+void diag_event_mask_free(struct diag_mask_info *mask_info);
+int diag_process_apps_masks(unsigned char *buf, int len,
+			    struct diag_md_session_t *info);
 void diag_send_updates_peripheral(uint8_t peripheral);
 
 extern int diag_create_msg_mask_table_entry(struct diag_msg_mask_t *msg_mask,
 					    struct diag_ssid_range_t *range);
-extern int diag_copy_to_user_msg_mask(char __user *buf, size_t count);
-extern int diag_copy_to_user_log_mask(char __user *buf, size_t count);
+extern int diag_copy_to_user_msg_mask(char __user *buf, size_t count,
+				      struct diag_md_session_t *info);
+extern int diag_copy_to_user_log_mask(char __user *buf, size_t count,
+				      struct diag_md_session_t *info);
 #endif

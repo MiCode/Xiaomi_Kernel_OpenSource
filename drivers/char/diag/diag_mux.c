@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +36,7 @@ static struct diag_logger_ops usb_log_ops = {
 	.close = diag_usb_disconnect_all,
 	.queue_read = diag_usb_queue_read,
 	.write = diag_usb_write,
+	.close_peripheral = NULL
 };
 
 static struct diag_logger_ops md_log_ops = {
@@ -43,6 +44,7 @@ static struct diag_logger_ops md_log_ops = {
 	.close = diag_md_close_all,
 	.queue_read = NULL,
 	.write = diag_md_write,
+	.close_peripheral = diag_md_close_peripheral,
 };
 
 int diag_mux_init()
@@ -119,6 +121,18 @@ int diag_mux_write(int proc, unsigned char *buf, int len, int ctx)
 		return -EINVAL;
 	if (logger && logger->log_ops && logger->log_ops->write)
 		return logger->log_ops->write(proc, buf, len, ctx);
+	return 0;
+}
+
+int diag_mux_close_peripheral(int proc, uint8_t peripheral)
+{
+	if (proc < 0 || proc >= NUM_MUX_PROC)
+		return -EINVAL;
+	/* Peripheral should account for Apps data as well */
+	if (peripheral > NUM_PERIPHERALS)
+		return -EINVAL;
+	if (logger && logger->log_ops && logger->log_ops->close_peripheral)
+		return logger->log_ops->close_peripheral(proc, peripheral);
 	return 0;
 }
 

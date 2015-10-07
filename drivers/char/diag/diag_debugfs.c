@@ -69,6 +69,8 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"RSP Buffer is Busy: %d\n"
 		"HDLC Disabled: %d\n"
 		"Time Sync Enabled: %d\n"
+		"MD session mode: %d\n"
+		"MD session mask: %d\n"
 		"Uses Time API: %d\n",
 		chk_config_get_id(),
 		chk_polling_response(),
@@ -81,6 +83,8 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		driver->rsp_buf_busy,
 		driver->hdlc_disabled,
 		driver->time_sync_enabled,
+		driver->md_session_mode,
+		driver->md_session_mask,
 		driver->uses_time_api);
 
 	for (i = 0; i < NUM_PERIPHERALS; i++) {
