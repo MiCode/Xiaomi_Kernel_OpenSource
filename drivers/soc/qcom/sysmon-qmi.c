@@ -416,7 +416,7 @@ int sysmon_send_shutdown(struct subsys_desc *dest_desc)
 	struct sysmon_qmi_data *data = NULL, *temp;
 	const char *dest_ss = dest_desc->name;
 	char req = 0;
-	int ret;
+	int ret, shutdown_ack_ret;
 
 	if (dest_ss == NULL)
 		return -EINVAL;
@@ -464,6 +464,17 @@ int sysmon_send_shutdown(struct subsys_desc *dest_desc)
 		ret = -EREMOTEIO;
 		goto out;
 	}
+
+	shutdown_ack_ret = wait_for_shutdown_ack(dest_desc);
+	if (shutdown_ack_ret < 0) {
+		pr_err("shutdown_ack SMP2P bit for %s not set\n", data->name);
+		if (!&data->ind_recv.done) {
+			pr_err("QMI shutdown indication not received\n");
+			ret = shutdown_ack_ret;
+		}
+		goto out;
+	} else if (shutdown_ack_ret > 0)
+		goto out;
 
 	if (!wait_for_completion_timeout(&data->ind_recv,
 					msecs_to_jiffies(SHUTDOWN_TIMEOUT))) {
