@@ -352,6 +352,25 @@ int msm_sd_unregister(struct msm_sd_subdev *msm_subdev)
 }
 EXPORT_SYMBOL(msm_sd_unregister);
 
+static struct v4l2_subdev *msm_sd_find(const char *name)
+{
+	unsigned long flags;
+	struct v4l2_subdev *subdev = NULL;
+	struct v4l2_subdev *subdev_out = NULL;
+
+	spin_lock_irqsave(&msm_v4l2_dev->lock, flags);
+	if (!list_empty(&msm_v4l2_dev->subdevs)) {
+		list_for_each_entry(subdev, &msm_v4l2_dev->subdevs, list)
+			if (!strcmp(name, subdev->name)) {
+				subdev_out = subdev;
+				break;
+			}
+	}
+	spin_unlock_irqrestore(&msm_v4l2_dev->lock, flags);
+
+	return subdev_out;
+}
+
 int msm_create_session(unsigned int session_id, struct video_device *vdev)
 {
 	struct msm_session *session = NULL;
@@ -551,7 +570,7 @@ int msm_destroy_session(unsigned int session_id)
 	mutex_destroy(&session->lock_q);
 	msm_delete_entry(msm_session_q, struct msm_session,
 		list, session);
-	buf_mgr_subdev = msm_buf_mngr_get_subdev();
+	buf_mgr_subdev = msm_sd_find("msm_buf_mngr");
 	if (buf_mgr_subdev) {
 		session_info.session = session_id;
 		session_info.stream = 0;
@@ -981,25 +1000,6 @@ struct msm_stream *msm_get_stream_from_vb2q(struct vb2_queue *q)
 	return NULL;
 }
 EXPORT_SYMBOL(msm_get_stream_from_vb2q);
-
-static struct v4l2_subdev *msm_sd_find(const char *name)
-{
-	unsigned long flags;
-	struct v4l2_subdev *subdev = NULL;
-	struct v4l2_subdev *subdev_out = NULL;
-
-	spin_lock_irqsave(&msm_v4l2_dev->lock, flags);
-	if (!list_empty(&msm_v4l2_dev->subdevs)) {
-		list_for_each_entry(subdev, &msm_v4l2_dev->subdevs, list)
-			if (!strcmp(name, subdev->name)) {
-				subdev_out = subdev;
-				break;
-			}
-	}
-	spin_unlock_irqrestore(&msm_v4l2_dev->lock, flags);
-
-	return subdev_out;
-}
 
 static void msm_sd_notify(struct v4l2_subdev *sd,
 	unsigned int notification, void *arg)
