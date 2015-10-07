@@ -1470,6 +1470,7 @@ static int mdss_fb_blank_unblank(struct msm_fb_data_type *mfd)
 {
 	int ret = 0;
 	int cur_power_state;
+	bool cur_panel_dead;
 
 	if (!mfd)
 		return -EINVAL;
@@ -1485,6 +1486,7 @@ static int mdss_fb_blank_unblank(struct msm_fb_data_type *mfd)
 	}
 
 	cur_power_state = mfd->panel_power_state;
+	cur_panel_dead = mfd->panel_info->panel_dead;
 	pr_debug("Transitioning from %d --> %d\n", cur_power_state,
 		MDSS_PANEL_POWER_ON);
 
@@ -1515,14 +1517,22 @@ static int mdss_fb_blank_unblank(struct msm_fb_data_type *mfd)
 		if (!mfd->bl_updated) {
 			mfd->bl_updated = 1;
 			/*
-			 * If in AD calibration mode then frameworks would not
-			 * be allowed to update backlight hence post unblank
+			 * 1.) If in AD calibration mode then frameworks would
+			 * not be allowed to update backlight hence post unblank
 			 * the backlight would remain 0 (0 is set in blank).
 			 * Hence resetting back to calibration mode value
+			 *
+			 * 2.) If the panel is recovering from ESD attack, then
+			 * the frameworks might not set the backlight post
+			 * unblank, hence the backlight might remain zero. Set
+			 * the backlight in such cases to the unset_bl_level
+			 * value which will be stored prior to ESD recovery
+			 * during blank.
 			 */
 			if (IS_CALIB_MODE_BL(mfd))
 				mdss_fb_set_backlight(mfd, mfd->calib_mode_bl);
-			else if (!mfd->panel_info->mipi.post_init_delay)
+			else if (!mfd->panel_info->mipi.post_init_delay ||
+				cur_panel_dead)
 				mdss_fb_set_backlight(mfd, mfd->unset_bl_level);
 		}
 		mutex_unlock(&mfd->bl_lock);
