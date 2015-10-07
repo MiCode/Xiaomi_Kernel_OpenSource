@@ -41,12 +41,19 @@ struct ce_svc_pipe_cfg {
 	u32 pipe_num;
 };
 
+struct icnss_shadow_reg_cfg {
+	u16 ce_id;
+	u16 reg_offset;
+};
+
 /* CE configuration to target */
 struct icnss_wlan_enable_cfg {
 	u32 num_ce_tgt_cfg;
 	struct ce_tgt_pipe_cfg *ce_tgt_cfg;
 	u32 num_ce_svc_pipe_cfg;
 	struct ce_svc_pipe_cfg *ce_svc_cfg;
+	u32 num_shadow_reg_cfg;
+	struct icnss_shadow_reg_cfg *shadow_reg_cfg;
 };
 
 /* driver modes */
@@ -54,6 +61,8 @@ enum icnss_driver_mode {
 	ICNSS_MISSION,
 	ICNSS_FTM,
 	ICNSS_EPPING,
+	ICNSS_WALTEST,
+	ICNSS_OFF,
 };
 
 struct icnss_soc_info {
@@ -69,7 +78,8 @@ extern int icnss_register_ce_irq(unsigned int ce_id,
 		unsigned long flags, const char *name);
 extern int icnss_unregister_ce_irq(unsigned int ce_id);
 extern int icnss_wlan_enable(struct icnss_wlan_enable_cfg *config,
-		enum icnss_driver_mode mode);
+			     enum icnss_driver_mode mode,
+			     const char *host_version);
 extern int icnss_wlan_disable(enum icnss_driver_mode mode);
 extern void icnss_enable_irq(unsigned int ce_id);
 extern void icnss_disable_irq(unsigned int ce_id);
