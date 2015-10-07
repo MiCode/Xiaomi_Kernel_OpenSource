@@ -665,6 +665,7 @@ static int realloc_memory(struct cal_block_data *cal_block)
 		cal_block->map_data.ion_handle);
 	cal_block->map_data.ion_client = NULL;
 	cal_block->map_data.ion_handle = NULL;
+	cal_block->cal_data.size = 0;
 
 	ret = cal_block_ion_alloc(cal_block);
 	if (ret < 0)

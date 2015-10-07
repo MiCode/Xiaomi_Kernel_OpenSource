@@ -1693,6 +1693,13 @@ static int remap_cal_data(struct cal_block_data *cal_block, int cal_index)
 {
 	int ret = 0;
 
+	if (cal_block->map_data.ion_client == NULL) {
+		pr_err("%s: No ION allocation for cal index %d!\n",
+			__func__, cal_index);
+		ret = -EINVAL;
+		goto done;
+	}
+
 	if ((cal_block->map_data.map_size > 0) &&
 		(cal_block->map_data.q6map_handle == 0)) {
 		atomic_set(&this_adm.mem_map_index, cal_index);
