@@ -869,7 +869,6 @@ skip_cqterri:
 			mrq->cmdq_req->resp_arg = cmdq_readl(cq_host, CQCRA);
 		}
 
-		mmc->err_mrq = mrq;
 		cmdq_finish_data(mmc, tag);
 	}
 
