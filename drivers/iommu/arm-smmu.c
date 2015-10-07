@@ -1562,6 +1562,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	enum io_pgtable_fmt fmt;
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
+	bool is_fast = smmu_domain->attributes & (1 << DOMAIN_ATTR_FAST);
 
 	if (smmu_domain->smmu)
 		goto out;
@@ -1657,6 +1658,9 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 			.tlb		= &arm_smmu_gather_ops,
 		};
 	}
+
+	if (is_fast)
+		fmt = ARM_V8L_FAST;
 
 	cfg->asid = cfg->cbndx + 1;
 	cfg->vmid = cfg->cbndx + 2;
@@ -2873,6 +2877,11 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				    & (1 << DOMAIN_ATTR_S1_BYPASS));
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_FAST:
+		*((int *)data) = !!(smmu_domain->attributes
+					& (1 << DOMAIN_ATTR_FAST));
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
 		break;
@@ -2996,6 +3005,11 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		ret = 0;
 		break;
 	}
+	case DOMAIN_ATTR_FAST:
+		if (*((int *)data))
+			smmu_domain->attributes |= 1 << DOMAIN_ATTR_FAST;
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
 		break;
