@@ -934,6 +934,18 @@ static struct local_vote_clk gcc_smmu_cfg_clk = {
 	},
 };
 
+static struct local_vote_clk gcc_qdss_dap_clk = {
+	.cbcr_reg = QDSS_DAP_CBCR,
+	.vote_reg = APCS_CLOCK_BRANCH_ENA_VOTE,
+	.en_mask = BIT(19),
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_qdss_dap_clk",
+		.ops = &clk_ops_vote,
+		CLK_INIT(gcc_qdss_dap_clk.c),
+	},
+};
+
 static struct branch_clk gcc_blsp1_qup1_i2c_apps_clk = {
 	.cbcr_reg = BLSP1_QUP1_I2C_APPS_CBCR,
 	.has_sibling = 0,
@@ -1606,6 +1618,7 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_gp3_clk.c, 0x0012 },
 		{ &gcc_mss_cfg_ahb_clk.c, 0x0030 },
 		{ &gcc_mss_q6_bimc_axi_clk.c, 0x0031 },
+		{ &gcc_qdss_dap_clk.c, 0x0049 },
 		{ &gcc_apss_tcu_clk.c, 0x0050 },
 		{ &gcc_smmu_cfg_clk.c, 0x005b },
 		{ &gcc_usb_hs_system_clk.c, 0x0060 },
@@ -1707,6 +1720,7 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	 CLK_LIST(gcc_crypto_clk),
 	 CLK_LIST(gcc_prng_ahb_clk),
 	 CLK_LIST(gcc_apss_tcu_clk),
+	 CLK_LIST(gcc_qdss_dap_clk),
 	 CLK_LIST(gcc_smmu_cfg_clk),
 	 CLK_LIST(apss_ahb_clk_src),
 	 CLK_LIST(emac_0_125m_clk_src),
