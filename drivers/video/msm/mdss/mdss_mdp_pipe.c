@@ -155,6 +155,10 @@ int mdss_mdp_pipe_qos_lut(struct mdss_mdp_pipe *pipe)
 			qos_lut = get_qos_lut_macrotile(total_fl);
 	}
 
+	trace_mdp_perf_set_qos_luts(pipe->num, pipe->src_fmt->format,
+		ctl->intf_num, pipe->mixer_left->rotator_mode, total_fl,
+		qos_lut, mdss_mdp_is_linear_format(pipe->src_fmt));
+
 	pr_debug("pnum:%d fmt:%d intf:%d rot:%d fl:%d lut:0x%x\n",
 		pipe->num, pipe->src_fmt->format, ctl->intf_num,
 		pipe->mixer_left->rotator_mode, total_fl, qos_lut);
@@ -193,6 +197,9 @@ static void mdss_mdp_config_pipe_panic_lut(struct mdss_mdp_pipe *pipe)
 		panic_lut);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SAFE_LUT,
 		robust_lut);
+
+	trace_mdp_perf_set_panic_luts(pipe->num, pipe->src_fmt->format,
+		pipe->src_fmt->fetch_mode, panic_lut, robust_lut);
 
 	pr_debug("pnum:%d fmt:%d mode:%d luts[0x%x, 0x%x]\n",
 		pipe->num, pipe->src_fmt->format, pipe->src_fmt->fetch_mode,
