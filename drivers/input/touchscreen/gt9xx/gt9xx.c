@@ -47,17 +47,16 @@
 #include "gt9xx.h"
 
 #include <linux/of_gpio.h>
-
+#include <linux/irq.h>
+#include <linux/module.h>
 #include <linux/input/mt.h>
+#include <linux/debugfs.h>
 
 #define GOODIX_DEV_NAME	"Goodix-CTP"
 #define CFG_MAX_TOUCH_POINTS	5
 #define GOODIX_COORDS_ARR_SIZE	4
 #define MAX_BUTTONS		4
 
-/* HIGH: 0x28/0x29, LOW: 0xBA/0xBB */
-#define GTP_I2C_ADDRESS_HIGH	0x14
-#define GTP_I2C_ADDRESS_LOW	0x5D
 #define CFG_GROUP_LEN(p_cfg_grp)  (sizeof(p_cfg_grp) / sizeof(p_cfg_grp[0]))
 
 #define GOODIX_VTG_MIN_UV	2600000
@@ -84,7 +83,6 @@ static const u16 touch_key_array[] = {KEY_MENU, KEY_HOMEPAGE, KEY_BACK};
 
 #endif
 
-static void gtp_reset_guitar(struct goodix_ts_data *ts, int ms);
 static void gtp_int_sync(struct goodix_ts_data *ts, int ms);
 static int gtp_i2c_test(struct i2c_client *client);
 static int goodix_power_off(struct goodix_ts_data *ts);
@@ -92,7 +90,9 @@ static int goodix_power_on(struct goodix_ts_data *ts);
 
 #if defined(CONFIG_FB)
 static int fb_notifier_callback(struct notifier_block *self,
-				 unsigned long event, void *data);
+				unsigned long event, void *data);
+static int goodix_ts_suspend(struct device *dev);
+static int goodix_ts_resume(struct device *dev);
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 static void goodix_ts_early_suspend(struct early_suspend *h);
 static void goodix_ts_late_resume(struct early_suspend *h);
@@ -103,7 +103,6 @@ static struct delayed_work gtp_esd_check_work;
 static struct workqueue_struct *gtp_esd_check_workqueue;
 static void gtp_esd_check_func(struct work_struct *work);
 static int gtp_init_ext_watchdog(struct i2c_client *client);
-struct i2c_client  *i2c_connect_client;
 #endif
 
 #if GTP_SLIDE_WAKEUP
@@ -118,6 +117,10 @@ static s8 gtp_enter_doze(struct goodix_ts_data *ts);
 bool init_done;
 static u8 chip_gt9xxs;  /* true if ic is gt9xxs, like gt915s */
 u8 grp_cfg_version;
+struct i2c_client  *i2c_connect_client;
+
+#define GTP_DEBUGFS_DIR			"ts_debug"
+#define GTP_DEBUGFS_FILE_SUSPEND	"suspend"
 
 /*******************************************************
 Function:
@@ -269,7 +272,7 @@ Output:
 	result of i2c write operation.
 	> 0: succeed, otherwise: failed
 *********************************************************/
-static int gtp_send_cfg(struct goodix_ts_data *ts)
+int gtp_send_cfg(struct goodix_ts_data *ts)
 {
 	int ret;
 #if GTP_DRIVER_SEND_CFG
@@ -600,26 +603,6 @@ exit_work_func:
 
 /*******************************************************
 Function:
-	Timer interrupt service routine for polling mode.
-Input:
-	timer: timer struct pointer
-Output:
-	Timer work mode.
-	HRTIMER_NORESTART: no restart mode
-*********************************************************/
-static enum hrtimer_restart goodix_ts_timer_handler(struct hrtimer *timer)
-{
-	struct goodix_ts_data
-		*ts = container_of(timer, struct goodix_ts_data, timer);
-
-	queue_work(ts->goodix_wq, &ts->work);
-	hrtimer_start(&ts->timer, ktime_set(0, (GTP_POLL_TIME + 6) * 1000000),
-			HRTIMER_MODE_REL);
-	return HRTIMER_NORESTART;
-}
-
-/*******************************************************
-Function:
 	External interrupt service routine for interrupt mode.
 Input:
 	irq:  interrupt number.
@@ -661,7 +644,7 @@ Input:
 Output:
 	None.
 *******************************************************/
-static void gtp_reset_guitar(struct goodix_ts_data *ts, int ms)
+void gtp_reset_guitar(struct goodix_ts_data *ts, int ms)
 {
 	/* This reset sequence will selcet I2C slave address */
 	gpio_direction_output(ts->pdata->reset_gpio, 0);
@@ -1198,7 +1181,7 @@ Output:
 *******************************************************/
 static int gtp_request_irq(struct goodix_ts_data *ts)
 {
-	int ret;
+	int ret = 0;
 	const u8 irq_table[] = GTP_IRQ_TAB;
 
 	ret = request_threaded_irq(ts->client->irq, NULL,
@@ -1206,21 +1189,12 @@ static int gtp_request_irq(struct goodix_ts_data *ts)
 			irq_table[ts->int_trigger_type],
 			ts->client->name, ts);
 	if (ret) {
-		dev_err(&ts->client->dev, "Request IRQ failed!ERRNO:%d.\n",
-				ret);
-		gpio_direction_input(ts->pdata->irq_gpio);
-
-		hrtimer_init(&ts->timer, CLOCK_MONOTONIC,
-				HRTIMER_MODE_REL);
-		ts->timer.function = goodix_ts_timer_handler;
-		hrtimer_start(&ts->timer, ktime_set(1, 0),
-				HRTIMER_MODE_REL);
 		ts->use_irq = false;
 		return ret;
 	}
 	gtp_irq_disable(ts);
 	ts->use_irq = true;
-	return 0;
+	return ret;
 }
 
 /*******************************************************
@@ -1567,6 +1541,56 @@ static const struct attribute_group gtp_attr_grp = {
 	.attrs = gtp_attrs,
 };
 
+static int gtp_debug_suspend_set(void *_data, u64 val)
+{
+	struct goodix_ts_data *ts = _data;
+
+	mutex_lock(&ts->input_dev->mutex);
+	if (val)
+		goodix_ts_suspend(&ts->client->dev);
+	else
+		goodix_ts_resume(&ts->client->dev);
+	mutex_unlock(&ts->input_dev->mutex);
+
+	return 0;
+}
+
+static int gtp_debug_suspend_get(void *_data, u64 *val)
+{
+	struct goodix_ts_data *ts = _data;
+
+	mutex_lock(&ts->input_dev->mutex);
+	*val = ts->gtp_is_suspend;
+	mutex_unlock(&ts->input_dev->mutex);
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(debug_suspend_fops, gtp_debug_suspend_get,
+			gtp_debug_suspend_set, "%lld\n");
+
+static int gtp_debugfs_init(struct goodix_ts_data *data)
+{
+	data->debug_base = debugfs_create_dir(GTP_DEBUGFS_DIR, NULL);
+
+	if (IS_ERR_OR_NULL(data->debug_base)) {
+		pr_err("Failed to create debugfs dir.\n");
+			return -EINVAL;
+	}
+
+	if ((IS_ERR_OR_NULL(debugfs_create_file(GTP_DEBUGFS_FILE_SUSPEND,
+					S_IWUSR | S_IWGRP | S_IRUSR | S_IRGRP,
+					data->debug_base,
+					data,
+					&debug_suspend_fops)))) {
+		pr_err("Failed to create suspend file.\n");
+		debugfs_remove_recursive(data->debug_base);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int goodix_ts_get_dt_coords(struct device *dev, char *name,
 				struct goodix_ts_platform_data *pdata)
 {
@@ -1798,7 +1822,7 @@ static int goodix_ts_probe(struct i2c_client *client,
 		strlcpy(ts->fw_name, pdata->fw_name,
 						strlen(pdata->fw_name) + 1);
 
-#if GTP_AUTO_UPDATE
+#ifdef CONFIG_GT9XX_TOUCHPANEL_UPDATE
 	ret = gup_init_update_proc(ts);
 	if (ret < 0) {
 		dev_err(&client->dev,
@@ -1841,8 +1865,8 @@ static int goodix_ts_probe(struct i2c_client *client,
 	INIT_WORK(&ts->work, goodix_ts_work_func);
 
 	ret = gtp_request_irq(ts);
-	if (ret < 0)
-		dev_info(&client->dev, "GTP works in polling mode.\n");
+	if (ret)
+		dev_info(&client->dev, "GTP request irq failed %d.\n", ret);
 	else
 		dev_info(&client->dev, "GTP works in interrupt mode.\n");
 
@@ -1858,7 +1882,7 @@ static int goodix_ts_probe(struct i2c_client *client,
 	if (ts->use_irq)
 		gtp_irq_enable(ts);
 
-#if GTP_CREATE_WR_NODE
+#ifdef CONFIG_GT9XX_TOUCHPANEL_DEBUG
 	init_wr_node(client);
 #endif
 
@@ -1869,6 +1893,13 @@ static int goodix_ts_probe(struct i2c_client *client,
 	if (ret < 0) {
 		dev_err(&client->dev, "sys file creation failed.\n");
 		goto exit_free_irq;
+	}
+
+	ret = gtp_debugfs_init(ts);
+	if (ret != 0) {
+		dev_err(&client->dev, "Failed to create debugfs entries, %d\n",
+						ret);
+		goto exit_remove_sysfs;
 	}
 
 	init_done = true;
@@ -1895,6 +1926,8 @@ exit_free_irq:
 		input_free_device(ts->input_dev);
 		ts->input_dev = NULL;
 	}
+exit_remove_sysfs:
+	sysfs_remove_group(&ts->input_dev->dev.kobj, &gtp_attr_grp);
 exit_free_inputdev:
 	kfree(ts->config_data);
 exit_power_off:
@@ -1934,7 +1967,7 @@ static int goodix_ts_remove(struct i2c_client *client)
 #endif
 	mutex_destroy(&ts->lock);
 
-#if GTP_CREATE_WR_NODE
+#ifdef CONFIG_GT9XX_TOUCHPANEL_DEBUG
 	uninit_wr_node();
 #endif
 
@@ -1969,6 +2002,7 @@ static int goodix_ts_remove(struct i2c_client *client)
 		goodix_power_deinit(ts);
 		i2c_set_clientdata(client, NULL);
 	}
+	debugfs_remove_recursive(ts->debug_base);
 
 	return 0;
 }
@@ -1987,9 +2021,13 @@ static int goodix_ts_suspend(struct device *dev)
 	struct goodix_ts_data *ts = dev_get_drvdata(dev);
 	int ret = 0, i;
 
+	if (ts->gtp_is_suspend) {
+		dev_dbg(&ts->client->dev, "Already in suspend state.\n");
+		return 0;
+	}
+
 	mutex_lock(&ts->lock);
 #if GTP_ESD_PROTECT
-	ts->gtp_is_suspend = 1;
 	gtp_esd_switch(ts->client, SWITCH_OFF);
 #endif
 
@@ -2015,6 +2053,7 @@ static int goodix_ts_suspend(struct device *dev)
 	 */
 	msleep(58);
 	mutex_unlock(&ts->lock);
+	ts->gtp_is_suspend = 1;
 
 	return ret;
 }
@@ -2031,6 +2070,11 @@ static int goodix_ts_resume(struct device *dev)
 {
 	struct goodix_ts_data *ts = dev_get_drvdata(dev);
 	int ret = 0;
+
+	if (!ts->gtp_is_suspend) {
+		dev_dbg(&ts->client->dev, "Already in awake state.\n");
+		return 0;
+	}
 
 	mutex_lock(&ts->lock);
 	ret = gtp_wakeup_sleep(ts);
@@ -2049,10 +2093,10 @@ static int goodix_ts_resume(struct device *dev)
 			ktime_set(1, 0), HRTIMER_MODE_REL);
 
 #if GTP_ESD_PROTECT
-	ts->gtp_is_suspend = 0;
 	gtp_esd_switch(ts->client, SWITCH_ON);
 #endif
 	mutex_unlock(&ts->lock);
+	ts->gtp_is_suspend = 0;
 
 	return ret;
 }
