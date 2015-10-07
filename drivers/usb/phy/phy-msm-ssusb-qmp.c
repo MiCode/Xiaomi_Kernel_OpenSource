@@ -37,6 +37,8 @@
 
 #define PHYSTATUS				BIT(6)
 
+/* TCSR_PHY_CLK_SCHEME_SEL bit mask */
+#define PHY_CLK_SCHEME_SEL BIT(0)
 
 #define INIT_MAX_TIME_USEC			1000
 
@@ -77,9 +79,11 @@ unsigned int qmp_phy_rev2[] = {
 	[USB3_PHY_LFPS_RXTERM_IRQ_CLEAR] = 0x6D8,
 };
 
+/* reg values to write based on the phy clk scheme selected */
 struct qmp_reg_val {
 	u32 offset;
-	u32 val;
+	u32 diff_clk_sel_val;
+	u32 se_clk_sel_val;
 };
 
 /* Use these offsets/values if PCIE_USB3_PHY_REVISION_ID0 == 0 */
@@ -139,7 +143,7 @@ static const struct qmp_reg_val qmp_settings_rev0[] = {
 	{0x674, 0x17}, /* PCIE_USB3_PHY_LOCK_DETECT_CONFIG3 */
 	{0x6AC, 0x05}, /* PCIE_USB3_PHY_FLL_CNTRL2 */
 
-	{-1, -1} /* terminating entry */
+	{-1, 0x00} /* terminating entry */
 };
 
 /*
@@ -200,7 +204,7 @@ static const struct qmp_reg_val qmp_settings_rev1[] = {
 	{0x674, 0x17}, /* PCIE_USB3_PHY_LOCK_DETECT_CONFIG3 */
 	{0x6AC, 0x05}, /* PCIE_USB3_PHY_FLL_CNTRL2 */
 
-	{-1, -1} /* terminating entry */
+	{-1, 0x00} /* terminating entry */
 };
 
 /* USB3PHY_REVISION_ID3 = 0x20 where register offset is being changed. */
@@ -273,7 +277,7 @@ static const struct qmp_reg_val qmp_settings_rev2[] = {
 	{0x688, 0x47}, /* USB3_PHY_LOCK_DETECT_CONFIG3 */
 	{0x664, 0x08}, /* USB3_PHY_POWER_STATE_CONFIG2 */
 
-	{-1, -1} /* terminating entry */
+	{-1, 0x00} /* terminating entry */
 };
 
 /* Override for QMP PHY revision 2 */
@@ -286,14 +290,14 @@ static const struct qmp_reg_val qmp_settings_rev2_misc[] = {
 	/* Res_code settings */
 	{0xC4, 0x15}, /* USB3PHY_QSERDES_COM_RESCODE_DIV_NUM */
 	{0x1B8, 0x1F}, /* QSERDES_COM_CMN_MISC2 */
-	{-1, -1} /* terminating entry */
+	{-1, 0x00} /* terminating entry */
 };
 
 /* Override PLL Calibration */
 static const struct qmp_reg_val qmp_override_pll[] = {
 	{0x04, 0xE1}, /* QSERDES_COM_PLL_VCOTAIL_EN */
 	{0x50, 0x07}, /* QSERDES_COM_RESETSM_CNTRL2 */
-	{-1, -1} /* terminating entry */
+	{-1, 0x00} /* terminating entry */
 };
 
 /* Foundry specific settings */
@@ -306,7 +310,7 @@ static const struct qmp_reg_val qmp_settings_rev0_misc[] = {
 	{0x4A8, 0xFF}, /* QSERDES_RX_RX_EQ_GAIN1_LSB */
 	{0x6B0, 0xF4}, /* PCIE_USB3_PHY_FLL_CNT_VAL_L */
 	{0x6B4, 0x41}, /* PCIE_USB3_PHY_FLL_CNT_VAL_H_TOL */
-	{-1, -1} /* terminating entry */
+	{-1, 0x00} /* terminating entry */
 };
 
 /* Vbg related settings */
@@ -314,13 +318,15 @@ static const struct qmp_reg_val qmp_settings_rev1_misc[] = {
 	{0x0C, 0x03}, /* QSERDES_COM_IE_TRIM */
 	{0x10, 0x00}, /* QSERDES_COM_IP_TRIM */
 	{0xA0, 0xFF}, /* QSERDES_COM_BGTC */
-	{-1, -1} /* terminating entry */
+	{-1, 0x00} /* terminating entry */
 };
 
 struct msm_ssphy_qmp {
 	struct usb_phy		phy;
 	void __iomem		*base;
 	void __iomem		*vls_clamp_reg;
+	void __iomem		*tcsr_phy_clk_scheme_sel;
+
 	struct regulator	*vdd;
 	struct regulator	*vdda18;
 	int			vdd_levels[3]; /* none, low, high */
@@ -468,14 +474,27 @@ static int configure_phy_regs(struct usb_phy *uphy,
 {
 	struct msm_ssphy_qmp *phy = container_of(uphy, struct msm_ssphy_qmp,
 					phy);
+	u32 val;
+	bool diff_clk_sel = true;
 
 	if (!reg) {
 		dev_err(uphy->dev, "NULL PHY configuration\n");
 		return -EINVAL;
 	}
 
-	while (reg->offset != -1 && reg->val != -1) {
-		writel_relaxed(reg->val, phy->base + reg->offset);
+	if (phy->tcsr_phy_clk_scheme_sel) {
+		val = readl_relaxed(phy->tcsr_phy_clk_scheme_sel);
+		if (val & PHY_CLK_SCHEME_SEL) {
+			pr_debug("%s:Single Ended clk scheme is selected\n",
+				__func__);
+			diff_clk_sel = false;
+		}
+	}
+
+	while (reg->offset != -1) {
+		writel_relaxed(diff_clk_sel ?
+				reg->diff_clk_sel_val : reg->se_clk_sel_val,
+				phy->base + reg->offset);
 		reg++;
 	}
 	return 0;
@@ -890,6 +909,15 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	if (IS_ERR(phy->vls_clamp_reg)) {
 		dev_err(dev, "couldn't find vls_clamp_reg address.\n");
 		return PTR_ERR(phy->vls_clamp_reg);
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+			"tcsr_phy_clk_scheme_sel");
+	if (res) {
+		phy->tcsr_phy_clk_scheme_sel = devm_ioremap_nocache(dev,
+				res->start, resource_size(res));
+		if (IS_ERR(phy->tcsr_phy_clk_scheme_sel))
+			dev_dbg(dev, "err reading tcsr_phy_clk_scheme_sel\n");
 	}
 
 	phy->emulation = of_property_read_bool(dev->of_node,

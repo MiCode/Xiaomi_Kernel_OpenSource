@@ -627,9 +627,11 @@
 	ssphy: ssphy@78000 {
 		compatible = "qcom,usb-ssphy-qmp";
 		reg = <0x00078000 0x45c>,
-		      <0x01947244 0x4>;
+		      <0x01947244 0x4>,
+		      <0x01956044 0x4>;
 		reg-names = "qmp_phy_base",
-			    "vls_clamp_reg";
+			    "vls_clamp_reg",
+			    "tcsr_phy_clk_scheme_sel";
 		vdd-supply = <&pmdcalifornium_l4>;
 		vdda18-supply = <&pmdcalifornium_l5>;
 		qcom,vdd-voltage-level = <0 928000 928000>;

@@ -109,6 +109,9 @@ Required properties:
    microvolts or a value corresponding to voltage corner
 
 Optional properties:
+ - reg: Additional register set of address and length to control QMP PHY
+   "tcsr_phy_clk_scheme_sel": Read phy clk scheme single ended vs
+   differential to determine the value to write to QSERDES_COM_SYSCLK_EN_SEL.
  - qcom,vbus-valid-override: If present, indicates VBUS pin is not connected to
    the USB PHY and the controller must rely on external VBUS notification in
    order to manually relay the notification to the SSPHY.
