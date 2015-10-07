@@ -575,6 +575,7 @@
 			snps,lpm-nyet-thresh = <0x8>;
 			snps,bus-suspend-enable;
 			snps,usb3-u1u2-disable;
+			snps,num-gsi-evt-buffs = <0x3>;
 		};
 	};
 
