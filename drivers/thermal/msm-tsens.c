@@ -54,7 +54,7 @@
 #define TSENS2_SN_STATUS_ADDR(n)	((n) + 0x1044)
 #define TSENS2_SN_STATUS_VALID		BIT(14)
 #define TSENS2_SN_STATUS_VALID_MASK	0x4000
-#define TSENS2_TRDY_ADDR(n)		((n) + 0x84)
+#define TSENS2_TRDY_ADDR(n)		((n) + 0x1084)
 
 #define TSENS3_TRDY_ADDR(n)            ((n) + 0x1084)
 
@@ -1399,7 +1399,7 @@ static irqreturn_t tsens_irq_thread(int irq, void *data)
 	int sensor_sw_id = -EINVAL, rc = 0;
 	uint32_t idx = 0;
 
-	if ((tmdev->tsens_type == TSENS_TYPE2) |
+	if ((tmdev->tsens_type == TSENS_TYPE2) ||
 			(tmdev->tsens_type == TSENS_TYPE3))
 		sensor_status_addr = TSENS2_SN_STATUS_ADDR(tmdev->tsens_addr);
 	else
@@ -4382,6 +4382,8 @@ static int get_device_tree_data(struct platform_device *pdev)
 	if (!strcmp(id->compatible, "qcom,msm8994-tsens") ||
 		(!strcmp(id->compatible, "qcom,msm8992-tsens")) ||
 		(!strcmp(id->compatible, "qcom,mdm9640-tsens")) ||
+		(!strcmp(id->compatible, "qcom,msm8952-tsens")) ||
+		(!strcmp(id->compatible, "qcom,msm8976-tsens")) ||
 		(!strcmp(id->compatible, "qcom,mdm9640v2-tsens")))
 		tmdev->tsens_valid_status_check = true;
 	else
