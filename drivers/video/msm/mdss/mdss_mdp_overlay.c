@@ -3155,7 +3155,7 @@ static void mdss_mdp_hw_cursor_blend_config(struct mdss_mdp_mixer *mixer,
 {
 	u32 blendcfg;
 	if (!mixer) {
-		pr_err("mixer not availbale\n");
+		pr_debug("mixer not available\n");
 		return;
 	}
 
@@ -3592,6 +3592,14 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 			return ret;
 		}
 	}
+
+	/*
+	 * Right shift the incoming image height and width by 16 as HAL
+	 * sends source crop information along with it. When HW cursor
+	 * enabled using mixer, source crop information is not required
+	 */
+	img->width = img->width >> 16;
+	img->height = img->height >> 16;
 
 	if ((img->width > mdata->max_cursor_size) ||
 		(img->height > mdata->max_cursor_size) ||
@@ -5073,10 +5081,12 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mdp5_interface->off_fnc = mdss_mdp_overlay_off;
 	mdp5_interface->release_fnc = __mdss_mdp_overlay_release_all;
 	mdp5_interface->do_histogram = NULL;
-	if (mdp5_data->mdata->ncursor_pipes)
-		mdp5_interface->cursor_update = mdss_mdp_hw_cursor_pipe_update;
-	else
+
+	if (is_hw_cursor_on_mixer_supported(mdp5_data->mdata->mdp_rev))
 		mdp5_interface->cursor_update = mdss_mdp_hw_cursor_update;
+	else if (mdp5_data->mdata->ncursor_pipes)
+		mdp5_interface->cursor_update = mdss_mdp_hw_cursor_pipe_update;
+
 	mdp5_interface->dma_fnc = mdss_mdp_overlay_pan_display;
 	mdp5_interface->ioctl_handler = mdss_mdp_overlay_ioctl_handler;
 	mdp5_interface->kickoff_fnc = mdss_mdp_overlay_kickoff;

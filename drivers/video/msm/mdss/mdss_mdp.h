@@ -806,6 +806,12 @@ static inline int mdss_mdp_panic_signal_support_mode(
 	return signal_mode;
 }
 
+static inline bool is_hw_cursor_on_mixer_supported(u32 mdp_rev)
+{
+	return (mdp_rev == MDSS_MDP_HW_REV_111) ||
+		 (mdp_rev == MDSS_MDP_HW_REV_112);
+}
+
 static inline struct clk *mdss_mdp_get_clk(u32 clk_idx)
 {
 	if (clk_idx < MDSS_MAX_CLK)
