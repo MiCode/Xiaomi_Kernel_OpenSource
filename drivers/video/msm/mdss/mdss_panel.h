@@ -655,7 +655,7 @@ struct mdss_panel_timing {
 
 	u32 lm_widths[2];
 
-	u32 clk_rate;
+	u64 clk_rate;
 	char frame_rate;
 
 	u8 dsc_enc_total;
