@@ -217,7 +217,8 @@ void msm_dcvs_init_load(struct msm_vidc_inst *inst)
 
 	/* calculating the min and max threshold */
 	if (output_buf_req->buffer_count_actual) {
-		dcvs->min_threshold = DCVS_MIN_DISPLAY_BUFF;
+		dcvs->min_threshold = output_buf_req->buffer_count_actual -
+			output_buf_req->buffer_count_min + 1;
 		dcvs->max_threshold = output_buf_req->buffer_count_actual;
 		if (dcvs->max_threshold <= dcvs->min_threshold)
 			dcvs->max_threshold =
@@ -309,13 +310,13 @@ void msm_dcvs_monitor_buffer(struct msm_vidc_inst *inst)
 		prev_buf_count =
 			dcvs->num_ftb[((dcvs->ftb_index - 2 +
 				DCVS_FTB_WINDOW) % DCVS_FTB_WINDOW)];
-		if (prev_buf_count == DCVS_MIN_DISPLAY_BUFF &&
-			buffers_outside_fw <= DCVS_MIN_DISPLAY_BUFF) {
+		if (prev_buf_count == dcvs->threshold_disp_buf_low &&
+			buffers_outside_fw <= dcvs->threshold_disp_buf_low) {
 			dcvs->transition_turbo = true;
-		} else if (buffers_outside_fw > DCVS_MIN_DISPLAY_BUFF &&
+		} else if (buffers_outside_fw > dcvs->threshold_disp_buf_low &&
 			(buffers_outside_fw -
 			 (prev_buf_count - buffers_outside_fw))
-			< DCVS_MIN_DISPLAY_BUFF){
+			< dcvs->threshold_disp_buf_low){
 			dcvs->transition_turbo = true;
 		}
 	}
