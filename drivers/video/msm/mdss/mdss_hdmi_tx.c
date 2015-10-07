@@ -1242,7 +1242,7 @@ static void hdmi_tx_hdcp_cb_work(struct work_struct *work)
 			rc = hdmi_tx_config_avmute(hdmi_ctrl, true);
 		}
 
-		if (hdmi_ctrl->hpd_state) {
+		if (hdmi_ctrl->hpd_state && hdmi_ctrl->panel_power_on) {
 			DEV_DBG("%s: Reauthenticating\n", __func__);
 			rc = hdmi_ctrl->hdcp_ops->hdmi_hdcp_reauthenticate(
 				hdmi_ctrl->hdcp_feature_data);

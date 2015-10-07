@@ -10,17 +10,19 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt)	"%s: " fmt, __func__
+
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/slab.h>
 #include <linux/stat.h>
 #include <linux/types.h>
+#include <linux/kthread.h>
 
 #include <linux/hdcp_qseecom.h>
 #include "mdss_hdmi_hdcp.h"
 #include "video/msm_hdmi_hdcp_mgr.h"
 #include "mdss_hdmi_util.h"
-
 
 /*
  * Defined addresses and offsets of standard HDCP 2.2 sink registers
@@ -38,237 +40,272 @@
  */
 #define MIN_HDMI_TX_MAJOR_VERSION 4
 
-struct hdcp2p2_message_map {
-	int msg_id;
-	const char *msg_name;
-};
-
-enum hdcp2p2_sink_status {
+enum hdmi_hdcp2p2_sink_status {
 	SINK_DISCONNECTED,
 	SINK_CONNECTED
 };
 
-enum hdcp2p2_sink_originated_message {
-	START_AUTHENTICATION = 0,
-	AKE_SEND_CERT_MESSAGE = 3,
-	AKE_SEND_H_PRIME_MESSAGE = 7,
-	AKE_SEND_PAIRING_INFO_MESSAGE = 8,
-	LC_SEND_L_PRIME_MESSAGE = 10,
-};
-
-enum hdcp2p2_tx_originated_message {
-	AKE_INIT_MESSAGE = 2,
-	AKE_NO_STORED_KM_MESSAGE = 4,
-	AKE_STORED_KM_MESSAGE = 5,
-	LC_INIT_MESSAGE = 9,
-	SKE_SEND_EKS_MESSAGE = 11,
-};
-
-/* Stores one single message from sink */
-struct hdcp2p2_message {
-	u8 *message_bytes; /* Message buffer */
-	size_t msg_size; /* Byte size of the message buffer */
-};
-
-struct hdcp2p2_ctrl {
-	enum hdmi_hdcp_state auth_state; /* Current auth message st */
-	enum hdcp2p2_sink_status sink_status; /* Is sink connected */
+struct hdmi_hdcp2p2_ctrl {
+	atomic_t auth_state;
+	enum hdmi_hdcp2p2_sink_status sink_status; /* Is sink connected */
 	struct hdmi_hdcp_init_data init_data; /* Feature data from HDMI drv */
-	enum hdcp2p2_sink_originated_message next_sink_message;
-	enum hdcp2p2_tx_originated_message next_tx_message;
-	bool tx_has_master_key; /* true when TX has a stored Km for sink */
-	struct mutex mutex; /* mutex to protect access to hdcp2p2_ctrl */
+	struct mutex mutex; /* mutex to protect access to ctrl */
+	struct mutex wakeup_mutex; /* mutex to protect access to wakeup call*/
 	struct hdmi_hdcp_ops *ops;
-	void *hdcp_lib_handle; /* Handle to HDCP 2.2 Trustzone library */
-	struct hdcp_txmtr_ops *txmtr_ops; /* Ops for driver to call into TZ */
-	struct hdcp_client_ops *client_ops; /* Ops for driver to export to TZ */
+	void *lib_ctx; /* Handle to HDCP 2.2 Trustzone library */
+	struct hdcp_txmtr_ops *lib; /* Ops for driver to call into TZ */
 	struct completion rxstatus_completion; /* Rx status interrupt */
+
+	enum hdmi_hdcp_wakeup_cmd wakeup_cmd;
+	char *send_msg_buf;
+	uint32_t send_msg_len;
+	uint32_t timeout;
+
+	struct task_struct *thread;
+	struct kthread_worker worker;
+	struct kthread_work status;
+	struct kthread_work auth;
+	struct kthread_work send_msg;
+	struct kthread_work recv_msg;
 };
 
-static int hdcp2p2_authenticate(void *input);
-
-static const char *hdcp2p2_message_name(int msg_id)
+static int hdmi_hdcp2p2_wakeup(struct hdmi_hdcp_wakeup_data *data)
 {
-	/*
-	 * Message ID map. The first number indicates the message number
-	 * assigned to the message by the HDCP 2.2 spec. This is also the first
-	 * byte of every HDCP 2.2 authentication protocol message.
-	 */
-	static struct hdcp2p2_message_map hdcp2p2_msg_map[] = {
-		{2, "AKE_INIT"},
-		{3, "AKE_SEND_CERT"},
-		{4, "AKE_NO_STORED_KM"},
-		{5, "AKE_STORED_KM"},
-		{7, "AKE_SEND_H_PRIME"},
-		{8, "AKE_SEND_PAIRING_INFO"},
-		{9, "LC_INIT"},
-		{10, "LC_SEND_L_PRIME"},
-		{11, "SKE_SEND_EKS"},
-		{12, "REPEATER_AUTH_SEND_RECEIVERID_LIST"},
-		{15, "REPEATER_AUTH_SEND_ACK"},
-		{16, "REPEATER_AUTH_STREAM_MANAGE"},
-		{17, "REPEATER_AUTH_STREAM_READY"},
-	};
-	int i;
+	struct hdmi_hdcp2p2_ctrl *ctrl;
 
-	for (i = 0; i < ARRAY_SIZE(hdcp2p2_msg_map); i++) {
-		if (msg_id == hdcp2p2_msg_map[i].msg_id)
-			return hdcp2p2_msg_map[i].msg_name;
-	}
-	return "UNKNOWN";
-}
-
-static ssize_t hdcp2p2_sysfs_rda_sink_status(struct device *dev,
-			struct device_attribute *attr, char *buf)
-{
-	struct hdcp2p2_ctrl *hdcp2p2_ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP2P2);
-	ssize_t ret;
-
-	if (!hdcp2p2_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
+	if (!data) {
+		pr_err("invalid input\n");
 		return -EINVAL;
 	}
 
-	mutex_lock(&hdcp2p2_ctrl->mutex);
-	if (hdcp2p2_ctrl->sink_status == SINK_CONNECTED)
+	ctrl = data->context;
+	if (!ctrl) {
+		pr_err("invalid ctrl\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ctrl->wakeup_mutex);
+
+	pr_debug("wakeup_cmd: %s\n", hdmi_hdcp_cmd_to_str(data->cmd));
+
+	ctrl->wakeup_cmd = data->cmd;
+	ctrl->timeout = data->timeout;
+
+	if (data->send_msg_len)	{
+		ctrl->send_msg_len = data->send_msg_len;
+
+		ctrl->send_msg_buf = kzalloc(
+			data->send_msg_len, GFP_KERNEL);
+
+		if (!ctrl->send_msg_buf)
+			goto exit;
+
+		memcpy(ctrl->send_msg_buf, data->send_msg_buf,
+			ctrl->send_msg_len);
+	}
+
+	switch (ctrl->wakeup_cmd) {
+	case HDMI_HDCP_WKUP_CMD_SEND_MESSAGE:
+		if (atomic_read(&ctrl->auth_state) != HDCP_STATE_INACTIVE)
+			queue_kthread_work(&ctrl->worker, &ctrl->send_msg);
+		break;
+	case HDMI_HDCP_WKUP_CMD_RECV_MESSAGE:
+		if (atomic_read(&ctrl->auth_state) != HDCP_STATE_INACTIVE)
+			queue_kthread_work(&ctrl->worker, &ctrl->recv_msg);
+		break;
+	case HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS:
+	case HDMI_HDCP_WKUP_CMD_STATUS_FAILED:
+		if (atomic_read(&ctrl->auth_state) != HDCP_STATE_INACTIVE)
+			queue_kthread_work(&ctrl->worker, &ctrl->status);
+		break;
+	case HDMI_HDCP_WKUP_CMD_AUTHENTICATE:
+		queue_kthread_work(&ctrl->worker, &ctrl->auth);
+		break;
+	default:
+		pr_err("invalid wakeup command %d\n", ctrl->wakeup_cmd);
+	}
+exit:
+	mutex_unlock(&ctrl->wakeup_mutex);
+	return 0;
+}
+
+static inline void hdmi_hdcp2p2_wakeup_lib(struct hdmi_hdcp2p2_ctrl *ctrl,
+	struct hdcp_lib_wakeup_data *data)
+{
+	int rc = 0;
+
+	if (ctrl && ctrl->lib && ctrl->lib->wakeup &&
+		data && (data->cmd != HDCP_LIB_WKUP_CMD_INVALID)) {
+		rc = ctrl->lib->wakeup(data);
+		if (rc)
+			pr_err("error sending %s to lib\n",
+				hdcp_lib_cmd_to_str(data->cmd));
+	}
+}
+
+static void hdmi_hdcp2p2_reset(struct hdmi_hdcp2p2_ctrl *ctrl)
+{
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	ctrl->sink_status = SINK_DISCONNECTED;
+	atomic_set(&ctrl->auth_state, HDCP_STATE_INACTIVE);
+}
+
+static void hdmi_hdcp2p2_off(void *input)
+{
+	struct hdmi_hdcp2p2_ctrl *ctrl = (struct hdmi_hdcp2p2_ctrl *)input;
+	struct hdmi_hdcp_wakeup_data cdata = {HDMI_HDCP_WKUP_CMD_AUTHENTICATE};
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	hdmi_hdcp2p2_reset(ctrl);
+
+	flush_kthread_worker(&ctrl->worker);
+
+	cdata.context = input;
+
+	hdmi_hdcp2p2_wakeup(&cdata);
+}
+
+static int hdmi_hdcp2p2_authenticate(void *input)
+{
+	struct hdmi_hdcp2p2_ctrl *ctrl = input;
+	struct hdmi_hdcp_wakeup_data cdata = {HDMI_HDCP_WKUP_CMD_AUTHENTICATE};
+	int rc = 0;
+
+	flush_kthread_worker(&ctrl->worker);
+
+	ctrl->sink_status = SINK_CONNECTED;
+	atomic_set(&ctrl->auth_state, HDCP_STATE_AUTHENTICATING);
+
+	cdata.context = input;
+	hdmi_hdcp2p2_wakeup(&cdata);
+
+	return rc;
+}
+
+static int hdmi_hdcp2p2_reauthenticate(void *input)
+{
+	int rc = 0;
+	struct hdmi_hdcp2p2_ctrl *ctrl = (struct hdmi_hdcp2p2_ctrl *)input;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	hdmi_hdcp2p2_reset((struct hdmi_hdcp2p2_ctrl *)input);
+
+	rc = hdmi_hdcp2p2_authenticate(input);
+
+	return rc;
+}
+
+static ssize_t hdmi_hdcp2p2_sysfs_rda_sink_status(struct device *dev,
+			struct device_attribute *attr, char *buf)
+{
+	struct hdmi_hdcp2p2_ctrl *ctrl =
+		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP2P2);
+	ssize_t ret;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&ctrl->mutex);
+	if (ctrl->sink_status == SINK_CONNECTED)
 		ret = scnprintf(buf, PAGE_SIZE, "Connected\n");
 	else
 		ret = scnprintf(buf, PAGE_SIZE, "Disconnected\n");
-	mutex_unlock(&hdcp2p2_ctrl->mutex);
+	mutex_unlock(&ctrl->mutex);
 	return ret;
 }
 
-static ssize_t hdcp2p2_sysfs_rda_trigger(struct device *dev,
+static ssize_t hdmi_hdcp2p2_sysfs_rda_trigger(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
 	ssize_t ret;
-	struct hdcp2p2_ctrl *hdcp2p2_ctrl =
+	struct hdmi_hdcp2p2_ctrl *ctrl =
 		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP2P2);
 
-	if (!hdcp2p2_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
+	if (!ctrl) {
+		pr_err("invalid input\n");
 		return -EINVAL;
 	}
 
-	mutex_lock(&hdcp2p2_ctrl->mutex);
-	if (hdcp2p2_ctrl->sink_status == SINK_CONNECTED)
+	mutex_lock(&ctrl->mutex);
+	if (ctrl->sink_status == SINK_CONNECTED)
 		ret = scnprintf(buf, PAGE_SIZE, "Triggered\n");
 	else
 		ret = scnprintf(buf, PAGE_SIZE, "Not triggered\n");
-	mutex_unlock(&hdcp2p2_ctrl->mutex);
+	mutex_unlock(&ctrl->mutex);
 
 	return ret;
 }
 
-static ssize_t hdcp2p2_sysfs_wta_trigger(struct device *dev,
+static ssize_t hdmi_hdcp2p2_sysfs_wta_trigger(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
-	struct hdcp2p2_ctrl *hdcp2p2_ctrl =
+	struct hdmi_hdcp2p2_ctrl *ctrl =
 		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP2P2);
 
-	if (!hdcp2p2_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
+	if (!ctrl) {
+		pr_err("invalid input\n");
 		return -EINVAL;
 	}
 
-	mutex_lock(&hdcp2p2_ctrl->mutex);
-	hdcp2p2_ctrl->sink_status = SINK_CONNECTED;
-	mutex_unlock(&hdcp2p2_ctrl->mutex);
+	mutex_lock(&ctrl->mutex);
+	ctrl->sink_status = SINK_CONNECTED;
+	mutex_unlock(&ctrl->mutex);
 
-	DEV_DBG("%s: HDCP 2.2 authentication triggered\n", __func__);
-	hdcp2p2_authenticate(hdcp2p2_ctrl);
+	pr_debug("HDCP 2.2 authentication triggered\n");
+	hdmi_hdcp2p2_authenticate(ctrl);
 	return count;
 }
 
-static ssize_t hdcp2p2_sysfs_wta_min_level_change(struct device *dev,
+static ssize_t hdmi_hdcp2p2_sysfs_wta_min_level_change(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
-	struct hdcp2p2_ctrl *hdcp2p2_ctrl =
+	struct hdmi_hdcp2p2_ctrl *ctrl =
 		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP2P2);
 	int res;
 
-	if (!hdcp2p2_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
+	if (!ctrl) {
+		pr_err("invalid input\n");
 		return -EINVAL;
 	}
 
-	DEV_DBG("%s: notification of minimum level change received\n",
-						__func__);
-	res = hdcp2p2_ctrl->txmtr_ops->
-		hdcp_txmtr_query_stream_type(hdcp2p2_ctrl->hdcp_lib_handle);
+	pr_debug("notification of minimum level change received\n");
+	res = ctrl->lib->
+		hdcp_query_stream_type(ctrl->lib_ctx);
 
 	return  count;
 }
 
-static void hdcp2p2_auth_failed(struct hdcp2p2_ctrl *hdcp2p2_ctrl)
+static void hdmi_hdcp2p2_auth_failed(struct hdmi_hdcp2p2_ctrl *ctrl)
 {
-	if (!hdcp2p2_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
+	if (!ctrl) {
+		pr_err("invalid input\n");
 		return;
 	}
 
-	hdcp2p2_ctrl->auth_state = HDCP_STATE_AUTH_FAIL;
-	hdcp2p2_ctrl->next_sink_message = START_AUTHENTICATION;
-	hdcp2p2_ctrl->next_tx_message = AKE_INIT_MESSAGE;
-	hdcp2p2_ctrl->tx_has_master_key = false;
+	atomic_set(&ctrl->auth_state, HDCP_STATE_AUTH_FAIL);
 
 	/* notify hdmi tx about HDCP failure */
-	hdcp2p2_ctrl->init_data.notify_status(
-		hdcp2p2_ctrl->init_data.cb_data,
+	ctrl->init_data.notify_status(
+		ctrl->init_data.cb_data,
 		HDCP_STATE_AUTH_FAIL);
 }
 
-static void hdcp2p2_advance_next_tx_message(
-		struct hdcp2p2_ctrl *hdcp2p2_ctrl)
-{
-	switch (hdcp2p2_ctrl->next_tx_message) {
-	case AKE_INIT_MESSAGE:
-		hdcp2p2_ctrl->next_tx_message =
-			AKE_NO_STORED_KM_MESSAGE;
-		break;
-	case AKE_NO_STORED_KM_MESSAGE:
-	case AKE_STORED_KM_MESSAGE:
-		hdcp2p2_ctrl->next_tx_message = LC_INIT_MESSAGE;
-		break;
-	case LC_INIT_MESSAGE:
-		hdcp2p2_ctrl->next_tx_message = SKE_SEND_EKS_MESSAGE;
-		break;
-	default:
-		break;
-	}
-}
-
-static void hdcp2p2_advance_next_sink_message(
-		struct hdcp2p2_ctrl *hdcp2p2_ctrl)
-{
-	switch (hdcp2p2_ctrl->next_sink_message) {
-	case START_AUTHENTICATION:
-		hdcp2p2_ctrl->next_sink_message = AKE_SEND_CERT_MESSAGE;
-		break;
-	case AKE_SEND_CERT_MESSAGE:
-		hdcp2p2_ctrl->next_sink_message =
-			AKE_SEND_H_PRIME_MESSAGE;
-		break;
-	case AKE_SEND_H_PRIME_MESSAGE:
-		if (hdcp2p2_ctrl->tx_has_master_key)
-			hdcp2p2_ctrl->next_sink_message =
-				LC_SEND_L_PRIME_MESSAGE;
-		else
-			hdcp2p2_ctrl->next_sink_message =
-				AKE_SEND_PAIRING_INFO_MESSAGE;
-		break;
-	case AKE_SEND_PAIRING_INFO_MESSAGE:
-		hdcp2p2_ctrl->next_sink_message =
-			LC_SEND_L_PRIME_MESSAGE;
-		break;
-	default:
-		break;
-	}
-}
-
-static int hdcp2p2_ddc_read_message(struct hdcp2p2_ctrl *hdcp2p2_ctrl, u8 *buf,
-		int size, u32 timeout)
+static int hdmi_hdcp2p2_ddc_read_message(struct hdmi_hdcp2p2_ctrl *ctrl,
+	u8 *buf, int size, u32 timeout)
 {
 	struct hdmi_tx_ddc_data ddc_data;
 	int rc;
@@ -283,14 +320,14 @@ static int hdcp2p2_ddc_read_message(struct hdcp2p2_ctrl *hdcp2p2_ctrl, u8 *buf,
 	ddc_data.hard_timeout = timeout;
 	ddc_data.what = "HDCP2ReadMessage";
 
-	rc = hdmi_ddc_read(hdcp2p2_ctrl->init_data.ddc_ctrl, &ddc_data);
+	rc = hdmi_ddc_read(ctrl->init_data.ddc_ctrl, &ddc_data);
 	if (rc)
-		DEV_ERR("%s: Cannot read HDCP message register", __func__);
+		pr_err("Cannot read HDCP message register\n");
 	return rc;
 }
 
-static int hdcp2p2_ddc_write_message(struct hdcp2p2_ctrl *hdcp2p2_ctrl, u8 *buf,
-		size_t size)
+static int hdmi_hdcp2p2_ddc_write_message(struct hdmi_hdcp2p2_ctrl *ctrl,
+	u8 *buf, size_t size)
 {
 	struct hdmi_tx_ddc_data ddc_data;
 	int rc;
@@ -303,13 +340,13 @@ static int hdcp2p2_ddc_write_message(struct hdcp2p2_ctrl *hdcp2p2_ctrl, u8 *buf,
 	ddc_data.retry = 1;
 	ddc_data.what = "HDCP2WriteMessage";
 
-	rc = hdmi_ddc_write(hdcp2p2_ctrl->init_data.ddc_ctrl, &ddc_data);
+	rc = hdmi_ddc_write(ctrl->init_data.ddc_ctrl, &ddc_data);
 	if (rc)
-		DEV_ERR("%s: Cannot write HDCP message register", __func__);
+		pr_err("Cannot write HDCP message register");
 	return rc;
 }
 
-static void hdcp2p2_ddc_abort(struct hdcp2p2_ctrl *hdcp2p2_ctrl)
+static void hdmi_hdcp2p2_ddc_abort(struct hdmi_hdcp2p2_ctrl *ctrl)
 {
 	/* Abort any ongoing DDC transactions */
 	struct hdmi_tx_ddc_data ddc_data;
@@ -317,11 +354,11 @@ static void hdcp2p2_ddc_abort(struct hdcp2p2_ctrl *hdcp2p2_ctrl)
 	memset(&ddc_data, 0, sizeof(ddc_data));
 	ddc_data.retry = 1;
 	ddc_data.what = "HDCPAbortTransaction";
-	hdmi_ddc_abort_transaction(hdcp2p2_ctrl->init_data.ddc_ctrl,
+	hdmi_ddc_abort_transaction(ctrl->init_data.ddc_ctrl,
 		&ddc_data);
 }
 
-static int hdcp2p2_read_version(struct hdcp2p2_ctrl *hdcp2p2_ctrl,
+static int hdmi_hdcp2p2_read_version(struct hdmi_hdcp2p2_ctrl *ctrl,
 		u8 *hdcp2version)
 {
 	struct hdmi_tx_ddc_data ddc_data;
@@ -336,95 +373,186 @@ static int hdcp2p2_read_version(struct hdcp2p2_ctrl *hdcp2p2_ctrl,
 	ddc_data.retry = 1;
 	ddc_data.what = "HDCP2Version";
 
-	rc = hdmi_ddc_read(hdcp2p2_ctrl->init_data.ddc_ctrl, &ddc_data);
+	rc = hdmi_ddc_read(ctrl->init_data.ddc_ctrl, &ddc_data);
 	if (rc) {
-		DEV_ERR("%s: Cannot read HDCP2Version register", __func__);
+		pr_err("Cannot read HDCP2Version register");
 		return rc;
 	}
 
-	DEV_DBG("%s: Read HDCP2Version as %u\n", __func__, *hdcp2version);
+	pr_debug("Read HDCP2Version as %u\n", *hdcp2version);
 	return rc;
 }
 
-static int hdcp2p2_read_message_from_sink(struct hdcp2p2_ctrl *hdcp2p2_ctrl,
-	int msg_size, u32 timeout)
+static ssize_t hdmi_hdcp2p2_sysfs_rda_hdcp2_version(struct device *dev,
+			struct device_attribute *attr, char *buf)
 {
-	bool read_next_message = false;
-	int rc = 0;
-	struct hdcp2p2_message *message = kmalloc(sizeof(*message),
-			GFP_KERNEL);
+	u8 hdcp2version;
+	ssize_t ret;
+	struct hdmi_hdcp2p2_ctrl *ctrl =
+		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP2P2);
 
-	if (!message) {
-		DEV_ERR("%s: Could not allocate memory\n", __func__);
-		goto exit;
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return -EINVAL;
 	}
-
-	message->message_bytes = kmalloc(msg_size, GFP_KERNEL);
-	if (!message->message_bytes)
-		goto exit;
-
-	DEV_DBG("%s: reading message from sink\n", __func__);
-	rc = hdcp2p2_ddc_read_message(hdcp2p2_ctrl, message->message_bytes,
-		msg_size, timeout);
-	if (rc) {
-		DEV_ERR("%s: ERROR reading message from sink\n", __func__);
-		goto exit;
-	}
-
-	message->msg_size = msg_size;
-	DEV_DBG("%s: msg recvd: %s, size: %d\n", __func__,
-		hdcp2p2_message_name((int)message->message_bytes[0]),
-		msg_size);
-
-	if (hdcp2p2_ctrl->txmtr_ops->process_message) {
-		rc = hdcp2p2_ctrl->txmtr_ops->process_message(
-			hdcp2p2_ctrl->hdcp_lib_handle, message->message_bytes,
-			(u32)message->msg_size);
-		if (rc)
-			goto exit;
-	} else {
-		DEV_ERR("%s: process message not defined\n", __func__);
-		rc = -EINVAL;
-		goto exit;
-	}
-
-	if (hdcp2p2_ctrl->next_sink_message == AKE_SEND_H_PRIME_MESSAGE) {
-		if (!hdcp2p2_ctrl->tx_has_master_key) {
-			DEV_DBG("%s: Listening for second message\n", __func__);
-			hdcp2p2_advance_next_sink_message(hdcp2p2_ctrl);
-			read_next_message = true;
-		}
-	}
-
-	if (read_next_message)
-		rc = 1;
-exit:
-	kfree(message->message_bytes);
-	kfree(message);
-
-	return rc;
+	ret = hdmi_hdcp2p2_read_version(ctrl, &hdcp2version);
+	if (ret < 0)
+		return ret;
+	return snprintf(buf, PAGE_SIZE, "%u\n", hdcp2version);
 }
 
-static int hdcp2p2_sink_message_read(struct hdcp2p2_ctrl *hdcp2p2_ctrl,
-		u32 timeout)
-{
-	struct hdmi_tx_hdcp2p2_ddc_data hdcp2p2_ddc_data;
-	struct hdmi_tx_ddc_ctrl *ddc_ctrl;
-	int rc = 0;
-	int msg_size;
-	bool read_next_message = false;
-	u64 mult;
-	struct msm_hdmi_mode_timing_info *timing;
 
-	if (!hdcp2p2_ctrl) {
-		DEV_ERR("%s: invalid hdcp2p2 data\n", __func__);
+static DEVICE_ATTR(trigger, S_IRUGO | S_IWUSR, hdmi_hdcp2p2_sysfs_rda_trigger,
+		hdmi_hdcp2p2_sysfs_wta_trigger);
+static DEVICE_ATTR(min_level_change, S_IWUSR, NULL,
+		hdmi_hdcp2p2_sysfs_wta_min_level_change);
+static DEVICE_ATTR(sink_status, S_IRUGO, hdmi_hdcp2p2_sysfs_rda_sink_status,
+		NULL);
+static DEVICE_ATTR(hdcp2_version, S_IRUGO, hdmi_hdcp2p2_sysfs_rda_hdcp2_version,
+		NULL);
+
+static struct attribute *hdmi_hdcp2p2_fs_attrs[] = {
+	&dev_attr_trigger.attr,
+	&dev_attr_min_level_change.attr,
+	&dev_attr_sink_status.attr,
+	&dev_attr_hdcp2_version.attr,
+	NULL,
+};
+
+static struct attribute_group hdmi_hdcp2p2_fs_attr_group = {
+	.name = "hdcp2p2",
+	.attrs = hdmi_hdcp2p2_fs_attrs,
+};
+
+static int hdmi_hdcp2p2_isr(void *input)
+{
+	struct hdmi_hdcp2p2_ctrl *ctrl = input;
+	u32 reg_val;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
 		return -EINVAL;
 	}
 
-	ddc_ctrl = hdcp2p2_ctrl->init_data.ddc_ctrl;
+	pr_debug("INT_CTRL0 is 0x%x\n",
+		DSS_REG_R(ctrl->init_data.core_io, HDMI_DDC_INT_CTRL0));
+	reg_val = DSS_REG_R(ctrl->init_data.core_io,
+			HDMI_HDCP_INT_CTRL2);
+	if (reg_val & BIT(0)) {
+		pr_debug("HDCP 2.2 Encryption is enabled\n");
+		reg_val |= BIT(1);
+		DSS_REG_W(ctrl->init_data.core_io, HDMI_HDCP_INT_CTRL2,
+			reg_val);
+	}
+
+	reg_val = DSS_REG_R(ctrl->init_data.core_io,
+							HDMI_DDC_INT_CTRL0);
+	if (reg_val & HDCP2P2_RXSTATUS_MESSAGE_SIZE_MASK) {
+		DSS_REG_W(ctrl->init_data.core_io, HDMI_DDC_INT_CTRL0,
+						reg_val & ~(BIT(31)));
+		if (!completion_done(&ctrl->rxstatus_completion))
+			complete_all(&ctrl->rxstatus_completion);
+	} else if (reg_val & BIT(8)) {
+		DSS_REG_W(ctrl->init_data.core_io, HDMI_DDC_INT_CTRL0,
+						reg_val & ~(BIT(9) | BIT(10)));
+		if (!completion_done(&ctrl->rxstatus_completion))
+			complete_all(&ctrl->rxstatus_completion);
+	}
+
+	return 0;
+}
+
+static bool hdmi_hdcp2p2_feature_supported(void *input)
+{
+	struct hdmi_hdcp2p2_ctrl *ctrl = input;
+	struct hdcp_txmtr_ops *lib = NULL;
+	bool supported = false;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		goto end;
+	}
+
+	lib = ctrl->lib;
+	if (!lib) {
+		pr_err("invalid lib ops data\n");
+		goto end;
+	}
+
+	if (lib->feature_supported)
+		supported = lib->feature_supported(
+			ctrl->lib_ctx);
+end:
+	return supported;
+}
+
+static void hdmi_hdcp2p2_send_msg_work(struct kthread_work *work)
+{
+	int rc = 0;
+	struct hdmi_hdcp2p2_ctrl *ctrl = container_of(work,
+		struct hdmi_hdcp2p2_ctrl, send_msg);
+	struct hdcp_lib_wakeup_data cdata = {HDCP_LIB_WKUP_CMD_INVALID};
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	mutex_lock(&ctrl->mutex);
+
+	cdata.context = ctrl->lib_ctx;
+
+	if (atomic_read(&ctrl->auth_state) == HDCP_STATE_INACTIVE) {
+		pr_err("hdcp is off\n");
+		goto exit;
+	}
+
+	/* Forward the message to the sink */
+	rc = hdmi_hdcp2p2_ddc_write_message(ctrl,
+		ctrl->send_msg_buf, (size_t)ctrl->send_msg_len);
+	if (rc) {
+		pr_err("Error sending msg to sink %d\n", rc);
+		cdata.cmd = HDCP_LIB_WKUP_CMD_MSG_SEND_FAILED;
+	} else {
+		cdata.cmd = HDCP_LIB_WKUP_CMD_MSG_SEND_SUCCESS;
+	}
+exit:
+	kzfree(ctrl->send_msg_buf);
+	mutex_unlock(&ctrl->mutex);
+
+	hdmi_hdcp2p2_wakeup_lib(ctrl, &cdata);
+}
+
+static void hdmi_hdcp2p2_recv_msg_work(struct kthread_work *work)
+{
+	int rc = 0, msg_size = 0, retries = 5;
+	u64 mult;
+	char *recvd_msg_buf = NULL;
+	struct hdmi_hdcp2p2_ctrl *ctrl = container_of(work,
+		struct hdmi_hdcp2p2_ctrl, recv_msg);
+	struct hdmi_tx_hdcp2p2_ddc_data hdcp2p2_ddc_data;
+	struct hdmi_tx_ddc_ctrl *ddc_ctrl;
+	struct msm_hdmi_mode_timing_info *timing;
+	struct hdcp_lib_wakeup_data cdata = {HDCP_LIB_WKUP_CMD_INVALID};
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	mutex_lock(&ctrl->mutex);
+
+	cdata.context = ctrl->lib_ctx;
+
+	if (atomic_read(&ctrl->auth_state) == HDCP_STATE_INACTIVE) {
+		pr_err("hdcp is off\n");
+		goto exit;
+	}
+
+	ddc_ctrl = ctrl->init_data.ddc_ctrl;
 
 	do {
-		timing = hdcp2p2_ctrl->init_data.timing;
+		timing = ctrl->init_data.timing;
 
 		mult = hdmi_tx_get_v_total(timing) / 20;
 		memset(&hdcp2p2_ddc_data, 0, sizeof(hdcp2p2_ddc_data));
@@ -437,467 +565,254 @@ static int hdcp2p2_sink_message_read(struct hdcp2p2_ctrl *hdcp2p2_ctrl,
 		hdcp2p2_ddc_data.poll_sink = false;
 
 		hdmi_ddc_config(ddc_ctrl);
-		DEV_DBG("%s: Reading rxstatus, timer delay %u\n",
-			__func__, (u32)mult);
+		pr_debug("Reading rxstatus, timer delay %u\n", (u32)mult);
 
 		rc = hdmi_hdcp2p2_ddc_read_rxstatus(
 			ddc_ctrl, &hdcp2p2_ddc_data,
-			&hdcp2p2_ctrl->rxstatus_completion);
+			&ctrl->rxstatus_completion);
 		if (rc) {
-			DEV_ERR("%s: Could not read rxstatus from sink\n",
-				__func__);
-			goto exit;
-		} else {
-			DEV_DBG("%s: SUCCESS reading rxstatus\n", __func__);
+			pr_err("Could not read rxstatus from sink\n");
+			continue;
 		}
 
 		if (!msg_size) {
-			DEV_ERR("%s: recvd invalid message size\n", __func__);
+			pr_err("recvd invalid message size\n");
 			rc = -EINVAL;
-			goto exit;
+			continue;
 		}
+	} while (rc && (retries-- > 0));
 
-		rc = hdcp2p2_read_message_from_sink(
-			hdcp2p2_ctrl, msg_size, timeout);
-		if (rc > 0) {
-			read_next_message = true;
-			rc = 0;
-		}
-
-		hdcp2p2_ddc_abort(hdcp2p2_ctrl);
-		hdmi_hdcp2p2_ddc_reset(ddc_ctrl);
-		hdmi_hdcp2p2_ddc_disable(ddc_ctrl);
-	} while (read_next_message);
-exit:
-	return rc;
-}
-
-static ssize_t hdcp2p2_sysfs_rda_hdcp2_version(struct device *dev,
-			struct device_attribute *attr, char *buf)
-{
-	u8 hdcp2version;
-	ssize_t ret;
-	struct hdcp2p2_ctrl *hdcp2p2_ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP2P2);
-
-	if (!hdcp2p2_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return -EINVAL;
-	}
-	ret = hdcp2p2_read_version(hdcp2p2_ctrl, &hdcp2version);
-	if (ret < 0)
-		return ret;
-	return snprintf(buf, PAGE_SIZE, "%u\n", hdcp2version);
-}
-
-
-static DEVICE_ATTR(trigger, S_IRUGO | S_IWUSR, hdcp2p2_sysfs_rda_trigger,
-		hdcp2p2_sysfs_wta_trigger);
-static DEVICE_ATTR(min_level_change, S_IWUSR, NULL,
-		hdcp2p2_sysfs_wta_min_level_change);
-static DEVICE_ATTR(sink_status, S_IRUGO, hdcp2p2_sysfs_rda_sink_status,
-		NULL);
-static DEVICE_ATTR(hdcp2_version, S_IRUGO,
-		hdcp2p2_sysfs_rda_hdcp2_version,
-		NULL);
-
-
-static struct attribute *hdcp2p2_fs_attrs[] = {
-	&dev_attr_trigger.attr,
-	&dev_attr_min_level_change.attr,
-	&dev_attr_sink_status.attr,
-	&dev_attr_hdcp2_version.attr,
-	NULL,
-};
-
-static struct attribute_group hdcp2p2_fs_attr_group = {
-	.name = "hdcp2p2",
-	.attrs = hdcp2p2_fs_attrs,
-};
-
-
-static int hdcp2p2_isr(void *input)
-{
-	struct hdcp2p2_ctrl *hdcp2p2_ctrl = input;
-	u32 reg_val;
-
-	if (!hdcp2p2_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return -EINVAL;
-	}
-
-	DEV_DBG("%s\n INT_CTRL0 is 0x%x\n", __func__,
-		DSS_REG_R(hdcp2p2_ctrl->init_data.core_io, HDMI_DDC_INT_CTRL0));
-	reg_val = DSS_REG_R(hdcp2p2_ctrl->init_data.core_io,
-			HDMI_HDCP_INT_CTRL2);
-	if (reg_val & BIT(0)) {
-		DEV_DBG("%s: HDCP 2.2 Encryption is enabled\n", __func__);
-		reg_val |= BIT(1);
-		DSS_REG_W(hdcp2p2_ctrl->init_data.core_io, HDMI_HDCP_INT_CTRL2,
-			reg_val);
-	}
-
-	reg_val = DSS_REG_R(hdcp2p2_ctrl->init_data.core_io,
-							HDMI_DDC_INT_CTRL0);
-	if (reg_val & HDCP2P2_RXSTATUS_MESSAGE_SIZE_MASK) {
-		DSS_REG_W(hdcp2p2_ctrl->init_data.core_io, HDMI_DDC_INT_CTRL0,
-						reg_val & ~(BIT(31)));
-		if (!completion_done(&hdcp2p2_ctrl->rxstatus_completion))
-			complete_all(&hdcp2p2_ctrl->rxstatus_completion);
-	} else if (reg_val & BIT(8)) {
-		DSS_REG_W(hdcp2p2_ctrl->init_data.core_io, HDMI_DDC_INT_CTRL0,
-						reg_val & ~(BIT(9) | BIT(10)));
-		if (!completion_done(&hdcp2p2_ctrl->rxstatus_completion))
-			complete_all(&hdcp2p2_ctrl->rxstatus_completion);
-	}
-
-	return 0;
-}
-
-static bool hdcp2p2_feature_supported(void *input)
-{
-	struct hdcp2p2_ctrl *hdcp2p2_ctrl = input;
-	struct hdcp_txmtr_ops *lib = NULL;
-	bool supported = false;
-
-	if (!hdcp2p2_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		goto end;
-	}
-
-	lib = hdcp2p2_ctrl->txmtr_ops;
-	if (!lib) {
-		DEV_ERR("%s: invalid lib ops data\n", __func__);
-		goto end;
-	}
-
-	if (lib->feature_supported)
-		supported = lib->feature_supported(
-			hdcp2p2_ctrl->hdcp_lib_handle);
-end:
-	return supported;
-}
-
-static void hdcp2p2_reset(struct hdcp2p2_ctrl *hdcp2p2_ctrl)
-{
-	if (!hdcp2p2_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return;
-	}
-
-	hdcp2p2_ctrl->sink_status = SINK_DISCONNECTED;
-	hdcp2p2_ctrl->next_sink_message = START_AUTHENTICATION;
-	hdcp2p2_ctrl->next_tx_message = AKE_INIT_MESSAGE;
-	hdcp2p2_ctrl->auth_state = HDCP_STATE_INACTIVE;
-	hdcp2p2_ctrl->tx_has_master_key = false;
-}
-
-static int hdcp2p2_authenticate(void *input)
-{
-	struct hdcp2p2_ctrl *hdcp2p2_ctrl = input;
-	struct hdcp_txmtr_ops *lib = NULL;
-	int rc = 0;
-
-	mutex_lock(&hdcp2p2_ctrl->mutex);
-	hdcp2p2_ctrl->sink_status = SINK_CONNECTED;
-	hdcp2p2_ctrl->auth_state = HDCP_STATE_AUTHENTICATING;
-
-	lib = hdcp2p2_ctrl->txmtr_ops;
-	if (!lib) {
-		DEV_ERR("%s: invalid lib ops data\n", __func__);
-		goto done;
-	}
-
-	if (!lib->start) {
-		DEV_ERR("%s: lib start not defined\n", __func__);
-		goto done;
-	}
-
-	rc = lib->start(hdcp2p2_ctrl->hdcp_lib_handle);
 	if (rc) {
-		DEV_ERR("%s: lib start failed\n", __func__);
-		hdcp2p2_ctrl->auth_state = HDCP_STATE_AUTH_FAIL;
-
-		goto done;
-	}
-done:
-	mutex_unlock(&hdcp2p2_ctrl->mutex);
-	return rc;
-}
-
-static int hdcp2p2_reauthenticate(void *input)
-{
-	struct hdcp2p2_ctrl *hdcp2p2_ctrl = (struct hdcp2p2_ctrl *)input;
-
-	if (!hdcp2p2_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return -EINVAL;
+		pr_err("error reading valid rxstatus data\n");
+		goto exit;
 	}
 
-	hdcp2p2_reset((struct hdcp2p2_ctrl *)input);
+	recvd_msg_buf = kzalloc(msg_size, GFP_KERNEL);
+	if (!recvd_msg_buf)
+		goto exit;
 
-	return hdcp2p2_authenticate(input);
+	rc = hdmi_hdcp2p2_ddc_read_message(ctrl, recvd_msg_buf,
+		msg_size, ctrl->timeout);
+	if (rc)
+		pr_err("ERROR reading message from sink\n");
+
+	hdmi_hdcp2p2_ddc_abort(ctrl);
+	hdmi_hdcp2p2_ddc_reset(ddc_ctrl);
+	hdmi_hdcp2p2_ddc_disable(ddc_ctrl);
+
+	cdata.cmd = HDCP_LIB_WKUP_CMD_MSG_RECV_SUCCESS;
+	cdata.recvd_msg_buf = recvd_msg_buf;
+	cdata.recvd_msg_len = msg_size;
+exit:
+	if (rc == -ETIMEDOUT)
+		cdata.cmd = HDCP_LIB_WKUP_CMD_MSG_RECV_TIMEOUT;
+	else if (rc)
+		cdata.cmd = HDCP_LIB_WKUP_CMD_MSG_RECV_FAILED;
+
+	mutex_unlock(&ctrl->mutex);
+
+	hdmi_hdcp2p2_wakeup_lib(ctrl, &cdata);
+	kfree(recvd_msg_buf);
 }
 
-static void hdcp2p2_off(void *input)
+static void hdmi_hdcp2p2_auth_status_work(struct kthread_work *work)
 {
-	struct hdcp2p2_ctrl *hdcp2p2_ctrl = (struct hdcp2p2_ctrl *)input;
-	struct hdcp_txmtr_ops *lib = NULL;
+	struct hdmi_hdcp2p2_ctrl *ctrl = container_of(work,
+		struct hdmi_hdcp2p2_ctrl, status);
 
-	if (!hdcp2p2_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
+	if (!ctrl) {
+		pr_err("invalid input\n");
 		return;
 	}
 
-	mutex_lock(&hdcp2p2_ctrl->mutex);
-	hdcp2p2_reset(hdcp2p2_ctrl);
+	mutex_lock(&ctrl->mutex);
 
-	lib = hdcp2p2_ctrl->txmtr_ops;
-
-	if (lib && lib->stop)
-		lib->stop(hdcp2p2_ctrl->hdcp_lib_handle);
-
-	mutex_unlock(&hdcp2p2_ctrl->mutex);
-}
-
-static int hdcp2p2_send_message_to_sink(void *client_ctx,
-		char *message, u32 msg_size)
-{
-	struct hdcp2p2_ctrl *hdcp2p2_ctrl = client_ctx;
-	int rc = 0;
-
-	if (!hdcp2p2_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
+	if (atomic_read(&ctrl->auth_state) == HDCP_STATE_INACTIVE) {
+		pr_err("hdcp is off\n");
 		goto exit;
 	}
 
-	if (hdcp2p2_ctrl->auth_state == HDCP_STATE_INACTIVE) {
-		DEV_DBG("%s: hdcp is off\n", __func__);
-		goto exit;
-	}
-
-	DEV_DBG("%s: Sending %s message from tx to sink\n", __func__,
-			hdcp2p2_message_name((int)message[0]));
-
-	switch (message[0]) {
-	case AKE_STORED_KM_MESSAGE:
-		hdcp2p2_ctrl->tx_has_master_key = true;
-		hdcp2p2_advance_next_sink_message(hdcp2p2_ctrl);
-		hdcp2p2_advance_next_tx_message(hdcp2p2_ctrl);
-		break;
-	case SKE_SEND_EKS_MESSAGE:
-		/* Send EKS message comes from TX when we are authenticated */
-		hdcp2p2_ctrl->auth_state = HDCP_STATE_AUTHENTICATED;
-		hdcp2p2_ctrl->next_sink_message = START_AUTHENTICATION;
-		hdcp2p2_ctrl->next_tx_message = AKE_INIT_MESSAGE;
-		hdcp2p2_ctrl->tx_has_master_key = false;
-		hdcp2p2_ctrl->init_data.notify_status(
-				hdcp2p2_ctrl->init_data.cb_data,
-				HDCP_STATE_AUTHENTICATED);
-		break;
-	case AKE_NO_STORED_KM_MESSAGE:
-		/*
-		 * We need a delay to allow sink time to be ready to receive the
-		 * message
-		 */
-		msleep(100);
-		/* fall through */
-	default:
-		hdcp2p2_advance_next_sink_message(hdcp2p2_ctrl);
-		hdcp2p2_advance_next_tx_message(hdcp2p2_ctrl);
-		break;
-	}
-
-	/* Forward the message to the sink */
-	rc = hdcp2p2_ddc_write_message(hdcp2p2_ctrl, message, (size_t)msg_size);
-	if (rc)
-		DEV_ERR("%s: Error in writing to sink %d\n", __func__, rc);
-	else
-		DEV_DBG("%s: SUCCESS\n", __func__);
-exit:
-	mutex_unlock(&hdcp2p2_ctrl->mutex);
-
-	return rc;
-}
-
-static int hdcp2p2_recv_message_from_sink(void *client_ctx,
-		char *message, u32 msg_size, u32 timeout)
-{
-	struct hdcp2p2_ctrl *hdcp2p2_ctrl = client_ctx;
-	int rc = 0;
-
-	if (!hdcp2p2_ctrl) {
-		DEV_ERR("%s: invalid ctrl\n", __func__);
-		return -EINVAL;
-	}
-
-	if (!message) {
-		DEV_ERR("%s: invalid message\n", __func__);
-		return -EINVAL;
-	}
-
-	if (hdcp2p2_ctrl->auth_state == HDCP_STATE_INACTIVE) {
-		DEV_DBG("%s: hdcp is off\n", __func__);
-		return 0;
-	}
-
-	/* Start polling sink for the next expected message in the protocol */
-	if (message[0] != SKE_SEND_EKS_MESSAGE) {
-		rc = hdcp2p2_sink_message_read(hdcp2p2_ctrl, timeout);
-	} else {
+	if (ctrl->wakeup_cmd == HDMI_HDCP_WKUP_CMD_STATUS_FAILED) {
+		hdmi_hdcp2p2_auth_failed(ctrl);
+	} else if (ctrl->wakeup_cmd == HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS) {
 		/* Enable interrupts */
-		u32 regval = DSS_REG_R(hdcp2p2_ctrl->init_data.core_io,
+		u32 regval = DSS_REG_R(ctrl->init_data.core_io,
 				HDMI_HDCP_INT_CTRL2);
-		DEV_DBG("%s: Now authenticated. Enabling interrupts\n",
-				__func__);
+		pr_debug("Now authenticated. Enabling interrupts\n");
 		regval |= BIT(1);
 		regval |= BIT(2);
 		regval |= BIT(5);
-		DSS_REG_W(hdcp2p2_ctrl->init_data.core_io, HDMI_HDCP_INT_CTRL2,
-			regval);
-	}
 
-	return rc;
+		DSS_REG_W(ctrl->init_data.core_io,
+			HDMI_HDCP_INT_CTRL2, regval);
+
+		ctrl->init_data.notify_status(
+			ctrl->init_data.cb_data,
+			HDCP_STATE_AUTHENTICATED);
+	}
+exit:
+	mutex_unlock(&ctrl->mutex);
 }
 
-static int hdcp2p2_tz_error(void *client_ctx)
+static void hdmi_hdcp2p2_auth_work(struct kthread_work *work)
 {
-	struct hdcp2p2_ctrl *hdcp2p2_ctrl = (struct hdcp2p2_ctrl *)client_ctx;
+	struct hdmi_hdcp2p2_ctrl *ctrl = container_of(work,
+		struct hdmi_hdcp2p2_ctrl, auth);
+	struct hdcp_lib_wakeup_data cdata = {HDCP_LIB_WKUP_CMD_INVALID};
 
-	if (!hdcp2p2_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return -EINVAL;
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
 	}
 
-	hdcp2p2_auth_failed(hdcp2p2_ctrl);
+	mutex_lock(&ctrl->mutex);
 
-	return 0;
+	cdata.context = ctrl->lib_ctx;
+
+	if (atomic_read(&ctrl->auth_state) == HDCP_STATE_AUTHENTICATING)
+		cdata.cmd = HDCP_LIB_WKUP_CMD_START;
+	else
+		cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
+
+	mutex_unlock(&ctrl->mutex);
+
+	hdmi_hdcp2p2_wakeup_lib(ctrl, &cdata);
 }
 
 void hdmi_hdcp2p2_deinit(void *input)
 {
-	struct hdcp2p2_ctrl *hdcp2p2_ctrl = (struct hdcp2p2_ctrl *)input;
-	struct hdcp_txmtr_ops *lib = NULL;
+	struct hdmi_hdcp2p2_ctrl *ctrl = (struct hdmi_hdcp2p2_ctrl *)input;
+	struct hdcp_lib_wakeup_data cdata = {HDCP_LIB_WKUP_CMD_INVALID};
 
-	if (!hdcp2p2_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
+	if (!ctrl) {
+		pr_err("invalid input\n");
 		return;
 	}
 
-	lib = hdcp2p2_ctrl->txmtr_ops;
+	cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
+	cdata.context = ctrl->lib_ctx;
+	hdmi_hdcp2p2_wakeup_lib(ctrl, &cdata);
 
-	if (lib && lib->stop)
-		lib->stop(hdcp2p2_ctrl->hdcp_lib_handle);
+	kthread_stop(ctrl->thread);
 
-	sysfs_remove_group(hdcp2p2_ctrl->init_data.sysfs_kobj,
-				&hdcp2p2_fs_attr_group);
+	sysfs_remove_group(ctrl->init_data.sysfs_kobj,
+				&hdmi_hdcp2p2_fs_attr_group);
 
-	mutex_destroy(&hdcp2p2_ctrl->mutex);
-	kfree(hdcp2p2_ctrl);
+	mutex_destroy(&ctrl->mutex);
+	kfree(ctrl);
 }
 
 void *hdmi_hdcp2p2_init(struct hdmi_hdcp_init_data *init_data)
 {
-	struct hdcp2p2_ctrl *hdcp2p2_ctrl;
+	struct hdmi_hdcp2p2_ctrl *ctrl;
 	int rc;
 	static struct hdmi_hdcp_ops ops = {
-		.hdmi_hdcp_isr = hdcp2p2_isr,
-		.hdmi_hdcp_reauthenticate = hdcp2p2_reauthenticate,
-		.hdmi_hdcp_authenticate = hdcp2p2_authenticate,
-		.feature_supported = hdcp2p2_feature_supported,
-		.hdmi_hdcp_off = hdcp2p2_off
+		.hdmi_hdcp_isr = hdmi_hdcp2p2_isr,
+		.hdmi_hdcp_reauthenticate = hdmi_hdcp2p2_reauthenticate,
+		.hdmi_hdcp_authenticate = hdmi_hdcp2p2_authenticate,
+		.feature_supported = hdmi_hdcp2p2_feature_supported,
+		.hdmi_hdcp_off = hdmi_hdcp2p2_off
 	};
 
 	static struct hdcp_client_ops client_ops = {
-		.hdcp_send_message = hdcp2p2_send_message_to_sink,
-		.hdcp_recv_message = hdcp2p2_recv_message_from_sink,
-		.hdcp_tz_error = hdcp2p2_tz_error,
+		.wakeup = hdmi_hdcp2p2_wakeup,
 	};
 
 	static struct hdcp_txmtr_ops txmtr_ops;
 
-	DEV_DBG("%s: HDCP2P2 feature initialization\n", __func__);
+	pr_debug("HDCP2P2 feature initialization\n");
 
 	if (!init_data || !init_data->core_io || !init_data->mutex ||
 		!init_data->ddc_ctrl || !init_data->notify_status ||
 		!init_data->workq || !init_data->cb_data) {
-		DEV_ERR("%s: invalid input\n", __func__);
+		pr_err("invalid input\n");
 		return ERR_PTR(-EINVAL);
 	}
 
 	if (init_data->hdmi_tx_ver < MIN_HDMI_TX_MAJOR_VERSION) {
-		DEV_ERR("%s: HDMI Tx does not support HDCP 2.2\n", __func__);
+		pr_err("HDMI Tx does not support HDCP 2.2\n");
 		return ERR_PTR(-ENODEV);
 	}
 
-	hdcp2p2_ctrl = kzalloc(sizeof(*hdcp2p2_ctrl), GFP_KERNEL);
-	if (!hdcp2p2_ctrl) {
+	ctrl = kzalloc(sizeof(*ctrl), GFP_KERNEL);
+	if (!ctrl)
 		return ERR_PTR(-ENOMEM);
-	}
 
-	hdcp2p2_ctrl->init_data = *init_data;
-	hdcp2p2_ctrl->client_ops = &client_ops;
-	hdcp2p2_ctrl->txmtr_ops = &txmtr_ops;
+	ctrl->init_data = *init_data;
+	ctrl->lib = &txmtr_ops;
 
 	rc = sysfs_create_group(init_data->sysfs_kobj,
-				&hdcp2p2_fs_attr_group);
+				&hdmi_hdcp2p2_fs_attr_group);
 	if (rc) {
-		DEV_ERR("%s: hdcp2p2 sysfs group creation failed\n", __func__);
+		pr_err("hdcp2p2 sysfs group creation failed\n");
 		goto error;
 	}
 
-	init_completion(&hdcp2p2_ctrl->rxstatus_completion);
+	init_completion(&ctrl->rxstatus_completion);
 
-	hdcp2p2_ctrl->sink_status = SINK_DISCONNECTED;
+	ctrl->sink_status = SINK_DISCONNECTED;
 
-	hdcp2p2_ctrl->next_sink_message = START_AUTHENTICATION;
-	hdcp2p2_ctrl->next_tx_message = AKE_INIT_MESSAGE;
-	hdcp2p2_ctrl->tx_has_master_key = false;
-	hdcp2p2_ctrl->auth_state = HDCP_STATE_INACTIVE;
-	hdcp2p2_ctrl->ops = &ops;
-	mutex_init(&hdcp2p2_ctrl->mutex);
+	atomic_set(&ctrl->auth_state, HDCP_STATE_INACTIVE);
 
-	rc = hdcp_library_register(&hdcp2p2_ctrl->hdcp_lib_handle,
-			hdcp2p2_ctrl->client_ops,
-			hdcp2p2_ctrl->txmtr_ops, hdcp2p2_ctrl);
+	ctrl->ops = &ops;
+	mutex_init(&ctrl->mutex);
+	mutex_init(&ctrl->wakeup_mutex);
+
+	rc = hdcp_library_register(&ctrl->lib_ctx,
+			&client_ops, ctrl->lib, ctrl);
 	if (rc) {
-		DEV_ERR("%s: Unable to register with HDCP 2.2 library\n",
-			__func__);
+		pr_err("Unable to register with HDCP 2.2 library\n");
 		goto error;
 	}
 
-	return hdcp2p2_ctrl;
+	init_kthread_worker(&ctrl->worker);
 
+	init_kthread_work(&ctrl->auth,     hdmi_hdcp2p2_auth_work);
+	init_kthread_work(&ctrl->send_msg, hdmi_hdcp2p2_send_msg_work);
+	init_kthread_work(&ctrl->recv_msg, hdmi_hdcp2p2_recv_msg_work);
+	init_kthread_work(&ctrl->status,   hdmi_hdcp2p2_auth_status_work);
+
+	ctrl->thread = kthread_run(kthread_worker_fn,
+		&ctrl->worker, "hdmi_hdcp2p2");
+
+	if (IS_ERR(ctrl->thread)) {
+		pr_err("unable to start hdcp2p2 thread\n");
+		rc = PTR_ERR(ctrl->thread);
+		ctrl->thread = NULL;
+		goto error;
+	}
+
+	return ctrl;
 error:
-	kfree(hdcp2p2_ctrl);
+	kfree(ctrl);
 	return ERR_PTR(rc);
 }
 
-static bool hdcp2p2_supported(struct hdcp2p2_ctrl *hdcp2p2_ctrl)
+static bool hdmi_hdcp2p2_supported(struct hdmi_hdcp2p2_ctrl *ctrl)
 {
 	u8 hdcp2version;
 
-	int rc = hdcp2p2_read_version(hdcp2p2_ctrl, &hdcp2version);
+	int rc = hdmi_hdcp2p2_read_version(ctrl, &hdcp2version);
 	if (rc)
 		goto error;
 
 	if (hdcp2version & BIT(2)) {
-		DEV_DBG("%s: Sink is HDCP 2.2 capable\n", __func__);
+		pr_debug("Sink is HDCP 2.2 capable\n");
 		return true;
 	}
 
 error:
-	DEV_DBG("%s: Sink is not HDCP 2.2 capable\n", __func__);
+	pr_debug("Sink is not HDCP 2.2 capable\n");
 	return false;
 }
 
 struct hdmi_hdcp_ops *hdmi_hdcp2p2_start(void *input)
 {
-	struct hdcp2p2_ctrl *hdcp2p2_ctrl = input;
+	struct hdmi_hdcp2p2_ctrl *ctrl = input;
 
-	DEV_DBG("%s: Checking sink capability\n", __func__);
-	if (hdcp2p2_supported(hdcp2p2_ctrl))
-		return hdcp2p2_ctrl->ops;
+	pr_debug("Checking sink capability\n");
+	if (hdmi_hdcp2p2_supported(ctrl))
+		return ctrl->ops;
 	else
 		return NULL;
 

@@ -14,25 +14,93 @@
 #define __HDCP_QSEECOM_H
 #include <linux/types.h>
 
+enum hdcp_lib_wakeup_cmd {
+	HDCP_LIB_WKUP_CMD_INVALID,
+	HDCP_LIB_WKUP_CMD_START,
+	HDCP_LIB_WKUP_CMD_STOP,
+	HDCP_LIB_WKUP_CMD_MSG_SEND_SUCCESS,
+	HDCP_LIB_WKUP_CMD_MSG_SEND_FAILED,
+	HDCP_LIB_WKUP_CMD_MSG_RECV_SUCCESS,
+	HDCP_LIB_WKUP_CMD_MSG_RECV_FAILED,
+	HDCP_LIB_WKUP_CMD_MSG_RECV_TIMEOUT,
+};
+
+enum hdmi_hdcp_wakeup_cmd {
+	HDMI_HDCP_WKUP_CMD_INVALID,
+	HDMI_HDCP_WKUP_CMD_SEND_MESSAGE,
+	HDMI_HDCP_WKUP_CMD_RECV_MESSAGE,
+	HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS,
+	HDMI_HDCP_WKUP_CMD_STATUS_FAILED,
+	HDMI_HDCP_WKUP_CMD_AUTHENTICATE
+};
+
+struct hdcp_lib_wakeup_data {
+	enum hdcp_lib_wakeup_cmd cmd;
+	void *context;
+	char *recvd_msg_buf;
+	uint32_t recvd_msg_len;
+	uint32_t timeout;
+};
+
+struct hdmi_hdcp_wakeup_data {
+	enum hdmi_hdcp_wakeup_cmd cmd;
+	void *context;
+	char *send_msg_buf;
+	uint32_t send_msg_len;
+	uint32_t timeout;
+};
+
+static inline char *hdmi_hdcp_cmd_to_str(uint32_t cmd)
+{
+	switch (cmd) {
+	case HDMI_HDCP_WKUP_CMD_SEND_MESSAGE:
+		return "HDMI_HDCP_WKUP_CMD_SEND_MESSAGE";
+	case HDMI_HDCP_WKUP_CMD_RECV_MESSAGE:
+		return "HDMI_HDCP_WKUP_CMD_RECV_MESSAGE";
+	case HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS:
+		return "HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS";
+	case HDMI_HDCP_WKUP_CMD_STATUS_FAILED:
+		return "HDMI_HDCP_WKUP_CMD_STATUS_FAIL";
+	case HDMI_HDCP_WKUP_CMD_AUTHENTICATE:
+		return "HDMI_HDCP_WKUP_CMD_AUTHENTICATE";
+	default:
+		return "???";
+	}
+}
+
+static inline char *hdcp_lib_cmd_to_str(uint32_t cmd)
+{
+	switch (cmd) {
+	case HDCP_LIB_WKUP_CMD_START:
+		return "HDCP_LIB_WKUP_CMD_START";
+	case HDCP_LIB_WKUP_CMD_STOP:
+		return "HDCP_LIB_WKUP_CMD_STOP";
+	case HDCP_LIB_WKUP_CMD_MSG_SEND_SUCCESS:
+		return "HDCP_LIB_WKUP_CMD_MSG_SEND_SUCCESS";
+	case HDCP_LIB_WKUP_CMD_MSG_SEND_FAILED:
+		return "HDCP_LIB_WKUP_CMD_MSG_SEND_FAILED";
+	case HDCP_LIB_WKUP_CMD_MSG_RECV_SUCCESS:
+		return "HDCP_LIB_WKUP_CMD_MSG_RECV_SUCCESS";
+	case HDCP_LIB_WKUP_CMD_MSG_RECV_FAILED:
+		return "HDCP_LIB_WKUP_CMD_MSG_RECV_FAILED";
+	case HDCP_LIB_WKUP_CMD_MSG_RECV_TIMEOUT:
+		return "HDCP_LIB_WKUP_CMD_MSG_RECV_TIMEOUT";
+	default:
+		return "???";
+	}
+}
+
 struct hdcp_txmtr_ops {
-	int (*start)(void *phdcpcontext);
-	int (*stop)(void *phdcpcontext);
+	int (*wakeup)(struct hdcp_lib_wakeup_data *data);
 	bool (*feature_supported)(void *phdcpcontext);
 
-	int (*process_message)(void *phdcpcontext,
-		unsigned char *msg, uint32_t msg_size);
 	int (*hdcp_txmtr_get_state)(void *phdcpcontext,
 		uint32_t *state);
-	int (*hdcp_txmtr_query_stream_type)(void *phdcpcontext);
+	int (*hdcp_query_stream_type)(void *phdcpcontext);
 };
 
 struct hdcp_client_ops {
-	int (*hdcp_send_message)(void *client_ctx,
-		char *message, uint32_t msg_size);
-	int (*hdcp_recv_message)(void *client_ctx,
-		char *message, uint32_t msg_size,
-		u32 timeout);
-	int (*hdcp_tz_error)(void *client_ctx);
+	int (*wakeup)(struct hdmi_hdcp_wakeup_data *data);
 };
 
 int hdcp_library_register(void **pphdcpcontext,
