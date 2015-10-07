@@ -124,6 +124,9 @@ Generic board variants:
 - QRD device:
   compatible = "qcom,qrd"
 
+- ADP device:
+  compatible = "qcom,adp"
+
 - Simulator device:
   compatible = "qcom,sim"
 
@@ -220,6 +223,7 @@ compatible = "qcom,msm8996-dtp"
 compatible = "qcom,msm8996-fluid"
 compatible = "qcom,msm8996-liquid"
 compatible = "qcom,msm8996-mtp"
+compatible = "qcom,msm8996-adp"
 compatible = "qcom,msmcobalt-sim"
 compatible = "qcom,msmcobalt-rumi"
 compatible = "qcom,msm8952-rumi"
