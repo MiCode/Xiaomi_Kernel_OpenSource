@@ -2354,8 +2354,15 @@ static void msm_hs_unconfig_uart_gpios(struct uart_port *uport)
 	const struct msm_serial_hs_platform_data *pdata =
 					pdev->dev.platform_data;
 	struct msm_hs_port *msm_uport = UARTDM_TO_MSM(uport);
+	int ret;
 
-	if (pdata) {
+	if (msm_uport->use_pinctrl) {
+		ret = pinctrl_select_state(msm_uport->pinctrl,
+				msm_uport->gpio_state_suspend);
+		if (ret)
+			MSM_HS_ERR("%s(): Failed to pinctrl set_state",
+				__func__);
+	} else if (pdata) {
 		if (gpio_is_valid(pdata->uart_tx_gpio))
 			gpio_free(pdata->uart_tx_gpio);
 		if (gpio_is_valid(pdata->uart_rx_gpio))
