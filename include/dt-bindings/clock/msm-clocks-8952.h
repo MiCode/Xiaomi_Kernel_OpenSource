@@ -109,6 +109,7 @@
 #define clk_gcc_crypto_axi_clk			0xd4415c9b
 #define clk_gcc_crypto_clk			0x00d390d2
 #define clk_gcc_prng_ahb_clk			0x397e7eaa
+#define clk_gcc_qdss_dap_clk			0x7fa9aa73
 #define clk_gcc_apss_tcu_clk			0xaf56a329
 #define clk_gcc_ipa_tbu_clk			0x75bbfb5c
 #define clk_gcc_gfx_tbu_clk			0x18bb9a90
@@ -194,6 +195,7 @@
 #define clk_gcc_oxili_ahb_clk			0xd15c8a00
 #define clk_gcc_oxili_gfx3d_clk			0x49a51fd9
 #define clk_gcc_oxili_timer_clk			0x1180db06
+#define clk_gcc_oxili_aon_clk			0xae18e54d
 #define clk_gcc_pdm2_clk			0x99d55711
 #define clk_gcc_pdm_ahb_clk			0x365664f6
 #define clk_gcc_sdcc1_ahb_clk			0x691e0caa
@@ -224,6 +226,18 @@
 #define clk_byte_clk_src                        0x3a911c53
 #define clk_ext_pclk0_clk_src			0x087c1612
 #define clk_ext_byte0_clk_src			0xfb32f31e
+
+#define clk_ext_pclk1_clk_src			0x8067c5a3
+#define clk_ext_byte1_clk_src			0x585ef6d4
+#define clk_byte1_clk_src			0x63c2c955
+#define clk_esc1_clk_src			0x3b0afa42
+#define clk_pclk1_clk_src			0x090f68ac
+#define clk_gcc_mdss_pclk1_clk			0x9a9c430d
+#define clk_gcc_mdss_byte1_clk			0x41f97fd8
+#define clk_gcc_mdss_esc1_clk			0x34653cc7
+#define clk_gcc_dcc_clk				0xd1000c50
+#define clk_gcc_debug_mux_thorium		0x917968c2
+
 /* clock_rpm controlled clocks */
 #define clk_pnoc_clk				0xc1296d0f
 #define clk_pnoc_a_clk				0x9bcffee4
