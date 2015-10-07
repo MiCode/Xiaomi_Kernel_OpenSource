@@ -49,6 +49,7 @@
 #define INVALID_MUX_ID 0xFF
 #define IPA_QUOTA_REACH_ALERT_MAX_SIZE 64
 #define IPA_QUOTA_REACH_IF_NAME_MAX_SIZE 64
+#define IPA_UEVENT_NUM_EVNP 4 /* number of event pointers */
 
 static struct net_device *ipa_netdevs[IPA_WWAN_DEVICE_COUNT];
 static struct ipa_sys_connect_params apps_to_ipa_ep_cfg, ipa_to_apps_ep_cfg;
@@ -2268,6 +2269,9 @@ int rmnet_ipa_set_data_quota(struct wan_ioctl_set_data_quota *data)
 	struct ipa_set_data_usage_quota_req_msg_v01 req;
 
 	index = find_vchannel_name_index(data->interface_name);
+	IPAWANERR("iface name %s, quota %lu\n",
+			  data->interface_name,
+			  (unsigned long int) data->quota_mbytes);
 
 	if (index == MAX_NUM_OF_MUX_CHANNEL) {
 		IPAWANERR("%s is an invalid iface name\n",
@@ -2290,6 +2294,199 @@ int rmnet_ipa_set_data_quota(struct wan_ioctl_set_data_quota *data)
 	return ipa_qmi_set_data_quota(&req);
 }
 
+ /* rmnet_ipa_set_tether_client_pipe() -
+ * @data - IOCTL data
+ *
+ * This function handles WAN_IOC_SET_DATA_QUOTA.
+ * It translates the given interface name to the Modem MUX ID and
+ * sends the request of the quota to the IPA Modem driver via QMI.
+ *
+ * Return codes:
+ * 0: Success
+ * -EFAULT: Invalid interface name provided
+ * other: See ipa_qmi_set_data_quota
+ */
+int rmnet_ipa_set_tether_client_pipe(
+	struct wan_ioctl_set_tether_client_pipe *data)
+{
+	int number, i;
+
+	IPAWANDBG("client %d, UL %d, DL %d, reset %d\n",
+	data->ipa_client,
+	data->ul_src_pipe_len,
+	data->dl_dst_pipe_len,
+	data->reset_client);
+	number = data->ul_src_pipe_len;
+	for (i = 0; i < number; i++) {
+		IPAWANDBG("UL index-%d pipe %d\n", i,
+			data->ul_src_pipe_list[i]);
+		if (data->reset_client)
+			ipa_set_client(data->ul_src_pipe_list[i],
+				0, false);
+		else
+			ipa_set_client(data->ul_src_pipe_list[i],
+				data->ipa_client, true);
+	}
+	number = data->dl_dst_pipe_len;
+	for (i = 0; i < number; i++) {
+		IPAWANDBG("DL index-%d pipe %d\n", i,
+			data->dl_dst_pipe_list[i]);
+		if (data->reset_client)
+			ipa_set_client(data->dl_dst_pipe_list[i],
+				0, false);
+		else
+			ipa_set_client(data->dl_dst_pipe_list[i],
+				data->ipa_client, false);
+	}
+	return 0;
+}
+
+int rmnet_ipa_query_tethering_stats(struct wan_ioctl_query_tether_stats *data,
+	bool reset)
+{
+	struct ipa_get_data_stats_req_msg_v01 *req;
+	struct ipa_get_data_stats_resp_msg_v01 *resp;
+	int pipe_len, rc;
+
+	req = kzalloc(sizeof(struct ipa_get_data_stats_req_msg_v01),
+			GFP_KERNEL);
+	if (!req) {
+		IPAWANERR("Can't allocate memory for stats message\n");
+		return rc;
+	}
+	resp = kzalloc(sizeof(struct ipa_get_data_stats_resp_msg_v01),
+			GFP_KERNEL);
+	if (!resp) {
+		IPAWANERR("Can't allocate memory for stats message\n");
+		kfree(req);
+		return rc;
+	}
+	memset(req, 0, sizeof(struct ipa_get_data_stats_req_msg_v01));
+	memset(resp, 0, sizeof(struct ipa_get_data_stats_resp_msg_v01));
+
+	req->ipa_stats_type = QMI_IPA_STATS_TYPE_PIPE_V01;
+	if (reset) {
+		req->reset_stats_valid = true;
+		req->reset_stats = true;
+		IPAWANERR("reset the pipe stats\n");
+	} else {
+		/* print tethered-client enum */
+		IPAWANDBG("Tethered-client enum(%d)\n", data->ipa_client);
+	}
+
+	rc = ipa_qmi_get_data_stats(req, resp);
+	if (rc) {
+		IPAWANERR("can't get ipa_qmi_get_data_stats\n");
+		kfree(req);
+		kfree(resp);
+		return rc;
+	} else if (reset) {
+		kfree(req);
+		kfree(resp);
+		return 0;
+	}
+
+	if (resp->dl_dst_pipe_stats_list_valid) {
+		for (pipe_len = 0; pipe_len < resp->dl_dst_pipe_stats_list_len;
+			pipe_len++) {
+			IPAWANDBG("Check entry(%d) dl_dst_pipe(%d)\n",
+				pipe_len, resp->dl_dst_pipe_stats_list
+					[pipe_len].pipe_index);
+			IPAWANDBG("dl_p_v4(%lu)v6(%lu) dl_b_v4(%lu)v6(%lu)\n",
+				(unsigned long int) resp->
+				dl_dst_pipe_stats_list[pipe_len].
+				num_ipv4_packets,
+				(unsigned long int) resp->
+				dl_dst_pipe_stats_list[pipe_len].
+				num_ipv6_packets,
+				(unsigned long int) resp->
+				dl_dst_pipe_stats_list[pipe_len].
+				num_ipv4_bytes,
+				(unsigned long int) resp->
+				dl_dst_pipe_stats_list[pipe_len].
+				num_ipv6_bytes);
+			if (ipa_get_client_uplink(resp->
+				dl_dst_pipe_stats_list[pipe_len].
+				pipe_index) == false) {
+				if (data->ipa_client == ipa_get_client(resp->
+					dl_dst_pipe_stats_list[pipe_len].
+					pipe_index)) {
+					/* update the DL stats */
+					data->ipv4_rx_packets += resp->
+					dl_dst_pipe_stats_list[pipe_len].
+					num_ipv4_packets;
+					data->ipv6_rx_packets += resp->
+					dl_dst_pipe_stats_list[pipe_len].
+					num_ipv6_packets;
+					data->ipv4_rx_bytes += resp->
+					dl_dst_pipe_stats_list[pipe_len].
+					num_ipv4_bytes;
+					data->ipv6_rx_bytes += resp->
+					dl_dst_pipe_stats_list[pipe_len].
+					num_ipv6_bytes;
+				}
+			}
+		}
+	}
+	IPAWANDBG("v4_rx_p(%lu) v6_rx_p(%lu) v4_rx_b(%lu) v6_rx_b(%lu)\n",
+		(unsigned long int) data->ipv4_rx_packets,
+		(unsigned long int) data->ipv6_rx_packets,
+		(unsigned long int) data->ipv4_rx_bytes,
+		(unsigned long int) data->ipv6_rx_bytes);
+
+	if (resp->ul_src_pipe_stats_list_valid) {
+		for (pipe_len = 0; pipe_len < resp->ul_src_pipe_stats_list_len;
+			pipe_len++) {
+			IPAWANDBG("Check entry(%d) ul_dst_pipe(%d)\n",
+				pipe_len,
+				resp->ul_src_pipe_stats_list[pipe_len].
+				pipe_index);
+			IPAWANDBG("ul_p_v4(%lu)v6(%lu)ul_b_v4(%lu)v6(%lu)\n",
+				(unsigned long int) resp->
+				ul_src_pipe_stats_list[pipe_len].
+				num_ipv4_packets,
+				(unsigned long int) resp->
+				ul_src_pipe_stats_list[pipe_len].
+				num_ipv6_packets,
+				(unsigned long int) resp->
+				ul_src_pipe_stats_list[pipe_len].
+				num_ipv4_bytes,
+				(unsigned long int) resp->
+				ul_src_pipe_stats_list[pipe_len].
+				num_ipv6_bytes);
+			if (ipa_get_client_uplink(resp->
+				ul_src_pipe_stats_list[pipe_len].
+				pipe_index) == true) {
+				if (data->ipa_client == ipa_get_client(resp->
+				ul_src_pipe_stats_list[pipe_len].
+				pipe_index)) {
+					/* update the DL stats */
+					data->ipv4_tx_packets += resp->
+					ul_src_pipe_stats_list[pipe_len].
+					num_ipv4_packets;
+					data->ipv6_tx_packets += resp->
+					ul_src_pipe_stats_list[pipe_len].
+					num_ipv6_packets;
+					data->ipv4_tx_bytes += resp->
+					ul_src_pipe_stats_list[pipe_len].
+					num_ipv4_bytes;
+					data->ipv6_tx_bytes += resp->
+					ul_src_pipe_stats_list[pipe_len].
+					num_ipv6_bytes;
+				}
+			}
+		}
+	}
+	IPAWANDBG("tx_p_v4(%lu)v6(%lu)tx_b_v4(%lu) v6(%lu)\n",
+		(unsigned long int) data->ipv4_tx_packets,
+		(unsigned long  int) data->ipv6_tx_packets,
+		(unsigned long int) data->ipv4_tx_bytes,
+		(unsigned long int) data->ipv6_tx_bytes);
+	kfree(req);
+	kfree(resp);
+	return 0;
+}
+
 /**
  * ipa_broadcast_quota_reach_ind() - Send Netlink broadcast on Quota
  * @mux_id - The MUX ID on which the quota has been reached
@@ -2302,8 +2499,10 @@ int rmnet_ipa_set_data_quota(struct wan_ioctl_set_data_quota *data)
 void ipa_broadcast_quota_reach_ind(u32 mux_id)
 {
 	char alert_msg[IPA_QUOTA_REACH_ALERT_MAX_SIZE];
-	char iface_name[IPA_QUOTA_REACH_IF_NAME_MAX_SIZE];
-	char *envp[] = { alert_msg, iface_name, NULL };
+	char iface_name_l[IPA_QUOTA_REACH_IF_NAME_MAX_SIZE];
+	char iface_name_m[IPA_QUOTA_REACH_IF_NAME_MAX_SIZE];
+	char *envp[IPA_UEVENT_NUM_EVNP] = {
+		alert_msg, iface_name_l, iface_name_m, NULL };
 	int res;
 	int index;
 
@@ -2320,17 +2519,24 @@ void ipa_broadcast_quota_reach_ind(u32 mux_id)
 		IPAWANERR("message too long (%d)", res);
 		return;
 	}
-
-	res = snprintf(iface_name, IPA_QUOTA_REACH_IF_NAME_MAX_SIZE,
+	/* posting msg for L-release for CNE */
+	res = snprintf(iface_name_l, IPA_QUOTA_REACH_IF_NAME_MAX_SIZE,
+		       "UPSTREAM=%s", mux_channel[index].vchannel_name);
+	if (IPA_QUOTA_REACH_IF_NAME_MAX_SIZE <= res) {
+		IPAWANERR("message too long (%d)", res);
+		return;
+	}
+	/* posting msg for M-release for CNE */
+	res = snprintf(iface_name_m, IPA_QUOTA_REACH_IF_NAME_MAX_SIZE,
 		       "INTERFACE=%s", mux_channel[index].vchannel_name);
 	if (IPA_QUOTA_REACH_IF_NAME_MAX_SIZE <= res) {
 		IPAWANERR("message too long (%d)", res);
 		return;
 	}
 
-	IPAWANERR("putting nlmsg: <%s> <%s>\n", alert_msg, iface_name);
+	IPAWANERR("putting nlmsg: <%s> <%s> <%s>\n",
+		alert_msg, iface_name_l, iface_name_m);
 	kobject_uevent_env(&(ipa_netdevs[0]->dev.kobj), KOBJ_CHANGE, envp);
-	return;
 }
 
 /**
