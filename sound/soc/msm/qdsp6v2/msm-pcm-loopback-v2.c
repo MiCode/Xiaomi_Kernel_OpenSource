@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
 
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -174,19 +174,51 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 		if (ret < 0) {
 			dev_err(rtd->platform->dev,
 				"%s: pcm out open failed\n", __func__);
-			q6asm_audio_client_free(pcm->audio_client);
 			mutex_unlock(&pcm->lock);
 			return -ENOMEM;
 		}
 		event.event_func = msm_pcm_route_event_handler;
 		event.priv_data = (void *) pcm;
-		msm_pcm_routing_reg_phy_stream(soc_pcm_tx->dai_link->be_id,
+		ret = msm_pcm_routing_reg_phy_stream(
+			soc_pcm_tx->dai_link->be_id,
 			pcm->audio_client->perf_mode,
 			pcm->session_id, pcm->capture_substream->stream);
-		msm_pcm_routing_reg_phy_stream_v2(soc_pcm_rx->dai_link->be_id,
+		if (ret) {
+			pr_err("%s: stream reg tx failed ret:%d\n",
+				__func__, ret);
+			ret = q6asm_cmd(pcm->audio_client, CMD_CLOSE);
+			if (ret < 0) {
+				pr_err("%s: error: ASM close failed returned %d\n",
+					__func__, ret);
+				goto done;
+			}
+			q6asm_audio_client_free(pcm->audio_client);
+			pcm->audio_client = NULL;
+			pcm->session_id = 0;
+			goto done;
+		}
+		ret = msm_pcm_routing_reg_phy_stream_v2(
+			soc_pcm_rx->dai_link->be_id,
 			pcm->audio_client->perf_mode,
 			pcm->session_id, pcm->playback_substream->stream,
 			event);
+		if (ret) {
+			pr_err("%s: stream reg rx failed ret:%d\n",
+				__func__, ret);
+			msm_pcm_routing_dereg_phy_stream(
+				soc_pcm_tx->dai_link->be_id,
+				pcm->capture_substream->stream);
+			ret = q6asm_cmd(pcm->audio_client, CMD_CLOSE);
+			if (ret < 0) {
+				pr_err("%s: error: ASM close failed returned %d\n",
+					__func__, ret);
+				goto done;
+			}
+			q6asm_audio_client_free(pcm->audio_client);
+			pcm->audio_client = NULL;
+			pcm->session_id = 0;
+			goto done;
+		}
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			pcm->playback_substream = substream;
 			ret = pcm_loopback_set_volume(pcm, pcm->volume);
@@ -214,18 +246,26 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	runtime->private_data = pcm;
 
 	mutex_unlock(&pcm->lock);
-
-	return 0;
+done:
+	return ret;
 }
 
 static void stop_pcm(struct msm_pcm_loopback *pcm)
 {
 	struct snd_soc_pcm_runtime *soc_pcm_rx;
 	struct snd_soc_pcm_runtime *soc_pcm_tx;
+	int rc = 0;
 
 	if (pcm->audio_client == NULL)
 		return;
-	q6asm_cmd(pcm->audio_client, CMD_CLOSE);
+	if (pcm->session_id) {
+		rc = q6asm_cmd(pcm->audio_client, CMD_CLOSE);
+		if (rc < 0) {
+			pr_err("%s: error: ASM close failed returned %d\n",
+				__func__, rc);
+			goto done;
+		}
+	}
 
 	if (pcm->playback_substream != NULL) {
 		soc_pcm_rx = pcm->playback_substream->private_data;
@@ -239,6 +279,8 @@ static void stop_pcm(struct msm_pcm_loopback *pcm)
 	}
 	q6asm_audio_client_free(pcm->audio_client);
 	pcm->audio_client = NULL;
+done:
+	return;
 }
 
 static int msm_pcm_close(struct snd_pcm_substream *substream)
