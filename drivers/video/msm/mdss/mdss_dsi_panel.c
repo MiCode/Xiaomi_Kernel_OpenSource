@@ -2106,6 +2106,7 @@ static int mdss_dsi_panel_timing_from_dt(struct device_node *np,
 		struct mdss_panel_data *panel_data)
 {
 	u32 tmp;
+	u64 tmp64;
 	int rc, i, len;
 	const char *data;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata;
@@ -2164,8 +2165,11 @@ static int mdss_dsi_panel_timing_from_dt(struct device_node *np,
 
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-panel-framerate", &tmp);
 	pt->timing.frame_rate = !rc ? tmp : DEFAULT_FRAME_RATE;
-	rc = of_property_read_u32(np, "qcom,mdss-dsi-panel-clockrate", &tmp);
-	pt->timing.clk_rate = !rc ? tmp : 0;
+	rc = of_property_read_u64(np, "qcom,mdss-dsi-panel-clockrate", &tmp64);
+	if (rc == -EOVERFLOW)
+		rc = of_property_read_u32(np,
+			"qcom,mdss-dsi-panel-clockrate", (u32 *)&tmp64);
+	pt->timing.clk_rate = !rc ? tmp64 : 0;
 
 	data = of_get_property(np, "qcom,mdss-dsi-panel-timings", &len);
 	if ((!data) || (len != 12)) {
