@@ -23,31 +23,6 @@
 	(IPA_RULE_HASHABLE):(IPA_RULE_NON_HASHABLE) \
 	)
 
-static int ipa3_calc_extra_wrd_bytes(
-	const struct ipa_ipfltri_rule_eq *attrib)
-{
-	int num = 0;
-
-	if (attrib->tos_eq_present)
-		num++;
-	if (attrib->protocol_eq_present)
-		num++;
-	if (attrib->tc_eq_present)
-		num++;
-	num += attrib->num_offset_meq_128;
-	num += attrib->num_offset_meq_32;
-	num += attrib->num_ihl_offset_meq_32;
-	num += attrib->num_ihl_offset_range_16;
-	if (attrib->ihl_offset_eq_32_present)
-		num++;
-	if (attrib->ihl_offset_eq_16_present)
-		num++;
-
-	IPADBG("extra bytes number %d\n", num);
-
-	return num;
-}
-
 static int ipa3_generate_hw_rule_from_eq(
 		const struct ipa_ipfltri_rule_eq *attrib, u8 **buf)
 {
@@ -1808,6 +1783,138 @@ int ipa3_set_flt_tuple_mask(int pipe_idx, struct ipa3_hash_tuple *tuple)
 	ipa_write_reg(ipa3_ctx->mmio,
 		IPA_ENDP_FILTER_ROUTER_HSH_CFG_n_OFST(pipe_idx),
 		val);
+
+	return 0;
+}
+
+/**
+ * ipa3_flt_read_tbl_from_hw() -Read filtering table from IPA HW
+ * @pipe_idx: IPA endpoint index
+ * @ip_type: IPv4 or IPv6 table
+ * @hashable: hashable or non-hashable table
+ * @entry: array to fill the table entries
+ * @num_entry: number of entries in entry array. set by the caller to indicate
+ *  entry array size. Then set by this function as an output parameter to
+ *  indicate the number of entries in the array
+ *
+ * This function reads the filtering table from IPA SRAM and prepares an array
+ * of entries. This function is mainly used for debugging purposes.
+
+ * Returns:	0 on success, negative on failure
+ */
+int ipa3_flt_read_tbl_from_hw(u32 pipe_idx,
+	enum ipa_ip_type ip_type,
+	bool hashable,
+	struct ipa3_flt_entry entry[],
+	int *num_entry)
+{
+	int tbl_entry_idx;
+	u64 tbl_entry_in_hdr_ofst;
+	u64 *tbl_entry_in_hdr;
+	struct ipa3_flt_rule_hw_hdr *hdr;
+	u8 *buf;
+	int rule_idx;
+	u8 rule_size;
+	int i;
+
+	IPADBG("pipe_idx=%d ip_type=%d hashable=%d\n",
+		pipe_idx, ip_type, hashable);
+
+	if (pipe_idx >= ipa3_ctx->ipa_num_pipes ||
+	    ip_type >= IPA_IP_MAX ||
+	    !entry || !num_entry) {
+		IPAERR("Invalid params\n");
+		return -EFAULT;
+	}
+
+	if (!ipa_is_ep_support_flt(pipe_idx)) {
+		IPAERR("pipe %d does not support filtering\n", pipe_idx);
+		return -EINVAL;
+	}
+
+	memset(entry, 0, sizeof(*entry) * (*num_entry));
+	/* calculate the offset of the tbl entry */
+	tbl_entry_idx = 1; /* to skip the bitmap */
+	for (i = 0; i < pipe_idx; i++)
+		if (ipa3_ctx->ep_flt_bitmap & (1 << i))
+			tbl_entry_idx++;
+
+	if (hashable) {
+		if (ip_type == IPA_IP_v4)
+			tbl_entry_in_hdr_ofst =
+				ipa3_ctx->smem_restricted_bytes +
+				IPA_MEM_PART(v4_flt_hash_ofst) +
+				tbl_entry_idx * IPA_HW_TBL_HDR_WIDTH;
+		else
+			tbl_entry_in_hdr_ofst =
+				ipa3_ctx->smem_restricted_bytes +
+				IPA_MEM_PART(v6_flt_hash_ofst) +
+				tbl_entry_idx * IPA_HW_TBL_HDR_WIDTH;
+	} else {
+		if (ip_type == IPA_IP_v4)
+			tbl_entry_in_hdr_ofst =
+				ipa3_ctx->smem_restricted_bytes +
+				IPA_MEM_PART(v4_flt_nhash_ofst) +
+				tbl_entry_idx * IPA_HW_TBL_HDR_WIDTH;
+		else
+			tbl_entry_in_hdr_ofst =
+				ipa3_ctx->smem_restricted_bytes +
+				IPA_MEM_PART(v6_flt_nhash_ofst) +
+				tbl_entry_idx * IPA_HW_TBL_HDR_WIDTH;
+	}
+
+	IPADBG("tbl_entry_in_hdr_ofst=0x%llx\n", tbl_entry_in_hdr_ofst);
+
+	tbl_entry_in_hdr = ipa3_ctx->mmio +
+		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0) + tbl_entry_in_hdr_ofst;
+
+	/* for tables resides in DDR access it from the virtual memory */
+	if (*tbl_entry_in_hdr & 0x1) {
+		/* local */
+		hdr = (void *)(tbl_entry_in_hdr -
+			tbl_entry_idx * IPA_HW_TBL_HDR_WIDTH +
+			(*tbl_entry_in_hdr - 1) * 16);
+	} else {
+		/* system */
+		if (hashable)
+			hdr = ipa3_ctx->flt_tbl[pipe_idx][ip_type].
+				curr_mem[IPA_RULE_HASHABLE].base;
+		else
+			hdr = ipa3_ctx->flt_tbl[pipe_idx][ip_type].
+				curr_mem[IPA_RULE_NON_HASHABLE].base;
+
+		if (!hdr)
+			hdr = ipa3_ctx->empty_rt_tbl_mem.base;
+	}
+	IPADBG("*tbl_entry_in_hdr=0x%llx\n", *tbl_entry_in_hdr);
+	IPADBG("hdr=0x%p\n", hdr);
+
+	rule_idx = 0;
+	while (rule_idx < *num_entry) {
+		IPADBG("*((u64 *)hdr)=0x%llx\n", *((u64 *)hdr));
+		if (*((u64 *)hdr) == 0)
+			break;
+		entry[rule_idx].rule.eq_attrib_type = true;
+		entry[rule_idx].rule.eq_attrib.rule_eq_bitmap =
+			hdr->u.hdr.en_rule;
+		entry[rule_idx].rule.action = hdr->u.hdr.action;
+		entry[rule_idx].rule.retain_hdr = hdr->u.hdr.retain_hdr;
+		entry[rule_idx].rule.rt_tbl_idx = hdr->u.hdr.rt_tbl_idx;
+		entry[rule_idx].prio = hdr->u.hdr.priority;
+		entry[rule_idx].rule_id = entry->rule.rule_id =
+			hdr->u.hdr.rule_id;
+		buf = (u8 *)(hdr + 1);
+		IPADBG("buf=0x%p\n", buf);
+
+		ipa3_generate_eq_from_hw_rule(&entry[rule_idx].rule.eq_attrib,
+			buf, &rule_size);
+		IPADBG("rule_size=%d\n", rule_size);
+		hdr = (void *)(buf + rule_size);
+		IPADBG("hdr=0x%p\n", hdr);
+		rule_idx++;
+	}
+
+	*num_entry = rule_idx;
 
 	return 0;
 }

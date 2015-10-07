@@ -897,6 +897,28 @@ struct ipa3_tag_completion {
 	atomic_t cnt;
 };
 
+/**
+ * struct ipa3_debugfs_rt_entry - IPA routing table entry for debugfs
+ * @eq_attrib: equation attributes for the rule
+ * @retain_hdr: retain header when hit this rule
+ * @prio: rule 10bit priority which defines the order of the rule
+ * @rule_id: rule 10bit ID to be returned in packet status
+ * @dst: destination endpoint
+ * @hdr_ofset: header offset to be added
+ * @system: rule resides in system memory
+ * @is_proc_ctx: indicates whether the rules points to proc_ctx or header
+ */
+struct ipa3_debugfs_rt_entry {
+	struct ipa_ipfltri_rule_eq eq_attrib;
+	uint8_t retain_hdr;
+	u16 prio;
+	u16 rule_id;
+	u8 dst;
+	u8 hdr_ofset;
+	u8 system;
+	u8 is_proc_ctx;
+};
+
 struct ipa3_controller;
 
 /**
@@ -2203,4 +2225,19 @@ void ipa3_set_resorce_groups_min_max_limits(void);
 void ipa3_suspend_apps_pipes(bool suspend);
 void ipa3_flow_control(enum ipa_client_type ipa_client, bool enable,
 			uint32_t qmap_id);
+int ipa3_generate_eq_from_hw_rule(
+	struct ipa_ipfltri_rule_eq *attrib, u8 *buf, u8 *rule_size);
+int ipa3_flt_read_tbl_from_hw(u32 pipe_idx,
+	enum ipa_ip_type ip_type,
+	bool hashable,
+	struct ipa3_flt_entry entry[],
+	int *num_entry);
+int ipa3_rt_read_tbl_from_hw(u32 tbl_idx,
+	enum ipa_ip_type ip_type,
+	bool hashable,
+	struct ipa3_debugfs_rt_entry entry[],
+	int *num_entry);
+
+int ipa3_calc_extra_wrd_bytes(const struct ipa_ipfltri_rule_eq *attrib);
+
 #endif /* _IPA3_I_H_ */
