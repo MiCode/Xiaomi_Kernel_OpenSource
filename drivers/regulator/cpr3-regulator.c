@@ -950,7 +950,8 @@ static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
 	if (new_volt < last_volt) {
 		/* Decreasing VDD voltage */
 		rc = cpr3_regulator_config_ldo(ctrl, aggr_corner->floor_volt,
-					       last_max_volt, last_volt);
+					       last_max_volt, apm_crossing ?
+					       apm_volt : last_volt);
 		if (rc) {
 			cpr3_err(ctrl, "unable to configure LDO state, rc=%d\n",
 				 rc);
