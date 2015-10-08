@@ -342,35 +342,9 @@ static const struct adreno_vbif_snapshot_registers
 a5xx_vbif_snapshot_registers[] = {
 	{ 0x20040000, a5xx_vbif_ver_20040000_registers,
 				ARRAY_SIZE(a5xx_vbif_ver_20040000_registers)/2},
+	{ 0x20040001, a5xx_vbif_ver_20040000_registers,
+				ARRAY_SIZE(a5xx_vbif_ver_20040000_registers)/2},
 };
-
-static const unsigned int a5xx_vbif_snapshot_reg_cnt =
-				ARRAY_SIZE(a5xx_vbif_snapshot_registers);
-
-static void a5xx_snapshot_vbif_registers(struct kgsl_device *device,
-				struct kgsl_snapshot_registers *regs,
-				struct kgsl_snapshot_registers_list *list)
-{
-	unsigned int vbif_version = 0;
-	int i;
-	int found = 0;
-
-	kgsl_regread(device, A5XX_VBIF_VERSION, &vbif_version);
-
-	for (i = 0; i < a5xx_vbif_snapshot_reg_cnt; i++) {
-		if (vbif_version ==
-			a5xx_vbif_snapshot_registers[i].vbif_version) {
-			found = 1;
-			break;
-		}
-	}
-	if (found)
-		adreno_snapshot_regs(regs, list,
-				a5xx_vbif_snapshot_registers[i].
-					vbif_snapshot_registers,
-				a5xx_vbif_snapshot_registers[i].
-					vbif_snapshot_registers_count, 1);
-}
 
 /*
  * Set of registers to dump for A5XX on snapshot.
@@ -438,18 +412,6 @@ static const unsigned int a5xx_registers[] = {
 	/* DPM */
 	0xB000, 0xB97F, 0xB9A0, 0xB9BF,
 };
-
-static const unsigned int a5xx_registers_count = ARRAY_SIZE(a5xx_registers) / 2;
-
-unsigned int a5xx_num_registers(void)
-{
-	unsigned int i, count = 0;
-
-	for (i = 0; i < a5xx_registers_count; ++i)
-		count += a5xx_registers[2*i + 1] - a5xx_registers[2*i] + 1;
-
-	return count;
-}
 
 struct a5xx_hlsq_sp_tp_regs {
 	unsigned int statetype;
@@ -723,52 +685,73 @@ static size_t a5xx_snapshot_dump_hlsq_sp_tp_regs(struct kgsl_device *device,
 	return (count * 8) + sizeof(*header);
 }
 
-size_t a5xx_snapshot_regs_crash_dumper(struct kgsl_device *device, u8 *buf,
-	size_t remain, void *priv)
+static size_t a5xx_legacy_snapshot_registers(struct kgsl_device *device,
+		u8 *buf, size_t remain)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_snapshot_registers regs = {
+		.regs = a5xx_registers,
+		.count = ARRAY_SIZE(a5xx_registers) / 2,
+	};
+
+	return kgsl_snapshot_dump_registers(device, buf, remain, &regs);
+}
+
+static struct kgsl_memdesc capturescript;
+static struct kgsl_memdesc registers;
+
+#define REG_PAIR_COUNT(_a, _i) \
+	(((_a)[(2 * (_i)) + 1] - (_a)[2 * (_i)]) + 1)
+
+static inline unsigned int count_registers(void)
+{
+	unsigned int i, count = 0;
+
+	for (i = 0; i < ARRAY_SIZE(a5xx_registers) / 2; i++)
+		count += REG_PAIR_COUNT(a5xx_registers, i);
+
+	return count;
+}
+
+static unsigned int copy_registers(unsigned int *dst)
+{
+	unsigned int *src = (unsigned int *) registers.hostptr;
+	unsigned int i, count = 0;
+
+	for (i = 0; i < ARRAY_SIZE(a5xx_registers) / 2; i++) {
+		unsigned int j;
+		unsigned int start = a5xx_registers[2 * i];
+		unsigned int end = a5xx_registers[(2 * i) + 1];
+
+		for (j = start; j <= end; j++, count++) {
+			*dst++ = j;
+			*dst++ = *src++;
+		}
+	}
+
+	return count;
+}
+
+static size_t a5xx_snapshot_registers(struct kgsl_device *device, u8 *buf,
+		size_t remain, void *priv)
+{
 	struct kgsl_snapshot_regs *header = (struct kgsl_snapshot_regs *)buf;
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
-	int i, j, start, end, num_regs;
-	uint64_t *script_ptr;
-	uint64_t dest_addr;
-	int reg;
 	unsigned long wait_time;
-	unsigned int script_size = 0;
-	unsigned int *ptr;
+	unsigned int reg = 0;
 
-	if (remain < (a5xx_num_registers() * 8) + sizeof(*header)) {
+	/* Jump to legacy if the crash dump script was not initialized */
+	if (capturescript.gpuaddr == 0 || registers.gpuaddr == 0)
+		return a5xx_legacy_snapshot_registers(device, buf, remain);
+
+	if (remain < (count_registers() * 8) + sizeof(*header)) {
 		SNAPSHOT_ERR_NOMEM(device, "REGISTERS");
 		return 0;
 	}
 
-	script_ptr = (uint64_t *)adreno_dev->capturescript.hostptr;
-	dest_addr = adreno_dev->snapshot_registers.gpuaddr;
-	for (i = 0; i < a5xx_registers_count; ++i) {
-		num_regs = a5xx_registers[2*i + 1] - a5xx_registers[2*i] + 1;
-		*(script_ptr++) = dest_addr;
-		*(script_ptr++) = num_regs +
-				    ((uint64_t)(a5xx_registers[2*i]) << 44);
-		dest_addr += 4 * num_regs;
-		/* Increment script_size by 16 bytes. */
-		script_size += 16;
-		/* Check if script_ptr runs out of capturescript allocation.
-		 *  capturescript allocation size is PAGE_SIZE. The script ends
-		 * in 128 bits (16 bytes) of 0s.
-		*/
-		if (script_size > (PAGE_SIZE - 16)) {
-			KGSL_CORE_ERR("Not enough memory for capturescript");
-			return 0;
-		}
-	}
-
-	*(script_ptr++) = 0x0;
-	*(script_ptr++) = 0x0;
-
 	kgsl_regwrite(device, A5XX_CP_CRASH_SCRIPT_BASE_LO,
-			lower_32_bits(adreno_dev->capturescript.gpuaddr));
+			lower_32_bits(capturescript.gpuaddr));
 	kgsl_regwrite(device, A5XX_CP_CRASH_SCRIPT_BASE_HI,
-			upper_32_bits(adreno_dev->capturescript.gpuaddr));
+			upper_32_bits(capturescript.gpuaddr));
 	kgsl_regwrite(device, A5XX_CP_CRASH_DUMP_CNTL, 1);
 
 	wait_time = jiffies + msecs_to_jiffies(CP_CRASH_DUMPER_TIMEOUT);
@@ -780,24 +763,12 @@ size_t a5xx_snapshot_regs_crash_dumper(struct kgsl_device *device, u8 *buf,
 	}
 
 	if (!(reg & 0x4)) {
-		KGSL_CORE_ERR(
-			"cp crash dumper timed out without completion, reg: %d",
-			reg);
-		adreno_dev->capturescript_working = false;
-		return 0;
+		KGSL_CORE_ERR("Crash dump timed out: 0x%X\n", reg);
+		return a5xx_legacy_snapshot_registers(device, buf, remain);
 	}
 
-	ptr = (unsigned int *)adreno_dev->snapshot_registers.hostptr;
-	for (i = 0; i < a5xx_registers_count; ++i) {
-		start = a5xx_registers[2*i];
-		end = a5xx_registers[2*i + 1];
-		for (j = start; j <= end; ++j) {
-			*data++ = j;
-			*data++ = *ptr++;
-		}
-	}
+	header->count = copy_registers(data);
 
-	header->count = a5xx_num_registers();
 	/* Return the size of the section */
 	return (header->count * 8) + sizeof(*header);
 }
@@ -815,29 +786,19 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	struct kgsl_snapshot_registers_list list;
-	struct kgsl_snapshot_registers regs[5];
 	struct adreno_snapshot_data *snap_data = gpudev->snapshot_data;
 	unsigned int clock_ctl, reg;
-
-	list.registers = regs;
-	list.count = 0;
 
 	/* Disable Clock gating temporarily for the debug bus to work */
 	kgsl_regread(device, A5XX_RBBM_CLOCK_CNTL, &clock_ctl);
 	kgsl_regwrite(device, A5XX_RBBM_CLOCK_CNTL, 0);
 
-	if (adreno_dev->capturescript_working)
-		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
-			snapshot, a5xx_snapshot_regs_crash_dumper, NULL);
-	if (!adreno_dev->capturescript_working)
-		/* Master set of (non debug) registers */
-		adreno_snapshot_regs(regs, &list, a5xx_registers,
-			a5xx_registers_count, 1);
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
+		snapshot, a5xx_snapshot_registers, NULL);
 
-	a5xx_snapshot_vbif_registers(device, regs, &list);
-	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS, snapshot,
-		kgsl_snapshot_dump_regs, &list);
+	adreno_snapshot_vbif_registers(device, snapshot,
+		a5xx_vbif_snapshot_registers,
+		ARRAY_SIZE(a5xx_vbif_snapshot_registers));
 
 	/* Dump SP TP HLSQ registers */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS, snapshot,
@@ -906,5 +867,50 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 	a5xx_snapshot_debugbus(device, snapshot);
 }
 
+void a5xx_crashdump_init(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+	unsigned int i, count;
+	uint64_t *ptr;
+	uint64_t gpuaddr;
 
+	if (capturescript.gpuaddr != 0 && registers.gpuaddr != 0)
+		return;
 
+	/*
+	 * For the capture script two blocks of memory are needed: A block of
+	 * GPU readonly memory for the special capture script and a destination
+	 * block for the register values. The size of the capture script needs
+	 * is 128 bits (4 dwords) per register pair and 4 dwords at the end.
+	 * The destination block needs to be big enough to hold all the
+	 * registers that we will capture.
+	 */
+
+	if (kgsl_allocate_global(device, &capturescript,
+		((ARRAY_SIZE(a5xx_registers) / 2) * 16) + 16,
+		KGSL_MEMFLAGS_GPUREADONLY, 0))
+		return;
+
+	/* Count the total number of registers to capture */
+	count = count_registers();
+
+	if (kgsl_allocate_global(device, &registers,
+		count * sizeof(unsigned int), 0, 0))
+		return;
+
+	/* Build the crash script */
+
+	ptr = (uint64_t *) capturescript.hostptr;
+	gpuaddr = registers.gpuaddr;
+
+	for (i = 0; i < ARRAY_SIZE(a5xx_registers) / 2; i++) {
+		unsigned int regs = REG_PAIR_COUNT(a5xx_registers, i);
+		*ptr++ = gpuaddr;
+		*ptr++ = (((uint64_t) a5xx_registers[2 * i]) << 44) | regs;
+
+		gpuaddr += regs * sizeof(unsigned int);
+	}
+
+	*ptr++ = 0;
+	*ptr++ = 0;
+}

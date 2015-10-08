@@ -1299,6 +1299,9 @@ static int adreno_init(struct kgsl_device *device)
 	else if ((adreno_is_a405(adreno_dev)) || (adreno_is_a420(adreno_dev)))
 		adreno_a4xx_pwron_fixup_init(adreno_dev);
 
+	if (gpudev->init != NULL)
+		gpudev->init(adreno_dev);
+
 	set_bit(ADRENO_DEVICE_INITIALIZED, &adreno_dev->priv);
 
 	/* Use shader offset and length defined in gpudev */
@@ -1361,8 +1364,6 @@ static int adreno_init(struct kgsl_device *device)
 			WARN(1, "adreno: GPU preemption is disabled\n");
 	}
 
-	if (gpudev->cp_crash_dumper_init)
-		gpudev->cp_crash_dumper_init(adreno_dev);
 	return 0;
 }
 

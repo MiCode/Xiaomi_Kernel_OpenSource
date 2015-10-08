@@ -910,6 +910,8 @@ static unsigned int a4xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A4XX_VBIF_XIN_HALT_CTRL0),
 	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_XIN_HALT_CTRL1,
 				A4XX_VBIF_XIN_HALT_CTRL1),
+	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_VERSION,
+				A4XX_VBIF_VERSION),
 };
 
 static const struct adreno_reg_offsets a4xx_reg_offsets = {

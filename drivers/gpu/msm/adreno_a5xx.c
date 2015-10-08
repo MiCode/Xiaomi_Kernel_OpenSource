@@ -430,9 +430,6 @@ static void a5xx_platform_setup(struct adreno_device *adreno_dev)
 				A510_VBIF_XIN_HALT_CTRL0_MASK;
 	}
 
-	if (adreno_is_a530(adreno_dev) && !adreno_is_a530v1(adreno_dev))
-		INIT_WORK(&adreno_dev->gpmu_work, a5xx_gpmu_reset);
-
 	/* Calculate SP local and private mem addresses */
 	addr = ALIGN(ADRENO_UCHE_GMEM_BASE + adreno_dev->gmem_size, SZ_64K);
 	adreno_dev->sp_local_gpuaddr = addr;
@@ -444,6 +441,14 @@ static void a5xx_platform_setup(struct adreno_device *adreno_dev)
 
 	/* Check efuse bits for various capabilties */
 	a5xx_check_features(adreno_dev);
+}
+
+static void a5xx_init(struct adreno_device *adreno_dev)
+{
+	if (adreno_is_a530(adreno_dev) && !adreno_is_a530v1(adreno_dev))
+		INIT_WORK(&adreno_dev->gpmu_work, a5xx_gpmu_reset);
+
+	a5xx_crashdump_init(adreno_dev);
 }
 
 /**
@@ -1715,20 +1720,6 @@ out:
 }
 
 /*
- * a5xx_cp_crash_dumper_init() - Initialize CP Crash Dumper. Allocate memory
- *				for capturescript and for register dump
- * @adreno_dev: Pointer to adreno device
- */
-static void a5xx_cp_crash_dumper_init(struct adreno_device *adreno_dev)
-{
-	kgsl_allocate_global(&adreno_dev->dev, &adreno_dev->capturescript,
-				PAGE_SIZE, KGSL_MEMFLAGS_GPUREADONLY, 0);
-	kgsl_allocate_global(&adreno_dev->dev, &adreno_dev->snapshot_registers,
-				a5xx_num_registers() * 4, 0 , 0);
-	adreno_dev->capturescript_working = true;
-}
-
-/*
  * a5xx_start() - Device start
  * @adreno_dev: Pointer to adreno device
  *
@@ -2768,7 +2759,8 @@ static unsigned int a5xx_register_offsets[ADRENO_REG_REGISTER_MAX] = {
 				A5XX_VBIF_XIN_HALT_CTRL0),
 	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_XIN_HALT_CTRL1,
 				A5XX_VBIF_XIN_HALT_CTRL1),
-
+	ADRENO_REG_DEFINE(ADRENO_REG_VBIF_VERSION,
+				A5XX_VBIF_VERSION),
 };
 
 static const struct adreno_reg_offsets a5xx_reg_offsets = {
@@ -3523,6 +3515,7 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.irq_trace = trace_kgsl_a5xx_irq_status,
 	.num_prio_levels = ADRENO_PRIORITY_MAX_RB_LEVELS,
 	.platform_setup = a5xx_platform_setup,
+	.init = a5xx_init,
 	.rb_init = a5xx_rb_init,
 	.hw_init = a5xx_hw_init,
 	.switch_to_unsecure_mode = a5xx_switch_to_unsecure_mode,
@@ -3541,5 +3534,4 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.preemption_init = a5xx_preemption_init,
 	.preemption_schedule = a5xx_preemption_schedule,
 	.enable_64bit = a5xx_enable_64bit,
-	.cp_crash_dumper_init = a5xx_cp_crash_dumper_init,
 };
