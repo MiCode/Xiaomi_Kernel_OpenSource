@@ -1463,13 +1463,12 @@ static int mmc_blk_cmdq_issue_discard_rq(struct mmc_queue *mq,
 	struct mmc_blk_data *md = mq->data;
 	struct mmc_card *card = md->queue.card;
 	struct mmc_cmdq_req *cmdq_req = NULL;
-	struct mmc_host *host = card->host;
-	struct mmc_cmdq_context_info *ctx_info = &host->cmdq_ctx;
 	unsigned int from, nr, arg;
 	int err = 0;
 
 	if (!mmc_can_erase(card)) {
 		err = -EOPNOTSUPP;
+		blk_end_request(req, err, blk_rq_bytes(req));
 		goto out;
 	}
 
@@ -1500,23 +1499,11 @@ static int mmc_blk_cmdq_issue_discard_rq(struct mmc_queue *mq,
 			goto clear_dcmd;
 	}
 	err = mmc_cmdq_erase(cmdq_req, card, from, nr, arg);
-clear_dcmd:
-	/* clear pending request */
-	if (cmdq_req) {
-		BUG_ON(!test_and_clear_bit(cmdq_req->tag,
-					   &ctx_info->active_reqs));
-		clear_bit(CMDQ_STATE_DCMD_ACTIVE, &ctx_info->curr_state);
-	}
-out:
-	blk_end_request(req, err, blk_rq_bytes(req));
 
-	if (test_and_clear_bit(0, &ctx_info->req_starved)) {
-		blk_run_queue(mq->queue);
-		if (blk_queue_stopped(mq->queue))
-			wake_up_process(mq->thread);
-	}
-	mmc_release_host(host);
-	mmc_rpm_release(host, &card->dev);
+clear_dcmd:
+	mmc_host_clk_hold(card->host);
+	blk_complete_request(req);
+out:
 	return err ? 1 : 0;
 }
 
@@ -1585,12 +1572,11 @@ static int mmc_blk_cmdq_issue_secdiscard_rq(struct mmc_queue *mq,
 	struct mmc_card *card = md->queue.card;
 	struct mmc_cmdq_req *cmdq_req = NULL;
 	unsigned int from, nr, arg;
-	struct mmc_host *host = card->host;
-	struct mmc_cmdq_context_info *ctx_info = &host->cmdq_ctx;
 	int err = 0;
 
 	if (!(mmc_can_secure_erase_trim(card))) {
 		err = -EOPNOTSUPP;
+		blk_end_request(req, err, blk_rq_bytes(req));
 		goto out;
 	}
 
@@ -1635,23 +1621,11 @@ static int mmc_blk_cmdq_issue_secdiscard_rq(struct mmc_queue *mq,
 		err = mmc_cmdq_erase(cmdq_req, card, from, nr,
 				MMC_SECURE_TRIM2_ARG);
 	}
-clear_dcmd:
-	/* clear pending request */
-	if (cmdq_req) {
-		BUG_ON(!test_and_clear_bit(cmdq_req->tag,
-					   &ctx_info->active_reqs));
-		clear_bit(CMDQ_STATE_DCMD_ACTIVE, &ctx_info->curr_state);
-	}
-out:
-	blk_end_request(req, err, blk_rq_bytes(req));
 
-	if (test_and_clear_bit(0, &ctx_info->req_starved)) {
-		blk_run_queue(mq->queue);
-		if (blk_queue_stopped(mq->queue))
-			wake_up_process(mq->thread);
-	}
-	mmc_release_host(host);
-	mmc_rpm_release(host, &card->dev);
+clear_dcmd:
+	mmc_host_clk_hold(card->host);
+	blk_complete_request(req);
+out:
 	return err ? 1 : 0;
 }
 
@@ -3191,6 +3165,19 @@ static enum blk_eh_timer_return mmc_blk_cmdq_req_timed_out(struct request *req)
 	else
 		mrq->data->error = -ETIMEDOUT;
 
+	if (mrq->cmd && mrq->cmd->error) {
+		if (!(mrq->req->cmd_flags & REQ_FLUSH)) {
+			/*
+			 * Notify completion for non flush commands like
+			 * discard that wait for DCMD finish.
+			 */
+			set_bit(CMDQ_STATE_REQ_TIMED_OUT,
+					&ctx_info->curr_state);
+			complete(&mrq->completion);
+			return BLK_EH_NOT_HANDLED;
+		}
+	}
+
 	if (test_bit(CMDQ_STATE_REQ_TIMED_OUT, &ctx_info->curr_state) ||
 		test_bit(CMDQ_STATE_ERR, &ctx_info->curr_state))
 		return BLK_EH_NOT_HANDLED;
@@ -3251,13 +3238,6 @@ static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 	} else if (mrq->cmd && mrq->cmd->error) {
 		/* DCMD commands */
 		err = mrq->cmd->error;
-		/*
-		 * Notify completion for non flush commands like discard
-		 * that wait for DCMD finish.
-		 */
-		if (!(mrq->req->cmd_flags & REQ_FLUSH)) {
-			complete(&mrq->completion);
-		}
 	}
 
 reset:
