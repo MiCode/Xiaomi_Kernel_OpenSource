@@ -633,6 +633,7 @@ static struct rcg_clk gp3_clk_src = {
 
 static struct clk_freq_tbl ftbl_pcie_aux_clk_src[] = {
 	F(   1000000,         xo,    1,    5,    96),
+	F(  19200000,         xo,    1,    0,     0),
 	F_END
 };
 
