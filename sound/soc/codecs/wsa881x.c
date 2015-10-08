@@ -794,12 +794,15 @@ static int wsa881x_spkr_pa_event(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		if (WSA881X_IS_2_0(wsa881x->version)) {
-			/*
-			 * 1ms delay is needed before change in gain as per
-			 * HW requirement.
-			 */
-			usleep_range(1000, 1010);
-			wsa881x_ramp_pa_gain(codec, G_13P5DB, G_18DB, 1000);
+			if (!wsa881x->comp_enable) {
+				/*
+				 * 1ms delay is needed before change in gain
+				 * as per HW requirement.
+				 */
+				usleep_range(1000, 1010);
+				wsa881x_ramp_pa_gain(codec, G_13P5DB, G_18DB,
+						     1000);
+			}
 		} else {
 			/*
 			 * 710us delay is needed after PA enable as per
@@ -809,12 +812,15 @@ static int wsa881x_spkr_pa_event(struct snd_soc_dapm_widget *w,
 			regmap_multi_reg_write(wsa881x->regmap,
 					       wsa881x_post_pmu_pa,
 					       ARRAY_SIZE(wsa881x_post_pmu_pa));
-			/*
-			 * 1ms delay is needed before change in gain as per
-			 * HW requirement.
-			 */
-			usleep_range(1000, 1010);
-			wsa881x_ramp_pa_gain(codec, G_12DB, G_13P5DB, 1000);
+			if (!wsa881x->comp_enable) {
+				/*
+				 * 1ms delay is needed before change in gain
+				 * as per HW requirement.
+				 */
+				usleep_range(1000, 1010);
+				wsa881x_ramp_pa_gain(codec, G_12DB, G_13P5DB,
+						     1000);
+			}
 			snd_soc_update_bits(codec, WSA881X_ADC_SEL_IBIAS,
 					    0x70, 0x40);
 		}
