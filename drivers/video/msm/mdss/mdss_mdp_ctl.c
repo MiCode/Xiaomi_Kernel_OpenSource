@@ -1063,10 +1063,9 @@ exit:
 		*(perf->bw_vote_mode));
 }
 
-static bool is_mdp_prefetch_needed(struct mdss_mdp_ctl *ctl)
+static bool is_mdp_prefetch_needed(struct mdss_panel_info *pinfo)
 {
-	struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
-	struct mdss_data_type *mdata = ctl->mdata;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	bool enable_prefetch = false;
 
 	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_105) {
@@ -1090,7 +1089,7 @@ static bool is_mdp_prefetch_needed(struct mdss_mdp_ctl *ctl)
 
 /**
  * mdss_mdp_get_prefetch_lines: - Number of fetch lines in vertical front porch
- * @ctl:	Pointer to controller where prefetch lines will be calculated
+ * @pinfo: Pointer to the panel information.
  *
  * Returns the number of fetch lines in vertical front porch at which mdp
  * can start fetching the next frame.
@@ -1099,14 +1098,13 @@ static bool is_mdp_prefetch_needed(struct mdss_mdp_ctl *ctl)
  * the mdp fetch lines  as the last (25 - vbp - vpw) lines of vertical
  * front porch.
  */
-int mdss_mdp_get_prefetch_lines(struct mdss_mdp_ctl *ctl)
+int mdss_mdp_get_prefetch_lines(struct mdss_panel_info *pinfo)
 {
 	int prefetch_avail = 0;
 	int v_total, vfp_start;
 	u32 prefetch_needed;
-	struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
 
-	if (!is_mdp_prefetch_needed(ctl))
+	if (!is_mdp_prefetch_needed(pinfo))
 		return 0;
 
 	v_total = mdss_panel_get_vtotal(pinfo);
@@ -4151,17 +4149,36 @@ int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl)
 	if (!pinfo->dynamic_fps || !ctl->ops.config_fps_fnc)
 		return 0;
 
+	if (!pinfo->default_fps) {
+		/* we haven't got any call to update the fps */
+		return 0;
+	}
+
 	mdp5_data = mfd_to_mdp5_data(ctl->mfd);
 	if (!mdp5_data)
 		return -ENODEV;
 
+	/*
+	 * Panel info is already updated with the new fps info,
+	 * so we need to lock the data to make sure the panel info
+	 * is not updated while we reconfigure the HW.
+	 */
 	mutex_lock(&mdp5_data->dfps_lock);
-	new_fps = pinfo->new_fps;
-	mutex_unlock(&mdp5_data->dfps_lock);
 
-	if (new_fps == pinfo->mipi.frame_rate) {
+	if ((pinfo->dfps_update == DFPS_IMMEDIATE_PORCH_UPDATE_MODE_VFP) ||
+		(pinfo->dfps_update == DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP)) {
+		new_fps = mdss_panel_get_framerate(pinfo);
+	} else {
+		new_fps = pinfo->new_fps;
+	}
+
+	pr_debug("fps new:%d old:%d\n", new_fps,
+		pinfo->current_fps);
+
+	if (new_fps == pinfo->current_fps) {
 		pr_debug("FPS is already %d\n", new_fps);
-		return 0;
+		ret = 0;
+		goto exit;
 	}
 
 	ret = ctl->ops.config_fps_fnc(ctl, new_fps);
@@ -4171,6 +4188,8 @@ int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl)
 		pr_err("Failed to configure %d fps rc=%d\n",
 			new_fps, ret);
 
+exit:
+	mutex_unlock(&mdp5_data->dfps_lock);
 	return ret;
 }
 

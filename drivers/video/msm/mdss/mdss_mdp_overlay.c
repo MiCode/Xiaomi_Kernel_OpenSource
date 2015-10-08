@@ -2652,6 +2652,91 @@ static ssize_t dynamic_fps_sysfs_rda_dfps(struct device *dev,
 	return ret;
 } /* dynamic_fps_sysfs_rda_dfps */
 
+static int calc_extra_blanking(struct mdss_panel_data *pdata, u32 new_fps)
+{
+	int add_porches, diff;
+
+	/* calculate extra: lines for vfp-method, pixels for hfp-method */
+	diff = pdata->panel_info.default_fps - new_fps;
+	add_porches = mult_frac(pdata->panel_info.saved_total,
+		diff, new_fps);
+
+	return add_porches;
+}
+
+static void cache_initial_timings(struct mdss_panel_data *pdata)
+{
+	if (!pdata->panel_info.default_fps) {
+
+		/*
+		 * This value will change dynamically once the
+		 * actual dfps update happen in hw.
+		 */
+		pdata->panel_info.current_fps =
+			mdss_panel_get_framerate(&pdata->panel_info);
+
+		/*
+		 * Keep the initial fps and porch values for this panel before
+		 * any dfps update happen, this is to prevent losing precision
+		 * in further calculations.
+		 */
+		pdata->panel_info.default_fps =
+			mdss_panel_get_framerate(&pdata->panel_info);
+
+		if (pdata->panel_info.dfps_update ==
+					DFPS_IMMEDIATE_PORCH_UPDATE_MODE_VFP) {
+			pdata->panel_info.saved_total =
+				mdss_panel_get_vtotal(&pdata->panel_info);
+			pdata->panel_info.saved_fporch =
+				pdata->panel_info.lcdc.v_front_porch;
+
+		} else if (pdata->panel_info.dfps_update ==
+					DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP) {
+			pdata->panel_info.saved_total =
+				mdss_panel_get_htotal(&pdata->panel_info, true);
+			pdata->panel_info.saved_fporch =
+				pdata->panel_info.lcdc.h_front_porch;
+		}
+	}
+}
+
+static void mdss_mdp_dfps_update_params(struct mdss_panel_data *pdata,
+	u32 new_fps)
+{
+	/* Keep initial values before any dfps update */
+	cache_initial_timings(pdata);
+
+	if (pdata->panel_info.dfps_update ==
+			DFPS_IMMEDIATE_PORCH_UPDATE_MODE_VFP) {
+		int add_v_lines;
+
+		/* calculate extra vfp lines */
+		add_v_lines = calc_extra_blanking(pdata, new_fps);
+
+		/* update panel info with new values */
+		pdata->panel_info.lcdc.v_front_porch =
+			pdata->panel_info.saved_fporch + add_v_lines;
+		pdata->panel_info.mipi.frame_rate = new_fps;
+		pdata->panel_info.prg_fet =
+			mdss_mdp_get_prefetch_lines(&pdata->panel_info);
+
+	} else if (pdata->panel_info.dfps_update ==
+			DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP) {
+		int add_h_pixels;
+
+		/* calculate extra hfp pixels */
+		add_h_pixels = calc_extra_blanking(pdata, new_fps);
+
+		/* update panel info */
+		pdata->panel_info.lcdc.h_front_porch =
+			pdata->panel_info.saved_fporch + add_h_pixels;
+		pdata->panel_info.mipi.frame_rate = new_fps;
+	} else {
+		/* in clock method we are not updating panel data here */
+		pdata->panel_info.new_fps = new_fps;
+	}
+}
+
 static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -2660,6 +2745,7 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 	struct fb_info *fbi = dev_get_drvdata(dev);
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct fb_var_screeninfo *var = &mfd->fbi->var;
 
 	rc = kstrtoint(buf, 10, &dfps);
 	if (rc) {
@@ -2702,7 +2788,19 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 		dfps = pdata->panel_info.max_fps;
 	}
 
-	pdata->panel_info.new_fps = dfps;
+	pr_debug("new_fps:%d\n", dfps);
+
+	mdss_mdp_dfps_update_params(pdata, dfps);
+	if (pdata->next)
+		mdss_mdp_dfps_update_params(pdata->next, dfps);
+
+	/*
+	 * Update the panel info in the upstream
+	 * data, so any further call to get the screen
+	 * info has the updated timings.
+	 */
+	mdss_panelinfo_to_fb_var(&pdata->panel_info, var);
+
 	MDSS_XLOG(dfps);
 	mutex_unlock(&mdp5_data->dfps_lock);
 	return count;
@@ -3819,6 +3917,7 @@ static int mdss_fb_get_metadata(struct msm_fb_data_type *mfd,
 	case metadata_op_frame_rate:
 		metadata->data.panel_frame_rate =
 			mdss_panel_get_framerate(mfd->panel_info);
+		pr_debug("current fps:%d\n", metadata->data.panel_frame_rate);
 		break;
 	case metadata_op_get_caps:
 		ret = mdss_fb_get_hw_caps(mfd, &metadata->data.caps);
