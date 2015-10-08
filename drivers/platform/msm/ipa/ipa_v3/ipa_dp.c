@@ -604,6 +604,7 @@ int ipa3_send(struct ipa3_sys_context *sys,
 			IPAERR("GSI xfer failed.\n");
 			goto failure;
 		}
+		kfree(gsi_xfer_elem_array);
 	} else {
 		result = sps_transfer(sys->ep->ep_hdl, &transfer);
 		if (result) {
