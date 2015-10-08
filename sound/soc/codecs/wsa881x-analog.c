@@ -65,12 +65,16 @@ struct wsa881x_pdata {
 	int version;
 	struct mutex bg_lock;
 	struct mutex res_lock;
+	struct delayed_work ocp_ctl_work;
 };
 
 enum {
 	WSA881X_STATUS_PROBING,
 	WSA881X_STATUS_I2C,
 };
+
+#define WSA881X_OCP_CTL_TIMER_SEC 2
+#define WSA881X_OCP_CTL_TEMP_CELSIUS 25
 
 static int32_t wsa881x_resource_acquire(struct snd_soc_codec *codec,
 						bool enable);
@@ -483,12 +487,14 @@ static void wsa881x_bandgap_ctrl(struct snd_soc_codec *codec, bool enable)
 					    0x08, 0x08);
 			/* 400usec sleep is needed as per HW requirement */
 			usleep_range(400, 410);
+			snd_soc_update_bits(codec, WSA881X_TEMP_OP, 0x04, 0x04);
 		}
 	} else {
 		--wsa881x->bg_cnt;
 		if (wsa881x->bg_cnt <= 0) {
 			WARN_ON(wsa881x->bg_cnt < 0);
 			wsa881x->bg_cnt = 0;
+			snd_soc_update_bits(codec, WSA881X_TEMP_OP, 0x04, 0x00);
 			snd_soc_update_bits(codec, WSA881X_TEMP_OP, 0x08, 0x00);
 		}
 	}
@@ -780,19 +786,52 @@ static int wsa881x_rdac_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static void wsa881x_ocp_ctl_work(struct work_struct *work)
+{
+	struct wsa881x_pdata *wsa881x;
+	struct delayed_work *dwork;
+	struct snd_soc_codec *codec;
+	unsigned long temp_val;
+
+	dwork = to_delayed_work(work);
+	wsa881x = container_of(dwork, struct wsa881x_pdata, ocp_ctl_work);
+
+	if (!wsa881x)
+		return;
+
+	codec = wsa881x->codec;
+	wsa881x_get_temp(wsa881x->tz_pdata.tz_dev, &temp_val);
+	dev_dbg(codec->dev, " temp = %ld\n", temp_val);
+
+	if (temp_val <= WSA881X_OCP_CTL_TEMP_CELSIUS)
+		snd_soc_update_bits(codec, WSA881X_SPKR_OCP_CTL, 0xC0, 0x00);
+	else
+		snd_soc_update_bits(codec, WSA881X_SPKR_OCP_CTL, 0xC0, 0xC0);
+}
+
 static int wsa881x_spkr_pa_event(struct snd_soc_dapm_widget *w,
 			struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+	struct wsa881x_pdata *wsa881x = snd_soc_codec_get_drvdata(codec);
 
 	pr_debug("%s: %s %d\n", __func__, w->name, event);
 
 	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		snd_soc_update_bits(codec, WSA881X_SPKR_OCP_CTL, 0xC0, 0x80);
+		break;
 	case SND_SOC_DAPM_POST_PMU:
 		wsa881x_spkr_pa_ctrl(codec, true);
+		schedule_delayed_work(&wsa881x->ocp_ctl_work,
+			msecs_to_jiffies(WSA881X_OCP_CTL_TIMER_SEC * 1000));
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		wsa881x_spkr_pa_ctrl(codec, false);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		cancel_delayed_work_sync(&wsa881x->ocp_ctl_work);
+		snd_soc_update_bits(codec, WSA881X_SPKR_OCP_CTL, 0xC0, 0xC0);
 		break;
 	default:
 		pr_err("%s: invalid event:%d\n", __func__, event);
@@ -815,7 +854,9 @@ static const struct snd_soc_dapm_widget wsa881x_dapm_widgets[] = {
 
 	SND_SOC_DAPM_PGA_S("WSA_SPKR PGA", 1, SND_SOC_NOPM, 0, 0,
 			wsa881x_spkr_pa_event,
-			SND_SOC_DAPM_POST_PMU |	SND_SOC_DAPM_PRE_PMD),
+			SND_SOC_DAPM_PRE_PMU |
+			SND_SOC_DAPM_POST_PMU |	SND_SOC_DAPM_PRE_PMD |
+			SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_OUTPUT("WSA_SPKR"),
 };
@@ -930,7 +971,6 @@ static int32_t wsa881x_temp_reg_read(struct snd_soc_codec *codec,
 	}
 	wsa881x_resource_acquire(codec, true);
 
-	snd_soc_update_bits(codec, WSA881X_TEMP_OP, 0x04, 0x04);
 	if (WSA881X_IS_2_0(wsa881x->version)) {
 		snd_soc_update_bits(codec, WSA881X_TADC_VALUE_CTL, 0x01, 0x00);
 		wsa_temp_reg->dmeas_msb = snd_soc_read(codec, WSA881X_TEMP_MSB);
@@ -982,6 +1022,8 @@ static int wsa881x_probe(struct snd_soc_codec *codec)
 						wsa881x_temp_reg_read;
 	snd_soc_codec_set_drvdata(codec, &wsa_pdata[wsa881x_index]);
 	wsa881x_init_thermal(&wsa_pdata[wsa881x_index].tz_pdata);
+	INIT_DELAYED_WORK(&wsa_pdata[wsa881x_index].ocp_ctl_work,
+				wsa881x_ocp_ctl_work);
 
 	if (codec_conf->name_prefix) {
 		widget_name = kcalloc(WIDGET_NAME_MAX_SIZE, sizeof(char),
