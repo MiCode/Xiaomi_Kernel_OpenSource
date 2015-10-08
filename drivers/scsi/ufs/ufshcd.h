@@ -141,6 +141,7 @@ enum {
 	UFS_ERR_CLEAR_PEND_XFER_TM,
 	UFS_ERR_INT_FATAL_ERRORS,
 	UFS_ERR_INT_UIC_ERROR,
+	UFS_ERR_CRYPTO_ENGINE,
 
 	/* other errors */
 	UFS_ERR_HIBERN8_ENTER,
@@ -373,9 +374,7 @@ struct ufs_hba_variant_ops {
 struct ufs_hba_crypto_variant_ops {
 	int	(*crypto_engine_cfg)(struct ufs_hba *, unsigned int);
 	int	(*crypto_engine_reset)(struct ufs_hba *);
-	int	(*crypto_engine_eh)(struct ufs_hba *);
-	int	(*crypto_engine_get_err)(struct ufs_hba *);
-	void	(*crypto_engine_reset_err)(struct ufs_hba *);
+	int	(*crypto_engine_get_status)(struct ufs_hba *, u32 *);
 };
 
 /**
@@ -848,8 +847,10 @@ struct ufs_hba {
 	/* HBA Errors */
 	u32 errors;
 	u32 uic_error;
+	u32 ce_error;	/* crypto engine errors */
 	u32 saved_err;
 	u32 saved_uic_err;
+	u32 saved_ce_err;
 	bool silence_err_logs;
 	struct ufs_stats ufs_stats;
 
@@ -1323,27 +1324,15 @@ static inline int ufshcd_vops_crypto_engine_reset(struct ufs_hba *hba)
 	return 0;
 }
 
-static inline int ufshcd_vops_crypto_engine_eh(struct ufs_hba *hba)
-{
-	if (hba->var && hba->var->crypto_vops &&
-	    hba->var->crypto_vops->crypto_engine_eh)
-		return hba->var->crypto_vops->crypto_engine_eh(hba);
-	return 0;
-}
+static inline int ufshcd_vops_crypto_engine_get_status(struct ufs_hba *hba,
+		u32 *status)
 
-static inline int ufshcd_vops_crypto_engine_get_err(struct ufs_hba *hba)
 {
 	if (hba->var && hba->var->crypto_vops &&
-	    hba->var->crypto_vops->crypto_engine_get_err)
-		return hba->var->crypto_vops->crypto_engine_get_err(hba);
+	    hba->var->crypto_vops->crypto_engine_get_status)
+		return hba->var->crypto_vops->crypto_engine_get_status(hba,
+			status);
 	return 0;
-}
-
-static inline void ufshcd_vops_crypto_engine_reset_err(struct ufs_hba *hba)
-{
-	if (hba->var && hba->var->crypto_vops &&
-	    hba->var->crypto_vops->crypto_engine_reset_err)
-		hba->var->crypto_vops->crypto_engine_reset_err(hba);
 }
 
 #endif /* End of Header */

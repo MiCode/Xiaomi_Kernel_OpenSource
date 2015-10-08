@@ -641,8 +641,8 @@ static void ufshcd_print_host_state(struct ufs_hba *hba)
 	dev_err(hba->dev, "UFS Host state=%d\n", hba->ufshcd_state);
 	dev_err(hba->dev, "lrb in use=0x%lx, outstanding reqs=0x%lx tasks=0x%lx\n",
 		hba->lrb_in_use, hba->outstanding_tasks, hba->outstanding_reqs);
-	dev_err(hba->dev, "saved_err=0x%x, saved_uic_err=0x%x\n",
-		hba->saved_err, hba->saved_uic_err);
+	dev_err(hba->dev, "saved_err=0x%x, saved_uic_err=0x%x, saved_ce_err=0x%x\n",
+		hba->saved_err, hba->saved_uic_err, hba->saved_ce_err);
 	dev_err(hba->dev, "Device power mode=%d, UIC link state=%d\n",
 		hba->curr_dev_pwr_mode, hba->uic_link_state);
 	dev_err(hba->dev, "PM in progress=%d, sys. suspended=%d\n",
@@ -5968,7 +5968,6 @@ static void ufshcd_err_handler(struct work_struct *work)
 	int err = 0;
 	int tag;
 	bool needs_reset = false;
-	int crypto_engine_err = 0;
 
 	hba = container_of(work, struct ufs_hba, eh_work);
 
@@ -6000,8 +5999,6 @@ static void ufshcd_err_handler(struct work_struct *work)
 	/* Complete requests that have door-bell cleared by h/w */
 	ufshcd_complete_requests(hba);
 
-	crypto_engine_err = ufshcd_vops_crypto_engine_get_err(hba);
-
 	if (hba->dev_quirks & UFS_DEVICE_QUIRK_RECOVERY_FROM_DL_NAC_ERRORS) {
 		bool ret;
 
@@ -6017,12 +6014,15 @@ static void ufshcd_err_handler(struct work_struct *work)
 	    (hba->saved_uic_err & (UFSHCD_UIC_DL_PA_INIT_ERROR |
 				   UFSHCD_UIC_DL_NAC_RECEIVED_ERROR |
 				   UFSHCD_UIC_DL_TCx_REPLAY_ERROR))) ||
-	    crypto_engine_err) {
+	    hba->saved_ce_err) {
 		needs_reset = true;
 
-		if (hba->saved_err & INT_FATAL_ERRORS || crypto_engine_err)
+		if (hba->saved_err & INT_FATAL_ERRORS)
 			ufshcd_update_error_stats(hba,
 						  UFS_ERR_INT_FATAL_ERRORS);
+
+		if (hba->saved_ce_err)
+			ufshcd_update_error_stats(hba, UFS_ERR_CRYPTO_ENGINE);
 
 		if (hba->saved_err & UIC_ERROR)
 			ufshcd_update_error_stats(hba,
@@ -6095,7 +6095,7 @@ skip_pending_xfer_clear:
 		scsi_report_bus_reset(hba->host, 0);
 		hba->saved_err = 0;
 		hba->saved_uic_err = 0;
-		ufshcd_vops_crypto_engine_reset_err(hba);
+		hba->saved_ce_err = 0;
 	}
 
 skip_err_handling:
@@ -6191,11 +6191,8 @@ static void ufshcd_update_uic_error(struct ufs_hba *hba)
 static void ufshcd_check_errors(struct ufs_hba *hba)
 {
 	bool queue_eh_work = false;
-	int crypto_engine_err = 0;
 
-	crypto_engine_err = ufshcd_vops_crypto_engine_get_err(hba);
-
-	if (hba->errors & INT_FATAL_ERRORS || crypto_engine_err)
+	if (hba->errors & INT_FATAL_ERRORS || hba->ce_error)
 		queue_eh_work = true;
 
 	if (hba->errors & UIC_ERROR) {
@@ -6212,6 +6209,7 @@ static void ufshcd_check_errors(struct ufs_hba *hba)
 		 */
 		hba->saved_err |= hba->errors;
 		hba->saved_uic_err |= hba->uic_error;
+		hba->saved_ce_err |= hba->ce_error;
 
 		/* handle fatal errors only when link is functional */
 		if (hba->ufshcd_state == UFSHCD_STATE_OPERATIONAL) {
@@ -6250,15 +6248,13 @@ static void ufshcd_tmc_handler(struct ufs_hba *hba)
  */
 static void ufshcd_sl_intr(struct ufs_hba *hba, u32 intr_status)
 {
-	bool crypto_engine_err = false;
-
 	ufsdbg_error_inject_dispatcher(hba,
 		ERR_INJECT_INTR, intr_status, &intr_status);
 
-	ufshcd_vops_crypto_engine_eh(hba);
+	ufshcd_vops_crypto_engine_get_status(hba, &hba->ce_error);
 
 	hba->errors = UFSHCD_ERROR_MASK & intr_status;
-	if (hba->errors || crypto_engine_err)
+	if (hba->errors || hba->ce_error)
 		ufshcd_check_errors(hba);
 
 	if (intr_status & UFSHCD_UIC_MASK)
