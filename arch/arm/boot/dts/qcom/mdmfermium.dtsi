@@ -360,9 +360,9 @@
 		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
 			<&clock_gcc clk_gcc_blsp1_qup4_i2c_apps_clk>;
 
-		pinctrl-names = "i2c_default", "i2c_sleep";
-		pinctrl-0 = <&i2c4_default>;
-		pinctrl-1 = <&i2c4_sleep>;
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_4_active>;
+		pinctrl-1 = <&i2c_4_sleep>;
 		qcom,noise-rjct-scl = <0>;
 		qcom,noise-rjct-sda = <0>;
 		qcom,master-id = <86>;

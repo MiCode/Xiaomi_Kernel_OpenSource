@@ -123,8 +123,8 @@
 		};
 
 
-		i2c4 {
-			i2c4_default: i2c4_default {
+		i2c_4 {
+			i2c_4_active: i2c_4_active {
 				/* active state */
 				mux {
 					pins = "gpio18", "gpio19";
@@ -137,7 +137,7 @@
 				};
 			};
 
-			i2c4_sleep: i2c4_sleep {
+			i2c_4_sleep: i2c_4_sleep {
 				/* suspended state */
 				mux {
 					pins = "gpio18", "gpio19";
