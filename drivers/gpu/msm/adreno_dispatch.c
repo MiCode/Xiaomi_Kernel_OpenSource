@@ -1399,12 +1399,10 @@ static inline const char *_kgsl_context_comm(struct kgsl_context *context)
 		(_c)->context->proc_priv->pid, ##args)
 
 
-static void adreno_fault_header(struct adreno_ringbuffer *rb,
-	struct kgsl_cmdbatch *cmdbatch)
+static void adreno_fault_header(struct kgsl_device *device,
+		struct adreno_ringbuffer *rb, struct kgsl_cmdbatch *cmdbatch)
 {
-	struct kgsl_device *device = rb->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_context *drawctxt = ADRENO_CONTEXT(cmdbatch->context);
 	unsigned int status, rptr, wptr, ib1sz, ib2sz;
 	uint64_t ib1base, ib2base;
 
@@ -1418,17 +1416,36 @@ static void adreno_fault_header(struct adreno_ringbuffer *rb,
 					   ADRENO_REG_CP_IB2_BASE_HI, &ib2base);
 	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB2_BUFSZ, &ib2sz);
 
-	trace_adreno_gpu_fault(cmdbatch->context->id, cmdbatch->timestamp,
-		status, rptr, wptr, ib1base, ib1sz,
-		ib2base, ib2sz, drawctxt->rb->id);
+	if (cmdbatch != NULL) {
+		struct adreno_context *drawctxt =
+			ADRENO_CONTEXT(cmdbatch->context);
 
-	pr_fault(device, cmdbatch,
-		"gpu fault ctx %d ts %d status %8.8X rb %4.4x/%4.4x ib1 %16.16llX/%4.4x ib2 %16.16llX/%4.4x\n",
-		cmdbatch->context->id, cmdbatch->timestamp, status,
-		rptr, wptr, ib1base, ib1sz, ib2base, ib2sz);
-	pr_fault(device, cmdbatch,
-		"gpu fault rb %d rb sw r/w %4.4x/%4.4x\n",
-		rb->id, rb->rptr, rb->wptr);
+		trace_adreno_gpu_fault(cmdbatch->context->id,
+			cmdbatch->timestamp,
+			status, rptr, wptr, ib1base, ib1sz,
+			ib2base, ib2sz, drawctxt->rb->id);
+
+		pr_fault(device, cmdbatch,
+			"gpu fault ctx %d ts %d status %8.8X rb %4.4x/%4.4x ib1 %16.16llX/%4.4x ib2 %16.16llX/%4.4x\n",
+			cmdbatch->context->id, cmdbatch->timestamp, status,
+			rptr, wptr, ib1base, ib1sz, ib2base, ib2sz);
+
+		if (rb != NULL)
+			pr_fault(device, cmdbatch,
+				"gpu fault rb %d rb sw r/w %4.4x/%4.4x\n",
+				rb->id, rb->rptr, rb->wptr);
+	} else {
+		int id = (rb != NULL) ? rb->id : -1;
+
+		dev_err(device->dev,
+			"RB[%d]: gpu fault status %8.8X rb %4.4x/%4.4x ib1 %16.16llX/%4.4x ib2 %16.16llX/%4.4x\n",
+			id, status, rptr, wptr, ib1base, ib1sz, ib2base,
+			ib2sz);
+		if (rb != NULL)
+			dev_err(device->dev,
+				"RB[%d] gpu fault rb sw r/w %4.4x/%4.4x\n",
+				rb->id, rb->rptr, rb->wptr);
+	}
 }
 
 void adreno_fault_skipcmd_detached(struct kgsl_device *device,
@@ -1830,10 +1847,11 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 	 * detected fault for the oldest active command batch
 	 */
 
-	if (cmdbatch &&
+	if (cmdbatch == NULL ||
 		!test_bit(KGSL_FT_SKIP_PMDUMP, &cmdbatch->fault_policy)) {
-		adreno_fault_header(hung_rb, cmdbatch);
-		kgsl_device_snapshot(device, cmdbatch->context);
+		adreno_fault_header(device, hung_rb, cmdbatch);
+		kgsl_device_snapshot(device,
+			cmdbatch ? cmdbatch->context : NULL);
 	}
 
 	/* Terminate the stalled transaction and resume the IOMMU */
