@@ -359,7 +359,7 @@ static void qcom_ice_enable(struct ice_device *ice_dev)
 		((ICE_REV(ice_dev->ice_hw_version, MAJOR) == 2) &&
 		 (ICE_REV(ice_dev->ice_hw_version, MINOR) >= 1))) {
 		reg = qcom_ice_readl(ice_dev, QCOM_ICE_REGS_BYPASS_STATUS);
-		if ((reg & 0x8000000) != 0x0) {
+		if ((reg & 0x80000000) != 0x0) {
 			pr_err("%s: Bypass failed for ice = %p",
 				__func__, (void *)ice_dev);
 			BUG();
