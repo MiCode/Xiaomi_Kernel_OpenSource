@@ -1863,9 +1863,9 @@ static void smbchg_parallel_usb_enable(struct smbchg_chip *chip,
 {
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
 	union power_supply_propval pval = {0, };
-	int new_parallel_cl_ma, rc;
+	int new_parallel_cl_ma, set_parallel_cl_ma, new_pmi_cl_ma, rc;
 	int current_table_index;
-	int fcc_ma;
+	int fcc_ma, target_icl_ma;
 	int main_fastchg_current_ma;
 
 	if (!parallel_psy || !chip->parallel_charger_detected)
@@ -1906,44 +1906,33 @@ static void smbchg_parallel_usb_enable(struct smbchg_chip *chip,
 					fcc_ma - main_fastchg_current_ma);
 
 	chip->parallel.enabled_once = true;
-
 	/* Set USB ICL */
+	target_icl_ma = get_effective_result_locked(chip->usb_icl_votable);
 	new_parallel_cl_ma = total_current_ma / 2;
-
 	if (chip->parallel.current_max_ma == new_parallel_cl_ma) {
 		pr_smb(PR_STATUS,
-			"Skipping since Total USB current %d [%d, %d] didn't change from last time\n",
-			total_current_ma, new_parallel_cl_ma,
+			"Skipping since parallel requested current (%d) didn't change from last time\n",
 			new_parallel_cl_ma);
 		return;
 	}
 
-	/*
-	 * if the total current is decreasing then reduce it by few mA instead
-	 * of directly setting it to the lower current
-	 */
-	if (new_parallel_cl_ma <= chip->parallel.current_max_ma) {
-		total_current_ma = 2 * chip->parallel.current_max_ma;
-		total_current_ma -= 100;
-		new_parallel_cl_ma = total_current_ma / 2;
-	}
-
-	pr_smb(PR_STATUS, "New Total USB current = %d[%d, %d]\n",
-		total_current_ma, new_parallel_cl_ma,
-		new_parallel_cl_ma);
-
 	taper_irq_en(chip, true);
-	chip->parallel.current_max_ma = new_parallel_cl_ma;
 	power_supply_set_present(parallel_psy, true);
-	smbchg_set_usb_current_max(chip, chip->parallel.current_max_ma);
 	power_supply_set_current_limit(parallel_psy,
-				chip->parallel.current_max_ma * 1000);
+				new_parallel_cl_ma * 1000);
+	/* read back the real amount of current we are getting */
+	parallel_psy->get_property(parallel_psy,
+			POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
+	set_parallel_cl_ma = pval.intval / 1000;
+	chip->parallel.current_max_ma = new_parallel_cl_ma;
+	pr_smb(PR_MISC, "Requested %d from parallel, got %d\n",
+		new_parallel_cl_ma, set_parallel_cl_ma);
+	new_pmi_cl_ma = max(0, target_icl_ma - set_parallel_cl_ma);
+	pr_smb(PR_STATUS, "New Total USB current = %d[%d, %d]\n",
+		total_current_ma, new_pmi_cl_ma,
+		set_parallel_cl_ma);
+	smbchg_set_usb_current_max(chip, new_pmi_cl_ma);
 
-	if (smbchg_get_aicl_level_ma(chip) <  chip->parallel.current_max_ma) {
-		/* allow for the current from parallel and main to settle */
-		msleep(500);
-		smbchg_rerun_aicl(chip);
-	}
 	return;
 }
 
@@ -1951,11 +1940,13 @@ static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip,
 		int *ret_total_current_ma)
 {
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
+	union power_supply_propval pval = {0, };
 	int min_current_thr_ma, rc, type;
 	int total_current_ma, current_limit_ma, parallel_cl_ma;
 	ktime_t kt_since_last_disable;
 	u8 reg;
 	int fcc_ma = get_effective_result_locked(chip->fcc_votable);
+	int fcc_voter_id = get_effective_client_id_locked(chip->fcc_votable);
 	int usb_icl_ma = get_effective_result_locked(chip->usb_icl_votable);
 
 	if (!parallel_psy || !smbchg_parallel_en
@@ -2043,8 +2034,12 @@ static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip,
 		return false;
 	}
 
-	/* Suspend the parallel charger if the charging current is < 1800 mA */
-	if (fcc_ma < PARALLEL_CHG_THRESHOLD_CURRENT) {
+	/*
+	 * Suspend the parallel charger if the charging current is < 1800 mA
+	 * and is not because of an ESR pulse.
+	 */
+	if (fcc_voter_id != ESR_PULSE_FCC_VOTER
+			&& fcc_ma < PARALLEL_CHG_THRESHOLD_CURRENT) {
 		pr_smb(PR_STATUS, "FCC %d lower than %d\n",
 			fcc_ma,
 			PARALLEL_CHG_THRESHOLD_CURRENT);
@@ -2064,11 +2059,13 @@ static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip,
 		chip->parallel.initial_aicl_ma = current_limit_ma;
 	}
 
+	parallel_psy->get_property(parallel_psy,
+			POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
+	parallel_cl_ma = pval.intval / 1000;
 	/*
-	 * Use the previous set current from the parallel charger.
+	 * Read back the real amount of current we are getting
 	 * Treat 2mA as 0 because that is the suspend current setting
 	 */
-	parallel_cl_ma = chip->parallel.current_max_ma;
 	if (parallel_cl_ma <= SUSPEND_CURRENT_MA)
 		parallel_cl_ma = 0;
 
@@ -2093,44 +2090,33 @@ static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip,
 	return true;
 }
 
+#define PARALLEL_CHARGER_EN_DELAY_MS	500
 static void smbchg_parallel_usb_en_work(struct work_struct *work)
 {
 	struct smbchg_chip *chip = container_of(work,
 				struct smbchg_chip,
 				parallel_en_work.work);
-	int total_current_ma;
-
-	smbchg_relax(chip, PM_PARALLEL_CHECK);
-	mutex_lock(&chip->parallel.lock);
-	if (smbchg_is_parallel_usb_ok(chip, &total_current_ma)) {
-		smbchg_parallel_usb_enable(chip, total_current_ma);
-	} else if (chip->parallel.current_max_ma != 0) {
-		pr_smb(PR_STATUS, "parallel charging unavailable\n");
-		smbchg_parallel_usb_disable(chip);
-	}
-	mutex_unlock(&chip->parallel.lock);
-}
-
-#define PARALLEL_CHARGER_EN_DELAY_MS	3500
-static void smbchg_parallel_usb_check_ok(struct smbchg_chip *chip)
-{
-	struct power_supply *parallel_psy = get_parallel_psy(chip);
+	int previous_aicl_ma, total_current_ma, aicl_ma;
 	bool in_progress;
-	int total_current_ma;
 
-	if (!parallel_psy || !chip->parallel_charger_detected)
-		return;
+	/* do a check to see if the aicl is stable */
+	previous_aicl_ma = smbchg_get_aicl_level_ma(chip);
+	msleep(PARALLEL_CHARGER_EN_DELAY_MS);
+	aicl_ma = smbchg_get_aicl_level_ma(chip);
+	if (previous_aicl_ma == aicl_ma) {
+		pr_smb(PR_STATUS, "AICL at %d\n", aicl_ma);
+	} else {
+		pr_smb(PR_STATUS,
+			"AICL changed [%d -> %d], recheck %d ms\n",
+			previous_aicl_ma, aicl_ma,
+			PARALLEL_CHARGER_EN_DELAY_MS);
+		goto recheck;
+	}
+
 	mutex_lock(&chip->parallel.lock);
 	in_progress = (chip->parallel.current_max_ma != 0);
 	if (smbchg_is_parallel_usb_ok(chip, &total_current_ma)) {
-		if (!in_progress) {
-			smbchg_stay_awake(chip, PM_PARALLEL_CHECK);
-			schedule_delayed_work(
-				&chip->parallel_en_work,
-				msecs_to_jiffies(PARALLEL_CHARGER_EN_DELAY_MS));
-		} else {
-			smbchg_parallel_usb_enable(chip, total_current_ma);
-		}
+		smbchg_parallel_usb_enable(chip, total_current_ma);
 	} else {
 		if (in_progress) {
 			pr_smb(PR_STATUS, "parallel charging unavailable\n");
@@ -2138,6 +2124,22 @@ static void smbchg_parallel_usb_check_ok(struct smbchg_chip *chip)
 		}
 	}
 	mutex_unlock(&chip->parallel.lock);
+	smbchg_relax(chip, PM_PARALLEL_CHECK);
+	return;
+
+recheck:
+	schedule_delayed_work(&chip->parallel_en_work, 0);
+}
+
+static void smbchg_parallel_usb_check_ok(struct smbchg_chip *chip)
+{
+	struct power_supply *parallel_psy = get_parallel_psy(chip);
+
+	if (!parallel_psy || !chip->parallel_charger_detected)
+		return;
+
+	smbchg_stay_awake(chip, PM_PARALLEL_CHECK);
+	schedule_delayed_work(&chip->parallel_en_work, 0);
 }
 
 static int charging_suspend_vote_cb(struct device *dev, int suspend,
