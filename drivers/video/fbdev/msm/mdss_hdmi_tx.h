@@ -174,6 +174,7 @@ struct hdmi_tx_ctrl {
 	bool ds_registered;
 	bool scrambler_enabled;
 	u32 hdcp14_present;
+	bool hdcp1_use_sw_keys;
 	bool audio_ack_enabled;
 	atomic_t audio_ack_pending;
 	bool hdcp14_sw_keys;
@@ -188,7 +189,7 @@ struct hdmi_tx_ctrl {
 
 	void *feature_data[HDMI_TX_FEAT_MAX];
 	struct hdmi_hdcp_ops *hdcp_ops;
-	void *hdcp_feature_data;
+	void *hdcp_data;
 	bool hdcp22_present;
 
 	u8 *edid_buf;

@@ -365,6 +365,9 @@ struct hdcp_lib_message_map {
 	const char *msg_name;
 };
 
+static struct qseecom_handle *hdcp1_handle;
+static bool hdcp1_supported = true;
+
 static const char *hdcp_lib_message_name(int msg_id)
 {
 	/*
@@ -1168,24 +1171,35 @@ static void hdcp_lib_topology_work(struct kthread_work *work)
 	}
 }
 
+bool hdcp1_check_if_supported_load_app(void)
+{
+	int rc = 0;
+
+	/* start hdcp1 app */
+	if (hdcp1_supported && !hdcp1_handle) {
+		rc = qseecom_start_app(&hdcp1_handle, HDCP1_APP_NAME,
+			QSEECOM_SBUFF_SIZE);
+		if (rc) {
+			pr_err("qseecom_start_app failed %d\n", rc);
+			hdcp1_supported = false;
+		}
+	}
+
+	return hdcp1_supported;
+}
+
 /* APIs exposed to all clients */
 int hdcp1_set_keys(uint32_t *aksv_msb, uint32_t *aksv_lsb)
 {
 	int rc = 0;
 	struct hdcp1_key_set_req *key_set_req;
 	struct hdcp1_key_set_rsp *key_set_rsp;
-	struct qseecom_handle *hdcp1_handle = NULL;
 
 	if (aksv_msb == NULL || aksv_lsb == NULL)
 		return -EINVAL;
 
-	/* start hdcp1 app */
-	rc = qseecom_start_app(&hdcp1_handle, HDCP1_APP_NAME,
-						QSEECOM_SBUFF_SIZE);
-	if (rc) {
-		pr_err("qseecom_start_app failed %d\n", rc);
-		return -ENOSYS;
-	}
+	if (!hdcp1_supported || !hdcp1_handle)
+		return -EINVAL;
 
 	/* set keys and request aksv */
 	key_set_req = (struct hdcp1_key_set_req *)hdcp1_handle->sbuf;
