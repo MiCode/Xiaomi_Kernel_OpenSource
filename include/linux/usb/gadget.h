@@ -524,6 +524,7 @@ struct usb_gadget_ops {
  * @bam2bam_func_enabled; Indicates function using bam2bam is enabled or not.
  * @extra_buf_alloc: Extra allocation size for AXI prefetch so that out of
  * boundary access is protected.
+ * @interrupt_num: Interrupt number for the underlying platform device.
  *
  * Gadgets have a mostly-portable "gadget driver" implementing device
  * functions, handling all usb configurations and interfaces.  Gadget
@@ -572,6 +573,7 @@ struct usb_gadget {
 	u32				xfer_isr_count;
 	bool				bam2bam_func_enabled;
 	u32				extra_buf_alloc;
+	int				interrupt_num;
 };
 #define work_to_gadget(w)	(container_of((w), struct usb_gadget, work))
 
