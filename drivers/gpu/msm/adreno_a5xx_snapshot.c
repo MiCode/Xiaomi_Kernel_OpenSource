@@ -336,6 +336,7 @@ static const unsigned int a5xx_vbif_ver_20040000_registers[] = {
 	0x30C8, 0x30C8, 0x30D0, 0x30D0, 0x30D8, 0x30D8, 0x30E0, 0x30E0,
 	0x3100, 0x3100, 0x3108, 0x3108, 0x3110, 0x3110, 0x3118, 0x3118,
 	0x3120, 0x3120, 0x3124, 0x3125, 0x3129, 0x3129, 0x3131, 0x3131,
+	0x340C, 0x340C, 0x3410, 0x3410, 0x3800, 0x3801,
 };
 
 static const struct adreno_vbif_snapshot_registers
@@ -647,7 +648,7 @@ static int get_hlsq_registers(struct kgsl_device *device,
 		*data++ = val;
 	}
 
-	return regs->size;
+	return (regs->size * 2);
 }
 
 static size_t a5xx_snapshot_dump_hlsq_sp_tp_regs(struct kgsl_device *device,

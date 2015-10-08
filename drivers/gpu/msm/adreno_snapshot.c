@@ -410,12 +410,8 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 	if (rb == adreno_dev->cur_rb) {
 		snapshot_rb_ibs(rb, data, snapshot);
 	} else {
-		unsigned int *rbptr = rb->buffer_desc.hostptr;
-		/* just copy the RB data, no need to look for IB's */
-		memcpy(data, (void *)(rbptr + rb->wptr),
-			(KGSL_RB_DWORDS - rb->wptr) * sizeof(unsigned int));
-		memcpy((void *)(data + (KGSL_RB_DWORDS - rb->wptr)), rbptr,
-			rb->wptr * sizeof(unsigned int));
+		/* Just copy the ringbuffer, there are no active IBs */
+		memcpy(data, rb->buffer_desc.hostptr, KGSL_RB_SIZE);
 	}
 	/* Return the size of the section */
 	return KGSL_RB_SIZE + sizeof(*header);
