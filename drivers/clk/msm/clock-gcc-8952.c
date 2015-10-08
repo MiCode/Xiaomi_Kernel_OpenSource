@@ -294,7 +294,7 @@ static unsigned int soft_vote_gpll0;
  * gets set from PLL voting FSM.It indicates when
  * FSM has enabled the PLL and PLL should be locked.
  */
-static struct pll_vote_clk gpll0_clk_src = {
+static struct pll_vote_clk gpll0_clk_src_8952 = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
 	.en_mask = BIT(0),
 	.status_reg = (void __iomem *)GPLL0_STATUS,
@@ -305,12 +305,31 @@ static struct pll_vote_clk gpll0_clk_src = {
 	.c = {
 		.parent = &xo_clk_src.c,
 		.rate = 800000000,
-		.dbg_name = "gpll0_clk_src",
+		.dbg_name = "gpll0_clk_src_8952",
 		.ops = &clk_ops_pll_acpu_vote,
-		CLK_INIT(gpll0_clk_src.c),
+		CLK_INIT(gpll0_clk_src_8952.c),
 	},
 };
 
+static struct pll_vote_clk gpll0_clk_src_8937 = {
+	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
+	.en_mask = BIT(0),
+	.status_reg = (void __iomem *)GPLL0_MODE,
+	.status_mask = BIT(30),
+	.soft_vote = &soft_vote_gpll0,
+	.soft_vote_mask = PLL_SOFT_VOTE_PRIMARY,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.parent = &xo_clk_src.c,
+		.rate = 800000000,
+		.dbg_name = "gpll0_clk_src_8937",
+		.ops = &clk_ops_pll_acpu_vote,
+		CLK_INIT(gpll0_clk_src_8937.c),
+	},
+};
+
+DEFINE_EXT_CLK(gpll0_clk_src, NULL);
+DEFINE_EXT_CLK(gpll0_ao_clk_src, NULL);
 DEFINE_EXT_CLK(gpll0_out_aux_clk_src, &gpll0_clk_src.c);
 DEFINE_EXT_CLK(gpll0_out_main_clk_src, &gpll0_clk_src.c);
 DEFINE_EXT_CLK(ext_pclk0_clk_src, NULL);
@@ -319,7 +338,7 @@ DEFINE_EXT_CLK(ext_pclk1_clk_src, NULL);
 DEFINE_EXT_CLK(ext_byte1_clk_src, NULL);
 
 /* Don't vote for xo if using this clock to allow xo shutdown */
-static struct pll_vote_clk gpll0_ao_clk_src = {
+static struct pll_vote_clk gpll0_ao_clk_src_8952 = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
 	.en_mask = BIT(0),
 	.status_reg = (void __iomem *)GPLL0_STATUS,
@@ -330,9 +349,26 @@ static struct pll_vote_clk gpll0_ao_clk_src = {
 	.c = {
 		.parent = &xo_a_clk_src.c,
 		.rate = 800000000,
-		.dbg_name = "gpll0_ao_clk_src",
+		.dbg_name = "gpll0_ao_clk_src_8952",
 		.ops = &clk_ops_pll_acpu_vote,
-		CLK_INIT(gpll0_ao_clk_src.c),
+		CLK_INIT(gpll0_ao_clk_src_8952.c),
+	},
+};
+
+static struct pll_vote_clk gpll0_ao_clk_src_8937 = {
+	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
+	.en_mask = BIT(0),
+	.status_reg = (void __iomem *)GPLL0_MODE,
+	.status_mask = BIT(30),
+	.soft_vote = &soft_vote_gpll0,
+	.soft_vote_mask = PLL_SOFT_VOTE_ACPU,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.parent = &xo_a_clk_src.c,
+		.rate = 800000000,
+		.dbg_name = "gpll0_ao_clk_src_8937",
+		.ops = &clk_ops_pll_acpu_vote,
+		CLK_INIT(gpll0_ao_clk_src_8937.c),
 	},
 };
 
@@ -3520,7 +3556,6 @@ static struct mux_clk gcc_debug_mux_8937 = {
 		{ &gcc_crypto_axi_clk.c, 0x0139 },
 		{ &gcc_crypto_ahb_clk.c, 0x013a },
 		{ &gcc_bimc_gpu_clk.c, 0x0157 },
-		{ &gcc_ipa_tbu_clk.c, 0x0198 },
 		{ &gcc_vfe1_tbu_clk.c, 0x0199 },
 		{ &gcc_camss_csi_vfe1_clk.c, 0x01a0 },
 		{ &gcc_camss_vfe1_clk.c, 0x01a1 },
@@ -3583,9 +3618,6 @@ static struct clk_lookup msm_clocks_lookup_common[] = {
 	CLK_LIST(snoc_usb_clk),
 	CLK_LIST(bimc_usb_clk),
 
-	CLK_LIST(ipa_clk),
-	CLK_LIST(ipa_a_clk),
-
 	CLK_LIST(qdss_clk),
 	CLK_LIST(qdss_a_clk),
 
@@ -3619,7 +3651,6 @@ static struct clk_lookup msm_clocks_lookup_common[] = {
 	CLK_LIST(gpll3_clk_src),
 	CLK_LIST(a53ss_c0_pll),
 	CLK_LIST(a53ss_c1_pll),
-	CLK_LIST(a53ss_cci_pll),
 	CLK_LIST(gcc_blsp1_ahb_clk),
 	CLK_LIST(gcc_blsp2_ahb_clk),
 	CLK_LIST(gcc_boot_rom_ahb_clk),
@@ -3789,6 +3820,11 @@ static struct clk_lookup msm_clocks_lookup_common[] = {
 };
 
 static struct clk_lookup msm_clocks_lookup_8952[] = {
+	CLK_LIST(a53ss_cci_pll),
+	CLK_LIST(ipa_clk),
+	CLK_LIST(ipa_a_clk),
+	CLK_LIST(gpll0_clk_src_8952),
+	CLK_LIST(gpll0_ao_clk_src_8952),
 	CLK_LIST(gcc_oxili_gmem_clk),
 	CLK_LIST(usb_fs_ic_clk_src),
 	CLK_LIST(gcc_usb_fs_ic_clk),
@@ -3797,11 +3833,14 @@ static struct clk_lookup msm_clocks_lookup_8952[] = {
 	CLK_LIST(gcc_gfx_tcu_clk),
 	CLK_LIST(gcc_gfx_tbu_clk),
 	CLK_LIST(gcc_gtcu_ahb_clk),
+	CLK_LIST(gcc_ipa_tbu_clk),
 	CLK_LIST(gcc_usb_fs_ahb_clk),
 	CLK_LIST(gcc_venus0_core1_vcodec0_clk),
 };
 
 static struct clk_lookup msm_clocks_lookup_8937[] = {
+	CLK_LIST(gpll0_clk_src_8937),
+	CLK_LIST(gpll0_ao_clk_src_8937),
 	CLK_LIST(esc1_clk_src),
 	CLK_LIST(gcc_mdss_esc1_clk),
 	CLK_LIST(gcc_dcc_clk),
@@ -3977,8 +4016,14 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	regval |= BIT(0);
 	writel_relaxed(regval, GCC_REG_BASE(APCS_GPLL_ENA_VOTE));
 
-	if (compat_bin)
+	if (compat_bin) {
+		gpll0_clk_src.c.parent = &gpll0_clk_src_8937.c;
+		gpll0_ao_clk_src.c.parent = &gpll0_ao_clk_src_8937.c;
 		override_for_8937();
+	} else {
+		gpll0_clk_src.c.parent = &gpll0_clk_src_8952.c;
+		gpll0_ao_clk_src.c.parent = &gpll0_ao_clk_src_8952.c;
+	}
 
 	ret = of_msm_clock_register(pdev->dev.of_node,
 				msm_clocks_lookup_common,
