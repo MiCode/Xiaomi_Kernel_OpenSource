@@ -24,6 +24,9 @@
 #include <linux/dma-contiguous.h>
 #include <soc/qcom/secure_buffer.h>
 #include <linux/qcom_iommu.h>
+#include <linux/dma-mapping.h>
+#include <asm/cacheflush.h>
+#include <asm/dma-iommu.h>
 
 static const char *iommu_debug_attr_to_string(enum iommu_attr attr)
 {
@@ -798,6 +801,131 @@ static const struct file_operations iommu_debug_profiling_fast_fops = {
 	.release = single_release,
 };
 
+static int iommu_debug_profiling_fast_dma_api_show(struct seq_file *s,
+						 void *ignored)
+{
+	int i, experiment;
+	struct iommu_debug_device *ddev = s->private;
+	struct device *dev = ddev->dev;
+	u64 map_elapsed_ns[10], unmap_elapsed_ns[10];
+	struct dma_iommu_mapping *mapping;
+	dma_addr_t dma_addr;
+	void *virt;
+	int fast = 1;
+	const char * const extra_labels[] = {
+		"not coherent",
+		"coherent",
+	};
+	struct dma_attrs coherent_attrs;
+	struct dma_attrs *extra_attrs[] = {
+		NULL,
+		&coherent_attrs,
+	};
+
+	init_dma_attrs(&coherent_attrs);
+	dma_set_attr(DMA_ATTR_SKIP_CPU_SYNC, &coherent_attrs);
+
+	virt = kmalloc(1518, GFP_KERNEL);
+	if (!virt)
+		goto out;
+
+	mapping = arm_iommu_create_mapping(&platform_bus_type, 0, SZ_1G * 4ULL);
+	if (!mapping) {
+		seq_puts(s, "fast_smmu_create_mapping failed\n");
+		goto out_kfree;
+	}
+
+	if (iommu_domain_set_attr(mapping->domain, DOMAIN_ATTR_FAST, &fast)) {
+		seq_puts(s, "iommu_domain_set_attr failed\n");
+		goto out_release_mapping;
+	}
+
+	if (arm_iommu_attach_device(dev, mapping)) {
+		seq_puts(s, "fast_smmu_attach_device failed\n");
+		goto out_release_mapping;
+	}
+
+	if (iommu_enable_config_clocks(mapping->domain)) {
+		seq_puts(s, "Couldn't enable clocks\n");
+		goto out_detach;
+	}
+	for (experiment = 0; experiment < 2; ++experiment) {
+		u64 map_avg = 0, unmap_avg = 0;
+
+		for (i = 0; i < 10; ++i) {
+			struct timespec tbefore, tafter, diff;
+			u64 ns;
+
+			getnstimeofday(&tbefore);
+			dma_addr = dma_map_single_attrs(
+				dev, virt, SZ_4K, DMA_TO_DEVICE,
+				extra_attrs[experiment]);
+			getnstimeofday(&tafter);
+			diff = timespec_sub(tafter, tbefore);
+			ns = timespec_to_ns(&diff);
+			if (dma_mapping_error(dev, dma_addr)) {
+				seq_puts(s, "dma_map_single failed\n");
+				goto out_disable_config_clocks;
+			}
+			map_elapsed_ns[i] = ns;
+
+			getnstimeofday(&tbefore);
+			dma_unmap_single_attrs(
+				dev, dma_addr, SZ_4K, DMA_TO_DEVICE,
+				extra_attrs[experiment]);
+			getnstimeofday(&tafter);
+			diff = timespec_sub(tafter, tbefore);
+			ns = timespec_to_ns(&diff);
+			unmap_elapsed_ns[i] = ns;
+		}
+
+		seq_printf(s, "%13s %24s (ns): [", extra_labels[experiment],
+			   "dma_map_single_attrs");
+		for (i = 0; i < 10; ++i) {
+			map_avg += map_elapsed_ns[i];
+			seq_printf(s, "%5llu%s", map_elapsed_ns[i],
+				   i < 9 ? ", " : "");
+		}
+		map_avg /= 10;
+		seq_printf(s, "] (avg: %llu)\n", map_avg);
+
+		seq_printf(s, "%13s %24s (ns): [", extra_labels[experiment],
+			   "dma_unmap_single_attrs");
+		for (i = 0; i < 10; ++i) {
+			unmap_avg += unmap_elapsed_ns[i];
+			seq_printf(s, "%5llu%s", unmap_elapsed_ns[i],
+				   i < 9 ? ", " : "");
+		}
+		unmap_avg /= 10;
+		seq_printf(s, "] (avg: %llu)\n", unmap_avg);
+	}
+
+out_disable_config_clocks:
+	iommu_disable_config_clocks(mapping->domain);
+out_detach:
+	arm_iommu_detach_device(dev);
+out_release_mapping:
+	arm_iommu_release_mapping(mapping);
+out_kfree:
+	kfree(virt);
+out:
+	return 0;
+}
+
+static int iommu_debug_profiling_fast_dma_api_open(struct inode *inode,
+						 struct file *file)
+{
+	return single_open(file, iommu_debug_profiling_fast_dma_api_show,
+			   inode->i_private);
+}
+
+static const struct file_operations iommu_debug_profiling_fast_dma_api_fops = {
+	.open	 = iommu_debug_profiling_fast_dma_api_open,
+	.read	 = seq_read,
+	.llseek	 = seq_lseek,
+	.release = single_release,
+};
+
 static int iommu_debug_attach_do_attach(struct iommu_debug_device *ddev,
 					int val, bool is_secure)
 {
@@ -1193,6 +1321,13 @@ static int snarf_iommu_devices(struct device *dev, const char *name)
 	if (!debugfs_create_file("profiling_fast", S_IRUSR, dir, ddev,
 				 &iommu_debug_profiling_fast_fops)) {
 		pr_err("Couldn't create iommu/devices/%s/profiling_fast debugfs file\n",
+		       name);
+		goto err_rmdir;
+	}
+
+	if (!debugfs_create_file("profiling_fast_dma_api", S_IRUSR, dir, ddev,
+				 &iommu_debug_profiling_fast_dma_api_fops)) {
+		pr_err("Couldn't create iommu/devices/%s/profiling_fast_dma_api debugfs file\n",
 		       name);
 		goto err_rmdir;
 	}
