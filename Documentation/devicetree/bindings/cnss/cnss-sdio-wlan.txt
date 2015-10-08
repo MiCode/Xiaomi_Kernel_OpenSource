@@ -1,0 +1,13 @@
+* Qualcomm Connectivity SubSystem Platform Driver
+
+This platform driver adds support for the CNSS subsystem used for SDIO
+based Wi-Fi devices. The main purpose of this device tree entry below
+is to invoke the CNSS SDIO platform driver.
+
+Required properties:
+- compatible	: "qcom,cnss_sdio"
+
+Example:
+	qcom,cnss-sdio {
+		compatible = "qcom,cnss_sdio";
+	};
