@@ -213,12 +213,6 @@ struct ufs_qcom_ice_data {
 	struct platform_device *pdev;
 	int state;
 
-	/*
-	 * If UFS host controller should handle cryptographic engine's
-	 * errors, enables this quirk.
-	 */
-	#define UFS_QCOM_ICE_QUIRK_HANDLE_CRYPTO_ENGINE_ERRORS	UFS_BIT(0)
-
 	u16 quirks;
 
 	bool crypto_engine_err;

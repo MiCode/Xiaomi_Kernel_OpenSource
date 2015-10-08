@@ -708,53 +708,14 @@ out:
 	return err;
 }
 
-static int ufs_qcom_crypto_engine_eh(struct ufs_hba *hba)
-{
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-	int ice_status = 0;
-	int err = 0;
-
-	host->ice.crypto_engine_err = 0;
-
-	if (host->ice.quirks &
-	    UFS_QCOM_ICE_QUIRK_HANDLE_CRYPTO_ENGINE_ERRORS) {
-		err = ufs_qcom_ice_get_status(host, &ice_status);
-		if (!err)
-			host->ice.crypto_engine_err = ice_status;
-
-		if (host->ice.crypto_engine_err) {
-			dev_err(hba->dev, "%s handling crypto engine error\n",
-					__func__);
-			/*
-			 * block commands from scsi mid-layer.
-			 * As crypto error is a fatal error and will result in
-			 * a host reset we should leave scsi mid layer blocked
-			 * until host reset is completed.
-			 * Host reset will be handled in a seperate workqueue
-			 * and will be triggered from ufshcd_check_errors.
-			 */
-			ufshcd_scsi_block_requests(hba);
-
-			ufshcd_abort_outstanding_transfer_requests(hba,
-					DID_TARGET_FAILURE);
-		}
-	}
-
-	return host->ice.crypto_engine_err;
-}
-
-static int ufs_qcom_crypto_engine_get_err(struct ufs_hba *hba)
+static int ufs_qcom_crypto_engine_get_status(struct ufs_hba *hba, u32 *status)
 {
 	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
 
-	return host->ice.crypto_engine_err;
-}
+	if (!status)
+		return -EINVAL;
 
-static void ufs_qcom_crypto_engine_reset_err(struct ufs_hba *hba)
-{
-	struct ufs_qcom_host *host = ufshcd_get_variant(hba);
-
-	host->ice.crypto_engine_err = 0;
+	return ufs_qcom_ice_get_status(host, status);
 }
 
 struct ufs_qcom_dev_params {
@@ -2285,11 +2246,9 @@ static struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 };
 
 static struct ufs_hba_crypto_variant_ops ufs_hba_crypto_variant_ops = {
-	.crypto_engine_cfg	= ufs_qcom_crytpo_engine_cfg,
-	.crypto_engine_reset	= ufs_qcom_crytpo_engine_reset,
-	.crypto_engine_eh	= ufs_qcom_crypto_engine_eh,
-	.crypto_engine_get_err	= ufs_qcom_crypto_engine_get_err,
-	.crypto_engine_reset_err = ufs_qcom_crypto_engine_reset_err,
+	.crypto_engine_cfg	  = ufs_qcom_crytpo_engine_cfg,
+	.crypto_engine_reset	  = ufs_qcom_crytpo_engine_reset,
+	.crypto_engine_get_status = ufs_qcom_crypto_engine_get_status,
 };
 
 static struct ufs_hba_pm_qos_variant_ops ufs_hba_pm_qos_variant_ops = {
