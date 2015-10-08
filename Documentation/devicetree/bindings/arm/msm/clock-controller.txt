@@ -68,6 +68,7 @@ Required properties:
 			"qcom,cc-debug-mdm9607"
 			"qcom,gcc-cobalt"
 			"qcom,cc-debug-cobalt"
+			"qcom,gpucc-cobalt"
 
 - reg:			Pairs of physical base addresses and region sizes of
 			memory mapped registers.

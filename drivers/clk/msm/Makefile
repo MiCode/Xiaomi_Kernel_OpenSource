@@ -18,6 +18,7 @@ obj-$(CONFIG_ARCH_MSM8996)	+= clock-cpu-8996.o
 
 # MSM COBALT
 obj-$(CONFIG_ARCH_MSMCOBALT)	+= clock-gcc-cobalt.o
+obj-$(CONFIG_ARCH_MSMCOBALT)	+= clock-gpu-cobalt.o
 
 # MDMCALIFORNIUM
 obj-$(CONFIG_ARCH_MDMCALIFORNIUM)	+= clock-gcc-californium.o
