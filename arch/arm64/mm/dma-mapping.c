@@ -34,6 +34,7 @@
 #include <asm/cacheflush.h>
 #include <asm/tlbflush.h>
 #include <asm/dma-iommu.h>
+#include <linux/dma-mapping-fast.h>
 
 #include "mm.h"
 
@@ -2074,7 +2075,11 @@ int arm_iommu_attach_device(struct device *dev,
 			    struct dma_iommu_mapping *mapping)
 {
 	int err;
-	int s1_bypass = 0;
+	int s1_bypass = 0, is_fast = 0;
+
+	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_FAST, &is_fast);
+	if (is_fast)
+		return fast_smmu_attach_device(dev, mapping);
 
 	err = iommu_attach_device(mapping->domain, dev);
 	if (err)
@@ -2103,10 +2108,17 @@ EXPORT_SYMBOL(arm_iommu_attach_device);
 void arm_iommu_detach_device(struct device *dev)
 {
 	struct dma_iommu_mapping *mapping;
+	int is_fast;
 
 	mapping = to_dma_iommu_mapping(dev);
 	if (!mapping) {
 		dev_warn(dev, "Not attached\n");
+		return;
+	}
+
+	iommu_domain_get_attr(mapping->domain, DOMAIN_ATTR_FAST, &is_fast);
+	if (is_fast) {
+		fast_smmu_detach_device(dev, mapping);
 		return;
 	}
 
