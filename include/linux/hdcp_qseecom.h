@@ -109,6 +109,7 @@ int hdcp_library_register(void **pphdcpcontext,
 	struct hdcp_client_ops *client_ops,
 	struct hdcp_txmtr_ops *txmtr_ops, void *client_ctx);
 void hdcp_library_deregister(void *phdcpcontext);
+bool hdcp1_check_if_supported_load_app(void);
 int hdcp1_set_keys(uint32_t *aksv_msb, uint32_t *aksv_lsb);
 
 #endif /* __HDCP_QSEECOM_H */
