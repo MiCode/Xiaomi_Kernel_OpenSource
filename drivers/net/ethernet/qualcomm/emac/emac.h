@@ -745,6 +745,11 @@ struct emac_adapter {
 	u32             wol;
 	u16             msg_enable;
 	unsigned long   flags;
+	struct pinctrl	*pinctrl;
+	struct pinctrl_state	*pins_active;
+	struct pinctrl_state	*pins_sleep;
+	int	(*gpio_on)(struct emac_adapter *adpt);
+	int	(*gpio_off)(struct emac_adapter *adpt);
 };
 
 static inline struct emac_adapter *emac_hw_get_adap(struct emac_hw *hw)
