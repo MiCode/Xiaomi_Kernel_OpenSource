@@ -24,7 +24,7 @@
 #include <linux/msm-bus-board.h>
 #include "mdss_mdp_pp_cache_config.h"
 
-struct mdp_csc_cfg mdp_csc_convert[MDSS_MDP_MAX_CSC] = {
+struct mdp_csc_cfg mdp_csc_8bit_convert[MDSS_MDP_MAX_CSC] = {
 	[MDSS_MDP_CSC_YUV2RGB_601L] = {
 		0,
 		{
@@ -123,10 +123,111 @@ struct mdp_csc_cfg mdp_csc_convert[MDSS_MDP_MAX_CSC] = {
 	},
 };
 
+struct mdp_csc_cfg mdp_csc_10bit_convert[MDSS_MDP_MAX_CSC] = {
+	[MDSS_MDP_CSC_YUV2RGB_601L] = {
+		0,
+		{
+			0x0254, 0x0000, 0x0331,
+			0x0254, 0xff37, 0xfe60,
+			0x0254, 0x0409, 0x0000,
+		},
+		{ 0xffc0, 0xffe0, 0xffe0,},
+		{ 0x0, 0x0, 0x0,},
+		{ 0x40, 0x3ac, 0x40, 0x3c0, 0x40, 0x3c0,},
+		{ 0x0, 0x3ff, 0x0, 0x3ff, 0x0, 0x3ff,},
+	},
+	[MDSS_MDP_CSC_YUV2RGB_601FR] = {
+		0,
+		{
+			0x0200, 0x0000, 0x02ce,
+			0x0200, 0xff50, 0xfe92,
+			0x0200, 0x038b, 0x0000,
+		},
+		{ 0x0000, 0xffe0, 0xffe0,},
+		{ 0x0, 0x0, 0x0,},
+		{ 0x0, 0x3ff, 0x0, 0x3ff, 0x0, 0x3ff,},
+		{ 0x0, 0x3ff, 0x0, 0x3ff, 0x0, 0x3ff,},
+	},
+	[MDSS_MDP_CSC_YUV2RGB_709L] = {
+		0,
+		{
+			0x0254, 0x0000, 0x0396,
+			0x0254, 0xff93, 0xfeef,
+			0x0254, 0x043e, 0x0000,
+		},
+		{ 0xffc0, 0xffe0, 0xffe0,},
+		{ 0x0, 0x0, 0x0,},
+		{ 0x40, 0x3ac, 0x40, 0x3c0, 0x40, 0x3c0,},
+		{ 0x0, 0x3ff, 0x0, 0x3ff, 0x0, 0x3ff,},
+	},
+	[MDSS_MDP_CSC_RGB2YUV_601L] = {
+		0,
+		{
+			0x0083, 0x0102, 0x0032,
+			0xffb4, 0xff6b, 0x00e1,
+			0x00e1, 0xff44, 0xffdb
+		},
+		{ 0x0, 0x0, 0x0,},
+		{ 0x0040, 0x0200, 0x0200,},
+		{ 0x0, 0x3ff, 0x0, 0x3ff, 0x0, 0x3ff,},
+		{ 0x0040, 0x03ac, 0x0040, 0x03c0, 0x0040, 0x03c0,},
+	},
+	[MDSS_MDP_CSC_RGB2YUV_601FR] = {
+		0,
+		{
+			0x0099, 0x012d, 0x003a,
+			0xffaa, 0xff56, 0x0100,
+			0x0100, 0xff2a, 0xffd6
+		},
+		{ 0x0, 0x0, 0x0,},
+		{ 0x0000, 0x0200, 0x0200,},
+		{ 0x0, 0x3ff, 0x0, 0x3ff, 0x0, 0x3ff,},
+		{ 0x0, 0x3ff, 0x0, 0x3ff, 0x0, 0x3ff,},
+	},
+	[MDSS_MDP_CSC_RGB2YUV_709L] = {
+		0,
+		{
+			0x005d, 0x013a, 0x0020,
+			0xffcc, 0xff53, 0x00e1,
+			0x00e1, 0xff34, 0xffeb
+		},
+		{ 0x0, 0x0, 0x0,},
+		{ 0x0040, 0x0200, 0x0200,},
+		{ 0x0, 0x3ff, 0x0, 0x3ff, 0x0, 0x3ff,},
+		{ 0x0040, 0x03ac, 0x0040, 0x03c0, 0x0040, 0x03c0,},
+	},
+	[MDSS_MDP_CSC_YUV2YUV] = {
+		0,
+		{
+			0x0200, 0x0000, 0x0000,
+			0x0000, 0x0200, 0x0000,
+			0x0000, 0x0000, 0x0200,
+		},
+		{ 0x0, 0x0, 0x0,},
+		{ 0x0, 0x0, 0x0,},
+		{ 0x0, 0x3ff, 0x0, 0x3ff, 0x0, 0x3ff,},
+		{ 0x0, 0x3ff, 0x0, 0x3ff, 0x0, 0x3ff,},
+	},
+	[MDSS_MDP_CSC_RGB2RGB] = {
+		0,
+		{
+			0x0200, 0x0000, 0x0000,
+			0x0000, 0x0200, 0x0000,
+			0x0000, 0x0000, 0x0200,
+		},
+		{ 0x0, 0x0, 0x0,},
+		{ 0x0, 0x0, 0x0,},
+		{ 0x0, 0x3ff, 0x0, 0x3ff, 0x0, 0x3ff,},
+		{ 0x0, 0x3ff, 0x0, 0x3ff, 0x0, 0x3ff,},
+	},
+};
+
 #define CSC_MV_OFF	0x0
 #define CSC_BV_OFF	0x2C
 #define CSC_LV_OFF	0x14
 #define CSC_POST_OFF	0xC
+#define CSC_10BIT_LV_SHIFT	16
+#define CSC_8BIT_LV_SHIFT	8
 
 
 #define HIST_INTR_DSPP_MASK		0xFFF000
@@ -427,7 +528,7 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, struct mdp_csc_cfg *data)
 {
 	int i, ret = 0;
 	char __iomem *base, *addr;
-	u32 val = 0;
+	u32 val = 0, lv_shift = 0;
 	struct mdss_data_type *mdata;
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_mdp_cdm *cdm;
@@ -441,6 +542,7 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, struct mdp_csc_cfg *data)
 	mdata = mdss_mdp_get_mdata();
 	switch (block) {
 	case MDSS_MDP_BLOCK_SSPP:
+		lv_shift = CSC_8BIT_LV_SHIFT;
 		pipe = mdss_mdp_pipe_search(mdata, BIT(blk_idx));
 		if (!pipe) {
 			pr_err("invalid blk index=%d\n", blk_idx);
@@ -456,6 +558,7 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, struct mdp_csc_cfg *data)
 		}
 		break;
 	case MDSS_MDP_BLOCK_WB:
+		lv_shift = CSC_8BIT_LV_SHIFT;
 		if (blk_idx < mdata->nwb) {
 			wb = mdata->wb + blk_idx;
 			if (wb->base)
@@ -467,6 +570,7 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, struct mdp_csc_cfg *data)
 		}
 		break;
 	case MDSS_MDP_BLOCK_CDM:
+		lv_shift = CSC_10BIT_LV_SHIFT;
 		if (blk_idx < mdata->ncdm) {
 			cdm = mdata->cdm_off + blk_idx;
 			if (cdm->base)
@@ -508,10 +612,11 @@ int mdss_mdp_csc_setup_data(u32 block, u32 blk_idx, struct mdp_csc_cfg *data)
 
 	addr = base + CSC_LV_OFF;
 	for (i = 0; i < 6; i += 2) {
-		val = (data->csc_pre_lv[i] << 8) | data->csc_pre_lv[i+1];
+		val = (data->csc_pre_lv[i] << lv_shift) | data->csc_pre_lv[i+1];
 		writel_relaxed(val, addr);
 
-		val = (data->csc_post_lv[i] << 8) | data->csc_post_lv[i+1];
+		val = (data->csc_post_lv[i] << lv_shift) |
+			data->csc_post_lv[i+1];
 		writel_relaxed(val, addr + CSC_POST_OFF);
 		addr += sizeof(u32);
 	}
@@ -531,7 +636,10 @@ int mdss_mdp_csc_setup(u32 block, u32 blk_idx, u32 csc_type)
 	pr_debug("csc type=%d blk=%d idx=%d\n", csc_type,
 		 block, blk_idx);
 
-	data = &mdp_csc_convert[csc_type];
+	if (block == MDSS_MDP_BLOCK_CDM)
+		data = &mdp_csc_10bit_convert[csc_type];
+	else
+		data = &mdp_csc_8bit_convert[csc_type];
 	return mdss_mdp_csc_setup_data(block, blk_idx, data);
 }
 

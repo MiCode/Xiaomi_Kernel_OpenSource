@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,20 +25,6 @@ static u32 cdm_cdwn2_cosite_h_coeff[] = {0x00000016, 0x000001cc, 0x0100009e};
 static u32 cdm_cdwn2_offsite_h_coeff[] = {0x000b0005, 0x01db01eb, 0x00e40046};
 static u32 cdm_cdwn2_cosite_v_coeff[] = {0x00080004};
 static u32 cdm_cdwn2_offsite_v_coeff[] = {0x00060002};
-
-/* Limited Range rgb2yuv coeff with clamp and bias values for CSC 10 module */
-static struct mdp_csc_cfg cdm_rgb2yuv_coeff = {
-	0,
-	{
-		0x0083, 0x0102, 0x0032,
-		0x1fb5, 0x1f6c, 0x00e1,
-		0x00e1, 0x1f45, 0x1fdc
-	},
-	{ 0x00, 0x00, 0x00 },
-	{ 0x0040, 0x0200, 0x0200 },
-	{ 0x000, 0x3ff, 0x000, 0x3ff, 0x000, 0x3ff },
-	{ 0x040, 0x3ac, 0x040, 0x3c0, 0x040, 0x3c0 },
-};
 
 /**
  * @mdss_mdp_cdm_alloc() - Allocates a cdm block by parsing the list of
@@ -107,13 +93,6 @@ struct mdss_mdp_cdm *mdss_mdp_cdm_init(struct mdss_mdp_ctl *ctl, u32 intf_type)
 	cdm->is_bypassed = true;
 	memset(&cdm->setup, 0x0, sizeof(struct mdp_cdm_cfg));
 
-	/*
-	 * Setup RGB to YUV conversion in CDM. CDM will be in bypass mode for
-	 * other cases
-	 */
-	mdss_mdp_csc_setup_data(MDSS_MDP_BLOCK_CDM, cdm->num,
-					&cdm_rgb2yuv_coeff);
-
 	return cdm;
 }
 
@@ -128,6 +107,8 @@ static int mdss_mdp_cdm_csc_setup(struct mdss_mdp_cdm *cdm,
 {
 	int rc = 0;
 	u32 op_mode = 0;
+
+	mdss_mdp_csc_setup(MDSS_MDP_BLOCK_CDM, cdm->num, data->csc_type);
 
 	if (data->csc_type == MDSS_MDP_CSC_RGB2YUV_601L) {
 		op_mode |= BIT(2);  /* DST_DATA_FORMAT = YUV */
