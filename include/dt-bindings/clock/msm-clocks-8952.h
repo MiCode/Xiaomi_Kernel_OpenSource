@@ -22,6 +22,7 @@
 #define clk_gpll0_ao_clk_src_8937		0x923c7546
 #define clk_gpll0_clk_src			0x5933b69f
 #define clk_gpll0_ao_clk_src			0x6b2fb034
+#define clk_gpll0_sleep_clk_src			0x4f89fcf0
 #define clk_gpll0_out_main			0x850fecec
 #define clk_gpll0_out_aux			0x64e55d63
 #define clk_gpll0_misc				0xe06ee816

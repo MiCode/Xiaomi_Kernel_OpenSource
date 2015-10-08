@@ -288,6 +288,21 @@ static struct pll_clk a53ss_c1_pll = {
 	},
 };
 
+static struct pll_vote_clk gpll0_sleep_clk_src = {
+	.en_reg = (void __iomem *)APCS_CLOCK_SLEEP_ENA_VOTE,
+	.en_mask = BIT(23),
+	.status_reg = (void __iomem *)GPLL0_MODE,
+	.status_mask = BIT(30),
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.parent = &xo_clk_src.c,
+		.rate = 800000000,
+		.dbg_name = "gpll0_sleep_clk_src",
+		.ops = &clk_ops_pll_sleep_vote,
+		CLK_INIT(gpll0_sleep_clk_src.c),
+	},
+};
+
 static unsigned int soft_vote_gpll0;
 
 /* PLL_ACTIVE_FLAG bit of GCC_GPLL0_MODE register
@@ -320,7 +335,7 @@ static struct pll_vote_clk gpll0_clk_src_8937 = {
 	.soft_vote_mask = PLL_SOFT_VOTE_PRIMARY,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
-		.parent = &xo_clk_src.c,
+		.parent = &gpll0_sleep_clk_src.c,
 		.rate = 800000000,
 		.dbg_name = "gpll0_clk_src_8937",
 		.ops = &clk_ops_pll_acpu_vote,
@@ -3841,6 +3856,7 @@ static struct clk_lookup msm_clocks_lookup_8952[] = {
 static struct clk_lookup msm_clocks_lookup_8937[] = {
 	CLK_LIST(gpll0_clk_src_8937),
 	CLK_LIST(gpll0_ao_clk_src_8937),
+	CLK_LIST(gpll0_sleep_clk_src),
 	CLK_LIST(esc1_clk_src),
 	CLK_LIST(gcc_mdss_esc1_clk),
 	CLK_LIST(gcc_dcc_clk),
