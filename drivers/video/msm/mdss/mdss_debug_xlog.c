@@ -33,7 +33,19 @@
 #define XLOG_DEFAULT_DBGBUSDUMP 0x2 /* dump in RAM */
 #define XLOG_DEFAULT_VBIF_DBGBUSDUMP 0x2 /* dump in RAM */
 
-#define MDSS_XLOG_ENTRY	256
+/*
+ * xlog will print this number of entries when it is called through
+ * sysfs node or panic. This prevents kernel log from xlog message
+ * flood.
+ */
+#define MDSS_XLOG_PRINT_ENTRY	256
+
+/*
+ * xlog keeps this number of entries in memory for debug purpose. This
+ * number must be greater than print entry to prevent out of bound xlog
+ * entry array access.
+ */
+#define MDSS_XLOG_ENTRY	(MDSS_XLOG_PRINT_ENTRY * 4)
 #define MDSS_XLOG_MAX_DATA 15
 #define MDSS_XLOG_BUF_MAX 512
 #define MDSS_XLOG_BUF_ALIGN 32
@@ -41,6 +53,7 @@
 DEFINE_SPINLOCK(xlock);
 
 struct tlog {
+	u32 counter;
 	s64 time;
 	const char *name;
 	int line;
@@ -53,6 +66,7 @@ struct mdss_dbg_xlog {
 	struct tlog logs[MDSS_XLOG_ENTRY];
 	u32 first;
 	u32 last;
+	u32 curr;
 	struct dentry *xlog;
 	u32 xlog_enable;
 	u32 panic_on_err;
@@ -82,13 +96,11 @@ void mdss_xlog(const char *name, int line, int flag, ...)
 	va_list args;
 	struct tlog *log;
 
-
 	if (!mdss_xlog_is_enabled(flag))
 		return;
 
 	spin_lock_irqsave(&xlock, flags);
-
-	log = &mdss_dbg_xlog.logs[mdss_dbg_xlog.last % MDSS_XLOG_ENTRY];
+	log = &mdss_dbg_xlog.logs[mdss_dbg_xlog.curr];
 	log->time = ktime_to_us(ktime_get());
 	log->name = name;
 	log->line = line;
@@ -106,7 +118,7 @@ void mdss_xlog(const char *name, int line, int flag, ...)
 	}
 	va_end(args);
 	log->data_cnt = i;
-
+	mdss_dbg_xlog.curr = (mdss_dbg_xlog.curr + 1) % MDSS_XLOG_ENTRY;
 	mdss_dbg_xlog.last++;
 
 	spin_unlock_irqrestore(&xlock, flags);
@@ -135,12 +147,11 @@ static bool __mdss_xlog_dump_calc_range(void)
 			xlog->last += MDSS_XLOG_ENTRY;
 	}
 
-	if ((xlog->last - xlog->first) > MDSS_XLOG_ENTRY) {
+	if ((xlog->last - xlog->first) > MDSS_XLOG_PRINT_ENTRY) {
 		pr_warn("xlog buffer overflow before dump: %d\n",
 			xlog->last - xlog->first);
-		xlog->first = xlog->last - MDSS_XLOG_ENTRY;
+		xlog->first = xlog->last - MDSS_XLOG_PRINT_ENTRY;
 	}
-	need_dump = true;
 	next = xlog->first + 1;
 
 dump_exit:
@@ -692,6 +703,8 @@ static const struct file_operations mdss_xlog_fops = {
 
 int mdss_create_xlog_debug(struct mdss_debug_data *mdd)
 {
+	int i;
+
 	mdss_dbg_xlog.xlog = debugfs_create_dir("xlog", mdd->root);
 	if (IS_ERR_OR_NULL(mdss_dbg_xlog.xlog)) {
 		pr_err("debugfs_create_dir fail, error %ld\n",
@@ -702,6 +715,9 @@ int mdss_create_xlog_debug(struct mdss_debug_data *mdd)
 
 	INIT_WORK(&mdss_dbg_xlog.xlog_dump_work, xlog_debug_work);
 	mdss_dbg_xlog.work_panic = false;
+
+	for (i = 0; i < MDSS_XLOG_ENTRY; i++)
+		mdss_dbg_xlog.logs[i].counter = i;
 
 	debugfs_create_file("dump", 0644, mdss_dbg_xlog.xlog, NULL,
 						&mdss_xlog_fops);
