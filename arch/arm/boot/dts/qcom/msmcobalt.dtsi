@@ -465,6 +465,21 @@
 		label = "rpm";
 	};
 
+	qcom,glink-mailbox-xprt-spss@1d05008 {
+		compatible = "qcom,glink-mailbox-xprt";
+		reg = <0x1d05008 0x8>,
+			<0x1d05010 0x4>,
+			<0x1d0501c 0x4>,
+			<0x1d06008 0x4>;
+		reg-names = "mbox-loc-addr", "mbox-loc-size", "irq-reg-base",
+			"irq-rx-reset";
+		qcom,irq-mask = <0x1>;
+		interrupts = <0 348 4>;
+		label = "spss";
+		qcom,tx-ring-size = <0x800>;
+		qcom,rx-ring-size = <0x800>;
+	};
+
 	qcom,glink_pkt {
 		compatible = "qcom,glinkpkt";
 
