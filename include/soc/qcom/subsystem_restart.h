@@ -73,6 +73,7 @@ struct subsys_desc {
 	unsigned int wdog_bite_irq;
 	int force_stop_gpio;
 	int ramdump_disable_gpio;
+	int shutdown_ack_gpio;
 	int ramdump_disable;
 	bool no_auth;
 	int ssctl_instance_id;
@@ -114,6 +115,7 @@ extern void subsys_set_crash_status(struct subsys_device *dev, bool crashed);
 extern bool subsys_get_crash_status(struct subsys_device *dev);
 void notify_proxy_vote(struct device *device);
 void notify_proxy_unvote(struct device *device);
+extern int wait_for_shutdown_ack(struct subsys_desc *desc);
 #else
 
 static inline int subsys_get_restart_level(struct subsys_device *dev)
@@ -165,6 +167,10 @@ static inline bool subsys_get_crash_status(struct subsys_device *dev)
 }
 static inline void notify_proxy_vote(struct device *device) { }
 static inline void notify_proxy_unvote(struct device *device) { }
+static inline int wait_for_shutdown_ack(struct subsys_desc *desc)
+{
+	return -ENOSYS;
+}
 #endif /* CONFIG_MSM_SUBSYSTEM_RESTART */
 
 #endif
