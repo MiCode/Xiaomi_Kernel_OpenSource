@@ -1242,16 +1242,14 @@ int msm_slim_4_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 			SNDRV_PCM_HW_PARAM_CHANNELS);
 
 	struct snd_soc_codec *codec = rtd->codec;
-	struct snd_soc_card *card = codec->card;
-	struct msm8952_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 
-	pr_debug("%s: codec name: %s", __func__, dev_name(pdata->codec->dev));
-	if (!strcmp(dev_name(pdata->codec->dev), "tomtom_codec")) {
+	pr_debug("%s: codec name: %s", __func__, dev_name(codec->dev));
+	if (!strcmp(dev_name(codec->dev), "tomtom_codec")) {
 		rate->min = rate->max = SAMPLING_RATE_48KHZ;
 		channels->min = channels->max = msm_vi_feed_tx_ch;
 		pr_debug("%s: tomtom vi sample rate = %d\n",
 				__func__, rate->min);
-	} else if (!strcmp(dev_name(pdata->codec->dev), "tasha_codec")) {
+	} else if (!strcmp(dev_name(codec->dev), "tasha_codec")) {
 		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
 			SNDRV_PCM_FORMAT_S32_LE);
 		rate->min = rate->max = SAMPLING_RATE_8KHZ;
