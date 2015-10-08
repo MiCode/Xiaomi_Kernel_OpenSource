@@ -491,6 +491,7 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 	pipe->alpha = layer->alpha;
 	pipe->transp = layer->transp_mask;
 	pipe->blend_op = layer->blend_op;
+	pipe->is_handed_off = false;
 	pipe->async_update = (layer->flags & MDP_LAYER_ASYNC) ? true : false;
 
 	if (mixer->ctl) {

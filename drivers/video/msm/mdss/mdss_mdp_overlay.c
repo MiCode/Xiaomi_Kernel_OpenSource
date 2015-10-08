@@ -1291,7 +1291,7 @@ void mdss_mdp_handoff_cleanup_pipes(struct msm_fb_data_type *mfd,
 		pipe = &pipes[i];
 		if (pipe->is_handed_off) {
 			pr_debug("Unmapping handed off pipe %d\n", pipe->num);
-			list_add(&pipe->list, &mdp5_data->pipes_cleanup);
+			list_move(&pipe->list, &mdp5_data->pipes_cleanup);
 			mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_left);
 			pipe->is_handed_off = false;
 		}
@@ -4741,16 +4741,19 @@ ctl_stop:
 	return rc;
 }
 
-static int __mdss_mdp_ctl_handoff(struct mdss_mdp_ctl *ctl,
-	struct mdss_data_type *mdata)
+static int __mdss_mdp_ctl_handoff(struct msm_fb_data_type *mfd,
+	struct mdss_mdp_ctl *ctl, struct mdss_data_type *mdata)
 {
 	int rc = 0;
 	int i, j;
 	u32 mixercfg;
 	struct mdss_mdp_pipe *pipe = NULL;
+	struct mdss_overlay_private *mdp5_data;
 
 	if (!ctl || !mdata)
 		return -EINVAL;
+
+	mdp5_data = mfd_to_mdp5_data(mfd);
 
 	for (i = 0; i < mdata->nmixers_intf; i++) {
 		mixercfg = mdss_mdp_ctl_read(ctl, MDSS_MDP_REG_CTL_LAYER(i));
@@ -4778,6 +4781,11 @@ static int __mdss_mdp_ctl_handoff(struct mdss_mdp_ctl *ctl,
 						pipe->num);
 					goto exit;
 				}
+
+				pipe->mfd = mfd;
+				mutex_lock(&mdp5_data->list_lock);
+				list_add(&pipe->list, &mdp5_data->pipes_used);
+				mutex_unlock(&mdp5_data->list_lock);
 
 				rc = mdss_mdp_mixer_handoff(ctl, i, pipe);
 				if (rc) {
@@ -4832,7 +4840,7 @@ static int mdss_mdp_overlay_handoff(struct msm_fb_data_type *mfd)
 	ctl->clk_rate = mdss_mdp_get_clk_rate(MDSS_CLK_MDP_CORE, false);
 	pr_debug("Set the ctl clock rate to %d Hz\n", ctl->clk_rate);
 
-	rc = __mdss_mdp_ctl_handoff(ctl, mdata);
+	rc = __mdss_mdp_ctl_handoff(mfd, ctl, mdata);
 	if (rc) {
 		pr_err("primary ctl handoff failed. rc=%d\n", rc);
 		goto error;
@@ -4845,7 +4853,7 @@ static int mdss_mdp_overlay_handoff(struct msm_fb_data_type *mfd)
 			rc = -EPERM;
 			goto error;
 		}
-		rc = __mdss_mdp_ctl_handoff(sctl, mdata);
+		rc = __mdss_mdp_ctl_handoff(mfd, sctl, mdata);
 		if (rc) {
 			pr_err("secondary ctl handoff failed. rc=%d\n", rc);
 			goto error;
