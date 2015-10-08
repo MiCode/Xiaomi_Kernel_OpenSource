@@ -241,7 +241,6 @@
 			<0xff 49>,  /* L3UX_qgicL3ErrorIrptReq */
 			<0xff 54>,  /* M4M_sysErrorInterrupt */
 			<0xff 55>,  /* M4M_sysDlmInterrupt */
-			<0xff 56>,  /* modem_watchdog */
 			<0xff 57>,  /* mss_to_apps_irq(0) */
 			<0xff 58>,  /* mss_to_apps_irq(1) */
 			<0xff 59>,  /* mss_to_apps_irq(2) */
@@ -391,6 +390,7 @@
 			<0xff 464>, /* ipa_bam_irq[0] */
 			<0xff 465>, /* ipa_bam_irq[2] */
 			<0xff 477>, /* tsens0_tsens_critical_int */
+			<0xff 480>, /* q6_wdog_expired_irq */
 			<0xff 481>, /* mss_ipc_out_irq(4) */
 			<0xff 483>, /* mss_ipc_out_irq(6) */
 			<0xff 484>, /* mss_ipc_out_irq(7) */
