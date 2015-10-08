@@ -551,7 +551,17 @@ struct mdss_panel_info {
 	bool panel_ack_disabled;
 	bool esd_check_enabled;
 	char dfps_update;
+	/* new requested fps before it is updated in hw */
 	int new_fps;
+	/* stores initial fps after boot */
+	u32 default_fps;
+	/* stores initial vtotal (vfp-method) or htotal (hfp-method) */
+	u32 saved_total;
+	/* stores initial vfp (vfp-method) or hfp (hfp-method) */
+	u32 saved_fporch;
+	/* current fps, once is programmed in hw */
+	int current_fps;
+
 	int panel_max_fps;
 	int panel_max_vtotal;
 	u32 mode_gpio_state;

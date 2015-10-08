@@ -68,10 +68,6 @@ struct mdss_mdp_video_ctx {
 	struct completion vsync_comp;
 	int wait_pending;
 
-	u32 default_fps;
-	u32 saved_vtotal;
-	u32 saved_vfporch;
-
 	atomic_t vsync_ref;
 	spinlock_t vsync_lock;
 	spinlock_t dfps_lock;
@@ -716,12 +712,25 @@ static void mdss_mdp_video_underrun_intr_done(void *arg)
 		schedule_work(&ctl->recover_work);
 }
 
-static int mdss_mdp_video_timegen_update(struct mdss_mdp_video_ctx *ctx,
-					struct mdss_panel_info *pinfo)
+/**
+ * mdss_mdp_video_hfp_fps_update() - configure mdp with new fps.
+ * @ctx: pointer to the master context.
+ * @pdata: panel information data.
+ *
+ * This function configures the hardware to modify the fps.
+ * within mdp for the hfp method.
+ * Function assumes that timings for the new fps configuration
+ * are already updated in the panel data passed as parameter.
+ *
+ * Return: 0 - succeed, otherwise - fail
+ */
+static int mdss_mdp_video_hfp_fps_update(struct mdss_mdp_video_ctx *ctx,
+					struct mdss_panel_data *pdata)
 {
 	u32 hsync_period, vsync_period;
 	u32 hsync_start_x, hsync_end_x, display_v_start, display_v_end;
 	u32 display_hctl, hsync_ctl;
+	struct mdss_panel_info *pinfo = &pdata->panel_info;
 
 	hsync_period = mdss_panel_get_htotal(pinfo, true);
 	vsync_period = mdss_panel_get_vtotal(pinfo);
@@ -752,48 +761,32 @@ static int mdss_mdp_video_timegen_update(struct mdss_mdp_video_ctx *ctx,
 	return 0;
 }
 
-static int mdss_mdp_video_hfp_fps_update(struct mdss_mdp_video_ctx *ctx,
-			struct mdss_panel_data *pdata, int new_fps)
-{
-	int curr_fps;
-	int add_h_pixels = 0;
-	int hsync_period;
-	int diff;
-
-	hsync_period = mdss_panel_get_htotal(&pdata->panel_info, true);
-	curr_fps = mdss_panel_get_framerate(&pdata->panel_info);
-
-	diff = curr_fps - new_fps;
-	add_h_pixels = mult_frac(hsync_period, diff, new_fps);
-	pdata->panel_info.lcdc.h_front_porch += add_h_pixels;
-
-	mdss_mdp_video_timegen_update(ctx, &pdata->panel_info);
-	return 0;
-}
-
+/**
+ * mdss_mdp_video_vfp_fps_update() - configure mdp with new fps.
+ * @ctx: pointer to the master context.
+ * @pdata: panel information data.
+ *
+ * This function configures the hardware to modify the fps.
+ * within mdp for the vfp method.
+ * Function assumes that timings for the new fps configuration
+ * are already updated in the panel data passed as parameter.
+ *
+ * Return: 0 - succeed, otherwise - fail
+ */
 static int mdss_mdp_video_vfp_fps_update(struct mdss_mdp_video_ctx *ctx,
-				 struct mdss_panel_data *pdata, int new_fps)
+				 struct mdss_panel_data *pdata)
 {
-	int add_v_lines = 0;
 	u32 current_vsync_period_f0, new_vsync_period_f0;
 	int vsync_period, hsync_period;
-	int diff;
 
+	/*
+	 * Change in the blanking times are already in the
+	 * panel info, so just get the vtotal and htotal expected
+	 * for this panel to configure those in hw.
+	 */
 	vsync_period = mdss_panel_get_vtotal(&pdata->panel_info);
 	hsync_period = mdss_panel_get_htotal(&pdata->panel_info, true);
 
-	if (!ctx->default_fps) {
-		ctx->default_fps = mdss_panel_get_framerate(&pdata->panel_info);
-		ctx->saved_vtotal = vsync_period;
-		ctx->saved_vfporch = pdata->panel_info.lcdc.v_front_porch;
-	}
-
-	diff = ctx->default_fps - new_fps;
-	add_v_lines = mult_frac(ctx->saved_vtotal, diff, new_fps);
-	pdata->panel_info.lcdc.v_front_porch = ctx->saved_vfporch +
-			add_v_lines;
-
-	vsync_period = mdss_panel_get_vtotal(&pdata->panel_info);
 	current_vsync_period_f0 = mdp_video_read(ctx,
 		MDSS_MDP_REG_INTF_VSYNC_PERIOD_F0);
 	new_vsync_period_f0 = (vsync_period * hsync_period);
@@ -809,6 +802,11 @@ static int mdss_mdp_video_vfp_fps_update(struct mdss_mdp_video_ctx *ctx,
 		mdp_video_write(ctx, MDSS_MDP_REG_INTF_VSYNC_PERIOD_F0,
 			new_vsync_period_f0 & 0x7fffff);
 	}
+
+	pr_debug("if:%d vtotal:%d htotal:%d f0:0x%x nw_f0:0x%x\n",
+		ctx->intf_num, vsync_period, hsync_period,
+		current_vsync_period_f0, new_vsync_period_f0);
+
 	MDSS_XLOG(ctx->intf_num, current_vsync_period_f0,
 		hsync_period, vsync_period, new_vsync_period_f0);
 
@@ -822,9 +820,9 @@ static int mdss_mdp_video_fps_update(struct mdss_mdp_video_ctx *ctx,
 
 	if (pdata->panel_info.dfps_update ==
 				DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP)
-		rc = mdss_mdp_video_hfp_fps_update(ctx, pdata, new_fps);
+		rc = mdss_mdp_video_hfp_fps_update(ctx, pdata);
 	else
-		rc = mdss_mdp_video_vfp_fps_update(ctx, pdata, new_fps);
+		rc = mdss_mdp_video_vfp_fps_update(ctx, pdata);
 
 	return rc;
 }
@@ -923,7 +921,6 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl, int new_fps)
 	struct mdss_mdp_video_ctx *ctx, *sctx = NULL;
 	struct mdss_panel_data *pdata;
 	int rc = 0;
-	u32 hsync_period, vsync_period;
 	struct mdss_data_type *mdata = ctl->mdata;
 	struct mdss_mdp_ctl *sctl = NULL;
 
@@ -955,9 +952,6 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl, int new_fps)
 		rc = -EINVAL;
 		goto end;
 	}
-
-	vsync_period = mdss_panel_get_vtotal(&pdata->panel_info);
-	hsync_period = mdss_panel_get_htotal(&pdata->panel_info, true);
 
 	pr_debug("ctl:%d dfps_update:%d fps:%d\n",
 		ctl->num, pdata->panel_info.dfps_update, new_fps);
@@ -1275,7 +1269,7 @@ static void mdss_mdp_fetch_start_config(struct mdss_mdp_video_ctx *ctx,
 
 	mdata = ctl->mdata;
 
-	pinfo->prg_fet = mdss_mdp_get_prefetch_lines(ctl);
+	pinfo->prg_fet = mdss_mdp_get_prefetch_lines(pinfo);
 	if (!pinfo->prg_fet) {
 		pr_debug("programmable fetch is not needed/supported\n");
 		return;
