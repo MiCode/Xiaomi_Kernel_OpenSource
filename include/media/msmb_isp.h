@@ -252,6 +252,7 @@ struct msm_vfe_fetch_eng_start {
 	uint8_t  offline_mode;
 	uint32_t fd;
 	uint32_t buf_addr;
+	uint32_t frame_id;
 };
 
 struct msm_vfe_axi_plane_cfg {

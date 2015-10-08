@@ -564,6 +564,21 @@ static int msm_isp_set_clk_rate(struct vfe_device *vfe_dev, long *rate)
 	return 0;
 }
 
+
+static int msm_isp_start_fetch_engine(struct vfe_device *vfe_dev,
+	void *arg)
+{
+	struct msm_vfe_fetch_eng_start *fe_cfg = arg;
+	/*
+	 * For Offline VFE, HAL expects same frame id
+	 * for offline output which it requested in do_reprocess.
+	 */
+	vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id =
+		fe_cfg->frame_id;
+	return vfe_dev->hw_info->vfe_ops.core_ops.
+		start_fetch_eng(vfe_dev, arg);
+}
+
 void msm_isp_fetch_engine_done_notify(struct vfe_device *vfe_dev,
 	struct msm_vfe_fetch_engine_info *fetch_engine_info)
 {
@@ -1021,13 +1036,7 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_ISP_FETCH_ENG_START:
 	case VIDIOC_MSM_ISP_MAP_BUF_START_FE:
 		mutex_lock(&vfe_dev->core_mutex);
-		/*
-		 * For Offline VFE, there is no SOF hence increment
-		 * frame id with every request to fetch input buffer.
-		 */
-		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id++;
-		rc = vfe_dev->hw_info->vfe_ops.core_ops.
-			start_fetch_eng(vfe_dev, arg);
+		rc = msm_isp_start_fetch_engine(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_REG_UPDATE_CMD:
