@@ -29,7 +29,7 @@
 #define GSIERR(fmt, args...) \
 		dev_err(gsi_ctx->dev, "%s:%d " fmt, __func__, __LINE__, ## args)
 #define GSIDBG(fmt, args...) \
-		dev_err(gsi_ctx->dev, "%s:%d " fmt, __func__, __LINE__, ## args)
+		dev_dbg(gsi_ctx->dev, "%s:%d " fmt, __func__, __LINE__, ## args)
 
 enum gsi_evt_ring_state {
 	GSI_EVT_RING_STATE_NOT_ALLOCATED = 0x0,
