@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1329,7 +1329,7 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 				unsigned int *num_planes, unsigned int sizes[],
 				void *alloc_ctxs[])
 {
-	int i, rc = 0;
+	int i, temp, rc = 0;
 	struct msm_vidc_inst *inst;
 	struct hal_buffer_count_actual new_buf_count;
 	enum hal_property property_id;
@@ -1447,6 +1447,15 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 		*num_buffers = inst->buff_req.buffer[0].buffer_count_actual =
 			max(*num_buffers, inst->buff_req.buffer[0].
 				buffer_count_min);
+
+		temp = *num_buffers;
+
+		*num_buffers = clamp_val(*num_buffers,
+				MIN_NUM_OUTPUT_BUFFERS,
+				VB2_MAX_FRAME);
+		dprintk(VIDC_INFO,
+			"Changing buffer count on OUTPUT_MPLANE from %d to %d for best effort encoding\n",
+			temp, *num_buffers);
 
 		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
 		new_buf_count.buffer_type = HAL_BUFFER_INPUT;
