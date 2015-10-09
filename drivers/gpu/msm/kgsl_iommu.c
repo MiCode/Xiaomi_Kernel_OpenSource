@@ -387,7 +387,11 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 		(flags & IOMMU_FAULT_TRANSACTION_STALLED)) {
 		uint32_t sctlr_val;
 		ret = -EBUSY;
-		/* Disable context fault interrupts */
+		/*
+		 * Disable context fault interrupts
+		 * as we do not clear FSR in the ISR.
+		 * Will be re-enabled after FSR is cleared.
+		 */
 		sctlr_val = KGSL_IOMMU_GET_CTX_REG(ctx, SCTLR);
 		sctlr_val &= ~(0x1 << KGSL_IOMMU_SCTLR_CFIE_SHIFT);
 		KGSL_IOMMU_SET_CTX_REG(ctx, SCTLR, sctlr_val);
@@ -972,7 +976,7 @@ static void _detach_context(struct kgsl_iommu_context *ctx, struct kgsl_device
 
 static int _setup_user_context(struct kgsl_mmu *mmu)
 {
-	int ret;
+	int ret = 0;
 	struct kgsl_iommu *iommu = mmu->priv;
 	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(mmu->device);
@@ -987,8 +991,6 @@ static int _setup_user_context(struct kgsl_mmu *mmu)
 			ret = PTR_ERR(mmu->defaultpagetable);
 			mmu->defaultpagetable = NULL;
 			return ret;
-		} else if (mmu->defaultpagetable == NULL) {
-			return -ENOMEM;
 		}
 	}
 
@@ -998,12 +1000,14 @@ static int _setup_user_context(struct kgsl_mmu *mmu)
 	if (ret)
 		return ret;
 
+	ctx->default_pt = mmu->defaultpagetable;
+
 	kgsl_iommu_enable_clk(mmu);
 
 	sctlr_val = KGSL_IOMMU_GET_CTX_REG(ctx, SCTLR);
 
 	/*
-	 * For IOMMU V1, if pagefault policy is GPUHALT_ENABLE,
+	 * If pagefault policy is GPUHALT_ENABLE,
 	 * 1) Program CFCFG to 1 to enable STALL mode
 	 * 2) Program HUPCF to 0 (Stall or terminate subsequent
 	 *    transactions in the presence of an outstanding fault)
@@ -1025,9 +1029,7 @@ static int _setup_user_context(struct kgsl_mmu *mmu)
 	KGSL_IOMMU_SET_CTX_REG(ctx, SCTLR, sctlr_val);
 	kgsl_iommu_disable_clk(mmu);
 
-	if (ret)
-		_detach_context(ctx, mmu->device);
-	return ret;
+	return 0;
 }
 
 static int _setup_secure_context(struct kgsl_mmu *mmu)
@@ -1278,10 +1280,24 @@ static void kgsl_iommu_clear_fsr(struct kgsl_mmu *mmu)
 {
 	struct kgsl_iommu *iommu = mmu->priv;
 	struct kgsl_iommu_context  *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
+	unsigned int sctlr_val;
 
 	if (ctx->default_pt != NULL) {
 		kgsl_iommu_enable_clk(mmu);
 		KGSL_IOMMU_SET_CTX_REG(ctx, FSR, 0xffffffff);
+		/*
+		 * Re-enable context fault interrupts after clearing
+		 * FSR to prevent the interrupt from firing repeatedly
+		 */
+		sctlr_val = KGSL_IOMMU_GET_CTX_REG(ctx, SCTLR);
+		sctlr_val |= (0x1 << KGSL_IOMMU_SCTLR_CFIE_SHIFT);
+		KGSL_IOMMU_SET_CTX_REG(ctx, SCTLR, sctlr_val);
+		/*
+		 * Make sure the above register writes
+		 * are not reordered across the barrier
+		 * as we use writel_relaxed to write them
+		 */
+		wmb();
 		kgsl_iommu_disable_clk(mmu);
 	}
 }
@@ -1290,19 +1306,13 @@ static void kgsl_iommu_pagefault_resume(struct kgsl_mmu *mmu)
 {
 	struct kgsl_iommu *iommu = mmu->priv;
 	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
-	unsigned int sctlr_val;
 
 	if (ctx->default_pt != NULL && ctx->fault) {
 		/*
 		 * Write 1 to RESUME.TnR to terminate the
-		 * stalled transaction. Also, re-enable
-		 * context fault interrupts by writing 1
-		 * to SCTLR.CFIE
+		 * stalled transaction.
 		 */
-		sctlr_val = KGSL_IOMMU_GET_CTX_REG(ctx, SCTLR);
-		sctlr_val |= (0x1 << KGSL_IOMMU_SCTLR_CFIE_SHIFT);
 		KGSL_IOMMU_SET_CTX_REG(ctx, RESUME, 1);
-		KGSL_IOMMU_SET_CTX_REG(ctx, SCTLR, sctlr_val);
 		/*
 		 * Make sure the above register writes
 		 * are not reordered across the barrier
@@ -1336,16 +1346,12 @@ static int kgsl_iommu_close(struct kgsl_mmu *mmu)
 	for (i = 0; i < KGSL_IOMMU_CONTEXT_MAX; i++)
 		_detach_context(&iommu->ctx[i], mmu->device);
 
-	if (mmu->defaultpagetable != NULL) {
-		kgsl_mmu_putpagetable(mmu->defaultpagetable);
-		mmu->defaultpagetable = NULL;
-	}
+	kgsl_mmu_putpagetable(mmu->defaultpagetable);
+	mmu->defaultpagetable = NULL;
 
 
-	if (mmu->securepagetable != NULL) {
-		kgsl_mmu_putpagetable(mmu->securepagetable);
-		mmu->securepagetable = NULL;
-	}
+	kgsl_mmu_putpagetable(mmu->securepagetable);
+	mmu->securepagetable = NULL;
 
 	if (iommu->regbase != NULL)
 		iounmap(iommu->regbase);
