@@ -3304,10 +3304,10 @@ static int hdmi_tx_start(struct hdmi_tx_ctrl *hdmi_ctrl)
 		hdmi_tx_set_spd_infoframe(hdmi_ctrl);
 	}
 
+	hdmi_tx_set_mode(hdmi_ctrl, true);
+
 	if (hdmi_tx_setup_scrambler(hdmi_ctrl))
 		DEV_WARN("%s: Scrambler setup failed\n", __func__);
-
-	hdmi_tx_set_mode(hdmi_ctrl, true);
 
 	DEV_INFO("%s: HDMI Core: Initialized\n", __func__);
 
