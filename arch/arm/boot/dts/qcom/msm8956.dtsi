@@ -1733,7 +1733,9 @@
 
 	qcom,vidc@1d00000 {
 		compatible = "qcom,msm-vidc";
-		reg = <0x01d00000 0xff000>;
+		reg = <0x01d00000 0xff000>,
+			<0x000a4120 0x4>;
+		reg-names = "vidc", "efuse";
 		interrupts = <0 44 0>;
 		vdd-cx-supply = <&pm8950_s2_level_ao>;
 		venus-supply = <&gdsc_venus>;
@@ -1750,6 +1752,8 @@
 		clock-names = "core_clk", "core0_clk", "iface_clk", "bus_clk";
 		qcom,clock-configs = <0x1 0x0 0x0 0x0>;
 		qcom,sw-power-collapse;
+		qcom,reset-clock-control;
+		qcom,regulator-scaling;
 		qcom,max-hw-load = <979200>; /* 3840 x 2176 @ 30 fps */
 		qcom,dcvs-min-load = <734400>; /* 1920 x 1088 @ 90fps */
 		qcom,dcvs-min-mbperframe = <32400>; /* 3840 x 2160 */
@@ -1795,6 +1799,16 @@
 			<360000000 RPM_SMD_REGULATOR_LEVEL_NOM>,
 			<400000000 RPM_SMD_REGULATOR_LEVEL_NOM_PLUS>,
 			<466000000 RPM_SMD_REGULATOR_LEVEL_TURBO>;
+
+		qcom,vp9d-clock-voltage-tbl =
+			<72727200 RPM_SMD_REGULATOR_LEVEL_SVS>,
+			<80000000 RPM_SMD_REGULATOR_LEVEL_SVS>,
+			<100000000 RPM_SMD_REGULATOR_LEVEL_SVS>,
+			<133333333 RPM_SMD_REGULATOR_LEVEL_SVS>,
+			<228570000 RPM_SMD_REGULATOR_LEVEL_SVS_PLUS>,
+			<310667000 RPM_SMD_REGULATOR_LEVEL_NOM>,
+			<360000000 RPM_SMD_REGULATOR_LEVEL_NOM_PLUS>,
+			<400000000 RPM_SMD_REGULATOR_LEVEL_TURBO>;
 
 		qcom,vidc-iommu-domains {
 			qcom,domain-ns {
