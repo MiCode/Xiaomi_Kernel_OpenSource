@@ -45,19 +45,29 @@ static struct mdss_dsi_data *mdss_dsi_res;
 
 static struct pm_qos_request mdss_dsi_pm_qos_request;
 
-static void mdss_dsi_pm_qos_add_request(struct dsi_shared_data *sdata)
+static void mdss_dsi_pm_qos_add_request(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
-	if (!sdata)
+	struct irq_info *irq_info;
+
+	if (!ctrl_pdata || !ctrl_pdata->shared_data)
 		return;
 
-	mutex_lock(&sdata->pm_qos_lock);
-	if (!sdata->pm_qos_req_cnt) {
-		pr_debug("%s: add request", __func__);
+	irq_info = ctrl_pdata->dsi_hw->irq_info;
+
+	if (!irq_info)
+		return;
+
+	mutex_lock(&ctrl_pdata->shared_data->pm_qos_lock);
+	if (!ctrl_pdata->shared_data->pm_qos_req_cnt) {
+		pr_debug("%s: add request irq\n", __func__);
+
+		mdss_dsi_pm_qos_request.type = PM_QOS_REQ_AFFINE_IRQ;
+		mdss_dsi_pm_qos_request.irq = irq_info->irq;
 		pm_qos_add_request(&mdss_dsi_pm_qos_request,
-			PM_QOS_CPU_DMA_LATENCY,	PM_QOS_DEFAULT_VALUE);
+			PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
 	}
-	sdata->pm_qos_req_cnt++;
-	mutex_unlock(&sdata->pm_qos_lock);
+	ctrl_pdata->shared_data->pm_qos_req_cnt++;
+	mutex_unlock(&ctrl_pdata->shared_data->pm_qos_lock);
 }
 
 static void mdss_dsi_pm_qos_remove_request(struct dsi_shared_data *sdata)
@@ -3151,7 +3161,7 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	pr_info("%s: Dsi Ctrl->%d initialized, DSI rev:0x%x, PHY rev:0x%x\n",
 		__func__, index, ctrl_pdata->shared_data->hw_rev,
 		ctrl_pdata->shared_data->phy_rev);
-	mdss_dsi_pm_qos_add_request(ctrl_pdata->shared_data);
+	mdss_dsi_pm_qos_add_request(ctrl_pdata);
 
 	if (index == 0)
 		ctrl_pdata->shared_data->dsi0_active = true;
