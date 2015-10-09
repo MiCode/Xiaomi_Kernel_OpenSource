@@ -1866,6 +1866,26 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 	/* Reset the GPU and make sure halt is not set during recovery */
 	halt = adreno_gpu_halt(adreno_dev);
 	adreno_clear_gpu_halt(adreno_dev);
+
+	/*
+	 * If there is a stall in the ringbuffer after all commands have been
+	 * retired then we could hit problems if contexts are waiting for
+	 * internal timestamps that will never retire
+	 */
+
+	if (hung_rb != NULL) {
+		kgsl_sharedmem_writel(device, &device->memstore,
+			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_MAX + hung_rb->id,
+				soptimestamp), hung_rb->timestamp);
+
+		kgsl_sharedmem_writel(device, &device->memstore,
+			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_MAX + hung_rb->id,
+				eoptimestamp), hung_rb->timestamp);
+
+		/* Schedule any pending events to be run */
+		kgsl_process_event_group(device, &hung_rb->events);
+	}
+
 	ret = adreno_reset(device, fault);
 	mutex_unlock(&device->mutex);
 	/* if any other fault got in until reset then ignore */
