@@ -1588,6 +1588,7 @@ static bool wcd9335_is_volatile_register(struct device *dev, unsigned int reg)
 	case WCD9335_VBADC_ADC_DOUTMSB:
 	case WCD9335_VBADC_ADC_DOUTLSB:
 	case WCD9335_CDC_VBAT_VBAT_GAIN_MON_VAL:
+	case WCD9335_ANA_BUCK_CTL:
 		return true;
 	default:
 		return false;
