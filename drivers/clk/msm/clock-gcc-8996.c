@@ -2216,19 +2216,6 @@ static struct branch_clk gcc_mmss_noc_cfg_ahb_clk = {
 	},
 };
 
-static struct branch_clk gcc_mmss_sys_noc_axi_clk = {
-	.cbcr_reg = GCC_MMSS_SYS_NOC_AXI_CBCR,
-	.has_sibling = 1,
-	.check_enable_bit = true,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "gcc_mmss_sys_noc_axi_clk",
-		.always_on = true,
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_mmss_sys_noc_axi_clk.c),
-	},
-};
-
 static struct branch_clk gcc_pcie_0_aux_clk = {
 	.cbcr_reg = GCC_PCIE_0_AUX_CBCR,
 	.has_sibling = 0,
@@ -3183,7 +3170,6 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_ce1_ahb_m_clk.c, 0x009b },
 		{ &measure_only_bimc_hmss_axi_clk.c, 0x00a5 },
 		{ &gcc_periph_noc_usb20_ahb_clk.c, 0x0014 },
-		{ &gcc_mmss_sys_noc_axi_clk.c, 0x0018 },
 		{ &gcc_mmss_noc_cfg_ahb_clk.c, 0x0019 },
 		{ &gcc_mmss_bimc_gfx_clk.c, 0x001c},
 		{ &gcc_bimc_gfx_clk.c, 0x00af},
@@ -3510,7 +3496,6 @@ static struct clk_lookup msm_clocks_gcc_8996[] = {
 	CLK_LIST(gcc_gp3_clk),
 	CLK_LIST(gcc_hmss_rbcpr_clk),
 	CLK_LIST(gcc_mmss_noc_cfg_ahb_clk),
-	CLK_LIST(gcc_mmss_sys_noc_axi_clk),
 	CLK_LIST(gcc_sys_noc_usb3_axi_clk),
 	CLK_LIST(gcc_sys_noc_ufs_axi_clk),
 	CLK_LIST(gcc_pcie_0_phy_reset),
