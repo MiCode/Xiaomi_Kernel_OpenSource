@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -132,12 +132,15 @@ enum rmnet_map_agg_state_e {
 #define RMNET_MAP_COMMAND_UNSUPPORTED 2
 #define RMNET_MAP_COMMAND_INVALID     3
 
+#define RMNET_MAP_NO_PAD_BYTES        0
+#define RMNET_MAP_ADD_PAD_BYTES       1
+
 uint8_t rmnet_map_demultiplex(struct sk_buff *skb);
 struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 				      struct rmnet_phys_ep_conf_s *config);
 
 struct rmnet_map_header_s *rmnet_map_add_map_header(struct sk_buff *skb,
-						    int hdrlen);
+						    int hdrlen, int pad);
 rx_handler_result_t rmnet_map_command(struct sk_buff *skb,
 				      struct rmnet_phys_ep_conf_s *config);
 void rmnet_map_aggregate(struct sk_buff *skb,
