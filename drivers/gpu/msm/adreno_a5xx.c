@@ -1001,9 +1001,7 @@ static int _gpmu_send_init_cmds(struct adreno_device *adreno_dev)
 
 	/* Copy to the RB the predefined fw sequence cmds */
 	memcpy(cmds, adreno_dev->gpmu_cmds, size << 2);
-	adreno_ringbuffer_submit(rb, NULL);
-
-	return adreno_spin_idle(&adreno_dev->dev);
+	return adreno_ringbuffer_submit_spin(rb, NULL, 2000);
 }
 
 /*
@@ -1994,11 +1992,31 @@ static int _preemption_init(
 	return cmds - cmds_orig;
 }
 
+/* Print some key registers if a spin-for-idle times out */
+static void spin_idle_debug(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int rptr, wptr;
+	unsigned int status, status3, intstatus;
+	unsigned int hwfault;
+
+	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_RPTR, &rptr);
+	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_WPTR, &wptr);
+
+	kgsl_regread(device, A5XX_RBBM_STATUS, &status);
+	kgsl_regread(device, A5XX_RBBM_STATUS3, &status3);
+	kgsl_regread(device, A5XX_RBBM_INT_0_STATUS, &intstatus);
+	kgsl_regread(device, A5XX_CP_HW_FAULT, &hwfault);
+
+	dev_err(device->dev,
+		" rb=%X/%X rbbm_status=%8.8X/%8.8X int_0_status=%8.8X\n",
+		rptr, wptr, status, status3, intstatus);
+	dev_err(device->dev, " hwfault=%8.8X\n", hwfault);
+}
+
 static void a5xx_post_start(struct adreno_device *adreno_dev)
 {
 	unsigned int *cmds, *start;
-	int status = 0;
-	struct kgsl_device *device = &(adreno_dev->dev);
 	struct adreno_ringbuffer *rb = adreno_dev->cur_rb;
 
 	cmds = adreno_ringbuffer_allocspace(rb, 42);
@@ -2024,13 +2042,10 @@ static void a5xx_post_start(struct adreno_device *adreno_dev)
 	if (cmds == start)
 		return;
 
-	adreno_ringbuffer_submit(rb, NULL);
+	if (adreno_ringbuffer_submit_spin(rb, NULL, 2000)) {
+		struct kgsl_device *device = &adreno_dev->dev;
 
-	/* idle device to validate hw INIT */
-	status = adreno_spin_idle(device);
-	if (status) {
-		KGSL_DRV_ERR(rb->device,
-		"hw initialization failed to idle\n");
+		KGSL_DRV_ERR(device, "hw initialization failed to idle\n");
 		kgsl_device_snapshot(device, NULL);
 	}
 }
@@ -2075,6 +2090,7 @@ static int a5xx_rb_init(struct adreno_device *adreno_dev,
 			 struct adreno_ringbuffer *rb)
 {
 	unsigned int *cmds;
+	int ret;
 
 	cmds = adreno_ringbuffer_allocspace(rb, 8);
 	if (IS_ERR(cmds))
@@ -2104,15 +2120,23 @@ static int a5xx_rb_init(struct adreno_device *adreno_dev,
 	*cmds++ = 0x00000000;
 	*cmds++ = 0x00000000;
 
-	adreno_ringbuffer_submit(rb, NULL);
+	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
+	if (ret != 0) {
+		struct kgsl_device *device = &adreno_dev->dev;
 
-	return 0;
+		dev_err(device->dev, "CP initialization failed to idle\n");
+		spin_idle_debug(device);
+		kgsl_device_snapshot(device, NULL);
+	}
+
+	return ret;
 }
 
 int a5xx_switch_to_unsecure_mode(struct adreno_device *adreno_dev,
 				struct adreno_ringbuffer *rb)
 {
 	unsigned int *cmds;
+	int ret;
 
 	cmds = adreno_ringbuffer_allocspace(rb, 2);
 	if (IS_ERR(cmds))
@@ -2122,8 +2146,16 @@ int a5xx_switch_to_unsecure_mode(struct adreno_device *adreno_dev,
 
 	cmds += cp_secure_mode(adreno_dev, cmds, 0);
 
-	adreno_ringbuffer_submit(rb, NULL);
-	return 0;
+	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
+	if (ret != 0) {
+		struct kgsl_device *device = &adreno_dev->dev;
+
+		dev_err(device->dev, "Switch to unsecure failed to idle\n");
+		spin_idle_debug(device);
+		kgsl_device_snapshot(device, NULL);
+	}
+
+	return ret;
 }
 
 static int _load_firmware(struct adreno_device *adreno_dev, const char *fwfile,

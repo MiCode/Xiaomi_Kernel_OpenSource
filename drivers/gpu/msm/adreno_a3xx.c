@@ -635,6 +635,8 @@ static int a3xx_rb_init(struct adreno_device *adreno_dev,
 			 struct adreno_ringbuffer *rb)
 {
 	unsigned int *cmds;
+	int ret;
+
 	cmds = adreno_ringbuffer_allocspace(rb, 18);
 	if (IS_ERR(cmds))
 		return PTR_ERR(cmds);
@@ -664,9 +666,15 @@ static int a3xx_rb_init(struct adreno_device *adreno_dev,
 	*cmds++ = 0x00000000;
 	*cmds++ = 0x00000000;
 
-	adreno_ringbuffer_submit(rb, NULL);
+	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
+	if (ret) {
+		struct kgsl_device *device = &adreno_dev->dev;
 
-	return 0;
+		dev_err(device->dev, "CP initialization failed to idle\n");
+		kgsl_device_snapshot(device, NULL);
+	}
+
+	return ret;
 }
 
 /*
@@ -1726,7 +1734,7 @@ static int _ringbuffer_bootstrap_ucode(struct adreno_ringbuffer *rb,
 	}
 
 	/* idle device to validate bootstrap */
-	ret = adreno_spin_idle(device);
+	ret = adreno_spin_idle(device, 2000);
 
 	if (ret) {
 		KGSL_DRV_ERR(rb->device,

@@ -2217,13 +2217,14 @@ bool adreno_isidle(struct kgsl_device *device)
 /**
  * adreno_spin_idle() - Spin wait for the GPU to idle
  * @device: Pointer to the KGSL device
+ * @timeout: milliseconds to wait before returning error
  *
  * Spin the CPU waiting for the RBBM status to return idle
  */
-int adreno_spin_idle(struct kgsl_device *device)
+int adreno_spin_idle(struct kgsl_device *device, unsigned int timeout)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	unsigned long wait = jiffies + msecs_to_jiffies(ADRENO_IDLE_TIMEOUT);
+	unsigned long wait = jiffies + msecs_to_jiffies(timeout);
 
 	kgsl_cffdump_regpoll(device,
 		adreno_getreg(adreno_dev, ADRENO_REG_RBBM_STATUS) << 2,
@@ -2277,7 +2278,7 @@ int adreno_idle(struct kgsl_device *device)
 	if (ret)
 		return ret;
 
-	return adreno_spin_idle(device);
+	return adreno_spin_idle(device, ADRENO_IDLE_TIMEOUT);
 }
 
 /**
