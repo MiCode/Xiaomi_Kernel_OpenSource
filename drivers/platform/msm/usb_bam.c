@@ -844,8 +844,7 @@ static bool usb_bam_resume_core(enum usb_ctrl bam_type,
  * usb_bam_disconnect_ipa_prod() - disconnects the USB consumer i.e. IPA producer.
  * @ipa_params: USB IPA related parameters
  * @cur_bam: USB controller used for BAM functionality
- * @bam_mode: USB controller based BAM used in Device or Host Mode
-
+ *
  * It performs disconnect with IPA driver for IPA producer pipe and
  * with SPS driver for USB BAM consumer pipe. This API also takes care
  * of SYS2BAM and BAM2BAM IPA disconnect functionality.
@@ -854,41 +853,18 @@ static bool usb_bam_resume_core(enum usb_ctrl bam_type,
  */
 static int usb_bam_disconnect_ipa_prod(
 		struct usb_bam_connect_ipa_params *ipa_params,
-		enum usb_ctrl cur_bam, enum usb_bam_mode bam_mode)
+		enum usb_ctrl cur_bam)
 {
 	int ret;
 	u8 idx = 0;
 	struct usb_bam_pipe_connect *pipe_connect;
 	struct usb_bam_ctx_type *ctx = &msm_usb_bam[cur_bam];
-	bool is_dpl;
 
 	idx = ipa_params->dst_idx;
-	/*
-	 * Check for dpl client and if it is, then make adjustment
-	 * to make decision about IPA Handshake.
-	 */
-	if (ipa_params->dst_client == IPA_CLIENT_USB_DPL_CONS)
-		is_dpl = true;
-	else
-		is_dpl = false;
-
 	pipe_connect = &ctx->usb_bam_connections[idx];
-
 	pipe_connect->activity_notify = NULL;
 	pipe_connect->inactivity_notify = NULL;
 	pipe_connect->priv = NULL;
-
-	/* Do the release handshake with the IPA via RM for non-DPL case*/
-	spin_lock(&usb_bam_ipa_handshake_info_lock);
-	if (bam_mode == USB_BAM_DEVICE && !is_dpl) {
-		info[cur_bam].connect_complete = 0;
-		info[cur_bam].disconnected = 1;
-	}
-	spin_unlock(&usb_bam_ipa_handshake_info_lock);
-
-	/* Start release handshake on the last producer pipe for non-DPL case*/
-	if (info[cur_bam].prod_pipes_enabled_per_bam == 1 && !is_dpl)
-		wait_for_prod_release(cur_bam);
 
 	/* close IPA -> USB pipe */
 	if (pipe_connect->pipe_type == USB_BAM_PIPE_BAM2BAM) {
@@ -979,6 +955,7 @@ retry:
 	if (!pipe_empty) {
 		if (inject_zlt) {
 			pr_debug("%s: Inject ZLT\n", __func__);
+			log_event_dbg("%s: Inject ZLT\n", __func__);
 			inject_zlt = false;
 			sps_pipe_inject_zlt(sps_connection->destination,
 					sps_connection->dest_pipe_index);
@@ -992,6 +969,16 @@ retry:
 		ipa_bam_reg_dump();
 		panic("%s:SPS pipe not empty for USB->IPA\n", __func__);
 	}
+
+	/* Do the release handshake with the IPA via RM */
+	spin_lock(&usb_bam_ipa_handshake_info_lock);
+	info[cur_bam].connect_complete = 0;
+	info[cur_bam].disconnected = 1;
+	spin_unlock(&usb_bam_ipa_handshake_info_lock);
+
+	/* Start release handshake on the last USB BAM producer pipe */
+	if (info[cur_bam].prod_pipes_enabled_per_bam == 1)
+		wait_for_prod_release(cur_bam);
 
 	/* close USB -> IPA pipe */
 	if (pipe_connect->pipe_type == USB_BAM_PIPE_BAM2BAM) {
@@ -2670,11 +2657,13 @@ int usb_bam_disconnect_ipa(enum usb_ctrl cur_bam,
 	pipe_connect = &ctx->usb_bam_connections[idx];
 	bam_mode = pipe_connect->bam_mode;
 
+	if (bam_mode != USB_BAM_DEVICE)
+		return -EINVAL;
+
 	mutex_lock(&info[cur_bam].suspend_resume_mutex);
 	/* Delay USB core to go into lpm before we finish our handshake */
 	if (is_ipa_handle_valid(ipa_params->prod_clnt_hdl)) {
-		ret = usb_bam_disconnect_ipa_prod(ipa_params,
-				cur_bam, bam_mode);
+		ret = usb_bam_disconnect_ipa_prod(ipa_params, cur_bam);
 		if (ret)
 			goto out;
 		pipes_disconncted++;
