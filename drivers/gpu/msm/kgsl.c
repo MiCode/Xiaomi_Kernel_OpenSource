@@ -1712,19 +1712,19 @@ long kgsl_ioctl_gpu_command(struct kgsl_device_private *dev_priv,
 	}
 
 	result = kgsl_cmdbatch_add_cmdlist(device, cmdbatch,
-		(void __user *) (uintptr_t) param->cmdlist,
+		to_user_ptr(param->cmdlist),
 		param->cmdsize, param->numcmds);
 	if (result)
 		goto done;
 
 	result = kgsl_cmdbatch_add_memlist(device, cmdbatch,
-		(void __user *) (uintptr_t) param->objlist,
+		to_user_ptr(param->objlist),
 		param->objsize, param->numobjs);
 	if (result)
 		goto done;
 
 	result = kgsl_cmdbatch_add_synclist(device, cmdbatch,
-		(void __user *) (uintptr_t) param->synclist,
+		to_user_ptr(param->synclist),
 		param->syncsize, param->numsyncs);
 	if (result)
 		goto done;
@@ -1912,7 +1912,7 @@ static long gpuobj_free_on_timestamp(struct kgsl_device_private *dev_priv,
 
 	memset(&event, 0, sizeof(event));
 
-	ret = _copy_from_user(&event, (void __user *) (uintptr_t) param->priv,
+	ret = _copy_from_user(&event, to_user_ptr(param->priv),
 		sizeof(event), param->len);
 	if (ret)
 		return ret;
@@ -1946,7 +1946,7 @@ static long gpuobj_free_on_fence(struct kgsl_device_private *dev_priv,
 
 	memset(&event, 0, sizeof(event));
 
-	ret = _copy_from_user(&event, (void __user *) (uintptr_t) param->priv,
+	ret = _copy_from_user(&event, to_user_ptr(param->priv),
 		sizeof(event), param->len);
 	if (ret)
 		return ret;
@@ -2254,7 +2254,7 @@ static long _gpuobj_map_useraddr(struct kgsl_device *device,
 		return -ENOTSUPP;
 
 	ret = _copy_from_user(&useraddr,
-		(void __user *) (uintptr_t) param->priv, sizeof(useraddr),
+		to_user_ptr(param->priv), sizeof(useraddr),
 		param->priv_len);
 	if (ret)
 		return ret;
@@ -2292,7 +2292,7 @@ static long _gpuobj_map_dma_buf(struct kgsl_device *device,
 		entry->memdesc.priv |= KGSL_MEMDESC_SECURE;
 	}
 
-	ret = _copy_from_user(&buf, (void __user *) (uintptr_t) param->priv,
+	ret = _copy_from_user(&buf, to_user_ptr(param->priv),
 			sizeof(buf), param->priv_len);
 	if (ret)
 		return ret;
@@ -2901,7 +2901,7 @@ long kgsl_ioctl_gpuobj_sync(struct kgsl_device_private *dev_priv,
 		goto out;
 	}
 
-	ptr = (void __user *) (uintptr_t) param->objs;
+	ptr = to_user_ptr(param->objs);
 
 	for (i = 0; i < param->count; i++) {
 		ret = _copy_from_user(&objs[i], ptr, sizeof(*objs),
@@ -3893,20 +3893,13 @@ static irqreturn_t kgsl_irq_handler(int irq, void *data)
 
 }
 
-#define KGSL_READ_MESSAGE "OH HAI GPU"
+#define KGSL_READ_MESSAGE "OH HAI GPU\n"
 
 static ssize_t kgsl_read(struct file *filep, char __user *buf, size_t count,
 		loff_t *pos)
 {
-	int ret;
-
-	if (*pos >= strlen(KGSL_READ_MESSAGE) + 1)
-		return 0;
-
-	ret = snprintf(buf, count, "%s\n", KGSL_READ_MESSAGE);
-	*pos += ret;
-
-	return ret;
+	return simple_read_from_buffer(buf, count, pos,
+			KGSL_READ_MESSAGE, strlen(KGSL_READ_MESSAGE) + 1);
 }
 
 static const struct file_operations kgsl_fops = {

@@ -1022,7 +1022,7 @@ int kgsl_cmdbatch_add_synclist(struct kgsl_device *device,
 			return ret;
 
 		sync.type = syncpoint.type;
-		sync.priv = (void __user *) (uintptr_t) syncpoint.priv;
+		sync.priv = to_user_ptr(syncpoint.priv);
 		sync.size = syncpoint.size;
 
 		ret = kgsl_cmdbatch_add_sync(device, cmdbatch, &sync);
