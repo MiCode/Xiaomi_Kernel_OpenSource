@@ -1747,31 +1747,10 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 	int ret, i;
 	int fault;
 	int halt;
-	unsigned int reg_rbbm_status3;
 
 	fault = atomic_xchg(&dispatcher->fault, 0);
 	if (fault == 0)
 		return 0;
-	/*
-	 * Return early if no command inflight - can happen on
-	 * false hang detects
-	 */
-	if (dispatcher->inflight == 0) {
-		KGSL_DRV_WARN(device,
-		"dispatcher_do_fault with 0 inflight commands\n");
-		/*
-		 * For certain faults like h/w fault the interrupts are
-		 * turned off, re-enable here
-		 */
-		mutex_lock(&device->mutex);
-		if (device->state == KGSL_STATE_AWARE)
-			ret = kgsl_pwrctrl_change_state(device,
-				KGSL_STATE_ACTIVE);
-		else
-			ret = 0;
-		mutex_unlock(&device->mutex);
-		return ret;
-	}
 
 	/*
 	 * On A5xx, read RBBM_STATUS3:SMMU_STALLED_ON_FAULT (BIT 24) to
@@ -1779,14 +1758,13 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 	 * proceed if the fault handler has already run in the IRQ thread,
 	 * else return early to give the fault handler a chance to run.
 	 */
-	if (adreno_is_a5xx(adreno_dev)) {
+	if (!(fault & ADRENO_IOMMU_PAGE_FAULT) && adreno_is_a5xx(adreno_dev)) {
+		unsigned int val;
 		mutex_lock(&device->mutex);
-		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS3,
-				&reg_rbbm_status3);
+		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS3, &val);
 		mutex_unlock(&device->mutex);
-		if (reg_rbbm_status3 & BIT(24))
-			if (!(fault & ADRENO_IOMMU_PAGE_FAULT))
-				return 0;
+		if (val & BIT(24))
+			return 0;
 	}
 
 	/* Turn off all the timers */
@@ -1803,12 +1781,10 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 		ADRENO_REG_CP_RB_BASE_HI, &base);
 
 	/*
-	 * If the fault was due to a timeout then stop the CP to ensure we don't
-	 * get activity while we are trying to dump the state of the system
+	 * Force the CP off for anything but a hard fault to make sure it is
+	 * good and stopped
 	 */
-
-	if ((fault & ADRENO_TIMEOUT_FAULT || fault & ADRENO_PREEMPT_FAULT) &&
-		!(fault & ADRENO_HARD_FAULT)) {
+	if (!(fault & ADRENO_HARD_FAULT)) {
 		adreno_readreg(adreno_dev, ADRENO_REG_CP_ME_CNTL, &reg);
 		if (adreno_is_a5xx(adreno_dev))
 			reg |= 1 | (1 << 1);

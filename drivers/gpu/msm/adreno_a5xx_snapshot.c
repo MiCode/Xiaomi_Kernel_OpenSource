@@ -738,9 +738,18 @@ static size_t a5xx_snapshot_registers(struct kgsl_device *device, u8 *buf,
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	unsigned long wait_time;
 	unsigned int reg = 0;
+	unsigned int val;
 
 	/* Jump to legacy if the crash dump script was not initialized */
 	if (capturescript.gpuaddr == 0 || registers.gpuaddr == 0)
+		return a5xx_legacy_snapshot_registers(device, buf, remain);
+
+	/*
+	 * If we got here because we are stalled on fault the crash dumper has
+	 * won't work
+	 */
+	kgsl_regread(device, A5XX_RBBM_STATUS3, &val);
+	if (val & BIT(24))
 		return a5xx_legacy_snapshot_registers(device, buf, remain);
 
 	if (remain < (count_registers() * 8) + sizeof(*header)) {
