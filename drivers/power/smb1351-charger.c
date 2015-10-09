@@ -1208,7 +1208,6 @@ static int smb1351_set_usb_chg_current(struct smb1351_charger *chip,
 		}
 		if (i < 0)
 			i = 0;
-
 		rc = smb1351_masked_write(chip, CHG_CURRENT_CTRL_REG,
 						AC_INPUT_CURRENT_LIMIT_MASK, i);
 		if (rc) {
@@ -1460,11 +1459,32 @@ static int smb1351_parallel_set_chg_present(struct smb1351_charger *chip,
 	return 0;
 }
 
+static int smb1351_get_closest_usb_setpoint(int val)
+{
+	int i;
+
+	for (i = ARRAY_SIZE(usb_chg_current) - 1; i >= 0; i--) {
+		if (usb_chg_current[i] <= val)
+			break;
+	}
+	if (i < 0)
+		i = 0;
+
+	if (i >= ARRAY_SIZE(usb_chg_current) - 1)
+		return ARRAY_SIZE(usb_chg_current) - 1;
+
+	/* check what is closer, i or i + 1 */
+	if (abs(usb_chg_current[i] - val) < abs(usb_chg_current[i + 1] - val))
+		return i;
+	else
+		return i + 1;
+}
+
 static int smb1351_parallel_set_property(struct power_supply *psy,
 				       enum power_supply_property prop,
 				       const union power_supply_propval *val)
 {
-	int rc = 0;
+	int rc = 0, index;
 	struct smb1351_charger *chip = container_of(psy,
 				struct smb1351_charger, parallel_psy);
 
@@ -1489,7 +1509,9 @@ static int smb1351_parallel_set_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		if (chip->parallel_charger_present) {
-			chip->usb_psy_ma = val->intval / 1000;
+			index = smb1351_get_closest_usb_setpoint(
+						val->intval / 1000);
+			chip->usb_psy_ma = usb_chg_current[index];
 			rc = smb1351_set_usb_chg_current(chip,
 						chip->usb_psy_ma);
 		}
