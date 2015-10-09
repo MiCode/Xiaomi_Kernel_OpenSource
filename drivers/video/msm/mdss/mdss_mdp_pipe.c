@@ -269,12 +269,13 @@ u32 mdss_mdp_smp_calc_num_blocks(struct mdss_mdp_pipe *pipe)
 /**
  * @mdss_mdp_smp_get_size - get allocated smp size for a pipe
  * @pipe: pointer to a pipe
- *
+ * @num_planes: number of planes, to be considered in calculation
  * Function counts number of blocks that are currently allocated for a
  * pipe, then smp buffer size is number of blocks multiplied by block
  * size.
  */
-u32 mdss_mdp_smp_get_size(struct mdss_mdp_pipe *pipe)
+u32 mdss_mdp_smp_get_size(struct mdss_mdp_pipe *pipe,
+	u32 num_planes)
 {
 	int i, mb_cnt = 0, smp_size;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
@@ -282,7 +283,7 @@ u32 mdss_mdp_smp_get_size(struct mdss_mdp_pipe *pipe)
 	if (mdata->has_pixel_ram) {
 		smp_size = mdss_mdp_get_pixel_ram_size(mdata);
 	} else {
-		for (i = 0; i < MAX_PLANES; i++) {
+		for (i = 0; i < num_planes; i++) {
 			mb_cnt += bitmap_weight(pipe->smp_map[i].allocated,
 								SMP_MB_CNT);
 			mb_cnt += bitmap_weight(pipe->smp_map[i].fixed,
@@ -298,13 +299,16 @@ u32 mdss_mdp_smp_get_size(struct mdss_mdp_pipe *pipe)
 	return smp_size;
 }
 
-static void mdss_mdp_smp_set_wm_levels(struct mdss_mdp_pipe *pipe, int mb_cnt)
+static void mdss_mdp_smp_set_wm_levels(struct mdss_mdp_pipe *pipe,
+	u32 useable_space)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	u32 useable_space, latency_bytes, val, wm[3];
+	u32 latency_bytes, val, wm[3], req_entries;
 	struct mdss_mdp_mixer *mixer = pipe->mixer_left;
+	u32 useable_entries = useable_space;
+	u8 bpp =  pipe->src_fmt->bpp;
 
-	useable_space = mb_cnt * SMP_MB_SIZE;
+	BUG_ON(useable_space < SMP_MB_SIZE);
 
 	/*
 	 * For 1.3.x version, when source format is macrotile then useable
@@ -317,31 +321,33 @@ static void mdss_mdp_smp_set_wm_levels(struct mdss_mdp_pipe *pipe, int mb_cnt)
 	 * transactions when filling the full SMPs have the lowest priority.
 	 */
 
-	latency_bytes = mdss_mdp_calc_latency_buf_bytes(pipe->src_fmt->is_yuv,
-		pipe->bwc_mode, pipe->src_fmt->tile, pipe->src.w,
-		pipe->src_fmt->bpp,
-		false, useable_space);
+	if (pipe->src_fmt->is_yuv)
+		bpp = (pipe->src_fmt->chroma_sample ==
+				MDSS_MDP_CHROMA_H1V2) ? 2 : 1;
 
-	if ((pipe->flags & MDP_FLIP_LR) && !pipe->src_fmt->tile) {
-		/*
-		 * when doing hflip, one line is reserved to be consumed down
-		 * the pipeline. This line will always be marked as full even
-		 * if it doesn't have any data. In order to generate proper
-		 * priority levels ignore this region while setting up
-		 * watermark levels
-		 */
-		u8 bpp = pipe->src_fmt->is_yuv ? 1 :
-			pipe->src_fmt->bpp;
-		latency_bytes -= (pipe->src.w * bpp);
-	}
+	latency_bytes = mdss_mdp_calc_latency_buf_bytes(pipe->bwc_mode,
+		pipe->src_fmt->tile, pipe->src.w, bpp, false,
+		useable_space);
+
+	/*
+	 * when doing hflip, one line is reserved to be consumed down
+	 * the pipeline. This line will always be marked as full even
+	 * if it doesn't have any data. In order to generate proper
+	 * priority levels ignore this region while setting up
+	 * watermark levels
+	 */
+	if ((pipe->flags & MDP_FLIP_LR) && !pipe->src_fmt->tile)
+		useable_entries -= (pipe->src.w * bpp);
+
+	useable_entries = useable_entries / SMP_MB_ENTRY_SIZE;
+	req_entries = (latency_bytes / SMP_MB_ENTRY_SIZE);
 
 	if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_103) &&
 		(pipe->src_fmt->tile)) {
-		val = latency_bytes / SMP_MB_ENTRY_SIZE;
 
-		wm[0] = (val * 5) / 8;
-		wm[1] = (val * 6) / 8;
-		wm[2] = (val * 7) / 8;
+		wm[0] = (req_entries * 5) / 8;
+		wm[1] = (req_entries * 6) / 8;
+		wm[2] = (req_entries * 7) / 8;
 	} else if (mixer->rotator_mode ||
 		(mixer->ctl->intf_num == MDSS_MDP_NO_INTF)) {
 		/* any non real time pipe */
@@ -350,18 +356,34 @@ static void mdss_mdp_smp_set_wm_levels(struct mdss_mdp_pipe *pipe, int mb_cnt)
 		wm[2]  = 0xffff;
 	} else {
 		/*
-		 *  1/3 of the latency buffer bytes from the
-		 *  SMP pool that is being fetched
-		 */
-		val = (latency_bytes / SMP_MB_ENTRY_SIZE) / 3;
+		 *  WM levels to be set are 1/3 , 2/3, 3/3
+			*****************
+			*		*
+			*		*
+			*		*
+			*	00	*
+			*		*
+			*		*
+			*		*
+			***************** 1/3
+			*	01	*
+			***************** 2/3
+			*	10	*
+			***************** 3/3
+			*	11	*
+			*****************
+		*/
 
-		wm[0] = val;
-		wm[1] = wm[0] + val;
-		wm[2] = wm[1] + val;
+		val = req_entries / 3;
+
+		wm[2] = useable_entries - val;
+		wm[1] = wm[2] - val;
+		wm[0] = wm[1] - val;
 	}
 
 	trace_mdp_perf_set_wm_levels(pipe->num, useable_space, latency_bytes,
-		wm[0], wm[1], wm[2], mb_cnt, SMP_MB_SIZE);
+			wm[0], wm[1], wm[2], (useable_space / SMP_MB_SIZE),
+			SMP_MB_SIZE);
 
 	pr_debug("pnum=%d useable_space=%u watermarks %u,%u,%u\n", pipe->num,
 			useable_space, wm[0], wm[1], wm[2]);
@@ -589,7 +611,7 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 static int mdss_mdp_smp_alloc(struct mdss_mdp_pipe *pipe)
 {
 	int i;
-	int cnt = 0;
+	u32 smp_size = 0;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	if (mdata->has_pixel_ram)
@@ -597,20 +619,21 @@ static int mdss_mdp_smp_alloc(struct mdss_mdp_pipe *pipe)
 
 	mutex_lock(&mdss_mdp_smp_lock);
 	for (i = 0; i < MAX_PLANES; i++) {
-		cnt += bitmap_weight(pipe->smp_map[i].fixed, SMP_MB_CNT);
-
 		if (bitmap_empty(pipe->smp_map[i].reserved, SMP_MB_CNT)) {
-			cnt += mdss_mdp_smp_mmb_set(pipe->ftch_id + i,
-				pipe->smp_map[i].allocated);
+			mdss_mdp_smp_mmb_set(pipe->ftch_id + i,
+			pipe->smp_map[i].allocated);
 			continue;
 		}
 
 		mdss_mdp_smp_mmb_amend(pipe->smp_map[i].allocated,
 			pipe->smp_map[i].reserved);
-		cnt += mdss_mdp_smp_mmb_set(pipe->ftch_id + i,
+		mdss_mdp_smp_mmb_set(pipe->ftch_id + i,
 			pipe->smp_map[i].allocated);
 	}
-	mdss_mdp_smp_set_wm_levels(pipe, cnt);
+
+	/* Calculate size of Y plane for both RGB and YUV for WM */
+	smp_size = mdss_mdp_smp_get_size(pipe, 1);
+	mdss_mdp_smp_set_wm_levels(pipe, smp_size);
 	mutex_unlock(&mdss_mdp_smp_lock);
 	return 0;
 }
