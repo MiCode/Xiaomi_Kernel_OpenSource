@@ -167,7 +167,8 @@
 	};
 
 	qcom,vidc@1d00000 {
-		qcom,disable-clock-voltage-control;
+		/delete-property/ qcom,reset-clock-control;
+		/delete-property/ qcom,regulator-scaling;
 	};
 };
 
