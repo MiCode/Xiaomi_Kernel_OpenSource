@@ -298,6 +298,7 @@ struct msm_vidc_inst {
 	enum msm_vidc_pixel_depth bit_depth;
 	struct kref kref;
 	unsigned long instant_bitrate;
+	u32 buffers_held_in_driver;
 };
 
 extern struct msm_vidc_drv *vidc_driver;
