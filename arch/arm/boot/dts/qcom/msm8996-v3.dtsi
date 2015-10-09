@@ -570,6 +570,13 @@
 		vdd-apss-supply = <&pm8994_s11>;
 		qcom,lmh-odcm-disable-threshold-mA = <850>;
 	};
+	qcom,msm-thermal {
+		msm_thermal_freq: qcom,vdd-apps-rstr{
+			qcom,max-freq-level = <1190400>;
+			qcom,levels = <1036800 1555200 1555200>;
+		};
+	};
+
 };
 
 &tsens0 {
