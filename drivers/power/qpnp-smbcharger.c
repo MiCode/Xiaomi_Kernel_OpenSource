@@ -4165,6 +4165,11 @@ static void restore_from_hvdcp_detection(struct smbchg_chip *chip)
 {
 	int rc;
 
+	pr_smb(PR_MISC, "Retracting HVDCP vote for ICL\n");
+	rc = vote(chip->usb_icl_votable, HVDCP_ICL_VOTER, false, 0);
+	if (rc < 0)
+		pr_err("Couldn't retract HVDCP ICL vote rc=%d\n", rc);
+
 	/* switch to 9V HVDCP */
 	rc = smbchg_sec_masked_write(chip, chip->usb_chgpth_base + CHGPTH_CFG,
 				HVDCP_ADAPTER_SEL_MASK, HVDCP_9V);
