@@ -230,4 +230,11 @@
 			};
 		};
 	};
+
+	qcom,pmi8950@3 {
+		qcom,leds@d800 {
+			qcom,fs-curr-ua = <30000>;
+			qcom,led-strings-list = [00 01 02 03];
+		};
+	};
 };
