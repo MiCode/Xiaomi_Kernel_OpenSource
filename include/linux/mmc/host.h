@@ -241,11 +241,12 @@ struct mmc_slot {
  * @active_reqs		requests being processed
  * @data_active_reqs	data requests being processed
  * @curr_state		state of cmdq engine
- * @req_starved		completion should invoke the request_fn since
- *			no tags were available
  * @cmdq_ctx_lock	acquire this before accessing this structure
  * @queue_empty_wq	workqueue for waiting for all
  *			the outstanding requests to be completed
+ * @wait		waiting for all conditions described in
+ *			mmc_cmdq_ready_wait to be satisified before
+ *			issuing the new request to LLD.
  */
 struct mmc_cmdq_context_info {
 	unsigned long	active_reqs; /* in-flight requests */
@@ -254,10 +255,8 @@ struct mmc_cmdq_context_info {
 #define	CMDQ_STATE_ERR 0
 #define	CMDQ_STATE_DCMD_ACTIVE 1
 #define	CMDQ_STATE_HALT 2
-	/* no free tag available */
-	unsigned long	req_starved;
 	wait_queue_head_t	queue_empty_wq;
-	struct request_queue *q;
+	wait_queue_head_t	wait;
 };
 
 /**

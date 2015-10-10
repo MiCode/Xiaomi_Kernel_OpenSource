@@ -1548,9 +1548,7 @@ clear_dcmd:
 	}
 out:
 	blk_end_request(req, err, blk_rq_bytes(req));
-
-	if (test_and_clear_bit(0, &ctx_info->req_starved))
-		blk_run_queue(mq->queue);
+	wake_up(&ctx_info->wait);
 	mmc_put_card(card);
 	return err ? 1 : 0;
 }
@@ -1664,9 +1662,7 @@ clear_dcmd:
 	}
 out:
 	blk_end_request(req, err, blk_rq_bytes(req));
-
-	if (test_and_clear_bit(0, &ctx_info->req_starved))
-		blk_run_queue(mq->queue);
+	wake_up(&ctx_info->wait);
 	mmc_put_card(card);
 	return err ? 1 : 0;
 }
@@ -3052,10 +3048,9 @@ unhalt:
 out:
 	host->err_mrq = NULL;
 	pm_runtime_mark_last_busy(&card->dev);
+	clear_bit(CMDQ_STATE_ERR, &ctx_info->curr_state);
+	wake_up(&ctx_info->wait);
 	__mmc_put_card(card);
-
-	if (test_and_clear_bit(0, &ctx_info->req_starved))
-		blk_run_queue(mrq->req->q);
 }
 
 /* invoked by block layer in softirq context */
@@ -3111,9 +3106,8 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 out:
 
 	mmc_cmdq_clk_scaling_stop_busy(host, true, is_dcmd);
-	if (!test_bit(CMDQ_STATE_ERR, &ctx_info->curr_state) &&
-			test_and_clear_bit(0, &ctx_info->req_starved))
-		blk_run_queue(mq->queue);
+	if (!test_bit(CMDQ_STATE_ERR, &ctx_info->curr_state))
+		wake_up(&ctx_info->wait);
 
 	mmc_put_card(host->card);
 	if (!ctx_info->active_reqs)
