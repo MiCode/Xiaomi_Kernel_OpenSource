@@ -65,6 +65,12 @@
 			alignment = <0 0x400000>;
 			size = <0 0x1000000>;
 		};
+
+		adsp_mem: adsp_region@0 {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x400000>;
+		};
 	};
 
 	aliases {
@@ -93,6 +99,7 @@
 #include "msmtitanium-smp2p.dtsi"
 #include "msm-arm-smmu-titanium.dtsi"
 #include "msmtitanium-coresight.dtsi"
+#include "msmtitanium-iommu-domains.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -460,6 +467,20 @@
 		qcom,xprt-linkid = <1>;
 		qcom,xprt-version = <1>;
 		qcom,fragmented-data;
+	};
+
+	qcom,adsprpc-mem {
+		compatible = "qcom,msm-adsprpc-mem-region";
+		memory-region = <&adsp_mem>;
+	};
+
+	qcom,adsprpc_domains {
+		compatible = "qcom,msm-fastrpc-legacy-compute-cb";
+		qcom,msm_fastrpc_compute_cb {
+			qcom,adsp-shared-domain-phandle = <&adsp_shared_domain>;
+			qcom,adsp-shared-sids =
+					<0x8 0x9 0xa 0xb 0xc 0xd 0xe 0xf>;
+		};
 	};
 
 	sdhc_1: sdhci@7824900 {
