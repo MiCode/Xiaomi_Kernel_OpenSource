@@ -665,8 +665,6 @@
 				qcom,max-current = <200>;
 				qcom,id = <0>;
 				qcom,current = <120>;
-				boost-supply = <&pmi8994_boostbypass>;
-				boost-voltage-max = <3600000>;
 			};
 
 			pmi8994_torch1: qcom,torch_1 {
@@ -677,9 +675,26 @@
 				qcom,max-current = <200>;
 				qcom,id = <1>;
 				qcom,current = <120>;
-				boost-supply = <&pmi8994_boostbypass>;
-				boost-voltage-max = <3600000>;
 			};
+
+			pmi8994_switch: qcom,switch {
+				label = "switch";
+				qcom,led-name = "led:switch";
+				qcom,default-led-trigger =
+						"switch_trigger";
+				qcom,id = <2>;
+				qcom,current = <625>;
+				qcom,max-current = <1000>;
+				qcom,duration = <1280>;
+				reg0 {
+					regulator-name =
+						"pmi8994_boostbypass";
+					max-voltage = <3600000>;
+				};
+				reg1 {
+					regulator-name = "pon_spare_reg";
+				};
+                        };
 		};
 	};
 };
