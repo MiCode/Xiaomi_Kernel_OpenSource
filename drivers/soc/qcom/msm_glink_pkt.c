@@ -675,6 +675,11 @@ ssize_t glink_pkt_write(struct file *file,
 
 	devp = file->private_data;
 
+	if (!count) {
+		GLINK_PKT_ERR("%s: data count is zero\n", __func__);
+		return -EINVAL;
+	}
+
 	if (!devp) {
 		GLINK_PKT_ERR("%s on NULL glink_pkt_dev\n", __func__);
 		return -EINVAL;
