@@ -73,11 +73,25 @@
 &apcc_cpr {
 	compatible = "qcom,cpr3-msm8996-v2-hmss-regulator";
 
+	qcom,cpr-count-mode = <2>;		/* Staggered */
+	/delete-property/ qcom,cpr-count-repeat;
+
 	qcom,apm-ctrl = <&apc_apm>;
 	qcom,apm-threshold-voltage = <850000>;
 	qcom,apm-hysteresis-voltage = <5000>;
 
 	qcom,cpr-enable;
+	qcom,cpr-hw-closed-loop;
+
+	thread@0 {
+		qcom,cpr-consecutive-down = <2>;
+		qcom,cpr-up-threshold = <0>;
+	};
+
+	thread@1 {
+		qcom,cpr-consecutive-down = <2>;
+		qcom,cpr-up-threshold = <0>;
+	};
 };
 
 &apc0_pwrcl_vreg {
