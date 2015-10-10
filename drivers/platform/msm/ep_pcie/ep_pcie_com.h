@@ -31,8 +31,6 @@
 #define PCIE20_PARF_PHY_REFCLK         0x4C
 #define PCIE20_PARF_CONFIG_BITS        0x50
 #define PCIE20_PARF_TEST_BUS           0xE4
-#define PCIE20_PARF_DBI_BASE_ADDR      0x168
-#define PCIE20_PARF_SLV_ADDR_SPACE_SIZE 0x16C
 #define PCIE20_PARF_MHI_BASE_ADDR_LOWER 0x178
 #define PCIE20_PARF_MHI_BASE_ADDR_UPPER 0x17c
 #define PCIE20_PARF_DEBUG_INT_EN        0x190
@@ -43,6 +41,15 @@
 #define PCIE20_PARF_AXI_MSTR_WR_ADDR_HALT      0x1A8
 #define PCIE20_PARF_Q2A_FLUSH          0x1AC
 #define PCIE20_PARF_LTSSM              0x1B0
+#define PCIE20_PARF_LTR_MSI_EXIT_L1SS  0x214
+#define PCIE20_PARF_INT_ALL_STATUS     0x224
+#define PCIE20_PARF_INT_ALL_CLEAR      0x228
+#define PCIE20_PARF_INT_ALL_MASK       0x22C
+#define PCIE20_PARF_SLV_ADDR_MSB_CTRL  0x2C0
+#define PCIE20_PARF_DBI_BASE_ADDR      0x350
+#define PCIE20_PARF_DBI_BASE_ADDR_HI   0x354
+#define PCIE20_PARF_SLV_ADDR_SPACE_SIZE        0x358
+#define PCIE20_PARF_SLV_ADDR_SPACE_SIZE_HI     0x35C
 #define PCIE20_PARF_DEVICE_TYPE        0x1000
 
 #define PCIE20_ELBI_VERSION            0x00
@@ -62,6 +69,7 @@
 #define PCIE20_MSI_LOWER               0x54
 #define PCIE20_MSI_UPPER               0x58
 #define PCIE20_MSI_DATA                0x5C
+#define PCIE20_MSI_MASK                0x60
 #define PCIE20_DEVICE_CAPABILITIES     0x74
 #define PCIE20_MASK_EP_L1_ACCPT_LATENCY 0xE00
 #define PCIE20_MASK_EP_L0S_ACCPT_LATENCY 0x1C0
@@ -87,6 +95,8 @@
 #define PCIE20_PLR_IATU_LTAR           0x918
 #define PCIE20_PLR_IATU_UTAR           0x91c
 
+#define PCIE20_AUX_CLK_FREQ_REG        0xB40
+
 #define PERST_TIMEOUT_US_MIN	              1000
 #define PERST_TIMEOUT_US_MAX	              1000
 #define PERST_CHECK_MAX_COUNT		      30000
@@ -101,6 +111,8 @@
 #define REFCLK_STABILIZATION_DELAY_US_MIN     1000
 #define REFCLK_STABILIZATION_DELAY_US_MAX     1000
 #define PHY_READY_TIMEOUT_COUNT               30000
+#define MSI_EXIT_L1SS_WAIT	              10
+#define MSI_EXIT_L1SS_WAIT_MAX_COUNT          100
 #define XMLH_LINK_UP                          0x400
 
 #define MAX_PROP_SIZE 32
@@ -120,6 +132,8 @@
 #define EP_PCIE_OATU_INDEX_CTRL 2
 #define EP_PCIE_OATU_INDEX_DATA 3
 
+#define EP_PCIE_OATU_UPPER 0x100
+
 #define EP_PCIE_GEN_DBG(x...) do { \
 	if (ep_pcie_get_debug_mask()) \
 		pr_alert(x); \
@@ -128,9 +142,6 @@
 	} while (0)
 
 #define EP_PCIE_DBG(dev, fmt, arg...) do {			 \
-	if ((dev)->ipc_log_sel)   \
-		ipc_log_string((dev)->ipc_log_sel, \
-			"DBG1:%s: " fmt, __func__, arg); \
 	if ((dev)->ipc_log_ful)   \
 		ipc_log_string((dev)->ipc_log_ful, "%s: " fmt, __func__, arg); \
 	if (ep_pcie_get_debug_mask())   \
@@ -138,6 +149,9 @@
 	} while (0)
 
 #define EP_PCIE_DBG2(dev, fmt, arg...) do {			 \
+	if ((dev)->ipc_log_sel)   \
+		ipc_log_string((dev)->ipc_log_sel, \
+			"DBG1:%s: " fmt, __func__, arg); \
 	if ((dev)->ipc_log_ful)   \
 		ipc_log_string((dev)->ipc_log_ful, \
 			"DBG2:%s: " fmt, __func__, arg); \
@@ -190,6 +204,7 @@ enum ep_pcie_irq {
 	EP_PCIE_INT_LINK_UP,
 	EP_PCIE_INT_LINK_DOWN,
 	EP_PCIE_INT_BRIDGE_FLUSH_N,
+	EP_PCIE_INT_GLOBAL,
 	EP_PCIE_MAX_IRQ,
 };
 
@@ -256,6 +271,8 @@ struct ep_pcie_dev_t {
 	struct msm_bus_scale_pdata   *bus_scale_table;
 	u32                          bus_client;
 	u32                          link_speed;
+	bool                         active_config;
+	bool                         aggregated_irq;
 
 	u32                          rev;
 	u32                          phy_rev;
@@ -278,6 +295,7 @@ struct ep_pcie_dev_t {
 	ulong                        perst_deast_counter;
 	ulong                        wake_counter;
 	ulong                        msi_counter;
+	ulong                        global_irq_counter;
 
 	bool                         dump_conf;
 

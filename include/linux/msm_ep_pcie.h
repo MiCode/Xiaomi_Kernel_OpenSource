@@ -29,6 +29,25 @@ enum ep_pcie_event {
 	EP_PCIE_EVENT_PM_RST_DEAST = 0x8,
 	EP_PCIE_EVENT_LINKDOWN = 0x10,
 	EP_PCIE_EVENT_LINKUP = 0x20,
+	EP_PCIE_EVENT_MHI_A7 = 0x40,
+	EP_PCIE_EVENT_MMIO_WRITE = 0x80,
+};
+
+enum ep_pcie_irq_event {
+	EP_PCIE_INT_EVT_LINK_DOWN = 1,
+	EP_PCIE_INT_EVT_BME,
+	EP_PCIE_INT_EVT_PM_TURNOFF,
+	EP_PCIE_INT_EVT_DEBUG,
+	EP_PCIE_INT_EVT_LTR,
+	EP_PCIE_INT_EVT_MHI_Q6,
+	EP_PCIE_INT_EVT_MHI_A7,
+	EP_PCIE_INT_EVT_DSTATE_CHANGE,
+	EP_PCIE_INT_EVT_L1SUB_TIMEOUT,
+	EP_PCIE_INT_EVT_MMIO_WRITE,
+	EP_PCIE_INT_EVT_CFG_WRITE,
+	EP_PCIE_INT_EVT_BRIDGE_FLUSH_N,
+	EP_PCIE_INT_EVT_LINK_UP,
+	EP_PCIE_INT_EVT_MAX = 13,
 };
 
 enum ep_pcie_trigger {
@@ -97,6 +116,8 @@ struct ep_pcie_hw {
 	int (*disable_endpoint)(void);
 	int (*config_db_routing)(struct ep_pcie_db_config chdb_cfg,
 				struct ep_pcie_db_config erdb_cfg);
+	int (*mask_irq_event)(enum ep_pcie_irq_event event,
+				bool enable);
 };
 
 /*
@@ -251,4 +272,18 @@ int ep_pcie_disable_endpoint(struct ep_pcie_hw *phandle);
 int ep_pcie_config_db_routing(struct ep_pcie_hw *phandle,
 				struct ep_pcie_db_config chdb_cfg,
 				struct ep_pcie_db_config erdb_cfg);
+
+/*
+ * ep_pcie_mask_irq_event - enable and disable IRQ event.
+ * @phandle:	PCIe endpoint HW driver handle
+ * @event:	IRQ event
+ * @enable:     true to enable that IRQ event and false to disable
+ *
+ * This function is to enable and disable IRQ event.
+ *
+ * Return: 0 on success, negative value on error
+ */
+int ep_pcie_mask_irq_event(struct ep_pcie_hw *phandle,
+				enum ep_pcie_irq_event event,
+				bool enable);
 #endif
