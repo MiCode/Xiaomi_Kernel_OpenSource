@@ -17,12 +17,13 @@
 #include <linux/ipc_logging.h>
 #include <linux/sysfs.h>
 #include <linux/delay.h>
+#include <linux/device.h>
 
 #include "mhi.h"
 
 extern enum MHI_DEBUG_LEVEL mhi_msg_lvl;
 extern enum MHI_DEBUG_LEVEL mhi_ipc_log_lvl;
-extern enum MHI_DEBUG_CLASS mhi_msg_class;
+extern unsigned int mhi_log_override;
 extern u32 m3_timer_val_ms;
 
 extern enum MHI_DEBUG_LEVEL mhi_xfer_db_interval;
@@ -40,11 +41,16 @@ extern void *mhi_ipc_log;
 	} while (0)
 
 #define mhi_log(_msg_lvl, _msg, ...) do { \
-		if ((_msg_lvl) >= mhi_msg_lvl) \
-			pr_alert("[%s] " _msg, __func__, ##__VA_ARGS__);\
-		if (mhi_ipc_log && ((_msg_lvl) >= mhi_ipc_log_lvl))	\
-			ipc_log_string(mhi_ipc_log,			\
-			       "[%s] " _msg, __func__, ##__VA_ARGS__);	\
+		DEFINE_DYNAMIC_DEBUG_METADATA(descriptor, _msg);	 \
+		if ((mhi_log_override ||				 \
+		    unlikely(descriptor.flags & _DPRINTK_FLAGS_PRINT)) &&\
+			(_msg_lvl) >= mhi_msg_lvl)			 \
+			pr_alert("[%s] " _msg, __func__, ##__VA_ARGS__); \
+		if ((mhi_log_override ||				      \
+			unlikely(descriptor.flags & _DPRINTK_FLAGS_PRINT)) && \
+			mhi_ipc_log && ((_msg_lvl) >= mhi_ipc_log_lvl))  \
+			ipc_log_string(mhi_ipc_log,			 \
+				"[%s] " _msg, __func__, ##__VA_ARGS__);  \
 } while (0)
 
 irqreturn_t mhi_msi_handlr(int msi_number, void *dev_id);

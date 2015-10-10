@@ -211,6 +211,15 @@ config MSM_MHI_UCI
 	  read, write and ioctl operations to communicate with the
 	  attached device.
 
+config MSM_MHI_DEBUG
+	 bool "MHI debug support"
+	 depends on MSM_MHI
+	 help
+	   Say yes here to enable debugging support in the MHI transport
+	   and individual MHI client drivers. This option may impact
+	   throughput as individual MHI packets and state transitions
+	   will be logged.
+
 config MSM_MHI_DEV
         tristate "Modem Device Interface Driver"
 	depends on EP_PCIE && IPA
