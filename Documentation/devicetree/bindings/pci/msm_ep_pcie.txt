@@ -42,6 +42,9 @@ Optional Properties:
   - qcom,pcie-phy-ver: version of PCIe PHY.
   - qcom,pcie-link-speed: generation of PCIe link speed. The value could be
     1, 2 or 3.
+  - qcom,pcie-active-config: boolean type; active configuration of PCIe
+    addressing.
+  - qcom,pcie-aggregated-irq: boolean type; interrupts are aggregated.
   - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
     below optional properties:
 	- qcom,msm-bus,name
@@ -103,4 +106,6 @@ Example:
 				<45 512 500 800>;
 
 		qcom,pcie-link-speed = <1>;
+		qcom,pcie-active-config;
+		qcom,pcie-aggregated-irq;
 	};

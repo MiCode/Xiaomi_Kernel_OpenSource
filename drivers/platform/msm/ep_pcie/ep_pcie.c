@@ -230,3 +230,15 @@ int ep_pcie_disable_endpoint(struct ep_pcie_hw *phandle)
 	}
 }
 EXPORT_SYMBOL(ep_pcie_disable_endpoint);
+
+int ep_pcie_mask_irq_event(struct ep_pcie_hw *phandle,
+				enum ep_pcie_irq_event event,
+				bool enable)
+{
+	if (phandle)
+		return phandle->mask_irq_event(event, enable);
+
+	pr_err("ep_pcie:%s: the input driver handle is NULL.", __func__);
+	return -EINVAL;
+}
+EXPORT_SYMBOL(ep_pcie_mask_irq_event);
