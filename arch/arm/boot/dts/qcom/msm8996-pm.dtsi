@@ -230,6 +230,7 @@
 			<52 212>,   /* qmp_usb3_lfps_rxterm_irq */
 			<87 358>,   /* ee0_krait_hlos_spmi_periph_irq */
 			<0xff 16>,  /* APCj_qgicdrCpu0HwFaultIrptReq */
+			<0xff 23>,  /* APCj_qgicdrCpu0PerfMonIrptReq */
 			<0xff 27>,  /* APCj_qgicdrCpu0QTmrVirtIrptReq */
 			<0xff 32>,  /* APCj_qgicdrL2PerfMonIrptReq */
 			<0xff 33>,  /* APCC_qgicL2PerfMonIrptReq */
