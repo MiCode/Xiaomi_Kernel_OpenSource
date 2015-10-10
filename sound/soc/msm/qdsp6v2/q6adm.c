@@ -2261,7 +2261,11 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 
 	if (perf_mode == ULL_POST_PROCESSING_PCM_MODE) {
 		flags = ADM_ULL_POST_PROCESSING_DEVICE_SESSION;
-		topology = DEFAULT_COPP_TOPOLOGY;
+		if ((topology == DOLBY_ADM_COPP_TOPOLOGY_ID) ||
+		    (topology == DS2_ADM_COPP_TOPOLOGY_ID) ||
+		    (topology == SRS_TRUMEDIA_TOPOLOGY_ID) ||
+		    (topology == ADM_CMD_COPP_OPEN_TOPOLOGY_ID_DTS_HPX))
+			topology = DEFAULT_COPP_TOPOLOGY;
 	} else if (perf_mode == ULTRA_LOW_LATENCY_PCM_MODE) {
 		flags = ADM_ULTRA_LOW_LATENCY_DEVICE_SESSION;
 		topology = NULL_COPP_TOPOLOGY;
