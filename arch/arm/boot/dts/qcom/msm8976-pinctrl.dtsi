@@ -705,7 +705,7 @@
 			};
 		};
 
-		tlmm_gpio_key {
+		tlmm_gpio_key: tlmm_gpio_key {
 			qcom,pins = <&gp 113>, <&gp 114>, <&gp 115>;
 			qcom,pin-func = <0>;
 			qcom,num-grp-pins = <3>;
