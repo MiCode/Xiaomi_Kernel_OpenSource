@@ -57,7 +57,7 @@
 /* configure IPA spare register 1 in order to have correct IPA version
  * set bits 0,2,3 and 4. see SpareBits documentation.xlsx
  */
-#define IPA_SPARE_REG_1_VAL (0xE000081D)
+#define IPA_SPARE_REG_1_VAL (0x0000081D)
 
 
 /* HPS, DPS sequencers Types*/
@@ -770,9 +770,6 @@ int ipa3_init_hw(void)
 	/* using old BCR configuration(IPAv2.6)*/
 	ipa_write_reg(ipa3_ctx->mmio, IPA_BCR_OFST, IPA_BCR_REG_VAL);
 
-	ipa_write_reg(ipa3_ctx->mmio,
-			IPA_SPARE_REG_1_OFST,
-			IPA_SPARE_REG_1_VAL);
 	return 0;
 }
 
