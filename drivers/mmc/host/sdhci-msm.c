@@ -58,6 +58,7 @@
 #define CORE_VERSION_MAJOR_MASK		0xF0000000
 #define CORE_VERSION_MAJOR_SHIFT	28
 #define CORE_VERSION_TARGET_MASK	0x000000FF
+#define SDHCI_MSM_VER_420               0x49
 
 #define CORE_GENERICS			0x70
 #define SWITCHABLE_SIGNALLING_VOL	(1 << 29)
@@ -150,6 +151,10 @@
 #define CORE_CALIBRATION_DONE		(1 << 0)
 
 #define CORE_CDC_ERROR_CODE_MASK	0x7000000
+
+#define CQ_CMD_DBG_RAM	                0x110
+#define CQ_CMD_DBG_RAM_WA               0x150
+#define CQ_CMD_DBG_RAM_OL               0x154
 
 #define CORE_CSR_CDC_GEN_CFG		0x178
 #define CORE_CDC_SWITCH_BYPASS_OFF	(1 << 0)
@@ -2944,6 +2949,28 @@ static void sdhci_msm_set_uhs_signaling(struct sdhci_host *host,
 }
 
 #define MAX_TEST_BUS 60
+#define DRV_NAME "cmdq-host"
+static void sdhci_msm_cmdq_dump_debug_ram(struct sdhci_msm_host *msm_host)
+{
+	int i = 0;
+	struct cmdq_host *cq_host = mmc_cmdq_private(msm_host->mmc);
+	u32 version = readl_relaxed(msm_host->core_mem + CORE_MCI_VERSION);
+	u16 minor = version & CORE_VERSION_TARGET_MASK;
+	/* registers offset changed starting from 4.2.0 */
+	int offset = minor >= SDHCI_MSM_VER_420 ? 0 : 0x48;
+
+	pr_err("---- Debug RAM dump ----\n");
+	pr_err(DRV_NAME ": Debug RAM wrap-around: 0x%08x | Debug RAM overlap: 0x%08x\n",
+	       cmdq_readl(cq_host, CQ_CMD_DBG_RAM_WA + offset),
+	       cmdq_readl(cq_host, CQ_CMD_DBG_RAM_OL + offset));
+
+	while (i < 16) {
+		pr_err(DRV_NAME ": Debug RAM dump [%d]: 0x%08x\n", i,
+		       cmdq_readl(cq_host, CQ_CMD_DBG_RAM + offset + (4 * i)));
+		i++;
+	}
+	pr_err("-------------------------\n");
+}
 
 void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 {
@@ -2956,6 +2983,8 @@ void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 	u32 sts = 0;
 
 	pr_info("----------- VENDOR REGISTER DUMP -----------\n");
+	sdhci_msm_cmdq_dump_debug_ram(msm_host);
+
 	pr_info("Data cnt: 0x%08x | Fifo cnt: 0x%08x | Int sts: 0x%08x\n",
 		readl_relaxed(msm_host->core_mem + CORE_MCI_DATA_CNT),
 		readl_relaxed(msm_host->core_mem + CORE_MCI_FIFO_CNT),
