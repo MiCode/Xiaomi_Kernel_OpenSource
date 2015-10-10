@@ -36,11 +36,6 @@
 #include <linux/workqueue.h>
 #include <linux/kernel.h>
 
-#if GTP_HEADER_FW_UPDATE
-#include <linux/namei.h>
-#include <linux/mount.h>
-#endif
-
 #define FIRMWARE_NAME_LEN_MAX		256
 
 #define GUP_REG_HW_INFO             0x4220
@@ -636,26 +631,6 @@ static s8 gup_update_config(struct i2c_client *client,
 	return ret;
 }
 
-#if GTP_HEADER_FW_UPDATE
-static u32 gup_get firmware_file(struct i2c_client,
-		struct st_update_msg *msg, u8 *path)
-{
-	if (sizeiof(header_fw_array) < (FW_HEAD_LENGTH +
-				FW_SECTION_LENGTH * 4 +
-				FW_DSP_ISP_LENGTH +
-				FW_DSP_LENGTH +
-				FW_BOOT_LENGTH)) {
-		dev_err(&client->dev,
-			"INVALID header_fw_array!");
-		return -EINVAL;
-	}
-	msg->fw_data = (u8 *)header_fw_array;
-	msg->fw_len = sizeof(header_fw_array);
-	dev_dbg(&client->dev, "Found firmware from header file, len=%d",
-		msg->fw_len);
-	return 0;
-}
-#else
 static s32 gup_get_firmware_file(struct i2c_client *client,
 		struct st_update_msg *msg, u8 *path)
 {
@@ -685,7 +660,6 @@ static s32 gup_get_firmware_file(struct i2c_client *client,
 	release_firmware(fw);
 	return 0;
 }
-#endif
 
 static u8 gup_check_firmware_name(struct i2c_client *client,
 					u8 **path_p)
@@ -1453,10 +1427,15 @@ s32 gup_update_proc(void *dir)
 		goto file_fail;
 	}
 
-	ret = gup_enter_update_judge(ts->client, &fw_head);
-	if (ret == FAIL) {
-		pr_err("Check *.bin file fail.");
-		goto file_fail;
+	if (ts->force_update) {
+		dev_dbg(&ts->client->dev, "Enter force update.");
+	} else {
+		ret = gup_enter_update_judge(ts->client, &fw_head);
+		if (ret == FAIL) {
+			dev_err(&ts->client->dev,
+					"Check *.bin file fail.");
+			goto file_fail;
+		}
 	}
 
 	ts->enter_update = 1;
