@@ -457,6 +457,13 @@ config MFD_DA9052_I2C
 	  for accessing the device, additional drivers must be enabled in
 	  order to use the functionality of the device.
 
+config MFD_LM3533
+        bool "Support LED LM3533 with I2C"
+        depends on I2C=y
+        select REGMAP_I2C
+        help
+          Say yes here to support for Maxim LED LM3533 with I2C.
+
 config PMIC_ADP5520
 	bool "Analog Devices ADP5520/01 MFD PMIC Core Support"
 	depends on I2C=y

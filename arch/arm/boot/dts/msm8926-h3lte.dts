@@ -1,0 +1,53 @@
+/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+/include/ "msm8926-v2.dtsi"
+/include/ "msm8226-h3lte.dtsi"
+
+/ {
+	model = "Qualcomm MSM 8926 H3-LTE";
+	compatible = "qcom,msm8926-mtp", "qcom,msm8926", "qcom,mtp";
+	qcom,board-id = <12 0>;
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_nt35521_720_vid>;
+};
+
+&dsi_nt35521_720_vid{
+	qcom,cont-splash-enabled;
+};
+
+&pm8226_chg {
+	compatible = "qcom,qpnp-charger-dior";
+	qcom,vbatdet-delta-mv = <50>;
+	qcom,ibatmax-ma = <1450>;
+	qcom,ibatterm-ma = <150>;
+	qcom,resume-soc = <99>;
+	qcom,tchg-mins = <210>;
+	qcom,ibatmax-warm-ma = <950>;
+	qcom,ibatmax-cool-ma = <600>;
+	qcom,maxinput-usb-ma = <1800>;
+	qcom,use-external-rsense;
+	qcom,ext-ovp-present;
+};
+
+&pm8226_bms {
+	compatible = "qcom,qpnp-bms-dior";
+	qcom,v-cutoff-uv = <3400000>;
+	qcom,chg-term-ua = <150000>;
+	qcom,batt-pres-status@1208 {
+		reg = <0x1208 0x1>;
+	};
+};

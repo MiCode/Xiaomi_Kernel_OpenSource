@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,6 +46,8 @@
 #ifdef CONFIG_WCNSS_MEM_PRE_ALLOC
 #include "wcnss_prealloc.h"
 #endif
+
+#include <asm/bootinfo.h>
 
 #define DEVICE "wcnss_wlan"
 #define CTRL_DEVICE "wcnss_ctrl"
@@ -241,7 +244,10 @@ static struct wcnss_pmic_dump wcnss_pmic_reg_dump[] = {
 	{"LVS1", 0x060},
 };
 
-#define NVBIN_FILE "wlan/prima/WCNSS_qcom_wlan_nv.bin"
+#define NVBIN_FILE_H3TD  "wlan/prima/WCNSS_qcom_wlan_nv_h3td.bin"
+#define NVBIN_FILE_H3W   "wlan/prima/WCNSS_qcom_wlan_nv_h3w.bin"
+#define NVBIN_FILE_H3GBL "wlan/prima/WCNSS_qcom_wlan_nv_h3gbl.bin"
+#define NVBIN_FILE_H2A   "wlan/prima/WCNSS_qcom_wlan_nv.bin"
 
 /*
  * On SMD channel 4K of maximum data can be transferred, including message
@@ -1790,6 +1796,22 @@ static void wcnss_send_version_req(struct work_struct *worker)
 
 static DECLARE_RWSEM(wcnss_pm_sem);
 
+void wcnss_get_nv_file(char *nv_file, int size)
+{
+	int hw_ver;
+
+	hw_ver = get_board_id();
+	if (hw_ver == BOARD_ID_LTETD)
+		strlcpy(nv_file, NVBIN_FILE_H3TD, size);
+	else if (hw_ver == BOARD_ID_LTEW)
+		strlcpy(nv_file, NVBIN_FILE_H3W, size);
+	else if (hw_ver == BOARD_ID_LTEGLOBAL)
+		strlcpy(nv_file, NVBIN_FILE_H3GBL, size);
+        else if (hw_ver == BOARD_ID_HM1AW || hw_ver == BOARD_ID_HM1AC)
+                strlcpy(nv_file, NVBIN_FILE_H2A, size);
+}
+EXPORT_SYMBOL(wcnss_get_nv_file);
+
 static void wcnss_nvbin_dnld(void)
 {
 	int ret = 0;
@@ -1803,14 +1825,18 @@ static void wcnss_nvbin_dnld(void)
 	unsigned int nv_blob_size = 0;
 	const struct firmware *nv = NULL;
 	struct device *dev = &penv->pdev->dev;
+	char xiaomi_wlan_nv_file[40];
 
 	down_read(&wcnss_pm_sem);
 
-	ret = request_firmware(&nv, NVBIN_FILE, dev);
+	wcnss_get_nv_file(xiaomi_wlan_nv_file, sizeof(xiaomi_wlan_nv_file));
+	pr_info("wcnss: Get nv file from %s\n", xiaomi_wlan_nv_file);
+
+	ret = request_firmware(&nv, xiaomi_wlan_nv_file, dev);
 
 	if (ret || !nv || !nv->data || !nv->size) {
 		pr_err("wcnss: %s: request_firmware failed for %s\n",
-			__func__, NVBIN_FILE);
+			__func__, xiaomi_wlan_nv_file);
 		goto out;
 	}
 

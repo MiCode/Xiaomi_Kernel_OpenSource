@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -124,6 +125,12 @@ enum bus_index {
 	BUS_IDX_MAX
 };
 
+enum clock_state {
+	DISABLED_UNPREPARED,
+	ENABLED_PREPARED,
+	DISABLED_PREPARED
+};
+
 struct vidc_mem_addr {
 	u8 *align_device_addr;
 	u8 *align_virtual_addr;
@@ -185,8 +192,8 @@ struct venus_hfi_device {
 	u32 clk_load;
 	u32 bus_load[MSM_VIDC_MAX_DEVICES];
 	unsigned long ocmem_size;
-	u32 clocks_enabled;
-	u32 power_enabled;
+	enum clock_state clk_state;
+	bool power_enabled;
 	enum vidc_clocks clk_gating_level;
 	struct mutex read_lock;
 	struct mutex write_lock;

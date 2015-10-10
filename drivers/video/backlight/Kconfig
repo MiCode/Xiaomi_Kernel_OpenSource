@@ -361,6 +361,13 @@ config BACKLIGHT_PANDORA
 	  If you have a Pandora console, say Y to enable the
 	  backlight driver.
 
+config BACKLIGHT_LM3533
+        tristate "Backlight driver for LM3533"
+        depends on MFD_LM3533
+        help
+          If you have a LM3533 for backlight, say Y to enable the
+          backlight driver.
+
 endif # BACKLIGHT_CLASS_DEVICE
 
 endif # BACKLIGHT_LCD_SUPPORT

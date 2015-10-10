@@ -2675,6 +2675,7 @@ void __free_pages(struct page *page, unsigned int order)
 			free_hot_cold_page(page, 0);
 		else
 			__free_pages_ok(page, order);
+
 	}
 }
 

@@ -619,6 +619,7 @@ struct msm_actuator_cfg_data {
 enum msm_actuator_write_type {
 	MSM_ACTUATOR_WRITE_HW_DAMP,
 	MSM_ACTUATOR_WRITE_DAC,
+	MSM_ACTUATOR_WRITE_DAC_DW9761,
 };
 
 struct msm_actuator_reg_params_t {

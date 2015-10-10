@@ -175,6 +175,7 @@ int add_to_swap(struct page *page)
 
 	if (!err) {	/* Success */
 		SetPageDirty(page);
+
 		return 1;
 	} else {	/* -ENOMEM radix-tree allocation failure */
 		/*
@@ -219,6 +220,7 @@ static inline void free_swap_cache(struct page *page)
 	if (PageSwapCache(page) && !page_mapped(page) && trylock_page(page)) {
 		try_to_free_swap(page);
 		unlock_page(page);
+
 	}
 }
 

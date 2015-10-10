@@ -1,4 +1,5 @@
 /* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -12,25 +13,40 @@
 
 /dts-v1/;
 /include/ "msm8226-v2.dtsi"
-/include/ "msm8226-qrd.dtsi"
+/include/ "msm8226-h2a.dtsi"
 
 / {
-	model = "Qualcomm MSM 8226v2 QRD";
+	model = "Qualcomm MSM 8226v2 H1A";
 	compatible = "qcom,msm8226-qrd", "qcom,msm8226", "qcom,qrd";
 	qcom,board-id = <11 0>;
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_nt35590_720_vid>;
+	qcom,dsi-pref-prim-pan = <&dsi_auo_720_vid>;
 };
 
-&dsi_nt35590_720_vid {
+&dsi_auo_720_vid {
 	qcom,cont-splash-enabled;
 };
 
-&slim_msm {
-	tapan_codec {
-		qcom,cdc-micbias1-ext-cap;
-		qcom,cdc-micbias3-ext-cap;
-	};
+&dsi_sharp_720_vid {
+	qcom,cont-splash-enabled;
+};
+
+&pm8226_chg {
+	compatible = "qcom,qpnp-charger-armani";
+	qcom,vbatdet-delta-mv = <30>;
+	qcom,ibatmax-ma = <1000>;
+	qcom,ibatterm-ma = <100>;
+	qcom,resume-soc = <100>;
+	qcom,tchg-mins = <480>;
+	qcom,ibatmax-warm-ma = <350>;
+	qcom,cool-bat-decidegc = <10>;
+	qcom,batt-cold-percentage = <80>;
+};
+
+&pm8226_bms {
+	compatible = "qcom,qpnp-bms-armani";
+	qcom,v-cutoff-uv = <3200000>;
+	qcom,chg-term-ua = <100000>;
 };

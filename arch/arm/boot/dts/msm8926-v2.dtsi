@@ -1,4 +1,5 @@
 /* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +15,11 @@
 
 / {
 	qcom,msm-id = <200 0x20000>,
-		      <224 0x20000>;
+		    <224 0x20000>,
+		    <200 0>,
+		    <224 0>,
+		    <200 0x10001>,
+		    <224 0x10001>;
 };
 
 &msm_gpu {

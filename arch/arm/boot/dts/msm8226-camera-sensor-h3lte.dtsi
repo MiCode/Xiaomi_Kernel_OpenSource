@@ -1,0 +1,252 @@
+/*
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+
+	led_flash0: qcom,camera-led-flash {
+		cell-index = <0>;
+		compatible = "qcom,camera-led-flash";
+		qcom,flash-type = <1>;
+		qcom,flash-source = <&pm8226_flash0>;
+		qcom,torch-source = <&pm8226_torch>;
+	};
+};
+
+&cci {
+
+	actuator0: qcom,actuator@6e {
+		cell-index = <3>;
+		reg = <0x6c>;
+		compatible = "qcom,actuator";
+		qcom,cci-master = <0>;
+	};
+
+	actuator1: qcom,actuator@18 {
+		cell-index = <4>;
+		reg = <0x18>;
+		compatible = "qcom,actuator";
+		qcom,cci-master = <0>;
+	};
+
+	eeprom6: qcom,eeprom@62{
+		cell-index = <6>;
+		reg = <0x62>;
+		qcom,eeprom-name = "sunny_ov5693_p5v40a";
+		compatible = "qcom,eeprom";
+		qcom,slave-addr = <0x6c>;
+		qcom,cci-master = <0>;
+		qcom,num-blocks = <16>;
+		qcom,page0 = <1 0x0100 2 0x01 1 1>;
+		qcom,poll0 = <0 0x0 2 0 1 1>;
+		qcom,mem0 = <0 0x0 2 0 1 0>;
+		qcom,page1 = <1 0x3d84 2 0xc1 1 1>;
+		qcom,pageen1 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll1 = <0 0x0 2 0 1 1>;
+		qcom,mem1 = <16 0x3d00 2 0 1 0>;
+		qcom,page2 = <1 0x3d84 2 0xc2 1 1>;
+		qcom,pageen2 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll2 = <0 0x0 2 0 1 1>;
+		qcom,mem2 = <16 0x3d00 2 0 1 0>;
+		qcom,page3 = <1 0x3d84 2 0xc3 1 1>;
+		qcom,pageen3 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll3 = <0 0x0 2 0 1 1>;
+		qcom,mem3 = <16 0x3d00 2 0 1 0>;
+		qcom,page4 = <1 0x3d84 2 0xc4 1 1>;
+		qcom,pageen4 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll4 = <0 0x0 2 0 1 1>;
+		qcom,mem4 = <16 0x3d00 2 0 1 0>;
+		qcom,page5 = <1 0x3d84 2 0xc5 1 1>;
+		qcom,pageen5 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll5 = <0 0x0 2 0 1 1>;
+		qcom,mem5 = <16 0x3d00 2 0 1 0>;
+		qcom,page6 = <1 0x3d84 2 0xc6 1 1>;
+		qcom,pageen6 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll6 = <0 0x0 2 0 1 1>;
+		qcom,mem6 = <16 0x3d00 2 0 1 0>;
+		qcom,page7 = <1 0x3d84 2 0xc7 1 1>;
+		qcom,pageen7 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll7 = <0 0x0 2 0 1 1>;
+		qcom,mem7 = <15 0x3d00 2 0 1 0>;
+		qcom,page8 = <1 0x3d84 2 0xc8 1 1>;
+		qcom,pageen8 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll8 = <0 0x0 2 0 1 1>;
+		qcom,mem8 = <16 0x3d00 2 0 1 0>;
+		qcom,page9 = <1 0x3d84 2 0xc9 1 1>;
+		qcom,pageen9 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll9 = <0 0x0 2 0 1 1>;
+		qcom,mem9 = <16 0x3d00 2 0 1 0>;
+		qcom,page10 = <1 0x3d84 2 0xca 1 1>;
+		qcom,pageen10 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll10 = <0 0x0 2 0 1 1>;
+		qcom,mem10 = <16 0x3d00 2 0 1 0>;
+		qcom,page11 = <1 0x3d84 2 0xcb 1 1>;
+		qcom,pageen11 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll11 = <0 0x0 2 0 1 1>;
+		qcom,mem11 = <15 0x3d00 2 0 1 0>;
+		qcom,page12 = <1 0x3d84 2 0xcc 1 1>;
+		qcom,pageen12 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll12 = <0 0x0 2 0 1 1>;
+		qcom,mem12 = <16 0x3d00 2 0 1 0>;
+		qcom,page13 = <1 0x3d84 2 0xcd 1 1>;
+		qcom,pageen13 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll13 = <0 0x0 2 0 1 1>;
+		qcom,mem13 = <16 0x3d00 2 0 1 0>;
+		qcom,page14 = <1 0x3d84 2 0xce 1 1>;
+		qcom,pageen14 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll14 = <0 0x0 2 0 1 1>;
+		qcom,mem14 = <16 0x3d00 2 0 1 0>;
+		qcom,page15 = <1 0x3d84 2 0xcf 1 1>;
+		qcom,pageen15 = <1 0x3d81 2 0x01 1 10>;
+		qcom,poll15 = <0 0x0 2 0 1 1>;
+		qcom,mem15 = <15 0x3d00 2 0 1 0>;
+		cam_vdig-supply = <&pm8226_l5>;
+		cam_vio-supply = <&pm8226_lvs1>;
+		cam_vana-supply = <&pm8226_l19>;
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
+		qcom,cam-vreg-type = <0 1 0>;
+		qcom,cam-vreg-min-voltage = <1290000 0 2850000>;
+		qcom,cam-vreg-max-voltage = <1290000 0 2850000>;
+		qcom,cam-vreg-op-mode = <80000 0 80000>;
+		qcom,gpio-no-mux = <0>;
+		gpios = <&msmgpio 26 0>,
+				<&msmgpio 28 0>,
+				<&msmgpio 86 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-standby = <2>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <1 0 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
+				"CAM_RESET",
+				"CAM_STANDBY";
+		qcom,cam-power-seq-type = "sensor_vreg",
+				"sensor_vreg", "sensor_vreg",
+				"sensor_gpio", "sensor_gpio" , "sensor_clk";
+		qcom,cam-power-seq-val = "cam_vio", "cam_vana","cam_vdig",
+				"sensor_gpio_reset",
+				"sensor_gpio_standby","sensor_cam_mclk";
+		qcom,cam-power-seq-cfg-val = <1 1 1 1 1 24000000>;
+		qcom,cam-power-seq-delay = <1 1 1 10 10 5>;
+	};
+
+	eeprom7: qcom,eeprom@25 {
+		cell-index = <7>;
+		reg = <0x25>;
+		qcom,eeprom-name = "sunny_q13s01b";
+		compatible = "qcom,eeprom";
+		qcom,slave-addr = <0xb0>;
+		qcom,cci-master = <0>;
+		qcom,num-blocks = <2>;
+		qcom,page0 = <0 0x0000 2 0x01 1 1>;
+		qcom,poll0 = <0 0x0 2 0 1 1>;
+		qcom,mem0 = <23 0x0400 2 0 1 0>;
+		qcom,page1 = <0 0x0000 2 0x01 1 1>;
+		qcom,poll1 = <0 0x0 2 0 1 1>;
+		qcom,mem1 = <1105 0x0500 2 0 1 0>;
+
+		cam_vdig-supply = <&pm8226_l5>;
+		cam_vio-supply = <&pm8226_lvs1>;
+		cam_vana-supply = <&pm8226_l19>;
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
+		qcom,cam-vreg-type = <0 1 0>;
+		qcom,cam-vreg-min-voltage = <1290000 0 2850000>;
+		qcom,cam-vreg-max-voltage = <1290000 0 2850000>;
+		qcom,cam-vreg-op-mode = <80000 0 80000>;
+
+		qcom,gpio-no-mux = <0>;
+		gpios = <&msmgpio 26 0>,
+		        <&msmgpio 3 0>; /*This is CAM_AF_PWDM for q13s01b*/
+		qcom,gpio-standby = <1>;
+		qcom,gpio-req-tbl-num = <0 1>;
+		qcom,gpio-req-tbl-flags = <1 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
+		        "CAM_AF_PWDM";
+		qcom,cam-power-seq-type = "sensor_vreg",
+				"sensor_vreg", "sensor_vreg",
+				"sensor_gpio", "sensor_gpio" , "sensor_clk";
+		qcom,cam-power-seq-val = "cam_vio", "cam_vana","cam_vdig",
+				"sensor_gpio_reset",
+				"sensor_gpio_standby","sensor_cam_mclk";
+		qcom,cam-power-seq-cfg-val = <1 1 1 1 1 24000000>;
+		qcom,cam-power-seq-delay = <1 1 1 10 10 5>;
+	};
+
+	qcom,camera@0 {
+		cell-index = <0>;
+		compatible = "qcom,camera";
+		reg = <0x0>;
+		qcom,csiphy-sd-index = <0>;
+		qcom,csid-sd-index = <0>;
+		qcom,mount-angle = <90>;
+		qcom,actuator-src = <&actuator1>;
+		qcom,eeprom-src = <&eeprom7>;
+		qcom,led-flash-src = <&led_flash0>;
+		cam_vdig-supply = <&pm8226_l5>;
+		cam_vana-supply = <&pm8226_l19>;
+		cam_vio-supply = <&pm8226_lvs1>;
+		cam_vaf-supply = <&pm8226_l15>;
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana",
+			 "cam_vaf";
+		qcom,cam-vreg-type = <0 1 0 0>;
+		qcom,cam-vreg-min-voltage = <1290000 0 2850000 2800000>;
+		qcom,cam-vreg-max-voltage = <1290000 0 2850000 2800000>;
+		qcom,cam-vreg-op-mode = <200000 0 80000 100000>;
+		qcom,gpio-no-mux = <0>;
+		gpios = <&msmgpio 26 0>,
+			<&msmgpio 37 0>,
+			<&msmgpio 3 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-af-pwdm = <2>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <1 0 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
+			"CAM_RESET1",
+			"CAM_AF_PWDM";
+		qcom,cci-master = <0>;
+		status = "ok";
+	};
+
+	qcom,camera@1 {
+		cell-index = <1>;
+		compatible = "qcom,camera";
+		reg = <0x1>;
+		qcom,csiphy-sd-index = <1>;
+		qcom,csid-sd-index = <1>;
+		qcom,eeprom-src = <&eeprom6>;
+		qcom,mount-angle = <270>;
+		cam_vdig-supply = <&pm8226_l5>;
+		cam_vana-supply = <&pm8226_l19>;
+		cam_vio-supply = <&pm8226_lvs1>;
+		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana";
+		qcom,cam-vreg-type = <0 1 0>;
+		qcom,cam-vreg-min-voltage = <1290000 0 2850000>;
+		qcom,cam-vreg-max-voltage = <1290000 0 2850000>;
+		qcom,cam-vreg-op-mode = <200000 0 80000>;
+		qcom,gpio-no-mux = <0>;
+		gpios = <&msmgpio 26 0>,
+			<&msmgpio 28 0>,
+			<&msmgpio 86 0>;
+		qcom,gpio-reset = <1>;
+		qcom,gpio-standby = <2>;
+		qcom,gpio-req-tbl-num = <0 1 2>;
+		qcom,gpio-req-tbl-flags = <1 0 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK",
+			"CAM_RESET",
+			"CAM_STANDBY";
+		qcom,gpio-set-tbl-num = <1 1>;
+		qcom,gpio-set-tbl-flags = <0 2>;
+		qcom,gpio-set-tbl-delay = <1000 4000>;
+		qcom,cci-master = <0>;
+		status = "ok";
+	};
+};
