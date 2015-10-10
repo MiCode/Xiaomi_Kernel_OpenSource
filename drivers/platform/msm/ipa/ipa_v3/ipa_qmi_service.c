@@ -240,12 +240,15 @@ static int ipa3_handle_modem_init_cmplt_req(void *req_h, void *req)
 	int rc;
 
 	IPAWANDBG("Received QMI_IPA_INIT_MODEM_DRIVER_CMPLT_REQ_V01\n");
-	BUG_ON(ipa3_qmi_modem_init_fin == false);
 	cmplt_req = (struct ipa_init_modem_driver_cmplt_req_msg_v01 *)req;
 
 	if (ipa3_modem_init_cmplt == false) {
 		ipa3_modem_init_cmplt = true;
-		ipa3_uc_load_notify();
+		if (ipa3_qmi_modem_init_fin == true) {
+			IPAWANDBG("load uc related registers (%d)\n",
+			ipa3_qmi_modem_init_fin);
+			ipa3_uc_load_notify();
+		}
 	}
 
 	memset(&resp, 0, sizeof(resp));
@@ -867,6 +870,12 @@ static void ipa3_q6_clnt_svc_arrive(struct work_struct *work)
 	}
 	ipa3_qmi_modem_init_fin = true;
 
+	/* got modem_init_cmplt_req already, load uc-related register */
+	if (ipa3_modem_init_cmplt == true) {
+		IPAWANDBG("load uc related registers (%d)\n",
+		ipa3_modem_init_cmplt);
+			ipa3_uc_load_notify();
+	}
 	/* is_load_uc=FALSE indicates that SSR has occurred */
 	ipa3_q6_handshake_complete(!is_load_uc);
 	IPAWANDBG("complete, ipa3_qmi_modem_init_fin : %d\n",
@@ -1020,6 +1029,7 @@ int ipa3_qmi_service_init(bool load_uc, uint32_t wan_platform_type)
 	is_load_uc = load_uc;
 	ipa3_qmi_modem_init_fin = false;
 	ipa3_qmi_indication_fin = false;
+	ipa3_modem_init_cmplt = false;
 	workqueues_stopped = false;
 
 	if (!ipa3_svc_handle) {
@@ -1087,6 +1097,7 @@ void ipa3_qmi_service_exit(void)
 	ipa3_svc_handle = 0;
 	ipa3_qmi_modem_init_fin = false;
 	ipa3_qmi_indication_fin = false;
+	ipa3_modem_init_cmplt = false;
 }
 
 void ipa3_qmi_stop_workqueues(void)
