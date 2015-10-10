@@ -1334,7 +1334,7 @@
 			};
 		};
 
-		wsa-spkr-sd {
+		wsa_spkr_sd: wsa-spkr-sd {
 			qcom,pins = <&gp 132>;
 			qcom,num-grp-pins = <1>;
 			qcom,pin-func = <0>;
