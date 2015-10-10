@@ -10,6 +10,8 @@
  * GNU General Public License for more details.
  */
 
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
 &rpm_bus {
 	/* PM8994 S1 + S6 = 2 phase VDD_CX supply */
 	rpm-regulator-smpa1 {
@@ -554,7 +556,8 @@
 		reg-names = "cpr_ctrl", "fuse_base";
 		clocks = <&clock_gcc clk_gcc_hmss_rbcpr_clk>;
 		clock-names = "core_clk";
-		interrupts = <0 48 0>, <0 47 0>;
+		interrupts = <GIC_SPI 48 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 47 IRQ_TYPE_EDGE_RISING>;
 		interrupt-names = "cpr", "ceiling";
 		qcom,cpr-ctrl-name = "apcc";
 
@@ -871,7 +874,7 @@
 			 <&clock_mmss clk_mmss_rbcpr_ahb_clk>,
 			 <&clock_mmss clk_mmss_mmagic_ahb_clk>;
 		clock-names = "core_clk", "iface_clk", "bus_clk";
-		interrupts = <0 166 0>;
+		interrupts = <GIC_SPI 166 IRQ_TYPE_EDGE_RISING>;
 		interrupt-names = "cpr";
 		qcom,cpr-ctrl-name = "gfx";
 
