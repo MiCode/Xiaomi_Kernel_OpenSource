@@ -37,6 +37,12 @@
 			reg = <0x82a00000 0x5000000>;
 		};
 
+		cnss_debug_mem: cnss_debug_region@0 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x87a00000 0x200000>;
+		};
+
 		external_image_mem: external_image_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
