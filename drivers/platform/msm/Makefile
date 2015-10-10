@@ -19,6 +19,7 @@ obj-$(CONFIG_QPNP_POWER_ON) += qpnp-power-on.o
 obj-$(CONFIG_QPNP_VIBRATOR) += qpnp-vibrator.o
 obj-$(CONFIG_QPNP_CLKDIV) += qpnp-clkdiv.o
 obj-$(CONFIG_QPNP_COINCELL) += qpnp-coincell.o
+obj-$(CONFIG_SEEMP_CORE) += seemp_core/
 obj-$(CONFIG_MSM_AVTIMER) += avtimer.o
 obj-$(CONFIG_SSM) += ssm.o
 obj-$(CONFIG_QPNP_REVID) += qpnp-revid.o

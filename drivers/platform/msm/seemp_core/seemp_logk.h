@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __seemp_LOGK_H__
-#define __seemp_LOGK_H__
+#ifndef __SEEMP_LOGK_H__
+#define __SEEMP_LOGK_H__
 
 #define OBSERVER_VERSION 0x01
 
@@ -45,13 +45,6 @@
 #define HALF_BUF_SIZE (32 * 1024 * 1024)
 #define FULL_BLOCKS (8 * 1024)
 #define HALF_BLOCKS (4 * 1024)
-
-#define TS_SIZE 20
-
-#define BLK_SIZE 256
-#define BLK_HDR_SIZE 64
-
-#define BLK_MAX_MSG_SZ (BLK_SIZE - BLK_HDR_SIZE)
 
 #define READER_NOT_READY 0
 #define READER_READY 1
@@ -134,24 +127,29 @@ struct seemp_logk_dev {
 	struct mutex lock;
 };
 
+#define BLK_SIZE       256
+#define BLK_HDR_SIZE   68
+#define TS_SIZE        20
+#define BLK_MAX_MSG_SZ (BLK_SIZE - BLK_HDR_SIZE)
+
+struct blk_payload {
+	__u32 api_id;  /* event API id */
+	char  msg[BLK_MAX_MSG_SZ]; /* event parameters */
+} __packed;
+
 struct seemp_logk_blk {
-	/*bits: 0->valid/invalid; 1-7: unused as of now!*/
-	__u8        status;
-	__u16       len;
-	__u8        version;
-	__s32       pid;
-	__s32       uid;
-	__s32       tid;
-	__s32       sec;
-	__s32       nsec;
-	char        ts[TS_SIZE];
+	__u8  status;  /* bits: 0->valid/invalid; 1-7: unused as of now! */
+	__u16 len;     /* length of the payload */
+	__u8  version; /* version number */
+	__s32 pid;     /* generating process's pid */
+	__s32 uid;     /* generating process's uid - app specific */
+	__s32 tid;     /* generating process's tid */
+	__s32 sec;     /* seconds since Epoch */
+	__s32 nsec;    /* nanoseconds */
+	char        ts[TS_SIZE];  /* Time Stamp */
 	char        appname[TASK_COMM_LEN];
-	/*
-	 * HDR = 24 bytes + TS_SIZE(20) | TASK_COMM_LEN(16) (total = 60)
-	 * msg = BLK_SIZE(256) - BLK_HDR_SIZE(60) = 196
-	 */
-	char       msg[BLK_SIZE-BLK_HDR_SIZE]; /* the entry's payload */
-};
+	struct blk_payload payload;
+} __packed;
 
 extern unsigned int kmalloc_flag;
 

@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
 */
 
-#ifndef __seemp_RINGBUF_H__
-#define __seemp_RINGBUF_H__
+#ifndef __SEEMP_RINGBUF_H__
+#define __SEEMP_RINGBUF_H__
 
 /*
  * This header exports pingpong's API
@@ -21,7 +21,8 @@
 int ringbuf_init(struct seemp_logk_dev *sdev);
 struct seemp_logk_blk *ringbuf_fetch_wr_block
 (struct seemp_logk_dev *sdev);
-void ringbuf_finish_writer(struct seemp_logk_dev *sdev);
+void ringbuf_finish_writer(struct seemp_logk_dev *sdev,
+				struct seemp_logk_blk *blk);
 void ringbuf_cleanup(struct seemp_logk_dev *sdev);
 int ringbuf_count_marked(struct seemp_logk_dev *sdev);
 
