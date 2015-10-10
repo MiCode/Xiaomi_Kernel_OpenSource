@@ -667,27 +667,32 @@
 		sensor_information0: qcom,sensor-information-0 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor0";
+			qcom,scaling-factor = <10>;
 		};
 
 		sensor_information1: qcom,sensor-information-1 {
 			qcom,sensor-type =  "tsens";
 			qcom,sensor-name = "tsens_tz_sensor1";
+			qcom,scaling-factor = <10>;
 		};
 
 		sensor_information2: qcom,sensor-information-2 {
 			qcom,sensor-type =  "tsens";
 			qcom,sensor-name = "tsens_tz_sensor2";
+			qcom,scaling-factor = <10>;
 		};
 
 		sensor_information3: qcom,sensor-information-3 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor3";
+			qcom,scaling-factor = <10>;
 		};
 
 		sensor_information4: qcom,sensor-information-4 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor6";
 			qcom,alias-name = "modem";
+			qcom,scaling-factor = <10>;
 		};
 
 		sensor_information5: qcom,sensor-information-5 {
