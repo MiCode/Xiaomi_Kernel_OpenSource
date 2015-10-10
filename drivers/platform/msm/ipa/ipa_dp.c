@@ -817,6 +817,38 @@ static void ipa_sps_irq_rx_notify(struct sps_event_notify *notify)
 	}
 }
 
+void ipa_sps_irq_rx_notify_all(void)
+{
+	struct sps_event_notify notify;
+	struct ipa_ep_context *ep;
+	int ipa_ep_idx, client_num;
+
+	IPADBG("\n");
+
+	for (client_num = IPA_CLIENT_CONS;
+		client_num < IPA_CLIENT_MAX; client_num++) {
+		if ((client_num != IPA_CLIENT_APPS_LAN_CONS) &&
+			(client_num != IPA_CLIENT_APPS_WAN_CONS))
+			continue;
+
+		memset(&notify, 0, sizeof(notify));
+		ipa_ep_idx = ipa_get_ep_mapping(client_num);
+		if (ipa_ep_idx == -1) {
+			IPAERR("Invalid client.\n");
+			continue;
+		}
+		ep = &ipa_ctx->ep[ipa_ep_idx];
+		if (!ep->valid) {
+			IPAERR("EP (%d) not allocated.\n", ipa_ep_idx);
+			continue;
+		}
+		notify.user = ep->sys;
+		notify.event_id = SPS_EVENT_EOT;
+		if (ep->sys->sps_callback)
+			ep->sys->sps_callback(&notify);
+	}
+}
+
 static void switch_to_intr_tx_work_func(struct work_struct *work)
 {
 	struct delayed_work *dwork;

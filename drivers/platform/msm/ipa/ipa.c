@@ -2788,8 +2788,10 @@ static void ipa_sps_process_irq(struct work_struct *work)
 
 	/* process bam irq */
 	ret = sps_bam_process_irq(ipa_ctx->bam_handle);
-	if (ret)
+	if (ret) {
 		IPAERR("sps_process_eot_event failed %d\n", ret);
+		ipa_sps_irq_rx_notify_all();
+	}
 
 	/* release IPA clocks */
 	ipa_sps_process_irq_schedule_rel();
@@ -2896,10 +2898,14 @@ static void sps_event_cb(enum sps_callback_case event, void *param)
 	case SPS_CALLBACK_BAM_RES_REL:
 		ipa_sps_process_irq_schedule_rel();
 		break;
+
+	case SPS_CALLBACK_BAM_POLL:
+		ipa_sps_irq_rx_notify_all();
+		break;
+
 	default:
 		IPADBG("unsupported event %d\n", event);
 	}
-
 	spin_unlock_irqrestore(&ipa_ctx->sps_pm.lock, flags);
 }
 /**
