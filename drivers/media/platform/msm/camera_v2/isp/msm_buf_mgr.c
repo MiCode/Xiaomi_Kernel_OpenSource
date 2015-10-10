@@ -375,7 +375,7 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 {
 	int rc = -1;
 	unsigned long flags;
-	struct msm_isp_buffer *temp_buf_info;
+	struct msm_isp_buffer *temp_buf_info, *safe;
 	struct msm_isp_bufq *bufq = NULL;
 	struct vb2_buffer *vb2_buf = NULL;
 	bufq = msm_isp_get_bufq(buf_mgr, bufq_handle);
@@ -392,8 +392,8 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 	*buf_cnt = 0;
 	spin_lock_irqsave(&bufq->bufq_lock, flags);
 	if (bufq->buf_type == ISP_SHARE_BUF) {
-		list_for_each_entry(temp_buf_info,
-			&bufq->share_head, share_list) {
+		list_for_each_entry_safe(temp_buf_info,
+			safe, &bufq->share_head, share_list) {
 			if (!temp_buf_info->buf_used[id]) {
 				temp_buf_info->buf_used[id] = 1;
 				temp_buf_info->buf_get_count++;
@@ -422,7 +422,7 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 
 	switch (BUF_SRC(bufq->stream_id)) {
 	case MSM_ISP_BUFFER_SRC_NATIVE:
-		list_for_each_entry(temp_buf_info, &bufq->head, list) {
+		list_for_each_entry_safe(temp_buf_info, safe, &bufq->head, list) {
 			if (temp_buf_info->state ==
 					MSM_ISP_BUFFER_STATE_QUEUED) {
 
@@ -482,6 +482,7 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 				temp_buf_info->buf_reuse_flag = 1;
 				temp_buf_info->buf_used[id] = 1;
 				temp_buf_info->buf_get_count = 1;
+				INIT_LIST_HEAD(&temp_buf_info->share_list);
 				list_add_tail(&temp_buf_info->share_list,
 							  &bufq->share_head);
 			} else
@@ -537,11 +538,12 @@ static int msm_isp_put_buf(struct msm_isp_buf_mgr *buf_mgr,
 			list_add_tail(&buf_info->list, &bufq->head);
 	case MSM_ISP_BUFFER_STATE_DEQUEUED:
 	case MSM_ISP_BUFFER_STATE_DIVERTED:
-		if (MSM_ISP_BUFFER_SRC_NATIVE == BUF_SRC(bufq->stream_id))
+		if (MSM_ISP_BUFFER_SRC_NATIVE == BUF_SRC(bufq->stream_id)) {
 			list_add_tail(&buf_info->list, &bufq->head);
-		else if (MSM_ISP_BUFFER_SRC_HAL == BUF_SRC(bufq->stream_id))
+		} else if (MSM_ISP_BUFFER_SRC_HAL == BUF_SRC(bufq->stream_id)) {
 			buf_mgr->vb2_ops->put_buf(buf_info->vb2_buf,
 				bufq->session_id, bufq->stream_id);
+		}
 		buf_info->state = MSM_ISP_BUFFER_STATE_QUEUED;
 		rc = 0;
 		break;
@@ -585,11 +587,12 @@ static int msm_isp_put_buf_unsafe(struct msm_isp_buf_mgr *buf_mgr,
 	case MSM_ISP_BUFFER_STATE_PREPARED:
 	case MSM_ISP_BUFFER_STATE_DEQUEUED:
 	case MSM_ISP_BUFFER_STATE_DIVERTED:
-		if (BUF_SRC(bufq->stream_id))
+		if (BUF_SRC(bufq->stream_id)) {
 			list_add_tail(&buf_info->list, &bufq->head);
-		else
+		} else {
 			buf_mgr->vb2_ops->put_buf(buf_info->vb2_buf,
 				bufq->session_id, bufq->stream_id);
+		}
 		buf_info->state = MSM_ISP_BUFFER_STATE_QUEUED;
 		rc = 0;
 		break;
