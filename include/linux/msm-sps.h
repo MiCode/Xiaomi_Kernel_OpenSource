@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -299,6 +299,7 @@ enum sps_callback_case {
 	SPS_CALLBACK_BAM_TIMER_IRQ,	    /* Inactivity timer */
 	SPS_CALLBACK_BAM_RES_REQ,	    /* Request resource */
 	SPS_CALLBACK_BAM_RES_REL,	    /* Release resource */
+	SPS_CALLBACK_BAM_POLL,	            /* To poll each pipe */
 };
 
 /*
