@@ -2537,6 +2537,26 @@ exit:
 	return rc;
 }
 
+static int msm_comm_session_close_done(int flipped_state,
+		struct msm_vidc_inst *inst)
+{
+	int rc = 0;
+
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	rc = wait_for_state(inst, flipped_state, MSM_VIDC_CLOSE_DONE,
+			SESSION_END_DONE);
+	if (rc)
+		dprintk(VIDC_ERR, "%s: session_end_done failed\n", __func__);
+	else
+		msm_comm_session_clean(inst);
+
+	return rc;
+}
+
 int msm_comm_suspend(int core_id)
 {
 	struct hfi_device *hdev;
@@ -2987,8 +3007,7 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_VIDC_CLOSE_DONE:
-		rc = wait_for_state(inst, flipped_state, MSM_VIDC_CLOSE_DONE,
-				SESSION_END_DONE);
+		rc = msm_comm_session_close_done(flipped_state, inst);
 		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_VIDC_CORE_UNINIT:
