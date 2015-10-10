@@ -4791,10 +4791,8 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_get_gsi_ep_info = ipa3_get_gsi_ep_info;
 	api_ctrl->ipa_stop_gsi_channel = ipa3_stop_gsi_channel;
 	api_ctrl->ipa_usb_init_teth_prot = ipa3_usb_init_teth_prot;
-	api_ctrl->ipa_usb_request_xdci_channel = ipa3_usb_request_xdci_channel;
 	api_ctrl->ipa_usb_xdci_connect = ipa3_usb_xdci_connect;
 	api_ctrl->ipa_usb_xdci_disconnect = ipa3_usb_xdci_disconnect;
-	api_ctrl->ipa_usb_release_xdci_channel = ipa3_usb_release_xdci_channel;
 	api_ctrl->ipa_usb_deinit_teth_prot = ipa3_usb_deinit_teth_prot;
 	api_ctrl->ipa_usb_xdci_suspend = ipa3_usb_xdci_suspend;
 	api_ctrl->ipa_usb_xdci_resume = ipa3_usb_xdci_resume;

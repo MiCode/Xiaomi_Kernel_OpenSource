@@ -1237,9 +1237,7 @@ int ipa3_set_usb_max_packet_size(
 	return 0;
 }
 
-int ipa3_xdci_connect(u32 clnt_hdl, u8 xferrscidx, bool xferrscidx_valid,
-	void (*client_notify)(void *priv, enum ipa_dp_evt_type evt,
-	unsigned long data))
+int ipa3_xdci_connect(u32 clnt_hdl, u8 xferrscidx, bool xferrscidx_valid)
 {
 	struct ipa3_ep_context *ep;
 	int result = -EFAULT;
@@ -1257,7 +1255,6 @@ int ipa3_xdci_connect(u32 clnt_hdl, u8 xferrscidx, bool xferrscidx_valid,
 
 	ipa3_inc_client_enable_clks();
 
-	ep->client_notify = client_notify;
 	if (xferrscidx_valid) {
 		ep->chan_scratch.xdci.xferrscidx = xferrscidx;
 		gsi_res = gsi_write_channel_scratch(ep->gsi_chan_hdl,
@@ -1453,7 +1450,6 @@ int ipa3_xdci_disconnect(u32 clnt_hdl, bool should_force_clear, u32 qmi_req_id)
 		goto stop_chan_fail;
 	}
 
-	ep->client_notify = NULL;
 	ipa3_dec_client_disable_clks();
 
 	IPADBG("ipa3_xdci_disconnect: exit\n");

@@ -332,17 +332,14 @@ struct ipa_api_controller {
 		int (*ipa_usb_notify_cb)(enum ipa_usb_notify_event, void*),
 		void *user_data);
 
-	int (*ipa_usb_request_xdci_channel)(
-		struct ipa_usb_xdci_chan_params *params,
-		struct ipa_req_chan_out_params *out_params);
-
 	int (*ipa_usb_xdci_connect)(
-		struct ipa_usb_xdci_connect_params *params);
+		struct ipa_usb_xdci_chan_params *ul_chan_params,
+		struct ipa_usb_xdci_chan_params *dl_chan_params,
+		struct ipa_req_chan_out_params *ul_out_params,
+		struct ipa_req_chan_out_params *dl_out_params,
+		struct ipa_usb_xdci_connect_params *connect_params);
 
 	int (*ipa_usb_xdci_disconnect)(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
-		enum ipa_usb_teth_prot teth_prot);
-
-	int (*ipa_usb_release_xdci_channel)(u32 clnt_hdl,
 		enum ipa_usb_teth_prot teth_prot);
 
 	int (*ipa_usb_deinit_teth_prot)(enum ipa_usb_teth_prot teth_prot);
