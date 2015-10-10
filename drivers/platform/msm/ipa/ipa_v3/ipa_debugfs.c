@@ -21,6 +21,7 @@
 #define IPA_MAX_MSG_LEN 4096
 #define IPA_DBG_CNTR_ON 127265
 #define IPA_DBG_CNTR_OFF 127264
+#define IPA_DBG_MAX_RULE_IN_TBL 128
 
 const char *ipa3_excp_name[] = {
 	__stringify_1(IPA_A5_MUX_HDR_EXCP_RSVD0),
@@ -92,9 +93,13 @@ static struct dentry *dfile_ep_holb;
 static struct dentry *dfile_hdr;
 static struct dentry *dfile_proc_ctx;
 static struct dentry *dfile_ip4_rt;
+static struct dentry *dfile_ip4_rt_hw;
 static struct dentry *dfile_ip6_rt;
+static struct dentry *dfile_ip6_rt_hw;
 static struct dentry *dfile_ip4_flt;
+static struct dentry *dfile_ip4_flt_hw;
 static struct dentry *dfile_ip6_flt;
+static struct dentry *dfile_ip6_flt_hw;
 static struct dentry *dfile_stats;
 static struct dentry *dfile_wstats;
 static struct dentry *dfile_wdi_stats;
@@ -695,6 +700,77 @@ static ssize_t ipa3_read_rt(struct file *file, char __user *ubuf, size_t count,
 	return 0;
 }
 
+static ssize_t ipa3_read_rt_hw(struct file *file, char __user *ubuf,
+	size_t count, loff_t *ppos)
+{
+	int i;
+	int j;
+	int num_rules;
+	struct ipa3_debugfs_rt_entry *entry;
+	enum ipa_ip_type ip = (enum ipa_ip_type)file->private_data;
+	int num_tbls;
+
+	if (ip == IPA_IP_v4)
+		num_tbls = IPA_MEM_PART(v4_rt_num_index);
+	else
+		num_tbls = IPA_MEM_PART(v6_rt_num_index);
+
+	entry = kzalloc(sizeof(*entry) * IPA_DBG_MAX_RULE_IN_TBL, GFP_KERNEL);
+	if (!entry)
+		return -ENOMEM;
+
+	mutex_lock(&ipa3_ctx->lock);
+	for (j = 0; j < num_tbls; j++) {
+		pr_err("== NON HASHABLE TABLE tbl:%d ==\n", j);
+		num_rules = IPA_DBG_MAX_RULE_IN_TBL;
+		ipa3_rt_read_tbl_from_hw(j, ip, false, entry, &num_rules);
+		for (i = 0; i < num_rules; i++) {
+			pr_err("rule_idx:%d dst ep:%d L:%u ",
+				i, entry[i].dst, entry[i].system);
+
+			if (entry[i].is_proc_ctx)
+				pr_err("proc_ctx[32B]:%u attrib_mask:%08x ",
+					entry[i].hdr_ofset,
+					entry[i].eq_attrib.rule_eq_bitmap);
+			else
+				pr_err("hdr_ofst[words]:%u attrib_mask:%08x ",
+					entry[i].hdr_ofset,
+					entry[i].eq_attrib.rule_eq_bitmap);
+
+			pr_err("rule_id:%u prio:%u retain_hdr:%u ",
+				entry[i].rule_id, entry[i].prio,
+				entry[i].retain_hdr);
+			ipa3_attrib_dump_eq(&entry[i].eq_attrib);
+		}
+
+		pr_err("== HASHABLE TABLE tbl:%d ==\n", j);
+		num_rules = IPA_DBG_MAX_RULE_IN_TBL;
+		ipa3_rt_read_tbl_from_hw(j, ip, true, entry, &num_rules);
+		for (i = 0; i < num_rules; i++) {
+			pr_err("rule_idx:%d dst ep:%d L:%u ",
+				i, entry[i].dst, entry[i].system);
+
+			if (entry[i].is_proc_ctx)
+				pr_err("proc_ctx[32B]:%u attrib_mask:%08x ",
+				entry[i].hdr_ofset,
+				entry[i].eq_attrib.rule_eq_bitmap);
+			else
+				pr_err("hdr_ofst[words]:%u attrib_mask:%08x ",
+				entry[i].hdr_ofset,
+				entry[i].eq_attrib.rule_eq_bitmap);
+
+			pr_err("rule_id:%u prio:%u retain_hdr:%u ",
+				entry[i].rule_id, entry[i].prio,
+				entry[i].retain_hdr);
+			ipa3_attrib_dump_eq(&entry[i].eq_attrib);
+		}
+	}
+	mutex_unlock(&ipa3_ctx->lock);
+	kfree(entry);
+
+	return 0;
+}
+
 static ssize_t ipa3_read_proc_ctx(struct file *file, char __user *ubuf,
 		size_t count, loff_t *ppos)
 {
@@ -796,6 +872,62 @@ static ssize_t ipa3_read_flt(struct file *file, char __user *ubuf, size_t count,
 		}
 	}
 	mutex_unlock(&ipa3_ctx->lock);
+
+	return 0;
+}
+
+static ssize_t ipa3_read_flt_hw(struct file *file, char __user *ubuf,
+	size_t count, loff_t *ppos)
+{
+	int i;
+	int j;
+	int num_rules;
+	struct ipa3_flt_entry *entry;
+	enum ipa_ip_type ip = (enum ipa_ip_type)file->private_data;
+	u32 rt_tbl_idx;
+	u32 bitmap;
+
+	entry = kzalloc(sizeof(*entry) * IPA_DBG_MAX_RULE_IN_TBL, GFP_KERNEL);
+	if (!entry)
+		return -ENOMEM;
+
+	mutex_lock(&ipa3_ctx->lock);
+	for (j = 0; j < ipa3_ctx->ipa_num_pipes; j++) {
+		if (!ipa_is_ep_support_flt(j))
+			continue;
+		pr_err("== NON HASHABLE TABLE ep:%d ==\n", j);
+		num_rules = IPA_DBG_MAX_RULE_IN_TBL;
+		ipa3_flt_read_tbl_from_hw(j, ip, false, entry, &num_rules);
+		for (i = 0; i < num_rules; i++) {
+			rt_tbl_idx = entry[i].rule.rt_tbl_idx;
+			bitmap = entry[i].rule.eq_attrib.rule_eq_bitmap;
+			pr_err("ep_idx:%d rule_idx:%d act:%d rt_tbl_idx:%d ",
+				j, i, entry[i].rule.action, rt_tbl_idx);
+			pr_err("attrib_mask:%08x retain_hdr:%d ",
+				bitmap, entry[i].rule.retain_hdr);
+			pr_err("rule_id:%u prio:%u ",
+				entry[i].rule_id, entry[i].prio);
+			ipa3_attrib_dump_eq(&entry[i].rule.eq_attrib);
+		}
+
+		pr_err("== HASHABLE TABLE ep:%d ==\n", j);
+		num_rules = IPA_DBG_MAX_RULE_IN_TBL;
+		ipa3_flt_read_tbl_from_hw(j, ip, true, entry, &num_rules);
+		for (i = 0; i < num_rules; i++) {
+			rt_tbl_idx = entry[i].rule.rt_tbl_idx;
+			bitmap = entry[i].rule.eq_attrib.rule_eq_bitmap;
+			pr_err("ep_idx:%d rule_idx:%d act:%d rt_tbl_idx:%d ",
+				j, i, entry[i].rule.action, rt_tbl_idx);
+			pr_err("attrib_mask:%08x retain_hdr:%d ",
+				bitmap, entry[i].rule.retain_hdr);
+			pr_err("rule_id:%u max_prio:%u prio:%u ",
+				entry[i].rule_id,
+				entry[i].rule.max_prio, entry[i].prio);
+			ipa3_attrib_dump_eq(&entry[i].rule.eq_attrib);
+		}
+	}
+	mutex_unlock(&ipa3_ctx->lock);
+	kfree(entry);
 
 	return 0;
 }
@@ -1414,12 +1546,22 @@ const struct file_operations ipa3_rt_ops = {
 	.open = ipa3_open_dbg,
 };
 
+const struct file_operations ipa3_rt_hw_ops = {
+	.read = ipa3_read_rt_hw,
+	.open = ipa3_open_dbg,
+};
+
 const struct file_operations ipa3_proc_ctx_ops = {
 	.read = ipa3_read_proc_ctx,
 };
 
 const struct file_operations ipa3_flt_ops = {
 	.read = ipa3_read_flt,
+	.open = ipa3_open_dbg,
+};
+
+const struct file_operations ipa3_flt_hw_ops = {
+	.read = ipa3_read_flt_hw,
 	.open = ipa3_open_dbg,
 };
 
@@ -1523,10 +1665,24 @@ void ipa3_debugfs_init(void)
 		goto fail;
 	}
 
+	dfile_ip4_rt_hw = debugfs_create_file("ip4_rt_hw", read_only_mode, dent,
+		(void *)IPA_IP_v4, &ipa3_rt_hw_ops);
+	if (!dfile_ip4_rt_hw || IS_ERR(dfile_ip4_rt_hw)) {
+		IPAERR("fail to create file for debug_fs ip4 rt hw\n");
+		goto fail;
+	}
+
 	dfile_ip6_rt = debugfs_create_file("ip6_rt", read_only_mode, dent,
 			(void *)IPA_IP_v6, &ipa3_rt_ops);
 	if (!dfile_ip6_rt || IS_ERR(dfile_ip6_rt)) {
 		IPAERR("fail to create file for debug_fs ip6:w" " rt\n");
+		goto fail;
+	}
+
+	dfile_ip6_rt_hw = debugfs_create_file("ip6_rt_hw", read_only_mode, dent,
+		(void *)IPA_IP_v6, &ipa3_rt_hw_ops);
+	if (!dfile_ip6_rt_hw || IS_ERR(dfile_ip6_rt_hw)) {
+		IPAERR("fail to create file for debug_fs ip6 rt hw\n");
 		goto fail;
 	}
 
@@ -1537,9 +1693,23 @@ void ipa3_debugfs_init(void)
 		goto fail;
 	}
 
+	dfile_ip4_flt_hw = debugfs_create_file("ip4_flt_hw", read_only_mode,
+			dent, (void *)IPA_IP_v4, &ipa3_flt_hw_ops);
+	if (!dfile_ip4_flt_hw || IS_ERR(dfile_ip4_flt_hw)) {
+		IPAERR("fail to create file for debug_fs ip4 flt\n");
+		goto fail;
+	}
+
 	dfile_ip6_flt = debugfs_create_file("ip6_flt", read_only_mode, dent,
 			(void *)IPA_IP_v6, &ipa3_flt_ops);
 	if (!dfile_ip6_flt || IS_ERR(dfile_ip6_flt)) {
+		IPAERR("fail to create file for debug_fs ip6 flt\n");
+		goto fail;
+	}
+
+	dfile_ip6_flt_hw = debugfs_create_file("ip6_flt_hw", read_only_mode,
+			dent, (void *)IPA_IP_v6, &ipa3_flt_hw_ops);
+	if (!dfile_ip6_flt_hw || IS_ERR(dfile_ip6_flt_hw)) {
 		IPAERR("fail to create file for debug_fs ip6 flt\n");
 		goto fail;
 	}
@@ -1635,4 +1805,3 @@ void ipa3_debugfs_remove(void)
 void ipa3_debugfs_init(void) {}
 void ipa3_debugfs_remove(void) {}
 #endif
-

@@ -1810,3 +1810,131 @@ int ipa3_set_rt_tuple_mask(int tbl_idx, struct ipa3_hash_tuple *tuple)
 
 	return 0;
 }
+
+/**
+ * ipa3_rt_read_tbl_from_hw() -Read routing table from IPA HW
+ * @tbl_idx: routing table index
+ * @ip_type: IPv4 or IPv6 table
+ * @hashable: hashable or non-hashable table
+ * @entry: array to fill the table entries
+ * @num_entry: number of entries in entry array. set by the caller to indicate
+ *  entry array size. Then set by this function as an output parameter to
+ *  indicate the number of entries in the array
+ *
+ * This function reads the filtering table from IPA SRAM and prepares an array
+ * of entries. This function is mainly used for debugging purposes.
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa3_rt_read_tbl_from_hw(u32 tbl_idx,
+	enum ipa_ip_type ip_type,
+	bool hashable,
+	struct ipa3_debugfs_rt_entry entry[],
+	int *num_entry)
+{
+	u64 tbl_entry_in_hdr_ofst;
+	u64 *tbl_entry_in_hdr;
+	struct ipa3_rt_rule_hw_hdr *hdr;
+	u8 *buf;
+	int rule_idx;
+	u8 rule_size;
+
+	IPADBG("tbl_idx=%d ip_type=%d hashable=%d\n",
+		tbl_idx, ip_type, hashable);
+
+	if (ip_type == IPA_IP_v4 && tbl_idx >= IPA_MEM_PART(v4_rt_num_index)) {
+		IPAERR("Invalid params\n");
+		return -EFAULT;
+	}
+
+	if (ip_type == IPA_IP_v6 && tbl_idx >= IPA_MEM_PART(v6_rt_num_index)) {
+		IPAERR("Invalid params\n");
+		return -EFAULT;
+	}
+
+	memset(entry, 0, sizeof(*entry) * (*num_entry));
+	if (hashable) {
+		if (ip_type == IPA_IP_v4)
+			tbl_entry_in_hdr_ofst =
+				ipa3_ctx->smem_restricted_bytes +
+				IPA_MEM_PART(v4_rt_hash_ofst) +
+				tbl_idx * IPA_HW_TBL_HDR_WIDTH;
+		else
+			tbl_entry_in_hdr_ofst =
+				ipa3_ctx->smem_restricted_bytes +
+				IPA_MEM_PART(v6_rt_hash_ofst) +
+				tbl_idx * IPA_HW_TBL_HDR_WIDTH;
+	} else {
+		if (ip_type == IPA_IP_v4)
+			tbl_entry_in_hdr_ofst =
+				ipa3_ctx->smem_restricted_bytes +
+				IPA_MEM_PART(v4_rt_nhash_ofst) +
+				tbl_idx * IPA_HW_TBL_HDR_WIDTH;
+		else
+			tbl_entry_in_hdr_ofst =
+				ipa3_ctx->smem_restricted_bytes +
+				IPA_MEM_PART(v6_rt_nhash_ofst) +
+				tbl_idx * IPA_HW_TBL_HDR_WIDTH;
+	}
+
+	IPADBG("tbl_entry_in_hdr_ofst=0x%llx\n", tbl_entry_in_hdr_ofst);
+
+	tbl_entry_in_hdr = ipa3_ctx->mmio +
+		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0) + tbl_entry_in_hdr_ofst;
+
+	/* for tables which reside in DDR access it from the virtual memory */
+	if (*tbl_entry_in_hdr & 0x0) {
+		/* system */
+		struct ipa3_rt_tbl_set *set;
+		struct ipa3_rt_tbl *tbl;
+
+		set = &ipa3_ctx->rt_tbl_set[ip_type];
+		hdr = NULL;
+		list_for_each_entry(tbl, &set->head_rt_tbl_list, link) {
+			if (tbl->idx == tbl_idx)
+				hdr = tbl->curr_mem[hashable ?
+					IPA_RULE_HASHABLE :
+					IPA_RULE_NON_HASHABLE].base;
+		}
+
+		if (!hdr)
+			hdr = ipa3_ctx->empty_rt_tbl_mem.base;
+	} else {
+		/* local */
+		hdr = (void *)(tbl_entry_in_hdr -
+			tbl_idx * IPA_HW_TBL_HDR_WIDTH +
+			(*tbl_entry_in_hdr - 1) * 16);
+	}
+	IPADBG("*tbl_entry_in_hdr=0x%llx\n", *tbl_entry_in_hdr);
+	IPADBG("hdr=0x%p\n", hdr);
+
+
+	rule_idx = 0;
+	while (rule_idx < *num_entry) {
+		IPADBG("*((u64 *)hdr)=0x%llx\n", *((u64 *)hdr));
+		if (*((u64 *)hdr) == 0)
+			break;
+
+		entry[rule_idx].eq_attrib.rule_eq_bitmap = hdr->u.hdr.en_rule;
+		entry[rule_idx].retain_hdr = hdr->u.hdr.retain_hdr;
+		entry[rule_idx].prio = hdr->u.hdr.priority;
+		entry[rule_idx].rule_id = hdr->u.hdr.rule_id;
+		entry[rule_idx].dst = hdr->u.hdr.pipe_dest_idx;
+		entry[rule_idx].hdr_ofset = hdr->u.hdr.hdr_offset;
+		entry[rule_idx].is_proc_ctx = hdr->u.hdr.proc_ctx;
+		entry[rule_idx].system = hdr->u.hdr.system;
+		buf = (u8 *)(hdr + 1);
+		IPADBG("buf=0x%p\n", buf);
+
+		ipa3_generate_eq_from_hw_rule(&entry[rule_idx].eq_attrib, buf,
+			&rule_size);
+		IPADBG("rule_size=%d\n", rule_size);
+		hdr = (void *)(buf + rule_size);
+		IPADBG("hdr=0x%p\n", hdr);
+		rule_idx++;
+	}
+
+	*num_entry = rule_idx;
+
+	return 0;
+}
