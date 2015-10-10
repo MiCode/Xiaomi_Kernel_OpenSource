@@ -665,6 +665,11 @@ static int32_t msm_actuator_bivcm_move_focus(
 	int dir = move_params->dir;
 	int32_t num_steps = move_params->num_steps;
 
+	if (a_ctrl->step_position_table == NULL) {
+		pr_err("Step Position Table is NULL");
+		return -EFAULT;
+	}
+
 	CDBG("called, dir %d, num_steps %d\n", dir, num_steps);
 
 	if (dest_step_pos == a_ctrl->curr_step_pos)
@@ -728,8 +733,10 @@ static int32_t msm_actuator_bivcm_move_focus(
 				[a_ctrl->curr_region_index],
 				sign_dir,
 				target_lens_pos);
-			if (rc < 0)
+			if (rc < 0) {
+				kfree(ringing_params_kernel);
 				return rc;
+			}
 			curr_lens_pos = target_lens_pos;
 		} else {
 			target_step_pos = step_boundary;
@@ -741,8 +748,10 @@ static int32_t msm_actuator_bivcm_move_focus(
 				[a_ctrl->curr_region_index],
 				sign_dir,
 				target_lens_pos);
-			if (rc < 0)
+			if (rc < 0) {
+				kfree(ringing_params_kernel);
 				return rc;
+			}
 			curr_lens_pos = target_lens_pos;
 
 			a_ctrl->curr_region_index += sign_dir;
@@ -833,12 +842,11 @@ static int32_t msm_actuator_bivcm_init_step_table(
 {
 	int16_t code_per_step = 0;
 	int16_t cur_code = 0;
-	int16_t cur_code_se = 0;
 	int16_t step_index = 0, region_index = 0;
 	uint16_t step_boundary = 0;
 	uint32_t max_code_size = 1;
 	uint16_t data_size = set_info->actuator_params.data_size;
-	uint16_t se_shift, mask = 0, i = 0;
+	uint16_t mask = 0, i = 0;
 	uint32_t qvalue = 0;
 	CDBG("Enter\n");
 
@@ -846,9 +854,6 @@ static int32_t msm_actuator_bivcm_init_step_table(
 		max_code_size *= 2;
 		mask |= (1 << i++);
 	}
-
-	se_shift = (sizeof(cur_code) * 8) -
-				set_info->actuator_params.data_size;
 
 	a_ctrl->max_code_size = max_code_size;
 	kfree(a_ctrl->step_position_table);
@@ -881,8 +886,6 @@ static int32_t msm_actuator_bivcm_init_step_table(
 		qvalue = a_ctrl->region_params[region_index].qvalue;
 		for (; step_index <= step_boundary;
 			step_index++) {
-			cur_code_se = cur_code << se_shift;
-			cur_code_se >>= se_shift;
 			if (qvalue > 1 && qvalue <= MAX_QVALUE)
 				cur_code = step_index * code_per_step / qvalue;
 			else
