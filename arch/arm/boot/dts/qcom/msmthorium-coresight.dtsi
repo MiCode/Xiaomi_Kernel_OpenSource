@@ -826,6 +826,43 @@
 		clock-names = "core_clk", "core_a_clk";
 	};
 
+	tpda: tpda@6003000 {
+		compatible = "qcom,coresight-tpda";
+		reg = <0x6003000 0x1000>;
+		reg-names = "tpda-base";
+
+		coresight-id = <52>;
+		coresight-name = "coresight-tpda";
+		coresight-nr-inports = <2>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <6>;
+
+		qcom,tpda-atid = <64>;
+		qcom,cmb-elem-size = <0 32>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	tpdm_dcc: tpdm@6110000 {
+		compatible = "qcom,coresight-tpdm";
+		reg = <0x6110000 0x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-id = <53>;
+		coresight-name = "coresight-tpdm-dcc";
+		coresight-nr-inports = <1>;
+		coresight-outports = <0>;
+		coresight-child-list = <&tpda>;
+		coresight-child-ports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
 	hwevent: hwevent@6101000 {
 		compatible = "qcom,coresight-hwevent";
 		reg = <0x6101000 0x148>,
@@ -841,7 +878,7 @@
 			    "mm-wrapper-mux", "mm-wrapper-lockaccess",
 			    "usbbam-mux", "blsp-mux";
 
-		coresight-id = <52>;
+		coresight-id = <54>;
 		coresight-name = "coresight-hwevent";
 		coresight-nr-inports = <0>;
 
@@ -857,7 +894,7 @@
 		      <0xa600c 0x4>;
 		reg-names = "fuse-base", "nidnt-fuse-base", "qpdi-fuse-base";
 
-		coresight-id = <53>;
+		coresight-id = <55>;
 		coresight-name = "coresight-fuse";
 		coresight-nr-inports = <0>;
 	};
