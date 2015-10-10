@@ -580,5 +580,28 @@
 				qcom,current = <120>;
 			};
 		};
+
+		pmi8950_haptic: qcom,haptic@c000 {
+			compatible = "qcom,qpnp-haptic";
+			reg = <0xc000 0x100>;
+			interrupts = <0x3 0xc0 0x0>,
+					<0x3 0xc0 0x1>;
+			interrupt-names = "sc-irq", "play-irq";
+			qcom,play-mode = "direct";
+			qcom,wave-play-rate-us = <5263>;
+			qcom,actuator-type = "erm";
+			qcom,wave-shape = "square";
+			qcom,vmax-mv = <2000>;
+			qcom,ilim-ma = <800>;
+			qcom,sc-deb-cycles = <8>;
+			qcom,int-pwm-freq-khz = <505>;
+			qcom,en-brake;
+			qcom,brake-pattern = [03 03 00 00];
+			qcom,use-play-irq;
+			qcom,use-sc-irq;
+			qcom,wave-samples = [3e 3e 3e 3e 3e 3e 3e 3e];
+			qcom,wave-rep-cnt = <1>;
+			qcom,wave-samp-rep-cnt = <1>;
+		};
 	};
 };
