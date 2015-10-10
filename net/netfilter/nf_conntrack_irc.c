@@ -156,10 +156,11 @@ static bool mangle_ip(struct nf_conn *ct,
 		*do not mangle the DCC Server IP
 		*/
 		if ((temp->server_ip == tuple->dst.u3.ip) &&
-		    (temp->nickname_len == nick_end - nick_start) &&
-		    (memcmp(nick_start, temp->nickname,
-		    temp->nickname_len) == 0))
-			return false;
+		    (temp->nickname_len == (nick_end - nick_start))) {
+			if (memcmp(nick_start, temp->nickname,
+				   temp->nickname_len) == 0)
+				return false;
+		}
 	}
 	return true;
 }
@@ -197,7 +198,7 @@ static int handle_nickname(struct nf_conn *ct,
 				kmalloc(i, GFP_ATOMIC);
 			if (temp->nickname) {
 				temp->nickname_len = i;
-				memcpy(&temp->nickname,
+				memcpy(temp->nickname,
 				       nick_start, temp->nickname_len);
 			} else {
 				list_del(&temp->ptr);
