@@ -649,8 +649,6 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		goto out;
 	}
 
-	BUG_ON(cmdq_readl(cq_host, CQTDBR) & (1 << tag));
-
 	cq_host->mrq_slot[tag] = mrq;
 	if (cq_host->ops->set_tranfer_params)
 		cq_host->ops->set_tranfer_params(mmc);
@@ -661,6 +659,10 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 ring_doorbell:
 	/* Ensure the task descriptor list is flushed before ringing doorbell */
 	wmb();
+	if (cmdq_readl(cq_host, CQTDBR) & (1 << tag)) {
+		cmdq_dumpregs(cq_host);
+		BUG_ON(1);
+	}
 	cmdq_writel(cq_host, 1 << tag, CQTDBR);
 	/* Commit the doorbell write immediately */
 	wmb();
