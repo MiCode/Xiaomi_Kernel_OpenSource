@@ -2639,6 +2639,9 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 	enum local_channel_state_e ch_st;
 	unsigned long flags;
 
+	if (!size)
+		return -EINVAL;
+
 	if (!ctx)
 		return -EINVAL;
 
