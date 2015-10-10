@@ -12,6 +12,7 @@
  */
 
 #include "msm8976.dtsi"
+#include "msm8976-wsa881x.dtsi"
 
 &blsp1_uart2 {
 	status = "ok";
@@ -112,4 +113,37 @@
 		focaltech,fw-auto-cal;
 		focaltech,ignore-id-check;
 	};
+};
+
+&soc {
+	sound-9335 {
+		qcom,model = "msm8976-tasha-snd-card";
+
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"MADINPUT", "MCLK",
+			"AMIC1", "MIC BIAS1",
+			"MIC BIAS1", "Handset Mic",
+			"AMIC2", "MIC BIAS2",
+			"MIC BIAS2", "Headset Mic",
+			"AMIC3", "MIC BIAS3",
+			"MIC BIAS3", "Secondary Mic",
+			"SpkrRight IN", "SPK1 OUT",
+			"SpkrLeft IN", "SPK2 OUT";
+
+		qcom,msm-mbhc-hphl-swh = <1>;
+		qcom,msm-mbhc-gnd-swh = <1>;
+		qcom,max-aux-codec = <2>;
+		qcom,aux-codec = "wsa881x.20170211", "wsa881x.20170212";
+		qcom,aux-codec-prefix = "SpkrRight", "SpkrLeft";
+		/delete-node/ qcom,msm-gpios;
+		/delete-node/ qcom,pinctrl-names;
+		/delete-node/ pinctrl-names;
+		/delete-node/ qcom,cdc-us-euro-gpios;
+	};
+};
+
+&wsa_spkr_sd {
+	qcom,pins = <&gp 132>, <&gp 134>;
+	qcom,num-grp-pins = <2>;
 };
