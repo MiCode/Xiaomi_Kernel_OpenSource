@@ -70,7 +70,7 @@ void gic_init_bases(unsigned int, int, void __iomem *, void __iomem *,
 void gic_cascade_irq(unsigned int gic_nr, unsigned int irq);
 bool gic_is_irq_pending(unsigned int irq);
 void gic_clear_irq_pending(unsigned int irq);
-bool gic_is_any_irq_pending(void);
+uint32_t gic_return_irq_pending(void);
 #ifdef CONFIG_ARM_GIC
 void gic_set_irq_secure(unsigned int irq);
 #else
