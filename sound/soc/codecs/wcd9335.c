@@ -1443,7 +1443,8 @@ static void tasha_wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 	s16 *d1 = NULL;
 
 	if (!TASHA_IS_2_0(wcd9xxx->version)) {
-		dev_dbg(codec->dev, "Z-det is not supported for this codec version\n");
+		dev_dbg(codec->dev, "%s: Z-det is not supported for this codec version\n",
+					__func__);
 		*zl = 0;
 		*zr = 0;
 		return;
