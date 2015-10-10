@@ -863,6 +863,7 @@ static int dwc3_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	dwc->reg_phys = res->start;
 	dwc->xhci_resources[0].start = res->start;
 	dwc->xhci_resources[0].end = dwc->xhci_resources[0].start +
 					DWC3_XHCI_REGS_END;
