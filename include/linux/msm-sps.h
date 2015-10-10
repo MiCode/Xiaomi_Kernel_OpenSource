@@ -303,6 +303,7 @@ enum sps_callback_case {
 	SPS_CALLBACK_BAM_TIMER_IRQ,	    /* Inactivity timer */
 	SPS_CALLBACK_BAM_RES_REQ,	    /* Request resource */
 	SPS_CALLBACK_BAM_RES_REL,	    /* Release resource */
+	SPS_CALLBACK_BAM_POLL,	            /* To poll each pipe */
 };
 
 /*
