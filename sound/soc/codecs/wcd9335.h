@@ -26,6 +26,13 @@
 #define TASHA_SB_PGD_PORT_TX_BASE   0x50
 
 #define TASHA_ZDET_SUPPORTED true
+/* z value defined in milliohm */
+#define TASHA_ZDET_VAL_32	32000
+#define TASHA_ZDET_VAL_400	400000
+#define TASHA_ZDET_VAL_1200	1200000
+#define TASHA_ZDET_VAL_100K	100000000
+/* z floating defined in ohms */
+#define TASHA_ZDET_FLOATING_IMPEDANCE 0x0FFFFFFE
 
 #define WCD9335_DMIC_CLK_DIV_2  0x0
 #define WCD9335_DMIC_CLK_DIV_3  0x1
