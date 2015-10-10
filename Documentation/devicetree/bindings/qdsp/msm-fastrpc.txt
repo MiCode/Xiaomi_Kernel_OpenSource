@@ -60,14 +60,35 @@ Example:
 IOMMU Domain:
 
 Required properties:
+- compatible : Must be "qcom,iommu-domains"
+
+Required subnode:
+- adsp_shared_domain : IOMMU domain specifies the context bank and its VA range
+
+Required subnode properties:
 - label : Label describing the context bank
 - qcom,iommu-contexts : phandle that describe the context bank handle
 - qcom,virtual-addr-pool : Virtual address range that the context bank
                            will be using
 
 Example:
-        adsp_shared_domain: qcom,iommu-domain6 {
-                label = "adsp_shared";
-                qcom,iommu-contexts = <&adsp_shared>;
-                qcom,virtual-addr-pool = <0x80000000 0x7FFFFFFF>;
-        };
+	qcom,iommu-domains {
+		compatible = "qcom,iommu-domains";
+		adsp_shared_domain: qcom,iommu-domain6 {
+			label = "adsp_shared";
+			qcom,iommu-contexts = <&adsp_shared>;
+			qcom,virtual-addr-pool = <0x80000000 0x7FFFFFFF>;
+		};
+	};
+
+Remote Heap:
+
+Required properties:
+- compatible : Must be "qcom,msm-adsprpc-mem-region"
+- memory-region : CMA region which is owned by this device
+
+Example:
+       qcom,adsprpc-mem {
+               compatible = "qcom,msm-adsprpc-mem-region";
+               memory-region = <&adsp_mem>;
+       };
