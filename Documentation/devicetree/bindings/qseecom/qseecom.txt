@@ -14,6 +14,8 @@ Required properties:
 - qcom, msm_bus,num_paths: The paths for source and destination ports
 - qcom, msm_bus,vectors: Vectors for bus topology.
 - qcom,ce-opp-freq: indicates the CE operating frequency in Hz, changes from target to target.
+- qcom,full-disk-encrypt-info : Vectors defining full disk encryption unit, crypto engine, pipe pair configuration in <unit#, ce#, pipe-pair#>
+- qcom,per-file-encrypt-info : Vectors defining per file encryption unit, crypto engine, pipe pair configuration in <unit#, ce#, pipe-pair#>
 
 Optional properties:
   - qcom,support-bus-scaling : indicates if driver support scaling the bus for crypto operation.
@@ -37,6 +39,32 @@ Example:
 		qcom,qsee-ce-hw-instance = <0>;
 		qcom,support-fde;
 		qcom,support-pfe;
+		qcom,msm_bus,name = "qseecom-noc";
+		qcom,msm_bus,num_cases = <4>;
+		qcom,msm_bus,active_only = <0>;
+		qcom,msm_bus,num_paths = <1>;
+		qcom,no-clock-support;
+		qcom,appsbl-qseecom-support;
+		qcom,msm_bus,vectors =
+			<55 512 0 0>,
+			<55 512 3936000000 393600000>,
+			<55 512 3936000000 393600000>,
+			<55 512 3936000000 393600000>;
+		qcom,ce-opp-freq = <100000000>;
+		vdd-hba-supply = <&gdsc_ufs>;
+	};
+
+Example: The following dts setup is the same as the example above.
+
+	qcom,qseecom@fe806000 {
+		compatible = "qcom,qseecom";
+		reg = <0x7f00000 0x500000>;
+		reg-names = "secapp-region";
+		qcom,support-fde;
+		qcom,full-disk-encrypt-info = <0 1 2>, <0 2 2>;
+		qcom,support-pfe;
+		qcom,per-file-encrypt-info = <0 1 0>, <0 2 0>;
+		qcom,qsee-ce-hw-instance = <0>;
 		qcom,msm_bus,name = "qseecom-noc";
 		qcom,msm_bus,num_cases = <4>;
 		qcom,msm_bus,active_only = <0>;
