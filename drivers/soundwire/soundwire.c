@@ -446,8 +446,8 @@ EXPORT_SYMBOL(swr_get_logical_dev_num);
  * This API will read the value of the register address from
  * soundwire slave device
  */
-int swr_read(struct swr_device *dev, u8 dev_num, u32 reg_addr,
-		u32 *buf, u32 len)
+int swr_read(struct swr_device *dev, u8 dev_num, u16 reg_addr,
+	     void *buf, u32 len)
 {
 	struct swr_master *master = dev->master;
 	if (!master)
@@ -455,6 +455,33 @@ int swr_read(struct swr_device *dev, u8 dev_num, u32 reg_addr,
 	return master->read(master, dev_num, reg_addr, buf, len);
 }
 EXPORT_SYMBOL(swr_read);
+
+/**
+ * swr_bulk_write - write soundwire slave device registers
+ * @dev: pointer to soundwire slave device
+ * @dev_num: logical device num of soundwire slave device
+ * @reg_addr: register address of soundwire slave device
+ * @buf: contains value of register address
+ * @len: indicates number of registers
+ *
+ * This API will write the value of the register address to
+ * soundwire slave device
+ */
+int swr_bulk_write(struct swr_device *dev, u8 dev_num, void *reg,
+		   const void *buf, size_t len)
+{
+	struct swr_master *master;
+
+	if (!dev || !dev->master)
+		return -EINVAL;
+
+	master = dev->master;
+	if (master->bulk_write)
+		return master->bulk_write(master, dev_num, reg, buf, len);
+
+	return -ENOSYS;
+}
+EXPORT_SYMBOL(swr_bulk_write);
 
 /**
  * swr_write - write soundwire slave device registers
@@ -466,8 +493,8 @@ EXPORT_SYMBOL(swr_read);
  * This API will write the value of the register address to
  * soundwire slave device
  */
-int swr_write(struct swr_device *dev, u8 dev_num, u32 reg_addr,
-		u32 *buf)
+int swr_write(struct swr_device *dev, u8 dev_num, u16 reg_addr,
+	      const void *buf)
 {
 	struct swr_master *master = dev->master;
 	if (!master)

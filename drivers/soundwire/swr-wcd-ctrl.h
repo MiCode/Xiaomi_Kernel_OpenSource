@@ -63,6 +63,7 @@ struct swr_ctrl_platform_data {
 	void *handle; /* holds priv data */
 	int (*read)(void *handle, int reg);
 	int (*write)(void *handle, int reg, int val);
+	int (*bulk_write)(void *handle, u32 *reg, u32 *val, size_t len);
 	int (*clk)(void *handle, bool enable);
 	int (*reg_irq)(void *handle, irqreturn_t(*irq_handler)(int irq,
 			void *data), void *swr_handle, int type);
@@ -82,6 +83,7 @@ struct swr_mstr_ctrl {
 	void *handle; /* SWR Master handle from client for read and writes */
 	int (*read)(void *handle, int reg);
 	int (*write)(void *handle, int reg, int val);
+	int (*bulk_write)(void *handle, u32 *reg, u32 *val, size_t len);
 	int (*clk)(void *handle, bool enable);
 	int (*reg_irq)(void *handle, irqreturn_t(*irq_handler)(int irq,
 			void *data), void *swr_handle, int type);
