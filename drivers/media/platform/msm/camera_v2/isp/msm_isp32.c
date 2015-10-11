@@ -746,13 +746,13 @@ static void msm_vfe32_cfg_framedrop(void __iomem *vfe_base,
 	uint32_t framedrop_period)
 {
 	if (stream_info->stream_src == PIX_ENCODER) {
-		msm_camera_io_w(framedrop_period, vfe_base + 0x504);
-		msm_camera_io_w(framedrop_period, vfe_base + 0x508);
+		msm_camera_io_w(framedrop_period - 1, vfe_base + 0x504);
+		msm_camera_io_w(framedrop_period - 1, vfe_base + 0x508);
 		msm_camera_io_w(framedrop_pattern, vfe_base + 0x50C);
 		msm_camera_io_w(framedrop_pattern, vfe_base + 0x510);
 	} else if (stream_info->stream_src == PIX_VIEWFINDER) {
-		msm_camera_io_w(framedrop_period, vfe_base + 0x514);
-		msm_camera_io_w(framedrop_period, vfe_base + 0x518);
+		msm_camera_io_w(framedrop_period - 1, vfe_base + 0x514);
+		msm_camera_io_w(framedrop_period - 1, vfe_base + 0x518);
 		msm_camera_io_w(framedrop_pattern, vfe_base + 0x51C);
 		msm_camera_io_w(framedrop_pattern, vfe_base + 0x520);
 	}

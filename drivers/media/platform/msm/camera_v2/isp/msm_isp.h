@@ -360,14 +360,9 @@ struct msm_vfe_axi_stream {
 	uint32_t frame_based;
 	enum msm_vfe_frame_skip_pattern frame_skip_pattern;
 	uint32_t framedrop_period;
-	uint32_t framedrop_pattern;
 	uint32_t prev_framedrop_period;
-	uint32_t prev_framedrop_pattern;
-	uint32_t framedrop_altern_cnt;
 	uint32_t num_burst_capture;/*number of frame to capture*/
 	uint32_t init_frame_drop;
-	uint32_t burst_frame_count;/*number of sof before burst stop*/
-	uint8_t framedrop_update;
 	spinlock_t lock;
 
 	/*Bandwidth calculation info*/
@@ -376,12 +371,7 @@ struct msm_vfe_axi_stream {
 	uint32_t format_factor;
 	uint32_t bandwidth;
 
-	/*Run time update variables*/
-	uint32_t runtime_init_frame_drop;
-	uint32_t runtime_burst_frame_count;/*number of sof before burst stop*/
 	uint32_t runtime_num_burst_capture;
-	uint8_t  runtime_framedrop_update;
-	uint8_t  runtime_framedrop_update_burst;
 	uint32_t runtime_output_format;
 	enum msm_stream_memory_input_t  memory_input;
 	struct msm_isp_sw_framskip sw_skip;

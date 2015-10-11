@@ -1889,19 +1889,12 @@ static void msm_isp_process_overflow_irq(
 void msm_isp_reset_burst_count_and_frame_drop(
 	struct vfe_device *vfe_dev, struct msm_vfe_axi_stream *stream_info)
 {
-	uint32_t framedrop_period = 0;
 	if (stream_info->state != ACTIVE ||
 		stream_info->stream_type != BURST_STREAM) {
 		return;
 	}
 	if (stream_info->stream_type == BURST_STREAM &&
 		stream_info->num_burst_capture != 0) {
-		framedrop_period = msm_isp_get_framedrop_period(
-		   stream_info->frame_skip_pattern);
-		stream_info->burst_frame_count =
-			stream_info->init_frame_drop +
-			(stream_info->num_burst_capture - 1) *
-			framedrop_period + 1;
 		msm_isp_reset_framedrop(vfe_dev, stream_info);
 	}
 }
@@ -2255,17 +2248,24 @@ void msm_isp_flush_tasklet(struct vfe_device *vfe_dev)
 	return;
 }
 
-void msm_isp_save_framedrop_values(struct vfe_device *vfe_dev)
+void msm_isp_save_framedrop_values(struct vfe_device *vfe_dev,
+				enum msm_vfe_input_src frame_src)
 {
 	struct msm_vfe_axi_stream *stream_info = NULL;
 	uint32_t j = 0;
+	unsigned long flags;
 
 	for (j = 0; j < VFE_AXI_SRC_MAX; j++) {
+		stream_info = &vfe_dev->axi_data.stream_info[j];
+		if (stream_info->state != ACTIVE)
+			continue;
+		if (frame_src != SRC_TO_INTF(stream_info->stream_src))
+			continue;
+
 		stream_info =
 			&vfe_dev->axi_data.stream_info[j];
-		stream_info->prev_framedrop_pattern =
-			stream_info->framedrop_pattern;
-		stream_info->prev_framedrop_period =
-			stream_info->framedrop_period;
+		spin_lock_irqsave(&stream_info->lock, flags);
+		stream_info->prev_framedrop_period &= ~0x80000000;
+		spin_unlock_irqrestore(&stream_info->lock, flags);
 	}
 }
