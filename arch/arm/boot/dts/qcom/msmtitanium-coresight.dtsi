@@ -729,4 +729,41 @@
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
 	};
+
+	tpda: tpda@6003000 {
+		compatible = "qcom,coresight-tpda";
+		reg = <0x6003000 0x1000>;
+		reg-names = "tpda-base";
+
+		coresight-id = <45>;
+		coresight-name = "coresight-tpda";
+		coresight-nr-inports = <2>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <6>;
+
+		qcom,tpda-atid = <64>;
+		qcom,cmb-elem-size = <0 32>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	tpdm_dcc: tpdm@6110000 {
+		compatible = "qcom,coresight-tpdm";
+		reg = <0x6110000 0x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-id = <46>;
+		coresight-name = "coresight-tpdm-dcc";
+		coresight-nr-inports = <1>;
+		coresight-outports = <0>;
+		coresight-child-list = <&tpda>;
+		coresight-child-ports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
 };
