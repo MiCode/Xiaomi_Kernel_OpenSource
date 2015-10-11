@@ -13,6 +13,7 @@
 
 #include "msm8976.dtsi"
 #include "msm8976-wsa881x.dtsi"
+#include "msm8976-camera-sensor-polaris.dtsi"
 
 &blsp1_uart2 {
 	status = "ok";
