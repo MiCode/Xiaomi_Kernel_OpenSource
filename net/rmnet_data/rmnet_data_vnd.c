@@ -608,8 +608,10 @@ int rmnet_vnd_create_dev(int id, struct net_device **new_device,
 	}
 
 	if (!prefix) {
+		/* Configuring DL checksum offload on rmnet_data interfaces */
+		dev->hw_features = NETIF_F_RXCSUM;
 		/* Configuring UL checksum offload on rmnet_data interfaces */
-		dev->hw_features = NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+		dev->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
 			NETIF_F_IPV6_UDP_CSUM;
 		/* Configuring GRO on rmnet_data interfaces */
 		dev->hw_features |= NETIF_F_GRO;
