@@ -52,7 +52,19 @@
 				qcom,energy-overhead = <85000>;
 				qcom,time-overhead = <120>;
 			};
-			qcom,pm-cluster-level@1{
+			qcom,pm-cluster-level@1{ /* E3-M2 */
+				reg = <1>;
+				label = "system-ret";
+				qcom,spm-cbf-mode = "fpc";
+				qcom,spm-l3-mode = "fpc";
+				qcom,psci-mode = <0x23>;
+				qcom,latency-us = <350>;
+				qcom,ss-power = <530>;
+				qcom,energy-overhead = <160000>;
+				qcom,time-overhead = <550>;
+				qcom,min-child-idx = <1>;
+			};
+			qcom,pm-cluster-level@2{ /* E4-M3 */
 				reg = <1>;
 				label = "system-fpc";
 				qcom,spm-cbf-mode = "fpc";
