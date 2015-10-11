@@ -250,6 +250,11 @@ enum ipa_client_type {
 #define IPA_CLIENT_IS_MHI_CONS(client) \
 	((client) == IPA_CLIENT_MHI_CONS)
 
+#define IPA_CLIENT_IS_MHI(client) \
+	((client) == IPA_CLIENT_MHI_CONS || \
+	(client) == IPA_CLIENT_MHI_PROD)
+
+
 
 
 /**

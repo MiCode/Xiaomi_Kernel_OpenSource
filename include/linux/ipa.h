@@ -1067,16 +1067,21 @@ struct ipa_mhi_msi_info {
  * @mmio_addr: MHI MMIO physical address
  * @first_ch_idx: First channel ID for hardware accelerated channels.
  * @first_er_idx: First event ring ID for hardware accelerated channels.
+ * @assert_bit40: should assert bit 40 in order to access hots space.
+ *	if PCIe iATU is configured then not need to assert bit40
  * @notify: client callback
  * @priv: client private data to be provided in client callback
+ * @test_mode: flag to indicate if IPA MHI is in unit test mode
  */
 struct ipa_mhi_init_params {
 	struct ipa_mhi_msi_info msi;
 	u32 mmio_addr;
 	u32 first_ch_idx;
 	u32 first_er_idx;
+	bool assert_bit40;
 	mhi_client_cb notify;
 	void *priv;
+	bool test_mode;
 };
 
 /**
@@ -1084,10 +1089,14 @@ struct ipa_mhi_init_params {
  *
  * @host_ctrl_addr: Base address of MHI control data structures
  * @host_data_addr: Base address of MHI data buffers
+ * @channel_context_addr: channel context array address in host address space
+ * @event_context_addr: event context array address in host address space
  */
 struct ipa_mhi_start_params {
 	u32 host_ctrl_addr;
 	u32 host_data_addr;
+	u64 channel_context_array_addr;
+	u64 event_context_array_addr;
 };
 
 /**
