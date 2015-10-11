@@ -2239,7 +2239,7 @@ static inline int teth_bridge_connect(struct teth_bridge_connect_params
 static inline void ipa_set_client(int index, enum ipacm_client_enum client,
 	bool uplink)
 {
-	return -EPERM;
+	return;
 }
 
 static inline enum ipacm_client_enum ipa_get_client(int pipe_idx)
