@@ -25,7 +25,7 @@
 #if !defined(CONFIG_SMP)
 #define msm_secondary_startup NULL
 #elif defined(CONFIG_CPU_V7)
-extern void msm_secondary_startup(void);
+#define msm_secondary_startup secondary_startup
 #else
 #define msm_secondary_startup secondary_holding_pen
 #endif
