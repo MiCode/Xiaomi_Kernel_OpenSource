@@ -916,11 +916,19 @@ static inline struct adreno_device *adreno_get_dev(struct platform_device *pdev)
 	return of_id ? (struct adreno_device *) of_id->data : NULL;
 }
 
+static struct {
+	unsigned int quirk;
+	const char *prop;
+} adreno_quirks[] = {
+	 { ADRENO_QUIRK_TWO_PASS_USE_WFI, "qcom,gpu-quirk-two-pass-use-wfi" },
+};
+
 static int adreno_of_get_pdata(struct adreno_device *adreno_dev)
 {
 	struct platform_device *pdev = adreno_dev->dev.pdev;
 	struct kgsl_device_platform_data *pdata = NULL;
 	int ret = -EINVAL;
+	int i;
 
 	if (of_property_read_string(pdev->dev.of_node, "label", &pdev->name)) {
 		KGSL_CORE_ERR("Unable to read 'label'\n");
@@ -934,6 +942,14 @@ static int adreno_of_get_pdata(struct adreno_device *adreno_dev)
 	if (pdata == NULL) {
 		ret = -ENOMEM;
 		goto err;
+	}
+
+	/* Set up quirks and other boolean options */
+
+	for (i = 0; i < ARRAY_SIZE(adreno_quirks); i++) {
+		if (of_property_read_bool(pdev->dev.of_node,
+			adreno_quirks[i].prop))
+			adreno_dev->quirks |= adreno_quirks[i].quirk;
 	}
 
 	/* pwrlevel Data */

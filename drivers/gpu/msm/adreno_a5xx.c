@@ -1739,7 +1739,7 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct kgsl_iommu *iommu = device->mmu.priv;
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	uint val = 0, i;
+	unsigned int i;
 	struct adreno_ringbuffer *rb;
 	uint64_t def_ttbr0;
 	uint32_t contextidr;
@@ -1866,10 +1866,16 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	 * LD combine, bit[25] of SP_DBG_ECO_CNTL (sp chicken bit[17]) need to
 	 * be set to 1, default is 0(enable)
 	 */
-	if (adreno_is_a530v1(adreno_dev)) {
-		kgsl_regread(device, A5XX_SP_DBG_ECO_CNTL, &val);
-		val = (val | 1 << 25);
-		kgsl_regwrite(device, A5XX_SP_DBG_ECO_CNTL, val);
+	if (adreno_is_a530v1(adreno_dev))
+		kgsl_regrmw(device, A5XX_SP_DBG_ECO_CNTL, 0, (1 << 25));
+
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_TWO_PASS_USE_WFI)) {
+		/*
+		 * Set TWOPASSUSEWFI in A5XX_PC_DBG_ECO_CNTL for
+		 * microcodes after v77
+		 */
+		if ((adreno_compare_pfp_version(adreno_dev, 0x5FF077) >= 0))
+			kgsl_regrmw(device, A5XX_SP_DBG_ECO_CNTL, 0, (1 << 8));
 	}
 
 	/* Set the USE_RETENTION_FLOPS chicken bit */
