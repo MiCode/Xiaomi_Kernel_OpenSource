@@ -2435,6 +2435,7 @@
 			 <&clock_gcc clk_gcc_ce1_ahb_m_clk>,
 			 <&clock_gcc clk_gcc_ce1_axi_m_clk>;
 		qcom,ce-opp-freq = <171430000>;
+		qcom,qsee-reentrancy-support = <2>;
 	};
 
 	qcom,qbt1000 {
