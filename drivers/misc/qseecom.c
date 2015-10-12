@@ -1904,17 +1904,21 @@ enable_clk_err:
 
 static int __qseecom_cleanup_app(struct qseecom_dev_handle *data)
 {
+	int ret = 1;	/* Set unload app */
 	wake_up_all(&qseecom.send_resp_wq);
+	if (qseecom.qsee_reentrancy_support)
+		mutex_unlock(&app_access_lock);
 	while (atomic_read(&data->ioctl_count) > 1) {
 		if (wait_event_freezable(data->abort_wq,
 					atomic_read(&data->ioctl_count) <= 1)) {
 			pr_err("Interrupted from abort\n");
-			return -ERESTARTSYS;
+			ret = -ERESTARTSYS;
 			break;
 		}
 	}
-	/* Set unload app */
-	return 1;
+	if (qseecom.qsee_reentrancy_support)
+		mutex_lock(&app_access_lock);
+	return ret;
 }
 
 static int qseecom_unmap_ion_allocated_memory(struct qseecom_dev_handle *data)
@@ -7059,7 +7063,9 @@ static int qseecom_remove(struct platform_device *pdev)
 			goto exit_free_kc_handle;
 
 		list_del(&kclient->list);
+		mutex_lock(&app_access_lock);
 		ret = qseecom_unload_app(kclient->handle->dev, false);
+		mutex_unlock(&app_access_lock);
 		if (!ret) {
 			kzfree(kclient->handle->dev);
 			kzfree(kclient->handle);
