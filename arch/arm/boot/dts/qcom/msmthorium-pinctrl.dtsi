@@ -50,8 +50,8 @@
 
 		};
 
-		i2c2 {
-			i2c2_default: i2c2_default {
+		i2c_2 {
+			i2c_2_active: i2c_2_active {
 				/* active state */
 				mux {
 					pins = "gpio6", "gpio7";
@@ -65,7 +65,7 @@
 				};
 			};
 
-			i2c2_sleep: i2c2_sleep {
+			i2c_2_sleep: i2c_2_sleep {
 				/* suspended state */
 				mux {
 					pins = "gpio6", "gpio7";
@@ -80,8 +80,8 @@
 			};
 		};
 
-		i2c5 {
-			i2c5_default: i2c5_default {
+		i2c_5 {
+			i2c_5_active: i2c_5_active {
 				/* active state */
 				mux {
 					pins = "gpio18", "gpio19";
@@ -95,7 +95,7 @@
 				};
 			};
 
-			i2c5_sleep: i2c5_sleep {
+			i2c_5_sleep: i2c_5_sleep {
 				/* suspended state */
 				mux {
 					pins = "gpio18", "gpio19";
