@@ -288,6 +288,7 @@
 #define clk_gpll0_out_msscc		0x7d794829
 #define clk_gcc_debug_mux_v2		0xf7e749f0
 #define clk_gcc_dcc_ahb_clk		0xfa14a88c
+#define clk_gcc_aggre0_noc_mpu_cfg_ahb_clk	0x5c1bb8e2
 
 /* clock_mmss controlled clocks */
 #define clk_mmsscc_xo			0x05e63704

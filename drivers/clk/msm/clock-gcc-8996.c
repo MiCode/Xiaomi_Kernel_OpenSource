@@ -3130,6 +3130,17 @@ static struct branch_clk gcc_dcc_ahb_clk = {
 	},
 };
 
+static struct branch_clk gcc_aggre0_noc_mpu_cfg_ahb_clk = {
+	.cbcr_reg = GCC_AGGRE0_NOC_MPU_CFG_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_aggre0_noc_mpu_cfg_ahb_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_aggre0_noc_mpu_cfg_ahb_clk.c),
+	},
+};
+
 static struct mux_clk gcc_debug_mux;
 static struct mux_clk gcc_debug_mux_v2;
 static struct clk_ops clk_ops_debug_mux;
@@ -3276,6 +3287,7 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_aggre2_ufs_axi_clk.c, 0x0126 },
 		{ &gcc_aggre2_usb3_axi_clk.c, 0x0127 },
 		{ &gcc_dcc_ahb_clk.c, 0x012b },
+		{ &gcc_aggre0_noc_mpu_cfg_ahb_clk.c, 0x012c},
 		{ &ipa_clk.c, 0x12f },
 	),
 	.c = {
@@ -3568,6 +3580,7 @@ static struct clk_lookup msm_clocks_gcc_8996[] = {
 	CLK_LIST(gcc_mmss_bimc_gfx_clk),
 	CLK_LIST(gcc_bimc_gfx_clk),
 	CLK_LIST(gcc_dcc_ahb_clk),
+	CLK_LIST(gcc_aggre0_noc_mpu_cfg_ahb_clk),
 };
 
 static struct clk_lookup msm_clocks_gcc_8996_v2[] = {
