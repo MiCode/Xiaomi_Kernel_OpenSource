@@ -43,6 +43,27 @@
 	};
 };
 
+&pmdcalifornium_gpios {
+	gpio@c100 { /* GPIO 2 - VADC */
+		/* GPIO should be left off, and in the high
+		 * impedance state when the pin is used with the VADC
+		 */
+		status = "ok";
+		qcom,master-en = <0>;	/* DISABLE GPIO */
+	};
+
+	gpio@c500 { /* GPIO 6 - Rome 3.3V control */
+		status = "ok";
+		qcom,mode = <1>;		/* Digital output*/
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <1>;		/* Output high */
+		qcom,vin-sel = <0>;		/* VPH_PWR */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,out-strength = <1>;	/* High drive strength */
+		qcom,master-en = <1>;		/* Enable GPIO */
+	};
+};
+
 &usb3 {
 	vbus_dwc3-supply = <&smb1351_otg_supply>;
 };
