@@ -25,3 +25,5 @@ struct ath3k_version {
 int get_rome_version(struct usb_device *udev, struct ath3k_version *version);
 int rome_download(struct usb_device *udev, struct ath3k_version *version);
 
+extern struct rw_semaphore btusb_pm_sem;
+
