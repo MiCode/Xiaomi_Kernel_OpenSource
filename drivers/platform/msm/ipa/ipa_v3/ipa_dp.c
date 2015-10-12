@@ -1116,6 +1116,16 @@ int ipa3_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	atomic_set(&ep->avail_fifo_desc,
 		((sys_in->desc_fifo_sz/sizeof(struct sps_iovec))-1));
 
+	if (ep->status.status_en && IPA_CLIENT_IS_CONS(ep->client) &&
+	    ep->sys->status_stat == NULL) {
+		ep->sys->status_stat =
+			kzalloc(sizeof(struct ipa3_status_stats), GFP_KERNEL);
+		if (!ep->sys->status_stat) {
+			IPAERR("no memory\n");
+			goto fail_gen2;
+		}
+	}
+
 	result = ipa3_enable_data_path(ipa_ep_idx);
 	if (result) {
 		IPAERR("enable data path failed res=%d clnt=%d.\n", result,
@@ -2141,6 +2151,13 @@ begin:
 		IPADBG("STATUS opcode=%d src=%d dst=%d len=%d\n",
 				status->status_opcode, status->endp_src_idx,
 				status->endp_dest_idx, status->pkt_len);
+		if (sys->status_stat) {
+			sys->status_stat->status[sys->status_stat->curr] =
+				*status;
+			sys->status_stat->curr++;
+			if (sys->status_stat->curr == IPA_MAX_STATUS_STAT_NUM)
+				sys->status_stat->curr = 0;
+		}
 
 		if ((status->status_opcode &
 		    (IPA_HW_STATUS_OPCODE_DROPPED_PACKET |
@@ -2383,6 +2400,15 @@ static int ipa3_wan_rx_pyld_hdlr(struct sk_buff *skb,
 		IPADBG("STATUS opcode=%d src=%d dst=%d len=%d\n",
 				status->status_opcode, status->endp_src_idx,
 				status->endp_dest_idx, status->pkt_len);
+
+		if (sys->status_stat) {
+			sys->status_stat->status[sys->status_stat->curr] =
+				*status;
+			sys->status_stat->curr++;
+			if (sys->status_stat->curr == IPA_MAX_STATUS_STAT_NUM)
+				sys->status_stat->curr = 0;
+		}
+
 		if ((status->status_opcode &
 		    (IPA_HW_STATUS_OPCODE_DROPPED_PACKET |
 		    IPA_HW_STATUS_OPCODE_PACKET |
