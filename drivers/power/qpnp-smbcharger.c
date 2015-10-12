@@ -205,7 +205,6 @@ struct smbchg_chip {
 	int				batt_cool_irq;
 	int				batt_cold_irq;
 	int				batt_missing_irq;
-	int				batt_ov_irq;
 	int				vbat_low_irq;
 	int				chg_hot_irq;
 	int				chg_term_irq;
@@ -1034,25 +1033,8 @@ static int get_prop_batt_voltage_max_design(struct smbchg_chip *chip)
 	return uv;
 }
 
-#define BAT_OV_BIT		BIT(4)
-static bool is_battery_ov(struct smbchg_chip *chip)
-{
-	int rc;
-	u8 reg;
-
-	rc = smbchg_read(chip, &reg, chip->bat_if_base + RT_STS, 1);
-	if (rc) {
-		dev_err(chip->dev, "Unable to read RT_STS rc = %d\n", rc);
-		return false;
-	}
-
-	return !!(reg & BAT_OV_BIT);
-}
-
 static int get_prop_batt_health(struct smbchg_chip *chip)
 {
-	if (is_battery_ov(chip))
-		return POWER_SUPPLY_HEALTH_OVERVOLTAGE;
 	if (chip->batt_hot)
 		return POWER_SUPPLY_HEALTH_OVERHEAT;
 	else if (chip->batt_cold)
@@ -5571,6 +5553,7 @@ static int smbchg_dc_is_writeable(struct power_supply *psy,
 #define HOT_BAT_SOFT_BIT	BIT(1)
 #define COLD_BAT_HARD_BIT	BIT(2)
 #define COLD_BAT_SOFT_BIT	BIT(3)
+#define BAT_OV_BIT		BIT(4)
 #define BAT_LOW_BIT		BIT(5)
 #define BAT_MISSING_BIT		BIT(6)
 #define BAT_TERM_MISSING_BIT	BIT(7)
@@ -5655,17 +5638,6 @@ static irqreturn_t batt_pres_handler(int irq, void *_chip)
 	smbchg_charging_status_change(chip);
 	set_property_on_fg(chip, POWER_SUPPLY_PROP_HEALTH,
 			get_prop_batt_health(chip));
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t batt_ov_handler(int irq, void *_chip)
-{
-	struct smbchg_chip *chip = _chip;
-
-	power_supply_changed(&chip->batt_psy);
-	pr_warn_ratelimited("batt is %s\n",
-			is_battery_ov(chip) ? "now OV" : "not OV anymore");
-
 	return IRQ_HANDLED;
 }
 
@@ -7078,8 +7050,6 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 				"batt-cold", batt_cold_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->batt_missing_irq,
 				"batt-missing", batt_pres_handler, flags, rc);
-			REQUEST_IRQ(chip, spmi_resource, chip->batt_ov_irq,
-				"batt-ov", batt_ov_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->vbat_low_irq,
 				"batt-low", vbat_low_handler, flags, rc);
 			enable_irq_wake(chip->batt_hot_irq);
