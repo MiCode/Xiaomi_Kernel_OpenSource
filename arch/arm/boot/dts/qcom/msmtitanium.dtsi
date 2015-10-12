@@ -686,8 +686,8 @@
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
 		qcom,msm-bus,vectors-KBps =
-					<61 512 0 0>,
-					<61 512 240000 960000>;
+					<87 512 0 0>,
+					<87 512 240000 960000>;
 
 		qcom,dwc-usb3-msm-tx-fifo-size = <21288>;
 
@@ -786,10 +786,13 @@
 		reg-names = "qusb_phy_base",
 			"qscratch_base";
 
-		vdd-supply = <&pmtitanium_l3>;
+		vdd-supply = <&pmtitanium_s7_level>;
 		vdda18-supply = <&pmtitanium_l7>;
 		vdda33-supply = <&pmtitanium_l13>;
-		qcom,vdd-voltage-level = <0 925000 925000>;
+		qcom,vdd-voltage-level = <RPM_SMD_REGULATOR_LEVEL_NONE
+					RPM_SMD_REGULATOR_LEVEL_NOM
+					RPM_SMD_REGULATOR_LEVEL_TURBO>;
+
 		qcom,qusb-phy-init-seq = <0xF8 0x80
 					0xB3 0x84
 					0x93 0x88
@@ -800,7 +803,7 @@
 					0x14 0x9C>;
 		phy_type= "utmi";
 
-		clocks = <&clock_gcc clk_ln_bb_clk>,
+		clocks = <&clock_gcc clk_bb_clk1>,
 			 <&clock_gcc clk_gcc_qusb_ref_clk>,
 			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb_clk>,
 			 <&clock_gcc clk_gcc_qusb2_phy_reset>;
@@ -826,7 +829,7 @@
 			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb_clk>,
 			 <&clock_gcc clk_gcc_usb3_phy_reset>,
 			 <&clock_gcc clk_gcc_usb3phy_phy_reset>,
-			 <&clock_gcc clk_ln_bb_clk>,
+			 <&clock_gcc clk_bb_clk1>,
 			 <&clock_gcc clk_gcc_usb_ss_ref_clk>;
 
 		clock-names = "aux_clk", "pipe_clk", "cfg_ahb_clk", "phy_reset",
