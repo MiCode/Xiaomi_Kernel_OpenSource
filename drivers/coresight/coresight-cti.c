@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/mutex.h>
 #include <linux/clk.h>
+#include <linux/cpu_pm.h>
 #include <linux/topology.h>
 #include <linux/of.h>
 #include <linux/of_coresight.h>
@@ -66,6 +67,7 @@ do {									\
 
 #define CTI_MAX_TRIGGERS	(8)
 #define CTI_MAX_CHANNELS	(4)
+#define AFFINITY_LEVEL_L2	1
 
 #define to_cti_drvdata(c) container_of(c, struct cti_drvdata, cti)
 
@@ -99,6 +101,9 @@ struct cti_drvdata {
 	struct cti_pctrl		*gpio_trigin;
 	struct cti_pctrl		*gpio_trigout;
 };
+
+static struct notifier_block cti_cpu_pm_notifier;
+static int registered;
 
 static LIST_HEAD(cti_list);
 static DEFINE_MUTEX(cti_lock);
@@ -1360,6 +1365,30 @@ static const struct attribute_group *cti_attr_grps[] = {
 	NULL,
 };
 
+static int cti_cpu_pm_callback(struct notifier_block *self,
+			       unsigned long cmd, void *v)
+{
+	unsigned long aff_level = (unsigned long) v;
+
+	switch (cmd) {
+	case CPU_CLUSTER_PM_ENTER:
+		if (aff_level == AFFINITY_LEVEL_L2)
+			coresight_cti_ctx_save();
+		break;
+	case CPU_CLUSTER_PM_ENTER_FAILED:
+	case CPU_CLUSTER_PM_EXIT:
+		if (aff_level == AFFINITY_LEVEL_L2)
+			coresight_cti_ctx_restore();
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block cti_cpu_pm_notifier = {
+	.notifier_call = cti_cpu_pm_callback,
+};
+
 static int cti_probe(struct platform_device *pdev)
 {
 	int ret, cpu;
@@ -1501,6 +1530,12 @@ static int cti_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+	if (drvdata->cti_save) {
+		if (!registered)
+			cpu_pm_register_notifier(&cti_cpu_pm_notifier);
+		registered++;
+	}
+
 	dev_dbg(dev, "CTI initialized\n");
 	return 0;
 err:
@@ -1513,6 +1548,11 @@ static int cti_remove(struct platform_device *pdev)
 {
 	struct cti_drvdata *drvdata = platform_get_drvdata(pdev);
 
+	if (drvdata->cti_save) {
+		registered--;
+		if (!registered)
+			cpu_pm_unregister_notifier(&cti_cpu_pm_notifier);
+	}
 	coresight_unregister(drvdata->csdev);
 	if (drvdata->cti_save && !drvdata->cti_hwclk)
 		clk_disable_unprepare(drvdata->clk);
