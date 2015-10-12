@@ -2458,7 +2458,17 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 			if (SRC_TO_INTF(stream_info->stream_src) >= VFE_RAW_0 &&
 				SRC_TO_INTF(stream_info->stream_src) <
 				VFE_SRC_MAX) {
-				vfe_dev->axi_data.src_info[SRC_TO_INTF(
+				/* Incase PIX and RDI streams are part of same
+				 * session, this will ensure RDI stream will
+				 * have same frame id as of PIX stream
+				 */
+				if (stream_cfg_cmd->sync_frame_id_src)
+					vfe_dev->axi_data.src_info[SRC_TO_INTF(
+					stream_info->stream_src)].frame_id =
+					vfe_dev->axi_data.src_info[VFE_PIX_0]
+					.frame_id;
+				else
+					vfe_dev->axi_data.src_info[SRC_TO_INTF(
 					stream_info->stream_src)].frame_id = 0;
 				vfe_dev->axi_data.src_info[SRC_TO_INTF(
 					stream_info->stream_src)].active = 1;
