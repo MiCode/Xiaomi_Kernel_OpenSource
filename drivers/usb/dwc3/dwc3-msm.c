@@ -166,6 +166,7 @@ struct dwc3_msm {
 	unsigned int		utmi_clk_rate;
 	struct clk		*utmi_clk_src;
 	struct clk		*bus_aggr_clk;
+	struct clk		*cfg_ahb_clk;
 	struct regulator	*dwc3_gdsc;
 
 	struct usb_phy		*hs_phy, *ss_phy;
@@ -1205,6 +1206,7 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 
 	/* Configure AHB2PHY for one wait state read/write */
 	if (mdwc->ahb2phy_base) {
+		clk_prepare_enable(mdwc->cfg_ahb_clk);
 		val = readl_relaxed(mdwc->ahb2phy_base +
 				PERIPH_SS_AHB2PHY_TOP_CFG);
 		if (val != ONE_READ_WRITE_WAIT) {
@@ -1213,6 +1215,7 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 			/* complete above write before configuring USB PHY. */
 			mb();
 		}
+		clk_disable_unprepare(mdwc->cfg_ahb_clk);
 	}
 
 	dwc3_core_init(dwc);
@@ -2090,6 +2093,13 @@ static int dwc3_msm_get_clk_gdsc(struct dwc3_msm *mdwc)
 	if (IS_ERR(mdwc->bus_aggr_clk))
 		mdwc->bus_aggr_clk = NULL;
 
+	mdwc->cfg_ahb_clk = devm_clk_get(mdwc->dev, "cfg_ahb_clk");
+	if (IS_ERR(mdwc->cfg_ahb_clk)) {
+		dev_err(mdwc->dev, "failed to get cfg_ahb_clk\n");
+		ret = PTR_ERR(mdwc->cfg_ahb_clk);
+		return ret;
+	}
+
 	return 0;
 }
 
@@ -2262,6 +2272,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			dev_err(dev, "couldn't find ahb2phy_base addr.\n");
 			mdwc->ahb2phy_base = NULL;
 		} else {
+			clk_prepare_enable(mdwc->cfg_ahb_clk);
 			/* Configure AHB2PHY for one wait state read/write*/
 			val = readl_relaxed(mdwc->ahb2phy_base +
 					PERIPH_SS_AHB2PHY_TOP_CFG);
@@ -2272,6 +2283,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 				/* complete above write before using USB PHY */
 				mb();
 			}
+			clk_disable_unprepare(mdwc->cfg_ahb_clk);
 		}
 	}
 
