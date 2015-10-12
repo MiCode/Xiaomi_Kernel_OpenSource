@@ -219,7 +219,8 @@ static void diagfwd_data_read_done(struct diagfwd_info *fwd_info,
 	int write_len = 0;
 	unsigned char *write_buf = NULL;
 	struct diagfwd_buf_t *temp_buf = NULL;
-
+	struct diag_md_session_t *session_info = NULL;
+	uint8_t hdlc_disabled = 0;
 	if (!fwd_info || !buf || len <= 0) {
 		diag_ws_release();
 		return;
@@ -239,6 +240,12 @@ static void diagfwd_data_read_done(struct diagfwd_info *fwd_info,
 
 	mutex_lock(&driver->hdlc_disable_mutex);
 	mutex_lock(&fwd_info->data_mutex);
+	session_info = diag_md_session_get_peripheral(fwd_info->peripheral);
+	if (session_info)
+		hdlc_disabled = session_info->hdlc_disabled;
+	else
+		hdlc_disabled = driver->hdlc_disabled;
+
 	if (!driver->feature[fwd_info->peripheral].encode_hdlc) {
 		if (fwd_info->buf_1 && fwd_info->buf_1->data == buf) {
 			temp_buf = fwd_info->buf_1;
@@ -253,7 +260,7 @@ static void diagfwd_data_read_done(struct diagfwd_info *fwd_info,
 			goto end;
 		}
 		write_len = len;
-	} else if (driver->hdlc_disabled) {
+	} else if (hdlc_disabled) {
 		/* The data is raw and and on APPS side HDLC is disabled */
 		if (fwd_info->buf_1 && fwd_info->buf_1->data_raw == buf) {
 			temp_buf = fwd_info->buf_1;
@@ -282,8 +289,8 @@ static void diagfwd_data_read_done(struct diagfwd_info *fwd_info,
 			temp_buf = fwd_info->buf_2;
 		} else {
 			pr_err("diag: In %s, no match for non encode buffer %p, peripheral %d, type: %d\n",
-			       __func__, buf, fwd_info->peripheral,
-			       fwd_info->type);
+				__func__, buf, fwd_info->peripheral,
+				fwd_info->type);
 			goto end;
 		}
 		write_len = check_bufsize_for_encoding(temp_buf, len);
