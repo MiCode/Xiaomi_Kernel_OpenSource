@@ -53,6 +53,9 @@ Optional properties:
 		      to the apps.
 - qcom,gpio-ramdump-disable: GPIO used by the modem to inform the apps that ramdump
 			     collection should be disabled.
+- qcom,gpio-shutdown-ack: GPIO used by the modem to indicate that it has done the
+			  necessary cleanup and that the apps can move forward with
+			  the shutdown sequence.
 - qcom,restart-group: List of subsystems that will need to restart together.
 - qcom,mba-image-is-not-elf:	Boolean- Present if MBA image doesnt use the ELF
 				format.
