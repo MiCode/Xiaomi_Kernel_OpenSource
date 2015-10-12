@@ -108,8 +108,14 @@ int ipa3_disable_data_path(u32 clnt_hdl)
 	aggr_init = ipa_read_reg(ipa3_ctx->mmio,
 			IPA_ENDP_INIT_AGGR_N_OFST_v3_0(clnt_hdl));
 	if (((aggr_init & IPA_ENDP_INIT_AGGR_N_AGGR_EN_BMSK) >>
-	    IPA_ENDP_INIT_AGGR_N_AGGR_EN_SHFT) == IPA_ENABLE_AGGR)
-		ipa3_tag_aggr_force_close(clnt_hdl);
+	    IPA_ENDP_INIT_AGGR_N_AGGR_EN_SHFT) == IPA_ENABLE_AGGR) {
+		res = ipa3_tag_aggr_force_close(clnt_hdl);
+		if (res) {
+			IPAERR("tag process timeout, client:%d err:%d\n",
+				   clnt_hdl, res);
+			BUG();
+		}
+	}
 
 	return res;
 }
