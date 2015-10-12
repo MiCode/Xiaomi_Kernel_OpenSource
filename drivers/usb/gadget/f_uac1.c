@@ -82,7 +82,7 @@ static int generic_get_cmd(struct usb_audio_control *con, u8 cmd);
 #define F_AUDIO_NUM_INTERFACES		2
 
  /* B.3.1  Standard AC Interface Descriptor */
-struct usb_interface_descriptor ac_interface_desc = {
+struct usb_interface_descriptor uac1_ac_interface_desc = {
 	.bLength		= USB_DT_INTERFACE_SIZE,
 	.bDescriptorType	= USB_DT_INTERFACE,
 	.bNumEndpoints		= 0,
@@ -99,7 +99,7 @@ struct usb_interface_descriptor ac_interface_desc = {
 	)
 
  /* B.3.2  Class-Specific AC Interface Descriptor */
-struct uac1_ac_header_descriptor_2 ac_header_desc = {
+struct uac1_ac_header_descriptor_2 uac1_ac_header_desc = {
 	.bLength		= UAC_DT_AC_HEADER_SIZE(2),
 	.bDescriptorType	= USB_DT_CS_INTERFACE,
 	.bDescriptorSubtype	= UAC_HEADER,
@@ -393,8 +393,8 @@ audio_iad_descriptor = {
 static struct usb_descriptor_header *f_audio_desc[]  = {
 	(struct usb_descriptor_header *)&audio_iad_descriptor,
 
-	(struct usb_descriptor_header *)&ac_interface_desc,
-	(struct usb_descriptor_header *)&ac_header_desc,
+	(struct usb_descriptor_header *)&uac1_ac_interface_desc,
+	(struct usb_descriptor_header *)&uac1_ac_header_desc,
 
 	(struct usb_descriptor_header *)&microphone_input_terminal_desc,
 	(struct usb_descriptor_header *)&microphone_output_terminal_desc,
@@ -422,8 +422,8 @@ static struct usb_descriptor_header *f_audio_desc[]  = {
 static struct usb_descriptor_header *f_audio_ss_desc[]  = {
 	(struct usb_descriptor_header *)&audio_iad_descriptor,
 
-	(struct usb_descriptor_header *)&ac_interface_desc,
-	(struct usb_descriptor_header *)&ac_header_desc,
+	(struct usb_descriptor_header *)&uac1_ac_interface_desc,
+	(struct usb_descriptor_header *)&uac1_ac_header_desc,
 
 	(struct usb_descriptor_header *)&microphone_input_terminal_desc,
 	(struct usb_descriptor_header *)&microphone_output_terminal_desc,
@@ -979,9 +979,9 @@ static int f_audio_get_alt(struct usb_function *f, unsigned intf)
 {
 	struct f_audio	*audio = func_to_audio(f);
 
-	if (intf == ac_header_desc.baInterfaceNr[0])
+	if (intf == uac1_ac_header_desc.baInterfaceNr[0])
 		return audio->alt_intf[0];
-	if (intf == ac_header_desc.baInterfaceNr[1])
+	if (intf == uac1_ac_header_desc.baInterfaceNr[1])
 		return audio->alt_intf[1];
 
 	return 0;
@@ -998,7 +998,7 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 	pr_debug("intf %d, alt %d\n", intf, alt);
 
-	if (intf == ac_header_desc.baInterfaceNr[0]) {
+	if (intf == uac1_ac_header_desc.baInterfaceNr[0]) {
 		if (audio->alt_intf[0] == alt) {
 			pr_debug("Alt interface is already set to %d. Do nothing.\n",
 				alt);
@@ -1052,7 +1052,7 @@ static int f_audio_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 			spin_unlock_irqrestore(&audio->capture_lock, flags);
 		}
 		audio->alt_intf[0] = alt;
-	} else if (intf == ac_header_desc.baInterfaceNr[1]) {
+	} else if (intf == uac1_ac_header_desc.baInterfaceNr[1]) {
 		if (audio->alt_intf[1] == alt) {
 			pr_debug("Alt interface is already set to %d. Do nothing.\n",
 				alt);
@@ -1181,7 +1181,7 @@ f_audio_bind(struct usb_configuration *c, struct usb_function *f)
 		pr_err("%s: failed to allocate desc interface", __func__);
 		goto fail;
 	}
-	ac_interface_desc.bInterfaceNumber = status;
+	uac1_ac_interface_desc.bInterfaceNumber = status;
 	audio_iad_descriptor.bFirstInterface = status;
 
 	status = -ENOMEM;
@@ -1193,7 +1193,7 @@ f_audio_bind(struct usb_configuration *c, struct usb_function *f)
 	}
 	microphone_as_interface_alt_0_desc.bInterfaceNumber = status;
 	microphone_as_interface_alt_1_desc.bInterfaceNumber = status;
-	ac_header_desc.baInterfaceNr[0] = status;
+	uac1_ac_header_desc.baInterfaceNr[0] = status;
 	audio->alt_intf[0] = 0;
 
 	status = -ENODEV;
@@ -1205,7 +1205,7 @@ f_audio_bind(struct usb_configuration *c, struct usb_function *f)
 	}
 	speaker_as_interface_alt_0_desc.bInterfaceNumber = status;
 	speaker_as_interface_alt_1_desc.bInterfaceNumber = status;
-	ac_header_desc.baInterfaceNr[1] = status;
+	uac1_ac_header_desc.baInterfaceNr[1] = status;
 	audio->alt_intf[1] = 0;
 
 	status = -ENODEV;
