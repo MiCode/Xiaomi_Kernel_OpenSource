@@ -2740,31 +2740,19 @@ static int handle_usb_insertion(struct smb135x_chg *chip)
 }
 
 /**
- * usbin_uv_handler() - It is called for DCP charger removal
+ * usbin_uv_handler()
  * @chip: pointer to smb135x_chg chip
  * @rt_stat: the status bit indicating chg insertion/removal
  */
 static int usbin_uv_handler(struct smb135x_chg *chip, u8 rt_stat)
 {
 	/*
-	 * rt_stat indicates if usb is undervolted. If so usb_present
-	 * should be marked removed
+	 * rt_stat indicates if usb is undervolted
 	 */
 	bool usb_present = !rt_stat;
-	union power_supply_propval prop = {0, };
 
 	pr_debug("chip->usb_present = %d usb_present = %d\n",
 			chip->usb_present, usb_present);
-	if (chip->usb_psy && !chip->usb_psy->get_property(chip->usb_psy,
-				POWER_SUPPLY_PROP_TYPE, &prop)) {
-		if (prop.intval == POWER_SUPPLY_TYPE_USB_DCP) {
-			if (chip->usb_present && !usb_present) {
-				/* For DCP and HVDCP removing */
-				chip->usb_present = usb_present;
-				handle_usb_removal(chip);
-			}
-		}
-	}
 
 	return 0;
 }
@@ -2804,14 +2792,13 @@ static int usbin_ov_handler(struct smb135x_chg *chip, u8 rt_stat)
  *			charger type is detected and on falling edge when
  *			USB voltage falls below the coarse detect voltage
  *			(1V), use it for handling USB charger insertion
- *			and CDP or SDP removal.
+ *			and removal.
  * @chip: pointer to smb135x_chg chip
  * @rt_stat: the status bit indicating chg insertion/removal
  */
 static int src_detect_handler(struct smb135x_chg *chip, u8 rt_stat)
 {
 	bool usb_present = !!rt_stat;
-	union power_supply_propval prop = {0, };
 
 	pr_debug("chip->usb_present = %d usb_present = %d\n",
 			chip->usb_present, usb_present);
@@ -2822,16 +2809,9 @@ static int src_detect_handler(struct smb135x_chg *chip, u8 rt_stat)
 		handle_usb_insertion(chip);
 	} else if (usb_present && chip->apsd_rerun) {
 		handle_usb_insertion(chip);
-	} else if (chip->usb_psy && !chip->usb_psy->get_property(
-				chip->usb_psy, POWER_SUPPLY_PROP_TYPE,
-						&prop)) {
-		if (((prop.intval == POWER_SUPPLY_TYPE_USB_CDP) ||
-			(prop.intval == POWER_SUPPLY_TYPE_USB)) &&
-				chip->usb_present && !usb_present) {
-				/* CDP or SDP removed */
-				chip->usb_present = !chip->usb_present;
-				handle_usb_removal(chip);
-			}
+	} else if (chip->usb_present && !usb_present) {
+		chip->usb_present = !chip->usb_present;
+		handle_usb_removal(chip);
 	}
 
 	return 0;
