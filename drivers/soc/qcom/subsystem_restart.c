@@ -1588,26 +1588,33 @@ struct subsys_device *subsys_register(struct subsys_desc *desc)
 
 	subsys->id = ida_simple_get(&subsys_ida, 0, 0, GFP_KERNEL);
 	if (subsys->id < 0) {
+		wakeup_source_trash(&subsys->ssr_wlock);
 		ret = subsys->id;
-		goto err_ida;
+		kfree(subsys);
+		return ERR_PTR(ret);
 	}
+
 	dev_set_name(&subsys->dev, "subsys%d", subsys->id);
 
 	mutex_init(&subsys->track.lock);
 
 	ret = subsys_debugfs_add(subsys);
-	if (ret)
-		goto err_debugfs;
+	if (ret) {
+		ida_simple_remove(&subsys_ida, subsys->id);
+		wakeup_source_trash(&subsys->ssr_wlock);
+		kfree(subsys);
+		return ERR_PTR(ret);
+	}
 
 	ret = device_register(&subsys->dev);
 	if (ret) {
-		device_unregister(&subsys->dev);
-		goto err_register;
+		subsys_debugfs_remove(subsys);
+		put_device(&subsys->dev);
+		return ERR_PTR(ret);
 	}
 
 	ret = subsys_char_device_add(subsys);
 	if (ret) {
-		put_device(&subsys->dev);
 		goto err_register;
 	}
 
@@ -1664,12 +1671,7 @@ err_setup_irqs:
 		subsys_remove_restart_order(ofnode);
 err_register:
 	subsys_debugfs_remove(subsys);
-err_debugfs:
-	mutex_destroy(&subsys->track.lock);
-	ida_simple_remove(&subsys_ida, subsys->id);
-err_ida:
-	wakeup_source_trash(&subsys->ssr_wlock);
-	kfree(subsys);
+	device_unregister(&subsys->dev);
 	return ERR_PTR(ret);
 }
 EXPORT_SYMBOL(subsys_register);
