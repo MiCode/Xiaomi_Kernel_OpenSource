@@ -308,6 +308,17 @@ config CNSS
 	  This driver also adds support to integrate PCIe WLAN module to subsystem
 	  restart framework.
 
+config CNSS_SDIO
+	tristate "Flag to enable platform driver for SIDO based wifi device"
+	depends on MMC_SDHCI
+	depends on MMC_SDHCI_MSM
+	---help---
+	  This module specifies whether CNSS Platform Driver supports SDIO.
+	  This flag needs to be disabled if CNSS platform Driver need to be
+	  supported for other buses.
+	  This Flag is used by CLD Driver to use the SDIO GPL API's through
+	  CNSS Platform Driver.
+
 config CLD_LL_CORE
 	tristate "Qualcomm core WLAN driver for QCA6174 chipset"
 	select NL80211_TESTMODE
