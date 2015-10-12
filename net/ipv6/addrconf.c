@@ -202,6 +202,7 @@ static struct ipv6_devconf ipv6_devconf __read_mostly = {
 	.disable_ipv6		= 0,
 	.accept_dad		= 1,
 	.suppress_frag_ndisc	= 1,
+	.use_oif_addrs_only	= 0,
 };
 
 static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
@@ -240,6 +241,7 @@ static struct ipv6_devconf ipv6_devconf_dflt __read_mostly = {
 	.disable_ipv6		= 0,
 	.accept_dad		= 1,
 	.suppress_frag_ndisc	= 1,
+	.use_oif_addrs_only	= 0,
 };
 
 /* Check if a valid qdisc is available */
@@ -1345,15 +1347,96 @@ out:
 	return ret;
 }
 
+static int __ipv6_dev_get_saddr(struct net *net,
+				struct ipv6_saddr_dst *dst,
+				struct inet6_dev *idev,
+				struct ipv6_saddr_score *scores,
+				int hiscore_idx)
+{
+	struct ipv6_saddr_score *score = &scores[1 - hiscore_idx], *hiscore = &scores[hiscore_idx];
+
+	read_lock_bh(&idev->lock);
+	list_for_each_entry(score->ifa, &idev->addr_list, if_list) {
+		int i;
+
+		/*
+		 * - Tentative Address (RFC2462 section 5.4)
+		 *  - A tentative address is not considered
+		 *    "assigned to an interface" in the traditional
+		 *    sense, unless it is also flagged as optimistic.
+		 * - Candidate Source Address (section 4)
+		 *  - In any case, anycast addresses, multicast
+		 *    addresses, and the unspecified address MUST
+		 *    NOT be included in a candidate set.
+		 */
+		if ((score->ifa->flags & IFA_F_TENTATIVE) &&
+		    (!(score->ifa->flags & IFA_F_OPTIMISTIC)))
+			continue;
+
+		score->addr_type = __ipv6_addr_type(&score->ifa->addr);
+
+		if (unlikely(score->addr_type == IPV6_ADDR_ANY ||
+			     score->addr_type & IPV6_ADDR_MULTICAST)) {
+			net_dbg_ratelimited("ADDRCONF: unspecified / multicast address assigned as unicast address on %s",
+					    idev->dev->name);
+			continue;
+		}
+
+		score->rule = -1;
+		bitmap_zero(score->scorebits, IPV6_SADDR_RULE_MAX);
+
+		for (i = 0; i < IPV6_SADDR_RULE_MAX; i++) {
+			int minihiscore, miniscore;
+
+			minihiscore = ipv6_get_saddr_eval(net, hiscore, dst, i);
+			miniscore = ipv6_get_saddr_eval(net, score, dst, i);
+
+			if (minihiscore > miniscore) {
+				if (i == IPV6_SADDR_RULE_SCOPE &&
+				    score->scopedist > 0) {
+					/*
+					 * special case:
+					 * each remaining entry
+					 * has too small (not enough)
+					 * scope, because ifa entries
+					 * are sorted by their scope
+					 * values.
+					 */
+					goto out;
+				}
+				break;
+			} else if (minihiscore < miniscore) {
+				if (hiscore->ifa)
+					in6_ifa_put(hiscore->ifa);
+
+				in6_ifa_hold(score->ifa);
+
+				swap(hiscore, score);
+				hiscore_idx = 1 - hiscore_idx;
+
+				/* restore our iterator */
+				score->ifa = hiscore->ifa;
+
+				break;
+			}
+		}
+	}
+out:
+	read_unlock_bh(&idev->lock);
+	return hiscore_idx;
+}
+
 int ipv6_dev_get_saddr(struct net *net, const struct net_device *dst_dev,
 		       const struct in6_addr *daddr, unsigned int prefs,
 		       struct in6_addr *saddr)
 {
-	struct ipv6_saddr_score scores[2],
-				*score = &scores[0], *hiscore = &scores[1];
+	struct ipv6_saddr_score scores[2], *hiscore;
 	struct ipv6_saddr_dst dst;
+	struct inet6_dev *idev;
 	struct net_device *dev;
 	int dst_type;
+	bool use_oif_addr = false;
+	int hiscore_idx = 0;
 
 	dst_type = __ipv6_addr_type(daddr);
 	dst.addr = daddr;
@@ -1362,107 +1445,50 @@ int ipv6_dev_get_saddr(struct net *net, const struct net_device *dst_dev,
 	dst.label = ipv6_addr_label(net, daddr, dst_type, dst.ifindex);
 	dst.prefs = prefs;
 
-	hiscore->rule = -1;
-	hiscore->ifa = NULL;
+	scores[hiscore_idx].rule = -1;
+	scores[hiscore_idx].ifa = NULL;
 
 	rcu_read_lock();
 
-	for_each_netdev_rcu(net, dev) {
-		struct inet6_dev *idev;
-
-		/* Candidate Source Address (section 4)
-		 *  - multicast and link-local destination address,
-		 *    the set of candidate source address MUST only
-		 *    include addresses assigned to interfaces
-		 *    belonging to the same link as the outgoing
-		 *    interface.
-		 * (- For site-local destination addresses, the
-		 *    set of candidate source addresses MUST only
-		 *    include addresses assigned to interfaces
-		 *    belonging to the same site as the outgoing
-		 *    interface.)
-		 */
-		if (((dst_type & IPV6_ADDR_MULTICAST) ||
-		     dst.scope <= IPV6_ADDR_SCOPE_LINKLOCAL) &&
-		    dst.ifindex && dev->ifindex != dst.ifindex)
-			continue;
-
-		idev = __in6_dev_get(dev);
-		if (!idev)
-			continue;
-
-		read_lock_bh(&idev->lock);
-		list_for_each_entry(score->ifa, &idev->addr_list, if_list) {
-			int i;
-
-			/*
-			 * - Tentative Address (RFC2462 section 5.4)
-			 *  - A tentative address is not considered
-			 *    "assigned to an interface" in the traditional
-			 *    sense, unless it is also flagged as optimistic.
-			 * - Candidate Source Address (section 4)
-			 *  - In any case, anycast addresses, multicast
-			 *    addresses, and the unspecified address MUST
-			 *    NOT be included in a candidate set.
-			 */
-			if ((score->ifa->flags & IFA_F_TENTATIVE) &&
-			    (!(score->ifa->flags & IFA_F_OPTIMISTIC)))
-				continue;
-
-			score->addr_type = __ipv6_addr_type(&score->ifa->addr);
-
-			if (unlikely(score->addr_type == IPV6_ADDR_ANY ||
-				     score->addr_type & IPV6_ADDR_MULTICAST)) {
-				LIMIT_NETDEBUG(KERN_DEBUG
-					       "ADDRCONF: unspecified / multicast address "
-					       "assigned as unicast address on %s",
-					       dev->name);
-				continue;
-			}
-
-			score->rule = -1;
-			bitmap_zero(score->scorebits, IPV6_SADDR_RULE_MAX);
-
-			for (i = 0; i < IPV6_SADDR_RULE_MAX; i++) {
-				int minihiscore, miniscore;
-
-				minihiscore = ipv6_get_saddr_eval(net, hiscore, &dst, i);
-				miniscore = ipv6_get_saddr_eval(net, score, &dst, i);
-
-				if (minihiscore > miniscore) {
-					if (i == IPV6_SADDR_RULE_SCOPE &&
-					    score->scopedist > 0) {
-						/*
-						 * special case:
-						 * each remaining entry
-						 * has too small (not enough)
-						 * scope, because ifa entries
-						 * are sorted by their scope
-						 * values.
-						 */
-						goto try_nextdev;
-					}
-					break;
-				} else if (minihiscore < miniscore) {
-					if (hiscore->ifa)
-						in6_ifa_put(hiscore->ifa);
-
-					in6_ifa_hold(score->ifa);
-
-					swap(hiscore, score);
-
-					/* restore our iterator */
-					score->ifa = hiscore->ifa;
-
-					break;
-				}
-			}
+	/* Candidate Source Address (section 4)
+	 *  - multicast and link-local destination address,
+	 *    the set of candidate source address MUST only
+	 *    include addresses assigned to interfaces
+	 *    belonging to the same link as the outgoing
+	 *    interface.
+	 * (- For site-local destination addresses, the
+	 *    set of candidate source addresses MUST only
+	 *    include addresses assigned to interfaces
+	 *    belonging to the same site as the outgoing
+	 *    interface.)
+	 *  - "It is RECOMMENDED that the candidate source addresses
+	 *    be the set of unicast addresses assigned to the
+	 *    interface that will be used to send to the destination
+	 *    (the 'outgoing' interface)." (RFC 6724)
+	 */
+	if (dst_dev) {
+		idev = __in6_dev_get(dst_dev);
+		if ((dst_type & IPV6_ADDR_MULTICAST) ||
+		    dst.scope <= IPV6_ADDR_SCOPE_LINKLOCAL ||
+		    (idev && idev->cnf.use_oif_addrs_only)) {
+			use_oif_addr = true;
 		}
-try_nextdev:
-		read_unlock_bh(&idev->lock);
+	}
+
+	if (use_oif_addr) {
+		if (idev)
+			hiscore_idx = __ipv6_dev_get_saddr(net, &dst, idev, scores, hiscore_idx);
+	} else {
+		for_each_netdev_rcu(net, dev) {
+			idev = __in6_dev_get(dev);
+			if (!idev)
+				continue;
+			hiscore_idx = __ipv6_dev_get_saddr(net, &dst, idev, scores, hiscore_idx);
+		}
 	}
 	rcu_read_unlock();
 
+	hiscore = &scores[hiscore_idx];
 	if (!hiscore->ifa)
 		return -EADDRNOTAVAIL;
 
@@ -1523,17 +1549,30 @@ static int ipv6_count_addresses(struct inet6_dev *idev)
 int ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
 		  const struct net_device *dev, int strict)
 {
+	return ipv6_chk_addr_and_flags(net, addr, dev, strict, IFA_F_TENTATIVE);
+}
+EXPORT_SYMBOL(ipv6_chk_addr);
+
+int ipv6_chk_addr_and_flags(struct net *net, const struct in6_addr *addr,
+			    const struct net_device *dev, int strict,
+			    u32 banned_flags)
+{
 	struct inet6_ifaddr *ifp;
 	unsigned int hash = inet6_addr_hash(addr);
+	u32 ifp_flags;
 
 	rcu_read_lock_bh();
 	hlist_for_each_entry_rcu(ifp, &inet6_addr_lst[hash], addr_lst) {
 		if (!net_eq(dev_net(ifp->idev->dev), net))
 			continue;
+		/* Decouple optimistic from tentative for evaluation here.
+		 * Ban optimistic addresses explicitly, when required.
+		 */
+		ifp_flags = (ifp->flags&IFA_F_OPTIMISTIC)
+			    ? (ifp->flags&~IFA_F_TENTATIVE)
+			    : ifp->flags;
 		if (ipv6_addr_equal(&ifp->addr, addr) &&
-		    (!(ifp->flags&IFA_F_TENTATIVE) ||
-		     (ipv6_use_optimistic_addr(ifp->idev) &&
-		      ifp->flags&IFA_F_OPTIMISTIC)) &&
+		    !(ifp_flags&banned_flags) &&
 		    (dev == NULL || ifp->idev->dev == dev ||
 		     !(ifp->scope&(IFA_LINK|IFA_HOST) || strict))) {
 			rcu_read_unlock_bh();
@@ -1544,7 +1583,7 @@ int ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
 	rcu_read_unlock_bh();
 	return 0;
 }
-EXPORT_SYMBOL(ipv6_chk_addr);
+EXPORT_SYMBOL(ipv6_chk_addr_and_flags);
 
 static bool ipv6_chk_same_addr(struct net *net, const struct in6_addr *addr,
 			       struct net_device *dev)
@@ -4405,6 +4444,7 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
 	array[DEVCONF_NDISC_NOTIFY] = cnf->ndisc_notify;
 	array[DEVCONF_SUPPRESS_FRAG_NDISC] = cnf->suppress_frag_ndisc;
 	array[DEVCONF_ACCEPT_RA_FROM_LOCAL] = cnf->accept_ra_from_local;
+	array[DEVCONF_USE_OIF_ADDRS_ONLY] = cnf->use_oif_addrs_only;
 }
 
 static inline size_t inet6_ifla6_size(void)
@@ -5303,6 +5343,14 @@ static struct addrconf_sysctl_table
 			.maxlen		= sizeof(int),
 			.mode		= 0644,
 			.proc_handler	= proc_dointvec,
+		},
+		{
+			.procname       = "use_oif_addrs_only",
+			.data           = &ipv6_devconf.use_oif_addrs_only,
+			.maxlen         = sizeof(int),
+			.mode           = 0644,
+			.proc_handler   = proc_dointvec,
+
 		},
 		{
 			/* sentinel */
