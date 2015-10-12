@@ -2235,5 +2235,6 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx,
 	int *num_entry);
 
 int ipa3_calc_extra_wrd_bytes(const struct ipa_ipfltri_rule_eq *attrib);
+int ipa3_restore_suspend_handler(void);
 
 #endif /* _IPA3_I_H_ */

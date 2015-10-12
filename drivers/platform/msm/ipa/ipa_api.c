@@ -2289,6 +2289,23 @@ int ipa_remove_interrupt_handler(enum ipa_irq_type interrupt)
 EXPORT_SYMBOL(ipa_remove_interrupt_handler);
 
 /**
+* ipa_restore_suspend_handler() - restores the original suspend IRQ handler
+* as it was registered in the IPA init sequence.
+* Return codes:
+* 0: success
+* -EPERM: failed to remove current handler or failed to add original handler
+* */
+int ipa_restore_suspend_handler(void)
+{
+	int ret;
+
+	IPA_API_DISPATCH_RETURN(ipa_restore_suspend_handler);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_restore_suspend_handler);
+
+/**
  * ipa_bam_reg_dump() - Dump selected BAM registers for IPA and DMA-BAM
  *
  * Function is rate limited to avoid flooding kernel log buffer

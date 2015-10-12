@@ -1688,6 +1688,8 @@ int ipa_add_interrupt_handler(enum ipa_irq_type interrupt,
 
 int ipa_remove_interrupt_handler(enum ipa_irq_type interrupt);
 
+int ipa_restore_suspend_handler(void);
+
 /*
  * Miscellaneous
  */
@@ -2426,6 +2428,11 @@ static inline int ipa_add_interrupt_handler(enum ipa_irq_type interrupt,
 }
 
 static inline int ipa_remove_interrupt_handler(enum ipa_irq_type interrupt)
+{
+	return -EPERM;
+}
+
+static inline int ipa_restore_suspend_handler(void)
 {
 	return -EPERM;
 }

@@ -4768,6 +4768,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_write_qmap_id = ipa3_write_qmap_id;
 	api_ctrl->ipa_add_interrupt_handler = ipa3_add_interrupt_handler;
 	api_ctrl->ipa_remove_interrupt_handler = ipa3_remove_interrupt_handler;
+	api_ctrl->ipa_restore_suspend_handler = ipa3_restore_suspend_handler;
 	api_ctrl->ipa_bam_reg_dump = ipa3_bam_reg_dump;
 	api_ctrl->ipa_get_ep_mapping = ipa3_get_ep_mapping;
 	api_ctrl->ipa_is_ready = ipa3_is_ready;
