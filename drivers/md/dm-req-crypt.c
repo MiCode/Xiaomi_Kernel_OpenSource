@@ -995,17 +995,11 @@ submit_request:
 
 }
 
-static void req_crypt_dtr(struct dm_target *ti)
+static void deconfigure_qcrypto(void)
 {
-	DMDEBUG("dm-req-crypt Destructor.\n");
-
 	if (req_page_pool) {
 		mempool_destroy(req_page_pool);
 		req_page_pool = NULL;
-	}
-	if (req_io_pool) {
-		mempool_destroy(req_io_pool);
-		req_io_pool = NULL;
 	}
 
 	if (req_scatterlist_pool) {
@@ -1013,8 +1007,17 @@ static void req_crypt_dtr(struct dm_target *ti)
 		req_scatterlist_pool = NULL;
 	}
 
-	kfree(ice_settings);
-	ice_settings = NULL;
+	if (req_crypt_split_io_queue) {
+		destroy_workqueue(req_crypt_split_io_queue);
+		req_crypt_split_io_queue = NULL;
+	}
+	if (req_crypt_queue) {
+		destroy_workqueue(req_crypt_queue);
+		req_crypt_queue = NULL;
+	}
+
+	if (_req_dm_scatterlist_pool)
+		kmem_cache_destroy(_req_dm_scatterlist_pool);
 
 	mutex_lock(&engine_list_mutex);
 	kfree(pfe_eng);
@@ -1027,16 +1030,23 @@ static void req_crypt_dtr(struct dm_target *ti)
 		crypto_free_ablkcipher(tfm);
 		tfm = NULL;
 	}
-	if (req_crypt_split_io_queue) {
-		destroy_workqueue(req_crypt_split_io_queue);
-		req_crypt_split_io_queue = NULL;
+}
+
+static void req_crypt_dtr(struct dm_target *ti)
+{
+	DMDEBUG("dm-req-crypt Destructor.\n");
+
+	if (req_io_pool) {
+		mempool_destroy(req_io_pool);
+		req_io_pool = NULL;
 	}
-	if (req_crypt_queue) {
-		destroy_workqueue(req_crypt_queue);
-		req_crypt_queue = NULL;
+
+	if (encryption_mode == DM_REQ_CRYPT_ENCRYPTION_MODE_TRANSPARENT) {
+		kfree(ice_settings);
+		ice_settings = NULL;
+	} else {
+		deconfigure_qcrypto();
 	}
-	if (_req_dm_scatterlist_pool)
-		kmem_cache_destroy(_req_dm_scatterlist_pool);
 
 	if (_req_crypt_io_pool)
 		kmem_cache_destroy(_req_crypt_io_pool);
@@ -1047,6 +1057,128 @@ static void req_crypt_dtr(struct dm_target *ti)
 	}
 }
 
+static int configure_qcrypto(void)
+{
+	struct crypto_engine_entry *eng_list = NULL;
+	struct block_device *bdev = NULL;
+	int err = DM_REQ_CRYPT_ERROR, i;
+	struct request_queue *q = NULL;
+
+	bdev = dev->bdev;
+	q = bdev_get_queue(bdev);
+	blk_queue_max_hw_sectors(q, DM_REQ_CRYPT_QUEUE_SIZE);
+
+	/* Allocate the crypto alloc blk cipher and keep the handle */
+	tfm = crypto_alloc_ablkcipher("qcom-xts(aes)", 0, 0);
+	if (IS_ERR(tfm)) {
+		DMERR("%s ablkcipher tfm allocation failed : error\n",
+						 __func__);
+		tfm = NULL;
+		goto exit_err;
+	}
+
+	num_engines_fde = num_engines_pfe = 0;
+
+	mutex_lock(&engine_list_mutex);
+	num_engines = (dm_qcrypto_func.get_num_engines)();
+	if (!num_engines) {
+		DMERR(KERN_INFO "%s qcrypto_get_num_engines failed\n",
+					__func__);
+		err = DM_REQ_CRYPT_ERROR;
+		mutex_unlock(&engine_list_mutex);
+		goto exit_err;
+	}
+
+	eng_list = kcalloc(num_engines, sizeof(*eng_list), 0);
+	if (NULL == eng_list) {
+		DMERR("%s engine list allocation failed\n", __func__);
+		err = DM_REQ_CRYPT_ERROR;
+		mutex_unlock(&engine_list_mutex);
+		goto exit_err;
+	}
+
+	(dm_qcrypto_func.get_engine_list)(num_engines, eng_list);
+
+	for (i = 0; i < num_engines; i++) {
+		if (eng_list[i].ce_device == FDE_KEY_ID)
+			num_engines_fde++;
+		if (eng_list[i].ce_device == PFE_KEY_ID)
+			num_engines_pfe++;
+	}
+
+	fde_eng = kcalloc(num_engines_fde, sizeof(*fde_eng), GFP_KERNEL);
+	if (NULL == fde_eng) {
+		DMERR("%s fde engine list allocation failed\n", __func__);
+		mutex_unlock(&engine_list_mutex);
+		goto exit_err;
+	}
+
+	pfe_eng = kcalloc(num_engines_pfe, sizeof(*pfe_eng), GFP_KERNEL);
+	if (NULL == pfe_eng) {
+		DMERR("%s pfe engine list allocation failed\n", __func__);
+		mutex_unlock(&engine_list_mutex);
+		goto exit_err;
+	}
+
+	fde_cursor = 0;
+	pfe_cursor = 0;
+
+	for (i = 0; i < num_engines; i++) {
+		if (eng_list[i].ce_device == FDE_KEY_ID)
+			fde_eng[fde_cursor++] = eng_list[i];
+		if (eng_list[i].ce_device == PFE_KEY_ID)
+			pfe_eng[pfe_cursor++] = eng_list[i];
+	}
+
+	fde_cursor = 0;
+	pfe_cursor = 0;
+	mutex_unlock(&engine_list_mutex);
+
+	_req_dm_scatterlist_pool = kmem_cache_create("req_dm_scatterlist",
+				sizeof(struct scatterlist) * MAX_SG_LIST,
+				 __alignof__(struct scatterlist), 0, NULL);
+	if (!_req_dm_scatterlist_pool)
+		goto exit_err;
+
+	req_crypt_queue = alloc_workqueue("req_cryptd",
+					WQ_UNBOUND |
+					WQ_CPU_INTENSIVE |
+					WQ_MEM_RECLAIM,
+					0);
+	if (!req_crypt_queue) {
+		DMERR("%s req_crypt_queue not allocated\n", __func__);
+		goto exit_err;
+	}
+
+	req_crypt_split_io_queue = alloc_workqueue("req_crypt_split",
+					WQ_UNBOUND |
+					WQ_CPU_INTENSIVE |
+					WQ_MEM_RECLAIM,
+					0);
+	if (!req_crypt_split_io_queue) {
+		DMERR("%s req_crypt_split_io_queue not allocated\n", __func__);
+		goto exit_err;
+	}
+	req_scatterlist_pool = mempool_create_slab_pool(MIN_IOS,
+					_req_dm_scatterlist_pool);
+	if (!req_scatterlist_pool) {
+		DMERR("%s req_scatterlist_pool is not allocated\n", __func__);
+		err = -ENOMEM;
+		goto exit_err;
+	}
+
+	req_page_pool = mempool_create_page_pool(MIN_POOL_PAGES, 0);
+	if (!req_page_pool) {
+		DMERR("%s req_page_pool not allocated\n", __func__);
+		goto exit_err;
+	}
+
+	err = 0;
+
+exit_err:
+	kfree(eng_list);
+	return err;
+}
 
 /*
  * Construct an encryption mapping:
@@ -1054,12 +1186,10 @@ static void req_crypt_dtr(struct dm_target *ti)
  */
 static int req_crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 {
+	int err = DM_REQ_CRYPT_ERROR;
 	unsigned long long tmpll;
 	char dummy;
-	int err = DM_REQ_CRYPT_ERROR, i;
-	struct crypto_engine_entry *eng_list = NULL;
-	struct block_device *bdev = NULL;
-	struct request_queue *q = NULL;
+	int ret;
 
 	DMDEBUG("dm-req-crypt Constructor.\n");
 
@@ -1118,153 +1248,47 @@ static int req_crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 		goto ctr_exit;
 	}
 
-	_req_dm_scatterlist_pool = kmem_cache_create("req_dm_scatterlist",
-				sizeof(struct scatterlist) * MAX_SG_LIST,
-				 __alignof__(struct scatterlist), 0, NULL);
-	if (!_req_dm_scatterlist_pool) {
-		err = DM_REQ_CRYPT_ERROR;
-		goto ctr_exit;
-	}
-
 	encryption_mode = DM_REQ_CRYPT_ENCRYPTION_MODE_CRYPTO;
 	if (argc >= 7 && argv[6]) {
-		if (!strcmp(argv[6], "ice")) {
+		if (!strcmp(argv[6], "ice"))
 			encryption_mode =
 				DM_REQ_CRYPT_ENCRYPTION_MODE_TRANSPARENT;
-			ice_settings =
-				kzalloc(sizeof(struct ice_crypto_setting),
-								GFP_KERNEL);
-			if (!ice_settings) {
-				err = -ENOMEM;
-				goto ctr_exit;
-			}
-			ice_settings->key_size = ICE_CRYPTO_KEY_SIZE_128;
-			ice_settings->algo_mode = ICE_CRYPTO_ALGO_MODE_AES_XTS;
-			ice_settings->key_mode = ICE_CRYPTO_USE_LUT_SW_KEY;
-			if (kstrtou16(argv[1], 10, &ice_settings->key_index) ||
-				ice_settings->key_index < 0 ||
-				ice_settings->key_index >
-				MAX_MSM_ICE_KEY_LUT_SIZE) {
-				DMERR("%s Err: key index %d received for ICE\n",
-					__func__, ice_settings->key_index);
-				err = DM_REQ_CRYPT_ERROR;
-				goto ctr_exit;
-			}
+	}
+
+	if (encryption_mode == DM_REQ_CRYPT_ENCRYPTION_MODE_TRANSPARENT) {
+		/* configure ICE settings */
+		ice_settings =
+			kzalloc(sizeof(struct ice_crypto_setting), GFP_KERNEL);
+		if (!ice_settings) {
+			err = -ENOMEM;
+			goto ctr_exit;
+		}
+		ice_settings->key_size = ICE_CRYPTO_KEY_SIZE_128;
+		ice_settings->algo_mode = ICE_CRYPTO_ALGO_MODE_AES_XTS;
+		ice_settings->key_mode = ICE_CRYPTO_USE_LUT_SW_KEY;
+		if (kstrtou16(argv[1], 0, &ice_settings->key_index) ||
+			ice_settings->key_index < 0 ||
+			ice_settings->key_index > MAX_MSM_ICE_KEY_LUT_SIZE) {
+			DMERR("%s Err: key index %d received for ICE\n",
+				__func__, ice_settings->key_index);
+			err = DM_REQ_CRYPT_ERROR;
+			goto ctr_exit;
+		}
+	} else {
+		ret = configure_qcrypto();
+		if (ret) {
+			DMERR("%s failed to configure qcrypto\n", __func__);
+			err = ret;
+			goto ctr_exit;
 		}
 	}
 
-	if (encryption_mode != DM_REQ_CRYPT_ENCRYPTION_MODE_TRANSPARENT) {
-		bdev = dev->bdev;
-		q = bdev_get_queue(bdev);
-		blk_queue_max_hw_sectors(q, DM_REQ_CRYPT_QUEUE_SIZE);
-	}
-
-	req_crypt_queue = alloc_workqueue("req_cryptd",
-					WQ_UNBOUND |
-					WQ_CPU_INTENSIVE|
-					WQ_MEM_RECLAIM,
-					0);
-	if (!req_crypt_queue) {
-		DMERR("%s req_crypt_queue not allocated\n", __func__);
-		err =  DM_REQ_CRYPT_ERROR;
-		goto ctr_exit;
-	}
-
-	req_crypt_split_io_queue = alloc_workqueue("req_crypt_split",
-					WQ_UNBOUND |
-					WQ_CPU_INTENSIVE |
-					WQ_MEM_RECLAIM,
-					0);
-	if (!req_crypt_split_io_queue) {
-		DMERR("%s req_crypt_split_io_queue not allocated\n", __func__);
-		err =  DM_REQ_CRYPT_ERROR;
-		goto ctr_exit;
-	}
-
-	/* Allocate the crypto alloc blk cipher and keep the handle */
-	tfm = crypto_alloc_ablkcipher("qcom-xts(aes)", 0, 0);
-	if (IS_ERR(tfm)) {
-		DMERR("%s ablkcipher tfm allocation failed : error\n",
-					 __func__);
-		err =  DM_REQ_CRYPT_ERROR;
-		tfm = NULL;
-		goto ctr_exit;
-	}
-
-	num_engines_fde = num_engines_pfe = 0;
-
-	mutex_lock(&engine_list_mutex);
-	num_engines = (dm_qcrypto_func.get_num_engines)();
-	if (!num_engines) {
-		DMERR(KERN_INFO "%s qcrypto_get_num_engines failed\n",
-				__func__);
-		err = -DM_REQ_CRYPT_ERROR;
-		mutex_unlock(&engine_list_mutex);
-		goto ctr_exit;
-	}
-
-	eng_list = kcalloc(num_engines, sizeof(*eng_list), GFP_KERNEL);
-	if (NULL == eng_list) {
-		DMERR("%s engine list allocation failed\n", __func__);
-		mutex_unlock(&engine_list_mutex);
-		goto ctr_exit;
-	}
-
-	(dm_qcrypto_func.get_engine_list)(num_engines, eng_list);
-
-	for (i = 0; i < num_engines; i++) {
-		if (eng_list[i].ce_device == FDE_KEY_ID)
-			num_engines_fde++;
-		if (eng_list[i].ce_device == PFE_KEY_ID)
-			num_engines_pfe++;
-	}
-
-	fde_eng = kcalloc(num_engines_fde, sizeof(*fde_eng), GFP_KERNEL);
-	if (NULL == fde_eng) {
-		DMERR("%s fde engine list allocation failed\n", __func__);
-		mutex_unlock(&engine_list_mutex);
-		goto ctr_exit;
-	}
-
-	pfe_eng = kcalloc(num_engines_pfe, sizeof(*pfe_eng), GFP_KERNEL);
-	if (NULL == pfe_eng) {
-		DMERR("%s pfe engine list allocation failed\n", __func__);
-		mutex_unlock(&engine_list_mutex);
-		goto ctr_exit;
-	}
-
-	fde_cursor = 0;
-	pfe_cursor = 0;
-
-	for (i = 0; i < num_engines; i++) {
-		if (eng_list[i].ce_device == FDE_KEY_ID)
-			fde_eng[fde_cursor++] = eng_list[i];
-		if (eng_list[i].ce_device == PFE_KEY_ID)
-			pfe_eng[pfe_cursor++] = eng_list[i];
-	}
-
-	fde_cursor = 0;
-	pfe_cursor = 0;
-	mutex_unlock(&engine_list_mutex);
-
 	req_io_pool = mempool_create_slab_pool(MIN_IOS, _req_crypt_io_pool);
-	BUG_ON(!req_io_pool);
 	if (!req_io_pool) {
 		DMERR("%s req_io_pool not allocated\n", __func__);
-		err =  DM_REQ_CRYPT_ERROR;
+		err = -ENOMEM;
 		goto ctr_exit;
 	}
-
-	req_page_pool = mempool_create_page_pool(MIN_POOL_PAGES, 0);
-	if (!req_page_pool) {
-		DMERR("%s req_page_pool not allocated\n", __func__);
-		err =  DM_REQ_CRYPT_ERROR;
-		goto ctr_exit;
-	}
-
-	req_scatterlist_pool = mempool_create_slab_pool(MIN_IOS,
-					_req_dm_scatterlist_pool);
-	BUG_ON(!req_scatterlist_pool);
 
 	/*
 	 * If underlying device supports flush/discard, mapped target
@@ -1280,7 +1304,6 @@ ctr_exit:
 	if (err)
 		req_crypt_dtr(ti);
 
-	kfree(eng_list);
 	return err;
 }
 
