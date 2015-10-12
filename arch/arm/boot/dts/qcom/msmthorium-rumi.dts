@@ -34,4 +34,5 @@
 &usb_otg {
 	qcom,hsusb-otg-otg-control = <1>;
 	qcom,emulation;
+	/delete-property/ qcom,boost-sysclk-with-streaming;
 };
