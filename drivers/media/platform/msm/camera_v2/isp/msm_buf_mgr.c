@@ -164,8 +164,6 @@ static uint32_t msm_isp_get_buf_handle(
 
 	for (i = 0; i < buf_mgr->num_buf_q; i++) {
 		if (buf_mgr->bufq[i].bufq_handle == 0) {
-			memset(&buf_mgr->bufq[i],
-				0, sizeof(struct msm_isp_bufq));
 			buf_mgr->bufq[i].bufq_handle =
 				embedded_stream_id << 8 | i;
 			return buf_mgr->bufq[i].bufq_handle;
