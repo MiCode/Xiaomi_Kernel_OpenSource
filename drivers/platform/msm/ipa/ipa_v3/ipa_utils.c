@@ -2994,8 +2994,11 @@ int ipa3_cfg_ep_ctrl(u32 clnt_hdl, const struct ipa_ep_cfg_ctrl *ep_ctrl)
 	ipa_write_reg(ipa3_ctx->mmio,
 		IPA_ENDP_INIT_CTRL_N_OFST(clnt_hdl), reg_val);
 
-	return 0;
+	if (ep_ctrl->ipa_ep_suspend == true &&
+			IPA_CLIENT_IS_CONS(ipa3_ctx->ep[clnt_hdl].client))
+		ipa3_suspend_active_aggr_wa(clnt_hdl);
 
+	return 0;
 }
 
 /**
