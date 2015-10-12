@@ -4449,7 +4449,7 @@ close_time:
 static void increment_aicl_count(struct smbchg_chip *chip)
 {
 	bool bad_charger = false;
-	int rc;
+	int max_aicl_count, rc;
 	u8 reg;
 	long elapsed_seconds;
 	unsigned long now_seconds;
@@ -4481,9 +4481,15 @@ static void increment_aicl_count(struct smbchg_chip *chip)
 			get_current_time(&chip->first_aicl_seconds);
 			return;
 		}
+		/*
+		 * Double the amount of AICLs allowed if parallel charging is
+		 * enabled.
+		 */
+		max_aicl_count = AICL_IRQ_LIMIT_COUNT
+			* (chip->parallel.avail ? 2 : 1);
 		chip->aicl_irq_count++;
 
-		if (chip->aicl_irq_count > AICL_IRQ_LIMIT_COUNT) {
+		if (chip->aicl_irq_count > max_aicl_count) {
 			pr_smb(PR_INTERRUPT, "elp:%ld first:%ld now:%ld c=%d\n",
 				elapsed_seconds, chip->first_aicl_seconds,
 				now_seconds, chip->aicl_irq_count);
