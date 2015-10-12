@@ -56,6 +56,8 @@ C_h	.req	x12
 D_l	.req	x13
 D_h	.req	x14
 
+	.weak memcpy
+ENTRY(__memcpy)
 ENTRY(memcpy)
 	mov	dst, dstin
 	cmp	count, #16
@@ -199,3 +201,4 @@ ENTRY(memcpy)
 	b.ne	.Ltail63
 	ret
 ENDPROC(memcpy)
+ENDPROC(__memcpy)
