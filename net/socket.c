@@ -1881,8 +1881,6 @@ SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, ubuf, size_t, size,
 	int err, err2;
 	int fput_needed;
 
-	seemp_logk_recvfrom(fd, ubuf, size, flags, addr, addr_len);
-
 	if (size > INT_MAX)
 		size = INT_MAX;
 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
