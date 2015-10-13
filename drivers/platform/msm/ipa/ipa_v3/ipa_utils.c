@@ -121,27 +121,27 @@ static const struct rsrc_min_max ipa3_rsrc_src_grp_config
 			[IPA_RSRC_GRP_TYPE_SRC_MAX][IPA_GROUP_MAX] = {
 		/*UL	DL	DIAG	DMA	Q6zip	uC Rx*/
 	[IPA_RSRC_GRP_TYPE_SRC_PKT_CONTEXTS] = {
-		{3, 255}, {3, 255}, {1, 255}, {1, 255}, {3, 255}, {1, 255} },
+		{3, 255}, {3, 255}, {1, 255}, {1, 255}, {1, 255}, {2, 255} },
 	[IPA_RSRC_GRP_TYPE_SRC_HDR_SECTORS] = {
 		{0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255} },
 	[IPA_RSRC_GRP_TYPE_SRC_HDRI1_BUFFER] = {
 		{0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255} },
 	[IPA_RSRC_GRP_TYPE_SRS_DESCRIPTOR_LISTS] = {
-		{12, 12}, {12, 12}, {5, 5}, {5, 5},  {8, 8}, {6, 6} },
+		{14, 14}, {16, 16}, {5, 5}, {5, 5},  {0, 0}, {8, 8} },
 	[IPA_RSRC_GRP_TYPE_SRC_DESCRIPTOR_BUFF] = {
-		{19, 19}, {20, 20}, {5, 5}, {5, 5}, {8, 8}, {6, 6} },
+		{19, 19}, {26, 26}, {5, 5}, {5, 5}, {0, 0}, {8, 8} },
 	[IPA_RSRC_GRP_TYPE_SRC_HDRI2_BUFFERS] = {
 		{0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255} },
 	[IPA_RSRC_GRP_TYPE_SRC_HPS_DMARS] = {
-		{1, 1}, {1, 1}, {1, 1}, {1, 1}, {1, 1}, {1, 1} },
+		{0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255} },
 	[IPA_RSRC_GRP_TYPE_SRC_ACK_ENTRIES] = {
-		{12, 12},   {12, 12}, {5, 5}, {5, 5}, {8, 8}, {6, 6} },
+		{14, 14}, {16, 16}, {5, 5}, {5, 5}, {0, 0}, {8, 8} },
 };
 static const struct rsrc_min_max ipa3_rsrc_dst_grp_config
 			[IPA_RSRC_GRP_TYPE_DST_MAX][IPA_GROUP_MAX] = {
 		/*UL	DL	DIAG	DMA  Q6zip_gen Q6zip_eng*/
 	[IPA_RSRC_GRP_TYPE_DST_DATA_SECTORS] = {
-		{3, 3}, {3, 3}, {1, 1}, {2, 2}, {2, 2}, {2, 2} },
+		{2, 2}, {3, 3}, {1, 1}, {1, 1}, {3, 3}, {3, 3} },
 	[IPA_RSRC_GRP_TYPE_DST_DATA_SECTOR_LISTS] = {
 		{0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255}, {0, 255} },
 	[IPA_RSRC_GRP_TYPE_DST_DPS_DMARS] = {
