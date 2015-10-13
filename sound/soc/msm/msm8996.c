@@ -102,7 +102,8 @@ static char const *hdmi_rx_ch_text[] = {"Two", "Three", "Four", "Five",
 static char const *rx_bit_format_text[] = {"S16_LE", "S24_LE"};
 static char const *slim5_rx_bit_format_text[] = {"S16_LE", "S24_LE"};
 static char const *slim0_rx_sample_rate_text[] = {"KHZ_48", "KHZ_96",
-					"KHZ_192"};
+					"KHZ_192", "KHZ_44P1", "KHZ_8",
+					"KHZ_16", "KHZ_32"};
 static char const *slim5_rx_sample_rate_text[] = {"KHZ_48", "KHZ_96",
 						  "KHZ_192", "KHZ_44P1"};
 static const char *const proxy_rx_ch_text[] = {"One", "Two", "Three", "Four",
@@ -658,6 +659,22 @@ static int slim0_rx_sample_rate_get(struct snd_kcontrol *kcontrol,
 	int sample_rate_val = 0;
 
 	switch (slim0_rx_sample_rate) {
+	case SAMPLING_RATE_32KHZ:
+		sample_rate_val = 6;
+		break;
+
+	case SAMPLING_RATE_16KHZ:
+		sample_rate_val = 5;
+		break;
+
+	case SAMPLING_RATE_8KHZ:
+		sample_rate_val = 4;
+		break;
+
+	case SAMPLING_RATE_44P1KHZ:
+		sample_rate_val = 3;
+		break;
+
 	case SAMPLING_RATE_192KHZ:
 		sample_rate_val = 2;
 		break;
@@ -686,6 +703,18 @@ static int slim0_rx_sample_rate_put(struct snd_kcontrol *kcontrol,
 		 ucontrol->value.integer.value[0]);
 
 	switch (ucontrol->value.integer.value[0]) {
+	case 6:
+		slim0_rx_sample_rate = SAMPLING_RATE_32KHZ;
+		break;
+	case 5:
+		slim0_rx_sample_rate = SAMPLING_RATE_16KHZ;
+		break;
+	case 4:
+		slim0_rx_sample_rate = SAMPLING_RATE_8KHZ;
+		break;
+	case 3:
+		slim0_rx_sample_rate = SAMPLING_RATE_44P1KHZ;
+		break;
 	case 2:
 		slim0_rx_sample_rate = SAMPLING_RATE_192KHZ;
 		break;
@@ -1330,7 +1359,8 @@ static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(8, slim0_tx_ch_text),
 	SOC_ENUM_SINGLE_EXT(7, hdmi_rx_ch_text),
 	SOC_ENUM_SINGLE_EXT(2, rx_bit_format_text),
-	SOC_ENUM_SINGLE_EXT(3, slim0_rx_sample_rate_text),
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(slim0_rx_sample_rate_text),
+			    slim0_rx_sample_rate_text),
 	SOC_ENUM_SINGLE_EXT(8, proxy_rx_ch_text),
 	SOC_ENUM_SINGLE_EXT(3, hdmi_rx_sample_rate_text),
 	SOC_ENUM_SINGLE_EXT(4, slim5_rx_sample_rate_text),
