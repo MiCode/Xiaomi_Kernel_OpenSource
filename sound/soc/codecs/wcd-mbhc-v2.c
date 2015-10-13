@@ -2001,6 +2001,8 @@ int wcd_mbhc_set_keycode(struct wcd_mbhc *mbhc)
 				i, btn_key_code[i]);
 		}
 	}
+	if (btn_key_code[0])
+		mbhc->is_btn_already_regd = true;
 	return result;
 }
 
@@ -2014,7 +2016,7 @@ int wcd_mbhc_start(struct wcd_mbhc *mbhc,
 	mbhc->mbhc_cfg = mbhc_cfg;
 
 	/* Set btn key code */
-	if (wcd_mbhc_set_keycode(mbhc))
+	if ((!mbhc->is_btn_already_regd) && wcd_mbhc_set_keycode(mbhc))
 		pr_err("Set btn key code error!!!\n");
 
 	if (!mbhc->mbhc_cfg->read_fw_bin ||
