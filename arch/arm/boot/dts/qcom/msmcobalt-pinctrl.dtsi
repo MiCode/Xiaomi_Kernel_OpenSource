@@ -23,7 +23,7 @@
 		uart_console_active: uart_console_active {
 			mux {
 				pins = "gpio4", "gpio5";
-				function = "blsp_uart";
+				function = "blsp_uart8_a";
 			};
 
 			config {
