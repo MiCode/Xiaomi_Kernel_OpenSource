@@ -836,6 +836,13 @@
 	status = "ok";
 };
 
+&i2c_6 {
+	at24@51 {
+		compatible = "atmel,24c32";
+		reg = <0x51>;
+	};
+};
+
 &i2c_7 {
 	silabs4705@11 { /* SiLabs FM chip, slave id 0x11*/
 		status = "ok";
