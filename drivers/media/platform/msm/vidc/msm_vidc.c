@@ -146,11 +146,7 @@ int msm_vidc_s_ctrl(void *instance, struct v4l2_control *control)
 	if (!inst || !control)
 		return -EINVAL;
 
-	if (inst->session_type == MSM_VIDC_DECODER)
-		return msm_vdec_s_ctrl(instance, control);
-	if (inst->session_type == MSM_VIDC_ENCODER)
-		return msm_venc_s_ctrl(instance, control);
-	return -EINVAL;
+	return msm_comm_s_ctrl(instance, control);
 }
 EXPORT_SYMBOL(msm_vidc_s_ctrl);
 
@@ -161,11 +157,7 @@ int msm_vidc_g_ctrl(void *instance, struct v4l2_control *control)
 	if (!inst || !control)
 		return -EINVAL;
 
-	if (inst->session_type == MSM_VIDC_DECODER)
-		return msm_vdec_g_ctrl(instance, control);
-	if (inst->session_type == MSM_VIDC_ENCODER)
-		return msm_venc_g_ctrl(instance, control);
-	return -EINVAL;
+	return msm_comm_g_ctrl(instance, control);
 }
 EXPORT_SYMBOL(msm_vidc_g_ctrl);
 
@@ -1224,10 +1216,7 @@ fail_init:
 fail_bufq_output:
 	vb2_queue_release(&inst->bufq[CAPTURE_PORT].vb2_bufq);
 fail_bufq_capture:
-	if (session_type == MSM_VIDC_DECODER)
-		msm_vdec_ctrl_deinit(inst);
-	else if (session_type == MSM_VIDC_ENCODER)
-		msm_venc_ctrl_deinit(inst);
+	msm_comm_ctrl_deinit(inst);
 	msm_smem_delete_client(inst->mem_client);
 fail_mem_client:
 	kfree(inst);
@@ -1339,10 +1328,7 @@ int msm_vidc_close(void *instance)
 	}
 	mutex_unlock(&inst->registeredbufs.lock);
 
-	if (inst->session_type == MSM_VIDC_DECODER)
-		msm_vdec_ctrl_deinit(inst);
-	else if (inst->session_type == MSM_VIDC_ENCODER)
-		msm_venc_ctrl_deinit(inst);
+	msm_comm_ctrl_deinit(inst);
 
 	cleanup_instance(inst);
 	if (inst->state != MSM_VIDC_CORE_INVALID &&

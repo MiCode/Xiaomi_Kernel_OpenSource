@@ -1120,7 +1120,7 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	f->fmt.pix_mp.pixelformat = fmt->fourcc;
 	f->fmt.pix_mp.num_planes = fmt->num_planes;
 	if (inst->in_reconfig) {
-		bool ds_enabled = msm_comm_g_ctrl(inst,
+		bool ds_enabled = msm_comm_g_ctrl_for_id(inst,
 			V4L2_CID_MPEG_VIDC_VIDEO_KEEP_ASPECT_RATIO);
 
 		/*
@@ -1379,7 +1379,7 @@ static int set_default_properties(struct msm_vidc_inst *inst)
 		dprintk(VIDC_DBG, "Enable dynamic buffer mode\n");
 		ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_ALLOC_MODE_OUTPUT;
 		ctrl.value = V4L2_MPEG_VIDC_VIDEO_DYNAMIC;
-		rc = v4l2_s_ctrl(NULL, &inst->ctrl_handler, &ctrl);
+		rc = msm_comm_s_ctrl(inst, &ctrl);
 		if (rc)
 			dprintk(VIDC_ERR,
 				"Failed to enable dynamic buffer mode by default: %d\n",
@@ -2602,7 +2602,8 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 		switch (ext_control[i].id) {
 		case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE:
 			control.value = ext_control[i].value;
-			rc = v4l2_s_ctrl(NULL, &inst->ctrl_handler, &control);
+
+			rc = msm_comm_s_ctrl(inst, &control);
 			if (rc)
 				dprintk(VIDC_ERR,
 					"%s Failed setting stream output mode : %d\n",
@@ -2611,7 +2612,7 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 		case V4L2_CID_MPEG_VIDC_VIDEO_DPB_COLOR_FORMAT:
 			switch (ext_control[i].value) {
 			case V4L2_MPEG_VIDC_VIDEO_DPB_COLOR_FMT_NONE:
-				if (!msm_comm_g_ctrl(inst, control.id)) {
+				if (!msm_comm_g_ctrl_for_id(inst, control.id)) {
 					rc = msm_comm_release_output_buffers(
 						inst);
 					if (rc)
@@ -2627,7 +2628,7 @@ static int try_set_ext_ctrl(struct msm_vidc_inst *inst,
 					fourcc = V4L2_PIX_FMT_NV12_UBWC;
 				else
 					fourcc = V4L2_PIX_FMT_NV12_TP10_UBWC;
-				if (msm_comm_g_ctrl(inst, control.id)) {
+				if (msm_comm_g_ctrl_for_id(inst, control.id)) {
 					rc = msm_comm_set_color_format(inst,
 						HAL_BUFFER_OUTPUT, fourcc);
 					if (rc) {
@@ -2742,15 +2743,6 @@ const struct v4l2_ctrl_ops *msm_vdec_get_ctrl_ops(void)
 	return &msm_vdec_ctrl_ops;
 }
 
-int msm_vdec_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_control *ctrl)
-{
-	return v4l2_s_ctrl(NULL, &inst->ctrl_handler, ctrl);
-}
-int msm_vdec_g_ctrl(struct msm_vidc_inst *inst, struct v4l2_control *ctrl)
-{
-	return v4l2_g_ctrl(&inst->ctrl_handler, ctrl);
-}
-
 int msm_vdec_s_ext_ctrl(struct msm_vidc_inst *inst,
 	struct v4l2_ext_controls *ctrl)
 {
@@ -2768,134 +2760,9 @@ int msm_vdec_s_ext_ctrl(struct msm_vidc_inst *inst,
 	return rc;
 }
 
-static struct v4l2_ctrl **get_super_cluster(struct msm_vidc_inst *inst,
-				int *size)
-{
-	int c = 0, sz = 0;
-	struct v4l2_ctrl **cluster = kmalloc(sizeof(struct v4l2_ctrl *) *
-			NUM_CTRLS, GFP_KERNEL);
-
-	if (!size || !cluster || !inst)
-		return NULL;
-
-	for (c = 0; c < NUM_CTRLS; c++)
-		cluster[sz++] = inst->ctrls[c];
-
-	*size = sz;
-	return cluster;
-}
-
 int msm_vdec_ctrl_init(struct msm_vidc_inst *inst)
 {
-	int idx = 0;
-	struct v4l2_ctrl_config ctrl_cfg = {0};
-	int ret_val = 0;
-	int cluster_size = 0;
-
-	if (!inst) {
-		dprintk(VIDC_ERR, "%s - invalid input\n", __func__);
-		return -EINVAL;
-	}
-
-	inst->ctrls = kzalloc(sizeof(struct v4l2_ctrl *) * NUM_CTRLS,
-				GFP_KERNEL);
-	if (!inst->ctrls) {
-		dprintk(VIDC_ERR, "%s - failed to allocate ctrl\n", __func__);
-		return -ENOMEM;
-	}
-
-	ret_val = v4l2_ctrl_handler_init(&inst->ctrl_handler, NUM_CTRLS);
-
-	if (ret_val) {
-		dprintk(VIDC_ERR, "CTRL ERR: Control handler init failed, %d\n",
-				inst->ctrl_handler.error);
-		return ret_val;
-	}
-
-	for (; idx < NUM_CTRLS; idx++) {
-		struct v4l2_ctrl *ctrl = NULL;
-		if (IS_PRIV_CTRL(msm_vdec_ctrls[idx].id)) {
-			/*add private control*/
-			ctrl_cfg.def = msm_vdec_ctrls[idx].default_value;
-			ctrl_cfg.flags = 0;
-			ctrl_cfg.id = msm_vdec_ctrls[idx].id;
-			/* ctrl_cfg.is_private =
-			 * msm_vdec_ctrls[idx].is_private;
-			 * ctrl_cfg.is_volatile =
-			 * msm_vdec_ctrls[idx].is_volatile;*/
-			ctrl_cfg.max = msm_vdec_ctrls[idx].maximum;
-			ctrl_cfg.min = msm_vdec_ctrls[idx].minimum;
-			ctrl_cfg.menu_skip_mask =
-				msm_vdec_ctrls[idx].menu_skip_mask;
-			ctrl_cfg.name = msm_vdec_ctrls[idx].name;
-			ctrl_cfg.ops = &msm_vdec_ctrl_ops;
-			ctrl_cfg.step = msm_vdec_ctrls[idx].step;
-			ctrl_cfg.type = msm_vdec_ctrls[idx].type;
-			ctrl_cfg.qmenu = msm_vdec_ctrls[idx].qmenu;
-
-			ctrl = v4l2_ctrl_new_custom(&inst->ctrl_handler,
-					&ctrl_cfg, NULL);
-		} else {
-			if (msm_vdec_ctrls[idx].type == V4L2_CTRL_TYPE_MENU) {
-				ctrl = v4l2_ctrl_new_std_menu(
-					&inst->ctrl_handler,
-					&msm_vdec_ctrl_ops,
-					msm_vdec_ctrls[idx].id,
-					msm_vdec_ctrls[idx].maximum,
-					msm_vdec_ctrls[idx].menu_skip_mask,
-					msm_vdec_ctrls[idx].default_value);
-			} else {
-				ctrl = v4l2_ctrl_new_std(&inst->ctrl_handler,
-					&msm_vdec_ctrl_ops,
-					msm_vdec_ctrls[idx].id,
-					msm_vdec_ctrls[idx].minimum,
-					msm_vdec_ctrls[idx].maximum,
-					msm_vdec_ctrls[idx].step,
-					msm_vdec_ctrls[idx].default_value);
-			}
-		}
-
-		if (!ctrl) {
-			dprintk(VIDC_ERR, "%s - invalid ctrl\n", __func__);
-			return -EINVAL;
-		}
-
-		ret_val = inst->ctrl_handler.error;
-		if (ret_val) {
-			dprintk(VIDC_ERR,
-					"Error adding ctrl (%s) to ctrl handle, %d\n",
-					msm_vdec_ctrls[idx].name,
-					inst->ctrl_handler.error);
-			return ret_val;
-		}
-
-		ctrl->flags |= msm_vdec_ctrls[idx].flags;
-		inst->ctrls[idx] = ctrl;
-	}
-
-	/* Construct a super cluster of all controls */
-	inst->cluster = get_super_cluster(inst, &cluster_size);
-	if (!inst->cluster || !cluster_size) {
-		dprintk(VIDC_WARN,
-				"Failed to setup super cluster\n");
-		return -EINVAL;
-	}
-
-	v4l2_ctrl_cluster(cluster_size, inst->cluster);
-
-	return ret_val;
+	return msm_comm_ctrl_init(inst, msm_vdec_ctrls,
+		ARRAY_SIZE(msm_vdec_ctrls), &msm_vdec_ctrl_ops);
 }
 
-int msm_vdec_ctrl_deinit(struct msm_vidc_inst *inst)
-{
-	if (!inst) {
-		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
-		return -EINVAL;
-	}
-
-	kfree(inst->ctrls);
-	kfree(inst->cluster);
-	v4l2_ctrl_handler_free(&inst->ctrl_handler);
-
-	return 0;
-}
