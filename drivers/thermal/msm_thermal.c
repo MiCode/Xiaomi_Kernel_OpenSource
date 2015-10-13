@@ -7039,6 +7039,7 @@ static int msm_thermal_dev_exit(struct platform_device *inp_dev)
 					r->device_handle[i] = NULL;
 				}
 			}
+			kfree(rails);
 		}
 		if (cx_phase_ctrl_enabled) {
 			sensor_mgr_remove_threshold(
