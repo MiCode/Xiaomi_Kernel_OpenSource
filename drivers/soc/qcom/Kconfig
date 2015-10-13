@@ -671,6 +671,28 @@ config MSM_PACMAN
 	  driver allows reconfiguration of the Bus Access Manager Low Speed
 	  peripheral (BLSP) ownership.
 
+config MSM_KERNEL_PROTECT
+	bool "Protect kernel text by removing write permissions in stage-2"
+        depends on !FUNCTION_TRACER
+        help
+          On hypervisor-enabled targets, this option will make a call into
+          the hypervisor to request that the kernel text be remapped
+          without write permissions.  This protects against malicious
+          devices rewriting kernel code.
+
+          Note that this will BREAK any runtime patching of the kernel text
+          (i.e. anything that uses apply_alternatives,
+          aarch64_insn_patch_text_nosync, etc. including the various CPU
+          errata workarounds in arch/arm64/kernel/cpu_errata.c).
+
+config MSM_KERNEL_PROTECT_TEST
+	bool "Bootup test of kernel protection (INTENTIONAL CRASH)"
+        depends on MSM_KERNEL_PROTECT
+        help
+          Attempts to write to the kernel text after making the kernel text
+          read-only.  This test is FATAL whether it passes or fails!
+          Success is signaled by a stage-2 fault.
+
 source "drivers/soc/qcom/memshare/Kconfig"
 
 endif # ARCH_MSM
