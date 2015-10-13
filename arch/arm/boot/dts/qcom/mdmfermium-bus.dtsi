@@ -18,7 +18,7 @@
 		compatible = "qcom,msm-bus-device";
 		reg = <0x401000 0x58000>,
 		      <0x500000 0x15080>;
-		reg-names = "bimc-base", "pnoc-base";
+		reg-names = "bimc-base", "pcnoc-base";
 
 		/*Buses*/
 
@@ -30,7 +30,7 @@
 			qcom,bus-type = <2>;
 			qcom,bypass-qos-prg;
 			qcom,util-fact = <154>;
-			clock-names = "bus_clock", "bus_a_clock";
+			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc  clk_bimc_msmbus_clk>,
 					<&clock_gcc  clk_bimc_msmbus_a_clk>;
 		};
@@ -167,11 +167,6 @@
 			qcom,connections = <&pcnoc_m_0>;
 			qcom,bus-dev = <&fab_pcnoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_USB_HSIC>;
-			qcom,blacklist = <&pcnoc_s_0 &pcnoc_s_2
-					 &pcnoc_s_3 &pcnoc_s_4
-					 &pcnoc_s_5 &slv_tcu
-					 &slv_crypto_0_cfg &slv_pdm
-					 &slv_prng &slv_usb2 >;
 		};
 
 		mas_blsp_1: mas-blsp-1 {
@@ -210,7 +205,7 @@
 			qcom,ap-owned;
 			qcom,qport = <0>;
 			qcom,qos-mode = "fixed";
-			qcom,connections = <&pcnoc_int_3 &slv_pcnoc_bimc_1>;
+			qcom,connections = <&pcnoc_int_3>;
 			qcom,prio1 = <0>;
 			qcom,prio0 = <0>;
 			qcom,bus-dev = <&fab_pcnoc>;
@@ -226,7 +221,7 @@
 			label = "mas-sdcc-1";
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
-			qcom,connections = <&pcnoc_int_3 &slv_pcnoc_bimc_1>;
+			qcom,connections = <&pcnoc_int_3>;
 			qcom,bus-dev = <&fab_pcnoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_SDCC_1>;
 			qcom,blacklist = <&pcnoc_s_0 &pcnoc_s_2 &pcnoc_s_3
@@ -240,7 +235,7 @@
 			label = "mas-sdcc-2";
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
-			qcom,connections = <&pcnoc_int_3 &slv_pcnoc_bimc_1>;
+			qcom,connections = <&pcnoc_int_3>;
 			qcom,bus-dev = <&fab_pcnoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_SDCC_2>;
 			qcom,blacklist = <&pcnoc_s_0 &pcnoc_s_2 &pcnoc_s_3
@@ -660,7 +655,7 @@
 
 		slv_qipc {
 			cell-id = <MSM_BUS_SLAVE_QPIC>;
-			label = "slv-tcu";
+			label = "slv-qpic";
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,bus-dev = <&fab_pcnoc>;
