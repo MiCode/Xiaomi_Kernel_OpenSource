@@ -53,9 +53,8 @@ int msm_dba_add_probed_device(struct msm_dba_device_info *dev)
 	node->dev = dev;
 	list_add(&node->list, &device_list);
 
-	pr_debug("%s: Added new device (%s, %d)", __func__, dev->chip_name,
+	pr_debug("%s: Added new device (%s, %d)\n", __func__, dev->chip_name,
 						dev->instance_id);
-
 	mutex_unlock(&init_mutex);
 
 	return 0;

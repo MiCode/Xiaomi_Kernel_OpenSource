@@ -512,7 +512,6 @@ struct mdss_dsi_ctrl_pdata {
 
 	struct dsi_err_container err_cont;
 
-	bool dfps_status;	/* dynamic refresh status */
 	struct switch_dev sdev;
 	bool hpd_state;
 	bool ds_registered;
@@ -620,7 +619,8 @@ void mdss_dsi_get_hw_revision(struct mdss_dsi_ctrl_pdata *ctrl);
 u32 mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
 		char cmd1, void (*fxn)(int), char *rbuf, int len);
 int mdss_dsi_panel_init(struct device_node *node,
-		struct mdss_dsi_ctrl_pdata *ctrl_pdata);
+		struct mdss_dsi_ctrl_pdata *ctrl_pdata,
+		int ndx);
 int mdss_dsi_panel_timing_switch(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 			struct mdss_panel_timing *timing);
 

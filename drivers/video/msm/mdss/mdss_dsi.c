@@ -2034,249 +2034,6 @@ int mdss_dsi_register_recovery_handler(struct mdss_dsi_ctrl_pdata *ctrl,
 	return 0;
 }
 
-static struct mdss_dsi_ctrl_pdata *mdss_dsi_get_drvdata_from_panel_data(
-	struct mdss_panel_data *mpd)
-{
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
-
-	if (!mpd) {
-		pr_err("%s: Invalid panel data\n", __func__);
-		goto end;
-	}
-
-	ctrl_pdata = container_of(mpd, struct mdss_dsi_ctrl_pdata,
-			panel_data);
-end:
-	return ctrl_pdata;
-}
-
-static struct mdss_dsi_ctrl_pdata *mdss_dsi_get_drvdata_from_sysfs_dev(
-	struct device *device)
-{
-	struct msm_fb_data_type *mfd = NULL;
-	struct mdss_panel_data *panel_data = NULL;
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
-	struct fb_info *fbi;
-
-	if (!device) {
-		pr_err("%s: Invalid device data\n", __func__);
-		goto end;
-	}
-
-	fbi = dev_get_drvdata(device);
-	if (!fbi) {
-		pr_err("%s: Invalid fbi data\n", __func__);
-		goto end;
-	}
-
-	mfd = (struct msm_fb_data_type *)fbi->par;
-	if (!mfd) {
-		pr_err("%s: Invalid mfd data\n", __func__);
-		goto end;
-	}
-
-	panel_data = dev_get_platdata(&mfd->pdev->dev);
-	if (!panel_data) {
-		pr_err("%s: Invalid panel data\n", __func__);
-		goto end;
-	}
-
-	ctrl_pdata = mdss_dsi_get_drvdata_from_panel_data(panel_data);
-
-end:
-	return ctrl_pdata;
-}
-
-static ssize_t mdss_dsi_sysfs_rda_connected(struct device *dev,
-	struct device_attribute *attr, char *buf)
-{
-	ssize_t ret;
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
-
-	if (!dev) {
-		DEV_ERR("%s: invalid device\n", __func__);
-		return -EINVAL;
-	}
-
-	ctrl_pdata = mdss_dsi_get_drvdata_from_sysfs_dev(dev);
-
-	if (!ctrl_pdata) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return -EINVAL;
-	}
-
-	ret = snprintf(buf, PAGE_SIZE, "%d\n", ctrl_pdata->hpd_state);
-	pr_debug("%s: '%d'\n", __func__, ctrl_pdata->hpd_state);
-
-	return ret;
-}
-
-static DEVICE_ATTR(connected, S_IRUGO, mdss_dsi_sysfs_rda_connected, NULL);
-static struct attribute *mdss_dsi_fs_attrs[] = {
-	&dev_attr_connected.attr,
-	NULL,
-};
-
-static struct attribute_group mdss_dsi_fs_attrs_group = {
-	.attrs = mdss_dsi_fs_attrs,
-};
-
-static int mdss_dsi_sysfs_create(struct kobject *kobj)
-{
-	int rc;
-
-	if (!kobj) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return -ENODEV;
-	}
-
-	rc = sysfs_create_group(kobj, &mdss_dsi_fs_attrs_group);
-	if (rc) {
-		pr_err("%s: failed, rc=%d\n", __func__, rc);
-		return rc;
-	}
-
-	return 0;
-}
-
-static inline void mdss_dsi_send_cable_notification(
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata, int val)
-{
-	int state = 0;
-
-	if (!ctrl_pdata) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return;
-	}
-	state = ctrl_pdata->sdev.state;
-
-	switch_set_state(&ctrl_pdata->sdev, val);
-
-	DEV_INFO("%s: cable state %s %d\n", __func__,
-		ctrl_pdata->sdev.state == state ?
-			"is same" : "switched to",
-		ctrl_pdata->sdev.state);
-}
-
-static void mdss_dsi_dba_cb(void *data, enum msm_dba_callback_event event)
-{
-	int ret = -EINVAL;
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata =
-		(struct mdss_dsi_ctrl_pdata *) data;
-
-	if (!ctrl_pdata) {
-		pr_err("%s: Invalid data\n", __func__);
-		return;
-	}
-
-	switch (event) {
-	case MSM_DBA_CB_HPD_CONNECT:
-		ctrl_pdata->hpd_state = true;
-
-		if (ctrl_pdata->dba_ops.get_raw_edid)
-			ret = ctrl_pdata->dba_ops.get_raw_edid(
-				ctrl_pdata->dba_data,
-				sizeof(ctrl_pdata->edid_buf),
-				ctrl_pdata->edid_buf, 0);
-
-		if (!ret)
-			hdmi_edid_parser(ctrl_pdata->edid_data);
-
-		mdss_dsi_send_cable_notification(ctrl_pdata, 1);
-		break;
-
-	case MSM_DBA_CB_HPD_DISCONNECT:
-		mdss_dsi_send_cable_notification(ctrl_pdata, 0);
-		ctrl_pdata->hpd_state = false;
-		break;
-
-	default:
-		break;
-	}
-}
-
-static void mdss_dsi_ctrl_init_dba(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
-{
-	struct hdmi_edid_init_data edid_init_data;
-	struct fb_info *fbi;
-	msm_dba_cb dba_cb = mdss_dsi_dba_cb;
-
-	if (!ctrl_pdata) {
-		pr_err("%s: Invalid ctrl data\n", __func__);
-		goto end;
-	}
-
-	fbi = ctrl_pdata->fbi;
-	if (!fbi) {
-		pr_err("%s: Invalid fbi data\n", __func__);
-		goto end;
-	}
-
-	strlcpy(ctrl_pdata->dba_info.client_name, "dsi",
-		MSM_DBA_CLIENT_NAME_LEN);
-
-	strlcpy(ctrl_pdata->dba_info.chip_name, "adv7533",
-		MSM_DBA_CHIP_NAME_MAX_LEN);
-
-	ctrl_pdata->dba_info.instance_id = 0;
-	ctrl_pdata->dba_info.cb = dba_cb;
-	ctrl_pdata->dba_info.cb_data = ctrl_pdata;
-
-	ctrl_pdata->dba_data = msm_dba_register_client(
-		&ctrl_pdata->dba_info,
-		&ctrl_pdata->dba_ops);
-
-	if (IS_ERR_OR_NULL(ctrl_pdata->dba_data)) {
-		pr_err("%s: ds not configured\n", __func__);
-		goto end;
-	}
-
-	if (mdss_dsi_sysfs_create(&fbi->dev->kobj)) {
-		pr_err("%s:sysfs creation failed\n",
-			__func__);
-		goto end;
-	}
-
-	ctrl_pdata->sdev.name = "dsi";
-	if (switch_dev_register(&ctrl_pdata->sdev) < 0) {
-		pr_err("%s: DSI switch registration failed\n",
-			__func__);
-		goto end;
-	}
-
-	/* Initialize EDID feature */
-	edid_init_data.kobj = &fbi->dev->kobj;
-	edid_init_data.ds_data = NULL;
-
-	ctrl_pdata->edid_data = hdmi_edid_init(&edid_init_data);
-	if (!ctrl_pdata->edid_data) {
-		pr_err("%s: edid parser init failed\n", __func__);
-		goto end;
-	}
-
-	if (ctrl_pdata->dba_ops.power_on)
-		ctrl_pdata->dba_ops.power_on(ctrl_pdata->dba_data,
-			true, 0);
-
-	ctrl_pdata->ds_registered = true;
-end:
-	return;
-}
-
-static void mdss_dsi_dba_work(struct work_struct *work)
-{
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
-	struct delayed_work *dw = to_delayed_work(work);
-
-	ctrl_pdata = container_of(dw, struct mdss_dsi_ctrl_pdata, dba_work);
-	if (!ctrl_pdata) {
-		pr_err("%s: invalid ctrl data\n", __func__);
-		return;
-	}
-
-	mdss_dsi_ctrl_init_dba(ctrl_pdata);
-}
-
 static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 				  int event, void *arg)
 {
@@ -2397,11 +2154,6 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		break;
 	case MDSS_EVENT_FB_REGISTERED:
 		mdss_dsi_debugfs_init(ctrl_pdata);
-
-		ctrl_pdata->fbi = (struct fb_info *)arg;
-
-		queue_delayed_work(ctrl_pdata->workq, &ctrl_pdata->dba_work,
-			HZ);
 		break;
 	default:
 		pr_debug("%s: unhandled event=%d\n", __func__, event);
@@ -2583,7 +2335,8 @@ exit:
 	return dsi_pan_node;
 }
 
-static struct device_node *mdss_dsi_config_panel(struct platform_device *pdev)
+static struct device_node *mdss_dsi_config_panel(struct platform_device *pdev,
+	int ndx)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = platform_get_drvdata(pdev);
 	char panel_cfg[MDSS_MAX_PANEL_LEN];
@@ -2610,7 +2363,7 @@ static struct device_node *mdss_dsi_config_panel(struct platform_device *pdev)
 		return NULL;
 	}
 
-	rc = mdss_dsi_panel_init(dsi_pan_node, ctrl_pdata);
+	rc = mdss_dsi_panel_init(dsi_pan_node, ctrl_pdata, ndx);
 	if (rc) {
 		pr_err("%s: dsi panel init failed\n", __func__);
 		of_node_put(dsi_pan_node);
@@ -2840,7 +2593,7 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 		return -EPERM;
 	}
 
-	dsi_pan_node = mdss_dsi_config_panel(pdev);
+	dsi_pan_node = mdss_dsi_config_panel(pdev, index);
 	if (!dsi_pan_node) {
 		pr_err("%s: panel configuration failed\n", __func__);
 		return -EINVAL;
@@ -2901,16 +2654,6 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 		}
 		disable_irq(gpio_to_irq(ctrl_pdata->disp_te_gpio));
 	}
-
-	ctrl_pdata->workq = create_workqueue("mdss_dsi_dba");
-	if (!ctrl_pdata->workq) {
-		pr_err("%s: Error creating workqueue\n", __func__);
-		rc = -EPERM;
-		goto error_pan_node;
-	}
-
-	INIT_DELAYED_WORK(&ctrl_pdata->dba_work, mdss_dsi_dba_work);
-
 	pr_debug("%s: Dsi Ctrl->%d initialized\n", __func__, index);
 
 	if (index == 0)
@@ -3389,10 +3132,6 @@ static int mdss_dsi_ctrl_remove(struct platform_device *pdev)
 	msm_dss_iounmap(&ctrl_pdata->phy_io);
 	msm_dss_iounmap(&ctrl_pdata->ctrl_io);
 	mdss_dsi_debugfs_cleanup(ctrl_pdata);
-
-	if (ctrl_pdata->workq)
-		destroy_workqueue(ctrl_pdata->workq);
-
 	return 0;
 }
 
