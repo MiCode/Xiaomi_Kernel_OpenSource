@@ -7750,6 +7750,9 @@ static struct scsi_host_template ufshcd_driver_template = {
 	.eh_device_reset_handler = ufshcd_eh_device_reset_handler,
 	.eh_host_reset_handler   = ufshcd_eh_host_reset_handler,
 	.ioctl			= ufshcd_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl		= ufshcd_ioctl,
+#endif
 	.eh_timed_out		= ufshcd_eh_timed_out,
 	.this_id		= -1,
 	.sg_tablesize		= SG_ALL,
