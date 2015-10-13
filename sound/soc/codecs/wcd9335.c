@@ -2579,6 +2579,11 @@ static int tasha_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 			dev_dbg(codec->dev, "%s: spkr1 enabled\n", __func__);
 			/* Enable V&I sensing */
 			snd_soc_update_bits(codec,
+				WCD9335_CDC_TX9_SPKR_PROT_PATH_CTL, 0x20, 0x20);
+			snd_soc_update_bits(codec,
+				WCD9335_CDC_TX10_SPKR_PROT_PATH_CTL, 0x20,
+				0x20);
+			snd_soc_update_bits(codec,
 				WCD9335_CDC_TX9_SPKR_PROT_PATH_CTL, 0x0F, 0x00);
 			snd_soc_update_bits(codec,
 				WCD9335_CDC_TX10_SPKR_PROT_PATH_CTL, 0x0F,
@@ -2588,10 +2593,21 @@ static int tasha_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 				WCD9335_CDC_TX10_SPKR_PROT_PATH_CTL, 0x10,
 				0x10);
+			snd_soc_update_bits(codec,
+				WCD9335_CDC_TX9_SPKR_PROT_PATH_CTL, 0x20, 0x00);
+			snd_soc_update_bits(codec,
+				WCD9335_CDC_TX10_SPKR_PROT_PATH_CTL, 0x20,
+				0x00);
 		}
 		if (test_bit(VI_SENSE_2, &tasha_p->status_mask)) {
 			pr_debug("%s: spkr2 enabled\n", __func__);
 			/* Enable V&I sensing */
+			snd_soc_update_bits(codec,
+				WCD9335_CDC_TX11_SPKR_PROT_PATH_CTL, 0x20,
+				0x20);
+			snd_soc_update_bits(codec,
+				WCD9335_CDC_TX12_SPKR_PROT_PATH_CTL, 0x20,
+				0x20);
 			snd_soc_update_bits(codec,
 				WCD9335_CDC_TX11_SPKR_PROT_PATH_CTL, 0x0F,
 				0x00);
@@ -2604,6 +2620,12 @@ static int tasha_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 				WCD9335_CDC_TX12_SPKR_PROT_PATH_CTL, 0x10,
 				0x10);
+			snd_soc_update_bits(codec,
+				WCD9335_CDC_TX11_SPKR_PROT_PATH_CTL, 0x20,
+				0x00);
+			snd_soc_update_bits(codec,
+				WCD9335_CDC_TX12_SPKR_PROT_PATH_CTL, 0x20,
+				0x00);
 		}
 		dai->bus_down_in_recovery = false;
 		tasha_codec_enable_int_port(dai, codec);
@@ -2631,6 +2653,11 @@ static int tasha_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 			/* Disable V&I sensing */
 			dev_dbg(codec->dev, "%s: spkr1 disabled\n", __func__);
 			snd_soc_update_bits(codec,
+				WCD9335_CDC_TX9_SPKR_PROT_PATH_CTL, 0x20, 0x20);
+			snd_soc_update_bits(codec,
+				WCD9335_CDC_TX10_SPKR_PROT_PATH_CTL, 0x20,
+				0x20);
+			snd_soc_update_bits(codec,
 				WCD9335_CDC_TX9_SPKR_PROT_PATH_CTL, 0x10, 0x00);
 			snd_soc_update_bits(codec,
 				WCD9335_CDC_TX10_SPKR_PROT_PATH_CTL, 0x10,
@@ -2639,6 +2666,12 @@ static int tasha_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 		if (test_bit(VI_SENSE_2, &tasha_p->status_mask)) {
 			/* Disable V&I sensing */
 			dev_dbg(codec->dev, "%s: spkr2 disabled\n", __func__);
+			snd_soc_update_bits(codec,
+				WCD9335_CDC_TX11_SPKR_PROT_PATH_CTL, 0x20,
+				0x20);
+			snd_soc_update_bits(codec,
+				WCD9335_CDC_TX12_SPKR_PROT_PATH_CTL, 0x20,
+				0x20);
 			snd_soc_update_bits(codec,
 				WCD9335_CDC_TX11_SPKR_PROT_PATH_CTL, 0x10,
 				0x00);
