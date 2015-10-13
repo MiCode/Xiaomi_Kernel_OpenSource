@@ -983,7 +983,13 @@ static int32_t wsa881x_temp_reg_read(struct snd_soc_codec *codec,
 			return -EINVAL;
 		}
 	}
-	regcache_sync(wsa881x->regmap);
+	mutex_lock(&wsa881x->res_lock);
+	if (!wsa881x->clk_cnt) {
+		regcache_mark_dirty(wsa881x->regmap);
+		regcache_sync(wsa881x->regmap);
+	}
+	mutex_unlock(&wsa881x->res_lock);
+
 	wsa881x_resource_acquire(codec, ENABLE);
 
 	if (WSA881X_IS_2_0(wsa881x->version)) {
