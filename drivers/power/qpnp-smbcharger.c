@@ -7101,7 +7101,9 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 				src_detect_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->aicl_done_irq,
 				"aicl-done",
-				aicl_done_handler, flags, rc);
+				aicl_done_handler,
+				(IRQF_TRIGGER_RISING | IRQF_ONESHOT),
+				rc);
 			if (chip->schg_version != QPNP_SCHG_LITE) {
 				REQUEST_IRQ(chip, spmi_resource,
 					chip->otg_fail_irq, "otg-fail",
