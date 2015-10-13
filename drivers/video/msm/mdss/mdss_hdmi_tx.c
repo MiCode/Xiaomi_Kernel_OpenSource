@@ -198,6 +198,7 @@ static void hdmi_tx_hpd_off(struct hdmi_tx_ctrl *hdmi_ctrl);
 static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 	enum hdmi_tx_power_module_type module, int enable);
 static int hdmi_tx_audio_setup(struct hdmi_tx_ctrl *hdmi_ctrl);
+static int hdmi_tx_setup_tmds_clk_rate(struct hdmi_tx_ctrl *hdmi_ctrl);
 
 static struct mdss_hw hdmi_tx_hw = {
 	.hw_ndx = MDSS_HW_HDMI,
@@ -2628,6 +2629,7 @@ static int hdmi_tx_audio_acr_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 	/* Read first before writing */
 	u32 acr_pck_ctrl_reg;
 	u32 sample_rate;
+	u32 pixel_freq;
 	struct dss_io_data *io = NULL;
 
 	if (!hdmi_ctrl) {
@@ -2659,15 +2661,16 @@ static int hdmi_tx_audio_acr_setup(struct hdmi_tx_ctrl *hdmi_ctrl,
 				__func__, hdmi_ctrl->vid_cfg.vic);
 			return -EPERM;
 		}
+		pixel_freq = hdmi_tx_setup_tmds_clk_rate(hdmi_ctrl);
 
 		for (i = 0; i < lut_size;
 			audio_acr = &hdmi_tx_audio_acr_lut[++i]) {
-			if (audio_acr->pclk == timing->pixel_freq)
+			if (audio_acr->pclk == pixel_freq)
 				break;
 		}
 		if (i >= lut_size) {
 			DEV_WARN("%s: pixel clk %d not supported\n", __func__,
-				timing->pixel_freq);
+				pixel_freq);
 			return -EPERM;
 		}
 
