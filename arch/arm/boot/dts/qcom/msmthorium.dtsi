@@ -275,6 +275,17 @@
 		dmas = <&dma_blsp1 6 64 0x20000020 0x20>,
 			<&dma_blsp1 7 32 0x20000020 0x20>;
 		dma-names = "tx", "rx";
+
+		pericom-type-c@1d {
+			compatible = "pericom,usb-type-c";
+			reg = <0x1d>;
+			vdd_io-supply = <&pmthorium_l5>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <97 2>;  /* TLMM 97, TRIGGER_FALLING */
+			pericom,enb-gpio = <&tlmm 133 0x1>;	/* active low */
+			pinctrl-names = "default";
+			pinctrl-0 = <&usbc_int_default>;
+		};
 	};
 
 	i2c_5: i2c@7af5000 { /* BLSP2 QUP1 */
