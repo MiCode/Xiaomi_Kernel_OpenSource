@@ -498,7 +498,7 @@ static void mdss_dump_reg_by_blk(const char *blk_name)
 		return;
 
 	list_for_each_entry_safe(blk_base, tmp, &mdd->base_list, head) {
-		if (blk_base->name &&
+		if (strlen(blk_base->name) &&
 			!strcmp(blk_base->name, blk_name)) {
 			mdss_dump_reg_by_ranges(blk_base,
 				mdss_dbg_xlog.enable_reg_dump);
@@ -517,7 +517,7 @@ static void mdss_dump_reg_all(void)
 		return;
 
 	list_for_each_entry_safe(blk_base, tmp, &mdd->base_list, head) {
-		if (blk_base->name)
+		if (strlen(blk_base->name))
 			mdss_dump_reg_by_blk(blk_base->name);
 	}
 }
@@ -541,7 +541,7 @@ struct mdss_debug_base *get_dump_blk_addr(const char *blk_name)
 		return NULL;
 
 	list_for_each_entry_safe(blk_base, tmp, &mdd->base_list, head) {
-		if (blk_base->name &&
+		if (strlen(blk_base->name) &&
 			!strcmp(blk_base->name, blk_name))
 				return blk_base;
 	}
