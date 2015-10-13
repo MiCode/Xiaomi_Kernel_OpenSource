@@ -218,7 +218,8 @@ void msm_dcvs_init_load(struct msm_vidc_inst *inst)
 	/* calculating the min and max threshold */
 	if (output_buf_req->buffer_count_actual) {
 		dcvs->min_threshold = output_buf_req->buffer_count_actual -
-			output_buf_req->buffer_count_min + 1;
+			output_buf_req->buffer_count_min -
+			msm_dcvs_get_extra_buff_count(inst) + 1;
 		dcvs->max_threshold = output_buf_req->buffer_count_actual;
 		if (dcvs->max_threshold <= dcvs->min_threshold)
 			dcvs->max_threshold =
