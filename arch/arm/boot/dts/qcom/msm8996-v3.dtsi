@@ -86,6 +86,9 @@
 	qcom,initial-pwrlevel = <5>;
 	qcom,bus-width = <32>;
 
+	/* Quirks */
+	qcom,gpu-quirk-two-pass-use-wfi;
+
 	qcom,gpu-pwrlevel-bins {
 		#address-cells = <1>;
 		#size-cells = <0>;
