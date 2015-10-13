@@ -916,8 +916,6 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 		inst->in_reconfig = true;
 	} else {
 		dprintk(VIDC_DBG, "V4L2_EVENT_SEQ_CHANGED_SUFFICIENT\n");
-		if (msm_comm_get_stream_output_mode(inst) !=
-				HAL_VIDEO_DECODER_SECONDARY) {
 			dprintk(VIDC_DBG,
 					"event_notify->height = %d event_notify->width = %d\n",
 					event_notify->height,
@@ -926,7 +924,6 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 			inst->prop.width[CAPTURE_PORT] = event_notify->width;
 			inst->prop.height[OUTPUT_PORT] = event_notify->height;
 			inst->prop.width[OUTPUT_PORT] = event_notify->width;
-		}
 	}
 
 	if (inst->session_type == MSM_VIDC_DECODER)
