@@ -128,7 +128,7 @@ struct seemp_logk_dev {
 };
 
 #define BLK_SIZE       256
-#define BLK_HDR_SIZE   68
+#define BLK_HDR_SIZE   64
 #define TS_SIZE        20
 #define BLK_MAX_MSG_SZ (BLK_SIZE - BLK_HDR_SIZE)
 

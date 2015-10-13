@@ -1662,6 +1662,9 @@ SYSCALL_DEFINE6(sendto, int, fd, void __user *, buff, size_t, len,
 
 	seemp_logk_sendto(fd, buff, len, flags, addr, addr_len);
 
+	if (len > INT_MAX)
+		len = INT_MAX;
+
 	err = import_single_range(WRITE, buff, len, &iov, &msg.msg_iter);
 	if (unlikely(err))
 		return err;
@@ -1718,11 +1721,12 @@ SYSCALL_DEFINE6(recvfrom, int, fd, void __user *, ubuf, size_t, size,
 	int err, err2;
 	int fput_needed;
 
-	seemp_logk_recvfrom(fd, ubuf, size, flags, addr, addr_len);
-
+	if (size > INT_MAX)
+		size = INT_MAX;
 	err = import_single_range(READ, ubuf, size, &iov, &msg.msg_iter);
 	if (unlikely(err))
 		return err;
+
 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
 	if (!sock)
 		goto out;
