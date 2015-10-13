@@ -351,6 +351,8 @@ int ipa3_dma_sync_memcpy(u64 dest, u64 src, int len)
 	bool stop_polling = false;
 
 	IPADMA_FUNC_ENTRY();
+	IPADMA_DBG("input parameters: dest =  0x%llx, src = 0x%llx, len = %d\n",
+		dest, src, len);
 	if (ipa3_dma_ctx == NULL) {
 		IPADMA_ERR("IPADMA isn't initialized, can't memcpy\n");
 		return -EPERM;
@@ -564,6 +566,8 @@ int ipa3_dma_async_memcpy(u64 dest, u64 src, int len,
 	unsigned long flags;
 
 	IPADMA_FUNC_ENTRY();
+	IPADMA_DBG("input parameters: dest =  0x%llx, src = 0x%llx, len = %d\n",
+		dest, src, len);
 	if (ipa3_dma_ctx == NULL) {
 		IPADMA_ERR("IPADMA isn't initialized, can't memcpy\n");
 		return -EPERM;
@@ -852,7 +856,6 @@ static ssize_t ipa3_dma_debugfs_read(struct file *file, char __user *ubuf,
 				 size_t count, loff_t *ppos)
 {
 	int nbytes = 0;
-
 	if (!ipa3_dma_ctx) {
 		nbytes += scnprintf(&dbg_buff[nbytes],
 			IPADMA_MAX_MSG_LEN - nbytes,
