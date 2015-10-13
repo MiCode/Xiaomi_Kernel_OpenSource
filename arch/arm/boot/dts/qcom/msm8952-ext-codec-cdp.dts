@@ -113,7 +113,7 @@
 			"us_eu_gpio_act";
 		pinctrl-0 = <&cross_conn_det_sus>;
 		pinctrl-1 = <&cross_conn_det_act>;
-		qcom,cdc-us-euro-gpios = <&msm_gpio 144 0>;
+		qcom,cdc-us-euro-gpios = <&msm_gpio 63 0>;
 
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
