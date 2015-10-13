@@ -1836,11 +1836,6 @@ static int diag_ioctl_register_callback(unsigned long ioarg)
 		return -EIO;
 	}
 
-	err = diag_md_session_create(DIAG_MD_NORMAL, 0, reg.proc);
-	if (err)
-		pr_err("diag: In %s, unable to create session for callback mode, err: %d\n",
-		       __func__, err);
-
 	return err;
 }
 
