@@ -17,10 +17,16 @@
 &ufsphy1 {
 	compatible = "qcom,ufs-phy-qrbtc-v2";
 	reg = <0x1da7000 0x11100>;
+	vdda-phy-supply = <&pmcobalt_l28>;
+	vdda-pll-supply = <&pmcobalt_l2>;
+	vddp-ref-clk-supply = <&pmcobalt_l26>;
 	status = "ok";
 };
 
 &ufs1 {
+	vcc-supply = <&pmcobalt_l20>;
+	vccq-supply = <&pmcobalt_l26>;
+	vccq2-supply = <&pmcobalt_s4>;
 	status = "ok";
 };
 
