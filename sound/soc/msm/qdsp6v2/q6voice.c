@@ -57,7 +57,6 @@ static int voice_send_enable_vocproc_cmd(struct voice_data *v);
 static int voice_send_netid_timing_cmd(struct voice_data *v);
 static int voice_send_attach_vocproc_cmd(struct voice_data *v);
 static int voice_send_set_device_cmd(struct voice_data *v);
-static int voice_send_disable_vocproc_cmd(struct voice_data *v);
 static int voice_send_vol_step_cmd(struct voice_data *v);
 static int voice_send_mvm_unmap_memory_physical_cmd(struct voice_data *v,
 						    uint32_t mem_handle);
@@ -102,8 +101,6 @@ static int voice_alloc_oob_shared_mem(void);
 static int voice_free_oob_shared_mem(void);
 static int voice_alloc_oob_mem_table(void);
 static int voice_alloc_and_map_oob_mem(struct voice_data *v);
-static int voice_disable_cvp(uint32_t session_id);
-static int voice_enable_cvp(uint32_t session_id);
 static void voice_vote_powerstate_to_bms(struct voice_data *v, bool state);
 
 static struct voice_data *voice_get_session_by_idx(int idx);
@@ -2365,67 +2362,6 @@ static int voice_send_start_voice_cmd(struct voice_data *v)
 				v->async_err);
 		goto fail;
 	}
-	return 0;
-fail:
-	return ret;
-}
-
-static int voice_send_disable_vocproc_cmd(struct voice_data *v)
-{
-	struct apr_hdr cvp_disable_cmd;
-	int ret = 0;
-	void *apr_cvp;
-	u16 cvp_handle;
-
-	if (v == NULL) {
-		pr_err("%s: v is NULL\n", __func__);
-		return -EINVAL;
-	}
-	apr_cvp = common.apr_q6_cvp;
-
-	if (!apr_cvp) {
-		pr_err("%s: apr regist failed\n", __func__);
-		return -EINVAL;
-	}
-	cvp_handle = voice_get_cvp_handle(v);
-
-	/* disable vocproc and wait for respose */
-	cvp_disable_cmd.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
-						APR_HDR_LEN(APR_HDR_SIZE),
-						APR_PKT_VER);
-	cvp_disable_cmd.pkt_size = APR_PKT_SIZE(APR_HDR_SIZE,
-				sizeof(cvp_disable_cmd) - APR_HDR_SIZE);
-	pr_debug("cvp_disable_cmd pkt size = %d, cvp_handle=%d\n",
-		cvp_disable_cmd.pkt_size, cvp_handle);
-	cvp_disable_cmd.src_port =
-				voice_get_idx_for_session(v->session_id);
-	cvp_disable_cmd.dest_port = cvp_handle;
-	cvp_disable_cmd.token = 0;
-	cvp_disable_cmd.opcode = VSS_IVOCPROC_CMD_DISABLE;
-
-	v->cvp_state = CMD_STATUS_FAIL;
-	v->async_err = 0;
-	ret = apr_send_pkt(apr_cvp, (uint32_t *) &cvp_disable_cmd);
-	if (ret < 0) {
-		pr_err("Fail in sending VSS_IVOCPROC_CMD_DISABLE\n");
-		goto fail;
-	}
-	ret = wait_event_timeout(v->cvp_wait,
-			(v->cvp_state == CMD_STATUS_SUCCESS),
-			msecs_to_jiffies(TIMEOUT_MS));
-	if (!ret) {
-		pr_err("%s: wait_event timeout\n", __func__);
-		goto fail;
-	}
-	if (v->async_err > 0) {
-		pr_err("%s: DSP returned error[%s]\n",
-				__func__, adsp_err_get_err_str(
-				v->async_err));
-		ret = adsp_err_get_lnx_err_code(
-				v->async_err);
-		goto fail;
-	}
-
 	return 0;
 fail:
 	return ret;
@@ -5451,58 +5387,30 @@ fail:
 	return ret;
 }
 
-static int voice_lch_setup_vocproc(struct voice_data *v)
-{
-	int ret = 0;
-
-	ret = voice_setup_vocproc(v);
-	if (ret < 0) {
-		pr_err("%s: setup vocproc failed %d\n", __func__, ret);
-		goto done;
-	}
-
-	ret = voice_send_vol_step_cmd(v);
-	if (ret < 0)
-		pr_err("%s: voice volume failed %d\n", __func__, ret);
-
-	/* Reset lch mode when VOICE_LCH_STOP is recieved */
-	v->lch_mode = 0;
-
-	ret = voice_send_stream_mute_cmd(v,
-				VSS_IVOLUME_DIRECTION_TX,
-				v->stream_tx.stream_mute,
-				v->stream_tx.stream_mute_ramp_duration_ms);
-	if (ret < 0)
-		pr_err("%s: voice mute failed %d\n", __func__, ret);
-
-	ret = voice_send_start_voice_cmd(v);
-	if (ret < 0) {
-		pr_err("%s: start voice failed %d\n", __func__, ret);
-		goto done;
-	}
-
-	v->voc_state = VOC_RUN;
-done:
-	return ret;
-}
-
 static int voc_lch_ops(struct voice_data *v, enum voice_lch_mode lch_mode)
 {
 	int ret = 0;
 
+	if (v == NULL) {
+		pr_err("%s: v is NULL\n", __func__);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
 	switch (lch_mode) {
 	case VOICE_LCH_START:
 
-		ret = voice_destroy_vocproc(v);
+		ret = voc_end_voice_call(v->session_id);
 		if (ret < 0)
-			pr_err("%s:destroy vocproc failed %d\n",
+			pr_err("%s: voice call end failed %d\n",
 				__func__, ret);
 		break;
 	case VOICE_LCH_STOP:
 
-		ret = voice_lch_setup_vocproc(v);
+		ret = voc_start_voice_call(v->session_id);
 		if (ret < 0) {
-			pr_err("%s:setup vocproc failed %d\n",
+			pr_err("%s: voice call start failed %d\n",
 				__func__, ret);
 			goto done;
 		}
@@ -5556,151 +5464,6 @@ int voc_start_playback(uint32_t set, uint16_t port_id)
 		}
 	}
 
-	return ret;
-}
-
-static int voice_disable_cvp(uint32_t session_id)
-{
-	struct voice_data *v = voice_get_session(session_id);
-	int ret = 0;
-
-	if (v == NULL) {
-		pr_err("%s: invalid session_id 0x%x\n", __func__, session_id);
-
-		return -EINVAL;
-	}
-
-	mutex_lock(&v->lock);
-
-	if (v->voc_state == VOC_RUN) {
-		rtac_remove_voice(voice_get_cvs_handle(v));
-		/* send cmd to dsp to disable vocproc */
-		ret = voice_send_disable_vocproc_cmd(v);
-		if (ret < 0) {
-			pr_err("%s:  disable vocproc failed\n", __func__);
-
-			mutex_unlock(&v->lock);
-			goto done;
-		}
-
-		voice_send_cvp_deregister_vol_cal_cmd(v);
-		voice_send_cvp_deregister_cal_cmd(v);
-		voice_send_cvp_deregister_dev_cfg_cmd(v);
-
-		v->voc_state = VOC_CHANGE;
-	}
-	mutex_unlock(&v->lock);
-
-	if (common.ec_ref_ext)
-		voc_set_ext_ec_ref(AFE_PORT_INVALID, false);
-
-done:
-	return ret;
-}
-
-static int voice_enable_cvp(uint32_t session_id)
-{
-	struct voice_data *v = voice_get_session(session_id);
-	int ret = 0;
-
-	if (v == NULL) {
-		pr_err("%s: Invalid session_id 0x%x\n", __func__, session_id);
-
-		return -EINVAL;
-	}
-
-	mutex_lock(&v->lock);
-
-	if (v->voc_state == VOC_CHANGE) {
-		ret = voice_send_set_device_cmd(v);
-		if (ret < 0) {
-			pr_err("%s:  Set device failed\n", __func__);
-			goto fail;
-		}
-
-		ret = voice_send_cvp_device_channels_cmd(v);
-		if (ret < 0) {
-			pr_err("%s:  Set device channels failed\n", __func__);
-			goto fail;
-		}
-
-		ret = voice_send_cvp_topology_commit_cmd(v);
-		if (ret < 0) {
-			pr_err("%s:  Set topology commit failed\n", __func__);
-			goto fail;
-		}
-
-		voice_send_cvp_register_dev_cfg_cmd(v);
-		voice_send_cvp_register_cal_cmd(v);
-		voice_send_cvp_register_vol_cal_cmd(v);
-
-		if (v->lch_mode == VOICE_LCH_START) {
-			pr_debug("%s: TX and RX mute ON\n", __func__);
-
-			voice_send_device_mute_cmd(v,
-						VSS_IVOLUME_DIRECTION_TX,
-						VSS_IVOLUME_MUTE_ON,
-						DEFAULT_MUTE_RAMP_DURATION);
-			voice_send_device_mute_cmd(v,
-						VSS_IVOLUME_DIRECTION_RX,
-						VSS_IVOLUME_MUTE_ON,
-						DEFAULT_MUTE_RAMP_DURATION);
-			/* Send unmute cmd as the TX stream
-			 * might be muted previously
-			 */
-			voice_send_stream_mute_cmd(v,
-						VSS_IVOLUME_DIRECTION_TX,
-						VSS_IVOLUME_MUTE_OFF,
-						DEFAULT_MUTE_RAMP_DURATION);
-		} else if (v->lch_mode == VOICE_LCH_STOP) {
-			pr_debug("%s: TX and RX mute OFF\n", __func__);
-
-			voice_send_device_mute_cmd(v,
-						VSS_IVOLUME_DIRECTION_TX,
-						VSS_IVOLUME_MUTE_OFF,
-						DEFAULT_MUTE_RAMP_DURATION);
-			voice_send_device_mute_cmd(v,
-						VSS_IVOLUME_DIRECTION_RX,
-						VSS_IVOLUME_MUTE_OFF,
-						DEFAULT_MUTE_RAMP_DURATION);
-			/* Reset lch mode when VOICE_LCH_STOP is recieved */
-			v->lch_mode = 0;
-			/* Apply cached mute setting */
-			voice_send_stream_mute_cmd(v,
-				VSS_IVOLUME_DIRECTION_TX,
-				v->stream_tx.stream_mute,
-				v->stream_tx.stream_mute_ramp_duration_ms);
-		} else {
-			pr_debug("%s: Mute commands not sent for lch_mode=%d\n",
-				 __func__, v->lch_mode);
-		}
-
-		ret = voice_send_enable_vocproc_cmd(v);
-		if (ret < 0) {
-			pr_err("%s: Enable vocproc failed %d\n", __func__, ret);
-
-			goto fail;
-		}
-
-		voice_send_tty_mode_cmd(v);
-		if (v->st_enable && !v->tty_mode)
-			voice_send_set_pp_enable_cmd(v,
-					     MODULE_ID_VOICE_MODULE_ST,
-					     v->st_enable);
-
-		if (v->hd_enable)
-			voice_send_hd_cmd(v, v->hd_enable);
-
-		rtac_add_voice(voice_get_cvs_handle(v),
-			voice_get_cvp_handle(v),
-			v->dev_rx.port_id, v->dev_tx.port_id,
-			v->dev_rx.dev_id, v->dev_tx.dev_id,
-			v->session_id);
-		v->voc_state = VOC_RUN;
-	}
-
-fail:
-	mutex_unlock(&v->lock);
 	return ret;
 }
 
@@ -6112,8 +5875,6 @@ int voc_end_voice_call(uint32_t session_id)
 
 		ret = -EINVAL;
 	}
-	if (common.ec_ref_ext)
-		voc_set_ext_ec_ref(AFE_PORT_INVALID, false);
 
 	mutex_unlock(&v->lock);
 	return ret;
@@ -6199,8 +5960,6 @@ int voc_disable_device(uint32_t session_id)
 			 __func__, v->voc_state);
 	}
 
-	if (common.ec_ref_ext)
-		voc_set_ext_ec_ref(AFE_PORT_INVALID, false);
 done:
 	mutex_unlock(&v->lock);
 
@@ -6310,31 +6069,10 @@ int voc_set_lch(uint32_t session_id, enum voice_lch_mode lch_mode)
 	v->lch_mode = lch_mode;
 	mutex_unlock(&v->lock);
 
-	/* destroy vocproc session during local call hold for memory constraint
-	 * devices and recreate vocproc during local call unhold
-	 */
-	if (common.is_destroy_cvd) {
-		ret = voc_lch_ops(v, v->lch_mode);
-		if (ret < 0) {
-			pr_err("%s: lch ops failed %d for low memory device\n",
-				__func__, ret);
-			goto done;
-		}
-	} else {
-		ret = voice_disable_cvp(session_id);
-		if (ret < 0) {
-			pr_err("%s: voice_disable_cvp failed ret=%d\n",
-				__func__, ret);
-			goto done;
-		}
-
-		/* Mute and topology_none are set during vocproc enable */
-		ret = voice_enable_cvp(session_id);
-		if (ret < 0) {
-			pr_err("%s: voice_enable_cvp failed ret=%d\n",
-				 __func__, ret);
-			goto done;
-		}
+	ret = voc_lch_ops(v, v->lch_mode);
+	if (ret < 0) {
+		pr_err("%s: lch ops failed %d\n", __func__, ret);
+		goto done;
 	}
 
 done:
