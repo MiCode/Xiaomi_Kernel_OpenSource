@@ -495,6 +495,7 @@
 	qcom,ipc_router {
 		compatible = "qcom,ipc_router";
 		qcom,node-id = <1>;
+		qcom,default-peripheral = "modem";
 	};
 
 	qcom,ipc_router_modem_xprt {
