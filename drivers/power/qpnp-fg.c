@@ -60,6 +60,7 @@
 #define NO_OTP_PROF_RELOAD	BIT(6)
 #define REDO_FIRST_ESTIMATE	BIT(3)
 #define RESTART_GO		BIT(0)
+#define THERM_DELAY_MASK	0xE0
 
 /* SUBTYPE definitions */
 #define FG_SOC			0x9
@@ -194,6 +195,7 @@ enum fg_mem_setting_index {
 	FG_MEM_SOC_MAX,
 	FG_MEM_SOC_MIN,
 	FG_MEM_BATT_LOW,
+	FG_MEM_THERM_DELAY,
 	FG_MEM_SETTING_MAX,
 };
 
@@ -240,6 +242,7 @@ static struct fg_mem_setting settings[FG_MEM_SETTING_MAX] = {
 	SETTING(SOC_MAX,	 0x458,   1,      85),
 	SETTING(SOC_MIN,	 0x458,   2,      15),
 	SETTING(BATT_LOW,	 0x458,   0,      4200),
+	SETTING(THERM_DELAY,	 0x4AC,   3,      0),
 };
 
 #define DATA(_idx, _address, _offset, _length,  _value)	\
@@ -1503,6 +1506,19 @@ static u8 batt_to_setpoint_8b(int vbatt_mv)
 	/* Battery voltage is an offset from 2.5 V and LSB is 5/2^9. */
 	val = (vbatt_mv - 2500) * 512 / 1000;
 	return DIV_ROUND_CLOSEST(val, 5);
+}
+
+static u8 therm_delay_to_setpoint(u32 delay_us)
+{
+	u8 val;
+
+	if (delay_us < 2560)
+		val = 0;
+	else if (delay_us > 163840)
+		val = 7;
+	else
+		val = ilog2(delay_us / 10) - 7;
+	return val << 5;
 }
 
 static int get_current_time(unsigned long *now_tm_sec)
@@ -5019,6 +5035,7 @@ static int fg_of_init(struct fg_chip *chip)
 	OF_READ_SETTING(FG_MEM_SOC_MAX, "fg-soc-max", rc, 1);
 	OF_READ_SETTING(FG_MEM_SOC_MIN, "fg-soc-min", rc, 1);
 	OF_READ_SETTING(FG_MEM_BATT_LOW, "fg-vbatt-low-threshold", rc, 1);
+	OF_READ_SETTING(FG_MEM_THERM_DELAY, "fg-therm-delay-us", rc, 1);
 	OF_READ_PROPERTY(chip->learning_data.max_increment,
 			"cl-max-increment-deciperc", rc, 5);
 	OF_READ_PROPERTY(chip->learning_data.max_decrement,
@@ -5835,6 +5852,15 @@ static int fg_common_hw_init(struct fg_chip *chip)
 			settings[FG_MEM_BATT_LOW].offset);
 	if (rc) {
 		pr_err("failed to write Vbatt_low rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = fg_mem_masked_write(chip, settings[FG_MEM_THERM_DELAY].address,
+		THERM_DELAY_MASK,
+		therm_delay_to_setpoint(settings[FG_MEM_THERM_DELAY].value),
+		settings[FG_MEM_THERM_DELAY].offset);
+	if (rc) {
+		pr_err("failed to write therm_delay rc=%d\n", rc);
 		return rc;
 	}
 
