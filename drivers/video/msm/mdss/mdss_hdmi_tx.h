@@ -43,14 +43,6 @@ struct hdmi_tx_platform_data {
 	u64 pin_states;
 };
 
-struct hdmi_audio {
-	int sample_rate;
-	int channel_num;
-	int spkr_alloc;
-	int level_shift;
-	int down_mix;
-};
-
 struct hdmi_tx_pinctrl {
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *state_active;
@@ -134,7 +126,7 @@ struct hdmi_tx_ctrl {
 
 
 	struct hdmi_tx_pinctrl pin_res;
-	struct hdmi_audio audio_data;
+	struct msm_hdmi_audio_setup_params audio_data;
 
 	struct mutex mutex;
 	struct mutex lut_lock;
