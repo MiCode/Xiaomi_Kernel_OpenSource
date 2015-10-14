@@ -96,9 +96,15 @@ static int ufs_qcom_phy_qrbtc_v2_init(struct phy *generic_phy)
 	return 0;
 }
 
+static int ufs_qcom_phy_qrbtc_v2_exit(struct phy *generic_phy)
+{
+	return 0;
+
+}
+
 struct phy_ops ufs_qcom_phy_qrbtc_v2_phy_ops = {
 	.init		= ufs_qcom_phy_qrbtc_v2_init,
-	.exit		= ufs_qcom_phy_exit,
+	.exit		= ufs_qcom_phy_qrbtc_v2_exit,
 	.owner		= THIS_MODULE,
 };
 
@@ -141,21 +147,6 @@ out:
 	return err;
 }
 
-static int ufs_qcom_phy_qrbtc_v2_remove(struct platform_device *pdev)
-{
-	struct device *dev = &pdev->dev;
-	struct phy *generic_phy = to_phy(dev);
-	struct ufs_qcom_phy *ufs_qcom_phy = get_ufs_qcom_phy(generic_phy);
-	int err = 0;
-
-	err = ufs_qcom_phy_remove(generic_phy, ufs_qcom_phy);
-	if (err)
-		dev_err(dev, "%s: ufs_qcom_phy_remove failed = %d\n",
-			__func__, err);
-
-	return err;
-}
-
 static const struct of_device_id ufs_qcom_phy_qrbtc_v2_of_match[] = {
 	{.compatible = "qcom,ufs-phy-qrbtc-v2"},
 	{},
@@ -164,7 +155,6 @@ MODULE_DEVICE_TABLE(of, ufs_qcom_phy_qrbtc_v2_of_match);
 
 static struct platform_driver ufs_qcom_phy_qrbtc_v2_driver = {
 	.probe = ufs_qcom_phy_qrbtc_v2_probe,
-	.remove = ufs_qcom_phy_qrbtc_v2_remove,
 	.driver = {
 		.of_match_table = ufs_qcom_phy_qrbtc_v2_of_match,
 		.name = "ufs_qcom_phy_qrbtc_v2",
