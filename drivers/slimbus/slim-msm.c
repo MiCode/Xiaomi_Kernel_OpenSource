@@ -178,7 +178,11 @@ int msm_slim_sps_mem_alloc(
 void
 msm_slim_sps_mem_free(struct msm_slim_ctrl *dev, struct sps_mem_buffer *mem)
 {
-	dma_free_coherent(dev->dev, mem->size, mem->base, mem->phys_base);
+	if (mem->base && mem->phys_base)
+		dma_free_coherent(dev->dev, mem->size, mem->base,
+							mem->phys_base);
+	 else
+		dev_err(dev->dev, "cant dma free. they are NULL\n");
 	mem->size = 0;
 	mem->base = NULL;
 	mem->phys_base = 0;
@@ -1039,6 +1043,22 @@ void msm_slim_disconnect_endp(struct msm_slim_ctrl *dev,
 	}
 }
 
+static int msm_slim_discard_rx_data(struct msm_slim_ctrl *dev,
+					struct msm_slim_endp *endpoint)
+{
+	struct sps_iovec sio;
+	int desc_num = 0, ret = 0;
+
+	ret = sps_get_unused_desc_num(endpoint->sps, &desc_num);
+	if (ret) {
+		dev_err(dev->dev, "sps_get_iovec() failed 0x%x\n", ret);
+		return ret;
+	}
+	while (desc_num--)
+		sps_get_iovec(endpoint->sps, &sio);
+	return ret;
+}
+
 static void msm_slim_remove_ep(struct msm_slim_ctrl *dev,
 					struct msm_slim_endp *endpoint,
 					enum msm_slim_msgq *msgq_flag)
@@ -1046,15 +1066,37 @@ static void msm_slim_remove_ep(struct msm_slim_ctrl *dev,
 	struct sps_connect *config = &endpoint->config;
 	struct sps_mem_buffer *descr = &config->desc;
 	struct sps_mem_buffer *mem = &endpoint->buf;
-	struct sps_register_event sps_event;
-	memset(&sps_event, 0x00, sizeof(sps_event));
+
 	msm_slim_sps_mem_free(dev, mem);
-	sps_register_event(endpoint->sps, &sps_event);
-	if (*msgq_flag == MSM_MSGQ_ENABLED) {
-		msm_slim_disconnect_endp(dev, endpoint, msgq_flag);
-		msm_slim_free_endpoint(endpoint);
-	}
 	msm_slim_sps_mem_free(dev, descr);
+	msm_slim_free_endpoint(endpoint);
+}
+
+void msm_slim_deinit_ep(struct msm_slim_ctrl *dev,
+				struct msm_slim_endp *endpoint,
+				enum msm_slim_msgq *msgq_flag)
+{
+	int ret = 0;
+	struct sps_connect *config = &endpoint->config;
+
+	if (*msgq_flag == MSM_MSGQ_ENABLED) {
+		if (config->mode == SPS_MODE_SRC) {
+			ret = msm_slim_discard_rx_data(dev, endpoint);
+			if (ret)
+				SLIM_WARN(dev, "discarding Rx data failed\n");
+		}
+		msm_slim_disconnect_endp(dev, endpoint, msgq_flag);
+		msm_slim_remove_ep(dev, endpoint, msgq_flag);
+	}
+}
+
+static void msm_slim_sps_unreg_event(struct sps_pipe *sps)
+{
+	struct sps_register_event sps_event;
+
+	memset(&sps_event, 0x00, sizeof(sps_event));
+	/* Disable interrupt and signal notification for Rx/Tx pipe */
+	sps_register_event(sps, &sps_event);
 }
 
 void msm_slim_sps_exit(struct msm_slim_ctrl *dev, bool dereg)
@@ -1062,9 +1104,10 @@ void msm_slim_sps_exit(struct msm_slim_ctrl *dev, bool dereg)
 	int i;
 
 	if (dev->use_rx_msgqs >= MSM_MSGQ_ENABLED)
-		msm_slim_remove_ep(dev, &dev->rx_msgq, &dev->use_rx_msgqs);
+		msm_slim_sps_unreg_event(dev->rx_msgq.sps);
 	if (dev->use_tx_msgqs >= MSM_MSGQ_ENABLED)
-		msm_slim_remove_ep(dev, &dev->tx_msgq, &dev->use_tx_msgqs);
+		msm_slim_sps_unreg_event(dev->tx_msgq.sps);
+
 	for (i = 0; i < dev->port_nums; i++) {
 		if (dev->pipes[i].connected)
 			msm_slim_disconn_pipe_port(dev, i);
