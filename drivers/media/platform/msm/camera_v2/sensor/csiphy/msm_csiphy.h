@@ -24,6 +24,11 @@
 #define MAX_CSIPHY 3
 #define CSIPHY_NUM_CLK_MAX  16
 
+struct csiphy_reg_t {
+	uint32_t addr;
+	uint32_t data;
+};
+
 struct csiphy_reg_parms_t {
 /*MIPI CSI PHY registers*/
 	uint32_t mipi_csiphy_lnn_cfg1_addr;
@@ -55,68 +60,68 @@ struct csiphy_reg_parms_t {
 
 struct csiphy_reg_3ph_parms_t {
 /*MIPI CSI PHY registers*/
-	uint32_t mipi_csiphy_3ph_cmn_ctrl5_addr;
-	uint32_t mipi_csiphy_3ph_cmn_ctrl6_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl34_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl35_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl36_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl1_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl2_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl3_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl5_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl6_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl7_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl8_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl9_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl10_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl11_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl12_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl13_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl14_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl15_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl16_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl17_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl18_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl19_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl21_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl23_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl24_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl25_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl26_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl27_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl28_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl29_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl30_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl31_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl32_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl33_addr;
-	uint32_t mipi_csiphy_3ph_lnn_ctrl51_addr;
-	uint32_t mipi_csiphy_3ph_cmn_ctrl7_addr;
-	uint32_t mipi_csiphy_3ph_cmn_ctrl11_addr;
-	uint32_t mipi_csiphy_3ph_cmn_ctrl12_addr;
-	uint32_t mipi_csiphy_3ph_cmn_ctrl13_addr;
-	uint32_t mipi_csiphy_3ph_cmn_ctrl14_addr;
-	uint32_t mipi_csiphy_3ph_cmn_ctrl15_addr;
-	uint32_t mipi_csiphy_3ph_cmn_ctrl16_addr;
-	uint32_t mipi_csiphy_3ph_cmn_ctrl17_addr;
-	uint32_t mipi_csiphy_3ph_cmn_ctrl18_addr;
-	uint32_t mipi_csiphy_3ph_cmn_ctrl19_addr;
-	uint32_t mipi_csiphy_3ph_cmn_ctrl20_addr;
-	uint32_t mipi_csiphy_3ph_cmn_ctrl21_addr;
-	uint32_t mipi_csiphy_2ph_lnn_misc1_addr;
-	uint32_t mipi_csiphy_3ph_cmn_ctrl0_addr;
-	uint32_t mipi_csiphy_2ph_lnn_cfg1_addr;
-	uint32_t mipi_csiphy_2ph_lnn_cfg2_addr;
-	uint32_t mipi_csiphy_2ph_lnn_cfg3_addr;
-	uint32_t mipi_csiphy_2ph_lnn_cfg4_addr;
-	uint32_t mipi_csiphy_2ph_lnn_cfg5_addr;
-	uint32_t mipi_csiphy_2ph_lnn_cfg6_addr;
-	uint32_t mipi_csiphy_2ph_lnn_cfg7_addr;
-	uint32_t mipi_csiphy_2ph_lnn_cfg8_addr;
-	uint32_t mipi_csiphy_2ph_lnn_cfg9_addr;
-	uint32_t mipi_csiphy_2ph_lnn_ctrl15_addr;
-	uint32_t mipi_csiphy_2ph_lnn_test_imp_addr;
-	uint32_t mipi_csiphy_2ph_lnn_test_force;
+	struct csiphy_reg_t mipi_csiphy_3ph_cmn_ctrl5;
+	struct csiphy_reg_t mipi_csiphy_3ph_cmn_ctrl6;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl34;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl35;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl36;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl1;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl2;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl3;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl5;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl6;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl7;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl8;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl9;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl10;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl11;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl12;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl13;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl14;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl15;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl16;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl17;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl18;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl19;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl21;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl23;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl24;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl25;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl26;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl27;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl28;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl29;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl30;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl31;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl32;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl33;
+	struct csiphy_reg_t mipi_csiphy_3ph_lnn_ctrl51;
+	struct csiphy_reg_t mipi_csiphy_3ph_cmn_ctrl7;
+	struct csiphy_reg_t mipi_csiphy_3ph_cmn_ctrl11;
+	struct csiphy_reg_t mipi_csiphy_3ph_cmn_ctrl12;
+	struct csiphy_reg_t mipi_csiphy_3ph_cmn_ctrl13;
+	struct csiphy_reg_t mipi_csiphy_3ph_cmn_ctrl14;
+	struct csiphy_reg_t mipi_csiphy_3ph_cmn_ctrl15;
+	struct csiphy_reg_t mipi_csiphy_3ph_cmn_ctrl16;
+	struct csiphy_reg_t mipi_csiphy_3ph_cmn_ctrl17;
+	struct csiphy_reg_t mipi_csiphy_3ph_cmn_ctrl18;
+	struct csiphy_reg_t mipi_csiphy_3ph_cmn_ctrl19;
+	struct csiphy_reg_t mipi_csiphy_3ph_cmn_ctrl20;
+	struct csiphy_reg_t mipi_csiphy_3ph_cmn_ctrl21;
+	struct csiphy_reg_t mipi_csiphy_2ph_lnn_misc1;
+	struct csiphy_reg_t mipi_csiphy_3ph_cmn_ctrl0;
+	struct csiphy_reg_t mipi_csiphy_2ph_lnn_cfg1;
+	struct csiphy_reg_t mipi_csiphy_2ph_lnn_cfg2;
+	struct csiphy_reg_t mipi_csiphy_2ph_lnn_cfg3;
+	struct csiphy_reg_t mipi_csiphy_2ph_lnn_cfg4;
+	struct csiphy_reg_t mipi_csiphy_2ph_lnn_cfg5;
+	struct csiphy_reg_t mipi_csiphy_2ph_lnn_cfg6;
+	struct csiphy_reg_t mipi_csiphy_2ph_lnn_cfg7;
+	struct csiphy_reg_t mipi_csiphy_2ph_lnn_cfg8;
+	struct csiphy_reg_t mipi_csiphy_2ph_lnn_cfg9;
+	struct csiphy_reg_t mipi_csiphy_2ph_lnn_ctrl15;
+	struct csiphy_reg_t mipi_csiphy_2ph_lnn_test_imp;
+	struct csiphy_reg_t mipi_csiphy_2ph_lnn_test_force;
 };
 
 struct csiphy_ctrl_t {
