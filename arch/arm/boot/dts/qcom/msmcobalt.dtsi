@@ -1052,6 +1052,28 @@
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_3_out 0 0>;
 	};
 
+	qcom,venus@cce0000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0xcce0000 0x4000>;
+
+		vdd-supply = <&gdsc_venus>;
+		qcom,proxy-reg-names = "vdd";
+
+		clocks = <&clock_mmss clk_video_core_clk>,
+			 <&clock_mmss clk_video_ahb_clk>,
+			 <&clock_mmss clk_video_axi_clk>,
+			 <&clock_mmss clk_video_maxi_clk>;
+		clock-names = "core_clk", "iface_clk",
+			      "bus_clk", "maxi_clk";
+		qcom,proxy-clock-names = "core_clk", "iface_clk",
+					 "bus_clk", "maxi_clk";
+
+		qcom,pas-id = <9>;
+		qcom,proxy-timeout-ms = <100>;
+		qcom,firmware-name = "venus";
+		memory-region = <&peripheral_mem>;
+	};
+
 };
 
 #include "msmcobalt-regulator.dtsi"
