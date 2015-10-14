@@ -58,3 +58,7 @@
 		qcom,irq-gpio = <&pm8019_mpps 2 0>;
 	};
 };
+
+&usb_otg {
+	vbus_otg-supply = <&smb358_otg_vreg>;
+};
