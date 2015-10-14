@@ -1013,4 +1013,16 @@
 		qcom,btm-channel-number = <0x48>;
 		qcom,thermal-node;
 	};
+
+	chan@7 {
+		label = "vph_pwr";
+		reg = <0x7>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <1>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+		qcom,btm-channel-number = <0x68>;
+	};
 };
