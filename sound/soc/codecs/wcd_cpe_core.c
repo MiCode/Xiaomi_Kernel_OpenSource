@@ -2591,7 +2591,7 @@ static int wcd_cpe_send_param_epd_thres(struct wcd_cpe_core *core,
 			       CPE_EPD_THRES_PARAM_SIZE,
 			       CPE_LSM_SESSION_CMD_SET_PARAMS_V2);
 
-	epd_cmd.minor_version = 0;
+	epd_cmd.minor_version = 1;
 	epd_cmd.epd_begin = ep_det_data->epd_begin;
 	epd_cmd.epd_end = ep_det_data->epd_end;
 
@@ -2631,7 +2631,7 @@ static int wcd_cpe_send_param_opmode(struct wcd_cpe_core *core,
 			       CPE_OPMODE_PARAM_SIZE,
 			       CPE_LSM_SESSION_CMD_SET_PARAMS_V2);
 
-	opmode_cmd.minor_version = 0;
+	opmode_cmd.minor_version = 1;
 	if (opmode_d->mode == LSM_MODE_KEYWORD_ONLY_DETECTION)
 		opmode_cmd.mode = 1;
 	else
@@ -2678,7 +2678,7 @@ static int wcd_cpe_send_param_gain(struct wcd_cpe_core *core,
 			       CPE_GAIN_PARAM_SIZE,
 			       CPE_LSM_SESSION_CMD_SET_PARAMS_V2);
 
-	gain_cmd.minor_version = 0;
+	gain_cmd.minor_version = 1;
 	gain_cmd.gain = gain_d->gain;
 	gain_cmd.reserved = 0;
 
