@@ -62,6 +62,7 @@ enum {
 	CLS_H_HIFI, /* Class-H HiFi */
 	CLS_H_LP, /* Class-H Low Power */
 	CLS_AB, /* Class-AB */
+	CLS_H_LOHIFI, /* LoHIFI */
 	CLS_NONE, /* None of the above modes */
 };
 
@@ -141,6 +142,7 @@ extern void wcd_clsh_fsm(struct snd_soc_codec *codec,
 		int int_mode);
 
 extern void wcd_clsh_init(struct wcd_clsh_cdc_data *clsh);
+extern int wcd_clsh_get_clsh_state(struct wcd_clsh_cdc_data *clsh);
 
 enum {
 	RESERVED = 0,
