@@ -1,6 +1,6 @@
 /* include/linux/msm_hdmi.h
  *
- * Copyright (c) 2014 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015 The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -36,11 +36,18 @@ struct msm_hdmi_audio_edid_blk {
 	unsigned int spk_alloc_data_blk_size; /* in bytes */
 };
 
+struct msm_hdmi_audio_setup_params {
+	u32 sample_rate_hz;
+	u32 num_of_channels;
+	u32 channel_allocation;
+	u32 level_shift;
+	bool down_mix;
+	u32 sample_present;
+};
+
 struct msm_hdmi_audio_codec_ops {
 	int (*audio_info_setup)(struct platform_device *pdev,
-		u32 sample_rate, u32 num_of_channels,
-		u32 channel_allocation, u32 level_shift,
-		bool down_mix);
+		struct msm_hdmi_audio_setup_params *params);
 	int (*get_audio_edid_blk) (struct platform_device *pdev,
 		struct msm_hdmi_audio_edid_blk *blk);
 	int (*hdmi_cable_status) (struct platform_device *pdev, u32 vote);
