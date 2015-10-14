@@ -572,11 +572,12 @@ void mdss_mdp_irq_disable(u32 intr_type, u32 intf_num)
 void mdss_mdp_intr_check_and_clear(u32 intr_type, u32 intf_num)
 {
 	u32 status, irq;
+	unsigned long irq_flags;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	irq = mdss_mdp_irq_mask(intr_type, intf_num);
 
-	spin_lock(&mdp_lock);
+	spin_lock_irqsave(&mdp_lock, irq_flags);
 	status = irq & readl_relaxed(mdata->mdp_base +
 			MDSS_MDP_REG_INTR_STATUS);
 	if (status) {
@@ -584,7 +585,7 @@ void mdss_mdp_intr_check_and_clear(u32 intr_type, u32 intf_num)
 				intr_type, intf_num);
 		writel_relaxed(irq, mdata->mdp_base + MDSS_MDP_REG_INTR_CLEAR);
 	}
-	spin_unlock(&mdp_lock);
+	spin_unlock_irqrestore(&mdp_lock, irq_flags);
 }
 
 void mdss_mdp_hist_irq_disable(u32 irq)
