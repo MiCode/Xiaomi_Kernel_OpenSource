@@ -571,7 +571,12 @@ static irqreturn_t tsif_isr(int irq, void *dev)
 /*** callbacks ***/
 static void tspp_sps_complete_cb(struct sps_event_notify *notify)
 {
-	struct tspp_device *pdev = notify->user;
+	struct tspp_device *pdev;
+
+	if (!notify || !notify->user)
+		return;
+
+	pdev = notify->user;
 	tasklet_schedule(&pdev->tlet);
 }
 
