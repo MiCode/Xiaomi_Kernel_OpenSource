@@ -11071,6 +11071,8 @@ static int tasha_device_down(struct wcd9xxx *wcd9xxx)
 	for (count = 0; count < NUM_CODEC_DAIS; count++)
 		priv->dai[count].bus_down_in_recovery = true;
 
+	priv->resmgr->sido_input_src = SIDO_SOURCE_INTERNAL;
+
 	return 0;
 }
 
@@ -11124,6 +11126,8 @@ static int tasha_post_reset_cb(struct wcd9xxx *wcd9xxx)
 				    0x03, 0x01);
 	tasha_codec_init_reg(codec);
 
+	tasha_enable_efuse_sensing(codec);
+
 	regcache_mark_dirty(codec->control_data);
 	regcache_sync(codec->control_data);
 
@@ -11155,7 +11159,6 @@ static int tasha_post_reset_cb(struct wcd9xxx *wcd9xxx)
 		goto err;
 	}
 
-	tasha_enable_efuse_sensing(codec);
 	tasha_set_spkr_mode(codec, tasha->spkr_mode);
 	wcd_cpe_ssr_event(tasha->cpe_core, WCD_CPE_BUS_UP_EVENT);
 
