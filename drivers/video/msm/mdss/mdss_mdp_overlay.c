@@ -4376,8 +4376,9 @@ static void mdss_mdp_set_lm_flag(struct msm_fb_data_type *mfd)
 	width = mfd->fbi->var.xres;
 
 	/* setting the appropriate split_mode for HDMI usecases */
-	if (mfd->split_mode == MDP_SPLIT_MODE_NONE &&
-			width > mdata->max_mixer_width) {
+	if ((mfd->split_mode == MDP_SPLIT_MODE_NONE ||
+			mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY) &&
+			(width > mdata->max_mixer_width)) {
 		width /= 2;
 		mfd->split_mode = MDP_DUAL_LM_SINGLE_DISPLAY;
 		mfd->split_fb_left = width;
