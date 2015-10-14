@@ -4933,6 +4933,7 @@ static const struct msm8x16_wcd_reg_mask_val msm8x16_wcd_reg_defaults_2_0[] = {
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_CURRENT_LIMIT, 0x82),
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SPKR_DAC_CTL, 0x03),
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SPKR_OCP_CTL, 0xE1),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_DIGITAL_CDC_RST_CTL, 0x80),
 };
 
 static const struct msm8x16_wcd_reg_mask_val msm8909_wcd_reg_defaults[] = {
@@ -4947,6 +4948,7 @@ static const struct msm8x16_wcd_reg_mask_val msm8909_wcd_reg_defaults[] = {
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_PERPH_SUBTYPE, 0x0A),
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SPKR_DAC_CTL, 0x03),
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SPKR_OCP_CTL, 0xE1),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_DIGITAL_CDC_RST_CTL, 0x80),
 };
 
 static const struct msm8x16_wcd_reg_mask_val cajon_wcd_reg_defaults[] = {
@@ -4964,6 +4966,7 @@ static const struct msm8x16_wcd_reg_mask_val cajon_wcd_reg_defaults[] = {
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SPKR_OCP_CTL, 0xE1),
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SPKR_DAC_CTL, 0x03),
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_RX_HPH_BIAS_PA, 0xFA),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_DIGITAL_CDC_RST_CTL, 0x80),
 };
 
 static const struct msm8x16_wcd_reg_mask_val cajon2p0_wcd_reg_defaults[] = {
@@ -4983,6 +4986,7 @@ static const struct msm8x16_wcd_reg_mask_val cajon2p0_wcd_reg_defaults[] = {
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_RX_EAR_STATUS, 0x10),
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_BYPASS_MODE, 0x18),
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_RX_HPH_BIAS_PA, 0xFA),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_DIGITAL_CDC_RST_CTL, 0x80),
 };
 
 static void msm8x16_wcd_update_reg_defaults(struct snd_soc_codec *codec)
