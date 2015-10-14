@@ -48,6 +48,10 @@ Sub LAB node optional structure:
 - qcom,qpnp-lab-pull-down-enable:	If this property is present, pull down is enabled for LAB regulator. Otherwise, pull down is disabled for LAB regulator.
 - qcom,qpnp-lab-limit-max-current-enable:	If this property is present, maximum inductor current constraint is put for LAB regulator. Otherwise, There is no maximum current constraint.
 - qcom,qpnp-lab-use-default-voltage:		When bootloader does not turn on LAB regulator and this property is present, value specified in qcom,qpnp-lab-init-voltage is the default init voltage when the voltage output register is of value 0. Otherwise, we need to enable the output override bit in voltage output register.
+- qpnp,qpnp-lab-current-sense:	If this property is present, the LAB current sense gain will be programmed for LAB regulator.
+				Otherwise, LAB current sense gain will be default to "1x". A string uses to specify the LAB current sense gain.
+				Could be "0.5x" or "1x" or "1.5x" or "2x". For ex: "0.5x" means current sense gain is 0.5.
+
 
 Sub IBB node required structure:
 - reg:				Specifies the SPMI address and size for this peripheral
