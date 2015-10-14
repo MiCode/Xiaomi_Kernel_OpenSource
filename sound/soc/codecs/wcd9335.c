@@ -10000,15 +10000,9 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 	},
 };
 
-static void tasha_codec_power_gate_work(struct work_struct *work)
+static void tasha_codec_power_gate_digital_core(struct tasha_priv *tasha)
 {
-	struct tasha_priv *tasha;
-	struct delayed_work *dwork;
-	struct snd_soc_codec *codec;
-
-	dwork = to_delayed_work(work);
-	tasha = container_of(dwork, struct tasha_priv, power_gate_work);
-	codec = tasha->codec;
+	struct snd_soc_codec *codec = tasha->codec;
 
 	if (!codec)
 		return;
@@ -10037,6 +10031,22 @@ exit:
 	dev_dbg(codec->dev, "%s: Exiting power gating function, %d\n",
 		__func__, tasha->power_active_ref);
 	mutex_unlock(&tasha->power_lock);
+}
+
+static void tasha_codec_power_gate_work(struct work_struct *work)
+{
+	struct tasha_priv *tasha;
+	struct delayed_work *dwork;
+	struct snd_soc_codec *codec;
+
+	dwork = to_delayed_work(work);
+	tasha = container_of(dwork, struct tasha_priv, power_gate_work);
+	codec = tasha->codec;
+
+	if (!codec)
+		return;
+
+	tasha_codec_power_gate_digital_core(tasha);
 }
 
 /* called under power_lock acquisition */
@@ -11543,7 +11553,13 @@ static struct snd_soc_codec_driver soc_codec_dev_tasha = {
 #ifdef CONFIG_PM
 static int tasha_suspend(struct device *dev)
 {
+	struct platform_device *pdev = to_platform_device(dev);
+	struct tasha_priv *tasha = platform_get_drvdata(pdev);
+
 	dev_dbg(dev, "%s: system suspend\n", __func__);
+	if (cancel_delayed_work_sync(&tasha->power_gate_work))
+		tasha_codec_power_gate_digital_core(tasha);
+
 	return 0;
 }
 
