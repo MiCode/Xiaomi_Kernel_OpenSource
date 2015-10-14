@@ -54,7 +54,7 @@ void msm_iommu_set_client_name(struct iommu_domain *domain, char const *name)
 
 int msm_use_iommu(void)
 {
-	return iommu_present(&platform_bus_type);
+	return iommu_present(msm_iommu_non_sec_bus_type);
 }
 
 bool msm_iommu_page_size_is_supported(unsigned long page_size)
