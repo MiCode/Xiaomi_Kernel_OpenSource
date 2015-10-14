@@ -118,6 +118,7 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 	bool down_mix = 0;
 	u32 num_channels = params_channels(params);
 	int rc = 0;
+	struct msm_hdmi_audio_setup_params audio_setup_params = {0};
 
 	struct msm_hdmi_audio_codec_rx_data *codec_data =
 			dev_get_drvdata(dai->codec->dev);
@@ -141,21 +142,27 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 		break;
 	case 3:
 		channel_allocation  = 0x02;/*default to FL/FR/FC*/
+		audio_setup_params.sample_present = 0x3;
 		break;
 	case 4:
 		channel_allocation  = 0x06;/*default to FL/FR/FC/RC*/
+		audio_setup_params.sample_present = 0x7;
 		break;
 	case 5:
 		channel_allocation  = 0x0A;/*default to FL/FR/FC/RR/RL*/
+		audio_setup_params.sample_present = 0x7;
 		break;
 	case 6:
 		channel_allocation  = 0x0B;
+		audio_setup_params.sample_present = 0x7;
 		break;
 	case 7:
 		channel_allocation  = 0x12;/*default to FL/FR/FC/RL/RR/RRC/RLC*/
+		audio_setup_params.sample_present = 0xf;
 		break;
 	case 8:
 		channel_allocation  = 0x13;
+		audio_setup_params.sample_present = 0xf;
 		break;
 	default:
 		dev_err(dai->dev, "invalid Channels = %u\n", num_channels);
@@ -167,10 +174,14 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 		__func__, num_channels, params_rate(params),
 		channel_allocation);
 
+	audio_setup_params.sample_rate_hz = params_rate(params);
+	audio_setup_params.num_of_channels = num_channels;
+	audio_setup_params.channel_allocation = channel_allocation;
+	audio_setup_params.level_shift = level_shift;
+	audio_setup_params.down_mix = down_mix;
+
 	rc = codec_data->hdmi_ops.audio_info_setup(
-			codec_data->hdmi_core_pdev,
-			params_rate(params), num_channels,
-			channel_allocation, level_shift, down_mix);
+			codec_data->hdmi_core_pdev, &audio_setup_params);
 	if (IS_ERR_VALUE(rc)) {
 		dev_err_ratelimited(dai->dev,
 			"%s() HDMI core is not ready, rc: %d\n",
