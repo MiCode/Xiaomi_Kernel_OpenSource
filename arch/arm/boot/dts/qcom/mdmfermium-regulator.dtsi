@@ -358,7 +358,7 @@
 		qcom,cpr-init-voltage-as-ceiling;
 		qcom,cpr-corner-frequency-map =
 					<1 400000000>,
-					<2 800000000>,
+					<2 806400000>,
 					<3 998400000>,
 					<4 1094400000>,
 					<5 1190400000>,
