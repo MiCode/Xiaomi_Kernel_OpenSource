@@ -3423,9 +3423,12 @@ static void sdhci_set_default_hw_caps(struct sdhci_msm_host *msm_host,
 	/*
 	 * SDCC 5 controller with major version 1, minor version 0x42 and later
 	 * will require additional steps when resetting DLL.
+	 * It also supports HS400 enhanced strobe mode.
 	 */
-	if ((major == 1) && (minor >= 0x42))
+	if ((major == 1) && (minor >= 0x42)) {
 		msm_host->use_updated_dll_reset = true;
+		msm_host->enhanced_strobe = true;
+	}
 
 	/*
 	 * Mask 64-bit support for controller with 32-bit address bus so that
