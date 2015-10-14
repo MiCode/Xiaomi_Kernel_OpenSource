@@ -2544,6 +2544,8 @@ void _ipa_enable_clks_v2_0(void)
 
 	if (smmu_clk)
 		clk_prepare_enable(smmu_clk);
+	/* Enable the BAM IRQ. */
+	ipa_sps_irq_control_all(true);
 	ipa_suspend_apps_pipes(false);
 }
 
@@ -2667,6 +2669,7 @@ void _ipa_disable_clks_v2_0(void)
 {
 	IPADBG("disabling gcc_ipa_clk\n");
 	ipa_suspend_apps_pipes(true);
+	ipa_sps_irq_control_all(false);
 	ipa_uc_notify_clk_state(false);
 	if (ipa_clk)
 		clk_disable_unprepare(ipa_clk);
@@ -3023,6 +3026,8 @@ void ipa_suspend_handler(enum ipa_irq_type interrupt,
 					&ipa_ctx->sps_pm.dec_clients)
 					) {
 					ipa_inc_client_enable_clks();
+					IPADBG("Pipes un-suspended.\n");
+					IPADBG("Enter poll mode.\n");
 					atomic_set(
 						&ipa_ctx->sps_pm.dec_clients,
 						1);
@@ -3575,8 +3580,8 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	}
 
 	/*add handler for suspend interrupt*/
-	result = ipa2_add_interrupt_handler(IPA_TX_SUSPEND_IRQ,
-			ipa_suspend_handler, true, NULL);
+	result = ipa_add_interrupt_handler(IPA_TX_SUSPEND_IRQ,
+			ipa_suspend_handler, false, NULL);
 	if (result) {
 		IPAERR("register handler for suspend interrupt failed\n");
 		result = -ENODEV;
