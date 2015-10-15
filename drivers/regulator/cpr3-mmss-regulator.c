@@ -43,6 +43,8 @@
  *			for each fuse corner (raw, not converted to a voltage)
  * @cpr_fusing_rev:	CPR fusing revision fuse parameter value
  * @limitation:		CPR limitation select fuse parameter value
+ * @aging_init_quot_diff:	Initial quotient difference between CPR aging
+ *			min and max sensors measured at time of manufacturing
  *
  * This struct holds the values for all of the fuses read from memory.
  */
@@ -50,6 +52,7 @@ struct cpr3_msm8996_mmss_fuses {
 	u64	init_voltage[MSM8996_MMSS_FUSE_CORNERS];
 	u64	cpr_fusing_rev;
 	u64	limitation;
+	u64	aging_init_quot_diff;
 };
 
 /**
@@ -110,6 +113,12 @@ static const struct cpr3_fuse_param msm8996_cpr_limitation_param[] = {
 	{},
 };
 
+static const struct cpr3_fuse_param
+msm8996_mmss_aging_init_quot_diff_param[] = {
+	{68, 26, 31},
+	{},
+};
+
 /*
  * Some initial msm8996 parts cannot be used in a meaningful way by software.
  * Other parts can only be used when operating with CPR disabled (i.e. at the
@@ -134,10 +143,15 @@ static const int msm8996_mmss_fuse_ref_volt[MSM8996_MMSS_FUSE_CORNERS] = {
 
 #define MSM8996_MMSS_FUSE_STEP_VOLT		10000
 #define MSM8996_MMSS_VOLTAGE_FUSE_SIZE		5
+#define MSM8996_MMSS_AGING_INIT_QUOT_DIFF_SCALE	2
+#define MSM8996_MMSS_AGING_INIT_QUOT_DIFF_SIZE	6
 
 #define MSM8996_MMSS_CPR_SENSOR_COUNT		35
 
 #define MSM8996_MMSS_CPR_CLOCK_RATE		19200000
+
+#define MSM8996_MMSS_AGING_SENSOR_ID		29
+#define MSM8996_MMSS_AGING_BYPASS_MASK0		(GENMASK(23, 0))
 
 /**
  * cpr3_msm8996_mmss_read_fuse_data() - load MMSS specific fuse parameter values
@@ -180,6 +194,14 @@ static int cpr3_msm8996_mmss_read_fuse_data(struct cpr3_regulator *vreg)
 		? "unsupported chip" : fuse->limitation
 			  == MSM8996_CPR_LIMITATION_NO_CPR_OR_INTERPOLATION
 		? "CPR disabled and no interpolation" : "none");
+
+	rc = cpr3_read_fuse_param(base, msm8996_mmss_aging_init_quot_diff_param,
+				&fuse->aging_init_quot_diff);
+	if (rc) {
+		cpr3_err(vreg, "Unable to read aging initial quotient difference fuse, rc=%d\n",
+			rc);
+		return rc;
+	}
 
 	for (i = 0; i < MSM8996_MMSS_FUSE_CORNERS; i++) {
 		rc = cpr3_read_fuse_param(base,
@@ -267,10 +289,13 @@ static int cpr3_mmss_adjust_target_quotients(struct cpr3_regulator *vreg,
 {
 	int i, j, rc, quot_adjust;
 	int *volt_adjust, *ro_scale;
+	bool explicit_adjustment;
 	u32 prev_quot;
 
-	if (!of_find_property(vreg->of_node,
-			"qcom,cpr-closed-loop-voltage-adjustment", NULL)) {
+	explicit_adjustment = of_find_property(vreg->of_node,
+			"qcom,cpr-closed-loop-voltage-adjustment", NULL);
+
+	if (!explicit_adjustment && !vreg->aging_allowed) {
 		/* No adjustment required. */
 		return 0;
 	} else if (!of_find_property(vreg->of_node,
@@ -288,15 +313,6 @@ static int cpr3_mmss_adjust_target_quotients(struct cpr3_regulator *vreg,
 		goto done;
 	}
 
-	rc = cpr3_parse_array_property(vreg,
-		"qcom,cpr-closed-loop-voltage-adjustment",
-		vreg->corner_count, corner_sum, combo_offset, volt_adjust);
-	if (rc) {
-		cpr3_err(vreg, "could not load closed-loop voltage adjustments, rc=%d\n",
-			rc);
-		goto done;
-	}
-
 	rc = cpr3_parse_array_property(vreg, "qcom,cpr-ro-scaling-factor",
 			vreg->corner_count * CPR3_RO_COUNT,
 			corner_sum * CPR3_RO_COUNT,
@@ -308,39 +324,68 @@ static int cpr3_mmss_adjust_target_quotients(struct cpr3_regulator *vreg,
 		goto done;
 	}
 
-	for (i = 0; i < vreg->corner_count; i++) {
-		for (j = 0; j < CPR3_RO_COUNT; j++) {
-			if (vreg->corner[i].target_quot[j]) {
-				quot_adjust = cpr3_quot_adjustment(
+	for (i = 0; i < vreg->corner_count; i++)
+		memcpy(vreg->corner[i].ro_scale, &ro_scale[i * CPR3_RO_COUNT],
+			sizeof(*ro_scale) * CPR3_RO_COUNT);
+
+	if (explicit_adjustment) {
+		rc = cpr3_parse_array_property(vreg,
+			"qcom,cpr-closed-loop-voltage-adjustment",
+			vreg->corner_count, corner_sum, combo_offset,
+			volt_adjust);
+		if (rc) {
+			cpr3_err(vreg, "could not load closed-loop voltage adjustments, rc=%d\n",
+				rc);
+			goto done;
+		}
+
+		/*
+		 * Adjust the target quotients for each corner according to
+		 * device tree adjustment values.
+		 */
+		for (i = 0; i < vreg->corner_count; i++) {
+			for (j = 0; j < CPR3_RO_COUNT; j++) {
+				if (vreg->corner[i].target_quot[j]) {
+					quot_adjust = cpr3_quot_adjustment(
 						ro_scale[i * CPR3_RO_COUNT + j],
 						volt_adjust[i]);
-				if (quot_adjust) {
-					prev_quot
-					     = vreg->corner[i].target_quot[j];
-					vreg->corner[i].target_quot[j]
-					     += quot_adjust;
-					cpr3_info(vreg, "adjusted corner %d RO%d target quot: %u --> %u (%d uV)\n",
-					     i, j, prev_quot,
-					     vreg->corner[i].target_quot[j],
-					     volt_adjust[i]);
+					if (quot_adjust) {
+						prev_quot = vreg->corner[i].
+								target_quot[j];
+						vreg->corner[i].target_quot[j]
+						     += quot_adjust;
+						cpr3_info(vreg, "adjusted corner %d RO%d target quot: %u --> %u (%d uV)\n",
+						     i, j, prev_quot,
+						     vreg->corner[i].
+							     target_quot[j],
+						     volt_adjust[i]);
+					}
 				}
 			}
 		}
-	}
 
-	/* Ensure that target quotients increase monotonically */
-	for (i = 1; i < vreg->corner_count; i++) {
-		for (j = 0; j < CPR3_RO_COUNT; j++) {
-			if (vreg->corner[i].target_quot[j]
-			    && vreg->corner[i].target_quot[j]
-					< vreg->corner[i - 1].target_quot[j]) {
-				cpr3_info(vreg, "adjusted corner %d RO%u target quot=%u < adjusted corner %d RO%u target quot=%u; overriding: corner %d RO%u target quot=%u\n",
-					i, j, vreg->corner[i].target_quot[j],
-					i - 1, j,
-					vreg->corner[i - 1].target_quot[j], i,
-					j, vreg->corner[i - 1].target_quot[j]);
-				vreg->corner[i].target_quot[j]
-					= vreg->corner[i - 1].target_quot[j];
+		/*
+		 * Ensure that target quotients increase monotonically from
+		 * lower to higher corners after being adjusted based upon
+		 * device tree adjustment values.
+		 */
+		for (i = 1; i < vreg->corner_count; i++) {
+			for (j = 0; j < CPR3_RO_COUNT; j++) {
+				if (vreg->corner[i].target_quot[j]
+				    && vreg->corner[i].target_quot[j]
+					 < vreg->corner[i - 1].target_quot[j]) {
+					cpr3_info(vreg, "adjusted corner %d RO%u target quot=%u < adjusted corner %d RO%u target quot=%u; overriding: corner %d RO%u target quot=%u\n",
+						i, j,
+						vreg->corner[i].target_quot[j],
+						i - 1, j,
+						vreg->corner[i - 1].
+							target_quot[j],
+						i, j,
+						vreg->corner[i - 1].
+							target_quot[j]);
+					vreg->corner[i].target_quot[j]
+					   = vreg->corner[i - 1].target_quot[j];
+				}
 			}
 		}
 	}
@@ -502,6 +547,66 @@ static void cpr3_mmss_print_settings(struct cpr3_regulator *vreg)
 			corner->floor_volt, corner->open_loop_volt,
 			corner->ceiling_volt);
 	}
+}
+
+/**
+ * cpr3_mmss_init_aging() - perform MMSS CPR3 controller specific
+ *		aging initializations
+ * @ctrl:		Pointer to the CPR3 controller
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_mmss_init_aging(struct cpr3_controller *ctrl)
+{
+	struct cpr3_msm8996_mmss_fuses *fuse;
+	struct cpr3_regulator *vreg;
+	u32 aging_ro_scale;
+	int rc;
+
+	vreg = &ctrl->thread[0].vreg[0];
+
+	ctrl->aging_required = vreg->aging_allowed;
+	fuse = vreg->platform_fuses;
+
+	if (!ctrl->aging_required || !fuse)
+		return 0;
+
+	rc = cpr3_parse_array_property(vreg, "qcom,cpr-aging-ro-scaling-factor",
+					1, vreg->fuse_combos_supported,
+					vreg->fuse_combo, &aging_ro_scale);
+	if (rc)
+		return rc;
+
+	if (aging_ro_scale == 0) {
+		cpr3_err(ctrl, "aging RO scaling factor is invalid: %u\n",
+			aging_ro_scale);
+		return -EINVAL;
+	}
+
+	ctrl->aging_vdd_mode = REGULATOR_MODE_NORMAL;
+	ctrl->aging_complete_vdd_mode = REGULATOR_MODE_IDLE;
+
+	ctrl->aging_sensor_count = 1;
+	ctrl->aging_sensor = kzalloc(sizeof(*ctrl->aging_sensor), GFP_KERNEL);
+	if (!ctrl->aging_sensor)
+		return -ENOMEM;
+
+	ctrl->aging_sensor->sensor_id = MSM8996_MMSS_AGING_SENSOR_ID;
+	ctrl->aging_sensor->bypass_mask[0] = MSM8996_MMSS_AGING_BYPASS_MASK0;
+	ctrl->aging_sensor->ro_scale = aging_ro_scale;
+
+	ctrl->aging_sensor->init_quot_diff
+		= cpr3_convert_open_loop_voltage_fuse(0,
+			MSM8996_MMSS_AGING_INIT_QUOT_DIFF_SCALE,
+			fuse->aging_init_quot_diff,
+			MSM8996_MMSS_AGING_INIT_QUOT_DIFF_SIZE);
+
+	cpr3_debug(ctrl, "sensor %u aging init quotient diff = %d, aging RO scale = %u QUOT/V\n",
+		ctrl->aging_sensor->sensor_id,
+		ctrl->aging_sensor->init_quot_diff,
+		ctrl->aging_sensor->ro_scale);
+
+	return 0;
 }
 
 /**
@@ -717,6 +822,13 @@ static int cpr3_mmss_regulator_probe(struct platform_device *pdev)
 	rc = cpr3_mmss_init_thread(&ctrl->thread[0]);
 	if (rc) {
 		cpr3_err(&ctrl->thread[0].vreg[0], "thread initialization failed, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = cpr3_mmss_init_aging(ctrl);
+	if (rc) {
+		cpr3_err(ctrl, "failed to initialize aging configurations, rc=%d\n",
 			rc);
 		return rc;
 	}

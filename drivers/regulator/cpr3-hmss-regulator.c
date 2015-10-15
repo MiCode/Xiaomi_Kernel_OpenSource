@@ -58,6 +58,8 @@
  *			limitations found on a given chip
  * @vdd_mx_ret_fuse:	Defines the logic retention voltage of VDD_MX
  * @vdd_apcc_ret_fuse:	Defines the logic retention voltage of VDD_APCC
+ * @aging_init_quot_diff:	Initial quotient difference between CPR aging
+ *			min and max sensors measured at time of manufacturing
  *
  * This struct holds the values for all of the fuses read from memory.  The
  * values for ro_sel, init_voltage, target_quot, and quot_offset come from
@@ -76,6 +78,7 @@ struct cpr3_msm8996_hmss_fuses {
 	u64	partial_binning;
 	u64	vdd_mx_ret_fuse;
 	u64	vdd_apcc_ret_fuse;
+	u64	aging_init_quot_diff;
 };
 
 /**
@@ -337,6 +340,12 @@ static const struct cpr3_fuse_param msm8996_cpr_partial_binning_param[] = {
 	{},
 };
 
+static const struct cpr3_fuse_param
+msm8996_hmss_aging_init_quot_diff_param[] = {
+	{68, 14, 19},
+	{},
+};
+
 /*
  * Some initial msm8996 parts cannot be used in a meaningful way by software.
  * Other parts can only be used when operating with CPR disabled (i.e. at the
@@ -390,6 +399,8 @@ static const int msm8996_vdd_mx_fuse_ret_volt[] = {
 #define MSM8996_HMSS_FUSE_STEP_VOLT		10000
 #define MSM8996_HMSS_VOLTAGE_FUSE_SIZE		6
 #define MSM8996_HMSS_QUOT_OFFSET_SCALE		5
+#define MSM8996_HMSS_AGING_INIT_QUOT_DIFF_SCALE	2
+#define MSM8996_HMSS_AGING_INIT_QUOT_DIFF_SIZE	6
 
 #define MSM8996_HMSS_CPR_SENSOR_COUNT		25
 #define MSM8996_HMSS_THREAD0_SENSOR_MIN		0
@@ -398,6 +409,9 @@ static const int msm8996_vdd_mx_fuse_ret_volt[] = {
 #define MSM8996_HMSS_THREAD1_SENSOR_MAX		24
 
 #define MSM8996_HMSS_CPR_CLOCK_RATE		19200000
+
+#define MSM8996_HMSS_AGING_SENSOR_ID		11
+#define MSM8996_HMSS_AGING_BYPASS_MASK0		(GENMASK(7, 0) & ~BIT(3))
 
 /**
  * cpr3_msm8996_hmss_read_fuse_data() - load HMSS specific fuse parameter values
@@ -494,6 +508,14 @@ static int cpr3_msm8996_hmss_read_fuse_data(struct cpr3_regulator *vreg)
 
 	cpr3_info(vreg, "Retention voltage fuses: VDD_MX = %llu, VDD_APCC = %llu\n",
 		  fuse->vdd_mx_ret_fuse, fuse->vdd_apcc_ret_fuse);
+
+	rc = cpr3_read_fuse_param(base, msm8996_hmss_aging_init_quot_diff_param,
+				&fuse->aging_init_quot_diff);
+	if (rc) {
+		cpr3_err(vreg, "Unable to read aging initial quotient difference fuse, rc=%d\n",
+			rc);
+		return rc;
+	}
 
 	id = vreg->thread->thread_id;
 
@@ -845,7 +867,8 @@ static int cpr3_hmss_parse_closed_loop_voltage_adjustments(
 	if (!of_find_property(vreg->of_node,
 			"qcom,cpr-closed-loop-voltage-adjustment", NULL)
 	    && !of_find_property(vreg->of_node,
-			"qcom,cpr-closed-loop-voltage-fuse-adjustment", NULL)) {
+			"qcom,cpr-closed-loop-voltage-fuse-adjustment", NULL)
+	    && !vreg->aging_allowed) {
 		/* No adjustment required. */
 		return 0;
 	} else if (!of_find_property(vreg->of_node,
@@ -873,6 +896,11 @@ static int cpr3_hmss_parse_closed_loop_voltage_adjustments(
 
 	for (i = 0; i < vreg->fuse_corner_count; i++)
 		ro_scale[i] = ro_all_scale[i * CPR3_RO_COUNT + fuse->ro_sel[i]];
+
+	for (i = 0; i < vreg->corner_count; i++)
+		memcpy(vreg->corner[i].ro_scale,
+		 &ro_all_scale[vreg->corner[i].cpr_fuse_corner * CPR3_RO_COUNT],
+		 sizeof(*ro_all_scale) * CPR3_RO_COUNT);
 
 	if (of_find_property(vreg->of_node,
 			"qcom,cpr-closed-loop-voltage-fuse-adjustment", NULL)) {
@@ -1519,6 +1547,72 @@ static int cpr3_hmss_apm_init(struct cpr3_controller *ctrl)
 }
 
 /**
+ * cpr3_hmss_init_aging() - perform HMSS CPR3 controller specific
+ *		aging initializations
+ * @ctrl:		Pointer to the CPR3 controller
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_hmss_init_aging(struct cpr3_controller *ctrl)
+{
+	struct cpr3_msm8996_hmss_fuses *fuse = NULL;
+	struct cpr3_regulator *vreg;
+	u32 aging_ro_scale;
+	int i, j, rc;
+
+	for (i = 0; i < ctrl->thread_count; i++) {
+		for (j = 0; j < ctrl->thread[i].vreg_count; j++) {
+			if (ctrl->thread[i].vreg[j].aging_allowed) {
+				ctrl->aging_required = true;
+				vreg = &ctrl->thread[i].vreg[j];
+				fuse = vreg->platform_fuses;
+				break;
+			}
+		}
+	}
+
+	if (!ctrl->aging_required || !fuse)
+		return 0;
+
+	rc = cpr3_parse_array_property(vreg, "qcom,cpr-aging-ro-scaling-factor",
+					1, vreg->fuse_combos_supported,
+					vreg->fuse_combo, &aging_ro_scale);
+	if (rc)
+		return rc;
+
+	if (aging_ro_scale == 0) {
+		cpr3_err(ctrl, "aging RO scaling factor is invalid: %u\n",
+			aging_ro_scale);
+		return -EINVAL;
+	}
+
+	ctrl->aging_vdd_mode = REGULATOR_MODE_NORMAL;
+	ctrl->aging_complete_vdd_mode = REGULATOR_MODE_IDLE;
+
+	ctrl->aging_sensor_count = 1;
+	ctrl->aging_sensor = kzalloc(sizeof(*ctrl->aging_sensor), GFP_KERNEL);
+	if (!ctrl->aging_sensor)
+		return -ENOMEM;
+
+	ctrl->aging_sensor->sensor_id = MSM8996_HMSS_AGING_SENSOR_ID;
+	ctrl->aging_sensor->bypass_mask[0] = MSM8996_HMSS_AGING_BYPASS_MASK0;
+	ctrl->aging_sensor->ro_scale = aging_ro_scale;
+
+	ctrl->aging_sensor->init_quot_diff
+		= cpr3_convert_open_loop_voltage_fuse(0,
+			MSM8996_HMSS_AGING_INIT_QUOT_DIFF_SCALE,
+			fuse->aging_init_quot_diff,
+			MSM8996_HMSS_AGING_INIT_QUOT_DIFF_SIZE);
+
+	cpr3_debug(ctrl, "sensor %u aging init quotient diff = %d, aging RO scale = %u QUOT/V\n",
+		ctrl->aging_sensor->sensor_id,
+		ctrl->aging_sensor->init_quot_diff,
+		ctrl->aging_sensor->ro_scale);
+
+	return 0;
+}
+
+/**
  * cpr3_hmss_init_controller() - perform HMSS CPR3 controller specific
  *		initializations
  * @ctrl:		Pointer to the CPR3 controller
@@ -1706,6 +1800,13 @@ static int cpr3_hmss_regulator_probe(struct platform_device *pdev)
 				return rc;
 			}
 		}
+	}
+
+	rc = cpr3_hmss_init_aging(ctrl);
+	if (rc) {
+		cpr3_err(ctrl, "failed to initialize aging configurations, rc=%d\n",
+			rc);
+		return rc;
 	}
 
 	platform_set_drvdata(pdev, ctrl);
