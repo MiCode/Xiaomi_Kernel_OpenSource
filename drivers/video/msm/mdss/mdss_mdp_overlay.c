@@ -2177,6 +2177,7 @@ static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_mdp_data *src_data;
+	struct mdp_layer_buffer buffer;
 	int ret;
 	u32 flags;
 
@@ -2212,8 +2213,12 @@ static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 		pr_err("unable to allocate source buffer\n");
 		ret = -ENOMEM;
 	} else {
-		ret = mdss_mdp_data_get(src_data, &req->data, 1, flags,
-			&mfd->pdev->dev, false, DMA_TO_DEVICE);
+		buffer.width = pipe->img_width;
+		buffer.height = pipe->img_height;
+		buffer.format = pipe->src_fmt->format;
+		ret = mdss_mdp_data_get_and_validate_size(src_data, &req->data,
+			1, flags, &mfd->pdev->dev, false, DMA_TO_DEVICE,
+			&buffer);
 		if (IS_ERR_VALUE(ret)) {
 			mdss_mdp_overlay_buf_free(mfd, src_data);
 			pr_err("src_data pmem error\n");

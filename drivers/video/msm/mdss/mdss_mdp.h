@@ -1228,11 +1228,12 @@ void mdss_mdp_get_v_h_subsample_rate(u8 chroma_samp,
 	u8 *v_sample, u8 *h_sample);
 struct mult_factor *mdss_mdp_get_comp_factor(u32 format,
 	bool rt_factor);
-int mdss_mdp_data_get(struct mdss_mdp_data *data, struct msmfb_data *planes,
-		int num_planes, u32 flags, struct device *dev, bool rotator,
-		int dir);
 int mdss_mdp_data_map(struct mdss_mdp_data *data, bool rotator, int dir);
 void mdss_mdp_data_free(struct mdss_mdp_data *data, bool rotator, int dir);
+int mdss_mdp_data_get_and_validate_size(struct mdss_mdp_data *data,
+	struct msmfb_data *planes, int num_planes, u32 flags,
+	struct device *dev, bool rotator, int dir,
+	struct mdp_layer_buffer *buffer);
 u32 mdss_get_panel_framerate(struct msm_fb_data_type *mfd);
 int mdss_mdp_calc_phase_step(u32 src, u32 dst, u32 *out_phase);
 

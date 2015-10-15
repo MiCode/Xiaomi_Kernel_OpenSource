@@ -504,8 +504,8 @@ static int mdss_rotator_import_buffer(struct mdp_layer_buffer *buffer,
 		planes[i].offset = buffer->planes[i].offset;
 	}
 
-	ret =  mdss_mdp_data_get(data, planes, buffer->plane_count,
-			flags, dev, true, dir);
+	ret =  mdss_mdp_data_get_and_validate_size(data, planes,
+			buffer->plane_count, flags, dev, true, dir, buffer);
 
 	return ret;
 }
