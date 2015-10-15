@@ -457,6 +457,9 @@ static int ath3k_set_normal_mode(struct usb_device *udev)
 			NULL, 0, USB_CTRL_SET_TIMEOUT);
 }
 
+DECLARE_RWSEM(btusb_pm_sem);
+EXPORT_SYMBOL(btusb_pm_sem);
+
 static int ath3k_load_patch(struct usb_device *udev,
 						struct ath3k_version *version)
 {
@@ -476,11 +479,10 @@ static int ath3k_load_patch(struct usb_device *udev,
 
 	if ((fw_state == ATH3K_PATCH_UPDATE) ||
 		(fw_state == ATH3K_PATCH_SYSCFG_UPDATE)) {
-		BT_INFO("%s: Patch already downloaded(fw_state: %d)", __func__,
-			fw_state);
+		BT_INFO("Patch already downloaded(fw_state: %d)", fw_state);
 		return 0;
-	}
-	BT_DBG("Downloading RamPatch(fw_state: %d)", fw_state);
+	} else
+		BT_DBG("Downloading RamPatch(fw_state: %d)", fw_state);
 
 	switch (version->rom_version) {
 	case ROME1_1_USB_CHIP_VERSION:
@@ -512,11 +514,14 @@ static int ath3k_load_patch(struct usb_device *udev,
 		break;
 	}
 
+	down_read(&btusb_pm_sem);
 	ret = request_firmware(&firmware, filename, &udev->dev);
 	if (ret < 0) {
 		BT_ERR("Patch file not found %s", filename);
+		up_read(&btusb_pm_sem);
 		return ret;
 	}
+	up_read(&btusb_pm_sem);
 
 	if ((version->rom_version == ROME2_1_USB_CHIP_VERSION) ||
 		(version->rom_version == ROME3_0_USB_CHIP_VERSION) ||
