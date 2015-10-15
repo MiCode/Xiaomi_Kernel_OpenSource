@@ -24,6 +24,16 @@ int ufs_qcom_phy_qrbtc_v2_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 	int tbl_size_A;
 	struct ufs_qcom_phy_calibration *tbl_A;
 
+	writel_relaxed(0x15f, ufs_qcom_phy->mmio + U11_UFS_RESET_REG_OFFSET);
+
+	/* 50ms are required to stabilize the reset */
+	usleep_range(50000, 50100);
+	writel_relaxed(0x0, ufs_qcom_phy->mmio + U11_UFS_RESET_REG_OFFSET);
+
+	/* Set R3PC REF CLK */
+	writel_relaxed(0x80, ufs_qcom_phy->mmio + U11_QRBTC_CONTROL_OFFSET);
+
+
 	tbl_A = phy_cal_table_rate_A;
 	tbl_size_A = ARRAY_SIZE(phy_cal_table_rate_A);
 
@@ -36,6 +46,7 @@ int ufs_qcom_phy_qrbtc_v2_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 		dev_err(ufs_qcom_phy->dev,
 			"%s: ufs_qcom_phy_calibrate() failed %d\n",
 			__func__, err);
+
 	return err;
 }
 
@@ -61,6 +72,8 @@ ufs_qcom_phy_qrbtc_v2_is_pcs_ready(struct ufs_qcom_phy *phy_common)
 		dev_err(phy_common->dev, "%s: poll for pcs failed err = %d\n",
 			__func__, err);
 
+	writel_relaxed(0x100, phy_common->mmio + U11_QRBTC_TX_CLK_CTRL);
+
 	return err;
 }
 
@@ -80,24 +93,8 @@ static void ufs_qcom_phy_qrbtc_v2_start_serdes(struct ufs_qcom_phy *phy)
 
 static int ufs_qcom_phy_qrbtc_v2_init(struct phy *generic_phy)
 {
-	struct ufs_qcom_phy_qrbtc_v2 *phy = phy_get_drvdata(generic_phy);
-	struct ufs_qcom_phy *phy_common = &phy->common_cfg;
-	int err = 0;
+	return 0;
 
-	writel_relaxed(0x15f, phy_common->mmio + U11_UFS_RESET_REG_OFFSET);
-
-	/* 50ms are required to stabilize the reset */
-	usleep_range(50000, 50100);
-	writel_relaxed(0x0, phy_common->mmio + U11_UFS_RESET_REG_OFFSET);
-
-	/* Set R3PC REF CLK */
-	writel_relaxed(0x80, phy_common->mmio + U11_QRBTC_CONTROL_OFFSET);
-
-	ufs_qcom_phy_qrbtc_v2_phy_calibrate(phy_common, false);
-	ufs_qcom_phy_qrbtc_v2_start_serdes(phy_common);
-	ufs_qcom_phy_qrbtc_v2_is_pcs_ready(phy_common);
-
-	return err;
 }
 
 struct phy_ops ufs_qcom_phy_qrbtc_v2_phy_ops = {
