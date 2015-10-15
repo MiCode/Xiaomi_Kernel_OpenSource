@@ -47,12 +47,11 @@ static struct workqueue_struct *ipa_clnt_resp_workqueue;
 static void *curr_conn;
 static bool ipa3_qmi_modem_init_fin, ipa3_qmi_indication_fin;
 static struct work_struct ipa3_qmi_service_init_work;
-static bool is_load_uc;
 static uint32_t ipa_wan_platform;
 struct ipa3_qmi_context *ipa3_qmi_ctx;
 static bool workqueues_stopped;
 static bool ipa3_modem_init_cmplt;
-
+static bool first_time_handshake;
 /* QMI A5 service */
 
 static struct msg_desc ipa3_indication_reg_req_desc = {
@@ -519,7 +518,7 @@ static int ipa3_qmi_init_modem_send_sync_msg(void)
 	req.v6_hash_filter_tbl_start_addr =
 		IPA_MEM_PART(v6_flt_hash_ofst) + smem_restr_bytes;
 
-	if (is_load_uc) {  /* First time boot */
+	if (!ipa3_uc_loaded_check()) {  /* First time boot */
 		req.is_ssr_bootup_valid = false;
 		req.is_ssr_bootup = 0;
 	} else {  /* After SSR boot */
@@ -876,8 +875,10 @@ static void ipa3_q6_clnt_svc_arrive(struct work_struct *work)
 		ipa3_modem_init_cmplt);
 			ipa3_uc_load_notify();
 	}
-	/* is_load_uc=FALSE indicates that SSR has occurred */
-	ipa3_q6_handshake_complete(!is_load_uc);
+
+	/* In cold-bootup, first_time_handshake = false */
+	ipa3_q6_handshake_complete(first_time_handshake);
+	first_time_handshake = true;
 	IPAWANDBG("complete, ipa3_qmi_modem_init_fin : %d\n",
 		ipa3_qmi_modem_init_fin);
 
@@ -1023,10 +1024,9 @@ destroy_ipa_A7_svc_wq:
 	ipa3_qmi_ctx = NULL;
 }
 
-int ipa3_qmi_service_init(bool load_uc, uint32_t wan_platform_type)
+int ipa3_qmi_service_init(uint32_t wan_platform_type)
 {
 	ipa_wan_platform = wan_platform_type;
-	is_load_uc = load_uc;
 	ipa3_qmi_modem_init_fin = false;
 	ipa3_qmi_indication_fin = false;
 	ipa3_modem_init_cmplt = false;
