@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -344,8 +344,10 @@ static int __init msm_buspm_dev_init(void)
 	int ret = 0;
 
 	ret = misc_register(&msm_buspm_misc);
-	if (ret < 0)
-		pr_err("%s: Cannot register misc device\n", __func__);
+	if (ret < 0) {
+		WARN_ON(1);
+		return ret;
+	}
 
 	if (msm_buspm_misc.this_device->coherent_dma_mask == 0)
 		msm_buspm_misc.this_device->coherent_dma_mask =
