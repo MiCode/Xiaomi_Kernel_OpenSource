@@ -456,6 +456,13 @@ static struct ctl_table kern_table[] = {
 		.mode           = 0644,
 		.proc_handler   = sched_window_update_handler,
 	},
+	{
+		.procname       = "sched_early_detection_duration",
+		.data           = &sysctl_early_detection_duration,
+		.maxlen         = sizeof(unsigned int),
+		.mode           = 0644,
+		.proc_handler   = proc_dointvec,
+	},
 #endif
 	{
 		.procname	= "sched_boost",

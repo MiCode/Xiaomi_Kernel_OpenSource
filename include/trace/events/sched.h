@@ -411,24 +411,26 @@ TRACE_EVENT(sched_migration_update_sum,
 
 TRACE_EVENT(sched_get_busy,
 
-	TP_PROTO(int cpu, u64 load, u64 nload),
+	TP_PROTO(int cpu, u64 load, u64 nload, int early),
 
-	TP_ARGS(cpu, load, nload),
+	TP_ARGS(cpu, load, nload, early),
 
 	TP_STRUCT__entry(
 		__field(	int,	cpu			)
 		__field(	u64,	load			)
 		__field(	u64,	nload			)
+		__field(	int,	early			)
 	),
 
 	TP_fast_assign(
 		__entry->cpu		= cpu;
 		__entry->load		= load;
 		__entry->nload		= nload;
+		__entry->early		= early;
 	),
 
-	TP_printk("cpu %d load %lld new_task_load %lld",
-		__entry->cpu, __entry->load, __entry->nload)
+	TP_printk("cpu %d load %lld new_task_load %lld early %d",
+		__entry->cpu, __entry->load, __entry->nload, __entry->early)
 );
 
 TRACE_EVENT(sched_freq_alert,

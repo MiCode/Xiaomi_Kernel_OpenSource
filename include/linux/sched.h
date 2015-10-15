@@ -1314,6 +1314,7 @@ struct task_struct {
 	 * of this task
 	 */
 	u32 init_load_pct;
+	u64 last_wake_ts;
 #ifdef CONFIG_SCHED_QHMP
 	u64 run_start;
 #endif
