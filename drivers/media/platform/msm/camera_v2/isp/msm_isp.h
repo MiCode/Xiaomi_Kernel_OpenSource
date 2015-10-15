@@ -140,6 +140,7 @@ struct msm_vfe_irq_ops {
 	void (*process_stats_irq)(struct vfe_device *vfe_dev,
 		uint32_t irq_status0, uint32_t irq_status1,
 		struct msm_isp_timestamp *ts);
+	void (*enable_camif_err)(struct vfe_device *vfe_dev, int enable);
 };
 
 struct msm_vfe_axi_ops {

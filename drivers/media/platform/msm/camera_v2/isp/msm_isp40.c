@@ -537,10 +537,12 @@ static void msm_vfe40_process_violation_status(
 static void msm_vfe40_process_error_status(struct vfe_device *vfe_dev)
 {
 	uint32_t error_status1 = vfe_dev->error_info.error_mask1;
-	if (error_status1 & (1 << 0))
+	if (error_status1 & (1 << 0)) {
 		pr_err_ratelimited("%s: vfe %d camif error status: 0x%x\n",
 			__func__, vfe_dev->pdev->id,
 			vfe_dev->error_info.camif_status);
+		msm_camera_io_dump(vfe_dev->vfe_base + 0x2F4, 0x30, 1);
+	}
 	if (error_status1 & (1 << 1))
 		pr_err_ratelimited("%s: stats bhist overwrite\n", __func__);
 	if (error_status1 & (1 << 2))
@@ -630,9 +632,23 @@ static void msm_vfe40_process_error_status(struct vfe_device *vfe_dev)
 		msm_isp_util_update_last_overflow_ab_ib(vfe_dev);
 }
 
+static void msm_vfe40_enable_camif_error(struct vfe_device *vfe_dev,
+			int enable)
+{
+	uint32_t val;
+
+	val = msm_camera_io_r(vfe_dev->vfe_base + 0x2C);
+	if (enable)
+		msm_camera_io_w_mb(val | BIT(0), vfe_dev->vfe_base + 0x2C);
+	else
+		msm_camera_io_w_mb(val & ~(BIT(0)), vfe_dev->vfe_base + 0x2C);
+}
+
 static void msm_vfe40_read_irq_status(struct vfe_device *vfe_dev,
 	uint32_t *irq_status0, uint32_t *irq_status1)
 {
+	uint32_t irq_mask0, irq_mask1;
+
 	*irq_status0 = msm_camera_io_r(vfe_dev->vfe_base + 0x38);
 	*irq_status1 = msm_camera_io_r(vfe_dev->vfe_base + 0x3C);
 	/*
@@ -648,9 +664,16 @@ static void msm_vfe40_read_irq_status(struct vfe_device *vfe_dev,
 		*irq_status0 &= ~(0x18000000);
 	}
 
-	if (*irq_status1 & (1 << 0))
+	irq_mask0 = msm_camera_io_r(vfe_dev->vfe_base + 0x28);
+	irq_mask1 = msm_camera_io_r(vfe_dev->vfe_base + 0x2C);
+	*irq_status0 &= irq_mask0;
+	*irq_status1 &= irq_mask1;
+
+	if (*irq_status1 & (1 << 0)) {
 		vfe_dev->error_info.camif_status =
 		msm_camera_io_r(vfe_dev->vfe_base + 0x31C);
+		msm_vfe40_enable_camif_error(vfe_dev, 0);
+	}
 
 	if (*irq_status1 & (1 << 7))
 		vfe_dev->error_info.violation_status |=
@@ -2281,6 +2304,7 @@ struct msm_vfe_hardware_info vfe40_hw_info = {
 			.process_axi_irq = msm_isp_process_axi_irq,
 			.process_stats_irq = msm_isp_process_stats_irq,
 			.process_epoch_irq = msm_vfe40_process_epoch_irq,
+			.enable_camif_err = msm_vfe40_enable_camif_error,
 		},
 		.axi_ops = {
 			.reload_wm = msm_vfe40_axi_reload_wm,
