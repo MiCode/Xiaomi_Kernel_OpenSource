@@ -2484,6 +2484,7 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 		vfe_dev->hw_info->vfe_ops.core_ops.
 			update_camif_state(vfe_dev, camif_update);
 		vfe_dev->axi_data.camif_state = CAMIF_ENABLE;
+		vfe_dev->hw_info->vfe_ops.irq_ops.enable_camif_err(vfe_dev, 1);
 	}
 
 	if (wait_for_complete) {
@@ -2630,6 +2631,7 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 	} else if ((camif_update == DISABLE_CAMIF_IMMEDIATELY) ||
 					(ext_read)) {
 		/*during stop immediately, stop output then stop input*/
+		vfe_dev->hw_info->vfe_ops.irq_ops.enable_camif_err(vfe_dev, 0);
 		vfe_dev->ignore_error = 1;
 		vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev, 1);
 		if (!ext_read)
@@ -2639,6 +2641,7 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 		vfe_dev->axi_data.camif_state = CAMIF_STOPPED;
 		vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev, 0, 1);
 		vfe_dev->hw_info->vfe_ops.core_ops.init_hw_reg(vfe_dev);
+		vfe_dev->hw_info->vfe_ops.irq_ops.enable_camif_err(vfe_dev, 1);
 		vfe_dev->ignore_error = 0;
 	}
 	msm_isp_update_camif_output_count(vfe_dev, stream_cfg_cmd);
