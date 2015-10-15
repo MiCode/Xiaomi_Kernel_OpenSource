@@ -2609,11 +2609,10 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 		if (mfd->mdp.release_fnc)
 			mfd->mdp.release_fnc(mfd, NULL);
 
-		if (mfd->mdp.ad_shutdown_cleanup) {
-			ret = (*mfd->mdp.ad_shutdown_cleanup)(mfd);
+		if (mfd->mdp.pp_release_fnc) {
+			ret = (*mfd->mdp.pp_release_fnc)(mfd);
 			if (ret)
-				pr_err("AD shutdown cleanup failed ret %d\n",
-				       ret);
+				pr_err("PP release failed ret %d\n", ret);
 		}
 
 		ret = mdss_fb_blank_sub(FB_BLANK_POWERDOWN, info,
