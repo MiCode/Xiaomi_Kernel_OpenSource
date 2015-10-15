@@ -118,7 +118,7 @@ extern struct ipa_rmnet_context ipa_rmnet_ctx;
 
 #ifdef CONFIG_RMNET_IPA
 
-int ipa_qmi_service_init(bool load_uc, uint32_t wan_platform_type);
+int ipa_qmi_service_init(uint32_t wan_platform_type);
 
 void ipa_qmi_service_exit(void);
 
@@ -154,7 +154,7 @@ void ipa_qmi_stop_workqueues(void);
 
 #else /* CONFIG_RMNET_IPA */
 
-static inline int ipa_qmi_service_init(bool load_uc, uint32_t wan_platform_type)
+static inline int ipa_qmi_service_init(uint32_t wan_platform_type)
 {
 	return -EPERM;
 }
