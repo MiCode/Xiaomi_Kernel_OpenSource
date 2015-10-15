@@ -77,8 +77,8 @@ void msm_access_control(void)
 	unsigned long start, kernel_start, kernel_end, end;
 
 	start = 0;
-	kernel_start = ALIGN(__pa(_stext), SZ_2M);
-	kernel_end = ALIGN(__pa(_etext), SZ_2M);
+	kernel_start = rounddown(__pa(_stext), PAGE_SIZE);
+	kernel_end = ALIGN(__pa(_etext), PAGE_SIZE);
 	end = 0xFFFFFFFF;
 
 	/*
