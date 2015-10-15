@@ -585,6 +585,8 @@
 		qcom,cpr-enable;
 		qcom,cpr-clock-throttling = <0x20>;
 
+		qcom,cpr-aging-ref-voltage = <905000>;
+
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
 			qcom,cpr-consecutive-up = <0>;
@@ -679,6 +681,12 @@
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,cpr-aging-max-voltage-adjustment = <25000>;
+				qcom,cpr-aging-ref-corner = <12>;
+				qcom,cpr-aging-ro-scaling-factor = <3200>;
+				qcom,allow-aging-voltage-adjustment =
+					<0 0 0 1 1 1 1 1>;
 			};
 
 			apc0_cbf_vreg: regulator-cbf {
@@ -752,6 +760,12 @@
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,cpr-aging-max-voltage-adjustment = <25000>;
+				qcom,cpr-aging-ref-corner = <13>;
+				qcom,cpr-aging-ro-scaling-factor = <3200>;
+				qcom,allow-aging-voltage-adjustment =
+					<0 0 0 1 1 1 1 1>;
 			};
 		};
 
@@ -862,6 +876,12 @@
 				qcom,allow-voltage-interpolation;
 				qcom,allow-quotient-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,cpr-aging-max-voltage-adjustment = <25000>;
+				qcom,cpr-aging-ref-corner = <13>;
+				qcom,cpr-aging-ro-scaling-factor = <3200>;
+				qcom,allow-aging-voltage-adjustment =
+					<0 0 0 1 1 1 1 1>;
 			};
 		};
 	};
@@ -889,6 +909,8 @@
 		qcom,voltage-step = <5000>;
 
 		qcom,cpr-enable;
+
+		qcom,cpr-aging-ref-voltage = <905000>;
 
 		thread@0 {
 			qcom,cpr-thread-id = <0>;
@@ -988,6 +1010,12 @@
 
 				qcom,allow-voltage-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
+
+				qcom,cpr-aging-max-voltage-adjustment = <25000>;
+				qcom,cpr-aging-ref-corner = <6>;
+				qcom,cpr-aging-ro-scaling-factor = <2950>;
+				qcom,allow-aging-voltage-adjustment =
+					<0 0 0 1 1 1 1 1>;
 			};
 		};
 	};
