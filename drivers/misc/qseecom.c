@@ -209,6 +209,7 @@ struct qseecom_control {
 
 	uint32_t app_block_ref_cnt;
 	wait_queue_head_t app_block_wq;
+	atomic_t in_suspend;  /* 1: in suspend; 0: not in suspend*/
 };
 
 struct qseecom_sec_buf_fd_info {
@@ -3597,6 +3598,10 @@ int qseecom_start_app(struct qseecom_handle **handle,
 	ion_phys_addr_t pa;
 	uint32_t fw_size, app_arch;
 
+	if (atomic_read(&qseecom.in_suspend) == 1) {
+		pr_err("Not allowed to be called in suspend state\n");
+		return -EPERM;
+	}
 	if (!app_name) {
 		pr_err("failed to get the app name\n");
 		return -EINVAL;
@@ -3751,6 +3756,10 @@ int qseecom_shutdown_app(struct qseecom_handle **handle)
 	unsigned long flags = 0;
 	bool found_handle = false;
 
+	if (atomic_read(&qseecom.in_suspend) == 1) {
+		pr_err("Not allowed to be called in suspend state\n");
+		return -EPERM;
+	}
 	if ((handle == NULL)  || (*handle == NULL)) {
 		pr_err("Handle is not initialized\n");
 		return -EINVAL;
@@ -3813,6 +3822,10 @@ int qseecom_send_command(struct qseecom_handle *handle, void *send_buf,
 	struct qseecom_dev_handle *data;
 	bool perf_enabled = false;
 
+	if (atomic_read(&qseecom.in_suspend) == 1) {
+		pr_err("Not allowed to be called in suspend state\n");
+		return -EPERM;
+	}
 	if (handle == NULL) {
 		pr_err("Handle is not initialized\n");
 		return -EINVAL;
@@ -6724,6 +6737,7 @@ static int qseecom_probe(struct platform_device *pdev)
 	qseecom.ce_drv.ce_clk = NULL;
 	qseecom.ce_drv.ce_core_src_clk = NULL;
 	qseecom.ce_drv.ce_bus_clk = NULL;
+	atomic_set(&qseecom.in_suspend, 0);
 
 	qseecom.app_block_ref_cnt = 0;
 	init_waitqueue_head(&qseecom.app_block_wq);
@@ -7121,6 +7135,7 @@ static int qseecom_suspend(struct platform_device *pdev, pm_message_t state)
 	struct qseecom_clk *qclk;
 	qclk = &qseecom.qsee;
 
+	atomic_set(&qseecom.in_suspend, 1);
 	if (qseecom.no_clock_support)
 		return 0;
 
@@ -7163,7 +7178,8 @@ static int qseecom_resume(struct platform_device *pdev)
 	qclk = &qseecom.qsee;
 
 	if (qseecom.no_clock_support)
-		return 0;
+		goto exit;
+
 	mutex_lock(&qsee_bw_mutex);
 	mutex_lock(&clk_access_lock);
 	if (qseecom.cumulative_mode >= HIGH)
@@ -7217,9 +7233,7 @@ static int qseecom_resume(struct platform_device *pdev)
 
 	mutex_unlock(&clk_access_lock);
 	mutex_unlock(&qsee_bw_mutex);
-
-
-	return 0;
+	goto exit;
 
 ce_bus_clk_err:
 	if (qclk->ce_clk)
@@ -7230,7 +7244,10 @@ ce_clk_err:
 err:
 	mutex_unlock(&clk_access_lock);
 	mutex_unlock(&qsee_bw_mutex);
-	return -EIO;
+	ret = -EIO;
+exit:
+	atomic_set(&qseecom.in_suspend, 0);
+	return ret;
 }
 static struct of_device_id qseecom_match[] = {
 	{
