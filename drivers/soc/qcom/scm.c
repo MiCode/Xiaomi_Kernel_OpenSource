@@ -640,6 +640,9 @@ int scm_call2(u32 fn_id, struct scm_desc *desc)
 	int ret, retry_count = 0;
 	u64 x0;
 
+	if (unlikely(!is_scm_armv8()))
+		return -ENODEV;
+
 	ret = allocate_extra_arg_buffer(desc, GFP_KERNEL);
 	if (ret)
 		return ret;
@@ -707,6 +710,9 @@ int scm_call2_atomic(u32 fn_id, struct scm_desc *desc)
 	int arglen = desc->arginfo & 0xf;
 	int ret;
 	u64 x0;
+
+	if (unlikely(!is_scm_armv8()))
+		return -ENODEV;
 
 	ret = allocate_extra_arg_buffer(desc, GFP_ATOMIC);
 	if (ret)
