@@ -562,19 +562,14 @@ static int cpr3_msm8996_hmss_read_fuse_data(struct cpr3_regulator *vreg)
  * cpr3_hmss_parse_corner_data() - parse HMSS corner data from device tree
  *		properties of the CPR3 regulator's device node
  * @vreg:		Pointer to the CPR3 regulator
- * @corner_sum:		Pointer which is output with the sum of the corner
- *			counts across all fuse combos
- * @combo_offset:	Pointer which is output with the array offset for the
- *			selected fuse combo
  *
  * Return: 0 on success, errno on failure
  */
-static int cpr3_hmss_parse_corner_data(struct cpr3_regulator *vreg,
-			int *corner_sum, int *combo_offset)
+static int cpr3_hmss_parse_corner_data(struct cpr3_regulator *vreg)
 {
 	int rc;
 
-	rc = cpr3_parse_common_corner_data(vreg, corner_sum, combo_offset);
+	rc = cpr3_parse_common_corner_data(vreg);
 	if (rc) {
 		cpr3_err(vreg, "error reading corner data, rc=%d\n", rc);
 		return rc;
@@ -587,8 +582,6 @@ static int cpr3_hmss_parse_corner_data(struct cpr3_regulator *vreg,
  * cpr3_msm8996_hmss_calculate_open_loop_voltages() - calculate the open-loop
  *		voltage for each corner of a CPR3 regulator
  * @vreg:		Pointer to the CPR3 regulator
- * @corner_sum:		Sum of the corner counts across all fuse combos
- * @combo_offset:	Array offset for the selected fuse combo
  *
  * If open-loop voltage interpolation is allowed in both device tree and in
  * hardware fuses, then this function calculates the open-loop voltage for a
@@ -603,8 +596,7 @@ static int cpr3_hmss_parse_corner_data(struct cpr3_regulator *vreg,
  * Return: 0 on success, errno on failure
  */
 static int cpr3_msm8996_hmss_calculate_open_loop_voltages(
-			struct cpr3_regulator *vreg, int corner_sum,
-			int combo_offset)
+			struct cpr3_regulator *vreg)
 {
 	struct device_node *node = vreg->of_node;
 	struct cpr3_msm8996_hmss_fuses *fuse = vreg->platform_fuses;
@@ -734,8 +726,7 @@ done:
 			cpr3_debug(vreg, "open-loop[%2d] = %d uV\n", i,
 				vreg->corner[i].open_loop_volt);
 
-		rc = cpr3_adjust_open_loop_voltages(vreg, corner_sum,
-			combo_offset);
+		rc = cpr3_adjust_open_loop_voltages(vreg);
 		if (rc)
 			cpr3_err(vreg, "open-loop voltage adjustment failed, rc=%d\n",
 				rc);
@@ -821,8 +812,6 @@ static int cpr3_hmss_adjust_voltages_for_apm(struct cpr3_regulator *vreg)
  * cpr3_hmss_parse_closed_loop_voltage_adjustments() - load per-fuse-corner and
  *		per-corner closed-loop adjustment values from device tree
  * @vreg:		Pointer to the CPR3 regulator
- * @corner_sum:		Sum of the corner counts across all fuse combos
- * @combo_offset:	Array offset for the selected fuse combo
  * @volt_adjust:	Pointer to array which will be filled with the
  *			per-corner closed-loop adjustment voltages
  * @volt_adjust_fuse:	Pointer to array which will be filled with the
@@ -834,8 +823,7 @@ static int cpr3_hmss_adjust_voltages_for_apm(struct cpr3_regulator *vreg)
  * Return: 0 on success, errno on failure
  */
 static int cpr3_hmss_parse_closed_loop_voltage_adjustments(
-			struct cpr3_regulator *vreg, int corner_sum,
-			int combo_offset, int *volt_adjust,
+			struct cpr3_regulator *vreg, int *volt_adjust,
 			int *volt_adjust_fuse, int *ro_scale)
 {
 	struct cpr3_msm8996_hmss_fuses *fuse = vreg->platform_fuses;
@@ -861,11 +849,7 @@ static int cpr3_hmss_parse_closed_loop_voltage_adjustments(
 		return -ENOMEM;
 
 	rc = cpr3_parse_array_property(vreg, "qcom,cpr-ro-scaling-factor",
-		vreg->fuse_corner_count * CPR3_RO_COUNT,
-		vreg->fuse_combos_supported * vreg->fuse_corner_count
-			* CPR3_RO_COUNT,
-		vreg->fuse_combo * vreg->fuse_corner_count * CPR3_RO_COUNT,
-		ro_all_scale);
+		vreg->fuse_corner_count * CPR3_RO_COUNT, ro_all_scale);
 	if (rc) {
 		cpr3_err(vreg, "could not load RO scaling factors, rc=%d\n",
 			rc);
@@ -884,11 +868,7 @@ static int cpr3_hmss_parse_closed_loop_voltage_adjustments(
 			"qcom,cpr-closed-loop-voltage-fuse-adjustment", NULL)) {
 		rc = cpr3_parse_array_property(vreg,
 			"qcom,cpr-closed-loop-voltage-fuse-adjustment",
-			vreg->fuse_corner_count,
-			vreg->fuse_combos_supported
-				* vreg->fuse_corner_count,
-			vreg->fuse_combo * vreg->fuse_corner_count,
-			volt_adjust_fuse);
+			vreg->fuse_corner_count, volt_adjust_fuse);
 		if (rc) {
 			cpr3_err(vreg, "could not load closed-loop fused voltage adjustments, rc=%d\n",
 				rc);
@@ -898,10 +878,9 @@ static int cpr3_hmss_parse_closed_loop_voltage_adjustments(
 
 	if (of_find_property(vreg->of_node,
 			"qcom,cpr-closed-loop-voltage-adjustment", NULL)) {
-		rc = cpr3_parse_array_property(vreg,
+		rc = cpr3_parse_corner_array_property(vreg,
 			"qcom,cpr-closed-loop-voltage-adjustment",
-			vreg->corner_count, corner_sum, combo_offset,
-			volt_adjust);
+			1, volt_adjust);
 		if (rc) {
 			cpr3_err(vreg, "could not load closed-loop voltage adjustments, rc=%d\n",
 				rc);
@@ -956,8 +935,6 @@ static int cpr3_msm8996_hmss_set_no_interpolation_quotients(
  * cpr3_msm8996_hmss_calculate_target_quotients() - calculate the CPR target
  *		quotient for each corner of a CPR3 regulator
  * @vreg:		Pointer to the CPR3 regulator
- * @corner_sum:		Sum of the corner counts across all fuse combos
- * @combo_offset:	Array offset for the selected fuse combo
  *
  * If target quotient interpolation is allowed in both device tree and in
  * hardware fuses, then this function calculates the target quotient for a
@@ -972,8 +949,7 @@ static int cpr3_msm8996_hmss_set_no_interpolation_quotients(
  * Return: 0 on success, errno on failure
  */
 static int cpr3_msm8996_hmss_calculate_target_quotients(
-			struct cpr3_regulator *vreg, int corner_sum,
-			int combo_offset)
+			struct cpr3_regulator *vreg)
 {
 	struct cpr3_msm8996_hmss_fuses *fuse = vreg->platform_fuses;
 	int rc;
@@ -1021,8 +997,8 @@ static int cpr3_msm8996_hmss_calculate_target_quotients(
 		goto done;
 	}
 
-	rc = cpr3_hmss_parse_closed_loop_voltage_adjustments(vreg, corner_sum,
-		combo_offset, volt_adjust, volt_adjust_fuse, ro_scale);
+	rc = cpr3_hmss_parse_closed_loop_voltage_adjustments(vreg, volt_adjust,
+			volt_adjust_fuse, ro_scale);
 	if (rc) {
 		cpr3_err(vreg, "could not load closed-loop voltage adjustments, rc=%d\n",
 			rc);
@@ -1386,8 +1362,6 @@ static int cpr3_hmss_kvreg_init(struct cpr3_regulator *vreg)
 static int cpr3_hmss_init_regulator(struct cpr3_regulator *vreg)
 {
 	struct cpr3_msm8996_hmss_fuses *fuse;
-	int corner_sum = 0;
-	int combo_offset = 0;
 	int rc;
 
 	rc = cpr3_msm8996_hmss_read_fuse_data(vreg);
@@ -1421,15 +1395,14 @@ static int cpr3_hmss_init_regulator(struct cpr3_regulator *vreg)
 		return rc;
 	}
 
-	rc = cpr3_hmss_parse_corner_data(vreg, &corner_sum, &combo_offset);
+	rc = cpr3_hmss_parse_corner_data(vreg);
 	if (rc) {
 		cpr3_err(vreg, "unable to read CPR corner data from device tree, rc=%d\n",
 			rc);
 		return rc;
 	}
 
-	rc = cpr3_msm8996_hmss_calculate_open_loop_voltages(vreg, corner_sum,
-			combo_offset);
+	rc = cpr3_msm8996_hmss_calculate_open_loop_voltages(vreg);
 	if (rc) {
 		cpr3_err(vreg, "unable to calculate open-loop voltages, rc=%d\n",
 			rc);
@@ -1452,14 +1425,13 @@ static int cpr3_hmss_init_regulator(struct cpr3_regulator *vreg)
 
 	cpr3_open_loop_voltage_as_ceiling(vreg);
 
-	rc = cpr3_limit_floor_voltages(vreg, corner_sum, combo_offset);
+	rc = cpr3_limit_floor_voltages(vreg);
 	if (rc) {
 		cpr3_err(vreg, "unable to limit floor voltages, rc=%d\n", rc);
 		return rc;
 	}
 
-	rc = cpr3_msm8996_hmss_calculate_target_quotients(vreg, corner_sum,
-			combo_offset);
+	rc = cpr3_msm8996_hmss_calculate_target_quotients(vreg);
 	if (rc) {
 		cpr3_err(vreg, "unable to calculate target quotients, rc=%d\n",
 			rc);
@@ -1553,8 +1525,7 @@ static int cpr3_hmss_init_aging(struct cpr3_controller *ctrl)
 		return 0;
 
 	rc = cpr3_parse_array_property(vreg, "qcom,cpr-aging-ro-scaling-factor",
-					1, vreg->fuse_combos_supported,
-					vreg->fuse_combo, &aging_ro_scale);
+					1, &aging_ro_scale);
 	if (rc)
 		return rc;
 

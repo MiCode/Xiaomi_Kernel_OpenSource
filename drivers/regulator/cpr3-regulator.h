@@ -126,12 +126,22 @@ struct cpr3_corner {
  * @platform_fuses:	Pointer to platform specific CPR fuse data (only used by
  *			platform specific CPR3 driver)
  * @speed_bin_fuse:	Value read from the speed bin fuse parameter
+ * @speed_bins_supported: The number of speed bins supported by the device tree
+ *			configuration for this CPR3 regulator
  * @cpr_rev_fuse:	Value read from the CPR fusing revision fuse parameter
  * @fuse_combo:		Platform specific enum value identifying the specific
  *			combination of fuse values found on a given chip
  * @fuse_combos_supported: The number of fuse combinations supported by the
  *			device tree configuration for this CPR3 regulator
  * @fuse_corner_count:	Number of corners defined by fuse parameters
+ * @fuse_combo_corner_sum: The sum of the corner counts across all fuse combos
+ * @fuse_combo_offset:	The device tree property array offset for the selected
+ *			fuse combo
+ * @speed_bin_corner_sum: The sum of the corner counts across all speed bins
+ *			This may be specified as 0 if per speed bin parsing
+ *			support is not required.
+ * @speed_bin_offset:	The device tree property array offset for the selected
+ *			speed bin
  * @pd_bypass_mask:	Bit mask of power domains associated with this CPR3
  *			regulator
  * @current_corner:	Index identifying the currently selected voltage corner
@@ -188,10 +198,15 @@ struct cpr3_regulator {
 
 	void			*platform_fuses;
 	int			speed_bin_fuse;
+	int			speed_bins_supported;
 	int			cpr_rev_fuse;
 	int			fuse_combo;
 	int			fuse_combos_supported;
 	int			fuse_corner_count;
+	int			fuse_combo_corner_sum;
+	int			fuse_combo_offset;
+	int			speed_bin_corner_sum;
+	int			speed_bin_offset;
 	u32			pd_bypass_mask;
 
 	int			current_corner;
@@ -508,25 +523,23 @@ int cpr3_convert_open_loop_voltage_fuse(int ref_volt, int step_volt, u32 fuse,
 			int fuse_len);
 u64 cpr3_interpolate(u64 x1, u64 y1, u64 x2, u64 y2, u64 x);
 int cpr3_parse_array_property(struct cpr3_regulator *vreg,
-			const char *prop_name, int corner_count, int corner_sum,
-			int combo_offset, u32 *out);
-int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg, int *corner_sum,
-			int *combo_offset);
+			const char *prop_name, int tuple_size, u32 *out);
+int cpr3_parse_corner_array_property(struct cpr3_regulator *vreg,
+			const char *prop_name, int tuple_size, u32 *out);
+int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg);
 int cpr3_parse_thread_u32(struct cpr3_thread *thread, const char *propname,
-		       u32 *out_value, u32 value_min, u32 value_max);
+			u32 *out_value, u32 value_min, u32 value_max);
 int cpr3_parse_ctrl_u32(struct cpr3_controller *ctrl, const char *propname,
-		       u32 *out_value, u32 value_min, u32 value_max);
+			u32 *out_value, u32 value_min, u32 value_max);
 int cpr3_parse_common_thread_data(struct cpr3_thread *thread);
 int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl);
 int cpr3_limit_open_loop_voltages(struct cpr3_regulator *vreg);
 void cpr3_open_loop_voltage_as_ceiling(struct cpr3_regulator *vreg);
-int cpr3_limit_floor_voltages(struct cpr3_regulator *vreg, int corner_sum,
-		int combo_offset);
+int cpr3_limit_floor_voltages(struct cpr3_regulator *vreg);
 void cpr3_print_quots(struct cpr3_regulator *vreg);
 int cpr3_adjust_fused_open_loop_voltages(struct cpr3_regulator *vreg,
-		int *fuse_volt);
-int cpr3_adjust_open_loop_voltages(struct cpr3_regulator *vreg, int corner_sum,
-		int combo_offset);
+			int *fuse_volt);
+int cpr3_adjust_open_loop_voltages(struct cpr3_regulator *vreg);
 int cpr3_quot_adjustment(int ro_scale, int volt_adjust);
 int cpr3_voltage_adjustment(int ro_scale, int quot_adjust);
 
@@ -589,14 +602,18 @@ static inline u64 cpr3_interpolate(u64 x1, u64 y1, u64 x2, u64 y2, u64 x)
 }
 
 static inline int cpr3_parse_array_property(struct cpr3_regulator *vreg,
-			const char *prop_name, int corner_count, int corner_sum,
-			int combo_offset, u32 *out)
+			const char *prop_name, int tuple_size, u32 *out)
 {
 	return -EPERM;
 }
 
-static inline int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg,
-			int *corner_sum, int *combo_offset)
+static inline int cpr3_parse_corner_array_property(struct cpr3_regulator *vreg,
+			const char *prop_name, int tuple_size, u32 *out)
+{
+	return -EPERM;
+}
+
+static inline int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg)
 {
 	return -EPERM;
 }
@@ -636,8 +653,7 @@ static inline void cpr3_open_loop_voltage_as_ceiling(
 	return;
 }
 
-static inline int cpr3_limit_floor_voltages(struct cpr3_regulator *vreg,
-			int corner_sum, int combo_offset)
+static inline int cpr3_limit_floor_voltages(struct cpr3_regulator *vreg)
 {
 	return -EPERM;
 }
@@ -648,13 +664,12 @@ static inline void cpr3_print_quots(struct cpr3_regulator *vreg)
 }
 
 static inline int cpr3_adjust_fused_open_loop_voltages(
-		struct cpr3_regulator *vreg, int *fuse_volt)
+			struct cpr3_regulator *vreg, int *fuse_volt)
 {
 	return -EPERM;
 }
 
-static inline int cpr3_adjust_open_loop_voltages(struct cpr3_regulator *vreg,
-		int corner_sum, int combo_offset)
+static inline int cpr3_adjust_open_loop_voltages(struct cpr3_regulator *vreg)
 {
 	return -EPERM;
 }
