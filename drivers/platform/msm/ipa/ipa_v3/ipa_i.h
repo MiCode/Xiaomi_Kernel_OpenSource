@@ -176,6 +176,11 @@
 #define IPA_SMMU_UC_VA_SIZE 0x20000000
 #define IPA_SMMU_UC_VA_END (IPA_SMMU_UC_VA_START +  IPA_SMMU_UC_VA_SIZE)
 
+#define IPA_GSI_CHANNEL_STOP_MAX_RETRY 10
+#define IPA_GSI_CHANNEL_STOP_PKT_SIZE 1
+#define IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC (1000)
+#define IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC (2000)
+
 
 struct ipa3_client_names {
 	enum ipa_client_type names[MAX_RESOURCE_TO_CLIENTS];
@@ -2248,5 +2253,6 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx,
 
 int ipa3_calc_extra_wrd_bytes(const struct ipa_ipfltri_rule_eq *attrib);
 int ipa3_restore_suspend_handler(void);
+int ipa3_inject_dma_task_for_gsi(void);
 
 #endif /* _IPA3_I_H_ */

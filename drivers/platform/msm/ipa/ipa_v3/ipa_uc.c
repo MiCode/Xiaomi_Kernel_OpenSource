@@ -112,7 +112,11 @@ enum ipa3_hw_errors {
 	IPA_HW_INVALID_OPCODE          =
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 4),
 	IPA_HW_ZIP_ENGINE_ERROR        =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 5)
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 5),
+	IPA_HW_CONS_DISABLE_CMD_GSI_STOP_FAILURE =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 6),
+	IPA_HW_PROD_DISABLE_CMD_GSI_STOP_FAILURE =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 7)
 };
 
 /**
@@ -628,6 +632,7 @@ int ipa3_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 	int index;
 	union IpaHwCpuCmdCompletedResponseData_t uc_rsp;
 	unsigned long flags;
+	int retries = 0;
 
 	IPA3_UC_LOCK(flags);
 
@@ -637,6 +642,7 @@ int ipa3_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 		return -EBADF;
 	}
 
+send_cmd:
 	if (ipa3_ctx->apply_rg10_wa) {
 		if (!polling_mode)
 			IPADBG("Overriding mode to polling mode\n");
@@ -648,7 +654,6 @@ int ipa3_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 	ipa3_ctx->uc_ctx.uc_sram_mmio->cmdParams = cmd;
 	ipa3_ctx->uc_ctx.uc_sram_mmio->cmdOp = opcode;
 	ipa3_ctx->uc_ctx.pending_cmd = opcode;
-
 	ipa3_ctx->uc_ctx.uc_sram_mmio->responseOp = 0;
 	ipa3_ctx->uc_ctx.uc_sram_mmio->responseParams = 0;
 
@@ -711,6 +716,23 @@ int ipa3_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 	}
 
 	if (ipa3_ctx->uc_ctx.uc_status != expected_status) {
+		if (ipa3_ctx->uc_ctx.uc_status ==
+			IPA_HW_PROD_DISABLE_CMD_GSI_STOP_FAILURE) {
+			retries++;
+			if (retries == IPA_GSI_CHANNEL_STOP_MAX_RETRY) {
+				IPAERR("Failed after %d tries\n", retries);
+				IPA3_UC_UNLOCK(flags);
+				BUG();
+				return -EFAULT;
+			}
+
+			ipa3_inject_dma_task_for_gsi();
+			/* sleep for short period to flush IPA */
+			usleep_range(IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC,
+				IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC);
+			goto send_cmd;
+		}
+
 		IPAERR("Recevied status %u, Expected status %u\n",
 			ipa3_ctx->uc_ctx.uc_status, expected_status);
 		IPA3_UC_UNLOCK(flags);
