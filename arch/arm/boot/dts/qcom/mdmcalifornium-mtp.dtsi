@@ -19,6 +19,10 @@
 	pinctrl-0 = <&uart3_console_active>;
 };
 
+&blsp1_uart2_hs {
+	status = "ok";
+};
+
 &i2c_3 {
 	status = "ok";
 	smb1351_otg_supply: smb1351-charger@55 {
