@@ -215,6 +215,8 @@
 			qcom,parallel-allowed-lowering-ma = <500>;
 			qcom,autoadjust-vfloat;
 			qcom,pmic-revid = <&pmi8994_revid>;
+			qcom,force-aicl-rerun;
+			qcom,aicl-rerun-period-s = <180>;
 
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
