@@ -119,12 +119,14 @@
 
 	clock_gcc: qcom,gcc@1800000 {
 		compatible = "qcom,gcc-californium";
-		reg = <0x1800000 0x80000>;
-		reg-names = "cc_base";
+		reg = <0x1800000 0x80000>,
+		      <0xb008018 0x1c>;
+		reg-names = "cc_base", "apcs_base";
 		#clock-cells = <1>;
 
-		qcom,regulator-names = "vdd_dig";
+		qcom,regulator-names = "vdd_dig", "vdd_dig_ao";
 		vdd_dig-supply = <&pmdcalifornium_s5_level>;
+		vdd_dig_ao-supply = <&pmdcalifornium_s5_level_ao>;
 	};
 
 	clock_debug: qcom,cc-debug@1874000 {
@@ -140,8 +142,9 @@
 		reg-names = "rcg-base";
 		#clock-cells = <1>;
 
-		clock-names = "clk-1";
-		clocks = <&clock_gcc clk_gpll0_ao>;
+		clock-names = "clk-1", "clk-5";
+		clocks = <&clock_gcc clk_gpll0_ao>,
+			 <&clock_gcc clk_a7pll_clk>;
 
 		qcom,speed0-bin-v0 =
 			<         0 RPM_SMD_REGULATOR_LEVEL_NONE>,

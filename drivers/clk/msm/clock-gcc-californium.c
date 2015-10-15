@@ -36,7 +36,6 @@
 #define RPM_MEM_CLK_TYPE	0x326b6c63
 #define RPM_IPA_CLK_TYPE	0x617069
 #define RPM_CE_CLK_TYPE		0x6563
-#define RPM_MCFG_CLK_TYPE	0x6766636d
 #define RPM_QPIC_CLK_TYPE	0x63697071
 
 #define RPM_SMD_KEY_ENABLE	0x62616E45
@@ -64,6 +63,7 @@
 
 static void __iomem *virt_base;
 static void __iomem *virt_dbgbase;
+static void __iomem *virt_apcsbase;
 
 #define GCC_REG_BASE(x) (void __iomem *)(virt_base + (x))
 
@@ -95,6 +95,8 @@ static void __iomem *virt_dbgbase;
 	}
 
 static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
+static DEFINE_VDD_REGULATORS(vdd_dig_ao, VDD_DIG_NUM, 1, vdd_corner, NULL);
+
 #define GPLL0_MODE                                       (0x21000)
 #define MSS_Q6_BIMC_AXI_CBCR                             (0x49004)
 #define QUSB2A_PHY_BCR                                   (0x41028)
@@ -176,13 +178,12 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define PCIE_AXI_TBU_CBCR                                (0x12064)
 #define QUSB_REF_CLK_EN                                  (0x41030)
 #define DCC_CBCR                                         (0x77004)
+#define MSS_CFG_AHB_CBCR				 (0x49000)
 
 DEFINE_CLK_RPM_SMD_BRANCH(xo, xo_a_clk, RPM_MISC_CLK_TYPE,
 			  XO_ID, 19200000);
 DEFINE_CLK_RPM_SMD_BRANCH(cxo_clk_src, cxo_a_clk_src, RPM_MISC_CLK_TYPE,
 			  CXO_CLK_SRC_ID, 19200000);
-DEFINE_CLK_RPM_SMD_BRANCH(mss_cfg_ahb_clk, mss_cfg_ahb_a_clk, RPM_MCFG_CLK_TYPE,
-			  MSS_CFG_AHB_CLK_ID, 19200000);
 
 DEFINE_CLK_RPM_SMD(ce_clk, ce_a_clk, RPM_CE_CLK_TYPE,
 		   CE_CLK_ID, NULL);
@@ -228,6 +229,35 @@ DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(rf_clk2_pin, rf_clk2_pin_ao,
 				     RF_CLK2_PIN_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(rf_clk3_pin, rf_clk3_pin_ao,
 				     RF_CLK3_PIN_ID);
+
+static struct alpha_pll_masks alpha_pll_masks_20nm_p = {
+	.lock_mask = BIT(31),
+	.update_mask = BIT(22),
+	.vco_mask = BM(21, 20) >> 20,
+	.vco_shift = 20,
+	.alpha_en_mask = BIT(24),
+};
+
+static struct alpha_pll_vco_tbl alpha_pll_vco_20nm_p[] = {
+	VCO(3,  250000000,  500000000),
+	VCO(2,  500000000, 1000000000),
+	VCO(1, 1000000000, 1500000000),
+	VCO(0, 1500000000, 2000000000),
+};
+
+static struct alpha_pll_clk a7pll_clk = {
+	.masks = &alpha_pll_masks_20nm_p,
+	.base = &virt_apcsbase,
+	.vco_tbl = alpha_pll_vco_20nm_p,
+	.num_vco = ARRAY_SIZE(alpha_pll_vco_20nm_p),
+	.c = {
+		.parent = &xo_a_clk.c,
+		.dbg_name = "a7pll_clk",
+		.ops = &clk_ops_alpha_pll,
+		VDD_DIG_FMAX_MAP2_AO(LOW, 1000000000, NOMINAL, 2000000000),
+		CLK_INIT(a7pll_clk.c),
+	},
+};
 
 static unsigned int soft_vote_gpll0;
 
@@ -1252,6 +1282,17 @@ static struct branch_clk gcc_usb_phy_cfg_ahb_clk = {
 	},
 };
 
+static struct branch_clk gcc_mss_cfg_ahb_clk = {
+	.cbcr_reg = MSS_CFG_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_mss_cfg_ahb_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_mss_cfg_ahb_clk.c),
+	},
+};
+
 static struct mux_clk gcc_debug_mux;
 static struct clk_ops clk_ops_debug_mux;
 static struct clk_mux_ops gcc_debug_mux_ops;
@@ -1278,6 +1319,7 @@ static struct mux_clk gcc_debug_mux = {
 		{ &snoc_clk.c, 0x0000 },
 		{ &gcc_sys_noc_usb3_axi_clk.c, 0x0001 },
 		{ &pcnoc_clk.c, 0x0008 },
+		{ &gcc_mss_cfg_ahb_clk.c, 0x0030 },
 		{ &qdss_clk.c, 0x0042 },
 		{ &gcc_apss_tcu_clk.c, 0x0050 },
 		{ &gcc_smmu_cfg_clk.c, 0x005b },
@@ -1328,12 +1370,11 @@ static struct mux_clk gcc_debug_mux = {
 };
 
 static struct clk_lookup msm_clocks_rpm_californium[] = {
+	CLK_LIST(a7pll_clk),
 	CLK_LIST(xo),
 	CLK_LIST(xo_a_clk),
 	CLK_LIST(cxo_clk_src),
 	CLK_LIST(cxo_a_clk_src),
-	CLK_LIST(mss_cfg_ahb_clk),
-	CLK_LIST(mss_cfg_ahb_a_clk),
 	CLK_LIST(ce_clk),
 	CLK_LIST(ce_a_clk),
 	CLK_LIST(pcnoc_clk),
@@ -1457,6 +1498,7 @@ static struct clk_lookup msm_clocks_gcc_californium[] = {
 	CLK_LIST(gcc_usb3_aux_clk),
 	CLK_LIST(gcc_usb3_pipe_clk),
 	CLK_LIST(gcc_usb_phy_cfg_ahb_clk),
+	CLK_LIST(gcc_mss_cfg_ahb_clk),
 };
 
 static int msm_gcc_californium_probe(struct platform_device *pdev)
@@ -1479,11 +1521,30 @@ static int msm_gcc_californium_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "apcs_base");
+	if (!res) {
+		dev_err(&pdev->dev, "Failed to get APCS base.\n");
+		return -EINVAL;
+	}
+	virt_apcsbase = devm_ioremap(&pdev->dev, res->start,
+						resource_size(res));
+	if (!virt_apcsbase) {
+		dev_err(&pdev->dev, "Failed to map in APCS registers.\n");
+		return -ENOMEM;
+	}
+
 	vdd_dig.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_dig");
 	if (IS_ERR(vdd_dig.regulator[0])) {
 		if (!(PTR_ERR(vdd_dig.regulator[0]) == -EPROBE_DEFER))
 			dev_err(&pdev->dev, "Unable to get vdd_dig regulator!");
 		return PTR_ERR(vdd_dig.regulator[0]);
+	}
+
+	vdd_dig_ao.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_dig_ao");
+	if (IS_ERR(vdd_dig_ao.regulator[0])) {
+		if (!(PTR_ERR(vdd_dig_ao.regulator[0]) == -EPROBE_DEFER))
+			dev_err(&pdev->dev, "Unable to get vdd_dig_ao regulator!");
+		return PTR_ERR(vdd_dig_ao.regulator[0]);
 	}
 
 	ret = of_msm_clock_register(pdev->dev.of_node,
