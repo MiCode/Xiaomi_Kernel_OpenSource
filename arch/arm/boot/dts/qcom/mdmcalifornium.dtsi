@@ -83,6 +83,12 @@
 		      <0x0b002000 0x1000>;
 	};
 
+	qcom,mpm2-sleep-counter@4a3000 {
+		compatible = "qcom,mpm2-sleep-counter";
+		reg = <0x004a3000 0x1000>;
+		clock-frequency = <32768>;
+	};
+
 	qcom,msm-imem@8600000 {
 		compatible = "qcom,msm-imem";
 		reg = <0x8600000 0x1000>; /* Address and size of IMEM */
@@ -148,7 +154,9 @@
 
 	restart@4ab000 {
 		compatible = "qcom,pshold";
-		reg = <0x4ab000 0x4>;
+		reg = <0x4ab000 0x4>,
+		      <0x7b3000 0x4>;
+		reg-names = "pshold-base", "tcsr-boot-misc-detect";
 	};
 
 	timer@b020000 {
