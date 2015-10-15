@@ -982,6 +982,7 @@ void mdss_mdp_irq_clear(struct mdss_data_type *mdata,
 		u32 intr_type, u32 intf_num);
 int mdss_mdp_irq_enable(u32 intr_type, u32 intf_num);
 void mdss_mdp_irq_disable(u32 intr_type, u32 intf_num);
+void mdss_mdp_intr_check_and_clear(u32 intr_type, u32 intf_num);
 int mdss_mdp_hist_irq_enable(u32 irq);
 void mdss_mdp_hist_irq_disable(u32 irq);
 void mdss_mdp_irq_disable_nosync(u32 intr_type, u32 intf_num);

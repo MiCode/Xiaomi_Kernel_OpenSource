@@ -578,6 +578,28 @@ void mdss_mdp_irq_disable(u32 intr_type, u32 intf_num)
 	spin_unlock_irqrestore(&mdp_lock, irq_flags);
 }
 
+/*
+ * This function is used to check and clear the status of
+ * INTR and does not handle INTR2 and HIST_INTR
+ */
+void mdss_mdp_intr_check_and_clear(u32 intr_type, u32 intf_num)
+{
+	u32 status, irq;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	irq = mdss_mdp_irq_mask(intr_type, intf_num);
+
+	spin_lock(&mdp_lock);
+	status = irq & readl_relaxed(mdata->mdp_base +
+			MDSS_MDP_REG_INTR_STATUS);
+	if (status) {
+		pr_debug("clearing irq: intr_type:%d, intf_num:%d\n",
+				intr_type, intf_num);
+		writel_relaxed(irq, mdata->mdp_base + MDSS_MDP_REG_INTR_CLEAR);
+	}
+	spin_unlock(&mdp_lock);
+}
+
 void mdss_mdp_hist_irq_disable(u32 irq)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();

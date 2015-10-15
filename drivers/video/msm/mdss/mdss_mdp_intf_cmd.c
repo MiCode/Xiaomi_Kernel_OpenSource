@@ -1187,6 +1187,13 @@ static int mdss_mdp_setup_vsync(struct mdss_mdp_cmd_ctx *ctx,
 			/* disable clocks and irq */
 			mdss_mdp_irq_disable(MDSS_MDP_IRQ_PING_PONG_RD_PTR,
 				ctx->pp_num);
+			/*
+			 * check the intr status and clear the irq before
+			 * disabling the clocks
+			 */
+			mdss_mdp_intr_check_and_clear(
+				MDSS_MDP_IRQ_PING_PONG_RD_PTR, ctx->pp_num);
+
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 		}
 	}
