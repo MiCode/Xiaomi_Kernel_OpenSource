@@ -1885,15 +1885,12 @@ static int ipa3_wwan_probe(struct platform_device *pdev)
 				sizeof(struct ipa3_rmnet_mux_val));
 
 	/* start A7 QMI service/client */
-	if (ipa3_rmnet_res.ipa_loaduC) {
+	if (ipa3_rmnet_res.ipa_loaduC)
 		/* Android platform loads uC */
-		ipa3_qmi_service_init(atomic_read(&is_ssr) ? false : true,
-			QMI_IPA_PLATFORM_TYPE_MSM_ANDROID_V01);
-	} else {
+		ipa3_qmi_service_init(QMI_IPA_PLATFORM_TYPE_MSM_ANDROID_V01);
+	else
 		/* LE platform not loads uC */
-		ipa3_qmi_service_init(atomic_read(&is_ssr) ? false : true,
-			QMI_IPA_PLATFORM_TYPE_LE_V01);
-	}
+		ipa3_qmi_service_init(QMI_IPA_PLATFORM_TYPE_LE_V01);
 
 	/* construct default WAN RT tbl for IPACM */
 	ret = ipa3_setup_a7_qmap_hdr();

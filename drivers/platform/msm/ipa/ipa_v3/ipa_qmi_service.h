@@ -102,7 +102,7 @@ extern struct ipa3_rmnet_context ipa3_rmnet_ctx;
 
 #ifdef CONFIG_RMNET_IPA3
 
-int ipa3_qmi_service_init(bool load_uc, uint32_t wan_platform_type);
+int ipa3_qmi_service_init(uint32_t wan_platform_type);
 
 void ipa3_qmi_service_exit(void);
 
@@ -165,8 +165,7 @@ void ipa3_q6_handshake_complete(bool ssr_bootup);
 
 #else /* CONFIG_RMNET_IPA3 */
 
-static inline int ipa3_qmi_service_init(bool load_uc,
-		uint32_t wan_platform_type)
+static inline int ipa3_qmi_service_init(uint32_t wan_platform_type)
 {
 	return -EPERM;
 }

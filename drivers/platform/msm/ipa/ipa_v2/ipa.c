@@ -1727,14 +1727,10 @@ int ipa_q6_pipe_reset(void)
 {
 	int client_idx;
 	int res;
-	/*
-	 * Q6 relies on the AP to reset all Q6 IPA pipes.
-	 * In case the uC is not loaded, or upon any failure in the
-	 * pipe reset sequence, we have to assert.
-	 */
+
 	if (!ipa_ctx->uc_ctx.uc_loaded) {
-		IPAERR("uC is not loaded, can't reset Q6 pipes\n");
-		BUG();
+		IPAERR("uC is not loaded, won't reset Q6 pipes\n");
+		return 0;
 	}
 
 	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++)
