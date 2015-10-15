@@ -310,7 +310,10 @@ static struct gate_clk gpll0_out_msscc = {
 };
 
 static struct clk_freq_tbl ftbl_usb30_master_clk_src[] = {
-	F( 125000000, gpll0_out_main_cgc,    1,    5,    24),
+	F(  60000000, gpll0_out_main_div2_cgc,    5,    0,     0),
+	F( 120000000, gpll0_out_main_cgc,    5,    0,     0),
+	F( 171430000, gpll0_out_main_cgc,  3.5,    0,     0),
+	F( 200000000, gpll0_out_main_cgc,    3,    0,     0),
 	F_END
 };
 
