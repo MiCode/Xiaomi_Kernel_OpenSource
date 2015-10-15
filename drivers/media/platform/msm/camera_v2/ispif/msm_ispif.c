@@ -176,9 +176,9 @@ vfe0_reg_get_failed:
 	return rc;
 }
 
-static int msm_ispif_reset_hw(struct ispif_device *ispif)
+static int msm_ispif_reset_hw(struct ispif_device *ispif, int release)
 {
-	int rc = 0;
+	int rc = 0, i;
 	long timeout = 0;
 	struct clk *reset_clk1[ARRAY_SIZE(ispif_8626_reset_clk_info)];
 	ispif->clk_idx = 0;
@@ -218,6 +218,16 @@ static int msm_ispif_reset_hw(struct ispif_device *ispif)
 		ispif->clk_idx = 1;
 	}
 
+	if (release) {
+		for (i = 0; i < ispif->vfe_info.num_vfe; i++) {
+			msm_camera_io_w_mb(ISPIF_STOP_INTF_IMMEDIATELY,
+				ispif->base + ISPIF_VFE_m_INTF_CMD_0(i));
+			msm_camera_io_w_mb(ISPIF_STOP_INTF_IMMEDIATELY,
+				ispif->base + ISPIF_VFE_m_INTF_CMD_1(i));
+		}
+		msm_camera_io_w_mb(ISPIF_IRQ_GLOBAL_CLEAR_CMD,
+			ispif->base + ISPIF_IRQ_GLOBAL_CLEAR_CMD_ADDR);
+	}
 	init_completion(&ispif->reset_complete[VFE0]);
 	if (ispif->hw_num_isps > 1)
 		init_completion(&ispif->reset_complete[VFE1]);
@@ -383,22 +393,6 @@ static int msm_ispif_clk_ahb_enable(struct ispif_device *ispif, int enable)
 		pr_err("%s: cannot enable clock, error = %d",
 			__func__, rc);
 	}
-
-	return rc;
-}
-
-static int msm_ispif_release_reset(struct ispif_device *ispif)
-{
-	int rc = 0;
-	int i;
-	for (i = 0; i < ispif->vfe_info.num_vfe; i++) {
-		msm_camera_io_w_mb(ISPIF_STOP_INTF_IMMEDIATELY,
-			ispif->base + ISPIF_VFE_m_INTF_CMD_0(i));
-		msm_camera_io_w_mb(ISPIF_STOP_INTF_IMMEDIATELY,
-			ispif->base + ISPIF_VFE_m_INTF_CMD_1(i));
-	}
-	msm_camera_io_w_mb(ISPIF_IRQ_GLOBAL_CLEAR_CMD, ispif->base +
-		ISPIF_IRQ_GLOBAL_CLEAR_CMD_ADDR);
 
 	return rc;
 }
@@ -1341,7 +1335,7 @@ static int msm_ispif_init(struct ispif_device *ispif,
 		goto error_irq;
 	}
 
-	msm_ispif_reset_hw(ispif);
+	msm_ispif_reset_hw(ispif, 0);
 
 	rc = msm_ispif_clk_ahb_enable(ispif, 1);
 	if (rc) {
@@ -1381,8 +1375,7 @@ static void msm_ispif_release(struct ispif_device *ispif)
 	}
 
 	/* make sure no streaming going on */
-	msm_ispif_release_reset(ispif);
-	msm_ispif_reset_hw(ispif);
+	msm_ispif_reset_hw(ispif, 1);
 	msm_ispif_clk_ahb_enable(ispif, 0);
 
 	free_irq(ispif->irq->start, ispif);
