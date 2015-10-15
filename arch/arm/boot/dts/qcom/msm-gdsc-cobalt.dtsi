@@ -133,16 +133,17 @@
 	gdsc_gpu_cx: qcom,gdsc@5066004 {
 		compatible = "regulator-fixed";
 		regulator-name = "gdsc_gpu_cx";
-		reg = <0x5066004 0x4>,
-		      <0x5065130 0x4>;
-		reg-names = "base", "domain_addr";
+		reg = <0x5066004 0x4>;
 		status = "disabled";
 	};
 
 	gdsc_gpu_gx: qcom,gdsc@5066094 {
 		compatible = "regulator-fixed";
 		regulator-name = "gdsc_gpu_gx";
-		reg = <0x5066094 0x4>;
+		reg = <0x5066094 0x4>,
+		      <0x5065130 0x4>,
+		      <0x5066090 0x4>;
+		reg-names = "base", "domain_addr", "sw_reset";
 		status = "disabled";
 	};
 };
