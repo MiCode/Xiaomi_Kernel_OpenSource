@@ -769,6 +769,11 @@ static int qpnp_wled_set_disp(struct qpnp_wled *wled, u16 base_addr)
 
 	reg &= QPNP_WLED_DISP_SEL_MASK;
 	reg |= (wled->disp_type_amoled << QPNP_WLED_DISP_SEL_SHIFT);
+
+	rc = qpnp_wled_sec_access(wled, base_addr);
+	if (rc)
+		return rc;
+
 	rc = qpnp_wled_write_reg(wled, &reg,
 			QPNP_WLED_DISP_SEL_REG(base_addr));
 	if (rc)
