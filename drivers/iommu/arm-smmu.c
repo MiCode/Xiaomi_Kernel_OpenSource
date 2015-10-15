@@ -448,6 +448,7 @@ struct arm_smmu_domain {
 	struct list_head		pte_info_list;
 	struct list_head		unassign_list;
 	struct mutex			assign_lock;
+	struct list_head		secure_pool_list;
 };
 
 static struct iommu_ops arm_smmu_ops;
@@ -474,6 +475,28 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_DYNAMIC, "qcom,dynamic" },
 	{ 0, NULL},
 };
+
+static int arm_smmu_enable_clocks_atomic(struct arm_smmu_device *smmu);
+static void arm_smmu_disable_clocks_atomic(struct arm_smmu_device *smmu);
+static void arm_smmu_prepare_pgtable(void *addr, void *cookie);
+static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size);
+static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
+					      dma_addr_t iova);
+static phys_addr_t arm_smmu_iova_to_phys_hard_no_halt(
+	struct iommu_domain *domain, dma_addr_t iova);
+static int arm_smmu_wait_for_halt(struct arm_smmu_device *smmu);
+static int arm_smmu_halt_nowait(struct arm_smmu_device *smmu);
+static void arm_smmu_resume(struct arm_smmu_device *smmu);
+static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
+					dma_addr_t iova);
+static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain);
+static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain);
+static int arm_smmu_halt(struct arm_smmu_device *smmu);
+static void arm_smmu_device_reset(struct arm_smmu_device *smmu);
+static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
+			     size_t size);
+static bool arm_smmu_is_domain_secure(struct arm_smmu_domain *smmu_domain);
+
 
 static void parse_driver_options(struct arm_smmu_device *smmu)
 {
@@ -781,9 +804,6 @@ out:
 	return ret;
 }
 
-static int arm_smmu_enable_clocks_atomic(struct arm_smmu_device *smmu);
-static void arm_smmu_disable_clocks_atomic(struct arm_smmu_device *smmu);
-
 static int arm_smmu_enable_clocks(struct arm_smmu_device *smmu)
 {
 	int ret = 0;
@@ -979,15 +999,73 @@ static void arm_smmu_flush_pgtable(void *addr, size_t size, void *cookie)
 	}
 }
 
-static void arm_smmu_prepare_pgtable(void *addr, void *cookie);
-static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size);
+struct arm_smmu_secure_pool_chunk {
+	void *addr;
+	size_t size;
+	struct list_head list;
+};
+
+static void *arm_smmu_secure_pool_remove(struct arm_smmu_domain *smmu_domain,
+					size_t size)
+{
+	struct arm_smmu_secure_pool_chunk *it;
+
+	list_for_each_entry(it, &smmu_domain->secure_pool_list, list) {
+		if (it->size == size) {
+			void *addr = it->addr;
+
+			list_del(&it->list);
+			kfree(it);
+			return addr;
+		}
+	}
+
+	return NULL;
+}
+
+static int arm_smmu_secure_pool_add(struct arm_smmu_domain *smmu_domain,
+				     void *addr, size_t size)
+{
+	struct arm_smmu_secure_pool_chunk *chunk;
+
+	chunk = kmalloc(sizeof(*chunk), GFP_ATOMIC);
+	if (!chunk)
+		return -ENOMEM;
+
+	chunk->addr = addr;
+	chunk->size = size;
+	memset(addr, 0, size);
+	list_add(&chunk->list, &smmu_domain->secure_pool_list);
+
+	return 0;
+}
+
+static void arm_smmu_secure_pool_destroy(struct arm_smmu_domain *smmu_domain)
+{
+	struct arm_smmu_secure_pool_chunk *it, *i;
+
+	list_for_each_entry_safe(it, i, &smmu_domain->secure_pool_list, list) {
+		arm_smmu_unprepare_pgtable(smmu_domain, it->addr, it->size);
+		/* pages will be freed later (after being unassigned) */
+		kfree(it);
+	}
+}
 
 static void *arm_smmu_alloc_pages_exact(void *cookie,
 					size_t size, gfp_t gfp_mask)
 {
-	void *ret = alloc_pages_exact(size, gfp_mask);
+	void *ret;
+	struct arm_smmu_domain *smmu_domain = cookie;
 
-	if (likely(ret))
+	if (!arm_smmu_is_domain_secure(smmu_domain))
+		return alloc_pages_exact(size, gfp_mask);
+
+	ret = arm_smmu_secure_pool_remove(smmu_domain, size);
+	if (ret)
+		return ret;
+
+	ret = alloc_pages_exact(size, gfp_mask);
+	if (ret)
 		arm_smmu_prepare_pgtable(ret, cookie);
 
 	return ret;
@@ -995,8 +1073,15 @@ static void *arm_smmu_alloc_pages_exact(void *cookie,
 
 static void arm_smmu_free_pages_exact(void *cookie, void *virt, size_t size)
 {
-	arm_smmu_unprepare_pgtable(cookie, virt, size);
-	/* unprepare also frees (possibly later), no need to free here */
+	struct arm_smmu_domain *smmu_domain = cookie;
+
+	if (!arm_smmu_is_domain_secure(smmu_domain)) {
+		free_pages_exact(virt, size);
+		return;
+	}
+
+	if (arm_smmu_secure_pool_add(smmu_domain, virt, size))
+		arm_smmu_unprepare_pgtable(smmu_domain, virt, size);
 }
 
 static struct iommu_gather_ops arm_smmu_gather_ops = {
@@ -1007,16 +1092,6 @@ static struct iommu_gather_ops arm_smmu_gather_ops = {
 	.alloc_pages_exact = arm_smmu_alloc_pages_exact,
 	.free_pages_exact = arm_smmu_free_pages_exact,
 };
-
-static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
-					      dma_addr_t iova);
-static phys_addr_t arm_smmu_iova_to_phys_hard_no_halt(
-	struct iommu_domain *domain, dma_addr_t iova);
-static int arm_smmu_wait_for_halt(struct arm_smmu_device *smmu);
-static int arm_smmu_halt_nowait(struct arm_smmu_device *smmu);
-static void arm_smmu_resume(struct arm_smmu_device *smmu);
-static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
-					dma_addr_t iova);
 
 static phys_addr_t arm_smmu_verify_fault(struct iommu_domain *domain,
 					 dma_addr_t iova, u32 fsr)
@@ -1366,8 +1441,6 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 	writel_relaxed(reg, cb_base + ARM_SMMU_CB_SCTLR);
 }
 
-static int arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain);
-
 static bool arm_smmu_is_domain_secure(struct arm_smmu_domain *smmu_domain)
 {
 	return (smmu_domain->secure_vmid != VMID_INVAL);
@@ -1521,8 +1594,6 @@ out:
 	return ret;
 }
 
-static void arm_smmu_unassign_table(struct arm_smmu_domain *smmu_domain);
-
 static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 {
 	struct arm_smmu_domain *smmu_domain = domain->priv;
@@ -1570,6 +1641,7 @@ static int arm_smmu_domain_init(struct iommu_domain *domain)
 	smmu_domain->attributes = (1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE);
 	INIT_LIST_HEAD(&smmu_domain->pte_info_list);
 	INIT_LIST_HEAD(&smmu_domain->unassign_list);
+	INIT_LIST_HEAD(&smmu_domain->secure_pool_list);
 	smmu_domain->cfg.cbndx = INVALID_CBNDX;
 	smmu_domain->cfg.irptndx = INVALID_IRPTNDX;
 	smmu_domain->cfg.asid = INVALID_ASID;
@@ -1595,6 +1667,7 @@ static void arm_smmu_domain_destroy(struct iommu_domain *domain)
 		/* unassign any freed page table memory */
 		if (arm_smmu_is_domain_secure(smmu_domain)) {
 			arm_smmu_secure_domain_lock(smmu_domain);
+			arm_smmu_secure_pool_destroy(smmu_domain);
 			arm_smmu_unassign_table(smmu_domain);
 			arm_smmu_secure_domain_unlock(smmu_domain);
 		}
@@ -1730,9 +1803,6 @@ static void arm_smmu_domain_remove_master(struct arm_smmu_domain *smmu_domain,
 	arm_smmu_disable_clocks(smmu);
 }
 
-static int arm_smmu_halt(struct arm_smmu_device *smmu);
-static void arm_smmu_resume(struct arm_smmu_device *smmu);
-
 static void arm_smmu_impl_def_programming(struct arm_smmu_device *smmu)
 {
 	int i;
@@ -1744,8 +1814,6 @@ static void arm_smmu_impl_def_programming(struct arm_smmu_device *smmu)
 			ARM_SMMU_GR0(smmu) + regs[i].offset);
 	arm_smmu_resume(smmu);
 }
-
-static void arm_smmu_device_reset(struct arm_smmu_device *smmu);
 
 static int arm_smmu_attach_dynamic(struct iommu_domain *domain,
 					struct arm_smmu_device *smmu)
@@ -2065,10 +2133,7 @@ static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size)
 	struct arm_smmu_domain *smmu_domain = cookie;
 	struct arm_smmu_pte_info *pte_info;
 
-	if (!arm_smmu_is_domain_secure(smmu_domain)) {
-		free_pages_exact(addr, size);
-		return;
-	}
+	BUG_ON(!arm_smmu_is_domain_secure(smmu_domain));
 
 	pte_info = kzalloc(sizeof(struct arm_smmu_pte_info), GFP_ATOMIC);
 	if (!pte_info)
@@ -2084,8 +2149,7 @@ static void arm_smmu_prepare_pgtable(void *addr, void *cookie)
 	struct arm_smmu_domain *smmu_domain = cookie;
 	struct arm_smmu_pte_info *pte_info;
 
-	if (!arm_smmu_is_domain_secure(smmu_domain))
-		return;
+	BUG_ON(!arm_smmu_is_domain_secure(smmu_domain));
 
 	pte_info = kzalloc(sizeof(struct arm_smmu_pte_info), GFP_ATOMIC);
 	if (!pte_info)
@@ -2119,8 +2183,6 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 	return ret;
 }
 
-static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
-			     size_t size);
 static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 			   struct scatterlist *sg, unsigned int nents, int prot)
 {
