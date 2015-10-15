@@ -6613,6 +6613,9 @@ static int pp_mfd_release_all(struct msm_fb_data_type *mfd)
 
 	if (mdss_mdp_mfd_valid_dspp(mfd))
 		mdss_mdp_hist_stop(mfd->index + MDP_LOGICAL_BLOCK_DISP_0);
+	memset(&mdss_pp_res->pp_disp_sts[mfd->index], 0,
+			sizeof(mdss_pp_res->pp_disp_sts[mfd->index]));
+	mfd->bl_scale = 1024;
 
 	return ret;
 }
@@ -6642,10 +6645,13 @@ static int pp_mfd_ad_release_all(struct msm_fb_data_type *mfd)
 	}
 	if (!ad->mfd)
 		return 0;
+
 	ctl = mfd_to_ctl(mfd);
 	if (ctl && ctl->ops.remove_vsync_handler)
 		ctl->ops.remove_vsync_handler(ctl, &ad->handle);
 	cancel_work_sync(&ad->calc_work);
+	ad->state = 0;
+
 	return ret;
 }
 
