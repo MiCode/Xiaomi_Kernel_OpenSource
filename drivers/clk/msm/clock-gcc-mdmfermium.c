@@ -1800,6 +1800,8 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	 CLK_LIST(gcc_usb_hsic_io_cal_clk),
 	 CLK_LIST(gcc_usb_hsic_io_cal_sleep_clk),
 	 CLK_LIST(gcc_usb_hsic_system_clk),
+	 CLK_LIST(gcc_usb2_hs_phy_only_clk),
+	 CLK_LIST(gcc_qusb2_phy_clk),
 };
 
 static int msm_gcc_probe(struct platform_device *pdev)
