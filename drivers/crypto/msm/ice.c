@@ -48,6 +48,7 @@
 #define ICE_REV(x, y) (((x) & ICE_CORE_##y##_REV_MASK) >> ICE_CORE_##y##_REV)
 #define QCOM_ICE_DEV	"ice"
 #define QCOM_ICE_TYPE_NAME_LEN 8
+#define QCOM_ICE_MAX_BIST_CHECK_COUNT 100
 
 const struct qcom_ice_variant_ops qcom_ice_ops;
 
@@ -300,6 +301,24 @@ static void qcom_ice_optimization_enable(struct ice_device *ice_dev)
 static void qcom_ice_enable(struct ice_device *ice_dev)
 {
 	unsigned int reg;
+	int count;
+
+	if ((ICE_REV(ice_dev->ice_hw_version, MAJOR) > 2) ||
+		((ICE_REV(ice_dev->ice_hw_version, MAJOR) == 2) &&
+		 (ICE_REV(ice_dev->ice_hw_version, MINOR) >= 1))) {
+		for (count = 0; count < QCOM_ICE_MAX_BIST_CHECK_COUNT;
+						count++) {
+			reg = qcom_ice_readl(ice_dev,
+						QCOM_ICE_REGS_BIST_STATUS);
+			if ((reg & 0xF0000000) != 0x0)
+				udelay(50);
+		}
+		if ((reg & 0xF0000000) != 0x0) {
+			pr_err("%s: BIST validation failed for ice = %p",
+					__func__, (void *)ice_dev);
+			BUG();
+		}
+	}
 
 	/*
 	 * To enable ICE, perform following
@@ -334,6 +353,18 @@ static void qcom_ice_enable(struct ice_device *ice_dev)
 	 * ICE initialization/optimization instruction
 	 */
 	mb();
+
+
+	if ((ICE_REV(ice_dev->ice_hw_version, MAJOR) > 2) ||
+		((ICE_REV(ice_dev->ice_hw_version, MAJOR) == 2) &&
+		 (ICE_REV(ice_dev->ice_hw_version, MINOR) >= 1))) {
+		reg = qcom_ice_readl(ice_dev, QCOM_ICE_REGS_BYPASS_STATUS);
+		if ((reg & 0x8000000) != 0x0) {
+			pr_err("%s: Bypass failed for ice = %p",
+				__func__, (void *)ice_dev);
+			BUG();
+		}
+	}
 }
 
 static int qcom_ice_verify_ice(struct ice_device *ice_dev)
