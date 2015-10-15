@@ -11,7 +11,7 @@
  * GNU General Public License for more details.
  */
 
-#include <dt-bindings/clock/msm-clocks-8952.h>
+#include <dt-bindings/clock/msm-clocks-titanium.h>
 
 &soc {
 	kgsl_smmu: arm,smmu-kgsl@1c40000 {
@@ -26,6 +26,11 @@
 		qcom,register-save;
 		qcom,skip-init;
 		qcom,dynamic;
+		vdd-supply = <&gdsc_oxili_cx>;
+		clocks = <&clock_gcc clk_gcc_oxili_ahb_clk>,
+			<&clock_gcc clk_gcc_bimc_gfx_clk>;
+		clock-names = "gpu_ahb_clk", "gcc_bimc_gfx_clk";
+		#clock-cells = <1>;
 	};
 
 	apps_iommu: qcom,iommu@1e00000 {
@@ -40,7 +45,7 @@
 		label = "apps_iommu";
 		qcom,iommu-secure-id = <17>;
 		clocks = <&clock_gcc clk_gcc_smmu_cfg_clk>,
-					<&clock_gcc clk_gcc_apss_tcu_clk>;
+					<&clock_gcc clk_gcc_apss_tcu_async_clk>;
 		clock-names = "iface_clk", "core_clk";
 		qcom,cb-base-offset = <0x20000>;
 		status = "ok";
