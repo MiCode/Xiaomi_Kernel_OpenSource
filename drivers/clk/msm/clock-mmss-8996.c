@@ -67,6 +67,10 @@ static void __iomem *virt_base_gpu;
 
 #define GFX_MIN_SVS_LEVEL	2
 #define GPU_REQ_ID		0x3
+
+#define EFUSE_SHIFT	29
+#define EFUSE_MASK	0x7
+
 static struct clk_ops clk_ops_gpu;
 
 static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
@@ -3791,10 +3795,19 @@ static void msm_gpucc_8996_v2_fixup(void)
 
 int msm_gpucc_8996_probe(struct platform_device *pdev)
 {
-	struct resource *res;
+	struct resource *res, *efuse_res;
+	struct device_node *of_node = pdev->dev.of_node;
+	void __iomem *base;
 	int rc;
 	struct regulator *reg;
+	u64 efuse;
+	int speed_bin;
 	int is_v2_gpu, is_v3_0_gpu;
+	char speedbin_str[] = "qcom,gfxfreq-speedbin0";
+	char mx_speedbin_str[] = "qcom,gfxfreq-mx-speedbin0";
+
+	if (!of_node)
+		return -EINVAL;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cc_base");
 	if (!res) {
@@ -3802,10 +3815,23 @@ int msm_gpucc_8996_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	efuse_res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse");
+	if (!efuse_res) {
+		dev_err(&pdev->dev, "Unable to retrieve efuse register base.\n");
+		return -ENOMEM;
+	}
+
 	gfx3d_clk_src_v2.base = virt_base_gpu =  devm_ioremap(&pdev->dev,
 					res->start, resource_size(res));
 	if (!virt_base_gpu) {
 		dev_err(&pdev->dev, "Failed to map CC registers\n");
+		return -ENOMEM;
+	}
+
+	base = devm_ioremap(&pdev->dev, efuse_res->start,
+					resource_size(efuse_res));
+	if (!base) {
+		dev_err(&pdev->dev, "Unable to map in efuse base\n");
 		return -ENOMEM;
 	}
 
@@ -3822,6 +3848,7 @@ int msm_gpucc_8996_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Unable to get vdd_mx regulator!");
 		return PTR_ERR(reg);
 	}
+	vdd_gfx.use_max_uV = true;
 
 	reg = vdd_gpu_mx.regulator[0] = devm_regulator_get(&pdev->dev,
 								"vdd_gpu_mx");
@@ -3830,57 +3857,69 @@ int msm_gpucc_8996_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Unable to get vdd_gpu_mx regulator!");
 		return PTR_ERR(reg);
 	}
+	vdd_gpu_mx.use_max_uV = true;
 
-	is_v2_gpu = of_device_is_compatible(pdev->dev.of_node,
-						"qcom,gpucc-8996-v2");
-	is_v3_gpu = of_device_is_compatible(pdev->dev.of_node,
-						"qcom,gpucc-8996-v3");
-	is_v3_0_gpu = of_device_is_compatible(pdev->dev.of_node,
-						"qcom,gpucc-8996-v3.0");
-	if (!is_v2_gpu && !is_v3_gpu && !is_v3_0_gpu) {
-		rc = of_get_fmax_vdd_class(pdev, &gfx3d_clk_src.c,
-					"qcom,gfxfreq-corner-v0");
-		if (rc) {
-			dev_err(&pdev->dev, "Unable to get gfx freq-corner mapping info\n");
-			return rc;
-		}
+	is_v2_gpu = of_device_is_compatible(of_node, "qcom,gpucc-8996-v2");
+	is_v3_gpu = of_device_is_compatible(of_node, "qcom,gpucc-8996-v3");
+	is_v3_0_gpu = of_device_is_compatible(of_node, "qcom,gpucc-8996-v3.0");
 
+	efuse = readl_relaxed(base);
+	speed_bin = ((efuse >> EFUSE_SHIFT) & EFUSE_MASK);
+	dev_info(&pdev->dev, "using speed bin %u\n", speed_bin);
+	snprintf(speedbin_str, ARRAY_SIZE(speedbin_str),
+				"qcom,gfxfreq-speedbin%d", speed_bin);
+	snprintf(mx_speedbin_str, ARRAY_SIZE(mx_speedbin_str),
+				"qcom,gfxfreq-mx-speedbin%d", speed_bin);
+
+	rc = of_get_fmax_vdd_class(pdev, &gpu_mx_clk.c, mx_speedbin_str);
+	if (rc) {
+		dev_err(&pdev->dev, "Can't get speed bin for gpu_mx_clk. Falling back to zero.\n");
 		rc = of_get_fmax_vdd_class(pdev, &gpu_mx_clk.c,
-					"qcom,gpufreq-mx-corner-v0");
+						"qcom,gfxfreq-mx-speedbin0");
 		if (rc) {
 			dev_err(&pdev->dev, "Unable to get gpu mx freq-corner mapping info\n");
 			return rc;
+		}
+	}
+
+	if (!is_v2_gpu && !is_v3_gpu && !is_v3_0_gpu) {
+		rc = of_get_fmax_vdd_class(pdev, &gfx3d_clk_src.c,
+							speedbin_str);
+		if (rc) {
+			dev_err(&pdev->dev, "Can't get speed bin for gfx3d_clk_src. Falling back to zero.\n");
+			rc = of_get_fmax_vdd_class(pdev, &gfx3d_clk_src.c,
+					    "qcom,gfxfreq-speedbin0");
+			if (rc) {
+				dev_err(&pdev->dev, "Unable to get gfx freq-corner info for gfx3d_clk!\n");
+				return rc;
+			}
 		}
 
 		clk_ops_gpu = clk_ops_rcg;
 		clk_ops_gpu.pre_set_rate = gpu_pre_set_rate;
 
-		rc = of_msm_clock_register(pdev->dev.of_node,
-					msm_clocks_gpu_8996,
+		rc = of_msm_clock_register(of_node, msm_clocks_gpu_8996,
 					ARRAY_SIZE(msm_clocks_gpu_8996));
 		if (rc)
 			return rc;
 	} else {
 		msm_gpucc_8996_v2_fixup();
 		rc = of_get_fmax_vdd_class(pdev, &gfx3d_clk_src_v2.c,
-					"qcom,gfxfreq-corner-v2");
+							speedbin_str);
 		if (rc) {
-			dev_err(&pdev->dev, "Unable to get gfx freq-corner mapping info\n");
-			return rc;
-		}
-
-		rc = of_get_fmax_vdd_class(pdev, &gpu_mx_clk.c,
-					"qcom,gpufreq-mx-corner-v2");
-		if (rc) {
-			dev_err(&pdev->dev, "Unable to get gpu mx freq-corner mapping info\n");
-			return rc;
+			dev_err(&pdev->dev, "Can't get speed bin for gfx3d_clk_src. Falling back to zero.\n");
+			rc = of_get_fmax_vdd_class(pdev, &gfx3d_clk_src_v2.c,
+					    "qcom,gfxfreq-speedbin0");
+			if (rc) {
+				dev_err(&pdev->dev, "Unable to get gfx freq-corner info for gfx3d_clk!\n");
+				return rc;
+			}
 		}
 
 		clk_ops_gpu = clk_ops_mux_div_clk;
 		clk_ops_gpu.pre_set_rate = gpu_pre_set_rate;
 
-		rc = of_msm_clock_register(pdev->dev.of_node,
-					msm_clocks_gpu_8996_v2,
+		rc = of_msm_clock_register(of_node, msm_clocks_gpu_8996_v2,
 					ARRAY_SIZE(msm_clocks_gpu_8996_v2));
 		if (rc)
 			return rc;
