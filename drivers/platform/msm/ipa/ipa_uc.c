@@ -256,6 +256,17 @@ int ipa_uc_state_check(void)
 }
 EXPORT_SYMBOL(ipa_uc_state_check);
 
+/**
+ * ipa_uc_loaded_check() - Check the uC has been loaded
+ *
+ * Return value: 1 if the uC is loaded, 0 otherwise
+ */
+int ipa_uc_loaded_check(void)
+{
+	return ipa_ctx->uc_ctx.uc_loaded;
+}
+EXPORT_SYMBOL(ipa_uc_loaded_check);
+
 static void ipa_uc_event_handler(enum ipa_irq_type interrupt,
 				 void *private_data,
 				 void *interrupt_data)

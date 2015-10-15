@@ -1751,15 +1751,13 @@ static int ipa_wwan_probe(struct platform_device *pdev)
 		memset(&mux_channel[i], 0, sizeof(struct rmnet_mux_val));
 
 	/* start A7 QMI service/client */
-	if (ipa_rmnet_res.ipa_loaduC) {
+	if (ipa_rmnet_res.ipa_loaduC)
 		/* Android platform loads uC */
-		ipa_qmi_service_init(atomic_read(&is_ssr) ? false : true,
-			QMI_IPA_PLATFORM_TYPE_MSM_ANDROID_V01);
-	} else {
+		ipa_qmi_service_init(QMI_IPA_PLATFORM_TYPE_MSM_ANDROID_V01);
+	else
 		/* LE platform not loads uC */
-		ipa_qmi_service_init(atomic_read(&is_ssr) ? false : true,
-			QMI_IPA_PLATFORM_TYPE_LE_V01);
-	}
+		ipa_qmi_service_init(QMI_IPA_PLATFORM_TYPE_LE_V01);
+
 	/* construct default WAN RT tbl for IPACM */
 	ret = ipa_setup_a7_qmap_hdr();
 	if (ret)

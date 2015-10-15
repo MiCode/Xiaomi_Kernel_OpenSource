@@ -57,7 +57,7 @@ struct rmnet_mux_val {
 	uint32_t  hdr_hdl;
 };
 
-int ipa_qmi_service_init(bool load_uc, uint32_t wan_platform_type);
+int ipa_qmi_service_init(uint32_t wan_platform_type);
 void ipa_qmi_service_exit(void);
 
 /* sending filter-install-request to modem*/
