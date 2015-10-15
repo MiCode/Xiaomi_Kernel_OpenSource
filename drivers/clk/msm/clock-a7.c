@@ -370,10 +370,13 @@ static int clock_a7_probe(struct platform_device *pdev)
 	char prop_name[] = "qcom,speedX-bin-vX";
 	const void *prop;
 	bool compat_bin = false;
+	bool compat_bin2 = false;
 	bool opp_enable;
 
 	compat_bin = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,clock-a53-8916");
+	compat_bin2 = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,clock-a7-mdmfermium");
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "rcg-base");
 	if (!res) {
@@ -404,7 +407,7 @@ static int clock_a7_probe(struct platform_device *pdev)
 	if (prop)
 		a7ssmux.safe_freq = of_read_ulong(prop, 1);
 
-	if (compat_bin)
+	if (compat_bin || compat_bin2)
 		get_speed_bin_b(pdev, &speed_bin, &version);
 	else
 		get_speed_bin(pdev, &speed_bin, &version);
