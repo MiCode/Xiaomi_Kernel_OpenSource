@@ -357,6 +357,7 @@ int ipa3_remove_interrupt_handler(enum ipa_irq_type interrupt)
 		return -EFAULT;
 	}
 
+	kfree(ipa_interrupt_to_cb[irq_num].private_data);
 	ipa_interrupt_to_cb[irq_num].deferred_flag = false;
 	ipa_interrupt_to_cb[irq_num].handler = NULL;
 	ipa_interrupt_to_cb[irq_num].private_data = NULL;
@@ -424,4 +425,61 @@ int ipa3_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev)
 
 	spin_lock_init(&suspend_wa_lock);
 	return 0;
+}
+
+/**
+* ipa3_suspend_active_aggr_wa() - Emulate suspend IRQ
+* @clnt_hndl:		suspended client handle, IRQ is emulated for this pipe
+*
+*  Emulate suspend IRQ to unsuspend client which was suspended with an open
+*  aggregation frame in order to bypass HW bug of IRQ not generated when
+*  endpoint is suspended during an open aggregation.
+*/
+void ipa3_suspend_active_aggr_wa(u32 clnt_hdl)
+{
+	struct ipa3_interrupt_info interrupt_info;
+	struct ipa3_interrupt_work_wrap *work_data;
+	struct ipa_tx_suspend_irq_data *suspend_interrupt_data;
+	int irq_num;
+	int aggr_active_bitmap = ipa_read_reg(ipa3_ctx->mmio,
+			IPA_STATE_AGGR_ACTIVE_OFST);
+
+	if (aggr_active_bitmap & (1 << clnt_hdl)) {
+		/* force close aggregation */
+		ipa_write_reg(ipa3_ctx->mmio, IPA_AGGR_FORCE_CLOSE_OFST,
+				(1 << clnt_hdl));
+
+		/* simulate suspend IRQ */
+		irq_num = ipa3_irq_mapping[IPA_TX_SUSPEND_IRQ];
+		interrupt_info = ipa_interrupt_to_cb[irq_num];
+		if (interrupt_info.handler == NULL) {
+			IPAERR("no CB function for IPA_TX_SUSPEND_IRQ!\n");
+			return;
+		}
+		suspend_interrupt_data = kzalloc(
+				sizeof(*suspend_interrupt_data),
+				GFP_KERNEL);
+		if (!suspend_interrupt_data) {
+			IPAERR("failed allocating suspend_interrupt_data\n");
+			return;
+		}
+		suspend_interrupt_data->endpoints = 1 << clnt_hdl;
+
+		work_data = kzalloc(sizeof(struct ipa3_interrupt_work_wrap),
+				GFP_KERNEL);
+		if (!work_data) {
+			IPAERR("failed allocating ipa3_interrupt_work_wrap\n");
+			goto fail_alloc_work;
+		}
+		INIT_WORK(&work_data->interrupt_work,
+				ipa3_deferred_interrupt_work);
+		work_data->handler = interrupt_info.handler;
+		work_data->interrupt = IPA_TX_SUSPEND_IRQ;
+		work_data->private_data = interrupt_info.private_data;
+		work_data->interrupt_data = (void *)suspend_interrupt_data;
+		queue_work(ipa_interrupt_wq, &work_data->interrupt_work);
+		return;
+fail_alloc_work:
+		kfree(suspend_interrupt_data);
+	}
 }

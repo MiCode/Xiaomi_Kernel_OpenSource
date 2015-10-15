@@ -282,6 +282,8 @@ struct ipa_api_controller {
 
 	int (*ipa_remove_interrupt_handler)(enum ipa_irq_type interrupt);
 
+	int (*ipa_restore_suspend_handler)(void);
+
 	void (*ipa_bam_reg_dump)(void);
 
 	int (*ipa_get_ep_mapping)(enum ipa_client_type client);

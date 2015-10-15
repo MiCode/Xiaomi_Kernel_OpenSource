@@ -2085,6 +2085,10 @@ int _ipa_read_dbg_cnt_v3_0(char *buf, int max_len);
 void _ipa_enable_clks_v3_0(void);
 void _ipa_disable_clks_v3_0(void);
 struct device *ipa3_get_dma_dev(void);
+void ipa3_suspend_active_aggr_wa(u32 clnt_hdl);
+void ipa3_suspend_handler(enum ipa_irq_type interrupt,
+				void *private_data,
+				void *interrupt_data);
 
 
 static inline u32 ipa_read_reg(void *base, u32 offset)
@@ -2243,5 +2247,6 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx,
 	int *num_entry);
 
 int ipa3_calc_extra_wrd_bytes(const struct ipa_ipfltri_rule_eq *attrib);
+int ipa3_restore_suspend_handler(void);
 
 #endif /* _IPA3_I_H_ */

@@ -2994,8 +2994,11 @@ int ipa3_cfg_ep_ctrl(u32 clnt_hdl, const struct ipa_ep_cfg_ctrl *ep_ctrl)
 	ipa_write_reg(ipa3_ctx->mmio,
 		IPA_ENDP_INIT_CTRL_N_OFST(clnt_hdl), reg_val);
 
-	return 0;
+	if (ep_ctrl->ipa_ep_suspend == true &&
+			IPA_CLIENT_IS_CONS(ipa3_ctx->ep[clnt_hdl].client))
+		ipa3_suspend_active_aggr_wa(clnt_hdl);
 
+	return 0;
 }
 
 /**
@@ -4768,6 +4771,7 @@ int ipa3_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_write_qmap_id = ipa3_write_qmap_id;
 	api_ctrl->ipa_add_interrupt_handler = ipa3_add_interrupt_handler;
 	api_ctrl->ipa_remove_interrupt_handler = ipa3_remove_interrupt_handler;
+	api_ctrl->ipa_restore_suspend_handler = ipa3_restore_suspend_handler;
 	api_ctrl->ipa_bam_reg_dump = ipa3_bam_reg_dump;
 	api_ctrl->ipa_get_ep_mapping = ipa3_get_ep_mapping;
 	api_ctrl->ipa_is_ready = ipa3_is_ready;

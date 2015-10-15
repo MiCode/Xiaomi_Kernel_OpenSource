@@ -5051,6 +5051,7 @@ int ipa2_bind_api_controller(enum ipa_hw_type ipa_hw_type,
 	api_ctrl->ipa_write_qmap_id = ipa2_write_qmap_id;
 	api_ctrl->ipa_add_interrupt_handler = ipa2_add_interrupt_handler;
 	api_ctrl->ipa_remove_interrupt_handler = ipa2_remove_interrupt_handler;
+	api_ctrl->ipa_restore_suspend_handler = ipa2_restore_suspend_handler;
 	api_ctrl->ipa_bam_reg_dump = ipa2_bam_reg_dump;
 	api_ctrl->ipa_get_ep_mapping = ipa2_get_ep_mapping;
 	api_ctrl->ipa_is_ready = ipa2_is_ready;
