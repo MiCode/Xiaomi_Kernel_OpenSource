@@ -4595,7 +4595,7 @@ sub process {
 		}
 
 # dsb is too ARMish, and should usually be mb.
-		if ($line =~ /\bdsb\b/) {
+		if ($line =~ /[^-_>*\.]\bdsb\b[^-_\.;]/) {
 			WARN("ARM_BARRIER",
 			     "Use of dsb is discouranged: prefer mb.\n" .
 			     $herecurr);
