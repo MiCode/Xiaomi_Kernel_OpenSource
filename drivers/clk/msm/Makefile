@@ -29,6 +29,7 @@ obj-$(CONFIG_ARCH_MDMFERMIUM)	+= clock-a7.o
 obj-$(CONFIG_ARCH_MSM8916)	+= clock-a7.o
 obj-$(CONFIG_ARCH_MSM8916)	+= clock-cpu-8939.o
 obj-$(CONFIG_ARCH_MSM8916)	+= clock-gcc-8952.o
+obj-$(CONFIG_ARCH_MSM8916)	+= clock-gcc-titanium.o
 
 
 obj-y				+= gdsc.o
