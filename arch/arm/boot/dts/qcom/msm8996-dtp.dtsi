@@ -59,6 +59,10 @@
 	};
 };
 
+&pmi8994_charger {
+	qcom,battery-data = <&qrd_batterydata>;
+};
+
 &pmi8994_fg {
 	qcom,battery-data = <&qrd_batterydata>;
 	qcom,ext-sense-type;
