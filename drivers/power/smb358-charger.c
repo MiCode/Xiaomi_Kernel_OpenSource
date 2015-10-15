@@ -428,7 +428,7 @@ static int smb358_float_voltage_set(struct smb358_charger *chip, int vfloat_mv)
 	if (VFLOAT_4350MV == vfloat_mv)
 		temp = 0x2B;
 	else if (vfloat_mv > VFLOAT_4350MV)
-		temp = (vfloat_mv - MIN_FLOAT_MV) / VFLOAT_STEP_MV - 1;
+		temp = (vfloat_mv - MIN_FLOAT_MV) / VFLOAT_STEP_MV + 1;
 	else
 		temp = (vfloat_mv - MIN_FLOAT_MV) / VFLOAT_STEP_MV;
 
