@@ -36,3 +36,11 @@
 	qcom,emulation;
 	/delete-property/ qcom,boost-sysclk-with-streaming;
 };
+
+&clock_gcc {
+	compatible = "qcom,dummycc";
+};
+
+&clock_debug {
+	compatible = "qcom,dummycc";
+};
