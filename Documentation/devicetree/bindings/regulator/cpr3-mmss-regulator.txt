@@ -72,6 +72,15 @@ MMSS specific properties:
 		    supported value is 8.  These combos correspond to CPR
 		    revision fuse values from 0 to 7 in order.
 
+- qcom,cpr-speed-bins
+	Usage:      optional
+	Value type: <u32>
+	Definition: Specifies the number of speed bins being supported by the
+		    device.  This value is utilized by several other properties.
+		    Supported values are 1 up to the maximum possible for a
+		    given regulator type.  For MMSS the maximum supported value
+		    is 1.
+
 - qcom,cpr-target-quotients
 	Usage:      required
 	Value type: <prop-encoded-array>
@@ -82,18 +91,20 @@ MMSS specific properties:
 		    RO15 in order.  If a given RO is unused for a corner, then
 		    its target quotient should be specified as 0.
 
-		    Each tuple list must contain the number of tuples defined in
-		    the corresponding element of the qcom,cpr-corners property.
-		    A single tuple list may only be specified if all of the
-		    corner counts in qcom,cpr-corners are the same.  The tuples
-		    in a given list are ordered from the lowest corner to the
-		    highest corner.
+		    The tuple list grouping must contain qcom,cpr-fuse-combos
+		    number of tuple lists in which case the lists are matched to
+		    fuse combinations 1-to-1 or qcom,cpr-speed-bins number of
+		    tuples lists in which case the lists are matched to speed
+		    bins 1-to-1 or exactly 1 list which is used regardless of
+		    the fuse combination and speed bin found on a given chip.
 
-		    The tuple list grouping must contain either
-		    qcom,cpr-fuse-combos number of tuple lists in which case the
-		    lists are matched to fuse combinations 1-to-1 or the
-		    grouping must contain exactly 1 list which is used
-		    regardless of the fuse combination found on a given chip.
+		    Each tuple list must contain the number of tuples defined in
+		    the corresponding element of the qcom,cpr-corners property
+		    or the qcom,cpr-speed-bins property.  A single tuple list
+		    may only be specified if all of the corner counts in
+		    qcom,cpr-corners and are qcom,cpr-speed-bins the same.
+		    The tuples in a given list are ordered from the lowest
+		    corner to the highest corner.
 
 - qcom,cpr-ro-scaling-factor
 	Usage:      required if qcom,cpr-closed-loop-voltage-adjustment is
@@ -105,8 +116,8 @@ MMSS specific properties:
 
 		    Each tuple list must contain the number of tuples defined in
 		    the corresponding element of the qcom,cpr-corners property
-		    as opposed to the value of the qcom,cpr-fuse-corners
-		    property.
+		    or the qcom,cpr-speed-bins property as opposed to the value
+		    of the qcom,cpr-fuse-corners property.
 
 Note that the qcom,cpr-closed-loop-voltage-fuse-adjustment property is not
 meaningful for MMSS CPR3 regulator nodes since target quotients are not defined
