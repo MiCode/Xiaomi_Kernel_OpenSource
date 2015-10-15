@@ -239,6 +239,19 @@ Platform independent properties:
 		    possible for a given regulator type.  See platform specific
 		    binding files for further details.
 
+- qcom,cpr-speed-bins
+	Usage:      optional
+	Value type: <u32>
+	Definition: Specifies the number of speed bins being supported by the
+		    device.  This value is utilized by several other properties.
+		    Supported values are 1 up to the maximum possible for a
+		    given regulator type.  See platform specific binding files
+		    for further details.
+
+		    This property can only be utilized if the number of corners
+		    for all fuse combinations associated with a given speed bin
+		    is the same.
+
 - qcom,cpr-corners
 	Usage:      required
 	Value type: <prop-encoded-array>
@@ -250,19 +263,30 @@ Platform independent properties:
 		    element which is used regardless of the fuse combination
 		    found on a given chip.
 
+- qcom,cpr-speed-bin-corners
+	Usage:      required if qcom,cpr-speed-bins is specified
+	Value type: <prop-encoded-array>
+	Definition: A list of integers which defines how many voltage corners
+		    are to be used for each speed bin.  The list must contain
+		    qcom,cpr-speed-bins number of elements.
+
 - qcom,cpr-corner-fmax-map
 	Usage:      required
 	Value type: <prop-encoded-array>
 	Definition: A list of integer tuples which each define the highest
 		    (i.e. maximum frequency) 1-based corner value associated
-		    with each fuse-corner.  Each tuple must have a number of
-		    elements equal to the value of the qcom,cpr-fuse-corners
-		    property.  The elements of a tuple are ordered from lowest
-		    to highest fuse corner.  The list must contain either
-		    qcom,cpr-fuse-combos number of tuples in which case the
-		    tuple mappings are applied to fuse combinations 1-to-1 or
-		    the list must contain exactly 1 tuple which is used
-		    regardless of the fuse combination found on a given chip.
+		    with each fuse-corner.
+
+		    Each tuple must have a number of elements equal to the value
+		    of the qcom,cpr-fuse-corners property.  The elements of a
+		    tuple are ordered from lowest to highest fuse corner.
+
+		    The list must contain qcom,cpr-fuse-combos number of tuples
+		    in which case the tuples are matched to fuse combinations
+		    1-to-1 or qcom,cpr-speed-bins number of tuples in which case
+		    the tuples are matched to speed bins 1-to-1 or exactly 1
+		    tuple which is used regardless of the fuse combination and
+		    speed bin found on a given chip.
 
 - qcom,cpr-voltage-ceiling
 	Usage:      required
@@ -271,16 +295,18 @@ Platform independent properties:
 		    voltage in microvolts for each voltage corner in order from
 		    lowest to highest.
 
-		    The list must contain either qcom,cpr-fuse-combos number of
-		    tuples in which case the tuples are matched to fuse
-		    combinations 1-to-1 or the list must contain exactly 1 tuple
-		    which is used regardless of the fuse combination found on a
-		    given chip.
+		    The list must contain qcom,cpr-fuse-combos number of tuples
+		    in which case the tuples are matched to fuse combinations
+		    1-to-1 or qcom,cpr-speed-bins number of tuples in which case
+		    the tuples are matched to speed bins 1-to-1 or exactly 1
+		    tuple which is used regardless of the fuse combination and
+		    speed bin found on a given chip.
 
 		    Each tuple must be of the length defined in the
-		    corresponding element of the qcom,cpr-corners property.  A
-		    single tuple may only be specified if all of the corner
-		    counts in qcom,cpr-corners are the same.
+		    corresponding element of the qcom,cpr-corners property or
+		    the qcom,cpr-speed-bins property.  A single tuple may only
+		    be specified if all of the corner counts in qcom,cpr-corners
+		    are the same.
 
 - qcom,cpr-voltage-floor
 	Usage:      required
@@ -353,14 +379,8 @@ Platform independent properties:
 		    applied to the values read from fuses before the values are
 		    used in interpolation for intermediate corners.
 
-		    The list must contain either qcom,cpr-fuse-combos number of
-		    tuples in which case the tuples are matched to fuse
-		    combinations 1-to-1 or the list must contain exactly 1 tuple
-		    which is used regardless of the fuse combination found on a
-		    given chip.
-
-		    Each tuple must have a number of elements equal to the value
-		    of the qcom,cpr-fuse-corners property.
+		    The list and tuples must meet the same size requirements as
+		    those specified for qcom,cpr-corner-fmax-map above.
 
 		    The open-loop voltage for a given fuse corner corresponds to
 		    the voltage that is safe to use under all circumstances.
@@ -376,16 +396,8 @@ Platform independent properties:
 		    the open-loop voltage values after they have been
 		    interpolated for intermediate corners.
 
-		    The list must contain either qcom,cpr-fuse-combos number of
-		    tuples in which case the tuples are matched to fuse
-		    combinations 1-to-1 or the list must contain exactly 1 tuple
-		    which is used regardless of the fuse combination found on a
-		    given chip.
-
-		    Each tuple must be of the length defined in the
-		    corresponding element of the qcom,cpr-corners property.  A
-		    single tuple may only be specified if all of the corner
-		    counts in qcom,cpr-corners are the same.
+		    The list and tuples must meet the same size requirements as
+		    those specified for qcom,cpr-voltage-ceiling above.
 
 - qcom,cpr-open-loop-voltage-min-diff
 	Usage:      optional; only meaningful if the
@@ -406,16 +418,8 @@ Platform independent properties:
 		    voltage values have been interpolated for intermediate
 		    corners and after adjustments have been applied.
 
-		    The list must contain either qcom,cpr-fuse-combos number of
-		    tuples in which case the tuples are matched to fuse
-		    combinations 1-to-1 or the list must contain exactly 1 tuple
-		    which is used regardless of the fuse combination found on a
-		    given chip.
-
-		    Each tuple must be of the length defined in the
-		    corresponding element of the qcom,cpr-corners property.  A
-		    single tuple may only be specified if all of the corner
-		    counts in qcom,cpr-corners are the same.
+		    The list and tuples must meet the same size requirements as
+		    those specified for qcom,cpr-voltage-ceiling above.
 
 		    If this property is not specified, then the minimum
 		    difference is assumed to be 0 uV for all corners.
@@ -429,16 +433,11 @@ Platform independent properties:
 		    applied to the values read from fuses before the values are
 		    used in interpolation for intermediate corners.
 
-		    The list must contain either qcom,cpr-fuse-combos number of
-		    tuples in which case the tuples are matched to fuse
-		    combinations 1-to-1 or the list must contain exactly 1 tuple
-		    which is used regardless of the fuse combination found on a
-		    given chip.
+		    The list and tuples must meet the same size requirements as
+		    those specified for qcom,cpr-corner-fmax-map above.
 
-		    Each tuple must have a number of elements equal to the value
-		    of the qcom,cpr-fuse-corners property.
-		    The qcom,cpr-ro-scaling-factor property must be specified
-		    in order to utilize this property.
+		    The qcom,cpr-ro-scaling-factor property must be specified in
+		    order to utilize this property.
 
 		    The closed-loop voltage for a given fuse corner corresponds
 		    to the voltage that the CPR controller settles the VDD
@@ -454,17 +453,10 @@ Platform independent properties:
 		    target quotient values after they have been interpolated
 		    for intermediate corners.
 
-		    The list must contain either qcom,cpr-fuse-combos number of
-		    tuples in which case the tuples are matched to fuse
-		    combinations 1-to-1 or the list must contain exactly 1 tuple
-		    which is used regardless of the fuse combination found on a
-		    given chip.
+		    The list and tuples must meet the same size requirements as
+		    those specified for qcom,cpr-voltage-ceiling above.
 
-		    Each tuple must be of the length defined in the
-		    corresponding element of the qcom,cpr-corners property.  A
-		    single tuple may only be specified if all of the corner
-		    counts in qcom,cpr-corners are the same.  The
-		    qcom,cpr-ro-scaling-factor property must be specified in
+		    The qcom,cpr-ro-scaling-factor property must be specified in
 		    order to utilize this property.
 
 - qcom,cpr-ro-scaling-factor
@@ -485,11 +477,12 @@ Platform independent properties:
 		    list are ordered from the lowest fuse corner to the highest
 		    fuse corner.
 
-		    The tuple list grouping must contain either
-		    qcom,cpr-fuse-combos number of tuple lists in which case the
-		    lists are matched to fuse combinations 1-to-1 or the
-		    grouping must contain exactly 1 list which is used
-		    regardless of the fuse combination found on a given chip.
+		    The tuple list grouping must contain qcom,cpr-fuse-combos
+		    number of tuple lists in which case the lists are matched to
+		    fuse combinations 1-to-1 or qcom,cpr-speed-bins number of
+		    tuple lists in which case the lists are matched to
+		    speed bins 1-to-1 or exactly 1 list which is used regardless
+		    of the fuse combination and speed bin found on a given chip.
 
 		    The target quotient adjustment to apply for each RO of a
 		    given corner is determined by multiplying the adjustment
@@ -506,11 +499,13 @@ Platform independent properties:
 			0 - do not perform CPR aging adjustment
 			1 - perform CPR aging adjustment
 
-		    The list must contain either qcom,cpr-fuse-combos number of
-		    elements in which case the elements are applied to fuse
-		    combinations 1-to-1 or the list must contain exactly 1
-		    element which is used regardless of the fuse combination
-		    found on a given chip.
+		    The list must contain qcom,cpr-fuse-combos number of
+		    elements in which case the elements are matched to fuse
+		    combinations 1-to-1 or qcom,cpr-speed-bins number of
+		    elements in which case the elements are matched to
+		    speed bins 1-to-1 or exactly 1 element which is used
+		    regardless of the fuse combination and speed bin found
+		    on a given chip.
 
 - qcom,cpr-aging-max-voltage-adjustment
 	Usage:      required if qcom,allow-aging-voltage-adjustment is specified
@@ -521,11 +516,8 @@ Platform independent properties:
 		    and the adjustment specified is greater than 0, then aging
 		    adjustments are required for this regulator.
 
-		    The list must contain either qcom,cpr-fuse-combos number of
-		    elements in which case the max adjustments are applied to
-		    fuse combinations 1-to-1 or the list must contain exactly 1
-		    element which is used regardless of the fuse combination
-		    found on a given chip.
+		    The list must meet the same size requirements as those
+		    specified for qcom,allow-aging-voltage-adjustment above.
 
 - qcom,cpr-aging-ref-corner
 	Usage:      required if qcom,allow-aging-voltage-adjustment is specified
@@ -534,11 +526,8 @@ Platform independent properties:
 		    for this regulator to use during aging measurements for each
 		    fuse combination.
 
-		    The list must contain either qcom,cpr-fuse-combos number of
-		    elements in which case the max adjustments are applied to
-		    fuse combinations 1-to-1 or the list must contain exactly 1
-		    element which is used regardless of the fuse combination
-		    found on a given chip.
+		    The list must meet the same size requirements as those
+		    specified for qcom,allow-aging-voltage-adjustment above.
 
 - qcom,cpr-aging-ro-scaling-factor
 	Usage:      required if qcom,allow-aging-voltage-adjustment is specified
@@ -547,11 +536,8 @@ Platform independent properties:
 		    oscillator (RO) scaling factor with units of QUOT/V to use
 		    during aging measurements for each fuse combination.
 
-		    The list must contain either qcom,cpr-fuse-combos number of
-		    elements in which case the scaling factors are applied to
-		    fuse combinations 1-to-1 or the list must contain exactly 1
-		    element which is used regardless of the fuse combination
-		    found on a given chip.
+		    The list must meet the same size requirements as those
+		    specified for qcom,allow-aging-voltage-adjustment above.
 
 - qcom,cpr-aging-derate
 	Usage:      optional, though only meaningful if
