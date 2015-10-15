@@ -1124,6 +1124,11 @@ static inline bool mdss_mdp_is_lm_swap_needed(struct mdss_data_type *mdata,
 	       (mctl->mixer_right->valid_roi);
 }
 
+static inline int mdss_mdp_get_display_id(struct mdss_mdp_pipe *pipe)
+{
+	return (pipe && pipe->mfd) ? pipe->mfd->index : -1;
+}
+
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
 void mdss_mdp_irq_clear(struct mdss_data_type *mdata,
 		u32 intr_type, u32 intf_num);
