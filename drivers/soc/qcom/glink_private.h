@@ -18,6 +18,7 @@
 #include <linux/ipc_logging.h>
 #include <linux/kernel.h>
 #include <linux/kref.h>
+#include <linux/ratelimit.h>
 #include <linux/seq_file.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
@@ -290,18 +291,18 @@ const char *glink_get_ch_state_string(enum local_channel_state_e enum_id);
 } while (0)
 
 #define GLINK_ERR(x...) do {                              \
-	pr_err("<CORE> " x); \
+	pr_err_ratelimited("<CORE> " x); \
 	GLINK_IPC_LOG_STR("<CORE> " x);  \
 } while (0)
 
 #define GLINK_ERR_XPRT(xprt, fmt, args...) do { \
-	pr_err("<CORE> %s:%s " fmt, \
+	pr_err_ratelimited("<CORE> %s:%s " fmt, \
 		xprt->name, xprt->edge, args);  \
 	GLINK_INFO_XPRT(xprt, fmt, args); \
 } while (0)
 
 #define GLINK_ERR_CH(ctx, fmt, args...) do { \
-	pr_err("<CORE> %s:%s:%s[%u:%u] " fmt, \
+	pr_err_ratelimited("<CORE> %s:%s:%s[%u:%u] " fmt, \
 		ctx->transport_ptr->name, \
 		ctx->transport_ptr->edge, \
 		ctx->name, \
@@ -311,7 +312,7 @@ const char *glink_get_ch_state_string(enum local_channel_state_e enum_id);
 } while (0)
 
 #define GLINK_ERR_CH_XPRT(ctx, xprt, fmt, args...) do { \
-	pr_err("<CORE> %s:%s:%s[%u:%u] " fmt, \
+	pr_err_ratelimited("<CORE> %s:%s:%s[%u:%u] " fmt, \
 		xprt->name, \
 		xprt->edge, \
 		ctx->name, \
