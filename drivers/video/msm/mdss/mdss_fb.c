@@ -2906,8 +2906,8 @@ static int mdss_fb_pan_idle(struct msm_fb_data_type *mfd)
 		pr_err("%pS: wait for idle timeout commits=%d\n",
 				__builtin_return_address(0),
 				atomic_read(&mfd->commits_pending));
-		MDSS_XLOG_TOUT_HANDLER("mdp", "vbif", "dbg_bus",
-			"vbif_dbg_bus");
+		MDSS_XLOG_TOUT_HANDLER("mdp", "vbif", "vbif_nrt",
+			"dbg_bus", "vbif_dbg_bus");
 		ret = -ETIMEDOUT;
 	} else if (mfd->shutdown_pending) {
 		pr_debug("Shutdown signalled\n");
@@ -2935,8 +2935,8 @@ static int mdss_fb_wait_for_kickoff(struct msm_fb_data_type *mfd)
 				__builtin_return_address(0),
 				atomic_read(&mfd->kickoff_pending),
 				atomic_read(&mfd->commits_pending));
-		MDSS_XLOG_TOUT_HANDLER("mdp", "vbif", "dbg_bus",
-			"vbif_dbg_bus");
+		MDSS_XLOG_TOUT_HANDLER("mdp", "vbif", "vbif_nrt",
+			"dbg_bus", "vbif_dbg_bus");
 		ret = -ETIMEDOUT;
 	} else if (mfd->shutdown_pending) {
 		pr_debug("Shutdown signalled\n");
