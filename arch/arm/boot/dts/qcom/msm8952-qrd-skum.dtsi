@@ -184,6 +184,10 @@
 	};
 };
 
+&pmi8950_haptic {
+	qcom,vmax-mv = <3300>;
+};
+
 &labibb {
 	status = "ok";
 	qpnp,qpnp-labibb-mode = "lcd";
