@@ -109,5 +109,31 @@
 				};
 			};
 		};
+
+		blsp2_uart1_active: blsp2_uart1_active {
+			mux {
+				pins = "gpio16", "gpio17", "gpio18", "gpio19";
+				function = "blsp_uart5";
+			};
+
+			config {
+				pins = "gpio16", "gpio17", "gpio18", "gpio19";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		blsp2_uart1_sleep: blsp2_uart1_sleep {
+			mux {
+				pins = "gpio16", "gpio17", "gpio18", "gpio19";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio16", "gpio17", "gpio18", "gpio19";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
 	};
 };
