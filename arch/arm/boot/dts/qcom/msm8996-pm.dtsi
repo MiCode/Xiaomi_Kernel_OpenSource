@@ -507,4 +507,16 @@
 		reg-names = "phys_addr_base",
 			    "offset_addr";
 	};
+
+	qcom,rpm-log@200000 {
+		compatible = "qcom,rpm-log";
+		reg = <0x200000 0x4000>,
+			<0x290018 0x4>;
+		qcom,rpm-addr-phys = <0x200000>;
+		qcom,offset-version = <4>;
+		qcom,offset-page-buffer-addr = <36>;
+		qcom,offset-log-len = <40>;
+		qcom,offset-log-len-mask = <44>;
+		qcom,offset-page-indices = <56>;
+	};
 };
