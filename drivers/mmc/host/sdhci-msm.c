@@ -3217,11 +3217,13 @@ void sdhci_msm_pm_qos_irq_unvote(struct sdhci_host *host, bool async)
 	if (!msm_host->pm_qos_irq.enabled)
 		return;
 
-	counter = atomic_dec_return(&msm_host->pm_qos_irq.counter);
-	if (counter < 0) {
-		pr_err("%s: counter=%d\n", __func__, counter);
-		BUG();
+	if (atomic_read(&msm_host->pm_qos_irq.counter)) {
+		counter = atomic_dec_return(&msm_host->pm_qos_irq.counter);
+	} else {
+		WARN(1, "attempt to decrement pm_qos_irq.counter when it's 0");
+		return;
 	}
+
 	if (counter)
 		return;
 
