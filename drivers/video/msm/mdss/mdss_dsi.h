@@ -204,6 +204,8 @@ enum dsi_pm_type {
 #define DSI_DYNAMIC_REFRESH_PIPE_DELAY2		0x208
 #define DSI_DYNAMIC_REFRESH_PLL_DELAY		0x20C
 
+#define MAX_ERR_INDEX			10
+
 extern struct device dsi_dev;
 extern u32 dsi_irq;
 extern struct mdss_dsi_ctrl_pdata *ctrl_list[];
@@ -338,6 +340,17 @@ struct panel_horizontal_idle {
 	int min;
 	int max;
 	int idle;
+};
+
+struct dsi_err_container {
+	u32 fifo_err_cnt;
+	u32 phy_err_cnt;
+	u32 err_cnt;
+	u32 err_time_delta;
+	u32 max_err_index;
+
+	u32 index;
+	s64 err_time[MAX_ERR_INDEX];
 };
 
 #define DSI_CTRL_LEFT		DSI_CTRL_0
@@ -492,6 +505,8 @@ struct mdss_dsi_ctrl_pdata {
 	int m_vote_cnt;
 	/* debugfs structure */
 	struct mdss_dsi_debugfs_info *debugfs_info;
+
+	struct dsi_err_container err_cont;
 };
 
 struct dsi_status_data {

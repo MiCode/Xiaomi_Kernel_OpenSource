@@ -114,7 +114,8 @@ void mdss_dsi_ctrl_init(struct device *ctrl_dev,
 	mdss_dsi_buf_alloc(ctrl_dev, &ctrl->rx_buf, SZ_4K);
 	mdss_dsi_buf_alloc(ctrl_dev, &ctrl->status_buf, SZ_4K);
 	ctrl->cmdlist_commit = mdss_dsi_cmdlist_commit;
-
+	ctrl->err_cont.err_time_delta = 100;
+	ctrl->err_cont.max_err_index = MAX_ERR_INDEX;
 
 	if (dsi_event.inited == 0) {
 		kthread_run(dsi_event_thread, (void *)&dsi_event,
@@ -2633,6 +2634,7 @@ void mdss_dsi_dln0_phy_err(struct mdss_dsi_ctrl_pdata *ctrl)
 	if (status & 0x011111) {
 		MIPI_OUTP(base + 0x00b4, status);
 		pr_err("%s: status=%x\n", __func__, status);
+		ctrl->err_cont.phy_err_cnt++;
 	}
 }
 
@@ -2658,6 +2660,7 @@ void mdss_dsi_fifo_status(struct mdss_dsi_ctrl_pdata *ctrl)
 			dsi_send_events(ctrl, DSI_EV_MDP_FIFO_UNDERFLOW, 0);
 		if (status & 0x11110000) /* DLN_FIFO_EMPTY */
 			dsi_send_events(ctrl, DSI_EV_DSI_FIFO_EMPTY, 0);
+		ctrl->err_cont.fifo_err_cnt++;
 	}
 }
 
@@ -2691,6 +2694,27 @@ void mdss_dsi_clk_status(struct mdss_dsi_ctrl_pdata *ctrl)
 	}
 }
 
+static void __dsi_error_counter(struct dsi_err_container *err_container)
+{
+	s64 prev_time, curr_time;
+	int prev_index;
+
+	err_container->err_cnt++;
+
+	err_container->index = (err_container->index + 1) %
+		err_container->max_err_index;
+	curr_time = ktime_to_ms(ktime_get());
+	err_container->err_time[err_container->index] = curr_time;
+
+	prev_index = (err_container->index + 1) % err_container->max_err_index;
+	prev_time = err_container->err_time[prev_index];
+
+	if (prev_time &&
+		((curr_time - prev_time) < err_container->err_time_delta))
+		MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
+			"dsi1_ctrl", "dsi1_phy", "panic");
+}
+
 void mdss_dsi_error(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	u32 intr;
@@ -2712,6 +2736,7 @@ void mdss_dsi_error(struct mdss_dsi_ctrl_pdata *ctrl)
 	intr |= DSI_INTR_ERROR;
 	MIPI_OUTP(ctrl->ctrl_base + 0x0110, intr);
 
+	__dsi_error_counter(&ctrl->err_cont);
 	dsi_send_events(ctrl, DSI_EV_MDP_BUSY_RELEASE, 0);
 }
 

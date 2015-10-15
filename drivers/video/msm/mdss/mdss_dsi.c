@@ -874,6 +874,11 @@ static int mdss_dsi_debugfs_setup(struct mdss_panel_data *pdata,
 	DEBUGFS_CREATE_DCS_CMD("dsi_off_cmd", dfs->root, &dfs->off_cmd,
 				ctrl_pdata->off_cmds);
 
+	debugfs_create_u32("dsi_err_counter", 0644, dfs->root,
+			   &dfs_ctrl->err_cont.max_err_index);
+	debugfs_create_u32("dsi_err_time_delta", 0644, dfs->root,
+			   &dfs_ctrl->err_cont.err_time_delta);
+
 	dfs->override_flag = 0;
 	dfs->ctrl_pdata = *ctrl_pdata;
 	ctrl_pdata->debugfs_info = dfs;
@@ -978,6 +983,8 @@ static void mdss_dsi_debugfsinfo_to_dsictrl_info(
 			struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	struct mdss_dsi_debugfs_info *dfs = ctrl_pdata->debugfs_info;
+	struct dsi_err_container *dfs_err_cont = &dfs->ctrl_pdata.err_cont;
+	struct dsi_err_container *err_cont = &ctrl_pdata->err_cont;
 
 	ctrl_pdata->cmd_sync_wait_broadcast =
 			dfs->ctrl_pdata.cmd_sync_wait_broadcast;
@@ -991,6 +998,26 @@ static void mdss_dsi_debugfsinfo_to_dsictrl_info(
 			dfs->ctrl_pdata.on_cmds.link_state;
 	ctrl_pdata->off_cmds.link_state =
 			dfs->ctrl_pdata.off_cmds.link_state;
+
+	/* keep error counter between 2 to 10 */
+	if (dfs_err_cont->max_err_index >= 2 &&
+		dfs_err_cont->max_err_index <= MAX_ERR_INDEX) {
+		err_cont->max_err_index = dfs_err_cont->max_err_index;
+	} else {
+		dfs_err_cont->max_err_index = err_cont->max_err_index;
+		pr_warn("resetting the dsi error counter to %d\n",
+			err_cont->max_err_index);
+	}
+
+	/* keep error duration between 16 ms to 100 seconds */
+	if (dfs_err_cont->err_time_delta >= 16 &&
+		dfs_err_cont->err_time_delta <= 100000) {
+		err_cont->err_time_delta = dfs_err_cont->err_time_delta;
+	} else {
+		dfs_err_cont->err_time_delta = err_cont->err_time_delta;
+		pr_warn("resetting the dsi error time delta to %d ms\n",
+			err_cont->err_time_delta);
+	}
 }
 
 static void mdss_dsi_validate_debugfs_info(
