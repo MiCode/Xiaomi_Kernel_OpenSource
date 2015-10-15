@@ -808,6 +808,7 @@ struct clk_ops clk_ops_dyna_alpha_pll = {
 	.round_rate = alpha_pll_round_rate,
 	.set_rate = dyna_alpha_pll_set_rate,
 	.handoff = alpha_pll_handoff,
+	.list_registers = alpha_pll_list_registers,
 };
 
 static struct alpha_pll_masks masks_20nm_p = {
