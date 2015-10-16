@@ -2118,6 +2118,11 @@
 		iommus = <&lpass_q6_smmu 1>;
 	};
 
+	qcom,adsprpc-mem {
+		compatible = "qcom,msm-adsprpc-mem-region";
+		memory-region = <&adsp_mem>;
+	};
+
 	qcom,adsprpc_domains {
 		compatible = "qcom,msm-fastrpc-legacy-compute-cb";
 		qcom,msm_fastrpc_compute_cb {
