@@ -1527,7 +1527,8 @@ static int mdss_dsi_parse_topology_config(struct device_node *np,
 			pinfo->use_pingpong_split ? "yes" : "no");
 	}
 
-	if ((timing->lm_widths[0] == 0) && (timing->lm_widths[1] == 0))
+	if (!pinfo->use_pingpong_split &&
+	    (timing->lm_widths[0] == 0) && (timing->lm_widths[1] == 0))
 		timing->lm_widths[0] = pt->timing.xres;
 
 	data = of_get_property(np, "qcom,compression-mode", NULL);
