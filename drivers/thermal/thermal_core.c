@@ -273,7 +273,7 @@ static int __update_sensor_thresholds(struct sensor_info *sensor)
 {
 	long max_of_low_thresh = LONG_MIN;
 	long min_of_high_thresh = LONG_MAX;
-	struct sensor_threshold *pos, *var;
+	struct sensor_threshold *pos = NULL;
 	int ret = 0;
 
 	if (!sensor->tz->ops->set_trip_temp ||
@@ -287,7 +287,7 @@ static int __update_sensor_thresholds(struct sensor_info *sensor)
 	if ((sensor->max_idx == -1) || (sensor->min_idx == -1))
 		init_sensor_trip(sensor);
 
-	list_for_each_entry_safe(pos, var, &sensor->threshold_list, list) {
+	list_for_each_entry(pos, &sensor->threshold_list, list) {
 		if (!pos->active)
 			continue;
 		if (pos->trip == THERMAL_TRIP_CONFIGURABLE_LOW) {
@@ -389,7 +389,7 @@ static __ref int sensor_sysfs_notify(void *data)
 int thermal_sensor_trip(struct thermal_zone_device *tz,
 		enum thermal_trip_type trip, long temp)
 {
-	struct sensor_threshold *pos, *var;
+	struct sensor_threshold *pos = NULL;
 	int ret = -ENODEV;
 
 	if (trip != THERMAL_TRIP_CONFIGURABLE_HI &&
@@ -399,7 +399,8 @@ int thermal_sensor_trip(struct thermal_zone_device *tz,
 	if (list_empty(&tz->sensor.threshold_list))
 		return 0;
 
-	list_for_each_entry_safe(pos, var, &tz->sensor.threshold_list, list) {
+	rcu_read_lock();
+	list_for_each_entry_rcu(pos, &tz->sensor.threshold_list, list) {
 		if ((pos->trip != trip) || (!pos->active))
 			continue;
 		if (((trip == THERMAL_TRIP_CONFIGURABLE_LOW) &&
@@ -415,6 +416,7 @@ int thermal_sensor_trip(struct thermal_zone_device *tz,
 			pos->notify(trip, temp, pos->data);
 		}
 	}
+	rcu_read_unlock();
 
 	schedule_work(&tz->sensor.work);
 
@@ -461,7 +463,7 @@ EXPORT_SYMBOL(sensor_activate_trip);
 
 int sensor_set_trip(uint32_t sensor_id, struct sensor_threshold *threshold)
 {
-	struct sensor_threshold *pos, *var;
+	struct sensor_threshold *pos = NULL;
 	struct sensor_info *sensor = get_sensor(sensor_id);
 
 	if (!sensor)
@@ -471,14 +473,14 @@ int sensor_set_trip(uint32_t sensor_id, struct sensor_threshold *threshold)
 		return -EFAULT;
 
 	mutex_lock(&sensor->lock);
-	list_for_each_entry_safe(pos, var, &sensor->threshold_list, list) {
+	list_for_each_entry(pos, &sensor->threshold_list, list) {
 		if (pos == threshold)
 			break;
 	}
 
 	if (pos != threshold) {
 		INIT_LIST_HEAD(&threshold->list);
-		list_add(&threshold->list, &sensor->threshold_list);
+		list_add_rcu(&threshold->list, &sensor->threshold_list);
 	}
 	threshold->active = 0; /* Do not allow active threshold right away */
 
@@ -491,7 +493,7 @@ EXPORT_SYMBOL(sensor_set_trip);
 
 int sensor_cancel_trip(uint32_t sensor_id, struct sensor_threshold *threshold)
 {
-	struct sensor_threshold *pos, *var;
+	struct sensor_threshold *pos = NULL, *var = NULL;
 	struct sensor_info *sensor = get_sensor(sensor_id);
 	int ret = 0;
 
@@ -502,7 +504,7 @@ int sensor_cancel_trip(uint32_t sensor_id, struct sensor_threshold *threshold)
 	list_for_each_entry_safe(pos, var, &sensor->threshold_list, list) {
 		if (pos == threshold) {
 			pos->active = 0;
-			list_del(&pos->list);
+			list_del_rcu(&pos->list);
 			break;
 		}
 	}
@@ -571,7 +573,7 @@ int sensor_init(struct thermal_zone_device *tz)
 	sensor->min_idx = -1;
 	mutex_init(&sensor->lock);
 	INIT_LIST_HEAD(&sensor->sensor_list);
-	INIT_LIST_HEAD(&sensor->threshold_list);
+	INIT_LIST_HEAD_RCU(&sensor->threshold_list);
 	INIT_LIST_HEAD(&tz->tz_threshold[0].list);
 	INIT_LIST_HEAD(&tz->tz_threshold[1].list);
 	tz->tz_threshold[0].notify = tz_notify_trip;
