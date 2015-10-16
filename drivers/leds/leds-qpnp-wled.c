@@ -669,6 +669,23 @@ static ssize_t qpnp_wled_fs_curr_ua_store(struct device *dev,
 
 	wled->fs_curr_ua = data;
 
+	/* sync */
+	reg = QPNP_WLED_SYNC;
+	rc = qpnp_wled_write_reg(wled, &reg,
+		QPNP_WLED_SYNC_REG(wled->sink_base));
+	if (rc < 0)
+		return rc;
+
+	if (wled->cons_sync_write_delay_us)
+		usleep_range(wled->cons_sync_write_delay_us,
+				wled->cons_sync_write_delay_us + 1);
+
+	reg = QPNP_WLED_SYNC_RESET;
+	rc = qpnp_wled_write_reg(wled, &reg,
+		QPNP_WLED_SYNC_REG(wled->sink_base));
+	if (rc < 0)
+		return rc;
+
 	return count;
 }
 
