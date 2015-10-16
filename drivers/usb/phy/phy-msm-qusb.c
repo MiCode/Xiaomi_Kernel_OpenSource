@@ -529,6 +529,7 @@ static int qusb_phy_init(struct usb_phy *phy)
 {
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
 	int ret, reset_val = 0;
+	bool is_se_clk = true;
 
 	dev_dbg(phy->dev, "%s\n", __func__);
 
@@ -622,21 +623,6 @@ static int qusb_phy_init(struct usb_phy *phy)
 				qphy->base + QUSB2PHY_PORT_TUNE2);
 	}
 
-	if (qphy->tcsr_phy_clk_scheme_sel) {
-		ret = readl_relaxed(qphy->tcsr_phy_clk_scheme_sel);
-		if (ret & PHY_CLK_SCHEME_SEL) {
-			pr_debug("%s:select single-ended clk src\n",
-				__func__);
-			reset_val |= CLK_REF_SEL;
-		} else {
-			pr_debug("%s:select differential clk src\n",
-				__func__);
-			reset_val &= ~CLK_REF_SEL;
-		}
-
-		writel_relaxed(reset_val, qphy->base + QUSB2PHY_PLL_TEST);
-	}
-
 	/* ensure above writes are completed before re-enabling PHY */
 	wmb();
 
@@ -650,20 +636,43 @@ static int qusb_phy_init(struct usb_phy *phy)
 	/* Require to get phy pll lock successfully */
 	usleep_range(150, 160);
 
+	if (qphy->tcsr_phy_clk_scheme_sel) {
+		ret = readl_relaxed(qphy->tcsr_phy_clk_scheme_sel);
+		if (ret & PHY_CLK_SCHEME_SEL) {
+			pr_debug("%s:select single-ended clk src\n",
+				__func__);
+			is_se_clk = true;
+		} else {
+			pr_debug("%s:select differential clk src\n",
+				__func__);
+			is_se_clk = false;
+		}
+	}
+
+	if (!is_se_clk)
+		reset_val &= ~CLK_REF_SEL;
+	else
+		reset_val |= CLK_REF_SEL;
+
+	/* Turn on phy ref_clk if DIFF_CLK else select SE_CLK */
+	if (!is_se_clk && qphy->ref_clk_base)
+		writel_relaxed((readl_relaxed(qphy->ref_clk_base) |
+					QUSB2PHY_REFCLK_ENABLE),
+					qphy->ref_clk_base);
+	else
+		writel_relaxed(reset_val, qphy->base + QUSB2PHY_PLL_TEST);
+
+	/* Make sure that above write is completed to get PLL source clock */
+	wmb();
+
+	/* Required to get PHY PLL lock successfully */
+	usleep_range(100, 110);
+
 	if (!(readb_relaxed(qphy->base + QUSB2PHY_PLL_STATUS) &
 					QUSB2PHY_PLL_LOCK)) {
 		dev_err(phy->dev, "QUSB PHY PLL LOCK fails:%x\n",
 			readb_relaxed(qphy->base + QUSB2PHY_PLL_STATUS));
 		WARN_ON(1);
-	}
-
-	/* Turn on phy ref_clk */
-	if (qphy->ref_clk_base) {
-		writel_relaxed((readl_relaxed(qphy->ref_clk_base) |
-					QUSB2PHY_REFCLK_ENABLE),
-					qphy->ref_clk_base);
-		/* Make sure that above write is completed to get ref clk ON */
-		wmb();
 	}
 
 	return 0;
@@ -917,7 +926,8 @@ static int qusb_phy_probe(struct platform_device *pdev)
 
 	qphy->ref_clk_src = devm_clk_get(dev, "ref_clk_src");
 	if (IS_ERR(qphy->ref_clk_src))
-		return PTR_ERR(qphy->ref_clk_src);
+		dev_dbg(dev, "clk get failed for ref_clk_src\n");
+
 	qphy->ref_clk = devm_clk_get(dev, "ref_clk");
 	if (IS_ERR(qphy->ref_clk))
 		dev_dbg(dev, "clk get failed for ref_clk\n");

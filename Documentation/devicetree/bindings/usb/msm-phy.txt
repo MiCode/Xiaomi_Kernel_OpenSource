@@ -152,7 +152,7 @@ Required properties:
  - clocks: a list of phandles to the PHY clocks. Use as per
    Documentation/devicetree/bindings/clock/clock-bindings.txt
  - clock-names: Names of the clocks in 1-1 correspondence with the "clocks"
-   property. Required clocks are "ref_clk_src", "cfg_ahb_clk" and "phy_reset".
+   property. Required clocks are "cfg_ahb_clk" and "phy_reset".
  - phy_type: Should be one of "ulpi" or "utmi". ChipIdea core uses "ulpi" mode.
 
 Optional properties:

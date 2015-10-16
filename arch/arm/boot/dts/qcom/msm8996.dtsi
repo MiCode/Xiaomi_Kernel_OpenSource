@@ -2017,18 +2017,14 @@
 					0x79 0x0C
 					0x21 0x10
 					0x14 0x9C
-					0x80 0x04
 					0x9F 0x1C
 					0x00 0x18>;
 		phy_type= "utmi";
 
-		clocks = <&clock_gcc clk_ln_bb_clk>,
-			 <&clock_gcc clk_gcc_rx1_usb2_clkref_clk>,
-			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
+		clocks = <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
 			 <&clock_gcc clk_gcc_qusb2phy_prim_reset>;
 
-		clock-names = "ref_clk_src", "ref_clk", "cfg_ahb_clk",
-			      "phy_reset";
+		clock-names = "cfg_ahb_clk", "phy_reset";
 	};
 
 	qusb_phy1: qusb@7412000 {
@@ -2055,19 +2051,15 @@
 					0x79 0x0C
 					0x21 0x10
 					0x14 0x9C
-					0x80 0x04
 					0x9F 0x1C
 					0x00 0x18>;
 		phy_type = "utmi";
 		qcom,hold-reset;
 
-		clocks = <&clock_gcc clk_ln_bb_clk>,
-			 <&clock_gcc clk_gcc_rx2_usb2_clkref_clk>,
-			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
+		clocks = <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
 			 <&clock_gcc clk_gcc_qusb2phy_sec_reset>;
 
-		clock-names = "ref_clk_src", "ref_clk", "cfg_ahb_clk",
-			      "phy_reset";
+		clock-names = "cfg_ahb_clk", "phy_reset";
 	};
 
 	ssphy: ssphy@7410000 {
