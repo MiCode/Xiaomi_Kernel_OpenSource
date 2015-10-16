@@ -1010,8 +1010,10 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 				smd_pkt_devp->ch_opened_wait_queue,
 				smd_pkt_devp->is_open,
 				msecs_to_jiffies(open_wait_rem));
-		if (r == 0) {
+		if (r == 0)
 			r = -ETIMEDOUT;
+
+		if (r < 0) {
 			/* close the ch to sync smd's state with smd_pkt */
 			smd_close(smd_pkt_devp->ch);
 			smd_pkt_devp->ch = NULL;
@@ -1040,8 +1042,10 @@ int smd_pkt_open(struct inode *inode, struct file *file)
 		smd_pkt_devp->ref_cnt++;
 	}
 release_pil:
-	if (peripheral && (r < 0))
+	if (peripheral && (r < 0)) {
 		subsystem_put(smd_pkt_devp->pil);
+		smd_pkt_devp->pil = NULL;
+	}
 
 release_pd:
 	if (r < 0)
