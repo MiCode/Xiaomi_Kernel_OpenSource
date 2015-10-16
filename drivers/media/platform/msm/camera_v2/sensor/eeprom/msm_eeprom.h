@@ -41,10 +41,10 @@ struct msm_eeprom_ctrl_t {
 	enum i2c_freq_mode_t i2c_freq_mode;
 
 	struct msm_camera_i2c_client i2c_client;
-	struct msm_eeprom_memory_block_t cal_data;
-	uint8_t is_supported;
 	struct msm_eeprom_board_info *eboard_info;
 	uint32_t subdev_id;
+	uint8_t *read_mem;
+	int32_t read_data_size;
 };
 
 #endif
