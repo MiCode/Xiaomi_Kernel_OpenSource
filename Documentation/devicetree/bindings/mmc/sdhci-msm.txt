@@ -53,6 +53,8 @@ Optional Properties:
 			    to redetect it until next reboot probe.
 	- qcom,no-1p8v - specifies the system physically doesn't support 1.8v, even if the
 			  host does.
+	- qcom,core_3_0v_support: an optional property that is used to fake
+					3.0V support for SDIO devices.
 	- qcom,bus-speed-mode - specifies supported bus speed modes by host.
 				The supported bus speed modes are :
 				"HS400_1p8v" - indicates that host can support HS400 at 1.8v.
