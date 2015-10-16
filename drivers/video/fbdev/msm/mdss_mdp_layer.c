@@ -928,21 +928,42 @@ static struct mdss_mdp_pipe *__find_layer_in_validate_q(
 	return found ? pipe : NULL;
 }
 
+static bool __find_pipe_in_list(struct list_head *head,
+			int pipe_ndx, struct mdss_mdp_pipe **out_pipe)
+{
+	struct mdss_mdp_pipe *pipe;
+
+	list_for_each_entry(pipe, head, list) {
+		if (pipe_ndx == pipe->ndx) {
+			*out_pipe = pipe;
+			return true;
+		}
+	}
+
+	return false;
+}
+
 static struct mdss_mdp_pipe *__find_used_pipe(struct msm_fb_data_type *mfd,
 		u32 pipe_ndx)
 {
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
-	struct mdss_mdp_pipe *pipe, *tmp, *used_pipe = NULL;
+	struct mdss_mdp_pipe *pipe = NULL;
+	bool found;
 
 	mutex_lock(&mdp5_data->list_lock);
-	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_used, list) {
-		if (pipe->ndx == pipe_ndx) {
-			used_pipe = pipe;
-			break;
-		}
+
+	found = __find_pipe_in_list(&mdp5_data->pipes_used, pipe_ndx, &pipe);
+
+	/* check if the pipe is in the cleanup or destroy list */
+	if (!found &&
+	   (__find_pipe_in_list(&mdp5_data->pipes_destroy, pipe_ndx, &pipe) ||
+	    __find_pipe_in_list(&mdp5_data->pipes_cleanup, pipe_ndx, &pipe))) {
+		pr_debug("reuse pipe%d ndx:%d\n", pipe->num, pipe->ndx);
+		list_move(&pipe->list, &mdp5_data->pipes_used);
 	}
+
 	mutex_unlock(&mdp5_data->list_lock);
-	return used_pipe;
+	return pipe;
 }
 
 /*
