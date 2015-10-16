@@ -590,11 +590,11 @@ int ipa3_qmi_filter_request_send(struct ipa_install_fltr_rule_req_msg_v01 *req)
 	int rc;
 
 	/* check if the filter rules from IPACM is valid */
-	if (req->filter_spec_list_len == 0) {
+	if (req->filter_spec_ex_list_len == 0) {
 		IPAWANDBG("IPACM pass zero rules to Q6\n");
 	} else {
 		IPAWANDBG("IPACM pass %d rules to Q6\n",
-		req->filter_spec_list_len);
+		req->filter_spec_ex_list_len);
 	}
 
 	/* cache the qmi_filter_request */
