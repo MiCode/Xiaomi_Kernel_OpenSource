@@ -28,6 +28,10 @@ Main node optional properties:
 					in LAB and IBB modules. Make sure the
 					hardware has needed support before
 					enabling this property.
+- qpnp,swire-control:			A bool property which indicates if the LAB/IBB is
+					controlled by the SWIRE interface. Enable only
+					if qpnp,qpnp-labibb-mode = "amoled".
+
 LAB subnode required properties:
 
 - reg:				Specifies the SPMI address and size for this peripheral.
