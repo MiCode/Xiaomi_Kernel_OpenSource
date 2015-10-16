@@ -616,6 +616,7 @@ struct mdss_overlay_private {
 	struct mutex list_lock;
 	struct list_head pipes_used;
 	struct list_head pipes_cleanup;
+	struct list_head pipes_destroy;
 	struct list_head rot_proc_list;
 	bool mixer_swap;
 	u32 resources_state;
@@ -1030,6 +1031,8 @@ int mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe,
 int mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe);
 struct mdss_mdp_pipe *mdss_mdp_pipe_assign(struct mdss_data_type *mdata,
 	struct mdss_mdp_mixer *mixer, u32 ndx);
+struct mdss_mdp_pipe *mdss_mdp_overlay_pipe_reuse(
+	struct msm_fb_data_type *mfd, int pipe_ndx);
 void mdss_mdp_pipe_position_update(struct mdss_mdp_pipe *pipe,
 		struct mdss_rect *src, struct mdss_rect *dst);
 int mdss_mdp_video_addr_setup(struct mdss_data_type *mdata,
