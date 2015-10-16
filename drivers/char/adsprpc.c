@@ -1898,8 +1898,9 @@ static int fastrpc_cb_legacy_probe(struct device *dev)
 	first_sess = &chan->session[chan->sesscount];
 	first_sess->smmu.dev = msm_iommu_get_ctx(name);
 	VERIFY(err, !IS_ERR_OR_NULL(first_sess->smmu.mapping =
-			arm_iommu_create_mapping(&platform_bus_type,
-					range[0], range[1])));
+			arm_iommu_create_mapping(
+				msm_iommu_get_bus(first_sess->smmu.dev),
+				range[0], range[1])));
 	if (err)
 		goto bail;
 	iommu_domain_set_attr(first_sess->smmu.mapping->domain,
