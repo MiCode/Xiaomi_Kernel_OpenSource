@@ -571,17 +571,18 @@ void msm_isp_fetch_engine_done_notify(struct vfe_device *vfe_dev,
 	if (!fetch_engine_info->is_busy)
 		return;
 
-	vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id++;
-	if (vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id == 0)
-		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id = 1;
-
 	memset(&fe_rd_done_event, 0, sizeof(struct msm_isp_event_data));
 	fe_rd_done_event.frame_id =
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
-	fe_rd_done_event.u.buf_done.session_id = fetch_engine_info->session_id;
-	fe_rd_done_event.u.buf_done.stream_id = fetch_engine_info->stream_id;
-	fe_rd_done_event.u.buf_done.handle = fetch_engine_info->bufq_handle;
-	fe_rd_done_event.u.buf_done.buf_idx = fetch_engine_info->buf_idx;
+	fe_rd_done_event.u.fetch_done.session_id =
+		fetch_engine_info->session_id;
+	fe_rd_done_event.u.fetch_done.stream_id = fetch_engine_info->stream_id;
+	fe_rd_done_event.u.fetch_done.handle = fetch_engine_info->bufq_handle;
+	fe_rd_done_event.u.fetch_done.buf_idx = fetch_engine_info->buf_idx;
+	fe_rd_done_event.u.fetch_done.fd = fetch_engine_info->fd;
+	fe_rd_done_event.u.fetch_done.offline_mode =
+		fetch_engine_info->offline_mode;
+
 	ISP_DBG("%s:VFE%d ISP_EVENT_FE_READ_DONE buf_idx %d\n",
 		__func__, vfe_dev->pdev->id, fetch_engine_info->buf_idx);
 	fetch_engine_info->is_busy = 0;
@@ -944,8 +945,9 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		/* fallthrough */
 	case VIDIOC_MSM_ISP_ENQUEUE_BUF:
 		/* fallthrough */
-	case VIDIOC_MSM_ISP_DEQUEUE_BUF: {
+	case VIDIOC_MSM_ISP_DEQUEUE_BUF:
 		/* fallthrough */
+	case VIDIOC_MSM_ISP_UNMAP_BUF: {
 		mutex_lock(&vfe_dev->buf_mgr->lock);
 		rc = msm_isp_proc_buf_cmd(vfe_dev->buf_mgr, cmd, arg);
 		mutex_unlock(&vfe_dev->buf_mgr->lock);
@@ -1017,7 +1019,13 @@ static long msm_isp_ioctl_unlocked(struct v4l2_subdev *sd,
 		mutex_unlock(&vfe_dev->core_mutex);
 		break;
 	case VIDIOC_MSM_ISP_FETCH_ENG_START:
+	case VIDIOC_MSM_ISP_MAP_BUF_START_FE:
 		mutex_lock(&vfe_dev->core_mutex);
+		/*
+		 * For Offline VFE, there is no SOF hence increment
+		 * frame id with every request to fetch input buffer.
+		 */
+		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id++;
 		rc = vfe_dev->hw_info->vfe_ops.core_ops.
 			start_fetch_eng(vfe_dev, arg);
 		mutex_unlock(&vfe_dev->core_mutex);
