@@ -2954,7 +2954,7 @@ static void tasha_realign_anc_coeff(struct snd_soc_codec *codec,
 		snd_soc_write(codec, reg1, 0x01);
 		snd_soc_write(codec, reg2, tmpval1);
 	} else if (val1 == 0xFF && val2 == 0x0F) {
-		dev_dbg(codec->dev, "%s: ANC0 co-eff index already aligned\n",
+		dev_dbg(codec->dev, "%s: ANC1 co-eff index already aligned\n",
 			__func__);
 		snd_soc_write(codec, reg1, 0x00);
 		snd_soc_write(codec, reg2, tmpval1);
@@ -3065,22 +3065,22 @@ static int tasha_codec_enable_anc(struct snd_soc_dapm_widget *w,
 			goto err;
 		}
 
-		tasha_realign_anc_coeff(codec,
-					WCD9335_CDC_ANC0_IIR_COEFF_1_CTL,
-					WCD9335_CDC_ANC0_IIR_COEFF_2_CTL);
-		tasha_realign_anc_coeff(codec,
-					WCD9335_CDC_ANC1_IIR_COEFF_1_CTL,
-					WCD9335_CDC_ANC1_IIR_COEFF_2_CTL);
 		i = 0;
 		anc_cal_size = anc_writes_size;
 
 		if (!strcmp(w->name, "RX INT1 DAC") ||
 			!strcmp(w->name, "RX INT3 DAC")) {
+			tasha_realign_anc_coeff(codec,
+					WCD9335_CDC_ANC0_IIR_COEFF_1_CTL,
+					WCD9335_CDC_ANC0_IIR_COEFF_2_CTL);
 			anc_writes_size = anc_cal_size / 2;
 			snd_soc_update_bits(codec,
 			WCD9335_CDC_ANC0_CLK_RESET_CTL, 0x38, 0x38);
 		} else if (!strcmp(w->name, "RX INT2 DAC") ||
 				!strcmp(w->name, "RX INT4 DAC")) {
+			tasha_realign_anc_coeff(codec,
+					WCD9335_CDC_ANC1_IIR_COEFF_1_CTL,
+					WCD9335_CDC_ANC1_IIR_COEFF_2_CTL);
 			i = anc_cal_size / 2;
 			snd_soc_update_bits(codec,
 			WCD9335_CDC_ANC1_CLK_RESET_CTL, 0x38, 0x38);
@@ -3435,8 +3435,11 @@ static int tasha_codec_hphr_dac_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		if (tasha->anc_func)
+		if (tasha->anc_func) {
 			ret = tasha_codec_enable_anc(w, kcontrol, event);
+			/* 40 msec delay is needed to avoid click and pop */
+			msleep(40);
+		}
 
 		/* Read DEM INP Select */
 		dem_inp = snd_soc_read(codec, WCD9335_CDC_RX2_RX_PATH_SEC0) &
@@ -3511,8 +3514,11 @@ static int tasha_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		if (tasha->anc_func)
+		if (tasha->anc_func) {
 			ret = tasha_codec_enable_anc(w, kcontrol, event);
+			/* 40 msec delay is needed to avoid click and pop */
+			msleep(40);
+		}
 
 		/* Read DEM INP Select */
 		dem_inp = snd_soc_read(codec, WCD9335_CDC_RX1_RX_PATH_SEC0) &
