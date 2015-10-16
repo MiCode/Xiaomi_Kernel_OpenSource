@@ -297,7 +297,8 @@ static void _ringbuffer_setup_common(struct adreno_ringbuffer *rb)
 
 	/* CP ROQ queue sizes (bytes) - RB:16, ST:16, IB1:32, IB2:64 */
 	if (adreno_is_a305(adreno_dev) || adreno_is_a305c(adreno_dev) ||
-		adreno_is_a306(adreno_dev) || adreno_is_a320(adreno_dev) ||
+		adreno_is_a306(adreno_dev) || adreno_is_a306a(adreno_dev) ||
+		adreno_is_a320(adreno_dev) ||
 		adreno_is_a304(adreno_dev))
 		kgsl_regwrite(device, A3XX_CP_QUEUE_THRESHOLDS, 0x000E0602);
 	else if (adreno_is_a330(adreno_dev) || adreno_is_a305b(adreno_dev) ||
