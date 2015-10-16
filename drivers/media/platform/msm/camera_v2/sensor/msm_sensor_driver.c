@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  */
 
-#define SENSOR_DRIVER_I2C "camera"
+#define SENSOR_DRIVER_I2C "i2c_camera"
 /* Header file declaration */
 #include "msm_sensor.h"
 #include "msm_sd.h"
@@ -106,6 +106,13 @@ static int32_t msm_sensor_driver_create_i2c_v4l_subdev
 	s_ctrl->sensordata->sensor_info->session_id = session_id;
 	s_ctrl->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x3;
 	msm_sd_register(&s_ctrl->msm_sd);
+	msm_sensor_v4l2_subdev_fops = v4l2_subdev_fops;
+#ifdef CONFIG_COMPAT
+	msm_sensor_v4l2_subdev_fops.compat_ioctl32 =
+		msm_sensor_subdev_fops_ioctl;
+#endif
+	s_ctrl->msm_sd.sd.devnode->fops =
+		&msm_sensor_v4l2_subdev_fops;
 	CDBG("%s:%d\n", __func__, __LINE__);
 	return rc;
 }
@@ -1336,19 +1343,17 @@ static int __init msm_sensor_driver_init(void)
 {
 	int32_t rc = 0;
 
-	CDBG("Enter");
+	CDBG("%s Enter\n", __func__);
 	rc = platform_driver_register(&msm_sensor_platform_driver);
-	if (!rc) {
-		CDBG("probe success");
-		return rc;
-	} else {
-		CDBG("probe i2c");
-		rc = i2c_add_driver(&msm_sensor_driver_i2c);
-	}
+	if (rc)
+		pr_err("%s platform_driver_register failed rc = %d",
+			__func__, rc);
+	rc = i2c_add_driver(&msm_sensor_driver_i2c);
+	if (rc)
+		pr_err("%s i2c_add_driver failed rc = %d",  __func__, rc);
 
 	return rc;
 }
-
 
 static void __exit msm_sensor_driver_exit(void)
 {
