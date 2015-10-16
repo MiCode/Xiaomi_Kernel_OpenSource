@@ -296,18 +296,48 @@ static ssize_t hdmi_hdcp2p2_sysfs_wta_min_level_change(struct device *dev,
 		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP2P2);
 	struct hdcp_lib_wakeup_data cdata = {
 		HDCP_LIB_WKUP_CMD_QUERY_STREAM_TYPE};
+	bool enc_notify = true;
+	enum hdmi_hdcp_state enc_lvl;
+	int min_enc_lvl;
+	int rc;
 
 	if (!ctrl) {
 		pr_err("invalid input\n");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto exit;
 	}
 
-	pr_debug("notification of minimum level change received\n");
+	rc = kstrtoint(buf, 10, &min_enc_lvl);
+	if (rc) {
+		DEV_ERR("%s: kstrtoint failed. rc=%d\n", __func__, rc);
+		goto exit;
+	}
+
+	switch (min_enc_lvl) {
+	case 0:
+		enc_lvl = HDCP_STATE_AUTH_ENC_NONE;
+		break;
+	case 1:
+		enc_lvl = HDCP_STATE_AUTH_ENC_1X;
+		break;
+	case 2:
+		enc_lvl = HDCP_STATE_AUTH_ENC_2P2;
+		break;
+	default:
+		enc_notify = false;
+	}
+
+	pr_debug("enc level changed %d\n", min_enc_lvl);
 
 	cdata.context = ctrl->lib_ctx;
 	hdmi_hdcp2p2_wakeup_lib(ctrl, &cdata);
 
-	return  count;
+	if (enc_notify && ctrl->init_data.notify_status)
+		ctrl->init_data.notify_status(ctrl->init_data.cb_data, enc_lvl);
+
+	rc = count;
+exit:
+	return  rc;
 }
 
 static void hdmi_hdcp2p2_auth_failed(struct hdmi_hdcp2p2_ctrl *ctrl)
