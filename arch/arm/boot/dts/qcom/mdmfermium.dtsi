@@ -268,14 +268,12 @@
 		reg-names = "rcg-base", "efuse";
 		qcom,safe-freq = < 400000000 >;
 		cpu-vdd-supply = <&apc_vreg_corner>;
-		qcom,enable-opp;
 		clocks = <&clock_gcc clk_gpll0_ao_clk_src>,
 					<&clock_gcc clk_a7sspll>;
 		clock-names = "clk-1", "clk-5";
-		qcom,speed0-bin-v0 =
+		qcom,speed4-bin-v0 =
 				<          0 0>,
-				<  400000000 1>,
-				<  800000000 2>,
+				<  806400000 2>,
 				< 1305600000 7>;
 		#clock-cells = <1>;
 	};
@@ -298,8 +296,7 @@
 		cpubw-cpufreq {
 			target-dev = <&cpubw>;
 			cpu-to-dev-map =
-				 <  400000   732>,
-				 <  800000  1171>,
+				 <  806400  1171>,
 				 <  998400  1831>,
 				 < 1094400  2343>,
 				 < 1305600  2343>;
@@ -321,8 +318,7 @@
 		clocks = <&clock_cpu  clk_a7ssmux>;
 		clock-names = "cpu0_clk";
 		qcom,cpufreq-table =
-				<  400000 >,
-				<  800000 >,
+				<  806400 >,
 				<  998400 >,
 				< 1094400 >,
 				< 1190400 >,
