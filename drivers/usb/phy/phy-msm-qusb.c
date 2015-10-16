@@ -89,6 +89,9 @@
 
 #define QUSB2PHY_REFCLK_ENABLE		BIT(0)
 
+#define QUSB2PHY_PLL_TEST		0x04
+#define ENABLE_SE_CLK			0x80
+
 unsigned int tune2;
 module_param(tune2, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(tune2, "QUSB PHY TUNE2");
@@ -625,20 +628,19 @@ static int qusb_phy_init(struct usb_phy *phy)
 	/* Require to get phy pll lock successfully */
 	usleep_range(150, 160);
 
+	/* Select PLL_TEST mux for SE clock logic to QUSB PHY */
+	writel_relaxed(ENABLE_SE_CLK, qphy->base + QUSB2PHY_PLL_TEST);
+	/* Make sure that above write is completed to get PLL source clock */
+	wmb();
+
+	/* Required to get PHY PLL lock successfully */
+	usleep_range(100, 110);
+
 	if (!(readb_relaxed(qphy->base + QUSB2PHY_PLL_STATUS) &
 					QUSB2PHY_PLL_LOCK)) {
 		dev_err(phy->dev, "QUSB PHY PLL LOCK fails:%x\n",
 			readb_relaxed(qphy->base + QUSB2PHY_PLL_STATUS));
 		WARN_ON(1);
-	}
-
-	/* Turn on phy ref_clk */
-	if (qphy->ref_clk_base) {
-		writel_relaxed((readl_relaxed(qphy->ref_clk_base) |
-					QUSB2PHY_REFCLK_ENABLE),
-					qphy->ref_clk_base);
-		/* Make sure that above write is completed to get ref clk ON */
-		wmb();
 	}
 
 	return 0;
@@ -883,7 +885,8 @@ static int qusb_phy_probe(struct platform_device *pdev)
 
 	qphy->ref_clk_src = devm_clk_get(dev, "ref_clk_src");
 	if (IS_ERR(qphy->ref_clk_src))
-		return PTR_ERR(qphy->ref_clk_src);
+		dev_dbg(dev, "clk get failed for ref_clk_src\n");
+
 	qphy->ref_clk = devm_clk_get(dev, "ref_clk");
 	if (IS_ERR(qphy->ref_clk))
 		dev_dbg(dev, "clk get failed for ref_clk\n");
