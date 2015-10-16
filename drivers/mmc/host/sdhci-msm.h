@@ -149,6 +149,7 @@ struct sdhci_msm_pltfm_data {
 	u32 *sup_ice_clk_table;
 	unsigned char sup_ice_clk_cnt;
 	struct sdhci_msm_pm_qos_data pm_qos_data;
+	bool core_3_0v_support;
 };
 
 struct sdhci_msm_bus_vote {
