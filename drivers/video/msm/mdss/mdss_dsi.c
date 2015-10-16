@@ -32,6 +32,7 @@
 #include "mdss_debug.h"
 
 #define XO_CLK_RATE	19200000
+#define CMDLINE_DSI_CTL_NUM_STRING_LEN 2
 
 /* Master structure to hold all the information about the DSI/panel */
 static struct mdss_dsi_data *mdss_dsi_res;
@@ -2210,11 +2211,12 @@ static struct device_node *mdss_dsi_pref_prim_panel(
 static struct device_node *mdss_dsi_find_panel_of_node(
 		struct platform_device *pdev, char *panel_cfg)
 {
-	int len, i;
+	int len, i = 0;
 	int ctrl_id = pdev->id - 1;
 	char panel_name[MDSS_MAX_PANEL_LEN] = "";
 	char ctrl_id_stream[3] =  "0:";
-	char *stream = NULL, *pan = NULL, *override_cfg = NULL;
+	char *str1 = NULL, *str2 = NULL, *override_cfg = NULL;
+	char cfg_np_name[MDSS_MAX_PANEL_LEN] = "";
 	struct device_node *dsi_pan_node = NULL, *mdss_node = NULL;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = platform_get_drvdata(pdev);
 	struct mdss_panel_info *pinfo = &ctrl_pdata->panel_data.panel_info;
@@ -2240,46 +2242,85 @@ static struct device_node *mdss_dsi_find_panel_of_node(
 		if (ctrl_id == 1)
 			strlcpy(ctrl_id_stream, "1:", 3);
 
-		stream = strnstr(panel_cfg, ctrl_id_stream, len);
-		if (!stream) {
-			pr_err("controller config is not present\n");
+		/* get controller number */
+		str1 = strnstr(panel_cfg, ctrl_id_stream, len);
+		if (!str1) {
+			pr_err("%s: controller %s is not present in %s\n",
+				__func__, ctrl_id_stream, panel_cfg);
 			goto end;
 		}
-		stream += 2;
+		if ((str1 != panel_cfg) && (*(str1-1) != ':')) {
+			str1 += CMDLINE_DSI_CTL_NUM_STRING_LEN;
+			pr_debug("false match with config node name in \"%s\". search again in \"%s\"\n",
+				panel_cfg, str1);
+			str1 = strnstr(str1, ctrl_id_stream, len);
+			if (!str1) {
+				pr_err("%s: 2. controller %s is not present in %s\n",
+					__func__, ctrl_id_stream, str1);
+				goto end;
+			}
+		}
+		str1 += CMDLINE_DSI_CTL_NUM_STRING_LEN;
 
-		pan = strnchr(stream, strlen(stream), ':');
-		if (!pan) {
-			strlcpy(panel_name, stream, MDSS_MAX_PANEL_LEN);
+		/* get panel name */
+		str2 = strnchr(str1, strlen(str1), ':');
+		if (!str2) {
+			strlcpy(panel_name, str1, MDSS_MAX_PANEL_LEN);
 		} else {
-			for (i = 0; (stream + i) < pan; i++)
-				panel_name[i] = *(stream + i);
+			for (i = 0; (str1 + i) < str2; i++)
+				panel_name[i] = *(str1 + i);
 			panel_name[i] = 0;
 		}
-
-		pr_debug("%s:%d:%s:%s\n", __func__, __LINE__,
-			 panel_cfg, panel_name);
+		pr_info("%s: cmdline:%s panel_name:%s\n",
+			__func__, panel_cfg, panel_name);
+		if (!strcmp(panel_name, NONE_PANEL))
+			goto exit;
 
 		mdss_node = of_parse_phandle(pdev->dev.of_node,
-					     "qcom,mdss-mdp", 0);
-
+			"qcom,mdss-mdp", 0);
 		if (!mdss_node) {
 			pr_err("%s: %d: mdss_node null\n",
 			       __func__, __LINE__);
 			return NULL;
 		}
-		dsi_pan_node = of_find_node_by_name(mdss_node,
-						    panel_name);
+		dsi_pan_node = of_find_node_by_name(mdss_node, panel_name);
 		if (!dsi_pan_node) {
-			pr_err("%s: invalid pan node, selecting prim panel\n",
-			       __func__);
+			pr_err("%s: invalid pan node \"%s\"\n",
+			       __func__, panel_name);
 			goto end;
+		} else {
+			/* extract config node name if present */
+			str1 += i;
+			str2 = strnstr(str1, "config", strlen(str1));
+			if (str2) {
+				str1 = strnchr(str2, strlen(str2), ':');
+				if (str1) {
+					for (i = 0; ((str2 + i) < str1) &&
+					     i < MDSS_MAX_PANEL_LEN; i++)
+						cfg_np_name[i] = *(str2 + i);
+					cfg_np_name[i] = 0;
+				} else {
+					strlcpy(cfg_np_name, str2,
+						MDSS_MAX_PANEL_LEN);
+				}
+			}
+
+			pr_debug("%s: cfg_np_name:%s\n", __func__, cfg_np_name);
+			if (str2) {
+				ctrl_pdata->panel_data.cfg_np =
+					of_get_child_by_name(dsi_pan_node,
+					cfg_np_name);
+				if (!ctrl_pdata->panel_data.cfg_np)
+					pr_warn("%s: can't find config node:%s. either no such node or bad name\n",
+						__func__, cfg_np_name);
+			}
 		}
 		return dsi_pan_node;
 	}
 end:
 	if (strcmp(panel_name, NONE_PANEL))
 		dsi_pan_node = mdss_dsi_pref_prim_panel(pdev);
-
+exit:
 	return dsi_pan_node;
 }
 
@@ -2849,11 +2890,15 @@ static int mdss_dsi_parse_hw_cfg(struct platform_device *pdev, char *pan_cfg)
 		cfg_prim = strnstr(pan_cfg, "cfg:", strlen(pan_cfg));
 	if (cfg_prim) {
 		cfg_prim += 4;
+
 		cfg_sec = strnchr(cfg_prim, strlen(cfg_prim), ':');
 		if (!cfg_sec)
 			cfg_sec = cfg_prim + strlen(cfg_prim);
-		for (i = 0; (cfg_prim + i) < cfg_sec; i++)
+
+		for (i = 0; ((cfg_prim + i) < cfg_sec) &&
+		     (*(cfg_prim+i) != '#'); i++)
 			dsi_cfg[i] = *(cfg_prim + i);
+
 		dsi_cfg[i] = '\0';
 		data = dsi_cfg;
 	} else {
