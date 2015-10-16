@@ -460,6 +460,7 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 	struct dsi_panel_clk_ctrl clk_ctrl;
 	u32 status;
 	int rc = 0;
+	bool schedule_off = false;
 
 	/* Get both controllers in the correct order for dual displays */
 	mdss_mdp_get_split_display_ctls(&ctl, &sctl);
@@ -709,18 +710,23 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 			break;
 
 		/* Cancel GATE Work Item */
-		if (cancel_work_sync(&ctx->gate_clk_work))
+		if (cancel_work_sync(&ctx->gate_clk_work)) {
 			pr_debug("%s: %s - gate_work cancelled\n",
 				 __func__, get_sw_event_name(sw_event));
+			schedule_off = true;
+		}
 
 		/* Cancel OFF Work Item */
 		if (cancel_delayed_work_sync(
-				&ctx->delayed_off_clk_work))
+				&ctx->delayed_off_clk_work)) {
 			pr_debug("%s: %s - off work cancelled\n",
 				 __func__, get_sw_event_name(sw_event));
+			schedule_off = true;
+		}
 
 		mutex_lock(&ctl->rsrc_lock);
-		MDSS_XLOG(ctl->num, mdp5_data->resources_state, sw_event, 0x44);
+		MDSS_XLOG(ctl->num, mdp5_data->resources_state, sw_event,
+			schedule_off, 0x44);
 		if (mdp5_data->resources_state == MDP_RSRC_CTL_STATE_OFF) {
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 			clk_ctrl.state = MDSS_DSI_CLK_ON;
@@ -740,6 +746,16 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 				mdss_mdp_cmd_clk_on(sctx);
 
 			mdp5_data->resources_state = MDP_RSRC_CTL_STATE_ON;
+			schedule_off = true;
+		}
+
+		/*
+		 * Driver will schedule off work under three cases:
+		 * 1. Early wakeup cancelled the gate work.
+		 * 2. Early wakeup cancelled the off work.
+		 * 3. Early wakeup changed the state to ON.
+		 */
+		if (schedule_off) {
 			/*
 			 * Schedule off work after cmd mode idle timeout is
 			 * reached. This is to prevent the case where early wake
@@ -747,6 +763,7 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 			 */
 			schedule_delayed_work(&ctx->delayed_off_clk_work,
 				      CMD_MODE_IDLE_TIMEOUT);
+			pr_debug("off work scheduled\n");
 		}
 		mutex_unlock(&ctl->rsrc_lock);
 		break;
