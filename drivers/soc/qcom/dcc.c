@@ -1233,19 +1233,21 @@ static int dcc_probe(struct platform_device *pdev)
 
 	INIT_LIST_HEAD(&drvdata->config_head);
 	drvdata->nr_config = 0;
+	drvdata->xpu_scm_avail = 0;
 
-	if (scm_is_call_available(SCM_SVC_MP, SCM_SVC_DISABLE_XPU) >  0)
-		drvdata->xpu_scm_avail = 1;
-	else
-		drvdata->xpu_scm_avail = 0;
-
-	if (drvdata->xpu_scm_avail) {
-		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-						   "dcc-xpu-base");
-		if (!res)
-			return -ENODEV;
-
-		drvdata->xpu_addr = res->start;
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+					   "dcc-xpu-base");
+	if (res) {
+		if (scm_is_call_available(SCM_SVC_MP,
+					  SCM_SVC_DISABLE_XPU) > 0) {
+			drvdata->xpu_scm_avail = 1;
+			drvdata->xpu_addr = res->start;
+		} else {
+			dev_err(dev, "scm call is not available\n");
+			return -EINVAL;
+		}
+	} else {
+		dev_info(dev, "DCC XPU is not specified\n");
 	}
 
 	ret = dcc_xpu_unlock(drvdata);
