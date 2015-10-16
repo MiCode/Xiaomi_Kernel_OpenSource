@@ -25,8 +25,11 @@
 #include <linux/posix-timers.h>
 #include <linux/workqueue.h>
 #include <linux/freezer.h>
-#include "lpm-levels.h"
 #include <linux/workqueue.h>
+
+#ifdef CONFIG_MSM_PM
+#include "lpm-levels.h"
+#endif
 
 /**
  * struct alarm_base - Alarm timer bases
