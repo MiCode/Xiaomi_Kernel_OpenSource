@@ -33,7 +33,9 @@ struct diag_ssid_range_t {
 struct diag_msg_mask_t {
 	uint32_t ssid_first;
 	uint32_t ssid_last;
+	uint32_t ssid_last_tools;
 	uint32_t range;
+	uint32_t range_tools;
 	struct mutex lock;
 	uint32_t *ptr;
 };
