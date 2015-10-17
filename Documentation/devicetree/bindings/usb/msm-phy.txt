@@ -94,7 +94,8 @@ Example:
 SSUSB-QMP PHY
 
 Required properties:
- - compatible: Should be "qcom,usb-ssphy-qmp"
+ - compatible: Should be "qcom,usb-ssphy-qmp", "qcom,usb-ssphy-qmp-v1" or
+   "qcom,usb-ssphy-qmp-v2"
  - reg: Address and length of the register set for the device
    Required regs are:
    "qmp_phy_base" : QMP PHY Base register set.
@@ -109,10 +110,17 @@ Required properties:
    microvolts or a value corresponding to voltage corner
 
 Optional properties:
+ - reg: Additional register set of address and length to control QMP PHY
+   "tcsr_phy_clk_scheme_sel": Read phy clk scheme single ended vs
+   differential to determine the value to write to QSERDES_COM_SYSCLK_EN_SEL.
  - qcom,vbus-valid-override: If present, indicates VBUS pin is not connected to
    the USB PHY and the controller must rely on external VBUS notification in
    order to manually relay the notification to the SSPHY.
  - qcom,emulation: Indicates that we are running on emulation platform.
+ - qcom,qmp-phy-init-seq: QMP PHY initialization sequence with reg, diff clk
+   value, single ended clk value, delay after register write.
+ - qcom,qmp-phy-reg-offset: If present stores phy register offsets in an order
+   defined in the phy driver.
 
 Example:
 	ssphy0: ssphy@f9b38000 {
@@ -154,6 +162,7 @@ Optional properties:
    via the QSCRATCH interface.
    "emu_phy_base" : phy base address used for programming emulation target phy.
    "ref_clk_addr" : ref_clk bcr address used for on/off ref_clk before reset.
+   "tcsr_phy_clk_scheme_sel": address used to determine QUSB PHY clk source.
  - reg-names: Should be "qscratch_base". The qscratch register bank
    allows us to manipulate QUSB PHY bits eg. to enable D+ pull-up using s/w
    control in device mode. The reg-names property is required if the

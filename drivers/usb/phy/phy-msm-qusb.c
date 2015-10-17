@@ -25,6 +25,9 @@
 #include <linux/usb/phy.h>
 #include <linux/usb/msm_hsusb.h>
 
+/* TCSR_PHY_CLK_SCHEME_SEL bit mask */
+#define PHY_CLK_SCHEME_SEL BIT(0)
+
 #define QUSB2PHY_PLL_STATUS	0x38
 #define QUSB2PHY_PLL_LOCK	BIT(5)
 
@@ -51,6 +54,9 @@
 #define QUSB2PHY_PORT_UTMI_CTRL2	0xC4
 #define UTMI_ULPI_SEL			BIT(7)
 #define UTMI_TEST_MUX_SEL		BIT(6)
+
+#define QUSB2PHY_PLL_TEST		0x04
+#define CLK_REF_SEL			BIT(7)
 
 #define QUSB2PHY_PORT_TUNE1             0x80
 #define QUSB2PHY_PORT_TUNE2             0x84
@@ -99,6 +105,7 @@ struct qusb_phy {
 	void __iomem		*qscratch_base;
 	void __iomem		*tune2_efuse_reg;
 	void __iomem		*ref_clk_base;
+	void __iomem		*tcsr_phy_clk_scheme_sel;
 
 	struct clk		*ref_clk_src;
 	struct clk		*ref_clk;
@@ -521,7 +528,7 @@ static void qusb_phy_write_seq(void __iomem *base, u32 *seq, int cnt,
 static int qusb_phy_init(struct usb_phy *phy)
 {
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
-	int ret;
+	int ret, reset_val = 0;
 
 	dev_dbg(phy->dev, "%s\n", __func__);
 
@@ -585,6 +592,9 @@ static int qusb_phy_init(struct usb_phy *phy)
 	if (qphy->ulpi_mode)
 		writel_relaxed(0x0, qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
 
+	/* save reset value to override based on clk scheme */
+	reset_val = readl_relaxed(qphy->base + QUSB2PHY_PLL_TEST);
+
 	if (qphy->qusb_phy_init_seq)
 		qusb_phy_write_seq(qphy->base, qphy->qusb_phy_init_seq,
 				qphy->init_seq_len, 0);
@@ -610,6 +620,21 @@ static int qusb_phy_init(struct usb_phy *phy)
 						__func__, tune2);
 		writel_relaxed(tune2,
 				qphy->base + QUSB2PHY_PORT_TUNE2);
+	}
+
+	if (qphy->tcsr_phy_clk_scheme_sel) {
+		ret = readl_relaxed(qphy->tcsr_phy_clk_scheme_sel);
+		if (ret & PHY_CLK_SCHEME_SEL) {
+			pr_debug("%s:select single-ended clk src\n",
+				__func__);
+			reset_val |= CLK_REF_SEL;
+		} else {
+			pr_debug("%s:select differential clk src\n",
+				__func__);
+			reset_val &= ~CLK_REF_SEL;
+		}
+
+		writel_relaxed(reset_val, qphy->base + QUSB2PHY_PLL_TEST);
 	}
 
 	/* ensure above writes are completed before re-enabling PHY */
@@ -879,6 +904,15 @@ static int qusb_phy_probe(struct platform_device *pdev)
 				res->start, resource_size(res));
 		if (IS_ERR(qphy->ref_clk_base))
 			dev_dbg(dev, "ref_clk_address is not available.\n");
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+			"tcsr_phy_clk_scheme_sel");
+	if (res) {
+		qphy->tcsr_phy_clk_scheme_sel = devm_ioremap_nocache(dev,
+				res->start, resource_size(res));
+		if (IS_ERR(qphy->tcsr_phy_clk_scheme_sel))
+			dev_dbg(dev, "err reading tcsr_phy_clk_scheme_sel\n");
 	}
 
 	qphy->ref_clk_src = devm_clk_get(dev, "ref_clk_src");
