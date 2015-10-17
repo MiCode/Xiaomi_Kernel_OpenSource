@@ -495,7 +495,7 @@
 		#size-cells = <1>;
 		ranges;
 
-		interrupts = <0 134 0>,<0 139 0>;
+		interrupts = <0 134 0>, <0 140 0>;
 		interrupt-names = "core_irq", "async_irq";
 
 		hsusb_vdd_dig-supply = <&mdmfermium_l9>;
