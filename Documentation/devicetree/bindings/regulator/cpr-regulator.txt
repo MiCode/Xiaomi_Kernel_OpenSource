@@ -682,7 +682,8 @@ Optional properties:
 				specified in the array should be bypassed for the de-aging procedure. The number of
 				elements should be less than or equal to 32. The values of the array elements should
 				be greater than or equal to 0 and less than or equal to 31.
-				This property is required if the qcom,cpr-aging-sensor-id property has been specified.
+				This property is required for power-domains with bypass mux present in HW.
+				This property can be required if the qcom,cpr-aging-sensor-id property has been specified.
 - qcom,cpr-aging-ro-scaling-factor:	The aging ring oscillator (RO) scaling factor with units of QUOT/V.
 				This value is used for calculating a voltage margin from RO measurements.
 				This property is required if the qcom,cpr-aging-sensor-id property has been specified.
