@@ -810,7 +810,7 @@
 
 		msm_thermal_freq: qcom,vdd-apps-rstr {
 			qcom,vdd-rstr-reg = "vdd-apps";
-			qcom,levels = <800000>;
+			qcom,levels = <1017600>;
 			qcom,freq-req;
 		};
 	};
@@ -825,7 +825,7 @@
 		qcom,ibat-monitor {
 			qcom,high-threshold-uamp = <4200000>;
 			qcom,low-threshold-uamp = <3400000>;
-			qcom,mitigation-freq-khz = <800000>;
+			qcom,mitigation-freq-khz = <1382400>;
 			qcom,vph-high-threshold-uv = <3500000>;
 			qcom,vph-low-threshold-uv = <3200000>;
 			qcom,soc-low-threshold = <10>;
