@@ -33,6 +33,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x0 0x0>;
+			qcom,limits-info = <&mitigation_profile0>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_0>;
@@ -47,6 +48,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x0 0x1>;
+			qcom,limits-info = <&mitigation_profile1>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_0>;
@@ -56,6 +58,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x0 0x2>;
+			qcom,limits-info = <&mitigation_profile2>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_0>;
@@ -65,6 +68,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x0 0x3>;
+			qcom,limits-info = <&mitigation_profile3>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_0>;
@@ -74,6 +78,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x0 0x100>;
+			qcom,limits-info = <&mitigation_profile4>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_1>;
@@ -87,6 +92,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x0 0x101>;
+			qcom,limits-info = <&mitigation_profile5>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_1>;
@@ -96,6 +102,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x0 0x102>;
+			qcom,limits-info = <&mitigation_profile6>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_1>;
@@ -105,6 +112,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x0 0x103>;
+			qcom,limits-info = <&mitigation_profile7>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x90000000>;
 			next-level-cache = <&L2_1>;
@@ -793,6 +801,214 @@
 
 		/* GPIO output to lpass */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_2_out 0 0>;
+	};
+
+	qcom,sensor-information {
+		compatible = "qcom,sensor-information";
+		sensor_information0: qcom,sensor-information-0 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor0";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information1: qcom,sensor-information-1 {
+			qcom,sensor-type =  "tsens";
+			qcom,sensor-name = "tsens_tz_sensor1";
+			qcom,alias-name = "pop_mem";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information2: qcom,sensor-information-2 {
+			qcom,sensor-type =  "tsens";
+			qcom,sensor-name = "tsens_tz_sensor2";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information3: qcom,sensor-information-3 {
+			qcom,sensor-type =  "tsens";
+			qcom,sensor-name = "tsens_tz_sensor3";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information4: qcom,sensor-information-4 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor4";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information5: qcom,sensor-information-5 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor5";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information6: qcom,sensor-information-6 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor6";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information7: qcom,sensor-information-7 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor7";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information8: qcom,sensor-information-8 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor8";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information9: qcom,sensor-information-9 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor9";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information10: qcom,sensor-information-10 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor10";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information11: qcom,sensor-information-11 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor11";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information12: qcom,sensor-information-12 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor12";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information13: qcom,sensor-information-13 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor13";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information14: qcom,sensor-information-14 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor14";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information15: qcom,sensor-information-15 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor15";
+			qcom,alias-name = "gpu";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information16: qcom,sensor-information-16 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor16";
+			qcom,alias-name = "pop_mem";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information17: qcom,sensor-information-17 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor17";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information18: qcom,sensor-information-18 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor18";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information19: qcom,sensor-information-19 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor19";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information20: qcom,sensor-information-20 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor20";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information21: qcom,sensor-information-21 {
+			qcom,sensor-type = "tsens";
+			qcom,sensor-name = "tsens_tz_sensor21";
+			qcom,scaling-factor = <10>;
+		};
+		sensor_information22: qcom,sensor-information-22 {
+			qcom,sensor-type =  "alarm";
+			qcom,sensor-name = "pm8994_tz";
+			qcom,scaling-factor = <1000>;
+		};
+		sensor_information23: qcom,sensor-information-23 {
+			qcom,sensor-type =  "adc";
+			qcom,sensor-name = "msm_therm";
+		};
+		sensor_information24: qcom,sensor-information-24 {
+			qcom,sensor-type =  "adc";
+			qcom,sensor-name = "emmc_therm";
+		};
+		sensor_information25: qcom,sensor-information-25 {
+			qcom,sensor-type =  "adc";
+			qcom,sensor-name = "pa_therm0";
+		};
+		sensor_information26: qcom,sensor-information-26 {
+			qcom,sensor-type =  "adc";
+			qcom,sensor-name = "pa_therm1";
+		};
+		sensor_information27: qcom,sensor-information-27 {
+			qcom,sensor-type =  "adc";
+			qcom,sensor-name = "quiet_therm";
+		};
+	};
+
+	mitigation_profile0: qcom,limit_info-0 {
+		qcom,temperature-sensor = <&sensor_information1>;
+		qcom,boot-frequency-mitigate;
+		qcom,hotplug-mitigation-enable;
+	};
+
+	mitigation_profile1: qcom,limit_info-1 {
+		qcom,temperature-sensor = <&sensor_information2>;
+		qcom,boot-frequency-mitigate;
+		qcom,hotplug-mitigation-enable;
+	};
+
+	mitigation_profile2: qcom,limit_info-2 {
+		qcom,temperature-sensor = <&sensor_information3>;
+		qcom,boot-frequency-mitigate;
+		qcom,hotplug-mitigation-enable;
+	};
+
+	mitigation_profile3: qcom,limit_info-3 {
+		qcom,temperature-sensor = <&sensor_information4>;
+		qcom,boot-frequency-mitigate;
+		qcom,hotplug-mitigation-enable;
+	};
+
+	mitigation_profile4: qcom,limit_info-4 {
+		qcom,temperature-sensor = <&sensor_information7>;
+		qcom,boot-frequency-mitigate;
+		qcom,hotplug-mitigation-enable;
+	};
+
+	mitigation_profile5: qcom,limit_info-5 {
+		qcom,temperature-sensor = <&sensor_information8>;
+		qcom,boot-frequency-mitigate;
+		qcom,hotplug-mitigation-enable;
+	};
+
+	mitigation_profile6: qcom,limit_info-6 {
+		qcom,temperature-sensor = <&sensor_information9>;
+		qcom,boot-frequency-mitigate;
+		qcom,hotplug-mitigation-enable;
+	};
+
+	mitigation_profile7: qcom,limit_info-7 {
+		qcom,temperature-sensor = <&sensor_information10>;
+		qcom,boot-frequency-mitigate;
+		qcom,hotplug-mitigation-enable;
+	};
+
+	qcom,msm-thermal {
+		compatible = "qcom,msm-thermal";
+		qcom,sensor-id = <1>;
+		qcom,poll-ms = <100>;
+		qcom,limit-temp = <60>;
+		qcom,temp-hysteresis = <10>;
+		qcom,therm-reset-temp = <115>;
+		qcom,freq-step = <4>;
+		qcom,core-limit-temp = <70>;
+		qcom,core-temp-hysteresis = <10>;
+		qcom,hotplug-temp = <70>;
+		qcom,hotplug-temp-hysteresis = <20>;
+		qcom,online-hotplug-core;
+		qcom,synchronous-cluster-id = <0 1>;
+		qcom,synchronous-cluster-map = <0 4 &CPU0 &CPU1 &CPU2 &CPU3>,
+						<1 4 &CPU4 &CPU5 &CPU6 &CPU7>;
 	};
 };
 
