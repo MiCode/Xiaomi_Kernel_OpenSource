@@ -1869,8 +1869,8 @@ static int cpr_find_fuse_map_match(struct cpr2_gfx_regulator *cpr_vreg)
 		if (tmp[i * tuple_size + 1] != cpr_vreg->cpr_fuse_revision
 		    && tmp[i * tuple_size + 1] != FUSE_PARAM_MATCH_ANY)
 			continue;
-		if (tmp[i * tuple_size + 1] != cpr_vreg->process_id
-		    && tmp[i * tuple_size + 1] != FUSE_PARAM_MATCH_ANY)
+		if (tmp[i * tuple_size + 2] != cpr_vreg->process_id
+		    && tmp[i * tuple_size + 2] != FUSE_PARAM_MATCH_ANY)
 			continue;
 
 		cpr_vreg->cpr_fuse_map_match = i;
@@ -2275,7 +2275,7 @@ static int cpr_init_target_quotients(struct cpr2_gfx_regulator *cpr_vreg)
 
 	for (i = CPR_CORNER_MIN; i <= cpr_vreg->num_corners; i++) {
 		index = tuple_match * cpr_vreg->num_corners
-			* cpr_vreg->ro_count + i - CPR_CORNER_MIN;
+			+ i - CPR_CORNER_MIN;
 		for (j = 0; j < cpr_vreg->ro_count; j++) {
 			k = index * cpr_vreg->ro_count + j;
 			cpr_vreg->cpr_target_quot[i][j] = temp[k];
