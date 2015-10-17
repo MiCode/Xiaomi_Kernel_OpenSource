@@ -2986,7 +2986,8 @@ void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 	u32 sts = 0;
 
 	pr_info("----------- VENDOR REGISTER DUMP -----------\n");
-	sdhci_msm_cmdq_dump_debug_ram(msm_host);
+	if (host->cq_host)
+		sdhci_msm_cmdq_dump_debug_ram(msm_host);
 
 	pr_info("Data cnt: 0x%08x | Fifo cnt: 0x%08x | Int sts: 0x%08x\n",
 		readl_relaxed(msm_host->core_mem + CORE_MCI_DATA_CNT),
@@ -3744,11 +3745,13 @@ static void sdhci_msm_cmdq_init(struct sdhci_host *host,
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 
 	host->cq_host = cmdq_pltfm_init(pdev);
-	if (IS_ERR(host->cq_host))
+	if (IS_ERR(host->cq_host)) {
 		dev_dbg(&pdev->dev, "cmdq-pltfm init: failed: %ld\n",
 			PTR_ERR(host->cq_host));
-	else
+		host->cq_host = NULL;
+	} else {
 		msm_host->mmc->caps2 |= MMC_CAP2_CMD_QUEUE;
+	}
 }
 #else
 static void sdhci_msm_cmdq_init(struct sdhci_host *host,
