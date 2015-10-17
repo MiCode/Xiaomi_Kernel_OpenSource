@@ -568,6 +568,8 @@ struct ipa3_status_stats {
  *  by IPA driver
  * @keep_ipa_awake: when true, IPA will not be clock gated
  * @disconnect_in_progress: Indicates client disconnect in progress.
+ * @qmi_request_sent: Indicates whether QMI request to enable clear data path
+ *					request is sent or not.
  */
 struct ipa3_ep_context {
 	int valid;
@@ -603,6 +605,7 @@ struct ipa3_ep_context {
 	struct ipa3_wlan_stats wstats;
 	u32 wdi_state;
 	bool disconnect_in_progress;
+	u32 qmi_request_sent;
 
 	/* sys MUST be the last element of this struct */
 	struct ipa3_sys_context *sys;
@@ -1434,6 +1437,7 @@ struct ipa3_context {
 	bool ipa_client_apps_wan_cons_agg_gro;
 	/* M-release support to know client pipes */
 	struct ipa3cm_client_info ipacm_client[IPA3_MAX_NUM_PIPES];
+	bool tethered_flow_control;
 };
 
 /**
@@ -1488,6 +1492,7 @@ struct ipa3_plat_drv_res {
 	bool skip_uc_pipe_reset;
 	enum ipa_transport_type transport_prototype;
 	bool apply_rg10_wa;
+	bool tethered_flow_control;
 };
 
 struct ipa3_mem_partition {
@@ -1687,6 +1692,11 @@ int ipa3_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl);
  * Resume / Suspend
  */
 int ipa3_reset_endpoint(u32 clnt_hdl);
+
+/*
+ * Remove ep delay
+ */
+int ipa3_clear_endpoint_delay(u32 clnt_hdl);
 
 /*
  * Configuration
