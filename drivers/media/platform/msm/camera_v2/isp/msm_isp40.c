@@ -1153,7 +1153,7 @@ static void msm_vfe40_cfg_fetch_engine(struct vfe_device *vfe_dev,
 	msm_camera_io_w((x_size_word - 1) << 16, vfe_dev->vfe_base + 0x23C);
 
 	temp = msm_camera_io_r(vfe_dev->vfe_base + 0x1C);
-	temp |= 2 << 16;
+	temp |= 2 << 16 | pix_cfg->pixel_pattern;
 	msm_camera_io_w(temp, vfe_dev->vfe_base + 0x1C);
 
 	msm_camera_io_w(x_size_word  << 16 |
