@@ -1040,6 +1040,7 @@ static struct branch_clk gcc_pcie_pipe_clk = {
 	.bcr_reg = PCIEPHY_PHY_BCR,
 	.has_sibling = 0,
 	.base = &virt_base,
+	.halt_check = DELAY,
 	.c = {
 		.dbg_name = "gcc_pcie_pipe_clk",
 		.ops = &clk_ops_branch,
