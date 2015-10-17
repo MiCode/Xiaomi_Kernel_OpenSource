@@ -140,6 +140,10 @@ Optional child nodes
 			This will not be required if qcom,freq-req exists.
 - qcom,freq-req: Flag to determine if we should restrict frequency on this rail
 			instead of voltage.
+- qcom,max-freq-level: Request this frequency as scaling maximum level when
+			enabling vdd restriction feature for a rail. This is
+			an optional property which is only applicable to the rail
+			with "qcom,freq-req" property set.
 - qcom,cx-phase-hot-crit-temp: Threshold temperature for sending the 'HOT_CRITICAL'
 			temperature band to RPM, in degC. This will aid RPM
 			in deciding the number of phases required for CX rail.
@@ -287,6 +291,7 @@ Example:
 			qcom,vdd-rstr-reg = "vdd-apps";
 			qcom,levels = <1881600 1958400 2265600>;
 			qcom,freq-req;
+			qcom,max-freq-level = <1958400>;
 		};
 	};
 
