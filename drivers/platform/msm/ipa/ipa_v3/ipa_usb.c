@@ -710,18 +710,19 @@ int ipa3_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
 			goto bad_params;
 		}
 		ipa3_usb_ctx->teth_prot_ctx[teth_prot].user_data = user_data;
-		ipa3_usb_ctx->teth_prot_ctx[teth_prot].
-			teth_prot_params.rndis.device_ready_notify =
-			ipa3_usb_device_ready_notify_cb;
-		memcpy(ipa3_usb_ctx->teth_prot_ctx[teth_prot].
-			teth_prot_params.rndis.host_ethaddr,
-			teth_params->host_ethaddr,
-			sizeof(teth_params->host_ethaddr));
-		memcpy(ipa3_usb_ctx->teth_prot_ctx[teth_prot].
-			teth_prot_params.rndis.device_ethaddr,
-			teth_params->device_ethaddr,
-			sizeof(teth_params->device_ethaddr));
 		if (teth_prot == IPA_USB_RNDIS) {
+			ipa3_usb_ctx->teth_prot_ctx[teth_prot].
+				teth_prot_params.rndis.device_ready_notify =
+				ipa3_usb_device_ready_notify_cb;
+			memcpy(ipa3_usb_ctx->teth_prot_ctx[teth_prot].
+				teth_prot_params.rndis.host_ethaddr,
+				teth_params->host_ethaddr,
+				sizeof(teth_params->host_ethaddr));
+			memcpy(ipa3_usb_ctx->teth_prot_ctx[teth_prot].
+				teth_prot_params.rndis.device_ethaddr,
+				teth_params->device_ethaddr,
+				sizeof(teth_params->device_ethaddr));
+
 			result = rndis_ipa_init(&ipa3_usb_ctx->
 				teth_prot_ctx[teth_prot].
 				teth_prot_params.rndis);
@@ -732,6 +733,18 @@ int ipa3_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
 				goto init_rndis_ipa_fail;
 			}
 		} else {
+			ipa3_usb_ctx->teth_prot_ctx[teth_prot].
+				teth_prot_params.ecm.device_ready_notify =
+				ipa3_usb_device_ready_notify_cb;
+			memcpy(ipa3_usb_ctx->teth_prot_ctx[teth_prot].
+				teth_prot_params.ecm.host_ethaddr,
+				teth_params->host_ethaddr,
+				sizeof(teth_params->host_ethaddr));
+			memcpy(ipa3_usb_ctx->teth_prot_ctx[teth_prot].
+				teth_prot_params.ecm.device_ethaddr,
+				teth_params->device_ethaddr,
+				sizeof(teth_params->device_ethaddr));
+
 			result = ecm_ipa_init(&ipa3_usb_ctx->
 				teth_prot_ctx[teth_prot].teth_prot_params.ecm);
 			if (result) {
