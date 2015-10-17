@@ -113,7 +113,7 @@ static struct alpha_pll_clk a7sspll = {
 		.parent = &xo_a_clk_src.c,
 		.dbg_name = "a7sspll",
 		.ops = &clk_ops_dyna_alpha_pll,
-		VDD_STROMER_FMAX_MAP1(LOW, 140000000),
+		VDD_STROMER_FMAX_MAP1(LOW, 1400000000),
 		CLK_INIT(a7sspll.c),
 	},
 };
@@ -213,6 +213,8 @@ static struct clk_freq_tbl ftbl_emac_0_125m_clk_src[] = {
 static struct rcg_clk emac_0_125m_clk_src = {
 	.cmd_rcgr_reg = EMAC_0_125M_CMD_RCGR,
 	.current_freq = ftbl_emac_0_125m_clk_src,
+	.set_rate = set_rate_hid,
+	.freq_tbl = ftbl_emac_0_125m_clk_src,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "emac_0_125m_clk_src",
@@ -230,6 +232,8 @@ static struct clk_freq_tbl ftbl_emac_0_sys_25m_clk_src[] = {
 static struct rcg_clk emac_0_sys_25m_clk_src = {
 	.cmd_rcgr_reg = EMAC_0_SYS_25M_CMD_RCGR,
 	.current_freq = ftbl_emac_0_sys_25m_clk_src,
+	.set_rate = set_rate_hid,
+	.freq_tbl = ftbl_emac_0_sys_25m_clk_src,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "emac_0_sys_25m_clk_src",
@@ -247,6 +251,8 @@ static struct clk_freq_tbl ftbl_emac_0_tx_clk_src[] = {
 static struct rcg_clk emac_0_tx_clk_src = {
 	.cmd_rcgr_reg = EMAC_0_TX_CMD_RCGR,
 	.current_freq = ftbl_emac_0_tx_clk_src,
+	.set_rate = set_rate_hid,
+	.freq_tbl = ftbl_emac_0_tx_clk_src,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "emac_0_tx_clk_src",
@@ -702,7 +708,7 @@ static struct clk_freq_tbl ftbl_sdcc_apps_clk[] = {
 
 static struct rcg_clk sdcc1_apps_clk_src = {
 	.cmd_rcgr_reg = SDCC1_APPS_CMD_RCGR,
-	.set_rate = set_rate_hid,
+	.set_rate = set_rate_mnd,
 	.freq_tbl = ftbl_sdcc_apps_clk,
 	.current_freq = &rcg_dummy_freq,
 	.base = &virt_bases[GCC_BASE],
@@ -716,7 +722,7 @@ static struct rcg_clk sdcc1_apps_clk_src = {
 
 static struct rcg_clk sdcc2_apps_clk_src = {
 	.cmd_rcgr_reg = SDCC2_APPS_CMD_RCGR,
-	.set_rate = set_rate_hid,
+	.set_rate = set_rate_mnd,
 	.freq_tbl = ftbl_sdcc_apps_clk,
 	.current_freq = &rcg_dummy_freq,
 	.base = &virt_bases[GCC_BASE],
@@ -1291,7 +1297,7 @@ static struct branch_clk gcc_sdcc2_apps_clk = {
 
 static struct branch_clk gcc_emac_0_125m_clk = {
 	.cbcr_reg = EMAC_0_125M_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_emac_0_125m_clk",
@@ -1405,6 +1411,7 @@ static struct branch_clk gcc_usb_hs_ahb_clk = {
 
 static struct branch_clk gcc_usb_hs_system_clk = {
 	.cbcr_reg = USB_HS_SYSTEM_CBCR,
+	.bcr_reg = USB_HS_BCR,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
