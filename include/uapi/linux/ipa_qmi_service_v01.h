@@ -678,13 +678,7 @@ struct ipa_filter_spec_type_v01 {
 	 */
 };  /* Type */
 
-struct ipa3_filter_spec_type_v01 {
-	uint32_t filter_spec_identifier;
-	/*	This field is used to identify a filter spec in the list
-	 *	of filter specs being sent from the client. This field
-	 *	is applicable only in the filter install request and response.
-	 */
-
+struct ipa_filter_spec_ex_type_v01 {
 	enum ipa_ip_type_enum_v01 ip_type;
 	/*	This field identifies the IP type for which this rule is
 	 *	applicable. The driver needs to identify the filter table
@@ -801,7 +795,7 @@ struct ipa_install_fltr_rule_req_msg_v01 {
 	/* Must be set to true if filter_spec_ex_list is being passed */
 	uint32_t filter_spec_ex_list_len;
 	/* Must be set to # of elements in filter_spec_ex_list */
-	struct ipa3_filter_spec_type_v01
+	struct ipa_filter_spec_ex_type_v01
 		filter_spec_ex_list[QMI_IPA_MAX_FILTERS_V01];
 	/*
 	 * List of filter specifications of filters that must be installed in
