@@ -71,6 +71,10 @@
 	regulator-max-microvolt = <1015000>;
 };
 
+&apc_apm {
+	 /delete-property/ qcom,clock-source-override;
+};
+
 &apcc_cpr {
 	compatible = "qcom,cpr3-msm8996-v2-hmss-regulator";
 
