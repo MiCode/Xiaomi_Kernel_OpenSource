@@ -2825,8 +2825,8 @@ static int glink_mailbox_probe(struct platform_device *pdev)
 
 	writel_relaxed(mbox_cfg_size, mbox_size);
 	cfg_p_addr = smem_virt_to_phys(mbox_cfg);
-	writel_relaxed((uint32_t)cfg_p_addr, mbox_loc);
-	writel_relaxed((uint32_t)(((uint64_t)cfg_p_addr)>>32), mbox_loc + 4);
+	writel_relaxed(lower_32_bits(cfg_p_addr), mbox_loc);
+	writel_relaxed(upper_32_bits(cfg_p_addr), mbox_loc + 4);
 	send_irq(einfo);
 	iounmap(mbox_size);
 	iounmap(mbox_loc);
