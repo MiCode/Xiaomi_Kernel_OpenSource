@@ -417,15 +417,17 @@ static const char * const blsp_spi3_groups[] = {
 };
 static const char * const gpio_groups[] = {
 	"gpio0", "gpio1", "gpio2", "gpio3", "gpio4", "gpio5", "gpio6", "gpio7",
-	"gpio12", "gpio13", "gpio14", "gpio15", "gpio16", "gpio17", "gpio20",
-	"gpio22", "gpio23", "gpio27", "gpio28", "gpio31", "gpio32", "gpio33",
-	"gpio34", "gpio35", "gpio36", "gpio37", "gpio39", "gpio40", "gpio41",
-	"gpio42", "gpio43", "gpio44", "gpio45", "gpio46", "gpio47", "gpio48",
-	"gpio49", "gpio50", "gpio51", "gpio52", "gpio53", "gpio54", "gpio55",
-	"gpio56", "gpio57", "gpio58", "gpio59", "gpio60", "gpio61", "gpio62",
-	"gpio63", "gpio64", "gpio65", "gpio66", "gpio67", "gpio68", "gpio69",
-	"gpio70", "gpio71", "gpio72", "gpio73", "gpio76", "gpio77", "gpio78",
-	"gpio79",
+	"gpio8", "gpio9", "gpio10", "gpio11", "gpio12", "gpio13", "gpio14",
+	"gpio15", "gpio16", "gpio17", "gpio18", "gpio19", "gpio20", "gpio21",
+	"gpio22", "gpio23", "gpio24", "gpio25", "gpio26", "gpio27", "gpio28",
+	"gpio29", "gpio30", "gpio31", "gpio32", "gpio33", "gpio34", "gpio35",
+	"gpio36", "gpio37", "gpio38", "gpio39", "gpio40", "gpio41", "gpio42",
+	"gpio43", "gpio44", "gpio45", "gpio46", "gpio47", "gpio48", "gpio49",
+	"gpio50", "gpio51", "gpio52", "gpio53", "gpio54", "gpio55", "gpio56",
+	"gpio57", "gpio58", "gpio59", "gpio60", "gpio61", "gpio62", "gpio63",
+	"gpio64", "gpio65", "gpio66", "gpio67", "gpio68", "gpio69", "gpio70",
+	"gpio71", "gpio72", "gpio73", "gpio74", "gpio75", "gpio76", "gpio77",
+	"gpio78", "gpio79",
 };
 static const char * const blsp_uart3_groups[] = {
 	"gpio0", "gpio1", "gpio2", "gpio3",
