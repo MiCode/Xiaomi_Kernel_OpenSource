@@ -46,11 +46,6 @@
 		IPA_ENDP_INIT_AGGR_N_AGGR_PKT_LIMIT_BMSK >> \
 		IPA_ENDP_INIT_AGGR_N_AGGR_PKT_LIMIT_SHFT)
 
-#define IPA_GSI_CHANNEL_STOP_MAX_RETRY 10
-#define IPA_GSI_CHANNEL_STOP_PKT_SIZE 1
-#define IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC (1000)
-#define IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC (2000)
-
 /* In IPAv3 only endpoints 0-3 can be configured to deaggregation */
 #define IPA_EP_SUPPORTS_DEAGGR(idx) ((idx) >= 0 && (idx) <= 3)
 
@@ -4961,6 +4956,51 @@ void ipa3_suspend_apps_pipes(bool suspend)
 }
 
 /**
+ * ipa3_inject_dma_task_for_gsi()- Send TMA_TASK to IPA for GSI stop channel
+ *
+ * Send a DMA_TASK of 1B to IPA to unblock GSI channel in STOP_IN_PROG.
+ * Return value: 0 on success, negative otherwise
+ */
+int ipa3_inject_dma_task_for_gsi(void)
+{
+	static struct ipa3_mem_buffer mem = {0};
+	static struct ipa3_hw_imm_cmd_dma_task_32b_addr cmd = {0};
+	struct ipa3_desc desc = {0};
+
+	/* allocate the memory only for the very first time */
+	if (!mem.base) {
+		IPADBG("Allocate mem\n");
+		mem.size = IPA_GSI_CHANNEL_STOP_PKT_SIZE;
+		mem.base = dma_alloc_coherent(ipa3_ctx->pdev,
+			mem.size,
+			&mem.phys_base,
+			GFP_KERNEL);
+		if (!mem.base) {
+			IPAERR("no mem\n");
+			return -EFAULT;
+		}
+
+		cmd.flsh = 1;
+		cmd.size1 = mem.size;
+		cmd.addr1 = mem.phys_base;
+		cmd.packet_size = mem.size;
+	}
+
+	desc.opcode = IPA_DMA_TASK_32B_ADDR(1);
+	desc.pyld = &cmd;
+	desc.len = sizeof(cmd);
+	desc.type = IPA_IMM_CMD_DESC;
+
+	IPADBG("sending 1B packet to IPA\n");
+	if (ipa3_send_cmd(1, &desc)) {
+		IPAERR("ipa3_send_cmd failed\n");
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
+/**
  * ipa3_stop_gsi_channel()- Stops a GSI channel in IPA
  * @chan_hdl: GSI channel handle
  *
@@ -4971,8 +5011,6 @@ void ipa3_suspend_apps_pipes(bool suspend)
  */
 int ipa3_stop_gsi_channel(u32 clnt_hdl)
 {
-	struct ipa3_hw_imm_cmd_dma_task_32b_addr cmd;
-	struct ipa3_desc desc;
 	struct ipa3_mem_buffer mem;
 	int res;
 	int i;
@@ -4990,64 +5028,29 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 
 	memset(&mem, 0, sizeof(mem));
 
-	if (IPA_CLIENT_IS_PROD(ep->client)) {
-		res = gsi_stop_channel(ep->gsi_chan_hdl);
-		goto bail;
-	}
+	if (IPA_CLIENT_IS_PROD(ep->client))
+		return gsi_stop_channel(ep->gsi_chan_hdl);
 
 	for (i = 0; i < IPA_GSI_CHANNEL_STOP_MAX_RETRY; i++) {
 		IPADBG("Calling gsi_stop_channel\n");
 		res = gsi_stop_channel(ep->gsi_chan_hdl);
 		IPADBG("gsi_stop_channel returned %d\n", res);
 		if (res != -GSI_STATUS_AGAIN && res != -GSI_STATUS_TIMED_OUT)
-			goto bail;
+			return res;
+
 		/* Send a 1B packet DMA_RASK to IPA and try again*/
-		IPADBG("gsi_stop_channel timed out\n");
-		if (!mem.base) {
-			mem.size = IPA_GSI_CHANNEL_STOP_PKT_SIZE;
-			mem.base = dma_alloc_coherent(ipa3_ctx->pdev,
-				mem.size,
-				&mem.phys_base,
-				GFP_KERNEL);
-			if (!mem.base) {
-				IPAERR("no mem\n");
-				res = -EFAULT;
-				goto bail;
-			}
-
-			memset(&cmd, 0, sizeof(cmd));
-			cmd.flsh = 1;
-			cmd.size1 = mem.size;
-			cmd.addr1 = mem.phys_base;
-			cmd.packet_size = mem.size;
-		}
-
-		memset(&desc, 0, sizeof(desc));
-		desc.opcode = IPA_DMA_TASK_32B_ADDR(1);
-		desc.pyld = &cmd;
-		desc.len = sizeof(cmd);
-		desc.type = IPA_IMM_CMD_DESC;
-
-		IPADBG("sending 1B packet to IPA\n");
-		if (ipa3_send_cmd(1, &desc)) {
-			IPAERR("ipa3_send_cmd failed\n");
-			dma_free_coherent(ipa3_ctx->pdev,
-				mem.size,
-				mem.base,
-				mem.phys_base);
-			res = -EFAULT;
-			goto bail;
+		res = ipa3_inject_dma_task_for_gsi();
+		if (res) {
+			IPAERR("ipa3_inject_dma_task_for_gsi failed\n");
+			return res;
 		}
 
 		/* sleep for short period to flush IPA */
 		usleep_range(IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC,
 			IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC);
 	}
-bail:
-	if (mem.base)
-		dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base,
-			mem.phys_base);
-	return res;
+
+	return -EFAULT;
 }
 
 /**
