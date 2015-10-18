@@ -239,3 +239,24 @@
 		};
 	};
 };
+
+/{
+	polaris_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <100>;
+		#include "batterydata-polaris-4v35-4450mah.dtsi"
+	};
+};
+
+&polaris_4v35_4450mah_data {
+	qcom,batt-id-kohm = <500>;
+};
+
+&pmi8950_fg {
+	qcom,battery-data = <&polaris_batterydata>;
+};
+
+&pmi8950_charger {
+	qcom,battery-data = <&polaris_batterydata>;
+	qcom,chg-led-support;
+	qcom,chg-led-sw-controls;
+};
