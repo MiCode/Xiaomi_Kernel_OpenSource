@@ -993,6 +993,7 @@ struct IpaHwSharedMemCommonMapping_t {
 	u8  reserved_01;
 	u16 reserved_03_02;
 	u32 cmdParams;
+	u32 cmdParams_hi;
 	u8  responseOp;
 	u8  reserved_09;
 	u16 reserved_0B_0A;
