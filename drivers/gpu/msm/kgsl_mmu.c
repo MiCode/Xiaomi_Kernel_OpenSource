@@ -807,7 +807,7 @@ int
 kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
 		struct kgsl_memdesc *memdesc)
 {
-	int size;
+	uint64_t size;
 	uint64_t start_addr = 0;
 	uint64_t end_addr = 0;
 
