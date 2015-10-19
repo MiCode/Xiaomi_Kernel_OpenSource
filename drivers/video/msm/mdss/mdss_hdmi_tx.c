@@ -674,6 +674,77 @@ static ssize_t hdmi_tx_sysfs_rda_connected(struct device *dev,
 	return ret;
 } /* hdmi_tx_sysfs_rda_connected */
 
+static ssize_t hdmi_tx_sysfs_wta_edid(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+	int i = 0;
+	const char *buf_t = buf;
+	const int char_to_nib = 2;
+	int edid_size = count / char_to_nib;
+
+	hdmi_ctrl = hdmi_tx_get_drvdata_from_sysfs_dev(dev);
+
+	if (!hdmi_ctrl || !hdmi_ctrl->edid_buf) {
+		DEV_ERR("%s: invalid data\n", __func__);
+		return -EINVAL;
+	}
+
+	memset(hdmi_ctrl->edid_buf, 0, hdmi_ctrl->edid_buf_size);
+
+	while (edid_size--) {
+		char t[char_to_nib + 1];
+		int d, rc;
+
+		memcpy(t, buf_t, sizeof(char) * char_to_nib);
+		t[char_to_nib] = '\0';
+
+		rc = kstrtoint(t, 16, &d);
+		if (rc) {
+			pr_err("kstrtoint error %d\n", rc);
+			return rc;
+		}
+
+		memcpy(hdmi_ctrl->edid_buf + i++, &d,
+			sizeof(*hdmi_ctrl->edid_buf));
+
+		buf_t += char_to_nib;
+	}
+
+	hdmi_ctrl->custom_edid = true;
+
+	return ret;
+}
+
+static ssize_t hdmi_tx_sysfs_rda_edid(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+	u32 size;
+	u32 cea_blks;
+
+	hdmi_ctrl = hdmi_tx_get_drvdata_from_sysfs_dev(dev);
+
+	if (!hdmi_ctrl || !hdmi_ctrl->edid_buf) {
+		DEV_ERR("%s: invalid data\n", __func__);
+		return -EINVAL;
+	}
+
+	cea_blks = hdmi_ctrl->edid_buf[EDID_BLOCK_SIZE - 2];
+	size = (cea_blks + 1) * EDID_BLOCK_SIZE;
+	size = min_t(u32, size, PAGE_SIZE);
+
+	DEV_DBG("%s: edid size %d\n", __func__, size);
+
+	memcpy(buf, hdmi_ctrl->edid_buf, size);
+
+	print_hex_dump(KERN_DEBUG, "HDMI EDID: ", DUMP_PREFIX_NONE,
+		16, 1, buf, size, false);
+
+	return size;
+}
+
 static ssize_t hdmi_tx_sysfs_wta_audio_cb(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -1123,6 +1194,8 @@ static ssize_t hdmi_tx_sysfs_rda_s3d_mode(struct device *dev,
 
 static DEVICE_ATTR(connected, S_IRUGO, hdmi_tx_sysfs_rda_connected, NULL);
 static DEVICE_ATTR(hdmi_audio_cb, S_IWUSR, NULL, hdmi_tx_sysfs_wta_audio_cb);
+static DEVICE_ATTR(edid, S_IRUGO | S_IWUSR, hdmi_tx_sysfs_rda_edid,
+	hdmi_tx_sysfs_wta_edid);
 static DEVICE_ATTR(video_mode, S_IRUGO, hdmi_tx_sysfs_rda_video_mode, NULL);
 static DEVICE_ATTR(hpd, S_IRUGO | S_IWUSR, hdmi_tx_sysfs_rda_hpd,
 	hdmi_tx_sysfs_wta_hpd);
@@ -1139,6 +1212,7 @@ static DEVICE_ATTR(s3d_mode, S_IRUGO | S_IWUSR, hdmi_tx_sysfs_rda_s3d_mode,
 static struct attribute *hdmi_tx_fs_attrs[] = {
 	&dev_attr_connected.attr,
 	&dev_attr_hdmi_audio_cb.attr,
+	&dev_attr_edid.attr,
 	&dev_attr_video_mode.attr,
 	&dev_attr_hpd.attr,
 	&dev_attr_vendor_name.attr,
@@ -1678,12 +1752,16 @@ static int hdmi_tx_read_sink_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 		goto error;
 	}
 
-	hdmi_ddc_config(&hdmi_ctrl->ddc_ctrl);
+	if (!hdmi_ctrl->custom_edid) {
+		hdmi_ddc_config(&hdmi_ctrl->ddc_ctrl);
 
-	status = hdmi_tx_read_edid(hdmi_ctrl);
-	if (status) {
-		DEV_ERR("%s: error reading edid\n", __func__);
-		goto error;
+		status = hdmi_tx_read_edid(hdmi_ctrl);
+		if (status) {
+			DEV_ERR("%s: error reading edid\n", __func__);
+			goto error;
+		}
+	} else {
+		hdmi_ctrl->custom_edid = false;
 	}
 
 	status = hdmi_edid_parser(hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]);
