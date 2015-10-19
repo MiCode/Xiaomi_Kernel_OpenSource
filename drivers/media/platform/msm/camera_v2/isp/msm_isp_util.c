@@ -1801,8 +1801,10 @@ void msm_isp_update_error_frame_count(struct vfe_device *vfe_dev)
 }
 
 
-void ms_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
+static int msm_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 {
+	int rc = vfe_dev->buf_mgr->pagefault_debug_disable;
+
 	pr_err("%s:%d] VFE%d Handle Page fault! vfe_dev %p\n", __func__,
 		__LINE__,  vfe_dev->pdev->id, vfe_dev);
 
@@ -1817,6 +1819,7 @@ void ms_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 		vfe_dev->hw_info->vfe_ops.axi_ops.
 			read_wm_ping_pong_addr(vfe_dev);
 	}
+	return rc;
 }
 
 void msm_isp_process_error_info(struct vfe_device *vfe_dev)
@@ -1917,7 +1920,7 @@ void msm_isp_reset_burst_count_and_frame_drop(
 }
 
 static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
-	uint32_t irq_status0, uint32_t irq_status1, uint32_t iommu_page_fault)
+	uint32_t irq_status0, uint32_t irq_status1)
 {
 	unsigned long flags;
 	struct msm_vfe_tasklet_queue_cmd *queue_cmd = NULL;
@@ -1933,7 +1936,6 @@ static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
 	}
 	queue_cmd->vfeInterruptStatus0 = irq_status0;
 	queue_cmd->vfeInterruptStatus1 = irq_status1;
-	queue_cmd->iommu_page_fault = iommu_page_fault;
 	msm_isp_get_timestamp(&queue_cmd->ts);
 	queue_cmd->cmd_used = 1;
 	vfe_dev->taskletq_idx = (vfe_dev->taskletq_idx + 1) %
@@ -1978,7 +1980,7 @@ irqreturn_t msm_isp_process_irq(int irq_num, void *data)
 		return IRQ_HANDLED;
 	}
 
-	msm_isp_enqueue_tasklet_cmd(vfe_dev, irq_status0, irq_status1, 0);
+	msm_isp_enqueue_tasklet_cmd(vfe_dev, irq_status0, irq_status1);
 
 	return IRQ_HANDLED;
 }
@@ -1990,7 +1992,7 @@ void msm_isp_do_tasklet(unsigned long data)
 	struct msm_vfe_irq_ops *irq_ops = &vfe_dev->hw_info->vfe_ops.irq_ops;
 	struct msm_vfe_tasklet_queue_cmd *queue_cmd;
 	struct msm_isp_timestamp ts;
-	uint32_t irq_status0, irq_status1, iommu_page_fault;
+	uint32_t irq_status0, irq_status1;
 
 	if (vfe_dev->vfe_base == NULL || vfe_dev->vfe_open_cnt == 0) {
 		ISP_DBG("%s: VFE%d open cnt = %d, device closed(base = %p)\n",
@@ -2014,15 +2016,9 @@ void msm_isp_do_tasklet(unsigned long data)
 		irq_status0 = queue_cmd->vfeInterruptStatus0;
 		irq_status1 = queue_cmd->vfeInterruptStatus1;
 		ts = queue_cmd->ts;
-		iommu_page_fault = queue_cmd->iommu_page_fault;
-		queue_cmd->iommu_page_fault = 0;
 		spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
 		ISP_DBG("%s: vfe_id %d status0: 0x%x status1: 0x%x\n",
 			__func__, vfe_dev->pdev->id, irq_status0, irq_status1);
-		if (iommu_page_fault > 0) {
-			ms_isp_process_iommu_page_fault(vfe_dev);
-			continue;
-		}
 		irq_ops->process_reset_irq(vfe_dev,
 			irq_status0, irq_status1);
 		irq_ops->process_halt_irq(vfe_dev,
@@ -2063,7 +2059,7 @@ static int msm_vfe_iommu_fault_handler(struct iommu_domain *domain,
 	struct device *dev, unsigned long iova, int flags, void *token)
 {
 	struct vfe_device *vfe_dev = NULL;
-	int rc = -ENOSYS;
+	int rc = 1;
 
 	if (token) {
 		vfe_dev = (struct vfe_device *)token;
@@ -2080,7 +2076,7 @@ static int msm_vfe_iommu_fault_handler(struct iommu_domain *domain,
 		if (vfe_dev->vfe_open_cnt > 0) {
 			atomic_set(&vfe_dev->error_info.overflow_state,
 				HALT_ENFORCED);
-			msm_isp_enqueue_tasklet_cmd(vfe_dev, 0, 0, 1);
+			rc = msm_isp_process_iommu_page_fault(vfe_dev);
 		} else {
 			pr_err("%s: no handling, vfe open cnt = %d\n",
 				__func__, vfe_dev->vfe_open_cnt);
@@ -2092,7 +2088,11 @@ static int msm_vfe_iommu_fault_handler(struct iommu_domain *domain,
 		goto end;
 	}
 end:
-	return rc;
+	/*
+	 * On the first fault rerurn ENOSYS so the smmu driver will
+	 * print its debug stuff
+	 */
+	return rc ? 0 : -ENOSYS;
 }
 
 int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)

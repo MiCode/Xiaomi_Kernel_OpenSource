@@ -499,7 +499,6 @@ struct msm_vfe_tasklet_queue_cmd {
 	uint32_t vfeInterruptStatus1;
 	struct msm_isp_timestamp ts;
 	uint8_t cmd_used;
-	uint8_t iommu_page_fault;
 };
 
 #define MSM_VFE_TASKLETQ_SIZE 200
