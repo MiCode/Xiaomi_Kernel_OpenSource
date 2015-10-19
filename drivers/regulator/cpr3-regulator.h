@@ -60,6 +60,7 @@ struct cpr3_fuse_param {
  *			when switching to a new corner
  * @system_volt:	The system-supply voltage in microvolts or corners or
  *			levels
+ * @mem_acc_volt:	The mem-acc-supply voltage in corners
  * @proc_freq:		Processor frequency in Hertz (only used by platform
  *			specific CPR3 driver for interpolation)
  * @cpr_fuse_corner:	Fused corner index associated with this virtual corner
@@ -95,6 +96,7 @@ struct cpr3_corner {
 	int			open_loop_volt;
 	int			last_volt;
 	int			system_volt;
+	int			mem_acc_volt;
 	u32			proc_freq;
 	int			cpr_fuse_corner;
 	u32			target_quot[CPR3_RO_COUNT];
@@ -339,6 +341,9 @@ struct cpr3_aging_sensor_info {
  *			controller manages
  * @system_regulator:	Pointer to the optional system-supply regulator upon
  *			which the VDD supply regulator depends.
+ * @mem_acc_regulator:	Pointer to the optional mem-acc supply regulator used
+ *			to manage memory circuitry settings based upon CPR3
+ *			regulator corner selection.
  * @vdd_limit_regulator: Pointer to the VDD supply limit regulator which is used
  *			for hardware closed-loop in order specify ceiling and
  *			floor voltage limits (platform specific)
@@ -450,6 +455,7 @@ struct cpr3_controller {
 	struct mutex		lock;
 	struct regulator	*vdd_regulator;
 	struct regulator	*system_regulator;
+	struct regulator	*mem_acc_regulator;
 	struct regulator	*vdd_limit_regulator;
 	int			system_supply_max_volt;
 	struct clk		*core_clk;
