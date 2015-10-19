@@ -4056,9 +4056,7 @@ static int tasha_enable_native_supply(struct snd_soc_dapm_widget *w,
 	if (w->shift < INTERP_HPHL || w->shift > INTERP_LO2)
 		return -EINVAL;
 
-	/* Adjust interpolator rate to 44P1_NATIVE */
 	interp_reg = WCD9335_CDC_RX1_RX_PATH_CTL + 20 * (w->shift - 1);
-	snd_soc_update_bits(codec, interp_reg, 0x0F, 0x09);
 
 	mask = tasha_codec_get_native_fifo_sync_mask(codec, w->shift);
 	if (!mask)
@@ -4066,6 +4064,8 @@ static int tasha_enable_native_supply(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		/* Adjust interpolator rate to 44P1_NATIVE */
+		snd_soc_update_bits(codec, interp_reg, 0x0F, 0x09);
 		__tasha_cdc_native_clk_enable(tasha, true);
 		snd_soc_update_bits(codec, WCD9335_DATA_HUB_NATIVE_FIFO_SYNC,
 				    mask, mask);
@@ -4074,6 +4074,8 @@ static int tasha_enable_native_supply(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, WCD9335_DATA_HUB_NATIVE_FIFO_SYNC,
 				    mask, 0x0);
 		__tasha_cdc_native_clk_enable(tasha, false);
+		/* Adjust interpolator rate to default */
+		snd_soc_update_bits(codec, interp_reg, 0x0F, 0x04);
 		break;
 	}
 
