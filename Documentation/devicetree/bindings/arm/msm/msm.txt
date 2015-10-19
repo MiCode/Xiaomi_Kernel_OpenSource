@@ -44,6 +44,9 @@ SoCs:
 - APQ8937
   compatible = "qcom,apq8037"
 
+- APQTITANIUM
+  compatible = "qcom,apqtitanium"
+
 - MDM9630
   compatible = "qcom,mdm9630"
 
@@ -156,6 +159,8 @@ compatible = "qcom,apq8096-dragonboard"
 compatible = "qcom,apq8096-liquid"
 compatible = "qcom,apq8037-cdp"
 compatible = "qcom,apq8037-mtp"
+compatible = "qcom,apqtitanium-cdp"
+compatible = "qcom,apqtitanium-mtp"
 compatible = "qcom,mdm9630-cdp"
 compatible = "qcom,mdm9630-mtp"
 compatible = "qcom,mdm9630-sim"
