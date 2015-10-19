@@ -1059,7 +1059,6 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		cell-index = <0>;
-		qcom,not-wakeup; /* Needed until MPM is fully configured. */
 	};
 
 	spi_1: spi@78b6000 { /* BLSP1 QUP1 */
