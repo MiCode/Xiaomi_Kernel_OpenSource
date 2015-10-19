@@ -38,6 +38,13 @@
 /* mdio/mdc gpios */
 #define EMAC_GPIO_CNT         2
 
+enum emac_vreg_id {
+	EMAC_VREG1,
+	EMAC_VREG2,
+	EMAC_VREG3,
+	EMAC_VREG_CNT
+};
+
 enum emac_clk_id {
 	EMAC_CLK_AXI,
 	EMAC_CLK_CFG_AHB,
@@ -575,6 +582,12 @@ struct emac_clk {
 	bool			enabled;
 };
 
+struct emac_regulator {
+	struct regulator *vreg;
+	bool			enabled;
+	bool			set_voltage;
+};
+
 /* emac_ring_header represents a single, contiguous block of DMA space
  * mapped for the three descriptor rings (tpd, rfd, rrd)
  */
@@ -704,6 +717,7 @@ struct emac_adapter {
 	struct emac_irq_per_dev		irq[EMAC_IRQ_CNT];
 	unsigned int			gpio[EMAC_GPIO_CNT];
 	struct emac_clk			clk[EMAC_CLK_CNT];
+	struct emac_regulator		vreg[EMAC_VREG_CNT];
 
 	/* dma parameters */
 	u64                             dma_mask;
