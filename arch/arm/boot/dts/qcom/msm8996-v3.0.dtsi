@@ -46,6 +46,7 @@
 		 520000  520000>;
 
 	qcom,system-voltage = <2 2 2 2 2 4 4>;
+	qcom,mem-acc-voltage = <1 1 1 2 2 2 2>;
 
 	qcom,corner-frequencies =
 		<0 214000000 315000000 401800000
