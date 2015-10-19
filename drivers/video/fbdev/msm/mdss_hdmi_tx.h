@@ -173,6 +173,7 @@ struct hdmi_tx_ctrl {
 	atomic_t audio_ack_pending;
 	bool hdcp14_sw_keys;
 	bool auth_state;
+	bool custom_edid;
 	u32 enc_lvl;
 
 	u8 spd_vendor_name[9];
