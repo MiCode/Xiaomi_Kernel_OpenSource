@@ -109,31 +109,16 @@ const unsigned int a3xx_cp_addr_regs[ADRENO_CP_ADDR_MAX] = {
 				A3XX_SP_FS_OBJ_START_REG),
 };
 
-unsigned int adreno_a3xx_rbbm_clock_ctl_default(struct adreno_device
+static unsigned int adreno_a3xx_rbbm_clock_ctl_default(struct adreno_device
 							*adreno_dev)
 {
-	if (adreno_is_a304(adreno_dev))
-		return A304_RBBM_CLOCK_CTL_DEFAULT;
-	else if (adreno_is_a305(adreno_dev))
-		return A305_RBBM_CLOCK_CTL_DEFAULT;
-	else if (adreno_is_a305c(adreno_dev))
-		return A305C_RBBM_CLOCK_CTL_DEFAULT;
-	else if (adreno_is_a306(adreno_dev))
-		return A306_RBBM_CLOCK_CTL_DEFAULT;
-	else if (adreno_is_a306a(adreno_dev))
-		return A306A_RBBM_CLOCK_CTL_DEFAULT;
-	else if (adreno_is_a310(adreno_dev))
-		return A310_RBBM_CLOCK_CTL_DEFAULT;
-	else if (adreno_is_a320(adreno_dev))
+	if (adreno_is_a320(adreno_dev))
 		return A320_RBBM_CLOCK_CTL_DEFAULT;
 	else if (adreno_is_a330v2(adreno_dev))
-		return A330v2_RBBM_CLOCK_CTL_DEFAULT;
+		return A3XX_RBBM_CLOCK_CTL_DEFAULT;
 	else if (adreno_is_a330(adreno_dev))
 		return A330_RBBM_CLOCK_CTL_DEFAULT;
-	else if (adreno_is_a305b(adreno_dev))
-		return A305B_RBBM_CLOCK_CTL_DEFAULT;
-
-	BUG_ON(1);
+	return A3XX_RBBM_CLOCK_CTL_DEFAULT;
 }
 
 static const unsigned int _a3xx_pwron_fixup_fs_instructions[] = {
