@@ -561,6 +561,11 @@
 		#clock-cells = <1>;
 	};
 
+	clock_gcc_mdss: qcom,gcc-mdss@1800000 {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
 	clock_cpu: qcom,cpu-clock-8939@b111050 {
 		compatible = "qcom,cpu-clock-8939";
 		reg =   <0xb111050 0x8>,
@@ -1696,6 +1701,8 @@
 #include "msm-pm8937.dtsi"
 #include "msm-gdsc-8916.dtsi"
 #include "msm-audio.dtsi"
+#include "msm8937-mdss.dtsi"
+#include "msm8937-mdss-pll.dtsi"
 
 &gdsc_venus {
 	clock-names = "bus_clk", "core_clk";

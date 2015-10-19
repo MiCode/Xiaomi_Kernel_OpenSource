@@ -275,6 +275,60 @@
 			};
 		};
 
+		pmx_mdss: pmx_mdss {
+			mdss_dsi_active: mdss_dsi_active {
+				mux {
+					pins = "gpio60", "gpio98", "gpio99";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio60", "gpio98", "gpio99";
+					drive-strength = <8>; /* 8 mA */
+					bias-disable = <0>; /* no pull */
+					output-high;
+				};
+			};
+			mdss_dsi_suspend: mdss_dsi_suspend {
+				mux {
+					pins = "gpio60", "gpio98", "gpio99";
+					function = "gpio";
+				};
+
+				config {
+					pins = "gpio60", "gpio98", "gpio99";
+					drive-strength = <2>; /* 2 mA */
+					bias-pull-down; /* pull down */
+				};
+			};
+		};
+
+		pmx_mdss_te {
+			mdss_te_active: mdss_te_active {
+				mux {
+					pins = "gpio24";
+					function = "mdp_vsync";
+				};
+				config {
+					pins = "gpio24";
+					drive-strength = <2>; /* 8 mA */
+					bias-pull-down; /* pull down*/
+				};
+			};
+
+			mdss_te_suspend: mdss_te_suspend {
+				mux {
+					pins = "gpio24";
+					function = "mdp_vsync";
+				};
+				config {
+					pins = "gpio24";
+					drive-strength = <2>; /* 2 mA */
+					bias-pull-down; /* pull down */
+				};
+			};
+		};
+
 		usbc_int_default: usbc_int_default {
 			mux {
 				pins = "gpio97", "gpio133";
