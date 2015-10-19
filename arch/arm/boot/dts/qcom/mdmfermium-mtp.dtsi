@@ -46,6 +46,20 @@
 	};
 };
 
+/* PMIC gpio for wlan power supply */
+&pm8019_gpios {
+	gpio@c200 {
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <1>;		/* Output high */
+		qcom,vin-sel = <3>;		/* VPH_PWR */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,out-strength = <1>;	/* High drive strength */
+		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
+	};
+};
+
 &i2c_4 {
 	/* SMB358 charger configuration */
 	smb358_otg_vreg: smb358-charger@57 {
