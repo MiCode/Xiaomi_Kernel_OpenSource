@@ -83,9 +83,12 @@
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "pm8950_s6_level";
 			qcom,set = <3>;
-			regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
-			regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
-			qcom,init-voltage-level = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_TURBO_HIGH>;
+			qcom,init-voltage-level =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 			qcom,use-voltage-level;
 			qcom,always-send-voltage;
 		};
@@ -94,8 +97,10 @@
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "pm8950_s6_level_ao";
 			qcom,set = <1>;
-			regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
-			regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_TURBO_HIGH>;
 			qcom,use-voltage-level;
 			qcom,always-send-voltage;
 		};
@@ -104,9 +109,12 @@
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "pm8950_s6_level_so";
 			qcom,set = <2>;
-			regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
-			regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
-			qcom,init-voltage-level = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_TURBO_HIGH>;
+			qcom,init-voltage-level =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 			qcom,use-voltage-level;
 		};
 
@@ -117,7 +125,7 @@
 			regulator-min-microvolt =
 					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 			regulator-max-microvolt =
-					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+					<RPM_SMD_REGULATOR_LEVEL_TURBO_HIGH>;
 			qcom,use-voltage-floor-level;
 			qcom,always-send-voltage;
 		};
