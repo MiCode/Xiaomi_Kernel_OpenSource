@@ -146,6 +146,8 @@ bool system_supports_mixed_endian_el0(void);
 bool cpu_supports_mixed_endian_el0(void);
 bool system_supports_mixed_endian_el0(void);
 
+u64 read_system_reg(u32 id);
+
 #endif /* __ASSEMBLY__ */
 
 #endif
