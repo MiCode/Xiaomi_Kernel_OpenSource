@@ -184,8 +184,8 @@ static int gdsc_enable(struct regulator_dev *rdev)
 				hw_ctrl_regval =
 					readl_relaxed(sc->hw_ctrl_addr);
 				dev_err(&rdev->dev, "%s final state (%d us after timeout): 0x%x, GDS_HW_CTRL: 0x%x\n",
-					sc->rdesc.name, regval,
-					hw_ctrl_regval, TIMEOUT_US);
+					sc->rdesc.name, TIMEOUT_US, regval,
+					hw_ctrl_regval);
 			} else
 				dev_err(&rdev->dev, "%s final state: 0x%x (%d us after timeout)\n",
 					sc->rdesc.name, regval, TIMEOUT_US);
