@@ -89,6 +89,7 @@
 	qcom,cpr-hw-closed-loop;
 
 	/delete-property/ qcom,cpr-aging-ref-voltage;
+	/delete-property/ proxy-supply;
 
 	thread@0 {
 		qcom,cpr-consecutive-down = <2>;
@@ -216,6 +217,8 @@
 	/delete-property/ qcom,cpr-aging-ref-corner;
 	/delete-property/ qcom,cpr-aging-ro-scaling-factor;
 	/delete-property/ qcom,allow-aging-voltage-adjustment;
+	/delete-property/ qcom,proxy-consumer-enable;
+	/delete-property/ qcom,proxy-consumer-voltage;
 };
 
 &apc1_vreg {
