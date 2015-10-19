@@ -1161,6 +1161,8 @@
 		qcom,cpr-count-mode = <2>;		/* Staggered */
 
 		vdd-supply = <&pmi8994_s2>;
+		mem-acc-supply = <&gfx_mem_acc_vreg>;
+
 		qcom,voltage-step = <5000>;
 
 		qcom,cpr-enable;
@@ -1191,6 +1193,8 @@
 				qcom,cpr-voltage-floor =
 					<400000  520000  520000  520000  520000
 					 520000  520000  520000>;
+
+				qcom,mem-acc-voltage = <1 1 1 1 2 2 2 2>;
 
 				qcom,corner-frequencies =
 					<0 133000000 214000000 315000000
@@ -1283,6 +1287,20 @@
 					<0 0 0 1 1 1 1 1>;
 			};
 		};
+	};
+
+/* Memory accelerator regulators */
+	gfx_mem_acc_vreg: regulator@007af004 {
+		compatible = "qcom,mem-acc-regulator";
+		reg = <0x007af004 0x4>;
+		reg-names = "acc-sel-l1";
+		regulator-name = "gfx_mem_acc_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <2>;
+
+		qcom,corner-acc-map = <0x1 0x0>;
+		qcom,acc-sel-l1-bit-pos = <0>;
+		qcom,acc-sel-l1-bit-size = <1>;
 	};
 
 /* Kryo regulators */
