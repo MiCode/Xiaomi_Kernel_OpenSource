@@ -1422,6 +1422,45 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 		return rc;
 	}
 
+	if (labibb->mode == QPNP_LABIBB_AMOLED_MODE) {
+		/*
+		 * default to 1.5 times current gain if
+		 * user doesn't specify the current-sense
+		 * dt parameter
+		 */
+		current_sense_str = "1.5x";
+		val = qpnp_labibb_get_matching_idx(current_sense_str);
+		config_current_sense = true;
+	}
+
+	if (of_find_property(of_node,
+		"qpnp,qpnp-lab-current-sense", NULL)) {
+		config_current_sense = true;
+		rc = of_property_read_string(of_node,
+			"qpnp,qpnp-lab-current-sense",
+			&current_sense_str);
+		if (!rc) {
+			val = qpnp_labibb_get_matching_idx(
+					current_sense_str);
+		} else {
+			pr_err("qpnp,qpnp-lab-current-sense configured incorrectly rc = %d\n",
+				rc);
+			return rc;
+		}
+	}
+
+	if (config_current_sense) {
+		rc = qpnp_labibb_masked_write(labibb, labibb->lab_base +
+			REG_LAB_CURRENT_SENSE,
+			LAB_CURRENT_SENSE_GAIN_MASK,
+			val);
+		if (rc) {
+			pr_err("qpnp_labibb_write register %x failed rc = %d\n",
+				REG_LAB_CURRENT_SENSE, rc);
+			return rc;
+		}
+	}
+
 	rc = qpnp_labibb_read(labibb, &val,
 				labibb->ibb_base + REG_IBB_ENABLE_CTL, 1);
 	if (rc) {
@@ -1482,46 +1521,6 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 			if (rc) {
 				pr_err("get qcom,qpnp-lab-init-amoled-voltage failed, rc = %d\n",
 					rc);
-				return rc;
-			}
-
-		}
-
-		if (labibb->mode == QPNP_LABIBB_AMOLED_MODE) {
-			/*
-			 * default to 1.5 times current gain if
-			 * user doesn't specify the current-sense
-			 * dt parameter
-			 */
-			current_sense_str = "1.5x";
-			val = qpnp_labibb_get_matching_idx(current_sense_str);
-			config_current_sense = true;
-		}
-
-		if (of_find_property(of_node,
-			"qpnp,qpnp-lab-current-sense", NULL)) {
-			config_current_sense = true;
-			rc = of_property_read_string(of_node,
-				"qpnp,qpnp-lab-current-sense",
-				&current_sense_str);
-			if (!rc) {
-				val = qpnp_labibb_get_matching_idx(
-						current_sense_str);
-			} else {
-				pr_err("qpnp,qpnp-lab-current-sense configured incorrectly rc = %d\n",
-					rc);
-				return rc;
-			}
-		}
-
-		if (config_current_sense) {
-			rc = qpnp_labibb_masked_write(labibb, labibb->lab_base +
-				REG_LAB_CURRENT_SENSE,
-				LAB_CURRENT_SENSE_GAIN_MASK,
-				val);
-			if (rc) {
-				pr_err("qpnp_labibb_write register %x failed rc = %d\n",
-					REG_LAB_CURRENT_SENSE, rc);
 				return rc;
 			}
 		}
