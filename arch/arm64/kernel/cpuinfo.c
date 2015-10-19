@@ -345,7 +345,6 @@ static void __cpuinfo_store_cpu(struct cpuinfo_arm64 *info)
 
 	check_local_cpu_errata();
 	check_local_cpu_features();
-	update_cpu_features(info);
 }
 
 void cpuinfo_store_cpu(void)
@@ -353,6 +352,7 @@ void cpuinfo_store_cpu(void)
 	struct cpuinfo_arm64 *info = this_cpu_ptr(&cpu_data);
 	__cpuinfo_store_cpu(info);
 	cpuinfo_sanity_check(info);
+	update_cpu_features(info);
 }
 
 void __init cpuinfo_store_boot_cpu(void)
@@ -361,6 +361,7 @@ void __init cpuinfo_store_boot_cpu(void)
 	__cpuinfo_store_cpu(info);
 
 	boot_cpu_data = *info;
+	init_cpu_features(&boot_cpu_data);
 }
 
 u64 __attribute_const__ icache_get_ccsidr(void)
