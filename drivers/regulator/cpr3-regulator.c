@@ -1045,6 +1045,35 @@ static int cpr3_regulator_config_ldo(struct cpr3_controller *ctrl,
 }
 
 /**
+ * cpr3_regulator_config_mem_acc() - configure the corner of the mem-acc
+ *			regulator associated with the CPR3 controller
+ * @ctrl:		Pointer to the CPR3 controller
+ * @aggr_corner:	Pointer to the CPR3 corner which corresponds to the max
+ *			corner aggregate of all CPR3 threads managed by the CPR3
+ *			controller
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_regulator_config_mem_acc(struct cpr3_controller *ctrl,
+					 struct cpr3_corner *aggr_corner)
+{
+	int rc;
+
+	if (ctrl->mem_acc_regulator && aggr_corner->mem_acc_volt) {
+		rc = regulator_set_voltage(ctrl->mem_acc_regulator,
+					   aggr_corner->mem_acc_volt,
+					   aggr_corner->mem_acc_volt);
+		if (rc) {
+			cpr3_err(ctrl, "regulator_set_voltage(mem_acc) == %d failed, rc=%d\n",
+				 aggr_corner->mem_acc_volt, rc);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
+/**
  * cpr3_regulator_scale_vdd_voltage() - scale the CPR controlled VDD supply
  *		voltage to the new level while satisfying any other hardware
  *		requirements
@@ -1129,6 +1158,11 @@ static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
 				 rc);
 			return rc;
 		}
+
+		rc = cpr3_regulator_config_mem_acc(ctrl, aggr_corner);
+		if (rc)
+			return rc;
+
 	} else {
 		/* Increasing VDD voltage */
 		if (ctrl->system_regulator) {
@@ -1166,6 +1200,10 @@ static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
 				 rc);
 			return rc;
 		}
+
+		rc = cpr3_regulator_config_mem_acc(ctrl, aggr_corner);
+		if (rc)
+			return rc;
 	} else {
 		/* Decreasing VDD voltage */
 		if (ctrl->system_regulator) {
@@ -1208,6 +1246,8 @@ static void cpr3_regulator_aggregate_corners(struct cpr3_corner *aggr_corner,
 		= max(aggr_corner->open_loop_volt, corner->open_loop_volt);
 	aggr_corner->system_volt
 		= max(aggr_corner->system_volt, corner->system_volt);
+	aggr_corner->mem_acc_volt
+		= max(aggr_corner->mem_acc_volt, corner->mem_acc_volt);
 	aggr_corner->irq_en |= corner->irq_en;
 
 	if (aggr_quot) {

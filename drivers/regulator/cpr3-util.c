@@ -963,6 +963,18 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
 		}
 	}
 
+	ctrl->mem_acc_regulator = devm_regulator_get_optional(ctrl->dev,
+							      "mem-acc");
+	if (IS_ERR(ctrl->mem_acc_regulator)) {
+		rc = PTR_ERR(ctrl->mem_acc_regulator);
+		if (rc != -EPROBE_DEFER) {
+			rc = 0;
+			ctrl->mem_acc_regulator = NULL;
+		} else {
+			return rc;
+		}
+	}
+
 	return rc;
 }
 
