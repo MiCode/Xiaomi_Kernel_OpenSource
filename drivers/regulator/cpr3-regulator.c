@@ -3487,7 +3487,8 @@ static void cpr3_regulator_debugfs_ctrl_add(struct cpr3_controller *ctrl)
 		}
 	}
 
-	if (ctrl->aging_required) {
+	if (ctrl->aging_required || ctrl->aging_succeeded
+	    || ctrl->aging_failed) {
 		temp = debugfs_create_int("aging_adj_volt", S_IRUGO,
 				ctrl->debugfs, &ctrl->aging_ref_adjust_volt);
 		if (IS_ERR_OR_NULL(temp)) {
