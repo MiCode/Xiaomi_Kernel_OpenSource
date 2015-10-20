@@ -25,6 +25,7 @@
 #include <sound/q6afe-v2.h>
 #include <sound/q6core.h>
 #include <sound/pcm_params.h>
+#include <sound/info.h>
 #include <soc/qcom/socinfo.h>
 #include <linux/input.h>
 #include "qdsp6v2/msm-pcm-routing-v2.h"
@@ -65,6 +66,7 @@
 #define HS_STARTWORK_TIMEOUT        4000
 
 #define Q6AFE_LPASS_OSR_CLK_9_P600_MHZ	0x927C00
+#define MAX_AUX_CODECS		4
 
 enum btsco_rates {
 	RATE_8KHZ_ID,
@@ -276,10 +278,16 @@ struct msm8952_asoc_mach_data {
 	struct snd_soc_codec *codec;
 	struct msm8952_codec msm8952_codec_fn;
 	struct ext_intf_cfg clk_ref;
+	struct snd_info_entry *codec_root;
 	void __iomem *vaddr_gpio_mux_spkr_ctl;
 	void __iomem *vaddr_gpio_mux_mic_ctl;
 	void __iomem *vaddr_gpio_mux_pcm_ctl;
 	void __iomem *vaddr_gpio_mux_quin_ctl;
+};
+
+struct msm895x_auxcodec_prefix_map {
+	char codec_name[50];
+	char codec_prefix[25];
 };
 
 static inline int param_is_mask(int p)
@@ -300,16 +308,33 @@ int msm895x_wsa881x_init(struct snd_soc_component *component)
 	unsigned int ch_rate[WSA881X_MAX_SWR_PORTS] = {2400, 600, 300, 1200};
 	unsigned int ch_mask[WSA881X_MAX_SWR_PORTS] = {0x1, 0xF, 0x3, 0x3};
 	struct snd_soc_codec *codec = snd_soc_component_to_codec(component);
+	struct snd_soc_card *card = codec->component.card;
+	struct msm8952_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	struct msm895x_auxcodec_prefix_map codec_prefix_map[MAX_AUX_CODECS] = {
+	{ "wsa881x.20170211", "SpkrRight" },
+	{ "wsa881x.20170212", "SpkrLeft" },
+	{ "wsa881x.21170213", "SpkrRight" },
+	{ "wsa881x.21170214", "SpkrLeft" } };
+	u8 i;
 
 	if (!codec) {
 		pr_err("%s codec is NULL\n", __func__);
 		return -EINVAL;
 	}
-	if (!strcmp(codec->component.name, "wsa881x.20170212")) {
+
+	for (i = 0; i < MAX_AUX_CODECS; i++) {
+		if (!strcmp(component->name, codec_prefix_map[i].codec_name))
+			break;
+	}
+	if (i >= MAX_AUX_CODECS) {
+		pr_err("%s: could not find prefix map\n" , __func__);
+		return -EINVAL;
+	}
+	if (!strcmp(codec_prefix_map[i].codec_prefix, "SpkrLeft")) {
 		wsa881x_set_channel_map(codec, &spkleft_ports[0],
 				WSA881X_MAX_SWR_PORTS, &ch_mask[0],
 				&ch_rate[0]);
-	} else if (!strcmp(codec->component.name, "wsa881x.20170211")) {
+	} else if (!strcmp(codec_prefix_map[i].codec_prefix, "SpkrRight")) {
 		wsa881x_set_channel_map(codec, &spkright_ports[0],
 				WSA881X_MAX_SWR_PORTS, &ch_mask[0],
 				&ch_rate[0]);
@@ -318,6 +343,10 @@ int msm895x_wsa881x_init(struct snd_soc_component *component)
 			codec->component.name);
 		return -EINVAL;
 	}
+	pdata = snd_soc_card_get_drvdata(card);
+	if (pdata && pdata->codec_root)
+		wsa881x_codec_info_create_codec_entry(pdata->codec_root,
+						      codec);
 	return 0;
 }
 
@@ -1780,8 +1809,10 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
-	struct snd_soc_card *card = codec->component.card;
-	struct msm8952_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	struct snd_card *card;
+	struct snd_info_entry *entry;
+	struct msm8952_asoc_mach_data *pdata =
+				snd_soc_card_get_drvdata(rtd->card);
 
 	/* Codec SLIMBUS configuration
 	 * RX1, RX2, RX3, RX4, RX5, RX6, RX7, RX8, RX9, RX10, RX11, RX12, RX13
@@ -1941,6 +1972,22 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		tomtom_event_register(msm8952_codec_event_cb, rtd->codec);
 
 	codec_reg_done = true;
+
+	if (!strcmp(dev_name(codec_dai->dev), "tasha_codec")) {
+		card = rtd->card->snd_card;
+		entry = snd_register_module_info(card->module,
+						 "codecs",
+						 card->proc_root);
+		if (!entry) {
+			pr_debug("%s: Cannot create codecs module entry\n",
+				 __func__);
+			err = 0;
+			goto out;
+		}
+		pdata->codec_root = entry;
+		tasha_codec_info_create_codec_entry(pdata->codec_root,
+						    codec);
+	}
 	return 0;
 out:
 	return err;
@@ -2210,7 +2257,7 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 	card = populate_snd_card_dailinks(&pdev->dev);
 	if (!card) {
 		dev_err(&pdev->dev, "%s: Card uninitialized\n", __func__);
-		ret = -EINVAL;
+		ret = -EPROBE_DEFER;
 		goto err;
 	}
 	card->dev = &pdev->dev;
