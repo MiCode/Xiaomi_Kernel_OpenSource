@@ -1335,6 +1335,7 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 				 * if soft volume is called and already
 				 * interrupted break out of the sequence here
 				 */
+			case ADM_CMD_DEVICE_OPEN_V5:
 			case ADM_CMD_DEVICE_CLOSE_V5:
 				pr_debug("%s: Basic callback received, wake up.\n",
 					__func__);
