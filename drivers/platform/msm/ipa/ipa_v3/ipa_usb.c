@@ -787,9 +787,10 @@ int ipa3_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
 			result = -EPERM;
 			goto bad_params;
 		}
-		ipa3_usb_ctx->diag_user_data = user_data;
+		ipa3_usb_ctx->teth_prot_ctx[teth_prot].user_data = user_data;
 		ipa3_usb_ctx->teth_prot_ctx[teth_prot].state =
 			IPA_USB_TETH_PROT_INITIALIZED;
+		ipa3_usb_ctx->diag_user_data = user_data;
 		ipa3_usb_ctx->num_init_prot++;
 		IPA_USB_DBG("initialized %s\n",
 			ipa3_usb_teth_prot_to_string(teth_prot));
@@ -1284,7 +1285,7 @@ static int ipa3_usb_connect_teth_prot(
 		}
 		result = ipa3_usb_init_teth_bridge();
 		if (result)
-				return result;
+			return result;
 
 		ipa3_usb_ctx->user_data =
 			ipa3_usb_ctx->teth_prot_ctx[params->teth_prot].
@@ -1659,8 +1660,10 @@ static int ipa3_usb_xdci_disconnect_diag(u32 dl_clnt_hdl)
 
 	/* Disconnect DIAG */
 	result = ipa3_usb_disconnect_teth_prot(IPA_USB_DIAG);
-	if (result)
+	if (result) {
+		IPA_USB_ERR("failed to disconnect DIAG tethering protocol\n");
 		return result;
+	}
 
 	return 0;
 }
@@ -1672,29 +1675,13 @@ static int ipa3_usb_check_disconnect_prot(enum ipa_usb_teth_prot teth_prot)
 		return -EFAULT;
 	}
 
-	switch (teth_prot) {
-	case IPA_USB_RNDIS:
-	case IPA_USB_ECM:
-	case IPA_USB_DIAG:
-		if (ipa3_usb_ctx->teth_prot_ctx[teth_prot].state !=
-			IPA_USB_TETH_PROT_CONNECTED) {
-			IPA_USB_ERR("%s is not connected.\n",
-				ipa3_usb_teth_prot_to_string(teth_prot));
-			return -EFAULT;
-		}
-		break;
-	case IPA_USB_RMNET:
-	case IPA_USB_MBIM:
-		if (ipa3_usb_ctx->teth_prot_ctx[teth_prot].state !=
-			IPA_USB_TETH_PROT_CONNECTED) {
-			IPA_USB_ERR("%s is not connected.\n",
-				ipa3_usb_teth_prot_to_string(teth_prot));
-			return -EFAULT;
-		}
-		break;
-	default:
-		break;
+	if (ipa3_usb_ctx->teth_prot_ctx[teth_prot].state !=
+		IPA_USB_TETH_PROT_CONNECTED) {
+		IPA_USB_ERR("%s is not connected.\n",
+			ipa3_usb_teth_prot_to_string(teth_prot));
+		return -EFAULT;
 	}
+
 	return 0;
 }
 
@@ -1799,12 +1786,10 @@ int ipa3_usb_xdci_disconnect(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	if (!ipa3_usb_set_state(IPA_USB_STOPPED))
 		IPA_USB_ERR("failed to change state to stopped\n");
 
-	if (teth_prot != IPA_USB_DIAG) {
-		result = ipa3_usb_release_xdci_channel(ul_clnt_hdl, teth_prot);
-		if (result) {
-			IPA_USB_ERR("failed to release UL channel.\n");
-			goto bad_params;
-		}
+	result = ipa3_usb_release_xdci_channel(ul_clnt_hdl, teth_prot);
+	if (result) {
+		IPA_USB_ERR("failed to release UL channel.\n");
+		goto bad_params;
 	}
 
 	result = ipa3_usb_release_xdci_channel(dl_clnt_hdl, teth_prot);
