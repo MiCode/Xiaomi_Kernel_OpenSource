@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -116,13 +116,14 @@ struct spm_vreg {
 	bool				online;
 	u16				spmi_base_addr;
 	u8				init_mode;
+	u8				mode;
 	int				step_rate;
 	enum qpnp_regulator_uniq_type	regulator_type;
 	u32				cpu_num;
 	bool				bypass_spm;
 };
 
-static int qpnp_fts2_set_mode(struct spm_vreg *vreg, u8 mode)
+static int qpnp_smps_set_mode(struct spm_vreg *vreg, u8 mode)
 {
 	int rc;
 
@@ -149,7 +150,7 @@ static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 	    && !(vreg->init_mode & QPNP_SMPS_MODE_PWM)
 	    && vreg->uV > vreg->last_set_uV) {
 		/* Switch to PWM mode so that voltage ramping is fast. */
-		rc = qpnp_fts2_set_mode(vreg, QPNP_SMPS_MODE_PWM);
+		rc = qpnp_smps_set_mode(vreg, QPNP_SMPS_MODE_PWM);
 		if (rc)
 			return rc;
 	}
@@ -190,7 +191,7 @@ static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 		/* Wait for mode transition to complete. */
 		udelay(QPNP_FTS2_MODE_CHANGE_DELAY - QPNP_SPMI_WRITE_MIN_DELAY);
 		/* Switch to AUTO mode so that power consumption is lowered. */
-		rc = qpnp_fts2_set_mode(vreg, QPNP_FTS2_MODE_AUTO);
+		rc = qpnp_smps_set_mode(vreg, QPNP_FTS2_MODE_AUTO);
 		if (rc)
 			return rc;
 	}
@@ -296,10 +297,36 @@ static int spm_regulator_is_enabled(struct regulator_dev *rdev)
 	return vreg->online;
 }
 
+static unsigned int spm_regulator_get_mode(struct regulator_dev *rdev)
+{
+	struct spm_vreg *vreg = rdev_get_drvdata(rdev);
+
+	return vreg->mode == QPNP_SMPS_MODE_PWM
+			? REGULATOR_MODE_NORMAL : REGULATOR_MODE_IDLE;
+}
+
+static int spm_regulator_set_mode(struct regulator_dev *rdev, unsigned int mode)
+{
+	struct spm_vreg *vreg = rdev_get_drvdata(rdev);
+
+	/*
+	 * Map REGULATOR_MODE_NORMAL to PWM mode and REGULATOR_MODE_IDLE to
+	 * init_mode.  This ensures that the regulator always stays in PWM mode
+	 * in the case that qcom,mode has been specified as "pwm" in device
+	 * tree.
+	 */
+	vreg->mode
+	 = mode == REGULATOR_MODE_NORMAL ? QPNP_SMPS_MODE_PWM : vreg->init_mode;
+
+	return qpnp_smps_set_mode(vreg, vreg->mode);
+}
+
 static struct regulator_ops spm_regulator_ops = {
 	.get_voltage	= spm_regulator_get_voltage,
 	.set_voltage	= spm_regulator_set_voltage,
 	.list_voltage	= spm_regulator_list_voltage,
+	.get_mode	= spm_regulator_get_mode,
+	.set_mode	= spm_regulator_set_mode,
 	.enable		= spm_regulator_enable,
 	.disable	= spm_regulator_disable,
 	.is_enabled	= spm_regulator_is_enabled,
@@ -447,6 +474,8 @@ static int qpnp_smps_init_mode(struct spm_vreg *vreg)
 				__func__, rc);
 	}
 
+	vreg->mode = vreg->init_mode;
+
 	return rc;
 }
 
@@ -581,7 +610,9 @@ static int spm_regulator_probe(struct spmi_device *spmi)
 	}
 	init_data->constraints.input_uV = init_data->constraints.max_uV;
 	init_data->constraints.valid_ops_mask |= REGULATOR_CHANGE_STATUS
-						| REGULATOR_CHANGE_VOLTAGE;
+			| REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_MODE;
+	init_data->constraints.valid_modes_mask
+				= REGULATOR_MODE_NORMAL | REGULATOR_MODE_IDLE;
 
 	if (!init_data->constraints.name) {
 		dev_err(&spmi->dev, "%s: node is missing regulator name\n",
