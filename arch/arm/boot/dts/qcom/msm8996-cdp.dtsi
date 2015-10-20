@@ -456,7 +456,7 @@
 	qcom,cont-splash-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,partial-update-enabled;
-	qcom,panel-roi-alignment = <4 4 2 2 20 20>;
+	qcom,panel-roi-alignment = <4 2 4 2 20 20>;
 };
 
 &dsi_dual_jdi_4k_nofbc_video {
