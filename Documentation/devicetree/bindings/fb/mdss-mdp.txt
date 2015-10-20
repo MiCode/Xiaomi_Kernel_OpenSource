@@ -373,10 +373,6 @@ Optional properties:
 				    clients.
 - qcom,mdss-dram-channels:	This represents the number of channels in the
 				Bus memory controller.
-- qcom,mdss-ppb-off:		Array of offset addresses of ping pong buffer control registers.
-				The offsets are calculated from the "mdp_phys" base address
-				specified. The number of offsets should match the
-				number of ping pong buffers available in the hardware.
 - qcom,regs-dump-mdp:		This array represents the registers offsets that
 				will be dumped from the mdp when the debug logging
 				is enabled; each entry in the table is an start and
@@ -480,10 +476,23 @@ Fudge Factors:			Fudge factors are used to boost demand for
 				each rt and nrt clients. This property is
 				for the MDPv1.7 and above, which configures
 				the panic independently on each client.
-				First element on the array is for the panic
-				configuration, second element for robust.
+				Each element of the array corresponds to:
+				First element - panic for linear formats
+				Second element - panic for tile formats
+				Third element - robust for linear formats
+				Fourth element - robust for tile formats
 - qcom,mdss-has-pingpong-split:	Boolean property to indicate if destination
 				split feature is available or not in the target.
+- qcom,mdss-slave-pingpong-off:	Offset address for the extra TE block which needs
+				to be programmed when pingpong split feature is enabled.
+				Offset is calculated from the "mdp_phys"
+				register value. Mandatory when qcom,mdss-has-pingpong-split
+				is enabled.
+- qcom,mdss-ppb-off:		Array of offset addresses of ping pong buffer control registers.
+				The offsets are calculated from the "mdp_phys" base address
+				specified. The number of offsets should match the
+				number of ping pong buffers available in the hardware.
+				Mandatory when qcom,mdss-has-pingpong-split is enabled.
 - qcom,mdss-cdm-off:            Array of offset addresses for the available
 				chroma down modules that can convert RGB data
 				to YUV before sending it to the interface
@@ -500,11 +509,6 @@ Fudge Factors:			Fudge factors are used to boost demand for
 - qcom,max-pipe-width:		This value specifies the maximum MDP SSPP width
 				the device supports. If not specified, a default value
 				of 2048 will be applied.
-- qcom,mdss-slave-pingpong-off:	Offset address for the extra TE block which needs
-				to be programmed when pingpong split feature is enabled.
-				Offset is calculated from the "mdp_phys"
-				register value. Mandatory when qcom,mdss-has-pingpong-split
-				is enabled.
 
 Optional subnodes:
 - mdss_fb:		Child nodes representing the frame buffer virtual devices.
@@ -692,6 +696,11 @@ Example:
 
 		qcom,mdss-pipe-dma-clk-ctrl-offsets = <0x3AC 8 12>,
 						      <0x3B4 8 12>;
+
+		qcom,mdss-per-pipe-panic-luts = <0x000f>,
+						<0xffff>,
+						<0xfffc>,
+						<0xff00>;
 
 		qcom,mdss-has-panic-ctrl;
 		qcom,mdss-pipe-vig-panic-ctrl-offsets = <0 1 2 3>;

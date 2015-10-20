@@ -85,6 +85,58 @@ DEFINE_EVENT(mdp_sspp_template, mdp_sspp_change,
 	TP_ARGS(pipe)
 );
 
+TRACE_EVENT(mdp_perf_set_qos_luts,
+	TP_PROTO(u32 pnum, u32 fmt, u32 intf, u32 rot, u32 fl,
+		u32 lut, bool linear),
+	TP_ARGS(pnum, fmt, intf, rot, fl, lut, linear),
+	TP_STRUCT__entry(
+			__field(u32, pnum)
+			__field(u32, fmt)
+			__field(u32, intf)
+			__field(u32, rot)
+			__field(u32, fl)
+			__field(u32, lut)
+			__field(bool, linear)
+	),
+	TP_fast_assign(
+			__entry->pnum = pnum;
+			__entry->fmt = fmt;
+			__entry->intf = intf;
+			__entry->rot = rot;
+			__entry->fl = fl;
+			__entry->lut = lut;
+			__entry->linear = linear;
+	),
+	TP_printk("pnum=%d fmt=%d intf=%d rot=%d fl:%d lut=0x%x lin:%d",
+			__entry->pnum, __entry->fmt,
+			__entry->intf, __entry->rot, __entry->fl,
+			__entry->lut, __entry->linear)
+);
+
+TRACE_EVENT(mdp_perf_set_panic_luts,
+	TP_PROTO(u32 pnum, u32 fmt, u32 mode, u32 panic_lut,
+		u32 robust_lut),
+	TP_ARGS(pnum, fmt, mode, panic_lut, robust_lut),
+	TP_STRUCT__entry(
+			__field(u32, pnum)
+			__field(u32, fmt)
+			__field(u32, mode)
+			__field(u32, panic_lut)
+			__field(u32, robust_lut)
+	),
+	TP_fast_assign(
+			__entry->pnum = pnum;
+			__entry->fmt = fmt;
+			__entry->mode = mode;
+			__entry->panic_lut = panic_lut;
+			__entry->robust_lut = robust_lut;
+	),
+	TP_printk("pnum=%d fmt=%d mode=%d luts[0x%x, 0x%x]",
+			__entry->pnum, __entry->fmt,
+			__entry->mode, __entry->panic_lut,
+			__entry->robust_lut)
+);
+
 TRACE_EVENT(mdp_perf_set_wm_levels,
 	TP_PROTO(u32 pnum, u32 use_space, u32 priority_bytes, u32 wm0, u32 wm1,
 		u32 wm2, u32 mb_cnt, u32 mb_size),

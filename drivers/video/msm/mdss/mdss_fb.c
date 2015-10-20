@@ -110,8 +110,6 @@ static int mdss_fb_send_panel_event(struct msm_fb_data_type *mfd,
 					int event, void *arg);
 static void mdss_fb_set_mdp_sync_pt_threshold(struct msm_fb_data_type *mfd,
 		int type);
-static void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
-					struct fb_var_screeninfo *var);
 void mdss_fb_no_update_notify_timer_cb(unsigned long data)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)data;
@@ -1064,15 +1062,14 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	if (pdata->panel_info.is_split_display) {
 		struct mdss_panel_data *pnext = pdata->next;
 
-		/*
-		 * currently pingpong-split is not a choice from device tree
-		 * and it is handled in overlay_init. Fix this.
-		 */
 		mfd->split_fb_left = pdata->panel_info.lm_widths[0];
 		if (pnext)
 			mfd->split_fb_right = pnext->panel_info.lm_widths[0];
 
-		mfd->split_mode = MDP_DUAL_LM_DUAL_DISPLAY;
+		if (pdata->panel_info.use_pingpong_split)
+			mfd->split_mode = MDP_PINGPONG_SPLIT;
+		else
+			mfd->split_mode = MDP_DUAL_LM_DUAL_DISPLAY;
 	} else if ((pdata->panel_info.lm_widths[0] != 0) &&
 		   (pdata->panel_info.lm_widths[1] != 0)) {
 		mfd->split_fb_left = pdata->panel_info.lm_widths[0];
@@ -3260,7 +3257,7 @@ static void mdss_fb_var_to_panelinfo(struct fb_var_screeninfo *var,
 		pinfo->clk_rate = PICOS2KHZ(var->pixclock) * 1000;
 }
 
-static void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
+void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
 						struct fb_var_screeninfo *var)
 {
 	var->xres = mdss_fb_get_panel_xres(pinfo);
@@ -3279,6 +3276,11 @@ static void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
 		var->width = pinfo->physical_width;
 	if (pinfo->physical_height)
 		var->height = pinfo->physical_height;
+
+	pr_debug("ScreenInfo: res=%dx%d [%d, %d] [%d, %d]\n",
+		var->xres, var->yres, var->left_margin,
+		var->right_margin, var->upper_margin,
+		var->lower_margin);
 }
 
 /**

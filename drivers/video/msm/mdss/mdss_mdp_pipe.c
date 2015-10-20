@@ -35,10 +35,9 @@
 /* following offsets are relative to status register bit offset */
 #define CLK_STATUS_OFFSET	0x0
 
-#define QOS_LUT_WFD_READ	0x0
-#define QOS_LUT_UBWC		0x55AAFF
-#define QOS_LUT_420_CHROMA	0x555557
-#define QOS_LUT_LINEAR		0x55555B
+#define QOS_LUT_NRT_READ	0x0
+#define PANIC_LUT_NRT_READ	0x0
+#define ROBUST_LUT_NRT_READ	0xFFFF
 
 /* Priority 2, no panic */
 #define VBLANK_PANIC_DEFAULT_CONFIG 0x200000
@@ -68,26 +67,101 @@ static inline u32 mdss_mdp_pipe_read(struct mdss_mdp_pipe *pipe, u32 reg)
 	return readl_relaxed(pipe->base + reg);
 }
 
+static inline int mdss_calc_fill_level(struct mdss_mdp_format_params *fmt,
+	u32 src_width)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 fixed_buff_size = mdata->pixel_ram_size;
+	u32 total_fl;
+
+	if (fmt->fetch_planes == MDSS_MDP_PLANE_PSEUDO_PLANAR) {
+		if (fmt->chroma_sample == MDSS_MDP_CHROMA_420) {
+			/* NV12 */
+			total_fl = (fixed_buff_size / 2) /
+				((src_width + 32) * fmt->bpp);
+		} else {
+			/* non NV12 */
+			total_fl = (fixed_buff_size) /
+				((src_width + 32) * fmt->bpp);
+		}
+	} else {
+		total_fl = (fixed_buff_size * 2) /
+			((src_width + 32) * fmt->bpp);
+	}
+
+	return total_fl;
+}
+
+static inline u32 get_qos_lut_linear(u32 total_fl)
+{
+	u32 qos_lut;
+
+	if (total_fl <= 4)
+		qos_lut = 0x1B;
+	else if (total_fl <= 5)
+		qos_lut = 0x5B;
+	else if (total_fl <= 6)
+		qos_lut = 0x15B;
+	else if (total_fl <= 7)
+		qos_lut = 0x55B;
+	else if (total_fl <= 8)
+		qos_lut = 0x155B;
+	else if (total_fl <= 9)
+		qos_lut = 0x555B;
+	else if (total_fl <= 10)
+		qos_lut = 0x1555B;
+	else if (total_fl <= 11)
+		qos_lut = 0x5555B;
+	else if (total_fl <= 12)
+		qos_lut = 0x15555B;
+	else
+		qos_lut = 0x55555B;
+
+	return qos_lut;
+}
+
+static inline u32 get_qos_lut_macrotile(u32 total_fl)
+{
+	u32 qos_lut;
+
+	if (total_fl <= 10)
+		qos_lut = 0x1AAff;
+	else if (total_fl <= 11)
+		qos_lut = 0x5AAFF;
+	else if (total_fl <= 12)
+		qos_lut = 0x15AAFF;
+	else
+		qos_lut = 0x55AAFF;
+
+	return qos_lut;
+}
+
 int mdss_mdp_pipe_qos_lut(struct mdss_mdp_pipe *pipe)
 {
 	struct mdss_mdp_ctl *ctl = pipe->mixer_left->ctl;
 	u32 qos_lut;
+	u32 total_fl = 0;
 
-	if ((ctl->intf_num == MDSS_MDP_NO_INTF) &&
-			!pipe->mixer_left->rotator_mode)
-		qos_lut = QOS_LUT_WFD_READ; /* low priority for nrt wfd */
-	else if (mdss_mdp_is_ubwc_format(pipe->src_fmt))
-		qos_lut = QOS_LUT_UBWC;
-	else if ((pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_420) ||
-			(pipe->src_fmt->fetch_planes ==
-			MDSS_MDP_PLANE_PSEUDO_PLANAR))
-		qos_lut = QOS_LUT_420_CHROMA; /* nv12 and planar 420 */
-	else
-		qos_lut = QOS_LUT_LINEAR; /* rest of the linear formats */
+	if ((ctl->intf_num == MDSS_MDP_NO_INTF) ||
+			pipe->mixer_left->rotator_mode) {
+		qos_lut = QOS_LUT_NRT_READ; /* low priority for nrt */
+	} else {
+		total_fl = mdss_calc_fill_level(pipe->src_fmt,
+			pipe->src.w);
 
-	pr_debug("lut:0x%x wfd:%d\n", qos_lut,
-		((ctl->intf_num == MDSS_MDP_NO_INTF) &&
-		!pipe->mixer_left->rotator_mode));
+		if (mdss_mdp_is_linear_format(pipe->src_fmt))
+			qos_lut = get_qos_lut_linear(total_fl);
+		else
+			qos_lut = get_qos_lut_macrotile(total_fl);
+	}
+
+	trace_mdp_perf_set_qos_luts(pipe->num, pipe->src_fmt->format,
+		ctl->intf_num, pipe->mixer_left->rotator_mode, total_fl,
+		qos_lut, mdss_mdp_is_linear_format(pipe->src_fmt));
+
+	pr_debug("pnum:%d fmt:%d intf:%d rot:%d fl:%d lut:0x%x\n",
+		pipe->num, pipe->src_fmt->format, ctl->intf_num,
+		pipe->mixer_left->rotator_mode, total_fl, qos_lut);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_CREQ_LUT,
@@ -103,52 +177,33 @@ bool is_rt_pipe(struct mdss_mdp_pipe *pipe)
 		pipe->mixer_left->type == MDSS_MDP_MIXER_TYPE_INTF;
 }
 
-void mdss_mdp_config_pipe_panic_lut(struct mdss_data_type *mdata)
+static void mdss_mdp_config_pipe_panic_lut(struct mdss_mdp_pipe *pipe)
 {
 	u32 panic_lut, robust_lut;
-	struct mdss_mdp_pipe *pipe;
-	int i;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
-	if ((mdss_mdp_panic_signal_support_mode(mdata) ==
-			MDSS_MDP_PANIC_PER_PIPE_CFG) &&
-			(mdata->default_panic_lut_per_pipe > 0) &&
-			(mdata->default_robust_lut_per_pipe > 0)) {
-
-		panic_lut = mdata->default_panic_lut_per_pipe;
-		robust_lut = mdata->default_robust_lut_per_pipe;
-
-		for (i = 0; i < mdata->nvig_pipes; i++) {
-			pipe = &mdata->vig_pipes[i];
-			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_DANGER_LUT,
-				panic_lut);
-			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SAFE_LUT,
-				robust_lut);
-		}
-
-		for (i = 0; i < mdata->nrgb_pipes; i++) {
-			pipe = &mdata->rgb_pipes[i];
-			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_DANGER_LUT,
-				panic_lut);
-			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SAFE_LUT,
-				robust_lut);
-		}
-
-		for (i = 0; i < mdata->ndma_pipes; i++) {
-			pipe = &mdata->dma_pipes[i];
-			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_DANGER_LUT,
-				panic_lut);
-			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SAFE_LUT,
-				robust_lut);
-		}
-
-		for (i = 0; i < mdata->ncursor_pipes; i++) {
-			pipe = &mdata->cursor_pipes[i];
-			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_DANGER_LUT,
-				panic_lut);
-			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SAFE_LUT,
-				robust_lut);
-		}
+	if (!is_rt_pipe(pipe)) {
+		panic_lut = PANIC_LUT_NRT_READ;
+		robust_lut = ROBUST_LUT_NRT_READ;
+	} else if (mdss_mdp_is_linear_format(pipe->src_fmt)) {
+		panic_lut = mdata->default_panic_lut_per_pipe_linear;
+		robust_lut = mdata->default_robust_lut_per_pipe_linear;
+	} else {
+		panic_lut = mdata->default_panic_lut_per_pipe_tile;
+		robust_lut = mdata->default_robust_lut_per_pipe_tile;
 	}
+
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_DANGER_LUT,
+		panic_lut);
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SAFE_LUT,
+		robust_lut);
+
+	trace_mdp_perf_set_panic_luts(pipe->num, pipe->src_fmt->format,
+		pipe->src_fmt->fetch_mode, panic_lut, robust_lut);
+
+	pr_debug("pnum:%d fmt:%d mode:%d luts[0x%x, 0x%x]\n",
+		pipe->num, pipe->src_fmt->format, pipe->src_fmt->fetch_mode,
+		panic_lut, robust_lut);
 }
 
 /**
@@ -431,7 +486,7 @@ u32 mdss_mdp_smp_get_size(struct mdss_mdp_pipe *pipe)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	if (mdata->has_pixel_ram) {
-		smp_size = mdss_mdp_get_pixel_ram_size(mdata);
+		smp_size = mdata->pixel_ram_size;
 	} else {
 		for (i = 0; i < MAX_PLANES; i++) {
 			mb_cnt += bitmap_weight(pipe->smp_map[i].allocated,
@@ -2185,6 +2240,10 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 
 		if (test_bit(MDSS_QOS_PER_PIPE_LUT, mdata->mdss_qos_map))
 			mdss_mdp_pipe_qos_lut(pipe);
+
+		if (mdss_mdp_panic_signal_support_mode(mdata) ==
+				MDSS_MDP_PANIC_PER_PIPE_CFG)
+			mdss_mdp_config_pipe_panic_lut(pipe);
 
 		if (pipe->type != MDSS_MDP_PIPE_TYPE_CURSOR) {
 			mdss_mdp_pipe_panic_vblank_signal_ctrl(pipe, true);

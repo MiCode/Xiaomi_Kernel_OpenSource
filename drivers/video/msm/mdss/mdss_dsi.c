@@ -1611,7 +1611,14 @@ static void __mdss_dsi_update_video_mode_total(struct mdss_panel_data *pdata,
 
 	if (ctrl_pdata->shared_data->timing_db_mode)
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x1e4, 0x1);
-	ctrl_pdata->panel_data.panel_info.mipi.frame_rate = new_fps;
+
+	pr_debug("%s new_fps:%d vsync:%d hsync:%d frame_rate:%d\n",
+			__func__, new_fps, vsync_period, hsync_period,
+			ctrl_pdata->panel_data.panel_info.mipi.frame_rate);
+
+	ctrl_pdata->panel_data.panel_info.current_fps = new_fps;
+	MDSS_XLOG(current_dsi_v_total, new_dsi_v_total, new_fps,
+		ctrl_pdata->shared_data->timing_db_mode);
 
 }
 
@@ -1770,9 +1777,13 @@ static int __mdss_dsi_dfps_update_clks(struct mdss_panel_data *pdata,
 		clk_disable_unprepare(ctrl_pdata->pll_byte_clk);
 		clk_disable_unprepare(ctrl_pdata->pll_pixel_clk);
 
-		if (!rc)
+		if (!rc) {
 			ctrl_pdata->panel_data.panel_info.mipi.frame_rate =
 				new_fps;
+			/* we are using current_fps to compare if dfps needed */
+			ctrl_pdata->panel_data.panel_info.current_fps =
+				new_fps;
+		}
 	} else {
 		ctrl_pdata->pclk_rate =
 			pdata->panel_info.mipi.dsi_pclk_rate;
@@ -1840,7 +1851,7 @@ static int mdss_dsi_dfps_config(struct mdss_panel_data *pdata, int new_fps)
 	}
 
 	if (new_fps !=
-		ctrl_pdata->panel_data.panel_info.mipi.frame_rate) {
+		ctrl_pdata->panel_data.panel_info.current_fps) {
 		if (pdata->panel_info.dfps_update
 			== DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP ||
 			pdata->panel_info.dfps_update

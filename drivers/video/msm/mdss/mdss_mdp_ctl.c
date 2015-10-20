@@ -1063,10 +1063,9 @@ exit:
 		*(perf->bw_vote_mode));
 }
 
-static bool is_mdp_prefetch_needed(struct mdss_mdp_ctl *ctl)
+static bool is_mdp_prefetch_needed(struct mdss_panel_info *pinfo)
 {
-	struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
-	struct mdss_data_type *mdata = ctl->mdata;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	bool enable_prefetch = false;
 
 	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_105) {
@@ -1090,7 +1089,7 @@ static bool is_mdp_prefetch_needed(struct mdss_mdp_ctl *ctl)
 
 /**
  * mdss_mdp_get_prefetch_lines: - Number of fetch lines in vertical front porch
- * @ctl:	Pointer to controller where prefetch lines will be calculated
+ * @pinfo: Pointer to the panel information.
  *
  * Returns the number of fetch lines in vertical front porch at which mdp
  * can start fetching the next frame.
@@ -1099,14 +1098,13 @@ static bool is_mdp_prefetch_needed(struct mdss_mdp_ctl *ctl)
  * the mdp fetch lines  as the last (25 - vbp - vpw) lines of vertical
  * front porch.
  */
-int mdss_mdp_get_prefetch_lines(struct mdss_mdp_ctl *ctl)
+int mdss_mdp_get_prefetch_lines(struct mdss_panel_info *pinfo)
 {
 	int prefetch_avail = 0;
 	int v_total, vfp_start;
 	u32 prefetch_needed;
-	struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
 
-	if (!is_mdp_prefetch_needed(ctl))
+	if (!is_mdp_prefetch_needed(pinfo))
 		return 0;
 
 	v_total = mdss_panel_get_vtotal(pinfo);
@@ -2826,6 +2824,12 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_init(struct mdss_panel_data *pdata,
 	else
 		offset = MDSS_MDP_CTL0;
 
+	if (is_pingpong_split(mfd) && !mdata->has_pingpong_split) {
+		pr_err("Error: pp_split cannot be enabled on fb%d if HW doesn't support it\n",
+			mfd->index);
+		return ERR_PTR(-EINVAL);
+	}
+
 	ctl = mdss_mdp_ctl_alloc(mdata, offset);
 	if (!ctl) {
 		pr_err("unable to allocate ctl\n");
@@ -3066,7 +3070,8 @@ int mdss_mdp_ctl_destroy(struct mdss_mdp_ctl *ctl)
 	struct mdss_mdp_ctl *sctl;
 	int rc;
 
-	rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CLOSE, NULL, false);
+	rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CLOSE, NULL,
+				     CTL_INTF_EVENT_FLAG_DEFAULT);
 	WARN(rc, "unable to close panel for intf=%d\n", ctl->intf_num);
 
 	sctl = mdss_mdp_get_split_ctl(ctl);
@@ -3081,7 +3086,7 @@ int mdss_mdp_ctl_destroy(struct mdss_mdp_ctl *ctl)
 }
 
 int mdss_mdp_ctl_intf_event(struct mdss_mdp_ctl *ctl, int event, void *arg,
-	bool skip_broadcast)
+	u32 flags)
 {
 	struct mdss_panel_data *pdata;
 	int rc = 0;
@@ -3091,13 +3096,23 @@ int mdss_mdp_ctl_intf_event(struct mdss_mdp_ctl *ctl, int event, void *arg,
 
 	pdata = ctl->panel_data;
 
-	pr_debug("sending ctl=%d event=%d\n", ctl->num, event);
+	if (flags & CTL_INTF_EVENT_FLAG_SLAVE_INTF) {
+		pdata = pdata->next;
+		if (!pdata) {
+			pr_err("Error: event=%d flags=0x%x, ctl%d slave intf is not present\n",
+				event, flags, ctl->num);
+			return -EINVAL;
+		}
+	}
+
+	pr_debug("sending ctl=%d event=%d flag=0x%x\n", ctl->num, event, flags);
 
 	do {
 		if (pdata->event_handler)
 			rc = pdata->event_handler(pdata, event, arg);
 		pdata = pdata->next;
-	} while (rc == 0 && pdata && pdata->active && !skip_broadcast);
+	} while (rc == 0 && pdata && pdata->active &&
+		!(flags & CTL_INTF_EVENT_FLAG_SKIP_BROADCAST));
 
 	return rc;
 }
@@ -3271,7 +3286,8 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff)
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
-	ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_RESET, NULL, false);
+	ret = mdss_mdp_ctl_intf_event(ctl,
+		MDSS_EVENT_RESET, NULL, CTL_INTF_EVENT_FLAG_DEFAULT);
 	if (ret) {
 		pr_err("panel power on failed ctl=%d\n", ctl->num);
 		goto error;
@@ -4118,16 +4134,62 @@ int mdss_mdp_mixer_pipe_unstage(struct mdss_mdp_pipe *pipe,
 	return 0;
 }
 
-int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl, int fps)
+int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl)
 {
+	struct mdss_panel_info *pinfo;
+	struct mdss_overlay_private *mdp5_data;
 	int ret = 0;
-	struct mdss_mdp_ctl *sctl = NULL;
+	int new_fps;
 
-	sctl = mdss_mdp_get_split_ctl(ctl);
+	if (!ctl->panel_data || !ctl->mfd)
+		return -ENODEV;
 
-	if (ctl->ops.config_fps_fnc)
-		ret = ctl->ops.config_fps_fnc(ctl, sctl, fps);
+	pinfo = &ctl->panel_data->panel_info;
 
+	if (!pinfo->dynamic_fps || !ctl->ops.config_fps_fnc)
+		return 0;
+
+	if (!pinfo->default_fps) {
+		/* we haven't got any call to update the fps */
+		return 0;
+	}
+
+	mdp5_data = mfd_to_mdp5_data(ctl->mfd);
+	if (!mdp5_data)
+		return -ENODEV;
+
+	/*
+	 * Panel info is already updated with the new fps info,
+	 * so we need to lock the data to make sure the panel info
+	 * is not updated while we reconfigure the HW.
+	 */
+	mutex_lock(&mdp5_data->dfps_lock);
+
+	if ((pinfo->dfps_update == DFPS_IMMEDIATE_PORCH_UPDATE_MODE_VFP) ||
+		(pinfo->dfps_update == DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP)) {
+		new_fps = mdss_panel_get_framerate(pinfo);
+	} else {
+		new_fps = pinfo->new_fps;
+	}
+
+	pr_debug("fps new:%d old:%d\n", new_fps,
+		pinfo->current_fps);
+
+	if (new_fps == pinfo->current_fps) {
+		pr_debug("FPS is already %d\n", new_fps);
+		ret = 0;
+		goto exit;
+	}
+
+	ret = ctl->ops.config_fps_fnc(ctl, new_fps);
+	if (!ret)
+		pr_debug("fps set to %d\n", new_fps);
+	else
+		pr_err("Failed to configure %d fps rc=%d\n",
+			new_fps, ret);
+
+exit:
+	mutex_unlock(&mdp5_data->dfps_lock);
 	return ret;
 }
 
@@ -4294,8 +4356,8 @@ int mdss_mdp_display_wait4pingpong(struct mdss_mdp_ctl *ctl, bool use_lock)
 		if (sctl)
 			mdss_mdp_ctl_reset(sctl);
 
-		mdss_mdp_ctl_intf_event(ctl,
-				MDSS_EVENT_DSI_RESET_WRITE_PTR, NULL, false);
+		mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_DSI_RESET_WRITE_PTR,
+			NULL, CTL_INTF_EVENT_FLAG_DEFAULT);
 
 		pr_debug("pingpong timeout recovery finished\n");
 	}
@@ -4551,7 +4613,7 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 			sctl_flush_bits);
 		sctl->flush_bits = 0;
 	}
-	MDSS_XLOG(ctl_flush_bits, sctl_flush_bits);
+	MDSS_XLOG(ctl->intf_num, ctl_flush_bits, sctl_flush_bits);
 	wmb();
 	ctl->flush_reg_data = ctl_flush_bits;
 	ctl->flush_bits = 0;

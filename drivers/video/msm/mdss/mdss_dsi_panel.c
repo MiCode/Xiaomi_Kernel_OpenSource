@@ -1475,7 +1475,7 @@ end:
 	return rc;
 }
 
-static int mdss_dsi_parse_compression_params(struct device_node *np,
+static int mdss_dsi_parse_topology_config(struct device_node *np,
 	struct dsi_panel_timing *pt, struct mdss_panel_data *panel_data)
 {
 	int rc = 0;
@@ -1483,11 +1483,13 @@ static int mdss_dsi_parse_compression_params(struct device_node *np,
 	const char *data;
 	struct mdss_panel_timing *timing = &pt->timing;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	struct mdss_panel_info *pinfo;
 	struct device_node *cfg_np;
 
 	ctrl_pdata = container_of(panel_data, struct mdss_dsi_ctrl_pdata,
 							panel_data);
 	cfg_np = ctrl_pdata->panel_data.cfg_np;
+	pinfo = &ctrl_pdata->panel_data.panel_info;
 
 	if (!cfg_np && of_find_property(np, "qcom,config-select", NULL)) {
 		cfg_np = of_parse_phandle(np, "qcom,config-select", 0);
@@ -1507,9 +1509,22 @@ static int mdss_dsi_parse_compression_params(struct device_node *np,
 				goto end;
 			}
 		}
-		pr_info("%s: cfg_node name %s lm_split:%dx%d\n", __func__,
-			cfg_np->name,
-			timing->lm_widths[0], timing->lm_widths[1]);
+		rc = of_property_read_string(cfg_np, "qcom,split-mode", &data);
+		if (!rc && !strcmp(data, "pingpong-split"))
+			pinfo->use_pingpong_split = true;
+
+		if (((timing->lm_widths[0]) || (timing->lm_widths[1])) &&
+		    pinfo->use_pingpong_split) {
+			pr_err("%s: pingpong_split cannot be used when lm-split[%d,%d] is specified\n",
+				__func__,
+				timing->lm_widths[0], timing->lm_widths[1]);
+			return -EINVAL;
+		}
+
+		pr_info("%s: cfg_node name %s lm_split:%dx%d pp_split:%s\n",
+			__func__, cfg_np->name,
+			timing->lm_widths[0], timing->lm_widths[1],
+			pinfo->use_pingpong_split ? "yes" : "no");
 	}
 
 	if ((timing->lm_widths[0] == 0) && (timing->lm_widths[1] == 0))
@@ -2236,8 +2251,7 @@ static int  mdss_dsi_panel_config_res_properties(struct device_node *np,
 		"qcom,mdss-dsi-timing-switch-command",
 		"qcom,mdss-dsi-timing-switch-command-state");
 
-	rc = mdss_dsi_parse_compression_params(np, pt,
-			panel_data);
+	rc = mdss_dsi_parse_topology_config(np, pt, panel_data);
 	if (rc) {
 		pr_err("%s: parsing compression params failed. rc:%d\n",
 			__func__, rc);
