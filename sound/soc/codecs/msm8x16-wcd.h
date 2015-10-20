@@ -52,6 +52,10 @@
 #define NUM_DECIMATORS	4
 #define MSM89XX_VDD_SPKDRV_NAME "cdc-vdd-spkdrv"
 
+#define DEFAULT_MULTIPLIER 800
+#define DEFAULT_GAIN 9
+#define DEFAULT_OFFSET 100
+
 extern const u8 msm8x16_wcd_reg_readable[MSM8X16_WCD_CACHE_SIZE];
 extern const u8 msm8x16_wcd_reg_readonly[MSM8X16_WCD_CACHE_SIZE];
 extern const u8 msm8x16_wcd_reset_reg_defaults[MSM8X16_WCD_CACHE_SIZE];
@@ -65,6 +69,23 @@ enum codec_versions {
 	CAJON_2_0,
 	UNSUPPORTED,
 };
+
+
+enum wcd_curr_ref {
+	I_h4_UA = 0,
+	I_pt5_UA,
+	I_14_UA,
+	I_l4_UA,
+	I_1_UA,
+};
+
+enum wcd_mbhc_imp_det_pin {
+	WCD_MBHC_DET_NONE = 0,
+	WCD_MBHC_DET_HPHL,
+	WCD_MBHC_DET_HPHR,
+	WCD_MBHC_DET_BOTH,
+};
+
 
 /* Each micbias can be assigned to one of three cfilters
  * Vbatt_min >= .15V + ldoh_v
@@ -181,6 +202,14 @@ struct on_demand_supply {
 	atomic_t ref;
 };
 
+struct wcd_imped_i_ref {
+	enum wcd_curr_ref curr_ref;
+	int min_val;
+	int multiplier;
+	int gain_adj;
+	int offset;
+};
+
 struct msm8916_asoc_mach_data {
 	int codec_type;
 	int ext_pa;
@@ -270,7 +299,8 @@ struct msm8x16_wcd_priv {
 	struct blocking_notifier_head notifier;
 	int (*codec_spk_ext_pa_cb)(struct snd_soc_codec *codec, int enable);
 	unsigned long status_mask;
-
+	struct wcd_imped_i_ref imped_i_ref;
+	enum wcd_mbhc_imp_det_pin imped_det_pin;
 };
 
 extern int msm8x16_wcd_mclk_enable(struct snd_soc_codec *codec, int mclk_enable,
