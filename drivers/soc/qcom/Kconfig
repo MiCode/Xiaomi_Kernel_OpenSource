@@ -331,6 +331,13 @@ config MSM_GLADIATOR_HANG_DETECT
 	  gladiator hang detection and collects the context for the
 	  gladiator hang.
 
+config MSM_CORE_HANG_DETECT
+	tristate "MSM Core Hang Detection Support"
+	help
+	  This enables the core hang detection module. It causes SoC
+	  reset on core hang detection and collects the core context
+	  for hang.
+
 endif # ARCH_QCOM
 
 config MSM_SUBSYSTEM_RESTART
