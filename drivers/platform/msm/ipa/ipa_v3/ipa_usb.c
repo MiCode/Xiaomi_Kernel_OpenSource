@@ -2114,14 +2114,14 @@ int ipa3_usb_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl)
 
 state_change_connected_fail:
 	if (prev_state != IPA_USB_SUSPEND_IN_PROGRESS) {
-		result = ipa3_stop_gsi_channel(ul_clnt_hdl);
+		result = ipa3_stop_gsi_channel(dl_clnt_hdl);
 		if (result)
-			IPAERR("Error stopping UL channel: %d\n", result);
+			IPA_USB_ERR("Error stopping DL channel: %d\n", result);
 	}
 start_dl_fail:
 	result = ipa3_stop_gsi_channel(ul_clnt_hdl);
 	if (result)
-		IPAERR("Error stopping UL channel: %d\n", result);
+		IPA_USB_ERR("Error stopping UL channel: %d\n", result);
 start_ul_fail:
 	ipa3_usb_release_prod();
 prod_req_fail:
