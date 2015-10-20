@@ -1604,5 +1604,6 @@ struct regmap_config wcd9335_regmap_config = {
 	.max_register = WCD9335_MAX_REGISTER,
 	.volatile_reg = wcd9335_is_volatile_register,
 	.readable_reg = wcd9335_is_readable_register,
+	.can_multi_write = true,
 };
 
