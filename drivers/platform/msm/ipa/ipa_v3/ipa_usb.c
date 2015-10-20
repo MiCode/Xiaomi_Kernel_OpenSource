@@ -1455,7 +1455,7 @@ static int ipa3_usb_xdci_connect_internal(
 	int result = -EFAULT;
 	struct ipa_rm_perf_profile profile;
 
-	IPA_USB_DBG("ipa3_usb_xdci_connect: entry\n");
+	IPA_USB_DBG("ipa3_usb_xdci_connect_internal: entry\n");
 	if (params == NULL || !ipa3_usb_check_connect_params(params)) {
 		IPA_USB_ERR("bad parameters.\n");
 		return -EINVAL;
@@ -1559,10 +1559,10 @@ int ipa3_usb_xdci_connect(struct ipa_usb_xdci_chan_params *ul_chan_params,
 
 	mutex_lock(&ipa3_usb_ctx->general_mutex);
 	IPA_USB_DBG("ipa3_usb_xdci_connect: entry\n");
-	if (dl_chan_params == NULL || dl_out_params == NULL ||
+	if (connect_params == NULL || dl_chan_params == NULL ||
+		dl_out_params == NULL ||
 		(connect_params->teth_prot != IPA_USB_DIAG &&
-		(ul_chan_params == NULL || ul_out_params == NULL)) ||
-		connect_params == NULL) {
+		(ul_chan_params == NULL || ul_out_params == NULL))) {
 		IPA_USB_ERR("bad parameters.\n");
 		result = -EINVAL;
 		goto bad_params;
