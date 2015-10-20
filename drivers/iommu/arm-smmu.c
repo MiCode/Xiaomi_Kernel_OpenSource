@@ -1079,7 +1079,9 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 				      DEFAULT_RATELIMIT_INTERVAL,
 				      DEFAULT_RATELIMIT_BURST);
 
-	arm_smmu_power_on(smmu);
+	ret = arm_smmu_power_on(smmu);
+	if (ret)
+		return IRQ_NONE;
 
 	gr1_base = ARM_SMMU_GR1(smmu);
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
@@ -1201,7 +1203,8 @@ static irqreturn_t arm_smmu_global_fault(int irq, void *dev)
 	struct arm_smmu_device *smmu = dev;
 	void __iomem *gr0_base = ARM_SMMU_GR0_NS(smmu);
 
-	arm_smmu_power_on(smmu);
+	if (arm_smmu_power_on(smmu))
+		return IRQ_NONE;
 
 	gfsr = readl_relaxed(gr0_base + ARM_SMMU_GR0_sGFSR);
 	gfsynr0 = readl_relaxed(gr0_base + ARM_SMMU_GR0_sGFSYNR0);
@@ -2375,7 +2378,8 @@ static void arm_smmu_trigger_fault(struct iommu_domain *domain,
 	}
 
 	smmu = smmu_domain->smmu;
-	arm_smmu_power_on(smmu);
+	if (arm_smmu_power_on(smmu))
+		return;
 
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 	dev_err(smmu->dev, "Writing 0x%lx to FSRRESTORE on cb %d\n",
@@ -2408,7 +2412,8 @@ static unsigned long arm_smmu_reg_read(struct iommu_domain *domain,
 		return val;
 	}
 
-	arm_smmu_power_on(smmu);
+	if (arm_smmu_power_on(smmu))
+		return 0;
 
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 	val = readl_relaxed(cb_base + offset);
@@ -2436,7 +2441,8 @@ static void arm_smmu_reg_write(struct iommu_domain *domain,
 		return;
 	}
 
-	arm_smmu_power_on(smmu);
+	if (arm_smmu_power_on(smmu))
+		return;
 
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 	writel_relaxed(val, cb_base + offset);
@@ -3208,6 +3214,9 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 	if (!smmu)
 		return -ENODEV;
 
+	if (arm_smmu_power_on(smmu))
+		return -EINVAL;
+
 	for (node = rb_first(&smmu->masters); node; node = rb_next(node)) {
 		struct arm_smmu_master *master
 			= container_of(node, struct arm_smmu_master, node);
@@ -3222,7 +3231,6 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 
 	idr_destroy(&smmu->asid_idr);
 
-	arm_smmu_power_on(smmu);
 	/* Turn the thing off */
 	writel(sCR0_CLIENTPD, ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sCR0);
 	arm_smmu_power_off(smmu);
