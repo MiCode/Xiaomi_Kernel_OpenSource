@@ -798,7 +798,7 @@ static int cmdq_halt(struct mmc_host *mmc, bool halt)
 				break;
 			}
 		}
-		return retries ? 0 : -ETIMEDOUT;
+		ret = retries ? 0 : -ETIMEDOUT;
 	} else {
 		if (cq_host->ops->set_data_timeout)
 			cq_host->ops->set_data_timeout(mmc, 0xf);
