@@ -1,0 +1,25 @@
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+
+/dts-v1/;
+
+#include "apq8096-v3.dtsi"
+#include "apq8096-auto-dragonboard.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. APQ8096v3 + PMI8994 DragonBoard";
+	compatible = "qcom,apq8096-dragonboard", "qcom,msm8996",
+			"qcom,apq8096", "qcom,dragonboard";
+	qcom,msm-id = <246 0x30000>, <291 0x30000>;
+	qcom,board-id = <10 1>;
+};
