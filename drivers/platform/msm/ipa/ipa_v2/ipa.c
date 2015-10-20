@@ -3023,9 +3023,15 @@ void ipa_suspend_handler(enum ipa_irq_type interrupt,
 				 * pipe will be unsuspended as part of
 				 * enabling IPA clocks
 				 */
-				ipa_inc_client_enable_clks();
-				ipa_ctx->sps_pm.dec_clients = true;
-				ipa_sps_process_irq_schedule_rel();
+				if (!atomic_read(
+					&ipa_ctx->sps_pm.dec_clients)
+					) {
+					ipa_inc_client_enable_clks();
+					atomic_set(
+						&ipa_ctx->sps_pm.dec_clients,
+						1);
+					ipa_sps_process_irq_schedule_rel();
+				}
 			} else {
 				resource = ipa2_get_rm_resource_from_ep(i);
 				res = ipa_rm_request_resource_with_timer(
@@ -3088,11 +3094,12 @@ static int apps_cons_request_resource(void)
 static void ipa_sps_release_resource(struct work_struct *work)
 {
 	/* check whether still need to decrease client usage */
-	if (ipa_ctx->sps_pm.dec_clients) {
+	if (atomic_read(&ipa_ctx->sps_pm.dec_clients)) {
 		if (atomic_read(&ipa_ctx->sps_pm.eot_activity)) {
+			IPADBG("EOT pending Re-scheduling\n");
 			ipa_sps_process_irq_schedule_rel();
 		} else {
-			ipa_ctx->sps_pm.dec_clients = false;
+			atomic_set(&ipa_ctx->sps_pm.dec_clients, 0);
 			ipa_dec_client_disable_clks();
 		}
 	}
