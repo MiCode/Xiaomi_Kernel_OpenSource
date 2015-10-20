@@ -223,7 +223,11 @@ static void ci13xxx_msm_notify_event(struct ci13xxx *udc, unsigned event)
 		dev_info(dev, "CI13XXX_CONTROLLER_ERROR_EVENT received\n");
 		ci13xxx_msm_mark_err_event();
 		break;
-
+	case CI13XXX_CONTROLLER_UDC_STARTED_EVENT:
+		dev_info(dev,
+			 "CI13XXX_CONTROLLER_UDC_STARTED_EVENT received\n");
+		udc->gadget.interrupt_num = _udc_ctxt.irq;
+		break;
 	default:
 		dev_dbg(dev, "unknown ci13xxx_udc event\n");
 		break;
