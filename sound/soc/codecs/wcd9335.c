@@ -682,6 +682,7 @@ struct tasha_priv {
 	struct wcd_cpe_core *cpe_core;
 	u32 current_cpe_clk_freq;
 	enum tasha_sido_voltage sido_voltage;
+	int sido_ccl_cnt;
 
 	u32 ana_rx_supplies;
 	/* Multiplication factor used for impedance detection */
@@ -805,6 +806,36 @@ static void tasha_enable_sido_buck(struct snd_soc_codec *codec)
 	tasha->resmgr->sido_input_src = SIDO_SOURCE_RCO_BG;
 }
 
+static void tasha_cdc_sido_ccl_enable(struct tasha_priv *tasha, bool ccl_flag)
+{
+	struct snd_soc_codec *codec = tasha->codec;
+
+	if (!codec)
+		return;
+
+	if (!TASHA_IS_2_0(tasha->wcd9xxx->version)) {
+		dev_dbg(codec->dev, "%s: tasha version < 2p0, return\n",
+			__func__);
+		return;
+	}
+	dev_dbg(codec->dev, "%s: sido_ccl_cnt=%d, ccl_flag:%d\n",
+			__func__, tasha->sido_ccl_cnt, ccl_flag);
+	if (ccl_flag) {
+		if (++tasha->sido_ccl_cnt == 1)
+			snd_soc_update_bits(codec,
+				WCD9335_SIDO_SIDO_CCL_10, 0xFF, 0x6E);
+	} else {
+		if (tasha->sido_ccl_cnt == 0) {
+			dev_dbg(codec->dev, "%s: sido_ccl already disabled\n",
+				__func__);
+			return;
+		}
+		if (--tasha->sido_ccl_cnt == 0)
+			snd_soc_update_bits(codec,
+				WCD9335_SIDO_SIDO_CCL_10, 0xFF, 0x02);
+	}
+}
+
 static bool tasha_cdc_is_svs_enabled(struct tasha_priv *tasha)
 {
 	if (TASHA_IS_2_0(tasha->wcd9xxx->version) &&
@@ -820,6 +851,7 @@ static int tasha_cdc_req_mclk_enable(struct tasha_priv *tasha,
 	int ret = 0;
 
 	if (enable) {
+		tasha_cdc_sido_ccl_enable(tasha, true);
 		ret = clk_prepare_enable(tasha->wcd_ext_clk);
 		if (ret) {
 			dev_err(tasha->dev, "%s: ext clk enable failed\n",
@@ -836,6 +868,7 @@ static int tasha_cdc_req_mclk_enable(struct tasha_priv *tasha,
 		/* put BG */
 		wcd_resmgr_disable_master_bias(tasha->resmgr);
 		clk_disable_unprepare(tasha->wcd_ext_clk);
+		tasha_cdc_sido_ccl_enable(tasha, false);
 	}
 err:
 	return ret;
@@ -10245,6 +10278,7 @@ static int tasha_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
 
 	WCD9XXX_V2_BG_CLK_LOCK(tasha->resmgr);
 	if (enable) {
+		tasha_cdc_sido_ccl_enable(tasha, true);
 		if (wcd_resmgr_get_clk_type(tasha->resmgr) ==
 		    WCD_CLK_RCO) {
 			ret = wcd_resmgr_enable_clk_block(tasha->resmgr,
@@ -10259,6 +10293,7 @@ static int tasha_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
 	} else {
 		ret = wcd_resmgr_disable_clk_block(tasha->resmgr,
 						   WCD_CLK_RCO);
+		tasha_cdc_sido_ccl_enable(tasha, false);
 	}
 
 	if (ret) {
@@ -11889,6 +11924,7 @@ static int tasha_probe(struct platform_device *pdev)
 	tasha->wcd_ext_clk = wcd_ext_clk;
 	tasha->sido_voltage = SIDO_VOLTAGE_NOMINAL_MV;
 	set_bit(AUDIO_NOMINAL, &tasha->status_mask);
+	tasha->sido_ccl_cnt = 0;
 
 	/* Register native clk for 44.1 playback */
 	wcd_native_clk = clk_get(tasha->wcd9xxx->dev, "wcd_native_clk");
