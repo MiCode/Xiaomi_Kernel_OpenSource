@@ -1129,3 +1129,5 @@
 &gdsc_gpu_cx {
 	status = "ok";
 };
+
+#include "msm-arm-smmu-cobalt.dtsi"
