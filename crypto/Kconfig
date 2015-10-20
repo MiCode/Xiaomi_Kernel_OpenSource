@@ -631,6 +631,14 @@ config CRYPTO_SHA512_SPARC64
 	  SHA-512 secure hash standard (DFIPS 180-2) implemented
 	  using sparc64 crypto instructions, when available.
 
+config CRYPTO_SHA256_ARM
+	tristate "SHA-224/256 digest algorithm (ARM-asm and NEON)"
+	select CRYPTO_HASH
+	help
+	  SHA-256 secure hash standard (DFIPS 180-2) implemented
+	  using optimized ARM assembler and NEON, when available.
+
+
 config CRYPTO_SHA512_ARM_NEON
 	tristate "SHA384 and SHA512 digest algorithm (ARM NEON)"
 	depends on ARM && KERNEL_MODE_NEON
