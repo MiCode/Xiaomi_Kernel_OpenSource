@@ -1459,19 +1459,76 @@ ENTRY(nmi)
 	 * a nested NMI that updated the copy interrupt stack frame, a
 	 * jump will be made to the repeat_nmi code that will handle the second
 	 * NMI.
+	 *
+	 * However, espfix prevents us from directly returning to userspace
+	 * with a single IRET instruction.  Similarly, IRET to user mode
+	 * can fault.  We therefore handle NMIs from user space like
+	 * other IST entries.
 	 */
 
 	/* Use %rdx as out temp variable throughout */
 	pushq_cfi %rdx
 	CFI_REL_OFFSET rdx, 0
 
-	/*
-	 * If %cs was not the kernel segment, then the NMI triggered in user
-	 * space, which means it is definitely not nested.
-	 */
-	cmpl $__KERNEL_CS, 16(%rsp)
-	jne first_nmi
+	testb	$3, CS-RIP+8(%rsp)
+	jz	.Lnmi_from_kernel
 
+	/*
+	 * NMI from user mode.  We need to run on the thread stack, but we
+	 * can't go through the normal entry paths: NMIs are masked, and
+	 * we don't want to enable interrupts, because then we'll end
+	 * up in an awkward situation in which IRQs are on but NMIs
+	 * are off.
+	 */
+
+	SWAPGS
+	cld
+	movq	%rsp, %rdx
+	movq	PER_CPU_VAR(kernel_stack), %rsp
+	addq	$KERNEL_STACK_OFFSET, %rsp
+	pushq	5*8(%rdx)	/* pt_regs->ss */
+	pushq	4*8(%rdx)	/* pt_regs->rsp */
+	pushq	3*8(%rdx)	/* pt_regs->flags */
+	pushq	2*8(%rdx)	/* pt_regs->cs */
+	pushq	1*8(%rdx)	/* pt_regs->rip */
+	pushq   $-1		/* pt_regs->orig_ax */
+	pushq   %rdi		/* pt_regs->di */
+	pushq   %rsi		/* pt_regs->si */
+	pushq   (%rdx)		/* pt_regs->dx */
+	pushq   %rcx		/* pt_regs->cx */
+	pushq   %rax		/* pt_regs->ax */
+	pushq   %r8		/* pt_regs->r8 */
+	pushq   %r9		/* pt_regs->r9 */
+	pushq   %r10		/* pt_regs->r10 */
+	pushq   %r11		/* pt_regs->r11 */
+	pushq	%rbx		/* pt_regs->rbx */
+	pushq	%rbp		/* pt_regs->rbp */
+	pushq	%r12		/* pt_regs->r12 */
+	pushq	%r13		/* pt_regs->r13 */
+	pushq	%r14		/* pt_regs->r14 */
+	pushq	%r15		/* pt_regs->r15 */
+
+	/*
+	 * At this point we no longer need to worry about stack damage
+	 * due to nesting -- we're on the normal thread stack and we're
+	 * done with the NMI stack.
+	 */
+
+	movq	%rsp, %rdi
+	movq	$-1, %rsi
+	call	do_nmi
+
+	/*
+	 * Return back to user mode.  We must *not* do the normal exit
+	 * work, because we don't want to enable interrupts.  Fortunately,
+	 * do_nmi doesn't modify pt_regs.
+	 */
+	SWAPGS
+
+	addq	$6*8, %rsp	/* skip bx, bp, and r12-r15 */
+	jmp	restore_args
+
+.Lnmi_from_kernel:
 	/*
 	 * Check the special variable on the stack to see if NMIs are
 	 * executing.
@@ -1629,29 +1686,11 @@ end_repeat_nmi:
 	call save_paranoid
 	DEFAULT_FRAME 0
 
-	/*
-	 * Save off the CR2 register. If we take a page fault in the NMI then
-	 * it could corrupt the CR2 value. If the NMI preempts a page fault
-	 * handler before it was able to read the CR2 register, and then the
-	 * NMI itself takes a page fault, the page fault that was preempted
-	 * will read the information from the NMI page fault and not the
-	 * origin fault. Save it off and restore it if it changes.
-	 * Use the r12 callee-saved register.
-	 */
-	movq %cr2, %r12
-
 	/* paranoidentry do_nmi, 0; without TRACE_IRQS_OFF */
 	movq %rsp,%rdi
 	movq $-1,%rsi
 	call do_nmi
 
-	/* Did the NMI take a page fault? Restore cr2 if it did */
-	movq %cr2, %rcx
-	cmpq %rcx, %r12
-	je 1f
-	movq %r12, %cr2
-1:
-	
 	testl %ebx,%ebx				/* swapgs needed? */
 	jnz nmi_restore
 nmi_swapgs:
