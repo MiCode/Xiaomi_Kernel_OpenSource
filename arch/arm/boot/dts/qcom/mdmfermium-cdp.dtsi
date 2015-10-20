@@ -35,6 +35,10 @@
 	status = "ok";
 };
 
+&qnand_1 {
+	status = "ok";
+};
+
 /* MPP pin 2 configs for SMB358 interrupt line */
 &pm8019_mpps {
 	mpp@a100 {
