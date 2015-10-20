@@ -1293,7 +1293,9 @@ static int ipa3_usb_connect_teth_prot(
 			params->ipa_to_usb_clnt_hdl;
 		teth_bridge_params.usb_ipa_pipe_hdl =
 			params->usb_to_ipa_clnt_hdl;
-		teth_bridge_params.tethering_mode = TETH_TETHERING_MODE_RMNET;
+		teth_bridge_params.tethering_mode =
+			(params->teth_prot == IPA_USB_RMNET) ?
+			(TETH_TETHERING_MODE_RMNET):(TETH_TETHERING_MODE_MBIM);
 		teth_bridge_params.client_type = IPA_CLIENT_USB_PROD;
 		result = ipa3_usb_connect_teth_bridge(&teth_bridge_params);
 		if (result)
