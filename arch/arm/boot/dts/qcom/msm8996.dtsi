@@ -3140,6 +3140,16 @@
 			pinctrl-0 = <&tert_mi2s_active &tert_mi2s_sd0_active>;
 			pinctrl-1 = <&tert_mi2s_sleep &tert_mi2s_sd0_sleep>;
 		};
+
+		dai_mi2s_quat: qcom,msm-dai-q6-mi2s-quat {
+			compatible = "qcom,msm-dai-q6-mi2s";
+			qcom,msm-dai-q6-mi2s-dev-id = <3>;
+			qcom,msm-mi2s-rx-lines = <1>;
+			qcom,msm-mi2s-tx-lines = <0>;
+			pinctrl-names = "default", "sleep";
+			pinctrl-0 = <&quat_mi2s_active &quat_mi2s_sd0_active>;
+			pinctrl-1 = <&quat_mi2s_sleep &quat_mi2s_sd0_sleep>;
+		};
 	};
 
 	hostless: qcom,msm-pcm-hostless {
