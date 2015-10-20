@@ -1185,11 +1185,11 @@ static int msm_rpm_send_data(struct msm_rpm_request *cdata,
 int msm_rpm_send_request(struct msm_rpm_request *handle)
 {
 	int ret;
-	static DEFINE_MUTEX(send_mtx);
+	static DEFINE_RT_MUTEX(send_mtx);
 
-	mutex_lock(&send_mtx);
+	rt_mutex_lock(&send_mtx);
 	ret = msm_rpm_send_data(handle, MSM_RPM_MSG_REQUEST_TYPE, false);
-	mutex_unlock(&send_mtx);
+	rt_mutex_unlock(&send_mtx);
 
 	return ret;
 }
