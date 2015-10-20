@@ -1821,14 +1821,24 @@ void msm_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 {
 	struct msm_isp_event_data error_event;
 	struct msm_vfe_axi_halt_cmd halt_cmd;
-	uint32_t i;
+	uint32_t i, vfe_id;
+	struct dual_vfe_resource *dual_vfe_res = NULL;
 
 	memset(&halt_cmd, 0, sizeof(struct msm_vfe_axi_halt_cmd));
 	halt_cmd.stop_camif = 1;
 	halt_cmd.overflow_detected = 0;
 	halt_cmd.blocking_halt = 0;
 
-	msm_isp_axi_halt(vfe_dev, &halt_cmd);
+	dual_vfe_res = vfe_dev->common_data->dual_vfe_res;
+	if (vfe_dev->is_split) {
+		for (vfe_id = 0; vfe_id < MAX_VFE; vfe_id++) {
+			msm_isp_axi_halt(vfe_dev->common_data->dual_vfe_res->
+				vfe_dev[vfe_id] , &halt_cmd);
+		}
+	} else {
+		msm_isp_axi_halt(vfe_dev, &halt_cmd);
+	}
+
 
 	pr_err_ratelimited("%s:%d] vfe_dev %p id %d\n", __func__,
 		__LINE__, vfe_dev, vfe_dev->pdev->id);
@@ -1838,9 +1848,19 @@ void msm_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 	vfe_dev->buf_mgr->ops->buf_mgr_debug(vfe_dev->buf_mgr);
 	msm_isp_print_ping_pong_address(vfe_dev);
 	vfe_dev->hw_info->vfe_ops.axi_ops.read_wm_ping_pong_addr(vfe_dev);
-
-	for (i = 0; i < VFE_AXI_SRC_MAX; i++)
-		vfe_dev->axi_data.stream_info[i].state = INACTIVE;
+	dual_vfe_res = vfe_dev->common_data->dual_vfe_res;
+	if (vfe_dev->is_split) {
+		for (i = 0; i < VFE_AXI_SRC_MAX; i++) {
+			dual_vfe_res->axi_data[ISP_VFE0]->stream_info[i].
+				state = INACTIVE;
+			dual_vfe_res->axi_data[ISP_VFE1]->stream_info[i].
+				state = INACTIVE;
+		}
+	} else  {
+		for (i = 0; i < VFE_AXI_SRC_MAX; i++)
+			vfe_dev->axi_data.stream_info[i].state =
+				INACTIVE;
+	}
 
 	msm_isp_send_event(vfe_dev, ISP_EVENT_IOMMU_P_FAULT, &error_event);
 }
@@ -1872,7 +1892,8 @@ static void msm_isp_process_overflow_irq(
 	struct vfe_device *vfe_dev,
 	uint32_t *irq_status0, uint32_t *irq_status1)
 {
-	uint32_t overflow_mask;
+	uint32_t overflow_mask, vfe_id;
+	struct dual_vfe_resource *dual_vfe_res = NULL;
 
 	/* if there are no active streams - do not start recovery */
 	if (!vfe_dev->axi_data.num_active_stream)
@@ -1914,8 +1935,14 @@ static void msm_isp_process_overflow_irq(
 		halt_cmd.stop_camif = 1;
 		halt_cmd.blocking_halt = 0;
 
-		msm_isp_axi_halt(vfe_dev, &halt_cmd);
-
+		dual_vfe_res = vfe_dev->common_data->dual_vfe_res;
+		if (vfe_dev->is_split) {
+			for (vfe_id = 0; vfe_id < MAX_VFE; vfe_id++) {
+				msm_isp_axi_halt(vfe_dev->common_data->dual_vfe_res->vfe_dev[vfe_id], &halt_cmd);
+			}
+		} else {
+			msm_isp_axi_halt(vfe_dev, &halt_cmd);
+		}
 		/*Update overflow state*/
 		*irq_status0 = 0;
 		*irq_status1 = 0;
