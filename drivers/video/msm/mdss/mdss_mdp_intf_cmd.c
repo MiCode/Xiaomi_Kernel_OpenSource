@@ -667,6 +667,10 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 					__func__);
 		}
 
+		/* Cancel early wakeup Work Item */
+		if (cancel_work_sync(&ctx->early_wakeup_clk_work))
+			pr_debug("early wakeup work canceled\n");
+
 		mutex_lock(&ctl->rsrc_lock);
 		MDSS_XLOG(ctl->num, mdp5_data->resources_state, sw_event, 0x33);
 		if ((mdp5_data->resources_state == MDP_RSRC_CTL_STATE_ON) ||
@@ -2129,8 +2133,9 @@ static int mdss_mdp_cmd_early_wake_up(struct mdss_mdp_ctl *ctl)
 	 * Early wake up event is called from an interrupt context and
 	 * involves cancelling queued work items. So this will be
 	 * scheduled in a work item.
+	 * Only schedule if the interface has not been stopped.
 	 */
-	if (ctx)
+	if (ctx && !ctx->intf_stopped)
 		schedule_work(&ctx->early_wakeup_clk_work);
 	return 0;
 }
