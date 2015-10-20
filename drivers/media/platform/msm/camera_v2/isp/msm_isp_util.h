@@ -70,6 +70,7 @@ void msm_isp_update_error_frame_count(struct vfe_device *vfe_dev);
 void msm_isp_process_error_info(struct vfe_device *vfe_dev);
 int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh);
 int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh);
+void msm_isp_flush_tasklet(struct vfe_device *vfe_dev);
 long msm_isp_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg);
 int msm_isp_get_clk_info(struct vfe_device *vfe_dev,
 	struct platform_device *pdev, struct msm_cam_clk_info *vfe_clk_info);
