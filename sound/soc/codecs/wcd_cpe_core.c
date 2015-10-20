@@ -3377,7 +3377,7 @@ static int wcd_cpe_lsm_config_lab_latency(
 			       PARAM_SIZE_LSM_LATENCY_SIZE,
 			       CPE_LSM_SESSION_CMD_SET_PARAMS_V2);
 
-	pr_debug("%s: Module 0x%x Param 0x%x size %ld pld_size 0x%x\n",
+	pr_debug("%s: Module 0x%x Param 0x%x size %zu pld_size 0x%x\n",
 		  __func__, lab_lat->param.module_id,
 		 lab_lat->param.param_id, PARAM_SIZE_LSM_LATENCY_SIZE,
 		 pld_size);
@@ -3427,7 +3427,7 @@ static int wcd_cpe_lsm_lab_control(
 			PARAM_SIZE_LSM_CONTROL_SIZE,
 			CPE_LSM_SESSION_CMD_SET_PARAMS_V2);
 
-	pr_debug("%s: Module 0x%x, Param 0x%x size %ld pld_size 0x%x\n",
+	pr_debug("%s: Module 0x%x, Param 0x%x size %zu pld_size 0x%x\n",
 		 __func__, lab_enable->param.module_id,
 		 lab_enable->param.param_id, PARAM_SIZE_LSM_CONTROL_SIZE,
 		 pld_size);
