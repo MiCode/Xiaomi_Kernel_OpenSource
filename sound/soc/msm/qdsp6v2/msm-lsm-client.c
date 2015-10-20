@@ -595,6 +595,9 @@ static int msm_lsm_dereg_model(struct snd_pcm_substream *substream,
 		dev_err(rtd->dev,
 			"%s: Failed to set det_mode param, err = %d\n",
 			__func__, rc);
+
+	q6lsm_snd_model_buf_free(prtd->lsm_client);
+
 	return rc;
 }
 
