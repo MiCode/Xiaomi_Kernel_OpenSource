@@ -539,7 +539,7 @@ bool msm_mpm_irqs_detectable(bool from_idle)
 			from_idle);
 }
 
-void msm_mpm_enter_sleep(uint32_t sclk_count, bool from_idle,
+void msm_mpm_enter_sleep(uint64_t sclk_count, bool from_idle,
 		const struct cpumask *cpumask)
 {
 	cycle_t wakeup = (u64)sclk_count * ARCH_TIMER_HZ;
