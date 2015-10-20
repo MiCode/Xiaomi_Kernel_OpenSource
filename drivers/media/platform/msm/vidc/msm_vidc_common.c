@@ -71,15 +71,153 @@ static inline bool is_low_power_session(struct msm_vidc_inst *inst)
 	return !!(inst->flags & VIDC_LOW_POWER);
 }
 
-int msm_comm_g_ctrl(struct msm_vidc_inst *inst, int id)
+int msm_comm_g_ctrl(struct msm_vidc_inst *inst, struct v4l2_control *ctrl)
+{
+	return v4l2_g_ctrl(&inst->ctrl_handler, ctrl);
+}
+
+int msm_comm_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_control *ctrl)
+{
+	return v4l2_s_ctrl(NULL, &inst->ctrl_handler, ctrl);
+}
+
+int msm_comm_g_ctrl_for_id(struct msm_vidc_inst *inst, int id)
 {
 	int rc = 0;
 	struct v4l2_control ctrl = {
 		.id = id,
 	};
 
-	rc = v4l2_g_ctrl(&inst->ctrl_handler, &ctrl);
+	rc = msm_comm_g_ctrl(inst, &ctrl);
 	return rc ?: ctrl.value;
+}
+
+static struct v4l2_ctrl **get_super_cluster(struct msm_vidc_inst *inst,
+				int num_ctrls)
+{
+	int c = 0;
+	struct v4l2_ctrl **cluster = kmalloc(sizeof(struct v4l2_ctrl *) *
+			num_ctrls, GFP_KERNEL);
+
+	if (!cluster || !inst)
+		return NULL;
+
+	for (c = 0; c < num_ctrls; c++)
+		cluster[c] =  inst->ctrls[c];
+
+	return cluster;
+}
+
+int msm_comm_ctrl_init(struct msm_vidc_inst *inst,
+		struct msm_vidc_ctrl *drv_ctrls, u32 num_ctrls,
+		const struct v4l2_ctrl_ops *ctrl_ops)
+{
+	int idx = 0;
+	struct v4l2_ctrl_config ctrl_cfg = {0};
+	int ret_val = 0;
+
+	if (!inst || !drv_ctrls || !ctrl_ops || !num_ctrls) {
+		dprintk(VIDC_ERR, "%s - invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	inst->ctrls = kcalloc(num_ctrls, sizeof(struct v4l2_ctrl *),
+				GFP_KERNEL);
+	if (!inst->ctrls) {
+		dprintk(VIDC_ERR, "%s - failed to allocate ctrl\n", __func__);
+		return -ENOMEM;
+	}
+
+	ret_val = v4l2_ctrl_handler_init(&inst->ctrl_handler, num_ctrls);
+
+	if (ret_val) {
+		dprintk(VIDC_ERR, "CTRL ERR: Control handler init failed, %d\n",
+				inst->ctrl_handler.error);
+		return ret_val;
+	}
+
+	for (; idx < num_ctrls; idx++) {
+		struct v4l2_ctrl *ctrl = NULL;
+
+		if (IS_PRIV_CTRL(drv_ctrls[idx].id)) {
+			/*add private control*/
+			ctrl_cfg.def = drv_ctrls[idx].default_value;
+			ctrl_cfg.flags = 0;
+			ctrl_cfg.id = drv_ctrls[idx].id;
+			ctrl_cfg.max = drv_ctrls[idx].maximum;
+			ctrl_cfg.min = drv_ctrls[idx].minimum;
+			ctrl_cfg.menu_skip_mask =
+				drv_ctrls[idx].menu_skip_mask;
+			ctrl_cfg.name = drv_ctrls[idx].name;
+			ctrl_cfg.ops = ctrl_ops;
+			ctrl_cfg.step = drv_ctrls[idx].step;
+			ctrl_cfg.type = drv_ctrls[idx].type;
+			ctrl_cfg.qmenu = drv_ctrls[idx].qmenu;
+
+			ctrl = v4l2_ctrl_new_custom(&inst->ctrl_handler,
+					&ctrl_cfg, NULL);
+		} else {
+			if (drv_ctrls[idx].type == V4L2_CTRL_TYPE_MENU) {
+				ctrl = v4l2_ctrl_new_std_menu(
+					&inst->ctrl_handler,
+					ctrl_ops,
+					drv_ctrls[idx].id,
+					drv_ctrls[idx].maximum,
+					drv_ctrls[idx].menu_skip_mask,
+					drv_ctrls[idx].default_value);
+			} else {
+				ctrl = v4l2_ctrl_new_std(&inst->ctrl_handler,
+					ctrl_ops,
+					drv_ctrls[idx].id,
+					drv_ctrls[idx].minimum,
+					drv_ctrls[idx].maximum,
+					drv_ctrls[idx].step,
+					drv_ctrls[idx].default_value);
+			}
+		}
+
+		if (!ctrl) {
+			dprintk(VIDC_ERR, "%s - invalid ctrl\n", __func__);
+			return -EINVAL;
+		}
+
+		ret_val = inst->ctrl_handler.error;
+		if (ret_val) {
+			dprintk(VIDC_ERR,
+				"Error adding ctrl (%s) to ctrl handle, %d\n",
+				drv_ctrls[idx].name, inst->ctrl_handler.error);
+			return ret_val;
+		}
+
+		ctrl->flags |= drv_ctrls[idx].flags;
+		inst->ctrls[idx] = ctrl;
+	}
+
+	/* Construct a super cluster of all controls */
+	inst->cluster = get_super_cluster(inst, num_ctrls);
+	if (!inst->cluster) {
+		dprintk(VIDC_WARN,
+			"Failed to setup super cluster\n");
+		return -EINVAL;
+	}
+
+	v4l2_ctrl_cluster(num_ctrls, inst->cluster);
+
+	return ret_val;
+}
+
+int msm_comm_ctrl_deinit(struct msm_vidc_inst *inst)
+{
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	kfree(inst->ctrls);
+	kfree(inst->cluster);
+	v4l2_ctrl_handler_free(&inst->ctrl_handler);
+
+	return 0;
 }
 
 static inline bool is_non_realtime_session(struct msm_vidc_inst *inst)
@@ -88,13 +226,13 @@ static inline bool is_non_realtime_session(struct msm_vidc_inst *inst)
 	struct v4l2_control ctrl = {
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_PRIORITY
 	};
-	rc = v4l2_g_ctrl(&inst->ctrl_handler, &ctrl);
+	rc = msm_comm_g_ctrl(inst, &ctrl);
 	return (!rc && ctrl.value);
 }
 
 enum multi_stream msm_comm_get_stream_output_mode(struct msm_vidc_inst *inst)
 {
-	switch (msm_comm_g_ctrl(inst,
+	switch (msm_comm_g_ctrl_for_id(inst,
 				V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE)) {
 		case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_SECONDARY:
 			return HAL_VIDEO_DECODER_SECONDARY;
@@ -116,7 +254,7 @@ static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
 		inst->prop.height[CAPTURE_PORT]);
 
 	ctrl.id = V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE;
-	rc = v4l2_g_ctrl(&inst->ctrl_handler, &ctrl);
+	rc = msm_comm_g_ctrl(inst, &ctrl);
 	if (!rc && ctrl.value) {
 		fps = (ctrl.value >> 16) ? ctrl.value >> 16 : 1;
 		return max(output_port_mbs, capture_port_mbs) * fps;
@@ -809,7 +947,7 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	case HAL_EVENT_SEQ_CHANGED_SUFFICIENT_RESOURCES:
 		event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
 
-		rc = msm_comm_g_ctrl(inst,
+		rc = msm_comm_g_ctrl_for_id(inst,
 			V4L2_CID_MPEG_VIDC_VIDEO_CONTINUE_DATA_TRANSFER);
 
 		if (!IS_ERR_VALUE(rc) && rc == true) {
@@ -3122,7 +3260,7 @@ static void populate_frame_data(struct vidc_frame_data *data,
 	data->clnt_data = data->device_addr;
 
 	if (type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		bool pic_decoding_mode = msm_comm_g_ctrl(inst,
+		bool pic_decoding_mode = msm_comm_g_ctrl_for_id(inst,
 				V4L2_CID_MPEG_VIDC_VIDEO_PICTYPE_DEC_MODE);
 
 		data->buffer_type = HAL_BUFFER_INPUT;
@@ -3305,7 +3443,7 @@ int msm_comm_qbuf(struct msm_vidc_inst *inst, struct vb2_buffer *vb)
 		mutex_unlock(&inst->pendingq.lock);
 	}
 
-	batch_mode = msm_comm_g_ctrl(inst, V4L2_CID_VIDC_QBUF_MODE)
+	batch_mode = msm_comm_g_ctrl_for_id(inst, V4L2_CID_VIDC_QBUF_MODE)
 		== V4L2_VIDC_QBUF_BATCHED;
 	capture_count = (batch_mode ? &count_single_batch : &count_buffers)
 		(&inst->pendingq, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);

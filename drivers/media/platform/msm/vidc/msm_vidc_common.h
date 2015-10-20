@@ -83,7 +83,13 @@ int msm_comm_get_load(struct msm_vidc_core *core,
 			enum session_type type, enum load_calc_quirks quirks);
 int msm_comm_set_color_format(struct msm_vidc_inst *inst,
 		enum hal_buffer buffer_type, int fourcc);
-int msm_comm_g_ctrl(struct msm_vidc_inst *inst, int id);
+int msm_comm_g_ctrl(struct msm_vidc_inst *inst, struct v4l2_control *ctrl);
+int msm_comm_s_ctrl(struct msm_vidc_inst *inst, struct v4l2_control *ctrl);
+int msm_comm_g_ctrl_for_id(struct msm_vidc_inst *inst, int id);
+int msm_comm_ctrl_init(struct msm_vidc_inst *inst,
+		struct msm_vidc_ctrl *drv_ctrls, u32 num_ctrls,
+		const struct v4l2_ctrl_ops *ctrl_ops);
+int msm_comm_ctrl_deinit(struct msm_vidc_inst *inst);
 void msm_comm_cleanup_internal_buffers(struct msm_vidc_inst *inst);
 int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a);
 bool msm_comm_turbo_session(struct msm_vidc_inst *inst);
