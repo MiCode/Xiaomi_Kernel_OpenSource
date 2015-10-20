@@ -511,6 +511,7 @@ enum msm_vfe_overflow_state {
 	OVERFLOW_DETECTED,
 	HALT_REQUESTED,
 	RESTART_REQUESTED,
+	HALT_ENFORCED,
 };
 
 struct msm_vfe_error_info {
