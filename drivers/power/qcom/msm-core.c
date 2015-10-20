@@ -1016,6 +1016,7 @@ static int msm_core_dev_probe(struct platform_device *pdev)
 	char *key = NULL;
 	struct device_node *node;
 	int cpu;
+	struct uio_info *info;
 
 	if (!pdev)
 		return -ENODEV;
@@ -1049,12 +1050,12 @@ static int msm_core_dev_probe(struct platform_device *pdev)
 
 	ret = msm_core_freq_init();
 	if (ret)
-		return ret;
+		goto failed;
 
 	ret = misc_register(&msm_core_device);
 	if (ret) {
 		pr_err("%s: Error registering device %d\n", __func__, ret);
-		return ret;
+		goto failed;
 	}
 
 	ret = msm_core_params_init(pdev);
@@ -1074,6 +1075,8 @@ static int msm_core_dev_probe(struct platform_device *pdev)
 	pm_notifier(system_suspend_handler, 0);
 	return 0;
 failed:
+	info = dev_get_drvdata(&pdev->dev);
+	uio_unregister_device(info);
 	free_dyn_memory();
 	return ret;
 }
