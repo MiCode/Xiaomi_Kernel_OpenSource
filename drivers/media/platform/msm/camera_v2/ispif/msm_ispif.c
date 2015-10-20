@@ -387,6 +387,22 @@ static int msm_ispif_clk_ahb_enable(struct ispif_device *ispif, int enable)
 	return rc;
 }
 
+static int msm_ispif_release_reset(struct ispif_device *ispif)
+{
+	int rc = 0;
+	int i;
+	for (i = 0; i < ispif->vfe_info.num_vfe; i++) {
+		msm_camera_io_w_mb(ISPIF_STOP_INTF_IMMEDIATELY,
+			ispif->base + ISPIF_VFE_m_INTF_CMD_0(i));
+		msm_camera_io_w_mb(ISPIF_STOP_INTF_IMMEDIATELY,
+			ispif->base + ISPIF_VFE_m_INTF_CMD_1(i));
+	}
+	msm_camera_io_w_mb(ISPIF_IRQ_GLOBAL_CLEAR_CMD, ispif->base +
+		ISPIF_IRQ_GLOBAL_CLEAR_CMD_ADDR);
+
+	return rc;
+}
+
 static int msm_ispif_reset(struct ispif_device *ispif)
 {
 	int rc = 0;
@@ -678,6 +694,12 @@ static int msm_ispif_config(struct ispif_device *ispif,
 
 	BUG_ON(!ispif);
 	BUG_ON(!params);
+
+	if (!ispif->base) {
+		pr_err("%s: ispif base is NULL\n", __func__);
+		rc = -EPERM;
+		return rc;
+	}
 
 	if (ispif->ispif_state != ISPIF_POWER_UP) {
 		pr_err("%s: ispif invalid state %d\n", __func__,
@@ -1359,7 +1381,7 @@ static void msm_ispif_release(struct ispif_device *ispif)
 	}
 
 	/* make sure no streaming going on */
-	msm_ispif_reset(ispif);
+	msm_ispif_release_reset(ispif);
 	msm_ispif_reset_hw(ispif);
 	msm_ispif_clk_ahb_enable(ispif, 0);
 
@@ -1446,8 +1468,6 @@ static long msm_ispif_subdev_ioctl(struct v4l2_subdev *sd,
 		return 0;
 	}
 	case MSM_SD_SHUTDOWN: {
-		 struct ispif_device *ispif =
-			(struct ispif_device *)v4l2_get_subdevdata(sd);
 		if (ispif && ispif->base) {
 			mutex_lock(&ispif->mutex);
 			msm_ispif_release(ispif);
