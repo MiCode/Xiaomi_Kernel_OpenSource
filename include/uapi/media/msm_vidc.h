@@ -141,6 +141,14 @@ struct msm_vidc_yuv_stats_payload {
 	unsigned int frame_difference;
 };
 
+struct msm_vidc_roi_qp_payload {
+	int upper_qp_offset;
+	int lower_qp_offset;
+	unsigned int b_roi_info;
+	int mbi_info_size;
+	unsigned int data[1];
+};
+
 enum msm_vidc_extradata_type {
 	MSM_VIDC_EXTRADATA_NONE = 0x00000000,
 	MSM_VIDC_EXTRADATA_MB_QUANTIZATION = 0x00000001,
@@ -157,6 +165,7 @@ enum msm_vidc_extradata_type {
 	MSM_VIDC_EXTRADATA_FRAME_QP = 0x0000000F,
 	MSM_VIDC_EXTRADATA_FRAME_BITS_INFO = 0x00000010,
 	MSM_VIDC_EXTRADATA_VQZIP_SEI = 0x00000011,
+	MSM_VIDC_EXTRADATA_ROI_QP = 0x00000013,
 	MSM_VIDC_EXTRADATA_INPUT_CROP = 0x0700000E,
 	MSM_VIDC_EXTRADATA_DIGITAL_ZOOM = 0x07000010,
 	MSM_VIDC_EXTRADATA_MULTISLICE_INFO = 0x7F100000,

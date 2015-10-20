@@ -558,6 +558,9 @@ static int get_hfi_extradata_index(enum hal_extradata_id index)
 	case HAL_EXTRADATA_YUV_STATS:
 		ret = HFI_PROPERTY_PARAM_VENC_YUVSTAT_INFO_EXTRADATA;
 		break;
+	case HAL_EXTRADATA_ROI_QP:
+		ret = HFI_PROPERTY_PARAM_VENC_ROI_QP_EXTRADATA;
+		break;
 	default:
 		dprintk(VIDC_WARN, "Extradata index not found: %d\n", index);
 		break;
