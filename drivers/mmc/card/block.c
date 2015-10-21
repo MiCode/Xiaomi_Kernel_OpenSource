@@ -2898,7 +2898,7 @@ static void mmc_blk_cmdq_shutdown(struct mmc_queue *mq)
 	err = mmc_cmdq_halt(host, true);
 	if (err) {
 		pr_err("%s: halt: failed: %d\n", __func__, err);
-		return;
+		goto out;
 	}
 
 	/* disable CQ mode in card */
