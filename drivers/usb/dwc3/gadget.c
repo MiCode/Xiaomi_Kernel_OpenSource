@@ -3473,6 +3473,11 @@ static irqreturn_t dwc3_check_event_buf(struct dwc3 *dwc, u32 buf)
 	if (!count)
 		return IRQ_NONE;
 
+	if (count > evt->length) {
+		dev_warn(dwc->dev, "%s: ev_count is huge: %d", __func__, count);
+		return IRQ_NONE;
+	}
+
 	evt->count = count;
 	evt->flags |= DWC3_EVENT_PENDING;
 
