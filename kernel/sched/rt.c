@@ -1667,6 +1667,7 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 	int cpu_cost, min_cost = INT_MAX;
 	u64 cpu_load, min_load = ULLONG_MAX;
 	int best_cpu = -1;
+	int prev_cpu = task_cpu(task);
 	int i;
 
 	/* Make sure the mask is initialized first */
@@ -1709,7 +1710,10 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 		if (sched_cpu_high_irqload(i))
 			continue;
 
-		if (cpu_load < min_load) {
+		if (cpu_load < min_load ||
+		    (cpu_load == min_load &&
+		     (i == prev_cpu || (best_cpu != prev_cpu &&
+					cpus_share_cache(prev_cpu, i))))) {
 			min_load = cpu_load;
 			best_cpu = i;
 		}
