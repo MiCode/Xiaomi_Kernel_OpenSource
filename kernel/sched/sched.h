@@ -1217,6 +1217,9 @@ static inline int update_preferred_cluster(struct related_thread_group *grp,
 	return 0;
 }
 
+static inline void
+add_new_task_to_grp(struct task_struct *new) {}
+
 #endif	/* CONFIG_SCHED_HMP */
 
 /*
