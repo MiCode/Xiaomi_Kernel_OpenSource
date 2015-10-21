@@ -372,6 +372,8 @@ extern int iommu_dma_supported(struct iommu_domain *domain, struct device *dev,
 
 /* PCI device grouping function */
 extern struct iommu_group *pci_device_group(struct device *dev);
+/* Generic device grouping function */
+extern struct iommu_group *generic_device_group(struct device *dev);
 
 #else /* CONFIG_IOMMU_API */
 
