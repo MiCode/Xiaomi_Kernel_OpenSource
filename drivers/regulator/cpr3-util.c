@@ -1166,7 +1166,7 @@ int cpr3_adjust_fused_open_loop_voltages(struct cpr3_regulator *vreg,
 		if (volt_adjust[i]) {
 			prev_volt = fuse_volt[i];
 			fuse_volt[i] += volt_adjust[i];
-			cpr3_info(vreg, "adjusted fuse corner %d open-loop voltage: %d --> %d uV\n",
+			cpr3_debug(vreg, "adjusted fuse corner %d open-loop voltage: %d --> %d uV\n",
 				i, prev_volt, fuse_volt[i]);
 		}
 	}
@@ -1214,7 +1214,7 @@ int cpr3_adjust_open_loop_voltages(struct cpr3_regulator *vreg)
 		if (volt_adjust[i]) {
 			prev_volt = vreg->corner[i].open_loop_volt;
 			vreg->corner[i].open_loop_volt += volt_adjust[i];
-			cpr3_info(vreg, "adjusted corner %d open-loop voltage: %d --> %d uV\n",
+			cpr3_debug(vreg, "adjusted corner %d open-loop voltage: %d --> %d uV\n",
 				i, prev_volt, vreg->corner[i].open_loop_volt);
 		}
 	}
@@ -1237,7 +1237,7 @@ int cpr3_adjust_open_loop_voltages(struct cpr3_regulator *vreg)
 	for (i = 1; i < vreg->corner_count; i++) {
 		min_volt = vreg->corner[i - 1].open_loop_volt + volt_diff[i];
 		if (vreg->corner[i].open_loop_volt < min_volt) {
-			cpr3_info(vreg, "adjusted corner %d open-loop voltage=%d uV < corner %d voltage=%d uV + min diff=%d uV; overriding: corner %d voltage=%d\n",
+			cpr3_debug(vreg, "adjusted corner %d open-loop voltage=%d uV < corner %d voltage=%d uV + min diff=%d uV; overriding: corner %d voltage=%d\n",
 				i, vreg->corner[i].open_loop_volt,
 				i - 1, vreg->corner[i - 1].open_loop_volt,
 				volt_diff[i], i, min_volt);
