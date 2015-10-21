@@ -290,6 +290,9 @@
 #define A5XX_RBBM_CLOCK_HYST3_TP1                0xB9
 #define A5XX_RBBM_CLOCK_HYST3_TP2                0xBA
 #define A5XX_RBBM_CLOCK_HYST3_TP3                0xBB
+#define A5XX_RBBM_CLOCK_CNTL_GPMU                0xC8
+#define A5XX_RBBM_CLOCK_DELAY_GPMU               0xC9
+#define A5XX_RBBM_CLOCK_HYST_GPMU                0xCA
 #define A5XX_RBBM_PERFCTR_CP_0_LO                0x3A0
 #define A5XX_RBBM_PERFCTR_CP_0_HI                0x3A1
 #define A5XX_RBBM_PERFCTR_CP_1_LO                0x3A2

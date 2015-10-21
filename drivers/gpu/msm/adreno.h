@@ -170,6 +170,7 @@ enum adreno_gpurev {
 	ADRENO_REV_A506 = 506,
 	ADRENO_REV_A510 = 510,
 	ADRENO_REV_A530 = 530,
+	ADRENO_REV_A540 = 540,
 };
 
 #define ADRENO_START_WARM 0
@@ -945,6 +946,7 @@ ADRENO_TARGET(a505, ADRENO_REV_A505)
 ADRENO_TARGET(a506, ADRENO_REV_A506)
 ADRENO_TARGET(a510, ADRENO_REV_A510)
 ADRENO_TARGET(a530, ADRENO_REV_A530)
+ADRENO_TARGET(a540, ADRENO_REV_A540)
 
 static inline int adreno_is_a530v1(struct adreno_device *adreno_dev)
 {
@@ -968,6 +970,12 @@ static inline int adreno_is_a505_or_a506(struct adreno_device *adreno_dev)
 {
 	return ADRENO_GPUREV(adreno_dev) >= 505 &&
 			ADRENO_GPUREV(adreno_dev) <= 506;
+}
+
+static inline int adreno_is_a540v1(struct adreno_device *adreno_dev)
+{
+	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A540) &&
+		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 0);
 }
 /**
  * adreno_context_timestamp() - Return the last queued timestamp for the context
