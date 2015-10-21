@@ -370,6 +370,9 @@ static inline size_t iommu_map_sg(struct iommu_domain *domain,
 extern int iommu_dma_supported(struct iommu_domain *domain, struct device *dev,
 			       u64 mask);
 
+/* PCI device grouping function */
+extern struct iommu_group *pci_device_group(struct device *dev);
+
 #else /* CONFIG_IOMMU_API */
 
 struct iommu_ops {};
