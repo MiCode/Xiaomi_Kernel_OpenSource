@@ -284,6 +284,11 @@
 #define clk_gcc_wcss_shdreg_ahb_clk		0x33459c85
 #define clk_hlos1_vote_lpass_core_smmu_clk	0x3aaa1743
 #define clk_hlos1_vote_lpass_adsp_smmu_clk	0xc76f702f
+#define clk_gcc_mss_cfg_ahb_clk			0x111cde81
+#define clk_gcc_mss_q6_bimc_axi_clk		0x67544d62
+#define clk_gcc_mss_mnoc_bimc_axi_clk		0xf665d03f
+#define clk_gpll0_out_msscc			0x7d794829
+#define clk_gcc_mss_snoc_axi_clk		0x0e71de85
 #define clk_gcc_debug_mux			0x8121ac15
 
 /* clock_mmss controlled clocks */
