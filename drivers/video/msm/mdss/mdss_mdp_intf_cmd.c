@@ -911,7 +911,6 @@ static void mdss_mdp_cmd_pingpong_done(void *arg)
 	struct mdss_mdp_cmd_ctx *ctx = ctl->intf_ctx[MASTER_CTX];
 	struct mdss_mdp_vsync_handler *tmp;
 	ktime_t vsync_time;
-	u32 status;
 
 	if (!ctx) {
 		pr_err("%s: invalid ctx\n", __func__);
@@ -938,9 +937,7 @@ static void mdss_mdp_cmd_pingpong_done(void *arg)
 			       atomic_read(&ctx->koff_cnt));
 		if (mdss_mdp_cmd_do_notifier(ctx)) {
 			atomic_inc(&ctx->pp_done_cnt);
-			status = mdss_mdp_ctl_perf_get_transaction_status(ctl);
-			if (status == 0)
-				schedule_work(&ctx->pp_done_work);
+			schedule_work(&ctx->pp_done_work);
 
 			mdss_mdp_resource_control(ctl,
 				MDP_RSRC_CTL_EVENT_PP_DONE);
@@ -961,6 +958,7 @@ static void mdss_mdp_cmd_pingpong_done(void *arg)
 
 static void pingpong_done_work(struct work_struct *work)
 {
+	u32 status;
 	struct mdss_mdp_cmd_ctx *ctx =
 		container_of(work, typeof(*ctx), pp_done_work);
 
@@ -968,7 +966,9 @@ static void pingpong_done_work(struct work_struct *work)
 		while (atomic_add_unless(&ctx->pp_done_cnt, -1, 0))
 			mdss_mdp_ctl_notify(ctx->ctl, MDP_NOTIFY_FRAME_DONE);
 
-		mdss_mdp_ctl_perf_release_bw(ctx->ctl);
+		status = mdss_mdp_ctl_perf_get_transaction_status(ctx->ctl);
+		if (status == 0)
+			mdss_mdp_ctl_perf_release_bw(ctx->ctl);
 	}
 }
 
