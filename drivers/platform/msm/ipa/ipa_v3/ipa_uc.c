@@ -153,8 +153,7 @@ union IpaHwResetPipeCmdData_t {
 /**
  * struct IpaHwRegWriteCmdData_t - holds the parameters for
  * IPA_CPU_2_HW_CMD_REG_WRITE command. Parameters are
- * sent as pointer (not direct) thus should be reside
- * in memory address accessible to HW
+ * sent as 64b immediate parameters.
  * @RegisterAddress: RG10 register address where the value needs to be written
  * @RegisterValue: 32-Bit value to be written into the register
  */
@@ -510,124 +509,8 @@ static void ipa3_uc_response_hdlr(enum ipa_irq_type interrupt,
 	ipa3_dec_client_disable_clks();
 }
 
-/**
- * ipa3_uc_interface_init() - Initialize the interface with the uC
- *
- * Return value: 0 on success, negative value otherwise
- */
-int ipa3_uc_interface_init(void)
-{
-	int result;
-	unsigned long phys_addr;
-
-	if (ipa3_ctx->uc_ctx.uc_inited) {
-		IPADBG("uC interface already initialized\n");
-		return 0;
-	}
-
-	mutex_init(&ipa3_ctx->uc_ctx.uc_lock);
-	spin_lock_init(&ipa3_ctx->uc_ctx.uc_spinlock);
-
-	phys_addr = ipa3_ctx->ipa_wrapper_base +
-		ipa3_ctx->ctrl->ipa_reg_base_ofst +
-		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0);
-	ipa3_ctx->uc_ctx.uc_sram_mmio = ioremap(phys_addr,
-					       IPA_RAM_UC_SMEM_SIZE);
-	if (!ipa3_ctx->uc_ctx.uc_sram_mmio) {
-		IPAERR("Fail to ioremap IPA uC SRAM\n");
-		result = -ENOMEM;
-		goto remap_fail;
-	}
-
-	if (!ipa3_ctx->apply_rg10_wa) {
-		result = ipa3_add_interrupt_handler(IPA_UC_IRQ_0,
-			ipa3_uc_event_handler, true,
-			ipa3_ctx);
-		if (result) {
-			IPAERR("Fail to register for UC_IRQ0 rsp interrupt\n");
-			result = -EFAULT;
-			goto irq_fail0;
-		}
-
-		result = ipa3_add_interrupt_handler(IPA_UC_IRQ_1,
-			ipa3_uc_response_hdlr, true,
-			ipa3_ctx);
-		if (result) {
-			IPAERR("fail to register for UC_IRQ1 rsp interrupt\n");
-			result = -EFAULT;
-			goto irq_fail1;
-		}
-	}
-
-	ipa3_ctx->uc_ctx.uc_inited = true;
-
-	IPADBG("IPA uC interface is initialized\n");
-	return 0;
-
-irq_fail1:
-	ipa3_remove_interrupt_handler(IPA_UC_IRQ_0);
-irq_fail0:
-	iounmap(ipa3_ctx->uc_ctx.uc_sram_mmio);
-remap_fail:
-	return result;
-}
-
-/**
- * ipa3_uc_load_notify() - Notification about uC loading
- *
- * This function should be called when IPA uC interface layer cannot
- * determine by itself about uC loading by waits for external notification.
- * Example is resource group 10 limitation were ipa driver does not get uC
- * interrupts.
- * The function should perform actions that were not done at init due to uC
- * not being loaded then.
- *
- */
-void ipa3_uc_load_notify(void)
-{
-	int i;
-	int result;
-
-	if (!ipa3_ctx->apply_rg10_wa)
-		return;
-
-	ipa3_ctx->uc_ctx.uc_loaded = true;
-	IPADBG("IPA uC loaded\n");
-
-	ipa3_proxy_clk_unvote();
-
-	ipa3_init_interrupts();
-
-	result = ipa3_add_interrupt_handler(IPA_UC_IRQ_0,
-		ipa3_uc_event_handler, true,
-		ipa3_ctx);
-	if (result)
-		IPAERR("Fail to register for UC_IRQ0 rsp interrupt.\n");
-
-	for (i = 0; i < IPA_HW_NUM_FEATURES; i++) {
-		if (ipa3_uc_hdlrs[i].ipa_uc_loaded_hdlr)
-			ipa3_uc_hdlrs[i].ipa_uc_loaded_hdlr();
-	}
-}
-EXPORT_SYMBOL(ipa3_uc_load_notify);
-
-/**
- * ipa3_uc_send_cmd() - Send a command to the uC
- *
- * Note: In case the operation times out (No response from the uC) or
- *       polling maximal amount of retries has reached, the logic
- *       considers it as an invalid state of the uC/IPA, and
- *       issues a kernel panic.
- *
- * Returns: 0 on success.
- *          -EINVAL in case of invalid input.
- *          -EBADF in case uC interface is not initialized /
- *                 or the uC has failed previously.
- *          -EFAULT in case the received status doesn't match
- *                  the expected.
- */
-int ipa3_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
-		    bool polling_mode, unsigned long timeout_jiffies)
+static int ipa3_uc_send_cmd_64b_param(u32 cmd_lo, u32 cmd_hi, u32 opcode,
+	u32 expected_status, bool polling_mode, unsigned long timeout_jiffies)
 {
 	int index;
 	union IpaHwCpuCmdCompletedResponseData_t uc_rsp;
@@ -651,7 +534,8 @@ send_cmd:
 		init_completion(&ipa3_ctx->uc_ctx.uc_completion);
 	}
 
-	ipa3_ctx->uc_ctx.uc_sram_mmio->cmdParams = cmd;
+	ipa3_ctx->uc_ctx.uc_sram_mmio->cmdParams = cmd_lo;
+	ipa3_ctx->uc_ctx.uc_sram_mmio->cmdParams_hi = cmd_hi;
 	ipa3_ctx->uc_ctx.uc_sram_mmio->cmdOp = opcode;
 	ipa3_ctx->uc_ctx.pending_cmd = opcode;
 	ipa3_ctx->uc_ctx.uc_sram_mmio->responseOp = 0;
@@ -744,6 +628,131 @@ send_cmd:
 	IPADBG("uC cmd %u send succeeded\n", opcode);
 
 	return 0;
+}
+
+/**
+ * ipa3_uc_interface_init() - Initialize the interface with the uC
+ *
+ * Return value: 0 on success, negative value otherwise
+ */
+int ipa3_uc_interface_init(void)
+{
+	int result;
+	unsigned long phys_addr;
+
+	if (ipa3_ctx->uc_ctx.uc_inited) {
+		IPADBG("uC interface already initialized\n");
+		return 0;
+	}
+
+	mutex_init(&ipa3_ctx->uc_ctx.uc_lock);
+	spin_lock_init(&ipa3_ctx->uc_ctx.uc_spinlock);
+
+	phys_addr = ipa3_ctx->ipa_wrapper_base +
+		ipa3_ctx->ctrl->ipa_reg_base_ofst +
+		IPA_SRAM_DIRECT_ACCESS_N_OFST_v3_0(0);
+	ipa3_ctx->uc_ctx.uc_sram_mmio = ioremap(phys_addr,
+					       IPA_RAM_UC_SMEM_SIZE);
+	if (!ipa3_ctx->uc_ctx.uc_sram_mmio) {
+		IPAERR("Fail to ioremap IPA uC SRAM\n");
+		result = -ENOMEM;
+		goto remap_fail;
+	}
+
+	if (!ipa3_ctx->apply_rg10_wa) {
+		result = ipa3_add_interrupt_handler(IPA_UC_IRQ_0,
+			ipa3_uc_event_handler, true,
+			ipa3_ctx);
+		if (result) {
+			IPAERR("Fail to register for UC_IRQ0 rsp interrupt\n");
+			result = -EFAULT;
+			goto irq_fail0;
+		}
+
+		result = ipa3_add_interrupt_handler(IPA_UC_IRQ_1,
+			ipa3_uc_response_hdlr, true,
+			ipa3_ctx);
+		if (result) {
+			IPAERR("fail to register for UC_IRQ1 rsp interrupt\n");
+			result = -EFAULT;
+			goto irq_fail1;
+		}
+	}
+
+	ipa3_ctx->uc_ctx.uc_inited = true;
+
+	IPADBG("IPA uC interface is initialized\n");
+	return 0;
+
+irq_fail1:
+	ipa3_remove_interrupt_handler(IPA_UC_IRQ_0);
+irq_fail0:
+	iounmap(ipa3_ctx->uc_ctx.uc_sram_mmio);
+remap_fail:
+	return result;
+}
+
+/**
+ * ipa3_uc_load_notify() - Notification about uC loading
+ *
+ * This function should be called when IPA uC interface layer cannot
+ * determine by itself about uC loading by waits for external notification.
+ * Example is resource group 10 limitation were ipa driver does not get uC
+ * interrupts.
+ * The function should perform actions that were not done at init due to uC
+ * not being loaded then.
+ */
+void ipa3_uc_load_notify(void)
+{
+	int i;
+	int result;
+
+	if (!ipa3_ctx->apply_rg10_wa)
+		return;
+
+	ipa3_ctx->uc_ctx.uc_loaded = true;
+	IPADBG("IPA uC loaded\n");
+
+	ipa3_proxy_clk_unvote();
+
+	ipa3_init_interrupts();
+
+	result = ipa3_add_interrupt_handler(IPA_UC_IRQ_0,
+		ipa3_uc_event_handler, true,
+		ipa3_ctx);
+	if (result)
+		IPAERR("Fail to register for UC_IRQ0 rsp interrupt.\n");
+
+	for (i = 0; i < IPA_HW_NUM_FEATURES; i++) {
+		if (ipa3_uc_hdlrs[i].ipa_uc_loaded_hdlr)
+			ipa3_uc_hdlrs[i].ipa_uc_loaded_hdlr();
+	}
+}
+EXPORT_SYMBOL(ipa3_uc_load_notify);
+
+/**
+ * ipa3_uc_send_cmd() - Send a command to the uC
+ *
+ * Note1: This function sends command with 32bit parameter and do not
+ *	use the higher 32bit of the command parameter (set to zero).
+ *
+ * Note2: In case the operation times out (No response from the uC) or
+ *       polling maximal amount of retries has reached, the logic
+ *       considers it as an invalid state of the uC/IPA, and
+ *       issues a kernel panic.
+ *
+ * Returns: 0 on success.
+ *          -EINVAL in case of invalid input.
+ *          -EBADF in case uC interface is not initialized /
+ *                 or the uC has failed previously.
+ *          -EFAULT in case the received status doesn't match
+ *                  the expected.
+ */
+int ipa3_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
+		    bool polling_mode, unsigned long timeout_jiffies)
+{
+	return ipa3_uc_send_cmd_64b_param(cmd, 0, opcode,
+		expected_status, polling_mode, timeout_jiffies);
 }
 
 /**
@@ -883,42 +892,24 @@ int ipa3_uc_update_hw_flags(u32 flags)
  */
 void ipa3_uc_rg10_write_reg(void *base, u32 offset, u32 val)
 {
-	struct ipa3_mem_buffer reg_data_mem = {0};
-	struct IpaHwRegWriteCmdData_t *reg_data;
-	int ret = 0;
-	u32 pbase;
+	int ret;
+	u32 paddr;
 
 	if (!ipa3_ctx->apply_rg10_wa)
 		return ipa_write_reg(base, offset, val);
 
-	reg_data_mem.size = sizeof(struct IpaHwRegWriteCmdData_t);
-	reg_data_mem.base = dma_alloc_coherent(ipa3_ctx->uc_pdev,
-		reg_data_mem.size, &reg_data_mem.phys_base,
-		GFP_ATOMIC | __GFP_REPEAT);
-	if (!reg_data_mem.base) {
-		IPAERR("fail to alloc DMA buff of size %d\n",
-			reg_data_mem.size);
-		BUG();
-	}
-
-	/* calculate physical base address */
-	pbase = ipa3_ctx->ipa_wrapper_base + ipa3_ctx->ctrl->ipa_reg_base_ofst;
-
-	reg_data = reg_data_mem.base;
-	reg_data->RegisterAddress = pbase + offset;
-	reg_data->RegisterValue = val;
+	/* calculate register physical address */
+	paddr = ipa3_ctx->ipa_wrapper_base + ipa3_ctx->ctrl->ipa_reg_base_ofst;
+	paddr += offset;
 
 	IPADBG("Sending uC cmd to reg write: addr=0x%x val=0x%x\n",
-		reg_data->RegisterAddress, val);
-	ret = ipa3_uc_send_cmd((u32)reg_data_mem.phys_base,
+		paddr, val);
+	ret = ipa3_uc_send_cmd_64b_param(paddr, val,
 		IPA_CPU_2_HW_CMD_REG_WRITE, 0, true, 0);
 	if (ret) {
 		IPAERR("failed to send cmd to uC for reg write\n");
 		BUG();
 	}
-
-	dma_free_coherent(ipa3_ctx->uc_pdev, reg_data_mem.size,
-		reg_data_mem.base, reg_data_mem.phys_base);
 }
 
 /**
