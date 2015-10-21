@@ -39,6 +39,7 @@
 #include <linux/rbtree_augmented.h>
 #include <linux/sched/sysctl.h>
 #include <linux/notifier.h>
+#include <linux/hashtable.h>
 #include <linux/memory.h>
 #include <linux/printk.h>
 
@@ -56,6 +57,9 @@
 #ifndef arch_rebalance_pgtables
 #define arch_rebalance_pgtables(addr, len)		(addr)
 #endif
+
+struct srcu_struct exit_boost_srcu;
+DEFINE_PER_CPU(struct hlist_head[1 << TASK_MM_HLIST_BITS], task_mm_hash);
 
 static void unmap_region(struct mm_struct *mm,
 		struct vm_area_struct *vma, struct vm_area_struct *prev,
@@ -2753,6 +2757,8 @@ void exit_mmap(struct mm_struct *mm)
 	struct mmu_gather tlb;
 	struct vm_area_struct *vma;
 	unsigned long nr_accounted = 0;
+	struct task_rmap map;
+	int cpu;
 
 	/* mm's last user has gone, and its about to be pulled down */
 	mmu_notifier_release(mm);
@@ -2775,9 +2781,35 @@ void exit_mmap(struct mm_struct *mm)
 	lru_add_drain();
 	flush_cache_mm(mm);
 	tlb_gather_mmu(&tlb, mm, 0, -1);
+
+	map.mm = mm;
+	map.task = current;
+	rt_mutex_init(&map.exit_boost_mutex);
+	cpu = get_cpu();
+	hlist_add_head_rcu(&map.list,
+			&per_cpu(task_mm_hash, cpu)[hash_min((unsigned long)mm,
+			TASK_MM_HLIST_BITS)]);
+	put_cpu();
+	rt_mutex_lock(&map.exit_boost_mutex);
+
 	/* update_hiwater_rss(mm) here? but nobody should be looking */
 	/* Use -1 here to ensure all VMAs in the mm are unmapped */
 	unmap_vmas(&tlb, vma, 0, -1);
+
+	/*
+	 * free the pages early, before anon_vma is unlinked in
+	 * free_pgtables. This is to ensure that migrate_pages which
+	 * may be failing because of some of these pages, can perform
+	 * a rmap to get the mm, until the pages are freed, and further
+	 * prioritize this task.
+	 */
+	tlb_free_pages_early(&tlb);
+
+	preempt_disable();
+	hash_del_rcu(&map.list);
+	preempt_enable();
+	rt_mutex_unlock(&map.exit_boost_mutex);
+	synchronize_srcu(&exit_boost_srcu);
 
 	free_pgtables(&tlb, vma, FIRST_USER_ADDRESS, USER_PGTABLES_CEILING);
 	tlb_finish_mmu(&tlb, 0, -1);
@@ -3227,9 +3259,15 @@ void mm_drop_all_locks(struct mm_struct *mm)
 void __init mmap_init(void)
 {
 	int ret;
+	int i;
 
 	ret = percpu_counter_init(&vm_committed_as, 0, GFP_KERNEL);
 	VM_BUG_ON(ret);
+
+	for_each_possible_cpu(i)
+		__hash_init(per_cpu(task_mm_hash, i),
+			(1 << TASK_MM_HLIST_BITS));
+	init_srcu_struct(&exit_boost_srcu);
 }
 
 /*

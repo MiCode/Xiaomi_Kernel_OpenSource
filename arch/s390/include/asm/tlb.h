@@ -82,6 +82,10 @@ static inline void tlb_finish_mmu(struct mmu_gather *tlb,
 	tlb_flush_mmu(tlb);
 }
 
+static inline void tlb_free_pages_early(struct mmu_gather *tlb)
+{
+}
+
 /*
  * Release the page cache reference for a pte removed by
  * tlb_ptep_clear_flush. In both flush modes the tlb for a page cache page
