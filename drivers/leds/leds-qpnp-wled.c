@@ -1013,9 +1013,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 			return rc;
 
 		/* SYNC DELAY */
-		if (wled->sync_dly_us < QPNP_WLED_SYNC_DLY_MIN_US)
-			wled->sync_dly_us = QPNP_WLED_SYNC_DLY_MIN_US;
-		else if (wled->sync_dly_us > QPNP_WLED_SYNC_DLY_MAX_US)
+		if (wled->sync_dly_us > QPNP_WLED_SYNC_DLY_MAX_US)
 			wled->sync_dly_us = QPNP_WLED_SYNC_DLY_MAX_US;
 
 		rc = qpnp_wled_read_reg(wled, &reg,
@@ -1033,9 +1031,7 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 			return rc;
 
 		/* FULL SCALE CURRENT */
-		if (wled->fs_curr_ua < QPNP_WLED_FS_CURR_MIN_UA)
-			wled->fs_curr_ua = QPNP_WLED_FS_CURR_MIN_UA;
-		else if (wled->fs_curr_ua > QPNP_WLED_FS_CURR_MAX_UA)
+		if (wled->fs_curr_ua > QPNP_WLED_FS_CURR_MAX_UA)
 			wled->fs_curr_ua = QPNP_WLED_FS_CURR_MAX_UA;
 
 		rc = qpnp_wled_read_reg(wled, &reg,
@@ -1141,6 +1137,7 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 	const char *temp_str;
 	u32 temp_val;
 	int rc, i;
+	u8 *strings;
 
 	wled->cdev.name = "wled";
 	rc = of_property_read_string(spmi->dev.of_node,
@@ -1309,7 +1306,9 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 			wled->strings[i] = i;
 	} else {
 		wled->num_strings = temp_val;
-		memcpy(wled->strings, prop->value, temp_val);
+		strings = prop->value;
+		for (i = 0; i < wled->num_strings; ++i)
+			wled->strings[i] = strings[i];
 	}
 
 	wled->ovp_irq = spmi_get_irq_byname(spmi, NULL, "ovp-irq");
