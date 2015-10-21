@@ -210,6 +210,25 @@
 		qcom,a7ssmux-opp-store-vcorner = <&CPU0>;
 	};
 
+	qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clocks = <&clock_cpu  clk_a7ssmux>,
+			 <&clock_cpu  clk_a7ssmux>,
+			 <&clock_cpu  clk_a7ssmux>,
+			 <&clock_cpu  clk_a7ssmux>;
+		clock-names = "cpu0_clk", "cpu1_clk",
+				"cpu2_clk", "cpu3_clk";
+		qcom,cpufreq-table =
+				<  200000 >,
+				<  300000 >,
+				<  384000 >,
+				<  600000 >,
+				<  787200 >,
+				<  998400 >,
+				< 1190400 >,
+				< 1286400 >;
+	};
+
 	restart@4ab000 {
 		compatible = "qcom,pshold";
 		reg = <0x4ab000 0x4>,
