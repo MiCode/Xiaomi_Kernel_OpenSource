@@ -620,7 +620,7 @@ static int cpr3_msm8996_mmss_calculate_open_loop_voltages(
 
 	for (i = 1; i < vreg->fuse_corner_count; i++) {
 		if (fuse_volt[i] < fuse_volt[i - 1]) {
-			cpr3_info(vreg, "fuse corner %d voltage=%d uV < fuse corner %d voltage=%d uV; overriding: fuse corner %d voltage=%d\n",
+			cpr3_debug(vreg, "fuse corner %d voltage=%d uV < fuse corner %d voltage=%d uV; overriding: fuse corner %d voltage=%d\n",
 				i, fuse_volt[i], i - 1, fuse_volt[i - 1],
 				i, fuse_volt[i - 1]);
 			fuse_volt[i] = fuse_volt[i - 1];
