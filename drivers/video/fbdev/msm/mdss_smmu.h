@@ -24,9 +24,11 @@
 
 #define MDSS_SMMU_COMPATIBLE "qcom,smmu"
 
-enum mdss_smmu_version {
-	MDSS_SMMU_V1,
-	MDSS_SMMU_V2
+struct mdss_iommu_map_type {
+	char *client_name;
+	char *ctx_name;
+	unsigned long start;
+	unsigned long size;
 };
 
 void mdss_smmu_register(struct device *dev);
@@ -37,25 +39,6 @@ static inline bool is_mdss_smmu_compatible_device(const char *str)
 	/* check the prefix */
 	return (!strncmp(str, MDSS_SMMU_COMPATIBLE,
 			strlen(MDSS_SMMU_COMPATIBLE))) ? true : false;
-}
-
-static inline struct mdss_smmu_client *mdss_smmu_get_cb(u32 domain)
-{
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	return (domain >= MDSS_IOMMU_MAX_DOMAIN) ? NULL :
-			&mdata->mdss_smmu[domain];
-}
-
-static inline struct ion_client *mdss_get_ionclient(void)
-{
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	return mdata ? mdata->iclient : NULL;
-}
-
-static inline int is_mdss_iommu_attached(void)
-{
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	return mdata ? mdata->iommu_attached : false;
 }
 
 /*
@@ -72,6 +55,29 @@ static inline bool mdss_smmu_is_valid_domain_type(struct mdss_data_type *mdata,
 			!mdss_mdp_is_nrt_vbif_base_defined(mdata))
 		return false;
 	return true;
+}
+
+static inline struct mdss_smmu_client *mdss_smmu_get_cb(u32 domain)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if (!mdss_smmu_is_valid_domain_type(mdata, domain))
+		return NULL;
+
+	return (domain >= MDSS_IOMMU_MAX_DOMAIN) ? NULL :
+			&mdata->mdss_smmu[domain];
+}
+
+static inline struct ion_client *mdss_get_ionclient(void)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	return mdata ? mdata->iclient : NULL;
+}
+
+static inline int is_mdss_iommu_attached(void)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	return mdata ? mdata->iommu_attached : false;
 }
 
 static inline int mdss_smmu_get_domain_type(u32 flags, bool rotator)
@@ -134,6 +140,10 @@ static inline int mdss_smmu_detach(struct mdss_data_type *mdata)
 static inline int mdss_smmu_get_domain_id(u32 type)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if (!mdss_smmu_is_valid_domain_type(mdata, type))
+		return -ENODEV;
+
 	if (!mdata || !mdata->smmu_ops.smmu_get_domain_id
 			|| type >= MDSS_IOMMU_MAX_DOMAIN)
 		return -ENODEV;
