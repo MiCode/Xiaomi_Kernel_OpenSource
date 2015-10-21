@@ -150,6 +150,8 @@ struct android_usb_function_holder {
 *    Used for controlling ADB userspace disable/enable requests.
 * @mutex: Internal mutex for protecting device member fields.
 * @pdata: Platform data fetched from the kernel device platfrom data.
+* @last_disconnect : Time of the last disconnect. Used to enforce minimum
+*    delay before next connect.
 * @connected: True if got connect notification from the gadget UDC.
 *    False if got disconnect notification from the gadget UDC.
 * @sw_connected: Equal to 'connected' only after the connect
@@ -185,6 +187,8 @@ struct android_dev {
 	int disable_depth;
 	struct mutex mutex;
 	struct android_usb_platform_data *pdata;
+
+	ktime_t last_disconnect;
 
 	bool connected;
 	bool sw_connected;
@@ -460,10 +464,13 @@ static void android_work(struct work_struct *data)
 	}
 }
 
+#define MIN_DISCONNECT_DELAY_MS	30
+
 static int android_enable(struct android_dev *dev)
 {
 	struct usb_composite_dev *cdev = dev->cdev;
 	struct android_configuration *conf;
+	ktime_t diff;
 	int err = 0;
 
 	if (WARN_ON(!dev->disable_depth))
@@ -481,6 +488,17 @@ static int android_enable(struct android_dev *dev)
 				return err;
 			}
 		}
+
+		/*
+		 * Some controllers need a minimum delay between removing and
+		 * re-applying the pullups in order for the host to properly
+		 * detect a soft disconnect. Check here if enough time has
+		 * elapsed since the last disconnect.
+		 */
+		diff = ktime_sub(ktime_get(), dev->last_disconnect);
+		if (ktime_to_ms(diff) < MIN_DISCONNECT_DELAY_MS)
+			msleep(MIN_DISCONNECT_DELAY_MS - ktime_to_ms(diff));
+
 		usb_gadget_connect(cdev->gadget);
 	}
 
@@ -494,6 +512,8 @@ static void android_disable(struct android_dev *dev)
 
 	if (dev->disable_depth++ == 0) {
 		usb_gadget_disconnect(cdev->gadget);
+		dev->last_disconnect = ktime_get();
+
 		/* Cancel pending control requests */
 		usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
 
