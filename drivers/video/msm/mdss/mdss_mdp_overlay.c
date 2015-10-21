@@ -1516,8 +1516,13 @@ static int __overlay_queue_pipes(struct msm_fb_data_type *mfd)
 		if (buf && (buf->state == MDP_BUF_STATE_READY)) {
 			buf->state = MDP_BUF_STATE_ACTIVE;
 			ret = mdss_mdp_data_map(buf, false, DMA_TO_DEVICE);
-		} else if (!pipe->params_changed) {
-			/* nothing to update so continue with next */
+		} else if (!pipe->params_changed &&
+			   !mdss_mdp_is_roi_changed(pipe->mfd)) {
+
+			/*
+			 * no update for the given pipe nor any change in the
+			 * ROI so skip pipe programming and continue with next.
+			 */
 			continue;
 		} else if (buf) {
 			BUG_ON(buf->state != MDP_BUF_STATE_ACTIVE);

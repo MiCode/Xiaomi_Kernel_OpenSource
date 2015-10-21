@@ -751,6 +751,26 @@ enum mdss_mdp_clt_intf_event_flags {
 				(mfd->mdp.private1))->wb)
 
 /**
+ * - mdss_mdp_is_roi_changed
+ * @mfd - pointer to mfd
+ *
+ * Function returns true if roi is changed for any layer mixer of a given
+ * display, false otherwise.
+ */
+static inline bool mdss_mdp_is_roi_changed(struct msm_fb_data_type *mfd)
+{
+	struct mdss_mdp_ctl *ctl;
+
+	if (!mfd)
+		return false;
+
+	ctl = mfd_to_ctl(mfd); /* returns master ctl */
+
+	return ctl->mixer_left->roi_changed ||
+	      (is_split_lm(mfd) ? ctl->mixer_right->roi_changed : false);
+}
+
+/**
  * - mdss_mdp_is_both_lm_valid
  * @main_ctl - pointer to a main ctl
  *
