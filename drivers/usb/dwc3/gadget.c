@@ -1691,6 +1691,10 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 
 		dwc->pullups_connected = true;
 	} else {
+		dwc3_gadget_disable_irq(dwc);
+		__dwc3_gadget_ep_disable(dwc->eps[0]);
+		__dwc3_gadget_ep_disable(dwc->eps[1]);
+
 		reg &= ~DWC3_DCTL_RUN_STOP;
 
 		if (dwc->has_hibernation && !suspend)
@@ -2941,6 +2945,12 @@ static void dwc3_process_event_entry(struct dwc3 *dwc,
 		const union dwc3_event *event)
 {
 	trace_dwc3_event(event->raw);
+
+	/* If run/stop is cleared don't process any more events */
+	if (!dwc->pullups_connected) {
+		dbg_print_reg("SKIP_EVT_PULLUP", event->raw);
+		return;
+	}
 
 	/* Endpoint IRQ, handle it and return early */
 	if (event->type.is_devspec == 0) {
