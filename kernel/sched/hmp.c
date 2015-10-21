@@ -696,6 +696,13 @@ __read_mostly unsigned int sysctl_sched_cpu_high_irqload = (10 * NSEC_PER_MSEC);
 
 unsigned int __read_mostly sysctl_sched_enable_colocation = 1;
 
+/*
+ * Enable colocation and frequency aggregation for all threads in a process.
+ * The children inherits the group id from the parent.
+ */
+unsigned int __read_mostly sysctl_sched_enable_thread_grouping;
+
+
 __read_mostly unsigned int sysctl_sched_new_task_windows = 5;
 
 #define SCHED_FREQ_ACCOUNT_WAIT_TIME 0
@@ -3560,6 +3567,42 @@ add_task_to_group(struct task_struct *p, struct related_thread_group *grp)
 	raw_spin_unlock(&grp->lock);
 
 	return 0;
+}
+
+void add_new_task_to_grp(struct task_struct *new)
+{
+	unsigned long flags;
+	struct related_thread_group *grp;
+	struct task_struct *parent;
+
+	if (!sysctl_sched_enable_thread_grouping)
+		return;
+
+	if (thread_group_leader(new))
+		return;
+
+	parent = new->group_leader;
+
+	/*
+	 * The parent's pi_lock is required here to protect race
+	 * against the parent task being removed from the
+	 * group.
+	 */
+	raw_spin_lock_irqsave(&parent->pi_lock, flags);
+
+	/* protected by pi_lock. */
+	grp = task_related_thread_group(parent);
+	if (!grp) {
+		raw_spin_unlock_irqrestore(&parent->pi_lock, flags);
+		return;
+	}
+	raw_spin_lock(&grp->lock);
+
+	rcu_assign_pointer(new->grp, grp);
+	list_add(&new->grp_list, &grp->tasks);
+
+	raw_spin_unlock(&grp->lock);
+	raw_spin_unlock_irqrestore(&parent->pi_lock, flags);
 }
 
 int sched_set_group_id(struct task_struct *p, unsigned int group_id)
