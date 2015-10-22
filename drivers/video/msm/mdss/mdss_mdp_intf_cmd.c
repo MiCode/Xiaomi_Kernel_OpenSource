@@ -910,7 +910,7 @@ static void mdss_mdp_cmd_intf_recovery(void *data, int event)
 {
 	struct mdss_mdp_cmd_ctx *ctx = data;
 	unsigned long flags;
-	bool reset_done = false;
+	bool reset_done = false, notify_frame_timeout = false;
 
 	if (!data) {
 		pr_err("%s: invalid ctx\n", __func__);
@@ -937,17 +937,22 @@ static void mdss_mdp_cmd_intf_recovery(void *data, int event)
 	}
 
 	spin_lock_irqsave(&ctx->koff_lock, flags);
-	if (reset_done && atomic_read(&ctx->koff_cnt)) {
+	if (reset_done && atomic_add_unless(&ctx->koff_cnt, -1, 0)) {
 		u32 pp_num = ctx->right_only_update ? ctx->right_only_pp_num :
 						      ctx->pp_num;
 
 		pr_debug("%s: intf_num=%d\n", __func__, ctx->ctl->intf_num);
-		atomic_dec(&ctx->koff_cnt);
-
 		mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_PING_PONG_COMP,
 			pp_num);
+
+		if (mdss_mdp_cmd_do_notifier(ctx))
+			notify_frame_timeout = true;
 	}
 	spin_unlock_irqrestore(&ctx->koff_lock, flags);
+
+	if (notify_frame_timeout)
+		mdss_mdp_ctl_notify(ctx->ctl, MDP_NOTIFY_FRAME_TIMEOUT);
+
 }
 
 static void mdss_mdp_cmd_pingpong_done(void *arg)
@@ -1492,8 +1497,10 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 		}
 		ctx->pp_timeout_report_cnt++;
 		rc = -EPERM;
-		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_TIMEOUT);
-		atomic_add_unless(&ctx->koff_cnt, -1, 0);
+		if (atomic_add_unless(&ctx->koff_cnt, -1, 0)
+			&& mdss_mdp_cmd_do_notifier(ctx))
+			mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_TIMEOUT);
+
 	} else {
 		rc = 0;
 		ctx->pp_timeout_report_cnt = 0;
