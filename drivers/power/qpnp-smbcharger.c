@@ -1058,7 +1058,7 @@ static int find_closest_in_array(const int *arr, int len, int val)
 	if (len == 0)
 		return closest;
 	for (i = 0; i < len; i++)
-		if (abs(val - arr[i]) < abs(val - closest))
+		if (abs(val - arr[i]) < abs(val - arr[closest]))
 			closest = i;
 
 	return closest;
