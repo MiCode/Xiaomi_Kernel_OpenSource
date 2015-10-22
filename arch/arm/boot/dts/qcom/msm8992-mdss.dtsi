@@ -74,9 +74,9 @@
 		qcom,mdss-pipe-rgb-fixed-mmb =	<5 0 1 6 7 8>,
 						<5 2 3 9 10 11>,
 						<5 4 5 12 13 14>;
-		qcom,mdss-pipe-vig-fixed-mmb =	<1 15>,
-						<1 16>,
-						<1 17>;
+		qcom,mdss-pipe-vig-fixed-mmb =	<2 15 18>,
+						<2 16 19>,
+						<2 17 20>;
 		/* These Offsets are relative to "mdp_phys + mdp-reg-offset" address */
 		qcom,mdss-pipe-vig-clk-ctrl-offsets = <0x2AC 0 0>,
 						      <0x2B4 0 0>,
