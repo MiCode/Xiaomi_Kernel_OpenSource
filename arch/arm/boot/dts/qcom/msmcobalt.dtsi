@@ -206,10 +206,10 @@
 
 	timer {
 		compatible = "arm,armv8-timer";
-		interrupts = <1 2 0xf08>,
+		interrupts = <1 1 0xf08>,
+			     <1 2 0xf08>,
 			     <1 3 0xf08>,
-			     <1 4 0xf08>,
-			     <1 1 0xf08>;
+			     <1 0 0xf08>;
 		clock-frequency = <19200000>;
 	};
 
