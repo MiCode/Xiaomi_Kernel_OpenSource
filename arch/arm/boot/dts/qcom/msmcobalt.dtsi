@@ -25,6 +25,11 @@
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
 	};
 
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
@@ -34,8 +39,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x0>;
 			qcom,limits-info = <&mitigation_profile0>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
+			enable-method = "psci";
 			next-level-cache = <&L2_0>;
 			L2_0: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -49,8 +53,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x1>;
 			qcom,limits-info = <&mitigation_profile1>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
+			enable-method = "psci";
 			next-level-cache = <&L2_0>;
 		};
 
@@ -59,8 +62,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x2>;
 			qcom,limits-info = <&mitigation_profile2>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
+			enable-method = "psci";
 			next-level-cache = <&L2_0>;
 		};
 
@@ -69,8 +71,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x3>;
 			qcom,limits-info = <&mitigation_profile3>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
+			enable-method = "psci";
 			next-level-cache = <&L2_0>;
 		};
 
@@ -79,8 +80,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x100>;
 			qcom,limits-info = <&mitigation_profile4>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
+			enable-method = "psci";
 			next-level-cache = <&L2_1>;
 			L2_1: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -93,8 +93,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x101>;
 			qcom,limits-info = <&mitigation_profile5>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
+			enable-method = "psci";
 			next-level-cache = <&L2_1>;
 		};
 
@@ -103,8 +102,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x102>;
 			qcom,limits-info = <&mitigation_profile6>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
+			enable-method = "psci";
 			next-level-cache = <&L2_1>;
 		};
 
@@ -113,8 +111,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0 0x103>;
 			qcom,limits-info = <&mitigation_profile7>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x90000000>;
+			enable-method = "psci";
 			next-level-cache = <&L2_1>;
 		};
 
