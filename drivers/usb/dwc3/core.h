@@ -518,6 +518,7 @@ struct dwc3_ep_events {
  * @endpoint: usb endpoint
  * @request_list: list of requests for this endpoint
  * @req_queued: list of requests on this ep which have TRBs setup
+ * @trb_dma_pool: dma pool used to get aligned trb memory pool
  * @trb_pool: array of transaction buffers
  * @trb_pool_dma: dma address of @trb_pool
  * @free_slot: next slot which is going to be used
@@ -544,6 +545,7 @@ struct dwc3_ep {
 	struct list_head	request_list;
 	struct list_head	req_queued;
 
+	struct dma_pool		*trb_dma_pool;
 	struct dwc3_trb		*trb_pool;
 	dma_addr_t		trb_pool_dma;
 	u32			free_slot;
@@ -762,6 +764,7 @@ struct dwc3_scratchpad_array {
  * @gadget_driver: pointer to the gadget driver
  * @regs: base address for our registers
  * @regs_size: address space size
+ * @reg_phys: physical base address of dwc3 core register address space
  * @nr_scratch: number of scratch buffers
  * @num_event_buffers: calculated number of event buffers
  * @u1: used on revisions<=2.50a,save U1 state(initU1Ena|AcceptU1Ena).workaround
@@ -857,6 +860,7 @@ struct dwc3 {
 
 	void __iomem		*regs;
 	size_t			regs_size;
+	phys_addr_t		reg_phys;
 
 	enum usb_dr_mode	dr_mode;
 

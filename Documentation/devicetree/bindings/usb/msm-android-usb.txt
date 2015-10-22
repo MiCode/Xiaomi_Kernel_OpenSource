@@ -28,11 +28,16 @@ Optional properties :
 - qcom,usb-core-id: Index to refer USB hardware core to bind android gadget driver
   with UDC if multiple USB peripheral controllers are present. If unspecified,
   core is set to zero by default.
+- qcom,supported-func: Represents list of supported function drivers. If this
+  property is present android USB driver dynamically creats the list of
+  supported function drivers and uses this list instead of statically defined default
+  supported function driver list.
 Example Android USB device node :
 	android_usb@fc42b0c8 {
 		compatible = "qcom,android-usb";
 		reg = <0xfc42b0c8 0xc8>;
 		qcom,pm-qos-latency = <2 1001 12701>;
 		qcom,streaming-func = "rndis","mtp";
+		qcom,supported-func = "rndis_gsi","ecm_gsi","rmnet_gsi";
 		qcom,usb-core-id = <1>;
 	};

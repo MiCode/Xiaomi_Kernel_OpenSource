@@ -28,6 +28,75 @@
 
 struct usb_ep;
 
+enum ep_type {
+	EP_TYPE_NORMAL = 0,
+	EP_TYPE_GSI,
+};
+
+/* Operations codes for GSI enabled EPs */
+enum gsi_ep_op {
+	GSI_EP_OP_CONFIG = 0,
+	GSI_EP_OP_STARTXFER,
+	GSI_EP_OP_STORE_DBL_INFO,
+	GSI_EP_OP_ENABLE_GSI,
+	GSI_EP_OP_UPDATEXFER,
+	GSI_EP_OP_RING_IN_DB,
+	GSI_EP_OP_ENDXFER,
+	GSI_EP_OP_GET_CH_INFO,
+	GSI_EP_OP_GET_XFER_IDX,
+	GSI_EP_OP_PREPARE_TRBS,
+	GSI_EP_OP_FREE_TRBS,
+};
+
+/*
+ * @buf_base_addr: Base pointer to buffer allocated for each GSI enabled EP.
+ *	TRBs point to buffers that are split from this pool. The size of the
+ *	buffer is num_bufs times buf_len. num_bufs and buf_len are determined
+	based on desired performance and aggregation size.
+ * @dma: DMA address corresponding to buf_base_addr.
+ * @num_bufs: Number of buffers associated with the GSI enabled EP. This
+ *	corresponds to the number of non-zlp TRBs allocated for the EP.
+ *	The value is determined based on desired performance for the EP.
+ * @buf_len: Size of each individual buffer is determined based on aggregation
+ *	negotiated as per the protocol. In case of no aggregation supported by
+ *	the protocol, we use default values.
+ */
+struct usb_gsi_request {
+	void *buf_base_addr;
+	dma_addr_t dma;
+	size_t num_bufs;
+	size_t buf_len;
+};
+
+/*
+ * @last_trb_addr: Address (LSB - based on alignment restrictions) of
+ *	last TRB in queue. Used to identify rollover case.
+ * @const_buffer_size: TRB buffer size in KB (similar to IPA aggregation
+ *	configuration). Must be aligned to Max USB Packet Size.
+ *	Should be 1 <= const_buffer_size <= 31.
+ * @depcmd_low_addr: Used by GSI hardware to write "Update Transfer" cmd
+ * @depcmd_hi_addr: Used to write "Update Transfer" command.
+ * @gevntcount_low_addr: GEVNCOUNT low address for GSI hardware to read and
+ *	clear processed events.
+ * @gevntcount_hi_addr:	GEVNCOUNT high address.
+ * @xfer_ring_len: length of transfer ring in bytes (must be integral
+ *	multiple of TRB size - 16B for xDCI).
+ * @xfer_ring_base_addr: physical base address of transfer ring. Address must
+ *	be aligned to xfer_ring_len rounded to power of two.
+ * @ch_req: Used to pass request specific info for certain operations on GSI EP
+ */
+struct gsi_channel_info {
+	u16 last_trb_addr;
+	u8 const_buffer_size;
+	u32 depcmd_low_addr;
+	u8 depcmd_hi_addr;
+	u32 gevntcount_low_addr;
+	u8 gevntcount_hi_addr;
+	u16 xfer_ring_len;
+	u64 xfer_ring_base_addr;
+	struct usb_gsi_request *ch_req;
+};
+
 /**
  * struct usb_request - describes one i/o request
  * @buf: Buffer used for data.  Always provide this; some controllers
@@ -147,6 +216,8 @@ struct usb_ep_ops {
 
 	int (*fifo_status) (struct usb_ep *ep);
 	void (*fifo_flush) (struct usb_ep *ep);
+	int (*gsi_ep_op)(struct usb_ep *ep, void *op_data,
+		enum gsi_ep_op op);
 };
 
 /**
@@ -171,6 +242,8 @@ struct usb_ep_ops {
  *	enabled and remains valid until the endpoint is disabled.
  * @comp_desc: In case of SuperSpeed support, this is the endpoint companion
  *	descriptor that is used to configure the endpoint
+ * @ep_type: Used to specify type of EP eg. normal vs h/w accelerated.
+ * @ep_intr_num: Interrupter number for EP.
  * @endless: In case where endless transfer is being initiated, this is set
  *	to disable usb event interrupt for few events.
  *
@@ -192,6 +265,8 @@ struct usb_ep {
 	u8			address;
 	const struct usb_endpoint_descriptor	*desc;
 	const struct usb_ss_ep_comp_descriptor	*comp_desc;
+	enum ep_type		ep_type;
+	u8			ep_intr_num;
 	bool			endless;
 };
 
@@ -473,7 +548,20 @@ static inline void usb_ep_fifo_flush(struct usb_ep *ep)
 		ep->ops->fifo_flush(ep);
 }
 
+/**
+ * usb_gsi_ep_op - performs operation on GSI accelerated EP based on EP op code
+ *
+ * Operations such as EP configuration, TRB allocation, StartXfer etc.
+ * See gsi_ep_op for more details.
+ */
+static inline int usb_gsi_ep_op(struct usb_ep *ep,
+		struct usb_gsi_request *req, enum gsi_ep_op op)
+{
+	if (ep->ops->gsi_ep_op)
+		return ep->ops->gsi_ep_op(ep, req, op);
 
+	return -EOPNOTSUPP;
+}
 /*-------------------------------------------------------------------------*/
 
 struct usb_dcd_config_params {

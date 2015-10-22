@@ -17,6 +17,7 @@
 #include <linux/cpu.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
+#include <linux/dmapool.h>
 #include <linux/pm_runtime.h>
 #include <linux/ratelimit.h>
 #include <linux/interrupt.h>
@@ -107,6 +108,20 @@ MODULE_PARM_DESC(dcp_max_current, "max current drawn for DCP charger");
 #define PIPE3_PHYSTATUS_SW	BIT(3)
 #define PIPE_UTMI_CLK_DIS	BIT(8)
 
+/* GSI related registers */
+#define GSI_TRB_ADDR_BIT_53_MASK	(1 << 21)
+#define GSI_TRB_ADDR_BIT_55_MASK	(1 << 23)
+
+#define	GSI_GENERAL_CFG_REG		(QSCRATCH_REG_OFFSET + 0xFC)
+#define	GSI_RESTART_DBL_PNTR_MASK	BIT(20)
+#define	GSI_CLK_EN_MASK			BIT(12)
+#define	GSI_EN_MASK			BIT(0)
+
+#define GSI_DBL_ADDR_L(n)	((QSCRATCH_REG_OFFSET + 0x110) + (n*4))
+#define GSI_DBL_ADDR_H(n)	((QSCRATCH_REG_OFFSET + 0x120) + (n*4))
+#define GSI_RING_BASE_ADDR_L(n)	((QSCRATCH_REG_OFFSET + 0x130) + (n*4))
+#define GSI_RING_BASE_ADDR_H(n)	((QSCRATCH_REG_OFFSET + 0x140) + (n*4))
+
 struct dwc3_msm_req_complete {
 	struct list_head list_item;
 	struct usb_request *req;
@@ -124,7 +139,6 @@ enum dwc3_id_state {
 #define ID			0
 #define B_SESS_VLD		1
 #define B_SUSPEND		2
-
 /*
  * USB chargers
  *
@@ -743,6 +757,524 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	return 0;
 }
 
+/*
+* Returns XferRscIndex for the EP. This is stored at StartXfer GSI EP OP
+*
+* @usb_ep - pointer to usb_ep instance.
+*
+* @return int - XferRscIndex
+*/
+static inline int gsi_get_xfer_index(struct usb_ep *ep)
+{
+	struct dwc3_ep			*dep = to_dwc3_ep(ep);
+
+	return dep->resource_index;
+}
+
+/*
+* Fills up the GSI channel information needed in call to IPA driver
+* for GSI channel creation.
+*
+* @usb_ep - pointer to usb_ep instance.
+* @ch_info - output parameter with requested channel info
+*/
+static void gsi_get_channel_info(struct usb_ep *ep,
+			struct gsi_channel_info *ch_info)
+{
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	int last_trb_index = 0;
+	struct dwc3	*dwc = dep->dwc;
+	struct usb_gsi_request *request = ch_info->ch_req;
+
+	/* Provide physical USB addresses for DEPCMD and GEVENTCNT registers */
+	ch_info->depcmd_low_addr = (u32)(dwc->reg_phys +
+						DWC3_DEPCMD(dep->number));
+	ch_info->depcmd_hi_addr = 0;
+
+	ch_info->xfer_ring_base_addr = dwc3_trb_dma_offset(dep,
+							&dep->trb_pool[0]);
+	/* Convert to multipled of 1KB */
+	ch_info->const_buffer_size = request->buf_len/1024;
+
+	/* IN direction */
+	if (dep->direction) {
+		/*
+		 * Multiply by size of each TRB for xfer_ring_len in bytes.
+		 * 2n + 2 TRBs as per GSI h/w requirement. n Xfer TRBs + 1
+		 * extra Xfer TRB followed by n ZLP TRBs + 1 LINK TRB.
+		 */
+		ch_info->xfer_ring_len = (2 * request->num_bufs + 2) * 0x10;
+		last_trb_index = 2 * request->num_bufs + 2;
+	} else { /* OUT direction */
+		/*
+		 * Multiply by size of each TRB for xfer_ring_len in bytes.
+		 * n + 1 TRBs as per GSI h/w requirement. n Xfer TRBs + 1
+		 * LINK TRB.
+		 */
+		ch_info->xfer_ring_len = (request->num_bufs + 1) * 0x10;
+		last_trb_index = request->num_bufs + 1;
+	}
+
+	/* Store last 16 bits of LINK TRB address as per GSI hw requirement */
+	ch_info->last_trb_addr = (dwc3_trb_dma_offset(dep,
+			&dep->trb_pool[last_trb_index - 1]) & 0x0000FFFF);
+	ch_info->gevntcount_low_addr = (u32)(dwc->reg_phys +
+			DWC3_GEVNTCOUNT(ep->ep_intr_num));
+	ch_info->gevntcount_hi_addr = 0;
+
+	dev_dbg(dwc->dev,
+	"depcmd_laddr=%x last_trb_addr=%x gevtcnt_laddr=%x gevtcnt_haddr=%x",
+		ch_info->depcmd_low_addr, ch_info->last_trb_addr,
+		ch_info->gevntcount_low_addr, ch_info->gevntcount_hi_addr);
+}
+
+/*
+* Perform StartXfer on GSI EP. Stores XferRscIndex.
+*
+* @usb_ep - pointer to usb_ep instance.
+*
+* @return int - 0 on success
+*/
+static int gsi_startxfer_for_ep(struct usb_ep *ep)
+{
+	int ret;
+	struct dwc3_gadget_ep_cmd_params params;
+	u32				cmd;
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3	*dwc = dep->dwc;
+
+	memset(&params, 0, sizeof(params));
+	params.param0 = GSI_TRB_ADDR_BIT_53_MASK | GSI_TRB_ADDR_BIT_55_MASK;
+	params.param0 |= (ep->ep_intr_num << 16);
+	params.param1 = lower_32_bits(dwc3_trb_dma_offset(dep,
+						&dep->trb_pool[0]));
+	cmd = DWC3_DEPCMD_STARTTRANSFER;
+	cmd |= DWC3_DEPCMD_PARAM(0);
+	ret = dwc3_send_gadget_ep_cmd(dwc, dep->number, cmd, &params);
+
+	if (ret < 0)
+		dev_dbg(dwc->dev, "Fail StrtXfr on GSI EP#%d\n", dep->number);
+	dep->resource_index = dwc3_gadget_ep_get_transfer_index(dwc,
+								dep->number);
+	dev_dbg(dwc->dev, "XferRsc = %x", dep->resource_index);
+	return ret;
+}
+
+/*
+* Store Ring Base and Doorbell Address for GSI EP
+* for GSI channel creation.
+*
+* @usb_ep - pointer to usb_ep instance.
+* @dbl_addr - Doorbell address obtained from IPA driver
+*/
+static void gsi_store_ringbase_dbl_info(struct usb_ep *ep, u32 dbl_addr)
+{
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3	*dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+	int n = ep->ep_intr_num - 1;
+
+	dwc3_msm_write_reg(mdwc->base, GSI_RING_BASE_ADDR_L(n),
+			dwc3_trb_dma_offset(dep, &dep->trb_pool[0]));
+	dwc3_msm_write_reg(mdwc->base, GSI_DBL_ADDR_L(n), dbl_addr);
+
+	dev_dbg(mdwc->dev, "Ring Base Addr %d = %x", n,
+			dwc3_msm_read_reg(mdwc->base, GSI_RING_BASE_ADDR_L(n)));
+	dev_dbg(mdwc->dev, "GSI DB Addr %d = %x", n,
+			dwc3_msm_read_reg(mdwc->base, GSI_DBL_ADDR_L(n)));
+}
+
+/*
+* Rings Doorbell for IN GSI Channel
+*
+* @usb_ep - pointer to usb_ep instance.
+* @request - pointer to GSI request. This is used to pass in the
+* address of the GSI doorbell obtained from IPA driver
+*/
+static void gsi_ring_in_db(struct usb_ep *ep, struct usb_gsi_request *request)
+{
+	void __iomem *gsi_dbl_address_lsb;
+	void __iomem *gsi_dbl_address_msb;
+	dma_addr_t offset;
+	u64 dbl_addr = *((u64 *)request->buf_base_addr);
+	u32 dbl_lo_addr = (dbl_addr & 0xFFFFFFFF);
+	u32 dbl_hi_addr = (dbl_addr >> 32);
+	u32 num_trbs = (request->num_bufs * 2 + 2);
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3	*dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+
+	gsi_dbl_address_lsb = devm_ioremap_nocache(mdwc->dev,
+					dbl_lo_addr, sizeof(u32));
+	if (!gsi_dbl_address_lsb)
+		dev_dbg(mdwc->dev, "Failed to get GSI DBL address LSB\n");
+
+	gsi_dbl_address_msb = devm_ioremap_nocache(mdwc->dev,
+					dbl_hi_addr, sizeof(u32));
+	if (!gsi_dbl_address_msb)
+		dev_dbg(mdwc->dev, "Failed to get GSI DBL address MSB\n");
+
+	offset = dwc3_trb_dma_offset(dep, &dep->trb_pool[num_trbs-1]);
+	dev_dbg(mdwc->dev, "Writing link TRB addr: %pa to %p (%x)\n",
+	&offset, gsi_dbl_address_lsb, dbl_lo_addr);
+
+	writel_relaxed(offset, gsi_dbl_address_lsb);
+	writel_relaxed(0, gsi_dbl_address_msb);
+}
+
+/*
+* Sets HWO bit for TRBs and performs UpdateXfer for OUT EP.
+*
+* @usb_ep - pointer to usb_ep instance.
+* @request - pointer to GSI request. Used to determine num of TRBs for OUT EP.
+*
+* @return int - 0 on success
+*/
+static int gsi_updatexfer_for_ep(struct usb_ep *ep,
+					struct usb_gsi_request *request)
+{
+	int i;
+	int ret;
+	u32				cmd;
+	int num_trbs = request->num_bufs + 1;
+	struct dwc3_trb *trb;
+	struct dwc3_gadget_ep_cmd_params params;
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3 *dwc = dep->dwc;
+
+	for (i = 0; i < num_trbs - 1; i++) {
+		trb = &dep->trb_pool[i];
+		trb->ctrl |= DWC3_TRB_CTRL_HWO;
+	}
+
+	memset(&params, 0, sizeof(params));
+	cmd = DWC3_DEPCMD_UPDATETRANSFER;
+	cmd |= DWC3_DEPCMD_PARAM(dep->resource_index);
+	ret = dwc3_send_gadget_ep_cmd(dwc, dep->number, cmd, &params);
+	dep->flags |= DWC3_EP_BUSY;
+	if (ret < 0)
+		dev_dbg(dwc->dev, "UpdateXfr fail on GSI EP#%d\n", dep->number);
+	return ret;
+}
+
+/*
+* Perform EndXfer on particular GSI EP.
+*
+* @usb_ep - pointer to usb_ep instance.
+*/
+static void gsi_endxfer_for_ep(struct usb_ep *ep)
+{
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3	*dwc = dep->dwc;
+
+	dwc3_stop_active_transfer(dwc, dep->number, true);
+}
+
+/*
+* Allocates and configures TRBs for GSI EPs.
+*
+* @usb_ep - pointer to usb_ep instance.
+* @request - pointer to GSI request.
+*
+* @return int - 0 on success
+*/
+static int gsi_prepare_trbs(struct usb_ep *ep, struct usb_gsi_request *req)
+{
+	int i = 0;
+	dma_addr_t buffer_addr = req->dma;
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3		*dwc = dep->dwc;
+	struct dwc3_trb *trb;
+	int num_trbs = (dep->direction) ? (2 * (req->num_bufs) + 2)
+					: (req->num_bufs + 1);
+
+	dep->trb_dma_pool = dma_pool_create(ep->name, dwc->dev,
+					num_trbs * sizeof(struct dwc3_trb),
+					num_trbs * sizeof(struct dwc3_trb), 0);
+	if (!dep->trb_dma_pool) {
+		dev_err(dep->dwc->dev, "failed to alloc trb dma pool for %s\n",
+				dep->name);
+		return -ENOMEM;
+	}
+
+	dep->trb_pool = dma_pool_alloc(dep->trb_dma_pool,
+					   GFP_KERNEL, &dep->trb_pool_dma);
+	if (!dep->trb_pool) {
+		dev_err(dep->dwc->dev, "failed to allocate trb pool for %s\n",
+				dep->name);
+		return -ENOMEM;
+	}
+
+	/* IN direction */
+	if (dep->direction) {
+		for (i = 0; i < num_trbs ; i++) {
+			trb = &dep->trb_pool[i];
+			memset(trb, 0, sizeof(*trb));
+			/* Set up first n+1 TRBs for ZLPs */
+			if (i < (req->num_bufs + 1)) {
+				trb->bpl = 0;
+				trb->bph = 0;
+				trb->size = 0;
+				trb->ctrl = DWC3_TRBCTL_NORMAL
+						| DWC3_TRB_CTRL_IOC;
+				continue;
+			}
+
+			/* Setup n TRBs pointing to valid buffers */
+			trb->bpl = lower_32_bits(buffer_addr);
+			trb->bph = 0;
+			trb->size = 0;
+			trb->ctrl = DWC3_TRBCTL_NORMAL
+					| DWC3_TRB_CTRL_IOC;
+			buffer_addr += req->buf_len;
+
+			/* Set up the Link TRB at the end */
+			if (i == (num_trbs - 1)) {
+				trb->bpl = dwc3_trb_dma_offset(dep,
+							&dep->trb_pool[0]);
+				trb->bph = (1 << 23) | (1 << 21)
+						| (ep->ep_intr_num << 16);
+				trb->size = 0;
+				trb->ctrl = DWC3_TRBCTL_LINK_TRB
+						| DWC3_TRB_CTRL_HWO;
+			}
+		}
+	} else { /* OUT direction */
+
+		for (i = 0; i < num_trbs ; i++) {
+
+			trb = &dep->trb_pool[i];
+			memset(trb, 0, sizeof(*trb));
+			trb->bpl = lower_32_bits(buffer_addr);
+			trb->bph = 0;
+			trb->size = req->buf_len;
+			trb->ctrl = DWC3_TRBCTL_NORMAL | DWC3_TRB_CTRL_IOC
+					| DWC3_TRB_CTRL_CSP
+					| DWC3_TRB_CTRL_ISP_IMI;
+			buffer_addr += req->buf_len;
+
+			/* Set up the Link TRB at the end */
+			if (i == (num_trbs - 1)) {
+				trb->bpl = dwc3_trb_dma_offset(dep,
+							&dep->trb_pool[0]);
+				trb->bph = (1 << 23) | (1 << 21)
+						| (ep->ep_intr_num << 16);
+				trb->size = 0;
+				trb->ctrl = DWC3_TRBCTL_LINK_TRB
+						| DWC3_TRB_CTRL_HWO;
+			}
+		 }
+	}
+	return 0;
+}
+
+/*
+* Frees TRBs for GSI EPs.
+*
+* @usb_ep - pointer to usb_ep instance.
+*
+*/
+static void gsi_free_trbs(struct usb_ep *ep)
+{
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+
+	if (dep->endpoint.ep_type == EP_TYPE_NORMAL)
+		return;
+
+	/*  Free TRBs and TRB pool for EP */
+	if (dep->trb_dma_pool) {
+		dma_pool_free(dep->trb_dma_pool, dep->trb_pool,
+						dep->trb_pool_dma);
+		dma_pool_destroy(dep->trb_dma_pool);
+		dep->trb_pool = NULL;
+		dep->trb_pool_dma = 0;
+		dep->trb_dma_pool = NULL;
+	}
+}
+/*
+* Configures GSI EPs. For GSI EPs we need to set interrupter numbers.
+*
+* @usb_ep - pointer to usb_ep instance.
+* @request - pointer to GSI request.
+*/
+static void gsi_configure_ep(struct usb_ep *ep, struct usb_gsi_request *request)
+{
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3		*dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+	struct dwc3_gadget_ep_cmd_params params;
+	const struct usb_endpoint_descriptor *desc = ep->desc;
+	const struct usb_ss_ep_comp_descriptor *comp_desc = ep->comp_desc;
+	u32			reg;
+
+	memset(&params, 0x00, sizeof(params));
+
+	/* Configure GSI EP */
+	params.param0 = DWC3_DEPCFG_EP_TYPE(usb_endpoint_type(desc))
+		| DWC3_DEPCFG_MAX_PACKET_SIZE(usb_endpoint_maxp(desc));
+
+	/* Burst size is only needed in SuperSpeed mode */
+	if (dwc->gadget.speed == USB_SPEED_SUPER) {
+		u32 burst = dep->endpoint.maxburst - 1;
+
+		params.param0 |= DWC3_DEPCFG_BURST_SIZE(burst);
+	}
+
+	if (usb_ss_max_streams(comp_desc) && usb_endpoint_xfer_bulk(desc)) {
+		params.param1 |= DWC3_DEPCFG_STREAM_CAPABLE
+					| DWC3_DEPCFG_STREAM_EVENT_EN;
+		dep->stream_capable = true;
+	}
+
+	/* Set EP number */
+	params.param1 |= DWC3_DEPCFG_EP_NUMBER(dep->number);
+
+	/* Set interrupter number for GSI endpoints */
+	params.param1 |= DWC3_DEPCFG_INT_NUM(ep->ep_intr_num);
+
+	/* Enable XferInProgress and XferComplete Interrupts */
+	params.param1 |= DWC3_DEPCFG_XFER_COMPLETE_EN;
+	params.param1 |= DWC3_DEPCFG_XFER_IN_PROGRESS_EN;
+	params.param1 |= DWC3_DEPCFG_FIFO_ERROR_EN;
+	/*
+	 * We must use the lower 16 TX FIFOs even though
+	 * HW might have more
+	 */
+	/* Remove FIFO Number for GSI EP*/
+	if (dep->direction)
+		params.param0 |= DWC3_DEPCFG_FIFO_NUMBER(dep->number >> 1);
+
+	params.param0 |= DWC3_DEPCFG_ACTION_INIT;
+
+	dev_dbg(mdwc->dev, "Set EP config to params = %x %x %x, for %s\n",
+	params.param0, params.param1, params.param2, dep->name);
+
+	dwc3_send_gadget_ep_cmd(dwc, dep->number,
+				DWC3_DEPCMD_SETEPCONFIG, &params);
+
+	/* Set XferRsc Index for GSI EP */
+	if (!(dep->flags & DWC3_EP_ENABLED)) {
+		memset(&params, 0x00, sizeof(params));
+		params.param0 = DWC3_DEPXFERCFG_NUM_XFER_RES(1);
+		dwc3_send_gadget_ep_cmd(dwc, dep->number,
+				DWC3_DEPCMD_SETTRANSFRESOURCE, &params);
+
+		dep->endpoint.desc = desc;
+		dep->comp_desc = comp_desc;
+		dep->type = usb_endpoint_type(desc);
+		dep->flags |= DWC3_EP_ENABLED;
+		reg = dwc3_readl(dwc->regs, DWC3_DALEPENA);
+		reg |= DWC3_DALEPENA_EP(dep->number);
+		dwc3_writel(dwc->regs, DWC3_DALEPENA, reg);
+	}
+
+}
+
+/*
+* Enables USB wrapper for GSI
+*
+* @usb_ep - pointer to usb_ep instance.
+*/
+static void gsi_enable(struct usb_ep *ep)
+{
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3 *dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+
+	dwc3_msm_write_reg_field(mdwc->base,
+			GSI_GENERAL_CFG_REG, GSI_CLK_EN_MASK, 1);
+	dwc3_msm_write_reg_field(mdwc->base,
+			GSI_GENERAL_CFG_REG, GSI_RESTART_DBL_PNTR_MASK, 1);
+	dwc3_msm_write_reg_field(mdwc->base,
+			GSI_GENERAL_CFG_REG, GSI_RESTART_DBL_PNTR_MASK, 0);
+	dev_dbg(mdwc->dev, "%s: Enable GSI\n", __func__);
+	dwc3_msm_write_reg_field(mdwc->base,
+			GSI_GENERAL_CFG_REG, GSI_EN_MASK, 1);
+}
+
+/**
+* Performs GSI operations or GSI EP related operations.
+*
+* @usb_ep - pointer to usb_ep instance.
+* @op_data - pointer to opcode related data.
+* @op - GSI related or GSI EP related op code.
+*
+* @return int - 0 on success, negative on error.
+* Also returns XferRscIdx for GSI_EP_OP_GET_XFER_IDX.
+*/
+static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
+		void *op_data, enum gsi_ep_op op)
+{
+	u32 ret = 0;
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3 *dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+	struct usb_gsi_request *request;
+	struct gsi_channel_info *ch_info;
+
+	if (!dep->endpoint.desc) {
+		dev_err(mdwc->dev,
+			"%s: trying to queue request %p to disabled ep %s\n",
+			__func__, request, ep->name);
+		return -EPERM;
+	}
+
+	switch (op) {
+	case GSI_EP_OP_PREPARE_TRBS:
+		request = (struct usb_gsi_request *)op_data;
+		dev_dbg(mdwc->dev, "EP_OP_PREPARE_TRBS for %s\n", ep->name);
+		ret = gsi_prepare_trbs(ep, request);
+		break;
+	case GSI_EP_OP_FREE_TRBS:
+		dev_dbg(mdwc->dev, "EP_OP_FREE_TRBS for %s\n", ep->name);
+		gsi_free_trbs(ep);
+		break;
+	case GSI_EP_OP_CONFIG:
+		request = (struct usb_gsi_request *)op_data;
+		dev_dbg(mdwc->dev, "EP_OP_CONFIG for %s\n", ep->name);
+		gsi_configure_ep(ep, request);
+		break;
+	case GSI_EP_OP_STARTXFER:
+		dev_dbg(mdwc->dev, "EP_OP_STARTXFER for %s\n", ep->name);
+		ret = gsi_startxfer_for_ep(ep);
+		break;
+	case GSI_EP_OP_GET_XFER_IDX:
+		dev_dbg(mdwc->dev, "EP_OP_GET_XFER_IDX for %s\n", ep->name);
+		ret = gsi_get_xfer_index(ep);
+		break;
+	case GSI_EP_OP_STORE_DBL_INFO:
+		dev_dbg(mdwc->dev, "EP_OP_STORE_DBL_INFO\n");
+		gsi_store_ringbase_dbl_info(ep, *((u32 *)op_data));
+		break;
+	case GSI_EP_OP_ENABLE_GSI:
+		dev_dbg(mdwc->dev, "EP_OP_ENABLE_GSI\n");
+		gsi_enable(ep);
+		break;
+	case GSI_EP_OP_GET_CH_INFO:
+		ch_info = (struct gsi_channel_info *)op_data;
+		gsi_get_channel_info(ep, ch_info);
+		break;
+	case GSI_EP_OP_RING_IN_DB:
+		request = (struct usb_gsi_request *)op_data;
+		dev_dbg(mdwc->dev, "RING IN EP DB\n");
+		gsi_ring_in_db(ep, request);
+		break;
+	case GSI_EP_OP_UPDATEXFER:
+		request = (struct usb_gsi_request *)op_data;
+		dev_dbg(mdwc->dev, "EP_OP_UPDATEXFER\n");
+		ret = gsi_updatexfer_for_ep(ep, request);
+		break;
+	case GSI_EP_OP_ENDXFER:
+		request = (struct usb_gsi_request *)op_data;
+		dev_dbg(mdwc->dev, "EP_OP_ENDXFER for %s\n", ep->name);
+		gsi_endxfer_for_ep(ep);
+		break;
+	default:
+		dev_err(mdwc->dev, "%s: Invalid opcode GSI EP\n", __func__);
+	}
+
+	return ret;
+}
 
 /**
  * Configure MSM endpoint.
@@ -752,7 +1284,7 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
  *
  * This function should be called by usb function/class
  * layer which need a support from the specific MSM HW
- * which wrap the USB3 core. (like DBM specific endpoints)
+ * which wrap the USB3 core. (like GSI or DBM specific endpoints)
  *
  * @ep - a pointer to some usb_ep instance
  *
@@ -785,6 +1317,7 @@ int msm_ep_config(struct usb_ep *ep)
 	}
 	(*new_ep_ops) = (*ep->ops);
 	new_ep_ops->queue = dwc3_msm_ep_queue;
+	new_ep_ops->gsi_ep_op = dwc3_msm_gsi_ep_op;
 	ep->ops = new_ep_ops;
 
 	/*

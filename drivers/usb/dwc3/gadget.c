@@ -406,6 +406,10 @@ static void dwc3_free_trb_pool(struct dwc3_ep *dep)
 {
 	struct dwc3		*dwc = dep->dwc;
 
+	/* Freeing of GSI EP TRBs are handled by GSI EP ops. */
+	if (dep->endpoint.ep_type == EP_TYPE_GSI)
+		return;
+
 	dma_free_coherent(dwc->dev, sizeof(struct dwc3_trb) * DWC3_TRB_NUM,
 			dep->trb_pool, dep->trb_pool_dma);
 
@@ -590,7 +594,6 @@ static int __dwc3_gadget_ep_enable(struct dwc3_ep *dep,
 	return 0;
 }
 
-static void dwc3_stop_active_transfer(struct dwc3 *dwc, u32 epnum, bool force);
 static void dwc3_remove_requests(struct dwc3 *dwc, struct dwc3_ep *dep)
 {
 	struct dwc3_request		*req;
@@ -626,7 +629,10 @@ static int __dwc3_gadget_ep_disable(struct dwc3_ep *dep)
 	struct dwc3		*dwc = dep->dwc;
 	u32			reg;
 
-	dwc3_remove_requests(dwc, dep);
+	if (dep->endpoint.ep_type == EP_TYPE_NORMAL)
+		dwc3_remove_requests(dwc, dep);
+	else if (dep->endpoint.ep_type == EP_TYPE_GSI)
+		dwc3_stop_active_transfer(dwc, dep->number, true);
 
 	/* make sure HW endpoint isn't stalled */
 	if (dep->flags & DWC3_EP_STALL)
@@ -2692,7 +2698,7 @@ static void dwc3_resume_gadget(struct dwc3 *dwc)
 	}
 }
 
-static void dwc3_stop_active_transfer(struct dwc3 *dwc, u32 epnum, bool force)
+void dwc3_stop_active_transfer(struct dwc3 *dwc, u32 epnum, bool force)
 {
 	struct dwc3_ep *dep;
 	struct dwc3_gadget_ep_cmd_params params;

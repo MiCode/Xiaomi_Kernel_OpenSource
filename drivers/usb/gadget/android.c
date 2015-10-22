@@ -2833,6 +2833,36 @@ static struct android_usb_function midi_function = {
 };
 #endif
 static struct android_usb_function *supported_functions[] = {
+	[ANDROID_FFS] = &ffs_function,
+	[ANDROID_MBIM_BAM] = &mbim_function,
+	[ANDROID_ECM_BAM] = &ecm_qc_function,
+#ifdef CONFIG_SND_PCM
+	[ANDROID_AUDIO] = &audio_function,
+#endif
+	[ANDROID_RMNET] = &rmnet_function,
+	[ANDROID_GPS] = &gps_function,
+	[ANDROID_DIAG] = &diag_function,
+	[ANDROID_QDSS_BAM] = &qdss_function,
+	[ANDROID_SERIAL] = &serial_function,
+	[ANDROID_CCID] = &ccid_function,
+	[ANDROID_ACM] = &acm_function,
+	[ANDROID_MTP] = &mtp_function,
+	[ANDROID_PTP] = &ptp_function,
+	[ANDROID_RNDIS] = &rndis_function,
+	[ANDROID_RNDIS_BAM] = &rndis_qc_function,
+	[ANDROID_ECM] = &ecm_function,
+	[ANDROID_NCM] = &ncm_function,
+	[ANDROID_UMS] = &mass_storage_function,
+	[ANDROID_ACCESSORY] = &accessory_function,
+	[ANDROID_AUDIO_SRC] = &audio_source_function,
+	[ANDROID_CHARGER] = &charger_function,
+#ifdef CONFIG_SND_RAWMIDI
+	[ANDROID_MIDI] = &midi_function,
+#endif
+	NULL
+};
+
+static struct android_usb_function *default_functions[] = {
 	&ffs_function,
 	&mbim_function,
 	&ecm_qc_function,
@@ -3850,6 +3880,7 @@ static int android_probe(struct platform_device *pdev)
 {
 	struct android_usb_platform_data *pdata;
 	struct android_dev *android_dev;
+	struct android_usb_function **supported_list = NULL;
 	struct resource *res;
 	int ret = 0, i, len = 0, prop_len = 0;
 	u32 usb_core_id = 0;
@@ -3910,10 +3941,45 @@ static int android_probe(struct platform_device *pdev)
 		pdata = pdev->dev.platform_data;
 	}
 
+	len = of_property_count_strings(pdev->dev.of_node,
+			"qcom,supported-func");
+	if (len > ANDROID_MAX_FUNC_CNT) {
+		pr_err("Invalid number of functions used.\n");
+		return -EINVAL;
+	} else if (len > 0) {
+		/* one extra for NULL termination */
+		supported_list = devm_kzalloc(
+				&pdev->dev, sizeof(supported_list) * (len + 1),
+				GFP_KERNEL);
+		if (!supported_list)
+			return -ENOMEM;
+
+		for (i = 0; i < len; i++) {
+			const char *name = NULL;
+
+			of_property_read_string_index(pdev->dev.of_node,
+				"qcom,supported-func", i, &name);
+
+			if (!name || sizeof(name) > FUNC_NAME_LEN ||
+			name_to_func_idx(name) == ANDROID_INVALID_FUNC) {
+				pr_err("Invalid Function name %s\n", name);
+				ret = -EINVAL;
+				goto err;
+			}
+
+			supported_list[i] =
+				supported_functions[name_to_func_idx(name)];
+			pr_debug("name of supported function:%s\n",
+				supported_list[i]->name);
+		}
+	}
+
 	if (!android_class) {
 		android_class = class_create(THIS_MODULE, "android_usb");
-		if (IS_ERR(android_class))
-			return PTR_ERR(android_class);
+		if (IS_ERR(android_class)) {
+			ret = PTR_ERR(android_class);
+			goto err;
+		}
 	}
 
 	android_dev = kzalloc(sizeof(*android_dev), GFP_KERNEL);
@@ -3926,7 +3992,8 @@ static int android_probe(struct platform_device *pdev)
 
 	android_dev->name = pdev->name;
 	android_dev->disable_depth = 1;
-	android_dev->functions = supported_functions;
+	android_dev->functions =
+		supported_list ? supported_list : default_functions;
 	android_dev->configs_num = 0;
 	INIT_LIST_HEAD(&android_dev->configs);
 	INIT_WORK(&android_dev->work, android_work);
@@ -4002,6 +4069,7 @@ err_alloc:
 		android_class = NULL;
 	}
 	debug_debugfs_exit();
+err:
 	return ret;
 }
 
