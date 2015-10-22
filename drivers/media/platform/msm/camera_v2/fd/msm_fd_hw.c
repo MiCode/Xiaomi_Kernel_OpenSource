@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -544,7 +544,7 @@ int msm_fd_hw_request_irq(struct platform_device *pdev,
 {
 	int ret;
 
-	fd->irq_num = platform_get_irq(pdev, 0);
+	fd->irq = msm_camera_get_irq(pdev, "fd");
 	if (fd->irq_num < 0) {
 		dev_err(fd->dev, "Can not get fd core irq resource\n");
 		ret = -ENODEV;
@@ -553,21 +553,19 @@ int msm_fd_hw_request_irq(struct platform_device *pdev,
 
 	/* If vbif is shared we will need wrapper irq for releasing vbif */
 	if (msm_fd_hw_misc_irq_supported(fd)) {
-		ret = devm_request_irq(fd->dev, fd->irq_num,
-			msm_fd_hw_misc_irq, IRQF_TRIGGER_RISING,
-			dev_name(&pdev->dev), fd);
+		ret = msm_camera_register_irq(pdev,
+				fd->irq, msm_fd_hw_misc_irq,
+				IRQF_TRIGGER_RISING, "fd", fd);
 		if (ret) {
-			dev_err(fd->dev, "Can not claim wrapper IRQ %d\n",
-				fd->irq_num);
+			dev_err(fd->dev, "Can not claim wrapper IRQ\n");
 			goto error_irq;
 		}
 	} else {
-		ret = devm_request_irq(fd->dev, fd->irq_num,
-			msm_fd_hw_core_irq, IRQF_TRIGGER_RISING,
-			dev_name(fd->dev), fd);
+		ret = msm_camera_register_irq(pdev,
+				fd->irq, msm_fd_hw_core_irq,
+				IRQF_TRIGGER_RISING, "fd", fd);
 		if (ret) {
-			dev_err(&pdev->dev, "Can not claim core IRQ %d\n",
-				fd->irq_num);
+			dev_err(&pdev->dev, "Can not claim core IRQ\n");
 			goto error_irq;
 		}
 
@@ -585,7 +583,7 @@ int msm_fd_hw_request_irq(struct platform_device *pdev,
 	return 0;
 
 error_alloc_workqueue:
-	devm_free_irq(fd->dev, fd->irq_num, fd);
+	msm_camera_unregister_irq(pdev, fd->irq, fd);
 error_irq:
 	return ret;
 }
@@ -596,10 +594,9 @@ error_irq:
  */
 void msm_fd_hw_release_irq(struct msm_fd_device *fd)
 {
-	if (fd->irq_num >= 0) {
-		devm_free_irq(fd->dev, fd->irq_num, fd);
-		fd->irq_num = -1;
-	}
+	if (fd->irq)
+		msm_camera_unregister_irq(fd->pdev, fd->irq, fd);
+
 	if (fd->work_queue) {
 		destroy_workqueue(fd->work_queue);
 		fd->work_queue = NULL;
@@ -715,21 +712,12 @@ int msm_fd_hw_set_dt_parms(struct msm_fd_device *fd)
  */
 void msm_fd_hw_release_mem_resources(struct msm_fd_device *fd)
 {
-	int i;
-
-	/* Prepare memory resources */
-	for (i = 0; i < MSM_FD_IOMEM_LAST; i++) {
-		if (fd->iomem_base[i]) {
-			iounmap(fd->iomem_base[i]);
-			fd->iomem_base[i] = NULL;
-		}
-		if (fd->ioarea[i]) {
-			release_mem_region(fd->res_mem[i]->start,
-				resource_size(fd->res_mem[i]));
-			fd->ioarea[i] = NULL;
-		}
-		fd->res_mem[i] = NULL;
-	}
+	msm_camera_put_reg_base(fd->pdev,
+		fd->iomem_base[MSM_FD_IOMEM_MISC], "fd_misc", true);
+	msm_camera_put_reg_base(fd->pdev,
+		fd->iomem_base[MSM_FD_IOMEM_CORE], "fd_core", true);
+	msm_camera_put_reg_base(fd->pdev,
+		fd->iomem_base[MSM_FD_IOMEM_VBIF], "fd_vbif", false);
 }
 
 /*
@@ -742,258 +730,59 @@ void msm_fd_hw_release_mem_resources(struct msm_fd_device *fd)
 int msm_fd_hw_get_mem_resources(struct platform_device *pdev,
 	struct msm_fd_device *fd)
 {
-	int i;
 	int ret = 0;
 
 	/* Prepare memory resources */
-	for (i = 0; i < MSM_FD_IOMEM_LAST; i++) {
-		/* Get resources */
-		fd->res_mem[i] = platform_get_resource(pdev,
-			IORESOURCE_MEM, i);
-		if (!fd->res_mem[i]) {
-			dev_err(fd->dev, "Fail get resource idx %d\n",
-				i);
-			ret = -ENODEV;
-			break;
-		}
-
-		fd->ioarea[i] = request_mem_region(fd->res_mem[i]->start,
-			resource_size(fd->res_mem[i]), fd->res_mem[i]->name);
-		if (!fd->ioarea[i]) {
-			dev_err(fd->dev, "%s can not request mem\n",
-				fd->res_mem[i]->name);
-			ret = -ENODEV;
-			break;
-		}
-
-		fd->iomem_base[i] = ioremap(fd->res_mem[i]->start,
-			resource_size(fd->res_mem[i]));
-		if (!fd->iomem_base[i]) {
-			dev_err(fd->dev, "%s can not remap region\n",
-				fd->res_mem[i]->name);
-			ret = -ENODEV;
-			break;
-		}
+	fd->iomem_base[MSM_FD_IOMEM_CORE] =
+		msm_camera_get_reg_base(pdev, "fd_core", true);
+	if (!fd->iomem_base[MSM_FD_IOMEM_CORE]) {
+		dev_err(fd->dev, "%s can not map fd_core region\n", __func__);
+		ret = -ENODEV;
+		goto fd_core_base_failed;
 	}
 
-	if (ret < 0)
-		msm_fd_hw_release_mem_resources(fd);
+	fd->iomem_base[MSM_FD_IOMEM_MISC] =
+		msm_camera_get_reg_base(pdev, "fd_misc", true);
+	if (!fd->iomem_base[MSM_FD_IOMEM_MISC]) {
+		dev_err(fd->dev, "%s can not map fd_misc region\n", __func__);
+		ret = -ENODEV;
+		goto fd_misc_base_failed;
+	}
 
+	fd->iomem_base[MSM_FD_IOMEM_VBIF] =
+		msm_camera_get_reg_base(pdev, "fd_vbif", false);
+	if (!fd->iomem_base[MSM_FD_IOMEM_VBIF]) {
+		dev_err(fd->dev, "%s can not map fd_vbif region\n", __func__);
+		ret = -ENODEV;
+		goto fd_vbif_base_failed;
+	}
+
+	return ret;
+fd_vbif_base_failed:
+	msm_camera_put_reg_base(pdev,
+		fd->iomem_base[MSM_FD_IOMEM_MISC], "fd_misc", true);
+fd_misc_base_failed:
+	msm_camera_put_reg_base(pdev,
+		fd->iomem_base[MSM_FD_IOMEM_CORE], "fd_core", true);
+fd_core_base_failed:
 	return ret;
 }
 
 /*
- * msm_fd_hw_get_regulators - Get fd regulators.
+ * msm_fd_hw_bus_request - Request bus for memory access.
  * @fd: Pointer to fd device.
- *
- * Read regulator information from device tree and perform get regulator.
+ * @idx: Bus bandwidth array index described in device tree.
  */
-int msm_fd_hw_get_regulators(struct msm_fd_device *fd)
+static int msm_fd_hw_bus_request(struct msm_fd_device *fd, unsigned int idx)
 {
-	const char *regulator_name;
-	uint32_t cnt;
-	int i;
 	int ret;
 
-	if (of_get_property(fd->dev->of_node, "qcom,vdd-names", NULL)) {
-		cnt = of_property_count_strings(fd->dev->of_node,
-						 "qcom,vdd-names");
-
-		if ((cnt == 0) || (cnt == -EINVAL)) {
-			dev_err(fd->dev, "no regulators found, count=%d\n",
-				 cnt);
-			return -EINVAL;
-		}
-
-		if (cnt > MSM_FD_MAX_REGULATOR_NUM) {
-			dev_err(fd->dev,
-				 "Exceed max number of regulators %d\n", cnt);
-			return -EINVAL;
-		}
-
-		for (i = 0; i < cnt; i++) {
-			ret = of_property_read_string_index(fd->dev->of_node,
-						"qcom,vdd-names",
-						i, &regulator_name);
-			if (ret < 0) {
-				dev_err(fd->dev,
-					 "Cannot read regulator name %d\n", i);
-				return ret;
-			}
-
-			fd->vdd[i] = regulator_get(fd->dev, regulator_name);
-			if (IS_ERR(fd->vdd[i])) {
-				ret = PTR_ERR(fd->vdd[i]);
-				fd->vdd[i] = NULL;
-				dev_err(fd->dev, "Error regulator get %s\n",
-					 regulator_name);
-				goto regulator_get_error;
-			}
-			dev_dbg(fd->dev, "Regulator name idx %d %s\n", i,
-				 regulator_name);
-		}
-		fd->regulator_num = cnt;
-	} else {
-		fd->regulator_num = 1;
-		fd->vdd[0] = regulator_get(fd->dev, "vdd");
-		if (IS_ERR(fd->vdd[0])) {
-			dev_err(fd->dev, "Fail to get vdd regulator\n");
-			ret = PTR_ERR(fd->vdd[0]);
-			fd->vdd[0] = NULL;
-			return ret;
-		}
-	}
-	return 0;
-
-regulator_get_error:
-	for (; i > 0; i--) {
-		if (!IS_ERR_OR_NULL(fd->vdd[i - 1]))
-			regulator_put(fd->vdd[i - 1]);
-	}
-	return ret;
-}
-
-/*
- * msm_fd_hw_put_regulators - Put fd regulators.
- * @fd: Pointer to fd device.
- */
-int msm_fd_hw_put_regulators(struct msm_fd_device *fd)
-{
-	int i;
-
-	for (i = fd->regulator_num - 1; i >= 0; i--) {
-		if (!IS_ERR_OR_NULL(fd->vdd[i]))
-			regulator_put(fd->vdd[i]);
-	}
-	return 0;
-}
-
-/*
- * msm_fd_hw_enable_regulators - Prepare and enable fd regulators.
- * @fd: Pointer to fd device.
- */
-static int msm_fd_hw_enable_regulators(struct msm_fd_device *fd)
-{
-	int i;
-	int ret;
-
-	for (i = 0; i < fd->regulator_num; i++) {
-
-		ret = regulator_enable(fd->vdd[i]);
-		if (ret < 0) {
-			dev_err(fd->dev, "regulator enable failed %d\n", i);
-			regulator_put(fd->vdd[i]);
-			goto error;
-		}
-	}
-
-	return 0;
-error:
-	for (; i > 0; i--) {
-		if (!IS_ERR_OR_NULL(fd->vdd[i - 1])) {
-			regulator_disable(fd->vdd[i - 1]);
-			regulator_put(fd->vdd[i - 1]);
-		}
-	}
-	return ret;
-}
-
-/*
- * msm_fd_hw_disable_regulators - Disable fd regulator.
- * @fd: Pointer to fd device.
- */
-static void msm_fd_hw_disable_regulators(struct msm_fd_device *fd)
-{
-	int i;
-
-	for (i = fd->regulator_num - 1; i >= 0; i--) {
-		if (!IS_ERR_OR_NULL(fd->vdd[i]))
-			regulator_disable(fd->vdd[i]);
-	}
-}
-
-/*
- * msm_fd_hw_get_clocks - Get fd clocks.
- * @fd: Pointer to fd device.
- *
- * Read clock information from device tree and perform get clock.
- */
-int msm_fd_hw_get_clocks(struct msm_fd_device *fd)
-{
-	const char *clk_name;
-	size_t cnt;
-	int clk_rates;
-	int i;
-	int ret;
-
-	cnt = of_property_count_strings(fd->dev->of_node, "clock-names");
-	if (cnt > MSM_FD_MAX_CLK_NUM) {
-		dev_err(fd->dev, "Exceed max number of clocks %zu\n", cnt);
+	ret = msm_camera_update_bus_vector(CAM_BUS_CLIENT_FD, idx);
+	if (ret < 0) {
+		dev_err(fd->dev, "Fail bus scale update %d\n", ret);
 		return -EINVAL;
 	}
 
-	clk_rates = 0;
-	for (i = 0; i < cnt; i++) {
-		ret = of_property_read_string_index(fd->dev->of_node,
-			"clock-names", i, &clk_name);
-		if (ret < 0) {
-			dev_err(fd->dev, "Can not read clock name %d\n", i);
-			goto error;
-		}
-
-		fd->clk[i] = clk_get(fd->dev, clk_name);
-		if (IS_ERR(fd->clk[i])) {
-			ret = -ENOENT;
-			dev_err(fd->dev, "Error clock get %s\n", clk_name);
-			goto error;
-		}
-		dev_dbg(fd->dev, "Clock name idx %d %s\n", i, clk_name);
-	}
-	fd->clk_num = cnt;
-
-	cnt = 0;
-	for (clk_rates = 0; clk_rates < MSM_FD_MAX_CLK_RATES; clk_rates++) {
-		for (i = 0; i < fd->clk_num; i++) {
-			ret = of_property_read_u32_index(fd->dev->of_node,
-				"clock-rates", cnt++,
-				&fd->clk_rates[clk_rates][i]);
-			if (ret < 0)
-				break;
-			dev_dbg(fd->dev, "Clock rate idx %d idx %d value %d\n",
-				clk_rates, i, fd->clk_rates[clk_rates][i]);
-
-		}
-		if (ret < 0)
-			break;
-	}
-	fd->clk_rates_num = clk_rates;
-	if (fd->clk_rates_num == 0) {
-		ret = -ENOENT;
-		dev_err(fd->dev, "Can not get clock rates\n");
-		goto error;
-	}
-
-	return 0;
-error:
-	for (; i > 0; i--)
-		clk_put(fd->clk[i - 1]);
-
-	return ret;
-}
-
-/*
- * msm_fd_hw_get_clocks - Put fd clocks.
- * @fd: Pointer to fd device.
- */
-int msm_fd_hw_put_clocks(struct msm_fd_device *fd)
-{
-	int i;
-
-	for (i = 0; i < fd->clk_num; i++) {
-		if (!IS_ERR_OR_NULL(fd->clk[i]))
-			clk_put(fd->clk[i]);
-		fd->clk_num = 0;
-	}
 	return 0;
 }
 
@@ -1006,7 +795,6 @@ static int msm_fd_hw_set_clock_rate_idx(struct msm_fd_device *fd,
 		unsigned int idx)
 {
 	int ret;
-	long clk_rate;
 	int i;
 
 	if (idx >= fd->clk_rates_num) {
@@ -1015,181 +803,17 @@ static int msm_fd_hw_set_clock_rate_idx(struct msm_fd_device *fd,
 	}
 
 	for (i = 0; i < fd->clk_num; i++) {
-
-		clk_rate = clk_round_rate(fd->clk[i], fd->clk_rates[idx][i]);
-		if (clk_rate < 0) {
-			dev_dbg(fd->dev, "Clk raund rate fail skip %d\n", i);
-			continue;
-		}
-
-		ret = clk_set_rate(fd->clk[i], clk_rate);
+		ret = msm_camera_clk_set_rate(&fd->pdev->dev,
+			fd->clk[i], fd->clk_rates[idx][i]);
 		if (ret < 0) {
-			dev_err(fd->dev, "Fail clock rate %ld\n", clk_rate);
+			dev_err(fd->dev, "fail set rate on idx[%u][%u]\n",
+				idx, i);
 			return -EINVAL;
 		}
-		dev_dbg(fd->dev, "Clk rate %d-%ld idx %d\n", i, clk_rate, idx);
 	}
 
 	return 0;
 }
-/*
- * msm_fd_hw_enable_clocks - Prepare and enable fd clocks.
- * @fd: Pointer to fd device.
- */
-static int msm_fd_hw_enable_clocks(struct msm_fd_device *fd)
-{
-	int i;
-	int ret;
-
-	for (i = 0; i < fd->clk_num; i++) {
-		ret = clk_prepare(fd->clk[i]);
-		if (ret < 0) {
-			dev_err(fd->dev, "clock prepare failed %d\n", i);
-			goto error;
-		}
-
-		ret = clk_enable(fd->clk[i]);
-		if (ret < 0) {
-			dev_err(fd->dev, "clock enable %d\n", i);
-			clk_unprepare(fd->clk[i]);
-			goto error;
-		}
-	}
-
-	return 0;
-error:
-	for (; i > 0; i--) {
-		clk_disable(fd->clk[i - 1]);
-		clk_unprepare(fd->clk[i - 1]);
-	}
-	return ret;
-}
-/*
- * msm_fd_hw_disable_clocks - Disable fd clock.
- * @fd: Pointer to fd device.
- */
-static void msm_fd_hw_disable_clocks(struct msm_fd_device *fd)
-{
-	int i;
-
-	for (i = 0; i < fd->clk_num; i++) {
-		clk_disable(fd->clk[i]);
-		clk_unprepare(fd->clk[i]);
-	}
-}
-
-/*
- * msm_fd_hw_get_bus - Get bus bandwidth.
- * @fd: Pointer to fd device.
- *
- * Read bus bandwidth information from device tree.
- */
-int msm_fd_hw_get_bus(struct msm_fd_device *fd)
-{
-	size_t cnt;
-	unsigned int ab;
-	unsigned int ib;
-	unsigned int idx;
-	int usecase;
-	int ret;
-
-	idx = MSM_FD_MAX_CLK_RATES;
-
-	fd->bus_vectors = kzalloc(sizeof(*fd->bus_vectors) * idx, GFP_KERNEL);
-	if (!fd->bus_vectors) {
-		dev_err(fd->dev, "No memory for bus vectors\n");
-		return -ENOMEM;
-	}
-
-	fd->bus_paths = kzalloc(sizeof(*fd->bus_paths) * idx, GFP_KERNEL);
-	if (!fd->bus_paths) {
-		dev_err(fd->dev, "No memory for bus paths\n");
-		kfree(fd->bus_vectors);
-		fd->bus_vectors = NULL;
-		return -ENOMEM;
-	}
-
-	cnt = 0;
-	for (usecase = 0; usecase < idx; usecase++) {
-		ret = of_property_read_u32_index(fd->dev->of_node,
-			"qcom,bus-bandwidth-vectors", cnt++, &ab);
-		if (ret < 0)
-			break;
-
-		ret = of_property_read_u32_index(fd->dev->of_node,
-			"qcom,bus-bandwidth-vectors", cnt++, &ib);
-		if (ret < 0)
-			break;
-
-		fd->bus_vectors[usecase].src = MSM_BUS_MASTER_CPP;
-		fd->bus_vectors[usecase].dst = MSM_BUS_SLAVE_EBI_CH0;
-		fd->bus_vectors[usecase].ab = ab;
-		fd->bus_vectors[usecase].ib = ib;
-
-		fd->bus_paths[usecase].num_paths = 1;
-		fd->bus_paths[usecase].vectors = &fd->bus_vectors[usecase];
-
-		dev_dbg(fd->dev, "Bus bandwidth idx %d ab %u ib %u\n",
-			usecase, ab, ib);
-	}
-
-	fd->bus_scale_data.usecase = fd->bus_paths;
-	fd->bus_scale_data.num_usecases = usecase;
-	fd->bus_scale_data.name = MSM_FD_BUS_CLIENT_NAME;
-
-	return 0;
-}
-
-/*
- * msm_fd_hw_put_bus - Put bus bandwidth.
- * @fd: Pointer to fd device.
- */
-void msm_fd_hw_put_bus(struct msm_fd_device *fd)
-{
-	kfree(fd->bus_vectors);
-	fd->bus_vectors = NULL;
-
-	kfree(fd->bus_paths);
-	fd->bus_paths = NULL;
-
-	fd->bus_scale_data.num_usecases = 0;
-}
-/*
- * msm_fd_hw_bus_request - Request bus for memory access.
- * @fd: Pointer to fd device.
- * @idx: Bus bandwidth array index described in device tree.
- */
-static int msm_fd_hw_bus_request(struct msm_fd_device *fd, unsigned int idx)
-{
-	int ret;
-
-	fd->bus_client = msm_bus_scale_register_client(&fd->bus_scale_data);
-	if (!fd->bus_client) {
-		dev_err(fd->dev, "Fail to register bus client\n");
-		return -ENOENT;
-	}
-
-	ret = msm_bus_scale_client_update_request(fd->bus_client, idx);
-	if (ret < 0) {
-		dev_err(fd->dev, "Fail bus scale update %d\n", ret);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-/*
- * msm_fd_hw_bus_release - Release memory access bus.
- * @fd: Pointer to fd device.
- */
-static void msm_fd_hw_bus_release(struct msm_fd_device *fd)
-{
-	if (fd->bus_client) {
-		msm_bus_scale_unregister_client(fd->bus_client);
-		fd->bus_client = 0;
-	}
-}
-
 /*
  * msm_fd_hw_get - Get fd hw for performing any hw operation.
  * @fd: Pointer to fd device.
@@ -1205,7 +829,8 @@ int msm_fd_hw_get(struct msm_fd_device *fd, unsigned int clock_rate_idx)
 	mutex_lock(&fd->lock);
 
 	if (fd->ref_count == 0) {
-		ret = msm_fd_hw_enable_regulators(fd);
+		ret =
+			msm_camera_regulator_enable(fd->vdd, fd->num_reg, true);
 		if (ret < 0) {
 			dev_err(fd->dev, "Fail to enable vdd\n");
 			goto error;
@@ -1216,16 +841,15 @@ int msm_fd_hw_get(struct msm_fd_device *fd, unsigned int clock_rate_idx)
 			dev_err(fd->dev, "Fail bus request\n");
 			goto error_bus_request;
 		}
-
 		ret = msm_fd_hw_set_clock_rate_idx(fd, clock_rate_idx);
 		if (ret < 0) {
 			dev_err(fd->dev, "Fail to set clock rate idx\n");
 			goto error_clocks;
 		}
-
-		ret = msm_fd_hw_enable_clocks(fd);
+		ret = msm_camera_clk_enable(&fd->pdev->dev, fd->clk_info,
+				fd->clk, fd->clk_num, true);
 		if (ret < 0) {
-			dev_err(fd->dev, "Fail to enable clocks\n");
+			dev_err(fd->dev, "Fail clk enable request\n");
 			goto error_clocks;
 		}
 
@@ -1245,11 +869,11 @@ int msm_fd_hw_get(struct msm_fd_device *fd, unsigned int clock_rate_idx)
 error_set_dt:
 	if (msm_fd_hw_misc_irq_supported(fd))
 		msm_fd_hw_misc_irq_disable(fd);
-	msm_fd_hw_disable_clocks(fd);
+	msm_camera_clk_enable(&fd->pdev->dev, fd->clk_info,
+		fd->clk, fd->clk_num, false);
 error_clocks:
-	msm_fd_hw_bus_release(fd);
 error_bus_request:
-	msm_fd_hw_disable_regulators(fd);
+	msm_camera_regulator_enable(fd->vdd, fd->num_reg, false);
 error:
 	mutex_unlock(&fd->lock);
 	return ret;
@@ -1273,9 +897,11 @@ void msm_fd_hw_put(struct msm_fd_device *fd)
 		if (msm_fd_hw_misc_irq_supported(fd))
 			msm_fd_hw_misc_irq_disable(fd);
 
-		msm_fd_hw_bus_release(fd);
-		msm_fd_hw_disable_clocks(fd);
-		msm_fd_hw_disable_regulators(fd);
+		/* vector index 0 is 0 ab and 0 ib */
+		msm_fd_hw_bus_request(fd, 0);
+		msm_camera_clk_enable(&fd->pdev->dev, fd->clk_info,
+				fd->clk, fd->clk_num, false);
+		msm_camera_regulator_enable(fd->vdd, fd->num_reg, false);
 	}
 	mutex_unlock(&fd->lock);
 }
