@@ -1085,7 +1085,9 @@ Example:
 Required properties:
 - compatible : "qcom,msm8996-asoc-snd-tomtom" for tomtom codec and
 		node is "sound" and "qcom,msm8996-asoc-snd-tasha"
-		for tasha codec and node is "sound-9335"
+		for tasha codec and node is "sound-9335" and
+		"qcom,msm8996-asoc-snd-auto" for auto codec and
+		node is "sound-auto"
 - qcom,model : The user-visible name of this sound card.
 - qcom,tomtom-mclk-clk-freq : MCLK frequency value for tomtom codec
 			      and node is "sound"
