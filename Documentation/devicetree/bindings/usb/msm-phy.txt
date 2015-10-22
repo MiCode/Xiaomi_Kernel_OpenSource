@@ -175,6 +175,8 @@ Optional properties:
  - qcom,tune2-efuse-num-bits: Number of bits based value to use for TUNE2 high nibble
  - qcom,emulation: Indicates that we are running on emulation platform.
  - qcom,hold-reset: Indicates that hold QUSB PHY into reset state.
+ - qcom,enable-dpdm-pulsing: enables dp and dm pulsing for PMIC driver to
+   perform charger detection.
 
 Example:
 	qusb_phy: qusb@f9b39000 {
