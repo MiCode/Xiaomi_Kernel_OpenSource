@@ -2013,6 +2013,7 @@
 		qcom,vdd-voltage-level = <1 5 7>;
 		qcom,tune2-efuse-bit-pos = <21>;
 		qcom,tune2-efuse-num-bits = <4>;
+		qcom,enable-dpdm-pulsing;
 		qcom,qusb-phy-init-seq = <0xF8 0x80
 					0xB3 0x84
 					0x83 0x88
