@@ -166,8 +166,14 @@ static void mdss_mdp_process_input(struct work_struct *work)
 
 	if (mfd->mdp.input_event_handler) {
 		rc = mfd->mdp.input_event_handler(mfd);
-		if (rc)
+		if (rc) {
 			pr_err("mdp input event handler failed\n");
+		} else {
+			/* Trigger idle fallback in case of no update. */
+			if (mfd->idle_time)
+				schedule_delayed_work(&mfd->idle_notify_work,
+					msecs_to_jiffies(200));
+		}
 	}
 }
 
