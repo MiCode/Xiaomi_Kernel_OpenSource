@@ -32,6 +32,7 @@
 #include <linux/of.h>
 #include <linux/sysfs.h>
 #include <linux/types.h>
+#include <linux/io.h>
 #include <linux/thermal.h>
 #include <linux/regulator/rpm-smd-regulator.h>
 #include <linux/regulator/consumer.h>
@@ -74,6 +75,11 @@
 #define MAX_CPU_NAME 10
 #define OVERALL_TYPE "Overall"
 #define INDIVIDUAL_TYPE  "Individual"
+#define EFUSE_ADDRESS_8976      0x000A4124
+#define EFUSE_SIZE_8976         0x1000
+#define EFUSE_START_BIT_8976    22
+#define EFUSE_BIT_MASK_8976     0x7
+#define EFUSE_DATA_MATCH_8976   0x1
 
 #define VALIDATE_AND_SET_MASK(_node, _key, _mask, _cpu) \
 	do { \
@@ -6012,6 +6018,69 @@ read_node_done:
 	return ret;
 }
 
+static int thermal_efuse_read_and_match(struct device_node *node,
+		struct platform_device *pdev, bool *efuse_match)
+{
+	uint32_t efuse_bits = 0, efuse_val = 0;
+	int ret = 0;
+	void __iomem *efuse_base = NULL;
+
+	*efuse_match = false;
+	efuse_base = devm_ioremap(&pdev->dev, EFUSE_ADDRESS_8976,
+			EFUSE_SIZE_8976);
+	if (!efuse_base) {
+		pr_err("Unable to map efuse_addr:0x%x with size%d\n",
+			EFUSE_ADDRESS_8976, EFUSE_SIZE_8976);
+		ret = -EINVAL;
+		goto read_efuse_fail;
+	}
+
+	efuse_bits = readl_relaxed(efuse_base);
+	efuse_val = (efuse_bits >> EFUSE_START_BIT_8976) & EFUSE_BIT_MASK_8976;
+
+	if (efuse_val == EFUSE_DATA_MATCH_8976)
+		*efuse_match = true;
+	else
+		*efuse_match = false;
+	pr_info(
+	"Efuse address:0x%x val=0x%x @%d:mask:0x%x = 0x%x, cfg_val:%d\n",
+		EFUSE_ADDRESS_8976, efuse_bits, EFUSE_START_BIT_8976,
+		EFUSE_BIT_MASK_8976, efuse_val, EFUSE_DATA_MATCH_8976);
+
+read_efuse_fail:
+	if (efuse_base)
+		devm_iounmap(&pdev->dev, efuse_base);
+	return ret;
+}
+
+static bool vdd_rstr_child_node_skip(struct device_node *node,
+				struct platform_device *pdev)
+{
+	int ret = 0;
+	char *mx_str = NULL;
+	static bool efuse_match = false;
+	static bool efuse_init_done = false;
+
+	if ((of_find_compatible_node(NULL, NULL, "qcom,msm8956")) ||
+		(of_find_compatible_node(NULL, NULL, "qcom,msm8976"))) {
+		mx_str = strnstr(node->name, "qcom,vdd-mx",
+				strlen("qcom,vdd-mx"));
+		if (mx_str == node->name) {
+			if (!efuse_init_done) {
+				ret = thermal_efuse_read_and_match(node,
+					pdev, &efuse_match);
+				if (ret || !efuse_match)
+					ret = -EINVAL;
+				efuse_init_done = true;
+			} else if (!efuse_match) {
+				ret = -EINVAL;
+			}
+		}
+	}
+
+	return ret ? true : false;
+}
+
 static int probe_vdd_rstr(struct device_node *node,
 		struct msm_thermal_data *data, struct platform_device *pdev)
 {
@@ -6042,6 +6111,8 @@ static int probe_vdd_rstr(struct device_node *node,
 		goto read_node_fail;
 
 	for_each_child_of_node(node, child_node) {
+		if (vdd_rstr_child_node_skip(child_node, pdev))
+			continue;
 		rails_cnt++;
 	}
 
@@ -6061,6 +6132,8 @@ static int probe_vdd_rstr(struct device_node *node,
 
 	i = 0;
 	for_each_child_of_node(node, child_node) {
+		if (vdd_rstr_child_node_skip(child_node, pdev))
+			continue;
 		key = "qcom,vdd-rstr-reg";
 		ret = of_property_read_string(child_node, key, &rails[i].name);
 		if (ret)
