@@ -48,6 +48,12 @@ static struct msm_sensor_power_setting ov2685_power_setting[] = {
 	},
 	{
 		.seq_type = SENSOR_GPIO,
+		.seq_val = SENSOR_GPIO_VDIG,
+		.config_val = GPIO_OUT_HIGH,
+		.delay = 1,
+	},
+	{
+		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_RESET,
 		.config_val = GPIO_OUT_LOW,
 		.delay = 5,
