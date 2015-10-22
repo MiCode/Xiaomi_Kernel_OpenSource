@@ -1345,7 +1345,9 @@ static int swrm_device_down(struct device *dev)
 					__func__, swr_dev->dev_num);
 		}
 		dev_dbg(dev, "%s: Shutting down SWRM\n", __func__);
+		pm_runtime_disable(dev);
 		pm_runtime_set_suspended(dev);
+		pm_runtime_enable(dev);
 		swrm_clk_request(swrm, false);
 	}
 	mutex_unlock(&swrm->reslock);
