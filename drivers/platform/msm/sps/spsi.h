@@ -132,7 +132,7 @@ extern u8 print_limit_option;
 				ipc_log_string((dev)->ipc_log4, \
 					"%s: " msg, __func__, args); \
 			else \
-				pr_err("sps: no such IPC logging index!\n"); \
+				pr_debug("sps: no such IPC logging index!\n"); \
 		} \
 	} while (0)
 #define SPS_DUMP(msg, args...) do {					\
