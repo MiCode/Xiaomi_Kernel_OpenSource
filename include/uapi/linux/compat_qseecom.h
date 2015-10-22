@@ -207,6 +207,21 @@ struct compat_qseecom_qteec_modfd_req {
 	struct compat_qseecom_ion_fd_info ifd_data[MAX_ION_FD];
 };
 
+struct compat_qseecom_ce_pipe_entry {
+	compat_int_t valid;
+	compat_uint_t ce_num;
+	compat_uint_t ce_pipe_pair;
+};
+
+struct compat_qseecom_ce_info_req {
+	unsigned char handle[MAX_CE_INFO_HANDLE_SIZE];
+	compat_uint_t usage;
+	compat_uint_t unit_num;
+	compat_uint_t num_ce_pipe_entries;
+	struct compat_qseecom_ce_pipe_entry
+				ce_pipe_entry[MAX_CE_PIPE_PAIR_PER_UNIT];
+};
+
 struct file;
 extern long compat_qseecom_ioctl(struct file *file,
 					unsigned int cmd, unsigned long arg);
@@ -304,6 +319,15 @@ extern long compat_qseecom_ioctl(struct file *file,
 #define COMPAT_QSEECOM_IOCTL_SEND_MODFD_RESP_64 \
 	_IOWR(QSEECOM_IOC_MAGIC, 36, \
 				struct compat_qseecom_send_modfd_listener_resp)
+#define COMPAT_QSEECOM_IOCTL_GET_CE_PIPE_INFO \
+	_IOWR(QSEECOM_IOC_MAGIC, 40, \
+				struct compat_qseecom_ce_info_req)
+#define COMPAT_QSEECOM_IOCTL_FREE_CE_PIPE_INFO \
+	_IOWR(QSEECOM_IOC_MAGIC, 41, \
+				struct compat_qseecom_ce_info_req)
+#define COMPAT_QSEECOM_IOCTL_QUERY_CE_PIPE_INFO \
+	_IOWR(QSEECOM_IOC_MAGIC, 42, \
+				struct compat_qseecom_ce_info_req)
 
 #endif
 #endif /* _UAPI_COMPAT_QSEECOM_H_ */
