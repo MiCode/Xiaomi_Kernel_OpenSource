@@ -479,7 +479,7 @@ static int arm_lpae_map_sg(struct io_pgtable_ops *ops, unsigned long iova,
 
 	/* If no access, then nothing to do */
 	if (!(iommu_prot & (IOMMU_READ | IOMMU_WRITE)))
-		return 0;
+		goto out_err;
 
 	prot = arm_lpae_prot_to_pte(data, iommu_prot);
 
