@@ -40,6 +40,8 @@
  */
 #define ROT_MAX_HW_BLOCKS 2
 
+#define ROT_CHECK_BOUNDS(offset, size, max_size) \
+	(((size) > (max_size)) || ((offset) > ((max_size) - (size))))
 
 #define CLASS_NAME "rotator"
 #define DRIVER_NAME "mdss_rotator"
@@ -1332,11 +1334,38 @@ static int mdss_rotator_validate_item_matches_session(
 	return 0;
 }
 
-/* Only need to validate x and y offset for ubwc dst fmt */
 static int mdss_rotator_validate_img_roi(struct mdp_rotation_item *item)
 {
 	struct mdss_mdp_format_params *fmt;
+	uint32_t width, height;
 	int ret = 0;
+
+	width = item->input.width;
+	height = item->input.height;
+	if (item->flags & MDP_ROTATION_DEINTERLACE) {
+		width *= 2;
+		height /= 2;
+	}
+
+	/* Check roi bounds */
+	if (ROT_CHECK_BOUNDS(item->src_rect.x, item->src_rect.w, width) ||
+			ROT_CHECK_BOUNDS(item->src_rect.y, item->src_rect.h,
+			height)) {
+		pr_err("invalid src flag=%08x img wh=%dx%d rect=%d,%d,%d,%d\n",
+			item->flags, width, height, item->src_rect.x,
+			item->src_rect.y, item->src_rect.w, item->src_rect.h);
+		return -EINVAL;
+	}
+	if (ROT_CHECK_BOUNDS(item->dst_rect.x, item->dst_rect.w,
+			item->output.width) ||
+			ROT_CHECK_BOUNDS(item->dst_rect.y, item->dst_rect.h,
+			item->output.height)) {
+		pr_err("invalid dst img wh=%dx%d rect=%d,%d,%d,%d\n",
+			item->output.width, item->output.height,
+			item->dst_rect.x, item->dst_rect.y, item->dst_rect.w,
+			item->dst_rect.h);
+		return -EINVAL;
+	}
 
 	fmt = mdss_mdp_get_format_params(item->output.format);
 	if (!fmt) {
