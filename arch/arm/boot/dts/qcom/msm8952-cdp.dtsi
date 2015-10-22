@@ -76,6 +76,17 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&usbc_int_default>;
 	};
+
+	ti-type-c@61 {
+		compatible = "ti,usb-type-c";
+		reg = <0x61>;
+		vdd_io-supply = <&pm8950_l5>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <93 2>;    /* MSM GPIO 93, TRIGGER_FALLING */
+		ti,enb-gpio = <&msm_gpio 133 0x1>;	/* active low ENB */
+		pinctrl-names = "default";
+		pinctrl-0 = <&usbc_int_default>;
+	};
 };
 
 &pm8950_gpios {
