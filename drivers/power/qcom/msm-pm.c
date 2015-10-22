@@ -260,7 +260,7 @@ int msm_pm_collapse(unsigned long unused)
 EXPORT_SYMBOL(msm_pm_collapse);
 
 static bool __ref msm_pm_spm_power_collapse(
-	unsigned int cpu, bool from_idle, bool notify_rpm)
+	unsigned int cpu, int mode, bool from_idle, bool notify_rpm)
 {
 	void *entry;
 	bool collapsed = 0;
@@ -271,8 +271,7 @@ static bool __ref msm_pm_spm_power_collapse(
 		pr_info("CPU%u: %s: notify_rpm %d\n",
 			cpu, __func__, (int) notify_rpm);
 
-	ret = msm_spm_set_low_power_mode(
-			MSM_SPM_MODE_POWER_COLLAPSE, notify_rpm);
+	ret = msm_spm_set_low_power_mode(mode, notify_rpm);
 	WARN_ON(ret);
 
 	entry = save_cpu_regs ?  cpu_resume : msm_secondary_startup;
@@ -310,7 +309,9 @@ static bool msm_pm_power_collapse_standalone(
 	unsigned int cpu = smp_processor_id();
 	bool collapsed;
 
-	collapsed = msm_pm_spm_power_collapse(cpu, from_idle, false);
+	collapsed = msm_pm_spm_power_collapse(cpu,
+			MSM_SPM_MODE_STANDALONE_POWER_COLLAPSE,
+			from_idle, false);
 
 	return collapsed;
 }
@@ -366,7 +367,8 @@ static bool msm_pm_power_collapse(bool from_idle)
 	if (cpu_online(cpu) && !msm_no_ramp_down_pc)
 		saved_acpuclk_rate = ramp_down_last_cpu(cpu);
 
-	collapsed = msm_pm_spm_power_collapse(cpu, from_idle, true);
+	collapsed = msm_pm_spm_power_collapse(cpu, MSM_SPM_MODE_POWER_COLLAPSE,
+			from_idle, true);
 
 	if (cpu_online(cpu) && !msm_no_ramp_down_pc)
 		ramp_up_first_cpu(cpu, saved_acpuclk_rate);
