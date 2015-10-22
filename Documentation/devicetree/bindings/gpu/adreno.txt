@@ -133,7 +133,9 @@ GPU Quirks:
 				A5XX_PC_DBG_ECO_CNTL (5XX only)
 - qcom,gpu-quirk-critical-packets:
 				Submit a set of critical PM4 packets when the GPU wakes up
-
+- qcom,gpu-quirk-fault-detect-mask:
+				Mask out RB1-3 activity signals from HW hang
+				detection logic
 
 The following properties are optional as collecting data via coresight might
 not be supported for every chipset. The documentation for coresight

@@ -2030,32 +2030,36 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	 */
 	kgsl_regwrite(device, A5XX_RBBM_AHB_CNTL0, 0x00000001);
 
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_FAULT_DETECT_MASK)) {
+		/*
+		 * We have 4 RB units, and only RB0 activity signals are
+		 * working correctly. Mask out RB1-3 activity signals
+		 * from the HW hang detection logic as per
+		 * recommendation of hardware team.
+		 */
+		kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_MASK_CNTL11,
+				0xF0000000);
+		kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_MASK_CNTL12,
+				0xFFFFFFFF);
+		kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_MASK_CNTL13,
+				0xFFFFFFFF);
+		kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_MASK_CNTL14,
+				0xFFFFFFFF);
+		kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_MASK_CNTL15,
+				0xFFFFFFFF);
+		kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_MASK_CNTL16,
+				0xFFFFFFFF);
+		kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_MASK_CNTL17,
+				0xFFFFFFFF);
+		kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_MASK_CNTL18,
+				0xFFFFFFFF);
+	}
+
 	/*
 	 * Turn on hang detection for a530 v2 and beyond. This spews a
 	 * lot of useful information into the RBBM registers on a hang.
 	 */
 	if (!adreno_is_a530v1(adreno_dev)) {
-		/*
-		 * We have 4 RB units, and only RB0 activity signals are working
-		 * correctly. Mask out RB1-3 activity signals from the HW hang
-		 * detection logic as per recommendation of hardware team.
-		 */
-		kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_MASK_CNTL11,
-					0xF0000000);
-		kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_MASK_CNTL12,
-					0xFFFFFFFF);
-		kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_MASK_CNTL13,
-					0xFFFFFFFF);
-		kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_MASK_CNTL14,
-					0xFFFFFFFF);
-		kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_MASK_CNTL15,
-					0xFFFFFFFF);
-		kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_MASK_CNTL16,
-					0xFFFFFFFF);
-		kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_MASK_CNTL17,
-					0xFFFFFFFF);
-		kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_MASK_CNTL18,
-					0xFFFFFFFF);
 
 		set_bit(ADRENO_DEVICE_HANG_INTR, &adreno_dev->priv);
 		gpudev->irq->mask |= (1 << A5XX_INT_MISC_HANG_DETECT);

@@ -122,6 +122,8 @@
 #define ADRENO_QUIRK_IOMMU_SYNC BIT(1)
 /* Submit critical packets at GPU wake up */
 #define ADRENO_QUIRK_CRITICAL_PACKETS BIT(2)
+/* Mask out RB1-3 activity signals from HW hang detection logic */
+#define ADRENO_QUIRK_FAULT_DETECT_MASK BIT(3)
 
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0

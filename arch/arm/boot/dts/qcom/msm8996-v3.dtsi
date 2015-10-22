@@ -104,6 +104,7 @@
 	/* Quirks */
 	qcom,gpu-quirk-two-pass-use-wfi;
 	qcom,gpu-quirk-critical-packets;
+	qcom,gpu-quirk-fault-detect-mask;
 
 	qcom,gpu-pwrlevel-bins {
 		#address-cells = <1>;
