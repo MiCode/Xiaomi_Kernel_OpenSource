@@ -128,6 +128,7 @@
 #define IT_I2C_VTG_MIN_UV	2600000
 #define IT_I2C_VTG_MAX_UV	3300000
 #define IT_I2C_ACTIVE_LOAD_UA	10000
+#define DELAY_VTG_REG_EN	170
 
 #define PINCTRL_STATE_ACTIVE	"pmx_ts_active"
 #define PINCTRL_STATE_SUSPEND	"pmx_ts_suspend"
@@ -1618,6 +1619,12 @@ static int IT7260_ts_probe(struct i2c_client *client,
 		dev_err(&client->dev, "Failed to power on\n");
 		goto err_power_device;
 	}
+
+	/*
+	 * After enabling regulators, controller needs a delay to come to
+	 * an active state.
+	 */
+	msleep(DELAY_VTG_REG_EN);
 
 	ret = IT7260_ts_pinctrl_init(gl_ts);
 	if (!ret && gl_ts->ts_pinctrl) {
