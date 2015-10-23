@@ -1,7 +1,7 @@
 /*
  * QTI CE 32-bit compatibility syscall for 64-bit systems
  *
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,7 @@
 #include <linux/uaccess.h>
 #include <linux/qcedev.h>
 #include <linux/compat.h>
-#include <linux/compat_qcedev.h>
+#include "compat_qcedev.h"
 
 static int compat_get_qcedev_pmem_info(
 		struct compat_qcedev_pmem_info __user *pmem32,
