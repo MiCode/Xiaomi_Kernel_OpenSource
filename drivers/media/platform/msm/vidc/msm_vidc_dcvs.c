@@ -474,7 +474,8 @@ bool msm_dcvs_enc_check(struct msm_vidc_inst *inst)
 
 	is_codec_supported  =
 		(inst->fmts[CAPTURE_PORT]->fourcc == V4L2_PIX_FMT_H264) ||
-		(inst->fmts[CAPTURE_PORT]->fourcc == V4L2_PIX_FMT_H264_NO_SC);
+		(inst->fmts[CAPTURE_PORT]->fourcc == V4L2_PIX_FMT_H264_NO_SC) ||
+		(inst->fmts[CAPTURE_PORT]->fourcc == V4L2_PIX_FMT_HEVC);
 
 	num_mbs_per_frame = msm_dcvs_get_mbs_per_frame(inst);
 	if (msm_vidc_enc_dcvs_mode && is_codec_supported &&
