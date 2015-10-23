@@ -365,6 +365,9 @@ struct hdcp_lib_message_map {
 	const char *msg_name;
 };
 
+static struct qseecom_handle *hdcp1_handle;
+static bool hdcp1_supported = true;
+
 static const char *hdcp_lib_message_name(int msg_id)
 {
 	/*
@@ -1151,16 +1154,12 @@ static void hdcp_lib_topology_work(struct kthread_work *work)
 	u32 timeout;
 	struct hdcp_lib_handle *handle = container_of(work,
 		struct hdcp_lib_handle, topology);
-	struct hdmi_hdcp_wakeup_data cdata = {HDMI_HDCP_WKUP_CMD_INVALID};
 
 	if (!handle) {
 		pr_err("invalid input\n");
 		return;
 	}
 
-	cdata.context = handle->client_ctx;
-	cdata.cmd = HDMI_HDCP_WKUP_CMD_RECV_MESSAGE;
-	hdcp_lib_wakeup_client(handle, &cdata);
 
 	reinit_completion(&handle->topo_wait);
 	timeout = wait_for_completion_timeout(&handle->topo_wait, HZ * 3);
@@ -1172,24 +1171,35 @@ static void hdcp_lib_topology_work(struct kthread_work *work)
 	}
 }
 
+bool hdcp1_check_if_supported_load_app(void)
+{
+	int rc = 0;
+
+	/* start hdcp1 app */
+	if (hdcp1_supported && !hdcp1_handle) {
+		rc = qseecom_start_app(&hdcp1_handle, HDCP1_APP_NAME,
+			QSEECOM_SBUFF_SIZE);
+		if (rc) {
+			pr_err("qseecom_start_app failed %d\n", rc);
+			hdcp1_supported = false;
+		}
+	}
+
+	return hdcp1_supported;
+}
+
 /* APIs exposed to all clients */
 int hdcp1_set_keys(uint32_t *aksv_msb, uint32_t *aksv_lsb)
 {
 	int rc = 0;
 	struct hdcp1_key_set_req *key_set_req;
 	struct hdcp1_key_set_rsp *key_set_rsp;
-	struct qseecom_handle *hdcp1_handle = NULL;
 
 	if (aksv_msb == NULL || aksv_lsb == NULL)
 		return -EINVAL;
 
-	/* start hdcp1 app */
-	rc = qseecom_start_app(&hdcp1_handle, HDCP1_APP_NAME,
-						QSEECOM_SBUFF_SIZE);
-	if (rc) {
-		pr_err("qseecom_start_app failed %d\n", rc);
-		return -ENOSYS;
-	}
+	if (!hdcp1_supported || !hdcp1_handle)
+		return -EINVAL;
 
 	/* set keys and request aksv */
 	key_set_req = (struct hdcp1_key_set_req *)hdcp1_handle->sbuf;

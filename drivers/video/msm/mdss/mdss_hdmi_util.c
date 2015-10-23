@@ -1672,8 +1672,6 @@ int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl)
 
 	/* check for errors and clear status */
 	reg_val = DSS_REG_R(ctrl->io, HDMI_HDCP2P2_DDC_STATUS);
-	if (reg_val & BIT(0))
-		pr_debug("ddc busy\n");
 
 	if (reg_val & BIT(4)) {
 		pr_err("ddc aborted\n");
