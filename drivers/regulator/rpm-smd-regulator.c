@@ -50,6 +50,7 @@ enum rpm_regulator_type {
 	RPM_REGULATOR_TYPE_SMPS,
 	RPM_REGULATOR_TYPE_VS,
 	RPM_REGULATOR_TYPE_NCP,
+	RPM_REGULATOR_TYPE_BOB,
 	RPM_REGULATOR_TYPE_MAX,
 };
 
@@ -71,6 +72,10 @@ enum rpm_regulator_param_index {
 	RPM_REGULATOR_PARAM_FLOOR_CORNER,
 	RPM_REGULATOR_PARAM_LEVEL,
 	RPM_REGULATOR_PARAM_FLOOR_LEVEL,
+	RPM_REGULATOR_PARAM_MODE_BOB,
+	RPM_REGULATOR_PARAM_PIN_CTRL_VOLTAGE1,
+	RPM_REGULATOR_PARAM_PIN_CTRL_VOLTAGE2,
+	RPM_REGULATOR_PARAM_PIN_CTRL_VOLTAGE3,
 	RPM_REGULATOR_PARAM_MAX,
 };
 
@@ -83,6 +88,13 @@ enum rpm_regulator_smps_mode {
 enum rpm_regulator_ldo_mode {
 	RPM_REGULATOR_LDO_MODE_IPEAK	= 0,
 	RPM_REGULATOR_LDO_MODE_HPM	= 1,
+};
+
+enum rpm_regulator_bob_mode {
+	RPM_REGULATOR_BOB_MODE_PASS	= 0,
+	RPM_REGULATOR_BOB_MODE_PFM	= 1,
+	RPM_REGULATOR_BOB_MODE_AUTO	= 2,
+	RPM_REGULATOR_BOB_MODE_PWM	= 3,
 };
 
 #define RPM_SET_CONFIG_ACTIVE			BIT(0)
@@ -99,7 +111,7 @@ struct rpm_regulator_param {
 };
 
 #define PARAM(_idx, _support_ldo, _support_smps, _support_vs, _support_ncp, \
-		_name, _min, _max, _property_name)	\
+		_support_bob, _name, _min, _max, _property_name)	\
 	[RPM_REGULATOR_PARAM_##_idx] = { \
 		.name = _name, \
 		.property_name = _property_name, \
@@ -109,27 +121,32 @@ struct rpm_regulator_param {
 			_support_ldo << RPM_REGULATOR_TYPE_LDO | \
 			_support_smps << RPM_REGULATOR_TYPE_SMPS | \
 			_support_vs << RPM_REGULATOR_TYPE_VS | \
-			_support_ncp << RPM_REGULATOR_TYPE_NCP, \
+			_support_ncp << RPM_REGULATOR_TYPE_NCP | \
+			_support_bob << RPM_REGULATOR_TYPE_BOB, \
 	}
 
 static struct rpm_regulator_param params[RPM_REGULATOR_PARAM_MAX] = {
-	/*    ID             LDO SMPS VS  NCP  name  min max          property-name */
-	PARAM(ENABLE,          1,  1,  1,  1, "swen", 0, 1,          "qcom,init-enable"),
-	PARAM(VOLTAGE,         1,  1,  0,  1, "uv",   0, 0x7FFFFFF,  "qcom,init-voltage"),
-	PARAM(CURRENT,         1,  1,  0,  0, "ma",   0, 0x1FFF,     "qcom,init-current"),
-	PARAM(MODE_LDO,        1,  0,  0,  0, "lsmd", 0, 1,          "qcom,init-ldo-mode"),
-	PARAM(MODE_SMPS,       0,  1,  0,  0, "ssmd", 0, 2,          "qcom,init-smps-mode"),
-	PARAM(PIN_CTRL_ENABLE, 1,  1,  1,  0, "pcen", 0, 0xF,        "qcom,init-pin-ctrl-enable"),
-	PARAM(PIN_CTRL_MODE,   1,  1,  1,  0, "pcmd", 0, 0x1F,       "qcom,init-pin-ctrl-mode"),
-	PARAM(FREQUENCY,       0,  1,  0,  1, "freq", 0, 31,         "qcom,init-frequency"),
-	PARAM(HEAD_ROOM,       1,  0,  0,  1, "hr",   0, 0x7FFFFFFF, "qcom,init-head-room"),
-	PARAM(QUIET_MODE,      0,  1,  0,  0, "qm",   0, 2,          "qcom,init-quiet-mode"),
-	PARAM(FREQ_REASON,     0,  1,  0,  1, "resn", 0, 8,          "qcom,init-freq-reason"),
-	PARAM(CORNER,          1,  1,  0,  0, "corn", 0, 6,          "qcom,init-voltage-corner"),
-	PARAM(BYPASS,          1,  0,  0,  0, "bypa", 0, 1,          "qcom,init-disallow-bypass"),
-	PARAM(FLOOR_CORNER,    1,  1,  0,  0, "vfc",  0, 6,          "qcom,init-voltage-floor-corner"),
-	PARAM(LEVEL,           1,  1,  0,  0, "vlvl", 0, 0xFFFF,     "qcom,init-voltage-level"),
-	PARAM(FLOOR_LEVEL,     1,  1,  0,  0, "vfl",  0, 0xFFFF,     "qcom,init-voltage-floor-level"),
+	/*    ID               LDO SMPS VS  NCP BOB  name  min max          property-name */
+	PARAM(ENABLE,            1,  1,  1,  1,  1, "swen", 0, 1,          "qcom,init-enable"),
+	PARAM(VOLTAGE,           1,  1,  0,  1,  1, "uv",   0, 0x7FFFFFF,  "qcom,init-voltage"),
+	PARAM(CURRENT,           1,  1,  0,  0,  0, "ma",   0, 0x1FFF,     "qcom,init-current"),
+	PARAM(MODE_LDO,          1,  0,  0,  0,  0, "lsmd", 0, 1,          "qcom,init-ldo-mode"),
+	PARAM(MODE_SMPS,         0,  1,  0,  0,  0, "ssmd", 0, 2,          "qcom,init-smps-mode"),
+	PARAM(PIN_CTRL_ENABLE,   1,  1,  1,  0,  0, "pcen", 0, 0xF,        "qcom,init-pin-ctrl-enable"),
+	PARAM(PIN_CTRL_MODE,     1,  1,  1,  0,  0, "pcmd", 0, 0x1F,       "qcom,init-pin-ctrl-mode"),
+	PARAM(FREQUENCY,         0,  1,  0,  1,  0, "freq", 0, 31,         "qcom,init-frequency"),
+	PARAM(HEAD_ROOM,         1,  0,  0,  1,  0, "hr",   0, 0x7FFFFFFF, "qcom,init-head-room"),
+	PARAM(QUIET_MODE,        0,  1,  0,  0,  0, "qm",   0, 2,          "qcom,init-quiet-mode"),
+	PARAM(FREQ_REASON,       0,  1,  0,  1,  0, "resn", 0, 8,          "qcom,init-freq-reason"),
+	PARAM(CORNER,            1,  1,  0,  0,  0, "corn", 0, 6,          "qcom,init-voltage-corner"),
+	PARAM(BYPASS,            1,  0,  0,  0,  0, "bypa", 0, 1,          "qcom,init-disallow-bypass"),
+	PARAM(FLOOR_CORNER,      1,  1,  0,  0,  0, "vfc",  0, 6,          "qcom,init-voltage-floor-corner"),
+	PARAM(LEVEL,             1,  1,  0,  0,  0, "vlvl", 0, 0xFFFF,     "qcom,init-voltage-level"),
+	PARAM(FLOOR_LEVEL,       1,  1,  0,  0,  0, "vfl",  0, 0xFFFF,     "qcom,init-voltage-floor-level"),
+	PARAM(MODE_BOB,          0,  0,  0,  0,  1, "bobm", 0, 3,          "qcom,init-bob-mode"),
+	PARAM(PIN_CTRL_VOLTAGE1, 0,  0,  0,  0,  1, "pcv1", 0, 0x7FFFFFF,  "qcom,init-pin-ctrl-voltage1"),
+	PARAM(PIN_CTRL_VOLTAGE2, 0,  0,  0,  0,  1, "pcv2", 0, 0x7FFFFFF,  "qcom,init-pin-ctrl-voltage2"),
+	PARAM(PIN_CTRL_VOLTAGE3, 0,  0,  0,  0,  1, "pcv3", 0, 0x7FFFFFF,  "qcom,init-pin-ctrl-voltage3"),
 };
 
 struct rpm_regulator_mode_map {
@@ -553,6 +570,10 @@ static void rpm_vreg_aggregate_params(u32 *param_aggr, const u32 *param_reg)
 	RPM_VREG_AGGR_MAX(FLOOR_CORNER, param_aggr, param_reg);
 	RPM_VREG_AGGR_MAX(LEVEL, param_aggr, param_reg);
 	RPM_VREG_AGGR_MAX(FLOOR_LEVEL, param_aggr, param_reg);
+	RPM_VREG_AGGR_MAX(MODE_BOB, param_aggr, param_reg);
+	RPM_VREG_AGGR_MAX(PIN_CTRL_VOLTAGE1, param_aggr, param_reg);
+	RPM_VREG_AGGR_MAX(PIN_CTRL_VOLTAGE2, param_aggr, param_reg);
+	RPM_VREG_AGGR_MAX(PIN_CTRL_VOLTAGE3, param_aggr, param_reg);
 }
 
 static int rpm_vreg_aggregate_requests(struct rpm_regulator *regulator)
@@ -882,7 +903,7 @@ static int rpm_vreg_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		rc = rpm_vreg_aggregate_requests(reg);
 
 	if (rc) {
-		vreg_err(reg, "set mode failed, rc=%d", rc);
+		vreg_err(reg, "set mode failed, rc=%d\n", rc);
 		RPM_VREG_SET_PARAM(reg, CURRENT, prev_current);
 	}
 
@@ -918,6 +939,72 @@ static unsigned int rpm_vreg_get_optimum_mode(struct regulator_dev *rdev,
 
 	return (load_uA >= reg->rpm_vreg->hpm_min_load)
 		? REGULATOR_MODE_NORMAL : REGULATOR_MODE_IDLE;
+}
+
+static int rpm_vreg_set_bob_mode(struct regulator_dev *rdev, unsigned int mode)
+{
+	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
+	int rc;
+	u32 prev_mode;
+
+	rpm_vreg_lock(reg->rpm_vreg);
+
+	prev_mode = reg->req.param[RPM_REGULATOR_PARAM_MODE_BOB];
+
+	switch (mode) {
+	case REGULATOR_MODE_FAST:
+		RPM_VREG_SET_PARAM(reg, MODE_BOB, RPM_REGULATOR_BOB_MODE_PWM);
+		break;
+	case REGULATOR_MODE_NORMAL:
+		RPM_VREG_SET_PARAM(reg, MODE_BOB, RPM_REGULATOR_BOB_MODE_AUTO);
+		break;
+	case REGULATOR_MODE_IDLE:
+		RPM_VREG_SET_PARAM(reg, MODE_BOB, RPM_REGULATOR_BOB_MODE_PFM);
+		break;
+	case REGULATOR_MODE_STANDBY:
+		RPM_VREG_SET_PARAM(reg, MODE_BOB, RPM_REGULATOR_BOB_MODE_PASS);
+		break;
+	default:
+		vreg_err(reg, "invalid mode: %u\n", mode);
+		rpm_vreg_unlock(reg->rpm_vreg);
+		return -EINVAL;
+	}
+
+	rc = rpm_vreg_aggregate_requests(reg);
+	if (rc) {
+		vreg_err(reg, "set BoB mode failed, rc=%d\n", rc);
+		RPM_VREG_SET_PARAM(reg, MODE_BOB, prev_mode);
+	}
+
+	rpm_vreg_unlock(reg->rpm_vreg);
+
+	return rc;
+}
+
+static unsigned int rpm_vreg_get_bob_mode(struct regulator_dev *rdev)
+{
+	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
+	unsigned int mode;
+
+	switch (reg->req.param[RPM_REGULATOR_PARAM_MODE_BOB]) {
+	case RPM_REGULATOR_BOB_MODE_PWM:
+		mode = REGULATOR_MODE_FAST;
+		break;
+	case RPM_REGULATOR_BOB_MODE_AUTO:
+		mode = REGULATOR_MODE_NORMAL;
+		break;
+	case RPM_REGULATOR_BOB_MODE_PFM:
+		mode = REGULATOR_MODE_IDLE;
+		break;
+	case RPM_REGULATOR_BOB_MODE_PASS:
+		mode = REGULATOR_MODE_STANDBY;
+		break;
+	default:
+		vreg_err(reg, "BoB mode unknown\n");
+		mode = REGULATOR_MODE_NORMAL;
+	}
+
+	return mode;
 }
 
 static int rpm_vreg_enable_time(struct regulator_dev *rdev)
@@ -1308,11 +1395,23 @@ static struct regulator_ops ncp_ops = {
 	.enable_time		= rpm_vreg_enable_time,
 };
 
+static struct regulator_ops bob_ops = {
+	.enable			= rpm_vreg_enable,
+	.disable		= rpm_vreg_disable,
+	.is_enabled		= rpm_vreg_is_enabled,
+	.set_voltage		= rpm_vreg_set_voltage,
+	.get_voltage		= rpm_vreg_get_voltage,
+	.set_mode		= rpm_vreg_set_bob_mode,
+	.get_mode		= rpm_vreg_get_bob_mode,
+	.enable_time		= rpm_vreg_enable_time,
+};
+
 static struct regulator_ops *vreg_ops[] = {
 	[RPM_REGULATOR_TYPE_LDO]	= &ldo_ops,
 	[RPM_REGULATOR_TYPE_SMPS]	= &smps_ops,
 	[RPM_REGULATOR_TYPE_VS]		= &switch_ops,
 	[RPM_REGULATOR_TYPE_NCP]	= &ncp_ops,
+	[RPM_REGULATOR_TYPE_BOB]	= &bob_ops,
 };
 
 static int rpm_vreg_device_remove(struct platform_device *pdev)
@@ -1376,57 +1475,89 @@ static int rpm_vreg_resource_remove(struct platform_device *pdev)
 	return 0;
 }
 
-/*
- * Set voltage index and offset (SMPS and LDO only)
- */
-static int rpm_vreg_device_set_voltage_index(struct device *dev,
-					struct rpm_regulator *reg, int type)
+static int rpm_vreg_set_smps_ldo_voltage_index(struct device *dev,
+					struct rpm_regulator *reg)
 {
-	bool choosen = false;
 	struct device_node *node = dev->of_node;
-
-	if ((type != RPM_REGULATOR_TYPE_SMPS) &&
-			(type != RPM_REGULATOR_TYPE_LDO))
-		return 0;
-
-	reg->voltage_index = RPM_REGULATOR_PARAM_VOLTAGE;
+	int chosen = 0;
 
 	if (of_property_read_bool(node, "qcom,use-voltage-corner")) {
 		reg->voltage_index = RPM_REGULATOR_PARAM_CORNER;
 		reg->voltage_offset = RPM_REGULATOR_CORNER_NONE;
-		choosen = true;
+		chosen++;
 	}
 
 	if (of_property_read_bool(node, "qcom,use-voltage-floor-corner")) {
-		if (choosen)
-			goto invalid;
-
 		reg->voltage_index = RPM_REGULATOR_PARAM_FLOOR_CORNER;
 		reg->voltage_offset = RPM_REGULATOR_CORNER_NONE;
-		choosen = true;
+		chosen++;
 	}
 
 	if (of_property_read_bool(node, "qcom,use-voltage-level")) {
-		if (choosen)
-			goto invalid;
-
 		reg->voltage_index = RPM_REGULATOR_PARAM_LEVEL;
-		choosen = true;
+		chosen++;
 	}
 
 	if (of_property_read_bool(node, "qcom,use-voltage-floor-level")) {
-		if (choosen)
-			goto invalid;
-
 		reg->voltage_index = RPM_REGULATOR_PARAM_FLOOR_LEVEL;
+		chosen++;
+	}
+
+	if (chosen > 1) {
+		dev_err(dev, "only one qcom,use-voltage-* may be specified\n");
+		return -EINVAL;
 	}
 
 	return 0;
+}
 
-invalid:
-	dev_err(dev, "%s: invalid properties: only one of qcom,use-voltage-corner, qcom,use-voltage-floor-corner, qcom,use-voltage-level, or qcom,use-voltage-floor-level may be specified\n",
-			__func__);
-	return -EINVAL;
+static int rpm_vreg_set_bob_voltage_index(struct device *dev,
+					struct rpm_regulator *reg)
+{
+	struct device_node *node = dev->of_node;
+	int chosen = 0;
+
+	if (of_property_read_bool(node, "qcom,use-pin-ctrl-voltage1")) {
+		reg->voltage_index = RPM_REGULATOR_PARAM_PIN_CTRL_VOLTAGE1;
+		chosen++;
+	}
+
+	if (of_property_read_bool(node, "qcom,use-pin-ctrl-voltage2")) {
+		reg->voltage_index = RPM_REGULATOR_PARAM_PIN_CTRL_VOLTAGE2;
+		chosen++;
+	}
+
+	if (of_property_read_bool(node, "qcom,use-pin-ctrl-voltage3")) {
+		reg->voltage_index = RPM_REGULATOR_PARAM_PIN_CTRL_VOLTAGE3;
+		chosen++;
+	}
+
+	if (chosen > 1) {
+		dev_err(dev, "only one qcom,use-pin-ctrl-voltage* may be specified\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int rpm_vreg_device_set_voltage_index(struct device *dev,
+					struct rpm_regulator *reg, int type)
+{
+	int rc = 0;
+
+	reg->voltage_index = RPM_REGULATOR_PARAM_VOLTAGE;
+
+	switch (type) {
+	case RPM_REGULATOR_TYPE_SMPS:
+	case RPM_REGULATOR_TYPE_LDO:
+		rc = rpm_vreg_set_smps_ldo_voltage_index(dev, reg);
+		break;
+	case RPM_REGULATOR_TYPE_BOB:
+		rc = rpm_vreg_set_bob_voltage_index(dev, reg);
+		break;
+	}
+
+	return rc;
 }
 
 /*
