@@ -667,7 +667,11 @@ static int camera_v4l2_close(struct file *filep)
 	struct msm_video_device *pvdev = video_drvdata(filep);
 	struct camera_v4l2_private *sp = fh_to_private(filep->private_data);
 	unsigned int opn_idx, mask;
+	struct msm_session *session;
 	BUG_ON(!pvdev);
+	session = msm_session_find(pvdev->vdev->num);
+	if (WARN_ON(!session))
+		return -EIO;
 
 	opn_idx = atomic_read(&pvdev->opened);
 	pr_debug("%s: close stream_id=%d\n", __func__, sp->stream_id);
@@ -676,7 +680,7 @@ static int camera_v4l2_close(struct file *filep)
 	atomic_set(&pvdev->opened, opn_idx);
 
 	if (atomic_read(&pvdev->opened) == 0) {
-
+		mutex_lock(&session->close_lock);
 		camera_pack_event(filep, MSM_CAMERA_SET_PARM,
 			MSM_CAMERA_PRIV_DEL_STREAM, -1, &event);
 		msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
@@ -686,12 +690,14 @@ static int camera_v4l2_close(struct file *filep)
 
 		msm_delete_command_ack_q(pvdev->vdev->num, 0);
 		msm_delete_stream(pvdev->vdev->num, sp->stream_id);
+		mutex_unlock(&session->close_lock);
 		/* This should take care of both normal close
 		 * and application crashes */
 		msm_destroy_session(pvdev->vdev->num);
 
 		pm_relax(&pvdev->vdev->dev);
 	} else {
+		mutex_lock(&session->close_lock);
 		camera_pack_event(filep, MSM_CAMERA_SET_PARM,
 			MSM_CAMERA_PRIV_DEL_STREAM, -1, &event);
 		msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
@@ -700,6 +706,7 @@ static int camera_v4l2_close(struct file *filep)
 			sp->stream_id);
 
 		msm_delete_stream(pvdev->vdev->num, sp->stream_id);
+		mutex_unlock(&session->close_lock);
 	}
 
 	camera_v4l2_vb2_q_release(filep);
