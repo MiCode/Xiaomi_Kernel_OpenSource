@@ -3474,6 +3474,7 @@ void sdhci_msm_dump_vendor_regs(struct sdhci_host *host)
 	if (host->is_crypto_en) {
 		sdhci_msm_ice_get_status(host, &sts);
 		pr_info("%s: ICE status %x\n", mmc_hostname(host->mmc), sts);
+		sdhci_msm_ice_print_regs(host);
 	}
 }
 
