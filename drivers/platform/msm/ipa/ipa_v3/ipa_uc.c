@@ -710,6 +710,7 @@ void ipa3_uc_load_notify(void)
 	if (!ipa3_ctx->apply_rg10_wa)
 		return;
 
+	ipa3_inc_client_enable_clks();
 	ipa3_ctx->uc_ctx.uc_loaded = true;
 	IPADBG("IPA uC loaded\n");
 
@@ -727,6 +728,7 @@ void ipa3_uc_load_notify(void)
 		if (ipa3_uc_hdlrs[i].ipa_uc_loaded_hdlr)
 			ipa3_uc_hdlrs[i].ipa_uc_loaded_hdlr();
 	}
+	ipa3_dec_client_disable_clks();
 }
 EXPORT_SYMBOL(ipa3_uc_load_notify);
 
