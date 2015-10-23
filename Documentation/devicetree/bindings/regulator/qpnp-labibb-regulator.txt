@@ -8,16 +8,34 @@ display panels, LCD or AMOLED.
 Required properties:
 - compatible:			Must be "qcom,qpnp-labibb-regulator"
 - spmi-dev-container:		Must be present.
-- qpnp,qpnp-labibb-mode:	A string used to specify the working mode of LAB/IBB regulators when bootloader does not turned on the display panel.
-				Could be "lcd", "amoled" or "stand-alone".
-				"lcd" means using LAB and IBB regulators together as lcd mode.
-				"amoled" means using LAB and IBB regulators together as amoled mode.
-				"stand-alone" means using LAB and IBB regulators as stand alone regulators.
+- qpnp,qpnp-labibb-mode:	A string used to specify the working mode of LAB/IBB
+				regulators when bootloader does not turned on the
+				display panel. Could be "lcd", "amoled" or
+				"stand-alone".
+				"lcd" means using LAB and IBB regulators are
+				configured for LCD mode together.
+				"amoled" means using LAB and IBB regulators are
+				configured for AMOLED mode together.
+				"stand-alone" means using LAB and IBB regulators
+				as stand alone regulators.
 
-Sub LAB node required structure:
-- reg:				Specifies the SPMI address and size for this peripheral
-- reg-names:			Register names. Must be "lab"
-- regulator-name:		A string used to describe the regulator
+Main node optional properties:
+
+- qcom,qpnp-labibb-touch-to-wake-en:	A boolean property which upon set will
+					enable support for touch-to-wake mode
+					by configuring the required settings
+					in LAB and IBB modules. Make sure the
+					hardware has needed support before
+					enabling this property.
+- qpnp,swire-control:			A bool property which indicates if the LAB/IBB is
+					controlled by the SWIRE interface. Enable only
+					if qpnp,qpnp-labibb-mode = "amoled".
+
+LAB subnode required properties:
+
+- reg:				Specifies the SPMI address and size for this peripheral.
+- reg-names:			Register names. Must be "lab".
+- regulator-name:		A string used to describe the regulator.
 - regulator-min-microvolt:	Minimum voltage in microvolts supported by this regulator.
 - regulator-max-microvolt:	Maximum voltage in microvolts supported by this regulator.
 
@@ -48,6 +66,10 @@ Sub LAB node optional structure:
 - qcom,qpnp-lab-pull-down-enable:	If this property is present, pull down is enabled for LAB regulator. Otherwise, pull down is disabled for LAB regulator.
 - qcom,qpnp-lab-limit-max-current-enable:	If this property is present, maximum inductor current constraint is put for LAB regulator. Otherwise, There is no maximum current constraint.
 - qcom,qpnp-lab-use-default-voltage:		When bootloader does not turn on LAB regulator and this property is present, value specified in qcom,qpnp-lab-init-voltage is the default init voltage when the voltage output register is of value 0. Otherwise, we need to enable the output override bit in voltage output register.
+- qpnp,qpnp-lab-current-sense:	If this property is present, the LAB current sense gain will be programmed for LAB regulator.
+				Otherwise, LAB current sense gain will be default to "1x". A string uses to specify the LAB current sense gain.
+				Could be "0.5x" or "1x" or "1.5x" or "2x". For ex: "0.5x" means current sense gain is 0.5.
+
 
 Sub IBB node required structure:
 - reg:				Specifies the SPMI address and size for this peripheral
