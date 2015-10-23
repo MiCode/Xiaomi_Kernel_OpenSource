@@ -213,6 +213,7 @@ static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 	struct msm_compr_audio *prtd;
 	int rc = 0, i;
 	uint32_t avg_vol, gain_list[VOLUME_CONTROL_MAX_CHANNELS];
+	uint32_t num_channels;
 	struct snd_soc_pcm_runtime *rtd;
 	struct msm_compr_pdata *pdata;
 	bool use_default = true;
@@ -241,6 +242,7 @@ static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 
 	use_default = !(pdata->ch_map[rtd->dai_link->be_id]->set_ch_map);
 	chmap = pdata->ch_map[rtd->dai_link->be_id]->channel_map;
+	num_channels = prtd->num_channels;
 
 	if (prtd->num_channels > 2) {
 		/*
@@ -259,9 +261,15 @@ static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 	} else {
 		gain_list[0] = volume_l;
 		gain_list[1] = volume_r;
+		/* force sending FR/FL/FC volume for mono */
+		if (prtd->num_channels == 1) {
+			gain_list[2] = volume_l;
+			num_channels = 3;
+			use_default = true;
+		}
 	}
 
-	rc = q6asm_set_multich_gain(prtd->audio_client, prtd->num_channels,
+	rc = q6asm_set_multich_gain(prtd->audio_client, num_channels,
 				    gain_list, chmap, use_default);
 
 	if (rc < 0)
