@@ -229,6 +229,27 @@
 				< 1286400 >;
 	};
 
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+			target-dev = <&cpubw>;
+			cpu-to-dev-map =
+				<  600000 1541 >,
+				<  787200 3082 >,
+				< 1286400 3952 >;
+		};
+	};
+
+	cpubw: qcom,cpubw {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			< 1541 /* 202 MHz */ >,
+			< 3082 /* 404 MHz */ >,
+			< 3952 /* 518 MHz */ >;
+	};
+
 	restart@4ab000 {
 		compatible = "qcom,pshold";
 		reg = <0x4ab000 0x4>,
