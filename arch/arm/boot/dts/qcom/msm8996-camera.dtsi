@@ -273,155 +273,153 @@
 		status = "ok";
 	};
 
+	vfe0: qcom,vfe0@a10000 {
+		cell-index = <0>;
+		compatible = "qcom,vfe47";
+		reg = <0xa10000 0x4000>,
+			<0xa40000 0x3000>;
+		reg-names = "vfe", "vfe_vbif";
+		interrupts = <0 314 0>;
+		interrupt-names = "vfe";
+		vdd-supply = <&gdsc_vfe0>;
+		mmagic-vdd-supply = <&gdsc_mmagic_camss>;
+		camss-vdd-supply = <&gdsc_camss_top>;
+		clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
+			<&clock_mmss clk_mmagic_camss_axi_clk>,
+			<&clock_mmss clk_camss_top_ahb_clk>,
+			<&clock_mmss clk_camss_ahb_clk>,
+			<&clock_mmss clk_vfe0_clk_src>,
+			<&clock_mmss clk_camss_vfe0_clk>,
+			<&clock_mmss clk_camss_csi_vfe0_clk>,
+			<&clock_mmss clk_camss_vfe_ahb_clk>,
+			<&clock_mmss clk_camss_vfe0_ahb_clk>,
+			<&clock_mmss clk_camss_vfe_axi_clk>,
+			<&clock_mmss clk_camss_vfe0_stream_clk>,
+			<&clock_mmss clk_smmu_vfe_axi_clk>;
+		clock-names = "mmagic_ahb_clk",
+			"camss_axi_clk",
+			"camss_top_ahb_clk" , "camss_ahb_clk",
+			"vfe_clk_src", "camss_vfe_clk",
+			"camss_csi_vfe_clk",
+			"vfe_vbif_ahb_clk", "vfe_ahb_clk",
+			"bus_clk", "vfe_stream_clk", "smmu_vfe_axi_clk";
+		qcom,clock-rates = <0 0 0 0 320000000 0 0 0 0 0 0 0>;
+		status = "ok";
+		qos-entries = <8>;
+		qos-regs = <0x404 0x408 0x40c 0x410 0x414 0x418
+			0x41c 0x420>;
+		qos-settings = <0xaaa9aaa9
+			0xaaa9aaa9
+			0xaaa9aaa9
+			0xaaa9aaa9
+			0xaaa9aaa9
+			0xaaa9aaa9
+			0xaaa9aaa9
+			0x0001aaa9>;
+		vbif-entries = <1>;
+		vbif-regs = <0x124>;
+		vbif-settings = <0x3>;
+		ds-entries = <17>;
+		ds-regs = <0x424 0x428 0x42c 0x430 0x434
+			0x438 0x43c 0x440 0x444 0x448 0x44c
+			0x450 0x454 0x458 0x45c 0x460 0x464>;
+		ds-settings = <0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0x40000103>;
+		max-clk-svs = <300000000>;
+		max-clk-nominal = <465000000>;
+		max-clk-turbo = <600000000>;
+	};
+
+	vfe1: qcom,vfe1@a14000 {
+		cell-index = <1>;
+		compatible = "qcom,vfe47";
+		reg = <0xa14000 0x4000>,
+			<0xa40000 0x3000>;
+		reg-names = "vfe", "vfe_vbif";
+		interrupts = <0 315 0>;
+		interrupt-names = "vfe";
+		vdd-supply = <&gdsc_vfe1>;
+		mmagic-vdd-supply = <&gdsc_mmagic_camss>;
+		camss-vdd-supply = <&gdsc_camss_top>;
+		clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
+			<&clock_mmss clk_mmagic_camss_axi_clk>,
+			<&clock_mmss clk_camss_top_ahb_clk>,
+			<&clock_mmss clk_camss_ahb_clk>,
+			<&clock_mmss clk_vfe1_clk_src>,
+			<&clock_mmss clk_camss_vfe1_clk>,
+			<&clock_mmss clk_camss_csi_vfe1_clk>,
+			<&clock_mmss clk_camss_vfe_ahb_clk>,
+			<&clock_mmss clk_camss_vfe1_ahb_clk>,
+			<&clock_mmss clk_camss_vfe_axi_clk>,
+			<&clock_mmss clk_camss_vfe1_stream_clk>,
+			<&clock_mmss clk_smmu_vfe_axi_clk>;
+		clock-names = "mmagic_ahb_clk",
+			"camss_axi_clk",
+			"camss_top_ahb_clk" , "camss_ahb_clk",
+			"vfe_clk_src", "camss_vfe_clk",
+			"camss_csi_vfe_clk",
+			"vfe_vbif_ahb_clk", "vfe_ahb_clk",
+			"bus_clk", "vfe_stream_clk", "smmu_vfe_axi_clk";
+		qcom,clock-rates = <0 0 0 0 320000000 0 0 0 0 0 0 0>;
+		status = "ok";
+		qos-entries = <8>;
+		qos-regs = <0x404 0x408 0x40c 0x410 0x414 0x418
+			0x41c 0x420>;
+		qos-settings = <0xaaa9aaa9
+			0xaaa9aaa9
+			0xaaa9aaa9
+			0xaaa9aaa9
+			0xaaa9aaa9
+			0xaaa9aaa9
+			0xaaa9aaa9
+			0x0001aaa9>;
+		vbif-entries = <1>;
+		vbif-regs = <0x124>;
+		vbif-settings = <0x3>;
+		ds-entries = <17>;
+		ds-regs = <0x424 0x428 0x42c 0x430 0x434
+			0x438 0x43c 0x440 0x444 0x448 0x44c
+			0x450 0x454 0x458 0x45c 0x460 0x464>;
+		ds-settings = <0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0xcccc0011
+			0x40000103>;
+		max-clk-svs = <300000000>;
+		max-clk-nominal = <465000000>;
+		max-clk-turbo = <600000000>;
+	};
+
 	qcom,vfe {
 		compatible = "qcom,vfe";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges;
-
-		vfe0: qcom,vfe0@a10000 {
-			cell-index = <0>;
-			compatible = "qcom,vfe47";
-			reg = <0xa10000 0x4000>,
-				<0xa40000 0x3000>;
-			reg-names = "vfe", "vfe_vbif";
-			interrupts = <0 314 0>;
-			interrupt-names = "vfe";
-			vdd-supply = <&gdsc_vfe0>;
-			mmagic-vdd-supply = <&gdsc_mmagic_camss>;
-			camss-vdd-supply = <&gdsc_camss_top>;
-			clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
-				<&clock_mmss clk_mmagic_camss_axi_clk>,
-				<&clock_mmss clk_camss_top_ahb_clk>,
-				<&clock_mmss clk_camss_ahb_clk>,
-				<&clock_mmss clk_vfe0_clk_src>,
-				<&clock_mmss clk_camss_vfe0_clk>,
-				<&clock_mmss clk_camss_csi_vfe0_clk>,
-				<&clock_mmss clk_camss_vfe_ahb_clk>,
-				<&clock_mmss clk_camss_vfe0_ahb_clk>,
-				<&clock_mmss clk_camss_vfe_axi_clk>,
-				<&clock_mmss clk_camss_vfe0_stream_clk>,
-				<&clock_mmss clk_smmu_vfe_axi_clk>;
-			clock-names = "mmagic_ahb_clk",
-				"camss_axi_clk",
-				"camss_top_ahb_clk" , "camss_ahb_clk",
-				"vfe_clk_src", "camss_vfe_clk",
-				"camss_csi_vfe_clk",
-				"vfe_vbif_ahb_clk", "vfe_ahb_clk",
-				"bus_clk", "vfe_stream_clk", "smmu_vfe_axi_clk";
-			qcom,clock-rates = <0 0 0 0 320000000 0 0 0 0 0 0 0>;
-			status = "ok";
-			qos-entries = <8>;
-			qos-regs = <0x404 0x408 0x40C 0x410 0x414 0x418
-				0x41C 0x420>;
-			qos-settings = <0xAAA9AAA9
-				0xAAA9AAA9
-				0xAAA9AAA9
-				0xAAA9AAA9
-				0xAAA9AAA9
-				0xAAA9AAA9
-				0xAAA9AAA9
-				0x0001AAA9>;
-			vbif-entries = <1>;
-			vbif-regs = <0x124>;
-			vbif-settings = <0x3>;
-			ds-entries = <17>;
-			ds-regs = <0x424 0x428 0x42C 0x430 0x434
-				0x438 0x43C 0x440 0x444 0x448 0x44C
-				0x450 0x454 0x458 0x45C 0x460 0x464>;
-			ds-settings = <0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0x40000103>;
-			max-clk-svs = <300000000>;
-			max-clk-nominal = <465000000>;
-			max-clk-turbo = <600000000>;
-		};
-
-		vfe1: qcom,vfe1@a14000 {
-			cell-index = <1>;
-			compatible = "qcom,vfe47";
-			reg = <0xa14000 0x4000>,
-				<0xa40000 0x3000>;
-			reg-names = "vfe", "vfe_vbif";
-			interrupts = <0 315 0>;
-			interrupt-names = "vfe";
-			vdd-supply = <&gdsc_vfe1>;
-			mmagic-vdd-supply = <&gdsc_mmagic_camss>;
-			camss-vdd-supply = <&gdsc_camss_top>;
-			clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
-				<&clock_mmss clk_mmagic_camss_axi_clk>,
-				<&clock_mmss clk_camss_top_ahb_clk>,
-				<&clock_mmss clk_camss_ahb_clk>,
-				<&clock_mmss clk_vfe1_clk_src>,
-				<&clock_mmss clk_camss_vfe1_clk>,
-				<&clock_mmss clk_camss_csi_vfe1_clk>,
-				<&clock_mmss clk_camss_vfe_ahb_clk>,
-				<&clock_mmss clk_camss_vfe1_ahb_clk>,
-				<&clock_mmss clk_camss_vfe_axi_clk>,
-				<&clock_mmss clk_camss_vfe1_stream_clk>,
-				<&clock_mmss clk_smmu_vfe_axi_clk>;
-			clock-names = "mmagic_ahb_clk",
-				"camss_axi_clk",
-				"camss_top_ahb_clk" , "camss_ahb_clk",
-				"vfe_clk_src", "camss_vfe_clk",
-				"camss_csi_vfe_clk",
-				"vfe_vbif_ahb_clk", "vfe_ahb_clk",
-				"bus_clk", "vfe_stream_clk", "smmu_vfe_axi_clk";
-			qcom,clock-rates = <0 0 0 0 320000000 0 0 0 0 0 0 0>;
-			status = "ok";
-			qos-entries = <8>;
-			qos-regs = <0x404 0x408 0x40C 0x410 0x414 0x418
-				0x41C 0x420>;
-			qos-settings = <0xAAA9AAA9
-				0xAAA9AAA9
-				0xAAA9AAA9
-				0xAAA9AAA9
-				0xAAA9AAA9
-				0xAAA9AAA9
-				0xAAA9AAA9
-				0x0001AAA9>;
-			vbif-entries = <1>;
-			vbif-regs = <0x124>;
-			vbif-settings = <0x3>;
-			ds-entries = <17>;
-			ds-regs = <0x424 0x428 0x42C 0x430 0x434
-				0x438 0x43C 0x440 0x444 0x448 0x44C
-				0x450 0x454 0x458 0x45C 0x460 0x464>;
-			ds-settings = <0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0xCCCC0011
-				0x40000103>;
-			max-clk-svs = <300000000>;
-			max-clk-nominal = <465000000>;
-			max-clk-turbo = <600000000>;
-		};
+		num_child = <2>;
 	};
 
 	qcom,cam_smmu {

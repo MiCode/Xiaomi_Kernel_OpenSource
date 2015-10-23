@@ -2102,6 +2102,11 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 	ISP_DBG("%s open_cnt %u\n", __func__, vfe_dev->vfe_open_cnt);
 
+	if (vfe_dev->common_data == NULL) {
+		pr_err("%s: Error in probe. No common_data\n", __func__);
+		return -EINVAL;
+	}
+
 	mutex_lock(&vfe_dev->realtime_mutex);
 	mutex_lock(&vfe_dev->core_mutex);
 
