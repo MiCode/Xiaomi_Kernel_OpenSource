@@ -2631,6 +2631,37 @@ static int xmit_one(struct sk_buff *skb, struct net_device *dev,
 	return rc;
 }
 
+static int xmit_list(struct sk_buff *list, struct net_device *dev,
+		     struct netdev_queue *txq)
+{
+	unsigned int len;
+	int rc;
+	struct sk_buff *skb = list, *head = list;
+
+	/* Call the taps for individual skb's in the list. */
+	if (!list_empty(&ptype_all)) {
+		while (skb) {
+			struct sk_buff *next = skb->next;
+
+			skb->next = NULL;
+
+			dev_queue_xmit_nit(skb, dev);
+
+			skb = next;
+			/* Keep the original list intact. */
+			head->next = skb;
+			head = head->next;
+		}
+	}
+
+	len = list->len;
+	trace_net_dev_start_xmit(list, dev);
+	rc = netdev_start_xmit(list, dev, txq, false);
+	trace_net_dev_xmit(list, rc, dev, len);
+
+	return rc;
+}
+
 struct sk_buff *dev_hard_start_xmit(struct sk_buff *first, struct net_device *dev,
 				    struct netdev_queue *txq, int *ret)
 {
@@ -2652,6 +2683,25 @@ struct sk_buff *dev_hard_start_xmit(struct sk_buff *first, struct net_device *de
 			rc = NETDEV_TX_BUSY;
 			break;
 		}
+	}
+
+out:
+	*ret = rc;
+	return skb;
+}
+
+struct sk_buff *dev_hard_start_xmit_list(struct sk_buff *first,
+					 struct net_device *dev,
+					struct netdev_queue *txq, int *ret)
+{
+	struct sk_buff *skb = first;
+	int rc = NETDEV_TX_OK;
+
+	if (skb) {
+		rc = xmit_list(skb, dev, txq);
+		if (unlikely(!dev_xmit_complete(rc)))
+			goto out;
+		skb = NULL;
 	}
 
 out:
@@ -2879,6 +2929,7 @@ EXPORT_SYMBOL(dev_loopback_xmit);
  *	__dev_queue_xmit - transmit a buffer
  *	@skb: buffer to transmit
  *	@accel_priv: private data used for L2 forwarding offload
+ *	@skb_list: Boolean used for skb list processing.
  *
  *	Queue a buffer for transmission to a network device. The caller must
  *	have set the device and priority and built the buffer before calling
@@ -2901,7 +2952,8 @@ EXPORT_SYMBOL(dev_loopback_xmit);
  *      the BH enable code must have IRQs enabled so that it will not deadlock.
  *          --BLG
  */
-static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
+static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv,
+			    bool skb_list)
 {
 	struct net_device *dev = skb->dev;
 	struct netdev_queue *txq;
@@ -2968,7 +3020,14 @@ static int __dev_queue_xmit(struct sk_buff *skb, void *accel_priv)
 
 			if (!netif_xmit_stopped(txq)) {
 				__this_cpu_inc(xmit_recursion);
-				skb = dev_hard_start_xmit(skb, dev, txq, &rc);
+				if (likely(!skb_list))
+					skb = dev_hard_start_xmit(skb, dev,
+								  txq, &rc);
+				else
+					skb = dev_hard_start_xmit_list(skb,
+								       dev,
+								       txq,
+								       &rc);
 				__this_cpu_dec(xmit_recursion);
 				if (dev_xmit_complete(rc)) {
 					HARD_TX_UNLOCK(dev, txq);
@@ -3002,15 +3061,21 @@ out:
 
 int dev_queue_xmit(struct sk_buff *skb)
 {
-	return __dev_queue_xmit(skb, NULL);
+	return __dev_queue_xmit(skb, NULL, false);
 }
 EXPORT_SYMBOL(dev_queue_xmit);
 
 int dev_queue_xmit_accel(struct sk_buff *skb, void *accel_priv)
 {
-	return __dev_queue_xmit(skb, accel_priv);
+	return __dev_queue_xmit(skb, accel_priv, false);
 }
 EXPORT_SYMBOL(dev_queue_xmit_accel);
+
+int dev_queue_xmit_list(struct sk_buff *skb)
+{
+	return __dev_queue_xmit(skb, NULL, true);
+}
+EXPORT_SYMBOL(dev_queue_xmit_list);
 
 
 /*=======================================================================
