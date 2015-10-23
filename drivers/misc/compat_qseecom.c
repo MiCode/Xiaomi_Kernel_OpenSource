@@ -16,7 +16,7 @@
 #include <linux/uaccess.h>
 #include <linux/qseecom.h>
 #include <linux/compat.h>
-#include <linux/compat_qseecom.h>
+#include "compat_qseecom.h"
 
 static int compat_get_qseecom_register_listener_req(
 		struct compat_qseecom_register_listener_req __user *data32,

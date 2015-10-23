@@ -47,10 +47,8 @@
 #include "qseecom_kernel.h"
 #include <crypto/ice.h>
 
-#ifdef CONFIG_COMPAT
 #include <linux/compat.h>
-#include <linux/compat_qseecom.h>
-#endif
+#include "compat_qseecom.h"
 
 #define QSEECOM_DEV			"qseecom"
 #define QSEOS_VERSION_14		0x14
