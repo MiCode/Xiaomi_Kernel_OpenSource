@@ -58,7 +58,6 @@ struct parallel_usb_cfg {
 	int				min_9v_current_thr_ma;
 	int				allowed_lowering_ma;
 	int				current_max_ma;
-	int				main_chg_fcc_percent;
 	bool				avail;
 	struct mutex			lock;
 	int				initial_aicl_ma;
@@ -380,6 +379,18 @@ module_param_named(
 static int smbchg_parallel_en = 1;
 module_param_named(
 	parallel_en, smbchg_parallel_en, int, S_IRUSR | S_IWUSR
+);
+
+static int smbchg_main_chg_fcc_percent = 50;
+module_param_named(
+	main_chg_fcc_percent, smbchg_main_chg_fcc_percent,
+	int, S_IRUSR | S_IWUSR
+);
+
+static int smbchg_main_chg_icl_percent = 60;
+module_param_named(
+	main_chg_icl_percent, smbchg_main_chg_icl_percent,
+	int, S_IRUSR | S_IWUSR
 );
 
 static int wipower_dyn_icl_en;
@@ -1911,9 +1922,10 @@ static void smbchg_parallel_usb_enable(struct smbchg_chip *chip,
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
 	union power_supply_propval pval = {0, };
 	int new_parallel_cl_ma, set_parallel_cl_ma, new_pmi_cl_ma, rc;
-	int current_table_index;
-	int fcc_ma, target_icl_ma;
-	int main_fastchg_current_ma;
+	int current_table_index, target_icl_ma;
+	int fcc_ma, main_fastchg_current_ma;
+	int target_parallel_fcc_ma, supplied_parallel_fcc_ma;
+	int parallel_chg_fcc_percent;
 
 	if (!parallel_psy || !chip->parallel_charger_detected)
 		return;
@@ -1926,43 +1938,10 @@ static void smbchg_parallel_usb_enable(struct smbchg_chip *chip,
 			"Couldn't set Vflt on parallel psy rc: %d\n", rc);
 		return;
 	}
-	/*
-	 * set the primary charger to the set point closest to 40% of the fcc
-	 * while remaining below it
-	 */
-	fcc_ma = get_effective_result_locked(chip->fcc_votable);
-	current_table_index = find_smaller_in_array(
-			chip->tables.usb_ilim_ma_table,
-			fcc_ma * chip->parallel.main_chg_fcc_percent / 100,
-			chip->tables.usb_ilim_ma_len);
-	main_fastchg_current_ma =
-		chip->tables.usb_ilim_ma_table[current_table_index];
-	smbchg_set_fastchg_current_raw(chip, main_fastchg_current_ma);
-	pr_smb(PR_STATUS, "main chg %%=%d, requested=%d, found=%d\n",
-			chip->parallel.main_chg_fcc_percent,
-			fcc_ma
-				* chip->parallel.main_chg_fcc_percent / 100,
-			main_fastchg_current_ma);
-
-	/* allow the parallel charger to use the remaining available fcc */
-	pval.intval = (fcc_ma - main_fastchg_current_ma) * 1000;
-	parallel_psy->set_property(parallel_psy,
-			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
-
-	pr_smb(PR_STATUS, "FCC = %d[%d, %d]\n", fcc_ma, main_fastchg_current_ma,
-					fcc_ma - main_fastchg_current_ma);
-
-	chip->parallel.enabled_once = true;
 	/* Set USB ICL */
 	target_icl_ma = get_effective_result_locked(chip->usb_icl_votable);
-	new_parallel_cl_ma = total_current_ma / 2;
-	if (chip->parallel.current_max_ma == new_parallel_cl_ma) {
-		pr_smb(PR_STATUS,
-			"Skipping since parallel requested current (%d) didn't change from last time\n",
-			new_parallel_cl_ma);
-		return;
-	}
-
+	new_parallel_cl_ma = total_current_ma
+			* (100 - smbchg_main_chg_icl_percent) / 100;
 	taper_irq_en(chip, true);
 	power_supply_set_present(parallel_psy, true);
 	power_supply_set_current_limit(parallel_psy,
@@ -1972,13 +1951,42 @@ static void smbchg_parallel_usb_enable(struct smbchg_chip *chip,
 			POWER_SUPPLY_PROP_CURRENT_MAX, &pval);
 	set_parallel_cl_ma = pval.intval / 1000;
 	chip->parallel.current_max_ma = new_parallel_cl_ma;
-	pr_smb(PR_MISC, "Requested %d from parallel, got %d\n",
+	pr_smb(PR_MISC, "Requested ICL = %d from parallel, got %d\n",
 		new_parallel_cl_ma, set_parallel_cl_ma);
 	new_pmi_cl_ma = max(0, target_icl_ma - set_parallel_cl_ma);
 	pr_smb(PR_STATUS, "New Total USB current = %d[%d, %d]\n",
 		total_current_ma, new_pmi_cl_ma,
 		set_parallel_cl_ma);
 	smbchg_set_usb_current_max(chip, new_pmi_cl_ma);
+
+	/* begin splitting the fast charge current */
+	fcc_ma = get_effective_result_locked(chip->fcc_votable);
+	parallel_chg_fcc_percent =
+		100 - smbchg_main_chg_fcc_percent;
+	target_parallel_fcc_ma =
+		(fcc_ma * parallel_chg_fcc_percent) / 100;
+	pval.intval = target_parallel_fcc_ma * 1000;
+	parallel_psy->set_property(parallel_psy,
+			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
+	/* check how much actual current is supplied by the parallel charger */
+	parallel_psy->get_property(parallel_psy,
+			POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX, &pval);
+	supplied_parallel_fcc_ma = pval.intval / 1000;
+	pr_smb(PR_MISC, "Requested FCC = %d from parallel, got %d\n",
+		target_parallel_fcc_ma, supplied_parallel_fcc_ma);
+
+	/* then for the main charger, use the left over FCC */
+	current_table_index = find_smaller_in_array(
+			chip->tables.usb_ilim_ma_table,
+			fcc_ma - supplied_parallel_fcc_ma,
+			chip->tables.usb_ilim_ma_len);
+	main_fastchg_current_ma =
+		chip->tables.usb_ilim_ma_table[current_table_index];
+	smbchg_set_fastchg_current_raw(chip, main_fastchg_current_ma);
+	pr_smb(PR_STATUS, "FCC = %d[%d, %d]\n", fcc_ma, main_fastchg_current_ma,
+					supplied_parallel_fcc_ma);
+
+	chip->parallel.enabled_once = true;
 
 	return;
 }
@@ -2112,7 +2120,7 @@ static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip,
 	 * Set the parallel charge path's input current limit (ICL)
 	 * to the total current / 2
 	 */
-	total_current_ma = current_limit_ma + parallel_cl_ma;
+	total_current_ma = min(current_limit_ma + parallel_cl_ma, usb_icl_ma);
 
 	if (total_current_ma < chip->parallel.initial_aicl_ma
 			- chip->parallel.allowed_lowering_ma) {
@@ -2543,7 +2551,13 @@ static int set_usb_current_limit_vote_cb(struct device *dev,
 						int last_client)
 {
 	struct smbchg_chip *chip = dev_get_drvdata(dev);
-	int rc, aicl_ma;
+	int rc, aicl_ma, effective_id;
+
+	effective_id = get_effective_client_id_locked(chip->usb_icl_votable);
+
+	/* disable parallel charging if HVDCP is voting for 300mA */
+	if (effective_id == HVDCP_ICL_VOTER)
+		smbchg_parallel_usb_disable(chip);
 
 	if (chip->parallel.current_max_ma == 0) {
 		rc = smbchg_set_usb_current_max(chip, icl_ma);
@@ -2552,6 +2566,10 @@ static int set_usb_current_limit_vote_cb(struct device *dev,
 			return rc;
 		}
 	}
+
+	/* skip the aicl rerun if hvdcp icl voter is active */
+	if (effective_id == HVDCP_ICL_VOTER)
+		return 0;
 
 	aicl_ma = smbchg_get_aicl_level_ma(chip);
 	if (icl_ma > aicl_ma && smbchg_is_aicl_complete(chip))
@@ -6834,7 +6852,6 @@ err:
 
 #define DEFAULT_VLED_MAX_UV		3500000
 #define DEFAULT_FCC_MA			2000
-#define DEFAULT_MAIN_CHG_PERCENT	40
 static int smb_parse_dt(struct smbchg_chip *chip)
 {
 	int rc = 0, ocp_thresh = -EINVAL;
@@ -6890,13 +6907,18 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 			"parallel-usb-9v-min-current-ma", rc, 1);
 	OF_PROP_READ(chip, chip->parallel.allowed_lowering_ma,
 			"parallel-allowed-lowering-ma", rc, 1);
-	OF_PROP_READ(chip, chip->parallel.main_chg_fcc_percent,
-			"parallel-main-chg-fcc-percent", rc, 1);
-	if (chip->parallel.main_chg_fcc_percent == -EINVAL)
-		chip->parallel.main_chg_fcc_percent = DEFAULT_MAIN_CHG_PERCENT;
 	if (chip->parallel.min_current_thr_ma != -EINVAL
 			&& chip->parallel.min_9v_current_thr_ma != -EINVAL)
 		chip->parallel.avail = true;
+	/*
+	 * use the dt values if they exist, otherwise do not touch the params
+	 */
+	of_property_read_u32(chip->spmi->dev.of_node,
+					"qcom,parallel-main-chg-fcc-percent",
+					&smbchg_main_chg_fcc_percent);
+	of_property_read_u32(chip->spmi->dev.of_node,
+					"qcom,parallel-main-chg-icl-percent",
+					&smbchg_main_chg_icl_percent);
 	pr_smb(PR_STATUS, "parallel usb thr: %d, 9v thr: %d\n",
 			chip->parallel.min_current_thr_ma,
 			chip->parallel.min_9v_current_thr_ma);

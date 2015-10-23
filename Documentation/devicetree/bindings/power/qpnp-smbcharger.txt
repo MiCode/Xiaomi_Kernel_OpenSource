@@ -263,7 +263,12 @@ Optional Properties:
 - qcom,parallel-main-chg-fcc-percent	Percentage of the fast charge current allotted to the
 					main charger when parallel charging is enabled and
 					operational. If this property is not defined, the
-					driver defaults to a 40%/60% split between the main
+					driver defaults to a 50%/50% split between the main
+					and parallel charger.
+- qcom,parallel-main-chg-icl-percent	Percentage of the input current allotted to the
+					main charger when parallel charging is enabled and
+					operational. If this property is not defined, the
+					driver defaults to a 60%/40% split between the main
 					and parallel charger.
 - qcom,battery-data			Points to the phandle of node which
 					contains the battery-profiles supported
