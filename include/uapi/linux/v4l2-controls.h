@@ -1115,6 +1115,8 @@ enum v4l2_mpeg_vidc_video_venc_bitrate_type_enable {
 	V4L2_CID_MPEG_VIDC_VIDEO_VENC_BITRATE_ENABLE	= 1
 };
 
+#define V4L2_CID_MPEG_VIDC_VIDEO_H264_PIC_ORDER_CNT \
+		(V4L2_CID_MPEG_MSM_VIDC_BASE + 86)
 
 /*  Camera class control IDs */
 

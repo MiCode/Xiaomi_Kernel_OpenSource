@@ -1182,6 +1182,17 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.default_value = V4L2_CID_MPEG_VIDC_VIDEO_VENC_BITRATE_ENABLE,
 		.step = 1,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_H264_PIC_ORDER_CNT,
+		.name = "Set H264 Picture Order Count",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 0,
+		.maximum = 2,
+		.default_value = 0,
+		.step = 2,
+		.qmenu = NULL,
+	},
+
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
@@ -2033,6 +2044,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	int max_hierp_layers;
 	int baselayerid = 0;
 	int frameqp = 0;
+	int pic_order_cnt = 0;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -2948,6 +2960,13 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		property_id = HAL_PARAM_VENC_BITRATE_TYPE;
 		enable.enable = ctrl->val;
 		pdata = &enable;
+		break;
+	}
+	case V4L2_CID_MPEG_VIDC_VIDEO_H264_PIC_ORDER_CNT:
+	{
+		property_id = HAL_PARAM_VENC_H264_PIC_ORDER_CNT;
+		pic_order_cnt = ctrl->val;
+		pdata = &pic_order_cnt;
 		break;
 	}
 	default:
