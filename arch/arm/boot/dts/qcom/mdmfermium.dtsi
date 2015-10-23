@@ -1138,6 +1138,22 @@
 #include "msm-pm8019.dtsi"
 #include "mdmfermium-regulator.dtsi"
 
+/* MPP pin 1 config for USB ID interrupt line */
+&pm8019_mpps {
+	mpp@a000 {
+		qcom,mode = <0>;	/* Digital input */
+		qcom,vin-sel = <3>;	/* 1.8V (L11) */
+		qcom,src-sel = <0>;	/* QPNP_PIN_SEL_FUNC_CONSTANT */
+		qcom,pull = <2>;	/* PULL UP 10KOHM */
+		qcom,master-en = <1>;
+		status = "okay";
+	};
+};
+
+&usb_otg {
+	vbus_otg-supply = <&smb358_otg_vreg>;
+};
+
 &pm8019_vadc {
 	chan@31 {
 		label = "batt_id_therm";

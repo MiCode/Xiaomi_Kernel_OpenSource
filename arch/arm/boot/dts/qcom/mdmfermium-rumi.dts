@@ -38,6 +38,7 @@
 	qcom,emulation;
 	/delete-property/ qcom,boost-sysclk-with-streaming;
 	/delete-property/ qcom,streaming-func;
+	/delete-property/ vbus_otg-supply;
 };
 
 &clock_gcc {
