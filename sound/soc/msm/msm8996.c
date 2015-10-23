@@ -1752,9 +1752,11 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	 */
 	if (rtd_aux && rtd_aux->component)
 		if (!strcmp(rtd_aux->component->name, WSA8810_NAME_1) ||
-		    !strcmp(rtd_aux->component->name, WSA8810_NAME_2))
+		    !strcmp(rtd_aux->component->name, WSA8810_NAME_2)) {
 			tasha_set_spkr_mode(rtd->codec, SPKR_MODE_1);
-
+			tasha_set_spkr_gain_offset(rtd->codec,
+						   RX_GAIN_OFFSET_M1P5_DB);
+	}
 	codec_reg_done = true;
 
 	card = rtd->card->snd_card;
