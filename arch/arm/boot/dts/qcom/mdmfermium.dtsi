@@ -487,6 +487,13 @@
 		status = "disabled";
 	};
 
+	qcom,cnss-sdio {
+		compatible = "qcom,cnss_sdio";
+		cnss_sdio,wlan-pmic-gpio = <&pm8019_gpios 3 0>;
+		vdd-wlan-io-supply = <&mdmfermium_l11>;
+		vdd-wlan-xtal-supply = <&mdmfermium_l2>;
+	};
+
 	usb_otg: usb@78d9000 {
 		compatible = "qcom,hsusb-otg";
 		reg = <0x78d9000 0x400>, <0x6c000 0x200>;
