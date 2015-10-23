@@ -177,12 +177,10 @@ static int hwevent_probe(struct platform_device *pdev)
 	if (coresight_fuse_access_disabled())
 		return -EPERM;
 
-	if (pdev->dev.of_node) {
-		pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
-		if (IS_ERR(pdata))
-			return PTR_ERR(pdata);
-		pdev->dev.platform_data = pdata;
-	}
+	pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
+	if (IS_ERR(pdata))
+		return PTR_ERR(pdata);
+	pdev->dev.platform_data = pdata;
 
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
@@ -190,9 +188,8 @@ static int hwevent_probe(struct platform_device *pdev)
 	drvdata->dev = &pdev->dev;
 	platform_set_drvdata(pdev, drvdata);
 
-	if (pdev->dev.of_node)
-		drvdata->nr_hmux = of_property_count_strings(pdev->dev.of_node,
-							     "reg-names");
+	drvdata->nr_hmux = of_property_count_strings(pdev->dev.of_node,
+						     "reg-names");
 
 	if (drvdata->nr_hmux > 0) {
 		drvdata->hmux = devm_kzalloc(dev, drvdata->nr_hmux *
@@ -230,12 +227,11 @@ static int hwevent_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	if (pdev->dev.of_node) {
-		drvdata->nr_hclk = of_property_count_strings(pdev->dev.of_node,
-							     "qcom,hwevent-clks");
-		drvdata->nr_hreg = of_property_count_strings(pdev->dev.of_node,
-							     "qcom,hwevent-regs");
-	}
+	drvdata->nr_hclk = of_property_count_strings(pdev->dev.of_node,
+						     "qcom,hwevent-clks");
+	drvdata->nr_hreg = of_property_count_strings(pdev->dev.of_node,
+						     "qcom,hwevent-regs");
+
 	if (drvdata->nr_hclk > 0) {
 		drvdata->hclk = devm_kzalloc(dev, drvdata->nr_hclk *
 					     sizeof(*drvdata->hclk),
