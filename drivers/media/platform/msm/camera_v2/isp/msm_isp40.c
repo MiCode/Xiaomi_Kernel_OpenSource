@@ -1083,6 +1083,9 @@ static int msm_vfe40_start_fetch_engine(struct vfe_device *vfe_dev,
 	struct msm_isp_buffer *buf = NULL;
 	struct msm_vfe_fetch_eng_start *fe_cfg = arg;
 	struct msm_isp_buffer_mapped_info mapped_info;
+	struct dual_vfe_resource *dual_vfe_res = NULL;
+
+	dual_vfe_res = vfe_dev->common_data->dual_vfe_res;
 
 	if (vfe_dev->fetch_engine_info.is_busy == 1) {
 		pr_err("%s: fetch engine busy\n", __func__);
@@ -1124,7 +1127,10 @@ static int msm_vfe40_start_fetch_engine(struct vfe_device *vfe_dev,
 	vfe_dev->fetch_engine_info.is_busy = 1;
 
 	msm_camera_io_w(mapped_info.paddr, vfe_dev->vfe_base + 0x228);
-
+	vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id =
+		dual_vfe_res->axi_data[!vfe_dev->pdev->id]->
+		src_info[VFE_PIX_0].frame_id;
+	msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x378);
 	msm_camera_io_w_mb(0x10000, vfe_dev->vfe_base + 0x4C);
 	msm_camera_io_w_mb(0x20000, vfe_dev->vfe_base + 0x4C);
 
