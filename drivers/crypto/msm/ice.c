@@ -1270,16 +1270,22 @@ static void qcom_ice_debug(struct platform_device *pdev)
 {
 	struct ice_device *ice_dev;
 
-	if (!pdev)
+	if (!pdev) {
 		pr_err("%s: Invalid params passed\n", __func__);
+		goto out;
+	}
 
 	ice_dev = platform_get_drvdata(pdev);
 
-	if (!ice_dev)
+	if (!ice_dev) {
 		pr_err("%s: No ICE device available\n", __func__);
+		goto out;
+	}
 
-	if (!ice_dev->is_ice_enabled)
+	if (!ice_dev->is_ice_enabled) {
 		pr_err("%s: ICE device is not enabled\n", __func__);
+		goto out;
+	}
 
 	pr_err("%s: =========== REGISTER DUMP (%p)===========\n",
 			ice_dev->ice_instance_type, ice_dev);
@@ -1421,6 +1427,8 @@ static void qcom_ice_debug(struct platform_device *pdev)
 			(unsigned long)ktime_to_us(ktime_sub(
 					ice_dev->ice_reset_complete_time,
 					ice_dev->ice_reset_start_time)));
+out:
+	return;
 }
 EXPORT_SYMBOL(qcom_ice_debug);
 
