@@ -113,7 +113,7 @@ static struct mux_div_clk a53ssmux_cci = {
 };
 
 static void do_nothing(void *unused) { }
-#define CPU_LATENCY_NO_L2_PC_US (300)
+#define CPU_LATENCY_NO_L2_PC_US (250)
 
 static inline struct cpu_clk_8939 *to_cpu_clk_8939(struct clk *c)
 {
