@@ -378,6 +378,248 @@
 			};
 		};
 
+		pmx_qdsd_clk {
+			qdsd_clk_sdcard: clk_sdcard {
+				config {
+					pins = "qdsd_clk";
+					bias-disable; /* NO pull */
+					drive-strength = <16>; /* 16 MA */
+				};
+			};
+			qdsd_clk_trace: clk_trace {
+				config {
+					pins = "qdsd_clk";
+					bias-pull-down; /* pull down */
+					drive-strength = <2>; /* 2 MA */
+				};
+			};
+			qdsd_clk_swdtrc: clk_swdtrc {
+				config {
+					pins = "qdsd_clk";
+					bias-pull-down; /* pull down */
+					drive-strength = <2>; /* 2 MA */
+				};
+			};
+			qdsd_clk_spmi: clk_spmi {
+				config {
+					pins = "qdsd_clk";
+					bias-pull-down; /* pull down */
+					drive-strength = <2>; /* 2 MA */
+				};
+			};
+		};
+
+		pmx_qdsd_cmd {
+			qdsd_cmd_sdcard: cmd_sdcard {
+				config {
+					pins = "qdsd_cmd";
+					bias-pull-down; /* pull down */
+					drive-strength = <8>; /* 8 MA */
+				};
+			};
+			qdsd_cmd_trace: cmd_trace {
+				config {
+					pins = "qdsd_cmd";
+					bias-pull-down; /* pull down */
+					drive-strength = <2>; /* 2 MA */
+				};
+			};
+			qdsd_cmd_swduart: cmd_uart {
+				config {
+					pins = "qdsd_cmd";
+					bias-pull-up; /* pull up */
+					drive-strength = <2>; /* 2 MA */
+				};
+			};
+			qdsd_cmd_swdtrc: cmd_swdtrc {
+				config {
+					pins = "qdsd_cmd";
+					bias-pull-up; /* pull up */
+					drive-strength = <2>; /* 2 MA */
+				};
+			};
+			qdsd_cmd_jtag: cmd_jtag {
+				config {
+					pins = "qdsd_cmd";
+					bias-disable; /* NO pull */
+					drive-strength = <8>; /* 8 MA */
+				};
+			};
+			qdsd_cmd_spmi: cmd_spmi {
+				config {
+					pins = "qdsd_cmd";
+					bias-pull-down; /* pull down */
+					drive-strength = <10>; /* 10 MA */
+				};
+			};
+		};
+
+		pmx_qdsd_data0 {
+			qdsd_data0_sdcard: data0_sdcard {
+				config {
+					pins = "qdsd_data0";
+					bias-pull-down; /* pull down */
+					drive-strength = <8>; /* 8 MA */
+				};
+			};
+			qdsd_data0_trace: data0_trace {
+				config {
+					pins = "qdsd_data0";
+					bias-pull-down; /* pull down */
+					drive-strength = <8>; /* 8 MA */
+				};
+			};
+			qdsd_data0_swduart: data0_uart {
+				config {
+					pins = "qdsd_data0";
+					bias-pull-down; /* pull down */
+					drive-strength = <2>; /* 2 MA */
+				};
+			};
+			qdsd_data0_swdtrc: data0_swdtrc {
+				config {
+					pins = "qdsd_data0";
+					bias-pull-down; /* pull down */
+					drive-strength = <2>; /* 2 MA */
+				};
+			};
+			qdsd_data0_jtag: data0_jtag {
+				config {
+					pins = "qdsd_data0";
+					bias-pull-up; /* pull up */
+					drive-strength = <2>; /* 2 MA */
+				};
+			};
+			qdsd_data0_spmi: data0_spmi {
+				config {
+					pins = "qdsd_data0";
+					bias-pull-down; /* pull down */
+					drive-strength = <2>; /* 2 MA */
+				};
+			};
+		};
+
+		pmx_qdsd_data1 {
+			qdsd_data1_sdcard: data1_sdcard {
+				config {
+					pins = "qdsd_data1";
+					bias-pull-down; /* pull down */
+					drive-strength = <8>; /* 8 MA */
+				};
+			};
+			qdsd_data1_trace: data1_trace {
+				config {
+					pins = "qdsd_data1";
+					bias-pull-down; /* pull down */
+					drive-strength = <8>; /* 8 MA */
+				};
+			};
+			qdsd_data1_swduart: data1_uart {
+				config {
+					pins = "qdsd_data1";
+					bias-pull-down; /* pull down */
+					drive-strength = <2>; /* 2 MA */
+				};
+			};
+			qdsd_data1_swdtrc: data1_swdtrc {
+				config {
+					pins = "qdsd_data1";
+					bias-pull-down; /* pull down */
+					drive-strength = <2>; /* 2 MA */
+				};
+			};
+			qdsd_data1_jtag: data1_jtag {
+				config {
+					pins = "qdsd_data1";
+					bias-pull-down; /* pull down */
+					drive-strength = <2>; /* 2 MA */
+				};
+			};
+		};
+
+		pmx_qdsd_data2 {
+			qdsd_data2_sdcard: data2_sdcard {
+				config {
+					pins = "qdsd_data2";
+					bias-pull-down; /* pull down */
+					drive-strength = <8>; /* 8 MA */
+				};
+			};
+			qdsd_data2_trace: data2_trace {
+				config {
+					pins = "qdsd_data2";
+					bias-pull-down; /* pull down */
+					drive-strength = <8>; /* 8 MA */
+				};
+			};
+			qdsd_data2_swduart: data2_uart {
+				config {
+					pins = "qdsd_data2";
+					bias-pull-down; /* pull down */
+					drive-strength = <2>; /* 2 MA */
+				};
+			};
+			qdsd_data2_swdtrc: data2_swdtrc {
+				config {
+					pins = "qdsd_data2";
+					bias-pull-down; /* pull down */
+					drive-strength = <2>; /* 2 MA */
+				};
+			};
+			qdsd_data2_jtag: data2_jtag {
+				config {
+					pins = "qdsd_data2";
+					bias-pull-up; /* pull up */
+					drive-strength = <8>; /* 8 MA */
+				};
+			};
+		};
+
+		pmx_qdsd_data3 {
+			qdsd_data3_sdcard: data3_sdcard {
+				config {
+					pins = "qdsd_data3";
+					bias-pull-down; /* pull down */
+					drive-strength = <8>; /* 8 MA */
+				};
+			};
+			qdsd_data3_trace: data3_trace {
+				config {
+					pins = "qdsd_data3";
+					bias-pull-down; /* pull down */
+					drive-strength = <8>; /* 8 MA */
+				};
+			};
+			qdsd_data3_swduart: data3_uart {
+				config {
+					pins = "qdsd_data3";
+					bias-pull-up; /* pull up */
+					drive-strength = <2>; /* 2 MA */
+				};
+			};
+			qdsd_data3_swdtrc: data3_swdtrc {
+				config {
+					pins = "qdsd_data3";
+					bias-pull-up; /* pull up */
+					drive-strength = <2>; /* 2 MA */
+				};
+			};
+			qdsd_data3_jtag: data3_jtag {
+				config {
+					pins = "qdsd_data3";
+					bias-pull-up; /* pull up */
+					drive-strength = <2>; /* 2 MA */
+				};
+			};
+			qdsd_data3_spmi: data3_spmi {
+				config {
+					pins = "qdsd_data3";
+					bias-pull-down; /* pull down */
+					drive-strength = <8>; /* 8 MA */
+				};
+			};
+		};
+
 		pmx_sdc2_clk {
 			sdc2_clk_on: sdc2_clk_on {
 				config {
