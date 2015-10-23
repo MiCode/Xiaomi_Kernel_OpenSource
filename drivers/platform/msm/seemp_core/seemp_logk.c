@@ -78,6 +78,7 @@ void *seemp_logk_kernel_start_record(char **buf)
 	int ret;
 
 	DEFINE_WAIT(write_wait);
+
 	ret = 0;
 	idx = 0;
 	now = current_kernel_time();
@@ -141,7 +142,7 @@ void *seemp_logk_kernel_start_record(char **buf)
 			ts.tm_year, ts.tm_mon, ts.tm_mday,
 			ts.tm_hour, ts.tm_min, ts.tm_sec);
 
-	*buf = blk->msg;
+	*buf = blk->payload.msg;
 
 	return blk;
 }
@@ -151,14 +152,14 @@ void seemp_logk_kernel_end_record(void *blck)
 	int current_uid = 0;
 	int parsed_current_uid = 0;
 	struct seemp_logk_blk *blk = (struct seemp_logk_blk *)blck;
+
 	if (blk) {
-		blk->len = strlen(blk->msg);
 		/*update status at the very end*/
 		blk->status |= 0x1;
 		current_uid = current_uid();
 		if (current_uid < USER_APP_START_UID) {
 			parsed_current_uid =
-				get_uid_from_message_for_system_event(blk->msg);
+			get_uid_from_message_for_system_event(blk->payload.msg);
 			if (parsed_current_uid != -1)
 				blk->uid = parsed_current_uid;
 			else
@@ -166,7 +167,7 @@ void seemp_logk_kernel_end_record(void *blck)
 		} else
 			blk->uid = current_uid;
 
-		ringbuf_finish_writer(slogk_dev);
+		ringbuf_finish_writer(slogk_dev, blk);
 	}
 }
 
@@ -190,6 +191,7 @@ static int get_uid_from_message_for_system_event(const char *buffer)
 	while (*p1) {
 		char *p1begin = p1;
 		char *p2 = (char *)comparator_string;
+
 		aindex = 0;
 
 		while (*p1 && *p2 && *p1 == *p2) {
@@ -239,6 +241,7 @@ static int seemp_logk_usr_record(const char __user *buf, size_t count)
 	int currentuid;
 	int parsedcurrentuid;
 	DEFINE_WAIT(write_wait);
+
 	if (buf) {
 		local_blk = (struct seemp_logk_blk *)buf;
 		if (copy_from_user(&usr_blk.pid, &local_blk->pid,
@@ -253,8 +256,8 @@ static int seemp_logk_usr_record(const char __user *buf, size_t count)
 		if (copy_from_user(&usr_blk.len, &local_blk->len,
 					sizeof(usr_blk.len)) != 0)
 			return -EFAULT;
-		if (copy_from_user(usr_blk.msg, local_blk->msg,
-					sizeof(usr_blk.msg)) != 0)
+		if (copy_from_user(&usr_blk.payload, &local_blk->payload,
+					sizeof(struct blk_payload)) != 0)
 			return -EFAULT;
 	}
 	idx = ret = 0;
@@ -293,16 +296,15 @@ static int seemp_logk_usr_record(const char __user *buf, size_t count)
 		blk->status = 0x0;
 		mutex_unlock(&slogk_dev->lock);
 	}
-	if (usr_blk.len > BLK_MAX_MSG_SZ-1)
-		usr_blk.len = BLK_MAX_MSG_SZ-1;
-	memcpy(blk->msg, usr_blk.msg, usr_blk.len);
-	blk->msg[usr_blk.len] = '\0';
-	blk->len = usr_blk.len;
+	if (usr_blk.len > sizeof(struct blk_payload)-1)
+		usr_blk.len = sizeof(struct blk_payload)-1;
+
+	memcpy(&blk->payload, &usr_blk.payload, sizeof(struct blk_payload));
 	blk->pid = usr_blk.pid;
 	currentuid = usr_blk.uid;
 	if (currentuid <= USER_APP_START_UID) {
 		parsedcurrentuid = get_uid_from_message_for_system_event
-								(blk->msg);
+							(blk->payload.msg);
 		if (parsedcurrentuid != -EPERM)
 			blk->uid = parsedcurrentuid;
 		else
@@ -320,7 +322,7 @@ static int seemp_logk_usr_record(const char __user *buf, size_t count)
 			ts.tm_hour, ts.tm_min, ts.tm_sec);
 	strlcpy(blk->appname, current->comm, TASK_COMM_LEN);
 	blk->status |= 0x1;
-	ringbuf_finish_writer(slogk_dev);
+	ringbuf_finish_writer(slogk_dev, blk);
 	return ret;
 }
 
@@ -391,6 +393,7 @@ static long seemp_logk_ioctl(struct file *filp, unsigned int cmd,
 		mutex_unlock(&sdev->lock);
 		if (ret && block_apps)
 			wake_up_interruptible(&sdev->writers_wq);
+		return 0;
 	} else if (cmd == SEEMP_CMD_GET_RINGSZ) {
 		if (copy_to_user((unsigned int *)arg, &sdev->ring_sz,
 				sizeof(unsigned int)))
@@ -405,11 +408,9 @@ static long seemp_logk_ioctl(struct file *filp, unsigned int cmd,
 		return seemp_logk_set_mapping(arg);
 	} else if (SEEMP_CMD_CHECK_FILTER == cmd) {
 		return seemp_logk_check_filter(arg);
-	} else {
-		pr_err("Invalid Request %X\n", cmd);
-		return -ENOIOCTLCMD;
 	}
-	return 0;
+	pr_err("Invalid Request %X\n", cmd);
+	return -ENOIOCTLCMD;
 }
 
 static long seemp_logk_reserve_rdblks(
@@ -419,6 +420,7 @@ static long seemp_logk_reserve_rdblks(
 	struct read_range rrange;
 
 	DEFINE_WAIT(read_wait);
+
 	mutex_lock(&sdev->lock);
 	if (sdev->num_writers > 0 || sdev->num_read_avail_blks <= 0) {
 		ret = -EPERM;
@@ -519,6 +521,7 @@ static long seemp_logk_set_mapping(unsigned long arg)
 	__u32 *pbuffer;
 	int i;
 	struct seemp_source_mask *pnewmask;
+
 	if (copy_from_user(&num_elements,
 					(__u32 __user *)arg, sizeof(__u32)))
 		return -EFAULT;
@@ -534,6 +537,7 @@ static long seemp_logk_set_mapping(unsigned long arg)
 		 * seemp_core was probably restarted.
 		 */
 		struct seemp_source_mask *ptempmask;
+
 		num_sources = 0;
 		ptempmask = pmask;
 		pmask = NULL;
@@ -584,6 +588,7 @@ static long seemp_logk_check_filter(unsigned long arg)
 	for (i = 0; i < num_sources; i++) {
 		if (hash == pmask[i].hash) {
 			int result = pmask[i].isOn;
+
 			read_unlock(&filter_lock);
 			return result;
 		}
@@ -673,14 +678,12 @@ __init int seemp_logk_init(void)
 	}
 
 	slogk_dev = kmalloc(sizeof(*slogk_dev), GFP_KERNEL);
-	if (!slogk_dev) {
-		pr_err("kmalloc failure!\n");
+	if (!slogk_dev)
 		return -ENOMEM;
-	}
 
 	slogk_dev->ring_sz = ring_sz;
 	slogk_dev->blk_sz = sizeof(struct seemp_logk_blk);
-	/*intialize ping-pong buffers*/
+	/*initialize ping-pong buffers*/
 	ret = ringbuf_init(slogk_dev);
 	if (ret < 0) {
 		pr_err("Init Failed, ret = %d\n", ret);
@@ -738,6 +741,7 @@ pingpong_fail:
 __exit void seemp_logk_cleanup(void)
 {
 	dev_t devno = MKDEV(slogk_dev->major, slogk_dev->minor);
+
 	seemp_logk_detach();
 
 	cdev_del(&slogk_dev->cdev);
