@@ -89,7 +89,8 @@ dtb-$(CONFIG_ARCH_MDMCALIFORNIUM) += mdmcalifornium-sim.dtb \
 	mdmcalifornium-rumi.dtb \
 	mdmcalifornium-emmc-cdp.dtb \
 	mdmcalifornium-nand-cdp.dtb \
-	mdmcalifornium-mtp.dtb
+	mdmcalifornium-emmc-mtp.dtb \
+	mdmcalifornium-nand-mtp.dtb
 
 dtb-$(CONFIG_ARCH_MSM8937) += msm8937-rumi.dtb \
 	msm8937-pmi8950-cdp.dtb \
