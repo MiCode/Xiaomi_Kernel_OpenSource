@@ -167,8 +167,9 @@ static void hdmi_hdcp_hw_ddc_clean(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 {
 	struct dss_io_data *io = NULL;
 	u32 hdcp_ddc_status, ddc_hw_status;
-	u32 ddc_xfer_done, ddc_xfer_req, ddc_hw_done;
-	u32 ddc_hw_not_ready;
+	u32 ddc_xfer_done, ddc_xfer_req;
+	u32 ddc_hw_req, ddc_hw_not_idle;
+	bool ddc_hw_not_ready, xfer_not_done, hw_not_done;
 	u32 timeout_count;
 
 	if (!hdcp_ctrl || !hdcp_ctrl->init_data.core_io) {
@@ -182,27 +183,33 @@ static void hdmi_hdcp_hw_ddc_clean(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 			return;
 	}
 
-	if (DSS_REG_R(io, HDMI_DDC_HW_STATUS) != 0) {
-		/* Wait to be clean on DDC HW engine */
-		timeout_count = 100;
-		do {
-			hdcp_ddc_status = DSS_REG_R(io, HDMI_HDCP_DDC_STATUS);
-			ddc_hw_status = DSS_REG_R(io, HDMI_DDC_HW_STATUS);
-			ddc_xfer_done = hdcp_ddc_status & BIT(10);
-			ddc_xfer_req = hdcp_ddc_status & BIT(4);
-			ddc_hw_done = ddc_hw_status & BIT(3);
-			ddc_hw_not_ready = !ddc_xfer_done ||
-				ddc_xfer_req || !ddc_hw_done;
+	/* Wait to be clean on DDC HW engine */
+	timeout_count = 100;
+	do {
+		hdcp_ddc_status = DSS_REG_R(io, HDMI_HDCP_DDC_STATUS);
+		ddc_xfer_req    = hdcp_ddc_status & BIT(4);
+		ddc_xfer_done   = hdcp_ddc_status & BIT(10);
 
-			DEV_DBG("%s: %s: timeout count(%d):ddc hw%sready\n",
-				__func__, HDCP_STATE_NAME, timeout_count,
-					ddc_hw_not_ready ? " not " : " ");
-			DEV_DBG("hdcp_ddc_status[0x%x], ddc_hw_status[0x%x]\n",
-					hdcp_ddc_status, ddc_hw_status);
-			if (ddc_hw_not_ready)
-				msleep(20);
-			} while (ddc_hw_not_ready && --timeout_count);
-	}
+		ddc_hw_status   = DSS_REG_R(io, HDMI_DDC_HW_STATUS);
+		ddc_hw_req      = ddc_hw_status & BIT(16);
+		ddc_hw_not_idle = ddc_hw_status & (BIT(0) | BIT(1));
+
+		/* ddc transfer was requested but not completed */
+		xfer_not_done = ddc_xfer_req && !ddc_xfer_done;
+
+		/* ddc status is not idle or a hw request pending */
+		hw_not_done = ddc_hw_not_idle || ddc_hw_req;
+
+		ddc_hw_not_ready = xfer_not_done || hw_not_done;
+
+		DEV_DBG("%s: %s: timeout count(%d): ddc hw%sready\n",
+			__func__, HDCP_STATE_NAME, timeout_count,
+				ddc_hw_not_ready ? " not " : " ");
+		DEV_DBG("hdcp_ddc_status[0x%x], ddc_hw_status[0x%x]\n",
+				hdcp_ddc_status, ddc_hw_status);
+		if (ddc_hw_not_ready)
+			msleep(20);
+		} while (ddc_hw_not_ready && --timeout_count);
 } /* hdmi_hdcp_hw_ddc_clean */
 
 static int hdcp_scm_call(struct scm_hdcp_req *req, u32 *resp)
