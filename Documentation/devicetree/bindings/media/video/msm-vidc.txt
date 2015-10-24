@@ -125,8 +125,12 @@ Optional properties:
   units of macroblocks per second.
 - qcom,bus-low-latency = A bool indicating the perticular bus client to be
   used only when low latency mode is enabled by the client.
-- qcom,disable-clock-voltage-control = A bool indicating whether driver need
-  to control clock and voltage settings.
+- qcom,vp9d-clock-voltage-tbl = An array of clocks to voltage table to be
+  used in driver to select appropraite voltage for the given clock.
+- qcom,reset-clock-control = A bool indicating whether driver need to control
+  clock settings if video hardware requests to do so.
+- qcom,regulator-scaling = A bool indicating whether driver need to control
+  voltage settings.
 
 Example:
 
@@ -145,6 +149,10 @@ Example:
 			<72000 133330000 0x0c000000>, /* HEVC decoder VGA 60fps   */
 			<36000 133330000 0x0c000000>, /* HEVC VGA 30 fps  */
 			<36000 133330000 0x01000414>; /* Legacy encoder VGA 30 fps   */
+		qcom,vp9d-clock-voltage-tbl =
+			<133333333 RPM_SMD_REGULATOR_LEVEL_SVS>,
+			<310667000 RPM_SMD_REGULATOR_LEVEL_NOM>,
+			<400000000 RPM_SMD_REGULATOR_LEVEL_TURBO>;
 		qcom,ocmem-size = <4096>;
 		qcom,hfi = "venus";
 		qcom,firmware-name = "venus";
@@ -161,6 +169,8 @@ Example:
 		qcom,early-fw-load;
 		qcom,enable-idle-indicator;
 		qcom,enable-thermal-mitigation;
+		qcom,reset-clock-control;
+		qcom,regulator-scaling;
 		qcom,msm-bus-clients {
 			qcom,msm-bus-client@0 {
 				qcom,msm-bus,name = "venc-ddr";

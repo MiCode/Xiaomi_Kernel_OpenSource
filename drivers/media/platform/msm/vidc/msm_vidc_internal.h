@@ -147,6 +147,7 @@ struct msm_vidc_drv {
 	int num_cores;
 	struct dentry *debugfs_root;
 	int thermal_level;
+	u32 version;
 };
 
 struct msm_video_device {
