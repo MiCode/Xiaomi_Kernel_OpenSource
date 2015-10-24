@@ -1,0 +1,268 @@
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&mdss_mdp {
+	dsi_byd_1200_vid: qcom,mdss_dsi_byd_1200p_video {
+		qcom,mdss-dsi-panel-name = "byd 1200p video mode dsi panel";
+		qcom,mdss-dsi-panel-type = "dsi_video_mode";
+		qcom,mdss-dsi-panel-framerate = <60>;
+		qcom,mdss-dsi-virtual-channel-id = <0>;
+		qcom,mdss-dsi-stream = <0>;
+		qcom,mdss-dsi-panel-width = <1200>;
+		qcom,mdss-dsi-panel-height = <1920>;
+		qcom,mdss-dsi-h-front-porch = <42>;
+		qcom,mdss-dsi-h-back-porch = <32>;
+		qcom,mdss-dsi-h-pulse-width = <1>;
+		qcom,mdss-dsi-h-sync-skew = <0>;
+		qcom,mdss-dsi-v-back-porch = <25>;
+		qcom,mdss-dsi-v-front-porch = <35>;
+		qcom,mdss-dsi-v-pulse-width = <1>;
+		qcom,mdss-dsi-h-left-border = <0>;
+		qcom,mdss-dsi-h-right-border = <0>;
+		qcom,mdss-dsi-v-top-border = <0>;
+		qcom,mdss-dsi-v-bottom-border = <0>;
+		qcom,mdss-dsi-bpp = <24>;
+		qcom,mdss-dsi-underflow-color = <0xff>;
+		qcom,mdss-dsi-border-color = <0>;
+		qcom,mdss-dsi-h-sync-pulse = <0>;
+		qcom,mdss-dsi-traffic-mode = "burst_mode";
+		qcom,mdss-dsi-bllp-eof-power-mode;
+		qcom,mdss-dsi-bllp-power-mode;
+		qcom,mdss-dsi-lane-0-state;
+		qcom,mdss-dsi-lane-1-state;
+		qcom,mdss-dsi-lane-2-state;
+		qcom,mdss-dsi-lane-3-state;
+		qcom,mdss-dsi-panel-timings = [f3 38 26 00 6a 6e 2c 3c 2f 03 04 00];
+		qcom,mdss-dsi-t-clk-post = <0x02>;
+		qcom,mdss-dsi-t-clk-pre = <0x2d>;
+		qcom,mdss-dsi-bl-min-level = <1>;
+		qcom,mdss-dsi-bl-max-level = <4095>;
+		qcom,mdss-dsi-dma-trigger = "trigger_sw";
+		qcom,mdss-dsi-mdp-trigger = "none";
+		qcom,mdss-dsi-on-command = [
+		    23 01 00 00 00 00 02 8C 8E
+			23 01 00 00 00 00 02 C5 23
+			23 01 00 00 00 00 02 C7 23
+			23 01 00 00 00 00 02 FD 5C
+			23 01 00 00 00 00 02 FA 14
+			23 01 00 00 00 00 02 83 AA
+			23 01 00 00 00 00 02 84 11
+			23 01 00 00 00 00 02 C0 0E
+			23 01 00 00 00 00 02 C1 12
+			23 01 00 00 00 00 02 C2 25
+			23 01 00 00 00 00 02 C3 34
+			23 01 00 00 00 00 02 C4 3F
+			23 01 00 00 00 00 02 C5 49
+			23 01 00 00 00 00 02 C6 52
+			23 01 00 00 00 00 02 C7 59
+			23 01 00 00 00 00 02 C8 60
+			23 01 00 00 00 00 02 C9 C8
+			23 01 00 00 00 00 02 CA C7
+			23 01 00 00 00 00 02 CB D6
+			23 01 00 00 00 00 02 CC D9
+			23 01 00 00 00 00 02 CD D7
+			23 01 00 00 00 00 02 CE D1
+			23 01 00 00 00 00 02 CF D3
+			23 01 00 00 00 00 02 D0 D4
+			23 01 00 00 00 00 02 D1 FF
+			23 01 00 00 00 00 02 D2 08
+			23 01 00 00 00 00 02 D3 2E
+			23 01 00 00 00 00 02 D4 3B
+			23 01 00 00 00 00 02 D5 AA
+			23 01 00 00 00 00 02 D6 B3
+			23 01 00 00 00 00 02 D7 BC
+			23 01 00 00 00 00 02 D8 C5
+			23 01 00 00 00 00 02 D9 D0
+			23 01 00 00 00 00 02 DA DB
+			23 01 00 00 00 00 02 DB E7
+			23 01 00 00 00 00 02 DC F7
+			23 01 00 00 00 00 02 DD FE
+			23 01 00 00 00 00 02 DE 00
+			23 01 00 00 00 00 02 DF 2E
+			23 01 00 00 00 00 02 E0 0E
+			23 01 00 00 00 00 02 E1 12
+			23 01 00 00 00 00 02 E2 25
+			23 01 00 00 00 00 02 E3 34
+			23 01 00 00 00 00 02 E4 3F
+			23 01 00 00 00 00 02 E5 49
+			23 01 00 00 00 00 02 E6 52
+			23 01 00 00 00 00 02 E7 59
+			23 01 00 00 00 00 02 E8 60
+			23 01 00 00 00 00 02 E9 C8
+			23 01 00 00 00 00 02 EA C7
+			23 01 00 00 00 00 02 EB D6
+			23 01 00 00 00 00 02 EC D9
+			23 01 00 00 00 00 02 ED D7
+			23 01 00 00 00 00 02 EE D1
+			23 01 00 00 00 00 02 EF D3
+			23 01 00 00 00 00 02 F0 D4
+			23 01 00 00 00 00 02 F1 FF
+			23 01 00 00 00 00 02 F2 08
+			23 01 00 00 00 00 02 F3 2E
+			23 01 00 00 00 00 02 F4 3B
+			23 01 00 00 00 00 02 F5 AA
+			23 01 00 00 00 00 02 F6 B3
+			23 01 00 00 00 00 02 F7 BC
+			23 01 00 00 00 00 02 F8 C5
+			23 01 00 00 00 00 02 F9 D0
+			23 01 00 00 00 00 02 FA DB
+			23 01 00 00 00 00 02 FB E7
+			23 01 00 00 00 00 02 FC F7
+			23 01 00 00 00 00 02 FD FE
+			23 01 00 00 00 00 02 FE 00
+			23 01 00 00 00 00 02 FF 2E
+			23 01 00 00 00 00 02 A9 4b
+			23 01 00 00 00 00 02 83 BB
+			23 01 00 00 00 00 02 84 22
+			23 01 00 00 00 00 02 C0 0E
+			23 01 00 00 00 00 02 C1 12
+			23 01 00 00 00 00 02 C2 25
+			23 01 00 00 00 00 02 C3 34
+			23 01 00 00 00 00 02 C4 3F
+			23 01 00 00 00 00 02 C5 49
+			23 01 00 00 00 00 02 C6 52
+			23 01 00 00 00 00 02 C7 59
+			23 01 00 00 00 00 02 C8 60
+			23 01 00 00 00 00 02 C9 C8
+			23 01 00 00 00 00 02 CA C7
+			23 01 00 00 00 00 02 CB D6
+			23 01 00 00 00 00 02 CC D9
+			23 01 00 00 00 00 02 CD D7
+			23 01 00 00 00 00 02 CE D1
+			23 01 00 00 00 00 02 CF D3
+			23 01 00 00 00 00 02 D0 D4
+			23 01 00 00 00 00 02 D1 FF
+			23 01 00 00 00 00 02 D2 08
+			23 01 00 00 00 00 02 D3 2E
+			23 01 00 00 00 00 02 D4 3B
+			23 01 00 00 00 00 02 D5 AA
+			23 01 00 00 00 00 02 D6 B3
+			23 01 00 00 00 00 02 D7 BC
+			23 01 00 00 00 00 02 D8 C5
+			23 01 00 00 00 00 02 D9 D0
+			23 01 00 00 00 00 02 DA DB
+			23 01 00 00 00 00 02 DB E7
+			23 01 00 00 00 00 02 DC F7
+			23 01 00 00 00 00 02 DD FE
+			23 01 00 00 00 00 02 DE 00
+			23 01 00 00 00 00 02 DF 2E
+			23 01 00 00 00 00 02 E0 0E
+			23 01 00 00 00 00 02 E1 12
+			23 01 00 00 00 00 02 E2 25
+			23 01 00 00 00 00 02 E3 34
+			23 01 00 00 00 00 02 E4 3F
+			23 01 00 00 00 00 02 E5 49
+			23 01 00 00 00 00 02 E6 52
+			23 01 00 00 00 00 02 E7 59
+			23 01 00 00 00 00 02 E8 60
+			23 01 00 00 00 00 02 E9 C8
+			23 01 00 00 00 00 02 EA C7
+			23 01 00 00 00 00 02 EB D6
+			23 01 00 00 00 00 02 EC D9
+			23 01 00 00 00 00 02 ED D7
+			23 01 00 00 00 00 02 EE D1
+			23 01 00 00 00 00 02 EF D3
+			23 01 00 00 00 00 02 F0 D4
+			23 01 00 00 00 00 02 F1 FF
+			23 01 00 00 00 00 02 F2 08
+			23 01 00 00 00 00 02 F3 2E
+			23 01 00 00 00 00 02 F4 3B
+			23 01 00 00 00 00 02 F5 AA
+			23 01 00 00 00 00 02 F6 B3
+			23 01 00 00 00 00 02 F7 BC
+			23 01 00 00 00 00 02 F8 C5
+			23 01 00 00 00 00 02 F9 D0
+			23 01 00 00 00 00 02 FA DB
+			23 01 00 00 00 00 02 FB E7
+			23 01 00 00 00 00 02 FC F7
+			23 01 00 00 00 00 02 FD FE
+			23 01 00 00 00 00 02 FE 00
+			23 01 00 00 00 00 02 FF 2E
+			23 01 00 00 00 00 02 83 CC
+			23 01 00 00 00 00 02 84 33
+			23 01 00 00 00 00 02 C0 0E
+			23 01 00 00 00 00 02 C1 12
+			23 01 00 00 00 00 02 C2 25
+			23 01 00 00 00 00 02 C3 34
+			23 01 00 00 00 00 02 C4 3F
+			23 01 00 00 00 00 02 C5 49
+			23 01 00 00 00 00 02 C6 52
+			23 01 00 00 00 00 02 C7 59
+			23 01 00 00 00 00 02 C8 60
+			23 01 00 00 00 00 02 C9 C8
+			23 01 00 00 00 00 02 CA C7
+			23 01 00 00 00 00 02 CB D6
+			23 01 00 00 00 00 02 CC D9
+			23 01 00 00 00 00 02 CD D7
+			23 01 00 00 00 00 02 CE D1
+			23 01 00 00 00 00 02 CF D3
+			23 01 00 00 00 00 02 D0 D4
+			23 01 00 00 00 00 02 D1 FF
+			23 01 00 00 00 00 02 D2 08
+			23 01 00 00 00 00 02 D3 2E
+			23 01 00 00 00 00 02 D4 3B
+			23 01 00 00 00 00 02 D5 AA
+			23 01 00 00 00 00 02 D6 B3
+			23 01 00 00 00 00 02 D7 BC
+			23 01 00 00 00 00 02 D8 C5
+			23 01 00 00 00 00 02 D9 D0
+			23 01 00 00 00 00 02 DA DB
+			23 01 00 00 00 00 02 DB E7
+			23 01 00 00 00 00 02 DC F7
+			23 01 00 00 00 00 02 DD FE
+			23 01 00 00 00 00 02 DE 00
+			23 01 00 00 00 00 02 DF 2E
+			23 01 00 00 00 00 02 E0 0E
+			23 01 00 00 00 00 02 E1 12
+			23 01 00 00 00 00 02 E2 25
+			23 01 00 00 00 00 02 E3 34
+			23 01 00 00 00 00 02 E4 3F
+			23 01 00 00 00 00 02 E5 49
+			23 01 00 00 00 00 02 E6 52
+			23 01 00 00 00 00 02 E7 59
+			23 01 00 00 00 00 02 E8 60
+			23 01 00 00 00 00 02 E9 C8
+			23 01 00 00 00 00 02 EA C7
+			23 01 00 00 00 00 02 EB D6
+			23 01 00 00 00 00 02 EC D9
+			23 01 00 00 00 00 02 ED D7
+			23 01 00 00 00 00 02 EE D1
+			23 01 00 00 00 00 02 EF D3
+			23 01 00 00 00 00 02 F0 D4
+			23 01 00 00 00 00 02 F1 FF
+			23 01 00 00 00 00 02 F2 08
+			23 01 00 00 00 00 02 F3 2E
+			23 01 00 00 00 00 02 F4 3B
+			23 01 00 00 00 00 02 F5 AA
+			23 01 00 00 00 00 02 F6 B3
+			23 01 00 00 00 00 02 F7 BC
+			23 01 00 00 00 00 02 F8 C5
+			23 01 00 00 00 00 02 F9 D0
+			23 01 00 00 00 00 02 FA DB
+			23 01 00 00 00 00 02 FB E7
+			23 01 00 00 00 00 02 FC F7
+			23 01 00 00 00 00 02 FD FE
+			23 01 00 00 00 00 02 FE 00
+			23 01 00 00 00 00 02 FF 2E
+			23 01 00 00 FA 00 02 11 00
+			23 01 00 00 FA 00 02 29 00
+			];
+		qcom,mdss-dsi-off-command = [05 01 00 00 96 00 02 28 00
+				 05 01 00 00 96 00 02 10 00];
+		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+		qcom,mdss-dsi-off-command-state = "dsi_lp_mode";
+		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+		qcom,mdss-dsi-reset-sequence = <0 200>, <1 200>, <0 200>;
+		qcom,mdss-dsi-tx-eot-append;
+		qcom,cont-splash-enabled;
+	};
+};
