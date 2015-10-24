@@ -36,6 +36,8 @@
 		qcom,mdss-dsi-border-color = <0>;
 		qcom,mdss-dsi-on-command = [29 01 00 00 00 00 04
 					B9 FF 83 99
+			29 01 00 00 00 00 03
+					BA 63 82
 			29 01 00 00 00 00 0D
 					B1 00 74 31 31
 					44 09 22 22 71
