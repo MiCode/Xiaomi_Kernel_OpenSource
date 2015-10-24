@@ -18,6 +18,7 @@
 #include "mdss_hdmi_util.h"
 
 #define RESOLUTION_NAME_STR_LEN 30
+#define HDMI_SEC_TO_MS 1000
 
 #define HDMI_SCDC_UNKNOWN_REGISTER        "Unknown register"
 
@@ -1661,9 +1662,10 @@ int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl)
 		DSS_REG_W(ctrl->io, HDMI_HDCP2P2_DDC_SW_TRIGGER, 1);
 
 		reinit_completion(&ctrl->rxstatus_completion);
+		/* max timeout as per hdcp 2.2 std is 1 sec */
 		timeout = wait_for_completion_timeout(
 				&ctrl->rxstatus_completion,
-				msecs_to_jiffies(200));
+				msecs_to_jiffies(HDMI_SEC_TO_MS));
 		if (!timeout) {
 			pr_err("sw ddc rxstatus timeout\n");
 			rc = -ETIMEDOUT;
