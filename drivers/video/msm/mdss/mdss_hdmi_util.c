@@ -502,24 +502,38 @@ static void hdmi_ddc_print_data(struct hdmi_tx_ddc_data *ddc_data)
 static int hdmi_ddc_clear_irq(struct hdmi_tx_ddc_ctrl *ddc_ctrl,
 	char *what)
 {
-	u32 reg_val, time_out_count;
+	u32 ddc_int_ctrl, ddc_status, in_use, timeout;
+	u32 sw_done_mask = BIT(2);
+	u32 sw_done_ack  = BIT(1);
+	u32 hw_done_mask = BIT(6);
+	u32 hw_done_ack  = BIT(5);
+	u32 in_use_by_sw = BIT(0);
+	u32 in_use_by_hw = BIT(1);
 
 	if (!ddc_ctrl || !ddc_ctrl->io) {
 		pr_err("invalid input\n");
 		return -EINVAL;
 	}
 
-	/* clear pending and enable interrupt */
-	time_out_count = 0xFFFF;
+	/* wait until DDC HW is free */
+	timeout = 100;
 	do {
-		--time_out_count;
-		/* Clear and Enable DDC interrupt */
-		DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL,
-			BIT(2) | BIT(1));
-		reg_val = DSS_REG_R_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL);
-	} while ((reg_val & BIT(0)) && time_out_count);
+		--timeout;
+		ddc_status = DSS_REG_R_ND(ddc_ctrl->io, HDMI_DDC_HW_STATUS);
+		in_use = ddc_status & (in_use_by_sw | in_use_by_hw);
+		if (in_use) {
+			pr_debug("ddc is in use by %s\n",
+				ddc_status & in_use_by_sw ? "sw" : "hw");
+			msleep(20);
+		}
+	} while (in_use && timeout);
 
-	if (!time_out_count) {
+	/* clear and enable interrutps */
+	ddc_int_ctrl = sw_done_mask | sw_done_ack | hw_done_mask | hw_done_ack;
+
+	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL, ddc_int_ctrl);
+
+	if (!timeout) {
 		pr_err("%s: timedout\n", what);
 		return -ETIMEDOUT;
 	}
@@ -877,10 +891,16 @@ int hdmi_ddc_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl, u32 version)
 
 	ddc_int_ctrl = DSS_REG_R_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL);
 	if ((ddc_int_ctrl & BIT(2)) && (ddc_int_ctrl & BIT(0))) {
-		/* SW_DONE INT occured, clr it */
+		/* SW_DONE INT occurred, clr it */
 		DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL,
 			ddc_int_ctrl | BIT(1));
 		complete(&ddc_ctrl->ddc_sw_done);
+	}
+
+	if ((ddc_int_ctrl & BIT(6)) && (ddc_int_ctrl & BIT(4))) {
+		/* HW_DONE INT occurred, clr it */
+		DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL,
+			ddc_int_ctrl | BIT(5));
 	}
 
 	pr_debug("ddc_int_ctrl=%04x\n", ddc_int_ctrl);
@@ -1699,7 +1719,7 @@ int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl)
 		rc = -EIO;
 	}
 
-	DSS_REG_W(ctrl->io, HDMI_HW_DDC_CTRL, reg_val);
+	DSS_REG_W(ctrl->io, HDMI_HDCP2P2_DDC_STATUS, reg_val);
 
 	/* Disable hardware access to RxStatus register */
 	hdmi_hdcp2p2_ddc_disable(ctrl);
