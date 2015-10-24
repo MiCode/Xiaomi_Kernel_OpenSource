@@ -36,6 +36,10 @@
 
 #define HDCP2P2_LINK_CHECK_TIME_MS 500 /* link check within 1 sec */
 
+#define HDCP2P2_SEC_TO_US 1000000
+#define HDCP2P2_MS_TO_US  1000
+#define HDCP2P2_KHZ_TO_HZ 1000
+
 /*
  * HDCP 2.2 encryption requires the data encryption block that is present in
  * HDMI controller version 4.0.0 and above
@@ -491,7 +495,9 @@ exit:
 static void hdmi_hdcp2p2_recv_msg_work(struct kthread_work *work)
 {
 	int rc = 0;
-	u64 mult;
+	u32 fps, v_total;
+	u32 time_taken_by_one_line_us;
+	u32 lines_needed_for_given_time;
 	char *recvd_msg_buf = NULL;
 	struct hdmi_hdcp2p2_ctrl *ctrl = container_of(work,
 		struct hdmi_hdcp2p2_ctrl, recv_msg);
@@ -525,9 +531,23 @@ static void hdmi_hdcp2p2_recv_msg_work(struct kthread_work *work)
 	memset(ddc_data, 0, sizeof(*ddc_data));
 
 	timing = ctrl->init_data.timing;
-	mult = hdmi_tx_get_v_total(timing) / 20;
+
+	fps = timing->refresh_rate / HDCP2P2_KHZ_TO_HZ;
+	v_total = hdmi_tx_get_v_total(timing);
+
+	/*
+	 * pixel clock  = h_total * v_total * fps
+	 * 1 sec = pixel clock number of pixels are transmitted.
+	 * time taken by one line (h_total) = 1 / (v_total * fps).
+	 */
+	time_taken_by_one_line_us = HDCP2P2_SEC_TO_US / (v_total * fps);
+	lines_needed_for_given_time = (ctrl->timeout * HDCP2P2_MS_TO_US) /
+		time_taken_by_one_line_us;
+
+	pr_debug("timeout for rxstatus %d\n", lines_needed_for_given_time);
+
 	ddc_data->intr_mask = RXSTATUS_MESSAGE_SIZE;
-	ddc_data->timer_delay_lines = (u32)mult;
+	ddc_data->timer_delay_lines = lines_needed_for_given_time;
 	ddc_data->read_method = HDCP2P2_RXSTATUS_HW_DDC_SW_TRIGGER;
 
 	rc = hdmi_hdcp2p2_ddc_read_rxstatus(ddc_ctrl);
