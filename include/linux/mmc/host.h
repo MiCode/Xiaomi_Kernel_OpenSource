@@ -554,6 +554,7 @@ struct mmc_host {
 	enum dev_state dev_status;
 	bool			wakeup_on_idle;
 	struct mmc_cmdq_context_info	cmdq_ctx;
+	u32			cmdq_thist_enabled;
 	/*
 	 * several cmdq supporting host controllers are extensions
 	 * of legacy controllers. This variable can be used to store
