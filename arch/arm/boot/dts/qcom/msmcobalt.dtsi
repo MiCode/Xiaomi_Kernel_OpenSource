@@ -372,6 +372,13 @@
 		};
 	};
 
+	rpm_bus: qcom,rpm-smd {
+		compatible = "qcom,rpm-glink";
+		qcom,glink-edge = "rpm";
+		rpm-channel-name = "rpm_requests";
+		rpm-standalone;
+	};
+
 	qcom,smdpkt {
 		compatible = "qcom,smdpkt";
 
