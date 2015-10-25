@@ -797,7 +797,7 @@ static int qpnp_regulator_common_set_voltage(struct regulator_dev *rdev,
 		int min_uV, int max_uV, unsigned *selector)
 {
 	struct qpnp_regulator *vreg = rdev_get_drvdata(rdev);
-	int rc, range_sel, voltage_sel, voltage_old, voltage_new;
+	int rc, range_sel, voltage_sel, voltage_old = 0, voltage_new = 0;
 	u8 buf[2];
 
 	if (vreg->slew_rate && vreg->rdesc.ops->get_voltage) {
