@@ -28,6 +28,7 @@
 			(base) + (offset))
 
 enum {
+	MDSS_DSI_PLL_LPM,
 	MDSS_DSI_PLL_8996,
 	MDSS_HDMI_PLL_8996,
 	MDSS_HDMI_PLL_8996_V2,
@@ -37,6 +38,7 @@ enum {
 
 enum {
 	MDSS_PLL_TARGET_8996,
+	MDSS_PLL_TARGET_8952,
 };
 
 #define DFPS_MAX_NUM_OF_FRAME_RATES 10

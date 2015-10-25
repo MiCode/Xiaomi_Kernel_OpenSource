@@ -50,13 +50,6 @@ static inline struct dsi_pll_vco_clk *to_vco_clk(struct clk *clk)
 	return container_of(clk, struct dsi_pll_vco_clk, c);
 }
 
-static inline int dsi_pll_div_prepare(struct clk *c)
-{
-	struct div_clk *div = to_div_clk(c);
-	/* Restore the divider's value */
-	return div->ops->set_div(div, div->data.div);
-}
-
 int dsi_pll_clock_register_hpm(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res);
 int dsi_pll_clock_register_20nm(struct platform_device *pdev,
@@ -68,6 +61,7 @@ int dsi_pll_clock_register_8996(struct platform_device *pdev,
 
 int set_byte_mux_sel(struct mux_clk *clk, int sel);
 int get_byte_mux_sel(struct mux_clk *clk);
+int dsi_pll_div_prepare(struct clk *c);
 int dsi_pll_mux_prepare(struct clk *c);
 int fixed_4div_set_div(struct div_clk *clk, int div);
 int fixed_4div_get_div(struct div_clk *clk);
