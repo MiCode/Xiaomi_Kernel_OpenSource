@@ -33,6 +33,7 @@ struct votable {
 	int			type;
 	int			effective_client_id;
 	int			effective_result;
+	int			default_result;
 	struct mutex		vote_lock;
 	int			(*callback)(struct device *dev,
 						int effective_result,
@@ -46,7 +47,7 @@ static int vote_set_any(struct votable *votable)
 	int i;
 
 	for (i = 0; i < votable->num_clients; i++)
-		if (votable->votes[i].state)
+		if (votable->votes[i].state == 1)
 			return 1;
 	return 0;
 }
@@ -54,11 +55,11 @@ static int vote_set_any(struct votable *votable)
 static int vote_min(struct votable *votable)
 {
 	int min_vote = INT_MAX;
-	int client_index;
+	int client_index = -EINVAL;
 	int i;
 
 	for (i = 0; i < votable->num_clients; i++) {
-		if (votable->votes[i].state &&
+		if (votable->votes[i].state == 1 &&
 				min_vote > votable->votes[i].value) {
 			min_vote = votable->votes[i].value;
 			client_index = i;
@@ -71,11 +72,11 @@ static int vote_min(struct votable *votable)
 static int vote_max(struct votable *votable)
 {
 	int max_vote = INT_MIN;
-	int client_index;
+	int client_index = -EINVAL;
 	int i;
 
 	for (i = 0; i < votable->num_clients; i++) {
-		if (votable->votes[i].state &&
+		if (votable->votes[i].state == 1 &&
 				max_vote < votable->votes[i].value) {
 			max_vote = votable->votes[i].value;
 			client_index = i;
@@ -107,6 +108,9 @@ int get_client_vote(struct votable *votable, int client_id)
 
 int get_client_vote_locked(struct votable *votable, int client_id)
 {
+	if (votable->votes[client_id].state < 0)
+		return votable->default_result;
+
 	return votable->votes[client_id].value;
 }
 
@@ -122,6 +126,9 @@ int get_effective_result(struct votable *votable)
 
 int get_effective_result_locked(struct votable *votable)
 {
+	if (votable->effective_result < 0)
+		return votable->default_result;
+
 	return votable->effective_result;
 }
 
@@ -140,12 +147,18 @@ int get_effective_client_id_locked(struct votable *votable)
 	return votable->effective_client_id;
 }
 
-int vote(struct votable *votable, int client_id, int state, int val)
+int vote(struct votable *votable, int client_id, bool state, int val)
 {
 	int effective_id, effective_result;
 	int rc = 0;
 
 	lock_votable(votable);
+
+	if (votable->votes[client_id].state == state &&
+				votable->votes[client_id].value == val) {
+		pr_debug("%s: votes unchanged; skipping\n", votable->name);
+		goto out;
+	}
 
 	votable->votes[client_id].state = state;
 	votable->votes[client_id].value = val;
@@ -171,9 +184,15 @@ int vote(struct votable *votable, int client_id, int state, int val)
 						state, client_id);
 		}
 		goto out;
-	default:
-		rc = -EINVAL;
-		goto vote_err;
+	}
+
+	/*
+	 * If the votable does not have any votes it will maintain the last
+	 * known effective_result and effective_client_id
+	 */
+	if (effective_id < 0) {
+		pr_debug("%s: no votes; skipping callback\n", votable->name);
+		goto out;
 	}
 
 	effective_result = votable->votes[effective_id].value;
@@ -181,15 +200,12 @@ int vote(struct votable *votable, int client_id, int state, int val)
 	if (effective_result != votable->effective_result) {
 		votable->effective_client_id = effective_id;
 		votable->effective_result = effective_result;
-		pr_debug("%s: effective vote is now %d voted by %d",
+		pr_debug("%s: effective vote is now %d voted by %d\n",
 				votable->name, effective_result, effective_id);
 		rc = votable->callback(votable->dev, effective_result,
 					effective_id, val, client_id);
 	}
-	goto out;
 
-vote_err:
-	pr_err("Invalid votable type specified for voter\n");
 out:
 	unlock_votable(votable);
 	return rc;
@@ -198,6 +214,7 @@ out:
 struct votable *create_votable(struct device *dev, const char *name,
 					int votable_type,
 					int num_clients,
+					int default_result,
 					int (*callback)(struct device *dev,
 							int effective_result,
 							int effective_client,
@@ -205,6 +222,7 @@ struct votable *create_votable(struct device *dev, const char *name,
 							int last_client)
 					)
 {
+	int i;
 	struct votable *votable = devm_kzalloc(dev, sizeof(struct votable),
 							GFP_KERNEL);
 
@@ -231,9 +249,18 @@ struct votable *create_votable(struct device *dev, const char *name,
 	votable->num_clients = num_clients;
 	votable->callback = callback;
 	votable->type = votable_type;
-
-	votable->effective_result = -1;
+	votable->default_result = default_result;
 	mutex_init(&votable->vote_lock);
+
+	/*
+	 * Because effective_result and client states are invalid
+	 * before the first vote, initialize them to -EINVAL
+	 */
+	votable->effective_result = -EINVAL;
+	votable->effective_client_id = -EINVAL;
+
+	for (i = 0; i < votable->num_clients; i++)
+		votable->votes[i].state = -EINVAL;
 
 	return votable;
 }
