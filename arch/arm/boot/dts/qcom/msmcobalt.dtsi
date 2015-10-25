@@ -1010,6 +1010,41 @@
 		qcom,synchronous-cluster-map = <0 4 &CPU0 &CPU1 &CPU2 &CPU3>,
 						<1 4 &CPU4 &CPU5 &CPU6 &CPU7>;
 	};
+
+	qcom,ssc@5c00000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x5c00000 0x4000>;
+		interrupts = <0 390 1>;
+
+		vdd_cx-supply = <&pmcobalt_l26>;
+		vdd_px-supply = <&pmcobalt_lvs2>;
+		qcom,vdd_cx-uV-uA = <RPM_SMD_REGULATOR_LEVEL_TURBO 0>;
+		qcom,proxy-reg-names = "vdd_cx", "vdd_px";
+		qcom,keep-proxy-regs-on;
+
+		clocks = <&clock_gcc clk_cxo_pil_ssc_clk>,
+			 <&clock_gcc clk_aggre2_noc_clk>;
+		clock-names = "xo", "aggre2";
+		qcom,proxy-clock-names = "xo", "aggre2";
+
+		qcom,pas-id = <12>;
+		qcom,proxy-timeout-ms = <10000>;
+		qcom,smem-id = <424>;
+		qcom,sysmon-id = <3>;
+		qcom,ssctl-instance-id = <0x16>;
+		qcom,firmware-name = "slpi";
+		memory-region = <&peripheral_mem>;
+
+		/* GPIO inputs from ssc */
+		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_3_in 0 0>;
+		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_3_in 2 0>;
+		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_3_in 1 0>;
+		qcom,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_3_in 3 0>;
+
+		/* GPIO output to ssc */
+		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_3_out 0 0>;
+	};
+
 };
 
 #include "msmcobalt-regulator.dtsi"
