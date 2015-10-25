@@ -24,36 +24,52 @@
 
 #define IPA_API_DISPATCH_RETURN(api, p...) \
 	do { \
-		if (ipa_api_ctrl->api) { \
-			ret = ipa_api_ctrl->api(p); \
-		} else { \
-			pr_err("%s not implemented for IPA HW ver %d\n", \
-					__func__, ipa_api_hw_type); \
-			WARN_ON(1); \
+		if (!ipa_api_ctrl) { \
+			pr_err("IPA HW is not supported on this target\n"); \
 			ret = -EPERM; \
+		} \
+		else { \
+			if (ipa_api_ctrl->api) { \
+				ret = ipa_api_ctrl->api(p); \
+			} else { \
+				pr_err("%s not implemented for IPA ver %d\n", \
+						__func__, ipa_api_hw_type); \
+				WARN_ON(1); \
+				ret = -EPERM; \
+			} \
 		} \
 	} while (0)
 
 #define IPA_API_DISPATCH(api, p...) \
 	do { \
-		if (ipa_api_ctrl->api) { \
-			ipa_api_ctrl->api(p); \
-		} else { \
-			pr_err("%s not implemented for IPA HW ver %d\n", \
-					__func__, ipa_api_hw_type); \
-			WARN_ON(1); \
+		if (!ipa_api_ctrl) \
+			pr_err("IPA HW is not supported on this target\n"); \
+		else { \
+			if (ipa_api_ctrl->api) { \
+				ipa_api_ctrl->api(p); \
+			} else { \
+				pr_err("%s not implemented for IPA ver %d\n", \
+						__func__, ipa_api_hw_type); \
+				WARN_ON(1); \
+			} \
 		} \
 	} while (0)
 
 #define IPA_API_DISPATCH_RETURN_PTR(api, p...) \
 	do { \
-		if (ipa_api_ctrl->api) { \
-			ret = ipa_api_ctrl->api(p); \
-		} else { \
-			pr_err("%s not implemented for IPA HW ver %d\n", \
-					__func__, ipa_api_hw_type); \
-			WARN_ON(1); \
+		if (!ipa_api_ctrl) { \
+			pr_err("IPA HW is not supported on this target\n"); \
 			ret = NULL; \
+		} \
+		else { \
+			if (ipa_api_ctrl->api) { \
+				ret = ipa_api_ctrl->api(p); \
+			} else { \
+				pr_err("%s not implemented for IPA ver %d\n", \
+						__func__, ipa_api_hw_type); \
+				WARN_ON(1); \
+				ret = NULL; \
+			} \
 		} \
 	} while (0)
 
