@@ -254,8 +254,22 @@ enum ipa_client_type {
 	((client) == IPA_CLIENT_MHI_CONS || \
 	(client) == IPA_CLIENT_MHI_PROD)
 
+#define IPA_CLIENT_IS_TEST_PROD(client) \
+	((client) == IPA_CLIENT_TEST_PROD || \
+	(client) == IPA_CLIENT_TEST1_PROD || \
+	(client) == IPA_CLIENT_TEST2_PROD || \
+	(client) == IPA_CLIENT_TEST3_PROD || \
+	(client) == IPA_CLIENT_TEST4_PROD)
 
+#define IPA_CLIENT_IS_TEST_CONS(client) \
+	((client) == IPA_CLIENT_TEST_CONS || \
+	(client) == IPA_CLIENT_TEST1_CONS || \
+	(client) == IPA_CLIENT_TEST2_CONS || \
+	(client) == IPA_CLIENT_TEST3_CONS || \
+	(client) == IPA_CLIENT_TEST4_CONS)
 
+#define IPA_CLIENT_IS_TEST(client) \
+	(IPA_CLIENT_IS_TEST_PROD(client) || IPA_CLIENT_IS_TEST_CONS(client))
 
 /**
  * enum ipa_ip_type - Address family: IPv4 or IPv6
