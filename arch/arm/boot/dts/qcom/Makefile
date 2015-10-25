@@ -85,7 +85,10 @@ dtb-$(CONFIG_ARCH_MDMCALIFORNIUM) += mdmcalifornium-sim.dtb \
 	mdmcalifornium-nand-cdp.dtb \
 	mdmcalifornium-mtp.dtb
 
-dtb-$(CONFIG_ARCH_MSMTHORIUM) += msmthorium-rumi.dtb
+dtb-$(CONFIG_ARCH_MSMTHORIUM) += msmthorium-rumi.dtb \
+	msmthorium-cdp.dtb \
+	msmthorium-mtp.dtb \
+	msmthorium-rcm.dtb
 
 dtb-$(CONFIG_ARCH_MSMTITANIUM) += msmtitanium-sim.dtb \
 	msmtitanium-rumi.dtb
