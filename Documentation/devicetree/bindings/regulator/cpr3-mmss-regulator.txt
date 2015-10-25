@@ -119,6 +119,32 @@ MMSS specific properties:
 		    or the qcom,cpr-speed-bins property as opposed to the value
 		    of the qcom,cpr-fuse-corners property.
 
+- qcom,cpr-fused-closed-loop-voltage-adjustment-map
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integer tuples which each define the CPR fused
+		    corner closed-loop offset adjustment fuse to utilize for
+		    each voltage corner in order from lowest to highest.
+
+		    The list must contain qcom,cpr-fuse-combos number of tuples
+		    in which case the tuples are matched to fuse combinations
+		    1-to-1 or qcom,cpr-speed-bins number of tuples in which case
+		    the tuples are matched to speed bins 1-to-1 or exactly 1
+		    tuple which is used regardless of the fuse combination and
+		    speed bin found on a given chip.
+
+		    Each tuple must be of the length defined in the
+		    corresponding element of the qcom,cpr-corners property or
+		    the qcom,cpr-speed-bins property.  A single tuple may only
+		    be specified if all of the corner counts in qcom,cpr-corners
+		    are the same.
+
+		    Each tuple element must be either 0 or in the range 1 to
+		    qcom,cpr-fuse-corners.  A value of 0 signifies that no fuse
+		    based adjustment should be applied to the fuse corner.
+		    Values 1 to qcom,cpr-fuse-corners denote the specific fuse
+		    corner that should be used by a given voltage corner.
+
 Note that the qcom,cpr-closed-loop-voltage-fuse-adjustment property is not
 meaningful for MMSS CPR3 regulator nodes since target quotients are not defined
 in fuses.
@@ -204,6 +230,9 @@ gfx_cpr: cpr3-ctrl@838000 {
 				<35000 0 0 0>;
 			qcom,cpr-closed-loop-voltage-adjustment =
 				<45000 0 0 0>;
+
+			qcom,cpr-fused-closed-loop-voltage-adjustment-map =
+				<2 2 0 4>;
 
 			qcom,allow-voltage-interpolation;
 			qcom,cpr-scaled-open-loop-voltage-as-ceiling;

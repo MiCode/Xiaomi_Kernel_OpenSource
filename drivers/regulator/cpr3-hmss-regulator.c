@@ -656,7 +656,7 @@ static int cpr3_msm8996_hmss_calculate_open_loop_voltages(
 
 	for (i = 1; i < vreg->fuse_corner_count; i++) {
 		if (fuse_volt[i] < fuse_volt[i - 1]) {
-			cpr3_info(vreg, "fuse corner %d voltage=%d uV < fuse corner %d voltage=%d uV; overriding: fuse corner %d voltage=%d\n",
+			cpr3_debug(vreg, "fuse corner %d voltage=%d uV < fuse corner %d voltage=%d uV; overriding: fuse corner %d voltage=%d\n",
 				i, fuse_volt[i], i - 1, fuse_volt[i - 1],
 				i, fuse_volt[i - 1]);
 			fuse_volt[i] = fuse_volt[i - 1];
@@ -923,7 +923,7 @@ static int cpr3_msm8996_hmss_set_no_interpolation_quotients(
 		ro = fuse->ro_sel[fuse_corner];
 		vreg->corner[i].target_quot[ro] = quot + quot_adjust;
 		if (quot_adjust)
-			cpr3_info(vreg, "adjusted corner %d RO%u target quot: %u --> %u (%d uV)\n",
+			cpr3_debug(vreg, "adjusted corner %d RO%u target quot: %u --> %u (%d uV)\n",
 				i, ro, quot, vreg->corner[i].target_quot[ro],
 				volt_adjust_fuse[fuse_corner] + volt_adjust[i]);
 	}
@@ -1035,7 +1035,7 @@ static int cpr3_msm8996_hmss_calculate_target_quotients(
 	quot_high[i] = quot;
 	ro = fuse->ro_sel[i];
 	if (quot_adjust)
-		cpr3_info(vreg, "adjusted fuse corner %d RO%u target quot: %llu --> %u (%d uV)\n",
+		cpr3_debug(vreg, "adjusted fuse corner %d RO%u target quot: %llu --> %u (%d uV)\n",
 			i, ro, fuse->target_quot[i], quot, volt_adjust_fuse[i]);
 	for (i = 0; i <= fmax_corner[CPR3_MSM8996_HMSS_FUSE_CORNER_MINSVS]; i++)
 		vreg->corner[i].target_quot[ro] = quot;
@@ -1074,7 +1074,7 @@ static int cpr3_msm8996_hmss_calculate_target_quotients(
 					- fuse->quot_offset[i]
 					  * MSM8996_HMSS_QUOT_OFFSET_SCALE;
 		if (quot_high[i] < quot_low[i]) {
-			cpr3_info(vreg, "quot_high[%d]=%llu < quot_low[%d]=%llu; overriding: quot_high[%d]=%llu\n",
+			cpr3_debug(vreg, "quot_high[%d]=%llu < quot_low[%d]=%llu; overriding: quot_high[%d]=%llu\n",
 				i, quot_high[i], i, quot_low[i],
 				i, quot_low[i]);
 			quot_high[i] = quot_low[i];
@@ -1088,7 +1088,7 @@ static int cpr3_msm8996_hmss_calculate_target_quotients(
 		if (quot_adjust) {
 			prev_quot = quot_high[i];
 			quot_high[i] += quot_adjust;
-			cpr3_info(vreg, "adjusted fuse corner %d RO%llu target quot: %llu --> %llu (%d uV)\n",
+			cpr3_debug(vreg, "adjusted fuse corner %d RO%llu target quot: %llu --> %llu (%d uV)\n",
 				i, fuse->ro_sel[i], prev_quot, quot_high[i],
 				volt_adjust_fuse[i]);
 		}
@@ -1100,7 +1100,7 @@ static int cpr3_msm8996_hmss_calculate_target_quotients(
 						    volt_adjust_fuse[i - 1]);
 
 		if (quot_high[i] < quot_low[i]) {
-			cpr3_info(vreg, "quot_high[%d]=%llu < quot_low[%d]=%llu after adjustment; overriding: quot_high[%d]=%llu\n",
+			cpr3_debug(vreg, "quot_high[%d]=%llu < quot_low[%d]=%llu after adjustment; overriding: quot_high[%d]=%llu\n",
 				i, quot_high[i], i, quot_low[i],
 				i, quot_low[i]);
 			quot_high[i] = quot_low[i];
@@ -1128,7 +1128,7 @@ static int cpr3_msm8996_hmss_calculate_target_quotients(
 		if (quot_adjust) {
 			prev_quot = vreg->corner[i].target_quot[ro];
 			vreg->corner[i].target_quot[ro] += quot_adjust;
-			cpr3_info(vreg, "adjusted corner %d RO%u target quot: %llu --> %u (%d uV)\n",
+			cpr3_debug(vreg, "adjusted corner %d RO%u target quot: %llu --> %u (%d uV)\n",
 				i, ro, prev_quot,
 				vreg->corner[i].target_quot[ro],
 				volt_adjust[i]);
@@ -1141,7 +1141,7 @@ static int cpr3_msm8996_hmss_calculate_target_quotients(
 		if (fuse->ro_sel[vreg->corner[i - 1].cpr_fuse_corner] == ro
 		    && vreg->corner[i].target_quot[ro]
 				< vreg->corner[i - 1].target_quot[ro]) {
-			cpr3_info(vreg, "adjusted corner %d RO%u target quot=%u < adjusted corner %d RO%u target quot=%u; overriding: corner %d RO%u target quot=%u\n",
+			cpr3_debug(vreg, "adjusted corner %d RO%u target quot=%u < adjusted corner %d RO%u target quot=%u; overriding: corner %d RO%u target quot=%u\n",
 				i, ro, vreg->corner[i].target_quot[ro],
 				i - 1, ro, vreg->corner[i - 1].target_quot[ro],
 				i, ro, vreg->corner[i - 1].target_quot[ro]);
