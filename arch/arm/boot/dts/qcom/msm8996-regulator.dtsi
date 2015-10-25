@@ -1260,6 +1260,16 @@
 				       <0 70000 70000 75000 80000 90000 95000
 					100000>;
 
+			     qcom,cpr-fused-closed-loop-voltage-adjustment-map =
+					<0 0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0 0>,
+					<0 0 0 0 0 0 0 0>,
+					<0 2 2 2 2 0 0 4>,
+					<0 2 2 2 2 0 0 4>,
+					<0 2 2 2 2 0 0 4>,
+					<0 2 2 2 2 0 0 4>;
+
 				qcom,allow-voltage-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
 
