@@ -170,6 +170,8 @@ Parent node optional properties:
 					gauge driver to detect the damaged battery
 					when the safety-timer expires by using the
 					coulomb count.
+- qcom,fg-therm-delay-us:		The time in microseconds to delay battery
+					thermistor biasing.
 
 qcom,fg-soc node required properties:
 - reg : offset and length of the PMIC peripheral register map.
