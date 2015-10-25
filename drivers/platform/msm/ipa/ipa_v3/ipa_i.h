@@ -970,7 +970,8 @@ enum ipa3_hw_features {
  * section in 128B shared memory located in offset zero of SW Partition in IPA
  * SRAM.
  * @cmdOp : CPU->HW command opcode. See IPA_CPU_2_HW_COMMANDS
- * @cmdParams : CPU->HW command parameter. The parameter filed can hold 32 bits
+ * @cmdParams : CPU->HW command parameter lower 32bit.
+ * @cmdParams_hi : CPU->HW command parameter higher 32bit.
  * of parameters (immediate parameters) and point on structure in system memory
  * (in such case the address must be accessible for HW)
  * @responseOp : HW->CPU response opcode. See IPA_HW_2_CPU_RESPONSES
