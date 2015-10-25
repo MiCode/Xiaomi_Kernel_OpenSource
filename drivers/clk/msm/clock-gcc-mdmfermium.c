@@ -226,6 +226,7 @@ static struct rcg_clk emac_0_125m_clk_src = {
 
 static struct clk_freq_tbl ftbl_emac_0_sys_25m_clk_src[] = {
 	F(      19200000,                   xo,    1,    0,     0),
+	F_EXT(	25000000,      emac_0_125m_clk,    5,    0,     0),
 	F_EXT( 125000000,      emac_0_125m_clk,    1,    0,     0),
 	F_END
 };
