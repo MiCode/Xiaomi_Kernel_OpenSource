@@ -41,6 +41,9 @@ SoCs:
 - APQ8096
   compatible = "qcom,apq8096"
 
+- APQTHORIUM
+  compatible = "qcom,apqthorium"
+
 - MDM9630
   compatible = "qcom,mdm9630"
 
@@ -151,6 +154,8 @@ compatible = "qcom,apq8096-cdp"
 compatible = "qcom,apq8096-mtp"
 compatible = "qcom,apq8096-dragonboard"
 compatible = "qcom,apq8096-liquid"
+compatible = "qcom,apqthorium-cdp"
+compatible = "qcom,apqthorium-mtp"
 compatible = "qcom,mdm9630-cdp"
 compatible = "qcom,mdm9630-mtp"
 compatible = "qcom,mdm9630-sim"
