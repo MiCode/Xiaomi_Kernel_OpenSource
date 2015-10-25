@@ -333,6 +333,17 @@ int ipa3_uc_state_check(void)
 	return 0;
 }
 
+/**
+ * ipa3_uc_loaded_check() - Check the uC has been loaded
+ *
+ * Return value: 1 if the uC is loaded, 0 otherwise
+ */
+int ipa3_uc_loaded_check(void)
+{
+	return ipa3_ctx->uc_ctx.uc_loaded;
+}
+EXPORT_SYMBOL(ipa3_uc_loaded_check);
+
 static void ipa3_uc_event_handler(enum ipa_irq_type interrupt,
 				 void *private_data,
 				 void *interrupt_data)

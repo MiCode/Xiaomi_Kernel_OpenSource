@@ -2201,6 +2201,7 @@ int ipa3_mhi_handle_ipa_config_req(struct ipa_config_req_msg_v01 *config_req);
 int ipa3_uc_interface_init(void);
 int ipa3_uc_reset_pipe(enum ipa_client_type ipa_client);
 int ipa3_uc_state_check(void);
+int ipa3_uc_loaded_check(void);
 void ipa3_uc_load_notify(void);
 int ipa3_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 		    bool polling_mode, unsigned long timeout_jiffies);
