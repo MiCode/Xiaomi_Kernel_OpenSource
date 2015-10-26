@@ -18,11 +18,15 @@
 #include <linux/workqueue.h>
 #include <linux/ratelimit.h>
 #include <linux/platform_device.h>
+#ifdef USB_QCOM_DIAG_BRIDGE
 #include <linux/smux.h>
+#endif
 #include "diag_mux.h"
 #include "diagfwd_bridge.h"
+#ifdef USB_QCOM_DIAG_BRIDGE
 #include "diagfwd_hsic.h"
 #include "diagfwd_smux.h"
+#endif
 #include "diagfwd_mhi.h"
 #include "diag_dci.h"
 
@@ -256,9 +260,11 @@ int diagfwd_bridge_init()
 	err = diag_mdm_init();
 	if (err)
 		goto fail;
+	#ifdef USB_QCOM_DIAG_BRIDGE
 	err = diag_smux_init();
 	if (err)
 		goto fail;
+	#endif
 	return 0;
 
 fail:
@@ -268,8 +274,10 @@ fail:
 
 void diagfwd_bridge_exit()
 {
+	#ifdef USB_QCOM_DIAG_BRIDGE
 	diag_hsic_exit();
 	diag_smux_exit();
+	#endif
 }
 
 int diagfwd_bridge_close(int id)
