@@ -155,7 +155,7 @@ struct msm_v4l2_event_data {
 	/*word 10*/
 	unsigned int v4l2_event_id;
 	/*word 11*/
-	unsigned int nop5;
+	unsigned int handle;
 	/*word 12*/
 	unsigned int nop6;
 	/*word 13*/
