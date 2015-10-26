@@ -227,7 +227,7 @@ static int msm_bus_of_parse_clk_array(struct device_node *dev_node,
 
 	clks = of_property_count_strings(dev_node, "clock-names");
 	if (clks < 0) {
-		pr_info("%s: No qos clks node %d\n", __func__, id);
+		dev_err(&pdev->dev, "No qos clks node %d\n", id);
 		ret = clks;
 		goto exit_of_parse_clk_array;
 	}
@@ -237,7 +237,7 @@ static int msm_bus_of_parse_clk_array(struct device_node *dev_node,
 			(clks * sizeof(struct nodeclk)), GFP_KERNEL);
 
 	if (!(*clk_arr)) {
-		pr_err("%s: Error allocating clk nodes for %d\n", __func__, id);
+		dev_err(&pdev->dev, "Error allocating clk nodes for %d\n", id);
 		ret = -ENOMEM;
 		*num_clks = 0;
 		goto exit_of_parse_clk_array;
@@ -596,14 +596,20 @@ static int get_bus_node_device_data(
 					MAX_REG_NAME, "%c", '\0');
 		}
 
-		qos_clk_node = of_find_node_by_name(dev_node,
+		qos_clk_node = of_get_child_by_name(dev_node,
 						"qcom,node-qos-clks");
 
-		if (qos_clk_node)
-			msm_bus_of_parse_clk_array(qos_clk_node, dev_node, pdev,
-			&node_device->node_qos_clks,
-			&node_device->num_node_qos_clks,
-			node_device->node_info->id);
+		if (qos_clk_node) {
+			if (msm_bus_of_parse_clk_array(qos_clk_node, dev_node,
+						pdev,
+						&node_device->node_qos_clks,
+						&node_device->num_node_qos_clks,
+						node_device->node_info->id)) {
+				dev_info(&pdev->dev, "Bypass QoS programming");
+				node_device->fabdev->bypass_qos_prg = true;
+			}
+			of_node_put(qos_clk_node);
+		}
 
 		if (msmbus_coresight_init_adhoc(pdev, dev_node))
 			dev_warn(&pdev->dev,

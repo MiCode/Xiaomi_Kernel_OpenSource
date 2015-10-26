@@ -35,7 +35,6 @@
 			label = "fab-a0noc";
 			qcom,fab-dev;
 			qcom,base-name = "a0noc-base";
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <12288>;
@@ -52,6 +51,16 @@
 			coresight-outports = <0>;
 			coresight-child-list = <&funnel_in1>;
 			coresight-child-ports = <7>;
+			aggre0-snoc-axi-no-rate-supply =<&gdsc_aggre0_noc>;
+			qcom,node-qos-clks {
+				clock-names = "aggre0-snoc-axi-no-rate",
+				"aggre0-cnoc-ahb-no-rate",
+				"aggre0-noc-mpu-cfg-no-rate";
+				clocks =
+				<&clock_gcc clk_gcc_aggre0_snoc_axi_clk>,
+				<&clock_gcc clk_gcc_aggre0_cnoc_ahb_clk>,
+				<&clock_gcc clk_gcc_aggre0_noc_mpu_cfg_ahb_clk>;
+			};
 		};
 
 		fab_a1noc: fab-a1noc {

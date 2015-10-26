@@ -1175,12 +1175,12 @@ static int msm_bus_device_probe(struct platform_device *pdev)
 		goto exit_device_probe;
 	}
 
+	/*
+	 * Setup the QoS for the nodes, don't check the error codes as we
+	 * defer QoS programming to the first transaction in cases of failure
+	 * and we want to continue the probe.
+	 */
 	ret = bus_for_each_dev(&msm_bus_type, NULL, NULL, msm_bus_dev_init_qos);
-	if (ret) {
-		MSM_BUS_ERR("%s: Error during qos init", __func__);
-		goto exit_device_probe;
-	}
-
 
 	/* Register the arb layer ops */
 	msm_bus_arb_setops_adhoc(&arb_ops);
