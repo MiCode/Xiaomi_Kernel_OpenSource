@@ -165,7 +165,6 @@ struct sdhci_msm_bus_vote {
 
 struct sdhci_msm_ice_data {
 	struct qcom_ice_variant_ops *vops;
-	struct completion async_done;
 	struct platform_device *pdev;
 	int state;
 };
