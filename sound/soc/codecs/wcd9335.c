@@ -442,13 +442,14 @@ static const struct wcd9xxx_ch tasha_tx_chs[TASHA_TX_MAX] = {
 };
 
 static const u32 vport_check_table[NUM_CODEC_DAIS] = {
-	0,					/* AIF1_PB */
-	(1 << AIF2_CAP) | (1 << AIF3_CAP),	/* AIF1_CAP */
-	0,					/* AIF2_PB */
-	(1 << AIF1_CAP) | (1 << AIF3_CAP),	/* AIF2_CAP */
-	0,					/* AIF3_PB */
-	(1 << AIF1_CAP) | (1 << AIF2_CAP),	/* AIF3_CAP */
-	0,					/* AIF_MIX1_PB */
+	0,							/* AIF1_PB */
+	BIT(AIF2_CAP) | BIT(AIF3_CAP) | BIT(AIF4_MAD_TX),	/* AIF1_CAP */
+	0,							/* AIF2_PB */
+	BIT(AIF1_CAP) | BIT(AIF3_CAP) | BIT(AIF4_MAD_TX),	/* AIF2_CAP */
+	0,							/* AIF3_PB */
+	BIT(AIF1_CAP) | BIT(AIF2_CAP) | BIT(AIF4_MAD_TX),	/* AIF3_CAP */
+	0,						     /* AIF_MIX1_PB */
+	BIT(AIF1_CAP) | BIT(AIF2_CAP) | BIT(AIF3_CAP),	     /* AIF4_MAD_TX */
 };
 
 
@@ -2164,6 +2165,8 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 			return 0;
 		}
 		break;
+	case AIF4_MAD_TX:
+		break;
 	default:
 		pr_err("Unknown AIF %d\n", dai_id);
 		mutex_unlock(&codec->mutex);
@@ -2398,6 +2401,13 @@ static const struct snd_kcontrol_new aif3_cap_mixer[] = {
 	SOC_SINGLE_EXT("SLIM TX10", SND_SOC_NOPM, TASHA_TX10, 1, 0,
 			slim_tx_mixer_get, slim_tx_mixer_put),
 	SOC_SINGLE_EXT("SLIM TX11", SND_SOC_NOPM, TASHA_TX11, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+	SOC_SINGLE_EXT("SLIM TX13", SND_SOC_NOPM, TASHA_TX13, 1, 0,
+			slim_tx_mixer_get, slim_tx_mixer_put),
+};
+
+static const struct snd_kcontrol_new aif4_mad_mixer[] = {
+	SOC_SINGLE_EXT("SLIM TX12", SND_SOC_NOPM, TASHA_TX12, 1, 0,
 			slim_tx_mixer_get, slim_tx_mixer_put),
 	SOC_SINGLE_EXT("SLIM TX13", SND_SOC_NOPM, TASHA_TX13, 1, 0,
 			slim_tx_mixer_get, slim_tx_mixer_put),
@@ -2890,6 +2900,105 @@ static int tasha_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 	return __tasha_codec_enable_slimtx(codec, event, dai);
 }
 
+static void tasha_codec_cpe_pp_set_cfg(struct snd_soc_codec *codec, int event)
+{
+	struct tasha_priv *tasha_p = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx_codec_dai_data *dai;
+	u8 bit_width, rate, buf_period;
+
+	dai = &tasha_p->dai[AIF4_MAD_TX];
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		switch (dai->bit_width) {
+		case 32:
+			bit_width = 0xF;
+			break;
+		case 24:
+			bit_width = 0xE;
+			break;
+		case 20:
+			bit_width = 0xD;
+			break;
+		case 16:
+		default:
+			bit_width = 0x0;
+			break;
+		}
+		snd_soc_update_bits(codec, WCD9335_CPE_SS_TX_PP_CFG, 0x0F,
+				    bit_width);
+
+		switch (dai->rate) {
+		case 384000:
+			rate = 0x30;
+			break;
+		case 192000:
+			rate = 0x20;
+			break;
+		case 48000:
+			rate = 0x10;
+			break;
+		case 16000:
+		default:
+			rate = 0x00;
+			break;
+		}
+		snd_soc_update_bits(codec, WCD9335_CPE_SS_TX_PP_CFG, 0x70,
+				    rate);
+
+		buf_period = (dai->rate * (dai->bit_width/8)) / (16*1000);
+		snd_soc_update_bits(codec, WCD9335_CPE_SS_TX_PP_BUF_INT_PERIOD,
+				    0xFF, buf_period);
+		dev_dbg(codec->dev, "%s: PP buffer period= 0x%x\n",
+			__func__, buf_period);
+		break;
+
+	case SND_SOC_DAPM_POST_PMD:
+		snd_soc_write(codec, WCD9335_CPE_SS_TX_PP_CFG, 0x3C);
+		snd_soc_write(codec, WCD9335_CPE_SS_TX_PP_BUF_INT_PERIOD, 0x60);
+		break;
+
+	default:
+		break;
+	}
+}
+
+/*
+ * tasha_codec_get_mad_port_id: Callback function that will be invoked
+ *	to get the port ID for MAD.
+ * @codec: Handle to the codec
+ * @port_id: cpe port_id needs to enable
+ */
+static int tasha_codec_get_mad_port_id(struct snd_soc_codec *codec,
+				       u16 *port_id)
+{
+	struct tasha_priv *tasha_p;
+	struct wcd9xxx_codec_dai_data *dai;
+	struct wcd9xxx_ch *ch;
+
+	if (!port_id || !codec)
+		return -EINVAL;
+
+	tasha_p = snd_soc_codec_get_drvdata(codec);
+	if (!tasha_p)
+		return -EINVAL;
+
+	dai = &tasha_p->dai[AIF4_MAD_TX];
+	list_for_each_entry(ch, &dai->wcd9xxx_ch_list, list) {
+		if (ch->port == TASHA_TX12)
+			*port_id = WCD_CPE_AFE_OUT_PORT_2;
+		else if (ch->port == TASHA_TX13)
+			*port_id = WCD_CPE_AFE_OUT_PORT_4;
+		else {
+			dev_err(codec->dev, "%s: invalid mad_port = %d\n",
+					__func__, ch->port);
+			return -EINVAL;
+		}
+	}
+	dev_dbg(codec->dev, "%s: port_id = %d\n", __func__, *port_id);
+
+	return 0;
+}
+
 /*
  * tasha_codec_enable_slimtx_mad: Callback function that will be invoked
  *	to setup the slave port for MAD.
@@ -2897,11 +3006,14 @@ static int tasha_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
  * @event: Indicates whether to enable or disable the slave port
  */
 static int tasha_codec_enable_slimtx_mad(struct snd_soc_codec *codec,
-					  u8 event)
+					 u8 event)
 {
 	struct tasha_priv *tasha_p = snd_soc_codec_get_drvdata(codec);
 	struct wcd9xxx_codec_dai_data *dai;
+	struct wcd9xxx_ch *ch;
 	int dapm_event = SND_SOC_DAPM_POST_PMU;
+	u16 port = 0;
+	int ret = 0;
 
 	dai = &tasha_p->dai[AIF4_MAD_TX];
 
@@ -2911,9 +3023,40 @@ static int tasha_codec_enable_slimtx_mad(struct snd_soc_codec *codec,
 	dev_dbg(codec->dev,
 		"%s: mad_channel, event = 0x%x\n",
 		 __func__, event);
-	return __tasha_codec_enable_slimtx(codec, dapm_event, dai);
-}
 
+	list_for_each_entry(ch, &dai->wcd9xxx_ch_list, list) {
+		dev_dbg(codec->dev, "%s: mad_port = %d, event = 0x%x\n",
+			__func__, ch->port, event);
+		if (ch->port == TASHA_TX13) {
+			tasha_codec_cpe_pp_set_cfg(codec, dapm_event);
+			port = TASHA_TX13;
+			break;
+		}
+	}
+
+	ret = __tasha_codec_enable_slimtx(codec, dapm_event, dai);
+
+	if (port == TASHA_TX13) {
+		switch (dapm_event) {
+		case SND_SOC_DAPM_POST_PMU:
+			snd_soc_update_bits(codec,
+				WCD9335_DATA_HUB_DATA_HUB_SB_TX13_INP_CFG,
+				0x03, 0x02);
+			snd_soc_update_bits(codec, WCD9335_CPE_SS_CFG,
+					    0x80, 0x80);
+			break;
+		case SND_SOC_DAPM_POST_PMD:
+			snd_soc_update_bits(codec,
+				WCD9335_DATA_HUB_DATA_HUB_SB_TX13_INP_CFG,
+				0x03, 0x00);
+			snd_soc_update_bits(codec, WCD9335_CPE_SS_CFG,
+					    0x80, 0x00);
+			break;
+		}
+	}
+
+	return ret;
+}
 
 static int tasha_put_iir_band_audio_mixer(
 					struct snd_kcontrol *kcontrol,
@@ -4854,10 +4997,12 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"MAD_SEL MUX", "MSM", "MADINPUT"},
 	{"MADONOFF", "Switch", "MAD_SEL MUX"},
 	{"MAD_BROADCAST", "Switch", "MAD_SEL MUX"},
+	{"TX13 INP MUX", "CPE_TX_PP", "MADONOFF"},
 
-	{"AIF4", "Switch", "TX13 INP MUX"},
+	{"AIF4_MAD Mixer", "SLIM TX12", "MADONOFF"},
+	{"AIF4_MAD Mixer", "SLIM TX13", "TX13 INP MUX"},
+	{"AIF4 MAD", NULL, "AIF4_MAD Mixer"},
 	{"AIF4 MAD", NULL, "AIF4"},
-	{"AIF4 MAD", NULL, "MADONOFF"},
 
 	/* SLIMBUS Connections */
 	{"AIF1 CAP", NULL, "AIF1_CAP Mixer"},
@@ -7480,7 +7625,7 @@ static const char * const sb_tx13_mux_text[] = {
 };
 
 static const char * const tx13_inp_mux_text[] = {
-	"CDC_DEC_5", "MAD_BRDCST"
+	"CDC_DEC_5", "MAD_BRDCST", "CPE_TX_PP"
 };
 
 static const char * const iir_inp_mux_text[] = {
@@ -7961,7 +8106,7 @@ static const struct soc_enum sb_tx13_mux_enum =
 			sb_tx13_mux_text);
 
 static const struct soc_enum tx13_inp_mux_enum =
-	SOC_ENUM_SINGLE(WCD9335_DATA_HUB_DATA_HUB_SB_TX13_INP_CFG, 0, 2,
+	SOC_ENUM_SINGLE(WCD9335_DATA_HUB_DATA_HUB_SB_TX13_INP_CFG, 0, 3,
 			tx13_inp_mux_text);
 
 static const struct soc_enum rx_mix_tx0_mux_enum =
@@ -9014,6 +9159,9 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("AIF3_CAP Mixer", SND_SOC_NOPM, AIF3_CAP, 0,
 		aif3_cap_mixer, ARRAY_SIZE(aif3_cap_mixer)),
 
+	SND_SOC_DAPM_MIXER("AIF4_MAD Mixer", SND_SOC_NOPM, AIF4_MAD_TX, 0,
+		aif4_mad_mixer, ARRAY_SIZE(aif4_mad_mixer)),
+
 	SND_SOC_DAPM_INPUT("VIINPUT"),
 	/* Digital Mic Inputs */
 	SND_SOC_DAPM_ADC_E("DMIC0", NULL, SND_SOC_NOPM, 0, 0,
@@ -9336,11 +9484,15 @@ static int tasha_set_channel_map(struct snd_soc_dai *dai,
 	if (tasha->intf_type == WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
 		wcd9xxx_init_slimslave(core, core->slim->laddr,
 					   tx_num, tx_slot, rx_num, rx_slot);
-		/* Reserve TX12 for MAD data channel */
+		/* Reserve TX12/TX13 for MAD data channel */
 		dai_data = &tasha->dai[AIF4_MAD_TX];
 		if (dai_data) {
-			list_add_tail(&core->tx_chs[TASHA_TX12].list,
-				      &dai_data->wcd9xxx_ch_list);
+			if (TASHA_IS_2_0(tasha->wcd9xxx->version))
+				list_add_tail(&core->tx_chs[TASHA_TX13].list,
+					      &dai_data->wcd9xxx_ch_list);
+			else
+				list_add_tail(&core->tx_chs[TASHA_TX12].list,
+					      &dai_data->wcd9xxx_ch_list);
 		}
 	}
 	return 0;
@@ -9641,6 +9793,9 @@ static int tasha_hw_params(struct snd_pcm_substream *substream,
 		case 192000:
 			tx_fs_rate = 6;
 			break;
+		case 384000:
+			tx_fs_rate = 7;
+			break;
 		};
 		if (tx_fs_rate < 0) {
 			dev_err(tasha->dev, "%s: Invalid TX sample rate: %d\n",
@@ -9811,10 +9966,11 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 		.id = AIF4_MAD_TX,
 		.capture = {
 			.stream_name = "AIF4 MAD TX",
-			.rates = SNDRV_PCM_RATE_16000,
-			.formats = TASHA_FORMATS_S16_S24_LE,
+			.rates = SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_48000 |
+				 SNDRV_PCM_RATE_192000 | SNDRV_PCM_RATE_384000,
+			.formats = TASHA_FORMATS_S16_S24_S32_LE,
 			.rate_min = 16000,
-			.rate_max = 16000,
+			.rate_max = 384000,
 			.channels_min = 1,
 			.channels_max = 1,
 		},
@@ -11017,6 +11173,7 @@ static int tasha_cpe_err_irq_control(struct snd_soc_codec *codec,
 static const struct wcd_cpe_cdc_cb cpe_cb = {
 	.cdc_clk_en = tasha_codec_internal_rco_ctrl,
 	.cpe_clk_en = tasha_codec_cpe_fll_enable,
+	.get_afe_out_port_id = tasha_codec_get_mad_port_id,
 	.lab_cdc_ch_ctl = tasha_codec_enable_slimtx_mad,
 	.cdc_ext_clk = tasha_cdc_mclk_enable,
 	.bus_vote_bw = tasha_codec_vote_max_bw,
