@@ -4028,20 +4028,20 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 		return -EPROBE_DEFER;
 	}
 
-	ret = ipa3_arm_iommu_attach_device(cb->dev, cb->mapping);
-	if (ret) {
-		IPAERR("could not attach device ret=%d\n", ret);
-		return ret;
-	}
-
 	if (smmu_disable_htw) {
 		if (iommu_domain_set_attr(cb->mapping->domain,
 				DOMAIN_ATTR_COHERENT_HTW_DISABLE,
 				 &disable_htw)) {
 			IPAERR("couldn't disable coherent HTW\n");
-			ipa3_arm_iommu_detach_device(cb->dev);
 			return -EIO;
 		}
+	}
+
+
+	ret = ipa3_arm_iommu_attach_device(cb->dev, cb->mapping);
+	if (ret) {
+		IPAERR("could not attach device ret=%d\n", ret);
+		return ret;
 	}
 
 	cb->valid = true;
