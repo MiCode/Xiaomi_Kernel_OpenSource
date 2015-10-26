@@ -194,6 +194,8 @@ struct rpm_regulator {
 	int			min_uV;
 	int			max_uV;
 	u32			pin_ctrl_mask[RPM_VREG_PIN_CTRL_STATE_COUNT];
+	enum rpm_regulator_param_index voltage_index;
+	int			voltage_offset;
 };
 
 /*
@@ -776,19 +778,38 @@ static int rpm_vreg_disable(struct regulator_dev *rdev)
 	return rc;
 }
 
+#define RPM_VREG_SET_VOLTAGE(_regulator, _val) \
+{ \
+	(_regulator)->req.param[(_regulator)->voltage_index] = _val; \
+	(_regulator)->req.modified |= BIT((_regulator)->voltage_index); \
+} \
+
 static int rpm_vreg_set_voltage(struct regulator_dev *rdev, int min_uV,
 				int max_uV, unsigned *selector)
 {
 	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
 	int rc = 0;
+	int voltage;
 	u32 prev_voltage;
+
+	voltage = min_uV - reg->voltage_offset;
+
+	if (voltage < params[reg->voltage_index].min
+	    || voltage > params[reg->voltage_index].max) {
+		vreg_err(reg, "voltage=%d for key=%s is not within allowed range: [%u, %u]\n",
+			voltage, params[reg->voltage_index].name,
+			params[reg->voltage_index].min,
+			params[reg->voltage_index].max);
+		return -EINVAL;
+	}
 
 	rpm_vreg_lock(reg->rpm_vreg);
 
-	prev_voltage = reg->req.param[RPM_REGULATOR_PARAM_VOLTAGE];
-	RPM_VREG_SET_PARAM(reg, VOLTAGE, min_uV);
+	prev_voltage = reg->req.param[reg->voltage_index];
+	RPM_VREG_SET_VOLTAGE(reg, voltage);
 
-	rpm_vreg_check_param_max(reg, RPM_REGULATOR_PARAM_VOLTAGE, max_uV);
+	rpm_vreg_check_param_max(reg, reg->voltage_index,
+				max_uV - reg->voltage_offset);
 
 	/*
 	 * Only send a new voltage if the regulator is currently enabled or
@@ -800,8 +821,9 @@ static int rpm_vreg_set_voltage(struct regulator_dev *rdev, int min_uV,
 		rc = rpm_vreg_aggregate_requests(reg);
 
 	if (rc) {
-		vreg_err(reg, "set voltage failed, rc=%d", rc);
-		RPM_VREG_SET_PARAM(reg, VOLTAGE, prev_voltage);
+		vreg_err(reg, "set voltage for key=%s failed, rc=%d",
+			params[reg->voltage_index].name, rc);
+		RPM_VREG_SET_VOLTAGE(reg, prev_voltage);
 	}
 
 	rpm_vreg_unlock(reg->rpm_vreg);
@@ -814,231 +836,11 @@ static int rpm_vreg_get_voltage(struct regulator_dev *rdev)
 	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
 	int uV;
 
-	uV = reg->req.param[RPM_REGULATOR_PARAM_VOLTAGE];
+	uV = reg->req.param[reg->voltage_index] + reg->voltage_offset;
 	if (uV == 0)
 		uV = VOLTAGE_UNKNOWN;
 
 	return uV;
-}
-
-static int rpm_vreg_set_voltage_corner(struct regulator_dev *rdev, int min_uV,
-				int max_uV, unsigned *selector)
-{
-	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
-	int rc = 0;
-	int corner;
-	u32 prev_corner;
-
-	/*
-	 * Translate from values which work as inputs in the
-	 * regulator_set_voltage function to the actual corner values
-	 * sent to the RPM.
-	 */
-	corner = min_uV - RPM_REGULATOR_CORNER_NONE;
-
-	if (corner < params[RPM_REGULATOR_PARAM_CORNER].min
-	    || corner > params[RPM_REGULATOR_PARAM_CORNER].max) {
-		vreg_err(reg, "corner=%d is not within allowed range: [%u, %u]\n",
-			corner, params[RPM_REGULATOR_PARAM_CORNER].min,
-			params[RPM_REGULATOR_PARAM_CORNER].max);
-		return -EINVAL;
-	}
-
-	rpm_vreg_lock(reg->rpm_vreg);
-
-	prev_corner = reg->req.param[RPM_REGULATOR_PARAM_CORNER];
-	RPM_VREG_SET_PARAM(reg, CORNER, corner);
-
-	rpm_vreg_check_param_max(reg, RPM_REGULATOR_PARAM_CORNER,
-				max_uV - RPM_REGULATOR_CORNER_NONE);
-
-	/*
-	 * Only send a new voltage corner if the regulator is currently enabled
-	 * or if the regulator has been configured to always send voltage
-	 * updates.
-	 */
-	if (reg->always_send_voltage
-	    || rpm_vreg_active_or_sleep_enabled(reg->rpm_vreg)
-	    || rpm_vreg_shared_active_or_sleep_enabled_valid(reg->rpm_vreg))
-		rc = rpm_vreg_aggregate_requests(reg);
-
-	if (rc) {
-		vreg_err(reg, "set voltage corner failed, rc=%d", rc);
-		RPM_VREG_SET_PARAM(reg, CORNER, prev_corner);
-	}
-
-	rpm_vreg_unlock(reg->rpm_vreg);
-
-	return rc;
-}
-
-static int rpm_vreg_get_voltage_corner(struct regulator_dev *rdev)
-{
-	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
-
-	return reg->req.param[RPM_REGULATOR_PARAM_CORNER]
-		+ RPM_REGULATOR_CORNER_NONE;
-}
-
-static int rpm_vreg_set_voltage_floor_corner(struct regulator_dev *rdev,
-				int min_uV, int max_uV, unsigned *selector)
-{
-	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
-	int rc = 0;
-	int corner;
-	u32 prev_corner;
-
-	/*
-	 * Translate from values which work as inputs in the
-	 * regulator_set_voltage function to the actual corner values
-	 * sent to the RPM.
-	 */
-	corner = min_uV - RPM_REGULATOR_CORNER_NONE;
-
-	if (corner < params[RPM_REGULATOR_PARAM_FLOOR_CORNER].min
-	    || corner > params[RPM_REGULATOR_PARAM_FLOOR_CORNER].max) {
-		vreg_err(reg, "corner=%d is not within allowed range: [%u, %u]\n",
-			corner, params[RPM_REGULATOR_PARAM_FLOOR_CORNER].min,
-			params[RPM_REGULATOR_PARAM_FLOOR_CORNER].max);
-		return -EINVAL;
-	}
-
-	rpm_vreg_lock(reg->rpm_vreg);
-
-	prev_corner = reg->req.param[RPM_REGULATOR_PARAM_FLOOR_CORNER];
-	RPM_VREG_SET_PARAM(reg, FLOOR_CORNER, corner);
-
-	rpm_vreg_check_param_max(reg, RPM_REGULATOR_PARAM_FLOOR_CORNER,
-				max_uV - RPM_REGULATOR_CORNER_NONE);
-
-	/*
-	 * Only send a new voltage floor corner if the regulator is currently
-	 * enabled or if the regulator has been configured to always send
-	 * voltage updates.
-	 */
-	if (reg->always_send_voltage
-	    || rpm_vreg_active_or_sleep_enabled(reg->rpm_vreg)
-	    || rpm_vreg_shared_active_or_sleep_enabled_valid(reg->rpm_vreg))
-		rc = rpm_vreg_aggregate_requests(reg);
-
-	if (rc) {
-		vreg_err(reg, "set voltage corner failed, rc=%d", rc);
-		RPM_VREG_SET_PARAM(reg, FLOOR_CORNER, prev_corner);
-	}
-
-	rpm_vreg_unlock(reg->rpm_vreg);
-
-	return rc;
-}
-
-static int rpm_vreg_get_voltage_floor_corner(struct regulator_dev *rdev)
-{
-	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
-
-	return reg->req.param[RPM_REGULATOR_PARAM_FLOOR_CORNER]
-		+ RPM_REGULATOR_CORNER_NONE;
-}
-
-static int rpm_vreg_set_voltage_level(struct regulator_dev *rdev, int min_uV,
-				int max_uV, unsigned *selector)
-{
-	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
-	int rc = 0;
-	int level;
-	u32 prev_level;
-
-	level = min_uV;
-	if (level < params[RPM_REGULATOR_PARAM_LEVEL].min
-	    || level > params[RPM_REGULATOR_PARAM_LEVEL].max) {
-		vreg_err(reg, "level=%d is not within allowed range: [%u, %u]\n",
-			level, params[RPM_REGULATOR_PARAM_LEVEL].min,
-			params[RPM_REGULATOR_PARAM_LEVEL].max);
-		return -EINVAL;
-	}
-
-	rpm_vreg_lock(reg->rpm_vreg);
-
-	prev_level = reg->req.param[RPM_REGULATOR_PARAM_LEVEL];
-	RPM_VREG_SET_PARAM(reg, LEVEL, level);
-
-	rpm_vreg_check_param_max(reg, RPM_REGULATOR_PARAM_LEVEL, max_uV);
-
-	/*
-	 * Only send a new voltage level if the regulator is currently enabled
-	 * or if the regulator has been configured to always send voltage
-	 * updates.
-	 */
-	if (reg->always_send_voltage
-	    || rpm_vreg_active_or_sleep_enabled(reg->rpm_vreg)
-	    || rpm_vreg_shared_active_or_sleep_enabled_valid(reg->rpm_vreg))
-		rc = rpm_vreg_aggregate_requests(reg);
-
-	if (rc) {
-		vreg_err(reg, "set voltage level failed, rc=%d", rc);
-		RPM_VREG_SET_PARAM(reg, LEVEL, prev_level);
-	}
-
-	rpm_vreg_unlock(reg->rpm_vreg);
-
-	return rc;
-}
-
-static int rpm_vreg_get_voltage_level(struct regulator_dev *rdev)
-{
-	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
-
-	return reg->req.param[RPM_REGULATOR_PARAM_LEVEL];
-}
-
-static int rpm_vreg_set_voltage_floor_level(struct regulator_dev *rdev,
-				int min_uV, int max_uV, unsigned *selector)
-{
-	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
-	int rc = 0;
-	int level;
-	u32 prev_level;
-
-	level = min_uV;
-	if (level < params[RPM_REGULATOR_PARAM_FLOOR_LEVEL].min
-	    || level > params[RPM_REGULATOR_PARAM_FLOOR_LEVEL].max) {
-		vreg_err(reg, "level=%d is not within allowed range: [%u, %u]\n",
-			level, params[RPM_REGULATOR_PARAM_FLOOR_LEVEL].min,
-			params[RPM_REGULATOR_PARAM_FLOOR_LEVEL].max);
-		return -EINVAL;
-	}
-
-	rpm_vreg_lock(reg->rpm_vreg);
-
-	prev_level = reg->req.param[RPM_REGULATOR_PARAM_FLOOR_LEVEL];
-	RPM_VREG_SET_PARAM(reg, FLOOR_LEVEL, level);
-
-	rpm_vreg_check_param_max(reg, RPM_REGULATOR_PARAM_FLOOR_LEVEL, max_uV);
-
-	/*
-	 * Only send a new voltage floor level if the regulator is currently
-	 * enabled or if the regulator has been configured to always send
-	 * voltage updates.
-	 */
-	if (reg->always_send_voltage
-	    || rpm_vreg_active_or_sleep_enabled(reg->rpm_vreg)
-	    || rpm_vreg_shared_active_or_sleep_enabled_valid(reg->rpm_vreg))
-		rc = rpm_vreg_aggregate_requests(reg);
-
-	if (rc) {
-		vreg_err(reg, "set voltage floor level failed, rc=%d", rc);
-		RPM_VREG_SET_PARAM(reg, FLOOR_CORNER, prev_level);
-	}
-
-	rpm_vreg_unlock(reg->rpm_vreg);
-
-	return rc;
-}
-
-static int rpm_vreg_get_voltage_floor_level(struct regulator_dev *rdev)
-{
-	struct rpm_regulator *reg = rdev_get_drvdata(rdev);
-
-	return reg->req.param[RPM_REGULATOR_PARAM_FLOOR_LEVEL];
 }
 
 static int rpm_vreg_set_mode(struct regulator_dev *rdev, unsigned int mode)
@@ -1478,108 +1280,12 @@ static struct regulator_ops ldo_ops = {
 	.enable_time		= rpm_vreg_enable_time,
 };
 
-static struct regulator_ops ldo_corner_ops = {
-	.enable			= rpm_vreg_enable,
-	.disable		= rpm_vreg_disable,
-	.is_enabled		= rpm_vreg_is_enabled,
-	.set_voltage		= rpm_vreg_set_voltage_corner,
-	.get_voltage		= rpm_vreg_get_voltage_corner,
-	.set_mode		= rpm_vreg_set_mode,
-	.get_mode		= rpm_vreg_get_mode,
-	.get_optimum_mode	= rpm_vreg_get_optimum_mode,
-	.enable_time		= rpm_vreg_enable_time,
-};
-
-static struct regulator_ops ldo_floor_corner_ops = {
-	.enable			= rpm_vreg_enable,
-	.disable		= rpm_vreg_disable,
-	.is_enabled		= rpm_vreg_is_enabled,
-	.set_voltage		= rpm_vreg_set_voltage_floor_corner,
-	.get_voltage		= rpm_vreg_get_voltage_floor_corner,
-	.set_mode		= rpm_vreg_set_mode,
-	.get_mode		= rpm_vreg_get_mode,
-	.get_optimum_mode	= rpm_vreg_get_optimum_mode,
-	.enable_time		= rpm_vreg_enable_time,
-};
-
-static struct regulator_ops ldo_level_ops = {
-	.enable			= rpm_vreg_enable,
-	.disable		= rpm_vreg_disable,
-	.is_enabled		= rpm_vreg_is_enabled,
-	.set_voltage		= rpm_vreg_set_voltage_level,
-	.get_voltage		= rpm_vreg_get_voltage_level,
-	.set_mode		= rpm_vreg_set_mode,
-	.get_mode		= rpm_vreg_get_mode,
-	.get_optimum_mode	= rpm_vreg_get_optimum_mode,
-	.enable_time		= rpm_vreg_enable_time,
-};
-
-static struct regulator_ops ldo_floor_level_ops = {
-	.enable			= rpm_vreg_enable,
-	.disable		= rpm_vreg_disable,
-	.is_enabled		= rpm_vreg_is_enabled,
-	.set_voltage		= rpm_vreg_set_voltage_floor_level,
-	.get_voltage		= rpm_vreg_get_voltage_floor_level,
-	.set_mode		= rpm_vreg_set_mode,
-	.get_mode		= rpm_vreg_get_mode,
-	.get_optimum_mode	= rpm_vreg_get_optimum_mode,
-	.enable_time		= rpm_vreg_enable_time,
-};
-
 static struct regulator_ops smps_ops = {
 	.enable			= rpm_vreg_enable,
 	.disable		= rpm_vreg_disable,
 	.is_enabled		= rpm_vreg_is_enabled,
 	.set_voltage		= rpm_vreg_set_voltage,
 	.get_voltage		= rpm_vreg_get_voltage,
-	.set_mode		= rpm_vreg_set_mode,
-	.get_mode		= rpm_vreg_get_mode,
-	.get_optimum_mode	= rpm_vreg_get_optimum_mode,
-	.enable_time		= rpm_vreg_enable_time,
-};
-
-static struct regulator_ops smps_corner_ops = {
-	.enable			= rpm_vreg_enable,
-	.disable		= rpm_vreg_disable,
-	.is_enabled		= rpm_vreg_is_enabled,
-	.set_voltage		= rpm_vreg_set_voltage_corner,
-	.get_voltage		= rpm_vreg_get_voltage_corner,
-	.set_mode		= rpm_vreg_set_mode,
-	.get_mode		= rpm_vreg_get_mode,
-	.get_optimum_mode	= rpm_vreg_get_optimum_mode,
-	.enable_time		= rpm_vreg_enable_time,
-};
-
-static struct regulator_ops smps_floor_corner_ops = {
-	.enable			= rpm_vreg_enable,
-	.disable		= rpm_vreg_disable,
-	.is_enabled		= rpm_vreg_is_enabled,
-	.set_voltage		= rpm_vreg_set_voltage_floor_corner,
-	.get_voltage		= rpm_vreg_get_voltage_floor_corner,
-	.set_mode		= rpm_vreg_set_mode,
-	.get_mode		= rpm_vreg_get_mode,
-	.get_optimum_mode	= rpm_vreg_get_optimum_mode,
-	.enable_time		= rpm_vreg_enable_time,
-};
-
-static struct regulator_ops smps_level_ops = {
-	.enable			= rpm_vreg_enable,
-	.disable		= rpm_vreg_disable,
-	.is_enabled		= rpm_vreg_is_enabled,
-	.set_voltage		= rpm_vreg_set_voltage_level,
-	.get_voltage		= rpm_vreg_get_voltage_level,
-	.set_mode		= rpm_vreg_set_mode,
-	.get_mode		= rpm_vreg_get_mode,
-	.get_optimum_mode	= rpm_vreg_get_optimum_mode,
-	.enable_time		= rpm_vreg_enable_time,
-};
-
-static struct regulator_ops smps_floor_level_ops = {
-	.enable			= rpm_vreg_enable,
-	.disable		= rpm_vreg_disable,
-	.is_enabled		= rpm_vreg_is_enabled,
-	.set_voltage		= rpm_vreg_set_voltage_floor_level,
-	.get_voltage		= rpm_vreg_get_voltage_floor_level,
 	.set_mode		= rpm_vreg_set_mode,
 	.get_mode		= rpm_vreg_get_mode,
 	.get_optimum_mode	= rpm_vreg_get_optimum_mode,
@@ -1671,28 +1377,23 @@ static int rpm_vreg_resource_remove(struct platform_device *pdev)
 }
 
 /*
- * Switch regulator ops if one of the following properties is present
- * for the device node (SMPS and LDO only):
- * use corner ops if 'qcom,use-voltage-corner' is present
- * use floor corner ops if 'qcom,use-voltage-floor-corner' is present
- * use level ops if 'qcom,use-voltage-level' present
- * use floor level ops if 'qcom,use-voltage-floor-level' is present
+ * Set voltage index and offset (SMPS and LDO only)
  */
-static int rpm_vreg_device_set_regulator_ops(struct device *dev,
+static int rpm_vreg_device_set_voltage_index(struct device *dev,
 					struct rpm_regulator *reg, int type)
 {
 	bool choosen = false;
 	struct device_node *node = dev->of_node;
 
-	reg->rdesc.ops = vreg_ops[type];
-
 	if ((type != RPM_REGULATOR_TYPE_SMPS) &&
 			(type != RPM_REGULATOR_TYPE_LDO))
 		return 0;
 
+	reg->voltage_index = RPM_REGULATOR_PARAM_VOLTAGE;
+
 	if (of_property_read_bool(node, "qcom,use-voltage-corner")) {
-		reg->rdesc.ops = (type == RPM_REGULATOR_TYPE_SMPS) ?
-					&smps_corner_ops : &ldo_corner_ops;
+		reg->voltage_index = RPM_REGULATOR_PARAM_CORNER;
+		reg->voltage_offset = RPM_REGULATOR_CORNER_NONE;
 		choosen = true;
 	}
 
@@ -1700,8 +1401,8 @@ static int rpm_vreg_device_set_regulator_ops(struct device *dev,
 		if (choosen)
 			goto invalid;
 
-		reg->rdesc.ops = (type == RPM_REGULATOR_TYPE_SMPS) ?
-				&smps_floor_corner_ops : &ldo_floor_corner_ops;
+		reg->voltage_index = RPM_REGULATOR_PARAM_FLOOR_CORNER;
+		reg->voltage_offset = RPM_REGULATOR_CORNER_NONE;
 		choosen = true;
 	}
 
@@ -1709,8 +1410,7 @@ static int rpm_vreg_device_set_regulator_ops(struct device *dev,
 		if (choosen)
 			goto invalid;
 
-		reg->rdesc.ops = (type == RPM_REGULATOR_TYPE_SMPS) ?
-					&smps_level_ops : &ldo_level_ops;
+		reg->voltage_index = RPM_REGULATOR_PARAM_LEVEL;
 		choosen = true;
 	}
 
@@ -1718,8 +1418,7 @@ static int rpm_vreg_device_set_regulator_ops(struct device *dev,
 		if (choosen)
 			goto invalid;
 
-		reg->rdesc.ops = (type == RPM_REGULATOR_TYPE_SMPS) ?
-				&smps_floor_level_ops : &ldo_floor_level_ops;
+		reg->voltage_index = RPM_REGULATOR_PARAM_FLOOR_LEVEL;
 	}
 
 	return 0;
@@ -1775,8 +1474,9 @@ static int rpm_vreg_device_probe(struct platform_device *pdev)
 	reg->rpm_vreg		= rpm_vreg;
 	reg->rdesc.owner	= THIS_MODULE;
 	reg->rdesc.type		= REGULATOR_VOLTAGE;
+	reg->rdesc.ops		= vreg_ops[regulator_type];
 
-	rc = rpm_vreg_device_set_regulator_ops(dev, reg, regulator_type);
+	rc = rpm_vreg_device_set_voltage_index(dev, reg, regulator_type);
 	if (rc)
 		goto fail_free_reg;
 
