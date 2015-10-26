@@ -723,6 +723,12 @@ static struct snd_soc_component *soc_find_component(
 {
 	struct snd_soc_component *component;
 
+	if (!of_node && !name) {
+		pr_err("%s: Either of_node or name must be valid\n",
+			__func__);
+		return NULL;
+	}
+
 	lockdep_assert_held(&client_mutex);
 
 	list_for_each_entry(component, &component_list, list) {
