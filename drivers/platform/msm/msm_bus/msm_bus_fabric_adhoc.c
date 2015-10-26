@@ -119,10 +119,10 @@ static int bus_get_reg(struct nodeclk *nclk, struct device *dev)
 
 		nclk->reg = devm_regulator_get(dev, nclk->reg_name);
 		if (IS_ERR_OR_NULL(nclk->reg)) {
-			dev_err(dev, "Error: Failed to get reg %s",
-							nclk->reg_name);
 			ret =
 			(IS_ERR(nclk->reg) ? PTR_ERR(nclk->reg) : -ENXIO);
+			dev_err(dev, "Error: Failed to get regulator %s:%d\n",
+							nclk->reg_name, ret);
 		} else {
 			dev_dbg(dev, "Succesfully got regulator for %d\n",
 				node_dev->node_info->id);
@@ -149,7 +149,8 @@ static int bus_enable_reg(struct nodeclk *nclk)
 
 	ret = regulator_enable(nclk->reg);
 	if (ret) {
-		MSM_BUS_ERR("Failed to enable regulator for\n");
+		MSM_BUS_ERR("Failed to enable regulator for %s\n",
+							nclk->reg_name);
 		goto exit_bus_enable_reg;
 	}
 	pr_debug("%s: Enabled Reg\n", __func__);
@@ -186,7 +187,8 @@ static int enable_nodeclk(struct nodeclk *nclk, struct device *dev)
 			if (IS_ERR_OR_NULL(nclk->reg)) {
 				ret = bus_get_reg(nclk, dev);
 				if (ret) {
-					dev_err(dev, "\nFailed to get reg %d",
+					dev_dbg(dev,
+						"Failed to get reg.Err %d\n",
 									ret);
 					goto exit_enable_nodeclk;
 				}
@@ -194,7 +196,7 @@ static int enable_nodeclk(struct nodeclk *nclk, struct device *dev)
 
 			ret = bus_enable_reg(nclk);
 			if (ret) {
-				dev_err(dev, "\nFailed to enable reg %d",
+				dev_dbg(dev, "Failed to enable reg. Err %d\n",
 									ret);
 				goto exit_enable_nodeclk;
 			}
@@ -542,13 +544,13 @@ static int msm_bus_enable_node_qos_clk(struct msm_bus_node_device_type *node)
 			ret = setrate_nodeclk(&bus_node->node_qos_clks[i],
 								rounded_rate);
 			if (ret)
-				MSM_BUS_ERR("%s: Failed set rate clk, node %d",
+				MSM_BUS_DBG("%s: Failed set rate clk,node %d\n",
 					__func__, node->node_info->id);
 		}
 		ret = enable_nodeclk(&bus_node->node_qos_clks[i],
 					node->node_info->bus_device);
 		if (ret) {
-			pr_err("%s: Failed to set Qos Clks ret %d",
+			MSM_BUS_DBG("%s: Failed to set Qos Clks ret %d\n",
 				__func__, ret);
 			msm_bus_disable_node_qos_clk(node);
 			goto exit_enable_node_qos_clk;
@@ -572,7 +574,7 @@ int msm_bus_enable_limiter(struct msm_bus_node_device_type *node_dev,
 	}
 
 	if (!node_dev->ap_owned) {
-		MSM_BUS_ERR("Device is not AP owned %d.",
+		MSM_BUS_ERR("Device is not AP owned %d",
 						node_dev->node_info->id);
 		ret = -ENXIO;
 		goto exit_enable_limiter;
@@ -626,7 +628,7 @@ static int msm_bus_dev_init_qos(struct device *dev, void *data)
 			to_msm_bus_node(node_dev->node_info->bus_device);
 
 		if (!bus_node_info) {
-			MSM_BUS_ERR("%s: Unable to get bus device infofor %d",
+			MSM_BUS_ERR("%s: Unable to get bus device info for %d",
 				__func__,
 				node_dev->node_info->id);
 			ret = -ENXIO;
@@ -645,7 +647,7 @@ static int msm_bus_dev_init_qos(struct device *dev, void *data)
 
 				ret = msm_bus_enable_node_qos_clk(node_dev);
 				if (ret < 0) {
-					MSM_BUS_ERR("Can't Enable QoS clk %d",
+					MSM_BUS_DBG("Can't Enable QoS clk %d\n",
 					node_dev->node_info->id);
 					node_dev->node_info->defer_qos = true;
 					goto exit_init_qos;
@@ -740,7 +742,7 @@ static int msm_bus_init_clk(struct device *bus_dev,
 				pdata->clk[ctx].reg_name, MAX_REG_NAME);
 			node_dev->clk[ctx].reg = NULL;
 			bus_get_reg(&node_dev->clk[ctx], bus_dev);
-			pr_info("%s: Valid node clk node %d ctx %d\n",
+			MSM_BUS_DBG("%s: Valid node clk node %d ctx %d\n",
 				__func__, node_dev->node_info->id, ctx);
 		}
 	}
@@ -755,7 +757,7 @@ static int msm_bus_init_clk(struct device *bus_dev,
 		strlcpy(node_dev->bus_qos_clk.reg_name,
 			pdata->bus_qos_clk.reg_name, MAX_REG_NAME);
 		node_dev->bus_qos_clk.reg = NULL;
-		pr_info("%s: Valid bus qos clk node %d\n", __func__,
+		MSM_BUS_DBG("%s: Valid bus qos clk node %d\n", __func__,
 						node_dev->node_info->id);
 	}
 
@@ -780,7 +782,7 @@ static int msm_bus_init_clk(struct device *bus_dev,
 			strlcpy(node_dev->node_qos_clks[i].reg_name,
 				pdata->node_qos_clks[i].reg_name, MAX_REG_NAME);
 			node_dev->node_qos_clks[i].reg = NULL;
-			pr_info("%s: Valid qos clk[%d] node %d %d Reg%s\n",
+			MSM_BUS_DBG("%s: Valid qos clk[%d] node %d %d Reg%s\n",
 					__func__, i,
 					node_dev->node_info->id,
 					node_dev->num_node_qos_clks,

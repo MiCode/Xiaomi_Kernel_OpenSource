@@ -173,8 +173,6 @@ int msmbus_coresight_init_adhoc(struct platform_device *pdev,
 		goto err0;
 	}
 
-	dev_info(dev, "msmbus_coresight initialized\n");
-
 	return 0;
 err0:
 	devm_kfree(dev, desc);
