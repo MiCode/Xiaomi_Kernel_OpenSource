@@ -170,6 +170,18 @@
 		/delete-property/ qcom,reset-clock-control;
 		/delete-property/ qcom,regulator-scaling;
 	};
+
+	qcom,msm-thermal {
+		vdd-mx-st-supply = <&pm8950_s6_floor_level>;
+
+		qcom,vdd-mx-rstr {
+			qcom,vdd-rstr-reg = "vdd-mx-st";
+			qcom,levels = <RPM_SMD_REGULATOR_LEVEL_TURBO_HIGH
+					RPM_SMD_REGULATOR_LEVEL_BINNING
+					RPM_SMD_REGULATOR_LEVEL_BINNING>;
+			qcom,min-level = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		};
+	};
 };
 
 &mdss_dsi {
