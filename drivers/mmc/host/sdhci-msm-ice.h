@@ -17,7 +17,6 @@
 
 #include <linux/io.h>
 #include <linux/of.h>
-#include <linux/async.h>
 #include <linux/blkdev.h>
 #include <crypto/ice.h>
 
