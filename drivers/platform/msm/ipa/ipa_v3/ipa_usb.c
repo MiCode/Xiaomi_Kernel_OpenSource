@@ -183,7 +183,8 @@ static bool ipa3_usb_set_state(enum ipa3_usb_state new_state)
 	case IPA_USB_CONNECTED:
 		if (ipa3_usb_ctx->state == IPA_USB_INITIALIZED ||
 			ipa3_usb_ctx->state == IPA_USB_STOPPED ||
-			ipa3_usb_ctx->state == IPA_USB_RESUME_IN_PROGRESS)
+			ipa3_usb_ctx->state == IPA_USB_RESUME_IN_PROGRESS ||
+			ipa3_usb_ctx->state == IPA_USB_SUSPEND_REQUESTED)
 			state_legal = true;
 		if (ipa3_usb_ctx->rm_ctx.cons_state == IPA_USB_CONS_GRANTED ||
 			ipa3_usb_ctx->rm_ctx.cons_requested_released) {
