@@ -91,7 +91,6 @@ struct ice_device {
 	bool			is_ice_enabled;
 	bool			is_ice_disable_fuse_blown;
 	bool			is_clear_irq_pending;
-	ice_success_cb		success_cb;
 	ice_error_cb		error_cb;
 	void			*host_controller_data; /* UFS/EMMC/other? */
 	spinlock_t		lock;
@@ -1028,25 +1027,26 @@ out:
 	return ret;
 }
 
-static void qcom_ice_finish_init(void *data, async_cookie_t cookie)
+static int qcom_ice_finish_init(struct ice_device *ice_dev)
 {
-	struct ice_device *ice_dev = data;
 	unsigned reg;
+	int err = 0;
 
 	if (!ice_dev) {
 		pr_err("%s: Null data received\n", __func__);
-		return;
+		err = -ENODEV;
+		goto out;
 	}
 
 	if (ice_dev->is_ice_clk_available) {
 		if (qcom_ice_init_clocks(ice_dev)) {
-			ice_dev->error_cb(ice_dev->host_controller_data,
-					ICE_ERROR_IMPROPER_INITIALIZATION);
-			return;
+			err = -ICE_ERROR_IMPROPER_INITIALIZATION;
+			goto out;
 		}
-		if (qcom_ice_bus_register(ice_dev))
-			ice_dev->error_cb(ice_dev->host_controller_data,
-					ICE_ERROR_IMPROPER_INITIALIZATION);
+		if (qcom_ice_bus_register(ice_dev)) {
+			err = -ICE_ERROR_IMPROPER_INITIALIZATION;
+			goto out;
+		}
 	}
 
 	/*
@@ -1056,15 +1056,13 @@ static void qcom_ice_finish_init(void *data, async_cookie_t cookie)
 	 * configurations of host & ice. It is prudent to restore the config
 	 */
 	if (qcom_ice_update_sec_cfg(ice_dev)) {
-		ice_dev->error_cb(ice_dev->host_controller_data,
-			ICE_ERROR_ICE_TZ_INIT_FAILED);
-		return;
+		err = -ICE_ERROR_ICE_TZ_INIT_FAILED;
+		goto out;
 	}
 
 	if (qcom_ice_verify_ice(ice_dev)) {
-		ice_dev->error_cb(ice_dev->host_controller_data,
-			ICE_ERROR_UNEXPECTED_ICE_DEVICE);
-		return;
+		err = -ICE_ERROR_UNEXPECTED_ICE_DEVICE;
+		goto out;
 	}
 
 	/* if ICE_DISABLE_FUSE is blown, return immediately
@@ -1081,18 +1079,16 @@ static void qcom_ice_finish_init(void *data, async_cookie_t cookie)
 		ice_dev->is_ice_disable_fuse_blown = true;
 		pr_err("%s: Error: ICE_ERROR_HW_DISABLE_FUSE_BLOWN\n",
 								__func__);
-		ice_dev->error_cb(ice_dev->host_controller_data,
-					ICE_ERROR_HW_DISABLE_FUSE_BLOWN);
-		return;
+		err = -ICE_ERROR_HW_DISABLE_FUSE_BLOWN;
+		goto out;
 	}
 
 	/* TZ side of ICE driver would handle secure init of ICE HW from v2 */
 	if (ICE_REV(ice_dev->ice_hw_version, MAJOR) == 1 &&
 		!qcom_ice_secure_ice_init(ice_dev)) {
 		pr_err("%s: Error: ICE_ERROR_ICE_TZ_INIT_FAILED\n", __func__);
-		ice_dev->error_cb(ice_dev->host_controller_data,
-					ICE_ERROR_ICE_TZ_INIT_FAILED);
-		return;
+		err = -ICE_ERROR_ICE_TZ_INIT_FAILED;
+		goto out;
 	}
 
 	qcom_ice_low_power_mode_enable(ice_dev);
@@ -1103,14 +1099,12 @@ static void qcom_ice_finish_init(void *data, async_cookie_t cookie)
 	ice_dev->is_ice_enabled = true;
 	qcom_ice_enable_intr(ice_dev);
 
-	ice_dev->success_cb(ice_dev->host_controller_data,
-						ICE_INIT_COMPLETION);
-	return;
+out:
+	return err;
 }
 
 static int qcom_ice_init(struct platform_device *pdev,
 			void *host_controller_data,
-			ice_success_cb success_cb,
 			ice_error_cb error_cb)
 {
 	/*
@@ -1128,29 +1122,20 @@ static int qcom_ice_init(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	ice_dev->success_cb = success_cb;
 	ice_dev->error_cb = error_cb;
 	ice_dev->host_controller_data = host_controller_data;
 
-	/*
-	 * As ICE init may take time, create an async task to complete rest
-	 * of init
-	 */
-	async_schedule(qcom_ice_finish_init, ice_dev);
-
-	return 0;
+	return qcom_ice_finish_init(ice_dev);
 }
 EXPORT_SYMBOL(qcom_ice_init);
 
-
-static void qcom_ice_finish_power_collapse(void *data, async_cookie_t cookie)
+static int qcom_ice_finish_power_collapse(struct ice_device *ice_dev)
 {
-	struct ice_device *ice_dev = data;
+	int err = 0;
 
 	if (ice_dev->is_ice_disable_fuse_blown) {
-		ice_dev->error_cb(ice_dev->host_controller_data,
-					ICE_ERROR_HW_DISABLE_FUSE_BLOWN);
-		return;
+		err = -ICE_ERROR_HW_DISABLE_FUSE_BLOWN;
+		goto out;
 	}
 
 	if (ice_dev->is_ice_enabled) {
@@ -1170,9 +1155,10 @@ static void qcom_ice_finish_power_collapse(void *data, async_cookie_t cookie)
 			 * When ICE resets, it wipes all of keys from LUTs
 			 * ICE driver should call TZ to restore keys
 			 */
-			if (qcom_ice_restore_config())
-				ice_dev->error_cb(ice_dev->host_controller_data,
-					ICE_ERROR_ICE_KEY_RESTORE_FAILED);
+			if (qcom_ice_restore_config()) {
+				err = -ICE_ERROR_ICE_KEY_RESTORE_FAILED;
+				goto out;
+			}
 		}
 		/*
 		 * INTR Status are not retained. So there is no need to
@@ -1182,14 +1168,11 @@ static void qcom_ice_finish_power_collapse(void *data, async_cookie_t cookie)
 	}
 
 	ice_dev->ice_reset_complete_time = ktime_get();
-
-	if (ice_dev->success_cb && ice_dev->host_controller_data)
-		ice_dev->success_cb(ice_dev->host_controller_data,
-				ICE_RESUME_COMPLETION);
-	return;
+out:
+	return err;
 }
 
-static int  qcom_ice_resume(struct platform_device *pdev)
+static int qcom_ice_resume(struct platform_device *pdev)
 {
 	/*
 	 * ICE is power collapsed when storage controller is power collapsed
@@ -1216,10 +1199,6 @@ static int  qcom_ice_resume(struct platform_device *pdev)
 		 */
 		qcom_ice_enable(ice_dev);
 	}
-
-	if (ice_dev->success_cb && ice_dev->host_controller_data)
-		ice_dev->success_cb(ice_dev->host_controller_data,
-				ICE_RESUME_COMPLETION);
 
 	return 0;
 }
@@ -1445,8 +1424,7 @@ static int qcom_ice_reset(struct  platform_device *pdev)
 
 	ice_dev->ice_reset_start_time = ktime_get();
 
-	async_schedule(qcom_ice_finish_power_collapse, ice_dev);
-	return 0;
+	return qcom_ice_finish_power_collapse(ice_dev);
 }
 EXPORT_SYMBOL(qcom_ice_reset);
 
