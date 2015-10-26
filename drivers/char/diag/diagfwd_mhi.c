@@ -107,7 +107,7 @@ static int mhi_ch_open(struct diag_mhi_ch_t *ch)
 }
 
 static int mhi_buf_tbl_add(struct diag_mhi_info *mhi_info, int type,
-			   void *buf, dma_addr_t dma_addr, int len)
+			   void *buf, int len)
 {
 	unsigned long flags;
 	struct diag_mhi_buf_tbl_t *item;
@@ -140,7 +140,6 @@ static int mhi_buf_tbl_add(struct diag_mhi_info *mhi_info, int type,
 	spin_lock_irqsave(&ch->lock, flags);
 	item->buf = buf;
 	item->len = len;
-	item->dma_addr = dma_addr;
 	list_add_tail(&item->link, &ch->buf_tbl);
 	spin_unlock_irqrestore(&ch->lock, flags);
 
@@ -210,8 +209,6 @@ static void mhi_buf_tbl_clear(struct diag_mhi_info *mhi_info)
 			item = list_entry(start, struct diag_mhi_buf_tbl_t,
 					  link);
 			list_del(&item->link);
-			dma_unmap_single(NULL, item->dma_addr,
-					 DIAG_MDM_BUF_SIZE, DMA_FROM_DEVICE);
 			diagmem_free(driver, item->buf, mhi_info->mempool);
 			kfree(item);
 
@@ -228,8 +225,6 @@ static void mhi_buf_tbl_clear(struct diag_mhi_info *mhi_info)
 			item = list_entry(start, struct diag_mhi_buf_tbl_t,
 					  link);
 			list_del(&item->link);
-			dma_unmap_single(NULL, item->dma_addr, item->len,
-					 DMA_TO_DEVICE);
 			diag_remote_dev_write_done(mhi_info->dev_id, item->buf,
 						   item->len, mhi_info->id);
 			kfree(item);
@@ -384,7 +379,6 @@ static void mhi_read_done_work_fn(struct work_struct *work)
 {
 	unsigned char *buf = NULL;
 	struct mhi_result result;
-	uintptr_t phy_buf = 0;
 	int err = 0;
 	struct diag_mhi_info *mhi_info = container_of(work,
 						      struct diag_mhi_info,
@@ -400,15 +394,12 @@ static void mhi_read_done_work_fn(struct work_struct *work)
 			pr_debug("diag: In %s, err %d\n", __func__, err);
 			break;
 		}
-		phy_buf = result.payload_buf;
-		if (!phy_buf)
+		buf = result.buf_addr;
+		if (!buf)
 			break;
-		dma_unmap_single(NULL, result.payload_buf, result.bytes_xferd,
-				 DMA_FROM_DEVICE);
-		buf = dma_to_virt(NULL, result.payload_buf);
 		DIAG_LOG(DIAG_DEBUG_BRIDGE,
-			 "read from mhi port %d buf %p unmapped from %u\n",
-			 mhi_info->id, buf, result.payload_buf);
+			 "read from mhi port %d buf %p\n",
+			 mhi_info->id, buf);
 		/*
 		 * The read buffers can come after the MHI channels are closed.
 		 * If the channels are closed at the time of read, discard the
@@ -421,14 +412,13 @@ static void mhi_read_done_work_fn(struct work_struct *work)
 			mhi_buf_tbl_remove(mhi_info, TYPE_MHI_READ_CH, buf,
 					   result.bytes_xferd);
 		}
-	} while (phy_buf);
+	} while (buf);
 }
 
 static void mhi_read_work_fn(struct work_struct *work)
 {
 	int err = 0;
 	unsigned char *buf = NULL;
-	dma_addr_t dma_addr;
 	enum MHI_FLAGS mhi_flags = MHI_EOT;
 	struct diag_mhi_ch_t *read_ch = NULL;
 	unsigned long flags;
@@ -448,21 +438,16 @@ static void mhi_read_work_fn(struct work_struct *work)
 		if (!buf)
 			break;
 
-		dma_addr = dma_map_single(NULL, buf, DIAG_MDM_BUF_SIZE,
-					  DMA_FROM_DEVICE);
-		if (dma_mapping_error(NULL, dma_addr))
-			panic("ASSERT");
-
-		err = mhi_buf_tbl_add(mhi_info, TYPE_MHI_READ_CH, buf, dma_addr,
+		err = mhi_buf_tbl_add(mhi_info, TYPE_MHI_READ_CH, buf,
 				      DIAG_MDM_BUF_SIZE);
 		if (err)
 			goto fail;
 
 		DIAG_LOG(DIAG_DEBUG_BRIDGE,
-			 "queueing a read buf %p mapped to 0x%x, ch: %s\n",
-			 buf, dma_addr, mhi_info->name);
+			 "queueing a read buf %p, ch: %s\n",
+			 buf, mhi_info->name);
 		spin_lock_irqsave(&read_ch->lock, flags);
-		err = mhi_queue_xfer(read_ch->hdl, dma_addr, DIAG_MDM_BUF_SIZE,
+		err = mhi_queue_xfer(read_ch->hdl, buf, DIAG_MDM_BUF_SIZE,
 				     mhi_flags);
 		spin_unlock_irqrestore(&read_ch->lock, flags);
 		if (err) {
@@ -474,9 +459,6 @@ static void mhi_read_work_fn(struct work_struct *work)
 
 	return;
 fail:
-	dma_unmap_single(NULL, dma_addr, DIAG_MDM_BUF_SIZE,
-			 DMA_FROM_DEVICE);
-	buf = dma_to_virt(NULL, dma_addr);
 	mhi_buf_tbl_remove(mhi_info, TYPE_MHI_READ_CH, buf, DIAG_MDM_BUF_SIZE);
 	queue_work(mhi_info->mhi_wq, &mhi_info->read_work);
 }
@@ -497,7 +479,6 @@ static int mhi_write(int id, unsigned char *buf, int len, int ctxt)
 	int err = 0;
 	enum MHI_FLAGS mhi_flags = MHI_EOT;
 	unsigned long flags;
-	dma_addr_t dma_addr = 0;
 	struct diag_mhi_ch_t *ch = NULL;
 
 	if (id < 0 || id >= NUM_MHI_DEV) {
@@ -525,18 +506,13 @@ static int mhi_write(int id, unsigned char *buf, int len, int ctxt)
 		return -EIO;
 	}
 
-	dma_addr = dma_map_single(NULL, buf, len, DMA_TO_DEVICE);
-	if (dma_mapping_error(NULL, dma_addr))
-		panic("ASSERT");
-
-	err = mhi_buf_tbl_add(&diag_mhi[id], TYPE_MHI_WRITE_CH, buf, dma_addr,
+	err = mhi_buf_tbl_add(&diag_mhi[id], TYPE_MHI_WRITE_CH, buf,
 			      len);
 	if (err)
 		goto fail;
 
-	DIAG_LOG(DIAG_DEBUG_BRIDGE, "buf %p mapped to %u\n", buf, dma_addr);
 	spin_lock_irqsave(&ch->lock, flags);
-	err = mhi_queue_xfer(ch->hdl, dma_addr, len, mhi_flags);
+	err = mhi_queue_xfer(ch->hdl, buf, len, mhi_flags);
 	spin_unlock_irqrestore(&ch->lock, flags);
 	if (err) {
 		pr_err_ratelimited("diag: In %s, cannot write to MHI channel %p, len %d, err: %d\n",
@@ -547,7 +523,6 @@ static int mhi_write(int id, unsigned char *buf, int len, int ctxt)
 
 	return 0;
 fail:
-	dma_unmap_single(NULL, dma_addr, len, DMA_TO_DEVICE);
 	return err;
 }
 
@@ -585,14 +560,14 @@ static void mhi_notifier(struct mhi_cb_info *cb_info)
 		return;
 	}
 
-	index = GET_INFO_INDEX((int)cb_info->result->user_data);
+	index = GET_INFO_INDEX((uintptr_t)cb_info->result->user_data);
 	if (index < 0 || index >= NUM_MHI_DEV) {
 		pr_err_ratelimited("diag: In %s, invalid MHI index %d\n",
 				   __func__, index);
 		return;
 	}
 
-	type = GET_CH_TYPE((int)cb_info->result->user_data);
+	type = GET_CH_TYPE((uintptr_t)cb_info->result->user_data);
 	switch (type) {
 	case TYPE_MHI_READ_CH:
 		ch = &diag_mhi[index].read_ch;
@@ -647,9 +622,7 @@ static void mhi_notifier(struct mhi_cb_info *cb_info)
 				   &(diag_mhi[index].read_done_work));
 			break;
 		}
-		dma_unmap_single(NULL, result->payload_buf,
-				 result->bytes_xferd, DMA_TO_DEVICE);
-		buf = dma_to_virt(NULL, result->payload_buf);
+		buf = result->buf_addr;
 		if (!buf) {
 			pr_err_ratelimited("diag: In %s, unable to de-serialize the data\n",
 					   __func__);
@@ -690,7 +663,7 @@ static int diag_mhi_register_ch(int id, struct diag_mhi_ch_t *ch)
 	ctxt = SET_CH_CTXT(id, ch->type);
 	ch->client_info.mhi_client_cb = mhi_notifier;
 	return mhi_register_channel(&ch->hdl, ch->chan, 0, &ch->client_info,
-				    (void *)ctxt);
+				    (void *)(uintptr_t)ctxt);
 }
 
 int diag_mhi_init()
