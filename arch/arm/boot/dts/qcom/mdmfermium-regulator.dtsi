@@ -369,4 +369,14 @@
 					<0 0 1 2 7>;
 		qcom,cpr-quot-adjust-scaling-factor-max = <1400>;
 	};
+
+/* Miscellaneous regulators */
+	/* Rome 3.3V supply */
+	rome_vreg: rome_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "rome_vreg";
+		startup-delay-us = <4000>;
+		enable-active-high;
+		gpio = <&pm8019_gpios 3 0>;
+	};
 };
