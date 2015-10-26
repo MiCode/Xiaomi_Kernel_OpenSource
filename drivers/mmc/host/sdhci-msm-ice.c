@@ -13,19 +13,6 @@
 
 #include "sdhci-msm-ice.h"
 
-static void sdhci_msm_ice_success_cb(void *host_ctrl,
-				enum ice_event_completion evt)
-{
-	struct sdhci_msm_host *msm_host = (struct sdhci_msm_host *)host_ctrl;
-
-	if ((msm_host->ice.state == SDHCI_MSM_ICE_STATE_DISABLED &&
-	    evt == ICE_INIT_COMPLETION) || (msm_host->ice.state ==
-	    SDHCI_MSM_ICE_STATE_SUSPENDED && evt == ICE_RESUME_COMPLETION))
-		msm_host->ice.state = SDHCI_MSM_ICE_STATE_ACTIVE;
-
-	complete(&msm_host->ice.async_done);
-}
-
 static void sdhci_msm_ice_error_cb(void *host_ctrl, u32 error)
 {
 	struct sdhci_msm_host *msm_host = (struct sdhci_msm_host *)host_ctrl;
@@ -35,8 +22,6 @@ static void sdhci_msm_ice_error_cb(void *host_ctrl, u32 error)
 
 	if (msm_host->ice.state == SDHCI_MSM_ICE_STATE_ACTIVE)
 		msm_host->ice.state = SDHCI_MSM_ICE_STATE_DISABLED;
-
-	complete(&msm_host->ice.async_done);
 }
 
 static struct platform_device *sdhci_msm_ice_get_pdevice(struct device *dev)
@@ -194,34 +179,21 @@ int sdhci_msm_ice_init(struct sdhci_host *host)
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	int err = 0;
 
-	init_completion(&msm_host->ice.async_done);
 	if (msm_host->ice.vops->config) {
 		err = msm_host->ice.vops->init(msm_host->ice.pdev,
 					msm_host,
-					sdhci_msm_ice_success_cb,
 					sdhci_msm_ice_error_cb);
 		if (err) {
 			pr_err("%s: ice init err %d\n",
 				mmc_hostname(host->mmc), err);
-			return err;
+			sdhci_msm_ice_print_regs(host);
+			goto out;
 		}
+		msm_host->ice.state = SDHCI_MSM_ICE_STATE_ACTIVE;
 	}
 
-	if (!wait_for_completion_timeout(&msm_host->ice.async_done,
-		msecs_to_jiffies(SDHCI_MSM_ICE_COMPLETION_TIMEOUT_MS))) {
-		pr_err("%s: ice init timedout after %d ms\n",
-				mmc_hostname(host->mmc),
-				SDHCI_MSM_ICE_COMPLETION_TIMEOUT_MS);
-		sdhci_msm_ice_print_regs(host);
-		return -ETIMEDOUT;
-	}
-
-	if (msm_host->ice.state != SDHCI_MSM_ICE_STATE_ACTIVE) {
-		pr_err("%s: ice is in invalid state %d\n",
-			mmc_hostname(host->mmc), msm_host->ice.state);
-		return -EINVAL;
-	}
-	return 0;
+out:
+	return err;
 }
 
 void sdhci_msm_ice_cfg_reset(struct sdhci_host *host, u32 slot)
@@ -321,24 +293,14 @@ int sdhci_msm_ice_reset(struct sdhci_host *host)
 		return -EINVAL;
 	}
 
-	init_completion(&msm_host->ice.async_done);
-
 	if (msm_host->ice.vops->reset) {
 		err = msm_host->ice.vops->reset(msm_host->ice.pdev);
 		if (err) {
 			pr_err("%s: ice reset failed %d\n",
 					mmc_hostname(host->mmc), err);
+			sdhci_msm_ice_print_regs(host);
 			return err;
 		}
-	}
-
-	if (!wait_for_completion_timeout(&msm_host->ice.async_done,
-	     msecs_to_jiffies(SDHCI_MSM_ICE_COMPLETION_TIMEOUT_MS))) {
-		pr_err("%s: ice reset timedout after %d ms\n",
-			mmc_hostname(host->mmc),
-			SDHCI_MSM_ICE_COMPLETION_TIMEOUT_MS);
-		sdhci_msm_ice_print_regs(host);
-		return -ETIMEDOUT;
 	}
 
 	if (msm_host->ice.state != SDHCI_MSM_ICE_STATE_ACTIVE) {
@@ -362,8 +324,6 @@ int sdhci_msm_ice_resume(struct sdhci_host *host)
 		return -EINVAL;
 	}
 
-	init_completion(&msm_host->ice.async_done);
-
 	if (msm_host->ice.vops->resume) {
 		err = msm_host->ice.vops->resume(msm_host->ice.pdev);
 		if (err) {
@@ -373,20 +333,7 @@ int sdhci_msm_ice_resume(struct sdhci_host *host)
 		}
 	}
 
-	if (!wait_for_completion_timeout(&msm_host->ice.async_done,
-		msecs_to_jiffies(SDHCI_MSM_ICE_COMPLETION_TIMEOUT_MS))) {
-		pr_err("%s: ice resume timedout after %d ms\n",
-			mmc_hostname(host->mmc),
-			SDHCI_MSM_ICE_COMPLETION_TIMEOUT_MS);
-		sdhci_msm_ice_print_regs(host);
-		return -ETIMEDOUT;
-	}
-
-	if (msm_host->ice.state != SDHCI_MSM_ICE_STATE_ACTIVE) {
-		pr_err("%s: ice is in invalid state after resume %d\n",
-			mmc_hostname(host->mmc), msm_host->ice.state);
-		return -EINVAL;
-	}
+	msm_host->ice.state = SDHCI_MSM_ICE_STATE_ACTIVE;
 	return 0;
 }
 
