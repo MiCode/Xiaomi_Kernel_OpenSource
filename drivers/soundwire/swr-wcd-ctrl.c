@@ -35,12 +35,6 @@
 #define SWR_REG_VAL_PACK(data, dev, id, reg)	\
 			((reg) | ((id) << 16) | ((dev) << 20) | ((data) << 24))
 
-/* pm runtime auto suspend timer in msecs */
-static int auto_suspend_timer = SWR_AUTO_SUSPEND_DELAY_MS;
-module_param(auto_suspend_timer, int,
-		S_IRUGO | S_IWUSR | S_IWGRP);
-MODULE_PARM_DESC(auto_suspend_timer, "timer for auto suspend");
-
 static u8 mstr_ports[] = {100, 101, 102, 103, 104, 105, 106, 107};
 static u8 mstr_port_type[] = {SWR_DAC_PORT, SWR_COMP_PORT, SWR_BOOST_PORT,
 			      SWR_DAC_PORT, SWR_COMP_PORT, SWR_BOOST_PORT,
@@ -476,12 +470,14 @@ static int swrm_read(struct swr_master *master, u8 dev_num, u16 reg_addr,
 	int val;
 	u8 *reg_val = (u8 *)buf;
 
-	if (!swrm) {
-		dev_err(&master->dev, "%s: swrm is NULL\n", __func__);
-		return -EINVAL;
+	if (pm_runtime_suspended(&swrm->pdev->dev)) {
+		dev_dbg(swrm->dev, "%s: suspended state, enable pm_runtime\n",
+			__func__);
+		pm_runtime_get_sync(&swrm->pdev->dev);
+		pm_runtime_mark_last_busy(&swrm->pdev->dev);
+		pm_runtime_put_autosuspend(&swrm->pdev->dev);
 	}
 
-	pm_runtime_get_sync(&swrm->pdev->dev);
 	if (dev_num)
 		ret = swrm_cmd_fifo_rd_cmd(swrm, &val, dev_num, 0, reg_addr,
 					   len);
@@ -489,8 +485,6 @@ static int swrm_read(struct swr_master *master, u8 dev_num, u16 reg_addr,
 		val = swrm->read(swrm->handle, reg_addr);
 
 	*reg_val = (u8)val;
-	pm_runtime_mark_last_busy(&swrm->pdev->dev);
-	pm_runtime_put_autosuspend(&swrm->pdev->dev);
 
 	return ret;
 }
@@ -502,19 +496,18 @@ static int swrm_write(struct swr_master *master, u8 dev_num, u16 reg_addr,
 	int ret = 0;
 	u8 reg_val = *(u8 *)buf;
 
-	if (!swrm) {
-		dev_err(&master->dev, "%s: swrm is NULL\n", __func__);
-		return -EINVAL;
+	if (pm_runtime_suspended(&swrm->pdev->dev)) {
+		dev_dbg(swrm->dev, "%s: suspended state, enable pm_runtime\n",
+			__func__);
+		pm_runtime_get_sync(&swrm->pdev->dev);
+		pm_runtime_mark_last_busy(&swrm->pdev->dev);
+		pm_runtime_put_autosuspend(&swrm->pdev->dev);
 	}
 
-	pm_runtime_get_sync(&swrm->pdev->dev);
 	if (dev_num)
 		ret = swrm_cmd_fifo_wr_cmd(swrm, reg_val, dev_num, 0, reg_addr);
 	else
 		ret = swrm->write(swrm->handle, reg_addr, reg_val);
-
-	pm_runtime_mark_last_busy(&swrm->pdev->dev);
-	pm_runtime_put_autosuspend(&swrm->pdev->dev);
 
 	return ret;
 }
@@ -917,7 +910,7 @@ static irqreturn_t swr_mstr_interrupt(int irq, void *dev)
 			}
 			break;
 		case SWRM_INTERRUPT_STATUS_MASTER_CLASH_DET:
-			dev_err_ratelimited(swrm->dev, "SWR bus clash detected\n");
+			dev_err(swrm->dev, "SWR bus clash detected\n");
 			break;
 		case SWRM_INTERRUPT_STATUS_RD_FIFO_OVERFLOW:
 			dev_dbg(swrm->dev, "SWR read FIFO overflow\n");
@@ -930,9 +923,9 @@ static irqreturn_t swr_mstr_interrupt(int irq, void *dev)
 			break;
 		case SWRM_INTERRUPT_STATUS_CMD_ERROR:
 			value = swrm->read(swrm->handle, SWRM_CMD_FIFO_STATUS);
-			dev_err_ratelimited(swrm->dev,
-			"SWR CMD error, fifo status 0x%x, flushing fifo\n",
-					    value);
+			dev_err(swrm->dev,
+			"SWR CMD error, CMD fifo status 0x%x, flushing fifo\n",
+			value);
 			swrm->write(swrm->handle, SWRM_CMD_FIFO_CMD, 0x1);
 			break;
 		case SWRM_INTERRUPT_STATUS_DOUT_PORT_COLLISION:
@@ -957,7 +950,7 @@ static irqreturn_t swr_mstr_interrupt(int irq, void *dev)
 		case SWRM_INTERRUPT_STATUS_CLK_STOP_FINISHED:
 			break;
 		default:
-			dev_err_ratelimited(swrm->dev, "SWR unknown interrupt\n");
+			dev_err(swrm->dev, "SWR unkown interrupt\n");
 			ret = IRQ_NONE;
 			break;
 		}
@@ -1208,7 +1201,7 @@ static int swrm_probe(struct platform_device *pdev)
 				   (void *) "swrm_reg_dump",
 				   &swrm_debug_ops);
 	}
-	pm_runtime_set_autosuspend_delay(&pdev->dev, auto_suspend_timer);
+	pm_runtime_set_autosuspend_delay(&pdev->dev, SWR_AUTO_SUSPEND_DELAY_MS);
 	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
@@ -1291,7 +1284,6 @@ static int swrm_runtime_resume(struct device *dev)
 		swrm_master_init(swrm);
 	}
 exit:
-	pm_runtime_set_autosuspend_delay(&pdev->dev, auto_suspend_timer);
 	mutex_unlock(&swrm->reslock);
 	return ret;
 }
