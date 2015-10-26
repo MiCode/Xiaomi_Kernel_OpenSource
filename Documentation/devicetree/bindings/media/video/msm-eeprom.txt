@@ -6,7 +6,7 @@ the sensor itself. As a result, the power, clock and GPIOs may be the same as
 the camera sensor. The following describes the page block map, power supply,
 clock, GPIO and power on sequence properties of the EEPROM device.
 
-Required properties:
+Required properties if probe happens from camera daemon:
 - cell-index: eeprom hardware core index
 - compatible :
     - "qcom,eeprom"
@@ -38,6 +38,8 @@ Required properties:
 
 Optional properties:
 - cam_vdig-supply : should contain regulator to be used for the digital vdd.
+
+
 
 Example:
 
@@ -74,3 +76,122 @@ Example:
         qcom,cam-power-seq-cfg-val = <1 1 24000000 1 1>;
         qcom,cam-power-seq-delay = <1 1 5 5 10>;
     };
+
+
+
+Required properties if eeprom probe is kernel probe:
+- cell-index: eeprom hardware core index
+- compatible :
+    - "qcom,eeprom"
+- reg : offset of eeprom device registers.
+- qcom,eeprom-name : should specify relevant names of the eeprom module
+    library.
+- qcom,slave-addr : should specify the slave address of the eeprom.
+- qcom,cci-master : should specify the cci core index that eeprom use.
+- qcom,num-blocks : should specify the total block number that eeprom contains,
+    every block should contains page poll and mem.
+- qcom,page%d : number %d page size, start address, address type, data,
+    data type, delay in ms. size 0 stand for non-paged.
+    - address type : 1 byte, 2 word.
+    - data type : 1 byte, 2 word.
+- qcom,poll%d : number %d poll size, poll reg address, address type, data,
+    data type, delay in ms. size 0 stand for not used.
+    - address type : 1 byte, 2 word.
+    - data type : 1 byte, 2 word.
+- qcom,mem%d : number %d memory size, start address, address type, data,
+    data type, delay in ms. size 0 stand for not used.
+    - address type : 1 byte, 2 word.
+    - data type : 1 byte, 2 word.
+- cam_vio-supply : should contain regulator to be used for the IO vdd.
+- qcom,cam-vreg-name : should specify the regulator name to be used for
+    this eeprom.
+- qcom,cam-vreg-type : should specify the regulator type to be used for
+    this eeprom.
+- qcom,cam-vreg-min-voltage : should specify minimum voltage level
+    for eeprom in uV.
+- qcom,cam-vreg-max-voltage : should specify maximum voltage level
+    for eeprom in uV.
+- qcom,cam-vreg-op-mode : should specify current level for eeprom in uA.
+- qcom,gpio-no-mux : should specify the gpio mux type.
+- gpios : should specify the gpios to be used for the eeprom.
+- qcom,gpio-reset : should specify the reset gpio index.
+- qcom,gpio-standby : should specify the standby gpio index.
+- qcom,gpio-req-tbl-num : should specify the gpio table index.
+- qcom,gpio-req-tbl-flags : should specify the gpio functions.
+- qcom,gpio-req-tbl-label : should specify the gpio labels.
+- qcom,cam-power-seq-type : should specify the power on sequence types.
+- qcom,cam-power-seq-val : should specify the power on sequence values.
+- qcom,cam-power-seq-cfg-val : should specify the power on sequence config
+    values.
+- qcom,cam-power-seq-delay : should specify the power on sequence delay
+    time in ms.
+
+Optional properties:
+- qcom,pageen%d : number %d page enable reg size, start address, address type,
+    data, data type, delay in ms. size 0 stand for not used.
+- cam_vdig-supply : should contain regulator to be used for the digital vdd.
+- qcom,saddr%d : property should specify the slave address for block (%d).
+- qcom,i2c-freq-mode : property should specify the I2C speed mode.
+
+Optional properties -EEPROM Camera Multimodule
+- qcom,cmm-data-support - Camera MultiModule data capability flag.
+- qcom,cmm-data-compressed - Camera MultiModule data compression flag.
+- qcom,cmm-data-offset - Camera MultiModule data start offset.
+- qcom,cmm-data-size - Camera MultiModule data size.
+
+
+
+Example:
+
+    eeprom0: qcom,eeprom@60 {
+        cell-index = <0>;
+        reg = <0x60 0x0>;
+        qcom,eeprom-name = "msm_eeprom";
+        compatible = "qcom,eeprom";
+        qcom,slave-addr = <0x60>;
+        qcom,cci-master = <0>;
+        qcom,num-blocks = <2>;
+        qcom,page0 = <1 0x0100 2 0x01 1 1>;
+        qcom,poll0 = <0 0x0 2 0 1 1>;
+        qcom,mem0 = <0 0x0 2 0 1 0>;
+        qcom,page1 = <1 0x0200 2 0x8 1 1>;
+        qcom,pageen1 = <1 0x0202 2 0x01 1 10>;
+        qcom,poll1 = <0 0x0 2 0 1 1>;
+        qcom,mem1 = <32 0x3000 2 0 1 0>;
+        qcom,saddr1 = <0x62>;
+
+		qcom,cmm-data-support;
+		qcom,cmm-data-compressed;
+		qcom,cmm-data-offset = <0>;
+		qcom,cmm-data-size = <0>;
+
+        cam_vdig-supply = <&pm8226_l5>;
+        cam_vio-supply = <&pm8226_lvs1>;
+        qcom,cam-vreg-name = "cam_vdig", "cam_vio";
+        qcom,cam-vreg-type = <0 1>;
+        qcom,cam-vreg-min-voltage = <1200000 0>;
+        qcom,cam-vreg-max-voltage = <1200000 0>;
+        qcom,cam-vreg-op-mode = <200000 0>;
+        qcom,gpio-no-mux = <0>;
+        gpios = <&msmgpio 26 0>,
+            <&msmgpio 37 0>,
+            <&msmgpio 36 0>;
+        qcom,gpio-reset = <1>;
+        qcom,gpio-standby = <2>;
+        qcom,gpio-req-tbl-num = <0 1 2>;
+        qcom,gpio-req-tbl-flags = <1 0 0>;
+        qcom,gpio-req-tbl-label = "CAMIF_MCLK",
+            "CAM_RESET1",
+            "CAM_STANDBY";
+        qcom,cam-power-seq-type = "sensor_vreg",
+            "sensor_vreg", "sensor_clk",
+            "sensor_gpio", "sensor_gpio";
+        qcom,cam-power-seq-val = "cam_vdig",
+            "cam_vio", "sensor_cam_mclk",
+            "sensor_gpio_reset",
+            "sensor_gpio_standby";
+        qcom,cam-power-seq-cfg-val = <1 1 24000000 1 1>;
+        qcom,cam-power-seq-delay = <1 1 5 5 10>;
+    };
+
+
