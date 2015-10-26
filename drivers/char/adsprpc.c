@@ -49,6 +49,7 @@
 #define TZ_PIL_CLEAR_PROTECT_MEM_SUBSYS_ID 0x0D
 #define TZ_PIL_AUTH_QDSP6_PROC 1
 #define ADSP_MMAP_HEAP_ADDR 4
+#define FASTRPC_ENOSUCH 39
 
 #define RPC_TIMEOUT	(5 * HZ)
 #define BALIGN		128
@@ -132,6 +133,7 @@ struct fastrpc_smmu {
 	struct dma_iommu_mapping *mapping;
 	int cb;
 	int enabled;
+	int faults;
 };
 
 struct fastrpc_session_ctx {
@@ -1157,6 +1159,10 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 								&ctx));
 		if (err)
 			goto bail;
+		if (fl->sctx->smmu.faults)
+			err = FASTRPC_ENOSUCH;
+		if (err)
+			goto bail;
 		if (ctx)
 			goto wait;
 	}
@@ -1578,6 +1584,7 @@ static int fastrpc_session_alloc(struct fastrpc_channel_ctx *chan, int *session)
 	if (err)
 		goto bail;
 	set_bit(idx, &chan->bitmap);
+	chan->session[idx].smmu.faults = 0;
 	*session = idx;
  bail:
 	return err;
@@ -1775,6 +1782,21 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
+static int fastrpc_smmu_fault_handler(struct iommu_domain *domain,
+	struct device *dev, unsigned long iova, int flags, void *token)
+{
+	struct fastrpc_session_ctx *sess = (struct fastrpc_session_ctx *)token;
+	int err = 0;
+
+	VERIFY(err, sess != NULL);
+	if (err)
+		return err;
+	sess->smmu.faults++;
+	dev_err(dev, "ADSPRPC context fault: iova=0x%08lx, cb = %d, faults=%d",
+					iova, sess->smmu.cb, sess->smmu.faults);
+	return 0;
+}
+
 static const struct file_operations fops = {
 	.open = fastrpc_device_open,
 	.release = fastrpc_device_release,
@@ -1829,6 +1851,8 @@ static int fastrpc_cb_probe(struct device *dev)
 	iommu_domain_set_attr(sess->smmu.mapping->domain,
 				DOMAIN_ATTR_COHERENT_HTW_DISABLE,
 				&disable_htw);
+	iommu_set_fault_handler(sess->smmu.mapping->domain,
+				fastrpc_smmu_fault_handler, sess);
 	VERIFY(err, !arm_iommu_attach_device(dev, sess->smmu.mapping));
 	if (err)
 		goto bail;
