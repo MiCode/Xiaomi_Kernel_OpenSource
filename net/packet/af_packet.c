@@ -1888,6 +1888,9 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
 	if (skb->ip_summed == CHECKSUM_PARTIAL)
 		status |= TP_STATUS_CSUMNOTREADY;
 
+	if (skb->ip_summed == CHECKSUM_UNNECESSARY)
+		status |= TP_STATUS_CSUM_UNNECESSARY;
+
 	snaplen = skb->len;
 
 	res = run_filter(skb, sk, snaplen);
