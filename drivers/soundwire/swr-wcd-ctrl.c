@@ -162,7 +162,7 @@ enum {
 
 #define SWR_MSTR_MAX_REG_ADDR	0x1740
 #define SWR_MSTR_START_REG_ADDR	0x00
-#define SWR_MSTR_MAX_BUF_LEN     20
+#define SWR_MSTR_MAX_BUF_LEN     32
 #define BYTES_PER_LINE          12
 #define SWR_MSTR_RD_BUF_LEN      8
 #define SWR_MSTR_WR_BUF_LEN      32
@@ -624,6 +624,12 @@ static void swrm_apply_port_config(struct swr_master *master)
 	int mask = (SWRM_MCP_FRAME_CTRL_BANK_ROW_CTRL_BMSK |
 		SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_BMSK);
 
+	if (!swrm) {
+		pr_err("%s: Invalid handle to swr controller\n",
+			__func__);
+		return;
+	}
+
 	bank = get_inactive_bank_num(swrm);
 	dev_dbg(swrm->dev, "%s: enter bank: %d master_ports: %d\n",
 		__func__, bank, master->num_port);
@@ -717,6 +723,13 @@ static int swrm_connect_port(struct swr_master *master,
 	if (!portinfo)
 		return -EINVAL;
 
+	if (!swrm) {
+		dev_err(&master->dev,
+			"%s: Invalid handle to swr controller\n",
+			__func__);
+		return -EINVAL;
+	}
+
 	mutex_lock(&swrm->mlock);
 	if (!swrm_is_port_en(master))
 		pm_runtime_get_sync(&swrm->pdev->dev);
@@ -777,6 +790,13 @@ static int swrm_disconnect_port(struct swr_master *master,
 	u8 mport_id = 0;
 	int port_type = 0;
 	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(master);
+
+	if (!swrm) {
+		dev_err(&master->dev,
+			"%s: Invalid handle to swr controller\n",
+			__func__);
+		return -EINVAL;
+	}
 
 	if (!portinfo) {
 		dev_err(&master->dev, "%s: portinfo is NULL\n", __func__);
@@ -979,6 +999,12 @@ static int swrm_get_logical_dev_num(struct swr_master *mstr, u64 dev_id,
 	u64 id;
 	int ret = -EINVAL;
 	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(mstr);
+
+	if (!swrm) {
+		pr_err("%s: Invalid handle to swr controller\n",
+			__func__);
+		return ret;
+	}
 
 	pm_runtime_get_sync(&swrm->pdev->dev);
 	for (i = 1; i < (mstr->num_dev + 1); i++) {
