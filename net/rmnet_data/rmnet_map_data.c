@@ -99,6 +99,15 @@ struct rmnet_map_header_s *rmnet_map_add_map_header(struct sk_buff *skb,
 
 	padding = ALIGN(map_datalen, 4) - map_datalen;
 
+	if (padding == 0)
+		goto done;
+
+	if ((skb->dev->features & NETIF_F_GSO) &&
+	    skb_is_nonlinear(skb) && unlikely((padding != 0))) {
+		LOGE("pad:%d required for non linear skb", padding);
+		BUG();
+	}
+
 	if (skb_tailroom(skb) < padding)
 		return 0;
 
@@ -106,6 +115,7 @@ struct rmnet_map_header_s *rmnet_map_add_map_header(struct sk_buff *skb,
 	LOGD("pad: %d", padding);
 	memset(padbytes, 0, padding);
 
+done:
 	map_header->pkt_len = htons(map_datalen + padding);
 	map_header->pad_len = padding&0x3F;
 
