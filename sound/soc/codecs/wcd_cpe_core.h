@@ -36,6 +36,9 @@
 
 #define WCD_CPE_IMAGE_FNAME_MAX 64
 
+#define WCD_CPE_AFE_OUT_PORT_2 2
+#define WCD_CPE_AFE_OUT_PORT_4 4
+
 enum {
 	WCD_CPE_LSM_CAL_AFE = 0,
 	WCD_CPE_LSM_CAL_LSM,
@@ -58,6 +61,7 @@ struct wcd_cpe_cdc_cb {
 	int (*cpe_clk_en) (struct snd_soc_codec *, bool);
 	int (*cdc_ext_clk)(struct snd_soc_codec *codec, int enable, bool dapm);
 	int (*lab_cdc_ch_ctl)(struct snd_soc_codec *codec, u8 event);
+	int (*get_afe_out_port_id)(struct snd_soc_codec *codec, u16 *port_id);
 	int (*bus_vote_bw)(struct snd_soc_codec *codec,
 			   bool vote);
 
