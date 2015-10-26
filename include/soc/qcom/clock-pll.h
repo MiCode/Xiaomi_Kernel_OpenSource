@@ -102,6 +102,7 @@ struct pll_vote_clk {
 
 extern struct clk_ops clk_ops_pll_vote;
 extern struct clk_ops clk_ops_pll_acpu_vote;
+extern struct clk_ops clk_ops_pll_sleep_vote;
 
 /* Soft voting values */
 #define PLL_SOFT_VOTE_PRIMARY   BIT(0)
