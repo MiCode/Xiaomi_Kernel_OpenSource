@@ -3751,10 +3751,7 @@ fail_remap:
 fail_clk:
 	msm_bus_scale_unregister_client(ipa3_ctx->ipa_bus_hdl);
 fail_bus_reg:
-	if (ipa3_bus_scale_table) {
-		msm_bus_cl_clear_pdata(ipa3_bus_scale_table);
-		ipa3_bus_scale_table = NULL;
-	}
+	ipa3_bus_scale_table = NULL;
 fail_bind:
 	kfree(ipa3_ctx->ctrl);
 fail_mem_ctrl:
