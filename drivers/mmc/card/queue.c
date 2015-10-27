@@ -661,7 +661,6 @@ int mmc_cmdq_init(struct mmc_queue *mq, struct mmc_card *card)
 
 	blk_queue_softirq_done(mq->queue, mmc_cmdq_softirq_done);
 	INIT_WORK(&mq->cmdq_err_work, mmc_cmdq_error_work);
-	init_completion(&mq->cmdq_shutdown_complete);
 	init_completion(&mq->cmdq_pending_req_done);
 
 	blk_queue_rq_timed_out(mq->queue, mmc_cmdq_rq_timed_out);
@@ -710,7 +709,6 @@ int mmc_queue_suspend(struct mmc_queue *mq, int wait)
 	int rc = 0;
 	struct mmc_card *card = mq->card;
 	struct request *req;
-	#define SLEEP_TIME_BETWEEN_BLK_REQ_CHECK	100 /* microseconds */
 
 	if (card->cmdq_init && blk_queue_tagged(q)) {
 		struct mmc_host *host = card->host;
@@ -718,44 +716,21 @@ int mmc_queue_suspend(struct mmc_queue *mq, int wait)
 		if (test_and_set_bit(MMC_QUEUE_SUSPENDED, &mq->flags))
 			goto out;
 
-		spin_lock_irqsave(q->queue_lock, flags);
-		blk_stop_queue(q);
-		spin_unlock_irqrestore(q->queue_lock, flags);
-
-		wake_up(&host->cmdq_ctx.wait);
-
 		if (wait) {
-			while (1) {
-				spin_lock_irqsave(q->queue_lock, flags);
-				req = blk_peek_request(q);
-				spin_unlock_irqrestore(q->queue_lock, flags);
-
-				if (!req)
-					break;
-
-				/* sleep for some time before rechecking */
-				usleep_range(SLEEP_TIME_BETWEEN_BLK_REQ_CHECK,
-					SLEEP_TIME_BETWEEN_BLK_REQ_CHECK + 10);
-			}
-
-			/* Wait for already issued requests to complete */
-			if (host->cmdq_ctx.active_reqs)
-				wait_for_completion(
-						&mq->cmdq_shutdown_complete);
-
+			blk_cleanup_queue(q);
 			mq->cmdq_shutdown(mq);
 		} else {
 			spin_lock_irqsave(q->queue_lock, flags);
+			blk_stop_queue(q);
+			wake_up(&host->cmdq_ctx.wait);
 			req = blk_peek_request(q);
-			spin_unlock_irqrestore(q->queue_lock, flags);
-
-			if (req || host->cmdq_ctx.active_reqs) {
+			if (req || mq->cmdq_req_peeked ||
+			    host->cmdq_ctx.active_reqs) {
 				clear_bit(MMC_QUEUE_SUSPENDED, &mq->flags);
-				spin_lock_irqsave(q->queue_lock, flags);
 				blk_start_queue(q);
-				spin_unlock_irqrestore(q->queue_lock, flags);
 				rc = -EBUSY;
 			}
+			spin_unlock_irqrestore(q->queue_lock, flags);
 		}
 
 		goto out;
