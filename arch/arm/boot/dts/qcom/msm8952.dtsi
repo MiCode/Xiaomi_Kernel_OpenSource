@@ -696,6 +696,7 @@
 		<90 512 100000 800000>,    /* SVS  - (ab=100Mbps, ib=800Mbps – 50MHz BIMC freq) */
 		<90 512 100000 1200000>;   /* PERF - (ab=100Mbps, ib=1200Mbps – 75MHz BIMC freq) */
 		qcom,bus-vector-names = "MIN", "SVS", "PERF";
+		qcom,tethered-flow-control;
 	};
 
 	qcom,rmnet-ipa {
