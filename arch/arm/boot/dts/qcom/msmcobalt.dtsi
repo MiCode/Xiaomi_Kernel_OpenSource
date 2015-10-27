@@ -1275,10 +1275,10 @@
 		vdd-supply = <&gdsc_venus>;
 		qcom,proxy-reg-names = "vdd";
 
-		clocks = <&clock_mmss clk_video_core_clk>,
-			 <&clock_mmss clk_video_ahb_clk>,
-			 <&clock_mmss clk_video_axi_clk>,
-			 <&clock_mmss clk_video_maxi_clk>;
+		clocks = <&clock_mmss clk_mmss_video_core_clk>,
+			 <&clock_mmss clk_mmss_video_ahb_clk>,
+			 <&clock_mmss clk_mmss_video_axi_clk>,
+			 <&clock_mmss clk_mmss_video_maxi_clk>;
 		clock-names = "core_clk", "iface_clk",
 			      "bus_clk", "maxi_clk";
 		qcom,proxy-clock-names = "core_clk", "iface_clk",
@@ -1371,7 +1371,7 @@
 
 &gdsc_bimc_smmu {
 	clock-names = "bus_clk";
-	clocks = <&clock_mmss clk_bimc_smmu_axi_clk>;
+	clocks = <&clock_mmss clk_mmss_bimc_smmu_axi_clk>;
 	status = "ok";
 };
 
@@ -1385,59 +1385,59 @@
 
 &gdsc_venus {
 	clock-names = "bus_clk", "maxi_clk", "core_clk";
-	clocks = <&clock_mmss clk_video_axi_clk>,
-		 <&clock_mmss clk_video_maxi_clk>,
-		 <&clock_mmss clk_video_core_clk>;
+	clocks = <&clock_mmss clk_mmss_video_axi_clk>,
+		 <&clock_mmss clk_mmss_video_maxi_clk>,
+		 <&clock_mmss clk_mmss_video_core_clk>;
 	status = "ok";
 };
 
 &gdsc_venus_core0 {
 	clock-names = "core0_clk";
-	clocks = <&clock_mmss clk_video_subcore0_clk>;
+	clocks = <&clock_mmss clk_mmss_video_subcore0_clk>;
 	status = "ok";
 };
 
 &gdsc_venus_core1 {
 	clock-names = "core1_clk";
-	clocks = <&clock_mmss clk_video_subcore1_clk>;
+	clocks = <&clock_mmss clk_mmss_video_subcore1_clk>;
 	status = "ok";
 };
 
 &gdsc_camss_top {
 	clock-names = "bus_clk", "vfe_axi";
-	clocks = <&clock_mmss clk_camss_cpp_axi_clk>,
-		 <&clock_mmss clk_camss_vfe_vbif_axi_clk>;
+	clocks = <&clock_mmss clk_mmss_camss_cpp_axi_clk>,
+		 <&clock_mmss clk_mmss_camss_vfe_vbif_axi_clk>;
 	status = "ok";
 };
 
 &gdsc_vfe0 {
 	clock-names = "core0_clk" , "core0_stream_clk";
-	clocks = <&clock_mmss clk_camss_vfe0_clk>,
-		 <&clock_mmss clk_camss_vfe0_stream_clk>;
+	clocks = <&clock_mmss clk_mmss_camss_vfe0_clk>,
+		 <&clock_mmss clk_mmss_camss_vfe0_stream_clk>;
 	parent-supply = <&gdsc_camss_top>;
 	status = "ok";
 };
 
 &gdsc_vfe1 {
 	clock-names = "core1_clk" , "core1_stream_clk";
-	clocks = <&clock_mmss clk_camss_vfe1_clk>,
-		 <&clock_mmss clk_camss_vfe1_stream_clk>;
+	clocks = <&clock_mmss clk_mmss_camss_vfe1_clk>,
+		 <&clock_mmss clk_mmss_camss_vfe1_stream_clk>;
 	parent-supply = <&gdsc_camss_top>;
 	status = "ok";
 };
 
 &gdsc_cpp {
 	clock-names = "core_clk";
-	clocks = <&clock_mmss clk_camss_cpp_clk>;
+	clocks = <&clock_mmss clk_mmss_camss_cpp_clk>;
 	parent-supply = <&gdsc_camss_top>;
 	status = "ok";
 };
 
 &gdsc_mdss {
 	clock-names = "bus_clk", "core_clk", "root_clk";
-	clocks = <&clock_mmss clk_mdss_axi_clk>,
-		 <&clock_mmss clk_mdss_mdp_clk>,
-		 <&clock_mmss clk_mdss_rot_clk>;
+	clocks = <&clock_mmss clk_mmss_mdss_axi_clk>,
+		 <&clock_mmss clk_mmss_mdss_mdp_clk>,
+		 <&clock_mmss clk_mmss_mdss_rot_clk>;
 	status = "ok";
 };
 
