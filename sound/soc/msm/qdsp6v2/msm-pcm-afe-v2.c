@@ -195,18 +195,21 @@ static void pcm_afe_process_tx_pkt(uint32_t opcode,
 				 * Multiplication by 1000000 is done in two
 				 * steps to keep the accuracy of poll time.
 				 */
-				period_bytes = ((uint64_t)(
-					(snd_pcm_lib_period_bytes(
-						prtd->substream)) *
-						1000));
-				bytes_one_sec =
-					(runtime->rate * runtime->channels * 2);
-				bytes_one_sec =
-					div_u64(bytes_one_sec, 1000);
-				prtd->poll_time =
-					div_u64(period_bytes, bytes_one_sec);
-				pr_debug("prtd->poll_time: %d",
-						prtd->poll_time);
+				if (prtd->mmap_flag) {
+					period_bytes = ((uint64_t)(
+						(snd_pcm_lib_period_bytes(
+							prtd->substream)) *
+							1000));
+					bytes_one_sec = (runtime->rate
+						* runtime->channels * 2);
+					bytes_one_sec =
+						div_u64(bytes_one_sec, 1000);
+					prtd->poll_time =
+						div_u64(period_bytes,
+						bytes_one_sec);
+					pr_debug("prtd->poll_time: %d",
+							prtd->poll_time);
+				}
 				break;
 			}
 			case AFE_EVENT_RTPORT_STOP:
@@ -255,6 +258,7 @@ static void pcm_afe_process_rx_pkt(uint32_t opcode,
 	uint16_t event;
 	uint64_t period_bytes;
 	uint64_t bytes_one_sec;
+	uint32_t mem_map_handle = 0;
 
 	if (prtd == NULL)
 		return;
@@ -276,14 +280,33 @@ static void pcm_afe_process_rx_pkt(uint32_t opcode,
 			 * Multiplication by 1000000 is done in two steps to
 			 * keep the accuracy of poll time.
 			 */
-			period_bytes = ((uint64_t)(
-				(snd_pcm_lib_period_bytes(prtd->substream)) *
-				 1000));
-			bytes_one_sec = (runtime->rate * runtime->channels * 2);
-			bytes_one_sec = div_u64(bytes_one_sec , 1000);
-			prtd->poll_time =
-				div_u64(period_bytes, bytes_one_sec);
-			pr_debug("prtd->poll_time : %d\n", prtd->poll_time);
+			if (prtd->mmap_flag) {
+				period_bytes = ((uint64_t)(
+					(snd_pcm_lib_period_bytes(
+					prtd->substream)) * 1000));
+				bytes_one_sec = (runtime->rate *
+						runtime->channels * 2);
+				bytes_one_sec = div_u64(bytes_one_sec , 1000);
+				prtd->poll_time =
+					div_u64(period_bytes, bytes_one_sec);
+				pr_debug("prtd->poll_time : %d\n",
+					prtd->poll_time);
+			} else {
+				mem_map_handle =
+					afe_req_mmap_handle(prtd->audio_client);
+				if (!mem_map_handle)
+					pr_err("%s:mem_map_handle is NULL\n",
+							 __func__);
+				/* Do initial read to start transfer */
+				afe_rt_proxy_port_read((prtd->dma_addr +
+					(prtd->dsp_cnt *
+					snd_pcm_lib_period_bytes(
+						prtd->substream))),
+					mem_map_handle,
+					snd_pcm_lib_period_bytes(
+						prtd->substream));
+				prtd->dsp_cnt++;
+			}
 			break;
 		}
 		case AFE_EVENT_RTPORT_STOP:
@@ -305,9 +328,13 @@ static void pcm_afe_process_rx_pkt(uint32_t opcode,
 	case APR_BASIC_RSP_RESULT: {
 		switch (payload[0]) {
 		case AFE_PORT_DATA_CMD_RT_PROXY_PORT_READ_V2:
-			pr_debug("Read done\n");
+			pr_debug("%s :Read done\n", __func__);
 			prtd->pcm_irq_pos += snd_pcm_lib_period_bytes
 							(prtd->substream);
+			if (!prtd->mmap_flag) {
+				atomic_set(&prtd->rec_bytes_avail, 1);
+				wake_up(&prtd->read_wait);
+			}
 			snd_pcm_period_elapsed(prtd->substream);
 			break;
 		default:
@@ -410,6 +437,9 @@ static int msm_afe_open(struct snd_pcm_substream *substream)
 		return -ENOMEM;
 	}
 
+	atomic_set(&prtd->rec_bytes_avail, 0);
+	init_waitqueue_head(&prtd->read_wait);
+
 	hrtimer_init(&prtd->hrt, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		prtd->hrt.function = afe_hrtimer_callback;
@@ -441,6 +471,134 @@ static int msm_afe_open(struct snd_pcm_substream *substream)
 	}
 
 	return 0;
+}
+
+static int msm_afe_playback_copy(struct snd_pcm_substream *substream,
+				int channel, snd_pcm_uframes_t hwoff,
+				void __user *buf, snd_pcm_uframes_t frames)
+{
+	int ret = 0;
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct pcm_afe_info *prtd = runtime->private_data;
+	char *hwbuf = runtime->dma_area + frames_to_bytes(runtime, hwoff);
+	u32 mem_map_handle = 0;
+
+	pr_debug("%s : appl_ptr 0x%lx hw_ptr 0x%lx dest_to_copy 0x%p\n",
+		__func__,
+		runtime->control->appl_ptr, runtime->status->hw_ptr, hwbuf);
+
+	if (copy_from_user(hwbuf, buf, frames_to_bytes(runtime, frames))) {
+		pr_err("%s :Failed to copy audio from user buffer\n",
+			__func__);
+
+		ret = -EFAULT;
+		goto fail;
+	}
+
+	if (!prtd->mmap_flag) {
+		mem_map_handle = afe_req_mmap_handle(prtd->audio_client);
+		if (!mem_map_handle) {
+			pr_err("%s: mem_map_handle is NULL\n", __func__);
+			ret = -EFAULT;
+			goto fail;
+		}
+
+		pr_debug("%s : prtd-> dma_addr 0x%lx dsp_cnt %d\n", __func__,
+			prtd->dma_addr, prtd->dsp_cnt);
+
+		if (prtd->dsp_cnt == runtime->periods)
+			prtd->dsp_cnt = 0;
+
+		ret = afe_rt_proxy_port_write(
+				(prtd->dma_addr + (prtd->dsp_cnt *
+				snd_pcm_lib_period_bytes(prtd->substream))),
+				mem_map_handle,
+				snd_pcm_lib_period_bytes(prtd->substream));
+
+		if (ret) {
+			pr_err("%s: AFE proxy port write failed %d\n",
+				__func__, ret);
+			goto fail;
+		}
+		prtd->dsp_cnt++;
+	}
+fail:
+	return ret;
+}
+
+static int msm_afe_capture_copy(struct snd_pcm_substream *substream,
+				int channel, snd_pcm_uframes_t hwoff,
+				void __user *buf, snd_pcm_uframes_t frames)
+{
+	int ret = 0;
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct pcm_afe_info *prtd = runtime->private_data;
+	char *hwbuf = runtime->dma_area + frames_to_bytes(runtime, hwoff);
+	u32 mem_map_handle = 0;
+
+	if (!prtd->mmap_flag) {
+		mem_map_handle = afe_req_mmap_handle(prtd->audio_client);
+
+		if (!mem_map_handle) {
+			pr_err("%s: mem_map_handle is NULL\n", __func__);
+			ret = -EFAULT;
+			goto fail;
+		}
+
+		if (prtd->dsp_cnt == runtime->periods)
+			prtd->dsp_cnt = 0;
+
+		ret = afe_rt_proxy_port_read((prtd->dma_addr +
+				(prtd->dsp_cnt *
+				snd_pcm_lib_period_bytes(prtd->substream))),
+				mem_map_handle,
+				snd_pcm_lib_period_bytes(prtd->substream));
+
+		if (ret) {
+			pr_err("%s: AFE proxy port read failed %d\n",
+				__func__, ret);
+			goto fail;
+		}
+
+		prtd->dsp_cnt++;
+		ret = wait_event_timeout(prtd->read_wait,
+				atomic_read(&prtd->rec_bytes_avail), 5 * HZ);
+		if (ret < 0) {
+			pr_err("%s: wait_event_timeout failed\n", __func__);
+
+			ret = -ETIMEDOUT;
+			goto fail;
+		}
+		atomic_set(&prtd->rec_bytes_avail, 0);
+	}
+	pr_debug("%s:appl_ptr 0x%lx hw_ptr 0x%lx src_to_copy 0x%p\n",
+			__func__, runtime->control->appl_ptr,
+			runtime->status->hw_ptr, hwbuf);
+
+	if (copy_to_user(buf, hwbuf, frames_to_bytes(runtime, frames))) {
+		pr_err("%s: copy to user failed\n", __func__);
+
+		goto fail;
+		ret = -EFAULT;
+	}
+
+fail:
+	return ret;
+}
+
+static int msm_afe_copy(struct snd_pcm_substream *substream, int channel,
+			snd_pcm_uframes_t hwoff, void __user *buf,
+			snd_pcm_uframes_t frames)
+{
+	int ret = 0;
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		ret = msm_afe_playback_copy(substream, channel, hwoff,
+					buf, frames);
+	else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
+		ret = msm_afe_capture_copy(substream, channel, hwoff,
+					buf, frames);
+	return ret;
 }
 
 static int msm_afe_close(struct snd_pcm_substream *substream)
@@ -477,7 +635,8 @@ static int msm_afe_close(struct snd_pcm_substream *substream)
 		if (ret < 0)
 			pr_err("AFE unregister for events failed\n");
 	}
-	hrtimer_cancel(&prtd->hrt);
+	if (prtd->mmap_flag)
+		hrtimer_cancel(&prtd->hrt);
 
 	rc = afe_cmd_memory_unmap(afe_req_mmap_handle(prtd->audio_client));
 	if (rc < 0)
@@ -551,7 +710,8 @@ static int msm_afe_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		pr_debug("%s: SNDRV_PCM_TRIGGER_START\n", __func__);
 		prtd->start = 1;
-		hrtimer_start(&prtd->hrt, ns_to_ktime(0),
+		if (prtd->mmap_flag)
+			hrtimer_start(&prtd->hrt, ns_to_ktime(0),
 					HRTIMER_MODE_REL);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
@@ -650,6 +810,7 @@ static snd_pcm_uframes_t msm_afe_pointer(struct snd_pcm_substream *substream)
 
 static struct snd_pcm_ops msm_afe_ops = {
 	.open           = msm_afe_open,
+	.copy           = msm_afe_copy,
 	.hw_params	= msm_afe_hw_params,
 	.trigger	= msm_afe_trigger,
 	.close          = msm_afe_close,
