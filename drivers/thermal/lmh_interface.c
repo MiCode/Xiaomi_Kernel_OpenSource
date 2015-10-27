@@ -970,23 +970,44 @@ static ssize_t lmh_dbgfs_config_write(struct file *file,
 
 static int lmh_dbgfs_data_read(struct seq_file *seq_fp, void *data)
 {
-	uint32_t *read_buf = NULL;
-	int ret = 0, i = 0;
+	static uint32_t *read_buf;
+	static int read_buf_size;
+	int idx = 0, ret = 0, print_ret = 0;
 
-	ret = lmh_mon_data->debug_ops->debug_read(lmh_mon_data->debug_ops,
-		&read_buf);
-	if (ret <= 0 || !read_buf)
-		goto dfs_read_exit;
+	if (!read_buf_size) {
+		ret = lmh_mon_data->debug_ops->debug_read(
+			lmh_mon_data->debug_ops, &read_buf);
+		if (ret <= 0)
+			goto dfs_read_exit;
+		if (!read_buf || ret < sizeof(uint32_t)) {
+			ret = -EINVAL;
+			goto dfs_read_exit;
+	       }
+		read_buf_size = ret;
+		ret = 0;
+	}
 
 	do {
-		seq_printf(seq_fp, "0x%x ", read_buf[i]);
-		i++;
-		if ((i % LMH_READ_LINE_LENGTH) == 0)
-			seq_puts(seq_fp, "\n");
-	} while (i < (ret / sizeof(uint32_t)));
+		print_ret = seq_printf(seq_fp, "0x%x ", read_buf[idx]);
+		if (print_ret) {
+			pr_err("Seq print error. idx:%d err:%d\n",
+				idx, print_ret);
+			goto dfs_read_exit;
+		}
+		idx++;
+		if ((idx % LMH_READ_LINE_LENGTH) == 0) {
+			print_ret = seq_puts(seq_fp, "\n");
+			if (print_ret) {
+				pr_err("Seq print error. err:%d\n", print_ret);
+				goto dfs_read_exit;
+			}
+		}
+	} while (idx < (read_buf_size / sizeof(uint32_t)));
+	read_buf_size = 0;
+	read_buf = NULL;
 
 dfs_read_exit:
-	return (ret < 0) ? ret : 0;
+	return ret;
 }
 
 static ssize_t lmh_dbgfs_data_write(struct file *file,
