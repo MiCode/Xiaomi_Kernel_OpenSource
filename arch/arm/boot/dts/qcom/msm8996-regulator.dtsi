@@ -575,10 +575,15 @@
 		qcom,apm-threshold-voltage = <850000>;
 		qcom,apm-hysteresis-voltage = <5000>;
 		qcom,system-supply-max-voltage = <1015000>;
+		qcom,mem-acc-supply-threshold-voltage = <700000>;
+		qcom,mem-acc-supply-corner-map = <1 2>;
 
 		vdd-supply = <&pm8994_s11>;
 		qcom,voltage-step = <5000>;
 		vdd-limit-supply = <&pm8994_s11_limit>;
+		mem-acc-thread0-supply = <&apc0_pwrcl_mem_acc_vreg>;
+		mem-acc-thread1-supply = <&apc1_perfcl_mem_acc_vreg>;
+		mem-acc-supply = <&apcc_l3_mem_acc_vreg>;
 		vdd-thread0-ldo-supply = <&kryo0_vreg>;
 		vdd-thread1-ldo-supply = <&kryo1_vreg>;
 		vdd-thread0-ldo-ret-supply = <&kryo0_retention_vreg>;
@@ -616,6 +621,7 @@
 				qcom,ldo-min-headroom-voltage = <150000>;
 				qcom,ldo-max-headroom-voltage = <470000>;
 				qcom,ldo-max-voltage = <890000>;
+				qcom,uses-mem-acc;
 
 				qcom,cpr-corner-fmax-map =
 					/* Speed bin 0 */
@@ -952,6 +958,7 @@
 				qcom,ldo-min-headroom-voltage = <150000>;
 				qcom,ldo-max-headroom-voltage = <470000>;
 				qcom,ldo-max-voltage = <890000>;
+				qcom,uses-mem-acc;
 
 				qcom,cpr-corner-fmax-map =
 					/* Speed bin 0 */
@@ -1288,8 +1295,46 @@
 			};
 		};
 	};
-
 /* Memory accelerator regulators */
+	apc0_pwrcl_mem_acc_vreg: apc0-pwrcl-mem-acc-regulator {
+		compatible = "qcom,mem-acc-regulator";
+		reg = <0x099e00c0 0x4>;
+		reg-names = "acc-sel-l1";
+		regulator-name = "apc0_pwrcl_mem_acc_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <2>;
+		qcom,corner-acc-map = <0x3 0x0>;
+
+		qcom,acc-sel-l1-bit-pos = <0>;
+		qcom,acc-sel-l1-bit-size = <2>;
+	};
+
+	apc1_perfcl_mem_acc_vreg: apc1-perfcl-mem-acc-regulator {
+		compatible = "qcom,mem-acc-regulator";
+		reg = <0x099e00c0 0x4>;
+		reg-names = "acc-sel-l1";
+		regulator-name = "apc1_perfcl_mem_acc_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <2>;
+		qcom,corner-acc-map = <0x3 0x0>;
+
+		qcom,acc-sel-l1-bit-pos = <2>;
+		qcom,acc-sel-l1-bit-size = <2>;
+	};
+
+	apcc_l3_mem_acc_vreg: apcc-l3-mem-acc-regulator {
+		compatible = "qcom,mem-acc-regulator";
+		reg = <0x099e00c0 0x4>;
+		reg-names = "acc-sel-l1";
+		regulator-name = "apcc_l3_mem_acc_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <2>;
+		qcom,corner-acc-map = <0x1 0x0>;
+
+		qcom,acc-sel-l1-bit-pos = <4>;
+		qcom,acc-sel-l1-bit-size = <1>;
+	};
+
 	gfx_mem_acc_vreg: regulator@007af004 {
 		compatible = "qcom,mem-acc-regulator";
 		reg = <0x007af004 0x4>;
