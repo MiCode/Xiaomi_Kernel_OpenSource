@@ -1,7 +1,7 @@
 /* include/linux/msm_audio.h
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2012, 2014 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012, 2014-2015 The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -114,7 +114,10 @@
 #define AUDIO_EFFECTS_READ _IOWR(AUDIO_IOCTL_MAGIC, 103, void *)
 #define AUDIO_EFFECTS_SET_PP_PARAMS _IOW(AUDIO_IOCTL_MAGIC, 104, void *)
 
-#define	AUDIO_MAX_COMMON_IOCTL_NUM	105
+#define AUDIO_PM_AWAKE      _IOW(AUDIO_IOCTL_MAGIC, 105, unsigned)
+#define AUDIO_PM_RELAX      _IOW(AUDIO_IOCTL_MAGIC, 106, unsigned)
+
+#define	AUDIO_MAX_COMMON_IOCTL_NUM	107
 
 
 #define HANDSET_MIC			0x01
