@@ -1027,6 +1027,40 @@ static inline uint8_t pp_vig_csc_pipe_val(struct mdss_mdp_pipe *pipe)
 	}
 }
 
+/*
+ * when DUAL_LM_SINGLE_DISPLAY is used with 2 DSC encoders, DSC_MERGE is
+ * used during full frame updates. Now when we go from full frame update
+ * to right-only update, we need to disable DSC_MERGE. However, DSC_MERGE
+ * is controlled through DSC0_COMMON_MODE register which is double buffered,
+ * and this double buffer update is tied to LM0. Now for right-only update,
+ * LM0 will not get double buffer update signal. So DSC_MERGE is not disabled
+ * for right-only update which is wrong HW state and leads ping-pong timeout.
+ * Workaround for this is to use LM0->DSC0 pair for right-only update
+ * and disable DSC_MERGE.
+ *
+ * However using LM0->DSC0 pair for right-only update requires many changes
+ * at various levels of SW. To lower the SW impact and still support
+ * right-only partial update, keep SW state as it is but swap mixer register
+ * writes such that we instruct HW to use LM0->DSC0 pair.
+ *
+ * This function will return true if such a swap is needed or not.
+ */
+static inline bool mdss_mdp_is_lm_swap_needed(struct mdss_data_type *mdata,
+	struct mdss_mdp_ctl *mctl)
+{
+	if (!mdata || !mctl || !mctl->is_master ||
+	    !mctl->panel_data || !mctl->mfd)
+		return false;
+
+	return (is_dual_lm_single_display(mctl->mfd)) &&
+	       (mctl->panel_data->panel_info.partial_update_enabled) &&
+	       (mdss_has_quirk(mdata, MDSS_QUIRK_DSC_RIGHT_ONLY_PU)) &&
+	       (is_dsc_compression(&mctl->panel_data->panel_info)) &&
+	       (mctl->panel_data->panel_info.dsc_enc_total == 2) &&
+	       (!mctl->mixer_left->valid_roi) &&
+	       (mctl->mixer_right->valid_roi);
+}
+
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
 void mdss_mdp_irq_clear(struct mdss_data_type *mdata,
 		u32 intr_type, u32 intf_num);
