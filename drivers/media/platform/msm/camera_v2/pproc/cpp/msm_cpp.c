@@ -1758,9 +1758,17 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 
 
 	disable_irq(cpp_timer.data.cpp_dev->irq->start);
+	/* make sure all the pending queued entries are scheduled */
+	tasklet_kill(&cpp_dev->cpp_tasklet);
 
 	queue = &cpp_timer.data.cpp_dev->processing_q;
 	queue_len = queue->len;
+	if (!queue_len) {
+		pr_err("%s:%d: irq serviced after timeout.Ignore timeout\n",
+			__func__, __LINE__);
+		msm_cpp_set_micro_irq_mask(cpp_dev, 1, 0x8);
+		goto end;
+	}
 
 	pr_debug("Reloading firmware %d\n", queue_len);
 	rc = cpp_load_fw(cpp_timer.data.cpp_dev,
