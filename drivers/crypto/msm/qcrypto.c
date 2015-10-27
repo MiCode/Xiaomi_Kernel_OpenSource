@@ -5078,8 +5078,6 @@ err:
 	mutex_unlock(&cp->engine_lock);
 	if (pengine->qce)
 		qce_close(pengine->qce);
-	if (pqcrypto_req_control)
-		kzfree(pqcrypto_req_control);
 	kzfree(pengine);
 	return rc;
 };
