@@ -20,7 +20,7 @@
 #include <linux/if_ether.h>
 #include "linux/msm_gsi.h"
 
-#define IPA_APPS_MAX_BW_IN_MBPS 200
+#define IPA_APPS_MAX_BW_IN_MBPS 700
 /**
  * enum ipa_transport_type
  * transport type: either GSI or SPS
