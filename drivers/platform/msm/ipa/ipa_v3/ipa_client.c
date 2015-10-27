@@ -1695,3 +1695,57 @@ int ipa3_xdci_resume(u32 ul_clnt_hdl, u32 dl_clnt_hdl)
 	IPADBG("ipa3_xdci_resume: exit\n");
 	return 0;
 }
+/**
+ * ipa3_clear_endpoint_delay() - Remove ep delay set on the IPA pipe before
+ * client disconnect.
+ * @clnt_hdl:	[in] opaque client handle assigned by IPA to client
+ *
+ * Should be called by the driver of the peripheral that wants to remove
+ * ep delay on IPA consumer ipe before disconnect in BAM-BAM mode. this api
+ * expects caller to take responsibility to free any needed headers, routing
+ * and filtering tables and rules as needed.
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * Note:	Should not be called from atomic context
+ */
+int ipa3_clear_endpoint_delay(u32 clnt_hdl)
+{
+	struct ipa3_ep_context *ep;
+	struct ipa_ep_cfg_ctrl ep_ctrl = {0};
+
+	if (unlikely(!ipa3_ctx)) {
+		IPAERR("IPA driver was not initialized\n");
+		return -EINVAL;
+	}
+
+	if (!ipa3_ctx->tethered_flow_control) {
+		IPAERR("APPS flow control is not enabled\n");
+		return -EINVAL;
+	}
+
+	if (clnt_hdl >= ipa3_ctx->ipa_num_pipes ||
+		ipa3_ctx->ep[clnt_hdl].valid == 0) {
+		IPAERR("bad parm.\n");
+		return -EINVAL;
+	}
+
+	ep = &ipa3_ctx->ep[clnt_hdl];
+
+	ipa3_inc_client_enable_clks();
+	/* Set disconnect in progress flag so further flow control events are
+	 * not honored.
+	 */
+	spin_lock(&ipa3_ctx->disconnect_lock);
+	ep->disconnect_in_progress = true;
+	/* If flow is disabled at this point, restore the ep state.*/
+	ep_ctrl.ipa_ep_delay = false;
+	ep_ctrl.ipa_ep_suspend = false;
+	ipa3_cfg_ep_ctrl(clnt_hdl, &ep_ctrl);
+	spin_unlock(&ipa3_ctx->disconnect_lock);
+	ipa3_dec_client_disable_clks();
+
+	IPADBG("client (ep: %d) removed ep delay\n", clnt_hdl);
+
+	return 0;
+}
