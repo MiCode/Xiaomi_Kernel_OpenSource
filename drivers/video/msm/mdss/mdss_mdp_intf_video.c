@@ -476,7 +476,7 @@ static int mdss_mdp_video_intfs_stop(struct mdss_mdp_ctl *ctl,
 {
 	struct mdss_data_type *mdata;
 	struct mdss_panel_info *pinfo;
-	struct mdss_mdp_video_ctx *ctx;
+	struct mdss_mdp_video_ctx *ctx, *sctx = NULL;
 	struct mdss_mdp_vsync_handler *tmp, *handle;
 	int ret = 0;
 
@@ -504,18 +504,18 @@ static int mdss_mdp_video_intfs_stop(struct mdss_mdp_ctl *ctl,
 	if (is_pingpong_split(ctl->mfd)) {
 		pinfo = &pdata->next->panel_info;
 
-		ctx = (struct mdss_mdp_video_ctx *) ctl->intf_ctx[SLAVE_CTX];
-		if (!ctx->ref_cnt) {
+		sctx = (struct mdss_mdp_video_ctx *) ctl->intf_ctx[SLAVE_CTX];
+		if (!sctx->ref_cnt) {
 			pr_err("Intf %d not in use\n", (inum + MDSS_MDP_INTF0));
 			return -ENODEV;
 		}
 		pr_debug("stop ctl=%d video Intf #%d base=%p", ctl->num,
-				ctx->intf_num, ctx->base);
+				sctx->intf_num, sctx->base);
 
-		ret = mdss_mdp_video_ctx_stop(ctl, pinfo, ctx);
+		ret = mdss_mdp_video_ctx_stop(ctl, pinfo, sctx);
 		if (ret) {
 			pr_err("mdss_mdp_video_ctx_stop failed for intf: %d",
-					ctx->intf_num);
+					sctx->intf_num);
 			return -EPERM;
 		}
 	}
