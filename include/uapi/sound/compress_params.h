@@ -53,6 +53,8 @@
 
 #include <linux/types.h>
 
+#define SND_DEC_DDP_MAX_PARAMS 18
+
 /* AUDIO CODECS SUPPORTED */
 #define MAX_NUM_CODECS 32
 #define MAX_NUM_CODEC_DESCRIPTORS 32
@@ -344,8 +346,8 @@ struct snd_enc_generic {
 
 struct snd_dec_ddp {
 	__u32 params_length;
-	__u32 params_id[18];
-	__u32 params_value[18];
+	__u32 params_id[SND_DEC_DDP_MAX_PARAMS];
+	__u32 params_value[SND_DEC_DDP_MAX_PARAMS];
 } __attribute__((packed, aligned(4)));
 
 struct snd_dec_flac {
