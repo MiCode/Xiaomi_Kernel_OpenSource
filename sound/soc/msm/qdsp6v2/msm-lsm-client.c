@@ -1724,6 +1724,10 @@ static int msm_lsm_close(struct snd_pcm_substream *substream)
 		pr_err("%s: Invalid private_data", __func__);
 		return -EINVAL;
 	}
+	if (!prtd || !prtd->lsm_client) {
+		pr_err("%s: No LSM session active\n", __func__);
+		return -EINVAL;
+	}
 	rtd = substream->private_data;
 
 	dev_dbg(rtd->dev, "%s\n", __func__);
