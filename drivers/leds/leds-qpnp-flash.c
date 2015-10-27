@@ -1403,14 +1403,16 @@ static void qpnp_flash_led_work(struct work_struct *work)
 		if (flash_node->id == FLASH_LED_SWITCH) {
 			if (flash_node->trigger & FLASH_LED0_TRIGGER)
 				total_curr_ma += flash_node->prgm_current;
-			else if (flash_node->trigger & FLASH_LED1_TRIGGER)
+			if (flash_node->trigger & FLASH_LED1_TRIGGER)
 				total_curr_ma += flash_node->prgm_current2;
 
 			if (max_curr_avail_ma < total_curr_ma) {
-				flash_node->prgm_current *=
-					max_curr_avail_ma / total_curr_ma;
-				flash_node->prgm_current2 *=
-					max_curr_avail_ma / total_curr_ma;
+				flash_node->prgm_current =
+					(flash_node->prgm_current *
+					max_curr_avail_ma) / total_curr_ma;
+				flash_node->prgm_current2 =
+					(flash_node->prgm_current2 *
+					max_curr_avail_ma) / total_curr_ma;
 			}
 
 			val = (u8)(flash_node->prgm_current *
