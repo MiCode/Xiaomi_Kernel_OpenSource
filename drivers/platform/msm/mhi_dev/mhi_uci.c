@@ -33,7 +33,6 @@
 #define MHI_MAX_NR_OF_CLIENTS		23
 #define MHI_SOFTWARE_CLIENT_START	0
 #define MHI_SOFTWARE_CLIENT_LIMIT	(MHI_MAX_SOFTWARE_CHANNELS/2)
-#define TRB_MAX_DATA_SIZE		4096
 #define MHI_UCI_IPC_LOG_PAGES		(100)
 
 #define MAX_NR_TRBS_PER_CHAN		1
@@ -250,6 +249,7 @@ static unsigned int mhi_uci_client_poll(struct file *file, poll_table *wait)
 static int open_client_mhi_channels(struct uci_client *uci_client)
 {
 	int rc = 0;
+
 	uci_log(UCI_DBG_DBG,
 			"Starting channels %d %d.\n",
 			uci_client->out_chan,
@@ -342,6 +342,7 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 	int rc = 0;
 	int in_chan = 0;
 	u32 buf_size = 0;
+
 	in_chan = iminor(mhi_inode) + 1;
 	nr_in_bufs = uci_ctxt->chan_attrib[in_chan].nr_trbs;
 	buf_size = uci_ctxt->chan_attrib[in_chan].max_packet_size;
@@ -539,8 +540,9 @@ static ssize_t mhi_uci_client_write(struct file *file,
 	if (file == NULL || buf == NULL ||
 			!count || file->private_data == NULL)
 		return -EINVAL;
-	else
-		uci_handle = file->private_data;
+
+	uci_handle = file->private_data;
+
 	if (atomic_read(&uci_ctxt.mhi_disabled)) {
 		uci_log(UCI_DBG_ERROR,
 			"Client %d attempted to write while MHI is disabled\n",
@@ -679,8 +681,8 @@ static long mhi_uci_client_ioctl(struct file *file, unsigned cmd,
 
 	if (file == NULL || file->private_data == NULL)
 		return -EINVAL;
-	else
-		uci_handle = file->private_data;
+
+	uci_handle = file->private_data;
 
 	uci_log(UCI_DBG_DBG, "Received command %d for client:%d\n",
 		cmd, uci_handle->client_index);
@@ -734,6 +736,7 @@ int mhi_uci_init(void)
 	int ret_val = 0;
 	struct uci_client *mhi_client = NULL;
 	s32 r = 0;
+
 	mhi_uci_ipc_log = ipc_log_context_create(MHI_UCI_IPC_LOG_PAGES,
 						"mhi-uci", 0);
 	if (mhi_uci_ipc_log == NULL) {
