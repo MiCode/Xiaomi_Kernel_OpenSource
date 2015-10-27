@@ -2991,9 +2991,15 @@ void ipa3_suspend_handler(enum ipa_irq_type interrupt,
 				 * pipe will be unsuspended as part of
 				 * enabling IPA clocks
 				 */
-				ipa3_inc_client_enable_clks();
-				ipa3_ctx->transport_pm.dec_clients = true;
-				ipa3_sps_process_irq_schedule_rel();
+				if (!atomic_read(
+					&ipa3_ctx->transport_pm.dec_clients)
+					) {
+					ipa3_inc_client_enable_clks();
+					atomic_set(
+					&ipa3_ctx->transport_pm.dec_clients,
+					1);
+					ipa3_sps_process_irq_schedule_rel();
+				}
 			} else {
 				resource = ipa3_get_rm_resource_from_ep(i);
 				res =
@@ -3057,11 +3063,12 @@ static int ipa3_apps_cons_request_resource(void)
 static void ipa3_sps_release_resource(struct work_struct *work)
 {
 	/* check whether still need to decrease client usage */
-	if (ipa3_ctx->transport_pm.dec_clients) {
+	if (atomic_read(&ipa3_ctx->transport_pm.dec_clients)) {
 		if (atomic_read(&ipa3_ctx->transport_pm.eot_activity)) {
+			IPADBG("EOT pending Re-scheduling\n");
 			ipa3_sps_process_irq_schedule_rel();
 		} else {
-			ipa3_ctx->transport_pm.dec_clients = false;
+			atomic_set(&ipa3_ctx->transport_pm.dec_clients, 0);
 			ipa3_dec_client_disable_clks();
 		}
 	}

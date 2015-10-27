@@ -1212,7 +1212,7 @@ struct ipa3_transport_pm {
 	spinlock_t lock;
 	bool res_granted;
 	bool res_rel_in_prog;
-	bool dec_clients;
+	atomic_t dec_clients;
 	atomic_t eot_activity;
 };
 
