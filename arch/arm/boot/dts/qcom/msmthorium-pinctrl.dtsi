@@ -135,5 +135,18 @@
 				bias-disable;
 			};
 		};
+
+		usbc_int_default: usbc_int_default {
+			mux {
+				pins = "gpio97", "gpio133";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio97", "gpio133";
+				drive-strenght = <2>;
+				bias-pull-up;
+			};
+		};
 	};
 };
