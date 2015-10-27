@@ -2534,10 +2534,20 @@ struct mass_storage_function_config {
 	char inquiry_string[INQUIRY_MAX_LEN];
 };
 
+#ifdef CONFIG_USB_GADGET_DEBUG_FILES
+static unsigned int fsg_num_buffers = CONFIG_USB_GADGET_STORAGE_NUM_BUFFERS;
+#else
+#define fsg_num_buffers	CONFIG_USB_GADGET_STORAGE_NUM_BUFFERS
+#endif /* CONFIG_USB_GADGET_DEBUG_FILES */
+static struct fsg_module_parameters fsg_mod_data;
+FSG_MODULE_PARAMETERS(/* no prefix */, fsg_mod_data);
+
 static int mass_storage_function_init(struct android_usb_function *f,
 					struct usb_composite_dev *cdev)
 {
 	struct mass_storage_function_config *config;
+	struct fsg_opts *fsg_opts;
+	struct fsg_config m_config;
 	int ret;
 
 	pr_debug("%s(): Inside\n", __func__);
@@ -2553,58 +2563,9 @@ static int mass_storage_function_init(struct android_usb_function *f,
 		goto err_usb_get_function_instance;
 	}
 
-	config->f_ms = usb_get_function(config->f_ms_inst);
-	if (IS_ERR(config->f_ms)) {
-		ret = PTR_ERR(config->f_ms);
-		goto err_usb_get_function;
-	}
-	return 0;
-
-err_usb_get_function:
-	usb_put_function_instance(config->f_ms_inst);
-
-err_usb_get_function_instance:
-	return ret;
-}
-
-static void mass_storage_function_cleanup(struct android_usb_function *f)
-{
-	struct mass_storage_function_config *config = f->config;
-
-	pr_debug("%s(): Inside\n", __func__);
-	usb_put_function(config->f_ms);
-	usb_put_function_instance(config->f_ms_inst);
-	kfree(f->config);
-	f->config = NULL;
-}
-
-#ifdef CONFIG_USB_GADGET_DEBUG_FILES
-static unsigned int fsg_num_buffers = CONFIG_USB_GADGET_STORAGE_NUM_BUFFERS;
-#else
-#define fsg_num_buffers	CONFIG_USB_GADGET_STORAGE_NUM_BUFFERS
-#endif /* CONFIG_USB_GADGET_DEBUG_FILES */
-static struct fsg_module_parameters fsg_mod_data;
-FSG_MODULE_PARAMETERS(/* no prefix */, fsg_mod_data);
-
-static int mass_storage_function_bind_config(struct android_usb_function *f,
-						struct usb_configuration *c)
-{
-	struct mass_storage_function_config *config = f->config;
-	int ret = 0;
-	int i;
-	struct fsg_opts *fsg_opts;
-	struct fsg_config m_config;
-
-	ret = usb_add_function(c, config->f_ms);
-	if (ret) {
-		pr_err("Could not bind ms%u config\n", i);
-		goto err_usb_add_function;
-	}
-
 	fsg_mod_data.removable[0] = true;
 	fsg_config_from_params(&m_config, &fsg_mod_data, fsg_num_buffers);
 	fsg_opts = fsg_opts_from_func_inst(config->f_ms_inst);
-	fsg_opts->no_configfs = true;
 	ret = fsg_common_set_num_buffers(fsg_opts->common, fsg_num_buffers);
 	if (ret) {
 		pr_err("%s(): error(%d) for fsg_common_set_num_buffers\n",
@@ -2619,7 +2580,7 @@ static int mass_storage_function_bind_config(struct android_usb_function *f,
 		goto err_set_nluns;
 	}
 
-	ret = fsg_common_set_cdev(fsg_opts->common, c->cdev,
+	ret = fsg_common_set_cdev(fsg_opts->common, cdev,
 						m_config.can_stall);
 	if (ret) {
 		pr_err("%s(): error(%d) for fsg_common_set_cdev\n",
@@ -2651,21 +2612,63 @@ err_set_cdev:
 err_set_nluns:
 	fsg_common_free_buffers(fsg_opts->common);
 err_set_num_buffers:
-	usb_remove_function(c, config->f_ms);
+	usb_put_function_instance(config->f_ms_inst);
+err_usb_get_function_instance:
+	return ret;
+}
+
+static void mass_storage_function_cleanup(struct android_usb_function *f)
+{
+	struct fsg_opts *fsg_opts;
+	struct mass_storage_function_config *config = f->config;
+
+	pr_debug("%s(): Inside\n", __func__);
+	fsg_opts = fsg_opts_from_func_inst(config->f_ms_inst);
+	fsg_sysfs_update(fsg_opts->common, f->dev, false);
+	fsg_common_free_luns(fsg_opts->common);
+
+	usb_put_function_instance(config->f_ms_inst);
+	kfree(f->config);
+	f->config = NULL;
+}
+
+static int mass_storage_function_bind_config(struct android_usb_function *f,
+						struct usb_configuration *c)
+{
+	struct mass_storage_function_config *config = f->config;
+	int ret = 0;
+	int i;
+	struct fsg_opts *fsg_opts;
+
+	config->f_ms = usb_get_function(config->f_ms_inst);
+	if (IS_ERR(config->f_ms)) {
+		ret = PTR_ERR(config->f_ms);
+		return ret;
+	}
+
+	ret = usb_add_function(c, config->f_ms);
+	if (ret) {
+		pr_err("Could not bind ms%u config\n", i);
+		goto err_usb_add_function;
+	}
+
+	fsg_opts = fsg_opts_from_func_inst(config->f_ms_inst);
+	fsg_opts->no_configfs = true;
+
+	return 0;
 
 err_usb_add_function:
+	usb_put_function(config->f_ms);
+
 	return ret;
 }
 
 static void mass_storage_function_unbind_config(struct android_usb_function *f,
 					       struct usb_configuration *c)
 {
-	struct fsg_opts *fsg_opts;
 	struct mass_storage_function_config *config = f->config;
 
-	fsg_opts = fsg_opts_from_func_inst(config->f_ms_inst);
-	fsg_sysfs_update(fsg_opts->common, f->dev, false);
-	fsg_common_free_luns(fsg_opts->common);
+	usb_put_function(config->f_ms);
 }
 
 static ssize_t mass_storage_inquiry_show(struct device *dev,
