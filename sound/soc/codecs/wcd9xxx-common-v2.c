@@ -40,6 +40,15 @@ enum {
 	VREF_FILT_R_100KOHM,
 };
 
+enum {
+	DELTA_I_0MA,
+	DELTA_I_10MA,
+	DELTA_I_20MA,
+	DELTA_I_30MA,
+	DELTA_I_40MA,
+	DELTA_I_50MA,
+};
+
 static void (*clsh_state_fp[NUM_CLSH_STATES_V2])(struct snd_soc_codec *,
 					      struct wcd_clsh_cdc_data *,
 					      u8 req_state, bool en, int mode);
@@ -284,6 +293,7 @@ static void wcd_clsh_set_hph_mode(struct snd_soc_codec *codec,
 	u8 val;
 	u8 gain;
 	u8 res_val = VREF_FILT_R_0OHM;
+	u8 ipeak = DELTA_I_50MA;
 
 	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
 
@@ -292,18 +302,21 @@ static void wcd_clsh_set_hph_mode(struct snd_soc_codec *codec,
 		res_val = VREF_FILT_R_50KOHM;
 		val = 0x00;
 		gain = DAC_GAIN_0DB;
+		ipeak = DELTA_I_50MA;
 		break;
 	case CLS_AB:
 		val = 0x00;
 		gain = DAC_GAIN_0DB;
+		ipeak = DELTA_I_50MA;
 		break;
 	case CLS_H_HIFI:
 		val = 0x08;
 		gain = DAC_GAIN_M0P2DB;
+		ipeak = DELTA_I_50MA;
 		break;
 	case CLS_H_LP:
 		val = 0x04;
-		gain = DAC_GAIN_0P2DB;
+		ipeak = DELTA_I_30MA;
 		break;
 	};
 
@@ -311,8 +324,11 @@ static void wcd_clsh_set_hph_mode(struct snd_soc_codec *codec,
 	if (TASHA_IS_2_0(wcd9xxx->version)) {
 		snd_soc_update_bits(codec, WCD9XXX_CLASSH_CTRL_VCL_2,
 				    0x30, (res_val << 4));
-		snd_soc_update_bits(codec, WCD9XXX_HPH_REFBUFF_UHQA_CTL,
-				    0x07, gain);
+		if (mode != CLS_H_LP)
+			snd_soc_update_bits(codec, WCD9XXX_HPH_REFBUFF_UHQA_CTL,
+					    0x07, gain);
+		snd_soc_update_bits(codec, WCD9XXX_CLASSH_CTRL_CCL_1,
+				    0xF0, (ipeak << 4));
 	}
 }
 
