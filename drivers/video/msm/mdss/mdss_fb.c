@@ -1064,15 +1064,14 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	if (pdata->panel_info.is_split_display) {
 		struct mdss_panel_data *pnext = pdata->next;
 
-		/*
-		 * currently pingpong-split is not a choice from device tree
-		 * and it is handled in overlay_init. Fix this.
-		 */
 		mfd->split_fb_left = pdata->panel_info.lm_widths[0];
 		if (pnext)
 			mfd->split_fb_right = pnext->panel_info.lm_widths[0];
 
-		mfd->split_mode = MDP_DUAL_LM_DUAL_DISPLAY;
+		if (pdata->panel_info.use_pingpong_split)
+			mfd->split_mode = MDP_PINGPONG_SPLIT;
+		else
+			mfd->split_mode = MDP_DUAL_LM_DUAL_DISPLAY;
 	} else if ((pdata->panel_info.lm_widths[0] != 0) &&
 		   (pdata->panel_info.lm_widths[1] != 0)) {
 		mfd->split_fb_left = pdata->panel_info.lm_widths[0];
