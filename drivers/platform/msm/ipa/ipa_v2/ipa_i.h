@@ -1943,6 +1943,7 @@ int ipa_uc_interface_init(void);
 int ipa_uc_reset_pipe(enum ipa_client_type ipa_client);
 int ipa_uc_monitor_holb(enum ipa_client_type ipa_client, bool enable);
 int ipa_uc_state_check(void);
+int ipa_uc_loaded_check(void);
 int ipa_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 		    bool polling_mode, unsigned long timeout_jiffies);
 void ipa_register_panic_hdlr(void);
