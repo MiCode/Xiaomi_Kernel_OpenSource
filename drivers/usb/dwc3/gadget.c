@@ -1875,6 +1875,10 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 
 		dwc->pullups_connected = true;
 	} else {
+		dwc3_gadget_disable_irq(dwc);
+		__dwc3_gadget_ep_disable(dwc->eps[0]);
+		__dwc3_gadget_ep_disable(dwc->eps[1]);
+
 		reg &= ~DWC3_DCTL_RUN_STOP;
 
 		if (dwc->has_hibernation && !suspend)
@@ -3469,6 +3473,11 @@ static irqreturn_t dwc3_check_event_buf(struct dwc3 *dwc, u32 buf)
 	if (!count)
 		return IRQ_NONE;
 
+	if (count > evt->length) {
+		dev_warn(dwc->dev, "%s: ev_count is huge: %d", __func__, count);
+		return IRQ_NONE;
+	}
+
 	evt->count = count;
 	evt->flags |= DWC3_EVENT_PENDING;
 
@@ -3507,6 +3516,12 @@ static irqreturn_t dwc3_interrupt(int irq, void *_dwc)
 			ret = status;
 
 		temp_cnt += dwc->ev_buffs[i]->count;
+	}
+
+	/* If run/stop is cleared don't process any more events */
+	if (!dwc->pullups_connected) {
+		dev_warn(dwc->dev, "IRQ received but run/stop is cleared\n");
+		ret = IRQ_HANDLED;
 	}
 
 	spin_unlock(&dwc->lock);
