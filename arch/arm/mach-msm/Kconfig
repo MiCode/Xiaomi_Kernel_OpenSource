@@ -40,6 +40,7 @@ config ARCH_MDMFERMIUM
        select USE_PINCTRL_IRQ
        select MSM_IRQ
        select MSM_PM if PM
+       select DEVFREQ_GOV_MSM_BW_HWMON
 
 config ARCH_MDMCALIFORNIUM
 	bool "MDMCALIFORNIUM"
