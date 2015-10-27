@@ -342,6 +342,8 @@
 	qcom,cpr-floor-to-ceiling-max-range =
 		<0 130000 40000 85000 85000>;
 
+	/delete-property/ qcom,cpr-fused-closed-loop-voltage-adjustment-map;
+
 	/delete-property/ qcom,cpr-aging-max-voltage-adjustment;
 	/delete-property/ qcom,cpr-aging-ref-corner;
 	/delete-property/ qcom,cpr-aging-ro-scaling-factor;
