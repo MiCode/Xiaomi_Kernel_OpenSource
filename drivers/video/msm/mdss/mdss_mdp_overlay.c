@@ -4540,8 +4540,8 @@ static void mdss_mdp_set_lm_flag(struct msm_fb_data_type *mfd)
 		mfd->split_mode = MDP_DUAL_LM_SINGLE_DISPLAY;
 		mfd->split_fb_left = width;
 		mfd->split_fb_right = width;
-	} else if (mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY &&
-			width <= mdata->max_mixer_width) {
+	} else if (is_dual_lm_single_display(mfd) &&
+		   (width <= mdata->max_mixer_width)) {
 		mfd->split_mode = MDP_SPLIT_MODE_NONE;
 		mfd->split_fb_left = 0;
 		mfd->split_fb_right = 0;
