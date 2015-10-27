@@ -19,7 +19,7 @@ Optional properties:
 			config defined in pin groups of interrupt and reset gpios.
 			"pmx_ts_suspend" : disabled configuration of pins. This should specify sleep
 			config defined in pin groups of interrupt and reset gpios.
-
+ - maxim_sti,mt_type_b_enabled	: Boolean type. This should be used to enable type B multitouch protocol.
 Example:
 
 &spi_13 { /* BLSP1 QUP3 */
@@ -38,6 +38,7 @@ Example:
 		maxim_sti,touch_fusion = "/vendor/bin/touch_fusion";
 		maxim_sti,config_file = "/vendor/firmware/touch_fusion_panel_id_0x%04x.cfg";
 		maxim_sti,fw_name = "maxim_fp35.bin";
+		maxim_sti,mt_type_b_enabled;
 		pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_release";
 		pinctrl-0 = <&ts_int_active &ts_reset_active>;
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
