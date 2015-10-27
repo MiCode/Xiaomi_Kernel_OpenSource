@@ -141,6 +141,7 @@ enum cpe_command {
 	CPE_LAB_CFG_SB,
 	CPE_CMD_CANCEL_MEMACCESS,
 	CPE_CMD_PROC_INCOMING_MSG,
+	CPE_CMD_FTM_TEST,
 };
 
 enum cpe_process_result {
@@ -181,6 +182,11 @@ struct cpe_info {
 	struct completion core_svc_cmd_compl;
 };
 
+struct cpe_tgt_waiti_info {
+	u8 tgt_waiti_size;
+	u8 *tgt_waiti_data;
+};
+
 struct cpe_svc_tgt_abstraction {
 	enum cpe_svc_result (*tgt_boot) (int debug_mode);
 
@@ -218,6 +224,7 @@ struct cpe_svc_tgt_abstraction {
 				(bool);
 	u8 *inbox;
 	u8 *outbox;
+	struct cpe_tgt_waiti_info *tgt_waiti_info;
 };
 
 static enum cpe_svc_result cpe_tgt_tomtom_init(
@@ -1374,6 +1381,7 @@ static enum cpe_svc_result cpe_mt_validate_cmd(
 		case CPE_CMD_PROCESS_IRQ:
 		case CPE_CMD_KILL_THREAD:
 		case CPE_CMD_DEINITIALIZE:
+		case CPE_CMD_FTM_TEST:
 			rc = CPE_SVC_SUCCESS;
 			break;
 		default:
@@ -1387,6 +1395,7 @@ static enum cpe_svc_result cpe_mt_validate_cmd(
 		case CPE_CMD_RESET:
 		case CPE_CMD_DL_SEGMENT:
 		case CPE_CMD_BOOT:
+		case CPE_CMD_FTM_TEST:
 			rc = CPE_SVC_SUCCESS;
 			break;
 		default:
@@ -1402,6 +1411,9 @@ static enum cpe_svc_result cpe_mt_validate_cmd(
 		case CPE_CMD_BOOT_COMPLETE:
 		case CPE_CMD_SHUTDOWN:
 			rc = CPE_SVC_SUCCESS;
+			break;
+		case CPE_CMD_FTM_TEST:
+			rc = CPE_SVC_BUSY;
 			break;
 		default:
 			rc = CPE_SVC_NOT_READY;
@@ -1421,6 +1433,9 @@ static enum cpe_svc_result cpe_mt_validate_cmd(
 		case CPE_CMD_PROC_INCOMING_MSG:
 			rc = CPE_SVC_SUCCESS;
 			break;
+		case CPE_CMD_FTM_TEST:
+			rc = CPE_SVC_BUSY;
+			break;
 		default:
 			rc = CPE_SVC_FAILED;
 			break;
@@ -1437,6 +1452,9 @@ static enum cpe_svc_result cpe_mt_validate_cmd(
 		case CPE_CMD_KILL_THREAD:
 		case CPE_CMD_PROC_INCOMING_MSG:
 			rc = CPE_SVC_SUCCESS;
+			break;
+		case CPE_CMD_FTM_TEST:
+			rc = CPE_SVC_BUSY;
 			break;
 		default:
 			rc = CPE_SVC_FAILED;
@@ -1971,6 +1989,115 @@ enum cmi_api_result cmi_send_msg(void *message)
 	return rc;
 }
 
+enum cpe_svc_result cpe_svc_ftm_test(void *cpe_handle, u32 *status)
+{
+	enum cpe_svc_result rc = CPE_SVC_SUCCESS;
+	struct cpe_info *t_info = (struct cpe_info *)cpe_handle;
+	struct cpe_svc_mem_segment backup_seg;
+	struct cpe_svc_mem_segment waiti_seg;
+	u8 *backup_data = NULL;
+
+	CPE_SVC_GRAB_LOCK(&cpe_d.cpe_api_mutex, "cpe_api");
+	if (!t_info)
+		t_info = cpe_d.cpe_default_handle;
+
+	rc = cpe_is_command_valid(t_info, CPE_CMD_FTM_TEST);
+	if (rc != CPE_SVC_SUCCESS) {
+		pr_err("%s: cmd validation fail, cmd = %d\n",
+			__func__, CPE_CMD_FTM_TEST);
+		goto fail_cmd;
+	}
+
+	if (t_info && t_info->tgt) {
+		backup_data = kzalloc(
+				t_info->tgt->tgt_waiti_info->tgt_waiti_size,
+				GFP_KERNEL);
+
+		/* CPE reset */
+		rc = t_info->tgt->tgt_reset();
+		if (rc != CPE_SVC_SUCCESS) {
+			pr_err("%s: CPE reset fail! err = %d\n",
+				__func__, rc);
+			goto err_return;
+		}
+
+		/* Back up the 4 byte IRAM data first */
+		backup_seg.type = CPE_SVC_INSTRUCTION_MEM;
+		backup_seg.cpe_addr =
+			t_info->tgt->tgt_get_cpe_info()->IRAM_offset;
+		backup_seg.size = t_info->tgt->tgt_waiti_info->tgt_waiti_size;
+		backup_seg.data = backup_data;
+
+		pr_debug("%s: Backing up IRAM data from CPE\n",
+			__func__);
+
+		rc = t_info->tgt->tgt_read_ram(t_info, &backup_seg);
+		if (rc != CPE_SVC_SUCCESS) {
+			pr_err("%s: Fail to backup CPE IRAM data, err = %d\n",
+				__func__, rc);
+			goto err_return;
+		}
+
+		pr_debug("%s: Complete backing up IRAM data from CPE\n",
+			__func__);
+
+		/* Write the WAITI instruction data */
+		waiti_seg.type = CPE_SVC_INSTRUCTION_MEM;
+		waiti_seg.cpe_addr =
+			t_info->tgt->tgt_get_cpe_info()->IRAM_offset;
+		waiti_seg.size = t_info->tgt->tgt_waiti_info->tgt_waiti_size;
+		waiti_seg.data = t_info->tgt->tgt_waiti_info->tgt_waiti_data;
+
+		rc = t_info->tgt->tgt_write_ram(t_info, &waiti_seg);
+		if (rc != CPE_SVC_SUCCESS) {
+			pr_err("%s: Fail to write the WAITI data, err = %d\n",
+				__func__, rc);
+			goto restore_iram;
+		}
+
+		/* Boot up cpe to execute the WAITI instructions */
+		rc = t_info->tgt->tgt_boot(1);
+		if (rc != CPE_SVC_SUCCESS) {
+			pr_err("%s: Fail to boot CPE, err = %d\n",
+				__func__, rc);
+			goto reset;
+		}
+
+		/*
+		 * 1ms delay is suggested by the hw team to
+		 * wait for cpe to boot up.
+		 */
+		usleep_range(1000, 1100);
+
+		/* Check if the cpe init is done after executing the WAITI */
+		*status = t_info->tgt->tgt_cpar_init_done();
+
+reset:
+		/* Set the cpe back to reset state */
+		rc = t_info->tgt->tgt_reset();
+		if (rc != CPE_SVC_SUCCESS) {
+			pr_err("%s: CPE reset fail! err = %d\n",
+				__func__, rc);
+			goto restore_iram;
+		}
+
+restore_iram:
+		/* Restore the IRAM 4 bytes data */
+		rc = t_info->tgt->tgt_write_ram(t_info, &backup_seg);
+		if (rc != CPE_SVC_SUCCESS) {
+			pr_err("%s: Fail to restore the IRAM data, err = %d\n",
+				__func__, rc);
+			goto err_return;
+		}
+	}
+
+err_return:
+	kfree(backup_data);
+fail_cmd:
+	CPE_SVC_REL_LOCK(&cpe_d.cpe_api_mutex, "cpe_api");
+	return rc;
+}
+
 static enum cpe_svc_result cpe_tgt_tomtom_boot(int debug_mode)
 {
 	enum cpe_svc_result rc = CPE_SVC_SUCCESS;
@@ -2319,6 +2446,13 @@ static enum cpe_svc_result cpe_tgt_tomtom_deinit(
 	return CPE_SVC_SUCCESS;
 }
 
+static u8 cpe_tgt_tomtom_waiti_data[] = {0x00, 0x70, 0x00, 0x00};
+
+static struct cpe_tgt_waiti_info cpe_tgt_tomtom_waiti_info = {
+	.tgt_waiti_size = ARRAY_SIZE(cpe_tgt_tomtom_waiti_data),
+	.tgt_waiti_data = cpe_tgt_tomtom_waiti_data,
+};
+
 static enum cpe_svc_result cpe_tgt_tomtom_init(
 		struct cpe_svc_codec_info_v1 *codec_info,
 		struct cpe_svc_tgt_abstraction *param)
@@ -2343,6 +2477,7 @@ static enum cpe_svc_result cpe_tgt_tomtom_init(
 		param->tgt_get_cpe_info = cpe_tgt_tomtom_get_cpe_info;
 		param->tgt_deinit = cpe_tgt_tomtom_deinit;
 		param->tgt_voice_tx_lab = cpe_tgt_tomtom_voicetx;
+		param->tgt_waiti_info = &cpe_tgt_tomtom_waiti_info;
 
 		param->inbox = kzalloc(TOMTOM_A_SVASS_SPE_INBOX_SIZE,
 				       GFP_KERNEL);
@@ -2753,6 +2888,13 @@ static enum cpe_svc_result
 	return rc;
 }
 
+static u8 cpe_tgt_wcd9335_waiti_data[] = {0x00, 0x70, 0x00, 0x00};
+
+static struct cpe_tgt_waiti_info cpe_tgt_wcd9335_waiti_info = {
+	.tgt_waiti_size = ARRAY_SIZE(cpe_tgt_wcd9335_waiti_data),
+	.tgt_waiti_data = cpe_tgt_wcd9335_waiti_data,
+};
+
 static enum cpe_svc_result cpe_tgt_wcd9335_init(
 		struct cpe_svc_codec_info_v1 *codec_info,
 		struct cpe_svc_tgt_abstraction *param)
@@ -2777,6 +2919,7 @@ static enum cpe_svc_result cpe_tgt_wcd9335_init(
 		param->tgt_get_cpe_info = cpe_tgt_wcd9335_get_cpe_info;
 		param->tgt_deinit = cpe_tgt_wcd9335_deinit;
 		param->tgt_voice_tx_lab = cpe_tgt_wcd9335_voicetx;
+		param->tgt_waiti_info = &cpe_tgt_wcd9335_waiti_info;
 
 		param->inbox = kzalloc(WCD9335_CPE_SS_SPE_INBOX_SIZE,
 				       GFP_KERNEL);
