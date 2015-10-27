@@ -1377,7 +1377,7 @@ static int msm_slim_qmi_send_select_inst_req(struct msm_slim_ctrl *dev,
 	resp_desc.ei_array = slimbus_select_inst_resp_msg_v01_ei;
 
 	rc = qmi_send_req_wait(dev->qmi.handle, &req_desc, req, sizeof(*req),
-					&resp_desc, &resp, sizeof(resp), 5000);
+			&resp_desc, &resp, sizeof(resp), SLIM_QMI_RESP_TOUT);
 	if (rc < 0) {
 		SLIM_ERR(dev, "%s: QMI send req failed %d\n", __func__, rc);
 		return rc;
@@ -1409,7 +1409,7 @@ static int msm_slim_qmi_send_power_request(struct msm_slim_ctrl *dev,
 	resp_desc.ei_array = slimbus_power_resp_msg_v01_ei;
 
 	rc = qmi_send_req_wait(dev->qmi.handle, &req_desc, req, sizeof(*req),
-					&resp_desc, &resp, sizeof(resp), 5000);
+			&resp_desc, &resp, sizeof(resp), SLIM_QMI_RESP_TOUT);
 	if (rc < 0) {
 		SLIM_ERR(dev, "%s: QMI send req failed %d\n", __func__, rc);
 		return rc;
@@ -1527,7 +1527,7 @@ int msm_slim_qmi_check_framer_request(struct msm_slim_ctrl *dev)
 	resp_desc.ei_array = slimbus_chkfrm_resp_msg_v01_ei;
 
 	rc = qmi_send_req_wait(dev->qmi.handle, &req_desc, NULL, 0,
-					&resp_desc, &resp, sizeof(resp), 5000);
+		&resp_desc, &resp, sizeof(resp), SLIM_QMI_RESP_TOUT);
 	if (rc < 0) {
 		SLIM_ERR(dev, "%s: QMI send req failed %d\n", __func__, rc);
 		return rc;
