@@ -160,8 +160,19 @@ HMSS specific properties:
 		    the device.  This value is utilized by several other
 		    properties.  Supported values are 1 up to the maximum
 		    possible for a given regulator type.  For HMSS the maximum
-		    supported value is 8.  These combos correspond to CPR
-		    revision fuse values 0 to 7 in order.
+		    supported value is 16.  The first 8 fuse combos correspond
+		    to speed bin fuse value 0 along with CPR revision fuse
+		    values 0 to 7.  The last 8 fuse combos correspond to speed
+		    bin fuse value 1 along with CPR revision fuse values 0 to 7.
+
+- qcom,cpr-speed-bins
+	Usage:      optional
+	Value type: <u32>
+	Definition: Specifies the number of speed bins being supported by the
+		    device.  This value is utilized by several other properties.
+		    Supported values are 1 up to the maximum possible for a
+		    given regulator type.  For HMSS the maximum supported value
+		    is 2.
 
 - qcom,ldo-headroom-voltage
 	Usage:      required if qcom,vdd-threadN-ldo-supply is specified for the
