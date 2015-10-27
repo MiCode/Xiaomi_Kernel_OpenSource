@@ -1279,7 +1279,7 @@ static int cpr3_hmss_kvreg_init(struct cpr3_regulator *vreg)
 
 	if (!of_find_property(ctrl->dev->of_node, kvreg_name_buf , NULL))
 		return 0;
-	else if (!of_find_property(node, "qcom,ldo-headroom-voltage", NULL))
+	else if (!of_find_property(node, "qcom,ldo-min-headroom-voltage", NULL))
 		return 0;
 
 	scnprintf(kvreg_name_buf, MAX_KVREG_NAME_SIZE, "vdd-thread%d-ldo", id);
@@ -1307,11 +1307,24 @@ static int cpr3_hmss_kvreg_init(struct cpr3_regulator *vreg)
 		return rc;
 	}
 
-	rc = of_property_read_u32(node, "qcom,ldo-headroom-voltage",
-				&vreg->ldo_headroom_volt);
+	if (!ctrl->system_supply_max_volt) {
+		cpr3_err(ctrl, "system-supply max voltage must be specified\n");
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32(node, "qcom,ldo-min-headroom-voltage",
+				&vreg->ldo_min_headroom_volt);
 	if (rc) {
-		cpr3_err(vreg, "error reading qcom,ldo-headroom-voltage, rc=%d\n",
+		cpr3_err(vreg, "error reading qcom,ldo-min-headroom-voltage, rc=%d\n",
 			rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(node, "qcom,ldo-max-headroom-voltage",
+				  &vreg->ldo_max_headroom_volt);
+	if (rc) {
+		cpr3_err(vreg, "error reading qcom,ldo-max-headroom-voltage, rc=%d\n",
+			 rc);
 		return rc;
 	}
 
@@ -1343,8 +1356,9 @@ static int cpr3_hmss_kvreg_init(struct cpr3_regulator *vreg)
 	vreg->ldo_mode_allowed = !of_property_read_bool(node,
 							"qcom,ldo-disable");
 
-	cpr3_info(vreg, "LDO headroom=%d uV, LDO adj=%d uV, LDO mode=%s, LDO retention=%d uV\n",
-		  vreg->ldo_headroom_volt,
+	cpr3_info(vreg, "LDO min headroom=%d uV, LDO max headroom=%d uV, LDO adj=%d uV, LDO mode=%s, LDO retention=%d uV\n",
+		  vreg->ldo_min_headroom_volt,
+		  vreg->ldo_max_headroom_volt,
 		  vreg->ldo_adjust_volt,
 		  vreg->ldo_mode_allowed ? "allowed" : "disallowed",
 		  vreg->ldo_ret_volt);
@@ -1597,6 +1611,12 @@ static int cpr3_hmss_init_controller(struct cpr3_controller *ctrl)
 			rc);
 		return rc;
 	}
+
+
+	/* No error check since this is an optional property. */
+	of_property_read_u32(ctrl->dev->of_node,
+			     "qcom,system-supply-max-voltage",
+			     &ctrl->system_supply_max_volt);
 
 	/* No error check since this is an optional property. */
 	of_property_read_u32(ctrl->dev->of_node, "qcom,cpr-clock-throttling",
