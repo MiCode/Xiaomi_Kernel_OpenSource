@@ -284,6 +284,11 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 		pr_err("%s: platform data not populated\n", __func__);
 		return -EINVAL;
 	}
+	if (!prtd || !prtd->audio_client) {
+		pr_err("%s: private data null or audio client freed\n",
+			__func__);
+		return -EINVAL;
+	}
 	params = &soc_prtd->dpcm[substream->stream].hw_params;
 
 	pr_debug("%s\n", __func__);
@@ -363,6 +368,11 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 		dev_get_drvdata(soc_prtd->platform->dev);
 	if (!pdata) {
 		pr_err("%s: platform data not populated\n", __func__);
+		return -EINVAL;
+	}
+	if (!prtd || !prtd->audio_client) {
+		pr_err("%s: private data null or audio client freed\n",
+			__func__);
 		return -EINVAL;
 	}
 
