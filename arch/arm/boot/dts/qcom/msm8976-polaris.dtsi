@@ -1,0 +1,262 @@
+/*
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm8976.dtsi"
+#include "msm8976-wsa881x.dtsi"
+#include "msm8976-camera-sensor-polaris.dtsi"
+
+&blsp1_uart2 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_sleep>;
+};
+
+&sdhc_1 {
+	vdd-supply = <&pm8950_l8>;
+	qcom,vdd-voltage-level = <2900000 2900000>;
+	qcom,vdd-current-level = <200 570000>;
+
+	vdd-io-supply = <&pm8950_l5>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-lpm-sup;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <200 325000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on &sdc1_rclk_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_rclk_off>;
+
+	qcom,nonremovable;
+	status = "ok";
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&dsi_dual_nt35523_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update =
+		"dfps_immediate_porch_mode_hfp";
+	qcom,mdss-dsi-mode-sel-gpio-state =  "dual_mode";
+};
+
+&pmx_mdss {
+	qcom,num-grp-pins = <1>;
+	qcom,pins = <&gp 25>;
+};
+
+&pmx_mdss_te {
+	qcom,num-grp-pins = <1>;
+	qcom,pins = <&gp 24>;
+};
+
+&mdss_dsi0 {
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,dsi-pref-prim-pan = <&dsi_dual_nt35523_video>;
+	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
+};
+
+&labibb {
+	status = "ok";
+	qpnp,qpnp-labibb-mode = "lcd";
+};
+
+&i2c_4 { /* BLSP1 QUP4 */
+	focaltech@38 {
+		compatible = "focaltech,5x06";
+		reg = <0x38>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <65 0x2>;
+		vdd-supply = <&pm8950_l17>;
+		vcc_i2c-supply = <&pm8950_l6>;
+		/* pins used by touchscreen */
+		pinctrl-names = "pmx_ts_active",
+				"pmx_ts_suspend",
+				"pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+		focaltech,name = "ft5446dqs";
+		focaltech,family-id = <0x55>;
+		focaltech,reset-gpio = <&msm_gpio 64 0x0>;
+		focaltech,irq-gpio = <&msm_gpio 65 0x2008>;
+		focaltech,display-coords = <0 0 1536 2048>;
+		focaltech,panel-coords = <0 0 1536 2048>;
+		focaltech,no-force-update;
+		focaltech,i2c-pull-up;
+		focaltech,group-id = <1>;
+		focaltech,hard-reset-delay-ms = <20>;
+		focaltech,soft-reset-delay-ms = <200>;
+		focaltech,num-max-touches = <5>;
+		focaltech,fw-delay-aa-ms = <30>;
+		focaltech,fw-delay-55-ms = <30>;
+		focaltech,fw-upgrade-id1 = <0x79>;
+		focaltech,fw-upgrade-id2 = <0x08>;
+		focaltech,fw-delay-readid-ms = <10>;
+		focaltech,fw-delay-era-flsh-ms = <2000>;
+		focaltech,fw-auto-cal;
+		focaltech,ignore-id-check;
+	};
+};
+
+&soc {
+	sound-9335 {
+		qcom,model = "msm8976-tasha-snd-card";
+
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"MADINPUT", "MCLK",
+			"AMIC1", "MIC BIAS1",
+			"MIC BIAS1", "Handset Mic",
+			"AMIC2", "MIC BIAS2",
+			"MIC BIAS2", "Headset Mic",
+			"AMIC3", "MIC BIAS3",
+			"MIC BIAS3", "Secondary Mic",
+			"SpkrRight IN", "SPK1 OUT",
+			"SpkrLeft IN", "SPK2 OUT";
+
+		qcom,msm-mbhc-hphl-swh = <1>;
+		qcom,msm-mbhc-gnd-swh = <1>;
+		qcom,max-aux-codec = <2>;
+		qcom,aux-codec = "wsa881x.20170211", "wsa881x.20170212";
+		qcom,aux-codec-prefix = "SpkrRight", "SpkrLeft";
+		/delete-node/ qcom,msm-gpios;
+		/delete-node/ qcom,pinctrl-names;
+		/delete-node/ pinctrl-names;
+		/delete-node/ qcom,cdc-us-euro-gpios;
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		input-name = "gpio-keys";
+		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend";
+		pinctrl-0 = <&gpio_key_active>;
+		pinctrl-1 = <&gpio_key_suspend>;
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&msm_gpio 113 0x1>;
+			linux,input-type = <1>;
+			linux,code = <115>;
+			debounce-interval = <15>;
+		};
+	};
+};
+
+&tlmm_gpio_key {
+	qcom,pins = <&gp 113>;
+	qcom,num-grp-pins = <1>;
+};
+
+&wsa_spkr_sd {
+	qcom,pins = <&gp 132>, <&gp 134>;
+	qcom,num-grp-pins = <2>;
+};
+
+&sdhc_2 {
+	vdd-supply = <&pm8950_l11>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <15000 800000>;
+
+	vdd-io-supply = <&pm8950_l12>;
+	qcom,vdd-io-voltage-level = <1800000 2950000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off>;
+
+	#address-cells = <0>;
+	interrupt-parent = <&sdhc_2>;
+	interrupts = <0 1 2>;
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 125 0
+			1 &intc 0 221 0
+			2 &msm_gpio 100 0>;
+	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
+	cd-gpios = <&msm_gpio 100 0x0>;
+
+	status = "ok";
+};
+
+&spmi_bus {
+	qcom,pm8004@4 {
+		qcom,leds@a100 {
+			status = "okay";
+			qcom,led_mpp_2 {
+				label = "mpp";
+				linux,name = "green";
+				linux,default-trigger = "none";
+				qcom,default-state = "off";
+				qcom,max-current = <40>;
+				qcom,current-setting = <5>;
+				qcom,id = <6>;
+				qcom,mode = "manual";
+				qcom,source-sel = <1>;
+				qcom,mode-ctrl = <0x60>;
+			};
+		};
+
+		qcom,leds@a300 {
+			status = "okay";
+			qcom,led_mpp_4 {
+				label = "mpp";
+				linux,name = "blue";
+				linux,default-trigger = "none";
+				qcom,default-state = "off";
+				qcom,max-current = <40>;
+				qcom,current-setting = <5>;
+				qcom,id = <6>;
+				qcom,mode = "manual";
+				qcom,source-sel = <1>;
+				qcom,mode-ctrl = <0x60>;
+			};
+		};
+	};
+
+	qcom,pmi8950@3 {
+		qcom,leds@d800 {
+			qcom,fs-curr-ua = <30000>;
+			qcom,led-strings-list = [00 01 02 03];
+		};
+	};
+};
+
+/{
+	polaris_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <100>;
+		#include "batterydata-polaris-4v35-4450mah.dtsi"
+	};
+};
+
+&polaris_4v35_4450mah_data {
+	qcom,batt-id-kohm = <500>;
+};
+
+&pmi8950_fg {
+	qcom,battery-data = <&polaris_batterydata>;
+};
+
+&pmi8950_charger {
+	qcom,battery-data = <&polaris_batterydata>;
+	qcom,chg-led-support;
+	qcom,chg-led-sw-controls;
+};
