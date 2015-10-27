@@ -19,6 +19,7 @@ obj-$(CONFIG_ARCH_QCOM) += clock-cpu-8996.o
 # MSM COBALT
 obj-$(CONFIG_ARCH_MSMCOBALT)	+= clock-gcc-cobalt.o
 obj-$(CONFIG_ARCH_MSMCOBALT)	+= clock-gpu-cobalt.o
+obj-$(CONFIG_ARCH_MSMCOBALT)	+= clock-mmss-cobalt.o
 
 # CPU clocks
 
