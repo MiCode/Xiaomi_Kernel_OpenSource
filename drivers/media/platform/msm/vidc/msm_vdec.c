@@ -2286,6 +2286,8 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		__temp; \
 	})
 
+	v4l2_ctrl_unlock(ctrl);
+
 	switch (ctrl->id) {
 	case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_FORMAT:
 		property_id = HAL_PARAM_NAL_STREAM_FORMAT_SELECT;
@@ -2372,7 +2374,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			rc = -ENOTSUPP;
 			break;
 		}
-
+		msm_comm_scale_clocks_and_bus(inst);
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_ALLOC_MODE_INPUT:
 		if (ctrl->val == V4L2_MPEG_VIDC_VIDEO_DYNAMIC) {
@@ -2568,6 +2570,8 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	default:
 		break;
 	}
+
+	v4l2_ctrl_lock(ctrl);
 #undef TRY_GET_CTRL
 
 	if (!rc && property_id) {
