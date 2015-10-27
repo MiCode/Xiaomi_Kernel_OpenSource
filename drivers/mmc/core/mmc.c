@@ -1404,8 +1404,7 @@ static int mmc_select_cmdq(struct mmc_card *card)
 		mmc_card_clr_cmdq(card);
 		ret = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL, EXT_CSD_CMDQ, 0,
 				 card->ext_csd.generic_cmd6_time);
-		if (ret)
-			goto out;
+		goto out;
 	}
 
 	mmc_host_clk_release(card->host);
