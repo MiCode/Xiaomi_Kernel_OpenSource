@@ -156,6 +156,10 @@ int pil_do_ramdump(struct pil_desc *desc, void *ramdump_dev)
 	if (!ramdump_segs)
 		return -ENOMEM;
 
+	if (desc->subsys_vmid > 0)
+		ret = pil_assign_mem_to_linux(desc, priv->region_start,
+				(priv->region_end - priv->region_start));
+
 	s = ramdump_segs;
 	list_for_each_entry(seg, &priv->segs, list) {
 		s->address = seg->paddr;
@@ -165,6 +169,10 @@ int pil_do_ramdump(struct pil_desc *desc, void *ramdump_dev)
 
 	ret = do_elf_ramdump(ramdump_dev, ramdump_segs, count);
 	kfree(ramdump_segs);
+
+	if (!ret && desc->subsys_vmid > 0)
+		ret = pil_assign_mem_to_subsys(desc, priv->region_start,
+				(priv->region_end - priv->region_start));
 
 	return ret;
 }
