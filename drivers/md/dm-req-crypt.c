@@ -1310,10 +1310,11 @@ static int req_crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	}
 
 	/*
-	 * If underlying device supports flush, mapped target should
-	 * also allow it
+	 * If underlying device supports flush/discard, mapped target
+	 * should also allow it
 	 */
 	ti->num_flush_bios = 1;
+	ti->num_discard_bios = 1;
 
 	err = 0;
 
