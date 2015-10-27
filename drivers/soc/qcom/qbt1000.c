@@ -721,8 +721,8 @@ static int qbt1000_release(struct inode *inode, struct file *file)
 	if (drvdata->sensor_conn_type == SPI) {
 		clocks_off(drvdata);
 	} else if (drvdata->sensor_conn_type == SSC_SPI) {
-		qbt1000_sns_keep_alive_req(drvdata, 0);
 		qbt1000_set_blsp_ownership(drvdata, drvdata->ssc_subsys_id);
+		qbt1000_sns_keep_alive_req(drvdata, 0);
 		qbt1000_sns_close_req(drvdata);
 		drvdata->ssc_state = 0;
 	}
@@ -1239,8 +1239,8 @@ static int qbt1000_remove(struct platform_device *pdev)
 	if (drvdata->sensor_conn_type == SPI) {
 		clocks_off(drvdata);
 	} else if (drvdata->sensor_conn_type == SSC_SPI) {
-		qbt1000_sns_keep_alive_req(drvdata, 0);
 		qbt1000_set_blsp_ownership(drvdata, drvdata->ssc_subsys_id);
+		qbt1000_sns_keep_alive_req(drvdata, 0);
 		qbt1000_sns_close_req(drvdata);
 		qmi_handle_destroy(drvdata->qmi_handle);
 		qmi_svc_event_notifier_unregister(QBT1000_SNS_SERVICE_ID,
