@@ -54,6 +54,7 @@ Optional properties if 'qcom,disp-type-amoled' is mentioned in DT:
 - qcom,loop-comp-res-kohm	: control to select the compensation resistor in kohm. default is 320.
 - qcom,vref-psm-mv	: reference psm voltage in mv. default for amoled is 450.
 - qcom,sc-deb-cycles	: debounce time for short circuit detection
+- qcom,avdd-trim-steps-from-center : The number of steps to trim the OVP threshold voltage. The possible values can be between -7 to 8.
 
 Example:
 	qcom,leds@d800 {
