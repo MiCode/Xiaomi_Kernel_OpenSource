@@ -39,6 +39,12 @@
 			reg = <0x88000000 0x6E00000>;
 			label = "mss_mem";
 		};
+
+		audio_mem: audio_region@0 {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x400000>;
+		 };
 	};
 
 	aliases {
@@ -70,6 +76,7 @@
 #include "mdmcalifornium-blsp.dtsi"
 #include "mdmcalifornium-bus.dtsi"
 #include "mdmcalifornium-coresight.dtsi"
+#include "mdmcalifornium-ion.dtsi"
 
 &soc {
 	#address-cells = <1>;
