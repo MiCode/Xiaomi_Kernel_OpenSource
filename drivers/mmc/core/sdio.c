@@ -221,6 +221,54 @@ out:
 	return ret;
 }
 
+static void sdio_enable_vendor_specific_settings(struct mmc_card *card)
+{
+	int ret;
+	u8 settings;
+
+	if (mmc_enable_qca6574_settings(card) ||
+		mmc_enable_qca9377_settings(card)) {
+		ret = mmc_io_rw_direct(card, 1, 0, 0xF2, 0x0F, NULL);
+		if (ret) {
+			pr_crit("%s: failed to write to fn 0xf2 %d\n",
+					mmc_hostname(card->host), ret);
+			goto out;
+		}
+
+		ret = mmc_io_rw_direct(card, 0, 0, 0xF1, 0, &settings);
+		if (ret) {
+			pr_crit("%s: failed to read fn 0xf1 %d\n",
+					mmc_hostname(card->host), ret);
+			goto out;
+		}
+
+		settings |= 0x80;
+		ret = mmc_io_rw_direct(card, 1, 0, 0xF1, settings, NULL);
+		if (ret) {
+			pr_crit("%s: failed to write to fn 0xf1 %d\n",
+					mmc_hostname(card->host), ret);
+			goto out;
+		}
+
+		ret = mmc_io_rw_direct(card, 0, 0, 0xF0, 0, &settings);
+		if (ret) {
+			pr_crit("%s: failed to read fn 0xf0 %d\n",
+					mmc_hostname(card->host), ret);
+			goto out;
+		}
+
+		settings |= 0x20;
+		ret = mmc_io_rw_direct(card, 1, 0, 0xF0, settings, NULL);
+		if (ret) {
+			pr_crit("%s: failed to write to fn 0xf0 %d\n",
+					mmc_hostname(card->host), ret);
+			goto out;
+		}
+	}
+out:
+	return;
+}
+
 static int sdio_enable_wide(struct mmc_card *card)
 {
 	int ret;
@@ -515,6 +563,9 @@ static int sdio_set_bus_speed_mode(struct mmc_card *card)
 	err = mmc_io_rw_direct(card, 0, 0, SDIO_CCCR_SPEED, 0, &speed);
 	if (err)
 		return err;
+
+	/* Vendor specific settings based on card quirks */
+	sdio_enable_vendor_specific_settings(card);
 
 	speed &= ~SDIO_SPEED_BSS_MASK;
 	speed |= bus_speed;
