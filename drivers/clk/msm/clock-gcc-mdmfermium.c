@@ -1471,6 +1471,7 @@ static struct branch_clk gcc_usb_hsic_io_cal_sleep_clk = {
 
 static struct branch_clk gcc_usb_hsic_system_clk = {
 	.cbcr_reg = USB_HSIC_SYSTEM_CBCR,
+	.bcr_reg  = USB_HS_HSIC_BCR,
 	.has_sibling = 0,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
