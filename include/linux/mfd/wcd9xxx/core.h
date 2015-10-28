@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -269,7 +269,7 @@ struct wcd9xxx {
 	int (*post_reset)(struct wcd9xxx *wcd9xxx);
 
 	void *ssr_priv;
-	bool slim_device_bootup;
+	bool dev_up;
 
 	u32 num_of_supplies;
 	struct regulator_bulk_data *supplies;
