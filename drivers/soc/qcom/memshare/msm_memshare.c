@@ -34,6 +34,7 @@ static struct qmi_handle *mem_share_svc_handle;
 static void mem_share_svc_recv_msg(struct work_struct *work);
 static DECLARE_DELAYED_WORK(work_recv_msg, mem_share_svc_recv_msg);
 static struct workqueue_struct *mem_share_svc_workqueue;
+static uint64_t bootup_request;
 
 /* Memshare Driver Structure */
 struct memshare_driver {
@@ -152,25 +153,6 @@ void free_client(int id)
 
 }
 
-void free_mem_clients(int proc)
-{
-	int i;
-
-	pr_debug("memshare: freeing clients\n");
-
-	for (i = 0; i < MAX_CLIENTS; i++) {
-		if (memblock[i].peripheral == proc &&
-				!memblock[i].guarantee && memblock[i].alloted) {
-			pr_debug("Freeing memory for client id: %d\n",
-					memblock[i].client_id);
-			dma_free_attrs(memsh_drv->dev, memblock[i].size,
-				memblock[i].virtual_addr, memblock[i].phy_addr,
-				&attrs);
-			free_client(i);
-		}
-	}
-}
-
 void fill_alloc_response(struct mem_alloc_generic_resp_msg_v01 *resp,
 						int id, int *flag)
 {
@@ -204,6 +186,7 @@ void initialize_client(void)
 		memblock[i].peripheral = -1;
 		memblock[i].sequence_id = -1;
 		memblock[i].memory_type = MEMORY_CMA;
+		memblock[i].free_memory = 0;
 	}
 	dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, &attrs);
 }
@@ -211,13 +194,42 @@ void initialize_client(void)
 static int modem_notifier_cb(struct notifier_block *this, unsigned long code,
 					void *_cmd)
 {
-	pr_debug("memshare: Modem notification\n");
+	int i;
 
 	switch (code) {
 
+	case SUBSYS_BEFORE_SHUTDOWN:
+		bootup_request++;
+		break;
+
 	case SUBSYS_AFTER_POWERUP:
-		pr_err("memshare: Modem Restart has happened\n");
-		free_mem_clients(DHMS_MEM_PROC_MPSS_V01);
+		pr_debug("memshare: Modem has booted up\n");
+		for (i = 0; i < MAX_CLIENTS; i++) {
+			if (memblock[i].free_memory > 0 &&
+					bootup_request >= 2) {
+				memblock[i].free_memory -= 1;
+				pr_debug("memshare: free_memory count: %d for clinet id: %d\n",
+					memblock[i].free_memory,
+					memblock[i].client_id);
+			}
+
+			if (memblock[i].free_memory == 0) {
+				if (memblock[i].peripheral ==
+					DHMS_MEM_PROC_MPSS_V01 &&
+					!memblock[i].guarantee &&
+					memblock[i].alloted) {
+					pr_err("memshare: Freeing memory for client id: %d\n",
+						memblock[i].client_id);
+					dma_free_attrs(memsh_drv->dev,
+						memblock[i].size,
+						memblock[i].virtual_addr,
+						memblock[i].phy_addr,
+						&attrs);
+					free_client(i);
+				}
+			}
+		}
+		bootup_request++;
 		break;
 
 	default:
@@ -283,7 +295,7 @@ static int handle_alloc_generic_req(void *req_h, void *req, void *conn_h)
 	int client_id;
 
 	alloc_req = (struct mem_alloc_generic_req_msg_v01 *)req;
-	pr_debug("alloc request client id: %d proc _id: %d\n",
+	pr_debug("memshare: alloc request client id: %d proc _id: %d\n",
 			alloc_req->client_id, alloc_req->proc_id);
 	mutex_lock(&memsh_drv->mem_share);
 	alloc_resp = kzalloc(sizeof(struct mem_alloc_generic_resp_msg_v01),
@@ -306,6 +318,10 @@ static int handle_alloc_generic_req(void *req_h, void *req, void *conn_h)
 		return -EINVAL;
 	}
 
+	memblock[client_id].free_memory += 1;
+	pr_debug("memshare: In %s, free memory count for client id: %d = %d",
+		__func__, memblock[client_id].client_id,
+			memblock[client_id].free_memory);
 	if (!memblock[client_id].alloted) {
 		rc = memshare_alloc(memsh_drv->dev, alloc_req->num_bytes,
 					&memblock[client_id]);
@@ -382,7 +398,7 @@ static int handle_free_generic_req(void *req_h, void *req, void *conn_h)
 	uint32_t client_id;
 
 	free_req = (struct mem_free_generic_req_msg_v01 *)req;
-	pr_debug("%s: Received Free Request\n", __func__);
+	pr_debug("memshare: %s: Received Free Request\n", __func__);
 	mutex_lock(&memsh_drv->mem_free);
 	memset(&free_resp, 0, sizeof(struct mem_free_generic_resp_msg_v01));
 	free_resp.resp.error = QMI_ERR_INTERNAL_V01;
@@ -448,7 +464,7 @@ static int handle_query_size_req(void *req_h, void *req, void *conn_h)
 		mutex_unlock(&memsh_drv->mem_share);
 		return -ENOMEM;
 	}
-	pr_debug("query request client id: %d proc _id: %d\n",
+	pr_debug("memshare: query request client id: %d proc _id: %d\n",
 		query_req->client_id, query_req->proc_id);
 	client_id = check_client(query_req->client_id, query_req->proc_id,
 								CHECK);
@@ -471,7 +487,7 @@ static int handle_query_size_req(void *req_h, void *req, void *conn_h)
 	query_resp->resp.error = QMI_ERR_NONE_V01;
 	mutex_unlock(&memsh_drv->mem_share);
 
-	pr_debug("query_resp.size :%d, alloc_resp.mem_req_result :%lx\n",
+	pr_debug("memshare: query_resp.size :%d, alloc_resp.mem_req_result :%lx\n",
 			  query_resp->size,
 			  (unsigned long int)query_resp->resp.result);
 	rc = qmi_send_resp_from_cb(mem_share_svc_handle, conn_h, req_h,
