@@ -222,21 +222,27 @@ err:
 static int get_mask_from_dev_handle(struct platform_device *pdev,
 					cpumask_t *mask)
 {
+	struct device *dev = &pdev->dev;
 	struct device_node *dev_phandle;
-	int cpu = 0;
+	struct device *cpu_dev;
+	int cpu, i = 0;
+	int ret = -ENOENT;
 
-	dev_phandle = of_parse_phandle(pdev->dev.of_node, "qcom,firstcpu", 0);
-	if (!dev_phandle)
-		return -ENOENT;
-
-	for_each_possible_cpu(cpu) {
-		if (arch_find_n_match_cpu_physical_id(dev_phandle, cpu, NULL)) {
-			cpumask_copy(mask, cpu_coregroup_mask(cpu));
-			return 0;
+	dev_phandle = of_parse_phandle(dev->of_node, "qcom,cpulist", i++);
+	while (dev_phandle) {
+		for_each_possible_cpu(cpu) {
+			cpu_dev = get_cpu_device(cpu);
+			if (cpu_dev && cpu_dev->of_node == dev_phandle) {
+				cpumask_set_cpu(cpu, mask);
+				ret = 0;
+				break;
+			}
 		}
+		dev_phandle = of_parse_phandle(dev->of_node,
+						"qcom,cpulist", i++);
 	}
 
-	return -ENOENT;
+	return ret;
 }
 
 static int arm_memlat_mon_driver_probe(struct platform_device *pdev)
