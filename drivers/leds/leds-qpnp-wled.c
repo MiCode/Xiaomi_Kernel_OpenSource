@@ -47,6 +47,7 @@
 #define QPNP_WLED_SC_PRO_REG(b)		(b + 0x5E)
 #define QPNP_WLED_TEST1_REG(b)		(b + 0xE2)
 #define QPNP_WLED_TEST4_REG(b)		(b + 0xE5)
+#define QPNP_WLED_REF_7P7_TRIM_REG(b)	(b + 0xF2)
 
 #define QPNP_WLED_EN_MASK		0x7F
 #define QPNP_WLED_EN_SHIFT		7
@@ -74,6 +75,9 @@
 #define QPNP_WLED_VREF_PSM_MAX_MV			750
 #define QPNP_WLED_VREF_PSM_DFLT_AMOLED_MV		450
 #define QPNP_WLED_PSM_CTRL_OVERWRITE			0x80
+#define QPNP_WLED_AVDD_MIN_TRIM_VALUE			-7
+#define QPNP_WLED_AVDD_MAX_TRIM_VALUE			8
+#define QPNP_WLED_AVDD_TRIM_CENTER_VALUE		7
 
 #define QPNP_WLED_ILIM_MASK		0xF8
 #define QPNP_WLED_ILIM_MIN_MA		105
@@ -232,6 +236,7 @@ static u8 qpnp_wled_sink_dbg_regs[] = {
  *  @ ovp_irq - over voltage protection irq
  *  @ sc_irq - short circuit irq
  *  @ sc_cnt - short circuit irq count
+ *  @ avdd_trim_steps_from_center - number of steps to trim from center value
  *  @ ctrl_base - base address for wled ctrl
  *  @ sink_base - base address for wled sink
  *  @ ibb_base - base address for IBB(Inverting Buck Boost)
@@ -272,6 +277,7 @@ struct qpnp_wled {
 	int ovp_irq;
 	int sc_irq;
 	u32 sc_cnt;
+	u32 avdd_trim_steps_from_center;
 	u16 ctrl_base;
 	u16 sink_base;
 	u16 mod_freq_khz;
@@ -1083,6 +1089,31 @@ static int qpnp_wled_config(struct qpnp_wled *wled)
 	if (rc)
 		return rc;
 
+	if (wled->disp_type_amoled) {
+		/* Configure avdd trim register */
+		rc = qpnp_wled_sec_access(wled, wled->ctrl_base);
+		if (rc)
+			return rc;
+
+		/* Check if wled->avdd_trim_steps_from_center is negative */
+		if ((s32)wled->avdd_trim_steps_from_center <
+					QPNP_WLED_AVDD_MIN_TRIM_VALUE) {
+			wled->avdd_trim_steps_from_center =
+					QPNP_WLED_AVDD_MIN_TRIM_VALUE;
+		} else if ((s32)wled->avdd_trim_steps_from_center >
+						QPNP_WLED_AVDD_MAX_TRIM_VALUE) {
+			wled->avdd_trim_steps_from_center =
+					QPNP_WLED_AVDD_MAX_TRIM_VALUE;
+		}
+		reg = wled->avdd_trim_steps_from_center +
+					QPNP_WLED_AVDD_TRIM_CENTER_VALUE;
+
+		rc = qpnp_wled_write_reg(wled, &reg,
+				QPNP_WLED_REF_7P7_TRIM_REG(wled->ctrl_base));
+		if (rc)
+			return rc;
+	}
+
 	/* Configure the MODULATION register */
 	if (wled->mod_freq_khz <= QPNP_WLED_MOD_FREQ_1200_KHZ) {
 		wled->mod_freq_khz = QPNP_WLED_MOD_FREQ_1200_KHZ;
@@ -1393,6 +1424,16 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 			wled->sc_deb_cycles = temp_val;
 		} else if (rc != -EINVAL) {
 			dev_err(&spmi->dev, "Unable to read sc debounce cycles\n");
+			return rc;
+		}
+
+		wled->avdd_trim_steps_from_center = 0;
+		rc = of_property_read_u32(spmi->dev.of_node,
+				"qcom,avdd-trim-steps-from-center", &temp_val);
+		if (!rc) {
+			wled->avdd_trim_steps_from_center = temp_val;
+		} else if (rc != -EINVAL) {
+			dev_err(&spmi->dev, "Unable to read avdd trim steps from center value\n");
 			return rc;
 		}
 	}
