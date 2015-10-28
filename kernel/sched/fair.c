@@ -3044,8 +3044,10 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		}
 	}
 
-	if (best_idle_cpu >= 0)
-		return best_idle_cpu;
+	if (best_idle_cpu >= 0) {
+		best_cpu = best_idle_cpu;
+		goto done;
+	}
 
 	if (best_cpu < 0 || boost) {
 		if (unlikely(best_capacity_cpu < 0))
@@ -3057,6 +3059,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 			best_cpu = best_sibling_cpu;
 	}
 
+done:
 	trace_sched_task_load(p, boost, reason, sync, need_idle, best_cpu);
 
 	return best_cpu;
