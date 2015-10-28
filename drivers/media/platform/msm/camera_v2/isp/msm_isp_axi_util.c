@@ -1384,8 +1384,11 @@ static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 	}
 
 	if (valid_address == 1 && !skip_get_buf) {
+		pingpong_bit = (~(pingpong_status >>
+			stream_info->wm[i]) & 0x1);
 		rc = vfe_dev->buf_mgr->ops->get_buf(vfe_dev->buf_mgr,
-			vfe_dev->pdev->id, bufq_handle, &buf, &buf_cnt);
+			vfe_dev->pdev->id, bufq_handle, &buf, &buf_cnt,
+			pingpong_bit);
 
 		if (rc < 0) {
 			ISP_DBG("%s vfe %d get_buf fail bufq %x\n", __func__,
@@ -2655,7 +2658,7 @@ static int msm_isp_return_empty_buffer(struct vfe_device *vfe_dev,
 
 
 	rc = vfe_dev->buf_mgr->ops->get_buf(vfe_dev->buf_mgr,
-		vfe_dev->pdev->id, bufq_handle, &buf, &buf_cnt);
+		vfe_dev->pdev->id, bufq_handle, &buf, &buf_cnt, 0);
 	if (rc < 0) {
 		vfe_dev->error_info.
 			stream_framedrop_count[bufq_handle & 0xFF]++;
@@ -3049,7 +3052,7 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info;
 	struct msm_vfe_axi_composite_info *comp_info;
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
-	unsigned long flags;
+	unsigned long flags, axi_flags;
 	uint8_t valid_address;
 
 	comp_mask = vfe_dev->hw_info->vfe_ops.axi_ops.
@@ -3083,7 +3086,9 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 					__func__);
 				continue;
 			}
-
+			spin_lock_irqsave(
+				&vfe_dev->common_data->common_dev_axi_lock,
+				axi_flags);
 			spin_lock_irqsave(&stream_info->lock, flags);
 			stream_info->frame_id++;
 
@@ -3107,6 +3112,9 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 				valid_address, 1, 0);
 
 			spin_unlock_irqrestore(&stream_info->lock, flags);
+			spin_unlock_irqrestore(
+				&vfe_dev->common_data->common_dev_axi_lock,
+				axi_flags);
 
 			if (done_buf && !rc)
 				msm_isp_process_done_buf(vfe_dev, stream_info,
@@ -3131,6 +3139,9 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 				continue;
 			}
 
+			spin_lock_irqsave(
+				&vfe_dev->common_data->common_dev_axi_lock,
+				axi_flags);
 			spin_lock_irqsave(&stream_info->lock, flags);
 			stream_info->frame_id++;
 
@@ -3154,6 +3165,9 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 				valid_address, 1, 0);
 
 			spin_unlock_irqrestore(&stream_info->lock, flags);
+			spin_unlock_irqrestore(
+				&vfe_dev->common_data->common_dev_axi_lock,
+				axi_flags);
 
 			if (done_buf && !rc)
 				msm_isp_process_done_buf(vfe_dev,
