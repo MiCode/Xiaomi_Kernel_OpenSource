@@ -129,6 +129,9 @@ static int mdss_pll_resource_parse(struct platform_device *pdev,
 	if (!strcmp(compatible_stream, "qcom,mdss_dsi_pll_8952")) {
 		pll_res->pll_interface_type = MDSS_DSI_PLL_LPM;
 		pll_res->target_id = MDSS_PLL_TARGET_8952;
+	} else if (!strcmp(compatible_stream, "qcom,mdss_dsi_pll_8937")) {
+		pll_res->pll_interface_type = MDSS_DSI_PLL_LPM;
+		pll_res->target_id = MDSS_PLL_TARGET_8937;
 	} else if (!strcmp(compatible_stream, "qcom,mdss_dsi_pll_8996")) {
 		pll_res->pll_interface_type = MDSS_DSI_PLL_8996;
 		pll_res->target_id = MDSS_PLL_TARGET_8996;
@@ -372,6 +375,7 @@ static const struct of_device_id mdss_pll_dt_match[] = {
 	{.compatible = "qcom,mdss_hdmi_pll_8996_v2"},
 	{.compatible = "qcom,mdss_hdmi_pll_8996_v3"},
 	{.compatible = "qcom,mdss_dsi_pll_8952"},
+	{.compatible = "qcom,mdss_dsi_pll_8937"},
 	{}
 };
 
