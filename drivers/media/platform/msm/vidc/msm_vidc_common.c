@@ -2060,11 +2060,13 @@ int msm_comm_scale_clocks(struct msm_vidc_core *core)
 
 int msm_comm_scale_clocks_load(struct msm_vidc_core *core, int num_mbs_per_sec)
 {
-	u32 codecs_enabled = 0;
 	int rc = 0;
 	struct hfi_device *hdev;
 	struct msm_vidc_inst *inst = NULL;
 	unsigned long instant_bitrate = 0;
+	int num_sessions = 0;
+	struct vidc_clk_scale_data clk_scale_data = { {0} };
+	int codec = 0;
 
 	if (!core) {
 		dprintk(VIDC_ERR, "%s Invalid args: %p\n", __func__, core);
@@ -2080,29 +2082,31 @@ int msm_comm_scale_clocks_load(struct msm_vidc_core *core, int num_mbs_per_sec)
 
 	mutex_lock(&core->lock);
 	list_for_each_entry(inst, &core->instances, list) {
-		int codec = 0;
 
 		codec = inst->session_type == MSM_VIDC_DECODER ?
 			inst->fmts[OUTPUT_PORT]->fourcc :
 			inst->fmts[CAPTURE_PORT]->fourcc;
 
-		codecs_enabled |= VIDC_VOTE_DATA_SESSION_VAL(
+		clk_scale_data.session[num_sessions] =
+				VIDC_VOTE_DATA_SESSION_VAL(
 				get_hal_codec(codec),
 				get_hal_domain(inst->session_type));
+		num_sessions++;
 
 		if (inst->instant_bitrate > instant_bitrate)
 			instant_bitrate = inst->instant_bitrate;
 
 	}
+	clk_scale_data.num_sessions = num_sessions;
 	mutex_unlock(&core->lock);
 
-	dprintk(VIDC_INFO, "num_mbs_per_sec = %d codecs_enabled %#x\n",
-			num_mbs_per_sec, codecs_enabled);
+
 	rc = call_hfi_op(hdev, scale_clocks,
 		hdev->hfi_device_data, num_mbs_per_sec,
-		codecs_enabled, instant_bitrate);
+		&clk_scale_data, instant_bitrate);
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to set clock rate: %d\n", rc);
+
 	return rc;
 }
 
