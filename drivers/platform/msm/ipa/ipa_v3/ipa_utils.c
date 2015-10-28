@@ -76,6 +76,11 @@
 /* Invalid sequencer type */
 #define IPA_DPS_HPS_SEQ_TYPE_INVALID 0xFFFFFFFF
 
+#define IPA_DPS_HPS_SEQ_TYPE_IS_DMA(seq_type) \
+	(seq_type == IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY || \
+	seq_type == IPA_DPS_HPS_SEQ_TYPE_DMA_DEC || \
+	seq_type == IPA_DPS_HPS_SEQ_TYPE_DMA_COMP_DECOMP)
+
 #define IPA_CLIENT_NOT_USED {-1, -1, false, IPA_DPS_HPS_SEQ_TYPE_INVALID}
 
 /* Resource Group index*/
@@ -188,7 +193,7 @@ static const struct ipa_ep_configuration ipa3_ep_mapping
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP},
 	[IPA_3_0][IPA_CLIENT_APPS_CMD_PROD]
 			= {22, IPA_GROUP_IMM_CMD, false,
-				IPA_DPS_HPS_SEQ_TYPE_PKT_PROCESS_NO_DEC_UCP},
+				IPA_DPS_HPS_SEQ_TYPE_DMA_ONLY},
 	[IPA_3_0][IPA_CLIENT_ODU_PROD]            = {12, IPA_GROUP_UL, true,
 			IPA_DPS_HPS_SEQ_TYPE_2ND_PKT_PROCESS_PASS_NO_DEC_UCP},
 	[IPA_3_0][IPA_CLIENT_MHI_PROD]            = {0, IPA_GROUP_UL, true,
@@ -2530,6 +2535,16 @@ int ipa3_cfg_ep_seq(u32 clnt_hdl)
 		IPAERR("SEQ does not apply to IPA consumer EP %d\n", clnt_hdl);
 		return -EINVAL;
 	}
+
+	/*
+	 * Skip Configure sequencers type for test clients.
+	 * These are configured dynamically in ipa3_cfg_ep_mode
+	 */
+	if (IPA_CLIENT_IS_TEST(ipa3_ctx->ep[clnt_hdl].client)) {
+		IPADBG("Skip sequencers configuration for test clients\n");
+		return 0;
+	}
+
 	switch (ipa3_ctx->ipa_hw_type) {
 	case IPA_HW_v3_0:
 		hw_type_index = IPA_3_0;
@@ -2543,6 +2558,12 @@ int ipa3_cfg_ep_seq(u32 clnt_hdl)
 	type = ipa3_ep_mapping[hw_type_index][ipa3_ctx->ep[clnt_hdl].client]
 						.sequencer_type;
 	if (type != IPA_DPS_HPS_SEQ_TYPE_INVALID) {
+		if (ipa3_ctx->ep[clnt_hdl].cfg.mode.mode == IPA_DMA &&
+			!IPA_DPS_HPS_SEQ_TYPE_IS_DMA(type)) {
+			IPAERR("Configuring non-DMA SEQ type to DMA pipe\n");
+			BUG();
+		}
+
 		ipa3_inc_client_enable_clks();
 		/* Configure sequencers type*/
 
@@ -2601,11 +2622,11 @@ int ipa3_cfg_ep(u32 clnt_hdl, const struct ipa_ep_cfg *ipa_ep_cfg)
 		if (result)
 			return result;
 
-		result = ipa3_cfg_ep_seq(clnt_hdl);
+		result = ipa3_cfg_ep_mode(clnt_hdl, &ipa_ep_cfg->mode);
 		if (result)
 			return result;
 
-		result = ipa3_cfg_ep_mode(clnt_hdl, &ipa_ep_cfg->mode);
+		result = ipa3_cfg_ep_seq(clnt_hdl);
 		if (result)
 			return result;
 
