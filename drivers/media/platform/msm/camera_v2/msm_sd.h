@@ -85,5 +85,6 @@ int msm_sd_unregister(struct msm_sd_subdev *sd);
 struct v4l2_subdev *msm_sd_get_subdev(struct v4l2_subdev *sd,
 	const char *get_name);
 void msm_sd_put_subdev(struct v4l2_subdev *sd, struct v4l2_subdev *put);
+void msm_cam_copy_v4l2_subdev_fops(struct v4l2_file_operations *d1);
 
 #endif /*_MSM_SD_H */

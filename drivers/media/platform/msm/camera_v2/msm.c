@@ -176,6 +176,18 @@ static void msm_enqueue(struct msm_queue_head *qhead,
 	spin_unlock_irqrestore(&qhead->lock, flags);
 }
 
+void msm_cam_copy_v4l2_subdev_fops(struct v4l2_file_operations *d1)
+{
+	*d1 = v4l2_subdev_fops;
+}
+EXPORT_SYMBOL(msm_cam_copy_v4l2_subdev_fops);
+
+static const struct v4l2_file_operations *msm_cam_get_v4l2_subdev_fops_ptr(
+	void)
+{
+	return &v4l2_subdev_fops;
+}
+
 /* index = session id */
 static inline int __msm_queue_find_session(void *d1, void *d2)
 {
@@ -205,6 +217,7 @@ struct msm_session *msm_session_find(unsigned int session_id)
 		return NULL;
 	return session;
 }
+EXPORT_SYMBOL(msm_session_find);
 
 int msm_create_stream(unsigned int session_id,
 	unsigned int stream_id, struct vb2_queue *q)
@@ -231,6 +244,7 @@ int msm_create_stream(unsigned int session_id,
 
 	return 0;
 }
+EXPORT_SYMBOL(msm_create_stream);
 
 void msm_delete_stream(unsigned int session_id, unsigned int stream_id)
 {
@@ -254,6 +268,7 @@ void msm_delete_stream(unsigned int session_id, unsigned int stream_id)
 	stream = NULL;
 	spin_unlock_irqrestore(&(session->stream_q.lock), flags);
 }
+EXPORT_SYMBOL(msm_delete_stream);
 
 static void msm_sd_unregister_subdev(struct video_device *vdev)
 {
@@ -289,7 +304,7 @@ static inline int __msm_sd_register_subdev(struct v4l2_subdev *sd)
 	video_set_drvdata(vdev, sd);
 	strlcpy(vdev->name, sd->name, sizeof(vdev->name));
 	vdev->v4l2_dev = msm_v4l2_dev;
-	vdev->fops = &v4l2_subdev_fops;
+	vdev->fops = msm_cam_get_v4l2_subdev_fops_ptr();
 	vdev->release = msm_sd_unregister_subdev;
 	rc = __video_register_device(vdev, VFL_TYPE_SUBDEV, -1, 1,
 		  sd->owner);
@@ -337,6 +352,7 @@ int msm_sd_register(struct msm_sd_subdev *msm_subdev)
 	msm_add_sd_in_position(msm_subdev, &ordered_sd_list);
 	return __msm_sd_register_subdev(&msm_subdev->sd);
 }
+EXPORT_SYMBOL(msm_sd_register);
 
 int msm_sd_unregister(struct msm_sd_subdev *msm_subdev)
 {
@@ -345,6 +361,26 @@ int msm_sd_unregister(struct msm_sd_subdev *msm_subdev)
 
 	v4l2_device_unregister_subdev(&msm_subdev->sd);
 	return 0;
+}
+EXPORT_SYMBOL(msm_sd_unregister);
+
+static struct v4l2_subdev *msm_sd_find(const char *name)
+{
+	unsigned long flags;
+	struct v4l2_subdev *subdev = NULL;
+	struct v4l2_subdev *subdev_out = NULL;
+
+	spin_lock_irqsave(&msm_v4l2_dev->lock, flags);
+	if (!list_empty(&msm_v4l2_dev->subdevs)) {
+		list_for_each_entry(subdev, &msm_v4l2_dev->subdevs, list)
+			if (!strcmp(name, subdev->name)) {
+				subdev_out = subdev;
+				break;
+			}
+	}
+	spin_unlock_irqrestore(&msm_v4l2_dev->lock, flags);
+
+	return subdev_out;
 }
 
 int msm_create_session(unsigned int session_id, struct video_device *vdev)
@@ -381,6 +417,7 @@ int msm_create_session(unsigned int session_id, struct video_device *vdev)
 	mutex_init(&session->lock_q);
 	return 0;
 }
+EXPORT_SYMBOL(msm_create_session);
 
 int msm_create_command_ack_q(unsigned int session_id, unsigned int stream_id)
 {
@@ -419,6 +456,7 @@ int msm_create_command_ack_q(unsigned int session_id, unsigned int stream_id)
 	mutex_unlock(&session->lock);
 	return 0;
 }
+EXPORT_SYMBOL(msm_create_command_ack_q);
 
 void msm_delete_command_ack_q(unsigned int session_id, unsigned int stream_id)
 {
@@ -449,6 +487,7 @@ void msm_delete_command_ack_q(unsigned int session_id, unsigned int stream_id)
 	spin_unlock_irqrestore(&(session->command_ack_q.lock), flags);
 	mutex_unlock(&session->lock);
 }
+EXPORT_SYMBOL(msm_delete_command_ack_q);
 
 static inline int __msm_sd_close_subdevs(struct msm_sd_subdev *msm_sd,
 	struct msm_sd_close_ioctl *sd_close)
@@ -543,7 +582,7 @@ int msm_destroy_session(unsigned int session_id)
 	mutex_destroy(&session->lock_q);
 	msm_delete_entry(msm_session_q, struct msm_session,
 		list, session);
-	buf_mgr_subdev = msm_buf_mngr_get_subdev();
+	buf_mgr_subdev = msm_sd_find("msm_buf_mngr");
 	if (buf_mgr_subdev) {
 		session_info.session = session_id;
 		session_info.stream = 0;
@@ -555,6 +594,7 @@ int msm_destroy_session(unsigned int session_id)
 
 	return 0;
 }
+EXPORT_SYMBOL(msm_destroy_session);
 
 static int __msm_close_destry_session_notify_apps(void *d1, void *d2)
 {
@@ -821,6 +861,7 @@ int msm_post_event(struct v4l2_event *event, int timeout)
 	mutex_unlock(&session->lock);
 	return rc;
 }
+EXPORT_SYMBOL(msm_post_event);
 
 static int msm_close(struct file *filep)
 {
@@ -924,6 +965,7 @@ struct msm_stream *msm_get_stream(unsigned int session_id,
 
 	return stream;
 }
+EXPORT_SYMBOL(msm_get_stream);
 
 struct vb2_queue *msm_get_stream_vb2q(unsigned int session_id,
 	unsigned int stream_id)
@@ -943,6 +985,7 @@ struct vb2_queue *msm_get_stream_vb2q(unsigned int session_id,
 
 	return stream->vb2_q;
 }
+EXPORT_SYMBOL(msm_get_stream_vb2q);
 
 struct msm_stream *msm_get_stream_from_vb2q(struct vb2_queue *q)
 {
@@ -968,25 +1011,7 @@ struct msm_stream *msm_get_stream_from_vb2q(struct vb2_queue *q)
 	spin_unlock_irqrestore(&msm_session_q->lock, flags1);
 	return NULL;
 }
-
-static struct v4l2_subdev *msm_sd_find(const char *name)
-{
-	unsigned long flags;
-	struct v4l2_subdev *subdev = NULL;
-	struct v4l2_subdev *subdev_out = NULL;
-
-	spin_lock_irqsave(&msm_v4l2_dev->lock, flags);
-	if (!list_empty(&msm_v4l2_dev->subdevs)) {
-		list_for_each_entry(subdev, &msm_v4l2_dev->subdevs, list)
-			if (!strcmp(name, subdev->name)) {
-				subdev_out = subdev;
-				break;
-			}
-	}
-	spin_unlock_irqrestore(&msm_v4l2_dev->lock, flags);
-
-	return subdev_out;
-}
+EXPORT_SYMBOL(msm_get_stream_from_vb2q);
 
 static void msm_sd_notify(struct v4l2_subdev *sd,
 	unsigned int notification, void *arg)
@@ -1055,7 +1080,7 @@ static const struct file_operations logsync_fops = {
 
 static int msm_probe(struct platform_device *pdev)
 {
-	struct msm_video_device *pvdev;
+	struct msm_video_device *pvdev = NULL;
 	static struct dentry *cam_debugfs_root;
 	int rc = 0;
 
@@ -1182,8 +1207,7 @@ probe_end:
 static const struct of_device_id msm_dt_match[] = {
 	{.compatible = "qcom,msm-cam"},
 	{}
-}
-
+};
 MODULE_DEVICE_TABLE(of, msm_dt_match);
 
 static struct platform_driver msm_driver = {

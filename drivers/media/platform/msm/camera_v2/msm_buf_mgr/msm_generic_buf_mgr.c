@@ -609,13 +609,8 @@ static int32_t __init msm_buf_mngr_init(void)
 	/* Sub-dev */
 	v4l2_subdev_init(&msm_buf_mngr_dev->subdev.sd,
 		&msm_buf_mngr_subdev_ops);
-
-	msm_buf_v4l2_subdev_fops.owner = v4l2_subdev_fops.owner;
-	msm_buf_v4l2_subdev_fops.open = v4l2_subdev_fops.open;
+	msm_cam_copy_v4l2_subdev_fops(&msm_buf_v4l2_subdev_fops);
 	msm_buf_v4l2_subdev_fops.unlocked_ioctl = msm_buf_subdev_fops_ioctl;
-	msm_buf_v4l2_subdev_fops.release = v4l2_subdev_fops.release;
-	msm_buf_v4l2_subdev_fops.poll = v4l2_subdev_fops.poll;
-
 #ifdef CONFIG_COMPAT
 	msm_buf_v4l2_subdev_fops.compat_ioctl32 =
 			msm_bmgr_subdev_fops_compat_ioctl;
