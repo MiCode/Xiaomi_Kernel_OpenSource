@@ -69,6 +69,7 @@
 #include "msm-gdsc.dtsi"
 #include "mdmcalifornium-blsp.dtsi"
 #include "mdmcalifornium-bus.dtsi"
+#include "mdmcalifornium-coresight.dtsi"
 
 &soc {
 	#address-cells = <1>;
