@@ -745,6 +745,48 @@ void hdmi_ddc_config(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_REF, (1 << 16) | (19 << 0));
 } /* hdmi_ddc_config */
 
+int hdmi_ddc_check_status(struct hdmi_tx_ddc_ctrl *ctrl)
+{
+	int rc = 0;
+	u32 reg_val;
+
+	if (!ctrl) {
+		pr_err("invalid ddc ctrl\n");
+		return -EINVAL;
+	}
+
+	/* check for errors and clear status */
+	reg_val = DSS_REG_R(ctrl->io, HDMI_HDCP2P2_DDC_STATUS);
+
+	if (reg_val & BIT(4)) {
+		pr_err("ddc aborted\n");
+		reg_val |= BIT(5);
+		rc = -ECONNABORTED;
+	}
+
+	if (reg_val & BIT(8)) {
+		pr_err("timed out\n");
+		reg_val |= BIT(9);
+		rc = -ETIMEDOUT;
+	}
+
+	if (reg_val & BIT(12)) {
+		pr_err("NACK0\n");
+		reg_val |= BIT(13);
+		rc = -EIO;
+	}
+
+	if (reg_val & BIT(14)) {
+		pr_err("NACK1\n");
+		reg_val |= BIT(15);
+		rc = -EIO;
+	}
+
+	DSS_REG_W(ctrl->io, HDMI_HDCP2P2_DDC_STATUS, reg_val);
+
+	return rc;
+}
+
 static int hdmi_ddc_hdcp2p2_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 {
 	struct dss_io_data *io = NULL;
@@ -808,12 +850,14 @@ static int hdmi_ddc_hdcp2p2_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 
 	/* check for message size interrupt */
 	if (intr0 & BIT(31)) {
-		/* ack and disable message size interrupt */
-		intr0 |= BIT(30);
-		intr0 &= ~BIT(31);
-
 		/* get the message size bits 29:20 */
 		data->message_size = (intr0 & (0x3FF << 20)) >> 20;
+
+		if (data->message_size) {
+			/* ack and disable message size interrupt */
+			intr0 |= BIT(30);
+			intr0 &= ~BIT(31);
+		}
 	}
 
 	/* check for ready/not ready interrupt */
@@ -845,35 +889,34 @@ static int hdmi_ddc_hdcp2p2_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 
 	/* check for ddc fail interrupt */
 	if (intr0 & BIT(10)) {
-		/* ack and disable ddc fail interrupt */
+		/* ack ddc fail interrupt */
 		intr0 |= BIT(9);
-		intr0 &= ~BIT(10);
 
 		data->ddc_max_retries_fail = (intr0 & BIT(8)) ? true : false;
 	}
 
 	/* check for ddc done interrupt */
 	if (intr0 & BIT(6)) {
-		/* ack and disable ddc done interrupt */
+		/* ack ddc done interrupt */
 		intr0 |= BIT(5);
-		intr0 &= ~BIT(6);
 
 		data->ddc_done = (intr0 & BIT(4)) ? true : false;
 	}
 
 	/* check for ddc read req interrupt */
 	if (intr0 & BIT(2)) {
-		/* ack and disable read req interrupt */
+		/* ack read req interrupt */
 		intr0 |= BIT(1);
-		intr0 &= ~BIT(2);
 
 		data->ddc_read_req = (intr0 & BIT(0)) ? true : false;
 	}
 
 	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL0, intr0);
 
-	if (!completion_done(&ddc_ctrl->rxstatus_completion))
-		complete_all(&ddc_ctrl->rxstatus_completion);
+	if (data->message_size || data->ready || data->reauth_req) {
+		if (!completion_done(&ddc_ctrl->rxstatus_completion))
+			complete_all(&ddc_ctrl->rxstatus_completion);
+	}
 
 	return 0;
 }
@@ -1587,7 +1630,7 @@ void hdmi_hdcp2p2_ddc_disable(struct hdmi_tx_ddc_ctrl *ctrl)
 	DSS_REG_W(ctrl->io, HDMI_HW_DDC_CTRL, reg_val);
 }
 
-int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl)
+int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl, bool wait)
 {
 	u32 reg_val;
 	u32 intr_en_mask;
@@ -1631,7 +1674,7 @@ int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl)
 	 * 3. DDC_TIMEOUT_TIMER: Timeout in hsyncs which starts counting when
 	 *	a request is made and stops when it is accepted by DDC arbiter
 	 */
-	timeout = data->timer_delay_lines & 0xffff;
+	timeout = data->timer_delay_lines;
 	pr_debug("timeout: %d\n", timeout);
 	DSS_REG_W(ctrl->io, HDMI_HDCP2P2_DDC_TIMER_CTRL, timeout);
 
@@ -1681,48 +1724,22 @@ int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl)
 		/* If we are using SW_TRIGGER, then go ahead and trigger it */
 		DSS_REG_W(ctrl->io, HDMI_HDCP2P2_DDC_SW_TRIGGER, 1);
 
-		reinit_completion(&ctrl->rxstatus_completion);
-		/* max timeout as per hdcp 2.2 std is 1 sec */
-		timeout = wait_for_completion_timeout(
-				&ctrl->rxstatus_completion,
-				msecs_to_jiffies(HDMI_SEC_TO_MS));
-		if (!timeout) {
-			pr_err("sw ddc rxstatus timeout\n");
-			rc = -ETIMEDOUT;
+		if (wait) {
+			reinit_completion(&ctrl->rxstatus_completion);
+			/* max timeout as per hdcp 2.2 std is 1 sec */
+			timeout = wait_for_completion_timeout(
+					&ctrl->rxstatus_completion,
+					msecs_to_jiffies(HDMI_SEC_TO_MS));
+			if (!timeout) {
+				pr_err("sw ddc rxstatus timeout\n");
+				rc = -ETIMEDOUT;
+			}
+
+			rc = hdmi_ddc_check_status(ctrl);
+
+			hdmi_hdcp2p2_ddc_disable(ctrl);
 		}
 	}
-
-	/* check for errors and clear status */
-	reg_val = DSS_REG_R(ctrl->io, HDMI_HDCP2P2_DDC_STATUS);
-
-	if (reg_val & BIT(4)) {
-		pr_err("ddc aborted\n");
-		reg_val |= BIT(5);
-		rc = -ECONNABORTED;
-	}
-
-	if (reg_val & BIT(8)) {
-		pr_err("timed out\n");
-		reg_val |= BIT(9);
-		rc = -ETIMEDOUT;
-	}
-
-	if (reg_val & BIT(12)) {
-		pr_err("NACK0\n");
-		reg_val |= BIT(13);
-		rc = -EIO;
-	}
-
-	if (reg_val & BIT(14)) {
-		pr_err("NACK1\n");
-		reg_val |= BIT(15);
-		rc = -EIO;
-	}
-
-	DSS_REG_W(ctrl->io, HDMI_HDCP2P2_DDC_STATUS, reg_val);
-
-	/* Disable hardware access to RxStatus register */
-	hdmi_hdcp2p2_ddc_disable(ctrl);
 
 	return rc;
 }
