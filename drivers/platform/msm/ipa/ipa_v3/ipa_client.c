@@ -1298,7 +1298,10 @@ static bool ipa3_is_xdci_channel_empty(struct ipa3_ep_context *ep,
 		is_empty = (chan_info->rp == chan_info->wp);
 	} else {
 		/* For DL channel: */
-		if (chan_info->wp != (ep->gsi_mem_info.chan_ring_len - 1)) {
+		if (chan_info->wp !=
+		    (ep->gsi_mem_info.chan_ring_base_addr +
+		     ep->gsi_mem_info.chan_ring_len -
+		     GSI_CHAN_RE_SIZE_16B)) {
 			/*  if chan.WP != LINK TRB: chan.WP == evt.RP */
 			is_empty = (chan_info->wp == chan_info->evt_rp);
 		} else {
@@ -1578,7 +1581,7 @@ int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 			dl_data_pending = true;
 	}
 	if (dl_data_pending) {
-		IPADBG("DL data pending, can't suspend\n");
+		IPAERR("DL data pending, can't suspend\n");
 		result = -EFAULT;
 		goto query_chan_info_fail;
 	}
@@ -1603,7 +1606,7 @@ int ipa3_xdci_suspend(u32 ul_clnt_hdl, u32 dl_clnt_hdl,
 	 */
 	is_empty = ipa3_is_xdci_channel_empty(dl_ep, &dl_gsi_chan_info);
 	if (!is_empty) {
-		IPADBG("DL data pending, can't suspend\n");
+		IPAERR("DL data pending, can't suspend\n");
 		/* Unsuspend the DL EP */
 		memset(&ep_cfg_ctrl, 0 , sizeof(struct ipa_ep_cfg_ctrl));
 		ep_cfg_ctrl.ipa_ep_suspend = false;
