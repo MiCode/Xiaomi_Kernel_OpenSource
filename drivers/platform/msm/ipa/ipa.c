@@ -1361,6 +1361,26 @@ static int ipa_q6_pipe_delay(bool zip_pipes)
 	return 0;
 }
 
+int ipa_q6_monitor_holb_mitigation(bool enable)
+{
+	int ep_idx;
+	int client_idx;
+
+	for (client_idx = 0; client_idx < IPA_CLIENT_MAX; client_idx++) {
+		if (IPA_CLIENT_IS_Q6_NON_ZIP_CONS(client_idx)) {
+			ep_idx = ipa_get_ep_mapping(client_idx);
+			if (ep_idx == -1)
+				continue;
+			/* Send a command to Uc to enable/disable
+			 * holb monitoring.
+			 */
+			ipa_uc_monitor_holb(client_idx, enable);
+		}
+	}
+
+	return 0;
+}
+
 static int ipa_q6_avoid_holb(bool zip_pipes)
 {
 	u32 reg_val;
@@ -1699,6 +1719,12 @@ int ipa_q6_pre_shutdown_cleanup(void)
 		IPAERR("Failed to delay Q6 pipes\n");
 		BUG();
 	}
+
+	if (ipa_q6_monitor_holb_mitigation(false)) {
+		IPAERR("Failed to disable HOLB monitroing on Q6 pipes\n");
+		BUG();
+	}
+
 	if (ipa_q6_avoid_holb(false)) {
 		IPAERR("Failed to set HOLB on Q6 pipes\n");
 		BUG();
