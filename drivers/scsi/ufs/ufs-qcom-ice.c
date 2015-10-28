@@ -56,12 +56,12 @@ void ufs_qcom_ice_print_regs(struct ufs_qcom_host *qcom_host)
 
 }
 
-static void ufs_qcom_ice_error_cb(void *host_ctrl, enum ice_error_code evt)
+static void ufs_qcom_ice_error_cb(void *host_ctrl, u32 error)
 {
 	struct ufs_qcom_host *qcom_host = (struct ufs_qcom_host *)host_ctrl;
 
-	dev_err(qcom_host->hba->dev, "%s: Error in ice operation %d",
-		__func__, evt);
+	dev_err(qcom_host->hba->dev, "%s: Error in ice operation 0x%x",
+		__func__, error);
 
 	if (qcom_host->ice.state == UFS_QCOM_ICE_STATE_ACTIVE)
 		qcom_host->ice.state = UFS_QCOM_ICE_STATE_DISABLED;
