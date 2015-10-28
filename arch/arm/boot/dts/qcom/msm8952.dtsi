@@ -1525,7 +1525,6 @@
 			<&clock_gcc clk_gcc_venus0_axi_clk>;
 		clock-names = "core_clk", "core0_clk", "core1_clk", "iface_clk", "bus_clk";
 		qcom,clock-configs = <0x1 0x0 0x0 0x0 0x0>;
-		qcom,sw-power-collapse;
 		qcom,load-freq-tbl =
 			<489600 266670000 0x01000414>, /* Encoder turbo (wfd) */
 			<489600 228570000 0xf0fcfff>, /* Legacy decoder 1080p 60fps  */
