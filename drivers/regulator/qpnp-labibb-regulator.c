@@ -440,7 +440,12 @@ enum ibb_settings_index {
 	IBB_SETTINGS_MAX,
 };
 
-struct ibb_settings {
+enum lab_settings_index {
+	LAB_SOFT_START_CTL = 0,
+	LAB_SETTINGS_MAX,
+};
+
+struct settings {
 	u16	address;
 	u8	value;
 	bool	sec_access;
@@ -452,12 +457,16 @@ struct ibb_settings {
 		.sec_access = _sec_access,	\
 	}
 
-static struct ibb_settings settings[IBB_SETTINGS_MAX] = {
+static struct settings ibb_settings[IBB_SETTINGS_MAX] = {
 	SETTING(IBB_PD_CTL, false),
 	SETTING(IBB_CURRENT_LIMIT, true),
 	SETTING(IBB_RDSON_MNGMNT, false),
 	SETTING(IBB_PWRUP_PWRDN_CTL_1, true),
 	SETTING(IBB_PWRUP_PWRDN_CTL_2, true),
+};
+
+static struct settings lab_settings[LAB_SETTINGS_MAX] = {
+	SETTING(LAB_SOFT_START_CTL, false),
 };
 
 static int
@@ -839,22 +848,40 @@ static int qpnp_lab_dt_init(struct qpnp_labibb *labibb,
 	return rc;
 }
 
-static int qpnp_ibb_restore_settings(struct qpnp_labibb *labibb)
+static int qpnp_labibb_restore_settings(struct qpnp_labibb *labibb)
 {
 	int rc, i;
 
-	for (i = 0; i < ARRAY_SIZE(settings); i++) {
-		if (settings[i].sec_access)
+	for (i = 0; i < ARRAY_SIZE(ibb_settings); i++) {
+		if (ibb_settings[i].sec_access)
 			rc = qpnp_labibb_sec_write(labibb, labibb->ibb_base,
-					settings[i].address, &settings[i].value,
-					1);
+					ibb_settings[i].address,
+					&ibb_settings[i].value, 1);
 		else
 			rc = qpnp_labibb_write(labibb, labibb->ibb_base +
-					settings[i].address, &settings[i].value,
-					1);
+					ibb_settings[i].address,
+					&ibb_settings[i].value, 1);
+
 		if (rc) {
 			pr_err("qpnp_labibb_write register %x failed rc = %d\n",
-				settings[i].address, rc);
+				ibb_settings[i].address, rc);
+			return rc;
+		}
+	}
+
+	for (i = 0; i < ARRAY_SIZE(lab_settings); i++) {
+		if (lab_settings[i].sec_access)
+			rc = qpnp_labibb_sec_write(labibb, labibb->lab_base,
+					lab_settings[i].address,
+					&lab_settings[i].value, 1);
+		else
+			rc = qpnp_labibb_write(labibb, labibb->lab_base +
+					lab_settings[i].address,
+					&lab_settings[i].value, 1);
+
+		if (rc) {
+			pr_err("qpnp_labibb_write register %x failed rc = %d\n",
+				lab_settings[i].address, rc);
 			return rc;
 		}
 	}
@@ -862,17 +889,28 @@ static int qpnp_ibb_restore_settings(struct qpnp_labibb *labibb)
 	return 0;
 }
 
-static int qpnp_ibb_save_settings(struct qpnp_labibb *labibb)
+static int qpnp_labibb_save_settings(struct qpnp_labibb *labibb)
 {
 	int rc, i;
 
-	for (i = 0; i < ARRAY_SIZE(settings); i++) {
-		rc = qpnp_labibb_read(labibb, &settings[i].value,
-					labibb->ibb_base + settings[i].address,
-					1);
+	for (i = 0; i < ARRAY_SIZE(ibb_settings); i++) {
+		rc = qpnp_labibb_read(labibb, &ibb_settings[i].value,
+					labibb->ibb_base +
+					ibb_settings[i].address, 1);
 		if (rc) {
 			pr_err("qpnp_labibb_read register %x failed rc = %d\n",
-				settings[i].address, rc);
+				ibb_settings[i].address, rc);
+			return rc;
+		}
+	}
+
+	for (i = 0; i < ARRAY_SIZE(lab_settings); i++) {
+		rc = qpnp_labibb_read(labibb, &lab_settings[i].value,
+					labibb->lab_base +
+					lab_settings[i].address, 1);
+		if (rc) {
+			pr_err("qpnp_labibb_read register %x failed rc = %d\n",
+				lab_settings[i].address, rc);
 			return rc;
 		}
 	}
@@ -887,7 +925,7 @@ static int qpnp_labibb_regulator_ttw_mode_enter(struct qpnp_labibb *labibb)
 
 	/* Save the IBB settings before they get modified for TTW mode */
 	if (!labibb->ibb_settings_saved) {
-		rc = qpnp_ibb_save_settings(labibb);
+		rc = qpnp_labibb_save_settings(labibb);
 		if (rc) {
 			pr_err("Error in storing IBB setttings, rc=%d\n", rc);
 			return rc;
@@ -910,6 +948,15 @@ static int qpnp_labibb_regulator_ttw_mode_enter(struct qpnp_labibb *labibb)
 	if (rc) {
 		pr_err("qpnp_labibb_write register %x failed rc = %d\n",
 			REG_LAB_SPARE_CTL, rc);
+		return rc;
+	}
+
+	val = 0;
+	rc = qpnp_labibb_write(labibb, labibb->lab_base +
+				REG_LAB_SOFT_START_CTL, &val, 1);
+	if (rc) {
+		pr_err("qpnp_labibb_write register %x failed rc = %d\n",
+			REG_LAB_SOFT_START_CTL, rc);
 		return rc;
 	}
 
@@ -993,7 +1040,7 @@ static int qpnp_labibb_regulator_ttw_mode_exit(struct qpnp_labibb *labibb)
 	}
 
 	/* Restore the IBB settings back to switch back to normal mode */
-	rc = qpnp_ibb_restore_settings(labibb);
+	rc = qpnp_labibb_restore_settings(labibb);
 	if (rc) {
 		pr_err("Error in restoring IBB setttings, rc=%d\n", rc);
 		return rc;
