@@ -3361,6 +3361,12 @@ static void dwc3_process_event_entry(struct dwc3 *dwc,
 		return;
 	}
 
+	/* If run/stop is cleared don't process any more events */
+	if (!dwc->pullups_connected) {
+		dbg_print_reg("SKIP_EVT_PULLUP", event->raw);
+		return;
+	}
+
 	/* Endpoint IRQ, handle it and return early */
 	if (event->type.is_devspec == 0) {
 		/* depevt */
@@ -3522,12 +3528,6 @@ static irqreturn_t dwc3_interrupt(int irq, void *_dwc)
 			ret = status;
 
 		temp_cnt += dwc->ev_buffs[i]->count;
-	}
-
-	/* If run/stop is cleared don't process any more events */
-	if (!dwc->pullups_connected) {
-		dev_warn(dwc->dev, "IRQ received but run/stop is cleared\n");
-		ret = IRQ_HANDLED;
 	}
 
 	spin_unlock(&dwc->lock);
