@@ -540,7 +540,8 @@ static void create_mapping_late(phys_addr_t phys, unsigned long virt,
 	}
 
 	return __create_mapping(&init_mm, pgd_offset_k(virt & PAGE_MASK),
-				phys, virt, size, prot, late_alloc, false);
+				phys, virt, size, prot, late_alloc,
+				IS_ENABLED(CONFIG_FORCE_PAGES));
 }
 
 #ifdef CONFIG_DEBUG_RODATA
