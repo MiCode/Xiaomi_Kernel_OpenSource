@@ -3122,10 +3122,8 @@ static void mdss_mdp_hw_cursor_setimage(struct mdss_mdp_mixer *mixer,
 	size = (img->height << 16) | img->width;
 	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_IMG_SIZE, size);
 	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_SIZE, roi_size);
-	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_STRIDE,
-				img->width * 4);
-	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_BASE_ADDR,
-				cursor_addr);
+	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_STRIDE, img->width * 4);
+	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_CURSOR_BASE_ADDR, cursor_addr);
 	blendcfg = mdp_mixer_read(mixer, MDSS_MDP_REG_LM_CURSOR_BLEND_CONFIG);
 	blendcfg &= ~0x1;
 	blendcfg |= (transp_en << 3) | (calpha_en << 1);
@@ -3551,27 +3549,102 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_mixer *mixer_right = NULL;
 	struct fb_image *img = &cursor->image;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	struct fbcurpos cursor_hot;
-	struct mdss_rect roi;
+	struct mdss_rect roi, src_crop;
+	struct fb_var_screeninfo *var = &mfd->fbi->var;
 	int ret = 0;
-	u32 xres = mfd->fbi->var.xres;
-	u32 yres = mfd->fbi->var.yres;
 	u32 start_x = img->dx;
 	u32 start_y = img->dy;
 	u32 left_lm_w = left_lm_w_from_mfd(mfd);
-	u32 cursor_frame_size = mdss_mdp_get_cursor_frame_size(mdata);
+	u32 cursor_frame_size;
+
+	ret = mutex_lock_interruptible(&mdp5_data->ov_lock);
+	if (ret)
+		return ret;
 
 	mixer_left = mdss_mdp_mixer_get(mdp5_data->ctl,
 			MDSS_MDP_MIXER_MUX_DEFAULT);
-	if (!mixer_left)
-		return -ENODEV;
+
+	if (!mixer_left) {
+		ret = -ENODEV;
+		goto done;
+	}
+
 	if (is_split_lm(mfd)) {
 		mixer_right = mdss_mdp_mixer_get(mdp5_data->ctl,
 				MDSS_MDP_MIXER_MUX_RIGHT);
-		if (!mixer_right)
-			return -ENODEV;
+		if (!mixer_right) {
+			ret = -ENODEV;
+			goto done;
+		}
 	}
 
+	/*
+	 * image width/height and src crop width/height are packed with
+	 * img->width/height and src crop x/y is passed through hotx/hoty
+	 * when using our HAL is used.
+	 */
+	if (img->width & 0xffff0000) {
+		src_crop = (struct mdss_rect) {cursor->hot.x, cursor->hot.y,
+			img->width >> 16, img->height >> 16};
+		img->width &= 0x0000ffff;
+		img->height &= 0x0000ffff;
+		cursor->hot.x = 0;
+		cursor->hot.y = 0;
+	} else {
+		src_crop = (struct mdss_rect) {0, 0, img->width, img->height};
+	}
+
+	if ((src_crop.w > mdata->max_cursor_size) ||
+		(src_crop.h > mdata->max_cursor_size) || (img->depth != 32) ||
+		(start_x >= var->xres) || (start_y >= var->yres)) {
+		pr_debug("start_x:%d, start_y:%d, src_crop{%d,%d,%d,%d} img->depth:%d\n",
+				start_x, start_y, src_crop.x, src_crop.y,
+				src_crop.w, src_crop.h, img->depth);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	mixer_left->cursor_hotx = 0;
+	mixer_left->cursor_hoty = 0;
+
+	if (cursor->set & FB_CUR_SETHOT) {
+		if ((cursor->hot.x < src_crop.w) &&
+			(cursor->hot.y < src_crop.h)) {
+			mixer_left->cursor_hotx = cursor->hot.x;
+			mixer_left->cursor_hoty = cursor->hot.y;
+			 /* Update cursor position */
+			cursor->set |= FB_CUR_SETPOS;
+		} else {
+			pr_err("Invalid cursor hotspot coordinates\n");
+			ret = -EINVAL;
+			goto done;
+		}
+	}
+
+	memset(&roi, 0, sizeof(struct mdss_rect));
+	if (start_x > mixer_left->cursor_hotx) {
+		start_x -= mixer_left->cursor_hotx;
+	} else {
+		roi.x = mixer_left->cursor_hotx - start_x;
+		start_x = 0;
+	}
+	if (start_y > mixer_left->cursor_hoty) {
+		start_y -= mixer_left->cursor_hoty;
+	} else {
+		roi.y = mixer_left->cursor_hoty - start_y;
+		start_y = 0;
+	}
+
+	roi.w = min_t(u32, (var->xres - start_x), (src_crop.w - roi.x));
+	roi.h = min_t(u32, (var->yres - start_y), (src_crop.h - roi.y));
+	roi.x += src_crop.x;
+	roi.y += src_crop.y;
+
+	pr_debug("roi:x,y,w,h=%d,%d,%d %d, img:wxh=%dx%d, enable=%x set=%x\n",
+		roi.x, roi.y, roi.w, roi.h, img->width, img->height,
+		cursor->enable, cursor->set);
+
+	cursor_frame_size = PAGE_ALIGN(img->width * img->height * 4);
 	if (!mfd->cursor_buf && (cursor->set & FB_CUR_SETIMAGE)) {
 		mfd->cursor_buf = dma_alloc_coherent(&mfd->pdev->dev,
 					cursor_frame_size,
@@ -3579,7 +3652,8 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 					GFP_KERNEL);
 		if (!mfd->cursor_buf) {
 			pr_err("can't allocate cursor buffer\n");
-			return -ENOMEM;
+			ret = -ENOMEM;
+			goto done;
 		}
 
 		ret = msm_iommu_map_contig_buffer(mfd->cursor_buf_phys,
@@ -3592,78 +3666,24 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 					  (dma_addr_t) mfd->cursor_buf_phys);
 			pr_err("unable to map cursor buffer to iommu(%d)\n",
 			       ret);
-			return ret;
+			goto done;
 		}
 	}
-
-	/*
-	 * Right shift the incoming image height and width by 16 as HAL
-	 * sends source crop information along with it. When HW cursor
-	 * enabled using mixer, source crop information is not required
-	 */
-	img->width = img->width >> 16;
-	img->height = img->height >> 16;
-
-	if ((img->width > mdata->max_cursor_size) ||
-		(img->height > mdata->max_cursor_size) ||
-		(img->depth != 32) || (start_x >= xres) || (start_y >= yres))
-		return -EINVAL;
-
-	pr_debug("enable=%x set=%x\n", cursor->enable, cursor->set);
-
-	memset(&cursor_hot, 0, sizeof(struct fbcurpos));
-	memset(&roi, 0, sizeof(struct mdss_rect));
-	if (cursor->set & FB_CUR_SETHOT) {
-		if ((cursor->hot.x < img->width) &&
-			(cursor->hot.y < img->height)) {
-			cursor_hot.x = cursor->hot.x;
-			cursor_hot.y = cursor->hot.y;
-			 /* Update cursor position */
-			cursor->set |= FB_CUR_SETPOS;
-		} else {
-			pr_err("Invalid cursor hotspot coordinates\n");
-			return -EINVAL;
-		}
-	}
-
-	if (start_x > cursor_hot.x) {
-		start_x -= cursor_hot.x;
-	} else {
-		roi.x = cursor_hot.x - start_x;
-		start_x = 0;
-	}
-	if (start_y > cursor_hot.y) {
-		start_y -= cursor_hot.y;
-	} else {
-		roi.y = cursor_hot.y - start_y;
-		start_y = 0;
-	}
-
-	roi.w = min(xres - start_x, img->width - roi.x);
-	roi.h = min(yres - start_y, img->height - roi.y);
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
 	if (cursor->set & FB_CUR_SETIMAGE) {
 		u32 cursor_addr;
 		ret = copy_from_user(mfd->cursor_buf, img->data,
-				     img->width * img->height * 4);
+					cursor_frame_size);
 		if (ret) {
 			pr_err("copy_from_user error. rc=%d\n", ret);
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
-			return ret;
+			goto done;
 		}
 
-		if (mdata->mdss_util->iommu_attached()) {
-			cursor_addr = mfd->cursor_buf_iova;
-		} else {
-			if (MDSS_LPAE_CHECK(mfd->cursor_buf_phys)) {
-				pr_err("can't access phy mem >4GB w/o iommu\n");
-				mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
-				return -ERANGE;
-			}
-			cursor_addr = mfd->cursor_buf_phys;
-		}
+		cursor_addr = mfd->cursor_buf_iova;
+
 		mdss_mdp_hw_cursor_setimage(mixer_left, cursor, cursor_addr,
 				&roi);
 		if (is_split_lm(mfd))
@@ -3707,7 +3727,10 @@ static int mdss_mdp_hw_cursor_update(struct msm_fb_data_type *mfd,
 	if (is_split_lm(mfd))
 		mixer_right->ctl->flush_bits |= BIT(6) << mixer_right->num;
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
-	return 0;
+
+done:
+	mutex_unlock(&mdp5_data->ov_lock);
+	return ret;
 }
 
 static int mdss_bl_scale_config(struct msm_fb_data_type *mfd,
