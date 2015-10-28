@@ -26,6 +26,10 @@ ifeq ($(CONFIG_ARCH_MSM8996),y)
 mdss-mdp-objs += mdss_mdp_pp_v1_7.o
 endif
 
+ifeq ($(CONFIG_ARCH_MSM8937),y)
+mdss-mdp-objs += mdss_mdp_pp_v1_7.o
+endif
+
 ifeq ($(CONFIG_FB_MSM_MDSS),y)
 obj-$(CONFIG_DEBUG_FS) += mdss_debug.o mdss_debug_xlog.o
 endif

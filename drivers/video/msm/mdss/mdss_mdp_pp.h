@@ -159,7 +159,7 @@ struct mdss_pp_res_type {
 	void *pp_data_res;
 };
 
-#ifdef CONFIG_ARCH_MSM8996
+#if defined(CONFIG_ARCH_MSM8996) || defined(CONFIG_ARCH_MSM8937)
 void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops);
 #else
 static inline void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
