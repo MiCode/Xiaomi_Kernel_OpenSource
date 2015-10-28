@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -515,6 +515,7 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	struct kgsl_context *context = NULL;
 	bool secured_ctxt = false;
 	uint64_t cond_addr;
+	static unsigned int _seq_cnt;
 
 	if (drawctxt != NULL && kgsl_context_detached(&drawctxt->base) &&
 		!(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE))
@@ -564,6 +565,9 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	total_sizedwords += (flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE) ? 2 : 0;
 
 	total_sizedwords += (secured_ctxt) ? 26 : 0;
+
+	/* _seq mem write for each submission */
+	total_sizedwords += 4;
 
 	/* context rollover */
 	if (adreno_is_a3xx(adreno_dev))
@@ -712,6 +716,17 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	if (test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
 				&adreno_dev->ft_pf_policy))
 		*ringcmds++ = cp_packet(adreno_dev, CP_WAIT_MEM_WRITES, 0);
+
+	/*
+	 * Do a unique memory write from the GPU. This can be used in
+	 * early detection of timestamp interrupt storms to stave
+	 * off system collapse.
+	 */
+	*ringcmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
+	ringcmds += cp_gpuaddr(adreno_dev, ringcmds, gpuaddr +
+			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
+				ref_wait_ts));
+	*ringcmds++ = ++_seq_cnt;
 
 	/*
 	 * end-of-pipeline timestamp.  If per context timestamps is not

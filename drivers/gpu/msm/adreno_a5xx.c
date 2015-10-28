@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,6 +56,8 @@ static const struct adreno_vbif_platform a5xx_vbif_platforms[] = {
 
 #define PREEMPT_SMMU_RECORD(_field) \
 		offsetof(struct a5xx_cp_smmu_info, _field)
+
+static void a5xx_irq_storm_worker(struct work_struct *work);
 static int _read_fw2_block_header(uint32_t *header, uint32_t id,
 	uint32_t major, uint32_t minor);
 static void a5xx_gpmu_reset(struct work_struct *work);
@@ -414,6 +416,7 @@ static void a5xx_init(struct adreno_device *adreno_dev)
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
 		INIT_WORK(&adreno_dev->gpmu_work, a5xx_gpmu_reset);
 
+	INIT_WORK(&adreno_dev->irq_storm_work, a5xx_irq_storm_worker);
 	a5xx_crashdump_init(adreno_dev);
 }
 
@@ -3042,6 +3045,88 @@ static void a5xx_err_callback(struct adreno_device *adreno_dev, int bit)
 	}
 }
 
+static void a5xx_irq_storm_worker(struct work_struct *work)
+{
+	struct adreno_device *adreno_dev = container_of(work,
+			struct adreno_device, irq_storm_work);
+	struct kgsl_device *device = &adreno_dev->dev;
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	unsigned int status;
+
+	mutex_lock(&device->mutex);
+
+	/* Wait for the storm to clear up */
+	do {
+		adreno_writereg(adreno_dev, ADRENO_REG_RBBM_INT_CLEAR_CMD,
+				BIT(A5XX_INT_CP_CACHE_FLUSH_TS));
+		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS,
+				&status);
+	} while (status & BIT(A5XX_INT_CP_CACHE_FLUSH_TS));
+
+	/* Re-enable the interrupt bit in the mask */
+	gpudev->irq->mask |= BIT(A5XX_INT_CP_CACHE_FLUSH_TS);
+	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_INT_0_MASK,
+			gpudev->irq->mask);
+	clear_bit(ADRENO_DEVICE_CACHE_FLUSH_TS_SUSPENDED, &adreno_dev->priv);
+
+	KGSL_DRV_WARN(device, "Re-enabled A5XX_INT_CP_CACHE_FLUSH_TS");
+	mutex_unlock(&device->mutex);
+
+	/* Reschedule just to make sure everything retires */
+	kgsl_schedule_work(&device->event_work);
+	adreno_dispatcher_schedule(device);
+}
+
+static void a5xx_cp_callback(struct adreno_device *adreno_dev, int bit)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+	unsigned int cur;
+	static unsigned int count;
+	static unsigned int prev;
+
+	if (test_bit(ADRENO_DEVICE_CACHE_FLUSH_TS_SUSPENDED, &adreno_dev->priv))
+		return;
+
+	kgsl_sharedmem_readl(&device->memstore, &cur,
+			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
+				ref_wait_ts));
+
+	/*
+	 * prev holds a previously read value
+	 * from memory.  It should be changed by the GPU with every
+	 * interrupt. If the value we know about and the value we just
+	 * read are the same, then we are likely in a storm.
+	 * If this happens twice, disable the interrupt in the mask
+	 * so the dispatcher can take care of the issue. It is then
+	 * up to the dispatcher to re-enable the mask once all work
+	 * is done and the storm has ended.
+	 */
+	if (prev == cur) {
+		count++;
+		if (count == 2) {
+			struct adreno_gpudev *gpudev =
+				ADRENO_GPU_DEVICE(adreno_dev);
+
+			/* disable interrupt from the mask */
+			set_bit(ADRENO_DEVICE_CACHE_FLUSH_TS_SUSPENDED,
+					&adreno_dev->priv);
+			gpudev->irq->mask &= ~BIT(A5XX_INT_CP_CACHE_FLUSH_TS);
+			adreno_writereg(adreno_dev, ADRENO_REG_RBBM_INT_0_MASK,
+					gpudev->irq->mask);
+
+			kgsl_schedule_work(&adreno_dev->irq_storm_work);
+
+			return;
+		}
+	} else {
+		count = 0;
+		prev = cur;
+	}
+
+	kgsl_schedule_work(&device->event_work);
+	adreno_dispatcher_schedule(device);
+}
+
 static const char *gpmu_int_msg[32] = {
 	[FW_INTR_INFO] = "FW_INTR_INFO",
 	[LLM_ACK_ERR_INTR] = "LLM_ACK_ERR_INTR",
@@ -3163,7 +3248,7 @@ static struct adreno_irq_funcs a5xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(NULL), /* 17 - CP_RB_DONE_TS */
 	ADRENO_IRQ_CALLBACK(NULL), /* 18 - CP_WT_DONE_TS */
 	ADRENO_IRQ_CALLBACK(NULL), /* 19 - UNKNOWN_1 */
-	ADRENO_IRQ_CALLBACK(adreno_cp_callback), /* 20 - CP_CACHE_FLUSH_TS */
+	ADRENO_IRQ_CALLBACK(a5xx_cp_callback), /* 20 - CP_CACHE_FLUSH_TS */
 	/* 21 - UNUSED_2 */
 	ADRENO_IRQ_CALLBACK(NULL),
 	ADRENO_IRQ_CALLBACK(a5xx_err_callback), /* 22 - RBBM_ATB_BUS_OVERFLOW */
