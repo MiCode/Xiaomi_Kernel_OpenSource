@@ -1181,7 +1181,7 @@ static void populate_clock_opp_table(struct device_node *np,
 
 		store_vcorner = false;
 		clk = table[i].clk;
-		if (!clk || !clk->num_fmax)
+		if (!clk || !clk->num_fmax || clk->opp_table_populated)
 			continue;
 
 		if (strlen(clk->dbg_name) + LEN_OPP_HANDLE
@@ -1276,6 +1276,9 @@ static void populate_clock_opp_table(struct device_node *np,
 			n++;
 		}
 err_round_rate:
+		/* If OPP table population was successful, set the flag */
+		if (uv >= 0 && ret >= 0)
+			clk->opp_table_populated = true;
 		kfree(device_list);
 	}
 }
