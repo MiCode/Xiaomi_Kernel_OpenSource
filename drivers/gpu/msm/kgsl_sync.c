@@ -241,8 +241,12 @@ static unsigned int kgsl_sync_get_timestamp(
 	struct kgsl_sync_timeline *ktimeline, enum kgsl_timestamp_type type)
 {
 	unsigned int ret = 0;
+	struct kgsl_context *context;
 
-	struct kgsl_context *context = kgsl_context_get(ktimeline->device,
+	if (ktimeline->device == NULL)
+		return 0;
+
+	context = kgsl_context_get(ktimeline->device,
 			ktimeline->context_id);
 
 	if (context)
@@ -257,16 +261,22 @@ static void kgsl_sync_timeline_value_str(struct sync_timeline *sync_timeline,
 {
 	struct kgsl_sync_timeline *ktimeline =
 		(struct kgsl_sync_timeline *) sync_timeline;
+
+	/*
+	 * This callback can be called before the device and spinlock are
+	 * initialized in struct kgsl_sync_timeline. kgsl_sync_get_timestamp()
+	 * will check if device is NULL and return 0. Queued and retired
+	 * timestamp of the context will be reported as 0, which is correct
+	 * because the context and timeline are just getting initialized.
+	 */
 	unsigned int timestamp_retired = kgsl_sync_get_timestamp(ktimeline,
 		KGSL_TIMESTAMP_RETIRED);
 	unsigned int timestamp_queued = kgsl_sync_get_timestamp(ktimeline,
 		KGSL_TIMESTAMP_QUEUED);
 
-	spin_lock(&ktimeline->lock);
 	snprintf(str, size, "%u queued:%u retired:%u",
 		ktimeline->last_timestamp,
 		timestamp_queued, timestamp_retired);
-	spin_unlock(&ktimeline->lock);
 }
 
 static void kgsl_sync_pt_value_str(struct sync_pt *sync_pt,
