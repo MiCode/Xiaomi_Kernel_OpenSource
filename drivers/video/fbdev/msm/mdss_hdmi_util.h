@@ -490,6 +490,7 @@ int hdmi_setup_ddc_timers(struct hdmi_tx_ddc_ctrl *ctrl,
 			  u32 type, u32 to_in_num_lines);
 void hdmi_hdcp2p2_ddc_reset(struct hdmi_tx_ddc_ctrl *ctrl);
 void hdmi_hdcp2p2_ddc_disable(struct hdmi_tx_ddc_ctrl *ctrl);
-int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl);
+int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl, bool wait);
+int hdmi_ddc_check_status(struct hdmi_tx_ddc_ctrl *ctrl);
 
 #endif /* __HDMI_UTIL_H__ */
