@@ -294,6 +294,8 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 	dma_addr_t dma_address;
 	u16 len;
 	u32 mem_flag = GFP_ATOMIC;
+	struct sps_iovec iov;
+	int ret;
 
 	if (unlikely(!in_atomic))
 		mem_flag = GFP_KERNEL;
@@ -346,6 +348,17 @@ int ipa_send_one(struct ipa_sys_context *sys, struct ipa_desc *desc,
 
 	spin_lock_bh(&sys->spinlock);
 	list_add_tail(&tx_pkt->link, &sys->head_desc_list);
+	if (sys->policy == IPA_POLICY_NOINTR_MODE) {
+		do {
+			ret = sps_get_iovec(sys->ep->ep_hdl, &iov);
+			if (ret) {
+				IPADBG("sps_get_iovec failed %d\n", ret);
+				break;
+			}
+			if ((iov.addr == 0x0) && (iov.size == 0x0))
+				break;
+		} while (1);
+	}
 	result = sps_transfer_one(sys->ep->ep_hdl, dma_address, len, tx_pkt,
 			sps_flags);
 	if (result) {
@@ -401,6 +414,8 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 	int fail_dma_wrap = 0;
 	uint size = num_desc * sizeof(struct sps_iovec);
 	u32 mem_flag = GFP_ATOMIC;
+	struct sps_iovec iov;
+	int ret;
 
 	if (unlikely(!in_atomic))
 		mem_flag = GFP_KERNEL;
@@ -511,6 +526,17 @@ int ipa_send(struct ipa_sys_context *sys, u32 num_desc, struct ipa_desc *desc,
 		}
 	}
 
+	if (sys->policy == IPA_POLICY_NOINTR_MODE) {
+		do {
+			ret = sps_get_iovec(sys->ep->ep_hdl, &iov);
+			if (ret) {
+				IPADBG("sps_get_iovec failed %d\n", ret);
+				break;
+			}
+			if ((iov.addr == 0x0) && (iov.size == 0x0))
+				break;
+		} while (1);
+	}
 	result = sps_transfer(sys->ep->ep_hdl, &transfer);
 	if (result) {
 		IPAERR("sps_transfer failed rc=%d\n", result);
