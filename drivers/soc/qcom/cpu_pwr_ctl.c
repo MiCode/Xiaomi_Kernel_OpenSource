@@ -198,7 +198,7 @@ static int power_on_l2_msm8916(struct device_node *l2ccc_node, u32 pon_mask,
 	return 0;
 }
 
-static int power_on_l2_msmthorium(struct device_node *l2ccc_node, u32 pon_mask,
+static int power_on_l2_msm8937(struct device_node *l2ccc_node, u32 pon_mask,
 				int cpu)
 {
 	u32 pon_status;
@@ -277,8 +277,8 @@ static const struct msm_l2ccc_of_info l2ccc_info[] = {
 		.l2_power_on_mask = BIT(9) | BIT(28),
 	},
 	{
-		.compat = "qcom,thorium-l2ccc",
-		.l2_power_on = power_on_l2_msmthorium,
+		.compat = "qcom,8937-l2ccc",
+		.l2_power_on = power_on_l2_msm8937,
 		.l2_power_on_mask = BIT(9) | BIT(28),
 	},
 };
@@ -413,7 +413,7 @@ out_acc:
 	return ret;
 }
 
-static inline void msmthorium_unclamp_cpu(void __iomem *reg)
+static inline void msm8937_unclamp_cpu(void __iomem *reg)
 {
 	/* Assert reset */
 	writel_relaxed(0x00000033, reg + CPU_PWR_CTL);
@@ -449,7 +449,7 @@ static inline void msmthorium_unclamp_cpu(void __iomem *reg)
 }
 
 
-int msmthorium_unclamp_secondary_arm_cpu(unsigned int cpu)
+int msm8937_unclamp_secondary_arm_cpu(unsigned int cpu)
 {
 
 	int ret = 0;
@@ -494,7 +494,7 @@ int msmthorium_unclamp_secondary_arm_cpu(unsigned int cpu)
 		goto out_acc_reg;
 	}
 
-	msmthorium_unclamp_cpu(reg);
+	msm8937_unclamp_cpu(reg);
 
 	/* Secondary CPU-N is now alive */
 	iounmap(reg);

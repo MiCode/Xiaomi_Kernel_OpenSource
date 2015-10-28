@@ -63,6 +63,6 @@ IRQCHIP_DECLARE(fermium_pinctrl, "qcom,mdmfermium-pinctrl", pinctrl_irq_dummy);
 IRQCHIP_DECLARE(qpnp_irq, "qcom,spmi-pmic-arb", qpnpint_of_init);
 IRQCHIP_DECLARE(wcd9xxx_irq, "qcom,wcd9xxx-irq", wcd9xxx_irq_of_init);
 IRQCHIP_DECLARE(8952_pinctrl, "qcom,msm8952-pinctrl", pinctrl_irq_dummy);
-IRQCHIP_DECLARE(thorium_pinctrl, "qcom,msmthorium-pinctrl", pinctrl_irq_dummy);
+IRQCHIP_DECLARE(8937_pinctrl, "qcom,msm8937-pinctrl", pinctrl_irq_dummy);
 IRQCHIP_DECLARE(titanium_pinctrl, "qcom,msmtitanium-pinctrl",
 						pinctrl_irq_dummy);

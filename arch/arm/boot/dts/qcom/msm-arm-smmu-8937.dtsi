@@ -264,4 +264,4 @@
 	};
 };
 
-#include "msm-arm-smmu-impl-defs-thorium.dtsi"
+#include "msm-arm-smmu-impl-defs-8937.dtsi"

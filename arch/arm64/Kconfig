@@ -239,11 +239,11 @@ config ARCH_MSMTITANIUM
 	  This enables support for the MSMTITANIUM chipset. If you don't
 	  know what to do here, say N
 
-config ARCH_MSMTHORIUM
-	bool "Enable Support for Qualcomm Technologies Inc MSMTHORIUM"
+config ARCH_MSM8937
+	bool "Enable Support for Qualcomm Technologies Inc MSM8937"
 	depends on ARCH_MSM
 	help
-	  This enables support for the MSMTHORIUM chipset. If you don't
+	  This enables support for the MSM8937 chipset. If you don't
 	  know what to do here, say N
 
 config ARCH_MSM8996

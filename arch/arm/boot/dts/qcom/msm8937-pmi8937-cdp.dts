@@ -11,12 +11,14 @@
  * GNU General Public License for more details.
  */
 
-#include "msmthorium-pinctrl.dtsi"
+/dts-v1/;
 
-&soc {
+#include "msm8937.dtsi"
+#include "msm8937-pmi8937-cdp.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM8937-PMI8937 CDP";
+	compatible = "qcom,msm8937-cdp", "qcom,msm8937", "qcom,cdp";
+	qcom,board-id= <1 0>;
+	qcom,pmic-id = <0x10019 0x020037 0x0 0x0>;
 };
-
-&blsp1_uart2 {
-	status = "ok";
-};
-

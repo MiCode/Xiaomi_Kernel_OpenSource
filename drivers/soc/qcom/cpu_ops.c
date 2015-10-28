@@ -159,12 +159,12 @@ static void msmtitanium_wfi_cpu_die(unsigned int cpu)
 }
 #endif
 
-static int msmthorium_cpu_boot(unsigned int cpu)
+static int msm8937_cpu_boot(unsigned int cpu)
 {
 	int ret = 0;
 
 	if (per_cpu(cold_boot_done, cpu) == false) {
-		ret = msmthorium_unclamp_secondary_arm_cpu(cpu);
+		ret = msm8937_unclamp_secondary_arm_cpu(cpu);
 		if (ret)
 			return ret;
 
@@ -174,7 +174,7 @@ static int msmthorium_cpu_boot(unsigned int cpu)
 }
 
 #ifdef CONFIG_HOTPLUG_CPU
-static void msmthorium_wfi_cpu_die(unsigned int cpu)
+static void msm8937_wfi_cpu_die(unsigned int cpu)
 {
 	if (unlikely(cpu != smp_processor_id())) {
 		pr_crit("%s: running on %u, should be %u\n",
@@ -279,18 +279,18 @@ static struct cpu_operations msmtitanium_cortex_a_ops = {
 CPU_METHOD_OF_DECLARE(msmtitanium_cortex_a_ops,
 	"qcom,titanium-arm-cortex-acc", &msmtitanium_cortex_a_ops);
 
-static struct cpu_operations msmthorium_cortex_a_ops = {
-	.name		= "qcom,thorium-arm-cortex-acc",
+static struct cpu_operations msm8937_cortex_a_ops = {
+	.name		= "qcom,8937-arm-cortex-acc",
 	.cpu_init	= msm_cpu_init,
 	.cpu_prepare	= msm_cpu_prepare,
-	.cpu_boot	= msmthorium_cpu_boot,
+	.cpu_boot	= msm8937_cpu_boot,
 	.cpu_postboot	= msm_cpu_postboot,
 #ifdef CONFIG_HOTPLUG_CPU
-	.cpu_die        = msmthorium_wfi_cpu_die,
+	.cpu_die        = msm8937_wfi_cpu_die,
 #endif
 #ifdef CONFIG_ARM64_CPU_SUSPEND
 	.cpu_suspend       = msm_pm_collapse,
 #endif
 };
-CPU_METHOD_OF_DECLARE(msmthorium_cortex_a_ops,
-	"qcom,thorium-arm-cortex-acc", &msmthorium_cortex_a_ops);
+CPU_METHOD_OF_DECLARE(msm8937_cortex_a_ops,
+	"qcom,8937-arm-cortex-acc", &msm8937_cortex_a_ops);

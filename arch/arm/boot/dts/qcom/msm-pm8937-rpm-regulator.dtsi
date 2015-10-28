@@ -22,7 +22,7 @@
 
 		regulator-s1 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_s1";
+			regulator-name = "pm8937_s1";
 			qcom,set = <3>;
 			status = "disabled";
 		};
@@ -38,7 +38,7 @@
 
 		regulator-s2 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_s2";
+			regulator-name = "pm8937_s2";
 			qcom,set = <3>;
 			status = "disabled";
 		};
@@ -54,7 +54,7 @@
 
 		regulator-s3 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_s3";
+			regulator-name = "pm8937_s3";
 			qcom,set = <3>;
 			status = "disabled";
 		};
@@ -70,7 +70,7 @@
 
 		regulator-s4 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_s4";
+			regulator-name = "pm8937_s4";
 			qcom,set = <3>;
 			status = "disabled";
 		};
@@ -86,7 +86,7 @@
 
 		regulator-l2 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_l2";
+			regulator-name = "pm8937_l2";
 			qcom,set = <3>;
 			status = "disabled";
 		};
@@ -102,7 +102,7 @@
 
 		regulator-l3 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_l3";
+			regulator-name = "pm8937_l3";
 			qcom,set = <3>;
 			status = "disabled";
 		};
@@ -118,7 +118,7 @@
 
 		regulator-l5 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_l5";
+			regulator-name = "pm8937_l5";
 			qcom,set = <3>;
 			status = "disabled";
 		};
@@ -134,7 +134,7 @@
 
 		regulator-l6 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_l6";
+			regulator-name = "pm8937_l6";
 			qcom,set = <3>;
 			status = "disabled";
 		};
@@ -150,7 +150,7 @@
 
 		regulator-l7 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_l7";
+			regulator-name = "pm8937_l7";
 			qcom,set = <3>;
 			status = "disabled";
 		};
@@ -166,7 +166,7 @@
 
 		regulator-l8 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_l8";
+			regulator-name = "pm8937_l8";
 			qcom,set = <3>;
 			status = "disabled";
 		};
@@ -182,7 +182,7 @@
 
 		regulator-l9 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_l9";
+			regulator-name = "pm8937_l9";
 			qcom,set = <3>;
 			status = "disabled";
 		};
@@ -198,7 +198,7 @@
 
 		regulator-l10 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_l10";
+			regulator-name = "pm8937_l10";
 			qcom,set = <3>;
 			status = "disabled";
 		};
@@ -214,7 +214,7 @@
 
 		regulator-l11 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_l11";
+			regulator-name = "pm8937_l11";
 			qcom,set = <3>;
 			status = "disabled";
 		};
@@ -230,7 +230,7 @@
 
 		regulator-l12 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_l12";
+			regulator-name = "pm8937_l12";
 			qcom,set = <3>;
 			status = "disabled";
 		};
@@ -246,7 +246,7 @@
 
 		regulator-l13 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_l13";
+			regulator-name = "pm8937_l13";
 			qcom,set = <3>;
 			status = "disabled";
 		};
@@ -262,7 +262,7 @@
 
 		regulator-l14 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_l14";
+			regulator-name = "pm8937_l14";
 			qcom,set = <3>;
 			status = "disabled";
 		};
@@ -278,7 +278,7 @@
 
 		regulator-l15 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_l15";
+			regulator-name = "pm8937_l15";
 			qcom,set = <3>;
 			status = "disabled";
 		};
@@ -294,7 +294,7 @@
 
 		regulator-l16 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_l16";
+			regulator-name = "pm8937_l16";
 			qcom,set = <3>;
 			status = "disabled";
 		};
@@ -310,7 +310,7 @@
 
 		regulator-l17 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_l17";
+			regulator-name = "pm8937_l17";
 			qcom,set = <3>;
 			status = "disabled";
 		};
@@ -326,7 +326,7 @@
 
 		regulator-l19 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_l19";
+			regulator-name = "pm8937_l19";
 			qcom,set = <3>;
 			status = "disabled";
 		};
@@ -342,7 +342,7 @@
 
 		regulator-l22 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_l22";
+			regulator-name = "pm8937_l22";
 			qcom,set = <3>;
 			status = "disabled";
 		};
@@ -358,7 +358,7 @@
 
 		regulator-l23 {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_l23";
+			regulator-name = "pm8937_l23";
 			qcom,set = <3>;
 			status = "disabled";
 		};

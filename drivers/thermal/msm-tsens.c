@@ -741,7 +741,7 @@ enum tsens_calib_fuse_map_type {
 	TSENS_CALIB_FUSE_MAP_8992,
 	TSENS_CALIB_FUSE_MAP_MSM8952,
 	TSENS_CALIB_FUSE_MAP_MDMFERMIUM,
-	TSENS_CALIB_FUSE_MAP_MSMTHORIUM,
+	TSENS_CALIB_FUSE_MAP_MSM8937,
 	TSENS_CALIB_FUSE_MAP_NUM,
 };
 
@@ -908,8 +908,8 @@ static struct of_device_id tsens_match[] = {
 	{	.compatible = "qcom,msmtitanium-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_NONE,
 	},
-	{	.compatible = "qcom,msmthorium-tsens",
-		.data = (void *)TSENS_CALIB_FUSE_MAP_MSMTHORIUM,
+	{	.compatible = "qcom,msm8937-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_MSM8937,
 	},
 	{}
 };
@@ -2618,7 +2618,7 @@ static int tsens_hw_init(struct tsens_tm_device *tmdev)
 	return 0;
 }
 
-static int tsens_calib_msmthorium_sensors(struct tsens_tm_device *tmdev)
+static int tsens_calib_msm8937_sensors(struct tsens_tm_device *tmdev)
 {
 	int i, tsens_base0_data = 0, tsens_base1_data = 0;
 	int tsens0_point1 = 0, tsens0_point2 = 0;
@@ -5207,8 +5207,8 @@ static int tsens_calib_sensors(struct tsens_tm_device *tmdev)
 		rc = tsens_calib_msm8952_sensors(tmdev);
 	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_MDMFERMIUM)
 		rc = tsens_calib_mdmfermium_sensors(tmdev);
-	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_MSMTHORIUM)
-		rc = tsens_calib_msmthorium_sensors(tmdev);
+	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_MSM8937)
+		rc = tsens_calib_msm8937_sensors(tmdev);
 	else if (tmdev->calib_mode == TSENS_CALIB_FUSE_MAP_NONE) {
 		pr_debug("Fuse map info not required\n");
 		rc = 0;
@@ -5323,7 +5323,7 @@ static int get_device_tree_data(struct platform_device *pdev,
 		tmdev->tsens_type = TSENS_TYPE3;
 		tsens_poll_check = 0;
 	} else if (!strcmp(id->compatible, "qcom,msm8952-tsens") ||
-			(!strcmp(id->compatible, "qcom,msmthorium-tsens")))
+			(!strcmp(id->compatible, "qcom,msm8937-tsens")))
 		tmdev->tsens_type = TSENS_TYPE4;
 	else
 		tmdev->tsens_type = TSENS_TYPE0;

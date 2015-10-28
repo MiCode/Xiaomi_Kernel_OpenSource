@@ -11,12 +11,5 @@
  * GNU General Public License for more details.
  */
 
-#include "msmthorium-pinctrl.dtsi"
-
-&soc {
-};
-
-&blsp1_uart2 {
-	status = "ok";
-};
-
+#include "msm-pmi8937.dtsi"
+#include "msm8937-cdp.dtsi"

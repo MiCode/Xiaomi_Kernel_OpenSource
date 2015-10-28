@@ -13,11 +13,12 @@
 
 /dts-v1/;
 
-#include "apqthorium.dtsi"
-#include "msmthorium-mtp.dtsi"
+#include "msm8937.dtsi"
+#include "msm8937-pmi8937-cdp.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. APQTHORIUM MTP";
-	compatible = "qcom,apqthorium-mtp", "qcom,apqthorium", "qcom,mtp";
-	qcom,board-id= <8 0>;
+	model = "Qualcomm Technologies, Inc. MSM8937-PMI8937 RCM";
+	compatible = "qcom,msm8937-cdp", "qcom,msm8937", "qcom,cdp";
+	qcom,board-id= <21 0>;
+	qcom,pmic-id = <0x10019 0x020037 0x0 0x0>;
 };

@@ -466,7 +466,7 @@ static struct clk_freq_tbl ftbl_gcc_camss_csi0_2_clk[] = {
 	F_END
 };
 
-static struct clk_freq_tbl ftbl_gcc_camss_csi0_2_clk_thorium[] = {
+static struct clk_freq_tbl ftbl_gcc_camss_csi0_2_clk_8937[] = {
 	F( 100000000,          gpll0,    8,    0,     0),
 	F( 160000000,          gpll0,    5,    0,     0),
 	F( 200000000,          gpll0,    4,    0,     0),
@@ -529,7 +529,7 @@ static struct clk_freq_tbl ftbl_gcc_venus0_vcodec0_clk[] = {
 	F_END
 };
 
-static struct clk_freq_tbl ftbl_gcc_venus0_vcodec0_clk_thorium[] = {
+static struct clk_freq_tbl ftbl_gcc_venus0_vcodec0_clk_8937[] = {
 	F( 166150000,          gpll6,  6.5,    0,     0),
 	F( 240000000,          gpll6,  4.5,    0,     0),
 	F( 308571428,          gpll6,  3.5,    0,     0),
@@ -569,7 +569,7 @@ static struct clk_freq_tbl ftbl_gcc_camss_vfe0_1_clk[] = {
 	F_END
 };
 
-static struct clk_freq_tbl ftbl_gcc_camss_vfe0_1_clk_thorium[] = {
+static struct clk_freq_tbl ftbl_gcc_camss_vfe0_1_clk_8937[] = {
 	F(  50000000,          gpll0,   16,    0,     0),
 	F(  80000000,          gpll0,   10,    0,     0),
 	F( 100000000,          gpll0,    8,    0,     0),
@@ -635,7 +635,7 @@ static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_clk[] = {
 	F_END
 };
 
-static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_clk_thorium[] = {
+static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_clk_8937[] = {
 	F_SLEW( 19200000,  FIXED_CLK_SRC, xo,		1,	0,	0),
 	F_SLEW( 50000000,  FIXED_CLK_SRC, gpll0,	16,	0,	0),
 	F_SLEW( 80000000,  FIXED_CLK_SRC, gpll0,	10,	0,	0),
@@ -1014,7 +1014,7 @@ static struct clk_freq_tbl ftbl_gcc_camss_cpp_clk[] = {
 	F_END
 };
 
-static struct clk_freq_tbl ftbl_gcc_camss_cpp_clk_thorium[] = {
+static struct clk_freq_tbl ftbl_gcc_camss_cpp_clk_8937[] = {
 	F( 133333333,          gpll0,    6,    0,     0),
 	F( 200000000,          gpll0,    4,    0,     0),
 	F( 266666667,          gpll0,    3,    0,     0),
@@ -1084,7 +1084,7 @@ static struct clk_freq_tbl ftbl_gcc_camss_jpeg0_clk[] = {
 	F_END
 };
 
-static struct clk_freq_tbl ftbl_gcc_camss_jpeg0_clk_thorium[] = {
+static struct clk_freq_tbl ftbl_gcc_camss_jpeg0_clk_8937[] = {
 	F( 133333333,          gpll0,    6,    0,     0),
 	F( 200000000,          gpll0,    4,    0,     0),
 	F( 266666667,          gpll0,    3,    0,     0),
@@ -1272,7 +1272,7 @@ static struct clk_freq_tbl ftbl_gcc_mdss_byte0_clk[] = {
 	F_END
 };
 
-static struct clk_freq_tbl ftbl_gcc_mdss_byte0_clk_thorium[] = {
+static struct clk_freq_tbl ftbl_gcc_mdss_byte0_clk_8937[] = {
 	{
 		.div_src_val = BVAL(10, 8, xo_source_val)
 					| BVAL(4, 0, 0),
@@ -1422,7 +1422,7 @@ static struct clk_freq_tbl ftbl_gcc_mdss_pclk0_clk[] = {
 	F_END
 };
 
-static struct clk_freq_tbl ftbl_gcc_mdss_pclk0_clk_thorium[] = {
+static struct clk_freq_tbl ftbl_gcc_mdss_pclk0_clk_8937[] = {
 	{
 		.div_src_val = BVAL(10, 8, xo_source_val)
 					| BVAL(4, 0, 0),
@@ -1548,7 +1548,7 @@ static struct clk_freq_tbl ftbl_gcc_sdcc1_apps_clk[] = {
 	F_END
 };
 
-static struct clk_freq_tbl ftbl_gcc_sdcc1_apps_clk_thorium[] = {
+static struct clk_freq_tbl ftbl_gcc_sdcc1_apps_clk_8937[] = {
 	F( 144000,      xo,     16,     3,      25),
 	F( 400000,      xo,     12,     1,      4),
 	F( 20000000,    gpll0,  10,     1,      4),
@@ -3414,7 +3414,7 @@ static struct mux_clk gcc_debug_mux = {
 	},
 };
 
-static struct mux_clk gcc_debug_mux_thorium = {
+static struct mux_clk gcc_debug_mux_8937 = {
 	.priv = &debug_mux_priv,
 	.ops = &mux_reg_ops,
 	.offset = GCC_DEBUG_CLK_CTL,
@@ -3801,7 +3801,7 @@ static struct clk_lookup msm_clocks_lookup_8952[] = {
 	CLK_LIST(gcc_venus0_core1_vcodec0_clk),
 };
 
-static struct clk_lookup msm_clocks_lookup_thorium[] = {
+static struct clk_lookup msm_clocks_lookup_8937[] = {
 	CLK_LIST(esc1_clk_src),
 	CLK_LIST(gcc_mdss_esc1_clk),
 	CLK_LIST(gcc_dcc_clk),
@@ -3844,7 +3844,7 @@ static int get_mmio_addr(struct platform_device *pdev)
 	return 0;
 }
 
-static void override_for_thorium(void)
+static void override_for_8937(void)
 {
 	gpll3_clk_src.c.rate = 900000000;
 	OVERRIDE_FMAX1(cci, LOWER, 37500000);
@@ -3884,10 +3884,10 @@ static void override_for_thorium(void)
 	OVERRIDE_FMAX2(gp3, LOWER, 100000000, NOMINAL, 200000000);
 	OVERRIDE_FMAX2(byte0, LOWER, 125000000, NOMINAL, 187500000);
 	OVERRIDE_FTABLE(byte0, ftbl_gcc_mdss_byte0_clk);
-	byte0_clk_src.current_freq = ftbl_gcc_mdss_pclk0_clk_thorium;
+	byte0_clk_src.current_freq = ftbl_gcc_mdss_pclk0_clk_8937;
 	OVERRIDE_FMAX2(pclk0, LOWER, 166670000, NOMINAL, 250000000);
 	OVERRIDE_FTABLE(pclk0, ftbl_gcc_mdss_pclk0_clk);
-	pclk0_clk_src.current_freq = ftbl_gcc_mdss_pclk0_clk_thorium;
+	pclk0_clk_src.current_freq = ftbl_gcc_mdss_pclk0_clk_8937;
 	OVERRIDE_FTABLE(vcodec0, ftbl_gcc_venus0_vcodec0_clk);
 	OVERRIDE_FMAX5(vcodec0,
 		LOWER, 166150000, LOW, 240000000, NOMINAL, 308570000,
@@ -3905,7 +3905,7 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	bool compat_bin = false;
 
 	compat_bin = of_device_is_compatible(pdev->dev.of_node,
-						"qcom,gcc-thorium");
+						"qcom,gcc-8937");
 
 	ret = vote_bimc(&bimc_clk, INT_MAX);
 	if (ret < 0)
@@ -3978,7 +3978,7 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	writel_relaxed(regval, GCC_REG_BASE(APCS_GPLL_ENA_VOTE));
 
 	if (compat_bin)
-		override_for_thorium();
+		override_for_8937();
 
 	ret = of_msm_clock_register(pdev->dev.of_node,
 				msm_clocks_lookup_common,
@@ -3992,8 +3992,8 @@ static int msm_gcc_probe(struct platform_device *pdev)
 					ARRAY_SIZE(msm_clocks_lookup_8952));
 	else
 		ret = of_msm_clock_register(pdev->dev.of_node,
-					msm_clocks_lookup_thorium,
-					ARRAY_SIZE(msm_clocks_lookup_thorium));
+					msm_clocks_lookup_8937,
+					ARRAY_SIZE(msm_clocks_lookup_8937));
 	if (ret)
 		return ret;
 
@@ -4038,7 +4038,7 @@ static int msm_gcc_probe(struct platform_device *pdev)
 
 static struct of_device_id msm_clock_gcc_match_table[] = {
 	{ .compatible = "qcom,gcc-8952" },
-	{ .compatible = "qcom,gcc-thorium" },
+	{ .compatible = "qcom,gcc-8937" },
 	{},
 };
 
@@ -4133,8 +4133,8 @@ static struct clk_lookup msm_clocks_measure[] = {
 	CLK_LIST(cci_m_clk),
 };
 
-static struct clk_lookup msm_clocks_measure_thorium[] = {
-	CLK_LOOKUP_OF("measure", gcc_debug_mux_thorium, "debug"),
+static struct clk_lookup msm_clocks_measure_8937[] = {
+	CLK_LOOKUP_OF("measure", gcc_debug_mux_8937, "debug"),
 	CLK_LIST(apss_debug_pri_mux),
 	CLK_LIST(apc0_m_clk),
 	CLK_LIST(apc1_m_clk),
@@ -4148,7 +4148,7 @@ static int msm_clock_debug_probe(struct platform_device *pdev)
 	bool compat_bin = false;
 
 	compat_bin = of_device_is_compatible(pdev->dev.of_node,
-					"qcom,cc-debug-thorium");
+					"qcom,cc-debug-8937");
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "meas");
 	if (!res) {
@@ -4171,7 +4171,7 @@ static int msm_clock_debug_probe(struct platform_device *pdev)
 	else
 		ret =  of_msm_clock_register(pdev->dev.of_node,
 				msm_clocks_measure,
-				ARRAY_SIZE(msm_clocks_measure_thorium));
+				ARRAY_SIZE(msm_clocks_measure_8937));
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register debug Mux\n");
 		return ret;
@@ -4183,7 +4183,7 @@ static int msm_clock_debug_probe(struct platform_device *pdev)
 
 static struct of_device_id msm_clock_debug_match_table[] = {
 	{ .compatible = "qcom,cc-debug-8952" },
-	{ .compatible = "qcom,cc-debug-thorium" },
+	{ .compatible = "qcom,cc-debug-8937" },
 	{}
 };
 
@@ -4211,7 +4211,7 @@ static struct clk_lookup msm_clocks_gcc_mdss_common[] = {
 	CLK_LIST(gcc_mdss_byte0_clk),
 };
 
-static struct clk_lookup msm_clocks_gcc_mdss_thorium[] = {
+static struct clk_lookup msm_clocks_gcc_mdss_8937[] = {
 	CLK_LIST(ext_pclk1_clk_src),
 	CLK_LIST(ext_byte1_clk_src),
 	CLK_LIST(gcc_mdss_pclk1_clk),
@@ -4225,7 +4225,7 @@ static int msm_gcc_mdss_probe(struct platform_device *pdev)
 	bool compat_bin = false;
 
 	compat_bin = of_device_is_compatible(pdev->dev.of_node,
-				"qcom,gcc-mdss-thorium");
+				"qcom,gcc-mdss-8937");
 
 	curr_p = ext_pclk0_clk_src.c.parent = devm_clk_get(&pdev->dev,
 								"pixel_src");
@@ -4273,16 +4273,16 @@ static int msm_gcc_mdss_probe(struct platform_device *pdev)
 		goto fail;
 	if (compat_bin) {
 		ret = of_msm_clock_register(pdev->dev.of_node,
-		msm_clocks_gcc_mdss_thorium,
-		ARRAY_SIZE(msm_clocks_gcc_mdss_thorium));
+		msm_clocks_gcc_mdss_8937,
+		ARRAY_SIZE(msm_clocks_gcc_mdss_8937));
 		if (ret)
-			goto fail_thorium;
+			goto fail_8937;
 	}
 
 	dev_info(&pdev->dev, "Registered GCC MDSS clocks.\n");
 
 	return ret;
-fail_thorium:
+fail_8937:
 	devm_clk_put(&pdev->dev, ext_byte1_clk_src.c.parent);
 byte1_fail:
 	devm_clk_put(&pdev->dev, ext_pclk1_clk_src.c.parent);
@@ -4296,7 +4296,7 @@ byte0_fail:
 
 static struct of_device_id msm_clock_mdss_match_table[] = {
 	{ .compatible = "qcom,gcc-mdss-8952" },
-	{ .compatible = "qcom,gcc-mdss-thorium" },
+	{ .compatible = "qcom,gcc-mdss-8937" },
 	{}
 };
 

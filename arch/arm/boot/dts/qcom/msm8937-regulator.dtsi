@@ -14,7 +14,7 @@
 &rpm_bus {
 	rpm-regulator-smpa1 {
 		status = "okay";
-		pmthorium_s1: regulator-s1 {
+		pm8937_s1: regulator-s1 {
 			regulator-min-microvolt = <1000000>;
 			regulator-max-microvolt = <1225000>;
 			qcom,init-voltage = <1000000>;
@@ -25,9 +25,9 @@
 	/* VDD_CX supply */
 	rpm-regulator-smpa2 {
 		status = "okay";
-		pmthorium_s2_level: regulator-s2-level {
+		pm8937_s2_level: regulator-s2-level {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_s2_level";
+			regulator-name = "pm8937_s2_level";
 			qcom,set = <3>;
 			regulator-min-microvolt =
 				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
@@ -36,9 +36,9 @@
 			qcom,use-voltage-level;
 		};
 
-		pmthorium_s2_floor_level: regulator-s2-floor-level {
+		pm8937_s2_floor_level: regulator-s2-floor-level {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_s2_floor_level";
+			regulator-name = "pm8937_s2_floor_level";
 			qcom,set = <3>;
 			regulator-min-microvolt =
 				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
@@ -48,9 +48,9 @@
 			qcom,always-send-voltage;
 		};
 
-		pmthorium_s2_level_ao: regulator-s2-level-ao {
+		pm8937_s2_level_ao: regulator-s2-level-ao {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_s2_level_ao";
+			regulator-name = "pm8937_s2_level_ao";
 			qcom,set = <1>;
 			regulator-min-microvolt =
 				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
@@ -62,7 +62,7 @@
 
 	rpm-regulator-smpa3 {
 		status = "okay";
-		pmthorium_s3: regulator-s3 {
+		pm8937_s3: regulator-s3 {
 			regulator-min-microvolt = <1300000>;
 			regulator-max-microvolt = <1300000>;
 			qcom,init-voltage = <1300000>;
@@ -72,7 +72,7 @@
 
 	rpm-regulator-smpa4 {
 		status = "okay";
-		pmthorium_s4: regulator-s4 {
+		pm8937_s4: regulator-s4 {
 			regulator-min-microvolt = <2050000>;
 			regulator-max-microvolt = <2050000>;
 			qcom,init-voltage = <2050000>;
@@ -82,7 +82,7 @@
 
 	rpm-regulator-ldoa2 {
 		status = "okay";
-		pmthorium_l2: regulator-l2 {
+		pm8937_l2: regulator-l2 {
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
 			qcom,init-voltage = <1200000>;
@@ -93,9 +93,9 @@
 	/* VDD_MX supply */
 	rpm-regulator-ldoa3 {
 		status = "okay";
-		pmthorium_l3_level_ao: regulator-l3-level-ao {
+		pm8937_l3_level_ao: regulator-l3-level-ao {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_l3_level_ao";
+			regulator-name = "pm8937_l3_level_ao";
 			qcom,set = <1>;
 			regulator-min-microvolt =
 				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
@@ -105,9 +105,9 @@
 			qcom,always-send-voltage;
 		};
 
-		pmthorium_l3_level_so: regulator-l3-level-so {
+		pm8937_l3_level_so: regulator-l3-level-so {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_l3_level_so";
+			regulator-name = "pm8937_l3_level_so";
 			qcom,set = <2>;
 			regulator-min-microvolt =
 				<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
@@ -121,7 +121,7 @@
 
 	rpm-regulator-ldoa5 {
 		status = "okay";
-		pmthorium_l5: regulator-l5 {
+		pm8937_l5: regulator-l5 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
@@ -131,7 +131,7 @@
 
 	rpm-regulator-ldoa6 {
 		status = "okay";
-		pmthorium_l6: regulator-l6 {
+		pm8937_l6: regulator-l6 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
@@ -141,16 +141,16 @@
 
 	rpm-regulator-ldoa7 {
 		status = "okay";
-		pmthorium_l7: regulator-l7 {
+		pm8937_l7: regulator-l7 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
 			status = "okay";
 		};
 
-		pmthorium_l7_ao: regulator-l7-ao {
+		pm8937_l7_ao: regulator-l7-ao {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pmthorium_l7_ao";
+			regulator-name = "pm8937_l7_ao";
 			qcom,set = <1>;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
@@ -160,7 +160,7 @@
 
 	rpm-regulator-ldoa8 {
 		status = "okay";
-		pmthorium_l8: regulator-l8 {
+		pm8937_l8: regulator-l8 {
 			regulator-min-microvolt = <2850000>;
 			regulator-max-microvolt = <2900000>;
 			qcom,init-voltage = <2900000>;
@@ -170,7 +170,7 @@
 
 	rpm-regulator-ldoa9 {
 		status = "okay";
-		pmthorium_l9: regulator-l9 {
+		pm8937_l9: regulator-l9 {
 			regulator-min-microvolt = <3000000>;
 			regulator-max-microvolt = <3300000>;
 			qcom,init-voltage = <3000000>;
@@ -180,7 +180,7 @@
 
 	rpm-regulator-ldoa10 {
 		status = "okay";
-		pmthorium_l10: regulator-l10 {
+		pm8937_l10: regulator-l10 {
 			regulator-min-microvolt = <2800000>;
 			regulator-max-microvolt = <2800000>;
 			qcom,init-voltage = <2800000>;
@@ -190,7 +190,7 @@
 
 	rpm-regulator-ldoa11 {
 		status = "okay";
-		pmthorium_l11: regulator-l11 {
+		pm8937_l11: regulator-l11 {
 			regulator-min-microvolt = <2950000>;
 			regulator-max-microvolt = <2950000>;
 			qcom,init-voltage = <2950000>;
@@ -200,7 +200,7 @@
 
 	rpm-regulator-ldoa12 {
 		status = "okay";
-		pmthorium_l12: regulator-l12 {
+		pm8937_l12: regulator-l12 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2950000>;
 			qcom,init-voltage = <1800000>;
@@ -210,7 +210,7 @@
 
 	rpm-regulator-ldoa13 {
 		status = "okay";
-		pmthorium_l13: regulator-l13 {
+		pm8937_l13: regulator-l13 {
 			regulator-min-microvolt = <3075000>;
 			regulator-max-microvolt = <3075000>;
 			qcom,init-voltage = <3075000>;
@@ -220,7 +220,7 @@
 
 	rpm-regulator-ldoa14 {
 		status = "okay";
-		pmthorium_l14: regulator-l14 {
+		pm8937_l14: regulator-l14 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <3300000>;
 			qcom,init-voltage = <1800000>;
@@ -230,7 +230,7 @@
 
 	rpm-regulator-ldoa15 {
 		status = "okay";
-		pmthorium_l15: regulator-l15 {
+		pm8937_l15: regulator-l15 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <3300000>;
 			qcom,init-voltage = <1800000>;
@@ -240,7 +240,7 @@
 
 	rpm-regulator-ldoa16 {
 		status = "okay";
-		pmthorium_l16: regulator-l16 {
+		pm8937_l16: regulator-l16 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			qcom,init-voltage = <1800000>;
@@ -250,7 +250,7 @@
 
 	rpm-regulator-ldoa17 {
 		status = "okay";
-		pmthorium_l17: regulator-l17 {
+		pm8937_l17: regulator-l17 {
 			regulator-min-microvolt = <2850000>;
 			regulator-max-microvolt = <2850000>;
 			qcom,init-voltage = <2850000>;
@@ -260,7 +260,7 @@
 
 	rpm-regulator-ldoa19 {
 		status = "okay";
-		pmthorium_l19: regulator-l19 {
+		pm8937_l19: regulator-l19 {
 			regulator-min-microvolt = <1225000>;
 			regulator-max-microvolt = <1350000>;
 			qcom,init-voltage = <1225000>;
@@ -270,7 +270,7 @@
 
 	rpm-regulator-ldoa22 {
 		status = "okay";
-		pmthorium_l22: regulator-l22 {
+		pm8937_l22: regulator-l22 {
 			regulator-min-microvolt = <2800000>;
 			regulator-max-microvolt = <2800000>;
 			qcom,init-voltage = <2800000>;
@@ -280,7 +280,7 @@
 
 	rpm-regulator-ldoa23 {
 		status = "okay";
-		pmthorium_l23: regulator-l23 {
+		pm8937_l23: regulator-l23 {
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
 			qcom,init-voltage = <1200000>;

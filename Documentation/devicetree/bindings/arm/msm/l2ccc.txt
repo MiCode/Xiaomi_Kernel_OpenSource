@@ -8,7 +8,7 @@ Required properties:
 - compatible:	Can be one of:
 		"qcom,8916-l2ccc"
 		"qcom,titanium-l2ccc"
-		"qcom,thorium-l2ccc"
+		"qcom,8937-l2ccc"
 - reg:		This specifies the base address and size of
 		the register region.
 

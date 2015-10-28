@@ -7,7 +7,7 @@ Required properties:
 	       "qcom,mdmcalifornium-pinctrl"
 	      "qcom,msm8952-pinctrl"
 	      "qcom,msmtitanium-pinctrl"
-	      "qcom,msmthorium-pinctrl"
+	      "qcom,msm8937-pinctrl"
 	      "qcom,msmcobalt-pinctrl"
 
 - reg: Should be the base address and length of the TLMM block.

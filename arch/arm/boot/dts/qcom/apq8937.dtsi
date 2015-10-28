@@ -11,9 +11,9 @@
  * GNU General Public License for more details.
  */
 
-#include "msmthorium.dtsi"
+#include "msm8937.dtsi"
 / {
-	model = "Qualcomm Technologies, Inc. APQ Thorium";
-	compatible = "qcom,apqthorium";
+	model = "Qualcomm Technologies, Inc. APQ8937";
+	compatible = "qcom,apq8937";
 	qcom,msm-id = <295 0x0>;
 };

@@ -13,17 +13,23 @@
 
 /dts-v1/;
 
-#include "msmthorium.dtsi"
+#include "msm8937.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSMThorium RUMI";
-	compatible = "qcom,msmthorium-rumi", "qcom,msmthorium", "qcom,rumi";
+	model = "Qualcomm Technologies, Inc. MSM8937 RUMI";
+	compatible = "qcom,msm8937-rumi", "qcom,msm8937", "qcom,rumi";
 	qcom,board-id= <15 0>;
 };
+
 
 &soc {
 	timer {
 		clock-frequency = <10000000>;
+	};
+
+	smbcharger_charger_otg: qcom,smbcharger-boost-otg {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "smbcharger_charger_otg";
 	};
 };
 

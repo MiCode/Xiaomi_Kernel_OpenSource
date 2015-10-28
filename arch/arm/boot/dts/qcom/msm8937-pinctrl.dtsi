@@ -13,7 +13,7 @@
 
 &soc {
 	tlmm: pinctrl@1000000 {
-		compatible = "qcom,msmthorium-pinctrl";
+		compatible = "qcom,msm8937-pinctrl";
 		reg = <0x1000000 0x300000>;
 		interrupts = <0 208 0>;
 		gpio-controller;

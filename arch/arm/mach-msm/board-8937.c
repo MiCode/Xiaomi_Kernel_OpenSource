@@ -11,13 +11,23 @@
  * GNU General Public License for more details.
  */
 
-/dts-v1/;
+#include <linux/kernel.h>
+#include <asm/mach/arch.h>
+#include "board-dt.h"
 
-#include "apqthorium.dtsi"
-#include "msmthorium-cdp.dtsi"
-
-/ {
-	model = "Qualcomm Technologies, Inc. APQTHORIUM CDP";
-	compatible = "qcom,apqthorium-cdp", "qcom,apqthorium", "qcom,cdp";
-	qcom,board-id= <1 0>;
+static const char *msm8937_dt_match[] __initconst = {
+	"qcom,msm8937",
+	"qcom,apq8937",
+	NULL
 };
+
+static void __init msm8937_init(void)
+{
+	board_dt_populate(NULL);
+}
+
+DT_MACHINE_START(MSM8937_DT,
+	"Qualcomm Technologies, Inc. MSM8937 (Flattened Device Tree)")
+	.init_machine = msm8937_init,
+	.dt_compat = msm8937_dt_match,
+MACHINE_END

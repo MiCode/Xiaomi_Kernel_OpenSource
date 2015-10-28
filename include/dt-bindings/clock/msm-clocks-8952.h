@@ -236,7 +236,7 @@
 #define clk_gcc_mdss_byte1_clk			0x41f97fd8
 #define clk_gcc_mdss_esc1_clk			0x34653cc7
 #define clk_gcc_dcc_clk				0xd1000c50
-#define clk_gcc_debug_mux_thorium		0x917968c2
+#define clk_gcc_debug_mux_8937			0x917968c2
 
 /* clock_rpm controlled clocks */
 #define clk_pnoc_clk				0xc1296d0f
