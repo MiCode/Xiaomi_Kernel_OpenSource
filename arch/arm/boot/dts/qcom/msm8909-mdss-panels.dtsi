@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,9 @@
 #include "dsi-panel-hx8379a-fwvga-skua-video.dtsi"
 #include "dsi-panel-ili9806e-fwvga-video.dtsi"
 #include "dsi-panel-hx8379c-fwvga-video.dtsi"
+#include "dsi-panel-hx8394d-480p-video.dtsi"
+#include "dsi-panel-auo-qvga-cmd.dtsi"
+#include "dsi-panel-auo-cx-qvga-cmd.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
