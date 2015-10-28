@@ -376,6 +376,8 @@ struct mmc_card {
  /* Skip data-timeout advertised by card */
 #define MMC_QUIRK_BROKEN_DATA_TIMEOUT	(1<<13)
 #define MMC_QUIRK_CACHE_DISABLE (1 << 14)       /* prevent cache enable */
+#define MMC_QUIRK_QCA6574_SETTINGS (1 << 15)	/* QCA6574 card settings*/
+#define MMC_QUIRK_QCA9377_SETTINGS (1 << 16)	/* QCA9377 card settings*/
 
 /* Make sure CMDQ is empty before queuing DCMD */
 #define MMC_QUIRK_CMDQ_EMPTY_BEFORE_DCMD (1 << 15)
@@ -675,6 +677,16 @@ static inline int mmc_card_broken_byte_mode_512(const struct mmc_card *c)
 static inline int mmc_card_long_read_time(const struct mmc_card *c)
 {
 	return c->quirks & MMC_QUIRK_LONG_READ_TIME;
+}
+
+static inline bool mmc_enable_qca6574_settings(const struct mmc_card *c)
+{
+	return c->quirks & MMC_QUIRK_QCA6574_SETTINGS;
+}
+
+static inline bool mmc_enable_qca9377_settings(const struct mmc_card *c)
+{
+	return c->quirks & MMC_QUIRK_QCA9377_SETTINGS;
 }
 
 #define mmc_card_name(c)	((c)->cid.prod_name)
