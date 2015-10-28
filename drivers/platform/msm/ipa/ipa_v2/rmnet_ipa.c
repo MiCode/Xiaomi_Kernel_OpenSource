@@ -2689,6 +2689,9 @@ void ipa_q6_handshake_complete(bool ssr_bootup)
 		 * SSR recovery
 		 */
 		rmnet_ipa_get_network_stats_and_update();
+
+		/* Enable holb monitoring on Q6 pipes. */
+		ipa_q6_monitor_holb_mitigation(true);
 	}
 }
 
