@@ -680,6 +680,13 @@ static int32_t msm_csid_cmd(struct csid_device *csid_dev, void __user *arg)
 	switch (cdata->cfgtype) {
 	case CSID_INIT:
 		rc = msm_csid_init(csid_dev, &cdata->cfg.csid_version);
+		if (rc == -ETIMEDOUT) {
+			pr_err("%s:%d msm_csid_init timeout retrying",
+				__func__, __LINE__);
+			rc = msm_csid_init(csid_dev, &cdata->cfg.csid_version);
+			if (rc < 0)
+				pr_err("%s:%d fail rc = ", __func__, __LINE__);
+		}
 		CDBG("%s csid version 0x%x\n", __func__,
 			cdata->cfg.csid_version);
 		break;
@@ -812,6 +819,13 @@ static int32_t msm_csid_cmd32(struct csid_device *csid_dev, void __user *arg)
 	switch (cdata->cfgtype) {
 	case CSID_INIT:
 		rc = msm_csid_init(csid_dev, &cdata->cfg.csid_version);
+		if (rc == -ETIMEDOUT) {
+			pr_err("%s:%d msm_csid_init timeout retrying",
+				__func__, __LINE__);
+			rc = msm_csid_init(csid_dev, &cdata->cfg.csid_version);
+			if (rc < 0)
+				pr_err("%s:%d fail rc = ", __func__, __LINE__);
+		}
 		arg32->cfg.csid_version = local_arg.cfg.csid_version;
 		CDBG("%s csid version 0x%x\n", __func__,
 			cdata->cfg.csid_version);
