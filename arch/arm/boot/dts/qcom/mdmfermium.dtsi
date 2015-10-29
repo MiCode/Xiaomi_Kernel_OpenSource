@@ -608,8 +608,8 @@
 
 	sdhc_1: sdhci@7824900 {
 		compatible = "qcom,sdhci-msm";
-		reg = <0x7824900 0x200>, <0x7824000 0x800>;
-		reg-names = "hc_mem", "core_mem";
+		reg = <0x7824900 0x200>, <0x7824000 0x800>, <0x01111000 0x4>;
+		reg-names = "hc_mem", "core_mem", "tlmm_mem";
 
 		qcom,cpu-dma-latency-us = <701>;
 		qcom,bus-width = <4>;
