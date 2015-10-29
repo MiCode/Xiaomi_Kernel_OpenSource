@@ -134,6 +134,11 @@ struct msm_isp_buf_ops {
 		uint32_t bufq_handle, uint32_t buf_index,
 		struct msm_isp_buffer **buf_info);
 
+	int (*map_buf)(struct msm_isp_buf_mgr *buf_mgr,
+		struct msm_isp_buffer_mapped_info *mapped_info, uint32_t fd);
+
+	int (*unmap_buf)(struct msm_isp_buf_mgr *buf_mgr, uint32_t fd);
+
 	int (*put_buf)(struct msm_isp_buf_mgr *buf_mgr,
 		uint32_t bufq_handle, uint32_t buf_index);
 

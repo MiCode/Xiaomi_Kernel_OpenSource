@@ -413,6 +413,8 @@ struct msm_vfe_fetch_engine_info {
 	uint32_t bufq_handle;
 	uint32_t buf_idx;
 	uint8_t is_busy;
+	uint8_t offline_mode;
+	uint32_t fd;
 };
 
 enum msm_wm_ub_cfg_type {
