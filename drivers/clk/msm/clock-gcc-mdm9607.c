@@ -31,8 +31,8 @@
 #include <linux/clk/msm-clock-generic.h>
 #include <linux/regulator/rpm-smd-regulator.h>
 
-#include <dt-bindings/clock/mdm-clocks-fermium.h>
-#include <dt-bindings/clock/mdm-clocks-hwio-fermium.h>
+#include <dt-bindings/clock/mdm-clocks-9607.h>
+#include <dt-bindings/clock/mdm-clocks-hwio-9607.h>
 
 #include "clock.h"
 
@@ -1849,14 +1849,14 @@ static int msm_gcc_probe(struct platform_device *pdev)
 }
 
 static struct of_device_id msm_clock_gcc_match_table[] = {
-	{ .compatible = "qcom,gcc-mdmfermium" },
+	{ .compatible = "qcom,gcc-mdm9607" },
 	{},
 };
 
 static struct platform_driver msm_clock_gcc_driver = {
 	.probe = msm_gcc_probe,
 	.driver = {
-		.name = "qcom,gcc-mdmfermium",
+		.name = "qcom,gcc-mdm9607",
 		.of_match_table = msm_clock_gcc_match_table,
 		.owner = THIS_MODULE,
 	},
@@ -1924,14 +1924,14 @@ static int msm_clock_debug_probe(struct platform_device *pdev)
 }
 
 static struct of_device_id msm_clock_debug_match_table[] = {
-	{ .compatible = "qcom,cc-debug-mdmfermium" },
+	{ .compatible = "qcom,cc-debug-mdm9607" },
 	{}
 };
 
 static struct platform_driver msm_clock_debug_driver = {
 	.probe = msm_clock_debug_probe,
 	.driver = {
-		.name = "qcom,cc-debug-mdmfermium",
+		.name = "qcom,cc-debug-mdm9607",
 		.of_match_table = msm_clock_debug_match_table,
 		.owner = THIS_MODULE,
 	},

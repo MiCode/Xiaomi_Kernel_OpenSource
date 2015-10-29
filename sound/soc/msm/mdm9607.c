@@ -35,7 +35,7 @@
 #define WCD9XXX_MBHC_DEF_BUTTONS 8
 #define WCD9XXX_MBHC_DEF_RLOADS 5
 /*
- * MDMFERMIUM run Tomtom at 12.288 Mhz.
+ * MDM9607 run Tomtom at 12.288 Mhz.
  * At present MDM supports 12.288mhz
  * only. Tomtom supports 9.6 MHz also.
  */
@@ -63,7 +63,7 @@
 #define CLOCK_OFF 0
 
 /* Machine driver Name*/
-#define DRV_NAME "mdmfermium-asoc-tomtom"
+#define DRV_NAME "mdm9607-asoc-tomtom"
 
 enum mi2s_pcm_mux {
 	PRI_MI2S_PCM = 1,
@@ -628,7 +628,7 @@ static int mdm_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	return 0;
 }
 
-static const struct snd_soc_dapm_widget mdmfermium_dapm_widgets[] = {
+static const struct snd_soc_dapm_widget mdm9607_dapm_widgets[] = {
 
 	SND_SOC_DAPM_SUPPLY("MCLK",  SND_SOC_NOPM, 0, 0,
 	mdm_mclk_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
@@ -709,8 +709,8 @@ static int mdm_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	if (ret < 0)
 		goto done;
 
-	snd_soc_dapm_new_controls(dapm, mdmfermium_dapm_widgets,
-				  ARRAY_SIZE(mdmfermium_dapm_widgets));
+	snd_soc_dapm_new_controls(dapm, mdm9607_dapm_widgets,
+				  ARRAY_SIZE(mdm9607_dapm_widgets));
 
 	/*
 	 * After DAPM Enable pins always
@@ -1343,7 +1343,7 @@ static struct snd_soc_dai_link mdm_dai[] = {
 };
 
 static struct snd_soc_card snd_soc_card_mdm = {
-	.name = "mdmfermium-tomtom-i2s-snd-card",
+	.name = "mdm9607-tomtom-i2s-snd-card",
 	.dai_link = mdm_dai,
 	.num_links = ARRAY_SIZE(mdm_dai),
 };
@@ -1537,7 +1537,7 @@ static int mdm_asoc_machine_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id mdm_asoc_machine_of_match[]  = {
-	{ .compatible = "qcom,mdmfermium-audio-tomtom", },
+	{ .compatible = "qcom,mdm9607-audio-tomtom", },
 	{},
 };
 

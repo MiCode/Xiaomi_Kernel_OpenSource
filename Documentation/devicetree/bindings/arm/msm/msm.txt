@@ -104,8 +104,8 @@ SoCs:
 - VPIPA
   compatible = "qcom,msmvpipa"
 
-- MDMFERMIUM
-  compatible = "qcom,mdmfermium"
+- MDM9607
+  compatible = "qcom,mdm9607"
 
 Generic board variants:
 
@@ -258,9 +258,9 @@ compatible = "qcom,mdm9640-mtp"
 compatible = "qcom,mdm9640-rumi"
 compatible = "qcom,mdm9640-sim"
 compatible = "qcom,msmvpipa-sim"
-compatible = "qcom,mdmfermium-rumi"
-compatible = "qcom,mdmfermium-cdp"
-compatible = "qcom,mdmfermium-mtp"
+compatible = "qcom,mdm9607-rumi"
+compatible = "qcom,mdm9607-cdp"
+compatible = "qcom,mdm9607-mtp"
 compatible = "qcom,mdmcalifornium-rumi"
 compatible = "qcom,mdmcalifornium-sim"
 compatible = "qcom,mdmcalifornium-cdp"

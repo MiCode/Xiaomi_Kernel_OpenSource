@@ -16,18 +16,18 @@
 #include <asm/mach/arch.h>
 #include "board-dt.h"
 
-static const char *mdmfermium_dt_match[] __initconst = {
-	"qcom,mdmfermium",
+static const char *mdm9607_dt_match[] __initconst = {
+	"qcom,mdm9607",
 	NULL
 };
 
-static void __init mdmfermium_init(void)
+static void __init mdm9607_init(void)
 {
 	board_dt_populate(NULL);
 }
 
-DT_MACHINE_START(MDMFERMIUM_DT,
-	"Qualcomm Technologies, Inc. MDM FERMIUM (Flattened Device Tree)")
-	.init_machine	= mdmfermium_init,
-	.dt_compat	= mdmfermium_dt_match,
+DT_MACHINE_START(MDM9607_DT,
+	"Qualcomm Technologies, Inc. MDM 9607 (Flattened Device Tree)")
+	.init_machine	= mdm9607_init,
+	.dt_compat	= mdm9607_dt_match,
 MACHINE_END

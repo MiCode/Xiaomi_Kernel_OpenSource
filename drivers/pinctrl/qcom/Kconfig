@@ -15,13 +15,13 @@ config PINCTRL_APQ8064
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
 	  Qualcomm TLMM block found in the Qualcomm APQ8064 platform.
 
-config PINCTRL_MDMFERMIUM
-	tristate "QTI MDMFERMIUM pin controller driver"
+config PINCTRL_MDM9607
+	tristate "QTI MDM9607 pin controller driver"
 	depends on GPIOLIB && OF
 	select PINCTRL_MSM
 	help
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
-	  QTI TLMM block found in the QTI FERMIUM platform.
+	  QTI TLMM block found in the QTI 9607 platform.
 
 config PINCTRL_MDM9640
 	tristate "Qualcomm MDM9640 pin controller driver"

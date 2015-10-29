@@ -13,7 +13,7 @@
 
 &soc {
 	tlmm_pinmux: pinctrl@1000000 {
-		compatible = "qcom,mdmfermium-pinctrl";
+		compatible = "qcom,mdm9607-pinctrl";
 		reg = <0x1000000 0x300000>;
 		interrupts = <0 208 0>;
 		gpio-controller;

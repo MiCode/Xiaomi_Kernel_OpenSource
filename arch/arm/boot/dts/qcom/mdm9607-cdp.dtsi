@@ -11,16 +11,16 @@
  * GNU General Public License for more details.
  */
 
-#include "mdmfermium.dtsi"
-#include "mdmfermium-pinctrl.dtsi"
+#include "mdm9607.dtsi"
+#include "mdm9607-pinctrl.dtsi"
 
 / {
 	bluetooth: bt_qca6174 {
 		compatible = "qca,qca6174";
 		qca,bt-reset-gpio = <&pm8019_gpios 2 0>; /* BT_EN */
 		qca,bt-vdd-pa-supply = <&rome_vreg>;
-		qca,bt-vdd-io-supply = <&mdmfermium_l11>;
-		qca,bt-vdd-xtal-supply = <&mdmfermium_l2>;
+		qca,bt-vdd-io-supply = <&mdm9607_l11>;
+		qca,bt-vdd-xtal-supply = <&mdm9607_l2>;
 		qca,bt-vdd-io-voltage-level = <1800000 1800000>;
 		qca,bt-vdd-xtal-voltage-level = <1800000 1800000>;
 	};
@@ -120,7 +120,7 @@
 };
 
 &sdhc_1 {
-	vdd-io-supply = <&mdmfermium_l11>;
+	vdd-io-supply = <&mdm9607_l11>;
 	qcom,vdd-io-always-on;
 	qcom,vdd-io-voltage-level = <1800000 1800000>;
 	qcom,vdd-io-current-level = <0 30000>;
@@ -143,7 +143,7 @@
 	qcom,vdd-voltage-level = <2850000 2850000>;
 	qcom,vdd-current-level = <15000 400000>;
 
-	vdd-io-supply = <&mdmfermium_l13>;
+	vdd-io-supply = <&mdm9607_l13>;
 	qcom,vdd-io-voltage-level = <1800000 2850000>;
 	qcom,vdd-io-current-level = <200 50000>;
 
