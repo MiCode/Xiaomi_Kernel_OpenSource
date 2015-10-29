@@ -394,6 +394,18 @@ module_param_named(
 	int, S_IRUSR | S_IWUSR
 );
 
+static int smbchg_default_hvdcp_icl_ma = 3000;
+module_param_named(
+	default_hvdcp_icl_ma, smbchg_default_hvdcp_icl_ma,
+	int, S_IRUSR | S_IWUSR
+);
+
+static int smbchg_default_dcp_icl_ma = 1800;
+module_param_named(
+	default_dcp_icl_ma, smbchg_default_dcp_icl_ma,
+	int, S_IRUSR | S_IWUSR
+);
+
 static int wipower_dyn_icl_en;
 module_param_named(
 	dynamic_icl_wipower_en, wipower_dyn_icl_en,
@@ -4137,8 +4149,6 @@ static int smbchg_set_optimal_charging_mode(struct smbchg_chip *chip, int type)
 	return 0;
 }
 
-#define DEFAULT_HVDCP_CHG_MA	3000
-#define DEFAULT_WALL_CHG_MA	1800
 #define DEFAULT_SDP_MA		100
 #define DEFAULT_CDP_MA		1500
 static int smbchg_change_usb_supply_type(struct smbchg_chip *chip,
@@ -4162,9 +4172,9 @@ static int smbchg_change_usb_supply_type(struct smbchg_chip *chip,
 		current_limit_ma = DEFAULT_CDP_MA;
 	else if (type == POWER_SUPPLY_TYPE_USB_HVDCP
 			|| type == POWER_SUPPLY_TYPE_USB_HVDCP_3)
-		current_limit_ma = DEFAULT_HVDCP_CHG_MA;
+		current_limit_ma = smbchg_default_hvdcp_icl_ma;
 	else
-		current_limit_ma = DEFAULT_WALL_CHG_MA;
+		current_limit_ma = smbchg_default_dcp_icl_ma;
 
 	pr_smb(PR_STATUS, "Type %d: setting mA = %d\n",
 		type, current_limit_ma);
