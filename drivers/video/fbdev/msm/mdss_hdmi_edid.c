@@ -1208,9 +1208,9 @@ static void hdmi_edid_detail_desc(struct hdmi_edid_ctrl *edid_ctrl,
 	u32	pulse_width_v       = 0;
 	u32	active_low_h        = 0;
 	u32	active_low_v        = 0;
-
+	const u32 khz_to_hz         = 1000;
+	u32 frame_data;
 	struct msm_hdmi_mode_timing_info timing = {0};
-	u64 rr_tmp, frame_data;
 	int rc;
 
 	/*
@@ -1326,15 +1326,10 @@ static void hdmi_edid_detail_desc(struct hdmi_edid_ctrl *edid_ctrl,
 	active_low_h = ((data_buf[0x11] & BIT(1)) &&
 				(data_buf[0x11] & BIT(4))) ? 0 : 1;
 
-	DEV_DBG("%s: A[%ux%u] B[%ux%u] V[%ux%u] %s\n", __func__,
-		active_h, active_v, blank_h, blank_v, img_size_h, img_size_v,
-		interlaced ? "i" : "p");
-
-	rr_tmp = pixel_clk * 1000 * 1000;
-	frame_data = (blank_h + active_h) * (blank_v + active_v);
+	frame_data = (active_h + blank_h) * (active_v + blank_v);
 
 	if (frame_data) {
-		do_div(rr_tmp, frame_data);
+		int refresh_rate_khz = (pixel_clk * khz_to_hz) / frame_data;
 
 		timing.active_h      = active_h;
 		timing.front_porch_h = front_porch_h;
@@ -1349,12 +1344,17 @@ static void hdmi_edid_detail_desc(struct hdmi_edid_ctrl *edid_ctrl,
 					(front_porch_v + pulse_width_v);
 		timing.active_low_v  = active_low_v;
 		timing.pixel_freq    = pixel_clk;
-		timing.refresh_rate  = (u32) rr_tmp;
+		timing.refresh_rate  = refresh_rate_khz * khz_to_hz;
 		timing.interlaced    = interlaced;
 		timing.supported     = true;
 		timing.ar            = aspect_ratio_4_3 ? HDMI_RES_AR_4_3 :
 					(aspect_ratio_5_4 ? HDMI_RES_AR_5_4 :
 					HDMI_RES_AR_16_9);
+
+		DEV_DBG("%s: new res: %dx%d%s@%dHz\n", __func__,
+			timing.active_h, timing.active_v,
+			interlaced ? "i" : "p",
+			timing.refresh_rate / khz_to_hz);
 
 		rc = hdmi_set_resv_timing_info(&timing);
 	} else {
