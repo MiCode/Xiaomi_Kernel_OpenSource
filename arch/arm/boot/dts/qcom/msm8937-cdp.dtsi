@@ -14,6 +14,71 @@
 #include "msm8937-pinctrl.dtsi"
 
 &soc {
+	gpio_keys {
+		compatible = "gpio-keys";
+		input-name = "gpio-keys";
+		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend";
+		pinctrl-0 = <&gpio_key_active>;
+		pinctrl-1 = <&gpio_key_suspend>;
+
+		camera_focus {
+			label = "camera_focus";
+			gpios = <&tlmm 128 0x1>;
+			linux,input-type = <1>;
+			linux,code = <0x210>;
+			debounce-interval = <15>;
+		};
+
+		camera_snapshot {
+			label = "camera_snapshot";
+			gpios = <&tlmm 127 0x1>;
+			linux,input-type = <1>;
+			linux,code = <0x2fe>;
+			debounce-interval = <15>;
+		};
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&tlmm 91 0x1>;
+			linux,input-type = <1>;
+			linux,code = <115>;
+			debounce-interval = <15>;
+		};
+
+		home {
+			label = "home";
+			gpios = <&tlmm 86 0x1>;
+			linux,input-type = <1>;
+			linux,code = <102>;
+			debounce-interval = <15>;
+		};
+	};
+};
+
+&tlmm {
+	tlmm_gpio_key {
+		gpio_key_active: gpio_key_active {
+			mux {
+				pins = "gpio86", "gpio91", "gpio127", "gpio128";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio86", "gpio91", "gpio127", "gpio128";
+			};
+		};
+
+		gpio_key_suspend: gpio_key_suspend {
+			mux {
+				pins = "gpio86", "gpio91", "gpio127", "gpio128";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio86", "gpio91", "gpio127", "gpio128";
+			};
+		};
+	};
 };
 
 &blsp1_uart2 {
