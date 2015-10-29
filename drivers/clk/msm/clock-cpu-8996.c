@@ -523,6 +523,7 @@ struct cpu_clk_8996 {
 	u32 cpu_reg_mask;
 	struct clk *alt_pll;
 	unsigned long *alt_pll_freqs;
+	unsigned long alt_pll_thresh;
 	int n_alt_pll_freqs;
 	struct clk c;
 	bool hw_low_power_ctrl;
@@ -550,16 +551,9 @@ static long cpu_clk_8996_round_rate(struct clk *c, unsigned long rate)
 	return clk_round_rate(c->parent, rate);
 }
 
-static unsigned long alt_pll_pwrcl_freqs[] = {
-	 268800000,
-	 480000000,
-	 883200000,
-};
-
 static unsigned long alt_pll_perfcl_freqs[] = {
-	 268800000,
-	 403200000,
-	 576000000,
+	 307200000,
+	 556800000,
 };
 
 static void do_nothing(void *unused) { }
@@ -669,7 +663,7 @@ static void cpu_clk_8996_post_set_rate(struct clk *c, unsigned long start_rate)
 static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 {
 	struct cpu_clk_8996 *cpuclk = to_cpu_clk_8996(c);
-	int ret, err_ret, i;
+	int ret, err_ret;
 	unsigned long alt_pll_prev_rate;
 	unsigned long alt_pll_rate;
 	unsigned long n_alt_freqs = cpuclk->n_alt_pll_freqs;
@@ -679,13 +673,8 @@ static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 	if (cpuclk->alt_pll && (n_alt_freqs > 0)) {
 		alt_pll_prev_rate = cpuclk->alt_pll->rate;
 		alt_pll_rate = cpuclk->alt_pll_freqs[0];
-		if (rate >= cpuclk->alt_pll_freqs[n_alt_freqs - 1])
-			alt_pll_rate = cpuclk->alt_pll_freqs[n_alt_freqs - 1];
-
-		for (i = 0; i < n_alt_freqs - 1; i++)
-			if (cpuclk->alt_pll_freqs[i] < rate &&
-			    cpuclk->alt_pll_freqs[i+1] >= rate)
-				alt_pll_rate = cpuclk->alt_pll_freqs[i];
+		if (rate > cpuclk->alt_pll_thresh)
+			alt_pll_rate = cpuclk->alt_pll_freqs[1];
 		if (!cpu_clocks_v3)
 			mutex_lock(&scm_lmh_lock);
 		ret = clk_set_rate(cpuclk->alt_pll, alt_pll_rate);
@@ -787,9 +776,6 @@ DEFINE_VDD_REGS_INIT(vdd_pwrcl, 1);
 
 static struct cpu_clk_8996 pwrcl_clk = {
 	.cpu_reg_mask = 0x3,
-	.alt_pll = &pwrcl_alt_pll.c,
-	.alt_pll_freqs = alt_pll_pwrcl_freqs,
-	.n_alt_pll_freqs = ARRAY_SIZE(alt_pll_pwrcl_freqs),
 	.pm_qos_latency = PWRCL_LATENCY_NO_L2_PC_US,
 	.do_half_rate = true,
 	.c = {
@@ -807,6 +793,7 @@ static struct cpu_clk_8996 perfcl_clk = {
 	.cpu_reg_mask = 0x103,
 	.alt_pll = &perfcl_alt_pll.c,
 	.alt_pll_freqs = alt_pll_perfcl_freqs,
+	.alt_pll_thresh = 1190400000,
 	.n_alt_pll_freqs = ARRAY_SIZE(alt_pll_perfcl_freqs),
 	.pm_qos_latency = PERFCL_LATENCY_NO_L2_PC_US,
 	.do_half_rate = true,
