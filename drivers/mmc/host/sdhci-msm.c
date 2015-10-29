@@ -4172,6 +4172,12 @@ static int sdhci_msm_runtime_suspend(struct device *dev)
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	ktime_t start = ktime_get();
 
+	if (host->mmc->card && mmc_card_sdio(host->mmc->card)) {
+		if (mmc_enable_qca6574_settings(host->mmc->card) ||
+				mmc_enable_qca9377_settings(host->mmc->card))
+			return 0;
+	}
+
 	disable_irq(host->irq);
 	disable_irq(msm_host->pwr_irq);
 
@@ -4196,6 +4202,12 @@ static int sdhci_msm_runtime_resume(struct device *dev)
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	ktime_t start = ktime_get();
+
+	if (host->mmc->card && mmc_card_sdio(host->mmc->card)) {
+		if (mmc_enable_qca6574_settings(host->mmc->card) ||
+				mmc_enable_qca9377_settings(host->mmc->card))
+			return 0;
+	}
 
 	enable_irq(msm_host->pwr_irq);
 	enable_irq(host->irq);
