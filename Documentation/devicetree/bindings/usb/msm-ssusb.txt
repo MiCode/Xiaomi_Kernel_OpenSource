@@ -10,11 +10,6 @@ Required properties :
 	"hs_phy_irq" : Interrupt from HS PHY for asynchronous events in LPM.
 	"pwr_event_irq" : Interrupt to controller for asynchronous events in LPM.
 	Used for SS-USB power events.
-- <supply-name>-supply: phandle to the regulator device tree node
-  Required "supply-name" examples are:
-	"vbus_dwc3" : vbus supply for host mode when DWC3 operating as DRD.
-	This can be left as optional if "host-only-mode" is selected in the
-	'dwc3' sub node for "DWC3-USB3 Core device".
 
 Optional properties :
 - reg: Additional registers
@@ -33,6 +28,7 @@ Optional properties :
     "pmic_id_irq" : Interrupt from PMIC for external ID pin notification.
 - qcom,charging-disabled: If present then battery charging using USB
   is disabled.
+- vbus_dwc3-supply: phandle to the 5V VBUS supply regulator used for host mode.
 - USB3_GDSC-supply : phandle to the globally distributed switch controller
   regulator node to the USB controller.
 - qcom,dwc-usb3-msm-tx-fifo-size: If present, represents RAM size available for
