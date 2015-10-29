@@ -711,10 +711,11 @@
 			<&clock_gcc clk_gcc_aggre1_usb3_axi_clk>,
 			<&clock_gcc clk_gcc_usb30_mock_utmi_clk>,
 			<&clock_gcc clk_gcc_usb30_sleep_clk>,
+			<&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
 			<&clock_gcc clk_cxo_dwc3_clk>;
 
 		clock-names = "core_clk", "iface_clk", "bus_aggr_clk",
-				"utmi_clk", "sleep_clk", "xo";
+				"utmi_clk", "sleep_clk", "cfg_ahb_clk", "xo";
 
 		dwc3@a800000 {
 			compatible = "snps,dwc3";
