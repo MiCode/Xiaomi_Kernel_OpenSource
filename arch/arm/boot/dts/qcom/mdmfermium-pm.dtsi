@@ -29,7 +29,7 @@
 			qcom,spm_en;
 		};
 		qcom,mode1 {
-			qcom,label = "qcom,saw2-spm-cmd-gdhs";
+			qcom,label = "qcom,saw2-spm-cmd-spc";
 			qcom,sequence = [1f 34 04 44 24 54 03
 				54 44 04 24 34 0f];
 			qcom,spm_en;
