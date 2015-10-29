@@ -188,6 +188,7 @@ struct smbchg_chip {
 	bool				flash_triggered;
 	bool				icl_disabled;
 	u32				wa_flags;
+	int				usb_icl_delta;
 
 	/* jeita and temperature */
 	bool				batt_hot;
@@ -325,6 +326,7 @@ enum icl_voters {
 	HVDCP_ICL_VOTER,
 	USER_ICL_VOTER,
 	WEAK_CHARGER_ICL_VOTER,
+	SW_AICL_ICL_VOTER,
 	NUM_ICL_VOTER,
 };
 
@@ -4425,6 +4427,8 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 		pr_err("Couldn't set override rc = %d\n", rc);
 
 	vote(chip->usb_icl_votable, WEAK_CHARGER_ICL_VOTER, false, 0);
+	chip->usb_icl_delta = 0;
+	vote(chip->usb_icl_votable, SW_AICL_ICL_VOTER, false, 0);
 	restore_from_hvdcp_detection(chip);
 }
 
@@ -5261,6 +5265,7 @@ static int smbchg_hvdcp3_confirmed(struct smbchg_chip *chip)
 static int smbchg_dp_dm(struct smbchg_chip *chip, int val)
 {
 	int rc = 0;
+	int target_icl_vote_ma;
 
 	switch (val) {
 	case POWER_SUPPLY_DP_DM_PREPARE:
@@ -5305,6 +5310,20 @@ static int smbchg_dp_dm(struct smbchg_chip *chip, int val)
 	case POWER_SUPPLY_DP_DM_HVDCP3_SUPPORTED:
 		chip->hvdcp3_supported = true;
 		pr_smb(PR_MISC, "HVDCP3 supported\n");
+		break;
+	case POWER_SUPPLY_DP_DM_ICL_DOWN:
+		chip->usb_icl_delta -= 100;
+		target_icl_vote_ma = get_client_vote(chip->usb_icl_votable,
+						PSY_ICL_VOTER);
+		vote(chip->usb_icl_votable, SW_AICL_ICL_VOTER, true,
+				target_icl_vote_ma + chip->usb_icl_delta);
+		break;
+	case POWER_SUPPLY_DP_DM_ICL_UP:
+		chip->usb_icl_delta += 100;
+		target_icl_vote_ma = get_client_vote(chip->usb_icl_votable,
+						PSY_ICL_VOTER);
+		vote(chip->usb_icl_votable, SW_AICL_ICL_VOTER, true,
+				target_icl_vote_ma + chip->usb_icl_delta);
 		break;
 	default:
 		break;
