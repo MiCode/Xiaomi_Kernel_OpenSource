@@ -333,9 +333,11 @@ struct hdcp_lib_handle {
 	uint32_t tz_ctxhandle;
 	uint32_t hdcp_timeout;
 	bool no_stored_km_flag;
+	bool feature_supported;
 	void *client_ctx;
 	struct hdcp_client_ops *client_ops;
 	struct mutex hdcp_lock;
+	struct mutex wakeup_mutex;
 	enum hdcp_state hdcp_state;
 	enum hdcp_lib_wakeup_cmd wakeup_cmd;
 	bool repeater_flag;
@@ -343,9 +345,10 @@ struct hdcp_lib_handle {
 	int last_msg_sent;
 	char *last_msg_recvd_buf;
 	uint32_t last_msg_recvd_len;
-	atomic_t hdcp_off_pending;
+	atomic_t hdcp_off;
 
 	struct task_struct *thread;
+	struct completion topo_wait;
 
 	struct kthread_worker worker;
 	struct kthread_work init;
@@ -353,12 +356,17 @@ struct hdcp_lib_handle {
 	struct kthread_work msg_recvd;
 	struct kthread_work timeout;
 	struct kthread_work clean;
+	struct kthread_work topology;
+	struct kthread_work stream;
 };
 
 struct hdcp_lib_message_map {
 	int msg_id;
 	const char *msg_name;
 };
+
+static struct qseecom_handle *hdcp1_handle;
+static bool hdcp1_supported = true;
 
 static const char *hdcp_lib_message_name(int msg_id)
 {
@@ -456,7 +464,7 @@ static int hdcp_lib_enable_encryption(struct hdcp_lib_handle *handle)
 	pr_debug("success\n");
 	return 0;
 error:
-	if (!atomic_read(&handle->hdcp_off_pending))
+	if (!atomic_read(&handle->hdcp_off))
 		queue_kthread_work(&handle->worker, &handle->clean);
 
 	return rc;
@@ -668,30 +676,20 @@ exit:
 	return rc;
 }
 
-static int hdcp_lib_query_stream_type(void *phdcpcontext)
+static void hdcp_lib_query_stream_type_work(struct kthread_work *work)
 {
 	int rc = 0;
 	struct hdcp_query_stream_type_req *req_buf;
 	struct hdcp_query_stream_type_rsp *rsp_buf;
-	struct hdcp_lib_handle *handle = phdcpcontext;
+	struct hdcp_lib_handle *handle = container_of(work,
+		struct hdcp_lib_handle, stream);
 
 	if (!handle) {
-		pr_err("invalid input\n");
-		return -EINVAL;
+		pr_err("invalid handle\n");
+		return;
 	}
 
-	if (!(handle->hdcp_state & HDCP_STATE_APP_LOADED)) {
-		pr_debug("hdcp library not loaded\n");
-		goto exit;
-	}
-
-	if (!(handle->hdcp_state & HDCP_STATE_TXMTR_INIT)) {
-		pr_err("txmtr is not initialized\n");
-		rc = -EINVAL;
-		goto exit;
-	}
-
-	flush_kthread_worker(&handle->worker);
+	mutex_lock(&handle->hdcp_lock);
 
 	/* send command to TZ */
 	req_buf = (struct hdcp_query_stream_type_req *)handle->
@@ -715,7 +713,7 @@ static int hdcp_lib_query_stream_type(void *phdcpcontext)
 		goto exit;
 	}
 
-	pr_debug("message received is %s\n",
+	pr_debug("message received from TZ: %s\n",
 		hdcp_lib_message_name((int)rsp_buf->msg[0]));
 
 	memset(handle->listener_buf, 0, MAX_TX_MESSAGE_SIZE);
@@ -723,15 +721,11 @@ static int hdcp_lib_query_stream_type(void *phdcpcontext)
 			rsp_buf->msglen);
 	handle->hdcp_timeout = rsp_buf->timeout;
 	handle->msglen = rsp_buf->msglen;
-
-	if (!atomic_read(&handle->hdcp_off_pending))
-		hdcp_lib_send_message(handle);
-	else
-		goto exit;
-
-	pr_debug("success\n");
 exit:
-	return rc;
+	mutex_unlock(&handle->hdcp_lock);
+
+	if (!rc && !atomic_read(&handle->hdcp_off))
+		hdcp_lib_send_message(handle);
 }
 
 static bool hdcp_lib_client_feature_supported(void *phdcpcontext)
@@ -745,9 +739,15 @@ static bool hdcp_lib_client_feature_supported(void *phdcpcontext)
 		goto exit;
 	}
 
+	if (handle->feature_supported) {
+		supported = true;
+		goto exit;
+	}
+
 	rc = hdcp_lib_library_load(handle);
 	if (!rc) {
 		pr_debug("HDCP2p2 supported\n");
+		handle->feature_supported = true;
 		hdcp_lib_library_unload(handle);
 		supported = true;
 	}
@@ -767,9 +767,11 @@ static int hdcp_lib_wakeup(struct hdcp_lib_wakeup_data *data)
 	if (!handle)
 		return -EINVAL;
 
+	mutex_lock(&handle->wakeup_mutex);
+
 	handle->wakeup_cmd = data->cmd;
 
-	pr_debug("wakeup_cmd: %s\n", hdcp_lib_cmd_to_str(handle->wakeup_cmd));
+	pr_debug("cmd: %s\n", hdcp_lib_cmd_to_str(handle->wakeup_cmd));
 
 	if (data->recvd_msg_len) {
 		handle->last_msg_recvd_len = data->recvd_msg_len;
@@ -785,42 +787,51 @@ static int hdcp_lib_wakeup(struct hdcp_lib_wakeup_data *data)
 			data->recvd_msg_len);
 	}
 
+	if (!completion_done(&handle->topo_wait))
+		complete_all(&handle->topo_wait);
+
 	switch (handle->wakeup_cmd) {
 	case HDCP_LIB_WKUP_CMD_START:
 		handle->no_stored_km_flag = 0;
 		handle->repeater_flag = 0;
+		handle->last_msg_sent = 0;
+		atomic_set(&handle->hdcp_off, 0);
 		handle->hdcp_state = HDCP_STATE_INIT;
 
-		if (!atomic_read(&handle->hdcp_off_pending))
-			queue_kthread_work(&handle->worker, &handle->init);
+		queue_kthread_work(&handle->worker, &handle->init);
 		break;
 	case HDCP_LIB_WKUP_CMD_STOP:
-		atomic_set(&handle->hdcp_off_pending, 1);
+		atomic_set(&handle->hdcp_off, 1);
 		queue_kthread_work(&handle->worker, &handle->clean);
 		break;
 	case HDCP_LIB_WKUP_CMD_MSG_SEND_SUCCESS:
 		handle->last_msg_sent = handle->listener_buf[0];
 
-		if (!atomic_read(&handle->hdcp_off_pending))
+		if (!atomic_read(&handle->hdcp_off))
 			queue_kthread_work(&handle->worker, &handle->msg_sent);
 		break;
 	case HDCP_LIB_WKUP_CMD_MSG_SEND_FAILED:
 	case HDCP_LIB_WKUP_CMD_MSG_RECV_FAILED:
-		if (!atomic_read(&handle->hdcp_off_pending))
+		if (!atomic_read(&handle->hdcp_off))
 			queue_kthread_work(&handle->worker, &handle->clean);
 		break;
 	case HDCP_LIB_WKUP_CMD_MSG_RECV_SUCCESS:
-		if (!atomic_read(&handle->hdcp_off_pending))
+		if (!atomic_read(&handle->hdcp_off))
 			queue_kthread_work(&handle->worker, &handle->msg_recvd);
 		break;
 	case HDCP_LIB_WKUP_CMD_MSG_RECV_TIMEOUT:
-		if (!atomic_read(&handle->hdcp_off_pending))
+		if (!atomic_read(&handle->hdcp_off))
 			queue_kthread_work(&handle->worker, &handle->timeout);
+		break;
+	case HDCP_LIB_WKUP_CMD_QUERY_STREAM_TYPE:
+		if (!atomic_read(&handle->hdcp_off))
+			queue_kthread_work(&handle->worker, &handle->stream);
 		break;
 	default:
 		pr_err("invalid wakeup command %d\n", handle->wakeup_cmd);
 	}
 exit:
+	mutex_unlock(&handle->wakeup_mutex);
 	return 0;
 }
 
@@ -835,28 +846,41 @@ static void hdcp_lib_msg_sent_work(struct kthread_work *work)
 		return;
 	}
 
+	if (handle->wakeup_cmd != HDCP_LIB_WKUP_CMD_MSG_SEND_SUCCESS) {
+		pr_err("invalid wakeup command %d\n", handle->wakeup_cmd);
+		return;
+	}
+
 	mutex_lock(&handle->hdcp_lock);
 
 	cdata.context = handle->client_ctx;
 
-	if (handle->wakeup_cmd == HDCP_LIB_WKUP_CMD_MSG_SEND_SUCCESS) {
-		if (handle->last_msg_sent == SKE_SEND_EKS_MESSAGE_ID) {
-			if (!hdcp_lib_enable_encryption(handle))
-				cdata.cmd = HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS;
-			else
-				cdata.cmd = HDMI_HDCP_WKUP_CMD_STATUS_FAILED;
-		} else {
-			cdata.cmd = HDMI_HDCP_WKUP_CMD_RECV_MESSAGE;
-			cdata.timeout = handle->hdcp_timeout;
+	switch (handle->last_msg_sent) {
+	case SKE_SEND_EKS_MESSAGE_ID:
+		if (handle->repeater_flag) {
+			if (!atomic_read(&handle->hdcp_off))
+				queue_kthread_work(&handle->worker,
+					&handle->topology);
 		}
-	} else {
-		pr_err("invalid wakeup command %d\n", handle->wakeup_cmd);
+
+		if (!hdcp_lib_enable_encryption(handle))
+			cdata.cmd = HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS;
+		else
+			if (!atomic_read(&handle->hdcp_off))
+				queue_kthread_work(&handle->worker,
+					&handle->clean);
+		break;
+	case REPEATER_AUTH_SEND_ACK_MESSAGE_ID:
+		pr_debug("Repeater authentication successful\n");
+		break;
+	default:
+		cdata.cmd = HDMI_HDCP_WKUP_CMD_RECV_MESSAGE;
+		cdata.timeout = handle->hdcp_timeout;
 	}
 
 	mutex_unlock(&handle->hdcp_lock);
 
 	hdcp_lib_wakeup_client(handle, &cdata);
-	return;
 }
 
 static void hdcp_lib_init_work(struct kthread_work *work)
@@ -900,7 +924,7 @@ exit:
 	if (send_msg)
 		hdcp_lib_send_message(handle);
 
-	if (rc && !atomic_read(&handle->hdcp_off_pending))
+	if (rc && !atomic_read(&handle->hdcp_off))
 		queue_kthread_work(&handle->worker, &handle->clean);
 	return;
 }
@@ -954,7 +978,7 @@ static void hdcp_lib_manage_timeout_work(struct kthread_work *work)
 	if ((rsp_buf->commandid == HDCP_TXMTR_PROCESS_RECEIVED_MESSAGE) &&
 		((int)rsp_buf->message[0] == LC_INIT_MESSAGE_ID) &&
 			(rsp_buf->msglen == LC_INIT_MESSAGE_SIZE)) {
-		if (!atomic_read(&handle->hdcp_off_pending)) {
+		if (!atomic_read(&handle->hdcp_off)) {
 			/* keep local copy of TZ response */
 			memset(handle->listener_buf, 0, MAX_TX_MESSAGE_SIZE);
 			memcpy(handle->listener_buf,
@@ -972,7 +996,7 @@ error:
 	if (send_msg)
 		hdcp_lib_send_message(handle);
 
-	if (rc && !atomic_read(&handle->hdcp_off_pending))
+	if (rc && !atomic_read(&handle->hdcp_off))
 		queue_kthread_work(&handle->worker, &handle->clean);
 }
 
@@ -997,10 +1021,10 @@ static void hdcp_lib_cleanup_work(struct kthread_work *work)
 
 	mutex_unlock(&handle->hdcp_lock);
 
-	if (atomic_read(&handle->hdcp_off_pending))
-		atomic_set(&handle->hdcp_off_pending, 0);
-	else
+	if (!atomic_read(&handle->hdcp_off))
 		hdcp_lib_wakeup_client(handle, &cdata);
+
+	atomic_set(&handle->hdcp_off, 1);
 }
 
 static void hdcp_lib_msg_recvd_work(struct kthread_work *work)
@@ -1108,7 +1132,7 @@ static void hdcp_lib_msg_recvd_work(struct kthread_work *work)
 	handle->hdcp_timeout = rsp_buf->timeout;
 	handle->msglen = rsp_buf->msglen;
 
-	if (!atomic_read(&handle->hdcp_off_pending)) {
+	if (!atomic_read(&handle->hdcp_off)) {
 		cdata.cmd = HDMI_HDCP_WKUP_CMD_SEND_MESSAGE;
 		cdata.send_msg_buf = handle->listener_buf;
 		cdata.send_msg_len = handle->msglen;
@@ -1121,8 +1145,47 @@ exit:
 
 	hdcp_lib_wakeup_client(handle, &cdata);
 
-	if (rc && !atomic_read(&handle->hdcp_off_pending))
+	if (rc && !atomic_read(&handle->hdcp_off))
 		queue_kthread_work(&handle->worker, &handle->clean);
+}
+
+static void hdcp_lib_topology_work(struct kthread_work *work)
+{
+	u32 timeout;
+	struct hdcp_lib_handle *handle = container_of(work,
+		struct hdcp_lib_handle, topology);
+
+	if (!handle) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+
+	reinit_completion(&handle->topo_wait);
+	timeout = wait_for_completion_timeout(&handle->topo_wait, HZ * 3);
+	if (!timeout) {
+		pr_err("topology receiver id list timeout\n");
+
+		if (!atomic_read(&handle->hdcp_off))
+			queue_kthread_work(&handle->worker, &handle->clean);
+	}
+}
+
+bool hdcp1_check_if_supported_load_app(void)
+{
+	int rc = 0;
+
+	/* start hdcp1 app */
+	if (hdcp1_supported && !hdcp1_handle) {
+		rc = qseecom_start_app(&hdcp1_handle, HDCP1_APP_NAME,
+			QSEECOM_SBUFF_SIZE);
+		if (rc) {
+			pr_err("qseecom_start_app failed %d\n", rc);
+			hdcp1_supported = false;
+		}
+	}
+
+	return hdcp1_supported;
 }
 
 /* APIs exposed to all clients */
@@ -1131,18 +1194,12 @@ int hdcp1_set_keys(uint32_t *aksv_msb, uint32_t *aksv_lsb)
 	int rc = 0;
 	struct hdcp1_key_set_req *key_set_req;
 	struct hdcp1_key_set_rsp *key_set_rsp;
-	struct qseecom_handle *hdcp1_handle = NULL;
 
 	if (aksv_msb == NULL || aksv_lsb == NULL)
 		return -EINVAL;
 
-	/* start hdcp1 app */
-	rc = qseecom_start_app(&hdcp1_handle, HDCP1_APP_NAME,
-						QSEECOM_SBUFF_SIZE);
-	if (rc) {
-		pr_err("qseecom_start_app failed %d\n", rc);
-		return -ENOSYS;
-	}
+	if (!hdcp1_supported || !hdcp1_handle)
+		return -EINVAL;
 
 	/* set keys and request aksv */
 	key_set_req = (struct hdcp1_key_set_req *)hdcp1_handle->sbuf;
@@ -1204,7 +1261,6 @@ int hdcp_library_register(void **pphdcpcontext,
 	/* populate ops to be called by client */
 	txmtr_ops->feature_supported = hdcp_lib_client_feature_supported;
 	txmtr_ops->wakeup = hdcp_lib_wakeup;
-	txmtr_ops->hdcp_query_stream_type = hdcp_lib_query_stream_type;
 
 	handle = kzalloc(sizeof(*handle), GFP_KERNEL);
 	if (!handle) {
@@ -1215,9 +1271,10 @@ int hdcp_library_register(void **pphdcpcontext,
 	handle->client_ctx = client_ctx;
 	handle->client_ops = client_ops;
 
-	atomic_set(&handle->hdcp_off_pending, 0);
+	atomic_set(&handle->hdcp_off, 0);
 
 	mutex_init(&handle->hdcp_lock);
+	mutex_init(&handle->wakeup_mutex);
 
 	init_kthread_worker(&handle->worker);
 
@@ -1226,6 +1283,10 @@ int hdcp_library_register(void **pphdcpcontext,
 	init_kthread_work(&handle->msg_recvd, hdcp_lib_msg_recvd_work);
 	init_kthread_work(&handle->timeout,   hdcp_lib_manage_timeout_work);
 	init_kthread_work(&handle->clean,     hdcp_lib_cleanup_work);
+	init_kthread_work(&handle->topology,  hdcp_lib_topology_work);
+	init_kthread_work(&handle->stream,    hdcp_lib_query_stream_type_work);
+
+	init_completion(&handle->topo_wait);
 
 	handle->listener_buf = kzalloc(MAX_TX_MESSAGE_SIZE, GFP_KERNEL);
 	if (!(handle->listener_buf)) {
@@ -1267,6 +1328,7 @@ void hdcp_library_deregister(void *phdcpcontext)
 	kzfree(handle->qseecom_handle);
 
 	mutex_destroy(&handle->hdcp_lock);
+	mutex_destroy(&handle->wakeup_mutex);
 
 	kzfree(handle->listener_buf);
 	kzfree(handle);

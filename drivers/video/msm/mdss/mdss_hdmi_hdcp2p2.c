@@ -34,6 +34,8 @@
 #define HDCP_SINK_DDC_HDCP2_RXSTATUS 0x70        /* RxStatus, 2 bytes */
 #define HDCP_SINK_DDC_HDCP2_READ_MESSAGE 0x80    /* HDCP Tx reads here */
 
+#define HDCP2P2_LINK_CHECK_TIME_MS 500 /* link check within 1 sec */
+
 /*
  * HDCP 2.2 encryption requires the data encryption block that is present in
  * HDMI controller version 4.0.0 and above
@@ -54,7 +56,6 @@ struct hdmi_hdcp2p2_ctrl {
 	struct hdmi_hdcp_ops *ops;
 	void *lib_ctx; /* Handle to HDCP 2.2 Trustzone library */
 	struct hdcp_txmtr_ops *lib; /* Ops for driver to call into TZ */
-	struct completion rxstatus_completion; /* Rx status interrupt */
 
 	enum hdmi_hdcp_wakeup_cmd wakeup_cmd;
 	char *send_msg_buf;
@@ -67,6 +68,9 @@ struct hdmi_hdcp2p2_ctrl {
 	struct kthread_work auth;
 	struct kthread_work send_msg;
 	struct kthread_work recv_msg;
+	struct kthread_work link;
+
+	struct delayed_work link_check_work;
 };
 
 static int hdmi_hdcp2p2_wakeup(struct hdmi_hdcp_wakeup_data *data)
@@ -86,7 +90,7 @@ static int hdmi_hdcp2p2_wakeup(struct hdmi_hdcp_wakeup_data *data)
 
 	mutex_lock(&ctrl->wakeup_mutex);
 
-	pr_debug("wakeup_cmd: %s\n", hdmi_hdcp_cmd_to_str(data->cmd));
+	pr_debug("cmd: %s\n", hdmi_hdcp_cmd_to_str(data->cmd));
 
 	ctrl->wakeup_cmd = data->cmd;
 	ctrl->timeout = data->timeout;
@@ -275,7 +279,8 @@ static ssize_t hdmi_hdcp2p2_sysfs_wta_min_level_change(struct device *dev,
 {
 	struct hdmi_hdcp2p2_ctrl *ctrl =
 		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_HDCP2P2);
-	int res;
+	struct hdcp_lib_wakeup_data cdata = {
+		HDCP_LIB_WKUP_CMD_QUERY_STREAM_TYPE};
 
 	if (!ctrl) {
 		pr_err("invalid input\n");
@@ -283,8 +288,9 @@ static ssize_t hdmi_hdcp2p2_sysfs_wta_min_level_change(struct device *dev,
 	}
 
 	pr_debug("notification of minimum level change received\n");
-	res = ctrl->lib->
-		hdcp_query_stream_type(ctrl->lib_ctx);
+
+	cdata.context = ctrl->lib_ctx;
+	hdmi_hdcp2p2_wakeup_lib(ctrl, &cdata);
 
 	return  count;
 }
@@ -299,8 +305,7 @@ static void hdmi_hdcp2p2_auth_failed(struct hdmi_hdcp2p2_ctrl *ctrl)
 	atomic_set(&ctrl->auth_state, HDCP_STATE_AUTH_FAIL);
 
 	/* notify hdmi tx about HDCP failure */
-	ctrl->init_data.notify_status(
-		ctrl->init_data.cb_data,
+	ctrl->init_data.notify_status(ctrl->init_data.cb_data,
 		HDCP_STATE_AUTH_FAIL);
 }
 
@@ -310,6 +315,10 @@ static int hdmi_hdcp2p2_ddc_read_message(struct hdmi_hdcp2p2_ctrl *ctrl,
 	struct hdmi_tx_ddc_data ddc_data;
 	int rc;
 
+	if (atomic_read(&ctrl->auth_state) == HDCP_STATE_INACTIVE) {
+		pr_err("hdcp is off\n");
+		return -EINVAL;
+	}
 	memset(&ddc_data, 0, sizeof(ddc_data));
 	ddc_data.dev_addr = HDCP_SINK_DDC_SLAVE_ADDR;
 	ddc_data.offset = HDCP_SINK_DDC_HDCP2_READ_MESSAGE;
@@ -320,7 +329,9 @@ static int hdmi_hdcp2p2_ddc_read_message(struct hdmi_hdcp2p2_ctrl *ctrl,
 	ddc_data.hard_timeout = timeout;
 	ddc_data.what = "HDCP2ReadMessage";
 
-	rc = hdmi_ddc_read(ctrl->init_data.ddc_ctrl, &ddc_data);
+	ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
+
+	rc = hdmi_ddc_read(ctrl->init_data.ddc_ctrl);
 	if (rc)
 		pr_err("Cannot read HDCP message register\n");
 	return rc;
@@ -340,22 +351,12 @@ static int hdmi_hdcp2p2_ddc_write_message(struct hdmi_hdcp2p2_ctrl *ctrl,
 	ddc_data.retry = 1;
 	ddc_data.what = "HDCP2WriteMessage";
 
-	rc = hdmi_ddc_write(ctrl->init_data.ddc_ctrl, &ddc_data);
+	ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
+
+	rc = hdmi_ddc_write(ctrl->init_data.ddc_ctrl);
 	if (rc)
-		pr_err("Cannot write HDCP message register");
+		pr_err("Cannot write HDCP message register\n");
 	return rc;
-}
-
-static void hdmi_hdcp2p2_ddc_abort(struct hdmi_hdcp2p2_ctrl *ctrl)
-{
-	/* Abort any ongoing DDC transactions */
-	struct hdmi_tx_ddc_data ddc_data;
-
-	memset(&ddc_data, 0, sizeof(ddc_data));
-	ddc_data.retry = 1;
-	ddc_data.what = "HDCPAbortTransaction";
-	hdmi_ddc_abort_transaction(ctrl->init_data.ddc_ctrl,
-		&ddc_data);
 }
 
 static int hdmi_hdcp2p2_read_version(struct hdmi_hdcp2p2_ctrl *ctrl,
@@ -373,7 +374,9 @@ static int hdmi_hdcp2p2_read_version(struct hdmi_hdcp2p2_ctrl *ctrl,
 	ddc_data.retry = 1;
 	ddc_data.what = "HDCP2Version";
 
-	rc = hdmi_ddc_read(ctrl->init_data.ddc_ctrl, &ddc_data);
+	ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
+
+	rc = hdmi_ddc_read(ctrl->init_data.ddc_ctrl);
 	if (rc) {
 		pr_err("Cannot read HDCP2Version register");
 		return rc;
@@ -423,44 +426,6 @@ static struct attribute_group hdmi_hdcp2p2_fs_attr_group = {
 	.name = "hdcp2p2",
 	.attrs = hdmi_hdcp2p2_fs_attrs,
 };
-
-static int hdmi_hdcp2p2_isr(void *input)
-{
-	struct hdmi_hdcp2p2_ctrl *ctrl = input;
-	u32 reg_val;
-
-	if (!ctrl) {
-		pr_err("invalid input\n");
-		return -EINVAL;
-	}
-
-	pr_debug("INT_CTRL0 is 0x%x\n",
-		DSS_REG_R(ctrl->init_data.core_io, HDMI_DDC_INT_CTRL0));
-	reg_val = DSS_REG_R(ctrl->init_data.core_io,
-			HDMI_HDCP_INT_CTRL2);
-	if (reg_val & BIT(0)) {
-		pr_debug("HDCP 2.2 Encryption is enabled\n");
-		reg_val |= BIT(1);
-		DSS_REG_W(ctrl->init_data.core_io, HDMI_HDCP_INT_CTRL2,
-			reg_val);
-	}
-
-	reg_val = DSS_REG_R(ctrl->init_data.core_io,
-							HDMI_DDC_INT_CTRL0);
-	if (reg_val & HDCP2P2_RXSTATUS_MESSAGE_SIZE_MASK) {
-		DSS_REG_W(ctrl->init_data.core_io, HDMI_DDC_INT_CTRL0,
-						reg_val & ~(BIT(31)));
-		if (!completion_done(&ctrl->rxstatus_completion))
-			complete_all(&ctrl->rxstatus_completion);
-	} else if (reg_val & BIT(8)) {
-		DSS_REG_W(ctrl->init_data.core_io, HDMI_DDC_INT_CTRL0,
-						reg_val & ~(BIT(9) | BIT(10)));
-		if (!completion_done(&ctrl->rxstatus_completion))
-			complete_all(&ctrl->rxstatus_completion);
-	}
-
-	return 0;
-}
 
 static bool hdmi_hdcp2p2_feature_supported(void *input)
 {
@@ -525,12 +490,12 @@ exit:
 
 static void hdmi_hdcp2p2_recv_msg_work(struct kthread_work *work)
 {
-	int rc = 0, msg_size = 0, retries = 5;
+	int rc = 0;
 	u64 mult;
 	char *recvd_msg_buf = NULL;
 	struct hdmi_hdcp2p2_ctrl *ctrl = container_of(work,
 		struct hdmi_hdcp2p2_ctrl, recv_msg);
-	struct hdmi_tx_hdcp2p2_ddc_data hdcp2p2_ddc_data;
+	struct hdmi_tx_hdcp2p2_ddc_data *ddc_data;
 	struct hdmi_tx_ddc_ctrl *ddc_ctrl;
 	struct msm_hdmi_mode_timing_info *timing;
 	struct hdcp_lib_wakeup_data cdata = {HDCP_LIB_WKUP_CMD_INVALID};
@@ -550,59 +515,47 @@ static void hdmi_hdcp2p2_recv_msg_work(struct kthread_work *work)
 	}
 
 	ddc_ctrl = ctrl->init_data.ddc_ctrl;
+	if (!ddc_ctrl)
+		goto exit;
 
-	do {
-		timing = ctrl->init_data.timing;
+	hdmi_ddc_config(ddc_ctrl);
 
-		mult = hdmi_tx_get_v_total(timing) / 20;
-		memset(&hdcp2p2_ddc_data, 0, sizeof(hdcp2p2_ddc_data));
-		hdcp2p2_ddc_data.ddc_data.what = "HDCP2RxStatus";
-		hdcp2p2_ddc_data.ddc_data.data_buf = (u8 *)&msg_size;
-		hdcp2p2_ddc_data.ddc_data.data_len = sizeof(msg_size);
-		hdcp2p2_ddc_data.rxstatus_field = RXSTATUS_MESSAGE_SIZE;
-		hdcp2p2_ddc_data.timer_delay_lines = (u32)mult;
-		hdcp2p2_ddc_data.irq_wait_count = 100;
-		hdcp2p2_ddc_data.poll_sink = false;
+	ddc_data = &ddc_ctrl->hdcp2p2_ddc_data;
 
-		hdmi_ddc_config(ddc_ctrl);
-		pr_debug("Reading rxstatus, timer delay %u\n", (u32)mult);
+	memset(ddc_data, 0, sizeof(*ddc_data));
 
-		rc = hdmi_hdcp2p2_ddc_read_rxstatus(
-			ddc_ctrl, &hdcp2p2_ddc_data,
-			&ctrl->rxstatus_completion);
-		if (rc) {
-			pr_err("Could not read rxstatus from sink\n");
-			continue;
-		}
+	timing = ctrl->init_data.timing;
+	mult = hdmi_tx_get_v_total(timing) / 20;
+	ddc_data->intr_mask = RXSTATUS_MESSAGE_SIZE;
+	ddc_data->timer_delay_lines = (u32)mult;
+	ddc_data->read_method = HDCP2P2_RXSTATUS_HW_DDC_SW_TRIGGER;
 
-		if (!msg_size) {
-			pr_err("recvd invalid message size\n");
-			rc = -EINVAL;
-			continue;
-		}
-	} while (rc && (retries-- > 0));
-
+	rc = hdmi_hdcp2p2_ddc_read_rxstatus(ddc_ctrl);
 	if (rc) {
-		pr_err("error reading valid rxstatus data\n");
+		pr_err("error reading rxstatus %d\n", rc);
 		goto exit;
 	}
 
-	recvd_msg_buf = kzalloc(msg_size, GFP_KERNEL);
+	if (!ddc_data->message_size) {
+		pr_err("recvd invalid message size\n");
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	pr_debug("rxstatus msg size %d\n", ddc_data->message_size);
+
+	recvd_msg_buf = kzalloc(ddc_data->message_size, GFP_KERNEL);
 	if (!recvd_msg_buf)
 		goto exit;
 
 	rc = hdmi_hdcp2p2_ddc_read_message(ctrl, recvd_msg_buf,
-		msg_size, ctrl->timeout);
+		ddc_data->message_size, ctrl->timeout);
 	if (rc)
-		pr_err("ERROR reading message from sink\n");
-
-	hdmi_hdcp2p2_ddc_abort(ctrl);
-	hdmi_hdcp2p2_ddc_reset(ddc_ctrl);
-	hdmi_hdcp2p2_ddc_disable(ddc_ctrl);
+		pr_err("error reading message %d\n", rc);
 
 	cdata.cmd = HDCP_LIB_WKUP_CMD_MSG_RECV_SUCCESS;
 	cdata.recvd_msg_buf = recvd_msg_buf;
-	cdata.recvd_msg_len = msg_size;
+	cdata.recvd_msg_len = ddc_data->message_size;
 exit:
 	if (rc == -ETIMEDOUT)
 		cdata.cmd = HDCP_LIB_WKUP_CMD_MSG_RECV_TIMEOUT;
@@ -646,12 +599,118 @@ static void hdmi_hdcp2p2_auth_status_work(struct kthread_work *work)
 		DSS_REG_W(ctrl->init_data.core_io,
 			HDMI_HDCP_INT_CTRL2, regval);
 
-		ctrl->init_data.notify_status(
-			ctrl->init_data.cb_data,
+		ctrl->init_data.notify_status(ctrl->init_data.cb_data,
 			HDCP_STATE_AUTHENTICATED);
+
+		/* recheck within 1sec as per hdcp 2.2 standard */
+		schedule_delayed_work(&ctrl->link_check_work,
+			msecs_to_jiffies(HDCP2P2_LINK_CHECK_TIME_MS));
 	}
 exit:
 	mutex_unlock(&ctrl->mutex);
+}
+
+static void hdmi_hdcp2p2_link_schedule_work(struct work_struct *work)
+{
+	struct hdmi_hdcp2p2_ctrl *ctrl = container_of(to_delayed_work(work),
+		struct hdmi_hdcp2p2_ctrl, link_check_work);
+
+	if (atomic_read(&ctrl->auth_state) != HDCP_STATE_INACTIVE)
+		queue_kthread_work(&ctrl->worker, &ctrl->link);
+}
+
+static void hdmi_hdcp2p2_link_work(struct kthread_work *work)
+{
+	int rc = 0;
+	struct hdmi_hdcp2p2_ctrl *ctrl = container_of(work,
+		struct hdmi_hdcp2p2_ctrl, link);
+	struct hdcp_lib_wakeup_data cdata = {HDCP_LIB_WKUP_CMD_INVALID};
+	struct hdmi_tx_ddc_ctrl *ddc_ctrl;
+	struct hdmi_tx_hdcp2p2_ddc_data *ddc_data;
+	u64 mult;
+	struct msm_hdmi_mode_timing_info *timing;
+	char *recvd_msg_buf = NULL;
+
+	if (!ctrl) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	mutex_lock(&ctrl->mutex);
+
+	cdata.context = ctrl->lib_ctx;
+
+	ddc_ctrl = ctrl->init_data.ddc_ctrl;
+	if (!ddc_ctrl) {
+		rc = -EINVAL;
+		cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
+		goto exit;
+	}
+
+	hdmi_ddc_config(ddc_ctrl);
+
+	ddc_data = &ddc_ctrl->hdcp2p2_ddc_data;
+
+	memset(ddc_data, 0, sizeof(*ddc_data));
+
+	timing = ctrl->init_data.timing;
+	mult = hdmi_tx_get_v_total(timing) / 20;
+	ddc_data->intr_mask = RXSTATUS_READY | RXSTATUS_MESSAGE_SIZE |
+		RXSTATUS_REAUTH_REQ;
+	ddc_data->timer_delay_lines = (u32)mult;
+	ddc_data->read_method = HDCP2P2_RXSTATUS_HW_DDC_SW_TRIGGER;
+
+	rc = hdmi_hdcp2p2_ddc_read_rxstatus(ddc_ctrl);
+	if (rc) {
+		pr_err("error reading rxstatus %d\n", rc);
+		cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
+		goto exit;
+	}
+
+	if (ddc_data->reauth_req) {
+		pr_debug("sync reported loss of synchronization, reauth\n");
+		rc = -ENOLINK;
+		cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
+		goto exit;
+	}
+
+	if (ddc_data->ready && ddc_data->message_size) {
+		pr_debug("topology changed. rxstatus msg size %d\n",
+			ddc_data->message_size);
+
+		recvd_msg_buf = kzalloc(ddc_data->message_size, GFP_KERNEL);
+		if (!recvd_msg_buf) {
+			cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
+			goto exit;
+		}
+
+		rc = hdmi_hdcp2p2_ddc_read_message(ctrl, recvd_msg_buf,
+			ddc_data->message_size, ctrl->timeout);
+		if (rc) {
+			cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
+			pr_err("error reading message %d\n", rc);
+		} else {
+			cdata.cmd = HDCP_LIB_WKUP_CMD_MSG_RECV_SUCCESS;
+			cdata.recvd_msg_buf = recvd_msg_buf;
+			cdata.recvd_msg_len = ddc_data->message_size;
+		}
+	}
+exit:
+	mutex_unlock(&ctrl->mutex);
+
+	hdmi_hdcp2p2_wakeup_lib(ctrl, &cdata);
+	kfree(recvd_msg_buf);
+
+	if (rc) {
+		/* notify hdmi tx about auth failure */
+		hdmi_hdcp2p2_auth_failed(ctrl);
+
+		return;
+	}
+
+	/* recheck within 1sec as per hdcp 2.2 standard */
+	schedule_delayed_work(&ctrl->link_check_work,
+		msecs_to_jiffies(HDCP2P2_LINK_CHECK_TIME_MS));
 }
 
 static void hdmi_hdcp2p2_auth_work(struct kthread_work *work)
@@ -707,7 +766,6 @@ void *hdmi_hdcp2p2_init(struct hdmi_hdcp_init_data *init_data)
 	struct hdmi_hdcp2p2_ctrl *ctrl;
 	int rc;
 	static struct hdmi_hdcp_ops ops = {
-		.hdmi_hdcp_isr = hdmi_hdcp2p2_isr,
 		.hdmi_hdcp_reauthenticate = hdmi_hdcp2p2_reauthenticate,
 		.hdmi_hdcp_authenticate = hdmi_hdcp2p2_authenticate,
 		.feature_supported = hdmi_hdcp2p2_feature_supported,
@@ -748,8 +806,6 @@ void *hdmi_hdcp2p2_init(struct hdmi_hdcp_init_data *init_data)
 		goto error;
 	}
 
-	init_completion(&ctrl->rxstatus_completion);
-
 	ctrl->sink_status = SINK_DISCONNECTED;
 
 	atomic_set(&ctrl->auth_state, HDCP_STATE_INACTIVE);
@@ -771,9 +827,13 @@ void *hdmi_hdcp2p2_init(struct hdmi_hdcp_init_data *init_data)
 	init_kthread_work(&ctrl->send_msg, hdmi_hdcp2p2_send_msg_work);
 	init_kthread_work(&ctrl->recv_msg, hdmi_hdcp2p2_recv_msg_work);
 	init_kthread_work(&ctrl->status,   hdmi_hdcp2p2_auth_status_work);
+	init_kthread_work(&ctrl->link,     hdmi_hdcp2p2_link_work);
 
 	ctrl->thread = kthread_run(kthread_worker_fn,
 		&ctrl->worker, "hdmi_hdcp2p2");
+
+	INIT_DELAYED_WORK(&ctrl->link_check_work,
+		hdmi_hdcp2p2_link_schedule_work);
 
 	if (IS_ERR(ctrl->thread)) {
 		pr_err("unable to start hdcp2p2 thread\n");
