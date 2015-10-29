@@ -103,7 +103,9 @@ static int mmc_cmdq_thread(void *d)
 			spin_unlock_irqrestore(q->queue_lock, flags);
 			if (ret) {
 				test_and_set_bit(0, &ctx->req_starved);
-				schedule();
+				up(&mq->thread_sem);
+				schedule_timeout(HZ / 100);
+				down(&mq->thread_sem);
 			} else {
 				if (!mmc_cmdq_should_pull_reqs(host, ctx,
 							       req)) {
@@ -112,7 +114,9 @@ static int mmc_cmdq_thread(void *d)
 					spin_unlock_irqrestore(q->queue_lock,
 							       flags);
 					test_and_set_bit(0, &ctx->req_starved);
-					schedule();
+					up(&mq->thread_sem);
+					schedule_timeout(HZ / 100);
+					down(&mq->thread_sem);
 					continue;
 				}
 				set_current_state(TASK_RUNNING);
