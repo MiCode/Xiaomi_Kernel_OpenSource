@@ -184,4 +184,22 @@ config SND_SOC_MSM8X16
 	 the machine driver and the corresponding
 	 DAI-links
 
+config SND_SOC_MDMCALIFORNIUM
+        tristate "SoC Machine driver for MDMCALIFORNIUM boards"
+        depends on ARCH_MDMCALIFORNIUM
+        select SND_SOC_QDSP6V2
+        select SND_SOC_MSM_STUB
+        select SND_SOC_MSM_HOSTLESS_PCM
+        select SND_DYNAMIC_MINORS
+        select MSM_QDSP6_APRV3
+        select MSM_QDSP6V2_CODECS
+        select SND_SOC_WCD9335
+        select SND_SOC_WSA881X
+        select SND_HWDEP
+        help
+         To add support for SoC audio on MDMCALIFORNIUM.
+         This will enable sound soc drivers which
+         interfaces with DSP, also it will enable
+         the machine driver and the corresponding
+         DAI-links
 endmenu
