@@ -5168,33 +5168,44 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	{"SLIM TX0 MUX", "DEC0", "ADC MUX0"},
 	{"SLIM TX0 MUX", "RX_MIX_TX0", "RX MIX TX0 MUX"},
+	{"SLIM TX0 MUX", "DEC0_192", "ADC US MUX0"},
 
 	{"SLIM TX1 MUX", "DEC1", "ADC MUX1"},
 	{"SLIM TX1 MUX", "RX_MIX_TX1", "RX MIX TX1 MUX"},
+	{"SLIM TX1 MUX", "DEC1_192", "ADC US MUX1"},
 
 	{"SLIM TX2 MUX", "DEC2", "ADC MUX2"},
 	{"SLIM TX2 MUX", "RX_MIX_TX2", "RX MIX TX2 MUX"},
+	{"SLIM TX2 MUX", "DEC2_192", "ADC US MUX2"},
 
 	{"SLIM TX3 MUX", "DEC3", "ADC MUX3"},
 	{"SLIM TX3 MUX", "RX_MIX_TX3", "RX MIX TX3 MUX"},
+	{"SLIM TX3 MUX", "DEC3_192", "ADC US MUX3"},
 
 	{"SLIM TX4 MUX", "DEC4", "ADC MUX4"},
 	{"SLIM TX4 MUX", "RX_MIX_TX4", "RX MIX TX4 MUX"},
+	{"SLIM TX4 MUX", "DEC4_192", "ADC US MUX4"},
 
 	{"SLIM TX5 MUX", "DEC5", "ADC MUX5"},
 	{"SLIM TX5 MUX", "RX_MIX_TX5", "RX MIX TX5 MUX"},
+	{"SLIM TX5 MUX", "DEC5_192", "ADC US MUX5"},
 
 	{"SLIM TX6 MUX", "DEC6", "ADC MUX6"},
 	{"SLIM TX6 MUX", "RX_MIX_TX6", "RX MIX TX6 MUX"},
+	{"SLIM TX6 MUX", "DEC6_192", "ADC US MUX6"},
 
 	{"SLIM TX7 MUX", "DEC7", "ADC MUX7"},
 	{"SLIM TX7 MUX", "RX_MIX_TX7", "RX MIX TX7 MUX"},
+	{"SLIM TX7 MUX", "DEC7_192", "ADC US MUX7"},
 
 	{"SLIM TX8 MUX", "DEC8", "ADC MUX8"},
 	{"SLIM TX8 MUX", "RX_MIX_TX8", "RX MIX TX8 MUX"},
+	{"SLIM TX8 MUX", "DEC8_192", "ADC US MUX8"},
 
 	{"SLIM TX9 MUX", "DEC7", "ADC MUX7"},
+	{"SLIM TX9 MUX", "DEC7_192", "ADC US MUX7"},
 	{"SLIM TX10 MUX", "DEC6", "ADC MUX6"},
+	{"SLIM TX10 MUX", "DEC6_192", "ADC US MUX6"},
 
 	{"SLIM TX11 MUX", "DEC_0_5", "SLIM TX11 INP1 MUX"},
 	{"SLIM TX11 MUX", "DEC_9_12", "SLIM TX11 INP1 MUX"},
@@ -5336,6 +5347,15 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX MIX TX8 MUX", "RX_MIX_VBAT7", "RX INT7 VBAT"},
 	{"RX MIX TX8 MUX", "RX_MIX_VBAT8", "RX INT8 VBAT"},
 
+	{"ADC US MUX0", "US_Switch", "ADC MUX0"},
+	{"ADC US MUX1", "US_Switch", "ADC MUX1"},
+	{"ADC US MUX2", "US_Switch", "ADC MUX2"},
+	{"ADC US MUX3", "US_Switch", "ADC MUX3"},
+	{"ADC US MUX4", "US_Switch", "ADC MUX4"},
+	{"ADC US MUX5", "US_Switch", "ADC MUX5"},
+	{"ADC US MUX6", "US_Switch", "ADC MUX6"},
+	{"ADC US MUX7", "US_Switch", "ADC MUX7"},
+	{"ADC US MUX8", "US_Switch", "ADC MUX8"},
 	{"ADC MUX0", "DMIC", "DMIC MUX0"},
 	{"ADC MUX0", "AMIC", "AMIC MUX0"},
 	{"ADC MUX1", "DMIC", "DMIC MUX1"},
@@ -8789,6 +8809,33 @@ static const struct snd_kcontrol_new anc_lineout1_switch =
 static const struct snd_kcontrol_new anc_lineout2_switch =
 	SOC_DAPM_SINGLE("Switch", SND_SOC_NOPM, 0, 1, 0);
 
+static const struct snd_kcontrol_new adc_us_mux0_switch =
+	SOC_DAPM_SINGLE("US_Switch", SND_SOC_NOPM, 0, 1, 0);
+
+static const struct snd_kcontrol_new adc_us_mux1_switch =
+	SOC_DAPM_SINGLE("US_Switch", SND_SOC_NOPM, 0, 1, 0);
+
+static const struct snd_kcontrol_new adc_us_mux2_switch =
+	SOC_DAPM_SINGLE("US_Switch", SND_SOC_NOPM, 0, 1, 0);
+
+static const struct snd_kcontrol_new adc_us_mux3_switch =
+	SOC_DAPM_SINGLE("US_Switch", SND_SOC_NOPM, 0, 1, 0);
+
+static const struct snd_kcontrol_new adc_us_mux4_switch =
+	SOC_DAPM_SINGLE("US_Switch", SND_SOC_NOPM, 0, 1, 0);
+
+static const struct snd_kcontrol_new adc_us_mux5_switch =
+	SOC_DAPM_SINGLE("US_Switch", SND_SOC_NOPM, 0, 1, 0);
+
+static const struct snd_kcontrol_new adc_us_mux6_switch =
+	SOC_DAPM_SINGLE("US_Switch", SND_SOC_NOPM, 0, 1, 0);
+
+static const struct snd_kcontrol_new adc_us_mux7_switch =
+	SOC_DAPM_SINGLE("US_Switch", SND_SOC_NOPM, 0, 1, 0);
+
+static const struct snd_kcontrol_new adc_us_mux8_switch =
+	SOC_DAPM_SINGLE("US_Switch", SND_SOC_NOPM, 0, 1, 0);
+
 static const struct snd_kcontrol_new anc0_fb_mux =
 	SOC_DAPM_ENUM("ANC0 FB MUX Mux", anc0_fb_mux_enum);
 
@@ -9486,6 +9533,24 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_OUTPUT("ANC LINEOUT1"),
 	SND_SOC_DAPM_OUTPUT("ANC LINEOUT2"),
 
+	SND_SOC_DAPM_SWITCH("ADC US MUX0", WCD9335_CDC_TX0_TX_PATH_192_CTL, 0,
+			    0, &adc_us_mux0_switch),
+	SND_SOC_DAPM_SWITCH("ADC US MUX1", WCD9335_CDC_TX1_TX_PATH_192_CTL, 0,
+			    0, &adc_us_mux1_switch),
+	SND_SOC_DAPM_SWITCH("ADC US MUX2", WCD9335_CDC_TX2_TX_PATH_192_CTL, 0,
+			    0, &adc_us_mux2_switch),
+	SND_SOC_DAPM_SWITCH("ADC US MUX3", WCD9335_CDC_TX3_TX_PATH_192_CTL, 0,
+			    0, &adc_us_mux3_switch),
+	SND_SOC_DAPM_SWITCH("ADC US MUX4", WCD9335_CDC_TX4_TX_PATH_192_CTL, 0,
+			    0, &adc_us_mux4_switch),
+	SND_SOC_DAPM_SWITCH("ADC US MUX5", WCD9335_CDC_TX5_TX_PATH_192_CTL, 0,
+			    0, &adc_us_mux5_switch),
+	SND_SOC_DAPM_SWITCH("ADC US MUX6", WCD9335_CDC_TX6_TX_PATH_192_CTL, 0,
+			    0, &adc_us_mux6_switch),
+	SND_SOC_DAPM_SWITCH("ADC US MUX7", WCD9335_CDC_TX7_TX_PATH_192_CTL, 0,
+			    0, &adc_us_mux7_switch),
+	SND_SOC_DAPM_SWITCH("ADC US MUX8", WCD9335_CDC_TX8_TX_PATH_192_CTL, 0,
+			    0, &adc_us_mux8_switch),
 	/* MAD related widgets */
 	SND_SOC_DAPM_AIF_OUT_E("AIF4 MAD", "AIF4 MAD TX", 0,
 			       SND_SOC_NOPM, 0, 0,
