@@ -359,6 +359,38 @@ int afe_get_port_type(u16 port_id)
 	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
 	case AFE_PORT_ID_SECONDARY_PCM_RX:
 	case AFE_PORT_ID_QUINARY_MI2S_RX:
+	case AFE_PORT_ID_PRIMARY_TDM_RX:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_1:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_2:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_3:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_4:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_5:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_6:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_7:
+	case AFE_PORT_ID_SECONDARY_TDM_RX:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_1:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_2:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_3:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_4:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_5:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_6:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_7:
+	case AFE_PORT_ID_TERTIARY_TDM_RX:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_1:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_2:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_3:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_4:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_5:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_6:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_7:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_1:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_2:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_3:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_4:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_5:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_6:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_7:
 		ret = MSM_AFE_PORT_TYPE_RX;
 		break;
 
@@ -386,6 +418,38 @@ int afe_get_port_type(u16 port_id)
 	case AFE_PORT_ID_SECONDARY_PCM_TX:
 	case AFE_PORT_ID_QUINARY_MI2S_TX:
 	case AFE_PORT_ID_SENARY_MI2S_TX:
+	case AFE_PORT_ID_PRIMARY_TDM_TX:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_1:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_2:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_3:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_4:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_5:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_6:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_7:
+	case AFE_PORT_ID_SECONDARY_TDM_TX:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_1:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_2:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_3:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_4:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_5:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_6:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_7:
+	case AFE_PORT_ID_TERTIARY_TDM_TX:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_1:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_2:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_3:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_4:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_5:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_6:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_7:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_1:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_2:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_3:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_4:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_5:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_6:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_7:
 		ret = MSM_AFE_PORT_TYPE_TX;
 		break;
 
@@ -1870,8 +1934,6 @@ fail_cmd:
 	return ret;
 }
 
-
-
 static int afe_send_cmd_port_start(u16 port_id)
 {
 	struct afe_port_cmd_device_start start;
@@ -1994,6 +2056,269 @@ int afe_spdif_port_start(u16 port_id, struct afe_spdif_port_config *spdif_port,
 	}
 
 	return afe_send_cmd_port_start(port_id);
+
+fail_cmd:
+	return ret;
+}
+
+int afe_send_slot_mapping_cfg(
+	struct afe_param_id_slot_mapping_cfg *slot_mapping_cfg,
+	u16 port_id)
+{
+	struct afe_slot_mapping_config_command config;
+	int ret = 0;
+	int index = 0;
+
+	if (!slot_mapping_cfg) {
+		pr_err("%s: Error, no configuration data\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: port id: 0x%x\n", __func__, port_id);
+
+	index = q6audio_get_port_index(port_id);
+	ret = q6audio_validate_port(port_id);
+	if (ret < 0) {
+		pr_err("%s: port id: 0x%x ret %d\n", __func__, port_id, ret);
+		return -EINVAL;
+	}
+
+	memset(&config, 0, sizeof(config));
+	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+			APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	config.hdr.pkt_size = sizeof(config);
+	config.hdr.src_port = 0;
+	config.hdr.dest_port = 0;
+	config.hdr.token = index;
+
+	config.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
+	config.param.port_id = q6audio_get_port_id(port_id);
+	config.param.payload_size = sizeof(config)
+		- sizeof(struct apr_hdr) - sizeof(config.param);
+	config.param.payload_address_lsw = 0x00;
+	config.param.payload_address_msw = 0x00;
+	config.param.mem_map_handle = 0x00;
+	config.pdata.module_id = AFE_MODULE_TDM;
+	config.pdata.param_id = AFE_PARAM_ID_PORT_SLOT_MAPPING_CONFIG;
+	config.pdata.param_size =  sizeof(config.slot_mapping);
+	config.slot_mapping = *slot_mapping_cfg;
+
+	atomic_set(&this_afe.state, 1);
+	atomic_set(&this_afe.status, 0);
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &config);
+	if (ret < 0) {
+		pr_err("%s: AFE send slot mapping for port 0x%x failed ret = %d\n",
+				__func__, port_id, ret);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	ret = wait_event_timeout(this_afe.wait[index],
+			(atomic_read(&this_afe.state) == 0),
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n",
+				__func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	if (atomic_read(&this_afe.status) > 0) {
+		pr_err("%s: config cmd failed [%s]\n",
+			__func__, adsp_err_get_err_str(
+			atomic_read(&this_afe.status)));
+		ret = adsp_err_get_lnx_err_code(
+				atomic_read(&this_afe.status));
+		goto fail_cmd;
+	}
+
+fail_cmd:
+	return ret;
+}
+
+int afe_send_custom_tdm_header_cfg(
+	struct afe_param_id_custom_tdm_header_cfg *custom_tdm_header_cfg,
+	u16 port_id)
+{
+	struct afe_custom_tdm_header_config_command config;
+	int ret = 0;
+	int index = 0;
+
+	if (!custom_tdm_header_cfg) {
+		pr_err("%s: Error, no configuration data\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: port id: 0x%x\n", __func__, port_id);
+
+	index = q6audio_get_port_index(port_id);
+	ret = q6audio_validate_port(port_id);
+	if (ret < 0) {
+		pr_err("%s: port id: 0x%x ret %d\n", __func__, port_id, ret);
+		return -EINVAL;
+	}
+
+	memset(&config, 0, sizeof(config));
+	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+			APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	config.hdr.pkt_size = sizeof(config);
+	config.hdr.src_port = 0;
+	config.hdr.dest_port = 0;
+	config.hdr.token = index;
+
+	config.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
+	config.param.port_id = q6audio_get_port_id(port_id);
+	config.param.payload_size = sizeof(config)
+		- sizeof(struct apr_hdr) - sizeof(config.param);
+	config.param.payload_address_lsw = 0x00;
+	config.param.payload_address_msw = 0x00;
+	config.param.mem_map_handle = 0x00;
+	config.pdata.module_id = AFE_MODULE_TDM;
+	config.pdata.param_id = AFE_PARAM_ID_CUSTOM_TDM_HEADER_CONFIG;
+	config.pdata.param_size =  sizeof(config.custom_tdm_header);
+	config.custom_tdm_header = *custom_tdm_header_cfg;
+
+	atomic_set(&this_afe.state, 1);
+	atomic_set(&this_afe.status, 0);
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &config);
+	if (ret < 0) {
+		pr_err("%s: AFE send custom tdm header for port 0x%x failed ret = %d\n",
+				__func__, port_id, ret);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	ret = wait_event_timeout(this_afe.wait[index],
+			(atomic_read(&this_afe.state) == 0),
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (!ret) {
+		pr_err("%s: wait_event timeout\n",
+				__func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	if (atomic_read(&this_afe.status) > 0) {
+		pr_err("%s: config cmd failed [%s]\n",
+			__func__, adsp_err_get_err_str(
+			atomic_read(&this_afe.status)));
+		ret = adsp_err_get_lnx_err_code(
+				atomic_read(&this_afe.status));
+		goto fail_cmd;
+	}
+
+fail_cmd:
+	return ret;
+}
+
+int afe_tdm_port_start(u16 port_id, struct afe_tdm_port_config *tdm_port,
+		u32 rate)
+{
+	struct afe_audioif_config_command config;
+	int ret = 0;
+	int index = 0;
+	uint16_t port_index = 0;
+	enum afe_mad_type mad_type = MAD_HW_NONE;
+
+	if (!tdm_port) {
+		pr_err("%s: Error, no configuration data\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: port id: 0x%x\n", __func__, port_id);
+
+	index = q6audio_get_port_index(port_id);
+	ret = q6audio_validate_port(port_id);
+	if (ret < 0) {
+		pr_err("%s: port id: 0x%x ret %d\n", __func__, port_id, ret);
+		return -EINVAL;
+	}
+
+	ret = afe_q6_interface_prepare();
+	if (ret != 0) {
+		pr_err("%s: Q6 interface prepare failed %d\n", __func__, ret);
+		return ret;
+	}
+
+	/* Also send the topology id here: */
+	port_index = afe_get_port_index(port_id);
+	if (!(this_afe.afe_cal_mode[port_index] == AFE_CAL_MODE_NONE)) {
+		/* One time call: only for first time */
+		afe_send_custom_topology();
+		afe_send_port_topology_id(port_id);
+		afe_send_cal(port_id);
+		afe_send_hw_delay(port_id, rate);
+	}
+
+	/* Start SW MAD module */
+	mad_type = afe_port_get_mad_type(port_id);
+	pr_debug("%s: port_id 0x%x, mad_type %d\n", __func__, port_id,
+		 mad_type);
+	if (mad_type != MAD_HW_NONE && mad_type != MAD_SW_AUDIO) {
+		if (!afe_has_config(AFE_CDC_REGISTERS_CONFIG) ||
+			!afe_has_config(AFE_SLIMBUS_SLAVE_CONFIG)) {
+				pr_err("%s: AFE isn't configured yet for\n"
+					   "HW MAD try Again\n", __func__);
+				ret = -EAGAIN;
+				goto fail_cmd;
+		}
+		ret = afe_turn_onoff_hw_mad(mad_type, true);
+		if (ret) {
+			pr_err("%s: afe_turn_onoff_hw_mad failed %d\n",
+			       __func__, ret);
+			goto fail_cmd;
+		}
+	}
+
+	memset(&config, 0, sizeof(config));
+	config.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+			APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	config.hdr.pkt_size = sizeof(config);
+	config.hdr.src_port = 0;
+	config.hdr.dest_port = 0;
+	config.hdr.token = index;
+	config.hdr.opcode = AFE_PORT_CMD_SET_PARAM_V2;
+	config.param.port_id = q6audio_get_port_id(port_id);
+	config.param.payload_size = sizeof(config) - sizeof(struct apr_hdr) -
+		sizeof(config.param);
+	config.param.payload_address_lsw = 0x00;
+	config.param.payload_address_msw = 0x00;
+	config.param.mem_map_handle = 0x00;
+	config.pdata.module_id = AFE_MODULE_AUDIO_DEV_INTERFACE;
+	config.pdata.param_id = AFE_PARAM_ID_TDM_CONFIG;
+	config.pdata.param_size = sizeof(config.port);
+	config.port.tdm = tdm_port->tdm;
+
+	ret = afe_apr_send_pkt(&config, &this_afe.wait[index]);
+	if (ret) {
+		pr_err("%s: AFE enable for port 0x%x failed ret = %d\n",
+				__func__, port_id, ret);
+		goto fail_cmd;
+	}
+
+	port_index = afe_get_port_index(port_id);
+	if ((port_index >= 0) && (port_index < AFE_MAX_PORTS)) {
+		this_afe.afe_sample_rates[port_index] = rate;
+	} else {
+		pr_err("%s: Invalid port index %d\n", __func__, port_index);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	ret = afe_send_slot_mapping_cfg(&tdm_port->slot_mapping, port_id);
+	if (ret < 0) {
+		pr_err("%s: afe send failed %d\n", __func__, ret);
+		goto fail_cmd;
+	}
+
+	if (tdm_port->custom_tdm_header.header_type) {
+		ret = afe_send_custom_tdm_header_cfg(
+			&tdm_port->custom_tdm_header, port_id);
+		if (ret < 0) {
+			pr_err("%s: afe send failed %d\n", __func__, ret);
+			goto fail_cmd;
+		}
+	}
+
+	ret = afe_send_cmd_port_start(port_id);
 
 fail_cmd:
 	return ret;
@@ -2310,7 +2635,134 @@ int afe_get_port_index(u16 port_id)
 		return IDX_AFE_PORT_ID_QUINARY_MI2S_TX;
 	case AFE_PORT_ID_SENARY_MI2S_TX:
 		 return IDX_AFE_PORT_ID_SENARY_MI2S_TX;
-
+	case AFE_PORT_ID_PRIMARY_TDM_RX:
+		return IDX_AFE_PORT_ID_PRIMARY_TDM_RX_0;
+	case AFE_PORT_ID_PRIMARY_TDM_TX:
+		return IDX_AFE_PORT_ID_PRIMARY_TDM_TX_0;
+	case AFE_PORT_ID_PRIMARY_TDM_RX_1:
+		return IDX_AFE_PORT_ID_PRIMARY_TDM_RX_1;
+	case AFE_PORT_ID_PRIMARY_TDM_TX_1:
+		return IDX_AFE_PORT_ID_PRIMARY_TDM_TX_1;
+	case AFE_PORT_ID_PRIMARY_TDM_RX_2:
+		return IDX_AFE_PORT_ID_PRIMARY_TDM_RX_2;
+	case AFE_PORT_ID_PRIMARY_TDM_TX_2:
+		return IDX_AFE_PORT_ID_PRIMARY_TDM_TX_2;
+	case AFE_PORT_ID_PRIMARY_TDM_RX_3:
+		return IDX_AFE_PORT_ID_PRIMARY_TDM_RX_3;
+	case AFE_PORT_ID_PRIMARY_TDM_TX_3:
+		return IDX_AFE_PORT_ID_PRIMARY_TDM_TX_3;
+	case AFE_PORT_ID_PRIMARY_TDM_RX_4:
+		return IDX_AFE_PORT_ID_PRIMARY_TDM_RX_4;
+	case AFE_PORT_ID_PRIMARY_TDM_TX_4:
+		return IDX_AFE_PORT_ID_PRIMARY_TDM_TX_4;
+	case AFE_PORT_ID_PRIMARY_TDM_RX_5:
+		return IDX_AFE_PORT_ID_PRIMARY_TDM_RX_5;
+	case AFE_PORT_ID_PRIMARY_TDM_TX_5:
+		return IDX_AFE_PORT_ID_PRIMARY_TDM_TX_5;
+	case AFE_PORT_ID_PRIMARY_TDM_RX_6:
+		return IDX_AFE_PORT_ID_PRIMARY_TDM_RX_6;
+	case AFE_PORT_ID_PRIMARY_TDM_TX_6:
+		return IDX_AFE_PORT_ID_PRIMARY_TDM_TX_6;
+	case AFE_PORT_ID_PRIMARY_TDM_RX_7:
+		return IDX_AFE_PORT_ID_PRIMARY_TDM_RX_7;
+	case AFE_PORT_ID_PRIMARY_TDM_TX_7:
+		return IDX_AFE_PORT_ID_PRIMARY_TDM_TX_7;
+	case AFE_PORT_ID_SECONDARY_TDM_RX:
+		return IDX_AFE_PORT_ID_SECONDARY_TDM_RX_0;
+	case AFE_PORT_ID_SECONDARY_TDM_TX:
+		return IDX_AFE_PORT_ID_SECONDARY_TDM_TX_0;
+	case AFE_PORT_ID_SECONDARY_TDM_RX_1:
+		return IDX_AFE_PORT_ID_SECONDARY_TDM_RX_1;
+	case AFE_PORT_ID_SECONDARY_TDM_TX_1:
+		return IDX_AFE_PORT_ID_SECONDARY_TDM_TX_1;
+	case AFE_PORT_ID_SECONDARY_TDM_RX_2:
+		return IDX_AFE_PORT_ID_SECONDARY_TDM_RX_2;
+	case AFE_PORT_ID_SECONDARY_TDM_TX_2:
+		return IDX_AFE_PORT_ID_SECONDARY_TDM_TX_2;
+	case AFE_PORT_ID_SECONDARY_TDM_RX_3:
+		return IDX_AFE_PORT_ID_SECONDARY_TDM_RX_3;
+	case AFE_PORT_ID_SECONDARY_TDM_TX_3:
+		return IDX_AFE_PORT_ID_SECONDARY_TDM_TX_3;
+	case AFE_PORT_ID_SECONDARY_TDM_RX_4:
+		return IDX_AFE_PORT_ID_SECONDARY_TDM_RX_4;
+	case AFE_PORT_ID_SECONDARY_TDM_TX_4:
+		return IDX_AFE_PORT_ID_SECONDARY_TDM_TX_4;
+	case AFE_PORT_ID_SECONDARY_TDM_RX_5:
+		return IDX_AFE_PORT_ID_SECONDARY_TDM_RX_5;
+	case AFE_PORT_ID_SECONDARY_TDM_TX_5:
+		return IDX_AFE_PORT_ID_SECONDARY_TDM_TX_5;
+	case AFE_PORT_ID_SECONDARY_TDM_RX_6:
+		return IDX_AFE_PORT_ID_SECONDARY_TDM_RX_6;
+	case AFE_PORT_ID_SECONDARY_TDM_TX_6:
+		return IDX_AFE_PORT_ID_SECONDARY_TDM_TX_6;
+	case AFE_PORT_ID_SECONDARY_TDM_RX_7:
+		return IDX_AFE_PORT_ID_SECONDARY_TDM_RX_7;
+	case AFE_PORT_ID_SECONDARY_TDM_TX_7:
+		return IDX_AFE_PORT_ID_SECONDARY_TDM_TX_7;
+	case AFE_PORT_ID_TERTIARY_TDM_RX:
+		return IDX_AFE_PORT_ID_TERTIARY_TDM_RX_0;
+	case AFE_PORT_ID_TERTIARY_TDM_TX:
+		return IDX_AFE_PORT_ID_TERTIARY_TDM_TX_0;
+	case AFE_PORT_ID_TERTIARY_TDM_RX_1:
+		return IDX_AFE_PORT_ID_TERTIARY_TDM_RX_1;
+	case AFE_PORT_ID_TERTIARY_TDM_TX_1:
+		return IDX_AFE_PORT_ID_TERTIARY_TDM_TX_1;
+	case AFE_PORT_ID_TERTIARY_TDM_RX_2:
+		return IDX_AFE_PORT_ID_TERTIARY_TDM_RX_2;
+	case AFE_PORT_ID_TERTIARY_TDM_TX_2:
+		return IDX_AFE_PORT_ID_TERTIARY_TDM_TX_2;
+	case AFE_PORT_ID_TERTIARY_TDM_RX_3:
+		return IDX_AFE_PORT_ID_TERTIARY_TDM_RX_3;
+	case AFE_PORT_ID_TERTIARY_TDM_TX_3:
+		return IDX_AFE_PORT_ID_TERTIARY_TDM_TX_3;
+	case AFE_PORT_ID_TERTIARY_TDM_RX_4:
+		return IDX_AFE_PORT_ID_TERTIARY_TDM_RX_4;
+	case AFE_PORT_ID_TERTIARY_TDM_TX_4:
+		return IDX_AFE_PORT_ID_TERTIARY_TDM_TX_4;
+	case AFE_PORT_ID_TERTIARY_TDM_RX_5:
+		return IDX_AFE_PORT_ID_TERTIARY_TDM_RX_5;
+	case AFE_PORT_ID_TERTIARY_TDM_TX_5:
+		return IDX_AFE_PORT_ID_TERTIARY_TDM_TX_5;
+	case AFE_PORT_ID_TERTIARY_TDM_RX_6:
+		return IDX_AFE_PORT_ID_TERTIARY_TDM_RX_6;
+	case AFE_PORT_ID_TERTIARY_TDM_TX_6:
+		return IDX_AFE_PORT_ID_TERTIARY_TDM_TX_6;
+	case AFE_PORT_ID_TERTIARY_TDM_RX_7:
+		return IDX_AFE_PORT_ID_TERTIARY_TDM_RX_7;
+	case AFE_PORT_ID_TERTIARY_TDM_TX_7:
+		return IDX_AFE_PORT_ID_TERTIARY_TDM_TX_7;
+	case AFE_PORT_ID_QUATERNARY_TDM_RX:
+		return IDX_AFE_PORT_ID_QUATERNARY_TDM_RX_0;
+	case AFE_PORT_ID_QUATERNARY_TDM_TX:
+		return IDX_AFE_PORT_ID_QUATERNARY_TDM_TX_0;
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_1:
+		return IDX_AFE_PORT_ID_QUATERNARY_TDM_RX_1;
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_1:
+		return IDX_AFE_PORT_ID_QUATERNARY_TDM_TX_1;
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_2:
+		return IDX_AFE_PORT_ID_QUATERNARY_TDM_RX_2;
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_2:
+		return IDX_AFE_PORT_ID_QUATERNARY_TDM_TX_2;
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_3:
+		return IDX_AFE_PORT_ID_QUATERNARY_TDM_RX_3;
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_3:
+		return IDX_AFE_PORT_ID_QUATERNARY_TDM_TX_3;
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_4:
+		return IDX_AFE_PORT_ID_QUATERNARY_TDM_RX_4;
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_4:
+		return IDX_AFE_PORT_ID_QUATERNARY_TDM_TX_4;
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_5:
+		return IDX_AFE_PORT_ID_QUATERNARY_TDM_RX_5;
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_5:
+		return IDX_AFE_PORT_ID_QUATERNARY_TDM_TX_5;
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_6:
+		return IDX_AFE_PORT_ID_QUATERNARY_TDM_RX_6;
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_6:
+		return IDX_AFE_PORT_ID_QUATERNARY_TDM_TX_6;
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_7:
+		return IDX_AFE_PORT_ID_QUATERNARY_TDM_RX_7;
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_7:
+		return IDX_AFE_PORT_ID_QUATERNARY_TDM_TX_7;
 	default:
 		pr_err("%s: port 0x%x\n", __func__, port_id);
 		return -EINVAL;
@@ -2707,17 +3159,40 @@ int afe_pseudo_port_stop_nowait(u16 port_id)
 	return ret;
 }
 
-int afe_port_group_set_param(u16 *port_id, int channel_count)
+int afe_port_group_set_param(u16 group_id,
+	union afe_port_group_config *afe_group_config)
 {
 	int ret;
 	struct afe_port_group_create config;
+	int cfg_type;
 
-	pr_debug("%s: enter\n", __func__);
+	if (!afe_group_config) {
+		pr_err("%s: Error, no configuration data\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_debug("%s: group id: 0x%x\n", __func__, group_id);
 
 	ret = afe_q6_interface_prepare();
 	if (ret != 0) {
 		pr_err("%s: Q6 interface prepare failed %d\n", __func__, ret);
 		return ret;
+	}
+
+	switch (group_id) {
+	case AFE_GROUP_DEVICE_ID_PRIMARY_TDM_RX:
+	case AFE_GROUP_DEVICE_ID_PRIMARY_TDM_TX:
+	case AFE_GROUP_DEVICE_ID_SECONDARY_TDM_RX:
+	case AFE_GROUP_DEVICE_ID_SECONDARY_TDM_TX:
+	case AFE_GROUP_DEVICE_ID_TERTIARY_TDM_RX:
+	case AFE_GROUP_DEVICE_ID_TERTIARY_TDM_TX:
+	case AFE_GROUP_DEVICE_ID_QUATERNARY_TDM_RX:
+	case AFE_GROUP_DEVICE_ID_QUATERNARY_TDM_TX:
+		cfg_type = AFE_PARAM_ID_GROUP_DEVICE_TDM_CONFIG;
+		break;
+	default:
+		pr_err("%s: Invalid group id 0x%x\n", __func__, group_id);
+		return -EINVAL;
 	}
 
 	memset(&config, 0, sizeof(config));
@@ -2736,37 +3211,40 @@ int afe_port_group_set_param(u16 *port_id, int channel_count)
 	config.param.payload_address_msw = 0x00;
 	config.param.mem_map_handle = 0x00;
 	config.pdata.module_id = AFE_MODULE_GROUP_DEVICE;
-	config.pdata.param_id = AFE_PARAM_ID_GROUP_DEVICE_CFG;
-	config.pdata.param_size = sizeof(struct afe_group_device_group_cfg);
-	config.data.group_cfg.minor_version = 1;
-	config.data.group_cfg.group_id = AFE_GROUP_DEVICE_ID_SECONDARY_MI2S_RX;
-	config.data.group_cfg.port_id[0] = port_id[0];
-	config.data.group_cfg.port_id[1] = port_id[1];
-	config.data.group_cfg.port_id[2] = port_id[2];
-	config.data.group_cfg.port_id[3] = port_id[3];
-	config.data.group_cfg.port_id[4] = port_id[4];
-	config.data.group_cfg.port_id[5] = port_id[5];
-	config.data.group_cfg.port_id[6] = port_id[6];
-	config.data.group_cfg.port_id[7] = port_id[7];
-	config.data.group_cfg.num_channels = channel_count;
+	config.pdata.param_id = cfg_type;
+	config.pdata.param_size = sizeof(config.data);
+	config.data = *afe_group_config;
 
 	ret = afe_apr_send_pkt(&config, &this_afe.wait[IDX_GLOBAL_CFG]);
 	if (ret)
 		pr_err("%s: AFE_PARAM_ID_GROUP_DEVICE_CFG failed %d\n",
 			__func__, ret);
+
 	return ret;
 }
 
-int afe_port_group_enable(u16 enable)
+int afe_port_group_enable(u16 group_id,
+	union afe_port_group_config *afe_group_config,
+	u16 enable)
 {
 	int ret;
 	struct afe_port_group_create config;
 
-	pr_debug("%s: enter\n", __func__);
+	pr_debug("%s: group id: 0x%x enable: %d\n", __func__,
+		group_id, enable);
+
 	ret = afe_q6_interface_prepare();
 	if (ret != 0) {
 		pr_err("%s: Q6 interface prepare failed %d\n", __func__, ret);
 		return ret;
+	}
+
+	if (enable) {
+		ret = afe_port_group_set_param(group_id, afe_group_config);
+		if (ret < 0) {
+			pr_err("%s: afe send failed %d\n", __func__, ret);
+			return ret;
+		}
 	}
 
 	memset(&config, 0, sizeof(config));
@@ -2786,15 +3264,15 @@ int afe_port_group_enable(u16 enable)
 	config.param.mem_map_handle = 0x00;
 	config.pdata.module_id = AFE_MODULE_GROUP_DEVICE;
 	config.pdata.param_id = AFE_PARAM_ID_GROUP_DEVICE_ENABLE;
-	config.pdata.param_size = sizeof(struct afe_group_device_enable);
-	config.data.group_enable.group_id =
-			AFE_GROUP_DEVICE_ID_SECONDARY_MI2S_RX;
+	config.pdata.param_size = sizeof(config.data);
+	config.data.group_enable.group_id = group_id;
 	config.data.group_enable.enable = enable;
 
 	ret = afe_apr_send_pkt(&config, &this_afe.wait[IDX_GLOBAL_CFG]);
 	if (ret)
-		pr_err("%s: AFE_PARAM_ID_ENABLE failed %d\n", __func__,
-		       ret);
+		pr_err("%s: AFE_PARAM_ID_GROUP_DEVICE_ENABLE failed %d\n",
+			__func__, ret);
+
 	return ret;
 }
 
@@ -3809,6 +4287,70 @@ int afe_validate_port(u16 port_id)
 	case AFE_PORT_ID_QUINARY_MI2S_RX:
 	case AFE_PORT_ID_QUINARY_MI2S_TX:
 	case AFE_PORT_ID_SENARY_MI2S_TX:
+	case AFE_PORT_ID_PRIMARY_TDM_RX:
+	case AFE_PORT_ID_PRIMARY_TDM_TX:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_1:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_1:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_2:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_2:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_3:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_3:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_4:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_4:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_5:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_5:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_6:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_6:
+	case AFE_PORT_ID_PRIMARY_TDM_RX_7:
+	case AFE_PORT_ID_PRIMARY_TDM_TX_7:
+	case AFE_PORT_ID_SECONDARY_TDM_RX:
+	case AFE_PORT_ID_SECONDARY_TDM_TX:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_1:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_1:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_2:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_2:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_3:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_3:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_4:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_4:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_5:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_5:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_6:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_6:
+	case AFE_PORT_ID_SECONDARY_TDM_RX_7:
+	case AFE_PORT_ID_SECONDARY_TDM_TX_7:
+	case AFE_PORT_ID_TERTIARY_TDM_RX:
+	case AFE_PORT_ID_TERTIARY_TDM_TX:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_1:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_1:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_2:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_2:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_3:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_3:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_4:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_4:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_5:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_5:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_6:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_6:
+	case AFE_PORT_ID_TERTIARY_TDM_RX_7:
+	case AFE_PORT_ID_TERTIARY_TDM_TX_7:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_1:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_1:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_2:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_2:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_3:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_3:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_4:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_4:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_5:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_5:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_6:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_6:
+	case AFE_PORT_ID_QUATERNARY_TDM_RX_7:
+	case AFE_PORT_ID_QUATERNARY_TDM_TX_7:
 	{
 		ret = 0;
 		break;

@@ -848,6 +848,18 @@ struct adm_cmd_connect_afe_port_v5 {
 	(AFE_PORT_ID_PSEUDOPORT_RANGE_START +\
 	AFE_PORT_ID_PSEUDOPORT_RANGE_SIZE-1)
 
+/* Start of the range of port IDs for TDM devices. */
+#define AFE_PORT_ID_TDM_PORT_RANGE_START	0x9000
+
+/* End of the range of port IDs for TDM devices. */
+#define AFE_PORT_ID_TDM_PORT_RANGE_END \
+	(AFE_PORT_ID_TDM_PORT_RANGE_START+0x40-1)
+
+/* Size of the range of port IDs for TDM ports. */
+#define AFE_PORT_ID_TDM_PORT_RANGE_SIZE \
+	(AFE_PORT_ID_TDM_PORT_RANGE_END - \
+	AFE_PORT_ID_TDM_PORT_RANGE_START+1)
+
 #define AFE_PORT_ID_PRIMARY_MI2S_RX         0x1000
 #define AFE_PORT_ID_PRIMARY_MI2S_TX         0x1001
 #define AFE_PORT_ID_SECONDARY_MI2S_RX       0x1002
@@ -936,6 +948,143 @@ struct adm_cmd_connect_afe_port_v5 {
  */
 #define AFE_PORT_ID_VOICE2_PLAYBACK_TX  0x8002
 #define AFE_PORT_ID_VOICE_PLAYBACK_TX   0x8005
+
+#define AFE_PORT_ID_PRIMARY_TDM_RX \
+	(AFE_PORT_ID_TDM_PORT_RANGE_START + 0x00)
+#define AFE_PORT_ID_PRIMARY_TDM_RX_1 \
+	(AFE_PORT_ID_PRIMARY_TDM_RX + 0x02)
+#define AFE_PORT_ID_PRIMARY_TDM_RX_2 \
+	(AFE_PORT_ID_PRIMARY_TDM_RX + 0x04)
+#define AFE_PORT_ID_PRIMARY_TDM_RX_3 \
+	(AFE_PORT_ID_PRIMARY_TDM_RX + 0x06)
+#define AFE_PORT_ID_PRIMARY_TDM_RX_4 \
+	(AFE_PORT_ID_PRIMARY_TDM_RX + 0x08)
+#define AFE_PORT_ID_PRIMARY_TDM_RX_5 \
+	(AFE_PORT_ID_PRIMARY_TDM_RX + 0x0A)
+#define AFE_PORT_ID_PRIMARY_TDM_RX_6 \
+	(AFE_PORT_ID_PRIMARY_TDM_RX + 0x0C)
+#define AFE_PORT_ID_PRIMARY_TDM_RX_7 \
+	(AFE_PORT_ID_PRIMARY_TDM_RX + 0x0E)
+
+#define AFE_PORT_ID_PRIMARY_TDM_TX \
+	(AFE_PORT_ID_TDM_PORT_RANGE_START + 0x01)
+#define AFE_PORT_ID_PRIMARY_TDM_TX_1 \
+	(AFE_PORT_ID_PRIMARY_TDM_TX + 0x02)
+#define AFE_PORT_ID_PRIMARY_TDM_TX_2 \
+	(AFE_PORT_ID_PRIMARY_TDM_TX + 0x04)
+#define AFE_PORT_ID_PRIMARY_TDM_TX_3 \
+	(AFE_PORT_ID_PRIMARY_TDM_TX + 0x06)
+#define AFE_PORT_ID_PRIMARY_TDM_TX_4 \
+	(AFE_PORT_ID_PRIMARY_TDM_TX + 0x08)
+#define AFE_PORT_ID_PRIMARY_TDM_TX_5 \
+	(AFE_PORT_ID_PRIMARY_TDM_TX + 0x0A)
+#define AFE_PORT_ID_PRIMARY_TDM_TX_6 \
+	(AFE_PORT_ID_PRIMARY_TDM_TX + 0x0C)
+#define AFE_PORT_ID_PRIMARY_TDM_TX_7 \
+	(AFE_PORT_ID_PRIMARY_TDM_TX + 0x0E)
+
+#define AFE_PORT_ID_SECONDARY_TDM_RX \
+	(AFE_PORT_ID_TDM_PORT_RANGE_START + 0x10)
+#define AFE_PORT_ID_SECONDARY_TDM_RX_1 \
+	(AFE_PORT_ID_SECONDARY_TDM_RX + 0x02)
+#define AFE_PORT_ID_SECONDARY_TDM_RX_2 \
+	(AFE_PORT_ID_SECONDARY_TDM_RX + 0x04)
+#define AFE_PORT_ID_SECONDARY_TDM_RX_3 \
+	(AFE_PORT_ID_SECONDARY_TDM_RX + 0x06)
+#define AFE_PORT_ID_SECONDARY_TDM_RX_4 \
+	(AFE_PORT_ID_SECONDARY_TDM_RX + 0x08)
+#define AFE_PORT_ID_SECONDARY_TDM_RX_5 \
+	(AFE_PORT_ID_SECONDARY_TDM_RX + 0x0A)
+#define AFE_PORT_ID_SECONDARY_TDM_RX_6 \
+	(AFE_PORT_ID_SECONDARY_TDM_RX + 0x0C)
+#define AFE_PORT_ID_SECONDARY_TDM_RX_7 \
+	(AFE_PORT_ID_SECONDARY_TDM_RX + 0x0E)
+
+#define AFE_PORT_ID_SECONDARY_TDM_TX \
+	(AFE_PORT_ID_TDM_PORT_RANGE_START + 0x11)
+#define AFE_PORT_ID_SECONDARY_TDM_TX_1 \
+	(AFE_PORT_ID_SECONDARY_TDM_TX + 0x02)
+#define AFE_PORT_ID_SECONDARY_TDM_TX_2 \
+	(AFE_PORT_ID_SECONDARY_TDM_TX + 0x04)
+#define AFE_PORT_ID_SECONDARY_TDM_TX_3 \
+	(AFE_PORT_ID_SECONDARY_TDM_TX + 0x06)
+#define AFE_PORT_ID_SECONDARY_TDM_TX_4 \
+	(AFE_PORT_ID_SECONDARY_TDM_TX + 0x08)
+#define AFE_PORT_ID_SECONDARY_TDM_TX_5 \
+	(AFE_PORT_ID_SECONDARY_TDM_TX + 0x0A)
+#define AFE_PORT_ID_SECONDARY_TDM_TX_6 \
+	(AFE_PORT_ID_SECONDARY_TDM_TX + 0x0C)
+#define AFE_PORT_ID_SECONDARY_TDM_TX_7 \
+	(AFE_PORT_ID_SECONDARY_TDM_TX + 0x0E)
+
+#define AFE_PORT_ID_TERTIARY_TDM_RX \
+	(AFE_PORT_ID_TDM_PORT_RANGE_START + 0x20)
+#define AFE_PORT_ID_TERTIARY_TDM_RX_1 \
+	(AFE_PORT_ID_TERTIARY_TDM_RX + 0x02)
+#define AFE_PORT_ID_TERTIARY_TDM_RX_2 \
+	(AFE_PORT_ID_TERTIARY_TDM_RX + 0x04)
+#define AFE_PORT_ID_TERTIARY_TDM_RX_3 \
+	(AFE_PORT_ID_TERTIARY_TDM_RX + 0x06)
+#define AFE_PORT_ID_TERTIARY_TDM_RX_4 \
+	(AFE_PORT_ID_TERTIARY_TDM_RX + 0x08)
+#define AFE_PORT_ID_TERTIARY_TDM_RX_5 \
+	(AFE_PORT_ID_TERTIARY_TDM_RX + 0x0A)
+#define AFE_PORT_ID_TERTIARY_TDM_RX_6 \
+	(AFE_PORT_ID_TERTIARY_TDM_RX + 0x0C)
+#define AFE_PORT_ID_TERTIARY_TDM_RX_7 \
+	(AFE_PORT_ID_TERTIARY_TDM_RX + 0x0E)
+
+#define AFE_PORT_ID_TERTIARY_TDM_TX \
+	(AFE_PORT_ID_TDM_PORT_RANGE_START + 0x21)
+#define AFE_PORT_ID_TERTIARY_TDM_TX_1 \
+	(AFE_PORT_ID_TERTIARY_TDM_TX + 0x02)
+#define AFE_PORT_ID_TERTIARY_TDM_TX_2 \
+	(AFE_PORT_ID_TERTIARY_TDM_TX + 0x04)
+#define AFE_PORT_ID_TERTIARY_TDM_TX_3 \
+	(AFE_PORT_ID_TERTIARY_TDM_TX + 0x06)
+#define AFE_PORT_ID_TERTIARY_TDM_TX_4 \
+	(AFE_PORT_ID_TERTIARY_TDM_TX + 0x08)
+#define AFE_PORT_ID_TERTIARY_TDM_TX_5 \
+	(AFE_PORT_ID_TERTIARY_TDM_TX + 0x0A)
+#define AFE_PORT_ID_TERTIARY_TDM_TX_6 \
+	(AFE_PORT_ID_TERTIARY_TDM_TX + 0x0C)
+#define AFE_PORT_ID_TERTIARY_TDM_TX_7 \
+	(AFE_PORT_ID_TERTIARY_TDM_TX + 0x0E)
+
+#define AFE_PORT_ID_QUATERNARY_TDM_RX \
+	(AFE_PORT_ID_TDM_PORT_RANGE_START + 0x30)
+#define AFE_PORT_ID_QUATERNARY_TDM_RX_1 \
+	(AFE_PORT_ID_QUATERNARY_TDM_RX + 0x02)
+#define AFE_PORT_ID_QUATERNARY_TDM_RX_2 \
+	(AFE_PORT_ID_QUATERNARY_TDM_RX + 0x04)
+#define AFE_PORT_ID_QUATERNARY_TDM_RX_3 \
+	(AFE_PORT_ID_QUATERNARY_TDM_RX + 0x06)
+#define AFE_PORT_ID_QUATERNARY_TDM_RX_4 \
+	(AFE_PORT_ID_QUATERNARY_TDM_RX + 0x08)
+#define AFE_PORT_ID_QUATERNARY_TDM_RX_5 \
+	(AFE_PORT_ID_QUATERNARY_TDM_RX + 0x0A)
+#define AFE_PORT_ID_QUATERNARY_TDM_RX_6 \
+	(AFE_PORT_ID_QUATERNARY_TDM_RX + 0x0C)
+#define AFE_PORT_ID_QUATERNARY_TDM_RX_7 \
+	(AFE_PORT_ID_QUATERNARY_TDM_RX + 0x0E)
+
+#define AFE_PORT_ID_QUATERNARY_TDM_TX \
+	(AFE_PORT_ID_TDM_PORT_RANGE_START + 0x31)
+#define AFE_PORT_ID_QUATERNARY_TDM_TX_1 \
+	(AFE_PORT_ID_QUATERNARY_TDM_TX + 0x02)
+#define AFE_PORT_ID_QUATERNARY_TDM_TX_2 \
+	(AFE_PORT_ID_QUATERNARY_TDM_TX + 0x04)
+#define AFE_PORT_ID_QUATERNARY_TDM_TX_3 \
+	(AFE_PORT_ID_QUATERNARY_TDM_TX + 0x06)
+#define AFE_PORT_ID_QUATERNARY_TDM_TX_4 \
+	(AFE_PORT_ID_QUATERNARY_TDM_TX + 0x08)
+#define AFE_PORT_ID_QUATERNARY_TDM_TX_5 \
+	(AFE_PORT_ID_QUATERNARY_TDM_TX + 0x0A)
+#define AFE_PORT_ID_QUATERNARY_TDM_TX_6 \
+	(AFE_PORT_ID_QUATERNARY_TDM_TX + 0x0C)
+#define AFE_PORT_ID_QUATERNARY_TDM_TX_7 \
+	(AFE_PORT_ID_QUATERNARY_TDM_TX + 0x0E)
+
 #define AFE_PORT_ID_INVALID             0xFFFF
 
 #define AAC_ENC_MODE_AAC_LC 0x02
@@ -2199,6 +2348,259 @@ struct afe_param_id_pseudo_port_cfg {
 	 */
 } __packed;
 
+#define AFE_PARAM_ID_TDM_CONFIG		0x0001029D
+
+#define AFE_API_VERSION_TDM_CONFIG              1
+
+#define AFE_PORT_TDM_SHORT_SYNC_BIT_MODE        0
+#define AFE_PORT_TDM_LONG_SYNC_MODE             1
+#define AFE_PORT_TDM_SHORT_SYNC_SLOT_MODE       2
+
+#define AFE_PORT_TDM_SYNC_SRC_EXTERNAL          0
+#define AFE_PORT_TDM_SYNC_SRC_INTERNAL          1
+
+#define AFE_PORT_TDM_CTRL_DATA_OE_DISABLE       0
+#define AFE_PORT_TDM_CTRL_DATA_OE_ENABLE        1
+
+#define AFE_PORT_TDM_SYNC_NORMAL                0
+#define AFE_PORT_TDM_SYNC_INVERT                1
+
+#define AFE_PORT_TDM_DATA_DELAY_0_BCLK_CYCLE    0
+#define AFE_PORT_TDM_DATA_DELAY_1_BCLK_CYCLE    1
+#define AFE_PORT_TDM_DATA_DELAY_2_BCLK_CYCLE    2
+
+/* Payload of the AFE_PARAM_ID_TDM_CONFIG parameter used by
+    AFE_MODULE_AUDIO_DEV_INTERFACE.
+*/
+struct afe_param_id_tdm_cfg {
+	u32	tdm_cfg_minor_version;
+	/**< Minor version used to track TDM configuration.
+	@values #AFE_API_VERSION_TDM_CONFIG */
+
+	u32	num_channels;
+	/**< Number of enabled slots for TDM frame.
+	@values 1 to 8 */
+
+	u32	sample_rate;
+	/**< Sampling rate of the port.
+	@values
+	- #AFE_PORT_SAMPLE_RATE_8K
+	- #AFE_PORT_SAMPLE_RATE_16K
+	- #AFE_PORT_SAMPLE_RATE_24K
+	- #AFE_PORT_SAMPLE_RATE_32K
+	- #AFE_PORT_SAMPLE_RATE_48K @tablebulletend */
+
+	u32	bit_width;
+	/**< Bit width of the sample.
+	@values 16, 24 */
+
+	u16	data_format;
+	/**< Data format: linear and compressed
+
+	@values
+	- #AFE_LINEAR_PCM_DATA
+	- #AFE_NON_LINEAR_DATA @tablebulletend */
+
+	u16	sync_mode;
+	/**< TDM synchronization setting.
+	@values (short, long, slot) sync mode
+	- #AFE_PORT_TDM_SHORT_SYNC_BIT_MODE
+	- #AFE_PORT_TDM_LONG_SYNC_MODE
+	- #AFE_PORT_TDM_SHORT_SYNC_SLOT_MODE @tablebulletend */
+
+	u16	sync_src;
+	/**< Synchronization source.
+	@values
+	- #AFE_PORT_TDM_SYNC_SRC_EXTERNAL
+	- #AFE_PORT_TDM_SYNC_SRC_INTERNAL @tablebulletend */
+
+	u16	nslots_per_frame;
+	/**< Number of slots per frame. Typical : 1, 2, 4, 8, 16, 32.
+	@values 1 - 32 */
+
+	u16	ctrl_data_out_enable;
+	/**< Specifies whether the TDM block shares the data-out signal to the
+	drive with other masters.
+	@values
+	- #AFE_PORT_TDM_CTRL_DATA_OE_DISABLE
+	- #AFE_PORT_TDM_CTRL_DATA_OE_ENABLE @tablebulletend */
+
+	u16	ctrl_invert_sync_pulse;
+	/**< Specifies whether to invert the sync or not.
+	@values
+	- #AFE_PORT_TDM_SYNC_NORMAL
+	- #AFE_PORT_TDM_SYNC_INVERT @tablebulletend */
+
+	u16	ctrl_sync_data_delay;
+	/**< Specifies the number of bit clock to delay data with respect to
+	sync edge.
+	@values
+	- #AFE_PORT_TDM_DATA_DELAY_0_BCLK_CYCLE
+	- #AFE_PORT_TDM_DATA_DELAY_1_BCLK_CYCLE
+	- #AFE_PORT_TDM_DATA_DELAY_2_BCLK_CYCLE @tablebulletend */
+
+	u16	slot_width;
+	/**< Slot width of the slot in a TDM frame.  (slot_width >= bit_width)
+	have to be satisfied.
+	@values 16, 24, 32 */
+
+	u32	slot_mask;
+	/**< Position of active slots.  When that bit is set,
+	that paricular slot is active.
+	Number of active slots can be inferred by number of
+	bits set in the mask.  Only 8 individual bits can be enabled.
+	Bits 0..31 corresponding to slot 0..31
+	@values 1 to 2^32 - 1 */
+} __packed;
+
+/** ID of Time Divsion Multiplexing (TDM) module,
+	which is used for configuring the AFE TDM.
+
+	This module supports following parameter IDs:
+	- #AFE_PORT_TDM_SLOT_CONFIG
+
+	To configure the TDM interface, the client must use the
+	#AFE_PORT_CMD_SET_PARAM command, and fill the module ID with the
+	respective parameter IDs as listed above.
+*/
+
+#define AFE_MODULE_TDM		0x0001028A
+
+/** ID of the parameter used by #AFE_MODULE_TDM to configure
+	the TDM slot mapping. #AFE_PORT_CMD_SET_PARAM can use this parameter ID.
+*/
+#define AFE_PARAM_ID_PORT_SLOT_MAPPING_CONFIG	0x00010297
+
+/** Version information used to handle future additions to slot mapping
+	configuration (for backward compatibility).
+*/
+#define AFE_API_VERSION_SLOT_MAPPING_CONFIG	0x1
+
+/** Data align type  */
+#define AFE_SLOT_MAPPING_DATA_ALIGN_MSB		0
+#define AFE_SLOT_MAPPING_DATA_ALIGN_LSB		1
+
+#define AFE_SLOT_MAPPING_OFFSET_INVALID		0xFFFF
+
+/* Payload of the AFE_PARAM_ID_PORT_SLOT_MAPPING_CONFIG
+	command's TDM configuration parameter.
+*/
+struct afe_param_id_slot_mapping_cfg {
+	u32	minor_version;
+	/**< Minor version used for tracking TDM slot configuration.
+	  @values #AFE_API_VERSION_TDM_SLOT_CONFIG */
+
+	u16	num_channel;
+	/**< number of channel of the audio sample.
+	@values 1, 2, 4, 6, 8 @tablebulletend */
+
+	u16	bitwidth;
+	/**< Slot bit width for each channel
+	@values 16, 24, 32 */
+
+	u32	data_align_type;
+	/**< indicate how data packed from slot_offset for 32 slot bit width
+	in case of sample bit width is 24.
+	@values
+	#AFE_SLOT_MAPPING_DATA_ALIGN_MSB
+	#AFE_SLOT_MAPPING_DATA_ALIGN_LSB  */
+
+	u16	offset[AFE_PORT_MAX_AUDIO_CHAN_CNT];
+	/**< Array of the slot mapping start offset in bytes for this frame.
+	The bytes is counted from 0. The 0 is mapped to the 1st byte
+	in or out of the digital serial data line this sub-frame belong to.
+	slot_offset[] setting is per-channel based.
+	The max num of channel supported is 8.
+	The valid offset value must always be continuly placed in from index 0.
+	Set offset as AFE_SLOT_MAPPING_OFFSET_INVALID for not used arrays.
+	If "slot_bitwidth_per_channel" is 32 and "sample_bitwidth" is 24,
+	"data_align_type" is used to indicate how 24 bit sample data in aligning
+	with 32 bit slot width per-channel.
+	@values, in byte*/
+} __packed;
+
+/** ID of the parameter used by #AFE_MODULE_TDM to configure
+    the customer TDM header. #AFE_PORT_CMD_SET_PARAM can use this parameter ID.
+*/
+#define AFE_PARAM_ID_CUSTOM_TDM_HEADER_CONFIG		0x00010298
+
+/** Version information used to handle future additions to custom TDM header
+	configuration (for backward compatibility).
+*/
+#define AFE_API_VERSION_CUSTOM_TDM_HEADER_CONFIG	0x1
+
+#define AFE_CUSTOM_TDM_HEADER_TYPE_INVALID		0x0
+#define AFE_CUSTOM_TDM_HEADER_TYPE_DEFAULT		0x1
+#define AFE_CUSTOM_TDM_HEADER_TYPE_ENTERTAINMENT_MOST	0x2
+
+#define AFE_CUSTOM_TDM_HEADER_MAX_CNT	0x8
+
+/** Payload of the AFE_PARAM_ID_CUSTOM_TDM_HEADER_CONFIG parameter ID
+*/
+struct afe_param_id_custom_tdm_header_cfg {
+	u32	minor_version;
+	/**< Minor version used for tracking custom TDM header configuration.
+	@values #AFE_API_VERSION_CUSTOM_TDM_HEADER_CONFIG */
+
+	u16	start_offset;
+	/**< the slot mapping start offset in bytes from this sub-frame
+	The bytes is counted from 0. The 0 is mapped to the 1st byte in or out of
+	the digital serial data line this sub-frame belong to.
+	@values, in byte,
+	supported values are 0, 4, 8,    */
+
+	u16	header_width;
+	/**< the header width per-frame followed.
+	2 bytes for MOST/TDM case
+	@values, in byte
+	supported value is 2 */
+
+	u16	header_type;
+	/**< Indicate what kind of custom TDM header it is.
+	@values #AFE_CUSTOM_TDM_HEADER_TYPE_INVALID = 0
+	#AFE_CUSTOM_TDM_HEADER_TYPE_DEFAULT = 1  (for AAN channel per MOST)
+	#AFE_CUSTOM_TDM_HEADER_TYPE_ENTERTAINMENT_MOST = 2
+	(for entertainment channel, which will overwrite
+	AFE_API_VERSION_TDM_SAD_HEADER_TYPE_DEFAULT per MOST) */
+
+	u16	num_frame_repeat;
+	/**< num of header followed.
+	@values, supported value is 8*/
+	u16	header[AFE_CUSTOM_TDM_HEADER_MAX_CNT];
+	/** < SAD header for MOST/TDM case is followed as payload as below.
+	The size of followed SAD header in bytes is num_of_frame_repeat * header_width_per_frame
+	which is 2 * 8 = 16 bytes here.
+	the supported payload format is in uint16_t as below
+	uint16_t header0; SyncHi 0x3C Info[4] - CodecType -> 0x3C00
+	uint16_t header1; SyncLo 0xB2 Info[5] - SampleWidth -> 0xB218
+	uint16_t header2; DTCP Info     Info[6] - unused -> 0x0
+	uint16_t header3; Extension Info[7] - ASAD-Value -> 0xC0
+	uint16_t header4; Reserved Info[0] - Num of bytes following  -> 0x7
+	uint16_t header5; Reserved Info[1] - Media Type -> 0x0
+	uint16_t header6; Reserved Info[2] - Bitrate[kbps] - High Byte -> 0x0
+	uint16_t header7; Reserved Info[3] - Bitrate[kbps] - Low  Byte -> 0x0 */
+} __packed;
+
+struct afe_slot_mapping_config_command {
+	struct apr_hdr	hdr;
+	struct afe_port_cmd_set_param_v2	param;
+	struct afe_port_param_data_v2	pdata;
+	struct afe_param_id_slot_mapping_cfg	slot_mapping;
+} __packed;
+
+struct afe_custom_tdm_header_config_command {
+	struct apr_hdr	hdr;
+	struct afe_port_cmd_set_param_v2	param;
+	struct afe_port_param_data_v2	pdata;
+	struct afe_param_id_custom_tdm_header_cfg	custom_tdm_header;
+} __packed;
+
+struct afe_tdm_port_config {
+	struct afe_param_id_tdm_cfg				tdm;
+	struct afe_param_id_slot_mapping_cfg		slot_mapping;
+	struct afe_param_id_custom_tdm_header_cfg	custom_tdm_header;
+} __packed;
+
 #define AFE_PARAM_ID_DEVICE_HW_DELAY     0x00010243
 #define AFE_API_VERSION_DEVICE_HW_DELAY  0x1
 
@@ -2234,6 +2636,7 @@ union afe_port_config {
 	struct afe_param_id_device_hw_delay_cfg   hw_delay;
 	struct afe_param_id_spdif_cfg             spdif;
 	struct afe_param_id_set_topology_cfg      topology;
+	struct afe_param_id_tdm_cfg               tdm;
 } __packed;
 
 struct afe_audioif_config_command_no_payload {
@@ -7431,7 +7834,8 @@ struct afe_param_id_clip_bank_sel {
 #define Q6AFE_LPASS_OSR_CLK_DISABLE		     0x0
 
 /* Supported Bit clock values */
-#define Q6AFE_LPASS_IBIT_CLK_11_P2896_MHZ		0xAC4400
+#define Q6AFE_LPASS_IBIT_CLK_12_P288_MHZ	0xBB8000
+#define Q6AFE_LPASS_IBIT_CLK_11_P2896_MHZ	0xAC4400
 #define Q6AFE_LPASS_IBIT_CLK_8_P192_MHZ		0x7D0000
 #define Q6AFE_LPASS_IBIT_CLK_6_P144_MHZ		0x5DC000
 #define Q6AFE_LPASS_IBIT_CLK_4_P096_MHZ		0x3E8000
@@ -7508,6 +7912,23 @@ enum afe_lpass_clk_mode {
 /* Clock ID for Quartery PCM EBIT */
 #define Q6AFE_LPASS_CLK_ID_QUAD_PCM_EBIT                          0x207
 
+/** Clock ID for Primary TDM IBIT */
+#define Q6AFE_LPASS_CLK_ID_PRI_TDM_IBIT                           0x200
+/** Clock ID for Primary TDM EBIT */
+#define Q6AFE_LPASS_CLK_ID_PRI_TDM_EBIT                           0x201
+/** Clock ID for Secondary TDM IBIT */
+#define Q6AFE_LPASS_CLK_ID_SEC_TDM_IBIT                           0x202
+/** Clock ID for Secondary TDM EBIT */
+#define Q6AFE_LPASS_CLK_ID_SEC_TDM_EBIT                           0x203
+/** Clock ID for Tertiary TDM IBIT */
+#define Q6AFE_LPASS_CLK_ID_TER_TDM_IBIT                           0x204
+/** Clock ID for Tertiary TDM EBIT */
+#define Q6AFE_LPASS_CLK_ID_TER_TDM_EBIT                           0x205
+/** Clock ID for Quartery TDM IBIT */
+#define Q6AFE_LPASS_CLK_ID_QUAD_TDM_IBIT                          0x206
+/** Clock ID for Quartery TDM EBIT */
+#define Q6AFE_LPASS_CLK_ID_QUAD_TDM_EBIT                          0x207
+
 /* Clock ID for MCLK1 */
 #define Q6AFE_LPASS_CLK_ID_MCLK_1                                 0x300
 /* Clock ID for MCLK2 */
@@ -7532,6 +7953,8 @@ enum afe_lpass_clk_mode {
 #define Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_DIVIDEND	0x2
 /* Clock attribute for divisor couple case */
 #define Q6AFE_LPASS_CLK_ATTRIBUTE_COUPLE_DIVISOR	0x3
+/* Clock attribute for invert and no couple case */
+#define Q6AFE_LPASS_CLK_ATTRIBUTE_INVERT_COUPLE_NO	0x4
 /* Clock set API version */
 #define Q6AFE_LPASS_CLK_CONFIG_API_VERSION		0x1
 
@@ -7939,6 +8362,175 @@ struct afe_group_device_group_cfg {
 	u16 port_id[8];
 } __packed;
 
+#define AFE_GROUP_DEVICE_ID_PRIMARY_TDM_RX \
+	(AFE_PORT_ID_PRIMARY_TDM_RX + 0x100)
+#define AFE_GROUP_DEVICE_ID_PRIMARY_TDM_TX \
+	(AFE_PORT_ID_PRIMARY_TDM_TX + 0x100)
+#define AFE_GROUP_DEVICE_ID_SECONDARY_TDM_RX \
+	(AFE_PORT_ID_SECONDARY_TDM_RX + 0x100)
+#define AFE_GROUP_DEVICE_ID_SECONDARY_TDM_TX \
+	(AFE_PORT_ID_SECONDARY_TDM_TX + 0x100)
+#define AFE_GROUP_DEVICE_ID_TERTIARY_TDM_RX \
+	(AFE_PORT_ID_TERTIARY_TDM_RX + 0x100)
+#define AFE_GROUP_DEVICE_ID_TERTIARY_TDM_TX \
+	(AFE_PORT_ID_TERTIARY_TDM_TX + 0x100)
+#define AFE_GROUP_DEVICE_ID_QUATERNARY_TDM_RX \
+	(AFE_PORT_ID_QUATERNARY_TDM_RX + 0x100)
+#define AFE_GROUP_DEVICE_ID_QUATERNARY_TDM_TX \
+	(AFE_PORT_ID_QUATERNARY_TDM_TX + 0x100)
+
+/** ID of the parameter used by #AFE_MODULE_GROUP_DEVICE to configure the
+	group device. #AFE_SVC_CMD_SET_PARAM can use this parameter ID.
+
+	Requirements:
+	- Configure the group before the member ports in the group are
+	configured and started.
+	- Enable the group only after it is configured.
+	- Stop all member ports in the group before disabling the group.
+*/
+#define AFE_PARAM_ID_GROUP_DEVICE_TDM_CONFIG	0x0001029E
+
+/** Version information used to handle future additions to
+	AFE_PARAM_ID_GROUP_DEVICE_TDM_CONFIG processing (for backward compatibility).
+ */
+#define AFE_API_VERSION_GROUP_DEVICE_TDM_CONFIG	0x1
+
+/** Number of AFE ports in group device  */
+#define AFE_GROUP_DEVICE_NUM_PORTS					8
+
+/* Payload of the AFE_PARAM_ID_GROUP_DEVICE_TDM_CONFIG parameter ID
+	used by AFE_MODULE_GROUP_DEVICE.
+*/
+struct afe_param_id_group_device_tdm_cfg {
+	u32	group_device_cfg_minor_version;
+	/**< Minor version used to track group device configuration.
+	@values #AFE_API_VERSION_GROUP_DEVICE_TDM_CONFIG */
+
+	u16	group_id;
+	/**< ID for the group device.
+	@values
+	- #AFE_GROUP_DEVICE_ID_PRIMARY_TDM_RX
+	- #AFE_GROUP_DEVICE_ID_PRIMARY_TDM_TX
+	- #AFE_GROUP_DEVICE_ID_SECONDARY_TDM_RX
+	- #AFE_GROUP_DEVICE_ID_SECONDARY_TDM_TX
+	- #AFE_GROUP_DEVICE_ID_TERTIARY_TDM_RX
+	- #AFE_GROUP_DEVICE_ID_TERTIARY_TDM_TX
+	- #AFE_GROUP_DEVICE_ID_QUATERNARY_TDM_RX
+	- #AFE_GROUP_DEVICE_ID_QUATERNARY_TDM_TX */
+
+	u16	reserved;
+	/** 0 */
+
+	u16	port_id[AFE_GROUP_DEVICE_NUM_PORTS];
+	/**< Array of member port IDs of this group.
+	@values
+	- #AFE_PORT_ID_PRIMARY_TDM_RX
+	- #AFE_PORT_ID_PRIMARY_TDM_RX_1
+	- #AFE_PORT_ID_PRIMARY_TDM_RX_2
+	- #AFE_PORT_ID_PRIMARY_TDM_RX_3
+	- #AFE_PORT_ID_PRIMARY_TDM_RX_4
+	- #AFE_PORT_ID_PRIMARY_TDM_RX_5
+	- #AFE_PORT_ID_PRIMARY_TDM_RX_6
+	- #AFE_PORT_ID_PRIMARY_TDM_RX_7
+
+	- #AFE_PORT_ID_PRIMARY_TDM_TX
+	- #AFE_PORT_ID_PRIMARY_TDM_TX_1
+	- #AFE_PORT_ID_PRIMARY_TDM_TX_2
+	- #AFE_PORT_ID_PRIMARY_TDM_TX_3
+	- #AFE_PORT_ID_PRIMARY_TDM_TX_4
+	- #AFE_PORT_ID_PRIMARY_TDM_TX_5
+	- #AFE_PORT_ID_PRIMARY_TDM_TX_6
+	- #AFE_PORT_ID_PRIMARY_TDM_TX_7
+
+	- #AFE_PORT_ID_SECONDARY_TDM_RX
+	- #AFE_PORT_ID_SECONDARY_TDM_RX_1
+	- #AFE_PORT_ID_SECONDARY_TDM_RX_2
+	- #AFE_PORT_ID_SECONDARY_TDM_RX_3
+	- #AFE_PORT_ID_SECONDARY_TDM_RX_4
+	- #AFE_PORT_ID_SECONDARY_TDM_RX_5
+	- #AFE_PORT_ID_SECONDARY_TDM_RX_6
+	- #AFE_PORT_ID_SECONDARY_TDM_RX_7
+
+	- #AFE_PORT_ID_SECONDARY_TDM_TX
+	- #AFE_PORT_ID_SECONDARY_TDM_TX_1
+	- #AFE_PORT_ID_SECONDARY_TDM_TX_2
+	- #AFE_PORT_ID_SECONDARY_TDM_TX_3
+	- #AFE_PORT_ID_SECONDARY_TDM_TX_4
+	- #AFE_PORT_ID_SECONDARY_TDM_TX_5
+	- #AFE_PORT_ID_SECONDARY_TDM_TX_6
+	- #AFE_PORT_ID_SECONDARY_TDM_TX_7
+
+	- #AFE_PORT_ID_TERTIARY_TDM_RX
+	- #AFE_PORT_ID_TERTIARY_TDM_RX_1
+	- #AFE_PORT_ID_TERTIARY_TDM_RX_2
+	- #AFE_PORT_ID_TERTIARY_TDM_RX_3
+	- #AFE_PORT_ID_TERTIARY_TDM_RX_4
+	- #AFE_PORT_ID_TERTIARY_TDM_RX_5
+	- #AFE_PORT_ID_TERTIARY_TDM_RX_6
+	- #AFE_PORT_ID_TERTIARY_TDM_RX_7
+
+	- #AFE_PORT_ID_TERTIARY_TDM_TX
+	- #AFE_PORT_ID_TERTIARY_TDM_TX_1
+	- #AFE_PORT_ID_TERTIARY_TDM_TX_2
+	- #AFE_PORT_ID_TERTIARY_TDM_TX_3
+	- #AFE_PORT_ID_TERTIARY_TDM_TX_4
+	- #AFE_PORT_ID_TERTIARY_TDM_TX_5
+	- #AFE_PORT_ID_TERTIARY_TDM_TX_6
+	- #AFE_PORT_ID_TERTIARY_TDM_TX_7
+
+	- #AFE_PORT_ID_QUATERNARY_TDM_RX
+	- #AFE_PORT_ID_QUATERNARY_TDM_RX_1
+	- #AFE_PORT_ID_QUATERNARY_TDM_RX_2
+	- #AFE_PORT_ID_QUATERNARY_TDM_RX_3
+	- #AFE_PORT_ID_QUATERNARY_TDM_RX_4
+	- #AFE_PORT_ID_QUATERNARY_TDM_RX_5
+	- #AFE_PORT_ID_QUATERNARY_TDM_RX_6
+	- #AFE_PORT_ID_QUATERNARY_TDM_RX_7
+
+	- #AFE_PORT_ID_QUATERNARY_TDM_TX
+	- #AFE_PORT_ID_QUATERNARY_TDM_TX_1
+	- #AFE_PORT_ID_QUATERNARY_TDM_TX_2
+	- #AFE_PORT_ID_QUATERNARY_TDM_TX_3
+	- #AFE_PORT_ID_QUATERNARY_TDM_TX_4
+	- #AFE_PORT_ID_QUATERNARY_TDM_TX_5
+	- #AFE_PORT_ID_QUATERNARY_TDM_TX_6
+	- #AFE_PORT_ID_QUATERNARY_TDM_TX_7
+	@tablebulletend */
+
+	u32	num_channels;
+	/**< Number of enabled slots for TDM frame.
+	@values 1 to 8 */
+
+	u32	sample_rate;
+	/**< Sampling rate of the port.
+	@values
+	- #AFE_PORT_SAMPLE_RATE_8K
+	- #AFE_PORT_SAMPLE_RATE_16K
+	- #AFE_PORT_SAMPLE_RATE_24K
+	- #AFE_PORT_SAMPLE_RATE_32K
+	- #AFE_PORT_SAMPLE_RATE_48K @tablebulletend */
+
+	u32	bit_width;
+	/**< Bit width of the sample.
+	@values 16, 24, (32) */
+
+	u16	nslots_per_frame;
+	/**< Number of slots per frame. Typical : 1, 2, 4, 8, 16, 32.
+	@values 1 - 32 */
+
+	u16	slot_width;
+	/**< Slot width of the slot in a TDM frame.  (slot_width >= bit_width)
+	have to be satisfied.
+	@values 16, 24, 32 */
+
+	u32	slot_mask;
+	/**< Position of active slots.  When that bit is set, that paricular
+	slot is active.
+	Number of active slots can be inferred by number of bits set in
+	the mask.  Only 8 individual bits can be enabled.
+	Bits 0..31 corresponding to slot 0..31
+	@values 1 to 2^32 -1 */
+} __packed;
 
 /*  Payload of the #AFE_PARAM_ID_GROUP_DEVICE_ENABLE
  * parameter, which enables or
@@ -7950,17 +8542,20 @@ struct afe_group_device_enable {
 	u16 group_id;
 	/* valid value is AFE_GROUP_DEVICE_ID_SECONDARY_MI2S_RX */
 	u16 enable;
-/* Enables (1) or disables (0) the module. */
+	/* Enables (1) or disables (0) the module. */
+} __packed;
+
+union afe_port_group_config {
+	struct afe_group_device_group_cfg group_cfg;
+	struct afe_group_device_enable group_enable;
+	struct afe_param_id_group_device_tdm_cfg tdm_cfg;
 } __packed;
 
 struct afe_port_group_create {
 	struct apr_hdr hdr;
 	struct afe_svc_cmd_set_param param;
 	struct afe_port_param_data_v2 pdata;
-	union {
-		struct afe_group_device_group_cfg group_cfg;
-		struct afe_group_device_enable group_enable;
-	} __packed data;
+	union afe_port_group_config data;
 } __packed;
 
 /* Command for Matrix or Stream Router */
