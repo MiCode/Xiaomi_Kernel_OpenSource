@@ -156,6 +156,13 @@ module_param(dig_core_collapse_timer, int,
 		S_IRUGO | S_IWUSR | S_IWGRP);
 MODULE_PARM_DESC(dig_core_collapse_timer, "timer for power gating");
 
+#define TASHA_TX_UNMUTE_DELAY_MS	25
+
+static int tx_unmute_delay = TASHA_TX_UNMUTE_DELAY_MS;
+module_param(tx_unmute_delay, int,
+		S_IRUGO | S_IWUSR | S_IWGRP);
+MODULE_PARM_DESC(tx_unmute_delay, "delay to unmute the tx path");
+
 static struct afe_param_slimbus_slave_port_cfg tasha_slimbus_slave_port_cfg = {
 	.minor_version = 1,
 	.slimbus_dev_id = AFE_SLIMBUS_DEVICE_1,
@@ -608,6 +615,12 @@ struct hpf_work {
 	struct delayed_work dwork;
 };
 
+struct tx_mute_work {
+	struct tasha_priv *tasha;
+	u8 decimator;
+	struct delayed_work dwork;
+};
+
 struct tasha_priv {
 	struct device *dev;
 	struct wcd9xxx *wcd9xxx;
@@ -716,6 +729,7 @@ struct tasha_priv {
 				      enum wcd9335_codec_event);
 	int spkr_mode;
 	struct hpf_work tx_hpf_work[TASHA_NUM_DECIMATORS];
+	struct tx_mute_work tx_mute_dwork[TASHA_NUM_DECIMATORS];
 };
 
 static int tasha_codec_vote_max_bw(struct snd_soc_codec *codec,
@@ -4413,6 +4427,27 @@ static void tasha_tx_hpf_corner_freq_callback(struct work_struct *work)
 			    hpf_cut_off_freq << 5);
 }
 
+static void tasha_tx_mute_update_callback(struct work_struct *work)
+{
+	struct tx_mute_work *tx_mute_dwork;
+	struct tasha_priv *tasha;
+	struct delayed_work *delayed_work;
+	struct snd_soc_codec *codec;
+	u16 tx_vol_ctl_reg, hpf_gate_reg;
+
+	delayed_work = to_delayed_work(work);
+	tx_mute_dwork = container_of(delayed_work, struct tx_mute_work, dwork);
+	tasha = tx_mute_dwork->tasha;
+	codec = tasha->codec;
+
+	tx_vol_ctl_reg = WCD9335_CDC_TX0_TX_PATH_CTL +
+					16 * tx_mute_dwork->decimator;
+	hpf_gate_reg = WCD9335_CDC_TX0_TX_PATH_SEC2 +
+					16 * tx_mute_dwork->decimator;
+	snd_soc_update_bits(codec, hpf_gate_reg, 0x01, 0x01);
+	snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x00);
+}
+
 static int tasha_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
@@ -4422,7 +4457,7 @@ static int tasha_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	char *widget_name = NULL;
 	char *wname;
 	int ret = 0, amic_n;
-	u16 tx_vol_ctl_reg, pwr_level_reg = 0, dec_cfg_reg;
+	u16 tx_vol_ctl_reg, pwr_level_reg = 0, dec_cfg_reg, hpf_gate_reg;
 	char *dec;
 	u8 hpf_cut_off_freq;
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
@@ -4463,6 +4498,7 @@ static int tasha_codec_enable_dec(struct snd_soc_dapm_widget *w,
 			w->name, decimator);
 
 	tx_vol_ctl_reg = WCD9335_CDC_TX0_TX_PATH_CTL + 16 * decimator;
+	hpf_gate_reg = WCD9335_CDC_TX0_TX_PATH_SEC2 + 16 * decimator;
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -4509,8 +4545,10 @@ static int tasha_codec_enable_dec(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x10);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-		/* Remove Mute */
-		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x00);
+		snd_soc_update_bits(codec, hpf_gate_reg, 0x01, 0x00);
+		/* schedule work queue to Remove Mute */
+		schedule_delayed_work(&tasha->tx_mute_dwork[decimator].dwork,
+				      msecs_to_jiffies(tx_unmute_delay));
 		if (tasha->tx_hpf_work[decimator].hpf_cut_off_freq !=
 							CF_MIN_3DB_150HZ)
 			schedule_delayed_work(
@@ -4520,6 +4558,8 @@ static int tasha_codec_enable_dec(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_PRE_PMD:
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x10);
 		cancel_delayed_work_sync(&tasha->tx_hpf_work[decimator].dwork);
+		cancel_delayed_work_sync(
+				&tasha->tx_mute_dwork[decimator].dwork);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		snd_soc_update_bits(codec, tx_vol_ctl_reg, 0x10, 0x00);
@@ -11258,6 +11298,13 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 		tasha->tx_hpf_work[i].decimator = i;
 		INIT_DELAYED_WORK(&tasha->tx_hpf_work[i].dwork,
 			tasha_tx_hpf_corner_freq_callback);
+	}
+
+	for (i = 0; i < TASHA_NUM_DECIMATORS; i++) {
+		tasha->tx_mute_dwork[i].tasha = tasha;
+		tasha->tx_mute_dwork[i].decimator = i;
+		INIT_DELAYED_WORK(&tasha->tx_mute_dwork[i].dwork,
+			  tasha_tx_mute_update_callback);
 	}
 
 	mutex_lock(&codec->mutex);
