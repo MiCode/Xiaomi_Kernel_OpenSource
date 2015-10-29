@@ -3723,6 +3723,8 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	int ret = 0, dead = 0;
 	u16 host_version;
 	u32 irq_status, irq_ctl;
+	struct resource *tlmm_memres = NULL;
+	void __iomem *tlmm_mem;
 
 	pr_debug("%s: Enter %s\n", dev_name(&pdev->dev), __func__);
 	msm_host = devm_kzalloc(&pdev->dev, sizeof(struct sdhci_msm_host),
@@ -3871,6 +3873,22 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to remap registers\n");
 		ret = -ENOMEM;
 		goto vreg_deinit;
+	}
+
+	tlmm_memres = platform_get_resource_byname(pdev,
+				IORESOURCE_MEM, "tlmm_mem");
+	if (tlmm_memres) {
+		tlmm_mem = devm_ioremap(&pdev->dev, tlmm_memres->start,
+						resource_size(tlmm_memres));
+
+		if (!tlmm_mem) {
+			dev_err(&pdev->dev, "Failed to remap tlmm registers\n");
+			ret = -ENOMEM;
+			goto vreg_deinit;
+		}
+		writel_relaxed(readl_relaxed(tlmm_mem) | 0x2, tlmm_mem);
+		dev_dbg(&pdev->dev, "tlmm reg %pa value 0x%08x\n",
+				&tlmm_memres->start, readl_relaxed(tlmm_mem));
 	}
 
 	/*
