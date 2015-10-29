@@ -2304,16 +2304,6 @@ static int cpr_init_target_quotients(struct cpr2_gfx_regulator *cpr_vreg)
 	}
 	kfree(buf);
 
-	for (j = 0; j < cpr_vreg->ro_count; j++) {
-		for (i = CPR_CORNER_MIN + 1; i <= cpr_vreg->num_corners; i++) {
-			if (cpr_vreg->cpr_target_quot[i][j]
-					< cpr_vreg->cpr_target_quot[i - 1][j]) {
-				cpr_vreg->cpr_fuse_disable = true;
-				cpr_err(cpr_vreg, "invalid quotient values; permanently disabling CPR\n");
-			}
-		}
-	}
-
 	return rc;
 }
 
