@@ -737,23 +737,23 @@ static irqreturn_t adreno_irq_handler(struct kgsl_device *device)
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_irq *irq_params = gpudev->irq;
 	irqreturn_t ret = IRQ_NONE;
-	unsigned int status = 0, tmp = 0;
+	unsigned int status = 0, tmp;
 	int i;
 
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_INT_0_STATUS, &status);
 
 	/* Loop through all set interrupts and call respective handlers */
-	for (tmp = status, i = 0; tmp &&
-		 i < irq_params->funcs_count; i++) {
-		if (tmp & 1) {
-			if (irq_params->funcs[i].func != NULL) {
-				irq_params->funcs[i].func(adreno_dev, i);
-				ret = IRQ_HANDLED;
-			} else
+	for (tmp = status; tmp != 0;) {
+		i = fls(tmp) - 1;
+
+		if (irq_params->funcs[i].func != NULL) {
+			irq_params->funcs[i].func(adreno_dev, i);
+			ret = IRQ_HANDLED;
+		} else
 			KGSL_DRV_CRIT(device,
 					"Unhandled interrupt bit %x\n", i);
-		}
-		tmp >>= 1;
+
+		tmp &= ~BIT(i);
 	}
 
 	gpudev->irq_trace(adreno_dev, status);

@@ -610,7 +610,6 @@ struct adreno_irq_funcs {
 struct adreno_irq {
 	unsigned int mask;
 	struct adreno_irq_funcs *funcs;
-	int funcs_count;
 };
 
 /*

@@ -1741,7 +1741,7 @@ static struct adreno_coresight a4xx_coresight = {
 	 (1 << A4XX_INT_RBBM_DPM_THERMAL_RED_ERR))
 
 
-static struct adreno_irq_funcs a4xx_irq_funcs[] = {
+static struct adreno_irq_funcs a4xx_irq_funcs[32] = {
 	ADRENO_IRQ_CALLBACK(NULL),                   /* 0 - RBBM_GPU_IDLE */
 	ADRENO_IRQ_CALLBACK(a4xx_err_callback), /* 1 - RBBM_AHB_ERROR */
 	ADRENO_IRQ_CALLBACK(a4xx_err_callback), /* 2 - RBBM_REG_TIMEOUT */
@@ -1787,7 +1787,6 @@ static struct adreno_irq_funcs a4xx_irq_funcs[] = {
 
 static struct adreno_irq a4xx_irq = {
 	.funcs = a4xx_irq_funcs,
-	.funcs_count = ARRAY_SIZE(a4xx_irq_funcs),
 	.mask = A4XX_INT_MASK,
 };
 
