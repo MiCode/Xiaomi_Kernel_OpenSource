@@ -499,6 +499,15 @@ int ipa3_dma_sync_memcpy(u64 dest, u64 src, int len)
 		i++;
 	} while (!stop_polling);
 
+	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
+		BUG_ON(len != gsi_notify.bytes_xfered);
+		BUG_ON(dest != ((struct ipa3_dma_xfer_wrapper *)
+				(gsi_notify.xfer_user_data))->phys_addr_dest);
+	} else {
+		BUG_ON(dest != iov.addr);
+		BUG_ON(len != iov.size);
+	}
+
 	mutex_lock(&ipa3_dma_ctx->sync_lock);
 	list_del(&head_descr->link);
 	cons_sys->len--;
@@ -510,14 +519,7 @@ int ipa3_dma_sync_memcpy(u64 dest, u64 src, int len)
 		complete(&head_descr->xfer_done);
 	}
 	mutex_unlock(&ipa3_dma_ctx->sync_lock);
-	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
-		BUG_ON(len != gsi_notify.bytes_xfered);
-		BUG_ON(dest != ((struct ipa3_dma_xfer_wrapper *)
-				(gsi_notify.xfer_user_data))->phys_addr_dest);
-	} else {
-		BUG_ON(dest != iov.addr);
-		BUG_ON(len != iov.size);
-	}
+
 	atomic_inc(&ipa3_dma_ctx->total_sync_memcpy);
 	atomic_dec(&ipa3_dma_ctx->sync_memcpy_pending_cnt);
 	if (ipa3_dma_ctx->destroy_pending && !ipa3_dma_work_pending())
