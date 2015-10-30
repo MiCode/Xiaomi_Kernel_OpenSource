@@ -34,6 +34,18 @@
 #include "mdss_mdp.h"
 #include "mdss_smmu.h"
 
+static DEFINE_MUTEX(mdp_iommu_lock);
+
+void mdss_iommu_lock(void)
+{
+	mutex_lock(&mdp_iommu_lock);
+}
+
+void mdss_iommu_unlock(void)
+{
+	mutex_unlock(&mdp_iommu_lock);
+}
+
 static int mdss_smmu_util_parse_dt_clock(struct platform_device *pdev,
 		struct dss_module_power *mp)
 {
@@ -469,6 +481,8 @@ int mdss_smmu_init(struct mdss_data_type *mdata, struct device *dev)
 {
 	mdss_smmu_device_create(dev);
 	mdss_smmu_ops_init(mdata);
+	mdata->mdss_util->iommu_lock = mdss_iommu_lock;
+	mdata->mdss_util->iommu_unlock = mdss_iommu_unlock;
 	return 0;
 }
 
