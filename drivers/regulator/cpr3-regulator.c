@@ -794,6 +794,81 @@ static int cpr3_regulator_config_ldo_retention(struct cpr3_regulator *vreg,
 }
 
 /**
+ * cpr3_regulator_config_ldo_mem_acc() - configure the mem-acc regulator
+ *		corner based upon a future LDO regulator voltage setpoint
+ * @vreg:		Pointer to the CPR3 regulator
+ * @new_volt:		New voltage in microvolts that the LDO regulator needs
+ *			to end up at
+ *
+ * This function determines if a new LDO regulator set point will result
+ * in crossing the voltage threshold that requires reconfiguration of
+ * the mem-acc regulator associated with a CPR3 regulator and if so, performs
+ * the correct sequence to select the correct mem-acc corner.
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_regulator_config_ldo_mem_acc(struct cpr3_regulator *vreg,
+					     int new_volt)
+{
+	struct cpr3_controller *ctrl = vreg->thread->ctrl;
+	struct regulator *ldo_reg = vreg->ldo_regulator;
+	struct regulator *mem_acc_reg = vreg->mem_acc_regulator;
+	int mem_acc_volt = ctrl->mem_acc_threshold_volt;
+	int last_volt, safe_volt, mem_acc_corn, rc;
+	enum msm_apm_supply apm_mode;
+
+	if (!mem_acc_reg || !mem_acc_volt || !ldo_reg)
+		return 0;
+
+	apm_mode = msm_apm_get_supply(ctrl->apm);
+	if (apm_mode < 0) {
+		cpr3_err(ctrl, "APM get supply failed, rc=%d\n",
+			 apm_mode);
+		return apm_mode;
+	}
+
+	last_volt = regulator_get_voltage(ldo_reg);
+	if (last_volt < 0) {
+		cpr3_err(vreg, "regulator_get_voltage(ldo) failed, rc=%d\n",
+			 last_volt);
+		return last_volt;
+	}
+
+	if (((last_volt < mem_acc_volt && mem_acc_volt <= new_volt)
+	     || (last_volt >= mem_acc_volt && mem_acc_volt > new_volt))) {
+
+		if (apm_mode == ctrl->apm_high_supply)
+			safe_volt = min(vreg->ldo_max_volt, mem_acc_volt);
+		else
+			safe_volt = min(max(ctrl->system_supply_max_volt -
+					    vreg->ldo_max_headroom_volt,
+					    mem_acc_volt), vreg->ldo_max_volt);
+
+		rc = regulator_set_voltage(ldo_reg, safe_volt,
+					   max(new_volt, last_volt));
+		if (rc) {
+			cpr3_err(ctrl, "regulator_set_voltage(ldo) == %d failed, rc=%d\n",
+				 mem_acc_volt, rc);
+			return rc;
+		}
+
+		mem_acc_corn = new_volt < mem_acc_volt ?
+			ctrl->mem_acc_corner_map[CPR3_MEM_ACC_LOW_CORNER] :
+			ctrl->mem_acc_corner_map[CPR3_MEM_ACC_HIGH_CORNER];
+
+		rc = regulator_set_voltage(mem_acc_reg, mem_acc_corn,
+					   mem_acc_corn);
+		if (rc) {
+			cpr3_err(ctrl, "regulator_set_voltage(mem_acc) == %d failed, rc=%d\n",
+				 0, rc);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
+/**
  * cpr3_regulator_set_bhs_mode() - configure the LDO regulator associated with
  *		a CPR3 regulator to BHS mode
  * @vreg:		Pointer to the CPR3 regulator
@@ -816,6 +891,12 @@ static int cpr3_regulator_set_bhs_mode(struct cpr3_regulator *vreg,
 		cpr3_debug(vreg, "limited to LDO output of %d uV when switching to BHS mode\n",
 			   vreg->ldo_max_volt);
 		bhs_volt = vreg->ldo_max_volt;
+	}
+
+	rc = cpr3_regulator_config_ldo_mem_acc(vreg, bhs_volt);
+	if (rc) {
+		cpr3_err(vreg, "failed to configure mem-acc settings\n");
+		return rc;
 	}
 
 	rc = regulator_set_voltage(ldo_reg, bhs_volt, min(vdd_ceiling_volt,
@@ -982,7 +1063,8 @@ static int cpr3_regulator_config_vreg_ldo(struct cpr3_regulator *vreg,
 	    ldo_volt >= ctrl->system_supply_max_volt -
 	    vreg->ldo_max_headroom_volt &&
 	    bhs_volt >= ctrl->system_supply_max_volt -
-	    vreg->ldo_max_headroom_volt) {
+	    vreg->ldo_max_headroom_volt &&
+	    ldo_volt <= vreg->ldo_max_volt) {
 		/* LDO minimum and maximum headrooms satisfied */
 		apm_mode = msm_apm_get_supply(ctrl->apm);
 		if (apm_mode < 0) {
@@ -992,12 +1074,6 @@ static int cpr3_regulator_config_vreg_ldo(struct cpr3_regulator *vreg,
 		}
 
 		if (vreg->ldo_regulator_bypass == BHS_MODE) {
-			if (ldo_volt > vreg->ldo_max_volt) {
-				cpr3_debug(vreg, "cannot support LDO mode with ldo_volt=%d uV\n",
-					   ldo_volt);
-				return 0;
-			}
-
 			/*
 			 * BHS to LDO transition. Configure LDO output
 			 * to min(max LDO output, VDD - LDO headroom)
@@ -1015,6 +1091,13 @@ static int cpr3_regulator_config_vreg_ldo(struct cpr3_regulator *vreg,
 						vreg->ldo_max_headroom_volt,
 						bhs_volt),
 					    vreg->ldo_max_volt);
+
+			rc = cpr3_regulator_config_ldo_mem_acc(vreg,
+							       safe_volt);
+			if (rc) {
+				cpr3_err(vreg, "failed to configure mem-acc settings\n");
+				return rc;
+			}
 
 			rc = regulator_set_voltage(ldo_reg, safe_volt,
 						   max_volt);
@@ -1041,6 +1124,13 @@ static int cpr3_regulator_config_vreg_ldo(struct cpr3_regulator *vreg,
 		else
 			final_ldo_volt = ldo_volt;
 
+		rc = cpr3_regulator_config_ldo_mem_acc(vreg,
+						       final_ldo_volt);
+		if (rc) {
+			cpr3_err(vreg, "failed to configure mem-acc settings\n");
+			return rc;
+		}
+
 		rc = regulator_set_voltage(ldo_reg, final_ldo_volt, max_volt);
 		if (rc) {
 			cpr3_err(vreg, "regulator_set_voltage(ldo) == %d failed, rc=%d\n",
@@ -1049,8 +1139,9 @@ static int cpr3_regulator_config_vreg_ldo(struct cpr3_regulator *vreg,
 		}
 	} else {
 		if (vreg->ldo_regulator_bypass == LDO_MODE) {
+			/* LDO to BHS transition */
 			rc = cpr3_regulator_set_bhs_mode(vreg, last_volt,
-							vdd_ceiling_volt);
+							 vdd_ceiling_volt);
 			if (rc)
 				return rc;
 		}
@@ -1098,12 +1189,299 @@ static int cpr3_regulator_config_ldo(struct cpr3_controller *ctrl,
 }
 
 /**
+ * cpr3_regulator_mem_acc_bhs_used() - determines if mem-acc regulators powered
+ *		through a BHS are associated with the CPR3 controller or any of
+ *		the CPR3 regulators it controls.
+ * @ctrl:		Pointer to the CPR3 controller
+ *
+ * This function determines if the CPR3 controller or any of its CPR3 regulators
+ * need to manage mem-acc regulators that are currently powered through a BHS
+ * and whose corner selection is based upon a particular voltage threshold.
+ *
+ * Return: true or false
+ */
+static bool cpr3_regulator_mem_acc_bhs_used(struct cpr3_controller *ctrl)
+{
+	struct cpr3_regulator *vreg;
+	int i, j;
+
+	if (!ctrl->mem_acc_threshold_volt)
+		return false;
+
+	if (ctrl->mem_acc_regulator)
+		return true;
+
+	for (i = 0; i < ctrl->thread_count; i++) {
+		for (j = 0; j < ctrl->thread[i].vreg_count; j++) {
+			vreg = &ctrl->thread[i].vreg[j];
+
+			if (vreg->mem_acc_regulator &&
+			    (!vreg->ldo_regulator ||
+			     vreg->ldo_regulator_bypass
+			     == BHS_MODE))
+				return true;
+		}
+	}
+
+	return false;
+}
+
+/**
+ * cpr3_regulator_config_bhs_mem_acc() - configure the mem-acc regulator
+ *		settings for hardware blocks currently powered through the BHS.
+ * @ctrl:		Pointer to the CPR3 controller
+ * @new_volt:		New voltage in microvolts that VDD supply needs to
+ *			end up at
+ * @last_volt:		Pointer to the last known voltage in microvolts for the
+ *			VDD supply
+ * @aggr_corner:	Pointer to the CPR3 corner which corresponds to the max
+ *			corner aggregated from all CPR3 threads managed by the
+ *			CPR3 controller
+ *
+ * This function programs the mem-acc regulator corners for CPR3 regulators
+ * whose LDO regulators are in bypassed state. The function also handles
+ * CPR3 controllers which utilize mem-acc regulators that operate independently
+ * from the LDO hardware and that must be programmed when the VDD supply
+ * crosses a particular voltage threshold.
+ *
+ * Return: 0 on success, errno on failure. If the VDD supply voltage is
+ * modified, last_volt is updated to reflect the new voltage setpoint.
+ */
+static int cpr3_regulator_config_bhs_mem_acc(struct cpr3_controller *ctrl,
+				     int new_volt, int *last_volt,
+				     struct cpr3_corner *aggr_corner)
+{
+	struct cpr3_regulator *vreg;
+	int i, j, rc, mem_acc_corn, safe_volt;
+	int mem_acc_volt = ctrl->mem_acc_threshold_volt;
+	int ref_volt;
+
+	if (!cpr3_regulator_mem_acc_bhs_used(ctrl))
+		return 0;
+
+	ref_volt = ctrl->use_hw_closed_loop ? aggr_corner->floor_volt :
+		new_volt;
+
+	if (((*last_volt < mem_acc_volt && mem_acc_volt <= ref_volt) ||
+	     (*last_volt >= mem_acc_volt && mem_acc_volt > ref_volt))) {
+		if (ref_volt < *last_volt)
+			safe_volt = max(mem_acc_volt, aggr_corner->last_volt);
+		else
+			safe_volt = max(mem_acc_volt, *last_volt);
+
+		rc = regulator_set_voltage(ctrl->vdd_regulator, safe_volt,
+					   new_volt < *last_volt ?
+					   ctrl->aggr_corner.ceiling_volt :
+					   new_volt);
+		if (rc) {
+			cpr3_err(ctrl, "regulator_set_voltage(vdd) == %d failed, rc=%d\n",
+				 safe_volt, rc);
+			return rc;
+		}
+
+		*last_volt = safe_volt;
+
+		mem_acc_corn = ref_volt < mem_acc_volt ?
+			ctrl->mem_acc_corner_map[CPR3_MEM_ACC_LOW_CORNER] :
+			ctrl->mem_acc_corner_map[CPR3_MEM_ACC_HIGH_CORNER];
+
+		if (ctrl->mem_acc_regulator) {
+			rc = regulator_set_voltage(ctrl->mem_acc_regulator,
+						   mem_acc_corn, mem_acc_corn);
+			if (rc) {
+				cpr3_err(ctrl, "regulator_set_voltage(mem_acc) == %d failed, rc=%d\n",
+					 mem_acc_corn, rc);
+				return rc;
+			}
+		}
+
+		for (i = 0; i < ctrl->thread_count; i++) {
+			for (j = 0; j < ctrl->thread[i].vreg_count; j++) {
+				vreg = &ctrl->thread[i].vreg[j];
+
+				if (!vreg->mem_acc_regulator ||
+				    (vreg->ldo_regulator &&
+				     vreg->ldo_regulator_bypass
+				     == LDO_MODE))
+					continue;
+
+				rc = regulator_set_voltage(
+					vreg->mem_acc_regulator, mem_acc_corn,
+					mem_acc_corn);
+				if (rc) {
+					cpr3_err(vreg, "regulator_set_voltage(mem_acc) == %d failed, rc=%d\n",
+						 mem_acc_corn, rc);
+					return rc;
+				}
+			}
+		}
+	}
+
+	return 0;
+}
+
+/**
+ * cpr3_regulator_switch_apm_mode() - switch the mode of the APM controller
+ *		associated with a given CPR3 controller
+ * @ctrl:		Pointer to the CPR3 controller
+ * @new_volt:		New voltage in microvolts that VDD supply needs to
+ *			end up at
+ * @last_volt:		Pointer to the last known voltage in microvolts for the
+ *			VDD supply
+ * @aggr_corner:	Pointer to the CPR3 corner which corresponds to the max
+ *			corner aggregated from all CPR3 threads managed by the
+ *			CPR3 controller
+ *
+ * This function requests a switch of the APM mode while guaranteeing
+ * any LDO regulator hardware requirements are satisfied. The function must
+ * be called once it is known a new VDD supply setpoint crosses the APM
+ * voltage threshold.
+ *
+ * Return: 0 on success, errno on failure. If the VDD supply voltage is
+ * modified, last_volt is updated to reflect the new voltage setpoint.
+ */
+static int cpr3_regulator_switch_apm_mode(struct cpr3_controller *ctrl,
+					  int new_volt, int *last_volt,
+					  struct cpr3_corner *aggr_corner)
+{
+	struct regulator *vdd = ctrl->vdd_regulator;
+	int apm_volt = ctrl->apm_threshold_volt;
+	int orig_last_volt = *last_volt;
+	int rc;
+
+	rc = regulator_set_voltage(vdd, apm_volt, apm_volt);
+	if (rc) {
+		cpr3_err(ctrl, "regulator_set_voltage(vdd) == %d failed, rc=%d\n",
+			 apm_volt, rc);
+		return rc;
+	}
+
+	*last_volt = apm_volt;
+
+	rc = cpr3_regulator_ldo_apm_prepare(ctrl, new_volt, *last_volt,
+					    aggr_corner);
+	if (rc) {
+		cpr3_err(ctrl, "unable to prepare LDO state for APM switch, rc=%d\n",
+			 rc);
+		return rc;
+	}
+
+	rc = msm_apm_set_supply(ctrl->apm, new_volt >= apm_volt
+				? ctrl->apm_high_supply : ctrl->apm_low_supply);
+	if (rc) {
+		cpr3_err(ctrl, "APM switch failed, rc=%d\n", rc);
+		/* Roll back the voltage. */
+		regulator_set_voltage(vdd, orig_last_volt, INT_MAX);
+		*last_volt = orig_last_volt;
+		return rc;
+	}
+	return 0;
+}
+
+/**
+ * cpr3_regulator_config_voltage_crossings() - configure APM and mem-acc
+ *		settings depending upon a new VDD supply setpoint
+ *
+ * @ctrl:		Pointer to the CPR3 controller
+ * @new_volt:		New voltage in microvolts that VDD supply needs to
+ *			end up at
+ * @last_volt:		Pointer to the last known voltage in microvolts for the
+ *			VDD supply
+ * @aggr_corner:	Pointer to the CPR3 corner which corresponds to the max
+ *			corner aggregated from all CPR3 threads managed by the
+ *			CPR3 controller
+ *
+ * This function handles the APM and mem-acc regulator reconfiguration if
+ * the new VDD supply voltage will result in crossing their respective voltage
+ * thresholds.
+ *
+ * Return: 0 on success, errno on failure. If the VDD supply voltage is
+ * modified, last_volt is updated to reflect the new voltage setpoint.
+ */
+static int cpr3_regulator_config_voltage_crossings(struct cpr3_controller *ctrl,
+				   int new_volt, int *last_volt,
+				   struct cpr3_corner *aggr_corner)
+{
+	bool apm_crossing = false, mem_acc_crossing = false;
+	bool mem_acc_bhs_used;
+	int apm_volt = ctrl->apm_threshold_volt;
+	int mem_acc_volt = ctrl->mem_acc_threshold_volt;
+	int ref_volt, rc;
+
+	if (ctrl->apm && apm_volt > 0
+	    && ((*last_volt < apm_volt && apm_volt <= new_volt)
+		|| (*last_volt >= apm_volt && apm_volt > new_volt)))
+		apm_crossing = true;
+
+	mem_acc_bhs_used = cpr3_regulator_mem_acc_bhs_used(ctrl);
+
+	ref_volt = ctrl->use_hw_closed_loop ? aggr_corner->floor_volt :
+		new_volt;
+
+	if (mem_acc_bhs_used &&
+	    (((*last_volt < mem_acc_volt && mem_acc_volt <= ref_volt) ||
+	      (*last_volt >= mem_acc_volt && mem_acc_volt > ref_volt))))
+		mem_acc_crossing = true;
+
+	if (apm_crossing && mem_acc_crossing) {
+		if ((new_volt < *last_volt && apm_volt >= mem_acc_volt) ||
+		    (new_volt >= *last_volt && apm_volt < mem_acc_volt)) {
+			rc = cpr3_regulator_switch_apm_mode(ctrl, new_volt,
+							    last_volt,
+							    aggr_corner);
+			if (rc) {
+				cpr3_err(ctrl, "unable to switch APM mode\n");
+				return rc;
+			}
+
+			rc = cpr3_regulator_config_bhs_mem_acc(ctrl, new_volt,
+						       last_volt, aggr_corner);
+			if (rc) {
+				cpr3_err(ctrl, "unable to configure BHS mem-acc settings\n");
+				return rc;
+			}
+		} else {
+			rc = cpr3_regulator_config_bhs_mem_acc(ctrl, new_volt,
+						       last_volt, aggr_corner);
+			if (rc) {
+				cpr3_err(ctrl, "unable to configure BHS mem-acc settings\n");
+				return rc;
+			}
+
+			rc = cpr3_regulator_switch_apm_mode(ctrl, new_volt,
+							    last_volt,
+							    aggr_corner);
+			if (rc) {
+				cpr3_err(ctrl, "unable to switch APM mode\n");
+				return rc;
+			}
+		}
+	} else if (apm_crossing) {
+		rc = cpr3_regulator_switch_apm_mode(ctrl, new_volt, last_volt,
+						    aggr_corner);
+		if (rc) {
+			cpr3_err(ctrl, "unable to switch APM mode\n");
+			return rc;
+		}
+	} else if (mem_acc_crossing) {
+		rc = cpr3_regulator_config_bhs_mem_acc(ctrl, new_volt,
+						       last_volt, aggr_corner);
+		if (rc) {
+			cpr3_err(ctrl, "unable to configure BHS mem-acc settings\n");
+			return rc;
+		}
+	}
+
+	return 0;
+}
+
+/**
  * cpr3_regulator_config_mem_acc() - configure the corner of the mem-acc
  *			regulator associated with the CPR3 controller
  * @ctrl:		Pointer to the CPR3 controller
  * @aggr_corner:	Pointer to the CPR3 corner which corresponds to the max
- *			corner aggregate of all CPR3 threads managed by the CPR3
- *			controller
+ *			corner aggregated from all CPR3 threads managed by the
+ *			CPR3 controller
  *
  * Return: 0 on success, errno on failure
  */
@@ -1131,11 +1509,12 @@ static int cpr3_regulator_config_mem_acc(struct cpr3_controller *ctrl,
  *		voltage to the new level while satisfying any other hardware
  *		requirements
  * @ctrl:		Pointer to the CPR3 controller
- * @new_volt:		New voltage in microvolts that VDD needs to end up at
+ * @new_volt:		New voltage in microvolts that VDD supply needs to end
+ *			up at
  * @last_volt:		Last known voltage in microvolts for the VDD supply
  * @aggr_corner:	Pointer to the CPR3 corner which corresponds to the max
- *			corner aggregate of all CPR3 threads managed by the CPR3
- *			controller
+ *			corner aggregated from all CPR3 threads managed by the
+ *			CPR3 controller
  *
  * This function scales the CPR controlled VDD supply voltage from its
  * current level to the new voltage that is specified.  If the supply is
@@ -1150,60 +1529,13 @@ static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
 				struct cpr3_corner *aggr_corner)
 {
 	struct regulator *vdd = ctrl->vdd_regulator;
-	bool apm_crossing = false;
-	int apm_volt = ctrl->apm_threshold_volt;
-	int last_max_volt = ctrl->aggr_corner.ceiling_volt;
-	int max_volt = aggr_corner->ceiling_volt;
 	int rc;
-
-	if (ctrl->apm && apm_volt > 0
-		&& ((last_volt < apm_volt && apm_volt <= new_volt)
-			|| (last_volt >= apm_volt && apm_volt > new_volt)))
-		apm_crossing = true;
-
-	if (apm_crossing) {
-		if (new_volt < last_volt) {
-			/* Decreasing VDD voltage */
-			rc = cpr3_regulator_config_ldo(ctrl, apm_volt,
-					       last_max_volt, last_volt);
-			if (rc) {
-				cpr3_err(ctrl, "unable to configure LDO state, rc=%d\n",
-					 rc);
-				return rc;
-			}
-		}
-
-		rc = regulator_set_voltage(vdd, apm_volt, apm_volt);
-		if (rc) {
-			cpr3_err(ctrl, "regulator_set_voltage(vdd) == %d failed, rc=%d\n",
-				 apm_volt, rc);
-			return rc;
-		}
-
-		rc = cpr3_regulator_ldo_apm_prepare(ctrl, new_volt,
-						    apm_volt,
-						    aggr_corner);
-		if (rc) {
-			cpr3_err(ctrl, "unable to prepare LDO state for APM switch, rc=%d\n",
-				 rc);
-			return rc;
-		}
-
-		rc = msm_apm_set_supply(ctrl->apm, new_volt >= apm_volt
-				? ctrl->apm_high_supply : ctrl->apm_low_supply);
-		if (rc) {
-			cpr3_err(ctrl, "APM switch failed, rc=%d\n", rc);
-			/* Roll back the voltage. */
-			regulator_set_voltage(vdd, last_volt, INT_MAX);
-			return rc;
-		}
-	}
 
 	if (new_volt < last_volt) {
 		/* Decreasing VDD voltage */
 		rc = cpr3_regulator_config_ldo(ctrl, aggr_corner->floor_volt,
-					       last_max_volt, apm_crossing ?
-					       apm_volt : last_volt);
+					       ctrl->aggr_corner.ceiling_volt,
+					       last_volt);
 		if (rc) {
 			cpr3_err(ctrl, "unable to configure LDO state, rc=%d\n",
 				 rc);
@@ -1227,6 +1559,14 @@ static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
 		}
 	}
 
+	rc = cpr3_regulator_config_voltage_crossings(ctrl, new_volt, &last_volt,
+						     aggr_corner);
+	if (rc) {
+		cpr3_err(ctrl, "unable to handle voltage threshold crossing configurations, rc=%d\n",
+			 rc);
+		return rc;
+	}
+
 	/*
 	 * Subtract a small amount from the min_uV parameter so that the
 	 * set voltage request is not dropped by the framework due to being
@@ -1234,7 +1574,7 @@ static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
 	 * closed-loop to open-loop successfully.
 	 */
 	rc = regulator_set_voltage(vdd, new_volt - (ctrl->cpr_enabled ? 0 : 1),
-				max_volt);
+				   aggr_corner->ceiling_volt);
 	if (rc) {
 		cpr3_err(ctrl, "regulator_set_voltage(vdd) == %d failed, rc=%d\n",
 			new_volt, rc);
@@ -1244,7 +1584,8 @@ static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
 	if (new_volt >= last_volt) {
 		/* Increasing VDD voltage */
 		rc = cpr3_regulator_config_ldo(ctrl, aggr_corner->floor_volt,
-					       max_volt, new_volt);
+					       aggr_corner->ceiling_volt,
+					       new_volt);
 		if (rc) {
 			cpr3_err(ctrl, "unable to configure LDO state, rc=%d\n",
 				 rc);
@@ -1401,6 +1742,16 @@ static int _cpr3_regulator_update_ctrl_state(struct cpr3_controller *ctrl)
 	/* No threads are enabled with a valid corner so exit. */
 	if (!valid)
 		return 0;
+
+	if (ctrl->use_hw_closed_loop
+	    && aggr_corner.ceiling_volt >= ctrl->mem_acc_threshold_volt
+	    && aggr_corner.floor_volt < ctrl->mem_acc_threshold_volt) {
+		aggr_corner.floor_volt = ctrl->mem_acc_threshold_volt;
+		aggr_corner.last_volt = max(aggr_corner.last_volt,
+					     aggr_corner.floor_volt);
+		aggr_corner.open_loop_volt = max(aggr_corner.open_loop_volt,
+						  aggr_corner.floor_volt);
+	}
 
 	new_volt = (ctrl->cpr_enabled && ctrl->last_corner_was_closed_loop)
 		? aggr_corner.last_volt
@@ -2535,11 +2886,12 @@ static irqreturn_t cpr3_irq_handler(int irq, void *data)
 				ctrl->proc_clock_throttle);
 
 	if (new_volt != last_volt) {
-		rc = regulator_set_voltage(ctrl->vdd_regulator, new_volt,
-						aggr->ceiling_volt);
+		rc = cpr3_regulator_scale_vdd_voltage(ctrl, new_volt,
+						      last_volt,
+						      aggr);
 		if (rc) {
-			cpr3_err(ctrl, "failed to set vdd=%d uV, rc=%d\n",
-				new_volt, rc);
+			cpr3_err(ctrl, "scale_vdd() failed to set vdd=%d uV, rc=%d\n",
+				 new_volt, rc);
 			goto done;
 		}
 		cont = CPR3_CONT_CMD_ACK;
