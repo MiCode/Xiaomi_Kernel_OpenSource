@@ -16,6 +16,7 @@
 #include <linux/list.h>
 #include <linux/ioctl.h>
 #include <linux/init.h>
+#include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/debugfs.h>
 #include <linux/version.h>
@@ -434,9 +435,26 @@ static ssize_t store_thermal_level(struct device *dev,
 static DEVICE_ATTR(thermal_level, S_IRUGO | S_IWUSR, show_thermal_level,
 		store_thermal_level);
 
+
+static ssize_t show_version(struct device *dev, struct device_attribute *attr,
+		char *buf)
+{
+	return scnprintf(buf, PAGE_SIZE, "%d", vidc_driver->version);
+}
+
+static ssize_t store_version(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	dprintk(VIDC_WARN, "store version is not allowed\n");
+	return count;
+}
+
+static DEVICE_ATTR(version, S_IRUGO, show_version, store_version);
+
 static struct attribute *msm_vidc_core_attrs[] = {
 		&dev_attr_pwr_collapse_delay.attr,
 		&dev_attr_thermal_level.attr,
+		&dev_attr_version.attr,
 		NULL
 };
 
@@ -502,9 +520,13 @@ static void load_firmware(struct msm_vidc_core *core)
 static int msm_vidc_probe(struct platform_device *pdev)
 {
 	int rc = 0;
+	void __iomem *base;
+	struct resource *res;
 	struct msm_vidc_core *core;
 	struct device *dev;
 	int nr = BASE_DEVICE_NUMBER;
+	const u32 version_mask = 0x60000000;
+	const u32 version_shift = 29;
 
 	core = kzalloc(sizeof(*core), GFP_KERNEL);
 	if (!core || !vidc_driver) {
@@ -601,6 +623,29 @@ static int msm_vidc_probe(struct platform_device *pdev)
 		else
 			dprintk(VIDC_DBG, "msm_vidc: request probe defer\n");
 		goto err_cores_exceeded;
+	}
+
+	vidc_driver->version = 0;
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse");
+	if (!res) {
+		dprintk(VIDC_DBG, "failed to get efuse resource\n");
+	} else {
+		base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+		if (!base) {
+			dprintk(VIDC_ERR,
+				"failed efuse ioremap: res->start %#x, size %d\n",
+				(u32)res->start, (u32)resource_size(res));
+		} else {
+			u32 efuse = 0;
+
+			efuse = readl_relaxed(base);
+			/* BIT[30, 29] will give the version info */
+			vidc_driver->version =
+				(efuse & version_mask) >> version_shift;
+			dprintk(VIDC_DBG, "efuse version 0x%x\n",
+				vidc_driver->version);
+			devm_iounmap(&pdev->dev, base);
+		}
 	}
 
 	if (core->resources.use_non_secure_pil) {

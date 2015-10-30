@@ -66,8 +66,9 @@ struct tzbsp_video_set_state_req {
 	u32 spare; /*reserved for future, should be zero*/
 };
 
-static int venus_hfi_set_cx_regulator_voltage(
-	struct venus_hfi_device *device, unsigned long freq);
+static int venus_hfi_regulator_set_voltage(
+	struct venus_hfi_device *device, unsigned long freq,
+	struct clock_voltage_info *cv_info);
 static void venus_hfi_pm_hndlr(struct work_struct *work);
 static DECLARE_DELAYED_WORK(venus_hfi_pm_work, venus_hfi_pm_hndlr);
 static int venus_hfi_power_enable(void *dev);
@@ -1820,14 +1821,19 @@ static int venus_hfi_power_enable(void *dev)
 	return rc;
 }
 
-static int venus_hfi_set_cx_regulator_voltage(
-		struct venus_hfi_device *device, unsigned long freq)
+static int venus_hfi_regulator_set_voltage(
+		struct venus_hfi_device *device, unsigned long freq,
+		struct clock_voltage_info *cv_info)
 {
 	int rc = 0, i = 0, voltage_idx = -1;
 	struct regulator_info *rinfo = NULL;
-	struct clock_voltage_info *cv_info = &device->res->cv_info;
 
-	if (!cv_info->count || !msm_vidc_regulator_cx_control)
+	if (!device || !cv_info) {
+		dprintk(VIDC_WARN, "%s: invalid args %p %p\n",
+			__func__, device, cv_info);
+		return -EINVAL;
+	}
+	if (!cv_info->count)
 		return 0;
 
 	for (i = 0; i < cv_info->count; i++) {
@@ -1846,27 +1852,103 @@ static int venus_hfi_set_cx_regulator_voltage(
 	venus_hfi_for_each_regulator(device, rinfo) {
 		if (strnstr(rinfo->name, "vdd-cx", strlen(rinfo->name))) {
 			rc = regulator_set_voltage(rinfo->regulator,
-					voltage_idx, voltage_idx);
+					voltage_idx, INT_MAX);
 			if (rc) {
 				dprintk(VIDC_ERR,
 					"%s: Failed to set voltage_idx %d on %s: %d\n",
 					__func__, voltage_idx, rinfo->name, rc);
 			} else {
 				dprintk(VIDC_DBG,
-					"%s: set voltage_idx %d on %s\n",
-					__func__, voltage_idx, rinfo->name);
+				"%s: set voltage_idx %d on %s for freq %lu\n",
+				__func__, voltage_idx, rinfo->name, freq);
 			}
 		}
 	}
 
-	return 0;
+	return rc;
 }
 
+static int venus_hfi_scale_regulators(struct venus_hfi_device *device,
+		struct vidc_clk_scale_data *data)
+{
+	int rc = 0, i = 0;
+	enum vidc_vote_data_session session_vp9d = 0;
+	struct clock_voltage_info *cv_info = NULL;
+	bool matches = false;
+
+	if (!device || !data) {
+		dprintk(VIDC_ERR, "%s: Invalid args %p, %p\n",
+			__func__, device, data);
+		return -EINVAL;
+	}
+
+	if (!msm_vidc_regulator_scaling)
+		return 0;
+
+	session_vp9d = VIDC_VOTE_DATA_SESSION_VAL(HAL_VIDEO_CODEC_VP9,
+					HAL_VIDEO_DOMAIN_DECODER);
+	for (i = 0; i < data->num_sessions; i++) {
+		matches = venus_hfi_is_session_supported(session_vp9d,
+					data->session[i]);
+		if (matches)
+			break;
+	}
+
+	if (matches) {
+		/*
+		 * vp9 decoder is present, set appropriate voltage level
+		 * based on vp9 clock voltage table in dtsi.
+		 */
+		cv_info = &device->res->cv_info_vp9d;
+		if (cv_info->count) {
+			u32 max_idx = cv_info->count - 1;
+
+			if (device->clk_freq > (unsigned long)
+				cv_info->cv_table[max_idx].clock_freq) {
+				/*
+				 * device max clock rate is not supported if
+				 * vp9 decoder is present, so reduce clock rate
+				 * to max vp9 decoder allowed rate.
+				 */
+				dprintk(VIDC_DBG,
+					"%s: reduce clock rate from %ld to %d\n",
+					__func__, device->clk_freq, cv_info->
+					cv_table[max_idx].clock_freq);
+				device->clk_freq = (unsigned long)cv_info->
+					cv_table[max_idx].clock_freq;
+			}
+
+			rc = venus_hfi_regulator_set_voltage(
+					device, device->clk_freq, cv_info);
+			if (rc) {
+				dprintk(VIDC_WARN,
+					"%s: Failed to set vp9 regulators voltage\n",
+					__func__);
+			}
+		} else {
+			dprintk(VIDC_DBG, "zero cv_info_vp9d->count\n");
+		}
+	} else {
+		cv_info = &device->res->cv_info;
+		if (cv_info->count) {
+			rc = venus_hfi_regulator_set_voltage(
+					device, device->clk_freq, cv_info);
+			if (rc) {
+				dprintk(VIDC_WARN,
+					"%s: Failed to set regulators voltage\n",
+					__func__);
+			}
+		} else {
+			dprintk(VIDC_DBG, "zero cv_info->count\n");
+		}
+	}
+
+	return rc;
+}
 static int venus_hfi_scale_clocks(void *dev, int load,
 		struct vidc_clk_scale_data *data)
 {
 	int rc = 0;
-	unsigned long rate = 0;
 	struct venus_hfi_device *device = dev;
 
 	if (!device) {
@@ -1876,15 +1958,16 @@ static int venus_hfi_scale_clocks(void *dev, int load,
 
 	mutex_lock(&device->clock_lock);
 
-	rate = venus_hfi_get_clock_rate(device, load, data);
-	device->clk_freq = rate;
+	device->clk_freq = venus_hfi_get_clock_rate(device, load, data);
 
-	rc = venus_hfi_set_cx_regulator_voltage(device, rate);
+	rc = venus_hfi_scale_regulators(device, data);
 	if (rc) {
-		dprintk(VIDC_WARN, "%s: Failed to set regulators voltage\n",
+		dprintk(VIDC_WARN, "%s: Failed to scale regulators\n",
 			__func__);
 	}
-	rc = venus_hfi_set_clock(device, rate);
+
+	rc = venus_hfi_set_clock(device, device->clk_freq);
+
 	mutex_unlock(&device->clock_lock);
 
 	return rc;
@@ -2496,9 +2579,9 @@ static int venus_hfi_core_init(void *device)
 	 * to see if SW workaround for venus HW bug is enabled
 	 */
 	cv_info = &dev->res->cv_info;
-	if (cv_info->count && msm_vidc_regulator_cx_control) {
+	if (cv_info->count && msm_vidc_reset_clock_control) {
 		u32 ctrl_init;
-		dprintk(VIDC_DBG, "Cx voltage control enabled\n");
+		dprintk(VIDC_DBG, "video reset clock control enabled\n");
 		ctrl_init = venus_hfi_read_register(device, VIDC_CTRL_INIT);
 		ctrl_init |= 0x80000000;
 		venus_hfi_write_register(dev, VIDC_CTRL_INIT, ctrl_init);
@@ -3494,6 +3577,9 @@ static void venus_hfi_clock_adjust(struct venus_hfi_device *device)
 		return;
 	}
 
+	if (!msm_vidc_reset_clock_control)
+		return;
+
 	if (!device->power_enabled)
 		return;
 
@@ -4232,6 +4318,20 @@ static int venus_hfi_disable_regulator(struct regulator_info *rinfo)
 			"Failed to disable %s: %d\n",
 			rinfo->name, rc);
 		goto disable_regulator_failed;
+	}
+
+	if (msm_vidc_regulator_scaling &&
+		strnstr(rinfo->name, "vdd-cx", strlen(rinfo->name))) {
+
+		rc = regulator_set_voltage(rinfo->regulator, 0, INT_MAX);
+		if (rc)
+			dprintk(VIDC_ERR,
+				"%s: Failed to set zero voltage_idx on %s: %d\n",
+				__func__, rinfo->name, rc);
+		else
+			dprintk(VIDC_DBG,
+				"%s: set zero voltage_idx on %s\n",
+				__func__, rinfo->name);
 	}
 
 	return 0;
