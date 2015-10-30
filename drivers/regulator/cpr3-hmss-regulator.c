@@ -1251,7 +1251,7 @@ static int cpr3_hmss_init_thread(struct cpr3_thread *thread)
 	return 0;
 }
 
-#define MAX_KVREG_NAME_SIZE 25
+#define MAX_VREG_NAME_SIZE 25
 /**
  * cpr3_hmss_kvreg_init() - initialize HMSS Kryo Regulator data for a CPR3
  *		regulator
@@ -1271,10 +1271,10 @@ static int cpr3_hmss_kvreg_init(struct cpr3_regulator *vreg)
 	struct device_node *node = vreg->of_node;
 	struct cpr3_controller *ctrl = vreg->thread->ctrl;
 	int id = vreg->thread->thread_id;
-	char kvreg_name_buf[MAX_KVREG_NAME_SIZE];
+	char kvreg_name_buf[MAX_VREG_NAME_SIZE];
 	int rc;
 
-	scnprintf(kvreg_name_buf, MAX_KVREG_NAME_SIZE,
+	scnprintf(kvreg_name_buf, MAX_VREG_NAME_SIZE,
 		"vdd-thread%d-ldo-supply", id);
 
 	if (!of_find_property(ctrl->dev->of_node, kvreg_name_buf , NULL))
@@ -1282,7 +1282,7 @@ static int cpr3_hmss_kvreg_init(struct cpr3_regulator *vreg)
 	else if (!of_find_property(node, "qcom,ldo-min-headroom-voltage", NULL))
 		return 0;
 
-	scnprintf(kvreg_name_buf, MAX_KVREG_NAME_SIZE, "vdd-thread%d-ldo", id);
+	scnprintf(kvreg_name_buf, MAX_VREG_NAME_SIZE, "vdd-thread%d-ldo", id);
 
 	vreg->ldo_regulator = devm_regulator_get(ctrl->dev, kvreg_name_buf);
 	if (IS_ERR(vreg->ldo_regulator)) {
@@ -1295,7 +1295,7 @@ static int cpr3_hmss_kvreg_init(struct cpr3_regulator *vreg)
 
 	vreg->ldo_regulator_bypass = BHS_MODE;
 
-	scnprintf(kvreg_name_buf, MAX_KVREG_NAME_SIZE, "vdd-thread%d-ldo-ret",
+	scnprintf(kvreg_name_buf, MAX_VREG_NAME_SIZE, "vdd-thread%d-ldo-ret",
 		  id);
 
 	vreg->ldo_ret_regulator = devm_regulator_get(ctrl->dev, kvreg_name_buf);
@@ -1367,6 +1367,51 @@ static int cpr3_hmss_kvreg_init(struct cpr3_regulator *vreg)
 }
 
 /**
+ * cpr3_hmss_mem_acc_init() - initialize mem-acc regulator data for
+ *		a CPR3 regulator
+ * @vreg:		Pointer to the CPR3 regulator
+ *
+ * This function loads mem-acc data from device tree to enable
+ * the control of mem-acc settings based upon the CPR3 regulator
+ * output voltage.
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_hmss_mem_acc_init(struct cpr3_regulator *vreg)
+{
+	struct cpr3_controller *ctrl = vreg->thread->ctrl;
+	int id = vreg->thread->thread_id;
+	char mem_acc_vreg_name_buf[MAX_VREG_NAME_SIZE];
+	int rc;
+
+	scnprintf(mem_acc_vreg_name_buf, MAX_VREG_NAME_SIZE,
+		  "mem-acc-thread%d-supply", id);
+
+	if (!of_find_property(ctrl->dev->of_node, mem_acc_vreg_name_buf,
+			      NULL)) {
+		cpr3_debug(vreg, "not using memory accelerator regulator\n");
+		return 0;
+	} else if (!of_property_read_bool(vreg->of_node, "qcom,uses-mem-acc")) {
+		return 0;
+	}
+
+	scnprintf(mem_acc_vreg_name_buf, MAX_VREG_NAME_SIZE,
+		  "mem-acc-thread%d", id);
+
+	vreg->mem_acc_regulator = devm_regulator_get(ctrl->dev,
+						     mem_acc_vreg_name_buf);
+	if (IS_ERR(vreg->mem_acc_regulator)) {
+		rc = PTR_ERR(vreg->mem_acc_regulator);
+		if (rc != -EPROBE_DEFER)
+			cpr3_err(vreg, "unable to request %s regulator, rc=%d\n",
+				 mem_acc_vreg_name_buf, rc);
+		return rc;
+	}
+
+	return 0;
+}
+
+/**
  * cpr3_hmss_init_regulator() - perform all steps necessary to initialize the
  *		configuration data for a CPR3 regulator
  * @vreg:		Pointer to the CPR3 regulator
@@ -1388,6 +1433,14 @@ static int cpr3_hmss_init_regulator(struct cpr3_regulator *vreg)
 	if (rc) {
 		if (rc != -EPROBE_DEFER)
 			cpr3_err(vreg, "unable to initialize Kryo Regulator settings, rc=%d\n",
+				 rc);
+		return rc;
+	}
+
+	rc = cpr3_hmss_mem_acc_init(vreg);
+	if (rc) {
+		if (rc != -EPROBE_DEFER)
+			cpr3_err(vreg, "unable to initialize mem-acc regulator settings, rc=%d\n",
 				 rc);
 		return rc;
 	}
@@ -1612,7 +1665,6 @@ static int cpr3_hmss_init_controller(struct cpr3_controller *ctrl)
 		return rc;
 	}
 
-
 	/* No error check since this is an optional property. */
 	of_property_read_u32(ctrl->dev->of_node,
 			     "qcom,system-supply-max-voltage",
@@ -1649,6 +1701,31 @@ static int cpr3_hmss_init_controller(struct cpr3_controller *ctrl)
 	ctrl->supports_hw_closed_loop = true;
 	ctrl->use_hw_closed_loop = of_property_read_bool(ctrl->dev->of_node,
 						"qcom,cpr-hw-closed-loop");
+
+	if (ctrl->mem_acc_regulator) {
+		rc = of_property_read_u32(ctrl->dev->of_node,
+					  "qcom,mem-acc-supply-threshold-voltage",
+					  &ctrl->mem_acc_threshold_volt);
+		if (rc) {
+			cpr3_err(ctrl, "error reading property qcom,mem-acc-supply-threshold-voltage, rc=%d\n",
+				 rc);
+			return rc;
+		}
+
+		ctrl->mem_acc_threshold_volt =
+			CPR3_ROUND(ctrl->mem_acc_threshold_volt,
+				   ctrl->step_volt);
+
+		rc = of_property_read_u32_array(ctrl->dev->of_node,
+			"qcom,mem-acc-supply-corner-map",
+			&ctrl->mem_acc_corner_map[CPR3_MEM_ACC_LOW_CORNER],
+			CPR3_MEM_ACC_CORNERS);
+		if (rc) {
+			cpr3_err(ctrl, "error reading qcom,mem-acc-supply-corner-map, rc=%d\n",
+				 rc);
+			return rc;
+		}
+	}
 
 	return 0;
 }
