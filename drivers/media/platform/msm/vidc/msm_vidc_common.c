@@ -460,8 +460,12 @@ static void handle_sys_init_done(enum command_response cmd, void *data)
 				HAL_VIDEO_CODEC_MVC;
 
 	core->codec_count = sys_init_msg->codec_count;
-	memcpy(core->capabilities, sys_init_msg->capabilities,
-		sys_init_msg->codec_count * sizeof(struct msm_vidc_capability));
+	if (core->capabilities)
+		memcpy(core->capabilities, sys_init_msg->capabilities,
+			sys_init_msg->codec_count *
+			sizeof(struct msm_vidc_capability));
+	else
+		dprintk(VIDC_ERR, "%s: core capabilities is NULL\n", __func__);
 
 	dprintk(VIDC_DBG,
 		"%s: supported_codecs[%d]: enc = %#x, dec = %#x\n",
