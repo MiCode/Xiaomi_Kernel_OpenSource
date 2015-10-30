@@ -6459,6 +6459,24 @@ out_free:
 	return ERR_PTR(err);
 }
 
+static int nl80211_abort_scan(struct sk_buff *skb, struct genl_info *info)
+{
+	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+	struct wireless_dev *wdev = info->user_ptr[1];
+
+	if (!rdev->ops->abort_scan)
+		return -EOPNOTSUPP;
+
+	if (rdev->scan_msg)
+		return 0;
+
+	if (!rdev->scan_req)
+		return -ENOENT;
+
+	rdev_abort_scan(rdev, wdev);
+	return 0;
+}
+
 static int nl80211_start_sched_scan(struct sk_buff *skb,
 				    struct genl_info *info)
 {
@@ -11008,6 +11026,14 @@ static const struct genl_ops nl80211_ops[] = {
 	{
 		.cmd = NL80211_CMD_TRIGGER_SCAN,
 		.doit = nl80211_trigger_scan,
+		.policy = nl80211_policy,
+		.flags = GENL_ADMIN_PERM,
+		.internal_flags = NL80211_FLAG_NEED_WDEV_UP |
+				  NL80211_FLAG_NEED_RTNL,
+	},
+	{
+		.cmd = NL80211_CMD_ABORT_SCAN,
+		.doit = nl80211_abort_scan,
 		.policy = nl80211_policy,
 		.flags = GENL_ADMIN_PERM,
 		.internal_flags = NL80211_FLAG_NEED_WDEV_UP |
