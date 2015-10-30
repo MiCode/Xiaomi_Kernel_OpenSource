@@ -2412,6 +2412,11 @@ static int venus_hfi_session_init(void *device, void *session_id,
 	s->session_id = session_id;
 	s->is_decoder = (session_type == HAL_VIDEO_DOMAIN_DECODER);
 	s->device = dev;
+	s->codec = codec_type;
+	s->domain = session_type;
+	dprintk(VIDC_DBG,
+		"%s: inst %pK, session %pK, codec 0x%x, domain 0x%x\n",
+		__func__, session_id, s, s->codec, s->domain);
 
 	list_add_tail(&s->list, &dev->sess_head);
 
@@ -3289,6 +3294,7 @@ static int __response_handler(struct venus_hfi_device *device)
 	while (!__iface_msgq_read(device, raw_packet)) {
 		void **session_id = NULL;
 		struct msm_vidc_cb_info *info = &packets[packet_count++];
+		struct vidc_hal_sys_init_done sys_init_done = {0};
 		int rc = 0;
 
 		rc = hfi_process_msg_packet(device->device_id,
@@ -3317,6 +3323,12 @@ static int __response_handler(struct venus_hfi_device *device)
 			if (__set_imem(device, &device->resources.imem))
 				dprintk(VIDC_WARN,
 				"Failed to set IMEM. Performance will be impacted\n");
+			sys_init_done.capabilities =
+				device->sys_init_capabilities;
+			hfi_process_sys_init_done_prop_read(
+				(struct hfi_msg_sys_init_done_packet *)
+					raw_packet, &sys_init_done);
+			info->response.cmd.data.sys_init_done = sys_init_done;
 			break;
 		case HAL_SESSION_LOAD_RESOURCE_DONE:
 			/*
@@ -3801,6 +3813,10 @@ static int __init_resources(struct venus_hfi_device *device,
 		goto err_init_bus;
 	}
 
+	device->sys_init_capabilities =
+		kzalloc(sizeof(struct msm_vidc_capability)
+		* VIDC_MAX_SESSIONS, GFP_TEMPORARY);
+
 	return rc;
 
 err_init_bus:
@@ -3815,6 +3831,8 @@ static void __deinit_resources(struct venus_hfi_device *device)
 	__deinit_bus(device);
 	__deinit_clocks(device);
 	__deinit_regulators(device);
+	kfree(device->sys_init_capabilities);
+	device->sys_init_capabilities = NULL;
 }
 
 static int __protect_cp_mem(struct venus_hfi_device *device)
