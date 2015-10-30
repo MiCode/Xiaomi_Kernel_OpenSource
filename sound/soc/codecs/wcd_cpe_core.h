@@ -182,6 +182,9 @@ struct wcd_cpe_core {
 
 	/* Kobject for sysfs entry */
 	struct kobject cpe_kobj;
+
+	/* Reference count for cpe clk*/
+	int cpe_clk_ref;
 };
 
 struct wcd_cpe_params {

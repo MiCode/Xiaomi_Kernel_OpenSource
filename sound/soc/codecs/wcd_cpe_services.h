@@ -34,6 +34,7 @@ enum cpe_svc_result {
 	CPE_SVC_INVALID_HANDLE		= -EINVAL,
 	CPE_SVC_NOT_READY		= -ENOTREADY,
 	CPE_SVC_SHUTTING_DOWN		= -ESHUTDOWN,
+	CPE_SVC_BUSY			= -EBUSY,
 };
 
 enum cpe_svc_event {
@@ -174,4 +175,5 @@ enum cpe_svc_result cpe_svc_set_debug_mode(void *cpe_handle, u32 mode);
 
 const struct cpe_svc_hw_cfg *cpe_svc_get_hw_cfg(void *cpe_handle);
 enum cpe_svc_result cpe_svc_toggle_lab(void *cpe_handle, bool enable);
+enum cpe_svc_result cpe_svc_ftm_test(void *cpe_handle, u32 *status);
 #endif /*__CPE_SERVICES__*/
