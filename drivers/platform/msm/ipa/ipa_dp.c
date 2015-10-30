@@ -790,6 +790,79 @@ fail:
 			msecs_to_jiffies(1));
 }
 
+
+/**
+ * ipa_sps_irq_control() - Function to enable or disable BAM IRQ.
+ */
+static void ipa_sps_irq_control(struct ipa_sys_context *sys, bool enable)
+{
+	int ret;
+
+	if (enable) {
+		ret = sps_get_config(sys->ep->ep_hdl, &sys->ep->connect);
+		if (ret) {
+			IPAERR("sps_get_config() failed %d\n", ret);
+			return;
+		}
+		sys->event.options = SPS_O_EOT;
+		ret = sps_register_event(sys->ep->ep_hdl, &sys->event);
+		if (ret) {
+			IPAERR("sps_register_event() failed %d\n", ret);
+			return;
+		}
+		sys->ep->connect.options =
+			SPS_O_AUTO_ENABLE | SPS_O_ACK_TRANSFERS | SPS_O_EOT;
+		ret = sps_set_config(sys->ep->ep_hdl, &sys->ep->connect);
+		if (ret) {
+			IPAERR("sps_set_config() failed %d\n", ret);
+			return;
+		}
+	} else {
+		ret = sps_get_config(sys->ep->ep_hdl,
+				&sys->ep->connect);
+		if (ret) {
+			IPAERR("sps_get_config() failed %d\n", ret);
+			return;
+		}
+		sys->ep->connect.options = SPS_O_AUTO_ENABLE |
+			SPS_O_ACK_TRANSFERS | SPS_O_POLL;
+		ret = sps_set_config(sys->ep->ep_hdl,
+				&sys->ep->connect);
+		if (ret) {
+			IPAERR("sps_set_config() failed %d\n", ret);
+			return;
+		}
+	}
+}
+
+void ipa_sps_irq_control_all(bool enable)
+{
+	struct ipa_ep_context *ep;
+	int ipa_ep_idx, client_num;
+
+	IPADBG("\n");
+
+	for (client_num = IPA_CLIENT_CONS;
+		client_num < IPA_CLIENT_MAX; client_num++) {
+		if (!IPA_CLIENT_IS_APPS_CONS(client_num))
+			continue;
+
+		ipa_ep_idx = ipa_get_ep_mapping(client_num);
+		if (ipa_ep_idx == -1) {
+			IPAERR("Invalid client.\n");
+			continue;
+		}
+		ep = &ipa_ctx->ep[ipa_ep_idx];
+		if (!ep->valid) {
+			IPAERR("EP (%d) not allocated.\n", ipa_ep_idx);
+			continue;
+		}
+		ipa_sps_irq_control(ep->sys, enable);
+	}
+}
+
+
+
 /**
  * ipa_rx_notify() - Callback function which is called by the SPS driver when a
  * a packet is received
