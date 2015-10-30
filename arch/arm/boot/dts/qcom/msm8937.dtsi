@@ -965,7 +965,6 @@
 		#size-cells = <0>;
 		cell-index = <0>;
 		qcom,not-wakeup;
-		status = "disabled";
 	};
 
 	qcom,mss@4080000 {
