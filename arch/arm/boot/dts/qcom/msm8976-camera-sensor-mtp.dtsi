@@ -79,7 +79,6 @@
 		qcom,eeprom-name = "sunny_8865";
 		compatible = "qcom,eeprom";
 		qcom,slave-addr = <0x6c>;
-		qcom,cci-master = <0>;
 		qcom,num-blocks = <8>;
 
 		qcom,page0 = <1 0x0100 2 0x01 1 1>;
@@ -141,7 +140,8 @@
 		qcom,cam-power-seq-val = "cam_vdig", "cam_vana", "cam_vio",
 			"sensor_gpio_reset", "sensor_gpio_standby","sensor_cam_mclk";
 		qcom,cam-power-seq-cfg-val = <1 1 1 1 1 24000000>;
-		qcom,cam-power-seq-delay = <1 1 1 30 30 5>;
+			qcom,cam-power-seq-delay = <1 1 1 30 30 5>;
+		qcom,cci-master = <0>;
 		status = "ok";
 		clocks = <&clock_gcc clk_mclk2_clk_src>,
 			<&clock_gcc clk_gcc_camss_mclk2_clk>;

@@ -414,6 +414,7 @@
 				<&clock_gcc clk_gcc_camss_mclk1_clk>;
 		clock-names = "cam_src_clk", "cam_clk";
 	};
+
 	qcom,camera@2 {
 		cell-index = <2>;
 		compatible = "qcom,camera";
