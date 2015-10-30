@@ -1372,10 +1372,10 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 			 */
 			pr_debug("%s: Enable DSI core power\n", __func__);
 			for (i = DSI_CORE_PM; i < DSI_MAX_PM; i++) {
-				if (((DSI_CORE_PM != i) &&
-					(pdata->panel_info.blank_state !=
-					MDSS_PANEL_BLANK_BLANK) &&
-					!pdata->panel_info.cont_splash_enabled))
+				if ((DSI_CORE_PM != i) &&
+					(ctrl->ctrl_state &
+					CTRL_STATE_DSI_ACTIVE) &&
+					!pdata->panel_info.cont_splash_enabled)
 					continue;
 				rc = msm_dss_enable_vreg(
 					sdata->power_data[i].vreg_config,
@@ -1441,7 +1441,7 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 		 * Enable DSI clamps only if entering idle power collapse or
 		 * when ULPS during suspend is enabled.
 		 */
-		if ((pdata->panel_info.blank_state != MDSS_PANEL_BLANK_BLANK) ||
+		if ((ctrl->ctrl_state & CTRL_STATE_DSI_ACTIVE) ||
 			pdata->panel_info.ulps_suspend_enabled) {
 			rc = mdss_dsi_clamp_ctrl(ctrl, 1);
 			if (rc)
@@ -1461,9 +1461,9 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 		} else {
 			pr_debug("%s: Disable DSI core power\n", __func__);
 			for (i = DSI_MAX_PM - 1; i >= DSI_CORE_PM; i--) {
-				if (((DSI_CORE_PM != i) &&
-					(pdata->panel_info.blank_state !=
-						MDSS_PANEL_BLANK_BLANK)))
+				if ((DSI_CORE_PM != i) &&
+					(ctrl->ctrl_state &
+					CTRL_STATE_DSI_ACTIVE))
 					continue;
 				rc = msm_dss_enable_vreg(
 					sdata->power_data[i].vreg_config,
@@ -1485,8 +1485,8 @@ error_ulps:
 	mdss_dsi_core_clk_stop(ctrl);
 error_core_clk_start:
 	for (i = DSI_MAX_PM - 1; i >= DSI_CORE_PM; i--) {
-		if (((DSI_CORE_PM != i) && (pdata->panel_info.blank_state !=
-			MDSS_PANEL_BLANK_BLANK)))
+		if ((DSI_CORE_PM != i) && (ctrl->ctrl_state &
+			CTRL_STATE_DSI_ACTIVE))
 			continue;
 		rc = msm_dss_enable_vreg(sdata->power_data[i].vreg_config,
 			sdata->power_data[i].num_vreg, 0);
@@ -1572,8 +1572,7 @@ static int mdss_dsi_clk_ctrl_sub(struct mdss_dsi_ctrl_pdata *ctrl,
 			 * to enable ULPS when turning off the clocks
 			 * while blanking the panel.
 			 */
-			if (pdata->panel_info.blank_state ==
-				MDSS_PANEL_BLANK_BLANK) {
+			if (!(ctrl->ctrl_state & CTRL_STATE_DSI_ACTIVE)) {
 				if (pdata->panel_info.ulps_suspend_enabled)
 					mdss_dsi_ulps_config(ctrl, 1);
 			} else if (mdss_dsi_ulps_feature_enabled(pdata)) {
