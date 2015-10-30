@@ -1,6 +1,9 @@
 #ifndef _UAPI_MSM_KGSL_H
 #define _UAPI_MSM_KGSL_H
 
+#include <linux/types.h>
+#include <linux/ioctl.h>
+
 /*
  * The KGSL version has proven not to be very useful in userspace if features
  * are cherry picked into other trees out of order so it is frozen as of 3.14.
