@@ -3378,12 +3378,14 @@ static void pp_update_hist_lut(char __iomem *addr,
 				struct mdp_hist_lut_data *cfg)
 {
 	int i;
-	char *offset_data, *offset_swap;
-	u32 data;
+	char *offset_data, *offset_swap, *offset_pa_dither;
+	u32 data, pa_dither_data;
 
 	if (PP_LOCAT(cfg->block) == MDSS_PP_DSPP_CFG) {
 		offset_data = addr + MDSS_MDP_REG_DSPP_HIST_LUT_BASE;
 		offset_swap = addr + MDSS_MDP_REG_DSPP_HIST_LUT_SWAP;
+		offset_pa_dither = addr
+				+ MDSS_MDP_REG_DSPP_HIST_LUT_DITHER_CTRL;
 	} else {
 		offset_data = addr + MDSS_MDP_REG_VIG_HIST_LUT_BASE;
 		offset_swap = addr + MDSS_MDP_REG_VIG_HIST_LUT_SWAP;
@@ -3395,6 +3397,15 @@ static void pp_update_hist_lut(char __iomem *addr,
 							ENHIST_BIT_SHIFT;
 		writel_relaxed(data, offset_data);
 		offset_data += 4;
+	}
+
+	/* enabling pa dither */
+	if (PP_LOCAT(cfg->block) == MDSS_PP_DSPP_CFG) {
+		pa_dither_data = ENHIST_DITHER_EN | ENHIST_DITHER_OFFSET_EN;
+		pa_dither_data |= ENHIST_DITHER_DEFAULT_STRENGTH <<
+						ENHIST_DITHER_STRENGTH_SHIFT;
+		if (pp_is_pa_v1_7())
+			writel_relaxed(pa_dither_data, offset_pa_dither);
 	}
 
 	/* swap */
