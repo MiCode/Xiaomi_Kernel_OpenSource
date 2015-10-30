@@ -1,0 +1,25 @@
+In Rush Current Mitigation driver:
+
+On recent targets, APSS L2 memories are moved to APC domain which were
+earlier on Mx domain. Analysis suggests that on current targets APSS L2
+memories provide reverse capacitance on Mx and this used to provide buffer
+while powering ON Q6 L2. Now due to L2s moving to APC, the cushion is not
+available. So there is a chance of droop when Q6 L2 memories are being
+powered up.
+
+During Q6 low power modes L2 is kept in retention only and never collapsed. So
+the cases where it needs to be taken care is during PIL(modem and adsp bringup
+during boot). So in cold boot path before bringing up modem or adsp, turn on MM
+memories. Hence providing a intermediate load.
+
+Required properties:
+- compatible:			Must be qcom,msm-inrush-current-mitigation
+- qcom,dependent-subsystems:	List of subsystems which need the intermediate load
+- vdd-supply:			gdsc handle to switch on memory.
+
+Example:
+	qcom,inrush-current {
+		compatible = "qcom,msm-inrush-current-mitigation";
+		qcom,dependent-subsystems = "modem", "adsp";
+		vdd-supply = <&gdsc_mdss>;
+	};
