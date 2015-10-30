@@ -51,6 +51,7 @@ void irqtime_account_irq(struct task_struct *curr)
 	s64 delta;
 	int cpu;
 	u64 wallclock;
+	bool account = true;
 
 	if (!sched_clock_irqtime)
 		return;
@@ -69,16 +70,18 @@ void irqtime_account_irq(struct task_struct *curr)
 	 * in that case, so as not to confuse scheduler with a special task
 	 * that do not consume any time, but still wants to run.
 	 */
-	if (hardirq_count()) {
+	if (hardirq_count())
 		__this_cpu_add(cpu_hardirq_time, delta);
-		sched_account_irqtime(cpu, curr, delta, wallclock);
-	} else if (in_serving_softirq() && curr != this_cpu_ksoftirqd()) {
+	else if (in_serving_softirq() && curr != this_cpu_ksoftirqd())
 		__this_cpu_add(cpu_softirq_time, delta);
-		sched_account_irqtime(cpu, curr, delta, wallclock);
-	}
-
+	else
+		account = false;
 
 	irq_time_write_end();
+
+	if (account)
+		sched_account_irqtime(cpu, curr, delta, wallclock);
+
 	local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(irqtime_account_irq);
