@@ -290,12 +290,10 @@ static int qpdi_probe(struct platform_device *pdev)
 	if (coresight_fuse_qpdi_access_disabled())
 		return -EPERM;
 
-	if (pdev->dev.of_node) {
-		pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
-		if (IS_ERR(pdata))
-			return PTR_ERR(pdata);
-		pdev->dev.platform_data = pdata;
-	}
+	pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
+	if (IS_ERR(pdata))
+		return PTR_ERR(pdata);
+	pdev->dev.platform_data = pdata;
 
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
@@ -313,11 +311,9 @@ static int qpdi_probe(struct platform_device *pdev)
 
 	mutex_init(&drvdata->mutex);
 
-	if (pdev->dev.of_node) {
-		ret = qpdi_parse_of_data(pdev, drvdata);
-		if (ret)
-			return ret;
-	}
+	ret = qpdi_parse_of_data(pdev, drvdata);
+	if (ret)
+		return ret;
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)

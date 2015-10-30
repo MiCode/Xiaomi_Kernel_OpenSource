@@ -252,12 +252,10 @@ static int remote_etm_probe(struct platform_device *pdev)
 	struct coresight_desc *desc;
 	int ret;
 
-	if (pdev->dev.of_node) {
-		pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
-		if (IS_ERR(pdata))
-			return PTR_ERR(pdata);
-		pdev->dev.platform_data = pdata;
-	}
+	pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
+	if (IS_ERR(pdata))
+		return PTR_ERR(pdata);
+	pdev->dev.platform_data = pdata;
 
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
@@ -269,12 +267,11 @@ static int remote_etm_probe(struct platform_device *pdev)
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
 		return -ENOMEM;
-	if (pdev->dev.of_node) {
-		ret = of_property_read_u32(pdev->dev.of_node, "qcom,inst-id",
-					   &drvdata->inst_id);
-		if (ret)
-			return ret;
-	}
+
+	ret = of_property_read_u32(pdev->dev.of_node, "qcom,inst-id",
+			&drvdata->inst_id);
+	if (ret)
+		return ret;
 
 	mutex_init(&drvdata->mutex);
 
