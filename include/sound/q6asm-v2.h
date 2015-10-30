@@ -277,6 +277,8 @@ int q6asm_map_rtac_block(struct rtac_cal_block_data *cal_block);
 
 int q6asm_unmap_rtac_block(uint32_t *mem_map_handle);
 
+int q6asm_send_cal(struct audio_client *ac);
+
 int q6asm_run(struct audio_client *ac, uint32_t flags,
 		uint32_t msw_ts, uint32_t lsw_ts);
 
