@@ -245,9 +245,13 @@ static void mdss_dsi_28nm_phy_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	pd = &(((ctrl_pdata->panel_data).panel_info.mipi).dsi_phy_db);
 
 	/* Strength ctrl 0 for 28nm PHY*/
-	if ((ctrl_pdata->shared_data->hw_rev <= MDSS_DSI_HW_REV_103) &&
-		(ctrl_pdata->shared_data->hw_rev != MDSS_DSI_HW_REV_103))
+	if ((ctrl_pdata->shared_data->hw_rev <= MDSS_DSI_HW_REV_103_1) &&
+		(ctrl_pdata->shared_data->hw_rev != MDSS_DSI_HW_REV_103)) {
+		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0170, 0x5b);
 		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0184, pd->strength[0]);
+		/* make sure PHY strength ctrl is set */
+		wmb();
+	}
 
 	off = 0x0140;	/* phy timing ctrl 0 - 11 */
 	for (i = 0; i < 12; i++) {
@@ -255,12 +259,6 @@ static void mdss_dsi_28nm_phy_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		wmb();
 		off += 4;
 	}
-
-	/* MMSS_DSI_0_PHY_DSIPHY_CTRL_1 */
-	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0174, 0x00);
-	/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
-	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0170, 0x5f);
-	wmb();
 
 	/* 4 lanes + clk lane configuration */
 	/* lane config n * (0 - 4) & DataPath setup */
@@ -275,8 +273,8 @@ static void mdss_dsi_28nm_phy_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		}
 	}
 
-	/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
-	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0170, 0x5f);
+	/* MMSS_DSI_0_PHY_DSIPHY_CTRL_4 */
+	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0180, 0x0a);
 	wmb();
 
 	/* DSI_0_PHY_DSIPHY_GLBL_TEST_CTRL */
@@ -285,6 +283,11 @@ static void mdss_dsi_28nm_phy_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x01d4, 0x01);
 	else
 		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x01d4, 0x00);
+	wmb();
+
+	/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
+	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0170, 0x5f);
+	/* make sure PHY lanes are powered on */
 	wmb();
 
 	off = 0x01b4;	/* phy BIST ctrl 0 - 5 */
