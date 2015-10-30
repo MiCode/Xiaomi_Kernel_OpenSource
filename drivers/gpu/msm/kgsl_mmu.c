@@ -25,7 +25,7 @@
 #include "kgsl_device.h"
 #include "kgsl_sharedmem.h"
 
-static enum kgsl_mmutype kgsl_mmu_type;
+static enum kgsl_mmutype kgsl_mmu_type = KGSL_MMU_TYPE_NONE;
 
 static void pagetable_remove_sysfs_objects(struct kgsl_pagetable *pagetable);
 
@@ -520,11 +520,14 @@ kgsl_mmu_log_fault_addr(struct kgsl_mmu *mmu, phys_addr_t pt_base,
 }
 EXPORT_SYMBOL(kgsl_mmu_log_fault_addr);
 
-int kgsl_mmu_init(struct kgsl_device *device)
+int kgsl_mmu_init(struct kgsl_device *device, char *mmutype)
 {
 	int status = 0;
 	struct kgsl_mmu *mmu = &device->mmu;
 	mmu->device = device;
+
+	if (mmutype && !strcmp(mmutype, "nommu"))
+		kgsl_mmu_type = KGSL_MMU_TYPE_NONE;
 
 	/*
 	 * Don't use kgsl_allocate_global here because we need to get the MMU
@@ -863,13 +866,9 @@ enum kgsl_mmutype kgsl_mmu_get_mmutype(void)
 }
 EXPORT_SYMBOL(kgsl_mmu_get_mmutype);
 
-void kgsl_mmu_set_mmutype(char *mmutype)
+void kgsl_mmu_set_mmutype(enum kgsl_mmutype type)
 {
-	kgsl_mmu_type = iommu_present(&platform_bus_type) ?
-		KGSL_MMU_TYPE_IOMMU : KGSL_MMU_TYPE_NONE;
-
-	if (mmutype && !strncmp(mmutype, "nommu", 5))
-		kgsl_mmu_type = KGSL_MMU_TYPE_NONE;
+	kgsl_mmu_type = type;
 }
 EXPORT_SYMBOL(kgsl_mmu_set_mmutype);
 

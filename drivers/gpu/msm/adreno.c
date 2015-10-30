@@ -238,6 +238,7 @@ static int adreno_iommu_cb_probe(struct platform_device *pdev)
 	struct kgsl_iommu_context *ctx = NULL;
 	struct device_node *node = pdev->dev.of_node;
 	struct kgsl_iommu *iommu = &device_3d0_iommu;
+	int ret = 0;
 
 	/* Map context names from dt to id's */
 	if (!strcmp("gfx3d_user", node->name)) {
@@ -265,14 +266,28 @@ static int adreno_iommu_cb_probe(struct platform_device *pdev)
 				&ctx->gpu_offset))
 		ctx->gpu_offset = UINT_MAX;
 
-	/*
-	 * With the arm-smmu driver we'll have the right device pointer here.
-	 * With the old msm_iommu driver we'll need to query it by name later.
-	 */
-	if (of_find_property(node, "iommus", NULL))
-		ctx->dev = &pdev->dev;
+	ctx->kgsldev = &device_3d0.dev;
 
-	return 0;
+	/* arm-smmu driver we'll have the right device pointer here. */
+	if (of_find_property(node, "iommus", NULL)) {
+		ctx->dev = &pdev->dev;
+	} else {
+		/*
+		 * old iommu driver requires that we query the context bank
+		 * device rather than getting it from dt.
+		 */
+		ctx->dev = kgsl_mmu_get_ctx(ctx->name);
+		if (IS_ERR_OR_NULL(ctx->dev)) {
+			ret = (ctx->dev == NULL) ? -ENODEV : PTR_ERR(ctx->dev);
+			KGSL_CORE_ERR("ctx %s: kgsl_mmu_get_ctx err: %d\n",
+					ctx->name, ret);
+			return ret;
+		}
+	}
+
+	kgsl_mmu_set_mmutype(KGSL_MMU_TYPE_IOMMU);
+
+	return ret;
 }
 
 static struct of_device_id iommu_match_table[] = {

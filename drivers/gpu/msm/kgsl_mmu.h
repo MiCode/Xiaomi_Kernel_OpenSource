@@ -139,7 +139,7 @@ struct kgsl_pagetable *kgsl_mmu_getpagetable_ptbase(struct kgsl_mmu *,
 						u64 ptbase);
 
 void kgsl_mmu_putpagetable(struct kgsl_pagetable *pagetable);
-int kgsl_mmu_init(struct kgsl_device *device);
+int kgsl_mmu_init(struct kgsl_device *device, char *mmutype);
 int kgsl_mmu_start(struct kgsl_device *device);
 int kgsl_mmu_close(struct kgsl_device *device);
 int kgsl_mmu_map(struct kgsl_pagetable *pagetable,
@@ -157,7 +157,7 @@ int kgsl_mmu_get_ptname_from_ptbase(struct kgsl_mmu *mmu, u64 pt_base);
 unsigned int kgsl_mmu_log_fault_addr(struct kgsl_mmu *mmu,
 			phys_addr_t pt_base, unsigned int addr);
 int kgsl_mmu_enabled(void);
-void kgsl_mmu_set_mmutype(char *mmutype);
+void kgsl_mmu_set_mmutype(enum kgsl_mmutype type);
 enum kgsl_mmutype kgsl_mmu_get_mmutype(void);
 bool kgsl_mmu_gpuaddr_in_range(struct kgsl_pagetable *pt, uint64_t gpuaddr);
 
@@ -329,6 +329,36 @@ kgsl_mmu_pagetable_get_contextidr(struct kgsl_pagetable *pagetable)
 	return 0;
 }
 
+#ifdef CONFIG_MSM_IOMMU
+#include <linux/qcom_iommu.h>
+static inline bool kgsl_mmu_bus_secured(struct device *dev)
+{
+	struct bus_type *bus = msm_iommu_get_bus(dev);
 
+	return (bus == &msm_iommu_sec_bus_type) ? true : false;
+}
+static inline struct bus_type *kgsl_mmu_get_bus(struct device *dev)
+{
+	return msm_iommu_get_bus(dev);
+}
+static inline struct device *kgsl_mmu_get_ctx(const char *name)
+{
+	return msm_iommu_get_ctx(name);
+}
+#else
+static inline bool kgsl_mmu_bus_secured(struct device *dev)
+{
+	return false;
+}
+
+static inline struct bus_type *kgsl_mmu_get_bus(struct device *dev)
+{
+	return &platform_bus_type;
+}
+static inline struct device *kgsl_mmu_get_ctx(const char *name)
+{
+	return ERR_PTR(-ENODEV);
+}
+#endif
 
 #endif /* __KGSL_MMU_H */
