@@ -107,6 +107,8 @@
 
 	qcom,cpr-fuse-corners = <5>;
 	qcom,cpr-fuse-combos = <4>;
+	/delete-property/ qcom,cpr-speed-bins;
+	/delete-property/ qcom,cpr-speed-bin-corners;
 	qcom,cpr-corners = <19>;
 
 	qcom,ldo-max-voltage = <805000>;
@@ -171,6 +173,8 @@
 
 	qcom,cpr-fuse-corners = <5>;
 	qcom,cpr-fuse-combos = <4>;
+	/delete-property/ qcom,cpr-speed-bins;
+	/delete-property/ qcom,cpr-speed-bin-corners;
 	qcom,cpr-corners = <10>;
 
 	qcom,cpr-corner-fmax-map = <1 2 5 9 10>;
@@ -224,6 +228,8 @@
 
 	qcom,cpr-fuse-corners = <5>;
 	qcom,cpr-fuse-combos = <4>;
+	/delete-property/ qcom,cpr-speed-bins;
+	/delete-property/ qcom,cpr-speed-bin-corners;
 	qcom,cpr-corners = <18>;
 
 	qcom,ldo-max-voltage = <805000>;
