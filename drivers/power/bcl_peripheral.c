@@ -212,7 +212,7 @@ static void convert_adc_to_vbat_val(int *val)
 	if (!bcl_perph)
 		return;
 	perph_data = &bcl_perph->param[BCL_PARAM_VOLTAGE];
-	*val = (*val * perph_data->scaling_factor)
+	*val = ((*val + 2) * perph_data->scaling_factor)
 		* (100 + (perph_data->gain_factor_num * perph_data->gain)
 		* BCL_CONSTANT_NUM  / perph_data->gain_factor_den)
 		/ 100;
