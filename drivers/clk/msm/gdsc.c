@@ -69,6 +69,8 @@ enum gdscr_status {
 	DISABLED,
 };
 
+static DEFINE_MUTEX(gdsc_seq_lock);
+
 static int poll_gdsc_status(struct gdsc *sc, enum gdscr_status status)
 {
 	void __iomem *gdscr;
@@ -133,7 +135,9 @@ static int gdsc_enable(struct regulator_dev *rdev)
 {
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval, hw_ctrl_regval = 0x0;
-	int i, ret;
+	int i, ret = 0;
+
+	mutex_lock(&gdsc_seq_lock);
 
 	if (sc->root_en || sc->force_root_en)
 		clk_prepare_enable(sc->clocks[sc->root_clk_idx]);
@@ -171,6 +175,7 @@ static int gdsc_enable(struct regulator_dev *rdev)
 		if (regval & HW_CONTROL_MASK) {
 			dev_warn(&rdev->dev, "Invalid enable while %s is under HW control\n",
 				 sc->rdesc.name);
+			mutex_unlock(&gdsc_seq_lock);
 			return -EBUSY;
 		}
 
@@ -196,6 +201,7 @@ static int gdsc_enable(struct regulator_dev *rdev)
 			} else
 				dev_err(&rdev->dev, "%s final state: 0x%x (%d us after timeout)\n",
 					sc->rdesc.name, regval, TIMEOUT_US);
+			mutex_unlock(&gdsc_seq_lock);
 			return ret;
 		}
 	} else {
@@ -228,7 +234,10 @@ static int gdsc_enable(struct regulator_dev *rdev)
 	if (sc->force_root_en)
 		clk_disable_unprepare(sc->clocks[sc->root_clk_idx]);
 	sc->is_gdsc_enabled = true;
-	return 0;
+
+	mutex_unlock(&gdsc_seq_lock);
+
+	return ret;
 }
 
 static int gdsc_disable(struct regulator_dev *rdev)
@@ -236,6 +245,8 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval;
 	int i, ret = 0;
+
+	mutex_lock(&gdsc_seq_lock);
 
 	if (sc->force_root_en)
 		clk_prepare_enable(sc->clocks[sc->root_clk_idx]);
@@ -257,6 +268,7 @@ static int gdsc_disable(struct regulator_dev *rdev)
 		if (regval & HW_CONTROL_MASK) {
 			dev_warn(&rdev->dev, "Invalid disable while %s is under HW control\n",
 				 sc->rdesc.name);
+			mutex_unlock(&gdsc_seq_lock);
 			return -EBUSY;
 		}
 
@@ -299,6 +311,9 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	if ((sc->is_gdsc_enabled && sc->root_en) || sc->force_root_en)
 		clk_disable_unprepare(sc->clocks[sc->root_clk_idx]);
 	sc->is_gdsc_enabled = false;
+
+	mutex_unlock(&gdsc_seq_lock);
+
 	return ret;
 }
 
@@ -307,7 +322,9 @@ static unsigned int gdsc_get_mode(struct regulator_dev *rdev)
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval;
 
+	mutex_lock(&gdsc_seq_lock);
 	regval = readl_relaxed(sc->gdscr);
+	mutex_unlock(&gdsc_seq_lock);
 	if (regval & HW_CONTROL_MASK)
 		return REGULATOR_MODE_FAST;
 	return REGULATOR_MODE_NORMAL;
@@ -317,7 +334,9 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 {
 	struct gdsc *sc = rdev_get_drvdata(rdev);
 	uint32_t regval;
-	int ret;
+	int ret = 0;
+
+	mutex_lock(&gdsc_seq_lock);
 
 	regval = readl_relaxed(sc->gdscr);
 
@@ -327,6 +346,7 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 	 */
 	if (regval & SW_COLLAPSE_MASK) {
 		dev_err(&rdev->dev, "can't enable hw collapse now\n");
+		mutex_unlock(&gdsc_seq_lock);
 		return -EBUSY;
 	}
 
@@ -361,18 +381,20 @@ static int gdsc_set_mode(struct regulator_dev *rdev, unsigned int mode)
 		 */
 		mb();
 		udelay(1);
+
 		ret = poll_gdsc_status(sc, ENABLED);
-		if (ret) {
+		if (ret)
 			dev_err(&rdev->dev, "%s set_mode timed out: 0x%x\n",
 				sc->rdesc.name, regval);
-			return ret;
-		}
 		break;
 	default:
-		return -EINVAL;
+		ret = -EINVAL;
+		break;
 	}
 
-	return 0;
+	mutex_unlock(&gdsc_seq_lock);
+
+	return ret;
 }
 
 static struct regulator_ops gdsc_ops = {
