@@ -53,6 +53,18 @@
 			debounce-interval = <15>;
 		};
 	};
+
+	hbtp {
+		compatible = "qcom,hbtp-input";
+		vcc_ana-supply = <&pm8937_l10>;
+		vcc_dig-supply = <&pm8937_l5>;
+		qcom,afe-load = <50000>;
+		qcom,afe-vtg-min = <2850000>;
+		qcom,afe-vtg-max = <2850000>;
+		qcom,dig-load = <15000>;
+		qcom,dig-vtg-min = <1800000>;
+		qcom,dig-vtg-max = <1800000>;
+	};
 };
 
 &tlmm {
