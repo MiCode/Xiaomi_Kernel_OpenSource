@@ -1512,7 +1512,7 @@ static int __cpuinit cpu_pmu_notify(struct notifier_block *b,
 					armpmu_hotplug_disable, cpu_pmu, 1);
 			/* Disarm the PMU IRQ before disappearing. */
 			if (cpu_pmu->plat_device) {
-				irq = platform_get_irq(cpu_pmu->plat_device, 0);
+				irq = cpu_pmu->percpu_irq;
 				smp_call_function_single(cpu,
 					    armpmu_disable_percpu_irq, &irq, 1);
 			}
@@ -1529,7 +1529,7 @@ static int __cpuinit cpu_pmu_notify(struct notifier_block *b,
 		if (cpu_pmu->pmu_state == ARM_PMU_STATE_RUNNING) {
 			/* Arm the PMU IRQ before appearing. */
 			if (cpu_pmu->plat_device) {
-				irq = platform_get_irq(cpu_pmu->plat_device, 0);
+				irq = cpu_pmu->percpu_irq;
 				armpmu_enable_percpu_irq(&irq);
 			}
 			if (cpu_has_active_perf(cpu)) {
