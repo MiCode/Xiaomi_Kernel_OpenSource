@@ -65,6 +65,7 @@ obj-$(CONFIG_MSM_PIL_SSR_GENERIC) += subsys-pil-tz.o
 obj-$(CONFIG_MSM_PIL_MSS_QDSP6V5) += pil-q6v5.o pil-msa.o pil-q6v5-mss.o
 obj-$(CONFIG_MSM_CORE_CTL_HELPER) += core_ctl_helper.o
 obj-$(CONFIG_MSM_SCM_ERRATA) += scm-errata.o
+obj-$(CONFIG_MSM_PFE_WA) += pfe-wa.o
 obj-$(CONFIG_MSM_PERFORMANCE) += msm_performance.o
 
 ifdef CONFIG_MSM_SUBSYSTEM_RESTART

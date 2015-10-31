@@ -308,6 +308,16 @@ config MSM_SCM_ERRATA
 
 	  If unsure, say N.
 
+config MSM_PFE_WA
+	depends on HW_PERF_EVENTS
+	bool "Enable a H/W PFE WA"
+	help
+	  Sometimes the PFTLB entries get stuck in the invalid state and new
+	  prefetches get dropped. For a workaround, count L1 prefeches dropped
+	  due to PFTLB miss and reset H/W PFE when a overflow happens.
+
+	  If unsure, say N.
+
 config MSM_MPM_OF
        bool "Modem Power Manager"
        depends on OF
