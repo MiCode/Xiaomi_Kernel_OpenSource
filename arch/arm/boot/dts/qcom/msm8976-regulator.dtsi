@@ -369,7 +369,7 @@
 
 		vdd-mx-supply = <&pm8950_s6_level_ao>;
 		qcom,vdd-mx-vmin-method = <5>;
-		qcom,vdd-mx-vmax = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+		qcom,vdd-mx-vmax = <RPM_SMD_REGULATOR_LEVEL_BINNING>;
 		qcom,vdd-mx-corner-map = <RPM_SMD_REGULATOR_LEVEL_SVS>,
 					 <RPM_SMD_REGULATOR_LEVEL_SVS>,
 					 <RPM_SMD_REGULATOR_LEVEL_SVS_PLUS>,
@@ -468,7 +468,7 @@
 
 		vdd-mx-supply = <&pm8950_s6_level_ao>;
 		qcom,vdd-mx-vmin-method = <5>;
-		qcom,vdd-mx-vmax = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+		qcom,vdd-mx-vmax = <RPM_SMD_REGULATOR_LEVEL_BINNING>;
 		qcom,vdd-mx-corner-map = <RPM_SMD_REGULATOR_LEVEL_SVS>,
 					 <RPM_SMD_REGULATOR_LEVEL_SVS>,
 					 <RPM_SMD_REGULATOR_LEVEL_SVS_PLUS>,
@@ -584,7 +584,7 @@
 		vdd-gfx-supply = <&pm8004_s5>;
 
 		vdd-mx-supply = <&pm8950_s6_level_ao>;
-		qcom,vdd-mx-vmax = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+		qcom,vdd-mx-vmax = <RPM_SMD_REGULATOR_LEVEL_BINNING>;
 		qcom,vdd-mx-corner-map = <RPM_SMD_REGULATOR_LEVEL_SVS>,
 					 <RPM_SMD_REGULATOR_LEVEL_SVS>,
 					 <RPM_SMD_REGULATOR_LEVEL_SVS>,
