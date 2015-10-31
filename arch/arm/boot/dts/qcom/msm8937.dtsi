@@ -1695,6 +1695,7 @@
 #include "msm8937-regulator.dtsi"
 #include "msm-pm8937.dtsi"
 #include "msm-gdsc-8916.dtsi"
+#include "msm-audio.dtsi"
 
 &gdsc_venus {
 	clock-names = "bus_clk", "core_clk";
