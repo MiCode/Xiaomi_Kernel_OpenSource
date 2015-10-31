@@ -1023,6 +1023,8 @@ enum v4l2_mpeg_vidc_video_lowlatency_mode {
 	V4L2_CID_MPEG_VIDC_VIDEO_LOWLATENCY_ENABLE      = 1,
 };
 
+#define V4L2_CID_MPEG_VIDC_VENC_PARAM_LAYER_BITRATE \
+		(V4L2_CID_MPEG_MSM_VIDC_BASE + 78)
 
 /*  Camera class control IDs */
 
