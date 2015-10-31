@@ -382,6 +382,10 @@ static int put_v4l2_plane32(struct v4l2_plane __user *up, struct v4l2_plane32 __
 		if (copy_in_user(&up32->m.fd, &up->m.fd,
 					sizeof(int)))
 			return -EFAULT;
+	if (memory == V4L2_MEMORY_USERPTR)
+		if (copy_in_user(&up32->m.userptr, &up->m.userptr,
+					sizeof(compat_long_t)))
+			return -EFAULT;
 
 	return 0;
 }
