@@ -16,6 +16,7 @@
 #include <linux/msm_ep_pcie.h>
 #include <linux/types.h>
 #include <linux/ipc_logging.h>
+#include <linux/dma-mapping.h>
 
 /* MHI control data structures alloted by the host, including
  * channel context array, event context array, command context and rings */
@@ -271,6 +272,7 @@ struct mhi_config {
 #define HW_CHANNEL_END			107
 #define MHI_ENV_VALUE			2
 #define MHI_MASK_ROWS_CH_EV_DB		4
+#define TRB_MAX_DATA_SIZE		4096
 
 /* Possible ring element types */
 union mhi_dev_ring_element_type {
@@ -359,9 +361,15 @@ struct mhi_dev_ring {
 	enum mhi_dev_ring_type			type;
 	enum mhi_dev_ring_state			state;
 
+	/* device virtual address location of the cached host ring ctx data */
 	union mhi_dev_ring_element_type		*ring_cache;
+	/* Physical address of the cached ring copy on the device side */
+	dma_addr_t				ring_cache_dma_handle;
+	/* Physical address of the host where we will write/read to/from */
 	struct mhi_addr				ring_shadow;
+	/* Ring type - cmd, event, transfer ring and its rp/wp... */
 	union mhi_dev_ring_ctx			*ring_ctx;
+	/* ring_ctx_shadow -> tracking ring_ctx in the host */
 	union mhi_dev_ring_ctx			*ring_ctx_shadow;
 	void (*ring_cb)(struct mhi_dev *dev,
 			union mhi_dev_ring_element_type *el,
@@ -462,11 +470,14 @@ struct mhi_dev {
 	struct mhi_addr			data_base;
 	struct mhi_addr			ch_ctx_shadow;
 	struct mhi_dev_ch_ctx		*ch_ctx_cache;
+	dma_addr_t			ch_ctx_cache_dma_handle;
 	struct mhi_addr			ev_ctx_shadow;
 	struct mhi_dev_ch_ctx		*ev_ctx_cache;
+	dma_addr_t			ev_ctx_cache_dma_handle;
 
 	struct mhi_addr			cmd_ctx_shadow;
 	struct mhi_dev_ch_ctx		*cmd_ctx_cache;
+	dma_addr_t			cmd_ctx_cache_dma_handle;
 	struct mhi_dev_ring		*ring;
 	int				mhi_irq;
 	struct mhi_dev_channel		*ch;
@@ -507,6 +518,21 @@ struct mhi_dev {
 	u32				device_local_pa_base;
 	u32				mhi_ep_msi_num;
 	u32				mhi_version;
+	void				*dma_cache;
+	void				*read_handle;
+	void				*write_handle;
+	/* Physical scratch buffer for writing control data to the host */
+	dma_addr_t			cache_dma_handle;
+	/*
+	 * Physical scratch buffer address used when picking host data
+	 * from the host used in mhi_read()
+	 */
+	dma_addr_t			read_dma_handle;
+	/*
+	 * Physical scratch buffer address used when writing to the host
+	 * region from device used in mhi_write()
+	 */
+	dma_addr_t			write_dma_handle;
 };
 
 enum mhi_msg_level {
@@ -708,25 +734,25 @@ int mhi_dev_add_element(struct mhi_dev_ring *ring,
 				union mhi_dev_ring_element_type *element);
 
 /**
- * mhi_memcpy_dev2host() - memcpy equivalent API to transfer data
+ * mhi_transfer_device_to_host() - memcpy equivalent API to transfer data
  *		from device to the host.
  * @dst_pa:	Physical destination address.
  * @src:	Source virtual address.
  * @len:	Numer of bytes to be transferred.
  * @mhi:	MHI dev structure.
  */
-int mhi_memcpy_dev2host(uint32_t dst_pa, void *src, uint32_t len,
+int mhi_transfer_device_to_host(uint64_t dst_pa, void *src, uint32_t len,
 				struct mhi_dev *mhi);
 
 /**
- * mhi_memcpy_host2dev() - memcpy equivalent API to transfer data
+ * mhi_transfer_host_to_dev() - memcpy equivalent API to transfer data
  *		from host to the device.
  * @dst:	Physical destination virtual address.
  * @src_pa:	Source physical address.
  * @len:	Numer of bytes to be transferred.
  * @mhi:	MHI dev structure.
  */
-int mhi_memcpy_host2dev(void *dst, uint32_t src_pa, uint32_t len,
+int mhi_transfer_host_to_device(void *device, uint64_t src_pa, uint32_t len,
 				struct mhi_dev *mhi);
 
 /**
@@ -736,7 +762,8 @@ int mhi_memcpy_host2dev(void *dst, uint32_t src_pa, uint32_t len,
  * @buf:	Data buffer that needs to be written to the host.
  * @size:	Data buffer size.
  */
-void mhi_dev_write_to_host(struct mhi_addr *host, void *buf, size_t size);
+void mhi_dev_write_to_host(struct mhi_addr *host, void *buf, size_t size,
+				struct mhi_dev *mhi);
 
 /**
  * mhi_dev_read_from_host() - memcpy equivalent API to transfer data
@@ -745,7 +772,7 @@ void mhi_dev_write_to_host(struct mhi_addr *host, void *buf, size_t size);
  * @buf:	Data buffer that needs to be read from the host.
  * @size:	Data buffer size.
  */
-void mhi_dev_read_from_host(struct mhi_addr *dst, void *buf, size_t size);
+void mhi_dev_read_from_host(struct mhi_addr *dst, dma_addr_t buf, size_t size);
 
 /**
  * mhi_dev_read_from_host() - memcpy equivalent API to transfer data
@@ -1091,5 +1118,7 @@ int mhi_pcie_config_db_routing(struct mhi_dev *mhi);
  *		channels.
  */
 int mhi_uci_init(void);
+
+void mhi_dev_notify_a7_event(struct mhi_dev *mhi);
 
 #endif /* _MHI_H_ */

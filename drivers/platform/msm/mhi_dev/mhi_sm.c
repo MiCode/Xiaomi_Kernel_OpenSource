@@ -151,6 +151,9 @@ static inline const char *mhi_sm_pcie_event_str(enum ep_pcie_event event)
 	case EP_PCIE_EVENT_PM_D0:
 		str = "EP_PCIE_PM_D0_EVENT";
 		break;
+	case EP_PCIE_EVENT_MHI_A7:
+		str = "EP_PCIE_MHI_A7";
+		break;
 	default:
 		str = "INVALID_PCIE_EVENT";
 		break;
@@ -408,6 +411,9 @@ static bool mhi_sm_is_legal_pcie_event_on_state(enum mhi_dev_state curr_mstate,
 	case EP_PCIE_EVENT_PM_D0:
 		res = (curr_dstate == MHI_SM_EP_PCIE_D0_STATE ||
 			curr_dstate == MHI_SM_EP_PCIE_D3_HOT_STATE);
+		break;
+	case EP_PCIE_EVENT_MHI_A7:
+		res = true;
 		break;
 	default:
 		MHI_SM_ERR("Invalid ep_pcie event, received: %s\n",
@@ -1143,6 +1149,11 @@ void mhi_dev_sm_pcie_handler(struct ep_pcie_notify *notify)
 		MHI_SM_ERR("got %s, ERROR occurred\n",
 			mhi_sm_pcie_event_str(event));
 		break;
+	case EP_PCIE_EVENT_MHI_A7:
+		ep_pcie_mask_irq_event(mhi_sm_ctx->mhi_dev->phandle,
+				EP_PCIE_INT_EVT_MHI_A7, false);
+		mhi_dev_notify_a7_event(mhi_sm_ctx->mhi_dev);
+		goto exit;
 	default:
 		MHI_SM_ERR("Invalid ep_pcie event, received 0x%x event\n",
 			event);
