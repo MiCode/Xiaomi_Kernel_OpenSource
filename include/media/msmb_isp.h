@@ -27,6 +27,7 @@
 #define ISP1_BIT              (0x10000 << 2)
 #define ISP_META_CHANNEL_BIT  (0x10000 << 3)
 #define ISP_SCRATCH_BUF_BIT   (0x10000 << 4)
+#define ISP_OFFLINE_STATS_BIT (0x10000 << 5)
 #define ISP_STATS_STREAM_BIT  0x80000000
 
 struct msm_vfe_cfg_cmd_list;
