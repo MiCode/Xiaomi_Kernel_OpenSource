@@ -1026,6 +1026,14 @@ enum v4l2_mpeg_vidc_video_lowlatency_mode {
 #define V4L2_CID_MPEG_VIDC_VENC_PARAM_LAYER_BITRATE \
 		(V4L2_CID_MPEG_MSM_VIDC_BASE + 78)
 
+#define V4L2_CID_MPEG_VIDC_VIDEO_VENC_BITRATE_TYPE \
+		(V4L2_CID_MPEG_MSM_VIDC_BASE + 79)
+
+enum v4l2_mpeg_vidc_video_venc_bitrate_type_enable {
+	V4L2_CID_MPEG_VIDC_VIDEO_VENC_BITRATE_DISABLE	= 0,
+	V4L2_CID_MPEG_VIDC_VIDEO_VENC_BITRATE_ENABLE	= 1
+};
+
 /*  Camera class control IDs */
 
 #define V4L2_CID_CAMERA_CLASS_BASE 	(V4L2_CTRL_CLASS_CAMERA | 0x900)
