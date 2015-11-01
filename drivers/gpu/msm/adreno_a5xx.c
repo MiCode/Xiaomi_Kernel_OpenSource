@@ -1864,7 +1864,7 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 		 * microcodes after v77
 		 */
 		if ((adreno_compare_pfp_version(adreno_dev, 0x5FF077) >= 0))
-			kgsl_regrmw(device, A5XX_SP_DBG_ECO_CNTL, 0, (1 << 8));
+			kgsl_regrmw(device, A5XX_PC_DBG_ECO_CNTL, 0, (1 << 8));
 	}
 
 	/* Set the USE_RETENTION_FLOPS chicken bit */
