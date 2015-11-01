@@ -1109,6 +1109,7 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata, int power_state)
 		/* disable DSI phy */
 		mdss_dsi_phy_disable(ctrl_pdata);
 	}
+	ctrl_pdata->ctrl_state &= ~CTRL_STATE_DSI_ACTIVE;
 
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
 
@@ -1297,6 +1298,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 		mdss_dsi_phy_init(ctrl_pdata);
 		mdss_dsi_ctrl_setup(ctrl_pdata);
 	}
+	ctrl_pdata->ctrl_state |= CTRL_STATE_DSI_ACTIVE;
 
 	/* DSI link clocks need to be on prior to ctrl sw reset */
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_LINK_CLKS, 1);
@@ -1410,14 +1412,15 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 				panel_data);
 	mipi  = &pdata->panel_info.mipi;
 
-	pr_debug("%s+: ctrl=%p ndx=%d cur_blank_state=%d\n", __func__,
-		ctrl_pdata, ctrl_pdata->ndx, pdata->panel_info.blank_state);
+	pr_debug("%s+: ctrl=%p ndx=%d cur_power_state=%d\n", __func__,
+		ctrl_pdata, ctrl_pdata->ndx,
+		pdata->panel_info.panel_power_state);
 
 	mdss_dsi_pm_qos_update_request(DSI_DISABLE_PC_LATENCY);
 
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
 
-	if (pdata->panel_info.blank_state == MDSS_PANEL_BLANK_LOW_POWER) {
+	if (mdss_dsi_is_panel_on_lp(pdata)) {
 		pr_debug("%s: dsi_unblank with panel always on\n", __func__);
 		if (ctrl_pdata->low_power_config)
 			ret = ctrl_pdata->low_power_config(pdata, false);
@@ -3377,7 +3380,8 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 		}
 		if (ctrl_pdata->bklt_ctrl == BL_PWM)
 			ctrl_pdata->pwm_enabled = 1;
-		pinfo->blank_state = MDSS_PANEL_BLANK_UNBLANK;
+		ctrl_pdata->ctrl_state |= (CTRL_STATE_PANEL_INIT |
+			CTRL_STATE_MDP_ACTIVE | CTRL_STATE_DSI_ACTIVE);
 		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
 		ctrl_pdata->is_phyreg_enabled = 1;
 		mdss_dsi_get_hw_revision(ctrl_pdata);
@@ -3388,8 +3392,6 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 			if (data & BIT(16))
 				ctrl_pdata->burst_mode_enabled = true;
 		}
-		ctrl_pdata->ctrl_state |=
-			(CTRL_STATE_PANEL_INIT | CTRL_STATE_MDP_ACTIVE);
 	} else {
 		pinfo->panel_power_state = MDSS_PANEL_POWER_OFF;
 	}
