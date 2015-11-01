@@ -49,6 +49,12 @@ Optional properties for WLED:
 - qcom,cons-sync-write-delay-us : Specify in 'us' the duration of delay between two consecutive writes to
 				  SYNC register.
 
+Optional properties if 'qcom,disp-type-amoled' is mentioned in DT:
+- qcom,loop-ea-gm	: control the gm for gm stage in control loop. default is 3.
+- qcom,loop-comp-res-kohm	: control to select the compensation resistor in kohm. default is 320.
+- qcom,vref-psm-mv	: reference psm voltage in mv. default for amoled is 450.
+- qcom,sc-deb-cycles	: debounce time for short circuit detection
+
 Example:
 	qcom,leds@d800 {
 		compatible = "qcom,qpnp-wled";
