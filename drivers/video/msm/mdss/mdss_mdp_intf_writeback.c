@@ -580,6 +580,8 @@ static bool mdss_mdp_traffic_shaper_helper(struct mdss_mdp_ctl *ctl,
 		u32 traffic_shaper;
 		pipe = mixer->stage_pipe[i];
 
+		memset(&perf, 0, sizeof(perf));
+
 		if (pipe == NULL)
 			continue;
 
