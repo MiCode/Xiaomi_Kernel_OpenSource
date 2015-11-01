@@ -1576,6 +1576,8 @@ static int a4xx_rb_init(struct adreno_device *adreno_dev,
 			 struct adreno_ringbuffer *rb)
 {
 	unsigned int *cmds;
+	int ret;
+
 	cmds = adreno_ringbuffer_allocspace(rb, 20);
 	if (IS_ERR(cmds))
 		return PTR_ERR(cmds);
@@ -1614,8 +1616,15 @@ static int a4xx_rb_init(struct adreno_device *adreno_dev,
 	*cmds++ = cp_type3_packet(CP_PREEMPT_ENABLE, 1);
 	*cmds++ = 1;
 
-	adreno_ringbuffer_submit(rb, NULL);
-	return 0;
+	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
+	if (ret) {
+		struct kgsl_device *device = &adreno_dev->dev;
+
+		dev_err(device->dev, "CP initialization failed to idle\n");
+		kgsl_device_snapshot(device, NULL);
+	}
+
+	return ret;
 }
 
 static ADRENO_CORESIGHT_ATTR(cfg_debbus_ctrlt, &a4xx_coresight_registers[0]);

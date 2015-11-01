@@ -1660,17 +1660,15 @@ static inline bool adreno_try_soft_reset(struct kgsl_device *device, int fault)
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	/*
-	 * Try soft reset for non mmu fault case only and if VBIF
-	 * pipe clears cleanly.
-	 * Skip soft reset and use hard reset for A304 GPU, As
-	 * A304 is not able to do SMMU programming after soft reset.
+	 * Do not do soft reset for a IOMMU fault (because the IOMMU hardware
+	 * needs a reset too) or for the A304 because it can't do SMMU
+	 * programming of any kind after a soft reset
 	 */
-	if (!(fault & ADRENO_IOMMU_PAGE_FAULT) &&
-			!adreno_is_a304(adreno_dev) &&
-			!adreno_vbif_clear_pending_transactions(device))
-		return true;
 
-	return false;
+	if ((fault & ADRENO_IOMMU_PAGE_FAULT) || adreno_is_a304(adreno_dev))
+		return false;
+
+	return true;
 }
 
 /**
@@ -1690,9 +1688,15 @@ int adreno_reset(struct kgsl_device *device, int fault)
 
 	/* Try soft reset first */
 	if (adreno_try_soft_reset(device, fault)) {
-		ret = adreno_soft_reset(device);
-		if (ret)
-			KGSL_DEV_ERR_ONCE(device, "Device soft reset failed\n");
+		/* Make sure VBIF is cleared before resetting */
+		ret = adreno_vbif_clear_pending_transactions(device);
+
+		if (ret == 0) {
+			ret = adreno_soft_reset(device);
+			if (ret)
+				KGSL_DEV_ERR_ONCE(device,
+					"Device soft reset failed\n");
+		}
 	}
 	if (ret) {
 		/* If soft reset failed/skipped, then pull the power */
@@ -2217,13 +2221,14 @@ bool adreno_isidle(struct kgsl_device *device)
 /**
  * adreno_spin_idle() - Spin wait for the GPU to idle
  * @device: Pointer to the KGSL device
+ * @timeout: milliseconds to wait before returning error
  *
  * Spin the CPU waiting for the RBBM status to return idle
  */
-int adreno_spin_idle(struct kgsl_device *device)
+int adreno_spin_idle(struct kgsl_device *device, unsigned int timeout)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	unsigned long wait = jiffies + msecs_to_jiffies(ADRENO_IDLE_TIMEOUT);
+	unsigned long wait = jiffies + msecs_to_jiffies(timeout);
 
 	kgsl_cffdump_regpoll(device,
 		adreno_getreg(adreno_dev, ADRENO_REG_RBBM_STATUS) << 2,
@@ -2277,7 +2282,7 @@ int adreno_idle(struct kgsl_device *device)
 	if (ret)
 		return ret;
 
-	return adreno_spin_idle(device);
+	return adreno_spin_idle(device, ADRENO_IDLE_TIMEOUT);
 }
 
 /**

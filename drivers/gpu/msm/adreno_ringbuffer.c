@@ -134,6 +134,13 @@ void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb,
 	}
 }
 
+int adreno_ringbuffer_submit_spin(struct adreno_ringbuffer *rb,
+		struct adreno_submit_time *time, unsigned int timeout)
+{
+	adreno_ringbuffer_submit(rb, NULL);
+	return adreno_spin_idle(rb->device, timeout);
+}
+
 static int
 adreno_ringbuffer_waitspace(struct adreno_ringbuffer *rb,
 				unsigned int numcmds, int wptr_ahead)
@@ -326,24 +333,8 @@ static int _ringbuffer_start_common(struct adreno_ringbuffer *rb)
 	if (status)
 		return status;
 
-	/* idle device to validate ME INIT */
-	status = adreno_spin_idle(device);
-	if (status) {
-		KGSL_DRV_ERR(rb->device,
-		"ringbuffer initialization failed to idle\n");
-		kgsl_device_snapshot(device, NULL);
-	}
-
-	if (gpudev->switch_to_unsecure_mode) {
+	if (gpudev->switch_to_unsecure_mode)
 		status = gpudev->switch_to_unsecure_mode(adreno_dev, rb);
-		if (status)
-			return status;
-
-		status = adreno_spin_idle(device);
-		if (status)
-			KGSL_DRV_ERR(rb->device,
-			"switching to unsecure mode failed to idle\n");
-	}
 
 	return status;
 }
@@ -615,6 +606,13 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	if (flags & KGSL_CMD_FLAGS_PWRON_FIXUP)
 		total_sizedwords += 9;
 
+	/* WAIT_MEM_WRITES - needed in the stall on fault case
+	 * to prevent out of order CP operations that can result
+	 * in a CACHE_FLUSH_TS interrupt storm */
+	if (test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
+				&adreno_dev->ft_pf_policy))
+		total_sizedwords += 1;
+
 	ringcmds = adreno_ringbuffer_allocspace(rb, total_sizedwords);
 	if (IS_ERR(ringcmds))
 		return PTR_ERR(ringcmds);
@@ -705,6 +703,15 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	   assigned counters */
 	if (profile_ready)
 		adreno_profile_postib_processing(adreno_dev, &flags, &ringcmds);
+
+	/*
+	 * WAIT_MEM_WRITES - needed in the stall on fault case to prevent
+	 * out of order CP operations that can result in a CACHE_FLUSH_TS
+	 * interrupt storm
+	 */
+	if (test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
+				&adreno_dev->ft_pf_policy))
+		*ringcmds++ = cp_packet(adreno_dev, CP_WAIT_MEM_WRITES, 0);
 
 	/*
 	 * end-of-pipeline timestamp.  If per context timestamps is not
