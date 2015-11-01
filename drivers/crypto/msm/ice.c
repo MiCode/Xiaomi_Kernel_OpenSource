@@ -1532,11 +1532,7 @@ static int qcom_ice_status(struct platform_device *pdev)
 	test_bus_reg_status = qcom_ice_readl(ice_dev,
 					QCOM_ICE_REGS_TEST_BUS_REG);
 
-	if ((test_bus_reg_status & QCOM_ICE_TEST_BUS_REG_NON_SECURE_INTR) ||
-	    (test_bus_reg_status & QCOM_ICE_TEST_BUS_REG_NON_SECURE_INTR))
-		return 1;
-	else
-		return 0;
+	return !!(test_bus_reg_status & QCOM_ICE_TEST_BUS_REG_NON_SECURE_INTR);
 
 }
 EXPORT_SYMBOL(qcom_ice_status);
