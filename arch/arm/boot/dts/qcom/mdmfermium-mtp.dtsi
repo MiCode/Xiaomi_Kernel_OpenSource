@@ -76,6 +76,21 @@
 	};
 };
 
+&sdhc_1 {
+	vdd-io-supply = <&mdmfermium_l11>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <0 30000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&pmx_sdc1_clk_on &pmx_sdc1_cmd_on &pmx_sdc1_data_on
+						&sdc1_wlan_gpio_active>;
+	pinctrl-1 = <&pmx_sdc1_clk_off &pmx_sdc1_cmd_off &pmx_sdc1_data_off>;
+	qcom,nonremovable;
+	qcom,core_3_0v_support;
+	status = "ok";
+};
+
 &i2c_4 {
 	/* SMB358 charger configuration */
 	smb358_otg_vreg: smb358-charger@57 {

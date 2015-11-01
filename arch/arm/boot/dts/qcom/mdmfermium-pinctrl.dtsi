@@ -122,6 +122,76 @@
 			};
 		};
 
+	/* SDC pin type */
+
+	pmx_sdc1_cmd {
+		pmx_sdc1_cmd_on: pmx_sdc1_cmd_on {
+			 config {
+				pins  = "sdc1_cmd";
+				drive-strength = <10>;
+				bias-pull-up;
+			 };
+		 };
+
+		pmx_sdc1_cmd_off: pmx_sdc1_cmd_off {
+			 config {
+				pins = "sdc1_cmd";
+				bias-pull-up;
+				drive-strength = <2>;
+			};
+		};
+	 };
+
+	 pmx_sdc1_clk {
+		pmx_sdc1_clk_on: pmx_sdc1_clk_on {
+			 config {
+				pins = "sdc1_clk";
+				drive-strength = <16>;
+				bias-disable;
+			};
+		 };
+
+		pmx_sdc1_clk_off: pmx_sdc1_clk_off {
+			  config {
+				pins = "sdc1_clk";
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+	 };
+
+	 pmx_sdc1_data {
+		pmx_sdc1_data_on: pmx_sdc1_data_on {
+			  config {
+				pins = "sdc1_data";
+				bias-pull-up;
+				drive-strength = <10>;
+			};
+		};
+
+		pmx_sdc1_data_off: pmx_sdc1_data_off {
+			config {
+				pins = "sdc1_data";
+				bias-pull-up;
+				drive-strength = <2>;
+			};
+		};
+	};
+
+	sdc1_wlan_gpio {
+		sdc1_wlan_gpio_active: sdc1_wlan_gpio_active {
+			mux {
+				pins = "gpio38";
+				function  = "gpio";
+			};
+			config {
+				pins  = "gpio38";
+				output-high;
+				drive-strength = <8>;
+				bias-pull-up;
+			};
+		};
+	};
 
 		i2c_4 {
 			i2c_4_active: i2c_4_active {
