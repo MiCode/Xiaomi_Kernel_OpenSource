@@ -662,6 +662,7 @@ config ARCH_MSM
 	select GENERIC_ALLOCATOR
 	select HAVE_CLK
 	select HAVE_CLK_PREPARE
+	select ARCH_HAS_OPP
 	select SOC_BUS
 	select MULTI_IRQ_HANDLER
 	select SPARSE_IRQ
