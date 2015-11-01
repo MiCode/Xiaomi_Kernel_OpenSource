@@ -121,7 +121,107 @@ enum qpnp_vadc_channels {
 	LR_MUX10_PU1_PU2_AMUX_USB_ID_LV = 249,
 	LR_MUX3_BUF_PU1_PU2_XO_THERM_BUF = 252,
 	ALL_OFF = 255,
-	ADC_MAX_NUM,
+	ADC_MAX_NUM = 0xffff,
+
+	/* Channel listing for refreshed VADC in hex format */
+	VADC_VREF_GND = 0,
+	VADC_CALIB_VREF_1P25 = 1,
+	VADC_CALIB_VREF = 2,
+	VADC_CALIB_VREF_1_DIV_3 = 0x82,
+	VADC_VPH_PWR = 0x83,
+	VADC_VBAT_SNS = 0x84,
+	VADC_VCOIN = 0x85,
+	VADC_DIE_TEMP = 6,
+	VADC_CHG_TEMP = 7,
+	VADC_USB_IN = 8,
+	VADC_IREG_FB = 9,
+	/* External input connection */
+	VADC_BAT_THERM = 0xa,
+	VADC_BAT_ID = 0xb,
+	VADC_XO_THERM = 0xc,
+	VADC_AMUX_THM1 = 0xd,
+	VADC_AMUX_THM2 = 0xe,
+	VADC_AMUX_THM3 = 0xf,
+	VADC_AMUX_THM4 = 0x10,
+	VADC_AMUX_THM5 = 0x11,
+	VADC_AMUX1_GPIO = 0x12,
+	VADC_AMUX2_GPIO = 0x13,
+	VADC_AMUX3_GPIO = 0x14,
+	VADC_AMUX4_GPIO = 0x15,
+	VADC_AMUX5_GPIO = 0x16,
+	VADC_AMUX6_GPIO = 0x17,
+	VADC_AMUX7_GPIO = 0x18,
+	VADC_AMUX8_GPIO = 0x19,
+	VADC_ATEST1 = 0x1a,
+	VADC_ATEST2 = 0x1b,
+	VADC_ATEST3 = 0x1c,
+	VADC_ATEST4 = 0x1d,
+	VADC_OFF = 0xff,
+	/* PU1 is 30K pull up */
+	VADC_BAT_THERM_PU1 = 0x2a,
+	VADC_BAT_ID_PU1 = 0x2b,
+	VADC_XO_THERM_PU1 = 0x2c,
+	VADC_AMUX_THM1_PU1 = 0x2d,
+	VADC_AMUX_THM2_PU1 = 0x2e,
+	VADC_AMUX_THM3_PU1 = 0x2f,
+	VADC_AMUX_THM4_PU1 = 0x30,
+	VADC_AMUX_THM5_PU1 = 0x31,
+	VADC_AMUX1_GPIO_PU1 = 0x32,
+	VADC_AMUX2_GPIO_PU1 = 0x33,
+	VADC_AMUX3_GPIO_PU1 = 0x34,
+	VADC_AMUX4_GPIO_PU1 = 0x35,
+	VADC_AMUX5_GPIO_PU1 = 0x36,
+	VADC_AMUX6_GPIO_PU1 = 0x37,
+	VADC_AMUX7_GPIO_PU1 = 0x38,
+	VADC_AMUX8_GPIO_PU1 = 0x39,
+	/* PU2 is 100K pull up */
+	VADC_BAT_THERM_PU2 = 0x4a,
+	VADC_BAT_ID_PU2 = 0x4b,
+	VADC_XO_THERM_PU2 = 0x4c,
+	VADC_AMUX_THM1_PU2 = 0x4d,
+	VADC_AMUX_THM2_PU2 = 0x4e,
+	VADC_AMUX_THM3_PU2 = 0x4f,
+	VADC_AMUX_THM4_PU2 = 0x50,
+	VADC_AMUX_THM5_PU2 = 0x51,
+	VADC_AMUX1_GPIO_PU2 = 0x52,
+	VADC_AMUX2_GPIO_PU2 = 0x53,
+	VADC_AMUX3_GPIO_PU2 = 0x54,
+	VADC_AMUX4_GPIO_PU2 = 0x55,
+	VADC_AMUX5_GPIO_PU2 = 0x56,
+	VADC_AMUX6_GPIO_PU2 = 0x57,
+	VADC_AMUX7_GPIO_PU2 = 0x58,
+	VADC_AMUX8_GPIO_PU2 = 0x59,
+	/* PU3 is 400K pull up */
+	VADC_BAT_THERM_PU3 = 0x6a,
+	VADC_BAT_ID_PU3 = 0x6b,
+	VADC_XO_THERM_PU3 = 0x6c,
+	VADC_AMUX_THM1_PU3 = 0x6d,
+	VADC_AMUX_THM2_PU3 = 0x6e,
+	VADC_AMUX_THM3_PU3 = 0x6f,
+	VADC_AMUX_THM4_PU3 = 0x70,
+	VADC_AMUX_THM5_PU3 = 0x71,
+	VADC_AMUX1_GPIO_PU3 = 0x72,
+	VADC_AMUX2_GPIO_PU3 = 0x73,
+	VADC_AMUX3_GPIO_PU3 = 0x74,
+	VADC_AMUX4_GPIO_PU3 = 0x75,
+	VADC_AMUX5_GPIO_PU3 = 0x76,
+	VADC_AMUX6_GPIO_PU3 = 0x77,
+	VADC_AMUX7_GPIO_PU3 = 0x78,
+	VADC_AMUX8_GPIO_PU3 = 0x79,
+	/* External input connection with 1/3 div */
+	VADC_AMUX1_GPIO_DIV_3 = 0x92,
+	VADC_AMUX2_GPIO_DIV_3 = 0x93,
+	VADC_AMUX3_GPIO_DIV_3 = 0x94,
+	VADC_AMUX4_GPIO_DIV_3 = 0x95,
+	VADC_AMUX5_GPIO_DIV_3 = 0x96,
+	VADC_AMUX6_GPIO_DIV_3 = 0x97,
+	VADC_AMUX7_GPIO_DIV_3 = 0x98,
+	VADC_AMUX8_GPIO_DIV_3 = 0x99,
+	VADC_ATEST1_DIV_3 = 0x9a,
+	VADC_ATEST2_DIV_3 = 0x9b,
+	VADC_ATEST3_DIV_3 = 0x9c,
+	VADC_ATEST4_DIV_3 = 0x9d,
+	VADC_REFRESH_MAX_NUM = 0xffff,
 };
 
 /**
@@ -185,7 +285,12 @@ enum qpnp_adc_decimation_type {
 	DECIMATION_TYPE2,
 	DECIMATION_TYPE3,
 	DECIMATION_TYPE4,
-	DECIMATION_NONE,
+	DECIMATION_NONE = 0xff,
+
+	ADC_HC_DEC_RATIO_256 = 0,
+	ADC_HC_DEC_RATIO_512 = 1,
+	ADC_HC_DEC_RATIO_1024 = 2,
+	ADC_HC_DEC_RATIO_NONE = 0xff,
 };
 
 /**
@@ -193,6 +298,19 @@ enum qpnp_adc_decimation_type {
  * %ADC_CALIB_ABSOLUTE: Use 625mV and 1.25V reference channels.
  * %ADC_CALIB_RATIOMETRIC: Use reference Voltage/GND.
  * %ADC_CALIB_CONFIG_NONE: Do not use this calibration type.
+ *
+ * enum qpnp_adc_cal_sel - Selects the calibration type that is applied
+ *			   on the corresponding channel measurement after
+ *			   the ADC data is read.
+ * %ADC_HC_NO_CAL :	To obtain raw, uncalibrated data on qpnp-vadc-hc type.
+ * %ADC_HC_RATIO_CAL :	Applies ratiometric calibration. Note the calibration
+ *			values stored in the CAL peripheral for VADC_VREF and
+ *			VREF_1P25 already have GND_REF value removed. Used
+ *			only with qpnp-vadc-hc type of VADC.
+ * %ADC_HC_ABS_CAL :	Applies absolute calibration. Note the calibration
+ *			values stored in the CAL peripheral for VADC_VREF and
+ *			VREF_1P25 already have GND_REF value removed. Used
+ *			only with qpnp-vadc-hc type of VADC.
  *
  * Use the input reference voltage depending on the calibration type
  * to calcluate the offset and gain parameters. The calibration is
@@ -202,6 +320,11 @@ enum qpnp_adc_calib_type {
 	CALIB_ABSOLUTE = 0,
 	CALIB_RATIOMETRIC,
 	CALIB_NONE,
+
+	ADC_HC_NO_CAL = 0,
+	ADC_HC_RATIO_CAL = 1,
+	ADC_HC_ABS_CAL = 2,
+	ADC_HC_CAL_SEL_NONE,
 };
 
 /**
@@ -382,6 +505,46 @@ enum qpnp_adc_hw_settle_time {
 	ADC_CHANNEL_HW_SETTLE_DELAY_8MS,
 	ADC_CHANNEL_HW_SETTLE_DELAY_10MS,
 	ADC_CHANNEL_HW_SETTLE_NONE,
+};
+
+/**
+ * enum qpnp_adc_dec_ratio_sel - Selects the decimation ratio of the ADC.
+ *				 Support values are 256, 512 and 1024.
+ */
+enum qpnp_vadc_dec_ratio_sel {
+	ADC_DEC_RATIO_256 = 0,
+	ADC_DEC_RATIO_512,
+	ADC_DEC_RATIO_1024,
+	ADC_DEC_RATIO_NONE,
+};
+
+/**
+ * enum qpnp_adc_cal_sel - Selects the calibration type that is applied
+ *			   on the corresponding channel measurement after
+ *			   the ADC data is read.
+ * %ADC_NO_CAL :	To obtain raw, uncalibrated data.
+ * %ADC_RATIO_CAL :	Applies ratiometric calibration. Note the calibration
+ *			values stored in the CAL peripheral for VADC_VREF and
+ *			VREF_1P25 already have GND_REF value removed.
+ * %ADC_ABS_CAL :	Applies absolute calibration. Note the calibration
+ *			values stored in the CAL peripheral for VADC_VREF and
+ *			VREF_1P25 already have GND_REF value removed.
+ */
+
+/**
+ * enum qpnp_adc_cal_val - Selects if the calibration values applied
+ *			    are the ones when collected on a timer interval
+ *			    or if an immediate calibration needs to be forced.
+ * %ADC_TIMER_CAL : Uses calibration value collected on the timer interval.
+ * %ADC_NEW_CAL : Forces an immediate calibration. Use only when necessary
+ *		  since it forces 3 calibration measurements in addition to
+ *		  the channel measurement. For most measurement, using
+ *		  calibration based on the timer interval is sufficient.
+ */
+enum qpnp_adc_cal_val {
+	ADC_TIMER_CAL = 0,
+	ADC_NEW_CAL,
+	ADC_CAL_VAL_NONE,
 };
 
 /**
@@ -815,7 +978,7 @@ struct qpnp_adc_tm_btm_param {
 	enum qpnp_adc_meas_timer_2		timer_interval2;
 	enum qpnp_adc_meas_timer_3		timer_interval3;
 	void					*btm_ctx;
-	void	(*threshold_notification) (enum qpnp_tm_state state,
+	void	(*threshold_notification)(enum qpnp_tm_state state,
 						void *ctx);
 };
 
@@ -862,11 +1025,13 @@ struct qpnp_vadc_scaling_ratio {
  * @adc_reference: Reference voltage for QPNP ADC.
  * @bitresolution: ADC bit resolution for QPNP ADC.
  * @biploar: Polarity for QPNP ADC.
+ * @adc_hc: Represents using HC variant of the ADC controller.
  */
 struct qpnp_adc_properties {
 	uint32_t	adc_vdd_reference;
 	uint32_t	bitresolution;
 	bool		bipolar;
+	bool		adc_hc;
 };
 
 /**
@@ -941,6 +1106,7 @@ struct qpnp_adc_amux {
 	enum qpnp_adc_fast_avg_ctl		fast_avg_setup;
 	enum qpnp_adc_hw_settle_time		hw_settle_time;
 	enum qpnp_adc_calib_type		calib_type;
+	enum qpnp_adc_cal_val			cal_val;
 };
 
 /**
@@ -965,7 +1131,7 @@ static const struct qpnp_vadc_scaling_ratio qpnp_vadc_amux_scaling_ratio[] = {
  *	and returns the physical result
  */
 struct qpnp_vadc_scale_fn {
-	int32_t (*chan) (struct qpnp_vadc_chip *, int32_t,
+	int32_t (*chan)(struct qpnp_vadc_chip *, int32_t,
 		const struct qpnp_adc_properties *,
 		const struct qpnp_vadc_chan_properties *,
 		struct qpnp_vadc_result *);
@@ -978,7 +1144,7 @@ struct qpnp_vadc_scale_fn {
  *	and returns the physical result
  */
 struct qpnp_adc_tm_reverse_scale_fn {
-	int32_t (*chan) (struct qpnp_vadc_chip *,
+	int32_t (*chan)(struct qpnp_vadc_chip *,
 		struct qpnp_adc_tm_btm_param *,
 		uint32_t *, uint32_t *);
 };
@@ -990,7 +1156,7 @@ struct qpnp_adc_tm_reverse_scale_fn {
  *	and returns the physical result
  */
 struct qpnp_vadc_rscale_fn {
-	int32_t (*chan) (struct qpnp_vadc_chip *,
+	int32_t (*chan)(struct qpnp_vadc_chip *,
 		const struct qpnp_vadc_chan_properties *,
 		struct qpnp_adc_tm_btm_param *,
 		uint32_t *, uint32_t *);
@@ -1063,6 +1229,7 @@ struct qpnp_adc_drv {
 	struct qpnp_iadc_calib		calib;
 	struct regulator		*hkadc_ldo;
 	struct regulator		*hkadc_ldo_ok;
+	bool				adc_hc;
 };
 
 /**
@@ -1115,6 +1282,18 @@ struct qpnp_adc_amux_properties {
  *		in which the ADC read results are stored.
  */
 int32_t qpnp_vadc_read(struct qpnp_vadc_chip *dev,
+				enum qpnp_vadc_channels channel,
+				struct qpnp_vadc_result *result);
+
+/**
+ * qpnp_vadc_hc_read() - Performs ADC read on the channel.
+ *		It uses the refreshed VADC design from qpnp-vadc-hc.
+ * @dev:	Structure device for qpnp vadc
+ * @channel:	Input channel to perform the ADC read.
+ * @result:	Structure pointer of type adc_chan_result
+ *		in which the ADC read results are stored.
+ */
+int32_t qpnp_vadc_hc_read(struct qpnp_vadc_chip *dev,
 				enum qpnp_vadc_channels channel,
 				struct qpnp_vadc_result *result);
 
@@ -1692,6 +1871,10 @@ void qpnp_adc_free_voltage_resource(struct qpnp_adc_drv *adc);
 
 #else
 static inline int32_t qpnp_vadc_read(struct qpnp_vadc_chip *dev,
+				uint32_t channel,
+				struct qpnp_vadc_result *result)
+{ return -ENXIO; }
+static inline int32_t qpnp_vadc_hc_read(struct qpnp_vadc_chip *dev,
 				uint32_t channel,
 				struct qpnp_vadc_result *result)
 { return -ENXIO; }
