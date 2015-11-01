@@ -999,7 +999,6 @@ static int _setup_user_context(struct kgsl_mmu *mmu)
 		return ret;
 
 	kgsl_iommu_enable_clk(mmu);
-	KGSL_IOMMU_SET_CTX_REG(ctx, TLBIALL, 1);
 
 	sctlr_val = KGSL_IOMMU_GET_CTX_REG(ctx, SCTLR);
 

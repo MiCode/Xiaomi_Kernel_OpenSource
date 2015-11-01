@@ -1399,12 +1399,10 @@ static inline const char *_kgsl_context_comm(struct kgsl_context *context)
 		(_c)->context->proc_priv->pid, ##args)
 
 
-static void adreno_fault_header(struct adreno_ringbuffer *rb,
-	struct kgsl_cmdbatch *cmdbatch)
+static void adreno_fault_header(struct kgsl_device *device,
+		struct adreno_ringbuffer *rb, struct kgsl_cmdbatch *cmdbatch)
 {
-	struct kgsl_device *device = rb->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_context *drawctxt = ADRENO_CONTEXT(cmdbatch->context);
 	unsigned int status, rptr, wptr, ib1sz, ib2sz;
 	uint64_t ib1base, ib2base;
 
@@ -1418,17 +1416,36 @@ static void adreno_fault_header(struct adreno_ringbuffer *rb,
 					   ADRENO_REG_CP_IB2_BASE_HI, &ib2base);
 	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB2_BUFSZ, &ib2sz);
 
-	trace_adreno_gpu_fault(cmdbatch->context->id, cmdbatch->timestamp,
-		status, rptr, wptr, ib1base, ib1sz,
-		ib2base, ib2sz, drawctxt->rb->id);
+	if (cmdbatch != NULL) {
+		struct adreno_context *drawctxt =
+			ADRENO_CONTEXT(cmdbatch->context);
 
-	pr_fault(device, cmdbatch,
-		"gpu fault ctx %d ts %d status %8.8X rb %4.4x/%4.4x ib1 %16.16llX/%4.4x ib2 %16.16llX/%4.4x\n",
-		cmdbatch->context->id, cmdbatch->timestamp, status,
-		rptr, wptr, ib1base, ib1sz, ib2base, ib2sz);
-	pr_fault(device, cmdbatch,
-		"gpu fault rb %d rb sw r/w %4.4x/%4.4x\n",
-		rb->id, rb->rptr, rb->wptr);
+		trace_adreno_gpu_fault(cmdbatch->context->id,
+			cmdbatch->timestamp,
+			status, rptr, wptr, ib1base, ib1sz,
+			ib2base, ib2sz, drawctxt->rb->id);
+
+		pr_fault(device, cmdbatch,
+			"gpu fault ctx %d ts %d status %8.8X rb %4.4x/%4.4x ib1 %16.16llX/%4.4x ib2 %16.16llX/%4.4x\n",
+			cmdbatch->context->id, cmdbatch->timestamp, status,
+			rptr, wptr, ib1base, ib1sz, ib2base, ib2sz);
+
+		if (rb != NULL)
+			pr_fault(device, cmdbatch,
+				"gpu fault rb %d rb sw r/w %4.4x/%4.4x\n",
+				rb->id, rb->rptr, rb->wptr);
+	} else {
+		int id = (rb != NULL) ? rb->id : -1;
+
+		dev_err(device->dev,
+			"RB[%d]: gpu fault status %8.8X rb %4.4x/%4.4x ib1 %16.16llX/%4.4x ib2 %16.16llX/%4.4x\n",
+			id, status, rptr, wptr, ib1base, ib1sz, ib2base,
+			ib2sz);
+		if (rb != NULL)
+			dev_err(device->dev,
+				"RB[%d] gpu fault rb sw r/w %4.4x/%4.4x\n",
+				rb->id, rb->rptr, rb->wptr);
+	}
 }
 
 void adreno_fault_skipcmd_detached(struct kgsl_device *device,
@@ -1747,31 +1764,10 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 	int ret, i;
 	int fault;
 	int halt;
-	unsigned int reg_rbbm_status3;
 
 	fault = atomic_xchg(&dispatcher->fault, 0);
 	if (fault == 0)
 		return 0;
-	/*
-	 * Return early if no command inflight - can happen on
-	 * false hang detects
-	 */
-	if (dispatcher->inflight == 0) {
-		KGSL_DRV_WARN(device,
-		"dispatcher_do_fault with 0 inflight commands\n");
-		/*
-		 * For certain faults like h/w fault the interrupts are
-		 * turned off, re-enable here
-		 */
-		mutex_lock(&device->mutex);
-		if (device->state == KGSL_STATE_AWARE)
-			ret = kgsl_pwrctrl_change_state(device,
-				KGSL_STATE_ACTIVE);
-		else
-			ret = 0;
-		mutex_unlock(&device->mutex);
-		return ret;
-	}
 
 	/*
 	 * On A5xx, read RBBM_STATUS3:SMMU_STALLED_ON_FAULT (BIT 24) to
@@ -1779,14 +1775,13 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 	 * proceed if the fault handler has already run in the IRQ thread,
 	 * else return early to give the fault handler a chance to run.
 	 */
-	if (adreno_is_a5xx(adreno_dev)) {
+	if (!(fault & ADRENO_IOMMU_PAGE_FAULT) && adreno_is_a5xx(adreno_dev)) {
+		unsigned int val;
 		mutex_lock(&device->mutex);
-		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS3,
-				&reg_rbbm_status3);
+		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS3, &val);
 		mutex_unlock(&device->mutex);
-		if (reg_rbbm_status3 & BIT(24))
-			if (!(fault & ADRENO_IOMMU_PAGE_FAULT))
-				return 0;
+		if (val & BIT(24))
+			return 0;
 	}
 
 	/* Turn off all the timers */
@@ -1803,12 +1798,10 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 		ADRENO_REG_CP_RB_BASE_HI, &base);
 
 	/*
-	 * If the fault was due to a timeout then stop the CP to ensure we don't
-	 * get activity while we are trying to dump the state of the system
+	 * Force the CP off for anything but a hard fault to make sure it is
+	 * good and stopped
 	 */
-
-	if ((fault & ADRENO_TIMEOUT_FAULT || fault & ADRENO_PREEMPT_FAULT) &&
-		!(fault & ADRENO_HARD_FAULT)) {
+	if (!(fault & ADRENO_HARD_FAULT)) {
 		adreno_readreg(adreno_dev, ADRENO_REG_CP_ME_CNTL, &reg);
 		if (adreno_is_a5xx(adreno_dev))
 			reg |= 1 | (1 << 1);
@@ -1854,10 +1847,11 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 	 * detected fault for the oldest active command batch
 	 */
 
-	if (cmdbatch &&
+	if (cmdbatch == NULL ||
 		!test_bit(KGSL_FT_SKIP_PMDUMP, &cmdbatch->fault_policy)) {
-		adreno_fault_header(hung_rb, cmdbatch);
-		kgsl_device_snapshot(device, cmdbatch->context);
+		adreno_fault_header(device, hung_rb, cmdbatch);
+		kgsl_device_snapshot(device,
+			cmdbatch ? cmdbatch->context : NULL);
 	}
 
 	/* Terminate the stalled transaction and resume the IOMMU */
@@ -1872,6 +1866,26 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 	/* Reset the GPU and make sure halt is not set during recovery */
 	halt = adreno_gpu_halt(adreno_dev);
 	adreno_clear_gpu_halt(adreno_dev);
+
+	/*
+	 * If there is a stall in the ringbuffer after all commands have been
+	 * retired then we could hit problems if contexts are waiting for
+	 * internal timestamps that will never retire
+	 */
+
+	if (hung_rb != NULL) {
+		kgsl_sharedmem_writel(device, &device->memstore,
+			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_MAX + hung_rb->id,
+				soptimestamp), hung_rb->timestamp);
+
+		kgsl_sharedmem_writel(device, &device->memstore,
+			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_MAX + hung_rb->id,
+				eoptimestamp), hung_rb->timestamp);
+
+		/* Schedule any pending events to be run */
+		kgsl_process_event_group(device, &hung_rb->events);
+	}
+
 	ret = adreno_reset(device, fault);
 	mutex_unlock(&device->mutex);
 	/* if any other fault got in until reset then ignore */

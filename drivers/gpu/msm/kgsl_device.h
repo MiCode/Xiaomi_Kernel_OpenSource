@@ -827,24 +827,12 @@ static inline int kgsl_sysfs_store(const char *buf, unsigned int *ptr)
  * @count: Number of entries in the array
  */
 struct kgsl_snapshot_registers {
-	unsigned int *regs;
-	int count;
-	int dump;
-	unsigned int *snap_addr;
+	const unsigned int *regs;
+	unsigned int count;
 };
 
-/**
- * struct kgsl_snapshot_registers_list - list of register lists
- * @registers: Pointer to an array of register lists
- * @count: Number of entries in the array
- */
-struct kgsl_snapshot_registers_list {
-	struct kgsl_snapshot_registers *registers;
-	int count;
-};
-
-size_t kgsl_snapshot_dump_regs(struct kgsl_device *device, u8 *snapshot,
-	size_t remain, void *priv);
+size_t kgsl_snapshot_dump_registers(struct kgsl_device *device, u8 *buf,
+		size_t remain, void *priv);
 
 void kgsl_snapshot_indexed_registers(struct kgsl_device *device,
 	struct kgsl_snapshot *snapshot, unsigned int index,
@@ -862,9 +850,6 @@ struct adreno_ib_object_list;
 
 int kgsl_snapshot_add_ib_obj_list(struct kgsl_snapshot *snapshot,
 	struct adreno_ib_object_list *ib_obj_list);
-
-void kgsl_snapshot_dump_skipped_regs(struct kgsl_device *device,
-	struct kgsl_snapshot_registers_list *list);
 
 void kgsl_snapshot_add_section(struct kgsl_device *device, u16 id,
 	struct kgsl_snapshot *snapshot,

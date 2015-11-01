@@ -390,7 +390,7 @@ err_put:
 EXPORT_SYMBOL(kgsl_snapshot_get_object);
 
 /**
- * kgsl_snapshot_dump_regs - helper function to dump device registers
+ * kgsl_snapshot_dump_registers - helper function to dump device registers
  * @device - the device to dump registers from
  * @snapshot - pointer to the start of the region of memory for the snapshot
  * @remain - a pointer to the number of bytes remaining in the snapshot
@@ -400,46 +400,22 @@ EXPORT_SYMBOL(kgsl_snapshot_get_object);
  * registers into a snapshot register section.  The snapshot region stores a
  * part of dwords for each register - the word address of the register, and
  * the value.
- *
- * Common usage:
- *
- * struct kgsl_snapshot_registers_list list;
- * struct kgsl_snapshot_registers priv[2];
- *
- * priv[0].regs = registers_array;;
- * priv[o].count = num_registers;
- * priv[1].regs = registers_array_new;;
- * priv[1].count = num_registers_new;
- *
- * list.registers = priv;
- * list.count = 2;
- *
- * kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS, snapshot,
- *	remain, kgsl_snapshot_dump_regs, &list).
  */
-size_t kgsl_snapshot_dump_regs(struct kgsl_device *device, u8 *buf,
+size_t kgsl_snapshot_dump_registers(struct kgsl_device *device, u8 *buf,
 	size_t remain, void *priv)
 {
-	struct kgsl_snapshot_registers_list *list = priv;
-
 	struct kgsl_snapshot_regs *header = (struct kgsl_snapshot_regs *)buf;
-	struct kgsl_snapshot_registers *regs;
+	struct kgsl_snapshot_registers *regs = priv;
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
-	int count = 0, i, j, k;
-
-	BUG_ON(!mutex_is_locked(&device->mutex));
+	int count = 0, j, k;
 
 	/* Figure out how many registers we are going to dump */
 
-	for (i = 0; i < list->count; i++) {
-		regs = &(list->registers[i]);
+	for (j = 0; j < regs->count; j++) {
+		int start = regs->regs[j * 2];
+		int end = regs->regs[j * 2 + 1];
 
-		for (j = 0; j < regs->count; j++) {
-			int start = regs->regs[j * 2];
-			int end = regs->regs[j * 2 + 1];
-
-			count += (end - start + 1);
-		}
+		count += (end - start + 1);
 	}
 
 	if (remain < (count * 8) + sizeof(*header)) {
@@ -447,38 +423,16 @@ size_t kgsl_snapshot_dump_regs(struct kgsl_device *device, u8 *buf,
 		return 0;
 	}
 
+	for (j = 0; j < regs->count; j++) {
+		unsigned int start = regs->regs[j * 2];
+		unsigned int end = regs->regs[j * 2 + 1];
 
-	for (i = 0; i < list->count; i++) {
-		regs = &(list->registers[i]);
-		/*
-		 * If we do not need to dump the registers here then
-		 * just save the location where they can be dumped later
-		 */
-		if (!regs->dump)
-			regs->snap_addr = data;
+		for (k = start; k <= end; k++) {
+			unsigned int val;
 
-		for (j = 0; j < regs->count; j++) {
-			unsigned int start = regs->regs[j * 2];
-			unsigned int end = regs->regs[j * 2 + 1];
-
-			/*
-			 * If registers are not required to be dumped now,
-			 * then just skip over the space where they would have
-			 * been dumped. The registers will be dumped at the
-			 * this skipped location later by calling
-			 * kgsl_snapshot_dump_skipped_regs
-			 */
-			if (!regs->dump) {
-				data += (2 * (end - start + 1));
-				continue;
-			}
-			for (k = start; k <= end; k++) {
-				unsigned int val;
-
-				kgsl_regread(device, k, &val);
-				*data++ = k;
-				*data++ = val;
-			}
+			kgsl_regread(device, k, &val);
+			*data++ = k;
+			*data++ = val;
 		}
 	}
 
@@ -487,37 +441,7 @@ size_t kgsl_snapshot_dump_regs(struct kgsl_device *device, u8 *buf,
 	/* Return the size of the section */
 	return (count * 8) + sizeof(*header);
 }
-EXPORT_SYMBOL(kgsl_snapshot_dump_regs);
-
-void kgsl_snapshot_dump_skipped_regs(struct kgsl_device *device,
-				struct kgsl_snapshot_registers_list *list)
-{
-	struct kgsl_snapshot_registers *regs;
-	unsigned int *data;
-	int i, j, k;
-
-	BUG_ON(!mutex_is_locked(&device->mutex));
-
-	for (i = 0; i < list->count; i++) {
-		regs = &(list->registers[i]);
-		if (!regs->snap_addr)
-			continue;
-		data = regs->snap_addr;
-		for (j = 0; j < regs->count; j++) {
-			unsigned int start = regs->regs[j * 2];
-			unsigned int end = regs->regs[j * 2 + 1];
-
-			for (k = start; k <= end; k++) {
-				unsigned int val;
-
-				kgsl_regread(device, k, &val);
-				*data++ = k;
-				*data++ = val;
-			}
-		}
-	}
-}
-EXPORT_SYMBOL(kgsl_snapshot_dump_skipped_regs);
+EXPORT_SYMBOL(kgsl_snapshot_dump_registers);
 
 struct kgsl_snapshot_indexed_registers {
 	unsigned int index;

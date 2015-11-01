@@ -72,4 +72,6 @@ void a5xx_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot);
 unsigned int a5xx_num_registers(void);
 
+void a5xx_crashdump_init(struct adreno_device *adreno_dev);
+
 #endif

@@ -410,12 +410,8 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 	if (rb == adreno_dev->cur_rb) {
 		snapshot_rb_ibs(rb, data, snapshot);
 	} else {
-		unsigned int *rbptr = rb->buffer_desc.hostptr;
-		/* just copy the RB data, no need to look for IB's */
-		memcpy(data, (void *)(rbptr + rb->wptr),
-			(KGSL_RB_DWORDS - rb->wptr) * sizeof(unsigned int));
-		memcpy((void *)(data + (KGSL_RB_DWORDS - rb->wptr)), rbptr,
-			rb->wptr * sizeof(unsigned int));
+		/* Just copy the ringbuffer, there are no active IBs */
+		memcpy(data, rb->buffer_desc.hostptr, KGSL_RB_SIZE);
 	}
 	/* Return the size of the section */
 	return KGSL_RB_SIZE + sizeof(*header);
@@ -1073,4 +1069,59 @@ size_t adreno_snapshot_cp_meq(struct kgsl_device *device, u8 *buf,
 		adreno_readreg(adreno_dev, ADRENO_REG_CP_MEQ_DATA, &data[i]);
 
 	return DEBUG_SECTION_SZ(cp_meq_sz);
+}
+
+static const struct adreno_vbif_snapshot_registers *vbif_registers(
+		struct adreno_device *adreno_dev,
+		const struct adreno_vbif_snapshot_registers *list,
+		unsigned int count)
+{
+	unsigned int version;
+	unsigned int i;
+
+	adreno_readreg(adreno_dev, ADRENO_REG_VBIF_VERSION, &version);
+
+	for (i = 0; i < count; i++) {
+		if (list[i].version == version)
+			return &list[i];
+	}
+
+	KGSL_CORE_ERR(
+		"snapshot: Registers for VBIF version %X register were not dumped\n",
+		version);
+
+	return NULL;
+}
+
+void adreno_snapshot_registers(struct kgsl_device *device,
+		struct kgsl_snapshot *snapshot,
+		const unsigned int *regs, unsigned int count)
+{
+	struct kgsl_snapshot_registers r;
+
+	r.regs = regs;
+	r.count = count;
+
+	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS, snapshot,
+		kgsl_snapshot_dump_registers, &r);
+}
+
+void adreno_snapshot_vbif_registers(struct kgsl_device *device,
+		struct kgsl_snapshot *snapshot,
+		const struct adreno_vbif_snapshot_registers *list,
+		unsigned int count)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_snapshot_registers regs;
+	const struct adreno_vbif_snapshot_registers *vbif;
+
+	vbif = vbif_registers(adreno_dev, list, count);
+
+	if (vbif != NULL) {
+		regs.regs = vbif->registers;
+		regs.count = vbif->count;
+
+		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_REGS,
+			snapshot, kgsl_snapshot_dump_registers, &regs);
+	}
 }
