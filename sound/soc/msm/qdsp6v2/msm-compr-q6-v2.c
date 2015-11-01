@@ -347,6 +347,14 @@ static int msm_compr_send_ddp_cfg(struct audio_client *ac,
 {
 	int i, rc;
 	pr_debug("%s\n", __func__);
+
+	if (ddp->params_length / 2 > SND_DEC_DDP_MAX_PARAMS) {
+		pr_err("%s: Invalid number of params %u, max allowed %u\n",
+			__func__, ddp->params_length / 2,
+			SND_DEC_DDP_MAX_PARAMS);
+		return -EINVAL;
+	}
+
 	for (i = 0; i < ddp->params_length/2; i++) {
 		rc = q6asm_ds1_set_endp_params(ac, ddp->params_id[i],
 						ddp->params_value[i]);
