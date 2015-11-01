@@ -267,9 +267,11 @@ int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 {
 	int load = 0;
 
+	mutex_lock(&inst->lock);
+
 	if (!(inst->state >= MSM_VIDC_OPEN_DONE &&
 		inst->state < MSM_VIDC_STOP_DONE))
-		return 0;
+		goto exit;
 
 	load = msm_comm_get_mbs_per_sec(inst);
 
@@ -299,6 +301,9 @@ int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 	if (is_non_realtime_session(inst) &&
 		(quirks & LOAD_CALC_IGNORE_NON_REALTIME_LOAD))
 		load = msm_comm_get_mbs_per_sec(inst) / inst->prop.fps;
+
+exit:
+	mutex_unlock(&inst->lock);
 	return load;
 }
 
