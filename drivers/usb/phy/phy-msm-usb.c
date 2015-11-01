@@ -2010,6 +2010,7 @@ static void msm_otg_start_peripheral(struct usb_otg *otg, int on)
 		msm_otg_dbg_log_event(&motg->phy, "GADGET OFF",
 			motg->inputs, otg->phy->state);
 		usb_gadget_vbus_disconnect(otg->gadget);
+		clear_bit(A_BUS_SUSPEND, &motg->inputs);
 		/* Configure BUS performance parameters to default */
 		msm_otg_bus_vote(motg, USB_MIN_PERF_VOTE);
 
