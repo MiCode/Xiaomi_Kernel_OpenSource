@@ -940,12 +940,11 @@ static int wil_cfg80211_del_station(struct wiphy *wiphy,
 {
 	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
 
-	wil_dbg_misc(wil, "%s(%pM, reason=%d)\n", __func__, (u8 *)params->mac,
-		     WLAN_REASON_UNSPECIFIED);
+	wil_dbg_misc(wil, "%s(%pM, reason=%d)\n", __func__, params->mac,
+		     params->reason_code);
 
 	mutex_lock(&wil->mutex);
-	wil6210_disconnect(wil, (u8 *)params->mac, WLAN_REASON_UNSPECIFIED,
-			   false);
+	wil6210_disconnect(wil, params->mac, params->reason_code, false);
 	mutex_unlock(&wil->mutex);
 
 	return 0;
