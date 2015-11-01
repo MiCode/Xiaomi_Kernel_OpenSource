@@ -780,8 +780,12 @@ static int msm_spi_bam_pipe_connect(struct msm_spi *dd,
 	struct sps_register_event event  = {
 		.mode      = SPS_TRIGGER_WAIT,
 		.options   = SPS_O_EOT,
-		.xfer_done = &dd->transfer_complete,
 	};
+
+	if (pipe == &dd->bam.prod)
+		event.xfer_done = &dd->rx_transfer_complete;
+	else if (pipe == &dd->bam.cons)
+		event.xfer_done = &dd->tx_transfer_complete;
 
 	ret = sps_connect(pipe->handle, config);
 	if (ret) {
@@ -983,7 +987,6 @@ msm_spi_bam_next_transfer(struct msm_spi *dd)
 		return 0;
 
 	if (dd->tx_bytes_remaining > 0) {
-		init_completion(&dd->transfer_complete);
 		if (msm_spi_set_state(dd, SPI_OP_STATE_RESET))
 			return 0;
 		if ((msm_spi_bam_begin_transfer(dd)) < 0) {
@@ -1053,7 +1056,8 @@ static inline irqreturn_t msm_spi_qup_irq(int irq, void *dev_id)
 	}
 
 	if (dd->done) {
-		complete(&dd->transfer_complete);
+		complete(&dd->rx_transfer_complete);
+		complete(&dd->tx_transfer_complete);
 		dd->done = 0;
 	}
 	return ret;
@@ -1416,7 +1420,8 @@ static int msm_spi_process_transfer(struct msm_spi *dd)
 	dd->rx_bytes_remaining = dd->cur_msg_len;
 	dd->read_buf           = dd->cur_transfer->rx_buf;
 	dd->write_buf          = dd->cur_transfer->tx_buf;
-	init_completion(&dd->transfer_complete);
+	init_completion(&dd->tx_transfer_complete);
+	init_completion(&dd->rx_transfer_complete);
 	if (dd->cur_transfer->bits_per_word)
 		bpw = dd->cur_transfer->bits_per_word;
 	else
@@ -1492,10 +1497,21 @@ static int msm_spi_process_transfer(struct msm_spi *dd)
 
 	/* Assume success, this might change later upon transaction result */
 	do {
-		if (!wait_for_completion_timeout(&dd->transfer_complete,
+		if (dd->write_buf &&
+			!wait_for_completion_timeout(&dd->tx_transfer_complete,
 						 timeout)) {
 				dev_err(dd->dev,
-					"%s: SPI transaction timeout\n",
+					"%s: SPI Tx transaction timeout\n",
+					__func__);
+				status = -EIO;
+				break;
+		}
+
+		if (dd->read_buf &&
+			!wait_for_completion_timeout(&dd->rx_transfer_complete,
+						 timeout)) {
+				dev_err(dd->dev,
+					"%s: SPI Rx transaction timeout\n",
 					__func__);
 				status = -EIO;
 				break;
