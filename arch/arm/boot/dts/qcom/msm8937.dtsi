@@ -365,6 +365,88 @@
 		#clock-cells = <1>;
 	};
 
+	clock_cpu: qcom,cpu-clock-8939@b111050 {
+		compatible = "qcom,cpu-clock-8939";
+		reg =   <0xb111050 0x8>,
+			<0xb011050 0x8>,
+			<0xb1d1050 0x8>,
+			<0x005c00c 0x8>;
+		reg-names = "apcs-c0-rcg-base", "apcs-c1-rcg-base",
+			    "apcs-cci-rcg-base", "efuse";
+		vdd-c0-supply = <&apc_vreg_corner>;
+		vdd-c1-supply = <&apc_vreg_corner>;
+		vdd-cci-supply = <&apc_vreg_corner>;
+		clocks = <&clock_gcc clk_gpll0_ao_clk_src>,
+			 <&clock_gcc clk_a53ss_c0_pll>,
+			 <&clock_gcc clk_gpll0_ao_clk_src>,
+			 <&clock_gcc clk_a53ss_c1_pll>,
+			 <&clock_gcc clk_gpll0_ao_clk_src>;
+		clock-names = "clk-c0-4", "clk-c0-5",
+				"clk-c1-4", "clk-c1-5",
+				"clk-cci-4";
+		qcom,speed0-bin-v0-c0 =
+			<          0 0>,
+			<  806400000 1>,
+			<  902400000 2>,
+			<  998400000 3>,
+			< 1094400000 4>;
+
+		qcom,speed0-bin-v0-c1 =
+			<          0 0>,
+			<  998400000 1>,
+			< 1094400000 2>,
+			< 1248000000 3>,
+			< 1401000000 4>;
+
+
+		qcom,speed0-bin-v0-cci =
+			<          0 0>,
+			<  400000000 1>,
+			<  533333333 2>;
+		#clock-cells = <1>;
+	};
+
+	msm_cpufreq: qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names = "l2_clk", "cpu0_clk", "cpu1_clk", "cpu2_clk",
+				"cpu3_clk", "cpu4_clk", "cpu5_clk",
+				"cpu6_clk", "cpu7_clk";
+		clocks = <&clock_cpu clk_cci_clk>,
+			 <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_bc_clk>,
+			 <&clock_cpu clk_a53_lc_clk>,
+			 <&clock_cpu clk_a53_lc_clk>,
+			 <&clock_cpu clk_a53_lc_clk>,
+			 <&clock_cpu clk_a53_lc_clk>;
+
+		qcom,governor-per-policy;
+
+		qcom,cpufreq-table-0 =
+			 <  998400 >,
+			 < 1094400 >,
+			 < 1248000 >,
+			 < 1344000 >,
+			 < 1401000 >;
+
+		qcom,cpufreq-table-4 =
+			 <  806400 >,
+			 <  902400 >,
+			 <  998400 >,
+			 < 1094400 >;
+	};
+
+	cci_cache: qcom,cci {
+		compatible = "devfreq-simple-dev";
+		clock-names = "devfreq_clk";
+		clocks = <&clock_cpu clk_cci_clk>;
+		governor = "cpufreq";
+		freq-tbl-khz =
+			<  400000 >,
+			<  533333 >;
+	};
+
 	blsp2_uart1: uart@7aef000 {
 		compatible = "qcom,msm-hsuart-v14";
 		reg = <0x7aef000 0x200>,
