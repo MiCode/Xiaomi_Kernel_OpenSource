@@ -1596,7 +1596,7 @@ static struct rcg_clk sdcc1_apps_clk_src = {
 	.c = {
 		.dbg_name = "sdcc1_apps_clk_src",
 		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP3(LOW_SVS, 100000000, SVS, 200000000, NOM,
+		VDD_DIG_FMAX_MAP3(LOW_SVS, 25000000, SVS, 100000000, NOM,
 				400000000),
 		CLK_INIT(sdcc1_apps_clk_src.c),
 	},
@@ -1605,7 +1605,7 @@ static struct rcg_clk sdcc1_apps_clk_src = {
 static struct clk_freq_tbl ftbl_sdcc1_ice_core_clk_src[] = {
 	F(  80000000, gpll0_main_div2,    5,    0,     0),
 	F( 160000000,           gpll0,    5,    0,     0),
-	F( 308570000,           gpll6,  3.5,    0,     0),
+	F( 270000000,           gpll6,    4,    0,     0),
 	F_END
 };
 
@@ -1619,7 +1619,7 @@ static struct rcg_clk sdcc1_ice_core_clk_src = {
 		.dbg_name = "sdcc1_ice_core_clk_src",
 		.ops = &clk_ops_rcg_mnd,
 		VDD_DIG_FMAX_MAP3(LOW_SVS, 80000000, SVS, 160000000, NOM,
-				308570000),
+				270000000),
 		CLK_INIT(sdcc1_ice_core_clk_src.c),
 	},
 };
@@ -1645,7 +1645,7 @@ static struct rcg_clk sdcc2_apps_clk_src = {
 	.c = {
 		.dbg_name = "sdcc2_apps_clk_src",
 		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP3(LOW_SVS, 50000000, SVS, 100000000, NOM,
+		VDD_DIG_FMAX_MAP3(LOW_SVS, 25000000, SVS, 100000000, NOM,
 				200000000),
 		CLK_INIT(sdcc2_apps_clk_src.c),
 	},
