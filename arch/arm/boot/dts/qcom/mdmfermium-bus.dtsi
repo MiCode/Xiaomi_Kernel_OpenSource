@@ -599,7 +599,7 @@
 		slv_hsic:slv-hsic {
 			cell-id = <MSM_BUS_SLAVE_USB_HSIC>;
 			label = "slv-hsic";
-			qcom,buswidth = <8>;
+			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
 			qcom,bus-dev = <&fab_pcnoc>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_USB_HSIC>;
@@ -608,7 +608,7 @@
 		slv_usb_phy:slv-usb-phy {
 			cell-id = <MSM_BUS_SLAVE_USB_PHYS_CFG>;
 			label = "slv-usb-phy";
-			qcom,buswidth = <8>;
+			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
 			qcom,bus-dev = <&fab_pcnoc>;
@@ -656,7 +656,7 @@
 		slv_qipc {
 			cell-id = <MSM_BUS_SLAVE_QPIC>;
 			label = "slv-qpic";
-			qcom,buswidth = <8>;
+			qcom,buswidth = <4>;
 			qcom,agg-ports = <1>;
 			qcom,bus-dev = <&fab_pcnoc>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_QPIC>;
