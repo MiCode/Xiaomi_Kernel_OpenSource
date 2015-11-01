@@ -989,11 +989,11 @@ static void cpe_svc_core_cmi_handler(
 {
 	struct cmi_hdr *hdr;
 
-	pr_debug("%s: event = %d\n",
-		 __func__, parameter->event);
-
 	if (!parameter)
 		return;
+
+	pr_debug("%s: event = %d\n",
+		 __func__, parameter->event);
 
 	if (parameter->event != CMI_API_MSG)
 		return;
