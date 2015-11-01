@@ -40,6 +40,9 @@ config ARCH_MDMFERMIUM
        select USE_PINCTRL_IRQ
        select MSM_IRQ
        select MSM_PM if PM
+       select PM_DEVFREQ
+       select MSM_DEVFREQ_DEVBW
+       select MSM_BIMC_BWMON
        select DEVFREQ_GOV_MSM_BW_HWMON
 
 config ARCH_MDMCALIFORNIUM
