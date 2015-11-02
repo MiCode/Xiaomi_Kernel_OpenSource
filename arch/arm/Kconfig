@@ -664,6 +664,7 @@ config ARCH_MSM
 	select HAVE_CLK_PREPARE
 	select SOC_BUS
 	select MULTI_IRQ_HANDLER
+	select PM_OPP
 	select SPARSE_IRQ
 	select USE_OF
 
