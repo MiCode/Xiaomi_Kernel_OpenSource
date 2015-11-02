@@ -289,13 +289,74 @@
 	};
 };
 
-&soc {
+/* SPM controlled regulators */
+&spmi_bus {
+	qcom,pm8937@1 {
+		/* PM8937 S5 + S6 = VDD_APC supply */
+		pm8937_s5: spm-regulator@2000 {
+			compatible = "qcom,spm-regulator";
+			reg = <0x2000 0x100>;
+			regulator-name = "pm8937_s5";
+			regulator-min-microvolt = <1050000>;
+			regulator-max-microvolt = <1350000>;
+		};
+	};
+};
 
-	/* TODO: move to CPR regulator */
-	apc_vreg_corner: apc-vreg {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "apc_vreg";
+&soc {
+	/* TODO: Add mem-acc node */
+
+	apc_vreg_corner: regulator@b018000 {
+		compatible = "qcom,cpr-regulator";
+		reg = <0xb018000 0x1000>, <0xb011064 4>, <0xa4000 0x1000>;
+		reg-names = "rbcpr", "rbcpr_clk", "efuse_addr";
+		interrupts = <0 15 0>;
+		regulator-name = "apc_corner";
 		regulator-min-microvolt = <1>;
-		regulator-max-microvolt = <7>;
+		regulator-max-microvolt = <5>;
+
+		qcom,cpr-fuse-corners = <3>;
+		qcom,cpr-voltage-ceiling = <1155000 1225000 1350000>;
+		qcom,cpr-voltage-floor =   <1050000 1050000 1090000>;
+		vdd-apc-supply = <&pm8937_s5>;
+
+		qcom,cpr-ref-clk = <19200>;
+		qcom,cpr-timer-delay = <5000>;
+		qcom,cpr-timer-cons-up = <0>;
+		qcom,cpr-timer-cons-down = <2>;
+		qcom,cpr-irq-line = <0>;
+		qcom,cpr-step-quotient = <16>;
+		qcom,cpr-up-threshold = <2>;
+		qcom,cpr-down-threshold = <4>;
+		qcom,cpr-idle-clocks = <15>;
+		qcom,cpr-gcnt-time = <1>;
+		qcom,vdd-apc-step-up-limit = <1>;
+		qcom,vdd-apc-step-down-limit = <1>;
+		qcom,cpr-apc-volt-step = <5000>;
+
+		qcom,cpr-fuse-row = <67 0>;
+		qcom,cpr-fuse-target-quot = <42 24 6>;
+		qcom,cpr-fuse-ro-sel = <60 57 54>;
+		qcom,cpr-init-voltage-ref = <1155000 1225000 1350000>;
+		qcom,cpr-fuse-init-voltage =
+					<67 36 6 0>,
+					<67 18 6 0>,
+					<67  0 6 0>;
+		qcom,cpr-fuse-quot-offset =
+					<71 26 6 0>,
+					<71 20 6 0>,
+					<70 54 7 0>;
+		qcom,cpr-fuse-quot-offset-scale = <5 5 5>;
+		qcom,cpr-init-voltage-step = <10000>;
+		qcom,cpr-corner-map = <1 2 3 3 3>;
+		qcom,cpr-corner-frequency-map =
+				<1 998400000>,
+				<2 1094400000>,
+				<3 1248000000>,
+				<4 1344000000>,
+				<5 1401000000>;
+		qcom,speed-bin-fuse-sel = <37 34 3 0>;
+		qcom,cpr-quot-adjust-scaling-factor-max = <0 1400 1400>;
+		qcom,cpr-fuse-revision = <69 39 3 0>;
 	};
 };
