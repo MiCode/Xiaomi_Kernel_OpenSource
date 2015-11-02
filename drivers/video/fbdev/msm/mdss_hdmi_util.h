@@ -405,6 +405,7 @@ struct hdmi_tx_ddc_data {
 	u32 request_len;
 	u32 no_align;
 	u32 hard_timeout;
+	u32 timeout_left;
 	int retry;
 };
 
@@ -416,7 +417,10 @@ enum hdmi_tx_hdcp2p2_rxstatus_intr_mask {
 
 struct hdmi_tx_hdcp2p2_ddc_data {
 	enum hdmi_tx_hdcp2p2_rxstatus_intr_mask intr_mask;
-	u32 timer_delay_lines;
+	u32 timeout_ms;
+	u32 timeout_hsync;
+	u32 periodic_timer_hsync;
+	u32 timeout_left;
 	u32 read_method;
 	u32 message_size;
 	bool encryption_ready;

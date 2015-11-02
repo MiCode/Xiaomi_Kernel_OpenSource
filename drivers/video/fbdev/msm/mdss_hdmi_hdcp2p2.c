@@ -34,11 +34,12 @@
 #define HDCP_SINK_DDC_HDCP2_RXSTATUS 0x70        /* RxStatus, 2 bytes */
 #define HDCP_SINK_DDC_HDCP2_READ_MESSAGE 0x80    /* HDCP Tx reads here */
 
-#define HDCP2P2_LINK_CHECK_TIME_MS 500 /* link check within 1 sec */
+#define HDCP2P2_LINK_CHECK_TIME_MS 900 /* link check within 1 sec */
 
 #define HDCP2P2_SEC_TO_US 1000000
 #define HDCP2P2_MS_TO_US  1000
 #define HDCP2P2_KHZ_TO_HZ 1000
+#define HDCP2P2_DEFAULT_TIMEOUT 500
 
 /*
  * HDCP 2.2 encryption requires the data encryption block that is present in
@@ -66,6 +67,7 @@ struct hdmi_hdcp2p2_ctrl {
 	char *send_msg_buf;
 	uint32_t send_msg_len;
 	uint32_t timeout;
+	uint32_t timeout_left;
 
 	struct task_struct *thread;
 	struct kthread_worker worker;
@@ -77,6 +79,45 @@ struct hdmi_hdcp2p2_ctrl {
 
 	struct delayed_work link_check_work;
 };
+
+static inline bool hdmi_hdcp2p2_is_valid_state(struct hdmi_hdcp2p2_ctrl *ctrl)
+{
+	if (ctrl->wakeup_cmd == HDMI_HDCP_WKUP_CMD_AUTHENTICATE)
+		return true;
+
+	if (atomic_read(&ctrl->auth_state) != HDCP_STATE_INACTIVE)
+		return true;
+
+	return false;
+}
+
+static int hdmi_hdcp2p2_copy_buf(struct hdmi_hdcp2p2_ctrl *ctrl,
+	struct hdmi_hdcp_wakeup_data *data)
+{
+	mutex_lock(&ctrl->msg_lock);
+
+	if (!data->send_msg_len) {
+		mutex_unlock(&ctrl->msg_lock);
+		return 0;
+	}
+
+	ctrl->send_msg_len = data->send_msg_len;
+
+	kzfree(ctrl->send_msg_buf);
+
+	ctrl->send_msg_buf = kzalloc(data->send_msg_len, GFP_KERNEL);
+
+	if (!ctrl->send_msg_buf) {
+		mutex_unlock(&ctrl->msg_lock);
+		return -ENOMEM;
+	}
+
+	memcpy(ctrl->send_msg_buf, data->send_msg_buf, ctrl->send_msg_len);
+
+	mutex_unlock(&ctrl->msg_lock);
+
+	return 0;
+}
 
 static int hdmi_hdcp2p2_wakeup(struct hdmi_hdcp_wakeup_data *data)
 {
@@ -95,43 +136,35 @@ static int hdmi_hdcp2p2_wakeup(struct hdmi_hdcp_wakeup_data *data)
 
 	mutex_lock(&ctrl->wakeup_mutex);
 
-	pr_debug("cmd: %s\n", hdmi_hdcp_cmd_to_str(data->cmd));
+	pr_debug("cmd: %s, timeout %dms\n",
+		hdmi_hdcp_cmd_to_str(data->cmd),
+		data->timeout);
 
 	ctrl->wakeup_cmd = data->cmd;
-	ctrl->timeout = data->timeout;
 
-	mutex_lock(&ctrl->msg_lock);
-	if (data->send_msg_len) {
-		ctrl->send_msg_len = data->send_msg_len;
+	if (data->timeout)
+		ctrl->timeout = data->timeout;
+	else
+		ctrl->timeout = HDCP2P2_DEFAULT_TIMEOUT;
 
-		kzfree(ctrl->send_msg_buf);
-
-		ctrl->send_msg_buf = kzalloc(
-			data->send_msg_len, GFP_KERNEL);
-
-		if (!ctrl->send_msg_buf) {
-			mutex_unlock(&ctrl->msg_lock);
-			goto exit;
-		}
-
-		memcpy(ctrl->send_msg_buf, data->send_msg_buf,
-			ctrl->send_msg_len);
+	if (!hdmi_hdcp2p2_is_valid_state(ctrl)) {
+		pr_err("invalid state\n");
+		goto exit;
 	}
-	mutex_unlock(&ctrl->msg_lock);
+
+	if (hdmi_hdcp2p2_copy_buf(ctrl, data))
+		goto exit;
 
 	switch (ctrl->wakeup_cmd) {
 	case HDMI_HDCP_WKUP_CMD_SEND_MESSAGE:
-		if (atomic_read(&ctrl->auth_state) != HDCP_STATE_INACTIVE)
-			queue_kthread_work(&ctrl->worker, &ctrl->send_msg);
+		queue_kthread_work(&ctrl->worker, &ctrl->send_msg);
 		break;
 	case HDMI_HDCP_WKUP_CMD_RECV_MESSAGE:
-		if (atomic_read(&ctrl->auth_state) != HDCP_STATE_INACTIVE)
-			queue_kthread_work(&ctrl->worker, &ctrl->recv_msg);
+		queue_kthread_work(&ctrl->worker, &ctrl->recv_msg);
 		break;
 	case HDMI_HDCP_WKUP_CMD_STATUS_SUCCESS:
 	case HDMI_HDCP_WKUP_CMD_STATUS_FAILED:
-		if (atomic_read(&ctrl->auth_state) != HDCP_STATE_INACTIVE)
-			queue_kthread_work(&ctrl->worker, &ctrl->status);
+		queue_kthread_work(&ctrl->worker, &ctrl->status);
 		break;
 	case HDMI_HDCP_WKUP_CMD_AUTHENTICATE:
 		queue_kthread_work(&ctrl->worker, &ctrl->auth);
@@ -366,6 +399,7 @@ static int hdmi_hdcp2p2_ddc_read_message(struct hdmi_hdcp2p2_ctrl *ctrl,
 		pr_err("hdcp is off\n");
 		return -EINVAL;
 	}
+
 	memset(&ddc_data, 0, sizeof(ddc_data));
 	ddc_data.dev_addr = HDCP_SINK_DDC_SLAVE_ADDR;
 	ddc_data.offset = HDCP_SINK_DDC_HDCP2_READ_MESSAGE;
@@ -378,9 +412,14 @@ static int hdmi_hdcp2p2_ddc_read_message(struct hdmi_hdcp2p2_ctrl *ctrl,
 
 	ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
 
+	pr_debug("read msg timeout %dms\n", timeout);
+
 	rc = hdmi_ddc_read(ctrl->init_data.ddc_ctrl);
 	if (rc)
 		pr_err("Cannot read HDCP message register\n");
+
+	ctrl->timeout_left = ctrl->init_data.ddc_ctrl->ddc_data.timeout_left;
+
 	return rc;
 }
 
@@ -396,6 +435,7 @@ static int hdmi_hdcp2p2_ddc_write_message(struct hdmi_hdcp2p2_ctrl *ctrl,
 	ddc_data.data_buf = buf;
 	ddc_data.data_len = size;
 	ddc_data.retry = 1;
+	ddc_data.hard_timeout = ctrl->timeout;
 	ddc_data.what = "HDCP2WriteMessage";
 
 	ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
@@ -403,6 +443,9 @@ static int hdmi_hdcp2p2_ddc_write_message(struct hdmi_hdcp2p2_ctrl *ctrl,
 	rc = hdmi_ddc_write(ctrl->init_data.ddc_ctrl);
 	if (rc)
 		pr_err("Cannot write HDCP message register\n");
+
+	ctrl->timeout_left = ctrl->init_data.ddc_ctrl->ddc_data.timeout_left;
+
 	return rc;
 }
 
@@ -545,6 +588,7 @@ static void hdmi_hdcp2p2_send_msg_work(struct kthread_work *work)
 		cdata.cmd = HDCP_LIB_WKUP_CMD_MSG_SEND_FAILED;
 	} else {
 		cdata.cmd = HDCP_LIB_WKUP_CMD_MSG_SEND_SUCCESS;
+		cdata.timeout = ctrl->timeout_left;
 	}
 exit:
 	kzfree(msg);
@@ -605,10 +649,13 @@ static void hdmi_hdcp2p2_recv_msg_work(struct kthread_work *work)
 	lines_needed_for_given_time = (ctrl->timeout * HDCP2P2_MS_TO_US) /
 		time_taken_by_one_line_us;
 
-	pr_debug("timeout for rxstatus %d\n", lines_needed_for_given_time);
+	pr_debug("timeout for rxstatus %dms, %d hsyncs\n",
+		ctrl->timeout, lines_needed_for_given_time);
 
 	ddc_data->intr_mask = RXSTATUS_MESSAGE_SIZE;
-	ddc_data->timer_delay_lines = lines_needed_for_given_time;
+	ddc_data->timeout_ms = ctrl->timeout;
+	ddc_data->timeout_hsync = lines_needed_for_given_time;
+	ddc_data->periodic_timer_hsync = lines_needed_for_given_time / 20;
 	ddc_data->read_method = HDCP2P2_RXSTATUS_HW_DDC_SW_TRIGGER;
 
 	rc = hdmi_hdcp2p2_ddc_read_rxstatus(ddc_ctrl, true);
@@ -617,26 +664,30 @@ static void hdmi_hdcp2p2_recv_msg_work(struct kthread_work *work)
 		goto exit;
 	}
 
+	ctrl->timeout_left = ddc_data->timeout_left;
+
+	pr_debug("timeout left after rxstatus %dms, msg size %d\n",
+		ctrl->timeout_left, ddc_data->message_size);
+
 	if (!ddc_data->message_size) {
 		pr_err("recvd invalid message size\n");
 		rc = -EINVAL;
 		goto exit;
 	}
 
-	pr_debug("rxstatus msg size %d\n", ddc_data->message_size);
-
 	recvd_msg_buf = kzalloc(ddc_data->message_size, GFP_KERNEL);
 	if (!recvd_msg_buf)
 		goto exit;
 
 	rc = hdmi_hdcp2p2_ddc_read_message(ctrl, recvd_msg_buf,
-		ddc_data->message_size, ctrl->timeout);
+		ddc_data->message_size, ctrl->timeout_left);
 	if (rc)
 		pr_err("error reading message %d\n", rc);
 
 	cdata.cmd = HDCP_LIB_WKUP_CMD_MSG_RECV_SUCCESS;
 	cdata.recvd_msg_buf = recvd_msg_buf;
 	cdata.recvd_msg_len = ddc_data->message_size;
+	cdata.timeout = ctrl->timeout_left;
 exit:
 	if (rc == -ETIMEDOUT)
 		cdata.cmd = HDCP_LIB_WKUP_CMD_MSG_RECV_TIMEOUT;
@@ -672,14 +723,16 @@ static int hdmi_hdcp2p2_link_check(struct hdmi_hdcp2p2_ctrl *ctrl)
 	fps = timing->refresh_rate / HDCP2P2_KHZ_TO_HZ;
 	v_total = hdmi_tx_get_v_total(timing);
 	time_taken_by_one_line_us = HDCP2P2_SEC_TO_US / (v_total * fps);
-	lines_needed_for_given_time = (jiffies_to_msecs(HZ / 2) *
+	lines_needed_for_given_time = (jiffies_to_msecs((HZ / 2) + (HZ / 4)) *
 		HDCP2P2_MS_TO_US) / time_taken_by_one_line_us;
 
-	pr_debug("timeout for rxstatus %d\n", lines_needed_for_given_time);
+	pr_debug("timeout for rxstatus %d hsyncs\n",
+		lines_needed_for_given_time);
 
 	ddc_data->intr_mask = RXSTATUS_READY | RXSTATUS_MESSAGE_SIZE |
 		RXSTATUS_REAUTH_REQ;
-	ddc_data->timer_delay_lines = lines_needed_for_given_time;
+	ddc_data->timeout_hsync = lines_needed_for_given_time;
+	ddc_data->periodic_timer_hsync = lines_needed_for_given_time;
 	ddc_data->read_method = HDCP2P2_RXSTATUS_HW_DDC_SW_TRIGGER;
 
 	return hdmi_hdcp2p2_ddc_read_rxstatus(ddc_ctrl, false);
@@ -788,7 +841,7 @@ static void hdmi_hdcp2p2_link_work(struct kthread_work *work)
 		}
 
 		rc = hdmi_hdcp2p2_ddc_read_message(ctrl, recvd_msg_buf,
-			ddc_data->message_size, ctrl->timeout);
+			ddc_data->message_size, HDCP2P2_DEFAULT_TIMEOUT);
 		if (rc) {
 			cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
 			pr_err("error reading message %d\n", rc);
