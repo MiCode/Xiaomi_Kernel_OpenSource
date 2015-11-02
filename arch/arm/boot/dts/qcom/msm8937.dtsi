@@ -448,6 +448,65 @@
 			<  533333 >;
 	};
 
+	cpubw: qcom,cpubw {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<   769 /*  100.8 MHz */ >,
+			<  1611 /*  211.2 MHz */ >,
+			<  2124 /*  278.4 MHz */ >,
+			<  2929 /*  384   MHz */ >,	/* SVS	*/
+			<  4101 /*  537.6 MHz */ >,
+			<  4248 /*  556.8 MHz */ >,
+			<  5053 /*  662.4 MHz */ >,	/* SVS+	 */
+			<  5712 /*  748.8 MHz */ >,     /* NOM   */
+			<  6152 /*  806.4 MHz */ >,     /* NOM+  */
+			<  7031 /*  921.6 MHz */ >;     /* TURBO */
+	};
+
+	qcom,cpu-bwmon {
+		compatible = "qcom,bimc-bwmon2";
+		reg = <0x408000 0x300>, <0x401000 0x200>;
+		reg-names = "base", "global_base";
+		interrupts = <0 183 4>;
+		qcom,mport = <0>;
+		qcom,target-dev = <&cpubw>;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+		target-dev = <&cpubw>;
+		cpu-to-dev-map-0 =
+			<  998400  2929 >,      /* SVS   */
+			< 1094400  5053 >,	/* NOM   */
+			< 1248000  5712 >,	/* NOM+  */
+			< 1344000  7031 >,
+			< 1401000  7031 >;	/* TURBO */
+		cpu-to-dev-map-4 =
+			<  806400  2929 >,	/* SVS  */
+			<  902400  5053 >,	/* NOM   */
+			<  998400  6152 >,	/* NOM+  */
+			< 1094400  7031 >;	/* TURBO */
+		};
+
+		cci-cpufreq {
+		target-dev = <&cci_cache>;
+		cpu-to-dev-map-0 =
+			<  998400  400000 >,    /* SVS   */
+			< 1094400  400000 >,	/* NOM   */
+			< 1248000  533330 >,	/* NOM+  */
+			< 1344000  533330 >,
+			< 1401000  533330 >;	/* TURBO */
+		cpu-to-dev-map-4 =
+			<  806400  400000 >,	/* SVS  */
+			<  902400  400000 >,	/* NOM   */
+			<  998400  533330 >,	/* NOM+  */
+			< 1094400  533330 >;	/* TURBO */
+		};
+	};
+
 	blsp2_uart1: uart@7aef000 {
 		compatible = "qcom,msm-hsuart-v14";
 		reg = <0x7aef000 0x200>,
