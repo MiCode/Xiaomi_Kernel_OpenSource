@@ -393,6 +393,7 @@ struct msm_eeprom_cfg_data32 {
 		struct eeprom_read_t32 read_data;
 		struct eeprom_write_t32 write_data;
 		struct msm_eeprom_info_t32 eeprom_info;
+		struct eeprom_get_cmm_t get_cmm_data;
 	} cfg;
 };
 
