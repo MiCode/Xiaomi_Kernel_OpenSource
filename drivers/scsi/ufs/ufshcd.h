@@ -338,18 +338,15 @@ struct ufs_hba_variant_ops {
 
 /**
  * struct ufs_hba_crypto_variant_ops - variant specific crypto callbacks
+ * @crypto_req_setup:	retreieve the necessary cryptographic arguments to setup
+			a requests's transfer descriptor.
  * @crypto_engine_cfg: configure cryptographic engine according to tag parameter
- * @crypto_engine_eh: cryptographic engine error handling.
- *                Return true is it detects an error, false on
- *                success
- * @crypto_engine_get_err: returns the saved error status of the
- *                         cryptographic engine.If a positive
- *                         value is returned, host controller
- *                         should be reset.
- * @crypto_engine_reset_err: resets the saved error status of
- *                         the cryptographic engine
+ * @crypto_engine_reset: perform reset to the cryptographic engine
+ * @crypto_engine_get_status: get errors status of the cryptographic engine
  */
 struct ufs_hba_crypto_variant_ops {
+	int	(*crypto_req_setup)(struct ufs_hba *, struct ufshcd_lrb *lrbp,
+				    u8 *cc_index, bool *enable, u64 *dun);
 	int	(*crypto_engine_cfg)(struct ufs_hba *, unsigned int);
 	int	(*crypto_engine_reset)(struct ufs_hba *);
 	int	(*crypto_engine_get_status)(struct ufs_hba *, u32 *);
@@ -925,6 +922,11 @@ static inline bool ufshcd_is_intr_aggr_allowed(struct ufs_hba *hba)
 		return false;
 }
 
+static inline bool ufshcd_is_crypto_supported(struct ufs_hba *hba)
+{
+	return !!(hba->capabilities & MASK_CRYPTO_SUPPORT);
+}
+
 #define ufshcd_writel(hba, val, reg)	\
 	writel_relaxed((val), (hba)->mmio_base + (reg))
 #define ufshcd_readl(hba, reg)	\
@@ -1213,8 +1215,18 @@ static inline void ufshcd_vops_remove_debugfs(struct ufs_hba *hba)
 }
 #endif
 
+static inline int ufshcd_vops_crypto_req_setup(struct ufs_hba *hba,
+	struct ufshcd_lrb *lrbp, u8 *cc_index, bool *enable, u64 *dun)
+{
+	if (hba->var && hba->var->crypto_vops &&
+		hba->var->crypto_vops->crypto_req_setup)
+		return hba->var->crypto_vops->crypto_req_setup(hba, lrbp,
+			cc_index, enable, dun);
+	return 0;
+}
+
 static inline int ufshcd_vops_crypto_engine_cfg(struct ufs_hba *hba,
-						unsigned int task_tag)
+		unsigned int task_tag)
 {
 	if (hba->var && hba->var->crypto_vops &&
 	    hba->var->crypto_vops->crypto_engine_cfg)

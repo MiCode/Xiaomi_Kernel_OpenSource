@@ -72,6 +72,8 @@ enum {
 #ifdef CONFIG_SCSI_UFS_QCOM_ICE
 int ufs_qcom_ice_get_dev(struct ufs_qcom_host *qcom_host);
 int ufs_qcom_ice_init(struct ufs_qcom_host *qcom_host);
+int ufs_qcom_ice_req_setup(struct ufs_qcom_host *qcom_host,
+			   struct scsi_cmnd *cmd, u8 *cc_index, bool *enable);
 int ufs_qcom_ice_cfg(struct ufs_qcom_host *qcom_host, struct scsi_cmnd *cmd);
 int ufs_qcom_ice_reset(struct ufs_qcom_host *qcom_host);
 int ufs_qcom_ice_resume(struct ufs_qcom_host *qcom_host);
