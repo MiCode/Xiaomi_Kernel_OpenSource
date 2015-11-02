@@ -855,11 +855,10 @@ struct msm_isp_event_data32 {
 #define VIDIOC_MSM_ISP_SET_DUAL_HW_MASTER_SLAVE \
 	_IOWR('V', BASE_VIDIOC_PRIVATE+22, struct msm_isp_set_dual_hw_ms_cmd)
 
-
 #define VIDIOC_MSM_ISP_MAP_BUF_START_FE \
-	_IOWR('V', BASE_VIDIOC_PRIVATE+21, struct msm_vfe_fetch_eng_start)
+	_IOWR('V', BASE_VIDIOC_PRIVATE+23, struct msm_vfe_fetch_eng_start)
 
 #define VIDIOC_MSM_ISP_UNMAP_BUF \
-	_IOWR('V', BASE_VIDIOC_PRIVATE+22, struct msm_isp_unmap_buf_req)
+	_IOWR('V', BASE_VIDIOC_PRIVATE+24, struct msm_isp_unmap_buf_req)
 
 #endif /* __MSMB_ISP__ */
