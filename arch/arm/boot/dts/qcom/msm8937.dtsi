@@ -100,6 +100,7 @@
 #include "msm8937-coresight.dtsi"
 #include "msm8937-bus.dtsi"
 #include "msm8937-smp2p.dtsi"
+#include "msm8937-pm.dtsi"
 
 &soc {
 	#address-cells = <1>;
