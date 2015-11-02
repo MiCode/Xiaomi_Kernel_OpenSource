@@ -310,7 +310,7 @@
 		compatible = "qcom,cpr-regulator";
 		reg = <0xb018000 0x1000>, <0xb010058 4>, <0xa4000 0x1000>;
 		reg-names = "rbcpr", "rbcpr_clk", "efuse_addr";
-		interrupts = <0 15 0>;
+		interrupts = <0 20 0>;
 		regulator-name = "apc_corner";
 		qcom,cpr-fuse-corners = <3>;
 		regulator-min-microvolt = <1>;
