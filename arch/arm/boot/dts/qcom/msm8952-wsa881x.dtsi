@@ -1,0 +1,47 @@
+/*
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&slim_msm {
+	tasha_codec {
+		swr_master {
+			compatible = "qcom,swr-wcd";
+			#address-cells = <2>;
+			#size-cells = <0>;
+
+			wsa881x_211: wsa881x@20170211 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x20170211>;
+				qcom,spkr-sd-n-gpio = <&msm_gpio 94 0>;
+			};
+
+			wsa881x_212: wsa881x@20170212 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x20170212>;
+				qcom,spkr-sd-n-gpio = <&msm_gpio 95 0>;
+			};
+
+			wsa881x_213: wsa881x@20170213 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x20170213>;
+				qcom,spkr-sd-n-gpio = <&msm_gpio 94 0>;
+			};
+
+			wsa881x_214: wsa881x@20170214 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x20170214>;
+				qcom,spkr-sd-n-gpio = <&msm_gpio 95 0>;
+			};
+		};
+	};
+};
+

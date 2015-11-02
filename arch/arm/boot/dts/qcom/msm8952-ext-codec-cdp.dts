@@ -14,6 +14,7 @@
 /dts-v1/;
 
 #include "msm8952-cdp.dtsi"
+#include "msm8952-wsa881x.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8952 External Audio Codec CDP";
@@ -25,6 +26,30 @@
 	status = "disabled";
 };
 
+&pm8950_cajon_dig {
+	status = "disabled";
+};
+
+&pm8950_cajon_analog {
+	status = "disabled";
+};
+
+&wsa881x_i2c_e {
+	status = "disabled";
+};
+
+&wsa881x_i2c_44 {
+	status = "disabled";
+};
+
+&wsa881x_i2c_f {
+	status = "disabled";
+};
+
+&wsa881x_i2c_45 {
+	status = "disabled";
+};
+
 &soc {
 	wcd9xxx_intc: wcd9xxx-irq {
 		compatible = "qcom,wcd9xxx-irq";
@@ -33,6 +58,7 @@
 		interrupt-parent = <&msm_gpio>;
 		interrupts = <73 0>;
 		interrupt-names = "cdc-int";
+		qcom,gpio-connect = <&msm_gpio 73 0>;
 	};
 
 	ext_codec: sound-9335 {
@@ -130,8 +156,11 @@
 				"msm-dai-q6-dev.12292", "msm-dai-q6-dev.12293";
 		asoc-codec = <&stub_codec>;
 		asoc-codec-names = "msm-stub-codec.1";
-		asoc-wsa-codec-names = "wsa881x.20170212", "wsa881x.20170211";
-		asoc-wsa-codec-prefixes = "SpkrLeft", "SpkrRight";
+		qcom,wsa-max-devs = <2>;
+		qcom,wsa-devs = <&wsa881x_211>, <&wsa881x_212>,
+				<&wsa881x_213>, <&wsa881x_214>;
+		qcom,wsa-aux-dev-prefix = "SpkrRight", "SpkrLeft",
+					"SpkrRight", "SpkrLeft";
 	};
 
 	sound-9330 {
@@ -366,21 +395,5 @@
 
 		clock-names = "wcd_clk";
 		clocks = <&clock_audio clk_audio_pmi_clk>;
-
-		swr_master {
-			compatible = "qcom,swr-wcd";
-			#address-cells = <2>;
-			#size-cells = <0>;
-			wsa881x@20170212 {
-				compatible = "qcom,wsa881x";
-				reg = <0x00 0x20170212>;
-				qcom,spkr-sd-n-gpio = <&msm_gpio 95 0>;
-			};
-			wsa881x@20170211 {
-				compatible = "qcom,wsa881x";
-				reg = <0x00 0x20170211>;
-				qcom,spkr-sd-n-gpio = <&msm_gpio 94 0>;
-			};
-}		;
 	};
 };
