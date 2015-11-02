@@ -71,5 +71,7 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev);
 int msm_slim_4_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 					    struct snd_pcm_hw_params *params);
 int msm895x_wsa881x_init(struct snd_soc_component *component);
+int msm8952_init_wsa_dev(struct platform_device *pdev,
+		struct snd_soc_card *card);
 void msm895x_free_auxdev_mem(struct platform_device *pdev);
 #endif
