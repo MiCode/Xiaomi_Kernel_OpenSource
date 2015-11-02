@@ -58,7 +58,7 @@ TRACE_EVENT(sched_kthread_stop_ret,
  */
 TRACE_EVENT(sched_enq_deq_task,
 
-	TP_PROTO(struct task_struct *p, int enqueue, unsigned int cpus_allowed),
+	TP_PROTO(struct task_struct *p, bool enqueue, unsigned int cpus_allowed),
 
 	TP_ARGS(p, enqueue, cpus_allowed),
 
@@ -67,14 +67,12 @@ TRACE_EVENT(sched_enq_deq_task,
 		__field(	pid_t,	pid			)
 		__field(	int,	prio			)
 		__field(	int,	cpu			)
-		__field(	int,	enqueue			)
+		__field(	bool,	enqueue			)
 		__field(unsigned int,	nr_running		)
 		__field(unsigned long,	cpu_load		)
 		__field(unsigned int,	rt_nr_running		)
 		__field(unsigned int,	cpus_allowed		)
 #ifdef CONFIG_SCHED_HMP
-		__field(unsigned int,	sum_scaled		)
-		__field(unsigned int,	period			)
 		__field(unsigned int,	demand			)
 #endif
 	),
@@ -90,15 +88,13 @@ TRACE_EVENT(sched_enq_deq_task,
 		__entry->rt_nr_running	= task_rq(p)->rt.rt_nr_running;
 		__entry->cpus_allowed	= cpus_allowed;
 #ifdef CONFIG_SCHED_HMP
-		__entry->sum_scaled	= p->se.avg.runnable_avg_sum_scaled;
-		__entry->period		= p->se.avg.runnable_avg_period;
 		__entry->demand		= p->ravg.demand;
 #endif
 	),
 
 	TP_printk("cpu=%d %s comm=%s pid=%d prio=%d nr_running=%u cpu_load=%lu rt_nr_running=%u affine=%x"
 #ifdef CONFIG_SCHED_HMP
-		 " sum_scaled=%u period=%u demand=%u"
+		 " demand=%u"
 #endif
 			, __entry->cpu,
 			__entry->enqueue ? "enqueue" : "dequeue",
@@ -106,7 +102,7 @@ TRACE_EVENT(sched_enq_deq_task,
 			__entry->prio, __entry->nr_running,
 			__entry->cpu_load, __entry->rt_nr_running, __entry->cpus_allowed
 #ifdef CONFIG_SCHED_HMP
-			, __entry->sum_scaled, __entry->period, __entry->demand
+			, __entry->demand
 #endif
 			)
 );
@@ -115,22 +111,19 @@ TRACE_EVENT(sched_enq_deq_task,
 
 TRACE_EVENT(sched_task_load,
 
-	TP_PROTO(struct task_struct *p, int boost, int reason,
-		 int sync, int need_idle, int best_cpu),
+	TP_PROTO(struct task_struct *p, bool boost, int reason,
+		 bool sync, bool need_idle, int best_cpu),
 
 	TP_ARGS(p, boost, reason, sync, need_idle, best_cpu),
 
 	TP_STRUCT__entry(
 		__array(	char,	comm,	TASK_COMM_LEN	)
 		__field(	pid_t,	pid			)
-		__field(unsigned int,	sum			)
-		__field(unsigned int,	sum_scaled		)
-		__field(unsigned int,	period			)
 		__field(unsigned int,	demand			)
-		__field(	int,	boost			)
+		__field(	bool,	boost			)
 		__field(	int,	reason			)
-		__field(	int,	sync			)
-		__field(	int,	need_idle		)
+		__field(	bool,	sync			)
+		__field(	bool,	need_idle		)
 		__field(	int,	best_cpu		)
 		__field(	u64,	latency			)
 	),
@@ -138,9 +131,6 @@ TRACE_EVENT(sched_task_load,
 	TP_fast_assign(
 		memcpy(__entry->comm, p->comm, TASK_COMM_LEN);
 		__entry->pid		= p->pid;
-		__entry->sum		= p->se.avg.runnable_avg_sum;
-		__entry->sum_scaled	= p->se.avg.runnable_avg_sum_scaled;
-		__entry->period		= p->se.avg.runnable_avg_period;
 		__entry->demand		= p->ravg.demand;
 		__entry->boost		= boost;
 		__entry->reason		= reason;
@@ -151,14 +141,13 @@ TRACE_EVENT(sched_task_load,
 					 sched_clock() - p->ravg.mark_start : 0;
 	),
 
-	TP_printk("%d (%s): sum=%u, sum_scaled=%u, period=%u demand=%u boost=%d reason=%d sync=%d need_idle=%d best_cpu=%d latency=%llu",
-		__entry->pid, __entry->comm, __entry->sum,
-		__entry->sum_scaled, __entry->period, __entry->demand,
+	TP_printk("%d (%s): demand=%u boost=%d reason=%d sync=%d need_idle=%d best_cpu=%d latency=%llu",
+		__entry->pid, __entry->comm, __entry->demand,
 		__entry->boost, __entry->reason, __entry->sync,
 		__entry->need_idle, __entry->best_cpu, __entry->latency)
 );
 
-TRACE_EVENT(sched_cpu_load,
+DECLARE_EVENT_CLASS(sched_cpu_load,
 
 	TP_PROTO(struct rq *rq, int idle, u64 irqload, unsigned int power_cost, int temp),
 
@@ -204,6 +193,21 @@ TRACE_EVENT(sched_cpu_load,
 	__entry->cumulative_runnable_avg, __entry->irqload, __entry->cur_freq,
 	__entry->max_freq, __entry->power_cost, __entry->cstate,
 	__entry->dstate, __entry->temp)
+);
+
+DEFINE_EVENT(sched_cpu_load, sched_cpu_load_wakeup,
+	TP_PROTO(struct rq *rq, int idle, u64 irqload, unsigned int power_cost, int temp),
+	TP_ARGS(rq, idle, irqload, power_cost, temp)
+);
+
+DEFINE_EVENT(sched_cpu_load, sched_cpu_load_lb,
+	TP_PROTO(struct rq *rq, int idle, u64 irqload, unsigned int power_cost, int temp),
+	TP_ARGS(rq, idle, irqload, power_cost, temp)
+);
+
+DEFINE_EVENT(sched_cpu_load, sched_cpu_load_cgroup,
+	TP_PROTO(struct rq *rq, int idle, u64 irqload, unsigned int power_cost, int temp),
+	TP_ARGS(rq, idle, irqload, power_cost, temp)
 );
 
 TRACE_EVENT(sched_set_boost,
