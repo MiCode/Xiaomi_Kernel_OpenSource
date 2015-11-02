@@ -1987,4 +1987,5 @@ void ipa_update_repl_threshold(enum ipa_client_type ipa_client);
 void ipa_flow_control(enum ipa_client_type ipa_client, bool enable,
 			uint32_t qmap_id);
 int ipa2_restore_suspend_handler(void);
+void ipa_sps_irq_control_all(bool enable);
 #endif /* _IPA_I_H_ */
