@@ -2962,10 +2962,10 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 	for_each_cpu(i, &search_cpus) {
 		struct rq *rq = cpu_rq(i);
 
-		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i), sched_irqload(i),
-				    power_cost(i, task_load(p) +
-					       cpu_cravg_sync(i, sync)),
-				    cpu_temp(i));
+		trace_sched_cpu_load_wakeup(cpu_rq(i), idle_cpu(i),
+		 sched_irqload(i),
+		 power_cost(i, task_load(p) + cpu_cravg_sync(i, sync)),
+		 cpu_temp(i));
 
 		if (skip_freq_domain(trq, rq, reason)) {
 			cpumask_andnot(&search_cpus, &search_cpus,
@@ -5065,7 +5065,7 @@ static void throttle_cfs_rq(struct cfs_rq *cfs_rq)
 	raw_spin_unlock(&cfs_b->lock);
 
 	/* Log effect on hmp stats after throttling */
-	trace_sched_cpu_load(rq, idle_cpu(cpu_of(rq)),
+	trace_sched_cpu_load_cgroup(rq, idle_cpu(cpu_of(rq)),
 			     sched_irqload(cpu_of(rq)),
 			     power_cost(cpu_of(rq), 0),
 			     cpu_temp(cpu_of(rq)));
@@ -5122,7 +5122,7 @@ void unthrottle_cfs_rq(struct cfs_rq *cfs_rq)
 		resched_curr(rq);
 
 	/* Log effect on hmp stats after un-throttling */
-	trace_sched_cpu_load(rq, idle_cpu(cpu_of(rq)),
+	trace_sched_cpu_load_cgroup(rq, idle_cpu(cpu_of(rq)),
 			     sched_irqload(cpu_of(rq)),
 			     power_cost(cpu_of(rq), 0),
 			     cpu_temp(cpu_of(rq)));
@@ -7784,7 +7784,7 @@ static inline void update_sg_lb_stats(struct lb_env *env,
 	for_each_cpu_and(i, sched_group_cpus(group), env->cpus) {
 		struct rq *rq = cpu_rq(i);
 
-		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i),
+		trace_sched_cpu_load_lb(cpu_rq(i), idle_cpu(i),
 				     sched_irqload(i),
 				     power_cost(i, 0),
 				     cpu_temp(i));
