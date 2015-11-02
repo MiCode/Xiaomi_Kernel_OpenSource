@@ -100,7 +100,10 @@ dtb-$(CONFIG_ARCH_MSM8937) += msm8937-rumi.dtb \
 	apq8037-pmi8937-mtp.dtb
 
 dtb-$(CONFIG_ARCH_MSMTITANIUM) += msmtitanium-sim.dtb \
-	msmtitanium-rumi.dtb
+	msmtitanium-rumi.dtb \
+	msmtitanium-cdp.dtb \
+	msmtitanium-mtp.dtb \
+	msmtitanium-rcm.dtb
 
 dtb-$(CONFIG_ARCH_MDMFERMIUM) += mdmfermium-rumi.dtb \
 	mdmfermium-cdp.dtb \
