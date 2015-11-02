@@ -39,6 +39,12 @@
 			reg = <0x88000000 0x6E00000>;
 			label = "mss_mem";
 		};
+
+		audio_mem: audio_region@0 {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x400000>;
+		 };
 	};
 
 	aliases {
@@ -69,6 +75,8 @@
 #include "msm-gdsc.dtsi"
 #include "mdmcalifornium-blsp.dtsi"
 #include "mdmcalifornium-bus.dtsi"
+#include "mdmcalifornium-coresight.dtsi"
+#include "mdmcalifornium-ion.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -368,6 +376,25 @@
 		interrupts = <1 3 0>, <1 2 0>;
 		qcom,bark-time = <11000>;
 		qcom,pet-time = <10000>;
+	};
+
+	jtag_fuse: jtagfuse@5e01c {
+		compatible = "qcom,jtag-fuse-v2";
+		reg = <0xa601c 0x8>;
+		reg-names = "fuse-base";
+	};
+
+	jtag_mm0: jtagmm@842000 {
+		compatible = "qcom,jtag-mm";
+		reg = <0x842000 0x1000>,
+		      <0x840000 0x1000>;
+		reg-names = "etm-base","debug-base";
+
+		qcom,coresight-jtagmm-cpu = <&CPU0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
 	};
 
 	qcom,ipc-spinlock@1905000 {
