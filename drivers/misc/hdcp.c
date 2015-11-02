@@ -332,6 +332,7 @@ struct hdcp_lib_handle {
 	uint32_t msglen;
 	uint32_t tz_ctxhandle;
 	uint32_t hdcp_timeout;
+	uint32_t timeout_left;
 	bool no_stored_km_flag;
 	bool feature_supported;
 	void *client_ctx;
@@ -842,7 +843,11 @@ static int hdcp_lib_wakeup(struct hdcp_lib_wakeup_data *data)
 	mutex_lock(&handle->wakeup_mutex);
 
 	handle->wakeup_cmd = data->cmd;
-	pr_debug("%s\n", hdcp_lib_cmd_to_str(handle->wakeup_cmd));
+	handle->timeout_left = data->timeout;
+
+	pr_debug("%s, timeout left: %dms\n",
+		hdcp_lib_cmd_to_str(handle->wakeup_cmd),
+		handle->timeout_left);
 
 	rc = hdcp_lib_check_valid_state(handle);
 	if (rc)
@@ -874,6 +879,8 @@ static int hdcp_lib_wakeup(struct hdcp_lib_wakeup_data *data)
 		handle->no_stored_km_flag = 0;
 		handle->repeater_flag = 0;
 		handle->last_msg_sent = 0;
+		handle->hdcp_timeout = 0;
+		handle->timeout_left = 0;
 		atomic_set(&handle->hdcp_off, 0);
 		handle->hdcp_state = HDCP_STATE_INIT;
 
@@ -949,7 +956,7 @@ static void hdcp_lib_msg_sent_work(struct kthread_work *work)
 		break;
 	default:
 		cdata.cmd = HDMI_HDCP_WKUP_CMD_RECV_MESSAGE;
-		cdata.timeout = handle->hdcp_timeout;
+		cdata.timeout = handle->timeout_left;
 	}
 
 	mutex_unlock(&handle->hdcp_lock);
