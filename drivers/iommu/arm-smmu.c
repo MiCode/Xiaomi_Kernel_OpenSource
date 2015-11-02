@@ -1258,7 +1258,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 				"soft iova-to-phys=%pa\n", &phys_soft);
 			dev_err(smmu->dev,
 				"hard iova-to-phys (ATOS)=%pa\n", &phys_atos);
-			dev_err(smmu->dev, "SID=0x%x\n", frsynra & 0x1FF);
+			dev_err(smmu->dev, "SID=0x%x\n", frsynra & 0xffff);
 		}
 		ret = IRQ_NONE;
 		resume = RESUME_TERMINATE;
