@@ -210,6 +210,35 @@ static inline bool ufs_qcom_is_data_cmd(char cmd_op, bool is_write)
 	return false;
 }
 
+int ufs_qcom_ice_req_setup(struct ufs_qcom_host *qcom_host,
+		struct scsi_cmnd *cmd, u8 *cc_index, bool *enable)
+{
+	struct ice_data_setting ice_set;
+	char cmd_op = cmd->cmnd[0];
+	int err;
+
+	if (qcom_host->ice.vops->config) {
+		memset(&ice_set, 0, sizeof(ice_set));
+		err = qcom_host->ice.vops->config(qcom_host->ice.pdev,
+			cmd->request, &ice_set);
+		if (err) {
+			dev_err(qcom_host->hba->dev,
+				"%s: error in ice_vops->config %d\n",
+				__func__, err);
+			return err;
+		}
+
+		if (ufs_qcom_is_data_cmd(cmd_op, true))
+			*enable = !ice_set.encr_bypass;
+		else if (ufs_qcom_is_data_cmd(cmd_op, false))
+			*enable = !ice_set.decr_bypass;
+
+		if (ice_set.crypto_data.key_index >= 0)
+			*cc_index = (u8)ice_set.crypto_data.key_index;
+	}
+	return 0;
+}
+
 /**
  * ufs_qcom_ice_cfg() - configures UFS's ICE registers for an ICE transaction
  * @qcom_host:	Pointer to a UFS QCom internal host structure.
