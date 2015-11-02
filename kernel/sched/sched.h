@@ -1203,6 +1203,9 @@ static inline void clear_reserved(int cpu) { }
 #define power_cost(...) 0
 
 #define trace_sched_cpu_load(...)
+#define trace_sched_cpu_load_lb(...)
+#define trace_sched_cpu_load_cgroup(...)
+#define trace_sched_cpu_load_wakeup(...)
 
 #endif /* CONFIG_SCHED_HMP */
 

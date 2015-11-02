@@ -1688,8 +1688,8 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 			continue;
 #else
 		cpu_cost = power_cost(i, cpu_cravg_sync(i, 0));
-		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i), sched_irqload(i),
-						cpu_cost, cpu_temp(i));
+		trace_sched_cpu_load_wakeup(cpu_rq(i), idle_cpu(i),
+			sched_irqload(i), cpu_cost, cpu_temp(i));
 #endif
 
 		if (power_delta_exceeded(cpu_cost, min_cost)) {
