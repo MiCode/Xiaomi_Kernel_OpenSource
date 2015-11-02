@@ -666,6 +666,7 @@ config ARCH_MSM
 	select MULTI_IRQ_HANDLER
 	select SPARSE_IRQ
 	select USE_OF
+	select THERMAL_WRITABLE_TRIPS
 
 	help
 	  Support for Qualcomm MSM/QSD based systems.  This runs on the
