@@ -859,6 +859,8 @@
 	/* Updated chip ID */
 	qcom,chipid = <0x05030004>;
 
+	/delete-property/ qcom,gpu-quirk-critical-packets;
+
 	qcom,gpu-speed-bin = <0x413c 0x30000000 28>;
 
 	qcom,gpu-pwrlevel-bins {
