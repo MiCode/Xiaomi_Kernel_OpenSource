@@ -2400,6 +2400,15 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 	if (!mdp5_data || !mdp5_data->ctl)
 		return;
 
+	/*
+	 * Ignore writeback updates through pan_display as output
+	 * buffer is not available.
+	 */
+	if (mfd->panel_info->type == WRITEBACK_PANEL) {
+		pr_err_once("writeback update not supported through pan display\n");
+		return;
+	}
+
 	if (IS_ERR_OR_NULL(mfd->fbmem_buf) || fbi->fix.smem_len == 0 ||
 		mdp5_data->borderfill_enable) {
 		mfd->mdp.kickoff_fnc(mfd, NULL);
