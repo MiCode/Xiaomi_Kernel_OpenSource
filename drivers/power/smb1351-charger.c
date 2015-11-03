@@ -26,6 +26,7 @@
 #include <linux/mutex.h>
 #include <linux/delay.h>
 #include <linux/qpnp/qpnp-adc.h>
+#include <linux/pinctrl/consumer.h>
 
 /* Mask/Bit helpers */
 #define _SMB1351_MASK(BITS, POS) \
@@ -479,6 +480,10 @@ struct smb1351_charger {
 	unsigned int		batt_warm_mv;
 	unsigned int		batt_cool_ma;
 	unsigned int		batt_cool_mv;
+
+	/* pinctrl parameters */
+	const char		*pinctrl_state_name;
+	struct pinctrl		*smb_pinctrl;
 };
 
 struct smb_irq_info {
@@ -819,6 +824,18 @@ static int smb1351_hw_init(struct smb1351_charger *chip)
 {
 	int rc;
 	u8 reg = 0, mask = 0;
+
+	/* configure smb_pinctrl to enable irqs */
+	if (chip->pinctrl_state_name) {
+		chip->smb_pinctrl = pinctrl_get_select(chip->dev,
+						chip->pinctrl_state_name);
+		if (IS_ERR(chip->smb_pinctrl)) {
+			pr_err("Could not get/set %s pinctrl state rc = %ld\n",
+						chip->pinctrl_state_name,
+						PTR_ERR(chip->smb_pinctrl));
+			return PTR_ERR(chip->smb_pinctrl);
+		}
+	}
 
 	/*
 	 * If the charger is pre-configured for autonomous operation,
@@ -2659,6 +2676,9 @@ static int smb1351_parse_dt(struct smb1351_charger *chip)
 
 	rc = of_property_read_u32(node, "qcom,batt-missing-decidegc",
 						&chip->batt_missing_decidegc);
+
+	chip->pinctrl_state_name = of_get_property(node, "pinctrl-names", NULL);
+
 	return 0;
 }
 
@@ -2902,7 +2922,7 @@ static int smb1351_main_charger_probe(struct i2c_client *client,
 	if (client->irq) {
 		rc = devm_request_threaded_irq(&client->dev, client->irq, NULL,
 				smb1351_chg_stat_handler,
-				IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+				IRQF_TRIGGER_LOW | IRQF_ONESHOT,
 				"smb1351_chg_stat_irq", chip);
 		if (rc) {
 			pr_err("Failed STAT irq=%d request rc = %d\n",
