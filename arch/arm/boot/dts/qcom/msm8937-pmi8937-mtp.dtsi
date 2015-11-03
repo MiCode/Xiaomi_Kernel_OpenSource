@@ -13,3 +13,18 @@
 
 #include "msm-pmi8937.dtsi"
 #include "msm8937-mtp.dtsi"
+
+/{
+	mtp_batterydata: qcom,battery-data {
+		qcom,batt-id-range-pct = <15>;
+		#include "batterydata-itech-3000mah.dtsi"
+	};
+};
+
+&pmi8937_fg {
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
+&pmi8937_charger {
+	qcom,battery-data = <&mtp_batterydata>;
+};
