@@ -23,6 +23,7 @@ Required properties:
 			"qcom,gcc-8996-v2"
 			"qcom,gcc-8996-v3"
 			"qcom,gcc-8937"
+			"qcom,gcc-spm-8937"
 			"qcom,gcc-titanium"
 			"qcom,rpmcc-8994"
 			"qcom,rpmcc-8992"
