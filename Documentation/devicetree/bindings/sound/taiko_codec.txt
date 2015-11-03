@@ -472,3 +472,138 @@ msm8x16_wcd_codec@f000{
 	qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias";
 	qcom,dig-cdc-base-addr = <0xc0f0000>;
 };
+
+Tasha audio CODEC in I2C mode
+
+ - compatible = "qcom,tasha-i2c-pgd";
+ - reg: represents the slave address provided to the I2C driver.
+ - qcom,cdc-reset-gpio: gpio used for codec SOC reset.
+
+ - cdc-vdd-buck-supply: phandle of buck supply's regulator device tree node.
+ - qcom,cdc-vdd-buck-voltage: buck supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-buck-current: buck supply's max current in mA.
+
+ - cdc-buck-sido-supply: phandle of sido supply's regulator device tree node.
+ - qcom,cdc-buck-sido-voltage = sido supply's voltage level min and max in mV.
+ - qcom,cdc-buck-sido-current = sido supply's max current in mA.
+
+ - cdc-vdd-tx-h-supply: phandle of tx-h supply's regulator device tree node.
+ - qcom,cdc-vdd-tx-h-voltage: tx-h supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-tx-h-current: tx-h supply's max current in mA.
+
+ - cdc-vdd-rx-h-supply: phandle of rx-h supply's regulator device tree node.
+ - qcom,cdc-vdd-rx-h-voltage: rx-h supply's voltage level min and max in mV.
+ - qcom,cdc-vdd-rx-h-current: rx-h supply's max current in mA.
+
+ - cdc-vddpx-1-supply: phandle of px-1 supply's regulator device tree node.
+ - qcom,cdc-vddpx-1-voltage: px-1 supply's voltage level min and max in mV.
+ - qcom,cdc-vddpx-1-current: px-1 supply's max current in mA.
+
+ - qcom,cdc-static-supplies: List of supplies to be enabled prior to codec
+			     hardware probe.  Supplies in this list will be
+			     stay enabled.
+
+ - qcom,cdc-micbias1-mv - micbias1 output voltage in milli volts.
+ - qcom,cdc-micbias2-mv - micbias2 output voltage in milli volts.
+ - qcom,cdc-micbias3-mv - micbias3 output voltage in milli volts.
+ - qcom,cdc-micbias4-mv - micbias4 output voltage in milli volts.
+
+ - qcom,cdc-mclk-clk-rate - Specifies the master clock rate in Hz required for
+			    codec.
+
+ - qcom,cdc-dmic-sample-rate - Specifies dmic sample rate.
+ - qcom,cdc-variant - Specifies codec variant.
+
+Example:
+i2c_3: i2c@78B7000 { /* BLSP1 QUP3 */
+	compatible = "qcom,i2c-msm-v2";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	reg-names = "qup_phys_addr";
+	reg = <0x78B7000 0x600>;
+	interrupt-names = "qup_irq";
+	interrupts = <0 97 0>;
+	dmas = <&dma_blsp1 12 64 0x20000020 0x20>,
+		<&dma_blsp1 13 32 0x20000020 0x20>;
+	dma-names = "tx", "rx";
+	qcom,master-id = <86>;
+	qcom,clk-freq-out = <400000>;
+	qcom,clk-freq-in  = <19200000>;
+	clock-names = "iface_clk", "core_clk";
+	clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+		 <&clock_gcc clk_gcc_blsp1_qup3_i2c_apps_clk>;
+	pinctrl-names = "i2c_active", "i2c_sleep";
+	pinctrl-0 = <&i2c_3_active>;
+	pinctrl-1 = <&i2c_3_sleep>;
+	status = "disabled";
+
+	wcd9xxx_codec@d{
+		compatible = "qcom,tasha-i2c-pgd";
+		reg = <0x0d>;
+
+		interrupt-parent = <&wcd9xxx_intc>;
+		interrupts = <0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
+				  17 18 19 20 21 22 23 24 25 26 27 28 29
+				  30>;
+
+		qcom,cdc-reset-gpio = <&tlmm_pinmux 90 0>;
+
+		cdc-vdd-buck-supply = <&codec_buck_vreg>;
+		qcom,cdc-vdd-buck-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-buck-current = <650000>;
+
+		cdc-buck-sido-supply = <&codec_buck_vreg>;
+		qcom,cdc-buck-sido-voltage = <1800000 1800000>;
+		qcom,cdc-buck-sido-current = <200000>;
+
+		cdc-vdd-tx-h-supply = <&pmdcalifornium_l6>;
+		qcom,cdc-vdd-tx-h-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-tx-h-current = <25000>;
+
+		cdc-vdd-rx-h-supply = <&pmdcalifornium_l6>;
+		qcom,cdc-vdd-rx-h-voltage = <1800000 1800000>;
+		qcom,cdc-vdd-rx-h-current = <25000>;
+
+		cdc-vddpx-1-supply = <&pmdcalifornium_l6>;
+		qcom,cdc-vddpx-1-voltage = <1800000 1800000>;
+		qcom,cdc-vddpx-1-current = <10000>;
+
+		qcom,cdc-static-supplies = "cdc-vdd-buck",
+					   "cdc-buck-sido",
+					   "cdc-vdd-tx-h",
+					   "cdc-vdd-rx-h",
+					   "cdc-vddpx-1";
+
+		qcom,cdc-micbias1-mv = <1800>;
+		qcom,cdc-micbias2-mv = <1800>;
+		qcom,cdc-micbias3-mv = <1800>;
+		qcom,cdc-micbias4-mv = <1800>;
+		qcom,cdc-mclk-clk-rate = <12288000>;
+		qcom,cdc-dmic-sample-rate = <4800000>;
+
+		swr_master {
+			compatible = "qcom,swr-wcd";
+			#address-cells = <2>;
+			#size-cells = <0>;
+
+			wsa881x_1: wsa881x@20170212 {
+				compatible = "qcom,wsa881x";
+				reg = <0x00 0x20170212>;
+				qcom,spkr-sd-n-gpio = <&tlmm_pinmux 80 0>;
+
+				cdc-vdd-d-supply = <&pmdcalifornium_l6>;
+				qcom,cdc-vdd-d-voltage = <1800000
+							  1800000>;
+				qcom,cdc-vdd-d-current = <2000>;
+
+				cdc-vdd-a-supply = <&pmdcalifornium_l6>;
+				qcom,cdc-vdd-a-voltage = <1800000
+							  1800000>;
+				qcom,cdc-vdd-a-current = <2000>;
+
+				qcom,cdc-static-supplies = "cdc-vdd-d",
+							   "cdc-vdd-a";
+			};
+		};
+	};
+};
