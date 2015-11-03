@@ -617,6 +617,10 @@ ehci_hub_status_data (struct usb_hcd *hcd, char *buf)
 	unsigned long	flags;
 	u32		ppcd = ~0;
 
+	/* hcd core tries to get status even during suspend, if so bail out. */
+	if (ehci->rh_state != EHCI_RH_RUNNING)
+		return 0;
+
 	/* init status to no-changes */
 	buf [0] = 0;
 	ports = HCS_N_PORTS (ehci->hcs_params);
