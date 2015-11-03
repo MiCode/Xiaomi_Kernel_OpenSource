@@ -23,6 +23,7 @@
 #include <linux/of.h>
 #include <linux/device.h>
 #include <linux/spinlock.h>
+#include <linux/platform_device.h>
 #include <linux/mutex.h>
 #include <linux/regulator/consumer.h>
 #include <linux/seq_file.h>
@@ -213,6 +214,9 @@ void __clk_post_reparent(struct clk *c, struct clk *old, unsigned long *flags);
 int msm_clock_register(struct clk_lookup *table, size_t size);
 int of_msm_clock_register(struct device_node *np, struct clk_lookup *table,
 				size_t size);
+
+int clock_rcgwr_init(struct platform_device *pdev);
+int clock_rcgwr_disable(struct platform_device *pdev);
 
 extern struct clk dummy_clk;
 extern struct clk_ops clk_ops_dummy;

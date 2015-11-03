@@ -1,0 +1,42 @@
+Qualcomm CPU clock Ramp Controller
+
+The root clock generator could have the ramp controller in built.
+Ramp control will allow programming the sequence ID for pulse swallowing,
+enable sequence and for linking sequence IDs.
+
+This will use the cpu clock device node.
+
+Required properties:
+- reg:			Pairs of physical base addresses and region sizes of
+			memory mapped registers.
+- reg-names:		Names of the bases for the above registers. Expected
+			bases are:
+			"rcgwr-cX-base" (X: 0 or 1 based on the number of
+			clusters)
+- qcom,num-clusters:	Number of clusters which support RCGwR.
+
+Optional Properties:
+- qcom,lmh-sid-cX:	List of LMH SID offset and value to be programmed for
+			each cluster (X: 0 or 1)
+- qcom,link-sid-cX:	List of Link SID offset and value to be programmed for
+			each cluster (X: 0 or 1)
+- qcom,dfs-sid-cX:	List of DFS SID offset and value to be programmed for
+			each cluster (X: 0 or 1)
+- qcom,ramp-dis-cX:	Boolean property to disable ramp down for each cluster
+			(X: 0 or 1)
+
+Example:
+        clock_cpu: qcom,cpu-clock@b016000 {
+                compatible = "qcom,cpu-clock";
+		qcom,num-clusters = <2>;
+		qcom,lmh-sid-c0  = < 0x30 0x077706db>,
+				   < 0x34 0x05550249>,
+				   < 0x38 0x00000111>;
+		qcom,lmh-sid-c1  = < 0x30 0x077706db>,
+				   < 0x34 0x05550249>,
+				   < 0x38 0x00000111>;
+                reg = <0xb114000 0x68>,
+		      <0xb014000 0x68>;
+                reg-names = "rcgwr-c0-base", "rcgwr-c1-base";
+                #clock-cells = <1>;
+};
