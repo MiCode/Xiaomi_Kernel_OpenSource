@@ -1084,6 +1084,14 @@
 		status = "okay";
 	};
 
+	qcom,chd {
+		compatible = "qcom,core-hang-detect";
+		qcom,threshold-arr = <0xb088094 0xb098094 0xb0a8094
+			0xb0b8094 0xb188094 0xb198094 0xb1a8094 0xb1a8094>;
+		qcom,config-arr = <0xb08809c 0xb09809c 0xb0a809c
+			0xb0b809c 0xb18809c 0xb19809c 0xb1a809c 0xb1b809c>;
+	};
+
 	qcom,msm-rtb {
 		compatible = "qcom,msm-rtb";
 		qcom,rtb-size = <0x100000>; /* 1M EBI1 buffer */
