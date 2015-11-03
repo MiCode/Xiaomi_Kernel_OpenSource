@@ -1,3 +1,5 @@
+source "drivers/video/msm/msm_dba/Kconfig"
+
 if FB_MSM
 config FB_MSM_MDSS_COMMON
 	bool

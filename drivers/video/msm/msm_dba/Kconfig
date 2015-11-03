@@ -1,0 +1,24 @@
+#
+# MSM DBA
+#
+
+config MSM_DBA
+	bool "MSM Display Bridge Abstraction support"
+	depends on ARM || ARM64
+	---help---
+	  Support for MSM display bridge abstraction interface. MSM display
+	  drivers can use the same interface to interact with different third
+	  party bridge chips. Drivers implemented for third party bridge chips
+	  should support this interface to allow display driver to control the
+	  bridge chip. The MSM DBA driver maintains a list of devices supported
+	  on the platform and allow clients to register and access these
+	  devices.
+
+config MSM_DBA_ADV7533
+	bool "ADV7533 driver support through MSM DBA interface"
+	depends on MSM_DBA
+	default n
+	---help---
+	  Support for ADV7533 DSI to HDMI display bridge driver. The driver
+	  controls the ADV7533 HW through the I2C interface and configures
+	  the DSi input and HDMI output video format.
