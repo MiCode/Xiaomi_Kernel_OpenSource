@@ -787,11 +787,18 @@ static void bam2bam_data_disconnect_work(struct work_struct *w)
 	*/
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
-	bam_data_ipa_disconnect(d);
 	ret = usb_bam_disconnect_ipa(d->usb_bam_type, &d->ipa_params);
 	if (ret)
 		pr_err("usb_bam_disconnect_ipa failed: err:%d\n", ret);
 
+	/*
+	 * NOTE: it is required to disconnect USB and IPA BAM related pipes
+	 * before calling IPA tethered function related disconnect API. IPA
+	 * tethered function related disconnect API delete depedency graph
+	 * with IPA RM which would results into IPA not pulling data although
+	 * there is pending data on USB BAM producer pipe.
+	 */
+	bam_data_ipa_disconnect(d);
 	spin_lock_irqsave(&port->port_lock, flags);
 	port->is_ipa_connected = false;
 
