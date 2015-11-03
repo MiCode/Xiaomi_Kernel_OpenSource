@@ -13,6 +13,7 @@
 #ifndef __MSM_CLOCKS_8952_HWIO_H
 #define __MSM_CLOCKS_8952_HWIO_H
 
+#define GPLL0_MODE			0x21000
 #define GPLL0_STATUS			0x2101C
 #define GPLL6_STATUS			0x3701C
 #define GPLL3_MODE			0x22000

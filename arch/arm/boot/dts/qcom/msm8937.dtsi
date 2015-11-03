@@ -372,7 +372,7 @@
 		reg =   <0xb111050 0x8>,
 			<0xb011050 0x8>,
 			<0xb1d1050 0x8>,
-			<0x005c00c 0x8>;
+			<0x00a412c 0x8>;
 		reg-names = "apcs-c0-rcg-base", "apcs-c1-rcg-base",
 			    "apcs-cci-rcg-base", "efuse";
 		vdd-c0-supply = <&apc_vreg_corner>;
@@ -398,13 +398,14 @@
 			<  998400000 1>,
 			< 1094400000 2>,
 			< 1248000000 3>,
-			< 1401000000 4>;
+			< 1344000000 4>,
+			< 1401000000 5>;
 
 
 		qcom,speed0-bin-v0-cci =
 			<          0 0>,
 			<  400000000 1>,
-			<  533333333 2>;
+			<  533333333 3>;
 		#clock-cells = <1>;
 	};
 
