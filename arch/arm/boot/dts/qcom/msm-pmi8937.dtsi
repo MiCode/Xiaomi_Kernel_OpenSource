@@ -178,10 +178,6 @@
 			qcom,parallel-allowed-lowering-ma = <500>;
 			qcom,pmic-revid = <&pmi8937_revid>;
 
-			smbcharger_charger_otg: qcom,smbcharger-boost-otg {
-				regulator-name = "smbcharger_charger_otg";
-			};
-
 			qcom,chgr@1000 {
 				reg = <0x1000 0x100>;
 				interrupts =	<0x2 0x10 0x0>,
@@ -270,6 +266,10 @@
 							"flash-fail",
 							"otst2",
 							"otst3";
+			};
+
+			smbcharger_charger_otg: qcom,smbcharger-boost-otg {
+				regulator-name = "smbcharger_charger_otg";
 			};
 		};
 
