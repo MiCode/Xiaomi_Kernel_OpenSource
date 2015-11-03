@@ -82,12 +82,6 @@
 			};
 		};
 
-		qcom,leds@a300 {
-			compatible = "qcom,leds-qpnp";
-			reg = <0xa300 0x100>;
-			label = "mpp";
-		};
-
 		pm8937_mpps: mpps {
 			compatible = "qcom,qpnp-pin";
 			spmi-dev-container;
