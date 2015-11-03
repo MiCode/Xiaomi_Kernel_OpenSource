@@ -161,14 +161,21 @@ static void ipa_process_interrupts(bool isr_context)
 	en = ipa_read_reg(ipa_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee));
 	reg = ipa_read_reg(ipa_ctx->mmio, IPA_IRQ_STTS_EE_n_ADDR(ipa_ee));
 	while (en & reg) {
+		/* Clear interrupt before processing to avoid
+		   clearing unhandled interrupts */
+		ipa_write_reg(ipa_ctx->mmio,
+				IPA_IRQ_CLR_EE_n_ADDR(ipa_ee), reg);
+
+		/* Process the interrupts */
 		bmsk = 1;
 		for (i = 0; i < IPA_IRQ_NUM_MAX; i++) {
 			if (en & reg & bmsk)
 				handle_interrupt(i, isr_context);
 			bmsk = bmsk << 1;
 		}
-		ipa_write_reg(ipa_ctx->mmio,
-				IPA_IRQ_CLR_EE_n_ADDR(ipa_ee), reg);
+
+		/* Check pending interrupts that may have
+		   been raised since last read */
 		reg = ipa_read_reg(ipa_ctx->mmio,
 				IPA_IRQ_STTS_EE_n_ADDR(ipa_ee));
 	}
