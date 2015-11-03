@@ -88,6 +88,12 @@ enum {
 	FG_AGING			= BIT(7), /* Show FG aging algorithm */
 };
 
+/* PMIC REVISIONS */
+#define REVID_RESERVED			0
+#define REVID_VARIANT			1
+#define REVID_ANA_MAJOR			2
+#define REVID_DIG_MAJOR			3
+
 enum dig_major {
 	DIG_REV_1 = 0x1,
 	DIG_REV_2 = 0x2,
@@ -391,7 +397,7 @@ struct fg_chip {
 	struct device		*dev;
 	struct spmi_device	*spmi;
 	u8			pmic_subtype;
-	u8			pmic_revision;
+	u8			pmic_revision[4];
 	u8			revision[4];
 	u16			soc_base;
 	u16			batt_base;
@@ -5917,6 +5923,36 @@ static int fg_8994_hw_init(struct fg_chip *chip)
 	return 0;
 }
 
+#define FG_USBID_CONFIG_OFFSET		0x2
+#define DISABLE_USBID_DETECT_BIT	BIT(0)
+static int fg_8996_hw_init(struct fg_chip *chip)
+{
+	int rc;
+
+	rc = fg_mem_masked_write(chip, FG_ADC_CONFIG_REG,
+			BCL_FORCED_HPM_IN_CHARGE,
+			BCL_FORCED_HPM_IN_CHARGE,
+			FG_BCL_CONFIG_OFFSET);
+	if (rc) {
+		pr_err("failed to force hpm in charge rc=%d\n", rc);
+		return rc;
+	}
+
+	/* enable usbid conversions for PMi8996 V1.0 */
+	if (chip->pmic_revision[REVID_DIG_MAJOR] == 1
+			&& chip->pmic_revision[REVID_ANA_MAJOR] == 0) {
+		rc = fg_mem_masked_write(chip, FG_ADC_CONFIG_REG,
+				DISABLE_USBID_DETECT_BIT,
+				0, FG_USBID_CONFIG_OFFSET);
+		if (rc) {
+			pr_err("failed to enable usbid conversions: %d\n", rc);
+			return rc;
+		}
+	}
+
+	return rc;
+}
+
 static int fg_8950_hw_init(struct fg_chip *chip)
 {
 	int rc;
@@ -5948,12 +5984,20 @@ static int fg_hw_init(struct fg_chip *chip)
 		chip->wa_flag |= PULSE_REQUEST_WA;
 		break;
 	case PMI8996:
+		rc = fg_8996_hw_init(chip);
+		/* Setup workaround flag based on PMIC type */
+		if (fg_sense_type == INTERNAL_CURRENT_SENSE)
+			chip->wa_flag |= IADC_GAIN_COMP_WA;
+		if (chip->pmic_revision[REVID_DIG_MAJOR] > 1)
+			chip->wa_flag |= USE_CC_SOC_REG;
+
+		break;
 	case PMI8950:
 		rc = fg_8950_hw_init(chip);
 		/* Setup workaround flag based on PMIC type */
 		if (fg_sense_type == INTERNAL_CURRENT_SENSE)
 			chip->wa_flag |= IADC_GAIN_COMP_WA;
-		if (chip->pmic_revision > 1)
+		if (chip->pmic_revision[REVID_DIG_MAJOR] > 1)
 			chip->wa_flag |= USE_CC_SOC_REG;
 
 		break;
@@ -6043,7 +6087,10 @@ static int fg_detect_pmic_type(struct fg_chip *chip)
 	case PMI8950:
 	case PMI8996:
 		chip->pmic_subtype = pmic_rev_id->pmic_subtype;
-		chip->pmic_revision = pmic_rev_id->rev4;
+		chip->pmic_revision[REVID_RESERVED]	= pmic_rev_id->rev1;
+		chip->pmic_revision[REVID_VARIANT]	= pmic_rev_id->rev2;
+		chip->pmic_revision[REVID_ANA_MAJOR]	= pmic_rev_id->rev3;
+		chip->pmic_revision[REVID_DIG_MAJOR]	= pmic_rev_id->rev4;
 		break;
 	default:
 		pr_err("PMIC subtype %d not supported\n",
