@@ -738,77 +738,6 @@ done:
 }
 
 /**
- * cpr3_hmss_adjust_voltages_for_apm() - adjust per-corner floor and ceiling
- *		voltages so that they do not overlap the APM threshold voltage
- * @vreg:		Pointer to the CPR3 regulator
- *
- * The HMSS memory array power mux (APM) must be configured for a specific
- * supply based upon where the VDD voltage lies with respect to the APM
- * threshold voltage.  When using CPR hardware closed-loop, the voltage may vary
- * anywhere between the floor and ceiling voltage without software notification.
- * Therefore, it is required that the floor to ceiling range for every corner
- * not intersect the APM threshold voltage.  This function adjusts the floor to
- * ceiling range for each corner which violates this requirement.
- *
- * The following algorithm is applied in the case that
- * floor < threshold < ceiling:
- *	if open_loop >= threshold - adj, then floor = threshold
- *	else ceiling = threshold - step
- * where adj = an adjustment factor to ensure sufficient voltage margin and
- * step = VDD output step size
- *
- * The open-loop voltage is also bounded by the new floor or ceiling value as
- * needed.
- *
- * Return: 0 on success, errno on failure
- */
-static int cpr3_hmss_adjust_voltages_for_apm(struct cpr3_regulator *vreg)
-{
-	struct cpr3_controller *ctrl = vreg->thread->ctrl;
-	struct cpr3_corner *corner;
-	int i, adj, threshold, prev_ceiling, prev_floor, prev_open_loop;
-
-	if (!ctrl->apm || !ctrl->apm_threshold_volt) {
-		/* APM not being used. */
-		return 0;
-	}
-
-	ctrl->apm_threshold_volt = CPR3_ROUND(ctrl->apm_threshold_volt,
-						ctrl->step_volt);
-	ctrl->apm_adj_volt = CPR3_ROUND(ctrl->apm_adj_volt, ctrl->step_volt);
-
-	threshold = ctrl->apm_threshold_volt;
-	adj = ctrl->apm_adj_volt;
-
-	for (i = 0; i < vreg->corner_count; i++) {
-		corner = &vreg->corner[i];
-
-		if (threshold <= corner->floor_volt
-		    || threshold > corner->ceiling_volt)
-			continue;
-
-		prev_floor = corner->floor_volt;
-		prev_ceiling = corner->ceiling_volt;
-		prev_open_loop = corner->open_loop_volt;
-
-		if (corner->open_loop_volt >= threshold - adj) {
-			corner->floor_volt = threshold;
-			if (corner->open_loop_volt < corner->floor_volt)
-				corner->open_loop_volt = corner->floor_volt;
-		} else {
-			corner->ceiling_volt = threshold - ctrl->step_volt;
-		}
-
-		cpr3_debug(vreg, "APM threshold=%d, APM adj=%d changed corner %d voltages; prev: floor=%d, ceiling=%d, open-loop=%d; new: floor=%d, ceiling=%d, open-loop=%d\n",
-			threshold, adj, i, prev_floor, prev_ceiling,
-			prev_open_loop, corner->floor_volt,
-			corner->ceiling_volt, corner->open_loop_volt);
-	}
-
-	return 0;
-}
-
-/**
  * cpr3_hmss_parse_closed_loop_voltage_adjustments() - load per-fuse-corner and
  *		per-corner closed-loop adjustment values from device tree
  * @vreg:		Pointer to the CPR3 regulator
@@ -1483,13 +1412,6 @@ static int cpr3_hmss_init_regulator(struct cpr3_regulator *vreg)
 		return rc;
 	}
 
-	rc = cpr3_hmss_adjust_voltages_for_apm(vreg);
-	if (rc) {
-		cpr3_err(vreg, "unable to adjust voltages for APM\n, rc=%d\n",
-			rc);
-		return rc;
-	}
-
 	cpr3_open_loop_voltage_as_ceiling(vreg);
 
 	rc = cpr3_limit_floor_voltages(vreg);
@@ -1552,10 +1474,13 @@ static int cpr3_hmss_apm_init(struct cpr3_controller *ctrl)
 			rc);
 		return rc;
 	}
+	ctrl->apm_threshold_volt
+		= CPR3_ROUND(ctrl->apm_threshold_volt, ctrl->step_volt);
 
 	/* No error check since this is an optional property. */
 	of_property_read_u32(node, "qcom,apm-hysteresis-voltage",
 				&ctrl->apm_adj_volt);
+	ctrl->apm_adj_volt = CPR3_ROUND(ctrl->apm_adj_volt, ctrl->step_volt);
 
 	ctrl->apm_high_supply = MSM_APM_SUPPLY_APCC;
 	ctrl->apm_low_supply = MSM_APM_SUPPLY_MX;

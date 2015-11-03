@@ -1753,6 +1753,44 @@ static int _cpr3_regulator_update_ctrl_state(struct cpr3_controller *ctrl)
 	if (!valid)
 		return 0;
 
+	/*
+	 * When using CPR hardware closed-loop, the voltage may vary anywhere
+	 * between the floor and ceiling voltage without software notification.
+	 * Therefore, it is required that the floor to ceiling range for the
+	 * aggregated corner not intersect the APM threshold voltage.  Adjust
+	 * the floor to ceiling range if this requirement is violated.
+	 *
+	 * The following algorithm is applied in the case that
+	 * floor < threshold <= ceiling:
+	 *	if open_loop >= threshold - adj, then floor = threshold
+	 *	else ceiling = threshold - step
+	 * where adj = an adjustment factor to ensure sufficient voltage margin
+	 * and step = VDD output step size
+	 *
+	 * The open-loop and last known voltages are also bounded by the new
+	 * floor or ceiling value as needed.
+	 */
+	if (ctrl->use_hw_closed_loop
+	    && aggr_corner.ceiling_volt >= ctrl->apm_threshold_volt
+	    && aggr_corner.floor_volt < ctrl->apm_threshold_volt) {
+
+		if (aggr_corner.open_loop_volt
+		    >= ctrl->apm_threshold_volt - ctrl->apm_adj_volt)
+			aggr_corner.floor_volt = ctrl->apm_threshold_volt;
+		else
+			aggr_corner.ceiling_volt
+				= ctrl->apm_threshold_volt - ctrl->step_volt;
+
+		aggr_corner.last_volt
+		    = max(aggr_corner.last_volt, aggr_corner.floor_volt);
+		aggr_corner.last_volt
+		    = min(aggr_corner.last_volt, aggr_corner.ceiling_volt);
+		aggr_corner.open_loop_volt
+		    = max(aggr_corner.open_loop_volt, aggr_corner.floor_volt);
+		aggr_corner.open_loop_volt
+		    = min(aggr_corner.open_loop_volt, aggr_corner.ceiling_volt);
+	}
+
 	if (ctrl->use_hw_closed_loop
 	    && aggr_corner.ceiling_volt >= ctrl->mem_acc_threshold_volt
 	    && aggr_corner.floor_volt < ctrl->mem_acc_threshold_volt) {
@@ -1763,9 +1801,12 @@ static int _cpr3_regulator_update_ctrl_state(struct cpr3_controller *ctrl)
 						  aggr_corner.floor_volt);
 	}
 
-	new_volt = (ctrl->cpr_enabled && ctrl->last_corner_was_closed_loop)
-		? aggr_corner.last_volt
-		: aggr_corner.open_loop_volt;
+	if (ctrl->cpr_enabled && ctrl->last_corner_was_closed_loop) {
+		new_volt = aggr_corner.last_volt;
+	} else {
+		new_volt = aggr_corner.open_loop_volt;
+		aggr_corner.last_volt = aggr_corner.open_loop_volt;
+	}
 
 	cpr3_debug(ctrl, "setting new voltage=%d uV\n", new_volt);
 	rc = cpr3_regulator_scale_vdd_voltage(ctrl, new_volt,
@@ -3731,8 +3772,9 @@ static int cpr3_debug_hw_closed_loop_enable_set(void *data, u64 val)
 {
 	struct cpr3_controller *ctrl = data;
 	bool use_hw_closed_loop = !!val;
+	struct cpr3_regulator *vreg;
 	bool cpr_enabled;
-	int rc;
+	int i, j, k, rc;
 
 	mutex_lock(&ctrl->lock);
 
@@ -3795,6 +3837,22 @@ static int cpr3_debug_hw_closed_loop_enable_set(void *data, u64 val)
 			cpr3_err(ctrl, "could not disable max IRQ, rc=%d\n",
 				rc);
 			goto done;
+		}
+	}
+
+	/*
+	 * Due to APM and mem-acc floor restriction constraints, the closed-loop
+	 * voltage may be different when using software closed-loop vs hardware
+	 * closed-loop.  Therefore, reset the cached closed-loop voltage for all
+	 * corners to the corresponding open-loop voltage when switching between
+	 * SW and HW closed-loop mode.
+	 */
+	for (i = 0; i < ctrl->thread_count; i++) {
+		for (j = 0; j < ctrl->thread[i].vreg_count; j++) {
+			vreg = &ctrl->thread[i].vreg[j];
+			for (k = 0; k < vreg->corner_count; k++)
+				vreg->corner[k].last_volt
+					= vreg->corner[k].open_loop_volt;
 		}
 	}
 
