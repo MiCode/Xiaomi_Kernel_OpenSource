@@ -170,7 +170,7 @@ static inline struct dma_buf_attachment *mdss_smmu_dma_buf_attach(
 		struct dma_buf *dma_buf, struct device *dev, int domain)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	if (!mdata->smmu_ops.smmu_dma_buf_attach)
+	if (!mdata || !mdata->smmu_ops.smmu_dma_buf_attach)
 		return NULL;
 
 	return mdata->smmu_ops.smmu_dma_buf_attach(dma_buf, dev, domain);
@@ -203,7 +203,7 @@ static inline int mdss_smmu_dma_alloc_coherent(struct device *dev, size_t size,
 		gfp_t gfp, int domain)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	if (!mdata->smmu_ops.smmu_dma_alloc_coherent)
+	if (!mdata || !mdata->smmu_ops.smmu_dma_alloc_coherent)
 		return -ENOSYS;
 
 	return mdata->smmu_ops.smmu_dma_alloc_coherent(dev, size,
