@@ -256,4 +256,7 @@ void venus_hfi_delete_device(void *device);
 int venus_hfi_initialize(struct hfi_device *hdev, u32 device_id,
 		struct msm_vidc_platform_resources *res,
 		hfi_cmd_response_callback callback);
+bool venus_hfi_is_session_supported(unsigned long sessions_supported,
+		enum vidc_vote_data_session session_type);
+
 #endif

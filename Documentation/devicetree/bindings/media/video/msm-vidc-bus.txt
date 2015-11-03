@@ -1,0 +1,25 @@
+* Qualcomm Technologies Inc MSM VIDC BUS
+
+Required properties:
+- compatible : "qcom,msm-vidc,governor,table"
+- name : name of the governor.
+- qcom,bus-table : the table comprised of load (macro blocks per second),
+  frequency (KBps) and codec type (u32) to select appropriate bus frequency
+  for a given load and codec type.
+
+Example:
+
+venus-ddr-gov {
+	compatible = "qcom,msm-vidc,governor,table";
+	name = "qcom,venus-gov";
+	qcom,bus-table =
+		/* Encoders */
+		<244800 787456 0x55555555>,   /* 1080p30E   */
+		<108000 350208 0x55555555>,   /* 720p30E    */
+		<0 0 0x55555555>,
+		/* Decoders */
+		<244800 618496 0xffffffff>,   /* 1080p30D   */
+		<108000 314368 0xffffffff>,   /* 720p30D    */
+		<0 0 0xffffffff>;
+};
+

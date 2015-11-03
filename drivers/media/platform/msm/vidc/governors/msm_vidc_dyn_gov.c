@@ -860,6 +860,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 		vmem.dpb_read = temp;
 	} else if (scenario != SCENARIO_AVERAGE) {
 		fp_t temp = fp_mult(one_frame_bw_dpb, FP_INT(2));
+
 		temp = fp_mult(temp, FP_INT(search_window_factor_bw_b *
 					available_vmem_b));
 		temp = fp_div(temp, FP_INT(6));

@@ -733,6 +733,12 @@ static bool __is_session_supported(unsigned long sessions_supported,
 	return same_codec && same_session_type;
 }
 
+bool venus_hfi_is_session_supported(unsigned long sessions_supported,
+		enum vidc_vote_data_session session_type)
+{
+	return __is_session_supported(sessions_supported, session_type);
+}
+
 static int __devfreq_target(struct device *devfreq_dev,
 		unsigned long *freq, u32 flags)
 {
