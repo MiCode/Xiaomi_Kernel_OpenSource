@@ -665,6 +665,7 @@ config ARCH_MSM
 	select ARCH_HAS_OPP
 	select SOC_BUS
 	select MULTI_IRQ_HANDLER
+	select PM_OPP
 	select SPARSE_IRQ
 	select USE_OF
 	select THERMAL_WRITABLE_TRIPS
