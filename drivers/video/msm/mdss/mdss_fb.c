@@ -1027,6 +1027,11 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	if (!pdata)
 		return -EPROBE_DEFER;
 
+	if (!mdp_instance) {
+		pr_err("mdss mdp resource not initialized yet\n");
+		return -ENODEV;
+	}
+
 	/*
 	 * alloc framebuffer info + par data
 	 */
@@ -3279,8 +3284,10 @@ void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
 	var->right_margin = pinfo->lcdc.h_front_porch;
 	var->left_margin = pinfo->lcdc.h_back_porch;
 	var->hsync_len = pinfo->lcdc.h_pulse_width;
-	var->pixclock = KHZ2PICOS((unsigned long int)pinfo->clk_rate/1000);
 
+	if (pinfo->clk_rate)
+		var->pixclock = KHZ2PICOS((unsigned long int)
+			pinfo->clk_rate/1000);
 	if (pinfo->physical_width)
 		var->width = pinfo->physical_width;
 	if (pinfo->physical_height)

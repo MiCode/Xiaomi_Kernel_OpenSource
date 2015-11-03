@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -224,15 +224,18 @@ static int mdss_panel_parse_dt(struct platform_device *pdev,
 						__func__, __LINE__);
 		return -EINVAL;
 	}
-	panel_data->panel_info.xres = (!rc ? res[0] : 240);
-	panel_data->panel_info.yres = (!rc ? res[1] : 320);
+
+	pr_debug("panel res %d %d\n", res[0], res[1]);
+	panel_data->panel_info.xres = (!rc ? res[0] : 320);
+	panel_data->panel_info.yres = (!rc ? res[1] : 480);
 	rc = of_property_read_u32(np, "qcom,mdss-pan-bpp", &tmp);
 	if (rc) {
 		pr_err("%s:%d, panel bpp not specified\n",
 						__func__, __LINE__);
 		return -EINVAL;
 	}
-	panel_data->panel_info.bpp = (!rc ? tmp : 24);
+	pr_debug("panel bpp %d\n", tmp);
+	panel_data->panel_info.bpp = (!rc ? tmp : 18);
 	of_property_read_u32(np, "qcom,refresh_rate", &panel_refresh_rate);
 
 	panel_data->panel_info.type = EBI2_PANEL;
@@ -273,10 +276,6 @@ static int mdss_qpic_panel_probe(struct platform_device *pdev)
 		qpic_panel_off = ili9341_off;
 	}
 
-	if (qpic_panel_on == ili9341_on) {
-		vendor_pdata.panel_info.xres = 240;
-		vendor_pdata.panel_info.yres = 320;
-	}
 
 	rc = qpic_register_panel(&vendor_pdata);
 	if (rc)
