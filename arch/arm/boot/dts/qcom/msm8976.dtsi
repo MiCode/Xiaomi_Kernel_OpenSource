@@ -68,7 +68,7 @@
 		modem_mem: modem_region@0 {
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
-			linux,fixup-reserve-region;
+			linux,remove-completely;
 			reg = <0x0 0x86C00000 0x0 0x06A00000>;
 			label = "modem_mem";
 		};
