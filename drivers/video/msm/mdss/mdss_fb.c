@@ -110,8 +110,6 @@ static int mdss_fb_send_panel_event(struct msm_fb_data_type *mfd,
 					int event, void *arg);
 static void mdss_fb_set_mdp_sync_pt_threshold(struct msm_fb_data_type *mfd,
 		int type);
-static void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
-					struct fb_var_screeninfo *var);
 void mdss_fb_no_update_notify_timer_cb(unsigned long data)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)data;
@@ -3259,7 +3257,7 @@ static void mdss_fb_var_to_panelinfo(struct fb_var_screeninfo *var,
 		pinfo->clk_rate = PICOS2KHZ(var->pixclock) * 1000;
 }
 
-static void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
+void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
 						struct fb_var_screeninfo *var)
 {
 	var->xres = mdss_fb_get_panel_xres(pinfo);
@@ -3278,6 +3276,11 @@ static void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
 		var->width = pinfo->physical_width;
 	if (pinfo->physical_height)
 		var->height = pinfo->physical_height;
+
+	pr_debug("ScreenInfo: res=%dx%d [%d, %d] [%d, %d]\n",
+		var->xres, var->yres, var->left_margin,
+		var->right_margin, var->upper_margin,
+		var->lower_margin);
 }
 
 /**

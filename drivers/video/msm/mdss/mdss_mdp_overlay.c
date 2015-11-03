@@ -1991,8 +1991,24 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	ATRACE_BEGIN("display_wait4comp");
 	ret = mdss_mdp_display_wait4comp(mdp5_data->ctl);
 	ATRACE_END("display_wait4comp");
-	mutex_lock(&mdp5_data->ov_lock);
 
+	/*
+	 * Configure Timing Engine, if new fps was set.
+	 * We need to do this after the wait for vsync
+	 * to guarantee that mdp flush bit and dsi flush
+	 * bit are set within the same vsync period
+	 * regardless of  mdp revision.
+	 */
+	ATRACE_BEGIN("fps_update");
+	ret = mdss_mdp_ctl_update_fps(ctl);
+	ATRACE_END("fps_update");
+
+	if (IS_ERR_VALUE(ret)) {
+		pr_err("failed to update fps!\n");
+		goto commit_fail;
+	}
+
+	mutex_lock(&mdp5_data->ov_lock);
 	/*
 	 * If there is no secure display session and sd_enabled, disable the
 	 * secure display session
@@ -2650,6 +2666,91 @@ static ssize_t dynamic_fps_sysfs_rda_dfps(struct device *dev,
 	return ret;
 } /* dynamic_fps_sysfs_rda_dfps */
 
+static int calc_extra_blanking(struct mdss_panel_data *pdata, u32 new_fps)
+{
+	int add_porches, diff;
+
+	/* calculate extra: lines for vfp-method, pixels for hfp-method */
+	diff = pdata->panel_info.default_fps - new_fps;
+	add_porches = mult_frac(pdata->panel_info.saved_total,
+		diff, new_fps);
+
+	return add_porches;
+}
+
+static void cache_initial_timings(struct mdss_panel_data *pdata)
+{
+	if (!pdata->panel_info.default_fps) {
+
+		/*
+		 * This value will change dynamically once the
+		 * actual dfps update happen in hw.
+		 */
+		pdata->panel_info.current_fps =
+			mdss_panel_get_framerate(&pdata->panel_info);
+
+		/*
+		 * Keep the initial fps and porch values for this panel before
+		 * any dfps update happen, this is to prevent losing precision
+		 * in further calculations.
+		 */
+		pdata->panel_info.default_fps =
+			mdss_panel_get_framerate(&pdata->panel_info);
+
+		if (pdata->panel_info.dfps_update ==
+					DFPS_IMMEDIATE_PORCH_UPDATE_MODE_VFP) {
+			pdata->panel_info.saved_total =
+				mdss_panel_get_vtotal(&pdata->panel_info);
+			pdata->panel_info.saved_fporch =
+				pdata->panel_info.lcdc.v_front_porch;
+
+		} else if (pdata->panel_info.dfps_update ==
+					DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP) {
+			pdata->panel_info.saved_total =
+				mdss_panel_get_htotal(&pdata->panel_info, true);
+			pdata->panel_info.saved_fporch =
+				pdata->panel_info.lcdc.h_front_porch;
+		}
+	}
+}
+
+static void mdss_mdp_dfps_update_params(struct mdss_panel_data *pdata,
+	u32 new_fps)
+{
+	/* Keep initial values before any dfps update */
+	cache_initial_timings(pdata);
+
+	if (pdata->panel_info.dfps_update ==
+			DFPS_IMMEDIATE_PORCH_UPDATE_MODE_VFP) {
+		int add_v_lines;
+
+		/* calculate extra vfp lines */
+		add_v_lines = calc_extra_blanking(pdata, new_fps);
+
+		/* update panel info with new values */
+		pdata->panel_info.lcdc.v_front_porch =
+			pdata->panel_info.saved_fporch + add_v_lines;
+		pdata->panel_info.mipi.frame_rate = new_fps;
+		pdata->panel_info.prg_fet =
+			mdss_mdp_get_prefetch_lines(&pdata->panel_info);
+
+	} else if (pdata->panel_info.dfps_update ==
+			DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP) {
+		int add_h_pixels;
+
+		/* calculate extra hfp pixels */
+		add_h_pixels = calc_extra_blanking(pdata, new_fps);
+
+		/* update panel info */
+		pdata->panel_info.lcdc.h_front_porch =
+			pdata->panel_info.saved_fporch + add_h_pixels;
+		pdata->panel_info.mipi.frame_rate = new_fps;
+	} else {
+		/* in clock method we are not updating panel data here */
+		pdata->panel_info.new_fps = new_fps;
+	}
+}
+
 static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
@@ -2658,6 +2759,7 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 	struct fb_info *fbi = dev_get_drvdata(dev);
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct fb_var_screeninfo *var = &mfd->fbi->var;
 
 	rc = kstrtoint(buf, 10, &dfps);
 	if (rc) {
@@ -2665,13 +2767,21 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 		return rc;
 	}
 
-	if (!mdp5_data->ctl || !mdss_mdp_ctl_is_power_on(mdp5_data->ctl))
-		return 0;
+	if (!mdp5_data->ctl || !mdss_mdp_ctl_is_power_on(mdp5_data->ctl)) {
+		pr_debug("panel is off\n");
+		return count;
+	}
 
 	pdata = dev_get_platdata(&mfd->pdev->dev);
 	if (!pdata) {
 		pr_err("no panel connected for fb%d\n", mfd->index);
 		return -ENODEV;
+	}
+
+	if (!pdata->panel_info.dynamic_fps) {
+		pr_err_once("%s: Dynamic fps not enabled for this panel\n",
+				__func__);
+		return -EINVAL;
 	}
 
 	if (dfps == pdata->panel_info.mipi.frame_rate) {
@@ -2690,19 +2800,22 @@ static ssize_t dynamic_fps_sysfs_wta_dfps(struct device *dev,
 		pr_warn("Unsupported FPS. Configuring to max_fps = %d\n",
 				pdata->panel_info.max_fps);
 		dfps = pdata->panel_info.max_fps;
-		rc = mdss_mdp_ctl_update_fps(mdp5_data->ctl, dfps);
-	} else {
-		rc = mdss_mdp_ctl_update_fps(mdp5_data->ctl, dfps);
 	}
-	if (!rc) {
-		pr_debug("%s: configured to '%d' FPS\n", __func__, dfps);
-	} else {
-		pr_err("Failed to configure '%d' FPS. rc = %d\n",
-							dfps, rc);
-		mutex_unlock(&mdp5_data->dfps_lock);
-		return rc;
-	}
-	pdata->panel_info.new_fps = dfps;
+
+	pr_debug("new_fps:%d\n", dfps);
+
+	mdss_mdp_dfps_update_params(pdata, dfps);
+	if (pdata->next)
+		mdss_mdp_dfps_update_params(pdata->next, dfps);
+
+	/*
+	 * Update the panel info in the upstream
+	 * data, so any further call to get the screen
+	 * info has the updated timings.
+	 */
+	mdss_panelinfo_to_fb_var(&pdata->panel_info, var);
+
+	MDSS_XLOG(dfps);
 	mutex_unlock(&mdp5_data->dfps_lock);
 	return count;
 } /* dynamic_fps_sysfs_wta_dfps */
@@ -3159,6 +3272,7 @@ int mdss_mdp_cursor_flush(struct msm_fb_data_type *mfd,
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, flush_bits);
+	MDSS_XLOG(ctl->intf_num, flush_bits);
 	if ((!ctl->split_flush_en) && pipe->mixer_right) {
 		sctl = mdss_mdp_get_split_ctl(ctl);
 		if (!sctl) {
@@ -3166,6 +3280,7 @@ int mdss_mdp_cursor_flush(struct msm_fb_data_type *mfd,
 			return -ENODEV;
 		}
 		mdss_mdp_ctl_write(sctl, MDSS_MDP_REG_CTL_FLUSH, flush_bits);
+		MDSS_XLOG(sctl->intf_num, flush_bits);
 	}
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
@@ -3816,6 +3931,7 @@ static int mdss_fb_get_metadata(struct msm_fb_data_type *mfd,
 	case metadata_op_frame_rate:
 		metadata->data.panel_frame_rate =
 			mdss_panel_get_framerate(mfd->panel_info);
+		pr_debug("current fps:%d\n", metadata->data.panel_frame_rate);
 		break;
 	case metadata_op_get_caps:
 		ret = mdss_fb_get_hw_caps(mfd, &metadata->data.caps);

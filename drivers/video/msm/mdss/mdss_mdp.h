@@ -29,7 +29,6 @@
 #include "mdss_mdp_cdm.h"
 
 #define MDSS_MDP_DEFAULT_INTR_MASK 0
-#define MDSS_MDP_PIXEL_RAM_SIZE (50 * 1024)
 
 #define PHASE_STEP_SHIFT	21
 #define PHASE_STEP_UNIT_SCALE   ((int) (1 << PHASE_STEP_SHIFT))
@@ -234,8 +233,7 @@ struct mdss_mdp_ctl_intfs_ops {
 					struct mdss_mdp_vsync_handler *);
 	int (*remove_vsync_handler)(struct mdss_mdp_ctl *,
 					struct mdss_mdp_vsync_handler *);
-	int (*config_fps_fnc)(struct mdss_mdp_ctl *ctl,
-				struct mdss_mdp_ctl *sctl, int new_fps);
+	int (*config_fps_fnc)(struct mdss_mdp_ctl *ctl, int new_fps);
 	int (*restore_fnc)(struct mdss_mdp_ctl *ctl, bool locked);
 	int (*early_wake_up_fnc)(struct mdss_mdp_ctl *ctl);
 
@@ -872,13 +870,6 @@ static inline int mdss_mdp_get_wb_ctl_support(struct mdss_data_type *mdata,
 				(mdata->nctl - mdata->nwb);
 }
 
-static inline int mdss_mdp_get_pixel_ram_size(struct mdss_data_type *mdata)
-{
-	return (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
-				MDSS_MDP_HW_REV_107)) ?
-						MDSS_MDP_PIXEL_RAM_SIZE : 0;
-}
-
 static inline bool mdss_mdp_is_nrt_vbif_client(struct mdss_data_type *mdata,
 					struct mdss_mdp_pipe *pipe)
 {
@@ -1084,7 +1075,7 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff);
 int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl, int panel_power_mode);
 int mdss_mdp_ctl_intf_event(struct mdss_mdp_ctl *ctl, int event, void *arg,
 	u32 flags);
-int mdss_mdp_get_prefetch_lines(struct mdss_mdp_ctl *ctl);
+int mdss_mdp_get_prefetch_lines(struct mdss_panel_info *pinfo);
 int mdss_mdp_perf_bw_check(struct mdss_mdp_ctl *ctl,
 		struct mdss_mdp_pipe **left_plist, int left_cnt,
 		struct mdss_mdp_pipe **right_plist, int right_cnt);
@@ -1224,7 +1215,6 @@ int mdss_mdp_wb_addr_setup(struct mdss_data_type *mdata,
 void mdss_mdp_pipe_clk_force_off(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe, bool is_recovery);
 int mdss_mdp_pipe_panic_signal_ctrl(struct mdss_mdp_pipe *pipe, bool enable);
-void mdss_mdp_config_pipe_panic_lut(struct mdss_data_type *mdata);
 void mdss_mdp_bwcpanic_ctrl(struct mdss_data_type *mdata, bool enable);
 int mdss_mdp_pipe_destroy(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
@@ -1282,7 +1272,7 @@ void mdss_check_dsi_ctrl_status(struct work_struct *work, uint32_t interval);
 int mdss_mdp_calib_config(struct mdp_calib_config_data *cfg, u32 *copyback);
 int mdss_mdp_calib_config_buffer(struct mdp_calib_config_buffer *cfg,
 						u32 *copyback);
-int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl, int fps);
+int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_pipe_is_staged(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_writeback_display_commit(struct mdss_mdp_ctl *ctl, void *arg);
 struct mdss_mdp_ctl *mdss_mdp_ctl_mixer_switch(struct mdss_mdp_ctl *ctl,
