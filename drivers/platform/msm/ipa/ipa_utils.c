@@ -4955,15 +4955,54 @@ void ipa_suspend_apps_pipes(bool suspend)
 {
 	struct ipa_ep_cfg_ctrl cfg;
 	int ipa_ep_idx;
+	u32 lan_empty = 0, wan_empty = 0;
+	int ret;
+	struct sps_event_notify notify;
+	struct ipa_ep_context *ep;
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.ipa_ep_suspend = suspend;
 
 	ipa_ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
-	if (ipa_ctx->ep[ipa_ep_idx].valid)
+	ep = &ipa_ctx->ep[ipa_ep_idx];
+	if (ep->valid) {
 		ipa_cfg_ep_ctrl(ipa_ep_idx, &cfg);
+		/* Check if the pipes are empty. */
+		ret = sps_is_pipe_empty(ep->ep_hdl, &lan_empty);
+		if (ret) {
+			IPAERR("%s: sps_is_pipe_empty failed with %d\n",
+				__func__, ret);
+		}
+		if (!lan_empty) {
+			IPADBG("LAN Cons is not-empty. Enter poll mode.\n");
+			notify.user = ep->sys;
+			notify.event_id = SPS_EVENT_EOT;
+			if (ep->sys->sps_callback)
+				ep->sys->sps_callback(&notify);
+		}
+	}
 
 	ipa_ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
-	if (ipa_ctx->ep[ipa_ep_idx].valid)
+	/* Considering the case for SSR. */
+	if (ipa_ep_idx == -1) {
+		IPADBG("Invalid client.\n");
+		return;
+	}
+	ep = &ipa_ctx->ep[ipa_ep_idx];
+	if (ep->valid) {
 		ipa_cfg_ep_ctrl(ipa_ep_idx, &cfg);
+		/* Check if the pipes are empty. */
+		ret = sps_is_pipe_empty(ep->ep_hdl, &wan_empty);
+		if (ret) {
+			IPAERR("%s: sps_is_pipe_empty failed with %d\n",
+				__func__, ret);
+		}
+		if (!wan_empty) {
+			IPADBG("WAN Cons is not-empty. Enter poll mode.\n");
+			notify.user = ep->sys;
+			notify.event_id = SPS_EVENT_EOT;
+			if (ep->sys->sps_callback)
+				ep->sys->sps_callback(&notify);
+		}
+	}
 }
