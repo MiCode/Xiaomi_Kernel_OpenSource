@@ -198,6 +198,7 @@ struct mdss_intf_recovery {
  *				- 1 clock enable
  * @MDSS_EVENT_DSI_CMDLIST_KOFF: acquire dsi_mdp_busy lock before kickoff.
  * @MDSS_EVENT_ENABLE_PARTIAL_ROI: Event to update ROI of the panel.
+ * @MDSS_EVENT_DSC_PPS_SEND: Event to send DSC PPS command to panel.
  * @MDSS_EVENT_DSI_STREAM_SIZE: Event to update DSI controller's stream size
  * @MDSS_EVENT_DSI_UPDATE_PANEL_DATA: Event to update the dsi driver structures
  *				based on the dsi mode passed as argument.
@@ -239,6 +240,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_PANEL_CLK_CTRL,
 	MDSS_EVENT_DSI_CMDLIST_KOFF,
 	MDSS_EVENT_ENABLE_PARTIAL_ROI,
+	MDSS_EVENT_DSC_PPS_SEND,
 	MDSS_EVENT_DSI_STREAM_SIZE,
 	MDSS_EVENT_DSI_UPDATE_PANEL_DATA,
 	MDSS_EVENT_REGISTER_RECOVERY_HANDLER,
@@ -425,8 +427,6 @@ enum {
 };
 
 struct dsc_desc {
-	int ich_reset_value;
-	int ich_reset_override;
 	int initial_lines;
 	int slice_last_group_size;
 	int bpp;	/* target bit per pixel */
@@ -445,6 +445,7 @@ struct dsc_desc {
 	int slice_height;
 	int slice_width;
 	int chunk_size;
+	int full_frame_slices; /* denotes number of slice in full frame */
 
 	int pkt_per_line;
 	int bytes_in_slice;

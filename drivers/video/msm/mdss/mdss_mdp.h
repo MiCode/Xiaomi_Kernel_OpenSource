@@ -278,6 +278,12 @@ struct mdss_mdp_ctl {
 	u32 slave_intf_num; /* ping-pong split */
 	u32 intf_type;
 
+	/*
+	 * false: for sctl in DUAL_LM_DUAL_DISPLAY
+	 * true: everything else
+	 */
+	bool is_master;
+
 	u32 opmode;
 	u32 flush_bits;
 	u32 flush_reg_data;
@@ -328,10 +334,26 @@ struct mdss_mdp_ctl {
 	struct work_struct recover_work;
 	struct work_struct remove_underrun_handler;
 
+	/*
+	 * This ROI is aligned to as per following guidelines and
+	 * sent to the panel driver.
+	 *
+	 * 1. DUAL_LM_DUAL_DISPLAY
+	 *    Panel = 1440x2560
+	 *    CTL0 = 720x2560 (LM0=720x2560)
+	 *    CTL1 = 720x2560 (LM1=720x2560)
+	 *    Both CTL's ROI will be (0-719)x(0-2599)
+	 * 2. DUAL_LM_SINGLE_DISPLAY
+	 *    Panel = 1440x2560
+	 *    CTL0 = 1440x2560 (LM0=720x2560 and LM1=720x2560)
+	 *    CTL0's ROI will be (0-1429)x(0-2599)
+	 * 3. SINGLE_LM_SINGLE_DISPLAY
+	 *    Panel = 1080x1920
+	 *    CTL0 = 1080x1920 (LM0=1080x1920)
+	 *    CTL0's ROI will be (0-1079)x(0-1919)
+	 */
 	struct mdss_rect roi;
 	struct mdss_rect roi_bkup;
-	u8 roi_changed;
-	u8 valid_roi;
 
 	bool cmd_autorefresh_en;
 	int autorefresh_frame_cnt;
@@ -361,7 +383,11 @@ struct mdss_mdp_mixer {
 	u8 params_changed;
 	u16 width;
 	u16 height;
+
+	bool valid_roi;
+	bool roi_changed;
 	struct mdss_rect roi;
+
 	u8 cursor_enabled;
 	u16 cursor_hotx;
 	u16 cursor_hoty;
@@ -724,6 +750,21 @@ enum mdss_mdp_clt_intf_event_flags {
 #define mfd_to_wb(mfd) (((struct mdss_overlay_private *)\
 				(mfd->mdp.private1))->wb)
 
+/**
+ * - mdss_mdp_is_both_lm_valid
+ * @main_ctl - pointer to a main ctl
+ *
+ * Function checks if both layer mixers are active or not. This can be useful
+ * when partial update is enabled on either MDP_DUAL_LM_SINGLE_DISPLAY or
+ * MDP_DUAL_LM_DUAL_DISPLAY .
+ */
+static inline bool mdss_mdp_is_both_lm_valid(struct mdss_mdp_ctl *main_ctl)
+{
+	return (main_ctl && main_ctl->is_master &&
+		main_ctl->mixer_left && main_ctl->mixer_left->valid_roi &&
+		main_ctl->mixer_right && main_ctl->mixer_right->valid_roi);
+}
+
 static inline struct mdss_mdp_ctl *mdss_mdp_get_split_ctl(
 	struct mdss_mdp_ctl *ctl)
 {
@@ -1019,6 +1060,40 @@ static inline uint8_t pp_vig_csc_pipe_val(struct mdss_mdp_pipe *pipe)
 	default:
 		return  MDSS_MDP_CSC_YUV2RGB_709L;
 	}
+}
+
+/*
+ * when DUAL_LM_SINGLE_DISPLAY is used with 2 DSC encoders, DSC_MERGE is
+ * used during full frame updates. Now when we go from full frame update
+ * to right-only update, we need to disable DSC_MERGE. However, DSC_MERGE
+ * is controlled through DSC0_COMMON_MODE register which is double buffered,
+ * and this double buffer update is tied to LM0. Now for right-only update,
+ * LM0 will not get double buffer update signal. So DSC_MERGE is not disabled
+ * for right-only update which is wrong HW state and leads ping-pong timeout.
+ * Workaround for this is to use LM0->DSC0 pair for right-only update
+ * and disable DSC_MERGE.
+ *
+ * However using LM0->DSC0 pair for right-only update requires many changes
+ * at various levels of SW. To lower the SW impact and still support
+ * right-only partial update, keep SW state as it is but swap mixer register
+ * writes such that we instruct HW to use LM0->DSC0 pair.
+ *
+ * This function will return true if such a swap is needed or not.
+ */
+static inline bool mdss_mdp_is_lm_swap_needed(struct mdss_data_type *mdata,
+	struct mdss_mdp_ctl *mctl)
+{
+	if (!mdata || !mctl || !mctl->is_master ||
+	    !mctl->panel_data || !mctl->mfd)
+		return false;
+
+	return (is_dual_lm_single_display(mctl->mfd)) &&
+	       (mctl->panel_data->panel_info.partial_update_enabled) &&
+	       (mdss_has_quirk(mdata, MDSS_QUIRK_DSC_RIGHT_ONLY_PU)) &&
+	       (is_dsc_compression(&mctl->panel_data->panel_info)) &&
+	       (mctl->panel_data->panel_info.dsc_enc_total == 2) &&
+	       (!mctl->mixer_left->valid_roi) &&
+	       (mctl->mixer_right->valid_roi);
 }
 
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
@@ -1345,5 +1420,9 @@ bool mdss_mdp_is_wb_mdp_intf(u32 num, u32 reg_index);
 struct mdss_mdp_writeback *mdss_mdp_wb_assign(u32 id, u32 reg_index);
 struct mdss_mdp_writeback *mdss_mdp_wb_alloc(u32 caps, u32 reg_index);
 void mdss_mdp_wb_free(struct mdss_mdp_writeback *wb);
+
+void mdss_dsc_parameters_calc(struct dsc_desc *dsc, int width, int height);
+void mdss_mdp_ctl_dsc_setup(struct mdss_mdp_ctl *ctl,
+	struct mdss_panel_info *pinfo);
 
 #endif /* MDSS_MDP_H */

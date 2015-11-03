@@ -633,8 +633,11 @@ int mdss_panel_get_dst_fmt(u32 bpp, char mipi_mode, u32 pixel_packing,
 
 int mdss_dsi_register_recovery_handler(struct mdss_dsi_ctrl_pdata *ctrl,
 		struct mdss_intf_recovery *recovery);
-void mdss_dsi_panel_dsc_pps_send(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_unregister_bl_settings(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
+void mdss_dsi_panel_dsc_pps_send(struct mdss_dsi_ctrl_pdata *ctrl,
+				struct mdss_panel_info *pinfo);
+void mdss_dsi_dsc_config(struct mdss_dsi_ctrl_pdata *ctrl,
+	struct dsc_desc *dsc);
 
 static inline const char *__mdss_dsi_pm_name(enum dsi_pm_type module)
 {

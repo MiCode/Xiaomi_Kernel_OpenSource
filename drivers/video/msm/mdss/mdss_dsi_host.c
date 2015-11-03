@@ -1089,21 +1089,22 @@ int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	return ret;
 }
 
-static void mdss_dsi_dsc_config(struct mdss_dsi_ctrl_pdata *ctrl,
-				struct dsc_desc *dsc)
+void mdss_dsi_dsc_config(struct mdss_dsi_ctrl_pdata *ctrl, struct dsc_desc *dsc)
 {
-	u32 data;
+	u32 data, offset;
+
+	if (dsc->pkt_per_line <= 0) {
+		pr_err("%s: Error: pkt_per_line cannot be negative or 0\n",
+			__func__);
+		return;
+	}
 
 	if (ctrl->panel_mode == DSI_VIDEO_MODE) {
 		MIPI_OUTP((ctrl->ctrl_base) +
 			MDSS_DSI_VIDEO_COMPRESSION_MODE_CTRL2, 0);
 		data = dsc->bytes_per_pkt << 16;
 		data |= (0x0b << 8);	/*  dtype of compressed image */
-		data |= (dsc->pkt_per_line - 1) << 6;
-		data |= dsc->eol_byte_num << 4;
-		data |= 1;	/* enable */
-		MIPI_OUTP((ctrl->ctrl_base) +
-			MDSS_DSI_VIDEO_COMPRESSION_MODE_CTRL, data);
+		offset = MDSS_DSI_VIDEO_COMPRESSION_MODE_CTRL;
 	} else {
 		/* strem 0 */
 		MIPI_OUTP((ctrl->ctrl_base) +
@@ -1114,12 +1115,23 @@ static void mdss_dsi_dsc_config(struct mdss_dsi_ctrl_pdata *ctrl,
 						dsc->bytes_in_slice);
 
 		data = DTYPE_DCS_LWRITE << 8;
-		data |= (dsc->pkt_per_line - 1) << 6;
-		data |= dsc->eol_byte_num << 4;
-		data |= 1;	/* enable */
-		MIPI_OUTP((ctrl->ctrl_base) +
-			MDSS_DSI_COMMAND_COMPRESSION_MODE_CTRL, data);
+		offset = MDSS_DSI_COMMAND_COMPRESSION_MODE_CTRL;
 	}
+
+	/*
+	 * pkt_per_line:
+	 * 0 == 1 pkt
+	 * 1 == 2 pkt
+	 * 2 == 4 pkt
+	 * 3 pkt is not support
+	 */
+	if (dsc->pkt_per_line == 4)
+		data |= (dsc->pkt_per_line - 2) << 6;
+	else
+		data |= (dsc->pkt_per_line - 1) << 6;
+	data |= dsc->eol_byte_num << 4;
+	data |= 1;	/* enable */
+	MIPI_OUTP((ctrl->ctrl_base) + offset, data);
 }
 
 static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)

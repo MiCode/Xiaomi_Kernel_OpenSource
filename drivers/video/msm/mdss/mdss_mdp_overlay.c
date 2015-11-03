@@ -1618,8 +1618,27 @@ static bool __is_roi_valid(struct mdss_mdp_pipe *pipe,
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	u32 left_lm_w = left_lm_w_from_mfd(pipe->mfd);
 
-	if (pipe->src_split_req)
-		roi.w += r_roi->w;
+	if (pipe->src_split_req) {
+		if (roi.w) {
+			/* left_roi is valid */
+			roi.w += r_roi->w;
+		} else {
+			/*
+			 * if we come here then left_roi is zero but pipe's
+			 * output is crossing LM boundary if it was Full Screen
+			 * update. In such case, if right ROI's (x+w) is less
+			 * than pipe's dst_x then #2 check will fail even
+			 * though in full coordinate system it is valid.
+			 * ex:
+			 *    left_lm_w = 800;
+			 *    pipe->dst.x = 400;
+			 *    pipe->dst.w = 800;
+			 *    r_roi.x + r_roi.w = 300;
+			 * To avoid such pitfall, extend ROI for comparison.
+			 */
+			roi.w += left_lm_w + r_roi->w;
+		}
+	}
 
 	if (mdata->has_src_split && is_right_mixer)
 		dst.x -= left_lm_w;
@@ -1777,7 +1796,7 @@ static void __validate_and_set_roi(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
-	struct mdss_rect l_roi, r_roi;
+	struct mdss_rect l_roi = {0}, r_roi = {0};
 	struct mdp_rect tmp_roi = {0};
 	bool skip_partial_update = true;
 
@@ -1851,6 +1870,13 @@ set_roi:
 					ctl->mixer_right->height};
 		}
 	}
+
+	pr_debug("after processing: %s l_roi:-> %d %d %d %d r_roi:-> %d %d %d %d\n",
+		(l_roi.w && l_roi.h && r_roi.w && r_roi.h) ? "left+right" :
+			((l_roi.w && l_roi.h) ? "left-only" : "right-only"),
+		l_roi.x, l_roi.y, l_roi.w, l_roi.h,
+		r_roi.x, r_roi.y, r_roi.w, r_roi.h);
+
 	mdss_mdp_set_roi(ctl, &l_roi, &r_roi);
 }
 
@@ -4466,6 +4492,7 @@ static struct mdss_mdp_ctl *__mdss_mdp_overlay_ctl_init(
 		rc = PTR_ERR(ctl);
 		goto error;
 	}
+	ctl->is_master = true;
 	ctl->vsync_handler.vsync_handler =
 					mdss_mdp_overlay_handle_vsync;
 	ctl->vsync_handler.cmd_post_flush = false;
@@ -4522,8 +4549,8 @@ static void mdss_mdp_set_lm_flag(struct msm_fb_data_type *mfd)
 		mfd->split_mode = MDP_DUAL_LM_SINGLE_DISPLAY;
 		mfd->split_fb_left = width;
 		mfd->split_fb_right = width;
-	} else if (mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY &&
-			width <= mdata->max_mixer_width) {
+	} else if (is_dual_lm_single_display(mfd) &&
+		   (width <= mdata->max_mixer_width)) {
 		mfd->split_mode = MDP_SPLIT_MODE_NONE;
 		mfd->split_fb_left = 0;
 		mfd->split_fb_right = 0;
