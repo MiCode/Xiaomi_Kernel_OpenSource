@@ -259,8 +259,8 @@
 		mdmfermium_l13: regulator-l13 {
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "mdmfermium_l13";
-			regulator-min-microvolt = <2850000>;
-			regulator-max-microvolt = <3300000>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2850000>;
 			qcom,init-voltage = <2850000>;
 			status = "okay";
 		};
