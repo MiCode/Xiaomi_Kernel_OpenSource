@@ -21,4 +21,4 @@ config MSM_DBA_ADV7533
 	---help---
 	  Support for ADV7533 DSI to HDMI display bridge driver. The driver
 	  controls the ADV7533 HW through the I2C interface and configures
-	  the DSi input and HDMI output video format.
+	  the DSI input and HDMI output video format.

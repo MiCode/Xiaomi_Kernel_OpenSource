@@ -2352,7 +2352,8 @@ exit:
 	return dsi_pan_node;
 }
 
-static struct device_node *mdss_dsi_config_panel(struct platform_device *pdev)
+static struct device_node *mdss_dsi_config_panel(struct platform_device *pdev,
+	int ndx)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = platform_get_drvdata(pdev);
 	char panel_cfg[MDSS_MAX_PANEL_LEN];
@@ -2379,7 +2380,7 @@ static struct device_node *mdss_dsi_config_panel(struct platform_device *pdev)
 		return NULL;
 	}
 
-	rc = mdss_dsi_panel_init(dsi_pan_node, ctrl_pdata);
+	rc = mdss_dsi_panel_init(dsi_pan_node, ctrl_pdata, ndx);
 	if (rc) {
 		pr_err("%s: dsi panel init failed\n", __func__);
 		of_node_put(dsi_pan_node);
@@ -2609,7 +2610,7 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 		return -EPERM;
 	}
 
-	dsi_pan_node = mdss_dsi_config_panel(pdev);
+	dsi_pan_node = mdss_dsi_config_panel(pdev, index);
 	if (!dsi_pan_node) {
 		pr_err("%s: panel configuration failed\n", __func__);
 		return -EINVAL;

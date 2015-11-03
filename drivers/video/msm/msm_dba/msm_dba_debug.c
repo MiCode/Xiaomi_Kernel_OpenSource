@@ -26,6 +26,10 @@
 
 static inline struct msm_dba_device_info *to_dba_dev(struct device *dev)
 {
+	if (!dev) {
+		pr_err("%s: dev is NULL\n", __func__);
+		return NULL;
+	}
 	return dev_get_drvdata(dev);
 }
 
@@ -34,6 +38,11 @@ static ssize_t device_name_rda_attr(struct device *dev,
 				    char *buf)
 {
 	struct msm_dba_device_info *device = to_dba_dev(dev);
+
+	if (!device) {
+		pr_err("%s: device is NULL\n", __func__);
+		return -EINVAL;
+	}
 
 	return snprintf(buf, PAGE_SIZE, "%s:%d\n", device->chip_name,
 						   device->instance_id);
@@ -47,6 +56,11 @@ static ssize_t client_list_rda_attr(struct device *dev,
 	struct msm_dba_client_info *c;
 	struct list_head *pos = NULL;
 	ssize_t bytes = 0;
+
+	if (!device) {
+		pr_err("%s: device is NULL\n", __func__);
+		return -EINVAL;
+	}
 
 	mutex_lock(&device->dev_mutex);
 
@@ -69,6 +83,11 @@ static ssize_t power_status_rda_attr(struct device *dev,
 	struct msm_dba_client_info *c;
 	struct list_head *pos = NULL;
 	ssize_t bytes = 0;
+
+	if (!device) {
+		pr_err("%s: device is NULL\n", __func__);
+		return -EINVAL;
+	}
 
 	mutex_lock(&device->dev_mutex);
 	bytes = snprintf(buf, PAGE_SIZE, "power_status:%d\n",
@@ -94,6 +113,11 @@ static ssize_t video_status_rda_attr(struct device *dev,
 	struct list_head *pos = NULL;
 	ssize_t bytes = 0;
 
+	if (!device) {
+		pr_err("%s: device is NULL\n", __func__);
+		return -EINVAL;
+	}
+
 	mutex_lock(&device->dev_mutex);
 	bytes = snprintf(buf, PAGE_SIZE, "video_status:%d\n",
 			 device->video_status);
@@ -117,6 +141,11 @@ static ssize_t audio_status_rda_attr(struct device *dev,
 	struct msm_dba_client_info *c;
 	struct list_head *pos = NULL;
 	ssize_t bytes = 0;
+
+	if (!device) {
+		pr_err("%s: device is NULL\n", __func__);
+		return -EINVAL;
+	}
 
 	mutex_lock(&device->dev_mutex);
 	bytes = snprintf(buf, PAGE_SIZE, "audio_status:%d\n",
@@ -145,6 +174,11 @@ static ssize_t write_reg_wta_attr(struct device *dev,
 	long val = 0;
 	int rc = 0;
 	int len;
+
+	if (!device) {
+		pr_err("%s: device is NULL\n", __func__);
+		return -EINVAL;
+	}
 
 	len = strlen(buf);
 	strlcpy(str, buf, 20);
@@ -195,6 +229,11 @@ static ssize_t read_reg_rda_attr(struct device *dev,
 	struct msm_dba_device_info *device = to_dba_dev(dev);
 	ssize_t bytes;
 
+	if (!device) {
+		pr_err("%s: device is NULL\n", __func__);
+		return -EINVAL;
+	}
+
 	mutex_lock(&device->dev_mutex);
 
 	bytes = snprintf(buf, PAGE_SIZE, "0x%x\n", device->register_val);
@@ -213,6 +252,11 @@ static ssize_t read_reg_wta_attr(struct device *dev,
 	long reg = 0;
 	int rc = 0;
 	u32 val = 0;
+
+	if (!device) {
+		pr_err("%s: device is NULL\n", __func__);
+		return count;
+	}
 
 	rc = kstrtol(buf, 0, &reg);
 	if (rc) {
@@ -249,9 +293,18 @@ static ssize_t dump_info_wta_attr(struct device *dev,
 	struct msm_dba_device_info *device = to_dba_dev(dev);
 	int rc;
 
-	rc = device->dev_ops.dump_debug_info(device, 0x00);
-	if (rc)
-		pr_err("%s: failed to dump debug data\n", __func__);
+	if (!device) {
+		pr_err("%s: device is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if (device->dev_ops.dump_debug_info) {
+		rc = device->dev_ops.dump_debug_info(device, 0x00);
+		if (rc)
+			pr_err("%s: failed to dump debug data\n", __func__);
+	} else {
+		pr_err("%s: not supported\n", __func__);
+	}
 
 	return count;
 }
@@ -296,4 +349,14 @@ int msm_dba_helper_sysfs_init(struct device *dev)
 		pr_err("%s: sysfs group creation failed %d\n", __func__, rc);
 
 	return rc;
+}
+
+void msm_dba_helper_sysfs_remove(struct device *dev)
+{
+	if (!dev) {
+		pr_err("%s: Invalid params\n", __func__);
+		return;
+	}
+
+	sysfs_remove_group(&dev->kobj, &msm_dba_sysfs_attr_grp);
 }
