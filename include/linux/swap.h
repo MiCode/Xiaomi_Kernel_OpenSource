@@ -154,6 +154,7 @@ enum {
 	SWP_FILE	= (1 << 7),	/* set after swap_activate success */
 					/* add others here before... */
 	SWP_SCANNING	= (1 << 8),	/* refcount in scan_swap_map */
+	SWP_FAST	= (1 << 9),	/* blkdev access is fast and cheap */
 };
 
 #define SWAP_CLUSTER_MAX 32UL
@@ -362,10 +363,18 @@ extern struct page *swapin_readahead(swp_entry_t, gfp_t,
 /* linux/mm/swapfile.c */
 extern atomic_long_t nr_swap_pages;
 extern long total_swap_pages;
+extern bool is_swap_fast(swp_entry_t entry);
 
 /* Swap 50% full? Release swapcache more aggressively.. */
-static inline bool vm_swap_full(void)
+static inline bool vm_swap_full(struct swap_info_struct *si)
 {
+	/*
+	 * If the swap device is fast, return true
+	 * not to delay swap free.
+	 */
+	if (si->flags & SWP_FAST)
+		return true;
+
 	return atomic_long_read(&nr_swap_pages) * 2 < total_swap_pages;
 }
 
@@ -409,7 +418,7 @@ mem_cgroup_uncharge_swapcache(struct page *page, swp_entry_t ent, bool swapout)
 #define get_nr_swap_pages()			0L
 #define total_swap_pages			0L
 #define total_swapcache_pages()			0UL
-#define vm_swap_full()				0
+#define vm_swap_full(si)			0
 
 #define si_swapinfo(val) \
 	do { (val)->freeswap = (val)->totalswap = 0; } while (0)

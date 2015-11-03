@@ -414,7 +414,8 @@ struct page *swapin_readahead(swp_entry_t entry, gfp_t gfp_mask,
 	struct page *page;
 	unsigned long offset = swp_offset(entry);
 	unsigned long start_offset, end_offset;
-	unsigned long mask = (1UL << page_cluster) - 1;
+	unsigned long mask = is_swap_fast(entry) ? 0 :
+				(1UL << page_cluster) - 1;
 	struct blk_plug plug;
 
 	/* Read a page_cluster sized and aligned cluster around offset. */
