@@ -49,6 +49,16 @@
 			< 489600 150000000 0xffffffff>, /* 1080p @ 60 */
 			< 244800  75000000 0xffffffff>; /* 1080p @ 30 */
 
+		qcom,dcvs-tbl =
+			<972000 972000 19944000 0x3f00000c>, /* UHD 30 */
+			<489600 489600   972000 0x3f00000c>, /* 1080p 60 */
+			<244800 244800   489600 0x3f00000c>, /* 1080p 30 */
+			<829440 489600   972000 0x04000004>; /* DCI 24 */
+
+		qcom,dcvs-limit =
+			<32400 30>, /* Encoder UHD */
+			<14400 30>; /* Decoder WQHD */
+
 		/* Table lists <video_core_freq imem_ab> pairs.
 		 * imem_ab value determines the imem clock frequency for the
 		 * corresponding video core frequency.
