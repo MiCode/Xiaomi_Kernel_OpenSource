@@ -26,8 +26,17 @@
 #include "kgsl_sharedmem.h"
 #include "kgsl_log.h"
 #include "kgsl.h"
+#include "adreno_a5xx_packets.h"
 
 static int zap_ucode_loaded;
+static int critical_packet_constructed;
+
+static struct kgsl_memdesc crit_pkts;
+static unsigned int crit_pkts_dwords;
+static struct kgsl_memdesc crit_pkts_refbuf0;
+static struct kgsl_memdesc crit_pkts_refbuf1;
+static struct kgsl_memdesc crit_pkts_refbuf2;
+static struct kgsl_memdesc crit_pkts_refbuf3;
 
 void a5xx_snapshot(struct adreno_device *adreno_dev,
 		struct kgsl_snapshot *snapshot);
@@ -444,13 +453,122 @@ static void a5xx_platform_setup(struct adreno_device *adreno_dev)
 	a5xx_check_features(adreno_dev);
 }
 
+static void a5xx_critical_packet_destroy(struct adreno_device *adreno_dev)
+{
+	kgsl_free_global(&adreno_dev->dev, &crit_pkts);
+	kgsl_free_global(&adreno_dev->dev, &crit_pkts_refbuf1);
+	kgsl_free_global(&adreno_dev->dev, &crit_pkts_refbuf2);
+	kgsl_free_global(&adreno_dev->dev, &crit_pkts_refbuf3);
+
+	kgsl_sharedmem_free(&crit_pkts_refbuf0);
+
+}
+
+static void _do_fixup(const struct adreno_critical_fixup *fixups, int count,
+		uint64_t *gpuaddrs, unsigned int *buffer)
+{
+	int i;
+
+	for (i = 0; i < count; i++) {
+		buffer[fixups[i].lo_offset] =
+			lower_32_bits(gpuaddrs[fixups[i].buffer]) |
+			fixups[i].mem_offset;
+
+		buffer[fixups[i].hi_offset] =
+			upper_32_bits(gpuaddrs[fixups[i].buffer]);
+	}
+}
+
+static int a5xx_critical_packet_construct(struct adreno_device *adreno_dev)
+{
+
+	unsigned int *cmds;
+	uint64_t gpuaddrs[CRITICAL_PACKET_MAX];
+	int ret;
+
+	ret = kgsl_allocate_global(&adreno_dev->dev,
+					&crit_pkts, PAGE_SIZE,
+					KGSL_MEMFLAGS_GPUREADONLY, 0);
+	if (ret)
+		return ret;
+
+	ret = kgsl_allocate_user(&adreno_dev->dev, &crit_pkts_refbuf0,
+					NULL, PAGE_SIZE, KGSL_MEMFLAGS_SECURE);
+	if (ret)
+		return ret;
+
+	kgsl_add_global_secure_entry(&adreno_dev->dev,
+					&crit_pkts_refbuf0);
+
+	ret = kgsl_allocate_global(&adreno_dev->dev,
+					&crit_pkts_refbuf1,
+					PAGE_SIZE, 0, 0);
+	if (ret)
+		return ret;
+
+	ret = kgsl_allocate_global(&adreno_dev->dev,
+					&crit_pkts_refbuf2,
+					PAGE_SIZE, 0, 0);
+	if (ret)
+		return ret;
+
+	ret = kgsl_allocate_global(&adreno_dev->dev,
+					&crit_pkts_refbuf3,
+					PAGE_SIZE, 0, 0);
+	if (ret)
+		return ret;
+
+	cmds = crit_pkts.hostptr;
+
+	gpuaddrs[CRITICAL_PACKET0] = crit_pkts_refbuf0.gpuaddr;
+	gpuaddrs[CRITICAL_PACKET1] = crit_pkts_refbuf1.gpuaddr;
+	gpuaddrs[CRITICAL_PACKET2] = crit_pkts_refbuf2.gpuaddr;
+	gpuaddrs[CRITICAL_PACKET3] = crit_pkts_refbuf3.gpuaddr;
+
+	crit_pkts_dwords = ARRAY_SIZE(_a5xx_critical_pkts);
+
+	memcpy(cmds, _a5xx_critical_pkts, crit_pkts_dwords << 2);
+
+	_do_fixup(critical_pkt_fixups, ARRAY_SIZE(critical_pkt_fixups),
+		gpuaddrs, cmds);
+
+	cmds = crit_pkts_refbuf1.hostptr;
+	memcpy(cmds, _a5xx_critical_pkts_mem01,
+			ARRAY_SIZE(_a5xx_critical_pkts_mem01) << 2);
+
+	cmds = crit_pkts_refbuf2.hostptr;
+	memcpy(cmds, _a5xx_critical_pkts_mem02,
+			ARRAY_SIZE(_a5xx_critical_pkts_mem02) << 2);
+
+	cmds = crit_pkts_refbuf3.hostptr;
+	memcpy(cmds, _a5xx_critical_pkts_mem03,
+			ARRAY_SIZE(_a5xx_critical_pkts_mem03) << 2);
+
+	_do_fixup(critical_pkt_mem03_fixups,
+		ARRAY_SIZE(critical_pkt_mem03_fixups), gpuaddrs, cmds);
+
+	critical_packet_constructed = 1;
+
+	return 0;
+}
+
 static void a5xx_init(struct adreno_device *adreno_dev)
 {
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_GPMU))
 		INIT_WORK(&adreno_dev->gpmu_work, a5xx_gpmu_reset);
 
 	INIT_WORK(&adreno_dev->irq_storm_work, a5xx_irq_storm_worker);
+
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CRITICAL_PACKETS))
+		a5xx_critical_packet_construct(adreno_dev);
+
 	a5xx_crashdump_init(adreno_dev);
+}
+
+static void a5xx_remove(struct adreno_device *adreno_dev)
+{
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CRITICAL_PACKETS))
+		a5xx_critical_packet_destroy(adreno_dev);
 }
 
 /**
@@ -2406,6 +2524,36 @@ static void _set_ordinals(struct adreno_device *adreno_dev,
 		*cmds++ = 0x0;
 }
 
+static int a5xx_critical_packet_submit(struct adreno_device *adreno_dev,
+					struct adreno_ringbuffer *rb)
+{
+	unsigned int *cmds;
+	int ret;
+
+	if (!critical_packet_constructed)
+		return 0;
+
+	cmds = adreno_ringbuffer_allocspace(rb, 4);
+	if (IS_ERR(cmds))
+		return PTR_ERR(cmds);
+
+	*cmds++ = cp_mem_packet(adreno_dev, CP_INDIRECT_BUFFER_PFE, 2, 1);
+	cmds += cp_gpuaddr(adreno_dev, cmds, crit_pkts.gpuaddr);
+	*cmds++ = crit_pkts_dwords;
+
+	ret = adreno_ringbuffer_submit_spin(rb, NULL, 20);
+	if (ret != 0) {
+		struct kgsl_device *device = &adreno_dev->dev;
+
+		dev_err(device->dev,
+			"Critical packet submission failed to idle\n");
+		spin_idle_debug(device);
+		kgsl_device_snapshot(device, NULL);
+	}
+
+	return ret;
+}
+
 /*
  * a5xx_rb_init() - Initialize ringbuffer
  * @adreno_dev: Pointer to adreno device
@@ -2436,6 +2584,12 @@ static int a5xx_rb_init(struct adreno_device *adreno_dev,
 		dev_err(device->dev, "CP initialization failed to idle\n");
 		spin_idle_debug(device);
 		kgsl_device_snapshot(device, NULL);
+	}
+
+	if (ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_CRITICAL_PACKETS)) {
+		ret = a5xx_critical_packet_submit(adreno_dev, rb);
+		if (ret)
+			return ret;
 	}
 
 	/* GPU comes up in secured mode, make it unsecured by default */
@@ -3961,6 +4115,7 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.num_prio_levels = KGSL_PRIORITY_MAX_RB_LEVELS,
 	.platform_setup = a5xx_platform_setup,
 	.init = a5xx_init,
+	.remove = a5xx_remove,
 	.rb_init = a5xx_rb_init,
 	.hw_init = a5xx_hw_init,
 	.microcode_read = a5xx_microcode_read,
