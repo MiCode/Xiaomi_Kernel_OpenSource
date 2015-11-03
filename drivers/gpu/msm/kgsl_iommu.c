@@ -90,6 +90,7 @@ static struct kmem_cache *addr_entry_cache;
 #define GLOBAL_PT_ENTRIES 32
 
 static struct kgsl_memdesc *global_pt_entries[GLOBAL_PT_ENTRIES];
+static struct kgsl_memdesc *kgsl_global_secure_pt_entry;
 static int global_pt_count;
 uint64_t global_pt_alloc;
 
@@ -113,6 +114,28 @@ static void kgsl_iommu_map_globals(struct kgsl_pagetable *pagetable)
 
 			BUG_ON(ret);
 		}
+	}
+}
+
+static void kgsl_iommu_unmap_global_secure_pt_entry(struct kgsl_pagetable
+								*pagetable)
+{
+	struct kgsl_memdesc *entry = kgsl_global_secure_pt_entry;
+
+	if (entry != NULL)
+		kgsl_mmu_unmap(pagetable, entry);
+
+}
+
+static void kgsl_map_global_secure_pt_entry(struct kgsl_pagetable *pagetable)
+{
+	int ret;
+	struct kgsl_memdesc *entry = kgsl_global_secure_pt_entry;
+
+	if (entry != NULL) {
+		entry->pagetable = pagetable;
+		ret = kgsl_mmu_map(pagetable, entry);
+		BUG_ON(ret);
 	}
 }
 
@@ -149,6 +172,14 @@ static void kgsl_iommu_add_global(struct kgsl_mmu *mmu,
 
 	global_pt_entries[global_pt_count++] = memdesc;
 }
+
+void kgsl_add_global_secure_entry(struct kgsl_device *device,
+					struct kgsl_memdesc *memdesc)
+{
+	memdesc->gpuaddr = KGSL_IOMMU_SECURE_BASE;
+	kgsl_global_secure_pt_entry = memdesc;
+}
+
 
 static inline void _iommu_sync_mmu_pc(bool lock)
 {
@@ -690,8 +721,10 @@ static void kgsl_iommu_destroy_pagetable(struct kgsl_pagetable *pt)
 
 	iommu = mmu->priv;
 
-	if (KGSL_MMU_SECURE_PT == pt->name)
+	if (KGSL_MMU_SECURE_PT == pt->name) {
 		ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE];
+		kgsl_iommu_unmap_global_secure_pt_entry(pt);
+	}
 	else {
 		ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 		kgsl_iommu_unmap_globals(pt);
@@ -712,10 +745,13 @@ static void setup_64bit_pagetable(struct kgsl_mmu *mmu,
 		struct kgsl_pagetable *pagetable,
 		struct kgsl_iommu_pt *pt)
 {
+	unsigned int secure_global_size = kgsl_global_secure_pt_entry != NULL ?
+					kgsl_global_secure_pt_entry->size : 0;
 	if (mmu->secured && pagetable->name == KGSL_MMU_SECURE_PT) {
-		pt->compat_va_start = KGSL_IOMMU_SECURE_BASE;
+		pt->compat_va_start = KGSL_IOMMU_SECURE_BASE +
+						secure_global_size;
 		pt->compat_va_end = KGSL_IOMMU_SECURE_END;
-		pt->va_start = KGSL_IOMMU_SECURE_BASE;
+		pt->va_start = KGSL_IOMMU_SECURE_BASE + secure_global_size;
 		pt->va_end = KGSL_IOMMU_SECURE_END;
 	} else {
 		pt->compat_va_start = KGSL_IOMMU_SVM_BASE32;
@@ -740,15 +776,20 @@ static void setup_32bit_pagetable(struct kgsl_mmu *mmu,
 		struct kgsl_pagetable *pagetable,
 		struct kgsl_iommu_pt *pt)
 {
+	unsigned int secure_global_size = kgsl_global_secure_pt_entry != NULL ?
+					kgsl_global_secure_pt_entry->size : 0;
 	if (mmu->secured) {
 		if (pagetable->name == KGSL_MMU_SECURE_PT) {
-			pt->compat_va_start = KGSL_IOMMU_SECURE_BASE;
+			pt->compat_va_start = KGSL_IOMMU_SECURE_BASE +
+						secure_global_size;
 			pt->compat_va_end = KGSL_IOMMU_SECURE_END;
-			pt->va_start = KGSL_IOMMU_SECURE_BASE;
+			pt->va_start = KGSL_IOMMU_SECURE_BASE +
+						secure_global_size;
 			pt->va_end = KGSL_IOMMU_SECURE_END;
 		} else {
 			pt->va_start = KGSL_IOMMU_SVM_BASE32;
-			pt->va_end = KGSL_IOMMU_SECURE_BASE;
+			pt->va_end = KGSL_IOMMU_SECURE_BASE +
+						secure_global_size;
 			pt->compat_va_start = pt->va_start;
 			pt->compat_va_end = pt->va_end;
 		}
@@ -936,6 +977,8 @@ static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	ctx->cb_num = cb_num;
 	ctx->regbase = iommu->regbase + KGSL_IOMMU_CB0_OFFSET
 			+ (cb_num << KGSL_IOMMU_CB_SHIFT);
+
+	kgsl_map_global_secure_pt_entry(pt);
 
 done:
 	if (ret)
