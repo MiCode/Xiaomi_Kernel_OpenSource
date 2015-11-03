@@ -495,6 +495,11 @@ static inline u32 hdmi_tx_is_dvi_mode(struct hdmi_tx_ctrl *hdmi_ctrl)
 		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]) ? 0 : 1;
 } /* hdmi_tx_is_dvi_mode */
 
+static inline bool hdmi_tx_is_panel_on(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	return hdmi_ctrl->hpd_state && hdmi_ctrl->panel_power_on;
+}
+
 static inline void hdmi_tx_send_cable_notification(
 	struct hdmi_tx_ctrl *hdmi_ctrl, int val)
 {
@@ -792,7 +797,7 @@ static ssize_t hdmi_tx_sysfs_wta_hpd(struct device *dev,
 		rc = hdmi_tx_sysfs_enable_hpd(hdmi_ctrl, false);
 
 		mutex_lock(&hdmi_ctrl->power_mutex);
-		if (hdmi_ctrl->panel_power_on && hdmi_ctrl->hpd_state) {
+		if (hdmi_tx_is_panel_on(hdmi_ctrl)) {
 			mutex_unlock(&hdmi_ctrl->power_mutex);
 			hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0);
 			hdmi_tx_wait_for_audio_engine(hdmi_ctrl);
@@ -1200,6 +1205,30 @@ static void hdmi_tx_hdcp_cb(void *ptr, enum hdmi_hdcp_state status)
 	queue_delayed_work(hdmi_ctrl->workq, &hdmi_ctrl->hdcp_cb_work, HZ/4);
 }
 
+static inline bool hdmi_tx_is_stream_shareable(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	bool ret;
+
+	switch (hdmi_ctrl->enc_lvl) {
+	case HDCP_STATE_AUTH_ENC_NONE:
+		ret = true;
+		break;
+	case HDCP_STATE_AUTH_ENC_1X:
+		ret = hdmi_tx_is_hdcp_enabled(hdmi_ctrl) &&
+			hdmi_ctrl->auth_state;
+		break;
+	case HDCP_STATE_AUTH_ENC_2P2:
+		ret = hdmi_ctrl->hdcp_feature_on &&
+			hdmi_ctrl->hdcp22_present &&
+			hdmi_ctrl->auth_state;
+		break;
+	default:
+		ret = false;
+	}
+
+	return ret;
+}
+
 static void hdmi_tx_hdcp_cb_work(struct work_struct *work)
 {
 	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
@@ -1217,18 +1246,24 @@ static void hdmi_tx_hdcp_cb_work(struct work_struct *work)
 
 	switch (hdmi_ctrl->hdcp_status) {
 	case HDCP_STATE_AUTHENTICATED:
-		if (hdmi_ctrl->hpd_state) {
+		hdmi_ctrl->auth_state = true;
+
+		if (hdmi_tx_is_panel_on(hdmi_ctrl) &&
+			hdmi_tx_is_stream_shareable(hdmi_ctrl)) {
 			rc = hdmi_tx_config_avmute(hdmi_ctrl, false);
 			hdmi_tx_set_audio_switch_node(hdmi_ctrl, 1);
 		}
 		break;
 	case HDCP_STATE_AUTH_FAIL:
-		if (hdmi_tx_is_encryption_set(hdmi_ctrl)) {
+		hdmi_ctrl->auth_state = false;
+
+		if (hdmi_tx_is_encryption_set(hdmi_ctrl) ||
+			!hdmi_tx_is_stream_shareable(hdmi_ctrl)) {
 			hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0);
 			rc = hdmi_tx_config_avmute(hdmi_ctrl, true);
 		}
 
-		if (hdmi_ctrl->hpd_state && hdmi_ctrl->panel_power_on) {
+		if (hdmi_tx_is_panel_on(hdmi_ctrl)) {
 			DEV_DBG("%s: Reauthenticating\n", __func__);
 			rc = hdmi_ctrl->hdcp_ops->hdmi_hdcp_reauthenticate(
 				hdmi_ctrl->hdcp_data);
@@ -1241,8 +1276,27 @@ static void hdmi_tx_hdcp_cb_work(struct work_struct *work)
 		}
 
 		break;
-	case HDCP_STATE_AUTHENTICATING:
-	case HDCP_STATE_INACTIVE:
+	case HDCP_STATE_AUTH_ENC_NONE:
+		hdmi_ctrl->enc_lvl = HDCP_STATE_AUTH_ENC_NONE;
+
+		if (hdmi_tx_is_panel_on(hdmi_ctrl)) {
+			rc = hdmi_tx_config_avmute(hdmi_ctrl, false);
+			hdmi_tx_set_audio_switch_node(hdmi_ctrl, 1);
+		}
+		break;
+	case HDCP_STATE_AUTH_ENC_1X:
+	case HDCP_STATE_AUTH_ENC_2P2:
+		hdmi_ctrl->enc_lvl = hdmi_ctrl->hdcp_status;
+
+		if (hdmi_tx_is_panel_on(hdmi_ctrl) &&
+			hdmi_tx_is_stream_shareable(hdmi_ctrl)) {
+			rc = hdmi_tx_config_avmute(hdmi_ctrl, false);
+			hdmi_tx_set_audio_switch_node(hdmi_ctrl, 1);
+		} else {
+			hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0);
+			rc = hdmi_tx_config_avmute(hdmi_ctrl, true);
+		}
+		break;
 	default:
 		break;
 		/* do nothing */
@@ -2893,7 +2947,7 @@ static int hdmi_tx_audio_info_setup(struct platform_device *pdev,
 	is_mode_dvi = hdmi_tx_is_dvi_mode(hdmi_ctrl);
 
 	mutex_lock(&hdmi_ctrl->power_mutex);
-	if (!is_mode_dvi && hdmi_ctrl->panel_power_on) {
+	if (!is_mode_dvi && hdmi_tx_is_panel_on(hdmi_ctrl)) {
 		mutex_unlock(&hdmi_ctrl->power_mutex);
 		/* Map given sample rate to Enum */
 		if (sample_rate == 32000)
@@ -3025,7 +3079,7 @@ static int hdmi_tx_get_cable_status(struct platform_device *pdev, u32 vote)
 	}
 
 	spin_lock_irqsave(&hdmi_ctrl->hpd_state_lock, flags);
-	hpd = hdmi_ctrl->hpd_state && hdmi_ctrl->panel_power_on;
+	hpd = hdmi_tx_is_panel_on(hdmi_ctrl);
 	spin_unlock_irqrestore(&hdmi_ctrl->hpd_state_lock, flags);
 
 	hdmi_ctrl->vote_hdmi_core_on = false;
@@ -3298,9 +3352,11 @@ static int hdmi_tx_start(struct hdmi_tx_ctrl *hdmi_ctrl)
 	    hdmi_tx_is_cea_format(hdmi_ctrl->vid_cfg.vic)) {
 		hdmi_tx_audio_setup(hdmi_ctrl);
 
-		if (!hdmi_tx_is_hdcp_enabled(hdmi_ctrl) &&
-			!hdmi_tx_is_encryption_set(hdmi_ctrl))
+		if (!hdmi_tx_is_encryption_set(hdmi_ctrl) &&
+			hdmi_tx_is_stream_shareable(hdmi_ctrl)) {
 			hdmi_tx_set_audio_switch_node(hdmi_ctrl, 1);
+			hdmi_tx_config_avmute(hdmi_ctrl, false);
+		}
 
 		hdmi_tx_set_avi_infoframe(hdmi_ctrl);
 		hdmi_tx_set_vendor_specific_infoframe(hdmi_ctrl);
@@ -4779,6 +4835,7 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, hdmi_ctrl);
 	hdmi_ctrl->pdev = pdev;
+	hdmi_ctrl->enc_lvl = HDCP_STATE_AUTH_ENC_NONE;
 
 	pan_cfg = mdss_panel_intf_type(MDSS_PANEL_INTF_HDMI);
 	if (IS_ERR(pan_cfg)) {
