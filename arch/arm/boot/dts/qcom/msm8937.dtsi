@@ -95,6 +95,7 @@
 
 #include "msm8937-pinctrl.dtsi"
 #include "msm8937-cpu.dtsi"
+#include "msm8937-gpu.dtsi"
 #include "msm8937-ion.dtsi"
 #include "msm-arm-smmu-8937.dtsi"
 #include "msm8937-coresight.dtsi"
