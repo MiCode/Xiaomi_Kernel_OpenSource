@@ -1204,12 +1204,8 @@ static void gbam_disconnect_work(struct work_struct *w)
 
 	msm_bam_dmux_close(d->id);
 	clear_bit(BAM_CH_OPENED, &d->flags);
-	/*
-	 * Decrement usage count which was incremented upon cable connect
-	 * or cable disconnect in suspended state
-	 */
 exit:
-	usb_gadget_autopm_put_async(port->gadget);
+	return;
 }
 
 static void gbam2bam_disconnect_work(struct work_struct *w)
@@ -2287,7 +2283,8 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 	 * handshake is done in disconnect work (due to cable disconnect)
 	 * or in suspend work.
 	 */
-	usb_gadget_autopm_get_noresume(port->gadget);
+	if (trans == USB_GADGET_XPORT_BAM2BAM_IPA)
+		usb_gadget_autopm_get_noresume(port->gadget);
 	queue_work(gbam_wq, &port->connect_w);
 
 	ret = 0;
