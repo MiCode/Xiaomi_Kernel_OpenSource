@@ -26,6 +26,7 @@
 		qcom,register-save;
 		qcom,skip-init;
 		qcom,dynamic;
+		qcom,enable-smmu-halt;
 		vdd-supply = <&gdsc_oxili_cx>;
 		clocks = <&clock_gcc clk_gcc_oxili_ahb_clk>,
 			<&clock_gcc clk_gcc_bimc_gfx_clk>;
