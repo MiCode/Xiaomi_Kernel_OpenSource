@@ -758,7 +758,9 @@ static void cpr3_update_vreg_closed_loop_volt(struct cpr3_regulator *vreg,
  * cpr3_regulator_config_ldo_retention() - configure per-regulator LDO retention
  *		mode
  * @vreg:		Pointer to the CPR3 regulator to configure
- * @floor_volt:		vdd floor voltage
+ * @ref_volt:		Reference voltage used to determine if LDO retention
+ *			mode can be allowed. It corresponds either to the
+ *			aggregated floor voltage or the next VDD supply setpoint
  *
  * This function determines if a CPR3 regulator's configuration satisfies safe
  * operating voltages for LDO retention and uses the regulator_allow_bypass()
@@ -768,7 +770,7 @@ static void cpr3_update_vreg_closed_loop_volt(struct cpr3_regulator *vreg,
  * Return: 0 on success, errno on failure
  */
 static int cpr3_regulator_config_ldo_retention(struct cpr3_regulator *vreg,
-					int floor_volt)
+					int ref_volt)
 {
 	struct regulator *ldo_ret_reg = vreg->ldo_ret_regulator;
 	int retention_volt, rc;
@@ -782,7 +784,7 @@ static int cpr3_regulator_config_ldo_retention(struct cpr3_regulator *vreg,
 
 	}
 
-	mode = floor_volt >= retention_volt + vreg->ldo_min_headroom_volt
+	mode = ref_volt >= retention_volt + vreg->ldo_min_headroom_volt
 		? LDO_MODE : BHS_MODE;
 
 	rc = regulator_allow_bypass(ldo_ret_reg, mode);
@@ -1028,6 +1030,8 @@ static int cpr3_regulator_ldo_apm_prepare(struct cpr3_controller *ctrl,
  *			the VDD supply
  * @vdd_ceiling_volt:	Last known aggregated ceiling voltage in microvolts for
  *			the VDD supply
+ * @new_volt:		New voltage in microvolts that VDD supply needs to
+ *			end up at
  * @last_volt:		Last known voltage in microvolts for the VDD supply
  *
  * This function performs all relevant LDO or BHS configurations if an LDO
@@ -1037,15 +1041,19 @@ static int cpr3_regulator_ldo_apm_prepare(struct cpr3_controller *ctrl,
  */
 static int cpr3_regulator_config_vreg_ldo(struct cpr3_regulator *vreg,
 			  int vdd_floor_volt, int vdd_ceiling_volt,
-			  int last_volt)
+			  int new_volt, int last_volt)
 {
 	struct cpr3_controller *ctrl = vreg->thread->ctrl;
 	struct regulator *ldo_reg = vreg->ldo_regulator;
 	struct cpr3_corner *current_corner;
 	enum msm_apm_supply apm_mode;
 	int rc, ldo_volt, final_ldo_volt, bhs_volt, max_volt, safe_volt;
+	int ref_volt;
 
-	rc = cpr3_regulator_config_ldo_retention(vreg, vdd_floor_volt);
+	ref_volt = ctrl->use_hw_closed_loop ? vdd_floor_volt :
+		new_volt;
+
+	rc = cpr3_regulator_config_ldo_retention(vreg, ref_volt);
 	if (rc)
 		return rc;
 
@@ -1059,7 +1067,7 @@ static int cpr3_regulator_config_vreg_ldo(struct cpr3_regulator *vreg,
 	bhs_volt = last_volt - vreg->ldo_min_headroom_volt;
 	max_volt = min(vdd_ceiling_volt, vreg->ldo_max_volt);
 
-	if (vdd_floor_volt >= ldo_volt + vreg->ldo_min_headroom_volt &&
+	if (ref_volt >= ldo_volt + vreg->ldo_min_headroom_volt &&
 	    ldo_volt >= ctrl->system_supply_max_volt -
 	    vreg->ldo_max_headroom_volt &&
 	    bhs_volt >= ctrl->system_supply_max_volt -
@@ -1159,13 +1167,15 @@ static int cpr3_regulator_config_vreg_ldo(struct cpr3_regulator *vreg,
  *			the VDD supply
  * @vdd_ceiling_volt:	Last known aggregated ceiling voltage in microvolts for
  *			the VDD supply
+ * @new_volt:		New voltage in microvolts that VDD supply needs to
+ *			end up at
  * @last_volt:		Last known voltage in microvolts for the VDD supply
  *
  * Return: 0 on success, errno on failure
  */
 static int cpr3_regulator_config_ldo(struct cpr3_controller *ctrl,
 				int vdd_floor_volt, int vdd_ceiling_volt,
-				int last_volt)
+				int new_volt, int last_volt)
 {
 	struct cpr3_regulator *vreg;
 	int i, j, rc;
@@ -1179,7 +1189,7 @@ static int cpr3_regulator_config_ldo(struct cpr3_controller *ctrl,
 
 			rc = cpr3_regulator_config_vreg_ldo(vreg,
 					vdd_floor_volt, vdd_ceiling_volt,
-					last_volt);
+					new_volt, last_volt);
 			if (rc)
 				return rc;
 		}
@@ -1535,7 +1545,7 @@ static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
 		/* Decreasing VDD voltage */
 		rc = cpr3_regulator_config_ldo(ctrl, aggr_corner->floor_volt,
 					       ctrl->aggr_corner.ceiling_volt,
-					       last_volt);
+					       new_volt, last_volt);
 		if (rc) {
 			cpr3_err(ctrl, "unable to configure LDO state, rc=%d\n",
 				 rc);
@@ -1585,7 +1595,7 @@ static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
 		/* Increasing VDD voltage */
 		rc = cpr3_regulator_config_ldo(ctrl, aggr_corner->floor_volt,
 					       aggr_corner->ceiling_volt,
-					       new_volt);
+					       new_volt, new_volt);
 		if (rc) {
 			cpr3_err(ctrl, "unable to configure LDO state, rc=%d\n",
 				 rc);
