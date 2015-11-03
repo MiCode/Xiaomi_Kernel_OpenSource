@@ -91,6 +91,18 @@
 	status = "ok";
 };
 
+&pm8019_gpios {
+	gpio@c300 { /* GPIO 4 */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <0>;		/* Output high */
+		qcom,vin-sel = <0>;		/* VPH_PWR */
+		qcom,src-sel = <0>;		/* GPIO */
+		qcom,out-strength = <1>;	/* Low drive strength */
+		qcom,master-en = <1>;		/* Enable GPIO */
+	};
+};
+
 &i2c_4 {
 	/* SMB358 charger configuration */
 	smb358_otg_vreg: smb358-charger@57 {

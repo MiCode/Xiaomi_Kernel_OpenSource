@@ -379,4 +379,12 @@
 		enable-active-high;
 		gpio = <&pm8019_gpios 3 0>;
 	};
+
+	sdcard_ext_vreg: sdcard_ext_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "sdcard_ext_vreg";
+		startup-delay-us = <250>;
+		enable-active-high;
+		gpio = <&pm8019_gpios 4 0>;
+	};
 };
