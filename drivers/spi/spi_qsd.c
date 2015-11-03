@@ -1521,13 +1521,14 @@ static int msm_spi_process_transfer(struct msm_spi *dd)
 	msm_spi_udelay(dd->xfrs_delay_usec);
 
 transfer_end:
-	if (dd->mode == SPI_BAM_MODE)
+	if ((dd->mode == SPI_BAM_MODE) && status)
 		msm_spi_bam_flush(dd);
 	msm_spi_dma_unmap_buffers(dd);
 	dd->mode = SPI_MODE_NONE;
 
 	msm_spi_set_state(dd, SPI_OP_STATE_RESET);
-	writel_relaxed(spi_ioc & ~SPI_IO_C_MX_CS_MODE,
+	if (!dd->cur_transfer->cs_change)
+		writel_relaxed(spi_ioc & ~SPI_IO_C_MX_CS_MODE,
 		       dd->base + SPI_IO_CONTROL);
 	return status;
 }
