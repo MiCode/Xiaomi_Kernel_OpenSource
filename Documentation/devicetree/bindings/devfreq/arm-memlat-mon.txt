@@ -5,12 +5,12 @@ to measure the parameters for latency driven memory access patterns.
 
 Required properties:
 - compatible:			Must be "qcom,arm-memlat-mon"
-- qcom,firstcpu:		First CPU of the cluster to be monitored
+- qcom,cpulist:			List of CPU phandles to be monitored in a cluster
 - qcom,target-dev:		The DT device that corresponds to this master port
 
 Example:
 	qcom,arm-memlat-mon {
 		compatible = "qcom,arm-memlat-mon";
-		qcom,firstcpu = <&CPU0>;
+		qcom,cpulist = <&CPU0 &CPU1>;
 		qcom,target-dev = <&memlat0>;
 	};
