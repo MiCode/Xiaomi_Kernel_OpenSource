@@ -291,6 +291,16 @@ u32 vidc_get_hfi_codec(enum hal_video_codec hal_codec)
 	return hfi_codec;
 }
 
+static void create_pkt_enable(void *pkt, u32 type, bool enable)
+{
+	u32 *pkt_header = pkt;
+	u32 *pkt_type = &pkt_header[0];
+	struct hfi_enable *hfi_enable = (struct hfi_enable *)&pkt_header[1];
+
+	*pkt_type = type;
+	hfi_enable->enable = enable;
+}
+
 int create_pkt_cmd_sys_init(struct hfi_cmd_sys_init_packet *pkt,
 			   u32 arch_type)
 {
@@ -2005,6 +2015,14 @@ int create_pkt_cmd_session_set_property(
 			HAL_PARAM_VENC_MBI_STATISTICS_MODE,
 				*(u32 *)pdata);
 		pkt->size += sizeof(u32) * 2;
+		break;
+	}
+	case HAL_PARAM_VENC_BITRATE_TYPE:
+	{
+		create_pkt_enable(pkt->rg_property_data,
+			HFI_PROPERTY_PARAM_VENC_BITRATE_TYPE,
+			((struct hal_enable *)pdata)->enable);
+		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
 	}
 
