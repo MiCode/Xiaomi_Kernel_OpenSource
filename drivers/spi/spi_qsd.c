@@ -286,106 +286,23 @@ static void msm_spi_clock_set(struct msm_spi *dd, int speed)
 		dd->clock_speed = rate;
 }
 
-static void msm_spi_clk_path_vote(struct msm_spi *dd)
+static void msm_spi_clk_path_vote(struct msm_spi *dd, u32 rate)
 {
-	if (dd->clk_path_vote.client_hdl)
-		msm_bus_scale_client_update_request(
-						dd->clk_path_vote.client_hdl,
-						MSM_SPI_CLK_PATH_RESUME_VEC);
-}
+	if (dd->bus_cl_hdl) {
+		u64 ib = rate * dd->pdata->bus_width;
 
-static void msm_spi_clk_path_unvote(struct msm_spi *dd)
-{
-	if (dd->clk_path_vote.client_hdl)
-		msm_bus_scale_client_update_request(
-						dd->clk_path_vote.client_hdl,
-						MSM_SPI_CLK_PATH_SUSPEND_VEC);
+		msm_bus_scale_update_bw(dd->bus_cl_hdl, 0, ib);
+	}
 }
 
 static void msm_spi_clk_path_teardown(struct msm_spi *dd)
 {
-	msm_spi_clk_path_unvote(dd);
+	msm_spi_clk_path_vote(dd, 0);
 
-	if (dd->clk_path_vote.client_hdl) {
-		msm_bus_scale_unregister_client(dd->clk_path_vote.client_hdl);
-		dd->clk_path_vote.client_hdl = 0;
+	if (dd->bus_cl_hdl) {
+		msm_bus_scale_unregister(dd->bus_cl_hdl);
+		dd->bus_cl_hdl = NULL;
 	}
-}
-
-/**
- * msm_spi_clk_path_init_structs: internal impl detail of msm_spi_clk_path_init
- *
- * allocates and initilizes the bus scaling vectors.
- */
-static int msm_spi_clk_path_init_structs(struct msm_spi *dd)
-{
-	struct msm_bus_vectors *paths    = NULL;
-	struct msm_bus_paths   *usecases = NULL;
-
-	dev_dbg(dd->dev, "initialises path clock voting structs");
-
-	paths = devm_kzalloc(dd->dev, sizeof(*paths) * 2, GFP_KERNEL);
-	if (!paths) {
-		dev_err(dd->dev,
-		"msm_bus_paths.paths memory allocation failed");
-		return -ENOMEM;
-	}
-
-	usecases = devm_kzalloc(dd->dev, sizeof(*usecases) * 2, GFP_KERNEL);
-	if (!usecases) {
-		dev_err(dd->dev,
-		"msm_bus_scale_pdata.usecases memory allocation failed");
-		goto path_init_err;
-	}
-
-	dd->clk_path_vote.pdata = devm_kzalloc(dd->dev,
-					    sizeof(*dd->clk_path_vote.pdata),
-					    GFP_KERNEL);
-	if (!dd->clk_path_vote.pdata) {
-		dev_err(dd->dev,
-		"msm_bus_scale_pdata memory allocation failed");
-		goto path_init_err;
-	}
-
-	paths[MSM_SPI_CLK_PATH_SUSPEND_VEC] = (struct msm_bus_vectors) {
-		.src = dd->pdata->master_id,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 0,
-		.ib  = 0,
-	};
-
-	paths[MSM_SPI_CLK_PATH_RESUME_VEC]  = (struct msm_bus_vectors) {
-		.src = dd->pdata->master_id,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 0,
-		.ib  = MSM_SPI_CLK_PATH_BRST_BW(dd),
-	};
-
-	usecases[MSM_SPI_CLK_PATH_SUSPEND_VEC] = (struct msm_bus_paths) {
-		.num_paths = 1,
-		.vectors   = &paths[MSM_SPI_CLK_PATH_SUSPEND_VEC],
-	};
-
-	usecases[MSM_SPI_CLK_PATH_RESUME_VEC] = (struct msm_bus_paths) {
-		.num_paths = 1,
-		.vectors   = &paths[MSM_SPI_CLK_PATH_RESUME_VEC],
-	};
-
-	*dd->clk_path_vote.pdata = (struct msm_bus_scale_pdata) {
-		.active_only  = 0,
-		.name         = dev_name(dd->dev),
-		.num_usecases = 2,
-		.usecase      = usecases,
-	};
-
-	return 0;
-
-path_init_err:
-	devm_kfree(dd->dev, paths);
-	devm_kfree(dd->dev, usecases);
-	devm_kfree(dd->dev, dd->clk_path_vote.pdata);
-	dd->clk_path_vote.pdata = NULL;
-	return -ENOMEM;
 }
 
 /**
@@ -402,32 +319,19 @@ path_init_err:
  */
 static int msm_spi_clk_path_postponed_register(struct msm_spi *dd)
 {
-	dd->clk_path_vote.client_hdl = msm_bus_scale_register_client(
-						dd->clk_path_vote.pdata);
+	int ret = 0;
 
-	if (dd->clk_path_vote.client_hdl) {
-		if (dd->clk_path_vote.reg_err) {
-			/* log a success message if an error msg was logged */
-			dd->clk_path_vote.reg_err = false;
-			dev_info(dd->dev,
-			"msm_bus_scale_register_client(mstr-id:%d): 0x%x",
-				dd->pdata->master_id,
-				dd->clk_path_vote.client_hdl);
-		}
+	dd->bus_cl_hdl = msm_bus_scale_register(dd->pdata->master_id,
+						MSM_BUS_SLAVE_EBI_CH0,
+						(char *)dev_name(dd->dev),
+						false);
 
-		msm_spi_clk_path_vote(dd);
-	} else {
-		/* guard to log only one error on multiple failure */
-		if (!dd->clk_path_vote.reg_err) {
-			dd->clk_path_vote.reg_err = true;
-
-			dev_info(dd->dev,
-				"msm_bus_scale_register_client(mstr-id:%d): 0",
-				dd->pdata->master_id);
-		}
+	if (IS_ERR_OR_NULL(dd->bus_cl_hdl)) {
+		ret = (dd->bus_cl_hdl ? PTR_ERR(dd->bus_cl_hdl) : -EAGAIN);
+		dev_err(dd->dev, "Failed bus registration Err %d", ret);
 	}
 
-	return dd->clk_path_vote.client_hdl ? 0 : -EAGAIN;
+	return ret;
 }
 
 static void msm_spi_clk_path_init(struct msm_spi *dd)
@@ -436,20 +340,13 @@ static void msm_spi_clk_path_init(struct msm_spi *dd)
 	 * bail out if path voting is diabled (master_id == 0) or if it is
 	 * already registered (client_hdl != 0)
 	 */
-	if (!dd->pdata->master_id || dd->clk_path_vote.client_hdl)
+	if (!dd->pdata->master_id || dd->bus_cl_hdl)
 		return;
-
-	/* if fail once then try no more */
-	if (!dd->clk_path_vote.pdata && msm_spi_clk_path_init_structs(dd)) {
-		dd->pdata->master_id = 0;
-		return;
-	};
 
 	/* on failure try again later */
 	if (msm_spi_clk_path_postponed_register(dd))
 		return;
 
-	msm_spi_clk_path_vote(dd);
 }
 
 static int msm_spi_calculate_size(int *fifo_size,
@@ -1554,6 +1451,7 @@ static inline void msm_spi_set_cs(struct spi_device *spi, bool set_flag)
 			return;
 	}
 
+	msm_spi_clk_path_vote(dd, spi->max_speed_hz);
 
 	if (!(spi->mode & SPI_CS_HIGH))
 		set_flag = !set_flag;
@@ -1606,6 +1504,7 @@ static void put_local_resources(struct msm_spi *dd)
 	}
 	msm_spi_disable_irqs(dd);
 	clk_disable_unprepare(dd->clk);
+	dd->clock_speed = 0;
 	clk_disable_unprepare(dd->pclk);
 
 	/* Free  the spi clk, miso, mosi, cs gpio */
@@ -2246,6 +2145,8 @@ struct msm_spi_platform_data *msm_spi_dt_to_pdata(
 			&pdata->infinite_mode,           DT_OPT,  DT_U32,   0},
 		{"qcom,master-id",
 			&pdata->master_id,               DT_SGST, DT_U32,   0},
+		{"qcom,bus-width",
+			&pdata->bus_width,               DT_OPT, DT_U32,   8},
 		{"qcom,ver-reg-exists",
 			&pdata->ver_reg_exists,          DT_OPT,  DT_BOOL,  0},
 		{"qcom,use-bam",
@@ -2661,7 +2562,7 @@ static int msm_spi_pm_suspend_runtime(struct device *device)
 		put_local_resources(dd);
 
 	if (dd->pdata)
-		msm_spi_clk_path_unvote(dd);
+		msm_spi_clk_path_vote(dd, 0);
 
 suspend_exit:
 	return 0;
@@ -2691,7 +2592,7 @@ static int msm_spi_pm_resume_runtime(struct device *device)
 			dd->is_init_complete = true;
 	}
 	msm_spi_clk_path_init(dd);
-	msm_spi_clk_path_vote(dd);
+	msm_spi_clk_path_vote(dd, dd->pdata->max_clock_speed);
 
 	if (!dd->pdata->is_shared) {
 		ret = get_local_resources(dd);

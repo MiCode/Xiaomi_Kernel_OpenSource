@@ -262,22 +262,6 @@ static struct msm_spi_regs{
 };
 #endif
 
-/**
- * qup_i2c_clk_path_vote: data to use bus scaling driver for clock path vote
- *
- * @client_hdl when zero, client is not registered with the bus scaling driver,
- *      and bus scaling functionality should not be used. When non zero, it
- *      is a bus scaling client id and may be used to vote for clock path.
- * @reg_err when true, registration error was detected and an error message was
- *      logged. i2c will attempt to re-register but will log error only once.
- *      once registration succeed, the flag is set to false.
- */
-struct qup_i2c_clk_path_vote {
-	u32                         client_hdl;
-	struct msm_bus_scale_pdata *pdata;
-	bool                        reg_err;
-};
-
 struct msm_spi_bam_pipe {
 	const char              *name;
 	struct sps_pipe         *handle;
@@ -312,7 +296,7 @@ struct msm_spi {
 	struct completion        rx_transfer_complete;
 	struct clk              *clk;    /* core clock */
 	struct clk              *pclk;   /* interface clock */
-	struct qup_i2c_clk_path_vote clk_path_vote;
+	struct msm_bus_client_handle *bus_cl_hdl;
 	unsigned long            mem_phys_addr;
 	size_t                   mem_size;
 	int                      input_fifo_size;
