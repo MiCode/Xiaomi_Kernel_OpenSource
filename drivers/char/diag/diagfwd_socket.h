@@ -92,4 +92,5 @@ int diag_socket_init_peripheral(uint8_t peripheral);
 void diag_socket_exit(void);
 void diag_socket_early_exit(void);
 void diag_socket_invalidate(void *ctxt, struct diagfwd_info *fwd_ctxt);
+int diag_socket_check_state(void *ctxt);
 #endif
