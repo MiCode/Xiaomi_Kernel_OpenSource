@@ -848,3 +848,7 @@
 		drive-strength = <8>; /* 8 MA */
 	};
 };
+
+&wil6210 {
+	status = "ok";
+};
