@@ -1394,10 +1394,10 @@ static void qcom_ice_debug(struct platform_device *pdev)
 		qcom_ice_readl(ice_dev, QCOM_ICE_REGS_STREAM2_COUNTERS9_LSB));
 
 	qcom_ice_dump_test_bus(ice_dev);
-	pr_err("%s: ICE reset start time: %u ICE reset done time: %u\n",
+	pr_err("%s: ICE reset start time: %llu ICE reset done time: %llu\n",
 			ice_dev->ice_instance_type,
-			(unsigned int)ice_dev->ice_reset_start_time.tv64,
-			(unsigned int)ice_dev->ice_reset_complete_time.tv64);
+		(unsigned long long)ice_dev->ice_reset_start_time.tv64,
+		(unsigned long long)ice_dev->ice_reset_complete_time.tv64);
 
 	if (ktime_to_us(ktime_sub(ice_dev->ice_reset_complete_time,
 				  ice_dev->ice_reset_start_time)) > 0)
