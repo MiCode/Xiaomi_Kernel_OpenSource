@@ -274,6 +274,25 @@ HMSS specific properties:
 			BIT(6) - Performance cluster core 1
 			BIT(7) - Performance cluster core 0
 
+- qcom,cpr-dynamic-floor-corner
+	Usage:      optional
+	Value type: <prop-encoded-array>
+	Definition: A list of integers which defines for each fuse combination
+		    the CPR corner whose closed-loop voltage should be used as
+		    a CPR floor voltage whenever the power domains for this CPR3
+		    regulator are bypassed.  Supported values are 0 and 1 to N.
+		    A value of 0 means that no dynamic floor is needed.  N is
+		    the number of corners defined for this fuse combination in
+		    the qcom,cpr-corners property.
+
+		    The list must contain qcom,cpr-fuse-combos number of
+		    elements in which case the elements are matched to fuse
+		    combinations 1-to-1 or qcom,cpr-speed-bins number of
+		    elements in which case the elements are matched to
+		    speed bins 1-to-1 or exactly 1 element which is used
+		    regardless of the fuse combination and speed bin found
+		    on a given chip.
+
 =======
 Example
 =======
