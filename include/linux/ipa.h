@@ -1110,6 +1110,9 @@ struct ipa_mhi_connect_params {
 	u8 channel_id;
 };
 
+/* bit #40 in address should be asserted for MHI transfers over pcie */
+#define IPA_MHI_HOST_ADDR(addr) ((addr) | BIT_ULL(40))
+
 /**
  * struct ipa_gsi_ep_config - IPA GSI endpoint configurations
  *
