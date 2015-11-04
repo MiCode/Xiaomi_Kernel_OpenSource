@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -159,7 +159,7 @@ int cam_smmu_find_index_by_handle(int hdl);
  * @param token: It is input param when trigger page fault handler
  */
 void cam_smmu_reg_client_page_fault_handler(int handle,
-		int (*client_page_fault_handler)(struct iommu_domain *,
+		void (*client_page_fault_handler)(struct iommu_domain *,
 		struct device *, unsigned long,
 		int, void*), void *token);
 
