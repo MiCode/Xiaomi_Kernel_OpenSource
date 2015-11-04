@@ -656,17 +656,18 @@ static void cpr3_regulator_set_target_quot(struct cpr3_thread *thread)
  * @vreg:		Pointer to the CPR3 regulator
  * @vdd_volt:		Last known settled voltage in microvolts for the
  *			VDD supply
+ * @reg_last_measurement: Value read from the LAST_MEASUREMENT register
  *
  * Return: none
  */
 static void cpr3_update_vreg_closed_loop_volt(struct cpr3_regulator *vreg,
-				int vdd_volt)
+				int vdd_volt, u32 reg_last_measurement)
 {
 	bool step_dn, step_up, aggr_step_up, aggr_step_dn, aggr_step_mid;
 	bool valid, pd_valid, saw_error;
 	struct cpr3_controller *ctrl = vreg->thread->ctrl;
 	struct cpr3_corner *corner;
-	u32 result, id;
+	u32 id;
 
 	if (vreg->last_closed_loop_corner == CPR3_REGULATOR_CORNER_INVALID)
 		return;
@@ -694,35 +695,36 @@ static void cpr3_update_vreg_closed_loop_volt(struct cpr3_regulator *vreg,
 	}
 
 	/* CPR clocks are on and HW closed loop is supported */
-	result = cpr3_read(ctrl, CPR3_REG_LAST_MEASUREMENT);
-	valid = !!(result & CPR3_LAST_MEASUREMENT_VALID);
+	valid = !!(reg_last_measurement & CPR3_LAST_MEASUREMENT_VALID);
 	if (!valid) {
 		cpr3_debug(vreg, "CPR_LAST_VALID_MEASUREMENT=0x%X valid bit not set\n",
-			   result);
+			   reg_last_measurement);
 		return;
 	}
 
 	id = vreg->thread->thread_id;
 
-	step_dn = !!(result & CPR3_LAST_MEASUREMENT_THREAD_DN(id));
-	step_up = !!(result & CPR3_LAST_MEASUREMENT_THREAD_UP(id));
-
-	aggr_step_dn = !!(result & CPR3_LAST_MEASUREMENT_AGGR_DN);
-	aggr_step_mid = !!(result & CPR3_LAST_MEASUREMENT_AGGR_MID);
-	aggr_step_up = !!(result & CPR3_LAST_MEASUREMENT_AGGR_UP);
-	saw_error = !!(result & CPR3_LAST_MEASUREMENT_SAW_ERROR);
-
-	pd_valid = !((((result & CPR3_LAST_MEASUREMENT_PD_BYPASS_MASK)
+	step_dn
+	       = !!(reg_last_measurement & CPR3_LAST_MEASUREMENT_THREAD_DN(id));
+	step_up
+	       = !!(reg_last_measurement & CPR3_LAST_MEASUREMENT_THREAD_UP(id));
+	aggr_step_dn = !!(reg_last_measurement & CPR3_LAST_MEASUREMENT_AGGR_DN);
+	aggr_step_mid
+		= !!(reg_last_measurement & CPR3_LAST_MEASUREMENT_AGGR_MID);
+	aggr_step_up = !!(reg_last_measurement & CPR3_LAST_MEASUREMENT_AGGR_UP);
+	saw_error = !!(reg_last_measurement & CPR3_LAST_MEASUREMENT_SAW_ERROR);
+	pd_valid
+	     = !((((reg_last_measurement & CPR3_LAST_MEASUREMENT_PD_BYPASS_MASK)
 		       >> CPR3_LAST_MEASUREMENT_PD_BYPASS_SHIFT)
 		      & vreg->pd_bypass_mask) == vreg->pd_bypass_mask);
 
 	if (!pd_valid) {
 		cpr3_debug(vreg, "CPR_LAST_VALID_MEASUREMENT=0x%X, all power domains bypassed\n",
-			   result);
+			   reg_last_measurement);
 		return;
 	} else if (step_dn && step_up) {
 		cpr3_err(vreg, "both up and down status bits set, CPR_LAST_VALID_MEASUREMENT=0x%X\n",
-			 result);
+			 reg_last_measurement);
 		return;
 	} else if (aggr_step_dn && step_dn && vdd_volt < corner->last_volt
 		   && vdd_volt >= corner->floor_volt) {
@@ -743,7 +745,7 @@ static void cpr3_update_vreg_closed_loop_volt(struct cpr3_regulator *vreg,
 			   vreg->last_closed_loop_corner,
 			   corner->ceiling_volt,
 			   vreg->last_closed_loop_corner, corner->floor_volt,
-			   vdd_volt, result);
+			   vdd_volt, reg_last_measurement);
 		return;
 	}
 
@@ -751,7 +753,7 @@ static void cpr3_update_vreg_closed_loop_volt(struct cpr3_regulator *vreg,
 		   vreg->last_closed_loop_corner, corner->last_volt,
 		   vreg->last_closed_loop_corner, corner->ceiling_volt,
 		   vreg->last_closed_loop_corner, corner->floor_volt,
-		   result);
+		   reg_last_measurement);
 }
 
 /**
@@ -1622,6 +1624,66 @@ static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
 }
 
 /**
+ * cpr3_regulator_get_dynamic_floor_volt() - returns the current dynamic floor
+ *		voltage based upon static configurations and the state of all
+ *		power domains during the last CPR measurement
+ * @ctrl:		Pointer to the CPR3 controller
+ * @reg_last_measurement: Value read from the LAST_MEASUREMENT register
+ *
+ * When using HW closed-loop, the dynamic floor voltage is always returned
+ * regardless of the current state of the power domains.
+ *
+ * Return: dynamic floor voltage in microvolts or 0 if dynamic floor is not
+ *         currently required
+ */
+static int cpr3_regulator_get_dynamic_floor_volt(struct cpr3_controller *ctrl,
+		u32 reg_last_measurement)
+{
+	int dynamic_floor_volt = 0;
+	struct cpr3_regulator *vreg;
+	bool valid, pd_valid;
+	u32 bypass_bits;
+	int i, j;
+
+	if (!ctrl->supports_hw_closed_loop)
+		return 0;
+
+	if (likely(!ctrl->use_hw_closed_loop)) {
+		valid = !!(reg_last_measurement & CPR3_LAST_MEASUREMENT_VALID);
+		bypass_bits
+		 = (reg_last_measurement & CPR3_LAST_MEASUREMENT_PD_BYPASS_MASK)
+			>> CPR3_LAST_MEASUREMENT_PD_BYPASS_SHIFT;
+	} else {
+		/*
+		 * Ensure that the dynamic floor voltage is always used for
+		 * HW closed-loop since the conditions below cannot be evaluated
+		 * after each CPR measurement.
+		 */
+		valid = false;
+		bypass_bits = 0;
+	}
+
+	for (i = 0; i < ctrl->thread_count; i++) {
+		for (j = 0; j < ctrl->thread[i].vreg_count; j++) {
+			vreg = &ctrl->thread[i].vreg[j];
+
+			if (!vreg->uses_dynamic_floor)
+				continue;
+
+			pd_valid = !((bypass_bits & vreg->pd_bypass_mask)
+					== vreg->pd_bypass_mask);
+
+			if (!valid || !pd_valid)
+				dynamic_floor_volt = max(dynamic_floor_volt,
+					vreg->corner[
+					 vreg->dynamic_floor_corner].last_volt);
+		}
+	}
+
+	return dynamic_floor_volt;
+}
+
+/**
  * cpr3_regulator_aggregate_corners() - aggregate two corners together
  * @aggr_corner:		Pointer to accumulated aggregated corner which
  *				is both an input and an output
@@ -1690,7 +1752,8 @@ static int _cpr3_regulator_update_ctrl_state(struct cpr3_controller *ctrl)
 	struct cpr3_regulator *vreg;
 	bool valid = false;
 	bool thread_valid;
-	int i, j, rc, new_volt, vdd_volt;
+	int i, j, rc, new_volt, vdd_volt, dynamic_floor_volt;
+	u32 reg_last_measurement = 0;
 
 	cpr3_ctrl_loop_disable(ctrl);
 
@@ -1700,6 +1763,10 @@ static int _cpr3_regulator_update_ctrl_state(struct cpr3_controller *ctrl)
 			 vdd_volt);
 		return vdd_volt;
 	}
+
+	if (ctrl->cpr_enabled && ctrl->use_hw_closed_loop)
+		reg_last_measurement
+			= cpr3_read(ctrl, CPR3_REG_LAST_MEASUREMENT);
 
 	/* Aggregate the requests of all threads */
 	for (i = 0; i < ctrl->thread_count; i++) {
@@ -1711,7 +1778,9 @@ static int _cpr3_regulator_update_ctrl_state(struct cpr3_controller *ctrl)
 		for (j = 0; j < thread->vreg_count; j++) {
 			vreg = &thread->vreg[j];
 
-			cpr3_update_vreg_closed_loop_volt(vreg, vdd_volt);
+			if (ctrl->cpr_enabled && ctrl->use_hw_closed_loop)
+				cpr3_update_vreg_closed_loop_volt(vreg,
+						vdd_volt, reg_last_measurement);
 
 			if (!vreg->vreg_enabled
 			    || vreg->current_corner
@@ -1799,6 +1868,22 @@ static int _cpr3_regulator_update_ctrl_state(struct cpr3_controller *ctrl)
 					     aggr_corner.floor_volt);
 		aggr_corner.open_loop_volt = max(aggr_corner.open_loop_volt,
 						  aggr_corner.floor_volt);
+	}
+
+	if (ctrl->use_hw_closed_loop) {
+		dynamic_floor_volt
+			= cpr3_regulator_get_dynamic_floor_volt(ctrl,
+							reg_last_measurement);
+		if (aggr_corner.floor_volt < dynamic_floor_volt) {
+			aggr_corner.floor_volt = dynamic_floor_volt;
+			aggr_corner.last_volt = max(aggr_corner.last_volt,
+							aggr_corner.floor_volt);
+			aggr_corner.open_loop_volt
+				= max(aggr_corner.open_loop_volt,
+					aggr_corner.floor_volt);
+			aggr_corner.ceiling_volt = max(aggr_corner.ceiling_volt,
+							aggr_corner.floor_volt);
+		}
 	}
 
 	if (ctrl->cpr_enabled && ctrl->last_corner_was_closed_loop) {
@@ -2805,9 +2890,11 @@ static irqreturn_t cpr3_irq_handler(int irq, void *data)
 	struct cpr3_controller *ctrl = data;
 	struct cpr3_corner *aggr = &ctrl->aggr_corner;
 	u32 cont = CPR3_CONT_CMD_NACK;
+	u32 reg_last_measurement = 0;
+	struct cpr3_regulator *vreg;
 	struct cpr3_corner *corner;
 	unsigned long flags;
-	int i, new_volt, last_volt, rc;
+	int i, j, new_volt, last_volt, dynamic_floor_volt, rc;
 	u32 irq_en, status, cpr_status, ctl;
 	bool up, down;
 
@@ -2894,6 +2981,12 @@ static irqreturn_t cpr3_irq_handler(int irq, void *data)
 		down = false;
 	}
 
+	if (ctrl->supports_hw_closed_loop)
+		reg_last_measurement
+			= cpr3_read(ctrl, CPR3_REG_LAST_MEASUREMENT);
+	dynamic_floor_volt = cpr3_regulator_get_dynamic_floor_volt(ctrl,
+							reg_last_measurement);
+
 	local_irq_restore(flags);
 	preempt_enable();
 
@@ -2925,6 +3018,22 @@ static irqreturn_t cpr3_irq_handler(int irq, void *data)
 		cpr3_debug(ctrl, "limiting to floor=%d uV\n", aggr->floor_volt);
 	}
 
+	if (down && new_volt < dynamic_floor_volt) {
+		/*
+		 * The vdd-supply voltage should not be decreased below the
+		 * dynamic floor voltage.  However, it is not necessary (and
+		 * counter productive) to force the voltage up to this level
+		 * if it happened to be below it since the closed-loop voltage
+		 * must have gotten there in a safe manner while the power
+		 * domains for the CPR3 regulator imposing the dynamic floor
+		 * were not bypassed.
+		 */
+		new_volt = last_volt;
+		irq_en &= ~CPR3_IRQ_DOWN;
+		cpr3_debug(ctrl, "limiting to dynamic floor=%d uV\n",
+			dynamic_floor_volt);
+	}
+
 	for (i = 0; i < ctrl->thread_count; i++)
 		cpr3_print_result(&ctrl->thread[i]);
 
@@ -2946,6 +3055,18 @@ static irqreturn_t cpr3_irq_handler(int irq, void *data)
 			goto done;
 		}
 		cont = CPR3_CONT_CMD_ACK;
+
+		/*
+		 * Update the closed-loop voltage for all regulators managed
+		 * by this CPR controller.
+		 */
+		for (i = 0; i < ctrl->thread_count; i++) {
+			for (j = 0; j < ctrl->thread[i].vreg_count; j++) {
+				vreg = &ctrl->thread[i].vreg[j];
+				cpr3_update_vreg_closed_loop_volt(vreg,
+					new_volt, reg_last_measurement);
+			}
+		}
 	}
 
 	if (ctrl->proc_clock_throttle && new_volt == aggr->ceiling_volt)
@@ -3855,6 +3976,9 @@ static int cpr3_debug_hw_closed_loop_enable_set(void *data, u64 val)
 					= vreg->corner[k].open_loop_volt;
 		}
 	}
+
+	/* Skip last_volt caching */
+	ctrl->last_corner_was_closed_loop = false;
 
 	rc = cpr3_regulator_update_ctrl_state(ctrl);
 	if (rc) {
