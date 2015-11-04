@@ -2242,17 +2242,11 @@ EXPORT_SYMBOL(ipa_mhi_resume);
  *
  * This function is called by MHI client driver on MHI reset to destroy all IPA
  * MHI resources.
- *
- * Return codes: 0	  : success
- *		 negative : error
  */
-int ipa_mhi_destroy(void)
+void ipa_mhi_destroy(void)
 {
-	int ret;
+	IPA_API_DISPATCH(ipa_mhi_destroy);
 
-	IPA_API_DISPATCH_RETURN(ipa_mhi_destroy);
-
-	return ret;
 }
 EXPORT_SYMBOL(ipa_mhi_destroy);
 

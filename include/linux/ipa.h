@@ -1574,7 +1574,7 @@ int ipa_mhi_suspend(bool force);
 
 int ipa_mhi_resume(void);
 
-int ipa_mhi_destroy(void);
+void ipa_mhi_destroy(void);
 
 /*
  * IPA_USB
@@ -2381,9 +2381,9 @@ static inline int ipa_mhi_resume(void)
 	return -EPERM;
 }
 
-static inline int ipa_mhi_destroy(void)
+static inline void ipa_mhi_destroy(void)
 {
-	return -EPERM;
+	return;
 }
 
 /*

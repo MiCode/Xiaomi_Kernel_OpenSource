@@ -1969,7 +1969,7 @@ fail_init_channel:
 /**
  * ipa3_mhi_disconnect_pipe() - Disconnect pipe from IPA and reset corresponding
  * MHI channel
- * @clnt_hdl: [out] client handle for this pipe
+ * @clnt_hdl: client handle for this pipe
  *
  * This function is called by MHI client driver on MHI channel reset.
  * This function is called after MHI channel was started.
@@ -2014,7 +2014,6 @@ int ipa3_mhi_disconnect_pipe(u32 clnt_hdl)
 		IPAERR("invalid clnt index\n");
 		return -EINVAL;
 	}
-
 	ep = &ipa3_ctx->ep[clnt_hdl];
 
 	if (!ep->keep_ipa_awake)
@@ -2490,7 +2489,6 @@ int ipa3_mhi_suspend(bool force)
 	 * IPA RM resource are released to make sure tag process will not start
 	 */
 	ipa3_inc_client_enable_clks();
-
 	IPA_MHI_DBG("release prod\n");
 	res = ipa3_mhi_release_prod();
 	if (res) {
@@ -2537,14 +2535,13 @@ int ipa3_mhi_suspend(bool force)
 	if (!empty)
 		ipa3_ctx->tag_process_before_gating = false;
 
-	ipa3_dec_client_disable_clks();
-
 	res = ipa3_mhi_set_state(IPA_MHI_STATE_SUSPENDED);
 	if (res) {
 		IPA_MHI_ERR("ipa3_mhi_set_state failed %d\n", res);
 		goto fail_release_cons;
 	}
 
+	ipa3_dec_client_disable_clks();
 	IPA_MHI_FUNC_EXIT();
 	return 0;
 
@@ -2554,6 +2551,7 @@ fail_suspend_dl_channel:
 fail_release_cons:
 	ipa3_mhi_request_prod();
 fail_release_prod:
+	ipa3_dec_client_disable_clks();
 fail_suspend_ul_channel:
 	ipa3_mhi_resume_ul_channels(true);
 	ipa3_mhi_set_state(IPA_MHI_STATE_STARTED);
@@ -2649,24 +2647,155 @@ fail_resume_dl_channels:
 	return res;
 }
 
+static int  ipa3_mhi_destroy_channels(struct ipa3_mhi_channel_ctx *channels,
+	int num_of_channels)
+{
+	struct ipa3_mhi_channel_ctx *channel;
+	int i, res;
+	u32 clnt_hdl;
+
+	for (i = 0; i < num_of_channels; i++) {
+		channel = &channels[i];
+		if (!channel->valid)
+			continue;
+		if (channel->state == IPA_HW_MHI_CHANNEL_STATE_INVALID)
+			continue;
+		if (channel->state != IPA_HW_MHI_CHANNEL_STATE_DISABLE) {
+			clnt_hdl = ipa3_get_ep_mapping(channel->ep->client);
+			IPA_MHI_DBG("disconnect pipe (ep: %d)\n", clnt_hdl);
+			res = ipa3_mhi_disconnect_pipe(clnt_hdl);
+			if (res) {
+				IPAERR("failed to disconnect pipe %d, err %d\n",
+					clnt_hdl, res);
+				goto fail;
+			}
+		}
+
+		if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
+			IPA_MHI_DBG("reset event ring (hdl: %lu, ep: %d)\n",
+				channel->ep->gsi_evt_ring_hdl, clnt_hdl);
+			res = gsi_reset_evt_ring(channel->ep->gsi_evt_ring_hdl);
+			if (res) {
+				IPAERR(" failed to reset evt ring %lu, err %d\n"
+					, channel->ep->gsi_evt_ring_hdl, res);
+				goto fail;
+			}
+			res = gsi_dealloc_evt_ring(
+				channel->ep->gsi_evt_ring_hdl);
+			if (res) {
+				IPAERR("dealloc evt ring %lu failed, err %d\n"
+					, channel->ep->gsi_evt_ring_hdl, res);
+				goto fail;
+			}
+		}
+	}
+
+	return 0;
+fail:
+	return res;
+}
+
 /**
  * ipa3_mhi_destroy() - Destroy MHI IPA
  *
  * This function is called by MHI client driver on MHI reset to destroy all IPA
  * MHI resources.
- *
- * Return codes: 0	  : success
- *		 negative : error
+ * When this function returns ipa_mhi can re-initialize.
  */
-int ipa3_mhi_destroy(void)
+void ipa3_mhi_destroy(void)
 {
-	IPA_MHI_FUNC_ENTRY();
+	int res;
 
-	IPAERR("Not implemented Yet!\n");
+	IPA_MHI_FUNC_ENTRY();
+	if (!ipa3_mhi_ctx) {
+		IPA_MHI_DBG("IPA MHI was not initialized, already destroyed\n");
+		return;
+	}
+	/* reset all UL and DL acc channels and its accociated event rings */
+	res = ipa3_mhi_destroy_channels(ipa3_mhi_ctx->ul_channels,
+		IPA_MHI_MAX_UL_CHANNELS);
+	if (res) {
+		IPAERR("ipa3_mhi_destroy_channels(ul_channels) failed %d\n",
+			res);
+		goto fail;
+	}
+	IPA_MHI_DBG("All UL channels are disconnected\n");
+
+	res = ipa3_mhi_destroy_channels(ipa3_mhi_ctx->dl_channels,
+		IPA_MHI_MAX_DL_CHANNELS);
+	if (res) {
+		IPAERR("ipa3_mhi_destroy_channels(dl_channels) failed %d\n",
+			res);
+		goto fail;
+	}
+	IPA_MHI_DBG("All DL channels are disconnected\n");
+
+	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_SPS) {
+		IPA_MHI_DBG("cleanup uC MHI\n");
+		ipa3_uc_mhi_cleanup();
+	}
+
+	if (ipa3_mhi_ctx->state != IPA_MHI_STATE_INITIALIZED  &&
+	    ipa3_mhi_ctx->state != IPA_MHI_STATE_READY) {
+		IPA_MHI_DBG("release prod\n");
+		res = ipa3_mhi_release_prod();
+		if (res) {
+			IPA_MHI_ERR("ipa3_mhi_release_prod failed %d\n", res);
+			goto fail;
+		}
+		IPA_MHI_DBG("wait for cons release\n");
+		res = ipa3_mhi_wait_for_cons_release();
+		if (res) {
+			IPAERR("ipa3_mhi_wait_for_cons_release failed %d\n",
+				res);
+			goto fail;
+		}
+		usleep_range(IPA_MHI_SUSPEND_SLEEP_MIN,
+				IPA_MHI_SUSPEND_SLEEP_MAX);
+
+		IPA_MHI_DBG("deleate dependency Q6_PROD->MHI_CONS\n");
+		res = ipa3_rm_delete_dependency(IPA_RM_RESOURCE_Q6_PROD,
+			IPA_RM_RESOURCE_MHI_CONS);
+		if (res) {
+			IPAERR("Error deleting dependency %d->%d, res=%d\n",
+			IPA_RM_RESOURCE_Q6_PROD, IPA_RM_RESOURCE_MHI_CONS, res);
+			goto fail;
+		}
+		IPA_MHI_DBG("deleate dependency MHI_PROD->Q6_CONS\n");
+		res = ipa3_rm_delete_dependency(IPA_RM_RESOURCE_MHI_PROD,
+			IPA_RM_RESOURCE_Q6_CONS);
+		if (res) {
+			IPAERR("Error deleting dependency %d->%d, res=%d\n",
+			IPA_RM_RESOURCE_MHI_PROD, IPA_RM_RESOURCE_Q6_CONS, res);
+			goto fail;
+		}
+	}
+
+	res = ipa3_rm_delete_resource(IPA_RM_RESOURCE_MHI_PROD);
+	if (res) {
+		IPAERR("Error deleting resource %d, res=%d\n",
+			IPA_RM_RESOURCE_MHI_PROD, res);
+		goto fail;
+	}
+
+	res = ipa3_rm_delete_resource(IPA_RM_RESOURCE_MHI_CONS);
+	if (res) {
+		IPAERR("Error deleting resource %d, res=%d\n",
+			IPA_RM_RESOURCE_MHI_CONS, res);
+		goto fail;
+	}
+
 	ipa3_mhi_debugfs_destroy();
+	destroy_workqueue(ipa3_mhi_ctx->wq);
+	kfree(ipa3_mhi_ctx);
+	ipa3_mhi_ctx = NULL;
+	IPA_MHI_DBG("IPA MHI was reset, ready for re-init\n");
 
 	IPA_MHI_FUNC_EXIT();
-	return -EPERM;
+	return;
+fail:
+	BUG();
+	return;
 }
 
 /**

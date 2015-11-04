@@ -1733,7 +1733,7 @@ int ipa2_mhi_suspend(bool force);
 
 int ipa2_mhi_resume(void);
 
-int ipa2_mhi_destroy(void);
+void ipa2_mhi_destroy(void);
 
 /*
  * mux id

@@ -600,6 +600,21 @@ int ipa3_uc_mhi_init(void (*ready_cb)(void), void (*wakeup_request_cb)(void))
 	return 0;
 }
 
+void ipa3_uc_mhi_cleanup(void)
+{
+	IPADBG("Enter\n");
+
+	if (!ipa3_uc_mhi_ctx) {
+		IPAERR("ipa3_uc_mhi_ctx is not initialized\n");
+		return;
+	}
+	ipa3_uc_register_handlers(IPA_HW_FEATURE_MHI, NULL);
+	kfree(ipa3_uc_mhi_ctx);
+	ipa3_uc_mhi_ctx = NULL;
+
+	IPADBG("Done\n");
+}
+
 int ipa3_uc_mhi_init_engine(struct ipa_mhi_msi_info *msi, u32 mmio_addr,
 	u32 host_ctrl_addr, u32 host_data_addr, u32 first_ch_idx,
 	u32 first_evt_idx)

@@ -1994,7 +1994,7 @@ int ipa3_mhi_suspend(bool force);
 
 int ipa3_mhi_resume(void);
 
-int ipa3_mhi_destroy(void);
+void ipa3_mhi_destroy(void);
 
 /*
  * mux id
@@ -2215,6 +2215,7 @@ void ipa3_dma_async_memcpy_notify_cb(void *priv,
 int ipa3_uc_update_hw_flags(u32 flags);
 
 int ipa3_uc_mhi_init(void (*ready_cb)(void), void (*wakeup_request_cb)(void));
+void ipa3_uc_mhi_cleanup(void);
 int ipa3_uc_mhi_send_dl_ul_sync_info(union IpaHwMhiDlUlSyncCmdData_t cmd);
 int ipa3_uc_mhi_init_engine(struct ipa_mhi_msi_info *msi, u32 mmio_addr,
 	u32 host_ctrl_addr, u32 host_data_addr, u32 first_ch_idx,

@@ -1817,24 +1817,20 @@ fail_resume_dl_channels:
  *
  * This function is called by MHI client driver on MHI reset to destroy all IPA
  * MHI resources.
- *
- * Return codes: 0	  : success
- *		 negative : error
  */
-int ipa2_mhi_destroy(void)
+void ipa2_mhi_destroy(void)
 {
 	IPA_MHI_FUNC_ENTRY();
 
 	if (unlikely(!ipa_mhi_ctx)) {
 		IPA_MHI_ERR("IPA MHI was not initialized\n");
-		return -EINVAL;
+		return;
 	}
 
 	IPAERR("Not implemented Yet!\n");
 	ipa_mhi_debugfs_destroy();
 
 	IPA_MHI_FUNC_EXIT();
-	return -EPERM;
 }
 
 /**
