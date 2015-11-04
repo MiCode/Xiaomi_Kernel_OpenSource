@@ -128,6 +128,7 @@ struct edge_info {
  * @remote_legacy:	The remote side of the channel is in legacy mode.
  * @rx_data_lock:	Used to serialize RX data processing.
  * @streaming_ch:	Indicates the underlying SMD channel is streaming type.
+ * @tx_resume_needed:	Indicates whether a tx_resume call should be triggered.
  */
 struct channel {
 	struct list_head node;
@@ -151,6 +152,7 @@ struct channel {
 	bool remote_legacy;
 	spinlock_t rx_data_lock;
 	bool streaming_ch;
+	bool tx_resume_needed;
 };
 
 /**
@@ -225,6 +227,32 @@ static DEFINE_MUTEX(pdrv_list_mutex);
 static void process_data_event(struct work_struct *work);
 static int add_platform_driver(struct channel *ch);
 static void smd_data_ch_close(struct channel *ch);
+
+/**
+ * check_write_avail() - Check if there is space to to write on the smd channel,
+ *			 and enable the read interrupt if there is not.
+ * @check_fn:	The function to use to check if there is space to write
+ * @ch:		The channel to check
+ *
+ * Return: 0 on success or standard Linux error codes.
+ */
+static int check_write_avail(int (*check_fn)(smd_channel_t *),
+			     struct channel *ch)
+{
+	int rc = check_fn(ch->smd_ch);
+
+	if (rc == 0) {
+		ch->tx_resume_needed = true;
+		smd_enable_read_intr(ch->smd_ch);
+		rc = check_fn(ch->smd_ch);
+		if (rc > 0) {
+			ch->tx_resume_needed = false;
+			smd_disable_read_intr(ch->smd_ch);
+		}
+	}
+
+	return rc;
+}
 
 /**
  * process_ctl_event() - process a control channel event task
@@ -652,6 +680,12 @@ static void process_data_event(struct work_struct *work)
 	ch = container_of(work, struct channel, work);
 	einfo = ch->edge;
 
+	if (ch->tx_resume_needed && smd_write_avail(ch->smd_ch) > 0) {
+		ch->tx_resume_needed = false;
+		smd_disable_read_intr(ch->smd_ch);
+		einfo->xprt_if.glink_core_if_ptr->tx_resume(&einfo->xprt_if);
+	}
+
 	spin_lock_irqsave(&ch->rx_data_lock, rx_data_flags);
 	while (!ch->is_closing && smd_read_avail(ch->smd_ch)) {
 		if (!ch->streaming_ch)
@@ -804,6 +838,7 @@ static void smd_data_ch_close(struct channel *ch)
 
 	ch->is_closing = true;
 	ch->wait_for_probe = false;
+	ch->tx_resume_needed = false;
 	flush_workqueue(ch->wq);
 
 	if (ch->smd_ch) {
@@ -1128,6 +1163,7 @@ static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
 		}
 	}
 
+	ch->tx_resume_needed = false;
 	ch->lcid = lcid;
 
 	if (einfo->smd_ctl_ch_open) {
@@ -1368,6 +1404,7 @@ static int ssr(struct glink_transport_if *if_ptr)
 		ch->local_legacy = false;
 		ch->remote_legacy = false;
 		ch->rcid = 0;
+		ch->tx_resume_needed = false;
 
 		spin_lock_irqsave(&ch->intents_lock, flags);
 		while (!list_empty(&ch->intents)) {
@@ -1583,7 +1620,7 @@ static int tx(struct glink_transport_if *if_ptr, uint32_t lcid,
 
 	if (!ch->streaming_ch) {
 		if (pctx->size == pctx->size_remaining) {
-			rc = smd_write_avail(ch->smd_ch);
+			rc = check_write_avail(smd_write_avail, ch);
 			if (rc <= 0) {
 				srcu_read_unlock(&einfo->ssr_sync, rcu_id);
 				return rc;
@@ -1595,7 +1632,7 @@ static int tx(struct glink_transport_if *if_ptr, uint32_t lcid,
 			}
 		}
 
-		rc = smd_write_segment_avail(ch->smd_ch);
+		rc = check_write_avail(smd_write_segment_avail, ch);
 		if (rc <= 0) {
 			srcu_read_unlock(&einfo->ssr_sync, rcu_id);
 			return rc;
@@ -1610,7 +1647,7 @@ static int tx(struct glink_transport_if *if_ptr, uint32_t lcid,
 			return rc;
 		}
 	} else {
-		rc = smd_write_avail(ch->smd_ch);
+		rc = check_write_avail(smd_write_avail, ch);
 		if (rc <= 0) {
 			srcu_read_unlock(&einfo->ssr_sync, rcu_id);
 			return rc;
