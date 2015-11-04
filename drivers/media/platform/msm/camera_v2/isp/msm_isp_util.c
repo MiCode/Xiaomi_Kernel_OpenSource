@@ -718,6 +718,7 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 	int rc = 0, i, j;
 	struct msm_isp_set_dual_hw_ms_cmd *dual_hw_ms_cmd = NULL;
 	struct msm_vfe_src_info *src_info = NULL;
+	unsigned long flags;
 
 	if (!vfe_dev || !arg) {
 		pr_err("%s: Error! Invalid input vfe_dev %p arg %p\n",
@@ -746,7 +747,9 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 		vfe_dev->common_data->ms_resource.sof_delta_threshold =
 			dual_hw_ms_cmd->sof_delta_threshold;
 	} else if (src_info != NULL) {
-		spin_lock(&vfe_dev->common_data->common_dev_data_lock);
+		spin_lock_irqsave(
+			&vfe_dev->common_data->common_dev_data_lock,
+			flags);
 		src_info->dual_hw_type = DUAL_HW_MASTER_SLAVE;
 		ISP_DBG("%s: Slave\n", __func__);
 
@@ -765,7 +768,9 @@ static int msm_isp_set_dual_HW_master_slave_mode(
 			ISP_DBG("%s: Slave id %d\n", __func__, j);
 			break;
 		}
-		spin_unlock(&vfe_dev->common_data->common_dev_data_lock);
+		spin_unlock_irqrestore(
+			&vfe_dev->common_data->common_dev_data_lock,
+			flags);
 
 		if (j == MS_NUM_SLAVE_MAX) {
 			pr_err("%s: Error! Cannot find free aux resource\n",
