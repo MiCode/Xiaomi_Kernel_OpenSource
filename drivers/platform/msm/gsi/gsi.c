@@ -1736,7 +1736,7 @@ int gsi_stop_channel(unsigned long chan_hdl)
 	res = wait_for_completion_timeout(&ctx->compl,
 			msecs_to_jiffies(GSI_STOP_CMD_TIMEOUT_MS));
 	if (res == 0) {
-		GSIERR("chan_hdl=%lu timed out\n", chan_hdl);
+		GSIDBG("chan_hdl=%lu timed out\n", chan_hdl);
 		res = -GSI_STATUS_TIMED_OUT;
 		goto free_lock;
 	}
@@ -2055,6 +2055,66 @@ int gsi_query_channel_info(unsigned long chan_hdl,
 	return GSI_STATUS_SUCCESS;
 }
 EXPORT_SYMBOL(gsi_query_channel_info);
+
+int gsi_is_channel_empty(unsigned long chan_hdl, bool *is_empty)
+{
+	struct gsi_chan_ctx *ctx;
+	spinlock_t *slock;
+	unsigned long flags;
+	uint64_t rp;
+	uint64_t wp;
+	int ee = gsi_ctx->per.ee;
+
+	if (!gsi_ctx) {
+		pr_err("%s:%d gsi context not allocated\n", __func__, __LINE__);
+		return -GSI_STATUS_NODEV;
+	}
+
+	if (chan_hdl >= GSI_MAX_CHAN || !is_empty) {
+		GSIERR("bad params chan_hdl=%lu is_empty=%p\n",
+				chan_hdl, is_empty);
+		return -GSI_STATUS_INVALID_PARAMS;
+	}
+
+	ctx = &gsi_ctx->chan[chan_hdl];
+
+	if (ctx->props.prot != GSI_CHAN_PROT_GPI) {
+		GSIERR("op not supported for protocol %u\n", ctx->props.prot);
+		return -GSI_STATUS_UNSUPPORTED_OP;
+	}
+
+	if (ctx->evtr)
+		slock = &ctx->evtr->ring.slock;
+	else
+		slock = &ctx->ring.slock;
+
+	spin_lock_irqsave(slock, flags);
+
+	rp = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_CNTXT_4_OFFS(ctx->props.ch_id, ee));
+	rp |= ((uint64_t)gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_CNTXT_5_OFFS(ctx->props.ch_id, ee))) << 32;
+	ctx->ring.rp = rp;
+
+	wp = gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_CNTXT_6_OFFS(ctx->props.ch_id, ee));
+	wp |= ((uint64_t)gsi_readl(gsi_ctx->base +
+		GSI_EE_n_GSI_CH_k_CNTXT_7_OFFS(ctx->props.ch_id, ee))) << 32;
+	ctx->ring.wp = wp;
+
+	if (ctx->props.dir == GSI_CHAN_DIR_FROM_GSI)
+		*is_empty = (ctx->ring.rp_local == rp) ? true : false;
+	else
+		*is_empty = (wp == rp) ? true : false;
+
+	spin_unlock_irqrestore(slock, flags);
+
+	GSIDBG("ch=%lu RP=0x%llx WP=0x%llx RP_LOCAL=0x%llx\n",
+			chan_hdl, rp, wp, ctx->ring.rp_local);
+
+	return GSI_STATUS_SUCCESS;
+}
+EXPORT_SYMBOL(gsi_is_channel_empty);
 
 int gsi_queue_xfer(unsigned long chan_hdl, uint16_t num_xfers,
 		struct gsi_xfer_elem *xfer, bool ring_db)
