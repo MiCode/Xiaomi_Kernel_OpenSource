@@ -12,18 +12,18 @@
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
-#include <linux/init.h>
 #include <linux/delay.h>
 #include <linux/err.h>
+#include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
-#include <linux/regulator/machine.h>
-#include <linux/regulator/of_regulator.h>
-#include <linux/regulator/qpnp-labibb-regulator.h>
 #include <linux/spmi.h>
 #include <linux/string.h>
+#include <linux/regulator/driver.h>
+#include <linux/regulator/machine.h>
+#include <linux/regulator/of_regulator.h>
 
 #define QPNP_LABIBB_REGULATOR_DRIVER_NAME	"qcom,qpnp-labibb-regulator"
 
@@ -1630,228 +1630,6 @@ static int register_qpnp_lab_regulator(struct qpnp_labibb *labibb,
 	mutex_init(&(labibb->lab_vreg.lab_mutex));
 	return 0;
 }
-
-/** This API is used to set the pull down strength of LAB regulator
- * regulator: the reglator device
- * strength: if strength is 0, LAB regulator will be set to half strength.
- * otherwise, LAB regulator will be set to full strength
- */
-int qpnp_lab_set_pd_strength(struct regulator *regulator, u32 strength)
-{
-	struct qpnp_labibb *labibb;
-	u8 val;
-	int rc = 0;
-
-	if (strength > 0)
-		val = LAB_PD_CTL_STRONG_PULL;
-	else
-		val = 0;
-
-	labibb = regulator_get_drvdata(regulator);
-
-	mutex_lock(&(labibb->lab_vreg.lab_mutex));
-	rc = qpnp_labibb_masked_write(labibb, labibb->lab_base +
-				REG_LAB_PD_CTL,
-				LAB_PD_CTL_STRENGTH_MASK,
-				val);
-	mutex_unlock(&(labibb->lab_vreg.lab_mutex));
-
-	if (rc)
-		pr_err("qpnp_lab_set_pd_strength write register %x failed rc = %d\n",
-				REG_LAB_PD_CTL, rc);
-
-	return rc;
-}
-EXPORT_SYMBOL(qpnp_lab_set_pd_strength);
-
-/** This API is used to enable pull down of LAB regulator
- * regulator: the reglator device
- * enable: if enable is true, this API will enable pull down of LAB regulator.
- * otherwise, it will disable pull down for LAB regulator
- */
-int qpnp_lab_pd_enable_ctl(struct regulator *regulator, bool enable)
-{
-	struct qpnp_labibb *labibb;
-	u8 val;
-	int rc = 0;
-
-	if (enable)
-		val = 0;
-	else
-		val = LAB_PD_CTL_DISABLE_PD;
-
-	labibb = regulator_get_drvdata(regulator);
-
-	mutex_lock(&(labibb->lab_vreg.lab_mutex));
-	rc = qpnp_labibb_masked_write(labibb, labibb->lab_base +
-				REG_LAB_PD_CTL,
-				LAB_PD_CTL_EN_MASK,
-				val);
-	mutex_unlock(&(labibb->lab_vreg.lab_mutex));
-
-	if (rc)
-		pr_err("qpnp_lab_pd_enable_ctl write register %x failed rc = %d\n",
-				REG_LAB_PD_CTL, rc);
-
-	return rc;
-}
-EXPORT_SYMBOL(qpnp_lab_pd_enable_ctl);
-
-/** This API is used to set the pull down strength of IBB regulator
- * regulator: the reglator device
- * strength: if strength is 0, IBB regulator will be set to half strength.
- * otherwise, IBB regulator will be set to full strength
- */
-int qpnp_ibb_set_pd_strength(struct regulator *regulator, u32 strength)
-{
-	struct qpnp_labibb *labibb;
-	u8 val;
-	int rc = 0;
-
-	if (strength > 0)
-		val = 0;
-	else
-		val = IBB_PD_CTL_HALF_STRENGTH;
-
-	labibb = regulator_get_drvdata(regulator);
-
-	mutex_lock(&(labibb->ibb_vreg.ibb_mutex));
-	rc = qpnp_labibb_masked_write(labibb, labibb->ibb_base +
-				REG_IBB_PD_CTL,
-				IBB_PD_CTL_STRENGTH_MASK,
-				val);
-	mutex_unlock(&(labibb->ibb_vreg.ibb_mutex));
-
-	if (rc)
-		pr_err("qpnp_ibb_set_pd_strength write register %x failed rc = %d\n",
-				REG_IBB_PD_CTL, rc);
-
-	return rc;
-}
-EXPORT_SYMBOL(qpnp_ibb_set_pd_strength);
-
-/** This API is used to enable pull down of IBB regulator
- * regulator: the reglator device
- * enable: if enable is true, this API will enable pull down of IBB regulator.
- * otherwise, it will disable pull down for IBB regulator
- */
-int qpnp_ibb_pd_enable_ctl(struct regulator *regulator, bool enable)
-{
-	struct qpnp_labibb *labibb;
-	u8 val;
-	int rc = 0;
-
-	if (enable)
-		val = IBB_PD_CTL_EN;
-	else
-		val = 0;
-
-	labibb = regulator_get_drvdata(regulator);
-
-	mutex_lock(&(labibb->ibb_vreg.ibb_mutex));
-	rc = qpnp_labibb_masked_write(labibb, labibb->ibb_base +
-				REG_IBB_PD_CTL,
-				IBB_PD_CTL_EN_MASK,
-				val);
-	mutex_unlock(&(labibb->ibb_vreg.ibb_mutex));
-
-	if (rc)
-		pr_err("qpnp_ibb_pd_enable_ctl write register %x failed rc = %d\n",
-				REG_IBB_PD_CTL, rc);
-
-	return rc;
-}
-EXPORT_SYMBOL(qpnp_ibb_pd_enable_ctl);
-
-/** This API is used to set the power up delay for IBB regulator
- * regulator: the reglator device
- * val: the delay in us for power up of IBB regulator
- */
-int qpnp_ibb_set_pwrup_dly(struct regulator *regulator, u32 val)
-{
-	struct qpnp_labibb *labibb;
-	int rc = 0;
-	u8 reg;
-
-	labibb = regulator_get_drvdata(regulator);
-
-
-	for (reg = 0; reg < ARRAY_SIZE(ibb_pwrup_dly_plan); reg++)
-		if (val == ibb_pwrup_dly_plan[reg])
-			break;
-
-	if (reg == ARRAY_SIZE(ibb_pwrup_dly_plan))
-		reg = ARRAY_SIZE(ibb_pwrup_dly_plan) - 1;
-
-	mutex_lock(&(labibb->ibb_vreg.ibb_mutex));
-	if (labibb->ibb_vreg.pwrup_dly == ibb_pwrup_dly_plan[reg]) {
-		rc = 0;
-		goto _exit;
-	}
-
-	rc = qpnp_labibb_sec_masked_write(labibb, labibb->ibb_base,
-				REG_IBB_PWRUP_PWRDN_CTL_1,
-				IBB_PWRUP_PWRDN_CTL_1_DLY1_MASK <<
-				IBB_PWRUP_PWRDN_CTL_1_DLY1_SHIFT,
-				reg << IBB_PWRUP_PWRDN_CTL_1_DLY1_SHIFT);
-
-	if (rc) {
-		pr_err("qpnp_ibb_sec_masked_write register %x failed rc = %d\n",
-			REG_IBB_PWRUP_PWRDN_CTL_1, rc);
-		goto _exit;
-	}
-
-	labibb->ibb_vreg.pwrup_dly = ibb_pwrup_dly_plan[reg];
-
-_exit:
-	mutex_unlock(&(labibb->ibb_vreg.ibb_mutex));
-	return rc;
-}
-EXPORT_SYMBOL(qpnp_ibb_set_pwrup_dly);
-
-/** This API is used to set the power down delay for IBB regulator
- * regulator: the reglator device
- * val: the delay in us for power down of IBB regulator
- */
-int qpnp_ibb_set_pwrdn_dly(struct regulator *regulator, u32 val)
-{
-	struct qpnp_labibb *labibb;
-	int rc = 0;
-	u8 reg;
-
-	labibb = regulator_get_drvdata(regulator);
-
-	for (reg = 0; reg < ARRAY_SIZE(ibb_pwrdn_dly_plan); reg++)
-		if (val == ibb_pwrdn_dly_plan[reg])
-			break;
-
-	if (reg == ARRAY_SIZE(ibb_pwrdn_dly_plan))
-		reg = ARRAY_SIZE(ibb_pwrdn_dly_plan) - 1;
-
-	mutex_lock(&(labibb->ibb_vreg.ibb_mutex));
-	if (labibb->ibb_vreg.pwrdn_dly == ibb_pwrdn_dly_plan[reg]) {
-		rc = 0;
-		goto _exit;
-	}
-
-	rc = qpnp_labibb_sec_masked_write(labibb, labibb->ibb_base,
-				REG_IBB_PWRUP_PWRDN_CTL_1,
-				IBB_PWRUP_PWRDN_CTL_1_DLY2_MASK,
-				reg);
-
-	if (rc) {
-		pr_err("qpnp_labibb_sec_masked_write register %x failed rc = %d\n",
-			REG_IBB_PWRUP_PWRDN_CTL_1, rc);
-		goto _exit;
-	}
-
-	labibb->ibb_vreg.pwrdn_dly = ibb_pwrdn_dly_plan[reg];
-
-_exit:
-	mutex_unlock(&(labibb->ibb_vreg.ibb_mutex));
-	return rc;
-}
-EXPORT_SYMBOL(qpnp_ibb_set_pwrdn_dly);
 
 static int qpnp_ibb_dt_init(struct qpnp_labibb *labibb,
 				struct device_node *of_node)
