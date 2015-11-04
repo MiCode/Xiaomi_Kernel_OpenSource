@@ -1123,7 +1123,8 @@ static inline void emac_disable_intr(struct emac_adapter *adpt)
 
 	emac_hw_disable_intr(hw);
 	for (i = 0; i < EMAC_NUM_CORE_IRQ; i++)
-		synchronize_irq(adpt->irq[i].irq);
+		if (adpt->irq[i].irq)
+			synchronize_irq(adpt->irq[i].irq);
 }
 
 /* Configure VLAN tag strip/insert feature */
@@ -2604,15 +2605,7 @@ static int emac_get_resources(struct platform_device *pdev,
 	for (i = 0; i < EMAC_IRQ_CNT; i++) {
 		retval = platform_get_irq_byname(pdev,
 						 emac_irq_cmn_tbl[i].name);
-		if (retval < 0) {
-			/* If WOL IRQ is not specified, WOL is disabled */
-			if (i == EMAC_WOL_IRQ)
-				continue;
-			else
-				return retval;
-		}
-
-		adpt->irq[i].irq = retval;
+		adpt->irq[i].irq = (retval > 0) ? retval : 0;
 	}
 
 	retval = emac_get_clk(pdev, adpt);
