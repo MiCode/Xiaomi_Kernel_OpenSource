@@ -46,6 +46,15 @@ enum msm_isp_buffer_state {
 	MSM_ISP_BUFFER_STATE_DISPATCHED,     /* Sent to HAL*/
 };
 
+enum msm_isp_buffer_put_state {
+	MSM_ISP_BUFFER_STATE_PUT_PREPARED,  /* on init */
+	MSM_ISP_BUFFER_STATE_PUT_BUF,       /* on rotation */
+	MSM_ISP_BUFFER_STATE_FLUSH,         /* on recovery */
+	MSM_ISP_BUFFER_STATE_DROP_REG,      /* on drop frame for reg_update */
+	MSM_ISP_BUFFER_STATE_DROP_SKIP,      /* on drop frame for sw skip */
+	MSM_ISP_BUFFER_STATE_RETURN_EMPTY,  /* for return empty */
+};
+
 enum msm_isp_buffer_flush_t {
 	MSM_ISP_BUFFER_FLUSH_DIVERTED,
 	MSM_ISP_BUFFER_FLUSH_ALL,
@@ -67,6 +76,11 @@ struct buffer_cmd {
 	struct msm_isp_buffer_mapped_info *mapped_info;
 };
 
+struct msm_isp_buffer_debug_t {
+	enum msm_isp_buffer_put_state put_state[2];
+	uint8_t put_state_last;
+};
+
 struct msm_isp_buffer {
 	/*Common Data structure*/
 	int num_planes;
@@ -79,6 +93,8 @@ struct msm_isp_buffer {
 	/*Native buffer*/
 	struct list_head list;
 	enum msm_isp_buffer_state state;
+
+	struct msm_isp_buffer_debug_t buf_debug;
 
 	/*Vb2 buffer data*/
 	struct vb2_buffer *vb2_buf;
@@ -148,9 +164,6 @@ struct msm_isp_buf_ops {
 	int (*buf_done)(struct msm_isp_buf_mgr *buf_mgr,
 		uint32_t bufq_handle, uint32_t buf_index,
 		struct timeval *tv, uint32_t frame_id, uint32_t output_format);
-	int (*buf_divert)(struct msm_isp_buf_mgr *buf_mgr,
-		uint32_t bufq_handle, uint32_t buf_index,
-		struct timeval *tv, uint32_t frame_id);
 	void (*register_ctx)(struct msm_isp_buf_mgr *buf_mgr,
 		struct device **iommu_ctx1, struct device **iommu_ctx2,
 		int num_iommu_ctx1, int num_iommu_ctx2);
@@ -163,6 +176,7 @@ struct msm_isp_buf_ops {
 		uint32_t bufq_handle);
 	int (*update_put_buf_cnt)(struct msm_isp_buf_mgr *buf_mgr,
 		uint32_t bufq_handle, uint32_t buf_index,
+		struct timeval *tv,
 		uint32_t frame_id);
 };
 
