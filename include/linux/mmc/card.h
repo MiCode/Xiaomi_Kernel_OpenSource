@@ -388,6 +388,9 @@ struct mmc_card {
 #define MMC_QUIRK_QCA9377_SETTINGS (1 << 16)	/* QCA9377 card settings*/
 
 
+/* Make sure CMDQ is empty before queuing cache flush */
+#define MMC_QUIRK_CMDQ_EMPTY_BEFORE_FLUSH (1 << 17)
+
 	unsigned int		erase_size;	/* erase size in sectors */
  	unsigned int		erase_shift;	/* if erase unit is power 2 */
  	unsigned int		pref_erase;	/* in sectors */
