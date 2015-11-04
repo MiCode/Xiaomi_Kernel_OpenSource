@@ -546,7 +546,8 @@ static void gic_cpu_init(void)
 	gic_cpu_config(rbase, gic_redist_wait_for_rwp);
 
 	/* Give LPIs a spin */
-	if (IS_ENABLED(CONFIG_ARM_GIC_V3_ITS) && gic_dist_supports_lpis())
+	if (IS_ENABLED(CONFIG_ARM_GIC_V3_ITS) && gic_dist_supports_lpis() &&
+					!IS_ENABLED(CONFIG_ARM_GIC_V3_ACL))
 		its_cpu_init();
 
 	/* initialise system registers */
@@ -959,7 +960,8 @@ static int __init gic_of_init(struct device_node *node, struct device_node *pare
 	set_handle_irq(gic_handle_irq);
 
 	gic_chip.flags |= gic_arch_extn.flags;
-	if (IS_ENABLED(CONFIG_ARM_GIC_V3_ITS) && gic_dist_supports_lpis())
+	if (IS_ENABLED(CONFIG_ARM_GIC_V3_ITS) && gic_dist_supports_lpis() &&
+					!IS_ENABLED(CONFIG_ARM_GIC_V3_ACL))
 		its_init(node, &gic_data.rdists, gic_data.domain);
 
 	gic_smp_init();
