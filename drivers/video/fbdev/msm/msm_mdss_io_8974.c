@@ -199,7 +199,10 @@ static void mdss_dsi_28nm_phy_regulator_enable(
 		MIPI_OUTP((ctrl_pdata->phy_regulator_io.base)
 				+ 0x10, pd->regulator[4]);
 		/* LDO ctrl */
-		if (MIPI_INP(ctrl_pdata->ctrl_base) == MDSS_DSI_HW_REV_103_1)
+		if ((ctrl_pdata->shared_data->hw_rev ==
+			MDSS_DSI_HW_REV_103_1)
+			|| (ctrl_pdata->shared_data->hw_rev ==
+			MDSS_DSI_HW_REV_104_2))
 			MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x05);
 		else
 			MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x0d);
@@ -245,7 +248,7 @@ static void mdss_dsi_28nm_phy_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	pd = &(((ctrl_pdata->panel_data).panel_info.mipi).dsi_phy_db);
 
 	/* Strength ctrl 0 for 28nm PHY*/
-	if ((ctrl_pdata->shared_data->hw_rev <= MDSS_DSI_HW_REV_103_1) &&
+	if ((ctrl_pdata->shared_data->hw_rev <= MDSS_DSI_HW_REV_104_2) &&
 		(ctrl_pdata->shared_data->hw_rev != MDSS_DSI_HW_REV_103)) {
 		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0170, 0x5b);
 		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0184, pd->strength[0]);
