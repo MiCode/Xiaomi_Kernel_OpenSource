@@ -941,7 +941,7 @@ static int kryo_regulator_cpu_pm_callback(struct notifier_block *self,
 	struct kryo_regulator *kvreg = container_of(self, struct kryo_regulator,
 						    cpu_pm_notifier);
 	unsigned long aff_level = (unsigned long) v;
-	int rc;
+	int rc = NOTIFY_OK;
 
 	switch (cmd) {
 	case CPU_CLUSTER_PM_ENTER:
