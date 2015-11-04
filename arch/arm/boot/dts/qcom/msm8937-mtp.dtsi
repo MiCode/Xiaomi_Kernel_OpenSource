@@ -63,6 +63,10 @@
 	status = "ok";
 };
 
+&pmi_haptic{
+	qcom,wave-play-rate-us = <4165>;
+};
+
 &spi_3 { /* BLSP1 QUP3 */
 	status = "ok";
 	maxim_sti@0 {
