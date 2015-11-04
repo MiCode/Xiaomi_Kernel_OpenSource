@@ -537,7 +537,8 @@ static int msm_cpe_lab_thread(void *data)
 	bool wait_timedout = false;
 	int rc = 0;
 	u32 done_len = 0;
-	u32 buf_count = 1;
+	u32 buf_count = 0;
+	u32 prd_cnt;
 
 	allow_signal(SIGKILL);
 	set_current_state(TASK_INTERRUPTIBLE);
@@ -603,8 +604,19 @@ static int msm_cpe_lab_thread(void *data)
 			goto done;
 		}
 
+		rc = slim_port_xfer(dma_data->sdev, dma_data->ph,
+				    lab_d->pcm_buf[1].phys,
+				    hw_params->buf_sz, &lab_d->comp);
+		if (rc) {
+			dev_err(rtd->dev,
+				"%s: buf[0] slim_port_xfer failed, err = %d\n",
+				__func__, rc);
+			goto done;
+		}
+
 		cur_buf = &lab_d->pcm_buf[0];
-		next_buf = &lab_d->pcm_buf[1];
+		next_buf = &lab_d->pcm_buf[2];
+		prd_cnt = hw_params->period_count;
 		rc = lsm_ops->lab_ch_setup(cpe->core_handle,
 					   session,
 					   WCD_CPE_POST_ENABLE);
@@ -673,14 +685,10 @@ static int msm_cpe_lab_thread(void *data)
 			lab_d->dma_write += snd_pcm_lib_period_bytes(substream);
 			snd_pcm_period_elapsed(substream);
 			wake_up(&lab_d->period_wait);
-			cur_buf = next_buf;
-			if (buf_count >= (hw_params->period_count - 1)) {
-				buf_count = 0;
-				next_buf = &lab_d->pcm_buf[0];
-			} else {
-				next_buf = &lab_d->pcm_buf[buf_count + 1];
-				buf_count++;
-			}
+			buf_count++;
+
+			cur_buf = &lab_d->pcm_buf[buf_count % prd_cnt];
+			next_buf = &lab_d->pcm_buf[(buf_count + 2) % prd_cnt];
 			dev_dbg(rtd->dev,
 				"%s: Cur buf = %p Next Buf = %p\n"
 				" buf count = 0x%x\n",
