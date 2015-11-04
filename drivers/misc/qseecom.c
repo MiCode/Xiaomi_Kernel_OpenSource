@@ -990,6 +990,7 @@ static int qseecom_register_listener(struct qseecom_dev_handle *data,
 	init_waitqueue_head(&new_entry->rcv_req_wq);
 	init_waitqueue_head(&new_entry->listener_block_app_wq);
 	new_entry->send_resp_flag = 0;
+	new_entry->listener_in_use = false;
 	spin_lock_irqsave(&qseecom.registered_listener_list_lock, flags);
 	list_add_tail(&new_entry->list, &qseecom.registered_listener_list_head);
 	spin_unlock_irqrestore(&qseecom.registered_listener_list_lock, flags);
@@ -1379,6 +1380,16 @@ static int __qseecom_listener_has_sent_rsp(struct qseecom_dev_handle *data)
 	return ret || data->abort;
 }
 
+static int __qseecom_reentrancy_listener_has_sent_rsp(
+			struct qseecom_dev_handle *data,
+			struct qseecom_registered_listener_list *ptr_svc)
+{
+	int ret;
+
+	ret = (ptr_svc->send_resp_flag != 0);
+	return ret || data->abort;
+}
+
 static int __qseecom_qseos_fail_return_resp_tz(struct qseecom_dev_handle *data,
 					struct qseecom_command_scm_resp *resp,
 			struct qseecom_client_listener_data_irsp *send_data_rsp,
@@ -1477,9 +1488,23 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 		sigprocmask(SIG_SETMASK, &new_sigset, &old_sigset);
 
 		do {
-			if (!wait_event_freezable(qseecom.send_resp_wq,
-				__qseecom_listener_has_sent_rsp(data)))
-				break;
+			/*
+			 * When reentrancy is not supported, check global
+			 * send_resp_flag; otherwise, check this listener's
+			 * send_resp_flag.
+			 */
+			if (!qseecom.qsee_reentrancy_support &&
+				!wait_event_freezable(qseecom.send_resp_wq,
+				__qseecom_listener_has_sent_rsp(data))) {
+					break;
+			}
+
+			if (qseecom.qsee_reentrancy_support &&
+				!wait_event_freezable(qseecom.send_resp_wq,
+				__qseecom_reentrancy_listener_has_sent_rsp(
+						data, ptr_svc))) {
+					break;
+			}
 		} while (1);
 
 		/* restore signal mask */
@@ -1494,6 +1519,7 @@ static int __qseecom_process_incomplete_cmd(struct qseecom_dev_handle *data,
 		}
 
 		qseecom.send_resp_flag = 0;
+		ptr_svc->send_resp_flag = 0;
 		send_data_rsp.qsee_cmd_id = QSEOS_LISTENER_DATA_RSP_COMMAND;
 		send_data_rsp.listener_id  = lstnr;
 		if (ptr_svc)
@@ -1589,9 +1615,8 @@ static int __qseecom_reentrancy_process_incomplete_cmd(
 		mutex_unlock(&app_access_lock);
 		do {
 			if (!wait_event_freezable(qseecom.send_resp_wq,
-				__qseecom_listener_has_sent_rsp(data))) {
-				/* wakeup if this listener sent resp or abort */
-				if (ptr_svc->send_resp_flag || data->abort)
+				__qseecom_reentrancy_listener_has_sent_rsp(
+						data, ptr_svc))) {
 					break;
 			}
 		} while (1);
