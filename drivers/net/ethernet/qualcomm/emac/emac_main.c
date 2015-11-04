@@ -2596,10 +2596,8 @@ static int emac_get_resources(struct platform_device *pdev,
 
 	/* get mac address */
 	maddr = of_get_mac_address(node);
-	if (!maddr)
-		return -ENODEV;
-
-	memcpy(adpt->hw.mac_perm_addr, maddr, netdev->addr_len);
+	if (maddr)
+		memcpy(adpt->hw.mac_perm_addr, maddr, netdev->addr_len);
 
 	/* get irqs */
 	for (i = 0; i < EMAC_IRQ_CNT; i++) {
