@@ -1398,6 +1398,32 @@ static int cpr3_hmss_init_regulator(struct cpr3_regulator *vreg)
 		return rc;
 	}
 
+	if (of_find_property(vreg->of_node, "qcom,cpr-dynamic-floor-corner",
+				NULL)) {
+		rc = cpr3_parse_array_property(vreg,
+			"qcom,cpr-dynamic-floor-corner",
+			1, &vreg->dynamic_floor_corner);
+		if (rc) {
+			cpr3_err(vreg, "error reading qcom,cpr-dynamic-floor-corner, rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		if (vreg->dynamic_floor_corner <= 0) {
+			vreg->uses_dynamic_floor = false;
+		} else if (vreg->dynamic_floor_corner < CPR3_CORNER_OFFSET
+			   || vreg->dynamic_floor_corner
+				> vreg->corner_count - 1 + CPR3_CORNER_OFFSET) {
+			cpr3_err(vreg, "dynamic floor corner=%d not in range [%d, %d]\n",
+				vreg->dynamic_floor_corner, CPR3_CORNER_OFFSET,
+				vreg->corner_count - 1 + CPR3_CORNER_OFFSET);
+			return -EINVAL;
+		}
+
+		vreg->dynamic_floor_corner -= CPR3_CORNER_OFFSET;
+		vreg->uses_dynamic_floor = true;
+	}
+
 	rc = cpr3_msm8996_hmss_calculate_open_loop_voltages(vreg);
 	if (rc) {
 		cpr3_err(vreg, "unable to calculate open-loop voltages, rc=%d\n",

@@ -149,6 +149,12 @@ struct cpr3_corner {
  *			speed bin
  * @pd_bypass_mask:	Bit mask of power domains associated with this CPR3
  *			regulator
+ * @dynamic_floor_corner: Index identifying the voltage corner for the CPR3
+ *			regulator whose last_volt value should be used as the
+ *			global CPR floor voltage if all of the power domains
+ *			associated with this CPR3 regulator are bypassed
+ * @uses_dynamic_floor: Boolean flag indicating that dynamic_floor_corner should
+ *			be utilized for the CPR3 regulator
  * @current_corner:	Index identifying the currently selected voltage corner
  *			for the CPR3 regulator or less than 0 if no corner has
  *			been requested
@@ -217,6 +223,8 @@ struct cpr3_regulator {
 	int			speed_bin_corner_sum;
 	int			speed_bin_offset;
 	u32			pd_bypass_mask;
+	int			dynamic_floor_corner;
+	bool			uses_dynamic_floor;
 
 	int			current_corner;
 	int			last_closed_loop_corner;
