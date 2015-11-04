@@ -1330,8 +1330,8 @@
 		dai_mi2s3: qcom,msm-dai-q6-mi2s-quat {
 			compatible = "qcom,msm-dai-q6-mi2s";
 			qcom,msm-dai-q6-mi2s-dev-id = <3>;
-			qcom,msm-mi2s-rx-lines = <1>;
-			qcom,msm-mi2s-tx-lines = <2>;
+			qcom,msm-mi2s-rx-lines = <0>;
+			qcom,msm-mi2s-tx-lines = <3>;
 		};
 
 		dai_mi2s5: qcom,msm-dai-q6-mi2s-quin {
@@ -1356,12 +1356,57 @@
 		};
 	};
 
+	dai_hdmi: qcom,msm-dai-q6-hdmi {
+		compatible = "qcom,msm-dai-q6-hdmi";
+		qcom,msm-dai-q6-dev-id = <8>;
+	};
+
 	lsm: qcom,msm-lsm-client {
 		compatible = "qcom,msm-lsm-client";
 	};
 
 	qcom,msm-dai-q6 {
 		compatible = "qcom,msm-dai-q6";
+		sb_0_rx: qcom,msm-dai-q6-sb-0-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16384>;
+		};
+
+		sb_0_tx: qcom,msm-dai-q6-sb-0-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16385>;
+		};
+
+		sb_1_rx: qcom,msm-dai-q6-sb-1-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16386>;
+		};
+
+		sb_1_tx: qcom,msm-dai-q6-sb-1-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16387>;
+		};
+
+		sb_3_rx: qcom,msm-dai-q6-sb-3-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16390>;
+		};
+
+		sb_3_tx: qcom,msm-dai-q6-sb-3-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16391>;
+		};
+
+		sb_4_rx: qcom,msm-dai-q6-sb-4-rx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16392>;
+		};
+
+		sb_4_tx: qcom,msm-dai-q6-sb-4-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16393>;
+		};
+
 		bt_sco_rx: qcom,msm-dai-q6-bt-sco-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <12288>;
