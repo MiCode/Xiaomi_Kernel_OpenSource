@@ -3561,6 +3561,19 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 		else
 			ret = mmc_blk_cmdq_issue_discard_rq(mq, req);
 	} else if (cmd_flags & REQ_FLUSH) {
+		if (card->quirks &
+		    MMC_QUIRK_CMDQ_EMPTY_BEFORE_FLUSH) {
+			ret = wait_event_interruptible(
+				card->host->cmdq_ctx.queue_empty_wq,
+				(!card->host->cmdq_ctx.active_reqs));
+			if (ret) {
+				pr_err("%s: failed while waiting for the CMDQ to be empty %s err (%d)\n",
+					mmc_hostname(card->host),
+					__func__, ret);
+				BUG_ON(1);
+			}
+		}
+
 		ret = mmc_blk_cmdq_issue_flush_rq(mq, req);
 	} else {
 		ret = mmc_blk_cmdq_issue_rw_rq(mq, req);
@@ -4037,6 +4050,8 @@ static const struct mmc_fixup blk_fixups[] =
 		  MMC_QUIRK_BLK_NO_CMD23),
 	MMC_FIXUP("MMC32G", CID_MANFID_TOSHIBA, CID_OEMID_ANY, add_quirk_mmc,
 		  MMC_QUIRK_BLK_NO_CMD23),
+	MMC_FIXUP(CID_NAME_ANY, CID_MANFID_TOSHIBA, CID_OEMID_ANY,
+		  add_quirk_mmc, MMC_QUIRK_CMDQ_EMPTY_BEFORE_FLUSH),
 
 	/*
 	 * Some Micron MMC cards needs longer data read timeout than
