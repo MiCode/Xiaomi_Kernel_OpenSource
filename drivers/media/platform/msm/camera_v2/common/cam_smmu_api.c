@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,7 +88,7 @@ struct cam_context_bank_info {
 	struct mutex lock;
 	int handle;
 	enum cam_smmu_ops_param state;
-	int (*handler[CAM_SMMU_CB_MAX])(struct iommu_domain *,
+	void (*handler[CAM_SMMU_CB_MAX])(struct iommu_domain *,
 		struct device *, unsigned long,
 		int, void*);
 	void *token[CAM_SMMU_CB_MAX];
@@ -276,7 +276,7 @@ static void cam_smmu_check_vaddr_in_range(int idx, void *vaddr)
 }
 
 void cam_smmu_reg_client_page_fault_handler(int handle,
-		int (*client_page_fault_handler)(struct iommu_domain *,
+		void (*client_page_fault_handler)(struct iommu_domain *,
 		struct device *, unsigned long,
 		int, void*), void *token)
 {
@@ -341,11 +341,13 @@ static int cam_smmu_iommu_fault_handler(struct iommu_domain *domain,
 		int flags, void *token)
 {
 	char *cb_name;
-	int idx, rc = -ENOSYS, j = 0;
+	int idx, j = 0;
 
 	if (!token) {
 		pr_err("Error: token is NULL\n");
-		return -ENOSYS;
+		pr_err("Error: domain = %p, device = %p\n", domain, dev);
+		pr_err("iova = %lX, flags = %d\n", iova, flags);
+		return 0;
 	}
 
 	cb_name = (char *)token;
@@ -358,20 +360,20 @@ static int cam_smmu_iommu_fault_handler(struct iommu_domain *domain,
 	if (idx < 0 || idx >= iommu_cb_set.cb_num) {
 		pr_err("Error: index is not valid, index = %d, token = %s\n",
 			idx, cb_name);
-		return rc;
+		return 0;
 	}
 
 	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
 	cam_smmu_check_vaddr_in_range(idx, (void *)iova);
 	for (j = 0; j < CAM_SMMU_CB_MAX; j++) {
 		if ((iommu_cb_set.cb_info[idx].handler[j])) {
-			rc = iommu_cb_set.cb_info[idx].handler[j](
-					domain, dev, iova, flags,
-					iommu_cb_set.cb_info[idx].token[j]);
+			iommu_cb_set.cb_info[idx].handler[j](
+				domain, dev, iova, flags,
+				iommu_cb_set.cb_info[idx].token[j]);
 		}
 	}
 	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
-	return rc;
+	return 0;
 }
 
 static int cam_smmu_translate_dir_to_iommu_dir(
