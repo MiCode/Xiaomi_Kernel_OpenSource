@@ -1139,13 +1139,16 @@ static int msm_rpm_glink_send_buffer(char *buf, uint32_t size, bool noirq)
 	do {
 		ret = glink_tx(glink_data->glink_handle, buf, buf,
 					size, GLINK_TX_SINGLE_THREADED);
-		if (ret == -EBUSY) {
-			pr_warn("%s: Channel is not ready. ret = %d\n",
-							__func__, ret);
-			spin_unlock_irqrestore(&msm_rpm_data.smd_lock_write,
-									flags);
-			udelay(5);
-			spin_lock_irqsave(&msm_rpm_data.smd_lock_write, flags);
+		if (ret == -EBUSY || ret == -ENOSPC) {
+			if (!noirq) {
+				spin_unlock_irqrestore(
+					&msm_rpm_data.smd_lock_write, flags);
+				cpu_relax();
+				spin_lock_irqsave(
+					&msm_rpm_data.smd_lock_write, flags);
+			} else {
+				udelay(5);
+			}
 			timeout--;
 		} else {
 			ret = 0;
