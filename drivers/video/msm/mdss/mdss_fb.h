@@ -434,11 +434,11 @@ int mdss_fb_register_mdp_instance(struct msm_mdp_interface *mdp);
 int mdss_fb_dcm(struct msm_fb_data_type *mfd, int req_state);
 int mdss_fb_suspres_panel(struct device *dev, void *data);
 int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
-		     unsigned long arg);
+		     unsigned long arg, struct file *file);
 int mdss_fb_compat_ioctl(struct fb_info *info, unsigned int cmd,
-			 unsigned long arg);
+			 unsigned long arg, struct file *file);
 int mdss_fb_atomic_commit(struct fb_info *info,
-	struct mdp_layer_commit  *commit);
+	struct mdp_layer_commit  *commit, struct file *file);
 int mdss_fb_async_position_update(struct fb_info *info,
 		struct mdp_position_update *update_pos);
 
