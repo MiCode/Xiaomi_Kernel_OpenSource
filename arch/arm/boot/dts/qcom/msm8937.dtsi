@@ -827,7 +827,6 @@
 		compatible = "qcom,rpm-smd";
 		rpm-channel-name = "rpm_requests";
 		rpm-channel-type = <15>; /* SMD_APPS_RPM */
-		rpm-standalone; /* TODO: Remove once RPM communication is up */
 	};
 
 	qcom,wcnss-wlan@0a000000 {
