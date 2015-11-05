@@ -364,6 +364,9 @@
 #define HDCP2P2_RXSTATUS_HW_DDC_FORCE_LOOP          2
 #define HDCP2P2_RXSTATUS_HW_DDC_SW_TRIGGER          3
 
+/* default hsyncs for 4k@60 for 200ms */
+#define HDMI_DEFAULT_TIMEOUT_HSYNC 28571
+
 enum hdmi_tx_feature_type {
 	HDMI_TX_FEAT_EDID,
 	HDMI_TX_FEAT_HDCP,
@@ -496,5 +499,7 @@ void hdmi_hdcp2p2_ddc_reset(struct hdmi_tx_ddc_ctrl *ctrl);
 void hdmi_hdcp2p2_ddc_disable(struct hdmi_tx_ddc_ctrl *ctrl);
 int hdmi_hdcp2p2_ddc_read_rxstatus(struct hdmi_tx_ddc_ctrl *ctrl, bool wait);
 int hdmi_ddc_check_status(struct hdmi_tx_ddc_ctrl *ctrl);
+int hdmi_utils_get_timeout_in_hysnc(struct msm_hdmi_mode_timing_info *timing,
+	u32 timeout_ms);
 
 #endif /* __HDMI_UTIL_H__ */
