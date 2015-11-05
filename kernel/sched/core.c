@@ -9300,6 +9300,7 @@ void __init sched_init(void)
 		rq->idle_stamp = 0;
 		rq->avg_idle = 2*sysctl_sched_migration_cost;
 #ifdef CONFIG_SCHED_HMP
+		cpumask_set_cpu(i, &rq->freq_domain_cpumask);
 		rq->cur_freq = 1;
 		rq->max_freq = 1;
 		rq->min_freq = 1;
