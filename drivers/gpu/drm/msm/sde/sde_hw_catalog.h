@@ -371,10 +371,12 @@ struct sde_cdm_cfg   {
  * @base               register offset of this block
  * @features           bit mask identifying sub-blocks/features
  * @type:              Interface type(DSI, DP, HDMI)
+ * @controller_id:     Controller Instance ID in case of multiple of intf type
  */
 struct sde_intf_cfg  {
 	SDE_HW_BLK_INFO;
 	u32 type;   /* interface type*/
+	u32 controller_id;
 };
 
 /**
