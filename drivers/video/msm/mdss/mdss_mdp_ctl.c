@@ -2374,76 +2374,50 @@ static inline int mdss_mdp_set_split_ctl(struct mdss_mdp_ctl *ctl,
 	return 0;
 }
 
-static int __mdss_mdp_ctl_dsc_enable(bool enable,
-	struct mdss_mdp_mixer *mixer, struct mdss_panel_info *pinfo)
+static inline void mdss_mdp_ctl_dsc_enable(struct mdss_mdp_mixer *mixer)
 {
-	u32 data;
-	u32 *lp;
-	char *cp;
-	int i, bpp, lsb;
-	char __iomem *offset, *off;
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	struct dsc_desc *dsc = &pinfo->dsc;
-
-	if (!mixer || !pinfo) {
-		pr_err("invalid input\n");
-		return -EINVAL;
-	}
-
-	if (pinfo->compression_mode != COMPRESSION_DSC) {
-		pr_err("invalid compression mode = %d\n",
-			pinfo->compression_mode);
-		return -EPERM;
-	}
-
-	if (mixer->num != MDSS_MDP_INTF_LAYERMIXER0 &&
-	    mixer->num != MDSS_MDP_INTF_LAYERMIXER1) {
-		pr_err("mix%d doesn't support DSC.\n", mixer->num);
-		return -EPERM;
-	}
-
-	if (!enable) {
-		mdss_mdp_pingpong_write(mixer->pingpong_base,
-				MDSS_MDP_REG_PP_DSC_MODE, 0);
-		return 0;
-	}
-
-	/* dsc enable */
 	mdss_mdp_pingpong_write(mixer->pingpong_base,
 			MDSS_MDP_REG_PP_DSC_MODE, 1);
+}
+
+static inline void mdss_mdp_ctl_dsc_disable(struct mdss_mdp_mixer *mixer)
+{
+	mdss_mdp_pingpong_write(mixer->pingpong_base,
+			MDSS_MDP_REG_PP_DSC_MODE, 0);
+}
+
+static void mdss_mdp_ctl_dsc_config(struct mdss_mdp_mixer *mixer,
+	struct dsc_desc *dsc, u32 mode, bool ich_reset_override)
+{
+	u32 data;
+	int bpp, lsb;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	char __iomem *offset = mdata->mdp_base;
 
 	data = mdss_mdp_pingpong_read(mixer->pingpong_base,
 			MDSS_MDP_REG_PP_DCE_DATA_OUT_SWAP);
-	data |= BIT(18);	/* endian flip */
+	data |= BIT(18); /* endian flip */
 	mdss_mdp_pingpong_write(mixer->pingpong_base,
 		MDSS_MDP_REG_PP_DCE_DATA_OUT_SWAP, data);
-
-	if (pinfo->type == MIPI_VIDEO_PANEL)
-		data = BIT(2);	/* vieo mode */
-
-	/* split display with independent decoders is not handled yet */
-	if (pinfo->is_split_display)
-		data |= BIT(0);
-
-	/* need to handle a use-case of single_lm_pp_split_dsc_merge */
-	if ((mixer->ctl->mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY) &&
-	    (pinfo->dsc_enc_total == 2))
-		data |= (BIT(0) | BIT(1));
-
-	offset = mdata->mdp_base;
 
 	/* dce0_sel->pp0, dce1_sel->pp1 */
 	writel_relaxed(0x0, offset + MDSS_MDP_REG_DCE_SEL);
 
-	if (mixer->num == MDSS_MDP_INTF_LAYERMIXER0)
+	if (mixer->num == MDSS_MDP_INTF_LAYERMIXER0) {
 		offset += MDSS_MDP_DSC_0_OFFSET;
-	else
+	} else if (mixer->num == MDSS_MDP_INTF_LAYERMIXER1) {
 		offset += MDSS_MDP_DSC_1_OFFSET;
+	} else {
+		pr_err("invalid mixer numer=%d\n", mixer->num);
+		return;
+	}
 
-	writel_relaxed(data, offset + MDSS_MDP_REG_DSC_COMMON_MODE);
+	writel_relaxed(mode, offset + MDSS_MDP_REG_DSC_COMMON_MODE);
 
-	data = dsc->ich_reset_value | dsc->ich_reset_override;
-	data <<= 28;
+	data = 0;
+	if (ich_reset_override)
+		data = 3 << 28;
+
 	data |= (dsc->initial_lines << 20);
 	data |= ((dsc->slice_last_group_size - 1) << 18);
 	/* bpp is 6.4 format, 4 LSBs bits are for fractional part */
@@ -2459,8 +2433,8 @@ static int __mdss_mdp_ctl_dsc_enable(bool enable,
 	data |= (dsc->convert_rgb << 1);
 	data |= dsc->input_10_bits;
 
-	pr_debug("%d %d %d %d %d %d %d %d %d %d, data=%x\n",
-		dsc->ich_reset_value, dsc->ich_reset_override,
+	pr_debug("%d %d %d %d %d %d %d %d %d, data=%x\n",
+		ich_reset_override,
 		dsc->initial_lines , dsc->slice_last_group_size,
 		dsc->bpp, dsc->block_pred_enable, dsc->line_buf_depth,
 		dsc->enable_422, dsc->convert_rgb, dsc->input_10_bits, data);
@@ -2478,9 +2452,11 @@ static int __mdss_mdp_ctl_dsc_enable(bool enable,
 	data = dsc->chunk_size << 16;
 	writel_relaxed(data, offset + MDSS_MDP_REG_DSC_CHUNK_SIZE);
 
-	pr_debug("pic_w=%d pic_h=%d, slice_h=%d slice_w=%d, chunk=%d\n",
-			dsc->pic_width, dsc->pic_height,
-			dsc->slice_width, dsc->slice_height, dsc->chunk_size);
+	pr_debug("mix%d pic_w=%d pic_h=%d, slice_h=%d slice_w=%d, chunk=%d\n",
+		mixer->num, dsc->pic_width, dsc->pic_height,
+		dsc->slice_width, dsc->slice_height, dsc->chunk_size);
+	MDSS_XLOG(mixer->num, dsc->pic_width, dsc->pic_height,
+		dsc->slice_width, dsc->slice_height, dsc->chunk_size);
 
 	data = dsc->initial_dec_delay << 16;
 	data |= dsc->initial_xmit_delay;
@@ -2521,6 +2497,28 @@ static int __mdss_mdp_ctl_dsc_enable(bool enable,
 	data |= dsc->quant_incr_limit0 << 4;
 	data |= dsc->edge_factor;
 	writel_relaxed(data, offset + MDSS_MDP_REG_DSC_RC);
+}
+
+static void mdss_mdp_ctl_dsc_config_thresh(struct mdss_mdp_mixer *mixer,
+				struct mdss_panel_info *pinfo)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct dsc_desc *dsc = &pinfo->dsc;
+	char __iomem *offset, *off;
+	u32 *lp;
+	char *cp;
+	int i;
+
+	offset = mdata->mdp_base;
+
+	if (mixer->num == MDSS_MDP_INTF_LAYERMIXER0) {
+		offset += MDSS_MDP_DSC_0_OFFSET;
+	} else if (mixer->num == MDSS_MDP_INTF_LAYERMIXER1) {
+		offset += MDSS_MDP_DSC_1_OFFSET;
+	} else {
+		pr_err("invalid mixer numer=%d\n", mixer->num);
+		return;
+	}
 
 	lp = dsc->buf_thresh;
 	off = offset + MDSS_MDP_REG_DSC_RC_BUF_THRESH;
@@ -2549,25 +2547,123 @@ static int __mdss_mdp_ctl_dsc_enable(bool enable,
 		writel_relaxed(*cp++, off);
 		off += 4;
 	}
-
-	return 0;
 }
 
-static int mdss_mdp_ctl_dsc_enable(bool enable,
-	struct mdss_mdp_ctl *ctl, struct mdss_panel_info *pinfo)
+/* called for each ctl */
+void mdss_mdp_ctl_dsc_setup(struct mdss_mdp_ctl *ctl,
+	struct mdss_panel_info *pinfo)
 {
-	int rc;
-	struct mdss_mdp_mixer *mixer = ctl->mixer_left;
+	struct mdss_mdp_mixer *mixer_left = ctl->mixer_left;
+	struct mdss_mdp_mixer *mixer_right = NULL;
+	struct dsc_desc *dsc = &pinfo->dsc;
+	u32 pic_width = 0, pic_height = 0;
+	u32 mode = 0;
+	bool recalc_dsc_params = false;
+	bool ich_reset_override = false;
+	bool dsc_merge = false;
 
-	rc =  __mdss_mdp_ctl_dsc_enable(enable, mixer, pinfo);
-	if (rc)
-		return rc;
+	if (pinfo->type == MIPI_VIDEO_PANEL)
+		mode = BIT(2);
 
-	if (mixer->ctl->mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY)
-		rc =  __mdss_mdp_ctl_dsc_enable(enable,
-						ctl->mixer_right, pinfo);
+	/* pingpong split with DSC needs to be handled */
+	if (is_split_lm(ctl->mfd)) {
+		struct mdss_mdp_ctl *main_ctl;
 
-	return rc;
+		if (ctl->is_master)
+			main_ctl = ctl;
+		else
+			main_ctl = mdss_mdp_get_main_ctl(ctl);
+
+		if (!main_ctl) {
+			pr_err("%pS: invalid input\n",
+				__builtin_return_address(0));
+			return;
+		}
+
+		/*
+		 * two independent decoders on DDIC requires
+		 * split 2p2d mode but it is not supported yet.
+		 */
+		if (mdss_mdp_is_both_lm_valid(main_ctl))
+			mode |= BIT(0); /* assumming 1 decoder on panel side */
+
+		if (main_ctl->mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY) {
+
+			mixer_right = main_ctl->mixer_right;
+
+			/* DSC Merge */
+			if ((pinfo->dsc_enc_total == 2) &&
+			    (mdss_mdp_is_both_lm_valid(main_ctl))) {
+				mode |= BIT(1);
+				dsc_merge = true;
+			}
+		}
+	}
+
+	if (mixer_left->valid_roi) {
+		pic_width = mixer_left->roi.w;
+		pic_height = mixer_left->roi.h;
+		recalc_dsc_params = true;
+	}
+
+	if (mixer_right && mixer_right->valid_roi) {
+		pic_width += mixer_right->roi.w;
+		pic_height = mixer_right->roi.h; /* height on both lm is same */
+		recalc_dsc_params = true;
+	}
+
+	/* re-calculate DSC params before configuring them to MDP */
+	if (recalc_dsc_params)
+		mdss_dsc_parameters_calc(dsc, pic_width, pic_height);
+
+	/*
+	 * As per the DSC spec, ICH_RESET can be either end of the slice line
+	 * or at the end of the slice. HW internally generates ich_reset at
+	 * end of the slice line if DSC_MERGE is used or encoder has two
+	 * soft slices. However, if encoder has only 1 soft slice and DSC_MERGE
+	 * is not used then it will generate ich_reset at the end of slice.
+	 *
+	 * Now as per the spec, during one PPS session, position where
+	 * ich_reset is generated should not change. Now if full-screen frame
+	 * has more than 1 soft slice then HW will automatically generate
+	 * ich_reset at the end of slice_line. But for the same panel, if
+	 * partial frame is enabled and only 1 encoder is used with 1 slice,
+	 * then HW will generate ich_reset at end of the slice. This is a
+	 * mismatch. Prevent this by overriding HW's decision.
+	 */
+	if (pinfo->partial_update_enabled && !dsc_merge &&
+	    (dsc->full_frame_slices > 1) &&
+	    (dsc->slice_width == dsc->pic_width))
+		ich_reset_override = true;
+
+	if (mixer_left->valid_roi) {
+		mdss_mdp_ctl_dsc_config(mixer_left, dsc, mode,
+			ich_reset_override);
+		mdss_mdp_ctl_dsc_config_thresh(mixer_left, pinfo);
+		mdss_mdp_ctl_dsc_enable(mixer_left);
+	} else {
+		mdss_mdp_ctl_dsc_disable(mixer_left);
+	}
+
+	if (mixer_right) {
+		if (mixer_right->valid_roi) {
+			mdss_mdp_ctl_dsc_config(mixer_right, dsc, mode,
+				ich_reset_override);
+			mdss_mdp_ctl_dsc_config_thresh(mixer_right, pinfo);
+			mdss_mdp_ctl_dsc_enable(mixer_right);
+		} else {
+			mdss_mdp_ctl_dsc_disable(mixer_right);
+		}
+	}
+	pr_debug("mix%d: valid_roi=%d mix%d: valid_roi=%d mode=%d, pic_dim:%dx%d\n",
+		mixer_left->num, mixer_left->valid_roi,
+		mixer_right ? mixer_right->num : -1,
+		mixer_right ? mixer_right->valid_roi : -1,
+		mode, pic_width, pic_height);
+	MDSS_XLOG(mixer_left->num, mixer_left->valid_roi,
+		mixer_right ? mixer_right->num : -1,
+		mixer_right ? mixer_right->valid_roi : -1,
+		mode, pic_width, pic_height);
 }
 
 static int mdss_mdp_ctl_fbc_enable(int enable,
@@ -2694,7 +2790,8 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 	ctl->mixer_left->width = width;
 	ctl->mixer_left->height = height;
 	ctl->mixer_left->roi = (struct mdss_rect) {0, 0, width, height};
-	ctl->valid_roi = true;
+	ctl->mixer_left->valid_roi = true;
+	ctl->mixer_left->roi_changed = true;
 
 	if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
 		pr_debug("dual display detected\n");
@@ -2720,7 +2817,11 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 		ctl->mixer_right->height = height;
 		ctl->mixer_right->roi = (struct mdss_rect)
 						{0, 0, width, height};
+		ctl->mixer_right->valid_roi = true;
+		ctl->mixer_right->roi_changed = true;
 	} else if (ctl->mixer_right) {
+		ctl->mixer_right->valid_roi = false;
+		ctl->mixer_right->roi_changed = false;
 		mdss_mdp_mixer_free(ctl->mixer_right);
 		ctl->mixer_right = NULL;
 	}
@@ -2974,7 +3075,8 @@ int mdss_mdp_ctl_split_display_setup(struct mdss_mdp_ctl *ctl,
 	mixer->height = sctl->height;
 	mixer->roi = (struct mdss_rect)
 				{0, 0, mixer->width, mixer->height};
-	sctl->valid_roi = true;
+	mixer->valid_roi = true;
+	mixer->roi_changed = true;
 	sctl->mixer_left = mixer;
 
 	return mdss_mdp_set_split_ctl(ctl, sctl);
@@ -3133,10 +3235,8 @@ static void mdss_mdp_ctl_restore_sub(struct mdss_mdp_ctl *ctl)
 
 		if (ctl->panel_data->panel_info.compression_mode ==
 				COMPRESSION_DSC) {
-			ret = mdss_mdp_ctl_dsc_enable(1, ctl,
+			mdss_mdp_ctl_dsc_setup(ctl,
 					&ctl->panel_data->panel_info);
-			if (ret)
-				pr_err("Failed to restore DSC mode\n");
 		} else if (ctl->panel_data->panel_info.compression_mode ==
 				COMPRESSION_FBC) {
 			ret = mdss_mdp_ctl_fbc_enable(1, ctl->mixer_left,
@@ -3241,9 +3341,7 @@ static int mdss_mdp_ctl_start_sub(struct mdss_mdp_ctl *ctl, bool handoff)
 		mdp_mixer_write(mixer, MDSS_MDP_REG_LM_OUT_SIZE, outsize);
 
 		if (pinfo->compression_mode == COMPRESSION_DSC) {
-			ret = mdss_mdp_ctl_dsc_enable(true, ctl, pinfo);
-			if (ret)
-				pr_err("dsc_enable failed. rc=%d\n", ret);
+			mdss_mdp_ctl_dsc_setup(ctl, pinfo);
 		} else if (pinfo->compression_mode == COMPRESSION_FBC) {
 			ret = mdss_mdp_ctl_fbc_enable(1, ctl->mixer_left,
 					pinfo);
@@ -3460,29 +3558,6 @@ int mdss_mdp_ctl_reset(struct mdss_mdp_ctl *ctl, bool is_recovery)
 	return (!cnt) ? -EAGAIN : 0;
 }
 
-static void mdss_mdp_set_mixer_roi(struct mdss_mdp_ctl *ctl,
-	struct mdss_rect *roi)
-{
-	struct mdss_rect mixer_roi;
-
-	ctl->valid_roi = (roi->w && roi->h);
-	ctl->roi_changed = 0;
-	if (!mdss_rect_cmp(roi, &ctl->roi)) {
-		ctl->roi = *roi;
-		ctl->roi_changed++;
-
-		mixer_roi = ctl->mixer_left->roi;
-		if ((mixer_roi.w != roi->w) ||
-			(mixer_roi.h != roi->h)) {
-			ctl->mixer_left->roi = *roi;
-			ctl->mixer_left->params_changed++;
-		}
-	}
-
-	pr_debug("ROI requested: [%d]: [%d, %d, %d, %d]\n",
-		ctl->num, ctl->roi.x, ctl->roi.y, ctl->roi.w, ctl->roi.h);
-}
-
 /*
  * mdss_mdp_mixer_update_pipe_map() - keep track of pipe configuration in  mixer
  * @master_ctl: mdp controller.
@@ -3505,9 +3580,31 @@ static void mdss_mdp_mixer_update_pipe_map(struct mdss_mdp_ctl *master_ctl,
 	mixer->pipe_mapped = mixer->next_pipe_map;
 }
 
+static void mdss_mdp_set_mixer_roi(struct mdss_mdp_mixer *mixer,
+	struct mdss_rect *roi)
+{
+	mixer->valid_roi = (roi->w && roi->h);
+	mixer->roi_changed = false;
+
+	if (!mdss_rect_cmp(roi, &mixer->roi)) {
+		mixer->roi = *roi;
+		mixer->params_changed++;
+		mixer->roi_changed = true;
+	}
+
+	pr_debug("mixer%d ROI %s: [%d, %d, %d, %d]\n",
+		mixer->num, mixer->roi_changed ? "changed" : "not changed",
+		mixer->roi.x, mixer->roi.y, mixer->roi.w, mixer->roi.h);
+	MDSS_XLOG(mixer->num, mixer->roi_changed, mixer->valid_roi,
+		mixer->roi.x, mixer->roi.y, mixer->roi.w, mixer->roi.h);
+}
+
+/* only call from master ctl */
 void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 	struct mdss_rect *l_roi, struct mdss_rect *r_roi)
 {
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
 	/* Reset ROI when we have (1) invalid ROI (2) feature disabled */
 	if ((!l_roi->w && l_roi->h) || (l_roi->w && !l_roi->h) ||
 	    (!r_roi->w && r_roi->h) || (r_roi->w && !r_roi->h) ||
@@ -3525,10 +3622,45 @@ void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 		}
 	}
 
-	mdss_mdp_set_mixer_roi(ctl, l_roi);
+	mdss_mdp_set_mixer_roi(ctl->mixer_left, l_roi);
+	ctl->roi = ctl->mixer_left->roi;
 
-	if (ctl->mixer_right)
-		mdss_mdp_set_mixer_roi(ctl->mixer_right->ctl, r_roi);
+	if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
+		struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
+
+		mdss_mdp_set_mixer_roi(sctl->mixer_left, r_roi);
+		sctl->roi = sctl->mixer_left->roi;
+	} else if (ctl->mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY) {
+
+		mdss_mdp_set_mixer_roi(ctl->mixer_right, r_roi);
+
+		/* in this case, CTL_ROI is a union of left+right ROIs. */
+		ctl->roi.w += ctl->mixer_right->roi.w;
+
+		/* right_only, update roi.x as per CTL ROI guidelines */
+		if (!ctl->mixer_left->valid_roi)
+			ctl->roi.x = left_lm_w_from_mfd(ctl->mfd) +
+				ctl->mixer_right->roi.x;
+	}
+
+	/*
+	 * When source split is enabled, dst_x of all pipes staged on right
+	 * layer-mixer (LM) has to be greater than left LM's width.
+	 * Now when partial update is enabled, let's say frame N is updating
+	 * full panel width so both LMs are valid thus source split is enabled
+	 * and dst_x of all pipes is as per above requirement. Now when frame
+	 * N+1 is right-only update without any geomatry changes, pipe's params
+	 * are not changed and right LM's roi is also not changed. So if
+	 * params are not changed then pipe's register programming is skipped.
+	 * So for that right-only update, pipe's dst_x remains same
+	 * as frame N, which not correct and can lead to unknown behaviour.
+	 * Fix this by identifying this condition and forcing roi changed for
+	 * right LM.
+	 */
+	if (is_split_lm(ctl->mfd) && mdata->has_src_split &&
+	    (!ctl->mixer_left->valid_roi && ctl->mixer_left->roi_changed) &&
+	    (ctl->mixer_right->valid_roi && !ctl->mixer_right->roi_changed))
+		ctl->mixer_right->roi_changed = true;
 }
 
 u32 mdss_mdp_get_mixer_mask(u32 pipe_num, u32 stage)
@@ -3604,8 +3736,21 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 		return;
 	}
 
-	if (!ctl->valid_roi)
+	if (!mixer->valid_roi) {
+		/*
+		 * resetting mixer config is specifically needed when split
+		 * mode is MDP_DUAL_LM_SINGLE_DISPLAY but update is only on
+		 * one side.
+		 */
+		off = __mdss_mdp_ctl_get_mixer_off(mixer);
+		mdss_mdp_ctl_write(ctl, off, 0);
+		/* Program ctl layer extension bits */
+		mdss_mdp_ctl_write(ctl,
+			off + MDSS_MDP_REG_CTL_LAYER_EXTN_OFFSET, 0);
+
+		MDSS_XLOG(mixer->num, XLOG_FUNC_EXIT);
 		return;
+	}
 
 	trace_mdp_mixer_update(mixer->num);
 	pr_debug("setup mixer=%d\n", mixer->num);
@@ -4391,8 +4536,7 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 {
 	struct mdss_mdp_ctl *sctl = NULL;
 	int ret = 0;
-	bool is_bw_released;
-	int split_enable;
+	bool is_bw_released, split_lm_valid;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	u32 ctl_flush_bits = 0, sctl_flush_bits = 0;
 
@@ -4408,6 +4552,8 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 		mutex_unlock(&ctl->lock);
 		return 0;
 	}
+
+	split_lm_valid = mdss_mdp_is_both_lm_valid(ctl);
 
 	sctl = mdss_mdp_get_split_ctl(ctl);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
@@ -4426,26 +4572,22 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	}
 
 	/* left update */
-	if (ctl->valid_roi)
+	if (ctl->mixer_left->valid_roi)
 		mdss_mdp_ctl_perf_set_transaction_status(ctl,
 				PERF_SW_COMMIT_STATE, PERF_STATUS_BUSY);
 
 	/* right update */
-	if (sctl && sctl->valid_roi)
+	if (sctl && sctl->mixer_left->valid_roi)
 		mdss_mdp_ctl_perf_set_transaction_status(sctl,
 			PERF_SW_COMMIT_STATE, PERF_STATUS_BUSY);
 
-	if (mdata->has_src_split) {
-		if (sctl)
-			sctl->mixer_left->src_split_req =
-				(ctl->valid_roi == sctl->valid_roi);
-		else if (ctl->mixer_right) /* single ctl, dual LM */
-			ctl->mixer_right->src_split_req = ctl->valid_roi;
-	}
+	if (ctl->mixer_right)
+		ctl->mixer_right->src_split_req =
+			mdata->has_src_split && split_lm_valid;
 
 	if (is_bw_released || ctl->force_screen_state ||
-		(ctl->mixer_left && ctl->mixer_left->params_changed) ||
-		(ctl->mixer_right && ctl->mixer_right->params_changed)) {
+	    (ctl->mixer_left->params_changed) ||
+	    (ctl->mixer_right && ctl->mixer_right->params_changed)) {
 		ATRACE_BEGIN("prepare_fnc");
 		if (ctl->ops.prepare_fnc)
 			ret = ctl->ops.prepare_fnc(ctl, arg);
@@ -4476,12 +4618,10 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 
 	/*
 	 * With partial frame update, enable split display bit only
-	 * when validity of ROI's on both the DSI's are identical
+	 * when validity of ROI's on both the DSI's are identical.
 	 */
-	if (sctl) {
-		split_enable = (ctl->valid_roi == sctl->valid_roi);
-		mdss_mdp_ctl_split_display_enable(split_enable, ctl, sctl);
-	}
+	if (sctl)
+		mdss_mdp_ctl_split_display_enable(split_lm_valid, ctl, sctl);
 
 	ATRACE_BEGIN("postproc_programming");
 	if (ctl->mfd && ctl->mfd->dcm_state != DTM_ENTER)
@@ -4605,7 +4745,8 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 			sctl_flush_bits);
 		sctl->flush_bits = 0;
 	}
-	MDSS_XLOG(ctl->intf_num, ctl_flush_bits, sctl_flush_bits);
+	MDSS_XLOG(ctl->intf_num, ctl_flush_bits, sctl_flush_bits,
+		split_lm_valid);
 	wmb();
 	ctl->flush_reg_data = ctl_flush_bits;
 	ctl->flush_bits = 0;
@@ -4613,7 +4754,9 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	mdss_mdp_mixer_update_pipe_map(ctl, MDSS_MDP_MIXER_MUX_LEFT);
 	mdss_mdp_mixer_update_pipe_map(ctl, MDSS_MDP_MIXER_MUX_RIGHT);
 
-	if (sctl && !ctl->valid_roi && sctl->valid_roi) {
+	/* right-only kickoff */
+	if (!ctl->mixer_left->valid_roi &&
+	    sctl && sctl->mixer_left->valid_roi) {
 		/*
 		 * Seperate kickoff on DSI1 is needed only when we have
 		 * ONLY right half updating on a dual DSI panel
@@ -4624,11 +4767,6 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 		if (ctl->ops.display_fnc)
 			ret = ctl->ops.display_fnc(ctl, arg); /* DSI0 kickoff */
 	}
-
-	if (sctl)
-		sctl->valid_roi = 0;
-
-	ctl->valid_roi = 0;
 
 	if (ret)
 		pr_warn("ctl %d error displaying frame\n", ctl->num);
