@@ -1409,7 +1409,8 @@ struct mdss_mdp_ctl *mdss_mdp_ctl_mixer_switch(struct mdss_mdp_ctl *ctl,
 					       u32 return_type);
 void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
 	struct mdss_rect *l_roi, struct mdss_rect *r_roi);
-
+void mdss_mdp_mixer_update_pipe_map(struct mdss_mdp_ctl *master_ctl,
+		int mixer_mux);
 int mdss_mdp_wb_set_format(struct msm_fb_data_type *mfd, u32 dst_format);
 int mdss_mdp_wb_get_format(struct msm_fb_data_type *mfd,
 					struct mdp_mixer_cfg *mixer_cfg);

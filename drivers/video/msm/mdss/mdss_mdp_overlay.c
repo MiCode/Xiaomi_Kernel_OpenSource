@@ -4713,6 +4713,11 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 
 ctl_stop:
 	mutex_lock(&mdp5_data->ov_lock);
+	/* set the correct pipe_mapped before ctl_stop */
+	mdss_mdp_mixer_update_pipe_map(mdp5_data->ctl,
+			MDSS_MDP_MIXER_MUX_LEFT);
+	mdss_mdp_mixer_update_pipe_map(mdp5_data->ctl,
+			MDSS_MDP_MIXER_MUX_RIGHT);
 	rc = mdss_mdp_ctl_stop(mdp5_data->ctl, mfd->panel_power_state);
 	if (rc == 0) {
 		if (mdss_fb_is_power_off(mfd)) {
