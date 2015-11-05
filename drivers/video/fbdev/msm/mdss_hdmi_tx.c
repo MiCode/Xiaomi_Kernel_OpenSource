@@ -75,7 +75,7 @@
 #define HDMI_TX_RGB_24BPP_PCLK_TMDS_CH_RATE_RATIO 1
 
 #define HDMI_TX_SCRAMBLER_THRESHOLD_RATE_KHZ 340000
-#define HDMI_TX_SCRAMBLER_TIMEOUT_USEC 200000
+#define HDMI_TX_SCRAMBLER_TIMEOUT_MSEC 200
 
 #define HDMI_TX_KHZ_TO_HZ 1000
 #define HDMI_TX_MHZ_TO_HZ 1000000
@@ -3228,6 +3228,7 @@ int hdmi_tx_setup_scrambler(struct hdmi_tx_ctrl *hdmi_ctrl)
 	struct dss_io_data *io = NULL;
 	struct msm_hdmi_mode_timing_info *timing = NULL;
 	void *edid_data = NULL;
+	int timeout_hsync;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: Bad input parameters\n", __func__);
@@ -3254,9 +3255,6 @@ int hdmi_tx_setup_scrambler(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return 0;
 	}
 
-	if (!hdmi_edid_get_scdc_support(edid_data))
-		DEV_WARN("%s: sink didn't provide scdc support\n", __func__);
-
 	rate = hdmi_tx_setup_tmds_clk_rate(hdmi_ctrl);
 
 	if (rate > HDMI_TX_SCRAMBLER_THRESHOLD_RATE_KHZ) {
@@ -3268,9 +3266,6 @@ int hdmi_tx_setup_scrambler(struct hdmi_tx_ctrl *hdmi_ctrl)
 	}
 
 	if (scrambler_on) {
-		u64 mult;
-		u64 div;
-
 		rc = hdmi_scdc_write(&hdmi_ctrl->ddc_ctrl,
 			HDMI_TX_SCDC_TMDS_BIT_CLOCK_RATIO_UPDATE,
 			tmds_clock_ratio);
@@ -3300,23 +3295,25 @@ int hdmi_tx_setup_scrambler(struct hdmi_tx_ctrl *hdmi_ctrl)
 		 * status bit on the sink. Sink should set this bit
 		 * with in 200ms after scrambler is enabled.
 		 */
-		mult = HDMI_TX_SCRAMBLER_TIMEOUT_USEC *
-			((u64)timing->pixel_freq * HDMI_TX_KHZ_TO_HZ);
-		div = hdmi_tx_get_v_total(timing) * HDMI_TX_MHZ_TO_HZ;
-		if (div)
-			do_div(mult, div);
-		else
-			mult = 0;
+		timeout_hsync = hdmi_utils_get_timeout_in_hysnc(
+					&hdmi_ctrl->vid_cfg.timing,
+					HDMI_TX_SCRAMBLER_TIMEOUT_MSEC);
+
+		if (timeout_hsync <= 0) {
+			DEV_ERR("%s: err in timeout hsync calc\n", __func__);
+			timeout_hsync = HDMI_DEFAULT_TIMEOUT_HSYNC;
+		}
+
+		pr_debug("timeout for scrambling en: %d hsyncs\n",
+			timeout_hsync);
 
 		rc = hdmi_setup_ddc_timers(&hdmi_ctrl->ddc_ctrl,
-			HDMI_TX_DDC_TIMER_SCRAMBLER_STATUS, (u32)mult);
+			HDMI_TX_DDC_TIMER_SCRAMBLER_STATUS, timeout_hsync);
 	} else {
-		if (hdmi_ctrl->scrambler_enabled) {
-			hdmi_scdc_write(&hdmi_ctrl->ddc_ctrl,
-				HDMI_TX_SCDC_SCRAMBLING_ENABLE, 0x0);
+		hdmi_scdc_write(&hdmi_ctrl->ddc_ctrl,
+			HDMI_TX_SCDC_SCRAMBLING_ENABLE, 0x0);
 
-			hdmi_ctrl->scrambler_enabled = false;
-		}
+		hdmi_ctrl->scrambler_enabled = false;
 	}
 
 	return rc;

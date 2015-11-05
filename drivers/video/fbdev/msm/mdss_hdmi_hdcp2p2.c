@@ -36,9 +36,6 @@
 
 #define HDCP2P2_LINK_CHECK_TIME_MS 900 /* link check within 1 sec */
 
-#define HDCP2P2_SEC_TO_US 1000000
-#define HDCP2P2_MS_TO_US  1000
-#define HDCP2P2_KHZ_TO_HZ 1000
 #define HDCP2P2_DEFAULT_TIMEOUT 500
 
 /*
@@ -600,15 +597,12 @@ exit:
 static void hdmi_hdcp2p2_recv_msg_work(struct kthread_work *work)
 {
 	int rc = 0;
-	u32 fps, v_total;
-	u32 time_taken_by_one_line_us;
-	u32 lines_needed_for_given_time;
+	int timeout_hsync;
 	char *recvd_msg_buf = NULL;
 	struct hdmi_hdcp2p2_ctrl *ctrl = container_of(work,
 		struct hdmi_hdcp2p2_ctrl, recv_msg);
 	struct hdmi_tx_hdcp2p2_ddc_data *ddc_data;
 	struct hdmi_tx_ddc_ctrl *ddc_ctrl;
-	struct msm_hdmi_mode_timing_info *timing;
 	struct hdcp_lib_wakeup_data cdata = {HDCP_LIB_WKUP_CMD_INVALID};
 
 	if (!ctrl) {
@@ -635,27 +629,21 @@ static void hdmi_hdcp2p2_recv_msg_work(struct kthread_work *work)
 
 	memset(ddc_data, 0, sizeof(*ddc_data));
 
-	timing = ctrl->init_data.timing;
+	timeout_hsync = hdmi_utils_get_timeout_in_hysnc(
+		ctrl->init_data.timing, ctrl->timeout);
 
-	fps = timing->refresh_rate / HDCP2P2_KHZ_TO_HZ;
-	v_total = hdmi_tx_get_v_total(timing);
+	if (timeout_hsync <= 0) {
+		pr_err("err in timeout hsync calc\n");
+		timeout_hsync = HDMI_DEFAULT_TIMEOUT_HSYNC;
+	}
 
-	/*
-	 * pixel clock  = h_total * v_total * fps
-	 * 1 sec = pixel clock number of pixels are transmitted.
-	 * time taken by one line (h_total) = 1 / (v_total * fps).
-	 */
-	time_taken_by_one_line_us = HDCP2P2_SEC_TO_US / (v_total * fps);
-	lines_needed_for_given_time = (ctrl->timeout * HDCP2P2_MS_TO_US) /
-		time_taken_by_one_line_us;
-
-	pr_debug("timeout for rxstatus %dms, %d hsyncs\n",
-		ctrl->timeout, lines_needed_for_given_time);
+	pr_debug("timeout for rxstatus %dms, %d hsync\n",
+		ctrl->timeout, timeout_hsync);
 
 	ddc_data->intr_mask = RXSTATUS_MESSAGE_SIZE;
 	ddc_data->timeout_ms = ctrl->timeout;
-	ddc_data->timeout_hsync = lines_needed_for_given_time;
-	ddc_data->periodic_timer_hsync = lines_needed_for_given_time / 20;
+	ddc_data->timeout_hsync = timeout_hsync;
+	ddc_data->periodic_timer_hsync = timeout_hsync / 20;
 	ddc_data->read_method = HDCP2P2_RXSTATUS_HW_DDC_SW_TRIGGER;
 
 	rc = hdmi_hdcp2p2_ddc_read_rxstatus(ddc_ctrl, true);
@@ -704,10 +692,7 @@ static int hdmi_hdcp2p2_link_check(struct hdmi_hdcp2p2_ctrl *ctrl)
 {
 	struct hdmi_tx_ddc_ctrl *ddc_ctrl;
 	struct hdmi_tx_hdcp2p2_ddc_data *ddc_data;
-	struct msm_hdmi_mode_timing_info *timing;
-	u32 fps, v_total;
-	u32 time_taken_by_one_line_us;
-	u32 lines_needed_for_given_time;
+	int timeout_hsync;
 
 	ddc_ctrl = ctrl->init_data.ddc_ctrl;
 	if (!ddc_ctrl)
@@ -719,20 +704,20 @@ static int hdmi_hdcp2p2_link_check(struct hdmi_hdcp2p2_ctrl *ctrl)
 
 	memset(ddc_data, 0, sizeof(*ddc_data));
 
-	timing = ctrl->init_data.timing;
-	fps = timing->refresh_rate / HDCP2P2_KHZ_TO_HZ;
-	v_total = hdmi_tx_get_v_total(timing);
-	time_taken_by_one_line_us = HDCP2P2_SEC_TO_US / (v_total * fps);
-	lines_needed_for_given_time = (jiffies_to_msecs((HZ / 2) + (HZ / 4)) *
-		HDCP2P2_MS_TO_US) / time_taken_by_one_line_us;
+	timeout_hsync = hdmi_utils_get_timeout_in_hysnc(
+		ctrl->init_data.timing,
+		jiffies_to_msecs((HZ / 2) + (HZ / 4)));
 
-	pr_debug("timeout for rxstatus %d hsyncs\n",
-		lines_needed_for_given_time);
+	if (timeout_hsync <= 0) {
+		pr_err("err in timeout hsync calc\n");
+		timeout_hsync = HDMI_DEFAULT_TIMEOUT_HSYNC;
+	}
+	pr_debug("timeout for rxstatus %d hsyncs\n", timeout_hsync);
 
 	ddc_data->intr_mask = RXSTATUS_READY | RXSTATUS_MESSAGE_SIZE |
 		RXSTATUS_REAUTH_REQ;
-	ddc_data->timeout_hsync = lines_needed_for_given_time;
-	ddc_data->periodic_timer_hsync = lines_needed_for_given_time;
+	ddc_data->timeout_hsync = timeout_hsync;
+	ddc_data->periodic_timer_hsync = timeout_hsync;
 	ddc_data->read_method = HDCP2P2_RXSTATUS_HW_DDC_SW_TRIGGER;
 
 	return hdmi_hdcp2p2_ddc_read_rxstatus(ddc_ctrl, false);
