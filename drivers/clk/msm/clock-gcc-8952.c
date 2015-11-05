@@ -3561,6 +3561,7 @@ static struct mux_clk gcc_debug_mux_8937 = {
 		{ &gcc_camss_vfe1_clk.c, 0x01a1 },
 		{ &gcc_camss_vfe1_ahb_clk.c, 0x01a2 },
 		{ &gcc_camss_vfe1_axi_clk.c, 0x01a3 },
+		{ &gcc_camss_cpp_axi_clk.c, 0x01a4 },
 		{ &gcc_venus0_core0_vcodec0_clk.c, 0x01b8 },
 		{ &gcc_camss_mclk2_clk.c, 0x01bd },
 		{ &gcc_oxili_timer_clk.c, 0x01e9 },
@@ -3571,14 +3572,14 @@ static struct mux_clk gcc_debug_mux_8937 = {
 		{ &gcc_venus0_ahb_clk.c, 0x01f3 },
 		{ &gcc_mdss_ahb_clk.c, 0x01f6 },
 		{ &gcc_mdss_axi_clk.c, 0x01f7 },
-		{ &gcc_mdss_pclk0_clk.c, 0x01e3 },
-		{ &gcc_mdss_pclk1_clk.c, 0x01f8 },
+		{ &gcc_mdss_pclk0_clk.c, 0x01f8 },
+		{ &gcc_mdss_pclk1_clk.c, 0x01e3 },
 		{ &gcc_mdss_mdp_clk.c, 0x01f9 },
 		{ &gcc_mdss_vsync_clk.c, 0x01fb },
-		{ &gcc_mdss_byte0_clk.c, 0x01e4 },
-		{ &gcc_mdss_byte1_clk.c, 0x01fc },
-		{ &gcc_mdss_esc0_clk.c, 0x01e5 },
-		{ &gcc_mdss_esc1_clk.c, 0x01f8 },
+		{ &gcc_mdss_byte0_clk.c, 0x01fc },
+		{ &gcc_mdss_byte1_clk.c, 0x01e4 },
+		{ &gcc_mdss_esc0_clk.c, 0x01fd },
+		{ &gcc_mdss_esc1_clk.c, 0x01e5 },
 		{ &wcnss_m_clk.c, 0x0ec },
 	),
 	.c = {
@@ -3660,7 +3661,6 @@ static struct clk_lookup msm_clocks_lookup_common[] = {
 	CLK_LIST(gcc_prng_ahb_clk),
 	CLK_LIST(gcc_cpp_tbu_clk),
 	CLK_LIST(gcc_apss_tcu_clk),
-	CLK_LIST(gcc_ipa_tbu_clk),
 	CLK_LIST(gcc_jpeg_tbu_clk),
 	CLK_LIST(gcc_mdp_tbu_clk),
 	CLK_LIST(gcc_smmu_cfg_clk),
@@ -4099,6 +4099,10 @@ static struct platform_driver msm_clock_gcc_driver = {
 static int msm_gcc_spm_probe(struct platform_device *pdev)
 {
 	struct resource *res = NULL;
+	bool compat_bin = false;
+
+	compat_bin = of_device_is_compatible(pdev->dev.of_node,
+					"qcom,spm-8952");
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "spm_c0_base");
 	if (!res) {
@@ -4126,18 +4130,20 @@ static int msm_gcc_spm_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+	if (compat_bin) {
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"spm_cci_base");
-	if (!res) {
-		dev_err(&pdev->dev, "SPM register base not defined for cci\n");
-		return -ENOMEM;
-	}
+		if (!res) {
+			dev_err(&pdev->dev, "SPM register base not defined for cci\n");
+			return -ENOMEM;
+		}
 
-	a53ss_cci_pll.spm_ctrl.spm_base = devm_ioremap(&pdev->dev, res->start,
-						resource_size(res));
-	if (!a53ss_cci_pll.spm_ctrl.spm_base) {
-		dev_err(&pdev->dev, "Failed to ioremap cci spm registers\n");
-		return -ENOMEM;
+		a53ss_cci_pll.spm_ctrl.spm_base = devm_ioremap(&pdev->dev,
+						res->start, resource_size(res));
+		if (!a53ss_cci_pll.spm_ctrl.spm_base) {
+			dev_err(&pdev->dev, "Failed to ioremap cci spm registers\n");
+			return -ENOMEM;
+		}
 	}
 
 	dev_info(&pdev->dev, "Registered GCC SPM clocks\n");
@@ -4147,6 +4153,7 @@ static int msm_gcc_spm_probe(struct platform_device *pdev)
 
 static struct of_device_id msm_clock_spm_match_table[] = {
 	{ .compatible = "qcom,gcc-spm-8952" },
+	{ .compatible = "qcom,gcc-spm-8937" },
 	{}
 };
 
