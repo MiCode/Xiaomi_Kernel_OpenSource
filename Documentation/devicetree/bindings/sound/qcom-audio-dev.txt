@@ -306,6 +306,8 @@ Optional properties:
  - clocks:                                  phandle reference to the parent
                                             clock.
 
+ - qcom,codec-mclk-clk-freq:                Codec mclk frequency in Hz.
+
 * audio_slimslave
 
 Required properties:
