@@ -303,14 +303,17 @@ static int msm_comm_vote_bus(struct msm_vidc_core *core)
 		vote_data[i].load = msm_comm_get_inst_load(inst,
 				LOAD_CALC_NO_QUIRKS);
 
+		vote_data[i].power_mode = 0;
+		if (is_low_power_session(inst))
+			vote_data[i].power_mode |= VIDC_POWER_LOW;
 		if (is_turbo_session(inst))
-			vote_data[i].power_mode = VIDC_POWER_TURBO;
-		else if (is_low_power_session(inst))
-			vote_data[i].power_mode = VIDC_POWER_LOW;
-		else if (is_low_latency_session(inst))
-			vote_data[i].power_mode = VIDC_POWER_LOW_LATENCY;
-		else
-			vote_data[i].power_mode = VIDC_POWER_NORMAL;
+			vote_data[i].power_mode |= VIDC_POWER_TURBO;
+		if (is_low_latency_session(inst))
+			vote_data[i].power_mode |= VIDC_POWER_LOW_LATENCY;
+
+		/* if no power modes enabled then go for normal */
+		if (!vote_data[i].power_mode)
+			vote_data[i].power_mode |= VIDC_POWER_NORMAL;
 
 		i++;
 	}
