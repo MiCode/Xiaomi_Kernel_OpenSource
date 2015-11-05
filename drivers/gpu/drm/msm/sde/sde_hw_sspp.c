@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -125,14 +125,14 @@ static inline int _sspp_subblk_offset(struct sde_hw_pipe *ctx,
 	case SDE_SSPP_CSC:
 		*idx = sblk->csc_blk.base;
 		break;
-	case SDE_SSPP_PA_V1:
-		*idx = sblk->pa_blk.base;
-		break;
-	case SDE_SSPP_HIST_V1:
-		*idx = sblk->hist_lut.base;
+	case SDE_SSPP_HSIC:
+		*idx = sblk->hsic.base;
 		break;
 	case SDE_SSPP_PCC:
 		*idx = sblk->pcc_blk.base;
+		break;
+	case SDE_SSPP_MEMCOLOR:
+		*idx = sblk->memcolor.base;
 		break;
 	default:
 		rc = -EINVAL;
@@ -148,8 +148,7 @@ static void _sspp_setup_opmode(struct sde_hw_pipe *ctx,
 	u32 opmode;
 
 	if (!_sspp_subblk_offset(ctx, SDE_SSPP_SCALER_QSEED2, &idx) &&
-			(test_bit(SDE_SSPP_CSC, &ctx->cap->features) ||
-			 test_bit(SDE_SSPP_PA_V1, &ctx->cap->features))) {
+			test_bit(SDE_SSPP_CSC, &ctx->cap->features)) {
 		opmode = SDE_REG_READ(&ctx->hw, SSPP_VIG_OP_MODE + idx);
 
 		if (en)
@@ -526,9 +525,8 @@ static void _setup_layer_ops(struct sde_hw_sspp_ops *ops,
 	if (test_bit(SDE_SSPP_CSC, &features))
 		ops->setup_csc = sde_hw_sspp_setup_csc;
 
-	if (test_bit(SDE_SSPP_PA_V1, &features)) {
+	if (test_bit(SDE_SSPP_SCALER_QSEED2, &features))
 		ops->setup_sharpening = sde_hw_sspp_setup_sharpening;
-	}
 }
 
 static struct sde_sspp_cfg *_sspp_offset(enum sde_sspp sspp,
