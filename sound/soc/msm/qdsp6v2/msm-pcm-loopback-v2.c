@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
 
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -52,21 +52,6 @@ struct msm_pcm_loopback {
 };
 
 static void stop_pcm(struct msm_pcm_loopback *pcm);
-
-static const struct snd_pcm_hardware dummy_pcm_hardware = {
-	.formats                = 0xffffffff,
-	.channels_min           = 1,
-	.channels_max           = UINT_MAX,
-
-	/* Random values to keep userspace happy when checking constraints */
-	.info                   = SNDRV_PCM_INFO_INTERLEAVED |
-				  SNDRV_PCM_INFO_BLOCK_TRANSFER,
-	.buffer_bytes_max       = 128*1024,
-	.period_bytes_min       = 1024,
-	.period_bytes_max       = 1024*2,
-	.periods_min            = 2,
-	.periods_max            = 128,
-};
 
 static void msm_pcm_route_event_handler(enum msm_pcm_routing_event event,
 					void *priv_data)
@@ -140,7 +125,6 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	pcm = dev_get_drvdata(rtd->platform->dev);
 	mutex_lock(&pcm->lock);
 
-	snd_soc_set_runtime_hwparams(substream, &dummy_pcm_hardware);
 	pcm->volume = 0x2000;
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
@@ -323,26 +307,8 @@ static int msm_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	return 0;
 }
 
-static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
-			     struct snd_pcm_hw_params *params)
-{
-	struct snd_soc_pcm_runtime *rtd = snd_pcm_substream_chip(substream);
-
-	dev_dbg(rtd->platform->dev, "%s: ASM loopback\n", __func__);
-
-	return snd_pcm_lib_alloc_vmalloc_buffer(substream,
-		params_buffer_bytes(params));
-}
-
-static int msm_pcm_hw_free(struct snd_pcm_substream *substream)
-{
-	return snd_pcm_lib_free_vmalloc_buffer(substream);
-}
-
 static struct snd_pcm_ops msm_pcm_ops = {
 	.open           = msm_pcm_open,
-	.hw_params      = msm_pcm_hw_params,
-	.hw_free        = msm_pcm_hw_free,
 	.close          = msm_pcm_close,
 	.prepare        = msm_pcm_prepare,
 	.trigger        = msm_pcm_trigger,
