@@ -1071,6 +1071,7 @@ static struct device **derive_device_list(struct clk *clk,
 		return ERR_PTR(-ENOMEM);
 
 	for (j = 0; j < count; j++) {
+		device_list[j] = NULL;
 		dev_node = of_parse_phandle(np, clk_handle_name, j);
 		if (!dev_node) {
 			pr_err("Unable to get device_node pointer for %s opp-handle (%s)\n",
@@ -1081,9 +1082,11 @@ static struct device **derive_device_list(struct clk *clk,
 		for_each_possible_cpu(cpu) {
 			if (of_get_cpu_node(cpu, NULL) == dev_node) {
 				device_list[j] = get_cpu_device(cpu);
-				continue;
 			}
 		}
+
+		if (device_list[j])
+			continue;
 
 		pdev = of_find_device_by_node(dev_node);
 		if (!pdev) {
