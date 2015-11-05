@@ -441,7 +441,6 @@ static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
 		}
 	}
 	err = mmc_send_ext_csd(card, ext_csd);
-	mmc_put_card(card);
 	if (err)
 		goto out_free;
 
@@ -458,6 +457,7 @@ static int mmc_ext_csd_open(struct inode *inode, struct file *filp)
 			       mmc_hostname(card->host), __func__);
 	}
 
+	mmc_put_card(card);
 	kfree(ext_csd);
 	return 0;
 
@@ -467,6 +467,7 @@ out_free:
 			pr_err("%s: %s: cmdq unhalt failed\n",
 			       mmc_hostname(card->host), __func__);
 	}
+	mmc_put_card(card);
 out_free_halt:
 	kfree(buf);
 	kfree(ext_csd);
