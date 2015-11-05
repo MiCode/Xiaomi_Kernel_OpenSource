@@ -129,7 +129,7 @@ static void uether_debugfs_exit(struct eth_dev *dev);
  * of interconnect, data can be very bursty. tx_qmult is the
  * additional multipler on qmult.
  */
-static unsigned int tx_qmult = 1;
+static unsigned int tx_qmult = 2;
 module_param(tx_qmult, uint, 0644);
 MODULE_PARM_DESC(tx_qmult, "Additional queue length multiplier for tx");
 
@@ -857,21 +857,28 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		dev->tx_skb_hold_count = 0;
 		spin_unlock_irqrestore(&dev->lock, flags);
 	} else {
+		bool do_align = false;
+
+		/* Check if TX buffer should be aligned before queuing to hw */
+		if (dev->gadget->is_chipidea &&
+		    !IS_ALIGNED((size_t)skb->data, 4))
+			do_align = true;
+
 		/*
 		 * Some UDC requires allocation of some extra bytes for
 		 * TX buffer due to hardware requirement. Check if extra
 		 * bytes are already there, otherwise allocate new buffer
-		 * with extra bytes and do memcpy.
+		 * with extra bytes and do memcpy to align skb as well.
 		 */
-		length = skb->len;
 		if (dev->gadget->extra_buf_alloc)
 			extra_alloc = EXTRA_ALLOCATION_SIZE_U_ETH;
 		tail_room = skb_tailroom(skb);
-		if (tail_room < extra_alloc) {
-			pr_debug("%s: tail_room  %d less than %d\n", __func__,
-					tail_room, extra_alloc);
-			new_skb = skb_copy_expand(skb, 0, extra_alloc -
-					tail_room, GFP_ATOMIC);
+		if (do_align || tail_room < extra_alloc) {
+			pr_debug("%s:align skb and update tail_room %d to %d\n",
+					__func__, tail_room, extra_alloc);
+			tail_room = extra_alloc;
+			new_skb = skb_copy_expand(skb, 0, tail_room,
+						  GFP_ATOMIC);
 			if (!new_skb)
 				return -ENOMEM;
 			dev_kfree_skb_any(skb);
@@ -879,6 +886,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 			dev->skb_expand_cnt++;
 		}
 
+		length = skb->len;
 		req->buf = skb->data;
 		req->context = skb;
 	}
