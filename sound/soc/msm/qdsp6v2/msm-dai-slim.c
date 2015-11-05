@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,6 +58,7 @@ struct msm_slim_dai_data {
 	u8 status;
 	struct snd_soc_dai_driver *dai_drv;
 	struct msm_slim_dma_data dma_data;
+	struct slim_port_cfg port_cfg;
 };
 
 struct msm_dai_slim_drv_data {
@@ -135,6 +136,16 @@ static int msm_dai_slim_ch_ctl(struct msm_slim_dma_data *dma_data,
 			goto done;
 		}
 
+		rc = slim_config_mgrports(sdev, &(dma_data->ph),
+					  dai_data->ch_cnt,
+					  &(dai_data->port_cfg));
+		if (IS_ERR_VALUE(rc)) {
+			dev_err(&sdev->dev,
+				"%s: config mgrport failed rc %d\n",
+				__func__ , rc);
+			goto err_done;
+		}
+
 		for (i = 0; i < dai_data->ch_cnt; i++) {
 			rc = slim_connect_sink(sdev,
 					       &dma_data->ph, 1,
@@ -143,7 +154,7 @@ static int msm_dai_slim_ch_ctl(struct msm_slim_dma_data *dma_data,
 				dev_err(&sdev->dev,
 					"%s: slim_connect_sink failed, ch = %d, err = %d\n",
 					__func__, i, rc);
-				goto err_connect_sink;
+				goto err_done;
 			}
 		}
 
@@ -154,7 +165,7 @@ static int msm_dai_slim_ch_ctl(struct msm_slim_dma_data *dma_data,
 			dev_err(&sdev->dev,
 				"%s: slim activate ch failed, err = %d\n",
 				__func__, rc);
-			goto err_connect_sink;
+			goto err_done;
 		}
 		/* Mark dai status as running */
 		SET_DAI_STATE(dai_data->status, DAI_STATE_RUNNING);
@@ -190,7 +201,7 @@ static int msm_dai_slim_ch_ctl(struct msm_slim_dma_data *dma_data,
 
 	return rc;
 
-err_connect_sink:
+err_done:
 	rc1 = slim_dealloc_mgrports(sdev,
 				   &dma_data->ph, 1);
 	if (IS_ERR_VALUE(rc1))
@@ -227,6 +238,11 @@ static int msm_dai_slim_hw_params(
 	}
 
 	dai_data->rate = params_rate(params);
+	dai_data->port_cfg.port_opts = SLIM_OPT_NONE;
+	if (dai_data->rate >= SNDRV_PCM_RATE_48000)
+		dai_data->port_cfg.watermark = 16;
+	else
+		dai_data->port_cfg.watermark = 8;
 
 	switch (params_format(params)) {
 	case SNDRV_PCM_FORMAT_S16_LE:
