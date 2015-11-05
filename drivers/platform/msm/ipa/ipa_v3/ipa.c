@@ -3824,8 +3824,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	}
 	if (ipa3_ctx->empty_rt_tbl_mem.phys_base &
 		IPA_HW_TBL_SYSADDR_ALIGNMENT) {
-		IPAERR("Empty routing table buf is not address aligned 0x%x\n",
-				ipa3_ctx->empty_rt_tbl_mem.phys_base);
+		IPAERR("Empty rt-table buf is not address aligned 0x%pad\n",
+				&ipa3_ctx->empty_rt_tbl_mem.phys_base);
 		result = -EFAULT;
 		goto fail_empty_rt_tbl;
 	}
