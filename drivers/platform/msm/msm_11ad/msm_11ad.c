@@ -331,6 +331,7 @@ static int msm_11ad_probe(struct platform_device *pdev)
 		 ctx->use_smmu, ctx->pcidev);
 
 	platform_set_drvdata(pdev, ctx);
+	device_disable_async_suspend(&pcidev->dev);
 
 	list_add_tail(&ctx->list, &dev_list);
 	ops_suspend(ctx);
