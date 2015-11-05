@@ -1514,8 +1514,13 @@ static int __overlay_queue_pipes(struct msm_fb_data_type *mfd)
 		if (buf && (buf->state == MDP_BUF_STATE_READY)) {
 			buf->state = MDP_BUF_STATE_ACTIVE;
 			ret = mdss_mdp_data_map(buf, false, DMA_TO_DEVICE);
-		} else if (!pipe->params_changed) {
-			/* nothing to update so continue with next */
+		} else if (!pipe->params_changed &&
+			   !mdss_mdp_is_roi_changed(pipe->mfd)) {
+
+			/*
+			 * no update for the given pipe nor any change in the
+			 * ROI so skip pipe programming and continue with next.
+			 */
 			continue;
 		} else if (buf) {
 			BUG_ON(buf->state != MDP_BUF_STATE_ACTIVE);
@@ -4547,8 +4552,8 @@ static void mdss_mdp_set_lm_flag(struct msm_fb_data_type *mfd)
 		mfd->split_mode = MDP_DUAL_LM_SINGLE_DISPLAY;
 		mfd->split_fb_left = width;
 		mfd->split_fb_right = width;
-	} else if (mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY &&
-			width <= mdata->max_mixer_width) {
+	} else if (is_dual_lm_single_display(mfd) &&
+		   (width <= mdata->max_mixer_width)) {
 		mfd->split_mode = MDP_SPLIT_MODE_NONE;
 		mfd->split_fb_left = 0;
 		mfd->split_fb_right = 0;

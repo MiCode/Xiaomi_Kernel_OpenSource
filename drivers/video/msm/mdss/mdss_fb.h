@@ -395,7 +395,10 @@ static inline bool is_pingpong_split(struct msm_fb_data_type *mfd)
 {
 	return mfd && (mfd->split_mode == MDP_PINGPONG_SPLIT);
 }
-
+static inline bool is_dual_lm_single_display(struct msm_fb_data_type *mfd)
+{
+	return mfd && (mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY);
+}
 static inline bool mdss_fb_is_power_off(struct msm_fb_data_type *mfd)
 {
 	return mdss_panel_is_power_off(mfd->panel_power_state);
