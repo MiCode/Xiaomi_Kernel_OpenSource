@@ -733,5 +733,165 @@
 				};
 			};
 		};
+
+		mdss_cs_active: mdss_cs_active {
+			mux {
+				pins = "gpio23";
+				function = "ebi2_lcd_cs_n_b";
+			};
+
+			config {
+				pins = "gpio23";
+				drive-strength = <10>;/*10mA*/
+				bias-disable;/*NOpull*/
+			};
+		};
+
+		mdss_cs_sleep:mdss_cs_sleep {
+			mux {
+				pins = "gpio23";
+				function = "ebi2_lcd_cs_n_b";
+			};
+
+			config {
+				pins = "gpio23";
+				drive-strength = <10>;/*2mA*/
+				bias-disable;/*NOpull*/
+			};
+		};
+
+		mdss_te_active:mdss_te_active {
+			mux {
+				pins = "gpio20";
+				function = "ebi2_lcd_te_b";
+			};
+
+			config {
+				pins = "gpio20";
+				drive-strength = <10>;/*10mA*/
+				bias-disable;/*NOpull*/
+			};
+		};
+
+		mdss_te_sleep:mdss_te_sleep {
+			mux {
+				pins = "gpio20";
+				function = "ebi2_lcd_te_b";
+			};
+
+			config {
+				pins = "gpio20";
+				drive-strength = <10>;/*2mA*/
+				bias-disable;/*NOpull*/
+			};
+		};
+
+		mdss_rs_active:mdss_rs_active {
+			mux {
+				pins = "gpio74";
+				function = "ebi2_lcd";
+			};
+
+			config {
+				pins = "gpio74";
+				drive-strength = <10>;/*10mA*/
+				bias-disable;/*NOpull*/
+			};
+		};
+
+		mdss_rs_sleep:mdss_rs_sleep {
+			mux {
+				pins = "gpio74";
+				function = "ebi2_lcd";
+			};
+
+			config {
+				pins = "gpio74";
+				drive-strength = <10>;/*2mA*/
+				bias-disable;/*NOpull*/
+			};
+		};
+
+		mdss_ad_active:mdss_ad_active {
+			mux {
+				pins = "gpio22";
+				function = "ebi2_a_d_8_b";
+			};
+
+			config {
+				pins = "gpio22";
+				drive-strength = <10>;/*10mA*/
+				bias-disable;/*NOpull*/
+			};
+		};
+
+		mdss_ad_sleep:mdss_ad_sleep {
+			mux {
+				pins = "gpio22";
+				function = "ebi2_a_d_8_b";
+			};
+
+			config {
+				pins = "gpio22";
+				drive-strength = <10>;/*2mA*/
+				bias-disable;/*NOpull*/
+			};
+		};
+
+		mdss_bl_active:mdss_bl_active {
+			mux {
+				pins = "gpio21";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio21";
+				drive-strength = <10>;/*10mA*/
+				bias-disable;/*NOpull*/
+				output-high;
+			};
+		};
+
+		mdss_bl_sleep:mdss_bl_sleep {
+			mux {
+				pins = "gpio21";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio21";
+				drive-strength = <10>;/*2mA*/
+				bias-disable;/*NOpull*/
+				output-high;
+			};
+		};
+
+		mdss_ldo_active:mdss_ldo_active {
+			mux {
+				pins = "gpio10";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio10";
+				drive-strength = <10>;/*10mA*/
+				bias-disable;/*NOpull*/
+				output-high;
+			};
+		};
+
+		mdss_ldo_sleep:mdss_ldo_sleep {
+			mux {
+				pins = "gpio10";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio10";
+				drive-strength = <10>;/*2mA*/
+				bias-disable;/*NOpull*/
+				output-low;
+			};
+		};
 	};
 };
