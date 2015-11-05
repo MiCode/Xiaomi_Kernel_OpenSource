@@ -2671,8 +2671,11 @@ void ipa_broadcast_quota_reach_ind(u32 mux_id)
 void ipa_q6_handshake_complete(bool ssr_bootup)
 {
 	/* It is required to recover the network stats after SSR recovery */
-	if (ssr_bootup)
+	if (ssr_bootup) {
 		rmnet_ipa_get_network_stats_and_update();
+		/* Enable holb monitoring on Q6 pipes. */
+		ipa_q6_monitor_holb_mitigation(true);
+	}
 }
 
 static int __init ipa_wwan_init(void)
