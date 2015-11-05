@@ -13,6 +13,12 @@
 &soc {
 	qcom,iommu-domains {
 		compatible = "qcom,iommu-domains";
+		lpass_q6_smmu: qcom,iommu-domain1 {
+			label = "adsp_io";
+			qcom,iommu-contexts = <&adsp_io>;
+			qcom,virtual-addr-pool = <0x10000000 0x0fffffff>;
+			#iommu-cells = <1>;
+		};
 		/*
 		 * non-secure addr pool from 2048MB to 4096MB
 		*/
