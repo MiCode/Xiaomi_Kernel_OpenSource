@@ -1303,6 +1303,15 @@ static int32_t msm_actuator_config(struct msm_actuator_ctrl_t *a_ctrl,
 	mutex_lock(a_ctrl->actuator_mutex);
 	CDBG("Enter\n");
 	CDBG("%s type %d\n", __func__, cdata->cfgtype);
+
+	if (cdata->cfgtype != CFG_ACTUATOR_INIT &&
+		cdata->cfgtype != CFG_ACTUATOR_POWERUP &&
+		a_ctrl->actuator_state == ACT_DISABLE_STATE) {
+		pr_err("actuator disabled %d\n", rc);
+		mutex_unlock(a_ctrl->actuator_mutex);
+		return -EINVAL;
+	}
+
 	switch (cdata->cfgtype) {
 	case CFG_ACTUATOR_INIT:
 		rc = msm_actuator_init(a_ctrl);
