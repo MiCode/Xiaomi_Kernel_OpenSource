@@ -5061,21 +5061,63 @@ void ipa3_set_resorce_groups_min_max_limits(void)
 	IPADBG("EXIT\n");
 }
 
+static void ipa3_gsi_poll_after_suspend(struct ipa3_ep_context *ep)
+{
+	bool empty;
+
+	IPADBG("switch ch %ld to poll\n", ep->gsi_chan_hdl);
+	gsi_config_channel_mode(ep->gsi_chan_hdl, GSI_CHAN_MODE_POLL);
+	gsi_is_channel_empty(ep->gsi_chan_hdl, &empty);
+	if (!empty) {
+		IPADBG("ch %ld not empty\n", ep->gsi_chan_hdl);
+		/* queue a work to start polling if don't have one */
+		atomic_set(&ipa3_ctx->transport_pm.eot_activity, 1);
+		if (!atomic_read(&ep->sys->curr_polling_state)) {
+			atomic_set(&ep->sys->curr_polling_state, 1);
+			queue_work(ep->sys->wq, &ep->sys->work);
+		}
+	}
+}
+
 void ipa3_suspend_apps_pipes(bool suspend)
 {
 	struct ipa_ep_cfg_ctrl cfg;
 	int ipa_ep_idx;
+	struct ipa3_ep_context *ep;
 
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.ipa_ep_suspend = suspend;
 
 	ipa_ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
-	if (ipa3_ctx->ep[ipa_ep_idx].valid)
+	ep = &ipa3_ctx->ep[ipa_ep_idx];
+	if (ep->valid) {
+		IPADBG("%s pipe %d\n", suspend ? "suspend" : "unsuspend",
+			ipa_ep_idx);
 		ipa3_cfg_ep_ctrl(ipa_ep_idx, &cfg);
+		if (suspend)
+			ipa3_gsi_poll_after_suspend(ep);
+		else if (!atomic_read(&ep->sys->curr_polling_state))
+			gsi_config_channel_mode(ep->gsi_chan_hdl,
+				GSI_CHAN_MODE_CALLBACK);
+	}
 
-	ipa_ep_idx = ipa3_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
-	if (ipa3_ctx->ep[ipa_ep_idx].valid)
+	ipa_ep_idx = ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
+	/* Considering the case for SSR. */
+	if (ipa_ep_idx == -1) {
+		IPADBG("Invalid client.\n");
+		return;
+	}
+	ep = &ipa3_ctx->ep[ipa_ep_idx];
+	if (ep->valid) {
+		IPADBG("%s pipe %d\n", suspend ? "suspend" : "unsuspend",
+			ipa_ep_idx);
 		ipa3_cfg_ep_ctrl(ipa_ep_idx, &cfg);
+		if (suspend)
+			ipa3_gsi_poll_after_suspend(ep);
+		else if (!atomic_read(&ep->sys->curr_polling_state))
+			gsi_config_channel_mode(ep->gsi_chan_hdl,
+				GSI_CHAN_MODE_CALLBACK);
+	}
 }
 
 /**

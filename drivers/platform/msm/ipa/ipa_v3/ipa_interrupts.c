@@ -40,7 +40,7 @@ static void ipa3_enable_tx_suspend_wa(struct work_struct *work);
 static DECLARE_DELAYED_WORK(dwork_en_suspend_int,
 						ipa3_enable_tx_suspend_wa);
 static spinlock_t suspend_wa_lock;
-static void ipa3_process_interrupts(void);
+static void ipa3_process_interrupts(bool isr_context);
 
 static int ipa3_irq_mapping[IPA_IRQ_MAX] = {
 	[IPA_UC_TX_CMD_Q_NOT_FULL_IRQ]		= -1,
@@ -93,7 +93,7 @@ static bool ipa3_is_valid_ep(u32 ep_suspend_data)
 	return false;
 }
 
-static int ipa3_handle_interrupt(int irq_num)
+static int ipa3_handle_interrupt(int irq_num, bool isr_context)
 {
 	struct ipa3_interrupt_info interrupt_info;
 	struct ipa3_interrupt_work_wrap *work_data;
@@ -131,7 +131,8 @@ static int ipa3_handle_interrupt(int irq_num)
 		break;
 	}
 
-	if (interrupt_info.deferred_flag) {
+	/* Force defer processing if in ISR context. */
+	if (interrupt_info.deferred_flag || isr_context) {
 		work_data = kzalloc(sizeof(struct ipa3_interrupt_work_wrap),
 				GFP_ATOMIC);
 		if (!work_data) {
@@ -183,7 +184,7 @@ static void ipa3_enable_tx_suspend_wa(struct work_struct *work)
 		, en);
 	ipa3_uc_rg10_write_reg(ipa3_ctx->mmio,
 		IPA_IRQ_EN_EE_n_ADDR(ipa_ee), en);
-	ipa3_process_interrupts();
+	ipa3_process_interrupts(false);
 	ipa3_dec_client_disable_clks();
 
 	IPADBG("Exit\n");
@@ -215,7 +216,7 @@ static void ipa3_tx_suspend_interrupt_wa(void)
 	IPADBG("Exit\n");
 }
 
-static void ipa3_process_interrupts(void)
+static void ipa3_process_interrupts(bool isr_context)
 {
 	u32 reg;
 	u32 bmsk;
@@ -231,8 +232,18 @@ static void ipa3_process_interrupts(void)
 	while (en & reg) {
 		bmsk = 1;
 		for (i = 0; i < IPA_IRQ_NUM_MAX; i++) {
-			if (en & reg & bmsk)
-				ipa3_handle_interrupt(i);
+			if (en & reg & bmsk) {
+				/*
+				 * handle the interrupt with spin_lock
+				 * unlocked to avoid calling client in atomic
+				 * context. mutual exclusion still preserved
+				 * as the read/clr is done with spin_lock
+				 * locked.
+				 */
+				spin_unlock_irqrestore(&suspend_wa_lock, flags);
+				ipa3_handle_interrupt(i, isr_context);
+				spin_lock_irqsave(&suspend_wa_lock, flags);
+			}
 			bmsk = bmsk << 1;
 		}
 		ipa3_uc_rg10_write_reg(ipa3_ctx->mmio,
@@ -253,7 +264,7 @@ static void ipa3_interrupt_defer(struct work_struct *work)
 {
 	IPADBG("processing interrupts in wq\n");
 	ipa3_inc_client_enable_clks();
-	ipa3_process_interrupts();
+	ipa3_process_interrupts(false);
 	ipa3_dec_client_disable_clks();
 	IPADBG("Done\n");
 }
@@ -276,7 +287,7 @@ static irqreturn_t ipa3_isr(int irq, void *ctxt)
 		goto bail;
 	}
 
-	ipa3_process_interrupts();
+	ipa3_process_interrupts(true);
 	IPADBG("Exit\n");
 
 bail:
