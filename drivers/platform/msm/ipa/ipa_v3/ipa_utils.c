@@ -835,6 +835,7 @@ int ipa3_get_ep_mapping(enum ipa_client_type client)
 
 	switch (ipa3_ctx->ipa_hw_type) {
 	case IPA_HW_v3_0:
+	case IPA_HW_v3_1:
 		hw_type_index = IPA_3_0;
 		break;
 	default:
@@ -885,6 +886,7 @@ int ipa_get_ep_group(enum ipa_client_type client)
 
 	switch (ipa3_ctx->ipa_hw_type) {
 	case IPA_HW_v3_0:
+	case IPA_HW_v3_1:
 		hw_type_index = IPA_3_0;
 		break;
 	default:
@@ -1016,6 +1018,7 @@ void ipa_init_ep_flt_bitmap(void)
 
 	switch (ipa3_ctx->ipa_hw_type) {
 	case IPA_HW_v3_0:
+	case IPA_HW_v3_1:
 		hw_type_idx = IPA_3_0;
 		break;
 	default:
@@ -2548,6 +2551,7 @@ int ipa3_cfg_ep_seq(u32 clnt_hdl)
 
 	switch (ipa3_ctx->ipa_hw_type) {
 	case IPA_HW_v3_0:
+	case IPA_HW_v3_1:
 		hw_type_index = IPA_3_0;
 		break;
 	default:
@@ -5463,14 +5467,15 @@ int ipa3_generate_eq_from_hw_rule(
 	IPADBG("before align buf=0x%p extra=0x%p rest=0x%p\n",
 		buf, extra, rest);
 	/* align to 64 bit */
-	rest = (u8 *)(((u32)rest + IPA_HW_RULE_START_ALIGNMENT) &
+	rest = (u8 *)(((unsigned long)rest + IPA_HW_RULE_START_ALIGNMENT) &
 		~IPA_HW_RULE_START_ALIGNMENT);
 
 	IPADBG("after align buf=0x%p extra=0x%p rest=0x%p\n",
 		buf, extra, rest);
-	IPADBG("rest - buf=0x%x\n", rest - buf);
 
 	*rule_size = rest - buf;
+
+	IPADBG("rest - buf=0x%llx\n", (u64) (rest - buf));
 	IPADBG("*rule_size=0x%x\n", *rule_size);
 
 	return 0;

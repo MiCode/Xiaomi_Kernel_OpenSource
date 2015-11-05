@@ -358,25 +358,6 @@ enum ipa_smmu_cb_type {
 
 static struct ipa_smmu_cb_ctx smmu_cb[IPA_SMMU_CB_MAX];
 
-#if !defined(CONFIG_ARM_DMA_USE_IOMMU) && !defined(CONFIG_ARM64_DMA_USE_IOMMU)
-struct dma_iommu_mapping *ipa3_arm_iommu_create_mapping(struct bus_type *bus,
-		dma_addr_t base, size_t size)
-{
-	return NULL;
-}
-
-void ipa3_arm_iommu_release_mapping(struct dma_iommu_mapping *mapping) { }
-
-int ipa3_arm_iommu_attach_device(struct device *dev,
-		struct dma_iommu_mapping *mapping)
-{
-	return 0;
-}
-
-void ipa3_arm_iommu_detach_device(struct device *dev) { }
-#endif
-
-
 struct iommu_domain *ipa3_get_smmu_domain(void)
 {
 	if (smmu_cb[IPA_SMMU_CB_AP].valid)
@@ -4040,8 +4021,8 @@ static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 	}
 	if (ipa3_ctx->empty_rt_tbl_mem.phys_base &
 		IPA_HW_TBL_SYSADDR_ALIGNMENT) {
-		IPAERR("Empty routing table buf is not address aligned 0x%x\n",
-				ipa3_ctx->empty_rt_tbl_mem.phys_base);
+		IPAERR("Empty rt-table buf is not address aligned 0x%pad\n",
+				&ipa3_ctx->empty_rt_tbl_mem.phys_base);
 		result = -EFAULT;
 		goto fail_empty_rt_tbl;
 	}
@@ -4463,7 +4444,7 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 	}
 
 	cb->dev = dev;
-	cb->mapping = ipa3_arm_iommu_create_mapping(msm_iommu_get_bus(dev),
+	cb->mapping = arm_iommu_create_mapping(msm_iommu_get_bus(dev),
 			IPA_SMMU_UC_VA_START, IPA_SMMU_UC_VA_SIZE);
 	if (IS_ERR(cb->mapping)) {
 		IPADBG("Fail to create mapping\n");
@@ -4481,7 +4462,7 @@ static int ipa_smmu_uc_cb_probe(struct device *dev)
 	}
 
 
-	ret = ipa3_arm_iommu_attach_device(cb->dev, cb->mapping);
+	ret = arm_iommu_attach_device(cb->dev, cb->mapping);
 	if (ret) {
 		IPAERR("could not attach device ret=%d\n", ret);
 		return ret;
@@ -4510,7 +4491,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	}
 
 	cb->dev = dev;
-	cb->mapping = ipa3_arm_iommu_create_mapping(msm_iommu_get_bus(dev),
+	cb->mapping = arm_iommu_create_mapping(msm_iommu_get_bus(dev),
 			IPA_SMMU_AP_VA_START, IPA_SMMU_AP_VA_SIZE);
 	if (IS_ERR(cb->mapping)) {
 		IPADBG("Fail to create mapping\n");
@@ -4523,7 +4504,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 				DOMAIN_ATTR_COHERENT_HTW_DISABLE,
 				 &disable_htw)) {
 			IPAERR("couldn't disable coherent HTW\n");
-			ipa3_arm_iommu_detach_device(cb->dev);
+			arm_iommu_detach_device(cb->dev);
 			return -EIO;
 		}
 	}
@@ -4532,11 +4513,11 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 				  DOMAIN_ATTR_ATOMIC,
 				  &atomic_ctx)) {
 		IPAERR("couldn't set domain as atomic\n");
-		ipa3_arm_iommu_detach_device(cb->dev);
+		arm_iommu_detach_device(cb->dev);
 		return -EIO;
 	}
 
-	result = ipa3_arm_iommu_attach_device(cb->dev, cb->mapping);
+	result = arm_iommu_attach_device(cb->dev, cb->mapping);
 	if (result) {
 		IPAERR("couldn't attach to IOMMU ret=%d\n", result);
 		return result;
@@ -4552,7 +4533,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	result = ipa3_pre_init(&ipa3_res, dev);
 	if (result) {
 		IPAERR("ipa_init failed\n");
-		ipa3_arm_iommu_detach_device(cb->dev);
+		arm_iommu_detach_device(cb->dev);
 		arm_iommu_release_mapping(cb->mapping);
 		return result;
 	}

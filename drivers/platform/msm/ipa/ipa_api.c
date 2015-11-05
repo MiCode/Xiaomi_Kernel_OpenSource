@@ -2669,6 +2669,7 @@ static int ipa_generic_plat_drv_probe(struct platform_device *pdev_p)
 		}
 		break;
 	case IPA_HW_v3_0:
+	case IPA_HW_v3_1:
 		result = ipa3_plat_drv_probe(pdev_p, ipa_api_ctrl,
 			ipa_plat_drv_match);
 		if (result) {
