@@ -66,6 +66,7 @@ void *mhi_ipc_log;
 static struct mhi_dev *mhi_ctx;
 static void mhi_hwc_cb(void *priv, enum ipa_mhi_event_type event,
 	unsigned long data);
+static void mhi_ring_init_cb(void *user_data);
 
 void mhi_dev_read_from_host(struct mhi_addr *host, dma_addr_t dev, size_t size)
 {
@@ -1640,6 +1641,45 @@ exit:
 }
 EXPORT_SYMBOL(mhi_dev_write_channel);
 
+static void mhi_dev_process_ring_init(struct work_struct *work)
+{
+	struct mhi_dev *mhi = container_of(work,
+				struct mhi_dev, ring_init_cb_work);
+	int rc = 0;
+
+	rc = ipa_dma_init();
+	if (rc) {
+		pr_err("ipa dma init failed\n");
+		return;
+	}
+
+	rc = ipa_dma_enable();
+	if (rc) {
+		pr_err("ipa enable failed\n");
+		return;
+	}
+
+	rc = mhi_dev_ring_init(mhi);
+	if (rc) {
+		pr_err("MHI dev ring init failed\n");
+		return;
+	}
+
+	mhi_uci_init();
+}
+
+static void mhi_ring_init_cb(void *data)
+{
+	struct mhi_dev *mhi = data;
+
+	if (!mhi) {
+		pr_err("Invalid MHI ctx\n");
+		return;
+	}
+
+	queue_work(mhi->ring_init_wq, &mhi->ring_init_cb_work);
+}
+
 static int get_device_tree_data(struct platform_device *pdev)
 {
 	struct mhi_dev *mhi;
@@ -1783,18 +1823,6 @@ static int get_device_tree_data(struct platform_device *pdev)
 		return rc;
 	}
 
-	rc = ipa_dma_init();
-	if (rc) {
-		pr_err("ipa dma init failed\n");
-		return rc;
-	}
-
-	rc = ipa_dma_enable();
-	if (rc) {
-		pr_err("ipa enable failed\n");
-		return rc;
-	}
-
 	rc = ep_pcie_trigger_msi(mhi_ctx->phandle, mhi_ctx->mhi_ep_msi_num);
 	if (rc)
 		return rc;
@@ -1809,6 +1837,15 @@ static int get_device_tree_data(struct platform_device *pdev)
 	}
 
 	INIT_WORK(&mhi->pending_work, mhi_dev_process_ring_pending);
+
+	INIT_WORK(&mhi->ring_init_cb_work, mhi_dev_process_ring_init);
+
+	mhi->ring_init_wq = alloc_workqueue("mhi_ring_init_cb_wq",
+							WQ_HIGHPRI, 0);
+	if (!mhi->ring_init_wq) {
+		rc = -ENOMEM;
+		return rc;
+	}
 
 	return 0;
 }
@@ -1881,12 +1918,6 @@ static int mhi_dev_probe(struct platform_device *pdev)
 	if (!mhi_ctx->dma_cache)
 		return -ENOMEM;
 
-	rc = mhi_dev_ring_init(mhi_ctx);
-	if (rc)
-		return rc;
-
-	mhi_uci_init();
-
 	mhi_ctx->read_handle = dma_alloc_coherent(&pdev->dev,
 			(TRB_MAX_DATA_SIZE * 4),
 			&mhi_ctx->read_dma_handle,
@@ -1900,6 +1931,32 @@ static int mhi_dev_probe(struct platform_device *pdev)
 			GFP_KERNEL);
 	if (!mhi_ctx->write_handle)
 		return -ENOMEM;
+
+	rc = ipa_register_ipa_ready_cb(mhi_ring_init_cb, mhi_ctx);
+	if (rc < 0) {
+		if (rc == -EEXIST) {
+			rc = ipa_dma_init();
+			if (rc) {
+				pr_err("ipa dma init failed\n");
+				return rc;
+			}
+
+			rc = ipa_dma_enable();
+			if (rc) {
+				pr_err("ipa enable failed\n");
+				return rc;
+			}
+
+			rc = mhi_dev_ring_init(mhi_ctx);
+			if (rc)
+				return rc;
+
+			mhi_uci_init();
+		} else {
+			pr_err("Error calling IPA cb with %d\n", rc);
+			return rc;
+		}
+	}
 
 	return 0;
 }
