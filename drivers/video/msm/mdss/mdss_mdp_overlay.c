@@ -3066,22 +3066,11 @@ static inline int mdss_validate_autorefresh_param(struct mdss_mdp_ctl *ctl,
 {
 	int rc = 0;
 
-	if (frame_cnt == ctl->autorefresh_frame_cnt) {
-		rc = -EINVAL;
-		pr_debug("No change to autorefresh parameters\n");
-		goto exit;
-	}
-
 	if (frame_cnt < 0 || frame_cnt >= BIT(16)) {
 		rc = -EINVAL;
 		pr_err("frame cnt %d is out of range (16 bits).\n", frame_cnt);
-		goto exit;
 	}
 
-	pr_debug("Setting autorefresh_enable=%d frame_cnt=%d\n",
-		ctl->cmd_autorefresh_en, frame_cnt);
-
-exit:
 	return rc;
 }
 
@@ -3116,7 +3105,7 @@ static ssize_t mdss_mdp_cmd_autorefresh_store(struct device *dev,
 	if (rc) {
 		pr_err("kstrtoint failed. rc=%d\n", rc);
 		return rc;
-	} else {
+	} else if (frame_cnt != ctl->autorefresh_frame_cnt) {
 		rc = mdss_validate_autorefresh_param(ctl, frame_cnt);
 		if (rc)
 			return rc;
