@@ -1234,6 +1234,10 @@
 		};
 	};
 
+	qcom,iris-fm {
+		compatible = "qcom,iris_fm";
+	};
+
 	qcom_rng: qrng@e3000 {
 		compatible = "qcom,msm-rng";
 		reg = <0xe3000 0x1000>;
