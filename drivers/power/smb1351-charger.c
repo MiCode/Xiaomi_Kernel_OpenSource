@@ -440,6 +440,7 @@ struct smb1351_charger {
 
 	int			charging_disabled_status;
 	int			usb_suspended_status;
+	int			target_fastchg_current_max_ma;
 	int			fastchg_current_max_ma;
 	int			workaround_flags;
 
@@ -641,6 +642,9 @@ static int smb1351_fastchg_current_set(struct smb1351_charger *chip,
 		}
 		if (i < 0)
 			i = 0;
+		chip->fastchg_current_max_ma = pre_chg_current[i];
+		pr_debug("prechg setting %02x\n", i);
+
 		if (i == 0)
 			i = 0x7 << SMB1351_CHG_PRE_SHIFT;
 		else if (i == 1)
@@ -648,13 +652,12 @@ static int smb1351_fastchg_current_set(struct smb1351_charger *chip,
 		else
 			i = (i - 2) << SMB1351_CHG_PRE_SHIFT;
 
-		pr_debug("prechg setting %02x\n", i);
-
 		rc = smb1351_masked_write(chip, CHG_OTH_CURRENT_CTRL_REG,
 				PRECHG_CURRENT_MASK, i);
 		if (rc)
 			pr_err("Couldn't write CHG_OTH_CURRENT_CTRL_REG rc=%d\n",
 									rc);
+
 		return smb1351_masked_write(chip, VARIOUS_FUNC_2_REG,
 				PRECHG_TO_FASTCHG_BIT, PRECHG_TO_FASTCHG_BIT);
 	} else {
@@ -665,6 +668,8 @@ static int smb1351_fastchg_current_set(struct smb1351_charger *chip,
 		}
 		if (i < 0)
 			i = 0;
+		chip->fastchg_current_max_ma = fast_chg_current[i];
+
 		i = i << SMB1351_CHG_FAST_SHIFT;
 		pr_debug("fastchg limit=%d setting %02x\n",
 					chip->fastchg_current_max_ma, i);
@@ -915,7 +920,8 @@ static int smb1351_hw_init(struct smb1351_charger *chip)
 		}
 	}
 	/* set the fast charge current limit */
-	rc = smb1351_fastchg_current_set(chip, chip->fastchg_current_max_ma);
+	rc = smb1351_fastchg_current_set(chip,
+			chip->target_fastchg_current_max_ma);
 	if (rc) {
 		pr_err("Couldn't set fastchg current rc=%d\n", rc);
 		return rc;
@@ -1456,9 +1462,9 @@ static int smb1351_parallel_set_chg_present(struct smb1351_charger *chip,
 		}
 
 		/* set fast charging current limit */
-		chip->fastchg_current_max_ma = SMB1351_CHG_FAST_MIN_MA;
+		chip->target_fastchg_current_max_ma = SMB1351_CHG_FAST_MIN_MA;
 		rc = smb1351_fastchg_current_set(chip,
-						chip->fastchg_current_max_ma);
+					chip->target_fastchg_current_max_ma);
 		if (rc) {
 			pr_err("Couldn't set fastchg current rc=%d\n", rc);
 			return rc;
@@ -1519,9 +1525,10 @@ static int smb1351_parallel_set_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		if (chip->parallel_charger_present) {
-			chip->fastchg_current_max_ma = val->intval / 1000;
+			chip->target_fastchg_current_max_ma =
+						val->intval / 1000;
 			rc = smb1351_fastchg_current_set(chip,
-						chip->fastchg_current_max_ma);
+					chip->target_fastchg_current_max_ma);
 		}
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
@@ -1605,7 +1612,7 @@ static void smb1351_chg_set_appropriate_battery_current(
 				struct smb1351_charger *chip)
 {
 	int rc;
-	unsigned int current_max = chip->fastchg_current_max_ma;
+	unsigned int current_max = chip->target_fastchg_current_max_ma;
 
 	if (chip->batt_cool)
 		current_max = min(current_max, chip->batt_cool_ma);
@@ -2613,9 +2620,9 @@ static int smb1351_parse_dt(struct smb1351_charger *chip)
 		chip->bms_psy_name = NULL;
 
 	rc = of_property_read_u32(node, "qcom,fastchg-current-max-ma",
-						&chip->fastchg_current_max_ma);
+					&chip->target_fastchg_current_max_ma);
 	if (rc)
-		chip->fastchg_current_max_ma = SMB1351_CHG_FAST_MAX_MA;
+		chip->target_fastchg_current_max_ma = SMB1351_CHG_FAST_MAX_MA;
 
 	chip->iterm_disabled = of_property_read_bool(node,
 					"qcom,iterm-disabled");
