@@ -101,6 +101,7 @@
 
 #include "msmtitanium-pinctrl.dtsi"
 #include "msmtitanium-cpu.dtsi"
+#include "msmtitanium-gpu.dtsi"
 #include "msmtitanium-ion.dtsi"
 #include "msmtitanium-smp2p.dtsi"
 #include "msm-arm-smmu-titanium.dtsi"
