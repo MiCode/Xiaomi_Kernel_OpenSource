@@ -86,3 +86,15 @@
 				0x1e0 0x20
 				0x5 0x14>;
 };
+
+&clock_gcc {
+	compatible = "qcom,dummycc";
+};
+
+&clock_debug {
+	compatible = "qcom,dummycc";
+};
+
+&clock_gcc_gfx {
+	compatible = "qcom,dummycc";
+};
