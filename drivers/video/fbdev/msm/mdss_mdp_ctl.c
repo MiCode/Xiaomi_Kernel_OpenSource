@@ -3662,7 +3662,7 @@ int mdss_mdp_ctl_reset(struct mdss_mdp_ctl *ctl, bool is_recovery)
  * This function keeps track of the current mixer configuration in the hardware.
  * It's callers responsibility to call with master control.
  */
-static void mdss_mdp_mixer_update_pipe_map(struct mdss_mdp_ctl *master_ctl,
+void mdss_mdp_mixer_update_pipe_map(struct mdss_mdp_ctl *master_ctl,
 		       int mixer_mux)
 {
 	struct mdss_mdp_mixer *mixer = mdss_mdp_mixer_get(master_ctl,
