@@ -432,10 +432,4 @@
 		qcom,master-stats-version = <2>;
 		qcom,master-offset = <4096>;
 	};
-
-	qcom,rpm-rbcpr-stats@29daa0  {
-		compatible = "qcom,rpmrbcpr-stats";
-		reg = <0x29daa0 0x1a0000>;
-		qcom,start-offset = <0x190010>;
-	};
 };
