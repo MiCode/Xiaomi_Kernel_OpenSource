@@ -18,6 +18,7 @@
 #include <linux/device.h>
 
 #include "mdss_hdmi_cec.h"
+#include "mdss_panel.h"
 
 #define CEC_STATUS_WR_ERROR	BIT(0)
 #define CEC_STATUS_WR_DONE	BIT(1)
@@ -260,6 +261,7 @@ static int hdmi_cec_enable(void *input, bool enable)
 	u32 hdmi_hw_version, reg_val;
 	struct dss_io_data *io = NULL;
 	struct hdmi_cec_ctrl *cec_ctrl = (struct hdmi_cec_ctrl *)input;
+	struct mdss_panel_info *pinfo;
 
 	if (!cec_ctrl || !cec_ctrl->init_data.io) {
 		DEV_ERR("%s: Invalid input\n", __func__);
@@ -268,6 +270,12 @@ static int hdmi_cec_enable(void *input, bool enable)
 	}
 
 	io = cec_ctrl->init_data.io;
+	pinfo = cec_ctrl->init_data.pinfo;
+
+	if (!pinfo) {
+		DEV_ERR("%s: invalid pinfo\n", __func__);
+		goto end;
+	}
 
 	if (enable) {
 		/* 19.2Mhz * 0.00005 us = 950 = 0x3B6 */

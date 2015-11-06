@@ -44,6 +44,7 @@ obj-$(CONFIG_FB_MSM_MDSS) += mdss_panel.o
 obj-$(CONFIG_FB_MSM_MDSS) += mdss_hdmi_util.o
 obj-$(CONFIG_FB_MSM_MDSS) += mdss_hdmi_edid.o
 obj-$(CONFIG_FB_MSM_MDSS) += mdss_cec_core.o
+obj-$(CONFIG_FB_MSM_MDSS) += mdss_dba_utils.o
 obj-$(CONFIG_FB_MSM_MDSS_EDP_PANEL) += mdss_edp.o
 obj-$(CONFIG_FB_MSM_MDSS_EDP_PANEL) += mdss_edp_aux.o
 
