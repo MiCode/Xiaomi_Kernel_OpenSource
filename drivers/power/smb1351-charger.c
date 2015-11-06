@@ -1373,6 +1373,7 @@ static enum power_supply_property smb1351_parallel_properties[] = {
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 };
 
@@ -1503,6 +1504,20 @@ static int smb1351_get_closest_usb_setpoint(int val)
 		return i + 1;
 }
 
+static bool smb1351_is_input_current_limited(struct smb1351_charger *chip)
+{
+	int rc;
+	u8 reg;
+
+	rc = smb1351_read_reg(chip, IRQ_H_REG, &reg);
+	if (rc) {
+		pr_err("Failed to read IRQ_H_REG for ICL status: %d\n", rc);
+		return false;
+	}
+
+	return !!(reg & IRQ_IC_LIMIT_STATUS_BIT);
+}
+
 static int smb1351_parallel_set_property(struct power_supply *psy,
 				       enum power_supply_property prop,
 				       const union power_supply_propval *val)
@@ -1601,6 +1616,13 @@ static int smb1351_parallel_get_property(struct power_supply *psy,
 			val->intval = smb1351_get_prop_batt_status(chip);
 		else
 			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMITED:
+		if (chip->parallel_charger_present)
+			val->intval =
+				smb1351_is_input_current_limited(chip) ? 1 : 0;
+		else
+			val->intval = 0;
 		break;
 	default:
 		return -EINVAL;
