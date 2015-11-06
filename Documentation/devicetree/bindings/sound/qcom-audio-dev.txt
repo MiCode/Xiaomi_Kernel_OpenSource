@@ -1868,3 +1868,74 @@ Example:
 		qcom,aux-codec = <&stub_codec>;
 	};
 
+* APQ8096 Automotive ASoC Machine driver
+
+Required properties:
+- compatible : "qcom,apq8096-asoc-snd-auto" for auto codec and
+		node is "sound-auto"
+- qcom,model : The user-visible name of this sound card.
+- asoc-platform: This is phandle list containing the references to platform device
+		nodes that are used as part of the sound card dai-links.
+- asoc-platform-names: This property contains list of platform names. The order of
+		the platform names should match to that of the phandle order
+		given in "asoc-platform".
+- asoc-cpu: This is phandle list containing the references to cpu dai device nodes
+		that are used as part of the sound card dai-links.
+- asoc-cpu-names: This property contains list of cpu dai names. The order of the
+		cpu dai names should match to that of the phandle order given
+		in "asoc-cpu". The cpu names are in the form of "%s.%d" form,
+		where the id (%d) field represents the back-end AFE port id that
+		this CPU dai is associated with.
+- asoc-codec: This is phandle list containing the references to codec dai device
+		nodes that are used as part of the sound card dai-links.
+- asoc-codec-names: This property contains list of codec dai names. The order of the
+		codec dai names should match to that of the phandle order given
+		in "asoc-codec".
+
+Example:
+
+	sound-auto {
+		compatible = "qcom,apq8096-asoc-snd-auto";
+		qcom,model = "apq8096-auto-snd-card";
+
+		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
+				<&loopback>, <&compress>, <&hostless>,
+				<&afe>, <&lsm>, <&routing>, <&compr>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
+				"msm-pcm-dsp.2", "msm-voip-dsp",
+				"msm-pcm-voice", "msm-pcm-loopback",
+				"msm-compress-dsp", "msm-pcm-hostless",
+				"msm-pcm-afe", "msm-lsm-client",
+				"msm-pcm-routing", "msm-compr-dsp";
+		asoc-cpu = <&dai_pri_auxpcm>, <&dai_sec_auxpcm>, <&dai_hdmi>,
+				<&dai_mi2s>, <&dai_mi2s_quat>,
+				<&afe_pcm_rx>, <&afe_pcm_tx>,
+				<&afe_proxy_rx>, <&afe_proxy_tx>,
+				<&incall_record_rx>, <&incall_record_tx>,
+				<&incall_music_rx>, <&incall_music2_rx>,
+				<&dai_tert_tdm_rx_0>, <&dai_tert_tdm_rx_1>,
+				<&dai_tert_tdm_rx_2>, <&dai_tert_tdm_rx_3>,
+				<&dai_tert_tdm_tx_0>, <&dai_tert_tdm_tx_1>,
+				<&dai_tert_tdm_tx_2>, <&dai_tert_tdm_tx_3>,
+				<&dai_quat_tdm_rx_0>, <&dai_quat_tdm_rx_1>,
+				<&dai_quat_tdm_rx_2>, <&dai_quat_tdm_rx_3>,
+				<&dai_quat_tdm_tx_0>, <&dai_quat_tdm_tx_1>,
+				<&dai_quat_tdm_tx_2>, <&dai_quat_tdm_tx_3>;
+		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-auxpcm.2",
+				"msm-dai-q6-hdmi.8",
+				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
+				"msm-dai-q6-dev.224", "msm-dai-q6-dev.225",
+				"msm-dai-q6-dev.241", "msm-dai-q6-dev.240",
+				"msm-dai-q6-dev.32771", "msm-dai-q6-dev.32772",
+				"msm-dai-q6-dev.32773", "msm-dai-q6-dev.32770",
+				"msm-dai-q6-tdm.36896", "msm-dai-q6-tdm.36898",
+				"msm-dai-q6-tdm.36900", "msm-dai-q6-tdm.36902",
+				"msm-dai-q6-tdm.36897", "msm-dai-q6-tdm.36899",
+				"msm-dai-q6-tdm.36901", "msm-dai-q6-tdm.36903",
+				"msm-dai-q6-tdm.36912", "msm-dai-q6-tdm.36914",
+				"msm-dai-q6-tdm.36916", "msm-dai-q6-tdm.36918",
+				"msm-dai-q6-tdm.36913", "msm-dai-q6-tdm.36915",
+				"msm-dai-q6-tdm.36917", "msm-dai-q6-tdm.36919";
+		asoc-codec = <&stub_codec>;
+		asoc-codec-names = "msm-stub-codec.1";
+	};
