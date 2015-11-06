@@ -142,10 +142,10 @@
 		qcom,clock-rates = <0 61540000 0 200000000 0 0 0 0>;
 	};
 
-	qcom,ispif@1b0a000 {
+	qcom,ispif@1b31000 {
 		cell-index = <0>;
 		compatible = "qcom,ispif-v3.0", "qcom,ispif";
-		reg = <0x1b0a000 0x500>,
+		reg = <0x1b31000 0x500>,
 			<0x1b00020 0x10>;
 		reg-names = "ispif", "csi_clk_mux";
 		interrupts = <0 55 0>;
@@ -307,7 +307,7 @@
 		msm_cam_smmu_cb1: msm_cam_smmu_cb1 {
 			compatible = "qcom,qsmmu-cam-cb";
 			iommus = <&apps_iommu 0x400>,
-				<&apps_iommu 0x2800>;
+				<&apps_iommu 0x2400>;
 			label = "vfe";
 			qcom,scratch-buf-support;
 		};
