@@ -1550,6 +1550,12 @@
 		cell-index = <0>;
 	};
 
+	qcom,inrush-current {
+		compatible = "qcom,msm-inrush-current-mitigation";
+		qcom,dependent-subsystems = "modem", "adsp";
+		vdd-supply = <&gdsc_mdss>;
+	};
+
 	qcom,mss@4080000 {
 		compatible = "qcom,pil-q6v55-mss";
 		reg = <0x04080000 0x100>,
