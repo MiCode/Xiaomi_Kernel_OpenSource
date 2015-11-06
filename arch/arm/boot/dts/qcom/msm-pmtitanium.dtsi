@@ -19,6 +19,41 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
+		pmtitanium_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+			interrupts = <0x0 0x8 0x0>,
+				<0x0 0x8 0x1>,
+				<0x0 0x8 0x4>,
+				<0x0 0x8 0x5>;
+			interrupt-names = "kpdpwr", "resin",
+				"resin-bark", "kpdpwr-resin-bark";
+			qcom,pon-dbc-delay = <15625>;
+			qcom,system-reset;
+
+			qcom,pon_1 {
+				qcom,pon-type = <0>;
+				qcom,pull-up = <1>;
+				linux,code = <116>;
+			};
+
+			qcom,pon_2 {
+				qcom,pon-type = <1>;
+				qcom,pull-up = <1>;
+				linux,code = <114>;
+			};
+		};
+
+		pmtitanium_coincell: qcom,coincell@2800 {
+			compatible = "qcom,qpnp-coincell";
+			reg = <0x2800 0x100>;
+		};
+
 		pmtitanium_mpps: mpps {
 			compatible = "qcom,qpnp-pin";
 			spmi-dev-container;
@@ -49,6 +84,64 @@
 			mpp@a300 {
 				reg = <0xa300 0x100>;
 				qcom,pin-num = <4>;
+				status = "disabled";
+			};
+		};
+
+		pmtitanium_gpios: gpios {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-pin";
+			gpio-controller;
+			#gpio-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			label = "pmtitanium-gpio";
+
+			gpio@c000 {
+				reg = <0xc000 0x100>;
+				qcom,pin-num = <1>;
+				status = "disabled";
+			};
+
+			gpio@c100 {
+				reg = <0xc100 0x100>;
+				qcom,pin-num = <2>;
+				status = "disabled";
+			};
+
+			gpio@c200 {
+				reg = <0xc200 0x100>;
+				qcom,pin-num = <3>;
+				status = "disabled";
+			};
+
+			gpio@c300 {
+				reg = <0xc300 0x100>;
+				qcom,pin-num = <4>;
+				status = "disabled";
+			};
+
+			gpio@c400 {
+				reg = <0xc400 0x100>;
+				qcom,pin-num = <5>;
+				status = "disabled";
+			};
+
+			gpio@c500 {
+				reg = <0xc500 0x100>;
+				qcom,pin-num = <6>;
+				status = "disabled";
+			};
+
+			gpio@c600 {
+				reg = <0xc600 0x100>;
+				qcom,pin-num = <7>;
+				status = "disabled";
+			};
+
+			gpio@c700 {
+				reg = <0xc700 0x100>;
+				qcom,pin-num = <8>;
 				status = "disabled";
 			};
 		};
@@ -124,6 +217,41 @@
 			qcom,adc-vdd-reference = <1800>;
 			qcom,adc_tm-vadc = <&pmtitanium_vadc>;
 
+		};
+
+		pmtitanium_rtc: qcom,pmtitanium_rtc {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-rtc";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qcom,qpnp-rtc-write = <0>;
+			qcom,qpnp-rtc-alarm-pwrup = <0>;
+
+			qcom,pmtitanium_rtc_rw@6000 {
+				reg = <0x6000 0x100>;
+			};
+
+			qcom,pmtitanium_rtc_alarm@6100 {
+				reg = <0x6100 0x100>;
+				interrupts = <0x0 0x61 0x1>;
+			};
+		};
+	};
+
+	pmtitanium_1: qcom,pmtitanium@1 {
+		spmi-slave-container;
+		reg = <0x1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pmtitanium_pwm: pwm@bc00 {
+			status = "disabled";
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xbc00 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <0>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
 		};
 	};
 };
