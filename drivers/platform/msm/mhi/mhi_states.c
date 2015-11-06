@@ -914,8 +914,9 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 				mhi_dev_ctxt->mhi_state == MHI_STATE_M1,
 				msecs_to_jiffies(MHI_MAX_RESUME_TIMEOUT));
 		if (0 == r || -ERESTARTSYS == r) {
-			mhi_log(MHI_MSG_INFO,
+			mhi_log(MHI_MSG_CRITICAL,
 				"MDM failed to come out of M2.\n");
+			mhi_dev_ctxt->counters.m2_event_timeouts++;
 			r = -EAGAIN;
 			goto exit;
 		}

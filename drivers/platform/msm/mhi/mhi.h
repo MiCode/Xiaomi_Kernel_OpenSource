@@ -385,6 +385,7 @@ struct mhi_counters {
 	u32 mhi_ready_cntr;
 	u32 m3_event_timeouts;
 	u32 m0_event_timeouts;
+	u32 m2_event_timeouts;
 	u32 msi_disable_cntr;
 	u32 msi_enable_cntr;
 	u32 nr_irq_migrations;
