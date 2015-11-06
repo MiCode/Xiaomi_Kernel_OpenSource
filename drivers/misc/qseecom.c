@@ -90,6 +90,10 @@
 
 #define PHY_ADDR_4G	(1ULL<<32)
 
+#define QSEECOM_STATE_NOT_READY         0
+#define QSEECOM_STATE_SUSPEND           1
+#define QSEECOM_STATE_READY             2
+
 /*
  * default ce info unit to 0 for
  * services which
@@ -227,7 +231,7 @@ struct qseecom_control {
 
 	uint32_t app_block_ref_cnt;
 	wait_queue_head_t app_block_wq;
-	atomic_t in_suspend;  /* 1: in suspend; 0: not in suspend*/
+	atomic_t qseecom_state;
 };
 
 struct qseecom_sec_buf_fd_info {
@@ -3676,8 +3680,9 @@ int qseecom_start_app(struct qseecom_handle **handle,
 	ion_phys_addr_t pa;
 	uint32_t fw_size, app_arch;
 
-	if (atomic_read(&qseecom.in_suspend) == 1) {
-		pr_err("Not allowed to be called in suspend state\n");
+	if (atomic_read(&qseecom.qseecom_state) != QSEECOM_STATE_READY) {
+		pr_err("Not allowed to be called in %d state\n",
+				atomic_read(&qseecom.qseecom_state));
 		return -EPERM;
 	}
 	if (!app_name) {
@@ -3834,10 +3839,12 @@ int qseecom_shutdown_app(struct qseecom_handle **handle)
 	unsigned long flags = 0;
 	bool found_handle = false;
 
-	if (atomic_read(&qseecom.in_suspend) == 1) {
-		pr_err("Not allowed to be called in suspend state\n");
+	if (atomic_read(&qseecom.qseecom_state) != QSEECOM_STATE_READY) {
+		pr_err("Not allowed to be called in %d state\n",
+				atomic_read(&qseecom.qseecom_state));
 		return -EPERM;
 	}
+
 	if ((handle == NULL)  || (*handle == NULL)) {
 		pr_err("Handle is not initialized\n");
 		return -EINVAL;
@@ -3900,10 +3907,12 @@ int qseecom_send_command(struct qseecom_handle *handle, void *send_buf,
 	struct qseecom_dev_handle *data;
 	bool perf_enabled = false;
 
-	if (atomic_read(&qseecom.in_suspend) == 1) {
-		pr_err("Not allowed to be called in suspend state\n");
+	if (atomic_read(&qseecom.qseecom_state) != QSEECOM_STATE_READY) {
+		pr_err("Not allowed to be called in %d state\n",
+				atomic_read(&qseecom.qseecom_state));
 		return -EPERM;
 	}
+
 	if (handle == NULL) {
 		pr_err("Handle is not initialized\n");
 		return -EINVAL;
@@ -7503,7 +7512,7 @@ static int qseecom_probe(struct platform_device *pdev)
 	qseecom.ce_drv.ce_clk = NULL;
 	qseecom.ce_drv.ce_core_src_clk = NULL;
 	qseecom.ce_drv.ce_bus_clk = NULL;
-	atomic_set(&qseecom.in_suspend, 0);
+	atomic_set(&qseecom.qseecom_state, QSEECOM_STATE_NOT_READY);
 
 	qseecom.app_block_ref_cnt = 0;
 	init_waitqueue_head(&qseecom.app_block_wq);
@@ -7714,6 +7723,7 @@ static int qseecom_probe(struct platform_device *pdev)
 	if (!qseecom.qsee_perf_client)
 		pr_err("Unable to register bus client\n");
 
+	atomic_set(&qseecom.qseecom_state, QSEECOM_STATE_READY);
 	return 0;
 
 exit_destroy_ion_client:
@@ -7738,6 +7748,7 @@ static int qseecom_remove(struct platform_device *pdev)
 	struct qseecom_ce_pipe_entry *pce_entry;
 	struct qseecom_ce_info_use *pce_info_use;
 
+	atomic_set(&qseecom.qseecom_state, QSEECOM_STATE_NOT_READY);
 	spin_lock_irqsave(&qseecom.registered_kclient_list_lock, flags);
 
 	list_for_each_entry(kclient, &qseecom.registered_kclient_list_head,
@@ -7830,7 +7841,7 @@ static int qseecom_suspend(struct platform_device *pdev, pm_message_t state)
 	struct qseecom_clk *qclk;
 	qclk = &qseecom.qsee;
 
-	atomic_set(&qseecom.in_suspend, 1);
+	atomic_set(&qseecom.qseecom_state, QSEECOM_STATE_SUSPEND);
 	if (qseecom.no_clock_support)
 		return 0;
 
@@ -7941,7 +7952,7 @@ err:
 	mutex_unlock(&qsee_bw_mutex);
 	ret = -EIO;
 exit:
-	atomic_set(&qseecom.in_suspend, 0);
+	atomic_set(&qseecom.qseecom_state, QSEECOM_STATE_READY);
 	return ret;
 }
 static struct of_device_id qseecom_match[] = {
