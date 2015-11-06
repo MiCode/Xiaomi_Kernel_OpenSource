@@ -11142,6 +11142,8 @@ static int tasha_post_reset_cb(struct wcd9xxx *wcd9xxx)
 				    0x03, 0x01);
 	tasha_codec_init_reg(codec);
 
+	wcd_resmgr_post_ssr_v2(tasha->resmgr);
+
 	tasha_enable_efuse_sensing(codec);
 
 	regcache_mark_dirty(codec->control_data);
@@ -11151,8 +11153,6 @@ static int tasha_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	ret = tasha_handle_pdata(tasha, pdata);
 	if (IS_ERR_VALUE(ret))
 		dev_err(codec->dev, "%s: invalid pdata\n", __func__);
-
-	wcd_resmgr_post_ssr_v2(tasha->resmgr);
 
 	/* MBHC Init */
 	wcd_mbhc_deinit(&tasha->mbhc);
