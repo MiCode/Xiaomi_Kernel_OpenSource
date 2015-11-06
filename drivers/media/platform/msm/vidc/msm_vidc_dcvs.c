@@ -429,7 +429,8 @@ static int msm_dcvs_enc_scale_clocks(struct msm_vidc_inst *inst)
 			dcvs->prev_freq_lowered ? "Lower" : "Higher",
 			dcvs->load, total_input_buf, fw_pending_bufs);
 
-		rc = msm_comm_scale_clocks_load(core, dcvs->load);
+		rc = msm_comm_scale_clocks_load(core, dcvs->load,
+				LOAD_CALC_NO_QUIRKS);
 		if (rc) {
 			dprintk(VIDC_PROF,
 				"Failed to set clock rate in FBD: %d\n", rc);
@@ -508,7 +509,8 @@ static int msm_dcvs_dec_scale_clocks(struct msm_vidc_inst *inst, bool fbd)
 			dcvs->load, total_output_buf, buffers_outside_fw,
 			dcvs->threshold_disp_buf_high, dcvs->transition_turbo);
 
-		rc = msm_comm_scale_clocks_load(core, dcvs->load);
+		rc = msm_comm_scale_clocks_load(core, dcvs->load,
+				LOAD_CALC_NO_QUIRKS);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"Failed to set clock rate in FBD: %d\n", rc);

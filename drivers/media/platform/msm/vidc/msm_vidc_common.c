@@ -2121,10 +2121,12 @@ int msm_comm_scale_clocks(struct msm_vidc_core *core)
 	int num_mbs_per_sec =
 		msm_comm_get_load(core, MSM_VIDC_ENCODER, LOAD_CALC_NO_QUIRKS) +
 		msm_comm_get_load(core, MSM_VIDC_DECODER, LOAD_CALC_NO_QUIRKS);
-	return msm_comm_scale_clocks_load(core, num_mbs_per_sec);
+	return msm_comm_scale_clocks_load(core, num_mbs_per_sec,
+				LOAD_CALC_NO_QUIRKS);
 }
 
-int msm_comm_scale_clocks_load(struct msm_vidc_core *core, int num_mbs_per_sec)
+int msm_comm_scale_clocks_load(struct msm_vidc_core *core,
+		int num_mbs_per_sec, enum load_calc_quirks quirks)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
@@ -2152,6 +2154,22 @@ int msm_comm_scale_clocks_load(struct msm_vidc_core *core, int num_mbs_per_sec)
 		codec = inst->session_type == MSM_VIDC_DECODER ?
 			inst->fmts[OUTPUT_PORT]->fourcc :
 			inst->fmts[CAPTURE_PORT]->fourcc;
+
+		if (msm_comm_turbo_session(inst))
+			clk_scale_data.power_mode[num_sessions] =
+				VIDC_POWER_TURBO;
+		else if (is_low_power_session(inst))
+			clk_scale_data.power_mode[num_sessions] =
+				VIDC_POWER_LOW;
+		else
+			clk_scale_data.power_mode[num_sessions] =
+				VIDC_POWER_NORMAL;
+
+		if (inst->dcvs_mode)
+			clk_scale_data.load[num_sessions] = inst->dcvs.load;
+		else
+			clk_scale_data.load[num_sessions] =
+				msm_comm_get_inst_load(inst, quirks);
 
 		clk_scale_data.session[num_sessions] =
 				VIDC_VOTE_DATA_SESSION_VAL(

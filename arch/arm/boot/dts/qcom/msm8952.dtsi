@@ -1525,18 +1525,8 @@
 			<&clock_gcc clk_gcc_venus0_axi_clk>;
 		clock-names = "core_clk", "core0_clk", "core1_clk", "iface_clk", "bus_clk";
 		qcom,clock-configs = <0x1 0x0 0x0 0x0 0x0>;
-		qcom,load-freq-tbl =
-			<489600 266670000 0x01000414>, /* Encoder turbo (wfd) */
-			<489600 228570000 0xf0fcfff>, /* Legacy decoder 1080p 60fps  */
-			<244800 180000000 0x00030000>, /* VC1 decoder 1080p 30fps  */
-			<244800 180000000 0x01000414>, /* Legacy encoder 1080p 30fps   */
-			<244800 133330000 0xf0ccfff>, /* decoder 1080p 30fps   */
-			<220800 133330000 0xf0fcfff>, /*  decoder 720p 60fps  */
-			<108000 133330000 0xf0fcfff>, /*  decoder 720p 30fps   */
-			<108000 133330000 0x01000414>, /* encoder 720p 30fps   */
-			<72000 133330000 0xf0fcfff>, /* decoder VGA 60fps   */
-			<36000 133330000 0xf0fcfff>, /* decoder VGA 30 fps  */
-			<36000 133330000 0x01000414>; /* encoder VGA 30 fps   */
+		qcom,allowed-clock-rates = <266670000 228570000 180000000
+				133330000>;
 		qcom,hfi = "venus";
 		qcom,reg-presets = <0xe0020 0x05555556>,
 			<0xe0024 0x05555556>,
@@ -1549,6 +1539,18 @@
 			<0x9181000 0x1000>;
 		qcom,max-hw-load = <489600>; /* 1080p @ 30 + 1080p @ 30 */
 		qcom,firmware-name = "venus";
+		qcom,clock-freq-tbl {
+			qcom,profile-dec {
+				qcom,codec-mask = <0xffffffff>;
+				qcom,cycles-per-mb = <392>;
+				qcom,low-power-mode-factor = <65536>;
+			};
+			qcom,profile-enc {
+				qcom,codec-mask = <0x55555555>;
+				qcom,cycles-per-mb = <656>;
+				qcom,low-power-mode-factor = <65536>;
+			};
+		};
 		qcom,vidc-iommu-domains {
 			qcom,domain-ns {
 				qcom,vidc-domain-phandle = <&venus_domain_ns>;
