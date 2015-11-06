@@ -1584,20 +1584,6 @@ static struct clk_freq_tbl ftbl_gcc_sdcc1_apps_clk[] = {
 	F_END
 };
 
-static struct clk_freq_tbl ftbl_gcc_sdcc1_apps_clk_8937[] = {
-	F( 144000,      xo,     16,     3,      25),
-	F( 400000,      xo,     12,     1,      4),
-	F( 20000000,    gpll0,  10,     1,      4),
-	F( 25000000,    gpll0,  16,     1,      2),
-	F( 50000000,    gpll0,  16,     0,      0),
-	F( 100000000,   gpll0,  8,      0,      0),
-	F( 177770000,   gpll0,  4.5,    0,      0),
-	F( 200000000,   gpll0,  4,      0,      0),
-	F( 384000000,   gpll4,  3,      0,      0),
-
-	F_END
-};
-
 static struct rcg_clk sdcc1_apps_clk_src = {
 	.cmd_rcgr_reg =  SDCC1_APPS_CMD_RCGR,
 	.set_rate = set_rate_mnd,
@@ -3931,7 +3917,6 @@ static void override_for_8937(void)
 	OVERRIDE_FMAX5(vcodec0,
 		LOWER, 166150000, LOW, 240000000, NOMINAL, 308570000,
 		NOM_PLUS, 320000000, HIGH, 360000000);
-	OVERRIDE_FTABLE(sdcc1_apps, ftbl_gcc_sdcc1_apps_clk);
 	OVERRIDE_FMAX2(sdcc1_apps, LOWER, 100000000,
 		NOMINAL, 400000000);
 }
