@@ -1387,7 +1387,9 @@ again:
 		rev = llist_next(rev);
 
 		areq = arsp->async_req;
+		local_bh_disable();
 		areq->complete(areq, arsp->res);
+		local_bh_enable();
 		atomic_dec(&cp->resp_cnt);
 		if (ACCESS_ONCE(cp->ce_req_proc_sts) == STOPPED &&
 				atomic_read(&cp->resp_cnt) <=
