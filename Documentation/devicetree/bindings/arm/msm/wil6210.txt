@@ -11,7 +11,6 @@ Required properties:
 - compatible: "qcom,wil6210"
 - qcom,smmu-support: Boolean flag indicating whether PCIe has SMMU support
 - qcom,pcie-parent: phandle for the PCIe root complex to which 11ad card is connected
-- qcom,wigig-en: Enable GPIO connected to 11ad card
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
   the below optional properties:
 	- qcom,msm-bus,name
@@ -21,6 +20,7 @@ Required properties:
 
 Optional properties:
 - qcom,sleep-clk-en: GPIO for sleep clock used for low power modes by 11ad card
+- qcom,wigig-en: Enable GPIO connected to 11ad card
 
 Example:
 	wil6210: qcom,wil6210 {

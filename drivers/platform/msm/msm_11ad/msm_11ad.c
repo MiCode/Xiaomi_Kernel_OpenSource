@@ -97,7 +97,8 @@ static int ops_suspend(void *handle)
 			rc);
 		return rc;
 	}
-	gpio_direction_output(ctx->gpio_en, 0);
+	if (ctx->gpio_en >= 0)
+		gpio_direction_output(ctx->gpio_en, 0);
 
 	if (ctx->sleep_clk_en >= 0)
 		gpio_direction_output(ctx->sleep_clk_en, 0);
@@ -120,8 +121,10 @@ static int ops_resume(void *handle)
 		gpio_direction_output(ctx->sleep_clk_en, 1);
 
 	pcidev = ctx->pcidev;
-	gpio_direction_output(ctx->gpio_en, 1);
-	msleep(WIGIG_ENABLE_DELAY);
+	if (ctx->gpio_en >= 0) {
+		gpio_direction_output(ctx->gpio_en, 1);
+		msleep(WIGIG_ENABLE_DELAY);
+	}
 
 	rc = msm_pcie_pm_control(MSM_PCIE_RESUME, pcidev->bus->number,
 				 pcidev, NULL, PM_OPT_RESUME);
@@ -143,7 +146,8 @@ err_suspend_rc:
 	msm_pcie_pm_control(MSM_PCIE_SUSPEND, pcidev->bus->number,
 			    pcidev, NULL, PM_OPT_SUSPEND);
 err_disable_power:
-	gpio_direction_output(ctx->gpio_en, 0);
+	if (ctx->gpio_en >= 0)
+		gpio_direction_output(ctx->gpio_en, 0);
 
 	if (ctx->sleep_clk_en >= 0)
 		gpio_direction_output(ctx->sleep_clk_en, 0);
@@ -240,11 +244,12 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	 * iommus = <&anoc0_smmu>;
 	 * qcom,smmu-exist;
 	 */
+
+	/* wigig-en is optional property */
 	ctx->gpio_en = of_get_named_gpio(of_node, gpio_en_name, 0);
-	if (ctx->gpio_en < 0) {
-		dev_err(ctx->dev, "GPIO <%s> not found\n", gpio_en_name);
-		return ctx->gpio_en;
-	}
+	if (ctx->gpio_en < 0)
+		dev_warn(ctx->dev, "GPIO <%s> not found, enable GPIO not used\n",
+			gpio_en_name);
 	ctx->sleep_clk_en = of_get_named_gpio(of_node, sleep_clk_en_name, 0);
 	if (ctx->sleep_clk_en < 0)
 		dev_warn(ctx->dev, "GPIO <%s> not found, sleep clock not used\n",
@@ -264,20 +269,21 @@ static int msm_11ad_probe(struct platform_device *pdev)
 
 	/*== execute ==*/
 	/* turn device on */
-	rc = gpio_request(ctx->gpio_en, gpio_en_name);
-	if (rc < 0) {
-		dev_err(ctx->dev, "failed to request GPIO %d <%s>\n",
-			ctx->gpio_en, gpio_en_name);
-		goto out_req;
+	if (ctx->gpio_en >= 0) {
+		rc = gpio_request(ctx->gpio_en, gpio_en_name);
+		if (rc < 0) {
+			dev_err(ctx->dev, "failed to request GPIO %d <%s>\n",
+				ctx->gpio_en, gpio_en_name);
+			goto out_req;
+		}
+		rc = gpio_direction_output(ctx->gpio_en, 1);
+		if (rc < 0) {
+			dev_err(ctx->dev, "failed to set GPIO %d <%s>\n",
+				ctx->gpio_en, gpio_en_name);
+			goto out_set;
+		}
+		msleep(WIGIG_ENABLE_DELAY);
 	}
-	rc = gpio_direction_output(ctx->gpio_en, 1);
-	if (rc < 0) {
-		dev_err(ctx->dev, "failed to set GPIO %d <%s>\n", ctx->gpio_en,
-			gpio_en_name);
-		goto out_set;
-	}
-
-	msleep(WIGIG_ENABLE_DELAY);
 
 	/* enumerate it on PCIE */
 	rc = msm_pcie_enumerate(ctx->rc_index);
@@ -338,9 +344,11 @@ static int msm_11ad_probe(struct platform_device *pdev)
 
 	return 0;
 out_rc:
-	gpio_direction_output(ctx->gpio_en, 0);
+	if (ctx->gpio_en >= 0)
+		gpio_direction_output(ctx->gpio_en, 0);
 out_set:
-	gpio_free(ctx->gpio_en);
+	if (ctx->gpio_en >= 0)
+		gpio_free(ctx->gpio_en);
 out_req:
 	ctx->gpio_en = -EINVAL;
 	return rc;
@@ -357,8 +365,10 @@ static int msm_11ad_remove(struct platform_device *pdev)
 
 	msm_bus_cl_clear_pdata(ctx->bus_scale);
 	pci_dev_put(ctx->pcidev);
-	gpio_direction_output(ctx->gpio_en, 0);
-	gpio_free(ctx->gpio_en);
+	if (ctx->gpio_en >= 0) {
+		gpio_direction_output(ctx->gpio_en, 0);
+		gpio_free(ctx->gpio_en);
+	}
 	if (ctx->sleep_clk_en >= 0)
 		gpio_free(ctx->sleep_clk_en);
 	return 0;

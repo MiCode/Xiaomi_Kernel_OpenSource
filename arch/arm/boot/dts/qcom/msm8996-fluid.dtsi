@@ -625,3 +625,7 @@
 		status = "okay";
 	};
 };
+
+&wil6210 {
+	status = "ok";
+};
