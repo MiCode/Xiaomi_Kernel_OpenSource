@@ -286,6 +286,8 @@
 	/delete-property/ qcom,cpr-aging-ref-corner;
 	/delete-property/ qcom,cpr-aging-ro-scaling-factor;
 	/delete-property/ qcom,allow-aging-voltage-adjustment;
+
+	/delete-property/ qcom,cpr-dynamic-floor-corner;
 };
 
 &gfx_cpr {
