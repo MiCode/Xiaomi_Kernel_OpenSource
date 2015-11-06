@@ -2167,6 +2167,14 @@ static int create_3x_pkt_cmd_session_set_property(
 				hfi_buffer_count_actual);
 		break;
 	}
+	case HAL_PARAM_VENC_H264_PIC_ORDER_CNT:
+	{
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VENC_H264_PICORDER_CNT_TYPE;
+		pkt->rg_property_data[1] = *(u32 *)pdata;
+		pkt->size += sizeof(u32) * 2;
+		break;
+	}
 	default:
 		rc = create_pkt_cmd_session_set_property(pkt,
 				session, ptype, pdata);
