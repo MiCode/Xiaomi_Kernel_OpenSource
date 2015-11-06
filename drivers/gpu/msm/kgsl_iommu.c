@@ -22,6 +22,7 @@
 #include <soc/qcom/scm.h>
 #include <soc/qcom/secure_buffer.h>
 #include <stddef.h>
+#include <linux/compat.h>
 
 #include "kgsl.h"
 #include "kgsl_device.h"
@@ -523,7 +524,7 @@ static void setup_64bit_pagetable(struct kgsl_mmu *mmu,
 
 	if (pagetable->name != KGSL_MMU_GLOBAL_PT &&
 		pagetable->name != KGSL_MMU_SECURE_PT) {
-		if (is_compat_task()) {
+		if ((BITS_PER_LONG == 32) || is_compat_task()) {
 			pt->svm_start = KGSL_IOMMU_SVM_BASE32;
 			pt->svm_end = KGSL_IOMMU_SVM_END32;
 		} else {

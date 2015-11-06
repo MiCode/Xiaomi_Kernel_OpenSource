@@ -1111,8 +1111,12 @@ static int adreno_probe(struct platform_device *pdev)
 		return status;
 	}
 
-	/* Bro, do you even 64 bit? */
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_64BIT))
+	/*
+	* The SMMU APIs use unsigned long for virtual addresses which means
+	* that we cannot use 64 bit virtual addresses on a 32 bit kernel even
+	* though the hardware and the rest of the KGSL driver supports it.
+	*/
+	if ((BITS_PER_LONG == 64) && ADRENO_FEATURE(adreno_dev, ADRENO_64BIT))
 		device->mmu.features |= KGSL_MMU_64BIT;
 
 	status = kgsl_device_platform_probe(device);
