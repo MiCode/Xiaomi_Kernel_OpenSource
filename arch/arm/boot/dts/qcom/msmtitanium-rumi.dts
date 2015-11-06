@@ -108,3 +108,7 @@
 &pmtitanium_adc_tm {
 	status = "disabled";
 };
+
+&clock_cpu {
+	compatible = "qcom,dummycc";
+};
