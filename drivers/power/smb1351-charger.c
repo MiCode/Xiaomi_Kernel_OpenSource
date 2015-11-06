@@ -394,7 +394,7 @@
 
 #define ADC_TM_WARM_COOL_THR_ENABLE		ADC_TM_HIGH_LOW_THR_ENABLE
 
-enum {
+enum reason {
 	USER	= BIT(0),
 	THERMAL = BIT(1),
 	CURRENT = BIT(2),
@@ -438,7 +438,7 @@ struct smb1351_charger {
 	bool			batt_warm;
 	bool			batt_cool;
 
-	int			charging_disabled_status;
+	int			battchg_disabled_status;
 	int			usb_suspended_status;
 	int			target_fastchg_current_max_ma;
 	int			fastchg_current_max_ma;
@@ -607,6 +607,68 @@ static int smb1351_enable_volatile_writes(struct smb1351_charger *chip)
 							CMD_BQ_CFG_ACCESS_BIT);
 	if (rc)
 		pr_err("Couldn't write CMD_BQ_CFG_ACCESS_BIT rc=%d\n", rc);
+
+	return rc;
+}
+
+static int smb1351_usb_suspend(struct smb1351_charger *chip, int reason,
+					bool suspend)
+{
+	int rc = 0;
+	int suspended;
+
+	suspended = chip->usb_suspended_status;
+
+	pr_debug("reason = %d requested_suspend = %d suspended_status = %d\n",
+						reason, suspend, suspended);
+
+	if (suspend == false)
+		suspended &= ~reason;
+	else
+		suspended |= reason;
+
+	pr_debug("new suspended_status = %d\n", suspended);
+
+	rc = smb1351_masked_write(chip, CMD_INPUT_LIMIT_REG,
+				CMD_SUSPEND_MODE_BIT,
+				suspended ? CMD_SUSPEND_MODE_BIT : 0);
+	if (rc)
+		pr_err("Couldn't suspend rc = %d\n", rc);
+	else
+		chip->usb_suspended_status = suspended;
+
+	return rc;
+}
+
+static int smb1351_battchg_disable(struct smb1351_charger *chip,
+					int reason, int disable)
+{
+	int rc = 0;
+	int disabled;
+
+	if (chip->chg_autonomous_mode) {
+		pr_debug("Charger in autonomous mode\n");
+		return 0;
+	}
+
+	disabled = chip->battchg_disabled_status;
+
+	pr_debug("reason = %d requested_disable = %d disabled_status = %d\n",
+						reason, disable, disabled);
+	if (disable == true)
+		disabled |= reason;
+	else
+		disabled &= ~reason;
+
+	pr_debug("new disabled_status = %d\n", disabled);
+
+	rc = smb1351_masked_write(chip, CMD_CHG_REG, CMD_CHG_EN_BIT,
+					disabled ? 0 : CMD_CHG_ENABLE);
+	if (rc)
+		pr_err("Couldn't %s charging rc=%d\n",
+					disable ? "disable" : "enable", rc);
+	else
+		chip->battchg_disabled_status = disabled;
 
 	return rc;
 }
@@ -987,12 +1049,11 @@ static int smb1351_hw_init(struct smb1351_charger *chip)
 		}
 	}
 
-	/* enable/disable charging */
-	rc = smb1351_masked_write(chip, CMD_CHG_REG, CMD_CHG_EN_BIT,
-			(chip->charging_disabled_status ? 0 : CMD_CHG_ENABLE));
+	/* enable/disable charging by suspending usb */
+	rc = smb1351_usb_suspend(chip, USER, chip->usb_suspended_status);
 	if (rc) {
-		pr_err("Unable to %s charging. rc=%d\n",
-			chip->charging_disabled_status ? "disable" : "enable",
+		pr_err("Unable to %s battery charging. rc=%d\n",
+			chip->usb_suspended_status ? "disable" : "enable",
 									rc);
 	}
 
@@ -1003,6 +1064,7 @@ static enum power_supply_property smb1351_battery_properties[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_CHARGING_ENABLED,
+	POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_HEALTH,
@@ -1124,67 +1186,6 @@ static int smb1351_get_prop_batt_health(struct smb1351_charger *chip)
 	return ret.intval;
 }
 
-static int smb1351_usb_suspend(struct smb1351_charger *chip, int reason,
-					bool suspend)
-{
-	int rc = 0;
-	int suspended;
-
-	suspended = chip->usb_suspended_status;
-
-	pr_debug("reason = %d requested_suspend = %d suspended_status = %d\n",
-						reason, suspend, suspended);
-
-	if (suspend == false)
-		suspended &= ~reason;
-	else
-		suspended |= reason;
-
-	pr_debug("new suspended_status = %d\n", suspended);
-
-	rc = smb1351_masked_write(chip, CMD_INPUT_LIMIT_REG,
-				CMD_SUSPEND_MODE_BIT,
-				suspended ? CMD_SUSPEND_MODE_BIT : 0);
-	if (rc)
-		pr_err("Couldn't suspend rc = %d\n", rc);
-	else
-		chip->usb_suspended_status = suspended;
-
-	return rc;
-}
-
-static int smb1351_charging_disable(struct smb1351_charger *chip,
-					int reason, int disable)
-{
-	int rc = 0;
-	int disabled;
-
-	if (chip->chg_autonomous_mode) {
-		pr_debug("Charger in autonomous mode\n");
-		return 0;
-	}
-
-	disabled = chip->charging_disabled_status;
-
-	pr_debug("reason = %d requested_disable = %d disabled_status = %d\n",
-						reason, disable, disabled);
-	if (disable == true)
-		disabled |= reason;
-	else
-		disabled &= ~reason;
-
-	pr_debug("new disabled_status = %d\n", disabled);
-
-	rc = smb1351_masked_write(chip, CMD_CHG_REG, CMD_CHG_EN_BIT,
-					disabled ? 0 : CMD_CHG_ENABLE);
-	if (rc)
-		pr_err("Couldn't disable charging rc=%d\n", rc);
-	else
-		chip->charging_disabled_status = disabled;
-
-	return rc;
-}
-
 static int smb1351_set_usb_chg_current(struct smb1351_charger *chip,
 							int current_ma)
 {
@@ -1259,6 +1260,7 @@ static int smb1351_batt_property_is_writeable(struct power_supply *psy,
 {
 	switch (psp) {
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED:
 	case POWER_SUPPLY_PROP_CAPACITY:
 		return 1;
 	default:
@@ -1281,7 +1283,7 @@ static int smb1351_battery_set_property(struct power_supply *psy,
 			return -EINVAL;
 		switch (val->intval) {
 		case POWER_SUPPLY_STATUS_FULL:
-			rc = smb1351_charging_disable(chip, SOC, true);
+			rc = smb1351_battchg_disable(chip, SOC, true);
 			if (rc) {
 				pr_err("Couldn't disable charging  rc = %d\n",
 									rc);
@@ -1298,7 +1300,7 @@ static int smb1351_battery_set_property(struct power_supply *psy,
 							chip->batt_full);
 			break;
 		case POWER_SUPPLY_STATUS_CHARGING:
-			rc = smb1351_charging_disable(chip, SOC, false);
+			rc = smb1351_battchg_disable(chip, SOC, false);
 			if (rc) {
 				pr_err("Couldn't enable charging rc = %d\n",
 									rc);
@@ -1313,7 +1315,10 @@ static int smb1351_battery_set_property(struct power_supply *psy,
 		}
 		break;
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-		smb1351_charging_disable(chip, USER, !val->intval);
+		smb1351_usb_suspend(chip, USER, !val->intval);
+		break;
+	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED:
+		smb1351_battchg_disable(chip, USER, !val->intval);
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		chip->fake_battery_soc = val->intval;
@@ -1344,7 +1349,10 @@ static int smb1351_battery_get_property(struct power_supply *psy,
 		val->intval = smb1351_get_prop_batt_capacity(chip);
 		break;
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-		val->intval = !chip->charging_disabled_status;
+		val->intval = !chip->usb_suspended_status;
+		break;
+	case POWER_SUPPLY_PROP_BATTERY_CHARGING_ENABLED:
+		val->intval = !chip->battchg_disabled_status;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
 		val->intval = smb1351_get_prop_charge_type(chip);
@@ -1591,7 +1599,7 @@ static int smb1351_parallel_get_property(struct power_supply *psy,
 
 	switch (prop) {
 	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
-		val->intval = !chip->charging_disabled_status;
+		val->intval = !chip->usb_suspended_status;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		if (chip->parallel_charger_present)
@@ -1702,7 +1710,7 @@ static void smb1351_chg_ctrl_in_jeita(struct smb1351_charger *chip)
 		if (!chip->batt_cool && !chip->batt_warm
 				&& !chip->batt_cold && !chip->batt_hot
 				&& ret.intval < 100) {
-			rc = smb1351_charging_disable(chip, THERMAL, true);
+			rc = smb1351_battchg_disable(chip, THERMAL, true);
 			if (rc) {
 				pr_err("Couldn't disable charging rc = %d\n",
 									rc);
@@ -1710,7 +1718,7 @@ static void smb1351_chg_ctrl_in_jeita(struct smb1351_charger *chip)
 			}
 			/* delay for resetting the charging */
 			msleep(200);
-			rc = smb1351_charging_disable(chip, THERMAL, false);
+			rc = smb1351_battchg_disable(chip, THERMAL, false);
 			if (rc) {
 				pr_err("Couldn't enable charging rc = %d\n",
 									rc);
@@ -1842,9 +1850,9 @@ static void smb1351_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 		/* stop charging explicitly since we use PMIC thermal pin*/
 		if (cur->batt_hot || cur->batt_cold ||
 							chip->battery_missing)
-			smb1351_charging_disable(chip, THERMAL, 1);
+			smb1351_battchg_disable(chip, THERMAL, 1);
 		else
-			smb1351_charging_disable(chip, THERMAL, 0);
+			smb1351_battchg_disable(chip, THERMAL, 0);
 	}
 
 	if ((chip->batt_warm ^ cur->batt_warm ||
@@ -2621,7 +2629,7 @@ static int smb1351_parse_dt(struct smb1351_charger *chip)
 		return -EINVAL;
 	}
 
-	chip->charging_disabled_status = of_property_read_bool(node,
+	chip->usb_suspended_status = of_property_read_bool(node,
 					"qcom,charging-disabled");
 
 	chip->chg_autonomous_mode = of_property_read_bool(node,
@@ -3018,7 +3026,7 @@ static int smb1351_parallel_charger_probe(struct i2c_client *client,
 	chip->dev = &client->dev;
 	chip->parallel_charger = true;
 
-	chip->charging_disabled_status = of_property_read_bool(node,
+	chip->usb_suspended_status = of_property_read_bool(node,
 					"qcom,charging-disabled");
 	rc = of_property_read_u32(node, "qcom,float-voltage-mv",
 						&chip->vfloat_mv);
