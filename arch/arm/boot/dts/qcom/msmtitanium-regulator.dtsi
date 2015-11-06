@@ -11,220 +11,312 @@
  * GNU General Public License for more details.
  */
 
-/* Stub regulators */
-
-/ {
-	pmtitanium_s1: regulator-s1 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_s1";
-		regulator-min-microvolt = <1000000>;
-		regulator-max-microvolt = <1225000>;
-		qcom,init-voltage = <1000000>;
+&rpm_bus {
+	rpm-regulator-smpa1 {
+		status = "okay";
+		pmtitanium_s1: regulator-s1 {
+			regulator-min-microvolt = <600000>;
+			regulator-max-microvolt = <1225000>;
+			qcom,init-voltage = <1000000>;
+			status = "okay";
+		};
 	};
 
-	/* CX supply */
-	pmtitanium_s2_level: regulator-s2-level {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_s2_level";
-		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
-		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
-		qcom,use-voltage-level;
+	/* PMTITANIUM S2 - VDD_CX supply */
+	rpm-regulator-smpa2 {
+		status = "okay";
+		pmtitanium_s2_level: regulator-s2-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_s2_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-level;
+		};
+
+		pmtitanium_s2_floor_level: regulator-s2-floor-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_s2_floor_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-floor-level;
+			qcom,always-send-voltage;
+		};
+
+		pmtitanium_s2_level_ao: regulator-s2-level-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_s2_level_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-level;
+		};
 	};
 
-	pmtitanium_s2_level_ao: regulator-s2-level-ao {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_s2_level_ao";
-		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
-		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
-		qcom,use-voltage-level;
+	rpm-regulator-smpa3 {
+		status = "okay";
+		pmtitanium_s3: regulator-s3 {
+			regulator-min-microvolt = <1225000>;
+			regulator-max-microvolt = <1300000>;
+			qcom,init-voltage = <1225000>;
+			status = "okay";
+		};
 	};
 
-	pmtitanium_s2_floor_level: regulator-s2-floor-level {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_s2_floor_level";
-		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
-		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
-		qcom,use-voltage-floor-level;
+	rpm-regulator-smpa4 {
+		status = "okay";
+		pmtitanium_s4: regulator-s4 {
+			regulator-min-microvolt = <2050000>;
+			regulator-max-microvolt = <2050000>;
+			qcom,init-voltage = <2050000>;
+			status = "okay";
+		};
 	};
 
-	pmtitanium_s3: regulator-s3 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_s3";
-		regulator-min-microvolt = <1225000>;
-		regulator-max-microvolt = <1225000>;
-		qcom,init-voltage = <1225000>;
+	/* VDD_MX supply */
+	rpm-regulator-smpa7 {
+		status = "okay";
+		pmtitanium_s7_level: regulator-s7-level {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_s7_level";
+			qcom,set = <3>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,init-voltage-level =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			qcom,use-voltage-level;
+			qcom,always-send-voltage;
+		};
+
+		pmtitanium_s7_level_ao: regulator-s7-level-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_s7_level_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-level;
+			qcom,always-send-voltage;
+		};
+
+		pmtitanium_s7_level_so: regulator-s7-level-so {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_s7_level_so";
+			qcom,set = <2>;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,init-voltage-level =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			qcom,use-voltage-level;
+		};
 	};
 
-	pmtitanium_s4: regulator-s4 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_s4";
-		regulator-min-microvolt = <2050000>;
-		regulator-max-microvolt = <2050000>;
-		qcom,init-voltage = <2050000>;
+	rpm-regulator-ldoa1 {
+		status = "okay";
+		pmtitanium_l1: regulator-l1 {
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1000000>;
+			qcom,init-voltage = <1000000>;
+			status = "okay";
+		};
 	};
 
-	/* MX Supply */
-	pmtitanium_s7_level: regulator-s7-level {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_s7_level";
-		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
-		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
-		qcom,use-voltage-level;
+	rpm-regulator-ldoa2 {
+		status = "okay";
+		pmtitanium_l2: regulator-l2 {
+			regulator-min-microvolt = <1100000>;
+			regulator-max-microvolt = <1225000>;
+			qcom,init-voltage = <1100000>;
+			status = "okay";
+		};
 	};
 
-	pmtitanium_s7_level_ao: regulator-s7-level-ao {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_s7_level_ao";
-		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
-		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
-		qcom,use-voltage-level;
+	rpm-regulator-ldoa3 {
+		status = "okay";
+		pmtitanium_l3: regulator-l3 {
+			regulator-min-microvolt = <900000>;
+			regulator-max-microvolt = <925000>;
+			qcom,init-voltage = <900000>;
+			status = "okay";
+		};
 	};
 
-	pmtitanium_s7_level_so: regulator-s7-level-so {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_s7_level_so";
-		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
-		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
-		qcom,use-voltage-level;
+	rpm-regulator-ldoa5 {
+		status = "okay";
+		pmtitanium_l5: regulator-l5 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
 	};
 
-	pmtitanium_l1: regulator-l1 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_l1";
-		parent-supply = <&pmtitanium_s3>;
-		regulator-min-microvolt = <1000000>;
-		regulator-max-microvolt = <1000000>;
+	rpm-regulator-ldoa6 {
+		status = "okay";
+		pmtitanium_l6: regulator-l6 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
 	};
 
-	pmtitanium_l2: regulator-l2 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_l2";
-		parent-supply = <&pmtitanium_s3>;
-		regulator-min-microvolt = <1100000>;
-		regulator-max-microvolt = <1100000>;
+	rpm-regulator-ldoa7 {
+		status = "okay";
+		pmtitanium_l7: regulator-l7 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+
+		pmtitanium_l7_ao: regulator-l7-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_l7_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+		};
 	};
 
-	pmtitanium_l3: regulator-l3 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_l3";
-		parent-supply = <&pmtitanium_s3>;
-		regulator-min-microvolt = <900000>;
-		regulator-max-microvolt = <925000>;
+	rpm-regulator-ldoa8 {
+		status = "okay";
+		pmtitanium_l8: regulator-l8 {
+			regulator-min-microvolt = <2850000>;
+			regulator-max-microvolt = <2900000>;
+			qcom,init-voltage = <2850000>;
+			status = "okay";
+		};
 	};
 
-	pmtitanium_l5: regulator-l5 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_l5";
-		parent-supply = <&pmtitanium_s4>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
+	rpm-regulator-ldoa9 {
+		status = "okay";
+		pmtitanium_l9: regulator-l9 {
+			regulator-min-microvolt = <3000000>;
+			regulator-max-microvolt = <3300000>;
+			qcom,init-voltage = <3000000>;
+			status = "okay";
+		};
 	};
 
-	pmtitanium_l6: regulator-l6 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_l6";
-		parent-supply = <&pmtitanium_s4>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
+	rpm-regulator-ldoa10 {
+		status = "okay";
+		pmtitanium_l10: regulator-l10 {
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			qcom,init-voltage = <2800000>;
+			status = "okay";
+		};
 	};
 
-	pmtitanium_l7: regulator-l7 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_l7";
-		parent-supply = <&pmtitanium_s4>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
+	rpm-regulator-ldoa11 {
+		status = "okay";
+		pmtitanium_l11: regulator-l11 {
+			regulator-min-microvolt = <2950000>;
+			regulator-max-microvolt = <2950000>;
+			qcom,init-voltage = <2950000>;
+			status = "okay";
+		};
 	};
 
-	pmtitanium_l7_ao: regulator-l7-ao {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_l7_ao";
-		parent-supply = <&pmtitanium_s4>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
+	rpm-regulator-ldoa12 {
+		status = "okay";
+		pmtitanium_l12: regulator-l12 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2950000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
 	};
 
-	pmtitanium_l8: regulator-l8 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_l8";
-		regulator-min-microvolt = <2900000>;
-		regulator-max-microvolt = <2900000>;
+	rpm-regulator-ldoa13 {
+		status = "okay";
+		pmtitanium_l13: regulator-l13 {
+			regulator-min-microvolt = <3100000>;
+			regulator-max-microvolt = <3125000>;
+			qcom,init-voltage = <3100000>;
+			status = "okay";
+		};
 	};
 
-	pmtitanium_l9: regulator-l9 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_l9";
-		regulator-min-microvolt = <3000000>;
-		regulator-max-microvolt = <3300000>;
+	rpm-regulator-ldoa16 {
+		status = "okay";
+		pmtitanium_l16: regulator-l16 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
 	};
 
-	pmtitanium_l10: regulator-l10 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_l10";
-		regulator-min-microvolt = <2800000>;
-		regulator-max-microvolt = <2800000>;
+	rpm-regulator-ldoa17 {
+		status = "okay";
+		pmtitanium_l17: regulator-l17 {
+			regulator-min-microvolt = <2850000>;
+			regulator-max-microvolt = <2850000>;
+			qcom,init-voltage = <2850000>;
+			status = "okay";
+		};
 	};
 
-	pmtitanium_l11: regulator-l11 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_l11";
-		regulator-min-microvolt = <2950000>;
-		regulator-max-microvolt = <2950000>;
+	rpm-regulator-ldoa19 {
+		status = "okay";
+		pmtitanium_l19: regulator-l19 {
+			regulator-min-microvolt = <1300000>;
+			regulator-max-microvolt = <1350000>;
+			qcom,init-voltage = <1300000>;
+			status = "okay";
+		};
 	};
 
-	pmtitanium_l12: regulator-l12 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_l12";
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <2950000>;
+	rpm-regulator-ldoa22 {
+		status = "okay";
+		pmtitanium_l22: regulator-l22 {
+			regulator-min-microvolt = <2800000>;
+			regulator-max-microvolt = <2800000>;
+			qcom,init-voltage = <2800000>;
+			status = "okay";
+		};
 	};
 
-	pmtitanium_l13: regulator-l13 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_l13";
-		regulator-min-microvolt = <3100000>;
-		regulator-max-microvolt = <3125000>;
+	rpm-regulator-ldoa23 {
+		status = "okay";
+		pmtitanium_l23: regulator-l23 {
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1000000>;
+			qcom,init-voltage = <1000000>;
+			status = "okay";
+		};
 	};
+};
 
-	pmtitanium_l16: regulator-l16 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_l16";
-		parent-supply = <&pmtitanium_s4>;
-		regulator-min-microvolt = <1800000>;
-		regulator-max-microvolt = <1800000>;
+&spmi_bus {
+	qcom,pmtitanium@1 {
+		/* PMTITANIUM S5 + S6 = VDD_APC supply */
+		pmtitanium_s5: spm-regulator@2000 {
+			compatible = "qcom,spm-regulator";
+			reg = <0x2000 0x100>;
+			regulator-name = "pmtitanium_s5";
+			regulator-min-microvolt = <400000>;
+			regulator-max-microvolt = <1350000>;
+		};
 	};
+};
 
-	pmtitanium_l17: regulator-l17 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_l17";
-		regulator-min-microvolt = <2850000>;
-		regulator-max-microvolt = <2850000>;
-	};
-
-	pmtitanium_l19: regulator-l19 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_l19";
-		parent-supply = <&pmtitanium_s3>;
-		regulator-min-microvolt = <1300000>;
-		regulator-max-microvolt = <1350000>;
-	};
-
-	pmtitanium_l22: regulator-l22 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_l22";
-		regulator-min-microvolt = <2800000>;
-		regulator-max-microvolt = <2800000>;
-	};
-
-	pmtitanium_l23: regulator-l23 {
-		compatible = "qcom,stub-regulator";
-		regulator-name = "pmtitanium_l23";
-		parent-supply = <&pmtitanium_s3>;
-		regulator-min-microvolt = <1000000>;
-		regulator-max-microvolt = <1000000>;
-	};
-
-	/* APC Supply */
+&soc {
 	apc_vreg_corner: regulator-apc-corner {
 		compatible = "qcom,stub-regulator";
 		regulator-name = "apc_corner";
