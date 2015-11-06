@@ -1268,7 +1268,8 @@ static int qbt1000_suspend(struct platform_device *pdev, pm_message_t state)
 	 * while making a TZ call. Hence the clock check to determine if the
 	 * driver will allow suspend to occur.
 	 */
-	mutex_lock(&drvdata->mutex);
+	if (!mutex_trylock(&drvdata->mutex))
+		return -EBUSY;
 	if (((drvdata->sensor_conn_type == SPI) && (drvdata->clock_state)) ||
 	    ((drvdata->sensor_conn_type == SSC_SPI) && (drvdata->ssc_state)))
 		rc = -EBUSY;
