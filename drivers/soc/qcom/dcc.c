@@ -1221,7 +1221,7 @@ static int dcc_probe(struct platform_device *pdev)
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dcc-base");
 	if (!res)
-		return -ENODEV;
+		return -EINVAL;
 
 	drvdata->reg_size = resource_size(res);
 	drvdata->base = devm_ioremap(dev, res->start, resource_size(res));
@@ -1231,7 +1231,7 @@ static int dcc_probe(struct platform_device *pdev)
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 					   "dcc-ram-base");
 	if (!res)
-		return -ENODEV;
+		return -EINVAL;
 
 	drvdata->ram_size = resource_size(res);
 	drvdata->ram_base = devm_ioremap(dev, res->start, resource_size(res));
