@@ -809,10 +809,11 @@
 			<&clock_gcc clk_gcc_pcnoc_usb3_axi_clk>,
 			<&clock_gcc clk_gcc_usb30_mock_utmi_clk>,
 			<&clock_gcc clk_gcc_usb30_sleep_clk>,
-			<&clock_gcc clk_xo_dwc3_clk>;
+			<&clock_gcc clk_xo_dwc3_clk>,
+			<&clock_gcc clk_gcc_usb_phy_cfg_ahb_clk>;
 
 		clock-names = "core_clk", "iface_clk", "utmi_clk",
-				"sleep_clk", "xo";
+				"sleep_clk", "xo", "cfg_ahb_clk";
 
 		dwc3@7000000 {
 			compatible = "snps,dwc3";
