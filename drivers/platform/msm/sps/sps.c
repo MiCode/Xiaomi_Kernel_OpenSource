@@ -2443,7 +2443,7 @@ int sps_pipe_disable(unsigned long dev, u32 pipe)
 	SPS_DBG(bam, "sps:%s; BAM: %pa; pipe index:%d.\n",
 		__func__, BAM_ID(bam), pipe);
 
-	bam_disable_pipe(bam->base, pipe);
+	bam_disable_pipe(&bam->base, pipe);
 
 	return 0;
 }
