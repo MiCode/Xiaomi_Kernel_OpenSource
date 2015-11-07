@@ -45,5 +45,6 @@ void diag_smd_exit(void);
 int diag_smd_init(void);
 void diag_smd_early_exit(void);
 void diag_smd_invalidate(void *ctxt, struct diagfwd_info *fwd_ctxt);
+int diag_smd_check_state(void *ctxt);
 
 #endif
