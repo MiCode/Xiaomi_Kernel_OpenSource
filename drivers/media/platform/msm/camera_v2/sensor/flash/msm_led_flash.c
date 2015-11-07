@@ -49,6 +49,82 @@ static long msm_led_flash_subdev_ioctl(struct v4l2_subdev *sd,
 	}
 }
 
+#ifdef CONFIG_COMPAT
+static long msm_led_flash_subdev_do_ioctl32(
+	struct file *file, unsigned int cmd, void *arg)
+{
+	int32_t i = 0;
+	int32_t rc = 0;
+	struct video_device *vdev = video_devdata(file);
+	struct v4l2_subdev *sd = vdev_to_v4l2_subdev(vdev);
+	struct msm_flash_cfg_data_t32 *u32 = (struct msm_flash_cfg_data_t32 *)arg;
+	struct msm_flash_cfg_data_t flash_data;
+	struct msm_flash_init_info_t32 flash_init_info32;
+	struct msm_flash_init_info_t flash_init_info;
+
+	CDBG("Enter");
+	flash_data.cfg_type = u32->cfg_type;
+	for (i = 0; i < MAX_LED_TRIGGERS; i++) {
+		flash_data.flash_current[i] = u32->flash_current[i];
+		flash_data.flash_duration[i] = u32->flash_duration[i];
+	}
+	switch (cmd) {
+	case VIDIOC_MSM_FLASH_CFG32:
+		cmd = VIDIOC_MSM_FLASH_CFG;
+		switch (flash_data.cfg_type) {
+		case CFG_FLASH_OFF:
+		case CFG_FLASH_LOW:
+		case CFG_FLASH_HIGH:
+			flash_data.cfg.settings = compat_ptr(u32->cfg.settings);
+			break;
+
+		case CFG_FLASH_INIT:
+			flash_data.cfg.flash_init_info = &flash_init_info;
+			if (copy_from_user(&flash_init_info32,
+				(void *)compat_ptr(u32->cfg.flash_init_info),
+				sizeof(struct msm_flash_init_info_t32))) {
+				pr_err("%s copy_from_user failed %d\n",
+					__func__, __LINE__);
+				return -EFAULT;
+			}
+			flash_init_info.flash_driver_type =
+				flash_init_info32.flash_driver_type;
+			flash_init_info.slave_addr =
+				flash_init_info32.slave_addr;
+			flash_init_info.i2c_freq_mode =
+				flash_init_info32.i2c_freq_mode;
+			flash_init_info.settings =
+				compat_ptr(flash_init_info32.settings);
+			flash_init_info.power_setting_array =
+				compat_ptr(
+				flash_init_info32.power_setting_array);
+			break;
+
+		default:
+			break;
+		}
+		break;
+
+	default:
+		return msm_led_flash_subdev_ioctl(sd, cmd, arg);
+	}
+
+	rc =  msm_led_flash_subdev_ioctl(sd, cmd, &flash_data);
+	for (i = 0; i < MAX_LED_TRIGGERS; i++) {
+		u32->flash_current[i] = flash_data.flash_current[i];
+		u32->flash_duration[i] = flash_data.flash_duration[i];
+	}
+	CDBG("Exit");
+	return rc;
+}
+
+static long msm_led_flash_subdev_fops_ioctl32(struct file *file, unsigned int cmd,
+	unsigned long arg)
+{
+	return video_usercopy(file, cmd, arg, msm_led_flash_subdev_do_ioctl32);
+}
+#endif
+
 static struct v4l2_subdev_core_ops msm_flash_subdev_core_ops = {
 	.ioctl = msm_led_flash_subdev_ioctl,
 };
@@ -88,7 +164,7 @@ int32_t msm_led_flash_create_v4lsubdev(struct platform_device *pdev, void *data)
 	msm_led_flash_v4l2_subdev_fops = v4l2_subdev_fops;
 #ifdef CONFIG_COMPAT
 	msm_led_flash_v4l2_subdev_fops.compat_ioctl32 =
-		msm_led_flash_v4l2_subdev_fops.unlocked_ioctl;
+		msm_led_flash_subdev_fops_ioctl32;
 #endif
 	fctrl->msm_sd.sd.devnode->fops = &msm_led_flash_v4l2_subdev_fops;
 	CDBG("probe success\n");
