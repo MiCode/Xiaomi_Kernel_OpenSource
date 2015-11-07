@@ -640,8 +640,7 @@ static int msm_iommu_sec_ptbl_map_range(struct msm_iommu_drvdata *iommu_drvdata,
 			return -EINVAL;
 		}
 		while (offset < len) {
-			pa += chunk_offset;
-			pa_list[cnt] = pa;
+			pa_list[cnt] = pa + chunk_offset;
 			chunk_offset += SZ_1M;
 			offset += SZ_1M;
 			cnt++;
