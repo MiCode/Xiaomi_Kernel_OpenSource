@@ -453,6 +453,8 @@ struct mdss_mdp_img_data {
 	unsigned long len;
 	u32 offset;
 	u32 flags;
+	u32 dir;
+	u32 domain;
 	bool mapped;
 	bool skip_detach;
 	struct fd srcp_f;

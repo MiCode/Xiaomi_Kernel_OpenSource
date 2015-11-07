@@ -980,11 +980,25 @@ static void __print_buf(struct seq_file *s, struct mdss_mdp_data *buf,
 		bool show_pipe)
 {
 	char tmpbuf[20];
-	const char const *stmap[] = {
+	int i;
+	const char const *buf_stat_stmap[] = {
 		[MDP_BUF_STATE_UNUSED]  = "UNUSED ",
 		[MDP_BUF_STATE_READY]   = "READY  ",
 		[MDP_BUF_STATE_ACTIVE]  = "ACTIVE ",
 		[MDP_BUF_STATE_CLEANUP] = "CLEANUP",
+	};
+	const char const *domain_stmap[] = {
+		[MDSS_IOMMU_DOMAIN_UNSECURE]     = "mdp_unsecure",
+		[MDSS_IOMMU_DOMAIN_ROT_UNSECURE] = "rot_unsecure",
+		[MDSS_IOMMU_DOMAIN_SECURE]       = "mdp_secure",
+		[MDSS_IOMMU_DOMAIN_ROT_SECURE]   = "rot_secure",
+		[MDSS_IOMMU_MAX_DOMAIN]          = "undefined",
+	};
+	const char const *dma_data_dir_stmap[] = {
+		[DMA_BIDIRECTIONAL] = "read/write",
+		[DMA_TO_DEVICE]     = "read",
+		[DMA_FROM_DEVICE]   = "read/write",
+		[DMA_NONE]          = "????",
 	};
 
 	seq_puts(s, "\t");
@@ -992,8 +1006,8 @@ static void __print_buf(struct seq_file *s, struct mdss_mdp_data *buf,
 		seq_printf(s, "pnum=%d ", buf->last_pipe->num);
 
 	seq_printf(s, "state=%s addr=%pa size=%lu ",
-		buf->state < ARRAY_SIZE(stmap) && stmap[buf->state] ?
-			stmap[buf->state] : "?",
+		buf->state < ARRAY_SIZE(buf_stat_stmap) &&
+		buf_stat_stmap[buf->state] ? buf_stat_stmap[buf->state] : "?",
 		&buf->p[0].addr, buf->p[0].len);
 
 	__print_time(tmpbuf, sizeof(tmpbuf), buf->last_alloc);
@@ -1001,6 +1015,14 @@ static void __print_buf(struct seq_file *s, struct mdss_mdp_data *buf,
 	if (buf->state == MDP_BUF_STATE_UNUSED) {
 		__print_time(tmpbuf, sizeof(tmpbuf), buf->last_freed);
 		seq_printf(s, "freed_time=%s ", tmpbuf);
+	} else {
+		for (i = 0; i < buf->num_planes; i++) {
+			seq_puts(s, "\n\t\t");
+			seq_printf(s, "plane[%d] domain=%s ", i,
+				domain_stmap[buf->p[i].domain]);
+			seq_printf(s, "permission=%s ",
+				dma_data_dir_stmap[buf->p[i].dir]);
+		}
 	}
 	seq_puts(s, "\n");
 }
