@@ -52,17 +52,21 @@
 
 #define PCIE20_PARF_DBI_BASE_ADDR	0x350
 #define PCIE20_PARF_SLV_ADDR_SPACE_SIZE	0x358
+
+#define TX_BASE 0x200
+#define RX_BASE 0x400
+#define PCS_BASE 0x800
 #else
 #define PCIE_VENDOR_ID_RCP		0x17cb
 #define PCIE_DEVICE_ID_RCP		0x0104
 
 #define PCIE20_PARF_DBI_BASE_ADDR	0x168
 #define PCIE20_PARF_SLV_ADDR_SPACE_SIZE	0x16C
-#endif
 
 #define TX_BASE 0x1000
 #define RX_BASE 0x1200
 #define PCS_BASE 0x1400
+#endif
 
 #define TX(n, m) (TX_BASE + n * m * 0x1000)
 #define RX(n, m) (RX_BASE + n * m * 0x1000)
@@ -111,6 +115,7 @@
 #define QSERDES_COM_HSCLK_SEL			0x178
 #define QSERDES_COM_CORECLK_DIV			0x184
 #define QSERDES_COM_CORE_CLK_EN			0x18C
+#define QSERDES_COM_C_READY_STATUS		0x190
 #define QSERDES_COM_CMN_CONFIG			0x194
 #define QSERDES_COM_SVS_MODE_CLK_SEL		0x19C
 #define QSERDES_COM_DEBUG_BUS0			0x1A0
@@ -119,9 +124,11 @@
 #define QSERDES_COM_DEBUG_BUS3			0x1AC
 #define QSERDES_COM_DEBUG_BUS_SEL		0x1B0
 
+#define QSERDES_TX_N_RES_CODE_LANE_OFFSET(n, m)		(TX(n, m) + 0x4C)
 #define QSERDES_TX_N_DEBUG_BUS_SEL(n, m)		(TX(n, m) + 0x64)
 #define QSERDES_TX_N_HIGHZ_TRANSCEIVEREN_BIAS_DRVR_EN(n, m) (TX(n, m) + 0x68)
 #define QSERDES_TX_N_LANE_MODE(n, m)			(TX(n, m) + 0x94)
+#define QSERDES_TX_N_RCV_DETECT_LVL_2(n, m)		(TX(n, m) + 0xAC)
 
 #define QSERDES_RX_N_UCDR_SO_GAIN_HALF(n, m)		(RX(n, m) + 0x010)
 #define QSERDES_RX_N_UCDR_SO_GAIN(n, m)			(RX(n, m) + 0x01C)
@@ -137,6 +144,7 @@
 #define PCIE_N_SW_RESET(n, m)			(PCS_PORT(n, m) + 0x00)
 #define PCIE_N_POWER_DOWN_CONTROL(n, m)		(PCS_PORT(n, m) + 0x04)
 #define PCIE_N_START_CONTROL(n, m)		(PCS_PORT(n, m) + 0x08)
+#define PCIE_N_TXDEEMPH_M6DB_V0(n, m)		(PCS_PORT(n, m) + 0x24)
 #define PCIE_N_TXDEEMPH_M3P5DB_V0(n, m)		(PCS_PORT(n, m) + 0x28)
 #define PCIE_N_ENDPOINT_REFCLK_DRIVE(n, m)	(PCS_PORT(n, m) + 0x54)
 #define PCIE_N_RX_IDLE_DTCT_CNTRL(n, m)		(PCS_PORT(n, m) + 0x58)
@@ -149,10 +157,16 @@
 #define PCIE_N_TEST_CONTROL5(n, m)		(PCS_PORT(n, m) + 0x120)
 #define PCIE_N_TEST_CONTROL6(n, m)		(PCS_PORT(n, m) + 0x124)
 #define PCIE_N_TEST_CONTROL7(n, m)		(PCS_PORT(n, m) + 0x128)
+#define PCIE_N_PCS_STATUS(n, m)			(PCS_PORT(n, m) + 0x174)
 #define PCIE_N_DEBUG_BUS_0_STATUS(n, m)		(PCS_PORT(n, m) + 0x198)
 #define PCIE_N_DEBUG_BUS_1_STATUS(n, m)		(PCS_PORT(n, m) + 0x19C)
 #define PCIE_N_DEBUG_BUS_2_STATUS(n, m)		(PCS_PORT(n, m) + 0x1A0)
 #define PCIE_N_DEBUG_BUS_3_STATUS(n, m)		(PCS_PORT(n, m) + 0x1A4)
+#define PCIE_N_LP_WAKEUP_DLY_TIME_AUXCLK_MSB(n, m)	(PCS_PORT(n, m) + 0x1A8)
+#define PCIE_N_OSC_DTCT_ACTIONS(n, m)			(PCS_PORT(n, m) + 0x1AC)
+#define PCIE_N_SIGDET_CNTRL(n, m)			(PCS_PORT(n, m) + 0x1B0)
+#define PCIE_N_L1SS_WAKEUP_DLY_TIME_AUXCLK_LSB(n, m)	(PCS_PORT(n, m) + 0x1DC)
+#define PCIE_N_L1SS_WAKEUP_DLY_TIME_AUXCLK_MSB(n, m)	(PCS_PORT(n, m) + 0x1E0)
 
 #define PCIE_COM_SW_RESET		0x400
 #define PCIE_COM_POWER_DOWN_CONTROL	0x404
@@ -202,6 +216,7 @@
 #define PCIE20_DEVICE_CONTROL_STATUS	0x78
 #define PCIE20_DEVICE_CONTROL2_STATUS2 0x98
 
+#define PCIE20_AUX_CLK_FREQ_REG		0xB40
 #define PCIE20_ACK_F_ASPM_CTRL_REG     0x70C
 #define PCIE20_ACK_N_FTS		   0xff00
 
@@ -366,6 +381,7 @@ enum msm_pcie_res {
 	MSM_PCIE_RES_CONF,
 	MSM_PCIE_RES_IO,
 	MSM_PCIE_RES_BARS,
+	MSM_PCIE_RES_TCSR,
 	MSM_PCIE_MAX_RES,
 };
 
@@ -493,6 +509,7 @@ struct msm_pcie_dev_t {
 	void __iomem		     *dm_core;
 	void __iomem		     *conf;
 	void __iomem		     *bars;
+	void __iomem		     *tcsr;
 
 	uint32_t			    axi_bar_start;
 	uint32_t			    axi_bar_end;
@@ -576,6 +593,7 @@ struct msm_pcie_dev_t {
 	void				 *ipc_log;
 	void				*ipc_log_long;
 	void				*ipc_log_dump;
+	bool				use_19p2mhz_aux_clk;
 	bool				use_pinctrl;
 	struct pinctrl			*pinctrl;
 	struct pinctrl_state		*pins_default;
@@ -703,7 +721,8 @@ static const struct msm_pcie_res_info_t msm_pcie_res_info[MSM_PCIE_MAX_RES] = {
 	{"elbi",	0, 0},
 	{"conf",	0, 0},
 	{"io",		0, 0},
-	{"bars",	0, 0}
+	{"bars",	0, 0},
+	{"tcsr",	0, 0}
 };
 
 /* irqs */
@@ -1162,6 +1181,181 @@ static void pcie_phy_dump(struct msm_pcie_dev_t *dev)
 	}
 }
 
+#ifdef CONFIG_ARCH_MDMCALIFORNIUM
+static void pcie_phy_init(struct msm_pcie_dev_t *dev)
+{
+	u8 common_phy;
+
+	PCIE_DBG(dev,
+		"RC%d: Initializing MDM 14nm QMP phy - 19.2MHz with Common Mode Clock (SSC ON)\n",
+		dev->rc_idx);
+
+	if (dev->common_phy)
+		common_phy = 1;
+	else
+		common_phy = 0;
+
+	msm_pcie_write_reg(dev->phy,
+		PCIE_N_SW_RESET(dev->rc_idx, common_phy),
+		0x01);
+	msm_pcie_write_reg(dev->phy,
+		PCIE_N_POWER_DOWN_CONTROL(dev->rc_idx, common_phy),
+		0x03);
+
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x18);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_CLK_ENABLE1, 0x10);
+
+	msm_pcie_write_reg(dev->phy,
+			QSERDES_TX_N_LANE_MODE(dev->rc_idx, common_phy), 0x06);
+
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_LOCK_CMP_EN, 0x01);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_VCO_TUNE_MAP, 0x00);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_VCO_TUNE_TIMER1, 0xFF);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_VCO_TUNE_TIMER2, 0x1F);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_BG_TRIM, 0x0F);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLL_IVCO, 0x0F);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_HSCLK_SEL, 0x00);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_SVS_MODE_CLK_SEL, 0x01);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_CORE_CLK_EN, 0x20);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_CORECLK_DIV, 0x0A);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_BG_TIMER, 0x09);
+
+	if (dev->tcsr) {
+		PCIE_DBG(dev, "RC%d: TCSR PHY clock scheme is 0x%x\n",
+			dev->rc_idx, readl_relaxed(dev->tcsr));
+
+		if (readl_relaxed(dev->tcsr) & (BIT(1) | BIT(0)))
+			msm_pcie_write_reg(dev->phy,
+					QSERDES_COM_SYSCLK_EN_SEL, 0x1A);
+		else
+			msm_pcie_write_reg(dev->phy,
+					QSERDES_COM_SYSCLK_EN_SEL, 0x14);
+	}
+
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_DEC_START_MODE0, 0x82);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_DIV_FRAC_START3_MODE0, 0x03);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_DIV_FRAC_START2_MODE0, 0x55);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_DIV_FRAC_START1_MODE0, 0x55);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_LOCK_CMP3_MODE0, 0x00);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_LOCK_CMP2_MODE0, 0x0D);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_LOCK_CMP1_MODE0, 0x04);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_CLK_SELECT, 0x33);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_SYS_CLK_CTRL, 0x02);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_SYSCLK_BUF_ENABLE, 0x1F);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_CP_CTRL_MODE0, 0x0B);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLL_RCTRL_MODE0, 0x16);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLL_CCTRL_MODE0, 0x28);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_INTEGLOOP_GAIN1_MODE0, 0x00);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_INTEGLOOP_GAIN0_MODE0, 0x80);
+
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_SSC_EN_CENTER, 0x01);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_SSC_PER1, 0x31);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_SSC_PER2, 0x01);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_SSC_ADJ_PER1, 0x02);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_SSC_ADJ_PER2, 0x00);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_SSC_STEP_SIZE1, 0x2f);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_SSC_STEP_SIZE2, 0x19);
+
+	msm_pcie_write_reg(dev->phy,
+		QSERDES_TX_N_HIGHZ_TRANSCEIVEREN_BIAS_DRVR_EN(dev->rc_idx,
+		common_phy), 0x45);
+
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_CMN_CONFIG, 0x06);
+
+	msm_pcie_write_reg(dev->phy,
+		QSERDES_TX_N_RES_CODE_LANE_OFFSET(dev->rc_idx, common_phy),
+		0x02);
+	msm_pcie_write_reg(dev->phy,
+		QSERDES_TX_N_RCV_DETECT_LVL_2(dev->rc_idx, common_phy),
+		0x12);
+
+	msm_pcie_write_reg(dev->phy,
+		QSERDES_RX_N_SIGDET_ENABLES(dev->rc_idx, common_phy),
+		0x1C);
+	msm_pcie_write_reg(dev->phy,
+		QSERDES_RX_N_SIGDET_DEGLITCH_CNTRL(dev->rc_idx, common_phy),
+		0x14);
+	msm_pcie_write_reg(dev->phy,
+		QSERDES_RX_N_RX_EQU_ADAPTOR_CNTRL2(dev->rc_idx, common_phy),
+		0x01);
+	msm_pcie_write_reg(dev->phy,
+		QSERDES_RX_N_RX_EQU_ADAPTOR_CNTRL3(dev->rc_idx, common_phy),
+		0x00);
+	msm_pcie_write_reg(dev->phy,
+		QSERDES_RX_N_RX_EQU_ADAPTOR_CNTRL4(dev->rc_idx, common_phy),
+		0xDB);
+	msm_pcie_write_reg(dev->phy,
+		QSERDES_RX_N_UCDR_SO_SATURATION_AND_ENABLE(dev->rc_idx,
+		common_phy),
+		0x4B);
+	msm_pcie_write_reg(dev->phy,
+		QSERDES_RX_N_UCDR_SO_GAIN(dev->rc_idx, common_phy),
+		0x04);
+	msm_pcie_write_reg(dev->phy,
+		QSERDES_RX_N_UCDR_SO_GAIN_HALF(dev->rc_idx, common_phy),
+		0x04);
+
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_CLK_EP_DIV, 0x19);
+
+	msm_pcie_write_reg(dev->phy,
+		PCIE_N_ENDPOINT_REFCLK_DRIVE(dev->rc_idx, common_phy),
+		0x04);
+	msm_pcie_write_reg(dev->phy,
+		PCIE_N_OSC_DTCT_ACTIONS(dev->rc_idx, common_phy),
+		0x00);
+	msm_pcie_write_reg(dev->phy,
+		PCIE_N_PWRUP_RESET_DLY_TIME_AUXCLK(dev->rc_idx, common_phy),
+		0x40);
+	msm_pcie_write_reg(dev->phy,
+		PCIE_N_L1SS_WAKEUP_DLY_TIME_AUXCLK_MSB(dev->rc_idx, common_phy),
+		0x00);
+	msm_pcie_write_reg(dev->phy,
+		PCIE_N_L1SS_WAKEUP_DLY_TIME_AUXCLK_LSB(dev->rc_idx, common_phy),
+		0x40);
+	msm_pcie_write_reg(dev->phy,
+		PCIE_N_LP_WAKEUP_DLY_TIME_AUXCLK_MSB(dev->rc_idx, common_phy),
+		0x00);
+	msm_pcie_write_reg(dev->phy,
+		PCIE_N_LP_WAKEUP_DLY_TIME_AUXCLK(dev->rc_idx, common_phy),
+		0x40);
+	msm_pcie_write_reg(dev->phy,
+		PCIE_N_PLL_LOCK_CHK_DLY_TIME(dev->rc_idx, common_phy),
+		0x73);
+	msm_pcie_write_reg(dev->phy,
+		QSERDES_RX_N_SIGDET_LVL(dev->rc_idx, common_phy),
+		0x99);
+	msm_pcie_write_reg(dev->phy,
+		PCIE_N_TXDEEMPH_M6DB_V0(dev->rc_idx, common_phy),
+		0x15);
+	msm_pcie_write_reg(dev->phy,
+		PCIE_N_TXDEEMPH_M3P5DB_V0(dev->rc_idx, common_phy),
+		0x0E);
+
+	msm_pcie_write_reg(dev->phy,
+		PCIE_N_SIGDET_CNTRL(dev->rc_idx, common_phy),
+		0x07);
+
+	msm_pcie_write_reg(dev->phy,
+		PCIE_N_SW_RESET(dev->rc_idx, common_phy),
+		0x00);
+	msm_pcie_write_reg(dev->phy,
+		PCIE_N_START_CONTROL(dev->rc_idx, common_phy),
+		0x03);
+}
+
+static void pcie_pcs_port_phy_init(struct msm_pcie_dev_t *dev)
+{
+}
+
+static bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
+{
+	if (readl_relaxed(dev->phy +
+		PCIE_N_PCS_STATUS(dev->rc_idx, dev->common_phy)) & BIT(6))
+		return false;
+	else
+		return true;
+}
+#else
 static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 {
 	PCIE_DBG(dev,
@@ -1330,6 +1524,7 @@ static bool pcie_phy_is_ready(struct msm_pcie_dev_t *dev)
 	else
 		return true;
 }
+#endif
 #endif
 
 static int msm_pcie_restore_sec_config(struct msm_pcie_dev_t *dev)
@@ -1514,6 +1709,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->use_msi);
 	PCIE_DBG_FS(dev, "use_pinctrl is %d\n",
 		dev->use_pinctrl);
+	PCIE_DBG_FS(dev, "use_19p2mhz_aux_clk is %d\n",
+		dev->use_19p2mhz_aux_clk);
 	PCIE_DBG_FS(dev, "user_suspend is %d\n",
 		dev->user_suspend);
 	PCIE_DBG_FS(dev, "num_ep: %d\n",
@@ -3125,6 +3322,12 @@ static void msm_pcie_config_controller(struct msm_pcie_dev_t *dev)
 	PCIE_DBG2(dev, "Updated PCIE20_ACK_F_ASPM_CTRL_REG:0x%x\n",
 		readl_relaxed(dev->dm_core + PCIE20_ACK_F_ASPM_CTRL_REG));
 
+	/* configure AUX clock frequency register for PCIe core */
+	if (dev->use_19p2mhz_aux_clk)
+		msm_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, 0x14);
+	else
+		msm_pcie_write_reg(dev->dm_core, PCIE20_AUX_CLK_FREQ_REG, 0x01);
+
 	/* Enable AER on RC */
 	msm_pcie_write_mask(dev->dm_core + PCIE20_BRIDGE_CTRL, 0,
 					BIT(16)|BIT(17));
@@ -3567,21 +3770,21 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 		if (!res) {
 			PCIE_ERR(dev, "PCIe: RC%d can't get %s resource.\n",
 				dev->rc_idx, res_info->name);
-			ret = -ENOMEM;
-			goto out;
-		} else
+		} else {
 			PCIE_DBG(dev, "start addr for %s is %pa.\n",
 				res_info->name,	&res->start);
 
-		res_info->base = devm_ioremap(&pdev->dev,
+			res_info->base = devm_ioremap(&pdev->dev,
 						res->start, resource_size(res));
-		if (!res_info->base) {
-			PCIE_ERR(dev, "PCIe: RC%d can't remap %s.\n",
-				dev->rc_idx, res_info->name);
-			ret = -ENOMEM;
-			goto out;
+			if (!res_info->base) {
+				PCIE_ERR(dev, "PCIe: RC%d can't remap %s.\n",
+					dev->rc_idx, res_info->name);
+				ret = -ENOMEM;
+				goto out;
+			} else {
+				res_info->resource = res;
+			}
 		}
-		res_info->resource = res;
 	}
 
 	for (i = 0; i < MSM_PCIE_MAX_IRQ; i++) {
@@ -3629,6 +3832,7 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 	dev->dm_core = dev->res[MSM_PCIE_RES_DM_CORE].base;
 	dev->conf = dev->res[MSM_PCIE_RES_CONF].base;
 	dev->bars = dev->res[MSM_PCIE_RES_BARS].base;
+	dev->tcsr = dev->res[MSM_PCIE_RES_TCSR].base;
 	dev->dev_mem_res = dev->res[MSM_PCIE_RES_BARS].resource;
 	dev->dev_io_res = dev->res[MSM_PCIE_RES_IO].resource;
 	dev->dev_io_res->flags = IORESOURCE_IO;
@@ -3648,6 +3852,7 @@ static void msm_pcie_release_resources(struct msm_pcie_dev_t *dev)
 	dev->dm_core = NULL;
 	dev->conf = NULL;
 	dev->bars = NULL;
+	dev->tcsr = NULL;
 	dev->dev_mem_res = NULL;
 	dev->dev_io_res = NULL;
 }
@@ -3857,7 +4062,7 @@ link_fail:
 
 	mutex_lock(&com_phy_lock);
 	num_rc_on--;
-	if (!num_rc_on) {
+	if (!num_rc_on && dev->common_phy) {
 		PCIE_DBG(dev, "PCIe: RC%d is powering down the common phy\n",
 			dev->rc_idx);
 		msm_pcie_write_reg(dev->phy, PCIE_COM_SW_RESET, 0x1);
@@ -3908,7 +4113,7 @@ void msm_pcie_disable(struct msm_pcie_dev_t *dev, u32 options)
 
 	mutex_lock(&com_phy_lock);
 	num_rc_on--;
-	if (!num_rc_on) {
+	if (!num_rc_on && dev->common_phy) {
 		PCIE_DBG(dev, "PCIe: RC%d is powering down the common phy\n",
 			dev->rc_idx);
 		msm_pcie_write_reg(dev->phy, PCIE_COM_SW_RESET, 0x1);
@@ -5217,6 +5422,13 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	PCIE_DBG(&msm_pcie_dev[rc_idx],
 		"AUX clock is %s synchronous to Core clock.\n",
 		msm_pcie_dev[rc_idx].aux_clk_sync ? "" : "not");
+
+	msm_pcie_dev[rc_idx].use_19p2mhz_aux_clk =
+		of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,use-19p2mhz-aux-clk");
+	PCIE_DBG(&msm_pcie_dev[rc_idx],
+		"AUX clock frequency is %s 19.2MHz.\n",
+		msm_pcie_dev[rc_idx].use_19p2mhz_aux_clk ? "" : "not");
 
 	msm_pcie_dev[rc_idx].smmu_exist =
 		of_property_read_bool((&pdev->dev)->of_node,
