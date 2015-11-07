@@ -1996,6 +1996,7 @@ static void __exit msm_serial_hsl_exit(void)
 #define MSM_HSL_UART_SR_TXEMT		BIT(3)
 #define MSM_HSL_UART_ISR_TXREADY	BIT(7)
 
+#ifdef CONFIG_SERIAL_MSM_HSL_CONSOLE
 static void msm_serial_hsl_early_putc(struct uart_port *port, int ch)
 {
 	while (!(readl_relaxed(port->membase + MSM_HSL_UART_SR) &
@@ -2028,6 +2029,7 @@ static int __init msm_hsl_earlycon_setup(struct earlycon_device *device,
 }
 EARLYCON_DECLARE(msm_hsl_uart, msm_hsl_earlycon_setup);
 OF_EARLYCON_DECLARE(msm_hsl_uart, "qcom,msm-hsl-uart", msm_hsl_earlycon_setup);
+#endif
 
 module_init(msm_serial_hsl_init);
 module_exit(msm_serial_hsl_exit);
