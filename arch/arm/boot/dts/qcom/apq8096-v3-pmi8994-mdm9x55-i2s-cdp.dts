@@ -27,6 +27,14 @@
 	status = "disabled";
 };
 
+&pm8994_l9 {
+	regulator-always-on;
+};
+
+&pm8994_l10 {
+	regulator-always-on;
+};
+
 &mdm3 {
 	pinctrl-names = "mdm_active", "mdm_suspend";
 	pinctrl-0 = <&ap2mdm_active &mdm2ap_active>;
