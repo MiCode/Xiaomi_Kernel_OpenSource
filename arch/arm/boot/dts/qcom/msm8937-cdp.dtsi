@@ -65,6 +65,16 @@
 		qcom,dig-vtg-min = <1800000>;
 		qcom,dig-vtg-max = <1800000>;
 	};
+
+	sound {
+		asoc-wsa-codec-names = "wsa881x-i2c-codec.8-000f";
+		asoc-wsa-codec-prefixes = "SpkrMono";
+
+		msm-vdd-wsa-switch-supply = <&pm8937_l13>;
+		qcom,msm-vdd-wsa-switch-voltage = <3075000>;
+		qcom,msm-vdd-wsa-switch-current = <5000>;
+		qcom,msm-hs-micbias-type = "internal";
+	};
 };
 
 &tlmm {
