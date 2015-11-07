@@ -27,6 +27,7 @@
 #include <linux/of_platform.h>
 #include <linux/msm_dma_iommu_mapping.h>
 
+#include <linux/qcom_iommu.h>
 #include <asm/dma-iommu.h>
 #include "soc/qcom/secure_buffer.h"
 
@@ -45,6 +46,21 @@ void mdss_iommu_unlock(void)
 {
 	mutex_unlock(&mdp_iommu_lock);
 }
+
+static struct mdss_iommu_map_type mdss_iommu_map[MDSS_IOMMU_MAX_DOMAIN] = {
+	[MDSS_IOMMU_DOMAIN_UNSECURE] = {
+		.client_name = "mdp_ns",
+		.ctx_name = "mdp_0",
+		.start = SZ_128K,
+		.size = SZ_1G - SZ_128K,
+	},
+	[MDSS_IOMMU_DOMAIN_SECURE] = {
+		.client_name = "mdp_secure",
+		.ctx_name = "mdp_1",
+		.start = SZ_1G,
+		.size = SZ_2G,
+	},
+};
 
 static int mdss_smmu_util_parse_dt_clock(struct platform_device *pdev,
 		struct dss_module_power *mp)
@@ -123,6 +139,9 @@ static int mdss_smmu_enable_power(struct mdss_smmu_client *mdss_smmu,
 	if (!mdss_smmu)
 		return -EINVAL;
 
+	if (mdss_smmu->smmu_type == MDSS_SMMU_ARM)
+		return 0;
+
 	mp = &mdss_smmu->mp;
 
 	if (enable) {
@@ -170,7 +189,7 @@ static int mdss_smmu_attach_v2(struct mdss_data_type *mdata)
 			continue;
 
 		mdss_smmu = mdss_smmu_get_cb(i);
-		if (mdss_smmu->dev) {
+		if (mdss_smmu && mdss_smmu->dev) {
 			if (!mdss_smmu->handoff_pending) {
 				rc = mdss_smmu_enable_power(mdss_smmu, true);
 				if (rc) {
@@ -204,7 +223,7 @@ static int mdss_smmu_attach_v2(struct mdss_data_type *mdata)
 err:
 	for (i--; i >= 0; i--) {
 		mdss_smmu = mdss_smmu_get_cb(i);
-		if (mdss_smmu->dev) {
+		if (mdss_smmu && mdss_smmu->dev) {
 			arm_iommu_detach_device(mdss_smmu->dev);
 			mdss_smmu_enable_power(mdss_smmu, false);
 			mdss_smmu->domain_attached = false;
@@ -229,7 +248,7 @@ static int mdss_smmu_detach_v2(struct mdss_data_type *mdata)
 			continue;
 
 		mdss_smmu = mdss_smmu_get_cb(i);
-		if (mdss_smmu->dev && !mdss_smmu->handoff_pending)
+		if (mdss_smmu && mdss_smmu->dev && !mdss_smmu->handoff_pending)
 			mdss_smmu_enable_power(mdss_smmu, false);
 	}
 	return 0;
@@ -423,14 +442,14 @@ static void mdss_smmu_dsi_unmap_buffer_v2(dma_addr_t dma_addr, int domain,
 
 
 
-static void mdss_smmu_deinit_v2(struct mdss_data_type *mata)
+static void mdss_smmu_deinit_v2(struct mdss_data_type *mdata)
 {
 	int i;
 	struct mdss_smmu_client *mdss_smmu;
 
 	for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
 		mdss_smmu = mdss_smmu_get_cb(i);
-		if (mdss_smmu->dev)
+		if (mdss_smmu && mdss_smmu->dev)
 			arm_iommu_release_mapping(mdss_smmu->mmu_mapping);
 	}
 }
@@ -496,9 +515,57 @@ static const struct of_device_id mdss_smmu_dt_match[] = {
 	{ .compatible = "qcom,smmu_rot_unsec", .data = &mdss_rot_unsec},
 	{ .compatible = "qcom,smmu_mdp_sec", .data = &mdss_mdp_sec},
 	{ .compatible = "qcom,smmu_rot_sec", .data = &mdss_rot_sec},
+	{ .compatible = "qcom,smmu_arm_mdp_sec", .data = &mdss_mdp_sec},
+	{ .compatible = "qcom,smmu_arm_mdp_unsec", .data = &mdss_mdp_unsec},
 	{}
 };
 MODULE_DEVICE_TABLE(of, mdss_smmu_dt_match);
+
+
+/*
+ * mdss_smmu_arm_probe()
+ * @domain: iommu domain
+ *
+ * Each arm smmu context acts as a separate device and the context banks are
+ * configured with a VA range.
+ */
+static int mdss_smmu_arm_probe(u32 domain)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_smmu_client *mdss_smmu;
+	struct device *dev;
+	struct mdss_iommu_map_type *iomap;
+	int rc = 0;
+
+	if ((domain == MDSS_IOMMU_DOMAIN_SECURE) ||
+			(domain == MDSS_IOMMU_DOMAIN_UNSECURE)) {
+		iomap = &mdss_iommu_map[domain];
+		dev = msm_iommu_get_ctx(iomap->ctx_name);
+		if (!dev) {
+			pr_err("Invalid SMMU ctx for domain:%d\n", domain);
+			return -EINVAL;
+		}
+
+		mdss_smmu = &mdata->mdss_smmu[domain];
+		mdss_smmu->mmu_mapping = arm_iommu_create_mapping(
+			msm_iommu_get_bus(dev), iomap->start, iomap->size);
+		if (IS_ERR(mdss_smmu->mmu_mapping)) {
+			pr_err("iommu create mapping failed for domain[%d]\n",
+									domain);
+			rc = PTR_ERR(mdss_smmu->mmu_mapping);
+			return rc;
+		}
+
+		if (mdata->handoff_pending)
+			mdss_smmu->handoff_pending = true;
+		mdss_smmu->dev = dev;
+		mdss_smmu->smmu_type = MDSS_SMMU_ARM;
+	} else {
+		pr_err("Invalid MDSS domain:%d\n", domain);
+		return -EINVAL;
+	}
+	return rc;
+}
 
 /*
  * mdss_smmu_probe()
@@ -539,6 +606,16 @@ int mdss_smmu_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	if (of_device_is_compatible(dev->of_node, "qcom,smmu_arm_mdp_sec") ||
+			of_device_is_compatible(dev->of_node,
+					"qcom,smmu_arm_mdp_unsec")) {
+		pr_debug("initializing mdss for arm smmu\n");
+		rc  = mdss_smmu_arm_probe(domain);
+		if (rc)
+			pr_err("arm smmu probe failed\n");
+		return rc;
+	}
+
 	mdss_smmu = &mdata->mdss_smmu[domain];
 
 	if (domain == MDSS_IOMMU_DOMAIN_UNSECURE ||
@@ -554,6 +631,7 @@ int mdss_smmu_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	mdss_smmu->smmu_type = MDSS_SMMU_V2;
 	mp = &mdss_smmu->mp;
 
 	mp->vreg_config = devm_kzalloc(&pdev->dev,
@@ -654,7 +732,8 @@ int mdss_smmu_remove(struct platform_device *pdev)
 
 	for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
 		mdss_smmu = mdss_smmu_get_cb(i);
-		if (mdss_smmu->dev && mdss_smmu->dev == &pdev->dev)
+		if (mdss_smmu && mdss_smmu->dev &&
+			(mdss_smmu->dev == &pdev->dev))
 			arm_iommu_release_mapping(mdss_smmu->mmu_mapping);
 	}
 	return 0;
