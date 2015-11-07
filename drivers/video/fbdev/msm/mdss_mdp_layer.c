@@ -167,7 +167,7 @@ static int __layer_param_check(struct msm_fb_data_type *mfd,
 	int content_secure;
 	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
-	u32 src_w, src_h, dst_w, dst_h;
+	u32 src_w, src_h, dst_w, dst_h, width, height;
 
 	if (!ctl) {
 		pr_err("ctl is null\n");
@@ -199,16 +199,21 @@ static int __layer_param_check(struct msm_fb_data_type *mfd,
 		return -EINVAL;
 	}
 
+	width = layer->buffer.width;
+	height = layer->buffer.height;
+	if (layer->flags & MDP_LAYER_DEINTERLACE) {
+		width *= 2;
+		height /= 2;
+	}
+
 	if (layer->buffer.width > MAX_IMG_WIDTH ||
 	    layer->buffer.height > MAX_IMG_HEIGHT ||
 	    layer->src_rect.w < min_src_size ||
 	    layer->src_rect.h < min_src_size ||
-	    CHECK_LAYER_BOUNDS(layer->src_rect.x, layer->src_rect.w,
-			layer->buffer.width) ||
-	    CHECK_LAYER_BOUNDS(layer->src_rect.y, layer->src_rect.h,
-			layer->buffer.height)) {
-		pr_err("invalid source image img wh=%dx%d rect=%d,%d,%d,%d\n",
-		       layer->buffer.width, layer->buffer.height,
+	    CHECK_LAYER_BOUNDS(layer->src_rect.x, layer->src_rect.w, width) ||
+	    CHECK_LAYER_BOUNDS(layer->src_rect.y, layer->src_rect.h, height)) {
+		pr_err("invalid source image img flag=%d wh=%dx%d rect=%d,%d,%d,%d\n",
+		       layer->flags, width, height,
 		       layer->src_rect.x, layer->src_rect.y,
 		       layer->src_rect.w, layer->src_rect.h);
 		return -EINVAL;
