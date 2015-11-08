@@ -701,6 +701,8 @@ static struct rcg_clk sdcc1_apps_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_usb30_mock_utmi_clk_src[] = {
+	F(  19200000,         xo,    1,    0,     0),
+	F(  30000000, gpll0_out_main_div2_cgc,   10,    0,     0),
 	F(  60000000, gpll0_out_main_cgc,   10,    0,     0),
 	F_END
 };
