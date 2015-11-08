@@ -1858,7 +1858,8 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 	}
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-	if (pp_driver_ops.gamut_clk_gate_en)
+	if ((mdata->pp_block_off.dspp_gamut_off != U32_MAX) &&
+			(pp_driver_ops.gamut_clk_gate_en))
 		pp_driver_ops.gamut_clk_gate_en(base +
 					mdata->pp_block_off.dspp_gamut_off);
 	ret = pp_hist_setup(&opmode, MDSS_PP_DSPP_CFG | dspp_num, mixer);
@@ -2361,9 +2362,9 @@ static int mdss_mdp_pp_dt_parse(struct device *dev)
 						   "qcom,mdss-dspp-gamut-off",
 						   &prop_val);
 			if (ret) {
-				pr_err("read property %s failed ret %d\n",
+				pr_debug("Could not read/find %s prop ret %d\n",
 				       "qcom,mdss-dspp-gamut-off", ret);
-				goto bail_out;
+				mdata->pp_block_off.dspp_gamut_off = U32_MAX;
 			} else {
 				mdata->pp_block_off.dspp_gamut_off = prop_val;
 			}
