@@ -1753,9 +1753,8 @@
 };
 
 &gdsc_oxili_gx {
-	clock-names = "core_root_clk", "gmem_clk";
-	clocks =<&clock_gcc clk_gfx3d_clk_src>,
-		<&clock_gcc clk_gcc_oxili_gmem_clk>;
+	clock-names = "core_root_clk";
+	clocks =<&clock_gcc clk_gfx3d_clk_src>;
 	qcom,enable-root-clk;
 	qcom,clk-dis-wait-val = <0x5>;
 	status = "okay";
