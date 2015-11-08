@@ -196,7 +196,7 @@
 		qcom,msm-vdd-wsa-switch-current = <5000>;
 	};
 	i2c@7af8000 {
-		wsa881x-i2c-codec@e {
+		wsa881x_i2c_e: wsa881x-i2c-codec@e {
 			compatible = "qcom,wsa881x-i2c-codec";
 			reg = <0x0e>;
 			qcom,msm-gpios = "wsa_clk",
@@ -227,11 +227,11 @@
 			pinctrl-6 = <&wsa_clk_off &wsa_reset_on &wsa_vi_on>;
 			pinctrl-7 = <&wsa_clk_on &wsa_reset_on &wsa_vi_on>;
 		};
-		wsa881x-i2c-codec@44 {
+		wsa881x_i2c_44: wsa881x-i2c-codec@44 {
 			compatible = "qcom,wsa881x-i2c-codec";
 			reg = <0x44>;
 		};
-		wsa881x-i2c-codec@f {
+		wsa881x_i2c_f: wsa881x-i2c-codec@f {
 			compatible = "qcom,wsa881x-i2c-codec";
 			reg = <0x0f>;
 			qcom,msm-gpios = "wsa_clk",
@@ -262,7 +262,7 @@
 			pinctrl-6 = <&wsa_clk_off &wsa_reset_on &wsa_vi_on>;
 			pinctrl-7 = <&wsa_clk_on &wsa_reset_on &wsa_vi_on>;
 		};
-		wsa881x-i2c-codec@45 {
+		wsa881x_i2c_45: wsa881x-i2c-codec@45 {
 			compatible = "qcom,wsa881x-i2c-codec";
 			reg = <0x45>;
 		};
