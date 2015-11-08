@@ -320,54 +320,45 @@ int msm895x_wsa881x_init(struct snd_soc_component *component)
 	unsigned int ch_rate[WSA881X_MAX_SWR_PORTS] = {2400, 600, 300, 1200};
 	unsigned int ch_mask[WSA881X_MAX_SWR_PORTS] = {0x1, 0xF, 0x3, 0x3};
 	struct snd_soc_codec *codec = snd_soc_component_to_codec(component);
-	struct snd_soc_card *card = codec->component.card;
-	struct msm8952_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	struct msm8952_asoc_mach_data *pdata;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
-	struct msm895x_auxcodec_prefix_map codec_prefix_map[MAX_AUX_CODECS] = {
-	{ "wsa881x.20170211", "SpkrRight" },
-	{ "wsa881x.20170212", "SpkrLeft" },
-	{ "wsa881x.21170213", "SpkrRight" },
-	{ "wsa881x.21170214", "SpkrLeft" } };
-	u8 i;
 
 	if (!codec) {
 		pr_err("%s codec is NULL\n", __func__);
 		return -EINVAL;
 	}
 
-	for (i = 0; i < MAX_AUX_CODECS; i++) {
-		if (!strcmp(component->name, codec_prefix_map[i].codec_name))
-			break;
-	}
-	if (i >= MAX_AUX_CODECS) {
-		pr_err("%s: could not find prefix map\n" , __func__);
-		return -EINVAL;
-	}
-	if (!strcmp(codec_prefix_map[i].codec_prefix, "SpkrLeft")) {
+	if (!strcmp(component->name_prefix, "SpkrLeft")) {
+		dev_dbg(codec->dev, "%s: setting left ch map to codec %s\n",
+				__func__, codec->component.name);
 		wsa881x_set_channel_map(codec, &spkleft_ports[0],
 				WSA881X_MAX_SWR_PORTS, &ch_mask[0],
 				&ch_rate[0]);
-	} else if (!strcmp(codec_prefix_map[i].codec_prefix, "SpkrRight")) {
+		if (dapm->component) {
+			snd_soc_dapm_ignore_suspend(dapm, "SpkrLeft IN");
+			snd_soc_dapm_ignore_suspend(dapm, "SpkrLeft SPKR");
+		}
+	} else if (!strcmp(component->name_prefix, "SpkrRight")) {
+		dev_dbg(codec->dev, "%s: setting right ch map to codec %s\n",
+				__func__, codec->component.name);
 		wsa881x_set_channel_map(codec, &spkright_ports[0],
 				WSA881X_MAX_SWR_PORTS, &ch_mask[0],
 				&ch_rate[0]);
+		if (dapm->component) {
+			snd_soc_dapm_ignore_suspend(dapm, "SpkrRight IN");
+			snd_soc_dapm_ignore_suspend(dapm, "SpkrRight SPKR");
+		}
 	} else {
 		dev_err(codec->dev, "%s: wrong codec name %s\n", __func__,
-			codec->component.name);
+				codec->component.name);
 		return -EINVAL;
 	}
-	pdata = snd_soc_card_get_drvdata(card);
+
+
+	pdata = snd_soc_card_get_drvdata(component->card);
 	if (pdata && pdata->codec_root)
 		wsa881x_codec_info_create_codec_entry(pdata->codec_root,
 						      codec);
-	if (!strcmp(codec_prefix_map[i].codec_prefix, "SpkrLeft")) {
-		snd_soc_dapm_ignore_suspend(dapm, "SpkrLeft IN");
-		snd_soc_dapm_ignore_suspend(dapm, "SpkrLeft SPKR");
-	} else if (!strcmp(codec_prefix_map[i].codec_prefix, "SpkrRight")) {
-		snd_soc_dapm_ignore_suspend(dapm, "SpkrRight IN");
-		snd_soc_dapm_ignore_suspend(dapm, "SpkrRight SPKR");
-	}
-
 	return 0;
 }
 
@@ -2344,6 +2335,10 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 		ret = -EPROBE_DEFER;
 		goto err;
 	}
+
+	ret = msm8952_init_wsa_dev(pdev, card);
+	if (ret)
+		goto err;
 
 	ret = snd_soc_register_card(card);
 	if (ret) {

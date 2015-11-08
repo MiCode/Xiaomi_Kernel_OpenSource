@@ -20,6 +20,8 @@
 #include "qdsp6v2/msm-pcm-routing-v2.h"
 #include "../codecs/wcd9335.h"
 
+#define DEV_NAME_STR_LEN            32
+
 static struct snd_soc_card snd_soc_card_msm[MAX_CODECS];
 static struct snd_soc_card snd_soc_card_msm_card;
 
@@ -1233,29 +1235,13 @@ static struct snd_soc_dai_link msm8952_common_be_dai[] = {
 	},
 };
 
-static struct snd_soc_aux_dev msm895x_aux_dev[] = {
-	{
-		.name = "wsa881x.0",
-		.codec_name =  NULL,
-		.init = msm895x_wsa881x_init,
-	},
-	{
-		.name = "wsa881x.1",
-		.codec_name = NULL,
-		.init = msm895x_wsa881x_init,
-	},
+struct msm895x_wsa881x_dev_info {
+	struct device_node *of_node;
+	u32 index;
 };
 
-static struct snd_soc_codec_conf msm895x_codec_conf[] = {
-	{
-		.dev_name = NULL,
-		.name_prefix = NULL,
-	},
-	{
-		.dev_name = NULL,
-		.name_prefix = NULL,
-	},
-};
+static struct snd_soc_aux_dev *msm895x_aux_dev;
+static struct snd_soc_codec_conf *msm895x_codec_conf;
 
 static struct snd_soc_dai_link msm8952_tomtom_dai_links[
 ARRAY_SIZE(msm8952_common_fe_dai) +
@@ -1269,17 +1255,174 @@ ARRAY_SIZE(msm8952_tasha_fe_dai) +
 ARRAY_SIZE(msm8952_common_be_dai) +
 ARRAY_SIZE(msm8952_tasha_be_dai)];
 
+int msm8952_init_wsa_dev(struct platform_device *pdev,
+			struct snd_soc_card *card)
+{
+	struct device_node *wsa_of_node;
+	u32 wsa_max_devs;
+	u32 wsa_dev_cnt;
+	char *dev_name_str = NULL;
+	struct msm895x_wsa881x_dev_info *wsa881x_dev_info;
+	const char *wsa_auxdev_name_prefix[1];
+	int found = 0;
+	int i;
+	int ret;
+
+	/* Get maximum WSA device count for this platform */
+	ret = of_property_read_u32(pdev->dev.of_node,
+					"qcom,wsa-max-devs", &wsa_max_devs);
+	if (ret) {
+		dev_dbg(&pdev->dev,
+			"%s: wsa-max-devs property missing in DT %s, ret = %d\n",
+			__func__, pdev->dev.of_node->full_name, ret);
+		return 0;
+	}
+	if (wsa_max_devs == 0) {
+		dev_warn(&pdev->dev,
+			"%s: Max WSA devices is 0 for this target?\n",
+			__func__);
+		return 0;
+				}
+
+	/* Get count of WSA device phandles for this platform */
+	wsa_dev_cnt = of_count_phandle_with_args(pdev->dev.of_node,
+						"qcom,wsa-devs", NULL);
+	if (wsa_dev_cnt == -ENOENT) {
+		dev_warn(&pdev->dev, "%s: No wsa device defined in DT.\n",
+			__func__);
+		return 0;
+	} else if (wsa_dev_cnt <= 0) {
+		dev_err(&pdev->dev,
+			"%s: Error reading wsa device from DT. wsa_dev_cnt = %d\n",
+			__func__, wsa_dev_cnt);
+		return -EINVAL;
+	}
+
+	/*
+	 * Expect total phandles count to be NOT less than maximum possible
+	 * WSA count. However, if it is less, then assign same value to
+	 * max count as well.
+	 */
+
+	if (wsa_dev_cnt < wsa_max_devs) {
+		dev_dbg(&pdev->dev,
+			"%s: wsa_max_devs = %d cannot exceed wsa_dev_cnt = %d\n",
+			__func__, wsa_max_devs, wsa_dev_cnt);
+		wsa_max_devs = wsa_dev_cnt;
+	}
+
+	/* Make sure prefix string passed for each WSA device */
+	ret = of_property_count_strings(pdev->dev.of_node,
+			"qcom,wsa-aux-dev-prefix");
+	if (ret != wsa_dev_cnt) {
+		dev_err(&pdev->dev,
+				"%s: expecting %d wsa prefix. Defined only %d in DT\n",
+				__func__, wsa_dev_cnt, ret);
+		return -EINVAL;
+	}
+
+	/*
+	 * Alloc mem to store phandle and index info of WSA device, if already
+	 * registered with ALSA core
+	 */
+	wsa881x_dev_info = devm_kcalloc(&pdev->dev, wsa_max_devs,
+			sizeof(struct msm895x_wsa881x_dev_info),
+			GFP_KERNEL);
+	if (!wsa881x_dev_info)
+		return -ENOMEM;
+
+	/*
+	 * search and check whether all WSA devices are already
+	 * registered with ALSA core or not. If found a node, store
+	 * the node and the index in a local array of struct for later
+	 * use.
+	 */
+	for (i = 0; i < wsa_dev_cnt; i++) {
+		wsa_of_node = of_parse_phandle(pdev->dev.of_node,
+				"qcom,wsa-devs", i);
+		if (unlikely(!wsa_of_node)) {
+			/* we should not be here */
+			dev_err(&pdev->dev,
+					"%s: wsa dev node is not present\n",
+					__func__);
+			return -EINVAL;
+		}
+		if (soc_find_component(wsa_of_node, NULL)) {
+			/* WSA device registered with ALSA core */
+			wsa881x_dev_info[found].of_node = wsa_of_node;
+			wsa881x_dev_info[found].index = i;
+			found++;
+			if (found == wsa_max_devs)
+				break;
+		}
+	}
+
+	if (found < wsa_max_devs) {
+		dev_dbg(&pdev->dev,
+				"%s: failed to find %d components. Found only %d\n",
+				__func__, wsa_max_devs, found);
+		return -EPROBE_DEFER;
+	}
+	dev_info(&pdev->dev,
+			"%s: found %d wsa881x devices registered with ALSA core\n",
+			__func__, found);
+
+	card->num_aux_devs = wsa_max_devs;
+	card->num_configs = wsa_max_devs;
+
+	/* Alloc array of AUX devs struct */
+	msm895x_aux_dev = devm_kcalloc(&pdev->dev, card->num_aux_devs,
+			sizeof(struct snd_soc_aux_dev),
+			GFP_KERNEL);
+	if (!msm895x_aux_dev)
+		return -ENOMEM;
+
+	/* Alloc array of codec conf struct */
+	msm895x_codec_conf = devm_kcalloc(&pdev->dev, card->num_aux_devs,
+			sizeof(struct snd_soc_codec_conf),
+			GFP_KERNEL);
+	if (!msm895x_codec_conf)
+		return -ENOMEM;
+
+	for (i = 0; i < card->num_aux_devs; i++) {
+		dev_name_str = devm_kzalloc(&pdev->dev, DEV_NAME_STR_LEN,
+				GFP_KERNEL);
+		if (!dev_name_str)
+			return -ENOMEM;
+
+		ret = of_property_read_string_index(pdev->dev.of_node,
+				"qcom,wsa-aux-dev-prefix",
+				wsa881x_dev_info[i].index,
+				wsa_auxdev_name_prefix);
+		if (ret) {
+			dev_err(&pdev->dev,
+					"%s: failed to read wsa aux dev prefix, ret = %d\n",
+					__func__, ret);
+			return -EINVAL;
+		}
+
+		snprintf(dev_name_str, strlen("wsa881x.%d"), "wsa881x.%d", i);
+		msm895x_aux_dev[i].name = dev_name_str;
+		msm895x_aux_dev[i].codec_name = NULL;
+		msm895x_aux_dev[i].codec_of_node =
+			wsa881x_dev_info[i].of_node;
+		msm895x_aux_dev[i].init = msm895x_wsa881x_init;
+		msm895x_codec_conf[i].dev_name = NULL;
+		msm895x_codec_conf[i].name_prefix = wsa_auxdev_name_prefix[0];
+		msm895x_codec_conf[i].of_node =
+			wsa881x_dev_info[i].of_node;
+	}
+	card->codec_conf = msm895x_codec_conf;
+	card->aux_dev = msm895x_aux_dev;
+
+	return 0;
+}
+
 struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 {
 	struct snd_soc_card *card = &snd_soc_card_msm_card;
 	struct snd_soc_dai_link *msm8952_dai_links = NULL;
-	int num_links, ret, len1, len2, len3, i;
-	const char *wsa = "asoc-wsa-codec-names";
-	const char *wsa_prefix = "asoc-wsa-codec-prefixes";
-	int num_strings;
-	char *temp_str = NULL;
-	const char *wsa_str = NULL;
-	const char *wsa_prefix_str = NULL;
+	int num_links, ret, len1, len2, len3;
 
 	card->dev = dev;
 	ret = snd_soc_of_parse_card_name(card, "qcom,model");
@@ -1306,7 +1449,9 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 			msm8952_tomtom_be_dai, sizeof(msm8952_tomtom_be_dai));
 		msm8952_dai_links = msm8952_tomtom_dai_links;
 	} else if (!strcmp(card->name, "msm8976-tasha-snd-card") ||
-			!strcmp(card->name, "msm8976-tasha-skun-snd-card")) {
+			!strcmp(card->name, "msm8976-tasha-skun-snd-card") ||
+			!strcmp(card->name, "msm8952-tasha-snd-card") ||
+			!strcmp(card->name, "msm8952-tasha-skun-snd-card")) {
 
 		len1 = ARRAY_SIZE(msm8952_common_fe_dai);
 		len2 = len1 + ARRAY_SIZE(msm8952_tasha_fe_dai);
@@ -1323,70 +1468,12 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		memcpy(msm8952_tasha_dai_links + len3,
 			msm8952_tasha_be_dai, sizeof(msm8952_tasha_be_dai));
 		msm8952_dai_links = msm8952_tasha_dai_links;
-
-		num_strings = of_property_count_strings(dev->of_node,
-				wsa);
-		card->aux_dev = msm895x_aux_dev;
-		card->num_aux_devs	= num_strings;
-		card->codec_conf	= msm895x_codec_conf;
-		card->num_configs	= num_strings;
-
-		for (i = 0; i < num_strings; i++) {
-			ret = of_property_read_string_index(
-					dev->of_node, wsa,
-					i, &wsa_str);
-			if (ret) {
-				dev_err(dev,
-					"%s:of read string %s i %d error %d\n",
-					__func__, wsa, i, ret);
-				goto err;
-			}
-
-			temp_str = kstrdup(wsa_str, GFP_KERNEL);
-			if (!temp_str)
-				goto err;
-			msm895x_aux_dev[i].codec_name = temp_str;
-			temp_str = NULL;
-
-			temp_str = kstrdup(wsa_str, GFP_KERNEL);
-			if (!temp_str)
-				goto err;
-			msm895x_codec_conf[i].dev_name = temp_str;
-			temp_str = NULL;
-
-			ret = of_property_read_string_index(
-					dev->of_node, wsa_prefix,
-					i, &wsa_prefix_str);
-			if (ret) {
-				dev_err(dev,
-					"%s:of read string %s i %d error %d\n",
-					__func__, wsa_prefix, i, ret);
-				goto err;
-			}
-
-			temp_str = kstrdup(wsa_prefix_str, GFP_KERNEL);
-			if (!temp_str)
-				goto err;
-			msm895x_codec_conf[i].name_prefix = temp_str;
-
-			temp_str = NULL;
-		}
 	}
-
 	card->dai_link = msm8952_dai_links;
 	card->num_links = num_links;
 	card->dev = dev;
 
 	return card;
-err:
-	if (card->num_aux_devs > 0) {
-		for (i = 0; i < card->num_aux_devs; i++) {
-			kfree(msm895x_aux_dev[i].codec_name);
-			kfree(msm895x_codec_conf[i].dev_name);
-			kfree(msm895x_codec_conf[i].name_prefix);
-		}
-	}
-	return NULL;
 }
 
 void msm895x_free_auxdev_mem(struct platform_device *pdev)
