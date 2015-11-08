@@ -279,6 +279,9 @@ Optional Properties:
 - qcom,skip-usb-notification	A boolean property to be used when usb gets present
 				and type from other means. Especially true on
 				liquid hardware, where usb presence is detected based on GPIO.
+- qcom,skip-usb-suspend-for-fake-battery	A boolean property to skip
+						suspending USB path for fake
+						battery.
 
 Example:
 	qcom,qpnp-smbcharger {
