@@ -2932,6 +2932,13 @@ static int regulator_notifier(struct notifier_block *nb,
 	struct arm_smmu_device *smmu = container_of(nb,
 					struct arm_smmu_device, regulator_nb);
 
+	/* Ignore EVENT DISABLE as no clocks could be turned on
+	 * at this notification.
+	*/
+	if (event != REGULATOR_EVENT_PRE_DISABLE &&
+				event != REGULATOR_EVENT_ENABLE)
+		return NOTIFY_OK;
+
 	ret = arm_smmu_prepare_clocks(smmu);
 	if (ret)
 		goto out;
@@ -2940,7 +2947,7 @@ static int regulator_notifier(struct notifier_block *nb,
 	if (ret)
 		goto unprepare_clock;
 
-	if (event == REGULATOR_EVENT_DISABLE)
+	if (event == REGULATOR_EVENT_PRE_DISABLE)
 		arm_smmu_halt(smmu);
 	else if (event == REGULATOR_EVENT_ENABLE)
 		arm_smmu_resume(smmu);
@@ -2949,7 +2956,7 @@ static int regulator_notifier(struct notifier_block *nb,
 unprepare_clock:
 	arm_smmu_unprepare_clocks(smmu);
 out:
-	return ret;
+	return NOTIFY_OK;
 }
 
 static int register_regulator_notifier(struct arm_smmu_device *smmu)
