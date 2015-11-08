@@ -694,12 +694,154 @@
 		clock-names = "core_clk", "core_a_clk";
 	};
 
+	cti_modem_cpu0: cti@6124000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6124000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <43>;
+		coresight-name = "coresight-cti-modem-cpu0";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	cti_modem_cpu1: cti@6128000{
+		compatible = "arm,coresight-cti";
+		reg = <0x6128000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <44>;
+		coresight-name = "coresight-cti-modem-cpu1";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	/* Venus CTI */
+	cti_video_cpu0: cti@6134000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6134000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <45>;
+		coresight-name = "coresight-cti-video-cpu0";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	/* Pronto CTI */
+	cti_wcn_cpu0: cti@6139000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x6139000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <46>;
+		coresight-name = "coresight-cti-wcn-cpu0";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	/* LPASS CTI */
+	cti_audio_cpu0: cti@613c000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x613c000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <47>;
+		coresight-name = "coresight-cti-audio-cpu0";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	/* Pronto ETM */
+	wcn_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <48>;
+		coresight-name = "coresight-wcn-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_mm>;
+		coresight-child-ports = <0>;
+
+		qcom,inst-id = <3>;
+	};
+
+	rpm_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <49>;
+		coresight-name = "coresight-rpm-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_center>;
+		coresight-child-ports = <0>;
+
+		qcom,inst-id = <4>;
+	};
+
+	/* LPASS ETM */
+	audio_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <50>;
+		coresight-name = "coresight-audio-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_mm>;
+		coresight-child-ports = <5>;
+
+		qcom,inst-id = <5>;
+	};
+
+	/* MSS_VEC */
+	modem_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <51>;
+		coresight-name = "coresight-modem-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_right>;
+		coresight-child-ports = <1>;
+
+		qcom,inst-id = <2>;
+	};
+
+	/* MSS_SCL */
+	modem_etm1 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <52>;
+		coresight-name = "coresight-modem-etm1";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_right>;
+		coresight-child-ports = <2>;
+
+		qcom,inst-id = <11>;
+	};
+
 	csr: csr@6001000 {
 		compatible = "qcom,coresight-csr";
 		reg = <0x6001000 0x1000>;
 		reg-names = "csr-base";
 
-		coresight-id = <43>;
+		coresight-id = <53>;
 		coresight-name = "coresight-csr";
 		coresight-nr-inports = <0>;
 		qcom,blk-size = <1>;
@@ -714,7 +856,7 @@
 		reg = <0x6108000 0x1000>;
 		reg-names = "dbgui-base";
 
-		coresight-id = <44>;
+		coresight-id = <54>;
 		coresight-name = "coresight-dbgui";
 		coresight-nr-inports = <0>;
 		coresight-outports = <0>;
@@ -735,7 +877,7 @@
 		reg = <0x6003000 0x1000>;
 		reg-names = "tpda-base";
 
-		coresight-id = <45>;
+		coresight-id = <55>;
 		coresight-name = "coresight-tpda";
 		coresight-nr-inports = <2>;
 		coresight-outports = <0>;
@@ -755,7 +897,7 @@
 		reg = <0x6110000 0x1000>;
 		reg-names = "tpdm-base";
 
-		coresight-id = <46>;
+		coresight-id = <56>;
 		coresight-name = "coresight-tpdm-dcc";
 		coresight-nr-inports = <1>;
 		coresight-outports = <0>;
@@ -782,7 +924,7 @@
 			    "mm-wrapper-mux", "mm-wrapper-lockaccess",
 			    "usbbam-mux", "blsp-mux";
 
-		coresight-id = <47>;
+		coresight-id = <57>;
 		coresight-name = "coresight-hwevent";
 		coresight-nr-inports = <0>;
 
@@ -798,7 +940,7 @@
 		      <0xa600c 0x4>;
 		reg-names = "fuse-base", "nidnt-fuse-base", "qpdi-fuse-base";
 
-		coresight-id = <48>;
+		coresight-id = <58>;
 		coresight-name = "coresight-fuse";
 		coresight-nr-inports = <0>;
 	};
