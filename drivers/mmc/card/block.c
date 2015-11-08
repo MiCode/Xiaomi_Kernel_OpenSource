@@ -3045,16 +3045,17 @@ static void mmc_blk_cmdq_shutdown(struct mmc_queue *mq)
 	}
 
 	/* disable CQ mode in card */
-	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
-			 EXT_CSD_CMDQ, 0,
-			 card->ext_csd.generic_cmd6_time);
-	if (err) {
-		pr_err("%s: failed to switch card to legacy mode: %d\n",
-		       __func__, err);
-		goto out;
-	} else {
-		host->card->cmdq_init = false;
+	if (mmc_card_cmdq(card)) {
+		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+				 EXT_CSD_CMDQ, 0,
+				 card->ext_csd.generic_cmd6_time);
+		if (err) {
+			pr_err("%s: failed to switch card to legacy mode: %d\n",
+			       __func__, err);
+			goto out;
+		}
 	}
+	host->card->cmdq_init = false;
 out:
 	mmc_release_host(card->host);
 	mmc_rpm_release(host, &card->dev);
