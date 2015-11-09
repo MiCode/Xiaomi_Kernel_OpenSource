@@ -1093,7 +1093,7 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 			(1 << V4L2_CID_MPEG_VIDC_VIDEO_MBI_MODE_1) |
 			(1 << V4L2_CID_MPEG_VIDC_VIDEO_MBI_MODE_2)),
 		.qmenu = mbi_statistics,
-		.step = 1,
+		.step = 0,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE,
