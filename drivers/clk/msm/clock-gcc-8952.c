@@ -1338,7 +1338,7 @@ static struct rcg_clk byte0_clk_src = {
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "byte0_clk_src",
-		.ops = &clk_ops_pixel_multiparent,
+		.ops = &clk_ops_byte_multiparent,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		VDD_DIG_FMAX_MAP2(LOWER, 120000000, NOMINAL, 187500000),
 		CLK_INIT(byte0_clk_src.c),
@@ -1375,7 +1375,7 @@ static struct rcg_clk byte1_clk_src = {
 		.base = &virt_bases[GCC_BASE],
 		.c = {
 			.dbg_name = "byte1_clk_src",
-			.ops = &clk_ops_pixel_multiparent,
+			.ops = &clk_ops_byte_multiparent,
 			.flags = CLKFLAG_NO_RATE_CACHE,
 			VDD_DIG_FMAX_MAP2(LOWER, 125000000, NOMINAL, 187500000),
 			CLK_INIT(byte1_clk_src.c),
@@ -4019,6 +4019,10 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	if (compat_bin) {
 		gpll0_clk_src.c.parent = &gpll0_clk_src_8937.c;
 		gpll0_ao_clk_src.c.parent = &gpll0_ao_clk_src_8937.c;
+		/* Oxili Ocmem in GX rail: OXILI_GMEM_CLAMP_IO */
+		regval = readl_relaxed(GCC_REG_BASE(GX_DOMAIN_MISC));
+		regval &= ~BIT(0);
+		writel_relaxed(regval, GCC_REG_BASE(GX_DOMAIN_MISC));
 		override_for_8937();
 	} else {
 		gpll0_clk_src.c.parent = &gpll0_clk_src_8952.c;
