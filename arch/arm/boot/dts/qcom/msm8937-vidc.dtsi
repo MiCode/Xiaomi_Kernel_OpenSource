@@ -1,0 +1,90 @@
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	qcom,vidc@1d00000 {
+		compatible = "qcom,msm-vidc";
+		reg = <0x01d00000 0xff000>;
+		interrupts = <0 44 0>;
+		venus-supply = <&gdsc_venus>;
+		venus-core0-supply = <&gdsc_venus_core0>;
+		clocks = <&clock_gcc clk_gcc_venus0_vcodec0_clk>,
+			<&clock_gcc clk_gcc_venus0_core0_vcodec0_clk>,
+			<&clock_gcc clk_gcc_venus0_ahb_clk>,
+			<&clock_gcc clk_gcc_venus0_axi_clk>;
+		clock-names = "core_clk", "core0_clk", "iface_clk", "bus_clk";
+		qcom,clock-configs = <0x1 0x0 0x0 0x0>;
+		qcom,sw-power-collapse;
+		qcom,load-freq-tbl =
+			/* Decoders */
+			<244800 308571428 0x0c000000>, /* 1080p@30 HEVC */
+			<244800 240000000 0x0300000c>, /* 1080p@30 H264 VP8 */
+			<216000 240000000 0x0c000000>, /* 720p@60 HEVC */
+			<216000 166150000 0x0300000c>, /* 720p60 H264 VP8 */
+			<108000 166150000 0x0f00000c>, /* 720p@30 ALL */
+
+			/* Encoders */
+			<244800 308571428 0x00000004>, /* 1080p@30 720p@30 */
+			<97200 240000000 0x00000004>,  /* FWVGA@60 */
+			<48600 166150000 0x00000004>;  /* FWVGA@30 VGA@30 */
+		qcom,hfi = "venus";
+		qcom,reg-presets = <0xe0020 0x05555556>,
+			<0xe0024 0x05555556>,
+			<0x80124 0x00000003>;
+		qcom,qdss-presets = <0x826000 0x1000>,
+			<0x827000 0x1000>,
+			<0x822000 0x1000>,
+			<0x803000 0x1000>,
+			<0x9180000 0x1000>,
+			<0x9181000 0x1000>;
+		qcom,max-hw-load = <244800>; /* 1080p@30 */
+		qcom,firmware-name = "venus";
+		qcom,vidc-iommu-domains {
+			qcom,domain-ns {
+				qcom,vidc-domain-phandle = <&venus_domain_ns>;
+				qcom,vidc-buffer-types = <0xfff>;
+			};
+			qcom,domain-sec-bs {
+				qcom,vidc-domain-phandle =
+						<&venus_domain_sec_bitstream>;
+				qcom,vidc-buffer-types = <0x241>;
+			};
+			qcom,domain-sec-px {
+				qcom,vidc-domain-phandle =
+						<&venus_domain_sec_pixel>;
+				qcom,vidc-buffer-types = <0x106>;
+			};
+			qcom,domain-sec-np {
+				qcom,vidc-domain-phandle =
+						<&venus_domain_sec_non_pixel>;
+				qcom,vidc-buffer-types = <0x480>;
+			};
+		};
+		venus_bus_ddr {
+			compatible = "qcom,msm-vidc,bus";
+			label = "venus-ddr";
+			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
+			qcom,bus-governor = "msm-vidc-ddr";
+			qcom,bus-range-kbps = <1000 917000>;
+		};
+
+		arm9_bus_ddr {
+			compatible = "qcom,msm-vidc,bus";
+			label = "venus-arm9-ddr";
+			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
+			qcom,bus-governor = "performance";
+			qcom,bus-range-kbps = <1 1>;
+		};
+	};
+};
