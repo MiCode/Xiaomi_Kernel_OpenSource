@@ -2006,7 +2006,7 @@ static struct dentry *cgroup_mount(struct file_system_type *fs_type,
 {
 	struct super_block *pinned_sb = NULL;
 	struct cgroup_subsys *ss;
-	struct cgroup_root *root;
+	struct cgroup_root *root = NULL;
 	struct cgroup_sb_opts opts;
 	struct dentry *dentry;
 	int ret;
