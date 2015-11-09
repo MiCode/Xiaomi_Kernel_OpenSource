@@ -4187,6 +4187,8 @@ static void rdev_deinit_debugfs(struct regulator_dev *rdev)
 {
 	if (!IS_ERR_OR_NULL(rdev)) {
 		debugfs_remove_recursive(rdev->debugfs);
+		if (rdev->debug_consumer)
+			rdev->debug_consumer->debugfs = NULL;
 		regulator_put(rdev->debug_consumer);
 	}
 }
