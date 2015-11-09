@@ -3040,12 +3040,18 @@ static int tasha_codec_enable_slimtx_mad(struct snd_soc_codec *codec,
 		switch (dapm_event) {
 		case SND_SOC_DAPM_POST_PMU:
 			snd_soc_update_bits(codec,
+				WCD9335_CODEC_RPM_PWR_CPE_DRAM1_SHUTDOWN,
+				0x20, 0x00);
+			snd_soc_update_bits(codec,
 				WCD9335_DATA_HUB_DATA_HUB_SB_TX13_INP_CFG,
 				0x03, 0x02);
 			snd_soc_update_bits(codec, WCD9335_CPE_SS_CFG,
 					    0x80, 0x80);
 			break;
 		case SND_SOC_DAPM_POST_PMD:
+			snd_soc_update_bits(codec,
+				WCD9335_CODEC_RPM_PWR_CPE_DRAM1_SHUTDOWN,
+				0x20, 0x20);
 			snd_soc_update_bits(codec,
 				WCD9335_DATA_HUB_DATA_HUB_SB_TX13_INP_CFG,
 				0x03, 0x00);
