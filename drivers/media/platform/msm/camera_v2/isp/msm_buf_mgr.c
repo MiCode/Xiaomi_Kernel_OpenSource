@@ -432,7 +432,7 @@ static int msm_isp_buf_unprepare(struct msm_isp_buf_mgr *buf_mgr,
 
 static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 	uint32_t bufq_handle, struct msm_isp_buffer **buf_info,
-	uint32_t *buf_cnt)
+	uint32_t *buf_cnt , uint8_t ping_pong_bit)
 {
 	int rc = -1;
 	unsigned long flags;
@@ -455,7 +455,9 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 	if (bufq->buf_type == ISP_SHARE_BUF) {
 		list_for_each_entry_safe(temp_buf_info,
 			safe, &bufq->share_head, share_list) {
-			if (!temp_buf_info->buf_used[id]) {
+			if (!temp_buf_info->buf_used[id] &&
+				(temp_buf_info->ping_pong_bit ==
+				ping_pong_bit)) {
 				temp_buf_info->buf_used[id] = 1;
 				temp_buf_info->buf_get_count++;
 				*buf_cnt = temp_buf_info->buf_get_count;
@@ -543,6 +545,7 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 				temp_buf_info->buf_reuse_flag = 1;
 				temp_buf_info->buf_used[id] = 1;
 				temp_buf_info->buf_get_count = 1;
+				temp_buf_info->ping_pong_bit = ping_pong_bit;
 				INIT_LIST_HEAD(&temp_buf_info->share_list);
 				list_add_tail(&temp_buf_info->share_list,
 							  &bufq->share_head);
@@ -558,6 +561,7 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 			(*buf_info)->buf_get_count = 1;
 			(*buf_info)->buf_put_count = 0;
 			(*buf_info)->buf_reuse_flag = 0;
+			(*buf_info)->ping_pong_bit = ping_pong_bit;
 			list_add_tail(&(*buf_info)->share_list,
 						  &bufq->share_head);
 		}
@@ -591,6 +595,7 @@ static int msm_isp_put_buf(struct msm_isp_buf_mgr *buf_mgr,
 
 	buf_info->buf_get_count = 0;
 	buf_info->buf_put_count = 0;
+	buf_info->ping_pong_bit = 0;
 	memset(buf_info->buf_used, 0, sizeof(buf_info->buf_used));
 
 	switch (buf_info->state) {
