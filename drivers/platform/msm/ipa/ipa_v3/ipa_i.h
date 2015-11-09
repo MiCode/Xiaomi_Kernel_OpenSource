@@ -908,6 +908,11 @@ struct ipa3_active_clients {
 	int cnt;
 };
 
+struct ipa3_wakelock_ref_cnt {
+	spinlock_t spinlock;
+	int cnt;
+};
+
 struct ipa3_tag_completion {
 	struct completion comp;
 	atomic_t cnt;
@@ -1331,6 +1336,8 @@ struct ipa3_hash_tuple {
  * @ipa_num_pipes: The number of pipes used by IPA HW
  * @skip_uc_pipe_reset: Indicates whether pipe reset via uC needs to be avoided
  * @apply_rg10_wa: Indicates whether to use register group 10 workaround
+ * @w_lock: Indicates the wakeup source.
+ * @wakelock_ref_cnt: Indicates the number of times wakelock is acquired
 
  * IPA context - holds all relevant info about IPA driver and its state
  */
@@ -1440,6 +1447,8 @@ struct ipa3_context {
 	unsigned long peer_bam_dev;
 	u32 peer_bam_map_cnt;
 	u32 wdi_map_cnt;
+	struct wakeup_source w_lock;
+	struct ipa3_wakelock_ref_cnt wakelock_ref_cnt;
 	/* RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA */
 	bool ipa_client_apps_wan_cons_agg_gro;
 	/* M-release support to know client pipes */
@@ -2263,9 +2272,9 @@ int ipa3_rt_read_tbl_from_hw(u32 tbl_idx,
 	bool hashable,
 	struct ipa3_debugfs_rt_entry entry[],
 	int *num_entry);
-
 int ipa3_calc_extra_wrd_bytes(const struct ipa_ipfltri_rule_eq *attrib);
 int ipa3_restore_suspend_handler(void);
 int ipa3_inject_dma_task_for_gsi(void);
-
+void ipa3_inc_acquire_wakelock(void);
+void ipa3_dec_release_wakelock(void);
 #endif /* _IPA3_I_H_ */
