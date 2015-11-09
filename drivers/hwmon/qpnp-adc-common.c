@@ -1186,7 +1186,8 @@ int32_t qpnp_adc_scale_default(struct qpnp_vadc_chip *vadc,
 	} else {
 		qpnp_adc_scale_with_calib_param(adc_code, adc_properties,
 					chan_properties, &scale_voltage);
-		scale_voltage *= 1000;
+		if (!chan_properties->calib_type == CALIB_ABSOLUTE)
+			scale_voltage *= 1000;
 	}
 
 	scale_voltage *= chan_properties->offset_gain_denominator;
