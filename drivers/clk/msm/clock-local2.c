@@ -1629,7 +1629,10 @@ static void __iomem *mux_clk_list_registers(struct mux_clk *clk, int n,
 static struct div_map postdiv_map[] = {
 	{  0x0, 1  },
 	{  0x1, 2  },
+	{  0x3, 3  },
 	{  0x3, 4  },
+	{  0x5, 5  },
+	{  0x7, 7  },
 	{  0x7, 8  },
 	{  0xF, 16 },
 };
