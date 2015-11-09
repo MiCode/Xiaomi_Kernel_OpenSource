@@ -22,7 +22,6 @@
 #include <linux/slab.h>
 
 #include <asm/cputype.h>
-#include <asm/smp_plat.h>
 #include <asm/topology.h>
 
 /*
@@ -387,12 +386,6 @@ static void update_siblings_masks(unsigned int cpuid)
 	struct cpu_topology *cpu_topo, *cpuid_topo = &cpu_topology[cpuid];
 	int cpu;
 
-	if (cpuid_topo->cluster_id == -1) {
-		/* No topology information for this cpu ?! */
-		pr_err("CPU%u: No topology information configured\n", cpuid);
-		return;
-	}
-
 	/* update core and thread sibling masks */
 	for_each_possible_cpu(cpu) {
 		cpu_topo = &cpu_topology[cpu];
@@ -433,19 +426,15 @@ void store_cpu_topology(unsigned int cpuid)
 		/* Multiprocessor system : Multi-threads per core */
 		cpuid_topo->thread_id  = MPIDR_AFFINITY_LEVEL(mpidr, 0);
 		cpuid_topo->core_id    = MPIDR_AFFINITY_LEVEL(mpidr, 1);
-		cpuid_topo->cluster_id =
-			((mpidr & MPIDR_AFF_MASK(2)) >> mpidr_hash.shift_aff[2] |
-			 (mpidr & MPIDR_AFF_MASK(3)) >> mpidr_hash.shift_aff[3])
-			>> mpidr_hash.shift_aff[1] >> mpidr_hash.shift_aff[0];
+		cpuid_topo->cluster_id = MPIDR_AFFINITY_LEVEL(mpidr, 2) |
+					 MPIDR_AFFINITY_LEVEL(mpidr, 3) << 8;
 	} else {
 		/* Multiprocessor system : Single-thread per core */
 		cpuid_topo->thread_id  = -1;
 		cpuid_topo->core_id    = MPIDR_AFFINITY_LEVEL(mpidr, 0);
-		cpuid_topo->cluster_id =
-			((mpidr & MPIDR_AFF_MASK(1)) >> mpidr_hash.shift_aff[1] |
-			 (mpidr & MPIDR_AFF_MASK(2)) >> mpidr_hash.shift_aff[2] |
-			 (mpidr & MPIDR_AFF_MASK(3)) >> mpidr_hash.shift_aff[3])
-			>> mpidr_hash.shift_aff[0];
+		cpuid_topo->cluster_id = MPIDR_AFFINITY_LEVEL(mpidr, 1) |
+					 MPIDR_AFFINITY_LEVEL(mpidr, 2) << 8 |
+					 MPIDR_AFFINITY_LEVEL(mpidr, 3) << 16;
 	}
 
 	pr_debug("CPU%u: cluster %d core %d thread %d mpidr %llx\n",
