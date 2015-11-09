@@ -383,8 +383,6 @@
 #define DEFAULT_BATT_TEMP			250
 #define SUSPEND_CURRENT_MA			2
 
-#define CHG_ITERM_70MA				0x1C
-#define CHG_ITERM_100MA				0x18
 #define CHG_ITERM_200MA				0x0
 #define CHG_ITERM_300MA				0x04
 #define CHG_ITERM_400MA				0x08
@@ -503,17 +501,18 @@ struct irq_handler_info {
 
 /* USB input charge current */
 static int usb_chg_current[] = {
-	500, 700, 1000, 1100, 1200, 1300, 1500, 1600,
-	1700, 1800, 2000, 2200, 2500, 3000, 3500, 3940,
+	500, 685, 1000, 1100, 1200, 1300, 1500, 1600,
+	1700, 1800, 2000, 2200, 2500, 3000,
 };
 
 static int fast_chg_current[] = {
-	1000, 1200, 1400, 1600, 1800, 2000, 2400, 2600,
-	2800, 3000, 3400, 3600, 3800, 4000, 4500,
+	1000, 1200, 1400, 1600, 1800, 2000, 2200,
+	2400, 2600, 2800, 3000, 3400, 3600, 3800,
+	4000, 4640,
 };
 
 static int pre_chg_current[] = {
-	100, 120, 200, 300, 400, 500, 600, 700,
+	200, 300, 400, 500, 600, 700,
 };
 
 struct battery_status {
@@ -707,12 +706,7 @@ static int smb1351_fastchg_current_set(struct smb1351_charger *chip,
 		chip->fastchg_current_max_ma = pre_chg_current[i];
 		pr_debug("prechg setting %02x\n", i);
 
-		if (i == 0)
-			i = 0x7 << SMB1351_CHG_PRE_SHIFT;
-		else if (i == 1)
-			i = 0x6 << SMB1351_CHG_PRE_SHIFT;
-		else
-			i = (i - 2) << SMB1351_CHG_PRE_SHIFT;
+		i = i << SMB1351_CHG_PRE_SHIFT;
 
 		rc = smb1351_masked_write(chip, CHG_OTH_CURRENT_CTRL_REG,
 				PRECHG_CURRENT_MASK, i);
@@ -771,11 +765,7 @@ static int smb1351_iterm_set(struct smb1351_charger *chip, int iterm_ma)
 	int rc;
 	u8 reg;
 
-	if (iterm_ma <= 70)
-		reg = CHG_ITERM_70MA;
-	else if (iterm_ma <= 100)
-		reg = CHG_ITERM_100MA;
-	else if (iterm_ma <= 200)
+	if (iterm_ma <= 200)
 		reg = CHG_ITERM_200MA;
 	else if (iterm_ma <= 300)
 		reg = CHG_ITERM_300MA;
