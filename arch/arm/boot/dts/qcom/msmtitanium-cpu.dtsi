@@ -53,6 +53,7 @@
 			reg = <0x0>;
 			enable-method = "qcom,titanium-arm-cortex-acc";
 			qcom,acc = <&acc0>;
+			qcom,limits-info = <&mitigation_profile0>;
 			next-level-cache = <&L2_0>;
 			L2_0: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -67,6 +68,7 @@
 			enable-method = "qcom,titanium-arm-cortex-acc";
 			reg = <0x1>;
 			qcom,acc = <&acc1>;
+			qcom,limits-info = <&mitigation_profile1>;
 			next-level-cache = <&L2_0>;
 		};
 
@@ -76,6 +78,7 @@
 			enable-method = "qcom,titanium-arm-cortex-acc";
 			reg = <0x2>;
 			qcom,acc = <&acc2>;
+			qcom,limits-info = <&mitigation_profile2>;
 			next-level-cache = <&L2_0>;
 		};
 
@@ -85,6 +88,7 @@
 			enable-method = "qcom,titanium-arm-cortex-acc";
 			reg = <0x3>;
 			qcom,acc = <&acc3>;
+			qcom,limits-info = <&mitigation_profile3>;
 			next-level-cache = <&L2_0>;
 		};
 
@@ -94,6 +98,7 @@
 			enable-method = "qcom,titanium-arm-cortex-acc";
 			reg = <0x100>;
 			qcom,acc = <&acc4>;
+			qcom,limits-info = <&mitigation_profile4>;
 			next-level-cache = <&L2_1>;
 			L2_1: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -108,6 +113,7 @@
 			enable-method = "qcom,titanium-arm-cortex-acc";
 			reg = <0x101>;
 			qcom,acc = <&acc5>;
+			qcom,limits-info = <&mitigation_profile5>;
 			next-level-cache = <&L2_1>;
 		};
 
@@ -117,6 +123,7 @@
 			enable-method = "qcom,titanium-arm-cortex-acc";
 			reg = <0x102>;
 			qcom,acc = <&acc6>;
+			qcom,limits-info = <&mitigation_profile6>;
 			next-level-cache = <&L2_1>;
 		};
 
@@ -126,6 +133,7 @@
 			enable-method = "qcom,titanium-arm-cortex-acc";
 			reg = <0x103>;
 			qcom,acc = <&acc7>;
+			qcom,limits-info = <&mitigation_profile7>;
 			next-level-cache = <&L2_1>;
 		};
 	};
