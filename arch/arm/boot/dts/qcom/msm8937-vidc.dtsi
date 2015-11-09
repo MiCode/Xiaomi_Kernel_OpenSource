@@ -15,6 +15,7 @@
 		compatible = "qcom,msm-vidc";
 		reg = <0x01d00000 0xff000>;
 		interrupts = <0 44 0>;
+		qcom,hfi-version = "3xx";
 		venus-supply = <&gdsc_venus>;
 		venus-core0-supply = <&gdsc_venus_core0>;
 		clocks = <&clock_gcc clk_gcc_venus0_vcodec0_clk>,
