@@ -1,0 +1,95 @@
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	mdss_dsi0_pll: qcom,mdss_dsi_pll@1a94a00 {
+		compatible = "qcom,mdss_dsi_pll_8937";
+		label = "MDSS DSI 0 PLL";
+		cell-index = <0>;
+		#clock-cells = <1>;
+
+		reg = <0x001a94a00 0xd4>,
+			<0x0184d074 0x8>;
+		reg-names = "pll_base", "gdsc_base";
+
+		gdsc-supply = <&gdsc_mdss>;
+		vddio-supply = <&pm8937_l6>;
+
+		clocks = <&clock_gcc clk_gcc_mdss_ahb_clk>;
+		clock-names = "iface_clk";
+		clock-rate = <0>;
+
+		qcom,platform-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,platform-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+
+			qcom,platform-supply-entry@1 {
+				reg = <1>;
+				qcom,supply-name = "vddio";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+			};
+		};
+	};
+
+	mdss_dsi1_pll: qcom,mdss_dsi_pll@1a96a00 {
+		compatible = "qcom,mdss_dsi_pll_8937";
+		label = "MDSS DSI 1 PLL";
+		cell-index = <1>;
+		#clock-cells = <1>;
+
+		reg = <0x001a96a00 0xd4>,
+			<0x0184d074 0x8>;
+		reg-names = "pll_base", "gdsc_base";
+
+		gdsc-supply = <&gdsc_mdss>;
+		vddio-supply = <&pm8937_l6>;
+
+		clocks = <&clock_gcc clk_gcc_mdss_ahb_clk>;
+		clock-names = "iface_clk";
+		clock-rate = <0>;
+
+		qcom,platform-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,platform-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "gdsc";
+				qcom,supply-min-voltage = <0>;
+				qcom,supply-max-voltage = <0>;
+				qcom,supply-enable-load = <0>;
+				qcom,supply-disable-load = <0>;
+			};
+
+			qcom,platform-supply-entry@1 {
+				reg = <1>;
+				qcom,supply-name = "vddio";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+			};
+		};
+	};
+};
