@@ -1223,10 +1223,9 @@ static int swrm_probe(struct platform_device *pdev)
 	}
 	pm_runtime_set_autosuspend_delay(&pdev->dev, auto_suspend_timer);
 	pm_runtime_use_autosuspend(&pdev->dev);
-	pm_runtime_set_suspended(&pdev->dev);
+	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
-	if (!pm_runtime_enabled(&pdev->dev))
-		dev_err(&pdev->dev, "%s: pm runtime not enabled\n", __func__);
+	pm_runtime_mark_last_busy(&pdev->dev);
 
 	return 0;
 err_mstr_fail:
