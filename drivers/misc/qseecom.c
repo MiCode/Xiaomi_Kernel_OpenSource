@@ -7687,6 +7687,8 @@ static int qseecom_probe(struct platform_device *pdev)
 					cmd_buf = (void *)&req;
 					cmd_len = sizeof(struct
 						qsee_apps_region_info_ireq);
+					pr_warn("secure app region addr=0x%x size=0x%x",
+							req.addr, req.size);
 				} else {
 					req_64bit.qsee_cmd_id =
 						QSEOS_APP_REGION_NOTIFICATION;
@@ -7696,17 +7698,19 @@ static int qseecom_probe(struct platform_device *pdev)
 					cmd_buf = (void *)&req_64bit;
 					cmd_len = sizeof(struct
 					qsee_apps_region_info_64bit_ireq);
+					pr_warn("secure app region addr=0x%llx size=0x%x",
+						req_64bit.addr, req_64bit.size);
 				}
-				pr_warn("secure app region addr=0x%x size=0x%x",
-							req.addr, req.size);
 			} else {
 				pr_err("Fail to get secure app region info\n");
 				rc = -EINVAL;
 				goto exit_destroy_ion_client;
 			}
+			__qseecom_enable_clk(CLK_QSEE);
 			rc = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1,
 					cmd_buf, cmd_len,
 					&resp, sizeof(resp));
+			__qseecom_disable_clk(CLK_QSEE);
 			if (rc || (resp.result != QSEOS_RESULT_SUCCESS)) {
 				pr_err("send secapp reg fail %d resp.res %d\n",
 							rc, resp.result);
