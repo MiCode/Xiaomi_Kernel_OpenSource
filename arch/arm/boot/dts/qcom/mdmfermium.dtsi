@@ -492,7 +492,7 @@
 
 	qcom,cnss-sdio {
 		compatible = "qcom,cnss_sdio";
-		cnss_sdio,wlan-pmic-gpio = <&pm8019_gpios 3 0>;
+		vdd-wlan-supply = <&rome_vreg>;
 		vdd-wlan-io-supply = <&mdmfermium_l11>;
 		vdd-wlan-xtal-supply = <&mdmfermium_l2>;
 	};
