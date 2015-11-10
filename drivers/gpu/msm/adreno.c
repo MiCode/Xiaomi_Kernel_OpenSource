@@ -41,6 +41,13 @@
 /* Include the master list of GPU cores that are supported */
 #include "adreno-gpulist.h"
 
+#undef MODULE_PARAM_PREFIX
+#define MODULE_PARAM_PREFIX "adreno."
+
+static bool nopreempt;
+module_param(nopreempt, bool, 0444);
+MODULE_PARM_DESC(nopreempt, "Disable GPU preemption");
+
 #define DRIVER_VERSION_MAJOR   3
 #define DRIVER_VERSION_MINOR   1
 
@@ -1109,7 +1116,7 @@ static int adreno_probe(struct platform_device *pdev)
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_CONTENT_PROTECTION))
 		device->mmu.secured = false;
 
-	status = adreno_ringbuffer_init(device);
+	status = adreno_ringbuffer_init(adreno_dev, nopreempt);
 	if (status)
 		goto out;
 
@@ -1352,7 +1359,8 @@ static int adreno_init(struct kgsl_device *device)
 
 	}
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) {
+	if (nopreempt == false &&
+		ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) {
 		int r = 0;
 
 		if (gpudev->preemption_init)

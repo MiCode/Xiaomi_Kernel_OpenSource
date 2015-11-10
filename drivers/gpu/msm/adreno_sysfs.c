@@ -165,6 +165,31 @@ static int _pwrctrl_store(struct adreno_device *adreno_dev,
 	return 0;
 }
 
+static int _preemption_store(struct adreno_device *adreno_dev,
+		unsigned int val)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+
+	if (test_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv) == val)
+			return 0;
+
+	mutex_lock(&device->mutex);
+
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
+	change_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv);
+	adreno_dev->cur_rb = &(adreno_dev->ringbuffers[0]);
+	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
+
+	mutex_unlock(&device->mutex);
+
+	return 0;
+}
+
+static unsigned int _preemption_show(struct adreno_device *adreno_dev)
+{
+	return adreno_is_preemption_enabled(adreno_dev);
+}
+
 static int _sptp_pc_store(struct adreno_device *adreno_dev,
 		unsigned int val)
 {
@@ -277,6 +302,7 @@ static DEVICE_INT_ATTR(wake_timeout, 0644, adreno_wake_timeout);
 
 static ADRENO_SYSFS_BOOL(sptp_pc);
 static ADRENO_SYSFS_BOOL(lm);
+static ADRENO_SYSFS_BOOL(preemption);
 
 static const struct device_attribute *_attr_list[] = {
 	&adreno_attr_ft_policy.attr,
@@ -288,6 +314,7 @@ static const struct device_attribute *_attr_list[] = {
 	&dev_attr_wake_timeout.attr,
 	&adreno_attr_sptp_pc.attr,
 	&adreno_attr_lm.attr,
+	&adreno_attr_preemption.attr,
 	NULL,
 };
 

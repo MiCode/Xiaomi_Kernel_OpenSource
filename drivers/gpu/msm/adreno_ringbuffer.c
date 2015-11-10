@@ -398,15 +398,14 @@ static int _adreno_ringbuffer_init(struct adreno_device *adreno_dev,
 	return ret;
 }
 
-int adreno_ringbuffer_init(struct kgsl_device *device)
+int adreno_ringbuffer_init(struct adreno_device *adreno_dev, bool nopreempt)
 {
 	int status = 0;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct adreno_ringbuffer *rb;
 	int i;
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
+	if (nopreempt == false && ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION))
 		adreno_dev->num_ringbuffers = gpudev->num_prio_levels;
 	else
 		adreno_dev->num_ringbuffers = 1;

@@ -791,7 +791,7 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 			snapshot, snapshot_global,
 			&adreno_dev->pwron_fixup);
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_PREEMPTION)) {
+	if (test_bit(ADRENO_DEVICE_PREEMPTION, &adreno_dev->priv)) {
 		FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
 			kgsl_snapshot_add_section(device,
 				KGSL_SNAPSHOT_SECTION_GPU_OBJECT_V2,

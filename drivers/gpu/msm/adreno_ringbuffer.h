@@ -148,7 +148,7 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		struct kgsl_cmdbatch *cmdbatch,
 		struct adreno_submit_time *time);
 
-int adreno_ringbuffer_init(struct kgsl_device *device);
+int adreno_ringbuffer_init(struct adreno_device *adreno_dev, bool nopreempt);
 
 int adreno_ringbuffer_start(struct adreno_device *adreno_dev,
 		unsigned int start_type);
