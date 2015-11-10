@@ -1275,6 +1275,8 @@ int msm_vidc_destroy(struct msm_vidc_inst *inst)
 	list_del(&inst->list);
 	mutex_unlock(&core->lock);
 
+	msm_comm_ctrl_deinit(inst);
+
 	v4l2_fh_del(&inst->event_handler);
 	v4l2_fh_exit(&inst->event_handler);
 
@@ -1322,8 +1324,6 @@ int msm_vidc_close(void *instance)
 		}
 	}
 	mutex_unlock(&inst->registeredbufs.lock);
-
-	msm_comm_ctrl_deinit(inst);
 
 	cleanup_instance(inst);
 	if (inst->state != MSM_VIDC_CORE_INVALID &&
