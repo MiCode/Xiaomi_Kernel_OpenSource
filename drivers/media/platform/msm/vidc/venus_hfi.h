@@ -47,7 +47,7 @@
 #define VIDC_IFACEQ_DFLT_QHDR				0x01010000
 
 #define VIDC_MAX_NAME_LENGTH 64
-#define VIDC_MAX_PC_SKIP_COUNT 4
+#define VIDC_MAX_PC_SKIP_COUNT 10
 struct hfi_queue_table_header {
 	u32 qtbl_version;
 	u32 qtbl_size;
