@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,6 +89,18 @@ do {\
 } while (0)
 #endif
 
+#define remote_arg64_t    union remote_arg64
+
+struct remote_buf64 {
+	uint64_t pv;
+	int64_t len;
+};
+
+union remote_arg64 {
+	struct remote_buf64	buf;
+	uint32_t h;
+};
+
 #define remote_arg_t    union remote_arg
 
 struct remote_buf {
@@ -137,14 +149,14 @@ struct fastrpc_ioctl_mmap {
 };
 
 struct smq_null_invoke {
-	struct smq_invoke_ctx *ctx; /* invoke caller context */
+	uint64_t ctx;			/* invoke caller context */
 	uint32_t handle;	    /* handle to invoke */
 	uint32_t sc;		    /* scalars structure describing the data */
 };
 
 struct smq_phy_page {
-	unsigned long addr;	/* physical address */
-	ssize_t size;		/* size of contiguous region */
+	uint64_t addr;		/* physical address */
+	uint64_t size;		/* size of contiguous region */
 };
 
 struct smq_invoke_buf {
@@ -164,11 +176,11 @@ struct smq_msg {
 };
 
 struct smq_invoke_rsp {
-	struct smq_invoke_ctx *ctx;  /* invoke caller context */
+	uint64_t ctx;			/* invoke caller context */
 	int retval;	             /* invoke return value */
 };
 
-static inline struct smq_invoke_buf *smq_invoke_buf_start(remote_arg_t *pra,
+static inline struct smq_invoke_buf *smq_invoke_buf_start(remote_arg64_t *pra,
 							uint32_t sc)
 {
 	int len = REMOTE_SCALARS_LENGTH(sc);
