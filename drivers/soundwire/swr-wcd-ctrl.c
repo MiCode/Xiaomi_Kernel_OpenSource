@@ -1201,10 +1201,9 @@ static int swrm_probe(struct platform_device *pdev)
 	}
 	pm_runtime_set_autosuspend_delay(&pdev->dev, auto_suspend_timer);
 	pm_runtime_use_autosuspend(&pdev->dev);
-	pm_runtime_set_suspended(&pdev->dev);
+	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
-	if (!pm_runtime_enabled(&pdev->dev))
-		dev_err(&pdev->dev, "%s: pm runtime not enabled\n", __func__);
+	pm_runtime_mark_last_busy(&pdev->dev);
 
 	return 0;
 err_mstr_fail:
@@ -1282,6 +1281,7 @@ static int swrm_runtime_resume(struct device *dev)
 		swrm_master_init(swrm);
 	}
 exit:
+	pm_runtime_set_autosuspend_delay(&pdev->dev, auto_suspend_timer);
 	mutex_unlock(&swrm->reslock);
 	return ret;
 }
@@ -1320,6 +1320,15 @@ static int swrm_runtime_suspend(struct device *dev)
 exit:
 	mutex_unlock(&swrm->reslock);
 	return ret;
+}
+
+static int swrm_runtime_idle(struct device *dev)
+{
+	if (pm_runtime_autosuspend_expiration(dev)) {
+		pm_runtime_autosuspend(dev);
+		return -EAGAIN;
+	}
+	return 0;
 }
 #endif /* CONFIG_PM_RUNTIME */
 
@@ -1495,7 +1504,7 @@ static const struct dev_pm_ops swrm_dev_pm_ops = {
 	SET_RUNTIME_PM_OPS(
 		swrm_runtime_suspend,
 		swrm_runtime_resume,
-		NULL
+		swrm_runtime_idle
 	)
 };
 
