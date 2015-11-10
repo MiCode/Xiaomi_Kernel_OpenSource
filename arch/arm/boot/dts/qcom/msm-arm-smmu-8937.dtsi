@@ -51,14 +51,14 @@
 		qcom,cb-base-offset = <0x20000>;
 		status = "ok";
 
-		adsp_elf: qcom,iommu-ctx@1e20000 {
+		q6: qcom,iommu-ctx@1e20000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e20000 0x1000>;
 			qcom,secure-context;
 			interrupts = <0 253 0>, <0 253 0>;
 			qcom,iommu-ctx-sids = <0x2000>;
 			qcom,iommu-sid-mask = <0x3f0>;
-			label = "adsp_elf";
+			label = "q6";
 		};
 
 		adsp_sec_pixel: qcom,iommu-ctx@1e21000 {
@@ -134,13 +134,13 @@
 			label = "pronto_pil";
 		};
 
-		q6: qcom,iommu-ctx@1e29000 {
+		mss_nav: qcom,iommu-ctx@1e29000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e29000 0x1000>;
 			interrupts = <0 77 0>;
 			qcom,iommu-ctx-sids = <0x1000>;
 			qcom,iommu-sid-mask = <0x3fe>;
-			label = "q6";
+			label = "mss_nav";
 		};
 
 		periph_rpm: qcom,iommu-ctx@1e2a000 {
