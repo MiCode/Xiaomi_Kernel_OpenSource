@@ -26,6 +26,7 @@
 #include "dsi-panel-r69007-dualdsi-wqxga-cmd.dtsi"
 #include "dsi-adv7533-720p.dtsi"
 #include "dsi-adv7533-1080p.dtsi"
+#include "dsi-panel-nt35950-dsc-4k-cmd.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -123,6 +124,14 @@
 			qcom,supply-post-on-sleep = <20>;
 		};
 	};
+};
+
+&dsi_nt35950_4k_dsc_cmd {
+	qcom,mdss-dsi-panel-timings-8996 = [21 1e 06 08 04 03 04 a0
+		21 1e 06 08 04 03 04 a0
+		21 1e 06 08 04 03 04 a0
+		21 1e 06 08 04 03 04 a0
+		21 15 06 07 04 03 04 a0];
 };
 
 &dsi_dual_sharp_video {
