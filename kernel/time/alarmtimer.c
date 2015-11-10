@@ -48,6 +48,8 @@ static ktime_t freezer_delta;
 static DEFINE_SPINLOCK(freezer_delta_lock);
 
 static struct wakeup_source *ws;
+static struct delayed_work work;
+static struct workqueue_struct *power_off_alarm_workqueue;
 
 #ifdef CONFIG_RTC_CLASS
 /* rtc timer and device for setting alarm wakeups at suspend */
@@ -55,9 +57,7 @@ static struct rtc_timer		rtctimer;
 static struct rtc_device	*rtcdev;
 static DEFINE_SPINLOCK(rtcdev_lock);
 static struct mutex power_on_alarm_lock;
-struct delayed_work work;
-struct alarm init_alarm;
-static struct workqueue_struct *power_off_alarm_workqueue;
+static struct alarm init_alarm;
 
 /**
  * power_on_alarm_init - Init power on alarm value
@@ -128,9 +128,9 @@ void set_power_on_alarm(void)
 	getnstimeofday(&wall_time);
 
 	/*
-	  alarm_secs have to be bigger than "wall_time +1".
-	  It is to make sure that alarm time will be always
-	  bigger than wall time.
+	 * alarm_secs have to be bigger than "wall_time +1".
+	 * It is to make sure that alarm time will be always
+	 * bigger than wall time.
 	*/
 	if (alarm_secs <= wall_time.tv_sec + 1)
 		goto disable_alarm;
@@ -157,11 +157,6 @@ disable_alarm:
 	rtc_alarm_irq_enable(rtcdev, 0);
 exit:
 	mutex_unlock(&power_on_alarm_lock);
-}
-
-static void alarm_work_func(struct work_struct *unused)
-{
-	set_power_on_alarm();
 }
 
 static void alarmtimer_triggered_func(void *p)
@@ -262,7 +257,13 @@ struct rtc_device *alarmtimer_get_rtcdev(void)
 static inline int alarmtimer_rtc_interface_setup(void) { return 0; }
 static inline void alarmtimer_rtc_interface_remove(void) { }
 static inline void alarmtimer_rtc_timer_init(void) { }
+void set_power_on_alarm(void) { }
 #endif
+
+static void alarm_work_func(struct work_struct *unused)
+{
+	set_power_on_alarm();
+}
 
 /**
  * alarmtimer_enqueue - Adds an alarm timer to an alarm_base timerqueue
@@ -1098,15 +1099,24 @@ static int __init alarmtimer_init(void)
 		goto out_drv;
 	}
 	ws = wakeup_source_register("alarmtimer");
+	if (!ws) {
+		error = -ENOMEM;
+		goto out_ws;
+	}
 
 	INIT_DELAYED_WORK(&work, alarm_work_func);
 	power_off_alarm_workqueue =
 		create_singlethread_workqueue("power_off_alarm");
-	if (!power_off_alarm_workqueue)
-		return -ENOMEM;
+	if (!power_off_alarm_workqueue) {
+		error = -ENOMEM;
+		goto out_wq;
+	}
 
 	return 0;
-
+out_wq:
+	wakeup_source_unregister(ws);
+out_ws:
+	platform_device_unregister(pdev);
 out_drv:
 	platform_driver_unregister(&alarmtimer_driver);
 out_if:
