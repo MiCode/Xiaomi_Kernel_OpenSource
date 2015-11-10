@@ -2,7 +2,9 @@ Qualcomm MSM Ethernet Controller (EMAC)
 
 Required properties:
 - cell-index : EMAC controller instance number.
-- compatible : Should be "qcom,emac".
+- compatible : Should be "qcom,mdm9607-emac" for mdm9607 based EMAC driver
+	       Should be "qcom,emac" for other targets based EMAC driver
+
 - reg : Offset and length of the register regions for the device
 - reg-names : Register region names referenced in 'reg' above.
 	Required register resource entries are:

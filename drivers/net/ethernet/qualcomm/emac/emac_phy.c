@@ -566,11 +566,8 @@ int emac_phy_config_fc(struct emac_adapter *adpt)
 	return 0;
 }
 
-void emac_reg_write_all(void __iomem *base, const struct emac_reg_write *itr,
-			size_t size)
+void emac_reg_write_all(void __iomem *base, const struct emac_reg_write *itr)
 {
-	size_t i;
-
-	for (i = 0; i < size; ++itr, ++i)
+	for (; itr->offset != END_MARKER; ++itr)
 		writel_relaxed(itr->val, base + itr->offset);
 }

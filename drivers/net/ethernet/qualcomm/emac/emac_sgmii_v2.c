@@ -372,6 +372,7 @@ static struct emac_reg_write sgmii_cmn[] = {
 	{0x19C, 0x01},      /* SGMII_CMN_SVS_MODE_CLK_SEL */
 	{0x0C8, 0x00},      /* SGMII_CMN_LOCK_CMP_EN */
 	{0x0B8, 0x08},      /* SGMII_CMN_RESETSM_CNTRL2 */
+	{END_MARKER, END_MARKER},
 };
 
 static struct emac_reg_write sgmii_laned[] = {
@@ -405,6 +406,7 @@ static struct emac_reg_write sgmii_laned[] = {
 	{0x064, 0x1A},         /* SGMII_LN_LANE_MODE */
 	{0x1B8, 0x40},         /* SGMII_LN_RX_RCVR_PATH1_MODE0 */
 	{0x1F0, 0x03},         /* SGMII_LN_RSM_CONFIG */
+	{END_MARKER, END_MARKER},
 };
 
 static struct emac_reg_write sgmii_phy[] = {
@@ -412,6 +414,7 @@ static struct emac_reg_write sgmii_phy[] = {
 	{0x458, 0x0F},	/* SGMII_PHY_LN_CDR_CTRL0 */
 	{0x40C, 0x00},	/* SGMII_PHY_LN_TX_PWR_CTRL */
 	{0x418, 0x40},	/* SGMII_PHY_LN_LANE_CTRL1: */
+	{END_MARKER, END_MARKER},
 };
 
 static int emac_sgmii_v2_init(struct emac_adapter *adpt)
@@ -431,15 +434,14 @@ static int emac_sgmii_v2_init(struct emac_adapter *adpt)
 		wmb(); /* ensure PCS is programmed before setting the lanes */
 
 	/* PCS lane-x init */
-	emac_reg_write_all(sgmii->laned, sgmii_phy, ARRAY_SIZE(sgmii_phy));
+	emac_reg_write_all(sgmii->laned, sgmii_phy);
 
 	/* SGMII common init */
 	if (!sgmii_cmn_init_done)
-		emac_reg_write_all(sgmii->base, sgmii_cmn,
-				   ARRAY_SIZE(sgmii_cmn));
+		emac_reg_write_all(sgmii->base, sgmii_cmn);
 
 	/* SGMII lane-x init */
-	emac_reg_write_all(sgmii->laned, sgmii_laned, ARRAY_SIZE(sgmii_laned));
+	emac_reg_write_all(sgmii->laned, sgmii_laned);
 
 	/* First time reset common PHY */
 	if (!sgmii_cmn_init_done) {

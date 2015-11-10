@@ -40,6 +40,12 @@ enum emac_flow_ctrl {
 	EMAC_FC_DEFAULT
 };
 
+enum emac_phy_map_type {
+	EMAC_PHY_MAP_DEFAULT = 0,
+	EMAC_PHY_MAP_MDM9607,
+	EMAC_PHY_MAP_NUM,
+};
+
 /* emac_phy
  * @addr mii address
  * @id vendor id
@@ -67,6 +73,7 @@ struct emac_phy {
 	enum emac_flow_ctrl		cur_fc_mode;
 	enum emac_flow_ctrl		req_fc_mode;
 	bool				disable_fc_autoneg;
+	enum emac_phy_map_type		board_id;
 };
 
 int emac_phy_config(struct platform_device *pdev, struct emac_adapter *adpt);
@@ -89,7 +96,6 @@ struct emac_reg_write {
 	u32		val;
 };
 
-void emac_reg_write_all(void __iomem *base, const struct emac_reg_write *itr,
-			size_t size);
+void emac_reg_write_all(void __iomem *base, const struct emac_reg_write *itr);
 
 #endif /* __EMAC_PHY_H__ */

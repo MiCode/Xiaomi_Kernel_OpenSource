@@ -47,6 +47,7 @@ char emac_drv_name[] = "qcom_emac";
 const char emac_drv_description[] =
 			     "Qualcomm Technologies, Inc. EMAC Ethernet Driver";
 const char emac_drv_version[] = DRV_VERSION;
+static struct of_device_id emac_dt_match[];
 
 #define EMAC_MSG_DEFAULT (NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK |  \
 		NETIF_MSG_TIMER | NETIF_MSG_IFDOWN | NETIF_MSG_IFUP |         \
@@ -2740,6 +2741,7 @@ static int emac_get_resources(struct platform_device *pdev,
 	static const char * const res_name[] = {"emac", "emac_csr",
 						"emac_1588"};
 	const void *maddr;
+	const struct of_device_id *id;
 
 	if (!node)
 		return -ENODEV;
@@ -2748,6 +2750,14 @@ static int emac_get_resources(struct platform_device *pdev,
 	retval = of_property_read_u32(node, "cell-index", &pdev->id);
 	if (retval)
 		return retval;
+
+	/* get board id */
+	id = of_match_node(emac_dt_match, node);
+	if (id == NULL) {
+		emac_err(adpt, "can't find emac_dt_match node\n");
+		return -ENODEV;
+	}
+	adpt->phy.board_id = (enum emac_phy_map_type)id->data;
 
 	/* get time stamp enable flag */
 	adpt->tstamp_en = of_property_read_bool(node, "qcom,emac-tstamp-en");
@@ -3303,6 +3313,11 @@ static const struct dev_pm_ops emac_pm_ops = {
 static struct of_device_id emac_dt_match[] = {
 	{
 		.compatible = "qcom,emac",
+		.data = (void *)EMAC_PHY_MAP_DEFAULT,
+	},
+	{
+		.compatible = "qcom,mdm9607-emac",
+		.data = (void *)EMAC_PHY_MAP_MDM9607,
 	},
 	{}
 };

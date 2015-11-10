@@ -17,6 +17,7 @@
 
 /* EMAC_QSERDES register offsets */
 #define EMAC_QSERDES_COM_SYS_CLK_CTRL            0x000000
+#define EMAC_QSERDES_COM_PLL_VCOTAIL_EN		 0x000004
 #define EMAC_QSERDES_COM_PLL_CNTRL               0x000014
 #define EMAC_QSERDES_COM_PLL_IP_SETI             0x000018
 #define EMAC_QSERDES_COM_PLL_CP_SETI             0x000024
@@ -28,7 +29,9 @@
 #define EMAC_QSERDES_COM_PLLLOCK_CMP2            0x000048
 #define EMAC_QSERDES_COM_PLLLOCK_CMP3            0x00004c
 #define EMAC_QSERDES_COM_PLLLOCK_CMP_EN          0x000050
+#define EMAC_QSERDES_COM_BGTC			 0x000058
 #define EMAC_QSERDES_COM_DEC_START1              0x000064
+#define EMAC_QSERDES_COM_RES_TRIM_SEARCH	 0x000088
 #define EMAC_QSERDES_COM_DIV_FRAC_START1         0x000098
 #define EMAC_QSERDES_COM_DIV_FRAC_START2         0x00009c
 #define EMAC_QSERDES_COM_DIV_FRAC_START3         0x0000a0
@@ -65,7 +68,8 @@
 
 #define SGMII_CDR_MAX_CNT               0x0f
 
-#define QSERDES_PLL_IPSETI              0x01
+#define QSERDES_PLL_IPSETI_DEF          0x01
+#define QSERDES_PLL_IPSETI_MDM          0x03
 #define QSERDES_PLL_CP_SETI             0x3b
 #define QSERDES_PLL_IP_SETP             0x0a
 #define QSERDES_PLL_CP_SETP             0x09
@@ -82,13 +86,18 @@
 #define QSERDES_RX_CDR_CTRL1_GAIN       0x02
 #define QSERDES_RX_CDR_CTRL2_THRESH     0x03
 #define QSERDES_RX_CDR_CTRL2_GAIN       0x04
-#define QSERDES_RX_EQ_GAIN2              0xf
-#define QSERDES_RX_EQ_GAIN1              0xf
+#define QSERDES_RX_EQ_GAIN2_DEF              0xf
+#define QSERDES_RX_EQ_GAIN1_DEF              0xf
+#define QSERDES_RX_EQ_GAIN2_MDM              0x3
+#define QSERDES_RX_EQ_GAIN1_MDM              0x3
 
 #define QSERDES_TX_BIST_MODE_LANENO     0x00
-#define QSERDES_TX_DRV_LVL              0x0f
-#define QSERDES_TX_EMP_POST1_LVL           1
-#define QSERDES_TX_LANE_MODE            0x08
+#define QSERDES_TX_DRV_LVL_DEF              0x0f
+#define QSERDES_TX_EMP_POST1_LVL_DEF           1
+#define QSERDES_TX_LANE_MODE_DEF            0x08
+#define QSERDES_TX_DRV_LVL_MDM              0x0c
+#define QSERDES_TX_EMP_POST1_LVL_MDM           4
+#define QSERDES_TX_LANE_MODE_MDM            0x00
 
 #define SGMII_PHY_IRQ_CLR_WAIT_TIME     10
 
