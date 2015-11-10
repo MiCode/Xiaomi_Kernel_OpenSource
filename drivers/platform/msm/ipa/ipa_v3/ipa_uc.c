@@ -528,6 +528,7 @@ static int ipa3_uc_send_cmd_64b_param(u32 cmd_lo, u32 cmd_hi, u32 opcode,
 	unsigned long flags;
 	int retries = 0;
 
+send_cmd:
 	IPA3_UC_LOCK(flags);
 
 	if (ipa3_uc_state_check()) {
@@ -536,7 +537,6 @@ static int ipa3_uc_send_cmd_64b_param(u32 cmd_lo, u32 cmd_hi, u32 opcode,
 		return -EBADF;
 	}
 
-send_cmd:
 	if (ipa3_ctx->apply_rg10_wa) {
 		if (!polling_mode)
 			IPADBG("Overriding mode to polling mode\n");
@@ -620,7 +620,7 @@ send_cmd:
 				BUG();
 				return -EFAULT;
 			}
-
+			IPA3_UC_UNLOCK(flags);
 			ipa3_inject_dma_task_for_gsi();
 			/* sleep for short period to flush IPA */
 			usleep_range(IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC,
