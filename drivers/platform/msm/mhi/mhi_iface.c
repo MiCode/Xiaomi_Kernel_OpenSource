@@ -261,9 +261,14 @@ static int mhi_pci_probe(struct pci_dev *pcie_device,
 static int mhi_plat_probe(struct platform_device *pdev)
 {
 	u32 nr_dev = mhi_devices.nr_of_devices;
+	int r = 0;
 
 	mhi_log(MHI_MSG_INFO, "Entered\n");
 	mhi_devices.device_list[nr_dev].plat_dev = pdev;
+	r = dma_set_mask(&pdev->dev, MHI_DMA_MASK);
+	if (r)
+		mhi_log(MHI_MSG_CRITICAL,
+			"Failed to set mask for DMA ret %d\n", r);
 	mhi_log(MHI_MSG_INFO, "Exited\n");
 	return 0;
 }

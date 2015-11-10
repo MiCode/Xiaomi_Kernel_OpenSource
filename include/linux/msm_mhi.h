@@ -15,7 +15,7 @@
 
 struct mhi_client_handle;
 
-#define MHI_DMA_MASK       0x3FFFFFFF
+#define MHI_DMA_MASK       0xFFFFFFFFFFULL
 #define MHI_MAX_MTU        0xFFFF
 
 enum MHI_CLIENT_CHANNEL {
