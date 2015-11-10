@@ -563,7 +563,13 @@
 	};
 
 	clock_gcc_mdss: qcom,gcc-mdss@1800000 {
-		compatible = "qcom,dummycc";
+		compatible = "qcom,gcc-mdss-8937";
+		clocks = <&mdss_dsi0_pll clk_dsi_pll0_pixel_clk_src>,
+			 <&mdss_dsi0_pll clk_dsi_pll0_byte_clk_src>,
+			 <&mdss_dsi1_pll clk_dsi_pll1_pixel_clk_src>,
+			 <&mdss_dsi1_pll clk_dsi_pll1_byte_clk_src>;
+		clock-names = "pixel_src", "byte_src", "pclk1_src",
+				"byte1_src";
 		#clock-cells = <1>;
 	};
 
