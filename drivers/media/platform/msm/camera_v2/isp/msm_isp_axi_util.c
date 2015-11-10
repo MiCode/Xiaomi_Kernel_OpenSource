@@ -732,8 +732,7 @@ void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 					src_info->frame_id -
 					src_info->reg_update_frame_id);
 
-				msm_isp_halt_send_error(vfe_dev,
-					ISP_EVENT_REG_UPDATE_MISSING);
+				msm_isp_halt_send_error(vfe_dev);
 			}
 
 		} else
@@ -1415,7 +1414,7 @@ static int msm_isp_get_done_buf(struct vfe_device *vfe_dev,
 	return rc;
 }
 
-void msm_isp_halt_send_error(struct vfe_device *vfe_dev, uint32_t event)
+void msm_isp_halt_send_error(struct vfe_device *vfe_dev)
 {
 	uint32_t i = 0;
 	struct msm_isp_event_data error_event;
@@ -1442,7 +1441,7 @@ void msm_isp_halt_send_error(struct vfe_device *vfe_dev, uint32_t event)
 	error_event.frame_id =
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
 
-	msm_isp_send_event(vfe_dev, event, &error_event);
+	msm_isp_send_event(vfe_dev, ISP_EVENT_IOMMU_P_FAULT, &error_event);
 }
 
 int msm_isp_print_ping_pong_address(struct vfe_device *vfe_dev,
@@ -1839,8 +1838,10 @@ int msm_isp_drop_frame(struct vfe_device *vfe_dev,
 	rc = msm_isp_get_done_buf(vfe_dev, stream_info,
 		pingpong_status, &done_buf);
 	if (rc < 0) {
+		pr_err("%s: VFE%d get buf error\n",
+			__func__, vfe_dev->pdev->id);
 		spin_unlock_irqrestore(&stream_info->lock, flags);
-		msm_isp_halt_send_error(vfe_dev, ISP_EVENT_PING_PONG_MISMATCH);
+		msm_isp_halt_send_error(vfe_dev);
 		return rc;
 	}
 
@@ -3207,7 +3208,7 @@ void msm_isp_process_axi_irq_stream(struct vfe_device *vfe_dev,
 		pr_err_ratelimited("%s:VFE%d get done buf fail\n",
 			__func__, vfe_dev->pdev->id);
 		spin_unlock_irqrestore(&stream_info->lock, flags);
-		msm_isp_halt_send_error(vfe_dev, ISP_EVENT_PING_PONG_MISMATCH);
+		msm_isp_halt_send_error(vfe_dev);
 		return;
 	}
 	if (vfe_dev->buf_mgr->frameId_mismatch_recovery == 1) {
