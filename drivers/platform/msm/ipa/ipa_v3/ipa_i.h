@@ -26,6 +26,7 @@
 #include <asm/dma-iommu.h>
 #include <linux/iommu.h>
 #include <linux/platform_device.h>
+#include <linux/firmware.h>
 #include "ipa_hw_defs.h"
 #include "ipa_ram_mmap.h"
 #include "ipa_reg.h"
@@ -1262,6 +1263,21 @@ struct ipa3_hash_tuple {
 };
 
 /**
+ * struct ipa3_ready_cb_info - A list of all the registrations
+ *  for an indication of IPA driver readiness
+ *
+ * @link: linked list link
+ * @ready_cb: callback
+ * @user_data: User data
+ *
+ */
+struct ipa3_ready_cb_info {
+	struct list_head link;
+	ipa_ready_cb ready_cb;
+	void *user_data;
+};
+
+/**
  * struct ipa3_context - IPA context
  * @class: pointer to the struct class
  * @dev_num: device number
@@ -1339,7 +1355,11 @@ struct ipa3_hash_tuple {
  * @apply_rg10_wa: Indicates whether to use register group 10 workaround
  * @w_lock: Indicates the wakeup source.
  * @wakelock_ref_cnt: Indicates the number of times wakelock is acquired
-
+ * @ipa_initialization_complete: Indicates that IPA is fully initialized
+ * @ipa_ready_cb_list: A list of all the clients who require a CB when IPA
+ *  driver is ready/initialized.
+ * @init_completion_obj: Completion object to be used in case IPA driver hasn't
+ *  finished initializing. Example of use - IOCTLs to /dev/ipa
  * IPA context - holds all relevant info about IPA driver and its state
  */
 struct ipa3_context {
@@ -1455,6 +1475,9 @@ struct ipa3_context {
 	/* M-release support to know client pipes */
 	struct ipa3cm_client_info ipacm_client[IPA3_MAX_NUM_PIPES];
 	bool tethered_flow_control;
+	bool ipa_initialization_complete;
+	struct list_head ipa_ready_cb_list;
+	struct completion init_completion_obj;
 };
 
 /**
@@ -2279,4 +2302,6 @@ int ipa3_restore_suspend_handler(void);
 int ipa3_inject_dma_task_for_gsi(void);
 void ipa3_inc_acquire_wakelock(void);
 void ipa3_dec_release_wakelock(void);
+int ipa3_load_fws(const struct firmware *firmware);
+int ipa3_register_ipa_ready_cb(void (*ipa_ready_cb)(void *), void *user_data);
 #endif /* _IPA3_I_H_ */

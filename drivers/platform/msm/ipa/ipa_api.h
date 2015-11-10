@@ -353,6 +353,9 @@ struct ipa_api_controller {
 
 	int (*ipa_usb_xdci_resume)(u32 ul_clnt_hdl, u32 dl_clnt_hdl);
 
+	int (*ipa_register_ipa_ready_cb)(void (*ipa_ready_cb)(void *user_data),
+		void *user_data);
+
 };
 
 #ifdef CONFIG_IPA

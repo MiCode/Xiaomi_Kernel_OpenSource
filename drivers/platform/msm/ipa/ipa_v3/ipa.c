@@ -53,6 +53,9 @@
 
 #define IPA_TRANSPORT_PROD_TIMEOUT_MSEC 100
 
+/* The relative location in /lib/firmware where the FWs will reside */
+#define IPA_FWS_PATH "ipa/ipa_fws.elf"
+
 #ifdef CONFIG_COMPAT
 #define IPA_IOC_ADD_HDR32 _IOWR(IPA_IOC_MAGIC, \
 					IPA_IOCTL_ADD_HDR, \
@@ -397,6 +400,11 @@ static long ipa3_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	size_t sz;
 
 	IPADBG("cmd=%x nr=%d\n", cmd, _IOC_NR(cmd));
+
+	if (!ipa3_is_ready()) {
+		IPAERR("IPA not ready, waiting for init completion\n");
+		wait_for_completion(&ipa3_ctx->init_completion_obj);
+	}
 
 	if (_IOC_TYPE(cmd) != IPA_IOC_MAGIC)
 		return -ENOTTY;
@@ -2641,10 +2649,14 @@ ret:
 }
 #endif
 
+static ssize_t ipa3_write(struct file *file, const char __user *buf,
+			  size_t count, loff_t *ppos);
+
 static const struct file_operations ipa3_drv_fops = {
 	.owner = THIS_MODULE,
 	.open = ipa3_open,
 	.read = ipa3_read,
+	.write = ipa3_write,
 	.unlocked_ioctl = ipa3_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = compat_ipa_ioctl,
@@ -3192,8 +3204,284 @@ static void ipa3_destroy_flt_tbl_idrs(void)
 	}
 }
 
+static void ipa3_trigger_ipa_ready_cbs(void)
+{
+	struct ipa3_ready_cb_info *info;
+
+	mutex_lock(&ipa3_ctx->lock);
+
+	/* Call all the CBs */
+	list_for_each_entry(info, &ipa3_ctx->ipa_ready_cb_list, link)
+		if (info->ready_cb)
+			info->ready_cb(info->user_data);
+
+	mutex_unlock(&ipa3_ctx->lock);
+}
+
+static int ipa3_gsi_pre_fw_load_init(void)
+{
+	int result;
+
+	/* Enable GSI */
+	ipa_write_reg(ipa3_ctx->mmio, IPA_ENABLE_GSI_OFST, 1);
+
+	result = gsi_configure_regs(ipa3_res.transport_mem_base,
+		ipa3_res.transport_mem_size,
+		ipa3_res.ipa_mem_base);
+	if (result) {
+		IPAERR("Failed to configure GSI registers\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 /**
-* ipa3_init() - Initialize the IPA Driver
+ * ipa3_post_init() - Initialize the IPA Driver (Part II).
+ * This part contains all initialization which requires interaction with
+ * IPA HW (via SPS BAM or GSI).
+ *
+ * @resource_p:	contain platform specific values from DST file
+ * @pdev:	The platform device structure representing the IPA driver
+ *
+ * Function initialization process:
+ * - Register BAM/SPS or GSI
+ * - Setup APPS pipes
+ * - Initialize tethering bridge
+ * - Initialize IPA debugfs
+ * - Initialize IPA uC interface
+ * - Initialize WDI interface
+ * - Initialize USB interface
+ * - Register for panic handler
+ * - Trigger IPA ready callbacks (to all subscribers)
+ * - Trigger IPA completion object (to all who wait on it)
+ */
+static int ipa3_post_init(const struct ipa3_plat_drv_res *resource_p,
+			  struct device *ipa_dev)
+{
+	int result;
+	struct sps_bam_props bam_props = { 0 };
+	struct gsi_per_props gsi_props;
+
+	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
+		memset(&gsi_props, 0, sizeof(gsi_props));
+		gsi_props.ee = resource_p->ee;
+		gsi_props.intr = GSI_INTR_IRQ;
+		gsi_props.irq = resource_p->transport_irq;
+		gsi_props.phys_addr = resource_p->transport_mem_base;
+		gsi_props.size = resource_p->transport_mem_size;
+		gsi_props.notify_cb = ipa_gsi_notify_cb;
+		gsi_props.req_clk_cb = NULL;
+		gsi_props.rel_clk_cb = NULL;
+
+		result = gsi_register_device(&gsi_props,
+			&ipa3_ctx->gsi_dev_hdl);
+		if (result != GSI_STATUS_SUCCESS) {
+			IPAERR(":gsi register error - %d\n", result);
+			result = -ENODEV;
+			goto fail_register_device;
+		}
+		IPADBG("IPA gsi is registered\n");
+	} else {
+		/* register IPA with SPS driver */
+		bam_props.phys_addr = resource_p->transport_mem_base;
+		bam_props.virt_size = resource_p->transport_mem_size;
+		bam_props.irq = resource_p->transport_irq;
+		bam_props.num_pipes = ipa3_ctx->ipa_num_pipes;
+		bam_props.summing_threshold = IPA_SUMMING_THRESHOLD;
+		bam_props.event_threshold = IPA_EVENT_THRESHOLD;
+		bam_props.options |= SPS_BAM_NO_LOCAL_CLK_GATING;
+		if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_VIRTUAL)
+			bam_props.options |= SPS_BAM_OPT_IRQ_WAKEUP;
+		if (ipa3_ctx->ipa_bam_remote_mode == true)
+			bam_props.manage |= SPS_BAM_MGR_DEVICE_REMOTE;
+		if (ipa3_ctx->smmu_present)
+			bam_props.options |= SPS_BAM_SMMU_EN;
+		bam_props.ee = resource_p->ee;
+		bam_props.ipc_loglevel = 3;
+
+		result = sps_register_bam_device(&bam_props,
+			&ipa3_ctx->bam_handle);
+		if (result) {
+			IPAERR(":bam register error - %d\n", result);
+			result = -EPROBE_DEFER;
+			goto fail_register_device;
+		}
+		IPADBG("IPA BAM is registered\n");
+	}
+
+	/* setup the AP-IPA pipes */
+	if (ipa3_setup_apps_pipes()) {
+		IPAERR(":failed to setup IPA-Apps pipes\n");
+		result = -ENODEV;
+		goto fail_setup_apps_pipes;
+	}
+	IPADBG("IPA System2Bam pipes were connected\n");
+
+	if (ipa3_ctx->use_ipa_teth_bridge) {
+		/* Initialize the tethering bridge driver */
+		result = ipa3_teth_bridge_driver_init();
+		if (result) {
+			IPAERR(":teth_bridge init failed (%d)\n", -result);
+			result = -ENODEV;
+			goto fail_teth_bridge_driver_init;
+		}
+		IPADBG("teth_bridge initialized");
+	}
+
+	ipa3_debugfs_init();
+
+	result = ipa3_uc_interface_init();
+	if (result)
+		IPAERR(":ipa Uc interface init failed (%d)\n", -result);
+	else
+		IPADBG(":ipa Uc interface init ok\n");
+
+	result = ipa3_wdi_init();
+	if (result)
+		IPAERR(":wdi init failed (%d)\n", -result);
+	else
+		IPADBG(":wdi init ok\n");
+
+	result = ipa3_usb_init();
+	if (result)
+		IPAERR(":ipa_usb init failed (%d)\n", -result);
+	else
+		IPADBG(":ipa_usb init ok\n");
+
+	ipa3_register_panic_hdlr();
+
+	ipa3_ctx->q6_proxy_clk_vote_valid = true;
+
+	mutex_lock(&ipa3_ctx->lock);
+	ipa3_ctx->ipa_initialization_complete = true;
+	mutex_unlock(&ipa3_ctx->lock);
+
+	ipa3_trigger_ipa_ready_cbs();
+	complete_all(&ipa3_ctx->init_completion_obj);
+	pr_info("IPA driver initialization was successful.\n");
+
+	return 0;
+
+fail_teth_bridge_driver_init:
+	ipa3_teardown_apps_pipes();
+fail_setup_apps_pipes:
+	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI)
+		gsi_deregister_device(ipa3_ctx->gsi_dev_hdl, false);
+	else
+		sps_deregister_bam_device(ipa3_ctx->bam_handle);
+fail_register_device:
+	ipa3_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
+	ipa3_rm_exit();
+	cdev_del(&ipa3_ctx->cdev);
+	device_destroy(ipa3_ctx->class, ipa3_ctx->dev_num);
+	unregister_chrdev_region(ipa3_ctx->dev_num, 1);
+	if (ipa3_ctx->pipe_mem_pool)
+		gen_pool_destroy(ipa3_ctx->pipe_mem_pool);
+	dma_free_coherent(ipa3_ctx->pdev,
+		ipa3_ctx->empty_rt_tbl_mem.size,
+		ipa3_ctx->empty_rt_tbl_mem.base,
+		ipa3_ctx->empty_rt_tbl_mem.phys_base);
+	ipa3_destroy_flt_tbl_idrs();
+	idr_destroy(&ipa3_ctx->ipa_idr);
+	kmem_cache_destroy(ipa3_ctx->rx_pkt_wrapper_cache);
+	kmem_cache_destroy(ipa3_ctx->tx_pkt_wrapper_cache);
+	kmem_cache_destroy(ipa3_ctx->rt_tbl_cache);
+	kmem_cache_destroy(ipa3_ctx->hdr_proc_ctx_offset_cache);
+	kmem_cache_destroy(ipa3_ctx->hdr_proc_ctx_cache);
+	kmem_cache_destroy(ipa3_ctx->hdr_offset_cache);
+	kmem_cache_destroy(ipa3_ctx->hdr_cache);
+	kmem_cache_destroy(ipa3_ctx->rt_rule_cache);
+	kmem_cache_destroy(ipa3_ctx->flt_rule_cache);
+	destroy_workqueue(ipa3_ctx->transport_power_mgmt_wq);
+	destroy_workqueue(ipa3_ctx->power_mgmt_wq);
+	iounmap(ipa3_ctx->mmio);
+	ipa3_disable_clks();
+	msm_bus_scale_unregister_client(ipa3_ctx->ipa_bus_hdl);
+	if (ipa3_bus_scale_table) {
+		msm_bus_cl_clear_pdata(ipa3_bus_scale_table);
+		ipa3_bus_scale_table = NULL;
+	}
+	kfree(ipa3_ctx->ctrl);
+	kfree(ipa3_ctx);
+	ipa3_ctx = NULL;
+	return result;
+}
+
+static void ipa3_trigger_fw_loading(void)
+{
+	int result;
+	const struct firmware *fw;
+
+	IPADBG("FW loading process initiated\n");
+
+	result = request_firmware(&fw, IPA_FWS_PATH, ipa3_ctx->dev);
+	if (result < 0) {
+		IPAERR("request_firmware failed, error %d\n", result);
+		return;
+	}
+	if (fw == NULL) {
+		IPAERR("Firmware is NULL!\n");
+		return;
+	}
+
+	IPADBG("FWs are available for loading\n");
+
+	result = ipa3_load_fws(fw);
+	if (result) {
+		IPAERR("IPA FWs loading has failed\n");
+		return;
+	}
+
+	result = gsi_enable_fw(ipa3_res.transport_mem_base,
+				ipa3_res.transport_mem_size);
+	if (result) {
+		IPAERR("Failed to enable GSI FW\n");
+		return;
+	}
+
+	release_firmware(fw);
+
+	IPADBG("FW loading process is complete\n");
+	ipa3_post_init(&ipa3_res, ipa3_ctx->dev);
+}
+
+static ssize_t ipa3_write(struct file *file, const char __user *buf,
+			  size_t count, loff_t *ppos)
+{
+	unsigned long missing;
+
+	char dbg_buff[16] = { 0 };
+
+	if (sizeof(dbg_buff) < count + 1)
+		return -EFAULT;
+
+	missing = copy_from_user(dbg_buff, buf, count);
+
+	if (missing) {
+		IPAERR("Unable to copy data from user\n");
+		return -EFAULT;
+	}
+
+	/* Prevent consequent calls from trying to load the FW again. */
+	if (ipa3_is_ready())
+		return count;
+
+	/*
+	 * We will trigger the process only if we're in GSI mode, otherwise,
+	 * we just ignore the write.
+	 */
+	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI)
+		ipa3_trigger_fw_loading();
+
+	return count;
+}
+
+/**
+* ipa3_pre_init() - Initialize the IPA Driver.
+* This part contains all initialization which doesn't require IPA HW, such
+* as structure allocations and initializations, register writes, etc.
+*
 * @resource_p:	contain platform specific values from DST file
 * @pdev:	The platform device structure representing the IPA driver
 *
@@ -3205,7 +3493,6 @@ static void ipa3_destroy_flt_tbl_idrs(void)
 *    3)read HW values(such as core memory size)
 * - Map IPA core registers to CPU memory
 * - Restart IPA core(HW reset)
-* - Register IPA BAM to SPS driver and get a BAM handler
 * - Set configuration for IPA BAM via BAM_CNFG_BITS
 * - Initialize the look-aside caches(kmem_cache/slab) for filter,
 *   routing and IPA-tree
@@ -3217,23 +3504,20 @@ static void ipa3_destroy_flt_tbl_idrs(void)
 * - Initialize 2 single-threaded work-queue named "ipa rx wq" and "ipa tx wq"
 * - Initialize Red-Black-Tree(s) for handles of header,routing rule,
 *   routing table ,filtering rule
-* - Setup all A5<->IPA pipes by calling to ipa_setup_a5_pipes
-* - Preparing the descriptors for System pipes
 * - Initialize the filter block by committing IPV4 and IPV6 default rules
 * - Create empty routing table in system memory(no committing)
 * - Initialize pipes memory pool with ipa3_pipe_mem_init for supported platforms
 * - Create a char-device for IPA
 * - Initialize IPA RM (resource manager)
+* - Configure GSI registers (in GSI case)
 */
-static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
+static int ipa3_pre_init(const struct ipa3_plat_drv_res *resource_p,
 		struct device *ipa_dev)
 {
 	int result = 0;
 	int i;
-	struct sps_bam_props bam_props = { 0 };
 	struct ipa3_flt_tbl *flt_tbl;
 	struct ipa3_rt_tbl_set *rset;
-	struct gsi_per_props gsi_props;
 
 	IPADBG("IPA Driver initialization started\n");
 
@@ -3402,56 +3686,6 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 	ipa3_ctx->transport_pm.res_granted = false;
 	ipa3_ctx->transport_pm.res_rel_in_prog = false;
 
-	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
-		memset(&gsi_props, 0, sizeof(gsi_props));
-		gsi_props.ee = resource_p->ee;
-		gsi_props.intr = GSI_INTR_IRQ;
-		gsi_props.irq = resource_p->transport_irq;
-		gsi_props.phys_addr = resource_p->transport_mem_base;
-		gsi_props.size = resource_p->transport_mem_size;
-		gsi_props.notify_cb = ipa_gsi_notify_cb;
-		gsi_props.req_clk_cb = NULL;
-		gsi_props.rel_clk_cb = NULL;
-
-		result = gsi_register_device(&gsi_props,
-				&ipa3_ctx->gsi_dev_hdl);
-		if (result != GSI_STATUS_SUCCESS) {
-			IPAERR(":gsi register err.\n");
-			if (result == GSI_STATUS_AGAIN)
-				result = -EPROBE_DEFER;
-			else
-				result = -ENODEV;
-			goto fail_register_device;
-		}
-		IPADBG("IPA gsi is registered.\n");
-	} else {
-		/* register IPA with SPS driver */
-		bam_props.phys_addr = resource_p->transport_mem_base;
-		bam_props.virt_size = resource_p->transport_mem_size;
-		bam_props.irq = resource_p->transport_irq;
-		bam_props.num_pipes = ipa3_ctx->ipa_num_pipes;
-		bam_props.summing_threshold = IPA_SUMMING_THRESHOLD;
-		bam_props.event_threshold = IPA_EVENT_THRESHOLD;
-		bam_props.options |= SPS_BAM_NO_LOCAL_CLK_GATING;
-		if (ipa3_ctx->ipa3_hw_mode != IPA_HW_MODE_VIRTUAL)
-			bam_props.options |= SPS_BAM_OPT_IRQ_WAKEUP;
-		if (ipa3_ctx->ipa_bam_remote_mode == true)
-			bam_props.manage |= SPS_BAM_MGR_DEVICE_REMOTE;
-		if (ipa3_ctx->smmu_present)
-			bam_props.options |= SPS_BAM_SMMU_EN;
-		bam_props.ee = resource_p->ee;
-		bam_props.ipc_loglevel = 3;
-
-		result = sps_register_bam_device(&bam_props,
-				&ipa3_ctx->bam_handle);
-		if (result) {
-			IPAERR(":bam register err.\n");
-			result = -EPROBE_DEFER;
-			goto fail_register_device;
-		}
-		IPADBG("IPA BAM is registered\n");
-	}
-
 	/* init the lookaside cache */
 	ipa3_ctx->flt_rule_cache = kmem_cache_create("IPA FLT",
 			sizeof(struct ipa3_flt_entry), 0, 0, NULL);
@@ -3603,7 +3837,7 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 		IPAERR("DMA buff alloc fail %d bytes for empty routing tbl\n",
 				ipa3_ctx->empty_rt_tbl_mem.size);
 		result = -ENOMEM;
-		goto fail_apps_pipes;
+		goto fail_empty_rt_tbl_alloc;
 	}
 	if (ipa3_ctx->empty_rt_tbl_mem.phys_base &
 		IPA_HW_TBL_SYSADDR_ALIGNMENT) {
@@ -3615,14 +3849,6 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 	memset(ipa3_ctx->empty_rt_tbl_mem.base, 0,
 			ipa3_ctx->empty_rt_tbl_mem.size);
 	IPADBG("empty routing table was allocated in system memory");
-
-	/* setup the AP-IPA pipes */
-	if (ipa3_setup_apps_pipes()) {
-		IPAERR(":failed to setup IPA-Apps pipes.\n");
-		result = -ENODEV;
-		goto fail_empty_rt_tbl;
-	}
-	IPADBG("IPA System2Bam pipes were connected\n");
 
 	/* setup the IPA pipe mem pool */
 	if (resource_p->ipa_pipe_mem_size)
@@ -3697,48 +3923,28 @@ static int ipa3_init(const struct ipa3_plat_drv_res *resource_p,
 		IPADBG("Initialization of ipa interrupts skipped\n");
 	}
 
-	if (ipa3_ctx->use_ipa_teth_bridge) {
-		/* Initialize the tethering bridge driver */
-		result = ipa3_teth_bridge_driver_init();
+	INIT_LIST_HEAD(&ipa3_ctx->ipa_ready_cb_list);
+
+	init_completion(&ipa3_ctx->init_completion_obj);
+
+	/*
+	 * For GSI, we can't register the GSI driver yet, as it expects
+	 * the GSI FW to be up and running before the registration.
+	 */
+	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
+		result = ipa3_gsi_pre_fw_load_init();
 		if (result) {
-			IPAERR(":teth_bridge init failed (%d)\n", -result);
+			IPAERR("ipa gsi pre FW loading procedure failed\n");
 			result = -ENODEV;
-			goto fail_teth_bridge_driver_init;
+			goto fail_ipa_init_interrupts;
 		}
-		IPADBG("teth_bridge initialized");
 	}
-
-	ipa3_debugfs_init();
-
-	result = ipa3_uc_interface_init();
-	if (result)
-		IPAERR(":ipa Uc interface init failed (%d)\n", -result);
+	/* For BAM (No other mode), we can just carry on with initialization */
 	else
-		IPADBG(":ipa Uc interface init ok\n");
-
-	result = ipa3_wdi_init();
-	if (result)
-		IPAERR(":wdi init failed (%d)\n", -result);
-	else
-		IPADBG(":wdi init ok\n");
-
-	result = ipa3_usb_init();
-	if (result)
-		IPAERR(":ipa_usb init failed (%d)\n", -result);
-	else
-		IPADBG(":ipa_usb init ok\n");
-
-	ipa3_ctx->q6_proxy_clk_vote_valid = true;
-
-	ipa3_register_panic_hdlr();
-
-	pr_info("IPA driver initialization was successful.\n");
+		return ipa3_post_init(resource_p, ipa_dev);
 
 	return 0;
 
-fail_teth_bridge_driver_init:
-	if (!ipa3_ctx->apply_rg10_wa)
-		free_irq(resource_p->ipa_irq, master_dev);
 fail_ipa_init_interrupts:
 	ipa3_rm_delete_resource(IPA_RM_RESOURCE_APPS_CONS);
 fail_create_apps_resource:
@@ -3754,12 +3960,11 @@ fail_alloc_chrdev_region:
 	if (ipa3_ctx->pipe_mem_pool)
 		gen_pool_destroy(ipa3_ctx->pipe_mem_pool);
 fail_empty_rt_tbl:
-	ipa3_teardown_apps_pipes();
 	dma_free_coherent(ipa3_ctx->pdev,
 			  ipa3_ctx->empty_rt_tbl_mem.size,
 			  ipa3_ctx->empty_rt_tbl_mem.base,
 			  ipa3_ctx->empty_rt_tbl_mem.phys_base);
-fail_apps_pipes:
+fail_empty_rt_tbl_alloc:
 	ipa3_destroy_flt_tbl_idrs();
 	idr_destroy(&ipa3_ctx->ipa_idr);
 fail_dma_pool:
@@ -3781,11 +3986,6 @@ fail_hdr_cache:
 fail_rt_rule_cache:
 	kmem_cache_destroy(ipa3_ctx->flt_rule_cache);
 fail_flt_rule_cache:
-	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI)
-		gsi_deregister_device(ipa3_ctx->gsi_dev_hdl, false);
-	else
-		sps_deregister_bam_device(ipa3_ctx->bam_handle);
-fail_register_device:
 	destroy_workqueue(ipa3_ctx->transport_power_mgmt_wq);
 fail_create_transport_wq:
 	destroy_workqueue(ipa3_ctx->power_mgmt_wq);
@@ -4148,7 +4348,7 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		ipa3_bus_scale_table = msm_bus_cl_get_pdata(ipa3_pdev);
 
 	/* Proceed to real initialization */
-	result = ipa3_init(&ipa3_res, dev);
+	result = ipa3_pre_init(&ipa3_res, dev);
 	if (result) {
 		IPAERR("ipa_init failed\n");
 		ipa3_arm_iommu_detach_device(cb->dev);
@@ -4212,7 +4412,7 @@ int ipa3_plat_drv_probe(struct platform_device *pdev_p,
 			ipa3_bus_scale_table = msm_bus_cl_get_pdata(pdev_p);
 
 		/* Proceed to real initialization */
-		result = ipa3_init(&ipa3_res, dev);
+		result = ipa3_pre_init(&ipa3_res, dev);
 		if (result) {
 			IPAERR("ipa3_init failed\n");
 			return result;
@@ -4392,6 +4592,32 @@ static void ipa_gsi_notify_cb(struct gsi_per_notify *notify)
 			notify->evt_id);
 		BUG();
 	}
+}
+
+int ipa3_register_ipa_ready_cb(void (*ipa_ready_cb)(void *), void *user_data)
+{
+	struct ipa3_ready_cb_info *cb_info = NULL;
+
+	mutex_lock(&ipa3_ctx->lock);
+	if (ipa3_ctx->ipa_initialization_complete) {
+		mutex_unlock(&ipa3_ctx->lock);
+		IPADBG("IPA driver finished initialization already\n");
+		return -EEXIST;
+	}
+
+	cb_info = kmalloc(sizeof(struct ipa3_ready_cb_info), GFP_KERNEL);
+	if (!cb_info) {
+		mutex_unlock(&ipa3_ctx->lock);
+		return -ENOMEM;
+	}
+
+	cb_info->ready_cb = ipa_ready_cb;
+	cb_info->user_data = user_data;
+
+	list_add_tail(&cb_info->link, &ipa3_ctx->ipa_ready_cb_list);
+	mutex_unlock(&ipa3_ctx->lock);
+
+	return 0;
 }
 
 MODULE_LICENSE("GPL v2");
