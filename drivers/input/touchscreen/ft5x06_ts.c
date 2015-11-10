@@ -253,6 +253,7 @@ struct ft5x06_ts_data {
 	u8 fw_vendor_id;
 	struct kobject ts_info_kobj;
 #if defined(CONFIG_FB)
+	struct work_struct fb_notify_work;
 	struct notifier_block fb_notif;
 #elif defined(CONFIG_HAS_EARLYSUSPEND)
 	struct early_suspend early_suspend;
@@ -1137,6 +1138,13 @@ static int ft5x06_ts_resume(struct device *dev)
 #endif
 
 #if defined(CONFIG_FB)
+static void fb_notify_resume_work(struct work_struct *work)
+{
+	struct ft5x06_ts_data *ft5x06_data =
+		container_of(work, struct ft5x06_ts_data, fb_notify_work);
+	ft5x06_ts_resume(&ft5x06_data->client->dev);
+}
+
 static int fb_notifier_callback(struct notifier_block *self,
 				 unsigned long event, void *data)
 {
@@ -1145,13 +1153,27 @@ static int fb_notifier_callback(struct notifier_block *self,
 	struct ft5x06_ts_data *ft5x06_data =
 		container_of(self, struct ft5x06_ts_data, fb_notif);
 
-	if (evdata && evdata->data && event == FB_EVENT_BLANK &&
-			ft5x06_data && ft5x06_data->client) {
+	if (evdata && evdata->data && ft5x06_data && ft5x06_data->client) {
 		blank = evdata->data;
-		if (*blank == FB_BLANK_UNBLANK)
-			ft5x06_ts_resume(&ft5x06_data->client->dev);
-		else if (*blank == FB_BLANK_POWERDOWN)
-			ft5x06_ts_suspend(&ft5x06_data->client->dev);
+		if (ft5x06_data->pdata->resume_in_workqueue) {
+			if (event == FB_EARLY_EVENT_BLANK &&
+						 *blank == FB_BLANK_UNBLANK)
+				schedule_work(&ft5x06_data->fb_notify_work);
+			else if (event == FB_EVENT_BLANK &&
+						 *blank == FB_BLANK_POWERDOWN) {
+				flush_work(&ft5x06_data->fb_notify_work);
+				ft5x06_ts_suspend(&ft5x06_data->client->dev);
+			}
+		} else {
+			if (event == FB_EVENT_BLANK) {
+				if (*blank == FB_BLANK_UNBLANK)
+					ft5x06_ts_resume(
+						&ft5x06_data->client->dev);
+				else if (*blank == FB_BLANK_POWERDOWN)
+					ft5x06_ts_suspend(
+						&ft5x06_data->client->dev);
+			}
+		}
 	}
 
 	return 0;
@@ -1918,6 +1940,9 @@ static int ft5x06_parse_dt(struct device *dev,
 	pdata->gesture_support = of_property_read_bool(np,
 						"focaltech,gesture-support");
 
+	pdata->resume_in_workqueue = of_property_read_bool(np,
+					"focaltech,resume-in-workqueue");
+
 	rc = of_property_read_u32(np, "focaltech,family-id", &temp_val);
 	if (!rc)
 		pdata->family_id = temp_val;
@@ -2270,6 +2295,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 			data->fw_ver[1], data->fw_ver[2]);
 
 #if defined(CONFIG_FB)
+	INIT_WORK(&data->fb_notify_work, fb_notify_resume_work);
 	data->fb_notif.notifier_call = fb_notifier_callback;
 
 	err = fb_register_client(&data->fb_notif);
