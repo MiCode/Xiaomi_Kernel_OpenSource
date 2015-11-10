@@ -2632,6 +2632,11 @@ out:
 		host->dev_status = DEV_UNKNOWN;
 	else if (is_suspend)
 		host->dev_status = DEV_SUSPENDED;
+
+	/* Kick CMDQ thread to process any requests came in while suspending */
+	if (host->card->cmdq_init)
+		wake_up(&host->cmdq_ctx.wait);
+
 	mmc_release_host(host);
 	return err;
 }
