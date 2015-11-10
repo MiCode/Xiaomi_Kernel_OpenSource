@@ -489,6 +489,19 @@
 		qcom,bus-vector-names = "MIN", "SVS", "NOMINAL", "TURBO";
 	};
 
+	mhi_dev@87000 {
+		compatible = "qcom,msm-mhi-dev";
+		reg = <0x87000 0x1000>,
+			<0x7b22000 0x4>,
+			<0x7b22150 0x4>;
+			reg-names = "mhi_mmio_base", "ipa_uc_mbox_crdb",
+				"ipa_uc_mbox_erdb";
+			qcom,mhi-ifc-id = <0x030217cb>;
+			qcom,mhi-ep-msi = <1>;
+			qcom,mhi-version = <0x1000000>;
+			qcom,mhi-use-gsi;
+	};
+
 	blsp1_uart2: serial@78b0000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0x78b0000 0x200>;
