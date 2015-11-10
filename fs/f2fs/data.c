@@ -1183,8 +1183,10 @@ out:
 	unlock_page(page);
 	if (need_balance_fs)
 		f2fs_balance_fs(sbi);
-	if (wbc->for_reclaim)
+	if (wbc->for_reclaim) {
 		f2fs_submit_merged_bio(sbi, DATA, WRITE);
+		remove_dirty_dir_inode(inode);
+	}
 	return 0;
 
 redirty_out:
