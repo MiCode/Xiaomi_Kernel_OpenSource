@@ -118,6 +118,7 @@
 
 &pmi_haptic{
 	qcom,wave-play-rate-us = <4165>;
+	qcom,actuator-type = "lra";
 };
 
 &sdhc_1 {
