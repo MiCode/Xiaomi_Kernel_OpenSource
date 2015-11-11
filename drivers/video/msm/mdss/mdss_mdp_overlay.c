@@ -5027,13 +5027,15 @@ static int mdss_mdp_update_panel_info(struct msm_fb_data_type *mfd,
 		mdss_mdp_ctl_destroy(mdp5_data->ctl);
 		mdp5_data->ctl = NULL;
 	} else {
-		if (is_panel_split(mfd) && mdp5_data->mdata->has_pingpong_split)
+		pdata = dev_get_platdata(&mfd->pdev->dev);
+
+		if (mdp5_data->mdata->has_pingpong_split &&
+			pdata->panel_info.use_pingpong_split)
 			mfd->split_mode = MDP_PINGPONG_SPLIT;
 		/*
 		 * Dynamic change so we need to reconfig instead of
 		 * destroying current ctrl sturcture.
 		 */
-		pdata = dev_get_platdata(&mfd->pdev->dev);
 		mdss_mdp_ctl_reconfig(ctl, pdata);
 
 		sctl = mdss_mdp_get_split_ctl(ctl);
