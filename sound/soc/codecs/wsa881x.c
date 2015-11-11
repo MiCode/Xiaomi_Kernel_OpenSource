@@ -926,8 +926,9 @@ static void wsa881x_init(struct snd_soc_codec *codec)
 				    0x0C, 0x04);
 		snd_soc_update_bits(codec, WSA881X_BOOST_SLOPE_COMP_ISENSE_FB,
 				    0x03, 0x00);
-		snd_soc_update_bits(codec, WSA881X_BOOST_PRESET_OUT1,
-				    0xF0, 0x70);
+		if (snd_soc_read(codec, WSA881X_OTP_REG_0))
+			snd_soc_update_bits(codec, WSA881X_BOOST_PRESET_OUT1,
+					    0xF0, 0x70);
 		snd_soc_update_bits(codec, WSA881X_BOOST_PRESET_OUT2,
 				    0xF0, 0x30);
 		snd_soc_update_bits(codec, WSA881X_SPKR_DRV_EN, 0x08, 0x08);
