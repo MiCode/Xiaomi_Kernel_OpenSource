@@ -50,6 +50,11 @@
 		qcom,master-en = <0>;	/* DISABLE GPIO */
 	};
 
+	gpio@c200 { /* GPIO 3 - LED */
+		status = "ok";
+		qcom,master-en = <0>;    /* Disable GPIO */
+	};
+
 	gpio@c400 { /* GPIO 5 - USB_ID */
 		status = "ok";
 		qcom,mode = <0>;	/* Digital input */
