@@ -267,8 +267,8 @@
 			qcom,agg-ports = <1>;
 			qcom,qport = <9>;
 			qcom,qos-mode = "fixed";
-			qcom,connections = <&pcnoc_s_7 &pcnoc_s_8
-					 &pcnoc_int_2 &pcnoc_int_3>;
+			qcom,connections = <&pcnoc_s_7
+					&pcnoc_int_2 &pcnoc_int_3>;
 			qcom,bus-dev = <&fab_pcnoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_SNOC_PCNOC>;
 		};
