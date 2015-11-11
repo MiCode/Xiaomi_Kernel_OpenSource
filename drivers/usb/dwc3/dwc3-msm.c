@@ -3103,13 +3103,20 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 	if (!dwc->xhci)
 		return -EINVAL;
 
+	/*
+	 * The vbus_reg pointer could have multiple values
+	 * NULL: regulator_get() hasn't been called, or was previously deferred
+	 * IS_ERR: regulator could not be obtained, so skip using it
+	 * Valid pointer otherwise
+	 */
 	if (!mdwc->vbus_reg) {
-		mdwc->vbus_reg = devm_regulator_get(mdwc->dev, "vbus_dwc3");
-		if (IS_ERR(mdwc->vbus_reg)) {
-			dev_err(mdwc->dev, "Failed to get vbus regulator\n");
-			ret = PTR_ERR(mdwc->vbus_reg);
-			mdwc->vbus_reg = 0;
-			return ret;
+		mdwc->vbus_reg = devm_regulator_get_optional(mdwc->dev,
+					"vbus_dwc3");
+		if (IS_ERR(mdwc->vbus_reg) &&
+				PTR_ERR(mdwc->vbus_reg) == -EPROBE_DEFER) {
+			/* regulators may not be ready, so retry again later */
+			mdwc->vbus_reg = NULL;
+			return -EPROBE_DEFER;
 		}
 	}
 
@@ -3120,7 +3127,8 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 		dbg_event(0xFF, "StrtHost gync",
 			atomic_read(&dwc->dev->power.usage_count));
 		usb_phy_notify_connect(mdwc->hs_phy, USB_SPEED_HIGH);
-		ret = regulator_enable(mdwc->vbus_reg);
+		if (!IS_ERR(mdwc->vbus_reg))
+			ret = regulator_enable(mdwc->vbus_reg);
 		if (ret) {
 			dev_err(dwc->dev, "unable to enable vbus_reg\n");
 			pm_runtime_put_sync(dwc->dev);
@@ -3144,7 +3152,8 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 			dev_err(mdwc->dev,
 				"%s: failed to add XHCI pdev ret=%d\n",
 				__func__, ret);
-			regulator_disable(mdwc->vbus_reg);
+			if (!IS_ERR(mdwc->vbus_reg))
+				regulator_disable(mdwc->vbus_reg);
 			pm_runtime_put_sync(dwc->dev);
 			dbg_event(0xFF, "pdeverr psync",
 				atomic_read(&dwc->dev->power.usage_count));
@@ -3170,7 +3179,8 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 	} else {
 		dev_dbg(dwc->dev, "%s: turn off host\n", __func__);
 
-		ret = regulator_disable(mdwc->vbus_reg);
+		if (!IS_ERR(mdwc->vbus_reg))
+			ret = regulator_disable(mdwc->vbus_reg);
 		if (ret) {
 			dev_err(dwc->dev, "unable to disable vbus_reg\n");
 			return ret;
