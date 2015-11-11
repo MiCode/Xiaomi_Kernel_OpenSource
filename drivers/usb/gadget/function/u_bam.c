@@ -413,10 +413,8 @@ static void gbam_write_data_tohost(struct gbam_port *port)
 
 	while (!list_empty(&d->tx_idle)) {
 		skb = __skb_dequeue(&d->tx_skb_q);
-		if (!skb) {
-			spin_unlock_irqrestore(&port->port_lock_dl, flags);
-			return;
-		}
+		if (!skb)
+			break;
 
 		/*
 		 * Some UDC requires allocation of some extra bytes for
@@ -434,7 +432,7 @@ static void gbam_write_data_tohost(struct gbam_port *port)
 					tail_room, GFP_ATOMIC);
 			if (!new_skb) {
 				pr_err("skb_copy_expand failed\n");
-				return;
+				break;
 			}
 			dev_kfree_skb_any(skb);
 			skb = new_skb;
