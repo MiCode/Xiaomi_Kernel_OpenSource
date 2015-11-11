@@ -86,7 +86,8 @@ static int __enable_regulators(struct venus_hfi_device *device);
 static inline int __prepare_enable_clks(struct venus_hfi_device *device);
 static inline void __disable_unprepare_clks(struct venus_hfi_device *device);
 static int __scale_clocks(struct venus_hfi_device *device, int load,
-		int codecs_enabled, unsigned long instant_bitrate);
+		struct vidc_clk_scale_data *data,
+		unsigned long instant_bitrate);
 static void __flush_debug_queue(struct venus_hfi_device *device, u8 *packet);
 static int __initialize_packetization(struct venus_hfi_device *device);
 static struct hal_session *__get_session(struct venus_hfi_device *device,
@@ -711,7 +712,7 @@ static void __iommu_detach(struct venus_hfi_device *device)
 }
 
 static bool __is_session_supported(unsigned long sessions_supported,
-		enum vidc_bus_vote_data_session session_type)
+		enum vidc_vote_data_session session_type)
 {
 	bool same_codec, same_session_type;
 	int codec_bit, session_type_bit;
@@ -1155,74 +1156,112 @@ static struct regulator_info *__get_regulator(struct venus_hfi_device *device,
 }
 
 static unsigned long __get_clock_rate(struct clock_info *clock,
-	int num_mbs_per_sec, int codecs_enabled)
+	int num_mbs_per_sec, struct vidc_clk_scale_data *data)
 {
 	int num_rows = clock->count;
 	struct load_freq_table *table = clock->load_freq_tbl;
-	unsigned long freq = table[0].freq;
-	int i;
+	unsigned long freq = table[0].freq, max_freq = 0;
+	int i = 0, j = 0;
+	unsigned long instance_freq[VIDC_MAX_SESSIONS] = {0};
 
-	if (!num_mbs_per_sec && num_rows > 1)
-		return table[num_rows - 1].freq;
-
-	for (i = 0; i < num_rows; i++) {
-		bool matches = __is_session_supported(
-			table[i].supported_codecs, codecs_enabled);
-		if (!matches)
-			continue;
-
-		if (num_mbs_per_sec > table[i].load)
-			break;
-
-		freq = table[i].freq;
+	if (!data && !num_rows) {
+		freq = 0;
+		goto print_clk;
 	}
 
+	if ((!num_mbs_per_sec || !data) && num_rows) {
+		freq = table[num_rows - 1].freq;
+		goto print_clk;
+	}
+
+	for (i = 0; i < num_rows; i++) {
+		if (num_mbs_per_sec > table[i].load)
+			break;
+		for (j = 0; j < data->num_sessions; j++) {
+			bool matches = __is_session_supported(
+				table[i].supported_codecs, data->session[j]);
+
+			if (!matches)
+				continue;
+			instance_freq[j] = table[i].freq;
+		}
+	}
+	for (i = 0; i < data->num_sessions; i++)
+		max_freq = max(instance_freq[i], max_freq);
+
+	freq = max_freq ? : freq;
+print_clk:
+	dprintk(VIDC_PROF, "Required clock rate = %lu num_mbs_per_sec %d\n",
+					freq, num_mbs_per_sec);
 	return freq;
 }
 
 static unsigned long __get_clock_rate_with_bitrate(struct clock_info *clock,
-		int num_mbs_per_sec, int codecs_enabled,
+		int num_mbs_per_sec, struct vidc_clk_scale_data *data,
 		unsigned long instant_bitrate)
 {
 	int num_rows = clock->count;
 	struct load_freq_table *table = clock->load_freq_tbl;
-	unsigned long freq = table[0].freq;
-	unsigned long base_freq;
-	int i;
+	unsigned long freq = table[0].freq, max_freq = 0;
+	unsigned long base_freq, supported_clk[VIDC_MAX_SESSIONS] = {0};
+	int i, j;
 
-	if (!num_mbs_per_sec && num_rows > 1)
-		return table[num_rows - 1].freq;
+	if (!data && !num_rows) {
+		freq = 0;
+		goto print_clk;
+	}
+	if ((!num_mbs_per_sec || !data) && num_rows) {
+		freq = table[num_rows - 1].freq;
+		goto print_clk;
+	}
 
 	/* Get clock rate based on current load only */
-	base_freq = __get_clock_rate(clock, num_mbs_per_sec, codecs_enabled);
+	base_freq = __get_clock_rate(clock, num_mbs_per_sec, data);
 
 	/*
 	 * Supported bitrate = 40% of clock frequency
 	 * Check if the instant bitrate is supported by the base frequency.
 	 * If not, move on to the next frequency which supports the bitrate.
 	 */
-	for (i = num_rows - 1; i >= 0; i--) {
-		unsigned long supported_bitrate;
-		bool matches = __is_session_supported(
-		   table[i].supported_codecs, codecs_enabled);
 
-		if (!matches)
-			continue;
+	for (j = 0; j < data->num_sessions; j++) {
+		unsigned long supported_bitrate = 0;
 
-		freq = table[i].freq;
-		supported_bitrate = freq * 40/100;
+		for (i = num_rows - 1; i >= 0; i--) {
+			bool matches = __is_session_supported(
+				table[i].supported_codecs, data->session[j]);
 
-		if (table[i].freq >= base_freq &&
-			supported_bitrate >= instant_bitrate)
+			if (!matches)
+				continue;
+			freq = table[i].freq;
+
+			supported_bitrate = freq * 40/100;
+			/*
+			 * Store this frequency for each instance, we need
+			 * to select the maximum freq among all the instances.
+			 */
+			if (freq >= base_freq &&
+				supported_bitrate >= instant_bitrate) {
+				supported_clk[j] = freq;
 				break;
+			}
+		}
 	}
+
+	for (i = 0; i < data->num_sessions; i++)
+		max_freq = max(supported_clk[i], max_freq);
+
+	freq = max_freq ? : base_freq;
+
 	if (base_freq == freq)
 		dprintk(VIDC_DBG, "Stay at base freq: %lu bitrate = %lu\n",
 			freq, instant_bitrate);
 	else
 		dprintk(VIDC_DBG, "Move up clock freq: %lu bitrate = %lu\n",
 			freq, instant_bitrate);
-
+print_clk:
+	dprintk(VIDC_PROF, "Required clock rate = %lu num_mbs_per_sec %d\n",
+					freq, num_mbs_per_sec);
 	return freq;
 }
 
@@ -1330,25 +1369,35 @@ static int __halt_axi(struct venus_hfi_device *device)
 }
 
 static int __scale_clocks(struct venus_hfi_device *device, int load,
-		int codecs_enabled, unsigned long instant_bitrate)
+		struct vidc_clk_scale_data *data, unsigned long instant_bitrate)
 {
 	struct clock_info *cl;
 
-	device->clk_load = load;
-	device->codecs_enabled = codecs_enabled;
 	device->clk_bitrate = instant_bitrate;
 
 	venus_hfi_for_each_clock(device, cl) {
 		if (cl->count) {/* has_scaling */
-			unsigned long rate;
-			int rc;
 
-			if (!device->clk_bitrate)
-				rate = __get_clock_rate(cl, load,
-					codecs_enabled);
-			else
-				rate = __get_clock_rate_with_bitrate(cl, load,
-					codecs_enabled, instant_bitrate);
+			unsigned long rate = 0;
+			int rc;
+			/*
+			 * load_fw and power_on needs to be addressed.
+			 * differently. Below check enforces the same.
+			 */
+			if (!device->clk_bitrate && !data && !load &&
+				device->clk_freq)
+				rate = device->clk_freq;
+
+			if (!rate) {
+				if (!device->clk_bitrate)
+					rate = __get_clock_rate(cl, load,
+							data);
+				else
+					rate = __get_clock_rate_with_bitrate(cl,
+							load, data,
+							instant_bitrate);
+			}
+			device->clk_freq = rate;
 			rc = clk_set_rate(cl->clk, rate);
 			if (rc) {
 				dprintk(VIDC_ERR,
@@ -1368,7 +1417,8 @@ static int __scale_clocks(struct venus_hfi_device *device, int load,
 	return 0;
 }
 
-static int venus_hfi_scale_clocks(void *dev, int load, int codecs_enabled,
+static int venus_hfi_scale_clocks(void *dev, int load,
+					struct vidc_clk_scale_data *data,
 					unsigned long instant_bitrate)
 {
 	int rc = 0;
@@ -1380,7 +1430,7 @@ static int venus_hfi_scale_clocks(void *dev, int load, int codecs_enabled,
 	}
 
 	mutex_lock(&device->lock);
-	rc = __scale_clocks(device, load, codecs_enabled, instant_bitrate);
+	rc = __scale_clocks(device, load, data, instant_bitrate);
 	mutex_unlock(&device->lock);
 
 	return rc;
@@ -3492,6 +3542,7 @@ static inline void __deinit_clocks(struct venus_hfi_device *device)
 {
 	struct clock_info *cl;
 
+	device->clk_freq = 0;
 	venus_hfi_for_each_clock_reverse(device, cl) {
 		if (cl->clk) {
 			clk_put(cl->clk);
@@ -3536,7 +3587,7 @@ static inline int __init_clocks(struct venus_hfi_device *device)
 			}
 		}
 	}
-
+	device->clk_freq = 0;
 	return 0;
 
 err_clk_get:
@@ -4019,8 +4070,7 @@ static int __venus_power_on(struct venus_hfi_device *device)
 		goto fail_enable_clks;
 	}
 
-	rc = __scale_clocks(device, device->clk_load, device->codecs_enabled,
-			device->clk_bitrate);
+	rc = __scale_clocks(device, 0, NULL, 0);
 	if (rc) {
 		dprintk(VIDC_WARN,
 				"Failed to scale clocks, performance might be affected\n");
