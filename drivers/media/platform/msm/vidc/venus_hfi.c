@@ -4118,7 +4118,7 @@ static inline int __resume(struct venus_hfi_device *device)
 		return -EINVAL;
 	} else if (device->power_enabled) {
 		dprintk(VIDC_DBG, "Power is already enabled\n");
-		return 0;
+		goto exit;
 	}
 
 	dprintk(VIDC_DBG, "Resuming from power collapse\n");
@@ -4158,6 +4158,8 @@ static inline int __resume(struct venus_hfi_device *device)
 		pm_qos_add_request(&device->qos, PM_QOS_CPU_DMA_LATENCY,
 				device->res->pm_qos_latency_us);
 	dprintk(VIDC_INFO, "Resumed from power collapse\n");
+exit:
+	device->skip_pc_count = 0;
 	return rc;
 err_reset_core:
 	__tzbsp_set_video_state(TZBSP_VIDEO_STATE_SUSPEND);
