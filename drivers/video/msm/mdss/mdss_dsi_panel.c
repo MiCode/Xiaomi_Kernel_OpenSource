@@ -1207,7 +1207,7 @@ int mdss_dsc_initial_line_calc(int bpc, int xmit_delay,
 	int total_pixels;
 
 	ssm_delay = ((bpc < 10) ? 83 : 91);
-	total_pixels = ssm_delay * 3 + 30 + xmit_delay + 6;
+	total_pixels = ssm_delay * 3 + xmit_delay + 47;
 	total_pixels += ((slice_per_line > 1) ? (ssm_delay * 3) : 0);
 
 	return CEIL(total_pixels, slice_width);

@@ -2423,6 +2423,8 @@ static void mdss_mdp_ctl_dsc_config(struct mdss_mdp_mixer *mixer,
 	int bpp, lsb;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	char __iomem *offset = mdata->mdp_base;
+	u32 initial_lines = dsc->initial_lines;
+	bool is_cmd_mode = !(mode & BIT(2));
 
 	data = mdss_mdp_pingpong_read(mixer->pingpong_base,
 			MDSS_MDP_REG_PP_DCE_DATA_OUT_SWAP);
@@ -2445,7 +2447,10 @@ static void mdss_mdp_ctl_dsc_config(struct mdss_mdp_mixer *mixer,
 	if (ich_reset_override)
 		data = 3 << 28;
 
-	data |= (dsc->initial_lines << 20);
+	if (is_cmd_mode)
+		initial_lines += 1;
+
+	data |= (initial_lines << 20);
 	data |= ((dsc->slice_last_group_size - 1) << 18);
 	/* bpp is 6.4 format, 4 LSBs bits are for fractional part */
 	lsb = dsc->bpp % 4;
@@ -2462,7 +2467,7 @@ static void mdss_mdp_ctl_dsc_config(struct mdss_mdp_mixer *mixer,
 
 	pr_debug("%d %d %d %d %d %d %d %d %d, data=%x\n",
 		ich_reset_override,
-		dsc->initial_lines , dsc->slice_last_group_size,
+		initial_lines , dsc->slice_last_group_size,
 		dsc->bpp, dsc->block_pred_enable, dsc->line_buf_depth,
 		dsc->enable_422, dsc->convert_rgb, dsc->input_10_bits, data);
 
