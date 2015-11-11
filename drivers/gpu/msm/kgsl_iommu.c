@@ -17,9 +17,6 @@
 #include <linux/genalloc.h>
 #include <linux/slab.h>
 #include <linux/iommu.h>
-#ifdef CONFIG_MSM_IOMMU
-#include <linux/qcom_iommu.h>
-#endif
 #include <linux/msm_kgsl.h>
 #include <linux/ratelimit.h>
 #include <soc/qcom/scm.h>
@@ -508,21 +505,6 @@ static void kgsl_iommu_destroy_pagetable(struct kgsl_pagetable *pt)
 	kfree(iommu_pt);
 }
 
-/* currently only the MSM_IOMMU driver supports secure iommu */
-#ifdef CONFIG_MSM_IOMMU
-static inline struct bus_type *
-get_secure_bus(void)
-{
-	return &msm_iommu_sec_bus_type;
-}
-#else
-static inline struct bus_type *
-get_secure_bus(void)
-{
-	return NULL;
-}
-#endif
-
 static void setup_64bit_pagetable(struct kgsl_mmu *mmu,
 		struct kgsl_pagetable *pagetable,
 		struct kgsl_iommu_pt *pt)
@@ -583,18 +565,22 @@ static void setup_32bit_pagetable(struct kgsl_mmu *mmu,
 
 
 static struct kgsl_iommu_pt *
-_alloc_pt(struct bus_type *bus, struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
+_alloc_pt(struct device *dev, struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 {
 	struct kgsl_iommu_pt *iommu_pt;
+	struct bus_type *bus = kgsl_mmu_get_bus(dev);
+
+	if (bus == NULL)
+		return ERR_PTR(-ENODEV);
 
 	iommu_pt = kzalloc(sizeof(struct kgsl_iommu_pt), GFP_KERNEL);
 	if (iommu_pt == NULL)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	iommu_pt->domain = iommu_domain_alloc(bus);
 	if (iommu_pt->domain == NULL) {
 		kfree(iommu_pt);
-		return NULL;
+		return ERR_PTR(-ENODEV);
 	}
 
 	pt->pt_ops = &iommu_pt_ops;
@@ -637,9 +623,10 @@ static int _init_global_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	struct kgsl_iommu *iommu = mmu->priv;
 	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_USER];
 
-	iommu_pt = _alloc_pt(&platform_bus_type, mmu, pt);
-	if (!iommu_pt)
-		return -ENOMEM;
+	iommu_pt = _alloc_pt(ctx->dev, mmu, pt);
+
+	if (IS_ERR(iommu_pt))
+		return PTR_ERR(iommu_pt);
 
 	iommu_domain_set_attr(iommu_pt->domain,
 				DOMAIN_ATTR_COHERENT_HTW_DISABLE, &disable_htw);
@@ -699,7 +686,6 @@ static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 {
 	int ret = 0;
 	struct kgsl_iommu_pt *iommu_pt = NULL;
-	struct bus_type *bus = &platform_bus_type;
 	struct kgsl_iommu *iommu = mmu->priv;
 	int disable_htw = !MMU_FEATURE(mmu, KGSL_MMU_COHERENT_HTW);
 	struct kgsl_iommu_context *ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE];
@@ -710,14 +696,14 @@ static int _init_secure_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 		return -EPERM;
 
 	if (!MMU_FEATURE(mmu, KGSL_MMU_HYP_SECURE_ALLOC)) {
-		bus = get_secure_bus();
-		if (bus == NULL)
+		if (!kgsl_mmu_bus_secured(ctx->dev))
 			return -EPERM;
 	}
 
-	iommu_pt = _alloc_pt(bus, mmu, pt);
-	if (iommu_pt == NULL)
-		return -ENOMEM;
+	iommu_pt = _alloc_pt(ctx->dev, mmu, pt);
+
+	if (IS_ERR(iommu_pt))
+		return PTR_ERR(iommu_pt);
 
 	iommu_domain_set_attr(iommu_pt->domain,
 				DOMAIN_ATTR_COHERENT_HTW_DISABLE, &disable_htw);
@@ -763,9 +749,10 @@ static int _init_per_process_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	unsigned int cb_num = ctx->cb_num;
 	int disable_htw = !MMU_FEATURE(mmu, KGSL_MMU_COHERENT_HTW);
 
-	iommu_pt = _alloc_pt(&platform_bus_type, mmu, pt);
-	if (!iommu_pt)
-		return -ENOMEM;
+	iommu_pt = _alloc_pt(ctx->dev, mmu, pt);
+
+	if (IS_ERR(iommu_pt))
+		return PTR_ERR(iommu_pt);
 
 	ret = iommu_domain_set_attr(iommu_pt->domain,
 				DOMAIN_ATTR_DYNAMIC, &dynamic);
@@ -834,52 +821,6 @@ static int kgsl_iommu_init_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	}
 }
 
-#ifndef CONFIG_MSM_IOMMU
-static struct device *msm_iommu_get_ctx(const char *name)
-{
-	return ERR_PTR(-ENODEV);
-}
-#endif
-
-/*
- * _get_iommu_ctxs - Get device pointer to IOMMU contexts
- * @mmu - Pointer to mmu device
- *
- * Return - 0 on success else error code
- */
-static int _get_iommu_ctxs(struct kgsl_mmu *mmu)
-{
-	struct kgsl_iommu *iommu = mmu->priv;
-	struct kgsl_iommu_context *ctx;
-	int i;
-	int ret = 0;
-
-	for (i = 0; i < KGSL_IOMMU_CONTEXT_MAX; i++) {
-		ctx = &iommu->ctx[i];
-		/* skip contexts not found in dt */
-		if (ctx->name == NULL)
-			continue;
-		ctx->kgsldev = mmu->device;
-
-		if (ctx->dev != NULL)
-			continue;
-		/*
-		 * The old iommu driver requires that we query the context bank
-		 * device rather than getting it from dt.
-		 */
-		ctx->dev = msm_iommu_get_ctx(ctx->name);
-		if (IS_ERR_OR_NULL(ctx->dev)) {
-			ret = (!ctx->dev) ? -EINVAL : PTR_ERR(ctx->dev);
-			memset(ctx, 0, sizeof(*ctx));
-			KGSL_CORE_ERR("ctx %s: msm_iommu_get_ctx err: %d\n",
-					ctx->name, ret);
-			break;
-		}
-	}
-
-	return ret;
-}
-
 /*
  * kgsl_iommu_get_reg_ahbaddr - Returns the ahb address of the register
  * @mmu - Pointer to mmu structure
@@ -933,10 +874,6 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 			iommu->regstart, iommu->regsize);
 		return -ENOMEM;
 	}
-
-	status = _get_iommu_ctxs(mmu);
-	if (status)
-		goto done;
 
 	if (addr_entry_cache == NULL) {
 		addr_entry_cache = KMEM_CACHE(kgsl_iommu_addr_entry, 0);

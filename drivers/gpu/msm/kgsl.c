@@ -3908,7 +3908,7 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 
 	setup_timer(&device->idle_timer, kgsl_timer, (unsigned long) device);
 
-	status = kgsl_mmu_init(device);
+	status = kgsl_mmu_init(device, ksgl_mmu_type);
 	if (status != 0) {
 		KGSL_DRV_ERR(device, "kgsl_mmu_init failed %d\n", status);
 		goto error_pwrctrl_close;
@@ -4085,8 +4085,6 @@ static int __init kgsl_core_init(void)
 	kgsl_driver.workqueue = create_singlethread_workqueue("kgsl-workqueue");
 	kgsl_driver.mem_workqueue =
 		create_singlethread_workqueue("kgsl-mementry");
-
-	kgsl_mmu_set_mmutype(ksgl_mmu_type);
 
 	kgsl_events_init();
 
