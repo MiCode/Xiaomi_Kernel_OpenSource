@@ -90,6 +90,14 @@
 	qcom,enable-gp-driver;		/* Enable GP */
 };
 
+&pmdcalifornium_pwm_1 {
+	status = "ok";
+};
+
+&pmdcalifornium_pwm_2 {
+	status = "ok";
+};
+
 &qnand_1 {
 	status = "ok";
 };

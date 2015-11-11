@@ -188,6 +188,26 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
+		pmdcalifornium_pwm_1: pwm@bc00 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xbc00 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <0>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		pmdcalifornium_pwm_2: pwm@bd00 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xbd00 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <1>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
 		regulator@1400 {
 			compatible = "qcom,qpnp-regulator";
 			regulator-name = "californium_s1";
