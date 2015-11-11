@@ -49,6 +49,10 @@
 #define IPA_MHI_SUSPEND_SLEEP_MIN 900
 #define IPA_MHI_SUSPEND_SLEEP_MAX 1100
 
+/* bit #40 in address should be asserted for MHI transfers over pcie */
+#define IPA_MHI_HOST_ADDR_COND(addr) \
+		((ipa3_mhi_ctx->assert_bit40)?(IPA_MHI_HOST_ADDR(addr)):(addr))
+
 enum ipa3_mhi_state {
 	IPA_MHI_STATE_INITIALIZED,
 	IPA_MHI_STATE_READY,
@@ -223,6 +227,75 @@ static char *ipa3_mhi_channel_state_str[] = {
 	ipa3_mhi_channel_state_str[(state)] : \
 	"INVALID")
 
+static int ipa_mhi_read_write_host(enum ipa_mhi_dma_dir dir, void *dev_addr,
+	u64 host_addr, int size)
+{
+	struct ipa3_mem_buffer mem;
+	int res;
+
+	IPA_MHI_FUNC_ENTRY();
+
+	if (ipa3_mhi_ctx->use_ipadma) {
+		host_addr = IPA_MHI_HOST_ADDR_COND(host_addr);
+
+		mem.size = size;
+		mem.base = dma_alloc_coherent(ipa3_ctx->pdev, mem.size,
+			&mem.phys_base, GFP_KERNEL);
+		if (!mem.base) {
+			IPAERR("dma_alloc_coherent failed, DMA buff size %d\n",
+				mem.size);
+			return -ENOMEM;
+		}
+
+		if (dir == IPA_MHI_DMA_FROM_HOST) {
+			res = ipa_dma_sync_memcpy(mem.phys_base, host_addr,
+				size);
+			if (res) {
+				IPAERR("ipa_dma_sync_memcpy from host fail%d\n",
+					res);
+				goto fail_memcopy;
+			}
+			memcpy(dev_addr, mem.base, size);
+		} else {
+			memcpy(mem.base, dev_addr, size);
+			res = ipa_dma_sync_memcpy(host_addr, mem.phys_base,
+				size);
+			if (res) {
+				IPAERR("ipa_dma_sync_memcpy to host fail %d\n",
+					res);
+				goto fail_memcopy;
+			}
+		}
+		dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base,
+			mem.phys_base);
+	} else {
+		void *host_ptr;
+
+		if (!ipa3_mhi_ctx->test_mode)
+			host_ptr = ioremap(host_addr, size);
+		else
+			host_ptr = phys_to_virt(host_addr);
+		if (!host_ptr) {
+			IPAERR("ioremap failed for 0x%llx\n", host_addr);
+			return -EFAULT;
+		}
+		if (dir == IPA_MHI_DMA_FROM_HOST)
+			memcpy(dev_addr, host_ptr, size);
+		else
+			memcpy(host_ptr, dev_addr, size);
+		if (!ipa3_mhi_ctx->test_mode)
+			iounmap(host_ptr);
+	}
+
+	IPA_MHI_FUNC_EXIT();
+	return 0;
+
+fail_memcopy:
+	dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base,
+			mem.phys_base);
+	return res;
+}
+
 static int ipa3_mhi_print_channel_info(struct ipa3_mhi_channel_ctx *channel,
 	char *buff, int len)
 {
@@ -251,6 +324,44 @@ static int ipa3_mhi_print_channel_info(struct ipa3_mhi_channel_ctx *channel,
 			channel->ep->gsi_evt_ring_hdl,
 			channel->event_context_addr);
 	}
+	return nbytes;
+}
+
+static int ipa3_mhi_print_host_channel_ctx_info(
+		struct ipa3_mhi_channel_ctx *channel, char *buff, int len)
+{
+	int res, nbytes = 0;
+	struct ipa3_mhi_ch_ctx ch_ctx_host;
+
+	memset(&ch_ctx_host, 0, sizeof(ch_ctx_host));
+
+	/* reading ch context from host */
+	res = ipa_mhi_read_write_host(IPA_MHI_DMA_FROM_HOST,
+		&ch_ctx_host, channel->channel_context_addr,
+		sizeof(ch_ctx_host));
+	if (res) {
+		nbytes += scnprintf(&buff[nbytes], len - nbytes,
+			"Failed to read from host %d\n", res);
+		return nbytes;
+	}
+
+	nbytes += scnprintf(&buff[nbytes], len - nbytes,
+		"ch_id: %d\n", channel->id);
+	nbytes += scnprintf(&buff[nbytes], len - nbytes,
+		"chstate: 0x%x\n", ch_ctx_host.chstate);
+	nbytes += scnprintf(&buff[nbytes], len - nbytes,
+		"chtype: 0x%x\n", ch_ctx_host.chtype);
+	nbytes += scnprintf(&buff[nbytes], len - nbytes,
+		"erindex: 0x%x\n", ch_ctx_host.erindex);
+	nbytes += scnprintf(&buff[nbytes], len - nbytes,
+		"rbase: 0x%llx\n", ch_ctx_host.rbase);
+	nbytes += scnprintf(&buff[nbytes], len - nbytes,
+		"rlen: 0x%llx\n", ch_ctx_host.rlen);
+	nbytes += scnprintf(&buff[nbytes], len - nbytes,
+		"rp: 0x%llx\n", ch_ctx_host.rp);
+	nbytes += scnprintf(&buff[nbytes], len - nbytes,
+		"wp: 0x%llx\n", ch_ctx_host.wp);
+
 	return nbytes;
 }
 
@@ -293,6 +404,67 @@ static ssize_t ipa3_mhi_debugfs_uc_stats(struct file *file,
 	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
 
+static ssize_t ipa3_mhi_debugfs_dump_host_ch_ctx_arr(struct file *file,
+	char __user *ubuf,
+	size_t count,
+	loff_t *ppos)
+{
+	int i, nbytes = 0;
+	struct ipa3_mhi_channel_ctx *channel;
+
+	if (ipa3_mhi_ctx->state == IPA_MHI_STATE_INITIALIZED ||
+	    ipa3_mhi_ctx->state == IPA_MHI_STATE_READY) {
+		nbytes += scnprintf(&dbg_buff[nbytes],
+		IPA_MHI_MAX_MSG_LEN - nbytes,
+			"Cannot dump host channel context ");
+		nbytes += scnprintf(&dbg_buff[nbytes],
+				IPA_MHI_MAX_MSG_LEN - nbytes,
+				"before IPA MHI was STARTED\n");
+		return simple_read_from_buffer(ubuf, count, ppos,
+			dbg_buff, nbytes);
+	}
+	if (ipa3_mhi_ctx->state == IPA_MHI_STATE_SUSPENDED) {
+		nbytes += scnprintf(&dbg_buff[nbytes],
+			IPA_MHI_MAX_MSG_LEN - nbytes,
+			"IPA MHI is suspended, cannot dump channel ctx array");
+		nbytes += scnprintf(&dbg_buff[nbytes],
+			IPA_MHI_MAX_MSG_LEN - nbytes,
+			" from host -PCIe can be in D3 state\n");
+		return simple_read_from_buffer(ubuf, count, ppos,
+			dbg_buff, nbytes);
+	}
+
+	nbytes += scnprintf(&dbg_buff[nbytes],
+			IPA_MHI_MAX_MSG_LEN - nbytes,
+			"channel contex array - dump from host\n");
+	nbytes += scnprintf(&dbg_buff[nbytes],
+			IPA_MHI_MAX_MSG_LEN - nbytes,
+			"***** UL channels *******\n");
+
+	for (i = 0; i < IPA_MHI_MAX_UL_CHANNELS; i++) {
+		channel = &ipa3_mhi_ctx->ul_channels[i];
+		if (!channel->valid)
+			continue;
+		nbytes += ipa3_mhi_print_host_channel_ctx_info(channel,
+			&dbg_buff[nbytes],
+			IPA_MHI_MAX_MSG_LEN - nbytes);
+	}
+
+	nbytes += scnprintf(&dbg_buff[nbytes],
+			IPA_MHI_MAX_MSG_LEN - nbytes,
+			"\n***** DL channels *******\n");
+
+	for (i = 0; i < IPA_MHI_MAX_DL_CHANNELS; i++) {
+		channel = &ipa3_mhi_ctx->dl_channels[i];
+		if (!channel->valid)
+			continue;
+		nbytes += ipa3_mhi_print_host_channel_ctx_info(channel,
+			&dbg_buff[nbytes], IPA_MHI_MAX_MSG_LEN - nbytes);
+	}
+
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
+}
+
 const struct file_operations ipa3_mhi_stats_ops = {
 	.read = ipa3_mhi_debugfs_stats,
 };
@@ -300,6 +472,11 @@ const struct file_operations ipa3_mhi_stats_ops = {
 const struct file_operations ipa3_mhi_uc_stats_ops = {
 	.read = ipa3_mhi_debugfs_uc_stats,
 };
+
+const struct file_operations ipa3_mhi_dump_host_ch_ctx_ops = {
+	.read = ipa3_mhi_debugfs_dump_host_ch_ctx_arr,
+};
+
 
 static void ipa3_mhi_debugfs_init(void)
 {
@@ -326,7 +503,7 @@ static void ipa3_mhi_debugfs_init(void)
 	file = debugfs_create_file("uc_stats", read_only_mode, dent,
 		0, &ipa3_mhi_uc_stats_ops);
 	if (!file || IS_ERR(file)) {
-		IPA_MHI_ERR("fail to create file stats\n");
+		IPA_MHI_ERR("fail to create file uc_stats\n");
 		goto fail;
 	}
 
@@ -334,6 +511,13 @@ static void ipa3_mhi_debugfs_init(void)
 		&ipa3_mhi_ctx->use_ipadma);
 	if (!file || IS_ERR(file)) {
 		IPA_MHI_ERR("fail to create file use_ipadma\n");
+		goto fail;
+	}
+
+	file = debugfs_create_file("dump_host_channel_ctx_array",
+		read_only_mode, dent, 0, &ipa3_mhi_dump_host_ch_ctx_ops);
+	if (!file || IS_ERR(file)) {
+		IPA_MHI_ERR("fail to create file dump_host_channel_ctx_arr\n");
 		goto fail;
 	}
 
@@ -1150,76 +1334,6 @@ static int ipa3_mhi_reset_dl_channel(struct ipa3_mhi_channel_ctx *channel)
 	return 0;
 }
 
-static int ipa_mhi_read_write_host(enum ipa_mhi_dma_dir dir, void *dev_addr,
-	u64 host_addr, int size)
-{
-	struct ipa3_mem_buffer mem;
-	int res;
-
-	IPA_MHI_FUNC_ENTRY();
-
-	if (ipa3_mhi_ctx->use_ipadma) {
-		if (ipa3_mhi_ctx->assert_bit40)
-			host_addr |= 0x10000000000;
-
-		mem.size = size;
-		mem.base = dma_alloc_coherent(ipa3_ctx->pdev, mem.size,
-			&mem.phys_base, GFP_KERNEL);
-		if (!mem.base) {
-			IPAERR("dma_alloc_coherent failed, DMA buff size %d\n",
-				mem.size);
-			return -ENOMEM;
-		}
-
-		if (dir == IPA_MHI_DMA_FROM_HOST) {
-			res = ipa_dma_sync_memcpy(mem.phys_base, host_addr,
-				size);
-			if (res) {
-				IPAERR("ipa_dma_sync_memcpy from host fail%d\n",
-					res);
-				goto fail_memcopy;
-			}
-			memcpy(dev_addr, mem.base, size);
-		} else {
-			memcpy(mem.base, dev_addr, size);
-			res = ipa_dma_sync_memcpy(host_addr, mem.phys_base,
-				size);
-			if (res) {
-				IPAERR("ipa_dma_sync_memcpy to host fail %d\n",
-					res);
-				goto fail_memcopy;
-			}
-		}
-		dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base,
-			mem.phys_base);
-	} else {
-		void *host_ptr;
-
-		if (!ipa3_mhi_ctx->test_mode)
-			host_ptr = ioremap(host_addr, size);
-		else
-			host_ptr = phys_to_virt(host_addr);
-		if (!host_ptr) {
-			IPAERR("ioremap failed for 0x%llx\n", host_addr);
-			return -EFAULT;
-		}
-		if (dir == IPA_MHI_DMA_FROM_HOST)
-			memcpy(dev_addr, host_ptr, size);
-		else
-			memcpy(host_ptr, dev_addr, size);
-		if (!ipa3_mhi_ctx->test_mode)
-			iounmap(host_ptr);
-	}
-
-	IPA_MHI_FUNC_EXIT();
-	return 0;
-
-fail_memcopy:
-	dma_free_coherent(ipa3_ctx->pdev, mem.size, mem.base,
-			mem.phys_base);
-	return res;
-}
-
 static int ipa3_mhi_reset_channel(struct ipa3_mhi_channel_ctx *channel)
 {
 	int res;
@@ -1441,15 +1555,18 @@ static int ipa_mhi_start_gsi_channel(struct ipa3_mhi_channel_ctx *channel,
 		ev_props.intr = GSI_INTR_MSI;
 		ev_props.re_size = GSI_EVT_RING_RE_SIZE_16B;
 		ev_props.ring_len = channel->ev_ctx_host.rlen;
-		ev_props.ring_base_addr = channel->ev_ctx_host.rbase;
-		ev_props.int_modt = channel->ev_ctx_host.intmodt;
+		ev_props.ring_base_addr = IPA_MHI_HOST_ADDR_COND(
+				channel->ev_ctx_host.rbase);
+		ev_props.int_modt = channel->ev_ctx_host.intmodt *
+				IPA_SLEEP_CLK_RATE_KHZ;
 		ev_props.int_modc = channel->ev_ctx_host.intmodc;
 		ev_props.intvec = ((msi.data & ~msi.mask) |
-			(channel->ev_ctx_host.msivec & msi.mask));
-		ev_props.msi_addr = msi.addr_hi;
-		ev_props.msi_addr = (ev_props.msi_addr << 32 | msi.addr_low);
-		ev_props.rp_update_addr = channel->event_context_addr +
-			offsetof(struct ipa3_mhi_ev_ctx, rp);
+				(channel->ev_ctx_host.msivec & msi.mask));
+		ev_props.msi_addr = IPA_MHI_HOST_ADDR_COND(
+				(((u64)msi.addr_hi << 32) | msi.addr_low));
+		ev_props.rp_update_addr = IPA_MHI_HOST_ADDR_COND(
+				channel->event_context_addr +
+				offsetof(struct ipa3_mhi_ev_ctx, rp));
 		ev_props.exclusive = true;
 		ev_props.err_cb = ipa_mhi_gsi_ev_err_cb;
 		ev_props.user_data = channel;
@@ -1487,7 +1604,8 @@ static int ipa_mhi_start_gsi_channel(struct ipa3_mhi_channel_ctx *channel,
 	ch_props.evt_ring_hdl = channel->cached_gsi_evt_ring_hdl;
 	ch_props.re_size = GSI_CHAN_RE_SIZE_16B;
 	ch_props.ring_len = channel->ch_ctx_host.rlen;
-	ch_props.ring_base_addr = channel->ch_ctx_host.rbase;
+	ch_props.ring_base_addr = IPA_MHI_HOST_ADDR_COND(
+			channel->ch_ctx_host.rbase);
 	ch_props.use_db_eng = GSI_CHAN_DB_MODE;
 	ch_props.max_prefetch = GSI_ONE_PREFETCH_SEG;
 	ch_props.low_weight = 1;
@@ -1502,8 +1620,9 @@ static int ipa_mhi_start_gsi_channel(struct ipa3_mhi_channel_ctx *channel,
 	}
 
 	memset(&ch_scratch, 0, sizeof(ch_scratch));
-	ch_scratch.mhi.mhi_host_wp_addr = channel->channel_context_addr +
-		offsetof(struct ipa3_mhi_ch_ctx, wp);
+	ch_scratch.mhi.mhi_host_wp_addr = IPA_MHI_HOST_ADDR_COND(
+			channel->channel_context_addr +
+			offsetof(struct ipa3_mhi_ch_ctx, wp));
 	ch_scratch.mhi.ul_dl_sync_en = ipa3_cached_dl_ul_sync_info.
 			params.isDlUlSyncEnabled;
 	ch_scratch.mhi.assert_bit40 = ipa3_mhi_ctx->assert_bit40;
@@ -1643,15 +1762,16 @@ int ipa3_mhi_init(struct ipa_mhi_init_params *params)
 		goto fail_create_rm_cons;
 	}
 
-	if (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI) {
+	/* (ipa3_ctx->transport_prototype == IPA_TRANSPORT_TYPE_GSI)
+	 * we need to move to READY state only after
+	 * HPS/DPS/GSI firmware are loaded.
+	 */
+
+	/* Initialize uC interface */
+	ipa3_uc_mhi_init(ipa3_mhi_uc_ready_cb,
+		ipa3_mhi_uc_wakeup_request_cb);
+	if (ipa3_uc_state_check() == 0)
 		ipa3_mhi_set_state(IPA_MHI_STATE_READY);
-	} else{
-		/* Initialize uC interface */
-		ipa3_uc_mhi_init(ipa3_mhi_uc_ready_cb,
-			ipa3_mhi_uc_wakeup_request_cb);
-		if (ipa3_uc_state_check() == 0)
-			ipa3_mhi_set_state(IPA_MHI_STATE_READY);
-	}
 
 	/* Initialize debugfs */
 	ipa3_mhi_debugfs_init();
@@ -2682,10 +2802,14 @@ int ipa3_mhi_destroy(void)
 int ipa3_mhi_handle_ipa_config_req(struct ipa_config_req_msg_v01 *config_req)
 {
 	IPA_MHI_FUNC_ENTRY();
-	ipa3_mhi_cache_dl_ul_sync_info(config_req);
 
-	if (ipa3_mhi_ctx && ipa3_mhi_ctx->state != IPA_MHI_STATE_INITIALIZED)
-		ipa3_uc_mhi_send_dl_ul_sync_info(ipa3_cached_dl_ul_sync_info);
+	if (ipa3_ctx->transport_prototype != IPA_TRANSPORT_TYPE_GSI) {
+		ipa3_mhi_cache_dl_ul_sync_info(config_req);
+		if (ipa3_mhi_ctx &&
+		    ipa3_mhi_ctx->state != IPA_MHI_STATE_INITIALIZED)
+			ipa3_uc_mhi_send_dl_ul_sync_info(
+				ipa3_cached_dl_ul_sync_info);
+	}
 
 	IPA_MHI_FUNC_EXIT();
 	return 0;

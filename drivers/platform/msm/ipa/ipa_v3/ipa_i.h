@@ -181,6 +181,7 @@
 #define IPA_GSI_CHANNEL_STOP_SLEEP_MIN_USEC (1000)
 #define IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC (2000)
 
+#define IPA_SLEEP_CLK_RATE_KHZ (32)
 
 struct ipa3_client_names {
 	enum ipa_client_type names[MAX_RESOURCE_TO_CLIENTS];
