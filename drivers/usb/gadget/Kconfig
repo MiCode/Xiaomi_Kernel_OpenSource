@@ -418,7 +418,6 @@ config USB_CONFIGFS_F_MIDI
 	boolean "MIDI function"
 	depends on USB_CONFIGFS
 	depends on SND
-	select USB_LIBCOMPOSITE
 	select SND_RAWMIDI
 	select USB_F_MIDI
 	help
