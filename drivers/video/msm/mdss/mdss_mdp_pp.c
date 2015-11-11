@@ -5528,13 +5528,24 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 {
 	int ret = 0;
 	struct mdss_ad_info *ad;
-	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
-	struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
+	struct mdss_mdp_ctl *ctl, *sctl;
 	struct msm_fb_data_type *bl_mfd;
 	struct mdss_data_type *mdata;
 	u32 bypass = MDSS_PP_AD_BYPASS_DEF, bl;
 	u32 width;
 	struct mdss_overlay_private *mdp5_data;
+
+	if (!mfd) {
+		pr_err("mfd = 0x%p\n", mfd);
+		return -EINVAL;
+	}
+
+	ctl = mfd_to_ctl(mfd);
+	if (!ctl) {
+		pr_err("ctl = 0x%p\n", ctl);
+		return -EINVAL;
+	}
+	sctl = mdss_mdp_get_split_ctl(ctl);
 
 	ret = mdss_mdp_get_ad(mfd, &ad);
 	if (ret == -ENODEV || ret == -EPERM) {
@@ -5558,7 +5569,7 @@ static int mdss_mdp_ad_setup(struct msm_fb_data_type *mfd)
 		bl_mfd = mfd;
 	}
 
-	mdata = mfd_to_mdata(mfd);
+	mdata = mdss_mdp_get_mdata();
 
 	mutex_lock(&ad->lock);
 	if (ad->sts != last_sts || ad->state != last_state) {
@@ -5703,27 +5714,33 @@ static void pp_ad_calc_worker(struct work_struct *work)
 {
 	struct mdss_ad_info *ad;
 	struct mdss_mdp_ctl *ctl;
-	struct msm_fb_data_type *mfd, *bl_mfd;
 	struct mdss_overlay_private *mdp5_data;
 	struct mdss_data_type *mdata;
 	char __iomem *base;
 	ad = container_of(work, struct mdss_ad_info, calc_work);
 
 	mutex_lock(&ad->lock);
-	if (!ad->mfd  || !ad->bl_mfd || !(ad->sts & PP_STS_ENABLE)) {
+	if (!ad->mfd || !(ad->sts & PP_STS_ENABLE)) {
 		mutex_unlock(&ad->lock);
 		return;
 	}
-	mfd = ad->mfd;
-	bl_mfd = ad->bl_mfd;
+	mdp5_data = mfd_to_mdp5_data(ad->mfd);
+	if (!mdp5_data) {
+		pr_err("mdp5_data = 0x%p\n", mdp5_data);
+		mutex_unlock(&ad->lock);
+		return;
+	}
+
 	ctl = mfd_to_ctl(ad->mfd);
 	mdata = mfd_to_mdata(ad->mfd);
-	mdp5_data = mfd_to_mdp5_data(mfd);
-
-	if (!mdata || ad->calc_hw_num >= mdata->nad_cfgs) {
+	if (!ctl || !mdata || ad->calc_hw_num >= mdata->nad_cfgs) {
+		pr_err("ctl = 0x%p, mdata = 0x%p, ad->calc_hw_num = %d, mdata->nad_cfg = %d\n",
+			ctl, mdata, ad->calc_hw_num,
+			(!mdata ? 0 : mdata->nad_cfgs));
 		mutex_unlock(&ad->lock);
 		return;
 	}
+
 	base = mdata->ad_off[ad->calc_hw_num].base;
 
 	if ((ad->cfg.mode == MDSS_AD_MODE_AUTO_STR) && (ad->last_bl == 0)) {
@@ -5739,10 +5756,8 @@ static void pp_ad_calc_worker(struct work_struct *work)
 			readl_relaxed(base + MDSS_MDP_REG_AD_STR_OUT));
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	}
-	if (mdp5_data) {
-		mdp5_data->ad_events++;
-		sysfs_notify_dirent(mdp5_data->ad_event_sd);
-	}
+	mdp5_data->ad_events++;
+	sysfs_notify_dirent(mdp5_data->ad_event_sd);
 	if (!ad->calc_itr) {
 		ad->state &= ~PP_AD_STATE_VSYNC;
 		ctl->ops.remove_vsync_handler(ctl, &ad->handle);
