@@ -19,37 +19,117 @@
 
 #define RESOLUTION_NAME_STR_LEN 30
 #define HDMI_SEC_TO_MS 1000
+#define HDMI_MS_TO_US 1000
+#define HDMI_SEC_TO_US (HDMI_SEC_TO_MS * HDMI_MS_TO_US)
+#define HDMI_KHZ_TO_HZ 1000
 
 #define HDMI_SCDC_UNKNOWN_REGISTER        "Unknown register"
 
 static char res_buf[RESOLUTION_NAME_STR_LEN];
 
+int hdmi_utils_get_timeout_in_hysnc(struct msm_hdmi_mode_timing_info *timing,
+	u32 timeout_ms)
+{
+	u32 fps, v_total;
+	u32 time_taken_by_one_line_us, lines_needed_for_given_time;
+
+	if (!timing || !timeout_ms) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	fps = timing->refresh_rate / HDMI_KHZ_TO_HZ;
+	v_total = hdmi_tx_get_v_total(timing);
+
+	/*
+	 * pixel clock  = h_total * v_total * fps
+	 * 1 sec = pixel clock number of pixels are transmitted.
+	 * time taken by one line (h_total) = 1 / (v_total * fps).
+	 */
+	time_taken_by_one_line_us = HDMI_SEC_TO_US / (v_total * fps);
+	lines_needed_for_given_time = (timeout_ms * HDMI_MS_TO_US) /
+		time_taken_by_one_line_us;
+
+	return lines_needed_for_given_time;
+}
+
+static int hdmi_ddc_clear_irq(struct hdmi_tx_ddc_ctrl *ddc_ctrl,
+	char *what)
+{
+	u32 ddc_int_ctrl, ddc_status, in_use, timeout;
+	u32 sw_done_mask = BIT(2);
+	u32 sw_done_ack  = BIT(1);
+	u32 hw_done_mask = BIT(6);
+	u32 hw_done_ack  = BIT(5);
+	u32 in_use_by_sw = BIT(0);
+	u32 in_use_by_hw = BIT(1);
+
+	if (!ddc_ctrl || !ddc_ctrl->io) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	/* clear and enable interrutps */
+	ddc_int_ctrl = sw_done_mask | sw_done_ack | hw_done_mask | hw_done_ack;
+
+	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL, ddc_int_ctrl);
+
+	/* wait until DDC HW is free */
+	timeout = 100;
+	do {
+		ddc_status = DSS_REG_R_ND(ddc_ctrl->io, HDMI_DDC_HW_STATUS);
+		in_use = ddc_status & (in_use_by_sw | in_use_by_hw);
+		if (in_use) {
+			pr_debug("ddc is in use by %s, timeout(%d)\n",
+				ddc_status & in_use_by_sw ? "sw" : "hw",
+				timeout);
+			udelay(100);
+		}
+	} while (in_use && --timeout);
+
+	if (!timeout) {
+		pr_err("%s: timedout\n", what);
+		return -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
 static void hdmi_scrambler_status_timer_setup(struct hdmi_tx_ddc_ctrl *ctrl,
-					     u32 to_in_num_lines)
+		u32 timeout_hsync)
 {
 	u32 reg_val;
+	struct dss_io_data *io = NULL;
 
-	DSS_REG_W(ctrl->io, HDMI_SCRAMBLER_STATUS_DDC_TIMER_CTRL,
-						to_in_num_lines);
-	DSS_REG_W(ctrl->io, HDMI_SCRAMBLER_STATUS_DDC_TIMER_CTRL2,
-						0xFFFF);
-	reg_val = DSS_REG_R(ctrl->io, HDMI_DDC_INT_CTRL5);
+	if (!ctrl || !ctrl->io) {
+		pr_err("invalid input\n");
+		return;
+	}
+
+	io = ctrl->io;
+
+	hdmi_ddc_clear_irq(ctrl, "scrambler");
+
+	DSS_REG_W(io, HDMI_SCRAMBLER_STATUS_DDC_TIMER_CTRL, timeout_hsync);
+	DSS_REG_W(io, HDMI_SCRAMBLER_STATUS_DDC_TIMER_CTRL2, timeout_hsync);
+
+	reg_val = DSS_REG_R(io, HDMI_DDC_INT_CTRL5);
 	reg_val |= BIT(10);
-	DSS_REG_W(ctrl->io, HDMI_DDC_INT_CTRL5, reg_val);
+	DSS_REG_W(io, HDMI_DDC_INT_CTRL5, reg_val);
 
-	reg_val = DSS_REG_R(ctrl->io, HDMI_DDC_INT_CTRL2);
+	reg_val = DSS_REG_R(io, HDMI_DDC_INT_CTRL2);
 	/* Trigger interrupt if scrambler status is 0 or DDC failure */
 	reg_val |= BIT(10);
-	reg_val &= 0x18000;
-	reg_val |= (0x2 << 15);
-	DSS_REG_W(ctrl->io, HDMI_DDC_INT_CTRL2, reg_val);
+	reg_val &= ~(BIT(15) | BIT(16));
+	reg_val |= BIT(16);
+	DSS_REG_W(io, HDMI_DDC_INT_CTRL2, reg_val);
 
 	/* Enable DDC access */
-	reg_val = DSS_REG_R(ctrl->io, HDMI_HW_DDC_CTRL);
+	reg_val = DSS_REG_R(io, HDMI_HW_DDC_CTRL);
 
-	reg_val &= ~0x300;
-	reg_val |= (0x1 << 8);
-	DSS_REG_W(ctrl->io, HDMI_HW_DDC_CTRL, reg_val);
+	reg_val &= ~(BIT(8) | BIT(9));
+	reg_val |= BIT(8);
+	DSS_REG_W(io, HDMI_HW_DDC_CTRL, reg_val);
 }
 
 static inline char *hdmi_scdc_reg2string(u32 type)
@@ -499,47 +579,6 @@ static void hdmi_ddc_print_data(struct hdmi_tx_ddc_data *ddc_data)
 		ddc_data->retry, ddc_data->what);
 } /* hdmi_ddc_print_data */
 
-static int hdmi_ddc_clear_irq(struct hdmi_tx_ddc_ctrl *ddc_ctrl,
-	char *what)
-{
-	u32 ddc_int_ctrl, ddc_status, in_use, timeout;
-	u32 sw_done_mask = BIT(2);
-	u32 sw_done_ack  = BIT(1);
-	u32 hw_done_mask = BIT(6);
-	u32 hw_done_ack  = BIT(5);
-	u32 in_use_by_sw = BIT(0);
-	u32 in_use_by_hw = BIT(1);
-
-	if (!ddc_ctrl || !ddc_ctrl->io) {
-		pr_err("invalid input\n");
-		return -EINVAL;
-	}
-
-	/* clear and enable interrutps */
-	ddc_int_ctrl = sw_done_mask | sw_done_ack | hw_done_mask | hw_done_ack;
-
-	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL, ddc_int_ctrl);
-
-	/* wait until DDC HW is free */
-	timeout = 100;
-	do {
-		ddc_status = DSS_REG_R_ND(ddc_ctrl->io, HDMI_DDC_HW_STATUS);
-		in_use = ddc_status & (in_use_by_sw | in_use_by_hw);
-		if (in_use) {
-			pr_debug("ddc is in use by %s\n",
-				ddc_status & in_use_by_sw ? "sw" : "hw");
-			udelay(100);
-		}
-	} while (in_use && --timeout);
-
-	if (!timeout) {
-		pr_err("%s: timedout\n", what);
-		return -ETIMEDOUT;
-	}
-
-	return 0;
-} /*hdmi_ddc_clear_irq */
-
 static int hdmi_ddc_read_retry(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 {
 	u32 reg_val, ndx, time_out_count, wait_time;
@@ -796,23 +835,19 @@ static int hdmi_ddc_hdcp2p2_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 	struct hdmi_tx_hdcp2p2_ddc_data *data;
 	u32 intr0, intr2;
 
-	if (!ddc_ctrl) {
+	if (!ddc_ctrl || !ddc_ctrl->io) {
 		pr_err("invalid input\n");
 		return -EINVAL;
 	}
 
 	io = ddc_ctrl->io;
-	if (!io) {
-		pr_err("invalid io data\n");
-		return -EINVAL;
-	}
 
 	data = &ddc_ctrl->hdcp2p2_ddc_data;
 
 	intr2 = DSS_REG_R(io, HDMI_HDCP_INT_CTRL2);
 	intr0 = DSS_REG_R(io, HDMI_DDC_INT_CTRL0);
 
-	pr_debug("ctl0: 0x%x, ctl1: 0x%x\n", intr0, intr2);
+	pr_debug("intr0: 0x%x, intr2: 0x%x\n", intr0, intr2);
 
 	/* check for encryption ready interrupt */
 	if (intr2 & BIT(2)) {
@@ -848,7 +883,7 @@ static int hdmi_ddc_hdcp2p2_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 		}
 	}
 
-	DSS_REG_W_ND(ddc_ctrl->io, HDMI_HDCP_INT_CTRL2, intr2);
+	DSS_REG_W_ND(io, HDMI_HDCP_INT_CTRL2, intr2);
 
 	/* check for message size interrupt */
 	if (intr0 & BIT(31)) {
@@ -913,7 +948,7 @@ static int hdmi_ddc_hdcp2p2_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 		data->ddc_read_req = (intr0 & BIT(0)) ? true : false;
 	}
 
-	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL0, intr0);
+	DSS_REG_W_ND(io, HDMI_DDC_INT_CTRL0, intr0);
 
 	if (data->message_size || data->ready || data->reauth_req) {
 		if (!completion_done(&ddc_ctrl->rxstatus_completion))
@@ -923,11 +958,64 @@ static int hdmi_ddc_hdcp2p2_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
 	return 0;
 }
 
+static int hdmi_ddc_scrambling_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
+{
+	struct dss_io_data *io;
+	bool scrambler_timer_off = false;
+	u32 intr2, intr5;
+
+	if (!ddc_ctrl || !ddc_ctrl->io) {
+		pr_err("invalid input\n");
+		return -EINVAL;
+	}
+
+	io = ddc_ctrl->io;
+
+	intr2 = DSS_REG_R_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL2);
+	pr_debug("ddc_int_ctrl2=0x%x\n", intr2);
+
+	if (intr2 & BIT(12)) {
+		pr_err("SCRAMBLER_STATUS_NOT\n");
+
+		intr2 |= BIT(14);
+
+		scrambler_timer_off = true;
+	}
+
+	if (intr2 & BIT(8)) {
+		pr_err("SCRAMBLER_STATUS_DDC_FAILED\n");
+
+		intr2 |= BIT(9);
+
+		scrambler_timer_off = true;
+	}
+	DSS_REG_W_ND(io, HDMI_DDC_INT_CTRL2, intr2);
+
+	intr5 = DSS_REG_R_ND(io, HDMI_DDC_INT_CTRL5);
+	pr_debug("ddc_int_ctrl5=0x%x\n", intr5);
+
+	if (intr5 & BIT(8)) {
+		pr_err("SCRAMBLER_STATUS_DDC_REQ_TIMEOUT\n");
+
+		intr5 |= BIT(9);
+
+		scrambler_timer_off = true;
+	}
+	DSS_REG_W_ND(io, HDMI_DDC_INT_CTRL5, intr5);
+
+	if (scrambler_timer_off) {
+		u32 reg_val = DSS_REG_R_ND(io, HDMI_HW_DDC_CTRL);
+
+		reg_val &= ~(BIT(8) | BIT(9));
+		DSS_REG_W_ND(io, HDMI_HW_DDC_CTRL, reg_val);
+	}
+
+	return 0;
+}
+
 int hdmi_ddc_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl, u32 version)
 {
-	u32 ddc_int_ctrl;
-	u32 ddc_timer_int;
-	bool scrambler_timer_off = false;
+	u32 ddc_int_ctrl, ret = 0;
 
 	if (!ddc_ctrl || !ddc_ctrl->io) {
 		pr_err("invalid input\n");
@@ -935,57 +1023,32 @@ int hdmi_ddc_isr(struct hdmi_tx_ddc_ctrl *ddc_ctrl, u32 version)
 	}
 
 	ddc_int_ctrl = DSS_REG_R_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL);
+	pr_debug("ddc_int_ctrl=0x%x\n", ddc_int_ctrl);
+
 	if ((ddc_int_ctrl & BIT(2)) && (ddc_int_ctrl & BIT(0))) {
-		/* SW_DONE INT occurred, clr it */
-		DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL,
-			ddc_int_ctrl | BIT(1));
+		pr_debug("ddc sw done\n");
+
+		ddc_int_ctrl |= BIT(1);
 		complete(&ddc_ctrl->ddc_sw_done);
 	}
 
 	if ((ddc_int_ctrl & BIT(6)) && (ddc_int_ctrl & BIT(4))) {
-		/* HW_DONE INT occurred, clr it */
-		DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL,
-			ddc_int_ctrl | BIT(5));
+		pr_debug("ddc hw done\n");
+		ddc_int_ctrl |= BIT(5);
+	}
+	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL, ddc_int_ctrl);
+
+	if (version >= HDMI_TX_SCRAMBLER_MIN_TX_VERSION) {
+		ret = hdmi_ddc_scrambling_isr(ddc_ctrl);
+		if (ret)
+			pr_err("err in scrambling isr\n");
 	}
 
-	pr_debug("ddc_int_ctrl=%04x\n", ddc_int_ctrl);
-	if (version < HDMI_TX_SCRAMBLER_MIN_TX_VERSION)
-		goto end;
+	ret = hdmi_ddc_hdcp2p2_isr(ddc_ctrl);
+	if (ret)
+		pr_err("err in hdcp2p2 isr\n");
 
-	ddc_timer_int = DSS_REG_R_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL2);
-	if (ddc_timer_int & BIT(12)) {
-		/* DDC_INT_CTRL2.SCRAMBLER_STATUS_NOT is set */
-		pr_err("Sink cannot descramble the signal\n");
-		/* Clear interrupt */
-		ddc_timer_int |= BIT(14);
-		DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL2,
-							ddc_timer_int);
-		scrambler_timer_off = true;
-	}
-
-	ddc_timer_int = DSS_REG_R_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL5);
-	if (ddc_timer_int & BIT(8)) {
-		/*
-		 * DDC_INT_CTRL5.SCRAMBLER_STATUS_DDC_REQ_TIMEOUT
-		 * is set
-		 */
-		pr_err("DDC timeout while reading SCRAMBLER STATUS\n");
-		ddc_timer_int |= BIT(13);
-		DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL5,
-							ddc_timer_int);
-		scrambler_timer_off = true;
-	}
-
-	/* Disable scrambler status timer if it has been acknowledged */
-	if (scrambler_timer_off) {
-		u32 regval = DSS_REG_R_ND(ddc_ctrl->io,
-						HDMI_HW_DDC_CTRL);
-		regval &= 0x300;
-		DSS_REG_W_ND(ddc_ctrl->io, HDMI_HW_DDC_CTRL, regval);
-	}
-end:
-	hdmi_ddc_hdcp2p2_isr(ddc_ctrl);
-	return 0;
+	return ret;
 } /* hdmi_ddc_isr */
 
 int hdmi_ddc_read(struct hdmi_tx_ddc_ctrl *ddc_ctrl)
@@ -1127,8 +1190,6 @@ again:
 	time_out_count = wait_for_completion_timeout(
 		&ddc_ctrl->ddc_sw_done, HZ/2);
 
-	reg_val = DSS_REG_R(ddc_ctrl->io, HDMI_DDC_INT_CTRL);
-	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL, reg_val & (~BIT(2)));
 	if (!time_out_count) {
 		if (ddc_data->retry-- > 0) {
 			pr_debug("failed timout, retry=%d\n", ddc_data->retry);
@@ -1305,8 +1366,6 @@ again:
 
 	pr_debug("DDC write done at %dms\n", jiffies_to_msecs(jiffies));
 
-	reg_val = DSS_REG_R(ddc_ctrl->io, HDMI_DDC_INT_CTRL);
-	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_INT_CTRL, reg_val & (~BIT(2)));
 	if (!time_out_count) {
 		if (retry-- > 0) {
 			pr_debug("%s: failed timout, retry=%d\n",
