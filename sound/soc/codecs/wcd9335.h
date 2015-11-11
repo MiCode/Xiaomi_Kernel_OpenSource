@@ -114,6 +114,14 @@ enum {
 	SPKR_MODE_1,          /* COMP Gain = 12dB, Smartboost Max = 5.5V */
 };
 
+/*
+ * Rx path gain offsets
+ */
+enum {
+	RX_GAIN_OFFSET_M1P5_DB,
+	RX_GAIN_OFFSET_0_DB,
+};
+
 extern void *tasha_get_afe_config(struct snd_soc_codec *codec,
 				  enum afe_config_type config_type);
 extern int tasha_cdc_mclk_enable(struct snd_soc_codec *codec, int enable,
@@ -135,4 +143,5 @@ extern int tasha_codec_enable_standalone_micbias(struct snd_soc_codec *codec,
 						 int micb_num,
 						 bool enable);
 extern int tasha_set_spkr_mode(struct snd_soc_codec *codec, int mode);
+extern int tasha_set_spkr_gain_offset(struct snd_soc_codec *codec, int offset);
 #endif
