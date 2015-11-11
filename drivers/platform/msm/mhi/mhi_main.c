@@ -293,6 +293,13 @@ enum MHI_STATUS mhi_open_channel(struct mhi_client_handle *client_handle)
 			chan, mhi_dev_ctxt->dev_exec_env);
 		return MHI_STATUS_DEVICE_NOT_READY;
 	}
+	r = populate_tre_ring(client_handle);
+	if (r) {
+		mhi_log(MHI_MSG_ERROR,
+			"Failed to initialize tre ring chan %d ret %d\n",
+			chan, r);
+		return r;
+	}
 	client_handle->event_ring_index =
 		mhi_dev_ctxt->dev_space.ring_ctxt.
 				cc_list[chan].mhi_event_ring_index;
@@ -302,14 +309,7 @@ enum MHI_STATUS mhi_open_channel(struct mhi_client_handle *client_handle)
 		mhi_log(MHI_MSG_ERROR,
 			"Failed to initialize bb ctxt chan %d ret %d\n",
 			chan, r);
-		return r;
-	}
-	r = populate_tre_ring(client_handle);
-	if (r) {
-		mhi_log(MHI_MSG_ERROR,
-			"Failed to initialize tre ring chan %d ret %d\n",
-			chan, r);
-		return r;
+		return MHI_STATUS_ERROR;
 	}
 
 	client_handle->msi_vec =
@@ -423,6 +423,7 @@ void mhi_close_channel(struct mhi_client_handle *client_handle)
 	}
 
 	mhi_log(MHI_MSG_INFO, "Freeing ring for chan 0x%x\n", chan);
+	free_tre_ring(client_handle);
 	mhi_log(MHI_MSG_INFO, "Chan 0x%x confirmed closed.\n", chan);
 	client_handle->chan_status = 0;
 }
