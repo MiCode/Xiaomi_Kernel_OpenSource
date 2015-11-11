@@ -2130,6 +2130,11 @@ static int mdss_rotator_handle_request(struct mdss_rot_mgr *mgr,
 	struct mdss_rot_entry_container *req = NULL;
 	int size, ret;
 
+	if (mdss_get_sd_client_cnt()) {
+		pr_err("rot request not permitted during secure display session\n");
+		return -EPERM;
+	}
+
 	ret = copy_from_user(&user_req, (void __user *)arg,
 					sizeof(user_req));
 	if (ret) {
@@ -2281,6 +2286,11 @@ static int mdss_rotator_handle_request32(struct mdss_rot_mgr *mgr,
 	struct mdp_rotation_item *items = NULL;
 	struct mdss_rot_entry_container *req = NULL;
 	int size, ret;
+
+	if (mdss_get_sd_client_cnt()) {
+		pr_err("rot request not permitted during secure display session\n");
+		return -EPERM;
+	}
 
 	ret = copy_from_user(&user_req32, (void __user *)arg,
 					sizeof(user_req32));
