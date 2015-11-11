@@ -360,7 +360,6 @@
 					<5820000 6820000 550 650 650>,
 					<6820000 7820000 550 700 600>,
 					<7820000 8500000 550 700 550>;
-	qcom,skip-usb-notification;
 };
 
 &pmi8994_fg {
@@ -487,13 +486,6 @@
 				<&wsa881x_213>, <&wsa881x_214>;
 		qcom,wsa-aux-dev-prefix = "SpkrLeft", "SpkrRight",
 					  "SpkrLeft", "SpkrRight";
-	};
-
-	usb_detect {
-		compatible = "qcom,gpio-usbdetect";
-		interrupt-parent = <&tlmm>;
-		interrupts = <78 0>;
-		interrupt-names = "vbus_det_irq";
 	};
 };
 
