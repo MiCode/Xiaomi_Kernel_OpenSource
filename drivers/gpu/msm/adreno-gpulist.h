@@ -27,6 +27,18 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.busy_mask = 0x7FFFFFFE,
 	},
 	{
+		.gpurev = ADRENO_REV_A306A,
+		.core = 3,
+		.major = 0,
+		.minor = 6,
+		.patchid = 0x20,
+		.pm4fw_name = "a300_pm4.fw",
+		.pfpfw_name = "a300_pfp.fw",
+		.gpudev = &adreno_a3xx_gpudev,
+		.gmem_size = SZ_128K,
+		.busy_mask = 0x7FFFFFFE,
+	},
+	{
 		.gpurev = ADRENO_REV_A304,
 		.core = 3,
 		.major = 0,
