@@ -97,6 +97,7 @@ struct mdss_debug_base {
 	void __iomem *base;
 	size_t off;
 	size_t cnt;
+	u8 cmd_data_type;
 	size_t max_offset;
 	char *buf;
 	size_t buf_len;
