@@ -62,6 +62,9 @@ const char emac_drv_version[] = DRV_VERSION;
 
 #define EMAC_SKB_CB(skb) ((struct emac_skb_cb *)(skb)->cb)
 
+#define EMAC_PINCTRL_STATE_ACTIVE "emac_active"
+#define EMAC_PINCTRL_STATE_SLEEP "emac_sleep"
+
 struct emac_skb_cb {
 	u32           tpd_idx;
 	unsigned long jiffies;
@@ -1572,6 +1575,58 @@ static int emac_change_mtu(struct net_device *netdev, int new_mtu)
 	return 0;
 }
 
+static inline int msm_emac_request_gpio_on(struct emac_adapter *adpt)
+{
+	int i = 0;
+	int result = 0;
+
+	for (i = 0; (!adpt->no_mdio_gpio) && i < EMAC_GPIO_CNT; i++) {
+		result = gpio_request(adpt->gpio[i], emac_gpio_name[i]);
+		if (result) {
+			emac_err(adpt, "error:%d on gpio_request(%d:%s)\n",
+				 result, adpt->gpio[i],
+				emac_gpio_name[i]);
+			while (--i >= 0)
+				gpio_free(adpt->gpio[i]);
+			goto error;
+		}
+	}
+	return 0;
+error:
+	return result;
+}
+
+static inline int msm_emac_request_gpio_off(struct emac_adapter *adpt)
+{
+	int i = 0;
+
+	for (i = 0; (!adpt->no_mdio_gpio) && i < EMAC_GPIO_CNT; i++)
+		gpio_free(adpt->gpio[i]);
+	return 0;
+}
+
+static inline int msm_emac_request_pinctrl_on(struct emac_adapter *adpt)
+{
+	int result = 0;
+
+	result = pinctrl_select_state(adpt->pinctrl, adpt->pins_active);
+	if (result)
+		emac_err(adpt, "error:%d Can not set %s pins\n",
+			 result, EMAC_PINCTRL_STATE_ACTIVE);
+	return result;
+}
+
+static inline int msm_emac_request_pinctrl_off(struct emac_adapter *adpt)
+{
+	int result = 0;
+
+	result = pinctrl_select_state(adpt->pinctrl, adpt->pins_sleep);
+	if (result)
+		emac_err(adpt, "error:%d Can not set %s pins\n",
+			 result, EMAC_PINCTRL_STATE_SLEEP);
+	return result;
+}
+
 /* Bringup the interface/HW */
 int emac_up(struct emac_adapter *adpt)
 {
@@ -1590,16 +1645,9 @@ int emac_up(struct emac_adapter *adpt)
 	if (retval)
 		return retval;
 
-	for (i = 0; (!adpt->no_mdio_gpio) && i < EMAC_GPIO_CNT; i++) {
-		retval = gpio_request(adpt->gpio[i], emac_gpio_name[i]);
-		if (retval) {
-			emac_err(adpt, "error:%d on gpio_request(%d:%s)\n",
-				 retval, adpt->gpio[i], emac_gpio_name[i]);
-			while (--i >= 0)
-				gpio_free(adpt->gpio[i]);
-			goto err_request_gpio;
-		}
-	}
+	retval = adpt->gpio_on(adpt);
+	if (retval < 0)
+		goto err_request_gpio;
 
 	for (i = 0; i < EMAC_IRQ_CNT; i++) {
 		struct emac_irq_per_dev *irq = &adpt->irq[i];
@@ -1669,8 +1717,7 @@ void emac_down(struct emac_adapter *adpt, u32 ctrl)
 		if (adpt->irq[i].irq)
 			free_irq(adpt->irq[i].irq, &adpt->irq[i]);
 
-	for (i = 0; (!adpt->no_mdio_gpio) && i < EMAC_GPIO_CNT; i++)
-		gpio_free(adpt->gpio[i]);
+	adpt->gpio_off(adpt);
 
 	CLR_FLAG(adpt, ADPT_TASK_LSC_REQ);
 	CLR_FLAG(adpt, ADPT_TASK_REINIT_REQ);
@@ -2470,6 +2517,33 @@ static void emac_disable_clks(struct emac_adapter *adpt)
 	}
 }
 
+static int msm_emac_pinctrl_init(struct emac_adapter *adpt, struct device *dev)
+{
+	adpt->pinctrl = devm_pinctrl_get(dev);
+	if (IS_ERR_OR_NULL(adpt->pinctrl)) {
+		emac_dbg(adpt, probe, "error:%ld Failed to get pin ctrl\n",
+			 PTR_ERR(adpt->pinctrl));
+		return PTR_ERR(adpt->pinctrl);
+	}
+	adpt->pins_active = pinctrl_lookup_state(adpt->pinctrl,
+				EMAC_PINCTRL_STATE_ACTIVE);
+	if (IS_ERR_OR_NULL(adpt->pins_active)) {
+		emac_dbg(adpt, probe, "error:%ld Failed to lookup pinctrl active state\n",
+			 PTR_ERR(adpt->pins_active));
+		return PTR_ERR(adpt->pins_active);
+	}
+
+	adpt->pins_sleep = pinctrl_lookup_state(adpt->pinctrl,
+				EMAC_PINCTRL_STATE_SLEEP);
+	if (IS_ERR_OR_NULL(adpt->pins_sleep)) {
+		emac_dbg(adpt, probe, "error:%ld Failed to lookup pinctrl sleep state\n",
+			 PTR_ERR(adpt->pins_sleep));
+		return PTR_ERR(adpt->pins_sleep);
+	}
+
+	return 0;
+}
+
 /* Get the resources */
 static int emac_get_resources(struct platform_device *pdev,
 			      struct emac_adapter *adpt)
@@ -2494,13 +2568,20 @@ static int emac_get_resources(struct platform_device *pdev,
 	/* get time stamp enable flag */
 	adpt->tstamp_en = of_property_read_bool(node, "qcom,emac-tstamp-en");
 
-	/* get gpios */
-	for (i = 0; (!adpt->no_mdio_gpio) && i < EMAC_GPIO_CNT; i++) {
-		retval = of_get_named_gpio(node, emac_gpio_name[i], 0);
-		if (retval < 0)
-			return retval;
+	retval = msm_emac_pinctrl_init(adpt, &pdev->dev);
+	if (!retval) {
+		adpt->gpio_on = msm_emac_request_pinctrl_on;
+		adpt->gpio_off = msm_emac_request_pinctrl_off;
+	} else {
+		for (i = 0; (!adpt->no_mdio_gpio) && i < EMAC_GPIO_CNT; i++) {
+			retval = of_get_named_gpio(node, emac_gpio_name[i], 0);
+			if (retval < 0)
+				return retval;
 
-		adpt->gpio[i] = retval;
+			adpt->gpio[i] = retval;
+		}
+		adpt->gpio_on = msm_emac_request_gpio_on;
+		adpt->gpio_off = msm_emac_request_gpio_off;
 	}
 
 	/* get mac address */
