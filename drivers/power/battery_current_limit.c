@@ -269,7 +269,8 @@ static int __ref bcl_cpu_ctrl_callback(struct notifier_block *nfb,
 {
 	uint32_t cpu = (uintptr_t)hcpu;
 
-	if (action == CPU_UP_PREPARE || action == CPU_UP_PREPARE_FROZEN) {
+	switch (action & ~CPU_TASKS_FROZEN) {
+	case CPU_UP_PREPARE:
 		if (!cpumask_test_and_set_cpu(cpu, bcl_cpu_online_mask))
 			pr_debug("BCL online Mask: %u\n",
 				cpumask_weight(bcl_cpu_online_mask));
@@ -279,6 +280,15 @@ static int __ref bcl_cpu_ctrl_callback(struct notifier_block *nfb,
 		} else {
 			pr_debug("voting for CPU%d to be online\n", cpu);
 		}
+		break;
+	case CPU_ONLINE:
+		if (bcl_hotplug_enabled && (bcl_hotplug_request & BIT(cpu))) {
+			pr_debug("CPU%d online. reevaluate hotplug\n", cpu);
+			schedule_work(&bcl_hotplug_work);
+		}
+		break;
+	default:
+		break;
 	}
 
 	return NOTIFY_OK;
