@@ -590,7 +590,7 @@
 	};
 
 	sound-9335 {
-		qcom,model = "msm8996-dtp-snd-card";
+		qcom,model = "msm8996-dtp-tasha-snd-card";
 
 		qcom,audio-routing =
 			"AIF4 VI", "MCLK",
