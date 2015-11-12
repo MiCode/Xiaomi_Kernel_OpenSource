@@ -3801,19 +3801,8 @@ static int __init_resources(struct venus_hfi_device *device,
 		goto err_init_bus;
 	}
 
-	device->response_pkt = kmalloc_array(max_packets,
-				sizeof(*device->response_pkt), GFP_TEMPORARY);
-
-	if (!device->response_pkt) {
-		dprintk(VIDC_ERR, "Failed to allocate resp_packets\n");
-		rc = -ENOMEM;
-		goto err_malloc;
-	}
-
 	return rc;
 
-err_malloc:
-	__deinit_bus(device);
 err_init_bus:
 	__deinit_clocks(device);
 err_init_clocks:
@@ -3826,8 +3815,6 @@ static void __deinit_resources(struct venus_hfi_device *device)
 	__deinit_bus(device);
 	__deinit_clocks(device);
 	__deinit_regulators(device);
-	kfree(device->response_pkt);
-	device->response_pkt = NULL;
 }
 
 static int __protect_cp_mem(struct venus_hfi_device *device)
@@ -4425,12 +4412,19 @@ static struct venus_hfi_device *__add_device(u32 device_id,
 			kzalloc(sizeof(struct venus_hfi_device), GFP_KERNEL);
 	if (!hdevice) {
 		dprintk(VIDC_ERR, "failed to allocate new device\n");
-		goto err_alloc;
+		goto exit;
+	}
+
+	hdevice->response_pkt = kmalloc_array(max_packets,
+				sizeof(*hdevice->response_pkt), GFP_TEMPORARY);
+	if (!hdevice->response_pkt) {
+		dprintk(VIDC_ERR, "failed to allocate response_pkt\n");
+		goto err_cleanup;
 	}
 
 	rc = __init_regs_and_interrupts(hdevice, res);
 	if (rc)
-		goto err_init_regs;
+		goto err_cleanup;
 
 	hdevice->res = res;
 	hdevice->device_id = device_id;
@@ -4440,16 +4434,15 @@ static struct venus_hfi_device *__add_device(u32 device_id,
 		"msm_vidc_workerq_venus");
 	if (!hdevice->vidc_workq) {
 		dprintk(VIDC_ERR, ": create vidc workq failed\n");
-		goto error_createq;
+		goto err_cleanup;
 	}
 
 	hdevice->venus_pm_workq = create_singlethread_workqueue(
 			"pm_workerq_venus");
 	if (!hdevice->venus_pm_workq) {
 		dprintk(VIDC_ERR, ": create pm workq failed\n");
-		goto error_createq_pm;
+		goto err_cleanup;
 	}
-
 
 	if (!hal_ctxt.dev_count)
 		INIT_LIST_HEAD(&hal_ctxt.dev_head);
@@ -4461,12 +4454,13 @@ static struct venus_hfi_device *__add_device(u32 device_id,
 	hal_ctxt.dev_count++;
 
 	return hdevice;
-error_createq_pm:
-	destroy_workqueue(hdevice->vidc_workq);
-error_createq:
-err_init_regs:
+
+err_cleanup:
+	if (hdevice->vidc_workq)
+		destroy_workqueue(hdevice->vidc_workq);
+	kfree(hdevice->response_pkt);
 	kfree(hdevice);
-err_alloc:
+exit:
 	return NULL;
 }
 
@@ -4504,6 +4498,7 @@ void venus_hfi_delete_device(void *device)
 			free_irq(dev->hal_data->irq, close);
 			iounmap(dev->hal_data->register_base);
 			kfree(close->hal_data);
+			kfree(close->response_pkt);
 			kfree(close);
 			break;
 		}
