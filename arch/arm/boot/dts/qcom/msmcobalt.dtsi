@@ -1107,7 +1107,7 @@
 
 &gdsc_bimc_smmu {
 	clock-names = "bus_clk";
-	clocks = <&clock_gcc clk_bimc_smmu_axi_clk>;
+	clocks = <&clock_mmss clk_bimc_smmu_axi_clk>;
 	status = "ok";
 };
 
