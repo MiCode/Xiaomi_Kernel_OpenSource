@@ -942,4 +942,5 @@
 
 &wil6210 {
 	status = "ok";
+	/delete-property/ qcom,wigig-en;
 };
