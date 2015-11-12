@@ -47,6 +47,7 @@
 #define clk_cxo_otg_clk				0x4eec0bb9
 #define clk_cxo_pil_lpass_clk			0xe17f0ff6
 #define clk_cxo_pil_ssc_clk			0x81832015
+#define clk_cxo_pil_spss_clk			0x5cd71a61
 #define clk_div_clk1				0xaa1157a6
 #define clk_div_clk1_ao				0x6b943d68
 #define clk_div_clk2				0xd454019f
