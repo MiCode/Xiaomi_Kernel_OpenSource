@@ -1154,9 +1154,9 @@ static int mdss_dsi_ulps_config(struct mdss_dsi_ctrl_pdata *ctrl,
 		/*
 		 * Clear out any phy errors prior to exiting ULPS
 		 * This fixes certain instances where phy does not exit
-		 * ULPS cleanly.
+		 * ULPS cleanly. Also, do not print error during such cases.
 		 */
-		mdss_dsi_dln0_phy_err(ctrl);
+		mdss_dsi_dln0_phy_err(ctrl, false);
 
 		/*
 		 * ULPS Exit Request
