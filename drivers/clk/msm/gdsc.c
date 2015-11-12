@@ -33,6 +33,7 @@
 #define HW_CONTROL_MASK		BIT(1)
 #define SW_COLLAPSE_MASK	BIT(0)
 #define GMEM_CLAMP_IO_MASK	BIT(0)
+#define GMEM_RESET_MASK		BIT(4)
 #define BCR_BLK_ARES_BIT	BIT(0)
 
 /* Wait 2^n CXO cycles between all states. Here, n=2 (4 cycles). */
@@ -58,6 +59,7 @@ struct gdsc {
 	bool			no_status_check_on_disable;
 	bool			is_gdsc_enabled;
 	bool			allow_clear;
+	bool			reset_aon;
 	void __iomem		*domain_addr;
 	void __iomem		*hw_ctrl_addr;
 	void __iomem		*sw_reset_addr;
@@ -167,6 +169,26 @@ static int gdsc_enable(struct regulator_dev *rdev)
 		}
 
 		if (sc->domain_addr) {
+			if (sc->reset_aon) {
+				regval = readl_relaxed(sc->domain_addr);
+				regval |= GMEM_RESET_MASK;
+				writel_relaxed(regval, sc->domain_addr);
+				/*
+				 * Keep reset asserted for at-least 1us before
+				 * continuing.
+				 */
+				wmb();
+				udelay(1);
+
+				regval &= ~GMEM_RESET_MASK;
+				writel_relaxed(regval, sc->domain_addr);
+				/*
+				 * Make sure GMEM_RESET is de-asserted before
+				 * continuing.
+				 */
+				wmb();
+			}
+
 			regval = readl_relaxed(sc->domain_addr);
 			regval &= ~GMEM_CLAMP_IO_MASK;
 			writel_relaxed(regval, sc->domain_addr);
@@ -468,6 +490,9 @@ static int gdsc_probe(struct platform_device *pdev)
 		if (sc->domain_addr == NULL)
 			return -ENOMEM;
 	}
+
+	sc->reset_aon = of_property_read_bool(pdev->dev.of_node,
+						"qcom,reset-aon-logic");
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 							"sw_reset");
