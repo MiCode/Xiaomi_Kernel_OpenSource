@@ -101,6 +101,13 @@ struct wcd_cpe_irq_info {
 	u8 cpe_fatal_irqs;
 };
 
+struct wcd_cpe_hw_info {
+	u32 dram_offset;
+	size_t dram_size;
+	u32 iram_offset;
+	size_t iram_size;
+};
+
 struct wcd_cpe_core {
 	/* handle to cpe services */
 	void *cpe_handle;
@@ -189,6 +196,9 @@ struct wcd_cpe_core {
 
 	/* Reference count for cpe clk*/
 	int cpe_clk_ref;
+
+	/* codec based hardware info */
+	struct wcd_cpe_hw_info hw_info;
 };
 
 struct wcd_cpe_params {
