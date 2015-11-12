@@ -1690,22 +1690,7 @@ static int get_device_tree_data(struct platform_device *pdev)
 
 	mhi->ipa_uc_mbox_erdb = res_mem->start;
 
-	mhi->mhi_irq = platform_get_irq_byname(pdev, "mhi-device-inta");
-	if (mhi->mhi_irq < 0) {
-		pr_err("Invalid MHI device interrupt\n");
-		rc = mhi->mhi_irq;
-		return rc;
-	}
-
 	mhi_ctx = mhi;
-
-	rc = of_property_read_u32((&pdev->dev)->of_node,
-				"qcom,mhi-local-pa-base",
-				&mhi_ctx->device_local_pa_base);
-	if (rc) {
-		pr_err("qcom,mhi-local-pa-base does not exist.\n");
-		return rc;
-	}
 
 	rc = of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,mhi-ifc-id",
