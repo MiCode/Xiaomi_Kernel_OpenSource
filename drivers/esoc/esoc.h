@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -112,7 +112,8 @@ struct esoc_drv {
 	struct module *owner;
 	struct esoc_compat *compat_table;
 	unsigned int compat_entries;
-	int (*probe)(struct esoc_clink *esoc_clink);
+	int (*probe)(struct esoc_clink *esoc_clink,
+				struct esoc_drv *drv);
 };
 
 #define to_esoc_clink(d) container_of(d, struct esoc_clink, dev)
