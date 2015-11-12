@@ -140,6 +140,7 @@ struct smbchg_chip {
 	bool				force_aicl_rerun;
 	bool				hvdcp3_supported;
 	bool				restricted_charging;
+	bool				skip_usb_suspend_for_fake_battery;
 	u8				original_usbin_allowance;
 	struct parallel_usb_cfg		parallel;
 	struct delayed_work		parallel_en_work;
@@ -358,6 +359,10 @@ enum enable_voters {
 	 * the charger is very weak, do not draw any current from it
 	 */
 	WEAK_CHARGER_EN_VOTER,
+	/*
+	 * fake battery voter, if battery id-resistance around 7.5 Kohm
+	 */
+	FAKE_BATTERY_EN_VOTER,
 	NUM_EN_VOTERS,
 };
 
@@ -2228,7 +2233,8 @@ static int usb_suspend_vote_cb(struct device *dev, int suspend,
 		return rc;
 
 	if (client == THERMAL_EN_VOTER || client == POWER_SUPPLY_EN_VOTER ||
-				client == USER_EN_VOTER)
+				client == USER_EN_VOTER ||
+				client == FAKE_BATTERY_EN_VOTER)
 		smbchg_parallel_usb_check_ok(chip);
 
 	return rc;
@@ -3378,6 +3384,8 @@ static int smbchg_config_chg_battery_type(struct smbchg_chip *chip)
 	return ret;
 }
 
+#define MAX_INV_BATT_ID		7700
+#define MIN_INV_BATT_ID		7300
 static void check_battery_type(struct smbchg_chip *chip)
 {
 	union power_supply_propval prop = {0,};
@@ -3394,6 +3402,16 @@ static void check_battery_type(struct smbchg_chip *chip)
 			&& (strcmp(prop.strval, LOADING_BATT_TYPE) != 0);
 		vote(chip->battchg_suspend_votable,
 				BATTCHG_UNKNOWN_BATTERY_EN_VOTER, !en, 0);
+
+		if (!chip->skip_usb_suspend_for_fake_battery) {
+			chip->bms_psy->get_property(chip->bms_psy,
+				POWER_SUPPLY_PROP_RESISTANCE_ID, &prop);
+			/* suspend USB path for invalid battery-id */
+			en = (prop.intval <= MAX_INV_BATT_ID &&
+				prop.intval >= MIN_INV_BATT_ID) ? 1 : 0;
+			vote(chip->usb_suspend_votable, FAKE_BATTERY_EN_VOTER,
+				en, 0);
+		}
 	}
 }
 
@@ -6924,6 +6942,8 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 					"qcom,low-volt-dcin");
 	chip->force_aicl_rerun = of_property_read_bool(node,
 					"qcom,force-aicl-rerun");
+	chip->skip_usb_suspend_for_fake_battery = of_property_read_bool(node,
+				"qcom,skip-usb-suspend-for-fake-battery");
 
 	/* parse the battery missing detection pin source */
 	rc = of_property_read_string(chip->spmi->dev.of_node,
