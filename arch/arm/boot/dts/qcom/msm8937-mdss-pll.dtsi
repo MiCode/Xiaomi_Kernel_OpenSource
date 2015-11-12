@@ -53,6 +53,7 @@
 	};
 
 	mdss_dsi1_pll: qcom,mdss_dsi_pll@1a96a00 {
+		status = "disabled";
 		compatible = "qcom,mdss_dsi_pll_8937";
 		label = "MDSS DSI 1 PLL";
 		cell-index = <1>;

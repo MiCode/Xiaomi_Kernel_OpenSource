@@ -99,20 +99,10 @@
 				    <0x012b4 0x00000444>,
 				    <0x012bc 0x40444444>,
 				    <0x012c4 0x00000044>,
-				    <0x013a8 0x44040044>,
-				    <0x013b0 0x04444044>,
-				    <0x013b8 0x44444040>,
-				    <0x013d0 0x00444000>,
 				    <0x0506c 0x00000000>,
-				    <0x0706c 0x00000000>,
-				    <0x0906c 0x00000000>,
-				    <0x0b06c 0x00000000>,
 				    <0x1506c 0x00000000>,
 				    <0x1706c 0x00000000>,
-				    <0x1906c 0x00000000>,
-				    <0x1b06c 0x00000000>,
-				    <0x2506c 0x00000000>,
-				    <0x2706c 0x00000000>;
+				    <0x2506c 0x00000000>;
 
 		qcom,regs-dump-mdp = <0x01000 0x01454>,
 				     <0x02000 0x02064>,
@@ -197,6 +187,15 @@
 		gdsc-supply = <&gdsc_mdss>;
 		vdda-supply = <&pm8937_l2>;
 		vddio-supply = <&pm8937_l6>;
+
+		/* Bus Scale Settings */
+		qcom,msm-bus,name = "mdss_dsi";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<22 512 0 0>,
+			<22 512 0 1000>;
+
 		ranges = <0x1a94000 0x1a94000 0x300
 			0x1a94400 0x1a94400 0x280
 			0x1a94b80 0x1a94b80 0x30
@@ -348,7 +347,6 @@
 		compatible = "qcom,mdss_rotator";
 		qcom,mdss-wb-count = <1>;
 		qcom,mdss-has-downscale;
-		qcom,mdss-has-reg-bus;
 		qcom,mdss-has-ubwc;
 		/* Bus Scale Settings */
 		qcom,msm-bus,name = "mdss_rotator";
