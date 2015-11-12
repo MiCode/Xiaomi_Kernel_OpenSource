@@ -3110,8 +3110,10 @@
 		qcom,msm-auxpcm-interface = "primary";
 		qcom,msm-cpudai-afe-clk-ver = <2>;
 		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&pri_aux_pcm_active &pri_aux_pcm_din_active>;
-		pinctrl-1 = <&pri_aux_pcm_sleep &pri_aux_pcm_din_sleep>;
+		pinctrl-0 = <&pri_aux_pcm_active &pri_aux_pcm_din_active
+			     &pri_aux_pcm_dout_active>;
+		pinctrl-1 = <&pri_aux_pcm_sleep &pri_aux_pcm_din_sleep
+			     &pri_aux_pcm_dout_sleep>;
 	};
 
 	dai_sec_auxpcm: qcom,msm-sec-auxpcm {
