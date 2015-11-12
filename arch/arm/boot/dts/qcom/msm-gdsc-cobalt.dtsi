@@ -41,14 +41,6 @@
 		status = "disabled";
 	};
 
-	gdsc_hlos1_vote_gpu_smmu: qcom,gdsc@17d024 {
-		compatible = "qcom,gdsc";
-		regulator-name = "gdsc_hlos1_vote_gpu_smmu";
-		reg = <0x17d024 0x4>;
-		qcom,no-status-check-on-disable;
-		status = "disabled";
-	};
-
 	gdsc_hlos1_vote_lpass_adsp: qcom,gdsc@17d034 {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_hlos1_vote_lpass_adsp";

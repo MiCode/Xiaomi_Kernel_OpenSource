@@ -165,7 +165,7 @@
 			   <GIC_SPI 332 IRQ_TYPE_LEVEL_HIGH>,
 			   <GIC_SPI 116 IRQ_TYPE_LEVEL_HIGH>,
 			   <GIC_SPI 117 IRQ_TYPE_LEVEL_HIGH>;
-		vdd-supply = <&gdsc_hlos1_vote_gpu_smmu>;
+		vdd-supply = <&gdsc_gpu_cx>;
 		clocks = <&clock_gcc clk_gcc_bimc_gfx_clk>;
 		clock-name = "kgsl_smmu_clk";
 		#clock-cells = <1>;

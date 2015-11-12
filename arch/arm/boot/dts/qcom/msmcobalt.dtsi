@@ -1111,10 +1111,6 @@
 	status = "ok";
 };
 
-&gdsc_hlos1_vote_gpu_smmu {
-	status = "ok";
-};
-
 &gdsc_hlos1_vote_lpass_adsp {
 	status = "ok";
 };
