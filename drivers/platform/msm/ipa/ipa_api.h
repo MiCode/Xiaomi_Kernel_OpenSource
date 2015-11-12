@@ -273,7 +273,7 @@ struct ipa_api_controller {
 
 	int (*ipa_mhi_resume)(void);
 
-	int (*ipa_mhi_destroy)(void);
+	void (*ipa_mhi_destroy)(void);
 
 	int (*ipa_write_qmap_id)(struct ipa_ioc_write_qmapid *param_in);
 
