@@ -1314,7 +1314,7 @@ int msm_vidc_close(void *instance)
 
 			for (i = 0; i < min(bi->num_planes, VIDEO_MAX_PLANES);
 					i++) {
-				if (bi->handle[i])
+				if (bi->handle[i] && bi->mapped[i])
 					msm_comm_smem_free(inst, bi->handle[i]);
 			}
 
