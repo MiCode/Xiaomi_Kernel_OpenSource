@@ -302,8 +302,7 @@ static void msm_spi_clk_path_unvote(struct msm_spi *dd)
 
 static void msm_spi_clk_path_teardown(struct msm_spi *dd)
 {
-	if (dd->pdata->active_only)
-		msm_spi_clk_path_unvote(dd);
+	msm_spi_clk_path_unvote(dd);
 
 	if (dd->clk_path_vote.client_hdl) {
 		msm_bus_scale_unregister_client(dd->clk_path_vote.client_hdl);
@@ -356,7 +355,7 @@ static int msm_spi_clk_path_init_structs(struct msm_spi *dd)
 	paths[MSM_SPI_CLK_PATH_RESUME_VEC]  = (struct msm_bus_vectors) {
 		.src = dd->pdata->master_id,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = MSM_SPI_CLK_PATH_AVRG_BW(dd),
+		.ab  = 0,
 		.ib  = MSM_SPI_CLK_PATH_BRST_BW(dd),
 	};
 
@@ -371,7 +370,7 @@ static int msm_spi_clk_path_init_structs(struct msm_spi *dd)
 	};
 
 	*dd->clk_path_vote.pdata = (struct msm_bus_scale_pdata) {
-		.active_only  = dd->pdata->active_only,
+		.active_only  = 0,
 		.name         = dev_name(dd->dev),
 		.num_usecases = 2,
 		.usecase      = usecases,
@@ -409,23 +408,20 @@ static int msm_spi_clk_path_postponed_register(struct msm_spi *dd)
 			/* log a success message if an error msg was logged */
 			dd->clk_path_vote.reg_err = false;
 			dev_info(dd->dev,
-				"msm_bus_scale_register_client(mstr-id:%d "
-				"actv-only:%d):0x%x",
-				dd->pdata->master_id, dd->pdata->active_only,
+			"msm_bus_scale_register_client(mstr-id:%d): 0x%x",
+				dd->pdata->master_id,
 				dd->clk_path_vote.client_hdl);
 		}
 
-		if (dd->pdata->active_only)
-			msm_spi_clk_path_vote(dd);
+		msm_spi_clk_path_vote(dd);
 	} else {
 		/* guard to log only one error on multiple failure */
 		if (!dd->clk_path_vote.reg_err) {
 			dd->clk_path_vote.reg_err = true;
 
 			dev_info(dd->dev,
-				"msm_bus_scale_register_client(mstr-id:%d "
-				"actv-only:%d):0",
-				dd->pdata->master_id, dd->pdata->active_only);
+				"msm_bus_scale_register_client(mstr-id:%d): 0",
+				dd->pdata->master_id);
 		}
 	}
 
@@ -451,8 +447,7 @@ static void msm_spi_clk_path_init(struct msm_spi *dd)
 	if (msm_spi_clk_path_postponed_register(dd))
 		return;
 
-	if (dd->pdata->active_only)
-		msm_spi_clk_path_vote(dd);
+	msm_spi_clk_path_vote(dd);
 }
 
 static int msm_spi_calculate_size(int *fifo_size,
@@ -2229,8 +2224,6 @@ struct msm_spi_platform_data *msm_spi_dt_to_pdata(
 			&pdata->max_clock_speed,         DT_SGST, DT_U32,   0},
 		{"qcom,infinite-mode",
 			&pdata->infinite_mode,           DT_OPT,  DT_U32,   0},
-		{"qcom,active-only",
-			&pdata->active_only,             DT_OPT,  DT_BOOL,  0},
 		{"qcom,master-id",
 			&pdata->master_id,               DT_SGST, DT_U32,   0},
 		{"qcom,ver-reg-exists",
@@ -2647,7 +2640,7 @@ static int msm_spi_pm_suspend_runtime(struct device *device)
 	if (dd->pdata && !dd->pdata->is_shared)
 		put_local_resources(dd);
 
-	if (dd->pdata && !dd->pdata->active_only)
+	if (dd->pdata)
 		msm_spi_clk_path_unvote(dd);
 
 suspend_exit:
@@ -2678,8 +2671,7 @@ static int msm_spi_pm_resume_runtime(struct device *device)
 			dd->is_init_complete = true;
 	}
 	msm_spi_clk_path_init(dd);
-	if (!dd->pdata->active_only)
-		msm_spi_clk_path_vote(dd);
+	msm_spi_clk_path_vote(dd);
 
 	if (!dd->pdata->is_shared) {
 		ret = get_local_resources(dd);
