@@ -206,6 +206,9 @@ Optional properties:
 - qcom,dbgui-data-offset : indicates the offset of dbgui data registers
 - qcom,dbgui-size : indicates the size of dbgui address and data registers
 - qcom,pmic-carddetect-gpio : indicates the hotplug capabilities of the qpdi driver
+- qcom,cpuss-debug-cgc: debug clock gating phandle for etm
+	reg : the clock gating register for each cluster
+	cluster : indicate the cluster number
 
 coresight-outports, coresight-child-list and coresight-child-ports lists will
 be of the same length and will have a one to one correspondence among the
@@ -366,9 +369,17 @@ Examples:
 		coresight-child-list = <&funnel_kpss>;
 		coresight-child-ports = <0>;
 		coresight-etm-cpu = <&CPU0>;
+		qcom,cpuss-debug-cgc = <&CGC_0>;
 
 		qcom,pc-save;
 		qcom,round-robin;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+		CGC_0: cluster-cgc {
+			reg = <0xb011088 0x4>;
+			cluster = <1>;
+		};
 	};
 
 4. Miscellaneous
