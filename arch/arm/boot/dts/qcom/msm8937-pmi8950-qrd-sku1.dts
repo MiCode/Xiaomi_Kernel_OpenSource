@@ -21,5 +21,4 @@
 	compatible = "qcom,msm8937-pmi8950-qrd-sku1",
 		   "qcom,msm8937-qrd", "qcom,msm8937", "qcom,qrd";
 	qcom,board-id= <0x2000b 0>;
-	qcom,pmic-id = <0x10019 0x010011 0x0 0x0>;
 };
