@@ -72,6 +72,7 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 
 void msm_isp_axi_disable_all_wm(struct vfe_device *vfe_dev);
 
+void msm_isp_halt_send_error(struct vfe_device *vfe_dev, uint32_t event);
 int msm_isp_print_ping_pong_address(struct vfe_device *vfe_dev);
 void msm_isp_increment_frame_id(struct vfe_device *vfe_dev,
 	enum msm_vfe_input_src frame_src, struct msm_isp_timestamp *ts);
