@@ -25,7 +25,7 @@
 #include <soc/qcom/subsystem_restart.h>
 #include "glink_private.h"
 
-#define GLINK_SSR_REPLY_TIMEOUT	(HZ / 2)
+#define GLINK_SSR_REPLY_TIMEOUT	HZ
 #define GLINK_SSR_EVENT_INIT ~0
 #define NUM_LOG_PAGES 3
 
@@ -535,9 +535,17 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 			continue;
 		}
 
-		ret = glink_tx(handle, (void *)ss_leaf_entry->cb_data,
-				(void *)do_cleanup_data,
-				sizeof(struct do_cleanup_msg), true);
+		if (strcmp(ss_leaf_entry->ssr_name, "rpm"))
+			ret = glink_tx(handle, ss_leaf_entry->cb_data,
+					do_cleanup_data,
+					sizeof(*do_cleanup_data),
+					GLINK_TX_REQ_INTENT);
+		else
+			ret = glink_tx(handle, ss_leaf_entry->cb_data,
+					do_cleanup_data,
+					sizeof(*do_cleanup_data),
+					GLINK_TX_SINGLE_THREADED);
+
 		if (ret) {
 			GLINK_SSR_ERR("<SSR> %s: tx failed, ret[%d], %s[%d]\n",
 					__func__, ret, "resp. remaining",
