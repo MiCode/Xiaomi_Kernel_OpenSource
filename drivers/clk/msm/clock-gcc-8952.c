@@ -38,8 +38,8 @@
 
 enum {
 	GCC_BASE,
-	APCS_C0_PLL_BASE,
 	APCS_C1_PLL_BASE,
+	APCS_C0_PLL_BASE,
 	APCS_CCI_PLL_BASE,
 	N_BASES,
 };
@@ -589,6 +589,15 @@ static struct clk_freq_tbl ftbl_gcc_venus0_vcodec0_clk_8937[] = {
 	F_END
 };
 
+static struct clk_freq_tbl ftbl_gcc_venus0_vcodec0_clk_gold[] = {
+	F( 160000000,          gpll0,    5,    0,     0),
+	F( 200000000,          gpll0,    5,    0,     0),
+	F( 308570000,          gpll6,  3.5,    0,     0),
+	F( 329140000,          gpll4,  3.5,    0,     0),
+	F( 360000000,          gpll6,    3,    0,     0),
+	F_END
+};
+
 static struct rcg_clk vcodec0_clk_src = {
 	.cmd_rcgr_reg =  VCODEC0_CMD_RCGR,
 	.set_rate = set_rate_mnd,
@@ -634,6 +643,22 @@ static struct clk_freq_tbl ftbl_gcc_camss_vfe0_1_clk_8937[] = {
 	F( 360000000,          gpll6,    3,    0,     0),
 	F( 400000000,          gpll0,    2,    0,     0),
 	F( 432000000,          gpll6,  2.5,    0,     0),
+	F_END
+};
+
+static struct clk_freq_tbl ftbl_gcc_camss_vfe0_1_clk_gold[] = {
+	F(  50000000,          gpll0,   16,    0,     0),
+	F(  80000000,          gpll0,   10,    0,     0),
+	F( 100000000,          gpll0,    8,    0,     0),
+	F( 133333333,          gpll0,    6,    0,     0),
+	F( 160000000,          gpll0,    5,    0,     0),
+	F( 177780000,          gpll0,  4.5,    0,     0),
+	F( 200000000,          gpll0,    4,    0,     0),
+	F( 266670000,          gpll0,    3,    0,     0),
+	F( 308570000,          gpll6,  3.5,    0,     0),
+	F( 320000000,          gpll0,  2.5,    0,     0),
+	F( 329140000,          gpll4,  3.5,    0,     0),
+	F( 360000000,          gpll6,    3,    0,     0),
 	F_END
 };
 
@@ -701,6 +726,24 @@ static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_clk_8937[] = {
 	F_SLEW( 375000000, 750000000,	  gpll3,	1,	0,	0),
 	F_SLEW( 400000000, FIXED_CLK_SRC, gpll0,	2,	0,	0),
 	F_SLEW( 450000000, 900000000,	  gpll3,	1,	0,	0),
+	F_END
+};
+
+static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_clk_gold[] = {
+	F_SLEW( 19200000,  FIXED_CLK_SRC, xo,		1,	0,	0),
+	F_SLEW( 50000000,  FIXED_CLK_SRC, gpll0,	16,	0,	0),
+	F_SLEW( 80000000,  FIXED_CLK_SRC, gpll0,	10,	0,	0),
+	F_SLEW( 100000000, FIXED_CLK_SRC, gpll0,	8,	0,	0),
+	F_SLEW( 160000000, FIXED_CLK_SRC, gpll0,	5,	0,	0),
+	F_SLEW( 200000000, FIXED_CLK_SRC, gpll0,	4,	0,	0),
+	F_SLEW( 228570000, FIXED_CLK_SRC, gpll0,	3.5,	0,	0),
+	F_SLEW( 240000000, FIXED_CLK_SRC, gpll6_aux,	4.5,	0,	0),
+	F_SLEW( 266670000, FIXED_CLK_SRC, gpll0,	3,	0,	0),
+	F_SLEW( 320000000, FIXED_CLK_SRC, gpll0,	2.5,	0,	0),
+	F_SLEW( 400000000, FIXED_CLK_SRC, gpll0,	2,	0,	0),
+	F_SLEW( 465000000, 930000000,	  gpll3,	1,	0,	0),
+	F_SLEW( 500000000, 1000000000,	  gpll3,	1,	0,	0),
+	F_SLEW( 550000000, 1100000000,	  gpll3,	1,	0,	0),
 	F_END
 };
 
@@ -865,6 +908,7 @@ static struct clk_freq_tbl ftbl_gcc_blsp1_2_uart1_2_apps_clk[] = {
 	F( 56000000,	gpll0,	1,	7,	100),
 	F( 58982400,	gpll0,	1,	1152,	15625),
 	F( 60000000,	gpll0,	1,	3,	40),
+	F( 64000000,	gpll0, 12,	1,	 2),
 	F_END
 };
 
@@ -1075,6 +1119,16 @@ static struct clk_freq_tbl ftbl_gcc_camss_cpp_clk_8937[] = {
 	F_END
 };
 
+static struct clk_freq_tbl ftbl_gcc_camss_cpp_clk_gold[] = {
+	F( 133330000,          gpll0,    6,    0,     0),
+	F( 160000000,          gpll0,    5,    0,     0),
+	F( 266670000,          gpll0,    3,    0,     0),
+	F( 308570000,          gpll6,  3.5,    0,     0),
+	F( 320000000,          gpll0,  2.5,    0,     0),
+	F( 360000000,          gpll6,    3,    0,     0),
+	F_END
+};
+
 static struct rcg_clk cpp_clk_src = {
 	.cmd_rcgr_reg = CPP_CMD_RCGR,
 	.set_rate = set_rate_hid,
@@ -1211,6 +1265,14 @@ static struct clk_freq_tbl ftbl_gcc_camss_csi0_1phytimer_clk[] = {
 	F( 100000000,	gpll0,	8,	0,	0),
 	F( 160000000,	gpll0,	5,	0,	0),
 	F( 200000000,	gpll0,	4,	0,	0),
+	F_END
+};
+
+static struct clk_freq_tbl ftbl_gcc_camss_csi0_1phytimer_clk_gold[] = {
+	F( 100000000,	gpll0,	8,	0,	0),
+	F( 160000000,	gpll0,	5,	0,	0),
+	F( 200000000,	gpll0,	4,	0,	0),
+	F( 266670000,	gpll0,	3,	0,	0),
 	F_END
 };
 
@@ -1701,6 +1763,14 @@ static struct clk_freq_tbl ftbl_gcc_usb_hs_system_clk[] = {
 	F( 57140000,	gpll0,	14,	0,	0),
 	F( 100000000,	gpll0,	8,	0,	0),
 	F( 133330000,	gpll0,	6,	0,	0),
+	F( 177780000,	gpll0,	4.5,	0,	0),
+	F_END
+};
+
+static struct clk_freq_tbl ftbl_gcc_usb_hs_system_clk_gold[] = {
+	F( 80000000,	gpll0,	 10,	0,	0),
+	F( 100000000,	gpll0,	  8,	0,	0),
+	F( 133330000,	gpll0,	  6,	0,	0),
 	F( 177780000,	gpll0,	4.5,	0,	0),
 	F_END
 };
@@ -3480,7 +3550,10 @@ static struct mux_clk gcc_debug_mux_8937 = {
 		{ &gcc_qdss_dap_clk.c, 0x0049 },
 		{ &gcc_apss_tcu_clk.c, 0x0050 },
 		{ &gcc_mdp_tbu_clk.c, 0x0051 },
+		{ &gcc_gfx_tbu_clk.c, 0x0052 },
+		{ &gcc_gfx_tcu_clk.c, 0x0053 },
 		{ &gcc_venus_tbu_clk.c, 0x0054 },
+		{ &gcc_gtcu_ahb_clk.c, 0x0058 },
 		{ &gcc_vfe_tbu_clk.c, 0x005a },
 		{ &gcc_smmu_cfg_clk.c, 0x005b },
 		{ &gcc_jpeg_tbu_clk.c, 0x005c },
@@ -3567,6 +3640,7 @@ static struct mux_clk gcc_debug_mux_8937 = {
 		{ &gcc_camss_vfe1_axi_clk.c, 0x01a3 },
 		{ &gcc_camss_cpp_axi_clk.c, 0x01a4 },
 		{ &gcc_venus0_core0_vcodec0_clk.c, 0x01b8 },
+		{ &gcc_dcc_clk.c, 0x01b9 },
 		{ &gcc_camss_mclk2_clk.c, 0x01bd },
 		{ &gcc_oxili_timer_clk.c, 0x01e9 },
 		{ &gcc_oxili_gfx3d_clk.c, 0x01ea },
@@ -3655,7 +3729,6 @@ static struct clk_lookup msm_clocks_lookup_common[] = {
 	CLK_LIST(gpll6_clk_src),
 	CLK_LIST(gpll4_clk_src),
 	CLK_LIST(gpll3_clk_src),
-	CLK_LIST(a53ss_c0_pll),
 	CLK_LIST(a53ss_c1_pll),
 	CLK_LIST(gcc_blsp1_ahb_clk),
 	CLK_LIST(gcc_blsp2_ahb_clk),
@@ -3681,8 +3754,6 @@ static struct clk_lookup msm_clocks_lookup_common[] = {
 	CLK_LIST(vfe0_clk_src),
 	CLK_LIST(vfe1_clk_src),
 	CLK_LIST(gfx3d_clk_src),
-	CLK_LIST(blsp1_qup1_i2c_apps_clk_src),
-	CLK_LIST(blsp1_qup1_spi_apps_clk_src),
 	CLK_LIST(blsp1_qup2_i2c_apps_clk_src),
 	CLK_LIST(blsp1_qup2_spi_apps_clk_src),
 	CLK_LIST(blsp1_qup3_i2c_apps_clk_src),
@@ -3697,8 +3768,6 @@ static struct clk_lookup msm_clocks_lookup_common[] = {
 	CLK_LIST(blsp2_qup2_spi_apps_clk_src),
 	CLK_LIST(blsp2_qup3_i2c_apps_clk_src),
 	CLK_LIST(blsp2_qup3_spi_apps_clk_src),
-	CLK_LIST(blsp2_qup4_i2c_apps_clk_src),
-	CLK_LIST(blsp2_qup4_spi_apps_clk_src),
 	CLK_LIST(blsp2_uart1_apps_clk_src),
 	CLK_LIST(blsp2_uart2_apps_clk_src),
 	CLK_LIST(cci_clk_src),
@@ -3724,8 +3793,6 @@ static struct clk_lookup msm_clocks_lookup_common[] = {
 	CLK_LIST(sdcc2_apps_clk_src),
 	CLK_LIST(usb_hs_system_clk_src),
 	CLK_LIST(gcc_bimc_gpu_clk),
-	CLK_LIST(gcc_blsp1_qup1_i2c_apps_clk),
-	CLK_LIST(gcc_blsp1_qup1_spi_apps_clk),
 	CLK_LIST(gcc_blsp1_qup2_i2c_apps_clk),
 	CLK_LIST(gcc_blsp1_qup2_spi_apps_clk),
 	CLK_LIST(gcc_blsp1_qup3_i2c_apps_clk),
@@ -3740,8 +3807,6 @@ static struct clk_lookup msm_clocks_lookup_common[] = {
 	CLK_LIST(gcc_blsp2_qup2_spi_apps_clk),
 	CLK_LIST(gcc_blsp2_qup3_i2c_apps_clk),
 	CLK_LIST(gcc_blsp2_qup3_spi_apps_clk),
-	CLK_LIST(gcc_blsp2_qup4_i2c_apps_clk),
-	CLK_LIST(gcc_blsp2_qup4_spi_apps_clk),
 	CLK_LIST(gcc_blsp2_uart1_apps_clk),
 	CLK_LIST(gcc_blsp2_uart2_apps_clk),
 	CLK_LIST(gcc_camss_cci_ahb_clk),
@@ -3798,7 +3863,6 @@ static struct clk_lookup msm_clocks_lookup_common[] = {
 	CLK_LIST(gcc_mss_q6_bimc_axi_clk),
 	CLK_LIST(gcc_bimc_gfx_clk),
 	CLK_LIST(gcc_oxili_ahb_clk),
-	CLK_LIST(gcc_oxili_timer_clk),
 	CLK_LIST(gcc_oxili_gfx3d_clk),
 	CLK_LIST(gcc_pdm2_clk),
 	CLK_LIST(gcc_pdm_ahb_clk),
@@ -3825,6 +3889,7 @@ static struct clk_lookup msm_clocks_lookup_common[] = {
 };
 
 static struct clk_lookup msm_clocks_lookup_8952[] = {
+	CLK_LIST(a53ss_c0_pll),
 	CLK_LIST(a53ss_cci_pll),
 	CLK_LIST(ipa_clk),
 	CLK_LIST(ipa_a_clk),
@@ -3841,17 +3906,47 @@ static struct clk_lookup msm_clocks_lookup_8952[] = {
 	CLK_LIST(gcc_ipa_tbu_clk),
 	CLK_LIST(gcc_usb_fs_ahb_clk),
 	CLK_LIST(gcc_venus0_core1_vcodec0_clk),
+	CLK_LIST(blsp1_qup1_i2c_apps_clk_src),
+	CLK_LIST(blsp1_qup1_spi_apps_clk_src),
+	CLK_LIST(gcc_blsp1_qup1_i2c_apps_clk),
+	CLK_LIST(gcc_blsp1_qup1_spi_apps_clk),
+	CLK_LIST(blsp2_qup4_i2c_apps_clk_src),
+	CLK_LIST(blsp2_qup4_spi_apps_clk_src),
+	CLK_LIST(gcc_blsp2_qup4_i2c_apps_clk),
+	CLK_LIST(gcc_blsp2_qup4_spi_apps_clk),
+	CLK_LIST(gcc_oxili_timer_clk),
 };
 
 static struct clk_lookup msm_clocks_lookup_8937[] = {
 	CLK_LIST(gpll0_clk_src_8937),
 	CLK_LIST(gpll0_ao_clk_src_8937),
 	CLK_LIST(gpll0_sleep_clk_src),
+	CLK_LIST(a53ss_c0_pll),
 	CLK_LIST(esc1_clk_src),
 	CLK_LIST(gcc_mdss_esc1_clk),
 	CLK_LIST(gcc_dcc_clk),
 	CLK_LIST(gcc_oxili_aon_clk),
 	CLK_LIST(gcc_qdss_dap_clk),
+	CLK_LIST(blsp1_qup1_i2c_apps_clk_src),
+	CLK_LIST(blsp1_qup1_spi_apps_clk_src),
+	CLK_LIST(gcc_blsp1_qup1_i2c_apps_clk),
+	CLK_LIST(gcc_blsp1_qup1_spi_apps_clk),
+	CLK_LIST(blsp2_qup4_i2c_apps_clk_src),
+	CLK_LIST(blsp2_qup4_spi_apps_clk_src),
+	CLK_LIST(gcc_blsp2_qup4_i2c_apps_clk),
+	CLK_LIST(gcc_blsp2_qup4_spi_apps_clk),
+	CLK_LIST(gcc_oxili_timer_clk),
+};
+
+static struct clk_lookup msm_clocks_lookup_gold[] = {
+	CLK_LIST(gpll0_clk_src_8937),
+	CLK_LIST(gpll0_ao_clk_src_8937),
+	CLK_LIST(gpll0_sleep_clk_src),
+	CLK_LIST(gcc_dcc_clk),
+	CLK_LIST(gcc_qdss_dap_clk),
+	CLK_LIST(gcc_gfx_tcu_clk),
+	CLK_LIST(gcc_gfx_tbu_clk),
+	CLK_LIST(gcc_gtcu_ahb_clk),
 };
 
 /* Please note that the order of reg-names is important */
@@ -3887,6 +3982,76 @@ static int get_mmio_addr(struct platform_device *pdev)
 	}
 
 	return 0;
+}
+
+static void override_for_gold(void)
+{
+	gpll3_clk_src.c.rate = 930000000;
+
+	OVERRIDE_FMAX3(csi0,
+		LOWER, 100000000, LOW, 200000000, NOMINAL, 266670000);
+	/* Frequency Table same as 8937 */
+	OVERRIDE_FTABLE(csi0, ftbl_gcc_camss_csi0_2_clk, 8937);
+	OVERRIDE_FMAX3(csi1,
+		LOWER, 100000000, LOW, 200000000, NOMINAL, 266670000);
+	/* Frequency Table same as 8937 */
+	OVERRIDE_FTABLE(csi1, ftbl_gcc_camss_csi0_2_clk, 8937);
+	OVERRIDE_FMAX3(csi2,
+		LOWER, 100000000, LOW, 200000000, NOMINAL, 266670000);
+	/* Frequency Table same as 8937 */
+	OVERRIDE_FTABLE(csi2, ftbl_gcc_camss_csi0_2_clk, 8937);
+
+	OVERRIDE_FMAX5(vfe0,
+		LOWER, 160000000, LOW, 266670000, NOMINAL, 320000000,
+		NOM_PLUS, 329140000, HIGH, 360000000);
+	OVERRIDE_FTABLE(vfe0, ftbl_gcc_camss_vfe0_1_clk, gold);
+	OVERRIDE_FMAX5(vfe1,
+		LOWER, 160000000, LOW, 266670000, NOMINAL, 320000000,
+		NOM_PLUS, 329140000, HIGH, 360000000);
+	OVERRIDE_FTABLE(vfe1, ftbl_gcc_camss_vfe0_1_clk, gold);
+	OVERRIDE_FTABLE(vcodec0, ftbl_gcc_venus0_vcodec0_clk, gold);
+	OVERRIDE_FMAX4(vcodec0,
+		LOWER, 200000000, LOW, 270000000, NOMINAL, 329140000,
+		HIGH, 360000000);
+	OVERRIDE_FMAX4(cpp,
+		LOWER, 160000000, LOW, 266670000, NOMINAL, 320000000,
+		NOM_PLUS, 360000000);
+	OVERRIDE_FTABLE(cpp, ftbl_gcc_camss_cpp_clk, gold);
+	OVERRIDE_FMAX5(jpeg0,
+		LOWER, 133330000, LOW, 200000000, NOMINAL, 266670000,
+		NOM_PLUS, 308570000, HIGH, 320000000);
+	/* Frequency Table same as 8937 */
+	OVERRIDE_FTABLE(jpeg0, ftbl_gcc_camss_jpeg0_clk, 8937);
+	OVERRIDE_FMAX5(gfx3d,
+		LOWER, 240000000, LOW, 320000000, NOMINAL, 465000000,
+		NOM_PLUS, 500000000, HIGH, 598000000);
+	OVERRIDE_FTABLE(gfx3d, ftbl_gcc_oxili_gfx3d_clk, gold);
+	OVERRIDE_FMAX1(cci, LOWER, 37500000);
+
+	OVERRIDE_FTABLE(csi0phytimer, ftbl_gcc_camss_csi0_1phytimer_clk, gold);
+	OVERRIDE_FMAX3(csi0phytimer, LOWER, 100000000, LOW, 200000000,
+			NOMINAL, 266670000);
+	OVERRIDE_FTABLE(csi1phytimer, ftbl_gcc_camss_csi0_1phytimer_clk, gold);
+	OVERRIDE_FMAX3(csi1phytimer, LOWER, 100000000, LOW, 200000000,
+			NOMINAL, 266670000);
+	OVERRIDE_FMAX2(gp1, LOWER, 100000000, NOMINAL, 200000000);
+	OVERRIDE_FMAX2(gp2, LOWER, 100000000, NOMINAL, 200000000);
+	OVERRIDE_FMAX2(gp3, LOWER, 100000000, NOMINAL, 200000000);
+
+	OVERRIDE_FMAX2(byte0, LOWER, 125000000, NOMINAL, 187500000);
+	/* Frequency Table same as 8937 */
+	OVERRIDE_FTABLE(byte0, ftbl_gcc_mdss_byte0_clk, 8937);
+	byte0_clk_src.current_freq = ftbl_gcc_mdss_pclk0_clk_8937;
+
+	OVERRIDE_FMAX2(pclk0, LOWER, 166670000, NOMINAL, 250000000);
+	/* Frequency Table same as 8937 */
+	OVERRIDE_FTABLE(pclk0, ftbl_gcc_mdss_pclk0_clk, 8937);
+	pclk0_clk_src.current_freq = ftbl_gcc_mdss_pclk0_clk_8937;
+
+	OVERRIDE_FMAX2(sdcc1_apps, LOWER, 200000000, NOMINAL, 400000000);
+	OVERRIDE_FTABLE(usb_hs_system, ftbl_gcc_usb_hs_system_clk, gold);
+	OVERRIDE_FMAX3(usb_hs_system, LOWER, 800000000, NOMINAL, 133333000,
+			HIGH, 177780000);
 }
 
 static void override_for_8937(void)
@@ -3949,10 +4114,13 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	int ret;
 	u32 regval;
 	bool compat_bin = false;
+	bool compat_bin2 = false;
 
 	compat_bin = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,gcc-8937");
 
+	compat_bin2 = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,gcc-gold");
 	ret = vote_bimc(&bimc_clk, INT_MAX);
 	if (ret < 0)
 		return ret;
@@ -3982,22 +4150,24 @@ static int msm_gcc_probe(struct platform_device *pdev)
 		return PTR_ERR(vdd_dig.regulator[0]);
 	}
 
-	vdd_sr2_pll.regulator[0] = devm_regulator_get(&pdev->dev,
+	if (!compat_bin2) {
+		vdd_sr2_pll.regulator[0] = devm_regulator_get(&pdev->dev,
 							"vdd_sr2_pll");
-	if (IS_ERR(vdd_sr2_pll.regulator[0])) {
-		if (PTR_ERR(vdd_sr2_pll.regulator[0]) != -EPROBE_DEFER)
-			dev_err(&pdev->dev,
+		if (IS_ERR(vdd_sr2_pll.regulator[0])) {
+			if (PTR_ERR(vdd_sr2_pll.regulator[0]) != -EPROBE_DEFER)
+				dev_err(&pdev->dev,
 				"Unable to get vdd_sr2_pll regulator!!!\n");
-		return PTR_ERR(vdd_sr2_pll.regulator[0]);
-	}
+			return PTR_ERR(vdd_sr2_pll.regulator[0]);
+		}
 
-	vdd_sr2_pll.regulator[1] = devm_regulator_get(&pdev->dev,
+		vdd_sr2_pll.regulator[1] = devm_regulator_get(&pdev->dev,
 							"vdd_sr2_dig");
-	if (IS_ERR(vdd_sr2_pll.regulator[1])) {
-		if (PTR_ERR(vdd_sr2_pll.regulator[1]) != -EPROBE_DEFER)
-			dev_err(&pdev->dev,
+		if (IS_ERR(vdd_sr2_pll.regulator[1])) {
+			if (PTR_ERR(vdd_sr2_pll.regulator[1]) != -EPROBE_DEFER)
+				dev_err(&pdev->dev,
 				"Unable to get vdd_sr2_dig regulator!!!\n");
-		return PTR_ERR(vdd_sr2_pll.regulator[1]);
+			return PTR_ERR(vdd_sr2_pll.regulator[1]);
+		}
 	}
 
 	vdd_hf_pll.regulator[0] = devm_regulator_get(&pdev->dev,
@@ -4031,6 +4201,10 @@ static int msm_gcc_probe(struct platform_device *pdev)
 		regval &= ~BIT(0);
 		writel_relaxed(regval, GCC_REG_BASE(GX_DOMAIN_MISC));
 		override_for_8937();
+	} else if (compat_bin2) {
+		gpll0_clk_src.c.parent = &gpll0_clk_src_8937.c;
+		gpll0_ao_clk_src.c.parent = &gpll0_ao_clk_src_8937.c;
+		override_for_gold();
 	} else {
 		gpll0_clk_src.c.parent = &gpll0_clk_src_8952.c;
 		gpll0_ao_clk_src.c.parent = &gpll0_ao_clk_src_8952.c;
@@ -4042,14 +4216,18 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	if (!compat_bin)
-		ret = of_msm_clock_register(pdev->dev.of_node,
-					msm_clocks_lookup_8952,
-					ARRAY_SIZE(msm_clocks_lookup_8952));
-	else
+	if (compat_bin)
 		ret = of_msm_clock_register(pdev->dev.of_node,
 					msm_clocks_lookup_8937,
 					ARRAY_SIZE(msm_clocks_lookup_8937));
+	else if (compat_bin2)
+		ret = of_msm_clock_register(pdev->dev.of_node,
+					msm_clocks_lookup_gold,
+					ARRAY_SIZE(msm_clocks_lookup_gold));
+	else
+		ret = of_msm_clock_register(pdev->dev.of_node,
+					msm_clocks_lookup_8952,
+					ARRAY_SIZE(msm_clocks_lookup_8952));
 	if (ret)
 		return ret;
 
@@ -4095,6 +4273,7 @@ static int msm_gcc_probe(struct platform_device *pdev)
 static struct of_device_id msm_clock_gcc_match_table[] = {
 	{ .compatible = "qcom,gcc-8952" },
 	{ .compatible = "qcom,gcc-8937" },
+	{ .compatible = "qcom,gcc-gold" },
 	{},
 };
 
@@ -4208,10 +4387,13 @@ static int msm_clock_debug_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct resource *res;
-	bool compat_bin = false;
+	bool compat_bin = false, compat_bin2 = false;
 
 	compat_bin = of_device_is_compatible(pdev->dev.of_node,
 					"qcom,cc-debug-8937");
+
+	compat_bin2 = of_device_is_compatible(pdev->dev.of_node,
+					"qcom,cc-debug-gold");
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "meas");
 	if (!res) {
@@ -4228,7 +4410,7 @@ static int msm_clock_debug_probe(struct platform_device *pdev)
 	clk_ops_debug_mux = clk_ops_gen_mux;
 	clk_ops_debug_mux.get_rate = measure_get_rate;
 
-	if (!compat_bin)
+	if (!compat_bin && !compat_bin2)
 		ret =  of_msm_clock_register(pdev->dev.of_node,
 			msm_clocks_measure, ARRAY_SIZE(msm_clocks_measure));
 	else
@@ -4247,6 +4429,7 @@ static int msm_clock_debug_probe(struct platform_device *pdev)
 static struct of_device_id msm_clock_debug_match_table[] = {
 	{ .compatible = "qcom,cc-debug-8952" },
 	{ .compatible = "qcom,cc-debug-8937" },
+	{ .compatible = "qcom,cc-debug-gold" },
 	{}
 };
 
@@ -4364,6 +4547,7 @@ byte0_fail:
 static struct of_device_id msm_clock_mdss_match_table[] = {
 	{ .compatible = "qcom,gcc-mdss-8952" },
 	{ .compatible = "qcom,gcc-mdss-8937" },
+	{ .compatible = "qcom,gcc-mdss-gold" },
 	{}
 };
 
