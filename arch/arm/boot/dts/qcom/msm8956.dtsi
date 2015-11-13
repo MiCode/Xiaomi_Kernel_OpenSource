@@ -68,7 +68,7 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x86c00000 0x0 0x06a00000>;
+			reg = <0x0 0x86c00000 0x0 0x05600000>;
 			label = "modem_mem";
 		};
 
@@ -76,7 +76,7 @@
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
 			linux,remove-completely;
-			reg = <0x0 0x8d600000 0x0 0x1700000>;
+			reg = <0x0 0x8c200000 0x0 0x1700000>;
 			label = "reloc_mem";
 		};
 
