@@ -183,7 +183,7 @@ qcom,fg-soc node required properties:
 		4: delta-soc
 		5: first-est-done
 		6: sw-fallbk-ocv
-		7: sw-fallbk-new-battrt-sts
+		7: sw-fallbk-new-batt
 
 qcom,fg-memif node required properties:
 - reg : offset and length of the PMIC peripheral register map.
@@ -221,8 +221,7 @@ pmi8994_fg: qcom,fg {
 					"delta-soc",
 					"first-est-done",
 					"sw-fallbk-ocv",
-					"sw-fallbk-new-battrt-sts",
-					"fg-soc-irq-count";
+					"sw-fallbk-new-batt";
 	};
 
 	qcom,fg-batt@4100 {

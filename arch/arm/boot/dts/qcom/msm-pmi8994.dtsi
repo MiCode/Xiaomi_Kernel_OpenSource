@@ -345,8 +345,7 @@
 							"delta-soc",
 							"first-est-done",
 							"sw-fallbk-ocv",
-							"sw-fallbk-new-battrt-sts",
-							"fg-soc-irq-count";
+							"sw-fallbk-new-batt";
 			};
 
 			qcom,fg-batt@4100 {
