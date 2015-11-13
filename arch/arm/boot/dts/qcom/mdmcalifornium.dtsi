@@ -869,7 +869,7 @@
 
 		sensor_information4: qcom,sensor-information-4 {
 			qcom,sensor-type = "tsens";
-			qcom,sensor-name = "tsens_tz_sensor6";
+			qcom,sensor-name = "tsens_tz_sensor4";
 			qcom,alias-name = "modem";
 			qcom,scaling-factor = <10>;
 		};
