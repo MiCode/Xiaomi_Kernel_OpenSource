@@ -334,9 +334,6 @@ static int _ringbuffer_start_common(struct adreno_ringbuffer *rb)
 	if (status)
 		return status;
 
-	if (gpudev->switch_to_unsecure_mode)
-		status = gpudev->switch_to_unsecure_mode(adreno_dev, rb);
-
 	return status;
 }
 

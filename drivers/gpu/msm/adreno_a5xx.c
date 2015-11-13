@@ -1866,6 +1866,11 @@ static void a5xx_post_start(struct adreno_device *adreno_dev)
 static int a5xx_hw_init(struct adreno_device *adreno_dev)
 {
 	int ret;
+	struct kgsl_device *device = &adreno_dev->dev;
+
+	/* GPU comes up in secured mode, make it unsecured by default */
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_CONTENT_PROTECTION))
+		kgsl_regwrite(device, A5XX_RBBM_SECVID_TRUST_CNTL, 0x0);
 
 	/* Set up LM before initializing the GPMU */
 	a5xx_lm_init(adreno_dev);
@@ -1884,6 +1889,32 @@ static int a5xx_hw_init(struct adreno_device *adreno_dev)
 	a5xx_post_start(adreno_dev);
 
 	return 0;
+}
+
+static int a5xx_switch_to_unsecure_mode(struct adreno_device *adreno_dev,
+				struct adreno_ringbuffer *rb)
+{
+	unsigned int *cmds;
+	int ret;
+
+	cmds = adreno_ringbuffer_allocspace(rb, 2);
+	if (IS_ERR(cmds))
+		return PTR_ERR(cmds);
+	if (cmds == NULL)
+		return -ENOSPC;
+
+	cmds += cp_secure_mode(adreno_dev, cmds, 0);
+
+	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
+	if (ret != 0) {
+		struct kgsl_device *device = &adreno_dev->dev;
+
+		dev_err(device->dev, "Switch to unsecure failed to idle\n");
+		spin_idle_debug(device);
+		kgsl_device_snapshot(device, NULL);
+	}
+
+	return ret;
 }
 
 /*
@@ -1936,31 +1967,9 @@ static int a5xx_rb_init(struct adreno_device *adreno_dev,
 		kgsl_device_snapshot(device, NULL);
 	}
 
-	return ret;
-}
-
-int a5xx_switch_to_unsecure_mode(struct adreno_device *adreno_dev,
-				struct adreno_ringbuffer *rb)
-{
-	unsigned int *cmds;
-	int ret;
-
-	cmds = adreno_ringbuffer_allocspace(rb, 2);
-	if (IS_ERR(cmds))
-		return PTR_ERR(cmds);
-	if (cmds == NULL)
-		return -ENOSPC;
-
-	cmds += cp_secure_mode(adreno_dev, cmds, 0);
-
-	ret = adreno_ringbuffer_submit_spin(rb, NULL, 2000);
-	if (ret != 0) {
-		struct kgsl_device *device = &adreno_dev->dev;
-
-		dev_err(device->dev, "Switch to unsecure failed to idle\n");
-		spin_idle_debug(device);
-		kgsl_device_snapshot(device, NULL);
-	}
+	/* GPU comes up in secured mode, make it unsecured by default */
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_CONTENT_PROTECTION))
+		ret = a5xx_switch_to_unsecure_mode(adreno_dev, rb);
 
 	return ret;
 }
@@ -3377,7 +3386,6 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.init = a5xx_init,
 	.rb_init = a5xx_rb_init,
 	.hw_init = a5xx_hw_init,
-	.switch_to_unsecure_mode = a5xx_switch_to_unsecure_mode,
 	.microcode_read = a5xx_microcode_read,
 	.microcode_load = a5xx_microcode_load,
 	.perfcounters = &a5xx_perfcounters,
