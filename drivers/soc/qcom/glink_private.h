@@ -186,15 +186,36 @@ const char *glink_get_ch_state_string(enum local_channel_state_e enum_id);
 			GLINK_IPC_LOG_STR("<PERF> " x);  \
 } while (0)
 
+#define GLINK_XPRT_IPC_LOG_STR(xprt, x...) do { \
+	if (glink_get_xprt_log_ctx(xprt)) \
+		ipc_log_string(glink_get_xprt_log_ctx(xprt), x); \
+} while (0)
+
+#define GLINK_XPRT_IF_INFO(xprt_if, x...) do { \
+	if (glink_get_debug_mask() & QCOM_GLINK_INFO) \
+		GLINK_XPRT_IPC_LOG_STR(xprt_if.glink_core_priv, "<XPRT> " x); \
+} while (0)
+
+#define GLINK_XPRT_IF_DBG(xprt_if, x...) do { \
+	if (glink_get_debug_mask() & QCOM_GLINK_DEBUG) \
+		GLINK_XPRT_IPC_LOG_STR(xprt_if.glink_core_priv, "<XPRT> " x); \
+} while (0)
+
+#define GLINK_XPRT_IF_ERR(xprt_if, x...) do { \
+	pr_err("<XPRT> " x); \
+	GLINK_XPRT_IPC_LOG_STR(xprt_if.glink_core_priv, "<XPRT> " x); \
+} while (0)
+
 #define GLINK_PERF_XPRT(xprt, fmt, args...) do { \
 	if (glink_get_debug_mask() & QCOM_GLINK_PERF) \
-			GLINK_IPC_LOG_STR("<PERF> %s:%s " fmt, \
+			GLINK_XPRT_IPC_LOG_STR(xprt, "<PERF> %s:%s " fmt, \
 					xprt->name, xprt->edge, args);  \
 } while (0)
 
 #define GLINK_PERF_CH(ctx, fmt, args...) do { \
 	if (glink_get_debug_mask() & QCOM_GLINK_PERF) \
-			GLINK_IPC_LOG_STR("<PERF> %s:%s:%s[%u:%u] " fmt, \
+			GLINK_XPRT_IPC_LOG_STR(ctx->transport_ptr, \
+					"<PERF> %s:%s:%s[%u:%u] " fmt, \
 					ctx->transport_ptr->name, \
 					ctx->transport_ptr->edge, \
 					ctx->name, \
@@ -204,7 +225,8 @@ const char *glink_get_ch_state_string(enum local_channel_state_e enum_id);
 
 #define GLINK_PERF_CH_XPRT(ctx, xprt, fmt, args...) do { \
 	if (glink_get_debug_mask() & QCOM_GLINK_PERF) \
-			GLINK_IPC_LOG_STR("<PERF> %s:%s:%s[%u:%u] " fmt, \
+			GLINK_XPRT_IPC_LOG_STR(xprt, \
+					"<PERF> %s:%s:%s[%u:%u] " fmt, \
 					xprt->name, \
 					xprt->edge, \
 					ctx->name, \
@@ -214,13 +236,14 @@ const char *glink_get_ch_state_string(enum local_channel_state_e enum_id);
 
 #define GLINK_INFO_PERF_XPRT(xprt, fmt, args...) do { \
 	if (glink_get_debug_mask() & (QCOM_GLINK_INFO | QCOM_GLINK_PERF)) \
-			GLINK_IPC_LOG_STR("<CORE> %s:%s " fmt, \
+			GLINK_XPRT_IPC_LOG_STR(xprt, "<CORE> %s:%s " fmt, \
 					xprt->name, xprt->edge, args);  \
 } while (0)
 
 #define GLINK_INFO_PERF_CH(ctx, fmt, args...) do { \
 	if (glink_get_debug_mask() & (QCOM_GLINK_INFO | QCOM_GLINK_PERF)) \
-			GLINK_IPC_LOG_STR("<CORE> %s:%s:%s[%u:%u] " fmt, \
+			GLINK_XPRT_IPC_LOG_STR(ctx->transport_ptr, \
+					"<CORE> %s:%s:%s[%u:%u] " fmt, \
 					ctx->transport_ptr->name, \
 					ctx->transport_ptr->edge, \
 					ctx->name, \
@@ -230,7 +253,8 @@ const char *glink_get_ch_state_string(enum local_channel_state_e enum_id);
 
 #define GLINK_INFO_PERF_CH_XPRT(ctx, xprt, fmt, args...) do { \
 	if (glink_get_debug_mask() & (QCOM_GLINK_INFO | QCOM_GLINK_PERF)) \
-			GLINK_IPC_LOG_STR("<CORE> %s:%s:%s[%u:%u] " fmt, \
+			GLINK_XPRT_IPC_LOG_STR(xprt,\
+					"<CORE> %s:%s:%s[%u:%u] " fmt, \
 					xprt->name, \
 					xprt->edge, \
 					ctx->name, \
@@ -240,13 +264,14 @@ const char *glink_get_ch_state_string(enum local_channel_state_e enum_id);
 
 #define GLINK_INFO_XPRT(xprt, fmt, args...) do { \
 	if (glink_get_debug_mask() & QCOM_GLINK_INFO) \
-			GLINK_IPC_LOG_STR("<CORE> %s:%s " fmt, \
+			GLINK_XPRT_IPC_LOG_STR(xprt, "<CORE> %s:%s " fmt, \
 					xprt->name, xprt->edge, args);  \
 } while (0)
 
 #define GLINK_INFO_CH(ctx, fmt, args...) do { \
 	if (glink_get_debug_mask() & QCOM_GLINK_INFO) \
-			GLINK_IPC_LOG_STR("<CORE> %s:%s:%s[%u:%u] " fmt, \
+			GLINK_XPRT_IPC_LOG_STR(ctx->transport_ptr, \
+					"<CORE> %s:%s:%s[%u:%u] " fmt, \
 					ctx->transport_ptr->name, \
 					ctx->transport_ptr->edge, \
 					ctx->name, \
@@ -256,7 +281,8 @@ const char *glink_get_ch_state_string(enum local_channel_state_e enum_id);
 
 #define GLINK_INFO_CH_XPRT(ctx, xprt, fmt, args...) do { \
 	if (glink_get_debug_mask() & QCOM_GLINK_INFO) \
-			GLINK_IPC_LOG_STR("<CORE> %s:%s:%s[%u:%u] " fmt, \
+			GLINK_XPRT_IPC_LOG_STR(xprt, \
+					"<CORE> %s:%s:%s[%u:%u] " fmt, \
 					xprt->name, \
 					xprt->edge, \
 					ctx->name, \
@@ -266,13 +292,14 @@ const char *glink_get_ch_state_string(enum local_channel_state_e enum_id);
 
 #define GLINK_DBG_XPRT(xprt, fmt, args...) do { \
 	if (glink_get_debug_mask() & QCOM_GLINK_DEBUG) \
-			GLINK_IPC_LOG_STR("<CORE> %s:%s " fmt, \
+			GLINK_XPRT_IPC_LOG_STR(xprt, "<CORE> %s:%s " fmt, \
 					xprt->name, xprt->edge, args);  \
 } while (0)
 
 #define GLINK_DBG_CH(ctx, fmt, args...) do { \
 	if (glink_get_debug_mask() & QCOM_GLINK_DEBUG) \
-			GLINK_IPC_LOG_STR("<CORE> %s:%s:%s[%u:%u] " fmt, \
+			GLINK_XPRT_IPC_LOG_STR(ctx->transport_ptr, \
+					"<CORE> %s:%s:%s[%u:%u] " fmt, \
 					ctx->transport_ptr->name, \
 					ctx->transport_ptr->edge, \
 					ctx->name, \
@@ -282,7 +309,8 @@ const char *glink_get_ch_state_string(enum local_channel_state_e enum_id);
 
 #define GLINK_DBG_CH_XPRT(ctx, xprt, fmt, args...) do { \
 	if (glink_get_debug_mask() & QCOM_GLINK_DEBUG) \
-			GLINK_IPC_LOG_STR("<CORE> %s:%s:%s[%u:%u] " fmt, \
+			GLINK_XPRT_IPC_LOG_STR(xprt, \
+					"<CORE> %s:%s:%s[%u:%u] " fmt, \
 					xprt->name, \
 					xprt->edge, \
 					ctx->name, \
@@ -345,6 +373,13 @@ unsigned glink_get_debug_mask(void);
  * Return: Log context or NULL if none.
  */
 void *glink_get_log_ctx(void);
+
+/**
+ * glink_get_xprt_log_ctx() - Return log context for other GLINK modules.
+ *
+ * Return: Log context or NULL if none.
+ */
+void *glink_get_xprt_log_ctx(struct glink_core_xprt_ctx *xprt);
 
 /**
  * glink_get_channel_id_for_handle() - Get logical channel ID
