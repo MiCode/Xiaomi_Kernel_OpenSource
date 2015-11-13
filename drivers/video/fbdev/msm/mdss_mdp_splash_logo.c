@@ -364,7 +364,7 @@ static int mdss_mdp_splash_kickoff(struct msm_fb_data_type *mfd,
 {
 	struct mdss_mdp_pipe *pipe;
 	struct fb_info *fbi;
-	struct mdp_overlay req;
+	struct mdp_overlay *req = NULL;
 	struct mdss_overlay_private *mdp5_data;
 	struct mdss_data_type *mdata;
 	struct mdss_mdp_mixer *mixer;
@@ -399,7 +399,10 @@ static int mdss_mdp_splash_kickoff(struct msm_fb_data_type *mfd,
 		goto end;
 	}
 
-	memset(&req, 0, sizeof(struct mdp_overlay));
+	req = kzalloc(sizeof(struct mdp_overlay), GFP_KERNEL);
+	if (!req)
+		return -ENOMEM;
+
 	/*
 	 * use single pipe for
 	 * 1. split display disabled
@@ -418,23 +421,23 @@ static int mdss_mdp_splash_kickoff(struct msm_fb_data_type *mfd,
 		dest_rect->w < min_t(u16, mixer->width,
 					mdss_mdp_line_buffer_width()));
 
-	req.src.width = src_rect->w;
+	req->src.width = src_rect->w;
 	if (use_single_pipe)
-		req.src_rect.w = src_rect->w;
+		req->src_rect.w = src_rect->w;
 	else
-		req.src_rect.w = min_t(u16, mixer->width, src_rect->w >> 1);
-	req.dst_rect.w = req.src_rect.w;
-	req.src.height = req.dst_rect.h = req.src_rect.h =
+		req->src_rect.w = min_t(u16, mixer->width, src_rect->w >> 1);
+	req->dst_rect.w = req->src_rect.w;
+	req->src.height = req->dst_rect.h = req->src_rect.h =
 			src_rect->h;
-	req.src.format = SPLASH_IMAGE_FORMAT;
-	req.id = MSMFB_NEW_REQUEST;
-	req.z_order = MDSS_MDP_STAGE_0;
-	req.alpha = 0xff;
-	req.transp_mask = MDP_TRANSP_NOP;
-	req.dst_rect.x = dest_rect->x;
-	req.dst_rect.y = dest_rect->y;
+	req->src.format = SPLASH_IMAGE_FORMAT;
+	req->id = MSMFB_NEW_REQUEST;
+	req->z_order = MDSS_MDP_STAGE_0;
+	req->alpha = 0xff;
+	req->transp_mask = MDP_TRANSP_NOP;
+	req->dst_rect.x = dest_rect->x;
+	req->dst_rect.y = dest_rect->y;
 
-	pipe = mdss_mdp_splash_get_pipe(mfd, &req);
+	pipe = mdss_mdp_splash_get_pipe(mfd, req);
 	if (!pipe) {
 		pr_err("unable to allocate base pipe\n");
 		ret = -EINVAL;
@@ -444,11 +447,11 @@ static int mdss_mdp_splash_kickoff(struct msm_fb_data_type *mfd,
 	sinfo->pipe_ndx[0] = pipe->ndx;
 
 	if (!use_single_pipe) {
-		req.id = MSMFB_NEW_REQUEST;
-		req.src_rect.x = src_rect->x + min_t(u16, mixer->width,
-					src_rect->w - req.src_rect.w);
-		req.dst_rect.x = mixer->width;
-		pipe = mdss_mdp_splash_get_pipe(mfd, &req);
+		req->id = MSMFB_NEW_REQUEST;
+		req->src_rect.x = src_rect->x + min_t(u16, mixer->width,
+					src_rect->w - req->src_rect.w);
+		req->dst_rect.x = mixer->width;
+		pipe = mdss_mdp_splash_get_pipe(mfd, req);
 		if (!pipe) {
 			pr_err("unable to allocate right base pipe\n");
 			mdss_mdp_overlay_release(mfd, sinfo->pipe_ndx[0]);
@@ -466,8 +469,10 @@ static int mdss_mdp_splash_kickoff(struct msm_fb_data_type *mfd,
 					sinfo->pipe_ndx[1]);
 	}
 
+	kfree(req);
 	return ret;
 end:
+	kfree(req);
 	sinfo->pipe_ndx[0] = INVALID_PIPE_INDEX;
 	sinfo->pipe_ndx[1] = INVALID_PIPE_INDEX;
 	mutex_unlock(&mdp5_data->ov_lock);
