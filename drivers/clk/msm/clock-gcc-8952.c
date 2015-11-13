@@ -3452,7 +3452,7 @@ static struct mux_clk gcc_debug_mux_8937 = {
 		{ &snoc_clk.c,  0x0000 },
 		{ &sysmmnoc_clk.c,  0x0001 },
 		{ &pnoc_clk.c, 0x0008 },
-		{ &bimc_clk.c,  0x0154 },
+		{ &bimc_clk.c,  0x015A },
 		{ &gcc_gp1_clk.c, 0x0010 },
 		{ &gcc_gp2_clk.c, 0x0011 },
 		{ &gcc_gp3_clk.c, 0x0012 },
@@ -3552,6 +3552,7 @@ static struct mux_clk gcc_debug_mux_8937 = {
 		{ &gcc_camss_mclk2_clk.c, 0x01bd },
 		{ &gcc_oxili_timer_clk.c, 0x01e9 },
 		{ &gcc_oxili_gfx3d_clk.c, 0x01ea },
+		{ &gcc_oxili_aon_clk.c, 0x00ee },
 		{ &gcc_oxili_ahb_clk.c, 0x01eb },
 		{ &gcc_venus0_vcodec0_clk.c, 0x01f1 },
 		{ &gcc_venus0_axi_clk.c, 0x01f2 },
@@ -3569,10 +3570,10 @@ static struct mux_clk gcc_debug_mux_8937 = {
 		{ &wcnss_m_clk.c, 0x0ec },
 	),
 	.c = {
-		.dbg_name = "gcc_debug_mux",
+		.dbg_name = "gcc_debug_mux_8937",
 		.ops = &clk_ops_debug_mux,
 		.flags = CLKFLAG_NO_RATE_CACHE | CLKFLAG_MEASURE,
-		CLK_INIT(gcc_debug_mux.c),
+		CLK_INIT(gcc_debug_mux_8937.c),
 	},
 };
 
@@ -4211,7 +4212,7 @@ static int msm_clock_debug_probe(struct platform_device *pdev)
 			msm_clocks_measure, ARRAY_SIZE(msm_clocks_measure));
 	else
 		ret =  of_msm_clock_register(pdev->dev.of_node,
-				msm_clocks_measure,
+				msm_clocks_measure_8937,
 				ARRAY_SIZE(msm_clocks_measure_8937));
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register debug Mux\n");
