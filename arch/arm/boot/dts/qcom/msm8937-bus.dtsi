@@ -309,7 +309,7 @@
 			qcom,qport = <6>;
 			qcom,qos-mode = "bypass";
 			qcom,connections = <&slv_snoc_bimc_2>;
-			qcom,bus-dev = <&fab_snoc>;
+			qcom,bus-dev = <&fab_snoc_mm>;
 			qcom,mas-rpm-id = <ICBID_MASTER_JPEG>;
 		};
 
@@ -322,7 +322,7 @@
 			qcom,qport = <7>;
 			qcom,qos-mode = "bypass";
 			qcom,connections = <&slv_snoc_bimc_0>;
-			qcom,bus-dev = <&fab_snoc>;
+			qcom,bus-dev = <&fab_snoc_mm>;
 			qcom,mas-rpm-id = <ICBID_MASTER_MDP>;
 		};
 
@@ -349,7 +349,7 @@
 			qcom,qport = <8>;
 			qcom,qos-mode = "bypass";
 			qcom,connections = <&slv_snoc_bimc_2>;
-			qcom,bus-dev = <&fab_snoc>;
+			qcom,bus-dev = <&fab_snoc_mm>;
 			qcom,mas-rpm-id = <ICBID_MASTER_VIDEO>;
 		};
 
@@ -362,8 +362,21 @@
 			qcom,qport = <9>;
 			qcom,qos-mode = "bypass";
 			qcom,connections = <&slv_snoc_bimc_0>;
-			qcom,bus-dev = <&fab_snoc>;
+			qcom,bus-dev = <&fab_snoc_mm>;
 			qcom,mas-rpm-id = <ICBID_MASTER_VFE>;
+		};
+
+		mas_vfe1: mas-vfe1 {
+			cell-id = <MSM_BUS_MASTER_VFE1>;
+			label = "mas-vfe1";
+			qcom,buswidth = <16>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <13>;
+			qcom,qos-mode = "bypass";
+			qcom,connections = <&slv_snoc_bimc_0>;
+			qcom,bus-dev = <&fab_snoc_mm>;
+			qcom,mas-rpm-id = <ICBID_MASTER_VFE1>;
 		};
 
 		mas_cpp: mas-cpp {
@@ -375,7 +388,7 @@
 			qcom,qport = <12>;
 			qcom,qos-mode = "bypass";
 			qcom,connections = <&slv_snoc_bimc_2>;
-			qcom,bus-dev = <&fab_snoc>;
+			qcom,bus-dev = <&fab_snoc_mm>;
 			qcom,mas-rpm-id = <ICBID_MASTER_CPP>;
 		};
 
