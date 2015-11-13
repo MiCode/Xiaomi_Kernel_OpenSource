@@ -198,8 +198,6 @@ enum fg_mem_setting_index {
 	FG_MEM_CUTOFF_VOLTAGE,
 	FG_MEM_VBAT_EST_DIFF,
 	FG_MEM_DELTA_SOC,
-	FG_MEM_SOC_MAX,
-	FG_MEM_SOC_MIN,
 	FG_MEM_BATT_LOW,
 	FG_MEM_THERM_DELAY,
 	FG_MEM_SETTING_MAX,
@@ -245,8 +243,6 @@ static struct fg_mem_setting settings[FG_MEM_SETTING_MAX] = {
 	SETTING(CUTOFF_VOLTAGE,	 0x40C,   0,      3200),
 	SETTING(VBAT_EST_DIFF,	 0x000,   0,      30),
 	SETTING(DELTA_SOC,	 0x450,   3,      1),
-	SETTING(SOC_MAX,	 0x458,   1,      85),
-	SETTING(SOC_MIN,	 0x458,   2,      15),
 	SETTING(BATT_LOW,	 0x458,   0,      4200),
 	SETTING(THERM_DELAY,	 0x4AC,   3,      0),
 };
@@ -5043,8 +5039,6 @@ static int fg_of_init(struct fg_chip *chip)
 	OF_READ_SETTING(FG_MEM_IRQ_VOLT_EMPTY, "irq-volt-empty-mv", rc, 1);
 	OF_READ_SETTING(FG_MEM_VBAT_EST_DIFF, "vbat-estimate-diff-mv", rc, 1);
 	OF_READ_SETTING(FG_MEM_DELTA_SOC, "fg-delta-soc", rc, 1);
-	OF_READ_SETTING(FG_MEM_SOC_MAX, "fg-soc-max", rc, 1);
-	OF_READ_SETTING(FG_MEM_SOC_MIN, "fg-soc-min", rc, 1);
 	OF_READ_SETTING(FG_MEM_BATT_LOW, "fg-vbatt-low-threshold", rc, 1);
 	OF_READ_SETTING(FG_MEM_THERM_DELAY, "fg-therm-delay-us", rc, 1);
 	OF_READ_PROPERTY(chip->learning_data.max_increment,
@@ -5839,22 +5833,6 @@ static int fg_common_hw_init(struct fg_chip *chip)
 			settings[FG_MEM_DELTA_SOC].offset);
 	if (rc) {
 		pr_err("failed to write delta soc rc=%d\n", rc);
-		return rc;
-	}
-
-	rc = fg_mem_masked_write(chip, settings[FG_MEM_SOC_MAX].address, 0xFF,
-			soc_to_setpoint(settings[FG_MEM_SOC_MAX].value),
-			settings[FG_MEM_SOC_MAX].offset);
-	if (rc) {
-		pr_err("failed to write soc_max rc=%d\n", rc);
-		return rc;
-	}
-
-	rc = fg_mem_masked_write(chip, settings[FG_MEM_SOC_MIN].address, 0xFF,
-			soc_to_setpoint(settings[FG_MEM_SOC_MIN].value),
-			settings[FG_MEM_SOC_MIN].offset);
-	if (rc) {
-		pr_err("failed to write soc_min rc=%d\n", rc);
 		return rc;
 	}
 

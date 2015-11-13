@@ -102,10 +102,6 @@ Parent node optional properties:
 					above 3-4, some period workarounds may
 					not function well, so it's best to
 					leave this at 1 or 2%.
-- qcom,fg-soc-max:			The percent SoC threshold at which the
-					HIGH_SOC interrupt will be asserted.
-- qcom,fg-soc-min:			The percent SoC threshold at which the
-					LOW_SOC interrupt will be asserted.
 - qcom,fg-vbatt-low-threshold:		Voltage (in mV) which upon set will be
 					used for configuring the low battery
 					voltage threshold. Interrupt will be
