@@ -1848,8 +1848,8 @@
 		#size-cells = <1>;
 		ranges;
 
-		interrupts = <0 133 0>, <0 180 0>;
-		interrupt-names = "hs_phy_irq", "pwr_event_irq";
+		interrupts = <0 347 0>, <0 243 0>, <0 180 0>;
+		interrupt-names = "hs_phy_irq", "ss_phy_irq", "pwr_event_irq";
 
 		USB3_GDSC-supply = <&gdsc_usb30>;
 		vbus_dwc3-supply = <&smbcharger_charger_otg>;
