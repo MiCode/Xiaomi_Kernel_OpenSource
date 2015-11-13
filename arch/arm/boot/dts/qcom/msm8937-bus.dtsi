@@ -222,7 +222,7 @@
 		};
 
 		mas_crypto: mas-crypto {
-			cell-id = <MSM_BUS_MASTER_CRYPTO>;
+			cell-id = <MSM_BUS_MASTER_CRYPTO_CORE0>;
 			label = "mas-crypto";
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
