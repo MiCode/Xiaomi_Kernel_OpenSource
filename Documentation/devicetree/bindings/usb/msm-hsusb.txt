@@ -168,6 +168,8 @@ Optional properties :
 	devicetree/bindings/usb/android-dev.txt for details about "streaming-func" property.
 - qcom,axi-prefetch-enable: If present, AXI64 interface will be used for transferring data
        to/from DDR by controller.
+- qcom,enable-sdp-typec-current-limit: Indicates whether type-c current for SDP CHARGER to
+	be limited.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {
