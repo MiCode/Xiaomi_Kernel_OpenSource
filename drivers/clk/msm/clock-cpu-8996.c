@@ -1275,7 +1275,7 @@ static int perfclspeedbin;
 unsigned long pwrcl_early_boot_rate = 883200000;
 unsigned long perfcl_early_boot_rate = 883200000;
 unsigned long cbf_early_boot_rate = 614400000;
-unsigned long alt_pll_early_boot_rate = 614400000;
+unsigned long alt_pll_early_boot_rate = 307200000;
 
 static int cpu_clock_8996_driver_probe(struct platform_device *pdev)
 {
