@@ -25,8 +25,8 @@
 
 /* CONSTANTS */
 #define HDMI_BIT_CLK_TO_PIX_CLK_RATIO            10
-#define HDMI_HIGH_FREQ_BIT_CLK_THRESHOLD         3400000000
-#define HDMI_DIG_FREQ_BIT_CLK_THRESHOLD          1500000000
+#define HDMI_HIGH_FREQ_BIT_CLK_THRESHOLD         3400000000UL
+#define HDMI_DIG_FREQ_BIT_CLK_THRESHOLD          1500000000UL
 #define HDMI_MID_FREQ_BIT_CLK_THRESHOLD          750000000
 #define HDMI_CLKS_PLL_DIVSEL                     0
 #define HDMI_CORECLK_DIV                         5
@@ -39,13 +39,13 @@
 
 #define HDMI_VCO_MAX_FREQ                        12000000000
 #define HDMI_VCO_MIN_FREQ                        8000000000
-#define HDMI_2400MHZ_BIT_CLK_HZ                  2400000000
-#define HDMI_2250MHZ_BIT_CLK_HZ                  2250000000
-#define HDMI_2000MHZ_BIT_CLK_HZ                  2000000000
-#define HDMI_1700MHZ_BIT_CLK_HZ                  1700000000
-#define HDMI_1200MHZ_BIT_CLK_HZ                  1200000000
-#define HDMI_1334MHZ_BIT_CLK_HZ                  1334000000
-#define HDMI_1000MHZ_BIT_CLK_HZ                  1000000000
+#define HDMI_2400MHZ_BIT_CLK_HZ                  2400000000UL
+#define HDMI_2250MHZ_BIT_CLK_HZ                  2250000000UL
+#define HDMI_2000MHZ_BIT_CLK_HZ                  2000000000UL
+#define HDMI_1700MHZ_BIT_CLK_HZ                  1700000000UL
+#define HDMI_1200MHZ_BIT_CLK_HZ                  1200000000UL
+#define HDMI_1334MHZ_BIT_CLK_HZ                  1334000000UL
+#define HDMI_1000MHZ_BIT_CLK_HZ                  1000000000UL
 #define HDMI_850MHZ_BIT_CLK_HZ                   850000000
 #define HDMI_667MHZ_BIT_CLK_HZ                   667000000
 #define HDMI_600MHZ_BIT_CLK_HZ                   600000000
@@ -318,8 +318,8 @@
 #define HDMI_PHY_PHY_REVISION_ID2             (0xC0)
 #define HDMI_PHY_PHY_REVISION_ID3             (0xC4)
 
-#define HDMI_PLL_POLL_MAX_READS                2500
-#define HDMI_PLL_POLL_TIMEOUT_US               150000
+#define HDMI_PLL_POLL_MAX_READS                100
+#define HDMI_PLL_POLL_TIMEOUT_US               1500
 
 enum hdmi_pll_freqs {
 	HDMI_PCLK_25200_KHZ,
@@ -490,13 +490,13 @@ static inline u64 hdmi_8996_get_coreclk_div_ratio(u64 clks_pll_divsel,
 
 static inline u64 hdmi_8996_v1_get_tx_band(u64 bclk)
 {
-	if (bclk >= 2400000000)
+	if (bclk >= 2400000000UL)
 		return 0;
-	if (bclk >= 1200000000)
+	if (bclk >= 1200000000UL)
 		return 1;
-	if (bclk >= 600000000)
+	if (bclk >= 600000000UL)
 		return 2;
-	if (bclk >= 300000000)
+	if (bclk >= 300000000UL)
 		return 3;
 
 	return HDMI_64B_ERR_VAL;
@@ -518,13 +518,13 @@ static inline u64 hdmi_8996_v2_get_tx_band(u64 bclk, u64 vco_range)
 
 static inline u64 hdmi_8996_v1_get_hsclk(u64 fdata)
 {
-	if (fdata >= 9600000000)
+	if (fdata >= 9600000000UL)
 		return 0;
-	else if (fdata >= 4800000000)
+	else if (fdata >= 4800000000UL)
 		return 1;
-	else if (fdata >= 3200000000)
+	else if (fdata >= 3200000000UL)
 		return 2;
-	else if (fdata >= 2400000000)
+	else if (fdata >= 2400000000UL)
 		return 3;
 
 	return HDMI_64B_ERR_VAL;
@@ -1855,9 +1855,10 @@ static int hdmi_8996_phy_pll_set_clk_rate(struct clk *c, u32 tmds_clk, u32 ver)
 
 static int hdmi_8996_phy_ready_status(struct mdss_pll_resources *io)
 {
-	u32 status;
+	u32 status = 0;
 	int phy_ready = 0;
 	int rc;
+	u32 read_count = 0;
 
 	rc = mdss_pll_resource_enable(io, true);
 	if (rc) {
@@ -1868,16 +1869,20 @@ static int hdmi_8996_phy_ready_status(struct mdss_pll_resources *io)
 	DEV_DBG("%s: Waiting for PHY Ready\n", __func__);
 
 	/* Poll for PHY read status */
-	if (!readl_poll_timeout_atomic(
-		(io->phy_base + HDMI_PHY_STATUS),
-		status, ((status & BIT(0)) == 1),
-		HDMI_PLL_POLL_MAX_READS,
-		HDMI_PLL_POLL_TIMEOUT_US)) {
-		DEV_DBG("%s: PHY READY\n", __func__);
-		phy_ready = 1;
-	} else {
-		DEV_ERR("%s: PHY READY TIMEOUT\n", __func__);
+	while (read_count < HDMI_PLL_POLL_MAX_READS) {
+		status = MDSS_PLL_REG_R(io->phy_base, HDMI_PHY_STATUS);
+		if ((status & BIT(0)) == 1) {
+			phy_ready = 1;
+			DEV_DBG("%s: PHY READY\n", __func__);
+			break;
+		}
+		udelay(HDMI_PLL_POLL_TIMEOUT_US);
+		read_count++;
+	}
+
+	if (read_count == HDMI_PLL_POLL_MAX_READS) {
 		phy_ready = 0;
+		DEV_ERR("%s: PHY READY TIMEOUT\n", __func__);
 	}
 
 	mdss_pll_resource_enable(io, false);
@@ -1890,6 +1895,7 @@ static int hdmi_8996_pll_lock_status(struct mdss_pll_resources *io)
 	u32 status;
 	int pll_locked = 0;
 	int rc;
+	u32 read_count = 0;
 
 	rc = mdss_pll_resource_enable(io, true);
 	if (rc) {
@@ -1899,16 +1905,21 @@ static int hdmi_8996_pll_lock_status(struct mdss_pll_resources *io)
 
 	DEV_DBG("%s: Waiting for PLL lock\n", __func__);
 
-	if (!readl_poll_timeout_atomic(
-		(io->pll_base + QSERDES_COM_C_READY_STATUS),
-		status, ((status & BIT(0)) == 1),
-		HDMI_PLL_POLL_MAX_READS,
-		HDMI_PLL_POLL_TIMEOUT_US)) {
-		DEV_DBG("%s: C READY\n", __func__);
-		pll_locked = 1;
-	} else {
-		DEV_ERR("%s: C READY TIMEOUT\n", __func__);
+	while (read_count < HDMI_PLL_POLL_MAX_READS) {
+		status = MDSS_PLL_REG_R(io->pll_base,
+				QSERDES_COM_C_READY_STATUS);
+		if ((status & BIT(0)) == 1) {
+			pll_locked = 1;
+			DEV_DBG("%s: C READY\n", __func__);
+			break;
+		}
+		udelay(HDMI_PLL_POLL_TIMEOUT_US);
+		read_count++;
+	}
+
+	if (read_count == HDMI_PLL_POLL_MAX_READS) {
 		pll_locked = 0;
+		DEV_ERR("%s: C READY TIMEOUT\n", __func__);
 	}
 
 	mdss_pll_resource_enable(io, false);
@@ -2062,20 +2073,25 @@ static int hdmi_8996_v2_perform_sw_calibration(struct clk *c)
 	struct hdmi_pll_vco_clk *vco = to_hdmi_8996_vco_clk(c);
 	struct mdss_pll_resources *io = vco->priv;
 	u32 vco_code1, vco_code2, integral_loop, ready_poll;
+	u32 read_count = 0;
 
-	if (!readl_poll_timeout_atomic(
-		(io->pll_base + QSERDES_COM_C_READY_STATUS),
-		ready_poll, ((ready_poll & BIT(0)) == 1),
-		HDMI_PLL_POLL_MAX_READS,
-		HDMI_PLL_POLL_TIMEOUT_US << 1)) {
-		DEV_DBG("%s: C READY\n", __func__);
-		ready_poll = 1;
-	} else {
-		DEV_DBG("%s: C READY TIMEOUT, TRYING SW CALIBRATION\n",
-								__func__);
-		ready_poll = 0;
+	while (read_count < (HDMI_PLL_POLL_MAX_READS << 1)) {
+		ready_poll = MDSS_PLL_REG_R(io->pll_base,
+				QSERDES_COM_C_READY_STATUS);
+		if ((ready_poll & BIT(0)) == 1) {
+			ready_poll = 1;
+			DEV_DBG("%s: C READY\n", __func__);
+			break;
+		}
+		udelay(HDMI_PLL_POLL_TIMEOUT_US);
+		read_count++;
 	}
 
+	if (read_count == (HDMI_PLL_POLL_MAX_READS << 1)) {
+		ready_poll = 0;
+		DEV_DBG("%s: C READY TIMEOUT, TRYING SW CALIBRATION\n",
+								__func__);
+	}
 
 	vco_code1 = MDSS_PLL_REG_R(io->pll_base,
 				QSERDES_COM_PLLCAL_CODE1_STATUS);

@@ -414,7 +414,7 @@ static void pll_8996_ssc_calc(struct mdss_pll_resources *pll,
 		pll->vco_current_rate, pll->vco_ref_clk_rate);
 
 	ssc_period = pdb->in.ssc_freq / 500;
-	period = pll->vco_ref_clk_rate / 1000;
+	period = (unsigned long)pll->vco_ref_clk_rate / 1000;
 	ssc_period  = CEIL(period, ssc_period);
 	ssc_period -= 1;
 	pdb->out.ssc_period = ssc_period;
@@ -477,7 +477,7 @@ static void pll_8996_dec_frac_calc(struct mdss_pll_resources *pll,
 
 	pll_comp_val =  duration * dec_start_multiple;
 	pll_comp_val =  div_s64(pll_comp_val, multiplier);
-	pll_comp_val /= 10;
+	do_div(pll_comp_val, 10);
 
 	pout->plllock_cmp = (u32)pll_comp_val;
 
@@ -492,11 +492,11 @@ static u32 pll_8996_kvco_slop(u32 vrate)
 {
 	u32 slop = 0;
 
-	if (vrate > 1300000000 && vrate <= 1800000000)
+	if (vrate > 1300000000UL && vrate <= 1800000000UL)
 		slop =  600;
-	else if (vrate > 1800000000 && vrate < 2300000000)
+	else if (vrate > 1800000000UL && vrate < 2300000000UL)
 		slop = 400;
-	else if (vrate > 2300000000 && vrate < 2600000000)
+	else if (vrate > 2300000000UL && vrate < 2600000000UL)
 		slop = 280;
 
 	return slop;
@@ -511,25 +511,25 @@ static void pll_8996_calc_vco_count(struct dsi_pll_db *pdb,
 	u32 cnt;
 
 	data = fref * pin->vco_measure_time;
-	data /= 1000000;
+	do_div(data, 1000000);
 	data &= 0x03ff;	/* 10 bits */
 	data -= 2;
 	pout->pll_vco_div_ref = data;
 
-	data = vco_clk_rate / 1000000;	/* unit is Mhz */
+	data = (unsigned long)vco_clk_rate / 1000000;	/* unit is Mhz */
 	data *= pin->vco_measure_time;
-	data /= 10;
+	do_div(data, 10);
 	pout->pll_vco_count = data; /* reg: 0x0474, 0x0478 */
 
 	data = fref * pin->kvco_measure_time;
-	data /= 1000000;
+	do_div(data, 1000000);
 	data &= 0x03ff;	/* 10 bits */
 	data -= 1;
 	pout->pll_kvco_div_ref = data;
 
 	cnt = pll_8996_kvco_slop(vco_clk_rate);
 	cnt *= 2;
-	cnt /= 100;
+	do_div(cnt, 100);
 	cnt *= pin->kvco_measure_time;
 	pout->pll_kvco_count = cnt;
 
