@@ -568,8 +568,27 @@ config MSM_PERFORMANCE_HOTPLUG_ON
         help
 	  If some other core-control driver is present turn off the core-control
 	  capability of msm_performance driver. Setting this flag to false will
-		  compile out the nodes needed for core-control functionality through
-		  msm_performance.
+
+if CPU_FREQ_MSM
+
+config MSM_CPU_FREQ_SET_MIN_MAX
+	bool "Set Min/Max CPU frequencies."
+	default n
+	help
+	  Allow setting min and max CPU frequencies. Sysfs can be used
+	  to override these values.
+
+config MSM_CPU_FREQ_MAX
+	int "Max CPU Frequency"
+	depends on MSM_CPU_FREQ_SET_MIN_MAX
+	default 1363200
+
+config MSM_CPU_FREQ_MIN
+	int "Min CPU Frequency"
+	depends on MSM_CPU_FREQ_SET_MIN_MAX
+	default 400000
+
+endif # CPU_FREQ_MSM
 
 config SERIAL_NUM
 	bool "Enable Serial Number Proc Interface"
