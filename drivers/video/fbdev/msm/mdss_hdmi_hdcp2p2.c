@@ -233,6 +233,10 @@ static int hdmi_hdcp2p2_authenticate(void *input)
 	ctrl->sink_status = SINK_CONNECTED;
 	atomic_set(&ctrl->auth_state, HDCP_STATE_AUTHENTICATING);
 
+	/* make sure ddc is idle before starting hdcp 2.2 authentication */
+	hdmi_scrambler_ddc_disable(ctrl->init_data.ddc_ctrl);
+	hdmi_hdcp2p2_ddc_disable(ctrl->init_data.ddc_ctrl);
+
 	cdata.context = input;
 	hdmi_hdcp2p2_wakeup(&cdata);
 
@@ -431,7 +435,6 @@ static int hdmi_hdcp2p2_ddc_write_message(struct hdmi_hdcp2p2_ctrl *ctrl,
 	ddc_data.offset = HDCP_SINK_DDC_HDCP2_WRITE_MESSAGE;
 	ddc_data.data_buf = buf;
 	ddc_data.data_len = size;
-	ddc_data.retry = 1;
 	ddc_data.hard_timeout = ctrl->timeout;
 	ddc_data.what = "HDCP2WriteMessage";
 
@@ -800,7 +803,7 @@ static void hdmi_hdcp2p2_link_work(struct kthread_work *work)
 		goto exit;
 	}
 
-	rc = hdmi_ddc_check_status(ddc_ctrl);
+	rc = hdmi_hdcp2p2_ddc_check_status(ddc_ctrl);
 	if (rc) {
 		cdata.cmd = HDCP_LIB_WKUP_CMD_STOP;
 		goto exit;

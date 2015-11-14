@@ -372,7 +372,6 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	ddc_data.request_len = 1;
 	ddc_data.retry = 5;
 	ddc_data.what = "Bcaps";
-	ddc_data.no_align = true;
 
 	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
 
@@ -574,7 +573,6 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	ddc_data.request_len = 5;
 	ddc_data.retry = 5;
 	ddc_data.what = "Bksv";
-	ddc_data.no_align = true;
 
 	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
 
@@ -649,7 +647,6 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	ddc_data.request_len = 2;
 	ddc_data.retry = 5;
 	ddc_data.what = "R0'";
-	ddc_data.no_align = true;
 
 	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
 
@@ -758,7 +755,6 @@ static int hdmi_hdcp_transfer_v_h(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	ddc_data.request_len = 4;
 	ddc_data.retry = 5;
 	ddc_data.what = what;
-	ddc_data.no_align = true;
 
 	if (hdcp_ctrl->tz_hdcp) {
 		memset(scm_buf, 0x00, sizeof(scm_buf));
@@ -888,7 +884,7 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 		ddc_data.request_len = 1;
 		ddc_data.retry = 5;
 		ddc_data.what = "Bcaps";
-		ddc_data.no_align = false;
+		ddc_data.retry_align = true;
 
 		hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
 
@@ -910,7 +906,7 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	ddc_data.request_len = 2;
 	ddc_data.retry = 5;
 	ddc_data.what = "Bstatuss";
-	ddc_data.no_align = false;
+	ddc_data.retry_align = true;
 
 	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
 
@@ -1005,7 +1001,6 @@ static int hdmi_hdcp_authentication_part2(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	ddc_data.request_len = ksv_bytes;
 	ddc_data.retry = 5;
 	ddc_data.what = "KSV FIFO";
-	ddc_data.no_align = true;
 
 	hdcp_ctrl->init_data.ddc_ctrl->ddc_data = ddc_data;
 
