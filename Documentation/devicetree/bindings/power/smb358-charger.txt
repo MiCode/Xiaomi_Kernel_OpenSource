@@ -66,6 +66,13 @@ Optional Properties:
 - qcom,warm-bat-mv:		Maximum warm battery target voltage in milli-volts.
 - qcom,cool-bat-mv:		Maximum cool battery target voltage in milli-volts.
 - qcom,chg-vadc			Corresponding VADC device's phandle.
+- qcom,skip-usb-suspend-for-fake-battery:	A boolean property to skip suspending USB path for fake
+				battery. If this property is not present then 'qcom,batt-id-vref-uv' and
+				'qcom,batt-id-rpullup-kohm' should be present.
+- qcom,batt-id-vref-uv		The reference voltage on the battery-ID line
+				specified in micro-volts.
+- qcom,batt-id-rpullup-kohm	The pull-up resistor connected on the battery-ID
+				(vref) line.
 
 Example:
 	i2c@f9967000 {
