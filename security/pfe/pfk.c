@@ -143,8 +143,8 @@ static int pfk_get_page_index(const struct bio *bio, pgoff_t *page_index)
 	if (!bio || !page_index)
 		return -EPERM;
 
-	/* check bio vec count > 0 before using the bio->bi_io_vec[] array */
-	if (!bio->bi_vcnt)
+	/* check bio bi_size > 0 before using the bio->bi_io_vec[] array */
+	if (!(bio->bi_iter).bi_size)
 		return -EINVAL;
 	if (!bio->bi_io_vec)
 		return -EINVAL;
@@ -173,8 +173,8 @@ static struct inode *pfk_bio_get_inode(const struct bio *bio)
 {
 	if (!bio)
 		return NULL;
-	/* check bio vec count > 0 before using the bio->bi_io_vec[] array */
-	if (!bio->bi_vcnt)
+	/* check bio bi_size > 0 before using the bio->bi_io_vec[] array */
+	if (!(bio->bi_iter).bi_size)
 		return NULL;
 	if (!bio->bi_io_vec)
 		return NULL;
