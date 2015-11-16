@@ -53,21 +53,6 @@ Optional properties:
 				defined by the qcom,acc-sel-l2-bit-size
 				property.  This N-bit value specifies the corner
 				value used by the accelerator for the L2 cache.
-- qcom,l1-config-skip-fuse-sel:	Array of 5 elements to indicate where to read the bits, what value to
-				compare with in order to decide whether to
-				skip configuring the L1 accelerator or not while changing the APC corner
-				and method to read fuse row, using SCM to read or read register directly.
-				The 5 elements with index [0..4] are:
-				  [0] => the fuse row number of the selector
-				  [1] => LSB bit position of the bits
-				  [2] => number of bits
-				  [3] => the value to select skip L1 config logic
-				  [4] => fuse reading method, 0 for direct reading or 1 for SCM reading
-				When the value of the fuse bits specified by first 3 elements equals to
-				the value in 4th element, L1 accelerator
-				configuration logic is skipped. Otherwise, the original configuration sent
-				from corner map should be applied. If the 5th element is 0, read the fuse row
-				from register directly. Otherwise, read it through SCM.
 - qcom,l1-acc-custom-data:	Array which maps APC corner values to L1 ACC custom data values.
 				The corresponding custom data is written into the custom register
 				while switching between APC corners. The custom register address
@@ -150,7 +135,6 @@ mem_acc_vreg_corner: regulator@fd4aa044 {
 	qcom,acc-sel-l1-bit-size = <2>;
 	qcom,acc-sel-l2-bit-size = <2>;
 	qcom,corner-acc-map = <0 1 3>;
-	qcom,l1-config-skip-fuse-sel = <0 52 1 1 0>;
 	qcom,l2-acc-custom-data = <0x0 0x3000 0x3000>;
 
 	qcom,override-acc-fuse-sel = <0 52 2 0>;
