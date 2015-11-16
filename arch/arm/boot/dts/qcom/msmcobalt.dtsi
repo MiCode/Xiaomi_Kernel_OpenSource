@@ -1196,3 +1196,5 @@
 };
 
 #include "msm-arm-smmu-cobalt.dtsi"
+#include "msmcobalt-ion.dtsi"
+
