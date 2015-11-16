@@ -2725,6 +2725,9 @@ wcnss_trigger_config(struct platform_device *pdev)
 	is_pronto_v3 = of_property_read_bool(pdev->dev.of_node,
 							"qcom,is-pronto-v3");
 
+	penv->is_vsys_adc_channel = of_property_read_bool(pdev->dev.of_node,
+						"qcom,has-vsys-adc-channel");
+
 	if (of_property_read_u32(pdev->dev.of_node,
 			"qcom,wlan-rx-buff-count", &penv->wlan_rx_buff_count)) {
 		penv->wlan_rx_buff_count = WCNSS_DEF_WLAN_RX_BUFF_COUNT;
