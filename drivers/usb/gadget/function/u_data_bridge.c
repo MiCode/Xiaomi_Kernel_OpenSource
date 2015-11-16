@@ -508,6 +508,7 @@ ssize_t gbridge_port_write(struct file *file,
 	struct usb_request *req;
 	struct list_head *pool;
 	unsigned xfer_size;
+	struct usb_ep *in;
 
 	port = file->private_data;
 	if (!port) {
@@ -518,11 +519,19 @@ ssize_t gbridge_port_write(struct file *file,
 	spin_lock_irqsave(&port->port_lock, flags);
 	pr_debug("write on port(%p)\n", port);
 
+	if (!port->is_connected || !port->port_usb) {
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		pr_err("%s: cable is disconnected.\n", __func__);
+		return -ENODEV;
+	}
+
 	if (list_empty(&port->write_pool)) {
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		pr_debug("%s: Request list is empty.\n", __func__);
 		return 0;
 	}
+
+	in = port->port_usb->in;
 	pool = &port->write_pool;
 	req = list_first_entry(pool, struct usb_request, list);
 	list_del_init(&req->list);
@@ -540,13 +549,10 @@ ssize_t gbridge_port_write(struct file *file,
 		ret = -EFAULT;
 	} else {
 		req->length = xfer_size;
-		ret = usb_ep_queue(port->port_usb->in, req, GFP_KERNEL);
+		ret = usb_ep_queue(in, req, GFP_KERNEL);
 		if (ret) {
 			pr_err("EP QUEUE failed:%d\n", ret);
-			spin_lock_irqsave(&port->port_lock, flags);
-			list_add(&req->list, &port->write_pool);
 			ret = -EIO;
-			spin_unlock_irqrestore(&port->port_lock, flags);
 			goto err_exit;
 		}
 		spin_lock_irqsave(&port->port_lock, flags);
@@ -555,10 +561,18 @@ ssize_t gbridge_port_write(struct file *file,
 	}
 
 err_exit:
-	if (ret)
+	if (ret) {
+		spin_lock_irqsave(&port->port_lock, flags);
+		/* USB cable is connected, add it back otherwise free request */
+		if (port->is_connected)
+			list_add(&req->list, &port->write_pool);
+		else
+			gbridge_free_req(in, req);
+		spin_unlock_irqrestore(&port->port_lock, flags);
 		return ret;
-	else
-		return xfer_size;
+	}
+
+	return xfer_size;
 }
 
 static unsigned int gbridge_port_poll(struct file *file, poll_table *wait)
