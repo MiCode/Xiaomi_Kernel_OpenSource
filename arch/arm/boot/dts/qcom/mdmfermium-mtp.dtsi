@@ -113,6 +113,9 @@
 		interrupts = <0x0 0xa1 0x0>;	/* PMIC MPP 2 */
 		qcom,float-voltage-mv = <4200>;
 		qcom,irq-gpio = <&pm8019_mpps 2 0>;
+		qcom,chg-vadc = <&pm8019_vadc>;
+		qcom,batt-id-vref-uv = <1800000>;
+		qcom,batt-id-rpullup-kohm = <220>;
 	};
 };
 
