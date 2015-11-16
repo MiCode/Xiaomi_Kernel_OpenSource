@@ -945,6 +945,31 @@ int gsi_queue_xfer(unsigned long chan_hdl, uint16_t num_xfers,
  */
 int gsi_start_xfer(unsigned long chan_hdl);
 
+/**
+ * gsi_configure_regs - Peripheral should call this function
+ * to configure the GSI registers before/after the FW is
+ * loaded but before it is enabled.
+ *
+ * @gsi_base_addr: Base address of GSI register space
+ * @gsi_size: Mapping size of the GSI register space
+ * @per_base_addr: Base address of the peripheral using GSI
+ *
+ * @Return gsi_status
+ */
+int gsi_configure_regs(phys_addr_t gsi_base_addr, u32 gsi_size,
+		phys_addr_t per_base_addr);
+
+/**
+ * gsi_enable_fw - Peripheral should call this function
+ * to enable the GSI FW after the FW has been loaded to the SRAM.
+ *
+ * @gsi_base_addr: Base address of GSI register space
+ * @gsi_size: Mapping size of the GSI register space
+
+ * @Return gsi_status
+ */
+int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size);
+
 /*
  * Here is a typical sequence of calls
  *
@@ -1122,5 +1147,14 @@ static inline int gsi_set_evt_ring_cfg(unsigned long evt_ring_hdl,
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }
 
+static inline int gsi_configure_regs(phys_addr_t gsi_base_addr, u32 gsi_size,
+		phys_addr_t per_base_addr)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+static inline int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
 #endif
 #endif

@@ -2374,6 +2374,114 @@ int gsi_set_channel_cfg(unsigned long chan_hdl, struct gsi_chan_props *props,
 }
 EXPORT_SYMBOL(gsi_set_channel_cfg);
 
+static void gsi_configure_ieps(void *base)
+{
+	void __iomem *gsi_base = (void __iomem *)base;
+
+	gsi_writel(1, gsi_base + GSI_GSI_IRAM_PTR_CH_CMD_OFFS);
+	gsi_writel(2, gsi_base + GSI_GSI_IRAM_PTR_CH_DB_OFFS);
+	gsi_writel(3, gsi_base + GSI_GSI_IRAM_PTR_CH_DIS_COMP_OFFS);
+	gsi_writel(4, gsi_base + GSI_GSI_IRAM_PTR_CH_EMPTY_OFFS);
+	gsi_writel(5, gsi_base + GSI_GSI_IRAM_PTR_EE_GENERIC_CMD_OFFS);
+	gsi_writel(6, gsi_base + GSI_GSI_IRAM_PTR_EVENT_GEN_COMP_OFFS);
+	gsi_writel(7, gsi_base + GSI_GSI_IRAM_PTR_INT_MOD_STOPED_OFFS);
+	gsi_writel(8, gsi_base + GSI_GSI_IRAM_PTR_IPA_IF_DESC_PROC_COMP_OFFS);
+	gsi_writel(9, gsi_base + GSI_GSI_IRAM_PTR_IPA_IF_RESET_COMP_OFFS);
+	gsi_writel(10, gsi_base + GSI_GSI_IRAM_PTR_IPA_IF_STOP_COMP_OFFS);
+	gsi_writel(11, gsi_base + GSI_GSI_IRAM_PTR_NEW_RE_OFFS);
+	gsi_writel(12, gsi_base + GSI_GSI_IRAM_PTR_READ_ENG_COMP_OFFS);
+	gsi_writel(13, gsi_base + GSI_GSI_IRAM_PTR_TIMER_EXPIRED_OFFS);
+}
+
+static void gsi_configure_bck_prs_matrix(void *base)
+{
+	void __iomem *gsi_base = (void __iomem *)base;
+	/*
+	 * For now, these are default values. In the future, GSI FW image will
+	 * produce optimized back-pressure values based on the FW image.
+	 */
+	gsi_writel(0xfffffffe,
+		gsi_base + GSI_IC_DISABLE_CHNL_BCK_PRS_LSB_OFFS);
+	gsi_writel(0xffffffff,
+		gsi_base + GSI_IC_DISABLE_CHNL_BCK_PRS_MSB_OFFS);
+	gsi_writel(0xffffffbf, gsi_base + GSI_IC_GEN_EVNT_BCK_PRS_LSB_OFFS);
+	gsi_writel(0xffffffff, gsi_base + GSI_IC_GEN_EVNT_BCK_PRS_MSB_OFFS);
+	gsi_writel(0xffffefff, gsi_base + GSI_IC_GEN_INT_BCK_PRS_LSB_OFFS);
+	gsi_writel(0xffffffff, gsi_base + GSI_IC_GEN_INT_BCK_PRS_MSB_OFFS);
+	gsi_writel(0xffffefff,
+		gsi_base + GSI_IC_STOP_INT_MOD_BCK_PRS_LSB_OFFS);
+	gsi_writel(0xffffffff,
+		gsi_base + GSI_IC_STOP_INT_MOD_BCK_PRS_MSB_OFFS);
+	gsi_writel(0x00000000,
+		gsi_base + GSI_IC_PROCESS_DESC_BCK_PRS_LSB_OFFS);
+	gsi_writel(0x00000000,
+		gsi_base + GSI_IC_PROCESS_DESC_BCK_PRS_MSB_OFFS);
+	gsi_writel(0x00ffffff, gsi_base + GSI_IC_TLV_STOP_BCK_PRS_LSB_OFFS);
+	gsi_writel(0xffffffff, gsi_base + GSI_IC_TLV_STOP_BCK_PRS_MSB_OFFS);
+	gsi_writel(0xfdffffff, gsi_base + GSI_IC_TLV_RESET_BCK_PRS_LSB_OFFS);
+	gsi_writel(0xffffffff, gsi_base + GSI_IC_TLV_RESET_BCK_PRS_MSB_OFFS);
+	gsi_writel(0xffffffff, gsi_base + GSI_IC_RGSTR_TIMER_BCK_PRS_LSB_OFFS);
+	gsi_writel(0xfffffffe, gsi_base + GSI_IC_RGSTR_TIMER_BCK_PRS_MSB_OFFS);
+	gsi_writel(0xffffffff, gsi_base + GSI_IC_READ_BCK_PRS_LSB_OFFS);
+	gsi_writel(0xffffefff, gsi_base + GSI_IC_READ_BCK_PRS_MSB_OFFS);
+	gsi_writel(0xffffffff, gsi_base + GSI_IC_WRITE_BCK_PRS_LSB_OFFS);
+	gsi_writel(0xffffdfff, gsi_base + GSI_IC_WRITE_BCK_PRS_MSB_OFFS);
+	gsi_writel(0xffffffff,
+		gsi_base + GSI_IC_UCONTROLLER_GPR_BCK_PRS_LSB_OFFS);
+	gsi_writel(0xff03ffff,
+		gsi_base + GSI_IC_UCONTROLLER_GPR_BCK_PRS_MSB_OFFS);
+}
+
+int gsi_configure_regs(phys_addr_t gsi_base_addr, u32 gsi_size,
+		phys_addr_t per_base_addr)
+{
+	void __iomem *gsi_base;
+
+	gsi_base = ioremap_nocache(gsi_base_addr, gsi_size);
+	if (!gsi_base) {
+		GSIERR("ioremap failed for 0x%pa\n", &gsi_base_addr);
+		return -GSI_STATUS_RES_ALLOC_FAILURE;
+	}
+	gsi_writel(0, gsi_base + GSI_GSI_PERIPH_BASE_ADDR_MSB_OFFS);
+	gsi_writel(per_base_addr,
+			gsi_base + GSI_GSI_PERIPH_BASE_ADDR_LSB_OFFS);
+	gsi_configure_bck_prs_matrix((void *)gsi_base);
+	gsi_configure_ieps((void *)gsi_base);
+	iounmap(gsi_base);
+
+	return 0;
+}
+EXPORT_SYMBOL(gsi_configure_regs);
+
+int gsi_enable_fw(phys_addr_t gsi_base_addr, u32 gsi_size)
+{
+	void __iomem *gsi_base;
+	uint32_t value;
+
+	gsi_base = ioremap_nocache(gsi_base_addr, gsi_size);
+	if (!gsi_base) {
+		GSIERR("ioremap failed for 0x%pa\n", &gsi_base_addr);
+		return -GSI_STATUS_RES_ALLOC_FAILURE;
+	}
+
+	/* Enable the MCS and set to x2 clocks */
+	value = (((1 << GSI_GSI_CFG_GSI_ENABLE_SHFT) &
+			GSI_GSI_CFG_GSI_ENABLE_BMSK) |
+		((1 << GSI_GSI_CFG_MCS_ENABLE_SHFT) &
+			GSI_GSI_CFG_MCS_ENABLE_BMSK) |
+		((1 << GSI_GSI_CFG_DOUBLE_MCS_CLK_FREQ_SHFT) &
+			GSI_GSI_CFG_DOUBLE_MCS_CLK_FREQ_BMSK) |
+		((0 << GSI_GSI_CFG_UC_IS_MCS_SHFT) &
+			GSI_GSI_CFG_UC_IS_MCS_BMSK));
+	gsi_writel(value, gsi_base + GSI_GSI_CFG_OFFS);
+
+	iounmap(gsi_base);
+
+	return 0;
+
+}
+EXPORT_SYMBOL(gsi_enable_fw);
+
 static int msm_gsi_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
