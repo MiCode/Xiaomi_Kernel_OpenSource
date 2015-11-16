@@ -41,6 +41,7 @@ struct hdmi_tx_platform_data {
 	struct reg_bus_client *reg_bus_clt[HDMI_TX_MAX_PM];
 	/* bitfield representing each module's pin state */
 	u64 pin_states;
+	bool pluggable;
 };
 
 struct hdmi_audio {

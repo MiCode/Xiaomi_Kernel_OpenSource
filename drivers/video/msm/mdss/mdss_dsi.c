@@ -3356,6 +3356,9 @@ static int mdss_dsi_parse_ctrl_params(struct platform_device *ctrl_pdev,
 	mdss_dsi_parse_lane_swap(ctrl_pdev->dev.of_node,
 			&(ctrl_pdata->dlane_swap));
 
+	pinfo->is_pluggable = of_property_read_bool(ctrl_pdev->dev.of_node,
+		"qcom,pluggable");
+
 	return 0;
 
 
