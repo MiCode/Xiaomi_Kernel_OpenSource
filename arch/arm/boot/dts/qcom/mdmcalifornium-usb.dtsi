@@ -60,6 +60,7 @@
 			interrupt-parent = <&intc>;
 			interrupts = <0 131 0>;
 			usb-phy = <&qusb_phy>, <&ssphy>;
+			tx-fifo-resize;
 			snps,nominal-elastic-buffer;
 			snps,is-utmi-l1-suspend;
 			snps,hird-threshold = /bits/ 8 <0x0>;
@@ -105,6 +106,9 @@
 		compatible = "qcom,android-usb";
 		reg = <0x086000c8 0xc8>;
 		qcom,pm-qos-latency = <101 2001 30001>;
+		qcom,supported-func = "ffs","audio","diag","serial",
+			"mass_storage","rndis_gsi","ecm_gsi","rmnet_gsi",
+			"mbim_gsi","dpl_gsi","gps";
 	};
 
 	qusb_phy: qusb@79000 {

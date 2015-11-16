@@ -115,12 +115,16 @@ MODULE_PARM_DESC(dcp_max_current, "max current drawn for DCP charger");
 #define	GSI_GENERAL_CFG_REG		(QSCRATCH_REG_OFFSET + 0xFC)
 #define	GSI_RESTART_DBL_PNTR_MASK	BIT(20)
 #define	GSI_CLK_EN_MASK			BIT(12)
+#define	BLOCK_GSI_WR_GO_MASK		BIT(1)
 #define	GSI_EN_MASK			BIT(0)
 
 #define GSI_DBL_ADDR_L(n)	((QSCRATCH_REG_OFFSET + 0x110) + (n*4))
 #define GSI_DBL_ADDR_H(n)	((QSCRATCH_REG_OFFSET + 0x120) + (n*4))
 #define GSI_RING_BASE_ADDR_L(n)	((QSCRATCH_REG_OFFSET + 0x130) + (n*4))
 #define GSI_RING_BASE_ADDR_H(n)	((QSCRATCH_REG_OFFSET + 0x140) + (n*4))
+
+#define	GSI_IF_STS	(QSCRATCH_REG_OFFSET + 0x1A4)
+#define	GSI_WR_CTRL_STATE_MASK	BIT(15)
 
 struct dwc3_msm_req_complete {
 	struct list_head list_item;
@@ -1192,6 +1196,57 @@ static void gsi_enable(struct usb_ep *ep)
 			GSI_GENERAL_CFG_REG, GSI_EN_MASK, 1);
 }
 
+/*
+* Block or allow doorbell towards GSI
+*
+* @usb_ep - pointer to usb_ep instance.
+* @request - pointer to GSI request. In this case num_bufs is used as a bool
+* to set or clear the doorbell bit
+*/
+static void gsi_set_clear_dbell(struct usb_ep *ep,
+					bool block_db)
+{
+
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3 *dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+
+	dwc3_msm_write_reg_field(mdwc->base,
+		GSI_GENERAL_CFG_REG, BLOCK_GSI_WR_GO_MASK, block_db);
+}
+
+/*
+* Performs necessary checks before stopping GSI channels
+*
+* @usb_ep - pointer to usb_ep instance to access DWC3 regs
+*/
+static bool gsi_check_ready_to_suspend(struct usb_ep *ep)
+{
+	u32	timeout = 1500;
+	u32	reg = 0;
+	struct dwc3_ep *dep = to_dwc3_ep(ep);
+	struct dwc3 *dwc = dep->dwc;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+
+	while (dwc3_msm_read_reg_field(mdwc->base,
+		GSI_IF_STS, GSI_WR_CTRL_STATE_MASK)) {
+		if (!timeout--) {
+			dev_err(mdwc->dev,
+			"Unable to suspend GSI ch. WR_CTRL_STATE != 0\n");
+			return false;
+		}
+	}
+
+	reg = dwc3_readl(dwc->regs, DWC3_DSTS);
+	if (DWC3_DSTS_USBLNKST(reg) != DWC3_LINK_STATE_U3) {
+		dev_err(mdwc->dev, "Unable to suspend GSI ch\n");
+		return false;
+	}
+
+	return true;
+}
+
+
 /**
 * Performs GSI operations or GSI EP related operations.
 *
@@ -1211,13 +1266,7 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	struct usb_gsi_request *request;
 	struct gsi_channel_info *ch_info;
-
-	if (!dep->endpoint.desc) {
-		dev_err(mdwc->dev,
-			"%s: trying to queue request %p to disabled ep %s\n",
-			__func__, request, ep->name);
-		return -EPERM;
-	}
+	bool block_db;
 
 	switch (op) {
 	case GSI_EP_OP_PREPARE_TRBS:
@@ -1268,6 +1317,16 @@ static int dwc3_msm_gsi_ep_op(struct usb_ep *ep,
 		request = (struct usb_gsi_request *)op_data;
 		dev_dbg(mdwc->dev, "EP_OP_ENDXFER for %s\n", ep->name);
 		gsi_endxfer_for_ep(ep);
+		break;
+	case GSI_EP_OP_SET_CLR_BLOCK_DBL:
+		block_db = *((bool *)op_data);
+		dev_dbg(mdwc->dev, "EP_OP_SET_CLR_BLOCK_DBL %d\n",
+						block_db);
+		gsi_set_clear_dbell(ep, block_db);
+		break;
+	case GSI_EP_OP_CHECK_FOR_SUSPEND:
+		dev_dbg(mdwc->dev, "EP_OP_CHECK_FOR_SUSPEND\n");
+		ret = gsi_check_ready_to_suspend(ep);
 		break;
 	default:
 		dev_err(mdwc->dev, "%s: Invalid opcode GSI EP\n", __func__);
