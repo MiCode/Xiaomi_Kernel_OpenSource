@@ -645,6 +645,21 @@ static char *ipa3_usb_teth_prot_to_string(enum ipa_usb_teth_prot teth_prot)
 	return NULL;
 }
 
+static char *ipa3_usb_teth_bridge_prot_to_string(
+	enum ipa_usb_teth_prot teth_prot)
+{
+	switch (teth_prot) {
+	case IPA_USB_RMNET:
+		return "rmnet";
+	case IPA_USB_MBIM:
+		return "mbim";
+	default:
+		return "unsupported";
+	}
+
+	return NULL;
+}
+
 static int ipa3_usb_init_teth_bridge(void)
 {
 	int result;
@@ -816,8 +831,10 @@ int ipa3_usb_init_teth_prot(enum ipa_usb_teth_prot teth_prot,
 		ipa3_usb_ctx->teth_prot_ctx[teth_prot].state =
 			IPA_USB_TETH_PROT_INITIALIZED;
 		ipa3_usb_ctx->num_init_prot++;
-		IPA_USB_DBG("initialized %s\n",
-			ipa3_usb_teth_prot_to_string(teth_prot));
+		IPA_USB_DBG("initialized %s %s\n",
+			ipa3_usb_teth_prot_to_string(teth_prot),
+			(teth_prot == IPA_USB_DIAG) ? "" :
+			ipa3_usb_teth_bridge_prot_to_string(teth_prot));
 		break;
 	default:
 		IPA_USB_ERR("unexpected tethering protocol\n");
@@ -1307,8 +1324,10 @@ static int ipa3_usb_connect_teth_prot(
 		ipa3_usb_ctx->teth_prot_ctx[params->teth_prot].state =
 			IPA_USB_TETH_PROT_CONNECTED;
 		ipa3_usb_notify_device_ready(ipa3_usb_ctx->user_data);
-		IPA_USB_DBG("%s is connected.\n",
+		IPA_USB_DBG("%s (%s) is connected.\n",
 			ipa3_usb_teth_prot_to_string(
+			params->teth_prot),
+			ipa3_usb_teth_bridge_prot_to_string(
 			params->teth_prot));
 		break;
 	case IPA_USB_DIAG:
@@ -1415,8 +1434,9 @@ static int ipa3_usb_disconnect_teth_prot(enum ipa_usb_teth_prot teth_prot)
 		ipa3_usb_ctx->teth_prot_ctx[teth_prot].state =
 			IPA_USB_TETH_PROT_INITIALIZED;
 		ipa3_usb_ctx->user_data = NULL;
-		IPA_USB_DBG("disconnected %s\n",
-			ipa3_usb_teth_prot_to_string(teth_prot));
+		IPA_USB_DBG("disconnected %s (%s)\n",
+			ipa3_usb_teth_prot_to_string(teth_prot),
+			ipa3_usb_teth_bridge_prot_to_string(teth_prot));
 		break;
 	case IPA_USB_DIAG:
 		if (ipa3_usb_ctx->teth_prot_ctx[teth_prot].state !=
@@ -1860,13 +1880,6 @@ int ipa3_usb_deinit_teth_prot(enum ipa_usb_teth_prot teth_prot)
 		goto bad_params;
 	}
 
-	if (!ipa3_usb_check_legal_op(IPA_USB_DEINIT_TETH_PROT,
-		(teth_prot == IPA_USB_DIAG))) {
-		IPA_USB_ERR("Illegal operation.\n");
-		result = -EPERM;
-		goto bad_params;
-	}
-
 	/* Clean-up tethering protocol */
 	switch (teth_prot) {
 	case IPA_USB_RNDIS:
@@ -1913,8 +1926,9 @@ int ipa3_usb_deinit_teth_prot(enum ipa_usb_teth_prot teth_prot)
 		ipa3_usb_ctx->teth_prot_ctx[teth_prot].state =
 			IPA_USB_TETH_PROT_INVALID;
 		ipa3_usb_ctx->num_init_prot--;
-		IPA_USB_DBG("deinitialized %s\n",
-			ipa3_usb_teth_prot_to_string(teth_prot));
+		IPA_USB_DBG("deinitialized %s (%s)\n",
+			ipa3_usb_teth_prot_to_string(teth_prot),
+			ipa3_usb_teth_bridge_prot_to_string(teth_prot));
 		break;
 	case IPA_USB_DIAG:
 		if (ipa3_usb_ctx->teth_prot_ctx[teth_prot].state !=
