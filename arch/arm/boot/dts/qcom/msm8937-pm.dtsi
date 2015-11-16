@@ -269,6 +269,7 @@
 			<0xff 60>,  /* mss_to_apps_irq(3) */
 			<0xff 61>,  /* mss_a2_bam_irq */
 			<0xff 65>,  /* o_gc_sys_irq[0] */
+			<0xff 69>,  /* vbif_irpt */
 			<0xff 73>,  /* smmu_intr_bus[1] */
 			<0xff 74>,  /* smmu_bus_intr[2] */
 			<0xff 75>,  /* smmu_bus_intr[3] */
@@ -286,11 +287,15 @@
 			<0xff 109>, /* smmu_bus_intr[37] */
 			<0xff 112>, /* smmu_bus_intr[38] */
 			<0xff 114>, /* qdsd_intr_out */
+			<0xff 126>, /* smmu_bus_intr[39] */
+			<0xff 128>, /* blsp1_peripheral_irq[3] */
 			<0xff 129>, /* blsp1_peripheral_irq[4] */
 			<0xff 131>, /* qup_irq */
+			<0xff 136>, /* smmu_bus_intr[43] */
 			<0xff 137>, /* smmu_intr_bus[44] */
 			<0xff 138>, /* smmu_intr_bus[45] */
 			<0xff 140>, /* uart_dm_intr */
+			<0xff 141>, /* smmu_bus_intr[46] */
 			<0xff 142>, /* smmu_bus_intr[47] */
 			<0xff 143>, /* smmu_bus_intr[48] */
 			<0xff 144>, /* smmu_bus_intr[49] */
@@ -339,6 +344,7 @@
 			<0xff 239>, /* crypto_bam_irq[1]*/
 			<0xff 240>, /* summary_irq_kpss */
 			<0xff 253>, /* sdcc_pwr_cmd_irq */
+			<0xff 257>, /* osmmu_CIrpt[0] */
 			<0xff 269>, /* rpm_wdog_expired_irq */
 			<0xff 270>, /* blsp1_bam_irq[0] */
 			<0xff 272>, /* smmu_intr_bus[17] */
@@ -347,6 +353,9 @@
 			<0xff 275>, /* rpm_ipc(30) */
 			<0xff 276>, /* rpm_ipc(31) */
 			<0xff 277>, /* smmu_intr_bus[20] */
+			<0xff 285>, /* smmu_bus_intr[28] */
+			<0xff 286>, /* smmu_bus_intr[29] */
+			<0xff 287>, /* smmu_bus_intr[30] */
 			<0xff 321>, /* q6ss_irq_out(4) */
 			<0xff 322>, /* q6ss_irq_out(5) */
 			<0xff 323>, /* q6ss_irq_out(6) */
