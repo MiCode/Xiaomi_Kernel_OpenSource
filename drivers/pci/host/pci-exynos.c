@@ -398,7 +398,7 @@ static void exynos_pcie_enable_irq_pulse(struct pcie_port *pp)
 
 	/* enable INTX interrupt */
 	val = IRQ_INTA_ASSERT | IRQ_INTB_ASSERT |
-		IRQ_INTC_ASSERT | IRQ_INTD_ASSERT,
+		IRQ_INTC_ASSERT | IRQ_INTD_ASSERT;
 	exynos_elb_writel(exynos_pcie, val, PCIE_IRQ_EN_PULSE);
 	return;
 }
@@ -649,7 +649,6 @@ static struct platform_driver exynos_pcie_driver = {
 	.remove		= __exit_p(exynos_pcie_remove),
 	.driver = {
 		.name	= "exynos-pcie",
-		.owner	= THIS_MODULE,
 		.of_match_table = exynos_pcie_of_match,
 	},
 };

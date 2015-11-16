@@ -104,14 +104,13 @@ static void ks_dw_pcie_msi_irq_ack(struct irq_data *d)
 {
 	u32 offset, reg_offset, bit_pos;
 	struct keystone_pcie *ks_pcie;
-	unsigned int irq = d->irq;
 	struct msi_desc *msi;
 	struct pcie_port *pp;
 
-	msi = irq_get_msi_desc(irq);
-	pp = sys_to_pcie(msi->dev->bus->sysdata);
+	msi = irq_data_get_msi_desc(d);
+	pp = sys_to_pcie(msi_desc_to_pci_sysdata(msi));
 	ks_pcie = to_keystone_pcie(pp);
-	offset = irq - irq_linear_revmap(pp->irq_domain, 0);
+	offset = d->irq - irq_linear_revmap(pp->irq_domain, 0);
 	update_reg_offset_bit_pos(offset, &reg_offset, &bit_pos);
 
 	writel(BIT(bit_pos),
@@ -142,20 +141,19 @@ void ks_dw_pcie_msi_clear_irq(struct pcie_port *pp, int irq)
 static void ks_dw_pcie_msi_irq_mask(struct irq_data *d)
 {
 	struct keystone_pcie *ks_pcie;
-	unsigned int irq = d->irq;
 	struct msi_desc *msi;
 	struct pcie_port *pp;
 	u32 offset;
 
-	msi = irq_get_msi_desc(irq);
-	pp = sys_to_pcie(msi->dev->bus->sysdata);
+	msi = irq_data_get_msi_desc(d);
+	pp = sys_to_pcie(msi_desc_to_pci_sysdata(msi));
 	ks_pcie = to_keystone_pcie(pp);
-	offset = irq - irq_linear_revmap(pp->irq_domain, 0);
+	offset = d->irq - irq_linear_revmap(pp->irq_domain, 0);
 
 	/* Mask the end point if PVM implemented */
 	if (IS_ENABLED(CONFIG_PCI_MSI)) {
 		if (msi->msi_attrib.maskbit)
-			mask_msi_irq(d);
+			pci_msi_mask_irq(d);
 	}
 
 	ks_dw_pcie_msi_clear_irq(pp, offset);
@@ -164,20 +162,19 @@ static void ks_dw_pcie_msi_irq_mask(struct irq_data *d)
 static void ks_dw_pcie_msi_irq_unmask(struct irq_data *d)
 {
 	struct keystone_pcie *ks_pcie;
-	unsigned int irq = d->irq;
 	struct msi_desc *msi;
 	struct pcie_port *pp;
 	u32 offset;
 
-	msi = irq_get_msi_desc(irq);
-	pp = sys_to_pcie(msi->dev->bus->sysdata);
+	msi = irq_data_get_msi_desc(d);
+	pp = sys_to_pcie(msi_desc_to_pci_sysdata(msi));
 	ks_pcie = to_keystone_pcie(pp);
-	offset = irq - irq_linear_revmap(pp->irq_domain, 0);
+	offset = d->irq - irq_linear_revmap(pp->irq_domain, 0);
 
 	/* Mask the end point if PVM implemented */
 	if (IS_ENABLED(CONFIG_PCI_MSI)) {
 		if (msi->msi_attrib.maskbit)
-			unmask_msi_irq(d);
+			pci_msi_unmask_irq(d);
 	}
 
 	ks_dw_pcie_msi_set_irq(pp, offset);
@@ -205,7 +202,7 @@ const struct irq_domain_ops ks_dw_pcie_msi_domain_ops = {
 	.map = ks_dw_pcie_msi_map,
 };
 
-int ks_dw_pcie_msi_host_init(struct pcie_port *pp, struct msi_chip *chip)
+int ks_dw_pcie_msi_host_init(struct pcie_port *pp, struct msi_controller *chip)
 {
 	struct keystone_pcie *ks_pcie = to_keystone_pcie(pp);
 	int i;

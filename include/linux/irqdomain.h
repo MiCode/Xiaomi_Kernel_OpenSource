@@ -33,14 +33,31 @@
 #define _LINUX_IRQDOMAIN_H
 
 #include <linux/types.h>
+#include <linux/irqhandler.h>
 #include <linux/radix-tree.h>
 
 struct device_node;
 struct irq_domain;
 struct of_device_id;
+struct irq_chip;
+struct irq_data;
 
 /* Number of irqs reserved for a legacy isa controller */
 #define NUM_ISA_INTERRUPTS	16
+
+/*
+ * Should several domains have the same device node, but serve
+ * different purposes (for example one domain is for PCI/MSI, and the
+ * other for wired IRQs), they can be distinguished using a
+ * bus-specific token. Most domains are expected to only carry
+ * DOMAIN_BUS_ANY.
+ */
+enum irq_domain_bus_token {
+	DOMAIN_BUS_ANY		= 0,
+	DOMAIN_BUS_PCI_MSI,
+	DOMAIN_BUS_PLATFORM_MSI,
+	DOMAIN_BUS_NEXUS,
+};
 
 /**
  * struct irq_domain_ops - Methods for irq_domain objects
@@ -58,12 +75,23 @@ struct of_device_id;
  * to setup the irq_desc when returning from map().
  */
 struct irq_domain_ops {
-	int (*match)(struct irq_domain *d, struct device_node *node);
+	int (*match)(struct irq_domain *d, struct device_node *node,
+		     enum irq_domain_bus_token bus_token);
 	int (*map)(struct irq_domain *d, unsigned int virq, irq_hw_number_t hw);
 	void (*unmap)(struct irq_domain *d, unsigned int virq);
 	int (*xlate)(struct irq_domain *d, struct device_node *node,
 		     const u32 *intspec, unsigned int intsize,
 		     unsigned long *out_hwirq, unsigned int *out_type);
+
+#ifdef	CONFIG_IRQ_DOMAIN_HIERARCHY
+	/* extended V2 interfaces to support hierarchy irq_domains */
+	int (*alloc)(struct irq_domain *d, unsigned int virq,
+		     unsigned int nr_irqs, void *arg);
+	void (*free)(struct irq_domain *d, unsigned int virq,
+		     unsigned int nr_irqs);
+	void (*activate)(struct irq_domain *d, struct irq_data *irq_data);
+	void (*deactivate)(struct irq_domain *d, struct irq_data *irq_data);
+#endif
 };
 
 extern struct irq_domain_ops irq_generic_chip_ops;
@@ -77,6 +105,7 @@ struct irq_domain_chip_generic;
  * @ops: pointer to irq_domain methods
  * @host_data: private data pointer for use by owner.  Not touched by irq_domain
  *             core code.
+ * @flags: host per irq_domain flags
  *
  * Optional elements
  * @of_node: Pointer to device tree nodes associated with the irq_domain. Used
@@ -84,6 +113,7 @@ struct irq_domain_chip_generic;
  * @gc: Pointer to a list of generic chips. There is a helper function for
  *      setting up one or more generic chips for interrupt controllers
  *      drivers using the generic chip library which uses this pointer.
+ * @parent: Pointer to parent irq_domain to support hierarchy irq_domains
  *
  * Revmap data, used internally by irq_domain
  * @revmap_direct_max_irq: The largest hwirq that can be set for controllers that
@@ -97,10 +127,15 @@ struct irq_domain {
 	const char *name;
 	const struct irq_domain_ops *ops;
 	void *host_data;
+	unsigned int flags;
 
 	/* Optional data */
 	struct device_node *of_node;
+	enum irq_domain_bus_token bus_token;
 	struct irq_domain_chip_generic *gc;
+#ifdef	CONFIG_IRQ_DOMAIN_HIERARCHY
+	struct irq_domain *parent;
+#endif
 
 	/* reverse map data. The linear map gets appended to the irq_domain */
 	irq_hw_number_t hwirq_max;
@@ -108,6 +143,22 @@ struct irq_domain {
 	unsigned int revmap_size;
 	struct radix_tree_root revmap_tree;
 	unsigned int linear_revmap[];
+};
+
+/* Irq domain flags */
+enum {
+	/* Irq domain is hierarchical */
+	IRQ_DOMAIN_FLAG_HIERARCHY	= (1 << 0),
+
+	/* Core calls alloc/free recursive through the domain hierarchy. */
+	IRQ_DOMAIN_FLAG_AUTO_RECURSIVE	= (1 << 1),
+
+	/*
+	 * Flags starting from IRQ_DOMAIN_FLAG_NONCORE are reserved
+	 * for implementation specific purposes and ignored by the
+	 * core code.
+	 */
+	IRQ_DOMAIN_FLAG_NONCORE		= (1 << 16),
 };
 
 #ifdef CONFIG_IRQ_DOMAIN
@@ -126,8 +177,14 @@ struct irq_domain *irq_domain_add_legacy(struct device_node *of_node,
 					 irq_hw_number_t first_hwirq,
 					 const struct irq_domain_ops *ops,
 					 void *host_data);
-extern struct irq_domain *irq_find_host(struct device_node *node);
+extern struct irq_domain *irq_find_matching_host(struct device_node *node,
+						 enum irq_domain_bus_token bus_token);
 extern void irq_set_default_host(struct irq_domain *host);
+
+static inline struct irq_domain *irq_find_host(struct device_node *node)
+{
+	return irq_find_matching_host(node, DOMAIN_BUS_ANY);
+}
 
 /**
  * irq_domain_add_linear() - Allocate and register a linear revmap irq_domain.
@@ -220,8 +277,74 @@ int irq_domain_xlate_onetwocell(struct irq_domain *d, struct device_node *ctrlr,
 			const u32 *intspec, unsigned int intsize,
 			irq_hw_number_t *out_hwirq, unsigned int *out_type);
 
+/* V2 interfaces to support hierarchy IRQ domains. */
+extern struct irq_data *irq_domain_get_irq_data(struct irq_domain *domain,
+						unsigned int virq);
+#ifdef	CONFIG_IRQ_DOMAIN_HIERARCHY
+extern struct irq_domain *irq_domain_add_hierarchy(struct irq_domain *parent,
+			unsigned int flags, unsigned int size,
+			struct device_node *node,
+			const struct irq_domain_ops *ops, void *host_data);
+extern int __irq_domain_alloc_irqs(struct irq_domain *domain, int irq_base,
+				   unsigned int nr_irqs, int node, void *arg,
+				   bool realloc);
+extern void irq_domain_free_irqs(unsigned int virq, unsigned int nr_irqs);
+extern void irq_domain_activate_irq(struct irq_data *irq_data);
+extern void irq_domain_deactivate_irq(struct irq_data *irq_data);
+
+static inline int irq_domain_alloc_irqs(struct irq_domain *domain,
+			unsigned int nr_irqs, int node, void *arg)
+{
+	return __irq_domain_alloc_irqs(domain, -1, nr_irqs, node, arg, false);
+}
+
+extern int irq_domain_set_hwirq_and_chip(struct irq_domain *domain,
+					 unsigned int virq,
+					 irq_hw_number_t hwirq,
+					 struct irq_chip *chip,
+					 void *chip_data);
+extern void irq_domain_set_info(struct irq_domain *domain, unsigned int virq,
+				irq_hw_number_t hwirq, struct irq_chip *chip,
+				void *chip_data, irq_flow_handler_t handler,
+				void *handler_data, const char *handler_name);
+extern void irq_domain_reset_irq_data(struct irq_data *irq_data);
+extern void irq_domain_free_irqs_common(struct irq_domain *domain,
+					unsigned int virq,
+					unsigned int nr_irqs);
+extern void irq_domain_free_irqs_top(struct irq_domain *domain,
+				     unsigned int virq, unsigned int nr_irqs);
+
+extern int irq_domain_alloc_irqs_parent(struct irq_domain *domain,
+					unsigned int irq_base,
+					unsigned int nr_irqs, void *arg);
+
+extern void irq_domain_free_irqs_parent(struct irq_domain *domain,
+					unsigned int irq_base,
+					unsigned int nr_irqs);
+
+static inline bool irq_domain_is_hierarchy(struct irq_domain *domain)
+{
+	return domain->flags & IRQ_DOMAIN_FLAG_HIERARCHY;
+}
+#else	/* CONFIG_IRQ_DOMAIN_HIERARCHY */
+static inline void irq_domain_activate_irq(struct irq_data *data) { }
+static inline void irq_domain_deactivate_irq(struct irq_data *data) { }
+static inline int irq_domain_alloc_irqs(struct irq_domain *domain,
+			unsigned int nr_irqs, int node, void *arg)
+{
+	return -1;
+}
+
+static inline bool irq_domain_is_hierarchy(struct irq_domain *domain)
+{
+	return false;
+}
+#endif	/* CONFIG_IRQ_DOMAIN_HIERARCHY */
+
 #else /* CONFIG_IRQ_DOMAIN */
 static inline void irq_dispose_mapping(unsigned int virq) { }
+static inline void irq_domain_activate_irq(struct irq_data *data) { }
+static inline void irq_domain_deactivate_irq(struct irq_data *data) { }
 #endif /* !CONFIG_IRQ_DOMAIN */
 
 #endif /* _LINUX_IRQDOMAIN_H */

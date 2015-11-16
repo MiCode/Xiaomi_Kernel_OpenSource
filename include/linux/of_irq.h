@@ -69,6 +69,7 @@ static inline int of_irq_get_byname(struct device_node *dev, const char *name)
  */
 extern unsigned int irq_of_parse_and_map(struct device_node *node, int index);
 extern struct device_node *of_irq_find_parent(struct device_node *child);
+extern void of_msi_configure(struct device *dev, struct device_node *np);
 
 #else /* !CONFIG_OF */
 static inline unsigned int irq_of_parse_and_map(struct device_node *dev,
