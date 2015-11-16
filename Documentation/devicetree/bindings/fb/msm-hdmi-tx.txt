@@ -46,6 +46,7 @@ Optional properties:
 - qcom,conti-splash-enabled: Enables the hdmi continuous splash screen feature.
   HDMI interface will remain powered on from LK to kernel with continuous
   display of bootup logo.
+- qcom,pluggable: boolean to enable hotplug feature.
 
 [Optional child nodes]: These nodes are for devices which are
 dependent on HDMI Tx controller. If HDMI Tx controller is disabled then
@@ -88,6 +89,7 @@ Example:
 		qcom,hdmi-tx-mux-sel = <&msmgpio 85 0>;
 
 		qcom,conditional-power-on;
+		qcom,pluggable;
 
 		qcom,msm-hdmi-audio-rx {
 			compatible = "qcom,msm-hdmi-audio-codec-rx";
