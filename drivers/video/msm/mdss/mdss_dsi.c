@@ -2635,14 +2635,10 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	}
 
 	pinfo = &(ctrl_pdata->panel_data.panel_info);
-	if (pinfo->dynamic_fps &&
-			pinfo->dfps_update == DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
-		if (mdss_dsi_shadow_clk_init(pdev, ctrl_pdata)) {
+	if (pinfo->dynamic_fps)
+		if (mdss_dsi_shadow_clk_init(pdev, ctrl_pdata))
 			pr_err("%s: unable to initialize shadow ctrl clks\n",
 					__func__);
-			return -EPERM;
-		}
-	}
 
 	rc = mdss_dsi_set_clk_rates(ctrl_pdata);
 	if (rc) {
