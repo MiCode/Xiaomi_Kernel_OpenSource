@@ -47,6 +47,7 @@
 #define FW_READ_ATTEMPTS 15
 #define FW_READ_TIMEOUT 4000000
 #define FAKE_REM_RETRY_ATTEMPTS 3
+#define MAX_IMPED 60000
 
 #define WCD_MBHC_BTN_PRESS_COMPL_TIMEOUT_MS  50
 
@@ -628,8 +629,10 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 			(mbhc->mbhc_cfg->linein_th != 0)) {
 				mbhc->mbhc_cb->compute_impedance(mbhc,
 						&mbhc->zl, &mbhc->zr);
-			if ((mbhc->zl > mbhc->mbhc_cfg->linein_th) &&
-				(mbhc->zr > mbhc->mbhc_cfg->linein_th) &&
+			if ((mbhc->zl > mbhc->mbhc_cfg->linein_th &&
+				mbhc->zl < MAX_IMPED) &&
+				(mbhc->zr > mbhc->mbhc_cfg->linein_th &&
+				 mbhc->zr < MAX_IMPED) &&
 				(jack_type == SND_JACK_HEADPHONE)) {
 				jack_type = SND_JACK_LINEOUT;
 				mbhc->current_plug = MBHC_PLUG_TYPE_HIGH_HPH;
@@ -770,7 +773,7 @@ static int wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_SCHMT_ISRC, reg1);
 	pr_debug("%s: leave, plug type: %d\n", __func__,  plug_type);
 
-	return (plug_type == MBHC_PLUG_TYPE_GND_MIC_SWAP) ? 1 : 0;
+	return (plug_type == MBHC_PLUG_TYPE_GND_MIC_SWAP) ? true : false;
 }
 
 static bool wcd_is_special_headset(struct wcd_mbhc *mbhc)
@@ -936,8 +939,8 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	bool is_pa_on = false;
 	bool micbias2 = false;
 	bool micbias1 = false;
-	int rc;
 	int ret = 0;
+	int rc;
 
 	pr_debug("%s: enter\n", __func__);
 
@@ -1036,8 +1039,8 @@ correct_plug_type:
 		 */
 		msleep(180);
 		if ((!hs_comp_res) && (!is_pa_on)) {
-			ret = wcd_check_cross_conn(mbhc);
 			/* Check for cross connection*/
+			ret = wcd_check_cross_conn(mbhc);
 			if (ret < 0) {
 				continue;
 			} else if (ret > 0) {
@@ -1258,8 +1261,10 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 
 		if (!mbhc->mbhc_cfg->hs_ext_micbias &&
 		     mbhc->mbhc_cb->micb_internal)
-			/* Enable Tx2 RBias if the headset
-			 * is using internal micbias*/
+			/*
+			 * Enable Tx2 RBias if the headset
+			 * is using internal micbias
+			 */
 			mbhc->mbhc_cb->micb_internal(codec, 1, true);
 
 		/* Remove micbias pulldown */
@@ -1994,6 +1999,8 @@ int wcd_mbhc_set_keycode(struct wcd_mbhc *mbhc)
 				i, btn_key_code[i]);
 		}
 	}
+	if (btn_key_code[0])
+		mbhc->is_btn_already_regd = true;
 	return result;
 }
 
@@ -2007,7 +2014,7 @@ int wcd_mbhc_start(struct wcd_mbhc *mbhc,
 	mbhc->mbhc_cfg = mbhc_cfg;
 
 	/* Set btn key code */
-	if (wcd_mbhc_set_keycode(mbhc))
+	if ((!mbhc->is_btn_already_regd) && wcd_mbhc_set_keycode(mbhc))
 		pr_err("Set btn key code error!!!\n");
 
 	if (!mbhc->mbhc_cfg->read_fw_bin ||
@@ -2030,6 +2037,10 @@ EXPORT_SYMBOL(wcd_mbhc_start);
 void wcd_mbhc_stop(struct wcd_mbhc *mbhc)
 {
 	pr_debug("%s: enter\n", __func__);
+	if (mbhc->current_plug != MBHC_PLUG_TYPE_NONE) {
+		if (mbhc->mbhc_cb && mbhc->mbhc_cb->skip_imped_detect)
+			mbhc->mbhc_cb->skip_imped_detect(mbhc->codec);
+	}
 	mbhc->current_plug = MBHC_PLUG_TYPE_NONE;
 	mbhc->hph_status = 0;
 	mbhc->mbhc_cb->irq_control(mbhc->codec, mbhc->intr_ids->hph_left_ocp,
