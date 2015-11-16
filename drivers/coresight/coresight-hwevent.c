@@ -174,9 +174,6 @@ static int hwevent_probe(struct platform_device *pdev)
 	int ret, i;
 	const char *hmux_name, *hclk_name, *hreg_name;
 
-	if (coresight_fuse_access_disabled())
-		return -EPERM;
-
 	pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
 	if (IS_ERR(pdata))
 		return PTR_ERR(pdata);

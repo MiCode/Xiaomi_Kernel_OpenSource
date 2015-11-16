@@ -807,9 +807,6 @@ static int dbgui_probe(struct platform_device *pdev)
 	struct msm_dump_entry dump_entry;
 	void *baddr;
 
-	if (coresight_fuse_access_disabled())
-		return -EPERM;
-
 	pdata = of_get_coresight_platform_data(dev, pdev->dev.of_node);
 	if (IS_ERR(pdata))
 		return PTR_ERR(pdata);
@@ -840,6 +837,15 @@ static int dbgui_probe(struct platform_device *pdev)
 	drvdata->base = devm_ioremap(dev, res->start, resource_size(res));
 	if (!drvdata->base)
 		return -ENOMEM;
+
+	ret = clk_prepare_enable(drvdata->clk);
+	if (ret)
+		return ret;
+
+	if (!coresight_authstatus_enabled(drvdata->base))
+		goto err;
+
+	clk_disable_unprepare(drvdata->clk);
 
 	baddr = devm_kzalloc(dev, resource_size(res), GFP_KERNEL);
 	if (baddr) {
@@ -909,6 +915,9 @@ static int dbgui_probe(struct platform_device *pdev)
 
 	dev_info(dev, "DebugUI initializaed\n");
 	return 0;
+err:
+	clk_disable_unprepare(drvdata->clk);
+	return -EPERM;
 }
 
 static int dbgui_remove(struct platform_device *pdev)
