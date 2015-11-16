@@ -3771,6 +3771,10 @@ static int mdss_mdp_pp_ioctl(struct msm_fb_data_type *mfd,
 		return -EPERM;
 
 	switch (mdp_pp.op) {
+	case mdp_op_dirty_flag_cfg:
+		ret = mdss_pp_dirty_flags_config(&mdp_pp.data.dirty_flag_cfg);
+		break;
+
 	case mdp_op_pa_cfg:
 		ret = mdss_mdp_pa_config(&mdp_pp.data.pa_cfg_data,
 					&copyback);
