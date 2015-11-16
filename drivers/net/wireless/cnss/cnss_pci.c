@@ -2152,7 +2152,7 @@ int cnss_get_wlan_unsafe_channel(u16 *unsafe_ch_list,
 }
 EXPORT_SYMBOL(cnss_get_wlan_unsafe_channel);
 
-int cnss_wlan_set_dfs_nol(void *info, u16 info_len)
+int cnss_wlan_set_dfs_nol(const void *info, u16 info_len)
 {
 	void *temp;
 
@@ -2198,36 +2198,6 @@ int cnss_wlan_get_dfs_nol(void *info, u16 info_len)
 }
 EXPORT_SYMBOL(cnss_wlan_get_dfs_nol);
 
-void cnss_pm_wake_lock_init(struct wakeup_source *ws, const char *name)
-{
-	wakeup_source_init(ws, name);
-}
-EXPORT_SYMBOL(cnss_pm_wake_lock_init);
-
-void cnss_pm_wake_lock(struct wakeup_source *ws)
-{
-	__pm_stay_awake(ws);
-}
-EXPORT_SYMBOL(cnss_pm_wake_lock);
-
-void cnss_pm_wake_lock_timeout(struct wakeup_source *ws, ulong msec)
-{
-	__pm_wakeup_event(ws, msec);
-}
-EXPORT_SYMBOL(cnss_pm_wake_lock_timeout);
-
-void cnss_pm_wake_lock_release(struct wakeup_source *ws)
-{
-	__pm_relax(ws);
-}
-EXPORT_SYMBOL(cnss_pm_wake_lock_release);
-
-void cnss_pm_wake_lock_destroy(struct wakeup_source *ws)
-{
-	wakeup_source_trash(ws);
-}
-EXPORT_SYMBOL(cnss_pm_wake_lock_destroy);
-
 #ifdef CONFIG_PCI_MSM
 int cnss_wlan_pm_control(bool vote)
 {
@@ -2253,50 +2223,6 @@ void cnss_release_pm_sem(void)
 	up_read(&cnss_pm_sem);
 }
 EXPORT_SYMBOL(cnss_release_pm_sem);
-
-void cnss_flush_work(void *work)
-{
-	struct work_struct *cnss_work = work;
-	cancel_work_sync(cnss_work);
-}
-EXPORT_SYMBOL(cnss_flush_work);
-
-void cnss_flush_delayed_work(void *dwork)
-{
-	struct delayed_work *cnss_dwork = dwork;
-	cancel_delayed_work_sync(cnss_dwork);
-}
-EXPORT_SYMBOL(cnss_flush_delayed_work);
-
-void cnss_get_monotonic_boottime(struct timespec *ts)
-{
-	get_monotonic_boottime(ts);
-}
-EXPORT_SYMBOL(cnss_get_monotonic_boottime);
-
-void cnss_get_boottime(struct timespec *ts)
-{
-	ktime_get_ts(ts);
-}
-EXPORT_SYMBOL(cnss_get_boottime);
-
-void cnss_init_work(struct work_struct *work, work_func_t func)
-{
-	INIT_WORK(work, func);
-}
-EXPORT_SYMBOL(cnss_init_work);
-
-void cnss_init_delayed_work(struct delayed_work *work, work_func_t func)
-{
-	INIT_DELAYED_WORK(work, func);
-}
-EXPORT_SYMBOL(cnss_init_delayed_work);
-
-int cnss_vendor_cmd_reply(struct sk_buff *skb)
-{
-	return cfg80211_vendor_cmd_reply(skb);
-}
-EXPORT_SYMBOL(cnss_vendor_cmd_reply);
 
 int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size)
 {
@@ -2329,12 +2255,6 @@ void cnss_device_crashed(void)
 	}
 }
 EXPORT_SYMBOL(cnss_device_crashed);
-
-int cnss_set_cpus_allowed_ptr(struct task_struct *task, ulong cpu)
-{
-	return set_cpus_allowed_ptr(task, cpumask_of(cpu));
-}
-EXPORT_SYMBOL(cnss_set_cpus_allowed_ptr);
 
 static int cnss_shutdown(const struct subsys_desc *subsys, bool force_stop)
 {
@@ -2903,11 +2823,12 @@ static int __init cnss_initialize(void)
 static void __exit cnss_exit(void)
 {
 	struct platform_device *pdev = penv->pldev;
+
 	if (penv->ramdump_dev)
 		destroy_ramdump_device(penv->ramdump_dev);
 	if (penv->notify_modem_status)
 		subsys_notif_unregister_notifier(penv->modem_notify_handler,
-						 &mnb);
+						&mnb);
 	subsys_unregister(penv->subsys);
 	if (penv->esoc_desc)
 		devm_unregister_esoc_client(&pdev->dev, penv->esoc_desc);
@@ -2964,7 +2885,6 @@ int cnss_request_bus_bandwidth(int bandwidth)
 	default:
 		pr_err("%s: Invalid request %d", __func__, bandwidth);
 		ret = -EINVAL;
-
 	}
 	return ret;
 }
@@ -2979,7 +2899,6 @@ int cnss_get_platform_cap(struct cnss_platform_cap *cap)
 		*cap = penv->cap;
 
 	return 0;
-
 }
 EXPORT_SYMBOL(cnss_get_platform_cap);
 
@@ -2995,7 +2914,6 @@ int cnss_get_bmi_setup(void)
 		return -ENODEV;
 
 	return penv->bmi_test;
-
 }
 EXPORT_SYMBOL(cnss_get_bmi_setup);
 
@@ -3083,7 +3001,6 @@ int cnss_auto_resume(void)
 		return -ENODEV;
 
 	pdev = penv->pdev;
-
 	if (!penv->pcie_link_state) {
 		if (msm_pcie_pm_control(MSM_PCIE_RESUME,
 			    cnss_get_pci_dev_bus_number(pdev),
@@ -3099,8 +3016,7 @@ int cnss_auto_resume(void)
 	}
 
 	if (penv->saved_state)
-		pci_load_and_free_saved_state(pdev,
-			&penv->saved_state);
+		pci_load_and_free_saved_state(pdev, &penv->saved_state);
 
 	pci_restore_state(pdev);
 	pci_set_master(pdev);
