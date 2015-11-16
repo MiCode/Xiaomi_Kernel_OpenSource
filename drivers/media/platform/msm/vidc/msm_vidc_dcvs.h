@@ -15,8 +15,6 @@
 #define _MSM_VIDC_DCVS_H_
 #include "msm_vidc_internal.h"
 
-/* Minimum number of display buffers */
-#define DCVS_MIN_DISPLAY_BUFF 4
 /* Low threshold for encoder dcvs */
 #define DCVS_ENC_LOW_THR 4
 /* High threshold for encoder dcvs */
