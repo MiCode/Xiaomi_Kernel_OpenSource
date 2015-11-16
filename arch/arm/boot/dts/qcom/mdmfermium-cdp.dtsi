@@ -51,6 +51,10 @@
 	status = "ok";
 };
 
+&emac0 {
+	status = "ok";
+};
+
 /* MPP pin 2 configs for SMB358 interrupt line */
 &pm8019_mpps {
 	mpp@a100 {
@@ -85,6 +89,17 @@
 		qcom,src-sel = <0>;		/* GPIO */
 		qcom,out-strength = <1>;	/* Low drive strength */
 		qcom,master-en = <1>;		/* Enable GPIO */
+	};
+};
+
+/* MPP pin 4 configs for SGMII */
+&pm8019_mpps {
+	mpp@a300 { /* MPP 4 */
+		qcom,mode = <1>;		/* Digital output */
+		qcom,vin-sel = <2>;		/* 1.8V */
+		qcom,src-sel = <0>;		/* Constant */
+		qcom,master-en = <1>;		/* Enable GPIO */
+		status = "okay";
 	};
 };
 

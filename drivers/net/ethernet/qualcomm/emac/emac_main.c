@@ -28,6 +28,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/tcp.h>
+#include <linux/regulator/consumer.h>
 #include <net/ip6_checksum.h>
 
 #include "emac.h"
@@ -64,6 +65,10 @@ const char emac_drv_version[] = DRV_VERSION;
 
 #define EMAC_PINCTRL_STATE_ACTIVE "emac_active"
 #define EMAC_PINCTRL_STATE_SLEEP "emac_sleep"
+
+#define EMAC_VREG1_VOLTAGE	1250000
+#define EMAC_VREG2_VOLTAGE	2850000
+#define EMAC_VREG_RESET_VOLTAGE	0
 
 struct emac_skb_cb {
 	u32           tpd_idx;
@@ -115,6 +120,10 @@ static const char * const emac_gpio_name[] = {
 static const char * const emac_clk_name[] = {
 	"axi_clk", "cfg_ahb_clk", "125m_clk", "25m_clk", "tx_clk", "rx_clk",
 	"sys_clk"
+};
+
+static const char * const emac_regulator_name[] = {
+	"emac_vreg1", "emac_vreg2", "emac_vreg3"
 };
 
 static int emac_clk_prepare_enable(struct emac_adapter *adpt,
@@ -1114,7 +1123,8 @@ static inline void emac_disable_intr(struct emac_adapter *adpt)
 
 	emac_hw_disable_intr(hw);
 	for (i = 0; i < EMAC_NUM_CORE_IRQ; i++)
-		synchronize_irq(adpt->irq[i].irq);
+		if (adpt->irq[i].irq)
+			synchronize_irq(adpt->irq[i].irq);
 }
 
 /* Configure VLAN tag strip/insert feature */
@@ -2586,24 +2596,14 @@ static int emac_get_resources(struct platform_device *pdev,
 
 	/* get mac address */
 	maddr = of_get_mac_address(node);
-	if (!maddr)
-		return -ENODEV;
-
-	memcpy(adpt->hw.mac_perm_addr, maddr, netdev->addr_len);
+	if (maddr)
+		memcpy(adpt->hw.mac_perm_addr, maddr, netdev->addr_len);
 
 	/* get irqs */
 	for (i = 0; i < EMAC_IRQ_CNT; i++) {
 		retval = platform_get_irq_byname(pdev,
 						 emac_irq_cmn_tbl[i].name);
-		if (retval < 0) {
-			/* If WOL IRQ is not specified, WOL is disabled */
-			if (i == EMAC_WOL_IRQ)
-				continue;
-			else
-				return retval;
-		}
-
-		adpt->irq[i].irq = retval;
+		adpt->irq[i].irq = (retval > 0) ? retval : 0;
 	}
 
 	retval = emac_get_clk(pdev, adpt);
@@ -2668,6 +2668,121 @@ static void emac_release_resources(struct emac_adapter *adpt)
 	}
 }
 
+/* Get the regulator */
+static int emac_get_regulator(struct platform_device *pdev,
+			      struct emac_adapter *adpt)
+{
+	struct regulator *vreg;
+	u8 i;
+
+	for (i = 0; i < EMAC_VREG_CNT; i++) {
+		vreg = devm_regulator_get(&pdev->dev, emac_regulator_name[i]);
+
+		if (IS_ERR(vreg)) {
+			emac_dbg(adpt, probe, "error:%ld unable to get emac %s\n",
+				 PTR_ERR(vreg), emac_regulator_name[i]);
+			return PTR_ERR(vreg);
+		}
+		adpt->vreg[i].vreg = vreg;
+	}
+	return 0;
+}
+
+/* Set the Voltage */
+static int emac_set_voltage(struct emac_adapter *adpt, enum emac_vreg_id id,
+			    int votage)
+{
+	int retval = regulator_set_voltage(adpt->vreg[id].vreg, votage, votage);
+
+	if (retval)
+		emac_err(adpt,
+			 "error:%d set voltage for %s\n",
+			 retval, emac_regulator_name[id]);
+	else
+		adpt->vreg[id].set_voltage = true;
+	return retval;
+}
+
+/* Enable the regulator */
+static int emac_enable_regulator(struct emac_adapter *adpt)
+{
+	int retval;
+
+	retval = emac_set_voltage(adpt, EMAC_VREG1, EMAC_VREG1_VOLTAGE);
+	if (retval)
+		goto err;
+
+	retval = regulator_enable(adpt->vreg[EMAC_VREG1].vreg);
+	if (retval) {
+		emac_err(adpt, "error:%d enable regulator %s\n",
+			 retval, emac_regulator_name[EMAC_VREG1]);
+		goto err;
+	} else {
+		adpt->vreg[EMAC_VREG1].enabled = true;
+	}
+
+	retval = emac_set_voltage(adpt, EMAC_VREG2, EMAC_VREG2_VOLTAGE);
+	if (retval)
+		goto err;
+
+	retval = regulator_enable(adpt->vreg[EMAC_VREG2].vreg);
+	if (retval) {
+		emac_err(adpt, "error:%d enable regulator %s\n",
+			 retval, emac_regulator_name[EMAC_VREG2]);
+		goto err;
+	} else {
+		adpt->vreg[EMAC_VREG2].enabled = true;
+	}
+
+	retval = regulator_enable(adpt->vreg[EMAC_VREG3].vreg);
+	if (retval) {
+		emac_err(adpt, "error:%d enable regulator %s\n",
+			 retval, emac_regulator_name[EMAC_VREG3]);
+		goto err;
+	} else {
+		adpt->vreg[EMAC_VREG3].enabled = true;
+	}
+	return 0;
+err:
+	return retval;
+}
+
+/* Disable the regulator */
+static void emac_disable_regulator(struct emac_adapter *adpt)
+{
+	u8 i;
+
+	for (i = 0; i < EMAC_VREG_CNT; i++) {
+		struct emac_regulator *vreg = &adpt->vreg[i];
+
+		if (vreg->enabled) {
+			regulator_disable(vreg->vreg);
+			vreg->enabled = false;
+		}
+
+		if (vreg->set_voltage) {
+			emac_set_voltage(adpt, i, EMAC_VREG_RESET_VOLTAGE);
+			vreg->set_voltage = false;
+		}
+	}
+}
+
+/* LDO init */
+static int msm_emac_ldo_init(struct platform_device *pdev,
+			     struct emac_adapter *adpt)
+{
+	int retval = 0;
+
+	retval = emac_get_regulator(pdev, adpt);
+	if (retval)
+		return retval;
+
+	retval =  emac_enable_regulator(adpt);
+	if (retval)
+		return retval;
+	return 0;
+}
+
 /* Probe function */
 static int emac_probe(struct platform_device *pdev)
 {
@@ -2711,6 +2826,10 @@ static int emac_probe(struct platform_device *pdev)
 	retval = emac_get_resources(pdev, adpt);
 	if (retval)
 		goto err_res;
+
+	retval = msm_emac_ldo_init(pdev, adpt);
+	if (retval)
+		goto err_ldo_init;
 
 	/* initialize clocks */
 	retval = emac_init_clks(adpt);
@@ -2823,6 +2942,8 @@ err_clk_en:
 err_init_phy:
 err_clk_init:
 	emac_disable_clks(adpt);
+err_ldo_init:
+	emac_disable_regulator(adpt);
 	emac_release_resources(adpt);
 err_res:
 	free_netdev(netdev);
@@ -2842,6 +2963,7 @@ static int emac_remove(struct platform_device *pdev)
 	if (TEST_FLAG(hw, HW_PTP_CAP))
 		emac_ptp_remove(netdev);
 
+	emac_disable_regulator(adpt);
 	emac_disable_clks(adpt);
 	emac_release_resources(adpt);
 	free_netdev(netdev);
