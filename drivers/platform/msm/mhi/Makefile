@@ -1,5 +1,4 @@
 # Makefile for MHI driver
-ccflags-$(CONFIG_MSM_MHI_DEBUG) := -DDEBUG
 obj-y += mhi_main.o
 obj-y += mhi_iface.o
 obj-y += mhi_init.o

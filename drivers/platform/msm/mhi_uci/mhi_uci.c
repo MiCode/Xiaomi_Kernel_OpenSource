@@ -24,6 +24,7 @@
 #include <linux/tty.h>
 #include <linux/delay.h>
 #include <linux/ipc_logging.h>
+#include <linux/errno.h>
 #include <linux/device.h>
 
 #define MHI_DEV_NODE_NAME_LEN 13
@@ -48,10 +49,14 @@ enum UCI_DBG_LEVEL {
 	UCI_DBG_CRITICAL = 0x5,
 	UCI_DBG_reserved = 0x80000000
 };
-
 enum UCI_DBG_LEVEL mhi_uci_msg_lvl = UCI_DBG_CRITICAL;
-enum UCI_DBG_LEVEL mhi_uci_ipc_log_lvl = UCI_DBG_INFO;
-static unsigned int uci_log_override;
+
+#ifdef CONFIG_MSM_MHI_DEBUG
+enum UCI_DBG_LEVEL mhi_uci_ipc_log_lvl = UCI_DBG_VERBOSE;
+#else
+enum UCI_DBG_LEVEL mhi_uci_ipc_log_lvl = UCI_DBG_ERROR;
+#endif
+
 void *mhi_uci_ipc_log;
 
 struct __packed rs232_ctrl_msg {
@@ -214,15 +219,10 @@ struct mhi_uci_ctxt_t {
 };
 
 #define uci_log(_msg_lvl, _msg, ...) do { \
-	DEFINE_DYNAMIC_DEBUG_METADATA(descriptor, _msg);	 \
-	if ((uci_log_override ||				 \
-		    unlikely(descriptor.flags & _DPRINTK_FLAGS_PRINT)) &&\
-		    (_msg_lvl >= mhi_uci_msg_lvl)) {			 \
-		pr_err("[%s] "_msg, __func__, ##__VA_ARGS__);		 \
-	}								 \
-	if ((uci_log_override ||				 \
-		    unlikely(descriptor.flags & _DPRINTK_FLAGS_PRINT)) && \
-		    mhi_uci_ipc_log && (_msg_lvl >= mhi_uci_ipc_log_lvl)) { \
+	if (_msg_lvl >= mhi_uci_msg_lvl) { \
+		pr_err("[%s] "_msg, __func__, ##__VA_ARGS__); \
+	} \
+	if (mhi_uci_ipc_log && (_msg_lvl >= mhi_uci_ipc_log_lvl)) { \
 		ipc_log_string(mhi_uci_ipc_log,                     \
 			"[%s] " _msg, __func__, ##__VA_ARGS__);     \
 	} \
@@ -233,9 +233,6 @@ MODULE_PARM_DESC(mhi_uci_msg_lvl, "uci dbg lvl");
 
 module_param(mhi_uci_ipc_log_lvl, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(mhi_uci_ipc_log_lvl, "ipc dbg lvl");
-
-module_param(uci_log_override , uint, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(uci_log_override, "dbg class");
 
 static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
 		size_t count, loff_t *offp);
