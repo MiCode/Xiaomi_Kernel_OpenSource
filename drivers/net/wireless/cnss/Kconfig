@@ -1,0 +1,98 @@
+config CNSS
+	tristate "CNSS driver for wifi module"
+	select CRYPTO
+	select CRYPTO_HASH
+	select CRYPTO_BLKCIPHER
+	---help---
+	  This module adds support for the CNSS connectivity subsystem used
+	  for wifi devices based on the QCA AR6320 chipset.
+	  This driver also adds support to integrate WLAN module to subsystem
+	  restart framework.
+
+config CNSS_PCI
+	tristate "Flag to enable platform driver for PCIe based wifi device"
+	select CNSS
+	depends on PCI
+	depends on PCI_MSI
+	---help---
+	  This module specifies whether CNSS Platform Driver supports PCI.
+	  This flag needs to be disabled if CNSS platform Driver need to be
+	  supported for other buses.
+	  The Flag depends on the CNSS Platform Driver and PCI. This Flag
+	  is used by the CLD driver to use the PCIe exported API's through
+	  CNSS Driver.
+
+config CNSS_SDIO
+	tristate "Flag to enable platform driver for SIDO based wifi device"
+	depends on MMC_SDHCI
+	depends on MMC_SDHCI_MSM
+	---help---
+	  This module specifies whether CNSS Platform Driver supports SDIO.
+	  This flag needs to be disabled if CNSS platform Driver need to be
+	  supported for other buses.
+
+config CNSS_MAC_BUG
+	bool "Enable/disable 0-4K memory initialization for QCA6174"
+	depends on CNSS
+	---help---
+	  If enabled, 0-4K memory is reserved for QCA6174 to address
+	  a MAC HW bug. MAC would do an invalid pointer fetch based on
+	  the data, that was read from 0 to 4K. So fill it with zero's;
+	  to an address for which PCIe root complex would honor the read
+	  without any errors.
+
+config CLD_DEBUG
+	bool "Enable/disable CLD debug features"
+	help
+	 WLAN CLD driver uses this config to enable certain debug features.
+	 Some of the debug features may affect performance or may compromise
+	 on security.
+
+	  Say N, if you are building a release kernel for production use.
+	  Only say Y, if you are building a kernel with debug support.
+
+config CLD_HL_SDIO_CORE
+	tristate "QTI CORE driver for QCA6174 with SDIO interface"
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	select WEXT_CORE
+	select WEXT_SPY
+	select NL80211_TESTMODE
+	depends on ARCH_MSM
+	depends on MMC
+
+config CLD_LL_CORE
+	tristate "QTI core WLAN driver for QCA6174 chipset"
+	select NL80211_TESTMODE
+	select WEXT_CORE
+	select WEXT_PRIV
+	select WEXT_SPY
+	select WIRELESS_EXT
+	---help---
+	  This section contains the necessary modules needed to enable the
+	  core WLAN driver for QTI QCA6174 chipset.
+	  Select Y to compile the driver in order to have WLAN functionality
+	  support.
+
+config CNSS_SECURE_FW
+	bool "Enable/Disable Memory Allocation for Secure Firmware Feature"
+	depends on CNSS
+	---help---
+	  CLD Driver can use this for holding local copy of firmware
+	  binaries which is used for sha crypto computation.
+	  The Memory Allocation is done only if this Config Parameter is
+	  enabled
+
+config BUS_AUTO_SUSPEND
+	bool "Enable/Disable Runtime PM support for PCIe based WLAN Drivers"
+	depends on CNSS
+	depends on PCI
+	---help---
+	  Runtime Power Management is supported for PCIe based WLAN Drivers.
+	  The features enable cld wlan driver to suspend pcie bus when APPS
+	  is awake based on the driver inactivity with the Firmware.
+	  The Feature uses runtime power management framework from kernel to
+	  track bus access clients and to synchronize the driver activity
+	  during system pm.
+	  This config flag controls the feature per target based. The feature
+	  requires CNSS driver support.

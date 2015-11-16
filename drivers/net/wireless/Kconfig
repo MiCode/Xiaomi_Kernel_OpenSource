@@ -298,53 +298,6 @@ config WCNSS_CORE
 	---help---
 	  Core driver for the Qualcomm WCNSS triple play connectivity subsystem
 
-config CNSS
-	tristate "CNSS driver for PCIe wifi module"
-	depends on PCI
-	depends on PCI_MSI
-	select CRYPTO
-	select CRYPTO_HASH
-	select CRYPTO_BLKCIPHER
-	---help---
-	  This module adds support for the CNSS connectivity subsystem used
-	  for wifi devices based on the QCA AR6320 chipset running over PCIe.
-	  This driver also adds support to integrate PCIe WLAN module to subsystem
-	  restart framework.
-
-config CNSS_SDIO
-	tristate "Flag to enable platform driver for SIDO based wifi device"
-	depends on MMC_SDHCI
-	depends on MMC_SDHCI_MSM
-	---help---
-	  This module specifies whether CNSS Platform Driver supports SDIO.
-	  This flag needs to be disabled if CNSS platform Driver need to be
-	  supported for other buses.
-	  This Flag is used by CLD Driver to use the SDIO GPL API's through
-	  CNSS Platform Driver.
-
-config CNSS_SECURE_FW
-	bool "Enable/Disable Memory Allocation for Secure Firmware Feature"
-	depends on CNSS
-	---help---
-	  CLD Driver can use this for holding local copy of firmware
-	  binaries which is used for sha crypto computation.
-	  The Memory Allocation is done only if this Config Parameter is
-	  enabled
-
-config BUS_AUTO_SUSPEND
-	bool "Enable/Disable Runtime PM support for PCIe based WLAN Drivers"
-	depends on CNSS
-	depends on PCI
-	---help---
-	  Runtime Power Management is supported for PCIe based WLAN Drivers.
-	  The features enable cld wlan driver to suspend pcie bus when APPS
-	  is awake based on the driver inactivity with the Firmware.
-	  The Feature uses runtime power management framework from kernel to
-	  track bus access clients and to synchronize the driver activity
-	  during system pm.
-	  This config flag controls the feature per target based. The feature
-	  requires CNSS driver support.
-
 config WCNSS_CORE_PRONTO
 	tristate "Qualcomm WCNSS Pronto Support"
 	depends on WCNSS_CORE
@@ -366,27 +319,6 @@ config WCNSS_REGISTER_DUMP_ON_BITE
 	 register access failures. So this feature is to enable/disable the
 	 register dump on WCNSS WDOG bite.
 
-config CNSS_MAC_BUG
-	bool "Enable/disable 0-4K memory initialization for QCA6174"
-	depends on CNSS
-	help
-	 If enabled, 0-4K memory is reserved for QCA6174 to address a MAC HW bug.
-	 MAC would do an invalid pointer fetch based on the data, that was read
-	 from 0 to 4K. So fill it with zero's; to an address for which PCIe root
-	 complex would honor the read without any errors.
-
-config CLD_LL_CORE
-	tristate "Qualcomm CORE driver for QCA6174"
-	select WIRELESS_EXT
-	select WEXT_PRIV
-	select WEXT_CORE
-	select WEXT_SPY
-	select NL80211_TESTMODE
-	depends on PCI
-	depends on PCI_MSI
-	---help---
-	  Core driver for the Qualcomm QCA6174 Chipset
-
 source "drivers/net/wireless/ath/Kconfig"
 source "drivers/net/wireless/b43/Kconfig"
 source "drivers/net/wireless/b43legacy/Kconfig"
@@ -403,5 +335,5 @@ source "drivers/net/wireless/rtlwifi/Kconfig"
 source "drivers/net/wireless/ti/Kconfig"
 source "drivers/net/wireless/zd1211rw/Kconfig"
 source "drivers/net/wireless/mwifiex/Kconfig"
-
+source "drivers/net/wireless/cnss/Kconfig"
 endif # WLAN
