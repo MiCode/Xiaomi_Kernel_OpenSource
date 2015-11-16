@@ -474,7 +474,7 @@
 			vdd_io-supply = <&pm8937_l5>;
 			interrupt-parent = <&tlmm>;
 			interrupts = <97 2>;  /* TLMM 97, TRIGGER_FALLING */
-			pericom,enb-gpio = <&tlmm 133 0x1>;	/* active low */
+			pericom,enb-gpio = <&tlmm 131 0x1>;	/* active low */
 			pinctrl-names = "default";
 			pinctrl-0 = <&usbc_int_default>;
 		};
