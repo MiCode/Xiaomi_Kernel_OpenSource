@@ -176,12 +176,6 @@ enum mdss_qos_settings {
 	MDSS_QOS_MAX,
 };
 
-enum mdss_smmu_version {
-	MDSS_SMMU_V1,
-	MDSS_SMMU_V2,
-	MDSS_SMMU_ARM
-};
-
 struct reg_bus_client {
 	char name[MAX_CLIENT_NAME_LEN];
 	short usecase_ndx;
@@ -196,7 +190,6 @@ struct mdss_smmu_client {
 	struct reg_bus_client *reg_bus_clt;
 	bool domain_attached;
 	bool handoff_pending;
-	enum mdss_smmu_version smmu_type;
 };
 
 struct mdss_data_type;

@@ -31,6 +31,13 @@ struct mdss_iommu_map_type {
 	unsigned long size;
 };
 
+struct mdss_smmu_domain {
+	char *ctx_name;
+	int domain;
+	unsigned long start;
+	unsigned long size;
+};
+
 void mdss_smmu_register(struct device *dev);
 int mdss_smmu_init(struct mdss_data_type *mdata, struct device *dev);
 

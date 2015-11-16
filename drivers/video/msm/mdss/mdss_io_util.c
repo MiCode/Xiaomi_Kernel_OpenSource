@@ -142,6 +142,9 @@ int msm_dss_config_vreg(struct device *dev, struct dss_vreg *in_vreg,
 	struct dss_vreg *curr_vreg = NULL;
 	enum dss_vreg_type type;
 
+	if (!in_vreg || !num_vreg)
+		return rc;
+
 	if (config) {
 		for (i = 0; i < num_vreg; i++) {
 			curr_vreg = &in_vreg[i];
