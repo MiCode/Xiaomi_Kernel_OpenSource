@@ -291,7 +291,7 @@
 		qcom,clk_div = <27>;
 	};
 
-	sound {
+	int_codec: sound {
 		compatible = "qcom,msm8952-audio-codec";
 		qcom,model = "msm8952-snd-card-mtp";
 		reg = <0xc051000 0x4>,
@@ -382,8 +382,105 @@
 		asoc-codec-names = "msm-stub-codec.1", "cajon_codec";
 	};
 
+	ext_codec: sound-9335 {
+		compatible = "qcom,msm8952-audio-slim-codec";
+		qcom,model = "msm8952-tasha-snd-card";
+		status = "disabled";
+		reg = <0xc051000 0x4>,
+		    <0xc051004 0x4>,
+		    <0xc055000 0x4>,
+		    <0xc052000 0x4>;
+
+		reg-names = "csr_gp_io_mux_mic_ctl",
+			"csr_gp_io_mux_spkr_ctl",
+			"csr_gp_io_lpaif_pri_pcm_pri_mode_muxsel",
+			"csr_gp_io_mux_quin_ctl";
+
+		qcom,audio-routing =
+			"AIF4 VI", "MCLK",
+			"RX_BIAS", "MCLK",
+			"AMIC2", "MIC BIAS2",
+			"MIC BIAS2", "Headset Mic",
+			"AMIC3", "MIC BIAS2",
+			"MIC BIAS2", "ANCRight Headset Mic",
+			"AMIC4", "MIC BIAS2",
+			"MIC BIAS2", "ANCLeft Headset Mic",
+			"AMIC5", "MIC BIAS3",
+			"MIC BIAS3", "Handset Mic",
+			"AMIC6", "MIC BIAS4",
+			"MIC BIAS4", "Analog Mic6",
+			"DMIC0", "MIC BIAS1",
+			"MIC BIAS1", "Digital Mic0",
+			"DMIC1", "MIC BIAS1",
+			"MIC BIAS1", "Digital Mic1",
+			"DMIC2", "MIC BIAS3",
+			"MIC BIAS3", "Digital Mic2",
+			"DMIC3", "MIC BIAS3",
+			"MIC BIAS3", "Digital Mic3",
+			"DMIC4", "MIC BIAS4",
+			"MIC BIAS4", "Digital Mic4",
+			"DMIC5", "MIC BIAS4",
+			"MIC BIAS4", "Digital Mic5",
+			"SpkrLeft IN", "SPK1 OUT",
+			"SpkrRight IN", "SPK2 OUT";
+
+		qcom,msm-gpios =
+			"us_eu_gpio";
+		qcom,pinctrl-names =
+			"all_off",
+			"us_eu_gpio_act";
+		pinctrl-names =
+			"all_off",
+			"us_eu_gpio_act";
+		pinctrl-0 = <&cross_conn_det_sus>;
+		pinctrl-1 = <&cross_conn_det_act>;
+		qcom,cdc-us-euro-gpios = <&tlmm 63 0>;
+
+		qcom,msm-mbhc-hphl-swh = <0>;
+		qcom,msm-mbhc-gnd-swh = <0>;
+		qcom,tasha-mclk-clk-freq = <9600000>;
+		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
+				<&loopback>, <&compress>, <&hostless>,
+				<&afe>, <&lsm>, <&routing>, <&cpe>, <&lpa>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
+				"msm-pcm-dsp.2", "msm-voip-dsp",
+				"msm-pcm-voice", "msm-pcm-loopback",
+				"msm-compress-dsp", "msm-pcm-hostless",
+				"msm-pcm-afe", "msm-lsm-client",
+				"msm-pcm-routing", "msm-cpe-lsm",
+				"msm-pcm-lpa";
+		asoc-cpu = <&dai_pri_auxpcm>,
+				<&dai_mi2s2>, <&dai_mi2s3>, <&dai_mi2s5>,
+				<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
+				<&sb_2_rx>, <&sb_2_tx>, <&sb_3_rx>, <&sb_3_tx>,
+				<&sb_4_rx>, <&sb_4_tx>, <&sb_5_tx>,
+				<&afe_pcm_rx>, <&afe_pcm_tx>,
+				 <&afe_proxy_rx>, <&afe_proxy_tx>,
+				<&incall_record_rx>, <&incall_record_tx>,
+				<&incall_music_rx>, <&incall_music_2_rx>,
+				<&sb_5_rx>,  <&bt_sco_rx>,
+				<&bt_sco_tx>, <&int_fm_rx>, <&int_fm_tx>;
+		asoc-cpu-names = "msm-dai-q6-auxpcm.1",
+				"msm-dai-q6-mi2s.2",
+				"msm-dai-q6-mi2s.3", "msm-dai-q6-mi2s.5",
+				"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
+				"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
+				"msm-dai-q6-dev.16388", "msm-dai-q6-dev.16389",
+				"msm-dai-q6-dev.16390", "msm-dai-q6-dev.16391",
+				"msm-dai-q6-dev.16392", "msm-dai-q6-dev.16393",
+				"msm-dai-q6-dev.16395", "msm-dai-q6-dev.224",
+				"msm-dai-q6-dev.225", "msm-dai-q6-dev.241",
+				"msm-dai-q6-dev.240", "msm-dai-q6-dev.32771",
+				"msm-dai-q6-dev.32772", "msm-dai-q6-dev.32773",
+				"msm-dai-q6-dev.32770", "msm-dai-q6-dev.16394",
+				"msm-dai-q6-dev.12288", "msm-dai-q6-dev.12289",
+				"msm-dai-q6-dev.12292", "msm-dai-q6-dev.12293";
+		asoc-codec = <&stub_codec>;
+		asoc-codec-names = "msm-stub-codec.1";
+	};
+
 	i2c@7af8000 {
-		wsa881x-i2c-codec@e {
+		wsa881x_i2c_e: wsa881x-i2c-codec@e {
 			compatible = "qcom,wsa881x-i2c-codec";
 			reg = <0x0e>;
 			qcom,msm-gpios = "wsa_clk",
@@ -414,11 +511,11 @@
 			pinctrl-6 = <&wsa_clk_off &wsa_reset_on &wsa_vi_on>;
 			pinctrl-7 = <&wsa_clk_on &wsa_reset_on &wsa_vi_on>;
 		};
-		wsa881x-i2c-codec@44 {
+		wsa881x_i2c_44: wsa881x-i2c-codec@44 {
 			compatible = "qcom,wsa881x-i2c-codec";
 			reg = <0x44>;
 		};
-		wsa881x-i2c-codec@f {
+		wsa881x_i2c_f: wsa881x-i2c-codec@f {
 			compatible = "qcom,wsa881x-i2c-codec";
 			reg = <0x0f>;
 			qcom,msm-gpios = "wsa_clk",
@@ -449,9 +546,20 @@
 			pinctrl-6 = <&wsa_clk_off &wsa_reset_on &wsa_vi_on>;
 			pinctrl-7 = <&wsa_clk_on &wsa_reset_on &wsa_vi_on>;
 		};
-		wsa881x-i2c-codec@45 {
+		wsa881x_i2c_45: wsa881x-i2c-codec@45 {
 			compatible = "qcom,wsa881x-i2c-codec";
 			reg = <0x45>;
+		};
+
+		wcd9xxx_intc: wcd9xxx-irq {
+			compatible = "qcom,wcd9xxx-irq";
+			status = "disabled";
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			interrupt-parent = <&tlmm>;
+			interrupts = <73 0>;
+			inteerupt-names = "cdc-int";
+			qcom,gpio-connect = <&tlmm 73 0>;
 		};
 	};
 };

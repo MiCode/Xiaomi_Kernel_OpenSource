@@ -372,4 +372,13 @@
 		qcom,cpr-quot-adjust-scaling-factor-max = <0 1400 1400>;
 		qcom,cpr-fuse-revision = <69 39 3 0>;
 	};
+
+	eldo2_pm8937: eldo2 {
+		compatible = "regulator-fixed";
+		regulator-name = "eldo2_pm8937";
+		startup-delay-us = <0>;
+		enable-active-high;
+		gpio = <&pm8937_gpios 7 0>;
+		regulator-always-on;
+	};
 };
