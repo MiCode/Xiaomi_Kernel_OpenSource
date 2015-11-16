@@ -326,6 +326,12 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 
 		ion_flags |= ION_FLAG_SECURE | secure_flag;
 		heap_mask = ION_HEAP(ION_SECURE_HEAP_ID);
+
+		if (client->res->slave_side_cp) {
+			heap_mask = ION_HEAP(ION_CP_MM_HEAP_ID);
+			size = ALIGN(size, SZ_1M);
+			align = ALIGN(size, SZ_1M);
+		}
 	}
 
 	trace_msm_smem_buffer_ion_op_start("ALLOC", (u32)buffer_type,

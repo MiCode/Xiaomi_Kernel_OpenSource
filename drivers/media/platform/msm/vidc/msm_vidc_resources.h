@@ -141,6 +141,7 @@ struct msm_vidc_platform_resources {
 	bool use_non_secure_pil;
 	bool sw_power_collapsible;
 	bool sys_idle_indicator;
+	bool slave_side_cp;
 	struct list_head context_banks;
 	bool thermal_mitigable;
 	const char *fw_name;

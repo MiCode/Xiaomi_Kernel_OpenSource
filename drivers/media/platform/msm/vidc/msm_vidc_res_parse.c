@@ -748,6 +748,11 @@ int read_platform_resources_from_dt(
 	of_property_read_u32(pdev->dev.of_node,
 			"qcom,pm-qos-latency-us", &res->pm_qos_latency_us);
 
+	res->slave_side_cp = of_property_read_bool(pdev->dev.of_node,
+					"qcom,slave-side-cp");
+	dprintk(VIDC_DBG, "Slave side cp = %s\n",
+				res->slave_side_cp ? "yes" : "no");
+
 	return rc;
 
 err_setup_legacy_cb:
