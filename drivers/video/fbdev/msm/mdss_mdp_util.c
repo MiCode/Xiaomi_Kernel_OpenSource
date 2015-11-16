@@ -113,6 +113,26 @@ int mdss_mdp_set_intr_callback(u32 intr_type, u32 intf_num,
 	return 0;
 }
 
+int mdss_mdp_set_intr_callback_nosync(u32 intr_type, u32 intf_num,
+			       void (*fnc_ptr)(void *), void *arg)
+{
+	int index;
+
+	index = mdss_mdp_intr2index(intr_type, intf_num);
+	if (index < 0) {
+		pr_warn("invalid intr type=%u intf_num=%u\n",
+				intr_type, intf_num);
+		return -EINVAL;
+	}
+
+	WARN(mdp_intr_cb[index].func && fnc_ptr,
+		"replacing current intr callback for ndx=%d\n", index);
+	mdp_intr_cb[index].func = fnc_ptr;
+	mdp_intr_cb[index].arg = arg;
+
+	return 0;
+}
+
 static inline void mdss_mdp_intr_done(int index)
 {
 	void (*fnc)(void *);

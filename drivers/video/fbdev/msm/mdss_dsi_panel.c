@@ -29,25 +29,9 @@
 #define MIN_REFRESH_RATE 48
 #define DEFAULT_MDP_TRANSFER_TIME 14000
 
-#define CEIL(x, y)		(((x) + ((y)-1)) / (y))
-
 #define VSYNC_DELAY msecs_to_jiffies(17)
 
 DEFINE_LED_TRIGGER(bl_led_trigger);
-
-/*
- * rc_buf_thresh = {896, 1792, 2688, 3548, 4480, 5376, 6272, 6720,
- *		7168, 7616, 7744, 7872, 8000, 8064, 8192};
- *	(x >> 6) & 0x0ff)
- */
-static u32 dsc_rc_buf_thresh[] = {0x0e, 0x1c, 0x2a, 0x38, 0x46, 0x54,
-		0x62, 0x69, 0x70, 0x77, 0x79, 0x7b, 0x7d, 0x7e};
-static char dsc_rc_range_min_qp[] = {0, 0, 1, 1, 3, 3, 3, 3, 3, 3, 5,
-				5, 5, 7, 13};
-static char dsc_rc_range_max_qp[] = {4, 4, 5, 6, 7, 7, 7, 8, 9, 10, 11,
-			 12, 13, 13, 15};
-static char dsc_rc_range_bpg_offset[] = {2, 0, 0, -2, -4, -6, -8, -8,
-			-8, -10, -10, -12, -12, -12, -12};
 
 void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
 {
@@ -1060,121 +1044,9 @@ static int mdss_dsi_parse_fbc_params(struct device_node *np,
 	return 0;
 }
 
-static int mdss_dsc_to_buf(struct dsc_desc *dsc, char *buf,
-			int pps_id, int major, int minor)
-{
-	char *bp;
-	char data;
-	int i, bpp;
-
-	bp = buf;
-	*bp++ = ((major << 4) | minor);		/* pps0 */
-	*bp++ = pps_id;				/* pps1 */
-	bp++;					/* pps2, reserved */
-
-	data = dsc->line_buf_depth & 0x0f;
-	data |= (dsc->bpc << 4);
-	*bp++ = data;				 /* pps3 */
-
-	bpp = dsc->bpp;
-	bpp <<= 4;	/* 4 fraction bits */
-	data = (bpp >> 8);
-	data &= 0x03;		/* upper two bits */
-	data |= (dsc->block_pred_enable << 5);
-	data |= (dsc->convert_rgb << 4);
-	data |= (dsc->enable_422 << 3);
-	data |= (dsc->vbr_enable << 2);
-	*bp++ = data;				/* pps4 */
-	*bp++ = bpp;				/* pps5 */
-
-	*bp++ = (dsc->pic_height >> 8);		/* pps6 */
-	*bp++ = (dsc->pic_height & 0x0ff);	/* pps7 */
-	*bp++ = (dsc->pic_width >> 8);		/* pps8 */
-	*bp++ = (dsc->pic_width & 0x0ff);	/* pps9 */
-
-	*bp++ = (dsc->slice_height >> 8);	/* pps10 */
-	*bp++ = (dsc->slice_height & 0x0ff);	/* pps11 */
-	*bp++ = (dsc->slice_width >> 8);	/* pps12 */
-	*bp++ = (dsc->slice_width & 0x0ff);	/* pps13 */
-
-	*bp++ = (dsc->chunk_size >> 8);		/* pps14 */
-	*bp++ = (dsc->chunk_size & 0x0ff);	/* pps15 */
-
-	data = dsc->initial_xmit_delay >> 8;
-	data &= 0x03;
-	*bp++ = data;				/* pps16, bit 0, 1 */
-	*bp++ = dsc->initial_xmit_delay;	/* pps17 */
-
-	*bp++ = (dsc->initial_dec_delay >> 8);	/* pps18 */
-	*bp++ = dsc->initial_dec_delay;		/* pps19 */
-
-	bp++;					/* pps20, reserved */
-
-	*bp++ = (dsc->initial_scale_value & 0x3f); /* pps21 */
-
-	data = (dsc->scale_increment_interval >> 8);
-	data &= 0x0f;
-	*bp++ =  data;				/* pps22 */
-	*bp++ = dsc->scale_increment_interval;	/* pps23 */
-
-	data = (dsc->scale_decrement_interval >> 8);
-	data &= 0x0f;
-	*bp++ = data;				/* pps24 */
-	*bp++ = (dsc->scale_decrement_interval & 0x0ff);/* pps25 */
-
-	bp++;			/* pps26, reserved */
-
-	*bp++ = (dsc->first_line_bpg_offset & 0x1f);/* pps27 */
-
-	*bp++ = (dsc->nfl_bpg_offset >> 8);	/* pps28 */
-	*bp++ = (dsc->nfl_bpg_offset & 0x0ff);	/* pps29 */
-	*bp++ = (dsc->slice_bpg_offset >> 8);	/* pps30 */
-	*bp++ = (dsc->slice_bpg_offset & 0x0ff);/* pps31 */
-
-	*bp++ = (dsc->initial_offset >> 8);	/* pps32 */
-	*bp++ = (dsc->initial_offset & 0x0ff);	/* pps33 */
-
-	*bp++ = (dsc->final_offset >> 8);	/* pps34 */
-	*bp++ = (dsc->final_offset & 0x0ff);	/* pps35 */
-
-	*bp++ = (dsc->min_qp_flatness & 0x1f);	/* pps36 */
-	*bp++ = (dsc->max_qp_flatness & 0x1f);	/* pps37 */
-
-	*bp++ = (dsc->rc_model_size >> 8);	/* pps38 */
-	*bp++ = (dsc->rc_model_size & 0x0ff);	/* pps39 */
-
-	*bp++ = (dsc->edge_factor & 0x0f);	/* pps40 */
-
-	*bp++ = (dsc->quant_incr_limit0 & 0x1f);	/* pps41 */
-	*bp++ = (dsc->quant_incr_limit1 & 0x1f);	/* pps42 */
-
-	data = (dsc->tgt_offset_hi << 4);
-	data |= (dsc->tgt_offset_lo & 0x0f);
-	*bp++ = data;				/* pps43 */
-
-	for (i = 0; i < 14; i++)
-		*bp++ = dsc->buf_thresh[i];	/* pps44 - pps57 */
-
-	for (i = 0; i < 15; i++) {		/* pps58 - pps87 */
-		data = (dsc->range_min_qp[i] & 0x1f); /* 5 bits */
-		data <<= 3;
-		data |= ((dsc->range_max_qp[i] >> 2) & 0x07); /* 3 bits */
-		*bp++ = data;
-		data = (dsc->range_max_qp[i] & 0x03); /* 2 bits */
-		data <<= 6;
-		data |= (dsc->range_bpg_offset[i] & 0x3f); /* 6 bits */
-		*bp++ = data;
-	}
-
-	/* pps88 to pps127 are reserved */
-
-	return DSC_PPS_LEN;	/* 128 */
-}
-
 void mdss_dsi_panel_dsc_pps_send(struct mdss_dsi_ctrl_pdata *ctrl,
 				struct mdss_panel_info *pinfo)
 {
-	struct dsc_desc *dsc;
 	struct dsi_panel_cmds pcmds;
 	struct dsi_cmd_desc cmd;
 
@@ -1184,8 +1056,8 @@ void mdss_dsi_panel_dsc_pps_send(struct mdss_dsi_ctrl_pdata *ctrl,
 	memset(&pcmds, 0, sizeof(pcmds));
 	memset(&cmd, 0, sizeof(cmd));
 
-	dsc = &pinfo->dsc;
-	cmd.dchdr.dlen = mdss_dsc_to_buf(dsc, ctrl->pps_buf, 0 , 1, 0);
+	cmd.dchdr.dlen = mdss_panel_dsc_prepare_pps_buf(&pinfo->dsc,
+				ctrl->pps_buf, 0 , 1, 0);
 	cmd.dchdr.dtype = DTYPE_PPS;
 	cmd.dchdr.last = 1;
 	cmd.dchdr.wait = 10;
@@ -1200,195 +1072,10 @@ void mdss_dsi_panel_dsc_pps_send(struct mdss_dsi_ctrl_pdata *ctrl,
 	mdss_dsi_panel_cmds_send(ctrl, &pcmds, CMD_REQ_COMMIT);
 }
 
-int mdss_dsc_initial_line_calc(int bpc, int xmit_delay,
-			int slice_width, int slice_per_line)
-{
-	int ssm_delay;
-	int total_pixels;
-
-	ssm_delay = ((bpc < 10) ? 83 : 91);
-	total_pixels = ssm_delay * 3 + xmit_delay + 47;
-	total_pixels += ((slice_per_line > 1) ? (ssm_delay * 3) : 0);
-
-	return CEIL(total_pixels, slice_width);
-}
-
-void mdss_dsc_parameters_calc(struct dsc_desc *dsc, int width, int height)
-{
-	int bpp, bpc;
-	int mux_words_size;
-	int groups_per_line, groups_total;
-	int min_rate_buffer_size;
-	int hrd_delay;
-	int pre_num_extra_mux_bits, num_extra_mux_bits;
-	int slice_bits;
-	int target_bpp_x16;
-	int data;
-	int final_value, final_scale;
-	int slice_per_line, bytes_in_slice, total_bytes;
-
-	if (!dsc || !width || !height)
-		return;
-
-	dsc->pic_width = width;
-	dsc->pic_height = height;
-
-	if ((dsc->pic_width % dsc->slice_width) ||
-	    (dsc->pic_height % dsc->slice_height)) {
-		pr_err("Error: pic_dim=%dx%d has to be multiple of slice_dim=%dx%d\n",
-			dsc->pic_width, dsc->pic_height,
-			dsc->slice_width, dsc->slice_height);
-		return;
-	}
-
-	dsc->rc_model_size = 8192;	/* rate_buffer_size */
-	dsc->first_line_bpg_offset = 12;
-	dsc->min_qp_flatness = 3;
-	dsc->max_qp_flatness = 12;
-	dsc->line_buf_depth = 9;
-
-	dsc->edge_factor = 6;
-	dsc->quant_incr_limit0 = 11;
-	dsc->quant_incr_limit1 = 11;
-	dsc->tgt_offset_hi = 3;
-	dsc->tgt_offset_lo = 3;
-
-	dsc->buf_thresh = dsc_rc_buf_thresh;
-	dsc->range_min_qp = dsc_rc_range_min_qp;
-	dsc->range_max_qp = dsc_rc_range_max_qp;
-	dsc->range_bpg_offset = dsc_rc_range_bpg_offset;
-
-	bpp = dsc->bpp;
-	bpc = dsc->bpc;
-
-	if (bpp == 8)
-		dsc->initial_offset = 6144;
-	else
-		dsc->initial_offset = 2048;	/* bpp = 12 */
-
-	if (bpc == 8)
-		mux_words_size = 48;
-	else
-		mux_words_size = 64;	/* bpc == 12 */
-
-	slice_per_line = CEIL(dsc->pic_width, dsc->slice_width);
-
-	dsc->pkt_per_line = slice_per_line / dsc->slice_per_pkt;
-	if (slice_per_line % dsc->slice_per_pkt)
-		dsc->pkt_per_line = 1;		/* default*/
-
-	bytes_in_slice = CEIL(dsc->pic_width, slice_per_line);
-
-	bytes_in_slice *= dsc->bpp;	/* bites per compressed pixel */
-	bytes_in_slice = CEIL(bytes_in_slice, 8);
-
-	dsc->bytes_in_slice = bytes_in_slice;
-
-	pr_debug("%s: slice_per_line=%d pkt_per_line=%d bytes_in_slice=%d\n",
-		__func__, slice_per_line, dsc->pkt_per_line, bytes_in_slice);
-
-	total_bytes = bytes_in_slice * slice_per_line;
-	dsc->eol_byte_num = total_bytes % 3;
-	dsc->pclk_per_line =  CEIL(total_bytes, 3);
-
-	dsc->slice_last_group_size = 3 - dsc->eol_byte_num;
-
-	pr_debug("%s: pclk_per_line=%d total_bytes=%d eol_byte_num=%d\n",
-		__func__, dsc->pclk_per_line, total_bytes, dsc->eol_byte_num);
-
-	dsc->bytes_per_pkt = bytes_in_slice * dsc->slice_per_pkt;
-
-	dsc->det_thresh_flatness = 7 + 2*(bpc - 8);
-
-	dsc->initial_xmit_delay = dsc->rc_model_size / (2 * bpp);
-
-	dsc->initial_lines = mdss_dsc_initial_line_calc(bpc,
-		dsc->initial_xmit_delay, dsc->slice_width, slice_per_line);
-
-	groups_per_line = CEIL(dsc->slice_width, 3);
-
-	dsc->chunk_size = dsc->slice_width * bpp / 8;
-	if ((dsc->slice_width * bpp) % 8)
-		dsc->chunk_size++;
-
-	/* rbs-min */
-	min_rate_buffer_size =  dsc->rc_model_size - dsc->initial_offset +
-			dsc->initial_xmit_delay * bpp +
-			groups_per_line * dsc->first_line_bpg_offset;
-
-	hrd_delay = CEIL(min_rate_buffer_size, bpp);
-
-	dsc->initial_dec_delay = hrd_delay - dsc->initial_xmit_delay;
-
-	dsc->initial_scale_value = 8 * dsc->rc_model_size /
-			(dsc->rc_model_size - dsc->initial_offset);
-
-	slice_bits = 8 * dsc->chunk_size * dsc->slice_height;
-
-	groups_total = groups_per_line * dsc->slice_height;
-
-	data = dsc->first_line_bpg_offset * 2048;
-
-	dsc->nfl_bpg_offset = CEIL(data, (dsc->slice_height - 1));
-
-	pre_num_extra_mux_bits = 3 * (mux_words_size + (4 * bpc + 4) - 2);
-
-	num_extra_mux_bits = pre_num_extra_mux_bits - (mux_words_size -
-		((slice_bits - pre_num_extra_mux_bits) % mux_words_size));
-
-	data = 2048 * (dsc->rc_model_size - dsc->initial_offset
-		+ num_extra_mux_bits);
-	dsc->slice_bpg_offset = CEIL(data, groups_total);
-
-	/* bpp * 16 + 0.5 */
-	data = bpp * 16;
-	data *= 2;
-	data++;
-	data /= 2;
-	target_bpp_x16 = data;
-
-	data = (dsc->initial_xmit_delay * target_bpp_x16) / 16;
-	final_value =  dsc->rc_model_size - data + num_extra_mux_bits;
-
-	final_scale = 8 * dsc->rc_model_size /
-		(dsc->rc_model_size - final_value);
-
-	dsc->final_offset = final_value;
-
-	data = (final_scale - 9) * (dsc->nfl_bpg_offset +
-		dsc->slice_bpg_offset);
-	dsc->scale_increment_interval = (2048 * dsc->final_offset) / data;
-
-	dsc->scale_decrement_interval = groups_per_line /
-		(dsc->initial_scale_value - 8);
-
-	pr_debug("%s: initial_xmit_delay=%d\n", __func__,
-		dsc->initial_xmit_delay);
-
-	pr_debug("%s: bpg_offset, nfl=%d slice=%d\n", __func__,
-		dsc->nfl_bpg_offset, dsc->slice_bpg_offset);
-
-	pr_debug("%s: groups_per_line=%d chunk_size=%d\n", __func__,
-		groups_per_line, dsc->chunk_size);
-	pr_debug("%s:min_rate_buffer_size=%d hrd_delay=%d\n", __func__,
-		min_rate_buffer_size, hrd_delay);
-	pr_debug("%s:initial_dec_delay=%d initial_scale_value=%d\n", __func__,
-		dsc->initial_dec_delay, dsc->initial_scale_value);
-	pr_debug("%s:slice_bits=%d, groups_total=%d\n", __func__,
-		slice_bits, groups_total);
-	pr_debug("%s: first_line_bgp_offset=%d slice_height=%d\n", __func__,
-		dsc->first_line_bpg_offset, dsc->slice_height);
-	pr_debug("%s:final_value=%d final_scale=%d\n", __func__,
-		final_value, final_scale);
-	pr_debug("%s: sacle_increment_interval=%d scale_decrement_interval=%d\n",
-		__func__, dsc->scale_increment_interval,
-		dsc->scale_decrement_interval);
-}
-
 static int mdss_dsi_parse_dsc_params(struct device_node *np,
 		struct mdss_panel_timing *timing, bool is_split_display)
 {
-	u32 data;
+	u32 data, intf_width;
 	int rc = 0;
 	struct dsc_desc *dsc = &timing->dsc;
 
@@ -1426,19 +1113,20 @@ static int mdss_dsi_parse_dsc_params(struct device_node *np,
 	if (rc)
 		goto end;
 	dsc->slice_width = data;
+	intf_width = timing->xres;
 
-	if (timing->xres % dsc->slice_width) {
+	if (intf_width % dsc->slice_width) {
 		pr_err("%s: Error: multiple of slice-width:%d should match panel-width:%d\n",
-			__func__, dsc->slice_width, timing->xres);
+			__func__, dsc->slice_width, intf_width);
 		goto end;
 	}
 
-	data = timing->xres / dsc->slice_width;
+	data = intf_width / dsc->slice_width;
 	if (((timing->dsc_enc_total > 1) && ((data != 2) && (data != 4))) ||
 	    ((timing->dsc_enc_total == 1) && (data > 2))) {
 		pr_err("%s: Error: max 2 slice per encoder. slice-width:%d should match panel-width:%d dsc_enc_total:%d\n",
 			__func__, dsc->slice_width,
-			timing->xres, timing->dsc_enc_total);
+			intf_width, timing->dsc_enc_total);
 		goto end;
 	}
 
@@ -1446,6 +1134,19 @@ static int mdss_dsi_parse_dsc_params(struct device_node *np,
 	if (rc)
 		goto end;
 	dsc->slice_per_pkt = data;
+
+	/*
+	 * slice_per_pkt can be either 1 or all slices_per_intf
+	 */
+	if ((dsc->slice_per_pkt > 1) && (dsc->slice_per_pkt !=
+			DIV_ROUND_UP(intf_width, dsc->slice_width))) {
+		pr_err("Error: slice_per_pkt can be either 1 or all slices_per_intf\n");
+		pr_err("%s: slice_per_pkt=%d, slice_width=%d intf_width=%d\n",
+			__func__,
+			dsc->slice_per_pkt, dsc->slice_width, intf_width);
+		rc = -EINVAL;
+		goto end;
+	}
 
 	pr_debug("%s: num_enc:%d :slice h=%d w=%d s_pkt=%d\n", __func__,
 		timing->dsc_enc_total, dsc->slice_height,
@@ -1474,10 +1175,11 @@ static int mdss_dsi_parse_dsc_params(struct device_node *np,
 	dsc->config_by_manufacture_cmd = of_property_read_bool(np,
 		"qcom,mdss-dsc-config-by-manufacture-cmd");
 
-	mdss_dsc_parameters_calc(&timing->dsc, timing->xres, timing->yres);
+	mdss_panel_dsc_parameters_calc(&timing->dsc);
+	mdss_panel_dsc_pclk_param_calc(&timing->dsc, intf_width);
 
 	timing->dsc.full_frame_slices =
-		CEIL(timing->dsc.pic_width, timing->dsc.slice_width);
+		DIV_ROUND_UP(intf_width, timing->dsc.slice_width);
 
 	timing->compression_mode = COMPRESSION_DSC;
 
