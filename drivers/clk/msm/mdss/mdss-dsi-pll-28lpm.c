@@ -223,7 +223,8 @@ static struct clk_mux_ops byte_mux_ops = {
 	.get_mux_sel = get_byte_mux_sel,
 };
 
-static struct dsi_pll_vco_clk dsi_vco_clk_8916 = {
+/* DSI PLL0 clock structures */
+static struct dsi_pll_vco_clk dsi_pll0_vco_clk = {
 	.ref_clk_rate = 19200000,
 	.min_rate = 350000000,
 	.max_rate = 750000000,
@@ -240,28 +241,28 @@ static struct dsi_pll_vco_clk dsi_vco_clk_8916 = {
 	.lpfr_lut_size = 10,
 	.lpfr_lut = lpfr_lut_struct,
 	.c = {
-		.dbg_name = "dsi_vco_clk_8916",
+		.dbg_name = "dsi_pll0_vco_clk",
 		.ops = &clk_ops_dsi_vco,
-		CLK_INIT(dsi_vco_clk_8916.c),
+		CLK_INIT(dsi_pll0_vco_clk.c),
 	},
 };
 
-static struct div_clk analog_postdiv_clk_8916 = {
+static struct div_clk dsi_pll0_analog_postdiv_clk = {
 	.data = {
 		.max_div = 255,
 		.min_div = 1,
 	},
 	.ops = &analog_postdiv_ops,
 	.c = {
-		.parent = &dsi_vco_clk_8916.c,
-		.dbg_name = "analog_postdiv_clk",
+		.parent = &dsi_pll0_vco_clk.c,
+		.dbg_name = "dsi_pll0_analog_postdiv_clk",
 		.ops = &analog_postdiv_clk_ops,
 		.flags = CLKFLAG_NO_RATE_CACHE,
-		CLK_INIT(analog_postdiv_clk_8916.c),
+		CLK_INIT(dsi_pll0_analog_postdiv_clk.c),
 	},
 };
 
-static struct div_clk indirect_path_div2_clk_8916 = {
+static struct div_clk dsi_pll0_indirect_path_div2_clk = {
 	.ops = &fixed_2div_ops,
 	.data = {
 		.div = 2,
@@ -269,61 +270,165 @@ static struct div_clk indirect_path_div2_clk_8916 = {
 		.max_div = 2,
 	},
 	.c = {
-		.parent = &analog_postdiv_clk_8916.c,
-		.dbg_name = "indirect_path_div2_clk",
+		.parent = &dsi_pll0_analog_postdiv_clk.c,
+		.dbg_name = "dsi_pll0_indirect_path_div2_clk",
 		.ops = &clk_ops_div,
 		.flags = CLKFLAG_NO_RATE_CACHE,
-		CLK_INIT(indirect_path_div2_clk_8916.c),
+		CLK_INIT(dsi_pll0_indirect_path_div2_clk.c),
 	},
 };
 
-static struct div_clk pixel_clk_src = {
+static struct div_clk dsi_pll0_pixel_clk_src = {
 	.data = {
 		.max_div = 255,
 		.min_div = 1,
 	},
 	.ops = &digital_postdiv_ops,
 	.c = {
-		.parent = &dsi_vco_clk_8916.c,
-		.dbg_name = "pixel_clk_src_8916",
+		.parent = &dsi_pll0_vco_clk.c,
+		.dbg_name = "dsi_pll0_pixel_clk_src",
 		.ops = &pixel_clk_src_ops,
 		.flags = CLKFLAG_NO_RATE_CACHE,
-		CLK_INIT(pixel_clk_src.c),
+		CLK_INIT(dsi_pll0_pixel_clk_src.c),
 	},
 };
 
-static struct mux_clk byte_mux_8916 = {
+static struct mux_clk dsi_pll0_byte_mux = {
 	.num_parents = 2,
 	.parents = (struct clk_src[]){
-		{&dsi_vco_clk_8916.c, 0},
-		{&indirect_path_div2_clk_8916.c, 1},
+		{&dsi_pll0_vco_clk.c, 0},
+		{&dsi_pll0_indirect_path_div2_clk.c, 1},
 	},
 	.ops = &byte_mux_ops,
 	.c = {
-		.parent = &dsi_vco_clk_8916.c,
-		.dbg_name = "byte_mux_8916",
+		.parent = &dsi_pll0_vco_clk.c,
+		.dbg_name = "dsi_pll0_byte_mux",
 		.ops = &byte_mux_clk_ops,
-		CLK_INIT(byte_mux_8916.c),
+		CLK_INIT(dsi_pll0_byte_mux.c),
 	},
 };
 
-static struct div_clk byte_clk_src = {
+static struct div_clk dsi_pll0_byte_clk_src = {
 	.ops = &fixed_4div_ops,
 	.data = {
 		.min_div = 4,
 		.max_div = 4,
 	},
 	.c = {
-		.parent = &byte_mux_8916.c,
-		.dbg_name = "byte_clk_src_8916",
+		.parent = &dsi_pll0_byte_mux.c,
+		.dbg_name = "dsi_pll0_byte_clk_src",
 		.ops = &byte_clk_src_ops,
-		CLK_INIT(byte_clk_src.c),
+		CLK_INIT(dsi_pll0_byte_clk_src.c),
 	},
 };
 
-static struct clk_lookup mdss_dsi_pllcc_8916[] = {
-	CLK_LIST(pixel_clk_src),
-	CLK_LIST(byte_clk_src),
+/* DSI PLL1 clock structures */
+static struct dsi_pll_vco_clk dsi_pll1_vco_clk = {
+	.ref_clk_rate = 19200000,
+	.min_rate = 350000000,
+	.max_rate = 750000000,
+	.pll_en_seq_cnt = 9,
+	.pll_enable_seqs[0] = tsmc_dsi_pll_enable_seq_8916,
+	.pll_enable_seqs[1] = tsmc_dsi_pll_enable_seq_8916,
+	.pll_enable_seqs[2] = tsmc_dsi_pll_enable_seq_8916,
+	.pll_enable_seqs[3] = gf_1_dsi_pll_enable_seq_8916,
+	.pll_enable_seqs[4] = gf_1_dsi_pll_enable_seq_8916,
+	.pll_enable_seqs[5] = gf_1_dsi_pll_enable_seq_8916,
+	.pll_enable_seqs[6] = gf_2_dsi_pll_enable_seq_8916,
+	.pll_enable_seqs[7] = gf_2_dsi_pll_enable_seq_8916,
+	.pll_enable_seqs[8] = gf_2_dsi_pll_enable_seq_8916,
+	.lpfr_lut_size = 10,
+	.lpfr_lut = lpfr_lut_struct,
+	.c = {
+		.dbg_name = "dsi_pll1_vco_clk",
+		.ops = &clk_ops_dsi_vco,
+		CLK_INIT(dsi_pll1_vco_clk.c),
+	},
+};
+
+static struct div_clk dsi_pll1_analog_postdiv_clk = {
+	.data = {
+		.max_div = 255,
+		.min_div = 1,
+	},
+	.ops = &analog_postdiv_ops,
+	.c = {
+		.parent = &dsi_pll1_vco_clk.c,
+		.dbg_name = "dsi_pll1_analog_postdiv_clk",
+		.ops = &analog_postdiv_clk_ops,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(dsi_pll1_analog_postdiv_clk.c),
+	},
+};
+
+static struct div_clk dsi_pll1_indirect_path_div2_clk = {
+	.ops = &fixed_2div_ops,
+	.data = {
+		.div = 2,
+		.min_div = 2,
+		.max_div = 2,
+	},
+	.c = {
+		.parent = &dsi_pll1_analog_postdiv_clk.c,
+		.dbg_name = "dsi_pll1_indirect_path_div2_clk",
+		.ops = &clk_ops_div,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(dsi_pll1_indirect_path_div2_clk.c),
+	},
+};
+
+static struct div_clk dsi_pll1_pixel_clk_src = {
+	.data = {
+		.max_div = 255,
+		.min_div = 1,
+	},
+	.ops = &digital_postdiv_ops,
+	.c = {
+		.parent = &dsi_pll1_vco_clk.c,
+		.dbg_name = "dsi_pll1_pixel_clk_src",
+		.ops = &pixel_clk_src_ops,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(dsi_pll1_pixel_clk_src.c),
+	},
+};
+
+static struct mux_clk dsi_pll1_byte_mux = {
+	.num_parents = 2,
+	.parents = (struct clk_src[]){
+		{&dsi_pll1_vco_clk.c, 0},
+		{&dsi_pll1_indirect_path_div2_clk.c, 1},
+	},
+	.ops = &byte_mux_ops,
+	.c = {
+		.parent = &dsi_pll1_vco_clk.c,
+		.dbg_name = "dsi_pll1_byte_mux",
+		.ops = &byte_mux_clk_ops,
+		CLK_INIT(dsi_pll1_byte_mux.c),
+	},
+};
+
+static struct div_clk dsi_pll1_byte_clk_src = {
+	.ops = &fixed_4div_ops,
+	.data = {
+		.min_div = 4,
+		.max_div = 4,
+	},
+	.c = {
+		.parent = &dsi_pll1_byte_mux.c,
+		.dbg_name = "dsi_pll1_byte_clk_src",
+		.ops = &byte_clk_src_ops,
+		CLK_INIT(dsi_pll1_byte_clk_src.c),
+	},
+};
+
+static struct clk_lookup dsi_pll0_cc[] = {
+	CLK_LIST(dsi_pll0_pixel_clk_src),
+	CLK_LIST(dsi_pll0_byte_clk_src),
+};
+
+static struct clk_lookup dsi_pll1_cc[] = {
+	CLK_LIST(dsi_pll1_pixel_clk_src),
+	CLK_LIST(dsi_pll1_byte_clk_src),
 };
 
 int dsi_pll_clock_register_lpm(struct platform_device *pdev,
@@ -342,12 +447,22 @@ int dsi_pll_clock_register_lpm(struct platform_device *pdev,
 	}
 
 	/* Set client data to mux, div and vco clocks */
-	byte_clk_src.priv = pll_res;
-	pixel_clk_src.priv = pll_res;
-	byte_mux_8916.priv = pll_res;
-	indirect_path_div2_clk_8916.priv = pll_res;
-	analog_postdiv_clk_8916.priv = pll_res;
-	dsi_vco_clk_8916.priv = pll_res;
+	if (!pll_res->index) {
+		dsi_pll0_byte_clk_src.priv = pll_res;
+		dsi_pll0_pixel_clk_src.priv = pll_res;
+		dsi_pll0_byte_mux.priv = pll_res;
+		dsi_pll0_indirect_path_div2_clk.priv = pll_res;
+		dsi_pll0_analog_postdiv_clk.priv = pll_res;
+		dsi_pll0_vco_clk.priv = pll_res;
+	} else {
+		dsi_pll1_byte_clk_src.priv = pll_res;
+		dsi_pll1_pixel_clk_src.priv = pll_res;
+		dsi_pll1_byte_mux.priv = pll_res;
+		dsi_pll1_indirect_path_div2_clk.priv = pll_res;
+		dsi_pll1_analog_postdiv_clk.priv = pll_res;
+		dsi_pll1_vco_clk.priv = pll_res;
+	}
+
 	pll_res->vco_delay = VCO_DELAY_USEC;
 
 	/* Set clock source operations */
@@ -365,8 +480,12 @@ int dsi_pll_clock_register_lpm(struct platform_device *pdev,
 
 	if ((pll_res->target_id == MDSS_PLL_TARGET_8952) ||
 		(pll_res->target_id == MDSS_PLL_TARGET_8937)) {
-		rc = of_msm_clock_register(pdev->dev.of_node,
-			mdss_dsi_pllcc_8916, ARRAY_SIZE(mdss_dsi_pllcc_8916));
+		if (!pll_res->index)
+			rc = of_msm_clock_register(pdev->dev.of_node,
+				dsi_pll0_cc, ARRAY_SIZE(dsi_pll0_cc));
+		else
+			rc = of_msm_clock_register(pdev->dev.of_node,
+				dsi_pll1_cc, ARRAY_SIZE(dsi_pll1_cc));
 		if (rc) {
 			pr_err("Clock register failed\n");
 			rc = -EPROBE_DEFER;
@@ -377,7 +496,8 @@ int dsi_pll_clock_register_lpm(struct platform_device *pdev,
 	}
 
 	if (!rc)
-		pr_info("Registered DSI PLL clocks successfully\n");
+		pr_info("Registered DSI PLL:%d clocks successfully\n",
+				pll_res->index);
 
 	return rc;
 }
