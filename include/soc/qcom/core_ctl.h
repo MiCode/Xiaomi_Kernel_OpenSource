@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,5 +21,6 @@ extern struct cpufreq_policy *core_ctl_get_policy(int cpu);
 extern void core_ctl_put_policy(struct cpufreq_policy *policy);
 extern struct device *core_ctl_find_cpu_device(unsigned cpu);
 extern int core_ctl_online_core(unsigned int cpu);
+extern int core_ctl_offline_core(unsigned int cpu);
 
 #endif
