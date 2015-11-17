@@ -93,9 +93,6 @@ static int q6asm_map_channels(u8 *channel_mapping, uint32_t channels,
 void *q6asm_mmap_apr_reg(void);
 
 static int q6asm_is_valid_session(struct apr_client_data *data, void *priv);
-static int q6asm_map_asm_cal(struct audio_client *ac);
-static int q6asm_send_asm_cal(struct audio_client *ac);
-static int q6asm_send_asm_cal_nowait(struct audio_client *ac);
 static int q6asm_get_asm_topology_cal(void);
 static int q6asm_get_asm_app_type_cal(void);
 
@@ -2280,9 +2277,6 @@ static int __q6asm_open_read(struct audio_client *ac,
 
 	ac->io_mode |= TUN_READ_IO_MODE;
 
-	rc = q6asm_map_asm_cal(ac);
-	pr_debug("%s: q6asm_map_asm_cal ret=%d\n", __func__, rc);
-
 	return 0;
 fail_cmd:
 	return rc;
@@ -2375,8 +2369,6 @@ int q6asm_open_write_compressed(struct audio_client *ac, uint32_t format,
 				atomic_read(&ac->cmd_state));
 		goto fail_cmd;
 	}
-	rc = q6asm_map_asm_cal(ac);
-	pr_debug("%s: q6asm_map_asm_cal ret=%d\n", __func__, rc);
 
 	return 0;
 
@@ -2524,9 +2516,6 @@ static int __q6asm_open_write(struct audio_client *ac, uint32_t format,
 		goto fail_cmd;
 	}
 	ac->io_mode |= TUN_WRITE_IO_MODE;
-
-	rc = q6asm_map_asm_cal(ac);
-	pr_debug("%s: q6asm_map_asm_cal ret=%d\n", __func__, rc);
 
 	return 0;
 fail_cmd:
@@ -2706,8 +2695,6 @@ static int __q6asm_open_read_write(struct audio_client *ac, uint32_t rd_format,
 				atomic_read(&ac->cmd_state));
 		goto fail_cmd;
 	}
-	rc = q6asm_map_asm_cal(ac);
-	pr_debug("%s: q6asm_map_asm_cal ret=%d\n", __func__, rc);
 
 	return 0;
 fail_cmd:
@@ -2808,14 +2795,6 @@ int q6asm_run(struct audio_client *ac, uint32_t flags,
 		return -EINVAL;
 	}
 	pr_debug("%s: session[%d]\n", __func__, ac->session);
-	if (!(ac->io_mode & NT_MODE)) {
-		rc = q6asm_send_asm_cal(ac);
-		if (rc < 0) {
-			/* This is not fatal error no return required */
-			pr_info("%s: q6asm_send_asm_cal ret=%d\n",
-				__func__, rc);
-		}
-	}
 
 	q6asm_add_hdr(ac, &run.hdr, sizeof(run), TRUE);
 	atomic_set(&ac->cmd_state, -1);
@@ -2872,14 +2851,6 @@ static int __q6asm_run_nowait(struct audio_client *ac, uint32_t flags,
 		return -EINVAL;
 	}
 	pr_debug("%s: session[%d]\n", __func__, ac->session);
-	if (!(ac->io_mode & NT_MODE)) {
-		rc = q6asm_send_asm_cal_nowait(ac);
-		if (rc < 0) {
-			/* This is not fatal error no return required */
-			pr_info("%s: q6asm_send_asm_cal ret=%d\n",
-				__func__, rc);
-		}
-	}
 
 	q6asm_stream_add_hdr_async(ac, &run.hdr, sizeof(run), TRUE, stream_id);
 	atomic_set(&ac->cmd_state, 1);
@@ -6669,59 +6640,7 @@ done:
 	return app_type;
 }
 
-static int q6asm_map_asm_cal(struct audio_client *ac)
-{
-	struct cal_block_data *cal_block = NULL;
-	int rc = -EINVAL;
-
-	pr_debug("%s:\n", __func__);
-	if (!ac) {
-		pr_err("%s: APR handle NULL\n", __func__);
-		return -EINVAL;
-	}
-	if (ac->apr == NULL) {
-		pr_err("%s: AC APR handle NULL\n", __func__);
-		return -EINVAL;
-	}
-
-	if (cal_data[ASM_AUDSTRM_CAL] == NULL)
-		goto done;
-
-	if (ac->perf_mode == ULTRA_LOW_LATENCY_PCM_MODE) {
-		rc = 0; /* no cal is required, not error case */
-		goto done;
-	}
-
-	mutex_lock(&cal_data[ASM_AUDSTRM_CAL]->lock);
-	cal_block = cal_utils_get_only_cal_block(cal_data[ASM_AUDSTRM_CAL]);
-	if (cal_block == NULL) {
-		pr_err("%s: cal_block is NULL\n",
-			__func__);
-		goto unlock;
-	}
-
-	if (cal_block->cal_data.size == 0) {
-		rc = 0; /* not error case */
-		pr_debug("%s: cal_data.size is 0, don't send cal data\n",
-			__func__);
-		goto unlock;
-	}
-
-	rc = remap_cal_data(ASM_AUDSTRM_CAL_TYPE, cal_block);
-	if (rc) {
-		pr_err("%s: Remap_cal_data failed for cal %d!\n",
-			__func__, ASM_AUDSTRM_CAL);
-		goto unlock;
-	}
-
-unlock:
-	mutex_unlock(&cal_data[ASM_AUDSTRM_CAL]->lock);
-
-done:
-	return rc;
-}
-
-static int q6asm_send_asm_cal(struct audio_client *ac)
+int q6asm_send_cal(struct audio_client *ac)
 {
 	struct cal_block_data *cal_block = NULL;
 	struct apr_hdr	hdr;
@@ -6732,11 +6651,15 @@ static int q6asm_send_asm_cal(struct audio_client *ac)
 
 	if (!ac) {
 		pr_err("%s: APR handle NULL\n", __func__);
-		return -EINVAL;
+		goto done;
 	}
 	if (ac->apr == NULL) {
 		pr_err("%s: AC APR handle NULL\n", __func__);
-		return -EINVAL;
+		goto done;
+	}
+	if (ac->io_mode & NT_MODE) {
+		pr_debug("%s: called for NT MODE, exiting\n", __func__);
+		goto done;
 	}
 
 	if (cal_data[ASM_AUDSTRM_CAL] == NULL)
@@ -6747,13 +6670,6 @@ static int q6asm_send_asm_cal(struct audio_client *ac)
 		goto done;
 	}
 
-	sz = sizeof(struct apr_hdr) +
-		sizeof(struct asm_stream_cmd_set_pp_params_v2);
-	asm_params = kzalloc(sz, GFP_KERNEL);
-	if (!asm_params) {
-		pr_err("%s, asm params memory alloc failed", __func__);
-		return -ENOMEM;
-	}
 	mutex_lock(&cal_data[ASM_AUDSTRM_CAL]->lock);
 	cal_block = cal_utils_get_only_cal_block(cal_data[ASM_AUDSTRM_CAL]);
 	if (cal_block == NULL) {
@@ -6776,6 +6692,15 @@ static int q6asm_send_asm_cal(struct audio_client *ac)
 		goto unlock;
 	}
 
+	sz = sizeof(struct apr_hdr) +
+		sizeof(struct asm_stream_cmd_set_pp_params_v2);
+	asm_params = kzalloc(sz, GFP_KERNEL);
+	if (!asm_params) {
+		pr_err("%s, asm params memory alloc failed", __func__);
+		rc = -ENOMEM;
+		goto unlock;
+	}
+
 	/* asm_stream_cmd_set_pp_params_v2 has no APR header in it */
 	q6asm_add_hdr_async(ac, &hdr, (sizeof(struct apr_hdr) +
 		sizeof(struct asm_stream_cmd_set_pp_params_v2)), TRUE);
@@ -6802,112 +6727,28 @@ static int q6asm_send_asm_cal(struct audio_client *ac)
 	if (rc < 0) {
 		pr_err("%s: audio audstrm cal send failed\n", __func__);
 		rc = -EINVAL;
-		goto unlock;
+		goto free;
 	}
 	rc = wait_event_timeout(ac->cmd_wait,
 				(atomic_read(&ac->cmd_state) <= 0), 5 * HZ);
 	if (!rc) {
 		pr_err("%s: timeout, audio audstrm cal send\n", __func__);
 		rc = -ETIMEDOUT;
-		goto unlock;
+		goto free;
 	}
 	if (atomic_read(&ac->cmd_state) < 0) {
 		pr_err("%s: DSP returned error[%d] audio audstrm cal send\n",
 				__func__, atomic_read(&ac->cmd_state));
 		rc = -EINVAL;
-		goto unlock;
+		goto free;
 	}
 
 	rc = 0;
 
+free:
+	kfree(asm_params);
 unlock:
 	mutex_unlock(&cal_data[ASM_AUDSTRM_CAL]->lock);
-	kfree(asm_params);
-done:
-	return rc;
-}
-
-static int q6asm_send_asm_cal_nowait(struct audio_client *ac)
-{
-	struct cal_block_data *cal_block = NULL;
-	struct apr_hdr	hdr;
-	char asm_params[sizeof(struct apr_hdr) +
-		sizeof(struct asm_stream_cmd_set_pp_params_v2)];
-	struct asm_stream_cmd_set_pp_params_v2 payload_params;
-	int rc = -EINVAL;
-
-	pr_debug("%s:\n", __func__);
-	if (!ac) {
-		pr_err("%s: APR handle NULL\n", __func__);
-		return -EINVAL;
-	}
-	if (ac->apr == NULL) {
-		pr_err("%s: AC APR handle NULL\n", __func__);
-		return -EINVAL;
-	}
-
-	if (cal_data[ASM_AUDSTRM_CAL] == NULL)
-		goto done;
-
-	if (ac->perf_mode == ULTRA_LOW_LATENCY_PCM_MODE) {
-		rc = 0; /* no cal is required, not error case */
-		goto done;
-	}
-
-	cal_block = cal_utils_get_only_cal_block(cal_data[ASM_AUDSTRM_CAL]);
-	if (cal_block == NULL) {
-		pr_err("%s: cal_block is NULL\n",
-			__func__);
-		goto done;
-	}
-
-	if (cal_block->cal_data.size == 0) {
-		rc = 0; /* not error case */
-		pr_debug("%s: cal_data.size is 0, don't send cal data\n",
-			__func__);
-		goto done;
-	}
-
-	/* no remap is required as open handle cal map*/
-	if ((cal_block->map_data.map_size > 0) &&
-		(cal_block->map_data.q6map_handle == 0)) {
-		pr_err("%s: memory map handle invalid!\n", __func__);
-		goto done;
-	}
-
-	/* asm_stream_cmd_set_pp_params_v2 has no APR header in it */
-	q6asm_add_hdr_async(ac, &hdr, (sizeof(struct apr_hdr) +
-		sizeof(struct asm_stream_cmd_set_pp_params_v2)), TRUE);
-
-	atomic_set(&ac->cmd_state, 1);
-	hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS_V2;
-	payload_params.data_payload_addr_lsw =
-			lower_32_bits(cal_block->cal_data.paddr);
-	payload_params.data_payload_addr_msw =
-			upper_32_bits(cal_block->cal_data.paddr);
-	payload_params.mem_map_handle = cal_block->map_data.q6map_handle;
-	payload_params.data_payload_size = cal_block->cal_data.size;
-	memcpy(((u8 *)asm_params), &hdr, sizeof(struct apr_hdr));
-	memcpy(((u8 *)asm_params + sizeof(struct apr_hdr)), &payload_params,
-			sizeof(struct asm_stream_cmd_set_pp_params_v2));
-
-	pr_debug("%s: phyaddr lsw = %x msw = %x, maphdl = %x calsize = %d\n",
-		__func__, payload_params.data_payload_addr_lsw,
-		payload_params.data_payload_addr_msw,
-		payload_params.mem_map_handle,
-		payload_params.data_payload_size);
-
-	atomic_inc(&ac->nowait_cmd_cnt);
-	q6asm_add_nowait_opcode(ac, hdr.opcode);
-	rc = apr_send_pkt(ac->apr, (uint32_t *) asm_params);
-	if (rc < 0) {
-		pr_err("%s: audio audstrm cal send failed\n", __func__);
-		atomic_dec(&ac->nowait_cmd_cnt);
-		q6asm_remove_nowait_opcode(ac, hdr.opcode);
-		rc = -EINVAL;
-		goto done;
-	}
-
 done:
 	return rc;
 }

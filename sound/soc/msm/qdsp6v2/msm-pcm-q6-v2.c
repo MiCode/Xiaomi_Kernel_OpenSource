@@ -316,6 +316,10 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 		return -ENOMEM;
 	}
 
+	ret = q6asm_send_cal(prtd->audio_client);
+	if (ret < 0)
+		pr_debug("%s : Send cal failed : %d", __func__, ret);
+
 	pr_debug("%s: session ID %d\n", __func__,
 			prtd->audio_client->session);
 	prtd->session_id = prtd->audio_client->session;
@@ -401,6 +405,10 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 			prtd->audio_client = NULL;
 			return -ENOMEM;
 		}
+
+		ret = q6asm_send_cal(prtd->audio_client);
+		if (ret < 0)
+			pr_debug("%s : Send cal failed : %d", __func__, ret);
 
 		pr_debug("%s: session ID %d\n",
 				__func__, prtd->audio_client->session);
