@@ -5135,7 +5135,7 @@ int ipa3_inject_dma_task_for_gsi(void)
 int ipa3_stop_gsi_channel(u32 clnt_hdl)
 {
 	struct ipa3_mem_buffer mem;
-	int res;
+	int res = 0;
 	int i;
 	struct ipa3_ep_context *ep;
 
@@ -5146,26 +5146,28 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 	}
 
 	ep = &ipa3_ctx->ep[clnt_hdl];
-	if (!ep->keep_ipa_awake)
-		ipa3_inc_client_enable_clks();
+
+	ipa3_inc_client_enable_clks();
 
 	memset(&mem, 0, sizeof(mem));
 
-	if (IPA_CLIENT_IS_PROD(ep->client))
-		return gsi_stop_channel(ep->gsi_chan_hdl);
+	if (IPA_CLIENT_IS_PROD(ep->client)) {
+		res = gsi_stop_channel(ep->gsi_chan_hdl);
+		goto end_sequence;
+	}
 
 	for (i = 0; i < IPA_GSI_CHANNEL_STOP_MAX_RETRY; i++) {
 		IPADBG("Calling gsi_stop_channel\n");
 		res = gsi_stop_channel(ep->gsi_chan_hdl);
 		IPADBG("gsi_stop_channel returned %d\n", res);
 		if (res != -GSI_STATUS_AGAIN && res != -GSI_STATUS_TIMED_OUT)
-			return res;
+			goto end_sequence;
 
 		/* Send a 1B packet DMA_RASK to IPA and try again*/
 		res = ipa3_inject_dma_task_for_gsi();
 		if (res) {
 			IPAERR("ipa3_inject_dma_task_for_gsi failed\n");
-			return res;
+			goto end_sequence;
 		}
 
 		/* sleep for short period to flush IPA */
@@ -5173,7 +5175,11 @@ int ipa3_stop_gsi_channel(u32 clnt_hdl)
 			IPA_GSI_CHANNEL_STOP_SLEEP_MAX_USEC);
 	}
 
-	return -EFAULT;
+	res = -EFAULT;
+end_sequence:
+	ipa3_dec_client_disable_clks();
+
+	return res;
 }
 
 /**
