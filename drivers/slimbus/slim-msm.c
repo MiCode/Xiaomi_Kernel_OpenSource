@@ -1392,8 +1392,14 @@ static void msm_slim_qmi_recv_msg(struct kthread_work *work)
 	struct msm_slim_qmi *qmi =
 			container_of(work, struct msm_slim_qmi, kwork);
 
-	rc = qmi_recv_msg(qmi->handle);
-	if (rc < 0)
+	/* Make sure to empty the QMI buffer by reading all the messages
+	 * IF QMI buffer is not empty flow control blocks ADSP from
+	 * sending other messages.
+	 */
+	do {
+	} while ((rc = qmi_recv_msg(qmi->handle)) == 0);
+
+	if (rc != -ENOMSG)
 		pr_err("%s: Error receiving QMI message\n", __func__);
 }
 
