@@ -366,12 +366,11 @@ static int msm_csiphy_2phase_lane_config(
 			mipi_csiphy_2ph_lnn_cfg3.addr + offset);
 
 		if (clk_lane == 1) {
-			if (csiphy_dev->hw_version == CSIPHY_VERSION_V342) {
-				msm_camera_io_w(0x80,
-					csiphybase +
-					csiphy_dev->ctrl_reg->csiphy_3ph_reg.
-					mipi_csiphy_2ph_lnn_cfg1.addr + offset);
-			}
+			msm_camera_io_w(csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+				mipi_csiphy_3ph_lnck_cfg1.data, csiphybase +
+				csiphy_dev->ctrl_reg->csiphy_3ph_reg.
+				mipi_csiphy_3ph_lnck_cfg1.addr);
+
 			msm_camera_io_w(csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 				mipi_csiphy_2ph_lnn_cfg4.data, csiphybase +
 				csiphy_dev->ctrl_reg->csiphy_3ph_reg.
