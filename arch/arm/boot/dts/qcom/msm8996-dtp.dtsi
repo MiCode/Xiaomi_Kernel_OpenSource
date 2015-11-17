@@ -624,14 +624,41 @@
 
 &red_led {
 	/delete-property/ linux,default-trigger;
+	qcom,start-idx = <1>;
+	qcom,idx-len = <10>;
+	qcom,duty-pcts = [00 19 32 4B 64
+			64 4B 32 19 00];
+	qcom,lut-flags = <3>;
+	qcom,pause-lo = <0>;
+	qcom,pause-hi = <0>;
+	qcom,ramp-step-ms = <255>;
+	qcom,use-blink;
 };
 
 &green_led {
 	/delete-property/ linux,default-trigger;
+	qcom,start-idx = <1>;
+	qcom,idx-len = <10>;
+	qcom,duty-pcts = [00 19 32 4B 64
+			64 4B 32 19 00];
+	qcom,lut-flags = <3>;
+	qcom,pause-lo = <0>;
+	qcom,pause-hi = <0>;
+	qcom,ramp-step-ms = <255>;
+	qcom,use-blink;
 };
 
 &blue_led {
 	/delete-property/ linux,default-trigger;
+	qcom,start-idx = <1>;
+	qcom,idx-len = <10>;
+	qcom,duty-pcts = [00 19 32 4B 64
+			64 4B 32 19 00];
+	qcom,lut-flags = <3>;
+	qcom,pause-lo = <0>;
+	qcom,pause-hi = <0>;
+	qcom,ramp-step-ms = <255>;
+	qcom,use-blink;
 };
 
 &pmi8994_wled {
