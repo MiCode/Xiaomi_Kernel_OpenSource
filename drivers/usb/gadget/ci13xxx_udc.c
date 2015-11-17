@@ -1678,12 +1678,12 @@ static int ci13xxx_wakeup(struct usb_gadget *_gadget)
 	if (!hw_cread(CAP_PORTSC, PORTSC_SUSP)) {
 		ret = -EINVAL;
 		dbg_trace("port is not suspended\n");
-		pm_runtime_put_sync(&_gadget->dev);
+		pm_runtime_put(&_gadget->dev);
 		goto out;
 	}
 	hw_cwrite(CAP_PORTSC, PORTSC_FPR, PORTSC_FPR);
 
-	pm_runtime_put_sync(&_gadget->dev);
+	pm_runtime_put(&_gadget->dev);
 out:
 	spin_unlock_irqrestore(udc->lock, flags);
 	return ret;
@@ -3541,7 +3541,6 @@ static int ci13xxx_start(struct usb_gadget *gadget,
 	struct ci13xxx *udc = _udc;
 	unsigned long flags;
 	int retval = -ENOMEM;
-	bool put = false;
 
 	trace("%p", driver);
 
@@ -3561,23 +3560,30 @@ static int ci13xxx_start(struct usb_gadget *gadget,
 	udc->gadget.dev.driver = NULL;
 
 	spin_unlock_irqrestore(udc->lock, flags);
+
+	pm_runtime_get_sync(&udc->gadget.dev);
+
 	udc->ep0out.ep.desc = &ctrl_endpt_out_desc;
 	retval = usb_ep_enable(&udc->ep0out.ep);
 	if (retval)
-		return retval;
+		goto pm_put;
 
 	udc->ep0in.ep.desc = &ctrl_endpt_in_desc;
 	retval = usb_ep_enable(&udc->ep0in.ep);
 	if (retval)
-		return retval;
+		goto pm_put;
 	udc->status = usb_ep_alloc_request(&udc->ep0in.ep, GFP_KERNEL);
-	if (!udc->status)
-		return -ENOMEM;
+	if (!udc->status) {
+		retval = -ENOMEM;
+		goto pm_put;
+	}
+
 	udc->status_buf = kzalloc(2 + udc->gadget.extra_buf_alloc,
 				GFP_KERNEL); /* for GET_STATUS */
 	if (!udc->status_buf) {
 		usb_ep_free_request(&udc->ep0in.ep, udc->status);
-		return -ENOMEM;
+		retval = -ENOMEM;
+		goto pm_put;
 	}
 	spin_lock_irqsave(udc->lock, flags);
 
@@ -3586,41 +3592,29 @@ static int ci13xxx_start(struct usb_gadget *gadget,
 	driver->driver.bus     = NULL;
 	udc->gadget.dev.driver = &driver->driver;
 
-	spin_unlock_irqrestore(udc->lock, flags);
-	pm_runtime_get_sync(&udc->gadget.dev);
-	spin_lock_irqsave(udc->lock, flags);
-
-	if (retval) {
-		udc->gadget.dev.driver = NULL;
-		goto done;
-	}
-
 	udc->driver = driver;
 	if (udc->udc_driver->flags & CI13XXX_PULLUP_ON_VBUS) {
 		if (udc->vbus_active) {
 			if (udc->udc_driver->flags & CI13XXX_REGS_SHARED)
 				hw_device_reset(udc);
 		} else {
-			put = true;
 			goto done;
 		}
 	}
 
-	if (!udc->softconnect) {
-		put = true;
+	if (!udc->softconnect)
 		goto done;
-	}
 
 	retval = hw_device_state(udc->ep0out.qh.dma);
 
- done:
+done:
 	spin_unlock_irqrestore(udc->lock, flags);
-	if (retval || put)
-		pm_runtime_put_sync(&udc->gadget.dev);
 
 	if (udc->udc_driver->notify_event)
 			udc->udc_driver->notify_event(udc,
 				CI13XXX_CONTROLLER_UDC_STARTED_EVENT);
+pm_put:
+	pm_runtime_put(&udc->gadget.dev);
 
 	return retval;
 }
@@ -3902,6 +3896,7 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 #endif
 
 	pm_runtime_no_callbacks(&udc->gadget.dev);
+	pm_runtime_set_active(&udc->gadget.dev);
 	pm_runtime_enable(&udc->gadget.dev);
 
 	_udc = udc;
