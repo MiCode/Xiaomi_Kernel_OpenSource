@@ -1267,6 +1267,27 @@
 		qcom,wakeup-enable;
 	};
 
+	qcom,spss@1d00000 {
+		compatible = "qcom,pil-tz-generic";
+		reg = <0x1d00000 0x20000>;
+		reg-names = "sp_scsr_base";
+		interrupts = <0 352 1>;
+
+		vdd_cx-supply = <&pmcobalt_s1_level>;
+		qcom,proxy-reg-names = "vdd_cx";
+		qcom,vdd_cx-uV-uA = <RPM_SMD_REGULATOR_LEVEL_TURBO 100000>;
+
+		clocks = <&clock_gcc clk_cxo_pil_spss_clk>;
+		clock-names = "xo";
+		qcom,proxy-clock-names = "xo";
+		qcom,pil-generic-irq-handler;
+
+		qcom,pas-id = <14>;
+		qcom,proxy-timeout-ms = <10000>;
+		qcom,firmware-name = "spss";
+		memory-region = <&peripheral_mem>;
+	};
+
 	qcom,msm-imem@146bf000 {
 		compatible = "qcom,msm-imem";
 		reg = <0x146bf000 0x1000>;
