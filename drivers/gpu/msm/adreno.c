@@ -1686,8 +1686,13 @@ static inline bool adreno_try_soft_reset(struct kgsl_device *device, int fault)
 int adreno_reset(struct kgsl_device *device, int fault)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	int ret = -EINVAL;
 	int i = 0;
+
+	/* broadcast to HW - reset is coming */
+	if (gpudev->pre_reset)
+		gpudev->pre_reset(adreno_dev);
 
 	/* Try soft reset first */
 	if (adreno_try_soft_reset(device, fault)) {

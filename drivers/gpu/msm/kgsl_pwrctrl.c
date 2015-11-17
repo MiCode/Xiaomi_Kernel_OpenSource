@@ -2007,7 +2007,12 @@ static int _wake(struct kgsl_device *device)
 		 */
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
 
-		/* Change register settings if any after pwrlevel change*/
+		/*
+		 * Change register settings if any after pwrlevel change.
+		 * If there was dcvs level change during nap - call
+		 * pre and post in the row after clock is enabled.
+		 */
+		kgsl_pwrctrl_pwrlevel_change_settings(device, 0);
 		kgsl_pwrctrl_pwrlevel_change_settings(device, 1);
 		/* All settings for power level transitions are complete*/
 		pwr->previous_pwrlevel = pwr->active_pwrlevel;
