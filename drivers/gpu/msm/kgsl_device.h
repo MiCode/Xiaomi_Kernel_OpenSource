@@ -292,6 +292,8 @@ struct kgsl_device {
 	struct device *busmondev; /* pseudo dev for GPU BW voting governor */
 };
 
+#define KGSL_MMU_DEVICE(_mmu) \
+	container_of((_mmu), struct kgsl_device, mmu)
 
 #define KGSL_DEVICE_COMMON_INIT(_dev) \
 	.hwaccess_gate = COMPLETION_INITIALIZER((_dev).hwaccess_gate),\

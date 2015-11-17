@@ -525,7 +525,6 @@ int kgsl_mmu_init(struct kgsl_device *device, char *mmutype)
 {
 	int status = 0;
 	struct kgsl_mmu *mmu = &device->mmu;
-	mmu->device = device;
 
 	if (mmutype && !strcmp(mmutype, "nommu"))
 		kgsl_mmu_type = KGSL_MMU_TYPE_NONE;
