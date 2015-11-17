@@ -68,6 +68,10 @@ module_param_named(mmutype, ksgl_mmu_type, charp, 0);
 MODULE_PARM_DESC(ksgl_mmu_type,
 "Type of MMU to be used for graphics. Valid values are 'iommu' or 'nommu'");
 
+/* Mutex used for the IOMMU sync quirk */
+DEFINE_MUTEX(kgsl_mmu_sync);
+EXPORT_SYMBOL(kgsl_mmu_sync);
+
 struct kgsl_dma_buf_meta {
 	struct dma_buf_attachment *attach;
 	struct dma_buf *dmabuf;

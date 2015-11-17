@@ -944,6 +944,7 @@ static struct {
 	const char *prop;
 } adreno_quirks[] = {
 	 { ADRENO_QUIRK_TWO_PASS_USE_WFI, "qcom,gpu-quirk-two-pass-use-wfi" },
+	 { ADRENO_QUIRK_IOMMU_SYNC, "qcom,gpu-quirk-iommu-sync" },
 };
 
 static int adreno_of_get_pdata(struct adreno_device *adreno_dev)
@@ -2729,15 +2730,11 @@ static void adreno_pwrlevel_change_settings(struct kgsl_device *device,
 
 static void adreno_iommu_sync(struct kgsl_device *device, bool sync)
 {
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct scm_desc desc = {0};
 	int ret;
 
-	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SYNC_SMMU_PC))
-		return;
-
 	if (sync == true) {
-		mutex_lock(&device->mutex_mmu_sync);
+		mutex_lock(&kgsl_mmu_sync);
 		desc.args[0] = true;
 		desc.arginfo = SCM_ARGS(1);
 		ret = scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_PWR, 0x8), &desc);
@@ -2748,7 +2745,7 @@ static void adreno_iommu_sync(struct kgsl_device *device, bool sync)
 		desc.args[0] = false;
 		desc.arginfo = SCM_ARGS(1);
 		scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_PWR, 0x8), &desc);
-		mutex_unlock(&device->mutex_mmu_sync);
+		mutex_unlock(&kgsl_mmu_sync);
 	}
 }
 
@@ -2759,32 +2756,36 @@ static void adreno_regulator_disable_poll(struct kgsl_device *device)
 	unsigned long wait_time;
 	int i, rail_on;
 
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_SYNC_SMMU_PC)) {
-		adreno_iommu_sync(device, true);
-		/* Turn off CX and then GX as recommened by HW team */
-		for (i = 0; i <= KGSL_MAX_REGULATORS - 1; i++) {
-			if (pwr->gpu_reg[i] == NULL)
-				continue;
-			regulator_disable(pwr->gpu_reg[i]);
-			rail_on = 1;
-			wait_time = jiffies + msecs_to_jiffies(200);
-			while (!time_after(jiffies, wait_time)) {
-				if (!regulator_is_enabled(pwr->gpu_reg[i])) {
-					rail_on = 0;
-					break;
-				}
-				cpu_relax();
-			}
-			if (rail_on)
-				KGSL_CORE_ERR("%s regulator on after 200ms\n",
-					pwr->gpu_reg_name[i]);
-		}
-		adreno_iommu_sync(device, false);
-	} else {
+	/* Fast path - hopefully we don't need this quirk */
+	if (!ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_IOMMU_SYNC)) {
 		for (i = KGSL_MAX_REGULATORS - 1; i >= 0; i--)
-			if (pwr->gpu_reg[i])
+			if (pwr->gpu_reg[i] != NULL)
 				regulator_disable(pwr->gpu_reg[i]);
+		return;
 	}
+
+	adreno_iommu_sync(device, true);
+
+	/* Turn off CX and then GX as recommended by HW team */
+	for (i = 0; i <= KGSL_MAX_REGULATORS - 1; i++) {
+		if (pwr->gpu_reg[i] == NULL)
+			continue;
+		regulator_disable(pwr->gpu_reg[i]);
+		rail_on = 1;
+		wait_time = jiffies + msecs_to_jiffies(200);
+		while (!time_after(jiffies, wait_time)) {
+			if (!regulator_is_enabled(pwr->gpu_reg[i])) {
+				rail_on = 0;
+				break;
+			}
+			cpu_relax();
+		}
+		if (rail_on)
+			KGSL_CORE_ERR("%s regulator on after 200ms\n",
+				pwr->gpu_reg_name[i]);
+	}
+
+	adreno_iommu_sync(device, false);
 }
 
 static const struct kgsl_functable adreno_functable = {
