@@ -1826,6 +1826,10 @@ static void a5xx_post_start(struct adreno_device *adreno_dev)
 	unsigned int *cmds, *start;
 	struct adreno_ringbuffer *rb = adreno_dev->cur_rb;
 
+	if (!adreno_is_a530(adreno_dev) &&
+		!adreno_is_preemption_enabled(adreno_dev))
+		return;
+
 	cmds = adreno_ringbuffer_allocspace(rb, 42);
 	if (IS_ERR_OR_NULL(cmds))
 		return;
