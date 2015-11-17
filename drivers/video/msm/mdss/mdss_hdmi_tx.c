@@ -3943,7 +3943,6 @@ static int hdmi_tx_dev_init(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	hdmi_ctrl->ddc_ctrl.io = &pdata->io[HDMI_TX_CORE_IO];
 	init_completion(&hdmi_ctrl->ddc_ctrl.ddc_sw_done);
-	init_completion(&hdmi_ctrl->ddc_ctrl.rxstatus_completion);
 
 	hdmi_ctrl->panel_power_on = false;
 	hdmi_ctrl->panel_suspend = false;
