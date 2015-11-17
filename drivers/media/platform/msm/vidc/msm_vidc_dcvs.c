@@ -53,6 +53,54 @@ static inline int msm_dcvs_count_active_instances(struct msm_vidc_core *core)
 	return active_instances;
 }
 
+static bool msm_dcvs_check_codec_supported(int fourcc,
+		unsigned long codecs_supported, enum session_type type)
+{
+	int codec_bit, session_type_bit;
+	bool codec_type, session_type;
+	unsigned long session;
+
+	session = VIDC_VOTE_DATA_SESSION_VAL(get_hal_codec(fourcc),
+		get_hal_domain(type));
+
+	if (!codecs_supported || !session)
+		return false;
+
+	/* ffs returns a 1 indexed, test_bit takes a 0 indexed...index */
+	codec_bit = ffs(session) - 1;
+	session_type_bit = codec_bit + 1;
+
+	codec_type =
+		test_bit(codec_bit, &codecs_supported) ==
+		test_bit(codec_bit, &session);
+	session_type =
+		test_bit(session_type_bit, &codecs_supported) ==
+		test_bit(session_type_bit, &session);
+
+	return codec_type && session_type;
+}
+
+static void msm_dcvs_update_dcvs_params(int idx, struct msm_vidc_inst *inst)
+{
+	struct dcvs_stats *dcvs = NULL;
+	struct msm_vidc_platform_resources *res = NULL;
+	struct dcvs_table *table = NULL;
+
+	if (!inst || !inst->core) {
+		dprintk(VIDC_ERR, "%s Invalid args: %p\n", __func__, inst);
+		return;
+	}
+
+	dcvs = &inst->dcvs;
+	res = &inst->core->resources;
+	table = res->dcvs_tbl;
+
+	dcvs->load = table[idx].load;
+	dcvs->load_low = table[idx].load_low;
+	dcvs->load_high = table[idx].load_high;
+	dcvs->supported_codecs = table[idx].supported_codecs;
+}
+
 static void msm_dcvs_enc_check_and_scale_clocks(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
@@ -155,10 +203,9 @@ void msm_dcvs_init_load(struct msm_vidc_inst *inst)
 	struct msm_vidc_core *core;
 	struct hal_buffer_requirements *output_buf_req;
 	struct dcvs_stats *dcvs;
-	const unsigned int load_uhd = NUM_MBS_PER_SEC(2160, 3840, 30),
-		load_dci = NUM_MBS_PER_SEC(2160, 4096, 24),
-		load_1080p = NUM_MBS_PER_SEC(1088, 1920, 60);
-
+	struct dcvs_table *table;
+	struct msm_vidc_platform_resources *res = NULL;
+	int i, num_rows, fourcc;
 	dprintk(VIDC_DBG, "Init DCVS Load\n");
 
 	if (!inst || !inst->core) {
@@ -168,24 +215,33 @@ void msm_dcvs_init_load(struct msm_vidc_inst *inst)
 
 	core = inst->core;
 	dcvs = &inst->dcvs;
-
+	res = &core->resources;
 	dcvs->load = msm_comm_get_inst_load(inst, LOAD_CALC_NO_QUIRKS);
 
-	if (inst->session_type == MSM_VIDC_DECODER) {
-		if (dcvs->load > load_uhd) {
-			dcvs->load_low = DCVS_DEC_NOMINAL_LOAD;
-			dcvs->load_high = DCVS_DEC_TURBO_LOAD;
-		} else if (dcvs->load > load_1080p) {
-			dcvs->load_low = DCVS_DEC_SVS_LOAD;
-			dcvs->load_high = DCVS_DEC_NOMINAL_LOAD;
-		} else {
-			dcvs->load_low = DCVS_DEC_SVS2_LOAD;
-			dcvs->load_high = DCVS_DEC_SVS_LOAD;
-		}
-	} else { /* encoder */
-		if (dcvs->load >= min(load_uhd, load_dci)) {
-			dcvs->load_low = DCVS_ENC_NOMINAL_LOAD;
-			dcvs->load_high = DCVS_ENC_TURBO_LOAD;
+	num_rows = res->dcvs_tbl_size;
+	table = res->dcvs_tbl;
+
+	if (!num_rows || !table) {
+		dprintk(VIDC_ERR,
+				"%s: Dcvs table entry not found.\n", __func__);
+		return;
+	}
+
+	fourcc = inst->session_type == MSM_VIDC_DECODER ?
+				inst->fmts[OUTPUT_PORT]->fourcc :
+				inst->fmts[CAPTURE_PORT]->fourcc;
+
+	for (i = 0; i < num_rows; i++) {
+		bool matches = msm_dcvs_check_codec_supported(
+					fourcc,
+					table[i].supported_codecs,
+					inst->session_type);
+		if (!matches)
+			continue;
+
+		if (dcvs->load > table[i].load) {
+			msm_dcvs_update_dcvs_params(i, inst);
+			break;
 		}
 	}
 
@@ -469,24 +525,40 @@ static int msm_dcvs_dec_scale_clocks(struct msm_vidc_inst *inst, bool fbd)
 static bool msm_dcvs_enc_check(struct msm_vidc_inst *inst)
 {
 	int num_mbs_per_frame = 0;
+	long int instance_load = 0;
+	long int dcvs_limit = 0;
 	bool dcvs_check_passed = false, is_codec_supported  = false;
+	struct msm_vidc_platform_resources *res = NULL;
 
-	if (!inst) {
+	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s Invalid params\n", __func__);
 		return dcvs_check_passed;
 	}
 
-	is_codec_supported  =
-		inst->fmts[CAPTURE_PORT]->fourcc == V4L2_PIX_FMT_H264 ||
-		inst->fmts[CAPTURE_PORT]->fourcc == V4L2_PIX_FMT_H264_NO_SC ||
-		inst->fmts[CAPTURE_PORT]->fourcc == V4L2_PIX_FMT_HEVC;
+	res = &inst->core->resources;
+	if (!res->dcvs_limit) {
+		dprintk(VIDC_ERR,
+			"%s Dcvs limit table uninitialized\n", __func__);
+		return false;
+	}
 
+	is_codec_supported =
+		msm_dcvs_check_codec_supported(
+				inst->fmts[CAPTURE_PORT]->fourcc,
+				inst->dcvs.supported_codecs,
+				inst->session_type);
 
 	num_mbs_per_frame = msm_dcvs_get_mbs_per_frame(inst);
+	instance_load = msm_comm_get_inst_load(inst, LOAD_CALC_NO_QUIRKS);
+	dcvs_limit =
+		(long int)res->dcvs_limit[inst->session_type].min_mbpf *
+		res->dcvs_limit[inst->session_type].fps;
+
 	if (msm_vidc_enc_dcvs_mode && is_codec_supported &&
 		inst->dcvs.is_power_save_mode &&
 		IS_VALID_DCVS_SESSION(num_mbs_per_frame,
-			DCVS_MIN_SUPPORTED_MBPERFRAME)) {
+			res->dcvs_limit[inst->session_type].min_mbpf) &&
+		IS_VALID_DCVS_SESSION(instance_load, dcvs_limit)) {
 		dcvs_check_passed = true;
 	}
 	return dcvs_check_passed;
@@ -495,11 +567,14 @@ static bool msm_dcvs_enc_check(struct msm_vidc_inst *inst)
 static bool msm_dcvs_check_supported(struct msm_vidc_inst *inst)
 {
 	int num_mbs_per_frame = 0, instance_count = 0;
+	long int instance_load = 0;
+	long int dcvs_limit = 0;
 	struct msm_vidc_inst *temp = NULL;
 	struct msm_vidc_core *core;
 	struct hal_buffer_requirements *output_buf_req;
 	struct dcvs_stats *dcvs;
 	bool is_codec_supported = false;
+	struct msm_vidc_platform_resources *res = NULL;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_WARN, "%s: Invalid parameter\n", __func__);
@@ -508,28 +583,34 @@ static bool msm_dcvs_check_supported(struct msm_vidc_inst *inst)
 
 	core = inst->core;
 	dcvs = &inst->dcvs;
+	res = &core->resources;
+
+	if (!res->dcvs_limit) {
+		dprintk(VIDC_WARN,
+				"%s: dcvs limit table not found\n", __func__);
+		return false;
+	}
 	instance_count = msm_dcvs_count_active_instances(core);
 
 	if (instance_count == 1 && inst->session_type == MSM_VIDC_DECODER &&
 		!msm_comm_turbo_session(inst)) {
 		num_mbs_per_frame = msm_dcvs_get_mbs_per_frame(inst);
+		instance_load = msm_comm_get_inst_load(inst,
+			LOAD_CALC_NO_QUIRKS);
 		output_buf_req = get_buff_req_buffer(inst,
 			msm_comm_get_hal_output_buffer(inst));
-
+		dcvs_limit =
+			(long int)res->dcvs_limit[inst->session_type].min_mbpf *
+			res->dcvs_limit[inst->session_type].fps;
 		is_codec_supported =
-			(inst->fmts[OUTPUT_PORT]->fourcc ==
-				V4L2_PIX_FMT_H264) ||
-			(inst->fmts[OUTPUT_PORT]->fourcc ==
-				V4L2_PIX_FMT_HEVC) ||
-			(inst->fmts[OUTPUT_PORT]->fourcc ==
-				V4L2_PIX_FMT_VP8) ||
-			(inst->fmts[OUTPUT_PORT]->fourcc ==
-				V4L2_PIX_FMT_VP9) ||
-			(inst->fmts[OUTPUT_PORT]->fourcc ==
-				V4L2_PIX_FMT_H264_NO_SC);
+			msm_dcvs_check_codec_supported(
+					inst->fmts[OUTPUT_PORT]->fourcc,
+					inst->dcvs.supported_codecs,
+					inst->session_type);
 		if (!is_codec_supported ||
 			!IS_VALID_DCVS_SESSION(num_mbs_per_frame,
-					DCVS_DEC_MIN_SUPPORTED_MBPERFRAME))
+				res->dcvs_limit[inst->session_type].min_mbpf) ||
+			!IS_VALID_DCVS_SESSION(instance_load, dcvs_limit))
 			return false;
 
 		if (!output_buf_req) {

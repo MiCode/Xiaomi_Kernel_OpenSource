@@ -199,6 +199,7 @@ struct dcvs_stats {
 	bool is_clock_scaled;
 	int etb_counter;
 	bool is_power_save_mode;
+	u32 supported_codecs;
 };
 
 struct profile_data {

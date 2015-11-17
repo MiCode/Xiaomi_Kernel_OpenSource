@@ -330,7 +330,7 @@ int msm_comm_get_load(struct msm_vidc_core *core,
 	return num_mbs_per_sec;
 }
 
-static enum hal_domain get_hal_domain(int session_type)
+enum hal_domain get_hal_domain(int session_type)
 {
 	enum hal_domain domain;
 	switch (session_type) {

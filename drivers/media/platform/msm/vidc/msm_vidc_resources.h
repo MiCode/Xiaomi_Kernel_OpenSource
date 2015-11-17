@@ -26,6 +26,18 @@ struct load_freq_table {
 	u32 supported_codecs;
 };
 
+struct dcvs_table {
+	u32 load;
+	u32 load_low;
+	u32 load_high;
+	u32 supported_codecs;
+};
+
+struct dcvs_limit {
+	u32 min_mbpf;
+	u32 fps;
+};
+
 struct imem_ab_table {
 	u32 core_freq;
 	u32 imem_ab;
@@ -126,6 +138,9 @@ struct msm_vidc_platform_resources {
 	uint32_t irq;
 	struct load_freq_table *load_freq_tbl;
 	uint32_t load_freq_tbl_size;
+	struct dcvs_table *dcvs_tbl;
+	uint32_t dcvs_tbl_size;
+	struct dcvs_limit *dcvs_limit;
 	struct imem_ab_table *imem_ab_tbl;
 	u32 imem_ab_tbl_size;
 	struct reg_set reg_set;
