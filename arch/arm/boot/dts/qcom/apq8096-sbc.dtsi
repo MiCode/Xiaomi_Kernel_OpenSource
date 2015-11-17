@@ -324,36 +324,42 @@
 
 #include "msm8996-mdss-panels.dtsi"
 
-&dsi_hx8379a_fwvga_truly_vid {
+&dsi_dual_sharp_video {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
 	qcom,mdss-dsi-bl-min-level = <1>;
-	qcom,mdss-dsi-bl-max-level = <255>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,mdss-dsi-bl-pmic-pwm-frequency = <50>;
 	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
-	qcom,mdss-dsi-pwm-gpio = <&pm8994_gpios 5 0>;
+	qcom,mdss-dsi-pwm-gpio = <&pm8994_gpios 6 0>;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
-
 &mdss_mdp {
-	qcom,mdss-pref-prim-intf = "dsi";
+	qcom,mdss-pref-prim-intf = "hdmi";
 };
 
 &mdss_dsi {
-	hw-config = "single_dsi";
+	hw-config = "split_dsi";
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_hx8379a_fwvga_truly_vid>;
+	qcom,dsi-pref-prim-pan = <&dsi_dual_sharp_video>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
-	pinctrl-0 = <&mdss_dsi_active &mdss_te_active &mdss_disp_bkl_active>;
-	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend &mdss_disp_bkl_suspend>;
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 	qcom,platform-te-gpio = <&tlmm 10 0>;
 	qcom,platform-reset-gpio = <&tlmm 8 0>;
+	qcom,platform-bklight-en-gpio = <&pm8994_gpios 6 0>;
 };
 
 &mdss_dsi1 {
-	status = "disabled";
+	qcom,dsi-pref-prim-pan = <&dsi_dual_sharp_video>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-reset-gpio = <&tlmm 8 0>;
+	qcom,platform-bklight-en-gpio = <&pm8994_gpios 6 0>;
 };
 
 &labibb {
@@ -641,6 +647,17 @@
 		qcom,vin-sel = <2>;	/* 1.8 */
 		qcom,src-sel = <7>;	/* LPG4 */
 		qcom,master-en = <1>;   /* Enable GPIO */
+		status = "okay";
+	};
+
+	gpio@c500 { /* GPIO 6 - lcd_bklt_reg_en */
+		qcom,mode = <1>;	/* DIGITAL OUT */
+		qcom,output-type = <0>;	/* CMOS logic */
+		qcom,invert = <1>;	/* output hight initially */
+		qcom,vin-sel = <2>;	/* 1.8 */
+		qcom,src-sel = <0>;	/* CONSTANT */
+		qcom,out-strength = <1>;/* Low drive strength */
+		qcom,master-en = <1>;	/* ENABLE GPIO */
 		status = "okay";
 	};
 
