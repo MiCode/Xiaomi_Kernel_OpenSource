@@ -387,8 +387,8 @@
 	clkname##_clk_src.c.fmax[VDD_DIG_##l4] = (f4);\
 	clkname##_clk_src.c.fmax[VDD_DIG_##l5] = (f5)
 
-#define OVERRIDE_FTABLE(clkname, ftable) \
-	clkname##_clk_src.freq_tbl = ftable##_8937
+#define OVERRIDE_FTABLE(clkname, ftable, name) \
+	clkname##_clk_src.freq_tbl = ftable##_##name
 
 enum vdd_dig_levels {
 	VDD_DIG_NONE,
