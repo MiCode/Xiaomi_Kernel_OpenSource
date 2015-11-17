@@ -192,6 +192,7 @@
 #define TCXO_FREQ		19200000
 
 #define INVALID_TUNING_PHASE	-1
+#define sdhci_is_valid_gpio_wakeup_int(_h) ((_h)->pdata->sdiowakeup_irq >= 0)
 
 #define NUM_TUNING_PHASES		16
 #define MAX_DRV_TYPES_SUPPORTED_HS200	4
@@ -2235,6 +2236,39 @@ static int sdhci_msm_set_vdd_io_vol(struct sdhci_msm_pltfm_data *pdata,
 	return ret;
 }
 
+/*
+ * Acquire spin-lock host->lock before calling this function
+ */
+static void sdhci_msm_cfg_sdiowakeup_gpio_irq(struct sdhci_host *host,
+					      bool enable)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	if (enable && !msm_host->is_sdiowakeup_enabled)
+		enable_irq(msm_host->pdata->sdiowakeup_irq);
+	else if (!enable && msm_host->is_sdiowakeup_enabled)
+		disable_irq_nosync(msm_host->pdata->sdiowakeup_irq);
+	else
+		dev_warn(&msm_host->pdev->dev, "%s: wakeup to config: %d curr: %d\n",
+			__func__, enable, msm_host->is_sdiowakeup_enabled);
+	msm_host->is_sdiowakeup_enabled = enable;
+}
+
+static irqreturn_t sdhci_msm_sdiowakeup_irq(int irq, void *data)
+{
+	struct sdhci_host *host = (struct sdhci_host *)data;
+	unsigned long flags;
+
+	pr_debug("%s: irq (%d) received\n", __func__, irq);
+
+	spin_lock_irqsave(&host->lock, flags);
+	sdhci_msm_cfg_sdiowakeup_gpio_irq(host, false);
+	spin_unlock_irqrestore(&host->lock, flags);
+
+	return IRQ_HANDLED;
+}
+
 void sdhci_msm_dump_pwr_ctrl_regs(struct sdhci_host *host)
 {
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
@@ -3748,6 +3782,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	u32 irq_status, irq_ctl;
 	struct resource *tlmm_memres = NULL;
 	void __iomem *tlmm_mem;
+	unsigned long flags;
 
 	pr_debug("%s: Enter %s\n", dev_name(&pdev->dev), __func__);
 	msm_host = devm_kzalloc(&pdev->dev, sizeof(struct sdhci_msm_host),
@@ -4034,6 +4069,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	msm_host->mmc->caps2 |= MMC_CAP2_SANITIZE;
 	msm_host->mmc->caps2 |= MMC_CAP2_MAX_DISCARD_SIZE;
 	msm_host->mmc->caps2 |= MMC_CAP2_SLEEP_AWAKE;
+	msm_host->mmc->pm_caps |= MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ;
 
 	if (msm_host->pdata->nonremovable)
 		msm_host->mmc->caps |= MMC_CAP_NONREMOVABLE;
@@ -4076,6 +4112,29 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		mmc_dev(host->mmc)->coherent_dma_mask  = host->dma_mask;
 	} else {
 		dev_err(&pdev->dev, "%s: Failed to set dma mask\n", __func__);
+	}
+
+	msm_host->pdata->sdiowakeup_irq = platform_get_irq_byname(pdev,
+							  "sdiowakeup_irq");
+	dev_info(&pdev->dev, "%s: sdiowakeup_irq = %d\n", __func__,
+			msm_host->pdata->sdiowakeup_irq);
+	if (sdhci_is_valid_gpio_wakeup_int(msm_host)) {
+		msm_host->is_sdiowakeup_enabled = true;
+		ret = request_irq(msm_host->pdata->sdiowakeup_irq,
+				  sdhci_msm_sdiowakeup_irq,
+				  IRQF_SHARED | IRQF_TRIGGER_HIGH,
+				  "sdhci-msm sdiowakeup", host);
+		if (ret) {
+			dev_err(&pdev->dev, "%s: request sdiowakeup IRQ %d: failed: %d\n",
+				__func__, msm_host->pdata->sdiowakeup_irq, ret);
+			msm_host->pdata->sdiowakeup_irq = -1;
+			msm_host->is_sdiowakeup_enabled = false;
+			goto vreg_deinit;
+		} else {
+			spin_lock_irqsave(&host->lock, flags);
+			sdhci_msm_cfg_sdiowakeup_gpio_irq(host, false);
+			spin_unlock_irqrestore(&host->lock, flags);
+		}
 	}
 
 	sdhci_msm_cmdq_init(host, pdev);
@@ -4189,6 +4248,51 @@ static int sdhci_msm_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
+static int sdhci_msm_cfg_sdio_wakeup(struct sdhci_host *host, bool enable)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	unsigned long flags;
+	int ret = 0;
+
+	if (!(host->mmc->card && mmc_card_sdio(host->mmc->card) &&
+	      sdhci_is_valid_gpio_wakeup_int(msm_host) &&
+	      mmc_card_wake_sdio_irq(host->mmc))) {
+		return 1;
+	}
+
+	spin_lock_irqsave(&host->lock, flags);
+	if (enable) {
+		/* configure DAT1 gpio if applicable */
+		if (sdhci_is_valid_gpio_wakeup_int(msm_host)) {
+			ret = enable_irq_wake(msm_host->pdata->sdiowakeup_irq);
+			if (!ret)
+				sdhci_msm_cfg_sdiowakeup_gpio_irq(host, true);
+			goto out;
+		} else {
+			pr_err("%s: sdiowakeup_irq(%d) invalid\n",
+					mmc_hostname(host->mmc), enable);
+		}
+	} else {
+		if (sdhci_is_valid_gpio_wakeup_int(msm_host)) {
+			ret = disable_irq_wake(msm_host->pdata->sdiowakeup_irq);
+			sdhci_msm_cfg_sdiowakeup_gpio_irq(host, false);
+		} else {
+			pr_err("%s: sdiowakeup_irq(%d)invalid\n",
+					mmc_hostname(host->mmc), enable);
+
+		}
+	}
+out:
+	if (ret)
+		pr_err("%s: %s: %sable wakeup: failed: %d gpio: %d\n",
+		       mmc_hostname(host->mmc), __func__, enable ? "en" : "dis",
+		       ret, msm_host->pdata->sdiowakeup_irq);
+	spin_unlock_irqrestore(&host->lock, flags);
+	return ret;
+}
+
+
 static int sdhci_msm_runtime_suspend(struct device *dev)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
@@ -4196,13 +4300,12 @@ static int sdhci_msm_runtime_suspend(struct device *dev)
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	ktime_t start = ktime_get();
 
-	if (host->mmc->card && mmc_card_sdio(host->mmc->card)) {
-		if (mmc_enable_qca6574_settings(host->mmc->card) ||
-				mmc_enable_qca9377_settings(host->mmc->card))
-			return 0;
-	}
+	if (host->mmc->card && mmc_card_sdio(host->mmc->card))
+		goto defer_disable_host_irq;
 
-	disable_irq(host->irq);
+	sdhci_cfg_irq(host, false, true);
+
+defer_disable_host_irq:
 	disable_irq(msm_host->pwr_irq);
 
 	/*
@@ -4227,14 +4330,13 @@ static int sdhci_msm_runtime_resume(struct device *dev)
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	ktime_t start = ktime_get();
 
-	if (host->mmc->card && mmc_card_sdio(host->mmc->card)) {
-		if (mmc_enable_qca6574_settings(host->mmc->card) ||
-				mmc_enable_qca9377_settings(host->mmc->card))
-			return 0;
-	}
+	if (host->mmc->card && mmc_card_sdio(host->mmc->card))
+		goto defer_enable_host_irq;
 
+	sdhci_cfg_irq(host, true, true);
+
+defer_enable_host_irq:
 	enable_irq(msm_host->pwr_irq);
-	enable_irq(host->irq);
 
 	trace_sdhci_msm_runtime_resume(mmc_hostname(host->mmc), 0,
 			ktime_to_us(ktime_sub(ktime_get(), start)));
@@ -4247,6 +4349,7 @@ static int sdhci_msm_suspend(struct device *dev)
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	int ret = 0;
+	int sdio_cfg = 0;
 	ktime_t start = ktime_get();
 
 	if (gpio_is_valid(msm_host->pdata->status_gpio) &&
@@ -4260,6 +4363,13 @@ static int sdhci_msm_suspend(struct device *dev)
 	}
 	ret = sdhci_msm_runtime_suspend(dev);
 out:
+
+	if (host->mmc->card && mmc_card_sdio(host->mmc->card)) {
+		sdio_cfg = sdhci_msm_cfg_sdio_wakeup(host, true);
+		if (sdio_cfg)
+			sdhci_cfg_irq(host, false, true);
+	}
+
 	trace_sdhci_msm_suspend(mmc_hostname(host->mmc), ret,
 			ktime_to_us(ktime_sub(ktime_get(), start)));
 	return ret;
@@ -4271,6 +4381,7 @@ static int sdhci_msm_resume(struct device *dev)
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
 	int ret = 0;
+	int sdio_cfg = 0;
 	ktime_t start = ktime_get();
 
 	if (gpio_is_valid(msm_host->pdata->status_gpio) &&
@@ -4285,8 +4396,34 @@ static int sdhci_msm_resume(struct device *dev)
 
 	ret = sdhci_msm_runtime_resume(dev);
 out:
+	if (host->mmc->card && mmc_card_sdio(host->mmc->card)) {
+		sdio_cfg = sdhci_msm_cfg_sdio_wakeup(host, false);
+		if (sdio_cfg)
+			sdhci_cfg_irq(host, true, true);
+	}
+
 	trace_sdhci_msm_resume(mmc_hostname(host->mmc), ret,
 			ktime_to_us(ktime_sub(ktime_get(), start)));
+	return ret;
+}
+
+static int sdhci_msm_suspend_noirq(struct device *dev)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	int ret = 0;
+
+	/*
+	 * ksdioirqd may be running, hence retry
+	 * suspend in case the clocks are ON
+	 */
+	if (atomic_read(&msm_host->clks_on)) {
+		pr_warn("%s: %s: clock ON after suspend, aborting suspend\n",
+			mmc_hostname(host->mmc), __func__);
+		ret = -EAGAIN;
+	}
+
 	return ret;
 }
 
@@ -4294,6 +4431,7 @@ static const struct dev_pm_ops sdhci_msm_pmops = {
 	SET_SYSTEM_SLEEP_PM_OPS(sdhci_msm_suspend, sdhci_msm_resume)
 	SET_RUNTIME_PM_OPS(sdhci_msm_runtime_suspend, sdhci_msm_runtime_resume,
 			   NULL)
+	.suspend_noirq = sdhci_msm_suspend_noirq,
 };
 
 #define SDHCI_MSM_PMOPS (&sdhci_msm_pmops)
