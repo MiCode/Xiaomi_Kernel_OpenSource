@@ -14,10 +14,11 @@
 /dts-v1/;
 
 #include "apq8096-v3.dtsi"
+#include "msm-pmi8996.dtsi"
 #include "apq8096-dragonboard.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. APQ8096v3 + PMI8994 DragonBoard";
+	model = "Qualcomm Technologies, Inc. APQ8096v3 + PMI8996 DragonBoard";
 	compatible = "qcom,apq8096-dragonboard", "qcom,msm8996",
 			"qcom,apq8096", "qcom,dragonboard";
 	qcom,msm-id = <246 0x30000>, <291 0x30000>,
