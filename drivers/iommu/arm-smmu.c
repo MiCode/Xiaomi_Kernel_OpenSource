@@ -363,6 +363,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_NO_SMR_CHECK	(1 << 9)
 #define ARM_SMMU_OPT_DYNAMIC		(1 << 10)
 #define ARM_SMMU_OPT_HALT		(1 << 11)
+#define ARM_SMMU_OPT_STATIC_CB		(1 << 12)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 
@@ -481,6 +482,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_NO_SMR_CHECK, "qcom,no-smr-check" },
 	{ ARM_SMMU_OPT_DYNAMIC, "qcom,dynamic" },
 	{ ARM_SMMU_OPT_HALT, "qcom,enable-smmu-halt"},
+	{ ARM_SMMU_OPT_STATIC_CB, "qcom,enable-static-cb"},
 	{ 0, NULL},
 };
 
@@ -504,7 +506,7 @@ static void arm_smmu_device_reset(struct arm_smmu_device *smmu);
 static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 			     size_t size);
 static bool arm_smmu_is_master_side_secure(struct arm_smmu_domain *smmu_domain);
-
+static bool arm_smmu_is_static_cb(struct arm_smmu_device *smmu);
 
 static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
 {
@@ -1453,6 +1455,11 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 	writel_relaxed(reg, cb_base + ARM_SMMU_CB_SCTLR);
 }
 
+static bool arm_smmu_is_static_cb(struct arm_smmu_device *smmu)
+{
+	return smmu->options & ARM_SMMU_OPT_STATIC_CB;
+}
+
 static bool arm_smmu_is_master_side_secure(struct arm_smmu_domain *smmu_domain)
 {
 	return smmu_domain->secure_vmid != VMID_INVAL;
@@ -1537,12 +1544,17 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		goto out;
 	}
 
-	ret = __arm_smmu_alloc_bitmap(smmu->context_map, start,
-				      smmu->num_context_banks);
-	if (IS_ERR_VALUE(ret))
-		goto out;
+	if (cfg->cbndx == INVALID_CBNDX) {
+		ret = __arm_smmu_alloc_bitmap(smmu->context_map, start,
+				smmu->num_context_banks);
+		if (IS_ERR_VALUE(ret))
+			goto out;
+		cfg->cbndx = ret;
+	} else {
+		if (test_and_set_bit(cfg->cbndx, smmu->context_map))
+			goto out;
+	}
 
-	cfg->cbndx = ret;
 	if (smmu->version == ARM_SMMU_V1) {
 		cfg->irptndx = atomic_inc_return(&smmu->irptndx);
 		cfg->irptndx %= smmu->num_context_irqs;
@@ -1917,6 +1929,40 @@ out:
 	return ret;
 }
 
+static int arm_smmu_populate_cb(struct arm_smmu_device *smmu,
+		struct arm_smmu_domain *smmu_domain, struct device *dev)
+{
+	void __iomem *gr0_base;
+	struct arm_smmu_master_cfg *cfg;
+	struct arm_smmu_cfg *smmu_cfg = &smmu_domain->cfg;
+	int i;
+	u32 sid;
+
+	gr0_base = ARM_SMMU_GR0(smmu);
+	cfg = find_smmu_master_cfg(dev);
+
+	if (!cfg)
+		return -ENODEV;
+
+	sid = cfg->streamids[0];
+
+	for (i = 0; i < smmu->num_mapping_groups; i++) {
+		u32 smr, s2cr;
+		u8 cbndx;
+
+		smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(i));
+
+		if (sid == ((smr >> SMR_ID_SHIFT) & SMR_ID_MASK)) {
+			s2cr = readl_relaxed(gr0_base + ARM_SMMU_GR0_S2CR(i));
+			cbndx = (s2cr >> S2CR_CBNDX_SHIFT) & S2CR_CBNDX_MASK;
+			smmu_cfg->cbndx = cbndx;
+			return 0;
+		}
+	}
+
+	return -EINVAL;
+}
+
 static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 {
 	int ret;
@@ -1974,6 +2020,16 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 			goto err_unlock;
 	}
 	smmu->attach_count++;
+
+	if (arm_smmu_is_static_cb(smmu)) {
+		ret = arm_smmu_populate_cb(smmu, smmu_domain, dev);
+
+		if (ret) {
+			dev_err(dev, "Failed to get valid context bank\n");
+			goto err_disable_clocks;
+		}
+	}
+
 
 	/* Ensure that the domain is finalised */
 	ret = arm_smmu_init_domain_context(domain, smmu);
