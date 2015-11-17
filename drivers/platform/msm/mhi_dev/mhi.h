@@ -503,8 +503,10 @@ struct mhi_dev {
 	uint32_t			ev_ring_start;
 	uint32_t			ch_ring_start;
 
-	/* IPA Handles*/
+	/* IPA Handles */
 	u32				ipa_clnt_hndl[4];
+	struct workqueue_struct		*ring_init_wq;
+	struct work_struct		ring_init_cb_work;
 
 	/* EP PCIe registration */
 	struct ep_pcie_register_event	event_reg;
