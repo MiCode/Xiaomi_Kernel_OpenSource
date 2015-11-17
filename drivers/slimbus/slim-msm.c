@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1542,7 +1542,7 @@ int msm_slim_qmi_init(struct msm_slim_ctrl *dev, bool apps_is_master)
 	}
 
 	/* Instance is 0 based */
-	req.instance = dev->ctrl.nr - 1;
+	req.instance = (dev->ctrl.nr >> 1);
 	req.mode_valid = 1;
 
 	/* Mode indicates the role of the ADSP */
