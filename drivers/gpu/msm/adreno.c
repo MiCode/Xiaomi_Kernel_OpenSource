@@ -1354,6 +1354,24 @@ static int adreno_init(struct kgsl_device *device)
 	return 0;
 }
 
+static bool regulators_left_on(struct kgsl_device *device)
+{
+	int i;
+
+	for (i = 0; i < KGSL_MAX_REGULATORS; i++) {
+		struct kgsl_regulator *regulator =
+			&device->pwrctrl.regulators[i];
+
+		if (IS_ERR_OR_NULL(regulator->reg))
+			break;
+
+		if (regulator_is_enabled(regulator->reg))
+			return true;
+	}
+
+	return false;
+}
+
 /**
  * _adreno_start - Power up the GPU and prepare to accept commands
  * @adreno_dev: Pointer to an adreno_device structure
@@ -1365,9 +1383,9 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	int i, status = -EINVAL;
+	int status = -EINVAL;
 	unsigned int state = device->state;
-	unsigned int regulator_left_on = 0;
+	bool regulator_left_on;
 	unsigned int pmqos_wakeup_vote = device->pwrctrl.pm_qos_wakeup_latency;
 	unsigned int pmqos_active_vote = device->pwrctrl.pm_qos_active_latency;
 
@@ -1379,13 +1397,7 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	kgsl_cffdump_open(device);
 
-	for (i = 0; i < KGSL_MAX_REGULATORS; i++) {
-		if (device->pwrctrl.gpu_reg[i] &&
-			regulator_is_enabled(device->pwrctrl.gpu_reg[i])) {
-			regulator_left_on = 1;
-			break;
-		}
-	}
+	regulator_left_on = regulators_left_on(device);
 
 	/* Clear any GPU faults that might have been left over */
 	adreno_clear_gpu_fault(adreno_dev);
@@ -2711,41 +2723,44 @@ static void adreno_iommu_sync(struct kgsl_device *device, bool sync)
 	}
 }
 
+static void _regulator_disable(struct kgsl_regulator *regulator, bool poll)
+{
+	unsigned long wait_time = jiffies + msecs_to_jiffies(200);
+
+	if (IS_ERR_OR_NULL(regulator->reg))
+		return;
+
+	regulator_disable(regulator->reg);
+
+	if (poll == false)
+		return;
+
+	while (!time_after(jiffies, wait_time)) {
+		if (!regulator_is_enabled(regulator->reg))
+			return;
+		cpu_relax();
+	}
+
+	KGSL_CORE_ERR("regulator '%s' still on after 200ms\n", regulator->name);
+}
+
 static void adreno_regulator_disable_poll(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	unsigned long wait_time;
-	int i, rail_on;
+	int i;
 
 	/* Fast path - hopefully we don't need this quirk */
 	if (!ADRENO_QUIRK(adreno_dev, ADRENO_QUIRK_IOMMU_SYNC)) {
 		for (i = KGSL_MAX_REGULATORS - 1; i >= 0; i--)
-			if (pwr->gpu_reg[i] != NULL)
-				regulator_disable(pwr->gpu_reg[i]);
+			_regulator_disable(&pwr->regulators[i], false);
 		return;
 	}
 
 	adreno_iommu_sync(device, true);
 
-	/* Turn off CX and then GX as recommended by HW team */
-	for (i = 0; i <= KGSL_MAX_REGULATORS - 1; i++) {
-		if (pwr->gpu_reg[i] == NULL)
-			continue;
-		regulator_disable(pwr->gpu_reg[i]);
-		rail_on = 1;
-		wait_time = jiffies + msecs_to_jiffies(200);
-		while (!time_after(jiffies, wait_time)) {
-			if (!regulator_is_enabled(pwr->gpu_reg[i])) {
-				rail_on = 0;
-				break;
-			}
-			cpu_relax();
-		}
-		if (rail_on)
-			KGSL_CORE_ERR("%s regulator on after 200ms\n",
-				pwr->gpu_reg_name[i]);
-	}
+	for (i = 0; i < KGSL_MAX_REGULATORS; i++)
+		_regulator_disable(&pwr->regulators[i], true);
 
 	adreno_iommu_sync(device, false);
 }

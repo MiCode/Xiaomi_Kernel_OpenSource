@@ -29,7 +29,6 @@
 
 #define KGSL_MAX_CLKS 11
 #define KGSL_MAX_REGULATORS 2
-#define KGSL_MAX_REGULATOR_NAME_LEN 8
 
 #define KGSL_MAX_PWRLEVELS 10
 
@@ -103,6 +102,11 @@ struct kgsl_pwrlevel {
 	unsigned int bus_max;
 };
 
+struct kgsl_regulator {
+	struct regulator *reg;
+	char name[8];
+};
+
 /**
  * struct kgsl_pwrctrl - Power control settings for a KGSL device
  * @interrupt_num - The interrupt number for the device
@@ -119,8 +123,7 @@ struct kgsl_pwrlevel {
  * @num_pwrlevels - number of available power levels
  * @interval_timeout - timeout in jiffies to be idle before a power event
  * @strtstp_sleepwake - true if the device supports low latency GPU start/stop
- * @gpu_reg - array of pointers to the regulator structures
- * @gpu_reg_name - array of pointers to the regulator names
+ * @regulators - array of pointers to kgsl_regulator structs
  * @pcl - bus scale identifier
  * @ocmem - ocmem bus scale identifier
  * @irq_name - resource name for the IRQ
@@ -168,8 +171,7 @@ struct kgsl_pwrctrl {
 	unsigned int num_pwrlevels;
 	unsigned long interval_timeout;
 	bool strtstp_sleepwake;
-	struct regulator *gpu_reg[KGSL_MAX_REGULATORS];
-	char gpu_reg_name[KGSL_MAX_REGULATORS][KGSL_MAX_REGULATOR_NAME_LEN];
+	struct kgsl_regulator regulators[KGSL_MAX_REGULATORS];
 	uint32_t pcl;
 	uint32_t ocmem_pcl;
 	const char *irq_name;

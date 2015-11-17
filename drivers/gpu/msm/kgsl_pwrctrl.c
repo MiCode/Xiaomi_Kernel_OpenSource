@@ -1348,10 +1348,49 @@ static void kgsl_pwrctrl_axi(struct kgsl_device *device, int state)
 	}
 }
 
+static int _regulator_enable(struct kgsl_device *device,
+		struct kgsl_regulator *regulator)
+{
+	int ret;
+
+	if (IS_ERR_OR_NULL(regulator->reg))
+		return 0;
+
+	ret = regulator_enable(regulator->reg);
+	if (ret)
+		KGSL_DRV_ERR(device, "Failed to enable regulator '%s': %d\n",
+			regulator->name, ret);
+	return ret;
+}
+
+static void _regulator_disable(struct kgsl_regulator *regulator)
+{
+	if (!IS_ERR_OR_NULL(regulator->reg))
+		regulator_disable(regulator->reg);
+}
+
+static int _enable_regulators(struct kgsl_device *device,
+		struct kgsl_pwrctrl *pwr)
+{
+	int i;
+
+	for (i = 0; i < KGSL_MAX_REGULATORS; i++) {
+		int ret = _regulator_enable(device, &pwr->regulators[i]);
+
+		if (ret) {
+			for (i = i - 1; i >= 0; i--)
+				_regulator_disable(&pwr->regulators[i]);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
 static int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	int i, j, status = 0;
+	int status = 0;
 
 	if (test_bit(KGSL_PWRFLAGS_POWER_ON, &pwr->ctrl_flags))
 		return 0;
@@ -1365,29 +1404,13 @@ static int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state)
 	} else if (state == KGSL_PWRFLAGS_ON) {
 		if (!test_and_set_bit(KGSL_PWRFLAGS_POWER_ON,
 			&pwr->power_flags)) {
-			for (i = 0; i < KGSL_MAX_REGULATORS; i++) {
-				if (pwr->gpu_reg[i])
-					status = regulator_enable(
-							pwr->gpu_reg[i]);
-				if (status) {
-					KGSL_DRV_ERR(device,
-						"%s regulator failure: %d\n",
-						pwr->gpu_reg_name[i],
-						status);
-					break;
-				}
-			}
+				status = _enable_regulators(device, pwr);
 
-			if (status) {
-				for (j = i - 1; j >= 0; j--) {
-					if (pwr->gpu_reg[j])
-						regulator_disable(
-							pwr->gpu_reg[j]);
-				}
-				clear_bit(KGSL_PWRFLAGS_POWER_ON,
-					&pwr->power_flags);
-			} else
-				trace_kgsl_rail(device, state);
+				if (status)
+					clear_bit(KGSL_PWRFLAGS_POWER_ON,
+						&pwr->power_flags);
+				else
+					trace_kgsl_rail(device, state);
 		}
 	}
 
@@ -1475,29 +1498,33 @@ void kgsl_deep_nap_timer(unsigned long data)
 	}
 }
 
+static int _get_regulator(struct kgsl_device *device,
+		struct kgsl_regulator *regulator, const char *str)
+{
+	regulator->reg = devm_regulator_get(&device->pdev->dev, str);
+	if (IS_ERR(regulator->reg)) {
+		KGSL_CORE_ERR("Couldn't get regulator: %s (%ld)\n",
+			str, PTR_ERR(regulator->reg));
+		return PTR_ERR(regulator->reg);
+	}
+
+	strlcpy(regulator->name, str, sizeof(regulator->name));
+	return 0;
+}
+
 static int get_legacy_regulators(struct kgsl_device *device)
 {
 	struct device *dev = &device->pdev->dev;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	int ret;
 
-	pwr->gpu_reg[0] = regulator_get(dev, "vdd");
-	if (IS_ERR(pwr->gpu_reg[0])) {
-		KGSL_CORE_ERR("Couldn't get 'vdd' regulator\n");
-		pwr->gpu_reg[0] = NULL;
-		return -ENODEV;
-	}
+	ret = _get_regulator(device, &pwr->regulators[0], "vdd");
 
 	/* Use vddcx only on targets that have it. */
-	if (of_find_property(dev->of_node, "vddcx-supply", NULL)) {
-		pwr->gpu_reg[1] = regulator_get(dev, "vddcx");
-		if (IS_ERR(pwr->gpu_reg[1])) {
-			KGSL_CORE_ERR("Couldn't get 'cx' regulator\n");
-			pwr->gpu_reg[1] = NULL;
-			return -ENODEV;
-		}
-	}
+	if (ret == 0 && of_find_property(dev->of_node, "vddcx-supply", NULL))
+		ret = _get_regulator(device, &pwr->regulators[1], "vddcx");
 
-	return 0;
+	return ret;
 }
 
 static int get_regulators(struct kgsl_device *device)
@@ -1511,25 +1538,18 @@ static int get_regulators(struct kgsl_device *device)
 	if (!of_find_property(dev->of_node, "regulator-names", NULL))
 		return get_legacy_regulators(device);
 
-	of_property_for_each_string(dev->of_node, "regulator-names", prop,
-		name) {
-		struct regulator *reg;
+	of_property_for_each_string(dev->of_node,
+		"regulator-names", prop, name) {
+		int ret;
 
 		if (index == KGSL_MAX_REGULATORS) {
 			KGSL_CORE_ERR("Too many regulators defined\n");
 			return -ENOMEM;
 		}
 
-		reg = regulator_get(dev, name);
-		if (IS_ERR(reg)) {
-			KGSL_CORE_ERR("Couldn't get '%s' regulator\n", name);
-			pwr->gpu_reg[index] = NULL;
-			return -ENODEV;
-		}
-
-		pwr->gpu_reg[index] = reg;
-		strlcpy(pwr->gpu_reg_name[index], name,
-			KGSL_MAX_REGULATOR_NAME_LEN);
+		ret = _get_regulator(device, &pwr->regulators[index], name);
+		if (ret)
+			return ret;
 		index++;
 	}
 
@@ -1778,12 +1798,8 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 
 	pwr->ocmem_pcl = 0;
 
-	for (i = 0; i < KGSL_MAX_REGULATORS; i++) {
-		if (pwr->gpu_reg[i]) {
-			regulator_put(pwr->gpu_reg[i]);
-			pwr->gpu_reg[i] = NULL;
-		}
-	}
+	for (i = 0; i < KGSL_MAX_REGULATORS; i++)
+		pwr->regulators[i].reg = NULL;
 
 	for (i = 0; i < KGSL_MAX_REGULATORS; i++)
 		pwr->grp_clks[i] = NULL;
