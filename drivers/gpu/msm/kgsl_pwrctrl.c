@@ -54,65 +54,19 @@
 #define DEFAULT_BUS_P 25
 #define DEFAULT_BUS_DIV (100 / DEFAULT_BUS_P)
 
-/* Clock map definitions */
-#define KGSL_CLK_ALT_MEM_IFACE 0x00000040
-#define KGSL_CLK_RBBMTIMER	0x00000080
-#define KGSL_CLK_GFX_GTCU   0x00000100
-#define KGSL_CLK_GFX_GTBU   0x00000200
-#define KGSL_CLK_MX	0x00000400
-#define KGSL_CLK_ALWAYSON   0x00000800
-
-struct clk_pair {
-	const char *name;
-	uint map;
-};
-
-static struct clk_pair clks[KGSL_MAX_CLKS] = {
-	{
-		.name = "src_clk",
-		.map = KGSL_CLK_SRC,
-	},
-	{
-		.name = "core_clk",
-		.map = KGSL_CLK_CORE,
-	},
-	{
-		.name = "iface_clk",
-		.map = KGSL_CLK_IFACE,
-	},
-	{
-		.name = "mem_clk",
-		.map = KGSL_CLK_MEM,
-	},
-	{
-		.name = "mem_iface_clk",
-		.map = KGSL_CLK_MEM_IFACE,
-	},
-	{
-		.name = "alt_mem_iface_clk",
-		.map = KGSL_CLK_ALT_MEM_IFACE,
-	},
-	{
-		.name = "rbbmtimer_clk",
-		.map = KGSL_CLK_RBBMTIMER,
-	},
-	{
-		.name = "gtcu_clk",
-		.map = KGSL_CLK_GFX_GTCU,
-	},
-	{
-		.name = "gtbu_clk",
-		.map = KGSL_CLK_GFX_GTBU,
-	},
-	{
-		.name = "alwayson_clk",
-		.map = KGSL_CLK_ALWAYSON,
-	},
-};
-
-static struct clk_pair dummy_mx_clk = {
-		.name = "mx_clk",
-		.map = KGSL_CLK_MX,
+/* Order deeply matters here because reasons. New entries go on the end */
+static const char * const clocks[] = {
+	"src_clk",
+	"core_clk",
+	"iface_clk",
+	"mem_clk",
+	"mem_iface_clk",
+	"alt_mem_iface_clk",
+	"rbbmtimer_clk",
+	"gtcu_clk",
+	"gtbu_clk",
+	"gtcu_iface_clk",
+	"alwayson_clk"
 };
 
 static unsigned int ib_votes[KGSL_MAX_BUSLEVELS];
@@ -1321,16 +1275,14 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 			trace_kgsl_clk(device, state,
 					kgsl_pwrctrl_active_freq(pwr));
 			for (i = KGSL_MAX_CLKS - 1; i > 0; i--)
-				if (pwr->grp_clks[i])
-					clk_disable(pwr->grp_clks[i]);
+				clk_disable(pwr->grp_clks[i]);
 			/* High latency clock maintenance. */
 			if ((pwr->pwrlevels[0].gpu_freq > 0) &&
 				(requested_state != KGSL_STATE_NAP) &&
 				(requested_state !=
 						KGSL_STATE_DEEP_NAP)) {
 				for (i = KGSL_MAX_CLKS - 1; i > 0; i--)
-					if (pwr->grp_clks[i])
-						clk_unprepare(pwr->grp_clks[i]);
+					clk_unprepare(pwr->grp_clks[i]);
 				clk_set_rate(pwr->grp_clks[0],
 					pwr->pwrlevels[pwr->num_pwrlevels - 1].
 					gpu_freq);
@@ -1338,8 +1290,7 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 		} else if (requested_state == KGSL_STATE_SLEEP) {
 			/* High latency clock maintenance. */
 			for (i = KGSL_MAX_CLKS - 1; i > 0; i--)
-				if (pwr->grp_clks[i])
-					clk_unprepare(pwr->grp_clks[i]);
+				clk_unprepare(pwr->grp_clks[i]);
 			if ((pwr->pwrlevels[0].gpu_freq > 0))
 				clk_set_rate(pwr->grp_clks[0],
 					pwr->pwrlevels[pwr->num_pwrlevels - 1].
@@ -1359,14 +1310,12 @@ static void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 						[pwr->active_pwrlevel].
 						gpu_freq);
 				for (i = KGSL_MAX_CLKS - 1; i > 0; i--)
-					if (pwr->grp_clks[i])
-						clk_prepare(pwr->grp_clks[i]);
+					clk_prepare(pwr->grp_clks[i]);
 			}
 			/* as last step, enable grp_clk
 			   this is to let GPU interrupt to come */
 			for (i = KGSL_MAX_CLKS - 1; i > 0; i--)
-				if (pwr->grp_clks[i])
-					clk_enable(pwr->grp_clks[i]);
+				clk_enable(pwr->grp_clks[i]);
 		}
 	}
 }
@@ -1587,11 +1536,41 @@ static int get_regulators(struct kgsl_device *device)
 	return 0;
 }
 
+static int _get_clocks(struct kgsl_device *device)
+{
+	struct device *dev = &device->pdev->dev;
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	const char *name;
+	struct property *prop;
+
+	of_property_for_each_string(dev->of_node, "clock-names", prop, name) {
+		int i;
+
+		for (i = 0; i < KGSL_MAX_CLKS; i++) {
+			if (pwr->grp_clks[i] || strcmp(clocks[i], name))
+				continue;
+
+			pwr->grp_clks[i] = devm_clk_get(dev, name);
+
+			if (IS_ERR(pwr->grp_clks[i])) {
+				int ret = PTR_ERR(pwr->grp_clks[i]);
+
+				KGSL_CORE_ERR("Couldn't get clock: %s (%d)\n",
+					name, ret);
+				pwr->grp_clks[i] = NULL;
+				return ret;
+			}
+
+			break;
+		}
+	}
+
+	return 0;
+}
+
 int kgsl_pwrctrl_init(struct kgsl_device *device)
 {
-	int i, k, m, n = 0, result = 0;
-	unsigned int rbbmtimer_freq;
-	struct clk *clk;
+	int i, k, m, n = 0, result;
 	struct platform_device *pdev = device->pdev;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct device_node *ocmem_bus_node;
@@ -1604,19 +1583,10 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	if (bus_scale_table == NULL)
 		return -EINVAL;
 
-	/*acquire clocks */
-	for (i = 0; i < KGSL_MAX_CLKS; i++) {
-		if (pwr->clk_map & clks[i].map) {
-			clk = clk_get(&pdev->dev, clks[i].name);
-			if (IS_ERR(clk)) {
-				KGSL_PWR_ERR(device,
-					"clk_get(%s) failed: %ld\n",
-					clks[i].name, PTR_ERR(clk));
-				return PTR_ERR(clk);
-			}
-			pwr->grp_clks[i] = clk;
-		}
-	}
+	result = _get_clocks(device);
+	if (result)
+		return result;
+
 	/* Make sure we have a source clk for freq setting */
 	if (pwr->grp_clks[0] == NULL)
 		pwr->grp_clks[0] = pwr->grp_clks[1];
@@ -1628,14 +1598,14 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	pwr->gx_retention = of_property_read_bool(pdev->dev.of_node,
 						"qcom,gx-retention");
 	if (pwr->gx_retention) {
-		clk = clk_get(&pdev->dev, dummy_mx_clk.name);
-		if (IS_ERR(clk)) {
+		pwr->dummy_mx_clk = clk_get(&pdev->dev, "mx_clk");
+		if (IS_ERR(pwr->dummy_mx_clk)) {
 			pwr->gx_retention = 0;
-			KGSL_PWR_ERR(device, "clk_get(%s) failed: %d\n",
-				 dummy_mx_clk.name, (int)PTR_ERR(clk));
-		} else
-			pwr->dummy_mx_clk = clk;
+			pwr->dummy_mx_clk = NULL;
+			KGSL_CORE_ERR("Couldn't get clock: mx_clk\n");
+		}
 	}
+
 	pwr->power_flags = BIT(KGSL_PWRFLAGS_RETENTION_ON);
 
 	if (pwr->num_pwrlevels == 0) {
@@ -1652,17 +1622,19 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 	pwr->wakeup_maxpwrlevel = 0;
 
 	for (i = 0; i < pwr->num_pwrlevels; i++) {
-		if (pwr->pwrlevels[i].gpu_freq > 0)
-			pwr->pwrlevels[i].gpu_freq =
-				clk_round_rate(pwr->grp_clks[0],
-					pwr->pwrlevels[i].gpu_freq);
+		unsigned int freq = pwr->pwrlevels[i].gpu_freq;
+
+		if (freq > 0)
+			freq = clk_round_rate(pwr->grp_clks[0], freq);
+
+		pwr->pwrlevels[i].gpu_freq = freq;
 	}
 
-	clk_set_rate(pwr->grp_clks[0], pwr->
-			pwrlevels[pwr->num_pwrlevels - 1].gpu_freq);
-	rbbmtimer_freq = clk_round_rate(pwr->grp_clks[6],
-					KGSL_RBBMTIMER_CLK_FREQ);
-	clk_set_rate(pwr->grp_clks[6], rbbmtimer_freq);
+	clk_set_rate(pwr->grp_clks[0],
+		pwr->pwrlevels[pwr->num_pwrlevels - 1].gpu_freq);
+
+	clk_set_rate(pwr->grp_clks[6],
+		clk_round_rate(pwr->grp_clks[6], KGSL_RBBMTIMER_CLK_FREQ));
 
 	result = get_regulators(device);
 	if (result)
@@ -1813,13 +1785,9 @@ void kgsl_pwrctrl_close(struct kgsl_device *device)
 		}
 	}
 
-	for (i = 1; i < KGSL_MAX_CLKS; i++)
-		if (pwr->grp_clks[i]) {
-			clk_put(pwr->grp_clks[i]);
-			pwr->grp_clks[i] = NULL;
-		}
+	for (i = 0; i < KGSL_MAX_REGULATORS; i++)
+		pwr->grp_clks[i] = NULL;
 
-	pwr->grp_clks[0] = NULL;
 	pwr->power_flags = 0;
 
 	if (!IS_ERR_OR_NULL(pwr->sysfs_pwr_limit)) {

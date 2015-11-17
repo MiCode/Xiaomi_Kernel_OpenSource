@@ -83,14 +83,6 @@
 		coresight-child-list = <&funnel_in0>;
 		coresight-child-ports = <4>;
 
-		/*
-		 * Clocks = KGSL_CLK_CORE | KGSL_CLK_IFACE
-		 * KGSL_CLK_RBBMTIMER | KGSL_CLK_MEM_IFACE
-		 * KGSL_CLK_ALT_MEM_IFACE | KGSL_CLK_MEM |
-		 * KGSL_CLK_MX
-		 */
-		qcom,clk-map = <0x000004DE>;
-
 		clocks = <&clock_gpu clk_gpu_gx_gfx3d_clk>,
 			<&clock_gpu clk_gpu_ahb_clk>,
 			<&clock_gpu clk_gpu_gx_rbbmtimer_clk>,

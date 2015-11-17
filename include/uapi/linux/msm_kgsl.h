@@ -202,14 +202,6 @@ enum kgsl_user_mem_type {
 #define KGSL_FLAGS_SOFT_RESET  0x00000100
 #define KGSL_FLAGS_PER_CONTEXT_TIMESTAMPS 0x00000200
 
-/* Clock flags to show which clocks should be controled by a given platform */
-#define KGSL_CLK_SRC	0x00000001
-#define KGSL_CLK_CORE	0x00000002
-#define KGSL_CLK_IFACE	0x00000004
-#define KGSL_CLK_MEM	0x00000008
-#define KGSL_CLK_MEM_IFACE 0x00000010
-#define KGSL_CLK_AXI	0x00000020
-
 /* Server Side Sync Timeout in milliseconds */
 #define KGSL_SYNCOBJ_SERVER_TIMEOUT 2000
 

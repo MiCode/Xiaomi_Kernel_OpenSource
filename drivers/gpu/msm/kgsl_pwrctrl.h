@@ -27,8 +27,7 @@
 
 #define KGSL_PWR_ON	0xFFFF
 
-#define KGSL_MAX_CLKS 10
-
+#define KGSL_MAX_CLKS 11
 #define KGSL_MAX_REGULATORS 2
 #define KGSL_MAX_REGULATOR_NAME_LEN 8
 
@@ -119,7 +118,6 @@ struct kgsl_pwrlevel {
  * @min_pwrlevel - minimum allowable powerlevel per the user
  * @num_pwrlevels - number of available power levels
  * @interval_timeout - timeout in jiffies to be idle before a power event
- * @clk_map - bitmap of clock bits to enable for the device
  * @strtstp_sleepwake - true if the device supports low latency GPU start/stop
  * @gpu_reg - array of pointers to the regulator structures
  * @gpu_reg_name - array of pointers to the regulator names
@@ -169,7 +167,6 @@ struct kgsl_pwrctrl {
 	unsigned int min_pwrlevel;
 	unsigned int num_pwrlevels;
 	unsigned long interval_timeout;
-	unsigned int clk_map;
 	bool strtstp_sleepwake;
 	struct regulator *gpu_reg[KGSL_MAX_REGULATORS];
 	char gpu_reg_name[KGSL_MAX_REGULATORS][KGSL_MAX_REGULATOR_NAME_LEN];
