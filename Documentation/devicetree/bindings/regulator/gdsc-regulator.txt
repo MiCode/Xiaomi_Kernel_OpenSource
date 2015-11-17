@@ -43,6 +43,7 @@ Optional properties:
 			Ex. "base", "domain_addr".
  - qcom,no-status-check-on-disable: Do not poll the status bit when GDSC
 			is disabled.
+ - qcom,gds-timeout:	Maximum time that might be taken by a GDSC to enable.
 
 Example:
 	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {
