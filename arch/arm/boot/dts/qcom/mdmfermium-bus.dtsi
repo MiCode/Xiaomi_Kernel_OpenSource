@@ -28,7 +28,6 @@
 			qcom,fab-dev;
 			qcom,base-name = "bimc-base";
 			qcom,bus-type = <2>;
-			qcom,bypass-qos-prg;
 			qcom,util-fact = <154>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc  clk_bimc_msmbus_clk>,
@@ -49,7 +48,6 @@
 			qcom,base-name = "pcnoc-base";
 			qcom,base-offset = <0x7000>;
 			qcom,qos-off = <0x1000>;
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc  clk_pcnoc_msmbus_clk>,
@@ -220,8 +218,8 @@
 			qcom,qport = <0>;
 			qcom,qos-mode = "fixed";
 			qcom,connections = <&pcnoc_int_3>;
-			qcom,prio1 = <0>;
-			qcom,prio0 = <0>;
+			qcom,prio1 = <2>;
+			qcom,prio0 = <2>;
 			qcom,bus-dev = <&fab_pcnoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_CRYPTO>;
 			qcom,blacklist = <&pcnoc_s_0 &pcnoc_s_2 &pcnoc_s_3
@@ -295,8 +293,8 @@
 			qcom,qport = <10>;
 			qcom,qos-mode = "fixed";
 			qcom,connections = <&slv_pcnoc_bimc_1 &pcnoc_int_2>;
-			qcom,prio1 = <0>;
-			qcom,prio0 = <0>;
+			qcom,prio1 = <1>;
+			qcom,prio0 = <1>;
 			qcom,bus-dev = <&fab_pcnoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_SGMII>;
 			qcom,blacklist = <&pcnoc_s_0 &pcnoc_s_2 &pcnoc_s_3
