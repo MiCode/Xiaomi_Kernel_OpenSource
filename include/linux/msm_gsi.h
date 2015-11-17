@@ -862,6 +862,19 @@ int gsi_query_channel_info(unsigned long chan_hdl,
 		struct gsi_chan_info *info);
 
 /**
+ * gsi_is_channel_empty - Peripheral can call this function to query if
+ * the channel is empty. This is only applicable to GPI. "Empty" means
+ * GSI has consumed all descriptors for a TO_GSI channel and SW has
+ * processed all completed descriptors for a FROM_GSI channel.
+ *
+ * @chan_hdl:  Client handle previously obtained from gsi_alloc_channel
+ * @is_empty:  set by GSI based on channel emptiness
+ *
+ * @Return gsi_status
+ */
+int gsi_is_channel_empty(unsigned long chan_hdl, bool *is_empty);
+
+/**
  * gsi_get_channel_cfg - This function returns the current config
  * of the specified channel
  *
@@ -1094,6 +1107,11 @@ static inline int gsi_query_channel_db_addr(unsigned long chan_hdl,
 
 static inline int gsi_query_channel_info(unsigned long chan_hdl,
 		struct gsi_chan_info *info)
+{
+	return -GSI_STATUS_UNSUPPORTED_OP;
+}
+
+static inline int gsi_is_channel_empty(unsigned long chan_hdl, bool *is_empty)
 {
 	return -GSI_STATUS_UNSUPPORTED_OP;
 }

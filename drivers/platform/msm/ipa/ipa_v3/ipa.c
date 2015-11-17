@@ -3032,6 +3032,8 @@ void ipa3_suspend_handler(enum ipa_irq_type interrupt,
 					&ipa3_ctx->transport_pm.dec_clients)
 					) {
 					ipa3_inc_client_enable_clks();
+					IPADBG("Pipes un-suspended.\n");
+					IPADBG("Enter poll mode.\n");
 					atomic_set(
 					&ipa3_ctx->transport_pm.dec_clients,
 					1);
@@ -3076,7 +3078,7 @@ int ipa3_restore_suspend_handler(void)
 	}
 
 	result = ipa3_add_interrupt_handler(IPA_TX_SUSPEND_IRQ,
-			ipa3_suspend_handler, true, NULL);
+			ipa3_suspend_handler, false, NULL);
 	if (result) {
 		IPAERR("register handler for suspend interrupt failed\n");
 		result = -EPERM;
@@ -3157,7 +3159,7 @@ int ipa3_init_interrupts(void)
 
 	/*add handler for suspend interrupt*/
 	result = ipa3_add_interrupt_handler(IPA_TX_SUSPEND_IRQ,
-			ipa3_suspend_handler, true, NULL);
+			ipa3_suspend_handler, false, NULL);
 	if (result) {
 		IPAERR("register handler for suspend interrupt failed\n");
 		result = -ENODEV;
