@@ -2568,6 +2568,26 @@ int mdss_mdp_pp_default_overlay_config(struct msm_fb_data_type *mfd,
 	return ret;
 }
 
+static bool pp_ad_bl_threshold_check(int al_thresh, int base, int prev_bl,
+					 int curr_bl)
+{
+	int bl_thresh = 0, diff = 0;
+	bool ret = false;
+
+	pr_debug("al_thresh = %d, base = %d\n", al_thresh, base);
+	if (base <= 0) {
+		pr_debug("Invalid base for threshold calculation %d\n", base);
+		return ret;
+	}
+	bl_thresh = (curr_bl * al_thresh) / (base * 4);
+	diff = (curr_bl > prev_bl) ? (curr_bl - prev_bl) : (prev_bl - curr_bl);
+	ret = (diff > bl_thresh) ? true : false;
+	pr_debug("prev_bl =%d, curr_bl = %d, bl_thresh = %d, diff = %d, ret = %d\n",
+		prev_bl, curr_bl, bl_thresh, diff, ret);
+
+	return ret;
+}
+
 static int pp_ad_calc_bl(struct msm_fb_data_type *mfd, int bl_in, int *bl_out,
 	bool *bl_out_notify)
 {
@@ -2628,15 +2648,16 @@ static int pp_ad_calc_bl(struct msm_fb_data_type *mfd, int bl_in, int *bl_out,
 		mutex_unlock(&ad->lock);
 		return ret;
 	}
-	*bl_out = temp;
 
-	if (ad_bl_out != mfd->ad_bl_level) {
+	*bl_out = temp;
+	if (pp_ad_bl_threshold_check(ad->init.al_thresh, ad->init.alpha_base,
+					mfd->ad_bl_level, ad_bl_out)) {
 		mfd->ad_bl_level = ad_bl_out;
+		pr_debug("backlight send to AD block: %d\n", mfd->ad_bl_level);
 		*bl_out_notify = true;
+		pp_ad_invalidate_input(mfd);
 	}
 
-	if (*bl_out_notify)
-		pp_ad_invalidate_input(mfd);
 	mutex_unlock(&ad->lock);
 	return 0;
 }
