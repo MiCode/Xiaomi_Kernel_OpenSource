@@ -1223,7 +1223,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	mutex_init(&inst->bufq[OUTPUT_PORT].lock);
 	mutex_init(&inst->lock);
 	inst->session_type = session_type;
-	INIT_LIST_HEAD(&inst->pendingq);
+	INIT_MSM_VIDC_LIST(&inst->pendingq);
 	INIT_LIST_HEAD(&inst->internalbufs);
 	INIT_LIST_HEAD(&inst->persistbufs);
 	INIT_LIST_HEAD(&inst->registered_bufs);
@@ -1306,18 +1306,16 @@ err_invalid_core:
 
 static void cleanup_instance(struct msm_vidc_inst *inst)
 {
-	struct list_head *ptr, *next;
-	struct vb2_buf_entry *entry;
+	struct vb2_buf_entry *entry, *dummy;
 	if (inst) {
-		mutex_lock(&inst->lock);
-		if (!list_empty(&inst->pendingq)) {
-			list_for_each_safe(ptr, next, &inst->pendingq) {
-				entry = list_entry(ptr, struct vb2_buf_entry,
-						list);
-				list_del(&entry->list);
-				kfree(entry);
-			}
+		mutex_lock(&inst->pendingq.lock);
+		list_for_each_entry_safe(entry, dummy, &inst->pendingq.list,
+				list) {
+			list_del(&entry->list);
+			kfree(entry);
 		}
+		mutex_unlock(&inst->pendingq.lock);
+		mutex_lock(&inst->lock);
 		if (!list_empty(&inst->internalbufs)) {
 			mutex_unlock(&inst->lock);
 			if (msm_comm_release_scratch_buffers(inst))
