@@ -1086,6 +1086,8 @@ int msm_snd_hw_params(struct snd_pcm_substream *substream,
 			 * this DAI is based on that of the Rx path.
 			 */
 			user_set_tx_ch = msm_slim_0_rx_ch;
+		else if (dai_link->be_id == MSM_BACKEND_DAI_SLIMBUS_4_TX)
+			user_set_tx_ch = msm_vi_feed_tx_ch;
 		else
 			user_set_tx_ch = tx_ch_cnt;
 
@@ -1225,8 +1227,28 @@ int msm_slim_4_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	struct snd_interval *channels = hw_param_interval(params,
 			SNDRV_PCM_HW_PARAM_CHANNELS);
 
-	rate->min = rate->max = SAMPLING_RATE_48KHZ;
-	channels->min = channels->max = msm_vi_feed_tx_ch;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+
+	pr_debug("%s: codec name: %s", __func__, codec_dai->name);
+	if (!strcmp(dev_name(codec_dai->dev), "tomtom_codec")) {
+		rate->min = rate->max = SAMPLING_RATE_48KHZ;
+		channels->min = channels->max = msm_vi_feed_tx_ch;
+		pr_debug("%s: tomtom vi sample rate = %d\n",
+				__func__, rate->min);
+	} else if (!strcmp(dev_name(codec_dai->dev), "tasha_codec")) {
+		param_set_mask(params, SNDRV_PCM_HW_PARAM_FORMAT,
+			SNDRV_PCM_FORMAT_S32_LE);
+		rate->min = rate->max = SAMPLING_RATE_8KHZ;
+		channels->min = channels->max = msm_vi_feed_tx_ch/2;
+		pr_debug("%s: tasha vi sample rate = %d\n",
+				__func__, rate->min);
+	} else {
+		rate->min = rate->max = SAMPLING_RATE_48KHZ;
+		channels->min = channels->max = msm_vi_feed_tx_ch;
+		pr_debug("%s: default sample rate = %d\n",
+				__func__, rate->min);
+	}
+
 	pr_debug("%s: %d\n", __func__, msm_vi_feed_tx_ch);
 	return 0;
 }
@@ -1969,6 +1991,9 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		snd_soc_dapm_ignore_suspend(dapm, "ANC HPHR");
 		snd_soc_dapm_ignore_suspend(dapm, "ANC LINEOUT1");
 		snd_soc_dapm_ignore_suspend(dapm, "ANC LINEOUT2");
+		snd_soc_dapm_ignore_suspend(dapm, "AIF4 VI");
+		snd_soc_dapm_ignore_suspend(dapm, "VIINPUT");
+
 	}
 
 	snd_soc_dapm_sync(dapm);
