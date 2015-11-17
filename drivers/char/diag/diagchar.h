@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -312,6 +312,7 @@ struct diagchar_dev {
 	struct device *diag_dev;
 	int ref_count;
 	struct mutex diagchar_mutex;
+	struct mutex diag_file_mutex;
 	wait_queue_head_t wait_q;
 	wait_queue_head_t smd_wait_q;
 	struct diag_client_map *client_map;
