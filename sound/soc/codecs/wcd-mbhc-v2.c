@@ -513,6 +513,34 @@ int wcd_mbhc_get_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 		return -EINVAL;
 }
 
+static void wcd_mbhc_hs_elec_irq(struct wcd_mbhc *mbhc, int irq_type,
+				 bool enable)
+{
+	int irq;
+
+	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
+
+	if (irq_type == WCD_MBHC_ELEC_HS_INS)
+		irq = mbhc->intr_ids->mbhc_hs_ins_intr;
+	else if (irq_type == WCD_MBHC_ELEC_HS_REM)
+		irq = mbhc->intr_ids->mbhc_hs_rem_intr;
+	else {
+		pr_debug("%s: irq_type: %d, enable: %d\n",
+			__func__, irq_type, enable);
+		return;
+	}
+
+	pr_debug("%s: irq: %d, enable: %d, intr_status:%lu\n",
+		 __func__, irq, enable, mbhc->intr_status);
+	if ((test_bit(irq_type, &mbhc->intr_status)) != enable) {
+		mbhc->mbhc_cb->irq_control(mbhc->codec, irq, enable);
+		if (enable)
+			set_bit(irq_type, &mbhc->intr_status);
+		else
+			clear_bit(irq_type, &mbhc->intr_status);
+	}
+}
+
 static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 				enum snd_jack_types jack_type)
 {
@@ -600,9 +628,9 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 						WCD_MBHC_ELECT_DETECTION_TYPE,
 						0);
 				usleep_range(200, 210);
-				mbhc->mbhc_cb->irq_control(mbhc->codec,
-					mbhc->intr_ids->mbhc_hs_rem_intr,
-					true);
+				wcd_mbhc_hs_elec_irq(mbhc,
+						     WCD_MBHC_ELEC_HS_REM,
+						     true);
 			}
 			mbhc->hph_status &= ~(SND_JACK_HEADSET |
 						SND_JACK_LINEOUT |
@@ -713,9 +741,8 @@ static void wcd_mbhc_find_plug_and_report(struct wcd_mbhc *mbhc,
 			 */
 			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_SCHMT_ISRC,
 						 3);
-			mbhc->mbhc_cb->irq_control(mbhc->codec,
-					mbhc->intr_ids->mbhc_hs_ins_intr,
-					true);
+			wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_INS,
+					     true);
 		} else {
 			wcd_mbhc_report_plug(mbhc, 1, SND_JACK_LINEOUT);
 		}
@@ -1305,24 +1332,20 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 
 			/* Pulldown micbias */
 			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_PULLDOWN_CTRL, 1);
-			mbhc->mbhc_cb->irq_control(codec,
-					mbhc->intr_ids->mbhc_hs_rem_intr,
-					false);
-			mbhc->mbhc_cb->irq_control(codec,
-					mbhc->intr_ids->mbhc_hs_ins_intr,
-					false);
+			wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_REM,
+					     false);
+			wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_INS,
+					     false);
 			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_DETECTION_TYPE,
 						 1);
 			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_SCHMT_ISRC, 0);
 			wcd_mbhc_report_plug(mbhc, 0, SND_JACK_HEADSET);
 		} else if (mbhc->current_plug == MBHC_PLUG_TYPE_HIGH_HPH) {
 			mbhc->is_extn_cable = false;
-			mbhc->mbhc_cb->irq_control(codec,
-					mbhc->intr_ids->mbhc_hs_rem_intr,
-					false);
-			mbhc->mbhc_cb->irq_control(codec,
-					mbhc->intr_ids->mbhc_hs_ins_intr,
-					false);
+			wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_REM,
+					     false);
+			wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_INS,
+					     false);
 			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_DETECTION_TYPE,
 						 1);
 			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_SCHMT_ISRC, 0);
@@ -1466,9 +1489,8 @@ determine_plug:
 	 * Setup for insertion detection.
 	 */
 	pr_debug("%s: Disable insertion interrupt\n", __func__);
-	mbhc->mbhc_cb->irq_control(mbhc->codec,
-				   mbhc->intr_ids->mbhc_hs_ins_intr,
-				   false);
+	wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_INS,
+			     false);
 
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_SCHMT_ISRC, 0);
 	hphl_trigerred = 0;
@@ -1573,9 +1595,8 @@ report_unplug:
 	 * Disable HPHL trigger and MIC Schmitt triggers.
 	 * Setup for insertion detection.
 	 */
-	mbhc->mbhc_cb->irq_control(mbhc->codec,
-				   mbhc->intr_ids->mbhc_hs_rem_intr,
-				   false);
+	wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_REM,
+			     false);
 	wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_NONE);
 	/* Disable HW FSM */
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 0);
@@ -1583,8 +1604,8 @@ report_unplug:
 
 	/* Set the detection type appropriately */
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_DETECTION_TYPE, 1);
-	mbhc->mbhc_cb->irq_control(mbhc->codec,
-				   mbhc->intr_ids->mbhc_hs_ins_intr, true);
+	wcd_mbhc_hs_elec_irq(mbhc, WCD_MBHC_ELEC_HS_INS,
+			     true);
 	hphl_trigerred = 0;
 	mic_trigerred = 0;
 	WCD_MBHC_RSC_UNLOCK(mbhc);
@@ -2221,6 +2242,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 	}
 	mbhc->mbhc_cb->irq_control(codec, mbhc->intr_ids->mbhc_hs_ins_intr,
 				   false);
+	clear_bit(WCD_MBHC_ELEC_HS_INS, &mbhc->intr_status);
 
 	ret = mbhc->mbhc_cb->request_irq(codec,
 					 mbhc->intr_ids->mbhc_hs_rem_intr,
@@ -2233,6 +2255,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 	}
 	mbhc->mbhc_cb->irq_control(codec, mbhc->intr_ids->mbhc_hs_rem_intr,
 				   false);
+	clear_bit(WCD_MBHC_ELEC_HS_REM, &mbhc->intr_status);
 
 	ret = mbhc->mbhc_cb->request_irq(codec, mbhc->intr_ids->hph_left_ocp,
 				  wcd_mbhc_hphl_ocp_irq, "HPH_L OCP detect",
