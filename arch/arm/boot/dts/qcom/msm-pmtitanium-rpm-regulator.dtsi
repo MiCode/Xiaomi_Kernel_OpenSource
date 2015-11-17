@@ -1,0 +1,382 @@
+/*
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&rpm_bus {
+	rpm-regulator-smpa1 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "smpa";
+		qcom,resource-id = <1>;
+		qcom,regulator-type = <1>;
+		qcom,hpm-min-load = <100000>;
+		status = "disabled";
+
+		regulator-s1 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_s1";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-smpa2 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "smpa";
+		qcom,resource-id = <2>;
+		qcom,regulator-type = <1>;
+		qcom,hpm-min-load = <100000>;
+		status = "disabled";
+
+		regulator-s2 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_s2";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-smpa3 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "smpa";
+		qcom,resource-id = <3>;
+		qcom,regulator-type = <1>;
+		qcom,hpm-min-load = <100000>;
+		status = "disabled";
+
+		regulator-s3 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_s3";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-smpa4 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "smpa";
+		qcom,resource-id = <4>;
+		qcom,regulator-type = <1>;
+		qcom,hpm-min-load = <100000>;
+		status = "disabled";
+
+		regulator-s4 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_s4";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-smpa7 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "smpa";
+		qcom,resource-id = <7>;
+		qcom,regulator-type = <1>;
+		qcom,hpm-min-load = <100000>;
+		status = "disabled";
+
+		regulator-s7 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_s7";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa1 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <1>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l1 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_l1";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa2 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <2>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l2 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_l2";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa3 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <3>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l3 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_l3";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa5 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <5>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l5 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_l5";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa6 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <6>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l6 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_l6";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa7 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <7>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l7 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_l7";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa8 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <8>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l8 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_l8";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa9 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <9>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l9 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_l9";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa10 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <10>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l10 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_l10";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa11 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <11>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l11 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_l11";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa12 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <12>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l12 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_l12";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa13 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <13>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <5000>;
+		status = "disabled";
+
+		regulator-l13 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_l13";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa16 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <16>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <5000>;
+		status = "disabled";
+
+		regulator-l16 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_l16";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa17 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <17>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l17 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_l17";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa19 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <19>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l19 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_l19";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa22 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <22>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l22 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_l22";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	rpm-regulator-ldoa23 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "ldoa";
+		qcom,resource-id = <23>;
+		qcom,regulator-type = <0>;
+		qcom,hpm-min-load = <10000>;
+		status = "disabled";
+
+		regulator-l23 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "pmtitanium_l23";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+
+	/* Regulator to notify APC corner to RPM */
+	rpm-regulator-clk0 {
+		compatible = "qcom,rpm-smd-regulator-resource";
+		qcom,resource-name = "clk0";
+		qcom,resource-id = <3>;
+		qcom,regulator-type = <1>;
+		status = "disabled";
+
+		regulator-clk0 {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "rpm_apc";
+			qcom,set = <3>;
+			status = "disabled";
+		};
+	};
+};
