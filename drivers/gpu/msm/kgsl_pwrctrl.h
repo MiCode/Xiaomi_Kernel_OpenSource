@@ -13,6 +13,8 @@
 #ifndef __KGSL_PWRCTRL_H
 #define __KGSL_PWRCTRL_H
 
+#include <linux/pm_qos.h>
+
 /*****************************************************************************
 ** power flags
 *****************************************************************************/
@@ -29,6 +31,8 @@
 
 #define KGSL_MAX_REGULATORS 2
 #define KGSL_MAX_REGULATOR_NAME_LEN 8
+
+#define KGSL_MAX_PWRLEVELS 10
 
 /* Only two supported levels, min & max */
 #define KGSL_CONSTRAINT_PWR_MAXLEVELS 2
@@ -86,6 +90,21 @@ struct kgsl_pwr_constraint {
 };
 
 /**
+ * struct kgsl_pwrlevel - Struct holding different pwrlevel info obtained from
+ * from dtsi file
+ * @gpu_freq:          GPU frequency vote in Hz
+ * @bus_freq:          Bus bandwidth vote index
+ * @bus_min:           Min bus index @gpu_freq
+ * @bus_max:           Max bus index @gpu_freq
+ */
+struct kgsl_pwrlevel {
+	unsigned int gpu_freq;
+	unsigned int bus_freq;
+	unsigned int bus_min;
+	unsigned int bus_max;
+};
+
+/**
  * struct kgsl_pwrctrl - Power control settings for a KGSL device
  * @interrupt_num - The interrupt number for the device
  * @grp_clks - Array of clocks structures that we control
@@ -96,11 +115,11 @@ struct kgsl_pwr_constraint {
  * @previous_pwrlevel - The power level before transition
  * @thermal_pwrlevel - maximum powerlevel constraint from thermal
  * @default_pwrlevel - device wake up power level
- * @init_pwrlevel - device inital power level
  * @max_pwrlevel - maximum allowable powerlevel per the user
  * @min_pwrlevel - minimum allowable powerlevel per the user
  * @num_pwrlevels - number of available power levels
  * @interval_timeout - timeout in jiffies to be idle before a power event
+ * @clk_map - bitmap of clock bits to enable for the device
  * @strtstp_sleepwake - true if the device supports low latency GPU start/stop
  * @gpu_reg - array of pointers to the regulator structures
  * @gpu_reg_name - array of pointers to the regulator names
@@ -145,12 +164,12 @@ struct kgsl_pwrctrl {
 	unsigned int previous_pwrlevel;
 	unsigned int thermal_pwrlevel;
 	unsigned int default_pwrlevel;
-	unsigned int init_pwrlevel;
 	unsigned int wakeup_maxpwrlevel;
 	unsigned int max_pwrlevel;
 	unsigned int min_pwrlevel;
 	unsigned int num_pwrlevels;
 	unsigned long interval_timeout;
+	unsigned int clk_map;
 	bool strtstp_sleepwake;
 	struct regulator *gpu_reg[KGSL_MAX_REGULATORS];
 	char gpu_reg_name[KGSL_MAX_REGULATORS][KGSL_MAX_REGULATOR_NAME_LEN];

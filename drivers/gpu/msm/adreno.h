@@ -308,6 +308,7 @@ struct adreno_gpu_core {
  * @lm_threshold_count: register value for counter for lm threshold breakin
  * @lm_threshold_cross: number of current peaks exceeding threshold
  * @speed_bin: Indicate which power level set to use
+ * @csdev: Pointer to a coresight device (if applicable)
  */
 struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
@@ -365,6 +366,8 @@ struct adreno_device {
 
 	unsigned int speed_bin;
 	unsigned int quirks;
+
+	struct coresight_device *csdev;
 };
 
 /**
