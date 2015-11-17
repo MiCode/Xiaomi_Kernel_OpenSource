@@ -1507,7 +1507,6 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		cell-index = <0>;
-		qcom,not-wakeup;
 	};
 
 	qcom,mss@4080000 {
