@@ -2799,6 +2799,7 @@ static void __ref do_core_control(long temp)
 {
 	int i = 0;
 	int ret = 0;
+	struct device *cpu_dev = NULL;
 
 	if (!core_control_enabled)
 		return;
@@ -2813,15 +2814,18 @@ static void __ref do_core_control(long temp)
 				continue;
 			pr_info("Set Offline: CPU%d Temp: %ld\n",
 					i, temp);
+			lock_device_hotplug();
 			if (cpu_online(i)) {
+				cpu_dev = get_cpu_device(i);
 				trace_thermal_pre_core_offline(i);
-				ret = cpu_down(i);
+				ret = device_offline(cpu_dev);
 				if (ret)
 					pr_err("Error %d offline core %d\n",
 					       ret, i);
 				trace_thermal_post_core_offline(i,
 					cpumask_test_cpu(i, cpu_online_mask));
 			}
+			unlock_device_hotplug();
 			cpus_offlined |= BIT(i);
 			break;
 		}
@@ -2838,19 +2842,26 @@ static void __ref do_core_control(long temp)
 			 * If this core is already online, then bring up the
 			 * next offlined core.
 			 */
-			if (cpu_online(i))
+			lock_device_hotplug();
+			if (cpu_online(i)) {
+				unlock_device_hotplug();
 				continue;
+			}
 			/* If this core wasn't previously online don't put it
 			   online */
-			if (!(cpumask_test_cpu(i, cpus_previously_online)))
+			if (!(cpumask_test_cpu(i, cpus_previously_online))) {
+				unlock_device_hotplug();
 				continue;
+			}
+			cpu_dev = get_cpu_device(i);
 			trace_thermal_pre_core_online(i);
-			ret = cpu_up(i);
+			ret = device_online(cpu_dev);
 			if (ret)
 				pr_err("Error %d online core %d\n",
 						ret, i);
 			trace_thermal_post_core_online(i,
 				cpumask_test_cpu(i, cpu_online_mask));
+			unlock_device_hotplug();
 			break;
 		}
 	}
@@ -2863,6 +2874,7 @@ static int __ref update_offline_cores(int val)
 	int ret = 0;
 	uint32_t previous_cpus_offlined = 0;
 	bool pend_hotplug_req = false;
+	struct device *cpu_dev = NULL;
 
 	if (!core_control_enabled)
 		return 0;
@@ -2872,10 +2884,14 @@ static int __ref update_offline_cores(int val)
 
 	for_each_possible_cpu(cpu) {
 		if (cpus_offlined & BIT(cpu)) {
-			if (!cpu_online(cpu))
+			lock_device_hotplug();
+			if (!cpu_online(cpu)) {
+				unlock_device_hotplug();
 				continue;
+			}
+			cpu_dev = get_cpu_device(cpu);
 			trace_thermal_pre_core_offline(cpu);
-			ret = cpu_down(cpu);
+			ret = device_offline(cpu_dev);
 			if (ret) {
 				pr_err_ratelimited(
 					"Unable to offline CPU%d. err:%d\n",
@@ -2886,15 +2902,22 @@ static int __ref update_offline_cores(int val)
 			}
 			trace_thermal_post_core_offline(cpu,
 				cpumask_test_cpu(cpu, cpu_online_mask));
+			unlock_device_hotplug();
 		} else if (online_core && (previous_cpus_offlined & BIT(cpu))) {
-			if (cpu_online(cpu))
+			lock_device_hotplug();
+			if (cpu_online(cpu)) {
+				unlock_device_hotplug();
 				continue;
+			}
 			/* If this core wasn't previously online don't put it
 			   online */
-			if (!(cpumask_test_cpu(cpu, cpus_previously_online)))
+			if (!(cpumask_test_cpu(cpu, cpus_previously_online))) {
+				unlock_device_hotplug();
 				continue;
+			}
+			cpu_dev = get_cpu_device(cpu);
 			trace_thermal_pre_core_online(cpu);
-			ret = cpu_up(cpu);
+			ret = device_online(cpu_dev);
 			if (ret && ret == notifier_to_errno(NOTIFY_BAD)) {
 				pr_debug("Onlining CPU%d is vetoed\n", cpu);
 			} else if (ret) {
@@ -2908,6 +2931,7 @@ static int __ref update_offline_cores(int val)
 				trace_thermal_post_core_online(cpu,
 					cpumask_test_cpu(cpu, cpu_online_mask));
 			}
+			unlock_device_hotplug();
 		}
 	}
 
