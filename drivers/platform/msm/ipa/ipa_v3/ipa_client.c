@@ -762,15 +762,7 @@ static void ipa_chan_err_cb(struct gsi_chan_err_notify *notify)
 
 static void ipa_xfer_cb(struct gsi_chan_xfer_notify *notify)
 {
-	struct ipa3_mem_buffer *xfer_data;
-
-	IPADBG("event %d notified\n", notify->evt_id);
-	BUG_ON(notify->xfer_user_data == NULL);
-
-	xfer_data = (struct ipa3_mem_buffer *)notify->xfer_user_data;
-	dma_free_coherent(ipa3_ctx->pdev, xfer_data->size,
-		xfer_data->base, xfer_data->phys_base);
-	kfree(xfer_data);
+	return;
 }
 
 static int ipa3_reconfigure_channel_to_gpi(struct ipa3_ep_context *ep,
@@ -847,7 +839,6 @@ static int ipa3_reset_with_open_aggr_frame_wa(u32 clnt_hdl,
 	void *buff;
 	dma_addr_t dma_addr;
 	struct gsi_xfer_elem xfer_elem;
-	struct ipa3_mem_buffer *xfer_data;
 	int i;
 	int aggr_active_bitmap = 0;
 
@@ -891,17 +882,7 @@ static int ipa3_reset_with_open_aggr_frame_wa(u32 clnt_hdl,
 	xfer_elem.len = 1;
 	xfer_elem.flags = GSI_XFER_FLAG_EOT;
 	xfer_elem.type = GSI_XFER_ELEM_DATA;
-	xfer_data = kzalloc(sizeof(struct ipa3_mem_buffer),
-		GFP_ATOMIC);
-	if (xfer_data == NULL) {
-		IPAERR("Error allocating memory\n");
-		goto xfer_data_alloc_fail;
-	}
-	memset(xfer_data, 0, sizeof(struct ipa3_mem_buffer));
-	xfer_data->base = buff;
-	xfer_data->phys_base = dma_addr;
-	xfer_data->size = 1;
-	xfer_elem.xfer_user_data = (void *)xfer_data;
+
 	gsi_res = gsi_queue_xfer(ep->gsi_chan_hdl, 1, &xfer_elem,
 		true);
 	if (gsi_res != GSI_STATUS_SUCCESS) {
@@ -925,6 +906,8 @@ static int ipa3_reset_with_open_aggr_frame_wa(u32 clnt_hdl,
 		BUG();
 	}
 
+	dma_free_coherent(ipa3_ctx->pdev, 1, buff, dma_addr);
+
 	result = ipa3_stop_gsi_channel(clnt_hdl);
 	if (result) {
 		IPAERR("Error stopping channel: %d\n", result);
@@ -947,13 +930,10 @@ static int ipa3_reset_with_open_aggr_frame_wa(u32 clnt_hdl,
 	dma_free_coherent(ipa3_ctx->pdev, chan_dma.size,
 		chan_dma.base, chan_dma.phys_base);
 
-
 	return 0;
 
 queue_xfer_fail:
 	ipa3_stop_gsi_channel(clnt_hdl);
-	kfree(xfer_data);
-xfer_data_alloc_fail:
 	dma_free_coherent(ipa3_ctx->pdev, 1, buff, dma_addr);
 start_chan_fail:
 	ipa3_restore_channel_properties(ep, &orig_chan_props,
