@@ -141,6 +141,7 @@ struct smbchg_chip {
 	bool				hvdcp3_supported;
 	bool				restricted_charging;
 	bool				skip_usb_suspend_for_fake_battery;
+	bool				hvdcp_not_supported;
 	u8				original_usbin_allowance;
 	struct parallel_usb_cfg		parallel;
 	struct delayed_work		parallel_en_work;
@@ -282,6 +283,7 @@ enum pmic_subtype {
 	PMI8994		= 10,
 	PMI8950		= 17,
 	PMI8996		= 19,
+	PMI8937		= 55,
 };
 
 enum smbchg_wa {
@@ -4447,7 +4449,8 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 	vote(chip->usb_icl_votable, WEAK_CHARGER_ICL_VOTER, false, 0);
 	chip->usb_icl_delta = 0;
 	vote(chip->usb_icl_votable, SW_AICL_ICL_VOTER, false, 0);
-	restore_from_hvdcp_detection(chip);
+	if (!chip->hvdcp_not_supported)
+		restore_from_hvdcp_detection(chip);
 }
 
 static bool is_src_detect_high(struct smbchg_chip *chip)
@@ -4519,7 +4522,8 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 	}
 	schedule_work(&chip->usb_set_online_work);
 
-	if (usb_supply_type == POWER_SUPPLY_TYPE_USB_DCP)
+	if (!chip->hvdcp_not_supported &&
+			(usb_supply_type == POWER_SUPPLY_TYPE_USB_DCP))
 		schedule_delayed_work(&chip->hvdcp_det_work,
 					msecs_to_jiffies(HVDCP_NOTIFY_MS));
 
@@ -7393,6 +7397,7 @@ static int smbchg_check_chg_version(struct smbchg_chip *chip)
 		chip->schg_version = QPNP_SCHG;
 		break;
 	case PMI8950:
+	case PMI8937:
 		chip->wa_flags |= SMBCHG_BATT_OV_WA;
 		if (pmic_rev_id->rev4 < 2) /* PMI8950 1.0 */ {
 			chip->wa_flags |= SMBCHG_AICL_DEGLITCH_WA;
@@ -7402,6 +7407,8 @@ static int smbchg_check_chg_version(struct smbchg_chip *chip)
 		}
 		use_pmi8994_tables(chip);
 		chip->schg_version = QPNP_SCHG_LITE;
+		if (pmic_rev_id->pmic_subtype == PMI8937)
+			chip->hvdcp_not_supported = true;
 		break;
 	case PMI8996:
 		chip->wa_flags |= SMBCHG_CC_ESR_WA
@@ -7414,8 +7421,9 @@ static int smbchg_check_chg_version(struct smbchg_chip *chip)
 				pmic_rev_id->pmic_subtype);
 	}
 
-	pr_smb(PR_STATUS, "pmic=%s, wa_flags=0x%x\n",
-			pmic_rev_id->pmic_name, chip->wa_flags);
+	pr_smb(PR_STATUS, "pmic=%s, wa_flags=0x%x, hvdcp_supported=%s\n",
+			pmic_rev_id->pmic_name, chip->wa_flags,
+			chip->hvdcp_not_supported ? "false" : "true");
 
 	return 0;
 }
