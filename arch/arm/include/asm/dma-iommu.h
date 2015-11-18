@@ -24,6 +24,8 @@ struct dma_iommu_mapping {
 	struct kref		kref;
 };
 
+#ifdef CONFIG_ARM_DMA_USE_IOMMU
+
 struct dma_iommu_mapping *
 arm_iommu_create_mapping(struct bus_type *bus, dma_addr_t base, size_t size);
 
@@ -32,6 +34,30 @@ void arm_iommu_release_mapping(struct dma_iommu_mapping *mapping);
 int arm_iommu_attach_device(struct device *dev,
 					struct dma_iommu_mapping *mapping);
 void arm_iommu_detach_device(struct device *dev);
+
+#else  /* !CONFIG_ARM_DMA_USE_IOMMU */
+
+static inline struct dma_iommu_mapping *
+arm_iommu_create_mapping(struct bus_type *bus, dma_addr_t base, size_t size)
+{
+	return NULL;
+}
+
+static inline void arm_iommu_release_mapping(struct dma_iommu_mapping *mapping)
+{
+}
+
+static inline int arm_iommu_attach_device(struct device *dev,
+			struct dma_iommu_mapping *mapping)
+{
+	return -ENODEV;
+}
+
+static inline void arm_iommu_detach_device(struct device *dev)
+{
+}
+
+#endif	/* CONFIG_ARM_DMA_USE_IOMMU */
 
 #endif /* __KERNEL__ */
 #endif
