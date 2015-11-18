@@ -95,7 +95,7 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 			     int op_enable);
 static int mdss_fb_suspend_sub(struct msm_fb_data_type *mfd);
 static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
-			 unsigned long arg);
+			 unsigned long arg, struct file *file);
 static int mdss_fb_fbmem_ion_mmap(struct fb_info *info,
 		struct vm_area_struct *vma);
 static int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd,
@@ -2184,9 +2184,9 @@ static struct fb_ops mdss_fb_ops = {
 	.fb_set_par = mdss_fb_set_par,	/* set the video mode */
 	.fb_blank = mdss_fb_blank,	/* blank display */
 	.fb_pan_display = mdss_fb_pan_display,	/* pan display */
-	.fb_ioctl = mdss_fb_ioctl,	/* perform fb specific ioctl */
+	.fb_ioctl_v2 = mdss_fb_ioctl,	/* perform fb specific ioctl */
 #ifdef CONFIG_COMPAT
-	.fb_compat_ioctl = mdss_fb_compat_ioctl,
+	.fb_compat_ioctl_v2 = mdss_fb_compat_ioctl,
 #endif
 	.fb_mmap = mdss_fb_mmap,
 };
@@ -3073,11 +3073,10 @@ static int __ioctl_transition_dyn_mode_state(struct msm_fb_data_type *mfd,
 }
 
 int mdss_fb_atomic_commit(struct fb_info *info,
-	struct mdp_layer_commit  *commit)
+	struct mdp_layer_commit  *commit, struct file *file)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	struct mdp_layer_commit_v1 *commit_v1;
-	struct file *file = info->file;
 	bool wait_for_finish;
 	int ret = -EPERM;
 
@@ -4028,7 +4027,7 @@ static int mdss_fb_display_commit(struct fb_info *info,
 }
 
 static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
-						unsigned long *argp)
+	unsigned long *argp, struct file *file)
 {
 	int ret, i = 0, j = 0, rc;
 	struct mdp_layer_commit  commit;
@@ -4130,7 +4129,7 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 		}
 	}
 
-	ret = mdss_fb_atomic_commit(info, &commit);
+	ret = mdss_fb_atomic_commit(info, &commit, file);
 	if (ret)
 		pr_err("atomic commit failed ret:%d\n", ret);
 
@@ -4297,7 +4296,7 @@ static int __ioctl_wait_idle(struct msm_fb_data_type *mfd, u32 cmd)
  * by compat ioctl or regular ioctl to handle the supported commands.
  */
 int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
-			 unsigned long arg)
+			 unsigned long arg, struct file *file)
 {
 	struct msm_fb_data_type *mfd;
 	void __user *argp = (void __user *)arg;
@@ -4379,7 +4378,7 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 		ret = mdss_fb_mode_switch(mfd, dsi_mode);
 		break;
 	case MSMFB_ATOMIC_COMMIT:
-		ret = mdss_fb_atomic_commit_ioctl(info, argp);
+		ret = mdss_fb_atomic_commit_ioctl(info, argp, file);
 		break;
 
 	case MSMFB_ASYNC_POSITION_UPDATE:
@@ -4403,12 +4402,12 @@ exit:
 }
 
 static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
-			 unsigned long arg)
+			 unsigned long arg, struct file *file)
 {
 	if (!info || !info->par)
 		return -EINVAL;
 
-	return mdss_fb_do_ioctl(info, cmd, arg);
+	return mdss_fb_do_ioctl(info, cmd, arg, file);
 }
 
 struct fb_info *msm_fb_get_writeback_fb(void)
