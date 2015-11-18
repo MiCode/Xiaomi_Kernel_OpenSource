@@ -225,6 +225,8 @@
 #define clk_gcc_bimc_gfx_clk			0x3edd69ad
 #define clk_ipa_clk				0xfa685cda
 #define clk_ipa_a_clk				0xeeec2919
+#define clk_mdss_mdp_vote_clk			0x588460a4
+#define clk_mdss_rotator_vote_clk		0x5b1f675e
 
 #define clk_pixel_clk_src                       0x8b6f83d8
 #define clk_byte_clk_src                        0x3a911c53
