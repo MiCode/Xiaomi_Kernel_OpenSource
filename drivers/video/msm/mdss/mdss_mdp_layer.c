@@ -491,11 +491,12 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 	if (mixer->ctl) {
 		pipe->dst.x += mixer->ctl->border_x_off;
 		pipe->dst.y += mixer->ctl->border_y_off;
+		pr_debug("border{%d,%d}\n", mixer->ctl->border_x_off,
+				mixer->ctl->border_y_off);
 	}
-	pr_debug("src{%d,%d,%d,%d}, dst{%d,%d,%d,%d}, border{%d,%d}\n",
+	pr_debug("src{%d,%d,%d,%d}, dst{%d,%d,%d,%d}\n",
 		pipe->src.x, pipe->src.y, pipe->src.w, pipe->src.h,
-		pipe->dst.x, pipe->dst.y, pipe->dst.w, pipe->dst.h,
-		mixer->ctl->border_x_off, mixer->ctl->border_y_off);
+		pipe->dst.x, pipe->dst.y, pipe->dst.w, pipe->dst.h);
 
 	flags = pipe->flags;
 	if (is_single_layer)
