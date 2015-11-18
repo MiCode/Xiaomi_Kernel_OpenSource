@@ -1071,6 +1071,7 @@ static struct device **derive_device_list(struct clk *clk,
 		return ERR_PTR(-ENOMEM);
 
 	for (j = 0; j < count; j++) {
+		device_list[j] = NULL;
 		dev_node = of_parse_phandle(np, clk_handle_name, j);
 		if (!dev_node) {
 			pr_err("Unable to get device_node pointer for %s opp-handle (%s)\n",
@@ -1081,9 +1082,11 @@ static struct device **derive_device_list(struct clk *clk,
 		for_each_possible_cpu(cpu) {
 			if (of_get_cpu_node(cpu, NULL) == dev_node) {
 				device_list[j] = get_cpu_device(cpu);
-				continue;
 			}
 		}
+
+		if (device_list[j])
+			continue;
 
 		pdev = of_find_device_by_node(dev_node);
 		if (!pdev) {
@@ -1181,7 +1184,7 @@ static void populate_clock_opp_table(struct device_node *np,
 
 		store_vcorner = false;
 		clk = table[i].clk;
-		if (!clk || !clk->num_fmax)
+		if (!clk || !clk->num_fmax || clk->opp_table_populated)
 			continue;
 
 		if (strlen(clk->dbg_name) + LEN_OPP_HANDLE
@@ -1276,6 +1279,9 @@ static void populate_clock_opp_table(struct device_node *np,
 			n++;
 		}
 err_round_rate:
+		/* If OPP table population was successful, set the flag */
+		if (uv >= 0 && ret >= 0)
+			clk->opp_table_populated = true;
 		kfree(device_list);
 	}
 }
