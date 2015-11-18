@@ -44,6 +44,26 @@ static void (*clsh_state_fp[NUM_CLSH_STATES_V2])(struct snd_soc_codec *,
 					      struct wcd_clsh_cdc_data *,
 					      u8 req_state, bool en, int mode);
 
+static bool is_native_44_1_active(struct snd_soc_codec *codec)
+{
+	bool native_active = false;
+	u8 native_clk, rx1_rate, rx2_rate;
+
+	native_clk = snd_soc_read(codec,
+				 WCD9XXX_CDC_CLK_RST_CTRL_MCLK_CONTROL);
+	rx1_rate = snd_soc_read(codec, WCD9XXX_CDC_RX1_RX_PATH_CTL);
+	rx2_rate = snd_soc_read(codec, WCD9XXX_CDC_RX2_RX_PATH_CTL);
+
+	dev_dbg(codec->dev, "%s: native_clk %x rx1_rate= %x rx2_rate= %x",
+		__func__, native_clk, rx1_rate, rx2_rate);
+
+	if ((native_clk & 0x2) &&
+	    ((rx1_rate & 0x0F) == 0x9 || (rx2_rate & 0x0F) == 0x9))
+		native_active = true;
+
+	return native_active;
+}
+
 static const char *mode_to_str(int mode)
 {
 	switch (mode) {
@@ -371,11 +391,24 @@ static void wcd_clsh_state_hph_ear(struct snd_soc_codec *codec,
 			else if (clsh_d->state & WCD_CLSH_STATE_HPHR)
 				hph_mode = wcd_clsh_get_int_mode(clsh_d,
 						WCD_CLSH_STATE_HPHR);
-			if (hph_mode != CLS_AB)
+			if (hph_mode != CLS_AB && !is_native_44_1_active(codec))
 				snd_soc_update_bits(codec,
 						WCD9XXX_A_CDC_RX0_RX_PATH_CFG0,
 						0x40, 0x40);
 		}
+
+		if (is_native_44_1_active(codec)) {
+			snd_soc_write(codec, WCD9XXX_CDC_CLSH_HPH_V_PA, 0x39);
+			snd_soc_update_bits(codec,
+					WCD9XXX_CDC_RX0_RX_PATH_SEC0,
+					0x03, 0x00);
+			if ((req_state == WCD_CLSH_STATE_HPHL) ||
+			    (req_state == WCD_CLSH_STATE_HPHR))
+				snd_soc_update_bits(codec,
+						WCD9XXX_A_CDC_RX0_RX_PATH_CFG0,
+						0x40, 0x00);
+		}
+
 		if (req_state == WCD_CLSH_STATE_HPHL)
 			snd_soc_update_bits(codec,
 					    WCD9XXX_A_CDC_RX1_RX_PATH_CFG0,
@@ -403,6 +436,21 @@ static void wcd_clsh_state_hph_ear(struct snd_soc_codec *codec,
 						WCD9XXX_A_CDC_RX0_RX_PATH_CFG0,
 						0x40, 0x00);
 		}
+
+		if (is_native_44_1_active(codec)) {
+			snd_soc_write(codec, WCD9XXX_CDC_CLSH_HPH_V_PA, 0x1C);
+			snd_soc_update_bits(codec,
+					WCD9XXX_CDC_RX0_RX_PATH_SEC0,
+					0x03, 0x01);
+			if (((clsh_d->state & WCD_CLSH_STATE_HPH_ST)
+				  != WCD_CLSH_STATE_HPH_ST) &&
+			    ((req_state == WCD_CLSH_STATE_HPHL) ||
+			     (req_state == WCD_CLSH_STATE_HPHR)))
+				snd_soc_update_bits(codec,
+						WCD9XXX_A_CDC_RX0_RX_PATH_CFG0,
+						0x40, 0x40);
+		}
+
 		if (req_state == WCD_CLSH_STATE_HPHL)
 			snd_soc_update_bits(codec,
 					WCD9XXX_A_CDC_RX1_RX_PATH_CFG0,
