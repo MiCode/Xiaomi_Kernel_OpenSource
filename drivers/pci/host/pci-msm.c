@@ -2336,6 +2336,7 @@ static struct dentry *dfile_base_sel;
 static struct dentry *dfile_wr_offset;
 static struct dentry *dfile_wr_mask;
 static struct dentry *dfile_wr_value;
+static struct dentry *dfile_ep_wakeirq;
 static struct dentry *dfile_corr_counter_limit;
 
 static u32 rc_sel_max;
@@ -2551,6 +2552,50 @@ const struct file_operations msm_pcie_wr_value_ops = {
 	.write = msm_pcie_set_wr_value,
 };
 
+static ssize_t msm_pcie_set_ep_wakeirq(struct file *file,
+				const char __user *buf,
+				size_t count, loff_t *ppos)
+{
+	unsigned long ret;
+	char str[MAX_MSG_LEN];
+	u32 new_ep_wakeirq = 0;
+	int i;
+
+	memset(str, 0, sizeof(str));
+	ret = copy_from_user(str, buf, sizeof(str));
+	if (ret)
+		return -EFAULT;
+
+	for (i = 0; i < sizeof(str) && (str[i] >= '0') && (str[i] <= '9'); ++i)
+		new_ep_wakeirq = (new_ep_wakeirq * 10) + (str[i] - '0');
+
+	if (new_ep_wakeirq <= 1) {
+		for (i = 0; i < MAX_RC_NUM; i++) {
+			if (!rc_sel) {
+				msm_pcie_dev[0].ep_wakeirq = new_ep_wakeirq;
+				PCIE_DBG_FS(&msm_pcie_dev[0],
+					"PCIe: RC0: ep_wakeirq is now %d\n",
+					msm_pcie_dev[0].ep_wakeirq);
+				break;
+			} else if (rc_sel & (1 << i)) {
+				msm_pcie_dev[i].ep_wakeirq = new_ep_wakeirq;
+				PCIE_DBG_FS(&msm_pcie_dev[i],
+					"PCIe: RC%d: ep_wakeirq is now %d\n",
+					i, msm_pcie_dev[i].ep_wakeirq);
+			}
+		}
+	} else {
+		pr_err("PCIe: Invalid input for ep_wakeirq: %d. Please enter 0 or 1.\n",
+			new_ep_wakeirq);
+	}
+
+	return count;
+}
+
+const struct file_operations msm_pcie_ep_wakeirq_ops = {
+	.write = msm_pcie_set_ep_wakeirq,
+};
+
 static ssize_t msm_pcie_set_corr_counter_limit(struct file *file,
 				const char __user *buf,
 				size_t count, loff_t *ppos)
@@ -2636,6 +2681,14 @@ static void msm_pcie_debugfs_init(void)
 		goto wr_value_error;
 	}
 
+	dfile_ep_wakeirq = debugfs_create_file("ep_wakeirq", 0664,
+					dent_msm_pcie, 0,
+					&msm_pcie_ep_wakeirq_ops);
+	if (!dfile_ep_wakeirq || IS_ERR(dfile_ep_wakeirq)) {
+		pr_err("PCIe: fail to create the file for debug_fs ep_wakeirq.\n");
+		goto ep_wakeirq_error;
+	}
+
 	dfile_corr_counter_limit = debugfs_create_file("corr_counter_limit",
 					0664, dent_msm_pcie, 0,
 					&msm_pcie_corr_counter_limit_ops);
@@ -2646,6 +2699,8 @@ static void msm_pcie_debugfs_init(void)
 	return;
 
 corr_counter_limit_error:
+	debugfs_remove(dfile_ep_wakeirq);
+ep_wakeirq_error:
 	debugfs_remove(dfile_wr_value);
 wr_value_error:
 	debugfs_remove(dfile_wr_mask);
@@ -2669,6 +2724,7 @@ static void msm_pcie_debugfs_exit(void)
 	debugfs_remove(dfile_wr_offset);
 	debugfs_remove(dfile_wr_mask);
 	debugfs_remove(dfile_wr_value);
+	debugfs_remove(dfile_ep_wakeirq);
 	debugfs_remove(dfile_corr_counter_limit);
 }
 #else
