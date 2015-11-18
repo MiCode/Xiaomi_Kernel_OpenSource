@@ -185,11 +185,11 @@
 
 	clock_cpu: qcom,cpu-clock-8939@b111050 {
 		compatible = "qcom,cpu-clock-8939";
-		reg =   <0xb111050 0x8>,
-			<0xb011050 0x8>,
+		reg =   <0xb011050 0x8>,
+			<0xb111050 0x8>,
 			<0xb1d1050 0x8>,
 			<0x005c00c 0x8>;
-		reg-names = "apcs-c0-rcg-base", "apcs-c1-rcg-base",
+		reg-names = "apcs-c1-rcg-base", "apcs-c0-rcg-base",
 			    "apcs-cci-rcg-base", "efuse";
 		vdd-c0-supply = <&apc_vreg_corner>;
 		vdd-c1-supply = <&apc_vreg_corner>;
