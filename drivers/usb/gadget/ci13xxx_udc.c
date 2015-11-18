@@ -3370,6 +3370,7 @@ static int ep_set_wedge(struct usb_ep *ep)
  */
 static void ep_fifo_flush(struct usb_ep *ep)
 {
+	struct ci13xxx *udc = _udc;
 	struct ci13xxx_ep *mEp = container_of(ep, struct ci13xxx_ep, ep);
 	unsigned long flags;
 
@@ -3377,6 +3378,13 @@ static void ep_fifo_flush(struct usb_ep *ep)
 
 	if (ep == NULL) {
 		err("%02X: -EINVAL", _usb_addr(mEp));
+		return;
+	}
+
+	if (udc->udc_driver->in_lpm && udc->udc_driver->in_lpm(udc)) {
+		dev_err(udc->transceiver->dev,
+				"%s: Unable to fifo_flush while in LPM\n",
+				__func__);
 		return;
 	}
 
