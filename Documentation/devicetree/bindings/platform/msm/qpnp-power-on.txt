@@ -59,8 +59,16 @@ Optional properties:
 - qcom,store-hard-reset-reason	Boolean property which if set will store the hardware
 				reset reason to SOFT_RB_SPARE register of the core PMIC
 				PON peripheral.
-- qcom,cfg-shutdown-for-hard-reset	Boolean property, if present PMIC's PS_HOLD reset type
-					is configured for SHUTDOWN in case of HARD RESET.
+- qcom,warm-reset-poweroff-type		Poweroff type required to be configured on
+					PS_HOLD reset control register when the system
+					goes for warm reset. If this property is not
+					specified, then the default type, warm reset
+					will be configured to PS_HOLD reset control
+					register.
+- qcom,hard-reset-poweroff-type		Same description as qcom,warm-reset-poweroff-type
+					but this applies for the system hard reset case.
+- qcom,shutdown-poweroff-type		Same description as qcom,warm-reset-poweroff-type
+					but this applies for the system shutdown case.
 
 
 All the below properties are in the sub-node section (properties of the child
@@ -165,6 +173,7 @@ Example:
 		compatible = "qcom,qpnp-power-on";
 		reg = <0x800 0x100>;
 		qcom,secondary-pon-reset;
+		qcom,hard-reset-poweroff-type = <PON_POWER_OFF_SHUTDOWN>;
 
 		pon_perph_reg: qcom,pon_perph_reg {
 			regulator-name = "pon_spare_reg";
