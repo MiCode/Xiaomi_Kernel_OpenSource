@@ -207,6 +207,9 @@ static inline void pm_qos_set_value_for_cpus(struct pm_qos_constraints *c,
 				if (req->node.prio > qos_val[cpu])
 					qos_val[cpu] = req->node.prio;
 				break;
+			case PM_QOS_SUM:
+				qos_val[cpu] += req->node.prio;
+				break;
 			default:
 				BUG();
 				break;
