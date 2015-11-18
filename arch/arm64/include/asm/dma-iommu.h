@@ -3,6 +3,7 @@
 
 #ifdef __KERNEL__
 
+#include <linux/err.h>
 #include <linux/mm_types.h>
 #include <linux/scatterlist.h>
 #include <linux/dma-debug.h>
@@ -35,8 +36,7 @@ void arm_iommu_detach_device(struct device *dev);
 #else  /* !CONFIG_ARM64_DMA_USE_IOMMU */
 
 static inline struct dma_iommu_mapping *
-arm_iommu_create_mapping(struct bus_type *bus, dma_addr_t base, size_t size,
-			int order)
+arm_iommu_create_mapping(struct bus_type *bus, dma_addr_t base, size_t size)
 {
 	return ERR_PTR(-ENOMEM);
 }

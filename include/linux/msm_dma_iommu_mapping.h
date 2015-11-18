@@ -62,7 +62,7 @@ void msm_dma_buf_freed(void *buffer);
 static inline int msm_dma_map_sg_attrs(struct device *dev,
 			struct scatterlist *sg, int nents,
 			enum dma_data_direction dir, struct dma_buf *dma_buf,
-			int flags)
+			struct dma_attrs *attr)
 {
 	return -EINVAL;
 }
