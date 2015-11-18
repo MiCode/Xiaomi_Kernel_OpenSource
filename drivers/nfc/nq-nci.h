@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __NFC_NCI_H
-#define __NFC_NCI_H
+#ifndef __NQ_NCI_H
+#define __NQ_NCI_H
 
 #include <linux/i2c.h>
 #include <linux/types.h>
@@ -23,14 +23,13 @@
 #include <linux/ioctl.h>
 #include <linux/miscdevice.h>
 
-#define NFC_SET_PWR	_IOW(0xE9, 0x01, unsigned int)
-#define SET_RX_BLOCK	_IOW(0xE9, 0x04, unsigned int)
-#define NFC_CLK_REQ	_IOW(0xE9, 0x02, unsigned int)
+#define NFC_SET_PWR			_IOW(0xE9, 0x01, unsigned int)
+#define NFC_CLK_REQ			_IOW(0xE9, 0x02, unsigned int)
+#define SET_RX_BLOCK			_IOW(0xE9, 0x04, unsigned int)
 #define SET_EMULATOR_TEST_POINT		_IOW(0xE9, 0x05, unsigned int)
 #define NFCC_INITIAL_CORE_RESET_NTF	_IOW(0xE9, 0x10, unsigned int)
 
 #define NFC_RX_BUFFER_CNT_START		(0x0)
-
 #define PAYLOAD_HEADER_LENGTH		(0x3)
 #define PAYLOAD_LENGTH_MAX		(256)
 #define BYTE				(0x8)
