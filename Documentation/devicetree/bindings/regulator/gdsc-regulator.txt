@@ -46,6 +46,8 @@ Optional properties:
  - qcom,disallow-clear: Presence denotes the periph & core memory will not be
 			cleared, unless the required subsystem does not invoke
 			the api which will allow clearing the bits.
+ - qcom,gds-timeout:	Maximum time (in usecs) that might be taken by a GDSC
+			to enable.
 
 Example:
 	gdsc_oxili_gx: qcom,gdsc@fd8c4024 {
