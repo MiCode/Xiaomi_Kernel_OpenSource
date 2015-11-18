@@ -314,6 +314,7 @@
 			qcom,fg-iterm-ma = <100>;
 			qcom,fg-chg-iterm-ma = <100>;
 			qcom,pmic-revid = <&pmi8950_revid>;
+			qcom,fg-cutoff-voltage-mv = <3500>;
 
 			qcom,fg-soc@4000 {
 			status = "okay";
