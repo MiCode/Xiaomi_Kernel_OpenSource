@@ -517,11 +517,8 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 	struct lpm_cluster_level *level = &cluster->levels[idx];
 	int ret, i;
 
-	spin_lock(&cluster->sync_lock);
-
 	if (!cpumask_equal(&cluster->num_children_in_sync, &cluster->child_cpus)
 			|| is_IPI_pending(&cluster->num_children_in_sync)) {
-		spin_unlock(&cluster->sync_lock);
 		return -EPERM;
 	}
 
@@ -564,7 +561,6 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 	sched_set_cluster_dstate(&cluster->child_cpus, idx, 0, 0);
 
 	cluster->last_level = idx;
-	spin_unlock(&cluster->sync_lock);
 	return 0;
 
 failed_set_mode:
@@ -575,7 +571,6 @@ failed_set_mode:
 		rc = set_device_mode(cluster, i, level);
 		BUG_ON(rc);
 	}
-	spin_unlock(&cluster->sync_lock);
 	return ret;
 }
 
@@ -610,22 +605,22 @@ static void cluster_prepare(struct lpm_cluster *cluster,
 	 */
 
 	if (!cpumask_equal(&cluster->num_children_in_sync,
-				&cluster->child_cpus)) {
-		spin_unlock(&cluster->sync_lock);
-		return;
-	}
-	spin_unlock(&cluster->sync_lock);
+				&cluster->child_cpus))
+		goto failed;
 
 	i = cluster_select(cluster, from_idle);
 
 	if (i < 0)
-		return;
+		goto failed;
 
 	if (cluster_configure(cluster, i, from_idle))
-		return;
+		goto failed;
 
 	cluster_prepare(cluster->parent, &cluster->num_children_in_sync, i,
 			from_idle);
+failed:
+	spin_unlock(&cluster->sync_lock);
+	return;
 }
 
 static void cluster_unprepare(struct lpm_cluster *cluster,
@@ -694,10 +689,10 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 	sched_set_cluster_dstate(&cluster->child_cpus, 0, 0, 0);
 
 	cluster_notify(cluster, &cluster->levels[last_level], false);
-unlock_return:
-	spin_unlock(&cluster->sync_lock);
 	cluster_unprepare(cluster->parent, &cluster->child_cpus,
 			last_level, from_idle);
+unlock_return:
+	spin_unlock(&cluster->sync_lock);
 }
 
 static inline void cpu_prepare(struct lpm_cluster *cluster, int cpu_index,
