@@ -38,6 +38,7 @@ MODULE_PARM_DESC(num_out_bufs,
 		"Number of OUT buffers");
 
 static struct workqueue_struct *ipa_usb_wq;
+static bool gadget_restarted;
 
 struct usb_gsi_debugfs {
 	struct dentry *debugfs_root;
@@ -626,8 +627,10 @@ static int ipa_suspend_work_handler(struct gsi_data_port *d_port)
 	struct f_gsi *gsi = d_port_to_gsi(d_port);
 
 	if (!usb_gsi_ep_op(gsi->d_port.in_ep, NULL,
-				GSI_EP_OP_CHECK_FOR_SUSPEND))
+				GSI_EP_OP_CHECK_FOR_SUSPEND)) {
+		ret = -EFAULT;
 		goto done;
+	}
 
 	ret = ipa_usb_xdci_suspend(gsi->d_port.out_channel_handle,
 				gsi->d_port.in_channel_handle, gsi->prot_id);
@@ -676,6 +679,7 @@ static void ipa_work_handler(struct work_struct *w)
 	struct gsi_data_port *d_port = container_of(w, struct gsi_data_port,
 						  usb_ipa_w);
 	u8 event;
+	int ret = 0;
 
 	event = read_event(d_port);
 
@@ -710,13 +714,17 @@ static void ipa_work_handler(struct work_struct *w)
 				read_event(d_port);
 				ipa_disconnect_work_handler(d_port);
 				d_port->sm_state = STATE_INITIALIZED;
+				usb_gadget_autopm_put_async(d_port->gadget);
 				pr_debug("%s: STATE DISCONNECTED", __func__);
 				break;
 			}
-			ipa_suspend_work_handler(d_port);
+			ret = ipa_suspend_work_handler(d_port);
+			if (!ret)
+				usb_gadget_autopm_put_async(d_port->gadget);
 		} else if (event == EVT_DISCONNECTED) {
 			ipa_disconnect_work_handler(d_port);
 			d_port->sm_state = STATE_INITIALIZED;
+			usb_gadget_autopm_put_async(d_port->gadget);
 			pr_debug("%s: STATE DISCONNECTED", __func__);
 		}
 		break;
@@ -724,15 +732,21 @@ static void ipa_work_handler(struct work_struct *w)
 		if (event == EVT_DISCONNECTED) {
 			ipa_disconnect_work_handler(d_port);
 			d_port->sm_state = STATE_INITIALIZED;
+			usb_gadget_autopm_put_async(d_port->gadget);
+
 			pr_debug("%s: STATE DISCONNECTED", __func__);
 		} else if (event == EVT_SUSPEND) {
 			if (peek_event(d_port) == EVT_DISCONNECTED) {
 				ipa_disconnect_work_handler(d_port);
 				d_port->sm_state = STATE_INITIALIZED;
+				usb_gadget_autopm_put_async(d_port->gadget);
+
 				pr_debug("%s: STATE DISCONNECTED", __func__);
 				break;
 			}
 			ipa_suspend_work_handler(d_port);
+			if (!ret)
+				usb_gadget_autopm_put_async(d_port->gadget);
 		} else if (event == EVT_CONNECTED) {
 			d_port->sm_state = STATE_CONNECTED;
 			pr_debug("%s: DATA PATH CONNECTED", __func__);
@@ -751,13 +765,22 @@ static void ipa_work_handler(struct work_struct *w)
 	case STATE_SUSPEND_IN_PROGRESS:
 		if (event == EVT_IPA_SUSPEND) {
 			d_port->sm_state = STATE_SUSPENDED;
+			usb_gadget_autopm_put_async(d_port->gadget);
 		} else	if (event == EVT_RESUMED) {
 			ipa_resume_work_handler(d_port);
 			d_port->sm_state = STATE_CONNECTED;
+			/*
+			 * Increment usage count here to disallow gadget
+			 * parent suspend. This counter will decrement
+			 * after IPA disconnect is done in disconnect work
+			 * (due to cable disconnect) or in suspended state.
+			 */
+			usb_gadget_autopm_get_noresume(d_port->gadget);
 			pr_debug("%s: STATE CONNECTED", __func__);
 		} else if (event == EVT_DISCONNECTED) {
 			ipa_disconnect_work_handler(d_port);
 			d_port->sm_state = STATE_INITIALIZED;
+			usb_gadget_autopm_put_async(d_port->gadget);
 			pr_debug("%s: STATE DISCONNECTED", __func__);
 		}
 		break;
@@ -766,6 +789,14 @@ static void ipa_work_handler(struct work_struct *w)
 		if (event == EVT_RESUMED) {
 			ipa_resume_work_handler(d_port);
 			d_port->sm_state = STATE_CONNECTED;
+			/*
+			 * Increment usage count here to disallow gadget
+			 * parent suspend. This counter will decrement
+			 * after IPA handshake is done in disconnect work
+			 * (due to cable disconnect) or in suspended state.
+			 */
+			usb_gadget_autopm_get_noresume(d_port->gadget);
+
 			pr_debug("%s: STATE CONNECTED", __func__);
 		} else if (event == EVT_DISCONNECTED) {
 			ipa_disconnect_work_handler(d_port);
@@ -1915,6 +1946,8 @@ static int gsi_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 						GSI_EP_OP_CONFIG);
 			}
 
+			gsi->d_port.gadget = cdev->gadget;
+
 			if (gsi->prot_id == IPA_USB_RNDIS) {
 				gsi_rndis_open(gsi);
 				net = gsi_rndis_get_netdev("rndis0");
@@ -1929,6 +1962,13 @@ static int gsi_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 			if (gsi->prot_id == IPA_USB_ECM)
 				gsi->d_port.cdc_filter = DEFAULT_FILTER;
+
+			/*
+			 * Increment usage count upon cable connect. Decrement
+			 * after IPA disconnect is done in disconnect work
+			 * (due to cable disconnect) or in suspend work.
+			 */
+			usb_gadget_autopm_get_noresume(gsi->d_port.gadget);
 
 			post_event(&gsi->d_port, EVT_CONNECT_IN_PROGRESS);
 			queue_work(gsi->d_port.ipa_usb_wq,
@@ -2591,6 +2631,7 @@ static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 	 */
 	flush_workqueue(gsi->d_port.ipa_usb_wq);
 	ipa_usb_deinit_teth_prot(gsi->prot_id);
+	gadget_restarted = false;
 
 	if (gsi->prot_id == IPA_USB_RNDIS) {
 		gsi->d_port.sm_state = STATE_UNINITIALIZED;
@@ -2641,6 +2682,11 @@ int gsi_bind_config(struct usb_configuration *c, enum ipa_usb_teth_prot prot_id)
 	if (!gsi) {
 		pr_err("%s: gsi prot ctx is %p\n", __func__, gsi);
 		return -EINVAL;
+	}
+
+	if (!gadget_restarted) {
+		usb_gadget_restart(c->cdev->gadget);
+		gadget_restarted = true;
 	}
 
 	switch (prot_id) {

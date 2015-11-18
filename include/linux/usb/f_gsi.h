@@ -161,6 +161,7 @@ struct gsi_data_port {
 	struct usb_ep *out_ep;
 	struct usb_gsi_request in_request;
 	struct usb_gsi_request out_request;
+	struct usb_gadget *gadget;
 	int (*ipa_usb_notify_cb)(enum ipa_usb_notify_event, void *driver_data);
 	struct ipa_usb_teth_params ipa_init_params;
 	int in_channel_handle;
